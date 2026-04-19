@@ -1,0 +1,311 @@
+/**
+ * ============================================================================
+ * Scholay学术 V1.0
+ * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+ * 统一社会信用代码: 91510100MAEEHRNE26
+ * All Rights Reserved.
+ * ============================================================================
+ */
+
+/* Cite Modal - 毛玻璃效果 */
+.cite-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.cite-modal {
+  background: rgba(40, 40, 40, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  width: 600px;
+  height: 400px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.cite-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cite-modal-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+}
+
+.cite-close-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.cite-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.cite-format-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cite-format-tabs .format-hint {
+  margin-left: auto;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.cite-format-tabs button {
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cite-format-tabs button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.cite-format-tabs button.active {
+  background: rgba(59, 130, 246, 0.2);
+  color: rgba(147, 197, 253, 1);
+}
+
+.cite-format-tabs button .default-indicator {
+  width: 14px;
+  margin-left: 4px;
+  color: rgba(251, 191, 36, 0.8);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.cite-format-tabs button .default-indicator.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.cite-format-tabs button.is-default {
+  position: relative;
+}
+
+.cite-content {
+  flex: 1;
+  overflow: auto;
+  padding: 20px 24px;
+  position: relative;
+}
+
+.cite-content-wrapper {
+  position: relative;
+}
+
+.cite-content pre {
+  margin: 0;
+  padding: 16px;
+  padding-right: 50px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  font-family: 'Times New Roman', 'Georgia', 'Cambria', serif;
+  font-size: 13px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.85);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+}
+
+/* BibTeX 格式使用等宽字体且不自动换行 */
+.cite-content pre.bibtex {
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-size: 12px;
+  white-space: pre;
+  word-break: normal;
+}
+
+.cite-inline-copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.5);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  transition: all 0.15s ease;
+}
+
+.cite-inline-copy:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.cite-inline-copy.copied {
+  background: rgba(16, 185, 129, 0.2);
+  color: rgb(52, 211, 153);
+}
+
+.cite-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.cite-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.cite-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+
+/* 日间模式样式 */
+[data-theme="light"] .cite-modal-overlay {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .cite-modal {
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  box-shadow: 
+    0 24px 48px rgba(0, 0, 0, 0.12),
+    0 12px 24px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .cite-modal-header {
+  border-bottom: 1px solid var(--border-light);
+}
+
+[data-theme="light"] .cite-modal-header h2 {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .cite-close-btn {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .cite-close-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .cite-format-tabs {
+  border-bottom: 1px solid var(--border-light);
+}
+
+[data-theme="light"] .cite-format-tabs .format-hint {
+  color: var(--text-quaternary);
+}
+
+[data-theme="light"] .cite-format-tabs button {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .cite-format-tabs button:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .cite-format-tabs button.active {
+  background: rgba(16, 163, 127, 0.12);
+  color: var(--text-accent);
+  font-weight: 600;
+}
+
+[data-theme="light"] .cite-content pre {
+  background: var(--surface-light);
+  color: var(--text-primary);
+  border: 1px solid var(--border-light);
+}
+
+[data-theme="light"] .cite-content pre.bibtex {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .cite-inline-copy {
+  background: var(--surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-light);
+}
+
+[data-theme="light"] .cite-inline-copy:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+
+[data-theme="light"] .cite-inline-copy.copied {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--text-success);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+[data-theme="light"] .cite-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .cite-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* 响应式 */
+@media (max-width: 640px) {
+  .cite-modal {
+    width: calc(100% - 40px);
+    height: 350px;
+  }
+
+  .cite-format-tabs {
+    flex-wrap: wrap;
+  }
+
+  .cite-format-tabs button {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+}
+

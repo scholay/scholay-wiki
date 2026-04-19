@@ -1,0 +1,1158 @@
+/**
+ * ============================================================================
+ * Scholay学术 V1.0
+ * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+ * 统一社会信用代码: 91510100MAEEHRNE26
+ * All Rights Reserved.
+ * ============================================================================
+ */
+
+/* PDF Viewer 容器 */
+.pdf-viewer {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--background);
+  overflow: hidden;
+}
+
+/* 工具栏 */
+.pdf-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.02);
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.pdf-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.pdf-info svg {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.pdf-title {
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 控制按钮 */
+.pdf-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.zoom-controls,
+.page-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.control-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.control-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.control-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.control-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.control-btn.external-btn {
+  color: rgb(52, 211, 153);
+}
+
+.control-btn.external-btn:hover {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.zoom-level {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  min-width: 40px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.page-info {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 0 4px;
+}
+
+.divider {
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 0 4px;
+}
+
+/* PDF 内容区域 */
+.pdf-content {
+  flex: 1;
+  overflow: auto;
+  background: #1a1a1a;
+  padding: 16px;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.pdf-content--loading {
+  padding-top: 32px;
+}
+
+.pdf-content::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.pdf-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pdf-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+
+.pdf-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.pdf-document {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  box-sizing: border-box;
+  min-width: 100%;
+}
+
+.pdf-page {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  background: white;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.pdf-page canvas {
+  display: block;
+  height: auto !important;
+}
+
+/* PDF 页面占位符（内存优化：未渲染页面的占位符） */
+.pdf-page-placeholder {
+  background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 10px auto;
+  position: relative;
+  min-height: 200px;
+}
+
+.pdf-page-placeholder::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px;
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-top-color: rgba(0, 0, 0, 0.3);
+  border-radius: 50%;
+  animation: pdf-placeholder-spin 1s linear infinite;
+}
+
+@keyframes pdf-placeholder-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Dark theme placeholder */
+[data-theme="dark"] .pdf-page-placeholder {
+  background: linear-gradient(135deg, #2a2a2a 0%, #1e1e1e 100%);
+}
+
+[data-theme="dark"] .pdf-page-placeholder::after {
+  border-color: rgba(255, 255, 255, 0.1);
+  border-top-color: rgba(255, 255, 255, 0.3);
+}
+
+/* 加载状态 */
+.pdf-skeleton-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  pointer-events: none;
+  display: flex;
+  justify-content: center;
+  padding-top: 8px;
+  box-sizing: border-box;
+}
+
+.pdf-skeleton {
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 16px 32px;
+  box-sizing: border-box;
+}
+
+.pdf-skeleton-page {
+  width: 100%;
+  aspect-ratio: 1 / 1.414;
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.pdf-skeleton-shimmer {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(110deg,
+    rgba(255, 255, 255, 0.02) 25%,
+    rgba(255, 255, 255, 0.06) 50%,
+    rgba(255, 255, 255, 0.02) 75%);
+  background-size: 200% 100%;
+  animation: pdf-skeleton-loading 1.5s ease-in-out infinite;
+}
+
+@keyframes pdf-skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.pdf-skeleton-text {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* 错误状态 */
+.pdf-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.pdf-error svg {
+  width: 36px;
+  height: 36px;
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.pdf-error p {
+  font-size: 13px;
+  margin: 0;
+  max-width: 260px;
+  line-height: 1.5;
+}
+
+.fallback-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: rgba(16, 185, 129, 0.9);
+  color: white;
+  text-decoration: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  margin-top: 4px;
+}
+
+.fallback-link:hover {
+  background: rgb(16, 185, 129);
+}
+
+/* Sci-Hub 链接样式 */
+.fallback-link.scihub-link {
+  background: rgba(139, 92, 246, 0.9);
+  margin-top: 8px;
+}
+
+.fallback-link.scihub-link:hover {
+  background: rgb(139, 92, 246);
+}
+
+.fallback-link.scihub-link svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* 自动打开开关 */
+.auto-open-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.auto-open-toggle input[type="checkbox"] {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 40px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 11px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+  margin: 0;
+  outline: none;
+  border: none;
+}
+
+.auto-open-toggle input[type="checkbox"]::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.auto-open-toggle input[type="checkbox"]:checked {
+  background: rgba(16, 185, 129, 0.6);
+}
+
+.auto-open-toggle input[type="checkbox"]:checked::before {
+  left: 21px;
+  background: rgb(52, 211, 153);
+}
+
+.toggle-label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.auto-open-toggle:hover .toggle-label {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* 日间模式样式 */
+[data-theme="light"] .pdf-viewer {
+  background: var(--surface);
+}
+
+[data-theme="light"] .pdf-toolbar {
+  background: var(--surface-hover);
+  border-bottom: 1px solid var(--border-light);
+}
+
+[data-theme="light"] .pdf-info {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .pdf-info svg {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .control-btn {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .control-btn:hover:not(:disabled) {
+  background: var(--surface-light);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .control-btn:disabled {
+  color: var(--text-quaternary);
+}
+
+[data-theme="light"] .control-btn.external-btn {
+  color: var(--text-accent);
+}
+
+[data-theme="light"] .control-btn.external-btn:hover {
+  background: rgba(16, 163, 127, 0.1);
+}
+
+[data-theme="light"] .zoom-level,
+[data-theme="light"] .page-info {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .divider {
+  background: var(--border-light);
+}
+
+[data-theme="light"] .pdf-content {
+  background: #f5f6f7;
+}
+
+[data-theme="light"] .pdf-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .pdf-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="light"] .pdf-loading {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .pdf-skeleton-page {
+  background: rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .pdf-skeleton-shimmer {
+  background: linear-gradient(110deg,
+    rgba(0, 0, 0, 0.04) 25%,
+    rgba(0, 0, 0, 0.08) 50%,
+    rgba(0, 0, 0, 0.04) 75%);
+  background-size: 200% 100%;
+}
+
+[data-theme="light"] .pdf-skeleton-text {
+  color: rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="light"] .pdf-error {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .pdf-error svg {
+  color: var(--text-quaternary);
+}
+
+[data-theme="light"] .pdf-error p {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .fallback-link {
+  background: var(--text-accent);
+  color: white;
+}
+
+[data-theme="light"] .fallback-link:hover {
+  background: var(--primary-dark);
+}
+
+[data-theme="light"] .fallback-link.scihub-link {
+  background: #7c3aed;
+}
+
+[data-theme="light"] .fallback-link.scihub-link:hover {
+  background: #6d28d9;
+}
+
+[data-theme="light"] .auto-open-toggle input[type="checkbox"] {
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+}
+
+[data-theme="light"] .auto-open-toggle input[type="checkbox"]::before {
+  background: var(--text-tertiary);
+}
+
+[data-theme="light"] .auto-open-toggle input[type="checkbox"]:checked {
+  background: rgba(16, 163, 127, 0.2);
+  border-color: var(--text-accent);
+}
+
+[data-theme="light"] .auto-open-toggle input[type="checkbox"]:checked::before {
+  background: var(--text-accent);
+}
+
+[data-theme="light"] .toggle-label {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .auto-open-toggle:hover .toggle-label {
+  color: var(--text-secondary);
+}
+
+/* ============ 翻译功能提示条 ============ */
+.pdf-translate-tip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.12) 0%, rgba(168, 85, 247, 0.12) 100%);
+  border-bottom: 1px solid rgba(129, 140, 248, 0.2);
+  flex-shrink: 0;
+  animation: tip-slide-in 0.3s ease-out;
+}
+
+@keyframes tip-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tip-float-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes new-badge-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.pdf-translate-tip-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(167, 139, 250, 0.95);
+}
+
+/* NEW 徽章 */
+.pdf-translate-tip-new {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  background: linear-gradient(135deg, #f43f5e 0%, #ec4899 100%);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(244, 63, 94, 0.4);
+  animation: new-badge-pulse 2s ease-in-out infinite;
+}
+
+/* 翻译图标 */
+.pdf-translate-tip-icon {
+  flex-shrink: 0;
+  color: rgba(139, 92, 246, 0.9);
+}
+
+.pdf-translate-tip-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pdf-translate-tip-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* 全屏模式翻译提示 - 浮动在右下角 */
+.pdf-translate-tip-fullscreen {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  left: auto;
+  top: auto;
+  z-index: 10001;
+  border-radius: 12px;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(139, 92, 246, 0.1);
+  backdrop-filter: blur(12px);
+  background: rgba(30, 30, 35, 0.95);
+  animation: tip-float-in 0.4s ease-out;
+}
+
+/* ============ 划线翻译弹窗 ============ */
+.pdf-translate-popup {
+  position: absolute;
+  transform: translateX(-50%);
+  z-index: 100;
+  animation: popup-fade-in 0.15s ease-out;
+}
+
+@keyframes popup-fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.pdf-translate-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.pdf-translate-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.5);
+}
+
+.pdf-translate-btn svg {
+  flex-shrink: 0;
+}
+
+/* 翻译结果弹窗 */
+.pdf-translate-result {
+  min-width: 280px;
+  max-width: 400px;
+  background: #1f1f23;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+
+.pdf-translate-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(99, 102, 241, 0.15);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.pdf-translate-result-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(167, 139, 250, 0.9);
+}
+
+.pdf-translate-result-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pdf-translate-result-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.pdf-translate-result-content {
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.9);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.pdf-translate-result-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.pdf-translate-result-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+}
+
+.pdf-translate-error {
+  color: #f87171;
+}
+
+.pdf-translate-original {
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.pdf-translate-original-label {
+  color: rgba(255, 255, 255, 0.4);
+  margin-right: 4px;
+}
+
+.pdf-translate-original-text {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* 日间模式 - 翻译提示条 */
+[data-theme="light"] .pdf-translate-tip {
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%);
+  border-bottom-color: rgba(99, 102, 241, 0.15);
+}
+
+[data-theme="light"] .pdf-translate-tip-content {
+  color: #6366f1;
+}
+
+[data-theme="light"] .pdf-translate-tip-icon {
+  color: #7c3aed;
+}
+
+[data-theme="light"] .pdf-translate-tip-close {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .pdf-translate-tip-close:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #6b7280;
+}
+
+[data-theme="light"] .pdf-translate-tip-fullscreen {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(99, 102, 241, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(99, 102, 241, 0.1);
+}
+
+/* 日间模式 - 翻译弹窗 */
+[data-theme="light"] .pdf-translate-result {
+  background: var(--surface);
+  border-color: #e5e7eb;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .pdf-translate-result-header {
+  background: rgba(99, 102, 241, 0.08);
+  border-bottom-color: #e5e7eb;
+}
+
+[data-theme="light"] .pdf-translate-result-title {
+  color: #6366f1;
+}
+
+[data-theme="light"] .pdf-translate-result-close {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .pdf-translate-result-close:hover {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+[data-theme="light"] .pdf-translate-result-content {
+  color: #1f2937;
+}
+
+[data-theme="light"] .pdf-translate-result-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .pdf-translate-error {
+  color: #dc2626;
+}
+
+[data-theme="light"] .pdf-translate-original {
+  background: var(--bg-primary);
+  border-top-color: #e5e7eb;
+}
+
+[data-theme="light"] .pdf-translate-original-label {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .pdf-translate-original-text {
+  color: #6b7280;
+}
+
+/* 下载和全屏按钮 */
+.control-btn.download-btn,
+.control-btn.fullscreen-btn {
+  color: rgba(99, 102, 241, 0.8);
+}
+
+.control-btn.download-btn:hover,
+.control-btn.fullscreen-btn:hover {
+  background: rgba(99, 102, 241, 0.1);
+  color: rgb(129, 140, 248);
+}
+
+[data-theme="light"] .control-btn.download-btn,
+[data-theme="light"] .control-btn.fullscreen-btn {
+  color: #6366f1;
+}
+
+[data-theme="light"] .control-btn.download-btn:hover,
+[data-theme="light"] .control-btn.fullscreen-btn:hover {
+  background: rgba(99, 102, 241, 0.1);
+  color: #4f46e5;
+}
+
+/* ============ 全屏预览弹窗 ============ */
+.pdf-fullscreen-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: pdf-fullscreen-fade-in 0.2s ease-out;
+}
+
+@keyframes pdf-fullscreen-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.pdf-fullscreen-modal {
+  width: calc(100vw - 40px);
+  height: calc(100vh - 40px);
+  max-width: 1400px;
+  background: #1a1a1a;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: pdf-fullscreen-scale-in 0.2s ease-out;
+}
+
+@keyframes pdf-fullscreen-scale-in {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* 全屏工具栏 */
+.pdf-fullscreen-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.pdf-fullscreen-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 15px;
+  font-weight: 500;
+  flex: 1;
+  min-width: 0;
+}
+
+.pdf-fullscreen-title svg {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.pdf-fullscreen-title span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pdf-fullscreen-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fullscreen-control-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.fullscreen-control-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.fullscreen-control-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.fullscreen-control-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.fullscreen-control-btn.fullscreen-close-btn {
+  color: rgba(239, 68, 68, 0.8);
+  margin-left: 8px;
+}
+
+.fullscreen-control-btn.fullscreen-close-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: rgb(239, 68, 68);
+}
+
+.fullscreen-zoom-level {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  min-width: 48px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.fullscreen-page-info {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 0 8px;
+}
+
+.fullscreen-divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 0 4px;
+}
+
+/* 全屏 PDF 内容区域 */
+.pdf-fullscreen-content {
+  flex: 1;
+  overflow: auto;
+  padding: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.pdf-fullscreen-content::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.pdf-fullscreen-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pdf-fullscreen-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 5px;
+}
+
+.pdf-fullscreen-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.pdf-fullscreen-content .pdf-document {
+  min-width: auto;
+}
+
+.pdf-fullscreen-content .pdf-page {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* 日间模式 - 全屏弹窗 */
+[data-theme="light"] .pdf-fullscreen-overlay {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .pdf-fullscreen-modal {
+  background: var(--surface);
+}
+
+[data-theme="light"] .pdf-fullscreen-toolbar {
+  background: #f8f9fa;
+  border-bottom-color: #e5e7eb;
+}
+
+[data-theme="light"] .pdf-fullscreen-title {
+  color: #1f2937;
+}
+
+[data-theme="light"] .pdf-fullscreen-title svg {
+  color: #6b7280;
+}
+
+[data-theme="light"] .fullscreen-control-btn {
+  color: #6b7280;
+}
+
+[data-theme="light"] .fullscreen-control-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  color: #1f2937;
+}
+
+[data-theme="light"] .fullscreen-control-btn.fullscreen-close-btn {
+  color: #ef4444;
+}
+
+[data-theme="light"] .fullscreen-control-btn.fullscreen-close-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+[data-theme="light"] .fullscreen-zoom-level {
+  color: #6b7280;
+}
+
+[data-theme="light"] .fullscreen-page-info {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .fullscreen-divider {
+  background: #e5e7eb;
+}
+
+[data-theme="light"] .pdf-fullscreen-content {
+  background: #f5f6f7;
+}
+
+[data-theme="light"] .pdf-fullscreen-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .pdf-fullscreen-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="light"] .pdf-fullscreen-content .pdf-page {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .pdf-toolbar {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .pdf-controls {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .pdf-content {
+    padding: 8px;
+  }
+
+  .pdf-fullscreen-modal {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+  }
+
+  .pdf-fullscreen-toolbar {
+    padding: 10px 12px;
+  }
+
+  .pdf-fullscreen-title {
+    font-size: 13px;
+  }
+
+  .fullscreen-control-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .pdf-fullscreen-content {
+    padding: 12px;
+  }
+}

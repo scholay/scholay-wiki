@@ -1,0 +1,973 @@
+/**
+ * ============================================================================
+ * Scholay学术 V1.0
+ * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+ * 统一社会信用代码: 91510100MAEEHRNE26
+ * All Rights Reserved.
+ * ============================================================================
+ */
+
+/* Pure dark theme Search Filters - ChatGPT style */
+
+/* Container wrapper for conditional display */
+.filters-container {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.filters-container.expanded {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+/* 蒙层 - 增强毛玻璃效果 */
+.filters-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 7, 11, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  opacity: 0;
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.filters-container.expanded .filters-overlay {
+  opacity: 1;
+}
+
+
+/* 主弹窗 - 高级毛玻璃设计 */
+.search-filters {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: min(92vw, 640px);
+  max-height: 80vh;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 
+    0 40px 100px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(16, 163, 127, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  z-index: 10000;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transform: translate(-50%, calc(-50% + 20px)) scale(0.95);
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  background: linear-gradient(135deg, 
+    rgba(30, 30, 32, 0.95) 0%, 
+    rgba(24, 24, 26, 0.92) 100%);
+}
+
+.filters-container.expanded .search-filters {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  pointer-events: auto;
+  --filters-accent: var(--text-accent);
+  --filters-accent-hover: rgba(16, 163, 127, 0.9);
+  --filters-accent-soft: rgba(16, 163, 127, 0.18);
+  --filters-panel: rgba(255, 255, 255, 0.03);
+  --filters-border: rgba(255, 255, 255, 0.08);
+  --filters-text: var(--text-primary);
+  --filters-muted: var(--text-secondary);
+}
+
+/* Light theme styles for search filters */
+[data-theme="light"] .filters-container.expanded .filters-overlay {
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+[data-theme="light"] .search-filters {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.98) 0%, 
+    rgba(248, 250, 252, 0.95) 100%);
+  border: 1px solid rgba(16, 163, 127, 0.2);
+  box-shadow: 
+    0 30px 80px rgba(0, 0, 0, 0.12),
+    0 10px 40px rgba(16, 163, 127, 0.08),
+    0 0 0 1px rgba(16, 163, 127, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+  --filters-accent: #10a37f;
+  --filters-accent-hover: #0d8c6c;
+  --filters-accent-soft: rgba(16, 163, 127, 0.12);
+  --filters-panel: rgba(16, 163, 127, 0.04);
+  --filters-border: rgba(16, 163, 127, 0.12);
+  --filters-text: rgba(0, 0, 0, 0.9);
+  --filters-muted: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .filters-header {
+  background: linear-gradient(180deg, rgba(16, 163, 127, 0.04), transparent);
+  border-bottom: 1px solid rgba(16, 163, 127, 0.12);
+}
+
+[data-theme="light"] .clear-filters-btn.visible {
+  color: #0d8c6c;
+  border-color: rgba(16, 163, 127, 0.25);
+  background: rgba(16, 163, 127, 0.08);
+  box-shadow: 
+    0 2px 6px rgba(16, 163, 127, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="light"] .clear-filters-btn.visible:hover {
+  background: linear-gradient(135deg,
+    rgba(16, 163, 127, 0.15) 0%,
+    rgba(16, 163, 127, 0.1) 100%);
+  border-color: rgba(16, 163, 127, 0.35);
+  box-shadow: 
+    0 4px 10px rgba(16, 163, 127, 0.18),
+    0 0 0 1px rgba(16, 163, 127, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* Light theme filter groups */
+[data-theme="light"] .filter-group {
+  border: 1px solid rgba(16, 163, 127, 0.1);
+  background: rgba(248, 250, 252, 0.6);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="light"] .filter-group:hover {
+  border-color: rgba(16, 163, 127, 0.15);
+  background: rgba(248, 250, 252, 0.8);
+  box-shadow: 
+    0 4px 12px rgba(16, 163, 127, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* Light theme year inputs */
+[data-theme="light"] .year-input {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(16, 163, 127, 0.15);
+  color: rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="light"] .year-input:hover {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(16, 163, 127, 0.2);
+}
+
+[data-theme="light"] .year-input:focus {
+  background: white;
+  border-color: rgba(16, 163, 127, 0.4);
+  box-shadow: 
+    0 0 0 3px rgba(16, 163, 127, 0.1),
+    inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .year-input::placeholder {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+/* Light theme filters footer */
+[data-theme="light"] .filters-footer {
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.9), rgba(255, 255, 255, 0.95));
+  border-top: 1px solid rgba(16, 163, 127, 0.12);
+}
+
+/* Light theme apply button */
+[data-theme="light"] .apply-filters-btn {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.9) 0%, 
+    rgba(16, 163, 127, 0.85) 100%);
+  border: 1px solid rgba(16, 163, 127, 0.3);
+  color: white;
+  box-shadow: 
+    0 4px 12px rgba(16, 163, 127, 0.25),
+    0 2px 4px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="light"] .apply-filters-btn:hover {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 1) 0%, 
+    rgba(16, 163, 127, 0.95) 100%);
+  border-color: rgba(16, 163, 127, 0.4);
+  box-shadow: 
+    0 8px 20px rgba(16, 163, 127, 0.3),
+    0 4px 8px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(16, 163, 127, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+[data-theme="light"] .apply-filters-btn:active {
+  background: linear-gradient(135deg, 
+    rgba(13, 140, 108, 0.95) 0%, 
+    rgba(13, 140, 108, 0.9) 100%);
+  box-shadow: 
+    0 2px 6px rgba(16, 163, 127, 0.2),
+    inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+
+.filters-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 22px 32px;
+  border-bottom: 1px solid var(--filters-border);
+  flex-shrink: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0));
+}
+
+.filters-header h3 {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--filters-text);
+  margin: 0;
+  letter-spacing: 0.01em;
+}
+
+/* 清除筛选按钮 - 毛玻璃效果 */
+.clear-filters-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 7px 14px;
+  border-radius: 999px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.clear-filters-btn.visible {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+  color: var(--filters-accent);
+  border-color: rgba(16, 163, 127, 0.35);
+  background: rgba(16, 163, 127, 0.08);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 
+    0 2px 8px rgba(16, 163, 127, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.clear-filters-btn.visible:hover {
+  background: linear-gradient(135deg,
+    rgba(16, 163, 127, 0.25) 0%,
+    rgba(16, 163, 127, 0.15) 100%);
+  border-color: rgba(16, 163, 127, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 
+    0 4px 12px rgba(16, 163, 127, 0.25),
+    0 0 0 1px rgba(16, 163, 127, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.clear-filters-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.6), 0 0 0 4px var(--filters-accent-soft);
+}
+
+.filters-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 26px 32px 24px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Custom scrollbar for filters content */
+.filters-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.filters-content::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  margin: 8px 0;
+}
+
+.filters-content::-webkit-scrollbar-thumb {
+  background: rgba(16, 163, 127, 0.35);
+  border-radius: 4px;
+}
+
+.filters-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 163, 127, 0.5);
+}
+
+/* Filters footer with apply button */
+.filters-footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 18px 32px 24px;
+  border-top: 1px solid var(--filters-border);
+  flex-shrink: 0;
+  background: linear-gradient(180deg, rgba(17, 19, 21, 0.85), rgba(12, 12, 14, 0.65));
+}
+
+/* 应用筛选按钮 - 高级毛玻璃效果 */
+.apply-filters-btn {
+  width: 100%;
+  max-width: 240px;
+  padding: 13px 24px;
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.35) 0%, 
+    rgba(16, 163, 127, 0.25) 100%);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid rgba(16, 163, 127, 0.4);
+  border-radius: 999px;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 
+    0 8px 24px rgba(16, 163, 127, 0.25),
+    0 0 0 1px rgba(16, 163, 127, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  letter-spacing: 0.02em;
+}
+
+.apply-filters-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.4) 0%, 
+    transparent 50%);
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+
+.apply-filters-btn:hover {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.45) 0%, 
+    rgba(16, 163, 127, 0.35) 100%);
+  border-color: rgba(16, 163, 127, 0.6);
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 
+    0 12px 32px rgba(16, 163, 127, 0.35),
+    0 0 0 1px rgba(16, 163, 127, 0.4),
+    inset 0 1px 2px rgba(255, 255, 255, 0.2);
+}
+
+.apply-filters-btn:hover::before {
+  opacity: 1;
+}
+
+.apply-filters-btn:active {
+  transform: translateY(0) scale(0.99);
+  box-shadow: 
+    0 4px 12px rgba(16, 163, 127, 0.25),
+    inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.apply-filters-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.6), 0 0 0 4px var(--filters-accent-soft), 0 15px 35px rgba(16, 163, 127, 0.35);
+}
+
+/* 筛选组 - 增强毛玻璃效果 */
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 22px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: all 0.2s ease;
+}
+
+.filter-group:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.filter-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--filters-text);
+  margin-bottom: 4px;
+  letter-spacing: 0.01em;
+}
+
+.filter-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+/* 清除章节按钮 - 毛玻璃效果 */
+.clear-section-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--filters-accent);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 5px 12px;
+  border-radius: 999px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.clear-section-btn:hover {
+  background: rgba(16, 163, 127, 0.12);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-color: rgba(16, 163, 127, 0.3);
+  box-shadow: 
+    0 2px 6px rgba(16, 163, 127, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transform: translateY(-0.5px);
+}
+
+/* Year filter group with histogram */
+.year-filter-group {
+  width: 100%;
+}
+
+/* Year Range - ChatGPT style */
+.year-range {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 年份输入框 - 毛玻璃效果 */
+.year-input {
+  flex: 1;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--filters-text);
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.year-input:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 
+    inset 0 1px 2px rgba(0, 0, 0, 0.08),
+    0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.year-input:focus {
+  outline: none;
+  border-color: rgba(16, 163, 127, 0.5);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 
+    0 0 0 3px rgba(16, 163, 127, 0.15),
+    inset 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.year-separator {
+  color: var(--filters-muted);
+  font-weight: 400;
+  font-size: 14px;
+}
+
+/* Checkboxes - Clean grid layout */
+.checkbox-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+.checkbox-list.scrollable {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+
+/* 复选框项 - 优化性能，移除 backdrop-filter */
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 11px 13px;
+  border-radius: 10px;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  position: relative;
+  /* 移除 backdrop-filter 以提升滚动性能 */
+  will-change: background, border-color;
+}
+
+.checkbox-item:hover {
+  background: rgba(16, 163, 127, 0.12);
+  border-color: rgba(16, 163, 127, 0.35);
+  box-shadow: 0 2px 8px rgba(16, 163, 127, 0.15);
+}
+
+.checkbox-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--filters-accent);
+  flex-shrink: 0;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.checkbox-item span {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  user-select: none;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.checkbox-item:hover span {
+  color: var(--filters-text);
+}
+
+.checkbox-item input[type="checkbox"]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.3);
+}
+
+.checkbox-item input[type="checkbox"]:checked + span {
+  color: var(--filters-accent);
+  font-weight: 600;
+}
+
+/* Citation Options - 引用次数筛选 */
+.citation-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.citation-option-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--filters-muted, var(--text-secondary));
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.citation-option-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: var(--filters-text, var(--text-primary));
+}
+
+.citation-option-btn.active {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.25), rgba(16, 163, 127, 0.15));
+  border-color: rgba(16, 163, 127, 0.4);
+  color: var(--text-accent);
+  font-weight: 600;
+  box-shadow: 0 0 0 1px rgba(16, 163, 127, 0.2);
+}
+
+/* Light theme for citation options */
+[data-theme="light"] .citation-option-btn {
+  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.02);
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .citation-option-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.15);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .citation-option-btn.active {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.15), rgba(16, 163, 127, 0.08));
+  border-color: rgba(16, 163, 127, 0.4);
+  color: var(--text-accent);
+}
+
+/* Open Access Switch Container */
+.open-access-switch-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0;
+}
+
+.switch-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  flex: 1;
+  transition: color 0.2s ease;
+}
+
+/* Toggle Switch - 高级毛玻璃设计 */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 52px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.toggle-switch input[type="checkbox"] {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 0, 0, 0.2),
+    0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.toggle-slider:before {
+  content: "";
+  position: absolute;
+  height: 20px;
+  width: 20px;
+  left: 4px;
+  bottom: 3px;
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.9) 0%, 
+    rgba(255, 255, 255, 0.7) 100%);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  border-radius: 50%;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    0 2px 6px rgba(0, 0, 0, 0.3),
+    0 1px 2px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.4) 0%, 
+    rgba(16, 163, 127, 0.3) 100%);
+  border-color: rgba(16, 163, 127, 0.5);
+  box-shadow: 
+    inset 0 2px 4px rgba(16, 163, 127, 0.2),
+    0 0 0 1px rgba(16, 163, 127, 0.2),
+    0 2px 8px rgba(16, 163, 127, 0.2);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(24px);
+  background: linear-gradient(135deg, 
+    rgb(16, 163, 127) 0%, 
+    rgb(19, 185, 144) 100%);
+  box-shadow: 
+    0 2px 8px rgba(16, 163, 127, 0.5),
+    0 1px 3px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.toggle-switch:hover .toggle-slider {
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 0, 0, 0.15),
+    0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.toggle-switch input:checked:hover + .toggle-slider {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.5) 0%, 
+    rgba(16, 163, 127, 0.4) 100%);
+  border-color: rgba(16, 163, 127, 0.6);
+  box-shadow: 
+    inset 0 2px 4px rgba(16, 163, 127, 0.25),
+    0 0 0 1px rgba(16, 163, 127, 0.3),
+    0 3px 12px rgba(16, 163, 127, 0.3);
+}
+
+.toggle-switch input:focus + .toggle-slider {
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 0, 0, 0.2),
+    0 0 0 3px rgba(16, 163, 127, 0.15);
+}
+
+/* 当开关开启时，标签文字高亮 */
+.toggle-switch input:checked ~ .switch-label,
+.open-access-switch-container:has(input:checked) .switch-label {
+  color: var(--text-accent);
+  font-weight: 600;
+}
+
+/* Venue Input - 毛玻璃效果 */
+.venue-input {
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--filters-text);
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 100%;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.venue-input:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 
+    inset 0 1px 2px rgba(0, 0, 0, 0.08),
+    0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.venue-input:focus {
+  outline: none;
+  border-color: rgba(16, 163, 127, 0.5);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 
+    0 0 0 3px rgba(16, 163, 127, 0.15),
+    inset 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.venue-input::placeholder {
+  color: var(--text-quaternary);
+}
+
+/* Responsive - Tablet */
+@media (max-width: 768px) {
+  .search-filters {
+    width: calc(100vw - 24px);
+    max-height: 85vh;
+    border-radius: 18px;
+  }
+
+  .filters-header {
+    padding: 16px 18px;
+  }
+
+  .filters-header h3 {
+    font-size: 15px;
+  }
+
+  .clear-filters-btn.visible {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+
+  .filters-content {
+    padding: 16px 18px;
+    gap: 14px;
+  }
+
+  .filters-footer {
+    padding: 14px 18px 18px;
+  }
+
+  .apply-filters-btn {
+    padding: 12px 20px;
+    font-size: 14px;
+  }
+
+  .filter-group {
+    padding: 14px 16px;
+    border-radius: 14px;
+    gap: 10px;
+  }
+
+  .filter-label {
+    font-size: 14px;
+  }
+
+  .checkbox-list {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+  }
+
+  .checkbox-item {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .checkbox-item span {
+    font-size: 13px;
+  }
+
+  .year-input,
+  .venue-input {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+}
+
+/* Responsive - Mobile */
+@media (max-width: 480px) {
+  .search-filters {
+    width: calc(100vw - 16px);
+    max-height: 90vh;
+    border-radius: 16px;
+  }
+
+  .filters-header {
+    padding: 14px 16px;
+  }
+
+  .filters-header h3 {
+    font-size: 14px;
+  }
+
+  .clear-filters-btn.visible {
+    font-size: 11px;
+    padding: 5px 10px;
+  }
+
+  .filters-content {
+    padding: 14px 16px;
+    gap: 12px;
+  }
+
+  .filters-footer {
+    padding: 12px 16px 16px;
+  }
+
+  .apply-filters-btn {
+    padding: 11px 18px;
+    font-size: 13px;
+    max-width: 200px;
+  }
+
+  .filter-group {
+    padding: 12px 14px;
+    border-radius: 12px;
+    gap: 8px;
+  }
+
+  .filter-label {
+    font-size: 13px;
+    margin-bottom: 2px;
+  }
+
+  .clear-section-btn {
+    font-size: 11px;
+    padding: 4px 10px;
+  }
+
+  .checkbox-list {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .checkbox-item {
+    padding: 8px 10px;
+    gap: 6px;
+    border-radius: 8px;
+  }
+
+  .checkbox-item input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+  }
+
+  .checkbox-item span {
+    font-size: 12px;
+  }
+
+  .year-range {
+    gap: 8px;
+  }
+
+  .year-input,
+  .venue-input {
+    padding: 10px 12px;
+    font-size: 13px;
+    border-radius: 10px;
+  }
+
+  .year-separator {
+    font-size: 13px;
+  }
+
+  .toggle-switch {
+    width: 46px;
+    height: 24px;
+  }
+
+  .toggle-slider:before {
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 2px;
+  }
+
+  .toggle-switch input:checked + .toggle-slider:before {
+    transform: translateX(22px);
+  }
+
+  .switch-label {
+    font-size: 13px;
+  }
+}
+
+/* Small Mobile */
+@media (max-width: 375px) {
+  .checkbox-list {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-group {
+    padding: 10px 12px;
+  }
+
+  .checkbox-item span {
+    font-size: 12px;
+  }
+}
