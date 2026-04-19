@@ -18,6 +18,7 @@ import (
 	"gorm.io/gorm"
 
 	"scholar-backend/internal/common/database"
+	"scholar-backend/internal/common/safego"
 )
 
 // ========== 任务管理方法 ==========
@@ -70,7 +71,8 @@ func (s *Service) CreateTask(userID uint, req *CreateTaskRequest) (*PeerReviewTa
 	}
 
 	// 启动异步处理
-	go s.processTaskAsyncWithThreeReviewers(task.ID)
+	tid := task.ID
+	safego.Go("peerreview-process-task", func() { s.processTaskAsyncWithThreeReviewers(tid) })
 
 	return task, nil
 }
@@ -115,8 +117,8 @@ func (s *Service) GetTaskList(userID uint, page, pageSize int, status string, se
 		return nil, err
 	}
 
-	// 分页查询
-	if err := query.Order("created_at DESC").Scopes(database.Paginate(page, pageSize)).Find(&tasks).Error; err != nil {
+	// 分页查询，id DESC 作为 tiebreaker 防止同一秒多任务漏页/重复
+	if err := query.Order("created_at DESC, id DESC").Scopes(database.Paginate(page, pageSize)).Find(&tasks).Error; err != nil {
 		return nil, err
 	}
 
@@ -718,7 +720,10 @@ func (s *Service) StartDraftTask(userID uint, taskID uint, _ string, modelLevel 
 	}
 
 	// 异步启动审稿流程
-	go s.runTaskPipeline(task.ID, userID, modelLevel)
+	tid := task.ID
+	uid := userID
+	ml := modelLevel
+	safego.Go("peerreview-task-pipeline", func() { s.runTaskPipeline(tid, uid, ml) })
 
 	return nil
 }
@@ -754,18 +759,21 @@ func (s *Service) ClaimTask(userID uint, taskID uint, anonToken string) error {
 		return fmt.Errorf("此任务已被其他用户认领")
 	}
 
-	// 更新任务的 user_id，清空 anon_token
-	if err := s.db.Model(&task).Updates(map[string]any{
-		"user_id":    userID,
-		"anon_token": "",
-	}).Error; err != nil {
-		return fmt.Errorf("认领任务失败: %w", err)
-	}
-
-	// 同时更新关联文件的 user_id
-	s.db.Model(&PeerReviewFile{}).Where("task_id = ?", taskID).Update("user_id", userID)
-
-	return nil
+	// 任务归属转移必须原子：task.user_id 与 files.user_id 同时翻转，
+	// 否则中途失败会导致用户访问校验混乱（task 归 A，文件还指向 anon）。
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&task).Updates(map[string]any{
+			"user_id":    userID,
+			"anon_token": "",
+		}).Error; err != nil {
+			return fmt.Errorf("认领任务失败: %w", err)
+		}
+		if err := tx.Model(&PeerReviewFile{}).Where("task_id = ?", taskID).
+			Update("user_id", userID).Error; err != nil {
+			return fmt.Errorf("更新文件归属失败: %w", err)
+		}
+		return nil
+	})
 }
 
 // extractTitle 从稿件内容中提取标题
@@ -805,31 +813,42 @@ func (s *Service) CleanupExpiredPrivateTasks() (int64, error) {
 
 	var cleaned int64
 	for _, task := range tasks {
-		// 删除关联文件
+		// 隐私清理涉及 3 张表（files/task/results）必须一起成败，
+		// 否则会出现"文件已删但 task 仍标 active"等混合状态被合规审计抓出。
+		// 磁盘文件先于事务删除：失败容忍——磁盘清理由后台扫表收尾，DB 一致性优先。
 		var files []PeerReviewFile
 		s.db.Where("task_id = ?", task.ID).Find(&files)
 		for _, f := range files {
 			os.Remove(f.FilePath)
 		}
-		s.db.Where("task_id = ?", task.ID).Delete(&PeerReviewFile{})
 
-		// 清除敏感内容，保留元数据用于统计
-		s.db.Model(&task).Updates(map[string]any{
-			"manuscript_text":      "",
-			"manuscript_file_id":   nil,
-			"manuscript_meta":      "",
-			"literature_context":   "",
-			"literature_summary":   "",
-			"final_review_content": "",
-			"status":               "expired",
-			"progress_stage":       "隐私数据已清除",
+		taskCopy := task // 避免循环变量捕获
+		err := s.db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Where("task_id = ?", taskCopy.ID).Delete(&PeerReviewFile{}).Error; err != nil {
+				return err
+			}
+			if err := tx.Model(&taskCopy).Updates(map[string]any{
+				"manuscript_text":      "",
+				"manuscript_file_id":   nil,
+				"manuscript_meta":      "",
+				"literature_context":   "",
+				"literature_summary":   "",
+				"final_review_content": "",
+				"status":               "expired",
+				"progress_stage":       "隐私数据已清除",
+			}).Error; err != nil {
+				return err
+			}
+			return tx.Model(&PeerReviewResult{}).Where("task_id = ?", taskCopy.ID).
+				Updates(map[string]any{
+					"review_content": "",
+					"steps_detail":   "",
+				}).Error
 		})
-
-		// 清除审稿结果内容
-		s.db.Model(&PeerReviewResult{}).Where("task_id = ?", task.ID).Updates(map[string]any{
-			"review_content": "",
-			"steps_detail":   "",
-		})
+		if err != nil {
+			// 单个任务失败不阻塞批次，记日志继续下一个
+			continue
+		}
 
 		cleaned++
 	}

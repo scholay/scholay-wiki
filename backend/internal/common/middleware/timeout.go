@@ -35,13 +35,17 @@ func isStreamingPath(path string) bool {
 }
 
 // APITimeoutMiddleware provides different timeouts for different API types.
-// Streaming endpoints (SSE, AI chat) get 10 minutes; write ops get 30s; reads get 15s.
+// Streaming endpoints (SSE, AI chat) get 15 minutes (硬上限，避免慢客户端让 goroutine 无限累积);
+// write ops get 30s; reads get 15s.
+//
+// 说明：流式接口在 handler 层通过 sse.BeginStream 启动 30s 心跳保持连接活跃，
+// 客户端断开后 c.Request.Context() 会随 gin 自动取消；此处的硬上限是最后一道保险。
 func APITimeoutMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var timeout time.Duration
 
 		if c.GetHeader("Accept") == "text/event-stream" || isStreamingPath(c.Request.URL.Path) {
-			timeout = 10 * time.Minute
+			timeout = 15 * time.Minute
 		} else if c.Request.Method == "POST" || c.Request.Method == "PUT" {
 			timeout = 30 * time.Second
 		} else {

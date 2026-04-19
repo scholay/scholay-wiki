@@ -17,6 +17,7 @@ import (
 
 	"scholar-backend/internal/ai"
 	"scholar-backend/internal/ai/prompts"
+	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/mcp"
 	"scholar-backend/internal/thirdparty"
 )
@@ -404,7 +405,7 @@ func (s *Service) AdvancedSearchAndAnalyze(ctx context.Context, conversationID u
 	// Step 9: Generate title with timeout (3 seconds max)
 	// This prevents title generation from blocking [DONE] signal
 	titleCh := make(chan string, 1)
-	go func() {
+	safego.Go("conversation-gen-title", func() {
 		newTitle, err := s.UpdateConversationTitleWithAI(ctx, conversationID)
 		if err != nil {
 			slog.Warn("failed to generate title with AI", "err", err)
@@ -412,7 +413,7 @@ func (s *Service) AdvancedSearchAndAnalyze(ctx context.Context, conversationID u
 		} else {
 			titleCh <- newTitle
 		}
-	}()
+	})
 
 	// Wait for title with timeout
 	select {
@@ -674,7 +675,7 @@ func (s *Service) AdvancedSearchAndAnalyzeV2(ctx context.Context, conversationID
 
 	// Step 10: 生成标题（带超时）
 	titleCh := make(chan string, 1)
-	go func() {
+	safego.Go("conversation-gen-title-v2", func() {
 		newTitle, err := s.UpdateConversationTitleWithAI(ctx, conversationID)
 		if err != nil {
 			slog.Warn("failed to generate title", "err", err)
@@ -682,7 +683,7 @@ func (s *Service) AdvancedSearchAndAnalyzeV2(ctx context.Context, conversationID
 		} else {
 			titleCh <- newTitle
 		}
-	}()
+	})
 
 	select {
 	case newTitle := <-titleCh:

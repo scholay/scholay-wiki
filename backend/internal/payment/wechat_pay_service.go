@@ -26,6 +26,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"scholar-backend/internal/common/httpclient"
 )
 
 // WeChatPayRepo defines the data-access contract consumed by WeChatPayService.
@@ -160,7 +162,7 @@ func (s *WeChatPayService) validatePrivateKey(privateKeyStr string) error {
 }
 
 // CreateNativeOrder 创建Native支付订单（扫码支付）
-func (s *WeChatPayService) CreateNativeOrder(orderNo string, amount float64, description string) (string, error) {
+func (s *WeChatPayService) CreateNativeOrder(ctx context.Context, orderNo string, amount float64, description string) (string, error) {
 	config, err := s.GetActiveConfig()
 	if err != nil {
 		return "", fmt.Errorf("failed to get active config: %w", err)
@@ -187,7 +189,7 @@ func (s *WeChatPayService) CreateNativeOrder(orderNo string, amount float64, des
 	}
 
 	// 发送请求
-	codeURL, err := s.sendRequest(context.Background(), config, "POST", url, requestBody)
+	codeURL, err := s.sendRequest(ctx, config, "POST", url, requestBody)
 	if err != nil {
 		return "", err
 	}
@@ -227,7 +229,7 @@ func (s *WeChatPayService) sendRequest(ctx context.Context, config *WeChatPayCon
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", authorization)
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := httpclient.WithTimeout(30 * time.Second)
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to send request: %w", err)

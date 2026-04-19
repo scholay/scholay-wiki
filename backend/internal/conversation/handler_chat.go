@@ -57,13 +57,14 @@ func (h *ChatHandler) StreamChatMessage(c *gin.Context) {
 
 	req.ConversationID = conversationID
 
-	sse.SetHeaders(c)
+	w, stop := sse.BeginStream(c)
+	defer stop()
 
 	// Create context with timeout
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Minute)
 	defer cancel()
 
-	if err := h.chatService.StreamChat(ctx, userID, req, c.Writer); err != nil {
+	if err := h.chatService.StreamChat(ctx, userID, req, w); err != nil {
 		slog.Error("stream chat error", "err", err)
 		// 错误已通过 SSE 下发给客户端
 		return
@@ -108,12 +109,13 @@ func (h *ChatHandler) RegenerateMessage(c *gin.Context) {
 		return
 	}
 
-	sse.SetHeaders(c)
+	w, stop := sse.BeginStream(c)
+	defer stop()
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Minute)
 	defer cancel()
 
-	if err := h.chatService.RegenerateMessage(ctx, userID, messageID, c.Writer); err != nil {
+	if err := h.chatService.RegenerateMessage(ctx, userID, messageID, w); err != nil {
 		slog.Error("regenerate message error", "err", err)
 		return
 	}
@@ -143,12 +145,13 @@ func (h *ChatHandler) EditMessage(c *gin.Context) {
 		return
 	}
 
-	sse.SetHeaders(c)
+	w, stop := sse.BeginStream(c)
+	defer stop()
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Minute)
 	defer cancel()
 
-	if err := h.chatService.EditMessage(ctx, userID, messageID, req.Content, c.Writer); err != nil {
+	if err := h.chatService.EditMessage(ctx, userID, messageID, req.Content, w); err != nil {
 		slog.Error("edit message error", "err", err)
 		return
 	}
@@ -222,11 +225,12 @@ func (h *ChatHandler) CreateConversationAndChat(c *gin.Context) {
 		return
 	}
 
-	// Set SSE headers
-	sse.SetHeaders(c)
+	// Set SSE headers + start heartbeat
+	w, stop := sse.BeginStream(c)
+	defer stop()
 
 	// Send conversation ID first
-	h.chatService.sendEvent(c.Writer, ChatResponse{
+	h.chatService.sendEvent(w, ChatResponse{
 		Type: "conversation_created",
 		Metadata: map[string]any{
 			"conversation_id": conversation.ID,
@@ -245,7 +249,7 @@ func (h *ChatHandler) CreateConversationAndChat(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Minute)
 	defer cancel()
 
-	if err := h.chatService.StreamChat(ctx, userID, chatReq, c.Writer); err != nil {
+	if err := h.chatService.StreamChat(ctx, userID, chatReq, w); err != nil {
 		slog.Error("stream chat error", "err", err)
 		return
 	}

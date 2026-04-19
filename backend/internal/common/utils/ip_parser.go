@@ -13,10 +13,12 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
+
+	"scholar-backend/internal/common/httpclient"
+	"scholar-backend/internal/common/safego"
 )
 
 // IPLocation represents IP geolocation information
@@ -72,7 +74,7 @@ func newIPLRUCache(maxSize int, ttl time.Duration) *ipLRUCache {
 		lruList: list.New(),
 	}
 	// Start background cleanup goroutine
-	go c.cleanupLoop()
+	safego.Go("ip-lru-cache-cleanup", c.cleanupLoop)
 	return c
 }
 
@@ -193,9 +195,7 @@ var (
 	ipAPICache = newIPLRUCache(10000, time.Hour)
 	
 	// HTTP 客户端
-	httpClient = &http.Client{
-		Timeout: 5 * time.Second,
-	}
+	httpClient = httpclient.WithTimeout(5 * time.Second)
 	
 	// API 限流（ip-api.com 免费版限制：45次/分钟）
 	apiRateLimiter = make(chan struct{}, 45)
@@ -211,7 +211,7 @@ func initRateLimiter() {
 		}
 		
 		// 每分钟补充令牌
-		go func() {
+		safego.Go("ip-parser-rate-refill", func() {
 			ticker := time.NewTicker(time.Minute)
 			defer ticker.Stop()
 			for range ticker.C {
@@ -224,7 +224,7 @@ func initRateLimiter() {
 					}
 				}
 			}
-		}()
+		})
 	})
 }
 

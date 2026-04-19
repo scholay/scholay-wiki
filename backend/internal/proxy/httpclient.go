@@ -10,43 +10,35 @@ package proxy
 import (
 	"net/http"
 	"time"
+
+	"scholar-backend/internal/common/httpclient"
 )
 
-var (
-	// sharedTransport is a shared HTTP transport with connection pooling
-	// Reused across all proxy requests to maximize performance
-	sharedTransport = &http.Transport{
-		MaxIdleConns:          100,              // Maximum idle connections
-		MaxIdleConnsPerHost:   20,               // Proxy may need more connections per host
-		MaxConnsPerHost:       100,              // Maximum connections per host
-		IdleConnTimeout:       90 * time.Second, // Idle connection timeout
-		TLSHandshakeTimeout:   10 * time.Second, // TLS handshake timeout
-		ExpectContinueTimeout: 1 * time.Second,
-		DisableKeepAlives:     false, // Enable HTTP Keep-Alive
-		DisableCompression:    false, // Enable compression
-	}
-)
+// proxyTransport 是 proxy 专用连接池：单 host 并发比默认池更高，
+// 避免前端大量并发请求被默认池的 MaxConnsPerHost=50 限流。
+var proxyTransport = httpclient.NewTransport(httpclient.TransportOptions{
+	MaxIdleConnsPerHost:   20,
+	MaxConnsPerHost:       100,
+	ResponseHeaderTimeout: 60 * time.Second,
+})
 
-// GetProxyHTTPClient returns an HTTP client with the specified timeout
-// but sharing the same underlying transport for connection pooling.
+// GetProxyHTTPClient 返回指定超时的 proxy 客户端（共享底层 Transport）。
 func GetProxyHTTPClient(timeout int) *http.Client {
 	return &http.Client{
 		Timeout:   time.Duration(timeout) * time.Second,
-		Transport: sharedTransport,
+		Transport: proxyTransport,
 	}
 }
 
-// GetDefaultProxyHTTPClient returns an HTTP client with 30 second timeout
+// GetDefaultProxyHTTPClient 返回 30s 超时的 proxy 客户端。
 func GetDefaultProxyHTTPClient() *http.Client {
 	return &http.Client{
 		Timeout:   30 * time.Second,
-		Transport: sharedTransport,
+		Transport: proxyTransport,
 	}
 }
 
-// GetProxyTransport returns the shared HTTP transport
-// Useful when you need to create a client with custom settings (like cookie jar)
-// but still want to benefit from connection pooling
+// GetProxyTransport 返回 proxy 共享 Transport（用于 cookie jar 等场景）。
 func GetProxyTransport() *http.Transport {
-	return sharedTransport
+	return proxyTransport
 }

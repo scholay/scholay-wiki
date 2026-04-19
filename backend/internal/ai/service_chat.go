@@ -67,7 +67,7 @@ func (s *Service) ChatCompletionWithTools(ctx context.Context, messages []ChatMe
 
 			if resp.StatusCode != http.StatusOK {
 				body, _ := io.ReadAll(resp.Body)
-				return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+				return nil, fmt.Errorf("%s %d): %s", APIErrorPrefix, resp.StatusCode, string(body))
 			}
 
 			var result ChatCompletionResponse
@@ -246,7 +246,7 @@ func (s *Service) streamChatCompletionWithRawMessages(ctx context.Context, messa
 
 			if resp.StatusCode != http.StatusOK {
 				body, _ := io.ReadAll(resp.Body)
-				return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+				return nil, fmt.Errorf("%s %d): %s", APIErrorPrefix, resp.StatusCode, string(body))
 			}
 			return s.streamResponseAndCollect(resp.Body, writer)
 		})
@@ -312,7 +312,7 @@ func (s *Service) ChatCompletionWithModel(ctx context.Context, messages []ChatMe
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
-			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+			return nil, fmt.Errorf("%s %d): %s", APIErrorPrefix, resp.StatusCode, string(body))
 		}
 
 		// Parse response
@@ -386,7 +386,7 @@ func (s *Service) StreamChatCompletionWithLevel(ctx context.Context, messages []
 
 			if resp.StatusCode != http.StatusOK {
 				body, _ := io.ReadAll(resp.Body)
-				return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+				return nil, fmt.Errorf("%s %d): %s", APIErrorPrefix, resp.StatusCode, string(body))
 			}
 			return nil, s.streamResponse(resp.Body, writer)
 		})
@@ -440,7 +440,7 @@ func (s *Service) StreamChatCompletionAndCollectWithLevel(ctx context.Context, m
 
 			if resp.StatusCode != http.StatusOK {
 				body, _ := io.ReadAll(resp.Body)
-				return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+				return nil, fmt.Errorf("%s %d): %s", APIErrorPrefix, resp.StatusCode, string(body))
 			}
 			return s.streamResponseAndCollect(resp.Body, writer)
 		})

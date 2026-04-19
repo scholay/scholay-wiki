@@ -8,6 +8,8 @@ data/
 # Backend
 backend/tmp/
 backend/bin/
+backend/.go-cache/
+.go-cache/
 *.exe
 *.exe~
 *.dll

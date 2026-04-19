@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"scholar-backend/internal/common/safego"
+
 	"gorm.io/gorm"
 )
 
@@ -620,7 +622,7 @@ func (s *Service) pushNotification(userID uint, msgID uint, title, content, cate
 		return
 	}
 
-	go func() {
+	safego.Go("message-push-notification", func() {
 		// 推送新消息通知
 		if err := s.wsHub.SendNotification(userID, msgID, title, content, category, linkURL, linkText); err != nil {
 			slog.Error("failed to push notification", "user_id", userID, "err", err)
@@ -633,7 +635,7 @@ func (s *Service) pushNotification(userID uint, msgID uint, title, content, cate
 				slog.Error("failed to push unread count", "user_id", userID, "err", err)
 			}
 		}
-	}()
+	})
 }
 
 // SendFromTemplate 使用模板发送消息给用户
@@ -684,13 +686,13 @@ func (s *Service) SendToastToUser(userID uint, title, content, category string) 
 
 	slog.Info("sending toast to user", "user_id", userID, "title", title)
 
-	go func() {
+	safego.Go("message-send-toast", func() {
 		if err := s.wsHub.SendToast(userID, title, content, category); err != nil {
 			slog.Error("failed to send toast", "user_id", userID, "err", err)
 		} else {
 			slog.Debug("toast sent successfully", "user_id", userID)
 		}
-	}()
+	})
 
 	return nil
 }

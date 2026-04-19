@@ -12,6 +12,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -20,6 +21,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"scholar-backend/internal/common/safego"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -79,7 +82,7 @@ func getSigNozClient() *http.Client {
 		sigNozCh = make(chan []byte, sigNozQueueSize)
 		sigNozEnabled.Store(true)
 		for i := 0; i < sigNozWorkerCount; i++ {
-			go sigNozWorker()
+			safego.Go("telemetry-signoz-worker", sigNozWorker)
 		}
 	})
 	return sigNozClient
@@ -97,14 +100,17 @@ func sigNozWorker() {
 		req.Header.Set("Content-Type", "application/json")
 		resp, err := getSigNozClient().Do(req)
 		if resp != nil {
+			// 排干 body（最多 4KB）再关闭，这样 TCP 连接能进连接池复用。
+			// SigNoz 响应通常很小，不需要完整读取内容。
+			io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
 			resp.Body.Close()
 		}
 		if err != nil {
 			sigNozEnabled.Store(false)
-			go func() {
+			safego.Go("telemetry-reenable", func() {
 				time.Sleep(30 * time.Second)
 				sigNozEnabled.Store(true)
-			}()
+			})
 		}
 	}
 }

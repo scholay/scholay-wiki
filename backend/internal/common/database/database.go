@@ -14,6 +14,7 @@ import (
 	"log/slog"
 	"os"
 	"scholar-backend/internal/common/config"
+	"scholar-backend/internal/common/safego"
 	"time"
 
 	"gorm.io/driver/mysql"
@@ -85,7 +86,7 @@ func StartConnectionPoolMonitoring(ctx context.Context, interval time.Duration) 
 	}
 
 	ticker := time.NewTicker(interval)
-	go func() {
+	safego.Go("db-pool-monitor", func() {
 		defer ticker.Stop()
 		for {
 			select {
@@ -117,7 +118,7 @@ func StartConnectionPoolMonitoring(ctx context.Context, interval time.Duration) 
 				return
 			}
 		}
-	}()
+	})
 
 	slog.Info("Database connection pool monitoring started", "interval", interval)
 }

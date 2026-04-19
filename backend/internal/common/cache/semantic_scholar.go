@@ -13,6 +13,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -30,13 +32,29 @@ const (
 )
 
 // GenerateCacheKey generates a cache key from query parameters
-// Uses MD5 hash of parameters for consistent key generation
+// Uses MD5 hash of parameters for consistent key generation.
+//
+// ⚠️ 历史 Bug：之前用 `fmt.Sprintf("%v", params)`，Go map 迭代顺序是随机的 →
+// 同一组参数会生成不同 key，导致 cache 近乎永不命中。这里显式按 key 字典序排序后再哈希，
+// 保证 {"a":1,"b":2} 与 {"b":2,"a":1} 命中同一条 cache。
 func GenerateCacheKey(prefix string, params map[string]any) string {
-	// Create a stable string representation
-	paramStr := fmt.Sprintf("%v", params)
+	keys := make([]string, 0, len(params))
+	for k := range params {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
 
-	// Generate MD5 hash
-	hash := md5.Sum([]byte(paramStr))
+	var b strings.Builder
+	for i, k := range keys {
+		if i > 0 {
+			b.WriteByte('|')
+		}
+		b.WriteString(k)
+		b.WriteByte('=')
+		fmt.Fprintf(&b, "%v", params[k])
+	}
+
+	hash := md5.Sum([]byte(b.String()))
 	hashStr := hex.EncodeToString(hash[:])
 
 	return fmt.Sprintf("%s:%s", prefix, hashStr)
@@ -139,24 +157,6 @@ func GetCachedAuthorDetails(ctx context.Context, authorId string, result any) (b
 func GetOrSetAuthorDetails(ctx context.Context, authorId string, fetchFn func() (any, error), result any) error {
 	key := fmt.Sprintf("%s:%s", scholarAuthorPrefix, authorId)
 	return GetOrSet(ctx, key, authorCacheTTL, fetchFn, result)
-}
-
-// InvalidateSearchCache invalidates all search caches
-func InvalidateSearchCache(ctx context.Context) error {
-	pattern := fmt.Sprintf("%s:*", scholarSearchPrefix)
-	return InvalidatePattern(ctx, pattern)
-}
-
-// InvalidatePaperCache invalidates a specific paper cache
-func InvalidatePaperCache(ctx context.Context, paperId string) error {
-	key := fmt.Sprintf("%s:%s", scholarPaperPrefix, paperId)
-	return Delete(ctx, key)
-}
-
-// InvalidateAuthorCache invalidates a specific author cache
-func InvalidateAuthorCache(ctx context.Context, authorId string) error {
-	key := fmt.Sprintf("%s:%s", scholarAuthorPrefix, authorId)
-	return Delete(ctx, key)
 }
 
 // GetCacheStats returns cache statistics (for debugging/monitoring)

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/hotcontent"
 )
 
@@ -79,7 +80,9 @@ func (s *Service) Log(req *LogRequest, userID *uint, ipAddress, userAgent string
 
 	// 同步记录到热门内容统计（异步，不影响主流程）
 	if s.hotContentService != nil && req.ExtraData != nil {
-		go s.recordHotContent(req.FeatureCode, req.ExtraData)
+		fc := req.FeatureCode
+		ed := req.ExtraData
+		safego.Go("usagelog-record-hot-content", func() { s.recordHotContent(fc, ed) })
 	}
 
 	return nil

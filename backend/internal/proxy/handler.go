@@ -105,8 +105,9 @@ func (h *Handler) ProxySemanticScholar(c *gin.Context) {
 	defer resp.Body.Close()
 
 	// Check if the response is successful
+	// 错误路径下 drain body（最多 64KB）以便 TCP 连接可被连接池复用。
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		io.ReadAll(resp.Body)
+		io.Copy(io.Discard, io.LimitReader(resp.Body, 64*1024))
 		utils.ErrorResponse(c, resp.StatusCode, "Semantic Scholar returned error")
 		return
 	}
@@ -125,12 +126,7 @@ func (h *Handler) ProxySemanticScholar(c *gin.Context) {
 		}
 	}
 
-	// Set CORS headers to allow embedding
-	c.Header("Access-Control-Allow-Origin", "*")
-	c.Header("Access-Control-Allow-Methods", "GET, OPTIONS")
-	c.Header("Access-Control-Allow-Headers", "Content-Type")
-
-	// Remove any frame-busting headers
+	// Remove any frame-busting headers (iframe embedding)
 	c.Header("X-Frame-Options", "")
 	c.Header("Content-Security-Policy", "")
 
@@ -143,9 +139,11 @@ func (h *Handler) ProxySemanticScholar(c *gin.Context) {
 }
 
 // RegisterRoutes registers proxy routes with authentication middleware
-func (h *Handler) RegisterRoutes(rg *gin.RouterGroup, authMiddleware gin.HandlerFunc) {
+func (h *Handler) RegisterRoutes(rg *gin.RouterGroup, middlewares ...gin.HandlerFunc) {
 	proxy := rg.Group("/proxy")
-	proxy.Use(authMiddleware)
+	if len(middlewares) > 0 {
+		proxy.Use(middlewares...)
+	}
 	{
 		proxy.GET("/semantic-scholar/:paperId", h.ProxySemanticScholar)
 		proxy.GET("/semantic-scholar/:paperId/*path", h.ProxySemanticScholar)

@@ -198,8 +198,9 @@ func (r *Repository) GetUserList(offset, limit int) ([]User, int64, error) {
 		return nil, 0, err
 	}
 
+	// id DESC tiebreaker：避免高并发注册时同一秒多用户在 OFFSET 分页中漏页/重复
 	err := r.db.Scopes(nonAdminScope).
-		Order("created_at DESC").
+		Order("created_at DESC, id DESC").
 		Offset(offset).
 		Limit(limit).
 		Find(&users).Error

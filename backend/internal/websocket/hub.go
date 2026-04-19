@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"scholar-backend/internal/common/safego"
+
 	"github.com/olahol/melody"
 )
 
@@ -88,7 +90,7 @@ func NewHub() *Hub {
 	hub.setupHandlers()
 
 	// 启动空闲连接检查器
-	go hub.startIdleChecker()
+	safego.Go("ws-idle-checker", hub.startIdleChecker)
 
 	return hub
 }
@@ -116,11 +118,11 @@ func (h *Hub) recordSnapshot() {
 	h.mu.RUnlock()
 
 	// 异步记录，不阻塞连接处理
-	go func() {
+	safego.Go("ws-record-snapshot", func() {
 		if err := h.snapshotRecorder.RecordOnlineSnapshot(userCount, guestCount); err != nil {
 			slog.Error("failed to record online snapshot", "err", err)
 		}
-	}()
+	})
 }
 
 // setupHandlers 设置 melody 事件处理器
@@ -283,11 +285,11 @@ func (h *Hub) updateSessionActivity(s *melody.Session) {
 	uid := userID.(uint)
 
 	// 异步更新，避免阻塞 WebSocket 消息处理
-	go func() {
+	safego.Go("ws-update-session-activity", func() {
 		if err := h.sessionUpdater.UpdateSessionActivityByUserID(uid, ip); err != nil {
 			slog.Error("failed to update session activity", "user_id", uid, "err", err)
 		}
-	}()
+	})
 
 	// 记录本次更新时间
 	s.Set(lastUpdateKey, time.Now())

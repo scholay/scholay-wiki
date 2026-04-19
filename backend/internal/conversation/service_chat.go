@@ -148,13 +148,15 @@ func (s *ChatService) StreamChat(ctx context.Context, userID uint, req ChatReque
 		}
 	}
 
-	fullContent := ""
+	// 用 strings.Builder 累积流式片段，避免原 `fullContent += chunk` 的 O(N²) 分配/拷贝。
+	// 长回答（数千 token）下原实现每个 chunk 都要复制整个已累积字符串，CPU/GC 压力显著。
+	var fullContentBuilder strings.Builder
 	var streamBuffer bytes.Buffer
 	multiWriter := io.MultiWriter(&streamBuffer, writer)
 
 	// Create a custom writer that forwards chunks as SSE
 	customWriter := &sseWriter{writer: multiWriter, onChunk: func(chunk string) {
-		fullContent += chunk
+		fullContentBuilder.WriteString(chunk)
 		s.sendEvent(writer, ChatResponse{
 			Type:    "content_delta",
 			Content: chunk,
@@ -172,6 +174,8 @@ func (s *ChatService) StreamChat(ctx context.Context, userID uint, req ChatReque
 		s.repo.UpdateMessage(assistantMessage)
 		return err
 	}
+
+	fullContent := fullContentBuilder.String()
 
 	// 9. Update assistant message with complete content
 	assistantMessage.Content = fullContent
@@ -381,13 +385,13 @@ func (s *ChatService) RegenerateMessage(ctx context.Context, userID uint, messag
 		},
 	})
 
-	// Stream AI response
-	fullContent := ""
+	// Stream AI response —— 用 Builder 避免 += 累积时的二次拷贝
+	var fullContentBuilder strings.Builder
 	var streamBuffer bytes.Buffer
 	multiWriter := io.MultiWriter(&streamBuffer, writer)
 
 	customWriter := &sseWriter{writer: multiWriter, onChunk: func(chunk string) {
-		fullContent += chunk
+		fullContentBuilder.WriteString(chunk)
 		s.sendEvent(writer, ChatResponse{
 			Type:    "content_delta",
 			Content: chunk,
@@ -405,6 +409,8 @@ func (s *ChatService) RegenerateMessage(ctx context.Context, userID uint, messag
 		s.repo.UpdateMessage(assistantMessage)
 		return err
 	}
+
+	fullContent := fullContentBuilder.String()
 
 	// Update assistant message with complete content
 	assistantMessage.Content = fullContent

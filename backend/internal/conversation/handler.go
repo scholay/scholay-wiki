@@ -264,7 +264,8 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 		return
 	}
 
-	sse.SetHeaders(c)
+	w, stop := sse.BeginStream(c)
+	defer stop()
 
 	// 执行智能分析并流式返回结果（使用指定的模型级别）
 	// 根据环境变量选择使用 V1 或 V2 版本
@@ -274,7 +275,7 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 			c.Request.Context(),
 			conversationID,
 			targetMessage.SearchQuery,
-			c.Writer,
+			w,
 			userID,
 			thirdparty.ModelLevel(modelLevel),
 		)
@@ -284,17 +285,17 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 			c.Request.Context(),
 			conversationID,
 			targetMessage.SearchQuery,
-			c.Writer,
+			w,
 			userID,
 			thirdparty.ModelLevel(modelLevel),
 		)
 	}
 	if err != nil {
-		sse.WriteErrorText(c.Writer, err.Error())
+		sse.WriteErrorText(w, err.Error())
 		return
 	}
 
-	sse.WriteDone(c.Writer)
+	sse.WriteDone(w)
 }
 
 // StreamContinueConversation handles continuing the conversation with context
@@ -342,23 +343,24 @@ func (h *Handler) StreamContinueConversation(c *gin.Context) {
 		return
 	}
 
-	sse.SetHeaders(c)
+	w, stop := sse.BeginStream(c)
+	defer stop()
 
 	// 按指定模型级别继续对话
 	err = h.service.ContinueConversation(
 		c.Request.Context(),
 		conversationID,
 		req.Query,
-		c.Writer,
+		w,
 		userID,
 		thirdparty.ModelLevel(modelLevel),
 	)
 	if err != nil {
-		sse.WriteErrorText(c.Writer, err.Error())
+		sse.WriteErrorText(w, err.Error())
 		return
 	}
 
-	sse.WriteDone(c.Writer)
+	sse.WriteDone(w)
 }
 
 // GetFollowUpQuestions handles getting follow-up questions for a message

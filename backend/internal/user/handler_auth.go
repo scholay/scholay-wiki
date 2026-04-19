@@ -139,7 +139,7 @@ func (h *Handler) SendVerificationCode(c *gin.Context) {
 		return
 	}
 
-	err := h.service.SendVerificationCode(req.Email, req.Purpose)
+	err := h.service.SendVerificationCode(c.Request.Context(), req.Email, req.Purpose)
 	if err != nil {
 		// Return the specific error message from service (includes rate limit info)
 		utils.Error(c, 2001, err.Error())
@@ -174,7 +174,7 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 
-	user, token, err := h.service.RegisterWithEmailAndInvitation(req.Email, req.Password, req.Code, req.InvitationCode, ip)
+	user, token, err := h.service.RegisterWithEmailAndInvitation(c.Request.Context(), req.Email, req.Password, req.Code, req.InvitationCode, ip)
 	if err != nil {
 		utils.Error(c, 2002, err.Error())
 		return
@@ -258,7 +258,7 @@ func (h *Handler) LoginWithCode(c *gin.Context) {
 		return
 	}
 
-	user, token, err := h.service.LoginWithEmailCode(req.Email, req.Code, ip)
+	user, token, err := h.service.LoginWithEmailCode(c.Request.Context(), req.Email, req.Code, ip)
 	if err != nil {
 		utils.Error(c, 2016, err.Error())
 		return
@@ -281,7 +281,7 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 		return
 	}
 
-	err := h.service.ResetPassword(req.Email, req.Code, req.NewPassword)
+	err := h.service.ResetPassword(c.Request.Context(), req.Email, req.Code, req.NewPassword)
 	if err != nil {
 		utils.Error(c, 2014, err.Error())
 		return
@@ -315,7 +315,7 @@ func (h *Handler) SendPhoneVerificationCode(c *gin.Context) {
 		return
 	}
 
-	err := h.service.SendPhoneVerificationCode(req.Phone, req.Purpose)
+	err := h.service.SendPhoneVerificationCode(c.Request.Context(), req.Phone, req.Purpose)
 	if err != nil {
 		utils.InternalError(c, 2021, "Failed to send verification code", err)
 		return
@@ -334,7 +334,7 @@ func (h *Handler) RegisterWithPhone(c *gin.Context) {
 	// Get client IP
 	ip := c.ClientIP()
 
-	user, token, err := h.service.RegisterWithPhone(req.Phone, req.Password, req.Code, req.InvitationCode, ip)
+	user, token, err := h.service.RegisterWithPhone(c.Request.Context(), req.Phone, req.Password, req.Code, req.InvitationCode, ip)
 	if err != nil {
 		utils.Error(c, 2022, err.Error())
 		return
@@ -399,7 +399,7 @@ func (h *Handler) LoginPhoneWithCode(c *gin.Context) {
 		return
 	}
 
-	user, token, err := h.service.LoginWithPhoneCode(req.Phone, req.Code, ip)
+	user, token, err := h.service.LoginWithPhoneCode(c.Request.Context(), req.Phone, req.Code, ip)
 	if err != nil {
 		utils.Error(c, 2017, err.Error())
 		return
@@ -422,7 +422,7 @@ func (h *Handler) ResetPasswordPhone(c *gin.Context) {
 		return
 	}
 
-	err := h.service.ResetPasswordPhone(req.Phone, req.Code, req.NewPassword)
+	err := h.service.ResetPasswordPhone(c.Request.Context(), req.Phone, req.Code, req.NewPassword)
 	if err != nil {
 		utils.Error(c, 2015, err.Error())
 		return

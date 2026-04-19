@@ -18,6 +18,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/utils"
 )
 
@@ -33,7 +34,7 @@ func NewHandler(service *Service) *Handler {
 	}
 
 	// 启动定时清理未使用附件的任务
-	go handler.startCleanupTask()
+	safego.Go("feedback-cleanup-attachments", handler.startCleanupTask)
 
 	return handler
 }

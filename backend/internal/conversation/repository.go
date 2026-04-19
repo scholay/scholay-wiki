@@ -8,10 +8,12 @@
 package conversation
 
 import (
+	"context"
 	"errors"
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"scholar-backend/internal/common/database"
 )
@@ -22,6 +24,16 @@ type Repository struct {
 
 func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
+}
+
+// WithCtx 返回一个绑定 context 的 Repository 副本。GORM 的 WithContext 会把 ctx 传给
+// 底层驱动，客户端断开或上游超时时正在执行的 SQL 会被 driver.Cancel（对 MySQL 是 KILL QUERY），
+// 避免 SSE 断开后慢查询还在后端吃资源。调用方在 HTTP handler/流式路径中应优先使用 WithCtx。
+func (r *Repository) WithCtx(ctx context.Context) *Repository {
+	if ctx == nil {
+		return r
+	}
+	return &Repository{db: r.db.WithContext(ctx)}
 }
 
 // CreateConversation creates a new conversation
@@ -57,8 +69,9 @@ func (r *Repository) GetUserConversations(userID uint, limit, offset int, conver
 		return nil, 0, err
 	}
 
-	// Get conversations ordered by updated_at DESC
-	err := query.Order("updated_at DESC").
+	// Get conversations ordered by updated_at DESC, id DESC tiebreaker
+	// 没有 id tiebreaker 时，并发更新可能让 OFFSET 分页漏掉/重复同 updated_at 的记录。
+	err := query.Order("updated_at DESC, id DESC").
 		Limit(limit).
 		Offset(offset).
 		Find(&conversations).Error
@@ -109,9 +122,10 @@ func (r *Repository) GetConversationMessagesPaginated(conversationID uint, page,
 		return nil, 0, err
 	}
 
-	// Get messages ordered by created_at DESC (newest first)
+	// Get messages ordered by created_at DESC, id DESC tiebreaker
+	// 同一会话内连续写入消息可能 created_at 相同（毫秒级冲突），无 tiebreaker 会漏页。
 	err := r.db.Where("conversation_id = ?", conversationID).
-		Order("created_at DESC").
+		Order("created_at DESC, id DESC").
 		Scopes(database.Paginate(page, pageSize)).
 		Find(&messages).Error
 	if err != nil {
@@ -164,11 +178,9 @@ func (r *Repository) UpdateMessageSearchResults(conversationID uint, query strin
 		return err
 	}
 
-	// Convert papers to SearchResults
-	searchResults := make(SearchResults, len(papers))
-	for i, paper := range papers {
-		searchResults[i] = paper
-	}
+	// SearchResults 的底层类型就是 []map[string]any，直接类型转换零拷贝，
+	// 避免原实现中 make + for-loop 的 O(N) 复制（大 papers 切片下浪费内存和 GC 压力）。
+	searchResults := SearchResults(papers)
 
 	// Update the message with search results
 	return r.db.Model(&message).Updates(map[string]any{
@@ -179,11 +191,8 @@ func (r *Repository) UpdateMessageSearchResults(conversationID uint, query strin
 
 // UpdateMessageSearchResultsByID updates the search results for a specific message by its ID
 func (r *Repository) UpdateMessageSearchResultsByID(messageID uint, papers []map[string]any, total int) error {
-	// Convert papers to SearchResults
-	searchResults := make(SearchResults, len(papers))
-	for i, paper := range papers {
-		searchResults[i] = paper
-	}
+	// 同上，零拷贝类型转换
+	searchResults := SearchResults(papers)
 
 	// Update the message with search results
 	return r.db.Model(&ConversationMessage{}).Where("id = ?", messageID).Updates(map[string]any{
@@ -225,11 +234,13 @@ func (r *Repository) GetMessagesByParentID(conversationID uint, parentMessageID 
 
 // BuildMessageChain builds the complete message chain from root to a specific message
 // Returns messages in chronological order (oldest to newest)
+//
+// 注意：N+1 查询。生产路径请使用 BuildMessageChainOptimized。此版本保留为兜底/对比基准。
+// 这里仍然采用"反向收集 + 翻转"避免 O(N²) 前置插入。
 func (r *Repository) BuildMessageChain(messageID string) ([]ConversationMessage, error) {
-	var chain []ConversationMessage
+	chain := make([]ConversationMessage, 0, 32)
 	currentMessageID := messageID
 
-	// Traverse backwards through parent messages
 	for currentMessageID != "" {
 		message, err := r.GetMessageByMessageID(currentMessageID)
 		if err != nil {
@@ -238,16 +249,16 @@ func (r *Repository) BuildMessageChain(messageID string) ([]ConversationMessage,
 			}
 			return nil, err
 		}
-
-		// Prepend to chain (to maintain chronological order)
-		chain = append([]ConversationMessage{*message}, chain...)
-
-		// Move to parent
+		chain = append(chain, *message)
 		if message.ParentMessageID != nil {
 			currentMessageID = *message.ParentMessageID
 		} else {
 			break
 		}
+	}
+
+	for i, j := 0, len(chain)-1; i < j; i, j = i+1, j-1 {
+		chain[i], chain[j] = chain[j], chain[i]
 	}
 
 	return chain, nil
@@ -270,22 +281,14 @@ func (r *Repository) UpdateMessage(message *ConversationMessage) error {
 	return r.db.Save(message).Error
 }
 
-// UpsertMessage creates or updates a message by message_id
+// UpsertMessage creates or updates a message by message_id.
+// 使用 GORM clause.OnConflict 的 ON DUPLICATE KEY UPDATE 单次 SQL 原子 upsert，
+// 避免原 "先 SELECT 再 Create/Save" 的双查询 + TOCTOU 窗口（高并发同 message_id 下可能重复插入）。
 func (r *Repository) UpsertMessage(message *ConversationMessage) error {
-	// Check if message exists
-	var existing ConversationMessage
-	err := r.db.Where("message_id = ?", message.MessageID).First(&existing).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		// Create new message
-		return r.db.Create(message).Error
-	} else if err != nil {
-		return err
-	}
-
-	// Update existing message
-	message.ID = existing.ID // Preserve the primary key
-	return r.db.Save(message).Error
+	return r.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "message_id"}},
+		UpdateAll: true,
+	}).Create(message).Error
 }
 
 // GetMessageChildren gets all children of a message for building the message tree
@@ -293,14 +296,35 @@ func (r *Repository) GetMessageChildren(conversationID uint, messageID string) (
 	return r.GetMessagesByParentID(conversationID, messageID)
 }
 
-// GetAllMessagesForTree gets all messages in a conversation for building a complete tree
+// MaxTreeMessages 构建消息树时的硬上限。超过此上限意味着会话消息量异常（或恶意），
+// 加载全量会占用数百 MB 内存并卡住请求。命中上限时返回最新的 N 条，前端可按需扩展。
+const MaxTreeMessages = 2000
+
+// GetAllMessagesForTree gets messages in a conversation for building the message tree.
+// Caps at MaxTreeMessages latest messages to avoid OOM on pathological conversations.
+// Returns messages in chronological order (oldest → newest).
 func (r *Repository) GetAllMessagesForTree(conversationID uint) ([]ConversationMessage, error) {
+	return r.GetMessagesForTreeWithContext(context.Background(), conversationID, MaxTreeMessages)
+}
+
+// GetMessagesForTreeWithContext is the ctx-aware, bounded variant used by new callers.
+// 默认加载最近 limit 条消息（DESC → 内存翻转回 ASC），避免一次性拉几万条消息。
+func (r *Repository) GetMessagesForTreeWithContext(ctx context.Context, conversationID uint, limit int) ([]ConversationMessage, error) {
+	if limit <= 0 || limit > MaxTreeMessages {
+		limit = MaxTreeMessages
+	}
 	var messages []ConversationMessage
-	err := r.db.Where("conversation_id = ?", conversationID).
-		Order("created_at ASC").
+	err := r.db.WithContext(ctx).
+		Where("conversation_id = ?", conversationID).
+		Order("created_at DESC, id DESC").
+		Limit(limit).
 		Find(&messages).Error
 	if err != nil {
 		return nil, err
+	}
+	// 翻转成 ASC 保持与旧签名一致
+	for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
+		messages[i], messages[j] = messages[j], messages[i]
 	}
 	return messages, nil
 }

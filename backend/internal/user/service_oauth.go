@@ -18,9 +18,9 @@ import (
 
 // BindEmail binds an email to an existing user account
 // Enhanced with transaction support and double-check for concurrency safety
-func (s *Service) BindEmail(userID uint, email, code string) error {
+func (s *Service) BindEmail(ctx context.Context, userID uint, email, code string) error {
 	// Verify the email code using Redis
-	valid, err := cache.VerifyCode(context.Background(), email, code, "bind")
+	valid, err := cache.VerifyCode(ctx, email, code, "bind")
 	if err != nil {
 		return fmt.Errorf("failed to verify code: %w", err)
 	}
@@ -91,7 +91,7 @@ func (s *Service) BindEmail(userID uint, email, code string) error {
 }
 
 // UnbindEmail unbinds email from user account
-func (s *Service) UnbindEmail(userID uint, code string) error {
+func (s *Service) UnbindEmail(ctx context.Context, userID uint, code string) error {
 	// First get user to verify code (without lock)
 	user, err := s.repo.FindByID(userID)
 	if err != nil {
@@ -107,7 +107,7 @@ func (s *Service) UnbindEmail(userID uint, code string) error {
 	}
 
 	// Verify the code before starting transaction
-	valid, err := cache.VerifyCode(context.Background(), *user.Email, code, "unbind")
+	valid, err := cache.VerifyCode(ctx, *user.Email, code, "unbind")
 	if err != nil {
 		return fmt.Errorf("failed to verify code: %w", err)
 	}
@@ -214,7 +214,7 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 	// Update last login time and IP (registration counts as first login)
 	_ = s.repo.UpdateLastLoginWithIP(user.ID, ip)
 
-	go s.SendWelcomeMessage(user.ID)
+	s.SendWelcomeMessage(user.ID)
 
 	// Create auth provider entry
 	providerData := map[string]string{
@@ -340,9 +340,9 @@ func (s *Service) BindWeChat(userID uint, openID, unionID, nickname, avatarURL s
 }
 
 // BindEmailWithPassword binds email to WeChat-registered user with new password
-func (s *Service) BindEmailWithPassword(userID uint, email, password, code string) error {
+func (s *Service) BindEmailWithPassword(ctx context.Context, userID uint, email, password, code string) error {
 	// Verify the email code using Redis
-	valid, err := cache.VerifyCode(context.Background(), email, code, "bind")
+	valid, err := cache.VerifyCode(ctx, email, code, "bind")
 	if err != nil {
 		return fmt.Errorf("failed to verify code: %w", err)
 	}

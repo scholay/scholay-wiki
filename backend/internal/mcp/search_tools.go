@@ -20,6 +20,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"scholar-backend/internal/common/httpclient"
 )
 
 // SearchToolProvider 搜索工具提供者
@@ -32,9 +34,7 @@ type SearchToolProvider struct {
 // NewSearchToolProvider 创建搜索工具提供者
 func NewSearchToolProvider(serperAPIKey, crossrefEmail string) *SearchToolProvider {
 	return &SearchToolProvider{
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+		httpClient:    httpclient.WithTimeout(30 * time.Second),
 		serperAPIKey:  serperAPIKey,
 		crossrefEmail: crossrefEmail,
 	}

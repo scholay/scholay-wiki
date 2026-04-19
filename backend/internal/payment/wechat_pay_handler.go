@@ -162,7 +162,7 @@ func (h *WeChatPayHandler) CreatePayment(c *gin.Context) {
 	}
 
 	description := fmt.Sprintf("订阅套餐-%s", orderRecord.PlanCode)
-	codeURL, err := h.service.CreateNativeOrder(req.OrderNo, req.Amount, description)
+	codeURL, err := h.service.CreateNativeOrder(c.Request.Context(), req.OrderNo, req.Amount, description)
 	if err != nil {
 		utils.Error(c, 5002, "Failed to create WeChat payment: "+err.Error())
 		return

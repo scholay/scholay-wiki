@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"log/slog"
 	"scholar-backend/internal/common/cache"
+	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/utils"
 	"time"
 )
@@ -26,26 +27,26 @@ func (s *Service) SendWelcomeMessage(userID uint) {
 	title := "欢迎加入 Scholay"
 	content := "感谢注册！开始探索学术世界吧~"
 
-	go func() {
+	safego.Go("user-welcome-message", func() {
 		if err := s.messageService.SendToUser(userID, title, content, "system", "/", "开始探索"); err != nil {
 			slog.Error("failed to send welcome message", "user_id", userID, "err", err)
 		}
-	}()
+	})
 }
 
 // RegisterWithEmail registers a new user with email and password
 // Enhanced with transaction support for concurrency safety
-func (s *Service) RegisterWithEmail(email, password, code, ip string) (*User, string, error) {
-	return s.RegisterWithEmailAndInvitation(email, password, code, "", ip)
+func (s *Service) RegisterWithEmail(ctx context.Context, email, password, code, ip string) (*User, string, error) {
+	return s.RegisterWithEmailAndInvitation(ctx, email, password, code, "", ip)
 }
 
 // RegisterWithEmailAndInvitation registers a new user with email, password and optional invitation code
-func (s *Service) RegisterWithEmailAndInvitation(email, password, code, invitationCode, ip string) (*User, string, error) {
+func (s *Service) RegisterWithEmailAndInvitation(ctx context.Context, email, password, code, invitationCode, ip string) (*User, string, error) {
 	_ = invitationCode // 邀请业务已移除，参数保留以兼容 API
 
 	// Verify the email code using Redis (only if code is provided)
 	if code != "" {
-		valid, err := cache.VerifyCode(context.Background(), email, code, "register")
+		valid, err := cache.VerifyCode(ctx, email, code, "register")
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to verify code: %w", err)
 		}
@@ -134,13 +135,13 @@ func (s *Service) RegisterWithEmailAndInvitation(email, password, code, invitati
 	}
 
 	// Record new user registration in statistics (async, non-blocking)
-	go func() {
+	safego.Go("user-increment-new-users", func() {
 		today := time.Now().Format("2006-01-02")
 		_ = s.repo.IncrementNewUsers(today)
-	}()
+	})
 
 	// 发送欢迎站内信
-	go s.SendWelcomeMessage(user.ID)
+	s.SendWelcomeMessage(user.ID)
 
 	return user, token, nil
 }
@@ -186,9 +187,9 @@ func (s *Service) LoginWithEmail(email, password, ip string) (*User, string, err
 
 // ResetPassword resets user password with email verification code
 // Also invalidates all existing sessions to force re-login
-func (s *Service) ResetPassword(email, code, newPassword string) error {
+func (s *Service) ResetPassword(ctx context.Context, email, code, newPassword string) error {
 	// Verify the code
-	valid, err := cache.VerifyCode(context.Background(), email, code, "reset_password")
+	valid, err := cache.VerifyCode(ctx, email, code, "reset_password")
 	if err != nil {
 		return fmt.Errorf("failed to verify code: %w", err)
 	}
@@ -221,9 +222,9 @@ func (s *Service) ResetPassword(email, code, newPassword string) error {
 }
 
 // LoginWithEmailCode logs in a user with email and verification code
-func (s *Service) LoginWithEmailCode(email, code, ip string) (*User, string, error) {
+func (s *Service) LoginWithEmailCode(ctx context.Context, email, code, ip string) (*User, string, error) {
 	// Verify the code
-	valid, err := cache.VerifyCode(context.Background(), email, code, "login")
+	valid, err := cache.VerifyCode(ctx, email, code, "login")
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to verify code: %w", err)
 	}
@@ -261,9 +262,9 @@ func (s *Service) LoginWithEmailCode(email, code, ip string) (*User, string, err
 }
 
 // SendVerificationCode sends a verification code to an email
-func (s *Service) SendVerificationCode(email, purpose string) error {
+func (s *Service) SendVerificationCode(ctx context.Context, email, purpose string) error {
 	// Check rate limit: prevent sending too frequently (must wait 1 minute)
-	ttl, err := cache.GetVerificationCodeTTL(context.Background(), email, purpose)
+	ttl, err := cache.GetVerificationCodeTTL(ctx, email, purpose)
 	if err == nil && ttl > 9*time.Minute {
 		// Code exists and was sent less than 1 minute ago
 		remainingSeconds := int((ttl - 9*time.Minute).Seconds())
@@ -274,7 +275,7 @@ func (s *Service) SendVerificationCode(email, purpose string) error {
 	code := utils.SecureRandomDigits(6)
 
 	// Save verification code to Redis (auto-expires in 10 minutes)
-	if err := cache.SaveVerificationCode(context.Background(), email, code, purpose); err != nil {
+	if err := cache.SaveVerificationCode(ctx, email, code, purpose); err != nil {
 		return fmt.Errorf("failed to save verification code: %w", err)
 	}
 

@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"scholar-backend/internal/common/circuitbreaker"
+	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/thirdparty"
 )
 
@@ -331,16 +332,16 @@ func (m *Manager) GetSearchSuggestions(ctx context.Context, query, source string
 	paperChan := make(chan paperResult, 1)
 	authorChan := make(chan authorResult, 1)
 
-	go func() {
+	safego.Go("minicod-paper-autocomplete", func() {
 		result, err := m.PaperAutocomplete(ctx, query, source)
 		paperChan <- paperResult{data: result, err: err}
-	}()
+	})
 
-	go func() {
+	safego.Go("minicod-author-search", func() {
 		opts := AuthorSearchOptions{Query: query, Limit: authorLimit, Offset: 0, Source: source}
 		result, err := m.SearchAuthors(ctx, opts)
 		authorChan <- authorResult{data: result, err: err}
-	}()
+	})
 
 	paperRes := <-paperChan
 	authorRes := <-authorChan

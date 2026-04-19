@@ -19,7 +19,6 @@ import (
 	"strings"
 	"time"
 
-	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/httpclient"
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
@@ -51,11 +50,7 @@ func (h *Handler) GetMicrosoftLoginURL(c *gin.Context) {
 		return
 	}
 
-	state := generateRandomState()
-	rdb := cache.GetRedis()
-	if rdb != nil {
-		rdb.Set(c.Request.Context(), "microsoft_oauth_state:"+state, "1", 5*time.Minute)
-	}
+	state := issueOAuthState(c, "microsoft_oauth_state:")
 
 	tenant := msConfig.Tenant
 	if tenant == "" {
@@ -85,15 +80,9 @@ func (h *Handler) MicrosoftCallback(c *gin.Context) {
 		return
 	}
 
-	// Verify state
-	rdb := cache.GetRedis()
-	if rdb != nil {
-		val, err := rdb.Get(c.Request.Context(), "microsoft_oauth_state:"+state).Result()
-		if err != nil || val == "" {
-			utils.ErrorResponse(c, http.StatusBadRequest, "Invalid or expired state")
-			return
-		}
-		rdb.Del(c.Request.Context(), "microsoft_oauth_state:"+state)
+	if !validateOAuthState(c, "microsoft_oauth_state:", state) {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid or expired state")
+		return
 	}
 
 	msConfig, err := h.service.GetMicrosoftOAuthConfig()
@@ -126,29 +115,12 @@ func (h *Handler) MicrosoftCallback(c *gin.Context) {
 		return
 	}
 
-	username := ""
-	if user.Username != nil {
-		username = *user.Username
-	}
-	role := "user"
-	if user.Role != "" {
-		role = user.Role
-	}
-	token, err := utils.GenerateTokenWithRole(user.ID, username, "user", role)
+	token, err := issueTokenAndSession(h, c, user, ip)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to generate token")
 		return
 	}
-
-	_ = h.service.UpdateLastLoginWithIP(user.ID, ip)
-	userAgent := c.GetHeader("User-Agent")
-	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour)
-
-	utils.SuccessResponse(c, http.StatusOK, "success", gin.H{
-		"token":       token,
-		"user":        user,
-		"is_new_user": isNewUser,
-	})
+	respondOAuthSuccess(c, token, user, isNewUser)
 }
 
 func (h *Handler) exchangeMicrosoftCode(ctx context.Context, code string, config *model.MicrosoftOAuthConfig) (string, error) {
@@ -283,7 +255,7 @@ func (h *Handler) findOrCreateMicrosoftUser(msUser *MicrosoftUser, ip string) (*
 			return nil, false, err
 		}
 
-		go h.service.SendWelcomeMessage(user.ID)
+		h.service.SendWelcomeMessage(user.ID)
 	}
 
 	providerData := map[string]string{

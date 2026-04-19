@@ -11,6 +11,8 @@ import (
 	"context"
 	"log/slog"
 	"sync"
+
+	"scholar-backend/internal/common/safego"
 )
 
 // CacheJob represents a cache write job
@@ -55,7 +57,8 @@ func (wp *WorkerPool) Start() {
 	wp.once.Do(func() {
 		for i := 0; i < wp.workers; i++ {
 			wp.wg.Add(1)
-			go wp.worker(i)
+			id := i
+			safego.Go("cache-worker-pool", func() { wp.worker(id) })
 		}
 		slog.Info("Cache worker pool started", "workers", wp.workers)
 	})

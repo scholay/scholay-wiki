@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"scholar-backend/internal/ai"
+	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/mcp"
 )
 
@@ -104,15 +105,17 @@ func (fc *FunctionCaller) ProcessToolCalls(ctx context.Context, toolCalls []ai.L
 
 	for i, tc := range toolCalls {
 		wg.Add(1)
-		go func(idx int, call ai.LLMToolCall) {
+		idx := i
+		call := tc
+		safego.Go("latexwriter-tool-call", func() {
 			defer wg.Done()
 
 			result := fc.executeToolCall(ctx, call)
-			
+
 			mu.Lock()
 			results[idx] = result
 			mu.Unlock()
-		}(i, tc)
+		})
 	}
 
 	wg.Wait()

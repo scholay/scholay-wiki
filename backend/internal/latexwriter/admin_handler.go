@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"scholar-backend/internal/common/httpclient"
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
@@ -295,7 +296,7 @@ func (h *AdminHandler) TestConnection(c *gin.Context) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+model.APIKey)
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := httpclient.WithTimeout(15 * time.Second)
 	start := time.Now()
 	resp, err := client.Do(req)
 	latency := time.Since(start)

@@ -113,33 +113,12 @@ func (h *Handler) GoogleIDTokenLogin(c *gin.Context) {
 		return
 	}
 
-	// Generate JWT token
-	username := ""
-	if user.Username != nil {
-		username = *user.Username
-	}
-	role := "user"
-	if user.Role != "" {
-		role = user.Role
-	}
-	token, err := utils.GenerateTokenWithRole(user.ID, username, "user", role)
+	token, err := issueTokenAndSession(h, c, user, ip)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to generate token")
 		return
 	}
-
-	// Update last login time and IP
-	_ = h.service.UpdateLastLoginWithIP(user.ID, ip)
-
-	// Create session
-	userAgent := c.GetHeader("User-Agent")
-	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour)
-
-	utils.SuccessResponse(c, http.StatusOK, "success", gin.H{
-		"token":       token,
-		"user":        user,
-		"is_new_user": isNewUser,
-	})
+	respondOAuthSuccess(c, token, user, isNewUser)
 }
 
 // verifyGoogleIDToken verifies a Google ID token using Google's tokeninfo endpoint
@@ -249,7 +228,7 @@ func (h *Handler) findOrCreateGoogleUser(tokenInfo *GoogleTokenInfo, ip string) 
 			return nil, false, err
 		}
 
-		go h.service.SendWelcomeMessage(user.ID)
+		h.service.SendWelcomeMessage(user.ID)
 	}
 
 	// Create auth provider link

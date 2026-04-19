@@ -27,9 +27,9 @@ func (s *Service) CheckPhoneExists(phone string) (bool, error) {
 }
 
 // SendPhoneVerificationCode sends SMS verification code
-func (s *Service) SendPhoneVerificationCode(phone, purpose string) error {
+func (s *Service) SendPhoneVerificationCode(ctx context.Context, phone, purpose string) error {
 	// Check rate limit: prevent sending too frequently (must wait 1 minute)
-	ttl, err := cache.GetVerificationCodeTTL(context.Background(), phone, purpose)
+	ttl, err := cache.GetVerificationCodeTTL(ctx, phone, purpose)
 	if err == nil && ttl > 9*time.Minute {
 		// Code exists and was sent less than 1 minute ago
 		remainingSeconds := int((ttl - 9*time.Minute).Seconds())
@@ -40,7 +40,7 @@ func (s *Service) SendPhoneVerificationCode(phone, purpose string) error {
 	code := utils.SecureRandomDigits(6)
 
 	// Save verification code to Redis (auto-expires in 10 minutes)
-	if err := cache.SaveVerificationCode(context.Background(), phone, code, purpose); err != nil {
+	if err := cache.SaveVerificationCode(ctx, phone, code, purpose); err != nil {
 		return fmt.Errorf("failed to save verification code: %w", err)
 	}
 
@@ -94,11 +94,11 @@ func (s *Service) SendPhoneVerificationCode(phone, purpose string) error {
 
 // RegisterWithPhone registers a new user with phone and password
 // Enhanced with transaction support for concurrency safety
-func (s *Service) RegisterWithPhone(phone, password, code, invitationCode, ip string) (*User, string, error) {
+func (s *Service) RegisterWithPhone(ctx context.Context, phone, password, code, invitationCode, ip string) (*User, string, error) {
 	_ = invitationCode // 邀请业务已移除，参数保留以兼容 API
 
 	// Verify the phone code using Redis
-	valid, err := cache.VerifyCode(context.Background(), phone, code, "register")
+	valid, err := cache.VerifyCode(ctx, phone, code, "register")
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to verify code: %w", err)
 	}
@@ -185,7 +185,7 @@ func (s *Service) RegisterWithPhone(phone, password, code, invitationCode, ip st
 		return nil, "", err
 	}
 
-	go s.SendWelcomeMessage(user.ID)
+	s.SendWelcomeMessage(user.ID)
 
 	return user, token, nil
 }
@@ -231,9 +231,9 @@ func (s *Service) LoginWithPhone(phone, password, ip string) (*User, string, err
 // ResetPasswordPhone resets user password with phone verification code
 // ResetPasswordPhone resets user password with phone verification code
 // Also invalidates all existing sessions to force re-login
-func (s *Service) ResetPasswordPhone(phone, code, newPassword string) error {
+func (s *Service) ResetPasswordPhone(ctx context.Context, phone, code, newPassword string) error {
 	// Verify the code
-	valid, err := cache.VerifyCode(context.Background(), phone, code, "reset_password")
+	valid, err := cache.VerifyCode(ctx, phone, code, "reset_password")
 	if err != nil {
 		return fmt.Errorf("failed to verify code: %w", err)
 	}
@@ -266,9 +266,9 @@ func (s *Service) ResetPasswordPhone(phone, code, newPassword string) error {
 }
 
 // LoginWithPhoneCode logs in a user with phone and verification code
-func (s *Service) LoginWithPhoneCode(phone, code, ip string) (*User, string, error) {
+func (s *Service) LoginWithPhoneCode(ctx context.Context, phone, code, ip string) (*User, string, error) {
 	// Verify the code
-	valid, err := cache.VerifyCode(context.Background(), phone, code, "login")
+	valid, err := cache.VerifyCode(ctx, phone, code, "login")
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to verify code: %w", err)
 	}
@@ -304,9 +304,9 @@ func (s *Service) LoginWithPhoneCode(phone, code, ip string) (*User, string, err
 
 // BindPhone binds a phone number to an existing user account
 // Enhanced with transaction support and double-check for concurrency safety
-func (s *Service) BindPhone(userID uint, phone, code string) error {
+func (s *Service) BindPhone(ctx context.Context, userID uint, phone, code string) error {
 	// Verify the phone code using Redis
-	valid, err := cache.VerifyCode(context.Background(), phone, code, "bind")
+	valid, err := cache.VerifyCode(ctx, phone, code, "bind")
 	if err != nil {
 		return fmt.Errorf("failed to verify code: %w", err)
 	}
@@ -377,9 +377,9 @@ func (s *Service) BindPhone(userID uint, phone, code string) error {
 }
 
 // BindPhoneWithPassword binds phone to WeChat-registered user with new password
-func (s *Service) BindPhoneWithPassword(userID uint, phone, password, code string) error {
+func (s *Service) BindPhoneWithPassword(ctx context.Context, userID uint, phone, password, code string) error {
 	// Verify the phone code using Redis
-	valid, err := cache.VerifyCode(context.Background(), phone, code, "bind")
+	valid, err := cache.VerifyCode(ctx, phone, code, "bind")
 	if err != nil {
 		return fmt.Errorf("failed to verify code: %w", err)
 	}
@@ -450,7 +450,7 @@ func (s *Service) BindPhoneWithPassword(userID uint, phone, password, code strin
 }
 
 // UnbindPhone unbinds phone from user account
-func (s *Service) UnbindPhone(userID uint, code string) error {
+func (s *Service) UnbindPhone(ctx context.Context, userID uint, code string) error {
 	// First get user to verify code (without lock)
 	user, err := s.repo.FindByID(userID)
 	if err != nil {
@@ -466,7 +466,7 @@ func (s *Service) UnbindPhone(userID uint, code string) error {
 	}
 
 	// Verify the code before starting transaction
-	valid, err := cache.VerifyCode(context.Background(), *user.Phone, code, "unbind")
+	valid, err := cache.VerifyCode(ctx, *user.Phone, code, "unbind")
 	if err != nil {
 		return fmt.Errorf("failed to verify code: %w", err)
 	}

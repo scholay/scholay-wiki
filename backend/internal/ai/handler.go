@@ -12,7 +12,12 @@ import (
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/sync/errgroup"
 )
+
+// batchAnalyzeConcurrency 限制单次批量分析的并发度。
+// 设为 5：留出账户轮换空间（AI 后端可能有 3~5 个账户），同时避免共享连接池被打满。
+const batchAnalyzeConcurrency = 5
 
 type Handler struct {
 	service *Service
@@ -215,29 +220,32 @@ func (h *Handler) BatchAnalyzePapers(c *gin.Context) {
 		return
 	}
 
-	// 批量分析论文
-	results := make([]PaperAnalysisItem, 0, len(req.Papers))
+	// 批量分析论文 —— 并发处理（固定位索引保证输出顺序与输入一致）。
+	// 单篇失败不影响其他论文；所有篇目完成后一次性返回。
+	// errgroup 保证 goroutine 在 Wait 前全部退出；每个 goroutine 写入独立下标，无需额外互斥。
+	results := make([]PaperAnalysisItem, len(req.Papers))
+	eg, egCtx := errgroup.WithContext(c.Request.Context())
+	eg.SetLimit(batchAnalyzeConcurrency)
 
-	for _, paper := range req.Papers {
-		item := PaperAnalysisItem{
-			PaperID:   paper.PaperID,
-			FromCache: false,
-		}
-
-		result, analysisCtx, err := h.service.AnalyzePaperAbstract(c.Request.Context(), paper.PaperID, paper.Title, paper.Abstract, userIDPtr)
-		if err != nil {
-			item.Success = false
-			item.Error = err.Error()
-			results = append(results, item)
-			continue
-		}
-
-		item.Success = true
-		item.Data = result.Data
-		item.Dimensions = result.Dimensions
-		item.FromCache = analysisCtx.FromCache
-		results = append(results, item)
+	for i, paper := range req.Papers {
+		i, paper := i, paper
+		eg.Go(func() error {
+			item := PaperAnalysisItem{PaperID: paper.PaperID}
+			result, analysisCtx, err := h.service.AnalyzePaperAbstract(egCtx, paper.PaperID, paper.Title, paper.Abstract, userIDPtr)
+			if err != nil {
+				item.Success = false
+				item.Error = err.Error()
+			} else {
+				item.Success = true
+				item.Data = result.Data
+				item.Dimensions = result.Dimensions
+				item.FromCache = analysisCtx.FromCache
+			}
+			results[i] = item
+			return nil // 单篇失败不向上抛，保证其他继续
+		})
 	}
+	_ = eg.Wait() // 上面从不返回 error
 
 	utils.Success(c, BatchAnalyzePapersResponse{
 		Results: results,
@@ -564,15 +572,16 @@ func (h *Handler) StreamTranslate(c *gin.Context) {
 		return
 	}
 
-	sse.SetHeaders(c)
+	w, stop := sse.BeginStream(c)
+	defer stop()
 
-	err := h.service.StreamTranslateToChinese(c.Request.Context(), req.Text, c.Writer)
+	err := h.service.StreamTranslateToChinese(c.Request.Context(), req.Text, w)
 	if err != nil {
-		sse.WriteError(c.Writer, err.Error())
+		sse.WriteError(w, err.Error())
 		return
 	}
 
-	sse.WriteDone(c.Writer)
+	sse.WriteDone(w)
 }
 
 // StreamTranslatePaperRequest 论文翻译请求结构
@@ -602,13 +611,14 @@ func (h *Handler) StreamTranslatePaper(c *gin.Context) {
 		return
 	}
 
-	sse.SetHeaders(c)
+	w, stop := sse.BeginStream(c)
+	defer stop()
 
-	err := h.service.StreamTranslatePaperToChinese(c.Request.Context(), req.Title, req.Abstract, req.TLDR, c.Writer)
+	err := h.service.StreamTranslatePaperToChinese(c.Request.Context(), req.Title, req.Abstract, req.TLDR, w)
 	if err != nil {
-		sse.WriteError(c.Writer, err.Error())
+		sse.WriteError(w, err.Error())
 		return
 	}
 
-	sse.WriteDone(c.Writer)
+	sse.WriteDone(w)
 }

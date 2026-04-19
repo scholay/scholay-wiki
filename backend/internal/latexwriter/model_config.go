@@ -116,7 +116,7 @@ func (r *AgentModelRepository) GetDefaultModel() (*AgentModel, error) {
 	err := r.db.Where("is_default = ? AND is_enabled = ?", true, true).First(&model).Error
 	if err != nil {
 		// 如果没有默认模型，返回第一个启用的模型
-		err = r.db.Where("is_enabled = ?", true).Order("sort_order ASC").First(&model).Error
+		err = r.db.Where("is_enabled = ?", true).Order("sort_order ASC, id ASC").First(&model).Error
 		if err != nil {
 			return nil, err
 		}

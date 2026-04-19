@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"scholar-backend/internal/common/cache"
+	"scholar-backend/internal/common/safego"
 )
 
 // SearchPapersBulk searches for papers using bulk endpoint with advanced features
@@ -259,11 +260,11 @@ func (c *Client) GetPaper(ctx context.Context, paperID string, opts PaperDetails
 	}
 
 	// Cache the result (async) with fields parameter for unique cache key
-	go func() {
+	safego.Go("s2-cache-paper-details", func() {
 		if err := cache.CachePaperDetails(context.Background(), paperID, opts.Fields, &result); err != nil {
 			slog.Warn("failed to cache paper details", "err", err)
 		}
-	}()
+	})
 
 	return &result, nil
 }

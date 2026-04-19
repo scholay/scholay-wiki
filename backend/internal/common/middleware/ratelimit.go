@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log/slog"
 	"scholar-backend/internal/common/cache"
+	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/utils"
 	"sync"
 	"time"
@@ -72,7 +73,7 @@ func (rl *RateLimiter) Allow(key string) bool {
 // StartCleanup 定时清理过期的限流器条目
 func (rl *RateLimiter) StartCleanup(interval time.Duration) {
 	ticker := time.NewTicker(interval)
-	go func() {
+	safego.Go("ratelimit-cleanup", func() {
 		defer ticker.Stop()
 		for {
 			select {
@@ -82,7 +83,7 @@ func (rl *RateLimiter) StartCleanup(interval time.Duration) {
 				return
 			}
 		}
-	}()
+	})
 }
 
 // Stop 停止清理协程
@@ -117,6 +118,66 @@ func RateLimitMiddleware(maxRequests int, windowSize time.Duration) gin.HandlerF
 			return
 		}
 
+		c.Next()
+	}
+}
+
+// TieredRateLimitOptions 分级限流配置。
+type TieredRateLimitOptions struct {
+	IPRPS         int     // 匿名/未认证按 IP 限的每秒请求数
+	IPBurst       int     // IP 令牌桶突发
+	UserRPS       int     // 普通认证用户每秒请求数
+	UserBurst     int     // 用户令牌桶突发
+	VIPMultiplier float64 // VIP/付费用户的速率倍数（>=1）
+}
+
+// TieredRateLimitMiddleware 分级限流：
+//   - 已认证用户按 user_id 限流；context 中有 is_vip=true 时限额按 VIPMultiplier 放大
+//   - 未认证请求 fallback 为 IP 限流
+//
+// 需要在 UserAuthMiddleware / OptionalUserAuthMiddleware 之后挂载，
+// 否则 user_id / is_vip 尚未写入 context，会全部走 IP 路径。
+func TieredRateLimitMiddleware(opts TieredRateLimitOptions) gin.HandlerFunc {
+	if opts.VIPMultiplier < 1 {
+		opts.VIPMultiplier = 1
+	}
+
+	ipLimiter := NewRateLimiter(opts.IPRPS, time.Second)
+	ipLimiter.burst = opts.IPBurst
+	ipLimiter.StartCleanup(5 * time.Minute)
+
+	userLimiter := NewRateLimiter(opts.UserRPS, time.Second)
+	userLimiter.burst = opts.UserBurst
+	userLimiter.StartCleanup(5 * time.Minute)
+
+	vipRate := rate.Every(time.Second / time.Duration(float64(opts.UserRPS)*opts.VIPMultiplier))
+	vipBurst := int(float64(opts.UserBurst) * opts.VIPMultiplier)
+	vipLimiter := &RateLimiter{
+		limiters:    make(map[string]*rateLimiterEntry),
+		rateLimit:   vipRate,
+		burst:       vipBurst,
+		stopCleanup: make(chan struct{}),
+	}
+	vipLimiter.StartCleanup(5 * time.Minute)
+
+	return func(c *gin.Context) {
+		var allowed bool
+		if uidRaw, ok := c.Get("user_id"); ok {
+			key := fmt.Sprintf("uid:%v", uidRaw)
+			if vip, _ := c.Get("is_vip"); vip == true {
+				allowed = vipLimiter.Allow(key)
+			} else {
+				allowed = userLimiter.Allow(key)
+			}
+		} else {
+			allowed = ipLimiter.Allow("ip:" + c.ClientIP())
+		}
+
+		if !allowed {
+			utils.TooManyRequests(c, "请求过于频繁，请稍后再试")
+			c.Abort()
+			return
+		}
 		c.Next()
 	}
 }

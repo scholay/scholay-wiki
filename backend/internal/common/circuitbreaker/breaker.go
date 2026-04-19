@@ -8,7 +8,6 @@
 package circuitbreaker
 
 import (
-	"log/slog"
 	"time"
 
 	"github.com/sony/gobreaker"
@@ -25,7 +24,7 @@ var (
 			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
 			return counts.Requests >= 3 && failureRatio >= 0.6
 		},
-		OnStateChange: onStateChange,
+		OnStateChange: onStateChangeWithStats,
 	})
 
 	// AIServiceStreamBreaker protects streaming AI service calls (chat, analysis).
@@ -39,7 +38,7 @@ var (
 			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
 			return counts.Requests >= 10 && failureRatio >= 0.8
 		},
-		OnStateChange: onStateChange,
+		OnStateChange: onStateChangeWithStats,
 	})
 
 	// AIServiceBreaker protects non-streaming AI service calls (translation, tool calls)
@@ -52,7 +51,7 @@ var (
 			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
 			return counts.Requests >= 10 && failureRatio >= 0.8
 		},
-		OnStateChange: onStateChange,
+		OnStateChange: onStateChangeWithStats,
 	})
 
 	// MinicodBreaker protects Minicod API calls
@@ -65,7 +64,7 @@ var (
 			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
 			return counts.Requests >= 3 && failureRatio >= 0.6
 		},
-		OnStateChange: onStateChange,
+		OnStateChange: onStateChangeWithStats,
 	})
 
 	// ProxyServiceBreaker protects proxy API calls
@@ -78,15 +77,24 @@ var (
 			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
 			return counts.Requests >= 10 && failureRatio >= 0.7
 		},
-		OnStateChange: onStateChange,
+		OnStateChange: onStateChangeWithStats,
 	})
 )
-
-func onStateChange(name string, from gobreaker.State, to gobreaker.State) {
-	slog.Warn("Circuit breaker state changed", "name", name, "from", from.String(), "to", to.String())
-}
 
 // IsCircuitBreakerError checks if an error is from circuit breaker being open
 func IsCircuitBreakerError(err error) bool {
 	return err == gobreaker.ErrOpenState || err == gobreaker.ErrTooManyRequests
+}
+
+// init 预注册所有 breaker 到 stats 表，保证 Stats() 在任何 state 变更前就能列出所有熔断器。
+func init() {
+	for _, name := range []string{
+		"SemanticScholar",
+		"AIServiceStream",
+		"AIService",
+		"Minicod",
+		"ProxyService",
+	} {
+		registerBreaker(name)
+	}
 }

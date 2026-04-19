@@ -16,9 +16,9 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	"scholar-backend/internal/common/circuitbreaker"
+	"scholar-backend/internal/common/safego"
 )
 
 // ============================================================================
@@ -42,19 +42,11 @@ func NewOpenAIAdapter(config *ProviderConfig) (LLMProvider, error) {
 		config.Model = "gpt-4"
 	}
 
-	// 创建 HTTP 客户端（使用连接池）
-	httpClient := &http.Client{
-		Timeout: 5 * time.Minute, // 长时间超时，支持流式响应
-		Transport: &http.Transport{
-			MaxIdleConns:        100,
-			MaxIdleConnsPerHost: 100,
-			IdleConnTimeout:     90 * time.Second,
-		},
-	}
-
+	// 复用共享连接池（common/httpclient），每个 adapter 不再自建 Client，
+	// 避免连接池碎片化。流式请求在 streamChat* 内部切换到 Streaming 客户端。
 	adapter := &OpenAIAdapter{
 		config:     config,
-		httpClient: httpClient,
+		httpClient: GetHTTPClient(),
 		modelInfo:  inferModelInfo(config.Model),
 	}
 
@@ -117,12 +109,12 @@ func (a *OpenAIAdapter) Chat(ctx context.Context, req *LLMRequest) (*LLMResponse
 func (a *OpenAIAdapter) StreamChat(ctx context.Context, req *LLMRequest) (<-chan *LLMStreamChunk, error) {
 	ch := make(chan *LLMStreamChunk, 100)
 
-	go func() {
+	safego.Go("ai-openai-stream", func() {
 		defer close(ch)
 
 		// 构建请求
 		openaiReq := a.buildOpenAIRequest(req, nil, true)
-		
+
 		respBody, err := a.doRequest(ctx, openaiReq)
 		if err != nil {
 			ch <- &LLMStreamChunk{Error: err, Done: true}
@@ -132,7 +124,7 @@ func (a *OpenAIAdapter) StreamChat(ctx context.Context, req *LLMRequest) (<-chan
 
 		// 解析流式响应
 		a.parseStreamResponse(respBody, ch)
-	}()
+	})
 
 	return ch, nil
 }
@@ -323,7 +315,7 @@ func (a *OpenAIAdapter) doRequest(ctx context.Context, req *openAIRequest) (io.R
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
-			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+			return nil, fmt.Errorf("%s %d): %s", APIErrorPrefix, resp.StatusCode, string(body))
 		}
 
 		return resp.Body, nil

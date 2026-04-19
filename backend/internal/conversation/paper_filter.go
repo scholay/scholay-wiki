@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"scholar-backend/internal/ai"
+	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/mcp"
 	"scholar-backend/internal/thirdparty"
 )
@@ -146,29 +147,30 @@ func (s *Service) filterPapersInBatches(ctx context.Context, papers []map[string
 	var wg sync.WaitGroup
 	for _, batch := range batches {
 		wg.Add(1)
-		go func(b batchInfo) {
+		b := batch
+		safego.Go("paper-filter-score-batch", func() {
 			defer wg.Done()
-			
+
 			// 获取信号量
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
-			
+
 			slog.Debug("scoring batch", "batch", b.batchNum, "totalBatches", totalBatches, "papers", len(b.papers))
-			
+
 			scoredPapers, err := s.scoreSingleBatch(ctx, b.papers, userQuery)
 			resultChan <- batchResult{
 				batchNum: b.batchNum,
 				papers:   scoredPapers,
 				err:      err,
 			}
-		}(batch)
+		})
 	}
-	
+
 	// 等待所有批次完成
-	go func() {
+	safego.Go("paper-filter-close-results", func() {
 		wg.Wait()
 		close(resultChan)
-	}()
+	})
 	
 	// 收集结果
 	var allScoredPapers []ScoredPaper

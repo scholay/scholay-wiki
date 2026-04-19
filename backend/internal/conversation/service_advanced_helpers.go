@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"scholar-backend/internal/ai"
+	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/mcp"
 	"scholar-backend/internal/semanticscholar"
 )
@@ -159,7 +160,7 @@ func (s *Service) parallelSearchPapers(
 
 	if bulkArgs != nil {
 		wg.Add(1)
-		go func() {
+		safego.Go("parallel-search-bulk", func() {
 			defer wg.Done()
 			slog.Debug("channel 1 (bulk) started")
 			bulkResult, bulkErr = s.SearchAndFilterPapers(ctx, mcpServer, bulkArgs, userQuery, DefaultPaperFilterConfig)
@@ -168,12 +169,12 @@ func (s *Service) parallelSearchPapers(
 			} else {
 				slog.Debug("channel 1 (bulk) completed", "paper_count", len(bulkResult.Papers))
 			}
-		}()
+		})
 	}
 
 	if relevanceArgs != nil {
 		wg.Add(1)
-		go func() {
+		safego.Go("parallel-search-relevance", func() {
 			defer wg.Done()
 			slog.Debug("channel 2 (relevance) started")
 			relevanceResult, relevanceErr = s.SearchAndFilterPapersRelevance(ctx, mcpServer, relevanceArgs, userQuery, DefaultPaperFilterConfig)
@@ -182,7 +183,7 @@ func (s *Service) parallelSearchPapers(
 			} else {
 				slog.Debug("channel 2 (relevance) completed", "paper_count", len(relevanceResult.Papers))
 			}
-		}()
+		})
 	}
 
 	wg.Wait()

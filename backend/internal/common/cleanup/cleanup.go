@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"time"
 
+	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/hotcontent"
 
 	"gorm.io/gorm"
@@ -45,10 +46,18 @@ func (s *CleanupService) SetHotContentService(service *hotcontent.Service) {
 func (s *CleanupService) Start() {
 	slog.Info("Starting cleanup service")
 
-	go s.runPeriodic("expired_sessions", 1*time.Hour, s.cleanExpiredSessions)
-	go s.runDaily("old_snapshots", 3, 0, s.cleanOldSnapshots)
-	go s.runDaily("old_usage_logs", 4, 0, s.cleanOldUsageLogs)
-	go s.runDaily("hot_content", 4, 30, s.cleanHotContent)
+	safego.Go("cleanup-expired-sessions", func() {
+		s.runPeriodic("expired_sessions", 1*time.Hour, s.cleanExpiredSessions)
+	})
+	safego.Go("cleanup-old-snapshots", func() {
+		s.runDaily("old_snapshots", 3, 0, s.cleanOldSnapshots)
+	})
+	safego.Go("cleanup-old-usage-logs", func() {
+		s.runDaily("old_usage_logs", 4, 0, s.cleanOldUsageLogs)
+	})
+	safego.Go("cleanup-hot-content", func() {
+		s.runDaily("hot_content", 4, 30, s.cleanHotContent)
+	})
 
 	slog.Info("Cleanup service started")
 }

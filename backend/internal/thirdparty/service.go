@@ -14,6 +14,8 @@ import (
 	"math/rand"
 	"sync"
 	"time"
+
+	"scholar-backend/internal/common/safego"
 )
 
 // Service handles business logic for third-party accounts
@@ -370,7 +372,7 @@ func (s *Service) GetStats() (map[string]any, error) {
 // StartCacheRefreshTask starts a background task to refresh cache periodically
 func (s *Service) StartCacheRefreshTask(interval time.Duration) {
 	ticker := time.NewTicker(interval)
-	go func() {
+	safego.Go("thirdparty-cache-refresh", func() {
 		defer ticker.Stop()
 		slog.Info("third-party account cache refresh task started")
 
@@ -385,7 +387,7 @@ func (s *Service) StartCacheRefreshTask(interval time.Duration) {
 				return
 			}
 		}
-	}()
+	})
 }
 
 // Stop gracefully stops the cache refresh task

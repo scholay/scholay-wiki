@@ -83,7 +83,8 @@ func (r *Repository) List(req *FeedbackListRequest) (*FeedbackListResponse, erro
 
 	// 分页
 	offset := (req.Page - 1) * req.PageSize
-	if err := query.Order("created_at DESC").Offset(offset).Limit(req.PageSize).Find(&feedbacks).Error; err != nil {
+	// id DESC tiebreaker：避免同时间反馈在 OFFSET 分页中漏页/重复
+	if err := query.Order("created_at DESC, id DESC").Offset(offset).Limit(req.PageSize).Find(&feedbacks).Error; err != nil {
 		return nil, err
 	}
 

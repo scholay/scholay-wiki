@@ -85,8 +85,8 @@ func (r *Repository) ListTemplates(req *TemplateListRequest) ([]MessageTemplate,
 		return nil, 0, err
 	}
 
-	// 分页
-	err := query.Order("created_at DESC").
+	// 分页：id DESC tiebreaker 防止同时间记录漏页/重复
+	err := query.Order("created_at DESC, id DESC").
 		Scopes(database.Paginate(req.Page, req.PageSize)).
 		Find(&templates).Error
 	return templates, total, err
@@ -149,8 +149,8 @@ func (r *Repository) ListMessages(req *MessageListRequest) ([]Message, int64, er
 		return nil, 0, err
 	}
 
-	// 分页
-	err := query.Order("created_at DESC").
+	// 分页：id DESC tiebreaker 防止同时间消息漏页/重复
+	err := query.Order("created_at DESC, id DESC").
 		Scopes(database.Paginate(req.Page, req.PageSize)).
 		Find(&messages).Error
 	return messages, total, err
@@ -280,8 +280,8 @@ func (r *Repository) ListUserMessages(userID uint, req *UserMessageListRequest) 
 		return nil, 0, err
 	}
 
-	// 分页
-	err := query.Order("user_messages.created_at DESC").
+	// 分页：user_messages.id DESC tiebreaker 防止同时间消息漏页/重复
+	err := query.Order("user_messages.created_at DESC, user_messages.id DESC").
 		Scopes(database.Paginate(req.Page, req.PageSize)).
 		Find(&messages).Error
 	return messages, total, err

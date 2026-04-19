@@ -11,6 +11,8 @@ import (
 	"log/slog"
 	"sync"
 	"time"
+
+	"scholar-backend/internal/common/safego"
 )
 
 // Cache PDF 缓存（内存缓存）
@@ -34,7 +36,7 @@ func NewCache(ttl time.Duration) *Cache {
 	}
 
 	// 启动清理协程
-	go c.cleanupLoop()
+	safego.Go("pdf-cache-cleanup", c.cleanupLoop)
 
 	return c
 }

@@ -17,6 +17,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"scholar-backend/internal/common/httpclient"
 )
 
 // 外部 PDF 服务地址
@@ -31,15 +33,8 @@ type Service struct {
 // NewService 创建 PDF 服务
 func NewService(unpaywallEmail string) *Service {
 	return &Service{
-		httpClient: &http.Client{
-			Timeout: 120 * time.Second, // PDF 文件可能较大，增加超时
-			Transport: &http.Transport{
-				MaxIdleConns:        100,
-				MaxIdleConnsPerHost: 10,
-				IdleConnTimeout:     90 * time.Second,
-			},
-		},
-		cache: NewCache(24 * time.Hour), // 缓存 24 小时
+		httpClient: httpclient.WithTimeout(120 * time.Second), // PDF 文件可能较大，复用共享连接池
+		cache:      NewCache(24 * time.Hour),                  // 缓存 24 小时
 	}
 }
 

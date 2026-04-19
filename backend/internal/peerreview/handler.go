@@ -484,11 +484,12 @@ func (h *Handler) WatchTaskProgress(c *gin.Context) {
 		return
 	}
 
-	sse.SetHeaders(c)
+	w, stop := sse.BeginStream(c)
+	defer stop()
 
-	err := h.service.WatchTaskProgress(userID, taskID, anonToken, c.Writer)
+	err := h.service.WatchTaskProgress(userID, taskID, anonToken, w)
 	if err != nil {
-		sse.WriteError(c.Writer, err.Error())
+		sse.WriteError(w, err.Error())
 	}
 }
 

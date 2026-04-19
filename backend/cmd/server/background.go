@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"scholar-backend/internal/common/database"
+	"scholar-backend/internal/common/safego"
 )
 
 // userSnapshotRecorder 用于记录在线用户快照的接口
@@ -26,7 +27,7 @@ func startBackgroundTasks(ctx context.Context, userService userSnapshotRecorder)
 	database.StartConnectionPoolMonitoring(ctx, 5*time.Minute)
 
 	// 每 5 分钟记录在线用户快照
-	go func() {
+	safego.Go("online-user-snapshot", func() {
 		ticker := time.NewTicker(5 * time.Minute)
 		defer ticker.Stop()
 
@@ -47,5 +48,5 @@ func startBackgroundTasks(ctx context.Context, userService userSnapshotRecorder)
 				return
 			}
 		}
-	}()
+	})
 }

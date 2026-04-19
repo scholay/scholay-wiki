@@ -22,6 +22,7 @@ import (
 	"scholar-backend/internal/ai/prompts"
 	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/circuitbreaker"
+	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/thirdparty"
 )
 
@@ -59,16 +60,19 @@ func NewService(db *gorm.DB, accountService *thirdparty.Service) *Service {
 // AI 重试相关常量
 const AIMaxRetries = 5
 
-// isAIRetryableError 检查是否是可重试的 AI 错误
-// 只要是 API 错误（非 200 响应）都应该重试，切换到其他账号
+// APIErrorPrefix 是 AI 上游非 200 响应生成的错误前缀。
+// 所有 adapter / service_chat / service_analysis 构造 upstream 错误时必须用它，
+// 这样 isAIRetryableError 通过单一字符串匹配就能识别可切账号重试的错误。
+// 不区分具体 status code：401/403/429/5xx 都进入账号轮换流程。
+const APIErrorPrefix = "API error (status"
+
+// isAIRetryableError 检查是否是可重试的 AI 错误。
+// 判定规则：错误文案以 APIErrorPrefix 开头的上游响应都会触发账号切换重试。
 func isAIRetryableError(err error) bool {
 	if err == nil {
 		return false
 	}
-	errStr := err.Error()
-	// 所有 "API error (status xxx)" 格式的错误都是非200响应，都应该重试
-	// 这包括 401/403/429/500/502/503 等所有非 200 错误
-	return strings.Contains(errStr, "API error (status")
+	return strings.Contains(err.Error(), APIErrorPrefix)
 }
 
 // aiAttemptFn is the per-attempt callback used by executeWithRetry.
@@ -87,6 +91,10 @@ func (s *Service) executeWithRetry(ctx context.Context, modelLevel thirdparty.Mo
 		config, accountID, err := s.accountService.GetRandomAIModelConfigByLevelExcluding(modelLevel, excludeAccountIDs)
 		if err != nil {
 			lastErr = err
+			// 账号池已耗尽：再循环只是重复同一个错误，直接提前退出避免空转。
+			if len(excludeAccountIDs) > 0 {
+				break
+			}
 			continue
 		}
 
@@ -187,7 +195,7 @@ func (s *Service) TranslateToEnglish(ctx context.Context, query string) (string,
 
 	// 4. 存入Redis缓存（异步，失败不影响返回）
 	// 使用结构体缓存，支持缓存空值
-	go func() {
+	safego.Go("ai-cache-translation", func() {
 		cacheResult := translationCacheResult{
 			Cached:      true,
 			Translation: translatedText,
@@ -201,7 +209,7 @@ func (s *Service) TranslateToEnglish(ctx context.Context, query string) (string,
 				slog.Debug("Translation cached", "query", query, "translation", translatedText)
 			}
 		}
-	}()
+	})
 
 	return translatedText, nil
 }
@@ -265,7 +273,7 @@ func (s *Service) GetSearchSuggestions(ctx context.Context, query string) ([]str
 	suggestions := parseSearchSuggestions(responseText)
 
 	// 5. 存入Redis缓存（异步，失败不影响返回）
-	go func() {
+	safego.Go("ai-cache-suggestions", func() {
 		cacheResult := suggestionsCacheResult{
 			Cached:      true,
 			Suggestions: suggestions,
@@ -275,7 +283,7 @@ func (s *Service) GetSearchSuggestions(ctx context.Context, query string) ([]str
 		} else {
 			slog.Debug("Suggestions cached", "query", query, "suggestions", suggestions)
 		}
-	}()
+	})
 
 	return suggestions, nil
 }

@@ -19,7 +19,6 @@ import (
 	"strings"
 	"time"
 
-	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/httpclient"
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
@@ -80,11 +79,7 @@ func (h *Handler) GetGithubLoginURL(c *gin.Context) {
 	}
 
 	// Generate state token for CSRF protection and store in Redis
-	state := utils.GenerateRandomString(32)
-	redisClient := cache.GetRedis()
-	if redisClient != nil {
-		redisClient.Set(c.Request.Context(), "oauth_state:"+state, "1", 5*time.Minute)
-	}
+	state := issueOAuthState(c, "oauth_state:")
 
 	authURL := fmt.Sprintf(
 		"https://github.com/login/oauth/authorize?client_id=%s&redirect_uri=%s&state=%s&scope=user:email",
@@ -111,17 +106,9 @@ func (h *Handler) GithubCallback(c *gin.Context) {
 	}
 
 	// Server-side state validation to prevent CSRF/OAuth account binding attacks
-	if state != "" {
-		redisClient := cache.GetRedis()
-		if redisClient != nil {
-			stateKey := "oauth_state:" + state
-			result, err := redisClient.Get(c.Request.Context(), stateKey).Result()
-			if err != nil || result != "1" {
-				utils.ErrorResponse(c, http.StatusBadRequest, "Invalid or expired OAuth state")
-				return
-			}
-			redisClient.Del(c.Request.Context(), stateKey)
-		}
+	if !validateOAuthState(c, "oauth_state:", state) {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid or expired OAuth state")
+		return
 	}
 
 	// Get GitHub OAuth config
@@ -161,33 +148,13 @@ func (h *Handler) GithubCallback(c *gin.Context) {
 		return
 	}
 
-	// Generate JWT token
-	username := ""
-	if user.Username != nil {
-		username = *user.Username
-	}
-	role := "user"
-	if user.Role != "" {
-		role = user.Role
-	}
-	token, err := utils.GenerateTokenWithRole(user.ID, username, "user", role)
+	token, err := issueTokenAndSession(h, c, user, ip)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to generate token")
 		return
 	}
 
-	// Update last login time and IP
-	_ = h.service.UpdateLastLoginWithIP(user.ID, ip)
-
-	// Create session (single sign-on)
-	userAgent := c.GetHeader("User-Agent")
-	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour)
-
-	utils.SuccessResponse(c, http.StatusOK, "success", gin.H{
-		"token":       token,
-		"user":        user,
-		"is_new_user": isNewUser,
-	})
+	respondOAuthSuccess(c, token, user, isNewUser)
 }
 
 // exchangeGithubCode exchanges authorization code for access token
@@ -393,7 +360,7 @@ func (h *Handler) findOrCreateGithubUser(githubUser *GithubUser, invitationCode 
 			return nil, false, err
 		}
 
-		go h.service.SendWelcomeMessage(user.ID)
+		h.service.SendWelcomeMessage(user.ID)
 		// Note: last login time and IP will be updated in GithubCallback after this function returns
 	}
 	// Note: last login time and IP will be updated in GithubCallback after this function returns

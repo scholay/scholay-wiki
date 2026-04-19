@@ -16,9 +16,9 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	"scholar-backend/internal/common/circuitbreaker"
+	"scholar-backend/internal/common/safego"
 )
 
 // ============================================================================
@@ -42,19 +42,9 @@ func NewAnthropicAdapter(config *ProviderConfig) (LLMProvider, error) {
 		config.Model = "claude-3-opus-20240229"
 	}
 
-	// 创建 HTTP 客户端
-	httpClient := &http.Client{
-		Timeout: 5 * time.Minute,
-		Transport: &http.Transport{
-			MaxIdleConns:        100,
-			MaxIdleConnsPerHost: 100,
-			IdleConnTimeout:     90 * time.Second,
-		},
-	}
-
 	adapter := &AnthropicAdapter{
 		config:     config,
-		httpClient: httpClient,
+		httpClient: GetHTTPClient(),
 		modelInfo:  inferAnthropicModelInfo(config.Model),
 	}
 
@@ -106,11 +96,11 @@ func (a *AnthropicAdapter) Chat(ctx context.Context, req *LLMRequest) (*LLMRespo
 func (a *AnthropicAdapter) StreamChat(ctx context.Context, req *LLMRequest) (<-chan *LLMStreamChunk, error) {
 	ch := make(chan *LLMStreamChunk, 100)
 
-	go func() {
+	safego.Go("ai-anthropic-stream", func() {
 		defer close(ch)
 
 		anthropicReq := a.buildAnthropicRequest(req, nil, true)
-		
+
 		respBody, err := a.doRequest(ctx, anthropicReq)
 		if err != nil {
 			ch <- &LLMStreamChunk{Error: err, Done: true}
@@ -119,7 +109,7 @@ func (a *AnthropicAdapter) StreamChat(ctx context.Context, req *LLMRequest) (<-c
 		defer respBody.Close()
 
 		a.parseStreamResponse(respBody, ch)
-	}()
+	})
 
 	return ch, nil
 }
@@ -407,7 +397,7 @@ func (a *AnthropicAdapter) doRequest(ctx context.Context, req *anthropicRequest)
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
-			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+			return nil, fmt.Errorf("%s %d): %s", APIErrorPrefix, resp.StatusCode, string(body))
 		}
 
 		return resp.Body, nil

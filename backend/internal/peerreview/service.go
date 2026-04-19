@@ -28,11 +28,12 @@ import (
 
 // Service 审稿服务
 type Service struct {
-	db              *gorm.DB
-	aiService       *ai.Service
-	mcpServer       *mcp.MCPServer
+	db             *gorm.DB
+	aiService      *ai.Service
+	mcpServer      *mcp.MCPServer
 	accountService *thirdparty.Service
-	uploadPath     string // 文件上传路径
+	uploadPath     string          // 文件上传路径
+	rootCtx        context.Context // shutdown-aware parent for async tasks
 }
 
 // NewService 创建审稿服务
@@ -42,7 +43,16 @@ func NewService(db *gorm.DB, aiService *ai.Service, mcpServer *mcp.MCPServer, ac
 		aiService:      aiService,
 		mcpServer:      mcpServer,
 		accountService: accountService,
-		uploadPath:     "/app/uploads", // 默认上传路径
+		uploadPath:     "/app/uploads",
+		rootCtx:        context.Background(),
+	}
+}
+
+// SetRootContext 注入进程级 ctx，异步任务（processTaskAsync…）会以它为父 ctx，
+// 进程关停时一并 cancel，避免 60min 超时任务脱离 shutdown 掌控。
+func (s *Service) SetRootContext(ctx context.Context) {
+	if ctx != nil {
+		s.rootCtx = ctx
 	}
 }
 

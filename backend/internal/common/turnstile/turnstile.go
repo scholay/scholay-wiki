@@ -15,6 +15,7 @@ import (
 	"io"
 	"net/http"
 	"scholar-backend/internal/common/config"
+	"scholar-backend/internal/common/httpclient"
 	"scholar-backend/internal/common/model"
 	"time"
 )
@@ -40,9 +41,7 @@ const (
 	verifyURL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 )
 
-var httpClient = &http.Client{
-	Timeout: 10 * time.Second,
-}
+var httpClient = httpclient.WithTimeout(10 * time.Second)
 
 // VerifyToken verifies a Turnstile token with Cloudflare
 func VerifyToken(ctx context.Context, token string, remoteIP string) (*VerifyResponse, error) {

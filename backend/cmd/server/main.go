@@ -27,6 +27,7 @@ import (
 	"scholar-backend/internal/common/database"
 	"scholar-backend/internal/common/logger"
 	"scholar-backend/internal/common/middleware"
+	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/telemetry"
 	"scholar-backend/internal/peerreview"
 
@@ -37,6 +38,11 @@ import (
 func main() {
 	// Load configuration
 	cfg := appconfig.Load()
+	// Fail-fast：release 模式下默认密钥/密码、SigNoz 启用但 endpoint 缺失等会立即终止启动，
+	// 避免线上跑成 debug-grade 配置。
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("Configuration validation failed: %v", err)
+	}
 
 	// Initialize structured logging
 	logger.Init()
@@ -110,11 +116,12 @@ func main() {
 	// Bootstrap all application services and DI wiring
 	svc := bootstrapServices(cfg)
 
-	// 启动隐私审稿数据定期清理（每小时检查一次过期的隐私任务）
-	startPrivateTaskCleanup(svc.peerReviewService)
-
 	// Setup Gin router
-	router := gin.Default()
+	// 用 gin.New() 替代 gin.Default()：自定义 Recovery 增加 trace_id/结构化日志，
+	// 同时保留 gin.Logger() 行为。
+	router := gin.New()
+	router.Use(gin.Logger())
+	router.Use(middleware.RecoveryMiddleware())
 	router.Use(middleware.CORSMiddleware())
 
 	if cfg.SigNoz.EnableTracing {
@@ -125,14 +132,19 @@ func main() {
 	}
 
 	router.Use(middleware.BodyLimitMiddleware(middleware.DefaultMaxBodySize))
-	router.Use(middleware.RateLimitMiddleware(100, 1*time.Second))
+	// 第一道限流：全局 IP 限流（DoS 防护），参数从 RATE_LIMIT_IP_RPS 读取。
+	// 第二道限流：见 TieredRateLimitMiddleware，在认证路由组内按 user_id 限流（待挂载）。
+	router.Use(middleware.RateLimitMiddleware(cfg.RateLimit.IPRPS, 1*time.Second))
 	router.Use(middleware.APITimeoutMiddleware())
 
-	registerRoutes(router, svc.handlers)
+	registerRoutes(router, svc.handlers, cfg)
 
 	bgCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	svc.peerReviewService.SetRootContext(bgCtx)
 	startBackgroundTasks(bgCtx, svc.userService)
+	// 隐私审稿数据定期清理（每小时检查一次过期的隐私任务）
+	startPrivateTaskCleanup(bgCtx, svc.peerReviewService)
 
 	// Setup graceful shutdown
 	quit := make(chan os.Signal, 1)
@@ -153,11 +165,11 @@ func main() {
 
 	slog.Info("Server starting", "addr", addr)
 
-	go func() {
+	safego.Go("http-server-listen", func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start server: %v", err)
 		}
-	}()
+	})
 
 	<-quit
 	slog.Info("Shutting down server")
@@ -180,22 +192,27 @@ func main() {
 		slog.Error("Error closing WebSocket hub", "err", err)
 	}
 
-	time.Sleep(2 * time.Second)
-
 	slog.Info("Server stopped")
 }
 
-// startPrivateTaskCleanup 启动隐私审稿任务清理 goroutine
-func startPrivateTaskCleanup(peerReviewService *peerreview.Service) {
-	go func() {
+// startPrivateTaskCleanup 启动隐私审稿任务清理 goroutine。
+// ctx 关闭时停止 ticker，避免 server 退出后仍在后台跑。
+func startPrivateTaskCleanup(ctx context.Context, peerReviewService *peerreview.Service) {
+	safego.Go("private-task-cleanup", func() {
 		ticker := time.NewTicker(1 * time.Hour)
 		defer ticker.Stop()
-		for range ticker.C {
-			if cleaned, err := peerReviewService.CleanupExpiredPrivateTasks(); err != nil {
-				slog.Error("Failed to cleanup expired private tasks", "error", err)
-			} else if cleaned > 0 {
-				slog.Info("Cleaned up expired private review tasks", "count", cleaned)
+		for {
+			select {
+			case <-ctx.Done():
+				slog.Info("Private task cleanup stopped")
+				return
+			case <-ticker.C:
+				if cleaned, err := peerReviewService.CleanupExpiredPrivateTasks(); err != nil {
+					slog.Error("Failed to cleanup expired private tasks", "error", err)
+				} else if cleaned > 0 {
+					slog.Info("Cleaned up expired private review tasks", "count", cleaned)
+				}
 			}
 		}
-	}()
+	})
 }

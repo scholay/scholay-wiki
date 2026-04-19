@@ -9,6 +9,7 @@ package cache
 
 import (
 	"context"
+	cryptorand "crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -73,8 +74,8 @@ func InitRedis(host string, port string, password string, db int) error {
 		DialTimeout:  5 * time.Second,
 		ReadTimeout:  10 * time.Second,  // Increased from 3s to prevent premature timeouts
 		WriteTimeout: 10 * time.Second,  // Increased from 3s to prevent premature timeouts
-		PoolSize:     100,               // Increased from 10 to match database connection pool scale
-		MinIdleConns: 25,                // Increased from 5 to keep more warm connections
+		PoolSize:     150,               // 高并发下为每个逻辑处理器预留足够连接，避免 Wait 队列累积
+		MinIdleConns: 40,                // 维持更多热连接，冷启动或突发流量时减少握手延迟
 	})
 
 	// Test connection
@@ -194,33 +195,6 @@ func GetOrSet(ctx context.Context, key string, expiration time.Duration, fetch f
 	return json.Unmarshal(value.([]byte), result)
 }
 
-// InvalidatePattern deletes all keys matching a pattern
-func InvalidatePattern(ctx context.Context, pattern string) error {
-	const batchSize = 100
-	var cursor uint64
-
-	for {
-		keys, nextCursor, err := rdb.Scan(ctx, cursor, pattern, int64(batchSize)).Result()
-		if err != nil {
-			return err
-		}
-		if len(keys) > 0 {
-			pipe := rdb.Pipeline()
-			for _, k := range keys {
-				pipe.Del(ctx, k)
-			}
-			if _, err := pipe.Exec(ctx); err != nil {
-				return err
-			}
-		}
-		cursor = nextCursor
-		if cursor == 0 {
-			break
-		}
-	}
-	return nil
-}
-
 // SetNX sets a key only if it doesn't exist (used for distributed locks)
 func SetNX(ctx context.Context, key string, value string, expiration time.Duration) (bool, error) {
 	return rdb.SetNX(ctx, key, value, expiration).Result()
@@ -263,6 +237,8 @@ func SCard(ctx context.Context, key string) (int64, error) {
 
 // TryLock attempts to acquire a distributed lock.
 // Returns true if lock was acquired. Caller should defer Unlock.
+// ⚠️ 简单版：不带 owner token，任何持有 key 的进程都会被它"解锁"。适合短 TTL + 单点互斥场景。
+// 对长时间任务请用 RunWithLock，它带续期 + owner-scoped 释放。
 func TryLock(ctx context.Context, key string, ttl time.Duration) (bool, error) {
 	return rdb.SetNX(ctx, "dlock:"+key, "1", ttl).Result()
 }
@@ -272,15 +248,85 @@ func Unlock(ctx context.Context, key string) {
 	rdb.Del(ctx, "dlock:"+key)
 }
 
-// RunWithLock runs fn only if the distributed lock is acquired.
-// Useful for ensuring only one instance runs a scheduled task.
+// unlockIfOwnerScript 只在 value 匹配 owner token 时删除 key，避免误删别的进程刚抢到的锁。
+// 原生 SETNX+DEL 组合在锁过期后又被别人抢占的场景下会误删，出现并发执行。
+var unlockIfOwnerScript = redis.NewScript(`
+if redis.call("get", KEYS[1]) == ARGV[1] then
+	return redis.call("del", KEYS[1])
+else
+	return 0
+end
+`)
+
+// extendIfOwnerScript 只在 value 匹配时续期 TTL，防止"锁已易主"的误续期。
+var extendIfOwnerScript = redis.NewScript(`
+if redis.call("get", KEYS[1]) == ARGV[1] then
+	return redis.call("pexpire", KEYS[1], ARGV[2])
+else
+	return 0
+end
+`)
+
+// RunWithLock 在分布式锁保护下执行 fn。带两项关键保障：
+//  1. 随机 owner token：避免 fn 执行超过 TTL 后锁已过期被别人抢到，本进程 Unlock 误删他人锁；
+//  2. 后台续期（每 ttl/3 pexpire 一次）：fn 执行超时不会因为 TTL 到期而丢失互斥性。
+//
+// 任何一种失败（未抢到锁 / fn panic）都会安全释放锁。
 func RunWithLock(ctx context.Context, lockKey string, ttl time.Duration, fn func()) {
-	acquired, err := TryLock(ctx, lockKey, ttl)
-	if err != nil || !acquired {
+	if ttl <= 0 {
 		return
 	}
-	defer Unlock(ctx, lockKey)
+	fullKey := "dlock:" + lockKey
+	token := genLockToken()
+	ok, err := rdb.SetNX(ctx, fullKey, token, ttl).Result()
+	if err != nil || !ok {
+		return
+	}
+
+	// 启动续期 goroutine：每 ttl/3 续一次（经典做法，留足重试窗口）。
+	renewCtx, cancelRenew := context.WithCancel(ctx)
+	renewDone := make(chan struct{})
+	go func() {
+		defer close(renewDone)
+		interval := ttl / 3
+		if interval < 500*time.Millisecond {
+			interval = 500 * time.Millisecond
+		}
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		ttlMs := ttl.Milliseconds()
+		for {
+			select {
+			case <-renewCtx.Done():
+				return
+			case <-ticker.C:
+				if _, err := extendIfOwnerScript.Run(renewCtx, rdb, []string{fullKey}, token, ttlMs).Result(); err != nil {
+					// 续期失败（网络/已失主）：停止续期，fn 结束时按 owner-scoped 释放兜底
+					return
+				}
+			}
+		}
+	}()
+
+	defer func() {
+		cancelRenew()
+		<-renewDone
+		// 用独立 ctx 释放锁，即使业务 ctx 已被取消也要确保释放（否则锁要等 TTL 自然过期）
+		releaseCtx, releaseCancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer releaseCancel()
+		_, _ = unlockIfOwnerScript.Run(releaseCtx, rdb, []string{fullKey}, token).Result()
+	}()
+
 	fn()
+}
+
+// genLockToken 生成一次性 owner token。fallback 到时间戳避免 rand 读取失败。
+func genLockToken() string {
+	var buf [16]byte
+	if _, err := cryptorand.Read(buf[:]); err != nil {
+		return fmt.Sprintf("t-%d-%d", time.Now().UnixNano(), rand.Int63())
+	}
+	return fmt.Sprintf("%x", buf[:])
 }
 
 // Close closes the Redis connection

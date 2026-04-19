@@ -15,9 +15,23 @@ import (
 )
 
 type Response struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Data    any    `json:"data,omitempty"`
+	Code      int    `json:"code"`
+	Message   string `json:"message"`
+	Data      any    `json:"data,omitempty"`
+	RequestID string `json:"request_id,omitempty"` // 便于用户反馈/日志排查时回溯
+}
+
+// requestIDFrom 从 gin.Context 中读取 TelemetryMiddleware 写入的 RequestID。
+func requestIDFrom(c *gin.Context) string {
+	if c == nil {
+		return ""
+	}
+	if v, ok := c.Get("RequestID"); ok {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return ""
 }
 
 // httpStatusFromCode maps a business error code to an appropriate HTTP status.
@@ -167,20 +181,25 @@ func PaymentRequired(c *gin.Context, message string, data any) {
 
 // InternalError logs the real error server-side and returns a safe message
 // with proper HTTP status derived from the business code.
+// 日志与响应里都带上 request_id，便于用户上报后快速定位到同一条日志/trace。
 func InternalError(c *gin.Context, code int, userMessage string, err error) {
-	slog.Error(userMessage, "err", err, "path", c.Request.URL.Path)
+	reqID := requestIDFrom(c)
+	slog.Error(userMessage, "err", err, "path", c.Request.URL.Path, "request_id", reqID)
 	c.JSON(httpStatusFromCode(code), Response{
-		Code:    code,
-		Message: userMessage,
+		Code:      code,
+		Message:   userMessage,
+		RequestID: reqID,
 	})
 }
 
 // InternalServerError logs the real error and returns HTTP 500 with a safe message.
 func InternalServerError(c *gin.Context, userMessage string, err error) {
-	slog.Error(userMessage, "err", err, "path", c.Request.URL.Path)
+	reqID := requestIDFrom(c)
+	slog.Error(userMessage, "err", err, "path", c.Request.URL.Path, "request_id", reqID)
 	c.JSON(http.StatusInternalServerError, Response{
-		Code:    500,
-		Message: userMessage,
+		Code:      500,
+		Message:   userMessage,
+		RequestID: reqID,
 	})
 }
 

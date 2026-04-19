@@ -87,7 +87,7 @@ func (r *Repository) List(query *ListQuery) ([]UsageLogWithUser, int64, error) {
 
 	// 分页查询
 	offset := (query.Page - 1) * query.PageSize
-	if err := db.Order("usage_logs.created_at DESC").
+	if err := db.Order("usage_logs.created_at DESC, usage_logs.id DESC").
 		Offset(offset).
 		Limit(query.PageSize).
 		Find(&logs).Error; err != nil {

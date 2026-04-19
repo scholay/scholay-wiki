@@ -111,7 +111,6 @@ func (c *Client) doRequest(ctx context.Context, method, urlStr string, body io.R
 	// Add headers
 	if c.apiKey != "" {
 		req.Header.Set("x-api-key", c.apiKey)
-		slog.Debug("using API key for request", "keyLength", len(c.apiKey), "url", urlStr)
 	} else {
 		slog.Warn("no API key, using free tier", "url", urlStr)
 	}
@@ -123,10 +122,10 @@ func (c *Client) doRequest(ctx context.Context, method, urlStr string, body io.R
 		return nil, fmt.Errorf("failed to perform request: %w", err)
 	}
 
-	// Check for errors
+	// Check for errors —— 错误路径下必须先 Close，避免 ReadAll panic 导致连接泄漏。
 	if resp.StatusCode >= 400 {
-		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
 		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
 	}
 

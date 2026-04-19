@@ -21,7 +21,6 @@ import (
 	"strings"
 	"time"
 
-	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/httpclient"
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
@@ -68,11 +67,7 @@ func (h *Handler) GetAppleLoginURL(c *gin.Context) {
 		return
 	}
 
-	state := generateRandomState()
-	rdb := cache.GetRedis()
-	if rdb != nil {
-		rdb.Set(c.Request.Context(), "apple_oauth_state:"+state, "1", 5*time.Minute)
-	}
+	state := issueOAuthState(c, "apple_oauth_state:")
 
 	oauthURL := fmt.Sprintf("%s?client_id=%s&response_type=code%%20id_token&redirect_uri=%s&scope=name%%20email&state=%s&response_mode=form_post",
 		appleAuthURL,
@@ -107,15 +102,9 @@ func (h *Handler) AppleCallback(c *gin.Context) {
 		return
 	}
 
-	// Verify state
-	rdb := cache.GetRedis()
-	if rdb != nil {
-		val, err := rdb.Get(c.Request.Context(), "apple_oauth_state:"+state).Result()
-		if err != nil || val == "" {
-			utils.ErrorResponse(c, http.StatusBadRequest, "Invalid or expired state")
-			return
-		}
-		rdb.Del(c.Request.Context(), "apple_oauth_state:"+state)
+	if !validateOAuthState(c, "apple_oauth_state:", state) {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid or expired state")
+		return
 	}
 
 	appleConfig, err := h.service.GetAppleOAuthConfig()
@@ -179,23 +168,11 @@ func (h *Handler) AppleCallback(c *gin.Context) {
 		return
 	}
 
-	username := ""
-	if user.Username != nil {
-		username = *user.Username
-	}
-	role := "user"
-	if user.Role != "" {
-		role = user.Role
-	}
-	token, err := utils.GenerateTokenWithRole(user.ID, username, "user", role)
+	token, err := issueTokenAndSession(h, c, user, ip)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to generate token")
 		return
 	}
-
-	_ = h.service.UpdateLastLoginWithIP(user.ID, ip)
-	userAgent := c.GetHeader("User-Agent")
-	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour)
 
 	// Apple uses form_post, so we redirect with token in URL fragment
 	// Frontend will pick it up from URL params
@@ -380,7 +357,7 @@ func (h *Handler) findOrCreateAppleUser(claims *AppleIDTokenClaims, appleUser *A
 			return nil, false, err
 		}
 
-		go h.service.SendWelcomeMessage(user.ID)
+		h.service.SendWelcomeMessage(user.ID)
 	}
 
 	providerData := map[string]string{

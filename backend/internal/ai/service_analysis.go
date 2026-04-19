@@ -427,7 +427,7 @@ func (s *Service) ChatCompletionWithLevel(ctx context.Context, messages []ChatMe
 
 			if resp.StatusCode != http.StatusOK {
 				body, _ := io.ReadAll(resp.Body)
-				return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+				return nil, fmt.Errorf("%s %d): %s", APIErrorPrefix, resp.StatusCode, string(body))
 			}
 
 			var response ChatCompletionResponse

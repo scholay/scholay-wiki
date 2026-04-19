@@ -124,21 +124,21 @@ func (h *AlipayHandler) HandleCallback(c *gin.Context) {
 		}
 	}
 
-	slog.Info("alipay callback parameters received",
-		"param_count", len(params),
-		"order_no", params["out_trade_no"],
-		"trade_status", params["trade_status"],
-	)
-
 	valid, err := h.alipayService.VerifyCallback(params)
 	if err != nil || !valid {
 		slog.Error("alipay callback signature verification failed",
-			"order_no", params["out_trade_no"],
+			"param_count", len(params),
 			"err", err,
 		)
 		c.String(400, "fail")
 		return
 	}
+
+	slog.Info("alipay callback verified",
+		"param_count", len(params),
+		"order_no", params["out_trade_no"],
+		"trade_status", params["trade_status"],
+	)
 
 	orderNo := params["out_trade_no"]
 	tradeNo := params["trade_no"]

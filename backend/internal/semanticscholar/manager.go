@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"scholar-backend/internal/common/circuitbreaker"
+	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/thirdparty"
 )
 
@@ -489,13 +490,13 @@ func (m *Manager) GetSearchSuggestions(ctx context.Context, query string, paperL
 	authorChan := make(chan authorResult, 1)
 
 	// Fetch paper autocomplete in parallel
-	go func() {
+	safego.Go("s2-paper-autocomplete", func() {
 		result, err := m.PaperAutocomplete(ctx, query)
 		paperChan <- paperResult{data: result, err: err}
-	}()
+	})
 
 	// Fetch author search in parallel
-	go func() {
+	safego.Go("s2-author-search", func() {
 		opts := AuthorSearchOptions{
 			Query:  query,
 			Limit:  authorLimit,
@@ -503,7 +504,7 @@ func (m *Manager) GetSearchSuggestions(ctx context.Context, query string, paperL
 		}
 		result, err := m.SearchAuthors(ctx, opts)
 		authorChan <- authorResult{data: result, err: err}
-	}()
+	})
 
 	// Wait for both results
 	paperRes := <-paperChan

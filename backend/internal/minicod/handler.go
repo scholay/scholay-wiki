@@ -127,8 +127,16 @@ func (h *Handler) SearchPapers(c *gin.Context) {
 		Source:           req.Source,
 	}
 
-	if opts.Limit == 0 {
+	if opts.Limit <= 0 {
 		opts.Limit = 10
+	}
+	// 上游 Semantic Scholar 单次最多返回 100；大于 100 会被截断反而浪费带宽和缓存 key 空间，
+	// 还可能被拿来批量爬库。这里硬性夹在 [1,100]，与 DefaultLimit 保持一致。
+	if opts.Limit > 100 {
+		opts.Limit = 100
+	}
+	if opts.Offset < 0 {
+		opts.Offset = 0
 	}
 
 	result, err := h.manager.SearchPapers(c.Request.Context(), opts)
@@ -184,8 +192,8 @@ func (h *Handler) GetPaperCitations(c *gin.Context) {
 	}
 
 	opts := CitationsOptions{
-		Offset: parseIntQuery(c, "offset", 0),
-		Limit:  parseIntQuery(c, "limit", 100),
+		Offset: clampOffset(parseIntQuery(c, "offset", 0)),
+		Limit:  clampLimit(parseIntQuery(c, "limit", 100)),
 	}
 	if fields := c.Query("fields"); fields != "" {
 		opts.Fields = strings.Split(fields, ",")
@@ -210,8 +218,8 @@ func (h *Handler) GetPaperReferences(c *gin.Context) {
 	}
 
 	opts := CitationsOptions{
-		Offset: parseIntQuery(c, "offset", 0),
-		Limit:  parseIntQuery(c, "limit", 100),
+		Offset: clampOffset(parseIntQuery(c, "offset", 0)),
+		Limit:  clampLimit(parseIntQuery(c, "limit", 100)),
 	}
 	if fields := c.Query("fields"); fields != "" {
 		opts.Fields = strings.Split(fields, ",")
@@ -235,8 +243,8 @@ func (h *Handler) GetPaperAuthors(c *gin.Context) {
 		return
 	}
 
-	offset := parseIntQuery(c, "offset", 0)
-	limit := parseIntQuery(c, "limit", 100)
+	offset := clampOffset(parseIntQuery(c, "offset", 0))
+	limit := clampLimit(parseIntQuery(c, "limit", 100))
 	var fields []string
 	if f := c.Query("fields"); f != "" {
 		fields = strings.Split(f, ",")
@@ -262,8 +270,8 @@ func (h *Handler) SearchAuthors(c *gin.Context) {
 
 	opts := AuthorSearchOptions{
 		Query:  query,
-		Offset: parseIntQuery(c, "offset", 0),
-		Limit:  parseIntQuery(c, "limit", 10),
+		Offset: clampOffset(parseIntQuery(c, "offset", 0)),
+		Limit:  clampLimit(parseIntQuery(c, "limit", 10)),
 		Source: c.Query("source"),
 	}
 	if fields := c.Query("fields"); fields != "" {
@@ -311,8 +319,8 @@ func (h *Handler) GetAuthorPapers(c *gin.Context) {
 		return
 	}
 
-	offset := parseIntQuery(c, "offset", 0)
-	limit := parseIntQuery(c, "limit", 100)
+	offset := clampOffset(parseIntQuery(c, "offset", 0))
+	limit := clampLimit(parseIntQuery(c, "limit", 100))
 	var fields []string
 	if f := c.Query("fields"); f != "" {
 		fields = strings.Split(f, ",")
@@ -337,7 +345,7 @@ func (h *Handler) GetRecommendationsForPaper(c *gin.Context) {
 	}
 
 	opts := RecommendationsOptions{
-		Limit: parseIntQuery(c, "limit", 10),
+		Limit: clampLimit(parseIntQuery(c, "limit", 10)),
 	}
 	if fields := c.Query("fields"); fields != "" {
 		opts.Fields = strings.Split(fields, ",")
@@ -372,7 +380,7 @@ func (h *Handler) GetRecommendations(c *gin.Context) {
 		PositivePaperIDs: req.PositivePaperIDs,
 		NegativePaperIDs: req.NegativePaperIDs,
 		Fields:           req.Fields,
-		Limit:            req.Limit,
+		Limit:            clampLimit(req.Limit),
 	}
 
 	result, err := h.manager.GetRecommendations(c.Request.Context(), opts)
@@ -398,13 +406,45 @@ func (h *Handler) GetPaperBatch(c *gin.Context) {
 		return
 	}
 
-	result, err := h.manager.GetPaperBatch(c.Request.Context(), req.PaperIDs, req.Fields)
+	// 去重 + 空值过滤：上游 Semantic Scholar batch 接口按 count 计费，
+	// 客户端重复传同一个 paperID 会白白浪费额度，且命中的 paper 也会在响应中重复。
+	// 同时夹一个硬上限（500）防止恶意巨量请求。
+	ids := dedupNonEmpty(req.PaperIDs, 500)
+	if len(ids) == 0 {
+		utils.Error(c, 4021, "paperIds is required")
+		return
+	}
+
+	result, err := h.manager.GetPaperBatch(c.Request.Context(), ids, req.Fields)
 	if err != nil {
 		utils.Error(c, 4022, "Failed to get batch papers: "+err.Error())
 		return
 	}
 
 	utils.Success(c, result)
+}
+
+// dedupNonEmpty 返回去重、去空、按首现顺序排列的切片，最多保留 maxLen 条。
+func dedupNonEmpty(in []string, maxLen int) []string {
+	if len(in) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(in))
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		if s == "" {
+			continue
+		}
+		if _, ok := seen[s]; ok {
+			continue
+		}
+		seen[s] = struct{}{}
+		out = append(out, s)
+		if maxLen > 0 && len(out) >= maxLen {
+			break
+		}
+	}
+	return out
 }
 
 // GetSearchSuggestions handles search suggestions requests
@@ -599,4 +639,27 @@ func parseIntQuery(c *gin.Context, key string, defaultValue int) int {
 		}
 	}
 	return defaultValue
+}
+
+// maxPageSize Semantic Scholar 单次最大返回条数；超过会被上游截断。
+const maxPageSize = 100
+
+// clampLimit 将 limit 夹在 [1, maxPageSize]。
+// 用于所有 list/search 接口参数校验，防止客户端传 10000 触发上游慢查询或大量流量。
+func clampLimit(limit int) int {
+	if limit <= 0 {
+		return 10
+	}
+	if limit > maxPageSize {
+		return maxPageSize
+	}
+	return limit
+}
+
+// clampOffset 保证 offset 非负。
+func clampOffset(offset int) int {
+	if offset < 0 {
+		return 0
+	}
+	return offset
 }

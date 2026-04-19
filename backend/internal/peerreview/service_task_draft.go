@@ -16,6 +16,8 @@ import (
 	"strings"
 	"time"
 
+	"scholar-backend/internal/common/safego"
+
 	"gorm.io/gorm"
 )
 
@@ -207,23 +209,30 @@ func (s *Service) SubmitDraft(userID uint, anonToken string, req *SubmitDraftReq
 	draft.SubmittedAt = &now
 	draft.StartedAt = &now
 
-	if err := s.db.Save(&draft).Error; err != nil {
-		return nil, fmt.Errorf("提交草稿失败: %w", err)
-	}
-
-	// 创建三个审稿结果记录
-	for i := 1; i <= ReviewerCount; i++ {
-		result := PeerReviewResult{
-			TaskID:        draft.ID,
-			ReviewerIndex: i,
-			Status:        TaskStatusPending,
-			Progress:      0,
+	// 草稿状态翻转 + 创建 3 条 PeerReviewResult 必须原子。
+	// 否则 worker 启动后只查到 0/1/2 条 result，三审并行会产生空指针/越界。
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Save(&draft).Error; err != nil {
+			return fmt.Errorf("提交草稿失败: %w", err)
 		}
-		s.db.Create(&result)
+		results := make([]PeerReviewResult, ReviewerCount)
+		for i := 0; i < ReviewerCount; i++ {
+			results[i] = PeerReviewResult{
+				TaskID:        draft.ID,
+				ReviewerIndex: i + 1,
+				Status:        TaskStatusPending,
+				Progress:      0,
+			}
+		}
+		// 批量插入：1 条 SQL 而非 N 条
+		return tx.Create(&results).Error
+	}); err != nil {
+		return nil, err
 	}
 
 	// 启动异步处理（三审并行）
-	go s.processTaskAsyncWithThreeReviewers(draft.ID)
+	taskID := draft.ID
+	safego.Go("peerreview-task-draft", func() { s.processTaskAsyncWithThreeReviewers(taskID) })
 
 	return &draft, nil
 }
@@ -371,33 +380,43 @@ func (s *Service) ParseFileAndSaveToDraft(userID uint, anonToken string, fileNam
 		return nil, err
 	}
 
-	// 如果之前有关联的主稿件文件，删除旧文件
-	if draft.ManuscriptFileID != nil {
-		var oldFile PeerReviewFile
-		if err := s.db.First(&oldFile, *draft.ManuscriptFileID).Error; err == nil {
-			os.Remove(oldFile.FilePath)
-			s.db.Delete(&oldFile)
+	// 旧文件替换 + draft 指向新文件必须原子，
+	// 否则可能出现：旧文件已删，新 draft 保存失败 → 草稿引用空文件。
+	var oldFilePath string
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		if draft.ManuscriptFileID != nil {
+			var oldFile PeerReviewFile
+			if err := tx.First(&oldFile, *draft.ManuscriptFileID).Error; err == nil {
+				oldFilePath = oldFile.FilePath // 提交后再清磁盘
+				if err := tx.Delete(&oldFile).Error; err != nil {
+					return fmt.Errorf("删除旧文件记录失败: %w", err)
+				}
+			}
 		}
-	}
 
-	// 更新草稿内容
-	draft.InputType = InputTypeFile
-	draft.ManuscriptText = extractedText
-	draft.ManuscriptFileID = &file.ID
-	draft.Title = strings.TrimSuffix(fileName, fileExt)
-	if len(draft.Title) > 100 {
-		draft.Title = truncateString(draft.Title, 100)
-	}
+		draft.InputType = InputTypeFile
+		draft.ManuscriptText = extractedText
+		draft.ManuscriptFileID = &file.ID
+		draft.Title = strings.TrimSuffix(fileName, fileExt)
+		if len(draft.Title) > 100 {
+			draft.Title = truncateString(draft.Title, 100)
+		}
 
-	// 保存草稿
-	if draft.ID == 0 {
-		if err := s.db.Create(&draft).Error; err != nil {
-			return nil, fmt.Errorf("创建草稿失败: %w", err)
+		if draft.ID == 0 {
+			if err := tx.Create(&draft).Error; err != nil {
+				return fmt.Errorf("创建草稿失败: %w", err)
+			}
+		} else {
+			if err := tx.Save(&draft).Error; err != nil {
+				return fmt.Errorf("保存草稿失败: %w", err)
+			}
 		}
-	} else {
-		if err := s.db.Save(&draft).Error; err != nil {
-			return nil, fmt.Errorf("保存草稿失败: %w", err)
-		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if oldFilePath != "" {
+		os.Remove(oldFilePath) // 事务已提交，磁盘清理失败容忍
 	}
 
 	// 构建预览
@@ -551,27 +570,28 @@ func (s *Service) DeleteManuscriptFromDraft(userID uint) error {
 		return nil
 	}
 
-	// 查找并删除主稿件文件
-	var file PeerReviewFile
-	if err := s.db.First(&file, *draft.ManuscriptFileID).Error; err == nil {
-		// 删除磁盘文件
-		if file.FilePath != "" {
-			os.Remove(file.FilePath)
+	// 删文件记录 + 清空 draft 引用必须原子，
+	// 否则会出现 draft.ManuscriptFileID 指向已删记录的悬空状态，loadTaskFiles 静默失败。
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var file PeerReviewFile
+		if err := tx.First(&file, *draft.ManuscriptFileID).Error; err == nil {
+			if file.FilePath != "" {
+				os.Remove(file.FilePath) // 磁盘清理失败容忍，由扫表收尾
+			}
+			if err := tx.Delete(&file).Error; err != nil {
+				return fmt.Errorf("删除文件记录失败: %w", err)
+			}
 		}
-		// 删除数据库记录
-		s.db.Delete(&file)
-	}
 
-	// 更新草稿，清除文件关联
-	draft.ManuscriptFileID = nil
-	draft.InputType = InputTypeText
-	draft.ManuscriptText = ""
-	draft.Title = ""
-	if err := s.db.Save(&draft).Error; err != nil {
-		return fmt.Errorf("更新草稿失败: %w", err)
-	}
-
-	return nil
+		draft.ManuscriptFileID = nil
+		draft.InputType = InputTypeText
+		draft.ManuscriptText = ""
+		draft.Title = ""
+		if err := tx.Save(&draft).Error; err != nil {
+			return fmt.Errorf("更新草稿失败: %w", err)
+		}
+		return nil
+	})
 }
 
 // ClearDraft 清空草稿（删除主稿件和所有附件）
@@ -586,39 +606,57 @@ func (s *Service) ClearDraft(userID uint) error {
 		return err
 	}
 
-	// 删除主稿件文件
-	if draft.ManuscriptFileID != nil {
-		var file PeerReviewFile
-		if err := s.db.First(&file, *draft.ManuscriptFileID).Error; err == nil {
-			if file.FilePath != "" {
-				os.Remove(file.FilePath)
+	// 主稿件 + 附件 + draft 重置必须原子，否则会出现 draft 看似已清空、
+	// 但 PeerReviewFile 表里残留指向同 task_id 的孤儿记录的状态。
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		// 收集需要从磁盘删除的路径，DB 事务成功后再清磁盘
+		// （磁盘删除若失败有扫表兜底，但 DB 不能回滚已删的文件）
+		var paths []string
+
+		if draft.ManuscriptFileID != nil {
+			var file PeerReviewFile
+			if err := tx.First(&file, *draft.ManuscriptFileID).Error; err == nil {
+				if file.FilePath != "" {
+					paths = append(paths, file.FilePath)
+				}
+				if err := tx.Delete(&file).Error; err != nil {
+					return fmt.Errorf("删除主稿件失败: %w", err)
+				}
 			}
-			s.db.Delete(&file)
 		}
-	}
 
-	// 删除所有附件
-	var attachments []PeerReviewFile
-	s.db.Where("task_id = ? AND file_role = ?", draft.ID, FileRoleAttachment).Find(&attachments)
-	for _, att := range attachments {
-		if att.FilePath != "" {
-			os.Remove(att.FilePath)
+		var attachments []PeerReviewFile
+		if err := tx.Where("task_id = ? AND file_role = ?", draft.ID, FileRoleAttachment).
+			Find(&attachments).Error; err != nil {
+			return err
 		}
-		s.db.Delete(&att)
-	}
+		for _, att := range attachments {
+			if att.FilePath != "" {
+				paths = append(paths, att.FilePath)
+			}
+		}
+		// 批量删除附件记录（1 条 SQL 替代 N 条）
+		if len(attachments) > 0 {
+			if err := tx.Where("task_id = ? AND file_role = ?", draft.ID, FileRoleAttachment).
+				Delete(&PeerReviewFile{}).Error; err != nil {
+				return fmt.Errorf("删除附件失败: %w", err)
+			}
+		}
 
-	// 重置草稿内容
-	draft.ManuscriptFileID = nil
-	draft.InputType = InputTypeText
-	draft.ManuscriptText = ""
-	draft.Title = ""
-	// target_venue 已废弃，不再使用
-	// 保留 model_level，不重置
-	if err := s.db.Save(&draft).Error; err != nil {
-		return fmt.Errorf("重置草稿失败: %w", err)
-	}
+		draft.ManuscriptFileID = nil
+		draft.InputType = InputTypeText
+		draft.ManuscriptText = ""
+		draft.Title = ""
+		if err := tx.Save(&draft).Error; err != nil {
+			return fmt.Errorf("重置草稿失败: %w", err)
+		}
 
-	return nil
+		// DB 事务即将提交：磁盘清理失败不影响一致性
+		for _, p := range paths {
+			os.Remove(p)
+		}
+		return nil
+	})
 }
 
 // DeleteAttachmentFromDraft 从草稿删除附件

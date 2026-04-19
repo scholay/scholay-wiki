@@ -290,7 +290,7 @@ func (h *Handler) BindPhone(c *gin.Context) {
 		return
 	}
 
-	err := h.service.BindPhone(userID, req.Phone, req.Code)
+	err := h.service.BindPhone(c.Request.Context(), userID, req.Phone, req.Code)
 	if err != nil {
 		utils.Error(c, 2024, err.Error())
 		return
@@ -311,7 +311,7 @@ func (h *Handler) BindEmail(c *gin.Context) {
 		return
 	}
 
-	err := h.service.BindEmail(userID, req.Email, req.Code)
+	err := h.service.BindEmail(c.Request.Context(), userID, req.Email, req.Code)
 	if err != nil {
 		utils.Error(c, 2025, err.Error())
 		return
@@ -332,7 +332,7 @@ func (h *Handler) UnbindPhone(c *gin.Context) {
 		return
 	}
 
-	err := h.service.UnbindPhone(userID, req.Code)
+	err := h.service.UnbindPhone(c.Request.Context(), userID, req.Code)
 	if err != nil {
 		utils.Error(c, 2026, err.Error())
 		return
@@ -353,7 +353,7 @@ func (h *Handler) UnbindEmail(c *gin.Context) {
 		return
 	}
 
-	err := h.service.UnbindEmail(userID, req.Code)
+	err := h.service.UnbindEmail(c.Request.Context(), userID, req.Code)
 	if err != nil {
 		utils.Error(c, 2027, err.Error())
 		return
@@ -423,7 +423,7 @@ func (h *Handler) BindEmailWithPassword(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.BindEmailWithPassword(userID, req.Email, req.Password, req.Code); err != nil {
+	if err := h.service.BindEmailWithPassword(c.Request.Context(), userID, req.Email, req.Password, req.Code); err != nil {
 		utils.Error(c, 2010, err.Error())
 		return
 	}
@@ -444,7 +444,7 @@ func (h *Handler) BindPhoneWithPassword(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.BindPhoneWithPassword(userID, req.Phone, req.Password, req.Code); err != nil {
+	if err := h.service.BindPhoneWithPassword(c.Request.Context(), userID, req.Phone, req.Password, req.Code); err != nil {
 		utils.Error(c, 2020, err.Error())
 		return
 	}

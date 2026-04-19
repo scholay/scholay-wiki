@@ -47,21 +47,22 @@ func (h *Handler) StreamChat(c *gin.Context) {
 
 	slog.Info("StreamChat called", "user_id", userID, "prompt_length", len(req.Prompt))
 
-	sse.SetHeaders(c)
+	w, stop := sse.BeginStream(c)
+	defer stop()
 
-	if err := h.service.StreamChat(c.Request.Context(), &req, c.Writer); err != nil {
+	if err := h.service.StreamChat(c.Request.Context(), &req, w); err != nil {
 		slog.Error("StreamChat error", "err", err)
-		
+
 		// 将错误信息转换为用户友好的提示
 		errorMsg := h.formatUserFriendlyError(err)
-		
+
 		// 以结构化格式发送错误消息（使用 <br> 转义换行符）
 		escapedMsg := strings.ReplaceAll(errorMsg, "\n", "<br>")
-		c.Writer.Write([]byte(fmt.Sprintf("data: <reply><br>⚠️ **AI 服务异常**<br><br>%s<br></reply><br>", escapedMsg)))
-		c.Writer.Flush()
+		w.Write([]byte(fmt.Sprintf("data: <reply><br>⚠️ **AI 服务异常**<br><br>%s<br></reply><br>", escapedMsg)))
+		w.Flush()
 	}
 
-	sse.WriteDone(c.Writer)
+	sse.WriteDone(w)
 }
 
 // CreateDocument 创建文档
@@ -207,15 +208,16 @@ func (h *Handler) ExecuteTask(c *gin.Context) {
 
 	slog.Info("ExecuteTask called", "user_id", userID, "task_type", req.TaskType)
 
-	sse.SetHeaders(c)
+	w, stop := sse.BeginStream(c)
+	defer stop()
 
 	// 执行任务
-	if err := h.service.ExecuteTask(c.Request.Context(), req.TaskType, req.Content, c.Writer, req.ModelLevel); err != nil {
+	if err := h.service.ExecuteTask(c.Request.Context(), req.TaskType, req.Content, w, req.ModelLevel); err != nil {
 		slog.Error("ExecuteTask error", "err", err)
-		c.SSEvent("error", err.Error())
+		sse.WriteErrorText(w, err.Error())
 	}
 
-	sse.WriteDone(c.Writer)
+	sse.WriteDone(w)
 }
 
 // SectionRequest 章节请求
@@ -240,15 +242,16 @@ func (h *Handler) ExecuteSection(c *gin.Context) {
 
 	slog.Info("ExecuteSection called", "user_id", userID, "section_type", req.SectionType)
 
-	sse.SetHeaders(c)
+	w, stop := sse.BeginStream(c)
+	defer stop()
 
 	// 执行章节任务
-	if err := h.service.ExecuteSectionTask(c.Request.Context(), req.SectionType, req.Content, c.Writer, req.ModelLevel); err != nil {
+	if err := h.service.ExecuteSectionTask(c.Request.Context(), req.SectionType, req.Content, w, req.ModelLevel); err != nil {
 		slog.Error("ExecuteSection error", "err", err)
-		c.SSEvent("error", err.Error())
+		sse.WriteErrorText(w, err.Error())
 	}
 
-	sse.WriteDone(c.Writer)
+	sse.WriteDone(w)
 }
 
 // GetAvailableTasks 获取可用任务列表
@@ -401,23 +404,24 @@ func (h *Handler) StreamChatWithContext(c *gin.Context) {
 		"full_content_length", len(req.FullContent),
 	)
 
-	sse.SetHeaders(c)
+	w, stop := sse.BeginStream(c)
+	defer stop()
 
 	// 流式输出（带上下文）
-	if err := h.service.StreamChatWithContext(c.Request.Context(), userID, documentID, &req, c.Writer); err != nil {
+	if err := h.service.StreamChatWithContext(c.Request.Context(), userID, documentID, &req, w); err != nil {
 		slog.Error("StreamChatWithContext error", "err", err)
-		
+
 		// 将错误信息转换为用户友好的提示
 		errorMsg := h.formatUserFriendlyError(err)
-		
+
 		// 以结构化格式发送错误消息（使用 <br> 转义换行符）
 		escapedMsg := strings.ReplaceAll(errorMsg, "\n", "<br>")
-		c.Writer.Write([]byte(fmt.Sprintf("data: <reply><br>⚠️ **AI 服务异常**<br><br>%s<br></reply><br>", escapedMsg)))
-		c.Writer.Flush()
+		w.Write([]byte(fmt.Sprintf("data: <reply><br>⚠️ **AI 服务异常**<br><br>%s<br></reply><br>", escapedMsg)))
+		w.Flush()
 	}
 
 	slog.Debug("sending DONE marker")
-	sse.WriteDone(c.Writer)
+	sse.WriteDone(w)
 }
 
 // ClearConversation 清空对话
@@ -502,15 +506,16 @@ func (h *Handler) AutoFixLatex(c *gin.Context) {
 
 	slog.Info("AutoFixLatex called", "user_id", userID, "content_length", len(req.Content))
 
-	sse.SetHeaders(c)
+	w, stop := sse.BeginStream(c)
+	defer stop()
 
 	// 调用自动修复服务
-	if err := h.service.AutoFixLatex(c.Request.Context(), req.Content, c.Writer, req.ModelLevel); err != nil {
+	if err := h.service.AutoFixLatex(c.Request.Context(), req.Content, w, req.ModelLevel); err != nil {
 		slog.Error("AutoFixLatex error", "err", err)
-		c.SSEvent("error", err.Error())
+		sse.WriteErrorText(w, err.Error())
 	}
 
-	sse.WriteDone(c.Writer)
+	sse.WriteDone(w)
 }
 
 // ValidateAndFixLatex 验证并自动修复 LaTeX 代码（带上下文的版本）
@@ -554,15 +559,16 @@ func (h *Handler) ValidateAndFixLatex(c *gin.Context) {
 
 	slog.Info("ValidateAndFixLatex found issues", "errors", len(result.Errors), "warnings", len(result.Warnings))
 
-	sse.SetHeaders(c)
+	w, stop := sse.BeginStream(c)
+	defer stop()
 
 	// 调用带验证结果的自动修复
-	if err := h.service.AutoFixLatexWithValidation(c.Request.Context(), req.Content, result, c.Writer, req.ModelLevel); err != nil {
+	if err := h.service.AutoFixLatexWithValidation(c.Request.Context(), req.Content, result, w, req.ModelLevel); err != nil {
 		slog.Error("ValidateAndFixLatex error", "err", err)
-		c.SSEvent("error", err.Error())
+		sse.WriteErrorText(w, err.Error())
 	}
 
-	sse.WriteDone(c.Writer)
+	sse.WriteDone(w)
 }
 
 // GetAvailableModels 获取可用模型列表（用户端）
@@ -687,21 +693,22 @@ func (h *Handler) FixCompileError(c *gin.Context) {
 
 	slog.Info("FixCompileError called", "user_id", userID, "document_id", documentID, "log_length", len(req.CompileLog))
 
-	sse.SetHeaders(c)
+	w, stop := sse.BeginStream(c)
+	defer stop()
 
 	slog.Debug("SSE stream started for FixCompileError")
 
 	// 调用 service 修复编译错误
-	if err := h.service.AutoFixCompileError(c.Request.Context(), req.Content, req.CompileLog, req.Engine, c.Writer); err != nil {
+	if err := h.service.AutoFixCompileError(c.Request.Context(), req.Content, req.CompileLog, req.Engine, w); err != nil {
 		slog.Error("FixCompileError error", "err", err)
-		
+
 		errorMsg := h.formatUserFriendlyError(err)
 		// 使用 <br> 转义换行符
 		escapedMsg := strings.ReplaceAll(errorMsg, "\n", "<br>")
-		c.Writer.Write([]byte(fmt.Sprintf("data: <reply><br>⚠️ **AI 服务异常**<br><br>%s<br></reply><br>", escapedMsg)))
-		c.Writer.Flush()
+		w.Write([]byte(fmt.Sprintf("data: <reply><br>⚠️ **AI 服务异常**<br><br>%s<br></reply><br>", escapedMsg)))
+		w.Flush()
 	}
 
 	slog.Debug("sending DONE marker for FixCompileError")
-	sse.WriteDone(c.Writer)
+	sse.WriteDone(w)
 }

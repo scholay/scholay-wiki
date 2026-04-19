@@ -102,14 +102,14 @@ func (r *Repository) ListHotKeywords(days int, limit int, offset int) ([]HotSear
 		return nil, 0, err
 	}
 	
-	// 获取数据，按搜索次数降序
-	if err := query.Order("search_count DESC, last_searched_at DESC").
+	// 获取数据，按搜索次数降序（附加 id 作为稳定 tiebreaker，避免分页重复/跳漏）
+	if err := query.Order("search_count DESC, last_searched_at DESC, id DESC").
 		Limit(limit).
 		Offset(offset).
 		Find(&items).Error; err != nil {
 		return nil, 0, err
 	}
-	
+
 	return items, total, nil
 }
 
@@ -131,14 +131,14 @@ func (r *Repository) ListHotPapers(days int, limit int, offset int) ([]HotPaper,
 		return nil, 0, err
 	}
 	
-	// 获取数据，按查看次数降序
-	if err := query.Order("view_count DESC, last_viewed_at DESC").
+	// 获取数据，按查看次数降序（附加 id 作为稳定 tiebreaker，避免分页重复/跳漏）
+	if err := query.Order("view_count DESC, last_viewed_at DESC, id DESC").
 		Limit(limit).
 		Offset(offset).
 		Find(&items).Error; err != nil {
 		return nil, 0, err
 	}
-	
+
 	return items, total, nil
 }
 

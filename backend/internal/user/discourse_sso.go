@@ -20,7 +20,6 @@ import (
 	"net/url"
 	"time"
 
-	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
@@ -47,11 +46,7 @@ func (h *Handler) GetDiscourseSSOLoginURL(c *gin.Context) {
 	}
 
 	// Generate nonce (32 char random string) and store in Redis with 5 min TTL
-	nonce := utils.GenerateRandomString(32)
-	redisClient := cache.GetRedis()
-	if redisClient != nil {
-		redisClient.Set(c.Request.Context(), "discourse_sso_nonce:"+nonce, "1", 5*time.Minute)
-	}
+	nonce := issueOAuthState(c, "discourse_sso_nonce:")
 
 	// Build payload: nonce={nonce}&return_sso_url={config.RedirectURI}
 	payload := fmt.Sprintf("nonce=%s&return_sso_url=%s", url.QueryEscape(nonce), url.QueryEscape(config.RedirectURI))
@@ -139,16 +134,9 @@ func (h *Handler) DiscourseSSOCallback(c *gin.Context) {
 		return
 	}
 
-	// Validate nonce exists in Redis, then delete it
-	redisClient := cache.GetRedis()
-	if redisClient != nil {
-		nonceKey := "discourse_sso_nonce:" + nonce
-		result, err := redisClient.Get(c.Request.Context(), nonceKey).Result()
-		if err != nil || result != "1" {
-			utils.ErrorResponse(c, http.StatusBadRequest, "Invalid or expired SSO nonce")
-			return
-		}
-		redisClient.Del(c.Request.Context(), nonceKey)
+	if !validateOAuthState(c, "discourse_sso_nonce:", nonce) {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid or expired SSO nonce")
+		return
 	}
 
 	// Find or create user
@@ -160,33 +148,12 @@ func (h *Handler) DiscourseSSOCallback(c *gin.Context) {
 		return
 	}
 
-	// Generate JWT token
-	usernameStr := ""
-	if user.Username != nil {
-		usernameStr = *user.Username
-	}
-	role := "user"
-	if user.Role != "" {
-		role = user.Role
-	}
-	token, err := utils.GenerateTokenWithRole(user.ID, usernameStr, "user", role)
+	token, err := issueTokenAndSession(h, c, user, ip)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to generate token")
 		return
 	}
-
-	// Update last login time and IP
-	_ = h.service.UpdateLastLoginWithIP(user.ID, ip)
-
-	// Create session (single sign-on)
-	userAgent := c.GetHeader("User-Agent")
-	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour)
-
-	utils.SuccessResponse(c, http.StatusOK, "success", gin.H{
-		"token":       token,
-		"user":        user,
-		"is_new_user": isNewUser,
-	})
+	respondOAuthSuccess(c, token, user, isNewUser)
 }
 
 // findOrCreateDiscourseUser finds existing user or creates new one from Discourse SSO data
@@ -257,7 +224,7 @@ func (h *Handler) findOrCreateDiscourseUser(externalID, email, username, name, a
 			return nil, false, err
 		}
 
-		go h.service.SendWelcomeMessage(user.ID)
+		h.service.SendWelcomeMessage(user.ID)
 	}
 
 	// Create auth provider link

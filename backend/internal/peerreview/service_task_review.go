@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"scholar-backend/internal/ai"
+	"scholar-backend/internal/common/safego"
 )
 
 // ========== 异步任务处理 ==========
@@ -37,7 +38,11 @@ var (
 // processTaskAsyncWithThreeReviewers 三审并行处理任务
 // 内部建立 pipelineTimeout 顶层 ctx，进程关停 / 超时时所有子调用（AI/HTTP）会一同 cancel
 func (s *Service) processTaskAsyncWithThreeReviewers(taskID uint) {
-	ctx, cancel := context.WithTimeoutCause(context.Background(), pipelineTimeout, errPipelineTimeout)
+	parent := s.rootCtx
+	if parent == nil {
+		parent = context.Background()
+	}
+	ctx, cancel := context.WithTimeoutCause(parent, pipelineTimeout, errPipelineTimeout)
 	defer cancel()
 
 	defer func() {
@@ -105,7 +110,8 @@ func (s *Service) processTaskAsyncWithThreeReviewers(taskID uint) {
 	for i := 0; i < ReviewerCount; i++ {
 		reviewResults[i] = &strings.Builder{}
 		wg.Add(1)
-		go func(idx int) {
+		idx := i
+		safego.Go("peerreview-reviewer", func() {
 			defer wg.Done()
 
 			// 父 ctx 派生带 cause 的子 ctx；context.Cause 可分辨"流水线整体超时"还是"该审稿人单独超时"
@@ -141,7 +147,7 @@ func (s *Service) processTaskAsyncWithThreeReviewers(taskID uint) {
 						"error_message": reason,
 					})
 			}
-		}(i)
+		})
 	}
 
 	wg.Wait()
