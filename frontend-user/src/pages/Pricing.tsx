@@ -10,7 +10,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 // Logo import removed — TopNavBar handles navigation
-import SEO from '../components/SEO';
+import SEO from '../components/common/SEO';
 import './styles/Pricing.css';
 
 /* 当前免费开放的功能列表 */
@@ -86,7 +86,7 @@ const PLATFORM_STATS = [
   { value: '0', label: '使用费用' }
 ];
 
-const Pricing = () => {
+const Pricing: React.FC = () => {
   const navigate = useNavigate();
 
   return (

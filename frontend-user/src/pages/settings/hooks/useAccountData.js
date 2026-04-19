@@ -11,7 +11,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import api from '../../../services/client';
-import { useToast } from '../../../components/ToastContainer';
+import { useToast } from '../../../components/common/ToastContainer';
 import logger from '../../../utils/logger';
 
 const useAccountData = (user) => {

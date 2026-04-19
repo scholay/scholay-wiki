@@ -10,8 +10,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, BookOpen, Sparkles, Shield, Globe, Mail, Users, Target, Lightbulb, Award } from 'lucide-react';
-import Logo from '../components/Logo';
-import SEO from '../components/SEO';
+import Logo from '../components/common/Logo';
+import SEO from '../components/common/SEO';
 import { generateFAQSchema } from '../utils/seoHelpers';
 import './styles/AboutPage.css';
 

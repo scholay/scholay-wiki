@@ -369,7 +369,7 @@
 
   /* 亮色主题样式 */
   [data-theme="light"] .advanced-search-composer-wrapper {
-    background: #ffffff !important;
+    background: var(--surface) !important;
     backdrop-filter: blur(40px) !important;
     -webkit-backdrop-filter: blur(40px) !important;
     border: 2px solid rgba(16, 163, 127, 0.45) !important;

@@ -1,0 +1,69 @@
+## 待审稿件内容
+%s
+
+## 系统预分析信息
+
+### 稿件结构化理解
+%s
+
+### 领域前沿状态
+%s
+
+### 与稿件最相似的已发表论文（新颖性核查）
+%s
+
+### 当前领域研究空白
+%s
+
+### 可引用的参考文献列表（请严格只引用这些，使用 [R1], [R2] 等编号）
+%s
+
+---
+
+请基于以上信息，生成一份专业审稿报告。**必须聚焦关键问题，精炼表达。**
+
+**硬性要求：整个 JSON 输出必须小于 8000 字符，超出将导致解析失败！**
+
+直接输出以下 JSON 格式（不要包含 ``` 代码块标记）：
+
+{
+  "overall_assessment": {
+    "core_contribution": "（50-100字，高度凝练的核心贡献总结）",
+    "recommendation": "Accept | Minor Revision | Major Revision | Reject",
+    "reject_advice": "（若 Reject 必填转投建议，否则留空）"
+  },
+  "critical_issues": [
+    {
+      "issue_title": "（10-20字，问题标题）",
+      "issue_description": "（80-120字，问题描述，引用 [Rx]）",
+      "required_actions": "（50-80字，具体修改方案）",
+      "affected_sections": ["章节名"]
+    }
+  ],
+  "other_suggestions": [
+    {
+      "suggestion_title": "（10-20字）",
+      "suggestion_description": "（60-80字）",
+      "suggestion_location": "（具体位置）",
+      "suggestion_rationale": "（30-50字）"
+    }
+  ],
+  "extended_review_items": {
+    "novelty_evaluation": "（80-120字，对照相似论文判断新颖性）",
+    "technical_soundness": "（60-100字）",
+    "clarity_and_presentation": "（60-100字）",
+    "reproducibility": {
+      "data_availability": "（30-50字）",
+      "code_availability": "（30-50字）"
+    },
+    "ethical_considerations": "（不适用则填"不适用"）",
+    "impact_and_significance": "（50-80字）",
+    "recommend_for_improvement": "（50-80字）"
+  }
+}
+
+**约束：**
+1. critical_issues: 1-3 个（聚焦最关键问题）
+2. other_suggestions: 1-2 个
+3. 所有字段必须填写，遵守上述字数限制
+4. 直接输出纯 JSON，禁止 markdown 标记

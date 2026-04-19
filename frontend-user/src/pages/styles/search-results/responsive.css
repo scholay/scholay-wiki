@@ -142,7 +142,7 @@
 
 /* TLDR标签和文字 */
 [data-theme="light"] .tldr-label {
-  color: #10a37f;
+  color: var(--primary-solid);
   background: rgba(16, 163, 127, 0.12);
   font-weight: 600;
 }

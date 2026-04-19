@@ -12,7 +12,7 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Clock, Calendar, Search, User } from 'lucide-react';
-import SEO from '../../components/SEO';
+import SEO from '../../components/common/SEO';
 import FeaturePromo from '../../components/FeaturePromo';
 import blogArticles, { BLOG_CATEGORIES, getAuthor } from './blogArticles';
 import '../styles/ResourcePage.css';

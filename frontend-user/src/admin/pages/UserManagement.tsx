@@ -18,9 +18,61 @@ import './UserManagement.css';
 // 内存优化配置
 const MAX_ONLINE_USERS_DISPLAY = 500; // 最多显示 500 个在线用户
 
-const UserManagement = () => {
+interface UserStatsState {
+  onlineUsers: number;
+  onlineGuests: number;
+  todayRegistrations: number;
+  weekRegistrations: number;
+  monthRegistrations: number;
+  yearRegistrations: number;
+}
+
+interface UserRow {
+  id: number | string;
+  username?: string;
+  email?: string;
+  phone?: string;
+  status?: number;
+  last_login_at?: string;
+  created_at?: string;
+  wechat_name?: string;
+  wechat_openid?: string;
+  wechat_union_id?: string;
+  github_login?: string;
+  // open shape — backend may add fields
+  [key: string]: unknown;
+}
+
+interface OnlineUserRow {
+  id?: number | string;
+  email?: string;
+  username?: string;
+  last_activity?: string;
+  ip?: string;
+  location?: string;
+  device?: string;
+}
+
+interface PaginationState {
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+interface SortConfigState {
+  sortBy: string;
+  sortOrder: 'asc' | 'desc';
+}
+
+interface DeleteConfirmState {
+  show: boolean;
+  userId: number | string | null;
+  userEmail: string;
+}
+
+const UserManagement: React.FC = () => {
   const [loading, setLoading] = useState(false);
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<UserStatsState>({
     onlineUsers: 0,
     onlineGuests: 0,
     todayRegistrations: 0,
@@ -28,23 +80,23 @@ const UserManagement = () => {
     monthRegistrations: 0,
     yearRegistrations: 0,
   });
-  const [users, setUsers] = useState([]);
-  const [onlineUsersList, setOnlineUsersList] = useState([]);
-  
+  const [users, setUsers] = useState<UserRow[]>([]);
+  const [onlineUsersList, setOnlineUsersList] = useState<OnlineUserRow[]>([]);
+
   // Mounted ref to prevent state updates after unmount
   const isMountedRef = useRef(true);
-  const [pagination, setPagination] = useState({
+  const [pagination, setPagination] = useState<PaginationState>({
     page: 1,
     pageSize: 20,
     total: 0,
   });
-  const [sortConfig, setSortConfig] = useState({
+  const [sortConfig, setSortConfig] = useState<SortConfigState>({
     sortBy: 'last_login_at',
     sortOrder: 'desc',
   });
-  const [activeView, setActiveView] = useState('list'); // 'list' or 'online'
-  const [deleteConfirm, setDeleteConfirm] = useState({ show: false, userId: null, userEmail: '' });
-  const [selectedUserId, setSelectedUserId] = useState(null);
+  const [activeView, setActiveView] = useState<'list' | 'online'>('list');
+  const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState>({ show: false, userId: null, userEmail: '' });
+  const [selectedUserId, setSelectedUserId] = useState<number | string | null>(null);
 
   // 搜索和筛选状态
   const [searchKeyword, setSearchKeyword] = useState('');
@@ -81,7 +133,7 @@ const UserManagement = () => {
       );
       // Check if component is still mounted before updating state
       if (!isMountedRef.current) return;
-      
+
       if (response.data.code === 0 && response.data.data) {
         setUsers(response.data.data.users || []);
         setPagination(prev => ({
@@ -118,13 +170,13 @@ const UserManagement = () => {
       const response = await adminAPI.getOnlineUsers();
       // Check if component is still mounted
       if (!isMountedRef.current) return;
-      
+
       if (response.data.code === 0 && response.data.data) {
         // Limit the number of online users to prevent memory issues
-        const onlineUsers = response.data.data.online_users || [];
+        const onlineUsers: OnlineUserRow[] = response.data.data.online_users || [];
         const limitedUsers = onlineUsers.slice(0, MAX_ONLINE_USERS_DISPLAY);
         setOnlineUsersList(limitedUsers);
-        
+
         if (onlineUsers.length > MAX_ONLINE_USERS_DISPLAY) {
           showToast(`显示前 ${MAX_ONLINE_USERS_DISPLAY} 个在线用户（共 ${onlineUsers.length} 个）`, 'info');
         }
@@ -139,18 +191,18 @@ const UserManagement = () => {
     }
   };
 
-  const handleViewChange = (view) => {
+  const handleViewChange = (view: 'list' | 'online') => {
     setActiveView(view);
     if (view === 'online') {
       loadOnlineUsers();
     }
   };
 
-  const handlePageChange = (newPage) => {
+  const handlePageChange = (newPage: number) => {
     setPagination(prev => ({ ...prev, page: newPage }));
   };
 
-  const handleDeleteClick = (user) => {
+  const handleDeleteClick = (user: UserRow) => {
     setDeleteConfirm({
       show: true,
       userId: user.id,
@@ -172,7 +224,8 @@ const UserManagement = () => {
       } else {
         showToast(response.data.message || '删除失败', 'error');
       }
-    } catch (err) {
+    } catch (err: any) {
+      // any: axios error shape
       showToast(err.response?.data?.message || '删除用户失败', 'error');
     }
   };
@@ -182,11 +235,11 @@ const UserManagement = () => {
   };
 
   // 格式化为相对时间
-  const formatRelativeTime = (dateString) => {
+  const formatRelativeTime = (dateString?: string): string => {
     if (!dateString) return '从未登录';
     const date = new Date(dateString);
     const now = new Date();
-    const diffMs = now - date;
+    const diffMs = now.getTime() - date.getTime();
     const diffSeconds = Math.floor(diffMs / 1000);
     const diffMinutes = Math.floor(diffSeconds / 60);
     const diffHours = Math.floor(diffMinutes / 60);
@@ -206,14 +259,14 @@ const UserManagement = () => {
   };
 
   // 格式化为精确时间
-  const formatDate = (dateString) => {
+  const formatDate = (dateString?: string): string => {
     if (!dateString) return '从未登录';
     const date = new Date(dateString);
     return date.toLocaleString('zh-CN');
   };
 
   // 处理排序点击
-  const handleSort = (field) => {
+  const handleSort = (field: string) => {
     setSortConfig(prev => ({
       sortBy: field,
       sortOrder: prev.sortBy === field && prev.sortOrder === 'desc' ? 'asc' : 'desc',
@@ -223,16 +276,16 @@ const UserManagement = () => {
   };
 
   // 获取排序图标
-  const getSortIcon = (field) => {
+  const getSortIcon = (field: string) => {
     if (sortConfig.sortBy !== field) {
       return <span className="um-sort-icon">↕</span>;
     }
-    return sortConfig.sortOrder === 'desc' 
-      ? <span className="um-sort-icon active">↓</span> 
+    return sortConfig.sortOrder === 'desc'
+      ? <span className="um-sort-icon active">↓</span>
       : <span className="um-sort-icon active">↑</span>;
   };
 
-  const getUserStatusLabel = (status) => {
+  const getUserStatusLabel = (status?: number) => {
     switch (status) {
       case 1:
         return <span className="um-status-badge um-status-active">正常</span>;
@@ -246,7 +299,7 @@ const UserManagement = () => {
   };
 
   // 渲染会员状态单元格
-  const renderMemberCell = () => {
+  const renderMemberCell = (_user?: UserRow) => {
     return (
       <div className="um-member-cell">
         <span className="um-mw-plan um-mw-plan-free">免费</span>
@@ -254,9 +307,9 @@ const UserManagement = () => {
     );
   };
 
-  // eslint-disable-next-line no-unused-vars
-  const renderContactInfo = (user) => {
-    const contactInfo = [];
+  // eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
+  const renderContactInfo = (user: UserRow) => {
+    const contactInfo: React.ReactNode[] = [];
 
     if (user.email) {
       contactInfo.push(
@@ -527,16 +580,16 @@ const UserManagement = () => {
                           <td>{renderMemberCell(user)}</td>
                           <td>{getUserStatusLabel(user.status)}</td>
                           <td>
-                            <div 
-                              className="um-relative-time" 
+                            <div
+                              className="um-relative-time"
                               title={formatDate(user.last_login_at)}
                             >
                               {formatRelativeTime(user.last_login_at)}
                             </div>
                           </td>
                           <td>
-                            <div 
-                              className="um-relative-time" 
+                            <div
+                              className="um-relative-time"
                               title={formatDate(user.created_at)}
                             >
                               {formatRelativeTime(user.created_at)}
@@ -572,7 +625,7 @@ const UserManagement = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="6" className="no-data">
+                        <td colSpan={6} className="no-data">
                           {searchKeyword || filterStatus || filterPlan ? '没有找到匹配的用户' : '暂无用户数据'}
                         </td>
                       </tr>
@@ -642,7 +695,7 @@ const UserManagement = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="6" className="no-data">暂无在线用户</td>
+                      <td colSpan={6} className="no-data">暂无在线用户</td>
                     </tr>
                   )}
                 </tbody>

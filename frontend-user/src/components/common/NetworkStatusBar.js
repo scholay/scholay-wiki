@@ -10,7 +10,7 @@
  */
 
 import React, { memo } from 'react';
-import { useNetworkStatus } from '../hooks';
+import { useNetworkStatus } from '../../hooks';
 import './NetworkStatusBar.css';
 
 const NetworkStatusBar = memo(() => {

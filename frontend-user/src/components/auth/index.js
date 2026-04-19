@@ -10,3 +10,4 @@
  */
 
 export { EmailLoginForm, PhoneLoginForm } from './LoginForm';
+export { AuthModalProvider, useAuthModal } from './AuthModalContext';

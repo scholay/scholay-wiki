@@ -4,9 +4,9 @@
  */
 
 import React, { useState } from 'react';
-import { getFileIcon } from '../utils/peer-review/fileUtils';
-import pasteTextGuide from '../assets/images/paste-text-guide.svg';
-import uploadFileGuide from '../assets/images/upload-file-guide.svg';
+import { getFileIcon } from '../../utils/peer-review/fileUtils';
+import pasteTextGuide from '../../assets/images/paste-text-guide.svg';
+import uploadFileGuide from '../../assets/images/upload-file-guide.svg';
 
 export default function PeerReviewCreateSection({
   manuscriptText, onTextInput,

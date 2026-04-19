@@ -117,7 +117,7 @@
 
 .settings-back-btn:hover {
   background: rgba(255, 255, 255, 0.1);
-  color: #10a37f;
+  color: var(--primary-solid);
   transform: translateX(-2px);
 }
 
@@ -192,7 +192,7 @@
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-color: rgba(16, 163, 127, 0.3);
-  color: #10a37f;
+  color: var(--primary-solid);
   box-shadow: 
     0 4px 16px rgba(16, 163, 127, 0.2),
     0 0 20px rgba(16, 163, 127, 0.1),
@@ -320,7 +320,7 @@
 
 [data-theme="light"] .settings-back-btn:hover {
   background: rgba(0, 0, 0, 0.08);
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 [data-theme="light"] .menu-section-title {
@@ -341,7 +341,7 @@
 [data-theme="light"] .menu-item.active {
   background: linear-gradient(135deg, rgba(16, 163, 127, 0.12) 0%, rgba(16, 163, 127, 0.06) 100%);
   border-color: rgba(16, 163, 127, 0.25);
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 [data-theme="light"] .logout-section {

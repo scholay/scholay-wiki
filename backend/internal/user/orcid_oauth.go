@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"scholar-backend/internal/common/cache"
+	"scholar-backend/internal/common/httpclient"
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
 
@@ -29,14 +30,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var orcidHTTPClient = &http.Client{
-	Timeout: 10 * time.Second,
-	Transport: &http.Transport{
-		MaxIdleConns:        20,
-		MaxIdleConnsPerHost: 10,
-		IdleConnTimeout:     90 * time.Second,
-	},
-}
+var orcidHTTPClient = httpclient.OAuthClient
 
 const (
 	orcidAuthURL        = "https://orcid.org/oauth/authorize"
@@ -271,9 +265,8 @@ func (h *Handler) findOrCreateOrcidUser(tokenResp *OrcidTokenResponse, ip string
 
 // BindOrcidAccount handles ORCID account binding for existing users
 func (h *Handler) BindOrcidAccount(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
@@ -307,7 +300,7 @@ func (h *Handler) BindOrcidAccount(c *gin.Context) {
 		return
 	}
 	if existing != nil {
-		if existing.UserID == userID.(uint) {
+		if existing.UserID == userID {
 			utils.ErrorResponse(c, http.StatusBadRequest, "This ORCID is already bound to your account")
 		} else {
 			utils.ErrorResponse(c, http.StatusBadRequest, "This ORCID is already bound to another user")
@@ -320,7 +313,7 @@ func (h *Handler) BindOrcidAccount(c *gin.Context) {
 	providerDataJSON := string(providerDataBytes)
 
 	authProvider := &UserAuthProvider{
-		UserID:         userID.(uint),
+		UserID:         userID,
 		Provider:       "orcid",
 		ProviderUserID: providerUserID,
 		ProviderData:   &providerDataJSON,
@@ -336,12 +329,11 @@ func (h *Handler) BindOrcidAccount(c *gin.Context) {
 
 // UnbindOrcid handles ORCID account unbinding
 func (h *Handler) UnbindOrcid(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
-	err := h.service.UnbindOrcid(userID.(uint))
+	err := h.service.UnbindOrcid(userID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
 		return

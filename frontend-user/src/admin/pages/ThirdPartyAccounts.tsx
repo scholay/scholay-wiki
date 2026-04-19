@@ -12,15 +12,77 @@ import { adminAPI } from '../services/api';
 import { showToast } from '../components/Toast';
 import './ThirdPartyAccounts.css';
 
-const ThirdPartyAccounts = () => {
+// any documented:
+//   - axios catch blocks (err: any)
+//   - account / stats / typeStat shapes returned by backend are open and partly
+//     unknown; declare as Record<string, any> to allow ad-hoc field access.
+interface AccountConfig {
+  api_key?: string;
+  base_url?: string;
+  model_low?: string;
+  model_mid?: string;
+  model_high?: string;
+  peer_review_model_1?: string;
+  peer_review_model_2?: string;
+  peer_review_model_3?: string;
+  [key: string]: unknown;
+}
+
+interface AccountRow {
+  id: number | string;
+  name: string;
+  type: string;
+  status: number;
+  priority?: number;
+  config?: AccountConfig;
+  total_requests?: number;
+  success_count?: number;
+  fail_count?: number;
+  slow_count?: number;
+  max_latency_ms?: number;
+  last_used_at?: string;
+  stats?: {
+    success_rate?: number;
+    avg_latency_ms?: number;
+    std_dev_ms?: number;
+  };
+  [key: string]: unknown;
+}
+
+interface TypeStat {
+  type: string;
+  type_name: string;
+  active_count: number;
+  total_count: number;
+  total_usage: number;
+  last_used_at?: string;
+}
+
+interface StatsState {
+  total?: number;
+  active_count?: number;
+  total_usage?: number;
+  type_stats?: TypeStat[];
+  [key: string]: unknown;
+}
+
+interface FormDataState {
+  name: string;
+  type: string;
+  config: AccountConfig;
+  status: number;
+  priority: number;
+}
+
+const ThirdPartyAccounts: React.FC = () => {
   const [loading, setLoading] = useState(false);
-  const [accounts, setAccounts] = useState([]);
-  const [stats, setStats] = useState(null);
+  const [accounts, setAccounts] = useState<AccountRow[]>([]);
+  const [stats, setStats] = useState<StatsState | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [editingAccount, setEditingAccount] = useState(null);
+  const [editingAccount, setEditingAccount] = useState<AccountRow | null>(null);
   const [filterType, setFilterType] = useState('');
   const [filterActive, setFilterActive] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormDataState>({
     name: '',
     type: 'semantic_scholar',
     config: {
@@ -88,7 +150,7 @@ const ThirdPartyAccounts = () => {
     setShowModal(true);
   };
 
-  const handleEdit = (account) => {
+  const handleEdit = (account: AccountRow) => {
     setEditingAccount(account);
     setFormData({
       name: account.name,
@@ -100,7 +162,7 @@ const ThirdPartyAccounts = () => {
     setShowModal(true);
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: number | string) => {
     if (!window.confirm('确认删除此账号？')) return;
 
     try {
@@ -117,7 +179,7 @@ const ThirdPartyAccounts = () => {
     }
   };
 
-  const handleResetStats = async (id) => {
+  const handleResetStats = async (id: number | string) => {
     if (!window.confirm('确认重置此账号的统计数据？')) return;
 
     try {
@@ -133,7 +195,7 @@ const ThirdPartyAccounts = () => {
     }
   };
 
-  const handleTest = async (id) => {
+  const handleTest = async (id: number | string) => {
     try {
       const response = await adminAPI.testThirdPartyAccount(id);
       if (response.data.code === 0) {
@@ -159,11 +221,11 @@ const ThirdPartyAccounts = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Prepare config based on account type
-    let config = {};
+    let config: Record<string, unknown> = {};
     if (formData.type === 'semantic_scholar') {
       if (!formData.config.api_key) {
         showToast('请输入API Key', 'error');
@@ -239,19 +301,19 @@ const ThirdPartyAccounts = () => {
     }
   };
 
-  const formatDate = (dateString) => {
+  const formatDate = (dateString?: string) => {
     if (!dateString) return '从未使用';
     const date = new Date(dateString);
     return date.toLocaleString('zh-CN');
   };
 
   // 格式化为相对时间（更友好的显示）
-  const formatRelativeTime = (dateString) => {
+  const formatRelativeTime = (dateString?: string) => {
     if (!dateString) return '从未使用';
-    
+
     const date = new Date(dateString);
     const now = new Date();
-    const diffMs = now - date;
+    const diffMs = now.getTime() - date.getTime();
     const diffSeconds = Math.floor(diffMs / 1000);
     const diffMinutes = Math.floor(diffSeconds / 60);
     const diffHours = Math.floor(diffMinutes / 60);
@@ -279,12 +341,12 @@ const ThirdPartyAccounts = () => {
   };
 
   // 格式化数字（添加千分位）
-  const formatNumber = (num) => {
+  const formatNumber = (num?: number) => {
     if (num === undefined || num === null) return '0';
     return num.toLocaleString('zh-CN');
   };
 
-  const getAccountTypeLabel = (type) => {
+  const getAccountTypeLabel = (type: string) => {
     switch (type) {
       case 'semantic_scholar':
         return <span className="type-badge type-scholar">Semantic Scholar</span>;
@@ -297,7 +359,7 @@ const ThirdPartyAccounts = () => {
     }
   };
 
-  const getStatusLabel = (status) => {
+  const getStatusLabel = (status: number) => {
     return status === 1 ? (
       <span className="status-badge status-active">启用</span>
     ) : (
@@ -305,9 +367,9 @@ const ThirdPartyAccounts = () => {
     );
   };
 
-  const getModelCodesLabel = (config) => {
+  const getModelCodesLabel = (config?: AccountConfig) => {
     if (!config) return '-';
-    const models = [];
+    const models: string[] = [];
     if (config.model_low) models.push(`Low: ${config.model_low}`);
     if (config.model_mid) models.push(`Mid: ${config.model_mid}`);
     if (config.model_high) models.push(`High: ${config.model_high}`);
@@ -362,7 +424,7 @@ const ThirdPartyAccounts = () => {
             <div className="type-stats-section">
               <h3 className="section-title">按类型统计</h3>
               <div className="type-stats-cards">
-                {stats.type_stats.map((typeStat) => (
+                {stats.type_stats.map((typeStat: TypeStat) => (
                   <div key={typeStat.type} className={`type-stat-card type-stat-${typeStat.type}`}>
                     <div className="type-stat-header">
                       <span className="type-stat-name">{typeStat.type_name}</span>
@@ -794,8 +856,8 @@ const ThirdPartyAccounts = () => {
                   onChange={(e) => setFormData({ ...formData, status: parseInt(e.target.value) })}
                   required
                 >
-                  <option value="1">启用</option>
-                  <option value="0">停用</option>
+                  <option value={1}>启用</option>
+                  <option value={0}>停用</option>
                 </select>
               </div>
               </div>

@@ -281,7 +281,7 @@
 }
 
 .check-icon {
-  color: #10a37f;
+  color: var(--primary-solid);
   flex-shrink: 0;
   width: 16px;
   height: 16px;
@@ -532,7 +532,7 @@
   }
 
   .model-selector-dropdown .model-option.selected .model-option-label {
-    color: #10a37f;
+    color: var(--primary-solid);
     font-weight: 600;
   }
 
@@ -559,7 +559,7 @@
 }
 
 /* 小屏手机 */
-@media (max-width: 375px) {
+@media (max-width: 480px) {
   .model-selector-btn {
     padding: 5px 8px;
     font-size: 10px;
@@ -723,8 +723,8 @@
 }
 
 [data-theme="light"] .model-selector-btn:hover:not(:disabled) {
-  background: #ffffff;
-  border-color: #10a37f;
+  background: var(--surface);
+  border-color: var(--primary-solid);
   color: #111827;
   box-shadow: 
     0 4px 6px rgba(0, 0, 0, 0.1),
@@ -735,8 +735,8 @@
   background: linear-gradient(135deg, 
     rgba(16, 163, 127, 0.1) 0%, 
     rgba(16, 163, 127, 0.05) 100%);
-  color: #10a37f;
-  border-color: #10a37f;
+  color: var(--primary-solid);
+  border-color: var(--primary-solid);
   box-shadow: 
     0 2px 8px rgba(16, 163, 127, 0.2),
     0 0 0 1px rgba(16, 163, 127, 0.2);
@@ -761,7 +761,7 @@
 
 /* 下拉菜单 - 日间模式 */
 [data-theme="light"] .model-selector-dropdown {
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid rgba(0, 0, 0, 0.1);
   box-shadow: 
     0 20px 25px -5px rgba(0, 0, 0, 0.1),
@@ -772,7 +772,7 @@
 [data-theme="light"] .model-option {
   color: #374151;
   border: 1px solid transparent;
-  background: #ffffff;
+  background: var(--surface);
 }
 
 [data-theme="light"] .model-option:hover {
@@ -784,7 +784,7 @@
   background: linear-gradient(135deg, 
     rgba(16, 163, 127, 0.12) 0%, 
     rgba(16, 163, 127, 0.08) 100%);
-  border-color: #10a37f;
+  border-color: var(--primary-solid);
 }
 
 [data-theme="light"] .model-option.selected:hover {
@@ -799,7 +799,7 @@
 }
 
 [data-theme="light"] .model-option.selected .model-option-desc {
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 [data-theme="light"] .model-option-label {
@@ -814,7 +814,7 @@
 
 [data-theme="light"] .model-badge {
   background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-  color: #ffffff;
+  color: var(--surface);
 }
 
 [data-theme="light"] .dropdown-arrow {
@@ -822,7 +822,7 @@
 }
 
 [data-theme="light"] .dropdown-arrow.open {
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 [data-theme="light"] .model-icon {
@@ -830,7 +830,7 @@
 }
 
 [data-theme="light"] .model-selector-btn.open .model-icon {
-  color: #10a37f;
+  color: var(--primary-solid);
   filter: drop-shadow(0 2px 4px rgba(16, 163, 127, 0.2));
 }
 
@@ -858,11 +858,11 @@
 }
 
 [data-theme="light"] .model-option.selected .model-option-icon-wrapper svg {
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 /* 勾选图标 - 日间模式 */
 [data-theme="light"] .check-icon {
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 

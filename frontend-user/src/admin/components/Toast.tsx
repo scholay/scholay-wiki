@@ -7,33 +7,51 @@
  * ============================================================================
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import './Toast.css';
 
-let toastId = 0;
-let toastCallbacks = [];
+export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
-export const showToast = (message, type = 'success', duration = 3000) => {
+export interface ToastItem {
+  id: number;
+  message: string;
+  type: ToastType;
+  duration: number;
+}
+
+type ToastCallback = (toast: ToastItem) => void;
+
+let toastId = 0;
+let toastCallbacks: ToastCallback[] = [];
+
+export const showToast = (
+  message: string,
+  type: ToastType = 'success',
+  duration: number = 3000
+): void => {
   const id = toastId++;
-  const toast = { id, message, type, duration };
-  toastCallbacks.forEach(callback => callback(toast));
+  const toast: ToastItem = { id, message, type, duration };
+  toastCallbacks.forEach((callback) => callback(toast));
 };
 
 const Toast = () => {
-  const [toasts, setToasts] = useState([]);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
 
-  const addToast = useCallback((toast) => {
-    setToasts(prev => [...prev, toast]);
-
-    // Auto remove after duration
-    setTimeout(() => {
-      removeToast(toast.id);
-    }, toast.duration);
+  const removeToast = useCallback((id: number) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
 
-  const removeToast = (id) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id));
-  };
+  const addToast = useCallback(
+    (toast: ToastItem) => {
+      setToasts((prev) => [...prev, toast]);
+
+      // Auto remove after duration
+      setTimeout(() => {
+        removeToast(toast.id);
+      }, toast.duration);
+    },
+    [removeToast]
+  );
 
   useEffect(() => {
     toastCallbacks.push(addToast);

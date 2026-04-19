@@ -129,38 +129,38 @@
 
 /* 成功类 - success */
 .toast-success .toast-icon {
-  background: linear-gradient(135deg, rgba(16, 163, 127, 0.2) 0%, rgba(16, 163, 127, 0.1) 100%);
-  color: #10a37f;
-  box-shadow: 0 2px 8px rgba(16, 163, 127, 0.2);
+  background: linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.2) 0%, rgba(var(--color-primary-rgb), 0.1) 100%);
+  color: var(--text-accent);
+  box-shadow: 0 2px 8px rgba(var(--color-primary-rgb), 0.2);
 }
 
 /* 提醒类 - info */
 .toast-info .toast-icon {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(59, 130, 246, 0.1) 100%);
-  color: #3b82f6;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+  background: linear-gradient(135deg, rgba(var(--color-info-rgb), 0.2) 0%, rgba(var(--color-info-rgb), 0.1) 100%);
+  color: var(--text-info);
+  box-shadow: 0 2px 8px rgba(var(--color-info-rgb), 0.2);
 }
 
 /* 警告类 - warning */
 .toast-warning .toast-icon {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(245, 158, 11, 0.1) 100%);
-  color: #f59e0b;
-  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
+  background: linear-gradient(135deg, rgba(var(--color-warning-rgb), 0.2) 0%, rgba(var(--color-warning-rgb), 0.1) 100%);
+  color: var(--text-warning);
+  box-shadow: 0 2px 8px rgba(var(--color-warning-rgb), 0.2);
 }
 
 /* 报错类 - error */
 .toast-error .toast-icon {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(239, 68, 68, 0.1) 100%);
-  color: #ef4444;
-  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
+  background: linear-gradient(135deg, rgba(var(--color-error-rgb), 0.2) 0%, rgba(var(--color-error-rgb), 0.1) 100%);
+  color: var(--text-error);
+  box-shadow: 0 2px 8px rgba(var(--color-error-rgb), 0.2);
 }
 
 /* Toast 消息文本 */
 .toast-message {
   flex: 1;
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 1.5;
+  font-size: var(--font-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-normal);
   position: relative;
   z-index: 1;
 }
@@ -378,7 +378,7 @@
 
 .confirm-icon-success {
   background: linear-gradient(135deg, rgba(16, 163, 127, 0.25) 0%, rgba(16, 163, 127, 0.1) 100%);
-  color: #10a37f;
+  color: var(--primary-solid);
   box-shadow: 
     0 8px 24px rgba(16, 163, 127, 0.25),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);

@@ -26,7 +26,7 @@
   width: 50px;
   height: 50px;
   border: 3px solid rgba(16, 163, 127, 0.2);
-  border-top-color: #10a37f;
+  border-top-color: var(--primary-solid);
   border-radius: 50%;
   margin: 0 auto 24px;
   animation: alipayReturnSpin 1s linear infinite;

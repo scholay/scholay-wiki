@@ -538,7 +538,7 @@
 /* Accept - 接受 */
 .prvr-verdict-badge.accept {
   background: rgba(16, 163, 127, 0.12);
-  color: #10a37f;
+  color: var(--primary-solid);
   border-color: rgba(16, 163, 127, 0.25);
 }
 
@@ -600,7 +600,7 @@
 }
 
 .prvr-consensus-badge.high .prvr-consensus-value {
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 .prvr-consensus-badge.medium .prvr-consensus-value {
@@ -683,7 +683,7 @@
 
 .prvr-tab-badge.accept {
   background: rgba(16, 163, 127, 0.15);
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 .prvr-tab-badge.minor-revision {

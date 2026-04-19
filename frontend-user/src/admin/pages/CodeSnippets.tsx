@@ -10,9 +10,34 @@
  * 用于管理注入到用户端前端的代码片段
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, type FormEvent } from 'react';
 import { adminAPI } from '../services/api';
 import './CodeSnippets.css';
+
+interface CodeSnippet {
+  id: number;
+  name: string;
+  code_key: string;
+  category: string;
+  position: string;
+  code_content: string;
+  description?: string;
+  is_enabled: boolean;
+  priority: number;
+  pages?: string[] | null;
+}
+
+interface CodeSnippetForm {
+  name: string;
+  code_key: string;
+  category: string;
+  position: string;
+  code_content: string;
+  description: string;
+  is_enabled: boolean;
+  priority: number;
+  pages: string[];
+}
 
 // 分类选项
 const CATEGORIES = [
@@ -31,13 +56,13 @@ const POSITIONS = [
   { value: 'body_end', label: 'Body 结束', desc: '适合延迟加载的脚本、广告代码' },
 ];
 
-const CodeSnippets = () => {
-  const [snippets, setSnippets] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [editingSnippet, setEditingSnippet] = useState(null);
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [formData, setFormData] = useState({
+const CodeSnippets: React.FC = () => {
+  const [snippets, setSnippets] = useState<CodeSnippet[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [showModal, setShowModal] = useState<boolean>(false);
+  const [editingSnippet, setEditingSnippet] = useState<CodeSnippet | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [formData, setFormData] = useState<CodeSnippetForm>({
     name: '',
     code_key: '',
     category: 'seo',
@@ -48,7 +73,7 @@ const CodeSnippets = () => {
     priority: 100,
     pages: [],
   });
-  const [pagesInput, setPagesInput] = useState('');
+  const [pagesInput, setPagesInput] = useState<string>('');
 
   const loadSnippets = useCallback(async () => {
     setLoading(true);
@@ -86,7 +111,7 @@ const CodeSnippets = () => {
     setShowModal(true);
   };
 
-  const handleEdit = (snippet) => {
+  const handleEdit = (snippet: CodeSnippet) => {
     setEditingSnippet(snippet);
     setFormData({
       name: snippet.name,
@@ -103,7 +128,7 @@ const CodeSnippets = () => {
     setShowModal(true);
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     // 处理页面路径
@@ -112,7 +137,7 @@ const CodeSnippets = () => {
       .map(p => p.trim())
       .filter(p => p);
 
-    const submitData = {
+    const submitData: Omit<CodeSnippetForm, 'pages'> & { pages: string[] | null } = {
       ...formData,
       pages: pages.length > 0 ? pages : null,
     };
@@ -137,13 +162,13 @@ const CodeSnippets = () => {
           alert('创建失败: ' + response.data.message);
         }
       }
-    } catch (error) {
+    } catch (error: any) { // [any#1] axios error
       console.error('Failed to save snippet:', error);
-      alert('保存失败: ' + (error.response?.data?.message || error.message));
+      alert('保存失败: ' + (error?.response?.data?.message || error?.message));
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: number) => {
     if (!window.confirm('确定要删除这个代码片段吗？')) {
       return;
     }
@@ -156,13 +181,13 @@ const CodeSnippets = () => {
       } else {
         alert('删除失败: ' + response.data.message);
       }
-    } catch (error) {
+    } catch (error: any) { // [any#2] axios error
       console.error('Failed to delete snippet:', error);
-      alert('删除失败: ' + (error.response?.data?.message || error.message));
+      alert('删除失败: ' + (error?.response?.data?.message || error?.message));
     }
   };
 
-  const handleToggleEnabled = async (snippet) => {
+  const handleToggleEnabled = async (snippet: CodeSnippet) => {
     try {
       const response = await adminAPI.updateCodeSnippet(snippet.id, {
         is_enabled: !snippet.is_enabled,
@@ -172,24 +197,24 @@ const CodeSnippets = () => {
       } else {
         alert('更新失败: ' + response.data.message);
       }
-    } catch (error) {
+    } catch (error: any) { // [any#3] axios error
       console.error('Failed to toggle enabled:', error);
-      alert('更新失败: ' + (error.response?.data?.message || error.message));
+      alert('更新失败: ' + (error?.response?.data?.message || error?.message));
     }
   };
 
-  const getCategoryLabel = (category) => {
+  const getCategoryLabel = (category: string) => {
     const item = CATEGORIES.find(c => c.value === category);
     return item ? item.label : category;
   };
 
-  const getPositionLabel = (position) => {
+  const getPositionLabel = (position: string) => {
     const item = POSITIONS.find(p => p.value === position);
     return item ? item.label : position;
   };
 
-  const getCategoryClass = (category) => {
-    const classes = {
+  const getCategoryClass = (category: string) => {
+    const classes: Record<string, string> = {
       seo: 'badge-seo',
       analytics: 'badge-analytics',
       ad: 'badge-ad',

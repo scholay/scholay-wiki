@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"scholar-backend/internal/common/cache"
+	"scholar-backend/internal/common/httpclient"
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
 
@@ -27,14 +28,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var githubHTTPClient = &http.Client{
-	Timeout: 10 * time.Second,
-	Transport: &http.Transport{
-		MaxIdleConns:        20,
-		MaxIdleConnsPerHost: 10,
-		IdleConnTimeout:     90 * time.Second,
-	},
-}
+var githubHTTPClient = httpclient.OAuthClient
 
 // GithubUser represents GitHub user info from API
 type GithubUser struct {
@@ -435,9 +429,8 @@ type BindGitHubRequest struct {
 
 // BindGitHubAccount handles GitHub account binding for existing users
 func (h *Handler) BindGitHubAccount(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
@@ -476,7 +469,7 @@ func (h *Handler) BindGitHubAccount(c *gin.Context) {
 	}
 
 	// Bind GitHub to current user
-	if err := h.bindGitHubToUser(userID.(uint), githubUser); err != nil {
+	if err := h.bindGitHubToUser(userID, githubUser); err != nil {
 		slog.Error("github bind: failed to bind account", "err", err, "user_id", userID)
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to bind GitHub account")
 		return

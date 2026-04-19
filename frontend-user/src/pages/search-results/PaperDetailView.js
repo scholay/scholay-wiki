@@ -2,8 +2,8 @@
  * 论文详情视图组件
  */
 import React from 'react';
-import PaperDetailSkeleton from '../../components/PaperDetailSkeleton';
-import SimplePaperItem from '../../components/SimplePaperItem';
+import PaperDetailSkeleton from '../../components/search/PaperDetailSkeleton';
+import SimplePaperItem from '../../components/search/SimplePaperItem';
 import { useTranslation } from '../../hooks';
 import { trackDetailPageSimilar } from '../../utils/usageTracker';
 

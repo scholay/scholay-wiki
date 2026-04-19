@@ -13,7 +13,7 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Clock, Calendar, ChevronRight, Search, FileText, BookOpen, Sparkles, Code } from 'lucide-react';
-import SEO from '../components/SEO';
+import SEO from '../components/common/SEO';
 import FeaturePromo, { matchFeatureByArticle } from '../components/FeaturePromo';
 import { getArticleBySlug, getRelatedArticles } from './resourceArticles';
 import './styles/ResourcePage.css';

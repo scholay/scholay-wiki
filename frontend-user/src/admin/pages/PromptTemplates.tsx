@@ -7,17 +7,36 @@
  * ============================================================================
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, type FormEvent } from 'react';
 import { Check } from 'lucide-react';
 import { adminAPI } from '../services/api';
 import './PromptTemplates.css';
 
-const PromptTemplates = () => {
-  const [templates, setTemplates] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState(null);
-  const [formData, setFormData] = useState({
+interface PromptTemplate {
+  id: number;
+  name: string;
+  key: string;
+  template: string;
+  description?: string;
+  is_active: boolean | number;
+  created_at: string;
+  updated_at: string;
+}
+
+interface PromptTemplateForm {
+  name: string;
+  key: string;
+  template: string;
+  description: string;
+  is_active: boolean;
+}
+
+const PromptTemplates: React.FC = () => {
+  const [templates, setTemplates] = useState<PromptTemplate[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [showModal, setShowModal] = useState<boolean>(false);
+  const [editingTemplate, setEditingTemplate] = useState<PromptTemplate | null>(null);
+  const [formData, setFormData] = useState<PromptTemplateForm>({
     name: '',
     key: '',
     template: '',
@@ -56,7 +75,7 @@ const PromptTemplates = () => {
     setShowModal(true);
   };
 
-  const handleEdit = (template) => {
+  const handleEdit = (template: PromptTemplate) => {
     setEditingTemplate(template);
     setFormData({
       name: template.name,
@@ -68,7 +87,7 @@ const PromptTemplates = () => {
     setShowModal(true);
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     try {
@@ -93,13 +112,13 @@ const PromptTemplates = () => {
           alert('创建失败: ' + response.data.message);
         }
       }
-    } catch (error) {
+    } catch (error: any) { // [any#1] axios error
       console.error('Failed to save template:', error);
-      alert('保存失败: ' + (error.response?.data?.message || error.message));
+      alert('保存失败: ' + (error?.response?.data?.message || error?.message));
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: number) => {
     if (!window.confirm('确定要删除这个提示词模板吗？')) {
       return;
     }
@@ -112,13 +131,13 @@ const PromptTemplates = () => {
       } else {
         alert('删除失败: ' + response.data.message);
       }
-    } catch (error) {
+    } catch (error: any) { // [any#2] axios error
       console.error('Failed to delete template:', error);
-      alert('删除失败: ' + (error.response?.data?.message || error.message));
+      alert('删除失败: ' + (error?.response?.data?.message || error?.message));
     }
   };
 
-  const handleToggleActive = async (template) => {
+  const handleToggleActive = async (template: PromptTemplate) => {
     try {
       const response = await adminAPI.updatePromptTemplate(template.id, {
         name: template.name,
@@ -131,9 +150,9 @@ const PromptTemplates = () => {
       } else {
         alert('更新失败: ' + response.data.message);
       }
-    } catch (error) {
+    } catch (error: any) { // [any#3] axios error
       console.error('Failed to toggle active:', error);
-      alert('更新失败: ' + (error.response?.data?.message || error.message));
+      alert('更新失败: ' + (error?.response?.data?.message || error?.message));
     }
   };
 
@@ -302,8 +321,8 @@ const PromptTemplates = () => {
                     type="button"
                     className="btn-variable"
                     onClick={() => {
-                      const textarea = document.querySelector('.template-textarea');
-                      const cursorPos = textarea.selectionStart;
+                      const textarea = document.querySelector('.template-textarea') as HTMLTextAreaElement | null;
+                      const cursorPos = textarea?.selectionStart ?? formData.template.length;
                       const textBefore = formData.template.substring(0, cursorPos);
                       const textAfter = formData.template.substring(cursorPos);
                       setFormData({ ...formData, template: textBefore + '{{query}}' + textAfter });
@@ -316,8 +335,8 @@ const PromptTemplates = () => {
                     type="button"
                     className="btn-variable"
                     onClick={() => {
-                      const textarea = document.querySelector('.template-textarea');
-                      const cursorPos = textarea.selectionStart;
+                      const textarea = document.querySelector('.template-textarea') as HTMLTextAreaElement | null;
+                      const cursorPos = textarea?.selectionStart ?? formData.template.length;
                       const textBefore = formData.template.substring(0, cursorPos);
                       const textAfter = formData.template.substring(cursorPos);
                       setFormData({ ...formData, template: textBefore + '{{papers}}' + textAfter });
@@ -334,7 +353,7 @@ const PromptTemplates = () => {
                     value={formData.template}
                     onChange={(e) => setFormData({ ...formData, template: e.target.value })}
                     required
-                    rows="18"
+                    rows={18}
                     placeholder="输入提示词模板内容...&#10;&#10;例如：&#10;你是一位专业的学术研究助手。用户搜索了关键词：「{{query}}」&#10;&#10;## 论文列表&#10;{{papers}}&#10;&#10;请对这些论文进行深入分析..."
                   />
                   <div className="template-stats">

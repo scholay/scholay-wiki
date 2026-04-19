@@ -14,19 +14,97 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../services/api';
 import './LatexAgentConfig.css';
 
-const LatexAgentConfig = () => {
-  const [config, setConfig] = useState(null);
-  const [models, setModels] = useState([]);
-  const [modelPresets, setModelPresets] = useState([]);
-  const [apiFormats, setApiFormats] = useState([]);
-  const [configOptions, setConfigOptions] = useState({});
+// any usage:
+//   - axios catch (err: any)
+//   - model/preset/option records returned by backend have open shapes
+interface ModelRow {
+  id: number | string;
+  display_name: string;
+  api_format: string;
+  model_name: string;
+  api_endpoint: string;
+  max_context_tokens: number;
+  max_output_tokens: number;
+  temperature: number;
+  description?: string;
+  sort_order: number;
+  is_default: boolean;
+  is_enabled: boolean;
+  has_api_key?: boolean;
+  [key: string]: unknown;
+}
+
+interface ModelPreset {
+  provider: string;
+  name: string;
+  display_name: string;
+  description?: string;
+  [key: string]: unknown;
+}
+
+interface ApiFormat {
+  value: string;
+  label: string;
+  default_endpoint?: string;
+}
+
+interface ConfigOptions {
+  truncation_strategies?: { value: string; label: string }[];
+  tool_categories?: { value: string; label: string; description?: string }[];
+  [key: string]: unknown;
+}
+
+interface ConfigData {
+  updated_at?: string;
+  updated_by?: number | string;
+  [key: string]: unknown;
+}
+
+interface ModelFormState {
+  display_name: string;
+  api_format: string;
+  model_name: string;
+  api_endpoint: string;
+  api_key: string;
+  max_context_tokens: number;
+  max_output_tokens: number;
+  temperature: number;
+  description: string;
+  sort_order: number;
+  is_default: boolean;
+  is_enabled: boolean;
+}
+
+interface FormDataState {
+  default_model_id: number | string | null;
+  context_window_messages: number;
+  truncation_strategy: string;
+  top_p: number;
+  frequency_penalty: number;
+  presence_penalty: number;
+  max_iterations: number;
+  auto_validate_latex: boolean;
+  auto_fix_errors: boolean;
+  enable_tool_calling: boolean;
+  enabled_tool_categories: string[];
+  system_prompt_override: string;
+  system_prompt_append: string;
+  is_active: boolean;
+}
+
+const LatexAgentConfig: React.FC = () => {
+  const [config, setConfig] = useState<ConfigData | null>(null);
+  const [models, setModels] = useState<ModelRow[]>([]);
+  const [modelPresets, setModelPresets] = useState<ModelPreset[]>([]);
+  const [apiFormats, setApiFormats] = useState<ApiFormat[]>([]);
+  const [configOptions, setConfigOptions] = useState<ConfigOptions>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showModelForm, setShowModelForm] = useState(false);
-  const [editingModel, setEditingModel] = useState(null);
+  const [editingModel, setEditingModel] = useState<ModelRow | null>(null);
 
   // 模型表单数据
-  const [modelForm, setModelForm] = useState({
+  const [modelForm, setModelForm] = useState<ModelFormState>({
     display_name: '',
     api_format: 'openai',
     model_name: '',
@@ -42,7 +120,7 @@ const LatexAgentConfig = () => {
   });
 
   // 全局配置表单
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormDataState>({
     default_model_id: null,
     context_window_messages: 50,
     truncation_strategy: 'sliding_window',
@@ -107,7 +185,8 @@ const LatexAgentConfig = () => {
       if (optionsRes.data?.code === 0 && optionsRes.data?.data) {
         setConfigOptions(optionsRes.data.data);
       }
-    } catch (error) {
+    } catch (error: any) {
+      // any: axios error shape
       console.error('Failed to load config:', error);
       alert('加载配置失败: ' + (error.response?.data?.message || error.message));
     } finally {
@@ -120,8 +199,10 @@ const LatexAgentConfig = () => {
   }, [loadData]);
 
   // 处理表单变化
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const target = e.target as HTMLInputElement;
+    const { name, value, type } = target;
+    const checked = target.checked;
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
@@ -129,7 +210,7 @@ const LatexAgentConfig = () => {
   };
 
   // 处理数字输入
-  const handleNumberChange = (name, value) => {
+  const handleNumberChange = (name: keyof FormDataState, value: string) => {
     setFormData(prev => ({
       ...prev,
       [name]: parseFloat(value) || 0,
@@ -137,7 +218,7 @@ const LatexAgentConfig = () => {
   };
 
   // 处理工具分类选择
-  const handleToolCategoryChange = (category) => {
+  const handleToolCategoryChange = (category: string) => {
     setFormData(prev => {
       const categories = [...prev.enabled_tool_categories];
       const index = categories.indexOf(category);
@@ -151,7 +232,7 @@ const LatexAgentConfig = () => {
   };
 
   // 应用模型预设
-  const handleApplyPreset = async (preset) => {
+  const handleApplyPreset = async (preset: ModelPreset) => {
     try {
       const response = await adminAPI.applyLatexAgentModelPreset(preset.provider, preset.name);
       if (response.data?.code === 0 && response.data?.data) {
@@ -171,7 +252,8 @@ const LatexAgentConfig = () => {
       } else {
         alert('应用失败: ' + response.data?.message);
       }
-    } catch (error) {
+    } catch (error: any) {
+      // any: axios error
       alert('应用失败: ' + (error.response?.data?.message || error.message));
     }
   };
@@ -187,7 +269,8 @@ const LatexAgentConfig = () => {
       } else {
         alert('保存失败: ' + response.data?.message);
       }
-    } catch (error) {
+    } catch (error: any) {
+      // any: axios error
       alert('保存失败: ' + (error.response?.data?.message || error.message));
     } finally {
       setSaving(false);
@@ -195,8 +278,10 @@ const LatexAgentConfig = () => {
   };
 
   // 模型表单变化
-  const handleModelFormChange = (e) => {
-    const { name, value, type, checked } = e.target;
+  const handleModelFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const target = e.target as HTMLInputElement;
+    const { name, value, type } = target;
+    const checked = target.checked;
     setModelForm(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
@@ -204,7 +289,7 @@ const LatexAgentConfig = () => {
   };
 
   // API 格式变化时更新默认端点
-  const handleApiFormatChange = (format) => {
+  const handleApiFormatChange = (format: string) => {
     const formatInfo = apiFormats.find(f => f.value === format);
     setModelForm(prev => ({
       ...prev,
@@ -238,7 +323,8 @@ const LatexAgentConfig = () => {
       } else {
         alert('保存失败: ' + response.data?.message);
       }
-    } catch (error) {
+    } catch (error: any) {
+      // any: axios error
       alert('保存失败: ' + (error.response?.data?.message || error.message));
     } finally {
       setSaving(false);
@@ -246,7 +332,7 @@ const LatexAgentConfig = () => {
   };
 
   // 编辑模型
-  const handleEditModel = (model) => {
+  const handleEditModel = (model: ModelRow) => {
     setModelForm({
       display_name: model.display_name,
       api_format: model.api_format,
@@ -266,7 +352,7 @@ const LatexAgentConfig = () => {
   };
 
   // 删除模型
-  const handleDeleteModel = async (model) => {
+  const handleDeleteModel = async (model: ModelRow) => {
     if (!window.confirm(`确定要删除模型 "${model.display_name}" 吗？`)) {
       return;
     }
@@ -279,13 +365,14 @@ const LatexAgentConfig = () => {
       } else {
         alert('删除失败: ' + response.data?.message);
       }
-    } catch (error) {
+    } catch (error: any) {
+      // any: axios error
       alert('删除失败: ' + (error.response?.data?.message || error.message));
     }
   };
 
   // 设为默认模型
-  const handleSetDefault = async (model) => {
+  const handleSetDefault = async (model: ModelRow) => {
     try {
       const response = await adminAPI.setDefaultLatexAgentModel(model.id);
       if (response.data?.code === 0) {
@@ -294,7 +381,8 @@ const LatexAgentConfig = () => {
       } else {
         alert('设置失败: ' + response.data?.message);
       }
-    } catch (error) {
+    } catch (error: any) {
+      // any: axios error
       alert('设置失败: ' + (error.response?.data?.message || error.message));
     }
   };

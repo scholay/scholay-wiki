@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -23,8 +24,22 @@ import (
 
 // ========== 异步任务处理 ==========
 
+// pipelineTimeout 整个三审任务（预处理 + 三审并行 + 汇总）的全局超时
+// 单审稿人内部还另设 reviewerTimeout (10min)，预处理另含 SemanticScholar HTTP 超时
+const pipelineTimeout = 60 * time.Minute
+
+// 通过 context.Cause 区分"流水线整体超时"与"单审稿人超时"——日志/错误信息能准确反映触发源。
+var (
+	errPipelineTimeout = errors.New("peerreview: pipeline timeout")
+	errReviewerTimeout = errors.New("peerreview: reviewer timeout")
+)
+
 // processTaskAsyncWithThreeReviewers 三审并行处理任务
+// 内部建立 pipelineTimeout 顶层 ctx，进程关停 / 超时时所有子调用（AI/HTTP）会一同 cancel
 func (s *Service) processTaskAsyncWithThreeReviewers(taskID uint) {
+	ctx, cancel := context.WithTimeoutCause(context.Background(), pipelineTimeout, errPipelineTimeout)
+	defer cancel()
+
 	defer func() {
 		if r := recover(); r != nil {
 			errMsg := fmt.Sprintf("任务处理发生异常: %v", r)
@@ -68,7 +83,7 @@ func (s *Service) processTaskAsyncWithThreeReviewers(taskID uint) {
 
 	// 1. 预处理阶段（共享）：提取元信息、检索文献 (5%-50%)
 	slog.Info("starting preprocessing", "task_id", taskID)
-	meta, literatureSummary, refs, err := s.preprocessTask(&task)
+	meta, literatureSummary, refs, err := s.preprocessTask(ctx, &task)
 	if err != nil {
 		slog.Error("preprocessing failed", "task_id", taskID, "err", err)
 		s.updateTaskFailed(taskID, err.Error())
@@ -93,33 +108,37 @@ func (s *Service) processTaskAsyncWithThreeReviewers(taskID uint) {
 		go func(idx int) {
 			defer wg.Done()
 
-			// 创建带超时的上下文
-			ctx, cancel := context.WithTimeout(context.Background(), reviewerTimeout)
+			// 父 ctx 派生带 cause 的子 ctx；context.Cause 可分辨"流水线整体超时"还是"该审稿人单独超时"
+			reviewerCtx, cancel := context.WithTimeoutCause(ctx, reviewerTimeout, errReviewerTimeout)
 			defer cancel()
 
-			// 传递模型配置给审稿函数，使用带超时的 ctx 使内层可响应取消
 			modelConfig := &ReviewerModelConfig{
 				BaseURL:   prModelConfig.BaseURL,
 				APIKey:    prModelConfig.APIKey,
 				ModelName: reviewerModels[idx],
 			}
 
-			done := make(chan struct{})
-			go func() {
-				s.runSingleReviewWithModel(&task, idx+1, meta, literatureSummary, refs, reviewResults[idx], modelConfig)
-				close(done)
-			}()
+			// 直接同步调用：ctx 透传到 AI HTTP 客户端，超时/取消会立即中断 AI 调用
+			// 不再通过 done channel + 子 goroutine 的方式（会导致 goroutine 泄漏）
+			s.runSingleReviewWithModel(reviewerCtx, &task, idx+1, meta, literatureSummary, refs, reviewResults[idx], modelConfig)
 
-			select {
-			case <-done:
-				// 正常完成
-			case <-ctx.Done():
-				reviewErrors[idx] = fmt.Errorf("%s 审稿超时（超过 %v）", ReviewerNames[idx+1], reviewerTimeout)
-				// 更新该审稿人状态为超时
+			// 检查超时/取消（AI 调用已经中断），统一作为该审稿人的失败错误
+			if reviewerCtx.Err() != nil {
+				cause := context.Cause(reviewerCtx)
+				var reason string
+				switch {
+				case errors.Is(cause, errReviewerTimeout):
+					reason = fmt.Sprintf("%s 单人审稿超时（%s）", ReviewerNames[idx+1], reviewerTimeout)
+				case errors.Is(cause, errPipelineTimeout):
+					reason = fmt.Sprintf("%s 因流水线整体超时（%s）被中断", ReviewerNames[idx+1], pipelineTimeout)
+				default:
+					reason = fmt.Sprintf("%s 审稿被中断: %v", ReviewerNames[idx+1], cause)
+				}
+				reviewErrors[idx] = errors.New(reason)
 				s.db.Model(&PeerReviewResult{}).Where("task_id = ? AND reviewer_index = ?", task.ID, idx+1).
 					Updates(map[string]any{
 						"status":        TaskStatusFailed,
-						"error_message": reviewErrors[idx].Error(),
+						"error_message": reason,
 					})
 			}
 		}(i)
@@ -152,7 +171,7 @@ func (s *Service) processTaskAsyncWithThreeReviewers(taskID uint) {
 	// 3. 汇总阶段 (90%-100%)
 	slog.Info("starting summarization", "task_id", taskID)
 	s.updateTaskProgress(taskID, TaskStatusProcessing, 90, "汇总审稿结果...")
-	s.summarizeReviews(taskID, reviewResults)
+	s.summarizeReviews(ctx, taskID, reviewResults)
 
 	// 完成
 	completedAt := time.Now()
@@ -166,7 +185,8 @@ func (s *Service) processTaskAsyncWithThreeReviewers(taskID uint) {
 }
 
 // preprocessTask 预处理任务（提取元信息、检索文献）
-func (s *Service) preprocessTask(task *PeerReviewTask) (*ManuscriptMeta, *LiteratureSummary, []ReferenceForReviewer, error) {
+// ctx 用于传递给底层 AI 调用，pipeline 取消时会一并中断
+func (s *Service) preprocessTask(ctx context.Context, task *PeerReviewTask) (*ManuscriptMeta, *LiteratureSummary, []ReferenceForReviewer, error) {
 	modelLevel := task.ModelLevel
 
 	// 1. 提取稿件元信息 (10%)
@@ -190,7 +210,7 @@ func (s *Service) preprocessTask(task *PeerReviewTask) (*ManuscriptMeta, *Litera
 		if mimeType == "" {
 			mimeType = GetMimeType(task.ManuscriptFile.FileExt)
 		}
-		meta, err = s.extractBasicInfoFromFile(fileBase64, task.ManuscriptFile.FileName, mimeType, modelLevel)
+		meta, err = s.extractBasicInfoFromFile(ctx, fileBase64, task.ManuscriptFile.FileName, mimeType, modelLevel)
 	} else {
 		// 文本模式：使用上传时提取的文本或用户直接输入的文本
 		manuscriptText := task.ManuscriptText
@@ -202,7 +222,7 @@ func (s *Service) preprocessTask(task *PeerReviewTask) (*ManuscriptMeta, *Litera
 		if len(manuscriptText) < 100 {
 			return nil, nil, nil, fmt.Errorf("稿件内容太短，请提供更完整的内容")
 		}
-		meta, err = s.extractBasicInfo(manuscriptText, modelLevel)
+		meta, err = s.extractBasicInfo(ctx, manuscriptText, modelLevel)
 	}
 
 	if err != nil {
@@ -225,7 +245,7 @@ func (s *Service) preprocessTask(task *PeerReviewTask) (*ManuscriptMeta, *Litera
 	progressCallback := func(msg string) {
 		s.updateTaskProgress(taskID, TaskStatusProcessing, 25, msg)
 	}
-	rawResults, err := s.callSemanticScholarSearchWithAIFilterNoWriter(searchQueries, meta, modelLevel, progressCallback)
+	rawResults, err := s.callSemanticScholarSearchWithAIFilterNoWriter(ctx, searchQueries, meta, modelLevel, progressCallback)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("文献检索失败: %w", err)
 	}
@@ -238,7 +258,7 @@ func (s *Service) preprocessTask(task *PeerReviewTask) (*ManuscriptMeta, *Litera
 
 	// 5. 总结文献 (45%)
 	s.updateTaskProgress(task.ID, TaskStatusProcessing, 45, "正在生成文献总结...")
-	literatureSummary, err := s.summarizeLiterature(literatureContext, meta, modelLevel)
+	literatureSummary, err := s.summarizeLiterature(ctx, literatureContext, meta, modelLevel)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("文献总结失败: %w", err)
 	}
@@ -251,7 +271,7 @@ func (s *Service) preprocessTask(task *PeerReviewTask) (*ManuscriptMeta, *Litera
 }
 
 // runSingleReview 执行单个审稿人的审稿
-func (s *Service) runSingleReview(task *PeerReviewTask, reviewerIndex int, meta *ManuscriptMeta, summary *LiteratureSummary, refs []ReferenceForReviewer, writer *strings.Builder) {
+func (s *Service) runSingleReview(ctx context.Context, task *PeerReviewTask, reviewerIndex int, meta *ManuscriptMeta, summary *LiteratureSummary, refs []ReferenceForReviewer, writer *strings.Builder) {
 	slog.Info("runSingleReview started", "task_id", task.ID, "reviewer_index", reviewerIndex)
 
 	// 更新审稿人状态
@@ -284,7 +304,7 @@ func (s *Service) runSingleReview(task *PeerReviewTask, reviewerIndex int, meta 
 			slog.Error("failed to collect files", "task_id", task.ID, "reviewer_index", reviewerIndex)
 		} else {
 			slog.Debug("collected files for AI", "count", len(files), "task_id", task.ID, "reviewer_index", reviewerIndex)
-			err = s.generateReviewForTaskWithFile(files, attachmentTexts,
+			err = s.generateReviewForTaskWithFile(ctx, files, attachmentTexts,
 				meta, summary, refs, task.ModelLevel, writer, task.ID, reviewerIndex)
 		}
 	} else {
@@ -299,13 +319,13 @@ func (s *Service) runSingleReview(task *PeerReviewTask, reviewerIndex int, meta 
 		if len(pdfAttachments) > 0 {
 			slog.Info("using hybrid mode (text + PDF attachments)", "task_id", task.ID, "reviewer_index", reviewerIndex)
 			slog.Info("hybrid mode details", "text_length", len(manuscriptText), "pdf_count", len(pdfAttachments), "task_id", task.ID, "reviewer_index", reviewerIndex)
-			err = s.generateReviewForTaskHybrid(manuscriptText, pdfAttachments, attachmentTexts,
+			err = s.generateReviewForTaskHybrid(ctx, manuscriptText, pdfAttachments, attachmentTexts,
 				meta, summary, refs, task.ModelLevel, writer, task.ID, reviewerIndex)
 		} else {
 			// 纯文本模式
 			slog.Info("using text mode", "task_id", task.ID, "reviewer_index", reviewerIndex)
 			slog.Debug("text mode details", "text_length", len(manuscriptText), "task_id", task.ID, "reviewer_index", reviewerIndex)
-			err = s.generateReviewForTask(manuscriptText, attachmentTexts, meta, summary, refs, task.ModelLevel, writer, task.ID, reviewerIndex)
+			err = s.generateReviewForTask(ctx, manuscriptText, attachmentTexts, meta, summary, refs, task.ModelLevel, writer, task.ID, reviewerIndex)
 		}
 	}
 
@@ -364,7 +384,8 @@ func (s *Service) runSingleReview(task *PeerReviewTask, reviewerIndex int, meta 
 }
 
 // runSingleReviewWithModel 单个审稿人的审稿流程（使用指定模型，记录步骤详情）
-func (s *Service) runSingleReviewWithModel(task *PeerReviewTask, reviewerIndex int, meta *ManuscriptMeta, summary *LiteratureSummary, refs []ReferenceForReviewer, writer *strings.Builder, modelConfig *ReviewerModelConfig) {
+// ctx 用于在 pipeline 取消 / 单审稿人超时时立即中断 AI 调用
+func (s *Service) runSingleReviewWithModel(ctx context.Context, task *PeerReviewTask, reviewerIndex int, meta *ManuscriptMeta, summary *LiteratureSummary, refs []ReferenceForReviewer, writer *strings.Builder, modelConfig *ReviewerModelConfig) {
 	reviewerName := ReviewerNames[reviewerIndex]
 	slog.Info("runSingleReviewWithModel started", "task_id", task.ID, "reviewer", reviewerName, "model", modelConfig.ModelName)
 
@@ -416,7 +437,7 @@ func (s *Service) runSingleReviewWithModel(task *PeerReviewTask, reviewerIndex i
 			slog.Error("failed to collect files", "task_id", task.ID, "reviewer", reviewerName)
 		} else {
 			slog.Debug("collected files for AI", "count", len(files), "task_id", task.ID, "reviewer", reviewerName)
-			err = s.generateReviewForTaskWithFileAndModel(files, attachmentTexts,
+			err = s.generateReviewForTaskWithFileAndModel(ctx, files, attachmentTexts,
 				meta, summary, refs, writer, task.ID, reviewerIndex, modelConfig)
 		}
 	} else {
@@ -429,12 +450,12 @@ func (s *Service) runSingleReviewWithModel(task *PeerReviewTask, reviewerIndex i
 		// 如果有 PDF 附件，需要使用混合模式
 		if len(pdfAttachments) > 0 {
 			slog.Info("using hybrid mode (text + PDF attachments)", "task_id", task.ID, "reviewer", reviewerName)
-			err = s.generateReviewForTaskHybridWithModel(manuscriptText, pdfAttachments, attachmentTexts,
+			err = s.generateReviewForTaskHybridWithModel(ctx, manuscriptText, pdfAttachments, attachmentTexts,
 				meta, summary, refs, writer, task.ID, reviewerIndex, modelConfig)
 		} else {
 			// 纯文本模式
 			slog.Info("using text mode", "task_id", task.ID, "reviewer", reviewerName, "text_length", len(manuscriptText))
-			err = s.generateReviewForTaskWithModel(manuscriptText, attachmentTexts, meta, summary, refs, writer, task.ID, reviewerIndex, modelConfig)
+			err = s.generateReviewForTaskWithModel(ctx, manuscriptText, attachmentTexts, meta, summary, refs, writer, task.ID, reviewerIndex, modelConfig)
 		}
 	}
 
@@ -604,7 +625,7 @@ func (s *Service) collectPDFAttachments(task *PeerReviewTask) []FileForAI {
 }
 
 // summarizeReviews 汇总三审结果（使用 AI Meta-Review）
-func (s *Service) summarizeReviews(taskID uint, reviewResults []*strings.Builder) {
+func (s *Service) summarizeReviews(ctx context.Context, taskID uint, reviewResults []*strings.Builder) {
 	slog.Info("summarizeReviews started", "task_id", taskID)
 
 	// 获取任务信息
@@ -655,7 +676,7 @@ func (s *Service) summarizeReviews(taskID uint, reviewResults []*strings.Builder
 	consensusScore := float64(maxCount) / float64(ReviewerCount)
 
 	// 使用 AI 进行 Meta-Review 汇总
-	metaReviewContent, err := s.generateMetaReview(reviewContents, task.ModelLevel)
+	metaReviewContent, err := s.generateMetaReview(ctx, reviewContents, task.ModelLevel)
 	if err != nil {
 		slog.Error("failed to generate meta-review", "err", err)
 		// 回退到简单拼接方式
@@ -697,7 +718,7 @@ func (s *Service) summarizeReviews(taskID uint, reviewResults []*strings.Builder
 }
 
 // generateMetaReview 使用 AI 生成 Meta-Review 汇总报告
-func (s *Service) generateMetaReview(reviewContents []string, modelLevel string) (string, error) {
+func (s *Service) generateMetaReview(ctx context.Context, reviewContents []string, modelLevel string) (string, error) {
 	// 构建三审意见输入
 	var reviewerInputs strings.Builder
 	reviewerInputs.WriteString("{\n")
@@ -727,7 +748,7 @@ func (s *Service) generateMetaReview(reviewContents []string, modelLevel string)
 	level := getModelLevel(modelLevel)
 
 	// 调用 AI 并支持续写
-	content, err := s.callAIWithContinuation(messages, level, 3)
+	content, err := s.callAIWithContinuation(ctx, messages, level, 3)
 	if err != nil {
 		return "", err
 	}

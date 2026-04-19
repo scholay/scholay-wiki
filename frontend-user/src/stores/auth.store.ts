@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { User } from '../types/user';
 import { userAPI } from '../services/user.api';
+import { tokenCache } from '../services/client';
 import logger from '../utils/logger';
 
 // ---------------------------------------------------------------------------
@@ -47,13 +48,13 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   loading: true,
 
   setAuth: (user, token) => {
-    localStorage.setItem('user_token', token);
+    tokenCache.set(token);
     localStorage.setItem('user_data', JSON.stringify(user));
     set({ isAuthenticated: true, user, loading: false });
   },
 
   clearAuth: () => {
-    localStorage.removeItem('user_token');
+    tokenCache.clear();
     localStorage.removeItem('user_data');
     set({ isAuthenticated: false, user: null });
   },

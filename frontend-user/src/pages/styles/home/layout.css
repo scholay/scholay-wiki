@@ -833,7 +833,7 @@
 
 .home-task-card-icon.icon-analysis {
   background: linear-gradient(135deg, rgba(16, 163, 127, 0.15) 0%, rgba(16, 163, 127, 0.08) 100%);
-  color: #10A37F;
+  color: var(--primary-solid);
 }
 
 .home-task-card-icon.icon-review {
@@ -872,7 +872,7 @@
 
 .home-task-card-status.status-completed {
   background: rgba(16, 163, 127, 0.1);
-  color: #10A37F;
+  color: var(--primary-solid);
 }
 
 .home-task-card-status.status-processing {

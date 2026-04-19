@@ -613,7 +613,7 @@
 
 .um-wallet-detail-btn:hover {
   background: rgba(16, 163, 127, 0.1);
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 .um-wallet-detail-btn:hover svg {
@@ -664,7 +664,7 @@
 }
 
 .um-checkin-icon {
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 .um-checkin-title {
@@ -675,7 +675,7 @@
 
 .um-checkin-streak {
   font-size: 12px;
-  color: #10a37f;
+  color: var(--primary-solid);
   font-weight: 600;
   background: rgba(16, 163, 127, 0.1);
   padding: 2px 8px;
@@ -770,7 +770,7 @@
 
 /* 今日已签到 */
 .um-day.today.checked {
-  border: 2px solid #10a37f;
+  border: 2px solid var(--primary-solid);
   box-shadow: 0 3px 12px rgba(16, 163, 127, 0.3);
 }
 
@@ -896,7 +896,7 @@
 
 .um-settings-btn:hover {
   background: rgba(16, 163, 127, 0.1);
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 .um-logout-btn {
@@ -1075,7 +1075,7 @@
 
 [data-theme="dark"] .um-logout-btn:hover {
   background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
+  color: var(--error);
 }
 
 /* ========== 亮色主题 ========== */
@@ -1084,7 +1084,7 @@
 }
 
 [data-theme="light"] .top-nav-user-menu {
-  background: #ffffff;
+  background: var(--surface);
   border-color: rgba(0, 0, 0, 0.1);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
 }
@@ -1202,7 +1202,7 @@
 }
 
 /* Small mobile screens (iPhone SE, etc.) */
-@media (max-width: 375px) {
+@media (max-width: 480px) {
   .top-nav-bar .btn-login-mobile {
     padding: 6px 14px !important;
     font-size: 13px !important;
@@ -1524,7 +1524,7 @@
   display: block;
   font-size: 28px;
   font-weight: 700;
-  color: #10a37f;
+  color: var(--primary-solid);
   margin-bottom: 4px;
 }
 

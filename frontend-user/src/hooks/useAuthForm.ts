@@ -5,7 +5,7 @@
  * 统一社会信用代码: 91510100MAEEHRNE26
  * All Rights Reserved.
  * ============================================================================
- * 
+ *
  * useAuthForm - 认证表单自定义 Hook
  * 封装登录/注册表单的通用逻辑
  */
@@ -13,11 +13,51 @@
 import { useState, useCallback, useEffect } from 'react';
 import { userAPI } from '../services/user.api';
 import logger from '../utils/logger';
+import type { User } from '../types/user';
+
+export type CodePurpose = 'register' | 'login' | 'reset' | string;
+
+export interface UseAuthFormOptions {
+  onSuccess?: () => void;
+  showError: (message: string) => void;
+  showSuccess: (message: string) => void;
+  login: (token: string, user: User) => void;
+}
+
+export interface UseAuthFormResult {
+  email: string;
+  setEmail: React.Dispatch<React.SetStateAction<string>>;
+  phone: string;
+  setPhone: React.Dispatch<React.SetStateAction<string>>;
+  password: string;
+  confirmPassword: string;
+  setConfirmPassword: React.Dispatch<React.SetStateAction<string>>;
+  code: string;
+  setCode: React.Dispatch<React.SetStateAction<string>>;
+  agreedToPolicy: boolean;
+  setAgreedToPolicy: React.Dispatch<React.SetStateAction<boolean>>;
+  useCodeLogin: boolean;
+  setUseCodeLogin: React.Dispatch<React.SetStateAction<boolean>>;
+  loading: boolean;
+  countdown: number;
+  passwordError: string;
+  resetForm: () => void;
+  handlePasswordChange: (value: string) => void;
+  sendEmailCode: (turnstileToken: string, purpose?: CodePurpose) => Promise<boolean>;
+  sendPhoneCode: (turnstileToken: string, purpose?: CodePurpose) => Promise<boolean>;
+  loginWithEmail: (turnstileToken: string) => Promise<boolean>;
+  loginWithPhone: (turnstileToken: string) => Promise<boolean>;
+  registerWithEmail: (turnstileToken: string) => Promise<boolean>;
+  registerWithPhone: (turnstileToken: string) => Promise<boolean>;
+  validateEmail: (email: string) => boolean;
+  validatePhone: (phone: string) => boolean;
+  validatePassword: (password: string) => string;
+}
 
 /**
  * 密码验证规则
  */
-const validatePassword = (password) => {
+const validatePassword = (password: string): string => {
   if (password.length < 8) {
     return '密码长度至少8位';
   }
@@ -36,7 +76,7 @@ const validatePassword = (password) => {
 /**
  * 邮箱验证
  */
-const validateEmail = (email) => {
+const validateEmail = (email: string): boolean => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 };
@@ -44,21 +84,18 @@ const validateEmail = (email) => {
 /**
  * 手机号验证（中国大陆）
  */
-const validatePhone = (phone) => {
+const validatePhone = (phone: string): boolean => {
   const phoneRegex = /^1[3-9]\d{9}$/;
   return phoneRegex.test(phone);
 };
 
-/**
- * useAuthForm Hook
- * @param {Object} options 配置选项
- * @param {Function} options.onSuccess 成功回调
- * @param {Function} options.showError 显示错误消息
- * @param {Function} options.showSuccess 显示成功消息
- * @param {Function} options.login 登录函数（来自 AuthContext）
- */
-const useAuthForm = ({ onSuccess, showError, showSuccess, login }) => {
-  // 表单状态
+// Axios error shape used by our API services. We only inspect a couple of
+// fields, so a narrow type beats pulling in axios' generics here.
+interface ApiError extends Error {
+  response?: { data?: { message?: string } };
+}
+
+const useAuthForm = ({ onSuccess, showError, showSuccess, login }: UseAuthFormOptions): UseAuthFormResult => {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -66,13 +103,11 @@ const useAuthForm = ({ onSuccess, showError, showSuccess, login }) => {
   const [code, setCode] = useState('');
   const [agreedToPolicy, setAgreedToPolicy] = useState(false);
   const [useCodeLogin, setUseCodeLogin] = useState(false);
-  
-  // UI 状态
+
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [passwordError, setPasswordError] = useState('');
 
-  // 倒计时效果
   useEffect(() => {
     if (countdown > 0) {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
@@ -80,8 +115,7 @@ const useAuthForm = ({ onSuccess, showError, showSuccess, login }) => {
     }
   }, [countdown]);
 
-  // 重置表单
-  const resetForm = useCallback(() => {
+  const resetForm = useCallback((): void => {
     setEmail('');
     setPhone('');
     setPassword('');
@@ -92,8 +126,7 @@ const useAuthForm = ({ onSuccess, showError, showSuccess, login }) => {
     setUseCodeLogin(false);
   }, []);
 
-  // 验证密码
-  const handlePasswordChange = useCallback((value) => {
+  const handlePasswordChange = useCallback((value: string): void => {
     setPassword(value);
     if (value) {
       setPasswordError(validatePassword(value));
@@ -102,245 +135,262 @@ const useAuthForm = ({ onSuccess, showError, showSuccess, login }) => {
     }
   }, []);
 
-  // 发送邮箱验证码
-  const sendEmailCode = useCallback(async (turnstileToken, purpose = 'register') => {
-    if (!email) {
-      showError('请输入邮箱地址');
-      return false;
-    }
-    if (!validateEmail(email)) {
-      showError('请输入有效的邮箱地址');
-      return false;
-    }
+  const sendEmailCode = useCallback(
+    async (turnstileToken: string, purpose: CodePurpose = 'register'): Promise<boolean> => {
+      if (!email) {
+        showError('请输入邮箱地址');
+        return false;
+      }
+      if (!validateEmail(email)) {
+        showError('请输入有效的邮箱地址');
+        return false;
+      }
 
-    setLoading(true);
-    try {
-      const response = await userAPI.sendEmailCode(email, purpose, turnstileToken);
-      if (response.data.code === 0) {
-        showSuccess('验证码已发送');
-        setCountdown(60);
-        return true;
+      setLoading(true);
+      try {
+        const response = await userAPI.sendEmailCode(email, purpose, turnstileToken);
+        if (response.data.code === 0) {
+          showSuccess('验证码已发送');
+          setCountdown(60);
+          return true;
+        } else {
+          showError(response.data.message || '发送失败');
+          return false;
+        }
+      } catch (error: unknown) {
+        const e = error as ApiError;
+        logger.error('Send email code error:', error);
+        showError(e.response?.data?.message || '发送失败，请稍后重试');
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [email, showError, showSuccess],
+  );
+
+  const sendPhoneCode = useCallback(
+    async (turnstileToken: string, purpose: CodePurpose = 'register'): Promise<boolean> => {
+      if (!phone) {
+        showError('请输入手机号码');
+        return false;
+      }
+      if (!validatePhone(phone)) {
+        showError('请输入有效的手机号码');
+        return false;
+      }
+
+      setLoading(true);
+      try {
+        const response = await userAPI.sendPhoneCode(phone, purpose, turnstileToken);
+        if (response.data.code === 0) {
+          showSuccess('验证码已发送');
+          setCountdown(60);
+          return true;
+        } else {
+          showError(response.data.message || '发送失败');
+          return false;
+        }
+      } catch (error: unknown) {
+        const e = error as ApiError;
+        logger.error('Send phone code error:', error);
+        showError(e.response?.data?.message || '发送失败，请稍后重试');
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [phone, showError, showSuccess],
+  );
+
+  const loginWithEmail = useCallback(
+    async (turnstileToken: string): Promise<boolean> => {
+      if (!email || !password) {
+        showError('请填写邮箱和密码');
+        return false;
+      }
+
+      setLoading(true);
+      try {
+        const response = await userAPI.loginWithEmail(email, password, turnstileToken);
+        if (response.data.code === 0) {
+          const { token, user } = response.data.data;
+          login(token, user);
+          showSuccess('登录成功');
+          onSuccess?.();
+          return true;
+        } else {
+          showError(response.data.message || '登录失败');
+          return false;
+        }
+      } catch (error: unknown) {
+        const e = error as ApiError;
+        logger.error('Email login error:', error);
+        showError(e.response?.data?.message || '登录失败，请稍后重试');
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [email, password, login, showError, showSuccess, onSuccess],
+  );
+
+  const loginWithPhone = useCallback(
+    async (turnstileToken: string): Promise<boolean> => {
+      if (!phone) {
+        showError('请输入手机号码');
+        return false;
+      }
+
+      if (useCodeLogin) {
+        if (!code) {
+          showError('请输入验证码');
+          return false;
+        }
       } else {
-        showError(response.data.message || '发送失败');
+        if (!password) {
+          showError('请输入密码');
+          return false;
+        }
+      }
+
+      setLoading(true);
+      try {
+        const response = useCodeLogin
+          ? await userAPI.loginWithPhoneCode(phone, code, turnstileToken)
+          : await userAPI.loginWithPhone(phone, password, turnstileToken);
+
+        if (response.data.code === 0) {
+          const { token, user } = response.data.data;
+          login(token, user);
+          showSuccess('登录成功');
+          onSuccess?.();
+          return true;
+        } else {
+          showError(response.data.message || '登录失败');
+          return false;
+        }
+      } catch (error: unknown) {
+        const e = error as ApiError;
+        logger.error('Phone login error:', error);
+        showError(e.response?.data?.message || '登录失败，请稍后重试');
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [phone, password, code, useCodeLogin, login, showError, showSuccess, onSuccess],
+  );
+
+  const registerWithEmail = useCallback(
+    async (turnstileToken: string): Promise<boolean> => {
+      if (!email || !password || !code) {
+        showError('请填写完整信息');
         return false;
       }
-    } catch (error) {
-      logger.error('Send email code error:', error);
-      showError(error.response?.data?.message || '发送失败，请稍后重试');
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  }, [email, showError, showSuccess]);
 
-  // 发送手机验证码
-  const sendPhoneCode = useCallback(async (turnstileToken, purpose = 'register') => {
-    if (!phone) {
-      showError('请输入手机号码');
-      return false;
-    }
-    if (!validatePhone(phone)) {
-      showError('请输入有效的手机号码');
-      return false;
-    }
-
-    setLoading(true);
-    try {
-      const response = await userAPI.sendPhoneCode(phone, purpose, turnstileToken);
-      if (response.data.code === 0) {
-        showSuccess('验证码已发送');
-        setCountdown(60);
-        return true;
-      } else {
-        showError(response.data.message || '发送失败');
+      const pwdError = validatePassword(password);
+      if (pwdError) {
+        showError(pwdError);
         return false;
       }
-    } catch (error) {
-      logger.error('Send phone code error:', error);
-      showError(error.response?.data?.message || '发送失败，请稍后重试');
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  }, [phone, showError, showSuccess]);
 
-  // 邮箱登录
-  const loginWithEmail = useCallback(async (turnstileToken) => {
-    if (!email || !password) {
-      showError('请填写邮箱和密码');
-      return false;
-    }
-
-    setLoading(true);
-    try {
-      const response = await userAPI.loginWithEmail(email, password, turnstileToken);
-      if (response.data.code === 0) {
-        const { token, user } = response.data.data;
-        login(token, user);
-        showSuccess('登录成功');
-        onSuccess?.();
-        return true;
-      } else {
-        showError(response.data.message || '登录失败');
+      if (password !== confirmPassword) {
+        showError('两次输入的密码不一致');
         return false;
       }
-    } catch (error) {
-      logger.error('Email login error:', error);
-      showError(error.response?.data?.message || '登录失败，请稍后重试');
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  }, [email, password, login, showError, showSuccess, onSuccess]);
 
-  // 手机号登录
-  const loginWithPhone = useCallback(async (turnstileToken) => {
-    if (!phone) {
-      showError('请输入手机号码');
-      return false;
-    }
-
-    if (useCodeLogin) {
-      if (!code) {
-        showError('请输入验证码');
+      if (!agreedToPolicy) {
+        showError('请阅读并同意用户协议和隐私政策');
         return false;
       }
-    } else {
-      if (!password) {
-        showError('请输入密码');
+
+      setLoading(true);
+      try {
+        const response = await userAPI.registerWithEmail(
+          email,
+          password,
+          code,
+          undefined,
+          turnstileToken,
+        );
+        if (response.data.code === 0) {
+          const { token, user } = response.data.data;
+          login(token, user);
+          showSuccess('注册成功');
+          onSuccess?.();
+          return true;
+        } else {
+          showError(response.data.message || '注册失败');
+          return false;
+        }
+      } catch (error: unknown) {
+        const e = error as ApiError;
+        logger.error('Email register error:', error);
+        showError(e.response?.data?.message || '注册失败，请稍后重试');
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [email, password, confirmPassword, code, agreedToPolicy, login, showError, showSuccess, onSuccess],
+  );
+
+  const registerWithPhone = useCallback(
+    async (turnstileToken: string): Promise<boolean> => {
+      if (!phone || !password || !code) {
+        showError('请填写完整信息');
         return false;
       }
-    }
 
-    setLoading(true);
-    try {
-      const response = useCodeLogin
-        ? await userAPI.loginWithPhoneCode(phone, code, turnstileToken)
-        : await userAPI.loginWithPhone(phone, password, turnstileToken);
-
-      if (response.data.code === 0) {
-        const { token, user } = response.data.data;
-        login(token, user);
-        showSuccess('登录成功');
-        onSuccess?.();
-        return true;
-      } else {
-        showError(response.data.message || '登录失败');
+      const pwdError = validatePassword(password);
+      if (pwdError) {
+        showError(pwdError);
         return false;
       }
-    } catch (error) {
-      logger.error('Phone login error:', error);
-      showError(error.response?.data?.message || '登录失败，请稍后重试');
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  }, [phone, password, code, useCodeLogin, login, showError, showSuccess, onSuccess]);
 
-  // 邮箱注册
-  const registerWithEmail = useCallback(async (turnstileToken) => {
-    if (!email || !password || !code) {
-      showError('请填写完整信息');
-      return false;
-    }
-
-    const pwdError = validatePassword(password);
-    if (pwdError) {
-      showError(pwdError);
-      return false;
-    }
-
-    if (password !== confirmPassword) {
-      showError('两次输入的密码不一致');
-      return false;
-    }
-
-    if (!agreedToPolicy) {
-      showError('请阅读并同意用户协议和隐私政策');
-      return false;
-    }
-
-    setLoading(true);
-    try {
-      const response = await userAPI.registerWithEmail(
-        email, 
-        password, 
-        code, 
-        undefined,
-        turnstileToken
-      );
-      if (response.data.code === 0) {
-        const { token, user } = response.data.data;
-        login(token, user);
-        showSuccess('注册成功');
-        onSuccess?.();
-        return true;
-      } else {
-        showError(response.data.message || '注册失败');
+      if (password !== confirmPassword) {
+        showError('两次输入的密码不一致');
         return false;
       }
-    } catch (error) {
-      logger.error('Email register error:', error);
-      showError(error.response?.data?.message || '注册失败，请稍后重试');
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  }, [email, password, confirmPassword, code, agreedToPolicy, login, showError, showSuccess, onSuccess]);
 
-  // 手机号注册
-  const registerWithPhone = useCallback(async (turnstileToken) => {
-    if (!phone || !password || !code) {
-      showError('请填写完整信息');
-      return false;
-    }
-
-    const pwdError = validatePassword(password);
-    if (pwdError) {
-      showError(pwdError);
-      return false;
-    }
-
-    if (password !== confirmPassword) {
-      showError('两次输入的密码不一致');
-      return false;
-    }
-
-    if (!agreedToPolicy) {
-      showError('请阅读并同意用户协议和隐私政策');
-      return false;
-    }
-
-    setLoading(true);
-    try {
-      const response = await userAPI.registerWithPhone(
-        phone, 
-        password, 
-        code, 
-        undefined,
-        turnstileToken
-      );
-      if (response.data.code === 0) {
-        const { token, user } = response.data.data;
-        login(token, user);
-        showSuccess('注册成功');
-        onSuccess?.();
-        return true;
-      } else {
-        showError(response.data.message || '注册失败');
+      if (!agreedToPolicy) {
+        showError('请阅读并同意用户协议和隐私政策');
         return false;
       }
-    } catch (error) {
-      logger.error('Phone register error:', error);
-      showError(error.response?.data?.message || '注册失败，请稍后重试');
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  }, [phone, password, confirmPassword, code, agreedToPolicy, login, showError, showSuccess, onSuccess]);
+
+      setLoading(true);
+      try {
+        const response = await userAPI.registerWithPhone(
+          phone,
+          password,
+          code,
+          undefined,
+          turnstileToken,
+        );
+        if (response.data.code === 0) {
+          const { token, user } = response.data.data;
+          login(token, user);
+          showSuccess('注册成功');
+          onSuccess?.();
+          return true;
+        } else {
+          showError(response.data.message || '注册失败');
+          return false;
+        }
+      } catch (error: unknown) {
+        const e = error as ApiError;
+        logger.error('Phone register error:', error);
+        showError(e.response?.data?.message || '注册失败，请稍后重试');
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [phone, password, confirmPassword, code, agreedToPolicy, login, showError, showSuccess, onSuccess],
+  );
 
   return {
-    // 表单状态
     email,
     setEmail,
     phone,
@@ -354,13 +404,11 @@ const useAuthForm = ({ onSuccess, showError, showSuccess, login }) => {
     setAgreedToPolicy,
     useCodeLogin,
     setUseCodeLogin,
-    
-    // UI 状态
+
     loading,
     countdown,
     passwordError,
-    
-    // 方法
+
     resetForm,
     handlePasswordChange,
     sendEmailCode,
@@ -369,8 +417,7 @@ const useAuthForm = ({ onSuccess, showError, showSuccess, login }) => {
     loginWithPhone,
     registerWithEmail,
     registerWithPhone,
-    
-    // 验证函数
+
     validateEmail,
     validatePhone,
     validatePassword,
@@ -378,4 +425,3 @@ const useAuthForm = ({ onSuccess, showError, showSuccess, login }) => {
 };
 
 export default useAuthForm;
-

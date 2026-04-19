@@ -10,7 +10,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
-import { useToast } from '../components/ToastContainer';
+import { useToast } from '../components/common/ToastContainer';
 import api from '../services/client';
 import logger from '../utils/logger';
 import './styles/settings/index.css';

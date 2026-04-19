@@ -38,7 +38,7 @@ export interface AuthContextValue {
   isAuthenticated: boolean;
   user: User | null;
   loading: boolean;
-  login: (token: string, userData: User) => Promise<void>;
+  login: (token: string, userData: User) => void;
   logout: () => Promise<void>;
   updateUser: (userData: User) => void;
   refreshUser: () => Promise<User | null>;

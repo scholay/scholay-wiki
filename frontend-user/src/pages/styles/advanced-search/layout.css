@@ -578,7 +578,7 @@
 /* 浅色主题 - 顶部导航栏 */
 [data-theme="light"] .ai-analysis-indicator {
   background: rgba(5, 150, 105, 0.1);
-  color: #059669;
+  color: var(--success);
 }
 
 [data-theme="light"] .ai-papers-count {
@@ -654,7 +654,7 @@
 }
 
 [data-theme="light"] .ai-new-conversation-btn {
-  background: #059669;
+  background: var(--success);
 }
 
 [data-theme="light"] .ai-new-conversation-btn:hover {
@@ -672,7 +672,7 @@
 
 [data-theme="light"] .unified-table-row.highlighted {
   background: rgba(5, 150, 105, 0.1);
-  border-left-color: #059669;
+  border-left-color: var(--success);
 }
 
 /* ============================================
@@ -710,7 +710,7 @@
   width: 32px;
   height: 32px;
   border: 3px solid rgba(16, 163, 127, 0.2);
-  border-top-color: #10a37f;
+  border-top-color: var(--primary-solid);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -734,7 +734,7 @@
 
 [data-theme="light"] .ai-papers-loading-spinner {
   border-color: rgba(5, 150, 105, 0.2);
-  border-top-color: #059669;
+  border-top-color: var(--success);
 }
 
 [data-theme="light"] .ai-papers-loading-text {

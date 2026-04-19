@@ -148,11 +148,10 @@ func (h *Handler) CreateFeedbackWithUser(c *gin.Context) {
 
 	// 从认证中间件获取用户信息
 	var userID *uint
-	var username string
-	if uid, exists := c.Get("user_id"); exists {
-		id := uid.(uint)
-		userID = &id
+	if uid, ok := utils.GetOptionalUserID(c); ok {
+		userID = &uid
 	}
+	var username string
 	if uname, exists := c.Get("username"); exists {
 		username = uname.(string)
 	}

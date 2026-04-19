@@ -272,7 +272,7 @@
 }
 
 .pub-date.pub-year {
-  color: #10a37f;
+  color: var(--primary-solid);
   font-weight: 600;
   background: rgba(16, 163, 127, 0.15);
   padding: 2px 6px;
@@ -280,7 +280,7 @@
 }
 
 [data-theme="light"] .pub-date.pub-year {
-  color: #059669;
+  color: var(--success);
   background: rgba(5, 150, 105, 0.1);
 }
 
@@ -323,7 +323,7 @@
 }
 
 .summary-label.tldr {
-  color: #10a37f;
+  color: var(--primary-solid);
   background: rgba(16, 163, 127, 0.12);
 }
 
@@ -333,7 +333,7 @@
 }
 
 [data-theme="light"] .summary-label.tldr {
-  color: #059669;
+  color: var(--success);
   background: rgba(16, 163, 127, 0.1);
 }
 
@@ -359,7 +359,7 @@
 }
 
 [data-theme="light"] .summary-toggle-btn {
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 [data-theme="light"] .summary-toggle-btn:hover {
@@ -396,7 +396,7 @@
 }
 
 [data-theme="light"] .translate-cursor {
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 @keyframes blink {
@@ -430,7 +430,7 @@
 
 [data-theme="light"] .summary-translation .translation-label {
   background: rgba(5, 150, 105, 0.1);
-  color: #059669;
+  color: var(--success);
 }
 
 /* Summary header actions 容器 */
@@ -490,7 +490,7 @@
 }
 
 [data-theme="light"] .summary-translate-btn.has-translation {
-  color: #059669;
+  color: var(--success);
 }
 
 [data-theme="light"] .summary-translate-btn.has-translation:hover {
@@ -859,7 +859,7 @@ a.meta-item.pdf-link:hover {
 }
 
 [data-theme="light"] .page-size-selector select:focus {
-  border-color: #10a37f;
+  border-color: var(--primary-solid);
   outline: none;
   box-shadow: 0 0 0 2px rgba(16, 163, 127, 0.1);
 }
@@ -988,9 +988,9 @@ a.meta-item.pdf-link:hover {
 }
 
 [data-theme="light"] .pagination-page.active {
-  background: #10a37f;
+  background: var(--primary-solid);
   color: white;
-  border-color: #10a37f;
+  border-color: var(--primary-solid);
   font-weight: 600;
 }
 
@@ -1008,7 +1008,7 @@ a.meta-item.pdf-link:hover {
   background: rgba(16, 163, 127, 0.1);
   border: 1px solid rgba(16, 163, 127, 0.3);
   border-radius: 8px;
-  color: #10a37f;
+  color: var(--primary-solid);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -1038,7 +1038,7 @@ a.meta-item.pdf-link:hover {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #10a37f;
+  color: var(--primary-solid);
   font-size: 13px;
   font-weight: 500;
 }
@@ -1126,7 +1126,7 @@ a.meta-item.pdf-link:hover {
 [data-theme="light"] .dimension-select-btn {
   background: rgba(16, 163, 127, 0.08);
   border-color: rgba(16, 163, 127, 0.2);
-  color: #059669;
+  color: var(--success);
 }
 
 [data-theme="light"] .dimension-select-btn:hover {
@@ -1140,7 +1140,7 @@ a.meta-item.pdf-link:hover {
 }
 
 [data-theme="light"] .dimension-active-label {
-  color: #059669;
+  color: var(--success);
 }
 
 [data-theme="light"] .dimension-clear-btn {
@@ -1192,7 +1192,7 @@ a.meta-item.pdf-link:hover {
   margin-bottom: 8px;
   font-size: 12px;
   font-weight: 600;
-  color: #10a37f;
+  color: var(--primary-solid);
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
@@ -1214,7 +1214,7 @@ a.meta-item.pdf-link:hover {
   width: 14px;
   height: 14px;
   border: 2px solid rgba(255, 255, 255, 0.1);
-  border-top-color: #10a37f;
+  border-top-color: var(--primary-solid);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -1245,7 +1245,7 @@ a.meta-item.pdf-link:hover {
 }
 
 [data-theme="light"] .analysis-result-header {
-  color: #059669;
+  color: var(--success);
 }
 
 [data-theme="light"] .analysis-result-content {
@@ -1258,7 +1258,7 @@ a.meta-item.pdf-link:hover {
 
 [data-theme="light"] .analysis-loading-spinner {
   border-color: rgba(0, 0, 0, 0.1);
-  border-top-color: #059669;
+  border-top-color: var(--success);
 }
 
 [data-theme="light"] .analysis-no-abstract,
@@ -1276,7 +1276,7 @@ a.meta-item.pdf-link:hover {
   padding: 0;
   background: transparent;
   border: none;
-  color: #10a37f;
+  color: var(--primary-solid);
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -1306,7 +1306,7 @@ a.meta-item.pdf-link:hover {
 .dimension-select-all-btn {
   font-size: 12px;
   font-weight: 500;
-  color: #10a37f;
+  color: var(--primary-solid);
   background: transparent;
   border: none;
   cursor: pointer;
@@ -1352,8 +1352,8 @@ a.meta-item.pdf-link:hover {
 }
 
 .dimension-dropdown-item.selected .dimension-item-checkbox {
-  background: #10a37f;
-  border-color: #10a37f;
+  background: var(--primary-solid);
+  border-color: var(--primary-solid);
   color: white;
 }
 
@@ -1364,7 +1364,7 @@ a.meta-item.pdf-link:hover {
 }
 
 [data-theme="light"] .dimension-select-all-btn {
-  color: #059669;
+  color: var(--success);
 }
 
 [data-theme="light"] .dimension-item-checkbox {
@@ -1372,8 +1372,8 @@ a.meta-item.pdf-link:hover {
 }
 
 [data-theme="light"] .dimension-dropdown-item.selected .dimension-item-checkbox {
-  background: #059669;
-  border-color: #059669;
+  background: var(--success);
+  border-color: var(--success);
 }
 
 /* ========== 分析结果面板 - 与左侧论文列表对齐 ========== */
@@ -1425,7 +1425,7 @@ a.meta-item.pdf-link:hover {
   min-width: 150px;
   font-size: 12px;
   font-weight: 600;
-  color: #10a37f;
+  color: var(--primary-solid);
   text-transform: uppercase;
   letter-spacing: 0.3px;
   white-space: nowrap;
@@ -1624,7 +1624,7 @@ a.meta-item.pdf-link:hover {
   width: 20px;
   height: 20px;
   border: 2px solid rgba(255, 255, 255, 0.1);
-  border-top-color: #10a37f;
+  border-top-color: var(--primary-solid);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -1689,7 +1689,7 @@ a.meta-item.pdf-link:hover {
 }
 
 [data-theme="light"] .analysis-dim-header {
-  color: #059669;
+  color: var(--success);
 }
 
 [data-theme="light"] .analysis-result-row {
@@ -1710,7 +1710,7 @@ a.meta-item.pdf-link:hover {
 
 [data-theme="light"] .analysis-cell-spinner {
   border-color: rgba(0, 0, 0, 0.1);
-  border-top-color: #059669;
+  border-top-color: var(--success);
 }
 
 [data-theme="light"] .analysis-cell-na,
@@ -1949,7 +1949,7 @@ a.meta-item.pdf-link:hover {
 .unified-header-dim .dim-header-name {
   font-size: 13px;
   font-weight: 600;
-  color: #10a37f;
+  color: var(--primary-solid);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1993,7 +1993,7 @@ a.meta-item.pdf-link:hover {
 }
 
 [data-theme="light"] .unified-header-dim .dim-header-name {
-  color: #059669;
+  color: var(--success);
 }
 
 [data-theme="light"] .unified-header-dim .dim-header-remove-btn {
@@ -2104,7 +2104,7 @@ a.meta-item.pdf-link:hover {
 
 .paper-translate-btn.has-translation {
   background: linear-gradient(135deg, rgba(16, 163, 127, 0.15) 0%, rgba(5, 150, 105, 0.15) 100%);
-  color: #10a37f;
+  color: var(--primary-solid);
   box-shadow: 0 1px 3px rgba(16, 163, 127, 0.1);
 }
 
@@ -2195,13 +2195,13 @@ a.meta-item.pdf-link:hover {
 
 [data-theme="light"] .paper-translate-btn.has-translation {
   background: linear-gradient(135deg, rgba(16, 163, 127, 0.12) 0%, rgba(5, 150, 105, 0.12) 100%);
-  color: #10a37f;
+  color: var(--primary-solid);
   box-shadow: 0 1px 3px rgba(16, 163, 127, 0.08);
 }
 
 [data-theme="light"] .paper-translate-btn.has-translation:hover:not(:disabled) {
   background: linear-gradient(135deg, rgba(16, 163, 127, 0.2) 0%, rgba(5, 150, 105, 0.2) 100%);
-  color: #059669;
+  color: var(--success);
   box-shadow: 0 2px 6px rgba(16, 163, 127, 0.15);
 }
 
@@ -2435,7 +2435,7 @@ a.meta-item.pdf-link:hover {
   align-items: center;
   gap: 8px;
   margin-bottom: 12px;
-  color: #10a37f;
+  color: var(--primary-solid);
   font-size: 14px;
   font-weight: 600;
 }
@@ -2497,7 +2497,7 @@ a.meta-item.pdf-link:hover {
   background: rgba(16, 163, 127, 0.1);
   border: 1px solid rgba(16, 163, 127, 0.25);
   border-radius: 10px;
-  color: #10a37f;
+  color: var(--primary-solid);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -2623,7 +2623,7 @@ a.meta-item.pdf-link:hover {
 }
 
 [data-theme="light"] .dimension-float-header {
-  color: #059669;
+  color: var(--success);
 }
 
 [data-theme="light"] .dimension-float-desc {
@@ -2633,7 +2633,7 @@ a.meta-item.pdf-link:hover {
 [data-theme="light"] .dimension-tag-btn {
   background: rgba(16, 163, 127, 0.08);
   border-color: rgba(16, 163, 127, 0.2);
-  color: #059669;
+  color: var(--success);
 }
 
 [data-theme="light"] .dimension-tag-btn:hover:not(:disabled) {
@@ -2646,11 +2646,11 @@ a.meta-item.pdf-link:hover {
 [data-theme="light"] .dimension-tag-btn.selected {
   background: rgba(16, 163, 127, 0.1);
   border-color: rgba(16, 163, 127, 0.3);
-  color: #059669;
+  color: var(--success);
 }
 
 [data-theme="light"] .dimension-tag-btn.selected svg {
-  color: #059669;
+  color: var(--success);
 }
 
 [data-theme="light"] .dimension-tag-btn.selected:hover {
@@ -2696,7 +2696,7 @@ a.meta-item.pdf-link:hover {
   background: rgba(16, 163, 127, 0.2);
   border: none;
   border-radius: 4px;
-  color: #10a37f;
+  color: var(--primary-solid);
   cursor: pointer;
   opacity: 0;
   pointer-events: none;
@@ -2711,7 +2711,7 @@ a.meta-item.pdf-link:hover {
 
 .dimension-more-btn:hover {
   background: rgba(16, 163, 127, 0.35);
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 /* 自定义维度的三点按钮颜色 - 紫色 */
@@ -2728,12 +2728,12 @@ a.meta-item.pdf-link:hover {
 /* 日间模式三点按钮 - 绿色 */
 [data-theme="light"] .dimension-more-btn {
   background: rgba(16, 163, 127, 0.15);
-  color: #059669;
+  color: var(--success);
 }
 
 [data-theme="light"] .dimension-more-btn:hover {
   background: rgba(16, 163, 127, 0.25);
-  color: #059669;
+  color: var(--success);
 }
 
 /* 日间模式 - 自定义维度三点按钮 - 紫色 */
@@ -2825,7 +2825,7 @@ a.meta-item.pdf-link:hover {
 
 /* 日间模式下拉菜单 */
 [data-theme="light"] .dimension-action-menu {
-  background: #ffffff;
+  background: var(--surface);
   border-color: rgba(0, 0, 0, 0.1);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
 }
@@ -2892,7 +2892,7 @@ a.meta-item.pdf-link:hover {
   background: transparent;
   border: 1px solid rgba(16, 163, 127, 0.35);
   border-radius: 6px;
-  color: #10a37f;
+  color: var(--primary-solid);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -2923,7 +2923,7 @@ a.meta-item.pdf-link:hover {
 
 [data-theme="light"] .dimension-add-btn {
   border-color: rgba(16, 163, 127, 0.3);
-  color: #059669;
+  color: var(--success);
 }
 
 [data-theme="light"] .dimension-add-btn:hover {
@@ -2973,7 +2973,7 @@ a.meta-item.pdf-link:hover {
 .dimension-detail-title {
   font-size: 14px;
   font-weight: 600;
-  color: #10a37f;
+  color: var(--primary-solid);
   text-align: right;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3039,7 +3039,7 @@ a.meta-item.pdf-link:hover {
 .system-badge {
   background: rgba(16, 163, 127, 0.15);
   border: 1px solid rgba(16, 163, 127, 0.3);
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 .dimension-detail-actions {
@@ -3066,7 +3066,7 @@ a.meta-item.pdf-link:hover {
 }
 
 .dimension-action-btn.edit {
-  color: #10a37f;
+  color: var(--primary-solid);
   border-color: rgba(16, 163, 127, 0.3);
 }
 
@@ -3159,8 +3159,8 @@ a.meta-item.pdf-link:hover {
 
 .dimension-action-btn.save {
   color: white;
-  background: #10a37f;
-  border-color: #10a37f;
+  background: var(--primary-solid);
+  border-color: var(--primary-solid);
 }
 
 .dimension-action-btn.save:hover:not(:disabled) {
@@ -3212,8 +3212,8 @@ a.meta-item.pdf-link:hover {
 }
 
 [data-theme="light"] .dimension-action-btn.save {
-  background: #059669;
-  border-color: #059669;
+  background: var(--success);
+  border-color: var(--success);
 }
 
 [data-theme="light"] .dimension-action-btn.save:hover:not(:disabled) {
@@ -3238,7 +3238,7 @@ a.meta-item.pdf-link:hover {
 }
 
 [data-theme="light"] .dimension-detail-title {
-  color: #059669;
+  color: var(--success);
 }
 
 [data-theme="light"] .dimension-detail-label {
@@ -3260,7 +3260,7 @@ a.meta-item.pdf-link:hover {
 [data-theme="light"] .system-badge {
   background: rgba(16, 163, 127, 0.1);
   border-color: rgba(16, 163, 127, 0.25);
-  color: #059669;
+  color: var(--success);
 }
 
 [data-theme="light"] .dimension-detail-actions {
@@ -3272,7 +3272,7 @@ a.meta-item.pdf-link:hover {
 }
 
 [data-theme="light"] .dimension-action-btn.edit {
-  color: #059669;
+  color: var(--success);
   border-color: rgba(16, 163, 127, 0.25);
 }
 
@@ -3429,7 +3429,7 @@ a.meta-item.pdf-link:hover {
 }
 
 .delete-confirm-message strong {
-  color: #10a37f;
+  color: var(--primary-solid);
   font-weight: 500;
 }
 
@@ -3489,7 +3489,7 @@ a.meta-item.pdf-link:hover {
 }
 
 [data-theme="light"] .delete-confirm-modal {
-  background: #ffffff;
+  background: var(--surface);
   border-color: rgba(0, 0, 0, 0.1);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
 }
@@ -3503,7 +3503,7 @@ a.meta-item.pdf-link:hover {
 }
 
 [data-theme="light"] .delete-confirm-message strong {
-  color: #059669;
+  color: var(--success);
 }
 
 [data-theme="light"] .delete-confirm-warning {

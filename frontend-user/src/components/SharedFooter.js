@@ -13,7 +13,7 @@
 
 import React, { memo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import Logo from './Logo';
+import Logo from './common/Logo';
 import './styles/SharedFooter.css';
 
 // 只在首页和宣传介绍类页面显示 footer，功能性页面不显示

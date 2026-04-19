@@ -16,7 +16,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import { Info, AlertTriangle, XCircle, CheckCircle, X } from 'lucide-react';
-import { useToastStore, confirm } from '../stores/toast.store';
+import { useToastStore, confirm } from '../../stores/toast.store';
 import './Toast.css';
 
 // ---------------------------------------------------------------------------

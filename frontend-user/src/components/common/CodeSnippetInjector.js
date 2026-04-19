@@ -11,8 +11,8 @@
  */
 
 import { useEffect, useState, useRef } from 'react';
-import { configAPI } from '../services/payment.api';
-import logger from '../utils/logger';
+import { configAPI } from '../../services/payment.api';
+import logger from '../../utils/logger';
 
 /**
  * 代码片段注入组件

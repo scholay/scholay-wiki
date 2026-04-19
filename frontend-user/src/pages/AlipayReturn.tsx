@@ -12,10 +12,12 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import './styles/AlipayReturn.css';
 
-const AlipayReturn = () => {
+type AlipayStatus = 'processing' | 'success' | 'error';
+
+const AlipayReturn: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [status, setStatus] = useState('processing'); // processing | success | error
+  const [status, setStatus] = useState<AlipayStatus>('processing');
   const [canClose, setCanClose] = useState(true);
 
   useEffect(() => {

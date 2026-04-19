@@ -1,0 +1,72 @@
+## 待审稿件
+**主稿件**：%s%s
+
+请仔细阅读附件中的论文文件进行审稿。
+
+## 系统预分析信息
+
+### 稿件结构化理解
+%s
+
+### 领域前沿状态
+%s
+
+### 与稿件最相似的已发表论文（新颖性核查）
+%s
+
+### 当前领域研究空白
+%s
+
+### 可引用的参考文献列表（请严格只引用这些，使用 [R1], [R2] 等编号）
+%s
+
+---
+
+请基于以上所有信息和附件中的论文文件，生成一份专业的审稿报告。报告**必须**优先并聚焦于指出问题。
+
+**重要：你必须严格按照以下 JSON 格式输出审稿报告，不要输出任何其他内容（包括 markdown 代码块标记）：**
+
+{
+  "overall_assessment": {
+    "core_contribution": "（简要总结你理解的论文核心贡献。要求：高度凝练、客观、避免套话。）",
+    "recommendation": "Accept | Minor Revision | Major Revision | Reject",
+    "reject_advice": "（若为 Reject 必填：请给出清晰、建设性的转投建议或重做方向。若非 Reject 则留空。）"
+  },
+
+  "critical_issues": [
+    {
+      "issue_title": "（关键问题标题：如原创性不足、贡献不清、方法重大缺陷等）",
+      "issue_description": "（明确指出问题是什么、为什么严重、为何阻碍论文达标。引用相关文献 [Rx] 作为依据。）",
+      "required_actions": "（作者必须具体采取哪些补救措施？给出可执行的修改方案。）",
+      "affected_sections": ["（该问题对应的章节，如：Introduction, Methodology, Section 3.2 等）"]
+    }
+  ],
+
+  "other_suggestions": [
+    {
+      "suggestion_title": "（次要建议标题，如：图表规范性、文献补充等）",
+      "suggestion_description": "（描述建议内容本身。）",
+      "suggestion_location": "（具体位置：图3、图5、Introduction 第三段、Table 2 附近等）",
+      "suggestion_rationale": "（为何建议？提升可读性？规范性？复现性？）"
+    }
+  ],
+
+  "extended_review_items": {
+    "novelty_evaluation": "（论文相对现有文献的创新点评价，指出是否足够新。必须对照提供的相似论文进行判断。）",
+    "technical_soundness": "（方法是否严谨？实验是否可靠？是否存在设计偏差？）",
+    "clarity_and_presentation": "（写作质量评估：结构、逻辑、语言、可读性。）",
+    "reproducibility": {
+      "data_availability": "（数据集是否公开？是否描述充分？）",
+      "code_availability": "（代码是否提供？能否支持复现？）"
+    },
+    "ethical_considerations": "（如适用：是否存在伦理风险、数据偏差、人群隐私问题？若不适用请填写"不适用"。）",
+    "impact_and_significance": "（对学术界/产业界的潜在影响力评价。）",
+    "recommend_for_improvement": "（若作者未来想提升质量，应加强哪些方面？）"
+  }
+}
+
+**注意事项：**
+1. critical_issues 数组中至少包含 1 个关键问题（如果论文质量很高可以只有 1 个）
+2. other_suggestions 数组中至少包含 1 个改进建议
+3. 所有字段都必须填写，不能留空（如不适用请明确说明"不适用"或"无"）
+4. 直接输出 JSON，不要包含任何 markdown 代码块标记（如 ```json）

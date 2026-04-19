@@ -317,7 +317,7 @@
 .btn-link {
   background: none;
   border: none;
-  color: #10a37f;
+  color: var(--primary-solid);
   padding: 0;
   margin-left: 12px;
   cursor: pointer;
@@ -612,7 +612,7 @@
 }
 
 [data-theme="light"] .btn-link {
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 /* ============================================
@@ -693,7 +693,7 @@
 }
 
 .recharge-payment-item.selected {
-  border-color: #10a37f;
+  border-color: var(--primary-solid);
   background: rgba(16, 163, 127, 0.08);
 }
 
@@ -710,7 +710,7 @@
 
 .recharge-payment-item .payment-check {
   margin-left: auto;
-  color: #10a37f;
+  color: var(--primary-solid);
   font-weight: 600;
 }
 
@@ -727,7 +727,7 @@
 
 .recharge-payment-item .payment-dev-tag {
   font-size: 11px !important;
-  color: #10a37f !important;
+  color: var(--primary-solid) !important;
   margin-left: auto;
   margin-right: 8px;
 }
@@ -748,7 +748,7 @@
   width: 20px;
   height: 20px;
   border: 2px solid rgba(16, 163, 127, 0.3);
-  border-top-color: #10a37f;
+  border-top-color: var(--primary-solid);
   border-radius: 50%;
   animation: rechargeSpinnerSpin 1s linear infinite;
 }
@@ -758,7 +758,7 @@
 }
 
 .recharge-polling span {
-  color: #10a37f;
+  color: var(--primary-solid);
   font-size: 14px;
 }
 

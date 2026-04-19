@@ -3,7 +3,7 @@
  * 包含论文列表和维度分析面板
  */
 import React, { memo, useEffect, useRef, useState, useCallback } from 'react';
-import Pagination from '../../components/Pagination';
+import Pagination from '../../components/common/Pagination';
 import AnalysisCellText from '../../components/AnalysisCellText';
 import { useTranslation } from '../../hooks';
 import { Languages } from 'lucide-react';

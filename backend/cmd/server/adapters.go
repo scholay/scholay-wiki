@@ -1,6 +1,16 @@
 // ============================================================================
 // Scholay学术 V1.0
 // 跨模块适配器定义
+//
+// 这里定义的 4 个 adapter 都是 producer ↔ consumer 的 DTO 转换桥，
+// 放在 main 包而不是任一被适配包，是为了避免 import 循环：
+//
+//   producer(user/usagelog/conversation/peerreview) 暴露自身领域模型；
+//   consumer(feedback/config/user) 用接口声明自己需要的 DTO；
+//   adapter 由组装者（main）实现，把 producer 的值映射到 consumer 的 DTO。
+//
+// 如果未来要删除某个 adapter，要么该 consumer 不再需要依赖反转，
+// 要么引入共享 DTO 包（注意会拉大"公共类型"表面积）。
 // ============================================================================
 
 package main

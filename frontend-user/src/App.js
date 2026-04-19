@@ -13,20 +13,20 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { HelmetProvider } from 'react-helmet-async';
 import { queryClient } from './services/queryClient';
 import { AuthBootstrap } from './utils/AuthContext';
-import { ToastRenderer } from './components/ToastContainer';
+import { ToastRenderer } from './components/common/ToastContainer';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 import MainLayout from './components/MainLayout';
-import ErrorBoundary, { PageErrorBoundary } from './components/ErrorBoundary';
-import NetworkStatusBar from './components/NetworkStatusBar';
-import NotificationToast from './components/NotificationToast';
-import CodeSnippetInjector from './components/CodeSnippetInjector';
-import VersionUpdateBar from './components/VersionUpdateBar';
+import ErrorBoundary, { PageErrorBoundary } from './components/common/ErrorBoundary';
+import NetworkStatusBar from './components/common/NetworkStatusBar';
+import NotificationToast from './components/common/NotificationToast';
+import CodeSnippetInjector from './components/common/CodeSnippetInjector';
+import VersionUpdateBar from './components/common/VersionUpdateBar';
 import { useVersionCheck } from './hooks';
 import logger from './utils/logger';
 
-// 首页立即加载(最常访问)
-import Home from './pages/Home';
+// 首页也懒加载 — 减少初始 bundle，首次加载更快
+const Home = lazyWithRetry(() => import('./pages/Home'), 'Home');
 
 /**
  * 带重试的懒加载函数
@@ -90,7 +90,7 @@ const PrivacyPage = lazyWithRetry(() => import('./pages/PrivacyPage'), 'PrivacyP
 const TermsPage = lazyWithRetry(() => import('./pages/TermsPage'), 'TermsPage');
 const ContactPage = lazyWithRetry(() => import('./pages/ContactPage'), 'ContactPage');
 const DisclaimerPage = lazyWithRetry(() => import('./pages/DisclaimerPage'), 'DisclaimerPage');
-const AuthModal = lazyWithRetry(() => import('./components/AuthModal'), 'AuthModal');
+const AuthModal = lazyWithRetry(() => import('./components/auth/AuthModal'), 'AuthModal');
 const LaTeXWriterPage = lazyWithRetry(() => import('./pages/latex-writer'), 'LaTeXWriterPage');
 const NotFoundPage = lazyWithRetry(() => import('./pages/NotFoundPage'), 'NotFoundPage');
 const DocsLayout = lazyWithRetry(() => import('./components/DocsLayout'), 'DocsLayout');

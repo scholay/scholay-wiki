@@ -13,7 +13,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, MessageSquare, FileCheck, Code, Shield, ChevronDown, ChevronUp, HelpCircle, BookOpen, Sparkles } from 'lucide-react';
-import SEO from '../components/SEO';
+import SEO from '../components/common/SEO';
 import FeaturePromo from '../components/FeaturePromo';
 import './styles/ResourcePage.css';
 import './styles/HelpCenterPage.css';

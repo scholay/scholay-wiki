@@ -465,9 +465,9 @@
 }
 
 /* ============================================
-   Responsive -- small phone (375px)
+   Responsive -- small phone (480px)
    ============================================ */
-@media (max-width: 375px) {
+@media (max-width: 480px) {
   .pricing-nav {
     margin: var(--space-2) var(--space-2) 0;
     padding: var(--space-3) var(--space-3);

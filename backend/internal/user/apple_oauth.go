@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"scholar-backend/internal/common/cache"
+	"scholar-backend/internal/common/httpclient"
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
 
@@ -30,14 +31,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var appleHTTPClient = &http.Client{
-	Timeout: 10 * time.Second,
-	Transport: &http.Transport{
-		MaxIdleConns:        20,
-		MaxIdleConnsPerHost: 10,
-		IdleConnTimeout:     90 * time.Second,
-	},
-}
+var appleHTTPClient = httpclient.OAuthClient
 
 const (
 	appleAuthURL  = "https://appleid.apple.com/auth/authorize"
@@ -415,9 +409,8 @@ func (h *Handler) findOrCreateAppleUser(claims *AppleIDTokenClaims, appleUser *A
 
 // BindAppleAccount handles Apple account binding
 func (h *Handler) BindAppleAccount(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
@@ -468,7 +461,7 @@ func (h *Handler) BindAppleAccount(c *gin.Context) {
 		return
 	}
 	if existing != nil {
-		if existing.UserID == userID.(uint) {
+		if existing.UserID == userID {
 			utils.ErrorResponse(c, http.StatusBadRequest, "This Apple account is already bound to your account")
 		} else {
 			utils.ErrorResponse(c, http.StatusBadRequest, "This Apple account is already bound to another user")
@@ -481,7 +474,7 @@ func (h *Handler) BindAppleAccount(c *gin.Context) {
 	providerDataJSON := string(providerDataBytes)
 
 	authProvider := &UserAuthProvider{
-		UserID:         userID.(uint),
+		UserID:         userID,
 		Provider:       "apple",
 		ProviderUserID: providerUserID,
 		ProviderData:   &providerDataJSON,
@@ -497,12 +490,11 @@ func (h *Handler) BindAppleAccount(c *gin.Context) {
 
 // UnbindApple handles Apple account unbinding
 func (h *Handler) UnbindApple(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
-	err := h.service.UnbindApple(userID.(uint))
+	err := h.service.UnbindApple(userID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
 		return

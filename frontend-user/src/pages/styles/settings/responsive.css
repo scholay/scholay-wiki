@@ -79,11 +79,11 @@
   }
 
   .mobile-tab-item.active {
-    color: #10a37f;
+    color: var(--primary-solid);
   }
 
   .mobile-tab-item.active svg {
-    stroke: #10a37f;
+    stroke: var(--primary-solid);
   }
 
   .mobile-tab-item:active {
@@ -170,9 +170,9 @@
 }
 
 [data-theme="light"] .mobile-tab-item.active {
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 [data-theme="light"] .mobile-tab-item.active svg {
-  stroke: #10a37f;
+  stroke: var(--primary-solid);
 }

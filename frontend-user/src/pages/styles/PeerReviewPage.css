@@ -732,7 +732,7 @@
 }
 
 [data-theme="light"] .prv-composer-wrapper {
-  background: #ffffff;
+  background: var(--surface);
   border: 2px solid rgba(99, 102, 241, 0.35);
   box-shadow: 
     0 20px 70px rgba(99, 102, 241, 0.1),
@@ -2026,11 +2026,11 @@
 
 /* Accept - 绿色 */
 .prv-stamp-accept {
-  border-color: #10a37f;
+  border-color: var(--primary-solid);
   background: rgba(255, 255, 255, 0.95);
 }
 .prv-stamp-accept .prv-stamp-text {
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 /* Minor Revision - 蓝色 */

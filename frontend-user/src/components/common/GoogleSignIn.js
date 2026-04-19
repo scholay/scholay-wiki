@@ -4,8 +4,8 @@
  * 支持 One Tap（右上角快捷登录）和按钮登录两种方式
  */
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { userAPI } from '../services/user.api';
-import logger from '../utils/logger';
+import { userAPI } from '../../services/user.api';
+import logger from '../../utils/logger';
 
 // GIS script URL
 const GIS_SCRIPT_URL = 'https://accounts.google.com/gsi/client';

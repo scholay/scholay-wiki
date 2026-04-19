@@ -114,7 +114,7 @@ func truncateByRune(s string, maxChars int) string {
 }
 
 // extractBasicInfo 提取稿件基本信息（文本输入）
-func (s *Service) extractBasicInfo(manuscriptText, modelLevel string) (*ManuscriptMeta, error) {
+func (s *Service) extractBasicInfo(ctx context.Context, manuscriptText, modelLevel string) (*ManuscriptMeta, error) {
 	prompt := fmt.Sprintf(`你是一位资深的学术编辑，请仔细阅读以下稿件内容，提取关键信息。
 
 稿件内容：
@@ -139,7 +139,7 @@ func (s *Service) extractBasicInfo(manuscriptText, modelLevel string) (*Manuscri
 	}
 
 	level := getModelLevel(modelLevel)
-	response, err := s.aiService.ChatCompletionWithTools(context.Background(), messages, nil, "", level)
+	response, err := s.aiService.ChatCompletionWithTools(ctx, messages, nil, "", level)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +160,7 @@ func (s *Service) extractBasicInfo(manuscriptText, modelLevel string) (*Manuscri
 }
 
 // extractBasicInfoFromFile 从文件提取稿件基本信息（多模态输入，支持PDF、Word等）
-func (s *Service) extractBasicInfoFromFile(fileBase64 string, fileName string, mimeType string, modelLevel string) (*ManuscriptMeta, error) {
+func (s *Service) extractBasicInfoFromFile(ctx context.Context, fileBase64 string, fileName string, mimeType string, modelLevel string) (*ManuscriptMeta, error) {
 	prompt := fmt.Sprintf(`你是一位资深的学术编辑，请仔细阅读附件中的论文文件，提取关键信息。
 
 文件名：%s
@@ -198,7 +198,7 @@ func (s *Service) extractBasicInfoFromFile(fileBase64 string, fileName string, m
 	}
 
 	level := getModelLevel(modelLevel)
-	response, err := s.aiService.ChatCompletionWithTools(context.Background(), messages, nil, "", level)
+	response, err := s.aiService.ChatCompletionWithTools(ctx, messages, nil, "", level)
 	if err != nil {
 		return nil, err
 	}
@@ -276,119 +276,6 @@ func getModelLevel(level string) thirdparty.ModelLevel {
 	default:
 		return thirdparty.ModelLevelLow
 	}
-}
-
-func extractJSON(content string) string {
-	// 先尝试提取 markdown 代码块中的 JSON
-	if strings.Contains(content, "```json") {
-		start := strings.Index(content, "```json") + 7
-		end := strings.LastIndex(content, "```")
-		if end > start {
-			content = strings.TrimSpace(content[start:end])
-		}
-	} else if strings.Contains(content, "```") {
-		start := strings.Index(content, "```") + 3
-		end := strings.LastIndex(content, "```")
-		if end > start {
-			content = strings.TrimSpace(content[start:end])
-		}
-	}
-
-	// 尝试找到 JSON 对象的边界
-	content = strings.TrimSpace(content)
-	if !strings.HasPrefix(content, "{") {
-		// 尝试找到第一个 {
-		idx := strings.Index(content, "{")
-		if idx >= 0 {
-			content = content[idx:]
-		}
-	}
-
-	// 尝试修复被截断的 JSON
-	content = tryFixTruncatedJSON(content)
-
-	return content
-}
-
-// tryFixTruncatedJSON 尝试修复被截断的 JSON
-func tryFixTruncatedJSON(content string) string {
-	// 如果 JSON 已经有效，直接返回
-	var test any
-	if json.Unmarshal([]byte(content), &test) == nil {
-		return content
-	}
-
-	// 统计未闭合的括号
-	openBraces := 0
-	openBrackets := 0
-	inString := false
-	escaped := false
-
-	for i := 0; i < len(content); i++ {
-		c := content[i]
-		if escaped {
-			escaped = false
-			continue
-		}
-		if c == '\\' && inString {
-			escaped = true
-			continue
-		}
-		if c == '"' {
-			inString = !inString
-			continue
-		}
-		if inString {
-			continue
-		}
-		switch c {
-		case '{':
-			openBraces++
-		case '}':
-			openBraces--
-		case '[':
-			openBrackets++
-		case ']':
-			openBrackets--
-		}
-	}
-
-	// 如果在字符串中被截断，先关闭字符串
-	if inString {
-		content += `"`
-	}
-
-	// 尝试清理最后一个不完整的键值对
-	// 找到最后一个逗号或冒号之后的内容
-	lastComma := strings.LastIndex(content, ",")
-	lastColon := strings.LastIndex(content, ":")
-
-	// 如果冒号在逗号之后，说明可能有一个不完整的键值对
-	if lastColon > lastComma && lastColon > 0 {
-		// 检查冒号后面的内容是否是不完整的值
-		afterColon := strings.TrimSpace(content[lastColon+1:])
-		// 如果冒号后面是不完整的内容（不是有效的 JSON 值）
-		if afterColon == "" || afterColon == `"` || afterColon == `"...` ||
-			(strings.HasPrefix(afterColon, `"`) && !strings.HasSuffix(afterColon, `"`) && !strings.Contains(afterColon[1:], `"`)) {
-			// 回退到最后一个逗号
-			if lastComma > 0 {
-				content = content[:lastComma]
-			}
-		}
-	}
-
-	// 清理尾部的逗号
-	content = strings.TrimRight(content, ", \t\n\r")
-
-	// 补充缺失的闭合括号
-	for i := 0; i < openBrackets; i++ {
-		content += "]"
-	}
-	for i := 0; i < openBraces; i++ {
-		content += "}"
-	}
-
-	return content
 }
 
 // getQueryTypeLabel 获取查询类型的中文标签
@@ -524,7 +411,7 @@ func (s *Service) filterPapersWithAbstract(papers []map[string]any) []map[string
 // filterPapersWithAI 使用AI筛选论文
 // 输入：有摘要的论文列表（最多50篇）
 // 输出：AI认为与研究高度相关的论文（通常10-20篇）
-func (s *Service) filterPapersWithAI(papers []map[string]any, query SearchQuery, meta *ManuscriptMeta, modelLevel string) ([]map[string]any, error) {
+func (s *Service) filterPapersWithAI(ctx context.Context, papers []map[string]any, query SearchQuery, meta *ManuscriptMeta, modelLevel string) ([]map[string]any, error) {
 	// 构建论文列表字符串
 	papersInfo := s.formatPapersForAIFilter(papers)
 
@@ -576,7 +463,7 @@ func (s *Service) filterPapersWithAI(papers []map[string]any, query SearchQuery,
 	}
 
 	level := getModelLevel(modelLevel)
-	response, err := s.aiService.ChatCompletionWithTools(context.Background(), messages, nil, "", level)
+	response, err := s.aiService.ChatCompletionWithTools(ctx, messages, nil, "", level)
 	if err != nil {
 		return nil, err
 	}
@@ -688,7 +575,7 @@ func (s *Service) buildFilterContext(query SearchQuery, meta *ManuscriptMeta) st
 }
 
 // callSemanticScholarSearchWithAIFilterNoWriter 调用MCP搜索文献并进行AI筛选（无 writer 版本，用于后台任务）
-func (s *Service) callSemanticScholarSearchWithAIFilterNoWriter(queries []SearchQuery, meta *ManuscriptMeta, modelLevel string, progressCallback func(string)) (map[string][]map[string]any, error) {
+func (s *Service) callSemanticScholarSearchWithAIFilterNoWriter(ctx context.Context, queries []SearchQuery, meta *ManuscriptMeta, modelLevel string, progressCallback func(string)) (map[string][]map[string]any, error) {
 	results := make(map[string][]map[string]any)
 
 	for _, q := range queries {
@@ -697,7 +584,7 @@ func (s *Service) callSemanticScholarSearchWithAIFilterNoWriter(queries []Search
 		}
 
 		// 1. 调用MCP检索
-		rawPapers, err := s.searchSingleQuery(context.Background(), q)
+		rawPapers, err := s.searchSingleQuery(ctx, q)
 		if err != nil {
 			slog.Error("search failed", "query_id", q.ID, "err", err)
 			continue
@@ -722,7 +609,7 @@ func (s *Service) callSemanticScholarSearchWithAIFilterNoWriter(queries []Search
 		if progressCallback != nil {
 			progressCallback(fmt.Sprintf("AI正在分析%s相关性...", getQueryTypeLabel(q.ID)))
 		}
-		filteredPapers, err := s.filterPapersWithAI(papersWithAbstract, q, meta, modelLevel)
+		filteredPapers, err := s.filterPapersWithAI(ctx, papersWithAbstract, q, meta, modelLevel)
 		if err != nil {
 			slog.Warn("AI filter failed, using raw results", "query_id", q.ID, "err", err)
 			results[q.ID] = topN(papersWithAbstract, 15)
@@ -782,9 +669,9 @@ func topN(papers []map[string]any, n int) []map[string]any {
 }
 
 // summarizeLiterature 总结文献环境
-func (s *Service) summarizeLiterature(ctx *LiteratureContext, meta *ManuscriptMeta, modelLevel string) (*LiteratureSummary, error) {
+func (s *Service) summarizeLiterature(ctx context.Context, litCtx *LiteratureContext, meta *ManuscriptMeta, modelLevel string) (*LiteratureSummary, error) {
 	// 压缩论文列表
-	compactList := s.compactPapersForLLM(ctx.AllPapers, 20)
+	compactList := s.compactPapersForLLM(litCtx.AllPapers, 20)
 
 	prompt := fmt.Sprintf(`你是一位严谨的学术专家，正在帮助一位"审稿人代理"快速了解某一主题的研究前沿。
 
@@ -831,7 +718,7 @@ func (s *Service) summarizeLiterature(ctx *LiteratureContext, meta *ManuscriptMe
 	level := getModelLevel(modelLevel)
 
 	// 调用 AI 并支持续写
-	content, err := s.callAIWithContinuation(messages, level, 3)
+	content, err := s.callAIWithContinuation(ctx, messages, level, 3)
 	if err != nil {
 		return nil, err
 	}
@@ -849,7 +736,7 @@ func (s *Service) summarizeLiterature(ctx *LiteratureContext, meta *ManuscriptMe
 }
 
 // callAIWithContinuation 调用 AI 并支持自动续写被截断的响应
-func (s *Service) callAIWithContinuation(messages []ai.ChatMessage, level thirdparty.ModelLevel, maxContinuations int) (string, error) {
+func (s *Service) callAIWithContinuation(ctx context.Context, messages []ai.ChatMessage, level thirdparty.ModelLevel, maxContinuations int) (string, error) {
 	var fullContent strings.Builder
 	var previousContent string // 用于检测重复
 
@@ -857,7 +744,7 @@ func (s *Service) callAIWithContinuation(messages []ai.ChatMessage, level thirdp
 	copy(currentMessages, messages)
 
 	for i := 0; i <= maxContinuations; i++ {
-		response, err := s.aiService.ChatCompletionWithTools(context.Background(), currentMessages, nil, "", level)
+		response, err := s.aiService.ChatCompletionWithTools(ctx, currentMessages, nil, "", level)
 		if err != nil {
 			return "", err
 		}
@@ -905,7 +792,7 @@ func (s *Service) callAIWithContinuation(messages []ai.ChatMessage, level thirdp
 
 // callAIWithContinuationMultimodal 调用 AI 并支持自动续写被截断的响应（多模态版本）
 // 用于处理包含文件（如PDF）的多模态消息
-func (s *Service) callAIWithContinuationMultimodal(messages []ai.ChatMessage, level thirdparty.ModelLevel, maxContinuations int) (string, error) {
+func (s *Service) callAIWithContinuationMultimodal(ctx context.Context, messages []ai.ChatMessage, level thirdparty.ModelLevel, maxContinuations int) (string, error) {
 	var fullContent strings.Builder
 	var previousContent string // 用于检测重复
 
@@ -913,7 +800,7 @@ func (s *Service) callAIWithContinuationMultimodal(messages []ai.ChatMessage, le
 	copy(currentMessages, messages)
 
 	for i := 0; i <= maxContinuations; i++ {
-		response, err := s.aiService.ChatCompletionWithTools(context.Background(), currentMessages, nil, "", level)
+		response, err := s.aiService.ChatCompletionWithTools(ctx, currentMessages, nil, "", level)
 		if err != nil {
 			return "", err
 		}
@@ -960,211 +847,4 @@ func (s *Service) callAIWithContinuationMultimodal(messages []ai.ChatMessage, le
 	return fullContent.String(), nil
 }
 
-// removeOverlappingContent 检测并去除续写内容中与前一段重复的部分
-// 使用多种策略检测重复：
-// 1. 查找最长公共子串（从末尾开始匹配）
-// 2. 检测常见的重复模式（如重复的 JSON key）
-func removeOverlappingContent(previous, current string) string {
-	if len(previous) == 0 || len(current) == 0 {
-		return current
-	}
-
-	// 策略1：查找 previous 末尾与 current 开头的重叠部分
-	// 取 previous 的最后 500 个字符进行匹配（避免全文扫描）
-	maxCheckLen := 500
-	if len(previous) < maxCheckLen {
-		maxCheckLen = len(previous)
-	}
-	previousTail := previous[len(previous)-maxCheckLen:]
-
-	// 从长到短尝试匹配
-	minOverlapLen := 20 // 最小重叠长度，避免误判
-	for overlapLen := len(previousTail); overlapLen >= minOverlapLen; overlapLen-- {
-		// 检查 previous 末尾的 overlapLen 个字符是否等于 current 开头的 overlapLen 个字符
-		if overlapLen <= len(current) {
-			suffix := previousTail[len(previousTail)-overlapLen:]
-			prefix := current[:overlapLen]
-			if suffix == prefix {
-				// 找到重叠部分，去除 current 开头的重复内容
-				slog.Debug("detected overlap, removing duplicate", "overlap_chars", overlapLen)
-				return current[overlapLen:]
-			}
-		}
-	}
-
-	// 策略2：检测 JSON 格式的重复（如重复的字段名）
-	// 这是一个启发式方法，检测 current 是否以之前出现过的 JSON key 开头
-	if strings.Contains(previous, `"`) && strings.HasPrefix(strings.TrimSpace(current), `"`) {
-		// 可能是 JSON 续写，检测是否重复了字段
-		current = removeRepeatedJSONKeys(previous, current)
-	}
-
-	return current
-}
-
-// removeRepeatedJSONKeys 检测并移除重复的 JSON key
-func removeRepeatedJSONKeys(previous, current string) string {
-	// 提取 current 开头的 JSON key（如果有的话）
-	trimmedCurrent := strings.TrimSpace(current)
-	if !strings.HasPrefix(trimmedCurrent, `"`) {
-		return current
-	}
-
-	// 找到第一个 key 的结束位置
-	endQuote := strings.Index(trimmedCurrent[1:], `"`)
-	if endQuote == -1 {
-		return current
-	}
-
-	firstKey := trimmedCurrent[:endQuote+2] // 包含两个引号
-
-	// 检查这个 key 是否在 previous 中已经出现过
-	if strings.Contains(previous, firstKey) {
-		// 找到 current 中这个 key 对应的值结束位置
-		// 简化处理：找到下一个同级别的 key 或者对象结束
-		colonIdx := strings.Index(trimmedCurrent, ":")
-		if colonIdx == -1 {
-			return current
-		}
-
-		// 跳过值部分，找到下一个 key
-		valueStart := colonIdx + 1
-		depth := 0
-		inString := false
-		escaped := false
-
-		for i := valueStart; i < len(trimmedCurrent); i++ {
-			c := trimmedCurrent[i]
-
-			if escaped {
-				escaped = false
-				continue
-			}
-
-			if c == '\\' && inString {
-				escaped = true
-				continue
-			}
-
-			if c == '"' {
-				inString = !inString
-				continue
-			}
-
-			if inString {
-				continue
-			}
-
-			if c == '{' || c == '[' {
-				depth++
-			} else if c == '}' || c == ']' {
-				depth--
-				if depth < 0 {
-					// 到达对象结束，返回剩余部分
-					return trimmedCurrent[i:]
-				}
-			} else if c == ',' && depth == 0 {
-				// 找到下一个元素，检查是否是新的 key
-				remaining := strings.TrimSpace(trimmedCurrent[i+1:])
-				if strings.HasPrefix(remaining, `"`) && !strings.Contains(previous, remaining[:strings.Index(remaining[1:], `"`)+2]) {
-					// 下一个 key 在 previous 中不存在，返回从这里开始
-					slog.Debug("removed repeated JSON key", "key", firstKey)
-					return trimmedCurrent[i:]
-				}
-			}
-		}
-	}
-
-	return current
-}
-
-// compactPapersForLLM 压缩论文列表供LLM使用
-func (s *Service) compactPapersForLLM(papers []map[string]any, maxPapers int) string {
-	var sb strings.Builder
-
-	for i, p := range papers {
-		if i >= maxPapers {
-			break
-		}
-
-		title, _ := p["title"].(string)
-		year := 0
-		if y, ok := p["year"].(float64); ok {
-			year = int(y)
-		}
-		abstract, _ := p["abstract"].(string)
-		if len(abstract) > 300 {
-			abstract = abstract[:300] + "..."
-		}
-		citations := 0
-		if c, ok := p["citationCount"].(float64); ok {
-			citations = int(c)
-		}
-
-		sb.WriteString(fmt.Sprintf("%d. %s (%d) [引用: %d]\n", i+1, title, year, citations))
-		if abstract != "" {
-			sb.WriteString(fmt.Sprintf("   摘要: %s\n", abstract))
-		}
-		sb.WriteString("\n")
-	}
-
-	return sb.String()
-}
-
-// buildReferenceList 构建参考文献列表
-func (s *Service) buildReferenceList(papers []map[string]any) []ReferenceForReviewer {
-	refs := make([]ReferenceForReviewer, 0, len(papers))
-
-	for i, p := range papers {
-		if i >= 30 { // 最多30篇参考文献
-			break
-		}
-
-		title, _ := p["title"].(string)
-		year := 0
-		if y, ok := p["year"].(float64); ok {
-			year = int(y)
-		}
-		paperID, _ := p["paperId"].(string)
-		url, _ := p["url"].(string)
-
-		// 提取作者
-		authors := ""
-		if authorList, ok := p["authors"].([]any); ok && len(authorList) > 0 {
-			authorNames := []string{}
-			for j, a := range authorList {
-				if j >= 3 {
-					authorNames = append(authorNames, "et al.")
-					break
-				}
-				if authorMap, ok := a.(map[string]any); ok {
-					if name, ok := authorMap["name"].(string); ok {
-						authorNames = append(authorNames, name)
-					}
-				}
-			}
-			authors = strings.Join(authorNames, ", ")
-		}
-
-		refs = append(refs, ReferenceForReviewer{
-			ID:      fmt.Sprintf("R%d", i+1),
-			Title:   title,
-			Year:    year,
-			Authors: authors,
-			URL:     url,
-			PaperID: paperID,
-		})
-	}
-
-	return refs
-}
-
-// formatRefsForPrompt 格式化参考文献供提示词使用
-func (s *Service) formatRefsForPrompt(refs []ReferenceForReviewer) string {
-	var sb strings.Builder
-	for _, ref := range refs {
-		sb.WriteString(fmt.Sprintf("[%s] %s. %s (%d)\n", ref.ID, ref.Authors, ref.Title, ref.Year))
-	}
-	return sb.String()
-}
 

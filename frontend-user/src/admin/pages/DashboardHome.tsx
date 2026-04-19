@@ -25,10 +25,44 @@ import {
 } from 'recharts';
 import './DashboardHome.css';
 
-const DashboardHome = () => {
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+interface ChartPoint {
+  date: string;
+  value: number;
+}
+
+interface DashboardStats {
+  total_users: number;
+  new_users_today: number;
+  new_users_7d: number;
+  new_users_30d: number;
+  online_users: number;
+  active_users_30d: number;
+  total_revenue: number | string;
+  revenue_today: number | string;
+  revenue_7d: number | string;
+  revenue_30d: number | string;
+  total_orders: number;
+  paid_orders: number;
+  pending_orders: number;
+  paid_users: number;
+  free_users: number;
+  total_conversations: number;
+  conversations_today: number;
+  total_messages: number;
+  total_coupons: number;
+  used_coupons: number;
+  unused_coupons: number;
+  third_party_accounts: number;
+  prompt_templates: number;
+  user_growth_chart?: ChartPoint[];
+  order_trend_chart?: ChartPoint[];
+  revenue_trend_chart?: ChartPoint[];
+}
+
+const DashboardHome: React.FC = () => {
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadStatistics();
@@ -54,12 +88,12 @@ const DashboardHome = () => {
     }
   };
 
-  const formatCurrency = (value) => {
+  const formatCurrency = (value: number | string) => {
     const num = Number(value) || 0;
     return `¥${num.toFixed(2)}`;
   };
 
-  const formatNumber = (value) => {
+  const formatNumber = (value: number | string) => {
     const num = Number(value) || 0;
     if (num >= 10000) {
       return `${(num / 10000).toFixed(1)}万`;

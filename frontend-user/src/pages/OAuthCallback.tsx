@@ -5,18 +5,19 @@
  * ============================================================================
  */
 
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { userAPI } from '../services/user.api';
 import logger from '../utils/logger';
+import type { User } from '../types/user';
 
 const RETURN_URL_WHITELIST = [
   '/pricing', '/search-results', '/advanced-search', '/chat',
   '/settings', '/admin', '/dashboard', '/order-confirmation',
 ];
 
-const isWhitelistedReturnURL = (url) => {
+const isWhitelistedReturnURL = (url: string | null | undefined): boolean => {
   if (!url || typeof url !== 'string') return false;
   try {
     const pathname = url.startsWith('http') ? new URL(url).pathname : url.split('?')[0].split('#')[0];
@@ -26,14 +27,21 @@ const isWhitelistedReturnURL = (url) => {
   }
 };
 
-/**
- * 通用 OAuth 回调组件
- * @param {object} props
- * @param {string} props.provider - 'orcid' | 'microsoft'
- * @param {function} props.callbackAPI - (code, state) => Promise (login callback API)
- * @param {function} props.bindAPI - (code, state) => Promise (bind callback API)
- */
-const OAuthCallback = ({ provider, callbackAPI, bindAPI }) => {
+// Provider OAuth response shapes vary; accept any axios-like response.
+// `any` here covers the heterogeneous return types of provider callback APIs.
+type CallbackAPIFn = (code: string, state: string) => Promise<any>;
+
+interface OAuthCallbackProps {
+  provider: string;
+  callbackAPI: CallbackAPIFn;
+  bindAPI: CallbackAPIFn;
+}
+
+interface AxiosLikeError {
+  response?: { data?: { message?: string } };
+}
+
+const OAuthCallback: React.FC<OAuthCallbackProps> = ({ provider, callbackAPI, bindAPI }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { login } = useAuth();
@@ -78,7 +86,7 @@ const OAuthCallback = ({ provider, callbackAPI, bindAPI }) => {
           const data = response.data?.data || response.data;
 
           if (data?.token) {
-            login(data.token, data.user);
+            login(data.token as string, (data.user as User) ?? (null as unknown as User));
             const returnUrl = localStorage.getItem(`${provider}_return_url`);
             localStorage.removeItem(`${provider}_return_url`);
 
@@ -93,7 +101,7 @@ const OAuthCallback = ({ provider, callbackAPI, bindAPI }) => {
         }
       } catch (err) {
         logger.error(`${provider} callback error:`, err);
-        const msg = err.response?.data?.message || `${provider} 登录失败`;
+        const msg = (err as AxiosLikeError).response?.data?.message || `${provider} 登录失败`;
         navigate(`/?error=${encodeURIComponent(msg)}`);
       }
     };
@@ -112,7 +120,7 @@ const OAuthCallback = ({ provider, callbackAPI, bindAPI }) => {
 };
 
 // ORCID Callback
-export const OrcidCallback = () => (
+export const OrcidCallback: React.FC = () => (
   <OAuthCallback
     provider="orcid"
     callbackAPI={userAPI.orcidCallback}
@@ -121,7 +129,7 @@ export const OrcidCallback = () => (
 );
 
 // Microsoft Callback
-export const MicrosoftCallback = () => (
+export const MicrosoftCallback: React.FC = () => (
   <OAuthCallback
     provider="microsoft"
     callbackAPI={userAPI.microsoftCallback}

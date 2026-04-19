@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"time"
 
+	"scholar-backend/internal/common/httpclient"
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
 
@@ -23,14 +24,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var googleHTTPClient = &http.Client{
-	Timeout: 10 * time.Second,
-	Transport: &http.Transport{
-		MaxIdleConns:        20,
-		MaxIdleConnsPerHost: 10,
-		IdleConnTimeout:     90 * time.Second,
-	},
-}
+var googleHTTPClient = httpclient.OAuthClient
 
 // GoogleTokenInfo represents the response from Google's tokeninfo endpoint
 type GoogleTokenInfo struct {
@@ -299,9 +293,8 @@ type BindGoogleAccountRequest struct {
 // BindGoogleAccount handles Google account binding for existing users
 // POST /api/v1/user/bind-google
 func (h *Handler) BindGoogleAccount(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
@@ -337,7 +330,7 @@ func (h *Handler) BindGoogleAccount(c *gin.Context) {
 	}
 
 	// Bind Google to user
-	err = h.bindGoogleToUser(userID.(uint), tokenInfo)
+	err = h.bindGoogleToUser(userID, tokenInfo)
 	if err != nil {
 		slog.Error("google bind: failed to bind", "err", err)
 		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
@@ -404,13 +397,12 @@ func (h *Handler) bindGoogleToUser(userID uint, tokenInfo *GoogleTokenInfo) erro
 // UnbindGoogle handles Google account unbinding
 // POST /api/v1/user/unbind-google
 func (h *Handler) UnbindGoogle(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	err := h.service.UnbindGoogle(userID.(uint))
+	err := h.service.UnbindGoogle(userID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
 		return

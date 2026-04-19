@@ -2,22 +2,23 @@
  * Apple Sign In 回调处理页面
  * Apple 使用 form_post，后端处理后 redirect 回前端带 token 参数
  */
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
+import type { User } from '../types/user';
 
-const AppleCallback = () => {
+const AppleCallback: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { login } = useAuth();
 
   useEffect(() => {
     const token = searchParams.get('token');
-    const isNewUser = searchParams.get('is_new_user') === 'true';
 
     if (token) {
-      // 后端已验证并返回 JWT，直接登录
-      login(token, null);
+      // 后端已验证并返回 JWT，直接登录；用户信息将由 refreshUser 异步拉取
+      // login 类型签名要求 User，但此处尚无用户数据，转换为 null 以触发后续刷新
+      login(token, null as unknown as User);
 
       const returnUrl = localStorage.getItem('apple_return_url');
       localStorage.removeItem('apple_return_url');

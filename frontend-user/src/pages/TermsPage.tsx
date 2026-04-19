@@ -13,8 +13,8 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, FileText } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import Logo from '../components/Logo';
-import SEO from '../components/SEO';
+import Logo from '../components/common/Logo';
+import SEO from '../components/common/SEO';
 import { configAPI } from '../services';
 import './styles/LegalPage.css';
 
@@ -108,9 +108,9 @@ const FALLBACK_TERMS_CONTENT = `
 <p>地址：中国四川省成都市</p>
 `;
 
-const TermsPage = () => {
+const TermsPage: React.FC = () => {
   const navigate = useNavigate();
-  const [content, setContent] = useState(FALLBACK_TERMS_CONTENT);
+  const [content, setContent] = useState<string>(FALLBACK_TERMS_CONTENT);
   const [isMarkdown, setIsMarkdown] = useState(false);
   const [loading, setLoading] = useState(true);
   const [version, setVersion] = useState('');
@@ -125,8 +125,8 @@ const TermsPage = () => {
           setContent(apiContent);
           const looksLikeMarkdown = /^#\s|^##\s|\n##?\s/m.test(apiContent) && !/<h[1-6][\s>]/i.test(apiContent);
           setIsMarkdown(looksLikeMarkdown);
-          setVersion(data.data.version || '');
-          setUpdatedAt(data.data.updated_at || '');
+          setVersion((data.data.version as string) || '');
+          setUpdatedAt((data.data.updated_at as string) || '');
         }
       })
       .catch(() => {
@@ -137,7 +137,7 @@ const TermsPage = () => {
       });
   }, []);
 
-  const formatDate = (dateStr) => {
+  const formatDate = (dateStr: string): string => {
     if (!dateStr) return '';
     const date = new Date(dateStr);
     return date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });

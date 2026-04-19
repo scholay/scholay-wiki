@@ -30,7 +30,7 @@ import SharedFooter from './SharedFooter';
 import './styles/MainLayout.css';
 
 // 懒加载 AuthModal
-const AuthModal = lazy(() => import('./AuthModal'));
+const AuthModal = lazy(() => import('./auth/AuthModal'));
 
 const MainLayout = () => {
   const { user, isAuthenticated, logout } = useAuth();

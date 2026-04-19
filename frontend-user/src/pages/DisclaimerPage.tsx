@@ -10,11 +10,11 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, AlertTriangle } from 'lucide-react';
-import Logo from '../components/Logo';
-import SEO from '../components/SEO';
+import Logo from '../components/common/Logo';
+import SEO from '../components/common/SEO';
 import './styles/LegalPage.css';
 
-const DisclaimerPage = () => {
+const DisclaimerPage: React.FC = () => {
   const navigate = useNavigate();
 
   return (

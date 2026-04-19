@@ -9,16 +9,24 @@
  * Logo 组件 - 管理后台 Logo
  */
 
-import React from 'react';
+import type { CSSProperties, SVGProps } from 'react';
 
-/**
- * Logo 组件
- * @param {number} size - Logo 尺寸（宽度，高度会按比例自动计算）
- * @param {string} className - 额外的 CSS 类名
- * @param {object} style - 额外的内联样式
- * @param {string} variant - 变体: 'default' (黑色描边) 或 'white' (白色描边)
- */
-const Logo = ({ size = 32, className = '', style = {}, variant = 'default', ...props }) => {
+export type LogoVariant = 'default' | 'white';
+
+export interface LogoProps extends Omit<SVGProps<SVGSVGElement>, 'style' | 'className'> {
+  size?: number;
+  className?: string;
+  style?: CSSProperties;
+  variant?: LogoVariant;
+}
+
+const Logo = ({
+  size = 32,
+  className = '',
+  style = {},
+  variant = 'default',
+  ...props
+}: LogoProps) => {
   // 根据宽度计算高度，保持原始比例 (771:900 ≈ 0.857)
   const width = size;
   const height = Math.round(size * (900 / 771));
@@ -50,19 +58,21 @@ const Logo = ({ size = 32, className = '', style = {}, variant = 'default', ...p
   );
 };
 
-/**
- * LogoWithBackground 组件 - 带背景的 Logo（用于登录页等）
- * @param {number} size - 整体尺寸
- * @param {string} bgColor - 背景颜色
- * @param {number} borderRadius - 圆角大小
- */
-export const LogoWithBackground = ({ 
-  size = 48, 
-  bgColor = '#2563eb', 
+export interface LogoWithBackgroundProps {
+  size?: number;
+  bgColor?: string;
+  borderRadius?: number;
+  className?: string;
+  style?: CSSProperties;
+}
+
+export const LogoWithBackground = ({
+  size = 48,
+  bgColor = '#2563eb',
   borderRadius = 12,
   className = '',
-  style = {}
-}) => {
+  style = {},
+}: LogoWithBackgroundProps) => {
   const logoSize = Math.round(size * 0.6); // Logo 占背景的 60%
   
   return (

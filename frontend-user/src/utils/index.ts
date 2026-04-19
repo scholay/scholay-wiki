@@ -5,7 +5,7 @@
  * 统一社会信用代码: 91510100MAEEHRNE26
  * All Rights Reserved.
  * ============================================================================
- * 
+ *
  * Utils 统一导出
  */
 
@@ -18,34 +18,6 @@ export { default as logger } from './logger';
 // 格式化工具
 export * from './formatters';
 
-// 验证工具
-export * from './validators';
-
-// 性能工具
-export {
-  createTimer,
-  measureTime,
-  debounce,
-  throttle,
-  requestIdleCallback,
-  cancelIdleCallback,
-  batchDOMUpdates,
-  isInViewport,
-  createIntersectionObserver,
-  getMemoryUsage,
-  getPerformanceMetrics,
-  logPerformanceReport,
-} from './performance';
-
-// 性能优化 HOC
-export {
-  withPerformance,
-  withMemo,
-  withRenderCount,
-  withRenderTime,
-  logPropsChanges,
-} from './withPerformance';
-
 // 消息工具
 export { organizeMessagesByParentId, messagesToQAList } from './messageUtils';
 
@@ -54,7 +26,6 @@ export { generateSearchResultsSchema, generateBreadcrumbSchema, truncateText } f
 
 // 使用追踪
 export {
-  trackUsage,
   // 检索类
   trackDirectSearch,
   trackSearchSuggestion,
@@ -76,8 +47,6 @@ export {
   trackDetailPageView,
   trackDetailPageSimilar,
   // 常量
-  FeatureCode,
-  Action,
   EntryPoint,
 } from './usageTracker';
 
@@ -87,10 +56,7 @@ export {
   setSearchQuery,
   getSearchFilters,
   setSearchFilters,
-  getSearchMode,
   setSearchMode,
   getAIModelLevel,
-  setAIModelLevel,
-  getAIConversationId,
   setAIConversationId,
 } from './searchStorage';

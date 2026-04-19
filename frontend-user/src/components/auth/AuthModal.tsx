@@ -16,7 +16,7 @@ import { useAuth } from '../../utils/AuthContext';
 import type { User } from '../../types/user';
 import { userAPI } from '../../services/user.api';
 import { configAPI } from '../../services/payment.api';
-import { useToast } from '../ToastContainer';
+import { useToast } from '../common/ToastContainer';
 import logger from '../../utils/logger';
 
 // Sub-components (untyped JS — typed via `any` props at usage sites where needed)

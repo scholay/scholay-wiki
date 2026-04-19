@@ -9,19 +9,19 @@
 
 import React, { useEffect, lazy, Suspense } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import PaperPreview from '../../components/PaperPreview';
-import PaperListSkeleton from '../../components/PaperListSkeleton';
-import CiteModal from '../../components/CiteModal';
-import SimilarPapersGuide from '../../components/SimilarPapersGuide';
-import SearchSuggestions from '../../components/SearchSuggestions';
+import PaperPreview from '../../components/search/PaperPreview';
+import PaperListSkeleton from '../../components/search/PaperListSkeleton';
+import CiteModal from '../../components/search/CiteModal';
+import SimilarPapersGuide from '../../components/search/SimilarPapersGuide';
+import SearchSuggestions from '../../components/search/SearchSuggestions';
 import FilterSidebar from '../../components/FilterSidebar';
-import SEO from '../../components/SEO';
+import SEO from '../../components/common/SEO';
 import SearchToAITransition from '../../components/SearchToAITransition';
 import { generateSearchResultsSchema, generateBreadcrumbSchema, truncateText } from '../../utils/seoHelpers';
 import { setSearchQuery as saveSearchQuery } from '../../utils/searchStorage';
 import { trackDirectSearch, EntryPoint } from '../../utils/usageTracker';
 import logger from '../../utils/logger';
-import { AdvancedSearchIcon } from '../../components/SearchIcons';
+import { AdvancedSearchIcon } from '../../components/common/SearchIcons';
 
 // 子视图组件
 import AuthorDetailView from './AuthorDetailView';
@@ -41,7 +41,7 @@ import { usePdfAvailability } from '../../hooks/usePdfAvailability';
 import '../styles/search-results/index.css';
 
 // 懒加载组件
-const AuthModal = lazy(() => import('../../components/AuthModal'));
+const AuthModal = lazy(() => import('../../components/auth/AuthModal'));
 const AISearchView = lazy(() => import('../../components/ai-search/AISearchView'));
 
 // 搜索示例数据

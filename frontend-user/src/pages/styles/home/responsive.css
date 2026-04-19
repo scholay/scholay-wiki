@@ -167,7 +167,7 @@
 
   [data-theme="light"] .home .home-composer-wrapper,
   [data-theme="light"] .home-search .home-composer-wrapper {
-    background: #ffffff;
+    background: var(--surface);
     backdrop-filter: blur(40px);
     -webkit-backdrop-filter: blur(40px);
     border: 2px solid rgba(16, 163, 127, 0.45);
@@ -452,7 +452,7 @@
 }
 
 /* Small mobile screens (iPhone SE, etc.) */
-@media (max-width: 375px) {
+@media (max-width: 480px) {
   .welcome-title {
     font-size: 1.25rem;
   }

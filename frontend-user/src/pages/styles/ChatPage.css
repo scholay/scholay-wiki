@@ -337,16 +337,16 @@
 
 /* 日间模式hover按钮样式 */
 [data-theme="light"] .chat-page-wrapper .hover-btn {
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid rgba(0, 0, 0, 0.15);
   color: #374151;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 [data-theme="light"] .chat-page-wrapper .hover-btn:hover {
-  background: #f9fafb;
+  background: var(--bg-primary);
   border-color: rgba(16, 163, 127, 0.4);
-  color: #10a37f;
+  color: var(--primary-solid);
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.12);
 }
 
@@ -370,7 +370,7 @@
 
 /* 日间模式分支导航样式 */
 [data-theme="light"] .chat-page-wrapper .branch-nav {
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid rgba(0, 0, 0, 0.1);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
@@ -569,7 +569,7 @@
 
 /* 日间模式输入框容器样式 - 与智能分析页面保持一致 */
 [data-theme="light"] .chat-page-wrapper .composer-input-area {
-  background: #ffffff;
+  background: var(--surface);
   border: 2px solid rgba(16, 163, 127, 0.45);
   box-shadow: 
     0 20px 70px rgba(16, 163, 127, 0.12),
@@ -578,7 +578,7 @@
 }
 
 [data-theme="light"] .chat-page-wrapper .composer-input-area:focus-within {
-  background: #ffffff;
+  background: var(--surface);
   border-color: var(--text-accent);
   box-shadow: 
     0 24px 80px rgba(16, 163, 127, 0.15),
@@ -670,7 +670,7 @@
     rgba(16, 163, 127, 0.8) 0%, 
     rgba(16, 163, 127, 0.7) 100%);
   border: 1px solid rgba(16, 163, 127, 0.9);
-  color: #ffffff;
+  color: var(--surface);
   box-shadow: 
     0 2px 8px rgba(16, 163, 127, 0.3),
     0 1px 3px rgba(0, 0, 0, 0.1);
@@ -778,7 +778,7 @@
 .chat-page-wrapper .streaming-cursor {
   display: inline-block;
   animation: cursor-pulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  color: #10a37f;
+  color: var(--primary-solid);
   margin-left: 0.25rem;
   font-size: 0.6em;
   vertical-align: middle;
@@ -1106,7 +1106,7 @@
 
 /* 日间模式下拉菜单样式 */
 [data-theme="light"] .model-dropdown-menu {
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid rgba(0, 0, 0, 0.1);
   box-shadow: 
     0 20px 25px -5px rgba(0, 0, 0, 0.1),
@@ -1151,7 +1151,7 @@
 
 /* 日间模式下拉项样式 */
 [data-theme="light"] .model-dropdown-item {
-  background: #ffffff;
+  background: var(--surface);
   color: #374151;
   border: 1px solid transparent;
 }

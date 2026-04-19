@@ -45,7 +45,7 @@
 
 [data-theme="light"] .home .home-composer-wrapper .search-suggestions-dropdown,
 [data-theme="light"] .home-search .home-composer-wrapper .search-suggestions-dropdown {
-  background: #ffffff;
+  background: var(--surface);
   border-color: rgba(0, 0, 0, 0.1);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
 }
@@ -62,7 +62,7 @@
 
 [data-theme="light"] .home .home-composer-wrapper,
 [data-theme="light"] .home-search .home-composer-wrapper {
-  background: #ffffff;
+  background: var(--surface);
   border: 2px solid rgba(16, 163, 127, 0.45);
   box-shadow: 
     0 20px 70px rgba(16, 163, 127, 0.12),
@@ -83,7 +83,7 @@
 
 [data-theme="light"] .home .home-composer-wrapper:focus-within,
 [data-theme="light"] .home-search .home-composer-wrapper:focus-within {
-  background: #ffffff;
+  background: var(--surface);
   border-color: var(--text-accent);
   box-shadow: 
     0 24px 80px rgba(16, 163, 127, 0.15),

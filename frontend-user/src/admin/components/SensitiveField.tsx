@@ -7,14 +7,29 @@
  * ============================================================================
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import './SensitiveField.css';
+
+export interface SensitiveFieldProps {
+  label?: string;
+  value?: string;
+  isVerified: boolean;
+  onRequestVerify?: () => void;
+  /** Reserved for future use; currently the input is always rendered as text/password. */
+  type?: string;
+}
 
 /**
  * 敏感信息字段组件
  * 默认显示遮罩，需要二次验证后才能查看
  */
-const SensitiveField = ({ label, value, isVerified, onRequestVerify, type = 'text' }) => {
+const SensitiveField = ({
+  label,
+  value,
+  isVerified,
+  onRequestVerify,
+  type = 'text',
+}: SensitiveFieldProps) => {
   const [showValue, setShowValue] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
 

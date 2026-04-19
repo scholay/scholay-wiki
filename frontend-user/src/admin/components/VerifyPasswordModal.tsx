@@ -7,20 +7,30 @@
  * ============================================================================
  */
 
-import React, { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { adminAPI } from '../services/api';
 import { showToast } from './Toast';
 import './VerifyPasswordModal.css';
+
+export interface VerifyPasswordModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onVerified: () => void;
+}
 
 /**
  * 二次验证密码模态框
  * 用于查看敏感信息前验证管理员身份
  */
-const VerifyPasswordModal = ({ isOpen, onClose, onVerified }) => {
+const VerifyPasswordModal = ({
+  isOpen,
+  onClose,
+  onVerified,
+}: VerifyPasswordModalProps) => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!password.trim()) {
@@ -42,8 +52,8 @@ const VerifyPasswordModal = ({ isOpen, onClose, onVerified }) => {
       } else {
         showToast(response.data.message || '密码错误', 'error');
       }
-    } catch (err) {
-      showToast(err.response?.data?.message || '验证失败', 'error');
+    } catch (err: any) { // [any#1] axios error shape varies by interceptor config
+      showToast(err?.response?.data?.message || '验证失败', 'error');
     } finally {
       setLoading(false);
     }

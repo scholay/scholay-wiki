@@ -10,17 +10,57 @@ package cache
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/singleflight"
 )
 
+// ErrNotFound 是上游 fetch 函数在确认数据不存在时应返回的标记错误。
+// GetOrSet 收到此错误后会缓存一个 null 哨兵值（短 TTL），防止缓存穿透。
+var ErrNotFound = errors.New("cache: resource not found")
+
+// nullSentinel 是缓存中的"已确认不存在"标记。
+const nullSentinel = "__NULL__"
+
+// nullCacheTTL null 哨兵的缓存时长，应明显短于正常 TTL，便于数据补齐后及时恢复。
+const nullCacheTTL = 60 * time.Second
+
+// jitterTTL 在原 TTL 上叠加 ±10% 的随机抖动，避免大量 key 同时过期触发缓存雪崩。
+func jitterTTL(d time.Duration) time.Duration {
+	if d <= 0 {
+		return d
+	}
+	delta := int64(d) / 10
+	if delta == 0 {
+		return d
+	}
+	offset := rand.Int63n(2*delta+1) - delta
+	return time.Duration(int64(d) + offset)
+}
+
 var rdb *redis.Client
 
-var sfGroup singleflight.Group
+// sfShardCount 分片数：取 2 的幂便于位掩码取模。每个 shard 一个独立 Group，
+// 避免单一 Group 内部 mutex 在大量不同 key 高并发时成为瓶颈。
+const sfShardCount = 32
+const sfShardMask = sfShardCount - 1
+
+var sfShards [sfShardCount]singleflight.Group
+
+// sfGroupFor 通过 FNV-1a 哈希把 key 映射到对应分片的 singleflight.Group。
+func sfGroupFor(key string) *singleflight.Group {
+	var h uint32 = 2166136261
+	for i := 0; i < len(key); i++ {
+		h ^= uint32(key[i])
+		h *= 16777619
+	}
+	return &sfShards[h&sfShardMask]
+}
 
 // InitRedis initializes the Redis client
 func InitRedis(host string, port string, password string, db int) error {
@@ -54,21 +94,26 @@ func GetRedis() *redis.Client {
 	return rdb
 }
 
-// Set sets a key-value pair with expiration
+// Set sets a key-value pair with expiration（自动叠加 TTL 抖动以防雪崩）
 func Set(ctx context.Context, key string, value any, expiration time.Duration) error {
 	data, err := json.Marshal(value)
 	if err != nil {
 		return fmt.Errorf("failed to marshal value: %w", err)
 	}
 
-	return rdb.Set(ctx, key, data, expiration).Err()
+	return rdb.Set(ctx, key, data, jitterTTL(expiration)).Err()
 }
 
-// Get retrieves a value by key and unmarshals it into result
+// Get retrieves a value by key and unmarshals it into result。
+// 命中 null 哨兵时返回 ErrNotFound，调用方据此跳过 fetch。
 func Get(ctx context.Context, key string, result any) error {
 	val, err := rdb.Get(ctx, key).Result()
 	if err != nil {
 		return err
+	}
+
+	if val == nullSentinel {
+		return ErrNotFound
 	}
 
 	return json.Unmarshal([]byte(val), result)
@@ -97,26 +142,40 @@ func GetString(ctx context.Context, key string) (string, error) {
 
 // GetOrSet retrieves from cache or fetches and caches the value.
 // Uses singleflight to coalesce concurrent requests for the same key within a single process.
+// fetch 返回 ErrNotFound 时会写入 null 哨兵（短 TTL）防止缓存穿透；调用方收到 ErrNotFound 即可。
 func GetOrSet(ctx context.Context, key string, expiration time.Duration, fetch func() (any, error), result any) error {
 	// Try to get from cache
 	err := Get(ctx, key, result)
 	if err == nil {
 		return nil
 	}
+	if errors.Is(err, ErrNotFound) {
+		return ErrNotFound
+	}
 	if err != redis.Nil {
 		return fmt.Errorf("redis error: %w", err)
 	}
 
-	// Cache miss — use singleflight to deduplicate concurrent fetches for the same key
-	value, sferr, _ := sfGroup.Do(key, func() (any, error) {
+	// Cache miss — use singleflight to deduplicate concurrent fetches for the same key.
+	// 分片 group 让不同 key 之间不互相等内部 mutex，提升并发吞吐。
+	value, sferr, _ := sfGroupFor(key).Do(key, func() (any, error) {
 		// Double-check cache (another goroutine in this flight may have populated it)
 		if err := Get(ctx, key, result); err == nil {
 			data, _ := json.Marshal(result)
 			return data, nil
+		} else if errors.Is(err, ErrNotFound) {
+			return nil, ErrNotFound
 		}
 
 		v, err := fetch()
 		if err != nil {
+			// 数据确认不存在 → 写入 null 哨兵防穿透
+			if errors.Is(err, ErrNotFound) {
+				if setErr := rdb.Set(ctx, key, nullSentinel, jitterTTL(nullCacheTTL)).Err(); setErr != nil {
+					slog.Warn("Failed to cache null sentinel", "key", key, "err", setErr)
+				}
+				return nil, ErrNotFound
+			}
 			return nil, fmt.Errorf("fetch error: %w", err)
 		}
 		if err := Set(ctx, key, v, expiration); err != nil {

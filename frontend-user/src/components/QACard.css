@@ -326,11 +326,11 @@
 }
 
 [data-theme="light"] .thinking-step.active {
-  border-left-color: #059669;
+  border-left-color: var(--success);
 }
 
 [data-theme="light"] .thinking-step.active .step-header {
-  color: #059669;
+  color: var(--success);
 }
 
 [data-theme="light"] .thinking-step.completed {
@@ -342,7 +342,7 @@
 }
 
 [data-theme="light"] .thinking-step.completed .step-icon {
-  color: #059669;
+  color: var(--success);
 }
 
 [data-theme="light"] .step-detail {
@@ -460,7 +460,7 @@
 }
 
 [data-theme="light"] .qa-current-question.has-prev {
-  border-top-color: #059669;
+  border-top-color: var(--success);
 }
 
 [data-theme="light"] .qa-question-text {
@@ -476,7 +476,7 @@
 }
 
 [data-theme="light"] .qa-answer-content blockquote {
-  border-left-color: #059669;
+  border-left-color: var(--success);
   color: #666;
 }
 

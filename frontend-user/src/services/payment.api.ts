@@ -1,4 +1,18 @@
 import api, { API_URL } from './client';
+import type { ApiResult } from '../types/api';
+
+// ---- Config response types ----
+export interface PolicyDocumentData {
+  content: string;
+  [key: string]: unknown;
+}
+export interface SystemConfigData {
+  require_email_verification?: boolean;
+  enable_turnstile?: boolean;
+  github_client_id?: string;
+  discourse_site_url?: string;
+  [key: string]: unknown;
+}
 
 export const paymentAPI = {
   createAlipayPayment: (
@@ -139,10 +153,10 @@ export const analysisDimensionAPI = {
 };
 
 export const configAPI = {
-  getPrivacyPolicy: () => api.get('/config/privacy-policy'),
-  getTermsOfService: () => api.get('/config/terms-of-service'),
-  getSystemConfig: () => api.get('/config/system'),
-  getCodeSnippets: () => api.get('/config/code-snippets'),
+  getPrivacyPolicy: (): Promise<ApiResult<PolicyDocumentData>> => api.get('/config/privacy-policy'),
+  getTermsOfService: (): Promise<ApiResult<PolicyDocumentData>> => api.get('/config/terms-of-service'),
+  getSystemConfig: (): Promise<ApiResult<SystemConfigData>> => api.get('/config/system'),
+  getCodeSnippets: (): Promise<ApiResult<unknown>> => api.get('/config/code-snippets'),
 };
 
 export const messageAPI = {

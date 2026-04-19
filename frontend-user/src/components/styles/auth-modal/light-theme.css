@@ -65,7 +65,7 @@
 }
 
 [data-theme="light"] .auth-input:focus {
-  border-color: #10a37f;
+  border-color: var(--primary-solid);
   box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.1);
   background: #ffffff;
 }
@@ -119,9 +119,9 @@
 
 /* 验证码按钮 - 日间模式 */
 [data-theme="light"] .auth-code-button {
-  border: 1px solid #10a37f;
+  border: 1px solid var(--primary-solid);
   background: transparent;
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 [data-theme="light"] .auth-code-button:hover:not(:disabled) {
@@ -150,7 +150,7 @@
 
 [data-theme="light"] .auth-toggle-btn.active {
   background: linear-gradient(135deg, rgba(16, 163, 127, 0.1) 0%, rgba(16, 163, 127, 0.05) 100%);
-  color: #10a37f;
+  color: var(--primary-solid);
   border: 1px solid rgba(16, 163, 127, 0.3);
 }
 
@@ -167,7 +167,7 @@
 
 [data-theme="light"] .auth-change-email,
 [data-theme="light"] .auth-edit-button {
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 [data-theme="light"] .auth-change-email:hover,
@@ -183,7 +183,7 @@
 }
 
 [data-theme="light"] .auth-social-button:hover:not(:disabled) {
-  border-color: #10a37f;
+  border-color: var(--primary-solid);
   background: #fafffe;
   box-shadow: 0 2px 8px rgba(16, 163, 127, 0.15);
 }
@@ -246,7 +246,7 @@
 /* 链接 - 日间模式 */
 [data-theme="light"] .auth-link,
 [data-theme="light"] .auth-policy-link {
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 [data-theme="light"] .auth-link:hover,
@@ -276,7 +276,7 @@
 }
 
 [data-theme="light"] .auth-footer-link:hover {
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 /* 复选框 - 日间模式 */
@@ -321,7 +321,7 @@
 
 [data-theme="light"] .policy-header button:hover {
   background: rgba(16, 163, 127, 0.1);
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 [data-theme="light"] .policy-body {
@@ -360,7 +360,7 @@
 
 [data-theme="light"] .auth-loading-spinner {
   border-color: #e5e7eb;
-  border-top-color: #10a37f;
+  border-top-color: var(--primary-solid);
 }
 
 [data-theme="light"] .auth-wechat-tips {

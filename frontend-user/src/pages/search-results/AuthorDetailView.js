@@ -2,8 +2,8 @@
  * 作者详情视图组件
  */
 import React from 'react';
-import PaperDetailSkeleton from '../../components/PaperDetailSkeleton';
-import Pagination from '../../components/Pagination';
+import PaperDetailSkeleton from '../../components/search/PaperDetailSkeleton';
+import Pagination from '../../components/common/Pagination';
 
 const AuthorDetailView = ({ authorDetail, searchState, dimensionAnalysis }) => {
   const {

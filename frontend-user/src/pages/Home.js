@@ -11,13 +11,13 @@ import React, { useState, useRef, useEffect, lazy, Suspense, useCallback } from 
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { useTheme } from '../stores/theme.store';
-import SearchFilters from '../components/SearchFilters';
-import ModelSelector from '../components/ModelSelector';
-import MobileHelpModal from '../components/MobileHelpModal';
-import SearchSuggestions from '../components/SearchSuggestions';
-import MessageModal from '../components/MessageModal';
-import { NormalSearchIcon, AdvancedSearchIcon } from '../components/SearchIcons';
-import SEO from '../components/SEO';
+import SearchFilters from '../components/search/SearchFilters';
+import ModelSelector from '../components/common/ModelSelector';
+import MobileHelpModal from '../components/common/MobileHelpModal';
+import SearchSuggestions from '../components/search/SearchSuggestions';
+import MessageModal from '../components/common/MessageModal';
+import { NormalSearchIcon, AdvancedSearchIcon } from '../components/common/SearchIcons';
+import SEO from '../components/common/SEO';
 import { generateFAQSchema } from '../utils/seoHelpers';
 // 注：使用追踪已移至 API 调用层，首页无需重复追踪
 import { prepareSearchNavigation, preparePaperNavigation, prepareAuthorNavigation, getSearchSource, setSearchSource as saveSearchSource } from '../utils/searchStorage';
@@ -25,7 +25,7 @@ import { userAPI } from '../services/user.api';
 import './styles/home/index.css';
 
 // 懒加载 AuthModal - 只在需要时加载
-const AuthModal = lazy(() => import('../components/AuthModal'));
+const AuthModal = lazy(() => import('../components/auth/AuthModal'));
 
 const Home = () => {
   const navigate = useNavigate();

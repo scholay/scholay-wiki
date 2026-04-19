@@ -18,13 +18,13 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useTheme } from '../stores/theme.store';
-import ThemeToggle from './ThemeToggle';
-import MessageDropdown from './MessageDropdown';
+import ThemeToggle from './common/ThemeToggle';
+import MessageDropdown from './common/MessageDropdown';
 import { messageAPI } from '../services/payment.api';
 import wsClient from '../services/websocket';
 import logger from '../utils/logger';
 import './styles/TopNavBar.css';
-import './MessageDropdown.css';
+import './common/MessageDropdown.css';
 
 const TopNavBar = ({
   user,

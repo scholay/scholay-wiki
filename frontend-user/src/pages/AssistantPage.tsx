@@ -13,18 +13,29 @@
 import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { trackAIAssistantChat } from '../utils/usageTracker';
-import SEO from '../components/SEO';
+import SEO from '../components/common/SEO';
 import './styles/AssistantPage.css';
 
-function AssistantPage() {
+interface AssistantTool {
+  id: string;
+  title: string;
+  desc: string;
+  icon: React.ReactNode;
+  path: string;
+  featurePath: string | null;
+  color: string;
+  isVideo?: boolean;
+}
+
+function AssistantPage(): React.ReactElement {
   const navigate = useNavigate();
 
-  const handleToolClick = useCallback((tool) => {
+  const handleToolClick = useCallback((tool: AssistantTool) => {
     trackAIAssistantChat(tool.title);
     navigate(tool.path);
   }, [navigate]);
 
-  const tools = [
+  const tools: AssistantTool[] = [
     {
       id: 'chat',
       title: '智能助手',
@@ -89,7 +100,7 @@ function AssistantPage() {
             key={tool.id}
             className="ast-card"
             onClick={() => handleToolClick(tool)}
-            style={{ '--card-color': tool.color }}
+            style={{ '--card-color': tool.color } as React.CSSProperties}
           >
             <div className={`ast-card-icon ${tool.isVideo ? 'ast-card-icon-video' : ''}`}>
               {tool.icon}
@@ -108,7 +119,7 @@ function AssistantPage() {
               {tool.featurePath && (
                 <span
                   className="ast-card-more"
-                  onClick={(e) => { e.stopPropagation(); navigate(tool.featurePath); }}
+                  onClick={(e) => { e.stopPropagation(); navigate(tool.featurePath as string); }}
                 >
                   了解更多
                 </span>

@@ -345,19 +345,19 @@
 
 /* 日间模式 - 问题历史下拉按钮 */
 [data-theme="light"] .as-question-dropdown-btn {
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid rgba(0, 0, 0, 0.15);
-  color: #4a5568;
+  color: var(--text-secondary);
 }
 
 [data-theme="light"] .as-question-dropdown-btn:hover {
-  background: #f8fafb;
+  background: var(--surface-hover);
   border-color: rgba(16, 163, 127, 0.4);
-  color: #1a202c;
+  color: var(--text-primary);
 }
 
 [data-theme="light"] .as-question-dropdown-btn.open {
-  background: #f8fafb;
+  background: var(--surface-hover);
   border-color: var(--text-accent);
   color: var(--text-accent);
 }
@@ -425,7 +425,7 @@
 
 /* 日间模式 - 问题下拉菜单 */
 [data-theme="light"] .as-question-dropdown-menu {
-  background: #ffffff;
+  background: var(--surface);
   backdrop-filter: none;
   border: 1px solid rgba(0, 0, 0, 0.1);
   box-shadow: 
@@ -477,7 +477,7 @@
 
 /* 日间模式 - 问题项悬停 */
 [data-theme="light"] .as-question-item {
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid transparent;
 }
 
@@ -515,7 +515,7 @@
 
 /* 日间模式 - 问题文本 - 深色高对比度 */
 [data-theme="light"] .as-question-text {
-  color: #1a202c;
+  color: var(--text-primary);
   font-weight: 500;
 }
 

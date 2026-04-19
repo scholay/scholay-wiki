@@ -12,8 +12,8 @@
 
 import React, { memo } from 'react';
 import PropTypes from 'prop-types';
-import SimplePaperItem from '../SimplePaperItem';
-import PaperListSkeleton from '../PaperListSkeleton';
+import SimplePaperItem from './SimplePaperItem';
+import PaperListSkeleton from './PaperListSkeleton';
 
 /**
  * PaperListView 组件

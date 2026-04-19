@@ -235,7 +235,7 @@
 }
 
 [data-theme="light"] .search-results-centered-area .search-suggestions-dropdown {
-  background: #ffffff;
+  background: var(--surface);
   border-color: rgba(0, 0, 0, 0.1);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
 }
@@ -363,7 +363,7 @@
 }
 
 .srp-table-search-display:hover .srp-table-search-content svg {
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 .srp-table-search-query {
@@ -389,7 +389,7 @@
 }
 
 .srp-table-search-display:hover .srp-table-search-hint {
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 /* 响应式 - 小屏幕隐藏提示文字 */
@@ -538,7 +538,7 @@
 }
 
 [data-theme="light"] .filter-tag-openAccess {
-  color: #059669;
+  color: var(--success);
   background: rgba(16, 185, 129, 0.12);
 }
 
@@ -627,7 +627,7 @@
 }
 
 [data-theme="light"] .results-composer-wrapper:focus-within {
-  background: #ffffff;
+  background: var(--surface);
   border-color: rgba(16, 163, 127, 0.4);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }

@@ -11,13 +11,24 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Mail, MessageSquare, MapPin, Phone, Send, CheckCircle } from 'lucide-react';
 import { publicApi } from '../services/client';
-import Logo from '../components/Logo';
-import SEO from '../components/SEO';
+import Logo from '../components/common/Logo';
+import SEO from '../components/common/SEO';
 import './styles/LegalPage.css';
 
-const ContactPage = () => {
+interface ContactFormData {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}
+
+interface AxiosLikeError {
+  response?: { data?: { message?: string } };
+}
+
+const ContactPage: React.FC = () => {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ContactFormData>({
     name: '',
     email: '',
     subject: '',
@@ -27,12 +38,12 @@ const ContactPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError('');
@@ -50,7 +61,7 @@ const ContactPage = () => {
         setError(response.data.message || '发送失败，请稍后重试');
       }
     } catch (err) {
-      setError(err.response?.data?.message || '发送失败，请稍后重试或直接发送邮件至 support@scholay.com');
+      setError((err as AxiosLikeError).response?.data?.message || '发送失败，请稍后重试或直接发送邮件至 support@scholay.com');
     } finally {
       setLoading(false);
     }

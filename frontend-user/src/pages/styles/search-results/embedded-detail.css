@@ -704,7 +704,7 @@
 }
 
 [data-theme="light"] .epd-translate-btn.has-translation {
-  color: #059669;
+  color: var(--success);
 }
 
 [data-theme="light"] .epd-translate-btn.has-translation:hover {
@@ -748,7 +748,7 @@
 
 [data-theme="light"] .epd-translation-label {
   background: rgba(5, 150, 105, 0.1);
-  color: #059669;
+  color: var(--success);
 }
 
 /* 摘要展开/收起按钮 */
@@ -759,7 +759,7 @@
   padding: 0;
   background: none;
   border: none;
-  color: #10a37f;
+  color: var(--primary-solid);
   font-size: 13px;
   cursor: pointer;
   transition: color 0.15s ease;
@@ -774,7 +774,7 @@
 }
 
 [data-theme="light"] .epd-abstract-toggle {
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 [data-theme="light"] .epd-abstract-toggle:hover {
@@ -1117,13 +1117,13 @@
 
 [data-theme="light"] .epd-tab.epd-tab-similar.active {
   background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(5, 150, 105, 0.12) 100%);
-  color: #059669;
-  border-bottom-color: #059669;
+  color: var(--success);
+  border-bottom-color: var(--success);
 }
 
 [data-theme="light"] .epd-tab-count-similar {
   background: rgba(16, 185, 129, 0.15) !important;
-  color: #059669 !important;
+  color: var(--success) !important;
 }
 
 /* 内联加载状态 */
@@ -1253,7 +1253,7 @@
 }
 
 .epd-copy-cite-btn.copied {
-  background: #10a37f;
+  background: var(--primary-solid);
 }
 
 /* ===== 内嵌论文详情 - 日间模式 ===== */
@@ -2517,14 +2517,14 @@
 /* 当前作者高亮 - 使用更柔和的绿色强调 */
 .author-tag.current-author {
   background: rgba(16, 163, 127, 0.15) !important;
-  color: #10a37f !important;
+  color: var(--primary-solid) !important;
   border: 1px solid rgba(16, 163, 127, 0.3) !important;
   font-weight: 600 !important;
 }
 
 [data-theme="light"] .author-tag.current-author {
   background: rgba(16, 163, 127, 0.1) !important;
-  color: #059669 !important;
+  color: var(--success) !important;
   border: 1px solid rgba(16, 163, 127, 0.25) !important;
 }
 

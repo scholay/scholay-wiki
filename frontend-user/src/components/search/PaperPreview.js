@@ -9,8 +9,8 @@
 
 import React, { useState, useEffect, memo } from 'react';
 import { Link } from 'react-router-dom';
-import PDFViewer from './pdf/PDFViewer';
-import { trackPDFPreview, EntryPoint } from '../utils/usageTracker';
+import PDFViewer from '../pdf/PDFViewer';
+import { trackPDFPreview, EntryPoint } from '../../utils/usageTracker';
 import './PaperPreview.css';
 
 const PaperPreview = memo(({ paper, onClose, width, onResizeMouseDown, onResizeTouchStart, isResizing, isMobileModal = false, isDrawerMode = false, onClick, pdfAvailability, entryPoint = '' }) => {

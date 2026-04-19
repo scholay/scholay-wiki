@@ -15,13 +15,14 @@ const ReactMarkdown = lazy(() => import('react-markdown'));
 
 // Dynamic imports for plugins (they will be bundled with ReactMarkdown)
 const loadPlugins = async () => {
-  const [remarkGfm, rehypeHighlight] = await Promise.all([
+  const [remarkGfm, rehypeHighlight, { highlightOptions }] = await Promise.all([
     import('remark-gfm'),
-    import('rehype-highlight')
+    import('rehype-highlight'),
+    import('./highlightLanguages')
   ]);
   return {
     remarkPlugins: [remarkGfm.default],
-    rehypePlugins: [rehypeHighlight.default]
+    rehypePlugins: [[rehypeHighlight.default, highlightOptions]]
   };
 };
 

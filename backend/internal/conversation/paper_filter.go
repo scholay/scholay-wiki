@@ -63,6 +63,21 @@ func FilterPapersWithAbstract(papers []map[string]any) []map[string]any {
 	return filtered
 }
 
+// maxAbstractChars 在累积论文用于 AI 评分/兜底展示时保留的摘要最大字符数。
+// 200 字符已能让 AI 完成相关性评分（与 scoreSingleBatch 的截断一致），
+// 多保留一些便于前端展示，但避免单篇 50KB 的全文累积导致 OOM。
+const maxAbstractChars = 1200
+
+// compactAbstracts 原地裁剪每篇论文的 abstract 字段，控制累积内存。
+// 只截断超长摘要，保留其它字段不变。
+func compactAbstracts(papers []map[string]any) {
+	for _, p := range papers {
+		if abs, ok := p["abstract"].(string); ok && len(abs) > maxAbstractChars {
+			p["abstract"] = abs[:maxAbstractChars] + "..."
+		}
+	}
+}
+
 // FilterRelevantPapers 使用AI筛选与用户问题相关的论文
 // 如果论文数量超过 batchSize，会分批筛选并合并结果
 func (s *Service) FilterRelevantPapers(ctx context.Context, papers []map[string]any, userQuery string, maxPapers int) ([]map[string]any, error) {
@@ -587,10 +602,19 @@ func (s *Service) SearchAndFilterPapers(
 
 		// 过滤掉没有摘要的论文
 		papersWithAbstract := FilterPapersWithAbstract(papers)
+		compactAbstracts(papersWithAbstract) // 裁剪长摘要降低累积内存
 		slog.Debug("bulk channel: papers with abstract", "page", pagesUsed, "withAbstract", len(papersWithAbstract), "before", len(papers))
 
 		if len(papersWithAbstract) > 0 {
-			allPapersWithAbstract = append(allPapersWithAbstract, papersWithAbstract...)
+			// 仅在兜底容量未满时累积，防止 allPapersWithAbstract 无限增长
+			if len(allPapersWithAbstract) < config.TargetRelevantPapers {
+				room := config.TargetRelevantPapers - len(allPapersWithAbstract)
+				if room >= len(papersWithAbstract) {
+					allPapersWithAbstract = append(allPapersWithAbstract, papersWithAbstract...)
+				} else {
+					allPapersWithAbstract = append(allPapersWithAbstract, papersWithAbstract[:room]...)
+				}
+			}
 
 			// 对本页论文进行AI筛选
 			slog.Debug("bulk channel: AI filtering page", "page", pagesUsed, "papers", len(papersWithAbstract))
@@ -697,6 +721,7 @@ func (s *Service) SearchAndFilterPapersRelevance(
 
 		// 过滤掉没有摘要的论文
 		papersWithAbstract := FilterPapersWithAbstract(papers)
+		compactAbstracts(papersWithAbstract) // 裁剪长摘要降低累积内存
 		slog.Debug("relevance channel: papers with abstract", "page", pagesUsed, "withAbstract", len(papersWithAbstract))
 
 		allPapersWithAbstract = append(allPapersWithAbstract, papersWithAbstract...)

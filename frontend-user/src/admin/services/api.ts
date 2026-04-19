@@ -11,244 +11,251 @@
  */
 
 import api from '../../services/client';
+import type { AxiosResponse } from 'axios';
+
+// `any` usage documented:
+//   - AnyConfig: provider-specific config payloads (Email/SMS/OAuth/etc.) have
+//     heterogeneous shapes that haven't been formalised yet.
+//   - ListParams: open-ended filter objects for list endpoints.
+//   - ApiResp default body type unknown; refine at call sites where needed.
+type AnyConfig = Record<string, any>; // [any#1]
+type ListParams = Record<string, any>; // [any#2]
+type ApiResp<T = any> = Promise<AxiosResponse<T>>; // [any#3]
 
 export const adminAPI = {
-  login: (username, password) =>
+  login: (username: string, password: string): ApiResp =>
     api.post('/admin/login', { username, password }),
 
-  getProfile: () =>
-    api.get('/admin/profile'),
+  getProfile: (): ApiResp => api.get('/admin/profile'),
 
-  getDashboardStatistics: () =>
-    api.get('/admin/dashboard/statistics'),
+  getDashboardStatistics: (): ApiResp => api.get('/admin/dashboard/statistics'),
 
-  updatePassword: (oldPassword, newPassword) =>
+  updatePassword: (oldPassword: string, newPassword: string): ApiResp =>
     api.put('/admin/password', { old_password: oldPassword, new_password: newPassword }),
 
-  verifyPassword: (password) =>
+  verifyPassword: (password: string): ApiResp =>
     api.post('/admin/verify-password', { password }),
 
-  updatePrivacyPolicy: (content, version) =>
+  updatePrivacyPolicy: (content: string, version: string): ApiResp =>
     api.put('/admin/privacy-policy', { content, version }),
 
-  updateTermsOfService: (content, version) =>
+  updateTermsOfService: (content: string, version: string): ApiResp =>
     api.put('/admin/terms-of-service', { content, version }),
 
-  getEmailConfig: (showPassword = false) =>
+  getEmailConfig: (showPassword = false): ApiResp =>
     api.get('/admin/email-config', {
-      params: showPassword ? { show_password: 'true' } : {}
+      params: showPassword ? { show_password: 'true' } : {},
     }),
 
-  updateEmailConfig: (config) =>
+  updateEmailConfig: (config: AnyConfig): ApiResp =>
     api.put('/admin/email-config', config),
 
-  testEmailConfig: (config) =>
+  testEmailConfig: (config: AnyConfig): ApiResp =>
     api.post('/admin/email-config/test', config),
 
-  getSMSConfig: (showSecret = false) =>
+  getSMSConfig: (showSecret = false): ApiResp =>
     api.get('/admin/sms-config', {
-      params: showSecret ? { show_secret: 'true' } : {}
+      params: showSecret ? { show_secret: 'true' } : {},
     }),
 
-  updateSMSConfig: (config) =>
+  updateSMSConfig: (config: AnyConfig): ApiResp =>
     api.put('/admin/sms-config', config),
 
-  testSMSConfig: (config) =>
+  testSMSConfig: (config: AnyConfig): ApiResp =>
     api.post('/admin/sms-config/test', config),
 
-  getSystemConfig: (showSensitive = false) =>
+  getSystemConfig: (showSensitive = false): ApiResp =>
     api.get('/admin/system-config', {
-      params: showSensitive ? { show_sensitive: 'true' } : {}
+      params: showSensitive ? { show_sensitive: 'true' } : {},
     }),
 
-  updateSystemConfig: (config) =>
+  updateSystemConfig: (config: AnyConfig): ApiResp =>
     api.put('/admin/system-config', config),
 
-  getGithubConfig: (showSensitive = false) =>
+  getGithubConfig: (showSensitive = false): ApiResp =>
     api.get('/admin/github-config', {
-      params: showSensitive ? { show_sensitive: 'true' } : {}
+      params: showSensitive ? { show_sensitive: 'true' } : {},
     }),
 
-  updateGithubConfig: (config) =>
+  updateGithubConfig: (config: AnyConfig): ApiResp =>
     api.put('/admin/github-config', config),
 
-  getGoogleConfig: (showSensitive = false) =>
+  getGoogleConfig: (showSensitive = false): ApiResp =>
     api.get('/admin/google-config', {
-      params: showSensitive ? { show_sensitive: 'true' } : {}
+      params: showSensitive ? { show_sensitive: 'true' } : {},
     }),
 
-  updateGoogleConfig: (config) =>
+  updateGoogleConfig: (config: AnyConfig): ApiResp =>
     api.put('/admin/google-config', config),
 
-  getAppleConfig: () =>
-    api.get('/admin/apple-config'),
+  getAppleConfig: (): ApiResp => api.get('/admin/apple-config'),
 
-  updateAppleConfig: (config) =>
+  updateAppleConfig: (config: AnyConfig): ApiResp =>
     api.put('/admin/apple-config', config),
 
-  getOrcidConfig: (showSensitive = false) =>
+  getOrcidConfig: (showSensitive = false): ApiResp =>
     api.get('/admin/orcid-config', {
-      params: showSensitive ? { show_sensitive: 'true' } : {}
+      params: showSensitive ? { show_sensitive: 'true' } : {},
     }),
 
-  updateOrcidConfig: (config) =>
+  updateOrcidConfig: (config: AnyConfig): ApiResp =>
     api.put('/admin/orcid-config', config),
 
-  getMicrosoftConfig: (showSensitive = false) =>
+  getMicrosoftConfig: (showSensitive = false): ApiResp =>
     api.get('/admin/microsoft-config', {
-      params: showSensitive ? { show_sensitive: 'true' } : {}
+      params: showSensitive ? { show_sensitive: 'true' } : {},
     }),
 
-  updateMicrosoftConfig: (config) =>
+  updateMicrosoftConfig: (config: AnyConfig): ApiResp =>
     api.put('/admin/microsoft-config', config),
 
-  getDiscourseConfig: (showSensitive = false) =>
+  getDiscourseConfig: (showSensitive = false): ApiResp =>
     api.get('/admin/discourse-config', {
-      params: showSensitive ? { show_sensitive: 'true' } : {}
+      params: showSensitive ? { show_sensitive: 'true' } : {},
     }),
 
-  updateDiscourseConfig: (config) =>
+  updateDiscourseConfig: (config: AnyConfig): ApiResp =>
     api.put('/admin/discourse-config', config),
 
-  getUserStatistics: () =>
-    api.get('/admin/users/stats'),
+  getUserStatistics: (): ApiResp => api.get('/admin/users/stats'),
 
-  getUserList: (page = 1, pageSize = 20, sortBy = 'last_login_at', sortOrder = 'desc') =>
-    api.get('/admin/users', { params: { page, page_size: pageSize, sort_by: sortBy, sort_order: sortOrder } }),
+  getUserList: (
+    page: number = 1,
+    pageSize: number = 20,
+    sortBy: string = 'last_login_at',
+    sortOrder: 'asc' | 'desc' = 'desc'
+  ): ApiResp =>
+    api.get('/admin/users', {
+      params: { page, page_size: pageSize, sort_by: sortBy, sort_order: sortOrder },
+    }),
 
-  getOnlineUsers: () =>
-    api.get('/admin/users/online'),
+  getOnlineUsers: (): ApiResp => api.get('/admin/users/online'),
 
-  getUserDetail: (userId) =>
+  getUserDetail: (userId: number | string): ApiResp =>
     api.get(`/admin/users/${userId}`),
 
-  getUserStatisticsChart: (params = {}) =>
+  getUserStatisticsChart: (params: ListParams = {}): ApiResp =>
     api.get('/admin/statistics/users', { params }),
 
-  getOnlineUserChart: (params = {}) =>
+  getOnlineUserChart: (params: ListParams = {}): ApiResp =>
     api.get('/admin/statistics/online', { params }),
 
-  deleteUser: (userId) =>
+  deleteUser: (userId: number | string): ApiResp =>
     api.delete(`/admin/users/${userId}`),
 
-  getThirdPartyAccounts: (type = '', activeOnly = false) =>
+  getThirdPartyAccounts: (type: string = '', activeOnly: boolean = false): ApiResp =>
     api.get('/admin/third-party-accounts', { params: { type, active: activeOnly } }),
 
-  getThirdPartyAccount: (id) =>
+  getThirdPartyAccount: (id: number | string): ApiResp =>
     api.get(`/admin/third-party-accounts/${id}`),
 
-  createThirdPartyAccount: (data) =>
+  createThirdPartyAccount: (data: AnyConfig): ApiResp =>
     api.post('/admin/third-party-accounts', data),
 
-  updateThirdPartyAccount: (id, data) =>
+  updateThirdPartyAccount: (id: number | string, data: AnyConfig): ApiResp =>
     api.put(`/admin/third-party-accounts/${id}`, data),
 
-  deleteThirdPartyAccount: (id) =>
+  deleteThirdPartyAccount: (id: number | string): ApiResp =>
     api.delete(`/admin/third-party-accounts/${id}`),
 
-  getThirdPartyAccountStats: () =>
+  getThirdPartyAccountStats: (): ApiResp =>
     api.get('/admin/third-party-accounts/stats'),
 
-  testThirdPartyAccount: (id) =>
+  testThirdPartyAccount: (id: number | string): ApiResp =>
     api.post(`/admin/third-party-accounts/${id}/test`),
 
-  refreshThirdPartyAccountCache: () =>
+  refreshThirdPartyAccountCache: (): ApiResp =>
     api.post('/admin/third-party-accounts/refresh-cache'),
 
-  resetThirdPartyAccountStats: (id) =>
+  resetThirdPartyAccountStats: (id: number | string): ApiResp =>
     api.post(`/admin/third-party-accounts/${id}/reset-stats`),
 
-  getPromptTemplates: () =>
-    api.get('/admin/prompt-templates'),
+  getPromptTemplates: (): ApiResp => api.get('/admin/prompt-templates'),
 
-  getPromptTemplate: (id) =>
+  getPromptTemplate: (id: number | string): ApiResp =>
     api.get(`/admin/prompt-templates/${id}`),
 
-  createPromptTemplate: (data) =>
+  createPromptTemplate: (data: AnyConfig): ApiResp =>
     api.post('/admin/prompt-templates', data),
 
-  updatePromptTemplate: (id, data) =>
+  updatePromptTemplate: (id: number | string, data: AnyConfig): ApiResp =>
     api.put(`/admin/prompt-templates/${id}`, data),
 
-  deletePromptTemplate: (id) =>
+  deletePromptTemplate: (id: number | string): ApiResp =>
     api.delete(`/admin/prompt-templates/${id}`),
 
-  getAlipayConfigs: (showKeys = false) =>
+  getAlipayConfigs: (showKeys: boolean = false): ApiResp =>
     api.get('/admin/payment/alipay/configs', {
-      params: showKeys ? { show_keys: 'true' } : {}
+      params: showKeys ? { show_keys: 'true' } : {},
     }),
 
-  getAlipayConfig: () =>
-    api.get('/admin/payment/alipay/config'),
+  getAlipayConfig: (): ApiResp => api.get('/admin/payment/alipay/config'),
 
-  createAlipayConfig: (data) =>
+  createAlipayConfig: (data: AnyConfig): ApiResp =>
     api.post('/admin/payment/alipay/config', data),
 
-  updateAlipayConfig: (id, data) =>
+  updateAlipayConfig: (id: number | string, data: AnyConfig): ApiResp =>
     api.put(`/admin/payment/alipay/config/${id}`, data),
 
-  deleteAlipayConfig: (id) =>
+  deleteAlipayConfig: (id: number | string): ApiResp =>
     api.delete(`/admin/payment/alipay/config/${id}`),
 
-  activateAlipayConfig: (id) =>
+  activateAlipayConfig: (id: number | string): ApiResp =>
     api.post(`/admin/payment/alipay/config/${id}/activate`),
 
-  getWeChatPayConfigs: (showKeys = false) =>
+  getWeChatPayConfigs: (showKeys: boolean = false): ApiResp =>
     api.get('/admin/payment/wechat/configs', {
-      params: showKeys ? { show_keys: 'true' } : {}
+      params: showKeys ? { show_keys: 'true' } : {},
     }),
 
-  getWeChatPayConfig: () =>
-    api.get('/admin/payment/wechat/config'),
+  getWeChatPayConfig: (): ApiResp => api.get('/admin/payment/wechat/config'),
 
-  createWeChatPayConfig: (data) =>
+  createWeChatPayConfig: (data: AnyConfig): ApiResp =>
     api.post('/admin/payment/wechat/config', data),
 
-  updateWeChatPayConfig: (id, data) =>
+  updateWeChatPayConfig: (id: number | string, data: AnyConfig): ApiResp =>
     api.put(`/admin/payment/wechat/config/${id}`, data),
 
-  deleteWeChatPayConfig: (id) =>
+  deleteWeChatPayConfig: (id: number | string): ApiResp =>
     api.delete(`/admin/payment/wechat/config/${id}`),
 
-  activateWeChatPayConfig: (id) =>
+  activateWeChatPayConfig: (id: number | string): ApiResp =>
     api.post(`/admin/payment/wechat/config/${id}/activate`),
 
-  getWeChatConfigs: (showSecret = false) =>
+  getWeChatConfigs: (showSecret: boolean = false): ApiResp =>
     api.get('/admin/wechat/configs', {
-      params: showSecret ? { show_secret: 'true' } : {}
+      params: showSecret ? { show_secret: 'true' } : {},
     }),
 
-  getWeChatConfig: () =>
-    api.get('/admin/wechat/config'),
+  getWeChatConfig: (): ApiResp => api.get('/admin/wechat/config'),
 
-  createWeChatConfig: (data) =>
+  createWeChatConfig: (data: AnyConfig): ApiResp =>
     api.post('/admin/wechat/config', data),
 
-  updateWeChatConfig: (id, data) =>
+  updateWeChatConfig: (id: number | string, data: AnyConfig): ApiResp =>
     api.put(`/admin/wechat/config/${id}`, data),
 
-  deleteWeChatConfig: (id) =>
+  deleteWeChatConfig: (id: number | string): ApiResp =>
     api.delete(`/admin/wechat/config/${id}`),
 
-  activateWeChatConfig: (id) =>
+  activateWeChatConfig: (id: number | string): ApiResp =>
     api.post(`/admin/wechat/config/${id}/activate`),
 
-  getWeChatOfficialConfig: (showSensitive = false) =>
+  getWeChatOfficialConfig: (showSensitive: boolean = false): ApiResp =>
     api.get('/admin/wechat-official/config', {
-      params: showSensitive ? { show_sensitive: 'true' } : {}
+      params: showSensitive ? { show_sensitive: 'true' } : {},
     }),
 
-  updateWeChatOfficialConfig: (data) =>
+  updateWeChatOfficialConfig: (data: AnyConfig): ApiResp =>
     api.put('/admin/wechat-official/config', data),
 
-  getAnalysisDimensions: () =>
-    api.get('/admin/analysis/dimensions'),
+  getAnalysisDimensions: (): ApiResp => api.get('/admin/analysis/dimensions'),
 
-  updateAnalysisDimension: (id, data) =>
+  updateAnalysisDimension: (id: number | string, data: AnyConfig): ApiResp =>
     api.put(`/admin/analysis/dimensions/${id}`, data),
 
-  getFeedbacks: (params = {}) => {
-    const queryParams = {
+  getFeedbacks: (params: ListParams = {}): ApiResp => {
+    const queryParams: ListParams = {
       page: params.page || 1,
       pageSize: params.pageSize || 20,
     };
@@ -260,23 +267,22 @@ export const adminAPI = {
     return api.get('/admin/feedbacks', { params: queryParams });
   },
 
-  getFeedback: (id) =>
+  getFeedback: (id: number | string): ApiResp =>
     api.get(`/admin/feedbacks/${id}`),
 
-  getFeedbackStats: () =>
-    api.get('/admin/feedbacks/stats'),
+  getFeedbackStats: (): ApiResp => api.get('/admin/feedbacks/stats'),
 
-  updateFeedbackStatus: (id, status) =>
+  updateFeedbackStatus: (id: number | string, status: string): ApiResp =>
     api.put(`/admin/feedbacks/${id}/status`, { status }),
 
-  replyFeedback: (id, replyContent) =>
+  replyFeedback: (id: number | string, replyContent: string): ApiResp =>
     api.post(`/admin/feedbacks/${id}/reply`, { replyContent }),
 
-  deleteFeedback: (id) =>
+  deleteFeedback: (id: number | string): ApiResp =>
     api.delete(`/admin/feedbacks/${id}`),
 
-  getMessages: (params = {}) => {
-    const queryParams = {
+  getMessages: (params: ListParams = {}): ApiResp => {
+    const queryParams: ListParams = {
       page: params.page || 1,
       page_size: params.pageSize || 20,
     };
@@ -286,20 +292,19 @@ export const adminAPI = {
     return api.get('/admin/messages', { params: queryParams });
   },
 
-  getMessage: (id) =>
+  getMessage: (id: number | string): ApiResp =>
     api.get(`/admin/messages/${id}`),
 
-  createMessage: (data) =>
+  createMessage: (data: AnyConfig): ApiResp =>
     api.post('/admin/messages', data),
 
-  sendMessage: (id) =>
+  sendMessage: (id: number | string): ApiResp =>
     api.post(`/admin/messages/${id}/send`),
 
-  getMessageStats: () =>
-    api.get('/admin/messages/stats'),
+  getMessageStats: (): ApiResp => api.get('/admin/messages/stats'),
 
-  getMessageTemplates: (params = {}) => {
-    const queryParams = {
+  getMessageTemplates: (params: ListParams = {}): ApiResp => {
+    const queryParams: ListParams = {
       page: params.page || 1,
       page_size: params.pageSize || 20,
     };
@@ -309,67 +314,65 @@ export const adminAPI = {
     return api.get('/admin/message-templates', { params: queryParams });
   },
 
-  getMessageTemplate: (id) =>
+  getMessageTemplate: (id: number | string): ApiResp =>
     api.get(`/admin/message-templates/${id}`),
 
-  createMessageTemplate: (data) =>
+  createMessageTemplate: (data: AnyConfig): ApiResp =>
     api.post('/admin/message-templates', data),
 
-  updateMessageTemplate: (id, data) =>
+  updateMessageTemplate: (id: number | string, data: AnyConfig): ApiResp =>
     api.put(`/admin/message-templates/${id}`, data),
 
-  deleteMessageTemplate: (id) =>
+  deleteMessageTemplate: (id: number | string): ApiResp =>
     api.delete(`/admin/message-templates/${id}`),
 
-  getCodeSnippets: (category = '') =>
+  getCodeSnippets: (category: string = ''): ApiResp =>
     api.get('/admin/code-snippets', { params: category ? { category } : {} }),
 
-  getCodeSnippet: (id) =>
+  getCodeSnippet: (id: number | string): ApiResp =>
     api.get(`/admin/code-snippets/${id}`),
 
-  createCodeSnippet: (data) =>
+  createCodeSnippet: (data: AnyConfig): ApiResp =>
     api.post('/admin/code-snippets', data),
 
-  updateCodeSnippet: (id, data) =>
+  updateCodeSnippet: (id: number | string, data: AnyConfig): ApiResp =>
     api.put(`/admin/code-snippets/${id}`, data),
 
-  deleteCodeSnippet: (id) =>
+  deleteCodeSnippet: (id: number | string): ApiResp =>
     api.delete(`/admin/code-snippets/${id}`),
 
-  getLatexAgentConfig: () =>
-    api.get('/admin/latex-agent/config'),
+  getLatexAgentConfig: (): ApiResp => api.get('/admin/latex-agent/config'),
 
-  updateLatexAgentConfig: (data) =>
+  updateLatexAgentConfig: (data: AnyConfig): ApiResp =>
     api.put('/admin/latex-agent/config', data),
 
-  getLatexAgentModelPresets: () =>
+  getLatexAgentModelPresets: (): ApiResp =>
     api.get('/admin/latex-agent/model-presets'),
 
-  getLatexAgentConfigOptions: () =>
+  getLatexAgentConfigOptions: (): ApiResp =>
     api.get('/admin/latex-agent/config-options'),
 
-  applyLatexAgentModelPreset: (provider, name) =>
+  applyLatexAgentModelPreset: (provider: string, name: string): ApiResp =>
     api.post('/admin/latex-agent/apply-preset', { provider, name }),
 
-  testLatexAgentConnection: () =>
+  testLatexAgentConnection: (): ApiResp =>
     api.post('/admin/latex-agent/test-connection'),
 
-  getLatexAgentApiFormats: () =>
+  getLatexAgentApiFormats: (): ApiResp =>
     api.get('/admin/latex-agent/api-formats'),
 
-  getLatexAgentModels: () =>
-    api.get('/admin/latex-agent/models'),
+  getLatexAgentModels: (): ApiResp => api.get('/admin/latex-agent/models'),
 
-  createLatexAgentModel: (data) =>
+  createLatexAgentModel: (data: AnyConfig): ApiResp =>
     api.post('/admin/latex-agent/models', data),
 
-  updateLatexAgentModel: (id, data) =>
+  updateLatexAgentModel: (id: number | string, data: AnyConfig): ApiResp =>
     api.put(`/admin/latex-agent/models/${id}`, data),
 
-  deleteLatexAgentModel: (id) =>
+  deleteLatexAgentModel: (id: number | string): ApiResp =>
     api.delete(`/admin/latex-agent/models/${id}`),
 
-  setDefaultLatexAgentModel: (id) =>
+  setDefaultLatexAgentModel: (id: number | string): ApiResp =>
     api.post(`/admin/latex-agent/models/${id}/set-default`),
 };
 

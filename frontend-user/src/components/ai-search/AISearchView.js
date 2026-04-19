@@ -5,13 +5,13 @@
 import React, { Suspense, lazy, useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 // 子组件
-import AIPaperList from '../AIPaperList';
-import AIHistoryDropdown from '../AIHistoryDropdown';
-import CiteModal from '../CiteModal';
+import AIPaperList from './AIPaperList';
+import AIHistoryDropdown from './AIHistoryDropdown';
+import CiteModal from '../search/CiteModal';
 import AIDimensionPanel from './AIDimensionPanel';
 import AIConversationContent from './AIConversationContent';
 import AISearchInput from './AISearchInput';
-import PaperPreview from '../PaperPreview';
+import PaperPreview from '../search/PaperPreview';
 import { usePdfAvailability } from '../../hooks/usePdfAvailability';
 
 // Hooks
@@ -28,7 +28,7 @@ import '../../pages/styles/search-results/papers.css';
 import '../../pages/styles/advanced-search/index.css';
 
 // 懒加载组件
-const AuthModal = lazy(() => import('../AuthModal'));
+const AuthModal = lazy(() => import('../auth/AuthModal'));
 
 /**
  * AI智能搜索视图组件

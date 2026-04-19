@@ -35,7 +35,7 @@
 
 /* 日间模式 - 输入框表单 */
 [data-theme="light"] .chat-input-form {
-  background: #ffffff;
+  background: var(--surface);
   border: 2px solid rgba(16, 163, 127, 0.45);
   box-shadow: 0 20px 70px rgba(16, 163, 127, 0.12), 
               0 10px 40px rgba(0, 0, 0, 0.06), 
@@ -50,7 +50,7 @@
 
 /* 日间模式 - 输入框聚焦状态 */
 [data-theme="light"] .chat-input-form:focus-within {
-  background: #ffffff;
+  background: var(--surface);
   border-color: rgba(16, 163, 127, 0.6);
   box-shadow: 0 20px 70px rgba(16, 163, 127, 0.15), 
               0 10px 40px rgba(0, 0, 0, 0.08), 

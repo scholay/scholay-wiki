@@ -13,8 +13,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check } from 'lucide-react';
-import Logo from '../../components/Logo';
-import SEO from '../../components/SEO';
+import Logo from '../../components/common/Logo';
+import SEO from '../../components/common/SEO';
 import './features-common.css';
 
 const fadeUp = {

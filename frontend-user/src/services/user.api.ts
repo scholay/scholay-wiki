@@ -2,52 +2,62 @@ import api from './client';
 import type { ApiResult } from '../types/api';
 import type { User, TokenInfo } from '../types/user';
 
+// Common response shapes
+export interface AuthTokenData {
+  token: string;
+  user: User;
+}
+export interface ExistsCheckData {
+  exists: boolean;
+}
+export interface WeChatQRCodeConfigData {
+  app_id: string;
+  redirect_uri: string;
+  state: string;
+  scope?: string;
+}
+
 export const userAPI = {
-  sendVerificationCode: (email: string, purpose: string, turnstileToken?: string) =>
+  sendVerificationCode: (email: string, purpose: string, turnstileToken?: string): Promise<ApiResult<unknown>> =>
     api.post('/user/send-code', { email, purpose, turnstile_token: turnstileToken }),
 
-  register: (email: string, password: string, code: string, invitationCode?: string, turnstileToken?: string) =>
+  register: (email: string, password: string, code: string, invitationCode?: string, turnstileToken?: string): Promise<ApiResult<AuthTokenData>> =>
     api.post('/user/register', { email, password, code, invitation_code: invitationCode, turnstile_token: turnstileToken }),
 
-  login: (email: string, password: string, turnstileToken?: string): Promise<ApiResult<{ token: string; user: User }>> =>
+  login: (email: string, password: string, turnstileToken?: string): Promise<ApiResult<AuthTokenData>> =>
     api.post('/user/login', { email, password, turnstile_token: turnstileToken }),
 
-  // Aliases used by useAuthForm hook
-  sendEmailCode: (email: string, purpose: string, turnstileToken?: string) =>
-    api.post('/user/send-code', { email, purpose, turnstile_token: turnstileToken }),
-
-  loginWithEmail: (email: string, password: string, turnstileToken?: string): Promise<ApiResult<{ token: string; user: User }>> =>
-    api.post('/user/login', { email, password, turnstile_token: turnstileToken }),
-
-  registerWithEmail: (email: string, password: string, code: string, invitationCode?: string, turnstileToken?: string) =>
-    api.post('/user/register', { email, password, code, invitation_code: invitationCode, turnstile_token: turnstileToken }),
+  // Aliases for useAuthForm hook — delegate to canonical methods above
+  get sendEmailCode() { return this.sendVerificationCode; },
+  get loginWithEmail() { return this.login; },
+  get registerWithEmail() { return this.register; },
 
   // Phone-based auth
-  sendPhoneCode: (phone: string, purpose: string, turnstileToken?: string) =>
+  sendPhoneCode: (phone: string, purpose: string, turnstileToken?: string): Promise<ApiResult<unknown>> =>
     api.post('/user/send-phone-code', { phone, purpose, turnstile_token: turnstileToken }),
 
-  registerWithPhone: (phone: string, password: string, code: string, invitationCode?: string, turnstileToken?: string) =>
+  registerWithPhone: (phone: string, password: string, code: string, invitationCode?: string, turnstileToken?: string): Promise<ApiResult<AuthTokenData>> =>
     api.post('/user/register-phone', { phone, password, code, invitation_code: invitationCode }),
 
-  loginWithPhone: (phone: string, password: string, turnstileToken?: string): Promise<ApiResult<{ token: string; user: User }>> =>
+  loginWithPhone: (phone: string, password: string, turnstileToken?: string): Promise<ApiResult<AuthTokenData>> =>
     api.post('/user/login-phone', { phone, password }),
 
-  loginWithPhoneCode: (phone: string, code: string, turnstileToken?: string): Promise<ApiResult<{ token: string; user: User }>> =>
+  loginWithPhoneCode: (phone: string, code: string, turnstileToken?: string): Promise<ApiResult<AuthTokenData>> =>
     api.post('/user/login-phone-with-code', { phone, code, turnstile_token: turnstileToken }),
 
-  checkEmail: (email: string) =>
+  checkEmail: (email: string): Promise<ApiResult<ExistsCheckData>> =>
     api.post('/user/check-email', { email }),
 
-  checkPhone: (phone: string) =>
+  checkPhone: (phone: string): Promise<ApiResult<ExistsCheckData>> =>
     api.post('/user/check-phone', { phone }),
 
-  loginWithCode: (email: string, code: string, turnstileToken?: string) =>
+  loginWithCode: (email: string, code: string, turnstileToken?: string): Promise<ApiResult<AuthTokenData>> =>
     api.post('/user/login-with-code', { email, code, turnstile_token: turnstileToken }),
 
-  resetPassword: (email: string, code: string, newPassword: string) =>
+  resetPassword: (email: string, code: string, newPassword: string): Promise<ApiResult<unknown>> =>
     api.post('/user/reset-password', { email, code, new_password: newPassword }),
 
-  resetPasswordPhone: (phone: string, code: string, newPassword: string) =>
+  resetPasswordPhone: (phone: string, code: string, newPassword: string): Promise<ApiResult<unknown>> =>
     api.post('/user/reset-password-phone', { phone, code, new_password: newPassword }),
 
   logout: () => api.post('/user/logout'),
@@ -65,7 +75,7 @@ export const userAPI = {
     api.put('/user/profile', { username, avatar_url: avatarURL }),
 
   getWeChatLoginURL: () => api.get('/user/wechat/login-url'),
-  getWeChatQRCodeConfig: () => api.get('/user/wechat/qrcode-config'),
+  getWeChatQRCodeConfig: (): Promise<ApiResult<WeChatQRCodeConfigData>> => api.get('/user/wechat/qrcode-config'),
   wechatCallback: (code: string, state: string) =>
     api.post('/user/wechat/callback', { code, state }),
   bindWeChatAccount: (code: string, state: string) =>

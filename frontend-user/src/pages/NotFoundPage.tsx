@@ -10,11 +10,11 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Home, ArrowLeft, Search } from 'lucide-react';
-import Logo from '../components/Logo';
-import SEO from '../components/SEO';
+import Logo from '../components/common/Logo';
+import SEO from '../components/common/SEO';
 import './styles/NotFoundPage.css';
 
-const NotFoundPage = () => {
+const NotFoundPage: React.FC = () => {
   const navigate = useNavigate();
 
   return (

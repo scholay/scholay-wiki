@@ -267,10 +267,8 @@ func (h *Handler) AnalyzePaper(c *gin.Context) {
 
 	// 尝试从上下文获取用户ID（公共接口为nil，使用系统默认维度）
 	var userID *uint
-	if uid, exists := c.Get("user_id"); exists {
-		if id, ok := uid.(uint); ok && id > 0 {
-			userID = &id
-		}
+	if uid, ok := utils.GetOptionalUserID(c); ok && uid > 0 {
+		userID = &uid
 	}
 
 	result, _, err := h.service.AnalyzePaperAbstract(c.Request.Context(), req.PaperID, req.Title, req.Abstract, userID)
@@ -291,10 +289,8 @@ func (h *Handler) AnalyzePaper(c *gin.Context) {
 func (h *Handler) GetAnalysisDimensions(c *gin.Context) {
 	// 尝试从上下文获取用户ID
 	var userID *uint
-	if uid, exists := c.Get("user_id"); exists {
-		if id, ok := uid.(uint); ok && id > 0 {
-			userID = &id
-		}
+	if uid, ok := utils.GetOptionalUserID(c); ok && uid > 0 {
+		userID = &uid
 	}
 
 	result, err := h.service.GetAnalysisDimensions(userID)

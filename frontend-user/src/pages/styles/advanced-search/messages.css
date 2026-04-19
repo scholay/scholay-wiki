@@ -147,7 +147,7 @@
 }
 
 [data-theme="light"] .message-assistant .message-markdown a {
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 [data-theme="light"] .message-assistant .message-markdown blockquote {

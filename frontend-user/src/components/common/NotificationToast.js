@@ -20,7 +20,7 @@
 import React, { useState, useCallback, useEffect, memo } from 'react';
 import ReactDOM from 'react-dom';
 import { Bell, X, Gift, CreditCard, Mail } from 'lucide-react';
-import wsClient from '../services/websocket';
+import wsClient from '../../services/websocket';
 import './NotificationToast.css';
 
 // 通知配置

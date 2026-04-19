@@ -60,14 +60,33 @@ export const useSidebarStore = create<SidebarStore>((set) => ({
     set((state) => ({ isMobileOpen: !state.isMobileOpen })),
 }));
 
-// Resize listener (runs outside React)
-function handleResize() {
-  const mobile = window.innerWidth <= 768;
-  if (useSidebarStore.getState().isMobile !== mobile) {
-    useSidebarStore.setState({ isMobile: mobile });
-  }
+// Debounced resize listener (runs outside React, with proper cleanup support)
+let _resizeCleanup: (() => void) | null = null;
+
+function initResizeListener() {
+  if (_resizeCleanup) return; // already initialized
+  let rafId: number | null = null;
+  const handleResize = () => {
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(() => {
+      const mobile = window.innerWidth <= 768;
+      if (useSidebarStore.getState().isMobile !== mobile) {
+        useSidebarStore.setState({ isMobile: mobile });
+      }
+      rafId = null;
+    });
+  };
+  window.addEventListener('resize', handleResize, { passive: true });
+  _resizeCleanup = () => {
+    window.removeEventListener('resize', handleResize);
+    if (rafId) cancelAnimationFrame(rafId);
+  };
 }
-window.addEventListener('resize', handleResize);
+
+// Auto-init on first import (safe for SSR: guarded by typeof window)
+if (typeof window !== 'undefined') {
+  initResizeListener();
+}
 
 // Body overflow management
 useSidebarStore.subscribe((state) => {

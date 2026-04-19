@@ -133,7 +133,7 @@
 [data-theme="light"] .form-field input,
 [data-theme="light"] .form-field textarea {
   background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   color: #1e293b;
 }
 
@@ -206,7 +206,7 @@
 
 [data-theme="light"] .upload-group {
   background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
 }
 
 .upload-header {
@@ -242,7 +242,7 @@
 
 [data-theme="light"] .upload-item {
   background: white;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   color: #1e293b;
 }
 
@@ -413,7 +413,7 @@
 
 [data-theme="light"] .form-note {
   background: #f1f5f9;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   color: #64748b;
 }
 
@@ -439,7 +439,7 @@
 
 [data-theme="light"] .btn-secondary {
   background: white;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   color: #475569;
 }
 

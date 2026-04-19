@@ -12,15 +12,49 @@ import { adminAPI } from '../services/api';
 import { showToast } from '../components/Toast';
 import './FeedbackManagement.css';
 
-const STATUS_MAP = {
+interface StatusInfo {
+  label: string;
+  color: string;
+}
+
+const STATUS_MAP: Record<string, StatusInfo> = {
   pending: { label: '待处理', color: '#f59e0b' },
   processed: { label: '已处理', color: '#3b82f6' },
   replied: { label: '已回复', color: '#22c55e' },
   closed: { label: '已关闭', color: '#6b7280' },
 };
 
+interface Attachment {
+  type: 'image' | 'file';
+  url: string;
+  name: string;
+  size?: number;
+}
+
+interface Feedback {
+  id: number;
+  email: string;
+  content?: string;
+  username?: string;
+  ip?: string;
+  ipLocation?: string;
+  status: string;
+  createdAt: string;
+  attachments?: string;
+  replyContent?: string;
+  repliedBy?: string;
+  repliedAt?: string;
+}
+
+interface FeedbackStats {
+  total: number;
+  pending: number;
+  processed: number;
+  replied: number;
+}
+
 // 获取完整的文件URL（处理相对路径）
-const getFullUrl = (url) => {
+const getFullUrl = (url?: string): string => {
   if (!url) return '';
   // 如果已经是完整URL，直接返回
   if (url.startsWith('http://') || url.startsWith('https://')) {
@@ -30,18 +64,18 @@ const getFullUrl = (url) => {
   return url;
 };
 
-const FeedbackManagement = () => {
-  const [feedbacks, setFeedbacks] = useState([]);
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0 });
-  const [filters, setFilters] = useState({ status: '', keyword: '' });
-  const [selectedFeedback, setSelectedFeedback] = useState(null);
-  const [showDetailModal, setShowDetailModal] = useState(false);
-  const [showReplyModal, setShowReplyModal] = useState(false);
-  const [replyContent, setReplyContent] = useState('');
-  const [replying, setReplying] = useState(false);
-  const [previewImage, setPreviewImage] = useState(null); // 图片预览状态
+const FeedbackManagement: React.FC = () => {
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [stats, setStats] = useState<FeedbackStats | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [pagination, setPagination] = useState<{ page: number; pageSize: number; total: number }>({ page: 1, pageSize: 20, total: 0 });
+  const [filters, setFilters] = useState<{ status: string; keyword: string }>({ status: '', keyword: '' });
+  const [selectedFeedback, setSelectedFeedback] = useState<Feedback | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState<boolean>(false);
+  const [showReplyModal, setShowReplyModal] = useState<boolean>(false);
+  const [replyContent, setReplyContent] = useState<string>('');
+  const [replying, setReplying] = useState<boolean>(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const fetchFeedbacks = useCallback(async () => {
     setLoading(true);
@@ -81,7 +115,7 @@ const FeedbackManagement = () => {
     fetchStats();
   }, []);
 
-  const handleStatusChange = async (id, newStatus) => {
+  const handleStatusChange = async (id: number, newStatus: string) => {
     try {
       const response = await adminAPI.updateFeedbackStatus(id, newStatus);
       if (response.data.code === 0) {
@@ -101,6 +135,7 @@ const FeedbackManagement = () => {
       showToast('请输入回复内容', 'error');
       return;
     }
+    if (!selectedFeedback) return;
     setReplying(true);
     try {
       const response = await adminAPI.replyFeedback(selectedFeedback.id, replyContent);
@@ -121,7 +156,7 @@ const FeedbackManagement = () => {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: number) => {
     if (!window.confirm('确定要删除这条反馈吗？')) return;
     try {
       const response = await adminAPI.deleteFeedback(id);
@@ -137,23 +172,23 @@ const FeedbackManagement = () => {
     }
   };
 
-  const openDetailModal = (feedback) => {
+  const openDetailModal = (feedback: Feedback) => {
     setSelectedFeedback(feedback);
     setShowDetailModal(true);
   };
 
-  const openReplyModal = (feedback) => {
+  const openReplyModal = (feedback: Feedback) => {
     setSelectedFeedback(feedback);
     setReplyContent('');
     setShowReplyModal(true);
   };
 
-  const formatDate = (dateStr) => {
+  const formatDate = (dateStr?: string) => {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleString('zh-CN');
   };
 
-  const parseAttachments = (attachmentsStr) => {
+  const parseAttachments = (attachmentsStr?: string): Attachment[] => {
     if (!attachmentsStr) return [];
     try {
       return JSON.parse(attachmentsStr);
@@ -237,9 +272,9 @@ const FeedbackManagement = () => {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="8" className="loading-cell">加载中...</td></tr>
+              <tr><td colSpan={8} className="loading-cell">加载中...</td></tr>
             ) : feedbacks.length === 0 ? (
-              <tr><td colSpan="8" className="empty-cell">暂无反馈</td></tr>
+              <tr><td colSpan={8} className="empty-cell">暂无反馈</td></tr>
             ) : (
               feedbacks.map((feedback) => (
                 <tr key={feedback.id}>
@@ -333,7 +368,7 @@ const FeedbackManagement = () => {
                     value={selectedFeedback.status}
                     onChange={(e) => {
                       handleStatusChange(selectedFeedback.id, e.target.value);
-                      setSelectedFeedback(prev => ({ ...prev, status: e.target.value }));
+                      setSelectedFeedback(prev => prev ? { ...prev, status: e.target.value } : prev);
                     }}
                     className="status-select"
                   >

@@ -12,7 +12,7 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Clock, Calendar, ChevronRight, Search, User } from 'lucide-react';
-import SEO from '../../components/SEO';
+import SEO from '../../components/common/SEO';
 import FeaturePromo, { matchFeatureByArticle } from '../../components/FeaturePromo';
 import { getBlogArticleBySlug, getRelatedBlogArticles, getAuthor } from './blogArticles';
 import '../styles/ResourcePage.css';

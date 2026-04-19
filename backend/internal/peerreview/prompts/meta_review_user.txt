@@ -1,0 +1,59 @@
+===========================================
+【输入格式】
+===========================================
+
+三位审稿人的审稿意见如下：
+
+%s
+
+其中：
+- reviewer_A（审稿人 Alpha）的审稿 JSON 输出
+- reviewer_B（审稿人 Beta）的审稿 JSON 输出
+- reviewer_C（审稿人 Gamma）的审稿 JSON 输出
+
+三份内容都遵循审稿 JSON 模板结构。
+
+===========================================
+【最终输出结构（必须完全保持一致）】
+===========================================
+
+请输出以下结构的 JSON：
+
+{
+  "overall_assessment": {
+    "core_contribution": "（综合三位审稿人意见，总结论文核心贡献）",
+    "recommendation": "Accept | Minor Revision | Major Revision | Reject",
+    "reject_advice": "（若为 Reject 必填：综合建议。若非 Reject 则留空。）"
+  },
+
+  "critical_issues": [
+    {
+      "issue_title": "（合并后的关键问题标题）",
+      "issue_description": "（综合描述问题，注明哪些审稿人提出）",
+      "required_actions": "（综合的修改建议）",
+      "affected_sections": ["（合并所有审稿人指出的章节）"]
+    }
+  ],
+
+  "other_suggestions": [
+    {
+      "suggestion_title": "（合并后的建议标题）",
+      "suggestion_description": "（综合描述建议内容）",
+      "suggestion_location": "（具体位置，如 Section 2、Figure 3、Page 7 等）",
+      "suggestion_rationale": "（提出建议的理由）"
+    }
+  ],
+
+  "extended_review_items": {
+    "novelty_evaluation": "（综合三位审稿人对新颖性的评价）",
+    "technical_soundness": "（综合技术严谨性评价）",
+    "clarity_and_presentation": "（综合清晰度评价）",
+    "reproducibility": {
+      "data_availability": "（综合数据可用性评价）",
+      "code_availability": "（综合代码可用性评价）"
+    },
+    "ethical_considerations": "（综合伦理考量，若不适用填"不适用"）",
+    "impact_and_significance": "（综合影响力评价）",
+    "recommend_for_improvement": "（综合改进建议）"
+  }
+}

@@ -19,12 +19,12 @@ import AiChatPanel from '../../components/latex-writer/AiChatPanel';
 import PdfPreview from '../../components/latex-writer/PdfPreview';
 import LatexCompiler from '../../components/latex-writer/LatexCompiler';
 import { userAPI } from '../../services/user.api';
-import SEO from '../../components/SEO';
+import SEO from '../../components/common/SEO';
 import logger from '../../utils/logger';
 import './LaTeXWriterPage.css';
 
 // 懒加载 AuthModal
-const AuthModal = lazy(() => import('../../components/AuthModal'));
+const AuthModal = lazy(() => import('../../components/auth/AuthModal'));
 
 // 默认 LaTeX 模板（兼容在线编译器的标准学术论文格式）
 const DEFAULT_LATEX_TEMPLATE = `\\documentclass[12pt,a4paper]{article}

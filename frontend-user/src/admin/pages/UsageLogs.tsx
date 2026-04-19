@@ -32,34 +32,98 @@ const RETENTION_OPTIONS = [
   { value: 730, label: '730天（两年）' },
 ];
 
-const UsageLogs = () => {
-  const [logs, setLogs] = useState([]);
+// any usage:
+//   - axios catch (err: any)
+//   - log/summary/feature_count rows have open backend shapes
+interface LogRow {
+  id: number | string;
+  created_at?: string;
+  feature_code?: string;
+  feature_name?: string;
+  entry_point?: string;
+  ip_address?: string;
+  device_type?: string;
+  browser?: string;
+  referer_path?: string;
+  [key: string]: unknown;
+}
+
+interface FeatureCount {
+  feature_code: string;
+  feature_name: string;
+  count: number;
+}
+
+interface TrendPoint {
+  label: string;
+  value?: string | number;
+  count: number;
+}
+
+interface SummaryState {
+  total_count?: number;
+  today_count?: number;
+  unique_users?: number;
+  unique_sessions?: number;
+  trend_data?: TrendPoint[];
+  trend_granularity?: string;
+  feature_counts?: FeatureCount[];
+  [key: string]: unknown;
+}
+
+interface FiltersState {
+  feature_code: string;
+  action: string;
+  entry_point: string;
+  ip_address: string;
+  keyword: string;
+  device_type: string;
+  browser: string;
+}
+
+interface FilterOptionsState {
+  features: { feature_code: string; feature_name: string }[];
+  actions: string[];
+  entry_points: string[];
+  device_types: string[];
+  browsers: string[];
+}
+
+interface ConfigState {
+  retention_days?: number;
+  [key: string]: unknown;
+}
+
+type DateRangeValue = number | 'custom';
+
+const UsageLogs: React.FC = () => {
+  const [logs, setLogs] = useState<LogRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(20);
-  
+
   // 全局时间范围控制（默认7天）
-  const [dateRange, setDateRange] = useState(7);
-  
+  const [dateRange, setDateRange] = useState<DateRangeValue>(7);
+
   // 自定义日期范围
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
-  
+
   // 配置状态
-  const [config, setConfig] = useState(null);
+  const [config, setConfig] = useState<ConfigState | null>(null);
   const [retentionDays, setRetentionDays] = useState(180);
   const [configLoading, setConfigLoading] = useState(false);
   const [showRetentionEdit, setShowRetentionEdit] = useState(false);
   const [oldLogsCount, setOldLogsCount] = useState(0);
-  
+
   // 清空数据确认框状态
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [clearLoading, setClearLoading] = useState(false);
-  
+
   // 筛选条件（列级筛选）
-  const [filters, setFilters] = useState({
+  const [filters, setFilters] = useState<FiltersState>({
     feature_code: '',
     action: '',
     entry_point: '',
@@ -68,9 +132,9 @@ const UsageLogs = () => {
     device_type: '',
     browser: '',
   });
-  
+
   // 筛选选项
-  const [filterOptions, setFilterOptions] = useState({
+  const [filterOptions, setFilterOptions] = useState<FilterOptionsState>({
     features: [],
     actions: [],
     entry_points: [],
@@ -82,7 +146,7 @@ const UsageLogs = () => {
   const hasActiveFilters = Object.values(filters).some(v => v !== '');
   
   // 统计摘要
-  const [summary, setSummary] = useState(null);
+  const [summary, setSummary] = useState<SummaryState | null>(null);
   const [showSummary, setShowSummary] = useState(true);
 
   // 获取配置
@@ -135,7 +199,8 @@ const UsageLogs = () => {
       } else {
         alert(response.data.message || '清空数据失败');
       }
-    } catch (error) {
+    } catch (error: any) {
+      // any: axios error shape
       console.error('清空数据失败:', error);
       alert('清空数据失败: ' + (error.response?.data?.message || error.message));
     } finally {
@@ -162,13 +227,13 @@ const UsageLogs = () => {
   // 获取统计摘要
   const fetchSummary = useCallback(async () => {
     try {
-      let params = {};
+      let params: Record<string, unknown> = {};
       if (dateRange === 'custom' && customStartDate && customEndDate) {
         params = { start_date: customStartDate, end_date: customEndDate };
       } else if (dateRange !== 'custom') {
         params = { days: dateRange };
       }
-      
+
       // 如果有功能筛选，添加到参数中（用于趋势图筛选）
       if (filters.feature_code) {
         params.feature_code = filters.feature_code;
@@ -191,14 +256,14 @@ const UsageLogs = () => {
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     try {
-      let params = {
+      const params: Record<string, unknown> = {
         page,
         page_size: pageSize,
         ...Object.fromEntries(
           Object.entries(filters).filter(([_, v]) => v !== '')
         ),
       };
-      
+
       // 根据时间范围类型添加不同的参数
       if (dateRange === 'custom' && customStartDate && customEndDate) {
         params.start_date = customStartDate;
@@ -224,7 +289,7 @@ const UsageLogs = () => {
   }, [fetchLogs]);
 
   // 处理时间范围变化
-  const handleDateRangeChange = (value) => {
+  const handleDateRangeChange = (value: DateRangeValue) => {
     if (value === 'custom') {
       setShowCustomDatePicker(true);
       // 如果还没有设置自定义日期，设置默认值（最近7天）
@@ -265,7 +330,7 @@ const UsageLogs = () => {
   };
 
   // 处理筛选条件变化
-  const handleFilterChange = (key, value) => {
+  const handleFilterChange = (key: keyof FiltersState, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
     setPage(1);
   };
@@ -285,7 +350,7 @@ const UsageLogs = () => {
   };
 
   // 格式化时间
-  const formatTime = (timeStr) => {
+  const formatTime = (timeStr?: string) => {
     if (!timeStr) return '-';
     const date = new Date(timeStr);
     return date.toLocaleString('zh-CN', {
@@ -306,8 +371,8 @@ const UsageLogs = () => {
   }, [fetchLogs, fetchSummary, fetchConfig]);
 
   // 获取功能名称颜色（16个功能追踪点）
-  const getFeatureColor = (featureCode) => {
-    const colors = {
+  const getFeatureColor = (featureCode?: string): string => {
+    const colors: Record<string, string> = {
       // 用户类 - 青色系
       user_checkin: '#06b6d4',
       // 检索类 - 蓝色系
@@ -333,7 +398,7 @@ const UsageLogs = () => {
       detail_page_view: '#ef4444',
       detail_page_similar: '#f87171',
     };
-    return colors[featureCode] || '#6b7280';
+    return (featureCode && colors[featureCode]) || '#6b7280';
   };
 
   const totalPages = Math.ceil(total / pageSize);
@@ -701,11 +766,11 @@ const UsageLogs = () => {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="6" className="ul-loading">加载中...</td>
+                <td colSpan={6} className="ul-loading">加载中...</td>
               </tr>
             ) : logs.length === 0 ? (
               <tr>
-                <td colSpan="6" className="ul-empty">暂无数据</td>
+                <td colSpan={6} className="ul-empty">暂无数据</td>
               </tr>
             ) : (
               logs.map((log) => (

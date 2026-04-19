@@ -120,12 +120,50 @@ func (s *Service) GetTaskList(userID uint, page, pageSize int, status string, se
 		return nil, err
 	}
 
+	// 批量预加载关联数据，避免 N+1 查询
+	taskIDs := make([]uint, 0, len(tasks))
+	manuscriptFileIDs := make([]uint, 0, len(tasks))
+	for _, t := range tasks {
+		taskIDs = append(taskIDs, t.ID)
+		if t.ManuscriptFileID != nil {
+			manuscriptFileIDs = append(manuscriptFileIDs, *t.ManuscriptFileID)
+		}
+	}
+
+	// 一次性查询所有任务的附件数量（按 task_id 分组）
+	attachmentCounts := make(map[uint]int64, len(tasks))
+	if len(taskIDs) > 0 {
+		type countRow struct {
+			TaskID uint
+			Cnt    int64
+		}
+		var rows []countRow
+		s.db.Model(&PeerReviewFile{}).
+			Select("task_id, COUNT(*) AS cnt").
+			Where("task_id IN ? AND file_role = ?", taskIDs, FileRoleAttachment).
+			Group("task_id").
+			Scan(&rows)
+		for _, r := range rows {
+			attachmentCounts[r.TaskID] = r.Cnt
+		}
+	}
+
+	// 一次性查询所有主稿件文件信息
+	manuscriptFiles := make(map[uint]PeerReviewFile, len(manuscriptFileIDs))
+	if len(manuscriptFileIDs) > 0 {
+		var files []PeerReviewFile
+		s.db.Select("id, file_name, file_ext").
+			Where("id IN ?", manuscriptFileIDs).
+			Find(&files)
+		for _, f := range files {
+			manuscriptFiles[f.ID] = f
+		}
+	}
+
 	// 转换为摘要
 	summaries := make([]TaskSummary, len(tasks))
 	for i, t := range tasks {
-		// 统计附件数量
-		var attachmentCount int64
-		s.db.Model(&PeerReviewFile{}).Where("task_id = ? AND file_role = ?", t.ID, FileRoleAttachment).Count(&attachmentCount)
+		attachmentCount := attachmentCounts[t.ID]
 
 		// 使用提交时间作为显示时间，如果没有提交时间则使用创建时间
 		displayTime := t.CreatedAt
@@ -133,13 +171,12 @@ func (s *Service) GetTaskList(userID uint, page, pageSize int, status string, se
 			displayTime = *t.SubmittedAt
 		}
 
-		// 获取主稿件文件信息
+		// 获取主稿件文件信息（从预加载 map 中读取）
 		var fileName, fileExt string
 		if t.ManuscriptFileID != nil {
-			var file PeerReviewFile
-			if err := s.db.First(&file, *t.ManuscriptFileID).Error; err == nil {
-				fileName = file.FileName
-				fileExt = file.FileExt
+			if f, ok := manuscriptFiles[*t.ManuscriptFileID]; ok {
+				fileName = f.FileName
+				fileExt = f.FileExt
 			}
 		}
 

@@ -49,11 +49,33 @@ export const isInAuthWhitelist = (): boolean => {
 };
 
 // ---------------------------------------------------------------------------
-// Request interceptor – attach Bearer token
+// In-memory token cache – avoids hitting localStorage on every request.
+// Updated whenever the token changes (login, refresh, logout).
+// ---------------------------------------------------------------------------
+let _cachedToken: string | null = localStorage.getItem('user_token');
+
+export const tokenCache = {
+  get: () => _cachedToken,
+  set: (token: string | null) => {
+    _cachedToken = token;
+    if (token) {
+      localStorage.setItem('user_token', token);
+    } else {
+      localStorage.removeItem('user_token');
+    }
+  },
+  clear: () => {
+    _cachedToken = null;
+    localStorage.removeItem('user_token');
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Request interceptor – attach Bearer token (from memory cache)
 // ---------------------------------------------------------------------------
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem('user_token');
+    const token = tokenCache.get();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -93,7 +115,7 @@ api.interceptors.response.use(
 
     // ---- Session kicked (code 2019, HTTP 409) ----
     if (errorCode === 2019) {
-      localStorage.removeItem('user_token');
+      tokenCache.clear();
       localStorage.removeItem('user_data');
       window.dispatchEvent(
         new CustomEvent('auth:expired', {
@@ -111,13 +133,13 @@ api.interceptors.response.use(
 
     // ---- 401: try to refresh token ----
     if (error.response?.status === 401 && !originalRequest._retry) {
-      const token = localStorage.getItem('user_token');
+      const token = tokenCache.get();
       if (!token && isInAuthWhitelist()) {
         return Promise.reject(error);
       }
 
       if (originalRequest.url === '/user/refresh-token') {
-        localStorage.removeItem('user_token');
+        tokenCache.clear();
         localStorage.removeItem('user_data');
         window.dispatchEvent(
           new CustomEvent('auth:expired', {
@@ -148,7 +170,7 @@ api.interceptors.response.use(
         const response = await api.post('/user/refresh-token');
         if (response.data.code === 0 && response.data.data?.token) {
           const newToken = response.data.data.token;
-          localStorage.setItem('user_token', newToken);
+          tokenCache.set(newToken);
           api.defaults.headers.common['Authorization'] = 'Bearer ' + newToken;
           processQueue(null, newToken);
           originalRequest.headers['Authorization'] = 'Bearer ' + newToken;
@@ -157,7 +179,7 @@ api.interceptors.response.use(
         throw new Error(response.data.message || '刷新登录状态失败');
       } catch (refreshError: any) {
         processQueue(refreshError, null);
-        localStorage.removeItem('user_token');
+        tokenCache.clear();
         localStorage.removeItem('user_data');
 
         const errorCode = refreshError.response?.data?.code;
@@ -188,7 +210,7 @@ api.interceptors.response.use(
 
     // ---- 403: forbidden ----
     if (error.response?.status === 403) {
-      localStorage.removeItem('user_token');
+      tokenCache.clear();
       localStorage.removeItem('user_data');
       const message =
         error.response?.data?.message || '访问被拒绝，请重新登录';

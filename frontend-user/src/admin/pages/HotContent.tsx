@@ -7,9 +7,34 @@
  * ============================================================================
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, type Dispatch, type SetStateAction } from 'react';
 import api from '../services/api';
 import './HotContent.css';
+
+interface HotKeyword {
+  id: number;
+  keyword: string;
+  search_count: number;
+  first_searched_at: string;
+  last_searched_at: string;
+}
+
+interface HotPaper {
+  id: number;
+  paper_id?: string;
+  title: string;
+  doi?: string;
+  year?: number | string;
+  view_count: number;
+  last_viewed_at: string;
+}
+
+interface HotContentStats {
+  keywords_count?: number;
+  papers_count?: number;
+  retention_days?: number;
+  max_records?: number;
+}
 
 // 时间范围选项
 const DATE_RANGE_OPTIONS = [
@@ -21,31 +46,33 @@ const DATE_RANGE_OPTIONS = [
   { value: 180, label: '近6个月' },
 ];
 
-const HotContent = () => {
+type HotTab = 'keywords' | 'papers';
+
+const HotContent: React.FC = () => {
   // Tab切换
-  const [activeTab, setActiveTab] = useState('keywords'); // 'keywords' | 'papers'
-  
+  const [activeTab, setActiveTab] = useState<HotTab>('keywords');
+
   // 时间范围
-  const [days, setDays] = useState(30);
-  
+  const [days, setDays] = useState<number>(30);
+
   // 关键词数据
-  const [keywords, setKeywords] = useState([]);
-  const [keywordsTotal, setKeywordsTotal] = useState(0);
-  const [keywordsPage, setKeywordsPage] = useState(1);
-  const [keywordsLoading, setKeywordsLoading] = useState(false);
-  
+  const [keywords, setKeywords] = useState<HotKeyword[]>([]);
+  const [keywordsTotal, setKeywordsTotal] = useState<number>(0);
+  const [keywordsPage, setKeywordsPage] = useState<number>(1);
+  const [keywordsLoading, setKeywordsLoading] = useState<boolean>(false);
+
   // 论文数据
-  const [papers, setPapers] = useState([]);
-  const [papersTotal, setPapersTotal] = useState(0);
-  const [papersPage, setPapersPage] = useState(1);
-  const [papersLoading, setPapersLoading] = useState(false);
-  
+  const [papers, setPapers] = useState<HotPaper[]>([]);
+  const [papersTotal, setPapersTotal] = useState<number>(0);
+  const [papersPage, setPapersPage] = useState<number>(1);
+  const [papersLoading, setPapersLoading] = useState<boolean>(false);
+
   // 统计信息
-  const [stats, setStats] = useState(null);
-  
+  const [stats, setStats] = useState<HotContentStats | null>(null);
+
   // 清理状态
-  const [cleanupLoading, setCleanupLoading] = useState(false);
-  const [showCleanupConfirm, setShowCleanupConfirm] = useState(false);
+  const [cleanupLoading, setCleanupLoading] = useState<boolean>(false);
+  const [showCleanupConfirm, setShowCleanupConfirm] = useState<boolean>(false);
   
   const pageSize = 20;
 
@@ -121,9 +148,9 @@ const HotContent = () => {
           fetchPapers();
         }
       }
-    } catch (error) {
+    } catch (error: any) { // [any#1] axios error
       console.error('清理失败:', error);
-      alert('清理失败: ' + (error.response?.data?.message || error.message));
+      alert('清理失败: ' + (error?.response?.data?.message || error?.message));
     } finally {
       setCleanupLoading(false);
       setShowCleanupConfirm(false);
@@ -151,7 +178,7 @@ const HotContent = () => {
   }, [days]);
 
   // 格式化时间
-  const formatTime = (timeStr) => {
+  const formatTime = (timeStr?: string) => {
     if (!timeStr) return '-';
     const date = new Date(timeStr);
     return date.toLocaleString('zh-CN', {
@@ -164,13 +191,13 @@ const HotContent = () => {
   };
 
   // 截断文本
-  const truncateText = (text, maxLength = 100) => {
+  const truncateText = (text?: string, maxLength: number = 100) => {
     if (!text) return '-';
     return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
   };
 
   // 渲染分页
-  const renderPagination = (total, currentPage, setPage) => {
+  const renderPagination = (total: number, currentPage: number, setPage: Dispatch<SetStateAction<number>>) => {
     const totalPages = Math.ceil(total / pageSize);
     if (totalPages <= 1) return null;
 

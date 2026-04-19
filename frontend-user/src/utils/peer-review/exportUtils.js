@@ -3,11 +3,8 @@
  * 支持 Word、PDF、PPT 格式导出
  */
 
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Header, Footer, PageNumber } from 'docx';
-import { saveAs } from 'file-saver';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-import PptxGenJS from 'pptxgenjs';
+// 注意: docx / file-saver / jspdf / html2canvas / pptxgenjs 这些重型库
+// 改为在各导出函数内 dynamic import，避免被打入主 bundle。
 
 // 品牌信息
 const BRAND = {
@@ -106,6 +103,10 @@ const parseReviewerReport = (content) => {
  * 导出为 Word 文档
  */
 export const exportToWord = async (task, parsedReport) => {
+  const [{ Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Header, Footer, PageNumber }, { saveAs }] = await Promise.all([
+    import('docx'),
+    import('file-saver'),
+  ]);
   const children = [];
   
   // 标题
@@ -569,6 +570,10 @@ export const exportToWord = async (task, parsedReport) => {
  * 导出为 PDF 文档 - 使用 HTML 渲染支持中文
  */
 export const exportToPDF = async (task, parsedReport) => {
+  const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+    import('jspdf'),
+    import('html2canvas'),
+  ]);
   // 创建临时 HTML 容器
   const container = document.createElement('div');
   container.style.cssText = `
@@ -883,6 +888,7 @@ const getRecBgColor = (recommendation) => {
  * 导出为 PPT 演示文稿 - 优化样式版本
  */
 export const exportToPPT = async (task, parsedReport) => {
+  const { default: PptxGenJS } = await import('pptxgenjs');
   const pptx = new PptxGenJS();
   
   // 设置演示文稿属性

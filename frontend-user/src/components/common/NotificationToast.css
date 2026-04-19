@@ -13,11 +13,11 @@
 .notification-toast-container {
   position: fixed;
   top: 80px;
-  right: 20px;
-  z-index: 10000;
+  right: var(--space-5);
+  z-index: var(--z-modal);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
   max-width: 380px;
   pointer-events: none;
 }
@@ -25,14 +25,14 @@
 /* 单个通知项 */
 .notification-toast-item {
   display: flex;
-  gap: 12px;
-  padding: 14px 16px;
-  border-radius: 12px;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius);
   cursor: pointer;
   pointer-events: auto;
-  animation: slideIn 0.3s ease-out;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  animation: slideIn var(--duration-slow) var(--ease-out);
+  transition: var(--transition);
+  box-shadow: var(--shadow-md);
 }
 
 [data-theme="dark"] .notification-toast-item {

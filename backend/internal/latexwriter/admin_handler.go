@@ -11,7 +11,14 @@
 package latexwriter
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"strings"
+	"time"
 
 	"scholar-backend/internal/common/utils"
 
@@ -234,22 +241,104 @@ func getDefaultEndpoint(provider string) string {
 
 // TestConnection 测试模型连接
 // POST /api/v1/admin/latex-agent/test-connection
+//
+// 通过最小开销的 OpenAI 兼容 chat.completion 请求（max_tokens=1）实测：
+//  1. APIEndpoint 是否可达
+//  2. APIKey 是否有效
+//  3. 模型名是否被服务端识别
+// 仅支持 OpenAI 兼容格式（openai/deepseek/azure/google-openai-compat 等）；
+// anthropic 等私有格式返回不支持提示而不是误导性的 success。
 func (h *AdminHandler) TestConnection(c *gin.Context) {
-	// 获取默认模型
 	model, err := h.modelRepo.GetDefaultModel()
 	if err != nil {
 		utils.Error(c, 5001, "获取默认模型失败: "+err.Error())
 		return
 	}
 
-	// TODO: 实现实际的连接测试
-	// 目前返回模型信息
+	if model.APIEndpoint == "" || model.APIKey == "" || model.ModelName == "" {
+		utils.Error(c, 5002, "模型配置不完整: 需要 APIEndpoint / APIKey / ModelName")
+		return
+	}
+
+	format := strings.ToLower(model.APIFormat)
+	if format != "" && format != "openai" && format != "deepseek" && format != "azure" {
+		utils.Success(c, map[string]any{
+			"success":      false,
+			"api_format":   model.APIFormat,
+			"model_name":   model.ModelName,
+			"api_endpoint": model.APIEndpoint,
+			"message":      fmt.Sprintf("当前 API 格式 %q 暂未启用真实连通性测试，请通过实际对话验证", model.APIFormat),
+		})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 15*time.Second)
+	defer cancel()
+
+	reqBody := map[string]any{
+		"model": model.ModelName,
+		"messages": []map[string]string{
+			{"role": "user", "content": "ping"},
+		},
+		"max_tokens":  1,
+		"temperature": 0,
+		"stream":      false,
+	}
+	bodyBytes, _ := json.Marshal(reqBody)
+
+	url := strings.TrimSuffix(model.APIEndpoint, "/") + "/v1/chat/completions"
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		utils.Error(c, 5003, "构造请求失败: "+err.Error())
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+model.APIKey)
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	start := time.Now()
+	resp, err := client.Do(req)
+	latency := time.Since(start)
+	if err != nil {
+		utils.Success(c, map[string]any{
+			"success":      false,
+			"api_format":   model.APIFormat,
+			"model_name":   model.ModelName,
+			"api_endpoint": model.APIEndpoint,
+			"latency_ms":   latency.Milliseconds(),
+			"message":      "请求失败: " + err.Error(),
+		})
+		return
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+	preview := string(respBody)
+	if len(preview) > 512 {
+		preview = preview[:512] + "..."
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		utils.Success(c, map[string]any{
+			"success":      false,
+			"api_format":   model.APIFormat,
+			"model_name":   model.ModelName,
+			"api_endpoint": model.APIEndpoint,
+			"status_code":  resp.StatusCode,
+			"latency_ms":   latency.Milliseconds(),
+			"message":      fmt.Sprintf("API 返回 %d: %s", resp.StatusCode, preview),
+		})
+		return
+	}
+
 	utils.Success(c, map[string]any{
 		"success":      true,
 		"api_format":   model.APIFormat,
 		"model_name":   model.ModelName,
 		"api_endpoint": model.APIEndpoint,
-		"message":      "配置已保存，连接测试功能待实现",
+		"status_code":  resp.StatusCode,
+		"latency_ms":   latency.Milliseconds(),
+		"message":      fmt.Sprintf("连接成功（耗时 %dms）", latency.Milliseconds()),
 	})
 }
 

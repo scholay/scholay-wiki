@@ -1,4 +1,4 @@
-import api, { API_URL, publicApi } from './client';
+import api, { API_URL, publicApi, tokenCache } from './client';
 import type { SearchParams } from '../types/paper';
 
 export const scholarAPI = {
@@ -67,7 +67,7 @@ export const publicScholarAPI = {
     }),
 
   translateStream: (text: string) => {
-    const token = localStorage.getItem('user_token');
+    const token = tokenCache.get();
     return fetch(`${API_URL}/api/v1/public/translate/stream`, {
       method: 'POST',
       headers: {
@@ -79,7 +79,7 @@ export const publicScholarAPI = {
   },
 
   translatePaperStream: (title: string, abstract: string, tldr: string) => {
-    const token = localStorage.getItem('user_token');
+    const token = tokenCache.get();
     return fetch(`${API_URL}/api/v1/public/translate/paper/stream`, {
       method: 'POST',
       headers: {

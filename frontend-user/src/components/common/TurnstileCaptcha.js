@@ -9,8 +9,8 @@
 
 import React, { forwardRef, useImperativeHandle, useRef, useState, useEffect } from 'react';
 import { Turnstile } from '@marsidev/react-turnstile';
-import logger from '../utils/logger';
-import { configAPI } from '../services';
+import logger from '../../utils/logger';
+import { configAPI } from '../../services';
 import './TurnstileCaptcha.css';
 
 /**

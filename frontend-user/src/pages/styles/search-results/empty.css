@@ -162,8 +162,8 @@
 }
 
 [data-theme="light"] .btn-send:hover:not(:disabled) {
-  background: #0d8968;
-  border-color: #0d8968;
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
   transform: scale(1.05);
 }
 

@@ -10,7 +10,7 @@
  */
 
 import React, { memo } from 'react';
-import GoogleSignIn from '../../../components/GoogleSignIn';
+import GoogleSignIn from '../../../components/common/GoogleSignIn';
 
 const AccountTab = memo(({
   user,
@@ -633,6 +633,8 @@ const AccountTab = memo(({
               alt="恩特学术"
               width="20"
               height="20"
+              loading="lazy"
+              decoding="async"
               style={{ borderRadius: 4 }}
             />
           </div>

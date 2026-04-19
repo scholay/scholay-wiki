@@ -103,7 +103,7 @@
 .msg-modal-icon-success {
   background: linear-gradient(135deg, rgba(16, 163, 127, 0.15), rgba(5, 150, 105, 0.15));
   border: 2px solid rgba(16, 163, 127, 0.3);
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 .msg-modal-icon-warning {
@@ -248,7 +248,7 @@
 }
 
 [data-theme="light"] .msg-modal-container {
-  background: #ffffff;
+  background: var(--surface);
   border-color: rgba(0, 0, 0, 0.1);
   box-shadow: 0 32px 80px rgba(0, 0, 0, 0.15);
 }

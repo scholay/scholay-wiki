@@ -36,8 +36,7 @@ func (h *Handler) Log(c *gin.Context) {
 
 	// 获取用户ID（可能为空）
 	var userID *uint
-	if id, exists := c.Get("user_id"); exists {
-		uid := id.(uint)
+	if uid, ok := utils.GetOptionalUserID(c); ok {
 		userID = &uid
 	}
 

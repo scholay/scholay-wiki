@@ -13,12 +13,13 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Clock, Calendar, Search, FileText, BookOpen, Sparkles, Code } from 'lucide-react';
-import SEO from '../components/SEO';
+import SEO from '../components/common/SEO';
 import FeaturePromo from '../components/FeaturePromo';
 import resourceArticles, { RESOURCE_CATEGORIES } from './resourceArticles';
 import './styles/ResourcePage.css';
 
-const iconMap = {
+type IconComponentType = React.ComponentType<{ size?: number | string }>;
+const iconMap: Record<string, IconComponentType> = {
   Search,
   FileText,
   BookOpen,
@@ -26,13 +27,29 @@ const iconMap = {
   Code,
 };
 
-const ResourceCenterPage = () => {
-  const navigate = useNavigate();
-  const [activeCategory, setActiveCategory] = useState('all');
+interface ResourceArticle {
+  slug: string;
+  title: string;
+  category: string;
+  categoryIcon: string;
+  excerpt: string;
+  readTime: string;
+  date: string;
+}
 
-  const filteredArticles = useMemo(() => {
-    if (activeCategory === 'all') return resourceArticles;
-    return resourceArticles.filter(a => a.category === activeCategory);
+interface ResourceCategory {
+  id: string;
+  label: string;
+}
+
+const ResourceCenterPage: React.FC = () => {
+  const navigate = useNavigate();
+  const [activeCategory, setActiveCategory] = useState<string>('all');
+
+  const filteredArticles = useMemo<ResourceArticle[]>(() => {
+    const all = resourceArticles as unknown as ResourceArticle[];
+    if (activeCategory === 'all') return all;
+    return all.filter(a => a.category === activeCategory);
   }, [activeCategory]);
 
   const structuredData = {

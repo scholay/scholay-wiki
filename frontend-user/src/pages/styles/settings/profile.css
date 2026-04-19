@@ -294,7 +294,7 @@
 .membership-manage-btn:hover {
   background: rgba(16, 163, 127, 0.1);
   border-color: rgba(16, 163, 127, 0.4);
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 .profile-id {
@@ -916,7 +916,7 @@
 [data-theme="light"] .membership-manage-btn:hover {
   background: rgba(16, 163, 127, 0.08);
   border-color: rgba(16, 163, 127, 0.4);
-  color: #10a37f;
+  color: var(--primary-solid);
 }
 
 [data-theme="light"] .profile-bio-wrapper {

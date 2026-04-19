@@ -7,25 +7,26 @@
  * ============================================================================
  */
 
-import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
-import { flushSync } from 'react-dom';
+import React, { useState, useEffect, useRef, useMemo, useCallback, lazy, Suspense } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
+import { highlightOptions } from '../components/common/highlightLanguages';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../stores/sidebar.store';
 import api from '../services/client';
 import { conversationAPI } from '../services/conversation.api';
 import { trackAIAssistantChat } from '../utils/usageTracker';
 import logger from '../utils/logger';
-import Logo from '../components/Logo';
-import SEO from '../components/SEO';
+import useMessageStream from '../hooks/useMessageStream';
+import Logo from '../components/common/Logo';
+import SEO from '../components/common/SEO';
 import './styles/ChatPage.css';
 import 'highlight.js/styles/github-dark.css';
 
 // 懒加载 AuthModal
-const AuthModal = lazy(() => import('../components/AuthModal'));
+const AuthModal = lazy(() => import('../components/auth/AuthModal'));
 
 // Code Block Component with Copy Button (Memoized for performance)
 const CodeBlock = React.memo(({ inline, className, children, ...props }) => {
@@ -79,6 +80,71 @@ const CodeBlock = React.memo(({ inline, className, children, ...props }) => {
   );
 });
 
+// 面包屑 + 模型选择器（两处共用）
+const ChatNavControls = ({
+  navigate,
+  modelLevel,
+  setModelLevel,
+  showModelDropdown,
+  setShowModelDropdown,
+  isStreaming,
+  dropdownArrowStyle,
+}) => {
+  const modelLabel = modelLevel === 'low' ? '普通' : modelLevel === 'mid' ? '进阶' : '高级';
+  const modelOptions = [
+    { key: 'low', label: '普通' },
+    { key: 'mid', label: '进阶' },
+    { key: 'high', label: '高级' },
+  ];
+  return (
+    <>
+      <div className="chat-breadcrumb">
+        <button className="chat-breadcrumb-link" onClick={() => navigate('/assistant')}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+          </svg>
+          精品AI工具
+        </button>
+        <span className="chat-breadcrumb-separator">/</span>
+        <span className="chat-breadcrumb-current">AI 聊天</span>
+      </div>
+      <div className="model-selector-simple">
+        <button
+          type="button"
+          className="model-selector-simple-btn"
+          onClick={() => setShowModelDropdown(!showModelDropdown)}
+          disabled={isStreaming}
+        >
+          {modelLabel}
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={dropdownArrowStyle}>
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </button>
+        {showModelDropdown && (
+          <>
+            <div className="model-dropdown-overlay" onClick={() => setShowModelDropdown(false)} />
+            <div className="model-dropdown-menu">
+              {modelOptions.map(opt => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  className={`model-dropdown-item ${modelLevel === opt.key ? 'active' : ''}`}
+                  onClick={() => {
+                    setModelLevel(opt.key);
+                    setShowModelDropdown(false);
+                  }}
+                >
+                  <span>{opt.label}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </>
+  );
+};
+
 function ChatPage() {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
@@ -90,8 +156,6 @@ function ChatPage() {
   const [currentConversation, setCurrentConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [streamingContent, setStreamingContent] = useState('');
   const [loading, setLoading] = useState(false);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false); // Loading dots before streaming starts
   const [modelLevel, setModelLevel] = useState('low'); // 'low', 'mid', 'high' - AI chat model level
@@ -103,10 +167,68 @@ function ChatPage() {
   const [siblingInfo, setSiblingInfo] = useState({}); // Map of message_id -> {siblings, currentIndex, total}
   const [isComposing, setIsComposing] = useState(false); // 跟踪输入法状态
   const messagesEndRef = useRef(null);
-  const abortControllerRef = useRef(null);
   const textareaRef = useRef(null);
-  const loadingStartTimeRef = useRef(null); // Track when loading started for minimum display time
   const hoverTimeoutRef = useRef(null); // 用于延迟显示hover按钮
+
+  // 先声明 loadSiblings, 以便在 stream 回调中引用
+  const loadSiblings = useCallback(async (messageId) => {
+    try {
+      const response = await conversationAPI.getSiblingMessages(messageId);
+      if (response.data.code === 0) {
+        setSiblingInfo(prev => ({
+          ...prev,
+          [messageId]: {
+            siblings: response.data.data.siblings,
+            currentIndex: response.data.data.current_index,
+            total: response.data.data.total
+          }
+        }));
+      }
+    } catch (error) {
+      logger.error('Failed to load siblings:', error);
+    }
+  }, []);
+
+  // SSE 流式处理 hook —— 解耦流解析逻辑
+  const {
+    startStream,
+    abort: abortStream,
+    isStreaming,
+    streamedContent: streamingContent,
+  } = useMessageStream({
+    onConversationCreated: ({ conversationId, title }) => {
+      setCurrentConversation({ id: conversationId, title });
+    },
+    onUserMessageCreated: (userMessageId) => {
+      // 将临时用户消息替换为后端返回的真实 message_id
+      setMessages(prev => prev.map(msg =>
+        (msg.message_id.startsWith('temp-user-') || msg.message_id.startsWith('temp-'))
+          ? { ...msg, message_id: userMessageId }
+          : msg
+      ));
+    },
+    onFirstChunk: () => {
+      setIsWaitingForResponse(false);
+    },
+    onComplete: ({ messageId, parentMessageId, content, metadata }) => {
+      const assistantMessage = {
+        message_id: messageId,
+        role: 'assistant',
+        content,
+        parent_message_id: parentMessageId,
+        created_at: new Date().toISOString(),
+        token_count: metadata?.token_count,
+        finish_reason: metadata?.finish_reason,
+      };
+      setMessages(prev => [...prev, assistantMessage]);
+      if (messageId) {
+        loadSiblings(messageId);
+      }
+    },
+    onError: (err) => {
+      logger.error('Stream error:', err);
+    },
+  });
 
   // Memoize dropdown arrow style to prevent unnecessary re-renders
   const dropdownArrowStyle = useMemo(() => ({
@@ -213,68 +335,45 @@ function ChatPage() {
     }
   };
 
+  // 流式请求结束后统一的收尾
+  const finalizeStream = () => {
+    setIsWaitingForResponse(false);
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    }, 100);
+  };
+
   const createNewConversation = async (content) => {
-    // 检查是否登录，未登录则弹出登录弹窗
     if (!isAuthenticated) {
       setShowAuthModal(true);
       return;
     }
 
-    try {
-      setIsStreaming(true);
-      setStreamingContent('');
-      setIsWaitingForResponse(true); // Show loading dots
-      loadingStartTimeRef.current = Date.now(); // Track when loading started
+    setIsWaitingForResponse(true);
 
-      // Immediately add user message to UI (LibreChat style)
-      const tempUserMessage = {
-        message_id: `temp-user-${Date.now()}`,
-        role: 'user',
-        content: content,
-        parent_message_id: null,
-        created_at: new Date().toISOString()
-      };
-      setMessages([tempUserMessage]);
+    // Immediately add user message to UI (LibreChat style)
+    const tempUserMessage = {
+      message_id: `temp-user-${Date.now()}`,
+      role: 'user',
+      content,
+      parent_message_id: null,
+      created_at: new Date().toISOString()
+    };
+    setMessages([tempUserMessage]);
 
-      abortControllerRef.current = new AbortController();
-
-      const response = await fetch('/api/v1/user/conversations/chat/new', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('user_token')}`
-        },
-        body: JSON.stringify({
-          content,
-          model_level: modelLevel  // Pass selected model level
-        }),
-        signal: abortControllerRef.current.signal
-      });
-
-      await handleStreamResponse(response);
-      // Reload conversations to update sidebar history
-      await loadConversations();
-    } catch (error) {
-      if (error.name !== 'AbortError') {
-        logger.error('Failed to create conversation:', error);
-      }
-    } finally {
-      setIsStreaming(false);
-      setStreamingContent('');
-      setIsWaitingForResponse(false); // Hide loading dots
-      // 自动聚焦到输入框，方便用户继续对话
-      setTimeout(() => {
-        if (textareaRef.current) {
-          textareaRef.current.focus();
-        }
-      }, 100);
-    }
+    await startStream('/api/v1/user/conversations/chat/new', {
+      body: { content, model_level: modelLevel },
+    });
+    // Reload conversations to update sidebar history
+    await loadConversations();
+    finalizeStream();
   };
 
   const sendMessage = async (content) => {
     if (!content.trim()) return;
 
-    // 检查是否登录，未登录则弹出登录弹窗
     if (!isAuthenticated) {
       setShowAuthModal(true);
       return;
@@ -285,233 +384,41 @@ function ChatPage() {
       return;
     }
 
-    try {
-      setIsStreaming(true);
-      setStreamingContent('');
-      setIsWaitingForResponse(true); // Show loading dots
-      loadingStartTimeRef.current = Date.now(); // Track when loading started
+    setIsWaitingForResponse(true);
 
-      // Find the latest message ID to use as parent
-      const latestMessage = messages.length > 0 ? messages[messages.length - 1] : null;
-      const parentMessageId = latestMessage?.message_id || null;
+    // Find the latest message ID to use as parent
+    const latestMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+    const parentMessageId = latestMessage?.message_id || null;
 
-      const userMessage = {
-        message_id: `temp-${Date.now()}`,
-        role: 'user',
-        content: content,
-        parent_message_id: parentMessageId,  // Track parent for message chain
-        created_at: new Date().toISOString()
-      };
-      setMessages(prev => [...prev, userMessage]);
-
-      // Scroll user message to top of viewport after a short delay
-      setTimeout(() => {
-        const messagesContainer = messagesEndRef.current?.parentElement;
-        if (messagesContainer) {
-          const userMessageElements = messagesContainer.querySelectorAll('[data-role="user"]');
-          const lastUserMessage = userMessageElements[userMessageElements.length - 1];
-          if (lastUserMessage) {
-            lastUserMessage.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
-        }
-      }, 100);
-
-      abortControllerRef.current = new AbortController();
-
-      // Send parent_message_id and model_level to backend for context building
-      const response = await fetch(`/api/v1/user/conversations/${currentConversation.id}/chat/stream`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('user_token')}`
-        },
-        body: JSON.stringify({
-          content,
-          parent_message_id: parentMessageId,  // Critical: enables context chain
-          model_level: modelLevel  // Pass selected model level
-        }),
-        signal: abortControllerRef.current.signal
-      });
-
-      await handleStreamResponse(response);
-    } catch (error) {
-      if (error.name !== 'AbortError') {
-        logger.error('Failed to send message:', error);
-      }
-    } finally {
-      setIsStreaming(false);
-      setStreamingContent('');
-      setIsWaitingForResponse(false);
-      // 自动聚焦到输入框，方便用户继续对话
-      setTimeout(() => {
-        if (textareaRef.current) {
-          textareaRef.current.focus();
-        }
-      }, 100);
-    }
-  };
-
-  // Note: We no longer use a minimum display time for loading dots
-  // because we want to hide them immediately when streaming content arrives
-  // This prevents double indicators (loading dots + streaming cursor)
-
-  // eslint-disable-next-line no-loop-func
-  const handleStreamResponse = async (response) => {
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let assistantMessageId = null;
-    let parentMessageId = null;
-    let fullContent = '';
-    let userMessageId = null;
-    let messageEndReceived = false;
-
-    // Smooth streaming optimization: batch updates using requestAnimationFrame
-    let pendingContent = '';
-    let animationFrameId = null;
-
-    const updateStreamingContent = () => {
-      if (pendingContent !== fullContent) {
-        setStreamingContent(fullContent);
-        pendingContent = fullContent;
-      }
-      animationFrameId = null;
+    const userMessage = {
+      message_id: `temp-${Date.now()}`,
+      role: 'user',
+      content,
+      parent_message_id: parentMessageId,
+      created_at: new Date().toISOString()
     };
+    setMessages(prev => [...prev, userMessage]);
 
-    const scheduleUpdate = () => {
-      if (!animationFrameId) {
-        animationFrameId = requestAnimationFrame(updateStreamingContent);
-      }
-    };
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          logger.log('[AI Chat] Stream done');
-          // Final update to ensure all content is displayed
-          if (animationFrameId) {
-            cancelAnimationFrame(animationFrameId);
-          }
-          updateStreamingContent();
-          break;
-        }
-
-        const chunk = decoder.decode(value, { stream: true });
-        logger.log('[AI Chat] Received chunk, length:', chunk.length);
-        const lines = chunk.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const jsonStr = line.slice(6);
-              logger.log('[AI Chat] Received SSE line:', jsonStr.substring(0, 100));
-              const data = JSON.parse(jsonStr);
-
-              if (data.type === 'conversation_created') {
-                const newConvId = data.metadata.conversation_id;
-                const newConvTitle = data.metadata.title;
-
-                setCurrentConversation({
-                  id: newConvId,
-                  title: newConvTitle
-                });
-
-              } else if (data.type === 'user_message_created') {
-                // Update temp user message with real message_id from backend
-                userMessageId = data.message_id;
-                parentMessageId = userMessageId;
-
-                // eslint-disable-next-line no-loop-func
-                setMessages(prev => prev.map(msg =>
-                  msg.message_id.startsWith('temp-user-') || msg.message_id.startsWith('temp-')
-                    ? { ...msg, message_id: userMessageId }
-                    : msg
-                ));
-
-              } else if (data.type === 'message_start') {
-                assistantMessageId = data.message_id;
-                // Get parent_message_id from metadata (sent by backend)
-                parentMessageId = data.metadata?.parent_message_id || parentMessageId;
-                // Don't hide loading yet - wait for first content_delta
-              } else if (data.type === 'content_delta') {
-                const isFirstContent = fullContent === '';
-                fullContent += data.content;
-
-                if (isFirstContent) {
-                  // For the first content, use flushSync to ensure atomic state updates
-                  // This prevents both loading indicators from showing at the same time
-                  // eslint-disable-next-line no-loop-func
-                  flushSync(() => {
-                    setIsWaitingForResponse(false);
-                    setStreamingContent(fullContent);
-                  });
-                  pendingContent = fullContent;
-                  loadingStartTimeRef.current = null;
-                } else {
-                  // For subsequent content, use batched updates for smooth streaming
-                  scheduleUpdate();
-                }
-              } else if (data.type === 'message_end') {
-                const assistantMessage = {
-                  message_id: assistantMessageId,
-                  role: 'assistant',
-                  content: fullContent,
-                  parent_message_id: parentMessageId,  // Track parent for context chain
-                  created_at: new Date().toISOString(),
-                  token_count: data.metadata?.token_count,
-                  finish_reason: data.metadata?.finish_reason
-                };
-
-                setMessages(prev => [...prev, assistantMessage]);
-
-                // Load sibling info for the new assistant message
-                if (assistantMessageId) {
-                  loadSiblings(assistantMessageId);
-                }
-                fullContent = '';
-                parentMessageId = null;  // Reset for next message
-                messageEndReceived = true;
-              } else if (data.type === 'error') {
-                logger.error('Stream error:', data.error);
-              }
-            } catch (e) {
-              // Skip invalid JSON lines
-            }
-          }
+    // Scroll user message to top of viewport after a short delay
+    setTimeout(() => {
+      const messagesContainer = messagesEndRef.current?.parentElement;
+      if (messagesContainer) {
+        const userMessageElements = messagesContainer.querySelectorAll('[data-role="user"]');
+        const lastUserMessage = userMessageElements[userMessageElements.length - 1];
+        if (lastUserMessage) {
+          lastUserMessage.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       }
-    } catch (error) {
-      if (error.name !== 'AbortError') {
-        logger.error('Stream error:', error);
-        throw error;
-      }
-    } finally {
-      // If stream ended but we never received message_end, add whatever content we have
-      if (fullContent && !messageEndReceived && assistantMessageId) {
-        const assistantMessage = {
-          message_id: assistantMessageId,
-          role: 'assistant',
-          content: fullContent,
-          parent_message_id: parentMessageId,
-          created_at: new Date().toISOString()
-        };
-        setMessages(prev => [...prev, assistantMessage]);
-        if (assistantMessageId) {
-          loadSiblings(assistantMessageId);
-        }
-      }
+    }, 100);
 
-      // Refocus the input textarea after streaming completes
-      // This allows the user to immediately type their next question
-      if (textareaRef.current) {
-        textareaRef.current.focus();
-      }
-    }
-
-    // Wait a tick to ensure state updates are processed
-    if (messageEndReceived) {
-      await new Promise(resolve => setTimeout(resolve, 0));
-    }
+    await startStream(`/api/v1/user/conversations/${currentConversation.id}/chat/stream`, {
+      body: {
+        content,
+        parent_message_id: parentMessageId,
+        model_level: modelLevel,
+      },
+    });
+    finalizeStream();
   };
 
   const handleSubmit = (e) => {
@@ -528,11 +435,8 @@ function ChatPage() {
   };
 
   const stopStreaming = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    setIsStreaming(false);
-    setStreamingContent('');
+    abortStream();
+    setIsWaitingForResponse(false);
   };
 
   const copyToClipboard = (content) => {
@@ -540,39 +444,18 @@ function ChatPage() {
   };
 
   const regenerateMessage = async (messageId) => {
-    try {
-      setIsStreaming(true);
-      setStreamingContent('');
-      setIsWaitingForResponse(true); // Show loading dots
-      loadingStartTimeRef.current = Date.now(); // Track when loading started
+    setIsWaitingForResponse(true);
 
-      // Remove the old assistant message and any messages after it
-      const messageIndex = messages.findIndex(m => m.message_id === messageId);
-      if (messageIndex >= 0) {
-        setMessages(prev => prev.slice(0, messageIndex));
-      }
-
-      abortControllerRef.current = new AbortController();
-
-      const response = await fetch(`/api/v1/user/conversations/messages/${messageId}/regenerate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('user_token')}`
-        },
-        signal: abortControllerRef.current.signal
-      });
-
-      await handleStreamResponse(response);
-    } catch (error) {
-      if (error.name !== 'AbortError') {
-        logger.error('Failed to regenerate message:', error);
-      }
-    } finally {
-      setIsStreaming(false);
-      setStreamingContent('');
-      setIsWaitingForResponse(false); // Hide loading dots
+    // Remove the old assistant message and any messages after it
+    const messageIndex = messages.findIndex(m => m.message_id === messageId);
+    if (messageIndex >= 0) {
+      setMessages(prev => prev.slice(0, messageIndex));
     }
+
+    await startStream(`/api/v1/user/conversations/messages/${messageId}/regenerate`, {
+      method: 'POST',
+    });
+    setIsWaitingForResponse(false);
   };
 
   const startEditMessage = (message) => {
@@ -588,74 +471,34 @@ function ChatPage() {
   const saveEdit = async (messageId) => {
     if (!editContent.trim()) return;
 
-    try {
-      setIsStreaming(true);
-      setStreamingContent('');
-      setIsWaitingForResponse(true); // Show loading dots
-      loadingStartTimeRef.current = Date.now(); // Track when loading started
-      setEditingMessage(null);
+    setIsWaitingForResponse(true);
+    setEditingMessage(null);
 
-      // Find the message being edited and get the parent context
-      const messageIndex = messages.findIndex(m => m.message_id === messageId);
-      const editedMessage = messages[messageIndex];
-      const parentMessageId = messageIndex > 0 ? messages[messageIndex - 1].message_id : null;
+    // Find the message being edited and get the parent context
+    const messageIndex = messages.findIndex(m => m.message_id === messageId);
+    const editedMessage = messages[messageIndex];
+    const parentMessageId = messageIndex > 0 ? messages[messageIndex - 1].message_id : null;
 
-      // Remove the edited message and everything after it
-      if (messageIndex >= 0) {
-        setMessages(prev => prev.slice(0, messageIndex));
-      }
-
-      // Add the edited user message to UI immediately
-      const updatedUserMessage = {
-        message_id: messageId,
-        role: 'user',
-        content: editContent,
-        parent_message_id: parentMessageId,
-        created_at: editedMessage?.created_at || new Date().toISOString()
-      };
-      setMessages(prev => [...prev, updatedUserMessage]);
-
-      abortControllerRef.current = new AbortController();
-
-      const response = await fetch(`/api/v1/user/conversations/messages/${messageId}/edit`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('user_token')}`
-        },
-        body: JSON.stringify({ content: editContent }),
-        signal: abortControllerRef.current.signal
-      });
-
-      await handleStreamResponse(response);
-    } catch (error) {
-      if (error.name !== 'AbortError') {
-        logger.error('Failed to edit message:', error);
-      }
-    } finally {
-      setIsStreaming(false);
-      setStreamingContent('');
-      setIsWaitingForResponse(false); // Hide loading dots
-      setEditContent('');
+    // Remove the edited message and everything after it
+    if (messageIndex >= 0) {
+      setMessages(prev => prev.slice(0, messageIndex));
     }
-  };
 
-  const loadSiblings = async (messageId) => {
-    try {
-      const response = await conversationAPI.getSiblingMessages(messageId);
-      if (response.data.code === 0) {
-        setSiblingInfo(prev => ({
-          ...prev,
-          [messageId]: {
-            siblings: response.data.data.siblings,
-            currentIndex: response.data.data.current_index,
-            total: response.data.data.total
-          }
-        }));
-      }
-    } catch (error) {
-      logger.error('Failed to load siblings:', error);
-    }
+    // Add the edited user message to UI immediately
+    const updatedUserMessage = {
+      message_id: messageId,
+      role: 'user',
+      content: editContent,
+      parent_message_id: parentMessageId,
+      created_at: editedMessage?.created_at || new Date().toISOString()
+    };
+    setMessages(prev => [...prev, updatedUserMessage]);
+
+    await startStream(`/api/v1/user/conversations/messages/${messageId}/edit`, {
+      body: { content: editContent },
+    });
+    setIsWaitingForResponse(false);
+    setEditContent('');
   };
 
   const navigateToSibling = async (messageId, direction) => {
@@ -763,76 +606,15 @@ function ChatPage() {
             <div className="empty-search-layout">
               <nav className="empty-navbar">
                 <div className="navbar-left-group">
-                  {/* 面包屑导航 */}
-                  <div className="chat-breadcrumb">
-                    <button className="chat-breadcrumb-link" onClick={() => navigate('/assistant')}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-                      </svg>
-                      精品AI工具
-                    </button>
-                    <span className="chat-breadcrumb-separator">/</span>
-                    <span className="chat-breadcrumb-current">AI 聊天</span>
-                  </div>
-                  {/* Lightweight Model Selector with quota display */}
-                  <div className="model-selector-simple">
-                    <button
-                      type="button"
-                      className="model-selector-simple-btn"
-                      onClick={() => setShowModelDropdown(!showModelDropdown)}
-                      disabled={isStreaming}
-                    >
-                      {modelLevel === 'low' ? '普通' : modelLevel === 'mid' ? '进阶' : '高级'}
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        style={dropdownArrowStyle}
-                      >
-                        <path d="M6 9l6 6 6-6"/>
-                      </svg>
-                    </button>
-                    {showModelDropdown && (
-                      <>
-                        <div className="model-dropdown-overlay" onClick={() => setShowModelDropdown(false)} />
-                        <div className="model-dropdown-menu">
-                          <button
-                            type="button"
-                            className={`model-dropdown-item ${modelLevel === 'low' ? 'active' : ''}`}
-                            onClick={() => {
-                              setModelLevel('low');
-                              setShowModelDropdown(false);
-                            }}
-                          >
-                            <span>普通</span>
-                          </button>
-                          <button
-                            type="button"
-                            className={`model-dropdown-item ${modelLevel === 'mid' ? 'active' : ''}`}
-                            onClick={() => {
-                              setModelLevel('mid');
-                              setShowModelDropdown(false);
-                            }}
-                          >
-                            <span>进阶</span>
-                          </button>
-                          <button
-                            type="button"
-                            className={`model-dropdown-item ${modelLevel === 'high' ? 'active' : ''}`}
-                            onClick={() => {
-                              setModelLevel('high');
-                              setShowModelDropdown(false);
-                            }}
-                          >
-                            <span>高级</span>
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
+                  <ChatNavControls
+                    navigate={navigate}
+                    modelLevel={modelLevel}
+                    setModelLevel={setModelLevel}
+                    showModelDropdown={showModelDropdown}
+                    setShowModelDropdown={setShowModelDropdown}
+                    isStreaming={isStreaming}
+                    dropdownArrowStyle={dropdownArrowStyle}
+                  />
                 </div>
               </nav>
               <div className="welcome-container">
@@ -884,76 +666,15 @@ function ChatPage() {
             <div className="chat-view">
               <nav className="results-navbar">
                 <div className="navbar-title-group">
-                  {/* 面包屑导航 */}
-                  <div className="chat-breadcrumb">
-                    <button className="chat-breadcrumb-link" onClick={() => navigate('/assistant')}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-                      </svg>
-                      精品AI工具
-                    </button>
-                    <span className="chat-breadcrumb-separator">/</span>
-                    <span className="chat-breadcrumb-current">AI 聊天</span>
-                  </div>
-                  {/* Lightweight Model Selector with quota display */}
-                  <div className="model-selector-simple">
-                    <button
-                      type="button"
-                      className="model-selector-simple-btn"
-                      onClick={() => setShowModelDropdown(!showModelDropdown)}
-                      disabled={isStreaming}
-                    >
-                      {modelLevel === 'low' ? '普通' : modelLevel === 'mid' ? '进阶' : '高级'}
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        style={dropdownArrowStyle}
-                      >
-                        <path d="M6 9l6 6 6-6"/>
-                      </svg>
-                    </button>
-                    {showModelDropdown && (
-                      <>
-                        <div className="model-dropdown-overlay" onClick={() => setShowModelDropdown(false)} />
-                        <div className="model-dropdown-menu">
-                          <button
-                            type="button"
-                            className={`model-dropdown-item ${modelLevel === 'low' ? 'active' : ''}`}
-                            onClick={() => {
-                              setModelLevel('low');
-                              setShowModelDropdown(false);
-                            }}
-                          >
-                            <span>普通</span>
-                          </button>
-                          <button
-                            type="button"
-                            className={`model-dropdown-item ${modelLevel === 'mid' ? 'active' : ''}`}
-                            onClick={() => {
-                              setModelLevel('mid');
-                              setShowModelDropdown(false);
-                            }}
-                          >
-                            <span>进阶</span>
-                          </button>
-                          <button
-                            type="button"
-                            className={`model-dropdown-item ${modelLevel === 'high' ? 'active' : ''}`}
-                            onClick={() => {
-                              setModelLevel('high');
-                              setShowModelDropdown(false);
-                            }}
-                          >
-                            <span>高级</span>
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
+                  <ChatNavControls
+                    navigate={navigate}
+                    modelLevel={modelLevel}
+                    setModelLevel={setModelLevel}
+                    showModelDropdown={showModelDropdown}
+                    setShowModelDropdown={setShowModelDropdown}
+                    isStreaming={isStreaming}
+                    dropdownArrowStyle={dropdownArrowStyle}
+                  />
                   <button className="new-conversation-btn" onClick={handleNewConversation} title="新建对话">
                     <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
                       <path d="M2.6687 11.333V8.66699C2.6687 7.74455 2.66841 7.01205 2.71655 6.42285C2.76533 5.82612 2.86699 5.31731 3.10425 4.85156L3.25854 4.57617C3.64272 3.94975 4.19392 3.43995 4.85229 3.10449L5.02905 3.02149C5.44666 2.84233 5.90133 2.75849 6.42358 2.71582C7.01272 2.66769 7.74445 2.66797 8.66675 2.66797H9.16675C9.53393 2.66797 9.83165 2.96586 9.83179 3.33301C9.83179 3.70028 9.53402 3.99805 9.16675 3.99805H8.66675C7.7226 3.99805 7.05438 3.99834 6.53198 4.04102C6.14611 4.07254 5.87277 4.12568 5.65601 4.20313L5.45581 4.28906C5.01645 4.51293 4.64872 4.85345 4.39233 5.27149L4.28979 5.45508C4.16388 5.7022 4.08381 6.01663 4.04175 6.53125C3.99906 7.05373 3.99878 7.7226 3.99878 8.66699V11.333C3.99878 12.2774 3.99906 12.9463 4.04175 13.4688C4.08381 13.9833 4.16389 14.2978 4.28979 14.5449L4.39233 14.7285C4.64871 15.1465 5.01648 15.4871 5.45581 15.7109L5.65601 15.7969C5.87276 15.8743 6.14614 15.9265 6.53198 15.958C7.05439 16.0007 7.72256 16.002 8.66675 16.002H11.3337C12.2779 16.002 12.9461 16.0007 13.4685 15.958C13.9829 15.916 14.2976 15.8367 14.5447 15.7109L14.7292 15.6074C15.147 15.3511 15.4879 14.9841 15.7117 14.5449L15.7976 14.3447C15.8751 14.128 15.9272 13.8546 15.9587 13.4688C16.0014 12.9463 16.0017 12.2774 16.0017 11.333V10.833C16.0018 10.466 16.2997 10.1681 16.6667 10.168C17.0339 10.168 17.3316 10.4659 17.3318 10.833V11.333C17.3318 12.2555 17.3331 12.9879 17.2849 13.5771C17.2422 14.0993 17.1584 14.5541 16.9792 14.9717L16.8962 15.1484C16.5609 15.8066 16.0507 16.3571 15.4246 16.7412L15.1492 16.8955C14.6833 17.1329 14.1739 17.2354 13.5769 17.2842C12.9878 17.3323 12.256 17.332 11.3337 17.332H8.66675C7.74446 17.332 7.01271 17.3323 6.42358 17.2842C5.90135 17.2415 5.44665 17.1577 5.02905 16.9785L4.85229 16.8955C4.19396 16.5601 3.64271 16.0502 3.25854 15.4238L3.10425 15.1484C2.86697 14.6827 2.76534 14.1739 2.71655 13.5771C2.66841 12.9879 2.6687 12.2555 2.6687 11.333ZM13.4646 3.11328C14.4201 2.334 15.8288 2.38969 16.7195 3.28027L16.8865 3.46485C17.6141 4.35685 17.6143 5.64423 16.8865 6.53613L16.7195 6.7207L11.6726 11.7686C11.1373 12.3039 10.4624 12.6746 9.72827 12.8408L9.41089 12.8994L7.59351 13.1582C7.38637 13.1877 7.17701 13.1187 7.02905 12.9707C6.88112 12.8227 6.81199 12.6134 6.84155 12.4063L7.10132 10.5898L7.15991 10.2715C7.3262 9.53749 7.69692 8.86241 8.23218 8.32715L13.2791 3.28027L13.4646 3.11328ZM15.7791 4.2207C15.3753 3.81702 14.7366 3.79124 14.3035 4.14453L14.2195 4.2207L9.17261 9.26856C8.81541 9.62578 8.56774 10.0756 8.45679 10.5654L8.41772 10.7773L8.28296 11.7158L9.22241 11.582L9.43433 11.543C9.92426 11.432 10.3749 11.1844 10.7322 10.8271L15.7791 5.78027L15.8552 5.69629C16.185 5.29194 16.1852 4.708 15.8552 4.30371L15.7791 4.2207Z"/>
@@ -1045,7 +766,7 @@ function ChatPage() {
                                 <div className="message-content">
                                   <ReactMarkdown
                                     remarkPlugins={[remarkGfm]}
-                                    rehypePlugins={[rehypeHighlight]}
+                                    rehypePlugins={[[rehypeHighlight, highlightOptions]]}
                                     components={{
                                       code: CodeBlock
                                     }}
@@ -1138,7 +859,7 @@ function ChatPage() {
                             <div className="message-content streaming">
                               <ReactMarkdown
                                 remarkPlugins={[remarkGfm]}
-                                rehypePlugins={[rehypeHighlight]}
+                                rehypePlugins={[[rehypeHighlight, highlightOptions]]}
                                 components={{
                                   code: CodeBlock
                                 }}

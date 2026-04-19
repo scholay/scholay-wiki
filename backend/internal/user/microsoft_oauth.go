@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"scholar-backend/internal/common/cache"
+	"scholar-backend/internal/common/httpclient"
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
 
@@ -27,14 +28,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var microsoftHTTPClient = &http.Client{
-	Timeout: 10 * time.Second,
-	Transport: &http.Transport{
-		MaxIdleConns:        20,
-		MaxIdleConnsPerHost: 10,
-		IdleConnTimeout:     90 * time.Second,
-	},
-}
+var microsoftHTTPClient = httpclient.OAuthClient
 
 // MicrosoftUser represents Microsoft user info from Graph API
 type MicrosoftUser struct {
@@ -316,9 +310,8 @@ func (h *Handler) findOrCreateMicrosoftUser(msUser *MicrosoftUser, ip string) (*
 
 // BindMicrosoftAccount handles Microsoft account binding
 func (h *Handler) BindMicrosoftAccount(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
@@ -356,7 +349,7 @@ func (h *Handler) BindMicrosoftAccount(c *gin.Context) {
 		return
 	}
 	if existing != nil {
-		if existing.UserID == userID.(uint) {
+		if existing.UserID == userID {
 			utils.ErrorResponse(c, http.StatusBadRequest, "This Microsoft account is already bound to your account")
 		} else {
 			utils.ErrorResponse(c, http.StatusBadRequest, "This Microsoft account is already bound to another user")
@@ -374,7 +367,7 @@ func (h *Handler) BindMicrosoftAccount(c *gin.Context) {
 	providerDataJSON := string(providerDataBytes)
 
 	authProvider := &UserAuthProvider{
-		UserID:         userID.(uint),
+		UserID:         userID,
 		Provider:       "microsoft",
 		ProviderUserID: msUser.ID,
 		ProviderData:   &providerDataJSON,
@@ -390,12 +383,11 @@ func (h *Handler) BindMicrosoftAccount(c *gin.Context) {
 
 // UnbindMicrosoft handles Microsoft account unbinding
 func (h *Handler) UnbindMicrosoft(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
-	err := h.service.UnbindMicrosoft(userID.(uint))
+	err := h.service.UnbindMicrosoft(userID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
