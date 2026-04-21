@@ -239,39 +239,15 @@ const SearchResultsPage = () => {
     };
   }, [searchState.viewMode, searchState.showDetailSearch, searchState.papersContainerRef, searchState]);
 
-  // 论文详情加载后，重置标签页数据并加载当前 Tab
+  // 论文详情加载后：仅重置标签页数据，不再预拉任何 Tab 内容。
+  // 引用/参考/相似论文都是付费 minicod 接口，用户未点 Tab 就不发请求。
+  // 实际加载由 PaperDetailView 里 tab 按钮的 onClick 懒触发（无数据时才调）。
   useEffect(() => {
     if (paperDetail.detailPaper && searchState.viewMode === 'paper') {
       paperDetail.resetDetailData();
-      // 加载当前激活 Tab 的数据（默认 citations）
-      const tab = paperDetail.detailActiveTab;
-      // 使用 setTimeout 确保 resetDetailData 状态已更新
-      setTimeout(() => {
-        if (tab === 'citations') {
-          paperDetail.loadCitations(1, searchState.setSelectedPaper);
-        } else if (tab === 'references') {
-          paperDetail.loadReferences(1, searchState.setSelectedPaper);
-        } else if (tab === 'similar') {
-          paperDetail.loadSimilarPapers(1, false, searchState.setSelectedPaper);
-        }
-      }, 0);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paperDetail.detailPaper, searchState.viewMode]);
-
-  // 切换 Tab 时加载对应数据
-  useEffect(() => {
-    if (!paperDetail.detailPaper || searchState.viewMode !== 'paper') return;
-
-    if (paperDetail.detailActiveTab === 'citations' && paperDetail.citationsData.papers.length === 0 && paperDetail.citationsData.total === 0) {
-      paperDetail.loadCitations(1, searchState.setSelectedPaper);
-    } else if (paperDetail.detailActiveTab === 'references' && paperDetail.referencesData.papers.length === 0 && paperDetail.referencesData.total === 0) {
-      paperDetail.loadReferences(1, searchState.setSelectedPaper);
-    } else if (paperDetail.detailActiveTab === 'similar' && paperDetail.similarPapersData.papers.length === 0 && paperDetail.similarPapersData.total === 0) {
-      paperDetail.loadSimilarPapers(1, false, searchState.setSelectedPaper);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paperDetail.detailActiveTab]);
 
   // 监听相似论文列表滚动和点击
   useEffect(() => {

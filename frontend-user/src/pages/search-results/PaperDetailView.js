@@ -391,20 +391,38 @@ const PaperDetailView = ({ paperDetail, searchState }) => {
         {/* 引用文献 & 参考文献 & 相似论文 Tabs */}
         <div className="epd-section epd-citations-refs">
           <div className="epd-tabs">
-            <button className={`epd-tab ${detailActiveTab === 'citations' ? 'active' : ''}`} onClick={() => { setDetailActiveTab('citations'); setDetailHeaderCollapsed(false); setSelectedPaper(null); }}>
+            <button className={`epd-tab ${detailActiveTab === 'citations' ? 'active' : ''}`} onClick={() => {
+              setDetailActiveTab('citations');
+              setDetailHeaderCollapsed(false);
+              setSelectedPaper(null);
+              // 懒加载：仅当当前无数据时才触发请求，避免 tab 切换来回时的重复调用
+              if (citationsData.papers.length === 0 && citationsData.total === 0) {
+                loadCitations(1, setSelectedPaper);
+              }
+            }}>
               引用文献 <span className="epd-tab-count">{detailPaper.citationCount || 0}</span>
             </button>
-            <button className={`epd-tab ${detailActiveTab === 'references' ? 'active' : ''}`} onClick={() => { setDetailActiveTab('references'); setDetailHeaderCollapsed(false); setSelectedPaper(null); }}>
+            <button className={`epd-tab ${detailActiveTab === 'references' ? 'active' : ''}`} onClick={() => {
+              setDetailActiveTab('references');
+              setDetailHeaderCollapsed(false);
+              setSelectedPaper(null);
+              if (referencesData.papers.length === 0 && referencesData.total === 0) {
+                loadReferences(1, setSelectedPaper);
+              }
+            }}>
               参考文献 <span className="epd-tab-count">{detailPaper.referenceCount || 0}</span>
             </button>
             <button
               ref={similarPapersTabRef}
               className={`epd-tab epd-tab-similar ${detailActiveTab === 'similar' ? 'active' : ''}`}
-              onClick={() => { 
-                setDetailActiveTab('similar'); 
-                setDetailHeaderCollapsed(true); 
-                handleSimilarTabClick(); 
+              onClick={() => {
+                setDetailActiveTab('similar');
+                setDetailHeaderCollapsed(true);
+                handleSimilarTabClick();
                 setSelectedPaper(null);
+                if (similarPapersData.papers.length === 0 && similarPapersData.total === 0) {
+                  loadSimilarPapers(1, false, setSelectedPaper);
+                }
                 // 记录详情页相似论文 tab 点击
                 trackDetailPageSimilar(detailPaperId);
               }}

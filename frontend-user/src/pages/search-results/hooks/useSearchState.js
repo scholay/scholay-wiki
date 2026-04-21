@@ -180,6 +180,9 @@ export const useSearchState = () => {
   const textareaRef = useRef(null);
   const returnedFromLogin = useRef(false);
   const returnedToSimilarTable = useRef(false);
+  // 用于取消前一次飞行中的搜索：用户快速切换筛选/翻页时，旧请求直接 abort，
+  // 既节省 minicod 付费调用，也避免旧结果覆盖新结果的竞态。
+  const searchAbortRef = useRef(null);
   const hasClickedSimilarTabRef = useRef(false);
   const hasClickedSimilarTableBtnRef = useRef(false);
   const hasClickedAuthorTableBtnRef = useRef(false);
@@ -237,11 +240,22 @@ export const useSearchState = () => {
     const cachedResult = searchResultsCache.get(cacheKey);
     if (cachedResult) {
       logger.log('[Search] Cache hit:', cacheKey);
+      // 命中缓存前仍要 abort 之前的飞行请求（避免旧结果后到覆盖缓存命中的新结果）
+      if (searchAbortRef.current) {
+        searchAbortRef.current.abort();
+      }
       setPapers(cachedResult.papers);
       setTotal(cachedResult.total);
       setQueryInfo(cachedResult.queryInfo);
       return;
     }
+
+    // 取消上一次仍在飞行的搜索
+    if (searchAbortRef.current) {
+      searchAbortRef.current.abort();
+    }
+    const controller = new AbortController();
+    searchAbortRef.current = controller;
 
     setLoading(true);
 
@@ -287,7 +301,7 @@ export const useSearchState = () => {
         params.minCitationCount = parseInt(currentFilters.minCitationCount, 10);
       }
 
-      const response = await publicScholarAPI.searchPapers(params);
+      const response = await publicScholarAPI.searchPapers(params, { signal: controller.signal });
 
       if (response.data.code === 0 && response.data.data) {
         const responseData = response.data.data;
@@ -334,10 +348,20 @@ export const useSearchState = () => {
         });
       }
     } catch (error) {
+      // 用户触发新搜索导致的主动取消：静默忽略，不要弹 alert 骚扰
+      if (controller.signal.aborted || error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+        logger.log('[Search] aborted by newer request');
+        return;
+      }
       logger.error('搜索失败:', error);
       alert('搜索失败: ' + (error.response?.data?.message || error.message));
     } finally {
-      setLoading(false);
+      // 仅当当前 controller 仍是"最新飞行"时才复位 loading 和 ref
+      // 如果已被更新的 performSearch 覆盖，则由新调用负责 loading 状态
+      if (searchAbortRef.current === controller) {
+        searchAbortRef.current = null;
+        setLoading(false);
+      }
     }
   }, [cachedSuggestions, papersPerPage, buildSearchCacheKey, searchSource]);
 

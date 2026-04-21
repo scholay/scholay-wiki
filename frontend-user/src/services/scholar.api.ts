@@ -15,7 +15,8 @@ export const scholarAPI = {
 };
 
 export const publicScholarAPI = {
-  searchPapers: (params: SearchParams) => publicApi.post('/papers/search', params),
+  searchPapers: (params: SearchParams, config?: { signal?: AbortSignal }) =>
+    publicApi.post('/papers/search', params, config),
 
   getPaper: (paperId: string, fields?: string) =>
     publicApi.get(`/papers/${paperId}`, {

@@ -14,6 +14,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/circuitbreaker"
 	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/thirdparty"
@@ -123,6 +124,31 @@ func (m *Manager) getClientWithAccountID() (*Client, uint, error) {
 // ======================== Paper Methods ========================
 
 func (m *Manager) SearchPapers(ctx context.Context, opts PaperSearchOptions) (*SearchResponse, error) {
+	params := map[string]any{
+		"query":            opts.Query,
+		"yearFrom":         opts.YearFrom,
+		"yearTo":           opts.YearTo,
+		"publicationTypes": opts.PublicationTypes,
+		"openAccessPDF":    opts.OpenAccessPDF,
+		"venue":            opts.Venue,
+		"fieldsOfStudy":    opts.FieldsOfStudy,
+		"fields":           opts.Fields,
+		"offset":           opts.Offset,
+		"limit":            opts.Limit,
+		"minCitations":     opts.MinCitationCount,
+		"source":           opts.Source,
+	}
+	var resp SearchResponse
+	err := cache.GetOrSetMinicodSearch(ctx, params, func() (any, error) {
+		return m.fetchSearchPapers(ctx, opts)
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (m *Manager) fetchSearchPapers(ctx context.Context, opts PaperSearchOptions) (*SearchResponse, error) {
 	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
 		return m.executeWithRetry(func(client *Client) (any, error) {
 			return client.SearchPapers(ctx, opts)
@@ -138,6 +164,17 @@ func (m *Manager) SearchPapers(ctx context.Context, opts PaperSearchOptions) (*S
 }
 
 func (m *Manager) GetPaper(ctx context.Context, paperID string, opts PaperDetailsOptions) (*Paper, error) {
+	var resp Paper
+	err := cache.GetOrSetMinicodPaper(ctx, paperID, opts.Fields, func() (any, error) {
+		return m.fetchGetPaper(ctx, paperID, opts)
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (m *Manager) fetchGetPaper(ctx context.Context, paperID string, opts PaperDetailsOptions) (*Paper, error) {
 	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
 		return m.executeWithRetry(func(client *Client) (any, error) {
 			return client.GetPaper(ctx, paperID, opts)
@@ -153,6 +190,17 @@ func (m *Manager) GetPaper(ctx context.Context, paperID string, opts PaperDetail
 }
 
 func (m *Manager) GetPaperBatch(ctx context.Context, paperIDs []string, fields []string) ([]Paper, error) {
+	var resp []Paper
+	err := cache.GetOrSetMinicodPaperBatch(ctx, paperIDs, fields, func() (any, error) {
+		return m.fetchGetPaperBatch(ctx, paperIDs, fields)
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (m *Manager) fetchGetPaperBatch(ctx context.Context, paperIDs []string, fields []string) ([]Paper, error) {
 	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
 		return m.executeWithRetry(func(client *Client) (any, error) {
 			return client.GetPaperBatch(ctx, paperIDs, fields)
@@ -168,6 +216,18 @@ func (m *Manager) GetPaperBatch(ctx context.Context, paperIDs []string, fields [
 }
 
 func (m *Manager) GetPaperCitations(ctx context.Context, paperID string, opts CitationsOptions) (*CitationsResponse, error) {
+	params := map[string]any{"fields": opts.Fields, "offset": opts.Offset, "limit": opts.Limit}
+	var resp CitationsResponse
+	err := cache.GetOrSetMinicodCitations(ctx, paperID, params, func() (any, error) {
+		return m.fetchGetPaperCitations(ctx, paperID, opts)
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (m *Manager) fetchGetPaperCitations(ctx context.Context, paperID string, opts CitationsOptions) (*CitationsResponse, error) {
 	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
 		return m.executeWithRetry(func(client *Client) (any, error) {
 			return client.GetPaperCitations(ctx, paperID, opts)
@@ -183,6 +243,18 @@ func (m *Manager) GetPaperCitations(ctx context.Context, paperID string, opts Ci
 }
 
 func (m *Manager) GetPaperReferences(ctx context.Context, paperID string, opts CitationsOptions) (*ReferencesResponse, error) {
+	params := map[string]any{"fields": opts.Fields, "offset": opts.Offset, "limit": opts.Limit}
+	var resp ReferencesResponse
+	err := cache.GetOrSetMinicodReferences(ctx, paperID, params, func() (any, error) {
+		return m.fetchGetPaperReferences(ctx, paperID, opts)
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (m *Manager) fetchGetPaperReferences(ctx context.Context, paperID string, opts CitationsOptions) (*ReferencesResponse, error) {
 	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
 		return m.executeWithRetry(func(client *Client) (any, error) {
 			return client.GetPaperReferences(ctx, paperID, opts)
@@ -198,6 +270,17 @@ func (m *Manager) GetPaperReferences(ctx context.Context, paperID string, opts C
 }
 
 func (m *Manager) GetPaperAuthors(ctx context.Context, paperID string, fields []string, offset, limit int) (*AuthorSearchResponse, error) {
+	var resp AuthorSearchResponse
+	err := cache.GetOrSetMinicodPaperAuthors(ctx, paperID, fields, offset, limit, func() (any, error) {
+		return m.fetchGetPaperAuthors(ctx, paperID, fields, offset, limit)
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (m *Manager) fetchGetPaperAuthors(ctx context.Context, paperID string, fields []string, offset, limit int) (*AuthorSearchResponse, error) {
 	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
 		return m.executeWithRetry(func(client *Client) (any, error) {
 			return client.GetPaperAuthors(ctx, paperID, fields, offset, limit)
@@ -213,6 +296,17 @@ func (m *Manager) GetPaperAuthors(ctx context.Context, paperID string, fields []
 }
 
 func (m *Manager) PaperAutocomplete(ctx context.Context, query, source string) (*AutocompleteResponse, error) {
+	var resp AutocompleteResponse
+	err := cache.GetOrSetMinicodAutocomplete(ctx, query, source, func() (any, error) {
+		return m.fetchPaperAutocomplete(ctx, query, source)
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (m *Manager) fetchPaperAutocomplete(ctx context.Context, query, source string) (*AutocompleteResponse, error) {
 	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
 		return m.executeWithRetry(func(client *Client) (any, error) {
 			return client.PaperAutocomplete(ctx, query, source)
@@ -230,6 +324,24 @@ func (m *Manager) PaperAutocomplete(ctx context.Context, query, source string) (
 // ======================== Author Methods ========================
 
 func (m *Manager) SearchAuthors(ctx context.Context, opts AuthorSearchOptions) (*AuthorSearchResponse, error) {
+	params := map[string]any{
+		"query":  opts.Query,
+		"fields": opts.Fields,
+		"offset": opts.Offset,
+		"limit":  opts.Limit,
+		"source": opts.Source,
+	}
+	var resp AuthorSearchResponse
+	err := cache.GetOrSetMinicodAuthorSearch(ctx, params, func() (any, error) {
+		return m.fetchSearchAuthors(ctx, opts)
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (m *Manager) fetchSearchAuthors(ctx context.Context, opts AuthorSearchOptions) (*AuthorSearchResponse, error) {
 	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
 		return m.executeWithRetry(func(client *Client) (any, error) {
 			return client.SearchAuthors(ctx, opts)
@@ -245,6 +357,17 @@ func (m *Manager) SearchAuthors(ctx context.Context, opts AuthorSearchOptions) (
 }
 
 func (m *Manager) GetAuthor(ctx context.Context, authorID string, fields []string) (*Author, error) {
+	var resp Author
+	err := cache.GetOrSetMinicodAuthor(ctx, authorID, fields, func() (any, error) {
+		return m.fetchGetAuthor(ctx, authorID, fields)
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (m *Manager) fetchGetAuthor(ctx context.Context, authorID string, fields []string) (*Author, error) {
 	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
 		return m.executeWithRetry(func(client *Client) (any, error) {
 			return client.GetAuthor(ctx, authorID, fields)
@@ -260,6 +383,17 @@ func (m *Manager) GetAuthor(ctx context.Context, authorID string, fields []strin
 }
 
 func (m *Manager) GetAuthorPapers(ctx context.Context, authorID string, fields []string, offset, limit int) (*SearchResponse, error) {
+	var resp SearchResponse
+	err := cache.GetOrSetMinicodAuthorPapers(ctx, authorID, fields, offset, limit, func() (any, error) {
+		return m.fetchGetAuthorPapers(ctx, authorID, fields, offset, limit)
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (m *Manager) fetchGetAuthorPapers(ctx context.Context, authorID string, fields []string, offset, limit int) (*SearchResponse, error) {
 	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
 		return m.executeWithRetry(func(client *Client) (any, error) {
 			return client.GetAuthorPapers(ctx, authorID, fields, offset, limit)
@@ -277,6 +411,18 @@ func (m *Manager) GetAuthorPapers(ctx context.Context, authorID string, fields [
 // ======================== Recommendation Methods ========================
 
 func (m *Manager) GetRecommendationsForPaper(ctx context.Context, paperID string, opts RecommendationsOptions) (*RecommendationsResponse, error) {
+	params := map[string]any{"fields": opts.Fields, "limit": opts.Limit}
+	var resp RecommendationsResponse
+	err := cache.GetOrSetMinicodRecForPaper(ctx, paperID, params, func() (any, error) {
+		return m.fetchGetRecommendationsForPaper(ctx, paperID, opts)
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (m *Manager) fetchGetRecommendationsForPaper(ctx context.Context, paperID string, opts RecommendationsOptions) (*RecommendationsResponse, error) {
 	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
 		return m.executeWithRetry(func(client *Client) (any, error) {
 			return client.GetRecommendationsForPaper(ctx, paperID, opts)
@@ -292,6 +438,23 @@ func (m *Manager) GetRecommendationsForPaper(ctx context.Context, paperID string
 }
 
 func (m *Manager) GetRecommendations(ctx context.Context, opts RecommendationsOptions) (*RecommendationsResponse, error) {
+	params := map[string]any{
+		"fields":      opts.Fields,
+		"limit":       opts.Limit,
+		"positiveIds": opts.PositivePaperIDs,
+		"negativeIds": opts.NegativePaperIDs,
+	}
+	var resp RecommendationsResponse
+	err := cache.GetOrSetMinicodRec(ctx, params, func() (any, error) {
+		return m.fetchGetRecommendations(ctx, opts)
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (m *Manager) fetchGetRecommendations(ctx context.Context, opts RecommendationsOptions) (*RecommendationsResponse, error) {
 	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
 		return m.executeWithRetry(func(client *Client) (any, error) {
 			return client.GetRecommendations(ctx, opts)
@@ -320,6 +483,17 @@ func (m *Manager) GetSearchSuggestions(ctx context.Context, query, source string
 		authorLimit = 5
 	}
 
+	var resp SearchSuggestionsResponse
+	err := cache.GetOrSetMinicodSuggestions(ctx, query, source, paperLimit, authorLimit, func() (any, error) {
+		return m.fetchSearchSuggestions(ctx, query, source, paperLimit, authorLimit)
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (m *Manager) fetchSearchSuggestions(ctx context.Context, query, source string, paperLimit, authorLimit int) (*SearchSuggestionsResponse, error) {
 	type paperResult struct {
 		data *AutocompleteResponse
 		err  error
