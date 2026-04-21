@@ -210,7 +210,7 @@ function generateHelpCenterRoute() {
 // ===================== 通用 noscript 组件 =====================
 
 function navFooter() {
-  return `<footer style="text-align:center;margin-top:40px;padding-top:20px;border-top:1px solid #e0e0e0"><p style="color:#888">&copy; 2026 成都恩特罐罐文化科技有限公司 版权所有</p><nav style="margin-top:10px"><a href="/" style="color:#1a73e8;margin:0 10px">首页</a><a href="/blog" style="color:#1a73e8;margin:0 10px">博客</a><a href="/about" style="color:#1a73e8;margin:0 10px">关于我们</a><a href="/pricing" style="color:#1a73e8;margin:0 10px">定价方案</a><a href="/resources" style="color:#1a73e8;margin:0 10px">学术资源</a><a href="/help" style="color:#1a73e8;margin:0 10px">帮助中心</a><a href="/privacy" style="color:#1a73e8;margin:0 10px">隐私政策</a><a href="/terms" style="color:#1a73e8;margin:0 10px">服务条款</a><a href="/disclaimer" style="color:#1a73e8;margin:0 10px">免责声明</a><a href="/contact" style="color:#1a73e8;margin:0 10px">联系我们</a><a href="/feedback" style="color:#1a73e8;margin:0 10px">意见反馈</a></nav></footer>`;
+  return `<footer style="text-align:center;margin-top:40px;padding-top:20px;border-top:1px solid #e0e0e0"><p style="color:#888">&copy; 2026 Scholay 版权所有</p><nav style="margin-top:10px"><a href="/" style="color:#1a73e8;margin:0 10px">首页</a><a href="/blog" style="color:#1a73e8;margin:0 10px">博客</a><a href="/about" style="color:#1a73e8;margin:0 10px">关于我们</a><a href="/pricing" style="color:#1a73e8;margin:0 10px">定价方案</a><a href="/resources" style="color:#1a73e8;margin:0 10px">学术资源</a><a href="/help" style="color:#1a73e8;margin:0 10px">帮助中心</a><a href="/privacy" style="color:#1a73e8;margin:0 10px">隐私政策</a><a href="/terms" style="color:#1a73e8;margin:0 10px">服务条款</a><a href="/disclaimer" style="color:#1a73e8;margin:0 10px">免责声明</a><a href="/contact" style="color:#1a73e8;margin:0 10px">联系我们</a><a href="/feedback" style="color:#1a73e8;margin:0 10px">意见反馈</a></nav></footer>`;
 }
 
 function wrapNoscript(title, subtitle, bodyHtml) {
@@ -396,10 +396,10 @@ const routes = [
   {
     path: '/about',
     title: '关于我们 - Scholay | AI驱动的学术搜索平台',
-    description: '了解Scholay的使命、团队和发展历程。Scholay由成都恩特罐罐文化科技有限公司运营，致力于通过AI技术提升学术研究效率。',
-    keywords: '关于Scholay,学术搜索平台,AI学术工具,成都恩特罐罐文化科技,学术研究助手',
+    description: '了解 Scholay 的使命、团队和发展历程。Scholay 致力于通过 AI 技术提升学术研究效率。',
+    keywords: '关于Scholay,学术搜索平台,AI学术工具,学术研究助手',
     noscriptBody:
-      section('关于 Scholay', p('Scholay 是一个创新的学术研究助手，致力于帮助研究人员、学生和学者更高效地发现、理解和分析学术文献。我们相信，获取知识不应该有障碍。') + p('Scholay 由成都恩特罐罐文化科技有限公司运营，公司成立于中国四川省成都市，专注于将前沿AI技术应用于学术研究领域，为全球学术社区提供高质量的智能化工具和服务。')) +
+      section('关于 Scholay', p('Scholay 是一个创新的学术研究助手，致力于帮助研究人员、学生和学者更高效地发现、理解和分析学术文献。我们相信，获取知识不应该有障碍。') + p('Scholay 团队专注于将前沿 AI 技术应用于学术研究领域，为全球学术社区提供高质量的智能化工具和服务。')) +
       section('我们的使命', ul([
         '<strong>消除知识壁垒</strong> - 让每一位研究者都能快速、准确地获取所需的学术资源',
         '<strong>技术驱动创新</strong> - 运用最新的大语言模型和自然语言处理技术，将AI深度融入学术研究',
@@ -412,7 +412,7 @@ const routes = [
         '<strong>跨领域搜索</strong> - 支持多学科、多语言的学术文献检索',
         '<strong>隐私保护</strong> - 严格保护用户数据安全和研究隐私',
       ])) +
-      section('联系我们', p('公司名称：成都恩特罐罐文化科技有限公司') + p('邮箱：<a href="mailto:support@scholay.com" style="color:#1a73e8">support@scholay.com</a>') + p('地址：中国四川省成都市高新区') + p('工作时间：周一至周五 9:00-18:00'))
+      section('联系我们', p('邮箱：<a href="mailto:support@scholay.com" style="color:#1a73e8">support@scholay.com</a>') + p('地址：中国四川省成都市高新区') + p('工作时间：周一至周五 9:00-18:00'))
   },
   {
     path: '/privacy',
@@ -420,7 +420,7 @@ const routes = [
     description: 'Scholay隐私政策详细说明我们如何收集、使用、存储和保护您的个人信息。我们严格遵守相关法律法规，保障用户隐私权益。',
     keywords: '隐私政策,数据保护,个人信息,用户隐私,Scholay隐私,数据安全',
     noscriptBody:
-      section('隐私政策', p('本隐私政策由成都恩特罐罐文化科技有限公司制定，旨在说明 Scholay 平台如何收集、使用、存储和保护您的个人信息。请在使用本平台服务之前仔细阅读本隐私政策。')) +
+      section('隐私政策', p('本隐私政策由 Scholay 团队制定，旨在说明 Scholay 平台如何收集、使用、存储和保护您的个人信息。请在使用本平台服务之前仔细阅读本隐私政策。')) +
       section('1. 信息收集', p('我们可能收集以下类型的信息：') + ul([
         '<strong>注册信息</strong>：电子邮件地址、用户名、密码',
         '<strong>个人资料</strong>：姓名、头像、机构信息（可选）',
@@ -447,7 +447,7 @@ const routes = [
     description: 'Scholay服务条款规定了使用本平台的条件和规则。使用Scholay即表示您同意遵守这些条款。请仔细阅读。',
     keywords: '服务条款,用户协议,使用条件,Scholay条款,平台规则,用户条款',
     noscriptBody:
-      section('服务条款', p('欢迎使用 Scholay（以下简称"本平台"）。本平台由成都恩特罐罐文化科技有限公司运营。使用本平台即表示您同意遵守以下服务条款。')) +
+      section('服务条款', p('欢迎使用 Scholay（以下简称"本平台"）。本平台由 Scholay 团队运营。使用本平台即表示您同意遵守以下服务条款。')) +
       section('1. 服务说明', p('Scholay 是一个 AI 驱动的学术搜索平台，提供学术论文检索、AI 智能分析、智能审稿、LaTeX 编辑等服务。我们保留随时修改、暂停或终止服务的权利。')) +
       section('2. 账户注册', p('使用部分功能需要注册账户。您应提供真实、准确的注册信息，并妥善保管账户密码。因账户密码保管不当造成的损失由您自行承担。')) +
       section('3. 用户行为规范', ul([
@@ -457,10 +457,10 @@ const routes = [
         '不得使用自动化工具大量抓取平台数据',
         '不得转售或未经授权分享付费内容',
       ])) +
-      section('4. 知识产权', p('平台上的内容、设计、商标等知识产权归成都恩特罐罐文化科技有限公司所有。学术论文的版权归原作者和出版商所有，Scholay 仅提供检索和分析服务。')) +
+      section('4. 知识产权', p('平台上的内容、设计、商标等知识产权归 Scholay 所有。学术论文的版权归原作者和出版商所有，Scholay 仅提供检索和分析服务。')) +
       section('5. 订阅与付费', p('付费功能采用订阅制，具体价格和权益以定价页面为准。订阅成功后不支持无理由退款，如遇特殊情况可联系客服协商处理。')) +
       section('6. 免责声明', p('AI 分析和审稿结果仅供参考，不构成专业学术建议。我们不对基于平台服务做出的决策承担责任。平台可能因维护、升级等原因临时中断服务。')) +
-      section('7. 争议解决', p('因使用本平台产生的争议，双方应友好协商解决。协商不成的，任何一方可向成都恩特罐罐文化科技有限公司所在地有管辖权的人民法院提起诉讼。')) +
+      section('7. 争议解决', p('因使用本平台产生的争议，双方应友好协商解决。协商不成的，任何一方可向 Scholay 运营方所在地有管辖权的人民法院提起诉讼。')) +
       section('8. 联系方式', p('如您对本服务条款有任何疑问，请联系：<a href="mailto:support@scholay.com" style="color:#1a73e8">support@scholay.com</a>'))
   },
   {
@@ -494,7 +494,7 @@ const routes = [
         '<strong>商务合作</strong> — 学术机构合作、API 接入、定制化解决方案、学术会议赞助等',
         '<strong>数据与隐私</strong> — 数据导出请求、账户注销、隐私相关咨询',
       ])) +
-      section('联系方式', `<div style="line-height:2"><p><strong>公司名称：</strong>成都恩特罐罐文化科技有限公司</p><p><strong>电子邮箱：</strong><a href="mailto:support@scholay.com" style="color:#1a73e8">support@scholay.com</a></p><p><strong>公司地址：</strong>中国四川省成都市高新区</p><p><strong>工作时间：</strong>周一至周五 9:00-18:00</p></div>`) +
+      section('联系方式', `<div style="line-height:2"><p><strong>电子邮箱：</strong><a href="mailto:support@scholay.com" style="color:#1a73e8">support@scholay.com</a></p><p><strong>地址：</strong>中国四川省成都市高新区</p><p><strong>工作时间：</strong>周一至周五 9:00-18:00</p></div>`) +
       section('在线留言', p('您也可以通过本页面的在线留言表单直接向我们发送消息。请填写您的姓名、邮箱、主题和消息内容，我们将在 1-3 个工作日内回复。')) +
       section('更多帮助', p('如果您的问题属于常见问题，建议先查阅 <a href="/help" style="color:#1a73e8">帮助中心</a>，也许能帮您快速找到答案。您还可以通过 <a href="/feedback" style="color:#1a73e8">意见反馈</a> 页面提交详细的功能建议或 Bug 报告。'))
   },

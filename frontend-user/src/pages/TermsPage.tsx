@@ -16,12 +16,11 @@ import remarkGfm from 'remark-gfm';
 import Logo from '../components/common/Logo';
 import SEO from '../components/common/SEO';
 import { configAPI } from '../services';
-import './styles/LegalPage.css';
+import './styles/pr-editorial.css';
 
-// 硬编码的服务条款 fallback 内容，确保页面始终有实质内容
 const FALLBACK_TERMS_CONTENT = `
 <h2>1. 服务概述</h2>
-<p>Scholay（以下简称"本平台"）是由成都恩特罐罐文化科技有限公司（以下简称"我们"）运营的 AI 驱动学术搜索平台。本服务条款（以下简称"本条款"）规定了您使用本平台服务的条件和规则。</p>
+<p>Scholay（以下简称"本平台"）是由 Scholay 团队（以下简称"我们"）运营的 AI 驱动学术搜索平台。本服务条款（以下简称"本条款"）规定了您使用本平台服务的条件和规则。</p>
 <p>请您在使用本平台服务之前，仔细阅读并充分理解本条款。注册或使用本平台即表示您已阅读、理解并同意接受本条款的所有内容。</p>
 
 <h2>2. 账户注册与管理</h2>
@@ -103,9 +102,7 @@ const FALLBACK_TERMS_CONTENT = `
 
 <h2>11. 联系方式</h2>
 <p>如果您对本服务条款有任何疑问，请通过以下方式联系我们：</p>
-<p>公司名称：成都恩特罐罐文化科技有限公司</p>
 <p>电子邮箱：<a href="mailto:support@scholay.com">support@scholay.com</a></p>
-<p>地址：中国四川省成都市</p>
 `;
 
 const TermsPage: React.FC = () => {
@@ -144,71 +141,76 @@ const TermsPage: React.FC = () => {
   };
 
   return (
-    <div className="legal-page">
+    <div className="pe-page">
       <SEO
         title="服务条款 - Scholay | 使用条件与规则"
         description="Scholay 服务条款详细说明了使用本平台的条件、用户权利与义务、订阅付费规则及知识产权相关事宜。"
         keywords="Scholay服务条款,使用条款,用户协议,订阅条款,知识产权"
         canonical="/terms"
       />
-      <div className="legal-container">
-        <div className="legal-header">
-          <button className="back-btn" onClick={() => navigate(-1)}>
-            <ArrowLeft size={20} />
+
+      <div className="pe-topbar">
+        <div className="pe-topbar-inner">
+          <button className="pe-back" onClick={() => navigate(-1)}>
+            <ArrowLeft size={16} />
             <span>返回</span>
           </button>
+          <button className="pe-brand" onClick={() => navigate('/')} aria-label="Scholay 首页">
+            <Logo size={26} />
+            <span>Scholay</span>
+          </button>
         </div>
+      </div>
 
-        <div className="legal-hero">
-          <div className="legal-logo">
-            <Logo size={48} />
-          </div>
-          <div className="legal-title-wrapper">
-            <FileText size={28} className="legal-icon" />
-            <h1>服务条款</h1>
-          </div>
+      <section className="pe-hero pe-hero-sm">
+        <div className="pe-hero-bg" />
+        <div className="pe-container-sm">
+          <span className="pe-hero-eyebrow">
+            <FileText size={12} />
+            <span>Terms of Service</span>
+          </span>
+          <h1>服务条款</h1>
+          <p className="pe-hero-lead">
+            使用 Scholay 前请阅读以下条款，了解您的权利、义务以及平台的服务范围。
+          </p>
           {(version || updatedAt) && (
-            <p className="legal-meta">
-              {version && <span>版本 {version}</span>}
-              {version && updatedAt && <span> · </span>}
-              {updatedAt && <span>更新于 {formatDate(updatedAt)}</span>}
-            </p>
+            <div className="pe-hero-meta">
+              {version && <span className="pe-hero-meta-chip">版本 {version}</span>}
+              {updatedAt && <span className="pe-hero-meta-chip">更新于 {formatDate(updatedAt)}</span>}
+            </div>
           )}
         </div>
+      </section>
 
-        <div className="legal-content">
+      <section className="pe-section">
+        <div className="pe-container-sm">
           {loading ? (
-            <div className="legal-loading">
-              <div className="loading-spinner"></div>
+            <div className="pe-loading">
+              <div className="pe-spinner" />
               <p>加载中...</p>
             </div>
           ) : isMarkdown ? (
-            <div className="legal-text">
+            <div className="pe-prose">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {content}
               </ReactMarkdown>
             </div>
           ) : (
-            <div 
-              className="legal-text"
+            <div
+              className="pe-prose"
               dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content) }}
             />
           )}
         </div>
+      </section>
 
-        <div className="legal-footer">
-          <p className="copyright">
-            © {new Date().getFullYear()} Scholay. All rights reserved.
-          </p>
-          <div className="footer-links">
-            <button onClick={() => navigate('/about')}>关于我们</button>
-            <span>|</span>
-            <button onClick={() => navigate('/privacy')}>隐私政策</button>
-            <span>|</span>
-            <button onClick={() => navigate('/disclaimer')}>免责声明</button>
-            <span>|</span>
-            <button onClick={() => navigate('/contact')}>联系我们</button>
-          </div>
+      <div className="pe-page-end">
+        <p>© {new Date().getFullYear()} Scholay</p>
+        <div className="pe-page-end-links">
+          <button onClick={() => navigate('/about')}>关于我们</button>
+          <button onClick={() => navigate('/privacy')}>隐私政策</button>
+          <button onClick={() => navigate('/disclaimer')}>免责声明</button>
+          <button onClick={() => navigate('/contact')}>联系我们</button>
         </div>
       </div>
     </div>

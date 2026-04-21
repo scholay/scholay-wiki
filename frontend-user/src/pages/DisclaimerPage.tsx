@@ -12,43 +12,56 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, AlertTriangle } from 'lucide-react';
 import Logo from '../components/common/Logo';
 import SEO from '../components/common/SEO';
-import './styles/LegalPage.css';
+import './styles/pr-editorial.css';
 
 const DisclaimerPage: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="legal-page">
+    <div className="pe-page">
       <SEO
         title="免责声明 - Scholay | AI学术搜索平台法律声明"
         description="Scholay 免责声明，涵盖内容准确性、AI生成内容、知识产权、服务可用性和责任限制等重要法律说明。"
         keywords="Scholay免责声明,法律声明,AI生成内容声明,学术搜索免责,知识产权声明"
         canonical="/disclaimer"
       />
-      <div className="legal-container">
-        <div className="legal-header">
-          <button className="back-btn" onClick={() => navigate(-1)}>
-            <ArrowLeft size={20} />
+
+      <div className="pe-topbar">
+        <div className="pe-topbar-inner">
+          <button className="pe-back" onClick={() => navigate(-1)}>
+            <ArrowLeft size={16} />
             <span>返回</span>
           </button>
+          <button className="pe-brand" onClick={() => navigate('/')} aria-label="Scholay 首页">
+            <Logo size={26} />
+            <span>Scholay</span>
+          </button>
         </div>
+      </div>
 
-        <div className="legal-hero">
-          <div className="legal-logo">
-            <Logo size={48} />
+      <section className="pe-hero pe-hero-sm">
+        <div className="pe-hero-bg" />
+        <div className="pe-container-sm">
+          <span className="pe-hero-eyebrow">
+            <AlertTriangle size={12} />
+            <span>Disclaimer</span>
+          </span>
+          <h1>免责声明</h1>
+          <p className="pe-hero-lead">
+            说明 Scholay 平台的内容来源、AI 生成内容局限性以及使用过程中的责任限制。
+          </p>
+          <div className="pe-hero-meta">
+            <span className="pe-hero-meta-chip">最后更新：2025年1月</span>
           </div>
-          <div className="legal-title-wrapper">
-            <AlertTriangle size={28} className="legal-icon" />
-            <h1>免责声明</h1>
-          </div>
-          <p className="legal-meta">最后更新：2025年1月</p>
         </div>
+      </section>
 
-        <div className="legal-content">
-          <div className="legal-text">
+      <section className="pe-section">
+        <div className="pe-container-sm">
+          <div className="pe-prose">
             <h2>1. 一般声明</h2>
             <p>
-              Scholay（以下简称"本平台"）是由成都恩特罐罐文化科技有限公司运营的学术搜索服务平台。本平台提供的所有内容仅供参考和学术研究目的使用。
+              Scholay（以下简称"本平台"）是一个 AI 驱动的学术搜索服务平台。本平台提供的所有内容仅供参考和学术研究目的使用。
             </p>
             <p>
               用户在使用本平台服务时，应理解并同意以下免责条款。如果您不同意本声明的任何部分，请停止使用本平台服务。
@@ -124,6 +137,16 @@ const DisclaimerPage: React.FC = () => {
               邮箱：<a href="mailto:support@scholay.com">support@scholay.com</a>
             </p>
           </div>
+        </div>
+      </section>
+
+      <div className="pe-page-end">
+        <p>© {new Date().getFullYear()} Scholay</p>
+        <div className="pe-page-end-links">
+          <button onClick={() => navigate('/about')}>关于我们</button>
+          <button onClick={() => navigate('/privacy')}>隐私政策</button>
+          <button onClick={() => navigate('/terms')}>服务条款</button>
+          <button onClick={() => navigate('/contact')}>联系我们</button>
         </div>
       </div>
     </div>
