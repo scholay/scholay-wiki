@@ -422,7 +422,7 @@ const SearchResultsPage = () => {
                         if (searchState.searchSource !== 'olx') {
                           searchState.setSearchSource('olx');
                           if (searchState.searchQuery.trim()) {
-                            searchState.performSearch(searchState.searchQuery, searchState.filters, 1);
+                            searchState.performSearch(searchState.searchQuery, searchState.filters, 1, true, true, 'olx');
                           }
                         }
                       }}
@@ -436,7 +436,7 @@ const SearchResultsPage = () => {
                         if (searchState.searchSource !== 'stc') {
                           searchState.setSearchSource('stc');
                           if (searchState.searchQuery.trim()) {
-                            searchState.performSearch(searchState.searchQuery, searchState.filters, 1);
+                            searchState.performSearch(searchState.searchQuery, searchState.filters, 1, true, true, 'stc');
                           }
                         }
                       }}
@@ -637,6 +637,7 @@ const SearchResultsPage = () => {
                   isResizing={previewResize.isResizingPreview}
                   pdfAvailability={pdfAvailability}
                   entryPoint="search_results_page"
+                  onCite={searchState.setCitePaper}
                 />
               )}
             </div>
@@ -653,6 +654,7 @@ const SearchResultsPage = () => {
               onClick={(e) => e.stopPropagation()}
               pdfAvailability={pdfAvailability}
               entryPoint="search_results_page"
+              onCite={searchState.setCitePaper}
             />
           </div>
         )}
@@ -685,6 +687,7 @@ const SearchResultsPage = () => {
                   isMobileModal={true}
                   pdfAvailability={pdfAvailability}
                   entryPoint="search_results_page"
+                  onCite={searchState.setCitePaper}
                 />
               </div>
             </div>

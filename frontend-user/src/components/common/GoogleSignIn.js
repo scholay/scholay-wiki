@@ -70,6 +70,8 @@ export default function GoogleSignIn({
   theme = 'outline',
   size = 'large',
   text = 'signin_with',
+  type = 'standard',
+  shape = 'rectangular',
   width,
 }) {
   const buttonRef = useRef(null);
@@ -145,8 +147,8 @@ export default function GoogleSignIn({
           theme,
           size,
           text,
-          type: 'standard',
-          shape: 'rectangular',
+          type,
+          shape,
           ...(width ? { width } : {}),
         });
       }

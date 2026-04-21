@@ -12,6 +12,7 @@ import SensitiveField from '../../components/SensitiveField';
 import { adminAPI } from '../../services/api';
 import { showToast } from '../../components/Toast';
 import { useSettingsContext } from './SettingsContext';
+import { MicrosoftIcon } from '../../../components/icons/providers';
 
 interface MicrosoftConfigState {
   msClientId: string;
@@ -91,7 +92,7 @@ const MicrosoftTab = React.memo(() => {
     <div className="settings-section fade-in">
       <form onSubmit={handleMicrosoftConfigSubmit} className="settings-form">
         <div className="section-header">
-          <h2>Microsoft 登录配置</h2>
+          <h2 className="with-icon"><MicrosoftIcon size={24} />Microsoft 登录配置</h2>
           <p>配置 Microsoft OAuth 以支持用户通过 Microsoft/Office 365 账号登录</p>
         </div>
         <div className="form-group">

@@ -50,10 +50,24 @@ func (h *Handler) GetSystemConfig(c *gin.Context) {
 		response["github_client_id"] = githubConfig.ClientID
 	}
 
+	googleConfig, err := h.service.GetGoogleOAuthConfig()
+	if err == nil && googleConfig != nil && googleConfig.Enabled && googleConfig.ClientID != "" {
+		response["google_client_id"] = googleConfig.ClientID
+	}
+
 	discourseConfig, err := h.service.GetDiscourseSSOConfig()
 	if err == nil && discourseConfig != nil && discourseConfig.Enabled && discourseConfig.SiteURL != "" {
 		response["discourse_site_url"] = discourseConfig.SiteURL
 	}
+
+	appleConfig, err := h.service.GetAppleOAuthConfig()
+	response["apple_enabled"] = err == nil && appleConfig != nil && appleConfig.Enabled && appleConfig.ServiceID != ""
+
+	microsoftConfig, err := h.service.GetMicrosoftOAuthConfig()
+	response["microsoft_enabled"] = err == nil && microsoftConfig != nil && microsoftConfig.Enabled && microsoftConfig.ClientID != ""
+
+	orcidConfig, err := h.service.GetOrcidOAuthConfig()
+	response["orcid_enabled"] = err == nil && orcidConfig != nil && orcidConfig.Enabled && orcidConfig.ClientID != ""
 
 	utils.Success(c, response)
 }

@@ -25,9 +25,6 @@ import VersionUpdateBar from './components/common/VersionUpdateBar';
 import { useVersionCheck } from './hooks';
 import logger from './utils/logger';
 
-// 首页也懒加载 — 减少初始 bundle，首次加载更快
-const Home = lazyWithRetry(() => import('./pages/Home'), 'Home');
-
 /**
  * 带重试的懒加载函数
  * 当 chunk 加载失败时（通常是因为版本更新后旧文件已删除），自动刷新页面
@@ -67,6 +64,9 @@ const lazyWithRetry = (componentImport, componentName = 'Component') => {
     }
   });
 };
+
+// 首页也懒加载 — 减少初始 bundle，首次加载更快
+const Home = lazyWithRetry(() => import('./pages/Home'), 'Home');
 
 // 其他页面使用懒加载 - 大幅减少初始bundle大小
 // 使用 lazyWithRetry 包装，处理 chunk 加载失败的情况

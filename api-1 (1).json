@@ -1,0 +1,5000 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Minicod 学术数据 API",
+    "description": "# Minicod API\n\n**统一学术数据 API** - 从开放互联网学术资源中搜索论文、作者、机构。\n\n## 核心功能\n\n- **81+ API 接口** - 论文、作者、机构、期刊、主题、出版商、资助机构\n- **多数据源** - 聚合自开放互联网学术数据库（4.5亿+ 论文）\n- **AI 智能搜索** - 支持自然语言论文搜索，兼容 OpenAI 格式\n- **批量操作** - 单次请求最多获取 1000 条数据\n- **丰富元数据** - 引用、参考文献、摘要、作者机构等\n\n## 数据来源\n\n所有数据均聚合自公开可用的互联网学术资源。\n\n| 数据源 | 前缀 | 覆盖范围 |\n|--------|------|----------|\n| STC | `/v1/stc/*` | 2亿+ 论文，引用分析，AI 摘要 |\n| OLX | `/v1/olx/*` | 2.5亿+ 论文，机构，资助，主题 |\n| JNL | `/v1/jnl/*` | 10万+ 期刊，影响因子，分区排名，ISSN |\n\n## 认证方式\n\n所有 API 请求需要在 Authorization 请求头中携带 Bearer token：\n\n```\nAuthorization: Bearer sk-xxxxxxxxxxxxxxxxxxxxxxxx\n```\n\n## 请求格式\n\n所有接口使用 **POST** 方法，参数通过 JSON body 传递。\n\n## 响应格式\n\n所有响应遵循统一的 JSON 结构：\n\n```json\n{\n  \"code\": 0,\n  \"message\": \"success\",\n  \"data\": { ... }\n}\n```\n\n## 错误码\n\n| 错误码 | 说明 |\n|--------|------|\n| 0 | 成功 |\n| 40001 | 请求参数无效 |\n| 40101 | 未授权 - API Key 无效 |\n| 40201 | 余额不足 |\n| 40401 | 资源未找到 |\n| 42901 | 请求频率超限 |\n| 50001 | 服务器内部错误 |\n\n## 频率限制\n\n- 免费版：100 次/天\n- 基础版：10,000 次/天\n- 专业版：无限制\n",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Minicod 技术支持",
+      "email": "support@minicod.com",
+      "url": "https://minicod.com"
+    },
+    "termsOfService": "https://minicod.com/terms",
+    "license": {
+      "name": "商业许可",
+      "url": "https://minicod.com/terms"
+    },
+    "x-logo": {
+      "url": "https://minicod.com/logo.png",
+      "altText": "Minicod Logo"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://www.minicod.com",
+      "description": "生产环境服务器"
+    }
+  ],
+  "tags": [
+    {
+      "name": "STC - Papers",
+      "description": "STC 数据源 - 论文相关接口"
+    },
+    {
+      "name": "STC - Authors",
+      "description": "STC 数据源 - 作者相关接口"
+    },
+    {
+      "name": "STC - Others",
+      "description": "STC 数据源 - 其他工具接口"
+    },
+    {
+      "name": "OLX - Works",
+      "description": "OLX 数据源 - 作品/论文相关接口"
+    },
+    {
+      "name": "OLX - Authors",
+      "description": "OLX 数据源 - 作者相关接口"
+    },
+    {
+      "name": "OLX - Sources",
+      "description": "OLX 数据源 - 期刊/来源相关接口"
+    },
+    {
+      "name": "OLX - Institutions",
+      "description": "OLX 数据源 - 机构相关接口"
+    },
+    {
+      "name": "OLX - Topics",
+      "description": "OLX 数据源 - 主题相关接口"
+    },
+    {
+      "name": "OLX - Publishers",
+      "description": "OLX 数据源 - 出版商相关接口"
+    },
+    {
+      "name": "OLX - Funders",
+      "description": "OLX 数据源 - 资助机构相关接口"
+    },
+    {
+      "name": "OLX - Concepts",
+      "description": "OLX 数据源 - 概念相关接口"
+    },
+    {
+      "name": "JNL - Journals",
+      "description": "学术期刊元数据平台 - 搜索、筛选和对比学术期刊的影响因子、分区排名等信息"
+    },
+    {
+      "name": "Chat",
+      "description": "AI 智能论文搜索（兼容 OpenAI 格式）"
+    }
+  ],
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "paths": {
+    "/v1/stc/papers/search": {
+      "post": {
+        "tags": [
+          "STC - Papers"
+        ],
+        "summary": "搜索论文",
+        "description": "使用关键词搜索论文，支持多种过滤条件",
+        "operationId": "stcSearchPapers",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchOptions"
+              },
+              "example": {
+                "query": "machine learning",
+                "limit": 20,
+                "offset": 0,
+                "fields": "title,abstract,authors,year,citationCount"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "搜索成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaperSearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stc/papers/search/bulk": {
+      "post": {
+        "tags": [
+          "STC - Papers"
+        ],
+        "summary": "批量搜索论文",
+        "description": "使用 token 分页的大批量论文搜索，适合获取大量结果",
+        "operationId": "stcSearchPapersBulk",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchOptions"
+              },
+              "example": {
+                "query": "deep learning",
+                "limit": 1000,
+                "token": "",
+                "fields": "title,year"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "搜索成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkSearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stc/papers/search/match": {
+      "post": {
+        "tags": [
+          "STC - Papers"
+        ],
+        "summary": "精确匹配论文",
+        "description": "根据标题精确匹配单篇论文",
+        "operationId": "stcMatchPaper",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "query"
+                ],
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "description": "论文标题"
+                  },
+                  "fields": {
+                    "type": "string",
+                    "description": "返回字段"
+                  }
+                }
+              },
+              "example": {
+                "query": "Attention Is All You Need",
+                "fields": "title,authors,year,citationCount"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "匹配成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaperResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stc/papers/get": {
+      "post": {
+        "tags": [
+          "STC - Papers"
+        ],
+        "summary": "获取论文详情",
+        "description": "根据论文 ID 获取详细信息",
+        "operationId": "stcGetPaper",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaperGetRequest"
+              },
+              "example": {
+                "id": "649def34f8be52c8b66281af98ae884c09aef38b",
+                "fields": "title,abstract,authors,year,citationCount,references"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaperResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stc/papers/batch": {
+      "post": {
+        "tags": [
+          "STC - Papers"
+        ],
+        "summary": "批量获取论文",
+        "description": "根据多个论文 ID 批量获取详细信息",
+        "operationId": "stcGetPapersBatch",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaperBatchRequest"
+              },
+              "example": {
+                "ids": [
+                  "649def34f8be52c8b66281af98ae884c09aef38b",
+                  "204e3073870fae3d05bcbc2f6a8e263d9b72e776"
+                ],
+                "fields": "title,authors,year"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaperListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stc/papers/doi": {
+      "post": {
+        "tags": [
+          "STC - Papers"
+        ],
+        "summary": "通过 DOI 获取论文",
+        "description": "根据 DOI 获取论文详细信息",
+        "operationId": "stcGetPaperByDOI",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaperDOIRequest"
+              },
+              "example": {
+                "doi": "10.18653/v1/N18-3011",
+                "fields": "title,authors,year,citationCount"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaperResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stc/papers/autocomplete": {
+      "post": {
+        "tags": [
+          "STC - Papers"
+        ],
+        "summary": "论文自动补全",
+        "description": "根据输入词提供论文标题补全建议",
+        "operationId": "stcAutocompletePapers",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "query"
+                ],
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "description": "搜索词"
+                  }
+                }
+              },
+              "example": {
+                "query": "attention"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "自动补全成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SemanticAutocompleteResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stc/papers/authors": {
+      "post": {
+        "tags": [
+          "STC - Papers"
+        ],
+        "summary": "获取论文作者",
+        "description": "获取指定论文的所有作者信息",
+        "operationId": "stcGetPaperAuthors",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaperAuthorsRequest"
+              },
+              "example": {
+                "paper_id": "649def34f8be52c8b66281af98ae884c09aef38b",
+                "fields": "name,affiliations,paperCount",
+                "limit": 50
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorSearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stc/papers/citations": {
+      "post": {
+        "tags": [
+          "STC - Papers"
+        ],
+        "summary": "获取引用论文",
+        "description": "获取引用指定论文的所有论文列表",
+        "operationId": "stcGetCitations",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaperCitationsRequest"
+              },
+              "example": {
+                "paper_id": "649def34f8be52c8b66281af98ae884c09aef38b",
+                "fields": "title,authors,year",
+                "limit": 100,
+                "offset": 0
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaperSearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stc/papers/references": {
+      "post": {
+        "tags": [
+          "STC - Papers"
+        ],
+        "summary": "获取参考文献",
+        "description": "获取指定论文的所有参考文献",
+        "operationId": "stcGetReferences",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaperReferencesRequest"
+              },
+              "example": {
+                "paper_id": "649def34f8be52c8b66281af98ae884c09aef38b",
+                "fields": "title,authors,year",
+                "limit": 100
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaperSearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stc/authors/search": {
+      "post": {
+        "tags": [
+          "STC - Authors"
+        ],
+        "summary": "搜索作者",
+        "description": "使用关键词搜索作者",
+        "operationId": "stcSearchAuthors",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthorSearchRequest"
+              },
+              "example": {
+                "query": "Geoffrey Hinton",
+                "fields": "name,affiliations,paperCount,citationCount,hIndex",
+                "limit": 10
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "搜索成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorSearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stc/authors/get": {
+      "post": {
+        "tags": [
+          "STC - Authors"
+        ],
+        "summary": "获取作者详情",
+        "description": "根据作者 ID 获取详细信息",
+        "operationId": "stcGetAuthor",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthorGetRequest"
+              },
+              "example": {
+                "id": "1695689",
+                "fields": "name,affiliations,paperCount,citationCount,hIndex"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stc/authors/batch": {
+      "post": {
+        "tags": [
+          "STC - Authors"
+        ],
+        "summary": "批量获取作者",
+        "description": "根据多个作者 ID 批量获取详细信息",
+        "operationId": "stcGetAuthorsBatch",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthorBatchRequest"
+              },
+              "example": {
+                "ids": [
+                  "1695689",
+                  "1746302"
+                ],
+                "fields": "name,paperCount,citationCount"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stc/authors/papers": {
+      "post": {
+        "tags": [
+          "STC - Authors"
+        ],
+        "summary": "获取作者论文",
+        "description": "获取指定作者的所有论文",
+        "operationId": "stcGetAuthorPapers",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthorPapersRequest"
+              },
+              "example": {
+                "author_id": "1695689",
+                "fields": "title,year,citationCount",
+                "limit": 100
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaperSearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stc/snippets/search": {
+      "post": {
+        "tags": [
+          "STC - Others"
+        ],
+        "summary": "搜索论文片段",
+        "description": "在论文全文中搜索相关片段",
+        "operationId": "stcSearchSnippets",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SnippetSearchRequest"
+              },
+              "example": {
+                "query": "transformer attention mechanism",
+                "limit": 20
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "搜索成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnippetSearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stc/recommendations": {
+      "post": {
+        "tags": [
+          "STC - Others"
+        ],
+        "summary": "基于正负例推荐",
+        "description": "根据正面示例和负面示例推荐相关论文",
+        "operationId": "stcGetRecommendations",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecommendationRequest"
+              },
+              "example": {
+                "positive_paper_ids": [
+                  "649def34f8be52c8b66281af98ae884c09aef38b"
+                ],
+                "negative_paper_ids": [],
+                "fields": "title,authors,year",
+                "limit": 50
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "推荐成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecommendationResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stc/recommendations/paper": {
+      "post": {
+        "tags": [
+          "STC - Others"
+        ],
+        "summary": "单篇论文推荐",
+        "description": "根据单篇论文推荐相似论文",
+        "operationId": "stcGetRecommendationsForPaper",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecommendationForPaperRequest"
+              },
+              "example": {
+                "paper_id": "649def34f8be52c8b66281af98ae884c09aef38b",
+                "from": "recent",
+                "fields": "title,authors,year",
+                "limit": 50
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "推荐成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecommendationResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/works/search": {
+      "post": {
+        "tags": [
+          "OLX - Works"
+        ],
+        "summary": "搜索论文",
+        "description": "Search OLX works/papers data using keywords",
+        "operationId": "olxSearchWorks",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenAlexSearchOptions"
+              },
+              "example": {
+                "query": "machine learning",
+                "filter": "publication_year:2023",
+                "select": "id,title,publication_year,cited_by_count",
+                "limit": 25
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "搜索成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaperSearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/works/get": {
+      "post": {
+        "tags": [
+          "OLX - Works"
+        ],
+        "summary": "获取论文详情",
+        "description": "Get detailed information by OLX Work ID",
+        "operationId": "olxGetWork",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenAlexEntityRequest"
+              },
+              "example": {
+                "id": "W2741809807",
+                "select": "id,title,authorships,cited_by_count"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaperResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/works/batch": {
+      "post": {
+        "tags": [
+          "OLX - Works"
+        ],
+        "summary": "批量获取论文",
+        "description": "批量获取多篇论文详情",
+        "operationId": "olxGetWorksBatch",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenAlexBatchRequest"
+              },
+              "example": {
+                "ids": [
+                  "W2741809807",
+                  "W2963403868"
+                ],
+                "select": "id,title,publication_year"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaperListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/works/doi": {
+      "post": {
+        "tags": [
+          "OLX - Works"
+        ],
+        "summary": "通过 DOI 获取论文",
+        "description": "根据 DOI 获取论文详情",
+        "operationId": "olxGetWorkByDOI",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaperDOIRequest"
+              },
+              "example": {
+                "doi": "10.1038/s41586-021-03819-2",
+                "fields": "id,title,authorships"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaperResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/works/autocomplete": {
+      "post": {
+        "tags": [
+          "OLX - Works"
+        ],
+        "summary": "论文自动补全",
+        "description": "论文标题自动补全建议",
+        "operationId": "olxAutocompleteWorks",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutocompleteRequest"
+              },
+              "example": {
+                "query": "attention",
+                "filter": "publication_year:>2020"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "自动补全成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutocompleteResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/works/group": {
+      "post": {
+        "tags": [
+          "OLX - Works"
+        ],
+        "summary": "论文分组统计",
+        "description": "按指定字段对论文进行分组统计",
+        "operationId": "olxGroupWorks",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupByRequest"
+              },
+              "example": {
+                "group_by": "publication_year",
+                "filter": "authorships.institutions.country_code:CN",
+                "limit": 10
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "分组统计成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupByResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/works/related": {
+      "post": {
+        "tags": [
+          "OLX - Works"
+        ],
+        "summary": "获取相关论文",
+        "description": "获取与指定论文相关的论文列表",
+        "operationId": "olxGetRelatedWorks",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RelatedWorksRequest"
+              },
+              "example": {
+                "work_id": "W2741809807",
+                "limit": 20,
+                "select": "id,title,publication_year"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaperSearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/works/authors": {
+      "post": {
+        "tags": [
+          "OLX - Works"
+        ],
+        "summary": "获取论文作者",
+        "description": "获取指定论文的所有作者信息",
+        "operationId": "olxGetWorkAuthors",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaperAuthorsRequest"
+              },
+              "example": {
+                "paper_id": "W2741809807",
+                "limit": 50
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorSearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/works/citations": {
+      "post": {
+        "tags": [
+          "OLX - Works"
+        ],
+        "summary": "获取引用论文",
+        "description": "获取引用指定论文的所有论文",
+        "operationId": "olxGetWorkCitations",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaperCitationsRequest"
+              },
+              "example": {
+                "paper_id": "W2741809807",
+                "limit": 100
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaperSearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/works/references": {
+      "post": {
+        "tags": [
+          "OLX - Works"
+        ],
+        "summary": "获取参考文献",
+        "description": "获取指定论文的所有参考文献",
+        "operationId": "olxGetWorkReferences",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaperReferencesRequest"
+              },
+              "example": {
+                "paper_id": "W2741809807",
+                "limit": 100
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaperSearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/authors/search": {
+      "post": {
+        "tags": [
+          "OLX - Authors"
+        ],
+        "summary": "搜索作者",
+        "description": "Search OLX author data",
+        "operationId": "olxSearchAuthors",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenAlexSearchOptions"
+              },
+              "example": {
+                "query": "Geoffrey Hinton",
+                "select": "id,display_name,works_count,cited_by_count",
+                "limit": 10
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "搜索成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorSearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/authors/get": {
+      "post": {
+        "tags": [
+          "OLX - Authors"
+        ],
+        "summary": "获取作者详情",
+        "description": "根据作者 ID 获取详细信息",
+        "operationId": "olxGetAuthor",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenAlexEntityRequest"
+              },
+              "example": {
+                "id": "A5023888391",
+                "select": "id,display_name,affiliations,works_count"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/authors/batch": {
+      "post": {
+        "tags": [
+          "OLX - Authors"
+        ],
+        "summary": "批量获取作者",
+        "description": "批量获取多个作者详情",
+        "operationId": "olxGetAuthorsBatch",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenAlexBatchRequest"
+              },
+              "example": {
+                "ids": [
+                  "A5023888391",
+                  "A5048491430"
+                ],
+                "select": "id,display_name,works_count"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/authors/papers": {
+      "post": {
+        "tags": [
+          "OLX - Authors"
+        ],
+        "summary": "获取作者论文",
+        "description": "获取指定作者的所有论文",
+        "operationId": "olxGetAuthorPapers",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthorPapersRequest"
+              },
+              "example": {
+                "author_id": "A5023888391",
+                "limit": 100
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaperSearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/authors/autocomplete": {
+      "post": {
+        "tags": [
+          "OLX - Authors"
+        ],
+        "summary": "作者自动补全",
+        "description": "作者名称自动补全建议",
+        "operationId": "olxAutocompleteAuthors",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutocompleteRequest"
+              },
+              "example": {
+                "query": "hinton"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "自动补全成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutocompleteResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/authors/group": {
+      "post": {
+        "tags": [
+          "OLX - Authors"
+        ],
+        "summary": "作者分组统计",
+        "description": "按指定字段对作者进行分组统计",
+        "operationId": "olxGroupAuthors",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupByRequest"
+              },
+              "example": {
+                "group_by": "last_known_institution.country_code",
+                "limit": 10
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "分组统计成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupByResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/sources/search": {
+      "post": {
+        "tags": [
+          "OLX - Sources"
+        ],
+        "summary": "搜索期刊/来源",
+        "description": "搜索学术期刊、会议等来源",
+        "operationId": "olxSearchSources",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceSearchRequest"
+              },
+              "example": {
+                "query": "Nature",
+                "filter": "type:journal,is_oa:true",
+                "limit": 25
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "搜索成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceSearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/sources/get": {
+      "post": {
+        "tags": [
+          "OLX - Sources"
+        ],
+        "summary": "获取来源详情",
+        "description": "根据来源 ID 或 ISSN 获取详细信息",
+        "operationId": "olxGetSource",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenAlexEntityRequest"
+              },
+              "example": {
+                "id": "S137773608",
+                "select": "id,display_name,issn,works_count"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/sources/batch": {
+      "post": {
+        "tags": [
+          "OLX - Sources"
+        ],
+        "summary": "批量获取来源",
+        "description": "批量获取多个来源详情",
+        "operationId": "olxGetSourcesBatch",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenAlexBatchRequest"
+              },
+              "example": {
+                "ids": [
+                  "S137773608",
+                  "S62932424"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/sources/autocomplete": {
+      "post": {
+        "tags": [
+          "OLX - Sources"
+        ],
+        "summary": "来源自动补全",
+        "description": "期刊/来源名称自动补全",
+        "operationId": "olxAutocompleteSources",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutocompleteRequest"
+              },
+              "example": {
+                "query": "nature"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "自动补全成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutocompleteResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/sources/group": {
+      "post": {
+        "tags": [
+          "OLX - Sources"
+        ],
+        "summary": "来源分组统计",
+        "description": "按指定字段对来源进行分组统计",
+        "operationId": "olxGroupSources",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupByRequest"
+              },
+              "example": {
+                "group_by": "type",
+                "limit": 10
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "分组统计成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupByResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/institutions/search": {
+      "post": {
+        "tags": [
+          "OLX - Institutions"
+        ],
+        "summary": "搜索机构",
+        "description": "搜索学术机构",
+        "operationId": "olxSearchInstitutions",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InstitutionSearchRequest"
+              },
+              "example": {
+                "query": "MIT",
+                "filter": "type:education,country_code:US",
+                "limit": 25
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "搜索成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstitutionSearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/institutions/get": {
+      "post": {
+        "tags": [
+          "OLX - Institutions"
+        ],
+        "summary": "获取机构详情",
+        "description": "根据机构 ID 或 ROR 获取详细信息",
+        "operationId": "olxGetInstitution",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenAlexEntityRequest"
+              },
+              "example": {
+                "id": "I63966007",
+                "select": "id,display_name,works_count,cited_by_count"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstitutionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/institutions/batch": {
+      "post": {
+        "tags": [
+          "OLX - Institutions"
+        ],
+        "summary": "批量获取机构",
+        "description": "批量获取多个机构详情",
+        "operationId": "olxGetInstitutionsBatch",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenAlexBatchRequest"
+              },
+              "example": {
+                "ids": [
+                  "I63966007",
+                  "I136199984"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstitutionListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/institutions/autocomplete": {
+      "post": {
+        "tags": [
+          "OLX - Institutions"
+        ],
+        "summary": "机构自动补全",
+        "description": "机构名称自动补全",
+        "operationId": "olxAutocompleteInstitutions",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutocompleteRequest"
+              },
+              "example": {
+                "query": "stanford"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "自动补全成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutocompleteResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/institutions/group": {
+      "post": {
+        "tags": [
+          "OLX - Institutions"
+        ],
+        "summary": "机构分组统计",
+        "description": "按指定字段对机构进行分组统计",
+        "operationId": "olxGroupInstitutions",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupByRequest"
+              },
+              "example": {
+                "group_by": "type",
+                "limit": 10
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "分组统计成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupByResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/topics/search": {
+      "post": {
+        "tags": [
+          "OLX - Topics"
+        ],
+        "summary": "搜索主题",
+        "description": "搜索学术研究主题",
+        "operationId": "olxSearchTopics",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TopicSearchRequest"
+              },
+              "example": {
+                "query": "machine learning",
+                "limit": 25
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "搜索成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopicSearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/topics/get": {
+      "post": {
+        "tags": [
+          "OLX - Topics"
+        ],
+        "summary": "获取主题详情",
+        "description": "根据主题 ID 获取详细信息",
+        "operationId": "olxGetTopic",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenAlexEntityRequest"
+              },
+              "example": {
+                "id": "T10001",
+                "select": "id,display_name,description,works_count"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopicResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/topics/batch": {
+      "post": {
+        "tags": [
+          "OLX - Topics"
+        ],
+        "summary": "批量获取主题",
+        "description": "批量获取多个主题详情",
+        "operationId": "olxGetTopicsBatch",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenAlexBatchRequest"
+              },
+              "example": {
+                "ids": [
+                  "T10001",
+                  "T10002"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopicListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/topics/autocomplete": {
+      "post": {
+        "tags": [
+          "OLX - Topics"
+        ],
+        "summary": "主题自动补全",
+        "description": "主题名称自动补全",
+        "operationId": "olxAutocompleteTopics",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutocompleteRequest"
+              },
+              "example": {
+                "query": "deep learning"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "自动补全成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutocompleteResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/topics/group": {
+      "post": {
+        "tags": [
+          "OLX - Topics"
+        ],
+        "summary": "主题分组统计",
+        "description": "按指定字段对主题进行分组统计",
+        "operationId": "olxGroupTopics",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupByRequest"
+              },
+              "example": {
+                "group_by": "domain.id",
+                "limit": 10
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "分组统计成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupByResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/publishers/search": {
+      "post": {
+        "tags": [
+          "OLX - Publishers"
+        ],
+        "summary": "搜索出版商",
+        "description": "搜索学术出版商",
+        "operationId": "olxSearchPublishers",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublisherSearchRequest"
+              },
+              "example": {
+                "query": "Elsevier",
+                "limit": 25
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "搜索成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublisherSearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/publishers/get": {
+      "post": {
+        "tags": [
+          "OLX - Publishers"
+        ],
+        "summary": "获取出版商详情",
+        "description": "根据出版商 ID 获取详细信息",
+        "operationId": "olxGetPublisher",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenAlexEntityRequest"
+              },
+              "example": {
+                "id": "P4310319965"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublisherResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/publishers/batch": {
+      "post": {
+        "tags": [
+          "OLX - Publishers"
+        ],
+        "summary": "批量获取出版商",
+        "description": "批量获取多个出版商详情",
+        "operationId": "olxGetPublishersBatch",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenAlexBatchRequest"
+              },
+              "example": {
+                "ids": [
+                  "P4310319965",
+                  "P4310320990"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublisherListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/publishers/autocomplete": {
+      "post": {
+        "tags": [
+          "OLX - Publishers"
+        ],
+        "summary": "出版商自动补全",
+        "description": "出版商名称自动补全",
+        "operationId": "olxAutocompletePublishers",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutocompleteRequest"
+              },
+              "example": {
+                "query": "springer"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "自动补全成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutocompleteResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/funders/search": {
+      "post": {
+        "tags": [
+          "OLX - Funders"
+        ],
+        "summary": "搜索资助者",
+        "description": "搜索科研资助机构",
+        "operationId": "olxSearchFunders",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FunderSearchRequest"
+              },
+              "example": {
+                "query": "National Science Foundation",
+                "limit": 25
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "搜索成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FunderSearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/funders/get": {
+      "post": {
+        "tags": [
+          "OLX - Funders"
+        ],
+        "summary": "获取资助者详情",
+        "description": "根据资助者 ID 获取详细信息",
+        "operationId": "olxGetFunder",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenAlexEntityRequest"
+              },
+              "example": {
+                "id": "F4320332161"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FunderResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/funders/batch": {
+      "post": {
+        "tags": [
+          "OLX - Funders"
+        ],
+        "summary": "批量获取资助者",
+        "description": "批量获取多个资助者详情",
+        "operationId": "olxGetFundersBatch",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenAlexBatchRequest"
+              },
+              "example": {
+                "ids": [
+                  "F4320332161",
+                  "F4320332162"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FunderListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/funders/autocomplete": {
+      "post": {
+        "tags": [
+          "OLX - Funders"
+        ],
+        "summary": "资助者自动补全",
+        "description": "资助者名称自动补全",
+        "operationId": "olxAutocompleteFunders",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutocompleteRequest"
+              },
+              "example": {
+                "query": "NIH"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "自动补全成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutocompleteResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/concepts/search": {
+      "post": {
+        "tags": [
+          "OLX - Concepts"
+        ],
+        "summary": "搜索概念",
+        "description": "搜索学术概念 (已弃用，建议使用 Topics)",
+        "operationId": "olxSearchConcepts",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConceptSearchRequest"
+              },
+              "example": {
+                "query": "artificial intelligence",
+                "filter": "level:0",
+                "limit": 25
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "搜索成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConceptSearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/concepts/get": {
+      "post": {
+        "tags": [
+          "OLX - Concepts"
+        ],
+        "summary": "获取概念详情",
+        "description": "根据概念 ID 获取详细信息",
+        "operationId": "olxGetConcept",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenAlexEntityRequest"
+              },
+              "example": {
+                "id": "C154945302"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConceptResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/concepts/batch": {
+      "post": {
+        "tags": [
+          "OLX - Concepts"
+        ],
+        "summary": "批量获取概念",
+        "description": "批量获取多个概念详情",
+        "operationId": "olxGetConceptsBatch",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenAlexBatchRequest"
+              },
+              "example": {
+                "ids": [
+                  "C154945302",
+                  "C41008148"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConceptListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/concepts/autocomplete": {
+      "post": {
+        "tags": [
+          "OLX - Concepts"
+        ],
+        "summary": "概念自动补全",
+        "description": "概念名称自动补全",
+        "operationId": "olxAutocompleteConcepts",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutocompleteRequest"
+              },
+              "example": {
+                "query": "machine"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "自动补全成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutocompleteResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/olx/concepts/group": {
+      "post": {
+        "tags": [
+          "OLX - Concepts"
+        ],
+        "summary": "概念分组统计",
+        "description": "按指定字段对概念进行分组统计",
+        "operationId": "olxGroupConcepts",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupByRequest"
+              },
+              "example": {
+                "group_by": "level",
+                "limit": 10
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "分组统计成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupByResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jnl/list": {
+      "post": {
+        "tags": [
+          "JNL - Journals"
+        ],
+        "summary": "分页获取期刊列表",
+        "description": "支持按名称、ISSN 模糊搜索，按来源数筛选，多种字段排序",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "page": {
+                    "type": "integer",
+                    "default": 1,
+                    "description": "页码"
+                  },
+                  "page_size": {
+                    "type": "integer",
+                    "default": 20,
+                    "maximum": 2000,
+                    "description": "每页条数"
+                  },
+                  "sort_by": {
+                    "type": "string",
+                    "description": "排序字段（如 id, canonical_name, openalex_h_index, jcr_impact_factor）"
+                  },
+                  "sort_dir": {
+                    "type": "string",
+                    "enum": [
+                      "asc",
+                      "desc"
+                    ],
+                    "default": "asc",
+                    "description": "排序方向"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "按期刊名称模糊搜索"
+                  },
+                  "issn": {
+                    "type": "string",
+                    "description": "按 ISSN 模糊搜索"
+                  },
+                  "min_sources": {
+                    "type": "integer",
+                    "description": "最少数据来源数"
+                  },
+                  "has_sources": {
+                    "type": "string",
+                    "description": "必须包含的来源（逗号分隔，如 crossref,openalex）"
+                  },
+                  "full": {
+                    "type": "string",
+                    "enum": [
+                      "0",
+                      "1",
+                      "true"
+                    ],
+                    "description": "设为 1 或 true 时返回完整子表数据"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jnl/search": {
+      "post": {
+        "tags": [
+          "JNL - Journals"
+        ],
+        "summary": "高级搜索（多维度筛选）",
+        "description": "支持出版商、国家、类型、OA状态、分区、影响因子范围等多维度筛选",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "page": {
+                    "type": "integer",
+                    "default": 1
+                  },
+                  "page_size": {
+                    "type": "integer",
+                    "default": 20
+                  },
+                  "keyword": {
+                    "type": "string",
+                    "description": "关键词搜索（匹配名称、出版商等多字段）"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "issn": {
+                    "type": "string"
+                  },
+                  "publisher": {
+                    "type": "string",
+                    "description": "出版商模糊搜索"
+                  },
+                  "country": {
+                    "type": "string",
+                    "description": "国家代码精确匹配（如 US, CN, GB）"
+                  },
+                  "type": {
+                    "type": "string",
+                    "description": "期刊类型（如 journal, repository）"
+                  },
+                  "is_oa": {
+                    "type": "string",
+                    "enum": [
+                      "0",
+                      "1"
+                    ],
+                    "description": "是否 OA"
+                  },
+                  "jcr_quartile": {
+                    "type": "string",
+                    "description": "JCR 分区（Q1, Q2, Q3, Q4）"
+                  },
+                  "fqb_quartile": {
+                    "type": "string",
+                    "description": "中科院大类分区"
+                  },
+                  "ccf_rank": {
+                    "type": "string",
+                    "description": "CCF 等级（A, B, C）"
+                  },
+                  "min_impact_factor": {
+                    "type": "number",
+                    "description": "影响因子下限"
+                  },
+                  "max_impact_factor": {
+                    "type": "number",
+                    "description": "影响因子上限"
+                  },
+                  "min_h_index": {
+                    "type": "integer",
+                    "description": "H-Index 下限"
+                  },
+                  "max_h_index": {
+                    "type": "integer",
+                    "description": "H-Index 上限"
+                  },
+                  "gjqk_warning": {
+                    "type": "string",
+                    "enum": [
+                      "0",
+                      "1"
+                    ],
+                    "description": "是否在预警名单中"
+                  },
+                  "full": {
+                    "type": "string",
+                    "enum": [
+                      "0",
+                      "1",
+                      "true"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jnl/filters": {
+      "post": {
+        "tags": [
+          "JNL - Journals"
+        ],
+        "summary": "获取可用筛选选项",
+        "description": "返回各维度的去重可选值，用于前端筛选器下拉框",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jnl/stats": {
+      "post": {
+        "tags": [
+          "JNL - Journals"
+        ],
+        "summary": "统计概览",
+        "description": "返回期刊总数、各数据源覆盖、OA 数量、国家/分区分布等汇总统计",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jnl/get": {
+      "post": {
+        "tags": [
+          "JNL - Journals"
+        ],
+        "summary": "获取单个期刊详情",
+        "description": "按 ID 获取单个期刊的完整详情（含所有来源子表数据）",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "id"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "description": "期刊 ID"
+                  },
+                  "full": {
+                    "type": "string",
+                    "enum": [
+                      "0",
+                      "1",
+                      "true"
+                    ],
+                    "default": "1"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jnl/byIds": {
+      "post": {
+        "tags": [
+          "JNL - Journals"
+        ],
+        "summary": "按 ID 批量查询期刊",
+        "description": "传入逗号分隔的 ID，最多 200 个",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "ids"
+                ],
+                "properties": {
+                  "ids": {
+                    "type": "string",
+                    "description": "逗号分隔的 ID 列表（如 1,2,3），最多 200 个"
+                  },
+                  "full": {
+                    "type": "string",
+                    "enum": [
+                      "0",
+                      "1",
+                      "true"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jnl/byIssn": {
+      "post": {
+        "tags": [
+          "JNL - Journals"
+        ],
+        "summary": "按 ISSN 精确查询期刊",
+        "description": "通过 ISSN 精确匹配，返回对应的期刊",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "issn"
+                ],
+                "properties": {
+                  "issn": {
+                    "type": "string",
+                    "description": "ISSN 号码（如 0028-0836）"
+                  },
+                  "full": {
+                    "type": "string",
+                    "enum": [
+                      "0",
+                      "1",
+                      "true"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jnl/byName": {
+      "post": {
+        "tags": [
+          "JNL - Journals"
+        ],
+        "summary": "按名称精确查询期刊",
+        "description": "按 canonical_name 精确匹配（不区分大小写）",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "期刊名称"
+                  },
+                  "full": {
+                    "type": "string",
+                    "enum": [
+                      "0",
+                      "1",
+                      "true"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jnl/batch": {
+      "post": {
+        "tags": [
+          "JNL - Journals"
+        ],
+        "summary": "批量 ISSN 查询",
+        "description": "传入多个 ISSN（逗号分隔），批量返回匹配的期刊，最多 100 个",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "issns"
+                ],
+                "properties": {
+                  "issns": {
+                    "type": "string",
+                    "description": "逗号分隔的 ISSN 列表（如 0028-0836,0036-8075），最多 100 个"
+                  },
+                  "full": {
+                    "type": "string",
+                    "enum": [
+                      "0",
+                      "1",
+                      "true"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jnl/compare": {
+      "post": {
+        "tags": [
+          "JNL - Journals"
+        ],
+        "summary": "期刊对比",
+        "description": "传入 2-10 个期刊 ID，返回详细指标的并排对比数据",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "ids"
+                ],
+                "properties": {
+                  "ids": {
+                    "type": "string",
+                    "description": "逗号分隔的期刊 ID（2-10 个）"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/chat/completions": {
+      "post": {
+        "tags": [
+          "Chat"
+        ],
+        "summary": "AI 论文搜索",
+        "description": "使用自然语言进行论文搜索，兼容 OpenAI Chat Completions API 格式。\n\n**功能特点：**\n- 自然语言查询解析\n- 自动搜索多个数据源\n- 支持流式响应\n\n**示例查询：**\n- \"找10篇关于transformer模型在NLP中应用的2023年论文\"\n- \"搜索Geoffrey Hinton在深度学习领域的重要论文\"\n- \"查找引用次数超过1000的机器学习综述论文\"\n",
+        "operationId": "chatCompletions",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatCompletionRequest"
+              },
+              "example": {
+                "model": "minicod-search",
+                "messages": [
+                  {
+                    "role": "user",
+                    "content": "Find papers about transformer models in NLP from 2023"
+                  }
+                ],
+                "stream": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "聊天完成成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatCompletionResponse"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "string",
+                  "description": "SSE 流式响应"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "API Key",
+        "description": "使用 API Key 进行认证，格式：Bearer sk-xxxxxxxxxxxxxxxx\n"
+      }
+    },
+    "schemas": {
+      "ApiResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "description": "状态码，0 表示成功",
+            "example": 0
+          },
+          "message": {
+            "type": "string",
+            "description": "状态消息",
+            "example": "success"
+          },
+          "data": {
+            "type": "object",
+            "description": "响应数据"
+          }
+        }
+      },
+      "Paper": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unified ID (stc:{id} or olx:{id})",
+            "example": "stc:649def34f8be52c8b66281af98ae884c09aef38b"
+          },
+          "source": {
+            "type": "string",
+            "description": "Data source (from open internet academic resources)",
+            "enum": [
+              "stc",
+              "olx"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "description": "论文标题"
+          },
+          "abstract": {
+            "type": "string",
+            "description": "摘要"
+          },
+          "year": {
+            "type": "integer",
+            "description": "发表年份"
+          },
+          "publication_date": {
+            "type": "string",
+            "description": "发表日期 (YYYY-MM-DD)"
+          },
+          "doi": {
+            "type": "string",
+            "description": "DOI"
+          },
+          "citation_count": {
+            "type": "integer",
+            "description": "引用数"
+          },
+          "reference_count": {
+            "type": "integer",
+            "description": "参考文献数"
+          },
+          "venue": {
+            "type": "string",
+            "description": "期刊/会议名称"
+          },
+          "is_open_access": {
+            "type": "boolean",
+            "description": "是否开放获取"
+          },
+          "pdf_url": {
+            "type": "string",
+            "description": "PDF 链接"
+          },
+          "url": {
+            "type": "string",
+            "description": "论文页面链接"
+          },
+          "fields_of_study": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "研究领域"
+          },
+          "authors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Author"
+            },
+            "description": "作者列表"
+          }
+        }
+      },
+      "PaperSearchResult": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Paper"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "description": "总数"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "偏移量"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "每页数量"
+          },
+          "sources_queried": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "查询的数据源"
+          }
+        }
+      },
+      "PaperSearchResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/PaperSearchResult"
+              }
+            }
+          }
+        ]
+      },
+      "PaperResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/Paper"
+              }
+            }
+          }
+        ]
+      },
+      "PaperListResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Paper"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "BulkSearchResult": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Paper"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "token": {
+            "type": "string",
+            "description": "下一页 token"
+          }
+        }
+      },
+      "BulkSearchResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/BulkSearchResult"
+              }
+            }
+          }
+        ]
+      },
+      "Author": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unified ID"
+          },
+          "source": {
+            "type": "string",
+            "description": "Data source (from open internet academic resources)",
+            "enum": [
+              "stc",
+              "olx"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "作者姓名"
+          },
+          "affiliations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "所属机构"
+          },
+          "paper_count": {
+            "type": "integer",
+            "description": "论文数量"
+          },
+          "citation_count": {
+            "type": "integer",
+            "description": "引用数"
+          },
+          "h_index": {
+            "type": "integer",
+            "description": "H 指数"
+          },
+          "orcid": {
+            "type": "string",
+            "description": "ORCID"
+          },
+          "url": {
+            "type": "string",
+            "description": "作者页面链接"
+          }
+        }
+      },
+      "AuthorSearchResult": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Author"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "sources_queried": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "AuthorSearchResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/AuthorSearchResult"
+              }
+            }
+          }
+        ]
+      },
+      "AuthorResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/Author"
+              }
+            }
+          }
+        ]
+      },
+      "AuthorListResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Author"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "Source": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "issn": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "issn_l": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "host_organization": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "description": "journal, repository, conference, etc."
+          },
+          "works_count": {
+            "type": "integer"
+          },
+          "cited_by_count": {
+            "type": "integer"
+          },
+          "is_oa": {
+            "type": "boolean"
+          },
+          "homepage_url": {
+            "type": "string"
+          },
+          "country_code": {
+            "type": "string"
+          }
+        }
+      },
+      "SourceSearchResult": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Source"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        }
+      },
+      "SourceSearchResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/SourceSearchResult"
+              }
+            }
+          }
+        ]
+      },
+      "SourceResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/Source"
+              }
+            }
+          }
+        ]
+      },
+      "SourceListResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Source"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "Institution": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "ror": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "country_code": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "description": "education, healthcare, company, etc."
+          },
+          "homepage_url": {
+            "type": "string"
+          },
+          "works_count": {
+            "type": "integer"
+          },
+          "cited_by_count": {
+            "type": "integer"
+          },
+          "geo": {
+            "type": "object",
+            "properties": {
+              "city": {
+                "type": "string"
+              },
+              "region": {
+                "type": "string"
+              },
+              "country": {
+                "type": "string"
+              },
+              "latitude": {
+                "type": "number"
+              },
+              "longitude": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      },
+      "InstitutionSearchResult": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Institution"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        }
+      },
+      "InstitutionSearchResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/InstitutionSearchResult"
+              }
+            }
+          }
+        ]
+      },
+      "InstitutionResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/Institution"
+              }
+            }
+          }
+        ]
+      },
+      "InstitutionListResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Institution"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "Topic": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "keywords": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "works_count": {
+            "type": "integer"
+          },
+          "cited_by_count": {
+            "type": "integer"
+          },
+          "subfield": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "display_name": {
+                "type": "string"
+              }
+            }
+          },
+          "field": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "display_name": {
+                "type": "string"
+              }
+            }
+          },
+          "domain": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "display_name": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "TopicSearchResult": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Topic"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        }
+      },
+      "TopicSearchResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/TopicSearchResult"
+              }
+            }
+          }
+        ]
+      },
+      "TopicResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/Topic"
+              }
+            }
+          }
+        ]
+      },
+      "TopicListResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Topic"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "Publisher": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "alternate_names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "country_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "works_count": {
+            "type": "integer"
+          },
+          "cited_by_count": {
+            "type": "integer"
+          },
+          "sources_count": {
+            "type": "integer"
+          }
+        }
+      },
+      "PublisherSearchResult": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Publisher"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        }
+      },
+      "PublisherSearchResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/PublisherSearchResult"
+              }
+            }
+          }
+        ]
+      },
+      "PublisherResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/Publisher"
+              }
+            }
+          }
+        ]
+      },
+      "PublisherListResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Publisher"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "Funder": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "alternate_names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "country_code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "homepage_url": {
+            "type": "string"
+          },
+          "grants_count": {
+            "type": "integer"
+          },
+          "works_count": {
+            "type": "integer"
+          },
+          "cited_by_count": {
+            "type": "integer"
+          }
+        }
+      },
+      "FunderSearchResult": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Funder"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        }
+      },
+      "FunderSearchResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/FunderSearchResult"
+              }
+            }
+          }
+        ]
+      },
+      "FunderResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/Funder"
+              }
+            }
+          }
+        ]
+      },
+      "FunderListResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Funder"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "Concept": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "wikidata": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "level": {
+            "type": "integer"
+          },
+          "description": {
+            "type": "string"
+          },
+          "works_count": {
+            "type": "integer"
+          },
+          "cited_by_count": {
+            "type": "integer"
+          }
+        }
+      },
+      "ConceptSearchResult": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Concept"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        }
+      },
+      "ConceptSearchResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/ConceptSearchResult"
+              }
+            }
+          }
+        ]
+      },
+      "ConceptResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/Concept"
+              }
+            }
+          }
+        ]
+      },
+      "ConceptListResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Concept"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "SearchOptions": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "搜索关键词（必填）"
+          },
+          "source": {
+            "type": "string",
+            "description": "数据源：`stc`（Semantic Scholar）| `olx`（OpenAlex）| `all`",
+            "enum": [
+              "stc",
+              "olx",
+              "all"
+            ],
+            "default": "all"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "每页返回条数",
+            "default": 20,
+            "maximum": 100
+          },
+          "offset": {
+            "type": "integer",
+            "description": "偏移量（非 bulk 时使用）",
+            "default": 0
+          },
+          "fields": {
+            "type": "string",
+            "description": "响应字段裁剪，逗号分隔（可选）"
+          },
+          "sort": {
+            "type": "string",
+            "description": "排序方式。注意：`stc` 的 relevance 端点不支持排序（仅 bulk 端点支持）；`olx` 均支持。\n",
+            "enum": [
+              "relevance",
+              "citations",
+              "date"
+            ],
+            "default": "relevance"
+          },
+          "year_from": {
+            "type": "integer",
+            "description": "起始年份（含），例如 2020"
+          },
+          "year_to": {
+            "type": "integer",
+            "description": "结束年份（含），例如 2023"
+          },
+          "date_from": {
+            "type": "string",
+            "format": "date",
+            "description": "起始日期 YYYY-MM-DD。比 year_from 精度更高；同时提供时 date_* 优先。"
+          },
+          "date_to": {
+            "type": "string",
+            "format": "date",
+            "description": "结束日期 YYYY-MM-DD"
+          },
+          "open_access": {
+            "type": "boolean",
+            "description": "仅返回开放获取论文",
+            "default": false
+          },
+          "min_citations": {
+            "type": "integer",
+            "description": "最少引用数（闭区间：>=N）",
+            "minimum": 0
+          },
+          "venue": {
+            "type": "string",
+            "description": "期刊/会议名，多个用英文逗号分隔"
+          },
+          "subjects": {
+            "type": "array",
+            "description": "学科领域枚举（Minicod 统一命名，内部翻译为上游原生值）。可填多个做 OR。\nOpenAlex 源当前只取数组第一个做 concepts 模糊匹配。\n",
+            "items": {
+              "type": "string",
+              "enum": [
+                "art",
+                "agricultural-and-food-sciences",
+                "biology",
+                "business",
+                "chemistry",
+                "computer-science",
+                "economics",
+                "education",
+                "engineering",
+                "environmental-science",
+                "geography",
+                "geology",
+                "history",
+                "law",
+                "linguistics",
+                "materials-science",
+                "mathematics",
+                "medicine",
+                "philosophy",
+                "physics",
+                "political-science",
+                "psychology",
+                "sociology"
+              ]
+            }
+          },
+          "types": {
+            "type": "array",
+            "description": "文献类型枚举（Minicod 统一命名）。可填多个做 OR。\n`preprint` / `thesis` 在 Semantic Scholar 无对应枚举，仅 OpenAlex 生效；\n`conference` 在 OpenAlex 无独立 slug，会退化为 `article`。\n",
+            "items": {
+              "type": "string",
+              "enum": [
+                "article",
+                "review",
+                "book",
+                "book-chapter",
+                "dataset",
+                "editorial",
+                "letter",
+                "preprint",
+                "thesis",
+                "conference"
+              ]
+            }
+          },
+          "token": {
+            "type": "string",
+            "description": "分页 token（仅 `stc` bulk 搜索使用，上一次响应返回的 token）"
+          }
+        }
+      },
+      "OpenAlexSearchOptions": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "搜索关键词"
+          },
+          "filter": {
+            "type": "string",
+            "description": "OLX filter syntax"
+          },
+          "search": {
+            "type": "string",
+            "description": "全文搜索"
+          },
+          "select": {
+            "type": "string",
+            "description": "返回字段"
+          },
+          "sort": {
+            "type": "string",
+            "description": "排序 (field:asc 或 field:desc)"
+          },
+          "group_by": {
+            "type": "string",
+            "description": "分组字段"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "每页数量 (最大 200)",
+            "default": 25,
+            "maximum": 200
+          },
+          "page": {
+            "type": "integer",
+            "description": "页码"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "游标分页"
+          },
+          "sample": {
+            "type": "integer",
+            "description": "随机采样数量"
+          },
+          "seed": {
+            "type": "integer",
+            "description": "随机种子"
+          }
+        }
+      },
+      "OpenAlexEntityRequest": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "实体 ID"
+          },
+          "select": {
+            "type": "string",
+            "description": "返回字段"
+          }
+        }
+      },
+      "OpenAlexBatchRequest": {
+        "type": "object",
+        "required": [
+          "ids"
+        ],
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "实体 ID 列表"
+          },
+          "select": {
+            "type": "string",
+            "description": "返回字段"
+          }
+        }
+      },
+      "PaperGetRequest": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "论文 ID"
+          },
+          "fields": {
+            "type": "string",
+            "description": "返回字段"
+          }
+        }
+      },
+      "PaperBatchRequest": {
+        "type": "object",
+        "required": [
+          "ids"
+        ],
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "论文 ID 列表"
+          },
+          "fields": {
+            "type": "string",
+            "description": "返回字段"
+          }
+        }
+      },
+      "PaperDOIRequest": {
+        "type": "object",
+        "required": [
+          "doi"
+        ],
+        "properties": {
+          "doi": {
+            "type": "string",
+            "description": "DOI"
+          },
+          "fields": {
+            "type": "string",
+            "description": "返回字段"
+          }
+        }
+      },
+      "PaperAuthorsRequest": {
+        "type": "object",
+        "required": [
+          "paper_id"
+        ],
+        "properties": {
+          "paper_id": {
+            "type": "string",
+            "description": "论文 ID"
+          },
+          "fields": {
+            "type": "string",
+            "description": "返回字段"
+          },
+          "limit": {
+            "type": "integer",
+            "default": 100
+          },
+          "offset": {
+            "type": "integer",
+            "default": 0
+          }
+        }
+      },
+      "PaperCitationsRequest": {
+        "type": "object",
+        "required": [
+          "paper_id"
+        ],
+        "properties": {
+          "paper_id": {
+            "type": "string",
+            "description": "论文 ID"
+          },
+          "fields": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "default": 100
+          },
+          "offset": {
+            "type": "integer",
+            "default": 0
+          },
+          "publication_date_or_year": {
+            "type": "string"
+          }
+        }
+      },
+      "PaperReferencesRequest": {
+        "type": "object",
+        "required": [
+          "paper_id"
+        ],
+        "properties": {
+          "paper_id": {
+            "type": "string",
+            "description": "论文 ID"
+          },
+          "fields": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "default": 100
+          },
+          "offset": {
+            "type": "integer",
+            "default": 0
+          },
+          "publication_date_or_year": {
+            "type": "string"
+          }
+        }
+      },
+      "AuthorSearchRequest": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "搜索关键词"
+          },
+          "fields": {
+            "type": "string",
+            "description": "返回字段"
+          },
+          "limit": {
+            "type": "integer",
+            "default": 10
+          },
+          "offset": {
+            "type": "integer",
+            "default": 0
+          }
+        }
+      },
+      "AuthorGetRequest": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "作者 ID"
+          },
+          "fields": {
+            "type": "string",
+            "description": "返回字段"
+          }
+        }
+      },
+      "AuthorBatchRequest": {
+        "type": "object",
+        "required": [
+          "ids"
+        ],
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "作者 ID 列表"
+          },
+          "fields": {
+            "type": "string",
+            "description": "返回字段"
+          }
+        }
+      },
+      "AuthorPapersRequest": {
+        "type": "object",
+        "required": [
+          "author_id"
+        ],
+        "properties": {
+          "author_id": {
+            "type": "string",
+            "description": "作者 ID"
+          },
+          "fields": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "default": 100
+          },
+          "offset": {
+            "type": "integer",
+            "default": 0
+          },
+          "publication_date_or_year": {
+            "type": "string"
+          }
+        }
+      },
+      "SourceSearchRequest": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "filter": {
+            "type": "string"
+          },
+          "select": {
+            "type": "string"
+          },
+          "sort": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "default": 25
+          },
+          "page": {
+            "type": "integer"
+          },
+          "cursor": {
+            "type": "string"
+          }
+        }
+      },
+      "InstitutionSearchRequest": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "filter": {
+            "type": "string"
+          },
+          "select": {
+            "type": "string"
+          },
+          "sort": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "default": 25
+          },
+          "page": {
+            "type": "integer"
+          },
+          "cursor": {
+            "type": "string"
+          }
+        }
+      },
+      "TopicSearchRequest": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "filter": {
+            "type": "string"
+          },
+          "select": {
+            "type": "string"
+          },
+          "sort": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "default": 25
+          },
+          "page": {
+            "type": "integer"
+          }
+        }
+      },
+      "PublisherSearchRequest": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "filter": {
+            "type": "string"
+          },
+          "select": {
+            "type": "string"
+          },
+          "sort": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "default": 25
+          },
+          "page": {
+            "type": "integer"
+          }
+        }
+      },
+      "FunderSearchRequest": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "filter": {
+            "type": "string"
+          },
+          "select": {
+            "type": "string"
+          },
+          "sort": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "default": 25
+          },
+          "page": {
+            "type": "integer"
+          }
+        }
+      },
+      "ConceptSearchRequest": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "filter": {
+            "type": "string"
+          },
+          "select": {
+            "type": "string"
+          },
+          "sort": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "default": 25
+          },
+          "page": {
+            "type": "integer"
+          }
+        }
+      },
+      "AutocompleteRequest": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "搜索词"
+          },
+          "filter": {
+            "type": "string",
+            "description": "过滤条件"
+          },
+          "entity_type": {
+            "type": "string",
+            "description": "实体类型"
+          }
+        }
+      },
+      "GroupByRequest": {
+        "type": "object",
+        "required": [
+          "group_by"
+        ],
+        "properties": {
+          "group_by": {
+            "type": "string",
+            "description": "分组字段"
+          },
+          "filter": {
+            "type": "string",
+            "description": "过滤条件"
+          },
+          "search": {
+            "type": "string",
+            "description": "搜索条件"
+          },
+          "include_unknown": {
+            "type": "boolean",
+            "description": "是否包含 unknown 分组"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "分组数量限制"
+          },
+          "cursor": {
+            "type": "string",
+            "description": "游标分页"
+          }
+        }
+      },
+      "RelatedWorksRequest": {
+        "type": "object",
+        "required": [
+          "work_id"
+        ],
+        "properties": {
+          "work_id": {
+            "type": "string",
+            "description": "论文 ID"
+          },
+          "limit": {
+            "type": "integer",
+            "default": 20
+          },
+          "select": {
+            "type": "string",
+            "description": "返回字段"
+          }
+        }
+      },
+      "SnippetSearchRequest": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "搜索关键词"
+          },
+          "fields": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "default": 20
+          },
+          "paper_ids": {
+            "type": "string",
+            "description": "限制论文范围"
+          },
+          "authors": {
+            "type": "string",
+            "description": "作者过滤"
+          },
+          "min_citation_count": {
+            "type": "integer"
+          },
+          "publication_date_or_year": {
+            "type": "string"
+          },
+          "year": {
+            "type": "string"
+          },
+          "venue": {
+            "type": "string"
+          },
+          "fields_of_study": {
+            "type": "string"
+          }
+        }
+      },
+      "RecommendationRequest": {
+        "type": "object",
+        "required": [
+          "positive_paper_ids"
+        ],
+        "properties": {
+          "positive_paper_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "正面示例论文 ID"
+          },
+          "negative_paper_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "负面示例论文 ID"
+          },
+          "fields": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "default": 100,
+            "maximum": 500
+          }
+        }
+      },
+      "RecommendationForPaperRequest": {
+        "type": "object",
+        "required": [
+          "paper_id"
+        ],
+        "properties": {
+          "paper_id": {
+            "type": "string",
+            "description": "论文 ID"
+          },
+          "from": {
+            "type": "string",
+            "description": "recent 或 all-cs",
+            "enum": [
+              "recent",
+              "all-cs"
+            ]
+          },
+          "fields": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "default": 100,
+            "maximum": 500
+          }
+        }
+      },
+      "ChatCompletionRequest": {
+        "type": "object",
+        "required": [
+          "model",
+          "messages"
+        ],
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "模型名称",
+            "example": "minicod-search"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatMessage"
+            },
+            "description": "对话消息"
+          },
+          "stream": {
+            "type": "boolean",
+            "description": "是否启用流式响应",
+            "default": false
+          },
+          "max_tokens": {
+            "type": "integer",
+            "description": "最大输出 token 数"
+          },
+          "temperature": {
+            "type": "number",
+            "description": "采样温度",
+            "default": 0.7
+          }
+        }
+      },
+      "ChatMessage": {
+        "type": "object",
+        "required": [
+          "role",
+          "content"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "description": "角色",
+            "enum": [
+              "system",
+              "user",
+              "assistant"
+            ]
+          },
+          "content": {
+            "type": "string",
+            "description": "消息内容"
+          }
+        }
+      },
+      "SemanticAutocompleteItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "SemanticAutocompleteResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SemanticAutocompleteItem"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "AutocompleteItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "hint": {
+            "type": "string"
+          },
+          "cited_by_count": {
+            "type": "integer"
+          },
+          "works_count": {
+            "type": "integer"
+          },
+          "entity_type": {
+            "type": "string"
+          },
+          "external_id": {
+            "type": "string"
+          }
+        }
+      },
+      "AutocompleteResult": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AutocompleteItem"
+            }
+          },
+          "total": {
+            "type": "integer"
+          }
+        }
+      },
+      "AutocompleteResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/AutocompleteResult"
+              }
+            }
+          }
+        ]
+      },
+      "GroupByItem": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "key_display_name": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer"
+          }
+        }
+      },
+      "GroupByResult": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupByItem"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "groups_count": {
+            "type": "integer"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        }
+      },
+      "GroupByResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/GroupByResult"
+              }
+            }
+          }
+        ]
+      },
+      "Snippet": {
+        "type": "object",
+        "properties": {
+          "paper_id": {
+            "type": "string"
+          },
+          "paper_title": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "section": {
+            "type": "string"
+          }
+        }
+      },
+      "SnippetSearchResult": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Snippet"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        }
+      },
+      "SnippetSearchResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/SnippetSearchResult"
+              }
+            }
+          }
+        ]
+      },
+      "RecommendationResult": {
+        "type": "object",
+        "properties": {
+          "recommended_papers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Paper"
+            }
+          }
+        }
+      },
+      "RecommendationResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/RecommendationResult"
+              }
+            }
+          }
+        ]
+      },
+      "ChatCompletionResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "响应 ID"
+          },
+          "object": {
+            "type": "string",
+            "description": "对象类型",
+            "enum": [
+              "chat.completion",
+              "chat.completion.chunk"
+            ]
+          },
+          "created": {
+            "type": "integer",
+            "description": "创建时间戳"
+          },
+          "model": {
+            "type": "string",
+            "description": "模型名称"
+          },
+          "choices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "index": {
+                  "type": "integer"
+                },
+                "message": {
+                  "$ref": "#/components/schemas/ChatMessage"
+                },
+                "finish_reason": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "usage": {
+            "type": "object",
+            "properties": {
+              "prompt_tokens": {
+                "type": "integer"
+              },
+              "completion_tokens": {
+                "type": "integer"
+              },
+              "total_tokens": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

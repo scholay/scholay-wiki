@@ -12,6 +12,7 @@ import SensitiveField from '../../components/SensitiveField';
 import { adminAPI } from '../../services/api';
 import { showToast } from '../../components/Toast';
 import { useSettingsContext } from './SettingsContext';
+import { GithubIcon } from '../../../components/icons/providers';
 
 interface GithubConfigState {
   githubClientId: string;
@@ -83,7 +84,7 @@ const GithubTab = React.memo(() => {
   return (
     <div className="settings-section fade-in">
       <div className="section-header">
-        <h2>GitHub 登录配置</h2>
+        <h2 className="with-icon"><GithubIcon size={24} />GitHub 登录配置</h2>
         <p>配置 GitHub App 或 OAuth App 以支持用户通过 GitHub 账号登录</p>
       </div>
 

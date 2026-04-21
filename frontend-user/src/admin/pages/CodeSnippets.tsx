@@ -6,11 +6,11 @@
  * All Rights Reserved.
  * ============================================================================
  *
- * CodeSnippets - 代码片段管理（SEO/广告/统计等）
- * 用于管理注入到用户端前端的代码片段
+ * CodeSnippets - 代码片段管理
+ * 用于管理注入到用户端前端的代码片段，按注入位置（head / body 前 / body 后）区分
  */
 
-import React, { useState, useEffect, useCallback, type FormEvent } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, type FormEvent } from 'react';
 import { adminAPI } from '../services/api';
 import './CodeSnippets.css';
 
@@ -18,7 +18,6 @@ interface CodeSnippet {
   id: number;
   name: string;
   code_key: string;
-  category: string;
   position: string;
   code_content: string;
   description?: string;
@@ -30,7 +29,6 @@ interface CodeSnippet {
 interface CodeSnippetForm {
   name: string;
   code_key: string;
-  category: string;
   position: string;
   code_content: string;
   description: string;
@@ -39,21 +37,17 @@ interface CodeSnippetForm {
   pages: string[];
 }
 
-// 分类选项
-const CATEGORIES = [
-  { value: 'all', label: '全部' },
-  { value: 'seo', label: 'SEO' },
-  { value: 'analytics', label: '统计分析' },
-  { value: 'ad', label: '广告' },
-  { value: 'social', label: '社交' },
-  { value: 'other', label: '其他' },
-];
-
-// 位置选项
+// 位置选项（作为唯一的区分维度）
 const POSITIONS = [
   { value: 'head', label: 'Head (头部)', desc: '适合 meta 标签、CSS、统计代码' },
   { value: 'body_start', label: 'Body 开始', desc: '适合需要早期加载的脚本' },
   { value: 'body_end', label: 'Body 结束', desc: '适合延迟加载的脚本、广告代码' },
+];
+
+// 筛选选项（全部 + 三个位置）
+const POSITION_FILTERS = [
+  { value: 'all', label: '全部' },
+  ...POSITIONS.map(p => ({ value: p.value, label: p.label })),
 ];
 
 const CodeSnippets: React.FC = () => {
@@ -61,11 +55,10 @@ const CodeSnippets: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [showModal, setShowModal] = useState<boolean>(false);
   const [editingSnippet, setEditingSnippet] = useState<CodeSnippet | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedPosition, setSelectedPosition] = useState<string>('all');
   const [formData, setFormData] = useState<CodeSnippetForm>({
     name: '',
     code_key: '',
-    category: 'seo',
     position: 'head',
     code_content: '',
     description: '',
@@ -78,7 +71,7 @@ const CodeSnippets: React.FC = () => {
   const loadSnippets = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await adminAPI.getCodeSnippets(selectedCategory === 'all' ? '' : selectedCategory);
+      const response = await adminAPI.getCodeSnippets('');
       if (response.data.code === 0 && response.data.data) {
         setSnippets(response.data.data || []);
       }
@@ -88,7 +81,12 @@ const CodeSnippets: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [selectedCategory]);
+  }, []);
+
+  const filteredSnippets = useMemo(() => {
+    if (selectedPosition === 'all') return snippets;
+    return snippets.filter(s => s.position === selectedPosition);
+  }, [snippets, selectedPosition]);
 
   useEffect(() => {
     loadSnippets();
@@ -99,7 +97,6 @@ const CodeSnippets: React.FC = () => {
     setFormData({
       name: '',
       code_key: '',
-      category: 'seo',
       position: 'head',
       code_content: '',
       description: '',
@@ -116,7 +113,6 @@ const CodeSnippets: React.FC = () => {
     setFormData({
       name: snippet.name,
       code_key: snippet.code_key,
-      category: snippet.category,
       position: snippet.position,
       code_content: snippet.code_content,
       description: snippet.description || '',
@@ -203,25 +199,18 @@ const CodeSnippets: React.FC = () => {
     }
   };
 
-  const getCategoryLabel = (category: string) => {
-    const item = CATEGORIES.find(c => c.value === category);
-    return item ? item.label : category;
-  };
-
   const getPositionLabel = (position: string) => {
     const item = POSITIONS.find(p => p.value === position);
     return item ? item.label : position;
   };
 
-  const getCategoryClass = (category: string) => {
+  const getPositionClass = (position: string) => {
     const classes: Record<string, string> = {
-      seo: 'badge-seo',
-      analytics: 'badge-analytics',
-      ad: 'badge-ad',
-      social: 'badge-social',
-      other: 'badge-other',
+      head: 'badge-head',
+      body_start: 'badge-body-start',
+      body_end: 'badge-body-end',
     };
-    return classes[category] || 'badge-other';
+    return classes[position] || 'badge-other';
   };
 
   return (
@@ -229,7 +218,7 @@ const CodeSnippets: React.FC = () => {
       <div className="page-header">
         <div className="header-left">
           <h1>代码片段管理</h1>
-          <p className="header-desc">管理注入到用户端前端的 SEO、统计、广告等代码</p>
+          <p className="header-desc">管理注入到用户端前端的代码，按注入位置（Head / Body 前 / Body 后）区分</p>
         </div>
         <button className="btn-primary" onClick={handleCreate}>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -239,16 +228,16 @@ const CodeSnippets: React.FC = () => {
         </button>
       </div>
 
-      {/* 分类筛选 */}
+      {/* 按注入位置筛选 */}
       <div className="filter-bar">
         <div className="filter-tabs">
-          {CATEGORIES.map(cat => (
+          {POSITION_FILTERS.map(f => (
             <button
-              key={cat.value}
-              className={`filter-tab ${selectedCategory === cat.value ? 'active' : ''}`}
-              onClick={() => setSelectedCategory(cat.value)}
+              key={f.value}
+              className={`filter-tab ${selectedPosition === f.value ? 'active' : ''}`}
+              onClick={() => setSelectedPosition(f.value)}
             >
-              {cat.label}
+              {f.label}
             </button>
           ))}
         </div>
@@ -261,7 +250,7 @@ const CodeSnippets: React.FC = () => {
             <div className="spinner"></div>
             <p>加载中...</p>
           </div>
-        ) : snippets.length === 0 ? (
+        ) : filteredSnippets.length === 0 ? (
           <div className="empty-state">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
@@ -280,15 +269,14 @@ const CodeSnippets: React.FC = () => {
                 <tr>
                   <th>名称</th>
                   <th>标识键</th>
-                  <th>分类</th>
-                  <th>位置</th>
+                  <th>注入位置</th>
                   <th>优先级</th>
                   <th>状态</th>
                   <th>操作</th>
                 </tr>
               </thead>
               <tbody>
-                {snippets.map(snippet => (
+                {filteredSnippets.map(snippet => (
                   <tr key={snippet.id} className={!snippet.is_enabled ? 'disabled' : ''}>
                     <td>
                       <div className="snippet-name">
@@ -302,12 +290,9 @@ const CodeSnippets: React.FC = () => {
                       <code className="code-key">{snippet.code_key}</code>
                     </td>
                     <td>
-                      <span className={`badge ${getCategoryClass(snippet.category)}`}>
-                        {getCategoryLabel(snippet.category)}
+                      <span className={`badge ${getPositionClass(snippet.position)}`}>
+                        {getPositionLabel(snippet.position)}
                       </span>
-                    </td>
-                    <td>
-                      <span className="position-label">{getPositionLabel(snippet.position)}</span>
                     </td>
                     <td>
                       <span className="priority">{snippet.priority}</span>
@@ -390,18 +375,6 @@ const CodeSnippets: React.FC = () => {
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label>分类 <span className="required">*</span></label>
-                    <select
-                      value={formData.category}
-                      onChange={e => setFormData({ ...formData, category: e.target.value })}
-                      required
-                    >
-                      {CATEGORIES.filter(c => c.value !== 'all').map(cat => (
-                        <option key={cat.value} value={cat.value}>{cat.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group">
                     <label>注入位置 <span className="required">*</span></label>
                     <select
                       value={formData.position}
@@ -416,9 +389,6 @@ const CodeSnippets: React.FC = () => {
                       {POSITIONS.find(p => p.value === formData.position)?.desc}
                     </span>
                   </div>
-                </div>
-
-                <div className="form-row">
                   <div className="form-group">
                     <label>优先级</label>
                     <input
@@ -430,21 +400,22 @@ const CodeSnippets: React.FC = () => {
                     />
                     <span className="form-hint">数字越小越先加载，默认100</span>
                   </div>
-                  <div className="form-group">
-                    <label>状态</label>
-                    <div className="toggle-switch">
-                      <input
-                        type="checkbox"
-                        id="is_enabled"
-                        checked={formData.is_enabled}
-                        onChange={e => setFormData({ ...formData, is_enabled: e.target.checked })}
-                      />
-                      <label htmlFor="is_enabled" className="toggle-label">
-                        <span className="toggle-inner"></span>
-                        <span className="toggle-switch-handle"></span>
-                      </label>
-                      <span className="toggle-text">{formData.is_enabled ? '已启用' : '已禁用'}</span>
-                    </div>
+                </div>
+
+                <div className="form-group">
+                  <label>状态</label>
+                  <div className="toggle-switch">
+                    <input
+                      type="checkbox"
+                      id="is_enabled"
+                      checked={formData.is_enabled}
+                      onChange={e => setFormData({ ...formData, is_enabled: e.target.checked })}
+                    />
+                    <label htmlFor="is_enabled" className="toggle-label">
+                      <span className="toggle-inner"></span>
+                      <span className="toggle-switch-handle"></span>
+                    </label>
+                    <span className="toggle-text">{formData.is_enabled ? '已启用' : '已禁用'}</span>
                   </div>
                 </div>
 

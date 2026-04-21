@@ -6,196 +6,79 @@
  * All Rights Reserved.
  * ============================================================================
  *
- * PeerReviewFeaturePage — Ground-up redesign
- * Design philosophy: outcome-focused copy, product-in-hero, premium dark theme,
- * bento grid features, layered trust architecture, spring-physics animations.
+ * PeerReviewFeaturePage — Stripe/Vercel style redesign
+ * Product-forward hero · alternating feature rows · window-chrome mockups
  */
 
-import React, { lazy, Suspense, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
-  ArrowRight, CheckCircle2, Sparkles, ChevronDown,
-  FileText, Zap, Shield, BarChart3, Users, Download,
-  BookOpen, Award, TrendingUp, Clock, ChevronRight,
-  Lock, BrainCircuit, EyeOff, FileCheck, ShieldCheck,
+  ArrowRight, CheckCircle2, Sparkles, ChevronDown, ChevronRight,
+  FileText, Shield, Users, Download, Cpu, Terminal,
+  BookOpen, Lock, BrainCircuit, EyeOff, FileCheck, ShieldCheck,
+  Search, Quote, FileDown, GitCompareArrows, AlertTriangle,
+  AlertCircle, Info, X,
 } from 'lucide-react';
-import { FeatureNav, FeatureFAQ, FeatureCTA, FeatureJumpNav, SEO } from './FeaturePageComponents';
+import { FeatureNav, FeatureCTA, FeatureJumpNav, SEO } from './FeaturePageComponents';
 import { DEMO_SCORES } from './peerReviewDemoData';
 import './PeerReviewFeaturePage.css';
 
+const ACCENT = '#8b5cf6';
+
 const JUMP_SECTIONS = [
-  { id: 'pr-pipeline', label: '审稿引擎' },
-  { id: 'pr-features', label: '核心能力' },
-  { id: 'pr-demo', label: '体验演示' },
+  { id: 'pr-engine', label: '审稿引擎' },
+  { id: 'pr-literature', label: '文献对标' },
+  { id: 'pr-report', label: '结构化报告' },
   { id: 'pr-security', label: '数据安全' },
   { id: 'pr-faq', label: '常见问题' },
 ];
 
-const PeerReviewDemo = lazy(() => import('./PeerReviewDemo'));
-
-/* ─────────────────────────────────────────────
-   Constants / data
-───────────────────────────────────────────── */
-const ACCENT = '#8b5cf6';
-
-// Pipeline stages for the process flow diagram
-const PIPELINE_STAGES = [
-  {
-    id: 'upload',
-    icon: <FileText size={22} />,
-    color: '#6366f1',
-    label: '上传稿件',
-    detail: 'PDF · DOCX · TXT',
-  },
-  {
-    id: 'parse',
-    icon: <BookOpen size={22} />,
-    color: '#8b5cf6',
-    label: '稿件解析',
-    detail: '元信息提取',
-  },
-  {
-    id: 'search',
-    icon: <TrendingUp size={22} />,
-    color: '#06b6d4',
-    label: '文献检索',
-    detail: 'Semantic Scholar',
-  },
-  {
-    id: 'review',
-    icon: <Users size={22} />,
-    color: '#10b981',
-    label: '三路并行审稿',
-    detail: 'α · β · γ 独立评审',
-    wide: true,
-  },
-  {
-    id: 'meta',
-    icon: <Award size={22} />,
-    color: '#f59e0b',
-    label: 'Meta-Review',
-    detail: '共识合成 · 分歧解决',
-  },
-  {
-    id: 'report',
-    icon: <BarChart3 size={22} />,
-    color: '#ec4899',
-    label: '结构化报告',
-    detail: '五维评分 · 分级问题',
-  },
-];
-
 const JOURNALS = [
-  'Nature', 'Science', 'IEEE', 'ACM', 'NeurIPS',
-  'ICML', 'CVPR', 'Cell', 'The Lancet', 'NEJM',
+  'Nature', 'Science', 'Cell', 'NEJM', 'The Lancet',
+  'IEEE', 'ACM', 'NeurIPS', 'ICML', 'CVPR',
   'AAAI', 'ICLR', 'ECCV', 'KDD', 'WWW',
 ];
 
-const BENTO = [
-  {
-    id: 'analysis',
-    size: 'wide',
-    icon: <BarChart3 size={20} />,
-    label: '五维度评分',
-    title: '像顶刊审稿人一样读你的论文',
-    desc: '原创性、方法论、清晰度、重要性、可复现性五大维度逐一评分，问题严重性按 Critical / Major / Minor 三级分类，附具体修改建议。',
-    accent: '#8b5cf6',
-    preview: 'radar',
-  },
-  {
-    id: 'speed',
-    size: 'narrow',
-    icon: <Zap size={20} />,
-    label: '极速生成',
-    title: '< 3 分钟',
-    desc: '文献预处理 + 三路并行审稿 + Meta-Review 合成，完整流水线不超过 3 分钟交付报告。',
-    accent: '#f59e0b',
-    preview: 'progress',
-  },
-  {
-    id: 'multi',
-    size: 'narrow',
-    icon: <Users size={20} />,
-    label: '三路并行 + Meta-Review',
-    title: '三位独立审稿人',
-    desc: '原创性专家、方法论审查员、影响力评估专家使用不同 AI 模型独立评审，第四位 Meta-Reviewer 合成共识并解决分歧。',
-    accent: '#10b981',
-    preview: 'reviewers',
-  },
-  {
-    id: 'export',
-    size: 'narrow',
-    icon: <Download size={20} />,
-    label: '一键导出',
-    title: 'Word · PDF',
-    desc: '导出期刊级格式报告，直接可以分享给导师或共同作者。',
-    accent: '#3b82f6',
-    preview: 'export',
-  },
-  {
-    id: 'formats',
-    size: 'narrow',
-    icon: <FileText size={20} />,
-    label: '多格式上传',
-    title: 'PDF · DOCX · TXT',
-    desc: '上传文件或直接粘贴文本，支持最长 50 页完整论文。',
-    accent: '#ec4899',
-    preview: 'upload',
-  },
-  {
-    id: 'reproducibility',
-    size: 'wide',
-    icon: <Shield size={20} />,
-    label: '可复现性审查',
-    title: '不只是文字，更看数据与代码',
-    desc: '专门检查数据可用性声明、代码开源情况、实验细节描述完整度——这恰恰是大多数投稿被拒的隐藏原因。',
-    accent: '#06b6d4',
-    preview: 'reproduce',
-  },
-];
-
 const FAQ_ITEMS = [
-  { q: 'AI 审稿能替代正式同行评审吗？', a: '不能。AI 审稿是投稿前的自我审查工具，帮助你提前发现和修正问题，提高论文质量和投稿通过率。最终的学术判断仍需依赖人类专家的同行评审。' },
-  { q: '为什么需要三位审稿人？', a: '每位 AI 审稿人聚焦不同专业视角：Reviewer α 专注原创性与理论贡献，Reviewer β 审查方法论与技术严谨性，Reviewer γ 评估清晰度与影响力。三位使用不同 AI 模型独立运行，避免单一模型的偏差，再由 Meta-Reviewer 合成共识报告。' },
-  { q: '文献检索有什么作用？', a: '系统在审稿前先对你的论文进行学术检索，找到领域内最相似的已发表论文和典型研究空白。这让审稿人能做出有据可查的新颖性判断，而非凭空评估，大幅提升审稿的针对性和可信度。' },
-  { q: '审稿报告包含哪些内容？', a: '报告包含五维度评分雷达图（原创性/方法论/清晰度/重要性/可复现性）、分级问题清单（Critical/Major/Minor）、具体修改建议、各审稿人独立意见以及 Meta-Reviewer 合成的最终结论（Accept/Minor Revision/Major Revision/Reject）。' },
-  { q: '支持哪些学科的论文？', a: '支持所有学科领域的学术论文，包括自然科学、工程技术、社会科学、人文艺术等。AI 会根据论文内容自动调整审稿侧重点，并从相关领域数据库检索文献。' },
-  { q: '论文数据安全如何保障？', a: '上传的论文仅用于当次审稿分析，不会被存储或用于训练其他模型。所有数据传输采用 SSL 加密，严格遵守隐私保护政策。' },
-  { q: '一篇论文能审稿几次？', a: '修改后可以反复提交审稿，每次都会生成新的独立报告。非常适合在投稿前迭代改进，跟踪每一轮修改的提升效果。' },
-  { q: '我的论文数据安全吗？', a: '完全安全。所有数据传输使用 TLS 加密，论文内容不会被用于 AI 模型训练。您可以随时删除已上传的论文和审稿记录。我们严格遵守数据保护法规。' },
-  { q: '什么是隐私审稿模式？', a: '隐私审稿模式专为对数据安全有更高要求的用户设计。开启后，审稿报告生成完毕后，您的论文原文和审稿数据将在 24 小时内从服务器自动删除，且不会出现在历史记录中。适合审稿未发表的论文。' },
+  {
+    q: 'AI 审稿能替代正式的同行评审吗？',
+    a: '不能，也没打算替代。我们的定位是"投稿前的自我检查工具" —— 在你把论文递给期刊之前，先帮你发现问题、提醒盲点、给出修改建议，让你以更好的状态进入正式同行评审。最终的学术判断仍然由期刊和人类评审做出。',
+  },
+  {
+    q: '为什么是三位审稿人，而不是一位？',
+    a: '三位审稿人各有分工：一位专注原创性与创新点，一位深挖方法论与实验严谨性，一位评估写作清晰度与影响力。三位使用不同的底层 AI 模型独立运行，避免单一模型的偏见，再由主编合成统一意见。这比"让一个 AI 多问几次"可靠得多，也更接近真正的期刊审稿团队。',
+  },
+  {
+    q: '为什么要先做文献检索？',
+    a: '审稿的第一关是"这个工作到底新不新"。如果审稿人不看领域文献就打分，那结论就是凭感觉。我们会先帮你的论文做一轮学术检索，找出领域内最相似的已发表工作，这样关于"新颖性"的每一条结论，背后都有可核查的文献依据。',
+  },
+  {
+    q: '审稿报告里到底有什么？',
+    a: '一份完整报告包括：五维度雷达评分（原创性/方法论/清晰度/重要性/可复现性）、按 严重 / 一般 / 轻微 分级的问题清单、每条问题附带的具体修改建议、三位审稿人的独立意见，以及主编给出的最终结论：接收 / 小修 / 大修 / 拒稿。',
+  },
+  {
+    q: '支持哪些学科的论文？',
+    a: '支持所有学科，包括自然科学、工程、医学、社会科学、人文艺术等。AI 会根据论文内容自动调整审稿侧重点，并从对应领域的学术数据库中检索参考文献。',
+  },
+  {
+    q: '同一篇论文可以审几次？',
+    a: '不限次数。修改后可以反复提交，每次都会生成一份新的独立报告 —— 非常适合在投稿前迭代打磨，跟踪每一轮修改到底有没有提升。',
+  },
+  {
+    q: '我的论文数据安全吗？会被拿去训练 AI 吗？',
+    a: '绝对不会。你的论文只用于当次审稿分析，全程 TLS 加密传输，不会进入任何 AI 模型的训练集。你可以随时删除上传的论文和审稿记录，也可以开启"隐私模式"让系统自动销毁。这是我们的技术红线，也写进了合同。',
+  },
+  {
+    q: '什么是"隐私审稿模式"？什么情况下该用？',
+    a: '隐私模式是为未发表稿件设计的额外保险：开启后，审稿完成并下载报告 24 小时内，你的论文原文、缓存、备份会从我们的服务器上全部自动删除，也不会出现在任何历史记录中 —— 我们自己也无法恢复。如果你担心论文被抢发，就开它。',
+  },
 ];
 
 /* ─────────────────────────────────────────────
-   Sub-components
+   Helpers & primitives
 ───────────────────────────────────────────── */
 
-/** Ambient mesh background */
-function MeshBackground() {
-  return (
-    <div className="pr-mesh" aria-hidden>
-      <div className="pr-mesh-orb pr-orb-1" />
-      <div className="pr-mesh-orb pr-orb-2" />
-      <div className="pr-mesh-orb pr-orb-3" />
-      <svg className="pr-mesh-grid" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <pattern id="pr-grid" width="40" height="40" patternUnits="userSpaceOnUse">
-            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#pr-grid)" />
-      </svg>
-    </div>
-  );
-}
-
-/** Scanning shimmer line over paper mockup */
-function ScanLine() {
-  return <div className="pr-scanline" aria-hidden />;
-}
-
-/** Live counter badge */
 function LiveCounter() {
   const [count, setCount] = useState(2847);
   useEffect(() => {
@@ -205,14 +88,13 @@ function LiveCounter() {
     return () => clearInterval(id);
   }, []);
   return (
-    <div className="pr-live-badge">
+    <span className="pr-live-inline">
       <span className="pr-live-dot" />
-      <span>正在审稿 <strong>{count.toLocaleString()}</strong> 篇论文</span>
-    </div>
+      <span>已审稿 <strong>{count.toLocaleString()}</strong> 篇</span>
+    </span>
   );
 }
 
-/** Journal scrolling ticker */
 function JournalTicker() {
   const doubled = [...JOURNALS, ...JOURNALS];
   return (
@@ -228,19 +110,46 @@ function JournalTicker() {
   );
 }
 
-/** Hero right panel — report thumbnail + CTA */
-function HeroPreview({ onCTA }) {
-  const BARS = [
-    { key: 'Methodology',    val: DEMO_SCORES.methodology,    c: '#8b5cf6', delay: 0.7 },
-    { key: 'Reproducibility',val: DEMO_SCORES.reproducibility, c: '#10b981', delay: 0.8 },
-    { key: 'Significance',   val: DEMO_SCORES.significance,   c: '#f59e0b', delay: 0.9 },
-    { key: 'Originality',    val: DEMO_SCORES.originality,    c: '#3b82f6', delay: 1.0 },
-    { key: 'Clarity',        val: DEMO_SCORES.clarity,        c: '#ec4899', delay: 1.1 },
-  ];
+/** Vercel-style browser window chrome */
+function WindowChrome({ url, tabs, activeTab = 0, children, className = '', compact = false }) {
+  return (
+    <div className={`pr-window ${compact ? 'pr-window-compact' : ''} ${className}`}>
+      <div className="pr-window-bar">
+        <div className="pr-window-dots">
+          <span />
+          <span />
+          <span />
+        </div>
+        {url && (
+          <div className="pr-window-url">
+            <Lock size={10} />
+            <span>{url}</span>
+          </div>
+        )}
+        <div className="pr-window-spacer" />
+      </div>
+      {tabs && (
+        <div className="pr-window-tabs">
+          {tabs.map((t, i) => (
+            <div key={i} className={`pr-window-tab ${i === activeTab ? 'active' : ''}`}>
+              {t.icon}
+              <span>{t.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="pr-window-body">{children}</div>
+    </div>
+  );
+}
 
-  const dims = ['Orig.', 'Meth.', 'Clarity', 'Sig.', 'Repro.'];
+/* ─────────────────────────────────────────────
+   Mockup: Hero — Full Peer Review Report
+───────────────────────────────────────────── */
+function HeroReportMockup() {
+  const dims = ['原创性', '方法论', '清晰度', '重要性', '可复现性'];
   const vals = [DEMO_SCORES.originality, DEMO_SCORES.methodology, DEMO_SCORES.clarity, DEMO_SCORES.significance, DEMO_SCORES.reproducibility];
-  const cx = 52, cy = 52, r = 36, n = 5;
+  const cx = 60, cy = 60, r = 42, n = 5;
   const pt = (i, ratio) => {
     const a = (Math.PI * 2 * i) / n - Math.PI / 2;
     return [cx + r * ratio * Math.cos(a), cy + r * ratio * Math.sin(a)];
@@ -248,309 +157,953 @@ function HeroPreview({ onCTA }) {
   const dataPath = vals.map((v, i) => pt(i, v / 100).join(',')).join(' ');
 
   return (
-    <div className="pr-hero-preview">
-      {/* Report card */}
-      <div className="pr-preview-card">
-        <ScanLine />
-
-        {/* Header bar */}
-        <div className="pr-pv-hdr">
-          <div className="pr-pv-hdr-bar" />
-          <div className="pr-pv-hdr-inner">
-            <div>
-              <div className="pr-pv-hdr-title">PEER REVIEW REPORT</div>
-              <div className="pr-pv-hdr-sub">Scholay AI · SCH-2025-0347</div>
+    <div className="pr-hero-mockup">
+      <WindowChrome
+        url="scholay.ai/peer-review/SCH-2025-0347"
+        tabs={[
+          { icon: <FileText size={12} />, label: '审稿报告' },
+          { icon: <Users size={12} />, label: '审稿人视角' },
+          { icon: <BookOpen size={12} />, label: '文献对标' },
+        ]}
+      >
+        <div className="pr-hm-wrap">
+          {/* Left — report summary */}
+          <div className="pr-hm-main">
+            <div className="pr-hm-head">
+              <div>
+                <div className="pr-hm-eyebrow">PEER REVIEW REPORT</div>
+                <div className="pr-hm-title">A Vision Transformer Approach to Medical Image Segmentation</div>
+              </div>
+              <span className="pr-hm-badge pr-hm-badge-amber">Minor Revision</span>
             </div>
-            <span className="pr-pv-conf">Confidential</span>
-          </div>
-        </div>
 
-        {/* Verdict row */}
-        <div className="pr-pv-verdict">
-          <div className="pr-pv-vd">
-            <span className="pr-pv-vd-label">RECOMMENDATION</span>
-            <span className="pr-pv-vd-val minor">Minor Revision</span>
-          </div>
-          <div className="pr-pv-vd">
-            <span className="pr-pv-vd-label">CONSENSUS</span>
-            <span className="pr-pv-vd-val green">78%</span>
-          </div>
-          <div className="pr-pv-vd">
-            <span className="pr-pv-vd-label">TIME</span>
-            <span className="pr-pv-vd-val">2m 43s</span>
-          </div>
-        </div>
+            <div className="pr-hm-stats">
+              <div className="pr-hm-stat">
+                <span className="pr-hm-stat-lbl">共识度</span>
+                <span className="pr-hm-stat-val pr-hm-stat-green">78%</span>
+              </div>
+              <div className="pr-hm-stat">
+                <span className="pr-hm-stat-lbl">用时</span>
+                <span className="pr-hm-stat-val">2m 43s</span>
+              </div>
+              <div className="pr-hm-stat">
+                <span className="pr-hm-stat-lbl">问题数</span>
+                <span className="pr-hm-stat-val">
+                  <span className="pr-hm-dot pr-hm-dot-red" />2
+                  <span className="pr-hm-dot pr-hm-dot-amber" />4
+                  <span className="pr-hm-dot pr-hm-dot-blue" />7
+                </span>
+              </div>
+            </div>
 
-        {/* Radar + bars */}
-        <div className="pr-pv-scores">
-          <svg viewBox="0 0 104 104" width="104" height="104" className="pr-pv-radar">
-            {[0.25, 0.5, 0.75, 1].map((lv, li) => (
-              <polygon key={li} points={dims.map((_, i) => pt(i, lv).join(',')).join(' ')}
-                fill="none" stroke={`rgba(139,92,246,${0.1 + li * 0.07})`} strokeWidth="0.7" />
-            ))}
-            {dims.map((_, i) => {
-              const [x2, y2] = pt(i, 1);
-              return <line key={i} x1={cx} y1={cy} x2={x2} y2={y2} stroke="rgba(139,92,246,0.12)" strokeWidth="0.5" />;
-            })}
-            <polygon points={dataPath} fill="rgba(139,92,246,0.2)" stroke="#8b5cf6" strokeWidth="1.5" />
-            {vals.map((v, i) => {
-              const [x, y] = pt(i, v / 100);
-              return <circle key={i} cx={x} cy={y} r="2.5" fill="#8b5cf6" />;
-            })}
-          </svg>
-          <div className="pr-pv-bars">
-            {BARS.map(b => (
-              <div key={b.key} className="pr-pv-bar-row">
-                <span className="pr-pv-bar-lbl">{b.key}</span>
-                <div className="pr-pv-bar-track">
-                  <div className="pr-pv-bar-fill" style={{ background: b.c, width: `${b.val}%` }} />
+            <div className="pr-hm-scores">
+              <svg viewBox="0 0 120 120" width="120" height="120" className="pr-hm-radar">
+                {[0.25, 0.5, 0.75, 1].map((lv, li) => (
+                  <polygon
+                    key={li}
+                    points={dims.map((_, i) => pt(i, lv).join(',')).join(' ')}
+                    fill="none"
+                    stroke={`rgba(139,92,246,${0.08 + li * 0.05})`}
+                    strokeWidth="0.6"
+                  />
+                ))}
+                {dims.map((_, i) => {
+                  const [x2, y2] = pt(i, 1);
+                  return <line key={i} x1={cx} y1={cy} x2={x2} y2={y2} stroke="rgba(139,92,246,0.12)" strokeWidth="0.4" />;
+                })}
+                <polygon points={dataPath} fill="rgba(139,92,246,0.22)" stroke="#8b5cf6" strokeWidth="1.4" />
+                {vals.map((v, i) => {
+                  const [x, y] = pt(i, v / 100);
+                  return <circle key={i} cx={x} cy={y} r="2.2" fill="#8b5cf6" />;
+                })}
+              </svg>
+              <div className="pr-hm-bars">
+                {dims.map((d, i) => {
+                  const colors = ['#8b5cf6', '#6366f1', '#ec4899', '#f59e0b', '#10b981'];
+                  return (
+                    <div key={d} className="pr-hm-bar-row">
+                      <span className="pr-hm-bar-lbl">{d}</span>
+                      <div className="pr-hm-bar-track">
+                        <motion.div
+                          className="pr-hm-bar-fill"
+                          style={{ background: colors[i] }}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${vals[i]}%` }}
+                          transition={{ duration: 1.1, delay: 0.5 + i * 0.08, ease: [0.22, 1, 0.36, 1] }}
+                        />
+                      </div>
+                      <span className="pr-hm-bar-num" style={{ color: colors[i] }}>{vals[i]}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="pr-hm-issues">
+              <div className="pr-hm-issue">
+                <AlertCircle size={12} style={{ color: '#ef4444' }} />
+                <span className="pr-hm-sev pr-hm-sev-red">Critical</span>
+                <span className="pr-hm-issue-txt">与 SOTA 方法的对比实验不完整</span>
+              </div>
+              <div className="pr-hm-issue">
+                <AlertTriangle size={12} style={{ color: '#f59e0b' }} />
+                <span className="pr-hm-sev pr-hm-sev-amber">Major</span>
+                <span className="pr-hm-issue-txt">跨中心方差未做统计显著性检验</span>
+              </div>
+              <div className="pr-hm-issue">
+                <Info size={12} style={{ color: '#3b82f6' }} />
+                <span className="pr-hm-sev pr-hm-sev-blue">Minor</span>
+                <span className="pr-hm-issue-txt">注意力图评估方法需进一步澄清</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right — reviewer rail */}
+          <div className="pr-hm-rail">
+            <div className="pr-hm-rail-head">Reviewers</div>
+            {[
+              { s: 'α', c: '#10b981', role: '原创性', rec: 'Minor Rev.' },
+              { s: 'β', c: '#8b5cf6', role: '方法论', rec: 'Major Rev.' },
+              { s: 'γ', c: '#f59e0b', role: '影响力', rec: 'Minor Rev.' },
+              { s: 'Σ', c: '#3b82f6', role: 'Meta', rec: 'Minor Rev.', meta: true },
+            ].map(rv => (
+              <div key={rv.s} className={`pr-hm-rv ${rv.meta ? 'pr-hm-rv-meta' : ''}`}>
+                <div className="pr-hm-rv-av" style={{ background: rv.c }}>{rv.s}</div>
+                <div className="pr-hm-rv-txt">
+                  <span className="pr-hm-rv-role">{rv.role}</span>
+                  <span className="pr-hm-rv-rec" style={{ color: rv.c }}>{rv.rec}</span>
                 </div>
-                <span className="pr-pv-bar-num" style={{ color: b.c }}>{b.val}</span>
               </div>
             ))}
           </div>
         </div>
+      </WindowChrome>
 
-        {/* Issues preview */}
-        <div className="pr-pv-issues">
-          {[
-            { sev: 'Critical', c: '#ef4444', text: 'Incomplete comparison with SOTA methods' },
-            { sev: 'Major',    c: '#f59e0b', text: 'Cross-center variance not statistically tested' },
-            { sev: 'Minor',    c: '#3b82f6', text: 'Clarify attention map evaluation method' },
-          ].map((iss, i) => (
-            <div key={i} className="pr-pv-issue">
-              <span className="pr-pv-sev" style={{ color: iss.c, background: `${iss.c}14`, borderColor: `${iss.c}30` }}>{iss.sev}</span>
-              <span className="pr-pv-issue-txt">{iss.text}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Reviewers */}
-        <div className="pr-pv-rvs">
-          {[
-            { s: 'α', c: '#10b981', rec: 'Minor Revision' },
-            { s: 'β', c: '#8b5cf6', rec: 'Major Revision' },
-            { s: 'γ', c: '#f59e0b', rec: 'Minor Revision' },
-          ].map(rv => (
-            <div key={rv.s} className="pr-pv-rv">
-              <div className="pr-pv-rv-av" style={{ background: rv.c }}>{rv.s}</div>
-              <div className="pr-pv-rv-rec" style={{ color: rv.c }}>{rv.rec}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Fade + embedded CTA */}
-        <div className="pr-preview-fade">
-          <button className="pr-preview-cta-btn" onClick={onCTA}>
-            <Sparkles size={15} />
-            立即免费体验 AI 审稿
-            <ArrowRight size={15} />
-          </button>
-          <p className="pr-preview-cta-note">无需注册 · 首次免费 · {'<'} 3 分钟出报告</p>
-        </div>
-      </div>
-
-      {/* Floating badges */}
-      <div className="pr-float-badge pr-float-tl">
-        <CheckCircle2 size={13} style={{ color: '#10b981' }} />
-        AI 审稿完成
-      </div>
-      <div className="pr-float-badge pr-float-br">
-        <BarChart3 size={13} style={{ color: '#8b5cf6' }} />
-        5 维度 · 3+1 审稿人
-      </div>
+      {/* Floating chips */}
+      <motion.div
+        className="pr-hero-chip pr-hero-chip-tl"
+        initial={{ opacity: 0, y: 10, scale: 0.9 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ delay: 1.0, duration: 0.4 }}
+      >
+        <CheckCircle2 size={12} />
+        审稿完成 · 2m 43s
+      </motion.div>
+      <motion.div
+        className="pr-hero-chip pr-hero-chip-br"
+        initial={{ opacity: 0, y: 10, scale: 0.9 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ delay: 1.2, duration: 0.4 }}
+      >
+        <Lock size={12} />
+        隐私模式已启用
+      </motion.div>
     </div>
   );
 }
 
-
-/** Bento card preview snippets */
-function BentoPreview({ type, accent }) {
-  if (type === 'radar') {
-    const dims = ['Orig.', 'Meth.', 'Clarity', 'Sig.', 'Repro.'];
-    const vals = [DEMO_SCORES.originality, DEMO_SCORES.methodology, DEMO_SCORES.clarity, DEMO_SCORES.significance, DEMO_SCORES.reproducibility];
-    const cx = 64, cy = 64, r = 46;
-    const n = 5;
-    const pt = (i, ratio) => {
-      const a = (Math.PI * 2 * i) / n - Math.PI / 2;
-      return [cx + r * ratio * Math.cos(a), cy + r * ratio * Math.sin(a)];
-    };
-    const dataPath = vals.map((v, i) => pt(i, v / 100).join(',')).join(' ');
-    return (
-      <div className="bento-preview bento-radar">
-        <svg viewBox="0 0 128 128" width="128" height="128">
-          {[0.25, 0.5, 0.75, 1].map((lv, li) => (
-            <polygon key={li} points={dims.map((_, i) => pt(i, lv).join(',')).join(' ')}
-              fill="none" stroke={`rgba(139,92,246,${0.1 + li * 0.07})`} strokeWidth="0.8" />
-          ))}
-          {dims.map((_, i) => {
-            const [x2, y2] = pt(i, 1);
-            return <line key={i} x1={cx} y1={cy} x2={x2} y2={y2} stroke="rgba(139,92,246,0.15)" strokeWidth="0.6" />;
-          })}
-          <polygon points={dataPath} fill="rgba(139,92,246,0.18)" stroke="#8b5cf6" strokeWidth="1.5" />
-          {vals.map((v, i) => {
-            const [x, y] = pt(i, v / 100);
-            return <circle key={i} cx={x} cy={y} r="3" fill="#8b5cf6" />;
-          })}
-        </svg>
-        <div className="bento-radar-scores">
-          {dims.map((d, i) => (
-            <div key={d} className="bento-radar-row">
-              <span>{d}</span>
-              <div className="bento-radar-bar">
-                <div style={{ width: `${vals[i]}%`, background: accent, height: '100%', borderRadius: 2 }} />
-              </div>
-              <span className="bento-radar-val">{vals[i]}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (type === 'progress') {
-    return (
-      <div className="bento-preview bento-progress">
-        {[
-          { label: '文献检索', pct: 100, c: '#06b6d4' },
-          { label: 'Reviewer α', pct: 100, c: '#10b981' },
-          { label: 'Reviewer β', pct: 100, c: '#8b5cf6' },
-          { label: 'Reviewer γ', pct: 100, c: '#f59e0b' },
-          { label: 'Meta-Review', pct: 100, c: '#3b82f6' },
-        ].map(rv => (
-          <div key={rv.label} className="bento-prog-row">
-            <span style={{ color: rv.c }}>{rv.label}</span>
-            <div className="bento-prog-track">
-              <div style={{ width: `${rv.pct}%`, background: rv.c, height: '100%', borderRadius: 2 }} />
-            </div>
-            <CheckCircle2 size={11} style={{ color: rv.c }} />
-          </div>
-        ))}
-        <div className="bento-prog-time">
-          <Clock size={12} style={{ color: 'rgba(255,255,255,0.35)' }} />
-          <span>2 min 43 sec</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (type === 'reviewers') {
-    return (
-      <div className="bento-preview bento-rvs">
-        {[
-          { s: 'α', c: '#10b981', role: '原创性 & 理论贡献' },
-          { s: 'β', c: '#8b5cf6', role: '方法论 & 技术严谨性' },
-          { s: 'γ', c: '#f59e0b', role: '清晰度 & 影响力' },
-          { s: 'Σ', c: '#3b82f6', role: 'Meta-Review 合成', meta: true },
-        ].map(rv => (
-          <div key={rv.s} className={`bento-rv-chip${rv.meta ? ' bento-rv-meta' : ''}`} style={{ borderColor: `${rv.c}30` }}>
-            <div className="bento-rv-av" style={{ background: rv.c }}>{rv.s}</div>
-            <span>{rv.role}</span>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (type === 'export') {
-    return (
-      <div className="bento-preview bento-export">
-        {[
-          { fmt: 'DOCX', c: '#3b82f6', icon: '📄' },
-          { fmt: 'PDF',  c: '#ef4444', icon: '📕' },
-        ].map(f => (
-          <div key={f.fmt} className="bento-export-btn" style={{ borderColor: `${f.c}40`, background: `${f.c}0d` }}>
-            <span>{f.icon}</span>
-            <span style={{ color: f.c }}>{f.fmt}</span>
-            <Download size={12} style={{ color: f.c, marginLeft: 'auto' }} />
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (type === 'upload') {
-    return (
-      <div className="bento-preview bento-upload">
-        {['PDF', 'DOCX', 'TXT'].map((f, i) => (
-          <div key={f} className="bento-upload-pill" style={{ animationDelay: `${i * 0.15}s` }}>
-            {f}
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (type === 'reproduce') {
-    return (
-      <div className="bento-preview bento-repro">
-        {[
-          { item: '数据可用性声明', ok: true },
-          { item: '代码开源链接', ok: true },
-          { item: '实验细节完整度', ok: false },
-          { item: '预处理管线说明', ok: false },
-        ].map(r => (
-          <div key={r.item} className="bento-repro-row">
-            <div className={`bento-repro-icon ${r.ok ? 'ok' : 'warn'}`}>
-              {r.ok ? <CheckCircle2 size={12} /> : <span>!</span>}
-            </div>
-            <span style={{ color: r.ok ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.9)' }}>{r.item}</span>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  return null;
-}
-
-/** One bento card */
-function BentoCard({ card, index }) {
+/* ─────────────────────────────────────────────
+   Mockup: Literature Search (Semantic Scholar)
+───────────────────────────────────────────── */
+function LiteratureSearchMockup() {
+  const hits = [
+    { title: 'Attention Is All You Need', year: 2017, venue: 'NeurIPS', cites: '134k', sim: 92 },
+    { title: 'TransUNet: Transformers Make Strong Encoders for Medical Image...', year: 2021, venue: 'arXiv', cites: '4.2k', sim: 88 },
+    { title: 'Swin Transformer: Hierarchical Vision Transformer using Shifted...', year: 2021, venue: 'ICCV', cites: '18k', sim: 81 },
+    { title: 'ViT: An Image is Worth 16x16 Words', year: 2020, venue: 'ICLR', cites: '42k', sim: 77 },
+  ];
   return (
-    <motion.div
-      className={`pr-bento-card pr-bento-${card.size} pr-bento-${card.id}`}
-      style={{ '--card-accent': card.accent }}
-      initial={{ opacity: 0, y: 24 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-40px' }}
-      transition={{ duration: 0.5, delay: index * 0.06, ease: [0.22, 1, 0.36, 1] }}
-      whileHover={{ y: -4, transition: { duration: 0.25 } }}
-    >
-      <div className="pr-bento-inner">
-        <div className="pr-bento-header">
-          <div className="pr-bento-icon" style={{ background: `${card.accent}18`, color: card.accent }}>
-            {card.icon}
-          </div>
-          <span className="pr-bento-eyebrow" style={{ color: card.accent }}>{card.label}</span>
+    <div className="pr-mk-lit">
+      <WindowChrome compact url="peer-review · literature preprocessing">
+        <div className="pr-lit-search">
+          <Search size={14} />
+          <span>vision transformer medical image segmentation</span>
+          <span className="pr-lit-count">248 hits · Semantic Scholar</span>
         </div>
-        <h3 className="pr-bento-title">{card.title}</h3>
-        <p className="pr-bento-desc">{card.desc}</p>
-        <div className="pr-bento-preview-wrap">
-          <BentoPreview type={card.preview} accent={card.accent} />
+        <div className="pr-lit-list">
+          {hits.map((h, i) => (
+            <motion.div
+              key={i}
+              className="pr-lit-row"
+              initial={{ opacity: 0, x: -8 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, margin: '-30px' }}
+              transition={{ duration: 0.3, delay: i * 0.08 }}
+            >
+              <div className="pr-lit-sim">
+                <div className="pr-lit-sim-ring">
+                  <svg width="28" height="28" viewBox="0 0 28 28">
+                    <circle cx="14" cy="14" r="11" fill="none" stroke="rgba(139,92,246,0.15)" strokeWidth="2.5" />
+                    <circle
+                      cx="14" cy="14" r="11" fill="none"
+                      stroke="#8b5cf6" strokeWidth="2.5" strokeLinecap="round"
+                      strokeDasharray={`${(h.sim / 100) * 69.1} 69.1`}
+                      transform="rotate(-90 14 14)"
+                    />
+                  </svg>
+                  <span className="pr-lit-sim-num">{h.sim}</span>
+                </div>
+              </div>
+              <div className="pr-lit-meta">
+                <div className="pr-lit-title">{h.title}</div>
+                <div className="pr-lit-sub">
+                  <span>{h.venue}</span>
+                  <span className="pr-lit-dot">·</span>
+                  <span>{h.year}</span>
+                  <span className="pr-lit-dot">·</span>
+                  <Quote size={10} />
+                  <span>{h.cites}</span>
+                </div>
+              </div>
+            </motion.div>
+          ))}
         </div>
-      </div>
-      <div className="pr-bento-glow" />
-    </motion.div>
+        <motion.div
+          className="pr-lit-insight"
+          initial={{ opacity: 0, y: 8 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-30px' }}
+          transition={{ duration: 0.4, delay: 0.4 }}
+        >
+          <GitCompareArrows size={13} />
+          <span>识别出 <strong>3 个研究空白</strong>，供审稿人进行原创性评估对标</span>
+        </motion.div>
+      </WindowChrome>
+    </div>
   );
 }
 
-/** Step item */
-function StepItem({ num, title, desc, delay }) {
+/* ─────────────────────────────────────────────
+   Mockup: Structured Report
+───────────────────────────────────────────── */
+function StructuredReportMockup() {
+  const dims = ['原创性', '方法论', '清晰度', '重要性', '可复现性'];
+  const vals = [DEMO_SCORES.originality, DEMO_SCORES.methodology, DEMO_SCORES.clarity, DEMO_SCORES.significance, DEMO_SCORES.reproducibility];
+  const colors = ['#8b5cf6', '#6366f1', '#ec4899', '#f59e0b', '#10b981'];
+
   return (
-    <motion.div
-      className="pr-step"
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-30px' }}
-      transition={{ duration: 0.5, delay, ease: 'easeOut' }}
-    >
-      <div className="pr-step-num">{num}</div>
-      <div className="pr-step-connector" />
-      <div className="pr-step-body">
-        <h3>{title}</h3>
-        <p>{desc}</p>
+    <div className="pr-mk-report">
+      <WindowChrome compact url="report · sch-2025-0347.docx">
+        <div className="pr-rpt-head">
+          <div>
+            <div className="pr-rpt-eyebrow">STRUCTURED REPORT</div>
+            <div className="pr-rpt-title">最终评审报告</div>
+          </div>
+          <div className="pr-rpt-actions">
+            <span className="pr-rpt-action"><FileDown size={11} /> DOCX</span>
+            <span className="pr-rpt-action"><FileDown size={11} /> PDF</span>
+          </div>
+        </div>
+        <div className="pr-rpt-dims">
+          {dims.map((d, i) => (
+            <div key={d} className="pr-rpt-dim" style={{ '--dim-c': colors[i] }}>
+              <div className="pr-rpt-dim-num">{vals[i]}</div>
+              <div className="pr-rpt-dim-lbl">{d}</div>
+              <div className="pr-rpt-dim-bar">
+                <motion.div
+                  className="pr-rpt-dim-fill"
+                  style={{ background: colors[i] }}
+                  initial={{ width: 0 }}
+                  whileInView={{ width: `${vals[i]}%` }}
+                  viewport={{ once: true, margin: '-30px' }}
+                  transition={{ duration: 1, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="pr-rpt-issues">
+          <div className="pr-rpt-issue-head">
+            <span>问题清单</span>
+            <div className="pr-rpt-issue-legend">
+              <span><span className="pr-hm-dot pr-hm-dot-red" /> Critical</span>
+              <span><span className="pr-hm-dot pr-hm-dot-amber" /> Major</span>
+              <span><span className="pr-hm-dot pr-hm-dot-blue" /> Minor</span>
+            </div>
+          </div>
+          {[
+            { sev: 'red', label: 'Critical', text: '与 SOTA 方法对比实验不完整，建议补充 DINOv2、CLIP 对照' },
+            { sev: 'amber', label: 'Major', text: '跨中心方差未做统计显著性检验（建议 ANOVA）' },
+            { sev: 'blue', label: 'Minor', text: '注意力图评估方法需明确' },
+          ].map((iss, i) => (
+            <motion.div
+              key={i}
+              className="pr-rpt-issue"
+              initial={{ opacity: 0, x: -8 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, margin: '-30px' }}
+              transition={{ duration: 0.3, delay: 0.3 + i * 0.08 }}
+            >
+              <span className={`pr-hm-sev pr-hm-sev-${iss.sev}`}>{iss.label}</span>
+              <span className="pr-rpt-issue-txt">{iss.text}</span>
+            </motion.div>
+          ))}
+        </div>
+      </WindowChrome>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   Feature Row (Stripe/Vercel pattern)
+───────────────────────────────────────────── */
+function FeatureRow({ id, eyebrow, title, body, bullets, mockup, reversed, accent }) {
+  return (
+    <section id={id} className={`pr-feat-row ${reversed ? 'pr-feat-reversed' : ''}`}>
+      <div className="pr-feat-inner">
+        <motion.div
+          className="pr-feat-copy"
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-60px' }}
+          transition={{ duration: 0.5 }}
+        >
+          <span className="pr-feat-eyebrow" style={{ color: accent, background: `${accent}14`, borderColor: `${accent}30` }}>
+            {eyebrow}
+          </span>
+          <h2 className="pr-feat-title">{title}</h2>
+          <p className="pr-feat-body">{body}</p>
+          <ul className="pr-feat-bullets">
+            {bullets.map((b, i) => (
+              <li key={i}>
+                <CheckCircle2 size={14} style={{ color: accent }} />
+                <span>{b}</span>
+              </li>
+            ))}
+          </ul>
+        </motion.div>
+        <motion.div
+          className="pr-feat-visual"
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-60px' }}
+          transition={{ duration: 0.55, delay: 0.1 }}
+        >
+          {mockup}
+        </motion.div>
       </div>
-    </motion.div>
+    </section>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   Engine Section — Agent Team · Skills · Tool Use
+───────────────────────────────────────────── */
+const AGENT_TEAM = [
+  {
+    s: 'α', c: '#10b981',
+    handle: 'Originality Reviewer',
+    titleCn: '原创性审查专家',
+    specialty: ['文献对标', '新颖性判定', '创新点识别'],
+    philosophy: '任何"首次"都要有证据 —— 我搜遍领域文献再给判断',
+    spots: ['与已有工作的实质差异', '潜在先验工作遗漏', '创新点声明力度'],
+    model: 'reviewer-alpha-v3',
+  },
+  {
+    s: 'β', c: '#8b5cf6',
+    handle: 'Methodology Reviewer',
+    titleCn: '方法论审查专家',
+    specialty: ['统计验证', '实验设计', '可复现性'],
+    philosophy: '方法必须经得起复核 —— 公式、实验、代码我都会亲自走一遍',
+    spots: ['统计检验的合理性', '消融实验的完整性', '超参与代码可复现性'],
+    model: 'reviewer-beta-v3',
+  },
+  {
+    s: 'γ', c: '#f59e0b',
+    handle: 'Impact Reviewer',
+    titleCn: '清晰度与影响力评估专家',
+    specialty: ['写作清晰度', '图表表达', '实际影响'],
+    philosophy: '好论文要让同行读得懂 —— 我站在读者一侧挑刺',
+    spots: ['章节组织与叙述节奏', '图表信息密度', '结果的实际意义'],
+    model: 'reviewer-gamma-v3',
+  },
+];
+
+const META_AGENT = {
+  handle: 'Meta-Reviewer',
+  titleCn: '主编 · 最终决议人',
+  philosophy: '读完三份独立审稿 · 处理分歧 · 给你一份可以直接照做的最终决议',
+  responsibilities: ['处理审稿人分歧', '合成共识意见', '给出接收 / 修改 / 拒稿'],
+};
+
+const SKILL_CATEGORIES = [
+  { name: '文献与创新性', color: '#06b6d4', count: 8, sample: ['语义级查重', '相似工作检索', '研究空白识别'] },
+  { name: '方法论与实验', color: '#8b5cf6', count: 12, sample: ['公式推导验证', '实验设计评估', '消融实验完整性'] },
+  { name: '统计与可复现性', color: '#10b981', count: 9, sample: ['显著性检验', '效应量计算', '多重比较校正'] },
+  { name: '清晰度与表达', color: '#ec4899', count: 7, sample: ['章节逻辑', '术语一致性', '贡献点凝练'] },
+  { name: '图表与公式', color: '#f59e0b', count: 6, sample: ['轴标签规范性', '公式符号一致性', '图注充分性'] },
+  { name: '伦理与合规', color: '#ef4444', count: 4, sample: ['数据伦理', 'AI 使用声明', '潜在偏见'] },
+];
+
+const TOOL_ACTIONS = [
+  { icon: <Terminal size={18} />, color: '#8b5cf6', title: '跑一遍你的代码', desc: '把论文中的统计代码和算法实际运行一次，核查数字是否对得上、结论能否复现' },
+  { icon: <FileText size={18} />, color: '#ec4899', title: '读懂图表和公式', desc: '解析图中的坐标、数值、公式符号，确保审稿意见忠实于论文里真实展示的内容' },
+  { icon: <BookOpen size={18} />, color: '#06b6d4', title: '翻开你引用的文献', desc: '主动抓取关键引文的全文，核查你引用的准确性与上下文是否贴合' },
+  { icon: <GitCompareArrows size={18} />, color: '#10b981', title: '对齐领域最新进展', desc: '自动检索领域内最新的代表性工作，为你的方法提供一张"同类对比"全景图' },
+];
+
+const TERMINAL_LOG = [
+  { ag: 'β', c: '#8b5cf6', action: 'running stats_verify(Table 3) ...', result: 'p = 0.031 · paper claims p = 0.05 · flagging Major' },
+  { ag: 'α', c: '#10b981', action: 'fetch_paper("Smith2024") · retrieve_abstract ...', result: '5 related works retrieved · building novelty assessment' },
+  { ag: 'γ', c: '#f59e0b', action: 'chart_reader: parse Figure 3 ...', result: '24 data points extracted · axis units ambiguous' },
+  { ag: 'Σ', c: '#3b82f6', action: 'consolidate(α, β, γ) · arbitrate · decide ...', result: 'consensus = 78% · decision = Minor Revision' },
+];
+
+function EngineSection() {
+  return (
+    <section id="pr-engine" className="pr-section pr-engine-section">
+      <div className="pr-section-inner">
+        <div className="pr-section-head">
+          <span className="pr-section-eyebrow pr-engine-eyebrow">
+            <Cpu size={11} />
+            审稿引擎 · 它是怎么做到的
+          </span>
+          <h2>
+            不是一个 AI · 是一支 <span className="pr-engine-accent">专业分工的审稿团队</span>
+          </h2>
+          <p>
+            很多"AI 审稿"其实就是让 ChatGPT 读一遍文章写点评。Scholay 不一样：
+            多位 AI 审稿人分工协作、每位按需调用专业能力、在需要时会真正动手验证 ——
+            一整套完整的 AI 审稿系统。
+          </p>
+        </div>
+
+        {/* ── Part 01 · Agent Team ── */}
+        <div className="pr-engine-part">
+          <div className="pr-engine-part-head">
+            <span className="pr-engine-part-num">01</span>
+            <div className="pr-engine-part-title">
+              <h3>Agent Team · 四位独立思考的 AI 审稿人</h3>
+              <p>
+                不是同一个 AI 换着问三次 —— 每位审稿人专注不同视角，使用不同底层模型、装载不同专业能力，
+                各自独立阅读、独立打分；再由主编汇总意见、处理分歧、给出最终决议。
+                就像真正的期刊审稿团队 —— 避免单一视角带来的偏差。
+              </p>
+            </div>
+          </div>
+
+          <div className="pr-agent-team-grid">
+            {AGENT_TEAM.map((a, i) => (
+              <motion.div
+                key={a.s}
+                className="pr-agent-card"
+                style={{ '--ag-c': a.c }}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-40px' }}
+                transition={{ duration: 0.4, delay: i * 0.08 }}
+              >
+                <div className="pr-agent-card-glow" aria-hidden />
+                <div className="pr-agent-card-head">
+                  <div className="pr-agent-card-av">
+                    <span>{a.s}</span>
+                    <div className="pr-agent-card-av-ring" aria-hidden />
+                  </div>
+                  <div className="pr-agent-card-id">
+                    <div className="pr-agent-card-handle">{a.handle}</div>
+                    <div className="pr-agent-card-title">{a.titleCn}</div>
+                  </div>
+                </div>
+
+                <div className="pr-agent-card-specs">
+                  {a.specialty.map(s => (
+                    <span key={s} className="pr-agent-card-spec">{s}</span>
+                  ))}
+                </div>
+
+                <blockquote className="pr-agent-card-philosophy">
+                  {a.philosophy}
+                </blockquote>
+
+                <div className="pr-agent-card-spots-lbl">常抓的问题</div>
+                <ul className="pr-agent-card-spots">
+                  {a.spots.map(sp => (
+                    <li key={sp}>
+                      <span className="pr-agent-card-dot" />
+                      <span>{sp}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="pr-agent-card-model">
+                  <span className="pr-agent-card-model-lbl">agent</span>
+                  <code>{a.model}</code>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Meta-Reviewer — full-width consensus card */}
+          <motion.div
+            className="pr-meta-agent-card"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.45, delay: 0.25 }}
+          >
+            <div className="pr-meta-agent-left">
+              <div className="pr-meta-agent-av">Σ</div>
+              <div>
+                <div className="pr-meta-agent-handle">{META_AGENT.handle}</div>
+                <div className="pr-meta-agent-title">{META_AGENT.titleCn}</div>
+              </div>
+            </div>
+            <div className="pr-meta-agent-middle">
+              <blockquote>{META_AGENT.philosophy}</blockquote>
+              <div className="pr-meta-agent-resp">
+                {META_AGENT.responsibilities.map(r => (
+                  <span key={r} className="pr-meta-agent-resp-chip">{r}</span>
+                ))}
+              </div>
+            </div>
+            <div className="pr-meta-agent-flow">
+              <span className="pr-meta-flow-in" style={{ color: '#10b981' }}>α</span>
+              <span className="pr-meta-flow-in" style={{ color: '#8b5cf6' }}>β</span>
+              <span className="pr-meta-flow-in" style={{ color: '#f59e0b' }}>γ</span>
+              <ChevronRight size={16} />
+              <span className="pr-meta-flow-out">Consensus</span>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* ── Part 02 · Skills System ── */}
+        <div className="pr-engine-part">
+          <div className="pr-engine-part-head">
+            <span className="pr-engine-part-num">02</span>
+            <div className="pr-engine-part-title">
+              <h3>Skills · 可组合的专业审稿能力</h3>
+              <p>
+                审稿人不只是凭"通用常识"评审 —— 会根据你论文的学科与类型，调用专项的审稿能力。
+                目前已积累六大领域共 50+ 项专业技能，每月持续扩充，按需组合调用。
+              </p>
+            </div>
+          </div>
+
+          <div className="pr-skills-panel">
+            <motion.div
+              className="pr-skills-stat"
+              initial={{ opacity: 0, scale: 0.95 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true, margin: '-40px' }}
+              transition={{ duration: 0.4 }}
+            >
+              <div className="pr-skills-stat-num">
+                50<span className="pr-skills-stat-plus">+</span>
+              </div>
+              <div className="pr-skills-stat-lbl">项专业审稿技能</div>
+              <div className="pr-skills-stat-divider" />
+              <div className="pr-skills-stat-meta">
+                <div><strong>6</strong><span>大审稿领域</span></div>
+                <div><strong>月度</strong><span>更新节奏</span></div>
+                <div><strong>按需</strong><span>动态组合</span></div>
+              </div>
+              <div className="pr-skills-stat-badge">
+                <Sparkles size={11} />
+                本月新增 3 项技能
+              </div>
+            </motion.div>
+
+            <div className="pr-skills-categories">
+              {SKILL_CATEGORIES.map((cat, i) => (
+                <motion.div
+                  key={cat.name}
+                  className="pr-skill-cat-card"
+                  style={{ '--cat-c': cat.color }}
+                  initial={{ opacity: 0, y: 14 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: '-40px' }}
+                  transition={{ duration: 0.35, delay: i * 0.06 }}
+                >
+                  <div className="pr-skill-cat-head">
+                    <span className="pr-skill-cat-name">{cat.name}</span>
+                    <span className="pr-skill-cat-count">{cat.count} 项技能</span>
+                  </div>
+                  <div className="pr-skill-cat-items">
+                    {cat.sample.map(s => (
+                      <span key={s} className="pr-skill-cat-item">{s}</span>
+                    ))}
+                    {cat.count > cat.sample.length && (
+                      <span className="pr-skill-cat-more">还有 {cat.count - cat.sample.length} 项</span>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Part 03 · Tool Use ── */}
+        <div className="pr-engine-part">
+          <div className="pr-engine-part-head">
+            <span className="pr-engine-part-num">03</span>
+            <div className="pr-engine-part-title">
+              <h3>Tool Use · 不只是评论，会亲自动手验证</h3>
+              <p>
+                别家 AI 只会给你写评语 —— Scholay 的审稿人会真的动手：
+                把论文里的代码跑起来、把图表里的数据读出来、把你引用的文献翻开看。
+                每一条审稿意见背后，都有可追溯的执行证据。
+              </p>
+            </div>
+          </div>
+
+          <div className="pr-tools-panel">
+            <div className="pr-tools-terminal">
+              <WindowChrome compact url="scholay · agent-runtime · live">
+                <div className="pr-tools-log">
+                  {TERMINAL_LOG.map((line, i) => (
+                    <motion.div
+                      key={i}
+                      className="pr-tools-log-row"
+                      initial={{ opacity: 0, x: -10 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      viewport={{ once: true, margin: '-30px' }}
+                      transition={{ duration: 0.3, delay: i * 0.15 }}
+                    >
+                      <span className="pr-tools-log-ag" style={{ color: line.c, borderColor: line.c }}>{line.ag}</span>
+                      <div className="pr-tools-log-body">
+                        <div className="pr-tools-log-action">
+                          <span className="pr-tools-log-prompt">❯</span>
+                          {line.action}
+                        </div>
+                        <div className="pr-tools-log-result">
+                          <span className="pr-tools-log-arrow">→</span>
+                          {line.result}
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                  <div className="pr-tools-log-cursor">
+                    <span className="pr-tools-log-ag" style={{ color: '#3b82f6', borderColor: '#3b82f6' }}>Σ</span>
+                    <span className="pr-tools-log-prompt">❯</span>
+                    <span className="pr-tools-log-blink">_</span>
+                  </div>
+                </div>
+              </WindowChrome>
+            </div>
+
+            <div className="pr-tools-actions">
+              {TOOL_ACTIONS.map((t, i) => (
+                <motion.div
+                  key={t.title}
+                  className="pr-tool-action-card"
+                  style={{ '--tl-c': t.color }}
+                  initial={{ opacity: 0, y: 14 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: '-40px' }}
+                  transition={{ duration: 0.35, delay: i * 0.07 }}
+                >
+                  <div className="pr-tool-action-icon">{t.icon}</div>
+                  <div className="pr-tool-action-title">{t.title}</div>
+                  <div className="pr-tool-action-desc">{t.desc}</div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <motion.div
+          className="pr-engine-tagline"
+          initial={{ opacity: 0, y: 10 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-40px' }}
+          transition={{ duration: 0.5 }}
+        >
+          <Sparkles size={14} />
+          <span>这就是我们理解的 <strong>下一代学术审稿</strong></span>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   Security section — editorial, Stripe/Vercel style
+───────────────────────────────────────────── */
+
+const SECURITY_PILLARS = [
+  {
+    icon: <Lock size={18} />,
+    title: '全程加密传输',
+    desc: '从你的浏览器到我们的服务器全链路加密，任何中间节点都拿不到明文。',
+    tag: 'TLS 1.3 · HSTS',
+    c: '#8b5cf6',
+  },
+  {
+    icon: <BrainCircuit size={18} />,
+    title: '绝不用于训练',
+    desc: '你的论文永远不会进入任何 AI 模型的训练 —— 这是我们的技术红线，也写进了合同。',
+    tag: '零留存 · 不做训练',
+    c: '#10b981',
+  },
+  {
+    icon: <EyeOff size={18} />,
+    title: '阅后即焚',
+    desc: '开启隐私模式后，下载报告就触发自动销毁，24 小时内彻底删除、不留备份。',
+    tag: '24h 自动销毁',
+    c: '#f59e0b',
+  },
+  {
+    icon: <FileCheck size={18} />,
+    title: '独立存储 · 可审计',
+    desc: '每位用户的稿件独立加密存放，每次访问全程留痕，定期接受第三方安全审计。',
+    tag: 'GDPR · 个人信息保护法',
+    c: '#3b82f6',
+  },
+];
+
+const NEVER_ITEMS = [
+  '将你的论文用于任何 AI 模型训练或微调',
+  '在未授权情况下与第三方共享你的稿件',
+  '让你的未发表内容出现在公开检索结果中',
+  '在审稿完成后长期存储你的原文数据',
+];
+
+const LIFECYCLE_STEPS = [
+  { t: 't = 0s', label: '加密上传', desc: '论文在你的浏览器就开始加密，传输过程中我们自己都看不到明文', icon: <Lock size={14} /> },
+  { t: 't = 30s', label: 'AI 审稿', desc: '在独立隔离环境中完成分析，全程不写入普通存储、不进入任何模型训练', icon: <Sparkles size={14} /> },
+  { t: 't ≈ 3min', label: '生成报告', desc: '报告签名后交付给你，只有你能看、只有你能下载', icon: <Download size={14} /> },
+  { t: 't ≤ 24h', label: '彻底销毁', desc: '原文、缓存、备份全部清除 —— 我们自己也无法恢复', icon: <Shield size={14} /> },
+];
+
+function SecurityMockup() {
+  return (
+    <div className="pr-sec-mockup">
+      <WindowChrome url="vault.scholay.com" compact>
+        <div className="pr-sec-vault">
+          <div className="pr-sec-vault-top">
+            <div className="pr-sec-vault-badge">
+              <span className="pr-sec-vault-badge-dot" />
+              <span>ENCRYPTED · LIVE</span>
+            </div>
+            <span className="pr-sec-vault-mono">sess_a7f3e91b</span>
+          </div>
+
+          <div className="pr-sec-vault-core">
+            <div className="pr-sec-vault-lock-ring">
+              <div className="pr-sec-vault-lock-pulse" />
+              <div className="pr-sec-vault-lock-ico"><Lock size={22} /></div>
+            </div>
+            <div className="pr-sec-vault-file">
+              <FileText size={14} />
+              <span>manuscript_draft_v7.pdf</span>
+              <span className="pr-sec-vault-file-size">· 2.4 MB</span>
+            </div>
+            <div className="pr-sec-vault-hash">
+              sha256: 9f3a…b71e · signed · attested
+            </div>
+          </div>
+
+          <div className="pr-sec-vault-lines">
+            {[
+              { k: 'channel', v: 'TLS 1.3 · AES-256-GCM', ok: true },
+              { k: 'at rest', v: 'per-user envelope key', ok: true },
+              { k: 'training', v: 'excluded · policy enforced', ok: true },
+              { k: 'retention', v: '24h TTL · shred on expire', ok: true },
+            ].map((r) => (
+              <div key={r.k} className="pr-sec-vault-line">
+                <span className="pr-sec-vault-line-key">{r.k}</span>
+                <span className="pr-sec-vault-line-val">{r.v}</span>
+                <span className="pr-sec-vault-line-ok"><CheckCircle2 size={12} /></span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </WindowChrome>
+    </div>
+  );
+}
+
+function SecuritySection() {
+  return (
+    <section id="pr-security" className="pr-section pr-security-v2">
+      <div className="pr-section-inner">
+        {/* ── Hero row ───────────────────────────────── */}
+        <div className="pr-sec-hero">
+          <motion.div
+            className="pr-sec-hero-copy"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.5 }}
+          >
+            <span className="pr-section-eyebrow">数据安全</span>
+            <h2 className="pr-sec-hero-title">
+              你的论文<span className="pr-sec-accent">只属于你</span>
+              <br />
+              从上传那一刻起，直到彻底销毁
+            </h2>
+            <p className="pr-sec-hero-lead">
+              未发表的手稿一旦泄露，就有被抢先投稿、被用于训练商业模型、甚至出现在公开检索中的风险。
+              我们太清楚这份担忧 —— 从第一行代码起，就把它放在最高优先级。
+            </p>
+            <div className="pr-sec-hero-stats">
+              <div className="pr-sec-hero-stat">
+                <Lock size={14} />
+                <span>全程端到端加密</span>
+              </div>
+              <div className="pr-sec-hero-stat">
+                <BrainCircuit size={14} />
+                <span>绝不用于 AI 训练</span>
+              </div>
+              <div className="pr-sec-hero-stat">
+                <EyeOff size={14} />
+                <span>24 小时自动销毁</span>
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            className="pr-sec-hero-visual"
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+          >
+            <SecurityMockup />
+          </motion.div>
+        </div>
+
+        {/* ── Compliance strip ──────────────────────── */}
+        <motion.div
+          className="pr-sec-compliance"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          <span className="pr-sec-compliance-label">合规 & 标准</span>
+          <div className="pr-sec-compliance-items">
+            {['GDPR', '《个人信息保护法》', 'TLS 1.3', 'AES-256-GCM', '零留存'].map((c) => (
+              <span key={c} className="pr-sec-compliance-chip">{c}</span>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* ── Four-pillar bento ─────────────────────── */}
+        <div className="pr-sec-pillars">
+          {SECURITY_PILLARS.map((p, i) => (
+            <motion.div
+              key={p.title}
+              className="pr-sec-pillar"
+              style={{ '--sec-c': p.c }}
+              initial={{ opacity: 0, y: 18 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-40px' }}
+              transition={{ duration: 0.4, delay: i * 0.08 }}
+            >
+              <div className="pr-sec-pillar-accent" />
+              <div className="pr-sec-pillar-icon">{p.icon}</div>
+              <h3>{p.title}</h3>
+              <p>{p.desc}</p>
+              <div className="pr-sec-pillar-tag">{p.tag}</div>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* ── Never panel ───────────────────────────── */}
+        <motion.div
+          className="pr-sec-never"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-40px' }}
+          transition={{ duration: 0.5 }}
+        >
+          <div className="pr-sec-never-head">
+            <span className="pr-sec-never-mark">NEVER</span>
+            <h3>四条"绝不"承诺 —— 一条都不越界</h3>
+            <p>说"会做什么"很容易，说"绝不做什么"才是真难。下面这四条，写进合同、写进架构，也写进我们的运维规则。</p>
+          </div>
+          <div className="pr-sec-never-grid">
+            {NEVER_ITEMS.map((text, i) => (
+              <motion.div
+                key={i}
+                className="pr-sec-never-row"
+                initial={{ opacity: 0, x: -10 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.3, delay: 0.15 + i * 0.08 }}
+              >
+                <span className="pr-sec-never-x"><X size={12} strokeWidth={3} /></span>
+                <span className="pr-sec-never-text">绝不{text}</span>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* ── Lifecycle timeline ────────────────────── */}
+        <motion.div
+          className="pr-sec-lifecycle"
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-40px' }}
+          transition={{ duration: 0.5 }}
+        >
+          <div className="pr-sec-lifecycle-head">
+            <span className="pr-section-eyebrow">数据生命周期</span>
+            <h3>从上传到销毁 · 你的论文在这里走过的每一步</h3>
+          </div>
+          <div className="pr-sec-lifecycle-rail">
+            {LIFECYCLE_STEPS.map((s, i) => (
+              <motion.div
+                key={s.label}
+                className="pr-sec-lifecycle-step"
+                initial={{ opacity: 0, y: 12 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.35, delay: 0.15 + i * 0.1 }}
+              >
+                <div className="pr-sec-lifecycle-step-top">
+                  <span className="pr-sec-lifecycle-time">{s.t}</span>
+                  <div className="pr-sec-lifecycle-ico">{s.icon}</div>
+                </div>
+                <div className="pr-sec-lifecycle-label">{s.label}</div>
+                <div className="pr-sec-lifecycle-desc">{s.desc}</div>
+                {i < LIFECYCLE_STEPS.length - 1 && <div className="pr-sec-lifecycle-connector" />}
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   Premium FAQ accordion — light-theme aware
+───────────────────────────────────────────── */
+function PremiumFAQ({ items }) {
+  const [open, setOpen] = useState(0);
+  return (
+    <div className="pr-faq-list">
+      {items.map((item, i) => {
+        const isOpen = open === i;
+        return (
+          <motion.div
+            key={i}
+            className={`pr-faq-item ${isOpen ? 'open' : ''}`}
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.35, delay: i * 0.04 }}
+          >
+            <button
+              className="pr-faq-trigger"
+              onClick={() => setOpen(isOpen ? -1 : i)}
+              aria-expanded={isOpen}
+            >
+              <span className="pr-faq-num">{String(i + 1).padStart(2, '0')}</span>
+              <span className="pr-faq-q">{item.q}</span>
+              <span className="pr-faq-chev"><ChevronDown size={18} /></span>
+            </button>
+            <div className="pr-faq-panel" role="region">
+              <div className="pr-faq-panel-inner">
+                <p>{item.a}</p>
+              </div>
+            </div>
+          </motion.div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -561,7 +1114,7 @@ export default function PeerReviewFeaturePage() {
   const navigate = useNavigate();
 
   return (
-    <div className="feat-page feat-review-page">
+    <div className="feat-page feat-review-page pr-v2">
       <SEO
         title="AI 智能审稿 - Scholay | 多维度论文评审与修改建议"
         description="Scholay AI 智能审稿模拟同行评审流程，从原创性、方法论、清晰度、重要性和可复现性五大维度，由三位 AI 审稿人多角度评审论文，生成结构化审稿报告。"
@@ -571,415 +1124,167 @@ export default function PeerReviewFeaturePage() {
 
       <FeatureNav ctaText="开始审稿" ctaTo="/peer-review" accentColor={ACCENT} />
 
-      {/* Hero is full-bleed, outside feat-main */}
+      {/* ═══════════════ HERO ═══════════════ */}
       <section className="pr-hero">
-        <MeshBackground />
+        <div className="pr-hero-bg" aria-hidden>
+          <div className="pr-hero-beam pr-hero-beam-1" />
+          <div className="pr-hero-beam pr-hero-beam-2" />
+          <div className="pr-hero-grid" />
+        </div>
 
-        <div className="pr-hero-container">
+        <div className="pr-hero-inner">
+          <motion.div
+            className="pr-hero-copy"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <span className="pr-hero-eyebrow">
+              <Sparkles size={12} />
+              AI PEER REVIEW
+            </span>
+            <h1 className="pr-hero-h1">
+              投稿前，<br />
+              先让 <span className="pr-hero-grad">AI 审稿人</span> 把关
+            </h1>
+            <p className="pr-hero-lead">
+              三位 AI 审稿人分别从不同视角独立评审，再由主编合成最终意见。
+              原创性、方法论、清晰度、重要性、可复现性逐一打分 —— 3 分钟交付一份期刊级的结构化审稿报告。
+            </p>
+            <div className="pr-hero-ctas">
+              <button className="pr-btn pr-btn-primary" onClick={() => navigate('/peer-review')}>
+                立即免费审稿
+                <ArrowRight size={15} />
+              </button>
+              <a className="pr-btn pr-btn-ghost" href="#pr-security">
+                查看数据安全
+                <ChevronDown size={14} />
+              </a>
+            </div>
 
-            {/* Top eyebrow */}
-            <motion.div className="pr-eyebrow-row"
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.45, ease: 'easeOut' }}
-            >
-              <span className="pr-eyebrow-pill">
-                <Sparkles size={12} />
-                AI-POWERED PEER REVIEW
-              </span>
-              <LiveCounter />
-            </motion.div>
-
-            {/* Two-column layout */}
-            <div className="pr-hero-cols">
-
-              {/* Left: copy */}
-              <div className="pr-hero-copy">
-                <motion.h1
-                  initial={{ opacity: 0, y: 28 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  投稿前，先让<br />
-                  <span className="pr-headline-gradient">AI 审稿人</span><br />
-                  帮你把好关
-                </motion.h1>
-
-                <motion.p className="pr-hero-lead"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.55, delay: 0.2 }}
-                >
-                  系统先检索相关文献、评估领域空白，再由三位专注不同视角的 AI 审稿人
-                  <strong>并行独立</strong>评审——最后由 Meta-Reviewer 合成共识报告，
-                  覆盖<strong>原创性、方法论、清晰度、重要性、可复现性</strong>五大维度，
-                  {'<'} 3 分钟交付期刊级结构化审稿报告。
-                </motion.p>
-
-                {/* Trust chips */}
-                <motion.div className="pr-hero-chips"
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.45, delay: 0.3 }}
-                >
-                  {[
-                    'Critical / Major / Minor 分级',
-                    '五维雷达图',
-                    '具体修改建议',
-                    'Word / PDF 导出',
-                  ].map(t => (
-                    <span key={t} className="pr-trust-chip">
-                      <CheckCircle2 size={11} />
-                      {t}
-                    </span>
-                  ))}
-                </motion.div>
-
-                {/* CTAs */}
-                <motion.div className="pr-hero-ctas"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.38 }}
-                >
-                  <button className="pr-cta-primary" onClick={() => navigate('/peer-review')}>
-                    立即免费审稿
-                    <ArrowRight size={16} />
-                  </button>
-                  <a className="pr-cta-ghost" href="#pr-demo">
-                    查看演示报告
-                    <ChevronDown size={15} />
-                  </a>
-                </motion.div>
-
-                {/* Journal ticker */}
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.6, duration: 0.6 }}
-                >
-                  <p className="pr-ticker-label">适用于投稿至以下期刊与会议</p>
-                  <JournalTicker />
-                </motion.div>
+            <div className="pr-hero-security">
+              <div className="pr-hero-security-head">
+                <ShieldCheck size={14} />
+                <span>你的未发表论文 · 绝对安全</span>
               </div>
-
-              {/* Right: report thumbnail + CTA */}
-              <div className="pr-hero-visual">
-                <HeroPreview onCTA={() => navigate('/peer-review')} />
+              <div className="pr-hero-security-chips">
+                <span className="pr-hero-sec-chip">
+                  <Lock size={11} />
+                  全程加密传输
+                </span>
+                <span className="pr-hero-sec-chip">
+                  <BrainCircuit size={11} />
+                  不用于 AI 训练
+                </span>
+                <span className="pr-hero-sec-chip">
+                  <EyeOff size={11} />
+                  24 小时自动销毁
+                </span>
               </div>
             </div>
-          </div>
 
-          <div className="pr-hero-bottom-fade" />
+            <div className="pr-hero-meta">
+              <LiveCounter />
+              <span className="pr-hero-sep" />
+              <span>首次免费 · 无需注册</span>
+            </div>
+          </motion.div>
+
+          <motion.div
+            className="pr-hero-visual"
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <HeroReportMockup />
+          </motion.div>
+        </div>
+
+        <div className="pr-hero-trust">
+          <p className="pr-hero-trust-label">适用于投稿至以下期刊与会议</p>
+          <JournalTicker />
+        </div>
       </section>
 
       <main className="feat-main pr-main">
 
-        {/* ══════════════════════════════════════════
-            PIPELINE FLOW DIAGRAM
-        ══════════════════════════════════════════ */}
-        <section id="pr-pipeline" className="pr-pipeline-section">
-          <div className="pr-section-inner">
-            <motion.div className="pr-pipeline-header"
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-40px' }}
-              transition={{ duration: 0.45 }}
-            >
-              <span className="pr-section-eyebrow">审稿引擎</span>
-              <h2 className="pr-pipeline-title">一篇论文，完整经历六个阶段</h2>
-            </motion.div>
-
-            <div className="pr-pipeline">
-              {PIPELINE_STAGES.map((stage, i) => (
-                <React.Fragment key={stage.id}>
-                  <motion.div
-                    className={`pr-pipe-node${stage.wide ? ' pr-pipe-wide' : ''}`}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true, margin: '-30px' }}
-                    transition={{ duration: 0.4, delay: i * 0.07 }}
-                  >
-                    <div className="pr-pipe-icon" style={{ background: `${stage.color}18`, color: stage.color, borderColor: `${stage.color}30` }}>
-                      {stage.icon}
-                    </div>
-                    <div className="pr-pipe-label">{stage.label}</div>
-                    <div className="pr-pipe-detail">{stage.detail}</div>
-                    {stage.wide && (
-                      <div className="pr-pipe-reviewers">
-                        {[
-                          { s: 'α', c: '#10b981', t: '原创性' },
-                          { s: 'β', c: '#8b5cf6', t: '方法论' },
-                          { s: 'γ', c: '#f59e0b', t: '影响力' },
-                        ].map(rv => (
-                          <div key={rv.s} className="pr-pipe-rv" style={{ borderColor: `${rv.c}28` }}>
-                            <div className="pr-pipe-rv-av" style={{ background: rv.c }}>{rv.s}</div>
-                            <span style={{ color: rv.c }}>{rv.t}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </motion.div>
-                  {i < PIPELINE_STAGES.length - 1 && (
-                    <motion.div className="pr-pipe-arrow"
-                      initial={{ opacity: 0, scaleX: 0 }}
-                      whileInView={{ opacity: 1, scaleX: 1 }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 0.3, delay: i * 0.07 + 0.25 }}
-                    >
-                      <ChevronRight size={18} />
-                    </motion.div>
-                  )}
-                </React.Fragment>
-              ))}
-            </div>
-
-            {/* Dimension pills */}
-            <motion.div className="pr-dim-row"
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: 0.5 }}
-            >
-              <span className="pr-dim-label">五大审稿维度</span>
-              {[
-                { name: '原创性', color: '#8b5cf6' },
-                { name: '方法论', color: '#6366f1' },
-                { name: '清晰度', color: '#ec4899' },
-                { name: '重要性', color: '#f59e0b' },
-                { name: '可复现性', color: '#10b981' },
-              ].map(d => (
-                <span key={d.name} className="pr-dim-pill" style={{ color: d.color, background: `${d.color}12`, borderColor: `${d.color}28` }}>
-                  {d.name}
-                </span>
-              ))}
-            </motion.div>
-          </div>
-        </section>
-
-        {/* ══════════════════════════════════════════
-            INTERACTIVE DEMO
-        ══════════════════════════════════════════ */}
-        <section id="pr-demo" className="pr-section pr-demo-section">
-          <div className="pr-section-inner">
-            <motion.div className="pr-section-header"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-40px' }}
-              transition={{ duration: 0.5 }}
-            >
-              <span className="pr-section-eyebrow">实时演示</span>
-              <h2>体验完整的 AI 审稿报告</h2>
-              <p>滚动进入后自动演示审稿流程。演示完成后可切换审稿人视角、展开详细评审意见，并导出真实格式文件。</p>
-            </motion.div>
-            <Suspense fallback={
-              <div className="pr-demo-loader">
-                <div className="pr-demo-spinner" />
-                <span>加载演示中...</span>
-              </div>
-            }>
-              <PeerReviewDemo />
-            </Suspense>
-          </div>
-        </section>
-
-        {/* ══════════════════════════════════════════
-            BENTO GRID — FEATURES
-        ══════════════════════════════════════════ */}
-        <section id="pr-features" className="pr-section">
-          <div className="pr-section-inner">
-            <motion.div className="pr-section-header"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-40px' }}
-              transition={{ duration: 0.5 }}
-            >
-              <span className="pr-section-eyebrow">核心功能</span>
-              <h2>你想要的，全都在</h2>
-            </motion.div>
-            <div className="pr-bento-grid">
-              {BENTO.map((card, i) => (
-                <BentoCard key={card.id} card={card} index={i} />
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ══════════════════════════════════════════
-            HOW IT WORKS — PIPELINE
-        ══════════════════════════════════════════ */}
-        <section className="pr-section pr-steps-section">
-          <div className="pr-section-inner">
-            <motion.div className="pr-section-header"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-40px' }}
-              transition={{ duration: 0.5 }}
-            >
-              <span className="pr-section-eyebrow">审稿引擎</span>
-              <h2>不是简单问 AI，是真正的审稿流程</h2>
-              <p>每次审稿都完整执行一套多阶段学术流水线，和顶刊同行评审的流程一脉相承。</p>
-            </motion.div>
-
-            <div className="pr-steps">
-              <StepItem
-                num="01"
-                title="稿件解析 · 提取结构化元信息"
-                desc="自动识别标题、作者、摘要、研究领域与关键词，无需手动填写。支持 PDF、Word、TXT 及直接粘贴，最大支持 50 页完整论文。"
-                delay={0}
-              />
-              <StepItem
-                num="02"
-                title="文献预处理 · 构建领域上下文"
-                desc="基于论文关键词与摘要，系统向 Semantic Scholar 发起学术检索，AI 筛选相关文献，总结领域前沿状态，识别最相似已发表论文和常见研究空白——为审稿人提供可核查的对标参照。"
-                delay={0.1}
-              />
-              <StepItem
-                num="03"
-                title="三路并行独立审稿"
-                desc="Reviewer α（原创性 & 理论贡献）、Reviewer β（方法论 & 技术严谨性）、Reviewer γ（清晰度 & 影响力）使用不同 AI 模型同步运行，每人独立产出结构化 JSON 报告，互不干扰。"
-                delay={0.2}
-              />
-              <StepItem
-                num="04"
-                title="Meta-Reviewer · 合成共识，解决分歧"
-                desc="第四位 Meta-Reviewer 读取三份独立报告，合并一致意见、平衡分歧观点，输出最终 Accept / Minor Revision / Major Revision / Reject 结论及完整审稿报告。"
-                delay={0.3}
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* ══════════════════════════════════════════
-            PRIVACY & DATA SECURITY
-        ══════════════════════════════════════════ */}
-        <section id="pr-security" className="pr-section pr-security-section">
-          <div className="pr-section-inner">
-            <motion.div className="pr-section-header"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-40px' }}
-              transition={{ duration: 0.5 }}
-            >
-              <span className="pr-section-eyebrow">安全保障</span>
-              <h2>数据安全与隐私保护</h2>
-              <p>你的论文是你最重要的学术资产。我们用最高标准守护它。</p>
-            </motion.div>
-
-            <div className="pr-security-grid">
-              {[
-                {
-                  icon: <ShieldCheck size={24} />,
-                  title: '端到端加密传输',
-                  desc: '论文上传和审稿过程全程使用 TLS 加密，数据传输安全有保障',
-                  color: '#8b5cf6',
-                },
-                {
-                  icon: <BrainCircuit size={24} />,
-                  title: '不用于模型训练',
-                  desc: '您的论文内容不会被用于训练 AI 模型，我们绝不滥用您的学术成果',
-                  color: '#10b981',
-                },
-                {
-                  icon: <EyeOff size={24} />,
-                  title: '隐私审稿模式',
-                  desc: '开启隐私模式后，审稿报告在下载后 24 小时内自动删除，不留痕迹',
-                  color: '#f59e0b',
-                },
-                {
-                  icon: <FileCheck size={24} />,
-                  title: '合规数据管理',
-                  desc: '严格遵守数据保护法规，定期安全审计，企业级数据隔离',
-                  color: '#3b82f6',
-                },
-              ].map((card, i) => (
-                <motion.div
-                  key={card.title}
-                  className="pr-security-card"
-                  style={{ '--sec-accent': card.color }}
-                  initial={{ opacity: 0, y: 24 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: '-40px' }}
-                  transition={{ duration: 0.5, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  <div className="pr-security-icon" style={{ background: `${card.color}15`, color: card.color }}>
-                    {card.icon}
-                  </div>
-                  <h3 className="pr-security-title">{card.title}</h3>
-                  <p className="pr-security-desc">{card.desc}</p>
-                </motion.div>
-              ))}
-            </div>
-
-            {/* Privacy mode highlight */}
-            <motion.div
-              className="pr-privacy-highlight"
-              initial={{ opacity: 0, y: 28 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-40px' }}
-              transition={{ duration: 0.55, delay: 0.2 }}
-            >
-              <div className="pr-privacy-highlight-inner">
-                <div className="pr-privacy-highlight-header">
-                  <div className="pr-privacy-highlight-icon">
-                    <Lock size={22} />
-                  </div>
-                  <div>
-                    <h3 className="pr-privacy-highlight-title">隐私模式 —— 让你的未发表论文高枕无忧</h3>
-                    <p className="pr-privacy-highlight-desc">
-                      担心论文泄露？开启隐私模式，AI 审稿完成后立即下载报告。您的稿件数据将在 24 小时内从服务器彻底删除，历史记录中也不会保留任何痕迹。
-                    </p>
-                  </div>
+        {/* ═══════════════ METRICS BAR ═══════════════ */}
+        <section className="pr-metrics">
+          <div className="pr-metrics-inner">
+            {[
+              { num: '< 3', unit: '分钟', label: '从上传到拿到完整报告' },
+              { num: '3+1', unit: '', label: '三位审稿人 + 一位主编' },
+              { num: '5', unit: '', label: '评分维度，结构化输出' },
+              { num: '50', unit: '页', label: '单篇最大支持' },
+            ].map((m, i) => (
+              <motion.div
+                key={i}
+                className="pr-metric"
+                initial={{ opacity: 0, y: 14 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-40px' }}
+                transition={{ duration: 0.4, delay: i * 0.08 }}
+              >
+                <div className="pr-metric-num">
+                  {m.num}
+                  {m.unit && <span className="pr-metric-unit">{m.unit}</span>}
                 </div>
-
-                <div className="pr-privacy-flow">
-                  {[
-                    { icon: <Lock size={16} />, label: '上传' },
-                    { icon: <Sparkles size={16} />, label: 'AI审稿' },
-                    { icon: <Download size={16} />, label: '下载报告' },
-                    { icon: <Shield size={16} />, label: '自动删除' },
-                  ].map((step, i) => (
-                    <React.Fragment key={step.label}>
-                      <motion.div
-                        className="pr-privacy-flow-step"
-                        initial={{ opacity: 0, scale: 0.85 }}
-                        whileInView={{ opacity: 1, scale: 1 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.35, delay: 0.3 + i * 0.1 }}
-                      >
-                        <div className="pr-privacy-flow-icon">{step.icon}</div>
-                        <span className="pr-privacy-flow-label">{step.label}</span>
-                      </motion.div>
-                      {i < 3 && <div className="pr-privacy-flow-arrow"><ChevronRight size={14} /></div>}
-                    </React.Fragment>
-                  ))}
-                </div>
-              </div>
-              <div className="pr-privacy-highlight-glow" />
-            </motion.div>
+                <div className="pr-metric-label">{m.label}</div>
+              </motion.div>
+            ))}
           </div>
         </section>
 
-        {/* ══════════════════════════════════════════
-            FAQ
-        ══════════════════════════════════════════ */}
-        <section id="pr-faq" className="pr-section">
+        {/* ═══════════════ ENGINE · Multi-Agent 系统 ═══════════════ */}
+        <EngineSection />
+
+        {/* ═══════════════ FEATURE ROW — LITERATURE ═══════════════ */}
+        <FeatureRow
+          id="pr-literature"
+          eyebrow="文献对标"
+          title={'每一个"新颖性"判断，都有具体文献支撑'}
+          body={'审稿开始前，系统会先帮你的论文做一轮学术检索，找出领域内最相似的已发表工作、识别常见的研究空白。这样审稿人的评价就不再凭感觉 —— 每一条关于"新不新"、"创不创新"的结论，背后都有可核查的文献依据。'}
+          bullets={[
+            '接入 Semantic Scholar，实时检索 2 亿+ 学术记录',
+            '自动找出领域内与你最相似的已发表工作',
+            '总结研究空白，让审稿人据此评估新颖性',
+            '每条结论都可回溯到具体引文',
+          ]}
+          mockup={<LiteratureSearchMockup />}
+          reversed
+          accent="#06b6d4"
+        />
+
+        {/* ═══════════════ FEATURE ROW — REPORT ═══════════════ */}
+        <FeatureRow
+          id="pr-report"
+          eyebrow="审稿报告"
+          title="从雷达图到分级问题清单，一份报告把话讲透"
+          body={'五大维度逐一打分，问题按 严重 / 一般 / 轻微 三级分类，每条问题都附上具体修改建议 —— 不是泛泛而谈"值得改进"，而是直接告诉你"第 X 节该怎么改"。一键导出 Word / PDF。'}
+          bullets={[
+            '五维度打分 · 雷达图一眼看清强弱项',
+            '问题按 严重 / 一般 / 轻微 分级列清单',
+            '每条问题都附带可以直接照做的修改建议',
+            'Word / PDF 一键导出，直接交给导师或合作者',
+          ]}
+          mockup={<StructuredReportMockup />}
+          accent="#10b981"
+        />
+
+        <SecuritySection />
+
+        {/* ═══════════════ FAQ ═══════════════ */}
+        <section id="pr-faq" className="pr-section pr-faq-section">
           <div className="pr-section-inner">
-            <motion.div className="pr-section-header"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-40px' }}
-              transition={{ duration: 0.5 }}
-            >
+            <div className="pr-section-head">
               <span className="pr-section-eyebrow">常见问题</span>
               <h2>你可能想知道的</h2>
-            </motion.div>
-            <FeatureFAQ items={FAQ_ITEMS} />
+              <p>关于 AI 审稿、工作流程、数据安全的常见疑问 —— 一次说清。</p>
+            </div>
+            <PremiumFAQ items={FAQ_ITEMS} />
           </div>
         </section>
 
-        {/* ══════════════════════════════════════════
-            CTA
-        ══════════════════════════════════════════ */}
         <FeatureCTA
           title="投稿前，先让 AI 替你把关"
           desc="上传论文，3 分钟内获取期刊级审稿报告。发现潜在问题，提高投稿通过率。"

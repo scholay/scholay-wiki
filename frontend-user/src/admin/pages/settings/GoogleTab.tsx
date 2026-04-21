@@ -12,6 +12,7 @@ import SensitiveField from '../../components/SensitiveField';
 import { adminAPI } from '../../services/api';
 import { showToast } from '../../components/Toast';
 import { useSettingsContext } from './SettingsContext';
+import { GoogleIcon } from '../../../components/icons/providers';
 
 interface GoogleConfigState {
   googleClientId: string;
@@ -82,7 +83,7 @@ const GoogleTab = React.memo(() => {
     <div className="settings-section fade-in">
       <form onSubmit={handleGoogleConfigSubmit} className="settings-form">
         <div className="section-header">
-          <h2>Google 登录配置</h2>
+          <h2 className="with-icon"><GoogleIcon size={24} />Google 登录配置</h2>
           <p>配置 Google OAuth 以支持用户通过 Google 账号登录（支持 One Tap 快捷登录）</p>
         </div>
 

@@ -897,3 +897,661 @@
   background: rgba(251, 191, 36, 0.08);
   border-color: rgba(251, 191, 36, 0.2);
 }
+
+/* ============================================================================
+ * 重新设计的详情区域（v2）
+ * ============================================================================ */
+
+.preview-body {
+  padding: 4px 20px 24px;
+}
+
+/* 顶部元信息行：来源 + DOI + Corpus ID */
+.preview-meta-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+
+.source-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.source-badge.source-olx {
+  background: rgba(99, 102, 241, 0.18);
+  color: rgb(165, 180, 252);
+}
+
+.source-badge.source-stc {
+  background: rgba(16, 185, 129, 0.18);
+  color: rgb(52, 211, 153);
+}
+
+.open-access-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 4px;
+  background: rgba(251, 191, 36, 0.14);
+  color: rgb(251, 191, 36);
+}
+
+.meta-id {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.meta-id.copyable {
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+}
+
+.meta-id.copyable:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.meta-text {
+  white-space: nowrap;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.15s ease;
+}
+
+.meta-id.copyable:hover .copy-btn {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.copy-btn.copied {
+  color: rgb(52, 211, 153);
+}
+
+/* 标题 */
+.preview-title {
+  font-size: 18px;
+  font-weight: 650;
+  color: rgba(255, 255, 255, 0.95);
+  line-height: 1.4;
+  margin: 0 0 12px 0;
+  word-break: break-word;
+}
+
+/* 作者行 */
+.preview-authors {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  margin-bottom: 10px;
+  line-height: 1.7;
+}
+
+.author-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 12.5px;
+  color: rgb(125, 211, 252);
+  background: rgba(56, 189, 248, 0.08);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.author-chip:hover {
+  background: rgba(56, 189, 248, 0.18);
+  color: rgb(186, 230, 253);
+  text-decoration: none;
+}
+
+.author-chip-static {
+  cursor: default;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.author-chip-static:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.author-sep {
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 12px;
+}
+
+/* 出版元信息 */
+.preview-pub-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 14px;
+}
+
+.pub-venue {
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.pub-dot {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.pub-year {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.field-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.field-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 11.5px;
+  color: rgba(52, 211, 153, 0.9);
+  background: rgba(16, 185, 129, 0.08);
+  border-radius: 4px;
+}
+
+.field-chip-neutral {
+  color: rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* 操作行 */
+.preview-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  margin-bottom: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.action-metric {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.action-metric-num {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.action-metric-label {
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.action-spacer {
+  flex: 1;
+  min-width: 4px;
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  line-height: 1;
+}
+
+.action-btn-outline {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.action-btn-outline:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.95);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.action-btn-primary {
+  background: rgba(16, 185, 129, 0.18);
+  color: rgb(52, 211, 153);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.action-btn-primary:hover {
+  background: rgba(16, 185, 129, 0.28);
+  color: rgb(110, 231, 183);
+  border-color: rgba(16, 185, 129, 0.5);
+}
+
+/* 内容分区 */
+.preview-section {
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.preview-section:last-of-type {
+  border-bottom: none;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.65);
+  margin: 0;
+}
+
+.section-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  letter-spacing: 0.3px;
+}
+
+.tldr-badge {
+  background: rgba(16, 185, 129, 0.18);
+  color: rgb(52, 211, 153);
+}
+
+.section-text {
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+}
+
+.tldr-section {
+  background: rgba(16, 185, 129, 0.06);
+  margin: 14px -20px;
+  padding: 14px 20px;
+  border-radius: 0;
+  border-bottom: none;
+  border-top: 1px solid rgba(16, 185, 129, 0.12);
+  border-bottom: 1px solid rgba(16, 185, 129, 0.12);
+}
+
+.tldr-text {
+  font-style: italic;
+}
+
+.abstract-text {
+  text-align: justify;
+  white-space: pre-wrap;
+}
+
+.section-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.7);
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.section-toggle:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.95);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* 期刊信息 */
+.journal-info {
+  font-size: 13px;
+  line-height: 1.9;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.journal-info > div {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.journal-label {
+  display: inline-block;
+  min-width: 48px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* 原文链接 */
+.paper-url {
+  display: inline-block;
+  font-size: 12.5px;
+  color: rgb(125, 211, 252);
+  text-decoration: none;
+  word-break: break-all;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.paper-url:hover {
+  text-decoration: underline;
+  color: rgb(186, 230, 253);
+}
+
+/* 加载中提示 */
+.preview-loading-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+}
+
+.preview-loading-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-top-color: rgb(52, 211, 153);
+  border-radius: 50%;
+  animation: preview-spin 0.8s linear infinite;
+}
+
+@keyframes preview-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================================================
+ * 日间主题：重新设计的详情区域
+ * ============================================================================ */
+
+[data-theme="light"] .source-badge.source-olx {
+  background: rgba(99, 102, 241, 0.12);
+  color: rgb(79, 70, 229);
+}
+
+[data-theme="light"] .source-badge.source-stc {
+  background: rgba(16, 163, 127, 0.12);
+  color: var(--primary-solid);
+}
+
+[data-theme="light"] .open-access-badge {
+  background: rgba(217, 119, 6, 0.12);
+  color: rgb(180, 83, 9);
+}
+
+[data-theme="light"] .meta-id {
+  color: rgba(0, 0, 0, 0.55);
+}
+
+[data-theme="light"] .meta-id.copyable:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: rgba(0, 0, 0, 0.85);
+}
+
+[data-theme="light"] .copy-btn {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .meta-id.copyable:hover .copy-btn {
+  color: rgba(0, 0, 0, 0.75);
+}
+
+[data-theme="light"] .copy-btn.copied {
+  color: var(--primary-solid);
+}
+
+[data-theme="light"] .preview-title {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="light"] .author-chip {
+  color: rgb(29, 78, 216);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+[data-theme="light"] .author-chip:hover {
+  background: rgba(59, 130, 246, 0.18);
+  color: rgb(30, 58, 138);
+}
+
+[data-theme="light"] .author-chip-static {
+  color: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .author-sep {
+  color: rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="light"] .preview-pub-meta {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .pub-venue {
+  color: rgba(0, 0, 0, 0.75);
+}
+
+[data-theme="light"] .pub-dot {
+  color: rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="light"] .pub-year {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="light"] .field-chip {
+  color: var(--primary-solid);
+  background: rgba(16, 163, 127, 0.08);
+}
+
+[data-theme="light"] .field-chip-neutral {
+  color: rgba(0, 0, 0, 0.65);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .preview-action-bar {
+  border-top-color: rgba(0, 0, 0, 0.06);
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .action-metric {
+  color: rgba(0, 0, 0, 0.55);
+}
+
+[data-theme="light"] .action-metric-num {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="light"] .action-metric-label {
+  color: rgba(0, 0, 0, 0.55);
+}
+
+[data-theme="light"] .action-btn-outline {
+  background: rgba(0, 0, 0, 0.03);
+  color: rgba(0, 0, 0, 0.75);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .action-btn-outline:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.9);
+  border-color: rgba(0, 0, 0, 0.18);
+}
+
+[data-theme="light"] .action-btn-primary {
+  background: rgba(16, 163, 127, 0.12);
+  color: var(--primary-solid);
+  border-color: rgba(16, 163, 127, 0.25);
+}
+
+[data-theme="light"] .action-btn-primary:hover {
+  background: rgba(16, 163, 127, 0.2);
+  border-color: rgba(16, 163, 127, 0.4);
+}
+
+[data-theme="light"] .preview-section {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .section-title {
+  color: rgba(0, 0, 0, 0.65);
+}
+
+[data-theme="light"] .tldr-badge {
+  background: rgba(16, 163, 127, 0.14);
+  color: var(--primary-solid);
+}
+
+[data-theme="light"] .section-text {
+  color: rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="light"] .tldr-section {
+  background: rgba(16, 163, 127, 0.06);
+  border-top-color: rgba(16, 163, 127, 0.15);
+  border-bottom-color: rgba(16, 163, 127, 0.15);
+}
+
+[data-theme="light"] .section-toggle {
+  border-color: rgba(0, 0, 0, 0.12);
+  color: rgba(0, 0, 0, 0.65);
+}
+
+[data-theme="light"] .section-toggle:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: rgba(0, 0, 0, 0.85);
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="light"] .journal-info {
+  color: rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="light"] .journal-label {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .paper-url {
+  color: rgb(29, 78, 216);
+}
+
+[data-theme="light"] .paper-url:hover {
+  color: rgb(30, 58, 138);
+}
+
+[data-theme="light"] .preview-loading-hint {
+  background: rgba(0, 0, 0, 0.03);
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .preview-loading-spinner {
+  border-color: rgba(0, 0, 0, 0.12);
+  border-top-color: var(--primary-solid);
+}
+
+/* ============================================================================
+ * 移动端弹窗：重新设计的详情区域
+ * ============================================================================ */
+
+.paper-preview.mobile-modal .preview-body {
+  padding: 0 20px 20px;
+}
+
+.paper-preview.mobile-modal .preview-title {
+  font-size: 18px;
+  line-height: 1.45;
+}
+
+.paper-preview.mobile-modal .preview-meta-bar {
+  margin-bottom: 12px;
+}
+
+.paper-preview.mobile-modal .meta-text {
+  max-width: 200px;
+}
+
+.paper-preview.mobile-modal .preview-action-bar {
+  gap: 8px;
+  padding: 12px 0;
+}
+
+.paper-preview.mobile-modal .action-btn {
+  font-size: 13px;
+  padding: 8px 14px;
+}
+
+.paper-preview.mobile-modal .action-spacer {
+  flex-basis: 100%;
+  height: 0;
+}
+
+.paper-preview.mobile-modal .tldr-section {
+  margin: 12px -20px;
+  padding: 14px 20px;
+}
+
+.paper-preview.mobile-modal .section-text {
+  font-size: 14.5px;
+}
+

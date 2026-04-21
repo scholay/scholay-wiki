@@ -170,26 +170,29 @@ func (c *Client) SearchPapers(ctx context.Context, opts PaperSearchOptions) (*Se
 	if opts.Offset > 0 {
 		body["offset"] = opts.Offset
 	}
-	if opts.Year != "" {
-		body["year"] = opts.Year
+	if opts.YearFrom > 0 {
+		body["year_from"] = opts.YearFrom
+	}
+	if opts.YearTo > 0 {
+		body["year_to"] = opts.YearTo
 	}
 	if len(opts.Fields) > 0 {
 		body["fields"] = strings.Join(opts.Fields, ",")
 	}
 	if len(opts.PublicationTypes) > 0 {
-		body["publication_types"] = strings.Join(opts.PublicationTypes, ",")
+		body["types"] = opts.PublicationTypes
 	}
 	if opts.OpenAccessPDF == "true" {
-		body["open_access_pdf"] = true
+		body["open_access"] = true
 	}
 	if opts.MinCitationCount > 0 {
-		body["min_citation_count"] = opts.MinCitationCount
+		body["min_citations"] = opts.MinCitationCount
 	}
 	if len(opts.Venue) > 0 {
 		body["venue"] = strings.Join(opts.Venue, ",")
 	}
 	if len(opts.FieldsOfStudy) > 0 {
-		body["fields_of_study"] = strings.Join(opts.FieldsOfStudy, ",")
+		body["subjects"] = opts.FieldsOfStudy
 	}
 
 	prefix := sourcePrefix(opts.Source)

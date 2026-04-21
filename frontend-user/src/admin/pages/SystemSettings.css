@@ -132,6 +132,20 @@
   color: var(--text-primary);
 }
 
+.admin-app .section-header h2.with-icon,
+.admin-app .section-header h3.with-icon{
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.admin-app .section-header h2.with-icon > svg,
+.admin-app .section-header h3.with-icon > svg{
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
 .admin-app .section-header p{
   margin: 0;
   color: var(--text-secondary);

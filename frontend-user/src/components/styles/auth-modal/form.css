@@ -374,16 +374,16 @@
 }
 
 .auth-discourse-button {
-  background: linear-gradient(135deg, #e9573f 0%, #d04526 100%);
-  border-color: rgba(233, 87, 63, 0.3);
-  color: white;
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(66, 130, 73, 0.35);
+  color: #ececec;
 }
 
 .auth-discourse-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, #d04526 0%, #e9573f 100%);
-  border-color: rgba(233, 87, 63, 0.5);
+  background: rgba(66, 130, 73, 0.08);
+  border-color: rgba(66, 130, 73, 0.6);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(233, 87, 63, 0.3);
+  box-shadow: 0 4px 12px rgba(66, 130, 73, 0.25);
 }
 
 /* Footer */

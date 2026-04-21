@@ -11,6 +11,7 @@ import React, { useState, useEffect, useCallback, type FormEvent } from 'react';
 import { adminAPI } from '../../services/api';
 import { showToast } from '../../components/Toast';
 import { useSettingsContext } from './SettingsContext';
+import { AppleIcon } from '../../../components/icons/providers';
 
 interface AppleConfigState {
   appleServiceId: string;
@@ -91,7 +92,7 @@ const AppleTab = React.memo(() => {
     <div className="settings-section fade-in">
       <form onSubmit={handleAppleConfigSubmit} className="settings-form">
         <div className="section-header">
-          <h2>Apple 登录配置</h2>
+          <h2 className="with-icon"><AppleIcon size={24} />Apple 登录配置</h2>
           <p>配置 Sign in with Apple 以支持 Apple 用户登录</p>
         </div>
         <div className="form-group">

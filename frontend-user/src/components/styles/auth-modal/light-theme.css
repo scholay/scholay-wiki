@@ -188,6 +188,35 @@
   box-shadow: 0 2px 8px rgba(16, 163, 127, 0.15);
 }
 
+/* OAuth 图标单行 - 日间模式 */
+[data-theme="light"] .auth-social-icon {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #374151;
+}
+
+[data-theme="light"] .auth-social-icon:hover:not(:disabled) {
+  border-color: var(--primary-solid);
+  background: #fafffe;
+  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.18);
+}
+
+[data-theme="light"] .auth-social-icon-github {
+  background: #24292e;
+  border-color: #24292e;
+  color: #ffffff;
+}
+
+[data-theme="light"] .auth-social-icon-github:hover:not(:disabled) {
+  background: #1a1e22;
+  border-color: #1a1e22;
+  box-shadow: 0 4px 12px rgba(36, 41, 46, 0.35);
+}
+
+[data-theme="light"] .auth-social-icon-apple {
+  color: #111827;
+}
+
 /* 微信按钮 - 日间模式 */
 [data-theme="light"] .auth-wechat-button {
   background: #ffffff;
@@ -221,15 +250,15 @@
 }
 
 [data-theme="light"] .auth-discourse-button {
-  background: linear-gradient(135deg, #e9573f 0%, #d04526 100%);
-  border-color: #e9573f;
-  color: white;
+  background: #ffffff;
+  border-color: rgba(66, 130, 73, 0.35);
+  color: #111827;
 }
 
 [data-theme="light"] .auth-discourse-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, #d04526 0%, #e9573f 100%);
-  border-color: #d04526;
-  box-shadow: 0 4px 12px rgba(233, 87, 63, 0.25);
+  background: rgba(66, 130, 73, 0.06);
+  border-color: #428249;
+  box-shadow: 0 4px 12px rgba(66, 130, 73, 0.2);
 }
 
 /* 错误消息 - 日间模式 */

@@ -297,37 +297,37 @@ const PaperRow = memo(({
         <div className="search-result-paper-number">{startIndex + index}</div>
         <div className="search-result-paper-content">
           <h3 className="search-result-paper-title">
-            {/* 翻译按钮 - 嵌入标题第一行 */}
-            <button
-              className={`paper-translate-btn ${isPaperTranslating ? 'translating' : ''} ${hasPaperTranslation ? 'has-translation' : ''} ${isTranslateDisabled ? 'disabled' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (isTranslateDisabled || isPaperTranslating) return;
-                // 鉴权检查
-                if (!isAuthenticated) {
-                  setShowAuthModal && setShowAuthModal(true);
-                  return;
+            {/* 翻译按钮 - 内容不需要翻译时不渲染 */}
+            {!isTranslateDisabled && (
+              <button
+                className={`paper-translate-btn ${isPaperTranslating ? 'translating' : ''} ${hasPaperTranslation ? 'has-translation' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isPaperTranslating) return;
+                  if (!isAuthenticated) {
+                    setShowAuthModal && setShowAuthModal(true);
+                    return;
+                  }
+                  if (hasPaperTranslation) {
+                    translation.togglePaperDisplayMode(paper.paperId);
+                  } else {
+                    translation.translatePaper(paper.paperId, paper.title, paper.abstract, paper.tldr?.text);
+                  }
+                }}
+                disabled={isPaperTranslating}
+                title={
+                  isPaperTranslating ? '翻译中...' :
+                  hasPaperTranslation ? (paperDisplayMode === 'translated' ? '显示原文' : '显示译文') :
+                  '翻译为中文'
                 }
-                if (hasPaperTranslation) {
-                  translation.togglePaperDisplayMode(paper.paperId);
-                } else {
-                  translation.translatePaper(paper.paperId, paper.title, paper.abstract, paper.tldr?.text);
-                }
-              }}
-              disabled={isTranslateDisabled || isPaperTranslating}
-              title={
-                isTranslateDisabled ? '内容已是中文' :
-                isPaperTranslating ? '翻译中...' : 
-                hasPaperTranslation ? (paperDisplayMode === 'translated' ? '显示原文' : '显示译文') : 
-                '翻译为中文'
-              }
-            >
-              {isPaperTranslating ? (
-                <span className="translate-spinner"></span>
-              ) : (
-                <Languages className="translate-icon" size={16} />
-              )}
-            </button>
+              >
+                {isPaperTranslating ? (
+                  <span className="translate-spinner"></span>
+                ) : (
+                  <Languages className="translate-icon" size={16} />
+                )}
+              </button>
+            )}
             <span
               className="paper-title-text"
               onClick={() => handlePaperClick(paper)}

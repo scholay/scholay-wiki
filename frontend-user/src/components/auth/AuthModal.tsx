@@ -98,9 +98,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSuccess }
   const [passwordError, setPasswordError] = useState('');
   const [requireEmailVerification, setRequireEmailVerification] = useState(true);
   const [enableTurnstile, setEnableTurnstile] = useState(false);
-  const [enableGithubOAuth, setEnableGithubOAuth] = useState(false);
-  const [enableDiscourseSSO, setEnableDiscourseSSO] = useState(false);
-  const [showMoreOAuth, setShowMoreOAuth] = useState(false);
+  const [systemConfig, setSystemConfig] = useState<Record<string, unknown>>({});
 
   // ---- Policy state ----
   const [showPolicy, setShowPolicy] = useState(false);
@@ -139,11 +137,10 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSuccess }
         setRequireEmailVerification(d.require_email_verification ?? true);
         const te = d.enable_turnstile ?? false;
         setEnableTurnstile(te);
-        setEnableGithubOAuth(!!(d.github_client_id && d.github_client_id.trim() !== ''));
-        setEnableDiscourseSSO(!!(d.discourse_site_url && d.discourse_site_url.trim() !== ''));
+        setSystemConfig(d);
         if (!te) setTurnstileToken('disabled');
       }
-    }).catch(() => { setRequireEmailVerification(true); setEnableTurnstile(false); setEnableGithubOAuth(false); setEnableDiscourseSSO(false); setTurnstileToken('disabled'); });
+    }).catch(() => { setRequireEmailVerification(true); setEnableTurnstile(false); setSystemConfig({}); setTurnstileToken('disabled'); });
   }, [isOpen]);
 
   // WeChat QR re-render
@@ -392,8 +389,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSuccess }
         <div className="auth-modal-body">
           {mode === 'welcome' && (
             <WelcomePage email={email} setEmail={setEmail} {...sharedProps} {...formProps}
-              enableDiscourseSSO={enableDiscourseSSO} enableGithubOAuth={enableGithubOAuth}
-              showMoreOAuth={showMoreOAuth} setShowMoreOAuth={setShowMoreOAuth}
+              systemConfig={systemConfig}
               showError={showError} onEmailContinue={handleEmailContinue} onWeChatLogin={handleWeChatLogin} />
           )}
           {mode === 'wechat-qrcode' && (

@@ -381,24 +381,159 @@
   box-shadow: 0 4px 16px rgba(66, 130, 73, 0.2);
 }
 
-/* "最多用户选择" 标签 */
+/* "推荐" 角标 - 右上角小徽章 */
+.auth-social-button .auth-primary-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  text-align: center;
+}
+
+.auth-social-button .auth-discourse-logo-frame {
+  border-radius: 50%;
+  border: 1.5px solid rgba(66, 130, 73, 0.45);
+  background: transparent;
+  transition: border-color 0.2s ease;
+}
+
+.auth-discourse-button:hover:not(:disabled) .auth-discourse-logo-frame {
+  border-color: #428249;
+}
+
 .auth-recommended-badge {
-  flex: none;
-  font-size: 0.7rem;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 20px;
-  background: linear-gradient(135deg, rgba(66, 130, 73, 0.25) 0%, rgba(229, 69, 70, 0.15) 100%);
-  color: rgba(255, 255, 255, 0.85);
-  border: 1px solid rgba(66, 130, 73, 0.3);
+  position: absolute;
+  top: -8px;
+  right: 14px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(234, 88, 12, 0.35);
   white-space: nowrap;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.5px;
+  text-transform: none;
+  z-index: 2;
 }
 
 /* Google Sign-In 按钮在网格中自适应 */
 .auth-social-grid > div {
   width: 100%;
   min-height: 46px;
+}
+
+/* ============================================
+   OAuth 图标单行 - 紧凑展示
+   ============================================ */
+.auth-social-more {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 2px 0;
+}
+
+.auth-social-more-label {
+  font-size: 0.72rem;
+  color: var(--auth-text-muted);
+  letter-spacing: 0.3px;
+}
+
+.auth-social-icons {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.auth-social-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  width: 30px;
+  height: 30px;
+  max-width: 30px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(34, 34, 34, 0.9);
+  color: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+  padding: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: max-width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              padding 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              gap 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.2s ease,
+              box-shadow 0.2s ease,
+              transform 0.2s ease;
+}
+
+.auth-social-icon svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.auth-social-icon-label {
+  font-size: 0.78rem;
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.2s ease;
+}
+
+.auth-social-icon:hover:not(:disabled) {
+  max-width: 180px;
+  padding: 0 12px 0 10px;
+  gap: 6px;
+  border-color: rgba(16, 163, 127, 0.6);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.2);
+}
+
+.auth-social-icon:hover:not(:disabled) .auth-social-icon-label {
+  max-width: 140px;
+  opacity: 1;
+}
+
+/* Google Sign-In 作为圆形图标槽位 */
+.auth-social-icon-slot {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-social-icon-slot > div {
+  min-height: 0 !important;
+}
+
+/* 暗色主题下的 GitHub 图标特殊处理（logo 本身是黑的，需要反白） */
+.auth-social-icon-github {
+  background: #24292e;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.auth-social-icon-github:hover:not(:disabled) {
+  background: #1a1e22;
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
+}
+
+/* Apple 图标同样需要亮色背景 */
+.auth-social-icon-apple {
+  color: #ffffff;
 }
 
 .auth-checkbox label {

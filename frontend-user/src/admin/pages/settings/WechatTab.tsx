@@ -12,6 +12,7 @@ import SensitiveField from '../../components/SensitiveField';
 import { adminAPI } from '../../services/api';
 import { showToast } from '../../components/Toast';
 import { useSettingsContext } from './SettingsContext';
+import { WeChatIcon } from '../../../components/icons/providers';
 
 // any usage:
 //   - axios catch (err: any)
@@ -549,7 +550,7 @@ const WechatTab = React.memo<WechatTabProps>(({ wechatSubTab, setWechatSubTab })
       {wechatSubTab === 'oauth' && (
         <>
           <div className="section-header">
-            <h2>微信扫码登录配置</h2>
+            <h2 className="with-icon"><WeChatIcon size={24} />微信扫码登录配置</h2>
             <p>管理微信扫码登录配置</p>
             <button className="btn btn-primary" onClick={handleCreateWechat}>
               <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" className="icon-inline">

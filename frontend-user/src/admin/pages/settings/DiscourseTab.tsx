@@ -12,6 +12,7 @@ import SensitiveField from '../../components/SensitiveField';
 import { adminAPI } from '../../services/api';
 import { showToast } from '../../components/Toast';
 import { useSettingsContext } from './SettingsContext';
+import { DiscourseIcon } from '../../../components/icons/providers';
 
 interface DiscourseConfigState {
   siteUrl: string;
@@ -85,7 +86,7 @@ const DiscourseTab = React.memo(() => {
   return (
     <div className="settings-section fade-in">
       <div className="section-header">
-        <h2>恩特学术登录配置</h2>
+        <h2 className="with-icon"><DiscourseIcon size={24} />恩特学术登录配置</h2>
         <p>配置恩特学术（enterscholar.com）DiscourseConnect SSO，让用户通过恩特学术账号登录 Scholay</p>
       </div>
 

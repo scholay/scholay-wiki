@@ -14,10 +14,23 @@ function jsxInJsPlugin() {
   };
 }
 
+// 生产构建时剥离 index.html 里的 HTML 注释（含版权声明），避免泄露给终端用户。
+// 保留 IE 条件注释 <!--[if ...]> 以防万一。
+function stripHtmlCommentsPlugin() {
+  return {
+    name: 'strip-html-comments',
+    apply: 'build',
+    transformIndexHtml(html) {
+      return html.replace(/<!--(?!\[if)[\s\S]*?-->/g, '');
+    },
+  };
+}
+
 export default defineConfig({
   plugins: [
     react(),
     jsxInJsPlugin(),
+    stripHtmlCommentsPlugin(),
     visualizer({
       filename: 'build/bundle-stats.html',
       gzipSize: true,

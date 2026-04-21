@@ -12,6 +12,7 @@ import SensitiveField from '../../components/SensitiveField';
 import { adminAPI } from '../../services/api';
 import { showToast } from '../../components/Toast';
 import { useSettingsContext } from './SettingsContext';
+import { OrcidIcon } from '../../../components/icons/providers';
 
 interface OrcidConfigState {
   orcidClientId: string;
@@ -91,7 +92,7 @@ const OrcidTab = React.memo(() => {
     <div className="settings-section fade-in">
       <form onSubmit={handleOrcidConfigSubmit} className="settings-form">
         <div className="section-header">
-          <h2>ORCID 登录配置</h2>
+          <h2 className="with-icon"><OrcidIcon size={24} />ORCID 登录配置</h2>
           <p>配置 ORCID OAuth 以支持研究者通过 ORCID iD 登录</p>
         </div>
         <div className="form-group">

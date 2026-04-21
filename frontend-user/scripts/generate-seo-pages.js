@@ -238,7 +238,7 @@ const routes = [
     keywords: '学术搜索,论文检索,文献查找,AI论文分析,学术资源,科研工具,Semantic Scholar,论文引用,学术数据库,研究助手,智能搜索,LaTeX编辑器,智能审稿',
     noscriptBody:
       section('Scholay — AI驱动的学术搜索引擎', p('Scholay 是一个创新的学术搜索平台，整合 Semantic Scholar 超过 2 亿篇学术论文数据库，结合先进的大语言模型技术，为研究人员、学生和学者提供智能化的文献检索与分析服务。') + p('我们提供两种搜索模式：<strong>直接检索</strong>通过关键词、论文标题或作者名精准定位文献；<strong>AI 智能检索</strong>用自然语言描述研究需求，AI 理解意图后推荐最相关文献。')) +
-      `<section style="margin-bottom:30px"><div style="display:flex;justify-content:center;gap:40px;padding:20px 0;font-size:1.1rem"><div style="text-align:center"><strong style="font-size:1.5rem;color:#10a37f">200M+</strong><br/>学术论文覆盖</div><div style="text-align:center"><strong style="font-size:1.5rem;color:#10a37f">19</strong><br/>学科领域</div><div style="text-align:center"><strong style="font-size:1.5rem;color:#10a37f">5</strong><br/>AI 工具模块</div></div></section>` +
+      `<section style="margin-bottom:30px"><div style="display:flex;justify-content:center;gap:40px;padding:20px 0;font-size:1.1rem"><div style="text-align:center"><strong style="font-size:1.5rem;color:#10a37f">300M+</strong><br/>学术论文覆盖</div><div style="text-align:center"><strong style="font-size:1.5rem;color:#10a37f">19</strong><br/>学科领域</div><div style="text-align:center"><strong style="font-size:1.5rem;color:#10a37f">5</strong><br/>AI 工具模块</div></div></section>` +
       section('核心功能', ul([
         '<strong>海量文献检索</strong> — 覆盖计算机科学、生物医学、物理学、化学、数学、工程学等 19 个学科领域的超过 2 亿篇学术论文',
         '<strong>AI 智能分析</strong> — 自然语言理解研究意图，AI 智能解析并推荐相关论文，突破传统关键词匹配的局限',

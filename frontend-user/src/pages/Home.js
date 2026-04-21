@@ -313,7 +313,7 @@ const Home = () => {
                 {/* 右侧空白占位，与Logo等宽，使文字视觉居中 */}
                 <div className="welcome-brand-spacer" aria-hidden="true"></div>
               </div>
-              <p className="welcome-tagline">AI驱动的学术搜索引擎 · 覆盖2亿+学术论文</p>
+              <p className="welcome-tagline">AI驱动的学术搜索引擎 · 覆盖全球 3亿+ 学术论文</p>
             </div>
 
             {/* 搜索模式切换 - 放在输入框外部上方 */}

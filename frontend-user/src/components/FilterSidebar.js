@@ -193,20 +193,34 @@ const FilterSidebar = ({ filters, onApplyFilters }) => {
           研究领域
         </div>
         <div className="filter-field-list">
-          {displayedFields.map(field => (
-            <label 
-              key={field.key}
-              className={`filter-field-item ${filters.fieldsOfStudy?.includes(field.key) ? 'selected' : ''}`}
-            >
-              <input 
-                type="checkbox"
-                className="filter-field-checkbox"
-                checked={filters.fieldsOfStudy?.includes(field.key) || false}
-                onChange={() => handleFieldToggle(field.key)}
-              />
-              <span>{field.label}</span>
-            </label>
-          ))}
+          {displayedFields.map(field => {
+            const isChecked = filters.fieldsOfStudy?.includes(field.key) || false;
+            return (
+              <div
+                key={field.key}
+                className={`filter-field-item ${isChecked ? 'selected' : ''}`}
+                role="checkbox"
+                aria-checked={isChecked}
+                tabIndex={0}
+                onClick={() => handleFieldToggle(field.key)}
+                onKeyDown={(e) => {
+                  if (e.key === ' ' || e.key === 'Enter') {
+                    e.preventDefault();
+                    handleFieldToggle(field.key);
+                  }
+                }}
+              >
+                <input
+                  type="checkbox"
+                  className="filter-field-checkbox"
+                  checked={isChecked}
+                  readOnly
+                  tabIndex={-1}
+                />
+                <span>{field.label}</span>
+              </div>
+            );
+          })}
         </div>
         <button 
           className="filter-show-more"

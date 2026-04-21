@@ -124,6 +124,26 @@
     font-size: 0.78rem;
   }
 
+  .auth-social-icons {
+    gap: 6px;
+    justify-content: flex-start;
+  }
+
+  .auth-social-icon,
+  .auth-social-icon-slot {
+    width: 28px;
+    height: 28px;
+  }
+
+  .auth-social-icon {
+    max-width: 28px;
+  }
+
+  .auth-social-icon svg {
+    width: 14px;
+    height: 14px;
+  }
+
   .auth-code-group {
     gap: 10px;
   }

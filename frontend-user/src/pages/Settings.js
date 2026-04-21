@@ -558,6 +558,9 @@ const Settings = () => {
                 handleCloseModal={accountData.handleCloseModal}
                 handleBindWeChat={accountData.handleBindWeChat}
                 handleBindGitHub={accountData.handleBindGitHub}
+                handleBindApple={accountData.handleBindApple}
+                handleBindOrcid={accountData.handleBindOrcid}
+                handleBindMicrosoft={accountData.handleBindMicrosoft}
                 handleBindDiscourse={accountData.handleBindDiscourse}
                 handleCheckAvailability={accountData.handleCheckAvailability}
                 handleSendModalCode={accountData.handleSendModalCode}

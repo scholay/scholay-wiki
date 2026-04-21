@@ -198,22 +198,17 @@
   border-radius: 12px;
 }
 
-.admin-app .code-snippets-page .badge-seo{
+.admin-app .code-snippets-page .badge-head{
   background: #dbeafe;
   color: #1d4ed8;
 }
 
-.admin-app .code-snippets-page .badge-analytics{
+.admin-app .code-snippets-page .badge-body-start{
   background: #fef3c7;
   color: #b45309;
 }
 
-.admin-app .code-snippets-page .badge-ad{
-  background: #fce7f3;
-  color: #be185d;
-}
-
-.admin-app .code-snippets-page .badge-social{
+.admin-app .code-snippets-page .badge-body-end{
   background: #d1fae5;
   color: #047857;
 }

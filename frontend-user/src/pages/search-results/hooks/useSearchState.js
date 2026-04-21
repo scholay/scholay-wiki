@@ -205,7 +205,7 @@ export const useSearchState = () => {
   }, [setSearchParams]);
 
   // 构建搜索结果缓存 key
-  const buildSearchCacheKey = useCallback((query, filters, page) => {
+  const buildSearchCacheKey = useCallback((query, filters, page, source) => {
     const filterStr = JSON.stringify({
       yf: filters.yearFrom || '',
       yt: filters.yearTo || '',
@@ -215,11 +215,11 @@ export const useSearchState = () => {
       v: filters.venue || '',
       mc: filters.minCitationCount || '',
     });
-    return `${query}_${filterStr}_p${page}_s${papersPerPage}`;
+    return `${query}_${filterStr}_p${page}_s${papersPerPage}_src${source}`;
   }, [papersPerPage]);
 
   // 执行搜索（带分页缓存）
-  const performSearch = useCallback(async (query, currentFilters, page = 1, isNewSearch = true, enableSuggestions = true) => {
+  const performSearch = useCallback(async (query, currentFilters, page = 1, isNewSearch = true, enableSuggestions = true, sourceOverride = null) => {
     if (!query.trim()) return;
 
     if (returnedFromLogin.current) {
@@ -230,8 +230,10 @@ export const useSearchState = () => {
 
     setSelectedPaper(null);
 
-    // 检查搜索结果缓存（翻页 / 返回列表时命中率高）
-    const cacheKey = buildSearchCacheKey(query, currentFilters, page);
+    const effectiveSource = sourceOverride || searchSource;
+
+    // 检查搜索结果缓存（翻页 / 返回列表 / 数据源切换命中率高）
+    const cacheKey = buildSearchCacheKey(query, currentFilters, page, effectiveSource);
     const cachedResult = searchResultsCache.get(cacheKey);
     if (cachedResult) {
       logger.log('[Search] Cache hit:', cacheKey);
@@ -256,7 +258,7 @@ export const useSearchState = () => {
         offset: (page - 1) * papersPerPage,
         limit: papersPerPage,
         enableTranslation: canReuseSuggestions ? false : enableSuggestions,
-        source: searchSource,
+        source: effectiveSource,
         fields: ['paperId', 'title', 'abstract', 'authors', 'year', 'citationCount', 'url', 'venue', 'publicationDate', 'openAccessPdf', 'fieldsOfStudy', 'isOpenAccess', 'referenceCount', 'influentialCitationCount', 'tldr', 'journal', 'externalIds']
       };
 
@@ -337,7 +339,7 @@ export const useSearchState = () => {
     } finally {
       setLoading(false);
     }
-  }, [cachedSuggestions, papersPerPage, buildSearchCacheKey]);
+  }, [cachedSuggestions, papersPerPage, buildSearchCacheKey, searchSource]);
 
   // 处理搜索提交
   const handleSearch = useCallback((e) => {

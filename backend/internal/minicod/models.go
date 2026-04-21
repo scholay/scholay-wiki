@@ -231,15 +231,16 @@ type SearchSuggestionsResponse struct {
 // PaperSearchOptions contains options for paper search
 type PaperSearchOptions struct {
 	Query            string
-	Year             string
-	PublicationTypes []string
-	OpenAccessPDF    string
+	YearFrom         int
+	YearTo           int
+	PublicationTypes []string // maps to upstream "types"
+	OpenAccessPDF    string   // "true" → upstream "open_access": true
 	Venue            []string
-	FieldsOfStudy    []string
+	FieldsOfStudy    []string // maps to upstream "subjects"
 	Fields           []string
 	Offset           int
 	Limit            int
-	MinCitationCount int
+	MinCitationCount int // maps to upstream "min_citations"
 	Source           string // stc, olx, or all (default: stc)
 }
 

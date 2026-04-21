@@ -21,7 +21,6 @@ import (
 type CreateCodeSnippetRequest struct {
 	Name        string   `json:"name" binding:"required"`
 	CodeKey     string   `json:"code_key" binding:"required"`
-	Category    string   `json:"category" binding:"required,oneof=seo analytics ad social other"`
 	Position    string   `json:"position" binding:"required,oneof=head body_start body_end"`
 	CodeContent string   `json:"code_content" binding:"required"`
 	Description string   `json:"description"`
@@ -33,7 +32,6 @@ type CreateCodeSnippetRequest struct {
 // UpdateCodeSnippetRequest 更新代码片段请求
 type UpdateCodeSnippetRequest struct {
 	Name        string   `json:"name"`
-	Category    string   `json:"category" binding:"omitempty,oneof=seo analytics ad social other"`
 	Position    string   `json:"position" binding:"omitempty,oneof=head body_start body_end"`
 	CodeContent string   `json:"code_content"`
 	Description string   `json:"description"`
@@ -79,7 +77,7 @@ func (h *Handler) CreateCodeSnippet(c *gin.Context) {
 	snippet := &model.CodeSnippet{
 		Name:        req.Name,
 		CodeKey:     req.CodeKey,
-		Category:    model.CodeSnippetCategory(req.Category),
+		Category:    model.CategoryOther,
 		Position:    model.CodeSnippetPosition(req.Position),
 		CodeContent: req.CodeContent,
 		Description: req.Description,
@@ -126,9 +124,6 @@ func (h *Handler) UpdateCodeSnippet(c *gin.Context) {
 	// 更新字段
 	if req.Name != "" {
 		snippet.Name = req.Name
-	}
-	if req.Category != "" {
-		snippet.Category = model.CodeSnippetCategory(req.Category)
 	}
 	if req.Position != "" {
 		snippet.Position = model.CodeSnippetPosition(req.Position)

@@ -101,21 +101,13 @@ func (h *Handler) SearchPapers(c *gin.Context) {
 		}
 	}
 
-	// Build year range
-	year := req.Year
-	if year == "" && (req.YearFrom != "" || req.YearTo != "") {
-		if req.YearFrom != "" && req.YearTo != "" {
-			year = req.YearFrom + "-" + req.YearTo
-		} else if req.YearFrom != "" {
-			year = req.YearFrom + "-"
-		} else if req.YearTo != "" {
-			year = "-" + req.YearTo
-		}
-	}
+	// Parse year range (upstream expects integers year_from/year_to)
+	yearFrom, yearTo := parseYearRange(req.Year, req.YearFrom, req.YearTo)
 
 	opts := PaperSearchOptions{
 		Query:            req.Query,
-		Year:             year,
+		YearFrom:         yearFrom,
+		YearTo:           yearTo,
 		Offset:           req.Offset,
 		Limit:            req.Limit,
 		Fields:           req.Fields,
@@ -662,4 +654,34 @@ func clampOffset(offset int) int {
 		return 0
 	}
 	return offset
+}
+
+// parseYearRange 将前端传入的 year / yearFrom / yearTo 统一转换为上游需要的 int 对。
+// 支持 "2020", "2020-", "-2023", "2020-2023" 以及分离字段两种来源。
+func parseYearRange(year, yearFrom, yearTo string) (int, int) {
+	from := atoiSafe(yearFrom)
+	to := atoiSafe(yearTo)
+	if from == 0 && to == 0 && year != "" {
+		if strings.Contains(year, "-") {
+			parts := strings.SplitN(year, "-", 2)
+			from = atoiSafe(parts[0])
+			if len(parts) == 2 {
+				to = atoiSafe(parts[1])
+			}
+		} else {
+			from = atoiSafe(year)
+		}
+	}
+	return from, to
+}
+
+func atoiSafe(s string) int {
+	if s == "" {
+		return 0
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(s))
+	if err != nil {
+		return 0
+	}
+	return n
 }

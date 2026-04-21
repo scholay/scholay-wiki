@@ -39,9 +39,7 @@ export function AuthModalProvider({ isOpen, onClose, onLoginSuccess, children })
   const [passwordError, setPasswordError] = useState('');
   const [requireEmailVerification, setRequireEmailVerification] = useState(true);
   const [enableTurnstile, setEnableTurnstile] = useState(false);
-  const [enableGithubOAuth, setEnableGithubOAuth] = useState(false);
-  const [enableDiscourseSSO, setEnableDiscourseSSO] = useState(false);
-  const [showMoreOAuth, setShowMoreOAuth] = useState(false);
+  const [systemConfig, setSystemConfig] = useState({});
 
   // --- Policy state ---
   const [showPolicy, setShowPolicy] = useState(false);
@@ -85,16 +83,14 @@ export function AuthModalProvider({ isOpen, onClose, onLoginSuccess, children })
           setRequireEmailVerification(d.require_email_verification ?? true);
           const te = d.enable_turnstile ?? false;
           setEnableTurnstile(te);
-          setEnableGithubOAuth(!!(d.github_client_id && d.github_client_id.trim() !== ''));
-          setEnableDiscourseSSO(!!(d.discourse_site_url && d.discourse_site_url.trim() !== ''));
+          setSystemConfig(d);
           if (!te) setTurnstileToken('disabled');
         }
       })
       .catch(() => {
         setRequireEmailVerification(true);
         setEnableTurnstile(false);
-        setEnableGithubOAuth(false);
-        setEnableDiscourseSSO(false);
+        setSystemConfig({});
         setTurnstileToken('disabled');
       });
   }, [isOpen]);
@@ -167,9 +163,7 @@ export function AuthModalProvider({ isOpen, onClose, onLoginSuccess, children })
     passwordError, setPasswordError,
     requireEmailVerification,
     enableTurnstile,
-    enableGithubOAuth,
-    enableDiscourseSSO,
-    showMoreOAuth, setShowMoreOAuth,
+    systemConfig,
     showPolicy, setShowPolicy,
     policyType, setPolicyType,
     privacyContent, termsContent,
