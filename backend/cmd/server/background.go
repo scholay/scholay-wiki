@@ -14,6 +14,7 @@ import (
 
 	"scholar-backend/internal/common/database"
 	"scholar-backend/internal/common/safego"
+	"scholar-backend/internal/seo"
 )
 
 // userSnapshotRecorder 用于记录在线用户快照的接口
@@ -22,7 +23,7 @@ type userSnapshotRecorder interface {
 }
 
 // startBackgroundTasks 启动所有后台任务
-func startBackgroundTasks(ctx context.Context, userService userSnapshotRecorder) {
+func startBackgroundTasks(ctx context.Context, userService userSnapshotRecorder, seoService *seo.Service) {
 	// 数据库连接池监控
 	database.StartConnectionPoolMonitoring(ctx, 5*time.Minute)
 
@@ -49,4 +50,31 @@ func startBackgroundTasks(ctx context.Context, userService userSnapshotRecorder)
 			}
 		}
 	})
+
+	// 每 5 分钟回填 seo_papers.sitemap_page（新插入行首次 page=0，事后按 id 区间修正）
+	if seoService != nil {
+		safego.Go("seo-sitemap-reconcile", func() {
+			ticker := time.NewTicker(5 * time.Minute)
+			defer ticker.Stop()
+
+			slog.Info("SEO sitemap reconcile task started")
+
+			// 启动时先跑一次，让历史回填能立刻生效
+			if err := seoService.ReconcileSitemapPages(); err != nil {
+				slog.Error("Failed initial SEO sitemap reconcile", "err", err)
+			}
+
+			for {
+				select {
+				case <-ticker.C:
+					if err := seoService.ReconcileSitemapPages(); err != nil {
+						slog.Error("Failed SEO sitemap reconcile", "err", err)
+					}
+				case <-ctx.Done():
+					slog.Info("SEO sitemap reconcile task stopped")
+					return
+				}
+			}
+		})
+	}
 }

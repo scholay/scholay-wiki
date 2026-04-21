@@ -1,9 +1,9 @@
 // ============================================================================
 // Scholay学术 V1.0
-// Platform 域初始化：usagelog / hotcontent / message / websocket / pdf / proxy
+// Platform 域初始化：usagelog / hotcontent / seo / message / websocket / pdf / proxy
 //
 // 这里的模块之间耦合较弱，集中在一个文件是因为都是"平台基础设施"类：
-// 日志、热门统计、站内信、实时推送、文件代理 —— 对其它业务域的依赖基本只有 DB。
+// 日志、热门统计、SEO 索引、站内信、实时推送、文件代理 —— 对其它业务域的依赖基本只有 DB。
 // ============================================================================
 
 package main
@@ -18,6 +18,7 @@ import (
 	"scholar-backend/internal/message"
 	"scholar-backend/internal/pdf"
 	"scholar-backend/internal/proxy"
+	"scholar-backend/internal/seo"
 	"scholar-backend/internal/usagelog"
 	"scholar-backend/internal/websocket"
 )
@@ -30,6 +31,9 @@ type platformBundle struct {
 
 	hotContent        *hotcontent.Handler
 	hotContentService *hotcontent.Service
+
+	seoHandler *seo.Handler
+	seoService *seo.Service
 
 	message *message.Handler
 
@@ -50,6 +54,10 @@ func initPlatform(db *gorm.DB, cfg *appconfig.Config) *platformBundle {
 	hotContentRepo := hotcontent.NewRepository(db)
 	hotContentService := hotcontent.NewService(hotContentRepo)
 	hotContentHandler := hotcontent.NewHandler(hotContentService)
+
+	seoRepo := seo.NewRepository(db)
+	seoService := seo.NewService(seoRepo)
+	seoHandler := seo.NewHandler(seoService)
 
 	messageHandler := message.NewHandler(db)
 
@@ -72,6 +80,8 @@ func initPlatform(db *gorm.DB, cfg *appconfig.Config) *platformBundle {
 		usageLogAdmin:     usageLogAdminHandler,
 		hotContent:        hotContentHandler,
 		hotContentService: hotContentService,
+		seoHandler:        seoHandler,
+		seoService:        seoService,
 		message:           messageHandler,
 		wsHub:             wsHub,
 		wsHandler:         wsHandler,

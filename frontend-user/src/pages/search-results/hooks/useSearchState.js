@@ -346,6 +346,34 @@ export const useSearchState = () => {
           total: resultsTotal,
           queryInfo: finalQueryInfo,
         });
+
+        // SEO 曝光上报：把搜索命中喂进 seo_papers 的 tier=2 长尾池。
+        // sendBeacon 非阻塞，失败静默；后端自行做 batch 上限（20）与去重。
+        try {
+          const seeds = (searchResults || []).slice(0, 20)
+            .filter((p) => p?.paperId && p?.title)
+            .map((p) => ({
+              paper_id: p.paperId,
+              title: p.title,
+              abstract: p.abstract || '',
+              year: typeof p.year === 'number' ? p.year : undefined,
+              venue: p.venue || '',
+              doi: p.externalIds?.DOI || '',
+              authors: Array.isArray(p.authors)
+                ? p.authors.slice(0, 10).map((a) => ({
+                    name: a?.name || '',
+                    authorId: a?.authorId || '',
+                  }))
+                : [],
+              fields_of_study: Array.isArray(p.fieldsOfStudy) ? p.fieldsOfStudy.slice(0, 8) : [],
+              source: effectiveSource || 'semantic',
+            }));
+          if (seeds.length > 0) {
+            publicScholarAPI.reportSEOExposure(seeds);
+          }
+        } catch (seoErr) {
+          logger.log('[SEO] exposure report skipped:', seoErr?.message);
+        }
       }
     } catch (error) {
       // 用户触发新搜索导致的主动取消：静默忽略，不要弹 alert 骚扰

@@ -53,6 +53,11 @@ func registerPublicAPIRoutes(api *gin.RouterGroup, h *allHandlers) {
 		publicAPI.GET("/hot-content/keywords", h.hotContent.GetRecentKeywords)
 		publicAPI.GET("/hot-content/papers", h.hotContent.GetRecentPapers)
 
+		// SEO 搜索曝光批量 seed（前端搜索结果加载后上报）
+		publicAPI.POST("/seo/expose", h.seo.ExposeSeeds)
+		// SEO slug 解析（前端 /paper/:slug 首屏用）
+		publicAPI.GET("/seo/paper/:slug", h.seo.ResolveBySlug)
+
 		// Public JNL Journal routes
 		publicAPI.POST("/journals/search", h.scholar.SearchJournals)
 		publicAPI.POST("/journals/list", h.scholar.ListJournals)

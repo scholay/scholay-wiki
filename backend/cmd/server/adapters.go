@@ -17,12 +17,14 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"scholar-backend/internal/config"
 	"scholar-backend/internal/conversation"
 	"scholar-backend/internal/feedback"
 	"scholar-backend/internal/peerreview"
+	"scholar-backend/internal/seo"
 	"scholar-backend/internal/usagelog"
 	"scholar-backend/internal/user"
 )
@@ -62,6 +64,69 @@ func (a *feedbackUserRepoAdapter) FindByIDs(ids []uint) (map[uint]*feedback.User
 		}
 	}
 	return result, nil
+}
+
+// seoRecorderAdapter 将 seo.Service 适配为 usagelog.SEORecorder 接口
+// 跨域边界上做一次字段平移：usagelog 不直接依赖 seo 的类型。
+type seoRecorderAdapter struct {
+	svc *seo.Service
+}
+
+func (a *seoRecorderAdapter) RecordDetailClick(seed *usagelog.SEOSeed) error {
+	if seed == nil {
+		return nil
+	}
+	authors := make([]seo.Author, 0, len(seed.Authors))
+	for _, au := range seed.Authors {
+		authors = append(authors, seo.Author{Name: au.Name, AuthorID: au.AuthorID})
+	}
+	return a.svc.RecordDetailClick(&seo.PaperSeed{
+		PaperID:       seed.PaperID,
+		DOI:           seed.DOI,
+		Title:         seed.Title,
+		Abstract:      seed.Abstract,
+		Authors:       authors,
+		Year:          seed.Year,
+		Venue:         seed.Venue,
+		CitationCount: seed.CitationCount,
+		FieldsOfStudy: seed.FieldsOfStudy,
+		Source:        seed.Source,
+	})
+}
+
+// paperSEOProviderAdapter 将 seo.Service 适配为 config.PaperSEOProvider（SSR /paper/:slug）
+type paperSEOProviderAdapter struct {
+	svc *seo.Service
+}
+
+func (a *paperSEOProviderAdapter) ResolveSlug(slug string) (*config.PaperSEOMeta, error) {
+	p, err := a.svc.GetBySlug(slug)
+	if err != nil || p == nil {
+		return nil, err
+	}
+	meta := &config.PaperSEOMeta{
+		PaperID:  p.PaperID,
+		Title:    p.Title,
+		Abstract: p.Abstract,
+		Venue:    p.Venue,
+		DOI:      p.DOI,
+	}
+	if p.Year != nil {
+		y := *p.Year
+		meta.Year = &y
+	}
+	// 作者解析 authors_json 失败不致命，降级为空列表
+	if p.AuthorsJSON != "" {
+		var authors []seo.Author
+		if err := json.Unmarshal([]byte(p.AuthorsJSON), &authors); err == nil {
+			for _, au := range authors {
+				if au.Name != "" {
+					meta.Authors = append(meta.Authors, au.Name)
+				}
+			}
+		}
+	}
+	return meta, nil
 }
 
 // usageLogServiceAdapter 将 usagelog.Service 适配为 config.UsageLogService 接口

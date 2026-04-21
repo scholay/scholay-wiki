@@ -142,7 +142,7 @@ func main() {
 	bgCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	svc.peerReviewService.SetRootContext(bgCtx)
-	startBackgroundTasks(bgCtx, svc.userService)
+	startBackgroundTasks(bgCtx, svc.userService, svc.seoService)
 	// 隐私审稿数据定期清理（每小时检查一次过期的隐私任务）
 	startPrivateTaskCleanup(bgCtx, svc.peerReviewService)
 

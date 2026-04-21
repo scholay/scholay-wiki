@@ -19,6 +19,7 @@ import (
 	"scholar-backend/internal/common/database"
 	"scholar-backend/internal/common/middleware"
 	"scholar-backend/internal/peerreview"
+	"scholar-backend/internal/seo"
 	"scholar-backend/internal/thirdparty"
 	"scholar-backend/internal/user"
 	"scholar-backend/internal/wechat"
@@ -32,6 +33,7 @@ type services struct {
 	peerReviewService *peerreview.Service
 	cleanupService    *cleanup.CleanupService
 	thirdPartyService *thirdparty.Service
+	seoService        *seo.Service
 	wsHub             *websocket.Hub
 }
 
@@ -71,8 +73,14 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// platform → config（动态 sitemap 需要热门论文 id）
 	core.configHandler.SetUsageLogService(&usageLogServiceAdapter{plat.usageLogService})
 
+	// platform → config（/paper/{slug} SSR 元数据提供）
+	core.configHandler.SetPaperSEOProvider(&paperSEOProviderAdapter{svc: plat.seoService})
+
 	// platform 内部：usageLog → hotContent（记录热门内容）
 	plat.usageLogService.SetHotContentService(plat.hotContentService)
+
+	// platform 内部：usageLog → seo（详情页点击写入 SEO 索引库）
+	plat.usageLogService.SetSEORecorder(&seoRecorderAdapter{svc: plat.seoService})
 
 	// cleanup → hotContent（定期清理过期热门统计）
 	cleanupService.SetHotContentService(plat.hotContentService)
@@ -114,6 +122,7 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 			usageLog:        plat.usageLog,
 			usageLogAdmin:   plat.usageLogAdmin,
 			hotContent:      plat.hotContent,
+			seo:             plat.seoHandler,
 			message:         plat.message,
 			feedback:        core.feedback,
 			peerReview:      aiB.peerReviewHandler,
@@ -128,6 +137,7 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 		peerReviewService: aiB.peerReviewService,
 		cleanupService:    cleanupService,
 		thirdPartyService: aiB.thirdPartyService,
+		seoService:        plat.seoService,
 		wsHub:             plat.wsHub,
 	}
 }

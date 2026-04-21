@@ -35,6 +35,22 @@ type PopularPaper struct {
 	Count   int64  `json:"count"`
 }
 
+// PaperSEOProvider 由 seo.Service 实现，用于 /paper/{slug} 路由的 SSR 元数据注入
+type PaperSEOProvider interface {
+	ResolveSlug(slug string) (*PaperSEOMeta, error)
+}
+
+// PaperSEOMeta SSR 注入所需的最小元数据集
+type PaperSEOMeta struct {
+	PaperID  string
+	Title    string
+	Abstract string
+	Year     *int
+	Venue    string
+	DOI      string
+	Authors  []string
+}
+
 // htmlCacheEntry stores a cached HTML page with its expiry time
 type htmlCacheEntry struct {
 	html      string
@@ -49,8 +65,11 @@ type Handler struct {
 	ssrCache    *ssrCache
 	frontendURL string
 
-	// 动态 sitemap 依赖
+	// 动态 sitemap 依赖（保留以维持 Setter 契约）
 	usageLogService UsageLogService
+
+	// 论文详情页 SSR 元数据提供者（/paper/{slug}）
+	paperSEOProvider PaperSEOProvider
 }
 
 // NewHandler creates a new config handler
@@ -73,6 +92,11 @@ func NewHandler(service *Service) *Handler {
 // SetUsageLogService 设置 usagelog service（用于动态 sitemap 生成）
 func (h *Handler) SetUsageLogService(service UsageLogService) {
 	h.usageLogService = service
+}
+
+// SetPaperSEOProvider 设置论文 SSR 元数据提供者
+func (h *Handler) SetPaperSEOProvider(p PaperSEOProvider) {
+	h.paperSEOProvider = p
 }
 
 // RegisterRoutes registers config routes

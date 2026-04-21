@@ -17,10 +17,37 @@ import (
 	"scholar-backend/internal/hotcontent"
 )
 
+// SEORecorder 由 seo 包实现，用于详情页点击写入 SEO 索引库（避免循环依赖）
+type SEORecorder interface {
+	RecordDetailClick(seed *SEOSeed) error
+}
+
+// SEOSeed 复制自 seo.PaperSeed，避免 usagelog 反向依赖 seo 包。
+// 字段一一对应；转换仅在接口边界发生。
+type SEOSeed struct {
+	PaperID       string
+	DOI           string
+	Title         string
+	Abstract      string
+	Authors       []SEOAuthor
+	Year          *int
+	Venue         string
+	CitationCount int
+	FieldsOfStudy []string
+	Source        string
+}
+
+// SEOAuthor 同上
+type SEOAuthor struct {
+	Name     string
+	AuthorID string
+}
+
 // Service 业务逻辑层
 type Service struct {
 	repo              *Repository
 	hotContentService *hotcontent.Service
+	seoRecorder       SEORecorder
 }
 
 // NewService 创建Service
@@ -31,6 +58,11 @@ func NewService(repo *Repository) *Service {
 // SetHotContentService 设置热门内容服务（用于解决循环依赖）
 func (s *Service) SetHotContentService(hotContentService *hotcontent.Service) {
 	s.hotContentService = hotContentService
+}
+
+// SetSEORecorder 设置 SEO 记录器（详情页点击触发）
+func (s *Service) SetSEORecorder(r SEORecorder) {
+	s.seoRecorder = r
 }
 
 // Log 记录使用日志
@@ -107,7 +139,64 @@ func (s *Service) recordHotContent(featureCode string, extraData map[string]any)
 		if err := s.hotContentService.RecordPaperViewFromExtraData(extraData); err != nil {
 			slog.Error("failed to record hot paper view", "err", err)
 		}
+		// 写入 SEO 索引库（tier=1 高质量条目）
+		if s.seoRecorder != nil {
+			if seed := buildSEOSeedFromExtra(extraData); seed != nil {
+				if err := s.seoRecorder.RecordDetailClick(seed); err != nil {
+					slog.Error("failed to record SEO detail click", "err", err)
+				}
+			}
+		}
 	}
+}
+
+// buildSEOSeedFromExtra 把 usage-log extra_data 解析成 SEOSeed。
+// 前端 usageTracker 对 authors 做了扁平化（可能是逗号分隔字符串），这里只做基础解析。
+func buildSEOSeedFromExtra(extraData map[string]any) *SEOSeed {
+	if extraData == nil {
+		return nil
+	}
+	paperID, _ := extraData["paper_id"].(string)
+	if paperID == "" {
+		return nil
+	}
+	title, _ := extraData["title"].(string)
+	if title == "" {
+		// 没标题 → slug 无意义，跳过写入（详情页首次 SSR 时再补）
+		return nil
+	}
+	seed := &SEOSeed{PaperID: paperID, Title: title}
+	if doi, ok := extraData["doi"].(string); ok {
+		seed.DOI = doi
+	}
+	if abstract, ok := extraData["abstract"].(string); ok {
+		seed.Abstract = abstract
+	}
+	if venue, ok := extraData["venue"].(string); ok {
+		seed.Venue = venue
+	}
+	if year, ok := extraData["year"].(float64); ok {
+		y := int(year)
+		seed.Year = &y
+	}
+	if authors, ok := extraData["authors"].(string); ok && authors != "" {
+		// 逗号分隔字符串 → Author 切片（只存 name）
+		for _, name := range splitAndTrim(authors, ",") {
+			seed.Authors = append(seed.Authors, SEOAuthor{Name: name})
+		}
+	}
+	return seed
+}
+
+func splitAndTrim(s, sep string) []string {
+	var out []string
+	for _, part := range strings.Split(s, sep) {
+		p := strings.TrimSpace(part)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // List 分页查询日志

@@ -108,10 +108,139 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 	// Inject route-specific noscript content for SEO (Google AdSense compliance)
 	modifiedHTML = injectRouteNoscript(modifiedHTML, requestPath)
 
+	// /paper/{slug} 专属 SEO 元数据注入
+	if h.paperSEOProvider != nil && strings.HasPrefix(requestPath, "/paper/") {
+		slug := strings.TrimPrefix(requestPath, "/paper/")
+		if slug != "" && !strings.Contains(slug, "/") {
+			if meta, err := h.paperSEOProvider.ResolveSlug(slug); err == nil && meta != nil {
+				modifiedHTML = injectPaperSEOMeta(modifiedHTML, meta, requestPath)
+			}
+		}
+	}
+
 	// Return the modified HTML
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	c.Header("Cache-Control", "no-cache, must-revalidate")
 	c.String(http.StatusOK, modifiedHTML)
+}
+
+// injectPaperSEOMeta 替换 <title>/<meta description>，并在 noscript 中插入论文摘要卡片
+// 目的：让 Googlebot 等爬虫看到真实论文元数据，而不是 SPA 通用壳
+func injectPaperSEOMeta(html string, meta *PaperSEOMeta, path string) string {
+	title := meta.Title
+	if title == "" {
+		return html
+	}
+	// 标题加品牌后缀
+	seoTitle := fmt.Sprintf("%s | Scholay 学术搜索", truncate(title, 120))
+
+	// 描述：摘要优先，其次 venue/year
+	desc := meta.Abstract
+	if desc == "" {
+		var parts []string
+		if meta.Venue != "" {
+			parts = append(parts, meta.Venue)
+		}
+		if meta.Year != nil && *meta.Year > 0 {
+			parts = append(parts, fmt.Sprintf("%d", *meta.Year))
+		}
+		if meta.DOI != "" {
+			parts = append(parts, "DOI: "+meta.DOI)
+		}
+		desc = strings.Join(parts, " · ")
+	}
+	desc = truncate(desc, 300)
+
+	// 1) 替换 <title>
+	titleRe := regexp.MustCompile(`(?is)<title>.*?</title>`)
+	html = titleRe.ReplaceAllString(html, "<title>"+htmlEscape(seoTitle)+"</title>")
+
+	// 2) 替换 <meta name="description" ...>（若不存在则跳过，不主动插入以免破坏已有结构）
+	descRe := regexp.MustCompile(`(?is)<meta\s+name=["']description["'][^>]*>`)
+	if descRe.MatchString(html) {
+		html = descRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="description" content="%s">`, htmlEscape(desc)))
+	}
+
+	// 3) 追加 canonical 链接（若 head 里已有则替换）
+	canonical := fmt.Sprintf("https://www.scholay.com%s", path)
+	canonRe := regexp.MustCompile(`(?is)<link\s+rel=["']canonical["'][^>]*>`)
+	canonTag := fmt.Sprintf(`<link rel="canonical" href="%s">`, htmlEscape(canonical))
+	if canonRe.MatchString(html) {
+		html = canonRe.ReplaceAllString(html, canonTag)
+	} else {
+		html = strings.Replace(html, "</head>", canonTag+"\n</head>", 1)
+	}
+
+	// 4) 注入 noscript 论文卡片（爬虫友好）
+	noscriptCard := buildPaperNoscriptCard(meta)
+	if noscriptCard != "" {
+		insertBefore := `<p style="text-align: center; margin-top: 30px;`
+		if idx := strings.Index(html, insertBefore); idx > 0 {
+			html = html[:idx] + noscriptCard + "\n" + html[idx:]
+		} else if idx := strings.Index(html, "</noscript>"); idx > 0 {
+			html = html[:idx] + noscriptCard + "\n" + html[idx:]
+		}
+	}
+
+	return html
+}
+
+// buildPaperNoscriptCard 渲染论文的 noscript 卡片
+func buildPaperNoscriptCard(meta *PaperSEOMeta) string {
+	baseStyle := `style="max-width: 1000px; margin: 20px auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #e0e0e0;"`
+	headingStyle := `style="color: #ffffff; border-bottom: 1px solid #424242; padding-bottom: 10px; font-size: 1.4rem;"`
+	textStyle := `style="color: #bdbdbd; line-height: 1.8; margin-bottom: 12px;"`
+	metaStyle := `style="color: #9e9e9e; font-size: 0.9rem; margin-bottom: 8px;"`
+
+	title := htmlEscape(meta.Title)
+	var abstract string
+	if meta.Abstract != "" {
+		abstract = fmt.Sprintf("<p %s>%s</p>", textStyle, htmlEscape(truncate(meta.Abstract, 1500)))
+	}
+
+	var metaLines []string
+	if len(meta.Authors) > 0 {
+		metaLines = append(metaLines, "作者："+htmlEscape(strings.Join(meta.Authors, ", ")))
+	}
+	if meta.Venue != "" {
+		metaLines = append(metaLines, "发表于："+htmlEscape(meta.Venue))
+	}
+	if meta.Year != nil && *meta.Year > 0 {
+		metaLines = append(metaLines, fmt.Sprintf("年份：%d", *meta.Year))
+	}
+	if meta.DOI != "" {
+		metaLines = append(metaLines, "DOI："+htmlEscape(meta.DOI))
+	}
+
+	var metaHTML string
+	if len(metaLines) > 0 {
+		metaHTML = fmt.Sprintf("<p %s>%s</p>", metaStyle, strings.Join(metaLines, " · "))
+	}
+
+	return fmt.Sprintf(`<article %s>
+<h1 %s>%s</h1>
+%s
+%s
+</article>`, baseStyle, headingStyle, title, metaHTML, abstract)
+}
+
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "..."
+}
+
+// htmlEscape 轻量 HTML 转义（足以覆盖 title/description 中的常见特殊字符）
+func htmlEscape(s string) string {
+	r := strings.NewReplacer(
+		"&", "&amp;",
+		"<", "&lt;",
+		">", "&gt;",
+		`"`, "&quot;",
+		"'", "&#39;",
+	)
+	return r.Replace(s)
 }
 
 // ssrHTTPClient is a shared HTTP client for SSR fetches with sensible limits

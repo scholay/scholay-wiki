@@ -31,6 +31,7 @@ import (
 	"scholar-backend/internal/pdf"
 	"scholar-backend/internal/peerreview"
 	"scholar-backend/internal/proxy"
+	"scholar-backend/internal/seo"
 	"scholar-backend/internal/thirdparty"
 	"scholar-backend/internal/usagelog"
 	"scholar-backend/internal/user"
@@ -60,6 +61,7 @@ type allHandlers struct {
 	usageLog        *usagelog.Handler
 	usageLogAdmin   *usagelog.AdminHandler
 	hotContent      *hotcontent.Handler
+	seo             *seo.Handler
 	message         *message.Handler
 	feedback        *feedback.Handler
 	peerReview      *peerreview.Handler
@@ -158,9 +160,11 @@ func registerRoutes(router *gin.Engine, h *allHandlers, cfg *appconfig.Config) {
 		})
 	})
 
-	// SEO 动态 sitemap
-	router.GET("/sitemap-papers.xml", h.config.ServeDynamicSitemap)
-	router.GET("/sitemap-index.xml", h.config.ServeSitemapIndex)
+	// SEO sitemap（基于 seo_papers 永久索引库）
+	router.GET("/sitemap.xml", h.seo.ServeSitemapIndex)
+	router.GET("/sitemap-static.xml", h.seo.ServeStaticSitemap)
+	router.GET("/sitemap-papers-:page.xml", h.seo.ServePaperSitemap)
+	router.GET("/robots.txt", h.seo.ServeRobotsTxt)
 
 	// SPA 兜底路由（SSR 代码片段注入）
 	router.NoRoute(func(c *gin.Context) {

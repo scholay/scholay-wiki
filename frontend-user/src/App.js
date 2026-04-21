@@ -71,7 +71,8 @@ const Home = lazyWithRetry(() => import('./pages/Home'), 'Home');
 // 其他页面使用懒加载 - 大幅减少初始bundle大小
 // 使用 lazyWithRetry 包装，处理 chunk 加载失败的情况
 const SearchResultsPage = lazyWithRetry(() => import('./pages/search-results/SearchResultsPage'), 'SearchResultsPage');
-// PaperDetailPage removed - legacy page replaced by search-results detail view
+// /paper/:slug landing — resolves slug to paperId then navigates to search-results detail
+const PaperLandingPage = lazyWithRetry(() => import('./pages/PaperLandingPage'), 'PaperLandingPage');
 const ChatPage = lazyWithRetry(() => import('./pages/ChatPage'), 'ChatPage');
 const PeerReviewPage = lazyWithRetry(() => import('./pages/PeerReviewPage'), 'PeerReviewPage');
 const AssistantPage = lazyWithRetry(() => import('./pages/AssistantPage'), 'AssistantPage');
@@ -191,7 +192,8 @@ function App() {
                       <Settings />
                     </ProtectedRoute>
                   } />
-                  {/* /paper/:paperId removed - redirect to search results with paperId */}
+                  {/* SEO 着陆页：/paper/:slug → 解析 slug → 跳转到搜索结果详情 */}
+                  <Route path="/paper/:slug" element={<PageErrorBoundary><PaperLandingPage /></PageErrorBoundary>} />
                   <Route path="/feedback" element={<FeedbackPage />} />
                   <Route path="/about" element={<AboutPage />} />
                   <Route path="/privacy" element={<PrivacyPage />} />

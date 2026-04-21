@@ -90,6 +90,40 @@ export const publicScholarAPI = {
       body: JSON.stringify({ title, abstract, tldr }),
     });
   },
+
+  // SEO 收录：把搜索结果曝光 / 详情页 slug 喂给 sitemap。
+  // expose 用 sendBeacon（fire-and-forget）避免阻塞主流程；离页时依然能送达。
+  reportSEOExposure: (papers: Array<{
+    paper_id: string;
+    title: string;
+    abstract?: string;
+    year?: number;
+    venue?: string;
+    doi?: string;
+    authors?: Array<{ name: string; authorId?: string }>;
+    fields_of_study?: string[];
+    source?: string;
+  }>) => {
+    if (!papers?.length) return;
+    const url = `${API_URL}/api/v1/public/seo/expose`;
+    const body = JSON.stringify({ papers });
+    if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+      try {
+        const blob = new Blob([body], { type: 'application/json' });
+        if (navigator.sendBeacon(url, blob)) return;
+      } catch (_) {
+        // fall through to fetch
+      }
+    }
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+      keepalive: true,
+    }).catch(() => { /* best-effort */ });
+  },
+
+  resolveSEOSlug: (slug: string) => publicApi.get(`/seo/paper/${encodeURIComponent(slug)}`),
 };
 
 // Journal API (JNL endpoints)
