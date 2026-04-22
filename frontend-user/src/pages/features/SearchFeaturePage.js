@@ -33,7 +33,7 @@ const JUMP_SECTIONS = [
 ];
 
 const SOURCES = [
-  'Semantic Scholar', 'arXiv', 'PubMed', 'IEEE Xplore', 'ACM DL',
+  '学术图谱', 'arXiv', 'PubMed', 'IEEE Xplore', 'ACM DL',
   'Springer', 'Elsevier', 'Nature', 'Science', 'Cell',
   'NeurIPS', 'ICML', 'ACL', 'CVPR', 'OpenReview',
 ];
@@ -45,7 +45,7 @@ const FAQ_ITEMS = [
   },
   {
     q: '你们的论文数据从哪里来？有多少？',
-    a: '主数据源是 Semantic Scholar 学术图谱，实时接入，覆盖 2 亿+ 学术记录（含 arXiv 预印本、期刊论文、会议论文、Book Chapter 等），同时补充 PubMed、IEEE、ACM 等索引。数据每日同步，新发表的论文通常在几小时内就能检索到。',
+    a: '我们整合了全球多个主流学术数据库，实时接入，覆盖 2 亿+ 学术记录（含 arXiv 预印本、期刊论文、会议论文、Book Chapter 等），同时补充 PubMed、IEEE、ACM 等索引。数据每日同步，新发表的论文通常在几小时内就能检索到。',
   },
   {
     q: '搜索需要付费吗？免费版有什么限制？',
@@ -302,7 +302,7 @@ function CoverageMockup() {
   ];
   return (
     <div className="srch-mk-cov">
-      <WindowChrome compact url="coverage · semantic scholar corpus">
+      <WindowChrome compact url="coverage · academic graph corpus">
         <div className="srch-cov-head">
           <div>
             <span className="srch-cov-head-eyebrow">LIVE CORPUS</span>
@@ -568,7 +568,7 @@ const QUERY_STAGES = [
   {
     s: '03', c: '#10b981',
     titleCn: '语义检索',
-    handle: 'Semantic Retriever',
+    handle: 'Vector Retriever',
     desc: '在百万级学术向量索引上做相似度匹配，不只是看关键词出现，而是看"这篇论文在研究同一个问题吗"。',
     spots: ['向量相似度', '段落级匹配', '多字段融合'],
     model: 'retriever-v4',
@@ -594,7 +594,7 @@ const CAPABILITIES = [
 const TERMINAL_LOG = [
   { ag: '01', c: '#06b6d4', action: 'parse_intent("找医学影像里用 ViT 的新方法") ...', result: 'type=method-domain · entities=[ViT, medical imaging, segmentation]' },
   { ag: '02', c: '#8b5cf6', action: 'expand_query → synonyms + translations ...', result: '12 terms expanded · 3 language variants · 4 domain aliases' },
-  { ag: '03', c: '#10b981', action: 'vector_search(corpus=semantic_scholar, top=500) ...', result: '487 candidates retrieved · 0.64s · building rank' },
+  { ag: '03', c: '#10b981', action: 'vector_search(corpus=academic_graph, top=500) ...', result: '487 candidates retrieved · 0.64s · building rank' },
   { ag: 'Σ', c: '#3b82f6', action: 'rerank(relevance × citations × recency) · top=20 ...', result: 'final top-20 · 96%/91%/87%/83%/... · 0.8s total' },
 ];
 
@@ -884,8 +884,8 @@ export default function SearchFeaturePage() {
     <div className="feat-page feat-search-page srch-v2">
       <SEO
         title="AI 学术搜索 - Scholay | 2亿+ 论文智能检索引擎"
-        description="Scholay 将大语言模型与 Semantic Scholar 学术图谱深度融合，支持直接检索与 AI 智能语义检索双模式，覆盖 19 个学科、2 亿+ 学术记录，让文献发现前所未有的高效。"
-        keywords="AI学术搜索,论文检索,智能文献搜索,Semantic Scholar,语义检索,学术数据库,文献综述,引用网络"
+        description="Scholay 将大语言模型与全球主流学术图谱深度融合，支持直接检索与 AI 智能语义检索双模式，覆盖 19 个学科、2 亿+ 学术记录，让文献发现前所未有的高效。"
+        keywords="AI学术搜索,论文检索,智能文献搜索,语义检索,学术数据库,文献综述,引用网络"
         canonical="/features/search"
       />
 
@@ -915,7 +915,7 @@ export default function SearchFeaturePage() {
               精准找到 <span className="srch-hero-grad">你要的那一篇</span>
             </h1>
             <p className="srch-hero-lead">
-              大语言模型 × Semantic Scholar 学术图谱。支持关键词直接检索与自然语言 AI 检索双模式，
+              大语言模型 × 全球主流学术图谱。支持关键词直接检索与自然语言 AI 检索双模式，
               覆盖 19 个学科、80+ 种语言 —— 从"知道一个模糊想法"到"找到那篇关键论文"，通常不到 10 秒。
             </p>
             <div className="srch-hero-ctas">
@@ -1026,7 +1026,7 @@ export default function SearchFeaturePage() {
           id="srch-coverage"
           eyebrow="文献覆盖"
           title="从计算机科学到人文社科 · 每个学科都不遗漏"
-          body="主数据源是 Semantic Scholar 学术图谱，实时接入 2 亿+ 学术记录，同时补充 arXiv、PubMed、IEEE、ACM 等主流索引。数据每日同步 —— 新发表的论文通常几小时内就能检索到。"
+          body="整合全球多个主流学术图谱，实时接入 2 亿+ 学术记录，同时补充 arXiv、PubMed、IEEE、ACM 等主流索引。数据每日同步 —— 新发表的论文通常几小时内就能检索到。"
           bullets={[
             '覆盖 19 大学科领域，横跨自然 / 工程 / 医学 / 社科 / 人文',
             '接入 arXiv / PubMed / IEEE / ACM 等主流索引',

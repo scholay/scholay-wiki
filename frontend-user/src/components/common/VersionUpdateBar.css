@@ -1,30 +1,26 @@
 /**
  * ============================================================================
  * Scholay学术 V1.0
- * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
- * 统一社会信用代码: 91510100MAEEHRNE26
- * All Rights Reserved.
+ * 版本更新提示样式 — 顶部居中浮动卡片
  * ============================================================================
- * 
- * 版本更新提示条样式
  */
 
-.version-update-bar {
+.vu-wrap {
   position: fixed;
-  top: 0;
+  top: 16px;
   left: 0;
   right: 0;
   z-index: 10000;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #fff;
-  padding: 10px 20px;
-  box-shadow: 0 2px 12px rgba(102, 126, 234, 0.4);
-  animation: slideDown 0.3s ease-out;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  padding: 0 16px;
+  animation: vu-slide-in 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-@keyframes slideDown {
+@keyframes vu-slide-in {
   from {
-    transform: translateY(-100%);
+    transform: translateY(-20px);
     opacity: 0;
   }
   to {
@@ -33,106 +29,182 @@
   }
 }
 
-.version-update-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
+.vu-card {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 10px 10px 16px;
+  background: rgba(16, 20, 26, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 18px 42px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(59, 130, 246, 0.18);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  color: #f4f4f5;
+  max-width: 100%;
+}
+
+/* ── Icon ── */
+.vu-icon {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  flex-wrap: wrap;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.22), rgba(139, 92, 246, 0.2));
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: #60a5fa;
+  flex-shrink: 0;
+  animation: vu-pulse 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-.version-update-icon {
+@keyframes vu-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5); }
+  50%      { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0); }
+}
+
+.vu-icon svg {
+  animation: vu-spin 6s linear infinite;
+}
+
+@keyframes vu-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Copy ── */
+.vu-copy {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: rotate 2s linear infinite;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
-@keyframes rotate {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.version-update-text {
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: 0.3px;
-}
-
-.version-update-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.version-update-btn {
-  padding: 6px 16px;
-  border-radius: 6px;
-  font-size: 13px;
+.vu-title {
+  font-size: 13.5px;
   font-weight: 600;
+  letter-spacing: -0.005em;
+  color: #f4f4f5;
+  line-height: 1.2;
+}
+
+.vu-desc {
+  font-size: 12px;
+  color: rgba(244, 244, 245, 0.64);
+  line-height: 1.35;
+}
+
+/* ── Actions ── */
+.vu-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.vu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  font: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
-  border: none;
+  white-space: nowrap;
+  transition: all 0.18s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.version-update-btn-primary {
-  background: #fff;
-  color: #667eea;
-}
-
-.version-update-btn-primary:hover {
-  background: #f0f0f0;
-  transform: translateY(-1px);
-}
-
-.version-update-btn-secondary {
-  background: rgba(255, 255, 255, 0.2);
+.vu-btn-primary {
+  font-size: 12.5px;
+  font-weight: 580;
   color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: linear-gradient(120deg, #3b82f6 0%, #2563eb 100%);
+  box-shadow: 0 6px 18px rgba(59, 130, 246, 0.36);
 }
 
-.version-update-btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.3);
+.vu-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(59, 130, 246, 0.46);
 }
 
-/* 深色模式适配 */
-[data-theme="dark"] .version-update-bar {
-  background: linear-gradient(135deg, #4c5fd5 0%, #6b46c1 100%);
+.vu-btn-primary:active {
+  transform: translateY(0);
 }
 
-/* 移动端适配 */
-@media (max-width: 640px) {
-  .version-update-bar {
-    padding: 12px 16px;
+.vu-btn-close {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  color: rgba(244, 244, 245, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.vu-btn-close:hover {
+  color: #f4f4f5;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+/* ══════════════════════════════════════════════
+   响应式 — 移动端
+══════════════════════════════════════════════ */
+@media (max-width: 520px) {
+  .vu-wrap {
+    top: 12px;
+    padding: 0 12px;
   }
 
-  .version-update-content {
-    flex-direction: column;
+  .vu-card {
+    width: 100%;
     gap: 12px;
-    text-align: center;
+    padding: 10px 10px 10px 14px;
+    border-radius: 14px;
   }
 
-  .version-update-icon {
+  .vu-copy {
+    flex: 1;
+  }
+
+  .vu-desc {
     display: none;
   }
 
-  .version-update-text {
+  .vu-title {
     font-size: 13px;
   }
 
-  .version-update-actions {
-    width: 100%;
-    justify-content: center;
+  .vu-btn-primary {
+    padding: 7px 12px;
+    font-size: 12px;
+  }
+}
+
+/* ══════════════════════════════════════════════
+   亮色主题适配 — 保持卡片暗色（与站点深色设计令牌一致）
+   即使页面使用亮色主题，该卡片依旧使用暗色玻璃拟态
+══════════════════════════════════════════════ */
+
+/* ══════════════════════════════════════════════
+   REDUCED MOTION
+══════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  .vu-wrap,
+  .vu-icon,
+  .vu-icon svg,
+  .vu-btn {
+    animation: none !important;
+    transition: none !important;
   }
 
-  .version-update-btn {
-    flex: 1;
-    max-width: 120px;
+  .vu-btn-primary:hover {
+    transform: none;
   }
 }

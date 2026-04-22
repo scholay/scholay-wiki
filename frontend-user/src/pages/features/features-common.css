@@ -36,10 +36,25 @@
 /* ========== Page Container ========== */
 .feat-page {
   min-height: 100vh;
-  overflow-x: hidden;
+  /* Use `overflow: clip` instead of `overflow-x: hidden` to prevent horizontal
+     bleed from hero beams/decorations. Per CSS spec, `overflow-x: hidden`
+     coerces `overflow-y: visible → auto`, which creates a nested vertical
+     scroll container that competes with MainLayout's outer scroll. */
+  overflow: clip;
   color: var(--feat-text);
   font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, -apple-system,
     BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Force html/body to feature-page dark bg while a feature page is mounted.
+   Feature pages render OUTSIDE MainLayout, and reset.css sets body background
+   to `var(--background)` which resolves to near-white (#f9fafb) in the light
+   theme. Any overscroll, scrollbar gutter, or brief layout shift would then
+   flash the white body behind the dark .feat-page. Pinning html+body dark
+   while any feature page is in the DOM eliminates that bleed-through. */
+html:has(.feat-page),
+html:has(.feat-page) body {
+  background: #0a0a0e;
 }
 
 .feat-main {
@@ -73,6 +88,13 @@
   cursor: pointer;
   text-decoration: none;
   color: inherit;
+}
+
+.feat-nav-logo-img {
+  width: 28px;
+  height: auto;
+  display: block;
+  flex-shrink: 0;
 }
 
 .feat-nav-logo span {

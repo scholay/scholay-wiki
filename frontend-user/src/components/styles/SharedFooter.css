@@ -37,6 +37,13 @@
   text-decoration: none;
 }
 
+.site-footer-logo-img {
+  width: 24px;
+  height: auto;
+  display: block;
+  flex-shrink: 0;
+}
+
 .site-footer-logo-text {
   font-size: 1.125rem;
   font-weight: 700;

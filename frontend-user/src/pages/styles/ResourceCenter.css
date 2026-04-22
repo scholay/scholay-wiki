@@ -1,0 +1,538 @@
+/**
+ * ============================================================================
+ * Scholay学术 V1.0
+ * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+ * ============================================================================
+ *
+ * ResourceCenter.css — /resources 列表页专属样式（非 DocsLayout 壳子）
+ *
+ * 命名空间 `rc-*`，与 ResourcePage.css 的 `.resource-*` 共享类完全隔离，
+ * 不影响 /blog、/help、/resources/:slug 等复用旧样式的页面。
+ */
+
+/* ── 页面外壳：全宽，居中容器 ─────────────────────── */
+.rc-page {
+  flex: 1;
+  min-height: 0;
+  background: var(--bg-primary);
+  padding: var(--space-10) var(--space-5) var(--space-12);
+}
+
+.rc-container {
+  max-width: var(--content-xl);
+  margin: 0 auto;
+}
+
+/* ── Hero ───────────────────────────────────────── */
+.rc-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-8) 0 var(--space-10);
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: var(--space-8);
+}
+
+.rc-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg-secondary);
+  color: var(--text-tertiary);
+  font-size: var(--font-xs);
+  font-weight: 500;
+}
+
+.rc-hero-badge svg {
+  color: var(--primary-solid);
+}
+
+.rc-hero-title {
+  font-size: var(--font-5xl);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  color: var(--text-primary);
+  margin: 0;
+  max-width: 800px;
+}
+
+.rc-hero-title em {
+  font-style: normal;
+  background: linear-gradient(135deg, var(--primary-solid), color-mix(in srgb, var(--primary-solid) 60%, #8b5cf6));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.rc-hero-desc {
+  font-size: var(--font-lg);
+  color: var(--text-tertiary);
+  line-height: 1.7;
+  max-width: 640px;
+  margin: 0;
+}
+
+.rc-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--font-sm);
+  color: var(--text-quaternary);
+  margin-top: var(--space-2);
+}
+
+.rc-hero-meta strong {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.rc-hero-meta .rc-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--text-quaternary);
+  opacity: 0.6;
+}
+
+/* ── Controls 行：search + filters ───────────────── */
+.rc-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-8);
+}
+
+.rc-search {
+  position: relative;
+  flex: 1;
+  min-width: 260px;
+  display: flex;
+  align-items: center;
+}
+
+.rc-search svg {
+  position: absolute;
+  left: var(--space-4);
+  color: var(--text-quaternary);
+  pointer-events: none;
+}
+
+.rc-search input {
+  width: 100%;
+  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-10);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  transition: border-color var(--duration-fast) var(--ease-default),
+              background var(--duration-fast) var(--ease-default);
+  outline: none;
+}
+
+.rc-search input::placeholder {
+  color: var(--text-quaternary);
+}
+
+.rc-search input:hover {
+  border-color: var(--border-hover);
+}
+
+.rc-search input:focus {
+  border-color: var(--primary-solid);
+  background: var(--bg-primary);
+}
+
+.rc-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.rc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-default),
+              color var(--duration-fast) var(--ease-default),
+              background var(--duration-fast) var(--ease-default);
+}
+
+.rc-chip:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.rc-chip.active {
+  background: var(--text-primary);
+  border-color: var(--text-primary);
+  color: var(--bg-primary);
+}
+
+.rc-chip-count {
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  font-size: 11px;
+  font-weight: 600;
+  min-width: 18px;
+  text-align: center;
+}
+
+.rc-chip.active .rc-chip-count {
+  background: color-mix(in srgb, currentColor 22%, transparent);
+}
+
+/* ── Grid ───────────────────────────────────────── */
+.rc-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-5);
+}
+
+.rc-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color var(--duration-normal) var(--ease-default),
+              transform var(--duration-normal) var(--ease-default),
+              box-shadow var(--duration-normal) var(--ease-default);
+  text-align: left;
+}
+
+.rc-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--rc-accent, var(--primary-solid)) 8%, transparent),
+    transparent 60%);
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-default);
+  pointer-events: none;
+}
+
+.rc-card:hover {
+  border-color: color-mix(in srgb, var(--rc-accent, var(--primary-solid)) 50%, var(--border));
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px -18px color-mix(in srgb, var(--rc-accent, var(--primary-solid)) 40%, transparent);
+}
+
+.rc-card:hover::before {
+  opacity: 1;
+}
+
+.rc-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  position: relative;
+}
+
+.rc-card-cat {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px var(--space-3);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--rc-accent, var(--primary-solid)) 12%, transparent);
+  color: var(--rc-accent, var(--primary-solid));
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.rc-card-arrow {
+  color: var(--text-quaternary);
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity var(--duration-normal) var(--ease-default),
+              transform var(--duration-normal) var(--ease-default),
+              color var(--duration-normal) var(--ease-default);
+}
+
+.rc-card:hover .rc-card-arrow {
+  opacity: 1;
+  transform: translateX(0);
+  color: var(--rc-accent, var(--primary-solid));
+}
+
+.rc-card-title {
+  font-size: var(--font-lg);
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.4;
+  margin: 0 0 var(--space-3) 0;
+  position: relative;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.rc-card-excerpt {
+  font-size: var(--font-sm);
+  color: var(--text-tertiary);
+  line-height: 1.7;
+  margin: 0 0 var(--space-5) 0;
+  position: relative;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
+}
+
+.rc-card-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--font-xs);
+  color: var(--text-quaternary);
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--border-light);
+  position: relative;
+}
+
+.rc-card-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.rc-card-meta .rc-meta-sep {
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: var(--text-quaternary);
+  opacity: 0.6;
+}
+
+/* ── Empty state ───────────────────────────────── */
+.rc-empty {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-12) var(--space-6);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  text-align: center;
+}
+
+.rc-empty-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--surface-light);
+  color: var(--text-tertiary);
+}
+
+.rc-empty h3 {
+  font-size: var(--font-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.rc-empty p {
+  font-size: var(--font-sm);
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.rc-empty-btn {
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.rc-empty-btn:hover {
+  border-color: var(--primary-solid);
+  color: var(--primary-solid);
+}
+
+/* ── Bottom CTA（替代原右栏 FeaturePromo） ──────── */
+.rc-cta {
+  margin-top: var(--space-12);
+  padding: var(--space-8) var(--space-9);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--primary-solid) 5%, transparent),
+      color-mix(in srgb, #8b5cf6 4%, transparent)),
+    var(--bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+}
+
+.rc-cta-text h3 {
+  font-size: var(--font-xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-2) 0;
+  letter-spacing: -0.01em;
+}
+
+.rc-cta-text p {
+  font-size: var(--font-sm);
+  color: var(--text-tertiary);
+  margin: 0;
+  line-height: 1.6;
+}
+
+.rc-cta-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-6);
+  border: 1px solid var(--text-primary);
+  border-radius: var(--radius);
+  background: var(--text-primary);
+  color: var(--bg-primary);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--ease-default),
+              opacity var(--duration-fast) var(--ease-default);
+}
+
+.rc-cta-btn:hover {
+  transform: translateX(2px);
+  opacity: 0.9;
+}
+
+/* ── Responsive: Tablet ─────────────────────────── */
+@media (max-width: 1024px) {
+  .rc-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .rc-hero-title {
+    font-size: var(--font-4xl);
+  }
+}
+
+/* ── Responsive: Mobile ─────────────────────────── */
+@media (max-width: 768px) {
+  .rc-page {
+    padding: var(--space-6) var(--space-4) var(--space-10);
+  }
+
+  .rc-hero {
+    padding: var(--space-5) 0 var(--space-7);
+    margin-bottom: var(--space-6);
+  }
+
+  .rc-hero-title {
+    font-size: var(--font-3xl);
+  }
+
+  .rc-hero-desc {
+    font-size: var(--font-base);
+  }
+
+  .rc-controls {
+    gap: var(--space-3);
+    margin-bottom: var(--space-6);
+  }
+
+  .rc-search {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+
+  .rc-filters {
+    flex-basis: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+  }
+
+  .rc-filters::-webkit-scrollbar {
+    display: none;
+  }
+
+  .rc-chip {
+    flex-shrink: 0;
+  }
+
+  .rc-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+
+  .rc-card {
+    padding: var(--space-5);
+  }
+
+  .rc-cta {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: var(--space-6);
+    margin-top: var(--space-8);
+  }
+
+  .rc-cta-btn {
+    align-self: stretch;
+    justify-content: center;
+  }
+}
+
+/* ── Reduced motion ─────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .rc-card,
+  .rc-card::before,
+  .rc-card-arrow,
+  .rc-chip,
+  .rc-search input,
+  .rc-cta-btn,
+  .rc-empty-btn {
+    transition: none;
+  }
+
+  .rc-card:hover,
+  .rc-cta-btn:hover {
+    transform: none;
+  }
+}

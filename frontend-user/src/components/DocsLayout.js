@@ -10,9 +10,9 @@
 import React, { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
-  BookOpen, FileText, Search, Code, Sparkles, HelpCircle,
+  BookOpen, Search, Code, Sparkles, HelpCircle,
   ChevronDown, ChevronRight, PenTool, Shield, Brain, Newspaper,
-  Menu, X,
+  Menu, X, Zap,
 } from 'lucide-react';
 import FeaturePromo from './FeaturePromo';
 import './styles/DocsLayout.css';
@@ -76,7 +76,7 @@ const NAV_SECTIONS = [
         items: [
           { slug: 'ai-literature-search-efficiency', title: 'AI 提升文献检索效率' },
           { slug: 'academic-search-tools-comparison-2026', title: '2026 搜索工具对比' },
-          { slug: 'semantic-scholar-vs-google-scholar', title: 'Semantic Scholar vs Google Scholar' },
+          { slug: 'semantic-scholar-vs-google-scholar', title: 'AI 学术搜索 vs Google Scholar' },
           { slug: 'cross-disciplinary-search-strategies', title: '跨学科检索策略' },
           { slug: 'common-search-mistakes-solutions', title: '常见搜索错误与解决' },
         ],
@@ -225,8 +225,11 @@ export default function DocsLayout() {
       {/* Sidebar */}
       <aside className={`docs-sidebar ${mobileOpen ? 'open' : ''}`}>
         <div className="docs-sidebar-header">
-          <BookOpen size={18} />
-          <span>知识库</span>
+          <span className="docs-sidebar-header-eyebrow">
+            <BookOpen size={11} />
+            文档中心
+          </span>
+          <span className="docs-sidebar-header-title">Scholay 知识库</span>
         </div>
         {sidebar}
       </aside>
@@ -241,8 +244,12 @@ export default function DocsLayout() {
         <Outlet />
       </main>
 
-      {/* Right sidebar — 功能快捷入口 */}
+      {/* Right sidebar — 功能推广 */}
       <aside className="docs-aside">
+        <div className="docs-aside-label">
+          <Zap size={11} />
+          快捷功能
+        </div>
         <FeaturePromo compact exclude={['search']} />
       </aside>
     </div>

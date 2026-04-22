@@ -28,7 +28,7 @@ const FEATURES = [
     appPath: '/',
     featurePath: '/features/search',
     accent: '#10a37f',
-    tags: ['学术搜索', '文献检索', '语义搜索', 'AI搜索', 'Semantic Scholar'],
+    tags: ['学术搜索', '文献检索', '语义搜索', 'AI搜索', '论文检索'],
   },
   {
     key: 'peer-review',

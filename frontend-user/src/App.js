@@ -22,6 +22,7 @@ import NetworkStatusBar from './components/common/NetworkStatusBar';
 import NotificationToast from './components/common/NotificationToast';
 import CodeSnippetInjector from './components/common/CodeSnippetInjector';
 import VersionUpdateBar from './components/common/VersionUpdateBar';
+import ScrollToTop from './components/common/ScrollToTop';
 import { useVersionCheck } from './hooks';
 import logger from './utils/logger';
 
@@ -103,6 +104,7 @@ const BlogArticlePage = lazyWithRetry(() => import('./pages/blog/BlogArticlePage
 const SearchFeaturePage = lazyWithRetry(() => import('./pages/features/SearchFeaturePage'), 'SearchFeaturePage');
 const PeerReviewFeaturePage = lazyWithRetry(() => import('./pages/features/PeerReviewFeaturePage'), 'PeerReviewFeaturePage');
 const LaTeXFeaturePage = lazyWithRetry(() => import('./pages/features/LaTeXFeaturePage'), 'LaTeXFeaturePage');
+const FeaturesOverview = lazyWithRetry(() => import('./pages/FeaturesOverview'), 'FeaturesOverview');
 const AdminRoot = lazyWithRetry(() => import('./admin/AdminRoot'), 'AdminRoot');
 const AdminDashboardLayout = lazyWithRetry(() => import('./admin/components/DashboardLayout'), 'AdminDashboardLayout');
 const AdminDashboardHome = lazyWithRetry(() => import('./admin/pages/DashboardHome'), 'AdminDashboardHome');
@@ -145,6 +147,7 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <HelmetProvider>
           <Router>
+            <ScrollToTop />
             <Suspense fallback={null}>
               <Routes>
                 <Route
@@ -200,9 +203,10 @@ function App() {
                   <Route path="/terms" element={<TermsPage />} />
                   <Route path="/contact" element={<ContactPage />} />
                   <Route path="/disclaimer" element={<DisclaimerPage />} />
-                  {/* 文档/Wiki 布局：资源、博客、帮助中心 */}
+                  {/* /resources 列表页：全宽单栏，不走 DocsLayout */}
+                  <Route path="/resources" element={<ResourceCenterPage />} />
+                  {/* 文档/Wiki 布局：资源详情、博客、帮助中心 */}
                   <Route element={<DocsLayout />}>
-                    <Route path="/resources" element={<ResourceCenterPage />} />
                     <Route path="/resources/:slug" element={<ResourceArticlePage />} />
                     <Route path="/help" element={<HelpCenterPage />} />
                     <Route path="/blog" element={<BlogListPage />} />
@@ -211,6 +215,7 @@ function App() {
                   <Route path="/alipay-return" element={<AlipayReturn />} />
                 </Route>
 
+                <Route path="/features" element={<FeaturesOverview />} />
                 <Route path="/features/search" element={<SearchFeaturePage />} />
                 <Route path="/features/peer-review" element={<PeerReviewFeaturePage />} />
                 <Route path="/features/latex-writer" element={<LaTeXFeaturePage />} />

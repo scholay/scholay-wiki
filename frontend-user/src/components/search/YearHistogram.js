@@ -11,7 +11,7 @@ import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import './YearHistogram.css';
 
 const YearHistogram = memo(({ yearFrom, yearTo, onChange }) => {
-  // Real data from Semantic Scholar
+  // Real data from academic graph
   const HISTOGRAM_DATA = [
     { key: "1920-1922", docCount: 68980 },
     { key: "1922-1924", docCount: 79672 },

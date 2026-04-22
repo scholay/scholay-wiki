@@ -366,7 +366,7 @@
 .auth-recommended-button {
   position: relative;
   min-height: 54px;
-  border-radius: 14px;
+  border-radius: 40px;
   border: 1.5px solid rgba(66, 130, 73, 0.4);
   background: linear-gradient(135deg, rgba(66, 130, 73, 0.12) 0%, rgba(66, 130, 73, 0.04) 100%);
   padding: 12px 22px;
@@ -455,7 +455,7 @@
   align-items: center;
   justify-content: center;
   gap: 0;
-  width: 30px;
+  min-width: 30px;
   height: 30px;
   max-width: 30px;
   border-radius: 999px;
@@ -496,6 +496,7 @@
   border-color: rgba(16, 163, 127, 0.6);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(16, 163, 127, 0.2);
+  z-index: 1;
 }
 
 .auth-social-icon:hover:not(:disabled) .auth-social-icon-label {

@@ -34,7 +34,6 @@ const generateBibtex = (paper: CitationPaper): string => {
   const title = paper.title || 'Untitled';
   const year = paper.year || 'n.d.';
   const venue = paper.venue || '';
-  const corpusId = paper.paperId || '';
   const journal = paper.journal || {};
   const volume = journal.volume || '';
   const pages = journal.pages || '';
@@ -60,7 +59,7 @@ const generateBibtex = (paper: CitationPaper): string => {
   if (year) bibtex += `,\n  year={${year}}`;
   if (volume) bibtex += `,\n  volume={${volume}}`;
   if (pages) bibtex += `,\n  pages={${pages}}`;
-  bibtex += `,\n  url={https://api.semanticscholar.org/CorpusID:${corpusId}}\n}`;
+  bibtex += `\n}`;
 
   return bibtex;
 };

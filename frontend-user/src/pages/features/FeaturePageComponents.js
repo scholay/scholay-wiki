@@ -13,7 +13,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check } from 'lucide-react';
-import Logo from '../../components/common/Logo';
 import SEO from '../../components/common/SEO';
 import './features-common.css';
 
@@ -31,7 +30,7 @@ export function FeatureNav({ ctaText, ctaTo, accentColor }) {
   return (
     <nav className="feat-nav">
       <div className="feat-nav-logo" onClick={() => navigate('/')}>
-        <Logo />
+        <img src="/brand-logo.svg" alt="Scholay" className="feat-nav-logo-img" />
         <span>Scholay</span>
       </div>
       <div className="feat-nav-actions">

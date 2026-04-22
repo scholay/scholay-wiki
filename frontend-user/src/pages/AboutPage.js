@@ -56,7 +56,7 @@ const featureCards = [
 ];
 
 const teamCards = [
-  { initial: '刘', name: '刘晨', role: '技术总监', bio: '前 Semantic Scholar 研究工程师，长期关注 AI 与学术搜索交叉领域，负责平台核心搜索和 AI 架构。' },
+  { initial: '刘', name: '刘晨', role: '技术总监', bio: '资深学术搜索研究工程师，长期关注 AI 与学术搜索交叉领域，负责平台核心搜索和 AI 架构。' },
   { initial: '张', name: '张薇', role: '首席研究员', bio: '信息科学博士，专注学术信息检索与知识图谱研究，主持多项国家级科研项目，为产品提供学术顾问支持。' },
   { initial: '王', name: '王明', role: '产品经理', bio: '计算机科学硕士，全栈开发者，热衷用技术提升科研效率，负责 Scholay 产品设计和用户体验优化。' },
   { initial: '陈', name: '陈晓', role: '内容编辑', bio: '学术出版行业从业 10 年，熟悉同行评审、期刊投稿与开放获取流程，负责学术内容质量把控。' },

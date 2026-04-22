@@ -56,7 +56,7 @@ export const generateScholarlyArticleSchema = (
       '@type': 'Person',
       name: author.name,
       identifier: author.authorId
-        ? `https://www.semanticscholar.org/author/${author.authorId}`
+        ? `https://www.scholay.com/author/${author.authorId}`
         : undefined,
     })),
     datePublished: paper.year ? `${paper.year}-01-01` : undefined,
@@ -66,10 +66,10 @@ export const generateScholarlyArticleSchema = (
     citation: paper.citationCount
       ? { '@type': 'CreativeWork', identifier: `${paper.citationCount} citations` }
       : undefined,
-    url: paper.url || `https://www.semanticscholar.org/paper/${paper.paperId}`,
+    url: paper.url || `https://www.scholay.com/paper/${paper.paperId}`,
     identifier: {
       '@type': 'PropertyValue',
-      propertyID: 'Semantic Scholar ID',
+      propertyID: 'Scholay Paper ID',
       value: paper.paperId,
     },
     ...(paper.externalIds?.DOI && {

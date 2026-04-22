@@ -298,7 +298,7 @@ const Home = () => {
       <SEO
         title="Scholay - AI驱动的学术搜索平台 | 智能文献检索与分析"
         description="Scholay是创新的学术搜索平台，提供AI驱动的文献检索、智能论文分析、引用图谱可视化等功能。支持学术检索和智能分析两种模式，帮助研究人员快速找到高质量学术资源，提升科研效率。"
-        keywords="学术搜索,论文检索,文献查找,AI论文分析,学术资源,科研工具,Semantic Scholar,论文引用,学术数据库,研究助手,智能搜索"
+        keywords="学术搜索,论文检索,文献查找,AI论文分析,学术资源,科研工具,论文引用,学术数据库,研究助手,智能搜索"
         canonical="/"
         structuredData={generateFAQSchema(faqData)}
       />

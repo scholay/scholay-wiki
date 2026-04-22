@@ -129,13 +129,14 @@
     justify-content: flex-start;
   }
 
-  .auth-social-icon,
   .auth-social-icon-slot {
     width: 28px;
     height: 28px;
   }
 
   .auth-social-icon {
+    min-width: 28px;
+    height: 28px;
     max-width: 28px;
   }
 

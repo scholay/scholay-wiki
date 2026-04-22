@@ -13,7 +13,6 @@
 
 import React, { memo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import Logo from './common/Logo';
 import './styles/SharedFooter.css';
 
 // 只在首页和宣传介绍类页面显示 footer，功能性页面不显示
@@ -29,7 +28,7 @@ const VISIBLE_PATHS = [
   '/resources',
   '/help',
   '/blog',
-  '/features/',
+  '/features',
 ];
 
 const SharedFooter = memo(() => {
@@ -53,7 +52,7 @@ const SharedFooter = memo(() => {
       <div className="site-footer-inner">
         <div className="site-footer-brand">
           <div className="site-footer-logo" onClick={go('/')}>
-            <Logo size={24} />
+            <img src="/brand-logo.svg" alt="Scholay" className="site-footer-logo-img" />
             <span className="site-footer-logo-text">Scholay</span>
           </div>
           <p className="site-footer-tagline">AI 驱动的学术搜索平台</p>
@@ -71,6 +70,7 @@ const SharedFooter = memo(() => {
 
           <div className="site-footer-col">
             <h4>功能介绍</h4>
+            <a href="/features" onClick={go('/features')}>全部功能总览</a>
             <a href="/features/search" onClick={go('/features/search')}>智能搜索</a>
             <a href="/features/peer-review" onClick={go('/features/peer-review')}>AI 智能审稿</a>
             <a href="/features/latex-writer" onClick={go('/features/latex-writer')}>ScholayPrism 编辑器</a>

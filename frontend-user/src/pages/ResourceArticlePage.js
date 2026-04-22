@@ -7,16 +7,20 @@
  * ============================================================================
  *
  * ResourceArticlePage - 学术资源文章详情页
- * 展示单篇原创学术指南文章，含 SEO 结构化数据和相关文章推荐
+ *
+ * 重设计：去掉灰色"内容盒子"，正文在页面背景上自然流动；
+ * 头两级标题挂锚点 id，右栏 <ArticleTOC /> 做 scroll-spy 目录。
  */
 
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Clock, Calendar, ChevronRight, Search, FileText, BookOpen, Sparkles, Code } from 'lucide-react';
+import {
+  ArrowLeft, Clock, Calendar, ChevronRight,
+  Search, FileText, BookOpen, Sparkles, Code, Lightbulb,
+} from 'lucide-react';
 import SEO from '../components/common/SEO';
-import FeaturePromo, { matchFeatureByArticle } from '../components/FeaturePromo';
 import { getArticleBySlug, getRelatedArticles } from './resourceArticles';
-import './styles/ResourcePage.css';
+import './styles/ResourceArticle.css';
 
 const iconMap = {
   Search,
@@ -24,6 +28,15 @@ const iconMap = {
   BookOpen,
   Sparkles,
   Code,
+};
+
+// 与列表页保持一致的分类强调色，让每篇文章的视觉锚点连贯
+const CATEGORY_ACCENT = {
+  '研究方法': '#10a37f',
+  '论文写作': '#E74C3C',
+  '学术规范': '#8b5cf6',
+  'AI与学术': '#3b82f6',
+  '工具教程': '#f59e0b',
 };
 
 const ResourceArticlePage = () => {
@@ -34,31 +47,30 @@ const ResourceArticlePage = () => {
 
   if (!article) {
     return (
-      <div className="article-page">
-        <div className="article-container">
-          <div className="article-header">
-            <button className="back-btn" onClick={() => navigate('/resources')}>
-              <ArrowLeft size={20} />
-              <span>返回资源中心</span>
-            </button>
-          </div>
-          <div style={{ textAlign: 'center', padding: '80px 0', color: 'var(--text-tertiary)' }}>
-            <h2 style={{ color: 'var(--text-primary)', marginBottom: 12 }}>文章未找到</h2>
-            <p>该文章可能已被移动或删除</p>
-            <button
-              className="article-cta-btn"
-              style={{ marginTop: 24 }}
-              onClick={() => navigate('/resources')}
-            >
-              浏览全部文章
-            </button>
-          </div>
+      <div className="rca">
+        <nav className="rca-crumb" aria-label="面包屑导航">
+          <button onClick={() => navigate('/')}>首页</button>
+          <ChevronRight size={12} className="rca-crumb-sep" />
+          <button onClick={() => navigate('/resources')}>学术资源</button>
+        </nav>
+        <div style={{ padding: '80px 0', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+          <h2 style={{ color: 'var(--text-primary)', marginBottom: 12 }}>文章未找到</h2>
+          <p>该文章可能已被移动或删除</p>
+          <button
+            className="rca-back-link"
+            style={{ marginTop: 24 }}
+            onClick={() => navigate('/resources')}
+          >
+            <ArrowLeft size={14} />
+            返回资源中心
+          </button>
         </div>
       </div>
     );
   }
 
   const IconComponent = iconMap[article.categoryIcon] || BookOpen;
+  const accent = CATEGORY_ACCENT[article.category] || 'var(--primary-solid)';
 
   const structuredData = {
     '@context': 'https://schema.org',
@@ -67,18 +79,11 @@ const ResourceArticlePage = () => {
     description: article.excerpt,
     datePublished: article.date,
     dateModified: article.date,
-    author: {
-      '@type': 'Organization',
-      name: 'Scholay',
-      url: 'https://www.scholay.com',
-    },
+    author: { '@type': 'Organization', name: 'Scholay', url: 'https://www.scholay.com' },
     publisher: {
       '@type': 'Organization',
       name: 'Scholay',
-      logo: {
-        '@type': 'ImageObject',
-        url: 'https://www.scholay.com/logo.png',
-      },
+      logo: { '@type': 'ImageObject', url: 'https://www.scholay.com/logo.png' },
     },
     mainEntityOfPage: {
       '@type': 'WebPage',
@@ -91,17 +96,25 @@ const ResourceArticlePage = () => {
     }, 0),
   };
 
-  const renderContent = (blocks) => {
-    return blocks.map((block, index) => {
+  const renderContent = (blocks) =>
+    blocks.map((block, index) => {
       switch (block.type) {
         case 'heading':
-          return <h2 key={index}>{block.text}</h2>;
+          return (
+            <h2 key={index} id={`h-${index}`}>
+              {block.text}
+            </h2>
+          );
         case 'paragraph':
           return <p key={index}>{block.text}</p>;
         case 'tip':
           return (
-            <div key={index} className="article-tip-box">
-              <h4>{block.title}</h4>
+            <div key={index} className="rca-tip">
+              <div className="rca-tip-label">
+                <Lightbulb size={12} />
+                小贴士
+              </div>
+              {block.title && <p className="rca-tip-title">{block.title}</p>}
               <p>{block.text}</p>
             </div>
           );
@@ -109,10 +122,12 @@ const ResourceArticlePage = () => {
           return null;
       }
     });
-  };
 
   return (
-    <div className="article-page">
+    <article
+      className="rca"
+      style={{ ['--rca-accent']: accent }}
+    >
       <SEO
         title={`${article.title} - Scholay 学术资源`}
         description={article.excerpt}
@@ -122,62 +137,64 @@ const ResourceArticlePage = () => {
         structuredData={structuredData}
       />
 
-      <div className="article-container">
-        {/* Breadcrumb */}
-        <nav className="article-breadcrumb" aria-label="面包屑导航">
-          <button onClick={() => navigate('/')}>首页</button>
-          <ChevronRight size={14} />
-          <button onClick={() => navigate('/resources')}>学术资源</button>
-          <ChevronRight size={14} />
-          <span>{article.category}</span>
-        </nav>
+      {/* 面包屑 */}
+      <nav className="rca-crumb" aria-label="面包屑导航">
+        <button onClick={() => navigate('/')}>首页</button>
+        <ChevronRight size={12} className="rca-crumb-sep" />
+        <button onClick={() => navigate('/resources')}>学术资源</button>
+        <ChevronRight size={12} className="rca-crumb-sep" />
+        <span className="rca-crumb-current">{article.category}</span>
+      </nav>
 
-        {/* Hero */}
-        <div className="article-hero">
-          <div className="article-category-badge">
-            <IconComponent size={14} />
-            {article.category}
-          </div>
-          <h1>{article.title}</h1>
-          <div className="article-meta">
-            <span><Clock size={14} />{article.readTime}阅读</span>
-            <span><Calendar size={14} />{article.date}</span>
-            <span>Scholay 学术团队</span>
-          </div>
+      {/* Hero */}
+      <header className="rca-hero">
+        <div className="rca-cat-badge">
+          <IconComponent size={12} />
+          {article.category}
         </div>
-
-        {/* Article Body */}
-        <div className="article-body">
-          {renderContent(article.content)}
+        <h1 className="rca-title">{article.title}</h1>
+        <div className="rca-meta">
+          <span><Clock size={13} />{article.readTime}阅读</span>
+          <span className="rca-meta-sep" />
+          <span><Calendar size={13} />{article.date}</span>
+          <span className="rca-meta-sep" />
+          <span className="rca-author">Scholay 学术团队</span>
         </div>
+      </header>
 
-        {/* FeaturePromo 已移至 DocsLayout 右侧栏 */}
+      {/* 正文 */}
+      <div className="rca-body">{renderContent(article.content)}</div>
 
-        {/* Related Articles */}
-        {relatedArticles.length > 0 && (
-          <section className="related-articles">
-            <h2>相关推荐</h2>
-            <div className="related-articles-grid">
-              {relatedArticles.map(related => (
-                <article
-                  key={related.slug}
-                  className="related-article-card"
-                  onClick={() => navigate(`/resources/${related.slug}`)}
-                  role="link"
-                  tabIndex={0}
-                  onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/resources/${related.slug}`); }}
-                >
-                  <h4>{related.title}</h4>
-                  <p>{related.category} · {related.readTime}</p>
-                </article>
-              ))}
-            </div>
-          </section>
-        )}
+      {/* 相关推荐 */}
+      {relatedArticles.length > 0 && (
+        <footer className="rca-footer">
+          <div className="rca-footer-heading">
+            <h2>继续阅读</h2>
+            <a onClick={(e) => { e.preventDefault(); navigate('/resources'); }} href="/resources">
+              查看全部 →
+            </a>
+          </div>
+          <div className="rca-related-grid">
+            {relatedArticles.map((related) => (
+              <button
+                key={related.slug}
+                className="rca-related-card"
+                onClick={() => navigate(`/resources/${related.slug}`)}
+              >
+                <span className="rca-related-cat">{related.category}</span>
+                <h3 className="rca-related-title">{related.title}</h3>
+                <span className="rca-related-meta">{related.readTime}阅读 · {related.date}</span>
+              </button>
+            ))}
+          </div>
+        </footer>
+      )}
 
-
-      </div>
-    </div>
+      <button className="rca-back-link" onClick={() => navigate('/resources')}>
+        <ArrowLeft size={14} />
+        返回资源中心
+      </button>
+    </article>
   );
 };
 

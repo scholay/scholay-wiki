@@ -303,7 +303,7 @@ function HeroReportMockup() {
 }
 
 /* ─────────────────────────────────────────────
-   Mockup: Literature Search (Semantic Scholar)
+   Mockup: Literature Search
 ───────────────────────────────────────────── */
 function LiteratureSearchMockup() {
   const hits = [
@@ -318,7 +318,7 @@ function LiteratureSearchMockup() {
         <div className="pr-lit-search">
           <Search size={14} />
           <span>vision transformer medical image segmentation</span>
-          <span className="pr-lit-count">248 hits · Semantic Scholar</span>
+          <span className="pr-lit-count">248 hits · 学术图谱</span>
         </div>
         <div className="pr-lit-list">
           {hits.map((h, i) => (
@@ -1245,7 +1245,7 @@ export default function PeerReviewFeaturePage() {
           title={'每一个"新颖性"判断，都有具体文献支撑'}
           body={'审稿开始前，系统会先帮你的论文做一轮学术检索，找出领域内最相似的已发表工作、识别常见的研究空白。这样审稿人的评价就不再凭感觉 —— 每一条关于"新不新"、"创不创新"的结论，背后都有可核查的文献依据。'}
           bullets={[
-            '接入 Semantic Scholar，实时检索 2 亿+ 学术记录',
+            '整合全球主流学术数据库，实时检索 2 亿+ 学术记录',
             '自动找出领域内与你最相似的已发表工作',
             '总结研究空白，让审稿人据此评估新颖性',
             '每条结论都可回溯到具体引文',

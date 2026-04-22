@@ -14,73 +14,135 @@
 
 /* ── 左侧导航栏 ──────────────────────────── */
 .docs-sidebar {
-  width: 240px;
+  width: 264px;
   flex-shrink: 0;
   align-self: flex-start;
   position: sticky;
   top: 0;
   max-height: 100vh;
   overflow-y: auto;
+  padding: var(--space-6) 0 var(--space-6);
+  background: transparent;
   border-right: 1px solid var(--border-light);
-  background: var(--bg-secondary);
   scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
 
-.docs-sidebar::-webkit-scrollbar { width: 3px; }
-.docs-sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.docs-sidebar::-webkit-scrollbar { width: 4px; }
+.docs-sidebar::-webkit-scrollbar-track { background: transparent; }
+.docs-sidebar::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+}
+.docs-sidebar:hover::-webkit-scrollbar-thumb {
+  background: var(--border);
+}
 
+/* Header — 两行： 小标签 + 主标题 */
 .docs-sidebar-header {
   display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 var(--space-5) var(--space-5);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.docs-sidebar-header-eyebrow {
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-5) var(--space-4) var(--space-3);
-  font-size: var(--font-sm);
+  gap: 6px;
+  font-size: 10px;
   font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-quaternary);
+}
+
+.docs-sidebar-header-eyebrow svg {
+  opacity: 0.6;
+}
+
+.docs-sidebar-header-title {
+  font-size: var(--font-lg);
+  font-weight: 700;
   color: var(--text-primary);
-  position: sticky;
-  top: 0;
-  background: var(--bg-secondary);
-  z-index: 1;
+  letter-spacing: -0.01em;
 }
 
 .docs-sidebar-nav {
-  padding: 0 0 var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: 0 var(--space-3);
 }
 
 /* ── 顶级分区 ─────────────────────────────── */
 .docs-nav-section {
-  margin-bottom: var(--space-1);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-1);
+  border-radius: var(--radius);
+  transition: background var(--duration-fast) var(--ease-default);
+}
+
+.docs-nav-section.expanded {
+  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
+  padding-bottom: var(--space-3);
 }
 
 .docs-nav-section-btn {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
   width: 100%;
-  padding: var(--space-2) var(--space-4);
+  padding: 9px var(--space-3);
   border: none;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
   font-size: var(--font-sm);
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   text-align: left;
-  transition: all var(--duration-fast) var(--ease-default);
+  transition: color var(--duration-fast) var(--ease-default),
+              background var(--duration-fast) var(--ease-default);
+}
+
+.docs-nav-section-btn > svg:first-child {
+  flex-shrink: 0;
+  color: var(--text-quaternary);
+  transition: color var(--duration-fast) var(--ease-default);
 }
 
 .docs-nav-section-btn:hover {
+  background: color-mix(in srgb, var(--text-primary) 5%, transparent);
   color: var(--text-primary);
-  background: var(--surface-hover);
+}
+
+.docs-nav-section-btn:hover > svg:first-child {
+  color: var(--text-secondary);
 }
 
 .docs-nav-section-btn.active {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.docs-nav-section-btn.active > svg:first-child {
   color: var(--primary-solid);
-  font-weight: 600;
 }
 
 /* ── 分组 ─────────────────────────────────── */
 .docs-nav-group {
-  margin-left: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--space-3);
+  padding: 0 var(--space-2);
+}
+
+.docs-nav-group:first-of-type {
+  margin-top: var(--space-2);
 }
 
 .docs-nav-group-btn {
@@ -88,55 +150,87 @@
   align-items: center;
   gap: var(--space-2);
   width: 100%;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-1) var(--space-2);
   border: none;
   background: transparent;
-  color: var(--text-tertiary);
-  font-size: var(--font-xs);
-  font-weight: 500;
-  letter-spacing: 0.02em;
+  color: var(--text-quaternary);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   cursor: pointer;
   text-align: left;
   transition: color var(--duration-fast) var(--ease-default);
 }
 
-.docs-nav-group-btn:hover { color: var(--text-secondary); }
-.docs-nav-group-btn.open { color: var(--text-secondary); }
-.docs-nav-group-btn svg:last-child { margin-left: auto; opacity: 0.4; }
+.docs-nav-group-btn > svg:first-child {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  opacity: 0.7;
+}
+
+.docs-nav-group-btn > svg:last-child {
+  margin-left: auto;
+  opacity: 0.45;
+  transition: transform var(--duration-fast) var(--ease-default),
+              opacity var(--duration-fast) var(--ease-default);
+}
+
+.docs-nav-group-btn:hover {
+  color: var(--text-secondary);
+}
+
+.docs-nav-group-btn:hover > svg:last-child {
+  opacity: 0.8;
+}
+
+.docs-nav-group-btn.open {
+  color: var(--text-secondary);
+}
 
 /* ── 导航项 ───────────────────────────────── */
 .docs-nav-items {
-  padding: var(--space-1) 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: var(--space-2) 0 0 var(--space-3);
+  padding-left: var(--space-2);
+  border-left: 1px solid var(--border-light);
 }
 
 .docs-nav-item {
   display: block;
   width: 100%;
-  padding: 5px var(--space-3) 5px var(--space-6);
+  padding: 6px var(--space-3);
+  margin-left: -1px;
   border: none;
   border-left: 2px solid transparent;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   background: transparent;
   color: var(--text-tertiary);
   font-size: 13px;
-  line-height: 1.4;
+  line-height: 1.5;
   cursor: pointer;
   text-align: left;
-  transition: all var(--duration-fast) var(--ease-default);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  transition: color var(--duration-fast) var(--ease-default),
+              border-color var(--duration-fast) var(--ease-default),
+              background var(--duration-fast) var(--ease-default);
+  /* 允许长标题换行，Chinese 全显 */
+  white-space: normal;
+  word-break: break-word;
 }
 
 .docs-nav-item:hover {
   color: var(--text-primary);
-  background: var(--surface-hover);
+  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
 }
 
 .docs-nav-item.active {
   color: var(--primary-solid);
   border-left-color: var(--primary-solid);
-  background: color-mix(in srgb, var(--primary-solid) 6%, transparent);
-  font-weight: 500;
+  background: color-mix(in srgb, var(--primary-solid) 8%, transparent);
+  font-weight: 600;
 }
 
 /* ── 中间内容区 ──────────────────────────── */
@@ -148,13 +242,38 @@
 
 /* ── 右侧快捷栏 ──────────────────────────── */
 .docs-aside {
-  width: 260px;
+  width: 300px;
   flex-shrink: 0;
   align-self: flex-start;
   position: sticky;
-  top: var(--space-5);
-  padding: var(--space-5) var(--space-4);
+  top: 0;
+  max-height: 100vh;
+  overflow-y: auto;
+  padding: var(--space-6) var(--space-4);
   border-left: 1px solid var(--border-light);
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.docs-aside::-webkit-scrollbar { width: 4px; }
+.docs-aside::-webkit-scrollbar-thumb { background: transparent; border-radius: 3px; }
+.docs-aside:hover::-webkit-scrollbar-thumb { background: var(--border); }
+
+/* 右栏小标题 */
+.docs-aside-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 var(--space-2) var(--space-3);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-quaternary);
+}
+
+.docs-aside-label svg {
+  opacity: 0.6;
 }
 
 /* ── Mobile 切换按钮 ──────────────────────── */
@@ -172,7 +291,7 @@
 }
 
 @media (max-width: 1024px) {
-  .docs-sidebar { width: 200px; }
+  .docs-sidebar { width: 220px; }
 }
 
 @media (max-width: 768px) {
@@ -185,7 +304,7 @@
     z-index: 10;
     width: 100%;
     padding: var(--space-3) var(--space-4);
-    background: var(--bg-secondary);
+    background: var(--bg-primary);
     border: none;
     border-bottom: 1px solid var(--border-light);
     color: var(--text-secondary);
@@ -199,8 +318,10 @@
     left: 0;
     bottom: 0;
     z-index: 100;
-    width: min(260px, 80vw);
+    width: min(280px, 80vw);
     max-height: 100vh;
+    padding: var(--space-5) 0;
+    background: var(--bg-primary);
     transform: translateX(-100%);
     transition: transform var(--duration-slow) var(--ease-default);
     box-shadow: none;
@@ -227,5 +348,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .docs-sidebar { transition: none; }
+  .docs-sidebar,
+  .docs-nav-section,
+  .docs-nav-section-btn,
+  .docs-nav-item,
+  .docs-nav-group-btn > svg:last-child {
+    transition: none;
+  }
 }

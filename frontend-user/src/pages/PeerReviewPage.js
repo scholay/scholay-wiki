@@ -859,55 +859,6 @@ export default function PeerReviewPage() {
         keywords="AI审稿,智能审稿,论文评审,学术审稿,论文修改建议,peer review"
         canonical="/peer-review"
       />
-      {/* 功能介绍横幅 */}
-      {viewMode === VIEW_MODE.HOME && (
-        <div style={{
-          margin: '0 0 20px',
-          padding: '16px 20px',
-          borderRadius: 14,
-          background: 'linear-gradient(135deg, rgba(99,102,241,0.1) 0%, rgba(79,70,229,0.05) 100%)',
-          border: '1px solid rgba(99,102,241,0.2)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 16,
-          flexWrap: 'wrap',
-        }}>
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--text-primary)', marginBottom: 4 }}>
-              AI 智能审稿 — 三位审稿人，五大维度全面评审
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--text-tertiary)', lineHeight: 1.6 }}>
-              {user ? '上传论文即可获取期刊级审稿报告，支持隐私模式。' : '无需登录即可体验，登录后可保存审稿历史。'}
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-            <button
-              onClick={() => navigate('/features/peer-review')}
-              style={{
-                padding: '8px 18px', borderRadius: 999,
-                border: '1px solid rgba(99,102,241,0.3)', background: 'rgba(99,102,241,0.1)',
-                color: '#818cf8', fontSize: 13, fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap',
-              }}
-            >
-              了解更多
-            </button>
-            {!user && (
-              <button
-                onClick={openLoginModal}
-                style={{
-                  padding: '8px 18px', borderRadius: 999,
-                  border: '1px solid rgba(99,102,241,0.3)', background: 'rgba(99,102,241,0.15)',
-                  color: '#a5b4fc', fontSize: 13, fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap',
-                }}
-              >
-                登录
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* 详情视图时显示返回按钮 */}
       {viewMode === VIEW_MODE.DETAIL && (
         <div className="prv-detail-header">
