@@ -3480,3 +3480,318 @@
     font-size: 11px;
   }
 }
+
+/* ============================================================
+ * 隐私模式 —— 学术克制版
+ *
+ * 设计原则：
+ * - 不做"科幻/霓虹/扫描线"等装饰，参照 1Password / Adobe 保护文档 /
+ *   学术期刊 secure review 的视觉语言
+ * - 只用两个信号表达"受保护"：(a) 顶部一条克制的信息横幅 (b) 主题微微加深
+ * - 横幅走 fixed 定位，不挤占页面内容流（避免切换时输入框下移）
+ * ============================================================ */
+
+/* ---------- 隐私模式开关（标题右侧独立控件，开关样式）---------- */
+.prv-privacy-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px 7px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  user-select: none;
+  flex-shrink: 0;
+}
+.prv-privacy-switch:hover {
+  border-color: var(--border-strong, #cbd5e1);
+  color: var(--text-primary);
+}
+.prv-privacy-switch-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: currentColor;
+  flex-shrink: 0;
+}
+.prv-privacy-switch-label {
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+/* iOS 式小开关 */
+.prv-privacy-switch-track {
+  position: relative;
+  width: 28px;
+  height: 16px;
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 999px;
+  transition: background 0.25s ease;
+  flex-shrink: 0;
+}
+.prv-privacy-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.prv-privacy-switch.is-on {
+  background: rgba(30, 41, 59, 0.04);
+  border-color: rgba(30, 41, 59, 0.3);
+  color: var(--text-primary);
+}
+.prv-privacy-switch.is-on .prv-privacy-switch-track {
+  background: #1e293b;
+}
+.prv-privacy-switch.is-on .prv-privacy-switch-thumb {
+  transform: translateX(12px);
+}
+
+[data-theme="dark"] .prv-privacy-switch.is-on .prv-privacy-switch-track {
+  background: #cbd5e1;
+}
+[data-theme="dark"] .prv-privacy-switch.is-on .prv-privacy-switch-thumb {
+  background: #0f172a;
+}
+
+/* .prv-section-header 已在顶部定义为 space-between，此处无需重复 */
+
+/* ============================================================
+ * 隐私模式 = 全站进入深色保密态（scope: body.prv-incognito-active）
+ *
+ * 设计思想：
+ *   在 body 上加一个 class，局部覆盖所有全局 CSS 变量
+ *   → 整个 document（导航栏 / 侧边栏 / 审稿页 / 结果页）一起换肤
+ *   离开审稿路由 body class 自动清理（PeerReviewPage unmount 钩子）
+ *
+ * 调色盘：真·深黑（True Black）带一丝冷蓝
+ *   区别于常规夜间的暖灰黑 (#212121)，是明显更深、更冷的纯黑
+ * ============================================================ */
+
+body.prv-incognito-active {
+  /* ===== 全局主题 token 覆盖（影响全站所有组件）===== */
+  --background: #08090e;
+  --background-light: #0d0e14;
+  --bg-primary: #08090e;
+  --bg-secondary: #08090e;
+
+  --surface: #121318;
+  --surface-light: #1a1b22;
+  --surface-hover: #1e2028;
+
+  --text-primary: rgba(235, 238, 245, 0.96);
+  --text-secondary: rgba(235, 238, 245, 0.7);
+  --text-tertiary: rgba(235, 238, 245, 0.48);
+  --text-quaternary: rgba(235, 238, 245, 0.3);
+
+  --border: rgba(148, 163, 184, 0.12);
+  --border-light: rgba(148, 163, 184, 0.06);
+  --border-hover: rgba(148, 163, 184, 0.24);
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.65);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.7);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.8);
+
+  /* 审稿结果页专用 prvr-* token，保证结果页一同变黑 */
+  --prvr-surface: #121318;
+  --prvr-surface-2: #1a1b22;
+  --prvr-surface-hi: #1e2028;
+  --prvr-border: rgba(148, 163, 184, 0.12);
+  --prvr-border-strong: rgba(148, 163, 184, 0.24);
+  --prvr-text: rgba(235, 238, 245, 0.96);
+  --prvr-text-2: rgba(235, 238, 245, 0.7);
+  --prvr-text-3: rgba(235, 238, 245, 0.48);
+
+  /* 底色直接落到 body，确保无背景组件的空白处也是黑的 */
+  background-color: #08090e;
+
+  /* 颜色切换过渡 —— body 层有一个温和的 0.3s 过渡，和 ripple 动画配合衔接 */
+  transition: background-color 0.3s ease 0.1s;
+}
+
+/* .prv-page 本身在隐私模式下保持透明，让 body 底色透出来 */
+body.prv-incognito-active .prv-page {
+  background: transparent;
+  position: relative;
+}
+
+/* 审稿结果容器在隐私模式下也透明 */
+body.prv-incognito-active .prvr-page {
+  background: transparent;
+}
+
+/* ============================================================
+ * 切换过渡：圆形水波扩散（Material Ripple）
+ * 从点击按钮处为圆心，目标色圆弧扩散到全屏，再淡出
+ * —— 与 macOS Sequoia / Android 13 主题切换同款
+ * ============================================================ */
+.prv-privacy-ripple {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  border-radius: 50%;
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+/* 开启：目标色为深黑 */
+.prv-privacy-ripple[data-target-mode="on"] {
+  background: #08090e;
+}
+/* 关闭：目标色取用户当前全局主题的背景色 */
+.prv-privacy-ripple[data-target-mode="off"] {
+  background: var(--background, #f9fafb);
+}
+[data-theme="dark"] .prv-privacy-ripple[data-target-mode="off"] {
+  background: var(--background, #212121);
+}
+
+/* ============================================================
+ * 隐私模式顶部栏 —— 取代原顶部导航栏的位置
+ * - 隐私模式下 CSS 直接把 .top-nav-bar 隐藏
+ * - 本栏占据同高度（56px）同位置 → 视觉上像"导航栏变成了隐私提示"
+ * ============================================================ */
+
+/* 隐私模式下，全局顶部导航栏被"隐形"但保留 56px 占位
+   用 visibility:hidden 而非 display:none —— 正文依赖 nav 的 56px 高度做 layout，
+   完全移除会让正文顶起来，被我们 fixed 定位的 .prv-privacy-topbar 盖住（重叠 bug） */
+body.prv-incognito-active .top-nav-bar {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.prv-privacy-topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 24px;
+  background: linear-gradient(90deg, #0a0b10 0%, #13151d 50%, #0a0b10 100%);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  color: rgba(235, 238, 245, 0.95);
+  box-shadow: 0 1px 20px rgba(0, 0, 0, 0.4);
+  font-size: 13.5px;
+}
+.prv-privacy-topbar-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: rgba(129, 140, 248, 0.14);
+  color: #a5b4fc;
+  flex-shrink: 0;
+}
+.prv-privacy-topbar-text {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  line-height: 1.4;
+}
+.prv-privacy-topbar-text strong {
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.02em;
+}
+.prv-privacy-topbar-sep {
+  color: rgba(148, 163, 184, 0.5);
+  flex-shrink: 0;
+}
+.prv-privacy-topbar-desc {
+  color: rgba(235, 238, 245, 0.7);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.prv-privacy-topbar-exit {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: rgba(235, 238, 245, 0.9);
+  background: rgba(235, 238, 245, 0.06);
+  border: 1px solid rgba(235, 238, 245, 0.15);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.prv-privacy-topbar-exit:hover {
+  background: rgba(235, 238, 245, 0.12);
+  border-color: rgba(235, 238, 245, 0.3);
+  color: #fff;
+}
+.prv-privacy-topbar-exit svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .prv-privacy-topbar {
+    padding: 0 14px;
+    gap: 10px;
+    font-size: 12.5px;
+  }
+  .prv-privacy-topbar-sep,
+  .prv-privacy-topbar-desc { display: none; }
+  .prv-privacy-topbar-exit {
+    padding: 6px 10px;
+  }
+  .prv-privacy-topbar-exit span { display: none; }
+}
+
+/* ============================================================
+ * 开关按钮在隐私模式下的表现（标题旁那个 Pill）
+ * ============================================================ */
+body.prv-incognito-active .prv-privacy-switch {
+  background: rgba(129, 140, 248, 0.12);
+  border-color: rgba(129, 140, 248, 0.38);
+  color: #c7d2fe;
+}
+body.prv-incognito-active .prv-privacy-switch .prv-privacy-switch-track {
+  background: #818cf8;
+}
+body.prv-incognito-active .prv-privacy-switch .prv-privacy-switch-thumb {
+  background: #fff;
+}
+
+/* 遵循 prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .prv-privacy-ripple { animation: none !important; transition: none !important; }
+  body.prv-incognito-active { transition: none; }
+}
+
+/* ============================================================
+ * 响应式
+ * ============================================================ */
+@media (max-width: 640px) {
+  .prv-section-header {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .prv-privacy-switch {
+    align-self: flex-start;
+  }
+}

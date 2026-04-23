@@ -33,6 +33,15 @@ type UpsertResult struct {
 //   - 新行：以 tier=1 写入，写 slug
 //   - 老行：tier 升级到 1（若原来是 2），view_count+1，last_seen_at = now，刷新可变字段
 //   - slug 字段一旦写入后不再更新（保持 SEO 稳定）
+//
+// updated_at (sitemap <lastmod> 数据源) 仅在以下情况才 bump：
+//   1. quality_tier 由 2 升级到 1 （priority 0.5→0.7，对爬虫是有意义的变化）
+//   2. title 发生变化
+//   3. abstract 发生变化
+// 否则（仅是再次点击/曝光）保持原值，避免误导爬虫重复抓取。
+//
+// ⚠️ updated_at 必须放在所有其它赋值之前 —— ON DUPLICATE KEY UPDATE 按左到右求值，
+// 一旦 title = VALUES(title) 先执行，后面对比 title 就永远相等。
 func (r *Repository) UpsertDetail(seed *PaperSeed, slug, authorsJSON, fieldsJSON string) error {
 	if seed == nil || seed.PaperID == "" {
 		return errors.New("empty paper_id")
@@ -54,6 +63,13 @@ func (r *Repository) UpsertDetail(seed *PaperSeed, slug, authorsJSON, fieldsJSON
 			 ?, ?, 1,
 			 ?, ?)
 		ON DUPLICATE KEY UPDATE
+			updated_at = IF(
+				quality_tier = 2
+				OR title <> VALUES(title)
+				OR COALESCE(abstract,'') <> COALESCE(NULLIF(VALUES(abstract),''), COALESCE(abstract,'')),
+				CURRENT_TIMESTAMP,
+				updated_at
+			),
 			quality_tier   = LEAST(quality_tier, 1),
 			priority       = GREATEST(priority, 0.7),
 			view_count     = view_count + 1,
@@ -81,6 +97,9 @@ func (r *Repository) UpsertDetail(seed *PaperSeed, slug, authorsJSON, fieldsJSON
 //   - 新行：以 tier=2 写入
 //   - 老行：不动 tier（已经是 1 的不降级），只刷新 last_seen_at 和可变元数据
 //   - view_count 不递增（搜索曝光不算详情页浏览）
+//
+// updated_at (sitemap <lastmod> 数据源) 仅在 title / abstract 真的变化时才 bump。
+// 单纯的再次曝光不刷新 lastmod，避免误导爬虫把几十万 URL 全部重抓一遍。
 func (r *Repository) UpsertSeed(seed *PaperSeed, slug, authorsJSON, fieldsJSON string) error {
 	if seed == nil || seed.PaperID == "" {
 		return errors.New("empty paper_id")
@@ -101,6 +120,12 @@ func (r *Repository) UpsertSeed(seed *PaperSeed, slug, authorsJSON, fieldsJSON s
 			 ?, ?, 0,
 			 ?, ?)
 		ON DUPLICATE KEY UPDATE
+			updated_at = IF(
+				title <> VALUES(title)
+				OR COALESCE(abstract,'') <> COALESCE(NULLIF(VALUES(abstract),''), COALESCE(abstract,'')),
+				CURRENT_TIMESTAMP,
+				updated_at
+			),
 			last_seen_at   = VALUES(last_seen_at),
 			doi            = COALESCE(VALUES(doi), doi),
 			title          = VALUES(title),

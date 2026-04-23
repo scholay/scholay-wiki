@@ -178,6 +178,24 @@ func (PeerReviewResult) TableName() string {
 	return "peer_review_results"
 }
 
+// PeerReviewAnonTrial 匿名审稿试用记录
+// 每台设备仅 1 次免登录试用机会，通过 device_id（主）+ ip_ua_hash（辅）双识别
+type PeerReviewAnonTrial struct {
+	ID               uint       `json:"id" gorm:"primaryKey"`
+	DeviceID         string     `json:"device_id" gorm:"size:64;uniqueIndex:uk_device_id"`
+	IPUAHash         string     `json:"ip_ua_hash" gorm:"column:ip_ua_hash;size:64;index:idx_ip_ua_hash"`
+	AnonToken        string     `json:"anon_token" gorm:"size:64"`
+	TaskID           uint       `json:"task_id" gorm:"index:idx_task_id"`
+	ConsumedAt       time.Time  `json:"consumed_at"`
+	ClaimedByUserID  uint       `json:"claimed_by_user_id" gorm:"index:idx_claimed_by_user_id;default:0"`
+	ClaimedAt        *time.Time `json:"claimed_at"`
+	CreatedAt        time.Time  `json:"created_at"`
+}
+
+func (PeerReviewAnonTrial) TableName() string {
+	return "peer_review_anon_trials"
+}
+
 // ========== 请求/响应结构 ==========
 
 // CreateTaskRequest 创建任务请求（兼容旧接口）
@@ -229,6 +247,7 @@ type DraftResponse struct {
 	ContentPreview string              `json:"content_preview,omitempty"`
 	ManuscriptFile *FileInfo           `json:"manuscript_file,omitempty"`
 	Attachments    []FileInfo          `json:"attachments,omitempty"`
+	AnonToken      string              `json:"anon_token,omitempty"` // 匿名用户首次保存草稿时返回
 }
 
 // FileInfo 文件信息（用于响应）
@@ -257,6 +276,25 @@ type UploadFileResponse struct {
 type ClaimTaskRequest struct {
 	TaskID    uint   `json:"task_id" binding:"required"`
 	AnonToken string `json:"anon_token" binding:"required"`
+}
+
+// ClaimAllRequest 批量认领匿名任务请求（登录后调用）
+type ClaimAllRequest struct {
+	AnonToken string `json:"anon_token" binding:"required"`
+}
+
+// ClaimAllResponse 批量认领响应
+type ClaimAllResponse struct {
+	ClaimedTaskIDs []uint `json:"claimed_task_ids"`
+	ClaimedCount   int    `json:"claimed_count"`
+}
+
+// TrialStatusResponse 匿名试用状态响应
+type TrialStatusResponse struct {
+	CanTrial      bool       `json:"can_trial"`                 // 是否还能使用免登录试用
+	ConsumedAt    *time.Time `json:"consumed_at,omitempty"`     // 若已消费，给出消费时间
+	AlreadyClaimed bool      `json:"already_claimed,omitempty"` // 是否已被某个登录用户认领
+	Reason        string     `json:"reason,omitempty"`          // new_device | already_used
 }
 
 // TaskListResponse 任务列表响应

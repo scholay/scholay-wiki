@@ -24,20 +24,26 @@ import (
 	"time"
 
 	"scholar-backend/internal/common/cache"
+	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
 )
 
 const (
-	baseURL              = "https://www.scholay.com"
-	sitemapCacheKey      = "seo:sitemap:cache"
-	sitemapVersionKey    = "seo:sitemap:version"
-	sitemapCacheTTL      = 6 * time.Hour
-	sitemapSummaryTTL    = 10 * time.Minute // 索引页允许稍短 TTL，保证新写入的论文能更快上 sitemap
-	sitemapBrowserCache  = 3600              // 浏览器/CDN 端缓存 1h
-	sitemapSummaryCache  = 900               // 索引页浏览器缓存 15m
+	sitemapCacheKey     = "seo:sitemap:cache"
+	sitemapVersionKey   = "seo:sitemap:version"
+	sitemapCacheTTL     = 6 * time.Hour
+	sitemapSummaryTTL   = 10 * time.Minute // 索引页允许稍短 TTL，保证新写入的论文能更快上 sitemap
+	sitemapBrowserCache = 3600             // 浏览器/CDN 端缓存 1h
+	sitemapSummaryCache = 900              // 索引页浏览器缓存 15m
 )
+
+// baseURL 站点权威域名（sitemap 全部 <loc> 前缀）
+// 读 SEO_BASE_URL 环境变量，默认 https://scholay.com
+func baseURL() string {
+	return appconfig.CanonicalBaseURL()
+}
 
 // Handler HTTP 处理器
 type Handler struct {
@@ -105,7 +111,7 @@ func (h *Handler) ResolveBySlug(c *gin.Context) {
 }
 
 // ServeSitemapIndex 返回 sitemap 索引（/sitemap.xml）
-// 列出 static 子表 + 所有 papers 分页
+// 列出: static / blogs / resources / papers 分页
 func (h *Handler) ServeSitemapIndex(c *gin.Context) {
 	version := h.currentVersion(c.Request.Context())
 	cacheKey := fmt.Sprintf("%s:index:v%d", sitemapCacheKey, version)
@@ -127,19 +133,29 @@ func (h *Handler) ServeSitemapIndex(c *gin.Context) {
 		lastMod = time.Now()
 	}
 	lastModStr := lastMod.UTC().Format(time.RFC3339)
+	nowStr := time.Now().UTC().Format(time.RFC3339)
+	base := baseURL()
 
 	var b strings.Builder
 	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
 	b.WriteString(`<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` + "\n")
 
-	// 静态页 sitemap
+	// 静态页
 	fmt.Fprintf(&b, "  <sitemap>\n    <loc>%s/sitemap-static.xml</loc>\n    <lastmod>%s</lastmod>\n  </sitemap>\n",
-		baseURL, time.Now().UTC().Format(time.RFC3339))
+		base, nowStr)
+
+	// 博客
+	fmt.Fprintf(&b, "  <sitemap>\n    <loc>%s/sitemap-blogs.xml</loc>\n    <lastmod>%s</lastmod>\n  </sitemap>\n",
+		base, nowStr)
+
+	// 资源中心
+	fmt.Fprintf(&b, "  <sitemap>\n    <loc>%s/sitemap-resources.xml</loc>\n    <lastmod>%s</lastmod>\n  </sitemap>\n",
+		base, nowStr)
 
 	// 动态论文 sitemap（按分页）
 	for i := 1; i <= summary.TotalPages; i++ {
 		fmt.Fprintf(&b, "  <sitemap>\n    <loc>%s/sitemap-papers-%d.xml</loc>\n    <lastmod>%s</lastmod>\n  </sitemap>\n",
-			baseURL, i, lastModStr)
+			base, i, lastModStr)
 	}
 
 	b.WriteString(`</sitemapindex>` + "\n")
@@ -150,37 +166,42 @@ func (h *Handler) ServeSitemapIndex(c *gin.Context) {
 }
 
 // ServeStaticSitemap 静态页 sitemap（/sitemap-static.xml）
-// 写死的站点元信息，和论文无关
+// 写死的站点元信息；博客/资源文章已拆分到独立 sitemap
 func (h *Handler) ServeStaticSitemap(c *gin.Context) {
 	today := time.Now().UTC().Format("2006-01-02")
+	base := baseURL()
 	staticPages := []struct {
 		Path       string
 		ChangeFreq string
 		Priority   string
 	}{
+		// 核心功能页
 		{"/", "daily", "1.0"},
 		{"/search-results", "daily", "0.9"},
 		{"/chat", "weekly", "0.8"},
 		{"/assistant", "weekly", "0.8"},
 		{"/peer-review", "weekly", "0.8"},
+		{"/latex-writer", "weekly", "0.8"},
+
+		// 营销 / 品牌页
+		{"/features", "monthly", "0.7"},
+		{"/features/search", "monthly", "0.6"},
+		{"/features/peer-review", "monthly", "0.6"},
+		{"/features/latex-writer", "monthly", "0.6"},
 		{"/pricing", "monthly", "0.7"},
-		{"/fund-center", "weekly", "0.6"},
 		{"/about", "monthly", "0.6"},
+		{"/contact", "monthly", "0.6"},
+
+		// 内容中心入口
+		{"/resources", "weekly", "0.8"},
+		{"/blog", "weekly", "0.8"},
+		{"/help", "monthly", "0.7"},
+
+		// 合规 / 反馈
 		{"/privacy", "monthly", "0.5"},
 		{"/terms", "monthly", "0.5"},
-		{"/feedback", "monthly", "0.5"},
-		{"/contact", "monthly", "0.6"},
 		{"/disclaimer", "monthly", "0.5"},
-		{"/resources", "weekly", "0.8"},
-		{"/resources/how-to-search", "monthly", "0.7"},
-		{"/resources/literature-review-guide", "monthly", "0.7"},
-		{"/resources/paper-writing-tips", "monthly", "0.7"},
-		{"/resources/citation-guide", "monthly", "0.7"},
-		{"/resources/research-methodology", "monthly", "0.7"},
-		{"/resources/ai-in-research", "monthly", "0.7"},
-		{"/resources/peer-review-guide", "monthly", "0.7"},
-		{"/resources/latex-tutorial", "monthly", "0.7"},
-		{"/help", "monthly", "0.7"},
+		{"/feedback", "monthly", "0.5"},
 	}
 
 	var b strings.Builder
@@ -188,7 +209,32 @@ func (h *Handler) ServeStaticSitemap(c *gin.Context) {
 	b.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` + "\n")
 	for _, p := range staticPages {
 		fmt.Fprintf(&b, "  <url>\n    <loc>%s%s</loc>\n    <lastmod>%s</lastmod>\n    <changefreq>%s</changefreq>\n    <priority>%s</priority>\n  </url>\n",
-			baseURL, p.Path, today, p.ChangeFreq, p.Priority)
+			base, p.Path, today, p.ChangeFreq, p.Priority)
+	}
+	b.WriteString(`</urlset>` + "\n")
+
+	h.writeXML(c, b.String(), sitemapBrowserCache)
+}
+
+// ServeBlogSitemap 博客文章 sitemap（/sitemap-blogs.xml）
+func (h *Handler) ServeBlogSitemap(c *gin.Context) {
+	h.writeArticleSitemap(c, BlogArticles, "/blog/", "weekly", "0.7")
+}
+
+// ServeResourceSitemap 资源中心文章 sitemap（/sitemap-resources.xml）
+func (h *Handler) ServeResourceSitemap(c *gin.Context) {
+	h.writeArticleSitemap(c, ResourceArticles, "/resources/", "monthly", "0.7")
+}
+
+// writeArticleSitemap 共用的博客/资源文章 sitemap 生成
+func (h *Handler) writeArticleSitemap(c *gin.Context, entries []ArticleEntry, pathPrefix, changefreq, priority string) {
+	base := baseURL()
+	var b strings.Builder
+	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
+	b.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` + "\n")
+	for _, e := range entries {
+		fmt.Fprintf(&b, "  <url>\n    <loc>%s%s%s</loc>\n    <lastmod>%s</lastmod>\n    <changefreq>%s</changefreq>\n    <priority>%s</priority>\n  </url>\n",
+			base, pathPrefix, e.Slug, e.LastMod, changefreq, priority)
 	}
 	b.WriteString(`</urlset>` + "\n")
 
@@ -223,6 +269,7 @@ func (h *Handler) ServePaperSitemap(c *gin.Context) {
 		return
 	}
 
+	base := baseURL()
 	var b strings.Builder
 	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
 	b.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` + "\n")
@@ -230,7 +277,7 @@ func (h *Handler) ServePaperSitemap(c *gin.Context) {
 		lastMod := e.UpdatedAt.UTC().Format(time.RFC3339)
 		priority := fmt.Sprintf("%.1f", e.Priority)
 		fmt.Fprintf(&b, "  <url>\n    <loc>%s/paper/%s</loc>\n    <lastmod>%s</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>%s</priority>\n  </url>\n",
-			baseURL, e.Slug, lastMod, priority)
+			base, e.Slug, lastMod, priority)
 	}
 	b.WriteString(`</urlset>` + "\n")
 
@@ -240,12 +287,29 @@ func (h *Handler) ServePaperSitemap(c *gin.Context) {
 }
 
 // ServeRobotsTxt 返回 robots.txt，声明 sitemap 入口
+// 索引文件 /sitemap.xml 会枚举所有子 sitemap，爬虫跟随即可
 func (h *Handler) ServeRobotsTxt(c *gin.Context) {
 	body := fmt.Sprintf(`User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /settings
+Disallow: /alipay-return
+Disallow: /wechat/callback
+Disallow: /github/callback
+Disallow: /apple/callback
+Disallow: /orcid/callback
+Disallow: /microsoft/callback
+Disallow: /discourse/callback
+Disallow: /api/
+
+User-agent: Baiduspider
+Crawl-delay: 2
+
+User-agent: Sogou web spider
+Crawl-delay: 2
 
 Sitemap: %s/sitemap.xml
-`, baseURL)
+`, baseURL())
 	c.Header("Content-Type", "text/plain; charset=utf-8")
 	c.Header("Cache-Control", "public, max-age=86400")
 	c.String(http.StatusOK, body)

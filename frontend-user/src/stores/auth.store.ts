@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { User } from '../types/user';
 import { userAPI } from '../services/user.api';
+import { peerReviewAPI } from '../services/payment.api';
 import { tokenCache } from '../services/client';
 import logger from '../utils/logger';
 
@@ -69,6 +70,23 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   login: (token, userData) => {
     get().setAuth(userData, token);
     _sessionCtrl?.start();
+
+    // 匿名→登录：批量认领此设备上产生的审稿任务
+    // 失败不阻塞登录流程（例如该设备从未有过匿名任务）
+    const anonToken = peerReviewAPI.getAnonToken();
+    if (anonToken) {
+      peerReviewAPI.claimAll(anonToken)
+        .then((resp: any) => {
+          if (resp.data?.code === 0) {
+            peerReviewAPI.clearAnonToken();
+            peerReviewAPI.clearAnonTasks();
+            logger.log('[Auth] Claimed anon peer-review tasks:', resp.data.data?.claimed_count);
+          }
+        })
+        .catch((err: unknown) => {
+          logger.error('[Auth] Failed to claim anon peer-review tasks:', err);
+        });
+    }
   },
 
   logout: async () => {

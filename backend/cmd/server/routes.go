@@ -160,9 +160,11 @@ func registerRoutes(router *gin.Engine, h *allHandlers, cfg *appconfig.Config) {
 		})
 	})
 
-	// SEO sitemap（基于 seo_papers 永久索引库）
+	// SEO sitemap（基于 seo_papers 永久索引库 + 前端静态内容索引）
 	router.GET("/sitemap.xml", h.seo.ServeSitemapIndex)
 	router.GET("/sitemap-static.xml", h.seo.ServeStaticSitemap)
+	router.GET("/sitemap-blogs.xml", h.seo.ServeBlogSitemap)
+	router.GET("/sitemap-resources.xml", h.seo.ServeResourceSitemap)
 	router.GET("/sitemap-papers-:page.xml", h.seo.ServePaperSitemap)
 	router.GET("/robots.txt", h.seo.ServeRobotsTxt)
 

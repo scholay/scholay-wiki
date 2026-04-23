@@ -1,9 +1,10 @@
 // ============================================================================
 // Slug 生成 —— 把论文标题 + paperId 压缩为 URL 安全的短字符串
 // 设计要点：
-//   1. 仅保留 ASCII [a-z0-9-]，非 ASCII 字符（如中文）直接丢弃（标题多为英文）
+//   1. 保留 Unicode 字母 + 数字（含中文），其它全部压成 "-"
+//      —— 浏览器/Google 会自动 percent-encode 中文字符，不影响抓取
 //   2. 保留 paperId 末 8 位哈希作为消歧后缀（防止同标题冲突）
-//   3. 长度上限 160（留给唯一后缀和路径前缀）
+//   3. 长度上限按 rune 数（maxSlugBaseRunes），避免 byte 切片截断 UTF-8 中间
 // ============================================================================
 
 package seo
@@ -11,8 +12,8 @@ package seo
 import (
 	"crypto/sha1"
 	"encoding/hex"
-	"regexp"
 	"strings"
+	"unicode"
 )
 
 // 论文来源常量。和 minicod.SourceSTC / SourceOLX 字面量一致，
@@ -31,12 +32,9 @@ func InferSource(paperID string) string {
 	return SourceSTC
 }
 
-const maxSlugBase = 120
-
-var (
-	reNonSlug = regexp.MustCompile(`[^a-z0-9]+`)
-	reMulti   = regexp.MustCompile(`-+`)
-)
+// slug base 的 rune 数上限。DB 列是 VARCHAR(200)，utf8mb4 下中文每字符 3~4 字节
+// 取 80 runes ≈ 最多 320 字节，给 `-` + 8 字符 hash 后缀留足余量。
+const maxSlugBaseRunes = 80
 
 // GenerateSlug 由 title + paperID 生成 URL slug（返回值保证全局稳定性：同输入同输出）
 // paperID 用作消歧后缀，保证即使标题相同也能区分。
@@ -49,17 +47,33 @@ func GenerateSlug(title, paperID string) string {
 	return base + "-" + suffix
 }
 
-// slugifyBase 把 title 转为 ascii slug，丢弃非 ascii，截断至 maxSlugBase
+// slugifyBase 把 title 转为 URL-safe slug（保留 Unicode 字母/数字，其它压 "-"）
 func slugifyBase(s string) string {
 	s = strings.ToLower(s)
-	s = reNonSlug.ReplaceAllString(s, "-")
-	s = reMulti.ReplaceAllString(s, "-")
-	s = strings.Trim(s, "-")
-	if len(s) > maxSlugBase {
-		s = s[:maxSlugBase]
-		s = strings.TrimRight(s, "-")
+
+	// 单次遍历：把非字母/数字字符折叠成 "-"，连续 "-" 合并
+	var b strings.Builder
+	b.Grow(len(s))
+	prevDash := true // 句首视为刚刚放过 dash，避免前导 "-"
+	runeCount := 0
+	for _, r := range s {
+		if runeCount >= maxSlugBaseRunes {
+			break
+		}
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			b.WriteRune(r)
+			prevDash = false
+			runeCount++
+			continue
+		}
+		if !prevDash {
+			b.WriteByte('-')
+			prevDash = true
+			runeCount++
+		}
 	}
-	return s
+
+	return strings.Trim(b.String(), "-")
 }
 
 // paperIDSuffix 从 paperId 里派生 8 字符稳定后缀（sha1 前 8 hex）

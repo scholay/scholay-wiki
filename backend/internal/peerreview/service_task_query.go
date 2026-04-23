@@ -650,10 +650,14 @@ func (s *Service) GetFileForDownload(userID uint, fileID uint, anonToken ...stri
 }
 
 // DeleteTask 删除任务（包括关联的文件）
-func (s *Service) DeleteTask(userID uint, taskID uint) error {
+// 登录用户按 user_id；匿名用户按 anon_token 校验归属
+func (s *Service) DeleteTask(userID uint, taskID uint, anonToken string) error {
 	var task PeerReviewTask
-	if err := s.db.Where("id = ? AND user_id = ?", taskID, userID).First(&task).Error; err != nil {
+	if err := s.db.First(&task, taskID).Error; err != nil {
 		return fmt.Errorf("任务不存在")
+	}
+	if !s.verifyTaskAccess(&task, userID, anonToken) {
+		return fmt.Errorf("无权删除此任务")
 	}
 
 	// 只允许删除草稿和失败状态的任务

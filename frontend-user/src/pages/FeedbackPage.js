@@ -11,13 +11,15 @@ import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Upload, File as FileIcon, Image as ImageIcon, Trash2, Loader2,
-  CheckCircle, ArrowLeft, MessageSquare, Send
+  CheckCircle, MessageSquare, Send,
 } from 'lucide-react';
 import api, { publicApi } from '../services/client';
 import { useAuth } from '../utils/AuthContext';
-import Logo from '../components/common/Logo';
 import SEO from '../components/common/SEO';
-import './styles/pr-editorial.css';
+import { FeatureNav } from './features/FeaturePageComponents';
+import './features/features-common.css';
+
+const ACCENT = '#8b5cf6';
 
 const MAX_FILES = 2;
 const MAX_IMAGES = 10;
@@ -163,7 +165,7 @@ const FeedbackPage = () => {
   };
 
   return (
-    <div className="pe-page">
+    <div className="feat-page">
       <SEO
         title="意见反馈 - Scholay | 帮助我们改进"
         description="向 Scholay 团队提交您的反馈意见、功能建议或问题报告，帮助我们持续改进学术搜索服务。"
@@ -171,38 +173,30 @@ const FeedbackPage = () => {
         canonical="/feedback"
       />
 
-      <div className="pe-topbar">
-        <div className="pe-topbar-inner">
-          <button className="pe-back" onClick={() => navigate(-1)}>
-            <ArrowLeft size={16} />
-            <span>返回</span>
-          </button>
-          <button className="pe-brand" onClick={() => navigate('/')} aria-label="Scholay 首页">
-            <Logo size={26} />
-            <span>Scholay</span>
-          </button>
-        </div>
-      </div>
+      <FeatureNav ctaText="返回首页" ctaTo="/" accentColor={ACCENT} />
 
-      <section className="pe-hero pe-hero-sm">
-        <div className="pe-hero-bg" />
-        <div className="pe-container-sm">
-          <span className="pe-hero-eyebrow">
-            <MessageSquare size={12} />
-            <span>Feedback</span>
-          </span>
-          <h1>意见反馈</h1>
-          <p className="pe-hero-lead">
-            您的每一条反馈都会被认真阅读和处理——这是我们持续改进 Scholay 最重要的动力。
-          </p>
-        </div>
+      {/* Hero */}
+      <section className="feat-hero">
+        <span className="feat-hero-pill">
+          <MessageSquare size={12} />
+          <span>Feedback</span>
+        </span>
+        <h1>
+          您的反馈 <span style={{ background: 'linear-gradient(120deg, #8b5cf6, #06b6d4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>驱动改进</span>
+        </h1>
+        <p className="feat-hero-sub">
+          您的每一条反馈都会被认真阅读和处理——这是我们持续改进 Scholay 最重要的动力。
+        </p>
       </section>
 
-      {/* 反馈说明 */}
-      <section className="pe-section">
-        <div className="pe-container-sm">
-          <div className="pe-info">
-            <h2>我们如何处理您的反馈</h2>
+      <div className="feat-main">
+        {/* 反馈说明 */}
+        <section className="feat-section">
+          <div className="feat-section-header-center">
+            <span className="feat-section-eyebrow" style={{ color: ACCENT }}>HOW WE HANDLE IT</span>
+            <h2 className="feat-section-title">我们如何处理您的反馈</h2>
+          </div>
+          <div className="feat-info" style={{ maxWidth: 760, margin: '0 auto' }}>
             <p>
               Scholay 团队非常重视每一位用户的意见和建议。提交反馈后，我们会在 1–3 个工作日内通过邮件回复您。
               如果您的建议被采纳，我们会在后续版本更新中致谢；对于 Bug 报告，修复后我们会通知您确认问题已解决。
@@ -216,190 +210,199 @@ const FeedbackPage = () => {
             </ul>
             <p>
               您也可以直接发送邮件至 <a href="mailto:support@scholay.com">support@scholay.com</a>，
-              或访问 <button className="pe-link" onClick={() => navigate('/contact')}>联系我们</button> 页面了解更多方式。
+              或访问 <button className="feat-link" onClick={() => navigate('/contact')}>联系我们</button> 页面了解更多方式。
             </p>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* 表单 */}
-      <section className="pe-section pe-section-alt">
-        <div className="pe-container-sm">
-          {submitted ? (
-            <div className="pe-success">
-              <CheckCircle size={48} className="pe-success-icon" />
-              <h3>感谢您的反馈！</h3>
-              <p>我们已收到您的意见，会尽快处理并通过邮件回复您。</p>
-              <button className="pe-btn pe-btn-primary" onClick={() => navigate('/')}>
-                返回首页
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="pe-form">
-              <div className="pe-field">
-                <label htmlFor="feedback-email">
-                  邮箱地址<span className="pe-required">*</span>
-                </label>
-                <input
-                  id="feedback-email"
-                  className="pe-input"
-                  type="email"
-                  placeholder="请输入您的邮箱，我们会通过邮件回复您"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  disabled={submitting}
-                />
+        {/* 表单 */}
+        <section className="feat-section">
+          <div className="feat-section-header-center">
+            <span className="feat-section-eyebrow" style={{ color: ACCENT }}>SUBMIT FEEDBACK</span>
+            <h2 className="feat-section-title">提交反馈</h2>
+          </div>
+          <div style={{ maxWidth: 680, margin: '0 auto' }}>
+            {submitted ? (
+              <div className="feat-success">
+                <CheckCircle size={48} className="feat-success-icon" />
+                <h3>感谢您的反馈！</h3>
+                <p>我们已收到您的意见，会尽快处理并通过邮件回复您。</p>
+                <button
+                  className="feat-btn-primary"
+                  onClick={() => navigate('/')}
+                  style={{ background: `linear-gradient(120deg, ${ACCENT} 0%, #6b46c1 100%)`, boxShadow: `0 10px 30px ${ACCENT}55` }}
+                >
+                  返回首页
+                </button>
               </div>
-
-              <div className="pe-field">
-                <label htmlFor="feedback-content">
-                  反馈内容<span className="pe-required">*</span>
-                </label>
-                <textarea
-                  id="feedback-content"
-                  className="pe-textarea"
-                  placeholder="请详细描述您的问题或建议（至少 10 个字符）"
-                  value={content}
-                  onChange={e => setContent(e.target.value)}
-                  rows={8}
-                  maxLength={5000}
-                  disabled={submitting}
-                />
-                <div className="pe-field-char">{content.length}/5000</div>
-              </div>
-
-              <div className="pe-field">
-                <label>附件（可选）</label>
-
-                <div className="pe-upload-group">
-                  <div className="pe-upload-head">
-                    <FileIcon size={16} />
-                    <span>文件（最多 {MAX_FILES} 个，每个不超过 10MB）</span>
-                  </div>
-                  <div className="pe-upload-list">
-                    {files.map((file, idx) => (
-                      <div key={idx} className="pe-upload-item">
-                        <FileIcon size={14} />
-                        <span className="pe-upload-item-name">{file.name}</span>
-                        <button
-                          type="button"
-                          className="pe-upload-remove"
-                          onClick={() => removeFile(idx, 'file')}
-                          disabled={submitting}
-                          aria-label="移除文件"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  {files.length < MAX_FILES && (
-                    <button
-                      type="button"
-                      className="pe-upload-add"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploading || submitting}
-                    >
-                      {uploading ? <Loader2 size={14} className="pe-spin" /> : <Upload size={14} />}
-                      <span>上传文件</span>
-                    </button>
-                  )}
+            ) : (
+              <form onSubmit={handleSubmit} className="feat-form">
+                <div className="feat-field">
+                  <label htmlFor="feedback-email">
+                    邮箱地址<span className="feat-required">*</span>
+                  </label>
                   <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    accept=".pdf,.doc,.docx,.txt,.zip,.rar"
-                    onChange={e => handleFileChange(e, 'file')}
-                    style={{ display: 'none' }}
+                    id="feedback-email"
+                    className="feat-input"
+                    type="email"
+                    placeholder="请输入您的邮箱，我们会通过邮件回复您"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    disabled={submitting}
                   />
                 </div>
 
-                <div className="pe-upload-group" style={{ marginTop: 10 }}>
-                  <div className="pe-upload-head">
-                    <ImageIcon size={16} />
-                    <span>图片（最多 {MAX_IMAGES} 张，每张不超过 10MB）</span>
-                  </div>
-                  <div className="pe-upload-images">
-                    {images.map((img, idx) => (
-                      <div key={idx} className="pe-upload-image">
-                        <img src={img.url} alt={img.name} loading="lazy" />
-                        <button
-                          type="button"
-                          className="pe-upload-image-rm"
-                          onClick={() => removeFile(idx, 'image')}
-                          disabled={submitting}
-                          aria-label="移除图片"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    ))}
-                    {images.length < MAX_IMAGES && (
+                <div className="feat-field">
+                  <label htmlFor="feedback-content">
+                    反馈内容<span className="feat-required">*</span>
+                  </label>
+                  <textarea
+                    id="feedback-content"
+                    className="feat-textarea"
+                    placeholder="请详细描述您的问题或建议（至少 10 个字符）"
+                    value={content}
+                    onChange={e => setContent(e.target.value)}
+                    rows={8}
+                    maxLength={5000}
+                    disabled={submitting}
+                  />
+                  <div className="feat-field-char">{content.length}/5000</div>
+                </div>
+
+                <div className="feat-field">
+                  <label>附件（可选）</label>
+
+                  <div className="feat-upload-group">
+                    <div className="feat-upload-head">
+                      <FileIcon size={16} />
+                      <span>文件（最多 {MAX_FILES} 个，每个不超过 10MB）</span>
+                    </div>
+                    <div className="feat-upload-list">
+                      {files.map((file, idx) => (
+                        <div key={idx} className="feat-upload-item">
+                          <FileIcon size={14} />
+                          <span className="feat-upload-item-name">{file.name}</span>
+                          <button
+                            type="button"
+                            className="feat-upload-remove"
+                            onClick={() => removeFile(idx, 'file')}
+                            disabled={submitting}
+                            aria-label="移除文件"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    {files.length < MAX_FILES && (
                       <button
                         type="button"
-                        className="pe-upload-image-add"
-                        onClick={() => imageInputRef.current?.click()}
+                        className="feat-upload-add"
+                        onClick={() => fileInputRef.current?.click()}
                         disabled={uploading || submitting}
-                        aria-label="添加图片"
                       >
-                        {uploading ? <Loader2 size={22} className="pe-spin" /> : <Upload size={22} />}
+                        {uploading ? <Loader2 size={14} className="feat-spin" /> : <Upload size={14} />}
+                        <span>上传文件</span>
                       </button>
                     )}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      accept=".pdf,.doc,.docx,.txt,.zip,.rar"
+                      onChange={e => handleFileChange(e, 'file')}
+                      style={{ display: 'none' }}
+                    />
                   </div>
-                  <input
-                    ref={imageInputRef}
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={e => handleFileChange(e, 'image')}
-                    style={{ display: 'none' }}
-                  />
+
+                  <div className="feat-upload-group" style={{ marginTop: 12 }}>
+                    <div className="feat-upload-head">
+                      <ImageIcon size={16} />
+                      <span>图片（最多 {MAX_IMAGES} 张，每张不超过 10MB）</span>
+                    </div>
+                    <div className="feat-upload-images">
+                      {images.map((img, idx) => (
+                        <div key={idx} className="feat-upload-image">
+                          <img src={img.url} alt={img.name} loading="lazy" />
+                          <button
+                            type="button"
+                            className="feat-upload-image-rm"
+                            onClick={() => removeFile(idx, 'image')}
+                            disabled={submitting}
+                            aria-label="移除图片"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      ))}
+                      {images.length < MAX_IMAGES && (
+                        <button
+                          type="button"
+                          className="feat-upload-image-add"
+                          onClick={() => imageInputRef.current?.click()}
+                          disabled={uploading || submitting}
+                          aria-label="添加图片"
+                        >
+                          {uploading ? <Loader2 size={22} className="feat-spin" /> : <Upload size={22} />}
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={e => handleFileChange(e, 'image')}
+                      style={{ display: 'none' }}
+                    />
+                  </div>
                 </div>
-              </div>
 
-              {error && <p className="pe-field-error">{error}</p>}
+                {error && <p className="feat-field-error">{error}</p>}
 
-              {isAuthenticated && (
-                <p className="pe-form-note">
-                  已登录用户提交的反馈会关联您的账号信息，方便我们更精准地协助您。
-                </p>
-              )}
+                {isAuthenticated && (
+                  <p className="feat-form-note">
+                    已登录用户提交的反馈会关联您的账号信息，方便我们更精准地协助您。
+                  </p>
+                )}
 
-              <div className="pe-form-actions">
-                <button
-                  type="button"
-                  className="pe-btn pe-btn-ghost"
-                  onClick={() => navigate(-1)}
-                  disabled={submitting}
-                >
-                  取消
-                </button>
-                <button
-                  type="submit"
-                  className="pe-btn pe-btn-primary pe-btn-lg"
-                  disabled={submitting || uploading}
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 size={16} className="pe-spin" />
-                      <span>提交中...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Send size={16} />
-                      <span>提交反馈</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
-      </section>
+                <div className="feat-form-actions">
+                  <button
+                    type="button"
+                    className="feat-btn-secondary"
+                    onClick={() => navigate(-1)}
+                    disabled={submitting}
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="submit"
+                    className="feat-btn-primary"
+                    disabled={submitting || uploading}
+                    style={{ background: `linear-gradient(120deg, ${ACCENT} 0%, #6b46c1 100%)`, boxShadow: `0 10px 30px ${ACCENT}55` }}
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 size={16} className="feat-spin" />
+                        <span>提交中...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send size={16} />
+                        <span>提交反馈</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </section>
+      </div>
 
-      <div className="pe-page-end">
+      <div className="feat-page-end">
         <p>© {new Date().getFullYear()} Scholay</p>
-        <div className="pe-page-end-links">
+        <div className="feat-page-end-links">
           <button onClick={() => navigate('/about')}>关于我们</button>
           <button onClick={() => navigate('/privacy')}>隐私政策</button>
           <button onClick={() => navigate('/terms')}>服务条款</button>

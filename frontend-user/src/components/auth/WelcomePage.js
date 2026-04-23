@@ -21,12 +21,15 @@ const WelcomePage = ({
 }) => {
   const {
     handleGithubLogin, handleAppleLogin, handleOrcidLogin,
-    handleMicrosoftLogin, handleDiscourseLogin,
+    handleMicrosoftLogin, handleDiscourseLogin, loadingProvider,
   } = useOAuthHandlers(showError);
 
   const discourse = getProvider('discourse');
   const phone = getProvider('phone');
   const wechat = getProvider('wechat');
+
+  // 任一 OAuth provider 正在加载 → 禁用其他所有按钮防止并发跳转
+  const anyOAuthLoading = loadingProvider !== null;
 
   // OAuth 图标行：Google 单独渲染（走 GoogleSignIn 组件），其他按配置过滤
   const oauthIconProviders = [
@@ -50,14 +53,19 @@ const WelcomePage = ({
         {showDiscourse && (
           <div className="auth-social-buttons auth-social-recommended">
             <button
-              className="auth-social-button auth-discourse-button auth-recommended-button"
+              className={`auth-social-button auth-discourse-button auth-recommended-button ${loadingProvider === 'discourse' ? 'is-loading' : ''}`}
               onClick={handleDiscourseLogin}
+              disabled={anyOAuthLoading}
             >
               <span className="auth-recommended-badge">推荐</span>
               <span className="auth-primary-logo auth-discourse-logo-frame">
-                <discourse.Icon size={20} />
+                {loadingProvider === 'discourse' ? (
+                  <span className="auth-btn-spinner" aria-hidden="true" />
+                ) : (
+                  <discourse.Icon size={20} />
+                )}
               </span>
-              <span>{discourse.name}</span>
+              <span>{loadingProvider === 'discourse' ? '跳转到恩特学术…' : discourse.name}</span>
             </button>
           </div>
         )}
@@ -66,6 +74,7 @@ const WelcomePage = ({
           <button
             className="auth-social-button"
             onClick={() => { clearInputs(); setMode('phone-welcome'); }}
+            disabled={anyOAuthLoading}
           >
             <span className="auth-primary-logo">
               <phone.Icon size={22} />
@@ -75,6 +84,7 @@ const WelcomePage = ({
           <button
             className="auth-social-button auth-wechat-button"
             onClick={onWeChatLogin}
+            disabled={anyOAuthLoading}
           >
             <span className="auth-primary-logo">
               <wechat.Icon size={22} />
@@ -108,15 +118,21 @@ const WelcomePage = ({
               )}
               {oauthIconProviders.map(({ id, onClick }) => {
                 const p = getProvider(id);
+                const isLoading = loadingProvider === id;
                 return (
                   <button
                     key={id}
                     type="button"
-                    className={`auth-social-icon auth-social-icon-${id}`}
+                    className={`auth-social-icon auth-social-icon-${id} ${isLoading ? 'is-loading' : ''}`}
                     aria-label={`${p.name} 登录`}
                     onClick={onClick}
+                    disabled={anyOAuthLoading}
                   >
-                    <p.Icon size={16} />
+                    {isLoading ? (
+                      <span className="auth-btn-spinner auth-btn-spinner--sm" aria-hidden="true" />
+                    ) : (
+                      <p.Icon size={16} />
+                    )}
                     <span className="auth-social-icon-label">{p.name}登录</span>
                   </button>
                 );

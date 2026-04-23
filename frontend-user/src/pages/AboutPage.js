@@ -10,35 +10,22 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, BookOpen, Sparkles, Shield, Globe, Mail,
-  Users, Target, Lightbulb, Award, ChevronDown, MapPin, Clock
+  BookOpen, Sparkles, Shield, Globe, Mail,
+  Users, Target, Lightbulb, Award, ChevronDown, MapPin, Clock,
 } from 'lucide-react';
-import Logo from '../components/common/Logo';
 import SEO from '../components/common/SEO';
 import { generateFAQSchema } from '../utils/seoHelpers';
-import './styles/pr-editorial.css';
+import { FeatureNav } from './features/FeaturePageComponents';
+import './features/features-common.css';
+
+const ACCENT = '#8b5cf6';
 
 const faqData = [
-  {
-    question: '什么是 Scholay 学术搜索平台？',
-    answer: 'Scholay 是一个 AI 驱动的学术搜索平台，提供智能文献检索、论文分析、引用图谱可视化等功能，帮助研究人员快速找到高质量学术资源。'
-  },
-  {
-    question: 'Scholay 支持哪些搜索模式？',
-    answer: 'Scholay 支持学术检索和智能分析两种模式。学术检索可以快速检索论文标题、作者和关键词；智能分析使用 AI 理解并解析您的研究需求，提供更精准的结果。'
-  },
-  {
-    question: 'Scholay 的数据来源是什么？',
-    answer: 'Scholay 的学术数据来自互联网公开数据，覆盖计算机科学、生物医学等多个学科领域的学术论文。'
-  },
-  {
-    question: 'Scholay 是免费的吗？',
-    answer: '是的，Scholay 提供免费的基础功能，包括学术检索、论文详情查看等。高级功能如智能分析、智能审稿等可能需要订阅会员。'
-  },
-  {
-    question: '如何使用智能助手功能？',
-    answer: '登录后，点击首页的"智能助手"卡片即可进入。您可以向 AI 提问任何学术相关问题，它会基于学术文献为您提供专业解答。'
-  }
+  { question: '什么是 Scholay 学术搜索平台？', answer: 'Scholay 是一个 AI 驱动的学术搜索平台，提供智能文献检索、论文分析、引用图谱可视化等功能，帮助研究人员快速找到高质量学术资源。' },
+  { question: 'Scholay 支持哪些搜索模式？', answer: 'Scholay 支持学术检索和智能分析两种模式。学术检索可以快速检索论文标题、作者和关键词；智能分析使用 AI 理解并解析您的研究需求，提供更精准的结果。' },
+  { question: 'Scholay 的数据来源是什么？', answer: 'Scholay 的学术数据来自互联网公开数据，覆盖计算机科学、生物医学等多个学科领域的学术论文。' },
+  { question: 'Scholay 是免费的吗？', answer: '是的，Scholay 提供免费的基础功能，包括学术检索、论文详情查看等。高级功能如智能分析、智能审稿等可能需要订阅会员。' },
+  { question: '如何使用智能助手功能？', answer: '登录后，点击首页的"智能助手"卡片即可进入。您可以向 AI 提问任何学术相关问题，它会基于学术文献为您提供专业解答。' },
 ];
 
 const missionCards = [
@@ -80,7 +67,7 @@ const AboutPage = () => {
   const [expandedFaq, setExpandedFaq] = useState(null);
 
   return (
-    <div className="pe-page">
+    <div className="feat-page">
       <SEO
         title="关于我们 - Scholay | AI驱动的学术搜索平台"
         description="了解 Scholay 的使命、团队和发展历程。Scholay 致力于通过 AI 技术提升学术研究效率。"
@@ -89,150 +76,116 @@ const AboutPage = () => {
         structuredData={generateFAQSchema(faqData)}
       />
 
-      <div className="pe-topbar">
-        <div className="pe-topbar-inner">
-          <button className="pe-back" onClick={() => navigate(-1)}>
-            <ArrowLeft size={16} />
-            <span>返回</span>
-          </button>
-          <button className="pe-brand" onClick={() => navigate('/')} aria-label="Scholay 首页">
-            <Logo size={26} />
-            <span>Scholay</span>
-          </button>
-        </div>
-      </div>
+      <FeatureNav ctaText="开始使用" ctaTo="/" accentColor={ACCENT} />
 
       {/* Hero */}
-      <section className="pe-hero">
-        <div className="pe-hero-bg" />
-        <div className="pe-hero-grid" />
-        <div className="pe-container">
-          <span className="pe-hero-eyebrow">
-            <Sparkles size={12} />
-            <span>About Scholay</span>
-          </span>
-          <h1>
-            让学术研究 <span className="pe-hero-grad">更简单、更智能</span>
-          </h1>
-          <p className="pe-hero-lead">
-            Scholay 是一个 AI 驱动的学术研究助手，整合海量文献数据与前沿语言模型，
-            帮助研究者、学生与学者高效地发现、理解与利用学术资源。
-          </p>
-        </div>
+      <section className="feat-hero">
+        <span className="feat-hero-pill">
+          <Sparkles size={12} />
+          <span>About Scholay</span>
+        </span>
+        <h1>
+          让学术研究 <span style={{ background: 'linear-gradient(120deg, #8b5cf6, #06b6d4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>更简单、更智能</span>
+        </h1>
+        <p className="feat-hero-sub">
+          Scholay 是一个 AI 驱动的学术研究助手，整合海量文献数据与前沿语言模型，
+          帮助研究者、学生与学者高效地发现、理解与利用学术资源。
+        </p>
       </section>
 
-      {/* 关于我们 */}
-      <section className="pe-section">
-        <div className="pe-container">
-          <div className="pe-section-head">
-            <div className="pe-section-eyebrow">关于我们</div>
-            <h2>用 AI 重新定义学术信息获取</h2>
-            <p>
-              我们相信获取知识不应有障碍。通过结合先进的人工智能技术与海量学术数据库，
-              Scholay 为全球研究者提供了一个强大而直观的学术搜索体验。
-              Scholay 团队面向全球学术社区服务。
-            </p>
+      <div className="feat-main">
+        {/* 使命 */}
+        <section className="feat-section">
+          <div className="feat-section-header-center">
+            <span className="feat-section-eyebrow" style={{ color: ACCENT }}>OUR MISSION</span>
+            <h2 className="feat-section-title">让每一次检索，都接近真相</h2>
+            <p className="feat-section-desc">以技术与同理心并重，服务学术研究的每一个环节。</p>
           </div>
-        </div>
-      </section>
-
-      {/* 使命 */}
-      <section className="pe-section pe-section-alt">
-        <div className="pe-container">
-          <div className="pe-section-head-center">
-            <div className="pe-section-eyebrow">我们的使命</div>
-            <h2>让每一次检索，都接近真相</h2>
-            <p>以技术与同理心并重，服务学术研究的每一个环节。</p>
-          </div>
-          <div className="pe-grid pe-grid-4">
+          <div className="feat-grid feat-grid-4">
             {missionCards.map(({ icon: Icon, title, text }) => (
-              <div key={title} className="pe-card pe-card-hover">
-                <div className="pe-card-icon"><Icon size={22} /></div>
+              <div key={title} className="feat-card">
+                <div className="feat-card-icon" style={{ background: 'rgba(139, 92, 246, 0.14)', color: ACCENT }}>
+                  <Icon size={22} />
+                </div>
                 <h3>{title}</h3>
                 <p>{text}</p>
               </div>
             ))}
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* 核心功能 */}
-      <section className="pe-section">
-        <div className="pe-container">
-          <div className="pe-section-head-center">
-            <div className="pe-section-eyebrow">Features</div>
-            <h2>覆盖研究全流程的能力</h2>
-            <p>从文献发现到深度解读，再到协作与写作，Scholay 提供一体化的工具链。</p>
+        {/* 核心功能 */}
+        <section className="feat-section">
+          <div className="feat-section-header-center">
+            <span className="feat-section-eyebrow" style={{ color: ACCENT }}>FEATURES</span>
+            <h2 className="feat-section-title">覆盖研究全流程的能力</h2>
+            <p className="feat-section-desc">从文献发现到深度解读，再到协作与写作，Scholay 提供一体化的工具链。</p>
           </div>
-          <div className="pe-grid pe-grid-4">
+          <div className="feat-grid feat-grid-4">
             {featureCards.map(({ icon: Icon, title, text }) => (
-              <div key={title} className="pe-card pe-card-hover">
-                <div className="pe-card-icon"><Icon size={22} /></div>
+              <div key={title} className="feat-card">
+                <div className="feat-card-icon" style={{ background: 'rgba(6, 182, 212, 0.14)', color: '#06b6d4' }}>
+                  <Icon size={22} />
+                </div>
                 <h3>{title}</h3>
                 <p>{text}</p>
               </div>
             ))}
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* 平台数据 */}
-      <section className="pe-section pe-section-alt">
-        <div className="pe-container">
-          <div className="pe-section-head-center">
-            <div className="pe-section-eyebrow">Platform</div>
-            <h2>平台数据</h2>
+        {/* 平台数据 */}
+        <section className="feat-section">
+          <div className="feat-section-header-center">
+            <span className="feat-section-eyebrow" style={{ color: ACCENT }}>PLATFORM</span>
+            <h2 className="feat-section-title">平台数据</h2>
           </div>
-          <div className="pe-stats">
-            <div className="pe-stat">
-              <span className="pe-stat-num">200M+</span>
-              <span className="pe-stat-label">学术论文覆盖</span>
+          <div className="feat-stats">
+            <div className="feat-stat">
+              <span className="feat-stat-num">200M+</span>
+              <span className="feat-stat-label">学术论文覆盖</span>
             </div>
-            <div className="pe-stat">
-              <span className="pe-stat-num">19</span>
-              <span className="pe-stat-label">学科领域</span>
+            <div className="feat-stat">
+              <span className="feat-stat-num">19</span>
+              <span className="feat-stat-label">学科领域</span>
             </div>
-            <div className="pe-stat">
-              <span className="pe-stat-num">5</span>
-              <span className="pe-stat-label">AI 工具模块</span>
+            <div className="feat-stat">
+              <span className="feat-stat-num">5</span>
+              <span className="feat-stat-label">AI 工具模块</span>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* 核心团队 */}
-      <section className="pe-section">
-        <div className="pe-container">
-          <div className="pe-section-head-center">
-            <div className="pe-section-eyebrow">Team</div>
-            <h2>核心团队</h2>
-            <p>兼具技术深度与学术行业理解的跨学科团队。</p>
+        {/* 核心团队 */}
+        <section className="feat-section">
+          <div className="feat-section-header-center">
+            <span className="feat-section-eyebrow" style={{ color: ACCENT }}>TEAM</span>
+            <h2 className="feat-section-title">核心团队</h2>
+            <p className="feat-section-desc">兼具技术深度与学术行业理解的跨学科团队。</p>
           </div>
-          <div className="pe-team-grid">
+          <div className="feat-grid feat-grid-4">
             {teamCards.map(({ initial, name, role, bio }) => (
-              <div key={name} className="pe-team-card">
-                <div className="pe-team-avatar">{initial}</div>
-                <h4>{name}</h4>
-                <p className="pe-team-role">{role}</p>
-                <p className="pe-team-bio">{bio}</p>
+              <div key={name} className="feat-team-card">
+                <div className="feat-team-avatar">{initial}</div>
+                <h4 className="feat-team-name">{name}</h4>
+                <p className="feat-team-role">{role}</p>
+                <p className="feat-team-bio">{bio}</p>
               </div>
             ))}
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* 适用人群 */}
-      <section className="pe-section pe-section-alt">
-        <div className="pe-container">
-          <div className="pe-section-head-center">
-            <div className="pe-section-eyebrow">For Whom</div>
-            <h2>适用人群</h2>
-            <p>不同角色的研究者，都能在 Scholay 找到适合的工作方式。</p>
+        {/* 适用人群 */}
+        <section className="feat-section">
+          <div className="feat-section-header-center">
+            <span className="feat-section-eyebrow" style={{ color: ACCENT }}>FOR WHOM</span>
+            <h2 className="feat-section-title">适用人群</h2>
+            <p className="feat-section-desc">不同角色的研究者，都能在 Scholay 找到适合的工作方式。</p>
           </div>
-          <div className="pe-users-grid">
+          <div className="feat-grid feat-grid-4">
             {userCards.map(({ emoji, title, desc }) => (
-              <div key={title} className="pe-user-card">
-                <span className="pe-user-emoji">{emoji}</span>
+              <div key={title} className="feat-user-card">
+                <span className="feat-user-emoji">{emoji}</span>
                 <div>
                   <strong>{title}</strong>
                   <span>{desc}</span>
@@ -240,53 +193,49 @@ const AboutPage = () => {
               </div>
             ))}
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* 用户评价 */}
-      <section className="pe-section">
-        <div className="pe-container">
-          <div className="pe-section-head-center">
-            <div className="pe-section-eyebrow">Voices</div>
-            <h2>来自研究者的反馈</h2>
+        {/* 用户评价 */}
+        <section className="feat-section">
+          <div className="feat-section-header-center">
+            <span className="feat-section-eyebrow" style={{ color: ACCENT }}>VOICES</span>
+            <h2 className="feat-section-title">来自研究者的反馈</h2>
           </div>
-          <div className="pe-grid pe-grid-3">
+          <div className="feat-grid feat-grid-3">
             {testimonials.map(({ quote, name, role }) => (
-              <div key={name} className="pe-quote-card">
+              <div key={name} className="feat-quote-card">
                 <p>{quote}</p>
-                <div className="pe-quote-meta">
+                <div className="feat-quote-meta">
                   <strong>{name}</strong>
                   <span>{role}</span>
                 </div>
               </div>
             ))}
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* FAQ */}
-      <section className="pe-section pe-section-alt">
-        <div className="pe-container-sm">
-          <div className="pe-section-head-center">
-            <div className="pe-section-eyebrow">FAQ</div>
-            <h2>常见问题</h2>
+        {/* FAQ */}
+        <section className="feat-section">
+          <div className="feat-section-header-center">
+            <span className="feat-section-eyebrow" style={{ color: ACCENT }}>FAQ</span>
+            <h2 className="feat-section-title">常见问题</h2>
           </div>
-          <div className="pe-faq">
+          <div className="feat-faq" style={{ maxWidth: 760, margin: '0 auto' }}>
             {faqData.map((faq, index) => {
               const open = expandedFaq === index;
               return (
-                <div key={index} className={`pe-faq-item ${open ? 'open' : ''}`}>
+                <div key={index} className={`feat-faq-item ${open ? 'open' : ''}`}>
                   <button
-                    className="pe-faq-trigger"
+                    className="feat-faq-trigger"
                     onClick={() => setExpandedFaq(open ? null : index)}
                     aria-expanded={open}
                   >
-                    <span className="pe-faq-num">{String(index + 1).padStart(2, '0')}</span>
-                    <span className="pe-faq-q">{faq.question}</span>
-                    <ChevronDown className="pe-faq-chev" size={18} />
+                    <span className="feat-faq-num">{String(index + 1).padStart(2, '0')}</span>
+                    <span className="feat-faq-q">{faq.question}</span>
+                    <ChevronDown className="feat-faq-chev" size={18} />
                   </button>
-                  <div className="pe-faq-panel">
-                    <div className="pe-faq-panel-inner">
+                  <div className="feat-faq-panel">
+                    <div className="feat-faq-panel-inner">
                       <p>{faq.answer}</p>
                     </div>
                   </div>
@@ -294,43 +243,41 @@ const AboutPage = () => {
               );
             })}
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* 联系我们 */}
-      <section className="pe-section">
-        <div className="pe-container">
-          <div className="pe-section-head-center">
-            <div className="pe-section-eyebrow">Contact</div>
-            <h2>联系我们</h2>
-            <p>无论是技术支持、功能建议还是商务合作，我们都期待听到您的声音。</p>
+        {/* 联系我们 */}
+        <section className="feat-section">
+          <div className="feat-section-header-center">
+            <span className="feat-section-eyebrow" style={{ color: ACCENT }}>CONTACT</span>
+            <h2 className="feat-section-title">联系我们</h2>
+            <p className="feat-section-desc">无论是技术支持、功能建议还是商务合作，我们都期待听到您的声音。</p>
           </div>
-          <div className="pe-contact-cards">
-            <div className="pe-contact-card">
-              <div className="pe-contact-card-icon"><Mail size={18} /></div>
+          <div className="feat-grid feat-grid-3">
+            <div className="feat-contact-card">
+              <div className="feat-card-icon"><Mail size={18} /></div>
               <h3>邮箱</h3>
               <a href="mailto:support@scholay.com">support@scholay.com</a>
-              <span className="pe-contact-card-sub">工作日 24 小时内回复</span>
+              <span className="feat-contact-sub">工作日 24 小时内回复</span>
             </div>
-            <div className="pe-contact-card">
-              <div className="pe-contact-card-icon"><MapPin size={18} /></div>
+            <div className="feat-contact-card">
+              <div className="feat-card-icon"><MapPin size={18} /></div>
               <h3>地址</h3>
               <p>成都市高新区</p>
-              <span className="pe-contact-card-sub">Scholay 团队</span>
+              <span className="feat-contact-sub">Scholay 团队</span>
             </div>
-            <div className="pe-contact-card">
-              <div className="pe-contact-card-icon"><Clock size={18} /></div>
+            <div className="feat-contact-card">
+              <div className="feat-card-icon"><Clock size={18} /></div>
               <h3>工作时间</h3>
               <p>周一至周五 9:00 – 18:00</p>
-              <span className="pe-contact-card-sub">节假日响应可能延后</span>
+              <span className="feat-contact-sub">节假日响应可能延后</span>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
 
-      <div className="pe-page-end">
+      <div className="feat-page-end">
         <p>© {new Date().getFullYear()} Scholay</p>
-        <div className="pe-page-end-links">
+        <div className="feat-page-end-links">
           <button onClick={() => navigate('/privacy')}>隐私政策</button>
           <button onClick={() => navigate('/terms')}>服务条款</button>
           <button onClick={() => navigate('/disclaimer')}>免责声明</button>

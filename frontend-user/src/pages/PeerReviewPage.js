@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { flushSync } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { peerReviewAPI } from '../services/payment.api';
@@ -49,9 +50,13 @@ export default function PeerReviewPage() {
   
   // 登录弹窗状态
   const [showAuthModal, setShowAuthModal] = useState(false);
-  
+
   // 打开登录弹窗
   const openLoginModal = () => setShowAuthModal(true);
+
+  // 匿名试用状态（未登录用户首次访问有 1 次免费机会）
+  // null = 尚未查询 / 登录用户；对象包含 { can_trial, consumed_at, already_claimed, reason }
+  const [trialStatus, setTrialStatus] = useState(null);
 
   // 进入页面时清空侧边栏历史记录
   useEffect(() => {
@@ -85,6 +90,92 @@ export default function PeerReviewPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [draftLoading, setDraftLoading] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false); // 隐私模式
+  // 隐私模式切换过渡 —— 记录点击坐标作为圆形水波扩散原点
+  const [privacyTransition, setPrivacyTransition] = useState(null); // { x, y, radius, targetMode, id }
+
+  // 隐私模式：在 body 上加 class，让 CSS 变量覆盖范围扩大到整个文档（含顶部导航栏、侧边栏）
+  // 组件卸载（路由切走）时自动清理，避免其他页面也变黑
+  useEffect(() => {
+    if (isPrivate) {
+      document.body.classList.add('prv-incognito-active');
+    } else {
+      document.body.classList.remove('prv-incognito-active');
+    }
+    return () => {
+      document.body.classList.remove('prv-incognito-active');
+    };
+  }, [isPrivate]);
+
+  // 切换隐私模式 + 触发圆形水波扩散动画
+  // 从点击按钮的中心作为水波原点，扩散覆盖全屏
+  const togglePrivacyWithRipple = (e) => {
+    const rect = e?.currentTarget?.getBoundingClientRect?.();
+    const x = rect ? rect.left + rect.width / 2 : window.innerWidth - 80;
+    const y = rect ? rect.top + rect.height / 2 : 60;
+    const targetMode = !isPrivate;
+
+    // 覆盖全屏需要的半径 = 原点到四个角的最大距离 + 余量
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const maxDx = Math.max(x, w - x);
+    const maxDy = Math.max(y, h - y);
+    const radius = Math.ceil(Math.hypot(maxDx, maxDy)) + 80;
+
+    // 动画启动 → 180ms 后切状态 → 700ms 后清理覆盖层
+    setPrivacyTransition({ x, y, radius, targetMode, id: Date.now() });
+    setTimeout(() => setIsPrivate(targetMode), 180);
+    setTimeout(() => setPrivacyTransition(null), 700);
+  };
+
+  // 退出隐私模式 —— 包装了"进度/结果页需二次确认"的业务逻辑
+  // 场景 A：在 HOME 主页 → 直接退出
+  // 场景 B：在任务详情（审稿过程中 / 结果页）→ 弹确认，确认后清理任务状态返回主页
+  const exitPrivacyWithGuard = (e) => {
+    const needsConfirm =
+      viewMode === VIEW_MODE.DETAIL || submitting;
+
+    if (!needsConfirm) {
+      togglePrivacyWithRipple(e);
+      return;
+    }
+
+    // 由于 showConfirm 是弹窗，原始点击事件的按钮坐标在确认后已失效
+    // 这里记录坐标，用于二次确认后的 ripple 动画
+    const rect = e?.currentTarget?.getBoundingClientRect?.();
+    const x = rect ? rect.left + rect.width / 2 : window.innerWidth - 80;
+    const y = rect ? rect.top + rect.height / 2 : 30;
+
+    showConfirm(
+      '退出隐私模式？',
+      '退出后当前任务页面将关闭并返回主页。已提交的隐私任务仍会在 24 小时后自动销毁，不会用于模型训练 —— 该数据保护已写入数据库，不受退出影响。',
+      () => {
+        // 清理任务状态 + 返回主页
+        if (pollingRef.current) {
+          clearInterval(pollingRef.current);
+          pollingRef.current = null;
+        }
+        if (stepsPollingRef.current) {
+          clearInterval(stepsPollingRef.current);
+          stepsPollingRef.current = null;
+        }
+        setTaskDetail(null);
+        setSelectedTaskId(null);
+        setViewMode(VIEW_MODE.HOME);
+        setSearchParams({});
+        urlTaskIdHandled.current = false;
+
+        // 用记录的坐标触发 ripple 并关闭隐私
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        const maxDx = Math.max(x, w - x);
+        const maxDy = Math.max(y, h - y);
+        const radius = Math.ceil(Math.hypot(maxDx, maxDy)) + 80;
+        setPrivacyTransition({ x, y, radius, targetMode: false, id: Date.now() });
+        setTimeout(() => setIsPrivate(false), 180);
+        setTimeout(() => setPrivacyTransition(null), 700);
+      },
+    );
+  };
 
   // 任务详情状态
   const [taskDetail, setTaskDetail] = useState(null);
@@ -119,20 +210,16 @@ export default function PeerReviewPage() {
     setModal({ ...modal, isOpen: false });
   };
 
-  // 从后端加载草稿
+  // 从后端加载草稿（登录用户按 user_id；匿名用户按 anon_token）
+  // 匿名用户无 token 时后端直接返回空草稿，不会 401
   const loadDraft = async () => {
-    if (!user) return;
-    
     setDraftLoading(true);
     try {
       const response = await peerReviewAPI.getDraft();
       if (response.data?.code === 0) {
         const draft = response.data.data;
-        // draftId 状态已移除，draft.id 仅用于内部逻辑
         setInputType(draft.input_type || 'text');
         setManuscriptText(draft.manuscript_text || '');
-        // targetVenue 和 modelLevel 已废弃，不再从草稿加载
-        // 新结构：从 manuscript_file 获取文件信息
         if (draft.manuscript_file) {
           setFileName(draft.manuscript_file.file_name || '');
           setUseFileInput(draft.manuscript_file.process_mode === 'direct');
@@ -140,7 +227,6 @@ export default function PeerReviewPage() {
           setFileName('');
           setUseFileInput(false);
         }
-        // 加载附件列表
         setAttachments(draft.attachments || []);
       }
     } catch (error) {
@@ -151,11 +237,14 @@ export default function PeerReviewPage() {
   };
 
   // 保存草稿到后端（防抖）
+  // 匿名用户: 后端会生成 anon_token 并返回，前端存入 localStorage
   const saveDraftToServer = async (data) => {
-    if (!user) return;
-    
     try {
-      await peerReviewAPI.saveDraft(data);
+      const response = await peerReviewAPI.saveDraft(data);
+      // 匿名用户首次保存时，后端会返回生成的 anon_token
+      if (!user && response.data?.data?.anon_token) {
+        peerReviewAPI.setAnonToken(response.data.data.anon_token);
+      }
     } catch (error) {
       logger.error('保存草稿失败:', error);
     }
@@ -171,35 +260,64 @@ export default function PeerReviewPage() {
     }, 1000); // 1秒防抖
   };
 
-  // 当草稿内容变化时自动保存
+  // 当草稿内容变化时自动保存（登录 + 匿名均启用；匿名用户会在首次保存时拿到 anon_token）
   useEffect(() => {
-    if (!user || draftLoading) return;
-    
+    if (draftLoading) return;
+    // 空内容无需保存
+    if (!inputType && !manuscriptText && !fileName) return;
+
     debouncedSaveDraft({
       input_type: inputType,
       manuscript_text: manuscriptText,
       file_name: fileName,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inputType, manuscriptText, fileName, user, draftLoading]);
+  }, [inputType, manuscriptText, fileName, draftLoading]);
 
-  // 初始加载：获取草稿和任务列表
-  // 用户登录后自动认领匿名任务
+  // 初始加载：根据 user 状态分三条路径
+  //   a) 已登录 + 本地有 anon_token → 必须先 claim-all 再 loadDraft
+  //      否则 loadDraft 先跑会拿到新 user_id 下的空草稿（claim 尚未完成），
+  //      导致匿名时上传的文件在 UI 上"消失"
+  //   b) 已登录 + 无 anon_token → 正常加载用户自己的草稿和任务列表
+  //   c) 未登录 → 按 anon_token 加载草稿 + 查询试用状态
   useEffect(() => {
-    if (!user) return;
-    loadDraft();
-    loadTasks();
-
-    // 认领匿名任务：用户登录后，将之前匿名创建的任务绑定到账户
-    const anonToken = peerReviewAPI.getAnonToken();
-    if (anonToken && selectedTaskId) {
-      peerReviewAPI.claimTask(selectedTaskId, anonToken)
-        .then(() => {
-          peerReviewAPI.clearAnonToken();
-          loadTasks(); // 刷新列表以显示认领的任务
+    if (user) {
+      const anonToken = peerReviewAPI.getAnonToken();
+      if (anonToken) {
+        // 路径 a：claim 完成前锁定 draft 加载
+        peerReviewAPI.claimAll(anonToken)
+          .then((resp) => {
+            if (resp.data?.code === 0) {
+              // 成功：清理本地匿名痕迹，避免下次 mount 又尝试 claim
+              peerReviewAPI.clearAnonToken();
+              peerReviewAPI.clearAnonTasks();
+            }
+          })
+          .catch(() => {
+            // 失败（如网络波动）不阻塞主流程，仅保留 anonToken 留待下次重试
+          })
+          .finally(() => {
+            // 无论 claim 成败，都要刷新 UI —— 成功则拿到已迁移的草稿（含文件）；
+            // 失败则退回用户自己账号下原有的草稿，至少不会白屏
+            loadDraft();
+            loadTasks();
+          });
+      } else {
+        // 路径 b：常规登录加载
+        loadDraft();
+        loadTasks();
+      }
+    } else {
+      // 路径 c：匿名加载 + 查询试用状态
+      loadDraft();
+      peerReviewAPI.trialStatus()
+        .then((resp) => {
+          if (resp.data?.code === 0) {
+            setTrialStatus(resp.data.data);
+          }
         })
         .catch(() => {
-          // 认领失败不影响使用
+          setTrialStatus({ can_trial: true, reason: 'unknown' });
         });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -431,11 +549,12 @@ export default function PeerReviewPage() {
     return file;
   };
 
-  // 上传附件 - 异步非阻塞方式
+  // 上传附件 - 登录后才可用（防止匿名垃圾文件）
+  // 匿名用户走软提示：不强弹登录框，告知功能受限
   const handleAttachmentUpload = (e) => {
     if (!user) {
-      showMessage('warning', '请先登录', '上传附件需要登录');
-      openLoginModal();
+      showMessage('info', '附件功能需要登录', '登录后可添加最多 5 个参考附件供 AI 审稿参考');
+      if (attachmentInputRef.current) attachmentInputRef.current.value = '';
       return;
     }
 
@@ -519,8 +638,19 @@ export default function PeerReviewPage() {
     }
   };
 
-  // 点击开始审稿按钮 - 直接提交（匿名用户也可使用）
+  // 点击开始审稿按钮 - 直接提交（匿名用户也可使用，1 次/设备）
   const handleSubmitDraft = async () => {
+    // 未登录且试用已用完 —— 直接弹登录提示，不发请求
+    if (!user && trialStatus && trialStatus.can_trial === false) {
+      showMessage(
+        'info',
+        '免登录试用已用完',
+        '每台设备仅有 1 次免费试用机会。登录后可继续使用审稿功能并查看历史任务。',
+      );
+      openLoginModal();
+      return;
+    }
+
     // 验证输入（文件直传模式跳过文本长度验证）
     if (!useFileInput) {
       if (!manuscriptText.trim()) {
@@ -548,9 +678,18 @@ export default function PeerReviewPage() {
         const taskData = response.data.data;
         const taskId = taskData.task_id;
 
-        // 匿名用户保存 anon_token
+        // 匿名用户保存 anon_token + 本地任务历史
         if (taskData.anon_token) {
           peerReviewAPI.setAnonToken(taskData.anon_token);
+        }
+        if (!user) {
+          peerReviewAPI.addAnonTask({
+            task_id: taskId,
+            title: (taskData.manuscript_text || manuscriptText || '').slice(0, 60),
+            created_at: taskData.created_at,
+          });
+          // 更新 trial 状态，避免本页内重复尝试
+          setTrialStatus({ can_trial: false, reason: 'already_used', consumed_at: new Date().toISOString() });
         }
 
         // 立即构建初始任务对象，让页面能快速显示
@@ -607,7 +746,15 @@ export default function PeerReviewPage() {
       }
     } catch (error) {
       logger.error('提交审稿失败:', error);
-      showMessage('error', '提交失败', error.response?.data?.message || error.message);
+      const msg = error.response?.data?.message || error.message || '';
+      // 后端：匿名试用已用完会返回 5001 + 提示文本
+      if (!user && msg.includes('免登录试用已用完')) {
+        setTrialStatus({ can_trial: false, reason: 'already_used' });
+        showMessage('info', '试用已用完', msg + '，请登录后继续使用。');
+        openLoginModal();
+      } else {
+        showMessage('error', '提交失败', msg);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -852,13 +999,80 @@ export default function PeerReviewPage() {
   // handleVenueInput 已废弃，投稿期刊功能已移除
 
   return (
-    <div className="prv-page">
+    <div className={`prv-page ${isPrivate ? 'prv-incognito' : ''}`} data-incognito={isPrivate ? 'on' : 'off'}>
       <SEO
         title="智能审稿 - Scholay | AI论文评审与修改建议"
         description="Scholay 智能审稿服务，AI 多角度评审您的论文，提供专业的修改意见和改进建议，帮助提升论文质量和录用率。"
         keywords="AI审稿,智能审稿,论文评审,学术审稿,论文修改建议,peer review"
         canonical="/peer-review"
       />
+
+      {/* ==================== 隐私模式顶部栏 ====================
+           固定在 viewport 顶部，和 TopNavBar 同高（56px）同位置 → 视觉上"取代"导航栏
+           全局 CSS 会把 .top-nav-bar display:none，整个切换感觉像"导航栏消失变成隐私提示" */}
+      <AnimatePresence>
+        {isPrivate && (
+          <motion.div
+            key="privacy-topbar"
+            className="prv-privacy-topbar"
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.3, ease: [0.2, 0.8, 0.25, 1] }}
+            role="status"
+          >
+            <span className="prv-privacy-topbar-icon" aria-hidden="true">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+            </span>
+            <span className="prv-privacy-topbar-text">
+              <strong>隐私模式</strong>
+              <span className="prv-privacy-topbar-sep">·</span>
+              <span className="prv-privacy-topbar-desc">数据将在 24 小时后自动销毁，不会用于模型训练</span>
+            </span>
+            <button
+              type="button"
+              className="prv-privacy-topbar-exit"
+              onClick={exitPrivacyWithGuard}
+              aria-label="退出隐私模式"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+              <span>退出隐私模式</span>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ==================== 切换过渡：圆形水波扩散（Material Ripple） ====================
+           实现：一个圆形 div 放到点击坐标处，尺寸 = 2*radius 保证能覆盖屏幕任意角
+                 transform scale 从 0 → 1，GPU 加速，避免 clip-path 字符串插值的坑 */}
+      {privacyTransition && (
+        <motion.div
+          key={`privacy-ripple-${privacyTransition.id}`}
+          className="prv-privacy-ripple"
+          data-target-mode={privacyTransition.targetMode ? 'on' : 'off'}
+          style={{
+            left: `${privacyTransition.x - privacyTransition.radius}px`,
+            top: `${privacyTransition.y - privacyTransition.radius}px`,
+            width: `${privacyTransition.radius * 2}px`,
+            height: `${privacyTransition.radius * 2}px`,
+          }}
+          initial={{ scale: 0, opacity: 1 }}
+          animate={{ scale: [0, 1, 1], opacity: [1, 1, 0] }}
+          transition={{
+            duration: 0.7,
+            times: [0, 0.55, 1],
+            ease: [0.22, 1, 0.36, 1],
+          }}
+          aria-hidden="true"
+        />
+      )}
+
       {/* 详情视图时显示返回按钮 */}
       {viewMode === VIEW_MODE.DETAIL && (
         <div className="prv-detail-header">
@@ -901,7 +1115,7 @@ export default function PeerReviewPage() {
                   isLoggedIn={!!user}
                   onRequireLogin={openLoginModal}
                   isPrivate={isPrivate}
-                  onTogglePrivate={() => setIsPrivate(prev => !prev)}
+                  onTogglePrivate={togglePrivacyWithRipple}
                 />
 
                 {/* 下半部分：历史任务列表 - 仅登录用户显示 */}

@@ -197,6 +197,41 @@
   }
 }
 
+/* 内联按钮 spinner —— 用在 OAuth 按钮上，等待 URL 获取 / 跳转中的即时反馈
+   避免"点了按钮看起来没反应"的交互盲点（尤其是已登录的 SSO 场景，跳转往返很快但仍有 100-500ms 空窗） */
+.auth-btn-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+}
+.auth-btn-spinner--sm {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+}
+[data-theme="light"] .auth-btn-spinner {
+  border-color: rgba(0, 0, 0, 0.15);
+  border-top-color: currentColor;
+}
+
+/* 加载中按钮的通用态 */
+.auth-social-button.is-loading,
+.auth-social-icon.is-loading {
+  cursor: wait;
+  opacity: 0.95;
+}
+/* 禁用期间其他按钮的视觉弱化 */
+.auth-social-button:disabled:not(.is-loading),
+.auth-social-icon:disabled:not(.is-loading) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* 提示文字 */
 .auth-wechat-tips {
   text-align: center;

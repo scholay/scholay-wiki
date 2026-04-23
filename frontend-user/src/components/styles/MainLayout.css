@@ -47,12 +47,14 @@
   transition: background 0.3s;
 }
 
+/* 滚动条颜色用主题变量兜底 —— 原硬编码 rgba(255,255,255,.15) 在日间模式下是白色上白色，
+   完全看不见，导致用户以为滚动条没显示 */
 .main-layout-scroll:hover::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--border-hover, rgba(148, 163, 184, 0.3));
 }
 
 .main-layout-scroll:hover::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--text-tertiary, rgba(148, 163, 184, 0.5));
 }
 
 .main-layout-page {
@@ -73,8 +75,6 @@
   overflow: hidden;
 }
 
-/* 当有顶部栏时，正文区域需要适应 */
-.main-layout-content.with-top-nav {
-  /* 顶部栏是 flex 布局的一部分，不需要额外处理 */
-}
+/* 说明：.main-layout-content.with-top-nav 曾保留为避让占位，
+   但 TopNavBar 是 flex 子项、本身占 56px 高度，无需额外 padding，规则已移除。 */
 

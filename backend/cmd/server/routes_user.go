@@ -10,6 +10,7 @@ package main
 import (
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/middleware"
+	"scholar-backend/internal/peerreview"
 
 	"github.com/gin-gonic/gin"
 )
@@ -149,12 +150,13 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 }
 
 // registerPeerReviewPublicRoutes 注册 AI 审稿路由（使用 OptionalUserAuth，支持匿名使用）
-// 需要登录的操作（草稿管理、任务列表、认领等）在 handler 内部检查 user_id
+// 需要登录的操作（附件、任务列表等）在 handler 内部检查 user_id
 func registerPeerReviewPublicRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL gin.HandlerFunc) {
 	g := api.Group("/user/peer-review")
-	g.Use(middleware.OptionalUserAuthMiddleware(), tieredRL)
+	// DeviceIDMiddleware: 为匿名试用识别下发 HttpOnly cookie
+	g.Use(middleware.OptionalUserAuthMiddleware(), peerreview.DeviceIDMiddleware(), tieredRL)
 	{
-		// 草稿管理（handler 内部要求登录）
+		// 草稿管理（匿名：按 anon_token 查询；登录：按 user_id 查询）
 		g.GET("/draft", h.peerReview.GetDraft)
 		g.PUT("/draft", h.peerReview.SaveDraft)
 		g.DELETE("/draft", h.peerReview.ClearDraft)
@@ -170,10 +172,10 @@ func registerPeerReviewPublicRoutes(api *gin.RouterGroup, h *allHandlers, tiered
 		g.GET("/tasks/:id/progress", h.peerReview.GetTaskProgress)
 		g.GET("/tasks/:id/steps", h.peerReview.GetTaskSteps)
 		g.GET("/tasks/:id/watch", h.peerReview.WatchTaskProgress)
-		g.DELETE("/tasks/:id", h.peerReview.DeleteTask) // handler 内部要求登录
+		g.DELETE("/tasks/:id", h.peerReview.DeleteTask) // 匿名或登录均可（通过 anon_token 验证）
 		g.POST("/tasks/:id/start", h.peerReview.StartTask)
 
-		// 附件管理（handler 内部要求登录）
+		// 附件管理（handler 内部要求登录，防止匿名垃圾文件）
 		g.POST("/attachments", h.peerReview.UploadAttachment)
 		g.DELETE("/attachments/:id", h.peerReview.DeleteAttachment)
 		g.DELETE("/manuscript", h.peerReview.DeleteManuscript)
@@ -181,8 +183,10 @@ func registerPeerReviewPublicRoutes(api *gin.RouterGroup, h *allHandlers, tiered
 		// 文件下载（匿名或登录均可）
 		g.GET("/files/:id/download", h.peerReview.DownloadFile)
 
-		// 认领匿名任务（需要登录）
-		g.POST("/claim-task", h.peerReview.ClaimTask)
+		// 匿名试用状态 & 登录后认领
+		g.GET("/trial-status", h.peerReview.TrialStatus)
+		g.POST("/claim-task", h.peerReview.ClaimTask) // 单任务认领（保留兼容）
+		g.POST("/claim-all", h.peerReview.ClaimAll)   // 批量认领
 	}
 }
 

@@ -8,17 +8,18 @@
  */
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { parseReviewJSON, getRecommendationClass } from '../../../utils/peer-review/parseUtils';
 import { exportToWord, exportToPDF, exportToPPT } from '../../../utils/peer-review/exportUtils';
 import ReviewStepsProgress from '../../../components/peer-review/ReviewStepsProgress';
 import TaskDetailSidebar from './TaskDetailSidebar';
 import ReportSections from './ReportSections';
 
-// 审稿人名称映射
+// 审稿人名称映射 —— 与 ReviewStepsProgress 保持一致的配色
 const REVIEWER_NAMES = {
-  1: { name: '审稿人 Alpha', short: 'α', label: 'Alpha' },
-  2: { name: '审稿人 Beta', short: 'β', label: 'Beta' },
-  3: { name: '审稿人 Gamma', short: 'γ', label: 'Gamma' },
+  1: { name: '审稿人 Alpha', short: 'α', label: 'Alpha', accent: '#8b5cf6' },
+  2: { name: '审稿人 Beta', short: 'β', label: 'Beta', accent: '#06b6d4' },
+  3: { name: '审稿人 Gamma', short: 'γ', label: 'Gamma', accent: '#10b981' },
 };
 
 // 获取审稿人信息的辅助函数
@@ -26,8 +27,26 @@ const getReviewerInfo = (reviewerIndex) => {
   return REVIEWER_NAMES[reviewerIndex] || {
     name: `审稿人 ${reviewerIndex}`,
     short: String(reviewerIndex),
-    label: String(reviewerIndex)
+    label: String(reviewerIndex),
+    accent: '#64748b'
   };
+};
+
+// 根据 getRecommendationClass 返回的类名映射文案与色调
+// 色调值直接对应 CSS 的 recommendation-{tone} 类名
+const RECOMMENDATION_META = {
+  'accept': { label: '接收发表', tone: 'accept', desc: '整体质量达到发表标准' },
+  'minor-revision': { label: '小修后接收', tone: 'minor-revision', desc: '需要少量修改后即可发表' },
+  'major-revision': { label: '大修后接收', tone: 'major-revision', desc: '存在重要问题需要显著修改' },
+  'reject': { label: '建议拒稿', tone: 'reject', desc: '存在根本性问题不建议发表' },
+};
+
+const resolveRecommendationMeta = (raw) => {
+  if (!raw) return { label: '审稿完成', tone: 'neutral', desc: '已生成综合审稿意见' };
+  const cls = getRecommendationClass(raw);
+  const match = RECOMMENDATION_META[cls];
+  if (match) return match;
+  return { label: String(raw), tone: 'neutral', desc: '综合三位审稿人意见' };
 };
 
 // 任务详情视图 - 左右分栏布局
@@ -36,6 +55,25 @@ const TaskDetailView = React.memo(function TaskDetailView({ task, loading, onBac
   const [showReport, setShowReport] = useState(false); // 控制是否显示报告（等待进度条完成）
   const [activeReviewTab, setActiveReviewTab] = useState('main'); // 当前选中的审稿Tab: 'main' | 'Alpha' | 'Beta' | 'Gamma'
   const progressIntervalRef = useRef(null);
+  const showReportTimeoutRef = useRef(null);
+  const displayProgressRef = useRef(0); // 镜像 displayProgress，避免 effect 闭包读到旧值
+
+  // 同步 ref 与 state —— 让 effect 中的读取永远拿到最新值
+  useEffect(() => {
+    displayProgressRef.current = displayProgress;
+  }, [displayProgress]);
+
+  // 统一的清理函数
+  const clearProgressTimers = useCallback(() => {
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
+    }
+    if (showReportTimeoutRef.current) {
+      clearTimeout(showReportTimeoutRef.current);
+      showReportTimeoutRef.current = null;
+    }
+  }, []);
 
   // 解析最终审稿报告 JSON
   const parsedReport = useMemo(() => {
@@ -49,10 +87,8 @@ const TaskDetailView = React.memo(function TaskDetailView({ task, loading, onBac
     const isCompleted = task?.status === 'completed';
     const isFailed = task?.status === 'failed';
 
-    // 清除之前的定时器
-    if (progressIntervalRef.current) {
-      clearInterval(progressIntervalRef.current);
-    }
+    // 清除之前的定时器（包括延迟显示报告的 setTimeout）
+    clearProgressTimers();
 
     // 如果任务失败，停止动画
     if (isFailed) {
@@ -61,10 +97,13 @@ const TaskDetailView = React.memo(function TaskDetailView({ task, loading, onBac
 
     // 如果任务完成，先平滑到100%，然后再显示报告
     if (isCompleted) {
-      // 如果当前进度已经是100%，直接显示报告
-      if (displayProgress >= 99.5) {
+      // 如果当前进度已经很接近100%，直接显示报告
+      if (displayProgressRef.current >= 99.5) {
         setDisplayProgress(100);
-        setTimeout(() => setShowReport(true), 300);
+        showReportTimeoutRef.current = setTimeout(() => {
+          setShowReport(true);
+          showReportTimeoutRef.current = null;
+        }, 300);
         return;
       }
 
@@ -73,9 +112,15 @@ const TaskDetailView = React.memo(function TaskDetailView({ task, loading, onBac
         setDisplayProgress(prev => {
           const diff = 100 - prev;
           if (diff <= 0.5) {
-            clearInterval(progressIntervalRef.current);
+            if (progressIntervalRef.current) {
+              clearInterval(progressIntervalRef.current);
+              progressIntervalRef.current = null;
+            }
             // 到达100%后延迟显示报告
-            setTimeout(() => setShowReport(true), 500);
+            showReportTimeoutRef.current = setTimeout(() => {
+              setShowReport(true);
+              showReportTimeoutRef.current = null;
+            }, 500);
             return 100;
           }
           // 快速但平滑地到达100%
@@ -83,61 +128,56 @@ const TaskDetailView = React.memo(function TaskDetailView({ task, loading, onBac
           return Math.min(prev + increment, 100);
         });
       }, 50);
-      return;
+      return clearProgressTimers;
     }
 
     // 处理中：计算实际目标值，最后阶段卡在99%
     const actualTarget = targetProgress >= 90 ? Math.min(targetProgress, 99) : targetProgress;
 
     // 如果目标进度大于当前显示进度，启动平滑动画
-    if (actualTarget > displayProgress) {
+    if (actualTarget > displayProgressRef.current) {
       progressIntervalRef.current = setInterval(() => {
         setDisplayProgress(prev => {
           const diff = actualTarget - prev;
           if (diff <= 0) {
-            clearInterval(progressIntervalRef.current);
+            if (progressIntervalRef.current) {
+              clearInterval(progressIntervalRef.current);
+              progressIntervalRef.current = null;
+            }
             return actualTarget;
           }
 
           // 根据不同阶段使用不同的增速
           let increment;
           if (prev < 25) {
-            // 第一阶段：较慢
             increment = Math.max(0.3, diff * 0.08);
           } else if (prev < 55) {
-            // 第二阶段：中等
             increment = Math.max(0.25, diff * 0.06);
           } else if (prev < 90) {
-            // 第三阶段：较慢
             increment = Math.max(0.2, diff * 0.05);
           } else {
-            // 最后阶段：非常慢，逐渐接近99%
             increment = Math.max(0.1, diff * 0.03);
           }
 
-          const next = prev + increment;
-
           // 如果接近目标，直接到达
           if (diff < 0.5) {
-            clearInterval(progressIntervalRef.current);
+            if (progressIntervalRef.current) {
+              clearInterval(progressIntervalRef.current);
+              progressIntervalRef.current = null;
+            }
             return actualTarget;
           }
 
-          return Math.min(next, actualTarget);
+          return Math.min(prev + increment, actualTarget);
         });
       }, 150);
-    } else if (targetProgress < displayProgress && targetProgress < 10) {
+    } else if (targetProgress < displayProgressRef.current && targetProgress < 10) {
       // 如果目标进度小于当前且很小（可能是新任务），直接设置
       setDisplayProgress(targetProgress);
     }
 
-    return () => {
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [task?.progress, task?.status]);
+    return clearProgressTimers;
+  }, [task?.progress, task?.status, clearProgressTimers]);
 
   // 任务变化时重置进度和报告显示状态
   useEffect(() => {
@@ -240,21 +280,9 @@ const TaskDetailView = React.memo(function TaskDetailView({ task, loading, onBac
               <h2>审稿报告</h2>
             </div>
 
-            {/* 推荐意见、三审一致性和审稿人Tab */}
+            {/* 审稿人Tab + 导出按钮（终审结论已在下方 Hero 区展示） */}
             {isCompleted && showReport && (
               <div className="prvr-header-badges">
-                {(task.final_recommendation || task.recommendation) && (
-                  <div className={`prvr-verdict-badge ${getRecommendationClass(task.final_recommendation || task.recommendation)}`}>
-                    <span className="prvr-verdict-text">{task.final_recommendation || task.recommendation}</span>
-                  </div>
-                )}
-                {task.consensus_score > 0 && (
-                  <div className={`prvr-consensus-badge ${task.consensus_score >= 0.67 ? 'high' : task.consensus_score >= 0.34 ? 'medium' : 'low'}`}>
-                    <span className="prvr-consensus-label">三审一致性</span>
-                    <span className="prvr-consensus-value">{Math.round(task.consensus_score * 100)}%</span>
-                  </div>
-                )}
-
                 {/* 审稿人Tab切换 */}
                 {task.reviews && task.reviews.length > 0 && (
                   <div className="prvr-reviewer-tabs">
@@ -334,30 +362,49 @@ const TaskDetailView = React.memo(function TaskDetailView({ task, loading, onBac
           </div>
         </div>
 
-        {/* 处理中状态 - 详细步骤进度展示 */}
-        {(isProcessing || (isCompleted && !showReport)) && (
-          <div className="prvr-processing-container">
-            <ReviewStepsProgress stepsData={taskSteps} loading={stepsLoading} />
-          </div>
-        )}
+        {/* 处理中 → 已完成 的主阶段切换（带 framer-motion 过渡动画） */}
+        <AnimatePresence mode="wait">
+          {(isProcessing || (isCompleted && !showReport)) && (
+            <motion.div
+              key="processing"
+              className="prvr-processing-container"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -16, scale: 0.985 }}
+              transition={{ duration: 0.45, ease: [0.2, 0.8, 0.25, 1] }}
+            >
+              <ReviewStepsProgress
+                stepsData={taskSteps}
+                loading={stepsLoading}
+                overallProgress={displayProgress}
+              />
+            </motion.div>
+          )}
 
-        {/* 错误状态 */}
-        {isFailed && (
-          <div className="prvr-error">
-            <div className="prvr-error-icon">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"/>
-                <line x1="15" y1="9" x2="9" y2="15"/>
-                <line x1="9" y1="9" x2="15" y2="15"/>
-              </svg>
-            </div>
-            <h3>审稿失败</h3>
-            <p>{task.error_message || '处理过程中发生错误，请重试'}</p>
-            <button className="prvr-btn prvr-btn-secondary" onClick={onDelete}>
-              删除任务
-            </button>
-          </div>
-        )}
+          {isFailed && (
+            <motion.div
+              key="failed"
+              className="prvr-error"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
+            >
+              <div className="prvr-error-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="15" y1="9" x2="9" y2="15"/>
+                  <line x1="9" y1="9" x2="15" y2="15"/>
+                </svg>
+              </div>
+              <h3>审稿失败</h3>
+              <p>{task.error_message || '处理过程中发生错误，请重试'}</p>
+              <button className="prvr-btn prvr-btn-secondary" onClick={onDelete}>
+                删除任务
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* 任务完成但没有最终汇总报告（可能部分审稿人完成） */}
         {isCompleted && !task.final_review_content && !task.review_content && (
@@ -446,65 +493,181 @@ const TaskDetailView = React.memo(function TaskDetailView({ task, loading, onBac
         )}
 
         {/* 已完成 - 显示审稿报告（等待进度条动画完成后显示） */}
-        {isCompleted && showReport && (
-          <div className="prvr-report-layout prvr-report-single-column">
-            {/* 审稿报告正文 - 单列布局 */}
-            <div className="prvr-report-main">
-              {/* 返回主报告按钮 - 仅在查看单个审稿人时显示 */}
-              {activeReviewTab !== 'main' && (
-                <button className="prvr-back-to-main" onClick={() => setActiveReviewTab('main')}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="15 18 9 12 15 6"/>
-                  </svg>
-                  返回主报告
-                </button>
-              )}
+        <AnimatePresence mode="wait">
+          {isCompleted && showReport && (
+            <motion.div
+              key="report"
+              className="prvr-report-layout prvr-report-single-column"
+              initial={{ opacity: 0, y: 24, scale: 0.985 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.55, ease: [0.2, 0.8, 0.25, 1], delay: 0.05 }}
+            >
+              <div className="prvr-report-main">
+                {/* Hero 终审判决 —— 仅在主报告视图显示 */}
+                {activeReviewTab === 'main' && (task.final_review_content || task.review_content) && (() => {
+                  const rec = task.final_recommendation || task.recommendation;
+                  const meta = resolveRecommendationMeta(rec);
+                  const consensusPct = task.consensus_score > 0 ? Math.round(task.consensus_score * 100) : null;
+                  const CIRCUM = 2 * Math.PI * 54; // r=54
+                  const dashoffset = consensusPct != null ? CIRCUM * (1 - consensusPct / 100) : CIRCUM;
 
-              {/* 主报告内容 */}
-              {activeReviewTab === 'main' && (task.final_review_content || task.review_content) && (
-                <div className="prvr-report-content">
-                  <ReportSections
-                    parsedReport={parsedReport}
-                    rawContent={task.final_review_content || task.review_content}
-                  />
-                </div>
-              )}
+                  return (
+                    <motion.section
+                      className="prvr-verdict-hero"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.6, ease: [0.2, 0.8, 0.25, 1], delay: 0.15 }}
+                    >
+                      <div className="prvr-vh-bg" aria-hidden="true" />
 
-              {/* 单个审稿人的内容 - 当选择了某个审稿人Tab时显示 */}
-              {activeReviewTab !== 'main' && task.reviews && (() => {
-                const selectedReview = task.reviews.find(r =>
-                  getReviewerInfo(r.reviewer_index).label === activeReviewTab
-                );
-                if (!selectedReview) return null;
-
-                const reviewerReport = parseReviewJSON(selectedReview.review_content);
-                const selectedReviewerInfo = getReviewerInfo(selectedReview.reviewer_index);
-
-                return (
-                  <div className="prvr-report-content prvr-reviewer-report">
-                    {/* 审稿人标题 */}
-                    <div className="prvr-reviewer-header">
-                      <div className="prvr-reviewer-title">
-                        <span className="prvr-reviewer-avatar-large">{selectedReviewerInfo.short}</span>
-                        <h3>{selectedReviewerInfo.name}的审稿意见</h3>
+                      {/* 主判决文案 */}
+                      <div className="prvr-vh-verdict">
+                        <span className="prvr-vh-eyebrow">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                          </svg>
+                          终审结论
+                        </span>
+                        <h3 className={`prvr-vh-result recommendation-${meta.tone}`}>{meta.label}</h3>
+                        <p className="prvr-vh-desc">{meta.desc}</p>
                       </div>
-                      {selectedReview.recommendation && (
-                        <div className={`prvr-verdict-badge ${getRecommendationClass(selectedReview.recommendation)}`}>
-                          <span className="prvr-verdict-text">{selectedReview.recommendation}</span>
+
+                      {/* 一致性评分圆环 —— SVG 整体已在 CSS 中旋转 -90° */}
+                      {consensusPct != null && (
+                        <div className="prvr-vh-consensus">
+                          <svg width="132" height="132" viewBox="0 0 132 132">
+                            <defs>
+                              <linearGradient id="prvrVhGrad" x1="0" y1="0" x2="1" y2="1">
+                                <stop offset="0%" stopColor="#8b5cf6" />
+                                <stop offset="100%" stopColor="#06b6d4" />
+                              </linearGradient>
+                            </defs>
+                            <circle
+                              className="prvr-vh-consensus-track"
+                              cx="66" cy="66" r="54"
+                              fill="none" strokeWidth="8"
+                            />
+                            <circle
+                              className="prvr-vh-consensus-fill"
+                              cx="66" cy="66" r="54"
+                              fill="none" strokeWidth="8"
+                              stroke="url(#prvrVhGrad)"
+                              strokeDasharray={CIRCUM}
+                              strokeDashoffset={dashoffset}
+                            />
+                          </svg>
+                          <div className="prvr-vh-consensus-inner">
+                            <span className="prvr-vh-consensus-num">{consensusPct}<sup>%</sup></span>
+                            <span className="prvr-vh-consensus-label">三审一致性</span>
+                          </div>
                         </div>
                       )}
-                    </div>
 
-                    <ReportSections
-                      parsedReport={reviewerReport}
-                      rawContent={selectedReview.review_content}
-                    />
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-        )}
+                      {/* 三位审稿人快览 */}
+                      {task.reviews && task.reviews.length > 0 && (
+                        <div className="prvr-vh-reviewers">
+                          {task.reviews.map((review, idx) => {
+                            const info = getReviewerInfo(review.reviewer_index);
+                            const recMeta = resolveRecommendationMeta(review.recommendation);
+                            return (
+                              <motion.div
+                                key={idx}
+                                className="prvr-vh-reviewer"
+                                style={{ '--rv-accent': info.accent }}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.35, delay: 0.35 + idx * 0.08 }}
+                              >
+                                <span className="prvr-vh-avatar">{info.short}</span>
+                                <div className="prvr-vh-r-meta">
+                                  <span className="prvr-vh-r-name">{info.label}</span>
+                                  {review.recommendation && (
+                                    <span className={`prvr-vh-r-badge recommendation-${recMeta.tone}`}>
+                                      {recMeta.label}
+                                    </span>
+                                  )}
+                                </div>
+                              </motion.div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </motion.section>
+                  );
+                })()}
+
+                {/* 返回主报告按钮 - 仅在查看单个审稿人时显示 */}
+                {activeReviewTab !== 'main' && (
+                  <button className="prvr-back-to-main" onClick={() => setActiveReviewTab('main')}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="15 18 9 12 15 6"/>
+                    </svg>
+                    返回主报告
+                  </button>
+                )}
+
+                {/* 报告正文区 —— Tab 切换使用 AnimatePresence 做淡入淡出 */}
+                <AnimatePresence mode="wait">
+                  {activeReviewTab === 'main' && (task.final_review_content || task.review_content) && (
+                    <motion.div
+                      key="main-report"
+                      className="prvr-report-content"
+                      initial={{ opacity: 0, y: 14 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.3, ease: 'easeOut' }}
+                    >
+                      <ReportSections
+                        parsedReport={parsedReport}
+                        rawContent={task.final_review_content || task.review_content}
+                      />
+                    </motion.div>
+                  )}
+
+                  {activeReviewTab !== 'main' && task.reviews && (() => {
+                    const selectedReview = task.reviews.find(r =>
+                      getReviewerInfo(r.reviewer_index).label === activeReviewTab
+                    );
+                    if (!selectedReview) return null;
+
+                    const reviewerReport = parseReviewJSON(selectedReview.review_content);
+                    const selectedReviewerInfo = getReviewerInfo(selectedReview.reviewer_index);
+
+                    return (
+                      <motion.div
+                        key={`reviewer-${activeReviewTab}`}
+                        className="prvr-report-content prvr-reviewer-report"
+                        style={{ '--rv-accent': selectedReviewerInfo.accent }}
+                        initial={{ opacity: 0, y: 14 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        transition={{ duration: 0.3, ease: 'easeOut' }}
+                      >
+                        <div className="prvr-reviewer-header">
+                          <div className="prvr-reviewer-title">
+                            <span className="prvr-reviewer-avatar-large">{selectedReviewerInfo.short}</span>
+                            <h3>{selectedReviewerInfo.name}的审稿意见</h3>
+                          </div>
+                          {selectedReview.recommendation && (
+                            <div className={`prvr-verdict-badge ${getRecommendationClass(selectedReview.recommendation)}`}>
+                              <span className="prvr-verdict-text">{selectedReview.recommendation}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        <ReportSections
+                          parsedReport={reviewerReport}
+                          rawContent={selectedReview.review_content}
+                        />
+                      </motion.div>
+                    );
+                  })()}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
     </div>
   );

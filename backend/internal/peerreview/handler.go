@@ -29,15 +29,13 @@ func NewHandler(service *Service) *Handler {
 
 // ========== 草稿管理 API ==========
 
-// GetDraft 获取用户的草稿（每个用户只有一个草稿）
-// GET /api/v1/user/peer-review/draft
+// GetDraft 获取草稿（匿名：按 anon_token 查询；登录：按 user_id）
+// GET /api/v1/user/peer-review/draft?anon_token=xxx
 func (h *Handler) GetDraft(c *gin.Context) {
-	userID, ok := utils.GetUserID(c)
-	if !ok {
-		return
-	}
+	userID, _ := utils.GetOptionalUserID(c)
+	anonToken := c.Query("anon_token")
 
-	draft, err := h.service.GetOrCreateDraft(userID)
+	draft, err := h.service.GetOrCreateDraft(userID, anonToken)
 	if err != nil {
 		utils.Error(c, 5001, "获取草稿失败: "+err.Error())
 		return
@@ -46,20 +44,23 @@ func (h *Handler) GetDraft(c *gin.Context) {
 	utils.Success(c, draft)
 }
 
-// SaveDraft 保存草稿
+// SaveDraft 保存草稿（匿名：按 anon_token 查询；若无则生成并返回给前端）
 // PUT /api/v1/user/peer-review/draft
 func (h *Handler) SaveDraft(c *gin.Context) {
-	userID, ok := utils.GetUserID(c)
-	if !ok {
-		return
-	}
+	userID, _ := utils.GetOptionalUserID(c)
 
 	var req SaveDraftRequest
 	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	draft, err := h.service.SaveDraft(userID, &req)
+	// 匿名用户可通过 query 或 header 带 anon_token
+	anonToken := c.Query("anon_token")
+	if anonToken == "" {
+		anonToken = c.GetHeader("X-Anon-Token")
+	}
+
+	draft, err := h.service.SaveDraft(userID, anonToken, &req)
 	if err != nil {
 		utils.Error(c, 5001, "保存草稿失败: "+err.Error())
 		return
@@ -84,7 +85,11 @@ func (h *Handler) SubmitDraft(c *gin.Context) {
 		req.ModelLevel = "mid"
 	}
 
-	task, err := h.service.SubmitDraft(userID, req.AnonToken, &req)
+	trialCtx := TrialContext{
+		DeviceID: GetDeviceIDFromContext(c),
+		IPUAHash: GetIPUAHashFromContext(c),
+	}
+	task, err := h.service.SubmitDraft(userID, req.AnonToken, &req, trialCtx)
 	if err != nil {
 		utils.Error(c, 5001, "提交审稿失败: "+err.Error())
 		return
@@ -262,20 +267,23 @@ func (h *Handler) GetTaskSteps(c *gin.Context) {
 	utils.Success(c, steps)
 }
 
-// DeleteTask 删除任务（需要登录）
-// DELETE /api/v1/user/peer-review/tasks/:id
+// DeleteTask 删除任务（匿名通过 anon_token 校验归属；登录通过 user_id）
+// DELETE /api/v1/user/peer-review/tasks/:id?anon_token=xxx
 func (h *Handler) DeleteTask(c *gin.Context) {
-	userID, ok := utils.GetUserID(c)
-	if !ok {
-		return
-	}
+	userID, _ := utils.GetOptionalUserID(c)
+	anonToken := c.Query("anon_token")
 
 	taskID, ok := utils.ParseUintParam(c, "id")
 	if !ok {
 		return
 	}
 
-	if err := h.service.DeleteTask(userID, taskID); err != nil {
+	if userID == 0 && anonToken == "" {
+		utils.Error(c, 401, "请登录或提供匿名令牌")
+		return
+	}
+
+	if err := h.service.DeleteTask(userID, taskID, anonToken); err != nil {
 		utils.Error(c, 5005, "删除任务失败: "+err.Error())
 		return
 	}
@@ -456,14 +464,12 @@ func (h *Handler) DeleteManuscript(c *gin.Context) {
 }
 
 // ClearDraft 清空草稿（删除主稿件和所有附件）
-// DELETE /api/v1/user/peer-review/draft
+// DELETE /api/v1/user/peer-review/draft?anon_token=xxx
 func (h *Handler) ClearDraft(c *gin.Context) {
-	userID, ok := utils.GetUserID(c)
-	if !ok {
-		return
-	}
+	userID, _ := utils.GetOptionalUserID(c)
+	anonToken := c.Query("anon_token")
 
-	if err := h.service.ClearDraft(userID); err != nil {
+	if err := h.service.ClearDraft(userID, anonToken); err != nil {
 		utils.Error(c, 5005, err.Error())
 		return
 	}
@@ -535,4 +541,60 @@ func (h *Handler) ClaimTask(c *gin.Context) {
 	}
 
 	utils.Success(c, gin.H{"message": "任务认领成功"})
+}
+
+// TrialStatus 查询匿名试用状态
+// GET /api/v1/user/peer-review/trial-status
+// 前端在进入审稿页时调用，根据返回决定入口 UI
+func (h *Handler) TrialStatus(c *gin.Context) {
+	// 登录用户不受试用限制，直接允许
+	if userID, _ := utils.GetOptionalUserID(c); userID > 0 {
+		utils.Success(c, TrialStatusResponse{CanTrial: true, Reason: "logged_in"})
+		return
+	}
+
+	deviceID := GetDeviceIDFromContext(c)
+	ipUAHash := GetIPUAHashFromContext(c)
+
+	canTrial, existing, err := h.service.CheckAnonTrialQuota(deviceID, ipUAHash)
+	if err != nil {
+		utils.Error(c, 5001, err.Error())
+		return
+	}
+
+	resp := TrialStatusResponse{CanTrial: canTrial}
+	if canTrial {
+		resp.Reason = "new_device"
+	} else if existing != nil {
+		resp.Reason = "already_used"
+		resp.ConsumedAt = &existing.ConsumedAt
+		resp.AlreadyClaimed = existing.ClaimedByUserID > 0
+	}
+	utils.Success(c, resp)
+}
+
+// ClaimAll 登录成功后批量认领该匿名令牌下的所有任务
+// POST /api/v1/user/peer-review/claim-all
+// body: { "anon_token": "xxx" }
+func (h *Handler) ClaimAll(c *gin.Context) {
+	userID, ok := utils.GetUserID(c)
+	if !ok {
+		return
+	}
+
+	var req ClaimAllRequest
+	if !utils.BindJSON(c, &req) {
+		return
+	}
+
+	claimedIDs, err := h.service.ClaimAllByAnonToken(userID, req.AnonToken)
+	if err != nil {
+		utils.Error(c, 5001, err.Error())
+		return
+	}
+
+	utils.Success(c, ClaimAllResponse{
+		ClaimedTaskIDs: claimedIDs,
+		ClaimedCount:   len(claimedIDs),
+	})
 }

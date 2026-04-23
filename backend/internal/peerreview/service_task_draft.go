@@ -23,25 +23,44 @@ import (
 
 // ========== 草稿管理方法 ==========
 
-// GetOrCreateDraft 获取或创建用户的唯一草稿
-func (s *Service) GetOrCreateDraft(userID uint) (*DraftResponse, error) {
+// GetOrCreateDraft 获取或创建草稿
+// 登录用户按 user_id 查；匿名用户按 anon_token 查（token 为空则返回"无草稿"错误，而非创建空草稿，
+// 避免前端空刷产生大量 user_id=0 的孤儿草稿）
+func (s *Service) GetOrCreateDraft(userID uint, anonToken string) (*DraftResponse, error) {
 	var draft PeerReviewTask
+	var err error
 
-	// 查找用户的草稿任务
-	err := s.db.Where("user_id = ? AND status = ?", userID, TaskStatusDraft).First(&draft).Error
+	// 按 updated_at DESC 取最近在编辑的草稿。
+	// 原因：claim-all 后用户可能同时拥有多条 draft（老的空 draft + 刚认领的新 draft），
+	// 按 First() 默认 ID 顺序会拿到较早的空草稿，导致 UI 看似丢失文件。
+	switch {
+	case userID > 0:
+		err = s.db.Where("user_id = ? AND status = ?", userID, TaskStatusDraft).
+			Order("updated_at DESC").First(&draft).Error
+	case anonToken != "":
+		err = s.db.Where("anon_token = ? AND user_id = 0 AND status = ?", anonToken, TaskStatusDraft).
+			Order("updated_at DESC").First(&draft).Error
+	default:
+		// 匿名且无 token —— 不创建草稿，返回空结构让前端知道当前无草稿
+		return &DraftResponse{InputType: InputTypeText, ModelLevel: "mid"}, nil
+	}
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		// 不存在草稿，创建一个新的空草稿
-		draft = PeerReviewTask{
-			UserID:        userID,
-			InputType:     InputTypeText,
-			Status:        TaskStatusDraft,
-			Progress:      0,
-			ProgressStage: "草稿",
-			ModelLevel:    "mid",
-		}
-		if err := s.db.Create(&draft).Error; err != nil {
-			return nil, fmt.Errorf("创建草稿失败: %w", err)
+		// 登录用户才自动创建草稿；匿名用户直接返回空结构（草稿由 upload 流程创建）
+		if userID > 0 {
+			draft = PeerReviewTask{
+				UserID:        userID,
+				InputType:     InputTypeText,
+				Status:        TaskStatusDraft,
+				Progress:      0,
+				ProgressStage: "草稿",
+				ModelLevel:    "mid",
+			}
+			if err := s.db.Create(&draft).Error; err != nil {
+				return nil, fmt.Errorf("创建草稿失败: %w", err)
+			}
+		} else {
+			return &DraftResponse{InputType: InputTypeText, ModelLevel: "mid"}, nil
 		}
 	} else if err != nil {
 		return nil, err
@@ -78,17 +97,31 @@ func (s *Service) loadTaskFiles(task *PeerReviewTask) {
 }
 
 // SaveDraft 保存草稿
-func (s *Service) SaveDraft(userID uint, req *SaveDraftRequest) (*DraftResponse, error) {
+// 登录用户按 user_id；匿名用户按 anon_token（token 为空时生成新的，响应里返回给前端）
+func (s *Service) SaveDraft(userID uint, anonToken string, req *SaveDraftRequest) (*DraftResponse, error) {
 	var draft PeerReviewTask
+	var err error
 
-	// 查找用户的草稿任务
-	err := s.db.Where("user_id = ? AND status = ?", userID, TaskStatusDraft).First(&draft).Error
+	switch {
+	case userID > 0:
+		err = s.db.Where("user_id = ? AND status = ?", userID, TaskStatusDraft).First(&draft).Error
+	case anonToken != "":
+		err = s.db.Where("anon_token = ? AND user_id = 0 AND status = ?", anonToken, TaskStatusDraft).First(&draft).Error
+	default:
+		// 匿名无 token —— 找不到草稿，走"新建"分支，下面会生成 token
+		err = gorm.ErrRecordNotFound
+	}
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		// 不存在草稿，创建一个新的
 		draft = PeerReviewTask{
 			UserID: userID,
 			Status: TaskStatusDraft,
+		}
+		if userID == 0 {
+			if anonToken == "" {
+				anonToken = generateAnonToken()
+			}
+			draft.AnonToken = anonToken
 		}
 	} else if err != nil {
 		return nil, err
@@ -132,7 +165,27 @@ func (s *Service) SaveDraft(userID uint, req *SaveDraftRequest) (*DraftResponse,
 
 // SubmitDraft 提交草稿开始审稿（三审制）
 // 支持匿名用户：userID=0 时通过 anonToken 查找草稿
-func (s *Service) SubmitDraft(userID uint, anonToken string, req *SubmitDraftRequest) (*PeerReviewTask, error) {
+// TrialContext 匿名提交时的试用识别信息。登录提交传零值。
+type TrialContext struct {
+	DeviceID string
+	IPUAHash string
+}
+
+func (s *Service) SubmitDraft(userID uint, anonToken string, req *SubmitDraftRequest, trialCtx TrialContext) (*PeerReviewTask, error) {
+	// 匿名提交需要预检试用额度，避免已消费用户跑到后面才被拦截
+	if userID == 0 {
+		canTrial, existing, err := s.CheckAnonTrialQuota(trialCtx.DeviceID, trialCtx.IPUAHash)
+		if err != nil {
+			return nil, err
+		}
+		if !canTrial {
+			if existing != nil && existing.ClaimedByUserID > 0 {
+				return nil, fmt.Errorf("免登录试用已用完并被关联到账号，请登录后查看历史任务")
+			}
+			return nil, fmt.Errorf("免登录试用已用完，请登录后继续使用审稿功能")
+		}
+	}
+
 	var draft PeerReviewTask
 
 	// 查找草稿任务
@@ -209,8 +262,9 @@ func (s *Service) SubmitDraft(userID uint, anonToken string, req *SubmitDraftReq
 	draft.SubmittedAt = &now
 	draft.StartedAt = &now
 
-	// 草稿状态翻转 + 创建 3 条 PeerReviewResult 必须原子。
-	// 否则 worker 启动后只查到 0/1/2 条 result，三审并行会产生空指针/越界。
+	// 草稿状态翻转 + 创建 3 条 PeerReviewResult + 匿名试用消费必须原子。
+	// 否则 worker 启动后只查到 0/1/2 条 result，三审并行会产生空指针/越界；
+	// 试用消费漏写会导致同设备再次免登录提交。
 	if err := s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Save(&draft).Error; err != nil {
 			return fmt.Errorf("提交草稿失败: %w", err)
@@ -225,7 +279,17 @@ func (s *Service) SubmitDraft(userID uint, anonToken string, req *SubmitDraftReq
 			}
 		}
 		// 批量插入：1 条 SQL 而非 N 条
-		return tx.Create(&results).Error
+		if err := tx.Create(&results).Error; err != nil {
+			return err
+		}
+
+		// 匿名提交：在同一事务内记录试用消费，与任务生命周期绑定
+		if userID == 0 && trialCtx.DeviceID != "" {
+			if err := s.ConsumeAnonTrial(tx, trialCtx.DeviceID, trialCtx.IPUAHash, draft.AnonToken, draft.ID); err != nil {
+				return err
+			}
+		}
+		return nil
 	}); err != nil {
 		return nil, err
 	}
@@ -304,8 +368,9 @@ func (s *Service) ParseFileAndSaveToDraft(userID uint, anonToken string, fileNam
 		}
 	}
 
-	// 保存原始文件到磁盘
-	uploadDir := "./uploads/peer-review"
+	// 保存原始文件到磁盘：使用 Service 初始化时配置的绝对路径（/app/uploads）
+	// 相对路径 "./uploads" 依赖 cwd，容器内以 appuser 运行时对 /app 无写权限
+	uploadDir := filepath.Join(s.uploadPath, "peer-review")
 	if err := os.MkdirAll(uploadDir, 0755); err != nil {
 		return nil, fmt.Errorf("创建上传目录失败: %w", err)
 	}
@@ -449,8 +514,8 @@ func (s *Service) ParseFileAndSaveToDraft(userID uint, anonToken string, fileNam
 // - PDF/图片：直接传递文件给 AI
 // - Word/RTF/ODT/XML/HTML/TXT：提取文字，超过 50000 字符自动截取
 func (s *Service) AddAttachmentToDraft(userID uint, fileName string, fileExt string, content []byte) (*FileInfo, error) {
-	// 获取或创建草稿
-	draft, err := s.GetOrCreateDraft(userID)
+	// 附件要求登录，匿名不走此路径
+	draft, err := s.GetOrCreateDraft(userID, "")
 	if err != nil {
 		return nil, fmt.Errorf("获取草稿失败: %w", err)
 	}
@@ -595,10 +660,20 @@ func (s *Service) DeleteManuscriptFromDraft(userID uint) error {
 }
 
 // ClearDraft 清空草稿（删除主稿件和所有附件）
-func (s *Service) ClearDraft(userID uint) error {
-	// 查找用户的草稿任务
+// 登录用户按 user_id；匿名用户按 anon_token
+func (s *Service) ClearDraft(userID uint, anonToken string) error {
 	var draft PeerReviewTask
-	err := s.db.Where("user_id = ? AND status = ?", userID, TaskStatusDraft).First(&draft).Error
+	var err error
+
+	switch {
+	case userID > 0:
+		err = s.db.Where("user_id = ? AND status = ?", userID, TaskStatusDraft).First(&draft).Error
+	case anonToken != "":
+		err = s.db.Where("anon_token = ? AND user_id = 0 AND status = ?", anonToken, TaskStatusDraft).First(&draft).Error
+	default:
+		return nil // 匿名且无 token，无草稿可清
+	}
+
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil // 没有草稿，直接返回成功
@@ -733,6 +808,7 @@ func (s *Service) buildDraftResponse(draft *PeerReviewTask) *DraftResponse {
 		TargetVenue:    "", // 已废弃，保持兼容
 		ModelLevel:     draft.ModelLevel,
 		ContentPreview: preview,
+		AnonToken:      draft.AnonToken, // 匿名草稿返回 token 给前端持久化
 	}
 
 	// 添加主稿件文件信息

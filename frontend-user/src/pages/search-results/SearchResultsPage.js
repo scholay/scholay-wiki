@@ -7,7 +7,7 @@
  * ============================================================================
  */
 
-import React, { useEffect, lazy, Suspense } from 'react';
+import React, { useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import PaperPreview from '../../components/search/PaperPreview';
 import PaperListSkeleton from '../../components/search/PaperListSkeleton';
@@ -65,6 +65,23 @@ const SearchResultsPage = () => {
 
   // 核心搜索状态
   const searchState = useSearchState();
+
+  // 文本框高度自适应：用 rAF 合并连续输入导致的 layout 读写，避免 layout thrashing
+  const textareaResizeRaf = useRef(null);
+  const autoResizeTextarea = useCallback((el) => {
+    if (!el) return;
+    if (textareaResizeRaf.current) {
+      cancelAnimationFrame(textareaResizeRaf.current);
+    }
+    textareaResizeRaf.current = requestAnimationFrame(() => {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+      textareaResizeRaf.current = null;
+    });
+  }, []);
+  useEffect(() => () => {
+    if (textareaResizeRaf.current) cancelAnimationFrame(textareaResizeRaf.current);
+  }, []);
 
   // 论文详情
   const paperDetail = usePaperDetail();
@@ -460,8 +477,7 @@ const SearchResultsPage = () => {
                             maxLength={1000}
                             onChange={(e) => {
                               searchState.setSearchQuery(e.target.value);
-                              e.target.style.height = 'auto';
-                              e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
+                              autoResizeTextarea(e.target);
                               if (e.target.value.trim().length >= 2) {
                                 searchState.setShowSuggestions(true);
                               } else {
@@ -470,8 +486,7 @@ const SearchResultsPage = () => {
                             }}
                             onFocus={(e) => {
                               searchState.setIsInputSingleLine(false);
-                              e.target.style.height = 'auto';
-                              e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
+                              autoResizeTextarea(e.target);
                               if (searchState.searchQuery.trim().length >= 2) {
                                 searchState.setShowSuggestions(true);
                               }

@@ -73,6 +73,10 @@ class WebSocketClient {
       error: [],
       idle: [],   // 空闲断开事件
     };
+
+    // 一次性绑定事件回调，确保 addEventListener / removeEventListener 使用同一个函数引用
+    this.handleActivity = this.handleActivity.bind(this);
+    this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
   }
 
   /**
@@ -291,15 +295,13 @@ class WebSocketClient {
     if (this.activityBound) {
       return;
     }
-    
-    // 绑定活动事件 - 只绑定到 document，确保只检测当前页面的活动
-    this.handleActivity = this.handleActivity.bind(this);
+
+    // 活动事件（回调已在构造函数中一次性绑定）
     WS_CONFIG.ACTIVITY_EVENTS.forEach(eventName => {
       document.addEventListener(eventName, this.handleActivity, { passive: true });
     });
-    
+
     // 监听页面可见性变化
-    this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
     document.addEventListener('visibilitychange', this.handleVisibilityChange);
     
     this.activityBound = true;

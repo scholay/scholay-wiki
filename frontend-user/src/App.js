@@ -189,7 +189,6 @@ function App() {
                   <Route path="/chat" element={<PageErrorBoundary><ChatPage /></PageErrorBoundary>} />
                   <Route path="/peer-review" element={<PageErrorBoundary><PeerReviewPage /></PageErrorBoundary>} />
                   <Route path="/latex-writer" element={<PageErrorBoundary><LaTeXWriterPage /></PageErrorBoundary>} />
-                  <Route path="/pricing" element={<Pricing />} />
                   <Route path="/settings" element={
                     <ProtectedRoute>
                       <Settings />
@@ -197,11 +196,8 @@ function App() {
                   } />
                   {/* SEO 着陆页：/paper/:slug → 解析 slug → 跳转到搜索结果详情 */}
                   <Route path="/paper/:slug" element={<PageErrorBoundary><PaperLandingPage /></PageErrorBoundary>} />
-                  <Route path="/feedback" element={<FeedbackPage />} />
-                  <Route path="/about" element={<AboutPage />} />
                   <Route path="/privacy" element={<PrivacyPage />} />
                   <Route path="/terms" element={<TermsPage />} />
-                  <Route path="/contact" element={<ContactPage />} />
                   <Route path="/disclaimer" element={<DisclaimerPage />} />
                   {/* /resources 列表页：全宽单栏，不走 DocsLayout */}
                   <Route path="/resources" element={<ResourceCenterPage />} />
@@ -215,10 +211,15 @@ function App() {
                   <Route path="/alipay-return" element={<AlipayReturn />} />
                 </Route>
 
+                {/* 营销/品牌页（自带 feat-nav，不走 MainLayout 的全局 TopNavBar） */}
+                <Route path="/pricing" element={<Pricing />} />
                 <Route path="/features" element={<FeaturesOverview />} />
                 <Route path="/features/search" element={<SearchFeaturePage />} />
                 <Route path="/features/peer-review" element={<PeerReviewFeaturePage />} />
                 <Route path="/features/latex-writer" element={<LaTeXFeaturePage />} />
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/contact" element={<ContactPage />} />
+                <Route path="/feedback" element={<FeedbackPage />} />
 
                 <Route path="/search" element={<Navigate to="/" replace />} />
                 <Route path="/wechat/callback" element={<WeChatCallback />} />

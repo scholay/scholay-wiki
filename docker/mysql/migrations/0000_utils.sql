@@ -100,3 +100,26 @@ BEGIN
     END IF;
 END //
 DELIMITER ;
+
+-- 安全删除外键约束（约束存在时才删除）
+DROP PROCEDURE IF EXISTS drop_foreign_key_if_exists;
+DELIMITER //
+CREATE PROCEDURE drop_foreign_key_if_exists(
+    IN p_table_name VARCHAR(64),
+    IN p_constraint_name VARCHAR(64)
+)
+BEGIN
+    IF EXISTS (
+        SELECT * FROM information_schema.TABLE_CONSTRAINTS
+        WHERE CONSTRAINT_SCHEMA = DATABASE()
+        AND TABLE_NAME = p_table_name
+        AND CONSTRAINT_NAME = p_constraint_name
+        AND CONSTRAINT_TYPE = 'FOREIGN KEY'
+    ) THEN
+        SET @sql = CONCAT('ALTER TABLE `', p_table_name, '` DROP FOREIGN KEY `', p_constraint_name, '`');
+        PREPARE stmt FROM @sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+    END IF;
+END //
+DELIMITER ;

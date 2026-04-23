@@ -8,14 +8,18 @@
  * TopNavBar - 顶部导航栏样式
  */
 
-/* ========== 顶部导航栏基础样式 ========== */
+/* ========== 顶部导航栏基础样式 ==========
+ * background 用 var(--background) 显式继承全局主题，避免"透明 → 父色泄漏"在部分页面
+ * 出现视觉断层；底部加一条极淡的分隔线，两主题下都能提供清晰的"栏与正文"边界感
+ */
 .top-nav-bar {
   height: 56px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 1.5rem;
-  background: transparent;
+  background: var(--background);
+  border-bottom: 1px solid var(--border-light, rgba(255, 255, 255, 0.04));
   flex-shrink: 0; /* 防止被压缩 */
   z-index: 100;
 }

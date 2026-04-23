@@ -35,7 +35,9 @@ WORKDIR /app
 
 COPY --from=builder /build/main .
 
-RUN chown appuser:appuser /app/main
+# 上传目录需在 appuser 启动前创建并授权；审稿与其他上传场景均写入此路径
+RUN mkdir -p /app/uploads && \
+    chown -R appuser:appuser /app/main /app/uploads
 
 USER appuser
 

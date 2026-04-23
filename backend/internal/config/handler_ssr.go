@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/model"
 
 	"github.com/gin-gonic/gin"
@@ -162,7 +163,9 @@ func injectPaperSEOMeta(html string, meta *PaperSEOMeta, path string) string {
 	}
 
 	// 3) 追加 canonical 链接（若 head 里已有则替换）
-	canonical := fmt.Sprintf("https://www.scholay.com%s", path)
+	// 域名由 SEO_BASE_URL 环境变量控制，默认 https://scholay.com。
+	// 必须和 sitemap <loc> 前缀保持一致，否则爬虫会把 sitemap 里的 URL 当 duplicate 忽略。
+	canonical := fmt.Sprintf("%s%s", appconfig.CanonicalBaseURL(), path)
 	canonRe := regexp.MustCompile(`(?is)<link\s+rel=["']canonical["'][^>]*>`)
 	canonTag := fmt.Sprintf(`<link rel="canonical" href="%s">`, htmlEscape(canonical))
 	if canonRe.MatchString(html) {
@@ -525,8 +528,9 @@ func (h *Handler) InvalidateIndexHTMLCache() {
 
 // ServeDynamicSitemap 生成并返回动态 sitemap（XML 格式）
 // 包含静态页面和热门论文页面
+// ⚠️ 此函数当前未被路由引用，真正提供服务的是 internal/seo 包。保留仅为兼容老调用方。
 func (h *Handler) ServeDynamicSitemap(c *gin.Context) {
-	baseURL := "https://www.scholay.com"
+	baseURL := appconfig.CanonicalBaseURL()
 	today := time.Now().Format("2006-01-02")
 
 	var sitemapBuilder strings.Builder
@@ -618,8 +622,9 @@ func (h *Handler) ServeDynamicSitemap(c *gin.Context) {
 
 // ServeSitemapIndex 生成 sitemap 索引文件
 // 用于当 sitemap 太大时分割成多个文件
+// ⚠️ 此函数当前未被路由引用，真正提供服务的是 internal/seo 包。保留仅为兼容老调用方。
 func (h *Handler) ServeSitemapIndex(c *gin.Context) {
-	baseURL := "https://www.scholay.com"
+	baseURL := appconfig.CanonicalBaseURL()
 	today := time.Now().Format("2006-01-02")
 
 	sitemapIndex := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>

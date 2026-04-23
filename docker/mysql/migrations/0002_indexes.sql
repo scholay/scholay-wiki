@@ -190,7 +190,7 @@ CALL add_index_if_not_exists('peer_review_tasks', 'idx_status', '`status`', FALS
 CALL add_index_if_not_exists('peer_review_tasks', 'idx_user_status', '`user_id`, `status`', FALSE);
 CALL add_index_if_not_exists('peer_review_tasks', 'idx_user_created', '`user_id`, `created_at` DESC', FALSE);
 CALL add_index_if_not_exists('peer_review_tasks', 'idx_content_hash', '`content_hash`', FALSE);
-CALL add_foreign_key_if_not_exists('peer_review_tasks', 'fk_pr_task_user', 'FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE');
+-- user_id FK 已由 0017 移除（匿名试用 user_id=0 与 FK 冲突）
 
 -- peer_review_files 表索引
 CALL add_index_if_not_exists('peer_review_files', 'idx_task_id', '`task_id`', FALSE);
@@ -198,7 +198,7 @@ CALL add_index_if_not_exists('peer_review_files', 'idx_user_id', '`user_id`', FA
 CALL add_index_if_not_exists('peer_review_files', 'idx_file_role', '`task_id`, `file_role`', FALSE);
 CALL add_index_if_not_exists('peer_review_files', 'idx_created_at', '`created_at`', FALSE);
 CALL add_foreign_key_if_not_exists('peer_review_files', 'fk_pr_file_task', 'FOREIGN KEY (`task_id`) REFERENCES `peer_review_tasks` (`id`) ON DELETE CASCADE');
-CALL add_foreign_key_if_not_exists('peer_review_files', 'fk_pr_file_user', 'FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE');
+-- user_id FK 已由 0017 移除（匿名试用 user_id=0 与 FK 冲突）
 
 -- peer_review_results 表索引
 CALL add_index_if_not_exists('peer_review_results', 'uk_task_reviewer', '`task_id`, `reviewer_index`', TRUE);

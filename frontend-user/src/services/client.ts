@@ -18,6 +18,8 @@ export const API_URL: string = process.env.REACT_APP_API_URL || '';
 const api: AxiosInstance = axios.create({
   baseURL: `${API_URL}/api/v1`,
   headers: { 'Content-Type': 'application/json' },
+  // 让浏览器随请求一并发送 Cookie（审稿的设备识别依赖 HttpOnly cookie prv_device_id）
+  withCredentials: true,
 });
 
 // ---------------------------------------------------------------------------
@@ -26,6 +28,7 @@ const api: AxiosInstance = axios.create({
 export const publicApi: AxiosInstance = axios.create({
   baseURL: `${API_URL}/api/v1/public`,
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
 });
 
 // ---------------------------------------------------------------------------
@@ -134,6 +137,14 @@ api.interceptors.response.use(
     // ---- 401: try to refresh token ----
     if (error.response?.status === 401 && !originalRequest._retry) {
       const token = tokenCache.get();
+
+      // 审稿模块支持匿名访问：匿名用户遇到 401 直接 reject，不走 refresh / 不弹登录框
+      // 由业务代码决定是显示"登录继续"提示还是其他交互
+      const requestUrl = originalRequest?.url || '';
+      if (!token && requestUrl.includes('/peer-review/')) {
+        return Promise.reject(error);
+      }
+
       if (!token && isInAuthWhitelist()) {
         return Promise.reject(error);
       }

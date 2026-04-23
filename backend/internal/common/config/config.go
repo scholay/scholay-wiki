@@ -298,3 +298,16 @@ func getEnvAsFloat(key string, defaultValue float64) float64 {
 	}
 	return value
 }
+
+// CanonicalBaseURL 站点权威域名，用作 sitemap <loc> 前缀和 HTML canonical 标签。
+// 优先读环境变量 SEO_BASE_URL；默认 https://scholay.com（和搜索引擎后台提交的保持一致）。
+// 变更此值会影响 SEO 收录 —— 修改前确认搜索引擎后台的资源地址已经同步更新。
+// 返回值保证无尾部 "/"，调用方直接拼接 path 即可。
+func CanonicalBaseURL() string {
+	v := getEnv("SEO_BASE_URL", "https://scholay.com")
+	// 去掉尾部 "/" 让拼接更一致
+	for len(v) > 0 && v[len(v)-1] == '/' {
+		v = v[:len(v)-1]
+	}
+	return v
+}

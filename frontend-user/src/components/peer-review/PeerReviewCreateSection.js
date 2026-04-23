@@ -56,7 +56,7 @@ export default function PeerReviewCreateSection({
 
   return (
     <div className="prv-create-section">
-      {/* 头部 */}
+      {/* 头部 —— 标题 + 隐私开关 */}
       <div className="prv-section-header">
         <div className="prv-section-intro">
           <h2 className="prv-section-title">
@@ -69,6 +69,32 @@ export default function PeerReviewCreateSection({
           </h2>
           <p className="prv-section-desc">上传论文，获取专业审稿意见</p>
         </div>
+
+        {/* 隐私模式开关 —— 放在标题行右侧，独立成项
+            onClick 传递原生 event，父组件读取点击坐标作为圆形水波扩散的原点 */}
+        <button
+          type="button"
+          className={`prv-privacy-switch ${isPrivate ? 'is-on' : ''}`}
+          onClick={(e) => onTogglePrivate(e)}
+          role="switch"
+          aria-checked={isPrivate}
+          aria-label="切换隐私模式"
+          title={isPrivate ? '隐私模式已开启：审稿完成 24 小时后数据自动销毁' : '开启隐私模式：审稿完成 24 小时后数据自动销毁'}
+        >
+          <span className="prv-privacy-switch-icon" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+              {isPrivate
+                ? <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                : <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+              }
+            </svg>
+          </span>
+          <span className="prv-privacy-switch-label">隐私模式</span>
+          <span className="prv-privacy-switch-track" aria-hidden="true">
+            <span className="prv-privacy-switch-thumb" />
+          </span>
+        </button>
       </div>
 
       {/* 输入区域 - 左右分栏 */}
@@ -134,12 +160,8 @@ function InputSplitArea({
   const [isInputFocused, setIsInputFocused] = useState(false);
   const textareaRef = React.useRef(null);
 
-  // 切换到文件上传模式
+  // 切换到文件上传模式（匿名用户也可使用主稿件上传）
   const handleSwitchToFile = () => {
-    if (!isLoggedIn) {
-      onRequireLogin();
-      return;
-    }
     fileInputRef.current?.click();
   };
 
@@ -328,22 +350,7 @@ function InputSplitArea({
                   <span> / 50,000</span>
                 </div>
               )}
-              {/* 隐私模式开关 */}
-              <button
-                type="button"
-                className={`prv-private-toggle ${isPrivate ? 'prv-private-toggle--active' : ''}`}
-                onClick={onTogglePrivate}
-                title={isPrivate ? '隐私模式已开启：审稿完成后数据将在24小时内自动删除' : '点击开启隐私模式'}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  {isPrivate ? (
-                    <><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>
-                  ) : (
-                    <><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></>
-                  )}
-                </svg>
-                {isPrivate ? '隐私模式' : '隐私'}
-              </button>
+              {/* 隐私模式开关已上移至标题右侧 */}
               {/* 提交按钮 */}
               <button
                 ref={submitBtnRef}
@@ -388,11 +395,8 @@ const LeftTextArea = React.forwardRef(({ manuscriptText, onTextInput, fileName, 
   const isDisabled = !!fileName;
   const hasText = manuscriptText.trim().length > 0;
   
+  // 匿名用户也可直接输入文本
   const handleFocus = () => {
-    if (!isLoggedIn) {
-      onRequireLogin();
-      return;
-    }
     onFocus?.();
   };
 
@@ -436,18 +440,15 @@ function RightFileArea({
 }) {
   const hasFile = !!fileName;
   
+  // 主稿件上传对匿名用户开放
   const handleClick = () => {
-    if (!isLoggedIn) {
-      onRequireLogin();
-      return;
-    }
     if (!hasFile) {
       fileInputRef.current?.click();
     }
   };
 
   return (
-    <div 
+    <div
       className={`prv-input-right ${isDragging ? 'prv-input-right-dragging' : ''} ${hasFile ? 'prv-input-right-uploaded' : ''}`}
       onClick={handleClick}
     >
@@ -507,10 +508,7 @@ function AttachmentsZone({
   const handleClick = (e) => {
     if (e.target.closest('.prv-attachment-chip-remove')) return;
     if (e.target.closest('.prv-attachment-chip.uploading')) return;
-    if (!isLoggedIn) {
-      onRequireLogin();
-      return;
-    }
+    // 无论是否登录都打开文件选择器；匿名用户选择文件后由 onAttachmentUpload 软提示"需要登录"
     const uploadedCount = attachments.filter(a => !a.uploading).length;
     if (uploadedCount < 5) {
       attachmentInputRef.current?.click();

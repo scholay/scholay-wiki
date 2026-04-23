@@ -2705,14 +2705,22 @@
     linear-gradient(90deg, rgba(10, 10, 14, 0.04) 1px, transparent 1px);
 }
 
-/* Top nav — unify with light page aesthetic */
+/* Top nav — unify with light page aesthetic
+ * Light 主题下 pill 需要比 dark 更强烈的阴影才能"浮"起来：
+ * 深色背景上阴影靠周围暗色反衬，浅色背景上必须用明确的 drop shadow */
 [data-theme="light"] .pr-v2 .feat-nav {
   background: rgba(255, 255, 255, 0.72);
-  border-color: var(--pr-border);
+  border-color: rgba(10, 10, 14, 0.06);
   backdrop-filter: saturate(180%) blur(16px);
   -webkit-backdrop-filter: saturate(180%) blur(16px);
-  box-shadow: 0 4px 20px rgba(10, 10, 14, 0.04);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 2px 6px -2px rgba(10, 10, 14, 0.04),
+    0 12px 28px -8px rgba(10, 10, 14, 0.1),
+    0 28px 56px -20px rgba(139, 92, 246, 0.15);
 }
+
+/* atmospheric ::before/::after 光晕已在 features-common.css 中移除 */
 
 [data-theme="light"] .pr-v2 .feat-nav-logo,
 [data-theme="light"] .pr-v2 .feat-nav-logo span {
