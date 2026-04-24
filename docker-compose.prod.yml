@@ -138,13 +138,13 @@ services:
     networks:
       - scholar-network
 
-  frontend:
+  frontend-user:
     image: crpi-ebrftpuujezamyxv.cn-shanghai.personal.cr.aliyuncs.com/scholay/frontend-user:latest
-    container_name: scholar_frontend
+    container_name: scholar_frontend_user
     restart: unless-stopped
     logging: *default-logging
     expose:
-      - "3000"
+      - "80"
     environment:
       - NODE_ENV=production
       - BACKEND_URL=http://scholar_backend:8080
@@ -172,7 +172,7 @@ services:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
     depends_on:
       - backend
-      - frontend
+      - frontend-user
     deploy:
       resources:
         limits:
