@@ -139,7 +139,7 @@ services:
       - scholar-network
 
   frontend:
-    image: crpi-ebrftpuujezamyxv.cn-shanghai.personal.cr.aliyuncs.com/scholay/frontend:latest
+    image: crpi-ebrftpuujezamyxv.cn-shanghai.personal.cr.aliyuncs.com/scholay/frontend-user:latest
     container_name: scholar_frontend
     restart: unless-stopped
     logging: *default-logging
