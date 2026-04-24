@@ -164,7 +164,8 @@ func (h *WeChatPayHandler) CreatePayment(c *gin.Context) {
 	description := fmt.Sprintf("订阅套餐-%s", orderRecord.PlanCode)
 	codeURL, err := h.service.CreateNativeOrder(c.Request.Context(), req.OrderNo, req.Amount, description)
 	if err != nil {
-		utils.Error(c, 5002, "Failed to create WeChat payment: "+err.Error())
+		slog.Error("failed to create wechat payment", "order_no", req.OrderNo, "err", err)
+		utils.Error(c, 5002, "创建支付失败，请稍后重试")
 		return
 	}
 
@@ -179,8 +180,9 @@ func (h *WeChatPayHandler) CreatePayment(c *gin.Context) {
 // HandleNotify 处理微信支付回调
 func (h *WeChatPayHandler) HandleNotify(c *gin.Context) {
 	if h.orderService == nil {
-		slog.Warn("wechat pay callback received but order service not available")
-		c.JSON(200, gin.H{"code": "SUCCESS", "message": ""})
+		// 不能回 SUCCESS，否则微信不会重试，订单永远不会入账
+		slog.Error("wechat pay callback received but order service not available — asking wechat to retry")
+		c.JSON(500, gin.H{"code": "FAIL", "message": "order service not available"})
 		return
 	}
 

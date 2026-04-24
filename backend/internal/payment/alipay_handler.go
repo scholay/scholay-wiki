@@ -93,7 +93,8 @@ func (h *AlipayHandler) CreatePayment(c *gin.Context) {
 
 	response, err := h.alipayService.CreatePayment(req)
 	if err != nil {
-		utils.Error(c, 4002, "Failed to create payment: "+err.Error())
+		slog.Error("failed to create alipay payment", "order_no", req.OrderNo, "err", err)
+		utils.Error(c, 4002, "创建支付失败，请稍后重试")
 		return
 	}
 
@@ -104,8 +105,9 @@ func (h *AlipayHandler) CreatePayment(c *gin.Context) {
 // POST /api/v1/payment/alipay/notify
 func (h *AlipayHandler) HandleCallback(c *gin.Context) {
 	if h.orderService == nil {
-		slog.Warn("alipay callback received but order service not available")
-		c.String(200, "success")
+		// 不能回 success，否则支付宝不会重试，订单永远不会入账
+		slog.Error("alipay callback received but order service not available — asking alipay to retry")
+		c.String(500, "fail")
 		return
 	}
 

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	ifaces "scholar-backend/internal/common/interfaces"
+	"scholar-backend/internal/common/middleware"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -96,21 +97,27 @@ func (h *Handler) SetPeerReviewQueryService(svc PeerReviewQueryService) {
 func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
 	user := router.Group("/user")
 	{
+		// 敏感认证接口严格限流（防暴力破解 / 防短信&邮件轰炸）
+		// 登录/注册/改密 —— 每 IP 每分钟 30 次（普通用户足够，恶意扫号远达不到）
+		// 发码类 —— 每 IP 每分钟 8 次（足够正常重试，但无法用于短信轰炸）
+		authLimit := middleware.RateLimitMiddleware(30, time.Minute)
+		codeLimit := middleware.RateLimitMiddleware(8, time.Minute)
+
 		// Email-based auth
 		user.POST("/check-email", h.CheckEmail)
-		user.POST("/send-code", h.SendVerificationCode)
-		user.POST("/register", h.Register)
-		user.POST("/login", h.Login)
-		user.POST("/login-with-code", h.LoginWithCode)
-		user.POST("/reset-password", h.ResetPassword)
+		user.POST("/send-code", codeLimit, h.SendVerificationCode)
+		user.POST("/register", authLimit, h.Register)
+		user.POST("/login", authLimit, h.Login)
+		user.POST("/login-with-code", authLimit, h.LoginWithCode)
+		user.POST("/reset-password", authLimit, h.ResetPassword)
 
 		// Phone-based auth
 		user.POST("/check-phone", h.CheckPhone)
-		user.POST("/send-phone-code", h.SendPhoneVerificationCode)
-		user.POST("/register-phone", h.RegisterWithPhone)
-		user.POST("/login-phone", h.LoginWithPhone)
-		user.POST("/login-phone-with-code", h.LoginPhoneWithCode)
-		user.POST("/reset-password-phone", h.ResetPasswordPhone)
+		user.POST("/send-phone-code", codeLimit, h.SendPhoneVerificationCode)
+		user.POST("/register-phone", authLimit, h.RegisterWithPhone)
+		user.POST("/login-phone", authLimit, h.LoginWithPhone)
+		user.POST("/login-phone-with-code", authLimit, h.LoginPhoneWithCode)
+		user.POST("/reset-password-phone", authLimit, h.ResetPasswordPhone)
 
 		// Token management (public endpoints for refresh)
 		user.POST("/refresh-token", h.RefreshToken)

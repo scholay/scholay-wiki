@@ -98,11 +98,15 @@ func (r *Repository) CreateMessage(message *ConversationMessage) error {
 	return r.db.Create(message).Error
 }
 
-// GetConversationMessages gets all messages for a conversation
+// GetConversationMessages gets messages for a conversation (capped to avoid OOM on very long conversations).
+// 上限 5000 条足以支撑绝大多数对话；需要完整翻页请用 GetConversationMessagesPaginated。
+const maxConversationMessagesPerLoad = 5000
+
 func (r *Repository) GetConversationMessages(conversationID uint) ([]ConversationMessage, error) {
 	var messages []ConversationMessage
 	err := r.db.Where("conversation_id = ?", conversationID).
 		Order("created_at ASC").
+		Limit(maxConversationMessagesPerLoad).
 		Find(&messages).Error
 	if err != nil {
 		return nil, err

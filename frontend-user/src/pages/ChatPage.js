@@ -28,6 +28,11 @@ import 'highlight.js/styles/github-dark.css';
 // 懒加载 AuthModal
 const AuthModal = lazy(() => import('../components/auth/AuthModal'));
 
+// Module-level plugin refs — stable across renders so ReactMarkdown can cache its internals
+const REMARK_PLUGINS = [remarkGfm];
+// eslint-disable-next-line react-hooks/exhaustive-deps
+const REHYPE_PLUGINS = [[rehypeHighlight, highlightOptions]];
+
 // Code Block Component with Copy Button (Memoized for performance)
 const CodeBlock = React.memo(({ inline, className, children, ...props }) => {
   const [isCopied, setIsCopied] = useState(false);
@@ -77,6 +82,156 @@ const CodeBlock = React.memo(({ inline, className, children, ...props }) => {
         </code>
       </div>
     </div>
+  );
+});
+
+// ReactMarkdown components map — stable module-level ref
+const MARKDOWN_COMPONENTS = { code: CodeBlock };
+
+// User message — memoized so streamingContent ticks don't re-render history
+const UserMessageItem = React.memo(function UserMessageItem({
+  msg,
+  isHovered,
+  isEditing,
+  anyEditing,
+  editContent,
+  setEditContent,
+  onMouseEnter,
+  onMouseLeave,
+  onCopy,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+}) {
+  if (isEditing) {
+    return (
+      <article className="message-group" data-role="user">
+        <div className="message-wrapper">
+          <div className="message-content-container">
+            <div className="edit-container">
+              <textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                className="edit-textarea"
+                rows={4}
+              />
+              <div className="edit-buttons">
+                <button onClick={onCancelEdit} className="edit-cancel">取消</button>
+                <button onClick={() => onSaveEdit(msg.message_id)} className="edit-save">发送</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+    );
+  }
+
+  return (
+    <article className="message-group" data-role="user">
+      <div className="message-wrapper">
+        <div className="message-content-container">
+          <div
+            className="user-message-wrapper"
+            onMouseEnter={() => onMouseEnter(msg.message_id)}
+            onMouseLeave={onMouseLeave}
+          >
+            <div className="user-message-bubble">{msg.content}</div>
+            {isHovered && !anyEditing && (
+              <div className="hover-buttons">
+                <button onClick={() => onCopy(msg.content)} className="hover-btn" title="Copy">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                </button>
+                <button onClick={() => onStartEdit(msg)} className="hover-btn" title="Edit">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                  </svg>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+});
+
+// Assistant message — memoized; ReactMarkdown only reparses when this message's content changes
+const AssistantMessageItem = React.memo(function AssistantMessageItem({
+  msg,
+  siblingEntry,
+  anyEditing,
+  onCopy,
+  onRegenerate,
+  onNavigateSibling,
+}) {
+  return (
+    <article className="message-group" data-role="assistant">
+      <div className="message-wrapper">
+        <div className="message-content-container">
+          <div className="message-avatar">
+            <Logo size={24} className="assistant-logo" />
+          </div>
+          <div className="message-body">
+            <div className="message-content">
+              <ReactMarkdown
+                remarkPlugins={REMARK_PLUGINS}
+                rehypePlugins={REHYPE_PLUGINS}
+                components={MARKDOWN_COMPONENTS}
+              >
+                {msg.content}
+              </ReactMarkdown>
+            </div>
+
+            {siblingEntry?.total > 1 && (
+              <div className="branch-nav">
+                <button
+                  onClick={() => onNavigateSibling(msg.message_id, -1)}
+                  className="branch-nav-btn"
+                  title="Previous response"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="15 18 9 12 15 6"/>
+                  </svg>
+                </button>
+                <span className="branch-nav-count">
+                  {(siblingEntry.currentIndex || 0) + 1} / {siblingEntry.total || 1}
+                </span>
+                <button
+                  onClick={() => onNavigateSibling(msg.message_id, 1)}
+                  className="branch-nav-btn"
+                  title="Next response"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="9 18 15 12 9 6"/>
+                  </svg>
+                </button>
+              </div>
+            )}
+
+            {!anyEditing && (
+              <div className="hover-buttons">
+                <button onClick={() => onCopy(msg.content)} className="hover-btn" title="Copy">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                </button>
+                <button onClick={() => onRegenerate(msg.message_id)} className="hover-btn" title="Regenerate">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="23 4 23 10 17 10"/>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                  </svg>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </article>
   );
 });
 
@@ -169,6 +324,16 @@ function ChatPage() {
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
   const hoverTimeoutRef = useRef(null); // 用于延迟显示hover按钮
+  const scrollContainerRef = useRef(null);
+  const shouldAutoScrollRef = useRef(true); // 用户上滑后暂停自动滚动
+  const scrollRafRef = useRef(null);
+  // 保持对最新状态的引用，避免回调因依赖变化而频繁重建
+  const messagesRef = useRef(messages);
+  const siblingInfoRef = useRef(siblingInfo);
+  const editContentRef = useRef(editContent);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+  useEffect(() => { siblingInfoRef.current = siblingInfo; }, [siblingInfo]);
+  useEffect(() => { editContentRef.current = editContent; }, [editContent]);
 
   // 先声明 loadSiblings, 以便在 stream 回调中引用
   const loadSiblings = useCallback(async (messageId) => {
@@ -255,10 +420,47 @@ function ChatPage() {
     localStorage.setItem('sidebarCollapsed', sidebarCollapsed.toString());
   }, [sidebarCollapsed]);
 
-  // Auto-scroll during streaming and message updates
+  const scrollToBottom = useCallback((smooth = false) => {
+    if (!shouldAutoScrollRef.current) return;
+    if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current);
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      const container = scrollContainerRef.current
+        || messagesEndRef.current?.parentElement?.parentElement;
+      if (!container) return;
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto',
+      });
+    });
+  }, []);
+
+  // 监听用户滚动：上滑时暂停自动滚动；回到底部时恢复
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, streamingContent, isStreaming, isWaitingForResponse]);
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const handleScroll = () => {
+      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+      shouldAutoScrollRef.current = distanceFromBottom < 40;
+    };
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [currentConversation]);
+
+  // 新消息 / 等待状态变化 → 重置自动滚动 + 平滑滚动
+  useEffect(() => {
+    shouldAutoScrollRef.current = true;
+    scrollToBottom(true);
+  }, [messages.length, isWaitingForResponse, scrollToBottom]);
+
+  // 流式 chunk → 瞬时滚动（避免 smooth 动画堆积卡顿）
+  useEffect(() => {
+    if (streamingContent) scrollToBottom(false);
+  }, [streamingContent, scrollToBottom]);
+
+  useEffect(() => () => {
+    if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current);
+  }, []);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -268,22 +470,6 @@ function ChatPage() {
       textareaRef.current.style.height = Math.min(scrollHeight, maxHeight) + 'px';
     }
   }, [inputMessage]);
-
-  const scrollToBottom = () => {
-    if (messagesEndRef.current) {
-      // Get the scrollable container (.messages-scrollable)
-      // messagesEndRef -> .messages-inner -> .messages-scrollable
-      const scrollContainer = messagesEndRef.current.parentElement?.parentElement;
-      if (scrollContainer) {
-        // Scroll to the absolute bottom of the container
-        // This ensures the content is fully visible above the fixed input
-        scrollContainer.scrollTo({
-          top: scrollContainer.scrollHeight,
-          behavior: 'smooth'
-        });
-      }
-    }
-  };
 
   const loadConversations = async () => {
     try {
@@ -439,70 +625,66 @@ function ChatPage() {
     setIsWaitingForResponse(false);
   };
 
-  const copyToClipboard = (content) => {
+  const copyToClipboard = useCallback((content) => {
     navigator.clipboard.writeText(content);
-  };
+  }, []);
 
-  const regenerateMessage = async (messageId) => {
+  const regenerateMessage = useCallback(async (messageId) => {
     setIsWaitingForResponse(true);
-
-    // Remove the old assistant message and any messages after it
-    const messageIndex = messages.findIndex(m => m.message_id === messageId);
+    const messageIndex = messagesRef.current.findIndex(m => m.message_id === messageId);
     if (messageIndex >= 0) {
       setMessages(prev => prev.slice(0, messageIndex));
     }
-
     await startStream(`/api/v1/user/conversations/messages/${messageId}/regenerate`, {
       method: 'POST',
     });
     setIsWaitingForResponse(false);
-  };
+  }, [startStream]);
 
-  const startEditMessage = (message) => {
+  const startEditMessage = useCallback((message) => {
     setEditingMessage(message.message_id);
     setEditContent(message.content);
-  };
+  }, []);
 
-  const cancelEdit = () => {
+  const cancelEdit = useCallback(() => {
     setEditingMessage(null);
     setEditContent('');
-  };
+  }, []);
 
-  const saveEdit = async (messageId) => {
-    if (!editContent.trim()) return;
+  const saveEdit = useCallback(async (messageId) => {
+    const content = editContentRef.current;
+    if (!content.trim()) return;
 
     setIsWaitingForResponse(true);
     setEditingMessage(null);
 
-    // Find the message being edited and get the parent context
-    const messageIndex = messages.findIndex(m => m.message_id === messageId);
-    const editedMessage = messages[messageIndex];
-    const parentMessageId = messageIndex > 0 ? messages[messageIndex - 1].message_id : null;
+    const msgs = messagesRef.current;
+    const messageIndex = msgs.findIndex(m => m.message_id === messageId);
+    const editedMessage = msgs[messageIndex];
+    const parentMessageId = messageIndex > 0 ? msgs[messageIndex - 1].message_id : null;
 
-    // Remove the edited message and everything after it
     if (messageIndex >= 0) {
       setMessages(prev => prev.slice(0, messageIndex));
     }
 
-    // Add the edited user message to UI immediately
     const updatedUserMessage = {
       message_id: messageId,
       role: 'user',
-      content: editContent,
+      content,
       parent_message_id: parentMessageId,
       created_at: editedMessage?.created_at || new Date().toISOString()
     };
     setMessages(prev => [...prev, updatedUserMessage]);
 
     await startStream(`/api/v1/user/conversations/messages/${messageId}/edit`, {
-      body: { content: editContent },
+      body: { content },
     });
     setIsWaitingForResponse(false);
     setEditContent('');
-  };
+  }, [startStream]);
 
-  const navigateToSibling = async (messageId, direction) => {
-    const info = siblingInfo[messageId];
+  const navigateToSibling = useCallback(async (messageId, direction) => {
+    const info = siblingInfoRef.current[messageId];
     if (!info || info.total <= 1) return;
 
     let newIndex = info.currentIndex + direction;
@@ -520,30 +702,39 @@ function ChatPage() {
       }
 
       const branchChain = response.data.data;
-
       if (!branchChain || branchChain.length === 0) {
         logger.error('Empty branch chain returned');
         return;
       }
 
-      // Find the index of current message in the messages array
-      const messageIndex = messages.findIndex(m => m.message_id === messageId);
+      const msgs = messagesRef.current;
+      const messageIndex = msgs.findIndex(m => m.message_id === messageId);
       if (messageIndex < 0) return;
 
-      // Replace from the branch point onwards with the complete branch chain
-      const newMessages = messages.slice(0, messageIndex);
+      const newMessages = msgs.slice(0, messageIndex);
       newMessages.push(...branchChain.slice(messageIndex));
-
       setMessages(newMessages);
 
-      // Load sibling info for all messages in the new branch
       for (const msg of branchChain.slice(messageIndex)) {
         await loadSiblings(msg.message_id);
       }
     } catch (error) {
       logger.error('Failed to load branch chain:', error);
     }
-  };
+  }, [loadSiblings]);
+
+  const handleUserMouseEnter = useCallback((messageId) => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    hoverTimeoutRef.current = setTimeout(() => setHoveredMessage(messageId), 1000);
+  }, []);
+
+  const handleUserMouseLeave = useCallback(() => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    setHoveredMessage(null);
+  }, []);
 
   const deleteConversation = async (conversationId) => {
     try {
@@ -682,149 +873,36 @@ function ChatPage() {
                   </button>
                 </div>
               </nav>
-              <div className="messages-scrollable">
+              <div className="messages-scrollable" ref={scrollContainerRef}>
                 <div className="messages-inner">
                   {messages.map((msg, index) => (
-                    <article
-                      key={msg.message_id || index}
-                      className="message-group"
-                      data-role={msg.role}
-                    >
-                      <div className="message-wrapper">
-                        <div className="message-content-container">
-                          {msg.role === 'user' ? (
-                            // User message - Right aligned bubble
-                            editingMessage === msg.message_id ? (
-                              <div className="edit-container">
-                                <textarea
-                                  value={editContent}
-                                  onChange={(e) => setEditContent(e.target.value)}
-                                  className="edit-textarea"
-                                  rows={4}
-                                />
-                                <div className="edit-buttons">
-                                  <button onClick={cancelEdit} className="edit-cancel">
-                                    取消
-                                  </button>
-                                  <button onClick={() => saveEdit(msg.message_id)} className="edit-save">
-                                    发送
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div 
-                                className="user-message-wrapper"
-                                onMouseEnter={() => {
-                                  // 清除之前的定时器
-                                  if (hoverTimeoutRef.current) {
-                                    clearTimeout(hoverTimeoutRef.current);
-                                  }
-                                  // 设置1秒延迟显示hover按钮
-                                  hoverTimeoutRef.current = setTimeout(() => {
-                                    setHoveredMessage(msg.message_id);
-                                  }, 1000);
-                                }}
-                                onMouseLeave={() => {
-                                  // 清除定时器
-                                  if (hoverTimeoutRef.current) {
-                                    clearTimeout(hoverTimeoutRef.current);
-                                    hoverTimeoutRef.current = null;
-                                  }
-                                  setHoveredMessage(null);
-                                }}
-                              >
-                                <div className="user-message-bubble">
-                                  {msg.content}
-                                </div>
-
-                                {hoveredMessage === msg.message_id && !editingMessage && (
-                                  <div className="hover-buttons">
-                                    <button onClick={() => copyToClipboard(msg.content)} className="hover-btn" title="Copy">
-                                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                                      </svg>
-                                    </button>
-                                    <button onClick={() => startEditMessage(msg)} className="hover-btn" title="Edit">
-                                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                                      </svg>
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            )
-                          ) : (
-                            // Assistant message - Full width with avatar
-                            <>
-                              <div className="message-avatar">
-                                <Logo size={24} className="assistant-logo" />
-                              </div>
-
-                              <div className="message-body">
-                                <div className="message-content">
-                                  <ReactMarkdown
-                                    remarkPlugins={[remarkGfm]}
-                                    rehypePlugins={[[rehypeHighlight, highlightOptions]]}
-                                    components={{
-                                      code: CodeBlock
-                                    }}
-                                  >
-                                    {msg.content}
-                                  </ReactMarkdown>
-                                </div>
-
-                                {/* Branch Navigation for Assistant Messages */}
-                                {siblingInfo[msg.message_id]?.total > 1 && (
-                                  <div className="branch-nav">
-                                    <button
-                                      onClick={() => navigateToSibling(msg.message_id, -1)}
-                                      className="branch-nav-btn"
-                                      title="Previous response"
-                                    >
-                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <polyline points="15 18 9 12 15 6"/>
-                                      </svg>
-                                    </button>
-                                    <span className="branch-nav-count">
-                                      {(siblingInfo[msg.message_id]?.currentIndex || 0) + 1} / {siblingInfo[msg.message_id]?.total || 1}
-                                    </span>
-                                    <button
-                                      onClick={() => navigateToSibling(msg.message_id, 1)}
-                                      className="branch-nav-btn"
-                                      title="Next response"
-                                    >
-                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <polyline points="9 18 15 12 9 6"/>
-                                      </svg>
-                                    </button>
-                                  </div>
-                                )}
-
-                                {/* Assistant message buttons: always show */}
-                                {!editingMessage && (
-                                  <div className="hover-buttons">
-                                    <button onClick={() => copyToClipboard(msg.content)} className="hover-btn" title="Copy">
-                                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                                      </svg>
-                                    </button>
-                                    <button onClick={() => regenerateMessage(msg.message_id)} className="hover-btn" title="Regenerate">
-                                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <polyline points="23 4 23 10 17 10"/>
-                                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-                                      </svg>
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </article>
+                    msg.role === 'user' ? (
+                      <UserMessageItem
+                        key={msg.message_id || index}
+                        msg={msg}
+                        isHovered={hoveredMessage === msg.message_id}
+                        isEditing={editingMessage === msg.message_id}
+                        anyEditing={!!editingMessage}
+                        editContent={editContent}
+                        setEditContent={setEditContent}
+                        onMouseEnter={handleUserMouseEnter}
+                        onMouseLeave={handleUserMouseLeave}
+                        onCopy={copyToClipboard}
+                        onStartEdit={startEditMessage}
+                        onCancelEdit={cancelEdit}
+                        onSaveEdit={saveEdit}
+                      />
+                    ) : (
+                      <AssistantMessageItem
+                        key={msg.message_id || index}
+                        msg={msg}
+                        siblingEntry={siblingInfo[msg.message_id]}
+                        anyEditing={!!editingMessage}
+                        onCopy={copyToClipboard}
+                        onRegenerate={regenerateMessage}
+                        onNavigateSibling={navigateToSibling}
+                      />
+                    )
                   ))}
 
                   {/* ChatGPT-style thinking indicator - shown while waiting for response */}
@@ -858,11 +936,9 @@ function ChatPage() {
                           <div className="message-body">
                             <div className="message-content streaming">
                               <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                rehypePlugins={[[rehypeHighlight, highlightOptions]]}
-                                components={{
-                                  code: CodeBlock
-                                }}
+                                remarkPlugins={REMARK_PLUGINS}
+                                rehypePlugins={REHYPE_PLUGINS}
+                                components={MARKDOWN_COMPONENTS}
                               >
                                 {streamingContent}
                               </ReactMarkdown>
