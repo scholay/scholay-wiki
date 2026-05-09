@@ -27,7 +27,14 @@ type Manager struct {
 	accountService *thirdparty.Service
 }
 
-// NewManager creates a new Minicod client manager
+// NewManager creates a new Minicod client manager.
+//
+// base URL 来源优先级(在 getClientWithAccountID 里按此顺序尝试):
+//   1. third_party_accounts 当前账户的 MinicodConfig.BaseURL(管理后台配)
+//   2. minicod.DefaultBaseURL 常量(代码内兜底,默认 https://open.scholay.com)
+//
+// env 层不再单独提供 OPENALEX_BASE_URL —— 因为兜底 URL 没有配套 API key,
+// 实际可用性的来源始终是管理后台 third_party_accounts 的整行配置。
 func NewManager(accountService *thirdparty.Service) *Manager {
 	return &Manager{
 		accountService: accountService,
@@ -100,24 +107,26 @@ func (m *Manager) getClientWithAccountID() (*Client, uint, error) {
 
 	slog.Debug("minicod: got API key", "keyLength", len(apiKey), "accountID", accountID)
 
-	// Check for custom base URL
+	// Base URL 优先级: third_party_accounts 配置 > minicod.DefaultBaseURL 常量
 	accounts, err := m.accountService.GetActiveAccountsByType(thirdparty.AccountTypeMinicod)
 	if err != nil || len(accounts) == 0 {
+		// 没拿到账户(异常路径) → 用 const 兜底,NewClientWithBaseURL 会接 ""
 		return NewClient(apiKey), accountID, nil
 	}
 
-	var baseURL string
+	baseURL := ""
 	for _, account := range accounts {
 		if account.ID == accountID {
 			config, err := account.GetMinicodConfig()
 			if err == nil && config.BaseURL != "" {
 				baseURL = config.BaseURL
-				slog.Debug("minicod: using custom base URL", "baseURL", baseURL)
+				slog.Debug("minicod: using account-level custom base URL", "baseURL", baseURL)
 			}
 			break
 		}
 	}
 
+	// baseURL 为空时 NewClientWithBaseURL 会用 DefaultBaseURL 常量兜底
 	return NewClientWithBaseURL(apiKey, baseURL), accountID, nil
 }
 

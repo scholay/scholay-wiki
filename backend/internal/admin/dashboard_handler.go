@@ -115,7 +115,7 @@ func (h *DashboardHandler) GetDashboardStatistics(c *gin.Context) {
 
 	// 30天活跃用户 (有登录记录)
 	h.db.Table("user_sessions").
-		Where("last_active_at >= ?", time.Now().AddDate(0, 0, -30)).
+		Where("last_activity >= ?", time.Now().AddDate(0, 0, -30)).
 		Distinct("user_id").
 		Count(&stats.ActiveUsers30d)
 
@@ -126,7 +126,7 @@ func (h *DashboardHandler) GetDashboardStatistics(c *gin.Context) {
 	} else {
 		// 回退到数据库查询（兼容旧逻辑）
 		h.db.Table("user_sessions").
-			Where("last_active_at >= ?", time.Now().Add(-5*time.Minute)).
+			Where("last_activity >= ?", time.Now().Add(-5*time.Minute)).
 			Count(&stats.OnlineUsers)
 	}
 

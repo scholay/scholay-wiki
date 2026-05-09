@@ -8,6 +8,8 @@
 package main
 
 import (
+	"time"
+
 	"scholar-backend/internal/common/middleware"
 
 	"github.com/gin-gonic/gin"
@@ -54,9 +56,15 @@ func registerPublicAPIRoutes(api *gin.RouterGroup, h *allHandlers) {
 		publicAPI.GET("/hot-content/papers", h.hotContent.GetRecentPapers)
 
 		// SEO 搜索曝光批量 seed（前端搜索结果加载后上报）
-		publicAPI.POST("/seo/expose", h.seo.ExposeSeeds)
-		// SEO slug 解析（前端 /paper/:slug 首屏用）
+		// 限流: 每 IP 每分钟最多 60 次。NAT 出口同 IP 的多用户共享配额,
+		// 一个学校/公司 60/min 的搜索量基本够用; 进一步可考虑 user-id+ip 双维度。
+		publicAPI.POST("/seo/expose",
+			middleware.RateLimitMiddleware(60, time.Minute),
+			h.seo.ExposeSeeds,
+		)
+		// SEO slug 解析（前端 /paper/:slug、/author/:slug 首屏用）
 		publicAPI.GET("/seo/paper/:slug", h.seo.ResolveBySlug)
+		publicAPI.GET("/seo/author/:slug", h.seo.ResolveAuthorBySlug)
 
 		// Public JNL Journal routes
 		publicAPI.POST("/journals/search", h.scholar.SearchJournals)

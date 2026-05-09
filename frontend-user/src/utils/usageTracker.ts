@@ -212,12 +212,24 @@ const buildPaperExtraData = (paperId: string, paperData: PaperLikeData | null): 
   if (paperData) {
     if (paperData.doi) extraData.doi = paperData.doi;
     if (paperData.title) extraData.title = paperData.title;
-    if (paperData.abstract) extraData.abstract = paperData.abstract.substring(0, 500);
+    // 完整 abstract,不再截断 — 后端 seo_papers 走 LENGTH 比较保护,
+    // 截断版会覆盖 tier=2 搜索曝光时写入的完整摘要,降级 SEO 落地页质量。
+    if (paperData.abstract) extraData.abstract = paperData.abstract;
     if (paperData.authors) {
-      const authorsData = Array.isArray(paperData.authors)
-        ? paperData.authors.slice(0, 5).map((a) => (typeof a === 'string' ? a : a.name || '')).join(', ')
-        : paperData.authors;
-      extraData.authors = authorsData;
+      // 同时传两份:
+      //   authors      —— 逗号分隔,hotcontent 用,name only
+      //   authors_json —— 完整 JSON,seo 用,保留 authorId
+      // 这样不破坏 hotcontent 现有解析,又能让 seo_papers.authors_json 拿到 authorId。
+      const arr = Array.isArray(paperData.authors)
+        ? paperData.authors.slice(0, 10).map((a) => (
+            typeof a === 'string'
+              ? { name: a }
+              : { name: a.name || '', authorId: a.authorId || '' }
+          ))
+        : [];
+      const compactNames = arr.slice(0, 5).map((a) => a.name).filter(Boolean).join(', ');
+      if (compactNames) extraData.authors = compactNames;
+      if (arr.length > 0) extraData.authors_json = JSON.stringify(arr);
     }
     if (paperData.year) extraData.year = paperData.year;
     if (paperData.venue) extraData.venue = paperData.venue;

@@ -51,6 +51,22 @@ type PaperSEOMeta struct {
 	Authors  []string
 }
 
+// AuthorSEOProvider 由 seo.Service 实现，用于 /author/{slug} 路由的 SSR 元数据注入
+type AuthorSEOProvider interface {
+	ResolveAuthorSlug(slug string) (*AuthorSEOMeta, error)
+}
+
+// AuthorSEOMeta 作者 SSR 注入所需的最小元数据集
+type AuthorSEOMeta struct {
+	AuthorID      string
+	Name          string
+	Affiliations  []string
+	Homepage      string
+	PaperCount    int
+	CitationCount int
+	HIndex        *int
+}
+
 // htmlCacheEntry stores a cached HTML page with its expiry time
 type htmlCacheEntry struct {
 	html      string
@@ -70,6 +86,9 @@ type Handler struct {
 
 	// 论文详情页 SSR 元数据提供者（/paper/{slug}）
 	paperSEOProvider PaperSEOProvider
+
+	// 作者详情页 SSR 元数据提供者（/author/{slug}）
+	authorSEOProvider AuthorSEOProvider
 }
 
 // NewHandler creates a new config handler
@@ -97,6 +116,11 @@ func (h *Handler) SetUsageLogService(service UsageLogService) {
 // SetPaperSEOProvider 设置论文 SSR 元数据提供者
 func (h *Handler) SetPaperSEOProvider(p PaperSEOProvider) {
 	h.paperSEOProvider = p
+}
+
+// SetAuthorSEOProvider 设置作者 SSR 元数据提供者
+func (h *Handler) SetAuthorSEOProvider(p AuthorSEOProvider) {
+	h.authorSEOProvider = p
 }
 
 // RegisterRoutes registers config routes

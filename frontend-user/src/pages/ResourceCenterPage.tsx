@@ -19,6 +19,7 @@ import {
   ArrowRight, SearchX,
 } from 'lucide-react';
 import SEO from '../components/common/SEO';
+import { siteUrl } from '../config/site';
 import resourceArticles, { RESOURCE_CATEGORIES } from './resourceArticles';
 import './styles/ResourceCenter.css';
 
@@ -91,13 +92,13 @@ const ResourceCenterPage: React.FC = () => {
     '@type': 'CollectionPage',
     name: '学术资源中心 - Scholay',
     description: 'Scholay 学术资源中心提供原创学术指南，涵盖文献检索技巧、论文写作方法、引用格式规范、研究方法论和 AI 学术工具使用教程。',
-    url: 'https://www.scholay.com/resources',
+    url: siteUrl('/resources'),
     mainEntity: {
       '@type': 'ItemList',
       itemListElement: articles.map((article, index) => ({
         '@type': 'ListItem',
         position: index + 1,
-        url: `https://www.scholay.com/resources/${article.slug}`,
+        url: siteUrl(`/resources/${article.slug}`),
         name: article.title,
       })),
     },

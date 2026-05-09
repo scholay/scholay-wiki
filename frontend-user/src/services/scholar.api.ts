@@ -93,20 +93,33 @@ export const publicScholarAPI = {
 
   // SEO 收录：把搜索结果曝光 / 详情页 slug 喂给 sitemap。
   // expose 用 sendBeacon（fire-and-forget）避免阻塞主流程；离页时依然能送达。
-  reportSEOExposure: (papers: Array<{
-    paper_id: string;
-    title: string;
-    abstract?: string;
-    year?: number;
-    venue?: string;
-    doi?: string;
-    authors?: Array<{ name: string; authorId?: string }>;
-    fields_of_study?: string[];
-    source?: string;
-  }>) => {
-    if (!papers?.length) return;
+  // 一次请求同时上报 papers + 去重后的 authors,后端各自走 tier=2 的 upsert。
+  reportSEOExposure: (
+    papers: Array<{
+      paper_id: string;
+      title: string;
+      abstract?: string;
+      year?: number;
+      venue?: string;
+      doi?: string;
+      authors?: Array<{ name: string; authorId?: string }>;
+      fields_of_study?: string[];
+      source?: string;
+    }>,
+    authors?: Array<{
+      author_id: string;
+      name: string;
+      affiliations?: string[];
+      homepage?: string;
+      paper_count?: number;
+      citation_count?: number;
+      h_index?: number;
+      source?: string;
+    }>,
+  ) => {
+    if (!papers?.length && !authors?.length) return;
     const url = `${API_URL}/api/v1/public/seo/expose`;
-    const body = JSON.stringify({ papers });
+    const body = JSON.stringify({ papers: papers || [], authors: authors || [] });
     if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
       try {
         const blob = new Blob([body], { type: 'application/json' });
@@ -124,6 +137,7 @@ export const publicScholarAPI = {
   },
 
   resolveSEOSlug: (slug: string) => publicApi.get(`/seo/paper/${encodeURIComponent(slug)}`),
+  resolveSEOAuthorSlug: (slug: string) => publicApi.get(`/seo/author/${encodeURIComponent(slug)}`),
 };
 
 // Journal API (JNL endpoints)

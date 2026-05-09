@@ -10,7 +10,10 @@
 export { default as EmailTab } from './EmailTab';
 export { default as SMSTab } from './SMSTab';
 export { default as AlipayTab } from './AlipayTab';
-export { default as WechatTab } from './WechatTab';
+// 老的 4-in-1 WechatTab 已拆分为下面 3 个独立组件
+export { default as WechatPayTab } from './WechatPayTab';
+export { default as WechatOAuthTab } from './WechatOAuthTab';
+export { default as WechatOfficialTab } from './WechatOfficialTab';
 export { default as GoogleTab } from './GoogleTab';
 export { default as OrcidTab } from './OrcidTab';
 export { default as AppleTab } from './AppleTab';

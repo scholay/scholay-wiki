@@ -67,10 +67,15 @@ scholar/
 │
 ├── docker/
 │   └── mysql/
-│       └── init/              # Database initialization scripts
+│       └── migrations/        # 按编号顺序重放的版本化 SQL 迁移
 │
-├── scripts/                   # Utility scripts
-│   └── check-schema.sh        # Schema migration script
+├── scripts/                   # 运维与构建脚本
+│   ├── build-and-push.sh      # 本地构建并推镜像到 ACR
+│   ├── deploy.sh              # 服务器拉镜像并重启
+│   ├── run-migrations.sh      # schema-sync 容器入口,按序执行 migrations/
+│   ├── monitor-memory.sh      # 内存监控
+│   ├── export-logs.sh         # 容器日志导出
+│   └── ...
 │
 ├── data/                      # Persistent data (gitignored)
 │   └── mysql/                 # MySQL data directory

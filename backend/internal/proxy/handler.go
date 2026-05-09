@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"scholar-backend/internal/common/circuitbreaker"
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
@@ -96,12 +97,19 @@ func (h *Handler) ProxySemanticScholar(c *gin.Context) {
 	// Set referer to make it look like we're coming from Semantic Scholar
 	req.Header.Set("Referer", "https://www.semanticscholar.org/")
 
-	// Execute request
-	resp, err := client.Do(req)
+	// Execute request through circuit breaker
+	respIface, err := circuitbreaker.ProxyServiceBreaker.Execute(func() (any, error) {
+		return client.Do(req)
+	})
 	if err != nil {
+		if circuitbreaker.IsCircuitBreakerError(err) {
+			utils.ErrorResponse(c, http.StatusServiceUnavailable, "Upstream temporarily unavailable")
+			return
+		}
 		utils.ErrorResponse(c, http.StatusBadGateway, "Failed to fetch from Semantic Scholar")
 		return
 	}
+	resp := respIface.(*http.Response)
 	defer resp.Body.Close()
 
 	// Check if the response is successful

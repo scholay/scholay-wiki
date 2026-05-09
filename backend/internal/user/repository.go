@@ -10,6 +10,7 @@ package user
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"scholar-backend/internal/common/model"
@@ -28,11 +29,11 @@ func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
 }
 
-// nonAdminScope is a reusable GORM scope that excludes admin accounts from
-// user-facing queries. After the admin-to-users migration every row has an
-// explicit role value, so a simple != check is sufficient.
+// nonAdminScope is a reusable GORM scope that excludes admin / super_admin
+// accounts from user-facing queries. After the admin-to-users migration every
+// row has an explicit role value.
 func nonAdminScope(db *gorm.DB) *gorm.DB {
-	return db.Where("role != ?", "admin")
+	return db.Where("role NOT IN ?", []string{"admin", "super_admin"})
 }
 
 // GetDB returns the database instance
@@ -216,28 +217,89 @@ var allowedSortColumns = map[string]bool{
 // GetUserListWithSort returns a paginated list of non-admin users with sorting.
 // sortBy and sortOrder are validated against a whitelist to prevent SQL injection.
 func (r *Repository) GetUserListWithSort(offset, limit int, sortBy, sortOrder string) ([]User, int64, error) {
-	var users []User
+	return r.GetUserListWithFilter(offset, limit, UserListFilter{
+		SortBy:    sortBy,
+		SortOrder: sortOrder,
+	})
+}
+
+// UserListFilter aggregates server-side query options for the admin user list.
+//
+// Semantics:
+//   - Q       : LIKE 搜索 username / email / phone
+//   - Status  : nil 不过滤；指定值精确匹配 (0/1/-1/2)
+//   - Role    : "" 时默认排除 admin/super_admin；指定值精确匹配 (允许查看管理员行)
+//   - TagID   : 0 不过滤;>0 筛选打了该标签的用户
+//   - SortBy  / SortOrder : 与 GetUserListWithSort 同义，走白名单校验
+type UserListFilter struct {
+	Q         string
+	Status    *int8
+	Role      string
+	TagID     uint
+	SortBy    string
+	SortOrder string
+}
+
+// GetUserListWithFilter returns paginated users with optional search/filter/sort.
+// 安全：role/status 走精确匹配避免注入；q 用 LIKE 但参数化 + 转义 % / _。
+func (r *Repository) GetUserListWithFilter(offset, limit int, f UserListFilter) ([]User, int64, error) {
+	if !allowedSortColumns[f.SortBy] {
+		f.SortBy = "last_login_at"
+	}
+	if f.SortOrder != "asc" && f.SortOrder != "desc" {
+		f.SortOrder = "desc"
+	}
+
+	query := r.db.Model(&User{})
+
+	// role: 指定就精确匹配（允许列出 admin/super_admin），未指定时按用户列表语义排除管理员
+	switch f.Role {
+	case "":
+		query = query.Scopes(nonAdminScope)
+	case "user", "admin", "super_admin":
+		query = query.Where("role = ?", f.Role)
+	default:
+		// 非法 role 值 → 当作未指定，避免给攻击者枚举字段值的能力
+		query = query.Scopes(nonAdminScope)
+	}
+
+	if f.Status != nil {
+		query = query.Where("status = ?", *f.Status)
+	}
+
+	// 标签筛选 — 走 join
+	if f.TagID > 0 {
+		query = query.Joins("JOIN user_tag_assignments ON user_tag_assignments.user_id = users.id").
+			Where("user_tag_assignments.tag_id = ?", f.TagID)
+	}
+
+	if f.Q != "" {
+		// 转义 LIKE 元字符；上限 100 字符防滥用
+		raw := f.Q
+		if len(raw) > 100 {
+			raw = raw[:100]
+		}
+		escaped := strings.ReplaceAll(raw, `\`, `\\`)
+		escaped = strings.ReplaceAll(escaped, "%", `\%`)
+		escaped = strings.ReplaceAll(escaped, "_", `\_`)
+		like := "%" + escaped + "%"
+		query = query.Where(
+			"username LIKE ? ESCAPE '\\\\' OR email LIKE ? ESCAPE '\\\\' OR phone LIKE ? ESCAPE '\\\\'",
+			like, like, like,
+		)
+	}
+
 	var total int64
-
-	if !allowedSortColumns[sortBy] {
-		sortBy = "last_login_at"
-	}
-	if sortOrder != "asc" && sortOrder != "desc" {
-		sortOrder = "desc"
-	}
-
-	if err := r.db.Model(&User{}).Scopes(nonAdminScope).Count(&total).Error; err != nil {
+	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	orderStr := sortBy + " " + sortOrder
-
-	err := r.db.Scopes(nonAdminScope).
-		Order(orderStr).
+	var users []User
+	// id DESC tiebreaker：避免 OFFSET 分页在并发场景下漏页/重复
+	err := query.Order(f.SortBy + " " + f.SortOrder + ", id DESC").
 		Offset(offset).
 		Limit(limit).
 		Find(&users).Error
-
 	return users, total, err
 }
 

@@ -34,9 +34,10 @@ services:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
-      interval: 10s
+      interval: 30s
       timeout: 5s
       retries: 5
+      start_period: 30s
     deploy:
       resources:
         limits:
@@ -55,10 +56,20 @@ services:
       - "6379"
     volumes:
       - ./data/redis:/data
-    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    # AOF: appendfsync everysec 显式声明（每秒 fsync，性能/持久化平衡的常规选择）
+    # slowlog: 记录 >10ms 的命令，最多保留 256 条，用于排查热点 key 与慢命令
+    command: >-
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --slowlog-log-slower-than 10000
+      --slowlog-max-len 256
+      --tcp-keepalive 60
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
+      interval: 30s
       timeout: 3s
       retries: 5
     deploy:
@@ -112,13 +123,21 @@ services:
       ADMIN_INITIAL_USERNAME: ${ADMIN_INITIAL_USERNAME:-admin}
       ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:-adminadmin}
       FRONTEND_USER_URL: http://frontend-user:80
-      SIGNOZ_ENDPOINT: ${SIGNOZ_ENDPOINT:-http://198.44.187.186:4318}
-      SIGNOZ_SERVICE_NAME: ${SIGNOZ_SERVICE_NAME:-scholar-backend}
-      SIGNOZ_ENVIRONMENT: ${SIGNOZ_ENVIRONMENT:-production}
-      SIGNOZ_ENABLE_TRACING: ${SIGNOZ_ENABLE_TRACING:-true}
-      SIGNOZ_ENABLE_LOGGING: ${SIGNOZ_ENABLE_LOGGING:-true}
-      SIGNOZ_ENABLE_METRICS: ${SIGNOZ_ENABLE_METRICS:-true}
-      SIGNOZ_SAMPLING_RATE: ${SIGNOZ_SAMPLING_RATE:-1.0}
+      # 站点 / 第三方服务地址 —— 来源是 .env 的 SITE_URL 等单一变量,这里 fan-out 给 backend
+      SEO_BASE_URL: ${SITE_URL:-https://www.scholay.com}
+      SUPPORT_EMAIL: ${SUPPORT_EMAIL:-support@scholay.com}
+      UNPAYWALL_EMAIL: ${UNPAYWALL_EMAIL:-api@scholay.com}
+      PDF_SERVICE_URL: ${PDF_SERVICE_URL:-https://pdf.scholay.com/api/v1/pdf}
+      # 主动 SEO 提交(详见 .env 注释段)
+      SEO_SUBMIT_ENABLED: ${SEO_SUBMIT_ENABLED:-false}
+      INDEXNOW_ENABLED: ${INDEXNOW_ENABLED:-false}
+      INDEXNOW_KEY: ${INDEXNOW_KEY:-}
+      BAIDU_PUSH_ENABLED: ${BAIDU_PUSH_ENABLED:-false}
+      BAIDU_PUSH_TOKEN: ${BAIDU_PUSH_TOKEN:-}
+      BAIDU_PUSH_SITE: ${BAIDU_PUSH_SITE:-}
+      BAIDU_PUSH_DAILY_QUOTA: ${BAIDU_PUSH_DAILY_QUOTA:-1000}
+      SEO_PUSH_WORKER_INTERVAL_SECONDS: ${SEO_PUSH_WORKER_INTERVAL_SECONDS:-300}
+      SEO_PUSH_BATCH_SIZE: ${SEO_PUSH_BATCH_SIZE:-100}
       GOMEMLIMIT: 768MiB
     expose:
       - "8080"
@@ -165,8 +184,9 @@ services:
     restart: unless-stopped
     logging: *default-logging
     ports:
+      # 单一对外入口: /admin 路由由同一个 SPA 处理(权限在后端 JWT 校验)
+      # 原独立 admin 端口 8001 已下线
       - "${HTTP_PORT:-5411}:80"
-      - "${ADMIN_PORT:-5455}:8001"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro

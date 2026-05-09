@@ -23,8 +23,10 @@ import (
 	"scholar-backend/internal/config"
 	"scholar-backend/internal/conversation"
 	"scholar-backend/internal/feedback"
+	"scholar-backend/internal/minicod"
 	"scholar-backend/internal/peerreview"
 	"scholar-backend/internal/seo"
+	"scholar-backend/internal/seosubmit"
 	"scholar-backend/internal/usagelog"
 	"scholar-backend/internal/user"
 )
@@ -124,6 +126,85 @@ func (a *paperSEOProviderAdapter) ResolveSlug(slug string) (*config.PaperSEOMeta
 					meta.Authors = append(meta.Authors, au.Name)
 				}
 			}
+		}
+	}
+	return meta, nil
+}
+
+// seoSeedSourceAdapter 给 seosubmit.Service 启动期 seed 用 ——
+// 把"哪些 URL 应该一次性入队"拼起来:静态/博客/资源 + 数据库里已有的 paper/author。
+type seoSeedSourceAdapter struct {
+	seoSvc *seo.Service
+}
+
+func (a *seoSeedSourceAdapter) StaticPaths() []string   { return seo.AllStaticPaths() }
+func (a *seoSeedSourceAdapter) BlogPaths() []string     { return seo.AllBlogPaths() }
+func (a *seoSeedSourceAdapter) ResourcePaths() []string { return seo.AllResourcePaths() }
+
+func (a *seoSeedSourceAdapter) BootstrapPaperSlugs(_ context.Context, limit int) []string {
+	if a.seoSvc == nil {
+		return nil
+	}
+	return a.seoSvc.GetTopPaperSlugs(limit)
+}
+
+func (a *seoSeedSourceAdapter) BootstrapAuthorSlugs(_ context.Context, limit int) []string {
+	if a.seoSvc == nil {
+		return nil
+	}
+	return a.seoSvc.GetTopAuthorSlugs(limit)
+}
+
+// 编译期保证 adapter 满足接口
+var _ seosubmit.SeedSource = (*seoSeedSourceAdapter)(nil)
+
+// authorSEORecorderAdapter 将 seo.Service 适配为 minicod.AuthorSEORecorder
+// 把 minicod 看到的 seed 平移成 seo.AuthorSeed,跨域不共享类型。
+type authorSEORecorderAdapter struct {
+	svc *seo.Service
+}
+
+func (a *authorSEORecorderAdapter) RecordAuthorDetailClick(seed *minicod.AuthorSEOSeed) error {
+	if seed == nil {
+		return nil
+	}
+	return a.svc.RecordAuthorDetailClick(&seo.AuthorSeed{
+		AuthorID:      seed.AuthorID,
+		Name:          seed.Name,
+		Affiliations:  seed.Affiliations,
+		Homepage:      seed.Homepage,
+		PaperCount:    seed.PaperCount,
+		CitationCount: seed.CitationCount,
+		HIndex:        seed.HIndex,
+		Source:        seed.Source,
+	})
+}
+
+// authorSEOProviderAdapter 将 seo.Service 适配为 config.AuthorSEOProvider（SSR /author/:slug）
+type authorSEOProviderAdapter struct {
+	svc *seo.Service
+}
+
+func (a *authorSEOProviderAdapter) ResolveAuthorSlug(slug string) (*config.AuthorSEOMeta, error) {
+	au, err := a.svc.GetAuthorBySlug(slug)
+	if err != nil || au == nil {
+		return nil, err
+	}
+	meta := &config.AuthorSEOMeta{
+		AuthorID:      au.AuthorID,
+		Name:          au.Name,
+		Homepage:      au.Homepage,
+		PaperCount:    au.PaperCount,
+		CitationCount: au.CitationCount,
+	}
+	if au.HIndex != nil {
+		h := *au.HIndex
+		meta.HIndex = &h
+	}
+	if au.AffiliationsJSON != "" {
+		var affs []string
+		if err := json.Unmarshal([]byte(au.AffiliationsJSON), &affs); err == nil {
+			meta.Affiliations = affs
 		}
 	}
 	return meta, nil

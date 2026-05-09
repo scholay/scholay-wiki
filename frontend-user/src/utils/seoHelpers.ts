@@ -11,6 +11,8 @@
  * SEO辅助函数 - 生成结构化数据
  */
 
+import { siteUrl } from '../config/site';
+
 export interface PaperAuthor {
   name: string;
   authorId?: string;
@@ -55,9 +57,15 @@ export const generateScholarlyArticleSchema = (
     author: paper.authors?.map(author => ({
       '@type': 'Person',
       name: author.name,
-      identifier: author.authorId
-        ? `https://www.scholay.com/author/${author.authorId}`
-        : undefined,
+      // 不发 URL —— /author/:slug 需要 SEO 后端生成的 slug,前端没有该字段。
+      // 爬虫拿名字就够了,sitemap-authors 才是权威收录入口。
+      ...(author.authorId && {
+        identifier: {
+          '@type': 'PropertyValue',
+          propertyID: 'Scholay Author ID',
+          value: author.authorId,
+        },
+      }),
     })),
     datePublished: paper.year ? `${paper.year}-01-01` : undefined,
     publisher: paper.venue
@@ -66,7 +74,7 @@ export const generateScholarlyArticleSchema = (
     citation: paper.citationCount
       ? { '@type': 'CreativeWork', identifier: `${paper.citationCount} citations` }
       : undefined,
-    url: paper.url || `https://www.scholay.com/paper/${paper.paperId}`,
+    url: paper.url || siteUrl(`/paper/${paper.paperId}`),
     identifier: {
       '@type': 'PropertyValue',
       propertyID: 'Scholay Paper ID',
@@ -86,7 +94,7 @@ export const generateBreadcrumbSchema = (items: BreadcrumbItem[]): JsonLd => {
       '@type': 'ListItem',
       position: index + 1,
       name: item.name,
-      item: item.url ? `https://www.scholay.com${item.url}` : undefined,
+      item: item.url ? siteUrl(item.url) : undefined,
     })),
   };
 };
@@ -116,7 +124,7 @@ export const generateSearchResultsSchema = (
             name: author.name,
           })),
           datePublished: paper.year ? `${paper.year}-01-01` : undefined,
-          url: `https://www.scholay.com/paper/${paper.paperId}`,
+          url: siteUrl(`/paper/${paper.paperId}`),
         },
       })),
     },

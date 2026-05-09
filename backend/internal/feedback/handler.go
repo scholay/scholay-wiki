@@ -18,6 +18,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"scholar-backend/internal/admin"
 	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/utils"
 )
@@ -385,6 +386,32 @@ func (h *Handler) UpdateStatus(c *gin.Context) {
 	utils.Success(c, nil)
 }
 
+// UpdateCategoryRequest 分类更新请求
+type UpdateCategoryRequest struct {
+	Category string `json:"category" binding:"required,oneof=bug feature complaint praise other"`
+}
+
+// UpdateCategory 更新反馈分类(管理端)
+// PUT /api/v1/admin/feedbacks/:id/category
+func (h *Handler) UpdateCategory(c *gin.Context) {
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
+		return
+	}
+
+	var req UpdateCategoryRequest
+	if !utils.BindJSON(c, &req) {
+		return
+	}
+
+	if err := h.service.UpdateCategory(id, req.Category); err != nil {
+		utils.Error(c, 5004, "更新分类失败: "+err.Error())
+		return
+	}
+
+	utils.Success(c, nil)
+}
+
 // ReplyFeedback 回复反馈（管理端）
 // POST /api/v1/admin/feedbacks/:id/reply
 func (h *Handler) ReplyFeedback(c *gin.Context) {
@@ -427,6 +454,9 @@ func (h *Handler) DeleteFeedback(c *gin.Context) {
 		return
 	}
 
+	admin.LogAdminAction(c, admin.ActionDelete, admin.ResFeedback,
+		strconv.FormatUint(uint64(id), 10), nil)
+
 	utils.Success(c, nil)
 }
 
@@ -440,4 +470,48 @@ func (h *Handler) GetStats(c *gin.Context) {
 	}
 
 	utils.Success(c, stats)
+}
+
+// AssignFeedback 指派反馈给某管理员
+// PUT /api/v1/admin/feedbacks/:id/assignee
+func (h *Handler) AssignFeedback(c *gin.Context) {
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
+		return
+	}
+	var req AssignFeedbackRequest
+	if !utils.BindJSON(c, &req) {
+		return
+	}
+	if err := h.service.AssignFeedback(id, req.AssignedTo); err != nil {
+		utils.Error(c, 5001, "指派失败: "+err.Error())
+		return
+	}
+	target := "unassign"
+	if req.AssignedTo != nil {
+		target = strconv.FormatUint(uint64(*req.AssignedTo), 10)
+	}
+	admin.LogAdminAction(c, "assign", admin.ResFeedback,
+		strconv.FormatUint(uint64(id), 10), gin.H{"assigned_to": target})
+	utils.Success(c, nil)
+}
+
+// UpdateInternalNotes 更新内部协作备注
+// PUT /api/v1/admin/feedbacks/:id/internal-notes
+func (h *Handler) UpdateInternalNotes(c *gin.Context) {
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
+		return
+	}
+	var req UpdateInternalNotesRequest
+	if !utils.BindJSON(c, &req) {
+		return
+	}
+	if err := h.service.UpdateInternalNotes(id, req.InternalNotes); err != nil {
+		utils.Error(c, 5001, "更新备注失败: "+err.Error())
+		return
+	}
+	admin.LogAdminAction(c, admin.ActionUpdate, admin.ResFeedback,
+		strconv.FormatUint(uint64(id), 10), gin.H{"action": "internal_notes"})
+	utils.Success(c, nil)
 }

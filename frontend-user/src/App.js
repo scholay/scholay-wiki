@@ -74,6 +74,8 @@ const Home = lazyWithRetry(() => import('./pages/Home'), 'Home');
 const SearchResultsPage = lazyWithRetry(() => import('./pages/search-results/SearchResultsPage'), 'SearchResultsPage');
 // /paper/:slug landing — resolves slug to paperId then navigates to search-results detail
 const PaperLandingPage = lazyWithRetry(() => import('./pages/PaperLandingPage'), 'PaperLandingPage');
+// /author/:slug landing — resolves slug to authorId then navigates to search-results author view
+const AuthorLandingPage = lazyWithRetry(() => import('./pages/AuthorLandingPage'), 'AuthorLandingPage');
 const ChatPage = lazyWithRetry(() => import('./pages/ChatPage'), 'ChatPage');
 const PeerReviewPage = lazyWithRetry(() => import('./pages/PeerReviewPage'), 'PeerReviewPage');
 const AssistantPage = lazyWithRetry(() => import('./pages/AssistantPage'), 'AssistantPage');
@@ -106,20 +108,32 @@ const PeerReviewFeaturePage = lazyWithRetry(() => import('./pages/features/PeerR
 const LaTeXFeaturePage = lazyWithRetry(() => import('./pages/features/LaTeXFeaturePage'), 'LaTeXFeaturePage');
 const FeaturesOverview = lazyWithRetry(() => import('./pages/FeaturesOverview'), 'FeaturesOverview');
 const AdminRoot = lazyWithRetry(() => import('./admin/AdminRoot'), 'AdminRoot');
-const AdminDashboardLayout = lazyWithRetry(() => import('./admin/components/DashboardLayout'), 'AdminDashboardLayout');
-const AdminDashboardHome = lazyWithRetry(() => import('./admin/pages/DashboardHome'), 'AdminDashboardHome');
-const AdminSystemSettings = lazyWithRetry(() => import('./admin/pages/SystemSettings'), 'AdminSystemSettings');
-const AdminUserManagement = lazyWithRetry(() => import('./admin/pages/UserManagement'), 'AdminUserManagement');
-const AdminThirdPartyAccounts = lazyWithRetry(() => import('./admin/pages/ThirdPartyAccounts'), 'AdminThirdPartyAccounts');
-const AdminPromptTemplates = lazyWithRetry(() => import('./admin/pages/PromptTemplates'), 'AdminPromptTemplates');
-const AdminLatexAgentConfig = lazyWithRetry(() => import('./admin/pages/LatexAgentConfig'), 'AdminLatexAgentConfig');
-const AdminDefaultBusinessData = lazyWithRetry(() => import('./admin/pages/DefaultBusinessData'), 'AdminDefaultBusinessData');
-const AdminFeedbackManagement = lazyWithRetry(() => import('./admin/pages/FeedbackManagement'), 'AdminFeedbackManagement');
-const AdminUsageLogs = lazyWithRetry(() => import('./admin/pages/UsageLogs'), 'AdminUsageLogs');
-const AdminHotContent = lazyWithRetry(() => import('./admin/pages/HotContent'), 'AdminHotContent');
-const AdminMessageManagement = lazyWithRetry(() => import('./admin/pages/MessageManagement'), 'AdminMessageManagement');
-const AdminMessageTemplates = lazyWithRetry(() => import('./admin/pages/MessageTemplates'), 'AdminMessageTemplates');
-const AdminCodeSnippets = lazyWithRetry(() => import('./admin/pages/CodeSnippets'), 'AdminCodeSnippets');
+// v2 layout — shadcn/ui + 新 IA (5 一级菜单 + 配置中心)
+const AdminDashboardLayoutV2 = lazyWithRetry(() => import('./admin/components/v2/DashboardLayoutV2'), 'AdminDashboardLayoutV2');
+
+// v2 已迁移的页面
+const AdminUserManagementV2 = lazyWithRetry(() => import('./admin/pages/v2/UserManagementV2'), 'AdminUserManagementV2');
+const AdminUserTagManagementV2 = lazyWithRetry(() => import('./admin/pages/v2/UserTagManagementV2'), 'AdminUserTagManagementV2');
+const AdminThirdPartyAccountsV2 = lazyWithRetry(() => import('./admin/pages/v2/ThirdPartyAccountsV2'), 'AdminThirdPartyAccountsV2');
+const AdminHotContentV2 = lazyWithRetry(() => import('./admin/pages/v2/HotContentV2'), 'AdminHotContentV2');
+const AdminFeedbackManagementV2 = lazyWithRetry(() => import('./admin/pages/v2/FeedbackManagementV2'), 'AdminFeedbackManagementV2');
+const AdminUsageLogsV2 = lazyWithRetry(() => import('./admin/pages/v2/UsageLogsV2'), 'AdminUsageLogsV2');
+const AdminAuditLogsV2 = lazyWithRetry(() => import('./admin/pages/v2/AuditLogsV2'), 'AdminAuditLogsV2');
+const AdminAnnouncementsV2 = lazyWithRetry(() => import('./admin/pages/v2/AnnouncementManagementV2'), 'AdminAnnouncementsV2');
+const AdminPromptTemplatesV2 = lazyWithRetry(() => import('./admin/pages/v2/PromptTemplatesV2'), 'AdminPromptTemplatesV2');
+const AdminCodeSnippetsV2 = lazyWithRetry(() => import('./admin/pages/v2/CodeSnippetsV2'), 'AdminCodeSnippetsV2');
+const AdminMessageManagementV2 = lazyWithRetry(() => import('./admin/pages/v2/MessageManagementV2'), 'AdminMessageManagementV2');
+const AdminMessageTemplatesV2 = lazyWithRetry(() => import('./admin/pages/v2/MessageTemplatesV2'), 'AdminMessageTemplatesV2');
+const AdminDashboardHomeV2 = lazyWithRetry(() => import('./admin/pages/v2/DashboardHomeV2'), 'AdminDashboardHomeV2');
+const AdminLatexAgentConfigV2 = lazyWithRetry(() => import('./admin/pages/v2/LatexAgentConfigV2'), 'AdminLatexAgentConfigV2');
+const AdminDefaultBusinessDataV2 = lazyWithRetry(() => import('./admin/pages/v2/DefaultBusinessDataV2'), 'AdminDefaultBusinessDataV2');
+const AdminPaymentConfigV2 = lazyWithRetry(() => import('./admin/pages/v2/config/PaymentConfigV2'), 'AdminPaymentConfigV2');
+const AdminOAuthConfigV2 = lazyWithRetry(() => import('./admin/pages/v2/config/OAuthConfigV2'), 'AdminOAuthConfigV2');
+const AdminMessagingConfigV2 = lazyWithRetry(() => import('./admin/pages/v2/config/MessagingConfigV2'), 'AdminMessagingConfigV2');
+const AdminPlatformConfigV2 = lazyWithRetry(() => import('./admin/pages/v2/config/PlatformConfigV2'), 'AdminPlatformConfigV2');
+
+// 老页面已全部 v2 化并删除,这里不再 import
+// 如需回滚个别页面,请从 git 历史恢复对应 .tsx + .css + lazy import
 
 function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -160,22 +174,43 @@ function App() {
                     </AdminRoute>
                   }
                 >
-                  <Route element={<AdminDashboardLayout />}>
-                    <Route index element={<AdminDashboardHome />} />
-                    <Route path="users" element={<AdminUserManagement />} />
-                    <Route path="third-party-accounts" element={<AdminThirdPartyAccounts />} />
-                    <Route path="prompt-templates" element={<AdminPromptTemplates />} />
-                    <Route path="latex-agent-config" element={<AdminLatexAgentConfig />} />
-                    <Route path="default-business-data" element={<AdminDefaultBusinessData />} />
-                    <Route path="feedbacks" element={<AdminFeedbackManagement />} />
-                    <Route path="usage-logs" element={<AdminUsageLogs />} />
-                    <Route path="hot-content" element={<AdminHotContent />} />
-                    <Route path="messages" element={<AdminMessageManagement />} />
-                    <Route path="message-templates" element={<AdminMessageTemplates />} />
-                    <Route path="code-snippets" element={<AdminCodeSnippets />} />
-                    <Route path="settings" element={<AdminSystemSettings />} />
-                    <Route path="alipay-config" element={<Navigate to="/admin/settings?tab=alipay" replace />} />
-                    <Route path="wechat-config" element={<Navigate to="/admin/settings?tab=wechat" replace />} />
+                  <Route element={<AdminDashboardLayoutV2 />}>
+                    <Route index element={<AdminDashboardHomeV2 />} />
+                    {/* 用户与权限 */}
+                    <Route path="users" element={<AdminUserManagementV2 />} />
+                    <Route path="user-tags" element={<AdminUserTagManagementV2 />} />
+
+                    {/* 内容运营 */}
+                    <Route path="hot-content" element={<AdminHotContentV2 />} />
+                    <Route path="feedbacks" element={<AdminFeedbackManagementV2 />} />
+                    <Route path="messages" element={<AdminMessageManagementV2 />} />
+                    <Route path="message-templates" element={<AdminMessageTemplatesV2 />} />
+                    <Route path="code-snippets" element={<AdminCodeSnippetsV2 />} />
+                    <Route path="announcements" element={<AdminAnnouncementsV2 />} />
+
+                    {/* AI 配置 */}
+                    <Route path="prompt-templates" element={<AdminPromptTemplatesV2 />} />
+                    <Route path="latex-agent" element={<AdminLatexAgentConfigV2 />} />
+                    <Route path="business-data" element={<AdminDefaultBusinessDataV2 />} />
+
+                    {/* 数据分析 */}
+                    <Route path="usage-logs" element={<AdminUsageLogsV2 />} />
+                    <Route path="audit-logs" element={<AdminAuditLogsV2 />} />
+
+                    {/* 配置中心 — 全部 v2 化 */}
+                    <Route path="config/third-party" element={<AdminThirdPartyAccountsV2 />} />
+                    <Route path="config/payment" element={<AdminPaymentConfigV2 />} />
+                    <Route path="config/oauth" element={<AdminOAuthConfigV2 />} />
+                    <Route path="config/messaging" element={<AdminMessagingConfigV2 />} />
+                    <Route path="config/platform" element={<AdminPlatformConfigV2 />} />
+
+                    {/* 旧路径兼容 */}
+                    <Route path="third-party-accounts" element={<Navigate to="/admin/config/third-party" replace />} />
+                    <Route path="latex-agent-config" element={<Navigate to="/admin/latex-agent" replace />} />
+                    <Route path="default-business-data" element={<Navigate to="/admin/business-data" replace />} />
+                    <Route path="settings" element={<Navigate to="/admin/config/platform" replace />} />
+                    <Route path="alipay-config" element={<Navigate to="/admin/config/payment" replace />} />
+                    <Route path="wechat-config" element={<Navigate to="/admin/config/payment" replace />} />
                   </Route>
                 </Route>
 
@@ -196,6 +231,8 @@ function App() {
                   } />
                   {/* SEO 着陆页：/paper/:slug → 解析 slug → 跳转到搜索结果详情 */}
                   <Route path="/paper/:slug" element={<PageErrorBoundary><PaperLandingPage /></PageErrorBoundary>} />
+                  {/* SEO 着陆页：/author/:slug → 解析 slug → 跳转到搜索结果作者视图 */}
+                  <Route path="/author/:slug" element={<PageErrorBoundary><AuthorLandingPage /></PageErrorBoundary>} />
                   <Route path="/privacy" element={<PrivacyPage />} />
                   <Route path="/terms" element={<TermsPage />} />
                   <Route path="/disclaimer" element={<DisclaimerPage />} />

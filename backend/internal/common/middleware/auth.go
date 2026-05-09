@@ -182,7 +182,14 @@ func AuthMiddleware(requiredType string) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		if requiredType == "admin" && !(claims.Type == "admin" || (claims.Type == "user" && role == "admin")) {
+		// admin 路由：放行 admin / super_admin（兼容旧 type=admin token）
+		if requiredType == "admin" && !(claims.Type == "admin" || (claims.Type == "user" && (role == "admin" || role == "super_admin"))) {
+			utils.Unauthorized(c, "Insufficient permissions")
+			c.Abort()
+			return
+		}
+		// super_admin 路由：仅放行 role=super_admin
+		if requiredType == "super_admin" && !(claims.Type == "user" && role == "super_admin") {
 			utils.Unauthorized(c, "Insufficient permissions")
 			c.Abort()
 			return
@@ -220,9 +227,14 @@ func AuthMiddleware(requiredType string) gin.HandlerFunc {
 	}
 }
 
-// AdminAuthMiddleware validates admin JWT tokens
+// AdminAuthMiddleware validates admin JWT tokens (admin 或 super_admin 均可)
 func AdminAuthMiddleware() gin.HandlerFunc {
 	return AuthMiddleware("admin")
+}
+
+// SuperAdminAuthMiddleware 仅允许 super_admin 通过，用于角色分配等高权限操作
+func SuperAdminAuthMiddleware() gin.HandlerFunc {
+	return AuthMiddleware("super_admin")
 }
 
 // UserAuthMiddleware validates user JWT tokens

@@ -28,18 +28,16 @@ import (
 	"scholar-backend/internal/common/logger"
 	"scholar-backend/internal/common/middleware"
 	"scholar-backend/internal/common/safego"
-	"scholar-backend/internal/common/telemetry"
 	"scholar-backend/internal/peerreview"
+	"scholar-backend/internal/seosubmit"
 
 	"github.com/gin-gonic/gin"
-	"go.opentelemetry.io/otel/attribute"
 )
 
 func main() {
 	// Load configuration
 	cfg := appconfig.Load()
-	// Fail-fast：release 模式下默认密钥/密码、SigNoz 启用但 endpoint 缺失等会立即终止启动，
-	// 避免线上跑成 debug-grade 配置。
+	// Fail-fast：release 模式下默认密钥/密码等会立即终止启动，避免线上跑成 debug-grade 配置。
 	if err := cfg.Validate(); err != nil {
 		log.Fatalf("Configuration validation failed: %v", err)
 	}
@@ -47,61 +45,9 @@ func main() {
 	// Initialize structured logging
 	logger.Init()
 
-	// Initialize OpenTelemetry with SigNoz
-	ctx := context.Background()
-	if cfg.SigNoz.EnableTracing || cfg.SigNoz.EnableLogging {
-		telemetryCfg := &telemetry.Config{
-			Endpoint:      cfg.SigNoz.Endpoint,
-			ServiceName:   cfg.SigNoz.ServiceName,
-			Environment:   cfg.SigNoz.Environment,
-			EnableTracing: cfg.SigNoz.EnableTracing,
-			EnableLogging: cfg.SigNoz.EnableLogging,
-			EnableMetrics: cfg.SigNoz.EnableMetrics,
-			SamplingRate:  cfg.SigNoz.SamplingRate,
-		}
-
-		telemetry.SetGlobalEndpoint(telemetryCfg.Endpoint)
-
-		telemetryShutdown, err := telemetry.Initialize(ctx, telemetryCfg)
-		if err != nil {
-			slog.Warn("Failed to initialize telemetry", "err", err)
-		} else {
-			slog.Info("Telemetry initialized", "endpoint", telemetryCfg.Endpoint)
-			slog.Info("Telemetry service", "service", telemetryCfg.ServiceName)
-			slog.Info("Telemetry environment", "environment", telemetryCfg.Environment)
-			slog.Info("Telemetry tracing and logging", "tracing", telemetryCfg.EnableTracing, "logging", telemetryCfg.EnableLogging)
-			slog.Info("Telemetry sampling rate", "percent", telemetryCfg.SamplingRate*100)
-
-			defer func() {
-				shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer cancel()
-				if err := telemetryShutdown(shutdownCtx); err != nil {
-					slog.Error("Error shutting down telemetry", "err", err)
-				}
-			}()
-		}
-	} else {
-		slog.Info("Telemetry disabled by configuration")
-	}
-
-	var mainLogger *telemetry.Logger
-	if cfg.SigNoz.EnableLogging {
-		mainLogger = telemetry.NewLogger("main")
-		mainLogger.Info(ctx, "Starting Scholar Backend Service",
-			attribute.String("version", "1.0.0"),
-			attribute.String("environment", cfg.SigNoz.Environment),
-		)
-	}
-
 	// Initialize Redis
 	if err := cache.InitRedis(cfg.Redis.Host, cfg.Redis.Port, cfg.Redis.Password, cfg.Redis.DB); err != nil {
-		if mainLogger != nil {
-			mainLogger.Fatal(ctx, "Failed to initialize Redis", err)
-		}
 		log.Fatalf("Failed to initialize Redis: %v", err)
-	}
-	if mainLogger != nil {
-		mainLogger.Info(ctx, "Redis initialized successfully")
 	}
 	slog.Info("Redis initialized successfully")
 
@@ -124,13 +70,6 @@ func main() {
 	router.Use(middleware.RecoveryMiddleware())
 	router.Use(middleware.CORSMiddleware())
 
-	if cfg.SigNoz.EnableTracing {
-		router.Use(middleware.OpenTelemetryGinMiddleware(cfg.SigNoz.ServiceName))
-	}
-	if cfg.SigNoz.EnableLogging {
-		router.Use(middleware.TelemetryMiddleware())
-	}
-
 	router.Use(middleware.BodyLimitMiddleware(middleware.DefaultMaxBodySize))
 	// 第一道限流：全局 IP 限流（DoS 防护），参数从 RATE_LIMIT_IP_RPS 读取。
 	// 第二道限流：见 TieredRateLimitMiddleware，在认证路由组内按 user_id 限流（待挂载）。
@@ -139,12 +78,19 @@ func main() {
 
 	registerRoutes(router, svc.handlers, cfg)
 
+	// IndexNow 协议要求站点根 /{key}.txt 200 OK,这条路由必须先于 NoRoute SPA 兜底注册
+	seosubmit.RegisterKeyFileRoute(router, svc.seoSubmitService)
+
 	bgCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	svc.peerReviewService.SetRootContext(bgCtx)
 	startBackgroundTasks(bgCtx, svc.userService, svc.seoService)
 	// 隐私审稿数据定期清理（每小时检查一次过期的隐私任务）
 	startPrivateTaskCleanup(bgCtx, svc.peerReviewService)
+
+	// 主动 SEO 提交 worker:写入即推 + 启动期一次性 seed
+	svc.seoSubmitService.StartWorker(bgCtx)
+	svc.seoSubmitService.BootstrapEnqueue(bgCtx, &seoSeedSourceAdapter{seoSvc: svc.seoService}, 5000)
 
 	// Setup graceful shutdown
 	quit := make(chan os.Signal, 1)

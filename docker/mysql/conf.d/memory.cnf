@@ -3,10 +3,19 @@
 # MySQL 内存优化配置
 # Copyright (c) 2025 成都恩特罐罐文化科技有限公司
 # ============================================================================
+#
+# 容器内存上限: 2G (见 docker-compose.yml)
+# 内存预算（典型负载，约 100 个并发连接）:
+#   InnoDB buffer pool   : 900M
+#   InnoDB log buffer    :  64M
+#   每连接缓冲 ~10M × 100: 1000M（峰值，多数连接远低于此）
+#   线程/系统/临时表/字典:  ~200M
+#   合计峰值              ≈ 2.1G（接近上限，故 max_connections 收敛到 100）
+# ============================================================================
 
 [mysqld]
-# InnoDB 缓冲池配置（设为容器内存的 50-60%）
-innodb_buffer_pool_size = 1G
+# InnoDB 缓冲池配置（容器内存的 ~45%，给连接 buffer 和系统留余量）
+innodb_buffer_pool_size = 900M
 innodb_buffer_pool_instances = 4
 
 # InnoDB 日志配置
@@ -14,27 +23,28 @@ innodb_log_file_size = 256M
 innodb_log_buffer_size = 64M
 innodb_flush_log_at_trx_commit = 2
 
-# 连接相关
-max_connections = 200
+# 连接相关（从 200 降到 100 防 OOM；后端单实例 MaxOpenConns 已配 200 需同步下调）
+max_connections = 100
+max_allowed_packet = 16M
 thread_cache_size = 50
-table_open_cache = 4000
-table_definition_cache = 2000
+table_open_cache = 2000
+table_definition_cache = 1500
 
 # 临时表配置
-tmp_table_size = 64M
-max_heap_table_size = 64M
+tmp_table_size = 32M
+max_heap_table_size = 32M
 
-# 排序和读取缓冲区
-sort_buffer_size = 2M
-read_buffer_size = 2M
-read_rnd_buffer_size = 4M
-join_buffer_size = 4M
+# 排序和读取缓冲区（每连接独立分配，减小以适配更高连接密度）
+sort_buffer_size = 1M
+read_buffer_size = 1M
+read_rnd_buffer_size = 2M
+join_buffer_size = 2M
 
 # 批量插入缓冲
-bulk_insert_buffer_size = 64M
+bulk_insert_buffer_size = 32M
 
-# 键缓冲（MyISAM，虽然主要用 InnoDB，但保留基本配置）
-key_buffer_size = 32M
+# 键缓冲（MyISAM，主要用 InnoDB，仅保留基本配置）
+key_buffer_size = 16M
 
 # 其他性能优化
 innodb_file_per_table = 1
@@ -45,7 +55,8 @@ innodb_random_read_ahead = 0
 wait_timeout = 28800
 interactive_timeout = 28800
 
-# 慢查询日志（可选，用于调试）
-# slow_query_log = 1
-# slow_query_log_file = /var/lib/mysql/slow.log
-# long_query_time = 2
+# 慢查询日志（启用，用于性能监控）
+slow_query_log = 1
+slow_query_log_file = /var/lib/mysql/slow.log
+long_query_time = 2
+log_queries_not_using_indexes = 0

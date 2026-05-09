@@ -21,6 +21,103 @@ type ArticleEntry struct {
 	LastMod string // YYYY-MM-DD，用作 <lastmod>
 }
 
+// StaticPagesLastMod 静态页面的真实最近修改日期。
+//
+// 用法:
+//   - sitemap-static.xml 内每个 <url> 的 <lastmod> 都用此值
+//   - sitemap.xml 索引中 static 子条目的 <lastmod> 也用此值
+//
+// 维护: 当 ServeStaticSitemap 中 staticPages 列表新增/删除/改路径,或这些
+// 静态页的页面内容有显著变更(SEO 文案/标题)时,手动 bump 这个日期。
+// 不需要每天改 — 没有真实变更就别动。
+const StaticPagesLastMod = "2026-02-22"
+
+// StaticPage sitemap-static 的单条目结构。导出后 ServeStaticSitemap 和
+// 主动提交 bootstrap 都基于同一份数据,避免两处维护。
+type StaticPage struct {
+	Path       string
+	ChangeFreq string
+	Priority   string
+}
+
+// StaticPages 站点全部静态/列表入口。
+// 维护:新增静态路由就加一行;sitemap 和主动提交都自动跟进。
+var StaticPages = []StaticPage{
+	// 核心功能页
+	// 注: /search-results 是 query 驱动页,空查询时是空状态,不进 sitemap
+	// 避免被 Google 判定 thin content。具体论文/作者通过 /paper/{slug}、/author/{slug} 收录。
+	{"/", "daily", "1.0"},
+	{"/chat", "weekly", "0.8"},
+	{"/assistant", "weekly", "0.8"},
+	{"/peer-review", "weekly", "0.8"},
+	{"/latex-writer", "weekly", "0.8"},
+
+	// 营销 / 品牌页
+	{"/features", "monthly", "0.7"},
+	{"/features/search", "monthly", "0.6"},
+	{"/features/peer-review", "monthly", "0.6"},
+	{"/features/latex-writer", "monthly", "0.6"},
+	{"/pricing", "monthly", "0.7"},
+	{"/about", "monthly", "0.6"},
+	{"/contact", "monthly", "0.6"},
+
+	// 内容中心入口
+	{"/resources", "weekly", "0.8"},
+	{"/blog", "weekly", "0.8"},
+	{"/help", "monthly", "0.7"},
+
+	// 合规 / 反馈
+	{"/privacy", "monthly", "0.5"},
+	{"/terms", "monthly", "0.5"},
+	{"/disclaimer", "monthly", "0.5"},
+	{"/feedback", "monthly", "0.5"},
+}
+
+// AllStaticPaths 返回 StaticPages 的纯路径列表(主动提交 bootstrap 用)
+func AllStaticPaths() []string {
+	out := make([]string, 0, len(StaticPages))
+	for _, p := range StaticPages {
+		out = append(out, p.Path)
+	}
+	return out
+}
+
+// AllBlogPaths 返回 /blog + /blog/{slug} 全集
+func AllBlogPaths() []string {
+	out := make([]string, 0, len(BlogArticles)+1)
+	out = append(out, "/blog")
+	for _, e := range BlogArticles {
+		if e.Slug != "" {
+			out = append(out, "/blog/"+e.Slug)
+		}
+	}
+	return out
+}
+
+// AllResourcePaths 返回 /resources + /resources/{slug} 全集
+func AllResourcePaths() []string {
+	out := make([]string, 0, len(ResourceArticles)+1)
+	out = append(out, "/resources")
+	for _, e := range ResourceArticles {
+		if e.Slug != "" {
+			out = append(out, "/resources/"+e.Slug)
+		}
+	}
+	return out
+}
+
+// MaxArticleLastMod 计算一组文章中最近的 lastmod (YYYY-MM-DD 字典序比较即可)
+// 空切片返回空串,调用方应回退到默认值。
+func MaxArticleLastMod(entries []ArticleEntry) string {
+	max := ""
+	for _, e := range entries {
+		if e.LastMod > max {
+			max = e.LastMod
+		}
+	}
+	return max
+}
+
 // BlogArticles 博客文章注册表
 // 与 frontend-user/src/pages/blog/blogArticles.js 保持一致
 // lastmod 取 updatedDate (若无则取 date)

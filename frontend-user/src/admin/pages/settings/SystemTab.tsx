@@ -1,17 +1,12 @@
-/**
- * ============================================================================
- * Scholay学术 V1.0
- * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
- * 统一社会信用代码: 91510100MAEEHRNE26
- * All Rights Reserved.
- * ============================================================================
- */
-
 import React, { useState, useEffect, useCallback, type FormEvent } from 'react';
-import SensitiveField from '../../components/SensitiveField';
 import { adminAPI } from '../../services/api';
 import { showToast } from '../../components/Toast';
 import { useSettingsContext } from './SettingsContext';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Switch } from '../../components/ui/switch';
+import { Label } from '../../components/ui/label';
 
 interface SystemConfigState {
   requireEmailVerification: boolean;
@@ -19,34 +14,36 @@ interface SystemConfigState {
   turnstileSiteKey: string;
   turnstileSecretKey: string;
   turnstileHasSecret?: boolean;
+  maintenanceMode: boolean;
+  maintenanceMessage: string;
 }
 
 const SystemTab = React.memo(() => {
-  const { isVerified, verifyEpoch, onRequestVerify } = useSettingsContext();
-
-  const [loading, setLoading] = useState<boolean>(false);
-  const [systemConfig, setSystemConfig] = useState<SystemConfigState>({
+  const { isVerified, verifyEpoch } = useSettingsContext();
+  const [loading, setLoading] = useState(false);
+  const [cfg, setCfg] = useState<SystemConfigState>({
     requireEmailVerification: true,
     enableTurnstile: false,
     turnstileSiteKey: '',
     turnstileSecretKey: '',
+    maintenanceMode: false,
+    maintenanceMessage: '',
   });
 
-  const loadSystemConfig = useCallback(async (showSensitive: boolean) => {
+  const load = useCallback(async (showSensitive: boolean) => {
     try {
-      const response = await adminAPI.getSystemConfig(showSensitive);
-      if (response.data.code === 0 && response.data.data) {
-        const d = response.data.data;
-        setSystemConfig(prev => ({
-          ...prev,
+      const r = await adminAPI.getSystemConfig(showSensitive);
+      if (r.data.code === 0 && r.data.data) {
+        const d = r.data.data;
+        setCfg({
           requireEmailVerification: d.require_email_verification ?? true,
           enableTurnstile: d.enable_turnstile ?? false,
           turnstileSiteKey: d.turnstile_site_key ?? '',
-          ...(showSensitive
-            ? { turnstileSecretKey: d.turnstile_secret_key ?? '' }
-            : { turnstileSecretKey: '' }),
+          turnstileSecretKey: showSensitive ? (d.turnstile_secret_key ?? '') : '',
           turnstileHasSecret: !!(d.turnstile_secret_key && d.turnstile_secret_key !== ''),
-        }));
+          maintenanceMode: !!d.maintenance_mode,
+          maintenanceMessage: d.maintenance_message ?? '系统维护中,请稍后访问',
+        });
       }
     } catch (err) {
       console.error('Failed to load system config:', err);
@@ -54,110 +51,151 @@ const SystemTab = React.memo(() => {
   }, []);
 
   useEffect(() => {
-    loadSystemConfig(isVerified);
+    load(isVerified);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [verifyEpoch]);
 
-  const handleSystemConfigSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const updateData: Record<string, unknown> = {
-        require_email_verification: systemConfig.requireEmailVerification,
-        enable_turnstile: systemConfig.enableTurnstile,
-        turnstile_site_key: systemConfig.turnstileSiteKey,
+      const data: Record<string, unknown> = {
+        require_email_verification: cfg.requireEmailVerification,
+        enable_turnstile: cfg.enableTurnstile,
+        turnstile_site_key: cfg.turnstileSiteKey,
+        maintenance_mode: cfg.maintenanceMode ? 1 : 0,
+        maintenance_message: cfg.maintenanceMessage,
       };
-      if (systemConfig.turnstileSecretKey) {
-        updateData.turnstile_secret_key = systemConfig.turnstileSecretKey;
-      }
-      const response = await adminAPI.updateSystemConfig(updateData);
-      if (response.data.code === 0) {
-        showToast('系统配置已成功保存', 'success');
-        loadSystemConfig(isVerified);
+      if (cfg.turnstileSecretKey) data.turnstile_secret_key = cfg.turnstileSecretKey;
+      const r = await adminAPI.updateSystemConfig(data);
+      if (r.data.code === 0) {
+        showToast('系统配置已保存', 'success');
+        load(isVerified);
       } else {
-        showToast(response.data.message || '保存失败', 'error');
+        showToast(r.data.message || '保存失败', 'error');
       }
-    } catch (err: any) { // [any#1] axios error shape
-      showToast(err?.response?.data?.message || '保存失败，请稍后重试', 'error');
+    } catch (err: any) {
+      showToast(err?.response?.data?.message || '保存失败', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="settings-section fade-in">
-      <div className="section-header">
-        <h2>系统配置</h2>
-        <p>配置系统级别的功能设置</p>
-      </div>
-
-      <form onSubmit={handleSystemConfigSubmit} className="settings-form">
-        <div className="form-group">
-          <label className="toggle-label">
-            <span className="toggle-label-text">
-              <span className="toggle-title">邮箱验证码验证</span>
-              <small className="form-hint">启用后，用户登录和注册时需要输入邮箱验证码</small>
-            </span>
-            <label className="switch">
-              <input type="checkbox" checked={systemConfig.requireEmailVerification}
-                onChange={(e) => setSystemConfig({ ...systemConfig, requireEmailVerification: e.target.checked })} />
-              <span className="slider"></span>
-            </label>
-          </label>
-        </div>
-
-        <div className="divider"></div>
-
-        <div className="form-group">
-          <label className="toggle-label">
-            <span className="toggle-label-text">
-              <span className="toggle-title">Cloudflare Turnstile 人机验证</span>
-              <small className="form-hint">启用后，用户登录和注册时需要通过 Turnstile 人机验证</small>
-            </span>
-            <label className="switch">
-              <input type="checkbox" checked={systemConfig.enableTurnstile}
-                onChange={(e) => setSystemConfig({ ...systemConfig, enableTurnstile: e.target.checked })} />
-              <span className="slider"></span>
-            </label>
-          </label>
-        </div>
-
-        {systemConfig.enableTurnstile && (
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="turnstileSiteKey">Turnstile Site Key (公钥)</label>
-              <input type="text" id="turnstileSiteKey" className="input"
-                value={systemConfig.turnstileSiteKey}
-                onChange={(e) => setSystemConfig({ ...systemConfig, turnstileSiteKey: e.target.value })}
-                placeholder="1x00000000000000000000AA (测试密钥)" />
-              <small className="form-hint">从 Cloudflare Turnstile 控制台获取</small>
+    <Card>
+      <CardHeader className="border-b">
+        <CardTitle>系统配置</CardTitle>
+        <CardDescription>注册校验、人机验证等系统级开关</CardDescription>
+      </CardHeader>
+      <CardContent className="p-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* 维护模式 — 影响最大,放最顶部 */}
+          <div
+            className={`rounded-md border p-4 ${
+              cfg.maintenanceMode ? 'border-amber-300 bg-amber-50/70' : 'bg-background'
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <Label className={cfg.maintenanceMode ? 'text-amber-900' : ''}>
+                  🛠 维护模式
+                </Label>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  开启后,普通用户访问 API 返回 503;管理员仍可登录后台
+                </p>
+              </div>
+              <Switch
+                checked={cfg.maintenanceMode}
+                onCheckedChange={(v) => setCfg({ ...cfg, maintenanceMode: v })}
+              />
             </div>
-            <div className="form-group">
-              <label htmlFor="turnstileSecretKey">Turnstile Secret Key (私钥)</label>
-              {systemConfig.turnstileHasSecret && (
-                <SensitiveField
-                  value={isVerified ? systemConfig.turnstileSecretKey : '********'}
-                  isVerified={isVerified} onRequestVerify={onRequestVerify} />
-              )}
-              <input type="password" id="turnstileSecretKey" className="input"
-                value={systemConfig.turnstileSecretKey}
-                onChange={(e) => setSystemConfig({ ...systemConfig, turnstileSecretKey: e.target.value })}
-                placeholder={systemConfig.turnstileHasSecret ? '留空则不修改现有密钥' : '1x0000000000000000000000000000000AA (测试密钥)'} />
-              <small className="form-hint">从 Cloudflare Turnstile 控制台获取</small>
-            </div>
+            {cfg.maintenanceMode && (
+              <div className="mt-3 space-y-1.5">
+                <Label className="text-xs">维护文案(展示给用户)</Label>
+                <Input
+                  value={cfg.maintenanceMessage}
+                  onChange={(e) => setCfg({ ...cfg, maintenanceMessage: e.target.value })}
+                  placeholder="系统升级中,预计 30 分钟后恢复"
+                />
+              </div>
+            )}
           </div>
-        )}
 
-        <div className="form-actions">
-          <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? (<><span className="spinner"></span><span className="text-gap-left">保存中...</span></>) : '保存配置'}
-          </button>
-        </div>
-      </form>
-    </div>
+          <SwitchRow
+            title="邮箱验证码验证"
+            desc="启用后,用户登录/注册时需要输入邮箱验证码"
+            checked={cfg.requireEmailVerification}
+            onChange={(v) => setCfg({ ...cfg, requireEmailVerification: v })}
+          />
+
+          <SwitchRow
+            title="Cloudflare Turnstile 人机验证"
+            desc="启用后,登录/注册时需要通过 Turnstile 验证"
+            checked={cfg.enableTurnstile}
+            onChange={(v) => setCfg({ ...cfg, enableTurnstile: v })}
+          />
+
+          {cfg.enableTurnstile && (
+            <div className="grid gap-4 rounded-md border bg-muted/20 p-4 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Site Key (公钥)</Label>
+                <Input
+                  value={cfg.turnstileSiteKey}
+                  onChange={(e) => setCfg({ ...cfg, turnstileSiteKey: e.target.value })}
+                  placeholder="1x00000000000000000000AA"
+                />
+                <p className="text-xs text-muted-foreground">从 Cloudflare Turnstile 控制台获取</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label>
+                  Secret Key (私钥){' '}
+                  {cfg.turnstileHasSecret && (
+                    <span className="font-medium text-emerald-600">已设置</span>
+                  )}
+                </Label>
+                <Input
+                  type="password"
+                  value={cfg.turnstileSecretKey}
+                  onChange={(e) => setCfg({ ...cfg, turnstileSecretKey: e.target.value })}
+                  placeholder={cfg.turnstileHasSecret ? '••••••••' : '1x000000000000000000000000000000AA'}
+                />
+                <p className="text-xs text-muted-foreground">留空表示不修改</p>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end pt-2">
+            <Button type="submit" disabled={loading}>
+              {loading ? '保存中…' : '保存配置'}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 });
 
-SystemTab.displayName = 'SystemTab';
+function SwitchRow({
+  title,
+  desc,
+  checked,
+  onChange,
+}: {
+  title: string;
+  desc: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-md border bg-background px-4 py-3">
+      <div>
+        <Label>{title}</Label>
+        <p className="mt-0.5 text-xs text-muted-foreground">{desc}</p>
+      </div>
+      <Switch checked={checked} onCheckedChange={onChange} />
+    </div>
+  );
+}
 
+SystemTab.displayName = 'SystemTab';
 export default SystemTab;

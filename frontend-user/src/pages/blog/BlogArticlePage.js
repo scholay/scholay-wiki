@@ -14,6 +14,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Clock, Calendar, ChevronRight, Search, User } from 'lucide-react';
 import SEO from '../../components/common/SEO';
 import FeaturePromo, { matchFeatureByArticle } from '../../components/FeaturePromo';
+import { SITE_URL, SITE_NAME, SITE_BRAND_LOGO_SVG, siteUrl } from '../../config/site';
 import { getBlogArticleBySlug, getRelatedBlogArticles, getAuthor } from './blogArticles';
 import '../styles/ResourcePage.css';
 
@@ -54,22 +55,22 @@ const BlogArticlePage = () => {
     dateModified: article.updatedDate || article.date,
     author: {
       '@type': 'Person',
-      name: author?.name || 'Scholay',
+      name: author?.name || SITE_NAME,
       jobTitle: author?.role || '',
       description: author?.bio || '',
     },
     publisher: {
       '@type': 'Organization',
-      name: 'Scholay',
-      url: 'https://www.scholay.com',
+      name: SITE_NAME,
+      url: SITE_URL,
       logo: {
         '@type': 'ImageObject',
-        url: 'https://www.scholay.com/brand-logo.svg',
+        url: SITE_BRAND_LOGO_SVG,
       },
     },
     mainEntityOfPage: {
       '@type': 'WebPage',
-      '@id': `https://www.scholay.com/blog/${article.slug}`,
+      '@id': siteUrl(`/blog/${article.slug}`),
     },
     articleSection: article.category,
     keywords: article.tags.join(', '),
@@ -83,9 +84,9 @@ const BlogArticlePage = () => {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [
-      { '@type': 'ListItem', position: 1, name: '首页', item: 'https://www.scholay.com/' },
-      { '@type': 'ListItem', position: 2, name: '博客', item: 'https://www.scholay.com/blog' },
-      { '@type': 'ListItem', position: 3, name: article.title, item: `https://www.scholay.com/blog/${article.slug}` },
+      { '@type': 'ListItem', position: 1, name: '首页', item: siteUrl('/') },
+      { '@type': 'ListItem', position: 2, name: '博客', item: siteUrl('/blog') },
+      { '@type': 'ListItem', position: 3, name: article.title, item: siteUrl(`/blog/${article.slug}`) },
     ],
   };
 

@@ -8,10 +8,18 @@
 package hotcontent
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"log/slog"
+	"time"
 
+	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/database"
 )
+
+// 热榜缓存 TTL：榜单聚合天然容忍分钟级延迟
+const hotContentCacheTTL = 5 * time.Minute
 
 // Service 热门内容服务
 type Service struct {
@@ -93,9 +101,8 @@ func (s *Service) RecordSearchFromExtraData(extraData map[string]any) error {
 	return s.repo.RecordSearchKeyword(query)
 }
 
-// GetHotKeywords 获取热门关键词
+// GetHotKeywords 获取热门关键词（5min Redis 缓存）
 func (s *Service) GetHotKeywords(days, page, pageSize int) (*HotKeywordsResponse, error) {
-	// 设置默认值
 	if days <= 0 {
 		days = 30
 	}
@@ -104,22 +111,32 @@ func (s *Service) GetHotKeywords(days, page, pageSize int) (*HotKeywordsResponse
 	}
 	page, pageSize = database.NormalizePage(page, pageSize)
 	offset := database.CalcOffset(page, pageSize)
-	items, total, err := s.repo.ListHotKeywords(days, pageSize, offset)
+
+	cacheKey := fmt.Sprintf("hot:keywords:d=%d:p=%d:s=%d", days, page, pageSize)
+	resp := &HotKeywordsResponse{}
+	err := cache.GetOrSet(context.Background(), cacheKey, hotContentCacheTTL, func() (any, error) {
+		items, total, err := s.repo.ListHotKeywords(days, pageSize, offset)
+		if err != nil {
+			return nil, err
+		}
+		return &HotKeywordsResponse{
+			Items:    items,
+			Total:    total,
+			Page:     page,
+			PageSize: pageSize,
+		}, nil
+	}, resp)
 	if err != nil {
+		if errors.Is(err, cache.ErrNotFound) {
+			return &HotKeywordsResponse{Items: nil, Total: 0, Page: page, PageSize: pageSize}, nil
+		}
 		return nil, err
 	}
-	
-	return &HotKeywordsResponse{
-		Items:    items,
-		Total:    total,
-		Page:     page,
-		PageSize: pageSize,
-	}, nil
+	return resp, nil
 }
 
-// GetHotPapers 获取热门论文
+// GetHotPapers 获取热门论文（5min Redis 缓存）
 func (s *Service) GetHotPapers(days, page, pageSize int) (*HotPapersResponse, error) {
-	// 设置默认值
 	if days <= 0 {
 		days = 30
 	}
@@ -128,17 +145,28 @@ func (s *Service) GetHotPapers(days, page, pageSize int) (*HotPapersResponse, er
 	}
 	page, pageSize = database.NormalizePage(page, pageSize)
 	offset := database.CalcOffset(page, pageSize)
-	items, total, err := s.repo.ListHotPapers(days, pageSize, offset)
+
+	cacheKey := fmt.Sprintf("hot:papers:d=%d:p=%d:s=%d", days, page, pageSize)
+	resp := &HotPapersResponse{}
+	err := cache.GetOrSet(context.Background(), cacheKey, hotContentCacheTTL, func() (any, error) {
+		items, total, err := s.repo.ListHotPapers(days, pageSize, offset)
+		if err != nil {
+			return nil, err
+		}
+		return &HotPapersResponse{
+			Items:    items,
+			Total:    total,
+			Page:     page,
+			PageSize: pageSize,
+		}, nil
+	}, resp)
 	if err != nil {
+		if errors.Is(err, cache.ErrNotFound) {
+			return &HotPapersResponse{Items: nil, Total: 0, Page: page, PageSize: pageSize}, nil
+		}
 		return nil, err
 	}
-	
-	return &HotPapersResponse{
-		Items:    items,
-		Total:    total,
-		Page:     page,
-		PageSize: pageSize,
-	}, nil
+	return resp, nil
 }
 
 // Cleanup 清理过期数据

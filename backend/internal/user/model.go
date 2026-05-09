@@ -22,7 +22,10 @@ type User struct {
 	Bio           *string    `gorm:"type:text" json:"bio"`
 	Role          string     `gorm:"not null;default:user;size:20" json:"role"`
 	LegacyAdminID *uint      `gorm:"column:legacy_admin_id" json:"legacy_admin_id,omitempty"`
-	Status        int8       `gorm:"not null;default:1" json:"status"` // 1=active, 0=inactive, 2=suspended
+	Status        int8       `gorm:"not null;default:1" json:"status"` // 1=active, 0=inactive, 2=suspended/frozen
+	FrozenAt      *time.Time `gorm:"column:frozen_at" json:"frozen_at,omitempty"`
+	FrozenReason  string     `gorm:"column:frozen_reason;size:255" json:"frozen_reason,omitempty"`
+	AdminNotes    string     `gorm:"column:admin_notes;type:text" json:"admin_notes,omitempty"`
 	EmailVerified bool       `gorm:"not null;default:false" json:"email_verified"`
 	PhoneVerified bool       `gorm:"not null;default:false" json:"phone_verified"`
 	LastLoginAt   *time.Time `json:"last_login_at"`

@@ -78,7 +78,7 @@ const MainLayout = () => {
     setShowAuthModal(false);
   }, []);
 
-  const showTopNav = !location.pathname.startsWith('/paper/');
+  const showTopNav = !location.pathname.startsWith('/paper/') && !location.pathname.startsWith('/author/');
 
   // 功能性页面：禁用外层滚动，让页面内部自行管理滚动
   const isFullHeightPage = ['/search-results', '/assistant', '/chat', '/peer-review', '/latex-writer'].some(

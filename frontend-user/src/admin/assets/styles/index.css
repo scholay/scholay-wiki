@@ -97,20 +97,13 @@
   color: inherit;
 }
 
-.admin-app a{
-  color: inherit;
-  text-decoration: none;
-}
-
-.admin-app ::selection{
-  background: rgba(37, 99, 235, 0.2);
-  color: var(--text-primary);
-}
-
-.admin-app :focus-visible{
-  outline: 3px solid rgba(37, 99, 235, 0.35);
-  outline-offset: 2px;
-}
+/* 老的 .admin-app a / ::selection / :focus-visible 全局规则已移除
+ * 原因：它们的特异性 (0,1,1) 会污染 v2 (Tailwind/shadcn) 的链接颜色与焦点环。
+ *  - 链接颜色由组件自身 className 控制（NavLink 等已带颜色类）
+ *  - 焦点环由 Tailwind focus-visible:ring-* 接管
+ *  - 文本选区颜色继承浏览器默认（也可在 globals.css 内补绿色）
+ * 旧组件如需统一外观，使用 .legacy-link / .input / .btn-* 等显式类。
+ */
 
 .admin-app .text-center{ text-align: center; }
 .admin-app .text-right{ text-align: right; }
@@ -286,8 +279,11 @@
   border-radius: var(--radius-lg);
 }
 
-/* Inputs */
-.admin-app .input, .admin-app input[type="text"], .admin-app input[type="number"], .admin-app input[type="email"], .admin-app input[type="password"], .admin-app select, .admin-app textarea{
+/* Inputs (legacy): 仅作用于显式带 .input 类的元素，避免污染 v2 shadcn Input
+ * 原 .admin-app input[type="text"] 等元素+属性选择器特异性 (0,2,1) 高于
+ * Tailwind 类 (0,2,0)，会覆盖 shadcn Input 的 padding / border / focus ring。
+ * 旧组件已统一用 className="input"，不受影响。 */
+.admin-app .input{
   width: 100%;
   padding: 0.65rem 0.9rem;
   border: 1px solid var(--border-subtle);
@@ -298,13 +294,13 @@
   transition: var(--transition);
 }
 
-.admin-app .input:focus, .admin-app input:focus, .admin-app select:focus, .admin-app textarea:focus{
+.admin-app .input:focus{
   border-color: var(--brand-400);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
   outline: none;
 }
 
-.admin-app .input::placeholder, .admin-app textarea::placeholder{
+.admin-app .input::placeholder{
   color: var(--text-tertiary);
 }
 

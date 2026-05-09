@@ -17,11 +17,11 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"go.opentelemetry.io/otel/trace"
+	"github.com/google/uuid"
 )
 
 // RecoveryMiddleware 替代 gin.Recovery：
-//   - 结构化日志（slog）+ trace_id 关联，便于 SigNoz 内查询
+//   - 结构化日志（slog）+ request_id 关联,日志系统接入后可按此字段聚合
 //   - 区分"客户端断连"（broken pipe）：不算 5xx，不打印堆栈
 //   - 真 panic：返回 JSON 5xx 而非空白 body，避免前端难以诊断
 //   - 全栈打印控制在 16KB 以内防日志爆量
@@ -40,13 +40,13 @@ func RecoveryMiddleware() gin.HandlerFunc {
 				}
 
 				stack := truncateStack(debug.Stack(), 16*1024)
-				traceID := traceIDFromContext(c)
+				reqID := requestIDFromContext(c)
 
 				slog.Error("panic recovered",
 					"path", c.Request.URL.Path,
 					"method", c.Request.Method,
 					"client_ip", c.ClientIP(),
-					"trace_id", traceID,
+					"request_id", reqID,
 					"panic", r,
 					"stack", string(stack),
 				)
@@ -54,9 +54,9 @@ func RecoveryMiddleware() gin.HandlerFunc {
 				// 给客户端明确响应，避免空白 500 让前端无法定位
 				if !c.Writer.Written() {
 					c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-						"code":     5000,
-						"message":  "internal server error",
-						"trace_id": traceID,
+						"code":       5000,
+						"message":    "internal server error",
+						"request_id": reqID,
 					})
 				} else {
 					c.Abort()
@@ -85,12 +85,20 @@ func isBrokenPipe(r any) bool {
 	return false
 }
 
-func traceIDFromContext(c *gin.Context) string {
-	span := trace.SpanFromContext(c.Request.Context())
-	if !span.SpanContext().IsValid() {
-		return ""
+// requestIDFromContext 取请求 ID:
+//   - 优先用 gin context 里(任何上层中间件) 写入的 RequestID
+//   - 其次用客户端 X-Request-Id header(网关常带)
+//   - 都没有 → 现场 mint 一个,避免空字符串无法关联日志
+func requestIDFromContext(c *gin.Context) string {
+	if v, ok := c.Get("RequestID"); ok {
+		if s, ok := v.(string); ok && s != "" {
+			return s
+		}
 	}
-	return span.SpanContext().TraceID().String()
+	if h := c.Request.Header.Get("X-Request-Id"); h != "" {
+		return h
+	}
+	return uuid.NewString()
 }
 
 func truncateStack(b []byte, max int) []byte {

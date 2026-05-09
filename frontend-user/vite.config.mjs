@@ -87,5 +87,11 @@ export default defineConfig({
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
     'process.env.REACT_APP_API_URL': JSON.stringify(process.env.REACT_APP_API_URL || ''),
     'process.env.REACT_APP_ENABLE_LOGS': JSON.stringify(process.env.REACT_APP_ENABLE_LOGS || ''),
+    // 站点配置 —— 所有 SEO 用到的域名/邮箱/第三方服务地址,默认值在 src/config/site.ts。
+    // 部署到不同环境(staging/production/私有部署)只需在 docker-compose / .env 设置对应变量。
+    'process.env.REACT_APP_SITE_URL': JSON.stringify(process.env.REACT_APP_SITE_URL || ''),
+    'process.env.REACT_APP_SITE_NAME': JSON.stringify(process.env.REACT_APP_SITE_NAME || ''),
+    'process.env.REACT_APP_SUPPORT_EMAIL': JSON.stringify(process.env.REACT_APP_SUPPORT_EMAIL || ''),
+    'process.env.REACT_APP_PDF_PREVIEW_ENDPOINT': JSON.stringify(process.env.REACT_APP_PDF_PREVIEW_ENDPOINT || ''),
   },
 });

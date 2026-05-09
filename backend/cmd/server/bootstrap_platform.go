@@ -19,6 +19,7 @@ import (
 	"scholar-backend/internal/pdf"
 	"scholar-backend/internal/proxy"
 	"scholar-backend/internal/seo"
+	"scholar-backend/internal/seosubmit"
 	"scholar-backend/internal/usagelog"
 	"scholar-backend/internal/websocket"
 )
@@ -34,6 +35,8 @@ type platformBundle struct {
 
 	seoHandler *seo.Handler
 	seoService *seo.Service
+
+	seoSubmitService *seosubmit.Service
 
 	message *message.Handler
 
@@ -59,18 +62,21 @@ func initPlatform(db *gorm.DB, cfg *appconfig.Config) *platformBundle {
 	seoService := seo.NewService(seoRepo)
 	seoHandler := seo.NewHandler(seoService)
 
+	// 主动 SEO 提交(IndexNow + 百度)
+	// siteOrigin 来自 SEO_BASE_URL,与 sitemap loc / canonical 同源,确保推送 URL host 与 IndexNow key 验证文件 host 一致
+	seoSubmitService := seosubmit.NewService(cfg.SEOSubmit, appconfig.CanonicalBaseURL())
+
 	messageHandler := message.NewHandler(db)
 
 	wsHub := websocket.NewHub()
 	wsHandler := websocket.NewHandler(wsHub, cfg.JWT.Secret)
 
+	// PDF 服务: URL 和 unpaywall 联系邮箱都从 env 读,默认值在 config 包里
+	pdfURL := cfg.ExternalServices.PDFServiceURL
 	unpaywallEmail := cfg.ExternalServices.UnpaywallEmail
-	if unpaywallEmail == "" {
-		unpaywallEmail = "api@scholay.com"
-	}
-	pdfService := pdf.NewService(unpaywallEmail)
+	pdfService := pdf.NewService(pdfURL, unpaywallEmail)
 	pdfHandler := pdf.NewHandler(pdfService)
-	slog.Info("PDF service initialized", "unpaywall_email", unpaywallEmail)
+	slog.Info("PDF service initialized", "url", pdfURL, "unpaywall_email", unpaywallEmail)
 
 	proxyHandler := proxy.NewHandler()
 
@@ -82,6 +88,7 @@ func initPlatform(db *gorm.DB, cfg *appconfig.Config) *platformBundle {
 		hotContentService: hotContentService,
 		seoHandler:        seoHandler,
 		seoService:        seoService,
+		seoSubmitService:  seoSubmitService,
 		message:           messageHandler,
 		wsHub:             wsHub,
 		wsHandler:         wsHandler,

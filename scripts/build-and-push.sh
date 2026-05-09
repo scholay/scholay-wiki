@@ -37,6 +37,21 @@ if [ ! -f "docker-compose.yml" ]; then
     exit 1
 fi
 
+# 加载 .env 里的站点配置 —— 让 frontend build 把品牌 / 域名 / 邮箱
+# 烘进 bundle,服务器拉到镜像就有正确默认值。
+# 服务器侧要改这些值仍需重新 build + push + deploy(Vite 是 build-time,运行期不改 bundle)。
+if [ -f ".env" ]; then
+    set -a
+    # shellcheck disable=SC1091
+    . ./.env
+    set +a
+fi
+# 兜底默认值(.env 不存在或没设时)
+: "${SITE_URL:=https://www.scholay.com}"
+: "${SITE_NAME:=Scholay}"
+: "${SUPPORT_EMAIL:=support@scholay.com}"
+: "${PDF_PREVIEW_ENDPOINT:=https://filepreview.scholay.com/api/preview}"
+
 # 检查并设置 buildx (仅用于 backend)
 setup_buildx() {
     if ! docker buildx version &> /dev/null; then
@@ -168,18 +183,31 @@ build_frontend() {
     echo -e "${YELLOW}=== 构建 ${service} (${TARGET_PLATFORM}) ===${NC}"
     echo "版本镜像: ${image}"
     echo "Latest:   ${latest}"
-    
+    echo "站点配置(build-time 注入到 vite bundle):"
+    echo "  SITE_URL                = ${SITE_URL}"
+    echo "  SITE_NAME               = ${SITE_NAME}"
+    echo "  SUPPORT_EMAIL           = ${SUPPORT_EMAIL}"
+    echo "  PDF_PREVIEW_ENDPOINT    = ${PDF_PREVIEW_ENDPOINT}"
+
     # 使用 docker build 指定平台
     # 注意：需要确保 Docker Desktop 开启了 "Use Rosetta for x86/amd64 emulation"
+    #
+    # build-arg 必须显式传 —— Vite 在编译期把 process.env.REACT_APP_* 替换进 bundle,
+    # 运行期再改 docker compose env 也改不了打好的 JS。
+    # 详见 frontend-user/Dockerfile / vite.config.mjs / src/config/site.ts。
     docker build \
         --platform ${TARGET_PLATFORM} \
         -t ${image} \
         --build-arg REACT_APP_API_URL= \
+        --build-arg REACT_APP_SITE_URL="${SITE_URL}" \
+        --build-arg REACT_APP_SITE_NAME="${SITE_NAME}" \
+        --build-arg REACT_APP_SUPPORT_EMAIL="${SUPPORT_EMAIL}" \
+        --build-arg REACT_APP_PDF_PREVIEW_ENDPOINT="${PDF_PREVIEW_ENDPOINT}" \
         ${context}
-    
+
     # 打 latest 标签
     docker tag ${image} ${latest}
-    
+
     # 推送
     echo -e "${YELLOW}推送镜像...${NC}"
     docker push ${image}

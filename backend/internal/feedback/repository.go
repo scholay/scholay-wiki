@@ -8,6 +8,9 @@
 package feedback
 
 import (
+	"database/sql"
+	"time"
+
 	"gorm.io/gorm"
 )
 
@@ -41,21 +44,32 @@ func (r *Repository) Update(feedback *Feedback) error {
 	return r.db.Save(feedback).Error
 }
 
-// Delete 删除反馈
+// Delete 软删除反馈(填 deleted_at,30 天后由清理任务硬删)
 func (r *Repository) Delete(id uint) error {
-	return r.db.Delete(&Feedback{}, id).Error
+	return r.db.Model(&Feedback{}).Where("id = ?", id).
+		Update("deleted_at", time.Now()).Error
 }
 
-// List 获取反馈列表
+// notDeletedScope 排除已软删反馈
+func notDeletedScope(db *gorm.DB) *gorm.DB {
+	return db.Where("deleted_at IS NULL")
+}
+
+// List 获取反馈列表(默认排除已软删)
 func (r *Repository) List(req *FeedbackListRequest) (*FeedbackListResponse, error) {
 	var feedbacks []Feedback
 	var total int64
 
-	query := r.db.Model(&Feedback{})
+	query := r.db.Model(&Feedback{}).Scopes(notDeletedScope)
 
 	// 状态筛选
 	if req.Status != "" {
 		query = query.Where("status = ?", req.Status)
+	}
+
+	// 分类筛选
+	if req.Category != "" {
+		query = query.Where("category = ?", req.Category)
 	}
 
 	// 邮箱筛选
@@ -74,6 +88,13 @@ func (r *Repository) List(req *FeedbackListRequest) (*FeedbackListResponse, erro
 	}
 	if req.EndDate != "" {
 		query = query.Where("created_at <= ?", req.EndDate+" 23:59:59")
+	}
+
+	// 指派筛选
+	if req.Unassigned {
+		query = query.Where("assigned_to IS NULL")
+	} else if req.AssignedTo != nil {
+		query = query.Where("assigned_to = ?", *req.AssignedTo)
 	}
 
 	// 获取总数
@@ -96,35 +117,84 @@ func (r *Repository) List(req *FeedbackListRequest) (*FeedbackListResponse, erro
 	}, nil
 }
 
-// GetStats 获取反馈统计
+// GetStats 获取反馈统计(排除已软删)
 func (r *Repository) GetStats() (*FeedbackStats, error) {
 	var stats FeedbackStats
 
-	// 总数
-	if err := r.db.Model(&Feedback{}).Count(&stats.Total).Error; err != nil {
+	q := r.db.Model(&Feedback{}).Scopes(notDeletedScope)
+
+	if err := q.Count(&stats.Total).Error; err != nil {
+		return nil, err
+	}
+	if err := r.db.Model(&Feedback{}).Scopes(notDeletedScope).Where("status = ?", StatusPending).Count(&stats.Pending).Error; err != nil {
+		return nil, err
+	}
+	if err := r.db.Model(&Feedback{}).Scopes(notDeletedScope).Where("status = ?", StatusProcessed).Count(&stats.Processed).Error; err != nil {
+		return nil, err
+	}
+	if err := r.db.Model(&Feedback{}).Scopes(notDeletedScope).Where("status = ?", StatusReplied).Count(&stats.Replied).Error; err != nil {
+		return nil, err
+	}
+	if err := r.db.Model(&Feedback{}).Scopes(notDeletedScope).Where("status = ?", StatusClosed).Count(&stats.Closed).Error; err != nil {
+		return nil, err
+	}
+	if err := r.db.Model(&Feedback{}).Scopes(notDeletedScope).
+		Where("assigned_to IS NULL AND status IN ?", []FeedbackStatus{StatusPending, StatusProcessed}).
+		Count(&stats.Unassigned).Error; err != nil {
 		return nil, err
 	}
 
-	// 各状态数量
-	if err := r.db.Model(&Feedback{}).Where("status = ?", StatusPending).Count(&stats.Pending).Error; err != nil {
-		return nil, err
+	// 平均首响时长(分钟)
+	var avg sql.NullFloat64
+	r.db.Raw(`
+		SELECT AVG(TIMESTAMPDIFF(MINUTE, created_at, first_response_at))
+		FROM feedbacks
+		WHERE deleted_at IS NULL AND first_response_at IS NOT NULL
+	`).Scan(&avg)
+	if avg.Valid {
+		stats.AvgFirstResponseMinutes = avg.Float64
 	}
-	if err := r.db.Model(&Feedback{}).Where("status = ?", StatusProcessed).Count(&stats.Processed).Error; err != nil {
-		return nil, err
-	}
-	if err := r.db.Model(&Feedback{}).Where("status = ?", StatusReplied).Count(&stats.Replied).Error; err != nil {
-		return nil, err
-	}
-	if err := r.db.Model(&Feedback{}).Where("status = ?", StatusClosed).Count(&stats.Closed).Error; err != nil {
-		return nil, err
+
+	// 当前最久未响应反馈
+	var oldestPendingMin sql.NullInt64
+	r.db.Raw(`
+		SELECT TIMESTAMPDIFF(MINUTE, MIN(created_at), NOW())
+		FROM feedbacks
+		WHERE deleted_at IS NULL AND first_response_at IS NULL
+		  AND status IN ('pending','processed')
+	`).Scan(&oldestPendingMin)
+	if oldestPendingMin.Valid {
+		stats.OldestPendingMinutes = oldestPendingMin.Int64
 	}
 
 	return &stats, nil
 }
 
+// UpdateAssignee 更新反馈指派
+func (r *Repository) UpdateAssignee(id uint, assignedTo *uint) error {
+	return r.db.Model(&Feedback{}).Where("id = ?", id).
+		Update("assigned_to", assignedTo).Error
+}
+
+// UpdateInternalNotes 更新内部备注
+func (r *Repository) UpdateInternalNotes(id uint, notes string) error {
+	return r.db.Model(&Feedback{}).Where("id = ?", id).
+		Update("internal_notes", notes).Error
+}
+
+// MarkFirstResponseIfNull 仅当 first_response_at 为 NULL 时才写入
+func (r *Repository) MarkFirstResponseIfNull(id uint, t time.Time) error {
+	return r.db.Exec(`UPDATE feedbacks SET first_response_at = ? WHERE id = ? AND first_response_at IS NULL`, t, id).Error
+}
+
 // UpdateStatus 更新反馈状态
 func (r *Repository) UpdateStatus(id uint, status FeedbackStatus) error {
 	return r.db.Model(&Feedback{}).Where("id = ?", id).Update("status", status).Error
+}
+
+// UpdateCategory 更新反馈分类
+func (r *Repository) UpdateCategory(id uint, category string) error {
+	return r.db.Model(&Feedback{}).Where("id = ?", id).Update("category", category).Error
 }
 
 // ========== 附件相关方法 ==========

@@ -62,11 +62,12 @@ func Initialize(cfg *config.Config) error {
 		return fmt.Errorf("failed to get database instance: %w", err)
 	}
 
-	// Set connection pool settings - 优化为更高的并发能力
-	sqlDB.SetMaxIdleConns(25)                   // 增加空闲连接数,减少连接建立开销
-	sqlDB.SetMaxOpenConns(200)                  // 增加最大连接数,支持更高并发
-	sqlDB.SetConnMaxLifetime(time.Hour)         // 连接最大生命周期
-	sqlDB.SetConnMaxIdleTime(10 * time.Minute) // 空闲连接最大存活时间
+	// 连接池配置：与 MySQL 端 max_connections=100 对齐，留余量给 admin/maintenance
+	// 详见 docker/mysql/conf.d/memory.cnf 的内存预算说明
+	sqlDB.SetMaxIdleConns(25)
+	sqlDB.SetMaxOpenConns(90)
+	sqlDB.SetConnMaxLifetime(time.Hour)
+	sqlDB.SetConnMaxIdleTime(10 * time.Minute)
 
 	slog.Info("Database connection established successfully with optimized pool settings")
 	return nil

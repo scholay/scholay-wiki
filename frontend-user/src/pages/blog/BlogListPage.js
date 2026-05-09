@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Clock, Calendar, Search, User } from 'lucide-react';
 import SEO from '../../components/common/SEO';
 import FeaturePromo from '../../components/FeaturePromo';
+import { SITE_URL, SITE_NAME, siteUrl } from '../../config/site';
 import blogArticles, { BLOG_CATEGORIES, getAuthor } from './blogArticles';
 import '../styles/ResourcePage.css';
 
@@ -45,21 +46,21 @@ const BlogListPage = () => {
     '@type': 'Blog',
     name: 'Scholay 博客',
     description: 'Scholay 博客分享学术搜索技巧、AI 研究工具使用方法、论文写作指南和学术行业观察，助力科研工作者提升效率。',
-    url: 'https://www.scholay.com/blog',
+    url: siteUrl('/blog'),
     publisher: {
       '@type': 'Organization',
-      name: 'Scholay',
-      url: 'https://www.scholay.com',
+      name: SITE_NAME,
+      url: SITE_URL,
     },
     blogPost: blogArticles.slice(0, 10).map(article => ({
       '@type': 'BlogPosting',
       headline: article.title,
-      url: `https://www.scholay.com/blog/${article.slug}`,
+      url: siteUrl(`/blog/${article.slug}`),
       datePublished: article.date,
       dateModified: article.updatedDate || article.date,
       author: {
         '@type': 'Person',
-        name: getAuthor(article.author)?.name || 'Scholay',
+        name: getAuthor(article.author)?.name || SITE_NAME,
       },
     })),
   };

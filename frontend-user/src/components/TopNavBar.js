@@ -23,6 +23,7 @@ import MessageDropdown from './common/MessageDropdown';
 import { messageAPI } from '../services/payment.api';
 import wsClient from '../services/websocket';
 import logger from '../utils/logger';
+import { isAdminRole } from '../utils/roles';
 import './styles/TopNavBar.css';
 import './common/MessageDropdown.css';
 
@@ -282,7 +283,7 @@ const TopNavBar = ({
             <div className="um-theme-toggle">
               <ThemeToggle />
             </div>
-            {user?.role === 'admin' && (
+            {isAdminRole(user?.role) && (
               <button
                 className="um-footer-btn um-settings-btn"
                 onClick={() => {

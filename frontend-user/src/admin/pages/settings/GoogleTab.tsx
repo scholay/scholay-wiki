@@ -1,18 +1,9 @@
-/**
- * ============================================================================
- * Scholay学术 V1.0
- * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
- * 统一社会信用代码: 91510100MAEEHRNE26
- * All Rights Reserved.
- * ============================================================================
- */
-
 import React, { useState, useEffect, useCallback, type FormEvent } from 'react';
-import SensitiveField from '../../components/SensitiveField';
 import { adminAPI } from '../../services/api';
 import { showToast } from '../../components/Toast';
 import { useSettingsContext } from './SettingsContext';
 import { GoogleIcon } from '../../../components/icons/providers';
+import { OAuthProviderForm } from '../../components/v2/OAuthProviderForm';
 
 interface GoogleConfigState {
   googleClientId: string;
@@ -22,27 +13,25 @@ interface GoogleConfigState {
 }
 
 const GoogleTab = React.memo(() => {
-  const { isVerified, verifyEpoch, onRequestVerify } = useSettingsContext();
-
-  const [loading, setLoading] = useState<boolean>(false);
-  const [googleConfig, setGoogleConfig] = useState<GoogleConfigState>({
+  const { isVerified, verifyEpoch } = useSettingsContext();
+  const [loading, setLoading] = useState(false);
+  const [cfg, setCfg] = useState<GoogleConfigState>({
     googleClientId: '',
     googleClientSecret: '',
     googleEnabled: false,
   });
 
-  const loadGoogleConfig = useCallback(async (showSensitive: boolean) => {
+  const load = useCallback(async (showSensitive: boolean) => {
     try {
-      const response = await adminAPI.getGoogleConfig(showSensitive);
-      if (response.data.code === 0 && response.data.data) {
-        const d = response.data.data;
-        setGoogleConfig(prev => ({
-          ...prev,
+      const r = await adminAPI.getGoogleConfig(showSensitive);
+      if (r.data.code === 0 && r.data.data) {
+        const d = r.data.data;
+        setCfg({
           googleClientId: d.client_id ?? '',
-          ...(showSensitive ? { googleClientSecret: d.client_secret ?? '' } : { googleClientSecret: '' }),
+          googleClientSecret: showSensitive ? (d.client_secret ?? '') : '',
           googleEnabled: d.enabled ?? false,
           googleHasSecret: !!(d.client_secret && d.client_secret !== ''),
-        }));
+        });
       }
     } catch (err) {
       console.error('Failed to load Google config:', err);
@@ -50,100 +39,61 @@ const GoogleTab = React.memo(() => {
   }, []);
 
   useEffect(() => {
-    loadGoogleConfig(isVerified);
+    load(isVerified);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [verifyEpoch]);
 
-  const handleGoogleConfigSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const updateData: Record<string, unknown> = {
-        client_id: googleConfig.googleClientId,
-        enabled: googleConfig.googleEnabled,
+      const data: Record<string, unknown> = {
+        client_id: cfg.googleClientId,
+        enabled: cfg.googleEnabled,
       };
-      if (googleConfig.googleClientSecret) {
-        updateData.client_secret = googleConfig.googleClientSecret;
-      }
-      const response = await adminAPI.updateGoogleConfig(updateData);
-      if (response.data.code === 0) {
-        showToast('Google 配置已成功保存', 'success');
-        loadGoogleConfig(isVerified);
+      if (cfg.googleClientSecret) data.client_secret = cfg.googleClientSecret;
+      const r = await adminAPI.updateGoogleConfig(data);
+      if (r.data.code === 0) {
+        showToast('Google 配置已保存', 'success');
+        load(isVerified);
       } else {
-        showToast(response.data.message || '保存失败', 'error');
+        showToast(r.data.message || '保存失败', 'error');
       }
-    } catch (err: any) { // [any#1] axios error shape
-      showToast(err?.response?.data?.message || '保存失败，请稍后重试', 'error');
+    } catch (err: any) {
+      showToast(err?.response?.data?.message || '保存失败', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="settings-section fade-in">
-      <form onSubmit={handleGoogleConfigSubmit} className="settings-form">
-        <div className="section-header">
-          <h2 className="with-icon"><GoogleIcon size={24} />Google 登录配置</h2>
-          <p>配置 Google OAuth 以支持用户通过 Google 账号登录（支持 One Tap 快捷登录）</p>
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="googleClientId">Client ID</label>
-          <input type="text" id="googleClientId" className="input"
-            value={googleConfig.googleClientId}
-            onChange={(e) => setGoogleConfig({ ...googleConfig, googleClientId: e.target.value })}
-            placeholder="xxxxxxxx.apps.googleusercontent.com" />
-          <small className="form-hint">从 Google Cloud Console → APIs & Services → Credentials 获取</small>
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="googleClientSecret">Client Secret（可选）</label>
-          {googleConfig.googleHasSecret && (
-            <SensitiveField
-              value={isVerified ? googleConfig.googleClientSecret : '********'}
-              isVerified={isVerified} onRequestVerify={onRequestVerify} />
-          )}
-          <input type="password" id="googleClientSecret" className="input"
-            value={googleConfig.googleClientSecret}
-            onChange={(e) => setGoogleConfig({ ...googleConfig, googleClientSecret: e.target.value })}
-            placeholder={googleConfig.googleHasSecret ? '留空则不修改现有密钥' : 'ID Token 模式不需要 Client Secret'} />
-          <small className="form-hint">当前使用 ID Token 模式，Client Secret 为可选项</small>
-        </div>
-
-        <div className="form-group">
-          <label className="toggle-label">
-            <input type="checkbox" checked={googleConfig.googleEnabled}
-              onChange={(e) => setGoogleConfig({ ...googleConfig, googleEnabled: e.target.checked })} />
-            <span>启用 Google 登录</span>
-          </label>
-        </div>
-
-        <div className="form-group">
-          <div className="info-box">
-            <h4>配置说明</h4>
-            <ol>
-              <li>访问 <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer">Google Cloud Console</a></li>
-              <li>创建 OAuth 2.0 Client ID（Web application 类型）</li>
-              <li>在「Authorized JavaScript origins」中添加您的网站域名</li>
-              <li>复制 Client ID 填入上方</li>
-              <li>在 OAuth consent screen 中配置应用名称和范围（openid, email, profile）</li>
-            </ol>
-            <h4>登录方式</h4>
-            <ul>
-              <li><strong>One Tap</strong>：已登录 Google 的用户会在页面右上角看到快捷登录弹窗</li>
-              <li><strong>按钮登录</strong>：点击 Google 登录按钮进行标准 OAuth 流程</li>
-            </ul>
-          </div>
-        </div>
-
-        <button type="submit" className="btn btn-primary" disabled={loading}>
-          {loading ? '保存中...' : '保存配置'}
-        </button>
-      </form>
-    </div>
+    <OAuthProviderForm
+      icon={<GoogleIcon size={22} />}
+      title="Google 登录配置"
+      description="配置 Google OAuth 2.0 客户端,支持用户通过 Google 账号登录"
+      enabled={cfg.googleEnabled}
+      onEnabledChange={(v) => setCfg({ ...cfg, googleEnabled: v })}
+      clientId={cfg.googleClientId}
+      onClientIdChange={(v) => setCfg({ ...cfg, googleClientId: v })}
+      clientIdPlaceholder="xxxxx.apps.googleusercontent.com"
+      clientIdHint="Google Cloud Console → API & Services → Credentials"
+      clientSecret={cfg.googleClientSecret}
+      onClientSecretChange={(v) => setCfg({ ...cfg, googleClientSecret: v })}
+      hasSecret={cfg.googleHasSecret}
+      loading={loading}
+      onSubmit={handleSubmit}
+      instructions={
+        <ol className="list-decimal space-y-1.5 pl-5 text-xs">
+          <li>访问 <code>console.cloud.google.com</code>,创建/选择项目</li>
+          <li>API & Services → Credentials → Create credentials → OAuth client ID</li>
+          <li>Application type 选 Web application</li>
+          <li>Authorized redirect URIs 添加 <code>https://your-domain/google/callback</code></li>
+          <li>创建后复制 Client ID 与 Client Secret</li>
+        </ol>
+      }
+    />
   );
 });
 
 GoogleTab.displayName = 'GoogleTab';
-
 export default GoogleTab;

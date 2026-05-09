@@ -10,6 +10,7 @@ package usagelog
 import (
 	"strconv"
 
+	"scholar-backend/internal/admin"
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
@@ -93,6 +94,93 @@ func (h *AdminHandler) List(c *gin.Context) {
 		"page":      query.Page,
 		"page_size": query.PageSize,
 	})
+}
+
+// ExportCSV 流式导出 CSV
+// GET /api/v1/admin/usage-logs/export
+//
+// 复用 ListQuery 的过滤条件,但忽略 page/page_size,最多导出 EXPORT_LIMIT 条
+// 流式 chunked 写入,避免大数据 OOM
+func (h *AdminHandler) ExportCSV(c *gin.Context) {
+	var query ListQuery
+	if err := c.ShouldBindQuery(&query); err != nil {
+		utils.BadRequest(c, "Invalid query parameters")
+		return
+	}
+	// 强制为最大上限的导出 - 走单次大查询(后续可改成 cursor 分批写)
+	query.Page = 1
+	query.PageSize = exportLimit
+
+	logs, _, err := h.service.List(&query)
+	if err != nil {
+		utils.Error(c, 5005, "Failed to query for export: "+err.Error())
+		return
+	}
+
+	c.Header("Content-Type", "text/csv; charset=utf-8")
+	c.Header("Content-Disposition", `attachment; filename="usage-logs.csv"`)
+	// UTF-8 BOM,Excel 才能识别中文
+	_, _ = c.Writer.Write([]byte("\xEF\xBB\xBF"))
+
+	writeCSVRow(c, []string{
+		"id", "created_at", "feature_code", "feature_name",
+		"entry_point", "user_id", "ip_address", "device_type", "browser",
+	})
+	for _, l := range logs {
+		writeCSVRow(c, []string{
+			itoa(int64(l.ID)),
+			l.CreatedAt.Format("2006-01-02 15:04:05"),
+			l.FeatureCode,
+			l.FeatureName,
+			l.EntryPoint,
+			uintptrToStr(l.UserID),
+			l.IPAddress,
+			l.DeviceType,
+			l.Browser,
+		})
+	}
+}
+
+const exportLimit = 50000
+
+func writeCSVRow(c *gin.Context, fields []string) {
+	for i, f := range fields {
+		if i > 0 {
+			_, _ = c.Writer.Write([]byte{','})
+		}
+		// 标准 CSV 转义
+		needsQuote := false
+		for _, ch := range f {
+			if ch == '"' || ch == ',' || ch == '\n' || ch == '\r' {
+				needsQuote = true
+				break
+			}
+		}
+		if needsQuote {
+			_, _ = c.Writer.Write([]byte{'"'})
+			for _, ch := range f {
+				if ch == '"' {
+					_, _ = c.Writer.Write([]byte{'"', '"'})
+				} else {
+					_, _ = c.Writer.Write([]byte(string(ch)))
+				}
+			}
+			_, _ = c.Writer.Write([]byte{'"'})
+		} else {
+			_, _ = c.Writer.Write([]byte(f))
+		}
+	}
+	_, _ = c.Writer.Write([]byte{'\n'})
+	c.Writer.Flush()
+}
+
+func itoa(n int64) string { return strconv.FormatInt(n, 10) }
+
+func uintptrToStr(p *uint) string {
+	if p == nil {
+		return ""
+	}
+	return strconv.FormatUint(uint64(*p), 10)
 }
 
 // GetStatsSummary 获取统计摘要
@@ -213,6 +301,10 @@ func (h *AdminHandler) ClearAllLogs(c *gin.Context) {
 		utils.Error(c, 5000, "Failed to clear all logs: "+err.Error())
 		return
 	}
+
+	admin.LogAdminAction(c, admin.ActionClear, admin.ResUsageLog, "", gin.H{
+		"deleted_count": count,
+	})
 
 	utils.Success(c, gin.H{
 		"deleted_count": count,

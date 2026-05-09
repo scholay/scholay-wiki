@@ -14,6 +14,7 @@ import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { trackPDFPreview, EntryPoint } from '../../utils/usageTracker';
 import logger from '../../utils/logger';
+import { PDF_PREVIEW_ENDPOINT } from '../../config/site';
 import { PDFToolbar, TranslatePanel } from '.';
 import './PDFViewer.css';
 
@@ -145,7 +146,7 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
 
   // 备用：使用外部预览服务（当 DOI API 不可用时）
   const proxyUrl = useMemo(
-    () => pdfUrl ? `https://filepreview.scholay.com/api/preview?url=${encodeURIComponent(pdfUrl)}` : null,
+    () => pdfUrl ? `${PDF_PREVIEW_ENDPOINT}?url=${encodeURIComponent(pdfUrl)}` : null,
     [pdfUrl]
   );
 

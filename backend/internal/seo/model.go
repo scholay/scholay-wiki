@@ -81,11 +81,13 @@ type Author struct {
 	AuthorID string `json:"authorId,omitempty"`
 }
 
-// SitemapEntry sitemap 生成所需的最小字段集
+// SitemapEntry sitemap 生成所需的最小字段集（论文/作者通用）
+// QualityTier 用于按 tier 区分 <changefreq>（tier=1 weekly / tier=2 monthly）。
 type SitemapEntry struct {
-	Slug      string
-	UpdatedAt time.Time
-	Priority  float64
+	Slug        string
+	UpdatedAt   time.Time
+	Priority    float64
+	QualityTier int
 }
 
 // SitemapSummary /sitemap.xml 索引页需要的 meta

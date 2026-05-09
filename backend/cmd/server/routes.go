@@ -14,6 +14,7 @@ import (
 
 	"scholar-backend/internal/admin"
 	"scholar-backend/internal/ai"
+	"scholar-backend/internal/announcement"
 	"scholar-backend/internal/common/cache"
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/database"
@@ -35,6 +36,7 @@ import (
 	"scholar-backend/internal/thirdparty"
 	"scholar-backend/internal/usagelog"
 	"scholar-backend/internal/user"
+	"scholar-backend/internal/usertag"
 	"scholar-backend/internal/wechat"
 	"scholar-backend/internal/wechatofficial"
 	"scholar-backend/internal/websocket"
@@ -71,13 +73,16 @@ type allHandlers struct {
 	thirdParty      *thirdparty.Handler
 	mcpUnified      *mcp.UnifiedHandler
 	mcpLegacy       *mcp.Handler
+	announcement    *announcement.Handler
+	userTag         *usertag.Handler
 }
 
 // registerRoutes 注册所有 API 路由
 func registerRoutes(router *gin.Engine, h *allHandlers, cfg *appconfig.Config) {
 	// 第二道限流：按 user_id（认证用户）/ IP（匿名）分级限流，挂在认证路由组内层，
 	// 以便 UserAuthMiddleware 已经把 user_id/is_vip 写入 ctx 后立刻生效。
-	tieredRL := middleware.TieredRateLimitMiddleware(middleware.TieredRateLimitOptions{
+	// 使用 Redis 后端，多实例部署下计数共享；Redis 不可用时自动降级到内存版。
+	tieredRL := middleware.TieredRedisRateLimitMiddleware(middleware.TieredRateLimitOptions{
 		IPRPS:         cfg.RateLimit.IPRPS,
 		IPBurst:       cfg.RateLimit.IPBurst,
 		UserRPS:       cfg.RateLimit.UserRPS,
@@ -86,9 +91,14 @@ func registerRoutes(router *gin.Engine, h *allHandlers, cfg *appconfig.Config) {
 	})
 
 	api := router.Group("/api/v1")
+	// 维护模式拦截 — 启用后普通用户走 503,管理员/白名单正常通过
+	api.Use(middleware.MaintenanceModeMiddleware())
 	{
 		// WebSocket 端点（认证通过 URL 参数）
 		api.GET("/ws", h.ws.HandleWebSocket)
+
+		// 公开:全站公告(用户端 banner 用)
+		api.GET("/announcements/active", h.announcement.ListPublicActive)
 
 		// 公共配置路由
 		h.config.RegisterRoutes(api)
@@ -160,12 +170,13 @@ func registerRoutes(router *gin.Engine, h *allHandlers, cfg *appconfig.Config) {
 		})
 	})
 
-	// SEO sitemap（基于 seo_papers 永久索引库 + 前端静态内容索引）
+	// SEO sitemap（基于 seo_papers / seo_authors 永久索引库 + 前端静态内容索引）
 	router.GET("/sitemap.xml", h.seo.ServeSitemapIndex)
 	router.GET("/sitemap-static.xml", h.seo.ServeStaticSitemap)
 	router.GET("/sitemap-blogs.xml", h.seo.ServeBlogSitemap)
 	router.GET("/sitemap-resources.xml", h.seo.ServeResourceSitemap)
 	router.GET("/sitemap-papers-:page.xml", h.seo.ServePaperSitemap)
+	router.GET("/sitemap-authors-:page.xml", h.seo.ServeAuthorSitemap)
 	router.GET("/robots.txt", h.seo.ServeRobotsTxt)
 
 	// SPA 兜底路由（SSR 代码片段注入）

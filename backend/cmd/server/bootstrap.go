@@ -14,14 +14,17 @@
 package main
 
 import (
+	"scholar-backend/internal/announcement"
 	"scholar-backend/internal/common/cleanup"
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/database"
 	"scholar-backend/internal/common/middleware"
 	"scholar-backend/internal/peerreview"
 	"scholar-backend/internal/seo"
+	"scholar-backend/internal/seosubmit"
 	"scholar-backend/internal/thirdparty"
 	"scholar-backend/internal/user"
+	"scholar-backend/internal/usertag"
 	"scholar-backend/internal/wechat"
 	"scholar-backend/internal/websocket"
 )
@@ -34,6 +37,7 @@ type services struct {
 	cleanupService    *cleanup.CleanupService
 	thirdPartyService *thirdparty.Service
 	seoService        *seo.Service
+	seoSubmitService  *seosubmit.Service
 	wsHub             *websocket.Hub
 }
 
@@ -75,6 +79,15 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 
 	// platform → config（/paper/{slug} SSR 元数据提供）
 	core.configHandler.SetPaperSEOProvider(&paperSEOProviderAdapter{svc: plat.seoService})
+
+	// platform → config（/author/{slug} SSR 元数据提供）
+	core.configHandler.SetAuthorSEOProvider(&authorSEOProviderAdapter{svc: plat.seoService})
+
+	// AI → seo（作者详情命中 → tier=1 写入 seo_authors）
+	aiB.minicodHandler.SetAuthorSEORecorder(&authorSEORecorderAdapter{svc: plat.seoService})
+
+	// seo → seosubmit (paper/author 写入后入队主动推送)
+	plat.seoService.SetPushSubmitter(plat.seoSubmitService)
 
 	// platform 内部：usageLog → hotContent（记录热门内容）
 	plat.usageLogService.SetHotContentService(plat.hotContentService)
@@ -132,12 +145,15 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 			thirdParty:      aiB.thirdPartyHandler,
 			mcpUnified:      aiB.mcpUnified,
 			mcpLegacy:       aiB.mcpLegacy,
+			announcement:    announcement.NewHandler(),
+			userTag:         usertag.NewHandler(),
 		},
 		userService:       core.userService,
 		peerReviewService: aiB.peerReviewService,
 		cleanupService:    cleanupService,
 		thirdPartyService: aiB.thirdPartyService,
 		seoService:        plat.seoService,
+		seoSubmitService:  plat.seoSubmitService,
 		wsHub:             plat.wsHub,
 	}
 }

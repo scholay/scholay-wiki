@@ -1,21 +1,16 @@
 // ============================================================================
 // Scholay学术 V1.0
-// 熔断器状态统计 / SigNoz 可观测性
+// 熔断器状态统计 —— 进程内计数器 + 结构化日志
 // ============================================================================
 //
-// 原 breaker.go 只在 OnStateChange 打一条 slog.Warn，线上 SigNoz 能看见日志但
-// 做不了 "每个熔断器一周内打开过几次"、"当前是否处于 Open" 这类查询。
+// 原 breaker.go 只在 OnStateChange 打一条 slog.Warn,做不了
+// "每个熔断器一周内打开过几次"、"当前是否处于 Open" 这类查询。
 //
 // 本文件提供：
-//
-//  1. 每个 breaker 的进程内计数器（transitions / open_count），
-//     通过 Stats() 暴露快照，后续可接 /admin/metrics/circuit-breakers 轮询；
-//  2. OnStateChange 发送富结构日志（从状态、到状态、累计转换次数），
-//     SigNoz 原生 log-based metric 可对 state=open 进行 group_by + count 告警。
-//
-// 为什么不接 OTel metric SDK：项目目前没有引入 otel sdk/metric 依赖，
-// 直接对 SigNoz log 端点打点（已通过 telemetry.Logger 做了）+ 日志查询足以支撑告警，
-// 比引入新依赖、增加初始化分支更稳妥。
+//   1. 每个 breaker 的进程内计数器（transitions / open_count）,
+//      通过 Stats() 暴露快照,后续可接 /admin/metrics/circuit-breakers 轮询;
+//   2. OnStateChange 发送结构化 slog 日志(从状态/到状态/累计转换次数),
+//      接入任何日志收集系统(Loki/ELK/Datadog/...)后都可直接做告警查询。
 
 package circuitbreaker
 
@@ -112,8 +107,8 @@ func recordStateChange(name string, to gobreaker.State, now time.Time) int64 {
 }
 
 // onStateChangeWithStats 是 breaker 的 OnStateChange 回调：写统计 + 打结构化日志。
-// 日志字段固定（cb_name / cb_from / cb_to / cb_transitions），便于 SigNoz log
-// dashboard 做 group_by 聚合 / 告警（例如 cb_to=open 在 5 分钟内 >= 3 次）。
+// 日志字段固定（cb_name / cb_from / cb_to / cb_transitions）,日志系统可做
+// group_by 聚合 / 告警（例如 cb_to=open 在 5 分钟内 >= 3 次）。
 func onStateChangeWithStats(name string, from gobreaker.State, to gobreaker.State) {
 	now := time.Now()
 	total := recordStateChange(name, to, now)

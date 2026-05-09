@@ -34,14 +34,22 @@ type UpsertResult struct {
 //   - 老行：tier 升级到 1（若原来是 2），view_count+1，last_seen_at = now，刷新可变字段
 //   - slug 字段一旦写入后不再更新（保持 SEO 稳定）
 //
-// updated_at (sitemap <lastmod> 数据源) 仅在以下情况才 bump：
+// 数据降级保护（abstract / authors_json）:
+//   早期 bug — usagelog 钩子上来的 extra_data 里 abstract 被前端截断到 500 字符,
+//   authors_json 又是从 name-only 字符串拼出来的(无 authorId),
+//   COALESCE(NULLIF(NEW,''), OLD) 的写法会让"短截断版"覆盖"完整版",
+//   破坏 tier=2 搜索曝光时已经写入的优质数据。
+//
+//   现在改为长度比较: 仅当新值比旧值更长才覆盖。
+//   前端已同步修复(不再截断 abstract,authors_json 直接传完整 JSON),
+//   两侧合力确保 SEO 落地页拿到的是最完整的元数据。
+//
+// updated_at (sitemap <lastmod> 数据源) 与 abstract 实际变化保持一致:
 //   1. quality_tier 由 2 升级到 1 （priority 0.5→0.7，对爬虫是有意义的变化）
 //   2. title 发生变化
-//   3. abstract 发生变化
-// 否则（仅是再次点击/曝光）保持原值，避免误导爬虫重复抓取。
+//   3. abstract 真的变长 (会被新值覆盖)
 //
-// ⚠️ updated_at 必须放在所有其它赋值之前 —— ON DUPLICATE KEY UPDATE 按左到右求值，
-// 一旦 title = VALUES(title) 先执行，后面对比 title 就永远相等。
+// ⚠️ updated_at 必须放在所有其它赋值之前 —— ON DUPLICATE KEY UPDATE 按左到右求值。
 func (r *Repository) UpsertDetail(seed *PaperSeed, slug, authorsJSON, fieldsJSON string) error {
 	if seed == nil || seed.PaperID == "" {
 		return errors.New("empty paper_id")
@@ -66,7 +74,8 @@ func (r *Repository) UpsertDetail(seed *PaperSeed, slug, authorsJSON, fieldsJSON
 			updated_at = IF(
 				quality_tier = 2
 				OR title <> VALUES(title)
-				OR COALESCE(abstract,'') <> COALESCE(NULLIF(VALUES(abstract),''), COALESCE(abstract,'')),
+				OR (NULLIF(VALUES(abstract),'') IS NOT NULL
+				    AND LENGTH(VALUES(abstract)) > COALESCE(LENGTH(abstract),0)),
 				CURRENT_TIMESTAMP,
 				updated_at
 			),
@@ -76,12 +85,24 @@ func (r *Repository) UpsertDetail(seed *PaperSeed, slug, authorsJSON, fieldsJSON
 			last_seen_at   = VALUES(last_seen_at),
 			doi            = COALESCE(VALUES(doi), doi),
 			title          = VALUES(title),
-			abstract       = COALESCE(NULLIF(VALUES(abstract), ''), abstract),
-			authors_json   = COALESCE(VALUES(authors_json), authors_json),
+			abstract       = CASE
+				WHEN NULLIF(VALUES(abstract),'') IS NULL THEN abstract
+				WHEN LENGTH(VALUES(abstract)) > COALESCE(LENGTH(abstract),0) THEN VALUES(abstract)
+				ELSE abstract
+			END,
+			authors_json   = CASE
+				WHEN NULLIF(VALUES(authors_json),'') IS NULL THEN authors_json
+				WHEN LENGTH(VALUES(authors_json)) > COALESCE(LENGTH(authors_json),0) THEN VALUES(authors_json)
+				ELSE authors_json
+			END,
 			year           = COALESCE(VALUES(year), year),
 			venue          = COALESCE(VALUES(venue), venue),
 			citation_count = GREATEST(VALUES(citation_count), citation_count),
-			fields_of_study = COALESCE(VALUES(fields_of_study), fields_of_study),
+			fields_of_study = CASE
+				WHEN NULLIF(VALUES(fields_of_study),'') IS NULL THEN fields_of_study
+				WHEN LENGTH(VALUES(fields_of_study)) > COALESCE(LENGTH(fields_of_study),0) THEN VALUES(fields_of_study)
+				ELSE fields_of_study
+			END,
 			source         = COALESCE(VALUES(source), source)
 	`,
 		seed.PaperID, slug, seed.DOI, seed.Title, seed.Abstract, authorsJSON, seed.Year, seed.Venue,
@@ -98,7 +119,10 @@ func (r *Repository) UpsertDetail(seed *PaperSeed, slug, authorsJSON, fieldsJSON
 //   - 老行：不动 tier（已经是 1 的不降级），只刷新 last_seen_at 和可变元数据
 //   - view_count 不递增（搜索曝光不算详情页浏览）
 //
-// updated_at (sitemap <lastmod> 数据源) 仅在 title / abstract 真的变化时才 bump。
+// 数据降级保护: 与 UpsertDetail 一致 —— abstract / authors_json / fields_of_study
+// 仅当新值更长时才覆盖。详细原因见 UpsertDetail 注释。
+//
+// updated_at 仅在 title / abstract 真的变长时才 bump,与实际写入条件保持一致。
 // 单纯的再次曝光不刷新 lastmod，避免误导爬虫把几十万 URL 全部重抓一遍。
 func (r *Repository) UpsertSeed(seed *PaperSeed, slug, authorsJSON, fieldsJSON string) error {
 	if seed == nil || seed.PaperID == "" {
@@ -122,19 +146,32 @@ func (r *Repository) UpsertSeed(seed *PaperSeed, slug, authorsJSON, fieldsJSON s
 		ON DUPLICATE KEY UPDATE
 			updated_at = IF(
 				title <> VALUES(title)
-				OR COALESCE(abstract,'') <> COALESCE(NULLIF(VALUES(abstract),''), COALESCE(abstract,'')),
+				OR (NULLIF(VALUES(abstract),'') IS NOT NULL
+				    AND LENGTH(VALUES(abstract)) > COALESCE(LENGTH(abstract),0)),
 				CURRENT_TIMESTAMP,
 				updated_at
 			),
 			last_seen_at   = VALUES(last_seen_at),
 			doi            = COALESCE(VALUES(doi), doi),
 			title          = VALUES(title),
-			abstract       = COALESCE(NULLIF(VALUES(abstract), ''), abstract),
-			authors_json   = COALESCE(VALUES(authors_json), authors_json),
+			abstract       = CASE
+				WHEN NULLIF(VALUES(abstract),'') IS NULL THEN abstract
+				WHEN LENGTH(VALUES(abstract)) > COALESCE(LENGTH(abstract),0) THEN VALUES(abstract)
+				ELSE abstract
+			END,
+			authors_json   = CASE
+				WHEN NULLIF(VALUES(authors_json),'') IS NULL THEN authors_json
+				WHEN LENGTH(VALUES(authors_json)) > COALESCE(LENGTH(authors_json),0) THEN VALUES(authors_json)
+				ELSE authors_json
+			END,
 			year           = COALESCE(VALUES(year), year),
 			venue          = COALESCE(VALUES(venue), venue),
 			citation_count = GREATEST(VALUES(citation_count), citation_count),
-			fields_of_study = COALESCE(VALUES(fields_of_study), fields_of_study),
+			fields_of_study = CASE
+				WHEN NULLIF(VALUES(fields_of_study),'') IS NULL THEN fields_of_study
+				WHEN LENGTH(VALUES(fields_of_study)) > COALESCE(LENGTH(fields_of_study),0) THEN VALUES(fields_of_study)
+				ELSE fields_of_study
+			END,
 			source         = COALESCE(VALUES(source), source)
 	`,
 		seed.PaperID, slug, seed.DOI, seed.Title, seed.Abstract, authorsJSON, seed.Year, seed.Venue,
@@ -188,12 +225,13 @@ func (r *Repository) ListSitemapPage(page int) ([]SitemapEntry, error) {
 		return nil, errors.New("page must be > 0")
 	}
 	var rows []struct {
-		Slug      string    `gorm:"column:slug"`
-		UpdatedAt time.Time `gorm:"column:updated_at"`
-		Priority  float64   `gorm:"column:priority"`
+		Slug        string    `gorm:"column:slug"`
+		UpdatedAt   time.Time `gorm:"column:updated_at"`
+		Priority    float64   `gorm:"column:priority"`
+		QualityTier int       `gorm:"column:quality_tier"`
 	}
 	err := r.db.Table("seo_papers").
-		Select("slug, updated_at, priority").
+		Select("slug, updated_at, priority, quality_tier").
 		Where("status = ? AND sitemap_page = ?", StatusActive, page).
 		Order("id").
 		Find(&rows).Error
@@ -202,12 +240,67 @@ func (r *Repository) ListSitemapPage(page int) ([]SitemapEntry, error) {
 	}
 	out := make([]SitemapEntry, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, SitemapEntry{Slug: r.Slug, UpdatedAt: r.UpdatedAt, Priority: r.Priority})
+		out = append(out, SitemapEntry{
+			Slug:        r.Slug,
+			UpdatedAt:   r.UpdatedAt,
+			Priority:    r.Priority,
+			QualityTier: r.QualityTier,
+		})
+	}
+	return out, nil
+}
+
+// GetSitemapLastModPerPage 返回每个分页的最大 updated_at,用于索引文件 <lastmod>
+// 单条 SQL: GROUP BY sitemap_page → 一次拿到所有分页的真实修改时间
+func (r *Repository) GetSitemapLastModPerPage() (map[int]time.Time, error) {
+	var rows []struct {
+		Page    int       `gorm:"column:sitemap_page"`
+		LastMod time.Time `gorm:"column:last_mod"`
+	}
+	err := r.db.Table("seo_papers").
+		Select("sitemap_page, MAX(updated_at) AS last_mod").
+		Where("status = ? AND sitemap_page > 0", StatusActive).
+		Group("sitemap_page").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[int]time.Time, len(rows))
+	for _, r := range rows {
+		out[r.Page] = r.LastMod
+	}
+	return out, nil
+}
+
+// ListTopSlugs 返回最值得主动推送的 paper slug 列表(按 quality_tier 升序 + view_count 降序)。
+// 用于服务首次接入主动 SEO 提交时打底:把已经在库里的高价值论文一次性 seed 进队列。
+//   limit: 最多返回多少条;0 或负值表示不查
+func (r *Repository) ListTopSlugs(limit int) ([]string, error) {
+	if limit <= 0 {
+		return nil, nil
+	}
+	var rows []struct {
+		Slug string `gorm:"column:slug"`
+	}
+	err := r.db.Table("seo_papers").
+		Select("slug").
+		Where("status = ? AND slug <> ''", StatusActive).
+		Order("quality_tier ASC, view_count DESC, id ASC"). // tier=1 优先,然后看人气
+		Limit(limit).
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, r.Slug)
 	}
 	return out, nil
 }
 
 // GetSitemapSummary 返回 sitemap 分页总数和最后修改时间
+// 只统计 sitemap_page > 0 的行 —— 新插入但 BackfillSitemapPage 还没跑到的行
+// 不算入分页,避免索引文件列出空的"幽灵分页"导致爬虫拿到 404。
 func (r *Repository) GetSitemapSummary() (*SitemapSummary, error) {
 	var row struct {
 		Total   int64      `gorm:"column:total"`
@@ -215,7 +308,7 @@ func (r *Repository) GetSitemapSummary() (*SitemapSummary, error) {
 	}
 	err := r.db.Table("seo_papers").
 		Select("COUNT(*) AS total, MAX(updated_at) AS last_mod").
-		Where("status = ?", StatusActive).
+		Where("status = ? AND sitemap_page > 0", StatusActive).
 		Scan(&row).Error
 	if err != nil {
 		return nil, err

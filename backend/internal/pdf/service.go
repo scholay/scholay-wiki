@@ -21,20 +21,30 @@ import (
 	"scholar-backend/internal/common/httpclient"
 )
 
-// 外部 PDF 服务地址
-const ExternalPDFServiceURL = "https://pdf.scholay.com/api/v1/pdf"
+// DefaultExternalPDFServiceURL 兜底地址,运行期实际值由 NewService 注入
+// 仅在 main 启动配置缺失时作为最后防线。
+const DefaultExternalPDFServiceURL = "https://pdf.scholay.com/api/v1/pdf"
 
 // Service PDF 服务（代理模式）
 type Service struct {
 	httpClient *http.Client
 	cache      *Cache
+	// 外部 PDF 服务的完整端点 URL,从环境变量 PDF_SERVICE_URL 读
+	externalURL string
 }
 
 // NewService 创建 PDF 服务
-func NewService(unpaywallEmail string) *Service {
+//   externalURL: 外部 PDF 服务地址（来自 cfg.ExternalServices.PDFServiceURL）。
+//                空值时 fallback 到 DefaultExternalPDFServiceURL。
+//   unpaywallEmail: 保留参数用于 Unpaywall API 调用(如未来拓展)
+func NewService(externalURL string, unpaywallEmail string) *Service {
+	if externalURL == "" {
+		externalURL = DefaultExternalPDFServiceURL
+	}
 	return &Service{
-		httpClient: httpclient.WithTimeout(120 * time.Second), // PDF 文件可能较大，复用共享连接池
-		cache:      NewCache(24 * time.Hour),                  // 缓存 24 小时
+		httpClient:  httpclient.WithTimeout(120 * time.Second), // PDF 文件可能较大，复用共享连接池
+		cache:       NewCache(24 * time.Hour),                  // 缓存 24 小时
+		externalURL: externalURL,
 	}
 }
 
@@ -93,9 +103,9 @@ func (s *Service) forwardToExternalService(ctx context.Context, doi string, pdfU
 		return nil, fmt.Errorf("marshal request failed: %v", err)
 	}
 
-	slog.Info("forwarding to external PDF service", "url", ExternalPDFServiceURL, "body", string(jsonBody))
+	slog.Info("forwarding to external PDF service", "url", s.externalURL, "body", string(jsonBody))
 
-	req, err := http.NewRequestWithContext(ctx, "POST", ExternalPDFServiceURL, bytes.NewReader(jsonBody))
+	req, err := http.NewRequestWithContext(ctx, "POST", s.externalURL, bytes.NewReader(jsonBody))
 	if err != nil {
 		return nil, fmt.Errorf("create request failed: %v", err)
 	}

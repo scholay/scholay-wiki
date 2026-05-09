@@ -11,6 +11,50 @@ import (
 	"time"
 )
 
+// 角色常量。三级权限：
+//   RoleUser       —— 普通用户
+//   RoleAdmin      —— 管理员，拥有除"角色分配"外的所有后台权限
+//   RoleSuperAdmin —— 超级管理员，比 admin 多一个能力：把用户提升/降级为 admin
+const (
+	RoleUser       = "user"
+	RoleAdmin      = "admin"
+	RoleSuperAdmin = "super_admin"
+)
+
+// IsAdminRole 判断角色是否具备后台管理员权限（admin 或 super_admin）。
+func IsAdminRole(role string) bool {
+	return role == RoleAdmin || role == RoleSuperAdmin
+}
+
+// 前端用 permissions 数组判断 UI 元素是否显示。
+// 命名规则: <resource>.<action>，新增能力直接往这里加，不要在前端硬编码 role 字符串。
+const (
+	PermUsersView        = "users.view"
+	PermUsersDelete      = "users.delete"
+	PermUsersRoleAssign  = "users.role.assign" // 仅 super_admin
+	PermConfigManage     = "config.manage"
+	PermContentManage    = "content.manage"
+	PermAnalyticsView    = "analytics.view"
+)
+
+// PermissionsForRole 返回该角色拥有的全部权限列表。
+func PermissionsForRole(role string) []string {
+	switch role {
+	case RoleSuperAdmin:
+		return []string{
+			PermUsersView, PermUsersDelete, PermUsersRoleAssign,
+			PermConfigManage, PermContentManage, PermAnalyticsView,
+		}
+	case RoleAdmin:
+		return []string{
+			PermUsersView, PermUsersDelete,
+			PermConfigManage, PermContentManage, PermAnalyticsView,
+		}
+	default:
+		return []string{}
+	}
+}
+
 // AdminUser represents an admin account stored in the unified users table.
 type AdminUser struct {
 	ID            uint       `gorm:"primaryKey" json:"id"`

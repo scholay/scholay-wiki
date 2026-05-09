@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
@@ -23,10 +24,29 @@ type SearchSuggester interface {
 	GetSearchSuggestions(ctx context.Context, query string) ([]string, error)
 }
 
+// AuthorSEORecorder 由 seo 包实现，作者详情命中时写入 SEO 索引库 tier=1
+// 与 usagelog.SEORecorder 同构，跨包通过接口反转避免循环依赖。
+type AuthorSEORecorder interface {
+	RecordAuthorDetailClick(seed *AuthorSEOSeed) error
+}
+
+// AuthorSEOSeed 字段镜像 seo.AuthorSeed，转换在 adapter 层完成。
+type AuthorSEOSeed struct {
+	AuthorID      string
+	Name          string
+	Affiliations  []string
+	Homepage      string
+	PaperCount    int
+	CitationCount int
+	HIndex        *int
+	Source        string
+}
+
 // Handler handles HTTP requests for Minicod API
 type Handler struct {
-	manager   *Manager
-	suggester SearchSuggester
+	manager           *Manager
+	suggester         SearchSuggester
+	authorSEORecorder AuthorSEORecorder
 }
 
 // NewHandler creates a new Minicod handler
@@ -35,6 +55,11 @@ func NewHandler(manager *Manager, suggester SearchSuggester) *Handler {
 		manager:   manager,
 		suggester: suggester,
 	}
+}
+
+// SetAuthorSEORecorder 注入作者 SEO 记录器（详情命中时记录 tier=1 click）
+func (h *Handler) SetAuthorSEORecorder(r AuthorSEORecorder) {
+	h.authorSEORecorder = r
 }
 
 // SearchPapersRequest 定义学术检索的POST请求结构
@@ -297,6 +322,29 @@ func (h *Handler) GetAuthor(c *gin.Context) {
 	if err != nil {
 		utils.Error(c, 4014, "Failed to get author: "+err.Error())
 		return
+	}
+
+	// 详情命中即 tier=1 写入 seo_authors。异步执行，失败不影响主响应。
+	if h.authorSEORecorder != nil && result != nil && result.Name != "" {
+		seed := &AuthorSEOSeed{
+			AuthorID:      result.AuthorID,
+			Name:          result.Name,
+			Affiliations:  result.Affiliations,
+			Homepage:      result.Homepage,
+			PaperCount:    result.PaperCount,
+			CitationCount: result.CitationCount,
+			Source:        result.Source,
+		}
+		if result.HIndex > 0 {
+			hi := result.HIndex
+			seed.HIndex = &hi
+		}
+		recorder := h.authorSEORecorder
+		safego.Go("seo-author-detail-click", func() {
+			if err := recorder.RecordAuthorDetailClick(seed); err != nil {
+				slog.Warn("seo author detail click record failed", "author_id", seed.AuthorID, "err", err)
+			}
+		})
 	}
 
 	utils.Success(c, result)

@@ -22,22 +22,37 @@ const (
 	StatusClosed    FeedbackStatus = "closed"    // 已关闭
 )
 
+// Feedback 反馈分类常量(对齐前端)
+const (
+	CategoryBug       = "bug"
+	CategoryFeature   = "feature"
+	CategoryComplaint = "complaint"
+	CategoryPraise    = "praise"
+	CategoryOther     = "other"
+)
+
 // Feedback 反馈模型
 type Feedback struct {
-	ID          uint           `gorm:"primarykey" json:"id"`
-	Email       string         `gorm:"size:255;not null;index" json:"email"`                   // 反馈者邮箱
-	Content     string         `gorm:"type:text;not null" json:"content"`                      // 反馈内容
-	Attachments string         `gorm:"type:text" json:"attachments"`                           // 附件列表（JSON格式）
-	UserID      *uint          `gorm:"index" json:"userId"`                                    // 用户ID（登录用户）
-	Username    string         `gorm:"size:100" json:"username"`                               // 用户名（登录用户）
-	IP          string         `gorm:"size:45" json:"ip"`                                      // 反馈者IP
-	IPLocation  string         `gorm:"size:255" json:"ipLocation"`                             // IP归属地
-	Status      FeedbackStatus `gorm:"size:20;default:pending;index" json:"status"`            // 状态
-	ReplyContent string        `gorm:"type:text" json:"replyContent"`                          // 回复内容
-	RepliedAt   *time.Time     `json:"repliedAt"`                                              // 回复时间
-	RepliedBy   string         `gorm:"size:100" json:"repliedBy"`                              // 回复人
-	CreatedAt   time.Time      `gorm:"index" json:"createdAt"`
-	UpdatedAt   time.Time      `json:"updatedAt"`
+	ID              uint           `gorm:"primarykey" json:"id"`
+	Email           string         `gorm:"size:255;not null;index" json:"email"`                   // 反馈者邮箱
+	Content         string         `gorm:"type:text;not null" json:"content"`                      // 反馈内容
+	Attachments     string         `gorm:"type:text" json:"attachments"`                           // 附件列表（JSON格式）
+	UserID          *uint          `gorm:"index" json:"userId"`                                    // 用户ID（登录用户）
+	Username        string         `gorm:"size:100" json:"username"`                               // 用户名（登录用户）
+	IP              string         `gorm:"size:45" json:"ip"`                                      // 反馈者IP
+	IPLocation      string         `gorm:"size:255" json:"ipLocation"`                             // IP归属地
+	Status          FeedbackStatus `gorm:"size:20;default:pending;index" json:"status"`            // 状态
+	Category        string         `gorm:"size:32;default:other;index" json:"category"`            // 分类: bug/feature/complaint/praise/other
+	ReplyContent    string         `gorm:"type:text" json:"replyContent"`                          // 回复内容
+	RepliedAt       *time.Time     `json:"repliedAt"`                                              // 回复时间
+	RepliedBy       string         `gorm:"size:100" json:"repliedBy"`                              // 回复人
+	AssignedTo      *uint          `gorm:"index" json:"assignedTo"`                                // 指派给某管理员处理 (user.id)
+	AssigneeName    string         `gorm:"-" json:"assigneeName,omitempty"`                        // 不入库,运行时填充
+	InternalNotes   string         `gorm:"type:text" json:"internalNotes"`                         // 内部协作备注 (用户不可见)
+	FirstResponseAt *time.Time     `json:"firstResponseAt"`                                        // 首次响应时间 (SLA 跟踪)
+	CreatedAt       time.Time      `gorm:"index" json:"createdAt"`
+	UpdatedAt       time.Time      `json:"updatedAt"`
+	DeletedAt       *time.Time     `gorm:"index" json:"-"`                                         // 软删除时间(NULL=未删)
 }
 
 // TableName 指定表名
@@ -101,13 +116,16 @@ type UpdateStatusRequest struct {
 
 // FeedbackListRequest 反馈列表请求
 type FeedbackListRequest struct {
-	Page     int            `form:"page" binding:"min=1"`
-	PageSize int            `form:"pageSize" binding:"min=1,max=100"`
-	Status   FeedbackStatus `form:"status"`
-	Email    string         `form:"email"`
-	Keyword  string         `form:"keyword"`
-	StartDate string        `form:"startDate"`
-	EndDate   string        `form:"endDate"`
+	Page       int            `form:"page" binding:"min=1"`
+	PageSize   int            `form:"pageSize" binding:"min=1,max=100"`
+	Status     FeedbackStatus `form:"status"`
+	Category   string         `form:"category"` // bug/feature/complaint/praise/other
+	Email      string         `form:"email"`
+	Keyword    string         `form:"keyword"`
+	StartDate  string         `form:"startDate"`
+	EndDate    string         `form:"endDate"`
+	AssignedTo *uint          `form:"assignedTo"` // 指派给某管理员
+	Unassigned bool           `form:"unassigned"` // true = 仅看未指派
 }
 
 // FeedbackListResponse 反馈列表响应
@@ -120,10 +138,25 @@ type FeedbackListResponse struct {
 
 // FeedbackStats 反馈统计
 type FeedbackStats struct {
-	Total     int64 `json:"total"`
-	Pending   int64 `json:"pending"`
-	Processed int64 `json:"processed"`
-	Replied   int64 `json:"replied"`
-	Closed    int64 `json:"closed"`
+	Total      int64   `json:"total"`
+	Pending    int64   `json:"pending"`
+	Processed  int64   `json:"processed"`
+	Replied    int64   `json:"replied"`
+	Closed     int64   `json:"closed"`
+	Unassigned int64   `json:"unassigned"`            // 未指派数
+	// SLA: 平均首次响应时长(分钟),仅基于已响应的反馈
+	AvgFirstResponseMinutes float64 `json:"avgFirstResponseMinutes"`
+	// SLA: 当前未响应的最久反馈年龄(分钟)
+	OldestPendingMinutes int64 `json:"oldestPendingMinutes"`
+}
+
+// AssignFeedbackRequest 指派反馈请求
+type AssignFeedbackRequest struct {
+	AssignedTo *uint `json:"assignedTo"` // null = 取消指派
+}
+
+// UpdateInternalNotesRequest 更新内部备注请求
+type UpdateInternalNotesRequest struct {
+	InternalNotes string `json:"internalNotes" binding:"max=5000"`
 }
 

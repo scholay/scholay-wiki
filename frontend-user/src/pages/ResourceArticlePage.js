@@ -19,6 +19,7 @@ import {
   Search, FileText, BookOpen, Sparkles, Code, Lightbulb,
 } from 'lucide-react';
 import SEO from '../components/common/SEO';
+import { SITE_URL, SITE_NAME, SITE_LOGO_URL, siteUrl } from '../config/site';
 import { getArticleBySlug, getRelatedArticles } from './resourceArticles';
 import './styles/ResourceArticle.css';
 
@@ -79,15 +80,15 @@ const ResourceArticlePage = () => {
     description: article.excerpt,
     datePublished: article.date,
     dateModified: article.date,
-    author: { '@type': 'Organization', name: 'Scholay', url: 'https://www.scholay.com' },
+    author: { '@type': 'Organization', name: SITE_NAME, url: SITE_URL },
     publisher: {
       '@type': 'Organization',
-      name: 'Scholay',
-      logo: { '@type': 'ImageObject', url: 'https://www.scholay.com/logo.png' },
+      name: SITE_NAME,
+      logo: { '@type': 'ImageObject', url: SITE_LOGO_URL },
     },
     mainEntityOfPage: {
       '@type': 'WebPage',
-      '@id': `https://www.scholay.com/resources/${article.slug}`,
+      '@id': siteUrl(`/resources/${article.slug}`),
     },
     articleSection: article.category,
     wordCount: article.content.reduce((acc, block) => {

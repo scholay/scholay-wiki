@@ -8,6 +8,7 @@
 package main
 
 import (
+	"scholar-backend/internal/admin"
 	"scholar-backend/internal/common/middleware"
 
 	"github.com/gin-gonic/gin"
@@ -24,6 +25,8 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 
 		// 仪表板
 		adminProtected.GET("/dashboard/statistics", h.dashboard.GetDashboardStatistics)
+		adminProtected.GET("/dashboard/active-users", admin.GetActiveUserInsights)
+		adminProtected.GET("/dashboard/payment-funnel", admin.GetPaymentFunnel)
 
 		// 系统配置
 		adminProtected.PUT("/privacy-policy", h.config.UpdatePrivacyPolicy)
@@ -61,7 +64,21 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.GET("/users", h.user.GetUserList)
 		adminProtected.GET("/users/online", h.user.GetOnlineUsers)
 		adminProtected.GET("/users/:id", h.user.GetUserDetail)
+		adminProtected.GET("/users/:id/aggregate", h.user.GetUserAggregate)
 		adminProtected.DELETE("/users/:id", h.user.DeleteUser)
+		adminProtected.POST("/users/batch-delete", h.user.BatchDeleteUsers)
+		adminProtected.PUT("/users/:id/freeze", h.user.FreezeUser)
+		adminProtected.PUT("/users/:id/unfreeze", h.user.UnfreezeUser)
+		adminProtected.PUT("/users/:id/notes", h.user.UpdateAdminNotes)
+
+		// 审计日志(只读)
+		adminProtected.GET("/audit-logs", admin.ListAuditLogsHandler)
+
+		// 公告管理
+		adminProtected.GET("/announcements", h.announcement.ListAdmin)
+		adminProtected.POST("/announcements", h.announcement.Create)
+		adminProtected.PUT("/announcements/:id", h.announcement.Update)
+		adminProtected.DELETE("/announcements/:id", h.announcement.Delete)
 
 		// 统计图表
 		adminProtected.GET("/statistics/users", h.user.GetUserStatisticsChart)
@@ -84,6 +101,7 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.GET("/prompt-templates/:id", h.ai.GetPromptTemplate)
 		adminProtected.PUT("/prompt-templates/:id", h.ai.UpdatePromptTemplate)
 		adminProtected.DELETE("/prompt-templates/:id", h.ai.DeletePromptTemplate)
+		adminProtected.GET("/prompt-templates/:id/versions", h.ai.ListPromptTemplateVersionsHandler)
 
 		// 分析维度管理
 		adminProtected.GET("/analysis/dimensions", h.ai.AdminGetSystemDimensions)
@@ -136,8 +154,19 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.GET("/feedbacks/stats", h.feedback.GetStats)
 		adminProtected.GET("/feedbacks/:id", h.feedback.GetFeedback)
 		adminProtected.PUT("/feedbacks/:id/status", h.feedback.UpdateStatus)
+		adminProtected.PUT("/feedbacks/:id/category", h.feedback.UpdateCategory)
+		adminProtected.PUT("/feedbacks/:id/assignee", h.feedback.AssignFeedback)
+		adminProtected.PUT("/feedbacks/:id/internal-notes", h.feedback.UpdateInternalNotes)
 		adminProtected.POST("/feedbacks/:id/reply", h.feedback.ReplyFeedback)
 		adminProtected.DELETE("/feedbacks/:id", h.feedback.DeleteFeedback)
+
+		// 用户标签管理
+		adminProtected.GET("/user-tags", h.userTag.ListTags)
+		adminProtected.POST("/user-tags", h.userTag.CreateTag)
+		adminProtected.PUT("/user-tags/:id", h.userTag.UpdateTag)
+		adminProtected.DELETE("/user-tags/:id", h.userTag.DeleteTag)
+		adminProtected.POST("/user-tags/assign", h.userTag.AssignTags)
+		adminProtected.GET("/users/:id/tags", h.userTag.GetUserTags)
 
 		// 使用日志管理
 		adminProtected.GET("/usage-logs", h.usageLogAdmin.List)
@@ -148,6 +177,7 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.PUT("/usage-logs/config", h.usageLogAdmin.UpdateConfig)
 		adminProtected.POST("/usage-logs/cleanup", h.usageLogAdmin.TriggerCleanup)
 		adminProtected.DELETE("/usage-logs/all", h.usageLogAdmin.ClearAllLogs)
+		adminProtected.GET("/usage-logs/export", h.usageLogAdmin.ExportCSV)
 
 		// 热门内容管理
 		adminProtected.GET("/hot-content/keywords", h.hotContent.GetHotKeywords)
@@ -169,5 +199,13 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 
 		// PDF 缓存管理
 		adminProtected.GET("/pdf/cache/stats", h.pdf.GetCacheStats)
+	}
+
+	// 超级管理员专属：角色分配（提升/降级 admin）
+	// 单独建组复用 /admin 前缀但用更严格的中间件，避免和上面的 admin 中间件嵌套执行。
+	superAdminOnly := api.Group("/admin")
+	superAdminOnly.Use(middleware.SuperAdminAuthMiddleware())
+	{
+		superAdminOnly.PUT("/users/:id/role", h.admin.UpdateUserRole)
 	}
 }

@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -23,10 +24,10 @@ type Config struct {
 	Redis            RedisConfig
 	JWT              JWTConfig
 	Admin            AdminConfig
-	SigNoz           SigNozConfig
 	ExternalServices ExternalServicesConfig
 	App              AppConfig_
 	RateLimit        RateLimitConfig
+	SEOSubmit        SEOSubmitConfig
 }
 
 // RateLimitConfig 控制限流策略。
@@ -54,6 +55,19 @@ type ExternalServicesConfig struct {
 	SerperAPIKey   string
 	CrossrefEmail  string
 	UnpaywallEmail string
+
+	// 外部 PDF 服务(用于解析/抽取/转换),空值时 pdf.Service 不会工作。
+	PDFServiceURL string
+
+	// 公开品牌邮箱(支持/反馈/法律页里展示)
+	SupportEmail string
+
+	// 注:
+	//   - OpenAlex 等学术上游的 base URL 不在此配置 ——
+	//     由 admin 后台 third_party_accounts 的 MinicodConfig.BaseURL 单 row 维护,
+	//     没配则用 minicod.DefaultBaseURL 常量。env 层兜底无 API key 也无意义。
+	//   - 系统级 admin 邮箱域名(自动生成 admin@xxx 用)硬编码在 admin/service.go,
+	//     这是历史 admin 账户的兼容路径,新 admin 账户都用真实邮箱,不再需要 env 化。
 }
 
 type ServerConfig struct {
@@ -84,14 +98,36 @@ type AdminConfig struct {
 	InitialPassword string
 }
 
-type SigNozConfig struct {
-	Endpoint      string
-	ServiceName   string
-	Environment   string
-	EnableTracing bool
-	EnableLogging bool
-	EnableMetrics bool
-	SamplingRate  float64
+// SEOSubmitConfig 主动 SEO 提交配置:URL 入队后由后台 worker 批量推到搜索引擎。
+//
+// 当前只对接两类:
+//   - IndexNow 协议(一次推 → Bing / Yandex / Naver / Seznam.cz / Yep 同时收)
+//   - 百度推送 API(国内独家)
+//
+// Google 等不收第三方推送(2023 起 sitemap ping 被废弃,Indexing API 仅 JobPosting),
+// 这部分依然依赖 sitemap.xml + GSC 自然抓取。
+type SEOSubmitConfig struct {
+	// 总开关。worker / 入队都受控于此,关掉即整套静默
+	Enabled bool
+
+	// IndexNow 协议
+	// Key: 8-128 字符的字符串,需要在站点根目录暴露 /{Key}.txt 验证
+	// (后端会自动响应 GET /{Key}.txt 返回 Key 内容,详见 seosubmit.RegisterKeyFileRoute)
+	IndexNowEnabled bool
+	IndexNowKey     string
+
+	// 百度推送
+	// Token: 站长平台 https://ziyuan.baidu.com → 普通收录 → 推送页 拿到的 token
+	// Site:  对应已验证的站点 host(如 "www.scholay.com",注意不带 https://)
+	BaiduEnabled bool
+	BaiduToken   string
+	BaiduSite    string
+	// 百度普通收录每天有配额(50-1000 取决于站点),超限会 4xx,这里软限避免无效请求
+	BaiduDailyQuota int
+
+	// Worker 节奏
+	WorkerInterval time.Duration // worker 检查 / 拉取 / 推送一轮的间隔
+	BatchSize      int           // 单次从队列拉取并推送的 URL 数
 }
 
 var AppConfig *Config
@@ -125,19 +161,12 @@ func Load() *Config {
 			InitialUsername: getEnv("ADMIN_INITIAL_USERNAME", "admin"),
 			InitialPassword: getEnv("ADMIN_INITIAL_PASSWORD", "adminadmin"),
 		},
-		SigNoz: SigNozConfig{
-			Endpoint:      getEnv("SIGNOZ_ENDPOINT", ""),
-			ServiceName:   getEnv("SIGNOZ_SERVICE_NAME", "scholar-backend"),
-			Environment:   getEnv("SIGNOZ_ENVIRONMENT", "production"),
-			EnableTracing: getEnvAsBool("SIGNOZ_ENABLE_TRACING", false),
-			EnableLogging: getEnvAsBool("SIGNOZ_ENABLE_LOGGING", false),
-			EnableMetrics: getEnvAsBool("SIGNOZ_ENABLE_METRICS", false),
-			SamplingRate:  getEnvAsFloat("SIGNOZ_SAMPLING_RATE", 1.0),
-		},
 		ExternalServices: ExternalServicesConfig{
 			SerperAPIKey:   getEnv("SERPER_API_KEY", ""),
 			CrossrefEmail:  getEnv("CROSSREF_EMAIL", ""),
-			UnpaywallEmail: getEnv("UNPAYWALL_EMAIL", ""),
+			UnpaywallEmail: getEnv("UNPAYWALL_EMAIL", "api@scholay.com"),
+			PDFServiceURL:  getEnv("PDF_SERVICE_URL", "https://pdf.scholay.com/api/v1/pdf"),
+			SupportEmail:   getEnv("SUPPORT_EMAIL", "support@scholay.com"),
 		},
 		RateLimit: RateLimitConfig{
 			IPRPS:         getEnvAsInt("RATE_LIMIT_IP_RPS", 100),
@@ -146,6 +175,19 @@ func Load() *Config {
 			UserBurst:     getEnvAsInt("RATE_LIMIT_USER_BURST", 100),
 			VIPMultiplier: getEnvAsFloat("RATE_LIMIT_VIP_MULTIPLIER", 3.0),
 		},
+	}
+
+	// 主动 SEO 提交
+	AppConfig.SEOSubmit = SEOSubmitConfig{
+		Enabled:         getEnvAsBool("SEO_SUBMIT_ENABLED", false),
+		IndexNowEnabled: getEnvAsBool("INDEXNOW_ENABLED", false),
+		IndexNowKey:     getEnv("INDEXNOW_KEY", ""),
+		BaiduEnabled:    getEnvAsBool("BAIDU_PUSH_ENABLED", false),
+		BaiduToken:      getEnv("BAIDU_PUSH_TOKEN", ""),
+		BaiduSite:       getEnv("BAIDU_PUSH_SITE", ""),
+		BaiduDailyQuota: getEnvAsInt("BAIDU_PUSH_DAILY_QUOTA", 1000),
+		WorkerInterval:  time.Duration(getEnvAsInt("SEO_PUSH_WORKER_INTERVAL_SECONDS", 300)) * time.Second,
+		BatchSize:       getEnvAsInt("SEO_PUSH_BATCH_SIZE", 100),
 	}
 
 	// 通用应用配置
@@ -183,8 +225,7 @@ func validate(cfg *Config) {
 //
 // 设计原则：
 //   - 默认密钥/密码在生产是 hard error
-//   - 数值范围越界（端口/采样率）任何模式都报错
-//   - SigNoz 启用但 Endpoint 为空：报错（启动后才发现配置错代价更高）
+//   - 数值范围越界（端口）任何模式都报错
 func (c *Config) Validate() error {
 	var errs []string
 
@@ -206,14 +247,6 @@ func (c *Config) Validate() error {
 	if p, err := strconv.Atoi(c.Redis.Port); err != nil || p <= 0 || p > 65535 {
 		errs = append(errs, fmt.Sprintf("REDIS_PORT 非法: %q", c.Redis.Port))
 	}
-	if c.SigNoz.SamplingRate < 0 || c.SigNoz.SamplingRate > 1 {
-		errs = append(errs, fmt.Sprintf("SIGNOZ_SAMPLING_RATE 越界(应在 0~1): %v", c.SigNoz.SamplingRate))
-	}
-	// 启用了 SigNoz 任意子功能但 Endpoint 为空 → 启动后才发现，提前报错
-	if (c.SigNoz.EnableTracing || c.SigNoz.EnableLogging || c.SigNoz.EnableMetrics) && c.SigNoz.Endpoint == "" {
-		errs = append(errs, "SIGNOZ_* 启用但 SIGNOZ_ENDPOINT 为空")
-	}
-
 	// 限流合理性：rps<=0 直接放过所有请求属于配置错误
 	if c.RateLimit.IPRPS <= 0 {
 		errs = append(errs, fmt.Sprintf("RATE_LIMIT_IP_RPS 必须 > 0，当前 %d", c.RateLimit.IPRPS))
@@ -300,11 +333,17 @@ func getEnvAsFloat(key string, defaultValue float64) float64 {
 }
 
 // CanonicalBaseURL 站点权威域名，用作 sitemap <loc> 前缀和 HTML canonical 标签。
-// 优先读环境变量 SEO_BASE_URL；默认 https://scholay.com（和搜索引擎后台提交的保持一致）。
+// 优先读环境变量 SEO_BASE_URL；默认 https://www.scholay.com。
+//
+// 必须使用带 www 的版本作为权威域名:
+//   - 整站统一一个 host,避免 www / apex 两套 URL 让 Google 判定 duplicate content
+//   - sitemap <loc>、canonical link、Open Graph url 必须保持完全一致(包括 www)
+//   - apex(scholay.com) 应通过 301 跳到 www,在 nginx/CDN 层做
+//
 // 变更此值会影响 SEO 收录 —— 修改前确认搜索引擎后台的资源地址已经同步更新。
 // 返回值保证无尾部 "/"，调用方直接拼接 path 即可。
 func CanonicalBaseURL() string {
-	v := getEnv("SEO_BASE_URL", "https://scholay.com")
+	v := getEnv("SEO_BASE_URL", "https://www.scholay.com")
 	// 去掉尾部 "/" 让拼接更一致
 	for len(v) > 0 && v[len(v)-1] == '/' {
 		v = v[:len(v)-1]

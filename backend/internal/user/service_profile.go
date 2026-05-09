@@ -140,6 +140,12 @@ func (s *Service) GetUserListWithSort(page, pageSize int, sortBy, sortOrder stri
 	return s.repo.GetUserListWithSort(database.CalcOffset(page, pageSize), pageSize, sortBy, sortOrder)
 }
 
+// GetUserListWithFilter is the recommended entrypoint for the admin user list:
+// supports server-side keyword search + status/role filter + sort.
+func (s *Service) GetUserListWithFilter(page, pageSize int, f UserListFilter) ([]User, int64, error) {
+	return s.repo.GetUserListWithFilter(database.CalcOffset(page, pageSize), pageSize, f)
+}
+
 // GetOnlineUsers returns list of currently online users
 func (s *Service) GetOnlineUsers() ([]map[string]any, error) {
 	return s.repo.GetOnlineUsers()
@@ -242,7 +248,7 @@ func (s *Service) DeleteUser(userID uint) error {
 		return errors.New("user not found")
 	}
 
-	if user.Role == "admin" {
+	if user.Role == "admin" || user.Role == "super_admin" {
 		return errors.New("cannot delete admin accounts through user management")
 	}
 

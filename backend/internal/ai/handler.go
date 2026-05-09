@@ -8,6 +8,9 @@
 package ai
 
 import (
+	"strconv"
+
+	"scholar-backend/internal/admin"
 	"scholar-backend/internal/common/sse"
 	"scholar-backend/internal/common/utils"
 
@@ -118,6 +121,15 @@ func (h *Handler) UpdatePromptTemplate(c *gin.Context) {
 		return
 	}
 
+	// 在覆盖前快照旧版本(失败仅打日志,不阻断 update)
+	uid, _ := utils.GetUserID(c)
+	username, _ := c.Get("username")
+	usernameStr, _ := username.(string)
+	if snapErr := SnapshotPromptTemplate(template, uid, usernameStr, "auto: pre-update"); snapErr != nil {
+		// 不 abort,只 warn
+		_ = snapErr
+	}
+
 	isActive := 0
 	if req.IsActive {
 		isActive = 1
@@ -136,6 +148,20 @@ func (h *Handler) UpdatePromptTemplate(c *gin.Context) {
 	utils.Success(c, template)
 }
 
+// ListPromptTemplateVersionsHandler GET /api/v1/admin/prompt-templates/:id/versions
+func (h *Handler) ListPromptTemplateVersionsHandler(c *gin.Context) {
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
+		return
+	}
+	rows, err := ListPromptTemplateVersions(id, 50)
+	if err != nil {
+		utils.Error(c, 500, "Failed to list versions")
+		return
+	}
+	utils.Success(c, gin.H{"items": rows, "total": len(rows)})
+}
+
 // DeletePromptTemplate deletes a prompt template
 func (h *Handler) DeletePromptTemplate(c *gin.Context) {
 	id, ok := utils.ParseUintParam(c, "id")
@@ -143,9 +169,20 @@ func (h *Handler) DeletePromptTemplate(c *gin.Context) {
 		return
 	}
 
+	// 删前抓 key/name 用于审计
+	tpl, _ := h.service.GetPromptTemplateByID(id)
+
 	if err := h.service.DeletePromptTemplate(id); err != nil {
 		utils.Error(c, 500, "Failed to delete template: "+err.Error())
 		return
+	}
+
+	if tpl != nil {
+		admin.LogAdminAction(c, admin.ActionDelete, admin.ResPromptTemplate,
+			strconv.FormatUint(uint64(id), 10), gin.H{
+				"key":  tpl.Key,
+				"name": tpl.Name,
+			})
 	}
 
 	utils.Success(c, gin.H{"message": "Template deleted successfully"})

@@ -1,17 +1,13 @@
-/**
- * ============================================================================
- * Scholay学术 V1.0
- * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
- * 统一社会信用代码: 91510100MAEEHRNE26
- * All Rights Reserved.
- * ============================================================================
- */
-
 import React, { useState, useEffect, useCallback, type FormEvent } from 'react';
 import { adminAPI } from '../../services/api';
 import { showToast } from '../../components/Toast';
 import { useSettingsContext } from './SettingsContext';
 import { AppleIcon } from '../../../components/icons/providers';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Switch } from '../../components/ui/switch';
+import { Label } from '../../components/ui/label';
 
 interface AppleConfigState {
   appleServiceId: string;
@@ -25,9 +21,8 @@ interface AppleConfigState {
 
 const AppleTab = React.memo(() => {
   const { verifyEpoch } = useSettingsContext();
-
-  const [loading, setLoading] = useState<boolean>(false);
-  const [appleConfig, setAppleConfig] = useState<AppleConfigState>({
+  const [loading, setLoading] = useState(false);
+  const [cfg, setCfg] = useState<AppleConfigState>({
     appleServiceId: '',
     appleTeamId: '',
     appleKeyId: '',
@@ -37,12 +32,12 @@ const AppleTab = React.memo(() => {
     appleEnabled: false,
   });
 
-  const loadAppleConfig = useCallback(async () => {
+  const load = useCallback(async () => {
     try {
-      const response = await adminAPI.getAppleConfig();
-      if (response.data.code === 0 && response.data.data) {
-        const d = response.data.data;
-        setAppleConfig({
+      const r = await adminAPI.getAppleConfig();
+      if (r.data.code === 0 && r.data.data) {
+        const d = r.data.data;
+        setCfg({
           appleServiceId: d.service_id ?? '',
           appleTeamId: d.team_id ?? '',
           appleKeyId: d.key_id ?? '',
@@ -58,113 +53,144 @@ const AppleTab = React.memo(() => {
   }, []);
 
   useEffect(() => {
-    loadAppleConfig();
+    load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [verifyEpoch]);
 
-  const handleAppleConfigSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const domain = appleConfig.appleRedirectUri.replace(/\/$/, '');
-      const response = await adminAPI.updateAppleConfig({
-        service_id: appleConfig.appleServiceId,
-        team_id: appleConfig.appleTeamId,
-        key_id: appleConfig.appleKeyId,
-        private_key: appleConfig.applePrivateKey,
-        redirect_uri: domain,
-        enabled: appleConfig.appleEnabled,
+      const r = await adminAPI.updateAppleConfig({
+        service_id: cfg.appleServiceId,
+        team_id: cfg.appleTeamId,
+        key_id: cfg.appleKeyId,
+        private_key: cfg.applePrivateKey,
+        redirect_uri: cfg.appleRedirectUri.replace(/\/$/, ''),
+        enabled: cfg.appleEnabled,
       });
-      if (response.data.code === 0) {
-        showToast('Apple 配置已成功保存', 'success');
-        loadAppleConfig();
+      if (r.data.code === 0) {
+        showToast('Apple 配置已保存', 'success');
+        load();
       } else {
-        showToast(response.data.message || '保存失败', 'error');
+        showToast(r.data.message || '保存失败', 'error');
       }
-    } catch (err: any) { // [any#1] axios error shape
-      showToast(err?.response?.data?.message || '保存失败，请稍后重试', 'error');
+    } catch (err: any) {
+      showToast(err?.response?.data?.message || '保存失败', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="settings-section fade-in">
-      <form onSubmit={handleAppleConfigSubmit} className="settings-form">
-        <div className="section-header">
-          <h2 className="with-icon"><AppleIcon size={24} />Apple 登录配置</h2>
-          <p>配置 Sign in with Apple 以支持 Apple 用户登录</p>
-        </div>
-        <div className="form-group">
-          <label>Service ID (Identifier)</label>
-          <input type="text" className="input" value={appleConfig.appleServiceId}
-            onChange={(e) => setAppleConfig({ ...appleConfig, appleServiceId: e.target.value })}
-            placeholder="com.example.app.signin" />
-          <small className="form-hint">Apple Developer → Certificates, Identifiers & Profiles → Identifiers → Services IDs</small>
-        </div>
-        <div className="form-group">
-          <label>Team ID</label>
-          <input type="text" className="input" value={appleConfig.appleTeamId}
-            onChange={(e) => setAppleConfig({ ...appleConfig, appleTeamId: e.target.value })}
-            placeholder="XXXXXXXXXX" />
-          <small className="form-hint">Apple Developer 右上角 → Membership → Team ID</small>
-        </div>
-        <div className="form-group">
-          <label>Key ID</label>
-          <input type="text" className="input" value={appleConfig.appleKeyId}
-            onChange={(e) => setAppleConfig({ ...appleConfig, appleKeyId: e.target.value })}
-            placeholder="XXXXXXXXXX" />
-          <small className="form-hint">Apple Developer → Keys → 创建 Sign in with Apple Key 后获取</small>
-        </div>
-        <div className="form-group">
-          <label>Private Key (.p8 文件内容) {appleConfig.appleHasKey && <span style={{color:'#22c55e'}}>(已配置)</span>}</label>
-          <textarea className="input" rows={4}
-            value={appleConfig.applePrivateKey}
-            onChange={(e) => setAppleConfig({ ...appleConfig, applePrivateKey: e.target.value })}
-            placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----END PRIVATE KEY-----"
-            style={{ fontFamily: 'monospace', fontSize: 12 }} />
-          <small className="form-hint">粘贴 .p8 文件的完整内容。留空则保留现有密钥。</small>
-        </div>
-        <div className="form-group">
-          <label>网站域名</label>
-          <input type="text" className="input" value={appleConfig.appleRedirectUri}
-            onChange={(e) => setAppleConfig({ ...appleConfig, appleRedirectUri: e.target.value })}
-            placeholder="https://yourdomain.com" />
-          <small className="form-hint">系统会自动在域名后拼接 /apple/callback 作为回调地址（需要 HTTPS）</small>
-        </div>
-        <div className="form-group">
-          <label className="toggle-label">
-            <input type="checkbox" checked={appleConfig.appleEnabled}
-              onChange={(e) => setAppleConfig({ ...appleConfig, appleEnabled: e.target.checked })} />
-            <span>启用 Apple 登录</span>
+    <Card>
+      <CardHeader className="border-b">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="rounded-md bg-muted/50 p-2">
+              <AppleIcon size={22} />
+            </div>
+            <div>
+              <CardTitle className="text-lg">Apple 登录配置</CardTitle>
+              <CardDescription className="mt-1">
+                配置 Sign in with Apple,需要在 Apple Developer 创建 Service ID 和 Sign in with Apple Key
+              </CardDescription>
+            </div>
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground">{cfg.appleEnabled ? '已启用' : '未启用'}</span>
+            <Switch
+              checked={cfg.appleEnabled}
+              onCheckedChange={(v) => setCfg({ ...cfg, appleEnabled: v })}
+            />
           </label>
         </div>
-        <div className="form-group">
-          <div className="info-box">
-            <h4>配置说明</h4>
-            <ol>
-              <li>访问 <a href="https://developer.apple.com/account/resources" target="_blank" rel="noopener noreferrer">Apple Developer Portal</a></li>
-              <li>创建 App ID（需勾选 Sign in with Apple）</li>
-              <li>创建 Services ID（关联到 App ID，配置域名和回调地址）</li>
-              <li>创建 Key（勾选 Sign in with Apple，下载 .p8 文件）</li>
-              <li>回调地址必须使用 HTTPS</li>
-            </ol>
-            <h4>注意事项</h4>
-            <ul>
-              <li>Apple 只在用户<strong>首次授权</strong>时返回姓名和邮箱</li>
-              <li>用户可以选择隐藏真实邮箱（Apple 会提供一个中转邮箱）</li>
-              <li>需要 Apple Developer Program 会员资格（$99/年）</li>
-            </ul>
+      </CardHeader>
+
+      <CardContent className="p-6">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="grid gap-5 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Service ID (Identifier)</Label>
+              <Input
+                value={cfg.appleServiceId}
+                onChange={(e) => setCfg({ ...cfg, appleServiceId: e.target.value })}
+                placeholder="com.example.app.signin"
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Apple Developer → Identifiers → Services IDs
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Team ID</Label>
+              <Input
+                value={cfg.appleTeamId}
+                onChange={(e) => setCfg({ ...cfg, appleTeamId: e.target.value })}
+                placeholder="XXXXXXXXXX"
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Membership → Team ID(右上角)
+              </p>
+            </div>
           </div>
-        </div>
-        <button type="submit" className="btn btn-primary" disabled={loading}>
-          {loading ? '保存中...' : '保存配置'}
-        </button>
-      </form>
-    </div>
+
+          <div className="space-y-1.5">
+            <Label>Key ID</Label>
+            <Input
+              value={cfg.appleKeyId}
+              onChange={(e) => setCfg({ ...cfg, appleKeyId: e.target.value })}
+              placeholder="ABCDEFGHIJ"
+              required
+            />
+            <p className="text-xs text-muted-foreground">
+              Keys → 创建的 Sign in with Apple Key 的 Key ID
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>
+              Private Key (.p8 文件内容){' '}
+              {cfg.appleHasKey && <span className="text-emerald-600">已配置</span>}
+            </Label>
+            <textarea
+              className="min-h-[140px] w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              value={cfg.applePrivateKey}
+              onChange={(e) => setCfg({ ...cfg, applePrivateKey: e.target.value })}
+              placeholder={
+                cfg.appleHasKey
+                  ? '已有 Private Key,留空表示不修改'
+                  : '-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----'
+              }
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Redirect URI</Label>
+            <Input
+              type="url"
+              value={cfg.appleRedirectUri}
+              onChange={(e) => setCfg({ ...cfg, appleRedirectUri: e.target.value })}
+              placeholder="https://your-domain.com/apple/callback"
+              required
+            />
+            <p className="text-xs text-muted-foreground">
+              需要在 Service ID 的 Return URLs 中也配置同一地址
+            </p>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <Button type="submit" disabled={loading}>
+              {loading ? '保存中…' : '保存配置'}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 });
 
 AppleTab.displayName = 'AppleTab';
-
 export default AppleTab;

@@ -21,14 +21,54 @@ import (
 	"scholar-backend/internal/common/cache"
 )
 
+// PushSubmitter 由 seosubmit.Service 实现,把待收录的 URL 路径喂给主动提交队列。
+// 用接口解耦,seo 包不直接 import seosubmit(避免循环或硬绑)。
+type PushSubmitter interface {
+	EnqueuePaths(ctx context.Context, paths []string)
+}
+
 // Service 业务层
 type Service struct {
-	repo *Repository
+	repo      *Repository
+	submitter PushSubmitter // 可选;nil 时所有写入路径都不会触发主动提交
 }
 
 // NewService 构造
 func NewService(repo *Repository) *Service {
 	return &Service{repo: repo}
+}
+
+// SetPushSubmitter 注入主动 SEO 提交器。bootstrap 阶段调用一次。
+func (s *Service) SetPushSubmitter(p PushSubmitter) {
+	s.submitter = p
+}
+
+// enqueuePaperSlugs 把若干 paper slug 转成 /paper/{slug} 入队
+func (s *Service) enqueuePaperSlugs(slugs ...string) {
+	if s.submitter == nil || len(slugs) == 0 {
+		return
+	}
+	paths := make([]string, 0, len(slugs))
+	for _, slug := range slugs {
+		if slug != "" {
+			paths = append(paths, "/paper/"+slug)
+		}
+	}
+	s.submitter.EnqueuePaths(context.Background(), paths)
+}
+
+// enqueueAuthorSlugs 把若干 author slug 转成 /author/{slug} 入队
+func (s *Service) enqueueAuthorSlugs(slugs ...string) {
+	if s.submitter == nil || len(slugs) == 0 {
+		return
+	}
+	paths := make([]string, 0, len(slugs))
+	for _, slug := range slugs {
+		if slug != "" {
+			paths = append(paths, "/author/"+slug)
+		}
+	}
+	s.submitter.EnqueuePaths(context.Background(), paths)
 }
 
 // RecordDetailClick 记录用户点击详情页（tier=1 高质量）
@@ -51,7 +91,8 @@ func (s *Service) RecordDetailClick(seed *PaperSeed) error {
 	if err := s.repo.UpsertDetail(seed, slug, authorsJSON, fieldsJSON); err != nil {
 		return err
 	}
-	s.invalidateSitemapCache()
+	s.invalidatePapersCache()
+	s.enqueuePaperSlugs(slug)
 	return nil
 }
 
@@ -67,6 +108,7 @@ func (s *Service) RecordSearchSeeds(seeds []PaperSeed) (int, error) {
 	}
 
 	written := 0
+	pushSlugs := make([]string, 0, len(seeds))
 	for i := range seeds {
 		seed := &seeds[i]
 		if seed.PaperID == "" || seed.Title == "" {
@@ -84,10 +126,12 @@ func (s *Service) RecordSearchSeeds(seeds []PaperSeed) (int, error) {
 			continue
 		}
 		written++
+		pushSlugs = append(pushSlugs, slug)
 	}
 
 	if written > 0 {
-		s.invalidateSitemapCache()
+		s.invalidatePapersCache()
+		s.enqueuePaperSlugs(pushSlugs...)
 	}
 	return written, nil
 }
@@ -107,9 +151,32 @@ func (s *Service) GetSitemapPage(page int) ([]SitemapEntry, error) {
 	return s.repo.ListSitemapPage(page)
 }
 
+// GetTopPaperSlugs 用于主动 SEO 提交的启动 seed:返回最值得推送的 paper slug。
+func (s *Service) GetTopPaperSlugs(limit int) []string {
+	slugs, err := s.repo.ListTopSlugs(limit)
+	if err != nil {
+		return nil
+	}
+	return slugs
+}
+
+// GetTopAuthorSlugs 用于主动 SEO 提交的启动 seed:返回最值得推送的 author slug。
+func (s *Service) GetTopAuthorSlugs(limit int) []string {
+	slugs, err := s.repo.ListTopAuthorSlugs(limit)
+	if err != nil {
+		return nil
+	}
+	return slugs
+}
+
 // GetSitemapSummary 生成 sitemap 索引文件所需的摘要
 func (s *Service) GetSitemapSummary() (*SitemapSummary, error) {
 	return s.repo.GetSitemapSummary()
+}
+
+// GetSitemapLastModPerPage 索引文件用,拿每个 papers 分页的真实 lastmod
+func (s *Service) GetSitemapLastModPerPage() (map[int]time.Time, error) {
+	return s.repo.GetSitemapLastModPerPage()
 }
 
 // ReconcileSitemapPages 定期回填 sitemap_page=0 的新行（后台任务）
@@ -121,26 +188,71 @@ func (s *Service) ReconcileSitemapPages() error {
 	}
 	if affected > 0 {
 		slog.Info("seo sitemap pages reconciled", "rows", affected)
-		s.invalidateSitemapCache()
+		s.invalidatePapersCache()
 	}
 	return nil
 }
 
-// invalidateSitemapCache 触发 sitemap Redis 缓存失效（写穿透）
-// 使用短 TTL 的失效标记而非立即 DEL，避免对高并发写入的抖动
-func (s *Service) invalidateSitemapCache() {
+// 缓存版本号: 写入路径 INCR,handler 把它织进 cache key,旧版本随 TTL 自然失效。
+//
+// 拆成 papers / authors 两个独立计数器(原本是单一 seo:sitemap:version):
+//   - 论文写入只让 papers cache 失效,作者 sitemap 不受影响,反之亦然
+//   - 索引文件 cache key 同时引用两个版本号,任一变化都重建
+//
+// 合并锁(SETNX EX coalesceWindow): 同一计数器在 coalesceWindow 秒内的多次写入
+// 只触发一次 INCR,避免高并发下 cache key 频繁失效导致冷启风暴。
+const (
+	sitemapPapersVersionKey  = "seo:sitemap:papers:version"
+	sitemapAuthorsVersionKey = "seo:sitemap:authors:version"
+	sitemapPapersLockKey     = "seo:sitemap:papers:invalidate-lock"
+	sitemapAuthorsLockKey    = "seo:sitemap:authors:invalidate-lock"
+
+	// 合并窗口: 5 秒内的多次写入只触发 1 次版本递增
+	// 代价: sitemap 最多比写入晚 5 秒可见; 收益: cache key 不会随每次 expose 抖动
+	sitemapCoalesceWindow = 5 * time.Second
+	// 版本号本身的 TTL: 一周。Redis 重启会清零(handler 拿到 0,正常重建)
+	sitemapVersionTTL = 7 * 24 * time.Hour
+)
+
+// invalidatePapersCache 论文相关写入触发 (RecordDetailClick / RecordSearchSeeds / Reconcile)
+func (s *Service) invalidatePapersCache() {
+	bumpVersionWithCoalesce(sitemapPapersLockKey, sitemapPapersVersionKey)
+}
+
+// invalidateAuthorsCache 作者相关写入触发
+func (s *Service) invalidateAuthorsCache() {
+	bumpVersionWithCoalesce(sitemapAuthorsLockKey, sitemapAuthorsVersionKey)
+}
+
+// bumpVersionWithCoalesce SETNX 合并锁实现:
+//   - SETNX lock=1 EX 5s 成功 → 当前调用是窗口内第一个,执行 INCR
+//   - 失败 → 已有同窗口内的调用做过 INCR,本次跳过
+// 这样高 QPS 下也只产生 ~1 INCR / 5s,平稳缓存键。
+func bumpVersionWithCoalesce(lockKey, versionKey string) {
 	rdb := cache.GetRedis()
 	if rdb == nil {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
-	// 约定 sitemap handler 消费的键前缀为 seo:sitemap:
-	// 这里不逐 key 删，只 bump 版本号，sitemap handler 每次读都带版本号计算缓存键。
-	// 版本号 SETEX 24h：即使没有写入，第二天也自然更新一次。
-	if err := rdb.Incr(ctx, "seo:sitemap:version").Err(); err != nil {
-		slog.Warn("seo sitemap version bump failed", "err", err)
+
+	// 抢窗口锁
+	ok, err := rdb.SetNX(ctx, lockKey, "1", sitemapCoalesceWindow).Result()
+	if err != nil {
+		slog.Warn("seo sitemap invalidate lock failed", "key", lockKey, "err", err)
+		return
 	}
+	if !ok {
+		// 窗口内已经 bumped 过,本次合并跳过
+		return
+	}
+
+	if err := rdb.Incr(ctx, versionKey).Err(); err != nil {
+		slog.Warn("seo sitemap version bump failed", "key", versionKey, "err", err)
+		return
+	}
+	// 给版本号一个长 TTL,避免无限驻留(Redis 重启自然归零)
+	_ = rdb.Expire(ctx, versionKey, sitemapVersionTTL).Err()
 }
 
 // marshalAuthors 把 Author 列表序列化为紧凑 JSON，空值返回空串（触发 NULLIF 在 SQL 中存 NULL）

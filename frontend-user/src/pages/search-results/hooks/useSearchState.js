@@ -347,10 +347,11 @@ export const useSearchState = () => {
           queryInfo: finalQueryInfo,
         });
 
-        // SEO 曝光上报：把搜索命中喂进 seo_papers 的 tier=2 长尾池。
-        // sendBeacon 非阻塞，失败静默；后端自行做 batch 上限（20）与去重。
+        // SEO 曝光上报：把搜索命中喂进 seo_papers / seo_authors 的 tier=2 长尾池。
+        // sendBeacon 非阻塞，失败静默；后端自行做 batch 上限与去重。
         try {
-          const seeds = (searchResults || []).slice(0, 20)
+          const paperSlice = (searchResults || []).slice(0, 20);
+          const seeds = paperSlice
             .filter((p) => p?.paperId && p?.title)
             .map((p) => ({
               paper_id: p.paperId,
@@ -368,8 +369,28 @@ export const useSearchState = () => {
               fields_of_study: Array.isArray(p.fieldsOfStudy) ? p.fieldsOfStudy.slice(0, 8) : [],
               source: effectiveSource || 'semantic',
             }));
-          if (seeds.length > 0) {
-            publicScholarAPI.reportSEOExposure(seeds);
+
+          // 从同一批论文中抽取作者去重 (authorId 维度) -> 批量喂进 seo_authors
+          const authorMap = new Map();
+          for (const p of paperSlice) {
+            if (!Array.isArray(p?.authors)) continue;
+            for (const a of p.authors) {
+              const id = a?.authorId;
+              const name = a?.name;
+              if (!id || !name) continue;
+              if (!authorMap.has(id)) {
+                authorMap.set(id, {
+                  author_id: id,
+                  name,
+                  source: effectiveSource || 'semantic',
+                });
+              }
+            }
+          }
+          const authorSeeds = Array.from(authorMap.values()).slice(0, 50);
+
+          if (seeds.length > 0 || authorSeeds.length > 0) {
+            publicScholarAPI.reportSEOExposure(seeds, authorSeeds);
           }
         } catch (seoErr) {
           logger.log('[SEO] exposure report skipped:', seoErr?.message);

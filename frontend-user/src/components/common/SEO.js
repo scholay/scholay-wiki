@@ -9,6 +9,7 @@
 
 import React, { memo } from 'react';
 import { Helmet } from 'react-helmet-async';
+import { SITE_URL } from '../../config/site';
 
 /**
  * SEO Component - 用于管理页面的 meta 标签和结构化数据
@@ -31,9 +32,9 @@ const SEO = memo(({
   structuredData,
   noindex = false,
 }) => {
-  const siteUrl = 'https://www.scholay.com';
-  const fullCanonical = canonical ? `${siteUrl}${canonical}` : siteUrl;
-  const fullOgImage = ogImage.startsWith('http') ? ogImage : `${siteUrl}${ogImage}`;
+  // SITE_URL 来自 src/config/site.ts,可通过 REACT_APP_SITE_URL 环境变量覆盖
+  const fullCanonical = canonical ? `${SITE_URL}${canonical}` : SITE_URL;
+  const fullOgImage = ogImage.startsWith('http') ? ogImage : `${SITE_URL}${ogImage}`;
 
   return (
     <Helmet>

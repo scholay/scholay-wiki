@@ -9,10 +9,8 @@ package admin
 
 import (
 	"errors"
-	"fmt"
-	"net/mail"
+
 	"scholar-backend/internal/common/utils"
-	"strings"
 )
 
 // Service handles business logic for admin operations
@@ -44,7 +42,9 @@ func (s *Service) Login(login, password string) (*AdminUser, string, error) {
 		return nil, "", errors.New("invalid username or password")
 	}
 
-	token, err := utils.GenerateTokenWithRole(admin.ID, admin.Username, "user", "admin")
+	// JWT 中的 role 直接使用账号实际角色（admin 或 super_admin），
+	// 让 SuperAdminAuthMiddleware 能据此区分权限。
+	token, err := utils.GenerateTokenWithRole(admin.ID, admin.Username, "user", admin.Role)
 	if err != nil {
 		return nil, "", err
 	}
@@ -96,19 +96,14 @@ func (s *Service) GetProfile(id uint) (*AdminUser, error) {
 	return s.repo.FindByID(id)
 }
 
-// InitializeDefaultAdmin creates the default admin user if not exists
+// InitializeDefaultAdmin creates the default admin user if not exists.
+// Email 留空(nil),管理员后续在后台自行补真实邮箱 —— 早期自动生成 admin@<domain>
+// 伪邮箱的迁移期路径已下线。
 func (s *Service) InitializeDefaultAdmin(username, password string) error {
 	existing, err := s.repo.FindByLogin(username)
 	if err != nil {
 		return err
 	}
-	if existing == nil {
-		existing, err = s.repo.FindByLogin(normalizeAdminEmail(username))
-		if err != nil {
-			return err
-		}
-	}
-
 	if existing != nil {
 		// Default admin already exists
 		return nil
@@ -119,43 +114,53 @@ func (s *Service) InitializeDefaultAdmin(username, password string) error {
 		return err
 	}
 
-	email := normalizeAdminEmail(username)
 	admin := &AdminUser{
-		Username:      username,
-		Email:         &email,
-		PasswordHash:  hashedPassword,
-		Role:          "admin",
-		Status:        1,
-		EmailVerified: true,
+		Username:     username,
+		Email:        nil,
+		PasswordHash: hashedPassword,
+		// 新部署的默认账号直接给超级管理员权限（与历史管理员权限对齐）
+		Role:   RoleSuperAdmin,
+		Status: 1,
 	}
 
 	return s.repo.Create(admin)
 }
 
-func normalizeAdminEmail(login string) string {
-	normalized := strings.TrimSpace(strings.ToLower(login))
-	if normalized == "" {
-		return "admin@scholay.com"
+// PromoteToAdmin 把指定用户提升为普通管理员（admin）。
+// 仅当目标当前是 user 时允许；不允许操作 super_admin / 已是 admin 的账号。
+func (s *Service) PromoteToAdmin(targetID uint) error {
+	target, err := s.repo.FindUserByID(targetID)
+	if err != nil {
+		return err
 	}
-
-	if _, err := mail.ParseAddress(normalized); err == nil {
-		return normalized
+	if target == nil {
+		return errors.New("user not found")
 	}
-
-	return fmt.Sprintf("%s@scholay.com", sanitizeAdminLocalPart(normalized))
+	switch target.Role {
+	case RoleAdmin:
+		return errors.New("user is already an admin")
+	case RoleSuperAdmin:
+		return errors.New("cannot modify super admin role")
+	}
+	return s.repo.UpdateRole(targetID, RoleAdmin)
 }
 
-func sanitizeAdminLocalPart(value string) string {
-	var builder strings.Builder
-	for _, r := range value {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '.' || r == '_' || r == '-' {
-			builder.WriteRune(r)
-		}
+// DemoteFromAdmin 把普通管理员降级为普通用户。
+// 不允许操作 super_admin。目标必须当前是 admin。
+func (s *Service) DemoteFromAdmin(targetID uint) error {
+	target, err := s.repo.FindUserByID(targetID)
+	if err != nil {
+		return err
 	}
-
-	if builder.Len() == 0 {
-		return "admin"
+	if target == nil {
+		return errors.New("user not found")
 	}
-
-	return builder.String()
+	if target.Role == RoleSuperAdmin {
+		return errors.New("cannot demote super admin")
+	}
+	if target.Role != RoleAdmin {
+		return errors.New("user is not an admin")
+	}
+	return s.repo.UpdateRole(targetID, RoleUser)
 }
+

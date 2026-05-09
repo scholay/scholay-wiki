@@ -151,7 +151,13 @@ func (s *Service) recordHotContent(featureCode string, extraData map[string]any)
 }
 
 // buildSEOSeedFromExtra 把 usage-log extra_data 解析成 SEOSeed。
-// 前端 usageTracker 对 authors 做了扁平化（可能是逗号分隔字符串），这里只做基础解析。
+//
+// 作者字段读取优先级:
+//   1. authors_json (string)  — 前端 trackDetailPageView 新增,JSON 格式带 authorId
+//   2. authors (string)       — hotcontent 老路径,逗号分隔,只有 name
+//
+// 之前只读 #2 会导致 seo_papers.authors_json 被覆盖成"无 authorId"版本,
+// 影响落地页的 schema.org Author identifier 完整性。
 func buildSEOSeedFromExtra(extraData map[string]any) *SEOSeed {
 	if extraData == nil {
 		return nil
@@ -179,10 +185,27 @@ func buildSEOSeedFromExtra(extraData map[string]any) *SEOSeed {
 		y := int(year)
 		seed.Year = &y
 	}
-	if authors, ok := extraData["authors"].(string); ok && authors != "" {
-		// 逗号分隔字符串 → Author 切片（只存 name）
-		for _, name := range splitAndTrim(authors, ",") {
-			seed.Authors = append(seed.Authors, SEOAuthor{Name: name})
+	// 先尝试 JSON 路径,失败再降级到逗号分隔的 name-only 路径
+	if rawJSON, ok := extraData["authors_json"].(string); ok && rawJSON != "" {
+		var arr []struct {
+			Name     string `json:"name"`
+			AuthorID string `json:"authorId"`
+		}
+		if err := json.Unmarshal([]byte(rawJSON), &arr); err == nil {
+			for _, a := range arr {
+				if a.Name == "" {
+					continue
+				}
+				seed.Authors = append(seed.Authors, SEOAuthor{Name: a.Name, AuthorID: a.AuthorID})
+			}
+		}
+	}
+	if len(seed.Authors) == 0 {
+		if authors, ok := extraData["authors"].(string); ok && authors != "" {
+			// 逗号分隔字符串 → Author 切片（只存 name,无 authorId）
+			for _, name := range splitAndTrim(authors, ",") {
+				seed.Authors = append(seed.Authors, SEOAuthor{Name: name})
+			}
 		}
 	}
 	return seed

@@ -119,6 +119,16 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 		}
 	}
 
+	// /author/{slug} 专属 SEO 元数据注入
+	if h.authorSEOProvider != nil && strings.HasPrefix(requestPath, "/author/") {
+		slug := strings.TrimPrefix(requestPath, "/author/")
+		if slug != "" && !strings.Contains(slug, "/") {
+			if meta, err := h.authorSEOProvider.ResolveAuthorSlug(slug); err == nil && meta != nil {
+				modifiedHTML = injectAuthorSEOMeta(modifiedHTML, meta, requestPath)
+			}
+		}
+	}
+
 	// Return the modified HTML
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	c.Header("Cache-Control", "no-cache, must-revalidate")
@@ -132,13 +142,21 @@ func injectPaperSEOMeta(html string, meta *PaperSEOMeta, path string) string {
 	if title == "" {
 		return html
 	}
-	// 标题加品牌后缀
-	seoTitle := fmt.Sprintf("%s | Scholay 学术搜索", truncate(title, 120))
+	// 标题:论文标题 + 学科/年份提示 + 品牌后缀
+	// 例如:"Attention Is All You Need - 论文详情 (NeurIPS 2017) | Scholay 学术搜索"
+	venueYear := buildPaperVenueSegment(meta)
+	if venueYear != "" {
+		venueYear = " (" + venueYear + ")"
+	}
+	seoTitle := fmt.Sprintf("%s - 论文详情%s | Scholay 学术搜索", truncate(title, 100), venueYear)
 
-	// 描述：摘要优先，其次 venue/year
+	// 描述：摘要优先，其次 venue/year/DOI/作者
 	desc := meta.Abstract
 	if desc == "" {
 		var parts []string
+		if len(meta.Authors) > 0 {
+			parts = append(parts, "作者: "+strings.Join(meta.Authors[:minInt(len(meta.Authors), 5)], ", "))
+		}
 		if meta.Venue != "" {
 			parts = append(parts, meta.Venue)
 		}
@@ -149,6 +167,9 @@ func injectPaperSEOMeta(html string, meta *PaperSEOMeta, path string) string {
 			parts = append(parts, "DOI: "+meta.DOI)
 		}
 		desc = strings.Join(parts, " · ")
+		if desc != "" {
+			desc = "在 Scholay 阅读这篇论文 — " + desc + "。AI 摘要、引文图谱、PDF 全文一键获取。"
+		}
 	}
 	desc = truncate(desc, 300)
 
@@ -162,8 +183,15 @@ func injectPaperSEOMeta(html string, meta *PaperSEOMeta, path string) string {
 		html = descRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="description" content="%s">`, htmlEscape(desc)))
 	}
 
+	// 2.5) 替换 <meta name="keywords"> —— 论文场景词 + 标题中的关键名词作为长尾
+	keywords := buildPaperKeywords(meta)
+	keywordsRe := regexp.MustCompile(`(?is)<meta\s+name=["']keywords["'][^>]*>`)
+	if keywordsRe.MatchString(html) {
+		html = keywordsRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="keywords" content="%s">`, htmlEscape(keywords)))
+	}
+
 	// 3) 追加 canonical 链接（若 head 里已有则替换）
-	// 域名由 SEO_BASE_URL 环境变量控制，默认 https://scholay.com。
+	// 域名由 SEO_BASE_URL 环境变量控制，默认 https://www.scholay.com。
 	// 必须和 sitemap <loc> 前缀保持一致，否则爬虫会把 sitemap 里的 URL 当 duplicate 忽略。
 	canonical := fmt.Sprintf("%s%s", appconfig.CanonicalBaseURL(), path)
 	canonRe := regexp.MustCompile(`(?is)<link\s+rel=["']canonical["'][^>]*>`)
@@ -186,6 +214,58 @@ func injectPaperSEOMeta(html string, meta *PaperSEOMeta, path string) string {
 	}
 
 	return html
+}
+
+// buildPaperVenueSegment 拼出 "Venue Year" 或单独 venue/year,空则空串
+func buildPaperVenueSegment(meta *PaperSEOMeta) string {
+	venue := meta.Venue
+	year := ""
+	if meta.Year != nil && *meta.Year > 0 {
+		year = fmt.Sprintf("%d", *meta.Year)
+	}
+	if venue != "" && year != "" {
+		return fmt.Sprintf("%s %s", venue, year)
+	}
+	if venue != "" {
+		return venue
+	}
+	return year
+}
+
+// buildPaperKeywords 论文页 keywords meta:
+//   通用学术高频词(让 Google 知道这是论文详情页) + 论文自身上下文(venue/year/作者/DOI)
+//   原始论文标题里的关键名词由 Google 自己从内容中提取,我们不强塞,避免堆砌惩罚。
+func buildPaperKeywords(meta *PaperSEOMeta) string {
+	parts := []string{
+		"论文详情", "学术论文", "论文阅读", "论文摘要", "AI 论文",
+		"文献检索", "文献综述", "Semantic Scholar", "Scholay",
+		"paper detail", "research paper", "scholarly article",
+	}
+	if meta.Venue != "" {
+		parts = append(parts, meta.Venue)
+	}
+	if meta.Year != nil && *meta.Year > 0 {
+		parts = append(parts, fmt.Sprintf("%d 论文", *meta.Year))
+	}
+	if meta.DOI != "" {
+		parts = append(parts, "DOI "+meta.DOI)
+	}
+	for i, name := range meta.Authors {
+		if i >= 3 {
+			break
+		}
+		if name != "" {
+			parts = append(parts, name)
+		}
+	}
+	return strings.Join(parts, ",")
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // buildPaperNoscriptCard 渲染论文的 noscript 卡片
@@ -225,6 +305,146 @@ func buildPaperNoscriptCard(meta *PaperSEOMeta) string {
 %s
 %s
 </article>`, baseStyle, headingStyle, title, metaHTML, abstract)
+}
+
+// injectAuthorSEOMeta 替换 <title>/<meta description>，并在 noscript 中插入作者卡片
+// 与 injectPaperSEOMeta 同构,只是描述/卡片内容用作者元数据填充。
+func injectAuthorSEOMeta(html string, meta *AuthorSEOMeta, path string) string {
+	if meta.Name == "" {
+		return html
+	}
+	// 标题:作者名 + 主要机构 + 品牌
+	// 例如:"Geoffrey Hinton (University of Toronto) - 作者档案 · 代表论文 | Scholay 学术搜索"
+	primaryAff := ""
+	if len(meta.Affiliations) > 0 {
+		primaryAff = " (" + meta.Affiliations[0] + ")"
+	}
+	seoTitle := fmt.Sprintf("%s%s - 作者档案 · 代表论文 | Scholay 学术搜索", truncate(meta.Name, 80), primaryAff)
+
+	// 描述：机构 + 文献量 + 引用 + h-index
+	var parts []string
+	if len(meta.Affiliations) > 0 {
+		parts = append(parts, strings.Join(meta.Affiliations, ", "))
+	}
+	if meta.PaperCount > 0 {
+		parts = append(parts, fmt.Sprintf("共 %d 篇论文", meta.PaperCount))
+	}
+	if meta.CitationCount > 0 {
+		parts = append(parts, fmt.Sprintf("被引 %d 次", meta.CitationCount))
+	}
+	if meta.HIndex != nil && *meta.HIndex > 0 {
+		parts = append(parts, fmt.Sprintf("h-index %d", *meta.HIndex))
+	}
+	statSeg := strings.Join(parts, " · ")
+	desc := ""
+	if statSeg != "" {
+		desc = fmt.Sprintf("%s 的学术档案 — %s。在 Scholay 浏览代表论文、被引情况、合作网络与研究方向。", meta.Name, statSeg)
+	} else {
+		desc = fmt.Sprintf("%s 的学术档案与代表论文 — Scholay 整合 Semantic Scholar 与 OpenAlex 的作者画像数据,展示发表论文、引用情况与研究领域。", meta.Name)
+	}
+	desc = truncate(desc, 300)
+
+	titleRe := regexp.MustCompile(`(?is)<title>.*?</title>`)
+	html = titleRe.ReplaceAllString(html, "<title>"+htmlEscape(seoTitle)+"</title>")
+
+	descRe := regexp.MustCompile(`(?is)<meta\s+name=["']description["'][^>]*>`)
+	if descRe.MatchString(html) {
+		html = descRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="description" content="%s">`, htmlEscape(desc)))
+	}
+
+	// keywords meta —— 作者场景高频词 + 个人元数据
+	keywords := buildAuthorKeywords(meta)
+	keywordsRe := regexp.MustCompile(`(?is)<meta\s+name=["']keywords["'][^>]*>`)
+	if keywordsRe.MatchString(html) {
+		html = keywordsRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="keywords" content="%s">`, htmlEscape(keywords)))
+	}
+
+	canonical := fmt.Sprintf("%s%s", appconfig.CanonicalBaseURL(), path)
+	canonRe := regexp.MustCompile(`(?is)<link\s+rel=["']canonical["'][^>]*>`)
+	canonTag := fmt.Sprintf(`<link rel="canonical" href="%s">`, htmlEscape(canonical))
+	if canonRe.MatchString(html) {
+		html = canonRe.ReplaceAllString(html, canonTag)
+	} else {
+		html = strings.Replace(html, "</head>", canonTag+"\n</head>", 1)
+	}
+
+	noscriptCard := buildAuthorNoscriptCard(meta)
+	if noscriptCard != "" {
+		insertBefore := `<p style="text-align: center; margin-top: 30px;`
+		if idx := strings.Index(html, insertBefore); idx > 0 {
+			html = html[:idx] + noscriptCard + "\n" + html[idx:]
+		} else if idx := strings.Index(html, "</noscript>"); idx > 0 {
+			html = html[:idx] + noscriptCard + "\n" + html[idx:]
+		}
+	}
+
+	return html
+}
+
+// buildAuthorKeywords 作者页 keywords meta
+//   学术作者高频词(让 Google 知道这是作者档案页) + 作者具体机构/姓名信息
+func buildAuthorKeywords(meta *AuthorSEOMeta) string {
+	parts := []string{
+		meta.Name,
+		"作者档案", "学者主页", "代表论文", "h-index", "引用统计",
+		"研究方向", "合作网络", "Semantic Scholar 作者", "Scholay",
+		"author profile", "researcher profile", "scholarly author", "academic profile",
+	}
+	for _, aff := range meta.Affiliations {
+		if aff != "" {
+			parts = append(parts, aff)
+		}
+	}
+	if meta.PaperCount > 0 {
+		parts = append(parts, fmt.Sprintf("%d 篇论文", meta.PaperCount))
+	}
+	if meta.HIndex != nil && *meta.HIndex > 0 {
+		parts = append(parts, fmt.Sprintf("h-index %d", *meta.HIndex))
+	}
+	return strings.Join(parts, ",")
+}
+
+// buildAuthorNoscriptCard 渲染作者的 noscript 卡片
+func buildAuthorNoscriptCard(meta *AuthorSEOMeta) string {
+	baseStyle := `style="max-width: 1000px; margin: 20px auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #e0e0e0;"`
+	headingStyle := `style="color: #ffffff; border-bottom: 1px solid #424242; padding-bottom: 10px; font-size: 1.4rem;"`
+	metaStyle := `style="color: #9e9e9e; font-size: 0.9rem; margin-bottom: 8px;"`
+	statStyle := `style="color: #bdbdbd; line-height: 1.8; margin-bottom: 12px;"`
+
+	name := htmlEscape(meta.Name)
+
+	var metaLines []string
+	if len(meta.Affiliations) > 0 {
+		metaLines = append(metaLines, "机构："+htmlEscape(strings.Join(meta.Affiliations, ", ")))
+	}
+	if meta.Homepage != "" {
+		metaLines = append(metaLines, "主页："+htmlEscape(meta.Homepage))
+	}
+	var metaHTML string
+	if len(metaLines) > 0 {
+		metaHTML = fmt.Sprintf("<p %s>%s</p>", metaStyle, strings.Join(metaLines, " · "))
+	}
+
+	var statLines []string
+	if meta.PaperCount > 0 {
+		statLines = append(statLines, fmt.Sprintf("发表论文 %d 篇", meta.PaperCount))
+	}
+	if meta.CitationCount > 0 {
+		statLines = append(statLines, fmt.Sprintf("总被引 %d 次", meta.CitationCount))
+	}
+	if meta.HIndex != nil && *meta.HIndex > 0 {
+		statLines = append(statLines, fmt.Sprintf("h-index %d", *meta.HIndex))
+	}
+	var statHTML string
+	if len(statLines) > 0 {
+		statHTML = fmt.Sprintf("<p %s>%s</p>", statStyle, strings.Join(statLines, " · "))
+	}
+
+	return fmt.Sprintf(`<article %s>
+<h1 %s>%s</h1>
+%s
+%s
+</article>`, baseStyle, headingStyle, name, metaHTML, statHTML)
 }
 
 func truncate(s string, n int) string {

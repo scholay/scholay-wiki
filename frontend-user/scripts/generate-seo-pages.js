@@ -12,7 +12,9 @@ const fs = require('fs');
 const path = require('path');
 
 const BUILD_DIR = path.join(__dirname, '..', 'build');
-const SITE_URL = 'https://www.scholay.com';
+// 与 src/config/site.ts 的 SITE_URL 保持同源:
+// 优先读 REACT_APP_SITE_URL,部署期可覆盖;默认 https://www.scholay.com。
+const SITE_URL = process.env.REACT_APP_SITE_URL || 'https://www.scholay.com';
 
 // ===================== 加载博客文章数据 =====================
 
@@ -51,7 +53,8 @@ function generateBlogArticleRoutes(articles, authors) {
       path: `/blog/${article.slug}`,
       title: `${article.title} - Scholay 博客`,
       description: article.excerpt,
-      keywords: `${article.tags.join(',')},Scholay博客,学术研究`,
+      // 文章 tags(原创话题词) + 通用学术高频词,兼顾原创性和搜索覆盖
+      keywords: `${article.tags.join(',')},Scholay 博客,学术博客,论文写作,文献检索,AI 学术工具,科研经验,SCI 投稿,research blog,academic writing,Scholay`,
       noscriptBody:
         `<article style="line-height:1.8">` +
         `<div style="margin-bottom:12px;color:#666"><span>${article.category}</span> · <span>${author.name}</span> · <span>${article.readTime}阅读</span> · <span>${article.date}</span></div>` +
@@ -73,9 +76,9 @@ function generateBlogListRoute(articles, authors) {
 
   return {
     path: '/blog',
-    title: 'Scholay 博客 | 学术搜索技巧、AI 研究工具与论文写作指南',
-    description: 'Scholay 博客分享学术搜索技巧、AI 研究工具使用方法、论文写作指南和学术行业观察。原创深度文章助力科研工作者提升效率。',
-    keywords: '学术博客,AI学术工具,论文写作技巧,文献检索方法,学术搜索,科研效率,Scholay博客',
+    title: 'Scholay 博客 | 学术搜索技巧 · AI 科研工具 · 论文写作指南',
+    description: 'Scholay 博客分享学术搜索技巧、AI 科研工具实践、论文写作经验、SCI 投稿心得与学术行业观察。原创深度文章覆盖文献综述工作流、引文分析、跨学科检索、知网与谷歌学术对比、ChatPaper 等 AI 论文工具评测。',
+    keywords: '学术博客,AI 学术工具,论文写作技巧,文献检索方法,文献综述,SCI 投稿,引文分析,学术英语,科研效率,知网 vs 谷歌学术,ChatPaper,Elicit,Scholay 博客,research blog,literature review tips,AI research tools,academic writing,Scholay',
     noscriptBody:
       section('Scholay 博客', p('分享学术搜索技巧、AI 研究工具实践、论文写作方法和行业深度观察，帮助研究者用更聪明的方式做科研。')) +
       section(`全部文章（${articles.length} 篇）`, `<ul style="list-style:none;padding:0">${articleList}</ul>`) +
@@ -130,7 +133,8 @@ function generateArticleRoutes(articles) {
     path: `/resources/${article.slug}`,
     title: `${article.title} - Scholay 学术资源`,
     description: article.excerpt,
-    keywords: `${article.category},学术指南,${article.title},Scholay,学术研究,论文写作`,
+    // 学术高频长尾词 + 文章自身分类/标题,提升搜索匹配面
+    keywords: `${article.category},学术指南,论文写作教程,文献检索技巧,文献综述,引用格式,SCI 投稿,LaTeX 教程,研究方法论,学术规范,${article.title},academic guide,research methodology,literature review,Scholay`,
     noscriptBody:
       `<article style="line-height:1.8">` +
       `<div style="margin-bottom:20px;color:#666"><span>${article.category}</span> · <span>${article.readTime}阅读</span> · <span>${article.date}</span></div>` +
@@ -148,9 +152,9 @@ function generateResourceCenterRoute(articles) {
 
   return {
     path: '/resources',
-    title: '学术资源中心 - Scholay | 原创学术指南与教程',
-    description: 'Scholay 学术资源中心提供原创学术指南文章，涵盖文献检索技巧、论文写作方法、引用格式、研究方法论、AI 学术应用和 LaTeX 教程等主题。',
-    keywords: '学术资源,学术指南,论文写作教程,文献检索技巧,LaTeX教程,研究方法,学术规范',
+    title: '学术资源中心 - Scholay | 原创学术指南 · 论文写作教程',
+    description: 'Scholay 学术资源中心汇集原创学术指南,涵盖文献检索技巧、文献综述撰写、SCI 投稿指南、引用格式(APA/MLA/Chicago/IEEE)、研究方法论、LaTeX 入门教程、AI 辅助科研、开放获取指南等主题,助力研究生科研入门。',
+    keywords: '学术资源,学术指南,论文写作教程,文献检索技巧,文献综述,SCI 投稿指南,引用格式,APA 格式,MLA 格式,Chicago 格式,IEEE 格式,LaTeX 入门,LaTeX 教程,研究方法论,学术规范,开放获取,research guides,literature review,citation formats,academic writing,Scholay',
     noscriptBody:
       section('学术资源中心', p('Scholay 学术资源中心汇集了一系列原创学术指南和教程文章，帮助研究者提升文献检索、论文写作和科研工具使用技能。无论你是刚入学的研究生，还是经验丰富的学者，都能在这里找到有价值的学术参考资料。')) +
       section(`全部文章（${articles.length} 篇）`, `<ul style="list-style:none;padding:0">${articleList}</ul>`) +
@@ -168,9 +172,9 @@ function generateResourceCenterRoute(articles) {
 function generateHelpCenterRoute() {
   return {
     path: '/help',
-    title: '帮助中心 - Scholay | 使用指南与常见问题解答',
-    description: 'Scholay 帮助中心提供详细的平台使用教程、功能介绍和常见问题解答，帮助你快速上手 AI 学术搜索、论文分析、智能审稿和 LaTeX 编辑等功能。',
-    keywords: 'Scholay帮助,使用教程,常见问题,FAQ,学术搜索帮助,AI论文分析教程',
+    title: '帮助中心 - Scholay | 使用教程与常见问题解答',
+    description: 'Scholay 帮助中心提供详细的功能教程和 FAQ:学术搜索操作、AI 论文分析、智能审稿使用、ScholayPrism LaTeX 编辑器入门、订阅充值指南、账户与数据安全。研究生快速上手 AI 科研工具的入口。',
+    keywords: 'Scholay 帮助,使用教程,常见问题,FAQ,学术搜索帮助,AI 论文分析教程,智能审稿教程,LaTeX 入门,订阅指南,账户安全,help center,FAQ,user guide,Scholay',
     noscriptBody:
       section('帮助中心', p('欢迎来到 Scholay 帮助中心。在这里你可以了解平台的核心功能、使用方法，以及查阅常见问题的解答。如果需要更详细的学术指南，请访问 <a href="/resources" style="color:#1a73e8">学术资源中心</a>。')) +
       section('功能使用指南', ul([
@@ -233,9 +237,9 @@ function ul(items) { return `<ul style="line-height:2;color:#333">${items.map(i 
 const routes = [
   {
     path: '/',
-    title: 'Scholay - AI驱动的学术搜索平台 | 智能文献检索与分析',
-    description: 'Scholay是创新的学术搜索平台，提供AI驱动的文献检索、智能论文分析、AI学术聊天、智能审稿和ScholayPrism在线LaTeX编辑器。覆盖超过2亿篇学术论文，涵盖19个学科领域。',
-    keywords: '学术搜索,论文检索,文献查找,AI论文分析,学术资源,科研工具,Semantic Scholar,论文引用,学术数据库,研究助手,智能搜索,LaTeX编辑器,智能审稿',
+    title: 'Scholay 学术搜索 | 2亿+论文 AI 文献检索 · 智能审稿 · LaTeX 编辑器',
+    description: 'Scholay 是 AI 驱动的学术搜索平台，整合 Semantic Scholar 与 OpenAlex 超 2 亿篇论文，提供 AI 文献检索、论文阅读翻译、智能审稿、ScholayPrism 在线 LaTeX 编辑器，覆盖 19 个学科领域，助力研究生 SCI 投稿、文献综述、开题报告与论文写作全流程。',
+    keywords: '学术搜索,文献检索,论文搜索,AI 论文,文献综述,SCI 论文,影响因子,中科院分区,知网替代,谷歌学术替代,Semantic Scholar,OpenAlex,论文阅读,论文翻译,论文摘要,智能审稿,同行评审,LaTeX 编辑器,Overleaf 替代,ScholayPrism,research paper search,literature review,AI research assistant,academic search engine,Scholay',
     noscriptBody:
       section('Scholay — AI驱动的学术搜索引擎', p('Scholay 是一个创新的学术搜索平台，整合 Semantic Scholar 超过 2 亿篇学术论文数据库，结合先进的大语言模型技术，为研究人员、学生和学者提供智能化的文献检索与分析服务。') + p('我们提供两种搜索模式：<strong>直接检索</strong>通过关键词、论文标题或作者名精准定位文献；<strong>AI 智能检索</strong>用自然语言描述研究需求，AI 理解意图后推荐最相关文献。')) +
       `<section style="margin-bottom:30px"><div style="display:flex;justify-content:center;gap:40px;padding:20px 0;font-size:1.1rem"><div style="text-align:center"><strong style="font-size:1.5rem;color:#10a37f">300M+</strong><br/>学术论文覆盖</div><div style="text-align:center"><strong style="font-size:1.5rem;color:#10a37f">19</strong><br/>学科领域</div><div style="text-align:center"><strong style="font-size:1.5rem;color:#10a37f">5</strong><br/>AI 工具模块</div></div></section>` +
@@ -274,9 +278,9 @@ const routes = [
   },
   {
     path: '/search-results',
-    title: '学术论文搜索 - Scholay | AI智能文献检索',
-    description: '使用Scholay搜索超过2亿篇学术论文，支持直接检索和AI智能检索两种模式，涵盖计算机科学、生物医学、物理、化学等19个学科领域。',
-    keywords: '论文搜索,学术检索,文献查找,AI论文搜索,Semantic Scholar搜索,学术数据库检索,文献综述',
+    title: '论文搜索 - Scholay | AI 语义检索 · 2亿篇学术论文 · 19 学科',
+    description: 'Scholay 学术论文搜索引擎,整合 Semantic Scholar 与 OpenAlex 超 2 亿篇论文,支持关键词直接检索与 AI 自然语言语义搜索,覆盖计算机科学、生物医学、物理化学、机器学习、CRISPR、量子计算、经济心理等 19 个学科,按发表年份、被引次数、期刊来源、开放获取多维筛选。',
+    keywords: '论文搜索,学术检索,文献查找,文献检索,AI 学术搜索,语义搜索,Semantic Scholar 搜索,OpenAlex 搜索,谷歌学术替代,知网替代,SCI 论文检索,文献综述,开放获取论文,影响因子,机器学习论文,深度学习论文,CRISPR 论文,paper search,academic search,scholarly literature,AI semantic search,literature review',
     noscriptBody:
       section('学术论文搜索', p('Scholay 提供强大的学术论文搜索功能，接入 Semantic Scholar 数据库，覆盖超过 2 亿篇学术论文，帮助研究人员高效定位所需文献。')) +
       section('搜索模式', ul([
@@ -293,9 +297,9 @@ const routes = [
   },
   {
     path: '/chat',
-    title: 'AI 智能助手 - Scholay | 学术问答与研究对话',
-    description: '与Scholay AI助手进行学术对话，获取研究建议、文献推荐、论文解读和学术写作指导。支持多种AI模型，覆盖各学科领域。',
-    keywords: 'AI学术助手,学术问答,论文解读,研究对话,AI聊天,学术写作指导,文献推荐',
+    title: 'AI 学术助手 - Scholay | 论文问答 · 文献推荐 · 研究对话',
+    description: '与 Scholay AI 学术助手对话,获取研究建议、文献推荐、论文解读、文献综述思路和学术英语润色。支持 GPT-4、Claude、Gemini 等多模型切换,粘贴论文片段即可深度解读,适合研究生选题、SCI 投稿前自查与跨学科调研。',
+    keywords: 'AI 学术助手,学术问答,论文解读,论文阅读,论文摘要,论文翻译,AI 聊天,ChatPaper,Scholar GPT,文献推荐,文献综述,学术写作,英语润色,研究生写论文,SCI 投稿,academic chatbot,paper Q&A,AI research assistant,literature recommendation,Scholay',
     noscriptBody:
       section('AI 智能助手', p('Scholay AI 智能助手是您的私人学术研究伙伴，能够理解复杂的学术问题并提供专业解答，帮助您更高效地进行学术研究。')) +
       section('功能特色', ul([
@@ -309,9 +313,9 @@ const routes = [
   },
   {
     path: '/assistant',
-    title: '精品AI工具 - Scholay | 智能助手、智能审稿、LaTeX编辑器',
-    description: 'Scholay精品AI工具集，包含AI智能助手、智能论文审稿、ScholayPrism LaTeX在线编辑器，全方位辅助学术研究与论文写作。',
-    keywords: 'AI工具,学术工具,智能审稿,LaTeX编辑器,论文写作,AI助手,ScholayPrism',
+    title: 'AI 工具集 - Scholay | 学术助手 · 智能审稿 · LaTeX 编辑器一站式',
+    description: 'Scholay 精品 AI 学术工具一站式集合 — AI 学术助手对话答疑、智能审稿生成同行评审报告、ScholayPrism 在线 LaTeX 编辑器辅助论文写作,覆盖文献检索、论文阅读、SCI 投稿、毕业论文打磨的全流程科研需求。',
+    keywords: 'AI 学术工具,科研工具,学术助手,智能审稿,同行评审,LaTeX 编辑器,在线 LaTeX,Overleaf 替代,ScholayPrism,论文写作工具,AI 论文,论文修改,SCI 投稿,研究生工具,academic AI tools,research toolkit,AI peer review,LaTeX online,Scholay',
     noscriptBody:
       section('精品 AI 工具', p('Scholay 提供一系列专为学术研究打造的 AI 工具，覆盖从文献检索到论文写作的完整研究流程。')) +
       section('ScholayPrism - 在线 LaTeX 编辑器', p('原生支持 LaTeX 的在线工作空间，集成 AI 辅助写作能力。支持实时预览、语法高亮、智能补全，让您专注于学术内容创作。')) +
@@ -320,9 +324,9 @@ const routes = [
   },
   {
     path: '/peer-review',
-    title: '智能审稿 - Scholay | AI论文评审与修改建议',
-    description: 'Scholay智能审稿服务，AI辅助论文评审，从学术规范、逻辑结构、语言表达等维度提供专业修改建议，提升论文质量。',
-    keywords: '智能审稿,AI论文审稿,论文评审,学术审稿,论文修改建议,学术写作,同行评审',
+    title: 'AI 智能审稿 - Scholay | 模拟 SCI 同行评审 · 论文修改建议',
+    description: 'Scholay AI 智能审稿模拟 SCI/SSCI 同行评审流程,三位 AI 审稿人从学术规范、逻辑结构、语言表达、研究方法、创新性五大维度生成结构化审稿报告与修改建议,SCI 投稿前自查、毕业论文打磨、文献综述润色的好帮手,支持 PDF/Word/TXT 上传。',
+    keywords: '智能审稿,AI 审稿,论文评审,同行评审,SCI 投稿,SCI 审稿,SSCI 审稿,论文修改,论文润色,学术英语润色,毕业论文修改,投稿前自查,审稿报告,ResearchGate 替代,manuscript review,AI peer review,paper review,journal submission,literature review,Scholay',
     noscriptBody:
       section('智能审稿服务', p('Scholay 智能审稿利用先进的 AI 技术，模拟专业学术审稿人的视角，对您的论文进行全面、深入的评审分析。')) +
       section('审稿维度', ul([
@@ -336,9 +340,9 @@ const routes = [
   },
   {
     path: '/latex-writer',
-    title: 'ScholayPrism - 在线LaTeX编辑器 | AI辅助科研写作',
-    description: 'ScholayPrism是Scholay推出的在线LaTeX编辑器，支持实时预览、AI辅助写作、模板库，让学术论文写作更高效。',
-    keywords: 'LaTeX编辑器,在线LaTeX,学术写作,论文编辑器,ScholayPrism,AI写作,科研写作工具',
+    title: 'ScholayPrism 在线 LaTeX 编辑器 - Scholay | AI 辅助 · 期刊模板 · 实时预览',
+    description: 'ScholayPrism 是 Scholay 推出的在线 LaTeX 编辑器,免安装即开即用。AI 辅助内容生成与英文学术润色、公式补全、语法纠错,内置 IEEE、ACM、Springer、Elsevier 期刊模板和中文研究生学位论文模板,Overleaf 在中国可用的替代选择。',
+    keywords: 'LaTeX 编辑器,在线 LaTeX,Overleaf 替代,ScholayPrism,LaTeX 模板,IEEE 模板,ACM 模板,Springer 模板,Elsevier 模板,中文 LaTeX,毕业论文模板,学位论文模板,LaTeX 入门,论文排版,学术写作,AI 辅助写作,公式编辑器,LaTeX online editor,academic writing,paper formatting,Scholay',
     noscriptBody:
       section('ScholayPrism - 在线 LaTeX 编辑器', p('ScholayPrism 是 Scholay 推出的新一代在线 LaTeX 编辑器，将传统 LaTeX 排版能力与现代 AI 技术完美结合，为学术研究者提供极致的写作体验。')) +
       section('核心功能', ul([
@@ -352,9 +356,9 @@ const routes = [
   },
   {
     path: '/pricing',
-    title: '订阅方案 - Scholay | AI学术搜索定价',
-    description: 'Scholay提供灵活的订阅方案，从免费体验到PRO和MAX版本，满足不同层次的学术研究需求。查看详细功能对比和定价。',
-    keywords: '订阅方案,定价,Scholay价格,学术工具订阅,AI学术搜索价格,免费学术搜索',
+    title: '订阅方案 - Scholay | FREE / PRO / MAX 学术 AI 工具定价',
+    description: 'Scholay 提供 FREE、PRO、MAX 三档订阅。免费版支持基础学术检索与 AI 问答,PRO ¥29/月起解锁无限制 AI 论文分析与智能审稿,MAX ¥199/月起开放最强 AI 模型与团队权限。支付宝/微信支付,按月按年灵活订阅,7 天无理由退款。',
+    keywords: '订阅方案,Scholay 定价,Scholay 价格,学术工具订阅,AI 学术搜索价格,免费学术搜索,SCI 工具价格,论文 AI 价格,会员订阅,学生优惠,科研工具收费,subscription pricing,academic AI pricing,Scholay PRO,Scholay MAX,research tool pricing,Scholay',
     noscriptBody:
       section('订阅方案', p('Scholay 提供灵活的订阅方案，满足从基础使用到高频科研的不同需求。所有方案均支持学术检索和基本 AI 功能。')) +
       section('免费版 - FREE', ul([
@@ -380,9 +384,9 @@ const routes = [
   },
   {
     path: '/fund-center',
-    title: '基金中心 - Scholay | 学术基金与资助信息',
-    description: 'Scholay基金中心汇集国内外学术基金和科研资助信息，帮助研究人员了解和申请各类科研基金项目。',
-    keywords: '学术基金,科研资助,基金中心,科研经费,基金申请,国家自然科学基金,学术资助',
+    title: '基金中心 - Scholay | 学术基金与科研资助信息',
+    description: 'Scholay 基金中心汇集国家自然科学基金(NSFC)、社会科学基金、教育部基金、省部级基金、高校与企业科研资助及国际合作基金信息,智能匹配研究方向,自动提醒申报截止日期,助力研究人员高效申请科研经费。',
+    keywords: '学术基金,科研基金,基金申请,国家自然科学基金,NSFC,社会科学基金,教育部基金,科研资助,基金查询,博士后基金,青年基金,面上项目,重点项目,国际合作基金,research funding,grants database,NSFC,Scholay',
     noscriptBody:
       section('基金中心', p('Scholay 基金中心为研究人员提供全面的学术基金和科研资助信息服务，帮助您了解和申请各类基金项目。')) +
       section('服务内容', ul([
@@ -395,9 +399,9 @@ const routes = [
   },
   {
     path: '/about',
-    title: '关于我们 - Scholay | AI驱动的学术搜索平台',
-    description: '了解 Scholay 的使命、团队和发展历程。Scholay 致力于通过 AI 技术提升学术研究效率。',
-    keywords: '关于Scholay,学术搜索平台,AI学术工具,学术研究助手',
+    title: '关于 Scholay | AI 驱动的学术研究助手',
+    description: 'Scholay 致力于用 AI 技术提升学术研究效率,整合 2 亿+ 学术论文与大语言模型能力,服务全球研究生、博士、博士后、学者、科研工作者,提供 AI 文献检索、论文阅读翻译、智能审稿、ScholayPrism 在线 LaTeX 编辑器的一站式 AI 学术工具集。',
+    keywords: '关于 Scholay,Scholay 团队,AI 学术平台,科研助手,学术研究助手,AI 科研,AI 论文,Scholay 使命,research assistant,AI for research,academic platform,Semantic Scholar partner,Scholay',
     noscriptBody:
       section('关于 Scholay', p('Scholay 是一个创新的学术研究助手，致力于帮助研究人员、学生和学者更高效地发现、理解和分析学术文献。我们相信，获取知识不应该有障碍。') + p('Scholay 团队专注于将前沿 AI 技术应用于学术研究领域，为全球学术社区提供高质量的智能化工具和服务。')) +
       section('我们的使命', ul([
@@ -417,8 +421,8 @@ const routes = [
   {
     path: '/privacy',
     title: '隐私政策 - Scholay | 用户数据保护说明',
-    description: 'Scholay隐私政策详细说明我们如何收集、使用、存储和保护您的个人信息。我们严格遵守相关法律法规，保障用户隐私权益。',
-    keywords: '隐私政策,数据保护,个人信息,用户隐私,Scholay隐私,数据安全',
+    description: 'Scholay 隐私政策详细说明个人信息收集、使用、存储与保护方式,涵盖学术搜索记录、AI 对话内容、订阅支付信息的处理细则,严格遵守《个人信息保护法》《网络安全法》等相关法律法规,保障科研用户的数据隐私权益。',
+    keywords: '隐私政策,数据保护,个人信息保护,用户隐私,Scholay 隐私,GDPR,个人信息保护法,Cookie 政策,数据安全,privacy policy,data protection,GDPR,Scholay',
     noscriptBody:
       section('隐私政策', p('本隐私政策由 Scholay 团队制定，旨在说明 Scholay 平台如何收集、使用、存储和保护您的个人信息。请在使用本平台服务之前仔细阅读本隐私政策。')) +
       section('1. 信息收集', p('我们可能收集以下类型的信息：') + ul([
@@ -443,9 +447,9 @@ const routes = [
   },
   {
     path: '/terms',
-    title: '服务条款 - Scholay | 使用条件与规则',
-    description: 'Scholay服务条款规定了使用本平台的条件和规则。使用Scholay即表示您同意遵守这些条款。请仔细阅读。',
-    keywords: '服务条款,用户协议,使用条件,Scholay条款,平台规则,用户条款',
+    title: '服务条款 - Scholay | 用户使用协议与平台规则',
+    description: 'Scholay 服务条款规定平台使用条件,涵盖账户注册、订阅付费、AI 内容版权、学术伦理使用规范、学术不端禁止条款、退款政策与争议解决等条款。请研究生与科研用户在使用 AI 学术工具前仔细阅读。',
+    keywords: '服务条款,用户协议,使用条件,Scholay 条款,平台规则,学术伦理,AI 内容版权,退款政策,terms of service,user agreement,AI ethics,academic integrity,Scholay',
     noscriptBody:
       section('服务条款', p('欢迎使用 Scholay（以下简称"本平台"）。本平台由 Scholay 团队运营。使用本平台即表示您同意遵守以下服务条款。')) +
       section('1. 服务说明', p('Scholay 是一个 AI 驱动的学术搜索平台，提供学术论文检索、AI 智能分析、智能审稿、LaTeX 编辑等服务。我们保留随时修改、暂停或终止服务的权利。')) +
@@ -465,9 +469,9 @@ const routes = [
   },
   {
     path: '/feedback',
-    title: '意见反馈 - Scholay | 帮助我们改进',
-    description: '向Scholay团队提交您的意见和建议，帮助我们持续改进产品体验。您的每一条反馈对我们都非常重要。',
-    keywords: '意见反馈,用户反馈,产品建议,Scholay反馈,功能建议,问题报告',
+    title: '意见反馈 - Scholay | 帮助我们改进 AI 学术工具',
+    description: '向 Scholay 团队提交学术搜索体验、AI 论文分析准确度、智能审稿效果、ScholayPrism LaTeX 编辑器功能等方面的建议与 Bug 报告。1-3 个工作日内邮件回复,你的反馈直接驱动产品迭代。',
+    keywords: '意见反馈,用户反馈,产品建议,Bug 报告,功能建议,Scholay 反馈,产品改进,user feedback,product suggestion,bug report,Scholay',
     noscriptBody:
       section('意见反馈', p('感谢您使用 Scholay！我们非常重视每一位用户的意见和建议。您的反馈是我们不断改进和优化产品的核心驱动力。自平台上线以来，我们已根据用户反馈完成了多项功能改进和性能优化。') + p('提交反馈后，我们的团队会在 1-3 个工作日内通过邮件回复您。如果您的建议被采纳，我们会在后续版本更新中注明感谢。对于 Bug 报告，修复后我们会通知您确认问题已解决。')) +
       section('反馈类型指南', ul([
@@ -483,8 +487,8 @@ const routes = [
   {
     path: '/contact',
     title: '联系我们 - Scholay | 客服支持与商务合作',
-    description: '联系Scholay团队获取技术支持、商务合作或提出您的建议。我们期待听到您的声音。',
-    keywords: '联系我们,客服支持,商务合作,技术支持,Scholay联系方式,在线客服',
+    description: '联系 Scholay 团队获取技术支持、订阅咨询、API 接入、商务合作或学术机构对接服务。邮箱 support@scholay.com,工作时间周一至周五 9:00-18:00,24 小时内邮件初回复。',
+    keywords: '联系 Scholay,客服支持,商务合作,API 接入,学术机构合作,技术支持,Scholay 邮箱,在线客服,contact us,support email,business cooperation,Scholay',
     noscriptBody:
       section('关于 Scholay 客户服务', p('Scholay 团队致力于为每一位用户提供及时、专业的支持服务。无论您是在使用学术搜索功能时遇到技术问题，还是对 AI 分析、智能审稿、ScholayPrism LaTeX 编辑器等功能有使用疑问，亦或是有产品改进的建议，我们都乐于倾听并尽快为您解决。') + p('我们的客服团队工作时间为周一至周五 9:00-18:00（中国标准时间）。在工作时间内提交的咨询，我们承诺在 24 小时内给予初步回复。对于涉及账户安全、支付异常等紧急问题，我们将在收到消息后尽快响应。')) +
       section('我们可以帮助您', ul([
@@ -500,9 +504,9 @@ const routes = [
   },
   {
     path: '/disclaimer',
-    title: '免责声明 - Scholay | AI学术搜索平台法律声明',
-    description: 'Scholay免责声明说明平台服务的使用限制和责任范围，包括AI分析结果的参考性质和学术数据来源说明。',
-    keywords: '免责声明,法律声明,使用限制,责任范围,Scholay声明,AI分析免责',
+    title: '免责声明 - Scholay | AI 分析与学术数据使用说明',
+    description: 'Scholay 免责声明阐述 AI 分析结果的参考性质、Semantic Scholar 与 OpenAlex 等学术数据来源说明、第三方版权归属与服务可用性条款,提醒用户 AI 内容应自行验证,不替代专业学术判断与同行评审。',
+    keywords: '免责声明,法律声明,AI 分析免责,Semantic Scholar 数据,OpenAlex 数据,版权归属,服务可用性,disclaimer,AI disclaimer,data attribution,Scholay',
     noscriptBody:
       section('免责声明', p('本免责声明适用于 Scholay 平台（www.scholay.com）及其所有相关服务。使用本平台即表示您已阅读并同意以下免责条款。')) +
       section('1. 服务性质', p('Scholay 是一个 AI 驱动的学术搜索和分析工具，旨在辅助学术研究。平台提供的 AI 分析、论文审稿、智能问答等功能仅供参考，不能替代专业的学术判断和同行评审。')) +
@@ -517,10 +521,33 @@ const routes = [
       section('5. 联系方式', p('如对本免责声明有任何疑问，请联系：<a href="mailto:support@scholay.com" style="color:#1a73e8">support@scholay.com</a>'))
   },
   {
+    path: '/features',
+    title: '产品功能 - Scholay | AI 学术搜索 · 智能审稿 · LaTeX 编辑器全览',
+    description: 'Scholay 五大核心功能介绍:AI 学术搜索 2 亿篇论文、AI 论文阅读与翻译、AI 智能助手对话、AI 智能审稿生成同行评审报告、ScholayPrism 在线 LaTeX 编辑器,一站式覆盖文献检索、论文阅读、SCI 投稿、毕业论文写作的全流程科研工作。',
+    keywords: '产品功能,Scholay 功能介绍,AI 学术搜索,AI 论文阅读,AI 智能助手,AI 审稿,LaTeX 编辑器,ScholayPrism,科研工具集,学术工作流,research workflow,AI research toolkit,academic productivity,Scholay features,Scholay',
+    noscriptBody:
+      section('Scholay 产品功能全览', p('Scholay 围绕科研工作者从「找文献」到「发论文」的全流程,提供五大 AI 学术工具,无需在多个平台之间反复切换。')) +
+      section('五大核心功能', ul([
+        '<strong><a href="/features/search" style="color:#1a73e8">AI 学术搜索</a></strong> — 整合 Semantic Scholar 与 OpenAlex 超 2 亿篇论文,关键词直接检索 + 自然语言 AI 语义搜索,19 学科全覆盖',
+        '<strong><a href="/chat" style="color:#1a73e8">AI 学术助手</a></strong> — 多模型对话答疑,论文片段解读、文献综述思路、英语学术润色',
+        '<strong><a href="/features/peer-review" style="color:#1a73e8">AI 智能审稿</a></strong> — 三位 AI 审稿人模拟 SCI 同行评审,生成结构化审稿报告与修改建议',
+        '<strong><a href="/features/latex-writer" style="color:#1a73e8">ScholayPrism LaTeX 编辑器</a></strong> — 在线 LaTeX 编辑,AI 辅助写作,内置 IEEE/ACM/Springer 期刊模板,Overleaf 替代',
+        '<strong>论文阅读与翻译</strong> — 论文摘要总结、英中互译、关键观点提取,加速文献阅读',
+      ])) +
+      section('适用场景', ul([
+        '研究生选题、文献综述、开题报告',
+        'SCI/SSCI/EI 投稿前自查、论文打磨',
+        '毕业论文(本/硕/博)写作与修改',
+        '跨学科调研、技术趋势追踪',
+        '学术英语写作辅助、英文润色',
+      ])) +
+      section('立即体验', p('访问 <a href="/" style="color:#1a73e8">Scholay 首页</a> 开始 AI 学术搜索,基础功能完全免费,无需信用卡。'))
+  },
+  {
     path: '/features/search',
-    title: 'AI 学术搜索 - Scholay | 2亿+论文智能检索',
-    description: 'Scholay AI 学术搜索引擎，覆盖超过 2 亿篇学术论文，支持直接检索和 AI 智能语义检索两种模式，涵盖 19 个学科领域。',
-    keywords: 'AI学术搜索,论文检索,智能文献搜索,Semantic Scholar,学术数据库,文献综述,学术论文搜索引擎',
+    title: 'AI 学术搜索 - Scholay | 2亿+论文语义检索 · 19 学科覆盖',
+    description: 'Scholay AI 学术搜索引擎,基于 Semantic Scholar 与 OpenAlex 学术图谱整合超 2 亿篇论文,支持关键词直接检索与自然语言 AI 语义检索,涵盖计算机科学、生物医学、机器学习、CRISPR、量子计算等 19 个学科,谷歌学术与知网的智能补充。',
+    keywords: 'AI 学术搜索,智能文献搜索,语义搜索,Semantic Scholar,OpenAlex,学术数据库,谷歌学术替代,知网替代,百度学术替代,论文检索,文献检索,SCI 论文检索,文献综述,机器学习论文,CRISPR 论文,academic search engine,AI semantic search,scholarly literature,literature review,Scholay',
     noscriptBody:
       section('AI 学术搜索', p('Scholay 将大语言模型与 Semantic Scholar 学术图谱深度融合，覆盖超过 2 亿篇学术论文，提供直接检索和 AI 智能检索两种模式，帮助研究者高效发现和分析学术文献。')) +
       section('两种检索模式', ul([
@@ -540,9 +567,9 @@ const routes = [
   },
   {
     path: '/features/peer-review',
-    title: 'AI 智能审稿 - Scholay | 多维度论文评审与修改建议',
-    description: 'Scholay AI 智能审稿模拟同行评审流程，从学术规范、逻辑结构、语言质量、方法论和创新性五大维度评审论文，生成结构化审稿报告。',
-    keywords: 'AI审稿,智能审稿,论文评审,同行评审,论文修改,学术审稿,投稿前审查',
+    title: 'AI 同行评审 - Scholay | 三位 AI 审稿人 · 多维度论文评审',
+    description: 'Scholay AI 智能审稿模拟 SCI 同行评审流程,三位 AI 审稿人(学术规范专家/方法论审查员/综合评价专家)从五大维度生成结构化评审报告,导出 Word/PDF/PPT,支持 SCI/SSCI 投稿前自查、毕业论文修改、学术英语润色。',
+    keywords: 'AI 审稿,智能审稿,同行评审,论文评审,SCI 投稿,SCI 审稿,SSCI 审稿,论文修改,论文润色,学术英语润色,毕业论文修改,投稿前自查,审稿报告,manuscript review,AI peer review,paper review,journal submission,academic editing,Scholay',
     noscriptBody:
       section('AI 智能审稿', p('Scholay 智能审稿模拟真实的同行评审流程，三位 AI 审稿人从不同专业视角同时审查论文，覆盖学术规范、逻辑结构、语言质量、方法论和创新性五大维度。')) +
       section('三位 AI 审稿人', ul([
@@ -562,9 +589,9 @@ const routes = [
   },
   {
     path: '/features/latex-writer',
-    title: 'ScholayPrism - 在线 LaTeX 编辑器 | AI 辅助学术写作',
-    description: 'ScholayPrism 是 Scholay 推出的免费在线 LaTeX 编辑器，支持实时编译预览、AI 辅助写作、多种学术期刊模板，无需安装本地软件。',
-    keywords: 'LaTeX编辑器,在线LaTeX,ScholayPrism,学术写作,论文编辑器,AI写作助手,LaTeX模板',
+    title: 'ScholayPrism 在线 LaTeX 编辑器 - Scholay | Overleaf 替代',
+    description: 'ScholayPrism 是 Scholay 推出的在线 LaTeX 编辑器,免安装即开即用。AI 辅助内容生成与英文学术润色、公式补全、语法纠错,内置 IEEE、ACM、Springer、Elsevier 期刊模板和中文研究生学位论文模板,Overleaf 在中国可用的替代选择。',
+    keywords: 'LaTeX 编辑器,在线 LaTeX,Overleaf 替代,Overleaf 中国,ScholayPrism,LaTeX 模板,IEEE 模板,ACM 模板,Springer LNCS,Elsevier 期刊模板,中文 LaTeX 模板,毕业论文模板,学位论文模板,LaTeX 入门教程,论文排版,公式编辑,LaTeX online editor,academic typesetting,paper formatting,Scholay',
     noscriptBody:
       section('ScholayPrism — 在线 LaTeX 编辑器', p('ScholayPrism 是专为学术写作打造的在线 LaTeX 编辑器，将传统 LaTeX 排版能力与现代 AI 技术完美结合。实时编译预览、AI 辅助写作、内置主流期刊模板，打开浏览器即可开始论文创作。')) +
       section('核心功能', ul([

@@ -119,14 +119,27 @@ export const adminAPI = {
 
   getUserStatistics: (): ApiResp => api.get('/admin/users/stats'),
 
-  getUserList: (
-    page: number = 1,
-    pageSize: number = 20,
-    sortBy: string = 'last_login_at',
-    sortOrder: 'asc' | 'desc' = 'desc'
-  ): ApiResp =>
+  getUserList: (params: {
+    page?: number;
+    pageSize?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    q?: string;
+    status?: string;
+    role?: string;
+    tagId?: number;
+  } = {}): ApiResp =>
     api.get('/admin/users', {
-      params: { page, page_size: pageSize, sort_by: sortBy, sort_order: sortOrder },
+      params: {
+        page: params.page ?? 1,
+        page_size: params.pageSize ?? 20,
+        sort_by: params.sortBy ?? 'last_login_at',
+        sort_order: params.sortOrder ?? 'desc',
+        ...(params.q ? { q: params.q } : {}),
+        ...(params.status ? { status: params.status } : {}),
+        ...(params.role ? { role: params.role } : {}),
+        ...(params.tagId ? { tag_id: params.tagId } : {}),
+      },
     }),
 
   getOnlineUsers: (): ApiResp => api.get('/admin/users/online'),
@@ -142,6 +155,51 @@ export const adminAPI = {
 
   deleteUser: (userId: number | string): ApiResp =>
     api.delete(`/admin/users/${userId}`),
+
+  // 批量删除：单个失败不阻断；返回 { success_count, failed_count, failed: [{id,reason}] }
+  batchDeleteUsers: (ids: Array<number | string>): ApiResp =>
+    api.post('/admin/users/batch-delete', { ids }),
+
+  // 仅 super_admin 可调用：把指定用户提升为 admin 或降级为 user
+  updateUserRole: (userId: number | string, role: 'admin' | 'user'): ApiResp =>
+    api.put(`/admin/users/${userId}/role`, { role }),
+
+  // 用户详情聚合(detail + orders + feedbacks + sessions),供 UserDetail Drawer 使用
+  getUserAggregate: (userId: number | string): ApiResp =>
+    api.get(`/admin/users/${userId}/aggregate`),
+
+  // 审计日志查询
+  getAuditLogs: (params: ListParams = {}): ApiResp =>
+    api.get('/admin/audit-logs', { params }),
+
+  // Feedback 分类更新
+  updateFeedbackCategory: (
+    id: number | string,
+    category: 'bug' | 'feature' | 'complaint' | 'praise' | 'other',
+  ): ApiResp =>
+    api.put(`/admin/feedbacks/${id}/category`, { category }),
+
+  // Prompt 模板历史版本
+  getPromptTemplateVersions: (id: number | string): ApiResp =>
+    api.get(`/admin/prompt-templates/${id}/versions`),
+
+  // 用户冻结 / 解冻 / 备注
+  freezeUser: (userId: number | string, reason: string): ApiResp =>
+    api.put(`/admin/users/${userId}/freeze`, { reason }),
+  unfreezeUser: (userId: number | string): ApiResp =>
+    api.put(`/admin/users/${userId}/unfreeze`),
+  updateAdminNotes: (userId: number | string, notes: string): ApiResp =>
+    api.put(`/admin/users/${userId}/notes`, { notes }),
+
+  // 公告
+  listAnnouncements: (params: ListParams = {}): ApiResp =>
+    api.get('/admin/announcements', { params }),
+  createAnnouncement: (data: AnyConfig): ApiResp =>
+    api.post('/admin/announcements', data),
+  updateAnnouncement: (id: number | string, data: AnyConfig): ApiResp =>
+    api.put(`/admin/announcements/${id}`, data),
+  deleteAnnouncement: (id: number | string): ApiResp =>
+    api.delete(`/admin/announcements/${id}`),
 
   getThirdPartyAccounts: (type: string = '', activeOnly: boolean = false): ApiResp =>
     api.get('/admin/third-party-accounts', { params: { type, active: activeOnly } }),
@@ -260,12 +318,22 @@ export const adminAPI = {
       pageSize: params.pageSize || 20,
     };
     if (params.status) queryParams.status = params.status;
+    if (params.category) queryParams.category = params.category;
     if (params.email) queryParams.email = params.email;
     if (params.keyword) queryParams.keyword = params.keyword;
     if (params.startDate) queryParams.startDate = params.startDate;
     if (params.endDate) queryParams.endDate = params.endDate;
+    if (params.assignedTo !== undefined && params.assignedTo !== null)
+      queryParams.assignedTo = params.assignedTo;
+    if (params.unassigned) queryParams.unassigned = true;
     return api.get('/admin/feedbacks', { params: queryParams });
   },
+
+  assignFeedback: (id: number | string, assignedTo: number | null): ApiResp =>
+    api.put(`/admin/feedbacks/${id}/assignee`, { assignedTo }),
+
+  updateFeedbackInternalNotes: (id: number | string, internalNotes: string): ApiResp =>
+    api.put(`/admin/feedbacks/${id}/internal-notes`, { internalNotes }),
 
   getFeedback: (id: number | string): ApiResp =>
     api.get(`/admin/feedbacks/${id}`),
@@ -374,6 +442,32 @@ export const adminAPI = {
 
   setDefaultLatexAgentModel: (id: number | string): ApiResp =>
     api.post(`/admin/latex-agent/models/${id}/set-default`),
+
+  // -------- 用户标签 --------
+  listUserTags: (): ApiResp => api.get('/admin/user-tags'),
+  createUserTag: (data: { name: string; color?: string; description?: string }): ApiResp =>
+    api.post('/admin/user-tags', data),
+  updateUserTag: (
+    id: number | string,
+    data: { name: string; color?: string; description?: string },
+  ): ApiResp => api.put(`/admin/user-tags/${id}`, data),
+  deleteUserTag: (id: number | string): ApiResp => api.delete(`/admin/user-tags/${id}`),
+  // 批量给用户打/取消标签:action="assign" | "unassign"
+  assignUserTags: (data: {
+    user_ids: number[];
+    tag_id: number;
+    action: 'assign' | 'unassign';
+  }): ApiResp => api.post('/admin/user-tags/assign', data),
+  // 查某用户身上的标签
+  getUserTags: (userId: number | string): ApiResp => api.get(`/admin/users/${userId}/tags`),
+
+  // -------- Dashboard 进阶洞察 --------
+  getActiveUserInsights: (
+    days: number = 30,
+    granularity: 'day' | 'week' | 'month' = 'day',
+  ): ApiResp => api.get('/admin/dashboard/active-users', { params: { days, granularity } }),
+  getPaymentFunnel: (days: number = 30): ApiResp =>
+    api.get('/admin/dashboard/payment-funnel', { params: { days } }),
 };
 
 export default api;

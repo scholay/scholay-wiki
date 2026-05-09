@@ -236,3 +236,53 @@ func redisRateCheck(rdb *redis.Client, c *gin.Context, key string, maxRequests, 
 	}
 	return count <= int64(maxRequests), nil
 }
+
+// TieredRedisRateLimitMiddleware 分级限流的分布式版本，多实例部署下计数共享。
+// 行为与 TieredRateLimitMiddleware 一致（user/vip/ip 三档），但计数走 Redis。
+// Redis 不可用时降级到 in-memory 版本（保留限流语义而非 fail-open）。
+func TieredRedisRateLimitMiddleware(opts TieredRateLimitOptions) gin.HandlerFunc {
+	if opts.VIPMultiplier < 1 {
+		opts.VIPMultiplier = 1
+	}
+	memFallback := TieredRateLimitMiddleware(opts)
+	vipLimit := int(float64(opts.UserRPS) * opts.VIPMultiplier)
+	if vipLimit < opts.UserRPS {
+		vipLimit = opts.UserRPS
+	}
+
+	return func(c *gin.Context) {
+		rdb := cache.GetRedis()
+		if rdb == nil {
+			memFallback(c)
+			return
+		}
+
+		var key string
+		var limit int
+		if uidRaw, ok := c.Get("user_id"); ok {
+			if vip, _ := c.Get("is_vip"); vip == true {
+				key = fmt.Sprintf("rl:vip:%v", uidRaw)
+				limit = vipLimit
+			} else {
+				key = fmt.Sprintf("rl:uid:%v", uidRaw)
+				limit = opts.UserRPS
+			}
+		} else {
+			key = "rl:ip:" + c.ClientIP()
+			limit = opts.IPRPS
+		}
+
+		allowed, err := redisRateCheck(rdb, c, key, limit, 1)
+		if err != nil {
+			slog.Warn("Redis tiered rate limit failed, falling back to in-memory", "err", err)
+			memFallback(c)
+			return
+		}
+		if !allowed {
+			utils.TooManyRequests(c, "请求过于频繁，请稍后再试")
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}

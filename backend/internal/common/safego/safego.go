@@ -24,7 +24,7 @@ import (
 )
 
 // Go 在后台执行 fn，panic 被 recover 并记录日志，不会向上蔓延。
-// name 用作日志字段（"task"），出问题时方便 SigNoz 按任务名过滤。
+// name 用作日志字段("task"),出问题时日志系统可按任务名过滤。
 func Go(name string, fn func()) {
 	go func() {
 		defer func() {

@@ -123,6 +123,17 @@ func (s *Service) GetFeedback(id uint) (*Feedback, error) {
 		}
 	}
 
+	// 填充指派人姓名
+	if feedback.AssignedTo != nil && s.userRepo != nil {
+		if userInfo, err := s.userRepo.FindByID(*feedback.AssignedTo); err == nil && userInfo != nil {
+			if userInfo.Username != nil && *userInfo.Username != "" {
+				feedback.AssigneeName = *userInfo.Username
+			} else if userInfo.Email != nil {
+				feedback.AssigneeName = *userInfo.Email
+			}
+		}
+	}
+
 	return feedback, nil
 }
 
@@ -140,12 +151,19 @@ func (s *Service) ListFeedbacks(req *FeedbackListRequest) (*FeedbackListResponse
 		return nil, err
 	}
 
-	// 收集所有需要查询的 user_id
-	userIDs := make([]uint, 0)
+	// 收集所有需要查询的 user_id (包含反馈者 + 被指派的管理员)
+	userIDSet := make(map[uint]struct{})
 	for _, fb := range result.List {
 		if fb.UserID != nil {
-			userIDs = append(userIDs, *fb.UserID)
+			userIDSet[*fb.UserID] = struct{}{}
 		}
+		if fb.AssignedTo != nil {
+			userIDSet[*fb.AssignedTo] = struct{}{}
+		}
+	}
+	userIDs := make([]uint, 0, len(userIDSet))
+	for uid := range userIDSet {
+		userIDs = append(userIDs, uid)
 	}
 
 	// 批量查询用户信息
@@ -171,6 +189,17 @@ func (s *Service) ListFeedbacks(req *FeedbackListRequest) (*FeedbackListResponse
 				}
 			}
 		}
+
+		// 填充指派人姓名
+		if result.List[i].AssignedTo != nil && userMap != nil {
+			if userInfo, ok := userMap[*result.List[i].AssignedTo]; ok && userInfo != nil {
+				if userInfo.Username != nil && *userInfo.Username != "" {
+					result.List[i].AssigneeName = *userInfo.Username
+				} else if userInfo.Email != nil {
+					result.List[i].AssigneeName = *userInfo.Email
+				}
+			}
+		}
 	}
 
 	return result, nil
@@ -186,6 +215,18 @@ func (s *Service) UpdateStatus(id uint, status FeedbackStatus) error {
 	return s.repo.UpdateStatus(id, status)
 }
 
+// UpdateCategory 更新反馈分类(白名单校验)
+func (s *Service) UpdateCategory(id uint, category string) error {
+	allowed := map[string]bool{
+		CategoryBug: true, CategoryFeature: true, CategoryComplaint: true,
+		CategoryPraise: true, CategoryOther: true,
+	}
+	if !allowed[category] {
+		category = CategoryOther
+	}
+	return s.repo.UpdateCategory(id, category)
+}
+
 // ReplyFeedback 回复反馈
 func (s *Service) ReplyFeedback(id uint, replyContent, repliedBy string) error {
 	feedback, err := s.repo.GetByID(id)
@@ -199,6 +240,9 @@ func (s *Service) ReplyFeedback(id uint, replyContent, repliedBy string) error {
 	feedback.RepliedAt = &now
 	feedback.RepliedBy = repliedBy
 	feedback.Status = StatusReplied
+	if feedback.FirstResponseAt == nil {
+		feedback.FirstResponseAt = &now
+	}
 
 	if err := s.repo.Update(feedback); err != nil {
 		return err
@@ -295,6 +339,28 @@ func (s *Service) buildReplyEmailBody(feedback *Feedback, replyContent string) s
 // DeleteFeedback 删除反馈
 func (s *Service) DeleteFeedback(id uint) error {
 	return s.repo.Delete(id)
+}
+
+// AssignFeedback 指派反馈给某管理员(传 nil 表示取消指派),
+// 同时若该反馈尚未首次响应,标记为已响应(指派算一次内部处理动作)
+func (s *Service) AssignFeedback(id uint, assignedTo *uint) error {
+	if err := s.repo.UpdateAssignee(id, assignedTo); err != nil {
+		return err
+	}
+	if assignedTo != nil {
+		_ = s.repo.MarkFirstResponseIfNull(id, time.Now())
+	}
+	return nil
+}
+
+// UpdateInternalNotes 更新内部备注
+func (s *Service) UpdateInternalNotes(id uint, notes string) error {
+	if err := s.repo.UpdateInternalNotes(id, notes); err != nil {
+		return err
+	}
+	// 写备注也算一次内部响应
+	_ = s.repo.MarkFirstResponseIfNull(id, time.Now())
+	return nil
 }
 
 // GetAttachments 获取附件列表（优先从数据库获取，兼容旧的JSON格式）
