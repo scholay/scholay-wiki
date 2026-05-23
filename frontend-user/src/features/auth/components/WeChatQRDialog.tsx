@@ -41,20 +41,35 @@ const WX_LOGIN_SCRIPT = 'https://res.wx.qq.com/connect/zh_CN/htmledition/js/wxLo
 const CONTAINER_ID = 'scholay-wechat-qr-container';
 
 /**
- * 自定义 CSS:把微信 iframe 内除了二维码以外的所有干扰元素隐藏掉。
- * `.impowerBox` 是微信官方 widget 的容器 class —— 选择器固定 5 年没变。
+ * 注入 iframe 的 CSS:把官方 widget 里"微信登录""请使用微信扫一扫"等所有
+ * 装饰元素全部 display:none,只留 QR 图 + 状态文字。
  *
- * 用 data: URI 内联,免去维护一份公网托管的 .css 文件 + 缓存麻烦。
+ * 为什么用多选择器 + !important:
+ *   wxLogin SDK 几次改名(.impowerBox / .qrcode_wrap / .login_inner ...),
+ *   单挑一个 class 不稳。这里直接按"标题/描述/图标"语义批量隐藏。
+ *
+ * QR 强制 200×200 + display:block + margin:auto,即使容器更宽也不会变形拉伸。
  */
 const INJECT_CSS = `
-.impowerBox .qrcode { width: 200px; margin-top: 0; border: 0 }
-.impowerBox .title { display: none }
-.impowerBox .info { display: none }
-.impowerBox .status_icon { display: none }
-.impowerBox .status { text-align: center; margin-top: 8px; font-family: -apple-system, system-ui, sans-serif }
-.wrp_code { padding: 0 }
-.impowerBox { padding: 0 }
-body { background: transparent }
+body { background: transparent; margin: 0; padding: 0 }
+.impowerBox, .login_box, .qrcode_wrap { padding: 0 !important; margin: 0 !important; }
+.impowerBox .title, .impowerBox .info, .impowerBox .status_icon,
+.title, .info_panel, .status_icon, .web_qrcode_login_title {
+  display: none !important;
+}
+.impowerBox .qrcode, .qrcode_wrap .qrcode, .qrcode img, img.qrcode,
+.qrcode, canvas.qrcode {
+  width: 200px !important;
+  height: 200px !important;
+  margin: 0 auto !important;
+  border: 0 !important;
+  display: block !important;
+}
+.impowerBox .status, .status {
+  text-align: center !important;
+  margin-top: 8px !important;
+  font: 12px -apple-system, system-ui, sans-serif !important;
+}
 `;
 const cssDataUrl =
   'data:text/css;base64,' +
@@ -188,7 +203,8 @@ export function WeChatQRDialog({
           <div
             id={CONTAINER_ID}
             ref={containerRef}
-            className="w-[220px] h-[220px] flex items-center justify-center overflow-hidden bg-background"
+            // CSS 已强制 QR 200×200,容器 220×240 给一点状态文字的余地
+            className="w-[220px] h-[240px] flex items-start justify-center overflow-hidden bg-background"
           />
           <span className="mt-3 text-xs text-faint">扫码后请在手机端确认授权</span>
         </div>

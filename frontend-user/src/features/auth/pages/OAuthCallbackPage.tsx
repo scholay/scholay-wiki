@@ -110,6 +110,64 @@ export function OAuthCallbackPage() {
       return;
     }
 
+    // 3a. Discourse SSO 走 DiscourseConnect 协议 —— 不是 OAuth code-grant,
+    //     回调参数是 sso(base64 payload)+ sig(HMAC-SHA256),不是 code+state。
+    //     登录:GET /user/discourse/callback?sso=&sig=
+    //     绑定:POST /user/bind-discourse {sso, sig}
+    if (provider === 'discourse') {
+      const sso = params.get('sso');
+      const sig = params.get('sig');
+      if (!sso || !sig) {
+        setPhase('error');
+        setErrMsg('回调参数不完整');
+        return;
+      }
+      (async () => {
+        try {
+          const isAuthed = !!useAuthStore.getState().token;
+          if (bindCtx && bindCtx.provider === 'discourse' && isAuthed) {
+            try {
+              await http.post('/user/bind-discourse', { sso, sig });
+              qc.invalidateQueries({ queryKey: ['settings', 'connections'] });
+              qc.invalidateQueries({ queryKey: ['auth', 'profile'] });
+              setPhase('success');
+              toast.success('恩特学术社区 已绑定');
+              setTimeout(() => navigate(bindCtx.returnTo, { replace: true }), 400);
+            } catch (e) {
+              setPhase('error');
+              setErrMsg(toApiError(e).message || '恩特学术社区 绑定失败');
+            }
+            return;
+          }
+          const qs = new URLSearchParams({ sso, sig }).toString();
+          const { data } = await http.get<{
+            code: number;
+            message: string;
+            data: AuthResponse | {
+              requires_merge: true;
+              merge_token: string;
+              provider: string;
+              target_email: string;
+            };
+          }>(`/user/discourse/callback?${qs}`);
+          const payload = data.data;
+          if ('requires_merge' in payload && payload.requires_merge) {
+            setMergeToken(payload.merge_token);
+            setPhase('merge_required');
+            return;
+          }
+          handleAuthSuccess(qc, payload as AuthResponse);
+          setPhase('success');
+          toast.success('登录成功');
+          setTimeout(() => navigate('/', { replace: true }), 400);
+        } catch (e) {
+          setPhase('error');
+          setErrMsg(toApiError(e).message || '登录失败');
+        }
+      })();
+      return;
+    }
+
     // 3. 标准 GET callback:code + state 转发给后端
     const code = params.get('code');
     const state = params.get('state') ?? '';
