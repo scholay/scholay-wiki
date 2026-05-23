@@ -9,6 +9,7 @@ package wechat
 
 import (
 	"errors"
+	"net/url"
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
 	"strconv"
@@ -16,6 +17,41 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
+
+// 微信扫码回调的固定前端路径,与 frontend-user 的 /wechat/callback 路由对齐。
+const wechatCallbackPath = "/wechat/callback"
+
+// computeRedirectURI 按请求实际访问的源动态拼回调地址。
+//
+// 为什么不能用 DB 里写死的 RedirectURI:wxLogin SDK 的 self_redirect:true 会把
+// iframe 内部页面导航到回调地址。如果 DB 里写的是裸域 scholay.com,而用户从
+// www.scholay.com 打开,iframe 跳到不同子域 → nginx 的 X-Frame-Options:SAMEORIGIN
+// 把页面挡掉,出现"拒绝了我们的连接"。
+//
+// 微信开放平台的"授权回调域"只校验 host(不带路径/协议),所以只要 host 在白名单
+// 内,任何完整 URL 都接受 —— 把 host 动态绑到请求来源最稳。
+func computeRedirectURI(c *gin.Context, fallback string) string {
+	if origin := c.GetHeader("Origin"); origin != "" {
+		return origin + wechatCallbackPath
+	}
+	if ref := c.GetHeader("Referer"); ref != "" {
+		if u, err := url.Parse(ref); err == nil && u.Scheme != "" && u.Host != "" {
+			return u.Scheme + "://" + u.Host + wechatCallbackPath
+		}
+	}
+	scheme := c.GetHeader("X-Forwarded-Proto")
+	if scheme == "" {
+		if c.Request.TLS != nil {
+			scheme = "https"
+		} else {
+			scheme = "http"
+		}
+	}
+	if host := c.Request.Host; host != "" {
+		return scheme + "://" + host + wechatCallbackPath
+	}
+	return fallback
+}
 
 // Handler handles HTTP requests for WeChat operations
 type Handler struct {
@@ -64,7 +100,7 @@ func (h *Handler) GetQRCodeConfig(c *gin.Context) {
 	// Only return public information needed for embedded QR code
 	utils.Success(c, gin.H{
 		"app_id":       config.AppID,
-		"redirect_uri": config.RedirectURI,
+		"redirect_uri": computeRedirectURI(c, config.RedirectURI),
 		"state":        state,
 		"scope":        config.Scope,
 	})
