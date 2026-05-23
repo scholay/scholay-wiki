@@ -1,11 +1,16 @@
 // ============================================================================
-// internal/umami HTTP Handler —— 暴露 admin /analytics/* 数据查询接口
+// internal/umami HTTP Handler
 //
-// 4 个端点对应 admin 页 4 个区域:
+// admin /analytics 的 4 个接口:
 //   GET /admin/analytics/overview     总览 (PV/UV/会话/跳出率 同比) + 当前在线
 //   GET /admin/analytics/pageviews    时间序列(PV + 会话,按 hour/day/month 桶)
 //   GET /admin/analytics/top?type=url|referrer|country|browser|os|device  TOP 列表
 //   GET /admin/analytics/active       实时在线访客数(轮询用)
+//
+// 一个公开接口给前端 tracker 用:
+//   GET /api/v1/public/umami-config   返 {websiteId, scriptUrl}
+//   前端 index.html 加载时 fetch 这个端点拿到 website id,再动态插入 tracker 脚本。
+//   这样换 umami 数据库 / 换 site domain 后只要 backend 重启就行,前端不用 rebuild。
 //
 // 查询窗口 (start/end) 接收 ISO8601 字符串;省略默认最近 30 天。
 // ============================================================================
@@ -22,7 +27,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Handler 包装 Client + 注册 admin 路由
+// Handler 包装 Client + 注册路由
 type Handler struct {
 	client *Client
 }
@@ -64,21 +69,33 @@ func parseRange(c *gin.Context, defaultDays int) (time.Time, time.Time) {
 	return start, end
 }
 
-// notConfigured 给前端一个明确的"还没接好"信号 —— 503 比 500 友好,前端可以
-// 直接显示"请管理员在 .env 配 UMAMI_WEBSITE_ID 后重启 backend"
-func (h *Handler) notConfigured(c *gin.Context) {
-	c.JSON(http.StatusServiceUnavailable, gin.H{
-		"code":    503,
-		"message": "umami WEBSITE_ID not configured; analytics disabled",
+// GetTrackerConfig (公开) —— 给前端 tracker runtime 加载用
+//
+// 返回:
+//   - website_id: 当前 umami website 的 UUID (env 配过的优先,否则 auto-bootstrap 拿到)
+//   - script_url: tracker JS 的路径 (永远是同源的 /umami-embed/script.js)
+//
+// 拿不到 ID 时 (umami 暂时不可达 / 创建失败) 返 503,前端会跳过 tracker 加载,
+// 不影响主站功能。
+func (h *Handler) GetTrackerConfig(c *gin.Context) {
+	id, err := h.client.EnsureWebsiteID(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"code":    503,
+			"message": "umami not ready: " + err.Error(),
+		})
+		return
+	}
+	// 强 Cache-Control:浏览器最多 5 分钟内复用,umami 重建 / id 变了几分钟内自愈
+	c.Header("Cache-Control", "public, max-age=300")
+	utils.Success(c, gin.H{
+		"website_id": id,
+		"script_url": "/umami-embed/script.js",
 	})
 }
 
 // GetOverview —— 概览卡片用
 func (h *Handler) GetOverview(c *gin.Context) {
-	if !h.client.Configured() {
-		h.notConfigured(c)
-		return
-	}
 	start, end := parseRange(c, 30)
 	stats, err := h.client.Stats(c.Request.Context(), start, end)
 	if err != nil {
@@ -100,10 +117,6 @@ func (h *Handler) GetOverview(c *gin.Context) {
 
 // GetPageviews —— 折线图用
 func (h *Handler) GetPageviews(c *gin.Context) {
-	if !h.client.Configured() {
-		h.notConfigured(c)
-		return
-	}
 	start, end := parseRange(c, 30)
 	unit := c.DefaultQuery("unit", "day")
 	series, err := h.client.Pageviews(c.Request.Context(), start, end, unit)
@@ -121,10 +134,6 @@ func (h *Handler) GetPageviews(c *gin.Context) {
 
 // GetTop —— TOP 列表(url/referrer/country/browser/os/device)
 func (h *Handler) GetTop(c *gin.Context) {
-	if !h.client.Configured() {
-		h.notConfigured(c)
-		return
-	}
 	mtype := c.DefaultQuery("type", "url")
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	start, end := parseRange(c, 30)
@@ -143,10 +152,6 @@ func (h *Handler) GetTop(c *gin.Context) {
 
 // GetActive —— 实时在线(前端可以 30s 轮询一次)
 func (h *Handler) GetActive(c *gin.Context) {
-	if !h.client.Configured() {
-		h.notConfigured(c)
-		return
-	}
 	active, err := h.client.Active(c.Request.Context())
 	if err != nil {
 		utils.InternalError(c, 6004, "umami active failed", err)

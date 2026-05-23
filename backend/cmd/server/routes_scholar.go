@@ -41,6 +41,9 @@ func registerPublicAPIRoutes(api *gin.RouterGroup, h *allHandlers) {
 		publicAPI.GET("/papers/autocomplete", h.scholar.PaperAutocomplete)
 		publicAPI.GET("/search/suggestions", h.scholar.GetSearchSuggestions)
 		publicAPI.GET("/analysis/dimensions", h.ai.GetSystemDimensions)
+		// umami tracker 运行时配置 —— 前端 index.html 加载时 fetch 拿 website_id
+		// 后动态插入 tracker script,这样 umami DB 重建 / website 重建后无需 rebuild 前端
+		publicAPI.GET("/umami-config", h.umami.GetTrackerConfig)
 		publicAPI.GET("/papers/:paperId/citations", h.scholar.GetPaperCitations)
 		publicAPI.GET("/papers/:paperId/references", h.scholar.GetPaperReferences)
 		publicAPI.GET("/recommendations/papers/:paperId", h.scholar.GetRecommendationsForPaper)

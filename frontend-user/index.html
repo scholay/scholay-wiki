@@ -27,13 +27,6 @@
       crossorigin
     />
 
-    <!--
-      分析:Microsoft Clarity(行为录屏 / heatmap) + Umami(自托管 KPI 统计)
-      两者并存 —— Clarity 看用户交互回放,Umami 看 PV / UV / 事件 / 留存。
-      Umami tracker 走独立端口(prebuilt 镜像不支持运行时 BASE_PATH,所以不走路径前缀);
-      data-website-id 在 Umami 控制台创建 Website 后取得,build-time 由
-      VITE_UMAMI_WEBSITE_ID 注入;为空 / 未替换时 tracker 不会上报(降级安全)。
-    -->
     <!-- Microsoft Clarity Analytics -->
     <script>
       (function(c,l,a,r,i,t,y){
@@ -43,17 +36,31 @@
       })(window, document, "clarity", "script", "u14c9rnomm");
     </script>
     <!--
-      Umami Analytics —— 自托管, 嵌入到主 nginx 的 /umami-embed/* 通道。
-      Tracker 走 /umami-embed/script.js (public, exact match 跳过 auth_request),
-      事件上报到 /umami-embed/api/send。两个端点都在 nginx v2.conf 显式开放。
-      旧的独立端口 5413 已下线 —— umami 完全不对外暴露, 管理控制台必须从
-      admin /analytics 走 iframe + auth_request 进。
+      Umami tracker —— 运行时加载,website_id 由 backend 接口动态提供。
+      为什么不走静态 <script data-website-id="%VITE_..."> 的方式:
+        - 那种方式把 website id 编进 bundle,umami DB 重建 / 换 site 都要 rebuild 前端
+        - 当 id 在 umami 不存在时 (例如复用了别项目的 UUID),/api/send 直接 400
+      改成:
+        1) fetch /api/v1/public/umami-config 拿到 backend 已自动 bootstrap 好的 id
+        2) 动态插入 <script data-website-id="..."> 触发 tracker
+        3) backend 不可达 / umami 没起 → 默默跳过,主站功能完全不受影响
     -->
-    <script
-      defer
-      src="/umami-embed/script.js"
-      data-website-id="%VITE_UMAMI_WEBSITE_ID%"
-    ></script>
+    <script>
+      (function () {
+        fetch('/api/v1/public/umami-config', { cache: 'force-cache' })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (resp) {
+            var data = resp && resp.data;
+            if (!data || !data.website_id || !data.script_url) return;
+            var s = document.createElement('script');
+            s.defer = true;
+            s.src = data.script_url;
+            s.setAttribute('data-website-id', data.website_id);
+            document.head.appendChild(s);
+          })
+          .catch(function () { /* 静默 —— 监控不可用不应该影响站点 */ });
+      })();
+    </script>
 
     <title>Scholay</title>
   </head>

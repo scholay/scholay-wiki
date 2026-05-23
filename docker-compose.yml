@@ -159,6 +159,7 @@ services:
       FRONTEND_USER_URL: http://frontend-user:80
       # 站点 / 第三方服务地址 —— 来源是 .env 的 SITE_URL 等单一变量,这里 fan-out 给 backend
       SEO_BASE_URL: ${SITE_URL:-https://www.scholay.com}
+      SITE_NAME: ${SITE_NAME:-Scholay}
       SUPPORT_EMAIL: ${SUPPORT_EMAIL:-support@scholay.com}
       UNPAYWALL_EMAIL: ${UNPAYWALL_EMAIL:-api@scholay.com}
       PDF_SERVICE_URL: ${PDF_SERVICE_URL:-https://pdf.scholay.com/api/v1/pdf}
@@ -221,9 +222,8 @@ services:
         # 站点配置 build-time 注入到 Vite bundle (运行期不能变)
         VITE_SITE_URL: ${SITE_URL:-https://www.scholay.com}
         VITE_SITE_NAME: ${SITE_NAME:-Scholay}
-        # Umami 网站 ID — Umami 控制台创建 Website 后填回 .env;为空时 data-website-id
-        # 占位符不替换,umami script.js 仍会加载但不会上报事件(降级安全)。
-        VITE_UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-}
+        # umami tracker 已改为运行时 fetch /api/v1/public/umami-config 拿 website_id,
+        # 不需要 build-time 注入。换 umami DB / 重建 website 都无需 rebuild 前端。
     container_name: scholar_frontend_user
     restart: unless-stopped
     logging: *default-logging

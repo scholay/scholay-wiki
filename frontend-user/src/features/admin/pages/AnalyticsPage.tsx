@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Activity,
   BarChart3,
@@ -10,6 +10,17 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react';
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { Badge } from '@/shared/ui/badge';
 import { AdminPageLayout } from '../components/AdminPageLayout';
@@ -34,7 +45,14 @@ import {
  */
 export function AnalyticsPage() {
   const [range, setRange] = useState<7 | 30 | 90>(30);
-  const params = { start: daysAgoISO(range), end: nowISO() };
+
+  // ⚠️ 必须 useMemo:nowISO() 每次 render 返回新毫秒时间戳,
+  // 直接传 `{start, end}` 会让 useQuery 的 queryKey 每次都不一样 → 无限重新拉取。
+  // 仅依赖 range 时,同一窗口 (7/30/90) 内 params 引用稳定。
+  const params = useMemo(
+    () => ({ start: daysAgoISO(range), end: nowISO() }),
+    [range],
+  );
 
   const overview = useAnalyticsOverview(params);
   const pv = usePageviews(range <= 7 ? 'hour' : 'day', params);
@@ -284,13 +302,17 @@ function Panel({
         <h3 className="text-sm font-bold text-foreground">{title}</h3>
         <Icon className="size-3.5 text-faint" />
       </div>
+      {/* min-h-32 兜底;chart 子组件自己用 h-56 包,TopCard 的 ul 按内容撑开 */}
       <div className="min-h-32">{loading ? <Skeleton className="h-32 w-full" /> : children}</div>
     </div>
   );
 }
 
 /**
- * 双折线 —— PV (绿) + Sessions (蓝)。沿用 UserMetricsPanel 同款 SVG 模式。
+ * 双折线 —— PV (绿) + Sessions (红),用 recharts。
+ *
+ * umami 返回 `pageviews` 和 `sessions` 两条等长时间序列,桶 (x) 一一对应。
+ * recharts 期望"一行一桶,多列做多 series" → 这里把两条合并成 `{x, pv, sess}` 行格式。
  */
 function Sparkline({
   pageviews,
@@ -299,53 +321,74 @@ function Sparkline({
   pageviews: SeriesPoint[];
   sessions: SeriesPoint[];
 }) {
-  // 两条线公用同一时间轴 —— umami 返回的桶一一对应。max 取双方最大,统一纵坐标。
-  const max = Math.max(
-    ...pageviews.map((p) => p.y),
-    ...sessions.map((p) => p.y),
-    1,
-  );
-  const w = 100;
-  const h = 36;
-  const step = pageviews.length > 1 ? w / (pageviews.length - 1) : 0;
-
-  const toPoints = (s: SeriesPoint[]) =>
-    s.map((p, i) => `${i * step},${h - (p.y / max) * h}`).join(' ');
-
-  const pvPath = toPoints(pageviews);
-  const sePath = toPoints(sessions);
-  const pvArea = `M0,${h} L${pvPath.replaceAll(' ', ' L')} L${w},${h} Z`;
-
+  const merged = pageviews.map((p, i) => ({
+    x: p.x,
+    pv: p.y,
+    sess: sessions[i]?.y ?? 0,
+  }));
   return (
-    <div className="space-y-2">
-      <svg
-        viewBox={`0 0 ${w} ${h}`}
-        preserveAspectRatio="none"
-        className="w-full h-32 overflow-visible"
-      >
-        <path d={pvArea} fill="color-mix(in srgb, var(--brand-green) 12%, transparent)" />
-        <polyline
-          points={pvPath}
-          fill="none"
-          stroke="var(--brand-green)"
-          strokeWidth="0.6"
+    <div className="h-56">
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart data={merged} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+        <defs>
+          <linearGradient id="pvGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--color-brand-green)" stopOpacity={0.3} />
+            <stop offset="100%" stopColor="var(--color-brand-green)" stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+        <XAxis
+          dataKey="x"
+          tickFormatter={shortDate}
+          tick={{ fontSize: 11, fill: 'var(--color-faint)' }}
+          tickLine={false}
+          axisLine={{ stroke: 'var(--color-border)' }}
+          minTickGap={24}
         />
-        <polyline points={sePath} fill="none" stroke="var(--brand-red)" strokeWidth="0.6" />
-      </svg>
-      <div className="flex items-center justify-between text-2xs text-faint">
-        <span>{shortDate(pageviews[0]?.x)}</span>
-        <div className="flex gap-3">
-          <span>
-            <span className="inline-block size-1.5 rounded-sm bg-brand-green mr-1" />
-            访问页 {sum(pageviews).toLocaleString()}
-          </span>
-          <span>
-            <span className="inline-block size-1.5 rounded-sm bg-brand-red mr-1" />
-            会话 {sum(sessions).toLocaleString()}
-          </span>
-        </div>
-        <span>{shortDate(pageviews[pageviews.length - 1]?.x)}</span>
-      </div>
+        <YAxis
+          allowDecimals={false}
+          tick={{ fontSize: 11, fill: 'var(--color-faint)' }}
+          tickLine={false}
+          axisLine={false}
+          width={40}
+        />
+        <Tooltip
+          contentStyle={{
+            backgroundColor: 'var(--color-background)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 6,
+            fontSize: 12,
+            padding: '6px 10px',
+          }}
+          labelStyle={{ color: 'var(--color-muted-foreground)', fontSize: 11, marginBottom: 2 }}
+          formatter={(value, name) => [
+            Number(value ?? 0).toLocaleString(),
+            name === 'pv' ? '访问页数' : '会话数',
+          ]}
+          labelFormatter={(label) => shortDate(String(label ?? ''))}
+        />
+        <Legend
+          wrapperStyle={{ fontSize: 11, color: 'var(--color-subtle)' }}
+          iconType="square"
+          iconSize={8}
+          formatter={(v) => (v === 'pv' ? '访问页' : '会话')}
+        />
+        <Area
+          type="monotone"
+          dataKey="pv"
+          stroke="var(--color-brand-green)"
+          strokeWidth={2}
+          fill="url(#pvGrad)"
+        />
+        <Line
+          type="monotone"
+          dataKey="sess"
+          stroke="var(--color-brand-red)"
+          strokeWidth={2}
+          dot={false}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
     </div>
   );
 }
@@ -386,7 +429,7 @@ function TopCard({
                     className="h-full bg-surface-2"
                     style={{
                       width: `${pct}%`,
-                      backgroundColor: 'color-mix(in srgb, var(--brand-green) 14%, transparent)',
+                      backgroundColor: 'color-mix(in srgb, var(--color-brand-green) 14%, transparent)',
                     }}
                   />
                 </div>
@@ -422,10 +465,9 @@ function daysAgoISO(days: number): string {
   d.setDate(d.getDate() - days);
   return d.toISOString();
 }
-function sum(s: SeriesPoint[]): number {
-  return s.reduce((a, b) => a + b.y, 0);
-}
-function shortDate(s?: string): string {
+function shortDate(s: string): string {
   if (!s) return '';
+  // umami 返桶字符串可能是 "2026-05-23 10:00:00" / "2026-05-23" / "2026-05" 等。
+  // 留 month-day,长得不像就原样返。
   return s.length >= 10 ? s.slice(5, 10).replace('-', '/') : s;
 }

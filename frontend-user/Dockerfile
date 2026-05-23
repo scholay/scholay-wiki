@@ -17,10 +17,9 @@ ARG VITE_SITE_URL
 ENV VITE_SITE_URL=$VITE_SITE_URL
 ARG VITE_SITE_NAME
 ENV VITE_SITE_NAME=$VITE_SITE_NAME
-# Umami 网站 ID —— 注入 index.html 的 data-website-id;留空时 tracker 不上报。
-# admin /analytics 不再用 iframe (改成 backend HTTP API),所以没有 VITE_UMAMI_URL。
-ARG VITE_UMAMI_WEBSITE_ID=""
-ENV VITE_UMAMI_WEBSITE_ID=$VITE_UMAMI_WEBSITE_ID
+# Umami 接入完全运行时化:index.html 加载后 fetch /api/v1/public/umami-config 拿
+# website_id 再动态插入 tracker 脚本 —— 不再需要 build-time 注入 website id。
+# 见 frontend-user/index.html 顶部注释 + backend internal/umami/client.go EnsureWebsiteID。
 
 RUN npm run build
 

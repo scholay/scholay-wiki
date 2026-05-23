@@ -59,6 +59,21 @@ func sourcePrefix(source string) string {
 	}
 }
 
+// paperPath 返回某源 + 某动作的论文端点完整路径。
+//
+// 命名陷阱:OpenAlex 把论文叫 "works", 所以 OLX 是 `/v1/olx/works/<action>`,
+// 而 STC / PMD 用 `/v1/<source>/papers/<action>`。早期 `sourcePrefix + "/papers/X"`
+// 这种简单拼接对 OLX 全错(404 page not found)。所有调论文端点的地方都走这里。
+//
+// 不存在的端点也通过这个函数派发(例:PMD 不支持 autocomplete),
+// 调用方须自行做能力检查,本函数只负责"如果支持,正确 URL 是什么"。
+func paperPath(source, action string) string {
+	if source == SourceOLX {
+		return "/v1/olx/works/" + action
+	}
+	return sourcePrefix(source) + "/papers/" + action
+}
+
 var (
 	sharedTransport     *http.Transport
 	sharedTransportOnce sync.Once
@@ -225,8 +240,8 @@ func (c *Client) SearchPapers(ctx context.Context, opts PaperSearchOptions) (*Se
 		}
 	}
 
-	prefix := sourcePrefix(opts.Source)
-	data, err := c.doPost(ctx, prefix+"/papers/search", body)
+	// OLX 是 /v1/olx/works/search,不是 /papers/search,统一走 paperPath
+	data, err := c.doPost(ctx, paperPath(opts.Source, "search"), body)
 	if err != nil {
 		return nil, err
 	}
@@ -513,14 +528,18 @@ func (c *Client) GetPaperAuthors(ctx context.Context, paperID string, fields []s
 	}, nil
 }
 
-// PaperAutocomplete returns paper title suggestions
+// PaperAutocomplete returns paper title suggestions.
+//
+// 支持矩阵:
+//   STC → /v1/stc/papers/autocomplete  ✓
+//   OLX → /v1/olx/works/autocomplete   ✓ (注意是 works 不是 papers)
+//   PMD → ✗ 无此端点, 调用方 (manager.suggestPapersForSource) 已降级到 /papers/search
 func (c *Client) PaperAutocomplete(ctx context.Context, query, source string) (*AutocompleteResponse, error) {
 	body := map[string]any{
 		"query": query,
 	}
 
-	prefix := sourcePrefix(source)
-	data, err := c.doPost(ctx, prefix+"/papers/autocomplete", body)
+	data, err := c.doPost(ctx, paperPath(source, "autocomplete"), body)
 	if err != nil {
 		return nil, err
 	}

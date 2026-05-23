@@ -60,10 +60,15 @@ const cssDataUrl =
   'data:text/css;base64,' +
   (typeof window !== 'undefined' ? window.btoa(INJECT_CSS) : '');
 
+// 字段严格对齐 backend/internal/wechat/handler.go GetQRCodeConfig 返回 ——
+// 整套都是 snake_case (`app_id` / `redirect_uri` / `state` / `scope`),
+// 不是 wxLogin SDK 用的 `appid`。早期把 `app_id` 错写成 `appid` → cfg.app_id 永远 undefined
+// → if (!cfg.app_id) 提前 return → WxLogin 不实例化 → 弹窗里二维码空白。
 interface QRCodeConfig {
-  appid: string;
+  app_id: string;
   redirect_uri: string;
   state: string;
+  scope?: string;
 }
 
 /**
@@ -134,7 +139,7 @@ export function WeChatQRDialog({
         );
         if (cancelled) return;
         const cfg = data.data;
-        if (!cfg.appid) return;
+        if (!cfg.app_id) return;
 
         await loadWxLoginScript();
         if (cancelled || !window.WxLogin) return;
@@ -144,11 +149,13 @@ export function WeChatQRDialog({
           containerRef.current.innerHTML = '';
         }
 
+        // wxLogin SDK 字段名 `appid` (无下划线) ←→ 后端响应 `app_id` (snake_case),
+        // 两套命名,千万不能搞混。
         new window.WxLogin({
           self_redirect: true,
           id: CONTAINER_ID,
-          appid: cfg.appid,
-          scope: 'snsapi_login',
+          appid: cfg.app_id,
+          scope: cfg.scope || 'snsapi_login',
           redirect_uri: encodeURIComponent(cfg.redirect_uri),
           state: cfg.state,
           style: 'white',

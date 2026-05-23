@@ -52,7 +52,7 @@ fi
 # 兜底默认值(.env 不存在或没设时)
 : "${SITE_URL:=https://www.scholay.com}"
 : "${SITE_NAME:=Scholay}"
-: "${UMAMI_WEBSITE_ID:=}"
+# UMAMI_WEBSITE_ID 不再 build-time 注入 —— 改为 runtime fetch /api/v1/public/umami-config
 
 # 检查并设置 buildx (仅用于 backend)
 setup_buildx() {
@@ -188,7 +188,6 @@ build_frontend() {
     echo "站点配置(build-time 注入到 vite bundle,运行期改 docker env 没用):"
     echo "  SITE_URL          = ${SITE_URL}"
     echo "  SITE_NAME         = ${SITE_NAME}"
-    echo "  UMAMI_WEBSITE_ID  = ${UMAMI_WEBSITE_ID}"
 
     # 使用 docker build 指定平台
     # 注意:需要确保 Docker Desktop 开启了 "Use Rosetta for x86/amd64 emulation"
@@ -202,7 +201,6 @@ build_frontend() {
         --build-arg VITE_API_BASE_URL= \
         --build-arg VITE_SITE_URL="${SITE_URL}" \
         --build-arg VITE_SITE_NAME="${SITE_NAME}" \
-        --build-arg VITE_UMAMI_WEBSITE_ID="${UMAMI_WEBSITE_ID}" \
         ${context}
 
     # 打 latest 标签

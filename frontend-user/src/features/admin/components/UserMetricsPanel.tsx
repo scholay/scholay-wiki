@@ -6,15 +6,36 @@ import {
   UserPlus,
   type LucideIcon,
 } from 'lucide-react';
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { Skeleton } from '@/shared/ui/skeleton';
-import { useUserMetrics, type MetricsPoint, type HourlyPoint, type CategoryCount } from '../api/user-metrics';
+import { useUserMetrics } from '../api/user-metrics';
 
 /**
- * UserMetricsPanel — admin /users 顶部 4 张图。
+ * UserMetricsPanel —— admin /users 顶部 4 张图。
+ *
+ * 图表全部走 recharts(声明式,自带坐标轴 / Tooltip / Legend / 响应式)。
+ *   注册量   → AreaChart   面积折线
+ *   渠道占比 → PieChart    圆环 + 右侧 Legend
+ *   24h 活跃 → BarChart    柱状,X 轴格式化为 "h:00"
+ *   MAU 趋势 → LineChart   折线,带点
  *
  * 数据从 GET /admin/users/metrics 一次拉,客户端不再二次聚合。
- * 图形全部用 vanilla SVG + Tailwind 实现 —— 项目已经有 Sparkline 同款模式,
- * 不再为这一处引一个 ~100KB 的 recharts。
  */
 export function UserMetricsPanel() {
   const [days, setDays] = useState<7 | 30 | 90>(30);
@@ -29,24 +50,42 @@ export function UserMetricsPanel() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <ChartCard icon={UserPlus} title={`注册量 · 最近 ${days} 天`} loading={isLoading}>
-          {data && <LineChart series={data.registrations} stroke="var(--brand-green)" />}
+          {data && data.registrations.length > 0 ? (
+            <RegistrationsArea data={data.registrations} />
+          ) : (
+            <Empty hint="窗口内没有新注册" />
+          )}
         </ChartCard>
 
         <ChartCard icon={Activity} title="注册渠道占比" loading={isLoading}>
-          {data && <Donut data={data.sources} />}
+          {data && data.sources.length > 0 ? (
+            <SourcesDonut data={data.sources} />
+          ) : (
+            <Empty hint="还没有可用渠道数据" />
+          )}
         </ChartCard>
 
         <ChartCard icon={Clock} title="24h 活跃时段分布" loading={isLoading}>
-          {data && <HourlyBars data={data.hourly_activity} />}
+          {data && data.hourly_activity.length > 0 ? (
+            <HourlyBarChart data={data.hourly_activity} />
+          ) : (
+            <Empty hint="该窗口内无登录记录" />
+          )}
         </ChartCard>
 
         <ChartCard icon={CalendarRange} title="MAU · 最近 12 个月" loading={isLoading}>
-          {data && <LineChart series={data.mau_trend} stroke="var(--brand-red)" showLabels />}
+          {data && data.mau_trend.length > 0 ? (
+            <MAULine data={data.mau_trend} />
+          ) : (
+            <Empty hint="历史月份还没有数据" />
+          )}
         </ChartCard>
       </div>
     </section>
   );
 }
+
+// ----------------- 通用 -----------------
 
 function RangeTabs({
   value,
@@ -97,99 +136,84 @@ function ChartCard({
         <h3 className="text-sm font-bold text-foreground">{title}</h3>
         <Icon className="size-3.5 text-faint" />
       </div>
-      <div className="min-h-32">
-        {loading ? <Skeleton className="h-32 w-full" /> : children}
-      </div>
+      <div className="h-56">{loading ? <Skeleton className="h-full w-full" /> : children}</div>
     </div>
   );
 }
 
-/**
- * 折线图 —— 用 SVG polyline + 面积 path,无第三方 dep。
- * 沿用 DashboardPage 的 Sparkline 同款。
- */
-function LineChart({
-  series,
-  stroke,
-  showLabels = false,
-}: {
-  series: MetricsPoint[];
-  stroke: string;
-  showLabels?: boolean;
-}) {
-  if (!series || series.length === 0) {
-    return <Empty />;
-  }
-  const values = series.map((p) => p.value);
-  const max = Math.max(...values, 1);
-  const w = 100;
-  const h = 36;
-  const step = series.length > 1 ? w / (series.length - 1) : 0;
+function Empty({ hint }: { hint: string }) {
+  return <div className="h-full flex items-center justify-center text-xs text-faint">{hint}</div>;
+}
 
-  const points = series.map((p, i) => `${i * step},${h - (p.value / max) * h}`).join(' ');
-  const areaPath = `M0,${h} L${points.replaceAll(' ', ' L')} L${w},${h} Z`;
+// recharts 主题色 —— 直接消费 CSS 变量, 跟 design token 同源
+const COLOR_GREEN = 'var(--color-brand-green)';
+const COLOR_RED = 'var(--color-brand-red)';
+const COLOR_AMBER = 'var(--color-brand-amber)';
+const GRID_COLOR = 'var(--color-border)';
+const AXIS_COLOR = 'var(--color-faint)';
 
+// Tooltip 全局样式
+const tooltipStyle: React.CSSProperties = {
+  backgroundColor: 'var(--color-background)',
+  border: '1px solid var(--color-border)',
+  borderRadius: 6,
+  fontSize: 12,
+  padding: '6px 10px',
+  boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+};
+const tooltipLabelStyle: React.CSSProperties = {
+  color: 'var(--color-muted-foreground)',
+  fontSize: 11,
+  marginBottom: 2,
+};
+
+// ----------------- 注册量(Area)-----------------
+
+function RegistrationsArea({ data }: { data: Array<{ date: string; value: number }> }) {
   return (
-    <div className="space-y-2">
-      <svg
-        viewBox={`0 0 ${w} ${h}`}
-        preserveAspectRatio="none"
-        className="w-full h-28 overflow-visible"
-      >
-        <path d={areaPath} fill={`color-mix(in srgb, ${stroke} 12%, transparent)`} />
-        <polyline points={points} fill="none" stroke={stroke} strokeWidth="0.6" />
-      </svg>
-      <div className="flex justify-between text-2xs text-faint">
-        <span>{series[0]?.date}</span>
-        {showLabels && (
-          <span className="text-foreground font-bold">
-            当前 {series[series.length - 1]?.value.toLocaleString()}
-          </span>
-        )}
-        <span>{series[series.length - 1]?.date}</span>
-      </div>
-    </div>
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+        <defs>
+          <linearGradient id="regGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={COLOR_GREEN} stopOpacity={0.35} />
+            <stop offset="100%" stopColor={COLOR_GREEN} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
+        <XAxis
+          dataKey="date"
+          tickFormatter={(v) => (typeof v === 'string' && v.length >= 10 ? v.slice(5) : v)}
+          tick={{ fontSize: 11, fill: AXIS_COLOR }}
+          tickLine={false}
+          axisLine={{ stroke: GRID_COLOR }}
+          minTickGap={20}
+        />
+        <YAxis
+          allowDecimals={false}
+          tick={{ fontSize: 11, fill: AXIS_COLOR }}
+          tickLine={false}
+          axisLine={false}
+          width={40}
+        />
+        <Tooltip
+          contentStyle={tooltipStyle}
+          labelStyle={tooltipLabelStyle}
+          itemStyle={{ color: 'var(--color-foreground)' }}
+          formatter={(v) => [Number(v ?? 0).toLocaleString(), '新注册']}
+        />
+        <Area
+          type="monotone"
+          dataKey="value"
+          stroke={COLOR_GREEN}
+          strokeWidth={2}
+          fill="url(#regGrad)"
+        />
+      </AreaChart>
+    </ResponsiveContainer>
   );
 }
 
-/**
- * 24h 柱状图 —— Tailwind 高度 + 颜色深浅表达活跃度。
- * 类似 GitHub contribution graph 的 1D 版本。
- */
-function HourlyBars({ data }: { data: HourlyPoint[] }) {
-  if (!data || data.length === 0) {
-    return <Empty />;
-  }
-  const max = Math.max(...data.map((d) => d.value), 1);
-  return (
-    <div>
-      <div className="flex items-end justify-between gap-px h-28">
-        {data.map((p) => {
-          const ratio = p.value / max;
-          const alpha = 0.15 + ratio * 0.85; // 0.15..1.0
-          return (
-            <div
-              key={p.hour}
-              className="flex-1 rounded-sm relative group"
-              style={{
-                height: `${Math.max(ratio * 100, 3)}%`,
-                backgroundColor: `color-mix(in srgb, var(--brand-green) ${alpha * 100}%, transparent)`,
-              }}
-              title={`${p.hour}:00 · ${p.value.toLocaleString()} 人`}
-            />
-          );
-        })}
-      </div>
-      <div className="flex justify-between text-2xs text-faint mt-1">
-        <span>0:00</span>
-        <span>6:00</span>
-        <span>12:00</span>
-        <span>18:00</span>
-        <span>24:00</span>
-      </div>
-    </div>
-  );
-}
+// ----------------- 渠道占比(Donut)-----------------
 
 const PROVIDER_LABEL: Record<string, string> = {
   email: '邮箱',
@@ -203,10 +227,10 @@ const PROVIDER_LABEL: Record<string, string> = {
   unknown: '未知',
 };
 
-const PALETTE = [
-  'var(--brand-green)',
-  'var(--brand-red)',
-  'var(--brand-amber)',
+const PIE_PALETTE = [
+  COLOR_GREEN,
+  COLOR_RED,
+  COLOR_AMBER,
   '#3B82F6',
   '#8B5CF6',
   '#EC4899',
@@ -214,77 +238,125 @@ const PALETTE = [
   '#F97316',
 ];
 
-/**
- * 圆环饼图 —— 纯 SVG 弧线段(stroke-dasharray 切分一个圆周)。
- * 比起 path 的 arc 命令更易读,适合 6~8 段以内的分类对比。
- */
-function Donut({ data }: { data: CategoryCount[] }) {
-  if (!data || data.length === 0) {
-    return <Empty />;
-  }
+function SourcesDonut({ data }: { data: Array<{ name: string; value: number }> }) {
   const total = data.reduce((s, d) => s + d.value, 0);
-  if (total === 0) return <Empty />;
-
-  const r = 16; // svg 单位
-  const c = 2 * Math.PI * r; // 周长
-  let cumulative = 0;
-  const segments = data.map((d, i) => {
-    const ratio = d.value / total;
-    const len = ratio * c;
-    const dasharray = `${len} ${c - len}`;
-    const dashoffset = -cumulative;
-    cumulative += len;
-    return {
-      key: d.name,
-      label: PROVIDER_LABEL[d.name] || d.name,
-      value: d.value,
-      ratio,
-      color: PALETTE[i % PALETTE.length],
-      dasharray,
-      dashoffset,
-    };
-  });
-
+  const display = data.map((d) => ({
+    ...d,
+    label: PROVIDER_LABEL[d.name] || d.name,
+  }));
   return (
-    <div className="grid grid-cols-[1fr_1fr] gap-3 items-center">
-      <div className="relative aspect-square max-w-[120px] mx-auto">
-        <svg viewBox="0 0 40 40" className="w-full h-full -rotate-90">
-          {segments.map((s) => (
-            <circle
-              key={s.key}
-              cx="20"
-              cy="20"
-              r={r}
-              fill="transparent"
-              stroke={s.color}
-              strokeWidth="6"
-              strokeDasharray={s.dasharray}
-              strokeDashoffset={s.dashoffset}
-            />
+    <ResponsiveContainer width="100%" height="100%">
+      <PieChart>
+        <Pie
+          data={display}
+          dataKey="value"
+          nameKey="label"
+          cx="40%"
+          cy="50%"
+          innerRadius={45}
+          outerRadius={75}
+          paddingAngle={2}
+          strokeWidth={0}
+        >
+          {display.map((_, i) => (
+            <Cell key={i} fill={PIE_PALETTE[i % PIE_PALETTE.length]} />
           ))}
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <div className="text-lg font-bold text-foreground">{total.toLocaleString()}</div>
-          <div className="text-2xs text-faint">总注册</div>
-        </div>
-      </div>
-      <ul className="space-y-1 text-xs">
-        {segments.map((s) => (
-          <li key={s.key} className="flex items-center justify-between gap-2">
-            <span className="flex items-center gap-1.5 truncate">
-              <span className="size-2 rounded-sm" style={{ backgroundColor: s.color }} />
-              <span className="truncate text-subtle">{s.label}</span>
-            </span>
-            <span className="text-foreground tabular-nums">
-              {(s.ratio * 100).toFixed(1)}%
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
+        </Pie>
+        <Tooltip
+          contentStyle={tooltipStyle}
+          labelStyle={tooltipLabelStyle}
+          itemStyle={{ color: 'var(--color-foreground)' }}
+          formatter={(value) => {
+            const n = Number(value ?? 0);
+            return [
+              `${n.toLocaleString()} (${total > 0 ? ((n / total) * 100).toFixed(1) : 0}%)`,
+              '注册数',
+            ];
+          }}
+        />
+        <Legend
+          layout="vertical"
+          align="right"
+          verticalAlign="middle"
+          iconType="square"
+          iconSize={8}
+          wrapperStyle={{ fontSize: 11, color: 'var(--color-subtle)' }}
+        />
+      </PieChart>
+    </ResponsiveContainer>
   );
 }
 
-function Empty() {
-  return <div className="text-sm text-faint text-center py-8">还没有可用数据</div>;
+// ----------------- 24h 活跃(Bar)-----------------
+
+function HourlyBarChart({ data }: { data: Array<{ hour: number; value: number }> }) {
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
+        <XAxis
+          dataKey="hour"
+          tickFormatter={(v) => `${v}:00`}
+          tick={{ fontSize: 11, fill: AXIS_COLOR }}
+          tickLine={false}
+          axisLine={{ stroke: GRID_COLOR }}
+          interval={2}
+        />
+        <YAxis
+          allowDecimals={false}
+          tick={{ fontSize: 11, fill: AXIS_COLOR }}
+          tickLine={false}
+          axisLine={false}
+          width={40}
+        />
+        <Tooltip
+          contentStyle={tooltipStyle}
+          labelStyle={tooltipLabelStyle}
+          itemStyle={{ color: 'var(--color-foreground)' }}
+          formatter={(v) => [Number(v ?? 0).toLocaleString(), '活跃用户']}
+          labelFormatter={(label) => `${label}:00 时段`}
+        />
+        <Bar dataKey="value" fill={COLOR_GREEN} radius={[2, 2, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+// ----------------- MAU(Line)-----------------
+
+function MAULine({ data }: { data: Array<{ date: string; value: number }> }) {
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
+        <XAxis
+          dataKey="date"
+          tick={{ fontSize: 11, fill: AXIS_COLOR }}
+          tickLine={false}
+          axisLine={{ stroke: GRID_COLOR }}
+        />
+        <YAxis
+          allowDecimals={false}
+          tick={{ fontSize: 11, fill: AXIS_COLOR }}
+          tickLine={false}
+          axisLine={false}
+          width={40}
+        />
+        <Tooltip
+          contentStyle={tooltipStyle}
+          labelStyle={tooltipLabelStyle}
+          itemStyle={{ color: 'var(--color-foreground)' }}
+          formatter={(v) => [Number(v ?? 0).toLocaleString(), 'MAU']}
+        />
+        <Line
+          type="monotone"
+          dataKey="value"
+          stroke={COLOR_RED}
+          strokeWidth={2}
+          dot={{ r: 3, fill: COLOR_RED, strokeWidth: 0 }}
+          activeDot={{ r: 5 }}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  );
 }

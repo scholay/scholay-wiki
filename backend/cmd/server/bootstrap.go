@@ -14,6 +14,9 @@
 package main
 
 import (
+	"net/url"
+	"os"
+
 	"scholar-backend/internal/announcement"
 	"scholar-backend/internal/clientlog"
 	"scholar-backend/internal/common/cleanup"
@@ -30,6 +33,28 @@ import (
 	"scholar-backend/internal/wechat"
 	"scholar-backend/internal/websocket"
 )
+
+// domainFromSiteURL 从 https://www.scholay.com → www.scholay.com,给 umami
+// auto-create website 时填 domain 字段。失败回落 localhost(纯本地起服不影响)。
+func domainFromSiteURL() string {
+	raw := os.Getenv("SITE_URL")
+	if raw == "" {
+		raw = "https://www.scholay.com"
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		return "localhost"
+	}
+	return u.Host
+}
+
+// siteName 从 SITE_NAME env 拿,缺省 Scholay。
+func siteName() string {
+	if v := os.Getenv("SITE_NAME"); v != "" {
+		return v
+	}
+	return "Scholay"
+}
 
 // services 聚合所有服务与 handler，供 main 使用
 type services struct {
@@ -153,9 +178,15 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 			}),
 			stagingArea:     stagingarea.NewHandler(),
 			clientLog:       clientlog.NewHandler(),
-			// umami 嵌入式代登 —— 用 .env 配置或缺省 admin/umami 默认账号自动 login
-			// umami:3000 + 默认 admin/umami 都写死在 client.go 里,这里只把 WebsiteID 传进去
-			umami: umami.NewHandler(umami.NewClient("", "", "", appconfig.AppConfig.Umami.WebsiteID)),
+			// umami HTTP API 接入 —— admin /analytics 自渲染图表 + tracker website id 自动 bootstrap
+			// 详见 internal/umami/client.go:EnsureWebsiteID。
+			// WebsiteID env 配了用配的;空 → 启动后首次需要时 list+create 自动建一个 Scholay website。
+			umami: umami.NewHandler(umami.NewClient(
+				"", "", "",
+				appconfig.AppConfig.Umami.WebsiteID,
+				siteName(),
+				domainFromSiteURL(),
+			)),
 		},
 		userService:       core.userService,
 		peerReviewService: aiB.peerReviewService,

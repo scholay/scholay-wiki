@@ -43,21 +43,33 @@ const (
 )
 
 // Client 是 backend → umami 的轻量 HTTP 客户端,内置 token 缓存 + 401 自动重登。
+//
+// websiteID 来源优先级:
+//  1. configuredWebsiteID 非空 (来自 UMAMI_WEBSITE_ID env) → 直接采用
+//  2. 否则 → 首次需要时 list /api/websites, 空就 create, 拿第一个的 id,缓存
+//     这样新装实例零手工:backend 起来后第一次 admin 进 /analytics 自动准备好 website。
 type Client struct {
-	baseURL       string
-	adminUser     string
-	adminPassword string
-	websiteID     string
+	baseURL             string
+	adminUser           string
+	adminPassword       string
+	configuredWebsiteID string // 来自 env,允许空
+	siteName            string // 自动建 website 时用的 name (默认从 SITE_NAME env 来)
+	siteDomain          string // 自动建 website 时用的 domain (从 SITE_URL 去掉 scheme)
 
 	http *http.Client
 
-	mu    sync.RWMutex
-	token string
+	mu              sync.RWMutex // 保护 token + cachedWebsiteID 的快读快写
+	token           string
+	cachedWebsiteID string       // bootstrap 后写入,后续直接读
+	bootstrapMu     sync.Mutex   // 专门串行化 EnsureWebsiteID,避免并发首启时多个请求都去 POST 创建 website
 }
 
 // NewClient 构造。baseURL/admin* 都允许覆盖,缺省时用上面的默认值。
 // 一般直接传空 ("") 让默认生效,只有改默认账号或单独跑 umami 时才需要传。
-func NewClient(baseURL, adminUser, adminPassword, websiteID string) *Client {
+//
+// websiteID 也可为空 —— 留空表示让 backend 自动 bootstrap (见 Client.EnsureWebsiteID)。
+// siteName/siteDomain 给 bootstrap 时新建 website 用,domain 通常是 SITE_URL 去 scheme 后的 host。
+func NewClient(baseURL, adminUser, adminPassword, websiteID, siteName, siteDomain string) *Client {
 	if baseURL == "" {
 		baseURL = defaultBaseURL
 	}
@@ -67,22 +79,125 @@ func NewClient(baseURL, adminUser, adminPassword, websiteID string) *Client {
 	if adminPassword == "" {
 		adminPassword = defaultAdminPassword
 	}
+	if siteName == "" {
+		siteName = "Scholay"
+	}
+	if siteDomain == "" {
+		siteDomain = "localhost"
+	}
 	return &Client{
-		baseURL:       baseURL,
-		adminUser:     adminUser,
-		adminPassword: adminPassword,
-		websiteID:     websiteID,
+		baseURL:             baseURL,
+		adminUser:           adminUser,
+		adminPassword:       adminPassword,
+		configuredWebsiteID: websiteID,
+		siteName:            siteName,
+		siteDomain:          siteDomain,
 		http: &http.Client{
 			Timeout: 8 * time.Second,
 		},
 	}
 }
 
-// WebsiteID 返回配置的 websiteID;未配置时调用方应给前端 503,而不是把空字符串拼进 URL。
-func (c *Client) WebsiteID() string { return c.websiteID }
+// EnsureWebsiteID 返回可用的 website id,带 bootstrap 逻辑:
+//
+//   1. 先返 configuredWebsiteID(env 显式配的);
+//   2. 再返 cachedWebsiteID(上次 bootstrap 拿到的);
+//   3. 都没有 → list /api/websites,拿第一个;
+//   4. list 是空 → POST /api/websites 创建一个 (name=siteName, domain=siteDomain),
+//      拿新建的 id;
+//
+// 并发安全:
+//   - 快路径(已有 configured / cached)无锁
+//   - 慢路径(首次 bootstrap)用独立的 bootstrapMu 串行化, 避免并发 create 多个 website
+//   - 重要:不能持 c.mu 调 discoverOrCreate, 否则 getToken / doRequest 内部
+//     再去 RLock 同一把锁直接死锁。c.mu 只在快读快写时用。
+func (c *Client) EnsureWebsiteID(ctx context.Context) (string, error) {
+	if c.configuredWebsiteID != "" {
+		return c.configuredWebsiteID, nil
+	}
+	c.mu.RLock()
+	cached := c.cachedWebsiteID
+	c.mu.RUnlock()
+	if cached != "" {
+		return cached, nil
+	}
 
-// Configured 是否配置了 websiteID;没配的话整个 analytics 模块就没意义。
-func (c *Client) Configured() bool { return c.websiteID != "" }
+	// 串行化首次 bootstrap, 第二个请求等第一个跑完直接走双检拿缓存
+	c.bootstrapMu.Lock()
+	defer c.bootstrapMu.Unlock()
+
+	c.mu.RLock()
+	cached = c.cachedWebsiteID
+	c.mu.RUnlock()
+	if cached != "" {
+		return cached, nil
+	}
+
+	id, err := c.discoverOrCreateWebsite(ctx)
+	if err != nil {
+		return "", err
+	}
+	c.mu.Lock()
+	c.cachedWebsiteID = id
+	c.mu.Unlock()
+	slog.Info("umami website id bootstrapped", "id", id, "name", c.siteName, "domain", c.siteDomain)
+	return id, nil
+}
+
+// discoverOrCreateWebsite 实际执行 list-then-create。调用方须持有 c.mu。
+func (c *Client) discoverOrCreateWebsite(ctx context.Context) (string, error) {
+	// 1) list
+	listBody, err := c.doGETNoCache(ctx, "/api/websites", nil)
+	if err != nil {
+		return "", fmt.Errorf("umami: list websites: %w", err)
+	}
+	// umami v2 返回 `{ data: [{id,name,domain,...}], count: N }`
+	// v3+ 直接返数组。两种都吃。
+	type wsRow struct {
+		ID     string `json:"id"`
+		Name   string `json:"name"`
+		Domain string `json:"domain"`
+	}
+	var asObj struct {
+		Data []wsRow `json:"data"`
+	}
+	var rows []wsRow
+	trimmed := bytes.TrimSpace(listBody)
+	if len(trimmed) > 0 && trimmed[0] == '{' {
+		if err := json.Unmarshal(trimmed, &asObj); err == nil {
+			rows = asObj.Data
+		}
+	} else {
+		_ = json.Unmarshal(trimmed, &rows)
+	}
+	// 偏好按 domain 匹配,匹配不上就第一个
+	for _, w := range rows {
+		if w.Domain == c.siteDomain {
+			return w.ID, nil
+		}
+	}
+	if len(rows) > 0 {
+		return rows[0].ID, nil
+	}
+
+	// 2) create
+	payload, _ := json.Marshal(map[string]string{
+		"name":   c.siteName,
+		"domain": c.siteDomain,
+	})
+	createBody, err := c.doPOSTNoCache(ctx, "/api/websites", payload)
+	if err != nil {
+		return "", fmt.Errorf("umami: create website: %w", err)
+	}
+	var created wsRow
+	if err := json.Unmarshal(createBody, &created); err != nil || created.ID == "" {
+		return "", fmt.Errorf("umami: parse create website response: %w (body=%s)", err, string(createBody))
+	}
+	return created.ID, nil
+}
+
+// SiteDomain 返回客户端配置的 domain,前端拿来给 tracker hostname 调一致也方便定位。
+func (c *Client) SiteDomain() string { return c.siteDomain }
 
 // ---------------- 鉴权 ----------------
 
@@ -136,8 +251,9 @@ func (c *Client) getToken(ctx context.Context) (string, error) {
 	return c.login(ctx)
 }
 
-// doGET 发起带 Bearer 的 GET,401 时清缓存重登重试一次
-func (c *Client) doGET(ctx context.Context, path string, query url.Values) ([]byte, error) {
+// doRequest 发起带 Bearer 的请求,401 时清 token 重登一次。method = GET / POST。
+// body 仅 POST 用,GET 传 nil。query 仅 GET 用。
+func (c *Client) doRequest(ctx context.Context, method, path string, query url.Values, body []byte) ([]byte, error) {
 	full := c.baseURL + path
 	if len(query) > 0 {
 		full += "?" + query.Encode()
@@ -148,11 +264,18 @@ func (c *Client) doGET(ctx context.Context, path string, query url.Values) ([]by
 		if err != nil {
 			return nil, err
 		}
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, full, nil)
+		var reader io.Reader
+		if body != nil {
+			reader = bytes.NewReader(body)
+		}
+		req, err := http.NewRequestWithContext(ctx, method, full, reader)
 		if err != nil {
 			return nil, err
 		}
 		req.Header.Set("Authorization", "Bearer "+token)
+		if body != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
 		return c.http.Do(req)
 	}
 
@@ -162,7 +285,6 @@ func (c *Client) doGET(ctx context.Context, path string, query url.Values) ([]by
 	}
 	if resp.StatusCode == http.StatusUnauthorized {
 		resp.Body.Close()
-		// 清缓存重登一次,再失败就上抛
 		c.mu.Lock()
 		c.token = ""
 		c.mu.Unlock()
@@ -173,14 +295,27 @@ func (c *Client) doGET(ctx context.Context, path string, query url.Values) ([]by
 		}
 	}
 	defer resp.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		return nil, fmt.Errorf("umami: read response: %w", err)
 	}
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("umami: %s -> %d: %s", path, resp.StatusCode, string(body))
+		return nil, fmt.Errorf("umami: %s %s -> %d: %s", method, path, resp.StatusCode, string(respBody))
 	}
-	return body, nil
+	return respBody, nil
+}
+
+// doGET 兼容旧调用点
+func (c *Client) doGET(ctx context.Context, path string, query url.Values) ([]byte, error) {
+	return c.doRequest(ctx, http.MethodGet, path, query, nil)
+}
+
+// doGETNoCache / doPOSTNoCache 给 discoverOrCreateWebsite 用,跟普通调用一样的 token + 401 处理。
+func (c *Client) doGETNoCache(ctx context.Context, path string, query url.Values) ([]byte, error) {
+	return c.doRequest(ctx, http.MethodGet, path, query, nil)
+}
+func (c *Client) doPOSTNoCache(ctx context.Context, path string, body []byte) ([]byte, error) {
+	return c.doRequest(ctx, http.MethodPost, path, nil, body)
 }
 
 // ---------------- API 方法 ----------------
@@ -200,10 +335,11 @@ type Stats struct {
 }
 
 func (c *Client) Stats(ctx context.Context, startAt, endAt time.Time) (*Stats, error) {
-	if !c.Configured() {
-		return nil, errors.New("umami: WEBSITE_ID not configured")
+	id, err := c.EnsureWebsiteID(ctx)
+	if err != nil {
+		return nil, err
 	}
-	body, err := c.doGET(ctx, "/api/websites/"+c.websiteID+"/stats", url.Values{
+	body, err := c.doGET(ctx, "/api/websites/"+id+"/stats", url.Values{
 		"startAt": {msStr(startAt)},
 		"endAt":   {msStr(endAt)},
 	})
@@ -229,13 +365,14 @@ type PageviewsSeries struct {
 }
 
 func (c *Client) Pageviews(ctx context.Context, startAt, endAt time.Time, unit string) (*PageviewsSeries, error) {
-	if !c.Configured() {
-		return nil, errors.New("umami: WEBSITE_ID not configured")
+	id, err := c.EnsureWebsiteID(ctx)
+	if err != nil {
+		return nil, err
 	}
 	if unit != "hour" && unit != "day" && unit != "month" && unit != "year" {
 		unit = "day"
 	}
-	body, err := c.doGET(ctx, "/api/websites/"+c.websiteID+"/pageviews", url.Values{
+	body, err := c.doGET(ctx, "/api/websites/"+id+"/pageviews", url.Values{
 		"startAt": {msStr(startAt)},
 		"endAt":   {msStr(endAt)},
 		"unit":    {unit},
@@ -261,8 +398,9 @@ type MetricRow struct {
 // Metrics —— GET /api/websites/:id/metrics?type=url|referrer|country|browser|os|device|...
 // 注意:umami 也支持 event/title/region/city/language/screen 等,这里收紧为 admin 页面会用到的 6 个。
 func (c *Client) Metrics(ctx context.Context, startAt, endAt time.Time, mtype string, limit int) ([]MetricRow, error) {
-	if !c.Configured() {
-		return nil, errors.New("umami: WEBSITE_ID not configured")
+	id, err := c.EnsureWebsiteID(ctx)
+	if err != nil {
+		return nil, err
 	}
 	allowed := map[string]bool{
 		"url": true, "referrer": true, "country": true,
@@ -274,7 +412,7 @@ func (c *Client) Metrics(ctx context.Context, startAt, endAt time.Time, mtype st
 	if limit <= 0 || limit > 50 {
 		limit = 10
 	}
-	body, err := c.doGET(ctx, "/api/websites/"+c.websiteID+"/metrics", url.Values{
+	body, err := c.doGET(ctx, "/api/websites/"+id+"/metrics", url.Values{
 		"startAt": {msStr(startAt)},
 		"endAt":   {msStr(endAt)},
 		"type":    {mtype},
@@ -297,10 +435,11 @@ type ActiveVisitors struct {
 }
 
 func (c *Client) Active(ctx context.Context) (*ActiveVisitors, error) {
-	if !c.Configured() {
-		return nil, errors.New("umami: WEBSITE_ID not configured")
+	id, err := c.EnsureWebsiteID(ctx)
+	if err != nil {
+		return nil, err
 	}
-	body, err := c.doGET(ctx, "/api/websites/"+c.websiteID+"/active", nil)
+	body, err := c.doGET(ctx, "/api/websites/"+id+"/active", nil)
 	if err != nil {
 		return nil, err
 	}

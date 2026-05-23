@@ -103,6 +103,7 @@ shared/lib       → 无依赖(纯 TS)
 | PDF | `react-pdf` + `pdfjs-dist` | 自研 worker |
 | 编辑器(LaTeX) | `@codemirror/*` | Monaco、自研 |
 | 图(引用网络) | `@xyflow/react` | D3 手搓、cytoscape |
+| 图表(折线/柱状/饼图) | `recharts` —— admin 仪表板 / 用户分析 / umami analytics 都用 | D3 手搓、chart.js |
 | 树 | `react-arborist` | 自研 |
 | 多窗格 | `react-resizable-panels`(经 `shared/ui/resizable.tsx`) | 自研 split-pane |
 | 日期 | `date-fns` | dayjs、moment |
