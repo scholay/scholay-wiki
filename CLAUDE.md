@@ -6,9 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Scholar is an academic search platform with AI-powered features. It consists of:
 - **Backend**: Go (Gin framework) + MySQL + GORM + Redis
-- **Frontend**: React 18 (user portal + admin dashboard merged into `frontend-user`)
+- **Frontend**: React 19 + Vite 6 + TS strict + Tailwind v4 + shadcn 在 `frontend-user/`,用户端 + /admin 路由共一个 SPA,端口 5411
+- **Frontend (legacy archive)**: 旧 CRA 版源在 `frontend-user-old/` —— 不构建、不部署,仅作备查
 - **Infrastructure**: Docker Compose with Nginx reverse proxy
 - **Caching**: Redis for session management and API key caching
+
+> ⚠️ **在 `frontend-user/` 下工作时,该目录自带 [CLAUDE.md](frontend-user/CLAUDE.md) 强制约束**(第三方优先 / 分层 / 网络层 / 样式 token / 组件分层等)。提交前可用 `/v2-audit` skill 自动审计(skill 名沿用旧叫法)。`frontend-user-old/` 是历史 CRA 代码,不要照搬旧模式到当前 Vite 版前端。
 
 ## Quick Reference
 
@@ -659,12 +662,12 @@ The backend implements several patterns for high performance and reliability:
 - Reduces latency by reusing TCP connections
 - Configurable timeouts, keep-alive, and TLS settings
 
-**Observability with OpenTelemetry/SigNoz**:
-- Distributed tracing with automatic span creation for HTTP requests (via otelgin middleware)
-- Structured logging with trace context correlation
-- Metrics export to SigNoz collector
-- Configuration via `SIGNOZ_*` environment variables
-- Uses OTLP HTTP exporter for trace data
+**日志(本地 docker logs)**:
+- 后端用 `slog`(stdlib)结构化日志直接写 stdout
+- `RecoveryMiddleware` 注入 RequestID → 错误日志可关联到具体一次请求
+- 所有 handler 的错误路径 + 所有上游 API 调用失败都打 `slog.Error`(见 `internal/common/middleware/recovery.go`)
+- 前端 / Nginx 都通过 docker logs 收集,不依赖外部观测平台 —— 历史的 OpenTelemetry/SigNoz 接入已移除
+- 日志驱动统一 `json-file` + size 限制(见 docker-compose.yml `x-default-logging`),防容器盘爆
 
 ### Background Tasks & Caching
 
@@ -823,12 +826,7 @@ Key variables in `.env`:
 - `SEMANTIC_SCHOLAR_API_KEY` - Optional (uses free tier if not set)
 - Port mappings: `HTTP_PORT` (user portal port, default: 5411), `ADMIN_PORT` (admin dashboard port, default: 5455)
 
-**SigNoz Observability** (optional):
-- `SIGNOZ_ENDPOINT` - SigNoz collector endpoint (e.g., `198.44.187.186:4318`)
-- `SIGNOZ_SERVICE_NAME` - Service name for tracing (default: `scholar-backend`)
-- `SIGNOZ_ENVIRONMENT` - Environment tag (default: `production`)
-- `SIGNOZ_ENABLE_TRACING` / `SIGNOZ_ENABLE_LOGGING` / `SIGNOZ_ENABLE_METRICS` - Enable/disable features
-- `SIGNOZ_SAMPLING_RATE` - Trace sampling rate (0.0-1.0, default: 1.0)
+外部观测平台(SigNoz / OpenTelemetry)已下线,所有日志走 docker logs(`json-file` 驱动,见 docker-compose.yml `x-default-logging`)。
 
 ### Email Verification Codes
 

@@ -8,52 +8,11 @@
 package ai
 
 import (
-	"database/sql/driver"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
 	"time"
 )
-
-// TemplateVariables represents template variables as JSON
-type TemplateVariables map[string]any
-
-// Scan implements sql.Scanner for Variables field
-func (v *TemplateVariables) Scan(value any) error {
-	if value == nil {
-		*v = nil
-		return nil
-	}
-
-	bytes, ok := value.([]byte)
-	if !ok {
-		return nil
-	}
-
-	return json.Unmarshal(bytes, v)
-}
-
-// Value implements driver.Valuer for Variables field
-func (v TemplateVariables) Value() (driver.Value, error) {
-	if v == nil {
-		return nil, nil
-	}
-	return json.Marshal(v)
-}
-
-// PromptTemplate represents an AI prompt template
-type PromptTemplate struct {
-	ID          uint              `gorm:"primaryKey" json:"id"`
-	Name        string            `gorm:"type:varchar(100);not null" json:"name"`
-	Key         string            `gorm:"type:varchar(50);not null;uniqueIndex:idx_key" json:"key"`
-	Template    string            `gorm:"type:text;not null" json:"template"`
-	Description string            `gorm:"type:text" json:"description"`
-	Variables   TemplateVariables `gorm:"type:json" json:"variables"`
-	IsActive    int               `gorm:"default:1;index:idx_active" json:"is_active"`
-	CreatedAt   time.Time         `json:"created_at"`
-	UpdatedAt   time.Time         `json:"updated_at"`
-}
 
 // MessageContent represents content that can be either text or multimodal
 type MessageContent any
@@ -423,6 +382,10 @@ func (PaperAnalysis) TableName() string {
 // AnalysisDimension 分析维度定义表
 // 支持系统默认维度和用户自定义维度
 // user_id = -1 表示系统默认维度，user_id > 0 表示用户自定义维度
+//
+// 隐藏(IsHidden)策略：用户想隐藏系统维度时，前端调"设置可见性"接口，
+// 后端创建一条 user_id>0 的 override 行（拷贝 name/description）并把
+// IsHidden 置 true —— 与改名/改提示词同款 override 模式，**永不修改 user_id=-1 行**。
 type AnalysisDimension struct {
 	ID           uint      `gorm:"primaryKey" json:"id"`
 	UserID       int64     `gorm:"index:idx_user_id;default:-1" json:"userId"`                         // -1表示系统默认维度，>0表示用户自定义
@@ -430,7 +393,8 @@ type AnalysisDimension struct {
 	Name         string    `gorm:"type:varchar(100);not null" json:"name"`                             // 维度名称
 	Description  string    `gorm:"type:text;not null" json:"description"`                              // 维度解释/分析指示
 	SortOrder    int       `gorm:"default:0;index:idx_sort_order" json:"sortOrder"`                    // 排序顺序
-	IsActive     bool      `gorm:"default:true" json:"isActive"`                                       // 是否启用
+	IsActive     bool      `gorm:"default:true" json:"isActive"`                                       // 是否启用(管理员控制 / 维度配置层)
+	IsHidden     bool      `gorm:"default:false" json:"isHidden"`                                      // 用户隐藏(矩阵 UI 不展示;仅 user override 有意义)
 	CreatedAt    time.Time `json:"createdAt"`
 	UpdatedAt    time.Time `json:"updatedAt"`
 }

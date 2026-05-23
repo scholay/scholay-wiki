@@ -11,6 +11,7 @@ import (
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/middleware"
 	"scholar-backend/internal/peerreview"
+	"scholar-backend/internal/peerreview2"
 
 	"github.com/gin-gonic/gin"
 )
@@ -61,6 +62,15 @@ func registerPublicUserRoutes(api *gin.RouterGroup, h *allHandlers) {
 		discoursePublic.GET("/login-url", h.user.GetDiscourseSSOLoginURL)
 		discoursePublic.GET("/callback", h.user.DiscourseSSOCallback)
 	}
+
+	// OAuth 邮箱冲突合并确认中间页 —— 三个端点共享 merge_token,无需 user auth
+	// (token 本身是凭据)。详见 internal/user/handler_oauth_merge.go。
+	oauthMerge := api.Group("/user/oauth")
+	{
+		oauthMerge.GET("/pending-merge", h.user.GetPendingOAuthMerge)
+		oauthMerge.POST("/confirm-merge", h.user.ConfirmPendingOAuthMerge)
+		oauthMerge.POST("/cancel-merge", h.user.CancelPendingOAuthMerge)
+	}
 }
 
 // registerProtectedUserRoutes 注册用户受保护路由
@@ -70,6 +80,8 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 	{
 		userProtected.GET("/profile", h.user.GetProfile)
 		userProtected.PUT("/profile", h.user.UpdateProfile)
+		// 「设置 → 已连接账号」一站拉全:邮箱/手机 + 8 个第三方 provider 的状态
+		userProtected.GET("/connections", h.user.GetUserConnections)
 		userProtected.POST("/logout", h.user.Logout)
 		userProtected.POST("/change-password", h.user.ChangePassword)
 
@@ -84,6 +96,10 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		userProtected.POST("/bind-github", h.user.BindGitHubAccount)
 		userProtected.POST("/bind-google", h.user.BindGoogleAccount)
 		userProtected.POST("/bind-apple", h.user.BindAppleAccount)
+		// Apple form_post 流的「绑定」入口:颁发 bind_nonce + 把 user_id 写入 Redis,
+		// 然后返回 Apple 授权 URL(state 含 "bind:<nonce>")。AppleCallback 解析到
+		// "bind:" state 前缀就走绑定分支,直接 302 重定向回前端 /apple/callback?bind=success
+		userProtected.GET("/apple/bind-url", h.user.GetAppleBindURL)
 		userProtected.POST("/bind-orcid", h.user.BindOrcidAccount)
 		userProtected.POST("/bind-microsoft", h.user.BindMicrosoftAccount)
 		userProtected.POST("/bind-discourse", h.user.BindDiscourseAccount)
@@ -146,6 +162,12 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 
 		// LaTeX Writer
 		registerLatexWriterRoutes(userProtected, h)
+
+		// 文献集 v1（单默认收藏夹）
+		h.library.RegisterRoutes(userProtected)
+
+		// 检索工作区 · 暂存区（每用户最多 5 个，每个最多 100 篇）
+		h.stagingArea.RegisterRoutes(userProtected)
 	}
 }
 
@@ -187,6 +209,36 @@ func registerPeerReviewPublicRoutes(api *gin.RouterGroup, h *allHandlers, tiered
 		g.GET("/trial-status", h.peerReview.TrialStatus)
 		g.POST("/claim-task", h.peerReview.ClaimTask) // 单任务认领（保留兼容）
 		g.POST("/claim-all", h.peerReview.ClaimAll)   // 批量认领
+	}
+}
+
+// registerPeerReviewV2Routes 注册 V2 审稿路由 (对接 peer.scholay.com)。
+// 与老 peer-review 完全独立的路径前缀,支持匿名 (OptionalUserAuth + DeviceID 中间件)。
+// 流式接口 /turns/:turn_id/stream 不进 tieredRL,避免长连接被限流误杀。
+func registerPeerReviewV2Routes(api *gin.RouterGroup, h *allHandlers, tieredRL gin.HandlerFunc) {
+	g := api.Group("/user/peer-review2")
+	g.Use(middleware.OptionalUserAuthMiddleware(), peerreview2.DeviceIDMiddleware())
+	{
+		// 试用余额 & 认领 (无副作用,放限流外)
+		g.GET("/trial-status", h.peerReview2.TrialStatus)
+		g.POST("/claim-all", h.peerReview2.ClaimAll)
+
+		// 列表 / 详情 / 删除 / 上传 (有副作用,过限流)
+		rl := g.Group("", tieredRL)
+		{
+			rl.POST("/conversations", h.peerReview2.CreateConversation)
+			rl.GET("/conversations", h.peerReview2.ListConversations)
+			rl.GET("/conversations/:id", h.peerReview2.GetConversation)
+			rl.DELETE("/conversations/:id", h.peerReview2.DeleteConversation)
+			rl.GET("/conversations/:id/turns", h.peerReview2.ListTurns)
+			rl.GET("/conversations/:id/messages", h.peerReview2.ListMessages)
+			rl.POST("/conversations/:id/messages", h.peerReview2.SendMessage)
+			rl.POST("/conversations/:id/pause", h.peerReview2.PauseConversation)
+			rl.POST("/conversations/:id/resume", h.peerReview2.ResumeConversation)
+		}
+
+		// 流式接口:不走 tieredRL,长连接占席位会被误判
+		g.GET("/conversations/:id/turns/:turn_id/stream", h.peerReview2.StreamTurn)
 	}
 }
 

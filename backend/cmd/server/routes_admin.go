@@ -23,14 +23,16 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.PUT("/password", h.admin.UpdatePassword)
 		adminProtected.POST("/verify-password", h.admin.VerifyPassword)
 
-		// 仪表板
+		// 仪表板 —— active-users/payment-funnel 已下线,在线/活跃指标改用 umami
 		adminProtected.GET("/dashboard/statistics", h.dashboard.GetDashboardStatistics)
-		adminProtected.GET("/dashboard/active-users", admin.GetActiveUserInsights)
-		adminProtected.GET("/dashboard/payment-funnel", admin.GetPaymentFunnel)
 
-		// 系统配置
-		adminProtected.PUT("/privacy-policy", h.config.UpdatePrivacyPolicy)
-		adminProtected.PUT("/terms-of-service", h.config.UpdateTermsOfService)
+		// Umami analytics —— backend 查 umami HTTP API,前端 admin 自己渲染图表
+		adminProtected.GET("/analytics/overview", h.umami.GetOverview)
+		adminProtected.GET("/analytics/pageviews", h.umami.GetPageviews)
+		adminProtected.GET("/analytics/top", h.umami.GetTop)
+		adminProtected.GET("/analytics/active", h.umami.GetActive)
+
+		// 系统配置 —— 隐私政策 / 服务条款 已下线为代码常量(见 frontend-v2 legal-content.ts + 0046 迁移)
 		adminProtected.GET("/email-config", h.config.GetEmailConfig)
 		adminProtected.PUT("/email-config", h.config.UpdateEmailConfig)
 		adminProtected.POST("/email-config/test", h.config.TestEmailConfig)
@@ -61,8 +63,8 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 
 		// 用户管理
 		adminProtected.GET("/users/stats", h.user.GetUserStatistics)
+		adminProtected.GET("/users/metrics", h.user.GetUserMetrics)
 		adminProtected.GET("/users", h.user.GetUserList)
-		adminProtected.GET("/users/online", h.user.GetOnlineUsers)
 		adminProtected.GET("/users/:id", h.user.GetUserDetail)
 		adminProtected.GET("/users/:id/aggregate", h.user.GetUserAggregate)
 		adminProtected.DELETE("/users/:id", h.user.DeleteUser)
@@ -80,10 +82,6 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.PUT("/announcements/:id", h.announcement.Update)
 		adminProtected.DELETE("/announcements/:id", h.announcement.Delete)
 
-		// 统计图表
-		adminProtected.GET("/statistics/users", h.user.GetUserStatisticsChart)
-		adminProtected.GET("/statistics/online", h.user.GetOnlineUserChart)
-
 		// 第三方账号管理
 		adminProtected.GET("/third-party-accounts", h.thirdParty.ListAccounts)
 		adminProtected.POST("/third-party-accounts", h.thirdParty.CreateAccount)
@@ -94,14 +92,6 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.DELETE("/third-party-accounts/:id", h.thirdParty.DeleteAccount)
 		adminProtected.POST("/third-party-accounts/:id/test", h.thirdParty.TestAccount)
 		adminProtected.POST("/third-party-accounts/:id/reset-stats", h.thirdParty.ResetAccountStats)
-
-		// Prompt 模板管理
-		adminProtected.GET("/prompt-templates", h.ai.ListPromptTemplates)
-		adminProtected.POST("/prompt-templates", h.ai.CreatePromptTemplate)
-		adminProtected.GET("/prompt-templates/:id", h.ai.GetPromptTemplate)
-		adminProtected.PUT("/prompt-templates/:id", h.ai.UpdatePromptTemplate)
-		adminProtected.DELETE("/prompt-templates/:id", h.ai.DeletePromptTemplate)
-		adminProtected.GET("/prompt-templates/:id/versions", h.ai.ListPromptTemplateVersionsHandler)
 
 		// 分析维度管理
 		adminProtected.GET("/analysis/dimensions", h.ai.AdminGetSystemDimensions)
@@ -159,14 +149,6 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.PUT("/feedbacks/:id/internal-notes", h.feedback.UpdateInternalNotes)
 		adminProtected.POST("/feedbacks/:id/reply", h.feedback.ReplyFeedback)
 		adminProtected.DELETE("/feedbacks/:id", h.feedback.DeleteFeedback)
-
-		// 用户标签管理
-		adminProtected.GET("/user-tags", h.userTag.ListTags)
-		adminProtected.POST("/user-tags", h.userTag.CreateTag)
-		adminProtected.PUT("/user-tags/:id", h.userTag.UpdateTag)
-		adminProtected.DELETE("/user-tags/:id", h.userTag.DeleteTag)
-		adminProtected.POST("/user-tags/assign", h.userTag.AssignTags)
-		adminProtected.GET("/users/:id/tags", h.userTag.GetUserTags)
 
 		// 使用日志管理
 		adminProtected.GET("/usage-logs", h.usageLogAdmin.List)

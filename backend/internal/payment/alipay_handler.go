@@ -72,22 +72,22 @@ func (h *AlipayHandler) CreatePayment(c *gin.Context) {
 
 	orderRecord, err := h.orderService.GetOrderByOrderNo(req.OrderNo)
 	if err != nil {
-		utils.Error(c, 4001, "Order not found")
+		utils.Error(c, 4001, "订单不存在,请刷新后重试")
 		return
 	}
 
 	if orderRecord.UserID != userID {
-		utils.Error(c, 4003, "Order does not belong to user")
+		utils.Error(c, 4003, "无权访问该订单")
 		return
 	}
 
 	if orderRecord.Status != "pending" {
-		utils.Error(c, 4004, "Order is not in pending status")
+		utils.Error(c, 4004, "订单状态异常,无法支付(可能已支付或已取消)")
 		return
 	}
 
 	if config.AppConfig != nil && config.AppConfig.App.IsRelease && req.Amount != orderRecord.Amount {
-		utils.Error(c, 4005, "Amount does not match order")
+		utils.Error(c, 4005, "支付金额与订单不一致")
 		return
 	}
 
@@ -195,10 +195,10 @@ func (h *AlipayHandler) GetActiveConfig(c *gin.Context) {
 	config, err := h.alipayService.GetActiveConfig()
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			utils.Error(c, 4404, "No active Alipay configuration found")
+			utils.Error(c, 4404, "支付宝支付暂未开通")
 			return
 		}
-		utils.Error(c, 5000, "Failed to get configuration: "+err.Error())
+		utils.Error(c, 5000, "加载配置失败: "+err.Error())
 		return
 	}
 
@@ -212,7 +212,7 @@ func (h *AlipayHandler) GetActiveConfig(c *gin.Context) {
 func (h *AlipayHandler) ListConfigs(c *gin.Context) {
 	configs, err := h.alipayService.ListConfigs()
 	if err != nil {
-		utils.Error(c, 5000, "Failed to list configurations: "+err.Error())
+		utils.Error(c, 5000, "加载配置列表失败: "+err.Error())
 		return
 	}
 
@@ -262,7 +262,7 @@ func (h *AlipayHandler) CreateConfig(c *gin.Context) {
 	}
 
 	if err := h.alipayService.CreateConfig(config); err != nil {
-		utils.Error(c, 5001, "Failed to create configuration: "+err.Error())
+		utils.Error(c, 5001, "创建配置失败: "+err.Error())
 		return
 	}
 
@@ -297,7 +297,7 @@ func (h *AlipayHandler) UpdateConfig(c *gin.Context) {
 
 	config, err := h.alipayService.GetConfigByID(id)
 	if err != nil {
-		utils.Error(c, 4404, "Configuration not found")
+		utils.Error(c, 4404, "配置不存在")
 		return
 	}
 
@@ -329,7 +329,7 @@ func (h *AlipayHandler) UpdateConfig(c *gin.Context) {
 	}
 
 	if err := h.alipayService.UpdateConfig(config); err != nil {
-		utils.Error(c, 5002, "Failed to update configuration: "+err.Error())
+		utils.Error(c, 5002, "更新配置失败: "+err.Error())
 		return
 	}
 
@@ -347,7 +347,7 @@ func (h *AlipayHandler) DeleteConfig(c *gin.Context) {
 	}
 
 	if err := h.alipayService.DeleteConfig(id); err != nil {
-		utils.Error(c, 5003, "Failed to delete configuration: "+err.Error())
+		utils.Error(c, 5003, "删除配置失败: "+err.Error())
 		return
 	}
 
@@ -362,7 +362,7 @@ func (h *AlipayHandler) SetActiveConfig(c *gin.Context) {
 	}
 
 	if err := h.alipayService.SetActiveConfig(id); err != nil {
-		utils.Error(c, 5004, "Failed to set active configuration: "+err.Error())
+		utils.Error(c, 5004, "设置激活配置失败: "+err.Error())
 		return
 	}
 
@@ -392,22 +392,22 @@ func (h *AlipayHandler) SimulatePayment(c *gin.Context) {
 
 	orderRecord, err := h.orderService.GetOrderByOrderNo(req.OrderNo)
 	if err != nil {
-		utils.Error(c, 4001, "Order not found")
+		utils.Error(c, 4001, "订单不存在,请刷新后重试")
 		return
 	}
 
 	if orderRecord.UserID != userID {
-		utils.Error(c, 4003, "Order does not belong to user")
+		utils.Error(c, 4003, "无权访问该订单")
 		return
 	}
 
 	if orderRecord.Status != "pending" {
-		utils.Error(c, 4004, "Order is not in pending status")
+		utils.Error(c, 4004, "订单状态异常,无法支付(可能已支付或已取消)")
 		return
 	}
 
 	if math.Abs(req.Amount-orderRecord.FinalAmount) > 0.01 {
-		utils.Error(c, 4005, fmt.Sprintf("Amount mismatch: expected %.2f, got %.2f", orderRecord.FinalAmount, req.Amount))
+		utils.Error(c, 4005, fmt.Sprintf("支付金额与订单不一致(应付 ¥%.2f,实付 ¥%.2f)", orderRecord.FinalAmount, req.Amount))
 		return
 	}
 
@@ -430,7 +430,7 @@ func (h *AlipayHandler) SimulatePayment(c *gin.Context) {
 
 	if err := h.orderService.ProcessAlipayCallback(req.OrderNo, mockTransactionNo, req.Amount, mockCallbackData); err != nil {
 		slog.Error("simulate payment failed", "order_no", req.OrderNo, "err", err)
-		utils.Error(c, 5000, "Failed to simulate payment: "+err.Error())
+		utils.Error(c, 5000, "模拟支付失败: "+err.Error())
 		return
 	}
 

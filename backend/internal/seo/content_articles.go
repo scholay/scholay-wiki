@@ -30,7 +30,7 @@ type ArticleEntry struct {
 // 维护: 当 ServeStaticSitemap 中 staticPages 列表新增/删除/改路径,或这些
 // 静态页的页面内容有显著变更(SEO 文案/标题)时,手动 bump 这个日期。
 // 不需要每天改 — 没有真实变更就别动。
-const StaticPagesLastMod = "2026-02-22"
+const StaticPagesLastMod = "2026-05-22"
 
 // StaticPage sitemap-static 的单条目结构。导出后 ServeStaticSitemap 和
 // 主动提交 bootstrap 都基于同一份数据,避免两处维护。
@@ -42,31 +42,44 @@ type StaticPage struct {
 
 // StaticPages 站点全部静态/列表入口。
 // 维护:新增静态路由就加一行;sitemap 和主动提交都自动跟进。
+//
+// **与 frontend-v2 实际路由严格对齐**(2026-05 重排):
+//   - 旧 frontend-user 的 /chat /assistant /latex-writer /features/latex-writer
+//     在 v2 已 redirect 到新规范名(/claw /prism /features/prism),不再放进
+//     sitemap —— 改放新的 canonical(避免 Google 把 redirect 链入索引,
+//     稀释 PageRank)
+//   - 旧链接的 SEO 入站权重靠 nginx 301 保留(legacy-redirects.conf),
+//     不依赖 sitemap 暴露
+//   - 公开搜索入口 /search /journals/search 是公开页(空状态有引导文案 + 装饰),
+//     加入 sitemap 不构成 thin content;具体结果仍走 /paper/{slug}、
+//     /author/{slug} 动态 sitemap
 var StaticPages = []StaticPage{
-	// 核心功能页
-	// 注: /search-results 是 query 驱动页,空查询时是空状态,不进 sitemap
-	// 避免被 Google 判定 thin content。具体论文/作者通过 /paper/{slug}、/author/{slug} 收录。
+	// ── 核心功能首页 ──────────────────────────────────
 	{"/", "daily", "1.0"},
-	{"/chat", "weekly", "0.8"},
-	{"/assistant", "weekly", "0.8"},
-	{"/peer-review", "weekly", "0.8"},
-	{"/latex-writer", "weekly", "0.8"},
+	{"/search", "weekly", "0.8"},         // 文献搜索入口
+	{"/journals/search", "weekly", "0.7"}, // 期刊搜索入口
+	{"/claw", "weekly", "0.8"},           // 智能助手(原 /chat /assistant)
+	{"/prism", "weekly", "0.8"},          // 智能写作(原 /latex-writer)
+	{"/peer-review", "weekly", "0.8"},    // 同行评审 / 智能审稿
 
-	// 营销 / 品牌页
+	// ── 营销 / 品牌页(7 个 feature 落地页 + 概览 + 价格) ─────
 	{"/features", "monthly", "0.7"},
 	{"/features/search", "monthly", "0.6"},
+	{"/features/library", "monthly", "0.6"},
+	{"/features/prism", "monthly", "0.6"},
+	{"/features/claw", "monthly", "0.6"},
+	{"/features/submit", "monthly", "0.6"},
 	{"/features/peer-review", "monthly", "0.6"},
-	{"/features/latex-writer", "monthly", "0.6"},
 	{"/pricing", "monthly", "0.7"},
 	{"/about", "monthly", "0.6"},
 	{"/contact", "monthly", "0.6"},
 
-	// 内容中心入口
+	// ── 内容中心入口 ──────────────────────────────────
 	{"/resources", "weekly", "0.8"},
 	{"/blog", "weekly", "0.8"},
 	{"/help", "monthly", "0.7"},
 
-	// 合规 / 反馈
+	// ── 合规 / 反馈 ───────────────────────────────────
 	{"/privacy", "monthly", "0.5"},
 	{"/terms", "monthly", "0.5"},
 	{"/disclaimer", "monthly", "0.5"},

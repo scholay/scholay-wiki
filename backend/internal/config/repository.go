@@ -25,31 +25,6 @@ func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
 }
 
-// FindActivePrivacyPolicy finds the active privacy policy
-func (r *Repository) FindActivePrivacyPolicy() (*model.PrivacyPolicy, error) {
-	var policy model.PrivacyPolicy
-	err := r.db.Where("is_active = ?", true).
-		Order("created_at DESC").
-		First(&policy).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	return &policy, err
-}
-
-// CreatePrivacyPolicy creates a new privacy policy
-func (r *Repository) CreatePrivacyPolicy(policy *model.PrivacyPolicy) error {
-	return r.db.Create(policy).Error
-}
-
-// DeactivateAllPolicies deactivates all existing policies
-func (r *Repository) DeactivateAllPolicies() error {
-	return r.db.Model(&model.PrivacyPolicy{}).
-		Where("is_active = ?", true).
-		Update("is_active", false).Error
-}
-
 // FindActiveEmailConfig finds the active email configuration
 func (r *Repository) FindActiveEmailConfig() (*model.EmailConfig, error) {
 	var config model.EmailConfig
@@ -116,31 +91,6 @@ func (r *Repository) CreateSMSConfig(config *model.SMSConfig) error {
 // DeactivateAllSMSConfigs deactivates all existing SMS configs
 func (r *Repository) DeactivateAllSMSConfigs() error {
 	return r.db.Model(&model.SMSConfig{}).
-		Where("is_active = ?", true).
-		Update("is_active", false).Error
-}
-
-// FindActiveTermsOfService finds the active terms of service
-func (r *Repository) FindActiveTermsOfService() (*model.TermsOfService, error) {
-	var terms model.TermsOfService
-	err := r.db.Where("is_active = ?", true).
-		Order("created_at DESC").
-		First(&terms).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	return &terms, err
-}
-
-// CreateTermsOfService creates a new terms of service
-func (r *Repository) CreateTermsOfService(terms *model.TermsOfService) error {
-	return r.db.Create(terms).Error
-}
-
-// DeactivateAllTermsOfService deactivates all existing terms of service
-func (r *Repository) DeactivateAllTermsOfService() error {
-	return r.db.Model(&model.TermsOfService{}).
 		Where("is_active = ?", true).
 		Update("is_active", false).Error
 }

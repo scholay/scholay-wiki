@@ -21,59 +21,7 @@ func NewService(repo *Repository) *Service {
 	return &Service{repo: repo}
 }
 
-// InitializeDefaultPrivacyPolicy creates default privacy policy if none exists
-func (s *Service) InitializeDefaultPrivacyPolicy() error {
-	// Check if any privacy policy exists
-	policy, err := s.repo.FindActivePrivacyPolicy()
-	if err != nil {
-		return err
-	}
-
-	// If policy exists, don't create default
-	if policy != nil {
-		return nil
-	}
-
-	// Create default privacy policy
-	defaultPolicy := &model.PrivacyPolicy{
-		Content: `我们重视并保护您的隐私。本隐私政策说明了我们如何收集、使用和保护您的个人信息。
-
-1. 信息收集
-我们收集您在注册和使用服务时提供的信息，包括但不限于电子邮箱地址。
-
-2. 信息使用
-我们使用收集的信息来提供、维护和改进我们的服务。
-
-3. 信息保护
-我们采取适当的安全措施来保护您的个人信息。
-
-4. 信息共享
-未经您的同意，我们不会与第三方共享您的个人信息。
-
-最后更新日期：2025年1月`,
-		Version:  "1.0",
-		IsActive: true,
-	}
-
-	return s.repo.CreatePrivacyPolicy(defaultPolicy)
-}
-
-// GetActivePrivacyPolicy gets the active privacy policy
-func (s *Service) GetActivePrivacyPolicy() (*model.PrivacyPolicy, error) {
-	return s.repo.FindActivePrivacyPolicy()
-}
-
-// CreatePrivacyPolicy creates a new privacy policy and deactivates old ones
-func (s *Service) CreatePrivacyPolicy(policy *model.PrivacyPolicy) error {
-	// Deactivate all existing policies
-	err := s.repo.DeactivateAllPolicies()
-	if err != nil {
-		return err
-	}
-
-	// Create new policy
-	return s.repo.CreatePrivacyPolicy(policy)
-}
+// 隐私政策 / 服务条款 已下线 —— 见 frontend-v2/src/features/help/legal-content.ts + 0046 迁移。
 
 // GetActiveEmailConfig gets the active email configuration
 func (s *Service) GetActiveEmailConfig() (*model.EmailConfig, error) {
@@ -176,63 +124,6 @@ func (s *Service) CreateSMSConfig(config *model.SMSConfig) error {
 
 	// Create new config
 	return s.repo.CreateSMSConfig(config)
-}
-
-// InitializeDefaultTermsOfService creates default terms of service if none exists
-func (s *Service) InitializeDefaultTermsOfService() error {
-	// Check if any terms of service exists
-	terms, err := s.repo.FindActiveTermsOfService()
-	if err != nil {
-		return err
-	}
-
-	// If terms exists, don't create default
-	if terms != nil {
-		return nil
-	}
-
-	// Create default terms of service
-	defaultTerms := &model.TermsOfService{
-		Content: `欢迎使用 Scholar 学术搜索平台服务。请仔细阅读以下条款：
-
-1. 服务说明
-Scholar 提供学术论文搜索、AI分析等服务。我们保留随时修改或终止服务的权利。
-
-2. 用户责任
-用户应遵守相关法律法规，不得利用本平台从事违法活动。用户对其账户的所有活动负责。
-
-3. 知识产权
-本平台的所有内容和功能均受知识产权法保护。未经授权，不得复制或使用。
-
-4. 免责声明
-本平台按"现状"提供服务，不对服务的准确性、可靠性或适用性作任何保证。
-
-5. 服务变更
-我们保留随时修改这些条款的权利。继续使用服务即表示您接受修改后的条款。
-
-最后更新日期：2025年1月`,
-		Version:  "1.0",
-		IsActive: true,
-	}
-
-	return s.repo.CreateTermsOfService(defaultTerms)
-}
-
-// GetActiveTermsOfService gets the active terms of service
-func (s *Service) GetActiveTermsOfService() (*model.TermsOfService, error) {
-	return s.repo.FindActiveTermsOfService()
-}
-
-// CreateTermsOfService creates a new terms of service and deactivates old ones
-func (s *Service) CreateTermsOfService(terms *model.TermsOfService) error {
-	// Deactivate all existing terms
-	err := s.repo.DeactivateAllTermsOfService()
-	if err != nil {
-		return err
-	}
-
-	// Create new terms
-	return s.repo.CreateTermsOfService(terms)
 }
 
 // ============================================

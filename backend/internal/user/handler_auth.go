@@ -8,7 +8,6 @@ package user
 import (
 	"errors"
 	"strings"
-	"time"
 
 	"scholar-backend/internal/common/turnstile"
 	"scholar-backend/internal/common/utils"
@@ -28,10 +27,12 @@ type CheckEmailResponse struct {
 	Exists bool `json:"exists"`
 }
 
-// SendCodeRequest represents a send verification code request
+// SendCodeRequest represents a send verification code request.
+// change_email purpose 用于「换绑邮箱」场景给当前已绑邮箱发码,确认用户对旧邮箱
+// 的所有权。见 service.BindEmail 注释。
 type SendCodeRequest struct {
 	Email   string `json:"email" binding:"required,email"`
-	Purpose string `json:"purpose" binding:"required,oneof=register login bind unbind reset_password"`
+	Purpose string `json:"purpose" binding:"required,oneof=register login bind unbind reset_password change_email"`
 }
 
 // CheckPhoneRequest represents a check phone request
@@ -44,10 +45,12 @@ type CheckPhoneResponse struct {
 	Exists bool `json:"exists"`
 }
 
-// SendPhoneCodeRequest represents a send phone verification code request
+// SendPhoneCodeRequest represents a send phone verification code request.
+// change_phone purpose 用于「换绑手机」场景给当前已绑手机发码,确认旧号所有权。
+// 见 service.BindPhone 注释。
 type SendPhoneCodeRequest struct {
 	Phone   string `json:"phone" binding:"required,len=11"`
-	Purpose string `json:"purpose" binding:"required,oneof=register login bind unbind reset_password"`
+	Purpose string `json:"purpose" binding:"required,oneof=register login bind unbind reset_password change_phone"`
 }
 
 // RegisterPhoneRequest represents a phone registration request
@@ -56,6 +59,7 @@ type RegisterPhoneRequest struct {
 	Password       string `json:"password" binding:"required,min=8"`
 	Code           string `json:"code" binding:"required,len=6"`
 	InvitationCode string `json:"invitation_code"` // 邀请码（可选）
+	TurnstileToken string `json:"turnstile_token"` // Cloudflare Turnstile 人机校验,与邮箱注册对称
 }
 
 // LoginPhoneRequest represents a phone login request
@@ -125,7 +129,7 @@ func (h *Handler) CheckEmail(c *gin.Context) {
 
 	exists, err := h.service.CheckEmailExists(req.Email)
 	if err != nil {
-		utils.Error(c, 2000, "Failed to check email")
+		utils.Error(c, CodeCheckEmailFailed, "检查邮箱失败,请稍后重试")
 		return
 	}
 
@@ -142,7 +146,7 @@ func (h *Handler) SendVerificationCode(c *gin.Context) {
 	err := h.service.SendVerificationCode(c.Request.Context(), req.Email, req.Purpose)
 	if err != nil {
 		// Return the specific error message from service (includes rate limit info)
-		utils.Error(c, 2001, err.Error())
+		utils.Error(c, CodeSendCodeFailed, err.Error())
 		return
 	}
 
@@ -159,7 +163,7 @@ func (h *Handler) Register(c *gin.Context) {
 	// Get system configuration
 	systemConfig, err := h.service.GetSystemConfig()
 	if err != nil {
-		utils.Error(c, 5000, "Failed to get system configuration")
+		utils.Error(c, CodeSystemConfigError, "加载系统配置失败,请稍后重试")
 		return
 	}
 
@@ -170,19 +174,15 @@ func (h *Handler) Register(c *gin.Context) {
 		if err != nil {
 			errMsg = err.Error()
 		}
-		utils.Error(c, 4001, errMsg)
+		utils.Error(c, CodeTurnstileFailed, errMsg)
 		return
 	}
 
 	user, token, err := h.service.RegisterWithEmailAndInvitation(c.Request.Context(), req.Email, req.Password, req.Code, req.InvitationCode, ip)
 	if err != nil {
-		utils.Error(c, 2002, err.Error())
+		utils.Error(c, CodeRegisterFailed, err.Error())
 		return
 	}
-
-	// Create session for the new user
-	userAgent := c.GetHeader("User-Agent")
-	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour) // 30 days session
 
 	utils.Success(c, AuthResponse{
 		Token: token,
@@ -200,7 +200,7 @@ func (h *Handler) Login(c *gin.Context) {
 	// Get system configuration
 	systemConfig, err := h.service.GetSystemConfig()
 	if err != nil {
-		utils.Error(c, 5000, "Failed to get system configuration")
+		utils.Error(c, CodeSystemConfigError, "加载系统配置失败,请稍后重试")
 		return
 	}
 
@@ -211,21 +211,15 @@ func (h *Handler) Login(c *gin.Context) {
 		if err != nil {
 			errMsg = err.Error()
 		}
-		utils.Error(c, 4001, errMsg)
+		utils.Error(c, CodeTurnstileFailed, errMsg)
 		return
 	}
 
 	user, token, err := h.service.LoginWithEmail(req.Email, req.Password, ip)
 	if err != nil {
-		utils.Error(c, 2003, err.Error())
+		utils.Error(c, CodeLoginFailed, err.Error())
 		return
 	}
-
-	// Create session for the user
-	// Session expires in 30 days, but token expires in 2 hours
-	// Client should refresh token before it expires
-	userAgent := c.GetHeader("User-Agent")
-	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour) // 30 days session
 
 	utils.Success(c, AuthResponse{
 		Token: token,
@@ -243,7 +237,7 @@ func (h *Handler) LoginWithCode(c *gin.Context) {
 	// Get system configuration
 	systemConfig, err := h.service.GetSystemConfig()
 	if err != nil {
-		utils.Error(c, 5000, "Failed to get system configuration")
+		utils.Error(c, CodeSystemConfigError, "加载系统配置失败,请稍后重试")
 		return
 	}
 
@@ -254,19 +248,15 @@ func (h *Handler) LoginWithCode(c *gin.Context) {
 		if err != nil {
 			errMsg = err.Error()
 		}
-		utils.Error(c, 4001, errMsg)
+		utils.Error(c, CodeTurnstileFailed, errMsg)
 		return
 	}
 
 	user, token, err := h.service.LoginWithEmailCode(c.Request.Context(), req.Email, req.Code, ip)
 	if err != nil {
-		utils.Error(c, 2016, err.Error())
+		utils.Error(c, CodeLoginWithCodeFailed, err.Error())
 		return
 	}
-
-	// Create session for the user
-	userAgent := c.GetHeader("User-Agent")
-	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour) // 30 days session
 
 	utils.Success(c, AuthResponse{
 		Token: token,
@@ -283,7 +273,7 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 
 	err := h.service.ResetPassword(c.Request.Context(), req.Email, req.Code, req.NewPassword)
 	if err != nil {
-		utils.Error(c, 2014, err.Error())
+		utils.Error(c, CodeResetPasswordFailed, err.Error())
 		return
 	}
 
@@ -301,7 +291,7 @@ func (h *Handler) CheckPhone(c *gin.Context) {
 
 	exists, err := h.service.CheckPhoneExists(req.Phone)
 	if err != nil {
-		utils.Error(c, 2020, "Failed to check phone")
+		utils.Error(c, CodeCheckPhoneFailed, "检查手机号失败,请稍后重试")
 		return
 	}
 
@@ -317,7 +307,7 @@ func (h *Handler) SendPhoneVerificationCode(c *gin.Context) {
 
 	err := h.service.SendPhoneVerificationCode(c.Request.Context(), req.Phone, req.Purpose)
 	if err != nil {
-		utils.InternalError(c, 2021, "Failed to send verification code", err)
+		utils.InternalError(c, CodeSendPhoneCodeFailed, "验证码发送失败,请稍后重试", err)
 		return
 	}
 
@@ -334,15 +324,27 @@ func (h *Handler) RegisterWithPhone(c *gin.Context) {
 	// Get client IP
 	ip := c.ClientIP()
 
-	user, token, err := h.service.RegisterWithPhone(c.Request.Context(), req.Phone, req.Password, req.Code, req.InvitationCode, ip)
+	// Turnstile —— 与邮箱注册对称(原本漏了,管理员开关启用后会跳过手机注册的人机验证,
+	// 是 P1 安全洞)。VerifyWithConfig 内部会读 systemConfig.EnableTurnstile,关时直通。
+	systemConfig, err := h.service.GetSystemConfig()
 	if err != nil {
-		utils.Error(c, 2022, err.Error())
+		utils.Error(c, CodeSystemConfigError, "加载系统配置失败,请稍后重试")
+		return
+	}
+	if valid, err := turnstile.VerifyWithConfig(c.Request.Context(), req.TurnstileToken, ip, systemConfig); !valid {
+		errMsg := "人机验证失败"
+		if err != nil {
+			errMsg = err.Error()
+		}
+		utils.Error(c, CodeTurnstileFailed, errMsg)
 		return
 	}
 
-	// Create session for the new user
-	userAgent := c.GetHeader("User-Agent")
-	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour) // 30 days session
+	user, token, err := h.service.RegisterWithPhone(c.Request.Context(), req.Phone, req.Password, req.Code, req.InvitationCode, ip)
+	if err != nil {
+		utils.Error(c, CodeRegisterPhoneFailed, err.Error())
+		return
+	}
 
 	utils.Success(c, AuthResponse{
 		Token: token,
@@ -360,13 +362,9 @@ func (h *Handler) LoginWithPhone(c *gin.Context) {
 	ip := c.ClientIP()
 	user, token, err := h.service.LoginWithPhone(req.Phone, req.Password, ip)
 	if err != nil {
-		utils.Error(c, 2023, err.Error())
+		utils.Error(c, CodeLoginPhoneFailed, err.Error())
 		return
 	}
-
-	// Create session for the user
-	userAgent := c.GetHeader("User-Agent")
-	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour) // 30 days session
 
 	utils.Success(c, AuthResponse{
 		Token: token,
@@ -384,7 +382,7 @@ func (h *Handler) LoginPhoneWithCode(c *gin.Context) {
 	// Get system configuration
 	systemConfig, err := h.service.GetSystemConfig()
 	if err != nil {
-		utils.Error(c, 5000, "Failed to get system configuration")
+		utils.Error(c, CodeSystemConfigError, "加载系统配置失败,请稍后重试")
 		return
 	}
 
@@ -395,19 +393,15 @@ func (h *Handler) LoginPhoneWithCode(c *gin.Context) {
 		if err != nil {
 			errMsg = err.Error()
 		}
-		utils.Error(c, 4001, errMsg)
+		utils.Error(c, CodeTurnstileFailed, errMsg)
 		return
 	}
 
 	user, token, err := h.service.LoginWithPhoneCode(c.Request.Context(), req.Phone, req.Code, ip)
 	if err != nil {
-		utils.Error(c, 2017, err.Error())
+		utils.Error(c, CodeLoginPhoneWithCodeFailed, err.Error())
 		return
 	}
-
-	// Create session for the user
-	userAgent := c.GetHeader("User-Agent")
-	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour) // 30 days session
 
 	utils.Success(c, AuthResponse{
 		Token: token,
@@ -424,7 +418,7 @@ func (h *Handler) ResetPasswordPhone(c *gin.Context) {
 
 	err := h.service.ResetPasswordPhone(c.Request.Context(), req.Phone, req.Code, req.NewPassword)
 	if err != nil {
-		utils.Error(c, 2015, err.Error())
+		utils.Error(c, CodeResetPasswordPhoneFailed, err.Error())
 		return
 	}
 
@@ -452,29 +446,24 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 	err := h.service.ChangePassword(userID, req.CurrentPassword, req.NewPassword)
 	if err != nil {
 		if errors.Is(err, ErrCurrentPasswordInvalid) {
-			utils.Error(c, 2012, "Current password is incorrect")
+			utils.Error(c, CodeChangePasswordInvalid, "当前密码不正确")
 			return
 		}
-		utils.Error(c, 2013, "Failed to change password")
+		utils.Error(c, CodeChangePasswordFailed, "修改密码失败,请稍后重试")
 		return
 	}
 
 	utils.SuccessWithMessage(c, "Password changed successfully", nil)
 }
 
-// Logout handles user logout
+// Logout handles user logout.
+//
+// user_sessions 表已下线,后端无 token 黑名单 —— 真正的"登出"由前端清掉 localStorage
+// 完成。这里保留接口只为前端调用语义清晰、写埋点点位方便,服务端只回 200。
 func (h *Handler) Logout(c *gin.Context) {
-	userID, ok := utils.GetUserID(c)
-	if !ok {
+	if _, ok := utils.GetUserID(c); !ok {
 		return
 	}
-
-	err := h.service.Logout(userID)
-	if err != nil {
-		utils.Error(c, 2010, "Failed to logout")
-		return
-	}
-
 	utils.SuccessWithMessage(c, "Logged out successfully", nil)
 }
 
@@ -493,21 +482,21 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 	}
 
 	if token == "" {
-		utils.BadRequest(c, "Token is required")
+		utils.BadRequest(c, "登录凭证缺失,请重新登录")
 		return
 	}
 
 	newToken, err := h.service.RefreshToken(token)
 	if err != nil {
 		if errors.Is(err, ErrSessionExpired) {
-			utils.Error(c, 2016, err.Error())
+			utils.Error(c, CodeSessionExpired, err.Error())
 			return
 		}
 		if errors.Is(err, ErrSessionNotFound) {
-			utils.Error(c, 2019, "您的账号已在其他设备登录")
+			utils.Error(c, CodeSessionTakenByOtherLogin, "您的账号已在其他设备登录")
 			return
 		}
-		utils.InternalError(c, 2017, "Failed to refresh token", err)
+		utils.InternalError(c, CodeRefreshTokenFailed, "刷新登录态失败,请重新登录", err)
 		return
 	}
 
@@ -529,13 +518,13 @@ func (h *Handler) GetTokenInfo(c *gin.Context) {
 	}
 
 	if token == "" {
-		utils.BadRequest(c, "Token is required")
+		utils.BadRequest(c, "登录凭证缺失,请重新登录")
 		return
 	}
 
 	info, err := h.service.GetTokenInfo(token)
 	if err != nil {
-		utils.InternalError(c, 2018, "Failed to get token info", err)
+		utils.InternalError(c, CodeTokenInfoFailed, "获取登录信息失败,请稍后重试", err)
 		return
 	}
 

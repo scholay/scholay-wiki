@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -21,16 +20,6 @@ func init() {
 		JWT: config.JWTConfig{Secret: "test-secret-key-for-middleware-tests"},
 	}
 }
-
-type stubSessionValidator struct {
-	valid bool
-}
-
-func (s *stubSessionValidator) ValidateSession(_ context.Context, _ string) bool {
-	return s.valid
-}
-func (s *stubSessionValidator) InvalidateSession(_ string)       {}
-func (s *stubSessionValidator) InvalidateUserSessions(_ uint)    {}
 
 func makeValidToken(t *testing.T, userType, role string) string {
 	t.Helper()
@@ -76,9 +65,6 @@ func setupRouter(requiredType string) *gin.Engine {
 
 func TestAuthMiddleware_NoToken(t *testing.T) {
 	t.Parallel()
-	SetSessionValidator(&stubSessionValidator{valid: true})
-	defer SetSessionValidator(nil)
-
 	router := setupRouter("user")
 	req := httptest.NewRequest("GET", "/test", nil)
 	w := httptest.NewRecorder()
@@ -91,9 +77,6 @@ func TestAuthMiddleware_NoToken(t *testing.T) {
 
 func TestAuthMiddleware_InvalidToken(t *testing.T) {
 	t.Parallel()
-	SetSessionValidator(&stubSessionValidator{valid: true})
-	defer SetSessionValidator(nil)
-
 	router := setupRouter("user")
 	req := httptest.NewRequest("GET", "/test", nil)
 	req.Header.Set("Authorization", "Bearer invalid.token.here")
@@ -107,9 +90,6 @@ func TestAuthMiddleware_InvalidToken(t *testing.T) {
 
 func TestAuthMiddleware_ExpiredToken(t *testing.T) {
 	t.Parallel()
-	SetSessionValidator(&stubSessionValidator{valid: true})
-	defer SetSessionValidator(nil)
-
 	router := setupRouter("user")
 	token := makeExpiredToken(t)
 	req := httptest.NewRequest("GET", "/test", nil)
@@ -124,9 +104,6 @@ func TestAuthMiddleware_ExpiredToken(t *testing.T) {
 
 func TestAuthMiddleware_ValidUserToken(t *testing.T) {
 	t.Parallel()
-	SetSessionValidator(&stubSessionValidator{valid: true})
-	defer SetSessionValidator(nil)
-
 	router := setupRouter("user")
 	token := makeValidToken(t, "user", "user")
 	req := httptest.NewRequest("GET", "/test", nil)
@@ -147,9 +124,6 @@ func TestAuthMiddleware_ValidUserToken(t *testing.T) {
 
 func TestAuthMiddleware_AdminRequired_UserToken(t *testing.T) {
 	t.Parallel()
-	SetSessionValidator(&stubSessionValidator{valid: true})
-	defer SetSessionValidator(nil)
-
 	router := setupRouter("admin")
 	token := makeValidToken(t, "user", "user")
 	req := httptest.NewRequest("GET", "/test", nil)
@@ -164,9 +138,6 @@ func TestAuthMiddleware_AdminRequired_UserToken(t *testing.T) {
 
 func TestAuthMiddleware_AdminRequired_AdminRole(t *testing.T) {
 	t.Parallel()
-	SetSessionValidator(&stubSessionValidator{valid: true})
-	defer SetSessionValidator(nil)
-
 	router := setupRouter("admin")
 	token := makeValidToken(t, "user", "admin")
 	req := httptest.NewRequest("GET", "/test", nil)
@@ -179,33 +150,8 @@ func TestAuthMiddleware_AdminRequired_AdminRole(t *testing.T) {
 	}
 }
 
-func TestAuthMiddleware_SessionInvalid(t *testing.T) {
-	t.Parallel()
-	SetSessionValidator(&stubSessionValidator{valid: false})
-	defer SetSessionValidator(nil)
-
-	router := setupRouter("user")
-	token := makeValidToken(t, "user", "user")
-	req := httptest.NewRequest("GET", "/test", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Logf("body: %s", w.Body.String())
-	}
-	var body map[string]any
-	json.Unmarshal(w.Body.Bytes(), &body)
-	if code, ok := body["code"].(float64); !ok || code != 2019 {
-		t.Errorf("expected code 2019, got %v", body["code"])
-	}
-}
-
 func TestAuthMiddleware_TokenFromQueryParam(t *testing.T) {
 	t.Parallel()
-	SetSessionValidator(&stubSessionValidator{valid: true})
-	defer SetSessionValidator(nil)
-
 	router := setupRouter("user")
 	token := makeValidToken(t, "user", "user")
 	req := httptest.NewRequest("GET", "/test?token="+token, nil)

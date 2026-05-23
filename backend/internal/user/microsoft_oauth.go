@@ -17,7 +17,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
 	"scholar-backend/internal/common/httpclient"
 	"scholar-backend/internal/common/model"
@@ -42,11 +41,11 @@ type MicrosoftUser struct {
 func (h *Handler) GetMicrosoftLoginURL(c *gin.Context) {
 	msConfig, err := h.service.GetMicrosoftOAuthConfig()
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get Microsoft OAuth config")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "加载 Microsoft 登录配置失败,请稍后重试")
 		return
 	}
 	if msConfig == nil || msConfig.ClientID == "" || !msConfig.Enabled {
-		utils.ErrorResponse(c, http.StatusServiceUnavailable, "Microsoft login is not configured")
+		utils.ErrorResponse(c, http.StatusServiceUnavailable, "Microsoft 登录未配置或不可用")
 		return
 	}
 
@@ -76,18 +75,18 @@ func (h *Handler) MicrosoftCallback(c *gin.Context) {
 	code := c.Query("code")
 	state := c.Query("state")
 	if code == "" || state == "" {
-		utils.BadRequest(c, "Missing code or state parameter")
+		utils.BadRequest(c, "授权参数不完整,请重新发起登录")
 		return
 	}
 
 	if !validateOAuthState(c, "microsoft_oauth_state:", state) {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid or expired state")
+		utils.ErrorResponse(c, http.StatusBadRequest, "会话已过期,请重新发起登录")
 		return
 	}
 
 	msConfig, err := h.service.GetMicrosoftOAuthConfig()
 	if err != nil || msConfig == nil || !msConfig.Enabled {
-		utils.ErrorResponse(c, http.StatusServiceUnavailable, "Microsoft login is not configured")
+		utils.ErrorResponse(c, http.StatusServiceUnavailable, "Microsoft 登录未配置或不可用")
 		return
 	}
 
@@ -95,7 +94,7 @@ func (h *Handler) MicrosoftCallback(c *gin.Context) {
 	accessToken, err := h.exchangeMicrosoftCode(c.Request.Context(), code, msConfig)
 	if err != nil {
 		slog.Error("microsoft oauth: failed to exchange code", "err", err)
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to exchange authorization code")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "获取访问令牌失败,请重试")
 		return
 	}
 
@@ -103,24 +102,29 @@ func (h *Handler) MicrosoftCallback(c *gin.Context) {
 	msUser, err := h.getMicrosoftUserInfo(c.Request.Context(), accessToken)
 	if err != nil {
 		slog.Error("microsoft oauth: failed to get user info", "err", err)
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get Microsoft user info")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "获取 Microsoft 用户信息失败,请重试")
 		return
 	}
 
 	ip := c.ClientIP()
-	user, isNewUser, err := h.findOrCreateMicrosoftUser(msUser, ip)
+	outcome, err := h.findOrCreateMicrosoftUser(c.Request.Context(), msUser, ip)
 	if err != nil {
 		slog.Error("microsoft oauth: failed to process user", "err", err)
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to process Microsoft login")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Microsoft 登录处理失败,请稍后重试")
 		return
 	}
 
-	token, err := issueTokenAndSession(h, c, user, ip)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to generate token")
+	if outcome.MergeToken != "" {
+		respondOAuthPendingMerge(c, outcome.MergeToken, "microsoft", derefStr(outcome.User.Email))
 		return
 	}
-	respondOAuthSuccess(c, token, user, isNewUser)
+
+	token, err := issueTokenAndSession(h, c, outcome.User, ip)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "签发登录凭证失败,请重试")
+		return
+	}
+	respondOAuthSuccess(c, token, outcome.User, outcome.IsNewUser)
 }
 
 func (h *Handler) exchangeMicrosoftCode(ctx context.Context, code string, config *model.MicrosoftOAuthConfig) (string, error) {
@@ -191,93 +195,32 @@ func (h *Handler) getMicrosoftUserInfo(ctx context.Context, accessToken string) 
 	return &msUser, nil
 }
 
-func (h *Handler) findOrCreateMicrosoftUser(msUser *MicrosoftUser, ip string) (*User, bool, error) {
-	providerUserID := msUser.ID
-
-	authProvider, err := h.service.FindAuthProvider("microsoft", providerUserID)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, false, fmt.Errorf("find auth provider: %w", err)
-	}
-
-	if authProvider != nil {
-		user, err := h.service.FindByID(authProvider.UserID)
-		if err != nil {
-			return nil, false, fmt.Errorf("find user by id: %w", err)
-		}
-		return user, false, nil
-	}
-
-	// Get email (Microsoft may return mail or userPrincipalName)
+// findOrCreateMicrosoftUser Microsoft identity → 共用 helper。
+// Microsoft 的 email 可能在 Mail 或 UserPrincipalName 字段(企业租户走 UPN),取 Mail 优先。
+func (h *Handler) findOrCreateMicrosoftUser(ctx context.Context, msUser *MicrosoftUser, ip string) (oauthOutcome, error) {
+	_ = ip
 	email := msUser.Mail
 	if email == "" {
 		email = msUser.UserPrincipalName
 	}
-
-	var user *User
-	if email != "" {
-		found, err := h.service.FindByEmail(email)
-		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, false, fmt.Errorf("find user by email: %w", err)
-		}
-		user = found
+	username := msUser.DisplayName
+	if username == "" && email != "" {
+		username = splitEmail(email)
 	}
-
-	isNewUser := false
-
-	if user == nil {
-		isNewUser = true
-
-		username := msUser.DisplayName
-		if username == "" && email != "" {
-			username = splitEmail(email)
-		}
-		if username == "" {
-			username = "ms_user"
-		}
-
-		existingUser, err := h.service.FindByUsername(username)
-		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, false, err
-		}
-		if existingUser != nil {
-			username = fmt.Sprintf("%s_%d", username, time.Now().Unix())
-		}
-
-		user = &User{
-			Username:      &username,
-			Email:         &email,
-			Role:          "user",
-			Status:        1,
-			EmailVerified: email != "",
-		}
-
-		if err := h.service.CreateUser(user); err != nil {
-			return nil, false, err
-		}
-
-		h.service.SendWelcomeMessage(user.ID)
-	}
-
-	providerData := map[string]string{
-		"display_name": msUser.DisplayName,
-		"email":        email,
-		"job_title":    msUser.JobTitle,
-	}
-	providerDataBytes, _ := json.Marshal(providerData)
-	providerDataJSON := string(providerDataBytes)
-
-	authProvider = &UserAuthProvider{
-		UserID:         user.ID,
-		Provider:       "microsoft",
-		ProviderUserID: providerUserID,
-		ProviderData:   &providerDataJSON,
-	}
-
-	if err := h.service.CreateAuthProvider(authProvider); err != nil {
-		return nil, isNewUser, err
-	}
-
-	return user, isNewUser, nil
+	return h.findOrCreateOAuthUser(ctx, oauthIdentity{
+		Provider:          "microsoft",
+		ProviderUserID:    msUser.ID,
+		Email:             email,
+		EmailVerified:     email != "", // Microsoft 企业账户 email 默认已验证
+		UsernameCandidate: username,
+		UsernameFallback:  "ms_user",
+		DisplayName:       msUser.DisplayName,
+		ProviderDataExtras: map[string]string{
+			"display_name": msUser.DisplayName,
+			"email":        email,
+			"job_title":    msUser.JobTitle,
+		},
+	})
 }
 
 // BindMicrosoftAccount handles Microsoft account binding
@@ -292,19 +235,19 @@ func (h *Handler) BindMicrosoftAccount(c *gin.Context) {
 		State string `json:"state" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request")
+		utils.BadRequest(c, "请求参数有误")
 		return
 	}
 
 	msConfig, err := h.service.GetMicrosoftOAuthConfig()
 	if err != nil || msConfig == nil || !msConfig.Enabled {
-		utils.ErrorResponse(c, http.StatusServiceUnavailable, "Microsoft login is not configured")
+		utils.ErrorResponse(c, http.StatusServiceUnavailable, "Microsoft 登录未配置或不可用")
 		return
 	}
 
 	accessToken, err := h.exchangeMicrosoftCode(c.Request.Context(), req.Code, msConfig)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to exchange code")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "获取访问令牌失败,请重试")
 		return
 	}
 
@@ -374,5 +317,8 @@ func (s *Service) GetMicrosoftOAuthConfig() (*model.MicrosoftOAuthConfig, error)
 
 // UnbindMicrosoft unbinds Microsoft from user account
 func (s *Service) UnbindMicrosoft(userID uint) error {
+	if err := s.ensureNotLastLoginMethod(userID); err != nil {
+		return err
+	}
 	return s.repo.UnbindProviderInTx(userID, "microsoft")
 }

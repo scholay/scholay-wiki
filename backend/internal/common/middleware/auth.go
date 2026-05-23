@@ -8,134 +8,25 @@
 package middleware
 
 import (
-	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"log/slog"
-	"scholar-backend/internal/common/cache"
-	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
-	"gorm.io/gorm"
 )
 
-// 会话缓存配置
-const (
-	// SessionCachePrefix Redis 缓存前缀
-	SessionCachePrefix = "session:"
-	// SessionCacheTTL 会话缓存过期时间（5分钟）
-	// 这个时间内不会再查询数据库
-	SessionCacheTTL = 5 * time.Minute
-)
+// SessionCookieName 浏览器 cookie 名,用于 iframe / 跨页签共享会话:
+//   - 主流 axios 调用走 Authorization: Bearer header(localStorage)
+//   - iframe(如 admin /analytics 嵌入的 umami)无法自带 header,只能靠 cookie
+//   - 前端在 admin 登录成功后镜像写一份 token 到这个 cookie (SameSite=Strict)
+//
+// nginx admin server 用 `auth_request` 把 umami 路径打到 /api/v1/admin/_session-check,
+// 后者只要走 AdminAuthMiddleware 通过就 200,nginx 放行;否则 401 拦截。
+const SessionCookieName = "scholay_token"
 
-// SessionValidator 会话验证器接口
-type SessionValidator interface {
-	ValidateSession(ctx context.Context, token string) bool
-	InvalidateSession(token string)
-	InvalidateUserSessions(userID uint)
-}
-
-// CachedSessionValidator 基于 Redis 缓存的会话验证器
-type CachedSessionValidator struct {
-	db    *gorm.DB
-	redis *redis.Client
-}
-
-// NewCachedSessionValidator 创建带缓存的会话验证器
-func NewCachedSessionValidator(db *gorm.DB) *CachedSessionValidator {
-	return &CachedSessionValidator{
-		db:    db,
-		redis: cache.GetRedis(),
-	}
-}
-
-// hashToken 对 token 进行哈希，用作缓存 key（避免 key 过长）
-func hashToken(token string) string {
-	hash := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(hash[:16]) // 取前16字节，32个字符
-}
-
-// ValidateSession 验证会话是否存在（带缓存）
-func (v *CachedSessionValidator) ValidateSession(ctx context.Context, token string) bool {
-	cacheKey := SessionCachePrefix + hashToken(token)
-
-	// 1. 先查 Redis 缓存
-	result, err := v.redis.Get(ctx, cacheKey).Result()
-	if err == nil {
-		// 缓存命中
-		return result == "1"
-	}
-
-	// 2. 缓存未命中，查询数据库
-	var count int64
-	v.db.Model(&model.UserSession{}).Where("token = ?", token).Count(&count)
-	valid := count > 0
-
-	// 3. 写入缓存
-	// "1" 表示有效，"0" 表示无效
-	cacheValue := "0"
-	if valid {
-		cacheValue = "1"
-	}
-	if err := v.redis.Set(ctx, cacheKey, cacheValue, SessionCacheTTL).Err(); err != nil {
-		slog.Warn("Failed to cache session", "err", err)
-	}
-
-	return valid
-}
-
-// InvalidateSession 使单个会话缓存失效
-func (v *CachedSessionValidator) InvalidateSession(token string) {
-	ctx := context.Background()
-	cacheKey := SessionCachePrefix + hashToken(token)
-	if err := v.redis.Del(ctx, cacheKey).Err(); err != nil {
-		slog.Warn("Failed to invalidate session cache", "err", err)
-	}
-}
-
-// InvalidateUserSessions 使用户的所有会话缓存失效
-// 注意：这个方法会遍历用户的所有会话，在登录时调用
-func (v *CachedSessionValidator) InvalidateUserSessions(userID uint) {
-	ctx := context.Background()
-
-	// 查询用户的所有会话 token
-	var tokens []string
-	v.db.Model(&model.UserSession{}).
-		Where("user_id = ?", userID).
-		Pluck("token", &tokens)
-
-	if len(tokens) == 0 {
-		return
-	}
-
-	// 批量删除所有缓存（单次 Redis 往返）
-	keys := make([]string, len(tokens))
-	for i, token := range tokens {
-		keys[i] = SessionCachePrefix + hashToken(token)
-	}
-	if err := v.redis.Del(ctx, keys...).Err(); err != nil {
-		slog.Warn("Failed to batch invalidate session cache", "err", err, "count", len(keys))
-	}
-}
-
-// 全局会话验证器（由 main 函数设置）
-var globalSessionValidator SessionValidator
-
-// SetSessionValidator 设置全局会话验证器
-func SetSessionValidator(v SessionValidator) {
-	globalSessionValidator = v
-}
-
-// GetSessionValidator 获取全局会话验证器
-func GetSessionValidator() SessionValidator {
-	return globalSessionValidator
-}
-
-// AuthMiddleware validates JWT tokens
+// AuthMiddleware validates JWT tokens.
+//
+// 会话校验完全靠 JWT 自身签名 + TTL —— 没有数据库 session 表兜底,JWT 一旦签发
+// 在过期前都视为有效。需要服务端踢人的话,改密码 / 旋转 JWT secret 是唯一手段。
 func AuthMiddleware(requiredType string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var token string
@@ -155,14 +46,21 @@ func AuthMiddleware(requiredType string) gin.HandlerFunc {
 			token = c.Query("token")
 		}
 
+		// Fallback to cookie (iframe / 跨页签场景 —— 见 SessionCookieName 注释)
 		if token == "" {
-			utils.Unauthorized(c, "Authorization header or token query parameter is required")
+			if cookie, err := c.Cookie(SessionCookieName); err == nil {
+				token = cookie
+			}
+		}
+
+		if token == "" {
+			utils.Unauthorized(c, "未登录,请先登录")
 			c.Abort()
 			return
 		}
 		claims, err := utils.ParseToken(token)
 		if err != nil {
-			utils.Unauthorized(c, "Invalid or expired token")
+			utils.Unauthorized(c, "登录已过期,请重新登录")
 			c.Abort()
 			return
 		}
@@ -178,42 +76,21 @@ func AuthMiddleware(requiredType string) gin.HandlerFunc {
 
 		// Check user type/role if required
 		if requiredType == "user" && claims.Type != "user" {
-			utils.Unauthorized(c, "Insufficient permissions")
+			utils.Unauthorized(c, "无权访问该资源")
 			c.Abort()
 			return
 		}
 		// admin 路由：放行 admin / super_admin（兼容旧 type=admin token）
 		if requiredType == "admin" && !(claims.Type == "admin" || (claims.Type == "user" && (role == "admin" || role == "super_admin"))) {
-			utils.Unauthorized(c, "Insufficient permissions")
+			utils.Unauthorized(c, "无权访问该资源")
 			c.Abort()
 			return
 		}
 		// super_admin 路由：仅放行 role=super_admin
 		if requiredType == "super_admin" && !(claims.Type == "user" && role == "super_admin") {
-			utils.Unauthorized(c, "Insufficient permissions")
+			utils.Unauthorized(c, "无权访问该资源")
 			c.Abort()
 			return
-		}
-
-		// 验证会话是否存在（单点登录检查）
-		// 统一用户体系中的管理员同样复用 user session。
-		// 兼容旧管理端 token（type=admin）时不做 session 校验。
-		if claims.Type == "user" {
-			if globalSessionValidator == nil {
-				slog.Warn("Global session validator is nil")
-			} else {
-				valid := globalSessionValidator.ValidateSession(c.Request.Context(), token)
-				if !valid {
-					tokenPreview := token
-					if len(tokenPreview) > 50 {
-						tokenPreview = tokenPreview[:50]
-					}
-					slog.Warn("Session not found for token", "tokenPreview", tokenPreview)
-					utils.Error(c, 2019, "您的账号已在其他设备登录")
-					c.Abort()
-					return
-				}
-			}
 		}
 
 		// Store claims in context
@@ -276,15 +153,6 @@ func OptionalUserAuthMiddleware() gin.HandlerFunc {
 		if claims.Type != "user" {
 			c.Next()
 			return
-		}
-
-		// Validate session
-		if globalSessionValidator != nil {
-			if !globalSessionValidator.ValidateSession(c.Request.Context(), token) {
-				// Session invalid — proceed as anonymous
-				c.Next()
-				return
-			}
 		}
 
 		role := claims.Role

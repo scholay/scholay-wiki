@@ -21,7 +21,8 @@ type Response struct {
 	RequestID string `json:"request_id,omitempty"` // 便于用户反馈/日志排查时回溯
 }
 
-// requestIDFrom 从 gin.Context 中读取 TelemetryMiddleware 写入的 RequestID。
+// requestIDFrom 从 gin.Context 中读取 RequestID(由 RequestIDMiddleware 注入)。
+// 用于响应里回传给客户端,以便用户反馈时能在后端日志里精准定位这次请求。
 func requestIDFrom(c *gin.Context) string {
 	if c == nil {
 		return ""
@@ -103,11 +104,39 @@ func SuccessWithMessage(c *gin.Context, message string, data any) {
 	})
 }
 
+// autoLogIfServerError 当 HTTP 状态 ≥500(5xx 服务端错误 / 6xxx 上游服务失败) 时
+// 自动写一条 slog.Error,确保 docker logs 里一定能搜到这次故障 —— caller 不需要
+// 再手动 slog.Error(...) 一遍。4xx 客户端错误(参数校验 / 未授权 / 找不到等)不
+// 自动写,避免日志风暴 —— 真要记录 4xx 内部异常请用 InternalError。
+func autoLogIfServerError(c *gin.Context, httpStatus, code int, message string) {
+	if httpStatus < 500 {
+		return
+	}
+	reqID := requestIDFrom(c)
+	path := ""
+	method := ""
+	if c != nil && c.Request != nil {
+		path = c.Request.URL.Path
+		method = c.Request.Method
+	}
+	slog.Error(message,
+		"code", code,
+		"http_status", httpStatus,
+		"path", path,
+		"method", method,
+		"request_id", reqID,
+	)
+}
+
 // Error sends an error response with a proper HTTP status code derived from
 // the business error code. The business code is preserved in the JSON body
 // so the frontend can still distinguish specific error types.
+//
+// 副作用:status ≥500 时自动 slog.Error,无需 caller 重复打日志。
 func Error(c *gin.Context, code int, message string) {
-	c.JSON(httpStatusFromCode(code), Response{
+	status := httpStatusFromCode(code)
+	autoLogIfServerError(c, status, code, message)
+	c.JSON(status, Response{
 		Code:    code,
 		Message: message,
 	})
@@ -115,7 +144,9 @@ func Error(c *gin.Context, code int, message string) {
 
 // ErrorWithData sends an error response with data and proper HTTP status.
 func ErrorWithData(c *gin.Context, code int, message string, data any) {
-	c.JSON(httpStatusFromCode(code), Response{
+	status := httpStatusFromCode(code)
+	autoLogIfServerError(c, status, code, message)
+	c.JSON(status, Response{
 		Code:    code,
 		Message: message,
 		Data:    data,
@@ -138,8 +169,10 @@ func Forbidden(c *gin.Context, message string) {
 	})
 }
 
-// ServerError sends a 500 response
+// ServerError sends a 500 response.
+// 自动 slog.Error —— 5xx 必登记。
 func ServerError(c *gin.Context, message string) {
+	autoLogIfServerError(c, http.StatusInternalServerError, 500, message)
 	c.JSON(http.StatusInternalServerError, Response{
 		Code:    500,
 		Message: message,
@@ -203,8 +236,10 @@ func InternalServerError(c *gin.Context, userMessage string, err error) {
 	})
 }
 
-// ErrorResponse sends an error response with custom status code
+// ErrorResponse sends an error response with custom HTTP status code.
+// 自动 slog.Error 当 statusCode ≥500。
 func ErrorResponse(c *gin.Context, statusCode int, message string) {
+	autoLogIfServerError(c, statusCode, statusCode, message)
 	c.JSON(statusCode, Response{
 		Code:    statusCode,
 		Message: message,

@@ -78,56 +78,32 @@ func (s *Service) UpdateProfile(id uint, username *string, avatarURL *string, bi
 	return s.repo.Update(user)
 }
 
-// GetUserStatistics returns user statistics
+// GetUserStatistics returns user registration counters for the admin overview.
+// 在线 / 访客 / DAU 类指标全部下线 —— 已经移交 umami 处理(见 0044 迁移)。
 func (s *Service) GetUserStatistics() (map[string]any, error) {
-	// 在线用户数：优先使用 WebSocket 连接状态
-	var onlineUsers int64
-	var onlineGuests int64
-	if s.onlineStatsProvider != nil {
-		onlineUsers = int64(s.onlineStatsProvider.GetOnlineUserCount())
-		onlineGuests = int64(s.onlineStatsProvider.GetOnlineGuestCount())
-	} else {
-		// 回退到数据库查询
-		count, err := s.repo.GetOnlineUserCount()
-		if err != nil {
-			return nil, err
-		}
-		onlineUsers = count
-	}
-
-	// 获取今日注册用户数
 	now := time.Now()
 	today := now.Format("2006-01-02")
 	todayRegistrations, _ := s.repo.CountUsersOnDate(today)
 
-	// 获取本周注册用户数 (从周一开始)
-	weekStart := now.AddDate(0, 0, -int(now.Weekday())+1) // 本周一
+	// 本周注册 (从周一开始)
+	weekStart := now.AddDate(0, 0, -int(now.Weekday())+1)
 	if now.Weekday() == time.Sunday {
-		weekStart = now.AddDate(0, 0, -6) // 如果今天是周日，往前推6天到周一
+		weekStart = now.AddDate(0, 0, -6)
 	}
-	weekStartStr := weekStart.Format("2006-01-02")
-	weekRegistrations, _ := s.repo.CountUsersSince(weekStartStr)
+	weekRegistrations, _ := s.repo.CountUsersSince(weekStart.Format("2006-01-02"))
 
-	// 获取本月注册用户数
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
-	monthStartStr := monthStart.Format("2006-01-02")
-	monthRegistrations, _ := s.repo.CountUsersSince(monthStartStr)
+	monthRegistrations, _ := s.repo.CountUsersSince(monthStart.Format("2006-01-02"))
 
-	// 获取今年注册用户数
 	yearStart := time.Date(now.Year(), 1, 1, 0, 0, 0, 0, now.Location())
-	yearStartStr := yearStart.Format("2006-01-02")
-	yearRegistrations, _ := s.repo.CountUsersSince(yearStartStr)
+	yearRegistrations, _ := s.repo.CountUsersSince(yearStart.Format("2006-01-02"))
 
-	stats := map[string]any{
-		"online_users":        onlineUsers,
-		"online_guests":       onlineGuests,
+	return map[string]any{
 		"today_registrations": todayRegistrations,
 		"week_registrations":  weekRegistrations,
 		"month_registrations": monthRegistrations,
 		"year_registrations":  yearRegistrations,
-	}
-
-	return stats, nil
+	}, nil
 }
 
 // GetUserList returns a paginated list of users
@@ -144,11 +120,6 @@ func (s *Service) GetUserListWithSort(page, pageSize int, sortBy, sortOrder stri
 // supports server-side keyword search + status/role filter + sort.
 func (s *Service) GetUserListWithFilter(page, pageSize int, f UserListFilter) ([]User, int64, error) {
 	return s.repo.GetUserListWithFilter(database.CalcOffset(page, pageSize), pageSize, f)
-}
-
-// GetOnlineUsers returns list of currently online users
-func (s *Service) GetOnlineUsers() ([]map[string]any, error) {
-	return s.repo.GetOnlineUsers()
 }
 
 // GetUserDetail returns detailed user information for admin

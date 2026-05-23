@@ -10,7 +10,10 @@
 #   ./scripts/build-and-push.sh v1.2.3    # 使用指定版本号
 #   ./scripts/build-and-push.sh patch backend  # 只构建 backend
 #
-# 注意: frontend-admin 已合并到 frontend-user（/admin 路由）, 不再单独构建。
+# 注意:
+#   - frontend-admin 已合并到 frontend-user（/admin 路由）, 不再单独构建。
+#   - frontend-user 现在是 Vite + React 19 (源在 frontend-user/),旧 CRA 源已归档到
+#     frontend-user-old/,不构建不部署,容器/ACR 镜像名仍叫 frontend-user。
 # ============================================================
 
 set -e
@@ -49,8 +52,7 @@ fi
 # 兜底默认值(.env 不存在或没设时)
 : "${SITE_URL:=https://www.scholay.com}"
 : "${SITE_NAME:=Scholay}"
-: "${SUPPORT_EMAIL:=support@scholay.com}"
-: "${PDF_PREVIEW_ENDPOINT:=https://filepreview.scholay.com/api/preview}"
+: "${UMAMI_WEBSITE_ID:=}"
 
 # 检查并设置 buildx (仅用于 backend)
 setup_buildx() {
@@ -183,26 +185,24 @@ build_frontend() {
     echo -e "${YELLOW}=== 构建 ${service} (${TARGET_PLATFORM}) ===${NC}"
     echo "版本镜像: ${image}"
     echo "Latest:   ${latest}"
-    echo "站点配置(build-time 注入到 vite bundle):"
-    echo "  SITE_URL                = ${SITE_URL}"
-    echo "  SITE_NAME               = ${SITE_NAME}"
-    echo "  SUPPORT_EMAIL           = ${SUPPORT_EMAIL}"
-    echo "  PDF_PREVIEW_ENDPOINT    = ${PDF_PREVIEW_ENDPOINT}"
+    echo "站点配置(build-time 注入到 vite bundle,运行期改 docker env 没用):"
+    echo "  SITE_URL          = ${SITE_URL}"
+    echo "  SITE_NAME         = ${SITE_NAME}"
+    echo "  UMAMI_WEBSITE_ID  = ${UMAMI_WEBSITE_ID}"
 
     # 使用 docker build 指定平台
-    # 注意：需要确保 Docker Desktop 开启了 "Use Rosetta for x86/amd64 emulation"
+    # 注意:需要确保 Docker Desktop 开启了 "Use Rosetta for x86/amd64 emulation"
     #
-    # build-arg 必须显式传 —— Vite 在编译期把 process.env.REACT_APP_* 替换进 bundle,
+    # build-arg 必须显式传 —— Vite 在编译期把 import.meta.env.VITE_* 替换进 bundle,
     # 运行期再改 docker compose env 也改不了打好的 JS。
-    # 详见 frontend-user/Dockerfile / vite.config.mjs / src/config/site.ts。
+    # 详见 frontend-user/Dockerfile + frontend-user/vite.config.ts。
     docker build \
         --platform ${TARGET_PLATFORM} \
         -t ${image} \
-        --build-arg REACT_APP_API_URL= \
-        --build-arg REACT_APP_SITE_URL="${SITE_URL}" \
-        --build-arg REACT_APP_SITE_NAME="${SITE_NAME}" \
-        --build-arg REACT_APP_SUPPORT_EMAIL="${SUPPORT_EMAIL}" \
-        --build-arg REACT_APP_PDF_PREVIEW_ENDPOINT="${PDF_PREVIEW_ENDPOINT}" \
+        --build-arg VITE_API_BASE_URL= \
+        --build-arg VITE_SITE_URL="${SITE_URL}" \
+        --build-arg VITE_SITE_NAME="${SITE_NAME}" \
+        --build-arg VITE_UMAMI_WEBSITE_ID="${UMAMI_WEBSITE_ID}" \
         ${context}
 
     # 打 latest 标签

@@ -404,7 +404,8 @@ func (s *Service) GetAttachmentByID(id uint) (*FeedbackAttachment, error) {
 }
 
 // CreateFeedbackWithAttachments 创建反馈并关联附件
-func (s *Service) CreateFeedbackWithAttachments(email, content *string, userID *uint, username, ip, attachmentsKey string) (*Feedback, error) {
+// category 可为空字符串，留给 GORM 用列默认值 "other"。
+func (s *Service) CreateFeedbackWithAttachments(email, content *string, category string, userID *uint, username, ip, attachmentsKey string) (*Feedback, error) {
 	// 获取IP归属地
 	ipLocation := ""
 	if ip != "" {
@@ -417,6 +418,7 @@ func (s *Service) CreateFeedbackWithAttachments(email, content *string, userID *
 	feedback := &Feedback{
 		Email:      *email,
 		Content:    *content,
+		Category:   category, // 空字符串 → GORM 列默认 "other"
 		UserID:     userID,
 		Username:   username,
 		IP:         ip,

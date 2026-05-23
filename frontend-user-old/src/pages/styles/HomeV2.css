@@ -1,0 +1,235 @@
+/* ============================================================================
+ * Scholay 首页 V2 —— 极简风（参考 scholay.pen 设计稿）
+ * ----------------------------------------------------------------------------
+ * 整页布局：顶栏(56) + 主区(占满) + 页脚(44)
+ * 所有色值/字号/圆角统一走 tokens.css 暴露的全局 token。
+ * ============================================================================ */
+
+.home2 {
+  min-height: 100vh;
+  background: var(--c-bg);
+  color: var(--c-ink);
+  font-family: var(--font-body);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============== 主区（居中） ============== */
+.home2-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 112px var(--space-12) 60px;
+  padding-left: calc(var(--space-12) + var(--drawerv2-w, 0px));
+  transition: padding-left var(--t-slow);
+}
+
+/* 大 logo —— 字号 56px、行高 75/56 ≈ 1.34（对齐设计稿外框高度） */
+.home2-logo {
+  font-family: var(--font-display);
+  font-weight: var(--weight-bold);
+  font-size: var(--text-display);
+  line-height: 1.34;
+  letter-spacing: -0.5px;
+  display: inline-flex;
+  align-items: baseline;
+  user-select: none;
+}
+.home2-logo span { display: inline-block; }
+
+/* 节间隙 */
+.home2-spacer-32 { height: var(--space-16); }
+.home2-spacer-20 { height: var(--space-10); }
+
+/* 搜索框 wrapper —— 给联想下拉做绝对定位锚点 */
+.home2-search-stack {
+  position: relative;
+  width: var(--layout-search-w);
+  max-width: 100%;
+}
+
+/* 搜索框 */
+.home2-search {
+  position: relative;
+  width: 100%;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: 0 var(--space-4) 0 var(--space-10);
+  background: var(--c-bg);
+  border: var(--stroke) solid var(--c-border);
+  border-radius: var(--radius);
+  transition: border-color var(--t-base), box-shadow var(--t-base);
+}
+.home2-search:focus-within {
+  border-color: var(--c-red);
+  box-shadow: 0 0 0 3px rgba(204, 34, 34, 0.08);
+}
+
+.home2-search-input {
+  flex: 1;
+  height: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  color: var(--c-ink);
+}
+.home2-search-input::placeholder { color: var(--c-text-faint); }
+
+.home2-search-icon-btn {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: var(--c-red);
+  color: #FFFFFF;
+  border-radius: var(--radius);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--t-base);
+}
+.home2-search-icon-btn:hover { background: var(--c-red-h); }
+.home2-search-icon-btn:disabled {
+  background: #E5A5A5;
+  cursor: not-allowed;
+}
+
+/* ===== Hover-split：默认搜论文，悬浮在按钮上时多一个"搜索期刊" ===== */
+.home2-search-btnwrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.home2-split-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: #FFFFFF;
+  border: 1px solid #E5E5E5;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10);
+  padding: 4px;
+  min-width: 140px;
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 50;
+}
+.home2-search-btnwrap.is-hover .home2-split-pop {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.home2-split-item {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--c-ink);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.home2-split-item:hover:not(:disabled) {
+  background: #F5F5F5;
+}
+.home2-split-item:disabled {
+  color: #BBBBBB;
+  cursor: not-allowed;
+}
+.home2-split-item svg {
+  color: var(--c-red);
+  flex-shrink: 0;
+}
+
+/* 智能搜索按钮 */
+.home2-smart-btn {
+  margin-top: var(--space-10);
+  padding: 9px var(--space-12);
+  background: var(--c-red);
+  color: #FFFFFF;
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  line-height: 20px;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background var(--t-base);
+}
+.home2-smart-btn:hover { background: var(--c-red-h); }
+
+/* ============== 页脚 ============== */
+.home2-footer {
+  height: var(--layout-footer-h);
+  background: var(--c-bg);
+  border-top: var(--stroke) solid var(--c-border-divider);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-12);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  padding: 0 var(--space-8);
+  padding-left: calc(var(--space-8) + var(--drawerv2-w, 0px));
+  transition: padding-left var(--t-slow);
+}
+
+.home2-footer-text,
+.home2-footer-link {
+  color: var(--c-text-muted);
+  font-size: var(--text-base);
+  font-weight: var(--weight-regular);
+  text-decoration: none;
+  line-height: 1.2;
+}
+.home2-footer-link:hover { color: var(--c-ink); }
+
+.home2-footer-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--c-border);
+  display: inline-block;
+}
+
+/* ============== 响应式 ============== */
+@media (max-width: 720px) {
+  .home2-main {
+    padding: 80px var(--space-8) var(--space-20);
+    padding-left: calc(var(--space-8) + var(--drawerv2-w, 0px));
+  }
+  .home2-logo { font-size: 48px; }
+  .home2-search { width: 100%; }
+  .home2-footer {
+    gap: var(--space-6);
+    padding: var(--space-4) var(--space-6);
+    padding-left: calc(var(--space-6) + var(--drawerv2-w, 0px));
+    height: auto;
+    min-height: var(--layout-footer-h);
+  }
+}
+
+@media (max-width: 480px) {
+  .home2-logo { font-size: 40px; }
+  .home2-main {
+    padding: 60px var(--space-8) var(--space-16);
+    padding-left: calc(var(--space-8) + var(--drawerv2-w, 0px));
+  }
+}

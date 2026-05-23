@@ -74,6 +74,9 @@ func registerPublicAPIRoutes(api *gin.RouterGroup, h *allHandlers) {
 		publicAPI.POST("/journals/stats", h.scholar.GetJournalStats)
 		publicAPI.POST("/journals/byIssn", h.scholar.GetJournalByISSN)
 		publicAPI.POST("/journals/compare", h.scholar.CompareJournals)
+		publicAPI.POST("/journals/suggest", h.scholar.SuggestJournals)
+		publicAPI.POST("/journals/byNames", h.scholar.JournalsByNames)
+		publicAPI.POST("/journals/batch", h.scholar.JournalsByISSNs)
 	}
 }
 
@@ -85,6 +88,9 @@ func registerAnalysisRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL gin.H
 		analysisGroup.POST("/paper", h.ai.AnalyzePaper)
 		analysisGroup.POST("/papers/batch", h.ai.BatchAnalyzePapers)
 		analysisGroup.GET("/dimensions", h.ai.GetAnalysisDimensions)
+		analysisGroup.GET("/dimensions/settings", h.ai.GetDimensionSettings)
+		analysisGroup.PATCH("/dimensions/visibility", h.ai.SetDimensionVisibility)
+		analysisGroup.PATCH("/dimensions/reorder", h.ai.ReorderDimensions)
 		analysisGroup.POST("/dimensions", h.ai.CreateUserDimension)
 		analysisGroup.PUT("/dimensions/:id", h.ai.UpdateUserDimension)
 		analysisGroup.DELETE("/dimensions/:id", h.ai.DeleteUserDimension)

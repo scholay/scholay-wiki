@@ -1,0 +1,43 @@
+/* ============================================================================
+ * Reset + Base Styles —— 单一日间模式
+ * 设计稿默认是白底 + Inter 字体；这里把它当作全局基线。
+ * ============================================================================ */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background: var(--c-bg);
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  background: var(--c-bg);
+  min-height: 100%;
+  color: var(--c-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font-family: inherit;
+}
+
+::selection {
+  background: rgba(204, 34, 34, 0.18);
+  color: var(--c-ink);
+}

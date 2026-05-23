@@ -262,21 +262,10 @@ func (s *Service) AdvancedSearchAndAnalyze(ctx context.Context, conversationID u
 	papersForPrompt := ai.FormatPapersForPromptWithLimit(displayPapers, 30, 200)
 	slog.Debug("formatted papers", "length", len(papersForPrompt))
 
-	// Get analysis prompt templates
-	analysisSystemPrompt, _, err := s.aiService.GetAndRenderPrompt("advanced_search_analysis_system", nil)
-	if err != nil {
-		slog.Warn("failed to get analysis system prompt template, using fallback", "err", err)
-		analysisSystemPrompt = "你是一名具有深厚研究背景的高级学术分析专家，能够对多篇论文进行深入解读、方法分析、研究发现抽象、理论联系与批判性整合，并以学术写作风格输出高质量分析报告。"
-	}
+	// 系统提示词全部硬编码(prompt_templates 表已下线,见 0045 迁移)
+	analysisSystemPrompt := "你是一名具有深厚研究背景的高级学术分析专家，能够对多篇论文进行深入解读、方法分析、研究发现抽象、理论联系与批判性整合，并以学术写作风格输出高质量分析报告。"
 
-	analysisPrompt, _, err := s.aiService.GetAndRenderPrompt("advanced_search_analysis", map[string]string{
-		"query":  query,
-		"papers": papersForPrompt,
-	})
-	if err != nil {
-		// Fallback to hardcoded prompt if template not found
-		slog.Warn("failed to get analysis prompt template, using fallback", "err", err)
-		analysisPrompt = fmt.Sprintf(`用户查询：%s
+	analysisPrompt := fmt.Sprintf(`用户查询：%s
 找到的论文：%s
 
 请作为一名具备跨领域知识的资深学术研究专家，对以上论文进行深度整合分析，并给出具有洞察力、逻辑严密、贴合用户问题的学术级解读。
@@ -332,7 +321,6 @@ func (s *Service) AdvancedSearchAndAnalyze(ctx context.Context, conversationID u
 	•	引用规范必须严格遵守
 
 请开始你的深度综合分析。`, query, papersForPrompt)
-	}
 
 	analysisMessages := []ai.ChatMessage{
 		{
@@ -706,21 +694,10 @@ func (s *Service) AdvancedSearchAndAnalyzeV2(ctx context.Context, conversationID
 // generateFollowUpQuestions generates follow-up questions based on the analysis
 // Uses low model for cost efficiency and returns all questions at once (non-streaming)
 func (s *Service) generateFollowUpQuestions(ctx context.Context, query string, analysisContent string) (string, error) {
-	// Get follow-up questions prompt from database
-	followUpSystemPrompt, _, err := s.aiService.GetAndRenderPrompt("follow_up_questions_system", nil)
-	if err != nil {
-		slog.Warn("failed to get follow-up questions system prompt, using fallback", "err", err)
-		followUpSystemPrompt = "你是一位专业的学术研究助手，擅长基于研究分析提出有深度的延伸问题。"
-	}
+	// 系统提示词全部硬编码(prompt_templates 表已下线,见 0045 迁移)
+	followUpSystemPrompt := "你是一位专业的学术研究助手，擅长基于研究分析提出有深度的延伸问题。"
 
-	followUpPrompt, _, err := s.aiService.GetAndRenderPrompt("follow_up_questions", map[string]string{
-		"query":    query,
-		"analysis": analysisContent,
-	})
-	if err != nil {
-		// Fallback to hardcoded prompt
-		slog.Warn("failed to get follow-up questions prompt, using fallback", "err", err)
-		followUpPrompt = fmt.Sprintf(`用户查询：%s
+	followUpPrompt := fmt.Sprintf(`用户查询：%s
 
 已完成的分析：
 %s
@@ -740,7 +717,6 @@ func (s *Service) generateFollowUpQuestions(ctx context.Context, query string, a
 - 每个问题都应该简洁明了，一句话即可
 
 请直接输出问题列表，不要有其他内容。`, query, analysisContent)
-	}
 
 	followUpMessages := []ai.ChatMessage{
 		{

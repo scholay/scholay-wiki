@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"scholar-backend/internal/common/model"
@@ -101,21 +102,25 @@ func (s *Service) GetAccessToken(code string) (*WeChatAccessTokenResponse, error
 	// Make HTTP request
 	resp, err := http.Get(tokenURL)
 	if err != nil {
+		slog.Error("wechat: get access_token http error", "err", err)
 		return nil, fmt.Errorf("failed to get access token: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		slog.Error("wechat: read access_token body", "err", err)
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
 	var tokenResp WeChatAccessTokenResponse
 	if err := json.Unmarshal(body, &tokenResp); err != nil {
+		slog.Error("wechat: parse access_token response", "err", err, "body", string(body))
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
 	if tokenResp.ErrCode != 0 {
+		slog.Error("wechat: access_token api error", "errcode", tokenResp.ErrCode, "errmsg", tokenResp.ErrMsg)
 		return nil, fmt.Errorf("WeChat API error: %s (code: %d)", tokenResp.ErrMsg, tokenResp.ErrCode)
 	}
 
@@ -133,21 +138,25 @@ func (s *Service) GetUserInfo(accessToken, openID string) (*WeChatUserInfo, erro
 
 	resp, err := http.Get(userInfoURL)
 	if err != nil {
+		slog.Error("wechat: get userinfo http error", "err", err)
 		return nil, fmt.Errorf("failed to get user info: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		slog.Error("wechat: read userinfo body", "err", err)
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
 	var userInfo WeChatUserInfo
 	if err := json.Unmarshal(body, &userInfo); err != nil {
+		slog.Error("wechat: parse userinfo response", "err", err, "body", string(body))
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
 	if userInfo.ErrCode != 0 {
+		slog.Error("wechat: userinfo api error", "errcode", userInfo.ErrCode, "errmsg", userInfo.ErrMsg)
 		return nil, fmt.Errorf("WeChat API error: %s (code: %d)", userInfo.ErrMsg, userInfo.ErrCode)
 	}
 

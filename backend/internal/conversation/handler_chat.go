@@ -105,7 +105,7 @@ func (h *ChatHandler) RegenerateMessage(c *gin.Context) {
 	messageID := c.Param("messageId")
 
 	if messageID == "" {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Message ID is required")
+		utils.ErrorResponse(c, http.StatusBadRequest, "请提供消息 ID")
 		return
 	}
 
@@ -133,7 +133,7 @@ func (h *ChatHandler) EditMessage(c *gin.Context) {
 	messageID := c.Param("messageId")
 
 	if messageID == "" {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Message ID is required")
+		utils.ErrorResponse(c, http.StatusBadRequest, "请提供消息 ID")
 		return
 	}
 
@@ -221,7 +221,7 @@ func (h *ChatHandler) CreateConversationAndChat(c *gin.Context) {
 	// Create conversation with chat type
 	conversation, err := h.service.CreateConversation(c.Request.Context(), userID, title, ConversationTypeChat)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to create conversation")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "创建会话失败,请稍后重试")
 		return
 	}
 
@@ -302,7 +302,7 @@ func (h *ChatHandler) GetSiblingMessages(c *gin.Context) {
 	messageID := c.Param("messageId")
 
 	if messageID == "" {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Message ID is required")
+		utils.ErrorResponse(c, http.StatusBadRequest, "请提供消息 ID")
 		return
 	}
 
@@ -338,7 +338,7 @@ func (h *ChatHandler) GetBranchChain(c *gin.Context) {
 	messageID := c.Param("messageId")
 
 	if messageID == "" {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Message ID is required")
+		utils.ErrorResponse(c, http.StatusBadRequest, "请提供消息 ID")
 		return
 	}
 

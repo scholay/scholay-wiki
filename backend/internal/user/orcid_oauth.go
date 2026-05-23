@@ -51,11 +51,11 @@ type OrcidTokenResponse struct {
 func (h *Handler) GetOrcidLoginURL(c *gin.Context) {
 	orcidConfig, err := h.service.GetOrcidOAuthConfig()
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get ORCID OAuth config")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "加载 ORCID 登录配置失败,请稍后重试")
 		return
 	}
 	if orcidConfig == nil || orcidConfig.ClientID == "" || !orcidConfig.Enabled {
-		utils.ErrorResponse(c, http.StatusServiceUnavailable, "ORCID login is not configured")
+		utils.ErrorResponse(c, http.StatusServiceUnavailable, "ORCID 登录未配置或不可用")
 		return
 	}
 
@@ -84,18 +84,18 @@ func (h *Handler) OrcidCallback(c *gin.Context) {
 	code := c.Query("code")
 	state := c.Query("state")
 	if code == "" || state == "" {
-		utils.BadRequest(c, "Missing code or state parameter")
+		utils.BadRequest(c, "授权参数不完整,请重新发起登录")
 		return
 	}
 
 	if !validateOAuthState(c, "orcid_oauth_state:", state) {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid or expired state")
+		utils.ErrorResponse(c, http.StatusBadRequest, "会话已过期,请重新发起登录")
 		return
 	}
 
 	orcidConfig, err := h.service.GetOrcidOAuthConfig()
 	if err != nil || orcidConfig == nil || !orcidConfig.Enabled {
-		utils.ErrorResponse(c, http.StatusServiceUnavailable, "ORCID login is not configured")
+		utils.ErrorResponse(c, http.StatusServiceUnavailable, "ORCID 登录未配置或不可用")
 		return
 	}
 
@@ -103,7 +103,7 @@ func (h *Handler) OrcidCallback(c *gin.Context) {
 	tokenResp, err := h.exchangeOrcidCode(c.Request.Context(), code, orcidConfig)
 	if err != nil {
 		slog.Error("orcid oauth: failed to exchange code", "err", err)
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to exchange authorization code")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "获取访问令牌失败,请重试")
 		return
 	}
 
@@ -117,13 +117,13 @@ func (h *Handler) OrcidCallback(c *gin.Context) {
 	user, isNewUser, err := h.findOrCreateOrcidUser(tokenResp, ip)
 	if err != nil {
 		slog.Error("orcid oauth: failed to process user", "err", err)
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to process ORCID login")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "ORCID 登录处理失败,请稍后重试")
 		return
 	}
 
 	token, err := issueTokenAndSession(h, c, user, ip)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to generate token")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "签发登录凭证失败,请重试")
 		return
 	}
 	respondOAuthSuccess(c, token, user, isNewUser)
@@ -245,19 +245,19 @@ func (h *Handler) BindOrcidAccount(c *gin.Context) {
 		State string `json:"state" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request")
+		utils.BadRequest(c, "请求参数有误")
 		return
 	}
 
 	orcidConfig, err := h.service.GetOrcidOAuthConfig()
 	if err != nil || orcidConfig == nil || !orcidConfig.Enabled {
-		utils.ErrorResponse(c, http.StatusServiceUnavailable, "ORCID login is not configured")
+		utils.ErrorResponse(c, http.StatusServiceUnavailable, "ORCID 登录未配置或不可用")
 		return
 	}
 
 	tokenResp, err := h.exchangeOrcidCode(c.Request.Context(), req.Code, orcidConfig)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to exchange code")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "获取访问令牌失败,请重试")
 		return
 	}
 
@@ -318,5 +318,8 @@ func (s *Service) GetOrcidOAuthConfig() (*model.OrcidOAuthConfig, error) {
 
 // UnbindOrcid unbinds ORCID from user account
 func (s *Service) UnbindOrcid(userID uint) error {
+	if err := s.ensureNotLastLoginMethod(userID); err != nil {
+		return err
+	}
 	return s.repo.UnbindProviderInTx(userID, "orcid")
 }

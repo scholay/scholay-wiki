@@ -26,6 +26,7 @@ import (
 	"scholar-backend/internal/mcp"
 	"scholar-backend/internal/minicod"
 	"scholar-backend/internal/peerreview"
+	"scholar-backend/internal/peerreview2"
 	"scholar-backend/internal/semanticscholar"
 	"scholar-backend/internal/thirdparty"
 )
@@ -39,6 +40,7 @@ type aiBundle struct {
 	aiHandler *ai.Handler
 
 	scholarManager *semanticscholar.Manager
+	minicodManager *minicod.Manager
 	minicodHandler *minicod.Handler
 
 	mcpUnified *mcp.UnifiedHandler
@@ -46,6 +48,8 @@ type aiBundle struct {
 
 	peerReviewService *peerreview.Service
 	peerReviewHandler *peerreview.Handler
+
+	peerReview2Handler *peerreview2.Handler
 
 	latexWriter     *latexwriter.Handler
 	latexAgentAdmin *latexwriter.AdminHandler
@@ -83,6 +87,15 @@ func initAI(db *gorm.DB, cfg *appconfig.Config) *aiBundle {
 	peerReviewService := peerreview.NewService(db, aiService, mcpServer, thirdPartyService)
 	peerReviewHandler := peerreview.NewHandler(peerReviewService)
 
+	// V2: 接入 peer.scholay.com 外部审稿 API
+	peerReview2Repo := peerreview2.NewRepository(db)
+	peerReview2Client := peerreview2.NewClient(cfg.PeerReviewV2.BaseURL, cfg.PeerReviewV2.APIKey)
+	peerReview2Service := peerreview2.NewService(peerReview2Repo, peerReview2Client)
+	peerReview2Handler := peerreview2.NewHandler(peerReview2Service)
+	if !peerReview2Service.IsConfigured() {
+		slog.Warn("PEER_REVIEW_API_KEY 未配置,/peer-review2 接口将返回 503")
+	}
+
 	latexWriterService := latexwriter.NewService(db, aiService)
 	latexWriterHandler := latexwriter.NewHandler(latexWriterService)
 	latexAgentConfigRepo := latexwriter.NewAgentConfigRepository(db)
@@ -99,11 +112,13 @@ func initAI(db *gorm.DB, cfg *appconfig.Config) *aiBundle {
 		aiService:           aiService,
 		aiHandler:           aiHandler,
 		scholarManager:      scholarManager,
+		minicodManager:      minicodManager,
 		minicodHandler:      minicodHandler,
 		mcpUnified:          mcpUnifiedHandler,
 		mcpLegacy:           mcpLegacyHandler,
 		peerReviewService:   peerReviewService,
 		peerReviewHandler:   peerReviewHandler,
+		peerReview2Handler:  peerReview2Handler,
 		latexWriter:         latexWriterHandler,
 		latexAgentAdmin:     latexAgentAdminHandler,
 		conversationService: conversationService,

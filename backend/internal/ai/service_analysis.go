@@ -17,6 +17,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"sort"
 	"strings"
 
 	"scholar-backend/internal/common/circuitbreaker"
@@ -61,8 +62,9 @@ func (s *Service) AnalyzePaperAbstract(ctx context.Context, paperId string, pape
 		return nil, nil, fmt.Errorf("abstract is required for analysis")
 	}
 
-	// 1. 获取用户的分析维度
-	dimensionResult, err := s.GetAnalysisDimensions(userID)
+	// 1. 获取用户的分析维度 —— 用 ForAnalysis 版本(包含 IsHidden 的维度),
+	// 让 dimensionHash 对可见性切换不敏感,缓存能在用户隐藏 / 重新显示后命中
+	dimensionResult, err := s.GetAnalysisDimensionsForAnalysis(userID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get analysis dimensions: %w", err)
 	}
@@ -157,14 +159,35 @@ func (s *Service) analyzeWithRetry(ctx context.Context, paperTitle, abstract str
 		content := strings.TrimSpace(response.Choices[0].Message.Content)
 		content = s.extractJSONFromContent(content)
 
-		resultMap := make(map[string]string)
-		if err := json.Unmarshal([]byte(content), &resultMap); err != nil {
+		// 容忍标签模式下 AI 直接返回数组的情况:`{"studyType": ["原创"]}` 这种
+		// 因为 map[string]string 会 Unmarshal 失败,改用 map[string]any 然后逐项
+		// stringify(原始 string 透传,数组/对象 json.Marshal 成字符串,前端 JSON.parse)
+		rawMap := make(map[string]any)
+		if err := json.Unmarshal([]byte(content), &rawMap); err != nil {
 			slog.Warn("Failed to parse AI response as JSON", "attempt", attempt, "err", err)
 			slog.Debug("Raw content info", "length", len(content))
 			if len(content) > 0 {
 				slog.Debug("Raw content preview", "content", content[:min(2000, len(content))])
 			}
 			continue
+		}
+
+		resultMap := make(map[string]string, len(rawMap))
+		for k, v := range rawMap {
+			switch t := v.(type) {
+			case string:
+				resultMap[k] = t
+			case nil:
+				resultMap[k] = ""
+			default:
+				// 数组 / 对象 / 数字 / bool → JSON 字符串化,前端按需 parse
+				b, mErr := json.Marshal(v)
+				if mErr != nil {
+					resultMap[k] = ""
+				} else {
+					resultMap[k] = string(b)
+				}
+			}
 		}
 
 		// 解析成功
@@ -250,12 +273,23 @@ func (s *Service) extractJSONFromContent(content string) string {
 	return content
 }
 
-// generateDimensionHash 生成维度配置的哈希值
-// 用于判断缓存是否匹配当前维度配置
+// generateDimensionHash 生成维度配置的哈希值,用于判断缓存是否匹配当前维度配置。
+//
+// **哈希必须对显示顺序 / 可见性都不敏感**,只反映维度的"语义身份":
+//   - 按 DimensionKey 升序排序后拼接(忽略 SortOrder)→ 拖拽重排不破缓存
+//   - 调用方传入"分析路径用的维度全集"(visibility 不过滤)→ 切换隐藏不破缓存
+//
+// 拼接体仍为 `key:description;` 串,只有 key/description 真改了才换 hash。
 func (s *Service) generateDimensionHash(dimensions []AnalysisDimension) string {
-	// 将维度的key和description拼接后计算MD5
+	// 复制一份避免污染上游 slice 顺序
+	sorted := make([]AnalysisDimension, len(dimensions))
+	copy(sorted, dimensions)
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].DimensionKey < sorted[j].DimensionKey
+	})
+
 	var sb strings.Builder
-	for _, dim := range dimensions {
+	for _, dim := range sorted {
 		sb.WriteString(dim.DimensionKey)
 		sb.WriteString(":")
 		sb.WriteString(dim.Description)
@@ -278,28 +312,12 @@ func (s *Service) checkPaperAnalysisCache(paperId, dimensionHash string) bool {
 // buildAnalysisPrompt 动态构建分析提示词
 // 优先从数据库获取提示词模板，本地兜底
 func (s *Service) buildAnalysisPrompt(paperTitle, abstract string, dimensions []AnalysisDimension) string {
-	// 1. 构建维度列表字符串
+	// 维度列表 + JSON schema 在每次请求时基于 analysis_dimensions 表动态拼出
+	// (维度本身仍可由 admin 配,见 /admin/analysis/dimensions),
+	// 系统级提示词模板下线后,这里直接 build 硬编码版本。
 	dimensionList := s.buildDimensionListString(dimensions)
-
-	// 2. 构建JSON输出格式字符串
 	jsonFormat := s.buildJSONFormatString(dimensions)
-
-	// 3. 尝试从数据库获取提示词模板
-	renderedPrompt, template, err := s.GetAndRenderPrompt("dimensions_paper_analysis", map[string]string{
-		"paper_title":    paperTitle,
-		"abstract":       abstract,
-		"dimension_list": dimensionList,
-		"json_format":    jsonFormat,
-	})
-
-	if err != nil || template == nil {
-		// 数据库获取失败，使用本地兜底提示词
-		slog.Warn("Failed to get prompt template from DB, using fallback", "key", "dimensions_paper_analysis", "err", err)
-		return s.buildAnalysisPromptFallback(paperTitle, abstract, dimensionList, jsonFormat)
-	}
-
-	slog.Info("Using prompt template from DB", "name", template.Name, "id", template.ID)
-	return renderedPrompt
+	return s.buildAnalysisPromptFallback(paperTitle, abstract, dimensionList, jsonFormat)
 }
 
 // buildDimensionListString 构建维度列表字符串

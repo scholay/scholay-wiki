@@ -1,0 +1,13 @@
+{
+  "name": "scholar-pdf-extract",
+  "version": "1.0.0",
+  "description": "PDF text extraction via pdfjs (called from Go backend as subprocess)",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "pdfjs-dist": "~4.10.38"
+  }
+}

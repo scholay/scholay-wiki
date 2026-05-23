@@ -1,0 +1,113 @@
+/* 微信扫码登录自定义样式 - 只显示二维码 */
+
+/* 整体容器样式 - 让内容居中并减少留白 */
+.impowerBox {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  min-height: auto !important;
+  height: auto !important;
+}
+
+/* 隐藏标题区域 */
+.impowerBox .title,
+.title {
+  display: none !important;
+}
+
+/* 隐藏副标题/描述文字 */
+.impowerBox .info,
+.info {
+  display: none !important;
+}
+
+/* 隐藏状态相关元素 */
+.impowerBox .status,
+.impowerBox .status_icon,
+.impowerBox .status_txt,
+.impowerBox .status_browser {
+  display: none !important;
+}
+
+/* 隐藏底部提示文字 */
+.impowerBox .faq,
+.faq {
+  display: none !important;
+}
+
+/* 隐藏底部链接 */
+.impowerBox .bottom_text,
+.bottom_text {
+  display: none !important;
+}
+
+/* 隐藏"微信登录"、"快捷登录"等文字 */
+.web_qrcode_title,
+.impowerBox .web_qrcode_title {
+  display: none !important;
+}
+
+/* 隐藏扫码提示 */
+.web_qrcode_info,
+.impowerBox .web_qrcode_info {
+  display: none !important;
+}
+
+/* 隐藏"打开微信扫一扫"等提示 */
+.web_qrcode_tips,
+.impowerBox .web_qrcode_tips {
+  display: none !important;
+}
+
+/* 隐藏所有span和p文字元素 */
+.impowerBox span,
+.impowerBox p {
+  display: none !important;
+}
+
+/* 二维码容器样式 */
+.impowerBox .qrcode {
+  display: block !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  border: none !important;
+}
+
+/* 二维码图片样式 - 居中显示 */
+.impowerBox .qrcode img,
+.impowerBox img.qrcode {
+  display: block !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+}
+
+/* 调整wrp容器减少留白 */
+.impowerBox .wrp_code {
+  padding: 0 !important;
+  margin: 0 auto !important;
+}
+
+/* 针对可能的登录文字 */
+.impowerBox .login_title,
+.login_title {
+  display: none !important;
+}
+
+/* 隐藏其他可能的文字容器 */
+.impowerBox .panelContent,
+.panelContent {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* body样式调整 */
+body {
+  margin: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: flex-start !important;
+}

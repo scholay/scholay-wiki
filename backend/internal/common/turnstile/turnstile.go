@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/httpclient"
@@ -152,21 +153,26 @@ func VerifyWithConfig(ctx context.Context, token string, remoteIP string, system
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
+		slog.Error("turnstile: cf siteverify request failed", "err", err)
 		return false, fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		slog.Error("turnstile: read siteverify body", "err", err)
 		return false, fmt.Errorf("failed to read response: %w", err)
 	}
 
 	var verifyResp VerifyResponse
 	if err := json.Unmarshal(body, &verifyResp); err != nil {
+		slog.Error("turnstile: parse siteverify response", "err", err, "body", string(body))
 		return false, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
 	if !verifyResp.Success {
+		// 人机验证失败本身是用户行为(机器人 / token 过期),只 Warn 不 Error
+		slog.Warn("turnstile: verify rejected", "error_codes", verifyResp.ErrorCodes)
 		if len(verifyResp.ErrorCodes) > 0 {
 			return false, fmt.Errorf("人机验证失败: %v", verifyResp.ErrorCodes)
 		}

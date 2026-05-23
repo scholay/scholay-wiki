@@ -1,0 +1,182 @@
+import { Languages, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { cn } from '@/shared/lib/utils';
+import {
+  useTranslatePaper,
+  type TranslatePaperResult,
+} from '@/shared/api/translate';
+
+/**
+ * AI 翻译按钮 —— 全局唯一实现,跨搜索卡 / 文献集行 / 详情页 复用。
+ *
+ * 状态机(由父级状态驱动):
+ *   - 无 cache 且 idle      : "AI 翻译" + 默认色
+ *   - 无 cache 且 pending   : "翻译中…" + Loader2
+ *   - 有 cache 且 showing=原文 : "AI 翻译"(点击切到中文)
+ *   - 有 cache 且 showing=中文 : "原文"(点击切回英文)
+ *
+ * 父级保管 zh cache + showingTranslated:
+ *   - 第一次点击 → 触发 mutation → onTranslated(result) → 父级 setZh(result) 同时 setShowingTranslated(true)
+ *   - 后续点击 → onToggle() → 父级 setShowingTranslated(v => !v)
+ *
+ * 与 FavoritePaperButton 同款变体 / 尺寸 / 视觉,确保按钮组看起来是一家人。
+ *
+ * 变体:chip / icon / link(详情页 ActionRow 无边框文字链接式)
+ */
+
+export type TranslateButtonVariant = 'chip' | 'icon' | 'link';
+export type TranslateButtonSize = 'sm' | 'md' | 'lg';
+
+export interface TranslatePaperButtonProps {
+  title?: string;
+  abstract?: string;
+  /** 父级是否已经有中文缓存(决定点击行为是 toggle 还是 mutation) */
+  hasCache: boolean;
+  /** 当前是否在显示中文 */
+  showingTranslated: boolean;
+  /** 第一次翻译成功后回调,父级 setZh(result) + setShowingTranslated(true) */
+  onTranslated: (result: TranslatePaperResult) => void;
+  /** 已有 cache 时点击的回调,父级 setShowingTranslated(v => !v) */
+  onToggle: () => void;
+  variant?: TranslateButtonVariant;
+  size?: TranslateButtonSize;
+  showToast?: boolean;
+  onError?: (err: Error) => void;
+  className?: string;
+}
+
+const ICON_SIZE: Record<TranslateButtonSize, string> = {
+  sm: 'size-3',
+  md: 'size-3.5',
+  lg: 'size-4',
+};
+
+const CHIP_CLS: Record<TranslateButtonSize, string> = {
+  sm: 'h-6 px-2 text-2xs gap-1',
+  md: 'h-6 px-2.5 text-xs gap-1',
+  lg: 'h-8 px-3 text-sm gap-1.5',
+};
+
+const ICON_BTN_CLS: Record<TranslateButtonSize, string> = {
+  sm: 'h-5 w-5',
+  md: 'h-7 w-7',
+  lg: 'h-8 w-8',
+};
+
+export function TranslatePaperButton({
+  title,
+  abstract,
+  hasCache,
+  showingTranslated,
+  onTranslated,
+  onToggle,
+  variant = 'chip',
+  size = 'md',
+  showToast = true,
+  onError,
+  className,
+}: TranslatePaperButtonProps) {
+  const mut = useTranslatePaper();
+  const isPending = mut.isPending;
+
+  const handleClick = () => {
+    if (isPending) return;
+    if (hasCache) {
+      onToggle();
+      return;
+    }
+    mut.mutate(
+      { title, abstract },
+      {
+        onSuccess: (r) => onTranslated(r),
+        onError: (err: unknown) => {
+          const e = err instanceof Error ? err : new Error('翻译失败');
+          if (showToast) toast.error(e.message);
+          onError?.(e);
+        },
+      }
+    );
+  };
+
+  // 文案:pending > 已显示译文 > 默认
+  const label = isPending ? '翻译中…' : showingTranslated ? '原文' : 'AI 翻译';
+  const Icon = isPending ? Loader2 : Languages;
+  const iconCls = cn(ICON_SIZE[size], isPending && 'animate-spin');
+
+  const title_ = isPending
+    ? '正在翻译…'
+    : showingTranslated
+      ? '切回原文'
+      : 'AI 翻译标题与摘要';
+  const ariaLabel = showingTranslated ? '切回原文' : 'AI 翻译';
+
+  if (variant === 'icon') {
+    return (
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={isPending}
+        aria-pressed={showingTranslated}
+        aria-label={ariaLabel}
+        title={title_}
+        className={cn(
+          'inline-flex items-center justify-center rounded-sm shrink-0 transition-colors',
+          ICON_BTN_CLS[size],
+          showingTranslated
+            ? 'bg-surface-2 text-foreground'
+            : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground',
+          isPending && 'opacity-60 cursor-wait',
+          className
+        )}
+      >
+        <Icon className={iconCls} strokeWidth={2.25} />
+      </button>
+    );
+  }
+
+  if (variant === 'link') {
+    return (
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={isPending}
+        aria-pressed={showingTranslated}
+        title={title_}
+        className={cn(
+          'inline-flex items-center gap-1.5 text-sm font-medium transition-colors',
+          'text-foreground hover:text-brand-red',
+          isPending && 'opacity-70 cursor-not-allowed',
+          className
+        )}
+      >
+        <Icon
+          className={cn('size-3.5', isPending && 'animate-spin')}
+          strokeWidth={2}
+        />
+        {label}
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={isPending}
+      aria-pressed={showingTranslated}
+      title={title_}
+      className={cn(
+        'inline-flex items-center justify-center rounded-sm border shrink-0 transition-colors',
+        CHIP_CLS[size],
+        showingTranslated
+          ? 'border-foreground/40 bg-surface-1 text-foreground font-semibold'
+          : 'border-border text-subtle hover:bg-surface-1 hover:text-foreground',
+        isPending && 'opacity-60 cursor-wait',
+        className
+      )}
+    >
+      <Icon className={iconCls} strokeWidth={2.2} />
+      {label}
+    </button>
+  );
+}

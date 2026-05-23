@@ -165,18 +165,23 @@ func (r *Repository) GetAuthorByAuthorID(authorID string) (*SEOAuthor, error) {
 }
 
 // ListAuthorSitemapPage 读取指定分页的 sitemap 条目
+//
+// 同时取 source + author_id —— sitemap URL 采用 canonical `/author/{source}/{authorId}`,
+// slug 仍保留以支持 legacy `/author/:slug` 反查。
 func (r *Repository) ListAuthorSitemapPage(page int) ([]SitemapEntry, error) {
 	if page <= 0 {
 		return nil, errors.New("page must be > 0")
 	}
 	var rows []struct {
 		Slug        string    `gorm:"column:slug"`
+		Source      string    `gorm:"column:source"`
+		AuthorID    string    `gorm:"column:author_id"`
 		UpdatedAt   time.Time `gorm:"column:updated_at"`
 		Priority    float64   `gorm:"column:priority"`
 		QualityTier int       `gorm:"column:quality_tier"`
 	}
 	err := r.db.Table("seo_authors").
-		Select("slug, updated_at, priority, quality_tier").
+		Select("slug, source, author_id, updated_at, priority, quality_tier").
 		Where("status = ? AND sitemap_page = ?", StatusActive, page).
 		Order("id").
 		Find(&rows).Error
@@ -187,6 +192,8 @@ func (r *Repository) ListAuthorSitemapPage(page int) ([]SitemapEntry, error) {
 	for _, r := range rows {
 		out = append(out, SitemapEntry{
 			Slug:        r.Slug,
+			Source:      r.Source,
+			EntityID:    r.AuthorID,
 			UpdatedAt:   r.UpdatedAt,
 			Priority:    r.Priority,
 			QualityTier: r.QualityTier,

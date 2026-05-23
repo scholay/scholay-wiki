@@ -40,6 +40,41 @@ services:
     networks:
       - scholar-network
 
+  # MinIO 对象存储 —— 用户上传的 PDF 文件本体存放在这里
+  # MySQL 只存元数据(object_key/size/sha256/uploaded_at),文件不入库
+  # 兼容 S3 API,以后真要切阿里云 OSS / 腾讯 COS 只换 endpoint + credentials
+  minio:
+    image: minio/minio:latest
+    container_name: scholar_minio
+    restart: unless-stopped
+    logging: *default-logging
+    # 仅容器内部访问 API(9000);9001 是 web 控制台,不暴露主机(需要时再开)
+    expose:
+      - "9000"
+      - "9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-scholarminio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-scholarminiopass}
+      TZ: Asia/Shanghai
+    volumes:
+      - ./data/minio:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      # MinIO 自带的就绪探针 —— 等服务起来 + 至少一块盘就绪
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
+    networks:
+      - scholar-network
+
   # Redis cache service
   redis:
     image: redis:7-alpine
@@ -87,6 +122,8 @@ services:
       MYSQL_USER: ${MYSQL_USER:-scholar_user}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-scholar_pass}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-scholar}
+      # 给 run-migrations.sh 用,首次启动幂等创建 umami 库并授权 scholar_user
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
     volumes:
       - ./docker/mysql/migrations:/docker-entrypoint-initdb.d/migrations:ro
       - ./scripts:/app/scripts:ro
@@ -135,6 +172,21 @@ services:
       BAIDU_PUSH_DAILY_QUOTA: ${BAIDU_PUSH_DAILY_QUOTA:-1000}
       SEO_PUSH_WORKER_INTERVAL_SECONDS: ${SEO_PUSH_WORKER_INTERVAL_SECONDS:-300}
       SEO_PUSH_BATCH_SIZE: ${SEO_PUSH_BATCH_SIZE:-100}
+      # peer-review V2 (peer.scholay.com 外部审稿服务)
+      PEER_REVIEW_API_KEY: ${PEER_REVIEW_API_KEY:-}
+      PEER_REVIEW_BASE_URL: ${PEER_REVIEW_BASE_URL:-https://peer.scholay.com}
+      # MinIO 对象存储(用户上传 PDF) —— endpoint 用容器名 minio:9000
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-scholarminio}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-scholarminiopass}
+      MINIO_BUCKET_PAPER_PDFS: ${MINIO_BUCKET_PAPER_PDFS:-scholar-paper-pdfs}
+      MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
+      # CORS —— fan-out 自 .env(默认 * 允许任意 origin,生产请改具体域名列表)
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
+      # ─── Umami HTTP API 接入 ───
+      # backend internal/umami 通过 umami:3000 拉取统计,admin /analytics 自渲染图表。
+      # 内网 URL + 默认 admin/umami 都写死在 client.go 里,这里只需告诉 backend WebsiteID。
+      UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-}
       # Go memory limit (75% of container memory limit)
       GOMEMLIMIT: 768MiB
     # Backend不暴露端口,通过Nginx访问
@@ -144,6 +196,8 @@ services:
       mysql:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      minio:
         condition: service_healthy
       schema-sync:
         condition: service_completed_successfully
@@ -156,19 +210,20 @@ services:
     networks:
       - scholar-network
 
+  # 用户前端 (Vite + React 19,源在 frontend-user/)
+  # 旧版 CRA 源已归档到 frontend-user-old/,不构建不部署。
   frontend-user:
     build:
       context: ./frontend-user
       dockerfile: Dockerfile
       args:
-        REACT_APP_API_URL: ""
-        # 站点配置 build-time 注入(Vite 打进 bundle,运行期不能变)
-        # 与 backend 共用 .env 里的同一组 SITE_URL / SUPPORT_EMAIL / ...
-        # 在这里 fan-out 给 frontend 的 REACT_APP_* 命名空间
-        REACT_APP_SITE_URL: ${SITE_URL:-https://www.scholay.com}
-        REACT_APP_SITE_NAME: ${SITE_NAME:-Scholay}
-        REACT_APP_SUPPORT_EMAIL: ${SUPPORT_EMAIL:-support@scholay.com}
-        REACT_APP_PDF_PREVIEW_ENDPOINT: ${PDF_PREVIEW_ENDPOINT:-https://filepreview.scholay.com/api/preview}
+        VITE_API_BASE_URL: ""
+        # 站点配置 build-time 注入到 Vite bundle (运行期不能变)
+        VITE_SITE_URL: ${SITE_URL:-https://www.scholay.com}
+        VITE_SITE_NAME: ${SITE_NAME:-Scholay}
+        # Umami 网站 ID — Umami 控制台创建 Website 后填回 .env;为空时 data-website-id
+        # 占位符不替换,umami script.js 仍会加载但不会上报事件(降级安全)。
+        VITE_UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-}
     container_name: scholar_frontend_user
     restart: unless-stopped
     logging: *default-logging
@@ -185,14 +240,55 @@ services:
     networks:
       - scholar-network
 
+  # ─── Umami 分析平台 ─────────────────────────────────────────────────
+  # 单容器接入:
+  #   - 镜像换 mysql-latest,DATABASE_URL 指 scholar_mysql 的 `umami` 库
+  #     (该库 + 用户权限由 docker/mysql/initdb.d/01-umami-db.sql 首次启动时创建)
+  #   - 不再暴露给主机:tracker (script + api/send) 由 nginx 反代,
+  #     管理 UI 不再对外 —— admin /analytics 改为 backend HTTP API 自渲染图表
+  #   - APP_SECRET 是 umami 容器自己签 token 用的,改值会让前端 tracker 老 hash 失效
+  umami:
+    image: ghcr.io/umami-software/umami:mysql-latest
+    container_name: scholar_umami
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      DATABASE_TYPE: mysql
+      DATABASE_URL: mysql://${MYSQL_USER:-scholar_user}:${MYSQL_PASSWORD:-scholar_pass}@mysql:3306/umami
+      APP_SECRET: ${UMAMI_APP_SECRET:-change-this-umami-secret-in-production}
+      DISABLE_TELEMETRY: "1"
+      TRACKER_SCRIPT_NAME: script
+      TZ: Asia/Shanghai
+    expose:
+      - "3000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      schema-sync:
+        condition: service_completed_successfully
+    healthcheck:
+      # 注:Umami v3 没有 /api/heartbeat,/login 永远 200,作 readiness 探针够用
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:3000/login >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
+    networks:
+      - scholar-network
+
   nginx:
     image: nginx:alpine
     container_name: scholar_nginx
     restart: unless-stopped
     logging: *default-logging
     ports:
-      # 单一对外入口: /admin 路由由同一个 SPA 处理(权限在后端 JWT 校验)
-      # 原独立 admin 端口 8001 已下线 —— frontend-user 是单 bundle, 没必要双暴露
+      # 主入口 (含 /admin 路径)。umami UI / tracker 都通过这个端口的反代,不另开端口。
       - "${HTTP_PORT:-5411}:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
@@ -200,6 +296,7 @@ services:
     depends_on:
       - backend
       - frontend-user
+      - umami
     deploy:
       resources:
         limits:

@@ -83,8 +83,17 @@ type Author struct {
 
 // SitemapEntry sitemap 生成所需的最小字段集（论文/作者通用）
 // QualityTier 用于按 tier 区分 <changefreq>（tier=1 weekly / tier=2 monthly）。
+//
+// URL 构造(2026-05 改为 SEO canonical 后):
+//   论文 → /paper/{Source}/{EntityID}   ← Source/EntityID 来自 seo_papers
+//   学者 → /author/{Source}/{EntityID}  ← Source/EntityID 来自 seo_authors
+//   期刊 → /journal/{EntityID}          ← 暂未实现,Source 留空,EntityID 是 journal id
+//
+// Slug 字段保留 —— 旧 /paper/{slug} legacy 301 端点要用它做反查。
 type SitemapEntry struct {
 	Slug        string
+	Source      string // 'stc' / 'olx' / 'pmd'(期刊空)
+	EntityID    string // 论文/学者的上游 paper_id/author_id;期刊的 journal id 字符串化
 	UpdatedAt   time.Time
 	Priority    float64
 	QualityTier int

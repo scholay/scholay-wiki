@@ -18,7 +18,6 @@ import (
 	"context"
 	"time"
 
-	ifaces "scholar-backend/internal/common/interfaces"
 	"scholar-backend/internal/common/middleware"
 
 	"github.com/gin-gonic/gin"
@@ -58,11 +57,10 @@ type PeerReviewItemDTO struct {
 
 // Handler handles HTTP requests for user operations
 type Handler struct {
-	service             *Service
-	wechatService       WeChatService
-	onlineStatsProvider ifaces.OnlineStatsProvider
-	conversationQuery   ConversationQueryService
-	peerReviewQuery     PeerReviewQueryService
+	service           *Service
+	wechatService     WeChatService
+	conversationQuery ConversationQueryService
+	peerReviewQuery   PeerReviewQueryService
 }
 
 // NewHandler creates a new user handler
@@ -76,11 +74,6 @@ func NewHandler(service *Service, db *gorm.DB) *Handler {
 // SetWeChatService sets the WeChat service
 func (h *Handler) SetWeChatService(wechatService WeChatService) {
 	h.wechatService = wechatService
-}
-
-// SetOnlineStatsProvider 设置在线统计提供者（WebSocket Hub）
-func (h *Handler) SetOnlineStatsProvider(provider ifaces.OnlineStatsProvider) {
-	h.onlineStatsProvider = provider
 }
 
 // SetConversationQueryService sets the conversation query service
@@ -100,11 +93,13 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
 		// 敏感认证接口严格限流（防暴力破解 / 防短信&邮件轰炸）
 		// 登录/注册/改密 —— 每 IP 每分钟 30 次（普通用户足够，恶意扫号远达不到）
 		// 发码类 —— 每 IP 每分钟 8 次（足够正常重试，但无法用于短信轰炸）
+		// 账号存在性查询 —— 每 IP 每分钟 20 次（防用户枚举攻击,但允许正常注册流程的存在性提示）
 		authLimit := middleware.RateLimitMiddleware(30, time.Minute)
 		codeLimit := middleware.RateLimitMiddleware(8, time.Minute)
+		checkLimit := middleware.RateLimitMiddleware(20, time.Minute)
 
 		// Email-based auth
-		user.POST("/check-email", h.CheckEmail)
+		user.POST("/check-email", checkLimit, h.CheckEmail)
 		user.POST("/send-code", codeLimit, h.SendVerificationCode)
 		user.POST("/register", authLimit, h.Register)
 		user.POST("/login", authLimit, h.Login)
@@ -112,7 +107,7 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
 		user.POST("/reset-password", authLimit, h.ResetPassword)
 
 		// Phone-based auth
-		user.POST("/check-phone", h.CheckPhone)
+		user.POST("/check-phone", checkLimit, h.CheckPhone)
 		user.POST("/send-phone-code", codeLimit, h.SendPhoneVerificationCode)
 		user.POST("/register-phone", authLimit, h.RegisterWithPhone)
 		user.POST("/login-phone", authLimit, h.LoginWithPhone)

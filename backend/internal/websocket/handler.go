@@ -12,8 +12,6 @@ import (
 	"log/slog"
 	"strings"
 
-	"scholar-backend/internal/common/utils"
-
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -125,11 +123,5 @@ func (h *Handler) validateToken(tokenString string) (uint, string, error) {
 // GetHub 获取 Hub 实例
 func (h *Handler) GetHub() *Hub {
 	return h.hub
-}
-
-// GetOnlineStats 获取在线统计信息（供管理端调用）
-func (h *Handler) GetOnlineStats(c *gin.Context) {
-	stats := h.hub.GetOnlineStats()
-	utils.Success(c, stats)
 }
 

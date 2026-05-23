@@ -8,13 +8,13 @@
 package user
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
-	"time"
 
 	"scholar-backend/internal/common/httpclient"
 	"scholar-backend/internal/common/model"
@@ -45,7 +45,7 @@ type GoogleTokenInfo struct {
 func (h *Handler) GetGoogleClientID(c *gin.Context) {
 	googleConfig, err := h.service.GetGoogleOAuthConfig()
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get Google OAuth config")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "加载 Google 登录配置失败,请稍后重试")
 		return
 	}
 
@@ -80,12 +80,12 @@ func (h *Handler) GoogleIDTokenLogin(c *gin.Context) {
 	// Get Google OAuth config
 	googleConfig, err := h.service.GetGoogleOAuthConfig()
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get Google OAuth config")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "加载 Google 登录配置失败,请稍后重试")
 		return
 	}
 
 	if googleConfig == nil || googleConfig.ClientID == "" || !googleConfig.Enabled {
-		utils.ErrorResponse(c, http.StatusServiceUnavailable, "Google login is not configured")
+		utils.ErrorResponse(c, http.StatusServiceUnavailable, "Google 登录未配置或不可用")
 		return
 	}
 
@@ -100,25 +100,30 @@ func (h *Handler) GoogleIDTokenLogin(c *gin.Context) {
 	// Verify the audience matches our Client ID
 	if tokenInfo.Aud != googleConfig.ClientID {
 		slog.Error("google oauth: audience mismatch", "expected", googleConfig.ClientID, "got", tokenInfo.Aud)
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Token audience mismatch")
+		utils.ErrorResponse(c, http.StatusUnauthorized, "登录凭证不匹配,请重试")
 		return
 	}
 
-	// Find or create user
+	// Find or create user (三态:登录 / 新建 / 需合并确认 —— 见 oauthOutcome)
 	ip := c.ClientIP()
-	user, isNewUser, err := h.findOrCreateGoogleUser(tokenInfo, ip)
+	outcome, err := h.findOrCreateGoogleUser(c.Request.Context(), tokenInfo, ip)
 	if err != nil {
 		slog.Error("google oauth: failed to process user", "err", err)
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to process Google login")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Google 登录处理失败,请稍后重试")
 		return
 	}
 
-	token, err := issueTokenAndSession(h, c, user, ip)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to generate token")
+	if outcome.MergeToken != "" {
+		respondOAuthPendingMerge(c, outcome.MergeToken, "google", derefStr(outcome.User.Email))
 		return
 	}
-	respondOAuthSuccess(c, token, user, isNewUser)
+
+	token, err := issueTokenAndSession(h, c, outcome.User, ip)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "签发登录凭证失败,请重试")
+		return
+	}
+	respondOAuthSuccess(c, token, outcome.User, outcome.IsNewUser)
 }
 
 // verifyGoogleIDToken verifies a Google ID token using Google's tokeninfo endpoint
@@ -151,107 +156,48 @@ func verifyGoogleIDToken(idToken string) (*GoogleTokenInfo, error) {
 	return &info, nil
 }
 
-// findOrCreateGoogleUser finds an existing user or creates a new one from Google token info
-func (h *Handler) findOrCreateGoogleUser(tokenInfo *GoogleTokenInfo, ip string) (*User, bool, error) {
-	providerUserID := tokenInfo.Sub
+// findOrCreateGoogleUser 把 *GoogleTokenInfo 映射为 oauthIdentity 后走通用流程。
+// 唯一额外行为:已绑 user 登录时刷新头像(Google profile 头像更新比 GitHub 频繁)。
+func (h *Handler) findOrCreateGoogleUser(ctx context.Context, tokenInfo *GoogleTokenInfo, ip string) (oauthOutcome, error) {
+	_ = ip
 
-	// Check if user already exists with this Google ID
-	authProvider, err := h.service.FindAuthProvider("google", providerUserID)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, false, fmt.Errorf("find auth provider: %w", err)
+	username := tokenInfo.Name
+	if username == "" {
+		username = tokenInfo.GivenName
+	}
+	if username == "" && tokenInfo.Email != "" {
+		username = splitEmail(tokenInfo.Email)
+	}
+	displayName := tokenInfo.Name
+	if displayName == "" {
+		displayName = tokenInfo.GivenName
 	}
 
-	if authProvider != nil {
-		user, err := h.service.FindByID(authProvider.UserID)
-		if err != nil {
-			return nil, false, fmt.Errorf("find user by id: %w", err)
-		}
-		// Update avatar if changed
-		if tokenInfo.Picture != "" && (user.AvatarURL == nil || *user.AvatarURL == "") {
-			user.AvatarURL = &tokenInfo.Picture
-			_ = h.service.UpdateUser(user)
-		}
-		return user, false, nil
+	outcome, err := h.findOrCreateOAuthUser(ctx, oauthIdentity{
+		Provider:          "google",
+		ProviderUserID:    tokenInfo.Sub,
+		Email:             tokenInfo.Email,
+		EmailVerified:     tokenInfo.EmailVerified == "true",
+		UsernameCandidate: username,
+		UsernameFallback:  "google_user",
+		AvatarURL:         tokenInfo.Picture,
+		DisplayName:       displayName,
+		ProviderDataExtras: map[string]string{
+			"name":    tokenInfo.Name,
+			"email":   tokenInfo.Email,
+			"picture": tokenInfo.Picture,
+		},
+	})
+	if err != nil || outcome.MergeToken != "" || outcome.IsNewUser {
+		return outcome, err
 	}
-
-	// Check if email already exists
-	var user *User
-	if tokenInfo.Email != "" {
-		found, err := h.service.FindByEmail(tokenInfo.Email)
-		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, false, fmt.Errorf("find user by email: %w", err)
-		}
-		user = found
+	// 既有用户登入 —— 头像有变化就同步过来(Google profile 头像可能更新)
+	if outcome.User != nil && tokenInfo.Picture != "" &&
+		(outcome.User.AvatarURL == nil || *outcome.User.AvatarURL == "") {
+		outcome.User.AvatarURL = &tokenInfo.Picture
+		_ = h.service.UpdateUser(outcome.User)
 	}
-
-	isNewUser := false
-
-	if user == nil {
-		isNewUser = true
-
-		// Generate username from Google name or email
-		username := tokenInfo.Name
-		if username == "" {
-			username = tokenInfo.GivenName
-		}
-		if username == "" && tokenInfo.Email != "" {
-			parts := splitEmail(tokenInfo.Email)
-			username = parts
-		}
-		if username == "" {
-			username = "google_user"
-		}
-
-		// Ensure username is unique
-		existingUser, err := h.service.FindByUsername(username)
-		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, false, fmt.Errorf("check username uniqueness: %w", err)
-		}
-		if existingUser != nil {
-			username = fmt.Sprintf("%s_%d", username, time.Now().Unix())
-		}
-
-		email := tokenInfo.Email
-		avatarURL := tokenInfo.Picture
-		emailVerified := tokenInfo.EmailVerified == "true"
-
-		user = &User{
-			Username:      &username,
-			Email:         &email,
-			AvatarURL:     &avatarURL,
-			Role:          "user",
-			Status:        1,
-			EmailVerified: emailVerified,
-		}
-
-		if err := h.service.CreateUser(user); err != nil {
-			return nil, false, err
-		}
-
-		h.service.SendWelcomeMessage(user.ID)
-	}
-
-	// Create auth provider link
-	providerData := map[string]string{
-		"name":    tokenInfo.Name,
-		"email":   tokenInfo.Email,
-		"picture": tokenInfo.Picture,
-	}
-	providerDataBytes, _ := json.Marshal(providerData)
-	providerDataJSON := string(providerDataBytes)
-
-	authProvider = &UserAuthProvider{
-		UserID:         user.ID,
-		Provider:       "google",
-		ProviderUserID: providerUserID,
-		ProviderData:   &providerDataJSON,
-	}
-
-	if err := h.service.CreateAuthProvider(authProvider); err != nil {
-		return nil, isNewUser, err
-	}
-
-	return user, isNewUser, nil
+	return outcome, nil
 }
 
 // splitEmail extracts the local part from an email address
@@ -286,12 +232,12 @@ func (h *Handler) BindGoogleAccount(c *gin.Context) {
 	// Get Google OAuth config
 	googleConfig, err := h.service.GetGoogleOAuthConfig()
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get Google OAuth config")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "加载 Google 登录配置失败,请稍后重试")
 		return
 	}
 
 	if googleConfig == nil || googleConfig.ClientID == "" || !googleConfig.Enabled {
-		utils.ErrorResponse(c, http.StatusServiceUnavailable, "Google login is not configured")
+		utils.ErrorResponse(c, http.StatusServiceUnavailable, "Google 登录未配置或不可用")
 		return
 	}
 
@@ -304,7 +250,7 @@ func (h *Handler) BindGoogleAccount(c *gin.Context) {
 	}
 
 	if tokenInfo.Aud != googleConfig.ClientID {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Token audience mismatch")
+		utils.ErrorResponse(c, http.StatusUnauthorized, "登录凭证不匹配,请重试")
 		return
 	}
 

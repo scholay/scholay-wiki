@@ -28,6 +28,42 @@ type Config struct {
 	App              AppConfig_
 	RateLimit        RateLimitConfig
 	SEOSubmit        SEOSubmitConfig
+	PeerReviewV2     PeerReviewV2Config
+	MinIO            MinIOConfig
+	Umami            UmamiConfig
+}
+
+// UmamiConfig —— 后端通过 umami HTTP API 查统计数据,展示在 admin /analytics 自己的页面上。
+//
+// 简化策略:
+//   - umami 容器永远跑在内网 `umami:3000`(写死,无需 env)
+//   - umami 默认 admin 账号 admin/umami,backend 启动后用这个去 /api/auth/login 拿 token,
+//     401 自动重登;管理员不应该改 umami 内部的密码(改了就要重启 backend)
+//   - 只需要 WebsiteID(在 umami UI 创建网站后填回)+ AppSecret(给 umami 容器自己签名用,backend
+//     这边其实不直接消费,但留下以便未来切换到 APP_SECRET 直签 JWT 方案)
+type UmamiConfig struct {
+	WebsiteID string // umami 后台创建网站后给的 UUID,前端 tracker 也读这个
+	AppSecret string // 给 umami 容器自身签 token 用,backend 暂时不用
+}
+
+// MinIOConfig 对象存储(用户上传 PDF) —— S3 兼容协议。
+// Endpoint 不带 scheme(由 UseSSL 决定 http/https);bucket 名启动时自动建。
+//
+// 留空 Endpoint 时,backend 会跳过 storage 初始化,PDF 上传/下载相关接口
+// 直接返回 503"未启用",其余功能不受影响(灰度上线友好)。
+type MinIOConfig struct {
+	Endpoint        string // host:port,例如 minio:9000
+	AccessKey       string
+	SecretKey       string
+	BucketPaperPDFs string // 存论文 PDF 的 bucket
+	UseSSL          bool
+}
+
+// PeerReviewV2Config peer.scholay.com 外部审稿服务接入配置。
+// 留空 APIKey 时,后端 /peer-review2 接口直接返回 503,前端给"未启用"提示。
+type PeerReviewV2Config struct {
+	APIKey  string // X-API-Key 头
+	BaseURL string // 默认 https://peer.scholay.com
 }
 
 // RateLimitConfig 控制限流策略。
@@ -175,6 +211,27 @@ func Load() *Config {
 			UserBurst:     getEnvAsInt("RATE_LIMIT_USER_BURST", 100),
 			VIPMultiplier: getEnvAsFloat("RATE_LIMIT_VIP_MULTIPLIER", 3.0),
 		},
+	}
+
+	// peer-review V2 外部审稿服务
+	AppConfig.PeerReviewV2 = PeerReviewV2Config{
+		APIKey:  getEnv("PEER_REVIEW_API_KEY", ""),
+		BaseURL: getEnv("PEER_REVIEW_BASE_URL", "https://peer.scholay.com"),
+	}
+
+	// MinIO 对象存储 —— PDF 上传/下载
+	AppConfig.MinIO = MinIOConfig{
+		Endpoint:        getEnv("MINIO_ENDPOINT", ""),
+		AccessKey:       getEnv("MINIO_ACCESS_KEY", ""),
+		SecretKey:       getEnv("MINIO_SECRET_KEY", ""),
+		BucketPaperPDFs: getEnv("MINIO_BUCKET_PAPER_PDFS", "scholar-paper-pdfs"),
+		UseSSL:          getEnvAsBool("MINIO_USE_SSL", false),
+	}
+
+	// Umami —— backend 用内网 umami:3000 + 默认 admin/umami 拿 token 调统计 API
+	AppConfig.Umami = UmamiConfig{
+		WebsiteID: getEnv("UMAMI_WEBSITE_ID", ""),
+		AppSecret: getEnv("UMAMI_APP_SECRET", ""),
 	}
 
 	// 主动 SEO 提交

@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 )
 
@@ -18,6 +19,12 @@ const (
 	verificationCodePrefix = "verification_code"
 	verificationCodeTTL    = 10 * time.Minute // 验证码10分钟过期
 )
+
+// normEmail 与 utils.NormalizeEmail 同义,但本包不能 import utils(会形成循环依赖)。
+// 验证码 key 是 verification_code:{email}:{purpose},若不规范化 Save/Verify 大小写不一致会查不到。
+func normEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
+}
 
 // VerificationCode represents a verification code in Redis
 type VerificationCode struct {
@@ -30,6 +37,7 @@ type VerificationCode struct {
 // Key format: verification_code:{email}:{purpose}
 // TTL: 10 minutes (auto-cleanup)
 func SaveVerificationCode(ctx context.Context, email, code, purpose string) error {
+	email = normEmail(email)
 	key := fmt.Sprintf("%s:%s:%s", verificationCodePrefix, email, purpose)
 
 	vc := VerificationCode{
@@ -44,6 +52,7 @@ func SaveVerificationCode(ctx context.Context, email, code, purpose string) erro
 // VerifyCode verifies a verification code and deletes it if valid
 // Returns true if code is valid, false otherwise
 func VerifyCode(ctx context.Context, email, code, purpose string) (bool, error) {
+	email = normEmail(email)
 	key := fmt.Sprintf("%s:%s:%s", verificationCodePrefix, email, purpose)
 
 	var vc VerificationCode
@@ -68,7 +77,7 @@ func VerifyCode(ctx context.Context, email, code, purpose string) (bool, error) 
 
 // GetVerificationCode retrieves a verification code (for debugging only)
 func GetVerificationCode(ctx context.Context, email, purpose string) (*VerificationCode, error) {
-	key := fmt.Sprintf("%s:%s:%s", verificationCodePrefix, email, purpose)
+	key := fmt.Sprintf("%s:%s:%s", verificationCodePrefix, normEmail(email), purpose)
 
 	var vc VerificationCode
 	err := Get(ctx, key, &vc)
@@ -81,12 +90,12 @@ func GetVerificationCode(ctx context.Context, email, purpose string) (*Verificat
 
 // DeleteVerificationCode deletes a verification code
 func DeleteVerificationCode(ctx context.Context, email, purpose string) error {
-	key := fmt.Sprintf("%s:%s:%s", verificationCodePrefix, email, purpose)
+	key := fmt.Sprintf("%s:%s:%s", verificationCodePrefix, normEmail(email), purpose)
 	return Delete(ctx, key)
 }
 
 // GetVerificationCodeTTL returns the remaining TTL of a verification code
 func GetVerificationCodeTTL(ctx context.Context, email, purpose string) (time.Duration, error) {
-	key := fmt.Sprintf("%s:%s:%s", verificationCodePrefix, email, purpose)
+	key := fmt.Sprintf("%s:%s:%s", verificationCodePrefix, normEmail(email), purpose)
 	return TTL(ctx, key)
 }

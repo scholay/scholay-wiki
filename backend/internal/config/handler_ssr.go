@@ -10,7 +10,9 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -83,6 +85,16 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 		return
 	}
 
+	// Legacy /paper/{slug} / /author/{slug} → canonical /paper/{source}/{paperId} 永久重定向
+	// (新前端路由全部用 source+paperId,旧 slug 仍在 sitemap fallback / 收录里出现,
+	// 这里 301 把 link equity 收拢到 canonical,避免 Google 当 duplicate 内容)。
+	// 仅在 slug 真能反查到带 source+paperId 的 SEO 行时才跳转 —— 解析失败 / 旧行
+	// 没回填 source 都保持原路径,让下面的 SSR 走 fallback。
+	if redirectTo := h.canonicalRedirectFor(requestPath); redirectTo != "" {
+		c.Redirect(http.StatusMovedPermanently, redirectTo)
+		return
+	}
+
 	// Get the route-specific HTML content from frontend
 	pageHTML, err := h.getPageHTML(requestPath)
 	if err != nil {
@@ -109,22 +121,63 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 	// Inject route-specific noscript content for SEO (Google AdSense compliance)
 	modifiedHTML = injectRouteNoscript(modifiedHTML, requestPath)
 
-	// /paper/{slug} 专属 SEO 元数据注入
+	// 论文详情页 SEO 元数据注入 —— 同时支持新 canonical 和 legacy 两种路径形式:
+	//   新 canonical /paper/{source}/{paperId}   → ResolveByPaperID
+	//   legacy      /paper/{slug}                → ResolveSlug
+	// 仅按 `/` 段数区分,paperId 内部允许出现 `:`(如 arXiv:1706.03762),不可有 `/`。
 	if h.paperSEOProvider != nil && strings.HasPrefix(requestPath, "/paper/") {
-		slug := strings.TrimPrefix(requestPath, "/paper/")
-		if slug != "" && !strings.Contains(slug, "/") {
-			if meta, err := h.paperSEOProvider.ResolveSlug(slug); err == nil && meta != nil {
-				modifiedHTML = injectPaperSEOMeta(modifiedHTML, meta, requestPath)
+		rest := strings.TrimPrefix(requestPath, "/paper/")
+		if rest != "" {
+			parts := strings.Split(rest, "/")
+			switch len(parts) {
+			case 1:
+				// legacy /paper/{slug}
+				if meta, err := h.paperSEOProvider.ResolveSlug(parts[0]); err == nil && meta != nil {
+					modifiedHTML = injectPaperSEOMeta(modifiedHTML, meta, requestPath)
+				}
+			case 2:
+				// canonical /paper/{source}/{paperId}
+				source, paperID := parts[0], parts[1]
+				if source != "" && paperID != "" {
+					if meta, err := h.paperSEOProvider.ResolveByPaperID(source, paperID); err == nil && meta != nil {
+						modifiedHTML = injectPaperSEOMeta(modifiedHTML, meta, requestPath)
+					}
+				}
 			}
 		}
 	}
 
-	// /author/{slug} 专属 SEO 元数据注入
+	// 作者详情页 SEO 元数据注入 —— 同样支持新 canonical 和 legacy
 	if h.authorSEOProvider != nil && strings.HasPrefix(requestPath, "/author/") {
-		slug := strings.TrimPrefix(requestPath, "/author/")
-		if slug != "" && !strings.Contains(slug, "/") {
-			if meta, err := h.authorSEOProvider.ResolveAuthorSlug(slug); err == nil && meta != nil {
-				modifiedHTML = injectAuthorSEOMeta(modifiedHTML, meta, requestPath)
+		rest := strings.TrimPrefix(requestPath, "/author/")
+		if rest != "" {
+			parts := strings.Split(rest, "/")
+			switch len(parts) {
+			case 1:
+				if meta, err := h.authorSEOProvider.ResolveAuthorSlug(parts[0]); err == nil && meta != nil {
+					modifiedHTML = injectAuthorSEOMeta(modifiedHTML, meta, requestPath)
+				}
+			case 2:
+				source, authorID := parts[0], parts[1]
+				if source != "" && authorID != "" {
+					if meta, err := h.authorSEOProvider.ResolveByAuthorID(source, authorID); err == nil && meta != nil {
+						modifiedHTML = injectAuthorSEOMeta(modifiedHTML, meta, requestPath)
+					}
+				}
+			}
+		}
+	}
+
+	// 期刊详情页 SEO 元数据注入 (canonicalRedirectFor 已处理 301; 走到这里说明 URL 已是 canonical
+	// 或者 SEO 行不存在/没 slug 不需要重定向)
+	if h.journalSEOProvider != nil && strings.HasPrefix(requestPath, "/journal/") {
+		rest := strings.TrimPrefix(requestPath, "/journal/")
+		if rest != "" {
+			idStr, _ := splitJournalPath(rest)
+			if id, err := strconv.ParseInt(idStr, 10, 64); err == nil && id > 0 {
+				if meta, err := h.journalSEOProvider.ResolveByJournalID(id); err == nil && meta != nil {
+					modifiedHTML = injectJournalSEOMeta(modifiedHTML, meta, requestPath)
+				}
 			}
 		}
 	}
@@ -133,6 +186,79 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	c.Header("Cache-Control", "no-cache, must-revalidate")
 	c.String(http.StatusOK, modifiedHTML)
+}
+
+// canonicalRedirectFor 检查请求路径是不是 legacy /paper/{slug} 或 /author/{slug},
+// 若能反查到 source + entityID,返回 canonical 路径(供 301 跳转);
+// 否则返回 "" 表示无需重定向。
+//
+// 调用方在拿到 HTML 之前调,所以 200 的 SSR 路径不会被 301 截掉。
+// query string + raw path 一并保留 —— 用户可能从带 utm 的链接进来。
+func (h *Handler) canonicalRedirectFor(requestPath string) string {
+	// /paper/{slug}
+	if h.paperSEOProvider != nil && strings.HasPrefix(requestPath, "/paper/") {
+		rest := strings.TrimPrefix(requestPath, "/paper/")
+		if rest != "" && !strings.Contains(rest, "/") {
+			if meta, err := h.paperSEOProvider.ResolveSlug(rest); err == nil && meta != nil {
+				if meta.Source != "" && meta.PaperID != "" {
+					return "/paper/" + meta.Source + "/" + url.PathEscape(meta.PaperID)
+				}
+			}
+		}
+	}
+	// /author/{slug}
+	if h.authorSEOProvider != nil && strings.HasPrefix(requestPath, "/author/") {
+		rest := strings.TrimPrefix(requestPath, "/author/")
+		if rest != "" && !strings.Contains(rest, "/") {
+			if meta, err := h.authorSEOProvider.ResolveAuthorSlug(rest); err == nil && meta != nil {
+				if meta.Source != "" && meta.AuthorID != "" {
+					return "/author/" + meta.Source + "/" + url.PathEscape(meta.AuthorID)
+				}
+			}
+		}
+	}
+	// /journal/{id} 或 /journal/{id}/{slug}  ——  301 到 canonical /journal/{id}/{canonical-slug}
+	//   - 缺 slug → 补到 canonical
+	//   - slug 不对 → 校正
+	//   - 已是 canonical → 返回 ""
+	//   - id 解析失败 / 找不到 SEO 行 / 无 slug → 不重定向 (前端正常渲染,但没 SEO 增益)
+	if h.journalSEOProvider != nil && strings.HasPrefix(requestPath, "/journal/") {
+		rest := strings.TrimPrefix(requestPath, "/journal/")
+		if rest != "" {
+			idStr, currentSlug := splitJournalPath(rest)
+			if id, err := strconv.ParseInt(idStr, 10, 64); err == nil && id > 0 {
+				if meta, err := h.journalSEOProvider.ResolveByJournalID(id); err == nil && meta != nil {
+					canonical := canonicalJournalPath(meta)
+					if canonical != "" && canonical != requestPath {
+						// 只在 slug 部分不一致时 301; canonical 和 currentSlug 已被 splitJournalPath 解码
+						_ = currentSlug
+						return canonical
+					}
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// splitJournalPath 把 "{id}" 或 "{id}/{slug}" 切成两段
+// 多于 1 个 "/" (例如 /journal/123/foo/bar) → slug 取第一段, 多余尾段忽略
+func splitJournalPath(rest string) (id, slug string) {
+	if i := strings.Index(rest, "/"); i >= 0 {
+		return rest[:i], rest[i+1:]
+	}
+	return rest, ""
+}
+
+// canonicalJournalPath 用 meta 拼 canonical 路径
+//   - 有 slug → /journal/{id}/{slug}
+//   - 无 slug → /journal/{id} (永远不需要 301)
+func canonicalJournalPath(meta *JournalSEOMeta) string {
+	idStr := strconv.FormatInt(meta.JournalID, 10)
+	if meta.Slug != "" {
+		return "/journal/" + idStr + "/" + meta.Slug
+	}
+	return "/journal/" + idStr
 }
 
 // injectPaperSEOMeta 替换 <title>/<meta description>，并在 noscript 中插入论文摘要卡片
@@ -434,6 +560,173 @@ func buildAuthorNoscriptCard(meta *AuthorSEOMeta) string {
 	}
 	if meta.HIndex != nil && *meta.HIndex > 0 {
 		statLines = append(statLines, fmt.Sprintf("h-index %d", *meta.HIndex))
+	}
+	var statHTML string
+	if len(statLines) > 0 {
+		statHTML = fmt.Sprintf("<p %s>%s</p>", statStyle, strings.Join(statLines, " · "))
+	}
+
+	return fmt.Sprintf(`<article %s>
+<h1 %s>%s</h1>
+%s
+%s
+</article>`, baseStyle, headingStyle, name, metaHTML, statHTML)
+}
+
+// injectJournalSEOMeta 期刊详情页 SEO 注入 (与 paper / author 同构)
+func injectJournalSEOMeta(html string, meta *JournalSEOMeta, path string) string {
+	if meta.CanonicalName == "" {
+		return html
+	}
+
+	// 标题: 期刊名 + 出版商 + 品牌
+	// 例如:"Nature (Springer Nature) - 期刊详情 · 影响因子 64.8 | Scholay 学术搜索"
+	publisherSeg := ""
+	if meta.Publisher != "" {
+		publisherSeg = " (" + meta.Publisher + ")"
+	}
+	suffix := ""
+	if meta.JCRImpactFactor > 0 {
+		suffix = fmt.Sprintf(" · IF %.1f", meta.JCRImpactFactor)
+	} else if meta.JCRQuartile != "" {
+		suffix = " · " + meta.JCRQuartile
+	}
+	seoTitle := fmt.Sprintf("%s%s - 期刊详情%s | Scholay 学术搜索",
+		truncate(meta.CanonicalName, 100), publisherSeg, suffix)
+
+	// 描述: 出版商 + ISSN + 影响因子 + h-index + 国家
+	var parts []string
+	if meta.Publisher != "" {
+		parts = append(parts, "出版商: "+meta.Publisher)
+	}
+	if len(meta.ISSNs) > 0 {
+		parts = append(parts, "ISSN: "+strings.Join(meta.ISSNs, ", "))
+	}
+	if meta.JCRImpactFactor > 0 {
+		parts = append(parts, fmt.Sprintf("影响因子 %.1f", meta.JCRImpactFactor))
+	}
+	if meta.JCRQuartile != "" {
+		parts = append(parts, "JCR "+meta.JCRQuartile)
+	}
+	if meta.OpenAlexHIndex != nil && *meta.OpenAlexHIndex > 0 {
+		parts = append(parts, fmt.Sprintf("h-index %d", *meta.OpenAlexHIndex))
+	}
+	if meta.Country != "" {
+		parts = append(parts, meta.Country)
+	}
+	desc := ""
+	if len(parts) > 0 {
+		desc = fmt.Sprintf("%s 期刊详情 — %s。在 Scholay 查看期刊分区、影响因子、ISSN、近期发表与作者画像。",
+			meta.CanonicalName, strings.Join(parts, " · "))
+	} else {
+		desc = fmt.Sprintf("%s 期刊详情与近期发表 — Scholay 整合 JCR、SCImago、CCF、OpenAlex 多源期刊数据,提供分区、影响因子、ISSN、出版商等元数据。", meta.CanonicalName)
+	}
+	desc = truncate(desc, 300)
+
+	titleRe := regexp.MustCompile(`(?is)<title>.*?</title>`)
+	html = titleRe.ReplaceAllString(html, "<title>"+htmlEscape(seoTitle)+"</title>")
+
+	descRe := regexp.MustCompile(`(?is)<meta\s+name=["']description["'][^>]*>`)
+	if descRe.MatchString(html) {
+		html = descRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="description" content="%s">`, htmlEscape(desc)))
+	}
+
+	keywords := buildJournalKeywords(meta)
+	keywordsRe := regexp.MustCompile(`(?is)<meta\s+name=["']keywords["'][^>]*>`)
+	if keywordsRe.MatchString(html) {
+		html = keywordsRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="keywords" content="%s">`, htmlEscape(keywords)))
+	}
+
+	// canonical 永远指向当前 path —— canonicalRedirectFor 已经把非 canonical 的路径 301 走了
+	canonical := fmt.Sprintf("%s%s", appconfig.CanonicalBaseURL(), path)
+	canonRe := regexp.MustCompile(`(?is)<link\s+rel=["']canonical["'][^>]*>`)
+	canonTag := fmt.Sprintf(`<link rel="canonical" href="%s">`, htmlEscape(canonical))
+	if canonRe.MatchString(html) {
+		html = canonRe.ReplaceAllString(html, canonTag)
+	} else {
+		html = strings.Replace(html, "</head>", canonTag+"\n</head>", 1)
+	}
+
+	noscriptCard := buildJournalNoscriptCard(meta)
+	if noscriptCard != "" {
+		insertBefore := `<p style="text-align: center; margin-top: 30px;`
+		if idx := strings.Index(html, insertBefore); idx > 0 {
+			html = html[:idx] + noscriptCard + "\n" + html[idx:]
+		} else if idx := strings.Index(html, "</noscript>"); idx > 0 {
+			html = html[:idx] + noscriptCard + "\n" + html[idx:]
+		}
+	}
+
+	return html
+}
+
+// buildJournalKeywords 期刊页 keywords meta
+func buildJournalKeywords(meta *JournalSEOMeta) string {
+	parts := []string{
+		meta.CanonicalName,
+		"期刊详情", "期刊分区", "影响因子", "JCR", "SCImago", "CCF", "OpenAlex",
+		"ISSN 查询", "期刊出版商", "学术期刊", "Scholay",
+		"journal", "academic journal", "impact factor", "journal quartile",
+	}
+	if meta.Publisher != "" {
+		parts = append(parts, meta.Publisher)
+	}
+	for _, issn := range meta.ISSNs {
+		if issn != "" {
+			parts = append(parts, "ISSN "+issn)
+		}
+	}
+	if meta.JCRQuartile != "" {
+		parts = append(parts, meta.JCRQuartile)
+	}
+	if meta.JCRImpactFactor > 0 {
+		parts = append(parts, fmt.Sprintf("IF %.1f", meta.JCRImpactFactor))
+	}
+	if meta.Country != "" {
+		parts = append(parts, meta.Country)
+	}
+	return strings.Join(parts, ",")
+}
+
+// buildJournalNoscriptCard 渲染期刊的 noscript 卡片(供爬虫)
+func buildJournalNoscriptCard(meta *JournalSEOMeta) string {
+	baseStyle := `style="max-width: 1000px; margin: 20px auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #e0e0e0;"`
+	headingStyle := `style="color: #ffffff; border-bottom: 1px solid #424242; padding-bottom: 10px; font-size: 1.4rem;"`
+	metaStyle := `style="color: #9e9e9e; font-size: 0.9rem; margin-bottom: 8px;"`
+	statStyle := `style="color: #bdbdbd; line-height: 1.8; margin-bottom: 12px;"`
+
+	name := htmlEscape(meta.CanonicalName)
+
+	var metaLines []string
+	if meta.Publisher != "" {
+		metaLines = append(metaLines, "出版商："+htmlEscape(meta.Publisher))
+	}
+	if len(meta.ISSNs) > 0 {
+		metaLines = append(metaLines, "ISSN："+htmlEscape(strings.Join(meta.ISSNs, ", ")))
+	}
+	if meta.Country != "" {
+		metaLines = append(metaLines, "国家/地区："+htmlEscape(meta.Country))
+	}
+	if meta.Type != "" {
+		metaLines = append(metaLines, "类型："+htmlEscape(meta.Type))
+	}
+	if meta.IsOA {
+		metaLines = append(metaLines, "OA 开放获取")
+	}
+	var metaHTML string
+	if len(metaLines) > 0 {
+		metaHTML = fmt.Sprintf("<p %s>%s</p>", metaStyle, strings.Join(metaLines, " · "))
+	}
+
+	var statLines []string
+	if meta.JCRImpactFactor > 0 {
+		statLines = append(statLines, fmt.Sprintf("影响因子 %.3f", meta.JCRImpactFactor))
+	}
+	if meta.JCRQuartile != "" {
+		statLines = append(statLines, "JCR "+htmlEscape(meta.JCRQuartile))
+	}
+	if meta.OpenAlexHIndex != nil && *meta.OpenAlexHIndex > 0 {
+		statLines = append(statLines, fmt.Sprintf("OpenAlex h-index %d", *meta.OpenAlexHIndex))
 	}
 	var statHTML string
 	if len(statLines) > 0 {

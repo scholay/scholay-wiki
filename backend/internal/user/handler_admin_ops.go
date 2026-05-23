@@ -27,8 +27,10 @@ type FreezeUserRequest struct {
 //   - status 设为 2 (suspended)
 //   - frozen_at = now()
 //   - frozen_reason = 入参
-//   - 失效该用户所有 user_sessions(强制下线)
 //   - 写 audit log
+//
+// 不再强制下线 —— user_sessions 表已下线,JWT 在过期前继续有效;
+// 想立刻踢人只能旋转 JWT secret 或缩短 token TTL。
 func (h *Handler) FreezeUser(c *gin.Context) {
 	uid, ok := utils.ParseUintParam(c, "id")
 	if !ok {
@@ -61,11 +63,6 @@ func (h *Handler) FreezeUser(c *gin.Context) {
 		utils.InternalError(c, 3010, "Failed to freeze user", err)
 		return
 	}
-
-	// 强制下线 — 删除该用户所有 user_sessions 行
-	// 缓存层 (CachedSessionValidator) 5 分钟 TTL 后自动失效;
-	// 期望立刻生效的话,后续可在 main 注入 InvalidateUserSessions 调用
-	database.GetDB().Exec("DELETE FROM user_sessions WHERE user_id = ?", uid)
 
 	admin.LogAdminAction(c, "freeze", admin.ResUser, strconv.FormatUint(uint64(uid), 10), gin.H{
 		"reason": req.Reason,

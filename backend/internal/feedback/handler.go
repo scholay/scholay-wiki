@@ -113,6 +113,9 @@ type CreateFeedbackRequestWithKey struct {
 	Email          string `json:"email" binding:"required,email"`
 	Content        string `json:"content" binding:"required,min=10,max=5000"`
 	AttachmentsKey string `json:"attachmentsKey"` // 上传附件时返回的key
+	// Category 可选，不传时落库走 model 默认 "other"。
+	// 前端表单"反馈类型"映射到这里，保证 admin 列表的分类列有真实数据可看。
+	Category string `json:"category" binding:"omitempty,oneof=bug feature complaint praise other"`
 }
 
 // CreateFeedback 创建反馈（公共接口）
@@ -131,7 +134,7 @@ func (h *Handler) CreateFeedback(c *gin.Context) {
 	ip := c.ClientIP()
 
 	// 使用attachmentsKey从数据库获取附件
-	feedback, err := h.service.CreateFeedbackWithAttachments(&req.Email, &req.Content, userID, username, ip, req.AttachmentsKey)
+	feedback, err := h.service.CreateFeedbackWithAttachments(&req.Email, &req.Content, req.Category, userID, username, ip, req.AttachmentsKey)
 	if err != nil {
 		utils.Error(c, 5001, "创建反馈失败: "+err.Error())
 		return
@@ -162,7 +165,7 @@ func (h *Handler) CreateFeedbackWithUser(c *gin.Context) {
 	ip := c.ClientIP()
 
 	// 使用attachmentsKey从数据库获取附件
-	feedback, err := h.service.CreateFeedbackWithAttachments(&req.Email, &req.Content, userID, username, ip, req.AttachmentsKey)
+	feedback, err := h.service.CreateFeedbackWithAttachments(&req.Email, &req.Content, req.Category, userID, username, ip, req.AttachmentsKey)
 	if err != nil {
 		utils.Error(c, 5001, "创建反馈失败: "+err.Error())
 		return

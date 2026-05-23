@@ -17,25 +17,13 @@ import (
 	"github.com/olahol/melody"
 )
 
-// SessionActivityUpdater 定义更新 session activity 的接口
-type SessionActivityUpdater interface {
-	UpdateSessionActivityByUserID(userID uint, ip string) error
-}
-
-// OnlineStats 在线统计信息
-type OnlineStats struct {
-	OnlineUsers  int `json:"online_users"`   // 在线登录用户数
-	OnlineGuests int `json:"online_guests"`  // 在线访客数
-	TotalOnline  int `json:"total_online"`   // 总在线数
-}
-
-// SnapshotRecorder 快照记录器接口（由 user.Service 实现）
-type SnapshotRecorder interface {
-	RecordOnlineSnapshot(userCount, guestCount int) error
-}
-
 // Hub WebSocket 连接管理中心
-// 基于 melody 实现，管理用户连接映射
+//
+// 基于 melody 实现，管理用户连接映射。在线人数 / 访客数已不再写库或对外暴露
+// 统计接口 —— 这些指标全部交给 umami,本类只承担「实时推送」职责:
+//   - 站内信 push (NotificationMessage / UnreadCountMessage / ToastMessage)
+//   - 用户与会话集合维护,用于 SendToUser 命中目标
+//   - 空闲连接回收
 type Hub struct {
 	melody *melody.Melody
 
@@ -50,12 +38,6 @@ type Hub struct {
 
 	// stopCh signals background goroutines to exit during Close()
 	stopCh chan struct{}
-
-	// sessionUpdater 用于更新 session activity
-	sessionUpdater SessionActivityUpdater
-
-	// snapshotRecorder 用于记录在线人数快照
-	snapshotRecorder SnapshotRecorder
 }
 
 // 空闲超时配置
@@ -95,36 +77,6 @@ func NewHub() *Hub {
 	return hub
 }
 
-// SetSessionUpdater 设置 session activity 更新器
-func (h *Hub) SetSessionUpdater(updater SessionActivityUpdater) {
-	h.sessionUpdater = updater
-}
-
-// SetSnapshotRecorder 设置在线快照记录器
-func (h *Hub) SetSnapshotRecorder(recorder SnapshotRecorder) {
-	h.snapshotRecorder = recorder
-}
-
-// recordSnapshot 记录当前在线人数快照（异步执行）
-func (h *Hub) recordSnapshot() {
-	if h.snapshotRecorder == nil {
-		return
-	}
-
-	// 获取当前在线数
-	h.mu.RLock()
-	userCount := len(h.userSessions)
-	guestCount := len(h.guestSessions)
-	h.mu.RUnlock()
-
-	// 异步记录，不阻塞连接处理
-	safego.Go("ws-record-snapshot", func() {
-		if err := h.snapshotRecorder.RecordOnlineSnapshot(userCount, guestCount); err != nil {
-			slog.Error("failed to record online snapshot", "err", err)
-		}
-	})
-}
-
 // setupHandlers 设置 melody 事件处理器
 func (h *Hub) setupHandlers() {
 	// 连接建立
@@ -137,14 +89,11 @@ func (h *Hub) setupHandlers() {
 		// 检查是否是访客连接
 		isGuest, _ := s.Get("is_guest")
 		if isGuest == true {
-			// 访客连接
 			h.mu.Lock()
 			h.guestSessions[s] = true
 			guestCount := len(h.guestSessions)
 			h.mu.Unlock()
 			slog.Info("guest connected", "total_guests", guestCount)
-			// 记录在线快照
-			h.recordSnapshot()
 			return
 		}
 
@@ -157,8 +106,6 @@ func (h *Hub) setupHandlers() {
 			guestCount := len(h.guestSessions)
 			h.mu.Unlock()
 			slog.Info("guest connected (no user_id)", "total_guests", guestCount)
-			// 记录在线快照
-			h.recordSnapshot()
 			return
 		}
 
@@ -171,11 +118,6 @@ func (h *Hub) setupHandlers() {
 		h.mu.Unlock()
 
 		slog.Info("user connected", "user_id", uid, "total_sessions", len(h.userSessions[uid]))
-
-		// 更新 session activity（连接建立时）
-		h.updateSessionActivity(s)
-		// 记录在线快照
-		h.recordSnapshot()
 	})
 
 	// 连接断开
@@ -188,8 +130,6 @@ func (h *Hub) setupHandlers() {
 			guestCount := len(h.guestSessions)
 			h.mu.Unlock()
 			slog.Info("guest disconnected", "remaining_guests", guestCount)
-			// 记录在线快照
-			h.recordSnapshot()
 			return
 		}
 
@@ -199,8 +139,6 @@ func (h *Hub) setupHandlers() {
 			h.mu.Lock()
 			delete(h.guestSessions, s)
 			h.mu.Unlock()
-			// 记录在线快照
-			h.recordSnapshot()
 			return
 		}
 
@@ -215,13 +153,10 @@ func (h *Hub) setupHandlers() {
 		h.mu.Unlock()
 
 		slog.Info("user disconnected", "user_id", uid)
-		// 记录在线快照
-		h.recordSnapshot()
 	})
 
 	// 接收消息
 	h.melody.HandleMessage(func(s *melody.Session, msg []byte) {
-		// 解析消息
 		message, err := ParseMessage(msg)
 		if err != nil {
 			errMsg, _ := NewErrorMessage(400, "Invalid message format")
@@ -230,23 +165,14 @@ func (h *Hub) setupHandlers() {
 			return
 		}
 
-		// 处理 ping 消息
+		// 处理 ping 消息(仅刷新空闲时间,不再写库)
 		if message.Type == MessageTypePing {
-			// 更新最后活动时间（用于空闲检测）
 			s.Set("last_ping_time", time.Now())
-
-			// 只对登录用户更新 session activity
-			isGuest, _ := s.Get("is_guest")
-			if isGuest != true {
-				h.updateSessionActivity(s)
-			}
-
 			pong, _ := NewPongMessage()
 			data, _ := pong.ToJSON()
 			s.Write(data)
 			return
 		}
-
 		// 其他消息类型暂不处理（服务端主要是推送，不接收业务消息）
 	})
 
@@ -254,45 +180,6 @@ func (h *Hub) setupHandlers() {
 	h.melody.HandleError(func(s *melody.Session, err error) {
 		slog.Error("WebSocket error", "err", err)
 	})
-}
-
-// updateSessionActivity 更新用户的 session activity
-// 节流：每 30 秒最多更新一次
-func (h *Hub) updateSessionActivity(s *melody.Session) {
-	if h.sessionUpdater == nil {
-		return
-	}
-
-	userID, ok := s.Get("user_id")
-	if !ok {
-		return
-	}
-
-	// 节流检查：避免频繁更新数据库
-	lastUpdateKey := "last_activity_update"
-	if lastUpdate, ok := s.Get(lastUpdateKey); ok {
-		if time.Since(lastUpdate.(time.Time)) < 30*time.Second {
-			return // 30秒内已更新过，跳过
-		}
-	}
-
-	// 获取客户端 IP
-	ip := ""
-	if clientIP, ok := s.Get("client_ip"); ok {
-		ip = clientIP.(string)
-	}
-
-	uid := userID.(uint)
-
-	// 异步更新，避免阻塞 WebSocket 消息处理
-	safego.Go("ws-update-session-activity", func() {
-		if err := h.sessionUpdater.UpdateSessionActivityByUserID(uid, ip); err != nil {
-			slog.Error("failed to update session activity", "user_id", uid, "err", err)
-		}
-	})
-
-	// 记录本次更新时间
-	s.Set(lastUpdateKey, time.Now())
 }
 
 // GetMelody 获取 melody 实例（用于 handler）
@@ -373,33 +260,6 @@ func (h *Hub) IsUserOnline(userID uint) bool {
 	return exists && len(sessions) > 0
 }
 
-// GetOnlineUserCount 获取在线登录用户数量
-func (h *Hub) GetOnlineUserCount() int {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	return len(h.userSessions)
-}
-
-// GetOnlineGuestCount 获取在线访客数量
-func (h *Hub) GetOnlineGuestCount() int {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	return len(h.guestSessions)
-}
-
-// GetOnlineStats 获取完整的在线统计信息
-func (h *Hub) GetOnlineStats() OnlineStats {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	users := len(h.userSessions)
-	guests := len(h.guestSessions)
-	return OnlineStats{
-		OnlineUsers:  users,
-		OnlineGuests: guests,
-		TotalOnline:  users + guests,
-	}
-}
-
 // GetUserSessionCount 获取用户的会话数量
 func (h *Hub) GetUserSessionCount(userID uint) int {
 	h.mu.RLock()
@@ -444,12 +304,9 @@ func (h *Hub) checkIdleConnections() {
 			if now.Sub(lastPing.(time.Time)) > IdleTimeout {
 				idleSessions = append(idleSessions, session)
 			}
-		} else {
-			// 没有 last_ping_time，检查连接时间
-			if connTime, ok := session.Get("connect_time"); ok {
-				if now.Sub(connTime.(time.Time)) > IdleTimeout {
-					idleSessions = append(idleSessions, session)
-				}
+		} else if connTime, ok := session.Get("connect_time"); ok {
+			if now.Sub(connTime.(time.Time)) > IdleTimeout {
+				idleSessions = append(idleSessions, session)
 			}
 		}
 	}
@@ -461,12 +318,9 @@ func (h *Hub) checkIdleConnections() {
 				if now.Sub(lastPing.(time.Time)) > IdleTimeout {
 					idleSessions = append(idleSessions, session)
 				}
-			} else {
-				// 没有 last_ping_time，检查连接时间
-				if connTime, ok := session.Get("connect_time"); ok {
-					if now.Sub(connTime.(time.Time)) > IdleTimeout {
-						idleSessions = append(idleSessions, session)
-					}
+			} else if connTime, ok := session.Get("connect_time"); ok {
+				if now.Sub(connTime.(time.Time)) > IdleTimeout {
+					idleSessions = append(idleSessions, session)
 				}
 			}
 		}
@@ -489,4 +343,3 @@ func (h *Hub) checkIdleConnections() {
 		slog.Info("closed idle connections", "count", len(idleSessions))
 	}
 }
-

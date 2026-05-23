@@ -12,6 +12,10 @@
 package user
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -19,6 +23,7 @@ import (
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // oauthStateTTL OAuth state / nonce 在 Redis 中的生存期。
@@ -73,8 +78,6 @@ func issueTokenAndSession(h *Handler, c *gin.Context, user *User, ip string) (st
 		return "", err
 	}
 	_ = h.service.UpdateLastLoginWithIP(user.ID, ip)
-	userAgent := c.GetHeader("User-Agent")
-	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour)
 	return token, nil
 }
 
@@ -85,4 +88,164 @@ func respondOAuthSuccess(c *gin.Context, token string, user *User, isNewUser boo
 		"user":        user,
 		"is_new_user": isNewUser,
 	})
+}
+
+// respondOAuthPendingMerge OAuth 回调发现 email 冲突 时的响应格式 ——
+// 不签发 token,而是把 merge_token + 待合并目标摘要返给前端,引导用户确认。
+//
+// 前端拿到 requires_merge=true 后:
+//   1. 拉 /user/oauth/pending-merge?token=xxx 拿完整摘要(provider 头像/昵称)
+//   2. 展示「将 GitHub 账号绑定到 alice@example.com 的现有账户?」对话框
+//   3. 用户「确认」→ POST /user/oauth/confirm-merge {token} → 拿到 JWT 登入
+//      用户「新建独立账号」→ POST /user/oauth/cancel-merge {token} → 拿到 JWT 登入新号
+func respondOAuthPendingMerge(c *gin.Context, mergeToken, provider, targetEmail string) {
+	utils.SuccessResponse(c, http.StatusOK, "merge_required", gin.H{
+		"requires_merge": true,
+		"merge_token":    mergeToken,
+		"provider":       provider,
+		"target_email":   targetEmail,
+	})
+}
+
+// oauthOutcome 是 findOrCreate<Provider>User 的统一返回:
+//   - User != nil: 直接登录已存在用户,或新建用户成功 —— callback 调 issueTokenAndSession
+//   - MergeToken != "": email 冲突,需要前端二选一 —— callback 调 respondOAuthPendingMerge
+//   - 不可能两者同时 != nil/""
+type oauthOutcome struct {
+	User       *User
+	IsNewUser  bool
+	MergeToken string
+}
+
+// oauthIdentity 描述一次 OAuth 回调里第三方平台给我们的「身份信息」。
+// 各 provider 的字段映射不同(GitHub:Login/Name/AvatarURL/Bio;Google:Sub/Name/Picture
+// /EmailVerified;Apple:Subject/FirstName/LastName/EmailVerified;Microsoft:ID/DisplayName/Mail
+// /UserPrincipalName;Discourse:ExternalID/Username/Name/AvatarURL),但
+// findOrCreateOAuthUser 之后的流程完全一致 —— 我们把差异收敛到 caller 端的
+// 字段提取,统一流程下沉到 helper。
+type oauthIdentity struct {
+	Provider           string // 与 user_auth_providers.provider 列对应,如 "github"
+	ProviderUserID     string // 第三方平台唯一标识(数字或字符串)
+	Email              string // 可空(ORCID/WeChat 等不返邮箱的 provider 走自己的 find/create,不用本 helper)
+	EmailVerified      bool   // 第三方是否标注「邮箱已验证」
+	UsernameCandidate  string // 首选 username(不唯一时会自动加时间戳后缀)
+	UsernameFallback   string // 首选拿不到时的兜底(如 "github_<id>" / "google_user")
+	AvatarURL          string
+	Bio                string
+	DisplayName        string            // 给 merge 确认页面展示("您要绑定的 GitHub 账号:Alice")
+	ProviderDataExtras map[string]string // 序列化进 auth_providers.provider_data 的附加信息(login/picture/etc.)
+}
+
+// findOrCreateOAuthUser 是 GitHub/Google/Apple/Microsoft/Discourse 共享的「登录 / 新建 / 合并」分发逻辑。
+// 步骤:
+//   1. 已有 user_auth_providers 行(同 provider + provider_user_id)→ 直接登录
+//   2. 否则查 email 是否被其他 user 占用 → 占用则发 merge_token,等用户决策
+//   3. 否则新建 user + 加 user_auth_providers 链接 → 走「新用户登录」分支
+//
+// ORCID(无邮箱)/ WeChat(无邮箱 + 有 unionID)结构不同,各自保留自己的 finder。
+//
+// 之前每个 provider 文件都有~80 行 boilerplate 实现这套逻辑,差异只在「字段映射」。
+// 抽这个 helper 后:
+//   - 每个 provider 文件只负责 OAuth → oauthIdentity 的转换(~15 行)
+//   - 三态分发逻辑(包含 username 唯一性、welcome msg、provider_data JSON)统一一处维护
+//   - 后续加新 provider(比如 Twitter)只需写 identity 提取
+func (h *Handler) findOrCreateOAuthUser(ctx context.Context, identity oauthIdentity) (oauthOutcome, error) {
+	if identity.Provider == "" || identity.ProviderUserID == "" {
+		return oauthOutcome{}, fmt.Errorf("oauth identity: provider and provider_user_id required")
+	}
+
+	// 1. 已绑过这个 OAuth 账号 → 直接登入
+	authProvider, err := h.service.FindAuthProvider(identity.Provider, identity.ProviderUserID)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return oauthOutcome{}, fmt.Errorf("find auth provider: %w", err)
+	}
+	if authProvider != nil {
+		user, err := h.service.FindByID(authProvider.UserID)
+		if err != nil {
+			return oauthOutcome{}, fmt.Errorf("find user by id: %w", err)
+		}
+		return oauthOutcome{User: user, IsNewUser: false}, nil
+	}
+
+	// 2. 序列化 provider_data —— 合并 / 新建都用
+	providerDataBytes, _ := json.Marshal(identity.ProviderDataExtras)
+	providerDataJSON := string(providerDataBytes)
+
+	// 3. email 已被其他 user 占用 → 发 merge_token,等用户决策
+	if identity.Email != "" {
+		found, err := h.service.FindByEmail(identity.Email)
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return oauthOutcome{}, fmt.Errorf("find user by email: %w", err)
+		}
+		if found != nil {
+			displayName := identity.DisplayName
+			if displayName == "" {
+				displayName = identity.UsernameCandidate
+			}
+			token, err := h.service.StartPendingMerge(ctx, cache.PendingOAuthMerge{
+				Provider:            identity.Provider,
+				ProviderUserID:      identity.ProviderUserID,
+				ProviderData:        providerDataJSON,
+				TargetUserID:        found.ID,
+				TargetEmail:         derefStr(found.Email),
+				ProviderEmail:       identity.Email,
+				ProviderDisplayName: displayName,
+				ProviderAvatarURL:   identity.AvatarURL,
+			})
+			if err != nil {
+				return oauthOutcome{}, fmt.Errorf("start pending merge: %w", err)
+			}
+			return oauthOutcome{User: found, MergeToken: token}, nil
+		}
+	}
+
+	// 4. 新建 user —— 处理 username 唯一性
+	username := identity.UsernameCandidate
+	if username == "" {
+		username = identity.UsernameFallback
+	}
+	if username == "" {
+		username = identity.Provider + "_" + identity.ProviderUserID
+	}
+	existingUser, err := h.service.FindByUsername(username)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return oauthOutcome{}, fmt.Errorf("check username uniqueness: %w", err)
+	}
+	if existingUser != nil {
+		username = fmt.Sprintf("%s_%d", username, time.Now().Unix())
+	}
+
+	user := &User{
+		Username:      &username,
+		Role:          "user",
+		Status:        1,
+		EmailVerified: identity.EmailVerified && identity.Email != "",
+	}
+	if identity.Email != "" {
+		email := identity.Email
+		user.Email = &email
+	}
+	if identity.AvatarURL != "" {
+		avatar := identity.AvatarURL
+		user.AvatarURL = &avatar
+	}
+	if identity.Bio != "" {
+		bio := identity.Bio
+		user.Bio = &bio
+	}
+	if err := h.service.CreateUser(user); err != nil {
+		return oauthOutcome{}, err
+	}
+	h.service.SendWelcomeMessage(user.ID)
+
+	if err := h.service.CreateAuthProvider(&UserAuthProvider{
+		UserID:         user.ID,
+		Provider:       identity.Provider,
+		ProviderUserID: identity.ProviderUserID,
+		ProviderData:   &providerDataJSON,
+	}); err != nil {
+		return oauthOutcome{}, err
+	}
+
+	return oauthOutcome{User: user, IsNewUser: true}, nil
 }

@@ -40,7 +40,7 @@ func (h *Handler) HandleVerification(c *gin.Context) {
 	config, err := h.service.GetConfig()
 	if err != nil {
 		slog.Error("failed to get WeChat config", "err", err)
-		c.String(http.StatusInternalServerError, "Failed to get config")
+		c.String(http.StatusInternalServerError, "加载配置失败,请稍后重试")
 		return
 	}
 
@@ -60,7 +60,7 @@ func (h *Handler) HandleMessage(c *gin.Context) {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		slog.Error("failed to read WeChat message body", "err", err)
-		c.String(http.StatusBadRequest, "Failed to read body")
+		c.String(http.StatusBadRequest, "读取请求内容失败")
 		return
 	}
 
@@ -72,7 +72,7 @@ func (h *Handler) HandleMessage(c *gin.Context) {
 	}
 	if err := xml.Unmarshal(body, &baseMsg); err != nil {
 		slog.Error("failed to parse WeChat XML", "err", err)
-		c.String(http.StatusBadRequest, "Failed to parse XML")
+		c.String(http.StatusBadRequest, "解析消息失败")
 		return
 	}
 
@@ -87,7 +87,7 @@ func (h *Handler) HandleMessage(c *gin.Context) {
 		var msg WeChatTextMessage
 		if err := xml.Unmarshal(body, &msg); err != nil {
 			slog.Error("failed to parse WeChat text message", "err", err)
-			c.String(http.StatusBadRequest, "Failed to parse text message")
+			c.String(http.StatusBadRequest, "解析文本消息失败")
 			return
 		}
 
@@ -108,7 +108,7 @@ func (h *Handler) HandleMessage(c *gin.Context) {
 		var msg WeChatImageMessage
 		if err := xml.Unmarshal(body, &msg); err != nil {
 			slog.Error("failed to parse WeChat image message", "err", err)
-			c.String(http.StatusBadRequest, "Failed to parse image message")
+			c.String(http.StatusBadRequest, "解析图片消息失败")
 			return
 		}
 
@@ -154,7 +154,7 @@ func (h *Handler) HandleMessage(c *gin.Context) {
 	xmlData, err := xml.Marshal(response)
 	if err != nil {
 		slog.Error("failed to marshal WeChat XML response", "err", err)
-		c.String(http.StatusInternalServerError, "Failed to create response")
+		c.String(http.StatusInternalServerError, "生成回复失败")
 		return
 	}
 
@@ -169,7 +169,7 @@ func (h *Handler) HandleMessage(c *gin.Context) {
 func (h *Handler) GetConfig(c *gin.Context) {
 	config, err := h.service.GetConfig()
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get config")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "加载配置失败,请稍后重试")
 		return
 	}
 
@@ -190,12 +190,12 @@ func (h *Handler) GetConfig(c *gin.Context) {
 func (h *Handler) UpdateConfig(c *gin.Context) {
 	var config WeChatOfficialConfig
 	if err := c.ShouldBindJSON(&config); err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid request")
+		utils.ErrorResponse(c, http.StatusBadRequest, "请求参数有误")
 		return
 	}
 
 	if err := h.service.UpdateConfig(&config); err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to update config")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "保存配置失败,请稍后重试")
 		return
 	}
 

@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -41,10 +40,17 @@ func (r *Repository) GetDB() *gorm.DB {
 	return r.db
 }
 
-// FindByEmail finds a user by email
+// FindByEmail finds a user by email.
+//
+// 规范化:所有外部调用者(handler / service / OAuth callback)都 fan-in 到这一处,
+// 在仓库层统一 lower + trim,避免每个调用点重复处理 —— 见 utils.NormalizeEmail 注释。
 func (r *Repository) FindByEmail(email string) (*User, error) {
+	normalized := utils.NormalizeEmail(email)
+	if normalized == "" {
+		return nil, nil
+	}
 	var user User
-	err := r.db.Where("email = ?", email).First(&user).Error
+	err := r.db.Where("email = ?", normalized).First(&user).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -99,14 +105,29 @@ func (r *Repository) FindByUsername(username string) (*User, error) {
 	return &user, nil
 }
 
-// Create creates a new user
+// Create creates a new user.
+// 持久化前规范化 email,确保数据库里全是规范形式 —— 这样后续 FindByEmail 不会因
+// 大小写差异漏查。
 func (r *Repository) Create(user *User) error {
+	normalizeUserEmail(user)
 	return r.db.Create(user).Error
 }
 
-// Update updates a user
+// Update updates a user.
+// 同 Create:持久化前规范化 email。
 func (r *Repository) Update(user *User) error {
+	normalizeUserEmail(user)
 	return r.db.Save(user).Error
+}
+
+// normalizeUserEmail 把 user.Email 指针指向的字符串规范化为 lower+trim。
+// 空指针 / 空字符串保持原状(允许「无邮箱」用户,例如 WeChat / ORCID 注册)。
+func normalizeUserEmail(user *User) {
+	if user == nil || user.Email == nil {
+		return
+	}
+	normalized := utils.NormalizeEmail(*user.Email)
+	user.Email = &normalized
 }
 
 // UpdateLastLogin updates the last login timestamp
@@ -129,8 +150,12 @@ func (r *Repository) UpdatePassword(id uint, passwordHash string) error {
 	return r.db.Model(&User{}).Where("id = ?", id).Update("password_hash", passwordHash).Error
 }
 
-// CreateVerificationCode creates a new verification code
+// CreateVerificationCode creates a new verification code.
+// 同 user 邮箱:验证码表里也存规范形式,后续 FindVerificationCode 才能查到。
 func (r *Repository) CreateVerificationCode(code *EmailVerificationCode) error {
+	if code != nil {
+		code.Email = utils.NormalizeEmail(code.Email)
+	}
 	return r.db.Create(code).Error
 }
 
@@ -138,7 +163,7 @@ func (r *Repository) CreateVerificationCode(code *EmailVerificationCode) error {
 func (r *Repository) FindVerificationCode(email, code, purpose string) (*EmailVerificationCode, error) {
 	var vc EmailVerificationCode
 	err := r.db.Where("email = ? AND code = ? AND purpose = ? AND used = false AND expires_at > ?",
-		email, code, purpose, time.Now()).First(&vc).Error
+		utils.NormalizeEmail(email), code, purpose, time.Now()).First(&vc).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -158,6 +183,22 @@ func (r *Repository) CreateAuthProvider(provider *UserAuthProvider) error {
 	return r.db.Create(provider).Error
 }
 
+// CountAuthProvidersByUser returns the number of 3rd-party providers bound to a user.
+// 解绑前用它判断是否会让用户失去最后一个登录方式 —— 见 Service.CountLoginMethods。
+func (r *Repository) CountAuthProvidersByUser(userID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&UserAuthProvider{}).Where("user_id = ?", userID).Count(&count).Error
+	return count, err
+}
+
+// ListAuthProvidersByUser returns all 3rd-party providers bound to a user.
+// 账号设置「已绑定第三方」列表用。
+func (r *Repository) ListAuthProvidersByUser(userID uint) ([]UserAuthProvider, error) {
+	var providers []UserAuthProvider
+	err := r.db.Where("user_id = ?", userID).Order("created_at ASC").Find(&providers).Error
+	return providers, err
+}
+
 // FindAuthProvider finds an auth provider
 func (r *Repository) FindAuthProvider(provider, providerUserID string) (*UserAuthProvider, error) {
 	var ap UserAuthProvider
@@ -175,18 +216,6 @@ func (r *Repository) FindAuthProvider(provider, providerUserID string) (*UserAut
 func (r *Repository) GetTotalUserCount() (int64, error) {
 	var count int64
 	err := r.db.Model(&User{}).Scopes(nonAdminScope).Count(&count).Error
-	return count, err
-}
-
-// GetOnlineUserCount returns the count of currently online users (active sessions)
-// A user is considered online if they have an active session with activity in the last 2 minutes
-func (r *Repository) GetOnlineUserCount() (int64, error) {
-	var count int64
-	onlineThreshold := time.Now().Add(-2 * time.Minute)
-	err := r.db.Model(&model.UserSession{}).
-		Where("expires_at > ? AND last_activity > ?", time.Now(), onlineThreshold).
-		Distinct("user_id").
-		Count(&count).Error
 	return count, err
 }
 
@@ -229,13 +258,11 @@ func (r *Repository) GetUserListWithSort(offset, limit int, sortBy, sortOrder st
 //   - Q       : LIKE 搜索 username / email / phone
 //   - Status  : nil 不过滤；指定值精确匹配 (0/1/-1/2)
 //   - Role    : "" 时默认排除 admin/super_admin；指定值精确匹配 (允许查看管理员行)
-//   - TagID   : 0 不过滤;>0 筛选打了该标签的用户
 //   - SortBy  / SortOrder : 与 GetUserListWithSort 同义，走白名单校验
 type UserListFilter struct {
 	Q         string
 	Status    *int8
 	Role      string
-	TagID     uint
 	SortBy    string
 	SortOrder string
 }
@@ -265,12 +292,6 @@ func (r *Repository) GetUserListWithFilter(offset, limit int, f UserListFilter) 
 
 	if f.Status != nil {
 		query = query.Where("status = ?", *f.Status)
-	}
-
-	// 标签筛选 — 走 join
-	if f.TagID > 0 {
-		query = query.Joins("JOIN user_tag_assignments ON user_tag_assignments.user_id = users.id").
-			Where("user_tag_assignments.tag_id = ?", f.TagID)
 	}
 
 	if f.Q != "" {
@@ -316,307 +337,6 @@ func (r *Repository) GetUserAuthProviders(userIDs []uint) (map[uint][]UserAuthPr
 		result[p.UserID] = append(result[p.UserID], p)
 	}
 	return result, nil
-}
-
-// CreateSession creates a new user session
-func (r *Repository) CreateSession(session *model.UserSession) error {
-	return r.db.Create(session).Error
-}
-
-// UpdateSessionActivity updates the last activity time of a session and user's last login time and IP
-func (r *Repository) UpdateSessionActivity(token, ip string) error {
-	// Get session to find user_id
-	var session model.UserSession
-	if err := r.db.Where("token = ?", token).First(&session).Error; err != nil {
-		return err
-	}
-
-	// Use transaction to update both session and user
-	return r.db.Transaction(func(tx *gorm.DB) error {
-		// Update session last_activity and IP
-		if err := tx.Model(&model.UserSession{}).
-			Where("token = ?", token).
-			Updates(map[string]any{
-				"last_activity": time.Now(),
-				"ip":            ip,
-			}).Error; err != nil {
-			return err
-		}
-
-		// Update user's last_login_at and last_login_ip
-		if err := tx.Model(&User{}).
-			Where("id = ?", session.UserID).
-			Updates(map[string]any{
-				"last_login_at": time.Now(),
-				"last_login_ip": ip,
-			}).Error; err != nil {
-			return err
-		}
-
-		return nil
-	})
-}
-
-// UpdateSessionActivityByUserID updates session activity and user's last login info by user ID
-// Used by WebSocket connections which don't have access to the original token
-func (r *Repository) UpdateSessionActivityByUserID(userID uint, ip string) error {
-	now := time.Now()
-
-	// Use transaction to update both session and user
-	return r.db.Transaction(func(tx *gorm.DB) error {
-		// Update all active sessions for this user
-		if err := tx.Model(&model.UserSession{}).
-			Where("user_id = ? AND expires_at > ?", userID, now).
-			Updates(map[string]any{
-				"last_activity": now,
-				"ip":            ip,
-			}).Error; err != nil {
-			return err
-		}
-
-		// Update user's last_login_at and last_login_ip
-		if err := tx.Model(&User{}).
-			Where("id = ?", userID).
-			Updates(map[string]any{
-				"last_login_at": now,
-				"last_login_ip": ip,
-			}).Error; err != nil {
-			return err
-		}
-
-		return nil
-	})
-}
-
-// DeleteExpiredSessions deletes all expired sessions
-func (r *Repository) DeleteExpiredSessions() error {
-	return r.db.Where("expires_at < ?", time.Now()).
-		Delete(&model.UserSession{}).Error
-}
-
-// DeleteUserSessions deletes all sessions for a user
-func (r *Repository) DeleteUserSessions(userID uint) error {
-	return r.db.Where("user_id = ?", userID).
-		Delete(&model.UserSession{}).Error
-}
-
-// DeleteUserSessionsByDeviceType deletes all sessions for a user with specific device type
-// This is used for single sign-on: when user logs in on a new device,
-// kick out other sessions of the same device type
-func (r *Repository) DeleteUserSessionsByDeviceType(userID uint, deviceType string) error {
-	return r.db.Where("user_id = ? AND device_type = ?", userID, deviceType).
-		Delete(&model.UserSession{}).Error
-}
-
-// GetUserSessionsByDeviceType gets all sessions for a user with specific device type
-func (r *Repository) GetUserSessionsByDeviceType(userID uint, deviceType string) ([]model.UserSession, error) {
-	var sessions []model.UserSession
-	err := r.db.Where("user_id = ? AND device_type = ?", userID, deviceType).
-		Find(&sessions).Error
-	return sessions, err
-}
-
-// GetUserSession finds a session by token
-func (r *Repository) GetUserSession(token string) (*model.UserSession, error) {
-	var session model.UserSession
-	err := r.db.Where("token = ?", token).First(&session).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &session, nil
-}
-
-// GetSessionByID finds a session by ID
-func (r *Repository) GetSessionByID(id uint) (*model.UserSession, error) {
-	var session model.UserSession
-	err := r.db.Where("id = ?", id).First(&session).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &session, nil
-}
-
-// UpdateSessionToken updates the token and expiry for a session
-func (r *Repository) UpdateSessionToken(sessionID uint, newToken string, newExpiry time.Time) error {
-	return r.db.Model(&model.UserSession{}).
-		Where("id = ?", sessionID).
-		Updates(map[string]any{
-			"token":         newToken,
-			"expires_at":    newExpiry,
-			"last_activity": time.Now(),
-		}).Error
-}
-
-// GetOnlineUsers returns list of currently online users with their session info
-// A user is considered online if they have an active session with activity in the last 2 minutes
-func (r *Repository) GetOnlineUsers() ([]map[string]any, error) {
-	type OnlineUserRaw struct {
-		ID           uint      `json:"id"`
-		Email        *string   `json:"email"`
-		Username     *string   `json:"username"`
-		LastActivity time.Time `json:"last_activity"`
-		IP           string    `json:"ip"`
-		UserAgent    string    `json:"user_agent"`
-	}
-
-	var rawResults []OnlineUserRaw
-
-	// Consider a user online if they had activity in the last 2 minutes
-	onlineThreshold := time.Now().Add(-2 * time.Minute)
-
-	err := r.db.Raw(`
-		SELECT
-			u.id,
-			u.email,
-			u.username,
-			s2.last_activity,
-			s2.ip,
-			s2.user_agent
-		FROM users u
-		INNER JOIN (
-			SELECT
-				user_id,
-				last_activity,
-				ip,
-				user_agent
-			FROM user_sessions
-			WHERE expires_at > ? AND last_activity > ?
-			ORDER BY last_activity DESC
-		) s2 ON u.id = s2.user_id
-		GROUP BY u.id, s2.last_activity, s2.ip, s2.user_agent
-		ORDER BY s2.last_activity DESC
-	`, time.Now(), onlineThreshold).Scan(&rawResults).Error
-
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert to map and add parsed information
-	results := make([]map[string]any, len(rawResults))
-	for i, raw := range rawResults {
-		result := map[string]any{
-			"id":            raw.ID,
-			"email":         raw.Email,
-			"username":      raw.Username,
-			"last_activity": raw.LastActivity,
-			"ip":            raw.IP,
-			"user_agent":    raw.UserAgent,
-		}
-
-		// Parse IP location
-		location := utils.ParseIPLocation(raw.IP)
-		result["location"] = utils.GetLocationString(location)
-		result["location_detail"] = location
-
-		// Parse user agent
-		deviceInfo := utils.ParseUserAgent(raw.UserAgent)
-		result["device"] = utils.GetSimpleDeviceString(deviceInfo)
-		result["device_detail"] = deviceInfo
-
-		results[i] = result
-	}
-
-	return results, nil
-}
-
-// GetUserStatisticsByDateRange returns user statistics for a date range
-func (r *Repository) GetUserStatisticsByDateRange(startDate, endDate string) ([]model.UserStatistics, error) {
-	var stats []model.UserStatistics
-	err := r.db.Where("date >= ? AND date <= ?", startDate, endDate).
-		Order("date ASC").
-		Find(&stats).Error
-	return stats, err
-}
-
-// GetOrCreateDailyStatistics gets or creates statistics record for a specific date
-func (r *Repository) GetOrCreateDailyStatistics(date string) (*model.UserStatistics, error) {
-	var stats model.UserStatistics
-	err := r.db.Where("date = ?", date).First(&stats).Error
-
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// Create new record
-			stats.Date = date
-			stats.NewUsers = 0
-			stats.TotalUsers = 0
-			stats.PeakOnlineUsers = 0
-			if err := r.db.Create(&stats).Error; err != nil {
-				return nil, err
-			}
-			return &stats, nil
-		}
-		return nil, err
-	}
-
-	return &stats, nil
-}
-
-// UpdateDailyStatistics updates daily statistics
-func (r *Repository) UpdateDailyStatistics(date string, newUsers, totalUsers, peakOnline int) error {
-	return r.db.Model(&model.UserStatistics{}).
-		Where("date = ?", date).
-		Updates(map[string]any{
-			"new_users":         newUsers,
-			"total_users":       totalUsers,
-			"peak_online_users": peakOnline,
-		}).Error
-}
-
-// IncrementNewUsers increments new users count for a specific date
-func (r *Repository) IncrementNewUsers(date string) error {
-	return r.db.Exec(`
-		INSERT INTO user_statistics (date, new_users, total_users, peak_online_users)
-		VALUES (?, 1, 0, 0)
-		ON DUPLICATE KEY UPDATE new_users = new_users + 1
-	`, date).Error
-}
-
-// UpdatePeakOnlineUsers updates peak online users if current count is higher
-func (r *Repository) UpdatePeakOnlineUsers(date string, currentOnline int) error {
-	return r.db.Exec(`
-		INSERT INTO user_statistics (date, new_users, total_users, peak_online_users)
-		VALUES (?, 0, 0, ?)
-		ON DUPLICATE KEY UPDATE
-			peak_online_users = IF(? > peak_online_users, ?, peak_online_users)
-	`, date, currentOnline, currentOnline, currentOnline).Error
-}
-
-// GetOnlineUserSnapshots returns online user snapshots for a time range
-func (r *Repository) GetOnlineUserSnapshots(startTime, endTime time.Time) ([]model.OnlineUserSnapshot, error) {
-	var snapshots []model.OnlineUserSnapshot
-	err := r.db.Where("timestamp >= ? AND timestamp <= ?", startTime, endTime).
-		Order("timestamp ASC").
-		Find(&snapshots).Error
-	return snapshots, err
-}
-
-// CreateOnlineUserSnapshot creates a new online user count snapshot
-func (r *Repository) CreateOnlineUserSnapshot(timestamp time.Time, onlineCount, guestCount int) error {
-	snapshot := &model.OnlineUserSnapshot{
-		Timestamp:   timestamp,
-		OnlineCount: onlineCount,
-		GuestCount:  guestCount,
-	}
-	return r.db.Create(snapshot).Error
-}
-
-// UpsertOnlineSnapshot 插入或更新在线快照（保留峰值）
-// 如果同一分钟已有记录且新值更大，则更新；否则插入新记录
-func (r *Repository) UpsertOnlineSnapshot(timestamp time.Time, onlineCount, guestCount int) error {
-	// MySQL 8.0 兼容语法：使用 AS 别名 + 列引用
-	return r.db.Exec(`
-		INSERT INTO online_user_snapshots (`+"`timestamp`"+`, online_count, guest_count, created_at)
-		VALUES (?, ?, ?, NOW()) AS new_values
-		ON DUPLICATE KEY UPDATE
-			online_count = IF(new_values.online_count > online_user_snapshots.online_count, new_values.online_count, online_user_snapshots.online_count),
-			guest_count = IF(new_values.guest_count > online_user_snapshots.guest_count, new_values.guest_count, online_user_snapshots.guest_count)
-	`, timestamp, onlineCount, guestCount).Error
 }
 
 // CountUsersSince counts non-admin users created on or after the given date string (YYYY-MM-DD)
@@ -710,7 +430,6 @@ func (r *Repository) DeleteUser(userID uint) error {
 
 		// 3. 删除用户（以下通过外键 ON DELETE CASCADE 自动级联删除）：
 		//    - user_auth_providers
-		//    - user_sessions
 		//    - conversations
 		//    - user_subscriptions
 		//    - orders → payment_transactions

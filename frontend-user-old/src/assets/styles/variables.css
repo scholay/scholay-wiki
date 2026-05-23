@@ -1,0 +1,114 @@
+/* ============================================================================
+ * 兼容层 —— 旧 token 名 → 新 token 名
+ * ----------------------------------------------------------------------------
+ * 早期写的页面（chat / assistant / peer-review v1 / latex-writer 等）大量使用
+ * `var(--background)` / `var(--text-primary)` 等"旧名字"。
+ * 设计稿统一改成日间模式后，老页面里的 token 引用全部转向 tokens.css 里
+ * 的新色板；不会再有暗色主题。
+ *
+ * 推荐新组件直接用 tokens.css 暴露的 --c-* / --text-* / --space-* 等，
+ * 这个文件留作过渡，等老页面全部被新设计稿重写后即可删除。
+ *
+ * 取消了 [data-theme="dark"] / [data-theme="light"] 之分 —— 整个应用只有
+ * 日间模式，theme.store 也会在 V2 下被简化。
+ * ============================================================================ */
+
+:root {
+  /* ===== 主品牌色（旧用绿色，新统一为红色 CTA） ===== */
+  --primary: var(--c-red);
+  --primary-solid: var(--c-red);
+  --primary-dark: var(--c-red-h);
+  --primary-light: var(--c-red);
+  --accent:  var(--c-green);
+  --accent-2:var(--c-green-h);
+
+  /* ===== 背景 / 表面 ===== */
+  --bg-primary: var(--c-bg);
+  --bg-secondary: var(--c-surface-soft);
+  --background: var(--c-bg);
+  --background-light: var(--c-bg);
+  --surface: var(--c-surface);
+  --surface-light: var(--c-surface-soft);
+  --surface-hover: var(--c-surface-muted);
+
+  /* ===== 文本 ===== */
+  --text-primary:    var(--c-ink);
+  --text-secondary:  var(--c-text);
+  --text-tertiary:   var(--c-text-muted);
+  --text-quaternary: var(--c-text-subtle);
+  --text-accent:  var(--c-red);
+  --text-success: var(--c-green);
+  --text-error:   #E53E3E;
+  --text-warning: var(--c-yellow);
+  --text-info:    var(--c-blue);
+
+  /* ===== 语义状态色 ===== */
+  --success: var(--c-green);
+  --error:   #E53E3E;
+  --warning: var(--c-yellow);
+  --info:    var(--c-blue);
+
+  /* ===== 边框 ===== */
+  --border:        var(--c-border);
+  --border-light:  var(--c-border-soft);
+  --border-hover:  var(--c-border-strong);
+
+  /* ===== 阴影（按新设计的轻量化阴影重映射） ===== */
+  --shadow-sm:     var(--shadow-sm);
+  --shadow:        var(--shadow);
+  --shadow-md:     var(--shadow-pop);
+  --shadow-lg:     var(--shadow-pop);
+  --shadow-accent: 0 4px 16px rgba(204, 34, 34, 0.18);
+  --glow:          0 0 0 3px rgba(204, 34, 34, 0.12);
+
+  /* ===== 过渡 ===== */
+  --transition: var(--t-base);
+}
+
+/* 旧代码里可能还在 toggle 这两个属性选择器 —— 让它们指向同一组日间值，
+ * 保证不论 data-theme 被设成什么都不会回到暗色。 */
+[data-theme="light"],
+[data-theme="dark"] {
+  --primary: var(--c-red);
+  --primary-solid: var(--c-red);
+  --primary-dark: var(--c-red-h);
+  --primary-light: var(--c-red);
+  --accent: var(--c-green);
+  --accent-2: var(--c-green-h);
+
+  --bg-primary: var(--c-bg);
+  --bg-secondary: var(--c-surface-soft);
+  --background: var(--c-bg);
+  --background-light: var(--c-bg);
+  --surface: var(--c-surface);
+  --surface-light: var(--c-surface-soft);
+  --surface-hover: var(--c-surface-muted);
+
+  --text-primary: var(--c-ink);
+  --text-secondary: var(--c-text);
+  --text-tertiary: var(--c-text-muted);
+  --text-quaternary: var(--c-text-subtle);
+  --text-accent: var(--c-red);
+  --text-success: var(--c-green);
+  --text-error: #E53E3E;
+  --text-warning: var(--c-yellow);
+  --text-info: var(--c-blue);
+
+  --success: var(--c-green);
+  --error: #E53E3E;
+  --warning: var(--c-yellow);
+  --info: var(--c-blue);
+
+  --border: var(--c-border);
+  --border-light: var(--c-border-soft);
+  --border-hover: var(--c-border-strong);
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow: var(--shadow);
+  --shadow-md: var(--shadow-pop);
+  --shadow-lg: var(--shadow-pop);
+  --shadow-accent: 0 4px 16px rgba(204, 34, 34, 0.18);
+  --glow: 0 0 0 3px rgba(204, 34, 34, 0.12);
+
+  --transition: var(--t-base);
+}

@@ -503,6 +503,16 @@ func (m *Manager) GetSearchSuggestions(ctx context.Context, query, source string
 }
 
 func (m *Manager) fetchSearchSuggestions(ctx context.Context, query, source string, paperLimit, authorLimit int) (*SearchSuggestionsResponse, error) {
+	// 多源 fan-out 模式:source 为空时,papers 并行拉 STC/OLX/PMD,authors 并行拉 STC/OLX。
+	// 任一源失败不影响其他源,失败仅写日志。
+	if source == "" {
+		return m.fetchMultiSourceSuggestions(ctx, query, paperLimit, authorLimit), nil
+	}
+	return m.fetchSingleSourceSuggestions(ctx, query, source, paperLimit, authorLimit)
+}
+
+// fetchSingleSourceSuggestions —— legacy 行为,给定 source 时只调对应那一个源。
+func (m *Manager) fetchSingleSourceSuggestions(ctx context.Context, query, source string, paperLimit, authorLimit int) (*SearchSuggestionsResponse, error) {
 	type paperResult struct {
 		data *AutocompleteResponse
 		err  error
@@ -539,7 +549,13 @@ func (m *Manager) fetchSearchSuggestions(ctx context.Context, query, source stri
 		if count > paperLimit {
 			count = paperLimit
 		}
-		response.Papers = paperRes.data.Matches[:count]
+		// 补 Source 字段,与多源模式一致
+		matches := make([]AutocompleteMatch, count)
+		for i := 0; i < count; i++ {
+			matches[i] = paperRes.data.Matches[i]
+			matches[i].Source = source
+		}
+		response.Papers = matches
 	} else if paperRes.err != nil {
 		slog.Warn("minicod: paper autocomplete failed", "err", paperRes.err)
 	}
@@ -559,6 +575,151 @@ func (m *Manager) fetchSearchSuggestions(ctx context.Context, query, source stri
 	}
 
 	return response, nil
+}
+
+// fetchMultiSourceSuggestions —— 多源并行 fan-out。
+//
+// papers: STC + OLX + PMD 同时拉(PMD 上游无 autocomplete,降级到 /papers/search)
+// authors: STC + OLX(PMD 上游无 authors 接口,跳过)
+//
+// 单源失败仅 warn,不阻塞整个响应。每个 item 的 Source 字段会被设置为来源,
+// 前端展示成 minicod-x / minicod-o / minicod-p 标识。
+//
+// 结果按 PaperSources / AuthorSources 顺序穿插(STC 优先),再截断到 limit。
+func (m *Manager) fetchMultiSourceSuggestions(ctx context.Context, query string, paperLimit, authorLimit int) *SearchSuggestionsResponse {
+	perSourcePaper := perSource(paperLimit, len(PaperSources))
+	perSourceAuthor := perSource(authorLimit, len(AuthorSources))
+
+	type paperBucket struct {
+		source string
+		items  []AutocompleteMatch
+	}
+	type authorBucket struct {
+		source string
+		items  []Author
+	}
+	paperCh := make(chan paperBucket, len(PaperSources))
+	authorCh := make(chan authorBucket, len(AuthorSources))
+
+	for _, src := range PaperSources {
+		src := src
+		safego.Go("minicod-paper-suggest-"+src, func() {
+			paperCh <- paperBucket{source: src, items: m.suggestPapersForSource(ctx, query, src, perSourcePaper)}
+		})
+	}
+	for _, src := range AuthorSources {
+		src := src
+		safego.Go("minicod-author-suggest-"+src, func() {
+			authorCh <- authorBucket{source: src, items: m.suggestAuthorsForSource(ctx, query, src, perSourceAuthor)}
+		})
+	}
+
+	paperBySource := make(map[string][]AutocompleteMatch, len(PaperSources))
+	for i := 0; i < len(PaperSources); i++ {
+		b := <-paperCh
+		paperBySource[b.source] = b.items
+	}
+	authorBySource := make(map[string][]Author, len(AuthorSources))
+	for i := 0; i < len(AuthorSources); i++ {
+		b := <-authorCh
+		authorBySource[b.source] = b.items
+	}
+
+	papers := make([]AutocompleteMatch, 0, paperLimit)
+	for _, src := range PaperSources {
+		papers = append(papers, paperBySource[src]...)
+	}
+	if len(papers) > paperLimit {
+		papers = papers[:paperLimit]
+	}
+	authors := make([]Author, 0, authorLimit)
+	for _, src := range AuthorSources {
+		authors = append(authors, authorBySource[src]...)
+	}
+	if len(authors) > authorLimit {
+		authors = authors[:authorLimit]
+	}
+
+	return &SearchSuggestionsResponse{Papers: papers, Authors: authors}
+}
+
+// suggestPapersForSource —— 单源拉论文建议。
+// STC/OLX 走原生 /papers/autocomplete;PMD 上游无 autocomplete,降级到 /papers/search。
+func (m *Manager) suggestPapersForSource(ctx context.Context, query, source string, limit int) []AutocompleteMatch {
+	if source == SourcePMD {
+		resp, err := m.SearchPapers(ctx, PaperSearchOptions{
+			Query:  query,
+			Limit:  limit,
+			Source: source,
+		})
+		if err != nil {
+			slog.Warn("minicod: pmd paper search fallback failed", "err", err)
+			return nil
+		}
+		out := make([]AutocompleteMatch, 0, len(resp.Data))
+		for i, p := range resp.Data {
+			if i >= limit {
+				break
+			}
+			out = append(out, AutocompleteMatch{
+				ID:     p.PaperID,
+				Title:  p.Title,
+				Source: source,
+			})
+		}
+		return out
+	}
+
+	resp, err := m.PaperAutocomplete(ctx, query, source)
+	if err != nil {
+		slog.Warn("minicod: paper autocomplete failed", "source", source, "err", err)
+		return nil
+	}
+	count := len(resp.Matches)
+	if count > limit {
+		count = limit
+	}
+	out := make([]AutocompleteMatch, count)
+	for i := 0; i < count; i++ {
+		out[i] = resp.Matches[i]
+		out[i].Source = source
+	}
+	return out
+}
+
+// suggestAuthorsForSource —— 单源拉作者建议(STC/OLX 都用 /authors/search)。
+func (m *Manager) suggestAuthorsForSource(ctx context.Context, query, source string, limit int) []Author {
+	resp, err := m.SearchAuthors(ctx, AuthorSearchOptions{
+		Query:  query,
+		Limit:  limit,
+		Source: source,
+	})
+	if err != nil {
+		slog.Warn("minicod: author search failed", "source", source, "err", err)
+		return nil
+	}
+	count := len(resp.Data)
+	if count > limit {
+		count = limit
+	}
+	out := make([]Author, count)
+	for i := 0; i < count; i++ {
+		out[i] = resp.Data[i]
+		out[i].Source = source
+	}
+	return out
+}
+
+// perSource —— 把总额度均匀分给 n 个源,向上取整(保证每源至少 1 条)。
+func perSource(total, n int) int {
+	if total <= 0 || n <= 0 {
+		return 1
+	}
+	v := (total + n - 1) / n
+	if v < 1 {
+		return 1
+	}
+	return v
 }
 
 // ======================== JNL Journal Methods ========================
@@ -597,6 +758,51 @@ func (m *Manager) GetJournal(ctx context.Context, id int, full string) (json.Raw
 	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
 		return m.executeWithRetry(func(client *Client) (any, error) {
 			return client.GetJournal(ctx, id, full)
+		})
+	})
+	if err != nil {
+		if circuitbreaker.IsCircuitBreakerError(err) {
+			return nil, fmt.Errorf("minicod service temporarily unavailable (circuit breaker open): %w", err)
+		}
+		return nil, err
+	}
+	return result.(json.RawMessage), nil
+}
+
+func (m *Manager) SuggestJournals(ctx context.Context, q string, limit int) (json.RawMessage, error) {
+	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
+		return m.executeWithRetry(func(client *Client) (any, error) {
+			return client.SuggestJournals(ctx, q, limit)
+		})
+	})
+	if err != nil {
+		if circuitbreaker.IsCircuitBreakerError(err) {
+			return nil, fmt.Errorf("minicod service temporarily unavailable (circuit breaker open): %w", err)
+		}
+		return nil, err
+	}
+	return result.(json.RawMessage), nil
+}
+
+func (m *Manager) JournalsByNames(ctx context.Context, names, fields string) (json.RawMessage, error) {
+	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
+		return m.executeWithRetry(func(client *Client) (any, error) {
+			return client.JournalsByNames(ctx, names, fields)
+		})
+	})
+	if err != nil {
+		if circuitbreaker.IsCircuitBreakerError(err) {
+			return nil, fmt.Errorf("minicod service temporarily unavailable (circuit breaker open): %w", err)
+		}
+		return nil, err
+	}
+	return result.(json.RawMessage), nil
+}
+
+func (m *Manager) JournalsByISSNs(ctx context.Context, issns, fields string) (json.RawMessage, error) {
+	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
+		return m.executeWithRetry(func(client *Client) (any, error) {
+			return client.JournalsByISSNs(ctx, issns, fields)
 		})
 	})
 	if err != nil {

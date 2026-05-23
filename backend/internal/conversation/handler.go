@@ -246,7 +246,7 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 	// Verify conversation belongs to user
 	conversation, err := h.service.GetConversationWithMessages(c.Request.Context(), conversationID, userID)
 	if err != nil {
-		utils.Error(c, 404, "Conversation not found")
+		utils.Error(c, 404, "会话不存在或已被删除")
 		return
 	}
 
@@ -260,7 +260,7 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 	}
 
 	if targetMessage == nil {
-		utils.Error(c, 404, "Message not found")
+		utils.Error(c, 404, "消息不存在或已被删除")
 		return
 	}
 
@@ -333,13 +333,13 @@ func (h *Handler) StreamContinueConversation(c *gin.Context) {
 	// Verify conversation belongs to user
 	conversation, err := h.service.GetConversationWithMessages(c.Request.Context(), conversationID, userID)
 	if err != nil {
-		utils.Error(c, 404, "Conversation not found")
+		utils.Error(c, 404, "会话不存在或已被删除")
 		return
 	}
 
 	// Verify the conversation exists
 	if conversation == nil {
-		utils.Error(c, 404, "Conversation not found")
+		utils.Error(c, 404, "会话不存在或已被删除")
 		return
 	}
 

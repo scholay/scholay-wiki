@@ -82,7 +82,7 @@ func (h *Handler) SearchPapers(c *gin.Context) {
 	}
 
 	if req.Query == "" {
-		utils.Error(c, 4001, "Query parameter is required")
+		utils.Error(c, 4001, "请输入搜索词")
 		return
 	}
 
@@ -156,7 +156,7 @@ func (h *Handler) SearchPapers(c *gin.Context) {
 
 	result, err := h.manager.SearchPapers(c.Request.Context(), opts)
 	if err != nil {
-		utils.Error(c, 4002, "Failed to search papers: "+err.Error())
+		utils.Error(c, 4002, "搜索论文失败,请稍后重试")
 		return
 	}
 
@@ -181,7 +181,7 @@ func (h *Handler) SearchPapers(c *gin.Context) {
 func (h *Handler) GetPaper(c *gin.Context) {
 	paperID := c.Param("paperId")
 	if paperID == "" {
-		utils.Error(c, 4003, "Paper ID is required")
+		utils.Error(c, 4003, "请提供论文 ID")
 		return
 	}
 
@@ -194,7 +194,7 @@ func (h *Handler) GetPaper(c *gin.Context) {
 	// Call API
 	result, err := h.manager.GetPaper(c.Request.Context(), paperID, opts)
 	if err != nil {
-		utils.Error(c, 4004, "Failed to get paper: "+err.Error())
+		utils.Error(c, 4004, "加载论文详情失败,请稍后重试")
 		return
 	}
 
@@ -206,7 +206,7 @@ func (h *Handler) GetPaper(c *gin.Context) {
 func (h *Handler) GetPaperCitations(c *gin.Context) {
 	paperID := c.Param("paperId")
 	if paperID == "" {
-		utils.Error(c, 4005, "Paper ID is required")
+		utils.Error(c, 4005, "请提供论文 ID")
 		return
 	}
 
@@ -222,7 +222,7 @@ func (h *Handler) GetPaperCitations(c *gin.Context) {
 	// Call API
 	result, err := h.manager.GetPaperCitations(c.Request.Context(), paperID, opts)
 	if err != nil {
-		utils.Error(c, 4006, "Failed to get citations: "+err.Error())
+		utils.Error(c, 4006, "加载引用信息失败,请稍后重试")
 		return
 	}
 
@@ -234,7 +234,7 @@ func (h *Handler) GetPaperCitations(c *gin.Context) {
 func (h *Handler) GetPaperReferences(c *gin.Context) {
 	paperID := c.Param("paperId")
 	if paperID == "" {
-		utils.Error(c, 4007, "Paper ID is required")
+		utils.Error(c, 4007, "请提供论文 ID")
 		return
 	}
 
@@ -250,7 +250,7 @@ func (h *Handler) GetPaperReferences(c *gin.Context) {
 	// Call API
 	result, err := h.manager.GetPaperReferences(c.Request.Context(), paperID, opts)
 	if err != nil {
-		utils.Error(c, 4008, "Failed to get references: "+err.Error())
+		utils.Error(c, 4008, "加载参考文献失败,请稍后重试")
 		return
 	}
 
@@ -262,7 +262,7 @@ func (h *Handler) GetPaperReferences(c *gin.Context) {
 func (h *Handler) GetPaperAuthors(c *gin.Context) {
 	paperID := c.Param("paperId")
 	if paperID == "" {
-		utils.Error(c, 4009, "Paper ID is required")
+		utils.Error(c, 4009, "请提供论文 ID")
 		return
 	}
 
@@ -277,7 +277,7 @@ func (h *Handler) GetPaperAuthors(c *gin.Context) {
 	// Call API
 	result, err := h.manager.GetPaperAuthors(c.Request.Context(), paperID, fields, offset, limit)
 	if err != nil {
-		utils.Error(c, 4010, "Failed to get authors: "+err.Error())
+		utils.Error(c, 4010, "加载作者信息失败,请稍后重试")
 		return
 	}
 
@@ -289,7 +289,7 @@ func (h *Handler) GetPaperAuthors(c *gin.Context) {
 func (h *Handler) SearchAuthors(c *gin.Context) {
 	query := c.Query("query")
 	if query == "" {
-		utils.Error(c, 4011, "Query parameter is required")
+		utils.Error(c, 4011, "请输入搜索词")
 		return
 	}
 
@@ -306,7 +306,7 @@ func (h *Handler) SearchAuthors(c *gin.Context) {
 	// Call API
 	result, err := h.manager.SearchAuthors(c.Request.Context(), opts)
 	if err != nil {
-		utils.Error(c, 4012, "Failed to search authors: "+err.Error())
+		utils.Error(c, 4012, "搜索作者失败,请稍后重试")
 		return
 	}
 
@@ -318,7 +318,7 @@ func (h *Handler) SearchAuthors(c *gin.Context) {
 func (h *Handler) GetAuthor(c *gin.Context) {
 	authorID := c.Param("authorId")
 	if authorID == "" {
-		utils.Error(c, 4013, "Author ID is required")
+		utils.Error(c, 4013, "请提供作者 ID")
 		return
 	}
 
@@ -331,7 +331,7 @@ func (h *Handler) GetAuthor(c *gin.Context) {
 	// Call API
 	result, err := h.manager.GetAuthor(c.Request.Context(), authorID, fields)
 	if err != nil {
-		utils.Error(c, 4014, "Failed to get author: "+err.Error())
+		utils.Error(c, 4014, "加载作者详情失败,请稍后重试")
 		return
 	}
 
@@ -343,7 +343,7 @@ func (h *Handler) GetAuthor(c *gin.Context) {
 func (h *Handler) GetAuthorPapers(c *gin.Context) {
 	authorID := c.Param("authorId")
 	if authorID == "" {
-		utils.Error(c, 4015, "Author ID is required")
+		utils.Error(c, 4015, "请提供作者 ID")
 		return
 	}
 
@@ -358,7 +358,7 @@ func (h *Handler) GetAuthorPapers(c *gin.Context) {
 	// Call API
 	result, err := h.manager.GetAuthorPapers(c.Request.Context(), authorID, fields, offset, limit)
 	if err != nil {
-		utils.Error(c, 4016, "Failed to get author papers: "+err.Error())
+		utils.Error(c, 4016, "加载作者论文列表失败,请稍后重试")
 		return
 	}
 
@@ -370,7 +370,7 @@ func (h *Handler) GetAuthorPapers(c *gin.Context) {
 func (h *Handler) GetRecommendationsForPaper(c *gin.Context) {
 	paperID := c.Param("paperId")
 	if paperID == "" {
-		utils.Error(c, 4017, "Paper ID is required")
+		utils.Error(c, 4017, "请提供论文 ID")
 		return
 	}
 
@@ -385,7 +385,7 @@ func (h *Handler) GetRecommendationsForPaper(c *gin.Context) {
 	// Call API
 	result, err := h.manager.GetRecommendationsForPaper(c.Request.Context(), paperID, opts)
 	if err != nil {
-		utils.Error(c, 4018, "Failed to get recommendations: "+err.Error())
+		utils.Error(c, 4018, "加载推荐论文失败,请稍后重试")
 		return
 	}
 
@@ -419,7 +419,7 @@ func (h *Handler) GetRecommendations(c *gin.Context) {
 	// Call API
 	result, err := h.manager.GetRecommendations(c.Request.Context(), opts)
 	if err != nil {
-		utils.Error(c, 4020, "Failed to get recommendations: "+err.Error())
+		utils.Error(c, 4020, "加载推荐论文失败,请稍后重试")
 		return
 	}
 
@@ -465,7 +465,7 @@ func parseIntQuery(c *gin.Context, key string, defaultValue int) int {
 func (h *Handler) GetSearchSuggestions(c *gin.Context) {
 	query := c.Query("query")
 	if query == "" {
-		utils.Error(c, 4023, "Query parameter is required")
+		utils.Error(c, 4023, "请输入搜索词")
 		return
 	}
 
@@ -501,7 +501,7 @@ func (h *Handler) GetSearchSuggestions(c *gin.Context) {
 func (h *Handler) PaperAutocomplete(c *gin.Context) {
 	query := c.Query("query")
 	if query == "" {
-		utils.Error(c, 4025, "Query parameter is required")
+		utils.Error(c, 4025, "请输入搜索词")
 		return
 	}
 

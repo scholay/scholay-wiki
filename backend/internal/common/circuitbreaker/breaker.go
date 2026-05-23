@@ -79,6 +79,20 @@ var (
 		},
 		OnStateChange: onStateChangeWithStats,
 	})
+
+	// PeerReviewBreaker 保护 peer.scholay.com 外部审稿 API 调用。
+	// 单次审稿要 60-180s 跑完远端 4-process 流水线,失败成本高,门槛设宽松一些。
+	PeerReviewBreaker = gobreaker.NewCircuitBreaker(gobreaker.Settings{
+		Name:        "PeerReview",
+		MaxRequests: 3,
+		Interval:    2 * time.Minute,
+		Timeout:     60 * time.Second,
+		ReadyToTrip: func(counts gobreaker.Counts) bool {
+			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
+			return counts.Requests >= 5 && failureRatio >= 0.6
+		},
+		OnStateChange: onStateChangeWithStats,
+	})
 )
 
 // IsCircuitBreakerError checks if an error is from circuit breaker being open
@@ -94,6 +108,7 @@ func init() {
 		"AIService",
 		"Minicod",
 		"ProxyService",
+		"PeerReview",
 	} {
 		registerBreaker(name)
 	}

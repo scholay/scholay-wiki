@@ -17,16 +17,22 @@ import (
 
 // ========== Request/Response 类型 ==========
 
-// BindPhoneRequest represents a bind phone request
+// BindPhoneRequest represents a bind phone request.
+// OldPhoneCode 仅在「换绑」场景必填(当前 user 已有 phone,新号与之不同) ——
+// 用于证明用户掌控旧手机,防止 session 被偷后被改手机号夺号。与 BindEmail 对称。
 type BindPhoneRequest struct {
-	Phone string `json:"phone" binding:"required,len=11"`
-	Code  string `json:"code" binding:"required,len=6"`
+	Phone        string `json:"phone" binding:"required,len=11"`
+	Code         string `json:"code" binding:"required,len=6"`
+	OldPhoneCode string `json:"old_phone_code"`
 }
 
-// BindEmailRequest represents a bind email request
+// BindEmailRequest represents a bind email request.
+// OldEmailCode 仅在「换绑」场景必填(当前 user 已有 email,新邮箱与之不同) ——
+// 用于证明用户掌控旧邮箱,防止 session 被偷后被改邮箱夺号。首次绑定可留空。
 type BindEmailRequest struct {
-	Email string `json:"email" binding:"required,email"`
-	Code  string `json:"code" binding:"required,len=6"`
+	Email        string `json:"email" binding:"required,email"`
+	Code         string `json:"code" binding:"required,len=6"`
+	OldEmailCode string `json:"old_email_code"`
 }
 
 // UnbindRequest represents an unbind request (requires verification code)
@@ -120,12 +126,12 @@ func (h *Handler) GetProfile(c *gin.Context) {
 
 	user, err := h.service.GetProfile(userID)
 	if err != nil {
-		utils.Error(c, 2004, "Failed to get profile")
+		utils.Error(c, 2004, "加载个人资料失败,请稍后重试")
 		return
 	}
 
 	if user == nil {
-		utils.Error(c, 2005, "User not found")
+		utils.Error(c, 2005, "用户不存在")
 		return
 	}
 
@@ -290,13 +296,13 @@ func (h *Handler) BindPhone(c *gin.Context) {
 		return
 	}
 
-	err := h.service.BindPhone(c.Request.Context(), userID, req.Phone, req.Code)
+	err := h.service.BindPhone(c.Request.Context(), userID, req.Phone, req.Code, req.OldPhoneCode)
 	if err != nil {
 		utils.Error(c, 2024, err.Error())
 		return
 	}
 
-	utils.SuccessWithMessage(c, "Phone bound successfully", nil)
+	utils.SuccessWithMessage(c, "手机号绑定成功", nil)
 }
 
 // BindEmail handles binding email to user account
@@ -311,13 +317,13 @@ func (h *Handler) BindEmail(c *gin.Context) {
 		return
 	}
 
-	err := h.service.BindEmail(c.Request.Context(), userID, req.Email, req.Code)
+	err := h.service.BindEmail(c.Request.Context(), userID, req.Email, req.Code, req.OldEmailCode)
 	if err != nil {
 		utils.Error(c, 2025, err.Error())
 		return
 	}
 
-	utils.SuccessWithMessage(c, "Email bound successfully", nil)
+	utils.SuccessWithMessage(c, "邮箱绑定成功", nil)
 }
 
 // UnbindPhone handles unbinding phone from user account
@@ -338,7 +344,7 @@ func (h *Handler) UnbindPhone(c *gin.Context) {
 		return
 	}
 
-	utils.SuccessWithMessage(c, "Phone unbound successfully", nil)
+	utils.SuccessWithMessage(c, "手机号已解绑", nil)
 }
 
 // UnbindEmail handles unbinding email from user account
@@ -359,7 +365,7 @@ func (h *Handler) UnbindEmail(c *gin.Context) {
 		return
 	}
 
-	utils.SuccessWithMessage(c, "Email unbound successfully", nil)
+	utils.SuccessWithMessage(c, "邮箱已解绑", nil)
 }
 
 // UnbindWeChat handles unbinding WeChat from user account
@@ -428,7 +434,7 @@ func (h *Handler) BindEmailWithPassword(c *gin.Context) {
 		return
 	}
 
-	utils.Success(c, gin.H{"message": "Email and password set successfully"})
+	utils.Success(c, gin.H{"message": "邮箱与密码已设置成功"})
 }
 
 // BindPhoneWithPassword binds phone to WeChat user with password (first-time binding)
@@ -449,7 +455,7 @@ func (h *Handler) BindPhoneWithPassword(c *gin.Context) {
 		return
 	}
 
-	utils.Success(c, gin.H{"message": "Phone and password set successfully"})
+	utils.Success(c, gin.H{"message": "手机号与密码已设置成功"})
 }
 
 // ========== 可用性检查 ==========
@@ -468,7 +474,7 @@ func (h *Handler) CheckEmailAvailability(c *gin.Context) {
 
 	available, err := h.service.CheckEmailAvailability(req.Email, userID)
 	if err != nil {
-		utils.Error(c, 2029, "Failed to check email availability")
+		utils.Error(c, 2029, "检查邮箱可用性失败,请稍后重试")
 		return
 	}
 
@@ -492,7 +498,7 @@ func (h *Handler) CheckPhoneAvailability(c *gin.Context) {
 
 	available, err := h.service.CheckPhoneAvailability(req.Phone, userID)
 	if err != nil {
-		utils.Error(c, 2030, "Failed to check phone availability")
+		utils.Error(c, 2030, "检查手机号可用性失败,请稍后重试")
 		return
 	}
 

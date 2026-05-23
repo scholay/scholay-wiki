@@ -220,18 +220,24 @@ func (r *Repository) GetByPaperID(paperID string) (*SEOPaper, error) {
 }
 
 // ListSitemapPage 读取指定分页的 sitemap 条目（仅取 SEO 必要字段）
+//
+// 多 select 一个 source 和 paper_id —— sitemap 写入的 URL 现在是
+// /paper/{source}/{paperId}(SEO canonical),不再用 /paper/{slug}。
+// slug 仍然 select,留给旧 /paper/{slug} legacy 301 端点反查 source+paperId 用。
 func (r *Repository) ListSitemapPage(page int) ([]SitemapEntry, error) {
 	if page <= 0 {
 		return nil, errors.New("page must be > 0")
 	}
 	var rows []struct {
 		Slug        string    `gorm:"column:slug"`
+		Source      string    `gorm:"column:source"`
+		PaperID     string    `gorm:"column:paper_id"`
 		UpdatedAt   time.Time `gorm:"column:updated_at"`
 		Priority    float64   `gorm:"column:priority"`
 		QualityTier int       `gorm:"column:quality_tier"`
 	}
 	err := r.db.Table("seo_papers").
-		Select("slug, updated_at, priority, quality_tier").
+		Select("slug, source, paper_id, updated_at, priority, quality_tier").
 		Where("status = ? AND sitemap_page = ?", StatusActive, page).
 		Order("id").
 		Find(&rows).Error
@@ -242,6 +248,8 @@ func (r *Repository) ListSitemapPage(page int) ([]SitemapEntry, error) {
 	for _, r := range rows {
 		out = append(out, SitemapEntry{
 			Slug:        r.Slug,
+			Source:      r.Source,
+			EntityID:    r.PaperID,
 			UpdatedAt:   r.UpdatedAt,
 			Priority:    r.Priority,
 			QualityTier: r.QualityTier,

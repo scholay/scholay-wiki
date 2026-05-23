@@ -106,8 +106,24 @@ func (a *paperSEOProviderAdapter) ResolveSlug(slug string) (*config.PaperSEOMeta
 	if err != nil || p == nil {
 		return nil, err
 	}
+	return paperSEOMetaFromRow(p), nil
+}
+
+// ResolveByPaperID 新 canonical 路径 /paper/{source}/{paperId} 的解析入口。
+// source 当前不参与查询(paperId 全局唯一),仅保留接口形参以便日后做多源去重。
+func (a *paperSEOProviderAdapter) ResolveByPaperID(_, paperID string) (*config.PaperSEOMeta, error) {
+	p, err := a.svc.GetByPaperID(paperID)
+	if err != nil || p == nil {
+		return nil, err
+	}
+	return paperSEOMetaFromRow(p), nil
+}
+
+// paperSEOMetaFromRow 把 seo_papers 行映射成 SSR 注入需要的子集
+func paperSEOMetaFromRow(p *seo.SEOPaper) *config.PaperSEOMeta {
 	meta := &config.PaperSEOMeta{
 		PaperID:  p.PaperID,
+		Source:   p.Source,
 		Title:    p.Title,
 		Abstract: p.Abstract,
 		Venue:    p.Venue,
@@ -128,7 +144,7 @@ func (a *paperSEOProviderAdapter) ResolveSlug(slug string) (*config.PaperSEOMeta
 			}
 		}
 	}
-	return meta, nil
+	return meta
 }
 
 // seoSeedSourceAdapter 给 seosubmit.Service 启动期 seed 用 ——
@@ -180,6 +196,29 @@ func (a *authorSEORecorderAdapter) RecordAuthorDetailClick(seed *minicod.AuthorS
 	})
 }
 
+// journalSEORecorderAdapter 把 minicod.JournalSEOSeed 平移成 seo.JournalSeed
+type journalSEORecorderAdapter struct {
+	svc *seo.Service
+}
+
+func (a *journalSEORecorderAdapter) RecordJournalDetailClick(seed *minicod.JournalSEOSeed) error {
+	if seed == nil {
+		return nil
+	}
+	return a.svc.RecordJournalDetailClick(&seo.JournalSeed{
+		JournalID:       seed.JournalID,
+		CanonicalName:   seed.CanonicalName,
+		Publisher:       seed.Publisher,
+		ISSNs:           seed.ISSNs,
+		Country:         seed.Country,
+		Type:            seed.Type,
+		IsOA:            seed.IsOA,
+		JCRImpactFactor: seed.JCRImpactFactor,
+		JCRQuartile:     seed.JCRQuartile,
+		OpenAlexHIndex:  seed.OpenAlexHIndex,
+	})
+}
+
 // authorSEOProviderAdapter 将 seo.Service 适配为 config.AuthorSEOProvider（SSR /author/:slug）
 type authorSEOProviderAdapter struct {
 	svc *seo.Service
@@ -190,8 +229,56 @@ func (a *authorSEOProviderAdapter) ResolveAuthorSlug(slug string) (*config.Autho
 	if err != nil || au == nil {
 		return nil, err
 	}
+	return authorSEOMetaFromRow(au), nil
+}
+
+// ResolveByAuthorID 新 canonical /author/{source}/{authorId} 的解析入口
+func (a *authorSEOProviderAdapter) ResolveByAuthorID(_, authorID string) (*config.AuthorSEOMeta, error) {
+	au, err := a.svc.GetAuthorByAuthorID(authorID)
+	if err != nil || au == nil {
+		return nil, err
+	}
+	return authorSEOMetaFromRow(au), nil
+}
+
+// journalSEOProviderAdapter 将 seo.Service 适配为 config.JournalSEOProvider (/journal/{id}/{slug})
+type journalSEOProviderAdapter struct {
+	svc *seo.Service
+}
+
+func (a *journalSEOProviderAdapter) ResolveByJournalID(journalID int64) (*config.JournalSEOMeta, error) {
+	j, err := a.svc.GetJournalByID(journalID)
+	if err != nil || j == nil {
+		return nil, err
+	}
+	meta := &config.JournalSEOMeta{
+		JournalID:       j.JournalID,
+		Slug:            j.Slug,
+		CanonicalName:   j.CanonicalName,
+		Publisher:       j.Publisher,
+		Country:         j.Country,
+		Type:            j.Type,
+		IsOA:            j.IsOA,
+		JCRImpactFactor: j.JCRImpactFactor,
+		JCRQuartile:     j.JCRQuartile,
+	}
+	if j.OpenAlexHIndex != nil {
+		h := *j.OpenAlexHIndex
+		meta.OpenAlexHIndex = &h
+	}
+	if j.ISSNsJSON != "" {
+		var issns []string
+		if err := json.Unmarshal([]byte(j.ISSNsJSON), &issns); err == nil {
+			meta.ISSNs = issns
+		}
+	}
+	return meta, nil
+}
+
+func authorSEOMetaFromRow(au *seo.SEOAuthor) *config.AuthorSEOMeta {
 	meta := &config.AuthorSEOMeta{
 		AuthorID:      au.AuthorID,
+		Source:        au.Source,
 		Name:          au.Name,
 		Homepage:      au.Homepage,
 		PaperCount:    au.PaperCount,
@@ -207,7 +294,7 @@ func (a *authorSEOProviderAdapter) ResolveAuthorSlug(slug string) (*config.Autho
 			meta.Affiliations = affs
 		}
 	}
-	return meta, nil
+	return meta
 }
 
 // usageLogServiceAdapter 将 usagelog.Service 适配为 config.UsageLogService 接口

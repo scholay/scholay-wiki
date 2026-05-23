@@ -213,6 +213,8 @@ type AutocompleteMatch struct {
 	ID          string `json:"id"`
 	Title       string `json:"title"`
 	AuthorsYear string `json:"authorsYear"`
+	// Source 标识来源("stc" / "olx" / "pmd"),前端展示成 minicod-x / minicod-o / minicod-p
+	Source string `json:"source,omitempty"`
 }
 
 // AutocompleteResponse represents paper autocomplete response
@@ -233,15 +235,18 @@ type PaperSearchOptions struct {
 	Query            string
 	YearFrom         int
 	YearTo           int
-	PublicationTypes []string // maps to upstream "types"
-	OpenAccessPDF    string   // "true" → upstream "open_access": true
+	DateFrom         string   // YYYY-MM-DD,比 year_from 精度更高;同时提供时 date_* 优先
+	DateTo           string   // YYYY-MM-DD
+	PublicationTypes []string // maps to upstream "types"(stc/olx 才支持)
+	OpenAccessPDF    string   // "true" → upstream "open_access": true (stc/olx)
 	Venue            []string
-	FieldsOfStudy    []string // maps to upstream "subjects"
+	FieldsOfStudy    []string // maps to upstream "subjects"(stc/olx)
 	Fields           []string
 	Offset           int
 	Limit            int
-	MinCitationCount int // maps to upstream "min_citations"
-	Source           string // stc, olx, or all (default: stc)
+	MinCitationCount int    // maps to upstream "min_citations"(stc/olx)
+	Source           string // stc, olx, pmd, or all (default: stc)
+	Sort             string // relevance | citations | date — STC relevance 端点不支持非默认 sort
 }
 
 // AuthorSearchOptions contains options for author search
@@ -294,26 +299,36 @@ type Journal struct {
 	Sources           map[string]any     `json:"sources,omitempty"`
 }
 
-// JournalSearchOptions contains options for journal search
+// JournalSearchOptions 期刊搜索过滤参数 —— 对齐上游 /v1/jnl/search 全量字段(api-1.json 2440-2580)。
+// 全部 omitempty 透传:不填等于不过滤。
 type JournalSearchOptions struct {
-	Page            int     `json:"page,omitempty"`
-	PageSize        int     `json:"page_size,omitempty"`
-	Keyword         string  `json:"keyword,omitempty"`
-	Name            string  `json:"name,omitempty"`
-	ISSN            string  `json:"issn,omitempty"`
-	Publisher       string  `json:"publisher,omitempty"`
-	Country         string  `json:"country,omitempty"`
-	Type            string  `json:"type,omitempty"`
-	IsOA            string  `json:"is_oa,omitempty"`
-	JCRQuartile     string  `json:"jcr_quartile,omitempty"`
-	FQBQuartile     string  `json:"fqb_quartile,omitempty"`
-	CCFRank         string  `json:"ccf_rank,omitempty"`
-	MinImpactFactor float64 `json:"min_impact_factor,omitempty"`
-	MaxImpactFactor float64 `json:"max_impact_factor,omitempty"`
-	MinHIndex       int     `json:"min_h_index,omitempty"`
-	MaxHIndex       int     `json:"max_h_index,omitempty"`
-	GJQKWarning     string  `json:"gjqk_warning,omitempty"`
-	Full            string  `json:"full,omitempty"`
+	Page                int     `json:"page,omitempty"`
+	PageSize            int     `json:"page_size,omitempty"`
+	Keyword             string  `json:"keyword,omitempty"`
+	Name                string  `json:"name,omitempty"`
+	ISSN                string  `json:"issn,omitempty"`
+	Publisher           string  `json:"publisher,omitempty"`
+	Country             string  `json:"country,omitempty"`
+	Type                string  `json:"type,omitempty"`
+	IsOA                string  `json:"is_oa,omitempty"`
+	JCRQuartile         string  `json:"jcr_quartile,omitempty"`
+	FQBQuartile         string  `json:"fqb_quartile,omitempty"`
+	ScimagoBestQuartile string  `json:"scimago_best_quartile,omitempty"` // SCImago 最佳分区 Q1-Q4
+	CCFRank             string  `json:"ccf_rank,omitempty"`
+	MinImpactFactor     float64 `json:"min_impact_factor,omitempty"`
+	MaxImpactFactor     float64 `json:"max_impact_factor,omitempty"`
+	MinSJR              float64 `json:"min_sjr,omitempty"` // SCImago Journal Rank 下限
+	MaxSJR              float64 `json:"max_sjr,omitempty"`
+	MinHIndex           int     `json:"min_h_index,omitempty"`
+	MaxHIndex           int     `json:"max_h_index,omitempty"`
+	MinWorksCount       int     `json:"min_works_count,omitempty"` // 最少发刊量
+	MinSources          int     `json:"min_sources,omitempty"`     // 最少数据源覆盖数
+	HasSources          string  `json:"has_sources,omitempty"`     // 命中的数据源逗号分隔
+	GJQKWarning         string  `json:"gjqk_warning,omitempty"`
+	SortBy              string  `json:"sort_by,omitempty"`  // 排序字段(jcr_impact_factor_num / scimago_sjr_num 等)
+	SortDir             string  `json:"sort_dir,omitempty"` // asc / desc
+	Fields              string  `json:"fields,omitempty"`   // 返回字段裁剪,逗号分隔
+	Full                string  `json:"full,omitempty"`
 }
 
 // JournalListOptions contains options for journal listing

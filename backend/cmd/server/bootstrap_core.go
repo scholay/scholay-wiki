@@ -61,16 +61,7 @@ func initCore(db *gorm.DB, cfg *appconfig.Config) *coreBundle {
 	configService := config.NewService(configRepo)
 	configHandler := config.NewHandler(configService)
 
-	if err := configService.InitializeDefaultPrivacyPolicy(); err != nil {
-		slog.Warn("Failed to initialize default privacy policy", "err", err)
-	} else {
-		slog.Info("Default privacy policy initialized")
-	}
-	if err := configService.InitializeDefaultTermsOfService(); err != nil {
-		slog.Warn("Failed to initialize default terms of service", "err", err)
-	} else {
-		slog.Info("Default terms of service initialized")
-	}
+	// 隐私政策 / 服务条款 已下线为代码常量(见 frontend-v2 legal-content.ts + 0046 迁移),不再 init
 	if err := configService.InitializeDefaultSystemConfig(); err != nil {
 		slog.Warn("Failed to initialize default system config", "err", err)
 	} else {

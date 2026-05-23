@@ -8,6 +8,7 @@
 package user
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
@@ -18,7 +19,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"time"
 
 	"scholar-backend/internal/common/utils"
 
@@ -31,7 +31,7 @@ func (h *Handler) GetDiscourseSSOLoginURL(c *gin.Context) {
 	// Get Discourse SSO config
 	config, err := h.service.GetDiscourseSSOConfig()
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get Discourse SSO config")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "加载社区登录配置失败,请稍后重试")
 		return
 	}
 
@@ -86,7 +86,7 @@ func (h *Handler) DiscourseSSOCallback(c *gin.Context) {
 	// Get Discourse SSO config
 	config, err := h.service.GetDiscourseSSOConfig()
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get Discourse SSO config")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "加载社区登录配置失败,请稍后重试")
 		return
 	}
 
@@ -139,116 +139,56 @@ func (h *Handler) DiscourseSSOCallback(c *gin.Context) {
 		return
 	}
 
-	// Find or create user
+	// Find or create user (三态)
 	ip := c.ClientIP()
-	user, isNewUser, err := h.findOrCreateDiscourseUser(externalID, email, username, name, avatarURL, invitationCode, ip)
+	outcome, err := h.findOrCreateDiscourseUser(c.Request.Context(), externalID, email, username, name, avatarURL, invitationCode, ip)
 	if err != nil {
 		slog.Error("discourse sso: failed to process user", "err", err)
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to process Discourse login")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "社区登录处理失败,请稍后重试")
 		return
 	}
 
-	token, err := issueTokenAndSession(h, c, user, ip)
+	if outcome.MergeToken != "" {
+		respondOAuthPendingMerge(c, outcome.MergeToken, "discourse", derefStr(outcome.User.Email))
+		return
+	}
+
+	token, err := issueTokenAndSession(h, c, outcome.User, ip)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to generate token")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "签发登录凭证失败,请重试")
 		return
 	}
-	respondOAuthSuccess(c, token, user, isNewUser)
+	respondOAuthSuccess(c, token, outcome.User, outcome.IsNewUser)
 }
 
-// findOrCreateDiscourseUser finds existing user or creates new one from Discourse SSO data
-func (h *Handler) findOrCreateDiscourseUser(externalID, email, username, name, avatarURL, invitationCode, ip string) (*User, bool, error) {
-	_ = invitationCode // 邀请业务已移除，参数保留以兼容回调 URL
+// findOrCreateDiscourseUser Discourse SSO identity → 共用 helper。
+// Discourse 的 username 已经在 SSO payload 里给到,直接当 UsernameCandidate。
+func (h *Handler) findOrCreateDiscourseUser(ctx context.Context, externalID, email, username, name, avatarURL, invitationCode, ip string) (oauthOutcome, error) {
+	_ = invitationCode
+	_ = ip
 
-	// Check if user already exists with this Discourse external ID
-	authProvider, err := h.service.FindAuthProvider("discourse", externalID)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, false, fmt.Errorf("find auth provider: %w", err)
+	displayName := name
+	if displayName == "" {
+		displayName = username
 	}
-
-	// User exists, return it
-	if authProvider != nil {
-		user, err := h.service.FindByID(authProvider.UserID)
-		if err != nil {
-			return nil, false, fmt.Errorf("find user by id: %w", err)
-		}
-		return user, false, nil
-	}
-
-	// New user - check if email already exists
-	var user *User
-	if email != "" {
-		found, err := h.service.FindByEmail(email)
-		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, false, fmt.Errorf("find user by email: %w", err)
-		}
-		user = found
-	}
-
-	isNewUser := false
-
-	// Create new user if doesn't exist
-	if user == nil {
-		isNewUser = true
-
-		// Generate username from Discourse username
-		uname := username
-		if uname == "" {
-			uname = fmt.Sprintf("discourse_%s", externalID)
-		}
-		// Ensure username is unique
-		existingUser, err := h.service.FindByUsername(uname)
-		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, false, fmt.Errorf("check username uniqueness: %w", err)
-		}
-		if existingUser != nil {
-			uname = fmt.Sprintf("%s_%d", uname, time.Now().Unix())
-		}
-
-		displayName := name
-		if displayName == "" {
-			displayName = uname
-		}
-
-		user = &User{
-			Username:      &uname,
-			Email:         &email,
-			AvatarURL:     &avatarURL,
-			Bio:           &displayName,
-			Role:          "user",
-			Status:        1,
-			EmailVerified: email != "", // Discourse emails are verified
-		}
-
-		if err := h.service.CreateUser(user); err != nil {
-			return nil, false, err
-		}
-
-		h.service.SendWelcomeMessage(user.ID)
-	}
-
-	// Create auth provider link
-	providerData := map[string]string{
-		"username":   username,
-		"name":       name,
-		"avatar_url": avatarURL,
-	}
-	providerDataBytes, _ := json.Marshal(providerData)
-	providerDataJSON := string(providerDataBytes)
-
-	authProvider = &UserAuthProvider{
-		UserID:         user.ID,
-		Provider:       "discourse",
-		ProviderUserID: externalID,
-		ProviderData:   &providerDataJSON,
-	}
-
-	if err := h.service.CreateAuthProvider(authProvider); err != nil {
-		return nil, isNewUser, err
-	}
-
-	return user, isNewUser, nil
+	return h.findOrCreateOAuthUser(ctx, oauthIdentity{
+		Provider:          "discourse",
+		ProviderUserID:    externalID,
+		Email:             email,
+		EmailVerified:     email != "", // Discourse SSO 默认 email 已验证
+		UsernameCandidate: username,
+		UsernameFallback:  "discourse_" + externalID,
+		AvatarURL:         avatarURL,
+		Bio:               displayName, // Discourse 保留把 display name 写进 bio 的习惯
+		DisplayName:       displayName,
+		ProviderDataExtras: map[string]string{
+			"username":   username,
+			"name":       name,
+			"avatar_url": avatarURL,
+		},
+	})
 }
+
 
 // BindDiscourseRequest represents Discourse account binding request
 type BindDiscourseRequest struct {
@@ -272,7 +212,7 @@ func (h *Handler) BindDiscourseAccount(c *gin.Context) {
 	// Get Discourse SSO config
 	config, err := h.service.GetDiscourseSSOConfig()
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get Discourse SSO config")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "加载社区登录配置失败,请稍后重试")
 		return
 	}
 

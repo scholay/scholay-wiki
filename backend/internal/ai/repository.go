@@ -19,41 +19,6 @@ func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
 }
 
-// ==================== PromptTemplate operations ====================
-
-func (r *Repository) ListPromptTemplates() ([]PromptTemplate, error) {
-	var templates []PromptTemplate
-	err := r.db.Order("created_at DESC").Find(&templates).Error
-	return templates, err
-}
-
-func (r *Repository) GetPromptTemplateByID(id uint) (*PromptTemplate, error) {
-	var template PromptTemplate
-	err := r.db.First(&template, id).Error
-	return &template, err
-}
-
-func (r *Repository) CreatePromptTemplate(template *PromptTemplate) error {
-	return r.db.Create(template).Error
-}
-
-func (r *Repository) UpdatePromptTemplate(template *PromptTemplate) error {
-	return r.db.Save(template).Error
-}
-
-func (r *Repository) DeletePromptTemplate(id uint) error {
-	return r.db.Delete(&PromptTemplate{}, id).Error
-}
-
-func (r *Repository) GetActivePromptTemplateByKey(key string) (*PromptTemplate, error) {
-	var template PromptTemplate
-	err := r.db.Where("`key` = ? AND is_active = 1", key).First(&template).Error
-	if err != nil {
-		return nil, err
-	}
-	return &template, nil
-}
-
 // ==================== PaperAnalysis cache operations ====================
 
 func (r *Repository) FindPaperAnalysis(paperID, dimensionHash string) (*PaperAnalysis, error) {

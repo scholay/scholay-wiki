@@ -12,7 +12,23 @@ import (
 	"fmt"
 	"net"
 	"net/smtp"
+	"strings"
 )
+
+// NormalizeEmail 把邮箱统一为「小写 + trim 空白」,作为持久化和查询的规范形式。
+//
+// 为什么需要:MySQL 默认 collation 是 utf8mb4_general_ci(大小写不敏感),但这是
+// 部署级配置,不能依赖 —— 业务代码必须在自己这一层显式处理。否则:
+//   - alice@example.com 与 Alice@Example.com 会被视为两个独立账号
+//   - GitHub OAuth 回调 email 大小写与原注册不一致 → 合并失败,重建账号
+//
+// 规则刻意保守:只 lower + trim,不动 +-tag 与子域 (alice+spam@gmail.com 仍是独立账号),
+// 避免误伤一类合法用户场景。
+//
+// 所有 user 仓库的 FindByEmail / Create / Update / FindVerificationCode 都过这一层。
+func NormalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
+}
 
 // EmailConfig represents email configuration
 type EmailConfig struct {

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -57,22 +58,23 @@ func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
-// ExposeRequest 搜索曝光请求体（同时收 papers + 去重后的 authors）
+// ExposeRequest 搜索曝光请求体 (papers + authors + journals 同一通道, 节流)
 type ExposeRequest struct {
-	Papers  []PaperSeed  `json:"papers"`
-	Authors []AuthorSeed `json:"authors,omitempty"`
+	Papers   []PaperSeed   `json:"papers,omitempty"`
+	Authors  []AuthorSeed  `json:"authors,omitempty"`
+	Journals []JournalSeed `json:"journals,omitempty"`
 }
 
 // ExposeSeeds 接收搜索曝光批量种子
-// 前端在搜索结果加载后调用，传入 1-20 条可见论文的精简元数据 + 抽取的作者
+// 前端在搜索结果加载后调用,传入 1-20 条可见论文/作者/期刊的精简元数据
 func (h *Handler) ExposeSeeds(c *gin.Context) {
 	var req ExposeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.BadRequest(c, "invalid payload")
 		return
 	}
-	if len(req.Papers) == 0 && len(req.Authors) == 0 {
-		utils.Success(c, gin.H{"papers": 0, "authors": 0})
+	if len(req.Papers) == 0 && len(req.Authors) == 0 && len(req.Journals) == 0 {
+		utils.Success(c, gin.H{"papers": 0, "authors": 0, "journals": 0})
 		return
 	}
 
@@ -86,7 +88,16 @@ func (h *Handler) ExposeSeeds(c *gin.Context) {
 		slog.Warn("seo expose authors failed", "err", err)
 	}
 
-	utils.Success(c, gin.H{"papers": papersWritten, "authors": authorsWritten})
+	journalsWritten, err := h.service.RecordJournalSearchSeeds(req.Journals)
+	if err != nil {
+		slog.Warn("seo expose journals failed", "err", err)
+	}
+
+	utils.Success(c, gin.H{
+		"papers":   papersWritten,
+		"authors":  authorsWritten,
+		"journals": journalsWritten,
+	})
 }
 
 // ResolveAuthorBySlug 通过 slug 查询作者元数据（前端 /author/:slug 首屏解析用）
@@ -155,7 +166,8 @@ func (h *Handler) ResolveBySlug(c *gin.Context) {
 func (h *Handler) ServeSitemapIndex(c *gin.Context) {
 	pVer := h.versionForKind(c.Request.Context(), "papers")
 	aVer := h.versionForKind(c.Request.Context(), "authors")
-	cacheKey := fmt.Sprintf("%s:index:vP%d:vA%d", sitemapCacheKey, pVer, aVer)
+	jVer := h.versionForKind(c.Request.Context(), "journals")
+	cacheKey := fmt.Sprintf("%s:index:vP%d:vA%d:vJ%d", sitemapCacheKey, pVer, aVer, jVer)
 
 	if xml, ok := h.getCached(c.Request.Context(), cacheKey); ok {
 		h.writeXML(c, xml, sitemapSummaryCache)
@@ -208,6 +220,22 @@ func (h *Handler) ServeSitemapIndex(c *gin.Context) {
 		fallbackAuthorsLastMod = time.Now()
 	}
 
+	// 期刊 sitemap: 同构, summary + per-page lastmod
+	journalSummary, err := h.service.GetJournalSitemapSummary()
+	if err != nil {
+		slog.Warn("seo journal sitemap summary failed", "err", err)
+		journalSummary = &SitemapSummary{}
+	}
+	journalPageLastMod, err := h.service.GetJournalSitemapLastModPerPage()
+	if err != nil {
+		slog.Warn("seo journal sitemap per-page lastmod failed", "err", err)
+		journalPageLastMod = nil
+	}
+	fallbackJournalsLastMod := journalSummary.LastMod
+	if fallbackJournalsLastMod.IsZero() {
+		fallbackJournalsLastMod = time.Now()
+	}
+
 	base := baseURL()
 	var b strings.Builder
 	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
@@ -243,6 +271,16 @@ func (h *Handler) ServeSitemapIndex(c *gin.Context) {
 			t = fallbackAuthorsLastMod
 		}
 		fmt.Fprintf(&b, "  <sitemap>\n    <loc>%s/sitemap-authors-%d.xml</loc>\n    <lastmod>%s</lastmod>\n  </sitemap>\n",
+			base, i, t.UTC().Format("2006-01-02"))
+	}
+
+	// 动态期刊 sitemap
+	for i := 1; i <= journalSummary.TotalPages; i++ {
+		t, ok := journalPageLastMod[i]
+		if !ok {
+			t = fallbackJournalsLastMod
+		}
+		fmt.Fprintf(&b, "  <sitemap>\n    <loc>%s/sitemap-journals-%d.xml</loc>\n    <lastmod>%s</lastmod>\n  </sitemap>\n",
 			base, i, t.UTC().Format("2006-01-02"))
 	}
 
@@ -320,6 +358,73 @@ func (h *Handler) ServeAuthorSitemap(c *gin.Context) {
 	h.serveEntitySitemap(c, page, "authors", "/author/", h.service.GetAuthorSitemapPage)
 }
 
+// ServeJournalSitemap 分页期刊 sitemap (/sitemap-journals-{N}.xml)
+// URL 形态 /journal/{id}/{slug}, slug 缺失时退化为 /journal/{id}
+func (h *Handler) ServeJournalSitemap(c *gin.Context) {
+	page, ok := parseSitemapPageParam(c, "/sitemap-journals-")
+	if !ok {
+		return
+	}
+	h.serveJournalSitemap(c, page)
+}
+
+// serveJournalSitemap 独立于 serveEntitySitemap, 因为 journal URL 形态不带 source 段
+func (h *Handler) serveJournalSitemap(c *gin.Context, page int) {
+	version := h.versionForKind(c.Request.Context(), "journals")
+	cacheKey := fmt.Sprintf("%s:journals:%d:v%d", sitemapCacheKey, page, version)
+
+	if xml, ok := h.getCached(c.Request.Context(), cacheKey); ok {
+		h.writeXML(c, xml, sitemapBrowserCache)
+		return
+	}
+
+	entries, err := h.service.GetJournalSitemapPage(page)
+	if err != nil {
+		slog.Error("seo sitemap page failed", "kind", "journals", "page", page, "err", err)
+		c.String(http.StatusInternalServerError, "internal error")
+		return
+	}
+	if len(entries) == 0 {
+		c.String(http.StatusNotFound, "not found")
+		return
+	}
+
+	base := baseURL()
+	var b strings.Builder
+	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
+	b.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` + "\n")
+	for _, e := range entries {
+		loc := journalCanonicalURL(base, e.EntityID, e.Slug)
+		if loc == "" {
+			continue
+		}
+		lastMod := e.UpdatedAt.UTC().Format(time.RFC3339)
+		priority := fmt.Sprintf("%.1f", e.Priority)
+		changefreq := changefreqForTier(e.QualityTier)
+		fmt.Fprintf(&b, "  <url>\n    <loc>%s</loc>\n    <lastmod>%s</lastmod>\n    <changefreq>%s</changefreq>\n    <priority>%s</priority>\n  </url>\n",
+			loc, lastMod, changefreq, priority)
+	}
+	b.WriteString(`</urlset>` + "\n")
+
+	xml := b.String()
+	h.setCached(c.Request.Context(), cacheKey, xml, sitemapCacheTTL)
+	h.writeXML(c, xml, sitemapBrowserCache)
+}
+
+// journalCanonicalURL 期刊 canonical URL:
+//   - id + slug 都有 → /journal/{id}/{slug}
+//   - 仅 id → /journal/{id}  (老行 slug 缺失时的回落)
+//   - id 空 → "" (跳过该条)
+func journalCanonicalURL(base, journalID, slug string) string {
+	if journalID == "" {
+		return ""
+	}
+	if slug != "" {
+		return base + "/journal/" + journalID + "/" + slug
+	}
+	return base + "/journal/" + journalID
+}
+
 // parseSitemapPageParam 解析 /sitemap-{kind}-{N}.xml 中的页码
 // Gin 的 mid-segment placeholder 解析为空时,从原始 URL 提取。
 func parseSitemapPageParam(c *gin.Context, prefix string) (int, bool) {
@@ -341,6 +446,12 @@ func parseSitemapPageParam(c *gin.Context, prefix string) (int, bool) {
 //   - kind: 缓存键前缀（区分 papers / authors,避免互相覆盖）
 //   - urlPrefix: 站内路径前缀（"/paper/" 或 "/author/"）
 //   - fetcher: 拉取该实体某分页全部条目的函数（差异点）
+//
+// URL 格式 (2026-05 改 SEO canonical):
+//   `${base}${urlPrefix}${source}/${entityID}` — 与前端路由 `/paper/:source/:paperId`
+//   / `/author/:source/:authorId` 完全对齐。
+//   缺 source/entityID 的旧数据回落到 legacy `${base}${urlPrefix}${slug}`,
+//   /paper/{slug} 端点(handler_ssr 注册的 fallback)会继续 SSR + 301。
 //
 // changefreq 按 quality_tier 区分: tier=1(详情点击,活跃)→weekly,
 // tier=2(搜索曝光,长尾)→monthly,降低 Googlebot 对长尾页的无效抓取。
@@ -370,17 +481,39 @@ func (h *Handler) serveEntitySitemap(c *gin.Context, page int, kind, urlPrefix s
 	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
 	b.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` + "\n")
 	for _, e := range entries {
+		loc := canonicalEntityURL(base, urlPrefix, e)
+		if loc == "" {
+			// source + entityID + slug 全空 —— 跳过,不写无效 URL
+			continue
+		}
 		lastMod := e.UpdatedAt.UTC().Format(time.RFC3339)
 		priority := fmt.Sprintf("%.1f", e.Priority)
 		changefreq := changefreqForTier(e.QualityTier)
-		fmt.Fprintf(&b, "  <url>\n    <loc>%s%s%s</loc>\n    <lastmod>%s</lastmod>\n    <changefreq>%s</changefreq>\n    <priority>%s</priority>\n  </url>\n",
-			base, urlPrefix, e.Slug, lastMod, changefreq, priority)
+		fmt.Fprintf(&b, "  <url>\n    <loc>%s</loc>\n    <lastmod>%s</lastmod>\n    <changefreq>%s</changefreq>\n    <priority>%s</priority>\n  </url>\n",
+			loc, lastMod, changefreq, priority)
 	}
 	b.WriteString(`</urlset>` + "\n")
 
 	xml := b.String()
 	h.setCached(c.Request.Context(), cacheKey, xml, sitemapCacheTTL)
 	h.writeXML(c, xml, sitemapBrowserCache)
+}
+
+// canonicalEntityURL 计算单个 sitemap 条目的 <loc>:
+//   - 有 source + entityID → canonical `${base}${urlPrefix}${source}/${entityID}`
+//   - 否则 → legacy `${base}${urlPrefix}${slug}` (老数据回落,handler_ssr 会 301)
+//   - 全空 → 返回 ""(调用方跳过该条)
+//
+// entityID 走 url.PathEscape — Semantic Scholar 等上游 ID 形如 `arXiv:1706.03762` /
+// `MAG:1234567890`,带冒号或斜杠也要在 URL 里安全。
+func canonicalEntityURL(base, urlPrefix string, e SitemapEntry) string {
+	if e.Source != "" && e.EntityID != "" {
+		return base + urlPrefix + e.Source + "/" + url.PathEscape(e.EntityID)
+	}
+	if e.Slug != "" {
+		return base + urlPrefix + e.Slug
+	}
+	return ""
 }
 
 // changefreqForTier tier=1(详情点击)→weekly, 其它(含 tier=2 搜索曝光)→monthly
@@ -431,6 +564,8 @@ func (h *Handler) versionForKind(ctx context.Context, kind string) int64 {
 		key = sitemapPapersVersionKey
 	case "authors":
 		key = sitemapAuthorsVersionKey
+	case "journals":
+		key = sitemapJournalsVersionKey
 	default:
 		return 0
 	}

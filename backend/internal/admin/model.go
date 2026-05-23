@@ -65,6 +65,7 @@ type AdminUser struct {
 	Status        int8       `gorm:"not null;default:1" json:"status"` // 1=active, 0=inactive
 	EmailVerified bool       `gorm:"not null;default:false" json:"email_verified"`
 	LastLoginAt   *time.Time `json:"last_login_at"`
+	LastLoginIP   *string    `gorm:"size:45;column:last_login_ip" json:"last_login_ip,omitempty"`
 	CreatedAt     time.Time  `json:"created_at"`
 	UpdatedAt     time.Time  `json:"updated_at"`
 }

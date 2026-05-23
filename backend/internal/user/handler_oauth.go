@@ -6,8 +6,6 @@
 package user
 
 import (
-	"time"
-
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
@@ -75,10 +73,6 @@ func (h *Handler) WeChatCallback(c *gin.Context) {
 		utils.InternalError(c, 5003, "微信登录失败", err)
 		return
 	}
-
-	// Create session (30 days session, token expires in 2 hours)
-	userAgent := c.GetHeader("User-Agent")
-	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour)
 
 	utils.Success(c, gin.H{
 		"token":       token,

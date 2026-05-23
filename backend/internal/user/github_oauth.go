@@ -17,7 +17,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
 	"scholar-backend/internal/common/httpclient"
 	"scholar-backend/internal/common/model"
@@ -53,12 +52,12 @@ func (h *Handler) GetGithubLoginURL(c *gin.Context) {
 	// Get GitHub OAuth config from dedicated table
 	githubConfig, err := h.service.GetGithubOAuthConfig()
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get GitHub OAuth config")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "加载 GitHub 登录配置失败,请稍后重试")
 		return
 	}
 
 	if githubConfig == nil || githubConfig.ClientID == "" {
-		utils.ErrorResponse(c, http.StatusServiceUnavailable, "GitHub login is not configured. Please configure Client ID in admin settings.")
+		utils.ErrorResponse(c, http.StatusServiceUnavailable, "GitHub 登录尚未配置,请联系管理员")
 		return
 	}
 
@@ -73,7 +72,7 @@ func (h *Handler) GetGithubLoginURL(c *gin.Context) {
 		if origin != "" {
 			redirectURI = origin + "/github/callback"
 		} else {
-			utils.ErrorResponse(c, http.StatusServiceUnavailable, "GitHub redirect URI is not configured")
+			utils.ErrorResponse(c, http.StatusServiceUnavailable, "GitHub 回调地址未配置,请联系管理员")
 			return
 		}
 	}
@@ -101,25 +100,25 @@ func (h *Handler) GithubCallback(c *gin.Context) {
 	invitationCode := c.Query("invitation_code")
 
 	if code == "" {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Authorization code is required")
+		utils.ErrorResponse(c, http.StatusBadRequest, "授权码缺失,请重新发起登录")
 		return
 	}
 
 	// Server-side state validation to prevent CSRF/OAuth account binding attacks
 	if !validateOAuthState(c, "oauth_state:", state) {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid or expired OAuth state")
+		utils.ErrorResponse(c, http.StatusBadRequest, "会话已过期,请重新发起登录")
 		return
 	}
 
 	// Get GitHub OAuth config
 	githubConfig, err := h.service.GetGithubOAuthConfig()
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get GitHub OAuth config")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "加载 GitHub 登录配置失败,请稍后重试")
 		return
 	}
 
 	if githubConfig == nil || githubConfig.ClientID == "" || githubConfig.ClientSecret == "" {
-		utils.ErrorResponse(c, http.StatusServiceUnavailable, "GitHub login is not configured properly")
+		utils.ErrorResponse(c, http.StatusServiceUnavailable, "GitHub 登录未配置或不可用")
 		return
 	}
 
@@ -127,7 +126,7 @@ func (h *Handler) GithubCallback(c *gin.Context) {
 	accessToken, err := h.exchangeGithubCode(c.Request.Context(), code, githubConfig)
 	if err != nil {
 		slog.Error("github oauth: failed to exchange code", "err", err)
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to exchange authorization code")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "获取访问令牌失败,请重试")
 		return
 	}
 
@@ -135,26 +134,40 @@ func (h *Handler) GithubCallback(c *gin.Context) {
 	githubUser, err := h.getGithubUserInfo(c.Request.Context(), accessToken)
 	if err != nil {
 		slog.Error("github oauth: failed to get user info", "err", err)
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get GitHub user info")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "获取 GitHub 用户信息失败,请重试")
 		return
 	}
 
-	// Find or create user (with invitation code support)
+	// Find or create user (with invitation code support).
+	// 注意:可能返回三种结果之一 —— 直接登录 / 新建 / 需要合并确认。
 	ip := c.ClientIP()
-	user, isNewUser, err := h.findOrCreateGithubUser(githubUser, invitationCode, ip)
+	outcome, err := h.findOrCreateGithubUser(c.Request.Context(), githubUser, invitationCode, ip)
 	if err != nil {
 		slog.Error("github oauth: failed to process user", "err", err)
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to process GitHub login")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "GitHub 登录处理失败,请稍后重试")
 		return
 	}
 
-	token, err := issueTokenAndSession(h, c, user, ip)
+	// 分支 A:email 冲突 → 让前端走合并确认页
+	if outcome.MergeToken != "" {
+		targetEmail := ""
+		if outcome.User != nil && outcome.User.Email != nil {
+			targetEmail = *outcome.User.Email
+		} else {
+			targetEmail = githubUser.Email // fallback
+		}
+		respondOAuthPendingMerge(c, outcome.MergeToken, "github", targetEmail)
+		return
+	}
+
+	// 分支 B:常规登录 / 新建,签发 token
+	token, err := issueTokenAndSession(h, c, outcome.User, ip)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to generate token")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "签发登录凭证失败,请重试")
 		return
 	}
 
-	respondOAuthSuccess(c, token, user, isNewUser)
+	respondOAuthSuccess(c, token, outcome.User, outcome.IsNewUser)
 }
 
 // exchangeGithubCode exchanges authorization code for access token
@@ -294,98 +307,40 @@ func (h *Handler) getGithubUserEmail(ctx context.Context, accessToken string) (s
 	return "", fmt.Errorf("no verified email found")
 }
 
-// findOrCreateGithubUser finds existing user or creates new one
-func (h *Handler) findOrCreateGithubUser(githubUser *GithubUser, invitationCode string, ip string) (*User, bool, error) {
-	_ = invitationCode // 邀请业务已移除，参数保留以兼容回调 URL
+// findOrCreateGithubUser GitHub OAuth identity → 走通用 findOrCreateOAuthUser 三态流程。
+// 仅负责把 *GithubUser 转成 oauthIdentity,其余分发逻辑见 oauth_helpers.go。
+func (h *Handler) findOrCreateGithubUser(ctx context.Context, githubUser *GithubUser, invitationCode string, ip string) (oauthOutcome, error) {
+	_ = invitationCode // 邀请业务已移除,参数保留以兼容回调 URL
+	_ = ip
 
-	// Check if user already exists with this GitHub ID
-	providerUserID := fmt.Sprintf("%d", githubUser.ID)
-	authProvider, err := h.service.FindAuthProvider("github", providerUserID)
-
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, false, fmt.Errorf("find auth provider: %w", err)
+	displayName := githubUser.Name
+	if displayName == "" {
+		displayName = githubUser.Login
 	}
+	return h.findOrCreateOAuthUser(ctx, oauthIdentity{
+		Provider:          "github",
+		ProviderUserID:    fmt.Sprintf("%d", githubUser.ID),
+		Email:             githubUser.Email,
+		EmailVerified:     true, // GitHub 返的 email 已经过验证(走 /user/emails 取的)
+		UsernameCandidate: githubUser.Login,
+		UsernameFallback:  "github_user",
+		AvatarURL:         githubUser.AvatarURL,
+		Bio:               githubUser.Bio,
+		DisplayName:       displayName,
+		ProviderDataExtras: map[string]string{
+			"login":      githubUser.Login,
+			"name":       githubUser.Name,
+			"avatar_url": githubUser.AvatarURL,
+		},
+	})
+}
 
-	// User exists, return it
-	if authProvider != nil {
-		user, err := h.service.FindByID(authProvider.UserID)
-		if err != nil {
-			return nil, false, fmt.Errorf("find user by id: %w", err)
-		}
-		return user, false, nil
+// derefStr 解引用 *string,nil 时返回 ""(避免 callback 处一堆 if 判空)。
+func derefStr(p *string) string {
+	if p == nil {
+		return ""
 	}
-
-	// New user - check if email already exists
-	var user *User
-	if githubUser.Email != "" {
-		found, err := h.service.FindByEmail(githubUser.Email)
-		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, false, fmt.Errorf("find user by email: %w", err)
-		}
-		user = found
-	}
-
-	isNewUser := false
-
-	// Create new user if doesn't exist
-	if user == nil {
-		isNewUser = true
-
-		// Generate username from GitHub login
-		username := githubUser.Login
-		// Ensure username is unique
-		existingUser, err := h.service.FindByUsername(username)
-		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, false, fmt.Errorf("check username uniqueness: %w", err)
-		}
-		if existingUser != nil {
-			username = fmt.Sprintf("%s_%d", username, time.Now().Unix())
-		}
-
-		email := githubUser.Email
-		avatarURL := githubUser.AvatarURL
-		bio := githubUser.Bio
-
-		user = &User{
-			Username:      &username,
-			Email:         &email,
-			AvatarURL:     &avatarURL,
-			Bio:           &bio,
-			Role:          "user",
-			Status:        1,
-			EmailVerified: githubUser.Email != "", // GitHub emails are already verified
-		}
-
-		if err := h.service.CreateUser(user); err != nil {
-			return nil, false, err
-		}
-
-		h.service.SendWelcomeMessage(user.ID)
-		// Note: last login time and IP will be updated in GithubCallback after this function returns
-	}
-	// Note: last login time and IP will be updated in GithubCallback after this function returns
-
-	// Create auth provider link
-	providerData := map[string]string{
-		"login":      githubUser.Login,
-		"name":       githubUser.Name,
-		"avatar_url": githubUser.AvatarURL,
-	}
-	providerDataBytes, _ := json.Marshal(providerData)
-	providerDataJSON := string(providerDataBytes)
-
-	authProvider = &UserAuthProvider{
-		UserID:         user.ID,
-		Provider:       "github",
-		ProviderUserID: providerUserID,
-		ProviderData:   &providerDataJSON,
-	}
-
-	if err := h.service.CreateAuthProvider(authProvider); err != nil {
-		return nil, isNewUser, err
-	}
-
-	return user, isNewUser, nil
+	return *p
 }
 
 // BindGitHubRequest represents GitHub account binding request
@@ -410,12 +365,12 @@ func (h *Handler) BindGitHubAccount(c *gin.Context) {
 	// Get GitHub OAuth config
 	githubConfig, err := h.service.GetGithubOAuthConfig()
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get GitHub OAuth config")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "加载 GitHub 登录配置失败,请稍后重试")
 		return
 	}
 
 	if githubConfig == nil || githubConfig.ClientID == "" || githubConfig.ClientSecret == "" {
-		utils.ErrorResponse(c, http.StatusServiceUnavailable, "GitHub login is not configured properly")
+		utils.ErrorResponse(c, http.StatusServiceUnavailable, "GitHub 登录未配置或不可用")
 		return
 	}
 
@@ -423,7 +378,7 @@ func (h *Handler) BindGitHubAccount(c *gin.Context) {
 	accessToken, err := h.exchangeGithubCode(c.Request.Context(), req.Code, githubConfig)
 	if err != nil {
 		slog.Error("github bind: failed to exchange code", "err", err)
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to exchange authorization code")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "获取访问令牌失败,请重试")
 		return
 	}
 
@@ -431,7 +386,7 @@ func (h *Handler) BindGitHubAccount(c *gin.Context) {
 	githubUser, err := h.getGithubUserInfo(c.Request.Context(), accessToken)
 	if err != nil {
 		slog.Error("github bind: failed to get user info", "err", err)
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get GitHub user info")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "获取 GitHub 用户信息失败,请重试")
 		return
 	}
 

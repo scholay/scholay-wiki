@@ -30,6 +30,7 @@ import (
 	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/peerreview"
 	"scholar-backend/internal/seosubmit"
+	"scholar-backend/internal/storage"
 
 	"github.com/gin-gonic/gin"
 )
@@ -59,6 +60,18 @@ func main() {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 
+	// Initialize object storage (MinIO) —— 配置缺失时 IsEnabled()=false,
+	// PDF 上传/下载相关接口将返回 503,其余功能不受影响
+	if err := storage.Init(storage.Config{
+		Endpoint:        cfg.MinIO.Endpoint,
+		AccessKey:       cfg.MinIO.AccessKey,
+		SecretKey:       cfg.MinIO.SecretKey,
+		BucketPaperPDFs: cfg.MinIO.BucketPaperPDFs,
+		UseSSL:          cfg.MinIO.UseSSL,
+	}); err != nil {
+		log.Fatalf("Failed to initialize object storage: %v", err)
+	}
+
 	// Bootstrap all application services and DI wiring
 	svc := bootstrapServices(cfg)
 
@@ -66,6 +79,9 @@ func main() {
 	// 用 gin.New() 替代 gin.Default()：自定义 Recovery 增加 trace_id/结构化日志，
 	// 同时保留 gin.Logger() 行为。
 	router := gin.New()
+	// RequestID 必须最早:Recovery / utils.Error 等的 slog 输出都会带上它,
+	// 这样 docker logs 里搜一个 X-Request-Id 就能串起整条请求的所有日志。
+	router.Use(middleware.RequestIDMiddleware())
 	router.Use(gin.Logger())
 	router.Use(middleware.RecoveryMiddleware())
 	router.Use(middleware.CORSMiddleware())
@@ -84,7 +100,7 @@ func main() {
 	bgCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	svc.peerReviewService.SetRootContext(bgCtx)
-	startBackgroundTasks(bgCtx, svc.userService, svc.seoService)
+	startBackgroundTasks(bgCtx, svc.seoService)
 	// 隐私审稿数据定期清理（每小时检查一次过期的隐私任务）
 	startPrivateTaskCleanup(bgCtx, svc.peerReviewService)
 

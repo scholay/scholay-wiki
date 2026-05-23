@@ -60,6 +60,23 @@ done
 log_success "MySQL 已就绪！"
 echo ""
 
+# ─── 幂等准备 umami 库 ───
+# umami 容器以 scholar_user 身份连 mysql://...@mysql:3306/umami,但 scholar_user
+# 默认只有 scholar.* 权限,且 umami 库可能根本不存在 → 必须用 root 先 CREATE + GRANT。
+# 本块完全幂等,umami 库已存在 / GRANT 已生效都 no-op,不需要专门的迁移文件。
+if [ -n "$MYSQL_ROOT_PASSWORD" ]; then
+    log_info "确保 umami 库存在并授权 $DB_USER..."
+    mysql -h"$DB_HOST" -P"$DB_PORT" -uroot -p"$MYSQL_ROOT_PASSWORD" <<-EOF
+        CREATE DATABASE IF NOT EXISTS \`umami\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+        GRANT ALL PRIVILEGES ON \`umami\`.* TO '$DB_USER'@'%';
+        FLUSH PRIVILEGES;
+EOF
+    log_success "umami 库已就绪"
+    echo ""
+else
+    log_warning "MYSQL_ROOT_PASSWORD 未配置 → 跳过 umami 库自动准备 (首装会失败)"
+fi
+
 # 检查迁移目录
 if [ ! -d "$MIGRATIONS_DIR" ]; then
     fatal_error "迁移目录不存在: $MIGRATIONS_DIR"

@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -232,28 +233,34 @@ func (s *WeChatPayService) sendRequest(ctx context.Context, config *WeChatPayCon
 	client := httpclient.WithTimeout(30 * time.Second)
 	resp, err := client.Do(req)
 	if err != nil {
+		slog.Error("wechat-pay: native order http error", "url", url, "err", err)
 		return "", fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
+		slog.Error("wechat-pay: read native order body", "err", err)
 		return "", fmt.Errorf("failed to read response: %w", err)
 	}
 
-	// 检查响应状态
+	// 检查响应状态(微信支付非 200 视为业务失败,记录完整 body 便于排查 mch_id / 证书 / 金额校验类错误)
 	if resp.StatusCode != http.StatusOK {
+		slog.Error("wechat-pay: native order non-200",
+			"status", resp.StatusCode, "body", string(respBody))
 		return "", fmt.Errorf("wechat pay error: status=%d, body=%s", resp.StatusCode, string(respBody))
 	}
 
 	// 解析响应
 	var result map[string]any
 	if err := json.Unmarshal(respBody, &result); err != nil {
+		slog.Error("wechat-pay: parse native order response", "err", err, "body", string(respBody))
 		return "", fmt.Errorf("failed to parse response: %w", err)
 	}
 
 	codeURL, ok := result["code_url"].(string)
 	if !ok {
+		slog.Error("wechat-pay: code_url missing in response", "body", string(respBody))
 		return "", fmt.Errorf("code_url not found in response")
 	}
 

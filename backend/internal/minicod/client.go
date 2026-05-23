@@ -20,6 +20,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -29,17 +31,29 @@ const (
 	TLSHandshakeTimeout = 15 * time.Second
 	KeepAlive           = 30 * time.Second
 
-	// Search source constants
-	SourceSTC = "stc" // Scholay 精选 (Semantic Scholar)
+	// Search source constants — 与 api-1.json 上游 path 前缀对齐
+	// 注意:PMD 上游只暴露 papers/search,**没有** papers/autocomplete;
+	// 多源 autocomplete 走 multiSourcePaperAutocomplete 时 PMD 用 SearchPapers 降级。
+	SourceSTC = "stc" // Scholay 精选 (STC / Semantic Scholar)
 	SourceOLX = "olx" // Scholay 全域 (OpenAlex)
+	SourcePMD = "pmd" // Scholay 医学 (PubMed / NCBI E-utilities)
 )
 
+// PaperSources lists the 3 paper sources we fan out to in suggestion mode.
+// 顺序即"优先级"(展示时 STC 优先,OLX 其次,PMD 最后)。
+var PaperSources = []string{SourceSTC, SourceOLX, SourcePMD}
+
+// AuthorSources lists the 2 author sources(PMD 上游无 authors/* 接口)。
+var AuthorSources = []string{SourceSTC, SourceOLX}
+
 // sourcePrefix returns the API path prefix for the given source
-// e.g. "stc" → "/v1/stc", "olx" → "/v1/olx"
+// e.g. "stc" → "/v1/stc", "olx" → "/v1/olx", "pmd" → "/v1/pmd"
 func sourcePrefix(source string) string {
 	switch source {
 	case SourceOLX:
 		return "/v1/olx"
+	case SourcePMD:
+		return "/v1/pmd"
 	default:
 		return "/v1/stc"
 	}
@@ -161,6 +175,8 @@ func (c *Client) doPost(ctx context.Context, path string, body any) (json.RawMes
 
 // SearchPapers searches for papers via STC source
 func (c *Client) SearchPapers(ctx context.Context, opts PaperSearchOptions) (*SearchResponse, error) {
+	// 通用字段(所有源都支持):query / limit / offset / year_from / year_to /
+	//   date_from / date_to / venue / fields / sort
 	body := map[string]any{
 		"query": opts.Query,
 	}
@@ -176,23 +192,37 @@ func (c *Client) SearchPapers(ctx context.Context, opts PaperSearchOptions) (*Se
 	if opts.YearTo > 0 {
 		body["year_to"] = opts.YearTo
 	}
+	if opts.DateFrom != "" {
+		body["date_from"] = opts.DateFrom
+	}
+	if opts.DateTo != "" {
+		body["date_to"] = opts.DateTo
+	}
 	if len(opts.Fields) > 0 {
 		body["fields"] = strings.Join(opts.Fields, ",")
-	}
-	if len(opts.PublicationTypes) > 0 {
-		body["types"] = opts.PublicationTypes
-	}
-	if opts.OpenAccessPDF == "true" {
-		body["open_access"] = true
-	}
-	if opts.MinCitationCount > 0 {
-		body["min_citations"] = opts.MinCitationCount
 	}
 	if len(opts.Venue) > 0 {
 		body["venue"] = strings.Join(opts.Venue, ",")
 	}
-	if len(opts.FieldsOfStudy) > 0 {
-		body["subjects"] = opts.FieldsOfStudy
+	if opts.Sort != "" && opts.Sort != "relevance" {
+		// 上游 stc 的 relevance 端点忽略 sort;只在用户明确选择 citations/date 时传。
+		body["sort"] = opts.Sort
+	}
+
+	// 仅 stc/olx 支持的字段(PMD 上游无对应参数,传过去会被忽略或拒)
+	if opts.Source != SourcePMD {
+		if len(opts.PublicationTypes) > 0 {
+			body["types"] = opts.PublicationTypes
+		}
+		if opts.OpenAccessPDF == "true" {
+			body["open_access"] = true
+		}
+		if opts.MinCitationCount > 0 {
+			body["min_citations"] = opts.MinCitationCount
+		}
+		if len(opts.FieldsOfStudy) > 0 {
+			body["subjects"] = opts.FieldsOfStudy
+		}
 	}
 
 	prefix := sourcePrefix(opts.Source)
@@ -255,26 +285,109 @@ func (c *Client) GetPaper(ctx context.Context, paperID string, opts PaperDetails
 	return &paper, nil
 }
 
-// GetPaperBatch retrieves multiple papers by IDs
+// GetPaperBatch retrieves multiple papers by IDs.
+//
+// 按 ID 前缀分桶分别请求各源批量端点,合并结果。前缀约定:
+//   - "olx:..."  → /v1/olx/works/batch  (剥前缀)
+//   - "pmd:..."  → /v1/pmd/papers/batch (剥前缀)
+//   - 其他       → /v1/stc/papers/batch (原值)
+//
+// 跨源混合 ID 也 OK,三组各发一个请求,并行/串行(此处串行,样本量小)。
+// 注:OLX 用 "select" 替代 "fields" 字段名 —— 上游历史命名差异。
 func (c *Client) GetPaperBatch(ctx context.Context, paperIDs []string, fields []string) ([]Paper, error) {
-	body := map[string]any{
-		"ids": paperIDs,
-	}
-	if len(fields) > 0 {
-		body["fields"] = strings.Join(fields, ",")
+	if len(paperIDs) == 0 {
+		return nil, nil
 	}
 
-	data, err := c.doPost(ctx, "/v1/stc/papers/batch", body)
-	if err != nil {
-		return nil, err
+	var stcIDs, olxIDs, pmdIDs []string
+	for _, id := range paperIDs {
+		switch {
+		case strings.HasPrefix(id, "olx:"):
+			olxIDs = append(olxIDs, strings.TrimPrefix(id, "olx:"))
+		case strings.HasPrefix(id, "pmd:"):
+			pmdIDs = append(pmdIDs, strings.TrimPrefix(id, "pmd:"))
+		default:
+			stcIDs = append(stcIDs, id)
+		}
 	}
 
-	var raws []RawPaper
-	if err := json.Unmarshal(data, &raws); err != nil {
-		return nil, fmt.Errorf("failed to parse batch papers: %w", err)
+	out := make([]Paper, 0, len(paperIDs))
+
+	if len(stcIDs) > 0 {
+		body := map[string]any{"ids": stcIDs}
+		if len(fields) > 0 {
+			body["fields"] = strings.Join(fields, ",")
+		}
+		data, err := c.doPost(ctx, "/v1/stc/papers/batch", body)
+		if err != nil {
+			return nil, err
+		}
+		var raws []RawPaper
+		if err := json.Unmarshal(data, &raws); err != nil {
+			return nil, fmt.Errorf("failed to parse stc batch papers: %w", err)
+		}
+		out = append(out, ConvertPapers(raws)...)
 	}
 
-	return ConvertPapers(raws), nil
+	if len(olxIDs) > 0 {
+		body := map[string]any{"ids": olxIDs}
+		if len(fields) > 0 {
+			body["select"] = strings.Join(fields, ",")
+		}
+		data, err := c.doPost(ctx, "/v1/olx/works/batch", body)
+		if err != nil {
+			return nil, err
+		}
+		var raws []RawPaper
+		if err := json.Unmarshal(data, &raws); err != nil {
+			return nil, fmt.Errorf("failed to parse olx batch papers: %w", err)
+		}
+		out = append(out, ConvertPapers(raws)...)
+	}
+
+	if len(pmdIDs) > 0 {
+		// PMD 的 /v1/pmd/papers/batch 上游走 NCBI esummary,**只返元数据,没 abstract**。
+		// 经实测,STC 的 /v1/stc/papers/get 单篇接口会用同一 ID 跑 efetch 拿 abstract
+		// (与 GetPaper 单篇路径一致)—— fan-out 复用这个,保留 `pmd:` 前缀。
+		// sem 限并发避免上游打爆;单篇失败静默丢弃,不阻塞整批。
+		const pmdConcurrency = 8
+		results := make([]Paper, len(pmdIDs))
+		ok := make([]bool, len(pmdIDs))
+
+		eg, egCtx := errgroup.WithContext(ctx)
+		eg.SetLimit(pmdConcurrency)
+
+		for i, id := range pmdIDs {
+			i, id := i, id
+			fullID := "pmd:" + id // 上面把前缀剥掉了,这里要补回
+			eg.Go(func() error {
+				body := map[string]any{"id": fullID}
+				if len(fields) > 0 {
+					body["fields"] = strings.Join(fields, ",")
+				}
+				data, err := c.doPost(egCtx, "/v1/stc/papers/get", body)
+				if err != nil {
+					return nil // 单篇失败不冒泡,后面 ok[i]=false 即可
+				}
+				var raw RawPaper
+				if err := json.Unmarshal(data, &raw); err != nil {
+					return nil
+				}
+				results[i] = ConvertPaper(raw)
+				ok[i] = true
+				return nil
+			})
+		}
+		_ = eg.Wait()
+
+		for i, p := range results {
+			if ok[i] {
+				out = append(out, p)
+			}
+		}
+	}
+
+	return out, nil
 }
 
 // GetPaperCitations retrieves papers that cite the given paper
@@ -645,4 +758,44 @@ func (c *Client) GetJournalByISSN(ctx context.Context, issn string, full string)
 // CompareJournals compares 2-10 journals
 func (c *Client) CompareJournals(ctx context.Context, ids string) (json.RawMessage, error) {
 	return c.doPost(ctx, "/v1/jnl/compare", map[string]any{"ids": ids})
+}
+
+// SuggestJournals returns journal-name prefix autocomplete suggestions.
+//
+// Upstream contract (POST /v1/jnl/suggest):
+//   q: required prefix
+//   limit / min_sources / has_sources: optional shaping
+// Lightweight fields: id / canonical_name / issn_l / source_count / openalex_works_count
+func (c *Client) SuggestJournals(ctx context.Context, q string, limit int) (json.RawMessage, error) {
+	body := map[string]any{"q": q}
+	if limit > 0 {
+		body["limit"] = limit
+	}
+	return c.doPost(ctx, "/v1/jnl/suggest", body)
+}
+
+// JournalsByNames batches journal lookups by canonical_name.
+//
+// Upstream contract (POST /v1/jnl/byNames):
+//   names: required, comma-separated canonical names (e.g. "Nature,Cell")
+//   full:  optional, "0" | "1" | "true"
+//   fields: optional, comma-separated whitelist (mutually exclusive with full)
+//
+// 用于"一页搜索结果一次性补 Q 分区/IF"的场景，避免逐篇请求。
+func (c *Client) JournalsByNames(ctx context.Context, names, fields string) (json.RawMessage, error) {
+	body := map[string]any{"names": names}
+	if fields != "" {
+		body["fields"] = fields
+	}
+	return c.doPost(ctx, "/v1/jnl/byNames", body)
+}
+
+// JournalsByISSNs batches journal lookups by ISSN.
+// Upstream caps at 100 ISSNs per call.
+func (c *Client) JournalsByISSNs(ctx context.Context, issns, fields string) (json.RawMessage, error) {
+	body := map[string]any{"issns": issns}
+	if fields != "" {
+		body["fields"] = fields
+	}
+	return c.doPost(ctx, "/v1/jnl/batch", body)
 }

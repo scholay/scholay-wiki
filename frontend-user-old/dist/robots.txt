@@ -1,0 +1,50 @@
+# robots.txt for Scholay
+# https://www.scholay.com/robots.txt
+
+User-agent: *
+Allow: /
+Allow: /search-results
+Allow: /paper/*
+Allow: /pricing
+Allow: /about
+Allow: /privacy
+Allow: /terms
+Allow: /feedback
+Allow: /contact
+Allow: /disclaimer
+Allow: /chat
+Allow: /assistant
+Allow: /peer-review
+Allow: /latex-writer
+Allow: /resources
+Allow: /resources/*
+Allow: /help
+Allow: /blog
+Allow: /blog/*
+Disallow: /dashboard
+Disallow: /settings
+Disallow: /subscription
+Disallow: /order-confirmation
+Disallow: /wechat/callback
+Disallow: /github/callback
+Disallow: /alipay-return
+Disallow: /api/
+
+# Sitemaps
+Sitemap: https://www.scholay.com/sitemap.xml
+Sitemap: https://www.scholay.com/sitemap-papers.xml
+
+# Popular search engines
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Baiduspider
+Allow: /
+Crawl-delay: 2
+
+User-agent: Sogou web spider
+Allow: /
+Crawl-delay: 2

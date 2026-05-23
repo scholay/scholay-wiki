@@ -69,6 +69,14 @@ func (h *Handler) GetSystemConfig(c *gin.Context) {
 	orcidConfig, err := h.service.GetOrcidOAuthConfig()
 	response["orcid_enabled"] = err == nil && orcidConfig != nil && orcidConfig.Enabled && orcidConfig.ClientID != ""
 
+	// WeChat:用 ConfigService 注入的 IsWeChatOAuthEnabled (config 包不直接依赖 wechat 包,
+	// 避免循环 import)。bootstrap 时 SetWeChatOAuthEnabledProbe 注入。
+	if h.wechatProbe != nil {
+		response["wechat_enabled"] = h.wechatProbe()
+	} else {
+		response["wechat_enabled"] = false
+	}
+
 	utils.Success(c, response)
 }
 

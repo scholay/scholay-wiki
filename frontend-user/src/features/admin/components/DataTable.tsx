@@ -1,0 +1,231 @@
+import { useMemo, useState, type ReactNode } from 'react';
+import { ChevronDown, ChevronUp, ArrowUpDown } from 'lucide-react';
+import { cn } from '@/shared/lib/utils';
+import { EmptyState } from '@/shared/components/EmptyState';
+import { LoadingState } from '@/shared/components/LoadingState';
+import { Checkbox } from '@/shared/ui/checkbox';
+
+export interface Column<T> {
+  /** 列头标题 */
+  header: ReactNode;
+  /** 单元格渲染 —— index 用于序号列、间隔色等 */
+  cell: (row: T, index: number) => ReactNode;
+  /** 列宽(默认自动) */
+  width?: string | number;
+  /** 右对齐(数字列) */
+  align?: 'left' | 'right' | 'center';
+  /** 列样式补丁 */
+  className?: string;
+  /**
+   * 可排序 —— 指定一个值提取器,table 会用它做客户端排序。
+   * 后端分页 + 客户端排序只对当前页有效;若需要跨页排序,把字段通过 url state 传给后端。
+   */
+  sortKey?: (row: T) => string | number | null | undefined;
+}
+
+/**
+ * Admin 简化表格 —— 行高 h-10,描边 1px #E8E8E8,无 zebra。
+ * tanstack-table 装了但暂不引入(避免初版多余复杂度);
+ * 排序、多选、批量操作 bar 都用最小自实现 —— 后续如需虚拟化再切。
+ */
+export function DataTable<T>({
+  columns,
+  rows,
+  loading,
+  emptyMessage = '这里还没有数据',
+  rowKey,
+  // ---- 多选(可选)----
+  selection,
+  bulkActions,
+}: {
+  columns: Column<T>[];
+  rows: T[] | undefined;
+  loading?: boolean;
+  emptyMessage?: string;
+  rowKey?: (row: T, index: number) => string | number;
+  /** 多选状态 —— 传入则自动渲染 checkbox 列 + 头部 master checkbox + 批量 bar */
+  selection?: {
+    selectedKeys: Set<string | number>;
+    onSelectionChange: (keys: Set<string | number>) => void;
+    /** 行 key 提取器 —— 必填(用 rowKey 也可,这里冗余声明便于类型推导) */
+    getKey: (row: T) => string | number;
+  };
+  /** 批量操作 —— 选中行 > 0 时显示顶部 bar */
+  bulkActions?: (selected: T[]) => ReactNode;
+}) {
+  // 排序状态:列下标 + 方向。null = 不排序(后端顺序)
+  const [sort, setSort] = useState<{ col: number; dir: 'asc' | 'desc' } | null>(null);
+
+  // 防御:某些后端接口可能错误返回非数组 { list, total } 等;早期捕获,避免下游 .map 崩溃
+  const safeRows: T[] | undefined = Array.isArray(rows) ? rows : undefined;
+
+  // 行内 + 排序应用
+  const sortedRows = useMemo(() => {
+    if (!safeRows) return safeRows;
+    if (!sort) return safeRows;
+    const col = columns[sort.col];
+    if (!col?.sortKey) return safeRows;
+    const getKey = col.sortKey;
+    const copy = [...safeRows];
+    copy.sort((a, b) => {
+      const va = getKey(a);
+      const vb = getKey(b);
+      if (va == null && vb == null) return 0;
+      if (va == null) return 1;
+      if (vb == null) return -1;
+      if (va < vb) return sort.dir === 'asc' ? -1 : 1;
+      if (va > vb) return sort.dir === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return copy;
+  }, [safeRows, sort, columns]);
+
+  if (loading) return <LoadingState />;
+  if (!sortedRows || sortedRows.length === 0) return <EmptyState title={emptyMessage} />;
+
+  const selectedKeys = selection?.selectedKeys ?? new Set();
+  const allSelected =
+    selection &&
+    sortedRows.length > 0 &&
+    sortedRows.every((r) => selectedKeys.has(selection.getKey(r)));
+  const someSelected = selection && selectedKeys.size > 0 && !allSelected;
+
+  const toggleAll = () => {
+    if (!selection) return;
+    if (allSelected) {
+      selection.onSelectionChange(new Set());
+    } else {
+      selection.onSelectionChange(new Set(sortedRows.map(selection.getKey)));
+    }
+  };
+
+  const toggleRow = (row: T) => {
+    if (!selection) return;
+    const key = selection.getKey(row);
+    const next = new Set(selectedKeys);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    selection.onSelectionChange(next);
+  };
+
+  // 算出当前所有选中行(可能跨页)—— bulkActions 需要
+  const selectedRows = selection
+    ? sortedRows.filter((r) => selectedKeys.has(selection.getKey(r)))
+    : [];
+
+  const toggleSort = (colIdx: number) => {
+    const col = columns[colIdx];
+    if (!col?.sortKey) return;
+    setSort((s) => {
+      if (s?.col !== colIdx) return { col: colIdx, dir: 'asc' };
+      if (s.dir === 'asc') return { col: colIdx, dir: 'desc' };
+      return null; // asc → desc → 不排序 三态
+    });
+  };
+
+  return (
+    <div className="rounded-md border border-border overflow-hidden bg-background">
+      {/* 批量操作 bar —— 选中 > 0 时叠加到顶部 */}
+      {bulkActions && selectedKeys.size > 0 && (
+        <div className="flex items-center justify-between gap-3 bg-surface-1 border-b border-border px-3 h-10">
+          <span className="text-xs text-subtle font-bold">已选 {selectedKeys.size} 项</span>
+          <div className="flex items-center gap-2">
+            {bulkActions(selectedRows)}
+            <button
+              type="button"
+              onClick={() => selection?.onSelectionChange(new Set())}
+              className="text-2xs text-faint hover:text-foreground"
+            >
+              取消选择
+            </button>
+          </div>
+        </div>
+      )}
+
+      <table className="w-full text-sm">
+        <thead className="bg-surface-1 border-b border-border">
+          <tr>
+            {selection && (
+              <th className="w-9 px-3 h-9">
+                <Checkbox
+                  checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+                  onCheckedChange={toggleAll}
+                  aria-label="全选"
+                />
+              </th>
+            )}
+            {columns.map((c, i) => {
+              const sortable = !!c.sortKey;
+              const sortState = sort?.col === i ? sort.dir : null;
+              return (
+                <th
+                  key={i}
+                  style={c.width ? { width: c.width } : undefined}
+                  className={cn(
+                    'h-9 px-3 text-faint font-bold text-2xs tracking-[0.12em] text-left',
+                    c.align === 'right' && 'text-right',
+                    c.align === 'center' && 'text-center',
+                    sortable && 'cursor-pointer select-none hover:text-foreground',
+                    c.className
+                  )}
+                  onClick={() => sortable && toggleSort(i)}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    {c.header}
+                    {sortable && (
+                      sortState === 'asc' ? <ChevronUp className="size-3" />
+                        : sortState === 'desc' ? <ChevronDown className="size-3" />
+                          : <ArrowUpDown className="size-3 opacity-30" />
+                    )}
+                  </span>
+                </th>
+              );
+            })}
+          </tr>
+        </thead>
+        <tbody>
+          {sortedRows.map((row, i) => {
+            const key = selection
+              ? selection.getKey(row)
+              : rowKey
+              ? rowKey(row, i)
+              : (row as { id?: string | number }).id ?? i;
+            const isSelected = selection && selectedKeys.has(selection.getKey(row));
+            return (
+              <tr
+                key={key}
+                className={cn(
+                  'border-b border-border-soft last:border-0 transition-colors',
+                  isSelected ? 'bg-surface-1' : 'hover:bg-surface-1'
+                )}
+              >
+                {selection && (
+                  <td className="w-9 px-3">
+                    <Checkbox
+                      checked={isSelected ?? false}
+                      onCheckedChange={() => toggleRow(row)}
+                      aria-label="选择此行"
+                    />
+                  </td>
+                )}
+                {columns.map((c, j) => (
+                  <td
+                    key={j}
+                    className={cn(
+                      'h-10 px-3 text-subtle',
+                      c.align === 'right' && 'text-right',
+                      c.align === 'center' && 'text-center',
+                      c.className
+                    )}
+                  >
+                    {c.cell(row, i)}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}

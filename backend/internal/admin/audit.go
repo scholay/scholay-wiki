@@ -48,7 +48,6 @@ const (
 	ActionTest        = "test"
 
 	ResUser            = "user"
-	ResPromptTemplate  = "prompt_template"
 	ResMessageTemplate = "message_template"
 	ResFeedback        = "feedback"
 	ResUsageLog        = "usage_log"

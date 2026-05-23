@@ -145,19 +145,8 @@ func (s *Service) TranslateToEnglish(ctx context.Context, query string) (string,
 
 	slog.Debug("Translation cache miss, calling AI", "query", query)
 
-	// 3. 缓存未命中，调用AI翻译
-	// 优先从数据库读取提示词模版，本地兜底
-	var translatePrompt string
-
-	// 尝试从数据库获取提示词模版
-	renderedPrompt, template, err := s.GetAndRenderPrompt("search_term_translation", map[string]string{
-		"query": query,
-	})
-
-	if err != nil || template == nil {
-		// 数据库获取失败，使用本地兜底提示词
-		slog.Warn("Failed to get prompt template from DB, using fallback", "err", err)
-		translatePrompt = fmt.Sprintf(`你是一个专业的学术翻译助手。请将以下查询关键词翻译成准确的英文学术术语。
+	// prompt_templates 表已下线 —— 所有提示词写死在代码,见 0045 迁移。
+	translatePrompt := fmt.Sprintf(`你是一个专业的学术翻译助手。请将以下查询关键词翻译成准确的英文学术术语。
 
 要求：
 1. 如果查询已经是纯英文（包括英文单词、缩写、专有名词等），直接返回空内容，不要返回任何文字
@@ -168,11 +157,6 @@ func (s *Service) TranslateToEnglish(ctx context.Context, query string) (string,
 查询：%s
 
 翻译（如果是英文则返回空）：`, query)
-	} else {
-		// 成功从数据库获取提示词模版
-		translatePrompt = renderedPrompt
-		slog.Info("Using prompt template from DB", "name", template.Name, "id", template.ID)
-	}
 
 	messages := []ChatMessage{
 		{
@@ -320,56 +304,3 @@ func parseSearchSuggestions(responseText string) []string {
 	return suggestions
 }
 
-// ==================== Prompt Template Delegation ====================
-
-// ListPromptTemplates lists all prompt templates
-func (s *Service) ListPromptTemplates() ([]PromptTemplate, error) {
-	return s.repo.ListPromptTemplates()
-}
-
-// GetPromptTemplateByID gets a prompt template by ID
-func (s *Service) GetPromptTemplateByID(id uint) (*PromptTemplate, error) {
-	return s.repo.GetPromptTemplateByID(id)
-}
-
-// CreatePromptTemplate creates a new prompt template
-func (s *Service) CreatePromptTemplate(template *PromptTemplate) error {
-	return s.repo.CreatePromptTemplate(template)
-}
-
-// UpdatePromptTemplate updates a prompt template
-func (s *Service) UpdatePromptTemplate(template *PromptTemplate) error {
-	return s.repo.UpdatePromptTemplate(template)
-}
-
-// DeletePromptTemplate deletes a prompt template
-func (s *Service) DeletePromptTemplate(id uint) error {
-	return s.repo.DeletePromptTemplate(id)
-}
-
-// GetPromptTemplate gets a prompt template by key
-func (s *Service) GetPromptTemplate(key string) (*PromptTemplate, error) {
-	return s.repo.GetActivePromptTemplateByKey(key)
-}
-
-// RenderPrompt renders a template with variables
-func (s *Service) RenderPrompt(template string, variables map[string]string) string {
-	result := template
-	for key, value := range variables {
-		placeholder := fmt.Sprintf("{{%s}}", key)
-		result = strings.ReplaceAll(result, placeholder, value)
-	}
-	return result
-}
-
-// GetAndRenderPrompt gets a prompt template by key and renders it with variables
-// Returns the rendered prompt and the template (for fallback scenarios)
-func (s *Service) GetAndRenderPrompt(key string, variables map[string]string) (string, *PromptTemplate, error) {
-	template, err := s.GetPromptTemplate(key)
-	if err != nil {
-		return "", nil, fmt.Errorf("failed to get prompt template '%s': %w", key, err)
-	}
-
-	rendered := s.RenderPrompt(template.Template, variables)
-	return rendered, template, nil
-}

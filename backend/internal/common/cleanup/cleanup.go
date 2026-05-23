@@ -46,12 +46,6 @@ func (s *CleanupService) SetHotContentService(service *hotcontent.Service) {
 func (s *CleanupService) Start() {
 	slog.Info("Starting cleanup service")
 
-	safego.Go("cleanup-expired-sessions", func() {
-		s.runPeriodic("expired_sessions", 1*time.Hour, s.cleanExpiredSessions)
-	})
-	safego.Go("cleanup-old-snapshots", func() {
-		s.runDaily("old_snapshots", 3, 0, s.cleanOldSnapshots)
-	})
 	safego.Go("cleanup-old-usage-logs", func() {
 		s.runDaily("old_usage_logs", 4, 0, s.cleanOldUsageLogs)
 	})
@@ -118,48 +112,6 @@ func (s *CleanupService) runDaily(name string, hour, minute int, task func() err
 		}
 		timer.Stop()
 	}
-}
-
-// cleanExpiredSessions removes expired user sessions
-// Keeps sessions for 30 days after expiration for audit purposes
-func (s *CleanupService) cleanExpiredSessions() error {
-	cutoffTime := time.Now().Add(-30 * 24 * time.Hour)
-
-	result := s.db.Exec(`
-		DELETE FROM user_sessions
-		WHERE expires_at < ?
-	`, cutoffTime)
-
-	if result.Error != nil {
-		return fmt.Errorf("failed to clean expired sessions: %w", result.Error)
-	}
-
-	if result.RowsAffected > 0 {
-		slog.Info("Cleaned expired user sessions", "count", result.RowsAffected)
-	}
-
-	return nil
-}
-
-// cleanOldSnapshots removes old online user snapshots
-// Keeps only last 30 days of data
-func (s *CleanupService) cleanOldSnapshots() error {
-	cutoffTime := time.Now().Add(-30 * 24 * time.Hour)
-
-	result := s.db.Exec(`
-		DELETE FROM online_user_snapshots
-		WHERE timestamp < ?
-	`, cutoffTime)
-
-	if result.Error != nil {
-		return fmt.Errorf("failed to clean old snapshots: %w", result.Error)
-	}
-
-	if result.RowsAffected > 0 {
-		slog.Info("Cleaned old online user snapshots", "count", result.RowsAffected, "olderThanDays", 30)
-	}
-
-	return nil
 }
 
 // cleanOldUsageLogs removes old usage logs based on configured retention period
@@ -244,18 +196,6 @@ func (s *CleanupService) cleanHotContent() error {
 	return nil
 }
 
-// CleanExpiredSessionsNow runs the expired sessions cleanup immediately
-func (s *CleanupService) CleanExpiredSessionsNow() error {
-	slog.Info("Running manual cleanup: expired sessions")
-	return s.cleanExpiredSessions()
-}
-
-// CleanOldSnapshotsNow runs the old snapshots cleanup immediately
-func (s *CleanupService) CleanOldSnapshotsNow() error {
-	slog.Info("Running manual cleanup: old snapshots")
-	return s.cleanOldSnapshots()
-}
-
 // CleanOldUsageLogsNow runs the old usage logs cleanup immediately
 func (s *CleanupService) CleanOldUsageLogsNow() error {
 	slog.Info("Running manual cleanup: old usage logs")
@@ -265,54 +205,6 @@ func (s *CleanupService) CleanOldUsageLogsNow() error {
 // GetCleanupStats returns statistics about data to be cleaned
 func (s *CleanupService) GetCleanupStats() (map[string]any, error) {
 	stats := make(map[string]any)
-
-	// Count expired sessions
-	var expiredSessionsCount int64
-	cutoffTime := time.Now().Add(-30 * 24 * time.Hour)
-	if err := s.db.Model(&struct {
-		TableName string `gorm:"-" json:"-"`
-	}{}).
-		Table("user_sessions").
-		Where("expires_at < ?", cutoffTime).
-		Count(&expiredSessionsCount).Error; err != nil {
-		return nil, err
-	}
-	stats["expired_sessions_count"] = expiredSessionsCount
-
-	// Count old snapshots
-	var oldSnapshotsCount int64
-	snapshotCutoff := time.Now().Add(-30 * 24 * time.Hour)
-	if err := s.db.Model(&struct {
-		TableName string `gorm:"-" json:"-"`
-	}{}).
-		Table("online_user_snapshots").
-		Where("timestamp < ?", snapshotCutoff).
-		Count(&oldSnapshotsCount).Error; err != nil {
-		return nil, err
-	}
-	stats["old_snapshots_count"] = oldSnapshotsCount
-
-	// Total sessions count
-	var totalSessionsCount int64
-	if err := s.db.Model(&struct {
-		TableName string `gorm:"-" json:"-"`
-	}{}).
-		Table("user_sessions").
-		Count(&totalSessionsCount).Error; err != nil {
-		return nil, err
-	}
-	stats["total_sessions_count"] = totalSessionsCount
-
-	// Total snapshots count
-	var totalSnapshotsCount int64
-	if err := s.db.Model(&struct {
-		TableName string `gorm:"-" json:"-"`
-	}{}).
-		Table("online_user_snapshots").
-		Count(&totalSnapshotsCount).Error; err != nil {
-		return nil, err
-	}
-	stats["total_snapshots_count"] = totalSnapshotsCount
 
 	// Count old usage logs
 	var retentionDays int

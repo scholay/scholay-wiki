@@ -103,7 +103,7 @@ func (s *Service) RegisterWithPhone(ctx context.Context, phone, password, code, 
 		return nil, "", fmt.Errorf("failed to verify code: %w", err)
 	}
 	if !valid {
-		return nil, "", errors.New("invalid or expired verification code")
+		return nil, "", errors.New("验证码无效或已过期")
 	}
 
 	// First check: validate phone availability (pre-verification)
@@ -112,7 +112,7 @@ func (s *Service) RegisterWithPhone(ctx context.Context, phone, password, code, 
 		return nil, "", err
 	}
 	if existing != nil {
-		return nil, "", errors.New("phone number already registered")
+		return nil, "", errors.New("该手机号已被注册")
 	}
 
 	// Hash password
@@ -132,7 +132,7 @@ func (s *Service) RegisterWithPhone(ctx context.Context, phone, password, code, 
 			return err
 		}
 		if existing != nil {
-			return errors.New("phone number already registered")
+			return errors.New("该手机号已被注册")
 		}
 
 		// Generate random username
@@ -199,21 +199,21 @@ func (s *Service) LoginWithPhone(phone, password, ip string) (*User, string, err
 	}
 
 	if user == nil {
-		return nil, "", errors.New("phone number not registered")
+		return nil, "", errors.New("该手机号未注册")
 	}
 
 	// Check if user is active
 	if user.Status != 1 {
-		return nil, "", errors.New("account is suspended")
+		return nil, "", errors.New("账号已被停用")
 	}
 
 	// Verify password
 	if user.PasswordHash == nil {
-		return nil, "", errors.New("please set a password first")
+		return nil, "", errors.New("请先设置密码")
 	}
 
 	if !utils.CheckPassword(password, *user.PasswordHash) {
-		return nil, "", errors.New("invalid password")
+		return nil, "", errors.New("密码错误")
 	}
 
 	// Update last login time and IP
@@ -238,7 +238,7 @@ func (s *Service) ResetPasswordPhone(ctx context.Context, phone, code, newPasswo
 		return fmt.Errorf("failed to verify code: %w", err)
 	}
 	if !valid {
-		return errors.New("invalid or expired verification code")
+		return errors.New("验证码无效或已过期")
 	}
 
 	// Find user by phone
@@ -247,7 +247,7 @@ func (s *Service) ResetPasswordPhone(ctx context.Context, phone, code, newPasswo
 		return err
 	}
 	if user == nil {
-		return errors.New("phone number not registered")
+		return errors.New("该手机号未注册")
 	}
 
 	// Hash new password
@@ -256,13 +256,8 @@ func (s *Service) ResetPasswordPhone(ctx context.Context, phone, code, newPasswo
 		return fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	// Update password
-	if err := s.repo.UpdatePassword(user.ID, hashedPassword); err != nil {
-		return err
-	}
-
-	// Invalidate all existing sessions for this user (force re-login on all devices)
-	return s.repo.DeleteUserSessions(user.ID)
+	// Update password. user_sessions 表已下线,JWT 自身过期就是兜底。
+	return s.repo.UpdatePassword(user.ID, hashedPassword)
 }
 
 // LoginWithPhoneCode logs in a user with phone and verification code
@@ -273,7 +268,7 @@ func (s *Service) LoginWithPhoneCode(ctx context.Context, phone, code, ip string
 		return nil, "", fmt.Errorf("failed to verify code: %w", err)
 	}
 	if !valid {
-		return nil, "", errors.New("invalid or expired verification code")
+		return nil, "", errors.New("验证码无效或已过期")
 	}
 
 	// Find user by phone
@@ -282,12 +277,12 @@ func (s *Service) LoginWithPhoneCode(ctx context.Context, phone, code, ip string
 		return nil, "", err
 	}
 	if user == nil {
-		return nil, "", errors.New("phone number not registered")
+		return nil, "", errors.New("该手机号未注册")
 	}
 
 	// Check if user is active
 	if user.Status != 1 {
-		return nil, "", errors.New("account is suspended")
+		return nil, "", errors.New("账号已被停用")
 	}
 
 	// Update last login time and IP
@@ -302,16 +297,23 @@ func (s *Service) LoginWithPhoneCode(ctx context.Context, phone, code, ip string
 	return user, token, nil
 }
 
-// BindPhone binds a phone number to an existing user account
-// Enhanced with transaction support and double-check for concurrency safety
-func (s *Service) BindPhone(ctx context.Context, userID uint, phone, code string) error {
-	// Verify the phone code using Redis
+// BindPhone binds a phone number to an existing user account.
+//
+// 安全设计(与 BindEmail 对称):
+//   - 首次绑定(user.Phone == nil):只需新手机的 bind 验证码
+//   - 换绑场景(user.Phone 已存在 且 新号 != 旧号):需要 *两份* 验证码 ——
+//       1. 新手机的 bind code,证明用户控制新号码
+//       2. 旧手机的 change_phone code,证明用户掌控旧号码(防 session 被偷夺号)
+//
+// oldPhoneCode 在首次绑定场景下可以为空;换绑时必填。
+func (s *Service) BindPhone(ctx context.Context, userID uint, phone, code, oldPhoneCode string) error {
+	// Verify the phone code on new phone (always required)
 	valid, err := cache.VerifyCode(ctx, phone, code, "bind")
 	if err != nil {
 		return fmt.Errorf("failed to verify code: %w", err)
 	}
 	if !valid {
-		return errors.New("invalid or expired verification code")
+		return errors.New("验证码无效或已过期")
 	}
 
 	// First check: validate phone availability (pre-verification)
@@ -320,7 +322,28 @@ func (s *Service) BindPhone(ctx context.Context, userID uint, phone, code string
 		return err
 	}
 	if existing != nil && existing.ID != userID {
-		return errors.New("phone number already bound to another account")
+		return errors.New("该手机号已被其他账号绑定")
+	}
+
+	// 换绑场景:必须验证旧手机所有权
+	currentUser, err := s.repo.FindByID(userID)
+	if err != nil {
+		return err
+	}
+	if currentUser == nil {
+		return errors.New("用户不存在")
+	}
+	if currentUser.Phone != nil && *currentUser.Phone != "" && *currentUser.Phone != phone {
+		if oldPhoneCode == "" {
+			return errors.New("换绑手机号需要先验证当前手机所有权,请先发送验证码到当前手机")
+		}
+		valid, err := cache.VerifyCode(ctx, *currentUser.Phone, oldPhoneCode, "change_phone")
+		if err != nil {
+			return fmt.Errorf("failed to verify old phone code: %w", err)
+		}
+		if !valid {
+			return errors.New("当前手机验证码无效或已过期")
+		}
 	}
 
 	// Use transaction for atomic binding operation
@@ -331,7 +354,7 @@ func (s *Service) BindPhone(ctx context.Context, userID uint, phone, code string
 			return err
 		}
 		if existing != nil && existing.ID != userID {
-			return errors.New("phone number already bound to another account")
+			return errors.New("该手机号已被其他账号绑定")
 		}
 
 		// Get current user
@@ -340,7 +363,7 @@ func (s *Service) BindPhone(ctx context.Context, userID uint, phone, code string
 			return err
 		}
 		if user == nil {
-			return errors.New("user not found")
+			return errors.New("用户不存在")
 		}
 
 		// Update user phone
@@ -384,7 +407,7 @@ func (s *Service) BindPhoneWithPassword(ctx context.Context, userID uint, phone,
 		return fmt.Errorf("failed to verify code: %w", err)
 	}
 	if !valid {
-		return errors.New("invalid or expired verification code")
+		return errors.New("验证码无效或已过期")
 	}
 
 	// Check if phone is already used by another user
@@ -394,7 +417,7 @@ func (s *Service) BindPhoneWithPassword(ctx context.Context, userID uint, phone,
 	}
 
 	if existing != nil && existing.ID != userID {
-		return errors.New("phone number already bound to another account")
+		return errors.New("该手机号已被其他账号绑定")
 	}
 
 	// Get current user
@@ -404,7 +427,7 @@ func (s *Service) BindPhoneWithPassword(ctx context.Context, userID uint, phone,
 	}
 
 	if user == nil {
-		return errors.New("user not found")
+		return errors.New("用户不存在")
 	}
 
 	// Hash password
@@ -457,12 +480,17 @@ func (s *Service) UnbindPhone(ctx context.Context, userID uint, code string) err
 		return err
 	}
 	if user == nil {
-		return errors.New("user not found")
+		return errors.New("用户不存在")
 	}
 
 	// Check if phone is bound
 	if user.Phone == nil || *user.Phone == "" {
-		return errors.New("phone is not bound")
+		return errors.New("尚未绑定手机号")
+	}
+
+	// 解绑保护:不能解绑最后一个登录方式
+	if err := s.ensureNotLastLoginMethod(userID); err != nil {
+		return err
 	}
 
 	// Verify the code before starting transaction
@@ -471,7 +499,7 @@ func (s *Service) UnbindPhone(ctx context.Context, userID uint, code string) err
 		return fmt.Errorf("failed to verify code: %w", err)
 	}
 	if !valid {
-		return errors.New("invalid or expired verification code")
+		return errors.New("验证码无效或已过期")
 	}
 
 	return s.repo.UnbindPhoneInTx(userID)

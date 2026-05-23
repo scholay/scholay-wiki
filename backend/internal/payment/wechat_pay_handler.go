@@ -36,7 +36,7 @@ func (h *WeChatPayHandler) GetAllConfigs(c *gin.Context) {
 
 	configs, err := h.service.GetAllConfigs(showKeys)
 	if err != nil {
-		utils.Error(c, 3001, "Failed to get WeChat Pay configs: "+err.Error())
+		utils.Error(c, 3001, "加载微信支付配置失败: "+err.Error())
 		return
 	}
 
@@ -47,7 +47,7 @@ func (h *WeChatPayHandler) GetAllConfigs(c *gin.Context) {
 func (h *WeChatPayHandler) GetActiveConfig(c *gin.Context) {
 	config, err := h.service.GetActiveConfig()
 	if err != nil {
-		utils.Error(c, 3002, "Failed to get active WeChat Pay config: "+err.Error())
+		utils.Error(c, 3002, "加载激活微信支付配置失败: "+err.Error())
 		return
 	}
 
@@ -63,7 +63,7 @@ func (h *WeChatPayHandler) CreateConfig(c *gin.Context) {
 	}
 
 	if err := h.service.CreateConfig(&dto); err != nil {
-		utils.Error(c, 3003, "Failed to create WeChat Pay config: "+err.Error())
+		utils.Error(c, 3003, "创建微信支付配置失败: "+err.Error())
 		return
 	}
 
@@ -83,7 +83,7 @@ func (h *WeChatPayHandler) UpdateConfig(c *gin.Context) {
 	}
 
 	if err := h.service.UpdateConfig(uint64(id), &dto); err != nil {
-		utils.Error(c, 3004, "Failed to update WeChat Pay config: "+err.Error())
+		utils.Error(c, 3004, "更新微信支付配置失败: "+err.Error())
 		return
 	}
 
@@ -98,7 +98,7 @@ func (h *WeChatPayHandler) DeleteConfig(c *gin.Context) {
 	}
 
 	if err := h.service.DeleteConfig(uint64(id)); err != nil {
-		utils.Error(c, 3005, "Failed to delete WeChat Pay config: "+err.Error())
+		utils.Error(c, 3005, "删除微信支付配置失败: "+err.Error())
 		return
 	}
 
@@ -147,17 +147,17 @@ func (h *WeChatPayHandler) CreatePayment(c *gin.Context) {
 
 	orderRecord, err := h.orderService.GetOrderByOrderNo(req.OrderNo)
 	if err != nil {
-		utils.Error(c, 5001, "Order not found")
+		utils.Error(c, 5001, "订单不存在,请刷新后重试")
 		return
 	}
 
 	if orderRecord.UserID != userID {
-		utils.Error(c, 5003, "Order does not belong to user")
+		utils.Error(c, 5003, "无权访问该订单")
 		return
 	}
 
 	if orderRecord.Status != "pending" {
-		utils.Error(c, 5004, "Order is not in pending status")
+		utils.Error(c, 5004, "订单状态异常,无法支付(可能已支付或已取消)")
 		return
 	}
 

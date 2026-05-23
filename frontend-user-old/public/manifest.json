@@ -1,0 +1,21 @@
+{
+  "short_name": "Scholay",
+  "name": "Scholay - AI驱动的学术搜索平台",
+  "description": "创新的学术搜索平台，提供AI驱动的文献检索、智能论文分析、引用图谱可视化等功能",
+  "icons": [
+    {
+      "src": "brand-logo.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#212121",
+  "background_color": "#212121",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "categories": ["education", "productivity"],
+  "lang": "zh-CN"
+}

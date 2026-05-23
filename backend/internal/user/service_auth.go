@@ -51,7 +51,7 @@ func (s *Service) RegisterWithEmailAndInvitation(ctx context.Context, email, pas
 			return nil, "", fmt.Errorf("failed to verify code: %w", err)
 		}
 		if !valid {
-			return nil, "", errors.New("invalid or expired verification code")
+			return nil, "", errors.New("验证码无效或已过期")
 		}
 	}
 
@@ -61,7 +61,7 @@ func (s *Service) RegisterWithEmailAndInvitation(ctx context.Context, email, pas
 		return nil, "", err
 	}
 	if existing != nil {
-		return nil, "", errors.New("email already registered")
+		return nil, "", errors.New("该邮箱已被注册")
 	}
 
 	// Hash password
@@ -81,7 +81,7 @@ func (s *Service) RegisterWithEmailAndInvitation(ctx context.Context, email, pas
 			return err
 		}
 		if existing != nil {
-			return errors.New("email already registered")
+			return errors.New("该邮箱已被注册")
 		}
 
 		// Generate random username
@@ -134,12 +134,6 @@ func (s *Service) RegisterWithEmailAndInvitation(ctx context.Context, email, pas
 		return nil, "", err
 	}
 
-	// Record new user registration in statistics (async, non-blocking)
-	safego.Go("user-increment-new-users", func() {
-		today := time.Now().Format("2006-01-02")
-		_ = s.repo.IncrementNewUsers(today)
-	})
-
 	// 发送欢迎站内信
 	s.SendWelcomeMessage(user.ID)
 
@@ -154,19 +148,19 @@ func (s *Service) LoginWithEmail(email, password, ip string) (*User, string, err
 	}
 
 	if user == nil {
-		return nil, "", errors.New("invalid email or password")
+		return nil, "", errors.New("邮箱或密码错误")
 	}
 
 	if user.Status != 1 {
-		return nil, "", errors.New("account is inactive or suspended")
+		return nil, "", errors.New("账号已被停用")
 	}
 
 	if user.PasswordHash == nil {
-		return nil, "", errors.New("email login not available for this account")
+		return nil, "", errors.New("该账号未开通邮箱登录")
 	}
 
 	if !utils.CheckPassword(password, *user.PasswordHash) {
-		return nil, "", errors.New("invalid email or password")
+		return nil, "", errors.New("邮箱或密码错误")
 	}
 
 	// Update last login time and IP
@@ -194,7 +188,7 @@ func (s *Service) ResetPassword(ctx context.Context, email, code, newPassword st
 		return fmt.Errorf("failed to verify code: %w", err)
 	}
 	if !valid {
-		return errors.New("invalid or expired verification code")
+		return errors.New("验证码无效或已过期")
 	}
 
 	// Find user by email
@@ -203,7 +197,7 @@ func (s *Service) ResetPassword(ctx context.Context, email, code, newPassword st
 		return err
 	}
 	if user == nil {
-		return errors.New("email not found")
+		return errors.New("该邮箱未注册")
 	}
 
 	// Hash new password
@@ -212,13 +206,8 @@ func (s *Service) ResetPassword(ctx context.Context, email, code, newPassword st
 		return fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	// Update password
-	if err := s.repo.UpdatePassword(user.ID, hashedPassword); err != nil {
-		return err
-	}
-
-	// Invalidate all existing sessions for this user (force re-login on all devices)
-	return s.repo.DeleteUserSessions(user.ID)
+	// Update password. user_sessions 表已下线,踢人改由 JWT 自身过期兜底。
+	return s.repo.UpdatePassword(user.ID, hashedPassword)
 }
 
 // LoginWithEmailCode logs in a user with email and verification code
@@ -229,7 +218,7 @@ func (s *Service) LoginWithEmailCode(ctx context.Context, email, code, ip string
 		return nil, "", fmt.Errorf("failed to verify code: %w", err)
 	}
 	if !valid {
-		return nil, "", errors.New("invalid or expired verification code")
+		return nil, "", errors.New("验证码无效或已过期")
 	}
 
 	// Find user by email
@@ -238,11 +227,11 @@ func (s *Service) LoginWithEmailCode(ctx context.Context, email, code, ip string
 		return nil, "", err
 	}
 	if user == nil {
-		return nil, "", errors.New("email not found")
+		return nil, "", errors.New("该邮箱未注册")
 	}
 
 	if user.Status != 1 {
-		return nil, "", errors.New("account is inactive or suspended")
+		return nil, "", errors.New("账号已被停用")
 	}
 
 	// Update last login time and IP
@@ -356,12 +345,12 @@ func (s *Service) ChangePassword(userID uint, currentPassword, newPassword strin
 		return fmt.Errorf("failed to find user: %w", err)
 	}
 	if user == nil {
-		return errors.New("user not found")
+		return errors.New("用户不存在")
 	}
 
 	// Check if user has a password set
 	if user.PasswordHash == nil || *user.PasswordHash == "" {
-		return errors.New("no password set for this account")
+		return errors.New("该账号尚未设置密码")
 	}
 
 	// Verify current password
@@ -375,65 +364,41 @@ func (s *Service) ChangePassword(userID uint, currentPassword, newPassword strin
 		return fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	// Update password
-	if err := s.repo.UpdatePassword(userID, hashedPassword); err != nil {
-		return err
-	}
-
-	// Invalidate all existing sessions for this user (force re-login on all devices)
-	return s.repo.DeleteUserSessions(userID)
+	// Update password. user_sessions 表已下线,踢人改由 JWT 自身过期兜底。
+	return s.repo.UpdatePassword(userID, hashedPassword)
 }
 
-// RefreshToken refreshes a token if the session is still valid and within 30-day limit
+// RefreshToken refreshes a token if it's not too old to be reissued.
+//
+// user_sessions 表已下线 —— 续期只依赖 JWT 自身,不再写库:
+//   - 仍在有效期内: 重新签发新 TTL
+//   - 已经过期但未超 MaxSessionAge: 重新签发(保留「30 天连续登录」体验)
+//   - 已超 MaxSessionAge: 拒绝,要求重新登录
 func (s *Service) RefreshToken(oldToken string) (string, error) {
-	// Parse the old token (even if expired)
 	claims, err := utils.ParseTokenIgnoreExpiry(oldToken)
 	if err != nil {
 		return "", errors.New("invalid token")
 	}
 
-	// Get the session from database
-	session, err := s.repo.GetUserSession(oldToken)
-	if err != nil {
-		return "", fmt.Errorf("failed to get session: %w", err)
-	}
-	if session == nil {
-		return "", ErrSessionNotFound
+	if claims.IssuedAt != nil {
+		if time.Since(claims.IssuedAt.Time) > utils.MaxSessionAge {
+			return "", ErrSessionExpired
+		}
 	}
 
-	// Check if session can be refreshed (within 30 days of creation)
-	if !session.CanRefresh() {
-		return "", ErrSessionExpired
-	}
-
-	// Get user info
 	user, err := s.repo.FindByID(claims.UserID)
 	if err != nil || user == nil {
-		return "", errors.New("user not found")
+		return "", errors.New("用户不存在")
 	}
 
-	// Generate new token
 	username := ""
 	if user.Username != nil {
 		username = *user.Username
 	}
-	newToken, err := s.generateSessionTokenForUser(user, username, fmt.Sprintf("%d", session.ID))
+	newToken, err := s.generateTokenForUser(user, username)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate token: %w", err)
 	}
-
-	// Calculate new expiry time (min of token expiry or session max expiry)
-	newExpiry := time.Now().Add(utils.TokenExpiration)
-	maxExpiry := session.GetMaxExpiryTime()
-	if newExpiry.After(maxExpiry) {
-		newExpiry = maxExpiry
-	}
-
-	// Update session with new token
-	if err := s.repo.UpdateSessionToken(session.ID, newToken, newExpiry); err != nil {
-		return "", fmt.Errorf("failed to update session: %w", err)
-	}
-
 	return newToken, nil
 }
 
@@ -443,17 +408,9 @@ func (s *Service) GetTokenInfo(token string) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	session, err := s.repo.GetUserSession(token)
-	if err != nil || session == nil {
-		return nil, ErrSessionNotFound
-	}
-
 	return map[string]any{
-		"expires_at":         claims.ExpiresAt.Time,
-		"remaining_seconds":  int(utils.GetTokenRemainingTime(claims).Seconds()),
-		"should_refresh":     utils.ShouldRefreshToken(claims),
-		"session_max_expiry": session.GetMaxExpiryTime(),
-		"can_refresh":        session.CanRefresh(),
+		"expires_at":        claims.ExpiresAt.Time,
+		"remaining_seconds": int(utils.GetTokenRemainingTime(claims).Seconds()),
+		"should_refresh":    utils.ShouldRefreshToken(claims),
 	}, nil
 }

@@ -202,10 +202,12 @@ func (s *Service) ReconcileSitemapPages() error {
 // 合并锁(SETNX EX coalesceWindow): 同一计数器在 coalesceWindow 秒内的多次写入
 // 只触发一次 INCR,避免高并发下 cache key 频繁失效导致冷启风暴。
 const (
-	sitemapPapersVersionKey  = "seo:sitemap:papers:version"
-	sitemapAuthorsVersionKey = "seo:sitemap:authors:version"
-	sitemapPapersLockKey     = "seo:sitemap:papers:invalidate-lock"
-	sitemapAuthorsLockKey    = "seo:sitemap:authors:invalidate-lock"
+	sitemapPapersVersionKey   = "seo:sitemap:papers:version"
+	sitemapAuthorsVersionKey  = "seo:sitemap:authors:version"
+	sitemapJournalsVersionKey = "seo:sitemap:journals:version"
+	sitemapPapersLockKey      = "seo:sitemap:papers:invalidate-lock"
+	sitemapAuthorsLockKey     = "seo:sitemap:authors:invalidate-lock"
+	sitemapJournalsLockKey    = "seo:sitemap:journals:invalidate-lock"
 
 	// 合并窗口: 5 秒内的多次写入只触发 1 次版本递增
 	// 代价: sitemap 最多比写入晚 5 秒可见; 收益: cache key 不会随每次 expose 抖动

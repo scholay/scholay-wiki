@@ -1,0 +1,146 @@
+import { useRef } from 'react';
+import { useParams, Navigate, Link } from 'react-router-dom';
+import { ArrowRight, Clock } from 'lucide-react';
+import { RouteSEO } from '@/shared/components/RouteSEO';
+import { TableOfContents } from '@/shared/components/TableOfContents';
+import { HelpLayout, MetaChip } from '../components/HelpLayout';
+import { ArticleRenderer } from '../components/ArticleRenderer';
+import { FeatureJumpCTA } from '../components/FeatureJumpCTA';
+import {
+  getBlogArticleBySlug,
+  getBlogAuthor,
+  getRelatedBlogArticles,
+} from '../data/blog-articles';
+
+/**
+ * 博客详情页 —— /blog/:slug
+ *
+ * 重设计:
+ *   - 加右侧 TOC(自动从 ArticleRenderer 渲染的 h2/h3 提取)
+ *   - 作者卡 / 标签 / 相关文章卡片统一新设计语言
+ *   - 相关文章卡加 CTA 箭头
+ */
+export function BlogDetailPage() {
+  const { slug = '' } = useParams<{ slug: string }>();
+  const article = getBlogArticleBySlug(slug);
+
+  if (!article) {
+    return <Navigate to="/blog" replace />;
+  }
+
+  const author = getBlogAuthor(article.author);
+  const related = getRelatedBlogArticles(slug, 4);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  return (
+    <HelpLayout
+      breadcrumbs={[
+        { label: '帮助中心', to: '/help' },
+        { label: '博客', to: '/blog' },
+        { label: article.category },
+      ]}
+      eyebrow={article.category}
+      title={article.title}
+      lead={article.excerpt}
+      metaChips={
+        <>
+          {author && (
+            <MetaChip>
+              {author.name} · {author.role}
+            </MetaChip>
+          )}
+          <MetaChip>
+            <Clock className="size-3 mr-1 inline" />
+            {article.readTime}
+          </MetaChip>
+          <MetaChip>{article.date}</MetaChip>
+          {article.updatedDate && article.updatedDate !== article.date && (
+            <MetaChip>更新 {article.updatedDate}</MetaChip>
+          )}
+        </>
+      }
+      toc={<TableOfContents contentRef={contentRef} />}
+    >
+      <RouteSEO
+        title={`${article.title} | Scholay 博客`}
+        description={article.excerpt}
+        keywords={[article.category, ...article.tags, 'Scholay 博客', '学术文章'].join(',')}
+        canonical={`/blog/${article.slug}`}
+      />
+      <div ref={contentRef}>
+        <ArticleRenderer sections={article.content} />
+      </div>
+
+      {/* 标签 */}
+      {article.tags.length > 0 && (
+        <div className="mt-10 flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs text-faint">标签:</span>
+          {article.tags.map((t) => (
+            <span
+              key={t}
+              className="inline-flex items-center h-5 px-2 rounded-sm bg-surface-1 text-2xs text-muted-foreground"
+            >
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* 作者卡 —— 升级:加 brand-green soft 头像背景 + 更宽 padding */}
+      {author && (
+        <section className="mt-10 p-6 rounded-lg bg-surface-1 border border-border-soft">
+          <div className="flex items-start gap-4">
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-pill bg-brand-green text-background text-base font-bold shrink-0">
+              {author.name.slice(0, 1)}
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <p className="text-sm font-bold text-foreground">
+                  {author.name}
+                </p>
+                <span className="text-xs text-muted-foreground">
+                  · {author.role}
+                </span>
+              </div>
+              <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
+                {author.bio}
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 文章读完 → 引导回产品 */}
+      <div className="mt-12">
+        <FeatureJumpCTA />
+      </div>
+
+      {related.length > 0 && (
+        <section className="mt-12 pt-8 border-t border-border-soft">
+          <h2 className="text-base font-bold text-foreground mb-4">相关文章</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {related.map((r) => (
+              <Link
+                key={r.slug}
+                to={`/blog/${r.slug}`}
+                className="group flex flex-col gap-1.5 p-4 rounded-md bg-background border border-border-soft hover:border-foreground/40 transition-all hover:shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
+              >
+                <p className="text-2xs text-faint">{r.category}</p>
+                <p className="text-sm font-bold text-foreground leading-snug line-clamp-2">
+                  {r.title}
+                </p>
+                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                  {r.excerpt}
+                </p>
+                <span className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-brand-red group-hover:gap-2 transition-all">
+                  阅读全文
+                  <ArrowRight className="size-3" />
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+    </HelpLayout>
+  );
+}

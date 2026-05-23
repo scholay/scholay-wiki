@@ -10,7 +10,6 @@ package user
 import (
 	"errors"
 	"fmt"
-	ifaces "scholar-backend/internal/common/interfaces"
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
 	"time"
@@ -36,17 +35,16 @@ type MessageService interface {
 
 // 哨兵错误，用于 handler 层的错误类型判断，避免字符串比较
 var (
-	ErrSessionExpired          = errors.New("session expired, please login again")
-	ErrSessionNotFound         = errors.New("session not found")
-	ErrCurrentPasswordInvalid  = errors.New("current password is incorrect")
+	ErrSessionExpired         = errors.New("登录已过期,请重新登录")
+	ErrSessionNotFound        = errors.New("会话不存在,请重新登录")
+	ErrCurrentPasswordInvalid = errors.New("当前密码不正确")
 )
 
 // Service handles business logic for user operations
 type Service struct {
-	repo                *Repository
-	configService       ConfigService
-	messageService      MessageService
-	onlineStatsProvider ifaces.OnlineStatsProvider
+	repo           *Repository
+	configService  ConfigService
+	messageService MessageService
 }
 
 // NewService creates a new user service
@@ -65,11 +63,6 @@ func (s *Service) SetConfigService(configService ConfigService) {
 // SetMessageService sets the message service (for dependency injection)
 func (s *Service) SetMessageService(messageService MessageService) {
 	s.messageService = messageService
-}
-
-// SetOnlineStatsProvider 设置在线统计提供者（WebSocket Hub）
-func (s *Service) SetOnlineStatsProvider(provider ifaces.OnlineStatsProvider) {
-	s.onlineStatsProvider = provider
 }
 
 // GetSystemConfig gets the system configuration
@@ -128,10 +121,6 @@ func (s *Service) getUserRole(user *User) string {
 
 func (s *Service) generateTokenForUser(user *User, username string) (string, error) {
 	return utils.GenerateTokenWithRole(user.ID, username, "user", s.getUserRole(user))
-}
-
-func (s *Service) generateSessionTokenForUser(user *User, username, sessionID string) (string, error) {
-	return utils.GenerateTokenWithSessionAndRole(user.ID, username, "user", s.getUserRole(user), sessionID)
 }
 
 // ==================== Repository delegation methods (for Handler use) ====================

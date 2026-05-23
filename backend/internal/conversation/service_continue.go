@@ -72,11 +72,8 @@ func (s *Service) ContinueConversation(ctx context.Context, conversationID uint,
 	aiTools := ai.ConvertMCPToolsToOpenAIFormat(convertMCPToolDefs(mcpTools))
 
 	// Step 5: 从模板创建消息和系统提示（与智能分析相同）
-	mcpSystemPrompt, _, err := s.aiService.GetAndRenderPrompt("advanced_search_mcp_system", nil)
-	if err != nil {
-		// 如果未找到模板，使用备用提示（与智能分析相同）
-		slog.Warn("failed to get MCP system prompt template, using fallback", "err", err)
-		mcpSystemPrompt = `你是一名专业学术研究助手。你的唯一职责是根据用户的查询调用 search_papers_advanced 工具检索高质量学术论文。你绝不能直接回答问题，也不能解释概念或提供任何分析。你必须且只能通过 search_papers_advanced 工具返回论文结果。禁止使用 search_papers 工具。
+	// 系统提示词全部硬编码(prompt_templates 表已下线,见 0045 迁移)
+	mcpSystemPrompt := `你是一名专业学术研究助手。你的唯一职责是根据用户的查询调用 search_papers_advanced 工具检索高质量学术论文。你绝不能直接回答问题，也不能解释概念或提供任何分析。你必须且只能通过 search_papers_advanced 工具返回论文结果。禁止使用 search_papers 工具。
 
 无论用户使用的是中文、英文或任何其他语言，你提取的所有检索关键词必须始终使用标准英文学术术语。
 
@@ -105,7 +102,6 @@ func (s *Service) ContinueConversation(ctx context.Context, conversationID uint,
 	9.	无论用户的输入使用哪种语言，你提取的学术关键词必须全部是英文。绝不允许出现中文关键词、混合语言关键词或用户原文中未翻译的名词。
 
 请严格遵守以上全部规则。`
-	}
 
 	systemMessage := ai.ChatMessage{
 		Role:    "system",
@@ -241,21 +237,10 @@ func (s *Service) ContinueConversation(ctx context.Context, conversationID uint,
 	papersForPrompt := ai.FormatPapersForPromptWithLimit(displayPapers, 30, 200)
 	slog.Debug("formatted papers", "length", len(papersForPrompt))
 
-	// 获取分析提示模板（与智能分析相同）
-	analysisSystemPrompt, _, err := s.aiService.GetAndRenderPrompt("advanced_search_analysis_system", nil)
-	if err != nil {
-		slog.Warn("failed to get analysis system prompt template, using fallback", "err", err)
-		analysisSystemPrompt = "你是一名具有深厚研究背景的高级学术分析专家，能够对多篇论文进行深入解读、方法分析、研究发现抽象、理论联系与批判性整合，并以学术写作风格输出高质量分析报告。"
-	}
+	// 系统提示词全部硬编码(prompt_templates 表已下线,见 0045 迁移)
+	analysisSystemPrompt := "你是一名具有深厚研究背景的高级学术分析专家，能够对多篇论文进行深入解读、方法分析、研究发现抽象、理论联系与批判性整合，并以学术写作风格输出高质量分析报告。"
 
-	analysisPrompt, _, err := s.aiService.GetAndRenderPrompt("advanced_search_analysis", map[string]string{
-		"query":  userQuery,
-		"papers": papersForPrompt,
-	})
-	if err != nil {
-		// 如果未找到模板，使用备用提示（与智能分析相同）
-		slog.Warn("failed to get analysis prompt template, using fallback", "err", err)
-		analysisPrompt = fmt.Sprintf(`用户查询：%s
+	analysisPrompt := fmt.Sprintf(`用户查询：%s
 找到的论文：%s
 
 请作为一名具备跨领域知识的资深学术研究专家，对以上论文进行深度整合分析，并给出具有洞察力、逻辑严密、贴合用户问题的学术级解读。
@@ -311,7 +296,6 @@ func (s *Service) ContinueConversation(ctx context.Context, conversationID uint,
 	•	引用规范必须严格遵守
 
 请开始你的深度综合分析。`, userQuery, papersForPrompt)
-	}
 
 	analysisMessages := []ai.ChatMessage{
 		{

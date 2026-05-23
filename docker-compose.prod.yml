@@ -1,13 +1,19 @@
 # ============================================================
-# Scholar 生产环境 Docker Compose 配置
-# 
-# 使用预构建的阿里云 ACR 镜像，服务器无需编译
+# Scholay 生产环境 Docker Compose
 #
-# 使用方法:
-#   docker-compose -f docker-compose.prod.yml up -d
+# 用预构建的阿里云 ACR 镜像,服务器无需本地编译。
+#   docker-compose -f docker-compose.prod.yml pull       # 拉最新镜像
+#   docker-compose -f docker-compose.prod.yml up -d      # 启动
+#
+# 与 dev (docker-compose.yml) 主要差异:
+#   - backend / frontend-user 用 ACR 镜像 (image:),不本地 build:
+#   - JWT_SECRET / MYSQL_ROOT_PASSWORD / MINIO_ROOT_PASSWORD 等 secret 强制 required
+#   - nginx 单一对外端口 HTTP_PORT,/admin /analytics 等 v2 路径同走这个端口
+#
+# 镜像 tag 默认 `latest`;生产建议改成具体 git-sha / 版本号,通过 `IMAGE_TAG=v1.2.3` 注入。
 # ============================================================
 
-# 全局日志配置: 每个容器最多保留 7 个日志文件，每个文件最大 10MB
+# 全局日志配置: 每个容器最多保留 7 个日志文件,每个文件最大 10MB
 x-logging: &default-logging
   driver: json-file
   options:
@@ -21,10 +27,10 @@ services:
     restart: unless-stopped
     logging: *default-logging
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required in prod}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-scholar}
       MYSQL_USER: ${MYSQL_USER:-scholar_user}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-scholar_pass}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required in prod}
       TZ: Asia/Shanghai
     expose:
       - "3306"
@@ -33,7 +39,7 @@ services:
       - ./docker/mysql/conf.d:/etc/mysql/conf.d:ro
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -47,6 +53,37 @@ services:
     networks:
       - scholar-network
 
+  # MinIO 对象存储 —— 用户上传的 PDF 文件本体
+  minio:
+    image: minio/minio:latest
+    container_name: scholar_minio
+    restart: unless-stopped
+    logging: *default-logging
+    expose:
+      - "9000"
+      - "9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required in prod}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required in prod}
+      TZ: Asia/Shanghai
+    volumes:
+      - ./data/minio:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
+    networks:
+      - scholar-network
+
   redis:
     image: redis:7-alpine
     container_name: scholar_redis
@@ -56,8 +93,8 @@ services:
       - "6379"
     volumes:
       - ./data/redis:/data
-    # AOF: appendfsync everysec 显式声明（每秒 fsync，性能/持久化平衡的常规选择）
-    # slowlog: 记录 >10ms 的命令，最多保留 256 条，用于排查热点 key 与慢命令
+    # AOF: appendfsync everysec (每秒 fsync,性能/持久化平衡)
+    # slowlog: 记录 >10ms 命令,最多 256 条,排查热点 key
     command: >-
       redis-server
       --appendonly yes
@@ -90,8 +127,10 @@ services:
       DB_HOST: mysql
       DB_PORT: 3306
       MYSQL_USER: ${MYSQL_USER:-scholar_user}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-scholar_pass}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required in prod}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-scholar}
+      # run-migrations.sh 用 root 自动 CREATE umami 库并 GRANT 给 scholar_user
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required in prod}
     volumes:
       - ./docker/mysql/migrations:/docker-entrypoint-initdb.d/migrations:ro
       - ./scripts:/app/scripts:ro
@@ -104,7 +143,7 @@ services:
     restart: "no"
 
   backend:
-    image: crpi-ebrftpuujezamyxv.cn-shanghai.personal.cr.aliyuncs.com/scholay/backend:latest
+    image: ${REGISTRY:-crpi-ebrftpuujezamyxv.cn-shanghai.personal.cr.aliyuncs.com}/scholay/backend:${IMAGE_TAG:-latest}
     container_name: scholar_backend
     restart: unless-stopped
     logging: *default-logging
@@ -112,23 +151,26 @@ services:
       DB_HOST: mysql
       DB_PORT: 3306
       DB_USER: ${MYSQL_USER:-scholar_user}
-      DB_PASSWORD: ${MYSQL_PASSWORD:-scholar_pass}
+      DB_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required in prod}
       DB_NAME: ${MYSQL_DATABASE:-scholar}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       REDIS_DB: 0
-      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+      # 生产硬要求自带 JWT_SECRET —— 不允许走默认占位符
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required in prod (>=32 chars random)}
       SERVER_PORT: 8080
       ADMIN_INITIAL_USERNAME: ${ADMIN_INITIAL_USERNAME:-admin}
-      ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:-adminadmin}
+      ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:?ADMIN_INITIAL_PASSWORD is required in prod}
+      # 旧前端 frontend-user URL —— 后端发送邮件等场景里拼链接用
       FRONTEND_USER_URL: http://frontend-user:80
-      # 站点 / 第三方服务地址 —— 来源是 .env 的 SITE_URL 等单一变量,这里 fan-out 给 backend
-      SEO_BASE_URL: ${SITE_URL:-https://www.scholay.com}
+      # 站点 / 第三方服务地址(单一来源 .env 的 SITE_URL/SITE_NAME/..., fan-out 给 backend)
+      SEO_BASE_URL: ${SITE_URL:?SITE_URL is required in prod}
+      SITE_NAME: ${SITE_NAME:-Scholay}
       SUPPORT_EMAIL: ${SUPPORT_EMAIL:-support@scholay.com}
       UNPAYWALL_EMAIL: ${UNPAYWALL_EMAIL:-api@scholay.com}
       PDF_SERVICE_URL: ${PDF_SERVICE_URL:-https://pdf.scholay.com/api/v1/pdf}
-      # 主动 SEO 提交(详见 .env 注释段)
+      # 主动 SEO 提交 (详见 .env 注释段)
       SEO_SUBMIT_ENABLED: ${SEO_SUBMIT_ENABLED:-false}
       INDEXNOW_ENABLED: ${INDEXNOW_ENABLED:-false}
       INDEXNOW_KEY: ${INDEXNOW_KEY:-}
@@ -138,6 +180,20 @@ services:
       BAIDU_PUSH_DAILY_QUOTA: ${BAIDU_PUSH_DAILY_QUOTA:-1000}
       SEO_PUSH_WORKER_INTERVAL_SECONDS: ${SEO_PUSH_WORKER_INTERVAL_SECONDS:-300}
       SEO_PUSH_BATCH_SIZE: ${SEO_PUSH_BATCH_SIZE:-100}
+      # peer-review V2 外部审稿服务
+      PEER_REVIEW_API_KEY: ${PEER_REVIEW_API_KEY:-}
+      PEER_REVIEW_BASE_URL: ${PEER_REVIEW_BASE_URL:-https://peer.scholay.com}
+      # MinIO 对象存储 (用户上传 PDF)
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-scholarminio}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required in prod}
+      MINIO_BUCKET_PAPER_PDFS: ${MINIO_BUCKET_PAPER_PDFS:-scholar-paper-pdfs}
+      MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
+      # CORS 白名单 —— 生产必须列具体 origin
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS is required in prod}
+      # Umami HTTP API 接入 —— admin /analytics 走 backend 自渲染图表
+      UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-}
+      # Go memory limit (75% of container memory limit)
       GOMEMLIMIT: 768MiB
     expose:
       - "8080"
@@ -145,6 +201,8 @@ services:
       mysql:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      minio:
         condition: service_healthy
       schema-sync:
         condition: service_completed_successfully
@@ -158,23 +216,58 @@ services:
       - scholar-network
 
   frontend-user:
-    image: crpi-ebrftpuujezamyxv.cn-shanghai.personal.cr.aliyuncs.com/scholay/frontend-user:latest
+    image: ${REGISTRY:-crpi-ebrftpuujezamyxv.cn-shanghai.personal.cr.aliyuncs.com}/scholay/frontend-user:${IMAGE_TAG:-latest}
     container_name: scholar_frontend_user
     restart: unless-stopped
     logging: *default-logging
     expose:
       - "80"
-    environment:
-      - NODE_ENV=production
-      - BACKEND_URL=http://scholar_backend:8080
     depends_on:
       - backend
     deploy:
       resources:
         limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    networks:
+      - scholar-network
+
+
+  # Umami 自托管分析 —— 单容器,共用 scholar_mysql 的 `umami` 库
+  # (schema-sync 首次启动自动创建 umami 库 + 授权;umami 内部 prisma 跑建表)
+  # UI 不对外,admin /analytics 走 backend HTTP API 自渲染图表。
+  umami:
+    image: ghcr.io/umami-software/umami:mysql-latest
+    container_name: scholar_umami
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      DATABASE_TYPE: mysql
+      DATABASE_URL: mysql://${MYSQL_USER:-scholar_user}:${MYSQL_PASSWORD}@mysql:3306/umami
+      APP_SECRET: ${UMAMI_APP_SECRET:?UMAMI_APP_SECRET is required in prod (>=32 chars random)}
+      DISABLE_TELEMETRY: "1"
+      TRACKER_SCRIPT_NAME: script
+      TZ: Asia/Shanghai
+    expose:
+      - "3000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      schema-sync:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:3000/login >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
           memory: 512M
         reservations:
-          memory: 256M
+          memory: 128M
     networks:
       - scholar-network
 
@@ -184,8 +277,7 @@ services:
     restart: unless-stopped
     logging: *default-logging
     ports:
-      # 单一对外入口: /admin 路由由同一个 SPA 处理(权限在后端 JWT 校验)
-      # 原独立 admin 端口 8001 已下线
+      # 主入口 (含 /admin 路径)。umami UI / tracker 都通过这个端口的反代,不另开端口。
       - "${HTTP_PORT:-5411}:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
@@ -193,6 +285,7 @@ services:
     depends_on:
       - backend
       - frontend-user
+      - umami
     deploy:
       resources:
         limits:

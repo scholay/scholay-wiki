@@ -1,0 +1,149 @@
+import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Button } from '@/shared/ui/button';
+import { BrandLogo } from '@/shared/components/BrandLogo';
+import { Footer } from '@/shared/components/Footer';
+import { RouteSEO } from '@/shared/components/RouteSEO';
+import { SidebarLayout } from '@/shared/components/sidebar';
+import { SearchAutocomplete } from '@/shared/components/SearchAutocomplete';
+import {
+  useOpenAuthorInBrowser,
+  useOpenJournalInBrowser,
+  useOpenPaperInBrowser,
+} from '@/shared/hooks';
+import { useAuthDialog } from '@/stores/auth-dialog.store';
+import { useAuthStore } from '@/stores/auth.store';
+import { HomeSidebar } from './components/HomeSidebar';
+
+/**
+ * 首页 — 对齐 .pen frame `lXZ2Y` [01-主页] 首页 + `n0GFZR` [Sidebar] 首页 · 全功能:
+ *   - 左侧 HomeSidebar(展开态):4 段菜单 showcase
+ *   - 主区:多色 Logo + tagline + 640×48 搜索条(自带联想下拉)+ 智能搜索 CTA
+ *
+ * 搜索条用 <SearchAutocomplete>:
+ *   - 输入触发 /public/search/suggestions 多源 fan-out(STC/OLX/PMD)
+ *   - 同时触发 /public/journals/suggest 期刊联想
+ *   - 选中论文项 → /search?q=<title>;选中期刊项 → /journals/:id(占位)
+ *   - 直接回车 / 点搜索按钮 → /search?q=<input>
+ */
+export function HomePage() {
+  const [q, setQ] = useState('');
+  const navigate = useNavigate();
+  const openDialog = useAuthDialog((s) => s.openDialog);
+  const user = useAuthStore((s) => s.user);
+  const openPaper = useOpenPaperInBrowser();
+  const openJournal = useOpenJournalInBrowser();
+  const openAuthor = useOpenAuthorInBrowser();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // /settings/* loader 把未登录用户 redirect 到 /?login=required。
+  // 拿到后立即弹 AuthDialog,然后清掉 query 避免刷新页面又弹一次。
+  useEffect(() => {
+    if (searchParams.get('login') === 'required' && !user) {
+      openDialog('login');
+      const next = new URLSearchParams(searchParams);
+      next.delete('login');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, user, openDialog, setSearchParams]);
+
+  const goSearch = (query: string) => {
+    if (!query.trim()) {
+      navigate('/search');
+      return;
+    }
+    navigate(`/search?q=${encodeURIComponent(query.trim())}`);
+  };
+
+  const handleSmartSearch = () => {
+    // 智能搜索目前是占位预览(SmartSearchPreview),登录与否都能看,直接跳。
+    // q 带上做为后续上线后的关键词预填,mode=smart 让 SearchPage 进入智能 tab。
+    const trimmed = q.trim();
+    const params = new URLSearchParams();
+    if (trimmed) params.set('q', trimmed);
+    params.set('mode', 'smart');
+    navigate(`/search?${params.toString()}`);
+  };
+
+  return (
+    <SidebarLayout sidebar={<HomeSidebar />}>
+      <RouteSEO
+        title="Scholay - AI 驱动的学术搜索平台 | 智能文献检索与分析"
+        description="Scholay 是一个 AI 驱动的学术搜索平台,提供智能文献检索、论文分析、引用图谱可视化、文献集管理、智能审稿与 LaTeX 协作写作等功能。覆盖全球 3 亿+ 学术论文,助你高效科研。"
+        keywords="学术搜索,论文检索,文献查找,AI 论文分析,学术资源,科研工具,智能搜索,Scholay,文献综述,LaTeX 写作,期刊查询,学者主页"
+        canonical="/"
+      />
+
+      {/* 撑满主区:hero 区 flex-1 居中,Footer 固定底部。
+          首页 + 后续宣传页才有 footer,功能页(搜索/Prism/审稿等)不挂。 */}
+      <div className="flex flex-col min-h-full">
+        <div className="flex-1 flex flex-col items-center pt-24 pb-24 px-6">
+          <BrandLogo size="xl" />
+          <p className="mt-6 text-sm text-muted-foreground">
+            学术搜索 · AI 审稿 · LaTeX 协作
+          </p>
+
+          {/* 搜索条 + 联想下拉(.pen `azjev` Search Autocomplete State) */}
+          <div className="mt-10 w-full flex justify-center">
+            <SearchAutocomplete
+              value={q}
+              onChange={setQ}
+              onSubmit={goSearch}
+              onSearchJournals={(query) =>
+                navigate(
+                  query.trim()
+                    ? `/journals/search?q=${encodeURIComponent(query.trim())}`
+                    : '/journals/search'
+                )
+              }
+              onPickJournal={(j) =>
+                openJournal({
+                  id: j.id,
+                  canonical_name: j.canonical_name,
+                })
+              }
+              onPickPaper={(p) =>
+                openPaper({
+                  paperId: p.id,
+                  title: p.title,
+                  source: p.source,
+                })
+              }
+              onPickAuthor={(a) => {
+                if (!a.authorId) return;
+                openAuthor({
+                  authorId: a.authorId,
+                  name: a.name ?? '',
+                  affiliations: a.affiliations,
+                  paperCount: a.paperCount,
+                  hIndex: a.hIndex,
+                  source: a.source,
+                });
+              }}
+            />
+          </div>
+
+          {/* 智能搜索 CTA — .pen `C724y`: 红底白字 14/600,圆角 4,padding [9,24]
+             目前智能搜索仍是占位预览,挂"即将推出" amber 角标提醒用户。 */}
+          <div className="relative mt-5">
+            <Button
+              onClick={handleSmartSearch}
+              variant="destructive"
+              className="h-10 px-6 text-sm font-semibold"
+            >
+              智能搜索
+            </Button>
+            <span
+              aria-hidden="true"
+              className="absolute -top-2 -right-3 inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-background text-[9px] font-bold leading-none whitespace-nowrap shadow-sm"
+            >
+              即将推出
+            </span>
+          </div>
+        </div>
+
+        <Footer />
+      </div>
+    </SidebarLayout>
+  );
+}

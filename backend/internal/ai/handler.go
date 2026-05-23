@@ -8,9 +8,6 @@
 package ai
 
 import (
-	"strconv"
-
-	"scholar-backend/internal/admin"
 	"scholar-backend/internal/common/sse"
 	"scholar-backend/internal/common/utils"
 
@@ -30,162 +27,6 @@ func NewHandler(service *Service) *Handler {
 	return &Handler{
 		service: service,
 	}
-}
-
-// ListPromptTemplates lists all prompt templates
-func (h *Handler) ListPromptTemplates(c *gin.Context) {
-	templates, err := h.service.ListPromptTemplates()
-	if err != nil {
-		utils.Error(c, 500, "Failed to list templates: "+err.Error())
-		return
-	}
-
-	utils.Success(c, gin.H{
-		"templates": templates,
-		"total":     len(templates),
-	})
-}
-
-// GetPromptTemplate gets a prompt template by ID
-func (h *Handler) GetPromptTemplate(c *gin.Context) {
-	id, ok := utils.ParseUintParam(c, "id")
-	if !ok {
-		return
-	}
-
-	template, err := h.service.GetPromptTemplateByID(id)
-	if err != nil {
-		utils.Error(c, 404, "Template not found")
-		return
-	}
-
-	utils.Success(c, template)
-}
-
-// CreatePromptTemplate creates a new prompt template
-func (h *Handler) CreatePromptTemplate(c *gin.Context) {
-	var req struct {
-		Name        string `json:"name" binding:"required"`
-		Key         string `json:"key" binding:"required"`
-		Template    string `json:"template" binding:"required"`
-		Description string `json:"description"`
-		IsActive    bool   `json:"is_active"` // Frontend sends bool, we'll convert
-	}
-
-	if !utils.BindJSON(c, &req) {
-		return
-	}
-
-	isActive := 0
-	if req.IsActive {
-		isActive = 1
-	}
-
-	template := &PromptTemplate{
-		Name:        req.Name,
-		Key:         req.Key,
-		Template:    req.Template,
-		Description: req.Description,
-		IsActive:    isActive,
-	}
-
-	if err := h.service.CreatePromptTemplate(template); err != nil {
-		utils.Error(c, 500, "Failed to create template: "+err.Error())
-		return
-	}
-
-	utils.Success(c, template)
-}
-
-// UpdatePromptTemplate updates a prompt template
-func (h *Handler) UpdatePromptTemplate(c *gin.Context) {
-	id, ok := utils.ParseUintParam(c, "id")
-	if !ok {
-		return
-	}
-
-	var req struct {
-		Name        string `json:"name" binding:"required"`
-		Template    string `json:"template" binding:"required"`
-		Description string `json:"description"`
-		IsActive    bool   `json:"is_active"` // Frontend sends bool, we'll convert
-	}
-
-	if !utils.BindJSON(c, &req) {
-		return
-	}
-
-	template, err := h.service.GetPromptTemplateByID(id)
-	if err != nil {
-		utils.Error(c, 404, "Template not found")
-		return
-	}
-
-	// 在覆盖前快照旧版本(失败仅打日志,不阻断 update)
-	uid, _ := utils.GetUserID(c)
-	username, _ := c.Get("username")
-	usernameStr, _ := username.(string)
-	if snapErr := SnapshotPromptTemplate(template, uid, usernameStr, "auto: pre-update"); snapErr != nil {
-		// 不 abort,只 warn
-		_ = snapErr
-	}
-
-	isActive := 0
-	if req.IsActive {
-		isActive = 1
-	}
-
-	template.Name = req.Name
-	template.Template = req.Template
-	template.Description = req.Description
-	template.IsActive = isActive
-
-	if err := h.service.UpdatePromptTemplate(template); err != nil {
-		utils.Error(c, 500, "Failed to update template: "+err.Error())
-		return
-	}
-
-	utils.Success(c, template)
-}
-
-// ListPromptTemplateVersionsHandler GET /api/v1/admin/prompt-templates/:id/versions
-func (h *Handler) ListPromptTemplateVersionsHandler(c *gin.Context) {
-	id, ok := utils.ParseUintParam(c, "id")
-	if !ok {
-		return
-	}
-	rows, err := ListPromptTemplateVersions(id, 50)
-	if err != nil {
-		utils.Error(c, 500, "Failed to list versions")
-		return
-	}
-	utils.Success(c, gin.H{"items": rows, "total": len(rows)})
-}
-
-// DeletePromptTemplate deletes a prompt template
-func (h *Handler) DeletePromptTemplate(c *gin.Context) {
-	id, ok := utils.ParseUintParam(c, "id")
-	if !ok {
-		return
-	}
-
-	// 删前抓 key/name 用于审计
-	tpl, _ := h.service.GetPromptTemplateByID(id)
-
-	if err := h.service.DeletePromptTemplate(id); err != nil {
-		utils.Error(c, 500, "Failed to delete template: "+err.Error())
-		return
-	}
-
-	if tpl != nil {
-		admin.LogAdminAction(c, admin.ActionDelete, admin.ResPromptTemplate,
-			strconv.FormatUint(uint64(id), 10), gin.H{
-				"key":  tpl.Key,
-				"name": tpl.Name,
-			})
-	}
-
-	utils.Success(c, gin.H{"message": "Template deleted successfully"})
 }
 
 // AnalyzePaperRequest 论文分析请求结构
@@ -253,7 +94,7 @@ func (h *Handler) BatchAnalyzePapers(c *gin.Context) {
 		return
 	}
 	if len(dimensionResult.Dimensions) == 0 {
-		utils.Error(c, 500, "No active analysis dimensions found")
+		utils.Error(c, 500, "未配置分析维度,请联系管理员")
 		return
 	}
 
@@ -300,7 +141,7 @@ func (h *Handler) AnalyzePaper(c *gin.Context) {
 	}
 
 	if req.Abstract == "" {
-		utils.Error(c, 400, "Abstract is required for analysis")
+		utils.Error(c, 400, "请提供论文摘要后再分析")
 		return
 	}
 
@@ -366,6 +207,88 @@ func (h *Handler) GetAnalysisDimensions(c *gin.Context) {
 		"maxDimensions": MaxUserDimensions, // 最大维度数量
 		"customCount":   customCount,       // 用户新增的自定义维度数量
 	})
+}
+
+// GetDimensionSettings 获取设置面板用的全量维度列表（含已隐藏）
+// GET /api/v1/analysis/dimensions/settings
+//
+// 与 /dimensions 区别:本接口**包含被隐藏 / 被停用的维度**,供"设置列"
+// 面板让用户重新开启;每条多带 isSystem / isCustomized 派生字段。
+func (h *Handler) GetDimensionSettings(c *gin.Context) {
+	uid, ok := utils.GetUserID(c)
+	if !ok {
+		return
+	}
+
+	items, err := h.service.GetAllDimensionsForSettings(uid)
+	if err != nil {
+		utils.Error(c, 500, "Failed to load dimension settings: "+err.Error())
+		return
+	}
+
+	utils.Success(c, gin.H{
+		"dimensions":    items,
+		"total":         len(items),
+		"maxDimensions": MaxUserDimensions,
+	})
+}
+
+// SetDimensionVisibilityRequest 设置可见性请求
+type SetDimensionVisibilityRequest struct {
+	DimensionKey string `json:"dimensionKey" binding:"required"`
+	Visible      bool   `json:"visible"`
+}
+
+// SetDimensionVisibility 切换某维度对当前用户的可见性
+// PATCH /api/v1/analysis/dimensions/visibility
+//
+// 隐藏系统维度时走 override 模式 —— 后端克隆系统行创建 user_id>0 的副本
+// 并把 IsHidden 置 true,**永不修改系统 (user_id=-1) 行**。
+func (h *Handler) SetDimensionVisibility(c *gin.Context) {
+	uid, ok := utils.GetUserID(c)
+	if !ok {
+		return
+	}
+
+	var req SetDimensionVisibilityRequest
+	if !utils.BindJSON(c, &req) {
+		return
+	}
+
+	dim, err := h.service.SetDimensionVisibility(uid, req.DimensionKey, req.Visible)
+	if err != nil {
+		utils.Error(c, 500, "Failed to update visibility: "+err.Error())
+		return
+	}
+
+	utils.Success(c, dim)
+}
+
+// ReorderDimensionsRequest 重排维度顺序请求 —— orderedKeys 是按新顺序排列的
+// dimension_key 数组,后端按下标 +1 写 sort_order。
+type ReorderDimensionsRequest struct {
+	OrderedKeys []string `json:"orderedKeys" binding:"required,min=1,dive,required"`
+}
+
+// ReorderDimensions 批量重排当前用户视角下的维度顺序
+// PATCH /api/v1/analysis/dimensions/reorder
+//
+// 三类维度统一走 override 语义:系统维度若用户无 override,本接口会为该用户
+// 克隆系统数据生成一条 override 行,以记录新 sort_order。永不修改 user_id=-1 行。
+func (h *Handler) ReorderDimensions(c *gin.Context) {
+	uid, ok := utils.GetUserID(c)
+	if !ok {
+		return
+	}
+	var req ReorderDimensionsRequest
+	if !utils.BindJSON(c, &req) {
+		return
+	}
+	if err := h.service.ReorderDimensions(uid, req.OrderedKeys); err != nil {
+		utils.Error(c, 500, "Failed to reorder dimensions: "+err.Error())
+		return
+	}
+	utils.Success(c, gin.H{"ok": true})
 }
 
 // GetSystemDimensions 获取系统默认分析维度
@@ -478,7 +401,7 @@ func (h *Handler) ResetUserDimension(c *gin.Context) {
 
 	dimensionKey := c.Param("dimensionKey")
 	if dimensionKey == "" {
-		utils.Error(c, 400, "Dimension key is required")
+		utils.Error(c, 400, "请提供分析维度")
 		return
 	}
 
@@ -522,7 +445,7 @@ func (h *Handler) CopySystemDimensionsToUser(c *gin.Context) {
 	}
 
 	if len(existingDimensions) > 0 {
-		utils.Error(c, 400, "User already has custom dimensions")
+		utils.Error(c, 400, "你已自定义维度,无需重置")
 		return
 	}
 

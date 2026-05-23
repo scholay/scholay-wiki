@@ -1,0 +1,36 @@
+-- ============================================================================
+-- 0046: 下线"隐私政策 / 服务条款"系统 (与早期 privacy_policies / terms_of_service 互逆)
+--
+-- 背景:
+--   早期把这两份法律文本做成数据库驱动 + admin 后台可编辑 + 多版本归档:
+--     privacy_policies   — 多版本,is_active 标当前生效版
+--     terms_of_service   — 同款
+--   配套有公开读接口 (GET /api/v1/config/privacy-policy / terms-of-service),
+--   admin PUT 写接口,以及启动时 Initialize* 兜底种子。
+--
+--   实际产品几乎不改这两份文本(改一次法律审一次,频率 < 1 次/年),
+--   维护数据库版本 + admin 编辑界面的成本远大于灵活性。改为代码常量:
+--     frontend-v2/src/features/help/legal-content.ts
+--   前端直接渲染常量,bump CONTENT_VERSION + 走代码评审 + 发版生效。
+--
+-- 删除内容:
+--   privacy_policies     — 隐私政策表
+--   terms_of_service     — 服务条款表
+--
+-- 配套删除(代码侧,迁移外):
+--   internal/config/handler_policy.go            (整文件)
+--   internal/common/model/privacy_policy.go      (整文件)
+--   internal/common/model/terms_of_service.go    (整文件)
+--   internal/config/service.go    PrivacyPolicy / TermsOfService 方法
+--   internal/config/repository.go PrivacyPolicy / TermsOfService 方法
+--   cmd/server/bootstrap_core.go  Initialize* 调用
+--   cmd/server/routes_admin.go    PUT /privacy-policy + /terms-of-service
+--   internal/config/handler.go    GET /config/privacy-policy + /terms-of-service
+--   frontend-v2 SystemConfigPage  两个 tab + system-config.ts privacy/tos hook
+--   frontend-v2 help/api/legal.ts (整文件) + PrivacyPage/TermsPage 改用常量
+--
+-- 幂等: DROP TABLE IF EXISTS,重放安全。
+-- ============================================================================
+
+DROP TABLE IF EXISTS `privacy_policies`;
+DROP TABLE IF EXISTS `terms_of_service`;

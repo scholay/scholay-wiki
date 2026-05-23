@@ -15,16 +15,18 @@ package main
 
 import (
 	"scholar-backend/internal/announcement"
+	"scholar-backend/internal/clientlog"
 	"scholar-backend/internal/common/cleanup"
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/database"
-	"scholar-backend/internal/common/middleware"
+	"scholar-backend/internal/library"
 	"scholar-backend/internal/peerreview"
 	"scholar-backend/internal/seo"
 	"scholar-backend/internal/seosubmit"
+	"scholar-backend/internal/stagingarea"
 	"scholar-backend/internal/thirdparty"
+	"scholar-backend/internal/umami"
 	"scholar-backend/internal/user"
-	"scholar-backend/internal/usertag"
 	"scholar-backend/internal/wechat"
 	"scholar-backend/internal/websocket"
 )
@@ -50,9 +52,6 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	cleanupService := cleanup.NewCleanupService(db)
 	cleanupService.Start()
 
-	sessionValidator := middleware.NewCachedSessionValidator(db)
-	middleware.SetSessionValidator(sessionValidator)
-
 	// ---- 各域构造 ----
 	core := initCore(db, cfg)
 	aiB := initAI(db, cfg)
@@ -61,9 +60,6 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	wechatService, wechatHandler, wechatOfficialHandler := initWeChatDomain(db, aiB.aiService)
 
 	// ---- 跨域注入 ----
-	// core 域：admin → user（admin 登录复用 user session）
-	core.admin.SetSessionCreator(core.userService)
-
 	// core 域：config → user/feedback（邮件发送依赖 config）
 	core.userService.SetConfigService(core.configService)
 	core.feedbackService.SetConfigService(core.configService)
@@ -83,8 +79,19 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// platform → config（/author/{slug} SSR 元数据提供）
 	core.configHandler.SetAuthorSEOProvider(&authorSEOProviderAdapter{svc: plat.seoService})
 
+	// platform → config (/journal/{id}/{slug} SSR 元数据提供)
+	core.configHandler.SetJournalSEOProvider(&journalSEOProviderAdapter{svc: plat.seoService})
+
+	// wechat → config（public /config/system 返回 wechat_enabled 给前端 OAuth 按钮用)
+	// 走 GetActiveConfig() 是否非空判断,避免 config 包直接 import wechat 包形成循环依赖。
+	core.configHandler.SetWeChatOAuthEnabledProbe(func() bool {
+		cfg, err := wechatService.GetActiveConfig()
+		return err == nil && cfg != nil && cfg.AppID != "" && cfg.AppSecret != ""
+	})
+
 	// AI → seo（作者详情命中 → tier=1 写入 seo_authors）
 	aiB.minicodHandler.SetAuthorSEORecorder(&authorSEORecorderAdapter{svc: plat.seoService})
+	aiB.minicodHandler.SetJournalSEORecorder(&journalSEORecorderAdapter{svc: plat.seoService})
 
 	// seo → seosubmit (paper/author 写入后入队主动推送)
 	plat.seoService.SetPushSubmitter(plat.seoSubmitService)
@@ -100,13 +107,6 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 
 	// message + ws：站内信实时推送
 	plat.message.SetWebSocketHub(plat.wsHub)
-
-	// ws → user：会话心跳 + 快照记录 + 在线人数统计
-	plat.wsHub.SetSessionUpdater(core.userService)
-	plat.wsHub.SetSnapshotRecorder(core.userService)
-	core.userService.SetOnlineStatsProvider(plat.wsHub)
-	core.userHandler.SetOnlineStatsProvider(plat.wsHub)
-	core.dashboard.SetOnlineStatsProvider(plat.wsHub)
 
 	// message → user（注册欢迎信）
 	core.userService.SetMessageService(plat.message.GetAdapter())
@@ -139,6 +139,7 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 			message:         plat.message,
 			feedback:        core.feedback,
 			peerReview:      aiB.peerReviewHandler,
+			peerReview2:     aiB.peerReview2Handler,
 			latexWriter:     aiB.latexWriter,
 			latexAgentAdmin: aiB.latexAgentAdmin,
 			ws:              plat.wsHandler,
@@ -146,7 +147,15 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 			mcpUnified:      aiB.mcpUnified,
 			mcpLegacy:       aiB.mcpLegacy,
 			announcement:    announcement.NewHandler(),
-			userTag:         usertag.NewHandler(),
+			library: library.NewHandler(library.Deps{
+				Minicod: aiB.minicodManager,
+				AI:      aiB.aiService,
+			}),
+			stagingArea:     stagingarea.NewHandler(),
+			clientLog:       clientlog.NewHandler(),
+			// umami 嵌入式代登 —— 用 .env 配置或缺省 admin/umami 默认账号自动 login
+			// umami:3000 + 默认 admin/umami 都写死在 client.go 里,这里只把 WebsiteID 传进去
+			umami: umami.NewHandler(umami.NewClient("", "", "", appconfig.AppConfig.Umami.WebsiteID)),
 		},
 		userService:       core.userService,
 		peerReviewService: aiB.peerReviewService,

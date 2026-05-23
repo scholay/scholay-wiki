@@ -10,33 +10,20 @@ package admin
 import (
 	"fmt"
 	"log/slog"
-	"scholar-backend/internal/common/database"
 	"scholar-backend/internal/common/utils"
 	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
-// SessionCreator creates user sessions (implemented by user.Service).
-type SessionCreator interface {
-	CreateSession(userID uint, token, ip, userAgent string, expiresIn time.Duration) error
-}
-
 // Handler handles HTTP requests for admin operations
 type Handler struct {
-	service        *Service
-	sessionCreator SessionCreator
+	service *Service
 }
 
 // NewHandler creates a new admin handler
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
-}
-
-// SetSessionCreator injects a session creator used during admin login.
-func (h *Handler) SetSessionCreator(sc SessionCreator) {
-	h.sessionCreator = sc
 }
 
 // LoginRequest represents a login request
@@ -78,18 +65,12 @@ func (h *Handler) Login(c *gin.Context) {
 	ip := c.ClientIP()
 	ua := c.GetHeader("User-Agent")
 
-	if h.sessionCreator != nil {
-		if err := h.sessionCreator.CreateSession(adminUser.ID, token, ip, ua, utils.MaxSessionAge); err != nil {
-			slog.Error("failed to create admin session", "admin_id", adminUser.ID, "err", err)
-		}
-	}
-
 	// 异常登录检测:首次登录、IP 变化都告警(写 audit + log)
 	// 把 adminUser.ID/Username 临时塞进 ctx 让 audit log 能识别操作人
 	c.Set("user_id", adminUser.ID)
 	c.Set("username", adminUser.Username)
 	c.Set("user_role", adminUser.Role)
-	if ipChanged(adminUser.LastLoginAt, c, adminUser.ID, ip) {
+	if ipChanged(adminUser.LastLoginIP, ip) {
 		LogAdminAction(c, "abnormal_login", ResUser,
 			fmt.Sprintf("%d", adminUser.ID), gin.H{
 				"current_ip": ip,
@@ -106,24 +87,13 @@ func (h *Handler) Login(c *gin.Context) {
 	})
 }
 
-// ipChanged 判断是否是新 IP 登录(首次登录或 IP 与上次不同)
-//
-// 这里用 user_sessions 表的最近一条记录跟当前 ip 比较,而不是依赖 user.last_login_ip
-// (后者在 admin 流程未必有维护)。
-func ipChanged(lastLoginAt *time.Time, c *gin.Context, userID uint, currentIP string) bool {
-	// 没有上次登录,首次登录视为新 IP
-	if lastLoginAt == nil {
+// ipChanged 判断是否是新 IP 登录(首次登录或 IP 与上次不同).
+// 数据源切到 users.last_login_ip,user_sessions 表已下线。
+func ipChanged(lastIP *string, currentIP string) bool {
+	if lastIP == nil || *lastIP == "" {
 		return true
 	}
-	var lastIP string
-	database.GetDB().Table("user_sessions").
-		Select("ip").
-		Where("user_id = ?", userID).
-		Order("id DESC").
-		Limit(1).
-		Offset(1). // 跳过本次刚创建的 session
-		Scan(&lastIP)
-	return lastIP != "" && lastIP != currentIP
+	return *lastIP != currentIP
 }
 
 // GetProfile handles getting admin profile + permission metadata.

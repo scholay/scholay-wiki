@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/httpclient"
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
@@ -59,11 +60,11 @@ type AppleUserInfo struct {
 func (h *Handler) GetAppleLoginURL(c *gin.Context) {
 	appleConfig, err := h.service.GetAppleOAuthConfig()
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get Apple OAuth config")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "加载 Apple 登录配置失败,请稍后重试")
 		return
 	}
 	if appleConfig == nil || appleConfig.ServiceID == "" || !appleConfig.Enabled {
-		utils.ErrorResponse(c, http.StatusServiceUnavailable, "Apple login is not configured")
+		utils.ErrorResponse(c, http.StatusServiceUnavailable, "Apple 登录未配置或不可用")
 		return
 	}
 
@@ -82,6 +83,54 @@ func (h *Handler) GetAppleLoginURL(c *gin.Context) {
 	})
 }
 
+// GetAppleBindURL —— 已登录用户从「设置 → 已连接账号」点「绑定 Apple」时调用。
+//
+// 与 GetAppleLoginURL 的区别:
+//   - 受 user auth 中间件保护(JWT 必填)
+//   - 在 Redis 颁发 bind_nonce 把 user_id 暂存,把 "bind:<nonce>" 嵌进 OAuth state
+//   - AppleCallback 解析 state,匹配 "bind:" 前缀就走绑定分支,不走 login
+//
+// 为啥不复用 GetAppleLoginURL 加 ?mode=bind:那个端点是 public 路由(无 auth),
+// 要在那里识别 mode 还得手动 verify JWT、处理 401 等,逻辑分支重而易错。独立
+// endpoint 走 protected 路由,职责单一,安全边界清晰。
+func (h *Handler) GetAppleBindURL(c *gin.Context) {
+	userID, ok := utils.GetUserID(c)
+	if !ok {
+		return
+	}
+
+	appleConfig, err := h.service.GetAppleOAuthConfig()
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "加载 Apple 登录配置失败,请稍后重试")
+		return
+	}
+	if appleConfig == nil || appleConfig.ServiceID == "" || !appleConfig.Enabled {
+		utils.ErrorResponse(c, http.StatusServiceUnavailable, "Apple 登录未配置或不可用")
+		return
+	}
+
+	nonce, err := cache.SaveOAuthBindNonce(c.Request.Context(), userID)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to issue bind nonce")
+		return
+	}
+
+	// state 同时承担两个角色:
+	//   - CSRF 防护:nonce 本身随机
+	//   - 上下文携带:"bind:" 前缀让 callback 知道这是绑定不是登录
+	// 这里没走 issueOAuthState(那是 login 用的简单 CSRF token),因为 state
+	// 必须能在 callback 解出 user_id。validateOAuthState 在 callback 里
+	// 处理 bind 分支时会被跳过,改用 ConsumeOAuthBindNonce。
+	state := "bind:" + nonce
+	oauthURL := fmt.Sprintf("%s?client_id=%s&response_type=code%%20id_token&redirect_uri=%s&scope=name%%20email&state=%s&response_mode=form_post",
+		appleAuthURL,
+		url.QueryEscape(appleConfig.ServiceID),
+		url.QueryEscape(appleConfig.RedirectURI),
+		url.QueryEscape(state),
+	)
+	utils.Success(c, gin.H{"url": oauthURL, "state": state})
+}
+
 // AppleCallback handles Apple Sign In callback
 // Apple sends POST with form_post response mode
 func (h *Handler) AppleCallback(c *gin.Context) {
@@ -98,18 +147,27 @@ func (h *Handler) AppleCallback(c *gin.Context) {
 	}
 
 	if code == "" || state == "" {
-		utils.BadRequest(c, "Missing code or state parameter")
+		utils.BadRequest(c, "授权参数不完整,请重新发起登录")
+		return
+	}
+
+	// 「绑定模式」分支:state 形如 "bind:<nonce>",由 GetAppleBindURL 颁发。
+	// 解析出 user_id 后,callback 不走 login,而是把 Apple 绑到该 user_id 上,
+	// 然后 302 重定向回前端 /apple/callback?bind=success|error。
+	if strings.HasPrefix(state, "bind:") {
+		nonce := strings.TrimPrefix(state, "bind:")
+		h.handleAppleBindCallback(c, nonce, code, idTokenStr, userJSON)
 		return
 	}
 
 	if !validateOAuthState(c, "apple_oauth_state:", state) {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid or expired state")
+		utils.ErrorResponse(c, http.StatusBadRequest, "会话已过期,请重新发起登录")
 		return
 	}
 
 	appleConfig, err := h.service.GetAppleOAuthConfig()
 	if err != nil || appleConfig == nil || !appleConfig.Enabled {
-		utils.ErrorResponse(c, http.StatusServiceUnavailable, "Apple login is not configured")
+		utils.ErrorResponse(c, http.StatusServiceUnavailable, "Apple 登录未配置或不可用")
 		return
 	}
 
@@ -117,7 +175,7 @@ func (h *Handler) AppleCallback(c *gin.Context) {
 	clientSecret, err := generateAppleClientSecret(appleConfig)
 	if err != nil {
 		slog.Error("apple oauth: failed to generate client secret", "err", err)
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to generate client secret")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "生成客户端密钥失败,请联系管理员")
 		return
 	}
 
@@ -125,7 +183,7 @@ func (h *Handler) AppleCallback(c *gin.Context) {
 	tokenResp, err := exchangeAppleCode(c.Request.Context(), code, appleConfig, clientSecret)
 	if err != nil {
 		slog.Error("apple oauth: failed to exchange code", "err", err)
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to exchange authorization code")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "获取访问令牌失败,请重试")
 		return
 	}
 
@@ -137,7 +195,7 @@ func (h *Handler) AppleCallback(c *gin.Context) {
 	}
 
 	if idToken == "" {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "No ID token received from Apple")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "未收到 Apple 身份令牌,请重试")
 		return
 	}
 
@@ -145,7 +203,7 @@ func (h *Handler) AppleCallback(c *gin.Context) {
 	claims, err := parseAppleIDToken(idToken)
 	if err != nil {
 		slog.Error("apple oauth: failed to parse ID token", "err", err)
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to parse Apple ID token")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "解析 Apple 身份令牌失败,请重试")
 		return
 	}
 
@@ -159,29 +217,37 @@ func (h *Handler) AppleCallback(c *gin.Context) {
 		}
 	}
 
-	// Find or create user
+	// Find or create user(三态 —— 见 oauthOutcome 注释)
 	ip := c.ClientIP()
-	user, isNewUser, err := h.findOrCreateAppleUser(claims, appleUser, ip)
+	outcome, err := h.findOrCreateAppleUser(c.Request.Context(), claims, appleUser, ip)
 	if err != nil {
 		slog.Error("apple oauth: failed to process user", "err", err)
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to process Apple login")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Apple 登录处理失败,请稍后重试")
 		return
 	}
 
-	token, err := issueTokenAndSession(h, c, user, ip)
+	baseURL := strings.TrimSuffix(appleConfig.RedirectURI, "/apple/callback")
+
+	// 分支 A:email 冲突 → 重定向到合并确认页(查询串带 merge_token)
+	if outcome.MergeToken != "" {
+		mergeURL := fmt.Sprintf("%s/apple/callback?merge_token=%s&provider=apple&target_email=%s&state=%s",
+			baseURL,
+			url.QueryEscape(outcome.MergeToken),
+			url.QueryEscape(derefStr(outcome.User.Email)),
+			url.QueryEscape(state))
+		c.Redirect(http.StatusFound, mergeURL)
+		return
+	}
+
+	// 分支 B:常规登录 / 新建,签发 token
+	token, err := issueTokenAndSession(h, c, outcome.User, ip)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to generate token")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "签发登录凭证失败,请重试")
 		return
 	}
 
-	// Apple uses form_post, so we redirect with token in URL fragment
-	// Frontend will pick it up from URL params
-	redirectURL := appleConfig.RedirectURI
-	// Strip /apple/callback to get base URL, then redirect to a page that handles the token
-	baseURL := strings.TrimSuffix(redirectURL, "/apple/callback")
 	resultURL := fmt.Sprintf("%s/apple/callback?token=%s&is_new_user=%v&state=%s",
-		baseURL, url.QueryEscape(token), isNewUser, url.QueryEscape(state))
-
+		baseURL, url.QueryEscape(token), outcome.IsNewUser, url.QueryEscape(state))
 	c.Redirect(http.StatusFound, resultURL)
 }
 
@@ -273,115 +339,172 @@ func parseAppleIDToken(idToken string) (*AppleIDTokenClaims, error) {
 	return claims, nil
 }
 
-func (h *Handler) findOrCreateAppleUser(claims *AppleIDTokenClaims, appleUser *AppleUserInfo, ip string) (*User, bool, error) {
-	providerUserID := claims.Subject // Apple's unique user ID
+// findOrCreateAppleUser Apple identity → 共用 helper。
+// Apple 怪点:
+//   - email 可能在 claims.Email 或首次授权时返的 appleUser.Email
+//   - email_verified claim 可能是 bool 也可能是 string("true")—— 见 EmailVerified 字段类型
+//   - 名字(first/last)只在首次授权时返
+func (h *Handler) findOrCreateAppleUser(ctx context.Context, claims *AppleIDTokenClaims, appleUser *AppleUserInfo, ip string) (oauthOutcome, error) {
+	_ = ip
 
-	authProvider, err := h.service.FindAuthProvider("apple", providerUserID)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, false, fmt.Errorf("find auth provider: %w", err)
-	}
-
-	if authProvider != nil {
-		user, err := h.service.FindByID(authProvider.UserID)
-		if err != nil {
-			return nil, false, fmt.Errorf("find user by id: %w", err)
-		}
-		return user, false, nil
-	}
-
-	// Get email
 	email := claims.Email
 	if email == "" && appleUser != nil {
 		email = appleUser.Email
 	}
 
-	// Check if email already exists
-	var user *User
-	if email != "" {
-		found, err := h.service.FindByEmail(email)
-		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, false, err
-		}
-		user = found
+	// Apple email_verified 字段类型不确定,bool 或 "true"/"false" 字符串都见过
+	emailVerified := false
+	switch v := claims.EmailVerified.(type) {
+	case bool:
+		emailVerified = v
+	case string:
+		emailVerified = v == "true"
 	}
 
-	isNewUser := false
-
-	if user == nil {
-		isNewUser = true
-
-		// Build username from Apple user info (only available on first auth)
-		username := ""
-		if appleUser != nil && appleUser.Name != nil {
-			parts := []string{}
-			if appleUser.Name.FirstName != "" {
-				parts = append(parts, appleUser.Name.FirstName)
-			}
-			if appleUser.Name.LastName != "" {
-				parts = append(parts, appleUser.Name.LastName)
-			}
-			username = strings.Join(parts, " ")
-		}
-		if username == "" && email != "" {
-			username = splitEmail(email)
-		}
-		if username == "" {
-			username = "apple_user"
-		}
-
-		existingUser, err := h.service.FindByUsername(username)
-		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, false, err
-		}
-		if existingUser != nil {
-			username = fmt.Sprintf("%s_%d", username, time.Now().Unix())
-		}
-
-		emailVerified := false
-		switch v := claims.EmailVerified.(type) {
-		case bool:
-			emailVerified = v
-		case string:
-			emailVerified = v == "true"
-		}
-
-		user = &User{
-			Username:      &username,
-			Email:         &email,
-			Role:          "user",
-			Status:        1,
-			EmailVerified: emailVerified,
-		}
-
-		if err := h.service.CreateUser(user); err != nil {
-			return nil, false, err
-		}
-
-		h.service.SendWelcomeMessage(user.ID)
-	}
-
-	providerData := map[string]string{
-		"email": email,
-	}
+	providerExtras := map[string]string{"email": email}
+	displayName := ""
 	if appleUser != nil && appleUser.Name != nil {
-		providerData["first_name"] = appleUser.Name.FirstName
-		providerData["last_name"] = appleUser.Name.LastName
+		providerExtras["first_name"] = appleUser.Name.FirstName
+		providerExtras["last_name"] = appleUser.Name.LastName
+		parts := []string{}
+		if appleUser.Name.FirstName != "" {
+			parts = append(parts, appleUser.Name.FirstName)
+		}
+		if appleUser.Name.LastName != "" {
+			parts = append(parts, appleUser.Name.LastName)
+		}
+		displayName = strings.Join(parts, " ")
+	}
+	username := displayName
+	if username == "" && email != "" {
+		username = splitEmail(email)
+	}
+
+	return h.findOrCreateOAuthUser(ctx, oauthIdentity{
+		Provider:           "apple",
+		ProviderUserID:     claims.Subject,
+		Email:              email,
+		EmailVerified:      emailVerified,
+		UsernameCandidate:  username,
+		UsernameFallback:   "apple_user",
+		DisplayName:        displayName,
+		ProviderDataExtras: providerExtras,
+	})
+}
+
+// handleAppleBindCallback —— AppleCallback 在「绑定模式」(state="bind:<nonce>")
+// 下的分支:消费 nonce 拿到 user_id → 跑标准 Apple code 交换 → 在 user_id 头上
+// 加 apple provider,然后 302 重定向回前端 /apple/callback?bind=success(或 error)。
+//
+// 跟 BindAppleAccount(POST /user/bind-apple)不同:那个是前端拿到 code 后主动
+// 调用的 protected 端点。Apple 用 form_post,Apple 把 POST 发给我们后端,我们
+// 没机会回到前端再让前端调 bind 端点,只能在这里就地完成绑定。
+func (h *Handler) handleAppleBindCallback(c *gin.Context, nonce, code, idTokenStr, userJSON string) {
+	ctx := c.Request.Context()
+
+	// 1. 只 Lookup 不删 —— 中间任何一步失败(OAuth / id_token / 已绑冲突)用户
+	//    都能返回重试。只有真正 CreateAuthProvider 成功后才 DeleteOAuthBindNonce,
+	//    防止 nonce 被吃了但绑没成的尴尬状态。
+	userID, _ := cache.LookupOAuthBindNonce(ctx, nonce)
+	if userID == 0 {
+		h.redirectAppleBindResult(c, false, "bind link expired, please retry")
+		return
+	}
+
+	appleConfig, err := h.service.GetAppleOAuthConfig()
+	if err != nil || appleConfig == nil || !appleConfig.Enabled {
+		h.redirectAppleBindResult(c, false, "apple oauth not configured")
+		return
+	}
+
+	clientSecret, err := generateAppleClientSecret(appleConfig)
+	if err != nil {
+		h.redirectAppleBindResult(c, false, "failed to generate client secret")
+		return
+	}
+
+	tokenResp, err := exchangeAppleCode(ctx, code, appleConfig, clientSecret)
+	if err != nil {
+		slog.Error("apple bind: failed to exchange code", "err", err)
+		h.redirectAppleBindResult(c, false, "failed to exchange apple code")
+		return
+	}
+
+	idToken := tokenResp.IDToken
+	if idToken == "" {
+		idToken = idTokenStr
+	}
+	if idToken == "" {
+		h.redirectAppleBindResult(c, false, "no apple id_token received")
+		return
+	}
+	claims, err := parseAppleIDToken(idToken)
+	if err != nil {
+		h.redirectAppleBindResult(c, false, "invalid apple id token")
+		return
+	}
+
+	providerUserID := claims.Subject
+
+	// 检查这个 Apple ID 是不是已经被绑到别人(或自己)身上
+	existing, err := h.service.FindAuthProvider("apple", providerUserID)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		h.redirectAppleBindResult(c, false, "failed to check binding")
+		return
+	}
+	if existing != nil {
+		if existing.UserID == userID {
+			h.redirectAppleBindResult(c, false, "already bound to your account")
+		} else {
+			h.redirectAppleBindResult(c, false, "this apple account is bound to another user")
+		}
+		return
+	}
+
+	providerData := map[string]string{"email": claims.Email}
+	if userJSON != "" {
+		var u AppleUserInfo
+		if err := json.Unmarshal([]byte(userJSON), &u); err == nil && u.Name != nil {
+			providerData["first_name"] = u.Name.FirstName
+			providerData["last_name"] = u.Name.LastName
+		}
 	}
 	providerDataBytes, _ := json.Marshal(providerData)
 	providerDataJSON := string(providerDataBytes)
 
-	authProvider = &UserAuthProvider{
-		UserID:         user.ID,
+	if err := h.service.CreateAuthProvider(&UserAuthProvider{
+		UserID:         userID,
 		Provider:       "apple",
 		ProviderUserID: providerUserID,
 		ProviderData:   &providerDataJSON,
+	}); err != nil {
+		// 含 UNIQUE 冲突——视作并发再次绑,认为成功
+		if !strings.Contains(err.Error(), "Duplicate") && !strings.Contains(err.Error(), "duplicate") {
+			h.redirectAppleBindResult(c, false, "failed to save binding")
+			return
+		}
 	}
 
-	if err := h.service.CreateAuthProvider(authProvider); err != nil {
-		return nil, isNewUser, err
-	}
+	// 绑定真正落库后才销毁 nonce —— 防止前面任何步骤失败导致 nonce 提前消耗。
+	_ = cache.DeleteOAuthBindNonce(ctx, nonce)
+	h.redirectAppleBindResult(c, true, "")
+}
 
-	return user, isNewUser, nil
+// redirectAppleBindResult 把绑定结果 302 回前端 /apple/callback?bind=success|error&msg=...
+// 前端 OAuthCallbackPage 检到 ?bind= 时显示 toast + 跳回 /settings/connections。
+func (h *Handler) redirectAppleBindResult(c *gin.Context, ok bool, msg string) {
+	appleConfig, _ := h.service.GetAppleOAuthConfig()
+	baseURL := ""
+	if appleConfig != nil {
+		baseURL = strings.TrimSuffix(appleConfig.RedirectURI, "/apple/callback")
+	}
+	result := "success"
+	if !ok {
+		result = "error"
+	}
+	target := fmt.Sprintf("%s/apple/callback?bind=%s&msg=%s",
+		baseURL, result, url.QueryEscape(msg))
+	c.Redirect(http.StatusFound, target)
 }
 
 // BindAppleAccount handles Apple account binding
@@ -403,19 +526,19 @@ func (h *Handler) BindAppleAccount(c *gin.Context) {
 
 	appleConfig, err := h.service.GetAppleOAuthConfig()
 	if err != nil || appleConfig == nil || !appleConfig.Enabled {
-		utils.ErrorResponse(c, http.StatusServiceUnavailable, "Apple login is not configured")
+		utils.ErrorResponse(c, http.StatusServiceUnavailable, "Apple 登录未配置或不可用")
 		return
 	}
 
 	clientSecret, err := generateAppleClientSecret(appleConfig)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to generate client secret")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "生成客户端密钥失败,请联系管理员")
 		return
 	}
 
 	tokenResp, err := exchangeAppleCode(c.Request.Context(), req.Code, appleConfig, clientSecret)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to exchange code")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "获取访问令牌失败,请重试")
 		return
 	}
 
@@ -426,7 +549,7 @@ func (h *Handler) BindAppleAccount(c *gin.Context) {
 
 	claims, err := parseAppleIDToken(idToken)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to parse Apple ID token")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "解析 Apple 身份令牌失败,请重试")
 		return
 	}
 
@@ -485,6 +608,9 @@ func (s *Service) GetAppleOAuthConfig() (*model.AppleOAuthConfig, error) {
 }
 
 func (s *Service) UnbindApple(userID uint) error {
+	if err := s.ensureNotLastLoginMethod(userID); err != nil {
+		return err
+	}
 	return s.repo.UnbindProviderInTx(userID, "apple")
 }
 

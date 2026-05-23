@@ -25,18 +25,22 @@ import (
 	"scholar-backend/internal/feedback"
 	"scholar-backend/internal/hotcontent"
 	"scholar-backend/internal/latexwriter"
+	"scholar-backend/internal/clientlog"
+	"scholar-backend/internal/library"
 	"scholar-backend/internal/mcp"
 	"scholar-backend/internal/message"
 	"scholar-backend/internal/minicod"
 	"scholar-backend/internal/payment"
 	"scholar-backend/internal/pdf"
 	"scholar-backend/internal/peerreview"
+	"scholar-backend/internal/peerreview2"
 	"scholar-backend/internal/proxy"
 	"scholar-backend/internal/seo"
+	"scholar-backend/internal/stagingarea"
 	"scholar-backend/internal/thirdparty"
+	"scholar-backend/internal/umami"
 	"scholar-backend/internal/usagelog"
 	"scholar-backend/internal/user"
-	"scholar-backend/internal/usertag"
 	"scholar-backend/internal/wechat"
 	"scholar-backend/internal/wechatofficial"
 	"scholar-backend/internal/websocket"
@@ -67,6 +71,7 @@ type allHandlers struct {
 	message         *message.Handler
 	feedback        *feedback.Handler
 	peerReview      *peerreview.Handler
+	peerReview2     *peerreview2.Handler
 	latexWriter     *latexwriter.Handler
 	latexAgentAdmin *latexwriter.AdminHandler
 	ws              *websocket.Handler
@@ -74,7 +79,10 @@ type allHandlers struct {
 	mcpUnified      *mcp.UnifiedHandler
 	mcpLegacy       *mcp.Handler
 	announcement    *announcement.Handler
-	userTag         *usertag.Handler
+	library         *library.Handler
+	stagingArea     *stagingarea.Handler
+	clientLog       *clientlog.Handler // 前端错误上报 → docker logs
+	umami           *umami.Handler     // admin /analytics 查询 umami HTTP API 渲染自有图表
 }
 
 // registerRoutes 注册所有 API 路由
@@ -111,6 +119,7 @@ func registerRoutes(router *gin.Engine, h *allHandlers, cfg *appconfig.Config) {
 		registerPublicUserRoutes(api, h)
 		registerProtectedUserRoutes(api, h, tieredRL)
 		registerPeerReviewPublicRoutes(api, h, tieredRL)
+		registerPeerReviewV2Routes(api, h, tieredRL)
 		registerPublicAPIRoutes(api, h)
 		registerAnalysisRoutes(api, h, tieredRL)
 		registerScholarRoutes(api, h, tieredRL)
@@ -118,6 +127,10 @@ func registerRoutes(router *gin.Engine, h *allHandlers, cfg *appconfig.Config) {
 
 		// 代理端点
 		h.proxy.RegisterRoutes(api, middleware.UserAuthMiddleware(), tieredRL)
+
+		// 前端错误上报 —— 无需登录,IP rate-limit 已经在 api 组顶层挂了
+		// 实现见 internal/clientlog/handler.go,只 slog.Warn 不入库
+		api.POST("/log/client-error", h.clientLog.ReportClientError)
 	}
 
 	// 静态文件服务
@@ -177,6 +190,7 @@ func registerRoutes(router *gin.Engine, h *allHandlers, cfg *appconfig.Config) {
 	router.GET("/sitemap-resources.xml", h.seo.ServeResourceSitemap)
 	router.GET("/sitemap-papers-:page.xml", h.seo.ServePaperSitemap)
 	router.GET("/sitemap-authors-:page.xml", h.seo.ServeAuthorSitemap)
+	router.GET("/sitemap-journals-:page.xml", h.seo.ServeJournalSitemap)
 	router.GET("/robots.txt", h.seo.ServeRobotsTxt)
 
 	// SPA 兜底路由（SSR 代码片段注入）
