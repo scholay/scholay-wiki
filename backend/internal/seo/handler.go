@@ -261,7 +261,7 @@ func (h *Handler) ServeSitemapIndex(c *gin.Context) {
 			t = fallbackPapersLastMod
 		}
 		fmt.Fprintf(&b, "  <sitemap>\n    <loc>%s/sitemap-papers-%d.xml</loc>\n    <lastmod>%s</lastmod>\n  </sitemap>\n",
-			base, i, t.UTC().Format("2006-01-02"))
+			base, i, t.Format("2006-01-02"))
 	}
 
 	// 动态作者 sitemap
@@ -271,7 +271,7 @@ func (h *Handler) ServeSitemapIndex(c *gin.Context) {
 			t = fallbackAuthorsLastMod
 		}
 		fmt.Fprintf(&b, "  <sitemap>\n    <loc>%s/sitemap-authors-%d.xml</loc>\n    <lastmod>%s</lastmod>\n  </sitemap>\n",
-			base, i, t.UTC().Format("2006-01-02"))
+			base, i, t.Format("2006-01-02"))
 	}
 
 	// 动态期刊 sitemap
@@ -281,7 +281,7 @@ func (h *Handler) ServeSitemapIndex(c *gin.Context) {
 			t = fallbackJournalsLastMod
 		}
 		fmt.Fprintf(&b, "  <sitemap>\n    <loc>%s/sitemap-journals-%d.xml</loc>\n    <lastmod>%s</lastmod>\n  </sitemap>\n",
-			base, i, t.UTC().Format("2006-01-02"))
+			base, i, t.Format("2006-01-02"))
 	}
 
 	b.WriteString(`</sitemapindex>` + "\n")
@@ -398,7 +398,7 @@ func (h *Handler) serveJournalSitemap(c *gin.Context, page int) {
 		if loc == "" {
 			continue
 		}
-		lastMod := e.UpdatedAt.UTC().Format(time.RFC3339)
+		lastMod := e.UpdatedAt.Format(time.RFC3339)
 		priority := fmt.Sprintf("%.1f", e.Priority)
 		changefreq := changefreqForTier(e.QualityTier)
 		fmt.Fprintf(&b, "  <url>\n    <loc>%s</loc>\n    <lastmod>%s</lastmod>\n    <changefreq>%s</changefreq>\n    <priority>%s</priority>\n  </url>\n",
@@ -486,7 +486,7 @@ func (h *Handler) serveEntitySitemap(c *gin.Context, page int, kind, urlPrefix s
 			// source + entityID + slug 全空 —— 跳过,不写无效 URL
 			continue
 		}
-		lastMod := e.UpdatedAt.UTC().Format(time.RFC3339)
+		lastMod := e.UpdatedAt.Format(time.RFC3339)
 		priority := fmt.Sprintf("%.1f", e.Priority)
 		changefreq := changefreqForTier(e.QualityTier)
 		fmt.Fprintf(&b, "  <url>\n    <loc>%s</loc>\n    <lastmod>%s</lastmod>\n    <changefreq>%s</changefreq>\n    <priority>%s</priority>\n  </url>\n",

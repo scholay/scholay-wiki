@@ -1,9 +1,19 @@
+import { lazy, Suspense } from 'react';
 import { useMatch } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 import { BrowserTabsBar } from '../components/BrowserTabsBar';
 import { PaperDetailPane } from '../components/PaperDetailPane';
 import { JournalDetailPane } from '../components/JournalDetailPane';
 import { AuthorDetailPane } from '../components/AuthorDetailPane';
-import { PdfBrowserPane } from '../components/PdfBrowserPane';
+
+// PDF 子树独立 lazy —— 它内部 import PdfViewer → react-pdf + pdfjs-dist (~800KB gzip)。
+// 之前是静态 import,所有进 BrowserPage 的路由(paper/author/journal/pdf)都会
+// 拉这坨,即使你压根没打开过 PDF。改 lazy 后只有命中 /pdf/* 才下载 pdf chunk。
+const PdfBrowserPane = lazy(() =>
+  import('../components/PdfBrowserPane').then((m) => ({
+    default: m.PdfBrowserPane,
+  }))
+);
 
 /**
  * 浏览器 —— 论文 / 期刊 / 学者 / PDF 详情的通用承载页。
@@ -39,7 +49,15 @@ export function BrowserPage() {
         ) : authorMatch ? (
           <AuthorDetailPane />
         ) : pdfMatch ? (
-          <PdfBrowserPane />
+          <Suspense
+            fallback={
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="size-5 animate-spin text-muted-foreground" />
+              </div>
+            }
+          >
+            <PdfBrowserPane />
+          </Suspense>
         ) : null}
       </div>
     </div>

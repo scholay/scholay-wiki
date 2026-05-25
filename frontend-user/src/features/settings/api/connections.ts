@@ -59,21 +59,25 @@ export function useUnbindProvider() {
   });
 }
 
+// OAuth 绑定的 sessionStorage 键名已迁移到 shared/lib/oauth-bind —— 它们被
+// auth (callback 页读)和 settings (这里 mutation 写)双向共用,放 shared 才合规。
+// 这里 re-export 保持本文件历史 import 不破坏。
+export {
+  OAUTH_MODE_KEY,
+  OAUTH_BIND_PROVIDER_KEY,
+  OAUTH_BIND_RETURN_KEY,
+} from '@/shared/lib/oauth-bind';
+import {
+  OAUTH_MODE_KEY,
+  OAUTH_BIND_PROVIDER_KEY,
+  OAUTH_BIND_RETURN_KEY,
+} from '@/shared/lib/oauth-bind';
+
 /**
  * 启动「绑定第三方账号」流程 —— 跟 OAuth 登录复用同一份 redirect URL,
  * 但跳走前在 sessionStorage 标记「这是绑定不是登录」,callback 页根据标记
  * 分发到 `POST /user/bind-<provider>` 而非 `/user/<provider>/callback`。
- *
- * 没有标记的话,callback 页会走默认登录分支 —— 那样后端不会感知到当前用户,
- * 会把第三方账号绑到新建 user 上,把当前用户挤出原账号(P0 安全 bug)。
- *
- * sessionStorage 而非 localStorage:仅当前标签页生效,关页 / 跨页都清掉,
- * 避免跨标签的 stale state 误触发 bind 流程。
  */
-export const OAUTH_MODE_KEY = 'oauth_mode';
-export const OAUTH_BIND_PROVIDER_KEY = 'oauth_bind_provider';
-export const OAUTH_BIND_RETURN_KEY = 'oauth_bind_return_to';
-
 export function useStartBindingProvider() {
   return useMutation({
     mutationFn: async (provider: string) => {

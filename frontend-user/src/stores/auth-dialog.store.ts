@@ -5,7 +5,9 @@ import { create } from 'zustand';
  * features/auth 通过类型 re-export 复用,避免 stores → features 反向依赖。
  */
 export type AccountType = 'email' | 'phone';
-export type AuthMode = 'login' | 'register' | 'forgot';
+// wechat-qr —— 同一个 Dialog 内"原地切换"成微信扫码视图,顶部有返回键回到 login。
+// 不另起 Dialog,避免双层嵌套关闭路径混乱。
+export type AuthMode = 'login' | 'register' | 'forgot' | 'wechat-qr';
 
 interface AuthDialogState {
   open: boolean;

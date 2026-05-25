@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
 import { Button, Input } from '@/shared/ui';
-import { useProfile } from '@/features/auth/api/profile';
+import { useProfile } from '@/shared/api/profile';
 
 /**
  * 资料页 —— 编辑 username / bio / avatar URL。

@@ -6,6 +6,18 @@ x-logging: &default-logging
     max-size: "10m"
     max-file: "7"
 
+# 时区统一为北京时间 —— 所有容器跟随宿主机,不做任何 timezone 转换。
+#
+# TZ 值用冒号前缀 `:/etc/localtime` 是 POSIX libc 标准语法:
+# 告诉 libc 不要去查 /usr/share/zoneinfo,直接读这个文件作为 tz 数据。
+# 这样无论镜像有没有装 tzdata(alpine 默认就没,如 umami/minio),
+# 全部都直接吃宿主挂进来的 /etc/localtime,行为完全一致。
+#
+# 配合 volumes 里挂 `- /etc/localtime:/etc/localtime:ro`,实现真正的"跟随宿主"。
+# YAML 不能合并列表,所以 volumes 那行每个服务都手写。
+x-tz-env: &tz-env
+  TZ: ":/etc/localtime"
+
 services:
   mysql:
     image: mysql:8.0
@@ -13,17 +25,18 @@ services:
     restart: unless-stopped
     logging: *default-logging
     environment:
+      <<: *tz-env
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-scholar}
       MYSQL_USER: ${MYSQL_USER:-scholar_user}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-scholar_pass}
-      TZ: Asia/Shanghai
     # MySQL不暴露端口到主机,仅容器内部访问
     expose:
       - "3306"
     volumes:
       - ./data/mysql:/var/lib/mysql
       - ./docker/mysql/conf.d:/etc/mysql/conf.d:ro
+      - /etc/localtime:/etc/localtime:ro
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
@@ -53,11 +66,12 @@ services:
       - "9000"
       - "9001"
     environment:
+      <<: *tz-env
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-scholarminio}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-scholarminiopass}
-      TZ: Asia/Shanghai
     volumes:
       - ./data/minio:/data
+      - /etc/localtime:/etc/localtime:ro
     command: server /data --console-address ":9001"
     healthcheck:
       # MinIO 自带的就绪探针 —— 等服务起来 + 至少一块盘就绪
@@ -81,11 +95,14 @@ services:
     container_name: scholar_redis
     restart: unless-stopped
     logging: *default-logging
+    environment:
+      <<: *tz-env
     # Redis不暴露端口到主机,仅容器内部访问
     expose:
       - "6379"
     volumes:
       - ./data/redis:/data
+      - /etc/localtime:/etc/localtime:ro
     # AOF: appendfsync everysec 显式声明（每秒 fsync，性能/持久化平衡的常规选择）
     # slowlog: 记录 >10ms 的命令，最多保留 256 条，用于排查热点 key 与慢命令
     command: >-
@@ -117,6 +134,7 @@ services:
     container_name: scholar_schema_sync
     logging: *default-logging
     environment:
+      <<: *tz-env
       DB_HOST: mysql
       DB_PORT: 3306
       MYSQL_USER: ${MYSQL_USER:-scholar_user}
@@ -127,6 +145,7 @@ services:
     volumes:
       - ./docker/mysql/migrations:/docker-entrypoint-initdb.d/migrations:ro
       - ./scripts:/app/scripts:ro
+      - /etc/localtime:/etc/localtime:ro
     depends_on:
       mysql:
         condition: service_healthy
@@ -143,6 +162,7 @@ services:
     restart: unless-stopped
     logging: *default-logging
     environment:
+      <<: *tz-env
       DB_HOST: mysql
       DB_PORT: 3306
       DB_USER: ${MYSQL_USER:-scholar_user}
@@ -190,6 +210,8 @@ services:
       UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-}
       # Go memory limit (75% of container memory limit)
       GOMEMLIMIT: 768MiB
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
     # Backend不暴露端口,通过Nginx访问
     expose:
       - "8080"
@@ -227,6 +249,10 @@ services:
     container_name: scholar_frontend_user
     restart: unless-stopped
     logging: *default-logging
+    environment:
+      <<: *tz-env
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
     expose:
       - "80"
     depends_on:
@@ -253,12 +279,14 @@ services:
     restart: unless-stopped
     logging: *default-logging
     environment:
+      <<: *tz-env
       DATABASE_TYPE: mysql
       DATABASE_URL: mysql://${MYSQL_USER:-scholar_user}:${MYSQL_PASSWORD:-scholar_pass}@mysql:3306/umami
       APP_SECRET: ${UMAMI_APP_SECRET:-change-this-umami-secret-in-production}
       DISABLE_TELEMETRY: "1"
       TRACKER_SCRIPT_NAME: script
-      TZ: Asia/Shanghai
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
     expose:
       - "3000"
     depends_on:
@@ -287,12 +315,15 @@ services:
     container_name: scholar_nginx
     restart: unless-stopped
     logging: *default-logging
+    environment:
+      <<: *tz-env
     ports:
       # 主入口 (含 /admin 路径)。umami UI / tracker 都通过这个端口的反代,不另开端口。
       - "${HTTP_PORT:-5411}:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - /etc/localtime:/etc/localtime:ro
     depends_on:
       - backend
       - frontend-user

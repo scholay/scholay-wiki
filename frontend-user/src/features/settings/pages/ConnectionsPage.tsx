@@ -19,7 +19,7 @@ import {
   useStartBindingProvider,
   type ConnectionItem,
 } from '../api/connections';
-import { useEnabledProviders } from '@/features/auth/api/public-config';
+import { useEnabledProviders } from '@/shared/api/public-config';
 import { WeChatQRDialog } from '@/features/auth/components/WeChatQRDialog';
 import { cn } from '@/shared/lib/utils';
 

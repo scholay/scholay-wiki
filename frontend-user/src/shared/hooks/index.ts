@@ -2,10 +2,12 @@ export { useDebounce } from './useDebounce';
 export { useHotkey } from './useHotkey';
 export { useLocalStorage } from './useLocalStorage';
 export { useMediaQuery } from './useMediaQuery';
-export { useOpenPaperInBrowser } from './useOpenPaperInBrowser';
-export { useOpenJournalInBrowser } from './useOpenJournalInBrowser';
-export { useOpenAuthorInBrowser } from './useOpenAuthorInBrowser';
-export { useOpenPdfInBrowser } from './useOpenPdfInBrowser';
+export {
+  useOpenAuthorInBrowser,
+  useOpenJournalInBrowser,
+  useOpenPaperInBrowser,
+  useOpenPdfInBrowser,
+} from './useOpenInBrowser';
 export { useReplayPendingAction } from './useReplayPendingAction';
 export { useUrlState } from './useUrlState';
 export { useScrollRestoration } from './useScrollRestoration';

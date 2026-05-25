@@ -12,7 +12,7 @@ import {
   OAUTH_MODE_KEY,
   OAUTH_BIND_PROVIDER_KEY,
   OAUTH_BIND_RETURN_KEY,
-} from '@/features/settings/api/connections';
+} from '@/shared/lib/oauth-bind';
 
 /**
  * 通用 OAuth callback 中转页 —— 接收第三方平台 redirect 回来的 code + state,

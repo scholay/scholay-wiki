@@ -1,6 +1,6 @@
-# frontend-v2 架构与开发约束
+# frontend-user 架构与开发约束
 
-工作在 `frontend-v2/` 下时自动加载。所有规则**仅适用于这个新项目**,不波及旧 `frontend-user/`。
+工作在 `frontend-user/` 下时自动加载。所有规则**仅适用于这个当前项目**,不波及归档的 `frontend-user-old/`(旧 CRA 版,不构建不部署)。
 
 目标:**职责清晰、解耦、可扩展、不重复造轮子**。
 

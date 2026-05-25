@@ -26,7 +26,10 @@ var DB *gorm.DB
 
 // Initialize initializes the database connection
 func Initialize(cfg *config.Config) error {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&collation=utf8mb4_unicode_ci&parseTime=True&loc=Local",
+	// loc=Asia%2FShanghai —— 显式锁死上海时区,而非依赖 time.Local。
+	// time.Local 跟容器 TZ env 走,如果将来 TZ 被意外改了,这里的 DATETIME 解析也会跟着漂。
+	// 写死 Asia/Shanghai 是 defensive,DB 字段语义始终绑死北京时间。
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&collation=utf8mb4_unicode_ci&parseTime=True&loc=Asia%%2FShanghai",
 		cfg.Database.User,
 		cfg.Database.Password,
 		cfg.Database.Host,

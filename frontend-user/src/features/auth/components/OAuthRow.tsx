@@ -1,12 +1,11 @@
-import { useState } from 'react';
 import { toast } from 'sonner';
 import { ProviderLogo } from '@/shared/components/ProviderLogo';
 import { http, toApiError } from '@/shared/lib/http';
+import { useAuthDialog } from '@/stores/auth-dialog.store';
 import {
   useEnabledProviders,
   type EnabledProvider,
 } from '../api/public-config';
-import { WeChatQRDialog } from './WeChatQRDialog';
 import { GoogleSignInButton } from './GoogleSignInButton';
 
 /**
@@ -17,8 +16,9 @@ import { GoogleSignInButton } from './GoogleSignInButton';
  *   - GitHub / Orcid / Microsoft / Discourse: GET /user/<x>/login-url → 整页跳转
  *   - Google: 用 GIS One-Tap(暂沿用 redirect,后续单独优化)
  *   - Apple: 重定向到 Apple JS SDK 接入页
- *   - WeChat: **不跳出页面**,弹一个二维码弹窗(WeChatQRDialog),iframe 内载
- *     wxLogin.js,扫码后 redirect 回我们的 callback
+ *   - WeChat: **不另起 Dialog**,把 AuthDialog 自身切到 'wechat-qr' 模式,原地渲染
+ *     WeChatQRPanel(iframe 内载 wxLogin.js,扫码后 redirect 回我们的 callback)。
+ *     扫码成功一次性关掉 AuthDialog,避免双层 Dialog 关闭路径混乱。
  *
  * 未启用的 provider 不渲染按钮 —— 通过 usePublicConfig 拉的开关判定。
  */
@@ -32,7 +32,7 @@ const PROVIDER_META: Record<
 > = {
   github: { label: 'GitHub', urlPath: '/user/github/login-url' },
   google: { label: 'Google', urlPath: '/user/google/client-id' }, // GIS 入口由 GoogleButton 后续实装,这里占位
-  wechat: { label: '微信' }, // 走 WeChatQRDialog 内嵌二维码
+  wechat: { label: '微信' }, // 走 AuthDialog 内的 wechat-qr 模式
   apple: { label: 'Apple', urlPath: '/user/apple/login-url' },
   orcid: { label: 'ORCID', urlPath: '/user/orcid/login-url' },
   microsoft: { label: 'Microsoft', urlPath: '/user/microsoft/login-url' },
@@ -41,7 +41,7 @@ const PROVIDER_META: Record<
 
 export function OAuthRow() {
   const providers = useEnabledProviders();
-  const [wechatOpen, setWechatOpen] = useState(false);
+  const setMode = useAuthDialog((s) => s.setMode);
 
   const handleRedirect = async (provider: EnabledProvider) => {
     const meta = PROVIDER_META[provider];
@@ -62,32 +62,28 @@ export function OAuthRow() {
   if (providers.length === 0) return null;
 
   return (
-    <>
-      <div className="flex items-center justify-center gap-2 flex-wrap">
-        {providers.map((p) => {
-          // Google 走 GIS One-Tap,渲染官方按钮(由 GoogleSignInButton 内部处理 onClick)
-          if (p === 'google') {
-            return <GoogleSignInButton key={p} />;
-          }
-          const meta = PROVIDER_META[p];
-          const onClick =
-            p === 'wechat' ? () => setWechatOpen(true) : () => handleRedirect(p);
-          return (
-            <button
-              key={p}
-              type="button"
-              onClick={onClick}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border text-subtle hover:bg-surface-2 hover:text-foreground transition-colors"
-              title={meta.label}
-              aria-label={`使用 ${meta.label} 登录`}
-            >
-              <ProviderLogo provider={p} className="size-4" />
-            </button>
-          );
-        })}
-      </div>
-
-      <WeChatQRDialog open={wechatOpen} onOpenChange={setWechatOpen} />
-    </>
+    <div className="flex items-center justify-center gap-2 flex-wrap">
+      {providers.map((p) => {
+        // Google 走 GIS One-Tap,渲染官方按钮(由 GoogleSignInButton 内部处理 onClick)
+        if (p === 'google') {
+          return <GoogleSignInButton key={p} />;
+        }
+        const meta = PROVIDER_META[p];
+        const onClick =
+          p === 'wechat' ? () => setMode('wechat-qr') : () => handleRedirect(p);
+        return (
+          <button
+            key={p}
+            type="button"
+            onClick={onClick}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border text-subtle hover:bg-surface-2 hover:text-foreground transition-colors"
+            title={meta.label}
+            aria-label={`使用 ${meta.label} 登录`}
+          >
+            <ProviderLogo provider={p} className="size-4" />
+          </button>
+        );
+      })}
+    </div>
   );
 }

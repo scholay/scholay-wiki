@@ -1,25 +1,14 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
   AlertCircle,
-  ChevronDown,
-  Download,
-  FileSpreadsheet,
-  FileText,
   Grid3x3,
   Inbox,
   Loader2,
   Lock,
   Settings2,
-  Table2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { EmptyState } from '@/shared/components/EmptyState';
-import { cn } from '@/shared/lib/utils';
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from '@/shared/ui/hover-card';
 import { ExportMenu } from './matrix/ExportMenu';
 import {
   buildMatrixRows,
@@ -34,15 +23,15 @@ import {
   useMatrixAnalysis,
   type PaperAnalysisItem,
 } from '../api/analysis';
-import { useFavoriteCheck } from '../api/library';
 import type { Paper } from '../api/papers';
-import type { UpstreamSource } from '@/shared/api/types';
 import { useStagingActions } from '../hooks/useStagingActions';
 import { useStagingView } from '../hooks/useStagingView';
+import { useStagedFavorites } from '../hooks/useStagedFavorites';
 import { DimensionSettingsDialog } from './DimensionSettingsDialog';
 import { StagingTabs } from './StagingTabs';
 import { DimensionCell } from './matrix/DimensionCell';
 import { PaperCell } from './matrix/PaperCell';
+import { MatrixMoreToolsMenu } from './matrix/MatrixMoreToolsMenu';
 import { DIM_COL_MIN_WIDTH, PAPER_COL_WIDTH } from './matrix/constants';
 // EmptyImportButton / MockMatrixPreview 仍由 WelcomeBoard(无任何 area 场景)用,
 // 这里建过区后的"空 active"状态已改为纯空白(对照本文件 165-170 行)
@@ -98,31 +87,8 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
     clearArea(activeArea.id);
   }, [activeArea, staged.length, clearArea]);
 
-  // ============ 收藏状态:按 source 分组批量查,合并成单一 Set ============
-  // 后端 check 端点要求 source + paper_ids,三源分别查、合并。同源内一次请求
-  // 拿完一整页,与 SearcherColumn 同模式。
-  const idsBySource = useMemo(() => {
-    const m: Record<UpstreamSource, string[]> = { stc: [], olx: [], pmd: [] };
-    for (const p of staged) {
-      const s = (p.source ?? 'stc') as UpstreamSource;
-      m[s].push(p.paperId);
-    }
-    return m;
-  }, [staged]);
-
-  // Rules of Hooks: 三源固定 3 个 useFavoriteCheck,enabled 由空数组自动 false
-  const favStcQ = useFavoriteCheck('stc', idsBySource.stc);
-  const favOlxQ = useFavoriteCheck('olx', idsBySource.olx);
-  const favPmdQ = useFavoriteCheck('pmd', idsBySource.pmd);
-
-  const favoritedSet = useMemo(() => {
-    // 每个 source 的 Set 用 "{source}:{paperId}" 形式合并,避免跨源 id 冲突
-    const s = new Set<string>();
-    favStcQ.data?.forEach((id) => s.add(`stc:${id}`));
-    favOlxQ.data?.forEach((id) => s.add(`olx:${id}`));
-    favPmdQ.data?.forEach((id) => s.add(`pmd:${id}`));
-    return s;
-  }, [favStcQ.data, favOlxQ.data, favPmdQ.data]);
+  // 收藏状态:按 source 分组批量查,合并成 `{source}:{paperId}` Set,跨源不冲突
+  const favoritedSet = useStagedFavorites(staged);
 
   const isLoading =
     dimensionsQ.isLoading || (matrixQ.isLoading && results.length === 0);
@@ -183,7 +149,7 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
             />
           </div>
 
-          <MoreToolsMenu
+          <MatrixMoreToolsMenu
             className="flex lg:hidden shrink-0"
             disabled={!token}
             exportDisabled={
@@ -394,131 +360,5 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
   );
 }
 
-// PaperCell / DimensionCell 已抽到 ./matrix/ 子目录。
+// PaperCell / DimensionCell / MatrixMoreToolsMenu 已抽到 ./matrix/ 子目录。
 // 空态(假表 + CTA)抽到 ./EmptyMatrixPreview,与 WelcomeBoard 共用。
-
-// ============================================================================
-// 窄宽度下的「更多」hover 下拉 —— 折叠 设置列 + 导出 3 种格式 为一颗按钮
-// ============================================================================
-//
-// 不复用 ExportMenu(它自带 DropdownMenu hover-trigger),嵌进 HoverCard
-// 会出现两套 pointer 状态打架(HoverCard 鼠标移出 content bbox 即关,
-// DropdownMenu 的 portal content 不在 bbox 内,会触发 HoverCard 误关)。
-// 这里直接调用 export 模块的纯函数,UI 用扁平菜单条,4 项一字排开。
-function MoreToolsMenu({
-  className,
-  disabled,
-  exportDisabled,
-  onOpenSettings,
-  onExport,
-}: {
-  className?: string;
-  /** 设置列按钮 disabled(未登录时) */
-  disabled: boolean;
-  /** 导出按钮 disabled(暂存或维度为空 / 未登录) */
-  exportDisabled: boolean;
-  onOpenSettings: () => void;
-  onExport: (fmt: 'csv' | 'md' | 'xlsx') => Promise<void> | void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [pending, setPending] = useState<'csv' | 'md' | 'xlsx' | null>(null);
-
-  const handleExport = async (fmt: 'csv' | 'md' | 'xlsx') => {
-    if (exportDisabled || pending) return;
-    setPending(fmt);
-    setOpen(false); // 点击后立即关菜单,反馈用 spinner + toast
-    try {
-      await onExport(fmt);
-    } finally {
-      setPending(null);
-    }
-  };
-
-  return (
-    <div className={className}>
-      <HoverCard openDelay={80} closeDelay={180} open={open} onOpenChange={setOpen}>
-        <HoverCardTrigger asChild>
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 h-7 px-2.5 rounded-sm border border-border text-xs text-subtle hover:bg-surface-1 transition-colors whitespace-nowrap"
-          >
-            {pending ? (
-              <Loader2 className="size-3 animate-spin" />
-            ) : (
-              <Download className="size-3" />
-            )}
-            更多
-            <ChevronDown className="size-3 -mr-0.5" strokeWidth={2.25} />
-          </button>
-        </HoverCardTrigger>
-        <HoverCardContent align="end" sideOffset={6} className="w-[180px] p-1.5">
-          <div className="flex flex-col gap-0.5">
-            <MenuRow
-              icon={<Settings2 className="size-3.5" />}
-              label="设置列"
-              disabled={disabled}
-              onClick={() => {
-                setOpen(false);
-                onOpenSettings();
-              }}
-            />
-            <div aria-hidden className="my-1 h-px bg-border-soft" />
-            <MenuRow
-              icon={<FileText className="size-3.5" />}
-              label="导出 CSV"
-              disabled={exportDisabled}
-              loading={pending === 'csv'}
-              onClick={() => handleExport('csv')}
-            />
-            <MenuRow
-              icon={<Table2 className="size-3.5" />}
-              label="导出 Markdown"
-              disabled={exportDisabled}
-              loading={pending === 'md'}
-              onClick={() => handleExport('md')}
-            />
-            <MenuRow
-              icon={<FileSpreadsheet className="size-3.5" />}
-              label="导出 Excel"
-              disabled={exportDisabled}
-              loading={pending === 'xlsx'}
-              onClick={() => handleExport('xlsx')}
-            />
-          </div>
-        </HoverCardContent>
-      </HoverCard>
-    </div>
-  );
-}
-
-function MenuRow({
-  icon,
-  label,
-  disabled,
-  loading,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  disabled?: boolean;
-  loading?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled || loading}
-      className={cn(
-        'flex items-center gap-2 h-8 px-2 rounded-sm text-xs text-subtle text-left transition-colors',
-        'hover:bg-surface-1 hover:text-foreground',
-        'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-subtle'
-      )}
-    >
-      <span className="shrink-0 text-muted-foreground">
-        {loading ? <Loader2 className="size-3.5 animate-spin" /> : icon}
-      </span>
-      <span className="flex-1 truncate">{label}</span>
-    </button>
-  );
-}

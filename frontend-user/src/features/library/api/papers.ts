@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
+import { STALE_FRESH } from '@/shared/lib/query-config';
 import { useAuthStore } from '@/stores/auth.store';
 import type {
   Paper,
@@ -61,7 +62,7 @@ export function useLibraryPapers(
       order,
     ] as const,
     enabled: !!token,
-    staleTime: 30_000,
+    staleTime: STALE_FRESH,
     // 翻页 / 切 size 时保留旧数据当 placeholder,避免 list 闪空
     placeholderData: (prev) => prev,
     queryFn: async (): Promise<ListResponse> => {
@@ -106,7 +107,7 @@ export function useLibraryPaperByUpstream(
   return useQuery({
     queryKey: ['library', 'by-upstream', source, paperId] as const,
     enabled: !!token && !!source && !!paperId,
-    staleTime: 30_000,
+    staleTime: STALE_FRESH,
     queryFn: async (): Promise<UserLibraryPaper | null> => {
       try {
         const { data } = await http.get<{ data: UserLibraryPaper | null }>(

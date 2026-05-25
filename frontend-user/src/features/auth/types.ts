@@ -1,23 +1,7 @@
-/**
- * 后端约定的 User 形态(对照 backend/internal/user/model.go)。
- * TODO: 切到 openapi-typescript 生成的类型 — `npm run gen:api` 之后从 @/shared/api/schema 导入。
- */
-export interface User {
-  id: number;
-  username: string | null;
-  email: string | null;
-  phone: string | null;
-  avatar_url: string | null;
-  bio: string | null;
-  role: 'user' | 'admin';
-  status: number;
-  email_verified: boolean;
-  phone_verified: boolean;
-  last_login_at: string | null;
-  last_login_ip: string | null;
-  created_at: string;
-  updated_at: string;
-}
+// User 类型已迁移到 shared/api/profile —— 跨 feature 资源,放在 shared 才合规。
+// 这里 re-export 保持 auth 内部代码 `import type { User } from '../types'` 不破坏。
+import type { User } from '@/shared/api/profile';
+export type { User };
 
 export interface AuthResponse {
   token: string;

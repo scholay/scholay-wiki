@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
+import { STALE_FRESH } from '@/shared/lib/query-config';
 import { useAuthStore } from '@/stores/auth.store';
 import type { UserLibraryFolderItem } from '@/shared/api/types';
 
@@ -27,7 +28,7 @@ export function useLibraryFolders() {
   return useQuery({
     queryKey: foldersKey,
     enabled: !!token,
-    staleTime: 30_000,
+    staleTime: STALE_FRESH,
     queryFn: async (): Promise<FoldersResponse> => {
       try {
         const { data } = await http.get<{ data: FoldersResponse }>(
