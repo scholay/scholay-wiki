@@ -1,9 +1,11 @@
 # Environment variables
 # .env
 
-# Data directories
-data/
-!data/.gitkeep
+# Data directories —— 仅忽略仓库根的运行时数据卷 (mysql/redis/minio/agent/... 等容器持久化)。
+# 必须带前导 `/` 锚定到根: 不带 `/` 的 `data/` 会匹配【任意层级】的 data 目录, 会误伤
+# frontend-user/src/features/{help,landing}/data 这类源码 (帮助/博客/资源/落地页内容)。
+/data/
+!/data/.gitkeep
 
 # Backend
 backend/tmp/
