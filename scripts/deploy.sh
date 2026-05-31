@@ -91,7 +91,17 @@ restart_services() {
     echo -e "${YELLOW}=== 停止旧服务 ===${NC}"
     docker compose -f ${COMPOSE_FILE} down
     echo ""
-    
+
+    # agent 以非 root 的 bun(uid 1000)运行 + cap_drop, 不能在容器内自己 chown。
+    # bind mount 的数据/会话目录默认是宿主 root 属主 → 容器写不进去 (EACCES) →
+    # 建会话/推配置全 500, 旧会话续聊还会丢工作目录。这里在宿主侧幂等修正属主, 一劳永逸。
+    #   - ./data/agent          → /home/bun/.claude   (transcript / provider 配置 / skill)
+    #   - ./data/agent-sessions → /home/bun/sessions  (会话 cwd + 上传文件, 需持久化跨重建)
+    echo -e "${YELLOW}=== 修正 agent 数据目录属主 (uid 1000 = 容器内 bun) ===${NC}"
+    mkdir -p ./data/agent ./data/agent-sessions
+    chown -R 1000:1000 ./data/agent ./data/agent-sessions
+    echo ""
+
     echo -e "${YELLOW}=== 启动新服务 ===${NC}"
     docker compose -f ${COMPOSE_FILE} up -d
     echo ""

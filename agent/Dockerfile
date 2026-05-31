@@ -23,7 +23,6 @@ USER root
 #   内核跑不了非特权 userns, 本地不启用沙箱 (见 conversationService.ts 注释)。
 # pandoc + python3 + openpyxl: 让 agent 用 Bash 把 docx/odt/rtf / xlsx 转成可读文本
 #   (大模型像 Claude Code 一样自己调工具读 office 文件)。
-#   gosu: entrypoint 以 root 自愈挂载卷属主后, 用它降权回 bun 跑进程 (见 docker-entrypoint.sh)。
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
@@ -34,7 +33,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pandoc \
     python3 \
     python3-openpyxl \
-    gosu \
     && rm -rf /var/lib/apt/lists/* \
     && update-ca-certificates
 
@@ -52,14 +50,8 @@ RUN mkdir -p /home/bun/.claude && chown -R bun:bun /home/bun/.claude /app
 # 文件里的 ${MINICOD_API_KEY} 在加载时由 agent runtime 用容器 env 展开
 COPY --chown=bun:bun preinstalled-mcp.json /home/bun/.claude.json
 
-# 自愈挂载卷属主的 entrypoint: 以 root 起 → 幂等 chown /home/bun/.claude → gosu 降权到 bun。
-# 解决 bind mount (prod: ./data/agent) 被宿主 root 属主导致容器写不进去 (EACCES) 的老问题。
-COPY docker-entrypoint.sh /usr/local/bin/scholay-entrypoint.sh
-RUN chmod +x /usr/local/bin/scholay-entrypoint.sh
+USER bun
 
-# 注意: 这里【不再】切 `USER bun` —— 容器以 root 启动, 让 entrypoint 能 chown;
-# 真正的 bun 进程由 entrypoint 里的 `gosu bun` 降权运行, 与原先以 bun 跑保持一致。
 EXPOSE 3456
 
-ENTRYPOINT ["/usr/local/bin/scholay-entrypoint.sh"]
 CMD ["bun", "run", "src/server/index.ts"]

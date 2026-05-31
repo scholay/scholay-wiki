@@ -222,10 +222,19 @@ export class ConversationService {
     }
 
     if (!fs.existsSync(workDir) || !fs.statSync(workDir).isDirectory()) {
-      throw new ConversationStartupError(
-        `Working directory does not exist or is not a directory: ${workDir}`,
-        'WORKDIR_INVALID',
-      )
+      // 隔离会话的 cwd (~/sessions/<id>) 不在持久化挂载卷里 —— 重建容器(重部署)后会被清空,
+      // 但会话 transcript 在 ~/.claude 里仍持久。续聊时若 cwd 不存在, 直接重建一个空目录让对话
+      // 继续(历史完整, 仅该会话之前上传的文件丢失), 而不是硬报错把整条会话卡死。
+      // 非隔离 cwd (仓库 workdir) 缺失才是真配置错误, 仍然抛。
+      const isolated = isolatedSessionWorkDir(sessionId)
+      if (isolated && path.resolve(workDir) === path.resolve(isolated)) {
+        fs.mkdirSync(workDir, { recursive: true })
+      } else {
+        throw new ConversationStartupError(
+          `Working directory does not exist or is not a directory: ${workDir}`,
+          'WORKDIR_INVALID',
+        )
+      }
     }
 
     if (shouldReplacePlaceholder) {

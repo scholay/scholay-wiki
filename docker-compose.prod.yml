@@ -273,6 +273,9 @@ services:
       - "3456"
     volumes:
       - ./data/agent:/home/bun/.claude
+      # 会话工作目录 (cwd + 上传文件) 持久化 —— 否则重建容器(重部署)会清空, 旧会话续聊报
+      # "Working directory does not exist"。属主由镜像 entrypoint 自愈 (chown 到 bun)。
+      - ./data/agent-sessions:/home/bun/sessions
       - /etc/localtime:/etc/localtime:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3456/health || exit 1"]
