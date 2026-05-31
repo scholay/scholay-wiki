@@ -6,7 +6,7 @@
 #   docker-compose -f docker-compose.prod.yml up -d      # 启动
 #
 # 与 dev (docker-compose.yml) 主要差异:
-#   - backend / frontend-user 用 ACR 镜像 (image:),不本地 build:
+#   - backend / agent / frontend-user 用 ACR 镜像 (image:),不本地 build:
 #   - JWT_SECRET / MYSQL_ROOT_PASSWORD / MINIO_ROOT_PASSWORD 等 secret 强制 required
 #   - nginx 单一对外端口 HTTP_PORT,/admin /analytics 等 v2 路径同走这个端口
 #

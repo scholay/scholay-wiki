@@ -9,10 +9,14 @@
 #   ./scripts/build-and-push.sh major     # 递增主版本 (0.0.1 -> 1.0.0)
 #   ./scripts/build-and-push.sh v1.2.3    # 使用指定版本号
 #   ./scripts/build-and-push.sh patch backend  # 只构建 backend
+#   ./scripts/build-and-push.sh patch agent    # 只构建 agent (scholar_agent / cc-haha Bun 容器)
+#
+# 构建目标: backend | agent | frontend-user | all (默认 all)
 #
 # 注意:
 #   - frontend-admin 已合并到 frontend-user(/admin 路由), 不再单独构建。
 #   - frontend-user 是 Vite + React 19 (源在 frontend-user/);容器 / ACR 镜像名仍叫 frontend-user。
+#   - agent 是 AI Agent 容器 (源在 agent/), 跟 backend 同一套 buildx linux/amd64 构建, 无 build-arg。
 # ============================================================
 
 set -e
@@ -121,9 +125,11 @@ fi
 
 # 镜像完整名称
 BACKEND_IMAGE="${REGISTRY}/${NAMESPACE}/backend:${NEW_VERSION}"
+AGENT_IMAGE="${REGISTRY}/${NAMESPACE}/agent:${NEW_VERSION}"
 FRONTEND_USER_IMAGE="${REGISTRY}/${NAMESPACE}/frontend-user:${NEW_VERSION}"
 
 BACKEND_LATEST="${REGISTRY}/${NAMESPACE}/backend:latest"
+AGENT_LATEST="${REGISTRY}/${NAMESPACE}/agent:latest"
 FRONTEND_USER_LATEST="${REGISTRY}/${NAMESPACE}/frontend-user:latest"
 
 echo -e "${GREEN}========================================${NC}"
@@ -149,28 +155,32 @@ echo ""
 echo -e "${YELLOW}=== 登录阿里云 ACR ===${NC}"
 docker login --username=${ALIYUN_USERNAME} ${REGISTRY}
 
-# 构建 Backend (使用 buildx 跨平台构建)
-build_backend() {
-    local image=$1
-    local latest=$2
+# 构建后端类服务 (backend / agent): buildx 跨平台 linux/amd64 + 直接 --push, 无 build-arg
+# (env 都是运行期注入, 不烘进镜像)。agent 是 Bun 容器, 跟 backend 同一套构建方式。
+build_server_image() {
+    local service=$1
+    local image=$2
+    local latest=$3
+    local context=$4
 
     echo ""
-    echo -e "${YELLOW}=== 构建 backend (${TARGET_PLATFORM}) ===${NC}"
+    echo -e "${YELLOW}=== 构建 ${service} (${TARGET_PLATFORM}) ===${NC}"
     echo "版本镜像: ${image}"
     echo "Latest:   ${latest}"
-    
+    echo "构建上下文: ${context}"
+
     # 设置 buildx
     setup_buildx
-    
+
     # 使用 buildx 构建 linux/amd64 并推送
     docker buildx build \
         --platform ${TARGET_PLATFORM} \
         -t ${image} \
         -t ${latest} \
         --push \
-        ./backend
+        ${context}
 
-    echo -e "${GREEN}✓ backend 完成${NC}"
+    echo -e "${GREEN}✓ ${service} 完成${NC}"
 }
 
 # 构建 Frontend (需要指定平台为 linux/amd64)
@@ -216,18 +226,22 @@ build_frontend() {
 # 根据目标构建
 case ${BUILD_TARGET} in
     "backend")
-        build_backend "${BACKEND_IMAGE}" "${BACKEND_LATEST}"
+        build_server_image "backend" "${BACKEND_IMAGE}" "${BACKEND_LATEST}" "./backend"
+        ;;
+    "agent")
+        build_server_image "agent" "${AGENT_IMAGE}" "${AGENT_LATEST}" "./agent"
         ;;
     "frontend-user"|"frontend")
         build_frontend "frontend-user" "${FRONTEND_USER_IMAGE}" "${FRONTEND_USER_LATEST}" "./frontend-user"
         ;;
     "all")
-        build_backend "${BACKEND_IMAGE}" "${BACKEND_LATEST}"
+        build_server_image "backend" "${BACKEND_IMAGE}" "${BACKEND_LATEST}" "./backend"
+        build_server_image "agent" "${AGENT_IMAGE}" "${AGENT_LATEST}" "./agent"
         build_frontend "frontend-user" "${FRONTEND_USER_IMAGE}" "${FRONTEND_USER_LATEST}" "./frontend-user"
         ;;
     *)
         echo -e "${RED}错误: 未知的构建目标 '${BUILD_TARGET}'${NC}"
-        echo "可用选项: backend, frontend-user, all"
+        echo "可用选项: backend, agent, frontend-user, all"
         exit 1
         ;;
 esac
@@ -246,6 +260,10 @@ echo "已推送的镜像:"
 if [ "${BUILD_TARGET}" = "all" ] || [ "${BUILD_TARGET}" = "backend" ]; then
     echo "  - ${BACKEND_IMAGE} (linux/amd64)"
     echo "  - ${BACKEND_LATEST}"
+fi
+if [ "${BUILD_TARGET}" = "all" ] || [ "${BUILD_TARGET}" = "agent" ]; then
+    echo "  - ${AGENT_IMAGE} (linux/amd64)"
+    echo "  - ${AGENT_LATEST}"
 fi
 if [ "${BUILD_TARGET}" = "all" ] || [ "${BUILD_TARGET}" = "frontend-user" ] || [ "${BUILD_TARGET}" = "frontend" ]; then
     echo "  - ${FRONTEND_USER_IMAGE}"

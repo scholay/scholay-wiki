@@ -23,6 +23,10 @@ COMPOSE_FILE="docker-compose.prod.yml"
 # 版本号，默认 latest
 VERSION=${1:-"latest"}
 
+# prod compose 的镜像 tag 走 ${IMAGE_TAG:-latest}。这里把它对齐到要部署的 VERSION,
+# 否则 `docker compose up -d` 永远跑 latest —— 传了具体版本号也不生效 (拉了 v1.2.3 却启动 latest)。
+export IMAGE_TAG="${VERSION}"
+
 # 操作类型: all(默认), pull, restart
 ACTION=${2:-"all"}
 
@@ -35,6 +39,7 @@ NC='\033[0m'
 # 镜像完整名称
 # 注意: frontend-admin 已合并到 frontend-user（/admin 路由）, 不再单独拉取。
 BACKEND_IMAGE="${REGISTRY}/${NAMESPACE}/backend:${VERSION}"
+AGENT_IMAGE="${REGISTRY}/${NAMESPACE}/agent:${VERSION}"
 FRONTEND_USER_IMAGE="${REGISTRY}/${NAMESPACE}/frontend-user:${VERSION}"
 
 echo -e "${GREEN}========================================${NC}"
@@ -68,7 +73,11 @@ pull_images() {
     echo "拉取 backend..."
     docker pull ${BACKEND_IMAGE}
     echo ""
-    
+
+    echo "拉取 agent..."
+    docker pull ${AGENT_IMAGE}
+    echo ""
+
     echo "拉取 frontend-user..."
     docker pull ${FRONTEND_USER_IMAGE}
     echo ""
