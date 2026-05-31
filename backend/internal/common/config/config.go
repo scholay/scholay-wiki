@@ -297,15 +297,16 @@ func (c *Config) Validate() error {
 	}
 
 	// ---- release 模式下的安全校验 ----
+	//
+	// DB_PASSWORD / ADMIN_INITIAL_PASSWORD 即便是默认值也【只告警不阻塞】(告警见 validate()):
+	//   - 允许沿用已初始化 MySQL 的既有(默认)密码启动, 避免为"改密"被迫重置已有数据的库;
+	//   - DB 只在内网 (scholar-network) 暴露, 不映射到宿主; admin 初始密码可在后台改。
+	//   - 生产仍强烈建议在 .env 改成强密码 (改 DB 密码需同步 ALTER MySQL 用户, 见运维说明)。
+	//
+	// JWT_SECRET 例外, 仍 hard-fail: 默认密钥可伪造任意 token → 全站鉴权失守, 风险等级最高。
 	if c.App.IsRelease {
 		if c.JWT.Secret == "" || c.JWT.Secret == "default-secret-change-in-production" {
 			errs = append(errs, "release 模式禁止使用默认 JWT_SECRET")
-		}
-		if c.Database.Password == "" || c.Database.Password == "scholar_pass" {
-			errs = append(errs, "release 模式禁止使用默认 DB_PASSWORD")
-		}
-		if c.Admin.InitialPassword == "" || c.Admin.InitialPassword == "adminadmin" {
-			errs = append(errs, "release 模式禁止使用默认 ADMIN_INITIAL_PASSWORD")
 		}
 	}
 
