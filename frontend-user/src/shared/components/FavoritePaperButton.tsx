@@ -53,6 +53,12 @@ export interface FavoritePaperButtonProps {
   onError?: (err: Error) => void;
   /** 额外的容器 className,通常只用来加 hover-show 控制 */
   className?: string;
+  /**
+   * 仅 chip 变体:把按钮放进一个 `@container` 元素后,容器宽 < 260px 时
+   * 自动隐藏文字、塌成纯图标方块(响应式降级,避免文案在窄卡片里换行)。
+   * 不传 = 行为完全不变。默认 false。
+   */
+  collapseLabel?: boolean;
 }
 
 const ICON_SIZE: Record<FavoriteButtonSize, string> = {
@@ -85,6 +91,7 @@ export function FavoritePaperButton({
   onSuccess,
   onError,
   className,
+  collapseLabel = false,
 }: FavoritePaperButtonProps) {
   const favMut = useFavoritePaper();
   const unfavMut = useUnfavoritePaper();
@@ -219,8 +226,10 @@ export function FavoritePaperButton({
         aria-pressed={isFavorited}
         title={title}
         className={cn(
-          'inline-flex items-center justify-center rounded-sm border shrink-0 transition-colors',
+          'inline-flex items-center justify-center rounded-sm border shrink-0 whitespace-nowrap transition-colors',
           CHIP_CLS[size],
+          // 窄容器塌成 24×24 纯图标(仅当父级开启 collapseLabel + 处于 @container 内)
+          collapseLabel && '@max-[260px]:w-6 @max-[260px]:px-0 @max-[260px]:gap-0',
           isFavorited
             ? 'border-brand-red/30 bg-danger-soft text-brand-red font-semibold hover:bg-brand-red/15'
             : 'border-border text-subtle hover:bg-surface-1 hover:text-foreground',
@@ -228,8 +237,10 @@ export function FavoritePaperButton({
           className
         )}
       >
-        <Icon className={iconCls} strokeWidth={2.2} />
-        {isFavorited ? '已收藏' : '收藏'}
+        <Icon className={cn(iconCls, 'shrink-0')} strokeWidth={2.2} />
+        <span className={cn(collapseLabel && '@max-[260px]:hidden')}>
+          {isFavorited ? '已收藏' : '收藏'}
+        </span>
       </button>
     );
   }

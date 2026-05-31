@@ -11,9 +11,8 @@
 #   ./scripts/build-and-push.sh patch backend  # 只构建 backend
 #
 # 注意:
-#   - frontend-admin 已合并到 frontend-user（/admin 路由）, 不再单独构建。
-#   - frontend-user 现在是 Vite + React 19 (源在 frontend-user/),旧 CRA 源已归档到
-#     frontend-user-old/,不构建不部署,容器/ACR 镜像名仍叫 frontend-user。
+#   - frontend-admin 已合并到 frontend-user(/admin 路由), 不再单独构建。
+#   - frontend-user 是 Vite + React 19 (源在 frontend-user/);容器 / ACR 镜像名仍叫 frontend-user。
 # ============================================================
 
 set -e

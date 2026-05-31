@@ -8,12 +8,10 @@
 package minicod
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -22,10 +20,13 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
+
+	"scholar-backend/internal/common/upstream"
 )
 
 const (
-	DefaultBaseURL      = "https://open.scholay.com"
+	// 注:不再有 DefaultBaseURL 兜底常量 —— baseURL 严格来自 third_party_accounts
+	// 的 minicod 配置, 没配就报错, 不允许隐式回落到任何固定域名。
 	DefaultTimeout      = 60 * time.Second
 	DialTimeout         = 15 * time.Second
 	TLSHandshakeTimeout = 15 * time.Second
@@ -74,14 +75,16 @@ func paperPath(source, action string) string {
 	return sourcePrefix(source) + "/papers/" + action
 }
 
+// 共享 HTTP transport — 跟原实现一致, 自带 TLS 1.2 / 100 idle / 30s response header timeout。
+// upstream.Client 用 http.Client 包它, 共享底层连接池避免每个 Minicod Client 都开新池。
 var (
-	sharedTransport     *http.Transport
-	sharedTransportOnce sync.Once
+	sharedHTTPClient     *http.Client
+	sharedHTTPClientOnce sync.Once
 )
 
-func getSharedTransport() *http.Transport {
-	sharedTransportOnce.Do(func() {
-		sharedTransport = &http.Transport{
+func getSharedHTTPClient() *http.Client {
+	sharedHTTPClientOnce.Do(func() {
+		tr := &http.Transport{
 			DialContext: (&net.Dialer{
 				Timeout:   DialTimeout,
 				KeepAlive: KeepAlive,
@@ -96,34 +99,61 @@ func getSharedTransport() *http.Transport {
 				MinVersion: tls.VersionTLS12,
 			},
 		}
+		sharedHTTPClient = &http.Client{Timeout: DefaultTimeout, Transport: tr}
 	})
-	return sharedTransport
+	return sharedHTTPClient
+}
+
+// upstream.Client 按 baseURL 缓存 — 不同 third_party_accounts 可以配不同 host,
+// 同一个 host 共享同一份 breaker / 池子。
+var (
+	upstreamMu      sync.RWMutex
+	upstreamByBase  = make(map[string]*upstream.Client)
+)
+
+func getUpstream(baseURL string) *upstream.Client {
+	upstreamMu.RLock()
+	cli, ok := upstreamByBase[baseURL]
+	upstreamMu.RUnlock()
+	if ok {
+		return cli
+	}
+	upstreamMu.Lock()
+	defer upstreamMu.Unlock()
+	if cli, ok := upstreamByBase[baseURL]; ok {
+		return cli
+	}
+	// 不在 upstream 层重试 — 上层 manager.executeWithRetry 已经做账户轮换,
+	// 把重试集中在那一层更清晰 (上层有"换账户"语义, upstream 只能"同账户重打")。
+	cli = upstream.New("minicod").
+		BaseURL(baseURL).
+		HTTPClient(getSharedHTTPClient()).
+		Breaker(upstream.BreakerConfig{
+			MaxRequests:  3,
+			MinRequests:  3,
+			FailureRatio: 0.6,
+			Timeout:      30 * time.Second,
+		}).
+		MustBuild()
+	upstreamByBase[baseURL] = cli
+	return cli
 }
 
 // Client represents a Minicod API client
 type Client struct {
-	apiKey     string
-	httpClient *http.Client
-	baseURL    string
+	apiKey  string
+	baseURL string
+	up      *upstream.Client
 }
 
-// NewClient creates a new Minicod API client
-func NewClient(apiKey string) *Client {
-	return NewClientWithBaseURL(apiKey, DefaultBaseURL)
-}
-
-// NewClientWithBaseURL creates a new Minicod API client with custom base URL
+// NewClientWithBaseURL creates a new Minicod API client.
+// baseURL 必须由调用方(manager)从 DB 配置取到非空值; 传空会导致请求时
+// upstream.buildURL 报 "baseURL not configured" —— 这是预期的硬失败, 不兜底。
 func NewClientWithBaseURL(apiKey string, baseURL string) *Client {
-	if baseURL == "" {
-		baseURL = DefaultBaseURL
-	}
 	return &Client{
-		apiKey: apiKey,
-		httpClient: &http.Client{
-			Timeout:   DefaultTimeout,
-			Transport: getSharedTransport(),
-		},
+		apiKey:  apiKey,
 		baseURL: baseURL,
+		up:      getUpstream(baseURL),
 	}
 }
 
@@ -137,52 +167,37 @@ func (c *Client) GetAPIKeyLength() int {
 	return len(c.apiKey)
 }
 
-// doPost performs a POST request with JSON body and Bearer auth
+// doPost performs a POST request with JSON body and Bearer auth, parses Minicod
+// envelope { code, message, data }.
+//
+// 走 common/upstream — HTTP 层错误已经 typed (ErrAuth / ErrRateLimit / ...),
+// manager.isRetryableError 用 errors.Is 判别, 然后切账户重试。
+// 业务层 (envelope.Code != 0) 仍在这里识别 — 这是 Minicod 私有协议, 不在通用基建职责内。
 func (c *Client) doPost(ctx context.Context, path string, body any) (json.RawMessage, error) {
-	bodyBytes, err := json.Marshal(body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request body: %w", err)
-	}
-
-	url := c.baseURL + path
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
+	headers := http.Header{}
 	if c.apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+		headers.Set("Authorization", "Bearer "+c.apiKey)
 		slog.Debug("minicod request", "path", path, "keyLength", len(c.apiKey))
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.up.Do(ctx, upstream.Request{
+		Method:   http.MethodPost,
+		Path:     path,
+		Headers:  headers,
+		BodyJSON: body,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("minicod request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
+		// 透传 *upstream.Error — manager 能用 errors.Is 判 ErrAuth / ErrRateLimit 走重试
+		return nil, err
 	}
 
-	// Check HTTP status
-	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("minicod API error (status %d): %s", resp.StatusCode, string(respBody))
-	}
-
-	// Parse envelope
 	var apiResp APIResponse
-	if err := json.Unmarshal(respBody, &apiResp); err != nil {
-		return nil, fmt.Errorf("failed to parse minicod response: %w (body: %s)", err, string(respBody))
+	if err := json.Unmarshal(resp.Body, &apiResp); err != nil {
+		return nil, fmt.Errorf("failed to parse minicod response: %w (body: %s)", err, string(resp.Body))
 	}
-
-	// Check business error code
 	if apiResp.Code != 0 {
 		return nil, fmt.Errorf("minicod API error (code %d): %s", apiResp.Code, apiResp.Message)
 	}
-
 	return apiResp.Data, nil
 }
 
@@ -224,20 +239,19 @@ func (c *Client) SearchPapers(ctx context.Context, opts PaperSearchOptions) (*Se
 		body["sort"] = opts.Sort
 	}
 
-	// 仅 stc/olx 支持的字段(PMD 上游无对应参数,传过去会被忽略或拒)
-	if opts.Source != SourcePMD {
-		if len(opts.PublicationTypes) > 0 {
-			body["types"] = opts.PublicationTypes
-		}
-		if opts.OpenAccessPDF == "true" {
-			body["open_access"] = true
-		}
-		if opts.MinCitationCount > 0 {
-			body["min_citations"] = opts.MinCitationCount
-		}
-		if len(opts.FieldsOfStudy) > 0 {
-			body["subjects"] = opts.FieldsOfStudy
-		}
+	// types / open_access / min_citations / subjects —— api-1.json 显示 stc/olx/pmd
+	// 的 SearchOptions 都接受这些字段, 所以三源统一透传 (此前误把 PMD 排除掉了)。
+	if len(opts.PublicationTypes) > 0 {
+		body["types"] = opts.PublicationTypes
+	}
+	if opts.OpenAccessPDF == "true" {
+		body["open_access"] = true
+	}
+	if opts.MinCitationCount > 0 {
+		body["min_citations"] = opts.MinCitationCount
+	}
+	if len(opts.FieldsOfStudy) > 0 {
+		body["subjects"] = opts.FieldsOfStudy
 	}
 
 	// OLX 是 /v1/olx/works/search,不是 /papers/search,统一走 paperPath
@@ -553,7 +567,7 @@ func (c *Client) PaperAutocomplete(ctx context.Context, query, source string) (*
 	for _, r := range raws {
 		matches = append(matches, AutocompleteMatch{
 			ID:    r.ID,
-			Title: r.Title,
+			Title: r.Label(), // STC: title / OLX: display_name
 		})
 	}
 

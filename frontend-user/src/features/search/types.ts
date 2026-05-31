@@ -73,15 +73,18 @@ export function resolveYearRange(
 }
 
 /**
- * 三个上游源 —— UI 用单字母 + 单词的"完整"形态(M — Medicine 等),
+ * 三个上游源 —— UI 用单字母 + 单词的"完整"形态(G — Graph 等),
  * 后端的 source code(stc/olx/pmd)仅用于 API 透传。
  *
- * 顺序固定:Discovery(综合)→ Graph(图谱)→ Medicine(医学专门)
- * 与三个数据源的覆盖广度成阶梯,便于用户自上而下找。
+ * 品牌名对齐后端真实来源(minicod/client.go):
+ *   stc = Semantic Scholar → Graph(引文图谱)
+ *   olx = OpenAlex         → Discovery(全域发现)
+ *   pmd = PubMed           → Medicine(医学专门)
+ * 全站统一这套(claw / 智能搜索 / mask-tool-source / agent 系统提示一致)。
  */
 export const SOURCE_OPTIONS: { value: UpstreamSource; label: string }[] = [
-  { value: 'stc', label: 'Discovery' },
-  { value: 'olx', label: 'Graph' },
+  { value: 'stc', label: 'Graph' },
+  { value: 'olx', label: 'Discovery' },
   { value: 'pmd', label: 'Medicine' },
 ];
 

@@ -9,20 +9,14 @@ package ai
 
 import (
 	"context"
-	"crypto/md5"
-	"encoding/hex"
+	"errors"
 	"fmt"
-	"log/slog"
-	"regexp"
 	"strings"
-	"time"
 
 	"gorm.io/gorm"
 
-	"scholar-backend/internal/ai/prompts"
-	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/circuitbreaker"
-	"scholar-backend/internal/common/safego"
+	"scholar-backend/internal/common/upstream"
 	"scholar-backend/internal/thirdparty"
 )
 
@@ -60,17 +54,36 @@ func NewService(db *gorm.DB, accountService *thirdparty.Service) *Service {
 // AI 重试相关常量
 const AIMaxRetries = 5
 
-// APIErrorPrefix 是 AI 上游非 200 响应生成的错误前缀。
-// 所有 adapter / service_chat / service_analysis 构造 upstream 错误时必须用它，
-// 这样 isAIRetryableError 通过单一字符串匹配就能识别可切账号重试的错误。
-// 不区分具体 status code：401/403/429/5xx 都进入账号轮换流程。
+// LLM 默认调参 —— 非流式/流式 chat completion 共用。
+// 模型编码本身不在这里写死:它由 thirdparty 按 modelLevel 解析 admin 配置得到。
+const (
+	defaultLLMTemperature = 0.7
+	defaultLLMMaxTokens   = 8192
+)
+
+// APIErrorPrefix 是 AI 上游非 200 响应生成的错误前缀(历史)。
+// 迁到 common/upstream 后, HTTP 层错误已经是 typed *upstream.Error, 用 errors.Is
+// 判别更稳。这个前缀仍保留:兼容尚未迁移的路径 / 业务层手工构造的错误。
 const APIErrorPrefix = "API error (status"
 
-// isAIRetryableError 检查是否是可重试的 AI 错误。
-// 判定规则：错误文案以 APIErrorPrefix 开头的上游响应都会触发账号切换重试。
+// isAIRetryableError 检查是否是可重试的 AI 错误(可切账号重试)。
+//
+// 判定:
+//  1. typed *upstream.Error — ErrAuth(401/403) / ErrRateLimit(429) / ErrServer(5xx)
+//     / ErrNetwork / ErrTimeout 都换账号重试。ErrCircuit 不在这(breaker open 换账号
+//     也没用, 由 executeWithRetry 单独 bail)。
+//  2. 字符串 fallback — APIErrorPrefix(兼容未迁移路径)。
 func isAIRetryableError(err error) bool {
 	if err == nil {
 		return false
+	}
+	switch {
+	case errors.Is(err, upstream.ErrAuth),
+		errors.Is(err, upstream.ErrRateLimit),
+		errors.Is(err, upstream.ErrServer),
+		errors.Is(err, upstream.ErrNetwork),
+		errors.Is(err, upstream.ErrTimeout):
+		return true
 	}
 	return strings.Contains(err.Error(), APIErrorPrefix)
 }
@@ -105,7 +118,9 @@ func (s *Service) executeWithRetry(ctx context.Context, modelLevel thirdparty.Mo
 
 		lastErr = err
 
-		if circuitbreaker.IsCircuitBreakerError(err) {
+		// breaker open: 老的 gobreaker 错误 或 新的 upstream.ErrCircuit — 都直接 bail
+		// (换账号也救不了, 上游本身在被保护)。
+		if circuitbreaker.IsCircuitBreakerError(err) || errors.Is(err, upstream.ErrCircuit) {
 			return nil, fmt.Errorf("AI service temporarily unavailable (circuit breaker open): %w", err)
 		}
 
@@ -118,189 +133,3 @@ func (s *Service) executeWithRetry(ctx context.Context, modelLevel thirdparty.Mo
 	}
 	return nil, fmt.Errorf("all %d AI retry attempts failed, last error: %w", AIMaxRetries+1, lastErr)
 }
-
-// ==================== Translation & Suggestions ====================
-
-// TranslateToEnglish 将查询翻译成英文学术术语（实现 QueryTranslator 接口）
-// 使用Redis缓存避免重复翻译，缓存时间12小时
-// 如果查询本身已经是英文，返回空字符串（不需要翻译）
-func (s *Service) TranslateToEnglish(ctx context.Context, query string) (string, error) {
-
-	// 1. 生成缓存key（使用MD5避免特殊字符）
-	cacheKey := generateTranslationCacheKey(query)
-
-	// 2. 尝试从Redis缓存获取
-	// 使用特殊标记区分"未缓存"和"缓存了空值"
-	translationCache := cache.NewQueryCache("translation", 12*time.Hour)
-	var cachedResult translationCacheResult
-	err := translationCache.Get(ctx, cacheKey, &cachedResult)
-	if err == nil && cachedResult.Cached {
-		if cachedResult.Translation == "" {
-			slog.Debug("Translation cache hit, no translation needed", "query", query)
-		} else {
-			slog.Debug("Translation cache hit", "query", query, "translation", cachedResult.Translation)
-		}
-		return cachedResult.Translation, nil
-	}
-
-	slog.Debug("Translation cache miss, calling AI", "query", query)
-
-	// prompt_templates 表已下线 —— 所有提示词写死在代码,见 0045 迁移。
-	translatePrompt := fmt.Sprintf(`你是一个专业的学术翻译助手。请将以下查询关键词翻译成准确的英文学术术语。
-
-要求：
-1. 如果查询已经是纯英文（包括英文单词、缩写、专有名词等），直接返回空内容，不要返回任何文字
-2. 如果查询包含非英文内容（如中文、日文等），将其翻译成准确的英文学术术语
-3. 只返回翻译后的英文，不要有任何额外说明
-4. 保持学术专业性
-
-查询：%s
-
-翻译（如果是英文则返回空）：`, query)
-
-	messages := []ChatMessage{
-		{
-			Role:    "user",
-			Content: translatePrompt,
-		},
-	}
-
-	// 使用low级别模型调用AI
-	response, err := s.ChatCompletionWithTools(ctx, messages, nil, "", thirdparty.ModelLevelLow)
-	if err != nil {
-		return "", fmt.Errorf("AI translation failed: %w", err)
-	}
-
-	if len(response.Choices) == 0 {
-		return "", fmt.Errorf("no response from AI")
-	}
-
-	translatedText := strings.TrimSpace(response.Choices[0].Message.Content)
-
-	// 4. 存入Redis缓存（异步，失败不影响返回）
-	// 使用结构体缓存，支持缓存空值
-	safego.Go("ai-cache-translation", func() {
-		cacheResult := translationCacheResult{
-			Cached:      true,
-			Translation: translatedText,
-		}
-		if err := translationCache.Set(context.Background(), cacheKey, cacheResult); err != nil {
-			slog.Warn("Failed to cache translation", "err", err)
-		} else {
-			if translatedText == "" {
-				slog.Debug("Translation cached, no translation needed", "query", query)
-			} else {
-				slog.Debug("Translation cached", "query", query, "translation", translatedText)
-			}
-		}
-	})
-
-	return translatedText, nil
-}
-
-// translationCacheResult 翻译缓存结果结构体
-// 用于区分"未缓存"和"缓存了空值"的情况
-type translationCacheResult struct {
-	Cached      bool   `json:"cached"`      // 是否已缓存
-	Translation string `json:"translation"` // 翻译结果，空字符串表示不需要翻译
-}
-
-// generateTranslationCacheKey 生成翻译缓存的key
-// 使用MD5哈希避免特殊字符和长度问题
-func generateTranslationCacheKey(query string) string {
-	hash := md5.Sum([]byte(strings.TrimSpace(strings.ToLower(query))))
-	return hex.EncodeToString(hash[:])
-}
-
-// GetSearchSuggestions 获取搜索联想建议（实现 SearchSuggester 接口）
-// 使用硬编码的结构化提示词，返回最多3个相关的英文搜索建议
-// 使用Redis缓存避免重复调用，缓存时间12小时
-func (s *Service) GetSearchSuggestions(ctx context.Context, query string) ([]string, error) {
-
-	// 1. 生成缓存key（使用MD5避免特殊字符）
-	cacheKey := "suggestions:" + generateTranslationCacheKey(query)
-
-	// 2. 尝试从Redis缓存获取
-	suggestionsCache := cache.NewQueryCache("search_suggestions", 12*time.Hour)
-	var cachedResult suggestionsCacheResult
-	err := suggestionsCache.Get(ctx, cacheKey, &cachedResult)
-	if err == nil && cachedResult.Cached {
-		slog.Debug("Suggestions cache hit", "query", query, "suggestions", cachedResult.Suggestions)
-		return cachedResult.Suggestions, nil
-	}
-
-	slog.Debug("Suggestions cache miss, calling AI", "query", query)
-
-	// 3. 缓存未命中，使用硬编码提示词调用AI
-	suggestionsPrompt := prompts.RenderSearchSuggestionsPrompt(query)
-
-	messages := []ChatMessage{
-		{
-			Role:    "user",
-			Content: suggestionsPrompt,
-		},
-	}
-
-	// 使用low级别模型调用AI
-	response, err := s.ChatCompletionWithTools(ctx, messages, nil, "", thirdparty.ModelLevelLow)
-	if err != nil {
-		return nil, fmt.Errorf("AI suggestions failed: %w", err)
-	}
-
-	if len(response.Choices) == 0 {
-		return nil, fmt.Errorf("no response from AI")
-	}
-
-	responseText := strings.TrimSpace(response.Choices[0].Message.Content)
-
-	// 4. 解析XML格式的响应
-	suggestions := parseSearchSuggestions(responseText)
-
-	// 5. 存入Redis缓存（异步，失败不影响返回）
-	safego.Go("ai-cache-suggestions", func() {
-		cacheResult := suggestionsCacheResult{
-			Cached:      true,
-			Suggestions: suggestions,
-		}
-		if err := suggestionsCache.Set(context.Background(), cacheKey, cacheResult); err != nil {
-			slog.Warn("Failed to cache suggestions", "err", err)
-		} else {
-			slog.Debug("Suggestions cached", "query", query, "suggestions", suggestions)
-		}
-	})
-
-	return suggestions, nil
-}
-
-// suggestionsCacheResult 搜索建议缓存结果结构体
-type suggestionsCacheResult struct {
-	Cached      bool     `json:"cached"`      // 是否已缓存
-	Suggestions []string `json:"suggestions"` // 建议列表
-}
-
-// parseSearchSuggestions 解析AI返回的XML格式搜索建议
-// 提取 <suggestions><item>...</item></suggestions> 中的内容
-func parseSearchSuggestions(responseText string) []string {
-	var suggestions []string
-
-	// 使用正则表达式提取 <item>...</item> 内容
-	itemRegex := regexp.MustCompile(`<item>\s*(.*?)\s*</item>`)
-	matches := itemRegex.FindAllStringSubmatch(responseText, -1)
-
-	for _, match := range matches {
-		if len(match) > 1 {
-			suggestion := strings.TrimSpace(match[1])
-			if suggestion != "" && suggestion != "建议1" && suggestion != "建议2" && suggestion != "建议3" {
-				suggestions = append(suggestions, suggestion)
-			}
-		}
-	}
-
-	// 最多返回3个建议
-	if len(suggestions) > 3 {
-		suggestions = suggestions[:3]
-	}
-
-	return suggestions
-}
-

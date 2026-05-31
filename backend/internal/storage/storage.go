@@ -30,6 +30,9 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/minio/minio-go/v7/pkg/lifecycle"
+
+	"scholar-backend/internal/common/ctxutil"
+	"scholar-backend/internal/common/safego"
 )
 
 // ErrDisabled 调用方在 storage 未初始化时(endpoint 为空)拿到的 sentinel。
@@ -40,11 +43,13 @@ var ErrDisabled = errors.New("object storage disabled (no MINIO_ENDPOINT)")
 var ErrNotFound = errors.New("object not found")
 
 type Config struct {
-	Endpoint        string
-	AccessKey       string
-	SecretKey       string
-	BucketPaperPDFs string
-	UseSSL          bool
+	Endpoint                  string
+	AccessKey                 string
+	SecretKey                 string
+	BucketPaperPDFs           string
+	BucketFeedbackAttachments string
+	BucketPeerReviewAssets    string
+	UseSSL                    bool
 }
 
 var (
@@ -76,7 +81,7 @@ func Init(cfg Config) error {
 	}
 
 	// 探活:超时 5s 避免 backend 启动被卡死
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := ctxutil.With(ctxutil.QuickIO)
 	defer cancel()
 	if _, err := c.ListBuckets(ctx); err != nil {
 		return fmt.Errorf("storage: MinIO 连接失败(endpoint=%s): %w", cfg.Endpoint, err)
@@ -96,6 +101,29 @@ func Init(cfg Config) error {
 				"bucket", cfg.BucketPaperPDFs, "err", err)
 		}
 	}
+	if cfg.BucketFeedbackAttachments != "" {
+		if err := ensureBucket(ctx, c, cfg.BucketFeedbackAttachments); err != nil {
+			return fmt.Errorf("storage: 创建 bucket %q 失败: %w", cfg.BucketFeedbackAttachments, err)
+		}
+		// 反馈附件 bucket 同样挂 "tmp/ 24h 过期" lifecycle —— 用户填表中途关浏览器,
+		// 已上传但未绑定 feedback_id 的对象在 ~25h 内被清,业务侧 cleanup task 兜底其它情况。
+		if err := ensureTmpLifecycle(ctx, c, cfg.BucketFeedbackAttachments); err != nil {
+			slog.Warn("storage: 设置 feedback tmp 生命周期规则失败",
+				"bucket", cfg.BucketFeedbackAttachments, "err", err)
+		}
+	}
+	if cfg.BucketPeerReviewAssets != "" {
+		if err := ensureBucket(ctx, c, cfg.BucketPeerReviewAssets); err != nil {
+			return fmt.Errorf("storage: 创建 bucket %q 失败: %w", cfg.BucketPeerReviewAssets, err)
+		}
+		// 审稿稿件 bucket 也走 tmp/ 24h ILM —— 用户在 wizard 中途关浏览器,
+		// 上传后没走到 submit 的文件在 ~25h 内被清。submit 时 service 层把对象
+		// 从 tmp/<draftId>/ 移动(实际就是 copy + delete)到 submitted/<id>/。
+		if err := ensureTmpLifecycle(ctx, c, cfg.BucketPeerReviewAssets); err != nil {
+			slog.Warn("storage: 设置 peer-review tmp 生命周期规则失败",
+				"bucket", cfg.BucketPeerReviewAssets, "err", err)
+		}
+	}
 
 	mu.Lock()
 	client = c
@@ -106,6 +134,8 @@ func Init(cfg Config) error {
 	slog.Info("storage: MinIO 就绪",
 		"endpoint", cfg.Endpoint,
 		"bucket_paper_pdfs", cfg.BucketPaperPDFs,
+		"bucket_feedback_attachments", cfg.BucketFeedbackAttachments,
+		"bucket_peer_review_assets", cfg.BucketPeerReviewAssets,
 		"ssl", cfg.UseSSL,
 	)
 	return nil
@@ -157,6 +187,20 @@ func PaperPDFBucket() string {
 	mu.RLock()
 	defer mu.RUnlock()
 	return config.BucketPaperPDFs
+}
+
+// FeedbackAttachmentBucket 暴露反馈附件 bucket 名。
+func FeedbackAttachmentBucket() string {
+	mu.RLock()
+	defer mu.RUnlock()
+	return config.BucketFeedbackAttachments
+}
+
+// PeerReviewAssetBucket 暴露智能审稿稿件 bucket 名。
+func PeerReviewAssetBucket() string {
+	mu.RLock()
+	defer mu.RUnlock()
+	return config.BucketPeerReviewAssets
 }
 
 // PutOptions Put 时的可选参数
@@ -256,7 +300,7 @@ func DeleteObjects(
 	mu.RUnlock()
 
 	objectsCh := make(chan minio.ObjectInfo, len(keys))
-	go func() {
+	safego.Go("storage-delete-objects-feed", func() {
 		defer close(objectsCh)
 		for _, k := range keys {
 			if k == "" {
@@ -264,7 +308,7 @@ func DeleteObjects(
 			}
 			objectsCh <- minio.ObjectInfo{Key: k}
 		}
-	}()
+	})
 
 	errCh := c.RemoveObjects(ctx, bucket, objectsCh, minio.RemoveObjectsOptions{})
 	for e := range errCh {

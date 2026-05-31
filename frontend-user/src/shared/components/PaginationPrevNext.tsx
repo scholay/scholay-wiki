@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 
@@ -38,39 +39,44 @@ export interface PaginationPrevNextProps {
   className?: string;
 }
 
-export function PaginationPrevNext({
-  page,
-  onPageChange,
-  totalPages,
-  hasMore,
-  total,
-  rangeStart,
-  rangeEnd,
-  pageSize,
-  pageSizeOptions,
-  onPageSizeChange,
-  disabled,
-  className,
-}: PaginationPrevNextProps) {
-  // prev: 第 1 页禁用;next: totalPages 模式看页数,hasMore 模式看游标
-  const prevDisabled = disabled || page <= 1;
-  const nextDisabled =
-    disabled ||
-    (totalPages != null ? page >= totalPages : !hasMore);
+export const PaginationPrevNext = forwardRef<HTMLElement, PaginationPrevNextProps>(
+  (
+    {
+      page,
+      onPageChange,
+      totalPages,
+      hasMore,
+      total,
+      rangeStart,
+      rangeEnd,
+      pageSize,
+      pageSizeOptions,
+      onPageSizeChange,
+      disabled,
+      className,
+    },
+    ref
+  ) => {
+    // prev: 第 1 页禁用;next: totalPages 模式看页数,hasMore 模式看游标
+    const prevDisabled = disabled || page <= 1;
+    const nextDisabled =
+      disabled ||
+      (totalPages != null ? page >= totalPages : !hasMore);
 
-  const showSummary =
-    total != null && rangeStart != null && rangeEnd != null;
-  const showPageSize =
-    pageSize != null && pageSizeOptions != null && onPageSizeChange != null;
+    const showSummary =
+      total != null && rangeStart != null && rangeEnd != null;
+    const showPageSize =
+      pageSize != null && pageSizeOptions != null && onPageSizeChange != null;
 
-  return (
-    <nav
-      aria-label="分页"
-      className={cn(
-        'flex items-center justify-between gap-4 py-4 text-xs',
-        className
-      )}
-    >
+    return (
+      <nav
+        ref={ref}
+        aria-label="分页"
+        className={cn(
+          'flex items-center justify-between gap-4 py-4 text-xs',
+          className
+        )}
+      >
       {/* 左:摘要 + pageSize(任意组合,缺失则占位空白让翻页区右对齐) */}
       <div className="flex items-center gap-2.5 text-faint min-h-7">
         {showSummary && (
@@ -152,4 +158,6 @@ export function PaginationPrevNext({
       </div>
     </nav>
   );
-}
+  }
+);
+PaginationPrevNext.displayName = 'PaginationPrevNext';

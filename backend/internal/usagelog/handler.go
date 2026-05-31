@@ -10,7 +10,6 @@ package usagelog
 import (
 	"strconv"
 
-	"scholar-backend/internal/admin"
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
@@ -24,36 +23,6 @@ type Handler struct {
 // NewHandler 创建Handler
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
-}
-
-// Log 记录使用日志
-// POST /api/v1/public/usage-log
-func (h *Handler) Log(c *gin.Context) {
-	var req LogRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
-		return
-	}
-
-	// 获取用户ID（可能为空）
-	var userID *uint
-	if uid, ok := utils.GetOptionalUserID(c); ok {
-		userID = &uid
-	}
-
-	// 获取IP地址
-	ipAddress := c.ClientIP()
-
-	// 获取User-Agent
-	userAgent := c.GetHeader("User-Agent")
-
-	// 记录日志
-	if err := h.service.Log(&req, userID, ipAddress, userAgent); err != nil {
-		utils.SuccessWithMessage(c, "logged", nil)
-		return
-	}
-
-	utils.SuccessWithMessage(c, "logged", nil)
 }
 
 // AdminHandler 管理后台处理器
@@ -84,7 +53,7 @@ func (h *AdminHandler) List(c *gin.Context) {
 
 	logs, total, err := h.service.List(&query)
 	if err != nil {
-		utils.Error(c, 5000, "Failed to query logs: "+err.Error())
+		utils.InternalError(c, 5000, "Failed to query logs", err)
 		return
 	}
 
@@ -113,7 +82,7 @@ func (h *AdminHandler) ExportCSV(c *gin.Context) {
 
 	logs, _, err := h.service.List(&query)
 	if err != nil {
-		utils.Error(c, 5005, "Failed to query for export: "+err.Error())
+		utils.InternalError(c, 5005, "Failed to query for export", err)
 		return
 	}
 
@@ -208,35 +177,11 @@ func (h *AdminHandler) GetStatsSummary(c *gin.Context) {
 	}
 
 	if err != nil {
-		utils.Error(c, 5000, "Failed to get summary: "+err.Error())
+		utils.InternalError(c, 5000, "Failed to get summary", err)
 		return
 	}
 
 	utils.Success(c, summary)
-}
-
-// GetFilterOptions 获取筛选选项
-// GET /api/v1/admin/usage-logs/filter-options
-func (h *AdminHandler) GetFilterOptions(c *gin.Context) {
-	options, err := h.service.GetFilterOptions()
-	if err != nil {
-		utils.Error(c, 5000, "Failed to get filter options: "+err.Error())
-		return
-	}
-
-	utils.Success(c, options)
-}
-
-// GetFeatureConfigs 获取功能配置列表
-// GET /api/v1/admin/usage-logs/features
-func (h *AdminHandler) GetFeatureConfigs(c *gin.Context) {
-	configs, err := h.service.GetFeatureConfigs()
-	if err != nil {
-		utils.Error(c, 5000, "Failed to get feature configs: "+err.Error())
-		return
-	}
-
-	utils.Success(c, configs)
 }
 
 // GetConfig 获取使用统计配置
@@ -244,7 +189,7 @@ func (h *AdminHandler) GetFeatureConfigs(c *gin.Context) {
 func (h *AdminHandler) GetConfig(c *gin.Context) {
 	config, err := h.service.GetConfig()
 	if err != nil {
-		utils.Error(c, 5000, "Failed to get config: "+err.Error())
+		utils.InternalError(c, 5000, "Failed to get config", err)
 		return
 	}
 
@@ -271,7 +216,7 @@ func (h *AdminHandler) UpdateConfig(c *gin.Context) {
 
 	config, err := h.service.UpdateConfig(&req)
 	if err != nil {
-		utils.Error(c, 5000, "Failed to update config: "+err.Error())
+		utils.InternalError(c, 5000, "Failed to update config", err)
 		return
 	}
 
@@ -283,7 +228,7 @@ func (h *AdminHandler) UpdateConfig(c *gin.Context) {
 func (h *AdminHandler) TriggerCleanup(c *gin.Context) {
 	deleted, err := h.service.CleanupOldLogs()
 	if err != nil {
-		utils.Error(c, 5000, "Failed to cleanup: "+err.Error())
+		utils.InternalError(c, 5000, "Failed to cleanup", err)
 		return
 	}
 
@@ -293,22 +238,4 @@ func (h *AdminHandler) TriggerCleanup(c *gin.Context) {
 	})
 }
 
-// ClearAllLogs 清空所有日志数据
-// DELETE /api/v1/admin/usage-logs/all
-func (h *AdminHandler) ClearAllLogs(c *gin.Context) {
-	count, err := h.service.ClearAllLogs()
-	if err != nil {
-		utils.Error(c, 5000, "Failed to clear all logs: "+err.Error())
-		return
-	}
-
-	admin.LogAdminAction(c, admin.ActionClear, admin.ResUsageLog, "", gin.H{
-		"deleted_count": count,
-	})
-
-	utils.Success(c, gin.H{
-		"deleted_count": count,
-		"message":       "所有数据已清空",
-	})
-}
 

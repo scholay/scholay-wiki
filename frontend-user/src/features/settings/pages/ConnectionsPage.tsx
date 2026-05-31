@@ -22,6 +22,7 @@ import {
 import { useEnabledProviders } from '@/shared/api/public-config';
 import { WeChatQRDialog } from '@/features/auth/components/WeChatQRDialog';
 import { cn } from '@/shared/lib/utils';
+import { useApiToast } from '@/shared/hooks';
 
 /**
  * 账号设置 → 已连接账号:
@@ -77,6 +78,7 @@ export function ConnectionsPage() {
   const startBind = useStartBindingProvider();
   const enabledProviders = useEnabledProviders();
   const confirm = useConfirm();
+  const apiToast = useApiToast();
   const [wechatBindOpen, setWechatBindOpen] = useState(false);
 
   if (isLoading) {
@@ -114,7 +116,7 @@ export function ConnectionsPage() {
     try {
       await startBind.mutateAsync(provider);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : '启动绑定失败,请稍后重试');
+      apiToast.show(err, '启动绑定失败,请稍后重试');
     }
   };
 
@@ -140,7 +142,7 @@ export function ConnectionsPage() {
       await unbindMut.mutateAsync({ provider: item.provider });
       toast.success(`${label} 已解绑`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : '解绑失败,请稍后重试');
+      apiToast.show(err, '解绑失败,请稍后重试');
     }
   };
 

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
+import { useApiToast } from '@/shared/hooks';
 import { Button, Input } from '@/shared/ui';
 import { useProfile } from '@/features/auth/api/profile';
 import { SendCodeButton } from '@/features/auth/components/SendCodeButton';
@@ -19,6 +20,7 @@ import { SendCodeButton } from '@/features/auth/components/SendCodeButton';
 export function SecurityPage() {
   const { data: profile } = useProfile();
   const qc = useQueryClient();
+  const apiToast = useApiToast();
 
   // 密码
   const [oldPwd, setOldPwd] = useState('');
@@ -40,7 +42,7 @@ export function SecurityPage() {
       setConfirmPwd('');
       toast.success('密码已更新,下次登录请使用新密码');
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : '密码没能修改成功,请确认当前密码是否填对了'),
+    onError: apiToast.onError('密码没能修改成功,请确认当前密码是否填对了'),
   });
 
   // 换绑邮箱:
@@ -72,7 +74,7 @@ export function SecurityPage() {
       qc.invalidateQueries({ queryKey: ['settings', 'connections'] });
       toast.success('邮箱已更新');
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : '邮箱换绑没成功,请稍后重试'),
+    onError: apiToast.onError('邮箱换绑没成功,请稍后重试'),
   });
 
   // 换绑手机:对称于换绑邮箱 —— 已绑场景必须验旧手机码 + 新手机码
@@ -101,7 +103,7 @@ export function SecurityPage() {
       qc.invalidateQueries({ queryKey: ['settings', 'connections'] });
       toast.success('手机号已更新');
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : '手机号换绑没成功,请稍后重试'),
+    onError: apiToast.onError('手机号换绑没成功,请稍后重试'),
   });
 
   return (

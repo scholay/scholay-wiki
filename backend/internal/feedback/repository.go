@@ -211,12 +211,11 @@ func (r *Repository) GetAttachmentsByUploadKey(uploadKey string) ([]FeedbackAtta
 	return attachments, err
 }
 
-// GetAttachmentsByFeedbackID 根据反馈ID获取附件列表（不包含文件数据）
+// GetAttachmentsByFeedbackID 根据反馈ID获取附件列表 (含 object_key, 用于下载/删除)。
+// 文件本体走 MinIO, DB 全字段都是元数据, 没有 file_data BLOB 之类的大列了。
 func (r *Repository) GetAttachmentsByFeedbackID(feedbackID uint) ([]FeedbackAttachment, error) {
 	var attachments []FeedbackAttachment
-	// 不查询 file_data 字段以提高性能
-	err := r.db.Select("id, upload_key, feedback_id, original_name, file_size, file_type, mime_type, is_used, created_at, updated_at").
-		Where("feedback_id = ?", feedbackID).Find(&attachments).Error
+	err := r.db.Where("feedback_id = ?", feedbackID).Find(&attachments).Error
 	return attachments, err
 }
 
@@ -302,6 +301,11 @@ func (r *Repository) GetOrphanAttachmentStats() (count int64, totalSize int64, e
 		Scan(&result).Error
 	totalSize = result.TotalSize
 	return
+}
+
+// GetDB 暴露 gorm 句柄 — 给 service 内部偶尔需要自己拼 query (如附件清理) 用。
+func (r *Repository) GetDB() *gorm.DB {
+	return r.db
 }
 
 // DeleteAttachmentsByFeedbackID 删除反馈相关的所有附件记录

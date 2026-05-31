@@ -71,11 +71,6 @@ export const adminRoutes: RouteObject[] = [
         lazy: lazyPage(() => import('./pages/MessagesPage'))('MessagesPage'),
       },
       {
-        path: 'message-templates',
-        handle: { title: '消息模板' },
-        lazy: lazyPage(() => import('./pages/MessageTemplatesPage'))('MessageTemplatesPage'),
-      },
-      {
         path: 'analytics',
         handle: { title: '数据统计' },
         lazy: lazyPage(() => import('./pages/AnalyticsPage'))('AnalyticsPage'),
@@ -86,29 +81,24 @@ export const adminRoutes: RouteObject[] = [
         lazy: lazyPage(() => import('./pages/UsageLogsPage'))('UsageLogsPage'),
       },
       {
-        path: 'audit-logs',
-        handle: { title: '操作日志' },
-        lazy: lazyPage(() => import('./pages/AuditLogsPage'))('AuditLogsPage'),
-      },
-      {
-        path: 'pdf-cache',
-        handle: { title: 'PDF 缓存' },
-        lazy: lazyPage(() => import('./pages/PdfCachePage'))('PdfCachePage'),
-      },
-      {
         path: 'third-party',
         handle: { title: '第三方账号' },
         lazy: lazyPage(() => import('./pages/ThirdPartyPage'))('ThirdPartyPage'),
       },
       {
-        path: 'latex-agent',
-        handle: { title: 'LaTeX 助手' },
-        lazy: lazyPage(() => import('./pages/LatexAgentPage'))('LatexAgentPage'),
+        path: 'agent-config',
+        handle: { title: 'AI Agent 服务' },
+        lazy: lazyPage(() => import('./pages/AgentConfigPage'))('AgentConfigPage'),
       },
       {
         path: 'dimensions',
         handle: { title: '分析维度' },
         lazy: lazyPage(() => import('./pages/DimensionsPage'))('DimensionsPage'),
+      },
+      {
+        path: 'feature-prompts',
+        handle: { title: 'AI Prompt 注册表' },
+        lazy: lazyPage(() => import('./pages/FeaturePromptsPage'))('FeaturePromptsPage'),
       },
       {
         path: 'wechat-official',

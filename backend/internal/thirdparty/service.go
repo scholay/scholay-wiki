@@ -175,12 +175,6 @@ func (s *Service) GetRandomAPIKey(accountType AccountType) (string, uint, error)
 	// Extract API key based on type
 	var apiKey string
 	switch accountType {
-	case AccountTypeSemanticScholar:
-		config, err := selected.GetSemanticScholarConfig()
-		if err != nil {
-			return "", 0, fmt.Errorf("failed to parse config: %w", err)
-		}
-		apiKey = config.APIKey
 	case AccountTypeAIModel:
 		config, err := selected.GetAIModelConfig()
 		if err != nil {
@@ -348,7 +342,9 @@ func (s *Service) invalidateCache(accountType AccountType) {
 
 // RefreshCache refreshes the cache for all account types
 func (s *Service) RefreshCache() error {
-	types := []AccountType{AccountTypeSemanticScholar, AccountTypeAIModel}
+	// Minicod 也要刷 —— 否则 getActiveAccounts 把 minicod key 读进进程缓存后永不过期,
+	// admin 禁用/轮换 minicod key 要等重启才生效 (违背文档承诺的 5min 轮换)。
+	types := []AccountType{AccountTypeAIModel, AccountTypeMinicod}
 
 	for _, accountType := range types {
 		accounts, err := s.repo.GetActiveByType(accountType)

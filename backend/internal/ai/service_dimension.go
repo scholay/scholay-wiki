@@ -260,43 +260,6 @@ func (s *Service) ResetUserDimensionToDefault(userID uint, dimensionKey string) 
 	return nil
 }
 
-// ResetAllUserDimensions 重置用户的所有维度为系统默认
-func (s *Service) ResetAllUserDimensions(userID uint) error {
-	rowsAffected, err := s.repo.DeleteAllUserDimensions(userID)
-	if err != nil {
-		return fmt.Errorf("failed to reset all dimensions: %w", err)
-	}
-	slog.Info("Reset all dimensions to default", "userId", userID, "deleted", rowsAffected)
-	return nil
-}
-
-// CopySystemDimensionsToUser 将系统默认维度复制给用户（用于用户首次自定义）
-func (s *Service) CopySystemDimensionsToUser(userID uint) ([]AnalysisDimension, error) {
-	systemDimensions, err := s.GetSystemDimensions()
-	if err != nil {
-		return nil, err
-	}
-
-	var userDimensions []AnalysisDimension
-	for _, sd := range systemDimensions {
-		ud := AnalysisDimension{
-			UserID:       int64(userID),
-			DimensionKey: sd.DimensionKey,
-			Name:         sd.Name,
-			Description:  sd.Description,
-			SortOrder:    sd.SortOrder,
-			IsActive:     true,
-		}
-		if err := s.repo.CreateDimension(&ud); err != nil {
-			return nil, fmt.Errorf("failed to copy dimension %s: %w", sd.DimensionKey, err)
-		}
-		userDimensions = append(userDimensions, ud)
-	}
-
-	slog.Info("Copied system dimensions to user", "count", len(userDimensions), "userId", userID)
-	return userDimensions, nil
-}
-
 // DimensionSettingItem 设置面板用的单行 —— 在 AnalysisDimension 基础上多两个派生字段
 type DimensionSettingItem struct {
 	AnalysisDimension

@@ -71,3 +71,4 @@ export const LeaveToLibraryLink = forwardRef<
     </ConfirmPopover>
   );
 });
+LeaveToLibraryLink.displayName = 'LeaveToLibraryLink';

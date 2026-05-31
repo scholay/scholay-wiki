@@ -17,10 +17,9 @@ import (
 	"strings"
 	"sync"
 
-	"scholar-backend/internal/ai"
 	"scholar-backend/internal/common/database"
+	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/minicod"
-	"scholar-backend/internal/thirdparty"
 )
 
 // ============================================================================
@@ -74,7 +73,8 @@ func (h *Handler) SearchThreeSources(ctx context.Context, userID uint64, title s
 	var wg sync.WaitGroup
 	for i, src := range sources {
 		wg.Add(1)
-		go func(i int, src string) {
+		i, src := i, src
+		safego.Go("library-import-source-search", func() {
 			defer wg.Done()
 			resp, err := h.deps.Minicod.SearchPapers(ctx, minicod.PaperSearchOptions{
 				Query:  title,
@@ -86,7 +86,7 @@ func (h *Handler) SearchThreeSources(ctx context.Context, userID uint64, title s
 				return
 			}
 			results[i] = sourceResult{source: src, papers: resp.Data}
-		}(i, src)
+		})
 	}
 	wg.Wait()
 
@@ -331,82 +331,7 @@ type AIPaperMeta struct {
 	DOI      string   `json:"doi"`
 }
 
-// extractMetadataPromptSystem 系统提示词 —— 只输出 JSON,不带任何 markdown / 解释
-const extractMetadataPromptSystem = `你是论文元数据抽取助手。给你一段从学术论文 PDF 提取的纯文本,你必须输出一个 JSON 对象,字段如下:
-- title (string): 论文完整标题
-- abstract (string): 论文摘要全文
-- authors (string[]): 作者姓名数组,顺序与 PDF 一致
-- year (number): 发表年份,4 位整数,未知填 0
-- venue (string): 期刊/会议名称,未知填空字符串
-- doi (string): DOI 字符串,未知填空字符串
-
-严格规则:
-1. 必须只输出**单个合法的 JSON 对象**,不要附带任何说明、markdown 围栏、注释
-2. 字段缺失就填空字符串 ""(或 0,authors 用空数组 [])
-3. 不要瞎编;明确不知道就留空
-4. 文本可能含有 OCR 噪声 / 排版错位,尽力还原`
-
-const extractMetadataPromptUserTpl = `以下是论文 PDF 提取的纯文本(可能含有排版/换行噪声),请抽取元数据:
-
----
-%s
----
-
-只输出 JSON。`
-
-// ExtractMetadataFromPDF 调 LLM 把 PDF 全文转成 AIPaperMeta
-//
-// 用 ModelLevelLow(廉价模型够用)+ 截断 fullText 到 ~40k 字符防超 context。
-// 若返回不是合法 JSON 或字段全空,返回 error 让上层走 "失败兜底"。
-func (h *Handler) ExtractMetadataFromPDF(ctx context.Context, fullText string) (*AIPaperMeta, error) {
-	if h.deps.AI == nil {
-		return nil, fmt.Errorf("ai service not configured")
-	}
-	// 截断 —— 论文前 40k 字符通常已经覆盖 title/abstract/authors/year/venue/doi
-	const maxLen = 40_000
-	if len(fullText) > maxLen {
-		fullText = fullText[:maxLen]
-	}
-
-	messages := []ai.ChatMessage{
-		{Role: "system", Content: extractMetadataPromptSystem},
-		{Role: "user", Content: fmt.Sprintf(extractMetadataPromptUserTpl, fullText)},
-	}
-	resp, err := h.deps.AI.ChatCompletionWithTools(ctx, messages, nil, "", thirdparty.ModelLevelLow)
-	if err != nil {
-		return nil, fmt.Errorf("ai extract failed: %w", err)
-	}
-	if len(resp.Choices) == 0 {
-		return nil, fmt.Errorf("ai extract: empty choices")
-	}
-	raw := strings.TrimSpace(resp.Choices[0].Message.Content)
-	// 容错:有些模型仍会包 ```json … ```
-	raw = stripCodeFence(raw)
-
-	var meta AIPaperMeta
-	if err := json.Unmarshal([]byte(raw), &meta); err != nil {
-		return nil, fmt.Errorf("ai extract: invalid JSON: %w (raw=%q)", err, raw)
-	}
-	// 至少要有 title 或 abstract 才算有效
-	if strings.TrimSpace(meta.Title) == "" && strings.TrimSpace(meta.Abstract) == "" {
-		return nil, fmt.Errorf("ai extract: title and abstract both empty")
-	}
-	return &meta, nil
-}
-
-// stripCodeFence 去掉 markdown ```json 围栏
-func stripCodeFence(s string) string {
-	s = strings.TrimSpace(s)
-	if !strings.HasPrefix(s, "```") {
-		return s
-	}
-	// 去掉首行 ``` 或 ```json
-	if i := strings.Index(s, "\n"); i >= 0 {
-		s = s[i+1:]
-	}
-	s = strings.TrimSuffix(s, "```")
-	s = strings.TrimSpace(s)
-	// 残留尾部三引号
-	s = strings.TrimSuffix(s, "```")
-	return strings.TrimSpace(s)
-}
+// 注:历史上这里有一个 ExtractMetadataFromPDF(LLM 把 PDF 全文抽成 AIPaperMeta),
+// 已下线 —— 实际上传解析只走 pdfparse(标题/DOI/摘要文本),不调大模型。
+// AIPaperMeta 类型保留(handler_upload_resolve.go 的 job.AIMeta 字段仍引用它,
+// 当前恒为 nil,fillOGFields/applyOGUpdates 已做 nil 兜底)。

@@ -1,0 +1,25 @@
+{
+  "mcpServers": {
+    "minicod": {
+      "command": "bunx",
+      "args": [
+        "-y",
+        "@minicod/mcp-server"
+      ],
+      "env": {
+        "MINICOD_API_KEY": "${MINICOD_API_KEY}"
+      }
+    }
+  },
+  "firstStartTime": "2026-05-11T08:17:58.280Z",
+  "opusProMigrationComplete": true,
+  "sonnet1m45MigrationComplete": true,
+  "migrationVersion": 11,
+  "userID": "89b7087aebd094fc7db943ca4d10848207e3f9db7ee94ee9fbe74e732ff83827",
+  "skillUsage": {
+    "citation-audit": {
+      "usageCount": 1,
+      "lastUsedAt": 1778487588385
+    }
+  }
+}

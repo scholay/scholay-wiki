@@ -8,7 +8,6 @@
 package minicod
 
 import (
-	"context"
 	"encoding/json"
 	"log/slog"
 	"strconv"
@@ -16,66 +15,51 @@ import (
 
 	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/utils"
+	"scholar-backend/internal/hotcontent"
+	"scholar-backend/internal/seo"
+	"scholar-backend/internal/usagelog"
 
 	"github.com/gin-gonic/gin"
 )
 
-// SearchSuggester 定义搜索建议接口（避免循环依赖）
-type SearchSuggester interface {
-	GetSearchSuggestions(ctx context.Context, query string) ([]string, error)
-}
-
-// AuthorSEORecorder 由 seo 包实现，作者详情命中时写入 SEO 索引库 tier=1
-// 与 usagelog.SEORecorder 同构，跨包通过接口反转避免循环依赖。
+// AuthorSEORecorder 由 seo.Service 直接实现, 作者详情命中时写入 SEO 索引库 tier=1。
+// 历史上 minicod 自定义了一份 AuthorSEOSeed 与 seo.AuthorSeed 字段镜像, 中间靠
+// cmd/server/authorSEORecorderAdapter 翻译; 现在改成 minicod 直接 import seo 用
+// seo.AuthorSeed, adapter 已下线。
 type AuthorSEORecorder interface {
-	RecordAuthorDetailClick(seed *AuthorSEOSeed) error
+	RecordAuthorDetailClick(seed *seo.AuthorSeed) error
 }
 
-// AuthorSEOSeed 字段镜像 seo.AuthorSeed，转换在 adapter 层完成。
-type AuthorSEOSeed struct {
-	AuthorID      string
-	Name          string
-	Affiliations  []string
-	Homepage      string
-	PaperCount    int
-	CitationCount int
-	HIndex        *int
-	Source        string
-}
-
-// JournalSEORecorder 由 seo 包实现, 期刊详情命中时写入 SEO 索引库 tier=1
-// 与 AuthorSEORecorder 同构,跨包通过接口反转避免循环依赖。
+// JournalSEORecorder 同构 — 也直接用 seo.JournalSeed。
 type JournalSEORecorder interface {
-	RecordJournalDetailClick(seed *JournalSEOSeed) error
+	RecordJournalDetailClick(seed *seo.JournalSeed) error
 }
 
-// JournalSEOSeed 字段镜像 seo.JournalSeed, 转换在 adapter 层完成。
-type JournalSEOSeed struct {
-	JournalID       int64
-	CanonicalName   string
-	Publisher       string
-	ISSNs           []string
-	Country         string
-	Type            string
-	IsOA            bool
-	JCRImpactFactor float64
-	JCRQuartile     string
-	OpenAlexHIndex  *int
+// HotContentRecorder 由 hotcontent.Service 直接实现 —— 落热门搜索词 / 论文曝光 / 点击。
+//   - RecordSearch: 关键词按类型(文献/期刊)分桶计数
+//   - RecordImpressions: 一次搜索结果集的曝光量 +1
+//   - RecordClick: 从搜索结果点开详情(GET /papers/:id)的点击量 +1
+//
+// SEO 直访(/paper/:slug)由 seo 模块单独记 seo_view, 与 RecordClick 走不同接口, 不重复计数。
+type HotContentRecorder interface {
+	RecordSearch(keyword string, searchType hotcontent.SearchType) error
+	RecordImpressions(papers []hotcontent.PaperViewData) error
+	RecordClick(paper *hotcontent.PaperViewData) error
 }
 
 // Handler handles HTTP requests for Minicod API
 type Handler struct {
 	manager            *Manager
-	suggester          SearchSuggester
 	authorSEORecorder  AuthorSEORecorder
 	journalSEORecorder JournalSEORecorder
+	hotRecorder        HotContentRecorder
+	usageRecorder      usagelog.FeatureRecorder
 }
 
 // NewHandler creates a new Minicod handler
-func NewHandler(manager *Manager, suggester SearchSuggester) *Handler {
+func NewHandler(manager *Manager) *Handler {
 	return &Handler{
-		manager:   manager,
-		suggester: suggester,
+		manager: manager,
 	}
 }
 
@@ -87,6 +71,67 @@ func (h *Handler) SetAuthorSEORecorder(r AuthorSEORecorder) {
 // SetJournalSEORecorder 注入期刊 SEO 记录器 (详情命中时记录 tier=1 click)
 func (h *Handler) SetJournalSEORecorder(r JournalSEORecorder) {
 	h.journalSEORecorder = r
+}
+
+// SetHotContentRecorder 注入热门内容记录器（搜索词 / 曝光 / 点击统计）
+func (h *Handler) SetHotContentRecorder(r HotContentRecorder) {
+	h.hotRecorder = r
+}
+
+// SetUsageRecorder 注入功能使用统计录入器(用户实际提交搜索时记一次)
+func (h *Handler) SetUsageRecorder(r usagelog.FeatureRecorder) {
+	h.usageRecorder = r
+}
+
+// paperToViewData 把上游 Paper 映射成 hotcontent 落库用的 PaperViewData。
+func paperToViewData(p *Paper) hotcontent.PaperViewData {
+	vd := hotcontent.PaperViewData{PaperID: p.PaperID}
+	if p.Title != "" {
+		t := p.Title
+		vd.Title = &t
+	}
+	if p.Abstract != "" {
+		a := p.Abstract
+		vd.Abstract = &a
+	}
+	if p.Year > 0 {
+		y := p.Year
+		vd.Year = &y
+	}
+	if p.Venue != "" {
+		v := p.Venue
+		vd.Venue = &v
+	}
+	if doi, ok := p.ExternalIDs["DOI"].(string); ok && doi != "" {
+		vd.DOI = &doi
+	}
+	if len(p.Authors) > 0 {
+		names := make([]string, 0, len(p.Authors))
+		for _, a := range p.Authors {
+			if a.Name != "" {
+				names = append(names, a.Name)
+			}
+		}
+		if len(names) > 0 {
+			if b, err := json.Marshal(names); err == nil {
+				s := string(b)
+				vd.Authors = &s
+			}
+		}
+	}
+	return vd
+}
+
+// papersToViewData 批量映射(用于曝光)。
+func papersToViewData(papers []Paper) []hotcontent.PaperViewData {
+	out := make([]hotcontent.PaperViewData, 0, len(papers))
+	for i := range papers {
+		if papers[i].PaperID == "" {
+			continue
+		}
+		out = append(out, paperToViewData(&papers[i]))
+	}
+	return out
 }
 
 // SearchPapersRequest 定义学术检索的POST请求结构
@@ -137,24 +182,8 @@ func (h *Handler) SearchPapers(c *gin.Context) {
 		return
 	}
 
-	// Search suggestions logic (same as before)
-	enableSuggestions := true
-	if req.EnableTranslation != nil && !*req.EnableTranslation {
-		enableSuggestions = false
-	}
-	if req.Offset > 0 {
-		enableSuggestions = false
-	}
-
-	var searchSuggestions []string
-	if enableSuggestions && h.suggester != nil {
-		suggestions, err := h.suggester.GetSearchSuggestions(c.Request.Context(), req.Query)
-		if err != nil {
-			slog.Warn("failed to get search suggestions", "err", err)
-		} else {
-			searchSuggestions = suggestions
-		}
-	}
+	// AI 搜索建议已下线 (新前端不消费 searchSuggestions, 详见 ai 包瘦身)。
+	// SearchSuggestions / HasSuggestions 字段保留但恒为空, 维持响应 JSON 形状兼容。
 
 	// Parse year range (upstream expects integers year_from/year_to)
 	yearFrom, yearTo := parseYearRange(req.Year, req.YearFrom, req.YearTo)
@@ -195,15 +224,34 @@ func (h *Handler) SearchPapers(c *gin.Context) {
 		return
 	}
 
-	hasSuggestions := len(searchSuggestions) > 0
-
 	response := SearchPapersResponse{
-		Data:              result,
-		OriginalQuery:     req.Query,
-		SearchSuggestions: searchSuggestions,
-		ActualQuery:       req.Query,
-		HasSuggestions:    hasSuggestions,
-		SearchStrategy:    "original",
+		Data:           result,
+		OriginalQuery:  req.Query,
+		ActualQuery:    req.Query,
+		HasSuggestions: false,
+		SearchStrategy: "original",
+	}
+
+	// 热门内容: 记文献搜索词 + 结果集曝光量。异步, 不阻塞响应。
+	if h.hotRecorder != nil && result != nil {
+		rec := h.hotRecorder
+		query := req.Query
+		impressions := papersToViewData(result.Data)
+		safego.Go("hotcontent-paper-search", func() {
+			_ = rec.RecordSearch(query, hotcontent.SearchTypePaper)
+			if len(impressions) > 0 {
+				_ = rec.RecordImpressions(impressions)
+			}
+		})
+	}
+
+	// 功能使用统计: "文献搜索" 真实被用了一次(公开接口, 匿名 user_id 为 nil 也记)。
+	// 自身已 safego, 不必再包一层。
+	if h.usageRecorder != nil {
+		h.usageRecorder.RecordFromGin(c,
+			usagelog.FeaturePaperSearch, usagelog.FeatureNames[usagelog.FeaturePaperSearch],
+			"search",
+			map[string]any{"query": req.Query})
 	}
 
 	utils.Success(c, response)
@@ -229,30 +277,14 @@ func (h *Handler) GetPaper(c *gin.Context) {
 		return
 	}
 
-	utils.Success(c, result)
-}
-
-// GetPaperCitations handles get paper citations requests
-// GET /api/v1/scholar/papers/:paperId/citations
-func (h *Handler) GetPaperCitations(c *gin.Context) {
-	paperID := c.Param("paperId")
-	if paperID == "" {
-		utils.Error(c, 4005, "请提供论文 ID")
-		return
-	}
-
-	opts := CitationsOptions{
-		Offset: clampOffset(parseIntQuery(c, "offset", 0)),
-		Limit:  clampLimit(parseIntQuery(c, "limit", 100)),
-	}
-	if fields := c.Query("fields"); fields != "" {
-		opts.Fields = strings.Split(fields, ",")
-	}
-
-	result, err := h.manager.GetPaperCitations(c.Request.Context(), paperID, opts)
-	if err != nil {
-		utils.Error(c, 4006, "加载引用信息失败,请稍后重试")
-		return
+	// 热门内容: 从搜索结果点开详情 = 一次点击。异步, 不阻塞响应。
+	// (SEO 直访走 /paper/:slug → seo 模块记 seo_view, 两条入口接口不同, 不重复计数)
+	if h.hotRecorder != nil && result != nil && result.PaperID != "" {
+		rec := h.hotRecorder
+		vd := paperToViewData(result)
+		safego.Go("hotcontent-paper-click", func() {
+			_ = rec.RecordClick(&vd)
+		})
 	}
 
 	utils.Success(c, result)
@@ -284,59 +316,6 @@ func (h *Handler) GetPaperReferences(c *gin.Context) {
 	utils.Success(c, result)
 }
 
-// GetPaperAuthors handles get paper authors requests
-// GET /api/v1/scholar/papers/:paperId/authors
-func (h *Handler) GetPaperAuthors(c *gin.Context) {
-	paperID := c.Param("paperId")
-	if paperID == "" {
-		utils.Error(c, 4009, "请提供论文 ID")
-		return
-	}
-
-	offset := clampOffset(parseIntQuery(c, "offset", 0))
-	limit := clampLimit(parseIntQuery(c, "limit", 100))
-	var fields []string
-	if f := c.Query("fields"); f != "" {
-		fields = strings.Split(f, ",")
-	}
-
-	result, err := h.manager.GetPaperAuthors(c.Request.Context(), paperID, fields, offset, limit)
-	if err != nil {
-		utils.Error(c, 4010, "加载作者信息失败,请稍后重试")
-		return
-	}
-
-	utils.Success(c, result)
-}
-
-// SearchAuthors handles author search requests
-// GET /api/v1/scholar/authors/search
-func (h *Handler) SearchAuthors(c *gin.Context) {
-	query := c.Query("query")
-	if query == "" {
-		utils.Error(c, 4011, "请输入搜索词")
-		return
-	}
-
-	opts := AuthorSearchOptions{
-		Query:  query,
-		Offset: clampOffset(parseIntQuery(c, "offset", 0)),
-		Limit:  clampLimit(parseIntQuery(c, "limit", 10)),
-		Source: c.Query("source"),
-	}
-	if fields := c.Query("fields"); fields != "" {
-		opts.Fields = strings.Split(fields, ",")
-	}
-
-	result, err := h.manager.SearchAuthors(c.Request.Context(), opts)
-	if err != nil {
-		utils.Error(c, 4012, "搜索作者失败,请稍后重试")
-		return
-	}
-
-	utils.Success(c, result)
-}
-
 // GetAuthor handles get author details requests
 // GET /api/v1/scholar/authors/:authorId
 func (h *Handler) GetAuthor(c *gin.Context) {
@@ -359,7 +338,7 @@ func (h *Handler) GetAuthor(c *gin.Context) {
 
 	// 详情命中即 tier=1 写入 seo_authors。异步执行，失败不影响主响应。
 	if h.authorSEORecorder != nil && result != nil && result.Name != "" {
-		seed := &AuthorSEOSeed{
+		seed := &seo.AuthorSeed{
 			AuthorID:      result.AuthorID,
 			Name:          result.Name,
 			Affiliations:  result.Affiliations,
@@ -402,63 +381,6 @@ func (h *Handler) GetAuthorPapers(c *gin.Context) {
 	result, err := h.manager.GetAuthorPapers(c.Request.Context(), authorID, fields, offset, limit)
 	if err != nil {
 		utils.Error(c, 4016, "加载作者论文列表失败,请稍后重试")
-		return
-	}
-
-	utils.Success(c, result)
-}
-
-// GetRecommendationsForPaper handles paper recommendations requests
-// GET /api/v1/scholar/recommendations/papers/:paperId
-func (h *Handler) GetRecommendationsForPaper(c *gin.Context) {
-	paperID := c.Param("paperId")
-	if paperID == "" {
-		utils.Error(c, 4017, "请提供论文 ID")
-		return
-	}
-
-	opts := RecommendationsOptions{
-		Limit: clampLimit(parseIntQuery(c, "limit", 10)),
-	}
-	if fields := c.Query("fields"); fields != "" {
-		opts.Fields = strings.Split(fields, ",")
-	}
-
-	result, err := h.manager.GetRecommendationsForPaper(c.Request.Context(), paperID, opts)
-	if err != nil {
-		utils.Error(c, 4018, "加载推荐论文失败,请稍后重试")
-		return
-	}
-
-	utils.Success(c, result)
-}
-
-// RecommendationRequestBody represents POST body for recommendations
-type RecommendationRequestBody struct {
-	PositivePaperIDs []string `json:"positivePaperIds" binding:"required"`
-	NegativePaperIDs []string `json:"negativePaperIds"`
-	Fields           []string `json:"fields"`
-	Limit            int      `json:"limit"`
-}
-
-// GetRecommendations handles paper recommendations based on positive/negative papers
-// POST /api/v1/scholar/recommendations/papers
-func (h *Handler) GetRecommendations(c *gin.Context) {
-	var req RecommendationRequestBody
-	if !utils.BindJSON(c, &req) {
-		return
-	}
-
-	opts := RecommendationsOptions{
-		PositivePaperIDs: req.PositivePaperIDs,
-		NegativePaperIDs: req.NegativePaperIDs,
-		Fields:           req.Fields,
-		Limit:            clampLimit(req.Limit),
-	}
-
-	result, err := h.manager.GetRecommendations(c.Request.Context(), opts)
-	if err != nil {
-		utils.Error(c, 4020, "加载推荐论文失败,请稍后重试")
 		return
 	}
 
@@ -551,28 +473,6 @@ func (h *Handler) GetSearchSuggestions(c *gin.Context) {
 	utils.Success(c, result)
 }
 
-// PaperAutocomplete handles paper autocomplete requests
-// GET /api/v1/public/papers/autocomplete
-func (h *Handler) PaperAutocomplete(c *gin.Context) {
-	query := c.Query("query")
-	if query == "" {
-		utils.Error(c, 4025, "请输入搜索词")
-		return
-	}
-	if len(query) > 100 {
-		query = query[:100]
-	}
-
-	source := c.Query("source") // stc or olx
-	result, err := h.manager.PaperAutocomplete(c.Request.Context(), query, source)
-	if err != nil {
-		utils.Error(c, 4026, "获取联想词失败,请稍后重试")
-		return
-	}
-
-	utils.Success(c, result)
-}
-
 // ======================== JNL Journal Handlers ========================
 
 // SearchJournals handles journal search requests
@@ -593,6 +493,23 @@ func (h *Handler) SearchJournals(c *gin.Context) {
 	if err != nil {
 		utils.Error(c, 4030, "搜索期刊失败,请稍后重试")
 		return
+	}
+
+	// 热门内容: 记期刊搜索词(与文献搜索词分桶)。hot_papers 是论文专用, 期刊不记曝光。
+	if h.hotRecorder != nil && req.Keyword != "" {
+		rec := h.hotRecorder
+		keyword := req.Keyword
+		safego.Go("hotcontent-journal-search", func() {
+			_ = rec.RecordSearch(keyword, hotcontent.SearchTypeJournal)
+		})
+	}
+
+	// 功能使用统计: "期刊搜索" 真实被用了一次。
+	if h.usageRecorder != nil {
+		h.usageRecorder.RecordFromGin(c,
+			usagelog.FeatureJournalSearch, usagelog.FeatureNames[usagelog.FeatureJournalSearch],
+			"search",
+			map[string]any{"keyword": req.Keyword})
 	}
 
 	utils.Success(c, result)
@@ -664,7 +581,7 @@ func (h *Handler) GetJournal(c *gin.Context) {
 // issns 拆成 print_issn / electronic_issn, all_issns 是 CSV 形式)。
 //
 // 返回 nil 表示数据不足以入库 (id<=0 / canonical_name 空 / 解码失败), 调用方应跳过。
-func buildJournalSEOSeed(raw []byte) *JournalSEOSeed {
+func buildJournalSEOSeed(raw []byte) *seo.JournalSeed {
 	var envelope struct {
 		Unified struct {
 			ID                int     `json:"id"`
@@ -721,7 +638,7 @@ func buildJournalSEOSeed(raw []byte) *JournalSEOSeed {
 		}
 	}
 
-	seed := &JournalSEOSeed{
+	seed := &seo.JournalSeed{
 		JournalID:       int64(u.ID),
 		CanonicalName:   u.CanonicalName,
 		Publisher:       publisher,
@@ -803,26 +720,6 @@ func (h *Handler) JournalsByNames(c *gin.Context) {
 	utils.Success(c, result)
 }
 
-// JournalsByISSNs batches journal lookups by ISSN.
-// POST /api/v1/public/journals/batch
-// 上游约定：issns 逗号分隔，最多 100 个；可选 fields 字段白名单。
-func (h *Handler) JournalsByISSNs(c *gin.Context) {
-	var req struct {
-		ISSNs  string `json:"issns" binding:"required"`
-		Fields string `json:"fields"`
-	}
-	if !utils.BindJSON(c, &req) {
-		return
-	}
-
-	result, err := h.manager.JournalsByISSNs(c.Request.Context(), req.ISSNs, req.Fields)
-	if err != nil {
-		utils.Error(c, 4041, "按 ISSN 批量加载期刊失败,请稍后重试")
-		return
-	}
-	utils.Success(c, result)
-}
-
 // SuggestJournals returns journal-name prefix autocomplete suggestions.
 // POST /api/v1/scholar/journals/suggest  (or /public/journals/suggest)
 //
@@ -849,63 +746,12 @@ func (h *Handler) SuggestJournals(c *gin.Context) {
 	utils.Success(c, result)
 }
 
-// GetJournalFilters returns available filter options
-// POST /api/v1/scholar/journals/filters
-func (h *Handler) GetJournalFilters(c *gin.Context) {
-	result, err := h.manager.GetJournalFilters(c.Request.Context())
-	if err != nil {
-		utils.Error(c, 4033, "加载期刊筛选项失败,请稍后重试")
-		return
-	}
-
-	utils.Success(c, result)
-}
-
 // GetJournalStats returns journal statistics
 // POST /api/v1/scholar/journals/stats
 func (h *Handler) GetJournalStats(c *gin.Context) {
 	result, err := h.manager.GetJournalStats(c.Request.Context())
 	if err != nil {
 		utils.Error(c, 4034, "加载期刊统计数据失败,请稍后重试")
-		return
-	}
-
-	utils.Success(c, result)
-}
-
-// GetJournalByISSN retrieves journal by ISSN
-// POST /api/v1/scholar/journals/byIssn
-func (h *Handler) GetJournalByISSN(c *gin.Context) {
-	var req struct {
-		ISSN string `json:"issn" binding:"required"`
-		Full string `json:"full"`
-	}
-	if !utils.BindJSON(c, &req) {
-		return
-	}
-
-	result, err := h.manager.GetJournalByISSN(c.Request.Context(), req.ISSN, req.Full)
-	if err != nil {
-		utils.Error(c, 4035, "按 ISSN 查询期刊失败,请稍后重试")
-		return
-	}
-
-	utils.Success(c, result)
-}
-
-// CompareJournals compares multiple journals
-// POST /api/v1/scholar/journals/compare
-func (h *Handler) CompareJournals(c *gin.Context) {
-	var req struct {
-		IDs string `json:"ids" binding:"required"`
-	}
-	if !utils.BindJSON(c, &req) {
-		return
-	}
-
-	result, err := h.manager.CompareJournals(c.Request.Context(), req.IDs)
-	if err != nil {
-		utils.Error(c, 4036, "对比期刊失败,请稍后重试")
 		return
 	}
 

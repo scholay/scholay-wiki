@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
-	"strings"
 	"time"
 
 	"scholar-backend/internal/common/safego"
@@ -42,157 +41,6 @@ func NewService(db *gorm.DB) *Service {
 // SetWebSocketHub 设置 WebSocket Hub（用于实时推送）
 func (s *Service) SetWebSocketHub(hub WebSocketHub) {
 	s.wsHub = hub
-}
-
-// ========== 消息模板服务 ==========
-
-// CreateTemplate 创建消息模板
-func (s *Service) CreateTemplate(req *CreateTemplateRequest) (*TemplateResponse, error) {
-	// 检查代码是否已存在
-	existing, _ := s.repo.GetTemplateByCode(req.Code)
-	if existing != nil {
-		return nil, errors.New("模板代码已存在")
-	}
-
-	var varsJSON *string
-	if len(req.Variables) > 0 {
-		data, _ := json.Marshal(req.Variables)
-		str := string(data)
-		varsJSON = &str
-	}
-
-	category := req.Category
-	if category == "" {
-		category = CategorySystem
-	}
-
-	template := &MessageTemplate{
-		Code:      req.Code,
-		Name:      req.Name,
-		Title:     req.Title,
-		Content:   req.Content,
-		Category:  category,
-		Variables: varsJSON,
-		IsActive:  true,
-	}
-
-	if err := s.repo.CreateTemplate(template); err != nil {
-		return nil, err
-	}
-
-	return s.templateToResponse(template), nil
-}
-
-// GetTemplate 获取模板详情
-func (s *Service) GetTemplate(id uint) (*TemplateResponse, error) {
-	template, err := s.repo.GetTemplateByID(id)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("模板不存在")
-		}
-		return nil, err
-	}
-	return s.templateToResponse(template), nil
-}
-
-// UpdateTemplate 更新模板
-func (s *Service) UpdateTemplate(id uint, req *UpdateTemplateRequest) (*TemplateResponse, error) {
-	template, err := s.repo.GetTemplateByID(id)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("模板不存在")
-		}
-		return nil, err
-	}
-
-	if req.Name != "" {
-		template.Name = req.Name
-	}
-	if req.Title != "" {
-		template.Title = req.Title
-	}
-	if req.Content != "" {
-		template.Content = req.Content
-	}
-	if req.Category != "" {
-		template.Category = req.Category
-	}
-	if req.Variables != nil {
-		data, _ := json.Marshal(req.Variables)
-		str := string(data)
-		template.Variables = &str
-	}
-	if req.IsActive != nil {
-		template.IsActive = *req.IsActive
-	}
-
-	if err := s.repo.UpdateTemplate(template); err != nil {
-		return nil, err
-	}
-
-	return s.templateToResponse(template), nil
-}
-
-// DeleteTemplate 删除模板
-func (s *Service) DeleteTemplate(id uint) error {
-	_, err := s.repo.GetTemplateByID(id)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("模板不存在")
-		}
-		return err
-	}
-	return s.repo.DeleteTemplate(id)
-}
-
-// ListTemplates 获取模板列表
-func (s *Service) ListTemplates(req *TemplateListRequest) (*TemplateListResponse, error) {
-	templates, total, err := s.repo.ListTemplates(req)
-	if err != nil {
-		return nil, err
-	}
-
-	list := make([]TemplateResponse, len(templates))
-	for i, t := range templates {
-		list[i] = *s.templateToResponse(&t)
-	}
-
-	page := req.Page
-	if page < 1 {
-		page = 1
-	}
-	pageSize := req.PageSize
-	if pageSize < 1 {
-		pageSize = 20
-	}
-
-	return &TemplateListResponse{
-		List:     list,
-		Total:    total,
-		Page:     page,
-		PageSize: pageSize,
-	}, nil
-}
-
-func (s *Service) templateToResponse(t *MessageTemplate) *TemplateResponse {
-	resp := &TemplateResponse{
-		ID:        t.ID,
-		Code:      t.Code,
-		Name:      t.Name,
-		Title:     t.Title,
-		Content:   t.Content,
-		Category:  t.Category,
-		IsActive:  t.IsActive,
-		CreatedAt: t.CreatedAt,
-		UpdatedAt: t.UpdatedAt,
-	}
-	if t.Variables != nil {
-		var vars map[string]string
-		if err := json.Unmarshal([]byte(*t.Variables), &vars); err == nil {
-			resp.Variables = vars
-		}
-	}
-	return resp
 }
 
 // ========== 消息服务（管理端） ==========
@@ -535,30 +383,8 @@ func (s *Service) userMessageToResponse(um *UserMessage) *UserMessageResponse {
 }
 
 // ========== 辅助方法 ==========
-
-// RenderTemplate 渲染模板（替换变量）
-func (s *Service) RenderTemplate(templateCode string, variables map[string]string) (title string, content string, err error) {
-	template, err := s.repo.GetTemplateByCode(templateCode)
-	if err != nil {
-		return "", "", errors.New("模板不存在")
-	}
-
-	if !template.IsActive {
-		return "", "", errors.New("模板已停用")
-	}
-
-	title = template.Title
-	content = template.Content
-
-	// 替换变量
-	for key, value := range variables {
-		placeholder := "{{" + key + "}}"
-		title = strings.ReplaceAll(title, placeholder, value)
-		content = strings.ReplaceAll(content, placeholder, value)
-	}
-
-	return title, content, nil
-}
+// 历史 RenderTemplate / SendFromTemplate 已随消息模板模块整体下线
+// (2026-05-28, 无外部消费方)。当前仅保留 SendToUser / SendToastToUser 等直发接口。
 
 // SendToUser 发送消息给单个用户（快捷方法）
 func (s *Service) SendToUser(userID uint, title, content string, category MessageCategory, linkURL, linkText string) error {
@@ -636,22 +462,6 @@ func (s *Service) pushNotification(userID uint, msgID uint, title, content, cate
 			}
 		}
 	})
-}
-
-// SendFromTemplate 使用模板发送消息给用户
-func (s *Service) SendFromTemplate(userID uint, templateCode string, variables map[string]string, linkURL, linkText string) error {
-	title, content, err := s.RenderTemplate(templateCode, variables)
-	if err != nil {
-		return err
-	}
-
-	template, _ := s.repo.GetTemplateByCode(templateCode)
-	category := CategorySystem
-	if template != nil {
-		category = template.Category
-	}
-
-	return s.SendToUser(userID, title, content, category, linkURL, linkText)
 }
 
 // SendToUserWithCategory 发送消息给用户（使用字符串类型的分类，供外部模块调用）

@@ -108,7 +108,12 @@ for SQL_FILE in $SQL_FILES; do
     SQL_ERRORS=$(mktemp)
 
     # 执行 SQL 文件
-    if ! mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" < "$SQL_FILE" 2> "$SQL_ERRORS"; then
+    # --default-character-set=utf8mb4 必须显式指定! 否则 mysql 客户端按编译期默认
+    # (Alpine mysql-client 常是 latin1) 解析 UTF-8 的 .sql 文件, 把中文当 latin1 逐字节
+    # 塞进 utf8mb4 列 → 双重编码 mojibake (例: "你是" 存成 "ä½ æ˜¯")。
+    # 历史教训: feature_prompts 的中文 system_prompt 就因此全被双编码, 导致 agent 注入
+    # 乱码 + 会话标题乱码。修了这里后重跑迁移即可纠正 (UPDATE 型迁移会用正确字节覆盖)。
+    if ! mysql --default-character-set=utf8mb4 -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" < "$SQL_FILE" 2> "$SQL_ERRORS"; then
         echo -e "${RED}  ✗ 执行失败！${NC}"
         echo -e "${RED}  ========== 错误信息 ==========${NC}"
         cat "$SQL_ERRORS"

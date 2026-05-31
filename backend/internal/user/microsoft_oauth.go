@@ -12,21 +12,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
 
-	"scholar-backend/internal/common/httpclient"
 	"scholar-backend/internal/common/model"
+	"scholar-backend/internal/common/upstream"
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
-var microsoftHTTPClient = httpclient.OAuthClient
+var microsoftUpstream = newOAuthUpstream("microsoft_oauth")
 
 // MicrosoftUser represents Microsoft user info from Graph API
 type MicrosoftUser struct {
@@ -142,27 +141,20 @@ func (h *Handler) exchangeMicrosoftCode(ctx context.Context, code string, config
 	data.Set("grant_type", "authorization_code")
 	data.Set("scope", "openid email profile User.Read")
 
-	req, err := http.NewRequestWithContext(ctx, "POST", tokenURL, strings.NewReader(data.Encode()))
+	resp, err := microsoftUpstream.Do(ctx, upstream.Request{
+		Method:  http.MethodPost,
+		Path:    tokenURL,
+		Headers: http.Header{"Content-Type": {"application/x-www-form-urlencoded"}},
+		Body:    strings.NewReader(data.Encode()),
+	})
 	if err != nil {
 		return "", err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	resp, err := microsoftHTTPClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("microsoft token exchange failed (%d): %s", resp.StatusCode, string(body))
 	}
 
 	var tokenResp struct {
 		AccessToken string `json:"access_token"`
 	}
-	if err := json.Unmarshal(body, &tokenResp); err != nil {
+	if err := resp.JSON(&tokenResp); err != nil {
 		return "", err
 	}
 
@@ -170,25 +162,17 @@ func (h *Handler) exchangeMicrosoftCode(ctx context.Context, code string, config
 }
 
 func (h *Handler) getMicrosoftUserInfo(ctx context.Context, accessToken string) (*MicrosoftUser, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", "https://graph.microsoft.com/v1.0/me", nil)
+	resp, err := microsoftUpstream.Do(ctx, upstream.Request{
+		Method:  http.MethodGet,
+		Path:    "https://graph.microsoft.com/v1.0/me",
+		Headers: http.Header{"Authorization": {"Bearer " + accessToken}},
+	})
 	if err != nil {
 		return nil, err
-	}
-	req.Header.Set("Authorization", "Bearer "+accessToken)
-
-	resp, err := microsoftHTTPClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("microsoft graph API failed (%d): %s", resp.StatusCode, string(body))
 	}
 
 	var msUser MicrosoftUser
-	if err := json.Unmarshal(body, &msUser); err != nil {
+	if err := resp.JSON(&msUser); err != nil {
 		return nil, err
 	}
 

@@ -8,17 +8,15 @@
 package turnstile
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
-	"net/http"
+	"time"
+
 	"scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/httpclient"
 	"scholar-backend/internal/common/model"
-	"time"
+	"scholar-backend/internal/common/upstream"
 )
 
 // VerifyRequest represents the Turnstile verification request
@@ -42,7 +40,11 @@ const (
 	verifyURL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 )
 
-var httpClient = httpclient.WithTimeout(10 * time.Second)
+// turnstile token 是一次性的, 不开 retry (同 OAuth 理由); 仅加 breaker + 观测。
+var tsUpstream = upstream.New("turnstile").
+	HTTPClient(httpclient.WithTimeout(10 * time.Second)).
+	Breaker(upstream.BreakerConfig{}).
+	MustBuild()
 
 // VerifyToken verifies a Turnstile token with Cloudflare
 func VerifyToken(ctx context.Context, token string, remoteIP string) (*VerifyResponse, error) {
@@ -60,32 +62,9 @@ func VerifyToken(ctx context.Context, token string, remoteIP string) (*VerifyRes
 		RemoteIP: remoteIP,
 	}
 
-	jsonData, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "POST", verifyURL, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
 	var verifyResp VerifyResponse
-	if err := json.Unmarshal(body, &verifyResp); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	if err := tsUpstream.PostJSON(ctx, verifyURL, reqBody, &verifyResp); err != nil {
+		return nil, fmt.Errorf("turnstile siteverify failed: %w", err)
 	}
 
 	return &verifyResp, nil
@@ -139,35 +118,10 @@ func VerifyWithConfig(ctx context.Context, token string, remoteIP string, system
 		RemoteIP: remoteIP,
 	}
 
-	jsonData, err := json.Marshal(reqBody)
-	if err != nil {
-		return false, fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "POST", verifyURL, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return false, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		slog.Error("turnstile: cf siteverify request failed", "err", err)
-		return false, fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		slog.Error("turnstile: read siteverify body", "err", err)
-		return false, fmt.Errorf("failed to read response: %w", err)
-	}
-
 	var verifyResp VerifyResponse
-	if err := json.Unmarshal(body, &verifyResp); err != nil {
-		slog.Error("turnstile: parse siteverify response", "err", err, "body", string(body))
-		return false, fmt.Errorf("failed to unmarshal response: %w", err)
+	if err := tsUpstream.PostJSON(ctx, verifyURL, reqBody, &verifyResp); err != nil {
+		slog.Error("turnstile: cf siteverify request failed", "err", err)
+		return false, fmt.Errorf("turnstile siteverify failed: %w", err)
 	}
 
 	if !verifyResp.Success {

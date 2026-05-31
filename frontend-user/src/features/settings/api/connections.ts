@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
+// TODO: 30s 没对应 STALE_* preset, 保留硬编码;若后续需要可在 query-config.ts 新增 STALE_HOT。
 
 /**
  * 账号设置「已连接账号」相关 API。

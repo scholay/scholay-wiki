@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
+import { STALE_COLD, STALE_COOL } from '@/shared/lib/query-config';
 import type { Paper, PaperAuthor, UpstreamSource } from '@/shared/api/types';
 
 /**
@@ -23,7 +24,7 @@ export function useFetchPaperDetail({
   return useQuery({
     queryKey: ['paper', 'detail', source, paperId] as const,
     enabled: enabled && !!paperId,
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE_COOL,
     queryFn: async (): Promise<Paper> => {
       try {
         const { data } = await http.get<{ data: Record<string, unknown> }>(
@@ -80,7 +81,7 @@ export function useFetchPaperReferences(paperId: string, enabled: boolean) {
   return useQuery({
     queryKey: ['paper', 'references', paperId] as const,
     enabled: enabled && !!paperId,
-    staleTime: 10 * 60 * 1000,
+    staleTime: STALE_COLD,
     queryFn: async (): Promise<PaperReference[]> => {
       try {
         const { data } = await http.get<{ data: RawReferencesPayload }>(

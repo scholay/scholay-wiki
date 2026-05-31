@@ -1,737 +1,150 @@
 // ============================================================================
-// Scholay学术 V1.0
-// Copyright (c) 2025 成都恩特罐罐文化科技有限公司
-// 统一社会信用代码: 91510100MAEEHRNE26
-// All Rights Reserved.
+// Scholay 智能审稿 v3 — GORM 模型
+// ----------------------------------------------------------------------------
+// 表来自 migration 0057_peer_review_v3_tables.sql:
+//
+//   peer_review_submissions  投稿主表(草稿 + 已交 + 审稿结果元数据)
+//   peer_review_assets       MinIO 文件元数据
+//   peer_review_reports      4 份审稿报告(alpha/beta/gamma/chief)
+//
+// 设计:
+//   - 期刊 / 毕业 共用一张主表,差异字段并存,
+//     mode='journal' 用 journal_* 列,mode='thesis' 用 school_* 列
+//   - JSON 字段 (journal_meta_json / scores_json) 不在 model 里 unmarshal,
+//     repo 把 raw bytes 暴露给 service / handler 自己 decode
+//   - 不写 BeforeCreate hook,所有时间走 DB CURRENT_TIMESTAMP 默认值
 // ============================================================================
 
 package peerreview
 
-import "time"
-
-// ========== 常量定义 ==========
-
-// 任务状态常量
-const (
-	TaskStatusDraft      = "draft"      // 草稿
-	TaskStatusPending    = "pending"    // 待处理
-	TaskStatusProcessing = "processing" // 处理中
-	TaskStatusCompleted  = "completed"  // 已完成
-	TaskStatusFailed     = "failed"     // 失败
+import (
+	"database/sql"
+	"encoding/json"
+	"time"
 )
 
-// 输入类型常量
-const (
-	InputTypeText = "text" // 文本输入
-	InputTypeFile = "file" // 文件上传
-)
+type Submission struct {
+	ID                uint64        `gorm:"primaryKey" json:"id"`
+	UserID            uint64        `gorm:"column:user_id;not null;index" json:"userId"`
+	Mode              string        `gorm:"column:mode;size:16;not null" json:"mode"`
+	Status            string        `gorm:"column:status;size:16;not null;default:draft" json:"status"`
+	Step              uint8         `gorm:"column:step;not null;default:1" json:"step"`
+	Title             sql.NullString `gorm:"column:title;size:500" json:"-"`
+	Abstract          sql.NullString `gorm:"column:abstract;type:text" json:"-"`
+	ManuscriptAssetID sql.NullInt64  `gorm:"column:manuscript_asset_id" json:"-"`
 
-// 文件角色常量
-const (
-	FileRoleManuscript = "manuscript" // 主稿件
-	FileRoleAttachment = "attachment" // 附件
-)
+	JournalID       sql.NullInt64  `gorm:"column:journal_id" json:"-"`
+	JournalName     sql.NullString `gorm:"column:journal_name;size:500" json:"-"`
+	JournalMetaJSON json.RawMessage `gorm:"column:journal_meta_json;type:json" json:"-"`
 
-// 文件处理模式常量
-const (
-	ProcessModeExtract = "extract" // 提取文本
-	ProcessModeDirect  = "direct"  // 直接传递给AI
-)
+	SchoolName       sql.NullString `gorm:"column:school_name;size:255" json:"-"`
+	DegreeType       sql.NullString `gorm:"column:degree_type;size:16" json:"-"`
+	DisciplineField  sql.NullString `gorm:"column:discipline_field;size:255" json:"-"`
+	AdvisorName      sql.NullString `gorm:"column:advisor_name;size:100" json:"-"`
 
-// 最大附件数量
-const MaxAttachments = 5
+	LetterBody sql.NullString `gorm:"column:letter_body;type:mediumtext" json:"-"`
 
-// 审稿人数量（三审制）
-const ReviewerCount = 3
+	AgreedAt        sql.NullTime   `gorm:"column:agreed_at" json:"-"`
+	AgentSessionID  sql.NullString `gorm:"column:agent_session_id;size:64" json:"-"`
+	SubmittedAt     sql.NullTime   `gorm:"column:submitted_at" json:"-"`
+	CompletedAt     sql.NullTime   `gorm:"column:completed_at" json:"-"`
+	FailedReason    sql.NullString `gorm:"column:failed_reason;size:500" json:"-"`
 
-// 虚拟审稿人名称（希腊字母风格）
-var ReviewerNames = map[int]string{
-	1: "审稿人 Alpha",
-	2: "审稿人 Beta",
-	3: "审稿人 Gamma",
+	// ─── 0058 新增 ─────────────────────────────────────────────────────
+	// AssetsRevision / MetaRevision / LetterRevision 是 step_cache fingerprint 的输入,
+	// 上游字段变化 → 对应 revision +1 → cache fingerprint 不匹配 → 自动 stale。
+	AssetsRevision uint32 `gorm:"column:assets_revision;not null;default:0" json:"-"`
+	MetaRevision   uint32 `gorm:"column:meta_revision;not null;default:0" json:"-"`
+	LetterRevision uint32 `gorm:"column:letter_revision;not null;default:0" json:"-"`
+
+	// ExtraMetaJSON 存 keywords/subjects/manuscriptType (title/abstract 在顶层列)。
+	// service 层用 ExtractedMeta 序列化/反序列化, repo 只看到 raw bytes。
+	ExtraMetaJSON json.RawMessage `gorm:"column:extra_meta_json;type:json" json:"-"`
+
+	// ComputeState 是 wizard 异步 agent 调用的标记:
+	//   idle             空闲, 可点下一步
+	//   computing_meta   Step1→2 抽 meta 中
+	//   computing_letter Step2→3 起草 letter 中
+	//   reviewing        Step4 投递后 4 轮审稿中
+	//   failed           agent 异常, ComputeError 给前端展示
+	ComputeState string         `gorm:"column:compute_state;size:20;not null;default:idle" json:"-"`
+	ComputeError sql.NullString `gorm:"column:compute_error;size:500" json:"-"`
+
+	CreatedAt time.Time `gorm:"column:created_at;not null;autoCreateTime" json:"createdAt"`
+	UpdatedAt time.Time `gorm:"column:updated_at;not null;autoUpdateTime" json:"updatedAt"`
+
+	// ChiefDecision 是非持久化派生字段 (gorm:"-"): 列表页用主审报告的 recommendation 填充,
+	// 让"决议"列直接显示结果 (而不是泛泛的"已完成")。仅 service.ListSubmissions 批量填充。
+	ChiefDecision string `gorm:"-" json:"-"`
 }
 
-// GetReviewerName 获取审稿人名称
-func GetReviewerName(index int) string {
-	if name, ok := ReviewerNames[index]; ok {
-		return name
-	}
-	return "审稿人"
+func (Submission) TableName() string { return "peer_review_submissions" }
+
+// StepCache 是 wizard 每步 agent 输出的缓存。
+//
+// fingerprint 不匹配 → 调 agent 重算 + ON DUPLICATE KEY UPDATE 覆写,
+// 永远只有一行 per (submission_id, step), 不需要 GC 旧分支。
+type StepCache struct {
+	SubmissionID     uint64          `gorm:"column:submission_id;primaryKey" json:"submissionId"`
+	Step             uint8           `gorm:"column:step;primaryKey" json:"step"`
+	InputFingerprint string          `gorm:"column:input_fingerprint;size:64;not null" json:"inputFingerprint"`
+	PayloadJSON      json.RawMessage `gorm:"column:payload_json;type:json;not null" json:"-"`
+	AgentTokensIn    sql.NullInt32   `gorm:"column:agent_tokens_in" json:"-"`
+	AgentTokensOut   sql.NullInt32   `gorm:"column:agent_tokens_out" json:"-"`
+	CreatedAt        time.Time       `gorm:"column:created_at;not null;autoCreateTime" json:"createdAt"`
+	UpdatedAt        time.Time       `gorm:"column:updated_at;not null;autoUpdateTime" json:"updatedAt"`
 }
 
-// ========== 数据库模型 ==========
+func (StepCache) TableName() string { return "peer_review_step_cache" }
 
-// PeerReviewTask 审稿任务主表
-type PeerReviewTask struct {
-	ID               uint   `json:"id" gorm:"primaryKey"`
-	UserID           uint   `json:"user_id" gorm:"index"`
-	AnonToken        string `json:"anon_token,omitempty" gorm:"size:64;index"` // 匿名用户的访问令牌
-	InputType        string `json:"input_type"`                           // text 或 file
-	ManuscriptText   string `json:"manuscript_text" gorm:"type:longtext"` // 主稿件文本内容
-	ManuscriptFileID *uint  `json:"manuscript_file_id"`                   // 主稿件文件ID
-
-	// 任务配置
-	Title       string `json:"title"`        // 稿件标题
-	TargetVenue string `json:"target_venue"` // 目标期刊/会议
-	ModelLevel  string `json:"model_level"`  // 模型级别: low, mid, high
-	ContentHash string `json:"content_hash"` // 内容哈希，用于缓存
-
-	// 隐私模式
-	IsPrivate    bool       `json:"is_private" gorm:"default:false"`      // 隐私模式：完成后不保留数据
-	PrivateExpAt *time.Time `json:"private_exp_at,omitempty"`             // 隐私数据过期时间
-
-	// 任务状态
-	Status        string `json:"status" gorm:"index"` // draft, pending, processing, completed, failed
-	Progress      int    `json:"progress"`            // 总体进度 0-100
-	ProgressStage string `json:"progress_stage"`      // 当前阶段描述
-	ErrorMessage  string `json:"error_message"`       // 错误信息
-
-	// 预处理结果（共享给三个审稿人）
-	ManuscriptMeta    string `json:"manuscript_meta" gorm:"type:text"`        // 稿件元信息 JSON
-	LiteratureContext string `json:"literature_context" gorm:"type:longtext"` // 检索到的相关文献 JSON
-	LiteratureSummary string `json:"literature_summary" gorm:"type:text"`     // 文献总结 JSON
-
-	// 综合审稿结果（三审汇总）
-	FinalRecommendation  string  `json:"final_recommendation"`                    // 最终推荐
-	FinalReviewContent   string  `json:"final_review_content" gorm:"type:longtext"` // 综合审稿报告
-	ConsensusScore       float64 `json:"consensus_score"`                         // 三审一致性评分 0-1
-
-	// 时间戳
-	SubmittedAt *time.Time `json:"submitted_at"` // 提交审稿时间
-	StartedAt   *time.Time `json:"started_at"`   // 开始处理时间
-	CompletedAt *time.Time `json:"completed_at"` // 完成时间
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-
-	// 关联数据（非数据库字段）
-	ManuscriptFile *PeerReviewFile   `json:"manuscript_file,omitempty" gorm:"-"`
-	Attachments    []PeerReviewFile  `json:"attachments,omitempty" gorm:"-"`
-	Reviews        []PeerReviewResult `json:"reviews,omitempty" gorm:"-"`
+type Asset struct {
+	ID           uint64    `gorm:"primaryKey" json:"id"`
+	SubmissionID uint64    `gorm:"column:submission_id;not null;index" json:"submissionId"`
+	Role         string    `gorm:"column:role;size:16;not null" json:"role"`
+	Category     sql.NullString `gorm:"column:category;size:32" json:"-"`
+	Filename     string    `gorm:"column:filename;size:255;not null" json:"filename"`
+	Size         uint64    `gorm:"column:size;not null" json:"size"`
+	Mime         string    `gorm:"column:mime;size:100;not null" json:"mime"`
+	SHA256       sql.NullString `gorm:"column:sha256;size:64" json:"-"`
+	ObjectKey    string    `gorm:"column:object_key;size:512;not null" json:"-"`
+	TextChars    sql.NullInt32  `gorm:"column:text_chars" json:"-"`
+	TextExcerpt  sql.NullString `gorm:"column:text_excerpt;type:mediumtext" json:"-"`
+	CreatedAt    time.Time `gorm:"column:created_at;not null;autoCreateTime" json:"createdAt"`
 }
 
-func (PeerReviewTask) TableName() string {
-	return "peer_review_tasks"
+func (Asset) TableName() string { return "peer_review_assets" }
+
+type Report struct {
+	ID               uint64    `gorm:"primaryKey" json:"id"`
+	SubmissionID     uint64    `gorm:"column:submission_id;not null;index" json:"submissionId"`
+	Role             string    `gorm:"column:role;size:8;not null" json:"role"`
+	Decision         sql.NullString `gorm:"column:decision;size:16" json:"-"`
+	ScoresJSON       json.RawMessage `gorm:"column:scores_json;type:json" json:"-"`
+	ContentMd        string    `gorm:"column:content_md;type:mediumtext;not null" json:"contentMd"`
+	AgentDurationSec sql.NullInt32  `gorm:"column:agent_duration_sec" json:"-"`
+	AgentTokensIn    sql.NullInt32  `gorm:"column:agent_tokens_in" json:"-"`
+	AgentTokensOut   sql.NullInt32  `gorm:"column:agent_tokens_out" json:"-"`
+	CreatedAt        time.Time `gorm:"column:created_at;not null;autoCreateTime" json:"createdAt"`
+
+	// ─── 0062 新增: 结构化字段, 取代 content_md 单块 markdown ───────────
+	// 老报告这些都是 NULL, 前端读取时做 nil-check 兜底。
+	ReviewerSkillID    sql.NullInt64   `gorm:"column:reviewer_skill_id" json:"-"`
+	Score              sql.NullInt32   `gorm:"column:score" json:"-"`
+	Recommendation     sql.NullString  `gorm:"column:recommendation;size:16" json:"-"`
+	Expertise          sql.NullString  `gorm:"column:expertise;size:120" json:"-"`
+	DimensionsJSON     json.RawMessage `gorm:"column:dimensions_json;type:json" json:"-"`
+	LineCommentsJSON   json.RawMessage `gorm:"column:line_comments_json;type:json" json:"-"`
+	MacroCommentsJSON  json.RawMessage `gorm:"column:macro_comments_json;type:json" json:"-"`
+	FinalSummaryMd     sql.NullString  `gorm:"column:final_summary_md;type:mediumtext" json:"-"`
+
+	// chief 专有
+	RulingSummaryMd         sql.NullString  `gorm:"column:ruling_summary_md;type:mediumtext" json:"-"`
+	RulingParagraphMd       sql.NullString  `gorm:"column:ruling_paragraph_md;type:mediumtext" json:"-"`
+	ReviewerResponsesJSON   json.RawMessage `gorm:"column:reviewer_responses_json;type:json" json:"-"`
+	MustFixJSON             json.RawMessage `gorm:"column:must_fix_json;type:json" json:"-"`
+	SuggestionsJSON         json.RawMessage `gorm:"column:suggestions_json;type:json" json:"-"`
+	DeadlineDays            sql.NullInt32   `gorm:"column:deadline_days" json:"-"`
+	SummaryForAuthor        sql.NullString  `gorm:"column:summary_for_author;size:300" json:"-"`
 }
 
-// PeerReviewFile 审稿文件表（主稿件和附件）
-type PeerReviewFile struct {
-	ID       uint  `json:"id" gorm:"primaryKey"`
-	TaskID   *uint `json:"task_id" gorm:"index"` // 关联的任务ID
-	UserID   uint  `json:"user_id" gorm:"index"`
-	FileRole string `json:"file_role"` // manuscript=主稿件, attachment=附件
-	SortOrder int   `json:"sort_order"` // 排序顺序（附件用）
-
-	// 文件信息
-	FileName string `json:"file_name"`
-	FileExt  string `json:"file_ext"`  // 文件扩展名（不含点）
-	FileSize int64  `json:"file_size"` // 文件大小（字节）
-	FilePath string `json:"file_path"` // 存储路径
-	MimeType string `json:"mime_type"` // MIME类型
-
-	// 内容处理
-	ProcessMode   string `json:"process_mode"`                         // extract=提取文本, direct=直接传AI
-	ExtractedText string `json:"extracted_text" gorm:"type:longtext"` // 提取的文本内容
-	ProcessStatus string `json:"process_status"`                       // pending, processed, failed
-	ProcessError  string `json:"process_error"`                        // 处理错误信息
-
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
-
-func (PeerReviewFile) TableName() string {
-	return "peer_review_files"
-}
-
-// PeerReviewResult 独立审稿结果表（三审制）
-type PeerReviewResult struct {
-	ID            uint `json:"id" gorm:"primaryKey"`
-	TaskID        uint `json:"task_id" gorm:"index"`
-	ReviewerIndex int  `json:"reviewer_index"` // 审稿人编号: 1, 2, 3
-
-	// 审稿状态
-	Status       string `json:"status"`        // pending, processing, completed, failed
-	Progress     int    `json:"progress"`      // 进度 0-100
-	ErrorMessage string `json:"error_message"` // 错误信息
-
-	// 审稿模型信息
-	ModelName string `json:"model_name" gorm:"size:100"` // 使用的AI模型名称
-
-	// 审稿结果
-	Recommendation  string  `json:"recommendation"`   // Accept, Minor Revision, Major Revision, Reject
-	ConfidenceScore float64 `json:"confidence_score"` // 置信度 0-1
-	ReviewContent   string  `json:"review_content" gorm:"type:longtext"` // 审稿报告 Markdown
-
-	// 评分维度
-	DimensionScores string `json:"dimension_scores" gorm:"type:text"` // 各维度评分 JSON
-
-	// 步骤详情
-	StepsDetail string `json:"steps_detail" gorm:"type:longtext"` // 步骤详情 JSON
-
-	// 时间戳
-	StartedAt   *time.Time `json:"started_at"`
-	CompletedAt *time.Time `json:"completed_at"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-}
-
-func (PeerReviewResult) TableName() string {
-	return "peer_review_results"
-}
-
-// PeerReviewAnonTrial 匿名审稿试用记录
-// 每台设备仅 1 次免登录试用机会，通过 device_id（主）+ ip_ua_hash（辅）双识别
-type PeerReviewAnonTrial struct {
-	ID               uint       `json:"id" gorm:"primaryKey"`
-	DeviceID         string     `json:"device_id" gorm:"size:64;uniqueIndex:uk_device_id"`
-	IPUAHash         string     `json:"ip_ua_hash" gorm:"column:ip_ua_hash;size:64;index:idx_ip_ua_hash"`
-	AnonToken        string     `json:"anon_token" gorm:"size:64"`
-	TaskID           uint       `json:"task_id" gorm:"index:idx_task_id"`
-	ConsumedAt       time.Time  `json:"consumed_at"`
-	ClaimedByUserID  uint       `json:"claimed_by_user_id" gorm:"index:idx_claimed_by_user_id;default:0"`
-	ClaimedAt        *time.Time `json:"claimed_at"`
-	CreatedAt        time.Time  `json:"created_at"`
-}
-
-func (PeerReviewAnonTrial) TableName() string {
-	return "peer_review_anon_trials"
-}
-
-// ========== 请求/响应结构 ==========
-
-// CreateTaskRequest 创建任务请求（兼容旧接口）
-type CreateTaskRequest struct {
-	InputType      string `json:"input_type" binding:"required"`
-	ManuscriptText string `json:"manuscript_text"`
-	FileID         uint   `json:"file_id"`
-	TargetVenue    string `json:"target_venue"`
-	ModelLevel     string `json:"model_level"`
-}
-
-// StartTaskRequest 启动任务请求（兼容旧接口）
-type StartTaskRequest struct {
-	TargetVenue string `json:"target_venue"`
-	ModelLevel  string `json:"model_level"`
-	AnonToken   string `json:"anon_token"` // 匿名用户的访问令牌
-}
-
-// PeerReviewRequest 审稿请求（兼容旧接口）
-type PeerReviewRequest struct {
-	ManuscriptText string `json:"manuscript_text" binding:"required"`
-	TargetVenue    string `json:"target_venue"`
-	ModelLevel     string `json:"model_level"`
-}
-
-// SaveDraftRequest 保存草稿请求
-type SaveDraftRequest struct {
-	InputType      string `json:"input_type"`      // text 或 file
-	ManuscriptText string `json:"manuscript_text"` // 稿件文本
-	TargetVenue    string `json:"target_venue"`    // 目标期刊
-	ModelLevel     string `json:"model_level"`     // 模型级别
-}
-
-// SubmitDraftRequest 提交草稿请求
-type SubmitDraftRequest struct {
-	TargetVenue string `json:"target_venue"`
-	ModelLevel  string `json:"model_level"`
-	AnonToken   string `json:"anon_token"`   // 匿名用户的访问令牌
-	IsPrivate   bool   `json:"is_private"`   // 隐私模式
-}
-
-// DraftResponse 草稿响应
-type DraftResponse struct {
-	ID             uint                `json:"id"`
-	InputType      string              `json:"input_type"`
-	ManuscriptText string              `json:"manuscript_text"`
-	TargetVenue    string              `json:"target_venue"`
-	ModelLevel     string              `json:"model_level"`
-	ContentPreview string              `json:"content_preview,omitempty"`
-	ManuscriptFile *FileInfo           `json:"manuscript_file,omitempty"`
-	Attachments    []FileInfo          `json:"attachments,omitempty"`
-	AnonToken      string              `json:"anon_token,omitempty"` // 匿名用户首次保存草稿时返回
-}
-
-// FileInfo 文件信息（用于响应）
-type FileInfo struct {
-	ID            uint   `json:"id"`
-	FileName      string `json:"file_name"`
-	FileExt       string `json:"file_ext"`
-	FileSize      int64  `json:"file_size"`
-	ProcessMode   string `json:"process_mode"`
-	ProcessStatus string `json:"process_status"`
-	ContentPreview string `json:"content_preview,omitempty"`
-}
-
-// UploadFileResponse 文件上传响应
-type UploadFileResponse struct {
-	FileID         uint   `json:"file_id"`
-	FileName       string `json:"file_name"`
-	FileExt        string `json:"file_ext"`
-	FileSize       int64  `json:"file_size"`
-	ProcessMode    string `json:"process_mode"`
-	ContentPreview string `json:"content_preview,omitempty"`
-	AnonToken      string `json:"anon_token,omitempty"` // 匿名用户的访问令牌
-}
-
-// ClaimTaskRequest 认领匿名任务请求
-type ClaimTaskRequest struct {
-	TaskID    uint   `json:"task_id" binding:"required"`
-	AnonToken string `json:"anon_token" binding:"required"`
-}
-
-// ClaimAllRequest 批量认领匿名任务请求（登录后调用）
-type ClaimAllRequest struct {
-	AnonToken string `json:"anon_token" binding:"required"`
-}
-
-// ClaimAllResponse 批量认领响应
-type ClaimAllResponse struct {
-	ClaimedTaskIDs []uint `json:"claimed_task_ids"`
-	ClaimedCount   int    `json:"claimed_count"`
-}
-
-// TrialStatusResponse 匿名试用状态响应
-type TrialStatusResponse struct {
-	CanTrial      bool       `json:"can_trial"`                 // 是否还能使用免登录试用
-	ConsumedAt    *time.Time `json:"consumed_at,omitempty"`     // 若已消费，给出消费时间
-	AlreadyClaimed bool      `json:"already_claimed,omitempty"` // 是否已被某个登录用户认领
-	Reason        string     `json:"reason,omitempty"`          // new_device | already_used
-}
-
-// TaskListResponse 任务列表响应
-type TaskListResponse struct {
-	Tasks      []TaskSummary `json:"tasks"`
-	Total      int64         `json:"total"`
-	Page       int           `json:"page"`
-	PageSize   int           `json:"page_size"`
-	TotalPages int           `json:"total_pages"`
-}
-
-// TaskSummary 任务摘要
-type TaskSummary struct {
-	ID                  uint       `json:"id"`
-	Title               string     `json:"title"`
-	TargetVenue         string     `json:"target_venue"`
-	InputType           string     `json:"input_type"`
-	Status              string     `json:"status"`
-	Progress            int        `json:"progress"`
-	ProgressStage       string     `json:"progress_stage"`
-	FinalRecommendation string     `json:"final_recommendation"`
-	ModelLevel          string     `json:"model_level"`
-	AttachmentCount     int        `json:"attachment_count"`
-	CreatedAt           time.Time  `json:"created_at"`
-	CompletedAt         *time.Time `json:"completed_at"`
-	// 新增字段：用于前端展示标题和文件类型
-	FileName       string `json:"file_name,omitempty"`        // 主稿件文件名
-	FileExt        string `json:"file_ext,omitempty"`         // 文件扩展名（如 pdf, docx）
-	ManuscriptText string `json:"manuscript_text,omitempty"`  // 稿件文本（仅返回前100字符用于标题展示）
-}
-
-// TaskDetailResponse 任务详情响应
-type TaskDetailResponse struct {
-	ID             uint   `json:"id"`
-	InputType      string `json:"input_type"`
-	Title          string `json:"title"`
-	TargetVenue    string `json:"target_venue"`
-	ModelLevel     string `json:"model_level"`
-	IsPrivate      bool   `json:"is_private"`
-	Status         string `json:"status"`
-	Progress       int    `json:"progress"`
-	ProgressStage  string `json:"progress_stage"`
-	ErrorMessage   string `json:"error_message,omitempty"`
-
-	// 稿件信息
-	ManuscriptText string    `json:"manuscript_text,omitempty"`
-	ManuscriptFile *FileInfo `json:"manuscript_file,omitempty"`
-	Attachments    []FileInfo `json:"attachments,omitempty"`
-
-	// 预处理结果
-	ManuscriptMeta    *ManuscriptMeta    `json:"manuscript_meta,omitempty"`
-	LiteratureSummary *LiteratureSummary `json:"literature_summary,omitempty"`
-
-	// 三审结果
-	Reviews []ReviewResultInfo `json:"reviews,omitempty"`
-
-	// 综合结果
-	FinalRecommendation string  `json:"final_recommendation,omitempty"`
-	FinalReviewContent  string  `json:"final_review_content,omitempty"`
-	ConsensusScore      float64 `json:"consensus_score,omitempty"`
-
-	// 时间戳
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	SubmittedAt *time.Time `json:"submitted_at,omitempty"`
-	CompletedAt *time.Time `json:"completed_at,omitempty"`
-}
-
-// ReviewResultInfo 审稿结果信息（用于响应）
-type ReviewResultInfo struct {
-	ReviewerIndex   int                    `json:"reviewer_index"`
-	ReviewerName    string                 `json:"reviewer_name"`              // 审稿人名称（如 审稿人 Alpha）
-	ModelName       string                 `json:"model_name,omitempty"`       // 使用的模型名称
-	Status          string                 `json:"status"`
-	Progress        int                    `json:"progress"`
-	Recommendation  string                 `json:"recommendation,omitempty"`
-	ConfidenceScore float64                `json:"confidence_score,omitempty"`
-	ReviewContent   string                 `json:"review_content,omitempty"`
-	DimensionScores map[string]any `json:"dimension_scores,omitempty"`
-	StepsDetail     []StepInfo             `json:"steps_detail,omitempty"`     // 步骤详情
-	CompletedAt     *time.Time             `json:"completed_at,omitempty"`
-}
-
-// TaskProgressResponse 任务进度响应
-type TaskProgressResponse struct {
-	Status          string               `json:"status"`
-	Progress        int                  `json:"progress"`
-	ProgressStage   string               `json:"progress_stage"`
-	ErrorMessage    string               `json:"error_message,omitempty"`
-	ReviewsProgress []ReviewProgressInfo `json:"reviews_progress,omitempty"`
-}
-
-// ReviewProgressInfo 单个审稿人进度
-type ReviewProgressInfo struct {
-	ReviewerIndex int    `json:"reviewer_index"`
-	ReviewerName  string `json:"reviewer_name"` // 审稿人名称
-	Status        string `json:"status"`
-	Progress      int    `json:"progress"`
-}
-
-// TaskStepsResponse 任务步骤详情响应（用于轮询）
-type TaskStepsResponse struct {
-	TaskID        uint                 `json:"task_id"`
-	Status        string               `json:"status"`
-	Progress      int                  `json:"progress"`
-	ProgressStage string               `json:"progress_stage"`
-	// 预处理步骤
-	PreprocessSteps []StepInfo `json:"preprocess_steps,omitempty"`
-	// 各审稿人步骤
-	ReviewerSteps []ReviewerStepsInfo `json:"reviewer_steps,omitempty"`
-	// 汇总步骤
-	SummarizeStep *StepInfo `json:"summarize_step,omitempty"`
-}
-
-// ReviewerStepsInfo 单个审稿人的步骤信息
-type ReviewerStepsInfo struct {
-	ReviewerIndex int        `json:"reviewer_index"`
-	ReviewerName  string     `json:"reviewer_name"`
-	ModelName     string     `json:"model_name,omitempty"`
-	Status        string     `json:"status"`
-	Progress      int        `json:"progress"`
-	Steps         []StepInfo `json:"steps,omitempty"`
-}
-
-// ========== 内部数据结构 ==========
-
-// StepInfo 步骤信息结构（用于记录每步的执行情况）
-type StepInfo struct {
-	StepName  string      `json:"step_name"`            // 步骤名称
-	StepIndex int         `json:"step_index"`           // 步骤索引
-	Status    string      `json:"status"`               // pending, processing, completed, failed
-	StartTime *time.Time  `json:"start_time,omitempty"` // 开始时间
-	EndTime   *time.Time  `json:"end_time,omitempty"`   // 结束时间
-	Duration  int64       `json:"duration_ms"`          // 耗时（毫秒）
-	Result    any `json:"result,omitempty"`     // 步骤结果（可选）
-	ErrorMsg  string      `json:"error_msg,omitempty"`  // 错误信息
-}
-
-// StepStatus 步骤状态常量
-const (
-	StepStatusPending    = "pending"
-	StepStatusProcessing = "processing"
-	StepStatusCompleted  = "completed"
-	StepStatusFailed     = "failed"
-)
-
-// ReviewerModelConfig 审稿人模型配置（用于指定每个审稿人使用的具体模型）
-type ReviewerModelConfig struct {
-	BaseURL   string // API 基础地址
-	APIKey    string // API 密钥
-	ModelName string // 模型名称
-}
-
-// 预处理步骤名称常量
-const (
-	StepNameManuscriptAnalysis = "稿件分析"
-	StepNameBuildSearchQuery   = "构建检索策略"
-	StepNameLiteratureSearch   = "文献检索"
-	StepNameAIFilter           = "AI筛选"
-	StepNameLiteratureSummary  = "文献总结"
-	StepNameReview             = "审稿"
-	StepNameSummarize          = "汇总审稿结果"
-)
-
-// StreamEvent SSE 事件
-type StreamEvent struct {
-	Type     string      `json:"type"`
-	Data     any `json:"data"`
-	Progress int         `json:"progress,omitempty"`
-	Message  string      `json:"message,omitempty"`
-}
-
-// ManuscriptMeta 稿件元信息
-type ManuscriptMeta struct {
-	Title          string   `json:"title"`
-	Abstract       string   `json:"abstract"`
-	Field          string   `json:"field"`
-	MainTopic      string   `json:"main_topic"`
-	MainMethods    []string `json:"main_methods"`
-	KeyVariables   []string `json:"key_variables"`
-	ClaimedNovelty []string `json:"claimed_novelty"`
-	Keywords       []string `json:"keywords"`
-}
-
-// SearchQuery 搜索查询
-type SearchQuery struct {
-	ID    string `json:"id"`
-	Query string `json:"query"`
-	TopK  int    `json:"top_k"`
-	Field string `json:"field,omitempty"` // 领域信息，用于动态调整引用阈值
-}
-
-// LiteratureContext 文献上下文
-type LiteratureContext struct {
-	AllPapers []map[string]any `json:"all_papers"`
-	ByTopic   []map[string]any `json:"by_topic"`
-	ByMethod  []map[string]any `json:"by_method"`
-	ByNovelty []map[string]any `json:"by_novelty"`
-	ByTheory  []map[string]any `json:"by_theory"`
-}
-
-// LiteratureSummary 文献总结
-type LiteratureSummary struct {
-	FieldState       string         `json:"field_state"`
-	ClosestPapers    []ClosestPaper `json:"closest_papers"`
-	TypicalGaps      []string       `json:"typical_gaps"`
-	NotesForReviewer string         `json:"notes_for_reviewer"`
-}
-
-// ClosestPaper 最相似论文
-type ClosestPaper struct {
-	Title  string `json:"title"`
-	Year   int    `json:"year"`
-	Reason string `json:"reason"`
-}
-
-// GapLiterature 研究空白相关文献
-type GapLiterature struct {
-	Gap    string                   `json:"gap"`
-	Papers []map[string]any `json:"papers"`
-}
-
-// ReferenceForReviewer 供审稿人使用的参考文献
-type ReferenceForReviewer struct {
-	ID      string `json:"id"`
-	Title   string `json:"title"`
-	Year    int    `json:"year"`
-	Authors string `json:"authors"`
-	URL     string `json:"url"`
-	PaperID string `json:"paper_id"`
-}
-
-// DimensionScores 审稿维度评分
-type DimensionScores struct {
-	Originality  float64 `json:"originality"`  // 原创性 0-10
-	Methodology  float64 `json:"methodology"`  // 方法论 0-10
-	Clarity      float64 `json:"clarity"`      // 清晰度 0-10
-	Significance float64 `json:"significance"` // 重要性 0-10
-	Overall      float64 `json:"overall"`      // 总体评分 0-10
-}
-
-// FilteredPaper AI筛选后的论文
-type FilteredPaper struct {
-	PaperID       string `json:"paper_id"`
-	Title         string `json:"title"`
-	Year          int    `json:"year"`
-	Authors       string `json:"authors"`
-	Abstract      string `json:"abstract"`
-	CitationCount int    `json:"citation_count"`
-	Venue         string `json:"venue"`
-	URL           string `json:"url"`
-	RelevanceScore float64 `json:"relevance_score"` // 相关性评分 0-1
-	RelevanceReason string `json:"relevance_reason"` // 相关性原因
-}
-
-// AIFilterResult AI筛选结果
-type AIFilterResult struct {
-	QueryType       string          `json:"query_type"`        // topic, method, novelty, keywords
-	OriginalCount   int             `json:"original_count"`    // 原始论文数量
-	FilteredCount   int             `json:"filtered_count"`    // 筛选后数量
-	FilteredPapers  []FilteredPaper `json:"filtered_papers"`   // 筛选后的论文
-	FilterReason    string          `json:"filter_reason"`     // 筛选策略说明
-}
-
-// ========== 结构化审稿报告 JSON 格式 ==========
-
-// ReviewReportJSON 结构化审稿报告（JSON格式）
-type ReviewReportJSON struct {
-	OverallAssessment   OverallAssessment   `json:"overall_assessment"`
-	CriticalIssues      []CriticalIssue     `json:"critical_issues"`
-	OtherSuggestions    []OtherSuggestion   `json:"other_suggestions"`
-	ExtendedReviewItems ExtendedReviewItems `json:"extended_review_items"`
-}
-
-// OverallAssessment 综合评估
-type OverallAssessment struct {
-	CoreContribution  string            `json:"core_contribution"`       // 核心贡献总结
-	FitForTargetVenue FitForTargetVenue `json:"fit_for_target_venue"`    // 期刊契合度评估
-	Recommendation    string            `json:"recommendation"`          // Accept | Minor Revision | Major Revision | Reject
-	RejectAdvice      string            `json:"reject_advice,omitempty"` // 拒稿建议（Reject时必填）
-}
-
-// FitForTargetVenue 期刊契合度评估
-type FitForTargetVenue struct {
-	VenueName     string `json:"venue_name"`     // 目标期刊/会议名称
-	FitEvaluation string `json:"fit_evaluation"` // 契合度评价
-}
-
-// CriticalIssue 关键问题
-type CriticalIssue struct {
-	IssueTitle       string   `json:"issue_title"`       // 问题标题
-	IssueDescription string   `json:"issue_description"` // 问题描述
-	RequiredActions  string   `json:"required_actions"`  // 必需的补救措施
-	AffectedSections []string `json:"affected_sections"` // 受影响的章节
-}
-
-// OtherSuggestion 其他建议
-type OtherSuggestion struct {
-	SuggestionTitle       string `json:"suggestion_title"`       // 建议标题
-	SuggestionDescription string `json:"suggestion_description"` // 建议描述
-	SuggestionLocation    string `json:"suggestion_location"`    // 建议位置
-	SuggestionRationale   string `json:"suggestion_rationale"`   // 建议理由
-}
-
-// ExtendedReviewItems 扩展审稿项目
-type ExtendedReviewItems struct {
-	NoveltyEvaluation       string          `json:"novelty_evaluation"`        // 新颖性评价
-	TechnicalSoundness      string          `json:"technical_soundness"`       // 技术严谨性
-	ClarityAndPresentation  string          `json:"clarity_and_presentation"`  // 清晰度与表达
-	Reproducibility         Reproducibility `json:"reproducibility"`           // 可复现性
-	EthicalConsiderations   string          `json:"ethical_considerations"`    // 伦理考量
-	ImpactAndSignificance   string          `json:"impact_and_significance"`   // 影响力与重要性
-	RecommendForImprovement string          `json:"recommend_for_improvement"` // 改进建议
-}
-
-// Reproducibility 可复现性评估
-type Reproducibility struct {
-	DataAvailability string `json:"data_availability"` // 数据可用性
-	CodeAvailability string `json:"code_availability"` // 代码可用性
-}
-
-// ========== 文件处理相关 ==========
-
-// 支持的文件类型及其处理模式
-// PDF 和图片：直接传递文件给 AI（支持视觉内容）
-// Word/RTF/ODT/XML/HTML 等文档：上传时提取文本，以文本模式传给 AI（最大 50000 字符）
-var FileProcessModes = map[string]string{
-	// 直接传递给AI的文件类型（PDF 和图片）
-	"pdf":  ProcessModeDirect,
-	"jpg":  ProcessModeDirect, // 图片格式
-	"jpeg": ProcessModeDirect,
-	"png":  ProcessModeDirect,
-	"gif":  ProcessModeDirect,
-	"webp": ProcessModeDirect,
-	// 需要提取文本的文档格式
-	"doc":  ProcessModeExtract, // Word 文档
-	"docx": ProcessModeExtract, // Word 文档
-	"rtf":  ProcessModeExtract,
-	"odt":  ProcessModeExtract,
-	"xml":  ProcessModeExtract,
-	"html": ProcessModeExtract,
-	"htm":  ProcessModeExtract,
-	"txt":  ProcessModeExtract,
-	// 附件支持的额外类型
-	"xlsx": ProcessModeDirect, // Excel 作为附件直传
-	"xls":  ProcessModeDirect,
-	"csv":  ProcessModeExtract, // CSV 可以提取文本
-	"epub": ProcessModeDirect,
-	// 代码文件（提取文本）
-	"py":   ProcessModeExtract,
-	"js":   ProcessModeExtract,
-	"ts":   ProcessModeExtract,
-	"go":   ProcessModeExtract,
-	"java": ProcessModeExtract,
-	"c":    ProcessModeExtract,
-	"cpp":  ProcessModeExtract,
-	"h":    ProcessModeExtract,
-	"rs":   ProcessModeExtract,
-	"rb":   ProcessModeExtract,
-	"php":  ProcessModeExtract,
-	"sql":  ProcessModeExtract,
-	"json": ProcessModeExtract,
-	"yaml": ProcessModeExtract,
-	"yml":  ProcessModeExtract,
-	"md":   ProcessModeExtract,
-	"r":    ProcessModeExtract,
-}
-
-// GetProcessMode 获取文件处理模式
-func GetProcessMode(fileExt string) string {
-	if mode, ok := FileProcessModes[fileExt]; ok {
-		return mode
-	}
-	return ProcessModeDirect // 默认直接传递
-}
-
-// IsAllowedFileType 检查文件类型是否支持
-func IsAllowedFileType(fileExt string) bool {
-	_, ok := FileProcessModes[fileExt]
-	return ok
-}
-
-// GetMimeType 根据文件扩展名获取MIME类型
-func GetMimeType(fileExt string) string {
-	mimeTypes := map[string]string{
-		"pdf":  "application/pdf",
-		"doc":  "application/msword",
-		"docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-		"txt":  "text/plain",
-		"rtf":  "application/rtf",
-		"odt":  "application/vnd.oasis.opendocument.text",
-		"xml":  "application/xml",
-		"html": "text/html",
-		"htm":  "text/html",
-		"xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-		"xls":  "application/vnd.ms-excel",
-		"csv":  "text/csv",
-		"epub": "application/epub+zip",
-		// 图片格式
-		"jpg":  "image/jpeg",
-		"jpeg": "image/jpeg",
-		"png":  "image/png",
-		"gif":  "image/gif",
-		"webp": "image/webp",
-		// 代码文件
-		"py":   "text/x-python",
-		"js":   "text/javascript",
-		"ts":   "text/typescript",
-		"go":   "text/x-go",
-		"java": "text/x-java",
-		"c":    "text/x-c",
-		"cpp":  "text/x-c++",
-		"h":    "text/x-c",
-		"rs":   "text/x-rust",
-		"rb":   "text/x-ruby",
-		"php":  "text/x-php",
-		"sql":  "text/x-sql",
-		"json": "application/json",
-		"yaml": "text/yaml",
-		"yml":  "text/yaml",
-		"md":   "text/markdown",
-		"r":    "text/x-r",
-	}
-	if mime, ok := mimeTypes[fileExt]; ok {
-		return mime
-	}
-	return "application/octet-stream"
-}
-
-// IsImageFile 检查是否为图片文件
-func IsImageFile(fileExt string) bool {
-	imageExts := map[string]bool{
-		"jpg":  true,
-		"jpeg": true,
-		"png":  true,
-		"gif":  true,
-		"webp": true,
-	}
-	return imageExts[fileExt]
-}
+func (Report) TableName() string { return "peer_review_reports" }

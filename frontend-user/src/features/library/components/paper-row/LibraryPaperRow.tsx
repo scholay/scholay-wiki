@@ -1,10 +1,13 @@
-import { memo, useState } from 'react';
+import { lazy, memo, Suspense, useState } from 'react';
 import { Check, Quote } from 'lucide-react';
+import { toast } from 'sonner';
 import { CitationDialog } from '@/shared/components/CitationDialog';
+import { useConfirm } from '@/shared/components/ConfirmDialog';
 import { SourceBadge } from '@/shared/components/SourceBadge';
 import { TranslatePaperButton } from '@/shared/components/TranslatePaperButton';
 import { TruncatedText } from '@/shared/components/TruncatedText';
 import {
+  useApiToast,
   useOpenJournalInBrowser,
   useOpenPaperInBrowser,
   useOpenPdfInBrowser,
@@ -21,9 +24,14 @@ import type {
 } from '@/shared/api/types';
 import { cn } from '@/shared/lib/utils';
 import { pickEffectiveFields } from '../../lib/pick-field';
-import { EditPaperDialog } from '../EditPaperDialog';
-import { PdfUploadDialog } from '../PdfUploadDialog';
-import { RelinkDialog } from '../RelinkDialog';
+import { useUnlinkPaper } from '../../api/relink';
+
+// 统一管理弹窗(在线关联 / 元数据 / PDF 三 tab)—— lazy + 条件 mount:用户没点
+// chip 上任一动作前根本不下载也不实例化,首屏轻很多。
+const PaperManageDialog = lazy(() =>
+  import('../PaperManageDialog').then((m) => ({ default: m.PaperManageDialog })),
+);
+import type { ManageTab } from '../PaperManageDialog';
 import { AuthorsRow } from './AuthorsRow';
 import { MetaRow } from './MetaRow';
 import { RowActionsMenu } from './RowActionsMenu';
@@ -114,12 +122,33 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
     setCiteOpen(true);
   };
 
-  const hasUploadedPdf = !!paper.pdf_uploaded_at;
   const addedDate = formatAddedDate(paper.created_at);
 
-  const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
-  const [relinkDialogOpen, setRelinkDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  // 统一管理弹窗:chip 上的"在线关联 / 编辑 / 换 PDF"都开它,只是 initialTab 不同。
+  const [manageOpen, setManageOpen] = useState(false);
+  const [manageTab, setManageTab] = useState<ManageTab>('metadata');
+  const openManage = (tab: ManageTab) => {
+    setManageTab(tab);
+    setManageOpen(true);
+  };
+
+  // 取消关联:清上游元数据、退回 free,只保留 og_*。是直接动作(非弹窗),先确认再调。
+  const unlinkMut = useUnlinkPaper();
+  const confirm = useConfirm();
+  const apiToast = useApiToast();
+  const handleUnlink = async () => {
+    const ok = await confirm({
+      title: '取消关联?',
+      description:
+        '将清除该论文的上游元数据(标题/摘要/作者/期刊/DOI 等),仅保留你本地编辑或识别的信息;可随时重新在线关联。',
+      confirmText: '取消关联',
+    });
+    if (!ok) return;
+    unlinkMut.mutate(paper.id, {
+      onSuccess: () => toast.success('已取消关联'),
+      onError: (err) => apiToast.show(err, '取消关联失败'),
+    });
+  };
 
   return (
     <li
@@ -209,15 +238,16 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
           {/* 状态徽章 —— hover 弹检查清单, click 弹操作菜单 (菜单项按 status 切换) */}
           <BasicInfoChip
             paper={paper}
-            onEdit={() => setEditDialogOpen(true)}
-            onRelink={() => setRelinkDialogOpen(true)}
+            onEdit={() => openManage('metadata')}
+            onRelink={() => openManage('relink')}
+            onUnlink={handleUnlink}
           />
           <PdfChip
             paper={paper}
             onViewPdf={() =>
               openPdf({ libPaperId: paper.id, title: effectiveTitle || '无标题' })
             }
-            onUploadPdf={() => setPdfDialogOpen(true)}
+            onUploadPdf={() => openManage('pdf')}
           />
 
           {/* 操作徽章: 引用 (amber outline) */}
@@ -265,29 +295,19 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
         </div>
       </div>
 
-      <PdfUploadDialog
-        open={pdfDialogOpen}
-        onOpenChange={setPdfDialogOpen}
-        paperId={paper.id}
-        paperTitle={effectiveTitle || '无标题'}
-        hasExisting={hasUploadedPdf}
-      />
-
-      <EditPaperDialog
-        open={editDialogOpen}
-        onOpenChange={setEditDialogOpen}
-        paper={paper}
-      />
-
-      {/* 关联弹窗 —— 任何行都能"在线关联"(切换上游 paper / 把自由文件关联到上游)。
-         linked 行 isLinked=true → footer 多一颗"移除关联";free 行常规关联搜索。 */}
-      <RelinkDialog
-        open={relinkDialogOpen}
-        onOpenChange={setRelinkDialogOpen}
-        paperId={paper.id}
-        defaultTitle={effectiveTitle}
-        isLinked={!isFree}
-      />
+      {/* 统一管理弹窗(在线关联 / 元数据 / PDF 三 tab)—— lazy + 条件 mount:
+          open=false 时 chunk 不下载,open=true 才走 Suspense。各入口 chip 通过 manageTab 指定初始 tab。
+          (linked 行的"取消关联"是 chip 菜单的 onUnlink 直接动作,不走本弹窗。) */}
+      {manageOpen && (
+        <Suspense fallback={null}>
+          <PaperManageDialog
+            open
+            onOpenChange={setManageOpen}
+            paper={paper}
+            initialTab={manageTab}
+          />
+        </Suspense>
+      )}
 
       <CitationDialog
         open={citeOpen}

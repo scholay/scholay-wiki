@@ -110,7 +110,7 @@ func (h *Handler) UpdatePaper(c *gin.Context) {
 	}
 
 	if err := db.Model(&UserLibraryPaper{}).Where("id = ?", row.ID).Updates(updates).Error; err != nil {
-		utils.Error(c, http.StatusInternalServerError, "更新失败:"+err.Error())
+		utils.InternalError(c, 500, "更新失败", err)
 		return
 	}
 

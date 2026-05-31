@@ -20,6 +20,7 @@ import (
 	"time"
 
 	appconfig "scholar-backend/internal/common/config"
+	"scholar-backend/internal/seo"
 
 	"github.com/gin-gonic/gin"
 )
@@ -35,83 +36,30 @@ type PopularPaper struct {
 	Count   int64  `json:"count"`
 }
 
-// PaperSEOProvider 由 seo.Service 实现，用于论文详情页 SSR 元数据注入。
+// PaperSEOProvider 由 seo.Service 直接实现, 用于论文详情页 SSR 元数据注入。
+//
+// 类型从 config 包搬到了 seo 包 (seo.PaperSSRMeta), 因为 seo 才是数据所有者;
+// 早期的 cmd/server/paperSEOProviderAdapter 已撤掉, 这里只剩接口契约。
 //
 // 两个解析入口对应两个路由:
-//   ResolveSlug      → 老的 /paper/{slug} 直接根据 slug 反查 (legacy 301 流量)
-//   ResolveByPaperID → 新 canonical /paper/{source}/{paperId},source 当前未参与查询
-//                       (paperId 全局唯一),保留 source 形参以便日后做多源去重。
+//
+//	ResolveSlug      → 老的 /paper/{slug} 直接根据 slug 反查 (legacy 301 流量)
+//	ResolveByPaperID → 新 canonical /paper/{source}/{paperId}, source 当前未参与查询
+//	                    (paperId 全局唯一), 保留 source 形参以便日后做多源去重。
 type PaperSEOProvider interface {
-	ResolveSlug(slug string) (*PaperSEOMeta, error)
-	ResolveByPaperID(source, paperID string) (*PaperSEOMeta, error)
+	ResolveSlug(slug string) (*seo.PaperSSRMeta, error)
+	ResolveByPaperID(source, paperID string) (*seo.PaperSSRMeta, error)
 }
 
-// PaperSEOMeta SSR 注入所需的最小元数据集
-//
-// Source 是上游来源标识（"stc" / "olx" / "pmd"）, 用于:
-//   1. 拼 canonical URL `/paper/{Source}/{PaperID}`,在 legacy /paper/{slug} 请求里判断要不要 301
-//   2. 未来多源去重(同一篇论文在不同来源的 paperID 不同)
-// 旧数据没回填 Source 时为空,handler 会跳过 301 留在原 slug 路径。
-type PaperSEOMeta struct {
-	PaperID  string
-	Source   string
-	Title    string
-	Abstract string
-	Year     *int
-	Venue    string
-	DOI      string
-	Authors  []string
-}
-
-// AuthorSEOProvider 由 seo.Service 实现，用于作者详情页 SSR 元数据注入。
-//
-// 两个解析入口对应两个路由(同 PaperSEOProvider):
-//   ResolveAuthorSlug    → 老 /author/{slug}
-//   ResolveByAuthorID    → 新 canonical /author/{source}/{authorId}
+// AuthorSEOProvider 由 seo.Service 直接实现, 用于作者详情页 SSR 元数据注入。
 type AuthorSEOProvider interface {
-	ResolveAuthorSlug(slug string) (*AuthorSEOMeta, error)
-	ResolveByAuthorID(source, authorID string) (*AuthorSEOMeta, error)
+	ResolveAuthorSlug(slug string) (*seo.AuthorSSRMeta, error)
+	ResolveByAuthorID(source, authorID string) (*seo.AuthorSSRMeta, error)
 }
 
-// JournalSEOProvider 由 seo.Service 实现, 用于期刊详情页 SSR 元数据注入。
-// canonical URL 形态 /journal/{id}/{slug}, 也接受不带 slug 的 /journal/{id}
-// (handler_ssr 拿到 meta 后会判断要不要 301 到 canonical slug)。
+// JournalSEOProvider 由 seo.Service 直接实现, 用于期刊详情页 SSR 元数据注入。
 type JournalSEOProvider interface {
-	ResolveByJournalID(journalID int64) (*JournalSEOMeta, error)
-}
-
-// JournalSEOMeta 期刊 SSR 注入所需的最小元数据集
-//
-// Slug 是 SEO canonical 的 URL 后缀(从 canonical_name 派生); 用于:
-//   1. 在 /journal/{id} 请求时 301 跳到 /journal/{id}/{slug}
-//   2. 在 /journal/{id}/{slug-wrong} 请求时 301 校正
-//   3. 注入 <link rel=canonical>
-type JournalSEOMeta struct {
-	JournalID       int64
-	Slug            string
-	CanonicalName   string
-	Publisher       string
-	ISSNs           []string
-	Country         string
-	Type            string
-	IsOA            bool
-	JCRImpactFactor float64
-	JCRQuartile     string
-	OpenAlexHIndex  *int
-}
-
-// AuthorSEOMeta 作者 SSR 注入所需的最小元数据集
-//
-// Source 同 PaperSEOMeta —— 用于拼 canonical `/author/{Source}/{AuthorID}` 做 legacy 301
-type AuthorSEOMeta struct {
-	AuthorID      string
-	Source        string
-	Name          string
-	Affiliations  []string
-	Homepage      string
-	PaperCount    int
-	CitationCount int
-	HIndex        *int
+	ResolveByJournalID(journalID int64) (*seo.JournalSSRMeta, error)
 }
 
 // htmlCacheEntry stores a cached HTML page with its expiry time

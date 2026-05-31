@@ -179,35 +179,37 @@ func (s *Service) LoginWithEmail(email, password, ip string) (*User, string, err
 	return user, token, nil
 }
 
-// ResetPassword resets user password with email verification code
-// Also invalidates all existing sessions to force re-login
-func (s *Service) ResetPassword(ctx context.Context, email, code, newPassword string) error {
+// ResetPassword resets user password with email verification code.
+// 返回 userID 供 handler 调 utils.RevokeUserAllTokens 踢掉该用户所有在用 token。
+func (s *Service) ResetPassword(ctx context.Context, email, code, newPassword string) (uint, error) {
 	// Verify the code
 	valid, err := cache.VerifyCode(ctx, email, code, "reset_password")
 	if err != nil {
-		return fmt.Errorf("failed to verify code: %w", err)
+		return 0, fmt.Errorf("failed to verify code: %w", err)
 	}
 	if !valid {
-		return errors.New("验证码无效或已过期")
+		return 0, errors.New("验证码无效或已过期")
 	}
 
 	// Find user by email
 	user, err := s.repo.FindByEmail(email)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if user == nil {
-		return errors.New("该邮箱未注册")
+		return 0, errors.New("该邮箱未注册")
 	}
 
 	// Hash new password
 	hashedPassword, err := utils.HashPassword(newPassword)
 	if err != nil {
-		return fmt.Errorf("failed to hash password: %w", err)
+		return 0, fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	// Update password. user_sessions 表已下线,踢人改由 JWT 自身过期兜底。
-	return s.repo.UpdatePassword(user.ID, hashedPassword)
+	if err := s.repo.UpdatePassword(user.ID, hashedPassword); err != nil {
+		return 0, err
+	}
+	return user.ID, nil
 }
 
 // LoginWithEmailCode logs in a user with email and verification code
@@ -364,53 +366,6 @@ func (s *Service) ChangePassword(userID uint, currentPassword, newPassword strin
 		return fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	// Update password. user_sessions 表已下线,踢人改由 JWT 自身过期兜底。
+	// Update password. 改密成功后由 handler 调 utils.RevokeUserAllTokens 踢掉所有 token。
 	return s.repo.UpdatePassword(userID, hashedPassword)
-}
-
-// RefreshToken refreshes a token if it's not too old to be reissued.
-//
-// user_sessions 表已下线 —— 续期只依赖 JWT 自身,不再写库:
-//   - 仍在有效期内: 重新签发新 TTL
-//   - 已经过期但未超 MaxSessionAge: 重新签发(保留「30 天连续登录」体验)
-//   - 已超 MaxSessionAge: 拒绝,要求重新登录
-func (s *Service) RefreshToken(oldToken string) (string, error) {
-	claims, err := utils.ParseTokenIgnoreExpiry(oldToken)
-	if err != nil {
-		return "", errors.New("invalid token")
-	}
-
-	if claims.IssuedAt != nil {
-		if time.Since(claims.IssuedAt.Time) > utils.MaxSessionAge {
-			return "", ErrSessionExpired
-		}
-	}
-
-	user, err := s.repo.FindByID(claims.UserID)
-	if err != nil || user == nil {
-		return "", errors.New("用户不存在")
-	}
-
-	username := ""
-	if user.Username != nil {
-		username = *user.Username
-	}
-	newToken, err := s.generateTokenForUser(user, username)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate token: %w", err)
-	}
-	return newToken, nil
-}
-
-// GetTokenInfo returns token expiry info for the client
-func (s *Service) GetTokenInfo(token string) (map[string]any, error) {
-	claims, err := utils.ParseToken(token)
-	if err != nil {
-		return nil, err
-	}
-	return map[string]any{
-		"expires_at":        claims.ExpiresAt.Time,
-		"remaining_seconds": int(utils.GetTokenRemainingTime(claims).Seconds()),
-		"should_refresh":    utils.ShouldRefreshToken(claims),
-	}, nil
 }

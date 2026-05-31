@@ -30,15 +30,13 @@ import {
 type EditMode = { kind: 'create' } | { kind: 'edit'; row: ThirdPartyAccount } | null;
 
 const TYPE_LABEL: Record<AccountType, string> = {
-  semantic_scholar: 'Semantic Scholar',
   ai_model: 'AI 模型',
   minicod: 'MiniCod',
 };
 
 const TYPE_OPTIONS: { value: AccountType; label: string }[] = [
-  { value: 'semantic_scholar', label: 'Semantic Scholar(api_key)' },
   { value: 'ai_model', label: 'AI 模型(api_key + api_base + model)' },
-  { value: 'minicod', label: 'MiniCod' },
+  { value: 'minicod', label: 'MiniCod(api_key + base_url)' },
 ];
 
 export function ThirdPartyPage() {
@@ -192,8 +190,7 @@ export function ThirdPartyPage() {
  *
  * 字段集来自 legacy frontend-user/src/admin/pages/v2/ThirdPartyAccountsV2.tsx(line 576-767):
  *   - ai_model:        api_key + base_url + model_low/mid/high + peer_review_model_1/2/3 (共 8 个)
- *   - minicod:         api_key + base_url
- *   - semantic_scholar:api_key
+ *   - minicod:         api_key + base_url (均必填, 无兜底域名)
  *
  * 切换 type 时保留 config 里其它字段(用户误切回去不丢数据),
  * 提交时只挑当前 type 显式声明的字段,避免脏数据写库。
@@ -317,8 +314,7 @@ function ThirdPartyDialog({
           <div className="space-y-3 border-t border-border-soft pt-3">
             <div className="text-xs text-muted-foreground">
               {type === 'ai_model' && '通用 LLM API key + base_url + 3 档模型 + 3 个审稿模型(留空走默认)'}
-              {type === 'minicod' && 'MiniCod 学术接口 —— base_url 留空走默认地址'}
-              {type === 'semantic_scholar' && 'Semantic Scholar Academic Graph API key —— 不填走免费匿名档'}
+              {type === 'minicod' && 'MiniCod 学术接口 —— api_key + base_url 均必填(无兜底域名)'}
             </div>
             <DynamicFields
               fields={fieldsByType}
@@ -347,12 +343,9 @@ interface DynamicField {
 }
 
 const FIELDS_BY_TYPE: Record<AccountType, DynamicField[]> = {
-  semantic_scholar: [
-    { key: 'api_key', label: 'API Key', secret: true, placeholder: 'Semantic Scholar Academic Graph API Key' },
-  ],
   minicod: [
     { key: 'api_key', label: 'API Key', secret: true, colSpan: 1 },
-    { key: 'base_url', label: 'Base URL(可选)', placeholder: '留空走默认地址', colSpan: 1 },
+    { key: 'base_url', label: 'Base URL', placeholder: 'https://your-minicod-host(必填,无兜底)', colSpan: 1 },
   ],
   ai_model: [
     { key: 'base_url', label: 'Base URL', placeholder: 'https://api.openai.com/v1', colSpan: 1 },

@@ -8,13 +8,21 @@
 package feedback
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
+	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
+	"scholar-backend/internal/common/ctxutil"
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
+	"scholar-backend/internal/storage"
 )
 
 // ConfigService 配置服务接口（用于获取邮件配置）
@@ -386,19 +394,81 @@ func (s *Service) GetAttachments(feedback *Feedback) ([]Attachment, error) {
 	return attachments, nil
 }
 
-// ========== 附件相关方法 ==========
+// ========== 附件相关方法 (走 MinIO) ==========
 
-// SaveAttachment 保存附件记录到数据库
-func (s *Service) SaveAttachment(attachment *FeedbackAttachment) error {
-	return s.repo.CreateAttachment(attachment)
+// UploadAttachment 把单个上传文件流式 PUT 到 MinIO + 写一条 DB 记录, 返回完整附件元数据。
+//
+// object_key 命名: tmp/<uploadKey>/<random>.<ext> —— tmp/ 前缀让 MinIO ILM 24h
+// 自动清理"上传后用户没提交反馈"产生的孤儿对象 (storage.ensureTmpLifecycle 已挂规则)。
+// 真正提交反馈时 BindAttachmentsToFeedback 会把 is_used 置 true (object_key 不动,
+// 仍是 tmp/<...> —— ILM 也只清未在 DB 关联的, 不影响)。
+func (s *Service) UploadAttachment(
+	ctx context.Context,
+	uploadKey, originalName, mimeType, fileType string,
+	body io.Reader, size int64,
+) (*FeedbackAttachment, error) {
+	bucket := storage.FeedbackAttachmentBucket()
+	if bucket == "" {
+		return nil, fmt.Errorf("feedback storage not configured")
+	}
+
+	ext := strings.ToLower(filepath.Ext(originalName))
+	objectID := uuid.New().String()
+	objectKey := fmt.Sprintf("tmp/%s/%s%s", uploadKey, objectID, ext)
+
+	if _, err := storage.PutObject(ctx, bucket, objectKey, body, size, storage.PutOptions{
+		ContentType: mimeType,
+		UserMeta: map[string]string{
+			"original-name": originalName,
+		},
+	}); err != nil {
+		return nil, fmt.Errorf("upload to storage: %w", err)
+	}
+
+	att := &FeedbackAttachment{
+		UploadKey:    uploadKey,
+		OriginalName: originalName,
+		ObjectKey:    objectKey,
+		FileSize:     size,
+		FileType:     fileType,
+		MimeType:     mimeType,
+		IsUsed:       false,
+	}
+	if err := s.repo.CreateAttachment(att); err != nil {
+		// DB 写失败 — 回滚: 把 MinIO 里的对象也删了, 避免永久孤儿。
+		// 失败仅 log, lifecycle 兜底 24h 清理。
+		if delErr := storage.DeleteObject(ctx, bucket, objectKey); delErr != nil {
+			slog.Warn("feedback: rollback minio object failed",
+				"object_key", objectKey, "err", delErr)
+		}
+		return nil, fmt.Errorf("save attachment row: %w", err)
+	}
+	return att, nil
 }
 
-// GetAttachmentsByUploadKey 根据上传key获取附件列表
+// OpenAttachment 从 MinIO 流式打开附件 — caller 负责 Close 第一个返回值。
+func (s *Service) OpenAttachment(ctx context.Context, id uint) (io.ReadCloser, *FeedbackAttachment, error) {
+	att, err := s.repo.GetAttachmentByID(id)
+	if err != nil {
+		return nil, nil, err
+	}
+	if att.ObjectKey == "" {
+		return nil, att, fmt.Errorf("attachment %d has no object_key (legacy data, please re-upload)", id)
+	}
+	bucket := storage.FeedbackAttachmentBucket()
+	rc, _, err := storage.GetObject(ctx, bucket, att.ObjectKey)
+	if err != nil {
+		return nil, att, fmt.Errorf("open from storage: %w", err)
+	}
+	return rc, att, nil
+}
+
+// GetAttachmentsByUploadKey 拿同一上传批次的全部附件 (DB 元数据, 不读 MinIO)。
 func (s *Service) GetAttachmentsByUploadKey(uploadKey string) ([]FeedbackAttachment, error) {
 	return s.repo.GetAttachmentsByUploadKey(uploadKey)
 }
 
-// GetAttachmentByID 根据ID获取单个附件（包含文件数据）
+// GetAttachmentByID 仅取 DB 元数据 (不读 MinIO body); 想拿文件流走 OpenAttachment。
 func (s *Service) GetAttachmentByID(id uint) (*FeedbackAttachment, error) {
 	return s.repo.GetAttachmentByID(id)
 }
@@ -441,13 +511,48 @@ func (s *Service) CreateFeedbackWithAttachments(email, content *string, category
 	return feedback, nil
 }
 
-// CleanupOrphanAttachments 清理游离附件（未绑定反馈的过期附件），返回删除数量
+// CleanupOrphanAttachments 清理游离附件 — 未绑定反馈、创建超过 olderThan 时间。
+// 先拿 object_key 列表, 删 MinIO 对象, 再删 DB 行。返回删除条数。
 func (s *Service) CleanupOrphanAttachments(olderThan string) (int64, error) {
+	// 先查出待删的对象 keys (DB 删除后 row 没了, 拿不到 object_key)
+	var orphans []FeedbackAttachment
+	if err := s.repo.GetDB().
+		Where("feedback_id IS NULL AND created_at < ?", olderThan).
+		Find(&orphans).Error; err != nil {
+		return 0, err
+	}
+	if len(orphans) == 0 {
+		return 0, nil
+	}
+	s.deleteAttachmentObjects(orphans)
 	return s.repo.DeleteOrphanAttachments(olderThan)
 }
 
-// CleanupExcessOrphanAttachments 清理超出限制的游离附件（保留最新的maxCount个）
+// CleanupExcessOrphanAttachments 保留最新 maxCount 个游离附件, 多余的清掉 (MinIO + DB)。
 func (s *Service) CleanupExcessOrphanAttachments(maxCount int) (int64, error) {
+	// 复用 repo 现有逻辑前先拿到 object_keys
+	var totalCount int64
+	if err := s.repo.GetDB().Model(&FeedbackAttachment{}).
+		Where("feedback_id IS NULL").Count(&totalCount).Error; err != nil {
+		return 0, err
+	}
+	if totalCount <= int64(maxCount) {
+		return 0, nil
+	}
+	deleteCount := totalCount - int64(maxCount)
+
+	var excess []FeedbackAttachment
+	if err := s.repo.GetDB().
+		Where("feedback_id IS NULL").
+		Order("created_at ASC").
+		Limit(int(deleteCount)).
+		Find(&excess).Error; err != nil {
+		return 0, err
+	}
+	if len(excess) == 0 {
+		return 0, nil
+	}
+	s.deleteAttachmentObjects(excess)
 	return s.repo.DeleteExcessOrphanAttachments(maxCount)
 }
 
@@ -456,19 +561,40 @@ func (s *Service) GetOrphanAttachmentStats() (count int64, totalSize int64, err 
 	return s.repo.GetOrphanAttachmentStats()
 }
 
-// DeleteFeedbackWithAttachments 删除反馈及其附件
+// DeleteFeedbackWithAttachments 删反馈 + 关联附件 (MinIO 对象 + DB 行)。
 func (s *Service) DeleteFeedbackWithAttachments(id uint) ([]FeedbackAttachment, error) {
-	// 先获取附件列表
 	attachments, err := s.repo.DeleteAttachmentsByFeedbackID(id)
 	if err != nil {
 		return nil, err
 	}
+	s.deleteAttachmentObjects(attachments)
 
-	// 删除反馈（附件会级联删除）
 	if err := s.repo.Delete(id); err != nil {
 		return nil, err
 	}
-
 	return attachments, nil
+}
+
+// deleteAttachmentObjects 批量删 MinIO 对象。失败只 log, DB 已经/会清, 残留对象由 ILM 兜底。
+func (s *Service) deleteAttachmentObjects(atts []FeedbackAttachment) {
+	bucket := storage.FeedbackAttachmentBucket()
+	if bucket == "" {
+		return
+	}
+	keys := make([]string, 0, len(atts))
+	for _, a := range atts {
+		if a.ObjectKey != "" {
+			keys = append(keys, a.ObjectKey)
+		}
+	}
+	if len(keys) == 0 {
+		return
+	}
+	ctx, cancel := ctxutil.With(ctxutil.NormalIO)
+	defer cancel()
+	_ = storage.DeleteObjects(ctx, bucket, keys, func(key string, err error) {
+		slog.Warn("feedback: delete minio object failed",
+			"bucket", bucket, "key", key, "err", err)
+	})
 }
 

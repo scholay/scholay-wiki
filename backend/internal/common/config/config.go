@@ -28,7 +28,6 @@ type Config struct {
 	App              AppConfig_
 	RateLimit        RateLimitConfig
 	SEOSubmit        SEOSubmitConfig
-	PeerReviewV2     PeerReviewV2Config
 	MinIO            MinIOConfig
 	Umami            UmamiConfig
 }
@@ -52,18 +51,13 @@ type UmamiConfig struct {
 // 留空 Endpoint 时,backend 会跳过 storage 初始化,PDF 上传/下载相关接口
 // 直接返回 503"未启用",其余功能不受影响(灰度上线友好)。
 type MinIOConfig struct {
-	Endpoint        string // host:port,例如 minio:9000
-	AccessKey       string
-	SecretKey       string
-	BucketPaperPDFs string // 存论文 PDF 的 bucket
-	UseSSL          bool
-}
-
-// PeerReviewV2Config peer.scholay.com 外部审稿服务接入配置。
-// 留空 APIKey 时,后端 /peer-review2 接口直接返回 503,前端给"未启用"提示。
-type PeerReviewV2Config struct {
-	APIKey  string // X-API-Key 头
-	BaseURL string // 默认 https://peer.scholay.com
+	Endpoint                  string // host:port,例如 minio:9000
+	AccessKey                 string
+	SecretKey                 string
+	BucketPaperPDFs           string // 存论文 PDF 的 bucket
+	BucketFeedbackAttachments string // 存用户反馈附件 (图片/文件) 的 bucket
+	BucketPeerReviewAssets    string // 存智能审稿稿件 + 附件 的 bucket
+	UseSSL                    bool
 }
 
 // RateLimitConfig 控制限流策略。
@@ -79,21 +73,16 @@ type RateLimitConfig struct {
 
 // AppConfig_ 通用应用配置（避免与全局变量 AppConfig 冲突）
 type AppConfig_ struct {
-	GinMode              string // GIN_MODE: release / debug
-	CORSAllowedOrigins   string // 逗号分隔的允许 CORS 来源
-	TurnstileSecretKey   string // Cloudflare Turnstile 密钥
-	FrontendUserURL      string // 前端用户门户 URL
-	UseAdvancedSearchV2  bool   // 是否使用 V2 版智能检索
-	IsRelease            bool   // 是否为 release 模式（预计算，方便使用）
+	GinMode            string // GIN_MODE: release / debug
+	CORSAllowedOrigins string // 逗号分隔的允许 CORS 来源
+	TurnstileSecretKey string // Cloudflare Turnstile 密钥
+	FrontendUserURL    string // 前端用户门户 URL
+	IsRelease          bool   // 是否为 release 模式（预计算，方便使用）
 }
 
 type ExternalServicesConfig struct {
-	SerperAPIKey   string
-	CrossrefEmail  string
-	UnpaywallEmail string
-
-	// 外部 PDF 服务(用于解析/抽取/转换),空值时 pdf.Service 不会工作。
-	PDFServiceURL string
+	SerperAPIKey  string
+	CrossrefEmail string
 
 	// 公开品牌邮箱(支持/反馈/法律页里展示)
 	SupportEmail string
@@ -198,11 +187,9 @@ func Load() *Config {
 			InitialPassword: getEnv("ADMIN_INITIAL_PASSWORD", "adminadmin"),
 		},
 		ExternalServices: ExternalServicesConfig{
-			SerperAPIKey:   getEnv("SERPER_API_KEY", ""),
-			CrossrefEmail:  getEnv("CROSSREF_EMAIL", ""),
-			UnpaywallEmail: getEnv("UNPAYWALL_EMAIL", "api@scholay.com"),
-			PDFServiceURL:  getEnv("PDF_SERVICE_URL", "https://pdf.scholay.com/api/v1/pdf"),
-			SupportEmail:   getEnv("SUPPORT_EMAIL", "support@scholay.com"),
+			SerperAPIKey: getEnv("SERPER_API_KEY", ""),
+			CrossrefEmail: getEnv("CROSSREF_EMAIL", ""),
+			SupportEmail: getEnv("SUPPORT_EMAIL", "support@scholay.com"),
 		},
 		RateLimit: RateLimitConfig{
 			IPRPS:         getEnvAsInt("RATE_LIMIT_IP_RPS", 100),
@@ -213,19 +200,15 @@ func Load() *Config {
 		},
 	}
 
-	// peer-review V2 外部审稿服务
-	AppConfig.PeerReviewV2 = PeerReviewV2Config{
-		APIKey:  getEnv("PEER_REVIEW_API_KEY", ""),
-		BaseURL: getEnv("PEER_REVIEW_BASE_URL", "https://peer.scholay.com"),
-	}
-
-	// MinIO 对象存储 —— PDF 上传/下载
+	// MinIO 对象存储 —— PDF + 反馈附件
 	AppConfig.MinIO = MinIOConfig{
-		Endpoint:        getEnv("MINIO_ENDPOINT", ""),
-		AccessKey:       getEnv("MINIO_ACCESS_KEY", ""),
-		SecretKey:       getEnv("MINIO_SECRET_KEY", ""),
-		BucketPaperPDFs: getEnv("MINIO_BUCKET_PAPER_PDFS", "scholar-paper-pdfs"),
-		UseSSL:          getEnvAsBool("MINIO_USE_SSL", false),
+		Endpoint:                  getEnv("MINIO_ENDPOINT", ""),
+		AccessKey:                 getEnv("MINIO_ACCESS_KEY", ""),
+		SecretKey:                 getEnv("MINIO_SECRET_KEY", ""),
+		BucketPaperPDFs:           getEnv("MINIO_BUCKET_PAPER_PDFS", "scholar-paper-pdfs"),
+		BucketFeedbackAttachments: getEnv("MINIO_BUCKET_FEEDBACK_ATTACHMENTS", "scholar-feedback-attachments"),
+		BucketPeerReviewAssets:    getEnv("MINIO_BUCKET_PEER_REVIEW_ASSETS", "scholar-peer-review-assets"),
+		UseSSL:                    getEnvAsBool("MINIO_USE_SSL", false),
 	}
 
 	// Umami —— backend 用内网 umami:3000 + 默认 admin/umami 拿 token 调统计 API
@@ -249,14 +232,12 @@ func Load() *Config {
 
 	// 通用应用配置
 	ginMode := getEnv("GIN_MODE", "debug")
-	useV2 := getEnv("USE_ADVANCED_SEARCH_V2", "true")
 	AppConfig.App = AppConfig_{
-		GinMode:             ginMode,
-		CORSAllowedOrigins:  getEnv("CORS_ALLOWED_ORIGINS", ""),
-		TurnstileSecretKey:  getEnv("TURNSTILE_SECRET_KEY", ""),
-		FrontendUserURL:     getEnv("FRONTEND_USER_URL", ""),
-		UseAdvancedSearchV2: useV2 != "false" && useV2 != "0",
-		IsRelease:           ginMode == "release",
+		GinMode:            ginMode,
+		CORSAllowedOrigins: getEnv("CORS_ALLOWED_ORIGINS", ""),
+		TurnstileSecretKey: getEnv("TURNSTILE_SECRET_KEY", ""),
+		FrontendUserURL:    getEnv("FRONTEND_USER_URL", ""),
+		IsRelease:          ginMode == "release",
 	}
 
 	validate(AppConfig)

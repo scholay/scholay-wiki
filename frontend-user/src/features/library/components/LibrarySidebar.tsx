@@ -25,6 +25,7 @@ import { FavoriteBurst } from '@/shared/components/FavoriteBurst';
 import { useSidebar } from '@/stores/sidebar.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
+import { useApiToast } from '@/shared/hooks';
 import { cn } from '@/shared/lib/utils';
 import type { UserLibraryFolderItem } from '@/shared/api/types';
 import {
@@ -53,6 +54,7 @@ export function LibrarySidebar() {
   const toggleSidebar = useSidebar((s) => s.toggle);
   const token = useAuthStore((s) => s.token);
   const openAuthDialog = useAuthDialog((s) => s.openDialog);
+  const apiToast = useApiToast();
   // autoAnimate 只跟踪 folder 增删(新建/删除)的进出动画,无展开/折叠抖动场景
   const [treeRef] = useAutoAnimate<HTMLDivElement>({
     duration: 180,
@@ -108,7 +110,7 @@ export function LibrarySidebar() {
         setCreating(false);
         setActive(folder.id);
       },
-      onError: (err) => toast.error((err as Error).message),
+      onError: apiToast.onError(),
     });
   };
 
@@ -230,6 +232,7 @@ function FolderRow({
 
   const renameMut = useRenameFolder();
   const deleteMut = useDeleteFolder();
+  const apiToast = useApiToast();
 
   useEffect(() => {
     if (editing && inputRef.current) {
@@ -253,7 +256,7 @@ function FolderRow({
       {
         onSuccess: () => setEditing(false),
         onError: (err) => {
-          toast.error((err as Error).message);
+          apiToast.show(err);
           setDraft(folder.name);
           setEditing(false);
         },
@@ -263,7 +266,7 @@ function FolderRow({
   const confirmDelete = () => {
     deleteMut.mutate(folder.id, {
       onSuccess: () => toast.success(`已删除「${folder.name}」`),
-      onError: (err) => toast.error((err as Error).message),
+      onError: apiToast.onError(),
     });
   };
 

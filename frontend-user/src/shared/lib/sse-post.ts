@@ -19,6 +19,8 @@
  *   });
  */
 
+import { getAuthToken } from '@/shared/lib/auth-token';
+
 export interface ParsedSseEvent {
   /** SSE `event:` 行的值;无 `event:` 行时为空串(标准 SSE 行为) */
   event: string;
@@ -54,8 +56,8 @@ export async function streamSsePost({
     Accept: 'text/event-stream',
   };
   if (!isForm) headers['Content-Type'] = 'application/json';
-  // Authorization 走 localStorage —— 与 shared/lib/http 的 interceptor 同 key
-  const token = localStorage.getItem('auth_token');
+  // Authorization 走 getAuthToken() —— 与 axios / 其它 SSE 同一真源(localStorage.auth_token)
+  const token = getAuthToken();
   if (token) headers.Authorization = `Bearer ${token}`;
 
   const fullUrl =

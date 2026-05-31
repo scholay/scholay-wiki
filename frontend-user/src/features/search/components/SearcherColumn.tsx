@@ -13,7 +13,7 @@ import { useSearchVisiblePapers } from '@/stores/search-visible-papers.store';
 import { PaperResultCard } from './PaperResultCard';
 import { resolveYearRange, type SearchFilters } from '../types';
 import { cn } from '@/shared/lib/utils';
-import { SmartSearchPreview } from './SmartSearchPreview';
+import { SmartSearchPanel } from './smart-search/SmartSearchPanel';
 import { SearcherPagination } from './SearcherPagination';
 import { useSearcherUrlState } from '../hooks/useSearcherUrlState';
 
@@ -69,6 +69,20 @@ export function SearcherColumn({
     useSearcherUrlState(filters);
   const queryFromUrl = params.get('q') ?? '';
   const [input, setInput] = useState(queryFromUrl);
+
+  // 智能 panel 是否曾经被打开过 —— 一旦 true 就保持 mount, 模式切换只用 display:none
+  // 隐藏。这样:
+  //   - 切到传统再切回, WS 不会被 unmount cleanup 强关, AI 流式回答不中断
+  //   - messages / pendingTurns / input 等 panel 局部 state 全部保留
+  //   - 从未点过"智能"的用户不会被预先打开 WS (lazy first-mount)
+  // 历史 bug: 之前用 `{mode === 'smart' && <Panel />}` 模式切换会 unmount,
+  // useSmartSearchSocket 的 cleanup 关 WS, 局部 state 清零;
+  // useSmartSearchHistory 又 staleTime:Infinity 返回老快照, 所以"对话凭空消失,
+  // 必须刷新页面才出来"。
+  const [smartPanelOpened, setSmartPanelOpened] = useState(mode === 'smart');
+  useEffect(() => {
+    if (mode === 'smart') setSmartPanelOpened(true);
+  }, [mode]);
 
   // URL `q` 变化时同步到输入框 —— 持久化恢复 / 浏览器后退 / 外部 navigate
   // 都会改 URL,但 useState 只在首次挂载读 URL,导致输入框跟搜索结果不同步。
@@ -186,27 +200,28 @@ export function SearcherColumn({
               type="button"
               onClick={() => onModeChange('smart')}
               className={cn(
-                'relative inline-flex items-center justify-center h-5 px-2.5 rounded-pill text-2xs font-bold transition-colors',
+                'inline-flex items-center justify-center h-5 px-2.5 rounded-pill text-2xs font-bold transition-colors',
                 mode === 'smart'
                   ? 'bg-brand-red text-white'
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
               智能
-              {/* 即将推出 气泡 —— 绑在 智能 按钮右上角,任何模式下都展示,提示功能未上线 */}
-              <span
-                aria-hidden="true"
-                className="absolute -top-2 -right-3 inline-flex items-center h-3.5 px-1 rounded-pill bg-brand-amber text-background text-[9px] font-bold leading-none whitespace-nowrap shadow-sm"
-              >
-                即将推出
-              </span>
             </button>
           </div>
         </div>
       </header>
 
-      {/* 智能模式 —— 整块换成假预览,直接 return,不再渲染搜索框/结果/分页 */}
-      {mode === 'smart' && <SmartSearchPreview />}
+      {/* 智能模式 —— 通过 WS 桥接 scholar_agent 的对话式检索面板。
+          首次打开后保持 mount, 模式切换走 display:none 隐藏 (见上面 smartPanelOpened
+          注释), 避免 WS 断开 + 对话状态丢失。
+          外层用 display:contents 让 panel 在 smart 模式下完全等价于原先的"直接子元素",
+          不影响 flex 布局; hidden (display:none) 隐藏时不参与布局也不渲染。 */}
+      {smartPanelOpened && (
+        <div className={mode === 'smart' ? 'contents' : 'hidden'}>
+          <SmartSearchPanel />
+        </div>
+      )}
       {mode === 'classic' && (
         <>
           {/* searchRow — 输入 + 红色搜索按钮 */}

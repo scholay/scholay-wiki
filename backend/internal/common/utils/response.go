@@ -153,18 +153,41 @@ func ErrorWithData(c *gin.Context, code int, message string, data any) {
 	})
 }
 
+// ErrorWithStatus sends an error response with a caller-specified HTTP status code.
+// 大多数错误用 Error() (HTTP 从业务码推导); 这个是给中间件 / 罕见场景用,
+// e.g. 413 Request Entity Too Large + 业务码 7001 UploadTooLarge。
+func ErrorWithStatus(c *gin.Context, httpStatus int, code int, message string) {
+	autoLogIfServerError(c, httpStatus, code, message)
+	c.JSON(httpStatus, Response{
+		Code:    code,
+		Message: message,
+	})
+}
+
 // NotFound sends a 404 response
 func NotFound(c *gin.Context, message string) {
+	NotFoundWithCode(c, 404, message)
+}
+
+// NotFoundWithCode 同 NotFound 但允许调用方指定业务码 (errcode 包内常量, e.g. 4404 资源不存在 / 4405 资源被禁用)。
+// 用法: 当前端需要区分"路径错"(404 系统码) vs "资源不存在但路径合法"(4404 业务码) 时用。
+func NotFoundWithCode(c *gin.Context, bizCode int, message string) {
 	c.JSON(http.StatusNotFound, Response{
-		Code:    404,
+		Code:    bizCode,
 		Message: message,
 	})
 }
 
 // Forbidden sends a 403 response
 func Forbidden(c *gin.Context, message string) {
+	ForbiddenWithCode(c, 403, message)
+}
+
+// ForbiddenWithCode 同 Forbidden 但允许调用方指定业务码。
+// 例: 角色权限不足用 403, 内容审核失败用 4030, 触发风控用 4031。
+func ForbiddenWithCode(c *gin.Context, bizCode int, message string) {
 	c.JSON(http.StatusForbidden, Response{
-		Code:    403,
+		Code:    bizCode,
 		Message: message,
 	})
 }
@@ -187,18 +210,35 @@ func TooManyRequests(c *gin.Context, message string) {
 	})
 }
 
-// Unauthorized sends an unauthorized response
+// Unauthorized sends an unauthorized response with the generic 401 business code.
+//
+// 大多数 "未登录 / token 缺失" 走这个就行. 如果需要前端区分场景 (e.g. 改密导致 token 被吊销
+// vs 同账号在别处登录 vs token 自然过期), 用 UnauthorizedWithCode + errcode.* 业务码,
+// 前端 toApiError 会拿到 code 字段, 可以根据具体码做不同 UI (强制重新登录 / 弹"被踢"banner / 等)。
 func Unauthorized(c *gin.Context, message string) {
+	UnauthorizedWithCode(c, 401, message)
+}
+
+// UnauthorizedWithCode 同 Unauthorized 但指定业务码. 推荐用 errcode 包的常量:
+//
+//	utils.UnauthorizedWithCode(c, errcode.TokenRevoked, "登录已失效,请重新登录")
+//	utils.UnauthorizedWithCode(c, errcode.SessionTakenByOtherLogin, "已在别处登录,请重新登录")
+func UnauthorizedWithCode(c *gin.Context, bizCode int, message string) {
 	c.JSON(http.StatusUnauthorized, Response{
-		Code:    401,
+		Code:    bizCode,
 		Message: message,
 	})
 }
 
-// BadRequest sends a bad request response
+// BadRequest sends a bad request response with the generic 400 business code.
 func BadRequest(c *gin.Context, message string) {
+	BadRequestWithCode(c, 400, message)
+}
+
+// BadRequestWithCode 同 BadRequest 但指定业务码. 推荐用于"前端可以根据具体错误码做不同处理"的场景。
+func BadRequestWithCode(c *gin.Context, bizCode int, message string) {
 	c.JSON(http.StatusBadRequest, Response{
-		Code:    400,
+		Code:    bizCode,
 		Message: message,
 	})
 }

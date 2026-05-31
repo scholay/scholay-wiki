@@ -1,4 +1,4 @@
-import { useEffect, useState, type RefObject } from 'react';
+import { forwardRef, useEffect, useState, type RefObject } from 'react';
 import { cn } from '@/shared/lib/utils';
 
 /**
@@ -34,11 +34,8 @@ interface TableOfContentsProps {
   className?: string;
 }
 
-export function TableOfContents({
-  contentRef,
-  title = '目录',
-  className,
-}: TableOfContentsProps) {
+export const TableOfContents = forwardRef<HTMLElement, TableOfContentsProps>(
+  ({ contentRef, title = '目录', className }, ref) => {
   const [headings, setHeadings] = useState<Heading[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -144,6 +141,7 @@ export function TableOfContents({
 
   return (
     <nav
+      ref={ref}
       aria-label="目录"
       className={cn('text-xs', className)}
     >
@@ -171,4 +169,6 @@ export function TableOfContents({
       </ul>
     </nav>
   );
-}
+  }
+);
+TableOfContents.displayName = 'TableOfContents';

@@ -12,21 +12,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
 
-	"scholar-backend/internal/common/httpclient"
 	"scholar-backend/internal/common/model"
+	"scholar-backend/internal/common/upstream"
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
-var githubHTTPClient = httpclient.OAuthClient
+var githubUpstream = newOAuthUpstream("github_oauth")
 
 // GithubUser represents GitHub user info from API
 type GithubUser struct {
@@ -178,33 +177,21 @@ func (h *Handler) exchangeGithubCode(ctx context.Context, code string, config *m
 	data.Set("code", code)
 	data.Set("redirect_uri", config.RedirectURI)
 
-	req, err := http.NewRequestWithContext(
-		ctx,
-		"POST",
-		"https://github.com/login/oauth/access_token",
-		strings.NewReader(data.Encode()),
-	)
+	resp, err := githubUpstream.Do(ctx, upstream.Request{
+		Method: http.MethodPost,
+		Path:   "https://github.com/login/oauth/access_token",
+		Headers: http.Header{
+			"Content-Type": {"application/x-www-form-urlencoded"},
+			"Accept":       {"application/json"},
+		},
+		Body: strings.NewReader(data.Encode()),
+	})
 	if err != nil {
 		return "", err
-	}
-
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Accept", "application/json")
-
-	client := githubHTTPClient
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("github token exchange failed: %s", string(body))
 	}
 
 	var tokenResp GithubTokenResponse
-	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+	if err := resp.JSON(&tokenResp); err != nil {
 		return "", err
 	}
 
@@ -213,33 +200,20 @@ func (h *Handler) exchangeGithubCode(ctx context.Context, code string, config *m
 
 // getGithubUserInfo gets user info from GitHub API
 func (h *Handler) getGithubUserInfo(ctx context.Context, accessToken string) (*GithubUser, error) {
-	req, err := http.NewRequestWithContext(
-		ctx,
-		"GET",
-		"https://api.github.com/user",
-		nil,
-	)
+	resp, err := githubUpstream.Do(ctx, upstream.Request{
+		Method: http.MethodGet,
+		Path:   "https://api.github.com/user",
+		Headers: http.Header{
+			"Authorization": {"Bearer " + accessToken},
+			"Accept":        {"application/vnd.github.v3+json"},
+		},
+	})
 	if err != nil {
 		return nil, err
-	}
-
-	req.Header.Set("Authorization", "Bearer "+accessToken)
-	req.Header.Set("Accept", "application/vnd.github.v3+json")
-
-	client := githubHTTPClient
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("github user info failed: %s", string(body))
 	}
 
 	var githubUser GithubUser
-	if err := json.NewDecoder(resp.Body).Decode(&githubUser); err != nil {
+	if err := resp.JSON(&githubUser); err != nil {
 		return nil, err
 	}
 
@@ -256,28 +230,16 @@ func (h *Handler) getGithubUserInfo(ctx context.Context, accessToken string) (*G
 
 // getGithubUserEmail fetches user's primary email from GitHub
 func (h *Handler) getGithubUserEmail(ctx context.Context, accessToken string) (string, error) {
-	req, err := http.NewRequestWithContext(
-		ctx,
-		"GET",
-		"https://api.github.com/user/emails",
-		nil,
-	)
+	resp, err := githubUpstream.Do(ctx, upstream.Request{
+		Method: http.MethodGet,
+		Path:   "https://api.github.com/user/emails",
+		Headers: http.Header{
+			"Authorization": {"Bearer " + accessToken},
+			"Accept":        {"application/vnd.github.v3+json"},
+		},
+	})
 	if err != nil {
 		return "", err
-	}
-
-	req.Header.Set("Authorization", "Bearer "+accessToken)
-	req.Header.Set("Accept", "application/vnd.github.v3+json")
-
-	client := githubHTTPClient
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to get emails")
 	}
 
 	var emails []struct {
@@ -286,7 +248,7 @@ func (h *Handler) getGithubUserEmail(ctx context.Context, accessToken string) (s
 		Verified bool   `json:"verified"`
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&emails); err != nil {
+	if err := resp.JSON(&emails); err != nil {
 		return "", err
 	}
 

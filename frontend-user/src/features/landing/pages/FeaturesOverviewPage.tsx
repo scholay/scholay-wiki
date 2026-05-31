@@ -56,7 +56,6 @@ const FEATURES: FeatureEntry[] = [
     englishName: 'Claw AI',
     desc: '基于你的文献集的可溯源学术对话',
     icon: Sparkles,
-    comingSoon: true,
   },
   {
     to: '/features/submit',
@@ -64,7 +63,6 @@ const FEATURES: FeatureEntry[] = [
     englishName: 'Pre-submission Review',
     desc: '投稿前的 AI 模拟同行评审,提前发现问题',
     icon: ClipboardCheck,
-    comingSoon: true,
   },
   {
     to: '/features/peer-review',
@@ -80,9 +78,9 @@ export function FeaturesOverviewPage() {
   return (
     <LandingLayout>
       <RouteSEO
-        title="Scholay 全站功能总览 | 一站式 AI 学术研究平台"
-        description="Scholay 整合学术文献检索、AI 论文分析、AI 学术聊天、AI 智能审稿、ScholayPrism LaTeX 编辑器五大核心能力。2 亿+ 论文、19 个学科、80+ 种语言,从找论文到写论文,一个平台全部搞定。"
-        keywords="Scholay 功能,学术搜索,AI 论文分析,AI 审稿,LaTeX 编辑器,学术聊天,一站式科研平台,AI 学术工具"
+        title="Scholay学术 全站功能总览 | 一站式 AI 学术研究平台"
+        description="Scholay学术整合论文搜索、AI 论文分析、AI 学术聊天、AI 智能审稿、LaTeX 写作五大核心能力。覆盖 2 亿+ 论文、19 个学科,从找论文到写论文,一个平台全部搞定。"
+        keywords="Scholay,Scholay学术,scholay学术工具,Scholay 功能,学术搜索,AI 论文分析,AI 审稿,LaTeX 编辑器,学术聊天,一站式科研平台,AI 学术工具"
       />
       <section className="px-6 py-16 md:py-24 max-w-6xl mx-auto">
         <div className="text-center max-w-2xl mx-auto">

@@ -110,7 +110,7 @@ function DimensionCellImpl({ item, dimensionKey, isFetching }: Props) {
           <span
             key={i}
             className={cn(
-              'rounded-[3px] px-[3px] py-[1px] mx-px font-medium box-decoration-clone',
+              'rounded-sm px-[3px] py-[1px] mx-px font-medium box-decoration-clone',
               tagColor(seg.text)
             )}
             title={seg.text}

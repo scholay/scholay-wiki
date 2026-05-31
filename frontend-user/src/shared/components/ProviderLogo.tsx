@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import { cn } from '@/shared/lib/utils';
 
 /**
@@ -35,7 +36,8 @@ interface ProviderLogoProps {
   className?: string;
 }
 
-export function ProviderLogo({ provider, className }: ProviderLogoProps) {
+export const ProviderLogo = forwardRef<SVGSVGElement, ProviderLogoProps>(
+  ({ provider, className }, ref) => {
   const cls = cn('inline-block shrink-0', className);
   const aria = { 'aria-hidden': true } as const;
 
@@ -43,7 +45,7 @@ export function ProviderLogo({ provider, className }: ProviderLogoProps) {
     // GitHub —— mono octocat,黑/白二值,currentColor 兼容亮 / 暗主题
     case 'github':
       return (
-        <svg viewBox="0 0 24 24" className={cls} {...aria}>
+        <svg ref={ref} viewBox="0 0 24 24" className={cls} {...aria}>
           <path
             fill="currentColor"
             d="M12 .297a12 12 0 0 0-3.79 23.4c.6.111.82-.26.82-.578v-2.234c-3.338.726-4.04-1.61-4.04-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.09-.745.084-.73.084-.73 1.205.085 1.84 1.236 1.84 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.42-1.305.762-1.605-2.665-.305-5.467-1.334-5.467-5.93 0-1.31.467-2.382 1.236-3.222-.124-.304-.535-1.527.117-3.176 0 0 1.008-.322 3.301 1.23a11.5 11.5 0 0 1 6.005 0c2.291-1.552 3.297-1.23 3.297-1.23.653 1.65.242 2.872.118 3.176.77.84 1.235 1.911 1.235 3.222 0 4.608-2.807 5.624-5.479 5.921.43.372.823 1.103.823 2.222v3.293c0 .32.218.694.825.576A12 12 0 0 0 12 .297"
@@ -54,7 +56,7 @@ export function ProviderLogo({ provider, className }: ProviderLogoProps) {
     // Google —— 官方"G"四色,品牌强识别。viewBox 24,等价 Google 设计 spec 比例
     case 'google':
       return (
-        <svg viewBox="0 0 24 24" className={cls} {...aria}>
+        <svg ref={ref} viewBox="0 0 24 24" className={cls} {...aria}>
           <path
             fill="#4285F4"
             d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -80,7 +82,7 @@ export function ProviderLogo({ provider, className }: ProviderLogoProps) {
     // Google / Microsoft / ORCID 一样按品牌强色路径走。
     case 'wechat':
       return (
-        <svg viewBox="0 0 24 24" className={cls} {...aria}>
+        <svg ref={ref} viewBox="0 0 24 24" className={cls} {...aria}>
           <path
             fill="#07C160"
             d="M8.691 2.188C3.891 2.188 0 5.476 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.59.59 0 0 1 .213.665l-.39 1.48c-.019.07-.048.141-.048.213 0 .163.13.295.29.295a.326.326 0 0 0 .167-.054l1.903-1.114a.864.864 0 0 1 .717-.098 10.16 10.16 0 0 0 2.837.403c.276 0 .543-.027.811-.05-.857-2.578.157-4.972 1.932-6.446 1.703-1.415 3.882-1.98 5.853-1.838-.576-3.583-4.196-6.348-8.596-6.348zM5.785 5.991c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178A1.17 1.17 0 0 1 4.623 7.17c0-.651.52-1.18 1.162-1.18zm5.813 0c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178 1.17 1.17 0 0 1-1.162-1.178c0-.651.52-1.18 1.162-1.18zm5.34 2.867c-1.797-.052-3.746.512-5.28 1.786-1.72 1.428-2.687 3.72-1.78 6.22.942 2.453 3.666 4.229 6.884 4.229.826 0 1.622-.12 2.361-.336a.722.722 0 0 1 .598.082l1.584.926a.272.272 0 0 0 .14.047c.134 0 .24-.111.24-.247 0-.06-.023-.12-.038-.177l-.327-1.233a.582.582 0 0 1-.023-.156.49.49 0 0 1 .201-.398C23.024 18.48 24 16.82 24 14.98c0-3.21-2.931-5.837-6.656-6.088V8.89c-.135-.01-.27-.027-.407-.03zm-2.53 3.274c.535 0 .969.44.969.982a.976.976 0 0 1-.969.983.976.976 0 0 1-.969-.983c0-.542.434-.982.97-.982zm4.844 0c.535 0 .969.44.969.982a.976.976 0 0 1-.969.983.976.976 0 0 1-.969-.983c0-.542.434-.982.969-.982z"
@@ -91,7 +93,7 @@ export function ProviderLogo({ provider, className }: ProviderLogoProps) {
     // Apple —— mono apple silhouette,官方 monochrome 是品牌允许的标准变体
     case 'apple':
       return (
-        <svg viewBox="0 0 24 24" className={cls} {...aria}>
+        <svg ref={ref} viewBox="0 0 24 24" className={cls} {...aria}>
           <path
             fill="currentColor"
             d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"
@@ -102,7 +104,7 @@ export function ProviderLogo({ provider, className }: ProviderLogoProps) {
     // ORCID —— 官方绿色"iD",品牌强依赖该绿色;不走 currentColor
     case 'orcid':
       return (
-        <svg viewBox="0 0 256 256" className={cls} {...aria}>
+        <svg ref={ref} viewBox="0 0 256 256" className={cls} {...aria}>
           <circle cx="128" cy="128" r="128" fill="#A6CE39" />
           <path
             fill="#fff"
@@ -114,7 +116,7 @@ export function ProviderLogo({ provider, className }: ProviderLogoProps) {
     // Microsoft —— 官方 4 方块,品牌强依赖该 4 色;不走 currentColor
     case 'microsoft':
       return (
-        <svg viewBox="0 0 24 24" className={cls} {...aria}>
+        <svg ref={ref} viewBox="0 0 24 24" className={cls} {...aria}>
           <path fill="#F25022" d="M2 2h9.6v9.6H2z" />
           <path fill="#7FBA00" d="M12.4 2H22v9.6h-9.6z" />
           <path fill="#00A4EF" d="M2 12.4h9.6V22H2z" />
@@ -129,7 +131,7 @@ export function ProviderLogo({ provider, className }: ProviderLogoProps) {
     // 不走 currentColor —— 多色品牌图,跟 Google/Microsoft/ORCID/WeChat 一致按品牌色路径走。
     case 'discourse':
       return (
-        <svg viewBox="0 0 512 512" className={cls} {...aria}>
+        <svg ref={ref} viewBox="0 0 512 512" className={cls} {...aria}>
           <path
             fill="#428249"
             d="M202.332 313.708C203.111 325.894 194.563 330.934 194.868 315.823C194.868 315.823 183.55 162.079 299.559 124.351C299.559 124.351 306.574 122.574 300.239 132.245C300.239 132.243 192.859 165.505 202.332 313.708Z"
@@ -153,4 +155,6 @@ export function ProviderLogo({ provider, className }: ProviderLogoProps) {
         </svg>
       );
   }
-}
+  }
+);
+ProviderLogo.displayName = 'ProviderLogo';

@@ -167,8 +167,6 @@ func (r *Repository) GetStats() (map[string]any, error) {
 	var total int64
 	var activeCount int64
 	var totalUsage uint64
-	var semanticScholarTotal int64
-	var semanticScholarActive int64
 	var aiModelTotal int64
 	var aiModelActive int64
 	var minicodTotal int64
@@ -180,9 +178,6 @@ func (r *Repository) GetStats() (map[string]any, error) {
 		totalUsage += ts.TotalUsage
 
 		switch ts.Type {
-		case string(AccountTypeSemanticScholar):
-			semanticScholarTotal = ts.TotalCount
-			semanticScholarActive = ts.ActiveCount
 		case string(AccountTypeAIModel):
 			aiModelTotal = ts.TotalCount
 			aiModelActive = ts.ActiveCount
@@ -193,25 +188,23 @@ func (r *Repository) GetStats() (map[string]any, error) {
 	}
 
 	return map[string]any{
-		"total":                          total,
-		"active_count":                   activeCount,
-		"semantic_scholar_count":         semanticScholarActive, // 保持兼容：启用数
-		"semantic_scholar_total":         semanticScholarTotal,  // 新增：总数
-		"ai_model_count":                 aiModelActive,         // 保持兼容：启用数
-		"ai_model_total":                 aiModelTotal,          // 新增：总数
-		"minicod_count":                  minicodActive,
-		"minicod_total":                  minicodTotal,
-		"total_usage":                    totalUsage,
-		"type_stats":                     typeStats,
+		"total":          total,
+		"active_count":   activeCount,
+		"ai_model_count": aiModelActive, // 启用数
+		"ai_model_total": aiModelTotal,  // 总数
+		"minicod_count":  minicodActive,
+		"minicod_total":  minicodTotal,
+		"total_usage":    totalUsage,
+		"type_stats":     typeStats,
 	}, nil
 }
 
 // GetStatsByType 按类型获取统计信息
 func (r *Repository) GetStatsByType() ([]TypeStats, error) {
-	types := []AccountType{AccountTypeSemanticScholar, AccountTypeAIModel}
+	types := []AccountType{AccountTypeAIModel, AccountTypeMinicod}
 	typeNames := map[AccountType]string{
-		AccountTypeSemanticScholar: "Semantic Scholar",
-		AccountTypeAIModel:         "AI模型",
+		AccountTypeAIModel: "AI模型",
+		AccountTypeMinicod: "Minicod",
 	}
 	result := make([]TypeStats, 0, len(types))
 
@@ -267,11 +260,6 @@ func (r *Repository) GetStatsByType() ([]TypeStats, error) {
 // ValidateConfig validates the account configuration based on type
 func ValidateConfig(accountType AccountType, config AccountConfig) error {
 	switch accountType {
-	case AccountTypeSemanticScholar:
-		apiKey, ok := config["api_key"].(string)
-		if !ok || apiKey == "" {
-			return fmt.Errorf("api_key is required for semantic_scholar type")
-		}
 	case AccountTypeAIModel:
 		baseURL, ok := config["base_url"].(string)
 		if !ok || baseURL == "" {
@@ -282,6 +270,11 @@ func ValidateConfig(accountType AccountType, config AccountConfig) error {
 			return fmt.Errorf("api_key is required for ai_model type")
 		}
 	case AccountTypeMinicod:
+		// minicod 论文/期刊检索全走 DB 配置, base_url 必填 (无兜底域名)。
+		baseURL, ok := config["base_url"].(string)
+		if !ok || baseURL == "" {
+			return fmt.Errorf("base_url is required for minicod type")
+		}
 		apiKey, ok := config["api_key"].(string)
 		if !ok || apiKey == "" {
 			return fmt.Errorf("api_key is required for minicod type")

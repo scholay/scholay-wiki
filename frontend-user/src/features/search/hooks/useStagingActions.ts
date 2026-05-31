@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useApiToast } from '@/shared/hooks';
 import { useAuthStore } from '@/stores/auth.store';
 import {
   MAX_AREAS,
@@ -71,6 +72,7 @@ export interface StagingActions {
 export function useStagingActions(): StagingActions {
   const token = useAuthStore((s) => s.token);
   const isAuthed = !!token;
+  const apiToast = useApiToast();
 
   // === 匿名态 store actions(只取函数引用,不订阅数据 —— 不会因数据变化重渲) ===
   const localCreate = useStagingAreas((s) => s.createArea);
@@ -148,13 +150,13 @@ export function useStagingActions(): StagingActions {
         }
         createMut.mutate(name, {
           onSuccess: (area) => setActiveRemote(area.id),
-          onError: (err) => toast.error(`创建失败:${(err as Error).message}`),
+          onError: apiToast.onError('创建失败'),
         });
       } else {
         localCreate(name);
       }
     },
-    [isAuthed, readRemoteAreas, createMut, setActiveRemote, localCreate]
+    [isAuthed, readRemoteAreas, createMut, setActiveRemote, localCreate, apiToast]
   );
 
   const deleteArea = useCallback(

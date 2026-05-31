@@ -9,39 +9,47 @@
 package library
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
-	"scholar-backend/internal/ai"
+	"scholar-backend/internal/common/ctxutil"
 	"scholar-backend/internal/common/database"
+	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/minicod"
 	"scholar-backend/internal/storage"
+	"scholar-backend/internal/usagelog"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
 // Deps 库 handler 依赖的外部域 —— 仅"上传 PDF 智能识别"流程会用到。
-// 这两个 dep 在 bootstrap 里由 aiBundle 注入;为 nil 时智能上传相关端点
+// Minicod 在 bootstrap 里由 aiBundle 注入;为 nil 时智能上传相关端点
 // 会优雅地返回 503(其余 library CRUD 不受影响)。
+//
+// 历史上还有一个 AI *ai.Service(PDF 全文 LLM 抽取),已下线 —— 上传解析只走
+// pdfparse(标题/DOI/摘要文本),不调大模型。
 type Deps struct {
-	Minicod  *minicod.Manager // 三源论文搜索
-	AI       *ai.Service      // PDF 结构化字段抽取(自由文件兜底)
+	Minicod *minicod.Manager // 三源论文搜索
 }
 
 type Handler struct {
-	deps Deps
+	deps          Deps
+	usageRecorder usagelog.FeatureRecorder
 }
 
 func NewHandler(deps Deps) *Handler {
 	return &Handler{deps: deps}
+}
+
+// SetUsageRecorder 注入功能使用统计录入器(用户添加论文到文献集时记一次)
+func (h *Handler) SetUsageRecorder(r usagelog.FeatureRecorder) {
+	h.usageRecorder = r
 }
 
 // RegisterRoutes 挂在认证后的 /api/v1/user/library 下
@@ -296,16 +304,6 @@ func (h *Handler) Add(c *gin.Context) {
 		return
 	}
 
-	// 文献集总条数风控 —— 上限 MaxPapersPerUser
-	if atLimit, _, err := enforcePaperLimit(db, uid); err != nil {
-		utils.Error(c, http.StatusInternalServerError, "查询失败")
-		return
-	} else if atLimit {
-		utils.Error(c, http.StatusConflict,
-			fmt.Sprintf("文献集已达上限(%d 条),请删除一些不用的论文再试", MaxPapersPerUser))
-		return
-	}
-
 	row := UserLibraryPaper{
 		UserID:               uid,
 		FolderID:             req.FolderID,
@@ -322,9 +320,26 @@ func (h *Handler) Add(c *gin.Context) {
 		CitationCount:        req.CitationCount,
 		RawJSON:              req.Raw,
 	}
-	if err := db.Create(&row).Error; err != nil {
+	// 文献集总条数风控 —— 上限 MaxPapersPerUser(原子:锁用户区间 → 计数 → 插入)
+	if err := insertPaperAtomic(db, &row); err != nil {
+		if errors.Is(err, errPaperLimit) {
+			utils.ErrorResponse(c, http.StatusConflict,
+				fmt.Sprintf("文献集已达上限(%d 条),请删除一些不用的论文再试", MaxPapersPerUser))
+			return
+		}
 		utils.Error(c, http.StatusInternalServerError, "保存失败")
 		return
+	}
+
+	// 功能使用统计: 用户实际收藏了一篇论文 = "文献集" 被真实使用一次。
+	if h.usageRecorder != nil {
+		h.usageRecorder.RecordFromGin(c,
+			usagelog.FeatureLibrary, usagelog.FeatureNames[usagelog.FeatureLibrary],
+			"add",
+			map[string]any{
+				"source":          req.Source,
+				"source_paper_id": req.SourcePaperID,
+			})
 	}
 
 	utils.Success(c, row)
@@ -535,7 +550,7 @@ func (h *Handler) CreateFolder(c *gin.Context) {
 		return
 	}
 	if count >= MaxFoldersPerUser {
-		utils.Error(c, http.StatusConflict,
+		utils.ErrorResponse(c, http.StatusConflict,
 			fmt.Sprintf("文件夹最多创建 %d 个,请删除一些不用的再试", MaxFoldersPerUser))
 		return
 	}
@@ -562,7 +577,7 @@ func (h *Handler) CreateFolder(c *gin.Context) {
 		return
 	}
 	if dup > 0 {
-		utils.Error(c, http.StatusConflict, "已存在同名文件夹,请换一个名称")
+		utils.ErrorResponse(c, http.StatusConflict, "已存在同名文件夹,请换一个名称")
 		return
 	}
 
@@ -632,7 +647,7 @@ func (h *Handler) UpdateFolder(c *gin.Context) {
 				return
 			}
 			if dup > 0 {
-				utils.Error(c, http.StatusConflict, "已存在同名文件夹,请换一个名称")
+				utils.ErrorResponse(c, http.StatusConflict, "已存在同名文件夹,请换一个名称")
 				return
 			}
 		}
@@ -844,14 +859,15 @@ func (h *Handler) BatchDeletePapers(c *gin.Context) {
 	//    将来 Tier 3 reaper 上线扫到。
 	if len(keys) > 0 {
 		bucket := storage.PaperPDFBucket()
-		go func(ks []string) {
-			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		ks := keys
+		safego.Go("library-batch-delete-pdfs", func() {
+			ctx, cancel := ctxutil.With(ctxutil.NormalIO)
 			defer cancel()
 			_ = storage.DeleteObjects(ctx, bucket, ks, func(key string, err error) {
 				slog.Warn("library: BatchDeletePapers 清理对象失败",
 					"key", key, "err", err)
 			})
-		}(keys)
+		})
 	}
 
 	utils.Success(c, BatchResult{Affected: res.RowsAffected})
@@ -903,18 +919,33 @@ func assertOwnedFolder(c *gin.Context, db *gorm.DB, uid, fid uint64) bool {
 // ensureDefaultFolder 返回该用户的"默认文件夹";若尚未创建则 lazy 建一个。
 // 新收藏 / 移动论文目标为 null / 删除其他文件夹时论文回退,统一走这个文件夹,
 // 不再有"根目录放论文"的概念。
-// enforcePaperLimit 检查用户当前收藏总数是否已达 MaxPapersPerUser。
-// 已达 → 返回 (true, count, nil),调用方应回 409;否则 (false, count, nil)。
-// 查询出错 → (false, 0, err)。
+// errPaperLimit 是"文献集已达条数上限"的哨兵错误,调用方据此回 409。
+var errPaperLimit = errors.New("library: paper limit reached")
+
+// insertPaperAtomic 在一个事务里"锁定该用户的收藏区间 → 计数 → 插入",让条数风控原子化,
+// 杜绝并发新增越过 MaxPapersPerUser(取代旧的非原子"先 Count 再 Create"两步 —— 那种写法
+// 下两个并发请求可能都看到 999 各插一行落到 1001)。
 //
-// 注意:这是**应用层风险防控**,不带原子性 —— 并发情况下两个新增请求可能都在
-// 同一 tick 看到 999 然后各自插一行,结果落 1001。日常用户行为踩不到这种边
-// (人不可能 ms 级双开浏览器收藏);真要硬约束需要 DB 触发器,这里成本不值得。
-func enforcePaperLimit(db *gorm.DB, uid uint64) (atLimit bool, count int64, err error) {
-	if err = db.Model(&UserLibraryPaper{}).Where("user_id = ?", uid).Count(&count).Error; err != nil {
-		return false, 0, err
-	}
-	return count >= MaxPapersPerUser, count, nil
+// SELECT COUNT(*) ... WHERE user_id=? FOR UPDATE 对该用户在索引上的记录区间加 next-key 锁
+// (含 gap lock:即便当前 0 条,也锁住"该 user_id 将要落行的间隙"),同一用户的并发插入
+// 在本事务 COMMIT 前阻塞串行;计数与插入之间不再有可乘之机。锁只覆盖单用户区间、事务体
+// 只有 count+create 两步,持锁极短,不会与其他用户互相阻塞。
+//
+// 撞上限返回 errPaperLimit(事务回滚,什么都没插);其它错误原样上抛。
+func insertPaperAtomic(db *gorm.DB, paper *UserLibraryPaper) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		var count int64
+		if err := tx.Raw(
+			"SELECT COUNT(*) FROM user_library_papers WHERE user_id = ? FOR UPDATE",
+			paper.UserID,
+		).Row().Scan(&count); err != nil {
+			return err
+		}
+		if count >= MaxPapersPerUser {
+			return errPaperLimit
+		}
+		return tx.Create(paper).Error
+	})
 }
 
 func ensureDefaultFolder(db *gorm.DB, uid uint64) (*UserLibraryFolder, error) {

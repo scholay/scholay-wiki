@@ -8,19 +8,15 @@
 package ai
 
 import (
-	"bytes"
 	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
-	"net/http"
 	"sort"
 	"strings"
 
-	"scholar-backend/internal/common/circuitbreaker"
 	"scholar-backend/internal/thirdparty"
 )
 
@@ -411,52 +407,22 @@ func (s *Service) ChatCompletionWithLevel(ctx context.Context, messages []ChatMe
 	result, err := s.executeWithRetry(ctx, modelLevel, func(config *thirdparty.AIModelConfig, _ uint) (any, error) {
 		modelCode := config.ModelLow
 		if modelCode == "" {
-			modelCode = "gpt-3.5-turbo"
+			return nil, fmt.Errorf("no model configured for level %q", modelLevel)
 		}
-
 		reqBody := ChatCompletionRequest{
 			Model:       modelCode,
 			Messages:    messages,
 			Stream:      false,
-			Temperature: 0.7,
+			Temperature: defaultLLMTemperature,
 		}
-
-		jsonData, err := json.Marshal(reqBody)
+		resp, err := doChatCompletion(ctx, config.BaseURL, config.APIKey, reqBody)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal request: %w", err)
+			return nil, err
 		}
-
-		url := strings.TrimSuffix(config.BaseURL, "/") + "/v1/chat/completions"
-		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create request: %w", err)
+		if len(resp.Choices) == 0 {
+			return nil, fmt.Errorf("no response choices returned")
 		}
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+config.APIKey)
-
-		client := GetLongRunningHTTPClient()
-
-		return circuitbreaker.AIServiceBreaker.Execute(func() (any, error) {
-			resp, err := client.Do(req)
-			if err != nil {
-				return nil, fmt.Errorf("failed to send request: %w", err)
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode != http.StatusOK {
-				body, _ := io.ReadAll(resp.Body)
-				return nil, fmt.Errorf("%s %d): %s", APIErrorPrefix, resp.StatusCode, string(body))
-			}
-
-			var response ChatCompletionResponse
-			if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-				return nil, fmt.Errorf("failed to decode response: %w", err)
-			}
-			if len(response.Choices) == 0 {
-				return nil, fmt.Errorf("no response choices returned")
-			}
-			return response.Choices[0].Message.Content, nil
-		})
+		return resp.Choices[0].Message.Content, nil
 	})
 	if err != nil {
 		return "", err

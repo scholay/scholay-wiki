@@ -10,6 +10,7 @@ package minicod
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/circuitbreaker"
 	"scholar-backend/internal/common/safego"
+	"scholar-backend/internal/common/upstream"
 	"scholar-backend/internal/thirdparty"
 )
 
@@ -29,27 +31,41 @@ type Manager struct {
 
 // NewManager creates a new Minicod client manager.
 //
-// base URL 来源优先级(在 getClientWithAccountID 里按此顺序尝试):
-//   1. third_party_accounts 当前账户的 MinicodConfig.BaseURL(管理后台配)
-//   2. minicod.DefaultBaseURL 常量(代码内兜底,默认 https://open.scholay.com)
-//
-// env 层不再单独提供 OPENALEX_BASE_URL —— 因为兜底 URL 没有配套 API key,
-// 实际可用性的来源始终是管理后台 third_party_accounts 的整行配置。
+// base URL **唯一**来源:third_party_accounts 当前账户的 MinicodConfig.BaseURL
+// (管理后台配)。没配 base_url → getClientWithAccountID 直接报错, 不兜底任何域名。
 func NewManager(accountService *thirdparty.Service) *Manager {
 	return &Manager{
 		accountService: accountService,
 	}
 }
 
-// isRetryableError checks if an error is retryable (auth or rate limit)
+// isRetryableError 判断 Minicod 调用是否值得切到下一个 thirdparty 账户重试。
+//
+// 走两条判断:
+//  1. typed errors (走 common/upstream 后, HTTP 层错误都是 *upstream.Error):
+//     - ErrAuth (401/403)        — 当前 key 失效, 换账户
+//     - ErrRateLimit (429)       — 当前 key 配额耗尽, 换账户
+//     - ErrCircuit               — 本地 breaker open, 等下次 GC 周期
+//     - 其他 (5xx/network/timeout) → 也允许换账户重试 (上游 host 可能临时挂)
+//  2. 字符串 fallback — 业务级 envelope.Code != 0 的字符串里如果含 "401/429/...",
+//     兼容 Minicod 上游业务码 (40101/42901 等)。
 func isRetryableError(err error) bool {
 	if err == nil {
 		return false
 	}
+	// 优先 typed error
+	switch {
+	case errors.Is(err, upstream.ErrAuth),
+		errors.Is(err, upstream.ErrRateLimit),
+		errors.Is(err, upstream.ErrCircuit),
+		errors.Is(err, upstream.ErrServer),
+		errors.Is(err, upstream.ErrNetwork),
+		errors.Is(err, upstream.ErrTimeout):
+		return true
+	}
+	// 业务层错误码字符串嗅探 (envelope.Code != 0 的 Minicod 私有码)
 	errStr := err.Error()
-	return strings.Contains(errStr, "401") ||
-		strings.Contains(errStr, "40101") ||
-		strings.Contains(errStr, "429") ||
+	return strings.Contains(errStr, "40101") ||
 		strings.Contains(errStr, "42901") ||
 		strings.Contains(errStr, "Too Many Requests") ||
 		strings.Contains(errStr, "Unauthorized")
@@ -98,6 +114,27 @@ func (m *Manager) executeWithRetry(operation func(client *Client) (any, error)) 
 	return nil, fmt.Errorf("minicod: all %d retry attempts failed, last error: %w", MaxRetries+1, lastErr)
 }
 
+// fetch 是所有上游调用的**唯一**编排入口:circuit breaker → 账户轮换重试 → typed
+// 类型还原。以前每个 Manager 方法都手抄一遍这套 (MinicodBreaker.Execute +
+// executeWithRetry + breaker-open 检查 + result.(T) 断言), 现在收敛到这一个泛型函数。
+//
+// call 只需描述"给定一个 client 怎么发这次请求", 不关心重试/熔断/账户。
+func fetch[T any](m *Manager, call func(c *Client) (T, error)) (T, error) {
+	var zero T
+	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
+		return m.executeWithRetry(func(client *Client) (any, error) {
+			return call(client)
+		})
+	})
+	if err != nil {
+		if circuitbreaker.IsCircuitBreakerError(err) {
+			return zero, fmt.Errorf("minicod service temporarily unavailable (circuit breaker open): %w", err)
+		}
+		return zero, err
+	}
+	return result.(T), nil
+}
+
 // getClientWithAccountID gets a client with API key from account service
 func (m *Manager) getClientWithAccountID() (*Client, uint, error) {
 	apiKey, accountID, err := m.accountService.GetRandomAPIKey(thirdparty.AccountTypeMinicod)
@@ -107,26 +144,23 @@ func (m *Manager) getClientWithAccountID() (*Client, uint, error) {
 
 	slog.Debug("minicod: got API key", "keyLength", len(apiKey), "accountID", accountID)
 
-	// Base URL 优先级: third_party_accounts 配置 > minicod.DefaultBaseURL 常量
+	// baseURL 严格来自 third_party_accounts 的 minicod 配置, 不允许兜底域名。
 	accounts, err := m.accountService.GetActiveAccountsByType(thirdparty.AccountTypeMinicod)
-	if err != nil || len(accounts) == 0 {
-		// 没拿到账户(异常路径) → 用 const 兜底,NewClientWithBaseURL 会接 ""
-		return NewClient(apiKey), accountID, nil
+	if err != nil {
+		return nil, 0, fmt.Errorf("minicod: load accounts: %w", err)
 	}
-
 	baseURL := ""
 	for _, account := range accounts {
 		if account.ID == accountID {
-			config, err := account.GetMinicodConfig()
-			if err == nil && config.BaseURL != "" {
-				baseURL = config.BaseURL
-				slog.Debug("minicod: using account-level custom base URL", "baseURL", baseURL)
+			if config, cerr := account.GetMinicodConfig(); cerr == nil {
+				baseURL = strings.TrimSpace(config.BaseURL)
 			}
 			break
 		}
 	}
-
-	// baseURL 为空时 NewClientWithBaseURL 会用 DefaultBaseURL 常量兜底
+	if baseURL == "" {
+		return nil, 0, fmt.Errorf("minicod: 账户 %d 未配置 base_url, 请在第三方账号里填写后再用", accountID)
+	}
 	return NewClientWithBaseURL(apiKey, baseURL), accountID, nil
 }
 
@@ -149,33 +183,18 @@ func (m *Manager) SearchPapers(ctx context.Context, opts PaperSearchOptions) (*S
 	}
 	var resp SearchResponse
 	err := cache.GetOrSetMinicodSearch(ctx, params, func() (any, error) {
-		return m.fetchSearchPapers(ctx, opts)
+		return fetch(m, func(c *Client) (*SearchResponse, error) { return c.SearchPapers(ctx, opts) })
 	}, &resp)
 	if err != nil {
 		return nil, err
 	}
 	return &resp, nil
-}
-
-func (m *Manager) fetchSearchPapers(ctx context.Context, opts PaperSearchOptions) (*SearchResponse, error) {
-	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
-		return m.executeWithRetry(func(client *Client) (any, error) {
-			return client.SearchPapers(ctx, opts)
-		})
-	})
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return nil, fmt.Errorf("minicod service temporarily unavailable (circuit breaker open): %w", err)
-		}
-		return nil, err
-	}
-	return result.(*SearchResponse), nil
 }
 
 func (m *Manager) GetPaper(ctx context.Context, paperID string, opts PaperDetailsOptions) (*Paper, error) {
 	var resp Paper
 	err := cache.GetOrSetMinicodPaper(ctx, paperID, opts.Fields, func() (any, error) {
-		return m.fetchGetPaper(ctx, paperID, opts)
+		return fetch(m, func(c *Client) (*Paper, error) { return c.GetPaper(ctx, paperID, opts) })
 	}, &resp)
 	if err != nil {
 		return nil, err
@@ -183,25 +202,10 @@ func (m *Manager) GetPaper(ctx context.Context, paperID string, opts PaperDetail
 	return &resp, nil
 }
 
-func (m *Manager) fetchGetPaper(ctx context.Context, paperID string, opts PaperDetailsOptions) (*Paper, error) {
-	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
-		return m.executeWithRetry(func(client *Client) (any, error) {
-			return client.GetPaper(ctx, paperID, opts)
-		})
-	})
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return nil, fmt.Errorf("minicod service temporarily unavailable (circuit breaker open): %w", err)
-		}
-		return nil, err
-	}
-	return result.(*Paper), nil
-}
-
 func (m *Manager) GetPaperBatch(ctx context.Context, paperIDs []string, fields []string) ([]Paper, error) {
 	var resp []Paper
 	err := cache.GetOrSetMinicodPaperBatch(ctx, paperIDs, fields, func() (any, error) {
-		return m.fetchGetPaperBatch(ctx, paperIDs, fields)
+		return fetch(m, func(c *Client) ([]Paper, error) { return c.GetPaperBatch(ctx, paperIDs, fields) })
 	}, &resp)
 	if err != nil {
 		return nil, err
@@ -209,125 +213,50 @@ func (m *Manager) GetPaperBatch(ctx context.Context, paperIDs []string, fields [
 	return resp, nil
 }
 
-func (m *Manager) fetchGetPaperBatch(ctx context.Context, paperIDs []string, fields []string) ([]Paper, error) {
-	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
-		return m.executeWithRetry(func(client *Client) (any, error) {
-			return client.GetPaperBatch(ctx, paperIDs, fields)
-		})
-	})
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return nil, fmt.Errorf("minicod service temporarily unavailable (circuit breaker open): %w", err)
-		}
-		return nil, err
-	}
-	return result.([]Paper), nil
-}
-
 func (m *Manager) GetPaperCitations(ctx context.Context, paperID string, opts CitationsOptions) (*CitationsResponse, error) {
 	params := map[string]any{"fields": opts.Fields, "offset": opts.Offset, "limit": opts.Limit}
 	var resp CitationsResponse
 	err := cache.GetOrSetMinicodCitations(ctx, paperID, params, func() (any, error) {
-		return m.fetchGetPaperCitations(ctx, paperID, opts)
+		return fetch(m, func(c *Client) (*CitationsResponse, error) { return c.GetPaperCitations(ctx, paperID, opts) })
 	}, &resp)
 	if err != nil {
 		return nil, err
 	}
 	return &resp, nil
-}
-
-func (m *Manager) fetchGetPaperCitations(ctx context.Context, paperID string, opts CitationsOptions) (*CitationsResponse, error) {
-	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
-		return m.executeWithRetry(func(client *Client) (any, error) {
-			return client.GetPaperCitations(ctx, paperID, opts)
-		})
-	})
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return nil, fmt.Errorf("minicod service temporarily unavailable (circuit breaker open): %w", err)
-		}
-		return nil, err
-	}
-	return result.(*CitationsResponse), nil
 }
 
 func (m *Manager) GetPaperReferences(ctx context.Context, paperID string, opts CitationsOptions) (*ReferencesResponse, error) {
 	params := map[string]any{"fields": opts.Fields, "offset": opts.Offset, "limit": opts.Limit}
 	var resp ReferencesResponse
 	err := cache.GetOrSetMinicodReferences(ctx, paperID, params, func() (any, error) {
-		return m.fetchGetPaperReferences(ctx, paperID, opts)
+		return fetch(m, func(c *Client) (*ReferencesResponse, error) { return c.GetPaperReferences(ctx, paperID, opts) })
 	}, &resp)
 	if err != nil {
 		return nil, err
 	}
 	return &resp, nil
-}
-
-func (m *Manager) fetchGetPaperReferences(ctx context.Context, paperID string, opts CitationsOptions) (*ReferencesResponse, error) {
-	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
-		return m.executeWithRetry(func(client *Client) (any, error) {
-			return client.GetPaperReferences(ctx, paperID, opts)
-		})
-	})
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return nil, fmt.Errorf("minicod service temporarily unavailable (circuit breaker open): %w", err)
-		}
-		return nil, err
-	}
-	return result.(*ReferencesResponse), nil
 }
 
 func (m *Manager) GetPaperAuthors(ctx context.Context, paperID string, fields []string, offset, limit int) (*AuthorSearchResponse, error) {
 	var resp AuthorSearchResponse
 	err := cache.GetOrSetMinicodPaperAuthors(ctx, paperID, fields, offset, limit, func() (any, error) {
-		return m.fetchGetPaperAuthors(ctx, paperID, fields, offset, limit)
+		return fetch(m, func(c *Client) (*AuthorSearchResponse, error) { return c.GetPaperAuthors(ctx, paperID, fields, offset, limit) })
 	}, &resp)
 	if err != nil {
 		return nil, err
 	}
 	return &resp, nil
-}
-
-func (m *Manager) fetchGetPaperAuthors(ctx context.Context, paperID string, fields []string, offset, limit int) (*AuthorSearchResponse, error) {
-	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
-		return m.executeWithRetry(func(client *Client) (any, error) {
-			return client.GetPaperAuthors(ctx, paperID, fields, offset, limit)
-		})
-	})
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return nil, fmt.Errorf("minicod service temporarily unavailable (circuit breaker open): %w", err)
-		}
-		return nil, err
-	}
-	return result.(*AuthorSearchResponse), nil
 }
 
 func (m *Manager) PaperAutocomplete(ctx context.Context, query, source string) (*AutocompleteResponse, error) {
 	var resp AutocompleteResponse
 	err := cache.GetOrSetMinicodAutocomplete(ctx, query, source, func() (any, error) {
-		return m.fetchPaperAutocomplete(ctx, query, source)
+		return fetch(m, func(c *Client) (*AutocompleteResponse, error) { return c.PaperAutocomplete(ctx, query, source) })
 	}, &resp)
 	if err != nil {
 		return nil, err
 	}
 	return &resp, nil
-}
-
-func (m *Manager) fetchPaperAutocomplete(ctx context.Context, query, source string) (*AutocompleteResponse, error) {
-	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
-		return m.executeWithRetry(func(client *Client) (any, error) {
-			return client.PaperAutocomplete(ctx, query, source)
-		})
-	})
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return nil, fmt.Errorf("minicod service temporarily unavailable (circuit breaker open): %w", err)
-		}
-		return nil, err
-	}
-	return result.(*AutocompleteResponse), nil
 }
 
 // ======================== Author Methods ========================
@@ -342,79 +271,34 @@ func (m *Manager) SearchAuthors(ctx context.Context, opts AuthorSearchOptions) (
 	}
 	var resp AuthorSearchResponse
 	err := cache.GetOrSetMinicodAuthorSearch(ctx, params, func() (any, error) {
-		return m.fetchSearchAuthors(ctx, opts)
+		return fetch(m, func(c *Client) (*AuthorSearchResponse, error) { return c.SearchAuthors(ctx, opts) })
 	}, &resp)
 	if err != nil {
 		return nil, err
 	}
 	return &resp, nil
-}
-
-func (m *Manager) fetchSearchAuthors(ctx context.Context, opts AuthorSearchOptions) (*AuthorSearchResponse, error) {
-	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
-		return m.executeWithRetry(func(client *Client) (any, error) {
-			return client.SearchAuthors(ctx, opts)
-		})
-	})
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return nil, fmt.Errorf("minicod service temporarily unavailable (circuit breaker open): %w", err)
-		}
-		return nil, err
-	}
-	return result.(*AuthorSearchResponse), nil
 }
 
 func (m *Manager) GetAuthor(ctx context.Context, authorID string, fields []string) (*Author, error) {
 	var resp Author
 	err := cache.GetOrSetMinicodAuthor(ctx, authorID, fields, func() (any, error) {
-		return m.fetchGetAuthor(ctx, authorID, fields)
+		return fetch(m, func(c *Client) (*Author, error) { return c.GetAuthor(ctx, authorID, fields) })
 	}, &resp)
 	if err != nil {
 		return nil, err
 	}
 	return &resp, nil
-}
-
-func (m *Manager) fetchGetAuthor(ctx context.Context, authorID string, fields []string) (*Author, error) {
-	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
-		return m.executeWithRetry(func(client *Client) (any, error) {
-			return client.GetAuthor(ctx, authorID, fields)
-		})
-	})
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return nil, fmt.Errorf("minicod service temporarily unavailable (circuit breaker open): %w", err)
-		}
-		return nil, err
-	}
-	return result.(*Author), nil
 }
 
 func (m *Manager) GetAuthorPapers(ctx context.Context, authorID string, fields []string, offset, limit int) (*SearchResponse, error) {
 	var resp SearchResponse
 	err := cache.GetOrSetMinicodAuthorPapers(ctx, authorID, fields, offset, limit, func() (any, error) {
-		return m.fetchGetAuthorPapers(ctx, authorID, fields, offset, limit)
+		return fetch(m, func(c *Client) (*SearchResponse, error) { return c.GetAuthorPapers(ctx, authorID, fields, offset, limit) })
 	}, &resp)
 	if err != nil {
 		return nil, err
 	}
 	return &resp, nil
-}
-
-func (m *Manager) fetchGetAuthorPapers(ctx context.Context, authorID string, fields []string, offset, limit int) (*SearchResponse, error) {
-	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
-		return m.executeWithRetry(func(client *Client) (any, error) {
-			return client.GetAuthorPapers(ctx, authorID, fields, offset, limit)
-		})
-	})
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return nil, fmt.Errorf("minicod service temporarily unavailable (circuit breaker open): %w", err)
-		}
-		return nil, err
-	}
-	return result.(*SearchResponse), nil
 }
 
 // ======================== Recommendation Methods ========================
@@ -423,27 +307,12 @@ func (m *Manager) GetRecommendationsForPaper(ctx context.Context, paperID string
 	params := map[string]any{"fields": opts.Fields, "limit": opts.Limit}
 	var resp RecommendationsResponse
 	err := cache.GetOrSetMinicodRecForPaper(ctx, paperID, params, func() (any, error) {
-		return m.fetchGetRecommendationsForPaper(ctx, paperID, opts)
+		return fetch(m, func(c *Client) (*RecommendationsResponse, error) { return c.GetRecommendationsForPaper(ctx, paperID, opts) })
 	}, &resp)
 	if err != nil {
 		return nil, err
 	}
 	return &resp, nil
-}
-
-func (m *Manager) fetchGetRecommendationsForPaper(ctx context.Context, paperID string, opts RecommendationsOptions) (*RecommendationsResponse, error) {
-	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
-		return m.executeWithRetry(func(client *Client) (any, error) {
-			return client.GetRecommendationsForPaper(ctx, paperID, opts)
-		})
-	})
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return nil, fmt.Errorf("minicod service temporarily unavailable (circuit breaker open): %w", err)
-		}
-		return nil, err
-	}
-	return result.(*RecommendationsResponse), nil
 }
 
 func (m *Manager) GetRecommendations(ctx context.Context, opts RecommendationsOptions) (*RecommendationsResponse, error) {
@@ -455,27 +324,12 @@ func (m *Manager) GetRecommendations(ctx context.Context, opts RecommendationsOp
 	}
 	var resp RecommendationsResponse
 	err := cache.GetOrSetMinicodRec(ctx, params, func() (any, error) {
-		return m.fetchGetRecommendations(ctx, opts)
+		return fetch(m, func(c *Client) (*RecommendationsResponse, error) { return c.GetRecommendations(ctx, opts) })
 	}, &resp)
 	if err != nil {
 		return nil, err
 	}
 	return &resp, nil
-}
-
-func (m *Manager) fetchGetRecommendations(ctx context.Context, opts RecommendationsOptions) (*RecommendationsResponse, error) {
-	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
-		return m.executeWithRetry(func(client *Client) (any, error) {
-			return client.GetRecommendations(ctx, opts)
-		})
-	})
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return nil, fmt.Errorf("minicod service temporarily unavailable (circuit breaker open): %w", err)
-		}
-		return nil, err
-	}
-	return result.(*RecommendationsResponse), nil
 }
 
 // ======================== Search Suggestions ========================
@@ -724,152 +578,43 @@ func perSource(total, n int) int {
 
 // ======================== JNL Journal Methods ========================
 
+// 期刊端点都是裸 json.RawMessage passthrough, 一律走泛型 fetch。
 func (m *Manager) SearchJournals(ctx context.Context, opts JournalSearchOptions) (json.RawMessage, error) {
-	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
-		return m.executeWithRetry(func(client *Client) (any, error) {
-			return client.SearchJournals(ctx, opts)
-		})
-	})
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return nil, fmt.Errorf("minicod service temporarily unavailable (circuit breaker open): %w", err)
-		}
-		return nil, err
-	}
-	return result.(json.RawMessage), nil
+	return fetch(m, func(c *Client) (json.RawMessage, error) { return c.SearchJournals(ctx, opts) })
 }
 
 func (m *Manager) ListJournals(ctx context.Context, opts JournalListOptions) (json.RawMessage, error) {
-	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
-		return m.executeWithRetry(func(client *Client) (any, error) {
-			return client.ListJournals(ctx, opts)
-		})
-	})
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return nil, fmt.Errorf("minicod service temporarily unavailable (circuit breaker open): %w", err)
-		}
-		return nil, err
-	}
-	return result.(json.RawMessage), nil
+	return fetch(m, func(c *Client) (json.RawMessage, error) { return c.ListJournals(ctx, opts) })
 }
 
 func (m *Manager) GetJournal(ctx context.Context, id int, full string) (json.RawMessage, error) {
-	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
-		return m.executeWithRetry(func(client *Client) (any, error) {
-			return client.GetJournal(ctx, id, full)
-		})
-	})
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return nil, fmt.Errorf("minicod service temporarily unavailable (circuit breaker open): %w", err)
-		}
-		return nil, err
-	}
-	return result.(json.RawMessage), nil
+	return fetch(m, func(c *Client) (json.RawMessage, error) { return c.GetJournal(ctx, id, full) })
 }
 
 func (m *Manager) SuggestJournals(ctx context.Context, q string, limit int) (json.RawMessage, error) {
-	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
-		return m.executeWithRetry(func(client *Client) (any, error) {
-			return client.SuggestJournals(ctx, q, limit)
-		})
-	})
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return nil, fmt.Errorf("minicod service temporarily unavailable (circuit breaker open): %w", err)
-		}
-		return nil, err
-	}
-	return result.(json.RawMessage), nil
+	return fetch(m, func(c *Client) (json.RawMessage, error) { return c.SuggestJournals(ctx, q, limit) })
 }
 
 func (m *Manager) JournalsByNames(ctx context.Context, names, fields string) (json.RawMessage, error) {
-	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
-		return m.executeWithRetry(func(client *Client) (any, error) {
-			return client.JournalsByNames(ctx, names, fields)
-		})
-	})
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return nil, fmt.Errorf("minicod service temporarily unavailable (circuit breaker open): %w", err)
-		}
-		return nil, err
-	}
-	return result.(json.RawMessage), nil
+	return fetch(m, func(c *Client) (json.RawMessage, error) { return c.JournalsByNames(ctx, names, fields) })
 }
 
 func (m *Manager) JournalsByISSNs(ctx context.Context, issns, fields string) (json.RawMessage, error) {
-	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
-		return m.executeWithRetry(func(client *Client) (any, error) {
-			return client.JournalsByISSNs(ctx, issns, fields)
-		})
-	})
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return nil, fmt.Errorf("minicod service temporarily unavailable (circuit breaker open): %w", err)
-		}
-		return nil, err
-	}
-	return result.(json.RawMessage), nil
+	return fetch(m, func(c *Client) (json.RawMessage, error) { return c.JournalsByISSNs(ctx, issns, fields) })
 }
 
 func (m *Manager) GetJournalFilters(ctx context.Context) (json.RawMessage, error) {
-	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
-		return m.executeWithRetry(func(client *Client) (any, error) {
-			return client.GetJournalFilters(ctx)
-		})
-	})
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return nil, fmt.Errorf("minicod service temporarily unavailable (circuit breaker open): %w", err)
-		}
-		return nil, err
-	}
-	return result.(json.RawMessage), nil
+	return fetch(m, func(c *Client) (json.RawMessage, error) { return c.GetJournalFilters(ctx) })
 }
 
 func (m *Manager) GetJournalStats(ctx context.Context) (json.RawMessage, error) {
-	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
-		return m.executeWithRetry(func(client *Client) (any, error) {
-			return client.GetJournalStats(ctx)
-		})
-	})
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return nil, fmt.Errorf("minicod service temporarily unavailable (circuit breaker open): %w", err)
-		}
-		return nil, err
-	}
-	return result.(json.RawMessage), nil
+	return fetch(m, func(c *Client) (json.RawMessage, error) { return c.GetJournalStats(ctx) })
 }
 
 func (m *Manager) GetJournalByISSN(ctx context.Context, issn string, full string) (json.RawMessage, error) {
-	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
-		return m.executeWithRetry(func(client *Client) (any, error) {
-			return client.GetJournalByISSN(ctx, issn, full)
-		})
-	})
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return nil, fmt.Errorf("minicod service temporarily unavailable (circuit breaker open): %w", err)
-		}
-		return nil, err
-	}
-	return result.(json.RawMessage), nil
+	return fetch(m, func(c *Client) (json.RawMessage, error) { return c.GetJournalByISSN(ctx, issn, full) })
 }
 
 func (m *Manager) CompareJournals(ctx context.Context, ids string) (json.RawMessage, error) {
-	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
-		return m.executeWithRetry(func(client *Client) (any, error) {
-			return client.CompareJournals(ctx, ids)
-		})
-	})
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return nil, fmt.Errorf("minicod service temporarily unavailable (circuit breaker open): %w", err)
-		}
-		return nil, err
-	}
-	return result.(json.RawMessage), nil
+	return fetch(m, func(c *Client) (json.RawMessage, error) { return c.CompareJournals(ctx, ids) })
 }

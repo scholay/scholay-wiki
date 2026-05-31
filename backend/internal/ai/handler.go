@@ -29,18 +29,9 @@ func NewHandler(service *Service) *Handler {
 	}
 }
 
-// AnalyzePaperRequest 论文分析请求结构
-type AnalyzePaperRequest struct {
-	PaperID  string `json:"paperId"`                       // 论文ID，用于数据库缓存
-	Title    string `json:"title"`
-	Abstract string `json:"abstract" binding:"required"`
-}
-
-// AnalyzePaperResponse 分析论文响应结构
-type AnalyzePaperResponse struct {
-	Data       map[string]string `json:"data"`
-	Dimensions []DimensionInfo   `json:"dimensions"`
-}
+// 注:单篇 AnalyzePaperRequest/Response + AnalyzePaper handler 已下线 ——
+// 新前端只用 /analysis/papers/batch(矩阵多维分析),不调单篇 /analysis/paper。
+// 底层 service.AnalyzePaperAbstract 仍在(batch 共用)。
 
 // ============ 批量分析相关结构 ============
 
@@ -90,7 +81,7 @@ func (h *Handler) BatchAnalyzePapers(c *gin.Context) {
 	userIDPtr := &uid
 	dimensionResult, err := h.service.GetAnalysisDimensions(userIDPtr)
 	if err != nil {
-		utils.Error(c, 500, "Failed to get dimensions: "+err.Error())
+		utils.InternalError(c, 500, "Failed to get dimensions", err)
 		return
 	}
 	if len(dimensionResult.Dimensions) == 0 {
@@ -130,45 +121,6 @@ func (h *Handler) BatchAnalyzePapers(c *gin.Context) {
 	})
 }
 
-// AnalyzePaper 分析论文摘要，提取结构化信息
-// POST /api/v1/public/papers/analyze (公共接口，使用系统默认维度)
-// POST /api/v1/analysis/paper (需登录，使用用户自定义维度)
-// 优先从数据库缓存获取，如果没有则调用AI分析并保存结果
-func (h *Handler) AnalyzePaper(c *gin.Context) {
-	var req AnalyzePaperRequest
-	if !utils.BindJSON(c, &req) {
-		return
-	}
-
-	if req.Abstract == "" {
-		utils.Error(c, 400, "请提供论文摘要后再分析")
-		return
-	}
-
-	// 限制摘要长度，避免过长的请求
-	if len(req.Abstract) > 5000 {
-		utils.Error(c, 400, "Abstract exceeds 5000 characters limit")
-		return
-	}
-
-	// 尝试从上下文获取用户ID（公共接口为nil，使用系统默认维度）
-	var userID *uint
-	if uid, ok := utils.GetOptionalUserID(c); ok && uid > 0 {
-		userID = &uid
-	}
-
-	result, _, err := h.service.AnalyzePaperAbstract(c.Request.Context(), req.PaperID, req.Title, req.Abstract, userID)
-	if err != nil {
-		utils.Error(c, 500, "Failed to analyze paper: "+err.Error())
-		return
-	}
-
-	utils.Success(c, AnalyzePaperResponse{
-		Data:       result.Data,
-		Dimensions: result.Dimensions,
-	})
-}
-
 // GetAnalysisDimensions 获取分析维度列表
 // GET /api/v1/public/analysis/dimensions - 公共接口，返回系统默认维度
 // GET /api/v1/analysis/dimensions - 需登录，返回用户自定义维度或系统默认维度
@@ -181,7 +133,7 @@ func (h *Handler) GetAnalysisDimensions(c *gin.Context) {
 
 	result, err := h.service.GetAnalysisDimensions(userID)
 	if err != nil {
-		utils.Error(c, 500, "Failed to get dimensions: "+err.Error())
+		utils.InternalError(c, 500, "Failed to get dimensions", err)
 		return
 	}
 
@@ -222,7 +174,7 @@ func (h *Handler) GetDimensionSettings(c *gin.Context) {
 
 	items, err := h.service.GetAllDimensionsForSettings(uid)
 	if err != nil {
-		utils.Error(c, 500, "Failed to load dimension settings: "+err.Error())
+		utils.InternalError(c, 500, "Failed to load dimension settings", err)
 		return
 	}
 
@@ -257,7 +209,7 @@ func (h *Handler) SetDimensionVisibility(c *gin.Context) {
 
 	dim, err := h.service.SetDimensionVisibility(uid, req.DimensionKey, req.Visible)
 	if err != nil {
-		utils.Error(c, 500, "Failed to update visibility: "+err.Error())
+		utils.InternalError(c, 500, "Failed to update visibility", err)
 		return
 	}
 
@@ -285,7 +237,7 @@ func (h *Handler) ReorderDimensions(c *gin.Context) {
 		return
 	}
 	if err := h.service.ReorderDimensions(uid, req.OrderedKeys); err != nil {
-		utils.Error(c, 500, "Failed to reorder dimensions: "+err.Error())
+		utils.InternalError(c, 500, "Failed to reorder dimensions", err)
 		return
 	}
 	utils.Success(c, gin.H{"ok": true})
@@ -296,7 +248,7 @@ func (h *Handler) ReorderDimensions(c *gin.Context) {
 func (h *Handler) GetSystemDimensions(c *gin.Context) {
 	dimensions, err := h.service.GetSystemDimensions()
 	if err != nil {
-		utils.Error(c, 500, "Failed to get system dimensions: "+err.Error())
+		utils.InternalError(c, 500, "Failed to get system dimensions", err)
 		return
 	}
 
@@ -329,7 +281,7 @@ func (h *Handler) CreateUserDimension(c *gin.Context) {
 
 	dimension, err := h.service.CreateUserDimension(userID, req.DimensionKey, req.Name, req.Description, req.SortOrder)
 	if err != nil {
-		utils.Error(c, 500, "Failed to create dimension: "+err.Error())
+		utils.InternalError(c, 500, "Failed to create dimension", err)
 		return
 	}
 
@@ -363,7 +315,7 @@ func (h *Handler) UpdateUserDimension(c *gin.Context) {
 
 	dimension, err := h.service.UpdateUserDimension(userID, dimensionID, req.Name, req.Description, req.SortOrder)
 	if err != nil {
-		utils.Error(c, 500, "Failed to update dimension: "+err.Error())
+		utils.InternalError(c, 500, "Failed to update dimension", err)
 		return
 	}
 
@@ -384,7 +336,7 @@ func (h *Handler) DeleteUserDimension(c *gin.Context) {
 	}
 
 	if err := h.service.DeleteUserDimension(userID, dimensionID); err != nil {
-		utils.Error(c, 500, "Failed to delete dimension: "+err.Error())
+		utils.InternalError(c, 500, "Failed to delete dimension", err)
 		return
 	}
 
@@ -406,60 +358,13 @@ func (h *Handler) ResetUserDimension(c *gin.Context) {
 	}
 
 	if err := h.service.ResetUserDimensionToDefault(userID, dimensionKey); err != nil {
-		utils.Error(c, 500, "Failed to reset dimension: "+err.Error())
+		utils.InternalError(c, 500, "Failed to reset dimension", err)
 		return
 	}
 
 	utils.Success(c, gin.H{"message": "Dimension reset to default successfully"})
 }
 
-// ResetAllUserDimensions 重置用户的所有维度为系统默认
-// DELETE /api/v1/analysis/dimensions/reset-all
-func (h *Handler) ResetAllUserDimensions(c *gin.Context) {
-	userID, ok := utils.GetUserID(c)
-	if !ok {
-		return
-	}
-
-	if err := h.service.ResetAllUserDimensions(userID); err != nil {
-		utils.Error(c, 500, "Failed to reset all dimensions: "+err.Error())
-		return
-	}
-
-	utils.Success(c, gin.H{"message": "All dimensions reset to default successfully"})
-}
-
-// CopySystemDimensionsToUser 将系统默认维度复制给用户
-// POST /api/v1/analysis/dimensions/copy-from-system
-func (h *Handler) CopySystemDimensionsToUser(c *gin.Context) {
-	userID, ok := utils.GetUserID(c)
-	if !ok {
-		return
-	}
-
-	// 先检查用户是否已有自定义维度
-	existingDimensions, err := h.service.GetUserDimensions(userID)
-	if err != nil {
-		utils.Error(c, 500, "Failed to check existing dimensions: "+err.Error())
-		return
-	}
-
-	if len(existingDimensions) > 0 {
-		utils.Error(c, 400, "你已自定义维度,无需重置")
-		return
-	}
-
-	dimensions, err := h.service.CopySystemDimensionsToUser(userID)
-	if err != nil {
-		utils.Error(c, 500, "Failed to copy dimensions: "+err.Error())
-		return
-	}
-
-	utils.Success(c, gin.H{
-		"dimensions": dimensions,
-		"total":      len(dimensions),
-	})
-}
 
 // ========== 管理员接口 ==========
 
@@ -468,7 +373,7 @@ func (h *Handler) CopySystemDimensionsToUser(c *gin.Context) {
 func (h *Handler) AdminGetSystemDimensions(c *gin.Context) {
 	dimensions, err := h.service.GetSystemDimensions()
 	if err != nil {
-		utils.Error(c, 500, "Failed to get system dimensions: "+err.Error())
+		utils.InternalError(c, 500, "Failed to get system dimensions", err)
 		return
 	}
 
@@ -501,47 +406,11 @@ func (h *Handler) AdminUpdateSystemDimension(c *gin.Context) {
 
 	dimension, err := h.service.UpdateSystemDimension(dimensionID, req.Name, req.Description, req.SortOrder, req.IsActive)
 	if err != nil {
-		utils.Error(c, 500, "Failed to update dimension: "+err.Error())
+		utils.InternalError(c, 500, "Failed to update dimension", err)
 		return
 	}
 
 	utils.Success(c, dimension)
-}
-
-// StreamTranslateRequest 流式翻译请求结构
-type StreamTranslateRequest struct {
-	Text string `json:"text" binding:"required"`
-}
-
-// StreamTranslate 流式翻译接口
-// POST /api/v1/public/translate/stream
-// 将非中文文本翻译为中文，使用SSE流式输出
-func (h *Handler) StreamTranslate(c *gin.Context) {
-	var req StreamTranslateRequest
-	if !utils.BindJSON(c, &req) {
-		return
-	}
-
-	if req.Text == "" {
-		utils.BadRequest(c, "翻译文本不能为空")
-		return
-	}
-
-	if len(req.Text) > 10000 {
-		utils.BadRequest(c, "文本长度超过10000字符限制")
-		return
-	}
-
-	w, stop := sse.BeginStream(c)
-	defer stop()
-
-	err := h.service.StreamTranslateToChinese(c.Request.Context(), req.Text, w)
-	if err != nil {
-		sse.WriteError(w, err.Error())
-		return
-	}
-
-	sse.WriteDone(w)
 }
 
 // StreamTranslatePaperRequest 论文翻译请求结构

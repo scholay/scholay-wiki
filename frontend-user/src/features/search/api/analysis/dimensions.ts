@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
+import { STALE_FRESH } from '@/shared/lib/query-config';
 import { useAuthStore } from '@/stores/auth.store';
 import type {
   AnalysisDimension,
   DimensionSettingItem,
 } from '@/shared/api/types';
+// TODO: 30s 没对应 STALE_* preset, 保留硬编码 (settings dialog 实时性需要)。
 
 /**
  * 分析维度的 CRUD + 可见性 + 设置面板列表。
@@ -60,7 +62,7 @@ export function useAnalysisDimensions() {
   return useQuery({
     queryKey: dimensionsKey,
     enabled: !!token,
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE_FRESH,
     queryFn: async (): Promise<AnalysisDimension[]> => {
       try {
         const { data } = await http.get<{ data: DimensionsResponse }>(

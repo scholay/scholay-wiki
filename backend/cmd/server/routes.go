@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"scholar-backend/internal/admin"
+	"scholar-backend/internal/agentconfig"
 	"scholar-backend/internal/ai"
 	"scholar-backend/internal/announcement"
 	"scholar-backend/internal/common/cache"
@@ -21,25 +22,22 @@ import (
 	"scholar-backend/internal/common/middleware"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/config"
-	"scholar-backend/internal/conversation"
 	"scholar-backend/internal/feedback"
 	"scholar-backend/internal/hotcontent"
-	"scholar-backend/internal/latexwriter"
 	"scholar-backend/internal/clientlog"
 	"scholar-backend/internal/library"
-	"scholar-backend/internal/mcp"
 	"scholar-backend/internal/message"
 	"scholar-backend/internal/minicod"
 	"scholar-backend/internal/payment"
-	"scholar-backend/internal/pdf"
-	"scholar-backend/internal/peerreview"
-	"scholar-backend/internal/peerreview2"
-	"scholar-backend/internal/proxy"
 	"scholar-backend/internal/seo"
+	"scholar-backend/internal/claw"
+	"scholar-backend/internal/smartsearch"
 	"scholar-backend/internal/stagingarea"
 	"scholar-backend/internal/thirdparty"
 	"scholar-backend/internal/umami"
 	"scholar-backend/internal/usagelog"
+	"scholar-backend/internal/peerreview"
+	"scholar-backend/internal/promptregistry"
 	"scholar-backend/internal/user"
 	"scholar-backend/internal/wechat"
 	"scholar-backend/internal/wechatofficial"
@@ -56,10 +54,6 @@ type allHandlers struct {
 	config          *config.Handler
 	scholar         *minicod.Handler
 	ai              *ai.Handler
-	conversation    *conversation.Handler
-	chat            *conversation.ChatHandler
-	proxy           *proxy.Handler
-	pdf             *pdf.Handler
 	alipay          *payment.AlipayHandler
 	wechatPay       *payment.WeChatPayHandler
 	wechat          *wechat.Handler
@@ -70,19 +64,18 @@ type allHandlers struct {
 	seo             *seo.Handler
 	message         *message.Handler
 	feedback        *feedback.Handler
-	peerReview      *peerreview.Handler
-	peerReview2     *peerreview2.Handler
-	latexWriter     *latexwriter.Handler
-	latexAgentAdmin *latexwriter.AdminHandler
 	ws              *websocket.Handler
 	thirdParty      *thirdparty.Handler
-	mcpUnified      *mcp.UnifiedHandler
-	mcpLegacy       *mcp.Handler
 	announcement    *announcement.Handler
 	library         *library.Handler
 	stagingArea     *stagingarea.Handler
 	clientLog       *clientlog.Handler // 前端错误上报 → docker logs
 	umami           *umami.Handler     // admin /analytics 查询 umami HTTP API 渲染自有图表
+	agentConfig     *agentconfig.Handler // 通用 agent 服务 (scholar_agent) 的模型/端点配置
+	smartSearch     *smartsearch.Handler // 智能搜索 backend 桥接 (HTTP 创会话 + WS 双向 pipe)
+	peerReview      *peerreview.Handler  // 智能审稿 v3 (我要投稿 + 审稿记录,服务端 4 轮编排)
+	claw            *claw.Handler        // 智能助手 (通用对话 + 上传附件 + Minicod MCP)
+	promptRegistry  *promptregistry.Handler // admin: 通用 prompt 注册表 CRUD + 历史/回滚
 }
 
 // registerRoutes 注册所有 API 路由
@@ -105,9 +98,6 @@ func registerRoutes(router *gin.Engine, h *allHandlers, cfg *appconfig.Config) {
 		// WebSocket 端点（认证通过 URL 参数）
 		api.GET("/ws", h.ws.HandleWebSocket)
 
-		// 公开:全站公告(用户端 banner 用)
-		api.GET("/announcements/active", h.announcement.ListPublicActive)
-
 		// 公共配置路由
 		h.config.RegisterRoutes(api)
 
@@ -118,15 +108,8 @@ func registerRoutes(router *gin.Engine, h *allHandlers, cfg *appconfig.Config) {
 		registerPaymentCallbackRoutes(api, h)
 		registerPublicUserRoutes(api, h)
 		registerProtectedUserRoutes(api, h, tieredRL)
-		registerPeerReviewPublicRoutes(api, h, tieredRL)
-		registerPeerReviewV2Routes(api, h, tieredRL)
 		registerPublicAPIRoutes(api, h)
 		registerAnalysisRoutes(api, h, tieredRL)
-		registerScholarRoutes(api, h, tieredRL)
-		registerMCPRoutes(api, h, tieredRL)
-
-		// 代理端点
-		h.proxy.RegisterRoutes(api, middleware.UserAuthMiddleware(), tieredRL)
 
 		// 前端错误上报 —— 无需登录,IP rate-limit 已经在 api 组顶层挂了
 		// 实现见 internal/clientlog/handler.go,只 slog.Warn 不入库

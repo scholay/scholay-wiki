@@ -228,36 +228,37 @@ func (s *Service) LoginWithPhone(phone, password, ip string) (*User, string, err
 	return user, token, nil
 }
 
-// ResetPasswordPhone resets user password with phone verification code
-// ResetPasswordPhone resets user password with phone verification code
-// Also invalidates all existing sessions to force re-login
-func (s *Service) ResetPasswordPhone(ctx context.Context, phone, code, newPassword string) error {
+// ResetPasswordPhone resets user password with phone verification code.
+// 返回 userID 供 handler 调 utils.RevokeUserAllTokens 踢掉该用户所有 token。
+func (s *Service) ResetPasswordPhone(ctx context.Context, phone, code, newPassword string) (uint, error) {
 	// Verify the code
 	valid, err := cache.VerifyCode(ctx, phone, code, "reset_password")
 	if err != nil {
-		return fmt.Errorf("failed to verify code: %w", err)
+		return 0, fmt.Errorf("failed to verify code: %w", err)
 	}
 	if !valid {
-		return errors.New("验证码无效或已过期")
+		return 0, errors.New("验证码无效或已过期")
 	}
 
 	// Find user by phone
 	user, err := s.repo.FindByPhone(phone)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if user == nil {
-		return errors.New("该手机号未注册")
+		return 0, errors.New("该手机号未注册")
 	}
 
 	// Hash new password
 	hashedPassword, err := utils.HashPassword(newPassword)
 	if err != nil {
-		return fmt.Errorf("failed to hash password: %w", err)
+		return 0, fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	// Update password. user_sessions 表已下线,JWT 自身过期就是兜底。
-	return s.repo.UpdatePassword(user.ID, hashedPassword)
+	if err := s.repo.UpdatePassword(user.ID, hashedPassword); err != nil {
+		return 0, err
+	}
+	return user.ID, nil
 }
 
 // LoginWithPhoneCode logs in a user with phone and verification code
@@ -397,79 +398,6 @@ func (s *Service) BindPhone(ctx context.Context, userID uint, phone, code, oldPh
 
 		return nil
 	})
-}
-
-// BindPhoneWithPassword binds phone to WeChat-registered user with new password
-func (s *Service) BindPhoneWithPassword(ctx context.Context, userID uint, phone, password, code string) error {
-	// Verify the phone code using Redis
-	valid, err := cache.VerifyCode(ctx, phone, code, "bind")
-	if err != nil {
-		return fmt.Errorf("failed to verify code: %w", err)
-	}
-	if !valid {
-		return errors.New("验证码无效或已过期")
-	}
-
-	// Check if phone is already used by another user
-	existing, err := s.repo.FindByPhone(phone)
-	if err != nil {
-		return err
-	}
-
-	if existing != nil && existing.ID != userID {
-		return errors.New("该手机号已被其他账号绑定")
-	}
-
-	// Get current user
-	user, err := s.repo.FindByID(userID)
-	if err != nil {
-		return err
-	}
-
-	if user == nil {
-		return errors.New("用户不存在")
-	}
-
-	// Hash password
-	hashedPassword, err := utils.HashPassword(password)
-	if err != nil {
-		return err
-	}
-
-	// Update user phone and password
-	user.Phone = &phone
-	user.PhoneVerified = true
-	user.PasswordHash = &hashedPassword
-
-	if err := s.repo.Update(user); err != nil {
-		return err
-	}
-
-	// Create or update auth provider entry
-	authProvider, err := s.repo.FindAuthProviderByUserAndProvider(userID, "phone")
-	if err != nil {
-		return err
-	}
-
-	if authProvider == nil {
-		// Create new auth provider
-		authProvider = &UserAuthProvider{
-			UserID:         userID,
-			Provider:       "phone",
-			ProviderUserID: phone,
-		}
-		if err := s.repo.CreateAuthProvider(authProvider); err != nil {
-			return err
-		}
-	} else {
-		// Update existing auth provider
-		authProvider.ProviderUserID = phone
-		if err := s.repo.UpdateAuthProvider(authProvider); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // UnbindPhone unbinds phone from user account

@@ -80,16 +80,17 @@ var (
 		OnStateChange: onStateChangeWithStats,
 	})
 
-	// PeerReviewBreaker 保护 peer.scholay.com 外部审稿 API 调用。
-	// 单次审稿要 60-180s 跑完远端 4-process 流水线,失败成本高,门槛设宽松一些。
-	PeerReviewBreaker = gobreaker.NewCircuitBreaker(gobreaker.Settings{
-		Name:        "PeerReview",
-		MaxRequests: 3,
-		Interval:    2 * time.Minute,
-		Timeout:     60 * time.Second,
+	// AgentBreaker 保护到 scholar_agent /api/providers 的配置推送。
+	// 推送是 admin 写入触发的低频动作,阈值压到 3 次失败 / 60% 即开,
+	// 避免 agent 长时间不可达时把 admin 保存接口拖慢(虽然 push 已经在 goroutine 里)。
+	AgentBreaker = gobreaker.NewCircuitBreaker(gobreaker.Settings{
+		Name:        "Agent",
+		MaxRequests: 1,
+		Interval:    time.Minute,
+		Timeout:     30 * time.Second,
 		ReadyToTrip: func(counts gobreaker.Counts) bool {
 			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
-			return counts.Requests >= 5 && failureRatio >= 0.6
+			return counts.Requests >= 3 && failureRatio >= 0.6
 		},
 		OnStateChange: onStateChangeWithStats,
 	})
@@ -108,6 +109,7 @@ func init() {
 		"AIService",
 		"Minicod",
 		"ProxyService",
+		"Agent",
 		"PeerReview",
 	} {
 		registerBreaker(name)

@@ -1,0 +1,39 @@
+{
+  "outputStyle": "paper-reviewer",
+  "permissions": {
+    "deny": [
+      "Bash",
+      "Edit",
+      "Write",
+      "NotebookEdit",
+      "REPL",
+      "PowerShell",
+      "EnterWorktree",
+      "ExitWorktree",
+      "TeamCreate",
+      "TeamDelete",
+      "RemoteTrigger",
+      "TerminalCapture",
+      "SendUserFile",
+      "SendMessage",
+      "SubscribePR",
+      "SuggestBackgroundPR",
+      "ScheduleCron",
+      "WebBrowser",
+      "Tungsten",
+      "Sleep",
+      "Monitor",
+      "ListPeers",
+      "ReviewArtifact",
+      "VerifyPlanExecution",
+      "Workflow",
+      "Snip",
+      "Config",
+      "CtxInspect",
+      "McpAuth",
+      "OverflowTest",
+      "SyntheticOutput"
+    ]
+  },
+  "defaultMode": "plan"
+}

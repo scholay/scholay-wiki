@@ -62,7 +62,94 @@
       })();
     </script>
 
-    <title>Scholay</title>
+    <!-- ───────── SEO 基础 meta(静态兜底)─────────
+         非 JS 爬虫 / 百度首屏即可见;详情页由后端 SSR(handler_ssr.go)用正则替换 title/description/keywords。
+         首页 RouteSEO(React 注入)与此处保持品牌词一致即可。 -->
+    <title>Scholay学术 - AI 驱动的学术搜索与研究平台 | 论文搜索 · AI 审稿 · 文献管理</title>
+    <meta
+      name="description"
+      content="Scholay学术(scholay)是 AI 驱动的一站式学术研究平台:智能论文搜索、AI 论文分析、AI 智能审稿、学者库、期刊查询、文献集管理与 LaTeX 在线写作。覆盖全球 2 亿+ 学术论文,助你高效科研。"
+    />
+    <meta
+      name="keywords"
+      content="Scholay,Scholay学术,scholay学术,scholay学术工具,scholay ai 学术工具,scholay scholar,scholar,AI 学术工具,学术搜索,论文搜索,AI 论文分析,智能审稿,文献管理,期刊查询,学者库,LaTeX 在线编辑"
+    />
+
+    <!-- Open Graph / 微信 / Twitter 分享卡(首页默认;og-image.png 需放到 public/,1200×630) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Scholay学术" />
+    <meta property="og:title" content="Scholay学术 - AI 驱动的学术搜索与研究平台" />
+    <meta property="og:description" content="智能论文搜索、AI 审稿、文献管理、LaTeX 写作一站式平台,覆盖全球 2 亿+ 学术论文。" />
+    <meta property="og:url" content="https://www.scholay.com/" />
+    <meta property="og:image" content="https://www.scholay.com/og-image.png" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Scholay学术 - AI 学术搜索工具" />
+    <meta name="twitter:description" content="智能论文搜索、AI 审稿、文献管理、LaTeX 写作一站式平台。" />
+    <meta name="twitter:image" content="https://www.scholay.com/og-image.png" />
+
+    <!-- 结构化数据:品牌(Organization)+ 站点搜索框(WebSite/SearchAction)+ 产品(SoftwareApplication)。
+         这是百度/必应「官网 + 子链(sitelinks)」与品牌知识卡的关键启用项;不写假评分(会被判作弊)。 -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://www.scholay.com/#organization",
+          "name": "Scholay学术",
+          "alternateName": ["Scholay", "scholay学术", "scholay学术工具"],
+          "url": "https://www.scholay.com",
+          "logo": "https://www.scholay.com/favicon.svg",
+          "description": "AI 驱动的学术搜索与研究平台",
+          "sameAs": ["https://www.scholay.com"],
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "contactType": "customer support",
+            "email": "support@scholay.app"
+          }
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://www.scholay.com/#website",
+          "name": "Scholay学术",
+          "alternateName": "Scholay",
+          "url": "https://www.scholay.com",
+          "publisher": { "@id": "https://www.scholay.com/#organization" },
+          "inLanguage": "zh-CN",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://www.scholay.com/search?q={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+          }
+        },
+        {
+          "@type": "SoftwareApplication",
+          "name": "Scholay学术",
+          "applicationCategory": "EducationalApplication",
+          "operatingSystem": "Web",
+          "url": "https://www.scholay.com",
+          "description": "AI 驱动的一站式学术研究平台:论文搜索、AI 分析、智能审稿、文献管理、LaTeX 写作。",
+          "offers": { "@type": "Offer", "price": "0", "priceCurrency": "CNY" }
+        },
+        {
+          "@type": "ItemList",
+          "name": "Scholay学术 主要功能",
+          "itemListElement": [
+            { "@type": "SiteNavigationElement", "position": 1, "name": "AI 文献搜索", "description": "覆盖 2 亿+ 学术论文,关键词 + 语义双引擎智能检索", "url": "https://www.scholay.com/search" },
+            { "@type": "SiteNavigationElement", "position": 2, "name": "期刊查询", "description": "按影响因子、JCR 分区、ISSN 检索全球期刊", "url": "https://www.scholay.com/journals/search" },
+            { "@type": "SiteNavigationElement", "position": 3, "name": "AI 智能助手", "description": "基于你的文献的 AI 学术对话与论文分析", "url": "https://www.scholay.com/claw" },
+            { "@type": "SiteNavigationElement", "position": 4, "name": "AI 智能审稿", "description": "投稿前用 AI 模拟同行评审,提前发现论文问题", "url": "https://www.scholay.com/peer-review" },
+            { "@type": "SiteNavigationElement", "position": 5, "name": "文献集管理", "description": "文件夹树 + AI 自动打标签,千篇文献一处归档", "url": "https://www.scholay.com/library" },
+            { "@type": "SiteNavigationElement", "position": 6, "name": "全部功能", "description": "Scholay学术 全部能力总览", "url": "https://www.scholay.com/features" }
+          ]
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>

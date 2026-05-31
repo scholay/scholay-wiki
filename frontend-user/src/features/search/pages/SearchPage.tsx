@@ -11,9 +11,9 @@ import type { Paper } from '../api/papers';
 
 /**
  * 右侧工作区两个候选 —— lazy 拆分:
- *   - MatrixColumn 含矩阵分析表、维度编辑、暂存 tabs(~30KB),只有暂存论文时才需要
- *   - WelcomeBoard 含模式介绍 hero,只在首次/空区显示
- * 首屏只加载 SearcherColumn,用户行为触发后才下载工作区代码块
+ *   - MatrixColumn 含矩阵分析表、维度编辑、暂存 tabs(~30KB), 只有暂存论文时才需要
+ *   - WelcomeBoard 含模式介绍 hero, 只在首次/空区显示
+ * 首屏只加载 SearcherColumn, 用户行为触发后才下载工作区代码块。
  */
 const MatrixColumn = lazy(() =>
   import('../components/MatrixColumn').then((m) => ({ default: m.MatrixColumn }))
@@ -65,11 +65,6 @@ const RIGHT_MIN_PX = 480; // 右侧工作区 / 矩阵的最小可视宽,撑不�
 const LAST_SEARCH_KEY = 'scholay.last-search';
 
 export function SearchPage() {
-  useRegisterSidebarRail([
-    { id: 'all', label: '文献集', icon: FolderOpen, sectionId: 'library' },
-    { id: 'filters', label: '筛选器', icon: Filter, sectionId: 'filters' },
-  ]);
-
   // ============ "回到文献搜索" 自动恢复上次状态 ============
   // 用户从任何位置进 /search 但 URL 无 params 时,把上次保存的搜索串还原。
   // 仅首次挂载执行一次(restoredRef 守门),后续 URL 变化都是用户主动行为。
@@ -124,6 +119,18 @@ export function SearchPage() {
       );
     },
     [setUrlParams]
+  );
+
+  // rail 按 mode 动态:智能模式下移除"筛选器"快捷入口 ——
+  // 筛选器属于传统搜索,智能模式 sidebar 也不会渲染对应 section,
+  // 留着 chip 反而会"打开 sidebar 后 flash 一个找不到的 section"。
+  useRegisterSidebarRail(
+    mode === 'smart'
+      ? [{ id: 'all', label: '文献集', icon: FolderOpen, sectionId: 'library' }]
+      : [
+          { id: 'all', label: '文献集', icon: FolderOpen, sectionId: 'library' },
+          { id: 'filters', label: '筛选器', icon: Filter, sectionId: 'filters' },
+        ]
   );
 
   // view 只读 —— 用 stagedIds 已是稳定引用,不需要再 useMemo 一次
@@ -268,7 +275,13 @@ export function SearchPage() {
 
   return (
     <SidebarLayout
-      sidebar={<SearchSidebar filters={filters} onFiltersChange={setFilters} />}
+      sidebar={
+        <SearchSidebar
+          filters={filters}
+          onFiltersChange={setFilters}
+          mode={mode}
+        />
+      }
     >
       <RouteSEO
         title={seoTitle}

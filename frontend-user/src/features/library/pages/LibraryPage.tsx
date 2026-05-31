@@ -9,7 +9,6 @@ import {
   UserPlus,
   X,
 } from 'lucide-react';
-import { toast } from 'sonner';
 import { RouteSEO } from '@/shared/components/RouteSEO';
 import { SidebarLayout } from '@/shared/components/sidebar';
 import { EmptyState } from '@/shared/components/EmptyState';
@@ -25,8 +24,8 @@ import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useDebounce, useScrollRestoration, useUrlState } from '@/shared/hooks';
 import { LibrarySidebar } from '../components/LibrarySidebar';
 import { LibraryPaperList } from '../components/LibraryPaperList';
-import { QuickAddDialog } from '../components/QuickAddDialog';
-import { PdfImportWizard } from '../components/PdfImportWizard';
+import { LibraryImportDialog } from '../components/LibraryImportDialog';
+import type { ImportTab } from '../components/library-import-dialog/types';
 import { useLibraryFolders } from '../api/folders';
 import {
   useLibraryPapers,
@@ -150,8 +149,11 @@ function LibraryFolderView() {
   );
   const setPage = setPageRaw;
 
-  // 上传 PDF 智能识别向导开关
-  const [pdfImportOpen, setPdfImportOpen] = useState(false);
+  // 统一导入弹窗 —— 4 个入口按钮(在线搜索 / PDF / Zotero / Endnote)开同一个 Dialog,
+  // 只是 initialTab 不同。importOpen=null 关弹窗,= tab id 打开并定位到该 tab。
+  const [importTab, setImportTab] = useState<ImportTab | null>(null);
+  const openImport = useCallback((t: ImportTab) => setImportTab(t), []);
+  const closeImport = useCallback(() => setImportTab(null), []);
 
   // 列表滚动位置恢复 —— 点击论文进详情页 → 浏览器后退,自动滚回原位
   // 键 = URL(包含 folder/q/page/sort/size 所有过滤),不同视图各自独立
@@ -262,29 +264,27 @@ function LibraryFolderView() {
 
             {/* 加入按钮组 —— 响应式
                 ≥xl(1280px):全部按钮平铺
-                <xl:折叠成单个「更多 ▾」hover dropdown,鼠标移上去弹出按钮列表 */}
+                <xl:折叠成单个「更多 ▾」hover dropdown
+                所有按钮都打开同一个统一弹窗 LibraryImportDialog,仅 initialTab 不同 */}
             <div className="hidden xl:flex items-center gap-2 shrink-0">
-              <QuickAddDialog
-                currentFilter={filter}
-                currentFolderName={title}
-                align="end"
-              >
-                <ToolbarButton label="+ 在线搜索加入" />
-              </QuickAddDialog>
+              <ToolbarButton
+                label="+ 在线搜索加入"
+                onClick={() => openImport('search')}
+              />
               <ToolbarButton
                 label="↑ 上传 PDF"
-                onClick={() => setPdfImportOpen(true)}
+                onClick={() => openImport('pdf')}
               />
               <ComingSoonWrap>
                 <ToolbarButton
                   label="从 Zotero 导入"
-                  onClick={() => toast.info('Zotero 导入开发中')}
+                  onClick={() => openImport('zotero')}
                 />
               </ComingSoonWrap>
               <ComingSoonWrap>
                 <ToolbarButton
                   label="从 EndNote…"
-                  onClick={() => toast.info('EndNote 导入开发中')}
+                  onClick={() => openImport('endnote')}
                 />
               </ComingSoonWrap>
             </div>
@@ -302,26 +302,23 @@ function LibraryFolderView() {
                   className="w-[200px] p-1.5"
                 >
                   <div className="flex flex-col gap-1">
-                    <QuickAddDialog
-                      currentFilter={filter}
-                      currentFolderName={title}
-                      align="end"
-                    >
-                      <CollapsedItem label="+ 在线搜索加入" />
-                    </QuickAddDialog>
+                    <CollapsedItem
+                      label="+ 在线搜索加入"
+                      onClick={() => openImport('search')}
+                    />
                     <CollapsedItem
                       label="↑ 上传 PDF"
-                      onClick={() => setPdfImportOpen(true)}
+                      onClick={() => openImport('pdf')}
                     />
                     <CollapsedItem
                       label="从 Zotero 导入"
                       badge="即将推出"
-                      onClick={() => toast.info('Zotero 导入开发中')}
+                      onClick={() => openImport('zotero')}
                     />
                     <CollapsedItem
                       label="从 EndNote…"
                       badge="即将推出"
-                      onClick={() => toast.info('EndNote 导入开发中')}
+                      onClick={() => openImport('endnote')}
                     />
                   </div>
                 </HoverCardContent>
@@ -331,13 +328,18 @@ function LibraryFolderView() {
         )}
       </header>
 
-      {/* 上传 PDF 智能识别向导 —— SSE 流式解析 + 三源关联 / AI 自由文件 */}
-      <PdfImportWizard
-        open={pdfImportOpen}
-        onOpenChange={setPdfImportOpen}
-        currentFilter={filter}
-        currentFolderName={title}
-      />
+      {/* 统一导入弹窗 —— 4 个 tab(在线搜索 / 本地上传 / Zotero / Endnote),
+          打开时定位到 toolbar 按钮触发的 tab,内部可自由切换。挂载条件 `importTab != null`,
+          关闭后 unmount 让内部 tab state(SSE / 上传进度等)自然清理。 */}
+      {importTab && (
+        <LibraryImportDialog
+          open
+          onOpenChange={(v) => !v && closeImport()}
+          initialTab={importTab}
+          currentFilter={filter}
+          currentFolderName={title}
+        />
+      )}
 
       <div ref={scrollRef} className="flex-1 min-h-0 overflow-auto">
         <LibraryPaperList

@@ -33,11 +33,23 @@ type MessageService interface {
 	SendToUser(userID uint, title, content string, category string, linkURL, linkText string) error
 }
 
-// 哨兵错误，用于 handler 层的错误类型判断，避免字符串比较
+// 哨兵错误,用于 handler 层的错误类型判断,避免字符串比较。
+//
+// 约定 (跟 backend/CONVENTIONS.md 一致):
+//   - service 方法不应该直接返回 gorm.ErrRecordNotFound, 应该 wrap 成 ErrNotFound 之类的 sentinel
+//   - handler 用 `errors.Is(err, user.ErrNotFound)` 做分支, 不用字符串比较
+//   - 新增 sentinel 时加在这里, 不要每个 service 文件各自定义
+//
+// 注意 (历史遗留, 不强制立刻修):
+//   - 部分 OAuth helpers 直接用 `errors.Is(err, gorm.ErrRecordNotFound)` 判断 not-found,
+//     符合"service 内部 OK, 别让 gorm 泄漏到 handler" 原则; 改成 ErrNotFound 不属于必须。
 var (
 	ErrSessionExpired         = errors.New("登录已过期,请重新登录")
 	ErrSessionNotFound        = errors.New("会话不存在,请重新登录")
 	ErrCurrentPasswordInvalid = errors.New("当前密码不正确")
+	// ErrNotFound 用户/会话/OAuth 关联等通用 "not found" 兜底.
+	// 新代码 wrap gorm.ErrRecordNotFound 时用这个: `return user.ErrNotFound` 而不是裸传 gorm 错。
+	ErrNotFound = errors.New("user: resource not found")
 )
 
 // Service handles business logic for user operations

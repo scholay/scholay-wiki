@@ -1,6 +1,6 @@
-import { toast } from 'sonner';
 import { Loader2, ArrowRight, AlertCircle } from 'lucide-react';
 import { Button } from '@/shared/ui';
+import { useApiToast } from '@/shared/hooks';
 import {
   usePendingMerge,
   useConfirmOAuthMerge,
@@ -35,6 +35,7 @@ export function OAuthMergeConfirmDialog({
   const { data: info, isLoading, isError } = usePendingMerge(token);
   const confirm = useConfirmOAuthMerge();
   const cancel = useCancelOAuthMerge();
+  const apiToast = useApiToast();
 
   const pending = confirm.isPending || cancel.isPending;
 
@@ -65,7 +66,7 @@ export function OAuthMergeConfirmDialog({
       await confirm.mutateAsync(token);
       onDone();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : '账号合并失败,请重试');
+      apiToast.show(err, '账号合并失败,请重试');
     }
   };
   const handleNew = async () => {
@@ -73,7 +74,7 @@ export function OAuthMergeConfirmDialog({
       await cancel.mutateAsync(token);
       onDone();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : '操作失败,请稍后重试');
+      apiToast.show(err, '操作失败,请稍后重试');
     }
   };
 

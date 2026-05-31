@@ -12,22 +12,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
-	"scholar-backend/internal/common/httpclient"
 	"scholar-backend/internal/common/model"
+	"scholar-backend/internal/common/upstream"
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
-var orcidHTTPClient = httpclient.OAuthClient
+var orcidUpstream = newOAuthUpstream("orcid_oauth")
 
 const (
 	orcidAuthURL        = "https://orcid.org/oauth/authorize"
@@ -142,26 +141,21 @@ func (h *Handler) exchangeOrcidCode(ctx context.Context, code string, config *mo
 	data.Set("code", code)
 	data.Set("redirect_uri", config.RedirectURI)
 
-	req, err := http.NewRequestWithContext(ctx, "POST", tokenURL, strings.NewReader(data.Encode()))
+	resp, err := orcidUpstream.Do(ctx, upstream.Request{
+		Method: http.MethodPost,
+		Path:   tokenURL,
+		Headers: http.Header{
+			"Content-Type": {"application/x-www-form-urlencoded"},
+			"Accept":       {"application/json"},
+		},
+		Body: strings.NewReader(data.Encode()),
+	})
 	if err != nil {
 		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := orcidHTTPClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("orcid token exchange failed (%d): %s", resp.StatusCode, string(body))
 	}
 
 	var tokenResp OrcidTokenResponse
-	if err := json.Unmarshal(body, &tokenResp); err != nil {
+	if err := resp.JSON(&tokenResp); err != nil {
 		return nil, fmt.Errorf("failed to parse token response: %w", err)
 	}
 

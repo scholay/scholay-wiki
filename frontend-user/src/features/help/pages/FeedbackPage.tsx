@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Send, Sparkles } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { ImagePlus, Send, Sparkles, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
 import { useAuthStore } from '@/stores/auth.store';
@@ -7,6 +7,19 @@ import { RouteSEO } from '@/shared/components/RouteSEO';
 import { HelpLayout } from '../components/HelpLayout';
 import { FeatureJumpCTA } from '../components/FeatureJumpCTA';
 import { Button } from '@/shared/ui/button';
+
+/** 单个已上传附件 (后端 /public/feedback/upload 返回项形态) */
+interface UploadedAttachment {
+  id: number;
+  name: string;
+  url: string;   // /api/v1/public/feedback/attachment/<id>
+  size: number;
+  type: 'image' | 'file';
+}
+
+/** 限制对齐后端 handler.go const (MaxImageBytes / MaxImageCount) */
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_IMAGE_COUNT = 10;
 
 /**
  * 反馈表单 —— 用户填写后 POST `/public/feedback`(后端公开端点)。
@@ -29,6 +42,50 @@ export function FeedbackPage() {
   const [content, setContent] = useState('');
   const [email, setEmail] = useState(user?.email ?? '');
   const [submitting, setSubmitting] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadKey, setUploadKey] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<UploadedAttachment[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /** 选择图片后立即上传 → 拿到附件 id, 暂存; 提交反馈时携 uploadKey 一并绑定 */
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const overSize = Array.from(files).find((f) => f.size > MAX_IMAGE_BYTES);
+    if (overSize) {
+      toast.error(`图片 ${overSize.name} 超过 10MB 限制`);
+      return;
+    }
+    if (attachments.length + files.length > MAX_IMAGE_COUNT) {
+      toast.error(`最多上传 ${MAX_IMAGE_COUNT} 张图片`);
+      return;
+    }
+
+    const fd = new FormData();
+    if (uploadKey) fd.append('uploadKey', uploadKey);
+    Array.from(files).forEach((f) => fd.append('files', f));
+
+    setUploading(true);
+    try {
+      const { data } = await http.post<{
+        data: { uploadKey: string; attachments: UploadedAttachment[] };
+      }>('/public/feedback/upload', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setUploadKey(data.data.uploadKey);
+      setAttachments((prev) => [...prev, ...(data.data.attachments ?? [])]);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '附件上传失败');
+      void toApiError(err);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const removeAttachment = (id: number) => {
+    // 仅本地移除 — 后端 cleanup 任务会清理孤儿对象 (1h 内 + lifecycle 24h 兜底)
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,9 +105,12 @@ export function FeedbackPage() {
         email: mail,
         content: text,
         category,
+        attachmentsKey: attachments.length > 0 ? uploadKey : '',
       });
       toast.success('感谢反馈!我们会认真看每一条');
       setContent('');
+      setAttachments([]);
+      setUploadKey(null);
       // email 保留 —— 同一会话再提交一次不用重新填
     } catch (err) {
       toast.error(
@@ -144,6 +204,63 @@ export function FeedbackPage() {
             placeholder="you@example.com"
             className="w-full h-10 px-3 rounded-sm border border-border bg-background text-sm focus:outline-none focus:border-foreground focus:ring-2 focus:ring-ring/20"
           />
+        </div>
+
+        {/* 图片附件 — 复制 bug / 截图反馈时用 */}
+        <div>
+          <label className="block text-xs font-bold text-foreground mb-2">
+            截图附件 <span className="text-faint font-normal">(可选, 最多 {MAX_IMAGE_COUNT} 张, 每张 ≤ 10MB)</span>
+          </label>
+
+          {attachments.length > 0 && (
+            <div className="mb-3 grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
+              {attachments.map((a) => (
+                <div
+                  key={a.id}
+                  className="relative group rounded-sm border border-border bg-background overflow-hidden"
+                >
+                  {a.type === 'image' ? (
+                    <img
+                      src={a.url}
+                      alt={a.name}
+                      className="w-full h-20 object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-20 flex items-center justify-center text-2xs text-muted-foreground p-2 text-center">
+                      {a.name}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeAttachment(a.id)}
+                    className="absolute top-1 right-1 inline-flex items-center justify-center size-5 rounded-full bg-foreground/70 text-background opacity-0 group-hover:opacity-100 transition-opacity hover:bg-foreground"
+                    aria-label="移除附件"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            multiple
+            className="hidden"
+            onChange={(e) => handleFiles(e.target.files)}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={uploading || attachments.length >= MAX_IMAGE_COUNT}
+            onClick={() => fileInputRef.current?.click()}
+            className="inline-flex items-center gap-2 h-8 px-3 border border-border"
+          >
+            <ImagePlus className="size-3.5" />
+            {uploading ? '上传中…' : '添加图片'}
+          </Button>
         </div>
 
         <Button

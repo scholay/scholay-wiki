@@ -51,22 +51,6 @@ func (h *Handler) ListCodeSnippets(c *gin.Context) {
 	utils.Success(c, snippets)
 }
 
-// GetCodeSnippet 获取单个代码片段（管理端）
-func (h *Handler) GetCodeSnippet(c *gin.Context) {
-	var id uint
-	if _, err := fmt.Sscanf(c.Param("id"), "%d", &id); err != nil {
-		utils.BadRequest(c, "无效的ID")
-		return
-	}
-
-	snippet, err := h.service.GetCodeSnippetByID(id)
-	if err != nil {
-		utils.Error(c, 3031, "代码片段不存在")
-		return
-	}
-	utils.Success(c, snippet)
-}
-
 // CreateCodeSnippet 创建代码片段（管理端）
 func (h *Handler) CreateCodeSnippet(c *gin.Context) {
 	var req CreateCodeSnippetRequest

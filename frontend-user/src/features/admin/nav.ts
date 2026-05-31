@@ -5,19 +5,17 @@ import {
   Megaphone,
   MessageSquare,
   Bell,
-  Mail,
   Flame,
   Activity,
-  ScrollText,
-  HardDrive,
   BarChart3,
   Settings,
   KeyRound,
   CreditCard,
   Plug,
-  Bot,
-  Compass,
+  Cpu,
   Send,
+  Compass,
+  Sparkles,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -70,7 +68,6 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     items: [
       { id: 'feedback', label: '用户反馈', icon: MessageSquare, href: '/admin/feedback' },
       { id: 'messages', label: '站内消息', icon: Bell, href: '/admin/messages' },
-      { id: 'message-templates', label: '消息模板', icon: Mail, href: '/admin/message-templates' },
     ],
   },
   {
@@ -79,8 +76,6 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     items: [
       { id: 'analytics', label: '数据统计', icon: BarChart3, href: '/admin/analytics' },
       { id: 'usage-logs', label: '使用日志', icon: Activity, href: '/admin/usage-logs' },
-      { id: 'audit-logs', label: '审计日志', icon: ScrollText, href: '/admin/audit-logs' },
-      { id: 'pdf-cache', label: 'PDF 缓存', icon: HardDrive, href: '/admin/pdf-cache' },
     ],
   },
   {
@@ -88,7 +83,8 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     label: '集成与 AI',
     items: [
       { id: 'third-party', label: '三方账号', icon: Plug, href: '/admin/third-party' },
-      { id: 'latex-agent', label: 'LaTeX Agent', icon: Bot, href: '/admin/latex-agent' },
+      { id: 'agent-config', label: 'AI Agent 服务', icon: Cpu, href: '/admin/agent-config' },
+      { id: 'feature-prompts', label: 'AI Prompt 注册表', icon: Sparkles, href: '/admin/feature-prompts' },
       { id: 'dimensions', label: '分析维度', icon: Compass, href: '/admin/dimensions' },
       { id: 'wechat-official', label: '公众号', icon: Send, href: '/admin/wechat-official' },
     ],

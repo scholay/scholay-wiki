@@ -2,8 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
 
 /**
- * 字段对齐 backend/internal/message/model.go(Message + MessageTemplate)。
- * 之前的 target_type/target_value/status 等都是我猜的,不对。
+ * 字段对齐 backend/internal/message/model.go(Message)。
+ * 消息模板模块已整体下线 (2026-05-28), 不再有 MessageTemplate 类型与对应 hooks。
  */
 
 export type MessageStatus = 'draft' | 'sent' | 'sending' | 'failed';
@@ -27,19 +27,6 @@ export interface AdminMessage {
   status: MessageStatus;
   recipient_count: number;
   read_count: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface MessageTemplate {
-  id: number;
-  code: string;
-  name: string;
-  title: string;
-  content: string;
-  category: MessageCategory;
-  variables?: string;
-  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -72,39 +59,3 @@ export function useSendMessage() {
   });
 }
 
-// ---- message templates ----
-/**
- * 后端 TemplateListResponse:`{list, total, page, page_size}`。
- * 注意:Page/PageSize 是 `binding:"min=1"`,不传会被 gin 默认 0 → 400。
- * 我们这里一次性拉满 100 条(模板数量通常很少)。
- */
-export function useMessageTemplates() {
-  return useQuery({
-    queryKey: ['admin', 'message-templates', 'list'],
-    queryFn: async () => {
-      const r = await http.get<{ data: { list: MessageTemplate[]; total: number } }>(
-        '/admin/message-templates',
-        { params: { page: 1, page_size: 100 } }
-      );
-      return r.data.data.list ?? [];
-    },
-  });
-}
-
-export function useCreateMessageTemplate() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (data: Omit<MessageTemplate, 'id' | 'created_at' | 'updated_at'>) =>
-      http.post('/admin/message-templates', data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'message-templates'] }),
-  });
-}
-
-export function useUpdateMessageTemplate() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (vars: { id: number; data: Partial<MessageTemplate> }) =>
-      http.put(`/admin/message-templates/${vars.id}`, vars.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'message-templates'] }),
-  });
-}

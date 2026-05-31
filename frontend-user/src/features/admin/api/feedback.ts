@@ -74,6 +74,39 @@ export function useFeedbackStats() {
   });
 }
 
+/** 反馈附件 — 后端 `feedback.Attachment` (走 MinIO, url 是 /public/feedback/attachment/<id>) */
+export interface FeedbackAttachment {
+  name: string;
+  url: string;
+  size: number;
+  type: 'image' | 'file';
+}
+
+/** 反馈详情 (含附件) — backend GET /admin/feedbacks/:id */
+export interface FeedbackDetailResponse {
+  feedback: Feedback;
+  attachments: FeedbackAttachment[];
+}
+
+export function useFeedbackDetail(id: number | null) {
+  return useQuery({
+    queryKey: ['admin', 'feedback', 'detail', id],
+    enabled: !!id,
+    queryFn: async () => {
+      const r = await http.get<{ data: FeedbackDetailResponse }>(`/admin/feedbacks/${id}`);
+      return r.data.data;
+    },
+  });
+}
+
+export function useDeleteFeedback() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => http.delete(`/admin/feedbacks/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'feedback'] }),
+  });
+}
+
 export function useReplyFeedback() {
   const qc = useQueryClient();
   return useMutation({

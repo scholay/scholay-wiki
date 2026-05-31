@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import * as PopoverPrimitive from '@radix-ui/react-popover';
 import { ArrowRight, FileText, Loader2, Search, X } from 'lucide-react';
 import { useOpenPaperInBrowser } from '@/shared/hooks';
@@ -6,8 +6,8 @@ import { SourceBadge } from '@/shared/components/SourceBadge';
 import { cn } from '@/shared/lib/utils';
 // 跨 feature import —— quick-search 当前仍住在 library/api(纯上游论文聚合搜索,
 // 不依赖任何 library 用户数据);未来可考虑提到 shared/api,但此次仅做路由搬迁
-import { useQuickPaperSearch } from '@/features/library/api/quick-search';
-import type { Paper, PaperSource, UpstreamSource } from '@/shared/api/types';
+import { useArrivalOrderedPapers, useQuickPaperSearch } from '@/shared/api/quick-search';
+import type { Paper, PaperSource } from '@/shared/api/types';
 
 /**
  * 新建详情页签 —— **anchored popover** 形态(从 tabs 条 "+" 按钮弹出)。
@@ -242,42 +242,6 @@ function NoResultsHint({ query }: { query: string }) {
   );
 }
 
-// ============================================================================
-// arrival-order 拼接 —— 哪个源先返回先展示,后到的静默追加在后面
-// query 一变 → 重置;源 loading→done 时按顺序追加进 arrivalOrder
-// ============================================================================
-
-function useArrivalOrderedPapers(
-  sourceResults: ReturnType<typeof useQuickPaperSearch>,
-  query: string
-): Paper[] {
-  const [arrivalOrder, setArrivalOrder] = useState<UpstreamSource[]>([]);
-
-  // query 变化 → 重置 arrival 顺序(新一轮搜索)
-  useEffect(() => {
-    setArrivalOrder([]);
-  }, [query]);
-
-  // 任何源从 loading → done(无论有无结果)都按顺序追加进 arrivalOrder
-  useEffect(() => {
-    for (const r of sourceResults) {
-      if (!r.isLoading) {
-        setArrivalOrder((prev) =>
-          prev.includes(r.source) ? prev : [...prev, r.source]
-        );
-      }
-    }
-  }, [sourceResults]);
-
-  // 按 arrival 顺序拼 papers;还没到的源不显示
-  return useMemo(() => {
-    const out: Paper[] = [];
-    for (const src of arrivalOrder) {
-      const r = sourceResults.find((x) => x.source === src);
-      if (r) out.push(...r.papers);
-    }
-    return out;
-  }, [arrivalOrder, sourceResults]);
-}
+// useArrivalOrderedPapers 已提升到 @/shared/api/quick-search(与文献集在线搜索共用)。
 
 export default QuickOpenPaperDialog;

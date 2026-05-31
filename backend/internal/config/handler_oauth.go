@@ -66,6 +66,12 @@ func (h *Handler) UpdateGithubOAuthConfig(c *gin.Context) {
 		return
 	}
 
+	// enabled=true 必须有完整凭据 —— 否则保存了也用不了, 还会让登录页错误地显示"GitHub 登录"按钮。
+	if req.Enabled && (req.ClientID == "" || clientSecret == "") {
+		utils.BadRequest(c, "启用 GitHub OAuth 需先填好 Client ID 与 Client Secret")
+		return
+	}
+
 	if err := h.service.UpdateGithubOAuthConfig(req.ClientID, clientSecret, callbackURL, req.Enabled); err != nil {
 		utils.Error(c, 3021, "Failed to update GitHub OAuth configuration")
 		return
@@ -105,12 +111,22 @@ func (h *Handler) UpdateGoogleOAuthConfig(c *gin.Context) {
 		return
 	}
 
-	// Google uses ID-Token mode: secret is optional. Keep empty if not provided and no existing row.
+	// Google 用 ID-Token 模式,secret 是可选的 —— 走"留空 / 仍是遮罩 → 保留旧值"的统一逻辑。
+	// 老逻辑只判 ""(漏判遮罩字符串), 前端再次保存表单时 ClientSecret 会被覆盖成 "********"。
+	existing, _ := h.service.GetGoogleOAuthConfig()
+	existingSecret := ""
+	if existing != nil {
+		existingSecret = existing.ClientSecret
+	}
 	clientSecret := req.ClientSecret
-	if clientSecret == "" {
-		if existing, err := h.service.GetGoogleOAuthConfig(); err == nil && existing != nil {
-			clientSecret = existing.ClientSecret
-		}
+	if clientSecret == "" || clientSecret == maskedSecretValue {
+		clientSecret = existingSecret // Google 允许彻底没有 secret, 不强制
+	}
+
+	// enabled=true 至少要有 Client ID(Google ID-Token 模式 secret 可选, 但 client_id 必填)
+	if req.Enabled && req.ClientID == "" {
+		utils.BadRequest(c, "启用 Google OAuth 需先填好 Client ID")
+		return
 	}
 
 	if err := h.service.UpdateGoogleOAuthConfig(req.ClientID, clientSecret, req.Enabled); err != nil {
@@ -160,6 +176,11 @@ func (h *Handler) UpdateOrcidOAuthConfig(c *gin.Context) {
 	}
 	clientSecret, ok := preserveSecretOnEmpty(c, req.ClientSecret, existingSecret, existing != nil, "Client Secret")
 	if !ok {
+		return
+	}
+
+	if req.Enabled && (req.ClientID == "" || clientSecret == "") {
+		utils.BadRequest(c, "启用 ORCID OAuth 需先填好 Client ID 与 Client Secret")
 		return
 	}
 
@@ -213,6 +234,11 @@ func (h *Handler) UpdateMicrosoftOAuthConfig(c *gin.Context) {
 		return
 	}
 
+	if req.Enabled && (req.ClientID == "" || clientSecret == "") {
+		utils.BadRequest(c, "启用 Microsoft OAuth 需先填好 Client ID 与 Client Secret")
+		return
+	}
+
 	if err := h.service.UpdateMicrosoftOAuthConfig(req.ClientID, clientSecret, callbackURL, req.Tenant, req.Enabled); err != nil {
 		utils.Error(c, 3061, "Failed to update Microsoft OAuth configuration")
 		return
@@ -233,17 +259,19 @@ func (h *Handler) GetAppleOAuthConfig(c *gin.Context) {
 	if config == nil {
 		config = &model.AppleOAuthConfig{}
 	}
-	// 不返回私钥内容，只返回是否已配置
-	resp := gin.H{
+	// 私钥按统一遮罩规则: 默认 "********",前端"查询"按钮加 ?show_sensitive=true 解蔽。
+	// 同步保留 has_key 给老前端 / 简单 UI 用作"是否已配置"判定。
+	maskSecret(&config.PrivateKey, isShowSensitive(c, "show_sensitive"))
+	utils.Success(c, gin.H{
 		"id":           config.ID,
 		"service_id":   config.ServiceID,
 		"team_id":      config.TeamID,
 		"key_id":       config.KeyID,
-		"has_key":      config.PrivateKey != "",
+		"private_key":  config.PrivateKey,
+		"has_key":      config.PrivateKey != "" && config.PrivateKey != maskedSecretValue,
 		"redirect_uri": config.RedirectURI,
 		"enabled":      config.Enabled,
-	}
-	utils.Success(c, resp)
+	})
 }
 
 type UpdateAppleOAuthConfigRequest struct {
@@ -260,8 +288,24 @@ func (h *Handler) UpdateAppleOAuthConfig(c *gin.Context) {
 	if !utils.BindJSON(c, &req) {
 		return
 	}
+	// 私钥按"留空 / 仍是遮罩 → 保留旧值"处理 —— 防止用户只切 enabled 或改 redirect
+	// 时不慎把已配置的 PrivateKey 清空。
+	existing, _ := h.service.GetAppleOAuthConfig()
+	existingKey := ""
+	if existing != nil {
+		existingKey = existing.PrivateKey
+	}
+	privateKey, ok := preserveSecretOnEmpty(c, req.PrivateKey, existingKey, existing != nil, "Private Key")
+	if !ok {
+		return
+	}
+	// Apple 启用需要 ServiceID + TeamID + KeyID + PrivateKey 四项齐全
+	if req.Enabled && (req.ServiceID == "" || req.TeamID == "" || req.KeyID == "" || privateKey == "") {
+		utils.BadRequest(c, "启用 Apple OAuth 需先填好 Service ID / Team ID / Key ID 和 Private Key")
+		return
+	}
 	callbackURL := normalizeCallbackURL(req.RedirectURI, "/apple/callback")
-	if err := h.service.UpdateAppleOAuthConfig(req.ServiceID, req.TeamID, req.KeyID, req.PrivateKey, callbackURL, req.Enabled); err != nil {
+	if err := h.service.UpdateAppleOAuthConfig(req.ServiceID, req.TeamID, req.KeyID, privateKey, callbackURL, req.Enabled); err != nil {
 		utils.Error(c, 3071, "Failed to update Apple OAuth configuration")
 		return
 	}
@@ -314,6 +358,11 @@ func (h *Handler) UpdateDiscourseSSOConfig(c *gin.Context) {
 	}
 	ssoSecret, ok := preserveSecretOnEmpty(c, req.SSOSecret, existingSecret, existing != nil, "SSO Secret")
 	if !ok {
+		return
+	}
+
+	if req.Enabled && (req.SiteURL == "" || ssoSecret == "") {
+		utils.BadRequest(c, "启用 Discourse SSO 需先填好 Site URL 与 SSO Secret")
 		return
 	}
 

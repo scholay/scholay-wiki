@@ -31,7 +31,9 @@ import (
 	"strings"
 	"time"
 
+	"scholar-backend/internal/common/ctxutil"
 	"scholar-backend/internal/common/database"
+	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/storage"
 
@@ -84,7 +86,7 @@ func loadOwnedPaper(c *gin.Context, db *gorm.DB, uid, paperID uint64) (*UserLibr
 // 返回:更新后的 UserLibraryPaper(含 pdf_uploaded_at 等)
 func (h *Handler) UploadPDF(c *gin.Context) {
 	if !storage.IsEnabled() {
-		utils.Error(c, http.StatusServiceUnavailable, "对象存储未启用,无法上传")
+		utils.ErrorResponse(c, http.StatusServiceUnavailable, "对象存储未启用,无法上传")
 		return
 	}
 
@@ -106,7 +108,7 @@ func (h *Handler) UploadPDF(c *gin.Context) {
 	// 限大小 —— Gin 的 MaxMultipartMemory 已经全局设过,但这里再守一道
 	if c.Request.ContentLength > maxPDFSize+1<<20 {
 		// 容差 1 MiB 用于 multipart 编码 overhead
-		utils.Error(c, http.StatusRequestEntityTooLarge,
+		utils.ErrorResponse(c, http.StatusRequestEntityTooLarge,
 			fmt.Sprintf("文件过大,上限 %d MiB", maxPDFSize/1024/1024))
 		return
 	}
@@ -117,7 +119,7 @@ func (h *Handler) UploadPDF(c *gin.Context) {
 		return
 	}
 	if fileHeader.Size > maxPDFSize {
-		utils.Error(c, http.StatusRequestEntityTooLarge,
+		utils.ErrorResponse(c, http.StatusRequestEntityTooLarge,
 			fmt.Sprintf("文件过大(%d 字节),上限 %d MiB", fileHeader.Size, maxPDFSize/1024/1024))
 		return
 	}
@@ -136,7 +138,7 @@ func (h *Handler) UploadPDF(c *gin.Context) {
 	// 读全文到内存(50MiB 内可控) —— 同时算 sha256
 	src, err := fileHeader.Open()
 	if err != nil {
-		utils.Error(c, http.StatusInternalServerError, "无法读取上传文件: "+err.Error())
+		utils.InternalError(c, 500, "无法读取上传文件", err)
 		return
 	}
 	defer src.Close()
@@ -191,20 +193,20 @@ func (h *Handler) UploadPDF(c *gin.Context) {
 	if err := db.Model(&UserLibraryPaper{}).
 		Where("id = ? AND user_id = ?", paper.ID, uid).
 		Updates(updates).Error; err != nil {
-		utils.Error(c, http.StatusInternalServerError, "保存元数据失败: "+err.Error())
+		utils.InternalError(c, 500, "保存元数据失败", err)
 		return
 	}
 
 	// 旧对象与新 key 不一致 → 异步删旧(失败只记日志,不影响主流程)
 	if paper.PdfObjectKey != "" && paper.PdfObjectKey != newKey {
 		oldKey := paper.PdfObjectKey
-		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		safego.Go("library-replace-pdf-cleanup", func() {
+			ctx, cancel := ctxutil.With(ctxutil.QuickIO)
 			defer cancel()
 			if err := storage.DeleteObject(ctx, bucket, oldKey); err != nil {
 				slog.Warn("library: 清理旧 PDF 对象失败", "err", err, "key", oldKey)
 			}
-		}()
+		})
 	}
 
 	// 回填新值返回(用户立即看到更新)
@@ -232,7 +234,7 @@ func (h *Handler) UploadPDF(c *gin.Context) {
 // inline(非 attachment)允许浏览器内嵌 PDF.js 预览。
 func (h *Handler) DownloadPDF(c *gin.Context) {
 	if !storage.IsEnabled() {
-		utils.Error(c, http.StatusServiceUnavailable, "对象存储未启用,无法下载")
+		utils.ErrorResponse(c, http.StatusServiceUnavailable, "对象存储未启用,无法下载")
 		return
 	}
 
@@ -295,7 +297,7 @@ func (h *Handler) DownloadPDF(c *gin.Context) {
 // 清理元数据 + 异步删 MinIO 对象。
 func (h *Handler) DeletePDF(c *gin.Context) {
 	if !storage.IsEnabled() {
-		utils.Error(c, http.StatusServiceUnavailable, "对象存储未启用")
+		utils.ErrorResponse(c, http.StatusServiceUnavailable, "对象存储未启用")
 		return
 	}
 
@@ -334,13 +336,13 @@ func (h *Handler) DeletePDF(c *gin.Context) {
 
 	oldKey := paper.PdfObjectKey
 	bucket := storage.PaperPDFBucket()
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	safego.Go("library-delete-pdf-cleanup", func() {
+		ctx, cancel := ctxutil.With(ctxutil.QuickIO)
 		defer cancel()
 		if err := storage.DeleteObject(ctx, bucket, oldKey); err != nil {
 			slog.Warn("library: DeletePDF 清理对象失败", "err", err, "key", oldKey)
 		}
-	}()
+	})
 
 	utils.Success(c, gin.H{"deleted": true})
 }

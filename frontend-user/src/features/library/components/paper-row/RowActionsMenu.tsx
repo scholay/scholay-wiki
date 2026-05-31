@@ -17,6 +17,7 @@ import {
   PopoverTrigger,
 } from '@/shared/ui/popover';
 import { ConfirmPopover } from '@/shared/components/ConfirmPopover';
+import { useApiToast } from '@/shared/hooks';
 import { cn } from '@/shared/lib/utils';
 import { useLibraryFolders } from '../../api/folders';
 import {
@@ -76,6 +77,7 @@ export function RowActionsMenu({
 
   const moveMut = useMovePaperToFolder();
   const deleteMut = useBatchDeletePapers();
+  const apiToast = useApiToast();
 
   const close = () => {
     setOpen(false);
@@ -90,7 +92,7 @@ export function RowActionsMenu({
       toast.success(`已移动到「${folderName}」`);
       close();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : '移动失败');
+      apiToast.show(err, '移动失败');
     }
   };
 
@@ -101,7 +103,7 @@ export function RowActionsMenu({
       toast.success(`已删除 ${res.affected ?? 1} 篇`);
       close();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : '删除失败');
+      apiToast.show(err, '删除失败');
     }
   };
 

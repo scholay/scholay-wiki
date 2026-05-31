@@ -7,11 +7,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Scholar is an academic search platform with AI-powered features. It consists of:
 - **Backend**: Go (Gin framework) + MySQL + GORM + Redis
 - **Frontend**: React 19 + Vite 6 + TS strict + Tailwind v4 + shadcn 在 `frontend-user/`,用户端 + /admin 路由共一个 SPA,端口 5411
-- **Frontend (legacy archive)**: 旧 CRA 版源在 `frontend-user-old/` —— 不构建、不部署,仅作备查
 - **Infrastructure**: Docker Compose with Nginx reverse proxy
 - **Caching**: Redis for session management and API key caching
 
-> ⚠️ **在 `frontend-user/` 下工作时,该目录自带 [CLAUDE.md](frontend-user/CLAUDE.md) 强制约束**(第三方优先 / 分层 / 网络层 / 样式 token / 组件分层等)。提交前可用 `/v2-audit` skill 自动审计(skill 名沿用旧叫法)。`frontend-user-old/` 是历史 CRA 代码,不要照搬旧模式到当前 Vite 版前端。
+> ⚠️ **在 `frontend-user/` 下工作时,该目录自带 [CLAUDE.md](frontend-user/CLAUDE.md) 强制约束**(第三方优先 / 分层 / 网络层 / 样式 token / 组件分层等)。提交前可用 `/v2-audit` skill 自动审计(skill 名沿用旧叫法)。
 
 ## Quick Reference
 
@@ -196,13 +195,13 @@ TOKEN="your-jwt-token-here"
 curl "http://localhost:5411/api/v1/scholar/papers/search?query=transformer&limit=5" \
   -H "Authorization: Bearer $TOKEN"
 
-# Check user subscription quota
-curl "http://localhost:5411/api/v1/user/subscription/quota" \
+# Smart-search agent bridge (智能搜索, get-or-create + WS ticket)
+curl "http://localhost:5411/api/v1/user/smart-search/session" \
   -H "Authorization: Bearer $TOKEN"
-
-# Check user subscription usage
-curl "http://localhost:5411/api/v1/user/subscription/usage" \
+curl -X POST "http://localhost:5411/api/v1/user/smart-search/session/ws-ticket" \
   -H "Authorization: Bearer $TOKEN"
+# WS upgrade (use the wsToken from previous call, 30s TTL, one-time use):
+# ws://localhost:5411/api/v1/user/smart-search/ws/<sessionId>?ws_token=<wsToken>
 
 # Get WeChat Official Account config (admin only)
 ADMIN_TOKEN="your-admin-jwt-token"
@@ -295,78 +294,87 @@ internal/
 ├── admin/          # Admin module (username/password auth)
 ├── user/           # User module (email/OAuth auth)
 ├── ai/             # AI service integration (prompt templates, LLM calls)
-├── conversation/   # Conversation management with AI analysis
-├── semanticscholar/# Semantic Scholar API client & MCP server
+├── agent/          # HTTP client to scholar_agent container (cc-haha)
+├── agentbridge/    # Generic agent bridge: user↔session 映射 + WS pipe + 配额钩子 + ws-ticket
+├── agentconfig/    # Admin-managed agent model/provider config (单行表)
+├── smartsearch/    # 智能搜索 feature: 一份 FeatureSpec + thin handler 即可挂上 agentbridge
+├── minicod/        # Minicod 学术 API client (papers / authors / journals)
+├── semanticscholar/# Semantic Scholar API client (legacy)
 ├── thirdparty/     # Third-party account management (API keys, OAuth)
-├── subscription/   # Subscription plans and quota management
-├── order/          # Order processing and management
 ├── payment/        # Payment integration (Alipay + WeChat Pay)
-├── coupon/         # Coupon/discount system with invitation rewards
 ├── wechat/         # WeChat integration (Mini Program, OAuth)
 ├── wechatofficial/ # WeChat Official Account auto-reply with AI
+├── peerreview/     # AI 审稿 v1
+├── peerreview2/    # AI 审稿 v2
+├── latexwriter/    # LaTeX 写作 agent
+├── library/        # 个人文献集
+├── stagingarea/    # 检索工作区 · 暂存区
+├── feedback/       # 用户反馈工单
+├── seo/            # SEO 索引 (papers/authors/journals)
+├── seosubmit/      # 主动推送 SEO 给百度等搜索引擎
 ├── proxy/          # HTTP proxy for external AI services
 ├── mcp/            # MCP (Model Context Protocol) server
-├── config/         # System configuration (privacy policy, email, etc.)
+├── usagelog/       # 用户行为日志 + 热度统计
+├── hotcontent/     # 热门内容
+├── message/        # 站内信 / 系统消息
+├── announcement/   # 全站公告
+├── pdf/, pdfparse/ # PDF 预览 + 文本解析
+├── storage/        # MinIO 抽象
+├── websocket/      # 通用 WS hub (站内信推送)
+├── clientlog/      # 前端错误日志上报
+├── umami/          # umami 站点统计集成
+├── config/         # 公共系统配置 (privacy policy 等)
 └── common/
     ├── config/     # App configuration (env vars)
     ├── database/   # Database connection & initialization
-    ├── middleware/ # HTTP middleware (CORS, auth)
-    ├── model/      # Shared models (sessions, statistics)
+    ├── middleware/ # HTTP middleware (CORS, auth, ratelimit, timeout, recovery)
     ├── cache/      # Redis cache utilities
     ├── cleanup/    # Background cleanup tasks
     ├── circuitbreaker/ # Circuit breakers for external services
-    └── utils/      # Utilities (JWT, password, response, Redis)
+    ├── safego/     # 带 recover 的 goroutine 包装
+    └── utils/      # Utilities (JWT, password, response, ...)
 ```
+
+**已下线/已迁移的模块**:
+- `internal/conversation/` — 已删除 (migration 0049),功能由 [agentbridge](backend/internal/agentbridge/) + [smartsearch](backend/internal/smartsearch/) 接管
+- `internal/subscription/` `internal/order/` `internal/coupon/` — Go 代码已不存在,对应 DB 表 (`subscription_plans` / `user_subscriptions` / `usage_quotas` / `orders` / `coupon_*`) 保留但**无代码读写**(stranded)。新功能不要再依赖这些表。
 
 **Key Pattern**: Each domain module (admin/user/ai/etc.) follows Repository → Service → Handler:
 - **Repository**: Database operations (GORM)
 - **Service**: Business logic
 - **Handler**: HTTP request/response (Gin)
 
-### Database Schema (31 Tables)
+### Database Schema
 
-The system uses MySQL with the following tables:
+> 表多且持续增长,以 `docker exec scholar_mysql mysql ... -e "SHOW TABLES"` 为准。
+> 下面只列**当前由 Go 代码读写**的关键表,不是穷举。stranded 表(无代码消费的历史遗留)
+> 见上一节 "已下线/已迁移的模块"。
 
-**Core Tables**:
-- `users` - User accounts (includes admin accounts with `role='admin'`)
-- `admin_users` - **LEGACY, DO NOT USE** — migrated to `users` table via migration 0007; kept for rollback safety only
-- `user_auth_providers` - OAuth provider associations
-- `user_sessions` - Active session tracking
-- `online_user_snapshots` - User activity statistics
+**核心账户与会话**:
+- `users` — 用户账户(含 `role='admin'` 的管理员;`admin_users` 是历史表,通过 migration 0007 迁过来,留作回滚兜底)
+- `user_auth_providers` — OAuth 关联(github / google / orcid / apple / microsoft / discourse / wechat 等)
+- `user_messages` — 站内信收件箱
 
-**Subscription & Order**:
-- `subscription_plans` - Available subscription tiers
-- `user_subscriptions` - Active user subscriptions
-- `usage_quotas` - API call quotas per subscription
-- `orders` - Purchase orders
-- `payment_transactions` - Payment records
+**Agent 桥接**(详见 [agentbridge](backend/internal/agentbridge/)):
+- `agent_config` — agent 上游 provider / model 单行配置(admin 可改),含 `push_status` 字段反映推送结果
+- `agent_sessions` — 用户↔agent session 多 feature 复合主键 (`user_id, feature_key`),每个 feature 一行
 
-**Coupon System**:
-- `coupon_templates` - Reusable coupon definitions
-- `user_coupons` - Issued coupons
-- `coupon_usage_logs` - Usage history
-- `coupon_batches` - Bulk distribution management
-- `user_invitations` - User invitation codes
-- `invitation_relationships` - Inviter-invitee tracking
+**AI / 学术**:
+- `analysis_dimensions` — AI 分析维度模板
+- `third_party_accounts` — Minicod / Anthropic 等上游 API key 池
+- `paper_analysis` — 论文 AI 分析结果缓存
+- `latex_*` — LaTeX 写作 agent 全套(`latex_documents` / `latex_conversations` / `latex_chat_messages` / `latex_agent_config` / `latex_agent_models`)
+- `peer_review_*` / `pr2_*` — AI 审稿 v1 / v2 任务与文件
+- `user_library_*` — 个人文献集
+- `user_staging_*` — 检索工作区
 
-**Configuration**:
-- `third_party_accounts` - API keys and credentials
-- `prompt_templates` - AI prompt configurations
-- `system_configs` - System-wide settings
-- `github_oauth_config` - GitHub OAuth settings
-- `wechat_configs` - WeChat Mini Program config
-- `wechat_official_config` - WeChat Official Account config
-- `wechat_pay_configs` - WeChat Pay settings
-- `alipay_configs` - Alipay settings
-- `email_configs` - Email service settings
-- `sms_configs` - SMS service settings
-- `privacy_policies` - Privacy policy versions
-- `terms_of_service` - Terms of service versions
+**SEO**: `seo_papers` / `seo_authors` / `seo_journals` / `hot_papers` / `hot_search_keywords`
 
-**Content**:
-- `conversations` - User AI conversations
-- `conversation_messages` - Individual messages
-- `user_statistics` - User analytics data
+**支付 / 营销**: `payment_transactions` / `orders` / `alipay_configs` / `wechat_pay_configs` / `wechat_configs` / `wechat_official_config` / `currency_*` / `wallets` / `user_checkins`
+
+**配置类**: `system_configs` / `feature_configs` / `email_configs` / `sms_configs` / `usage_log_config` / `*_oauth_config` 多个
+
+**Stranded** (无代码消费, 见上节): `subscription_plans` / `user_subscriptions` / `usage_quotas` / `coupon_*` / `user_invitations` / `invitation_relationships`
 
 ### 数据库迁移系统（按序重放）
 
@@ -450,43 +458,54 @@ The backend integrates Semantic Scholar Academic Graph API with two access metho
 - `backend/SEMANTIC_SCHOLAR_API.md` - Detailed API documentation (Chinese)
 - `swagger.json` - Complete OpenAPI 2.0 specification
 
-### AI & Conversation System
+### Agent Service Integration (新版 AI Agent 架构)
 
-The platform includes an AI-powered conversation system:
+旧版的 `internal/conversation/` (基于 SSE 的多分析模式 + 自研 prompt 模板) 在 migration 0049
+已下线。新版统一走 **scholar_agent 容器 + agentbridge 桥接** 的架构:
 
-- **Conversations**: Users can create conversations with AI
-- **Messages**: Each conversation contains multiple messages
-- **Analysis Modes**:
-  - Paper analysis (streaming)
-  - Advanced search (multi-step streaming)
-  - Continue conversation (streaming)
-- **Prompt Templates**: Admin-configurable templates for AI interactions
-- **Third-party Integration**: Uses configurable AI service providers (OpenAI, Claude, etc.)
+```
+┌──────────────────────────┐   HTTP /api/{sessions,agents,providers}
+│  scholar_agent (cc-haha) │   WS   /ws/<sessionId>
+│  /home/bun/.claude/      │ 数据落 jsonl, agent 自管;
+│  Minicod MCP 预装         │ backend 完全黑盒, 不读 jsonl
+└────────────▲─────────────┘
+             │
+┌────────────┴─────────────┐
+│ internal/agent           │  纯 HTTP 客户端 (CreateSession / Delete / GetMessages
+│  + httpclient + skill    │  + UpsertAgent + PushConfig + typed *HTTPError)
+└────────────▲─────────────┘
+             │
+┌────────────┴─────────────┐
+│ internal/agentbridge     │  通用 feature 桥接
+│  - Bridge.For(spec)      │   - 用户↔session 1:N (PK = user_id + feature_key)
+│  - FeatureBridge methods │   - WS upgrade + JWT/ws-ticket 鉴权 + pipe + ping
+│    (Get/Reset/Messages/  │   - 首条 user_message 注入 SystemPrompt prefix (可选)
+│     Context/HandleWS/    │   - permission_request 自动 approve (可选)
+│     IssueWSTicket)       │   - PreUserMessage 配额钩子 (RedisDailyCap 默认实现)
+│                          │   - OnMessageComplete usage 钩子 (slog 默认实现)
+└────────────▲─────────────┘
+             │
+┌────────────┴─────────────┐
+│ internal/smartsearch     │  Feature: 智能搜索
+│  + spec.go (Spec)        │   一份 FeatureSpec + thin handler 即可挂上 bridge
+│  + handler.go (~120 行)   │
+└──────────────────────────┘
+```
 
-**Implementation**:
-- `backend/internal/conversation/` - Conversation management
-- `backend/internal/ai/` - AI service and prompt templates
-- Streaming responses via Server-Sent Events (SSE)
+**加新 feature 的最小动作**:
+1. 新模块 `internal/<feature>/spec.go` 声明 `agentbridge.FeatureSpec`
+2. 新模块 `internal/<feature>/handler.go` ~100 行 gin 翻译层
+3. `bootstrap.go` 一行: `feature := agentBridge.For(<feature>.Spec)`
+4. `routes_user.go` 挂 4 个 HTTP 路由 + 1 个 WS 路由(路径模板见 smartsearch)
 
-### Subscription & Order System
+**关键约定**:
+- session 数据在 agent 容器内 jsonl, backend DB 只存映射 (`agent_sessions`)
+- WS 鉴权: 前端先 POST `/<feature>/session/ws-ticket` 拿 30s 一次性 token, 再用 `?ws_token=<...>` 升级 WS。直接放 JWT 在 URL 是 deprecated 路径 (会写 warn 日志)
+- 成本控制: 通过 `FeatureSpec.PreUserMessage` 钩子接配额(目前提供 `agentbridge.NewRedisDailyCap`, 后续可替换为完整 subscription 系统)
+- 用量审计: `FeatureSpec.OnMessageComplete` 拿 agent 返回的 token usage; 默认 `NewSlogUsageRecorder` 打到日志, `docker logs scholar_backend | grep agent_usage` 直接看
+- agent 容器的 model / provider 配置在 `agent_config` 表, admin 后台可改, 改完后台异步 push 到 agent;`push_status` / `last_pushed_at` / `push_error` 字段反映推送结果
 
-The platform includes a subscription management system with quota tracking:
-
-- **Subscription Plans**: Admin can create and manage subscription plans (free, basic, premium, etc.)
-- **User Subscriptions**: Each user has an active subscription with associated quotas
-- **Quota Management**:
-  - API call quotas (conversations, searches, advanced searches)
-  - PDF preview quotas
-  - Automatic quota reset on subscription renewal
-  - Real-time quota tracking and enforcement
-- **Usage Tracking**: Records user API usage and deducts from quotas
-- **Orders**: Tracks subscription purchases and payment records
-
-**Implementation**:
-- `backend/internal/subscription/` - Subscription plans, user subscriptions, quota management
-- `backend/internal/order/` - Order processing
-- Quota checks integrated into conversation and search endpoints
-- Background tasks for quota reset and cleanup
+**详细文档**: [agent/docs/api.md](agent/docs/api.md) (REST + WS 协议) · [agent/README.md](agent/README.md) (容器部署)
 
 ### Payment System
 
@@ -507,50 +526,6 @@ The platform integrates with multiple payment providers for the Chinese market:
 - Secure signature verification for all payment notifications
 - Support for multiple payment scenarios (web, mobile app, mini program)
 - Debug tool: `./scripts/check-alipay-callback.sh` for troubleshooting
-
-### Coupon & Discount System
-
-The platform includes a comprehensive coupon/discount system with invitation rewards:
-
-- **Coupon Templates**: Admin can create and manage reusable coupon templates
-  - Multiple discount types: percentage, fixed amount, price-off
-  - Flexible conditions: minimum purchase amount, applicable plans/products
-  - Usage limits: per user, total usage, first purchase only, new user only
-  - Time limits: fixed period or relative validity (days from issuance)
-- **Distribution Methods**:
-  - Manual distribution by admin
-  - Auto-distribution on registration
-  - Invitation rewards (both inviter and invitee)
-  - Batch distribution with targeting rules
-  - Public claim codes
-- **Invitation System**: Built-in referral program
-  - Each user gets unique invitation code and URL
-  - Track invitation statistics (total, successful, paid invites)
-  - Automatic coupon rewards for both parties
-  - Invitation relationship tracking
-- **Usage Tracking**: Complete audit trail
-  - Coupon status lifecycle (unused, reserved, used, expired, cancelled)
-  - Usage logs with discount calculations
-  - Order integration with coupon validation
-  - Refund handling
-- **Batch Management**: Scheduled bulk distribution
-  - Target specific user groups (new users, paid users, custom segments)
-  - Track distribution and usage statistics
-  - Schedule distribution for future dates
-
-**Key Tables**:
-- `coupon_templates` - Template definitions
-- `user_coupons` - Issued coupons with validity and status
-- `coupon_usage_logs` - Complete usage history
-- `user_invitations` - User invitation codes and statistics
-- `invitation_relationships` - Inviter-invitee tracking
-- `coupon_batches` - Batch distribution management
-
-**Implementation**:
-- `backend/internal/coupon/` - Full coupon system implementation
-- Integration with order and payment systems
-- Real-time coupon validation during checkout
-- Automatic expiration and status management
 
 ### WeChat Integration
 

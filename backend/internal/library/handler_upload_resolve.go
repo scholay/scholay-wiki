@@ -27,6 +27,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -35,6 +36,7 @@ import (
 	"time"
 
 	"scholar-backend/internal/common/cache"
+	"scholar-backend/internal/common/ctxutil"
 	"scholar-backend/internal/common/database"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/pdfparse"
@@ -106,11 +108,11 @@ func deleteJob(ctx context.Context, jobID string) {
 // UploadAndResolve 一次性接收 multipart PDF,流式回阶段事件。
 func (h *Handler) UploadAndResolve(c *gin.Context) {
 	if !storage.IsEnabled() {
-		utils.Error(c, http.StatusServiceUnavailable, "对象存储未启用")
+		utils.ErrorResponse(c, http.StatusServiceUnavailable, "对象存储未启用")
 		return
 	}
 	if h.deps.Minicod == nil {
-		utils.Error(c, http.StatusServiceUnavailable, "搜索服务未启用")
+		utils.ErrorResponse(c, http.StatusServiceUnavailable, "搜索服务未启用")
 		return
 	}
 	uid, ok := getUserID(c)
@@ -120,7 +122,7 @@ func (h *Handler) UploadAndResolve(c *gin.Context) {
 
 	// 读 file —— 受 Gin 全局 multipart memory 限制 + 这里再守 50MB
 	if c.Request.ContentLength > maxPDFSize+1<<20 {
-		utils.Error(c, http.StatusRequestEntityTooLarge,
+		utils.ErrorResponse(c, http.StatusRequestEntityTooLarge,
 			fmt.Sprintf("文件过大,上限 %d MiB", maxPDFSize/1024/1024))
 		return
 	}
@@ -130,7 +132,7 @@ func (h *Handler) UploadAndResolve(c *gin.Context) {
 		return
 	}
 	if fileHeader.Size > maxPDFSize {
-		utils.Error(c, http.StatusRequestEntityTooLarge, "文件过大")
+		utils.ErrorResponse(c, http.StatusRequestEntityTooLarge, "文件过大")
 		return
 	}
 	if !strings.HasSuffix(strings.ToLower(fileHeader.Filename), ".pdf") {
@@ -139,7 +141,7 @@ func (h *Handler) UploadAndResolve(c *gin.Context) {
 	}
 	src, err := fileHeader.Open()
 	if err != nil {
-		utils.Error(c, http.StatusInternalServerError, "无法读取上传文件: "+err.Error())
+		utils.InternalError(c, 500, "无法读取上传文件", err)
 		return
 	}
 	defer src.Close()
@@ -276,7 +278,7 @@ func (h *Handler) UploadAndResolve(c *gin.Context) {
 
 // cleanupTmpObject 清理临时对象 —— confirm 失败或 job 过期时使用
 func cleanupTmpObject(bucket, key string) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := ctxutil.With(ctxutil.QuickIO)
 	defer cancel()
 	if err := storage.DeleteObject(ctx, bucket, key); err != nil {
 		slog.Warn("library: cleanup tmp pdf failed", "err", err, "key", key)
@@ -352,7 +354,7 @@ func (h *Handler) ConfirmUploadJob(c *gin.Context) {
 	// 文件夹兜底
 	folderID, err := h.resolveFolderID(db, uid, req.FolderID)
 	if err != nil {
-		utils.Error(c, http.StatusInternalServerError, "文件夹初始化失败: "+err.Error())
+		utils.InternalError(c, 500, "文件夹初始化失败", err)
 		return
 	}
 
@@ -386,7 +388,7 @@ func (h *Handler) ConfirmUploadJob(c *gin.Context) {
 func writeConfirmError(c *gin.Context, err error) {
 	msg := err.Error()
 	if strings.Contains(msg, "文献集已达上限") {
-		utils.Error(c, http.StatusConflict, msg)
+		utils.ErrorResponse(c, http.StatusConflict, msg)
 		return
 	}
 	utils.Error(c, http.StatusInternalServerError, "落库失败: "+msg)
@@ -426,12 +428,6 @@ func (h *Handler) confirmLinked(
 	merging := q.Error == nil
 
 	if !merging {
-		// 风控:新建行前查总数,撞 1000 上限直接退回
-		if atLimit, _, err := enforcePaperLimit(db, uid); err != nil {
-			return nil, false, fmt.Errorf("count papers: %w", err)
-		} else if atLimit {
-			return nil, false, fmt.Errorf("文献集已达上限(%d 条),请删除一些不用的论文再试", MaxPapersPerUser)
-		}
 		// 新建一行
 		newPaper := &UserLibraryPaper{
 			UserID:        uid,
@@ -454,7 +450,11 @@ func (h *Handler) confirmLinked(
 		if job.AIMeta != nil {
 			fillOGFields(newPaper, job.AIMeta)
 		}
-		if err := db.Create(newPaper).Error; err != nil {
+		// 风控 + 插入原子化:锁用户区间 → 计数 → 插入,撞 1000 上限直接退回
+		if err := insertPaperAtomic(db, newPaper); err != nil {
+			if errors.Is(err, errPaperLimit) {
+				return nil, false, fmt.Errorf("文献集已达上限(%d 条),请删除一些不用的论文再试", MaxPapersPerUser)
+			}
 			return nil, false, fmt.Errorf("create paper row: %w", err)
 		}
 		newKey := fmt.Sprintf("papers/%d/%d/%s.pdf", uid, newPaper.ID, job.SHA256)
@@ -560,13 +560,6 @@ func (h *Handler) confirmFree(
 		return &refreshed, nil
 	}
 
-	// 风控:新建自由文件行前查总数,撞 1000 上限直接退回
-	if atLimit, _, err := enforcePaperLimit(db, uid); err != nil {
-		return nil, fmt.Errorf("count papers: %w", err)
-	} else if atLimit {
-		return nil, fmt.Errorf("文献集已达上限(%d 条),请删除一些不用的论文再试", MaxPapersPerUser)
-	}
-
 	// 新建自由文件行 —— 正常字段(source/source_paper_id/title/...)按规则填:
 	//   - source='local', source_paper_id=sha256
 	//   - 正常 title/abstract 留空,内容只放 og_*(由前端 pickField 自动 fallback)
@@ -596,7 +589,11 @@ func (h *Handler) confirmFree(
 			newPaper.OGAuthorsJSON = b
 		}
 	}
-	if err := db.Create(newPaper).Error; err != nil {
+	// 风控 + 插入原子化:锁用户区间 → 计数 → 插入,撞 1000 上限直接退回
+	if err := insertPaperAtomic(db, newPaper); err != nil {
+		if errors.Is(err, errPaperLimit) {
+			return nil, fmt.Errorf("文献集已达上限(%d 条),请删除一些不用的论文再试", MaxPapersPerUser)
+		}
 		return nil, fmt.Errorf("create free paper row: %w", err)
 	}
 	newKey := fmt.Sprintf("papers/%d/%d/%s.pdf", uid, newPaper.ID, job.SHA256)

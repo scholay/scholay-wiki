@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
+import { STALE_COLD } from '@/shared/lib/query-config';
 import type { Journal } from '@/shared/api/types';
 
 /**
@@ -14,7 +15,7 @@ export function useJournalDetail(id: number | null, enabled = true) {
   return useQuery({
     queryKey: ['journal', 'detail', id] as const,
     enabled: enabled && id != null && id > 0,
-    staleTime: 10 * 60 * 1000,
+    staleTime: STALE_COLD,
     queryFn: async (): Promise<Journal> => {
       try {
         const { data } = await http.post<{ data: Journal }>(

@@ -55,7 +55,7 @@ type RelinkSearchResponse struct {
 
 func (h *Handler) RelinkSearch(c *gin.Context) {
 	if h.deps.Minicod == nil {
-		utils.Error(c, http.StatusServiceUnavailable, "搜索服务未启用")
+		utils.ErrorResponse(c, http.StatusServiceUnavailable, "搜索服务未启用")
 		return
 	}
 	uid, ok := getUserID(c)
@@ -92,7 +92,7 @@ func (h *Handler) RelinkSearch(c *gin.Context) {
 
 	hits, err := h.SearchThreeSources(c.Request.Context(), uid, title, 5)
 	if err != nil {
-		utils.Error(c, http.StatusInternalServerError, "搜索失败: "+err.Error())
+		utils.InternalError(c, 500, "搜索失败", err)
 		return
 	}
 	utils.Success(c, RelinkSearchResponse{UsedTitle: title, Hits: hits})
@@ -164,7 +164,7 @@ func (h *Handler) Relink(c *gin.Context) {
 		// 合并到 existing
 		paper, err := h.mergeIntoExisting(c.Request.Context(), db, current, &existing, &req.Link)
 		if err != nil {
-			utils.Error(c, http.StatusInternalServerError, "合并失败: "+err.Error())
+			utils.InternalError(c, 500, "合并失败", err)
 			return
 		}
 		utils.Success(c, RelinkResponse{Paper: paper, Merged: true})
@@ -174,7 +174,7 @@ func (h *Handler) Relink(c *gin.Context) {
 	// 没冲突 → 原地把 current 改成 linked 到新上游
 	paper, err := h.relinkInPlace(db, current, &req.Link)
 	if err != nil {
-		utils.Error(c, http.StatusInternalServerError, "关联失败: "+err.Error())
+		utils.InternalError(c, 500, "关联失败", err)
 		return
 	}
 	utils.Success(c, RelinkResponse{Paper: paper, Merged: false})
@@ -307,9 +307,9 @@ func (h *Handler) relinkInPlace(db *gorm.DB, current *UserLibraryPaper, choice *
 // DELETE /user/library/papers/:id/unlink
 //
 // 取消关联 —— 把一行从 linked(D/G/M)退回到 free(本地)状态。
-// 只对 origin='upload' 的行允许:用户原本是上传 PDF 上来的,关联只是后置标注,
-// 取消关联本应可逆;而 origin='search' 的行最初就是从搜索来的"上游论文",
-// 没有"取消关联"的概念(那只能整条删除,走 /:source/:paperId DELETE)。
+// 允许任何 linked 行取消关联,但**该行必须有 og_* 本地信息**:取消关联会清空上游元数据
+// (title/abstract/authors/...),只留 og_* 快照;若 og 全空,取消后整行无内容可展示,
+// 故拒绝(前端也会把"取消关联"按钮置灰,这里是后端兜底)。没有 og 的论文只能整条删除。
 //
 // 字段动作:
 //   - source         = 'local'
@@ -336,13 +336,14 @@ func (h *Handler) Unlink(c *gin.Context) {
 		return
 	}
 
-	if row.Origin != OriginUpload {
-		utils.Error(c, http.StatusBadRequest, "搜索来源的论文不能取消关联,请直接删除该论文")
-		return
-	}
 	if row.LinkState != LinkStateLinked {
 		// 已经是 free,no-op,直接回当前行
 		utils.Success(c, *row)
+		return
+	}
+	// 取消关联会清空上游元数据,只留 og_*;og 全空则取消后整行为空,拒绝(前端同样置灰)。
+	if !paperHasOGData(row) {
+		utils.Error(c, http.StatusBadRequest, "该论文没有可保留的本地信息,取消关联会导致内容为空,请改用删除")
 		return
 	}
 
@@ -377,5 +378,20 @@ func (h *Handler) Unlink(c *gin.Context) {
 		return
 	}
 	utils.Success(c, refreshed)
+}
+
+// paperHasOGData 判断一行是否有"本地保留信息"(og_* 任一非空)。取消关联会清空上游元数据,
+// 只留 og_* —— 若 og 全空,取消后整行无内容可展示,故不允许取消关联。
+func paperHasOGData(r *UserLibraryPaper) bool {
+	if strings.TrimSpace(r.OGTitle) != "" ||
+		strings.TrimSpace(r.OGAbstract) != "" ||
+		strings.TrimSpace(r.OGVenue) != "" ||
+		strings.TrimSpace(r.OGDOI) != "" ||
+		r.OGYear != nil {
+		return true
+	}
+	// og_authors_json 可能是 "null" / "[]" 等空数组字面量,排除掉
+	s := strings.TrimSpace(string(r.OGAuthorsJSON))
+	return s != "" && s != "null" && s != "[]"
 }
 

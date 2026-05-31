@@ -68,17 +68,20 @@ type Attachment struct {
 	Type string `json:"type"` // 文件类型（image/file）
 }
 
-// FeedbackAttachment 反馈附件数据库模型
+// FeedbackAttachment 反馈附件数据库模型。
+//
+// 文件本体走 MinIO (object_key = MinIO bucket 里的对象键), MySQL 只存元数据。
+// 历史上 file_data LONGBLOB 一直把内容塞库, 在 migration 0055 改造迁到 MinIO。
 type FeedbackAttachment struct {
 	ID           uint      `gorm:"primarykey" json:"id"`
-	UploadKey    string    `gorm:"size:36;not null;index" json:"uploadKey"`       // 上传批次key
-	FeedbackID   *uint     `gorm:"index" json:"feedbackId"`                       // 关联的反馈ID
-	OriginalName string    `gorm:"size:255;not null" json:"originalName"`         // 原始文件名
-	FileData     []byte    `gorm:"type:longblob;not null" json:"-"`               // 文件二进制数据（不返回给前端）
-	FileSize     int64     `gorm:"not null" json:"fileSize"`                      // 文件大小
-	FileType     string    `gorm:"size:20;not null" json:"fileType"`              // 文件类型 image/file
-	MimeType     string    `gorm:"size:100;not null" json:"mimeType"`             // MIME类型
-	IsUsed       bool      `gorm:"default:false;index" json:"isUsed"`             // 是否已使用
+	UploadKey    string    `gorm:"size:36;not null;index" json:"uploadKey"`       // 上传批次 key (UUID)
+	FeedbackID   *uint     `gorm:"index" json:"feedbackId"`                       // 关联的反馈 ID, NULL = 孤儿(未绑定)
+	OriginalName string    `gorm:"size:255;not null" json:"originalName"`         // 原始文件名 (给下载用)
+	ObjectKey    string    `gorm:"size:512;not null" json:"-"`                    // MinIO bucket 里的对象键, 内部用
+	FileSize     int64     `gorm:"not null" json:"fileSize"`                      // 文件大小 (字节)
+	FileType     string    `gorm:"size:20;not null" json:"fileType"`              // 类型 image / file
+	MimeType     string    `gorm:"size:100;not null" json:"mimeType"`             // MIME 类型
+	IsUsed       bool      `gorm:"default:false;index" json:"isUsed"`             // 是否已 attach 到 feedback
 	CreatedAt    time.Time `json:"createdAt"`
 	UpdatedAt    time.Time `json:"updatedAt"`
 }
@@ -89,10 +92,11 @@ func (FeedbackAttachment) TableName() string {
 }
 
 // ToAttachment 转换为Attachment格式（用于响应，URL指向下载接口）
+// URL 带上 uploadKey —— 下载接口用它做能力校验防 id 枚举 IDOR(见 handler.GetAttachment)。
 func (fa *FeedbackAttachment) ToAttachment() Attachment {
 	return Attachment{
 		Name: fa.OriginalName,
-		URL:  fmt.Sprintf("/api/v1/public/feedback/attachment/%d", fa.ID),
+		URL:  fmt.Sprintf("/api/v1/public/feedback/attachment/%d?key=%s", fa.ID, fa.UploadKey),
 		Size: fa.FileSize,
 		Type: fa.FileType,
 	}

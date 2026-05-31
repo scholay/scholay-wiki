@@ -30,8 +30,10 @@ func (h *Handler) GetHotKeywords(c *gin.Context) {
 	days, _ := strconv.Atoi(c.DefaultQuery("days", "30"))
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	// search_type 过滤: paper / journal,空 = 全部
+	searchType := c.Query("search_type")
 
-	result, err := h.service.GetHotKeywords(days, page, pageSize)
+	result, err := h.service.GetHotKeywords(days, page, pageSize, searchType)
 	if err != nil {
 		utils.ServerError(c, "获取热门关键词失败")
 		return
@@ -77,85 +79,29 @@ func (h *Handler) ManualCleanup(c *gin.Context) {
 	utils.SuccessWithMessage(c, "清理完成", stats)
 }
 
-// ========== 公开接口（无需认证） ==========
-
-// GetRecentKeywords 获取最近搜索关键词（公开接口）
-func (h *Handler) GetRecentKeywords(c *gin.Context) {
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-
-	if limit > 50 {
-		limit = 50
-	}
-	if limit < 1 {
-		limit = 10
-	}
-
-	result, err := h.service.GetHotKeywords(30, 1, limit)
+// GetConfig 取当前清理策略 (admin 后台展示用)
+// GET /api/v1/admin/hot-content/config
+func (h *Handler) GetConfig(c *gin.Context) {
+	cfg, err := h.service.GetConfig()
 	if err != nil {
-		utils.ServerError(c, "获取搜索关键词失败")
+		utils.InternalError(c, 500, "读取热门内容配置失败", err)
 		return
 	}
-
-	keywords := make([]map[string]any, 0, len(result.Items))
-	for _, item := range result.Items {
-		keywords = append(keywords, map[string]any{
-			"keyword":      item.Keyword,
-			"search_count": item.SearchCount,
-		})
-	}
-
-	utils.Success(c, gin.H{
-		"items": keywords,
-		"total": result.Total,
-	})
+	utils.Success(c, cfg)
 }
 
-// GetRecentPapers 获取最近搜索的论文（公开接口）
-func (h *Handler) GetRecentPapers(c *gin.Context) {
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-
-	if limit > 50 {
-		limit = 50
-	}
-	if limit < 1 {
-		limit = 10
-	}
-
-	result, err := h.service.GetHotPapers(30, 1, limit)
-	if err != nil {
-		utils.ServerError(c, "获取热门论文失败")
+// UpdateConfig 更新清理策略 (admin)
+// PUT /api/v1/admin/hot-content/config  body: { retention_days, max_records }
+func (h *Handler) UpdateConfig(c *gin.Context) {
+	var req HotContentConfigUpdateRequest
+	if !utils.BindJSON(c, &req) {
 		return
 	}
-
-	papers := make([]map[string]any, 0, len(result.Items))
-	for _, item := range result.Items {
-		paper := map[string]any{
-			"paper_id":   item.PaperID,
-			"view_count": item.ViewCount,
-		}
-		if item.Title != nil && *item.Title != "" {
-			paper["title"] = *item.Title
-		}
-		if item.Abstract != nil && *item.Abstract != "" {
-			paper["abstract"] = *item.Abstract
-		}
-		if item.DOI != nil && *item.DOI != "" {
-			paper["doi"] = *item.DOI
-		}
-		if item.Year != nil && *item.Year > 0 {
-			paper["year"] = *item.Year
-		}
-		if item.Authors != nil && *item.Authors != "" {
-			paper["authors"] = *item.Authors
-		}
-		if item.Venue != nil && *item.Venue != "" {
-			paper["venue"] = *item.Venue
-		}
-		papers = append(papers, paper)
+	cfg, err := h.service.UpdateConfig(&req)
+	if err != nil {
+		utils.InternalError(c, 500, "更新热门内容配置失败", err)
+		return
 	}
-
-	utils.Success(c, gin.H{
-		"items": papers,
-		"total": result.Total,
-	})
+	utils.SuccessWithMessage(c, "已更新", cfg)
 }
+

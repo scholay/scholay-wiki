@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
+import { STALE_COOL } from '@/shared/lib/query-config';
 
 /**
  * 公开系统配置 —— 跨 feature 资源(登录页、注册页、设置页都要读)。
@@ -41,7 +42,7 @@ export function usePublicConfig() {
       );
       return data.data;
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE_COOL,
     // 失败兜底:登录页才不至于因为配置挂掉就完全不显示按钮。
     retry: 1,
   });

@@ -8,28 +8,54 @@
 package payment
 
 import (
+	"bytes"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/hmac"
+	crand "crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
-	crand "crypto/rand"
 	"encoding/base64"
 	"encoding/json"
-	"math/big"
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
+	"math/big"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"scholar-backend/internal/common/httpclient"
+	"scholar-backend/internal/common/upstream"
 )
+
+// 全局 upstream.Client — base 是 api.mch.weixin.qq.com, 复用 30s 超时的 httpclient。
+// 不在 upstream 层重试 — 支付下单不能因为短暂网络抖动就重发 (微信会按 out_trade_no
+// 幂等, 但 backend 这里如果重试拿到 200, 中间状态会变得难以追踪)。
+var (
+	wxPayOnce   sync.Once
+	wxPayClient *upstream.Client
+)
+
+func wxPay() *upstream.Client {
+	wxPayOnce.Do(func() {
+		wxPayClient = upstream.New("wechat_pay").
+			BaseURL("https://api.mch.weixin.qq.com").
+			HTTPClient(httpclient.WithTimeout(30 * time.Second)).
+			Breaker(upstream.BreakerConfig{
+				MaxRequests:  3,
+				MinRequests:  5,
+				FailureRatio: 0.6,
+				Timeout:      30 * time.Second,
+			}).
+			MustBuild()
+	})
+	return wxPayClient
+}
 
 // WeChatPayRepo defines the data-access contract consumed by WeChatPayService.
 type WeChatPayRepo interface {
@@ -198,72 +224,54 @@ func (s *WeChatPayService) CreateNativeOrder(ctx context.Context, orderNo string
 	return codeURL, nil
 }
 
-// sendRequest 发送微信支付请求
-func (s *WeChatPayService) sendRequest(ctx context.Context, config *WeChatPayConfig, method, url string, body any) (string, error) {
-	// 序列化请求体
+// sendRequest 发送微信支付请求 — 走 common/upstream 拿 breaker / 观测 / typed error,
+// 但签名 / Authorization header 的构造必须在本层做 (依赖 method/url/body)。
+//
+// url 参数可以是完整 URL (历史调用方式) 或相对路径; 完整 URL 时 baseURL 被忽略,
+// upstream.Client.buildURL 自动处理。
+func (s *WeChatPayService) sendRequest(ctx context.Context, config *WeChatPayConfig, method, fullURL string, body any) (string, error) {
 	bodyBytes, err := json.Marshal(body)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
-	// 生成签名
+	// 签名要的是完整 URL 路径部分; 跟原实现一致
 	timestamp := time.Now().Unix()
 	nonce := generateNonce(32)
-	signature, err := s.generateSignature(config.PrivateKey, method, url, timestamp, nonce, string(bodyBytes))
+	signature, err := s.generateSignature(config.PrivateKey, method, fullURL, timestamp, nonce, string(bodyBytes))
 	if err != nil {
 		return "", fmt.Errorf("failed to generate signature: %w", err)
 	}
-
-	// 构建Authorization header
 	authorization := fmt.Sprintf(
 		`WECHATPAY2-SHA256-RSA2048 mchid="%s",nonce_str="%s",signature="%s",timestamp="%d",serial_no="%s"`,
 		config.MchID, nonce, signature, timestamp, config.SerialNo,
 	)
 
-	// 发送HTTP请求
-	req, err := http.NewRequestWithContext(ctx, method, url, strings.NewReader(string(bodyBytes)))
+	resp, err := wxPay().Do(ctx, upstream.Request{
+		Method: method,
+		Path:   fullURL, // 完整 URL → upstream 自动跳过 baseURL 拼接
+		Headers: http.Header{
+			"Content-Type":  {"application/json"},
+			"Accept":        {"application/json"},
+			"Authorization": {authorization},
+		},
+		Body: bytes.NewReader(bodyBytes),
+	})
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
+		slog.Error("wechat-pay: request failed", "url", fullURL, "err", err)
+		return "", fmt.Errorf("wechat pay request: %w", err)
 	}
 
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", authorization)
-
-	client := httpclient.WithTimeout(30 * time.Second)
-	resp, err := client.Do(req)
-	if err != nil {
-		slog.Error("wechat-pay: native order http error", "url", url, "err", err)
-		return "", fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		slog.Error("wechat-pay: read native order body", "err", err)
-		return "", fmt.Errorf("failed to read response: %w", err)
-	}
-
-	// 检查响应状态(微信支付非 200 视为业务失败,记录完整 body 便于排查 mch_id / 证书 / 金额校验类错误)
-	if resp.StatusCode != http.StatusOK {
-		slog.Error("wechat-pay: native order non-200",
-			"status", resp.StatusCode, "body", string(respBody))
-		return "", fmt.Errorf("wechat pay error: status=%d, body=%s", resp.StatusCode, string(respBody))
-	}
-
-	// 解析响应
 	var result map[string]any
-	if err := json.Unmarshal(respBody, &result); err != nil {
-		slog.Error("wechat-pay: parse native order response", "err", err, "body", string(respBody))
+	if err := json.Unmarshal(resp.Body, &result); err != nil {
+		slog.Error("wechat-pay: parse response", "err", err, "body", string(resp.Body))
 		return "", fmt.Errorf("failed to parse response: %w", err)
 	}
-
 	codeURL, ok := result["code_url"].(string)
 	if !ok {
-		slog.Error("wechat-pay: code_url missing in response", "body", string(respBody))
+		slog.Error("wechat-pay: code_url missing in response", "body", string(resp.Body))
 		return "", fmt.Errorf("code_url not found in response")
 	}
-
 	return codeURL, nil
 }
 

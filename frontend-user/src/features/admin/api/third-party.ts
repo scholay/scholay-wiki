@@ -11,7 +11,7 @@ import { http } from '@/shared/lib/http';
  *   - 多了 `priority` 字段(数字越小优先级越高)
  *   - 多了一堆延迟统计字段(success_count / fail_count / max_latency_ms 等)
  */
-export type AccountType = 'semantic_scholar' | 'ai_model' | 'minicod';
+export type AccountType = 'ai_model' | 'minicod';
 
 /** AccountConfig 是后端 map[string]any —— 不同 type 的 key 不同,前端用 Record 弱类型 */
 export type AccountConfig = Record<string, unknown>;

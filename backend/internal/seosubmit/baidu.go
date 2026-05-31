@@ -10,6 +10,8 @@
 // 配额:
 //   - 每天有上限(根据站点权重 50~1000 不等)
 //   - 我们用 Redis 计数器 SETEX 24h 软限,超过 quota 静默跳过本批,留给次日 worker
+//
+// 上游调用走 common/upstream — 统一观测 / 错误分类 / breaker 防雪崩。
 // ============================================================================
 
 package seosubmit
@@ -20,13 +22,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"scholar-backend/internal/common/cache"
+	"scholar-backend/internal/common/upstream"
 )
 
 const (
@@ -37,18 +41,42 @@ const (
 	baiduPushTimeout = 10 * time.Second
 )
 
-var baiduHTTPClient = &http.Client{Timeout: baiduPushTimeout}
+// 全局单例 upstream.Client — 进程内长期持有, 复用共享 httpclient 连接池 + breaker。
+// 不重试: 百度配额接口幂等性不可靠 (重试可能多次扣 quota), 失败留给次日 worker。
+var (
+	baiduOnce   sync.Once
+	baiduClient *upstream.Client
+)
+
+func baidu() *upstream.Client {
+	baiduOnce.Do(func() {
+		// 单独构造一个 10s 超时 client; 不复用 httpclient.Default 因为它是 5min 超时,
+		// 百度接口正常 1s 内回, 10s 失败就视为挂了。
+		hc := &http.Client{Timeout: baiduPushTimeout}
+		baiduClient = upstream.New("baidu_push").
+			BaseURL(baiduPushEndpoint).
+			HTTPClient(hc).
+			Breaker(upstream.BreakerConfig{
+				MaxRequests:  2,
+				MinRequests:  3,
+				FailureRatio: 0.6,
+				Timeout:      60 * time.Second,
+			}).
+			MustBuild()
+	})
+	return baiduClient
+}
 
 // baiduResp 百度成功响应:
 //   { "remain": 4999998, "success": 2 }
 // 失败响应字段不同,这里用 map 解析后看 error/message 字段。
 type baiduResp struct {
-	Remain        int      `json:"remain"`
-	Success       int      `json:"success"`
-	NotSameSite   []string `json:"not_same_site"`
-	NotValid      []string `json:"not_valid"`
-	Error         int      `json:"error"`
-	Message       string   `json:"message"`
+	Remain      int      `json:"remain"`
+	Success     int      `json:"success"`
+	NotSameSite []string `json:"not_same_site"`
+	NotValid    []string `json:"not_valid"`
+	Error       int      `json:"error"`
+	Message     string   `json:"message"`
 }
 
 // SubmitBaidu 推一批 URL 到百度普通收录 API。
@@ -95,29 +123,24 @@ func SubmitBaidu(ctx context.Context, site, token string, urls []string, quota i
 		return 0, nil
 	}
 
-	endpoint := fmt.Sprintf("%s?site=%s&token=%s", baiduPushEndpoint, site, token)
-	body := strings.Join(filtered, "\n")
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader([]byte(body)))
+	resp, err := baidu().Do(ctx, upstream.Request{
+		Method: http.MethodPost,
+		Path:   "", // baseURL 已经是完整 endpoint
+		Query:  url.Values{"site": []string{site}, "token": []string{token}},
+		Headers: http.Header{
+			"Content-Type": []string{"text/plain"},
+			"User-Agent":   []string{"ScholayBaiduPushClient/1.0"},
+		},
+		Body: bytes.NewReader([]byte(strings.Join(filtered, "\n"))),
+	})
 	if err != nil {
-		return 0, fmt.Errorf("baidu: build request: %w", err)
-	}
-	req.Header.Set("Content-Type", "text/plain")
-	req.Header.Set("User-Agent", "ScholayBaiduPushClient/1.0")
-
-	resp, err := baiduHTTPClient.Do(req)
-	if err != nil {
-		return 0, fmt.Errorf("baidu: do request: %w", err)
-	}
-	defer resp.Body.Close()
-	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-
-	if resp.StatusCode != http.StatusOK {
-		return 0, fmt.Errorf("baidu: status %d: %s", resp.StatusCode, string(respBody))
+		// upstream.Error 已经带 status/body/kind, 这里直接 wrap 透传
+		return 0, fmt.Errorf("baidu: %w", err)
 	}
 
 	var parsed baiduResp
-	if err := json.Unmarshal(respBody, &parsed); err != nil {
-		return 0, fmt.Errorf("baidu: parse response %q: %w", string(respBody), err)
+	if err := json.Unmarshal(resp.Body, &parsed); err != nil {
+		return 0, fmt.Errorf("baidu: parse response %q: %w", string(resp.Body), err)
 	}
 	if parsed.Error != 0 {
 		return 0, fmt.Errorf("baidu: api error %d: %s", parsed.Error, parsed.Message)

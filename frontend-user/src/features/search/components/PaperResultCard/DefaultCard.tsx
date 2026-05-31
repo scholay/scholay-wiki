@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Check, ExternalLink, Minimize2 } from 'lucide-react';
+import { Check, ExternalLink, Minimize2, Plus } from 'lucide-react';
 import { useOpenPaperInBrowser } from '@/shared/hooks';
 import { TruncatedText } from '@/shared/components/TruncatedText';
 import { FavoritePaperButton } from '@/shared/components/FavoritePaperButton';
@@ -111,15 +111,20 @@ export function DefaultCard({
         </TruncatedText>
       )}
       {/* action 行 —— .pen `glM0G`:
-         折叠按钮平时不显,卡片 hover 才出(group / group-hover)
-         翻译按钮 min-w 固定 68px,切换 "AI 翻译" / "翻译中…" / "原文" 视觉不抖 */}
-      <div className="mt-2.5 flex items-center gap-1.5">
+         - @container:以本行宽度做容器查询基准。行 < 260px(≈卡片 < 288px,例如
+           窄屏 / 智能搜索侧栏)时,所有按钮自动塌成"只剩图标",而不是让文案在按钮
+           里换行(响应式降级)。容器查询 ⇒ 跟卡片真实宽度走,不依赖视口宽。
+         - whitespace-nowrap + shrink-0:任何宽度下文案都不换行、按钮不被挤变形。
+         - 折叠按钮平时不显,卡片 hover 才出(group / group-hover)。 */}
+      <div className="@container mt-2.5 flex items-center gap-1.5">
         <button
           type="button"
           onClick={onToggleStage}
           aria-pressed={isStaged}
           className={cn(
-            'inline-flex items-center gap-1 h-6 px-2.5 rounded-sm text-xs font-bold transition-colors',
+            'inline-flex items-center justify-center gap-1 h-6 px-2.5 rounded-sm text-xs font-bold whitespace-nowrap shrink-0 transition-colors',
+            // 窄容器:塌成 24×24 纯图标方块
+            '@max-[260px]:w-6 @max-[260px]:px-0 @max-[260px]:gap-0',
             isStaged
               ? 'bg-brand-green text-white hover:bg-brand-green/85'
               : 'bg-brand-red text-white hover:bg-brand-red/90'
@@ -127,13 +132,11 @@ export function DefaultCard({
           title={isStaged ? '点击取消暂存' : '加入当前活跃暂存区'}
         >
           {isStaged ? (
-            <>
-              <Check className="size-3" strokeWidth={3} />
-              已暂存
-            </>
+            <Check className="size-3 shrink-0" strokeWidth={3} />
           ) : (
-            '+ 暂存'
+            <Plus className="size-3 shrink-0" strokeWidth={3} />
           )}
+          <span className="@max-[260px]:hidden">{isStaged ? '已暂存' : '暂存'}</span>
         </button>
 
         <FavoritePaperButton
@@ -141,6 +144,7 @@ export function DefaultCard({
           isFavorited={isFavorited}
           variant="chip"
           size="md"
+          collapseLabel
         />
 
         {hasTranslatable && (
@@ -156,20 +160,22 @@ export function DefaultCard({
             onToggle={() => setShowZh((v) => !v)}
             variant="chip"
             size="md"
+            collapseLabel
           />
         )}
 
-        <span className="flex-1" />
-
-        {/* 折叠 —— hover 才出现 */}
+        {/* 折叠 —— 仅 hover / 键盘聚焦本卡时出现。用 display 切换(hidden→inline-flex)
+            而非 opacity:idle 时彻底不占布局,所以它绝不会在窄卡片里反向撑出宽度 / 溢出;
+            group-focus-within 保证键盘 tab 到卡内任一按钮时也能露出(可达性)。
+            ml-auto 顶到行尾;窄容器同样塌成纯图标方块。 */}
         <button
           type="button"
           onClick={onFold}
-          className="inline-flex items-center gap-1 h-6 px-2 rounded-sm border border-border text-xs text-subtle hover:bg-surface-1 hover:text-foreground transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+          className="hidden group-hover:inline-flex group-focus-within:inline-flex ml-auto items-center justify-center gap-1 h-6 px-2 rounded-sm border border-border text-xs text-subtle whitespace-nowrap shrink-0 hover:bg-surface-1 hover:text-foreground transition-colors @max-[260px]:w-6 @max-[260px]:px-0 @max-[260px]:gap-0"
           title="把这张卡折叠成单行"
         >
-          <Minimize2 className="size-2.5" strokeWidth={2.5} />
-          折叠
+          <Minimize2 className="size-2.5 shrink-0" strokeWidth={2.5} />
+          <span className="@max-[260px]:hidden">折叠</span>
         </button>
       </div>
     </article>

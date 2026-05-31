@@ -115,9 +115,28 @@ func (r *Repository) Create(user *User) error {
 
 // Update updates a user.
 // 同 Create:持久化前规范化 email。
+//
+// 注意:这里走 Save() 是全列回写,**对部分更新场景偏重**。如果只是改 2-3 个字段
+// (typical: profile 改 username/avatar/bio; OAuth 回填昵称/头像), 请改用
+// UpdatePartial(id, fields), 走 Model+Where+Updates(map) 只写指定列, 避免:
+//   - 18+ 列的 UPDATE 语句网络/binlog 开销
+//   - 把内存里偶然为零值的字段误覆写 (race 时尤其危险)
+// 现存 admin 全字段编辑场景仍用 Update 保持语义稳定。
 func (r *Repository) Update(user *User) error {
 	normalizeUserEmail(user)
 	return r.db.Save(user).Error
+}
+
+// UpdatePartial 部分更新指定字段(map 形式)。比 Update(struct) 省网络和 binlog,
+// 且行为可预期:**只**写 map 里列出的列, 缺席的列不动。
+//
+// fields 的 key 必须用 GORM 列名(snake_case),如 "username" / "avatar_url" / "bio"。
+// 调用方负责规范化 email —— 这个方法不替你处理,避免 caller 误以为它会自动 normalize。
+func (r *Repository) UpdatePartial(id uint, fields map[string]any) error {
+	if len(fields) == 0 {
+		return nil
+	}
+	return r.db.Model(&User{}).Where("id = ?", id).Updates(fields).Error
 }
 
 // normalizeUserEmail 把 user.Email 指针指向的字符串规范化为 lower+trim。
@@ -408,7 +427,7 @@ func (r *Repository) FindAuthProviderByUnionID(provider, unionID string) (*UserA
 }
 
 // DeleteUser 删除用户及所有关联数据（统计数据除外）
-// 使用原生 SQL 操作关联表，避免跨包导入 conversation/subscription 模型
+// 使用原生 SQL 操作关联表，避免跨包导入 subscription 模型
 func (r *Repository) DeleteUser(userID uint) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		// 1. 删除使用配额（外键未配置级联）
@@ -416,21 +435,8 @@ func (r *Repository) DeleteUser(userID uint) error {
 			return fmt.Errorf("failed to delete usage quotas: %w", err)
 		}
 
-		// 2. 删除对话消息（外键未直接级联到用户）
-		var conversationIDs []uint
-		if err := tx.Raw("SELECT id FROM conversations WHERE user_id = ?", userID).Scan(&conversationIDs).Error; err != nil {
-			return fmt.Errorf("failed to get conversation IDs: %w", err)
-		}
-
-		if len(conversationIDs) > 0 {
-			if err := tx.Exec("DELETE FROM conversation_messages WHERE conversation_id IN ?", conversationIDs).Error; err != nil {
-				return fmt.Errorf("failed to delete conversation messages: %w", err)
-			}
-		}
-
-		// 3. 删除用户（以下通过外键 ON DELETE CASCADE 自动级联删除）：
+		// 2. 删除用户（以下通过外键 ON DELETE CASCADE 自动级联删除）：
 		//    - user_auth_providers
-		//    - conversations
 		//    - user_subscriptions
 		//    - orders → payment_transactions
 		if err := tx.Delete(&User{}, userID).Error; err != nil {
@@ -439,14 +445,6 @@ func (r *Repository) DeleteUser(userID uint) error {
 
 		return nil
 	})
-}
-
-// ==================== Result types for cross-table queries ====================
-
-type ConversationSummaryRow struct {
-	TotalConv   int        `gorm:"column:total_conv"`
-	TotalRounds int        `gorm:"column:total_rounds"`
-	LastConvAt  *time.Time `gorm:"column:last_conv_at"`
 }
 
 // ==================== Transaction helper ====================
@@ -460,31 +458,6 @@ func (r *Repository) ExecuteInTransaction(fn func(txRepo *Repository) error) err
 }
 
 // ==================== Cross-table query methods ====================
-
-// GetConversationSummary returns conversation totals for a user and conversation type.
-func (r *Repository) GetConversationSummary(userID uint, convType string) (*ConversationSummaryRow, error) {
-	var row ConversationSummaryRow
-	err := r.db.Table("conversations").
-		Select("COUNT(DISTINCT id) as total_conv, "+
-			"COALESCE(SUM((SELECT COUNT(*) FROM conversation_messages WHERE conversation_id = conversations.id)), 0) as total_rounds, "+
-			"MAX(updated_at) as last_conv_at").
-		Where("user_id = ? AND conversation_type = ?", userID, convType).
-		Scan(&row).Error
-	if err != nil {
-		return nil, err
-	}
-	return &row, nil
-}
-
-// CountConversationMessagesSince counts conversation messages for a user since a given time.
-func (r *Repository) CountConversationMessagesSince(userID uint, convType string, since time.Time) (int64, error) {
-	var count int64
-	err := r.db.Table("conversation_messages").
-		Joins("JOIN conversations ON conversations.id = conversation_messages.conversation_id").
-		Where("conversations.user_id = ? AND conversations.conversation_type = ? AND conversation_messages.created_at >= ?", userID, convType, since).
-		Count(&count).Error
-	return count, err
-}
 
 // CountUsersInTimeRange counts non-admin users created within [start, end).
 func (r *Repository) CountUsersInTimeRange(start, end time.Time) (int64, error) {

@@ -141,6 +141,8 @@ export function HomeSidebar() {
                 label={m.label}
                 subtitle={subtitleFor(m.id)}
                 comingSoon={m.comingSoon}
+                // "即将推出"整条灰显(标题 + 图标),与可用项拉开视觉重量
+                inactive={m.comingSoon}
               />
             ))}
           </SidebarSection>

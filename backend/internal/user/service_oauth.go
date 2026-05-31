@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"scholar-backend/internal/common/cache"
+	"scholar-backend/internal/common/ctxutil"
 	"scholar-backend/internal/common/utils"
 )
 
@@ -394,7 +395,7 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 	if unionID == "" {
 		lockKey = "wechat-login:" + openID
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := ctxutil.With(ctxutil.QuickIO)
 	defer cancel()
 	if !s.acquireOAuthLock(ctx, lockKey, 5*time.Second) {
 		return nil, "", false, errors.New("登录处理中,请稍后重试")
@@ -543,16 +544,19 @@ func (s *Service) BindWeChat(userID uint, openID, unionID, nickname, avatarURL s
 		return errors.New("用户不存在")
 	}
 
-	// Update username and avatar if not set
+	// Update username and avatar if not set —— 走 UpdatePartial 只写实际要改的两列,
+	// 不连带 18+ 列做 SAVE。
+	patch := make(map[string]any, 2)
 	if user.Username == nil || *user.Username == "" {
-		user.Username = &nickname
+		patch["username"] = &nickname
 	}
 	if user.AvatarURL == nil || *user.AvatarURL == "" {
-		user.AvatarURL = &avatarURL
+		patch["avatar_url"] = &avatarURL
 	}
-
-	if err := s.repo.Update(user); err != nil {
-		return err
+	if len(patch) > 0 {
+		if err := s.repo.UpdatePartial(userID, patch); err != nil {
+			return err
+		}
 	}
 
 	// Create or update auth provider entry
@@ -599,75 +603,3 @@ func (s *Service) BindWeChat(userID uint, openID, unionID, nickname, avatarURL s
 	return nil
 }
 
-// BindEmailWithPassword binds email to WeChat-registered user with new password
-func (s *Service) BindEmailWithPassword(ctx context.Context, userID uint, email, password, code string) error {
-	// Verify the email code using Redis
-	valid, err := cache.VerifyCode(ctx, email, code, "bind")
-	if err != nil {
-		return fmt.Errorf("failed to verify code: %w", err)
-	}
-	if !valid {
-		return errors.New("验证码无效或已过期")
-	}
-
-	// Check if email is already used by another user
-	existing, err := s.repo.FindByEmail(email)
-	if err != nil {
-		return err
-	}
-
-	if existing != nil && existing.ID != userID {
-		return errors.New("该邮箱已被其他账号绑定")
-	}
-
-	// Get current user
-	user, err := s.repo.FindByID(userID)
-	if err != nil {
-		return err
-	}
-
-	if user == nil {
-		return errors.New("用户不存在")
-	}
-
-	// Hash password
-	hashedPassword, err := utils.HashPassword(password)
-	if err != nil {
-		return err
-	}
-
-	// Update user email and password
-	user.Email = &email
-	user.EmailVerified = true
-	user.PasswordHash = &hashedPassword
-
-	if err := s.repo.Update(user); err != nil {
-		return err
-	}
-
-	// Create or update auth provider entry
-	authProvider, err := s.repo.FindAuthProviderByUserAndProvider(userID, "email")
-	if err != nil {
-		return err
-	}
-
-	if authProvider == nil {
-		// Create new auth provider
-		authProvider = &UserAuthProvider{
-			UserID:         userID,
-			Provider:       "email",
-			ProviderUserID: email,
-		}
-		if err := s.repo.CreateAuthProvider(authProvider); err != nil {
-			return err
-		}
-	} else {
-		// Update existing auth provider
-		authProvider.ProviderUserID = email
-		if err := s.repo.UpdateAuthProvider(authProvider); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}

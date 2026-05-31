@@ -6,6 +6,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -18,6 +19,7 @@ import (
 
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/model"
+	"scholar-backend/internal/seo"
 
 	"github.com/gin-gonic/gin"
 )
@@ -253,7 +255,7 @@ func splitJournalPath(rest string) (id, slug string) {
 // canonicalJournalPath 用 meta 拼 canonical 路径
 //   - 有 slug → /journal/{id}/{slug}
 //   - 无 slug → /journal/{id} (永远不需要 301)
-func canonicalJournalPath(meta *JournalSEOMeta) string {
+func canonicalJournalPath(meta *seo.JournalSSRMeta) string {
 	idStr := strconv.FormatInt(meta.JournalID, 10)
 	if meta.Slug != "" {
 		return "/journal/" + idStr + "/" + meta.Slug
@@ -261,9 +263,115 @@ func canonicalJournalPath(meta *JournalSEOMeta) string {
 	return "/journal/" + idStr
 }
 
+// ─── JSON-LD 结构化数据(详情页 schema.org)────────────────────────────────
+// 给爬虫提供机器可读的实体类型与属性, 触发富摘要 + 知识卡; 与首页 Organization/WebSite
+// 一起构成百度/必应「官网 + 子链」的结构化基础。
+// json.Marshal 默认把 <>& 转义成 \u00xx, 嵌进 <script> 安全(不会被 </script> 截断)。
+
+func jsonLDScript(obj any) string {
+	b, err := json.Marshal(obj)
+	if err != nil {
+		return ""
+	}
+	return `<script type="application/ld+json">` + string(b) + `</script>`
+}
+
+// buildPaperJSONLD —— ScholarlyArticle(标题/作者/年份/期刊/DOI)
+func buildPaperJSONLD(meta *seo.PaperSSRMeta, canonical string) string {
+	if meta.Title == "" {
+		return ""
+	}
+	obj := map[string]any{
+		"@context":  "https://schema.org",
+		"@type":     "ScholarlyArticle",
+		"headline":  truncate(meta.Title, 110),
+		"name":      meta.Title,
+		"url":       canonical,
+		"publisher": map[string]any{"@type": "Organization", "name": "Scholay学术", "url": appconfig.CanonicalBaseURL()},
+	}
+	if meta.Abstract != "" {
+		obj["abstract"] = truncate(meta.Abstract, 500)
+		obj["description"] = truncate(meta.Abstract, 200)
+	}
+	if len(meta.Authors) > 0 {
+		authors := make([]map[string]string, 0, len(meta.Authors))
+		for _, n := range meta.Authors {
+			if n != "" {
+				authors = append(authors, map[string]string{"@type": "Person", "name": n})
+			}
+		}
+		if len(authors) > 0 {
+			obj["author"] = authors
+		}
+	}
+	if meta.Year != nil && *meta.Year > 0 {
+		obj["datePublished"] = fmt.Sprintf("%d", *meta.Year)
+	}
+	if meta.Venue != "" {
+		obj["isPartOf"] = map[string]any{"@type": "Periodical", "name": meta.Venue}
+	}
+	if meta.DOI != "" {
+		obj["identifier"] = map[string]any{"@type": "PropertyValue", "propertyID": "DOI", "value": meta.DOI}
+		obj["sameAs"] = "https://doi.org/" + meta.DOI
+	}
+	return jsonLDScript(obj)
+}
+
+// buildAuthorJSONLD —— ProfilePage + Person(姓名/机构/主页)
+func buildAuthorJSONLD(meta *seo.AuthorSSRMeta, canonical string) string {
+	if meta.Name == "" {
+		return ""
+	}
+	person := map[string]any{
+		"@type": "Person",
+		"name":  meta.Name,
+		"url":   canonical,
+	}
+	if len(meta.Affiliations) > 0 {
+		affs := make([]map[string]string, 0, len(meta.Affiliations))
+		for _, a := range meta.Affiliations {
+			if a != "" {
+				affs = append(affs, map[string]string{"@type": "Organization", "name": a})
+			}
+		}
+		if len(affs) > 0 {
+			person["affiliation"] = affs
+		}
+	}
+	if meta.Homepage != "" {
+		person["sameAs"] = []string{meta.Homepage}
+	}
+	return jsonLDScript(map[string]any{
+		"@context":   "https://schema.org",
+		"@type":      "ProfilePage",
+		"url":        canonical,
+		"mainEntity": person,
+	})
+}
+
+// buildJournalJSONLD —— Periodical(刊名/出版商/ISSN)
+func buildJournalJSONLD(meta *seo.JournalSSRMeta, canonical string) string {
+	if meta.CanonicalName == "" {
+		return ""
+	}
+	obj := map[string]any{
+		"@context": "https://schema.org",
+		"@type":    "Periodical",
+		"name":     meta.CanonicalName,
+		"url":      canonical,
+	}
+	if meta.Publisher != "" {
+		obj["publisher"] = map[string]any{"@type": "Organization", "name": meta.Publisher}
+	}
+	if len(meta.ISSNs) > 0 {
+		obj["issn"] = meta.ISSNs
+	}
+	return jsonLDScript(obj)
+}
+
 // injectPaperSEOMeta 替换 <title>/<meta description>，并在 noscript 中插入论文摘要卡片
 // 目的：让 Googlebot 等爬虫看到真实论文元数据，而不是 SPA 通用壳
-func injectPaperSEOMeta(html string, meta *PaperSEOMeta, path string) string {
+func injectPaperSEOMeta(html string, meta *seo.PaperSSRMeta, path string) string {
 	title := meta.Title
 	if title == "" {
 		return html
@@ -328,6 +436,11 @@ func injectPaperSEOMeta(html string, meta *PaperSEOMeta, path string) string {
 		html = strings.Replace(html, "</head>", canonTag+"\n</head>", 1)
 	}
 
+	// 3.5) 注入 ScholarlyArticle JSON-LD（富摘要 / 知识卡）
+	if jsonLD := buildPaperJSONLD(meta, canonical); jsonLD != "" {
+		html = strings.Replace(html, "</head>", jsonLD+"\n</head>", 1)
+	}
+
 	// 4) 注入 noscript 论文卡片（爬虫友好）
 	noscriptCard := buildPaperNoscriptCard(meta)
 	if noscriptCard != "" {
@@ -343,7 +456,7 @@ func injectPaperSEOMeta(html string, meta *PaperSEOMeta, path string) string {
 }
 
 // buildPaperVenueSegment 拼出 "Venue Year" 或单独 venue/year,空则空串
-func buildPaperVenueSegment(meta *PaperSEOMeta) string {
+func buildPaperVenueSegment(meta *seo.PaperSSRMeta) string {
 	venue := meta.Venue
 	year := ""
 	if meta.Year != nil && *meta.Year > 0 {
@@ -361,7 +474,7 @@ func buildPaperVenueSegment(meta *PaperSEOMeta) string {
 // buildPaperKeywords 论文页 keywords meta:
 //   通用学术高频词(让 Google 知道这是论文详情页) + 论文自身上下文(venue/year/作者/DOI)
 //   原始论文标题里的关键名词由 Google 自己从内容中提取,我们不强塞,避免堆砌惩罚。
-func buildPaperKeywords(meta *PaperSEOMeta) string {
+func buildPaperKeywords(meta *seo.PaperSSRMeta) string {
 	parts := []string{
 		"论文详情", "学术论文", "论文阅读", "论文摘要", "AI 论文",
 		"文献检索", "文献综述", "Semantic Scholar", "Scholay",
@@ -395,7 +508,7 @@ func minInt(a, b int) int {
 }
 
 // buildPaperNoscriptCard 渲染论文的 noscript 卡片
-func buildPaperNoscriptCard(meta *PaperSEOMeta) string {
+func buildPaperNoscriptCard(meta *seo.PaperSSRMeta) string {
 	baseStyle := `style="max-width: 1000px; margin: 20px auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #e0e0e0;"`
 	headingStyle := `style="color: #ffffff; border-bottom: 1px solid #424242; padding-bottom: 10px; font-size: 1.4rem;"`
 	textStyle := `style="color: #bdbdbd; line-height: 1.8; margin-bottom: 12px;"`
@@ -435,7 +548,7 @@ func buildPaperNoscriptCard(meta *PaperSEOMeta) string {
 
 // injectAuthorSEOMeta 替换 <title>/<meta description>，并在 noscript 中插入作者卡片
 // 与 injectPaperSEOMeta 同构,只是描述/卡片内容用作者元数据填充。
-func injectAuthorSEOMeta(html string, meta *AuthorSEOMeta, path string) string {
+func injectAuthorSEOMeta(html string, meta *seo.AuthorSSRMeta, path string) string {
 	if meta.Name == "" {
 		return html
 	}
@@ -494,6 +607,10 @@ func injectAuthorSEOMeta(html string, meta *AuthorSEOMeta, path string) string {
 		html = strings.Replace(html, "</head>", canonTag+"\n</head>", 1)
 	}
 
+	if jsonLD := buildAuthorJSONLD(meta, canonical); jsonLD != "" {
+		html = strings.Replace(html, "</head>", jsonLD+"\n</head>", 1)
+	}
+
 	noscriptCard := buildAuthorNoscriptCard(meta)
 	if noscriptCard != "" {
 		insertBefore := `<p style="text-align: center; margin-top: 30px;`
@@ -509,7 +626,7 @@ func injectAuthorSEOMeta(html string, meta *AuthorSEOMeta, path string) string {
 
 // buildAuthorKeywords 作者页 keywords meta
 //   学术作者高频词(让 Google 知道这是作者档案页) + 作者具体机构/姓名信息
-func buildAuthorKeywords(meta *AuthorSEOMeta) string {
+func buildAuthorKeywords(meta *seo.AuthorSSRMeta) string {
 	parts := []string{
 		meta.Name,
 		"作者档案", "学者主页", "代表论文", "h-index", "引用统计",
@@ -531,7 +648,7 @@ func buildAuthorKeywords(meta *AuthorSEOMeta) string {
 }
 
 // buildAuthorNoscriptCard 渲染作者的 noscript 卡片
-func buildAuthorNoscriptCard(meta *AuthorSEOMeta) string {
+func buildAuthorNoscriptCard(meta *seo.AuthorSSRMeta) string {
 	baseStyle := `style="max-width: 1000px; margin: 20px auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #e0e0e0;"`
 	headingStyle := `style="color: #ffffff; border-bottom: 1px solid #424242; padding-bottom: 10px; font-size: 1.4rem;"`
 	metaStyle := `style="color: #9e9e9e; font-size: 0.9rem; margin-bottom: 8px;"`
@@ -574,7 +691,7 @@ func buildAuthorNoscriptCard(meta *AuthorSEOMeta) string {
 }
 
 // injectJournalSEOMeta 期刊详情页 SEO 注入 (与 paper / author 同构)
-func injectJournalSEOMeta(html string, meta *JournalSEOMeta, path string) string {
+func injectJournalSEOMeta(html string, meta *seo.JournalSSRMeta, path string) string {
 	if meta.CanonicalName == "" {
 		return html
 	}
@@ -647,6 +764,10 @@ func injectJournalSEOMeta(html string, meta *JournalSEOMeta, path string) string
 		html = strings.Replace(html, "</head>", canonTag+"\n</head>", 1)
 	}
 
+	if jsonLD := buildJournalJSONLD(meta, canonical); jsonLD != "" {
+		html = strings.Replace(html, "</head>", jsonLD+"\n</head>", 1)
+	}
+
 	noscriptCard := buildJournalNoscriptCard(meta)
 	if noscriptCard != "" {
 		insertBefore := `<p style="text-align: center; margin-top: 30px;`
@@ -661,7 +782,7 @@ func injectJournalSEOMeta(html string, meta *JournalSEOMeta, path string) string
 }
 
 // buildJournalKeywords 期刊页 keywords meta
-func buildJournalKeywords(meta *JournalSEOMeta) string {
+func buildJournalKeywords(meta *seo.JournalSSRMeta) string {
 	parts := []string{
 		meta.CanonicalName,
 		"期刊详情", "期刊分区", "影响因子", "JCR", "SCImago", "CCF", "OpenAlex",
@@ -689,7 +810,7 @@ func buildJournalKeywords(meta *JournalSEOMeta) string {
 }
 
 // buildJournalNoscriptCard 渲染期刊的 noscript 卡片(供爬虫)
-func buildJournalNoscriptCard(meta *JournalSEOMeta) string {
+func buildJournalNoscriptCard(meta *seo.JournalSSRMeta) string {
 	baseStyle := `style="max-width: 1000px; margin: 20px auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #e0e0e0;"`
 	headingStyle := `style="color: #ffffff; border-bottom: 1px solid #424242; padding-bottom: 10px; font-size: 1.4rem;"`
 	metaStyle := `style="color: #9e9e9e; font-size: 0.9rem; margin-bottom: 8px;"`

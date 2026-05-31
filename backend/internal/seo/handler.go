@@ -27,7 +27,9 @@ import (
 
 	"scholar-backend/internal/common/cache"
 	appconfig "scholar-backend/internal/common/config"
+	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/utils"
+	"scholar-backend/internal/hotcontent"
 
 	"github.com/gin-gonic/gin"
 )
@@ -48,14 +50,26 @@ func baseURL() string {
 	return appconfig.CanonicalBaseURL()
 }
 
+// HotSeoViewRecorder 由 hotcontent.Service 实现 —— 记录 /paper/:slug 直接访问的 SEO 直访量。
+// 与搜索点击(minicod GET /papers/:id → RecordClick)走不同接口, 天然不重复计数。
+type HotSeoViewRecorder interface {
+	RecordSeoView(paper *hotcontent.PaperViewData) error
+}
+
 // Handler HTTP 处理器
 type Handler struct {
-	service *Service
+	service     *Service
+	hotRecorder HotSeoViewRecorder
 }
 
 // NewHandler 构造
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
+}
+
+// SetHotContentRecorder 注入热门内容记录器(SEO 直访量)
+func (h *Handler) SetHotContentRecorder(r HotSeoViewRecorder) {
+	h.hotRecorder = r
 }
 
 // ExposeRequest 搜索曝光请求体 (papers + authors + journals 同一通道, 节流)
@@ -73,31 +87,35 @@ func (h *Handler) ExposeSeeds(c *gin.Context) {
 		utils.BadRequest(c, "invalid payload")
 		return
 	}
-	if len(req.Papers) == 0 && len(req.Authors) == 0 && len(req.Journals) == 0 {
-		utils.Success(c, gin.H{"papers": 0, "authors": 0, "journals": 0})
+	papers, authors, journals := req.Papers, req.Authors, req.Journals
+	if len(papers) == 0 && len(authors) == 0 && len(journals) == 0 {
+		utils.Success(c, gin.H{"accepted": false})
 		return
 	}
 
-	papersWritten, err := h.service.RecordSearchSeeds(req.Papers)
-	if err != nil {
-		slog.Warn("seo expose papers failed", "err", err)
-	}
-
-	authorsWritten, err := h.service.RecordAuthorSearchSeeds(req.Authors)
-	if err != nil {
-		slog.Warn("seo expose authors failed", "err", err)
-	}
-
-	journalsWritten, err := h.service.RecordJournalSearchSeeds(req.Journals)
-	if err != nil {
-		slog.Warn("seo expose journals failed", "err", err)
-	}
-
-	utils.Success(c, gin.H{
-		"papers":   papersWritten,
-		"authors":  authorsWritten,
-		"journals": journalsWritten,
+	// 曝光种子是 best-effort 的 SEO 遥测,前端用 sendBeacon 发出且**不读响应体**。
+	// 原本同步跑最多 20+20+20 条 upsert,把全部 DB 往返压在请求路径上(N+1,纯浪费的请求延迟)。
+	// 改成立即 ACK + 后台落库:请求 O(1) 返回,写入在 goroutine(safego 带 recover)里慢慢做。
+	// req.* 切片由本请求独占,捕获进 goroutine 安全;goroutine 内不得再碰 gin.Context。
+	safego.Go("seo-expose-seeds", func() {
+		if len(papers) > 0 {
+			if _, err := h.service.RecordSearchSeeds(papers); err != nil {
+				slog.Warn("seo expose papers failed", "err", err)
+			}
+		}
+		if len(authors) > 0 {
+			if _, err := h.service.RecordAuthorSearchSeeds(authors); err != nil {
+				slog.Warn("seo expose authors failed", "err", err)
+			}
+		}
+		if len(journals) > 0 {
+			if _, err := h.service.RecordJournalSearchSeeds(journals); err != nil {
+				slog.Warn("seo expose journals failed", "err", err)
+			}
+		}
 	})
+
+	utils.Success(c, gin.H{"accepted": true})
 }
 
 // ResolveAuthorBySlug 通过 slug 查询作者元数据（前端 /author/:slug 首屏解析用）
@@ -140,13 +158,23 @@ func (h *Handler) ResolveBySlug(c *gin.Context) {
 	p, err := h.service.GetBySlug(slug)
 	if err != nil {
 		slog.Warn("seo resolve failed", "slug", slug, "err", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500})
+		utils.ServerError(c, "resolve failed")
 		return
 	}
 	if p == nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "not found"})
+		utils.NotFound(c, "not found")
 		return
 	}
+
+	// 热门内容: SEO 直访量 +1。异步, 不阻塞首屏。
+	if h.hotRecorder != nil && p.PaperID != "" {
+		rec := h.hotRecorder
+		vd := seoPaperToViewData(p)
+		safego.Go("hotcontent-seo-view", func() {
+			_ = rec.RecordSeoView(&vd)
+		})
+	}
+
 	utils.Success(c, gin.H{
 		"paper_id":       p.PaperID,
 		"slug":           p.Slug,
@@ -157,6 +185,28 @@ func (h *Handler) ResolveBySlug(c *gin.Context) {
 		"doi":            p.DOI,
 		"citation_count": p.CitationCount,
 	})
+}
+
+// seoPaperToViewData 把 SEOPaper 映射成 hotcontent 落库用的 PaperViewData。
+func seoPaperToViewData(p *SEOPaper) hotcontent.PaperViewData {
+	vd := hotcontent.PaperViewData{PaperID: p.PaperID, Year: p.Year}
+	if p.Title != "" {
+		t := p.Title
+		vd.Title = &t
+	}
+	if p.Abstract != "" {
+		a := p.Abstract
+		vd.Abstract = &a
+	}
+	if p.Venue != "" {
+		v := p.Venue
+		vd.Venue = &v
+	}
+	if p.DOI != "" {
+		d := p.DOI
+		vd.DOI = &d
+	}
+	return vd
 }
 
 // ServeSitemapIndex 返回 sitemap 索引（/sitemap.xml）

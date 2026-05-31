@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Check, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { useApiToast } from '@/shared/hooks';
 import type { DimensionSettingItem } from '../../api/analysis';
 import { useSaveDimension } from './use-save-dimension';
 
@@ -24,11 +25,12 @@ interface Props {
 export function EditInlineForm({ dim, mode, onDone }: Props) {
   const [name, setName] = useState(dim.name);
   const [desc, setDesc] = useState(dim.description ?? '');
+  const apiToast = useApiToast();
 
   const { save, busy } = useSaveDimension({
     dim,
     onSuccess: onDone,
-    onError: (err) => toast.error(err.message || '保存失败'),
+    onError: apiToast.onError('保存失败'),
   });
 
   const handleSave = () => {

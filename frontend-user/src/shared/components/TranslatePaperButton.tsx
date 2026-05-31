@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import { Languages, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
@@ -43,6 +44,12 @@ export interface TranslatePaperButtonProps {
   showToast?: boolean;
   onError?: (err: Error) => void;
   className?: string;
+  /**
+   * 仅 chip 变体:把按钮放进一个 `@container` 元素后,容器宽 < 260px 时
+   * 自动隐藏文字、塌成纯图标方块(与 FavoritePaperButton 同款响应式降级)。
+   * 不传 = 行为完全不变。默认 false。
+   */
+  collapseLabel?: boolean;
 }
 
 const ICON_SIZE: Record<TranslateButtonSize, string> = {
@@ -63,120 +70,132 @@ const ICON_BTN_CLS: Record<TranslateButtonSize, string> = {
   lg: 'h-8 w-8',
 };
 
-export function TranslatePaperButton({
-  title,
-  abstract,
-  hasCache,
-  showingTranslated,
-  onTranslated,
-  onToggle,
-  variant = 'chip',
-  size = 'md',
-  showToast = true,
-  onError,
-  className,
-}: TranslatePaperButtonProps) {
-  const mut = useTranslatePaper();
-  const isPending = mut.isPending;
+export const TranslatePaperButton = forwardRef<HTMLButtonElement, TranslatePaperButtonProps>(
+  (
+    {
+      title,
+      abstract,
+      hasCache,
+      showingTranslated,
+      onTranslated,
+      onToggle,
+      variant = 'chip',
+      size = 'md',
+      showToast = true,
+      onError,
+      className,
+      collapseLabel = false,
+    },
+    ref
+  ) => {
+    const mut = useTranslatePaper();
+    const isPending = mut.isPending;
 
-  const handleClick = () => {
-    if (isPending) return;
-    if (hasCache) {
-      onToggle();
-      return;
-    }
-    mut.mutate(
-      { title, abstract },
-      {
-        onSuccess: (r) => onTranslated(r),
-        onError: (err: unknown) => {
-          const e = err instanceof Error ? err : new Error('翻译失败');
-          if (showToast) toast.error(e.message);
-          onError?.(e);
-        },
+    const handleClick = () => {
+      if (isPending) return;
+      if (hasCache) {
+        onToggle();
+        return;
       }
-    );
-  };
+      mut.mutate(
+        { title, abstract },
+        {
+          onSuccess: (r) => onTranslated(r),
+          onError: (err: unknown) => {
+            const e = err instanceof Error ? err : new Error('翻译失败');
+            if (showToast) toast.error(e.message);
+            onError?.(e);
+          },
+        }
+      );
+    };
 
-  // 文案:pending > 已显示译文 > 默认
-  const label = isPending ? '翻译中…' : showingTranslated ? '原文' : 'AI 翻译';
-  const Icon = isPending ? Loader2 : Languages;
-  const iconCls = cn(ICON_SIZE[size], isPending && 'animate-spin');
+    // 文案:pending > 已显示译文 > 默认
+    const label = isPending ? '翻译中…' : showingTranslated ? '原文' : 'AI 翻译';
+    const Icon = isPending ? Loader2 : Languages;
+    const iconCls = cn(ICON_SIZE[size], isPending && 'animate-spin');
 
-  const title_ = isPending
-    ? '正在翻译…'
-    : showingTranslated
-      ? '切回原文'
-      : 'AI 翻译标题与摘要';
-  const ariaLabel = showingTranslated ? '切回原文' : 'AI 翻译';
+    const title_ = isPending
+      ? '正在翻译…'
+      : showingTranslated
+        ? '切回原文'
+        : 'AI 翻译标题与摘要';
+    const ariaLabel = showingTranslated ? '切回原文' : 'AI 翻译';
 
-  if (variant === 'icon') {
+    if (variant === 'icon') {
+      return (
+        <button
+          ref={ref}
+          type="button"
+          onClick={handleClick}
+          disabled={isPending}
+          aria-pressed={showingTranslated}
+          aria-label={ariaLabel}
+          title={title_}
+          className={cn(
+            'inline-flex items-center justify-center rounded-sm shrink-0 transition-colors',
+            ICON_BTN_CLS[size],
+            showingTranslated
+              ? 'bg-surface-2 text-foreground'
+              : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground',
+            isPending && 'opacity-60 cursor-wait',
+            className
+          )}
+        >
+          <Icon className={iconCls} strokeWidth={2.25} />
+        </button>
+      );
+    }
+
+    if (variant === 'link') {
+      return (
+        <button
+          ref={ref}
+          type="button"
+          onClick={handleClick}
+          disabled={isPending}
+          aria-pressed={showingTranslated}
+          title={title_}
+          className={cn(
+            'inline-flex items-center gap-1.5 text-sm font-medium transition-colors',
+            'text-foreground hover:text-brand-red',
+            isPending && 'opacity-70 cursor-not-allowed',
+            className
+          )}
+        >
+          <Icon
+            className={cn('size-3.5', isPending && 'animate-spin')}
+            strokeWidth={2}
+          />
+          {label}
+        </button>
+      );
+    }
+
     return (
       <button
+        ref={ref}
         type="button"
         onClick={handleClick}
         disabled={isPending}
         aria-pressed={showingTranslated}
-        aria-label={ariaLabel}
         title={title_}
         className={cn(
-          'inline-flex items-center justify-center rounded-sm shrink-0 transition-colors',
-          ICON_BTN_CLS[size],
+          'inline-flex items-center justify-center rounded-sm border shrink-0 whitespace-nowrap transition-colors',
+          CHIP_CLS[size],
+          // 窄容器塌成 24×24 纯图标(仅当父级开启 collapseLabel + 处于 @container 内)
+          collapseLabel && '@max-[260px]:w-6 @max-[260px]:px-0 @max-[260px]:gap-0',
           showingTranslated
-            ? 'bg-surface-2 text-foreground'
-            : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground',
+            ? 'border-foreground/40 bg-surface-1 text-foreground font-semibold'
+            : 'border-border text-subtle hover:bg-surface-1 hover:text-foreground',
           isPending && 'opacity-60 cursor-wait',
           className
         )}
       >
-        <Icon className={iconCls} strokeWidth={2.25} />
+        <Icon className={cn(iconCls, 'shrink-0')} strokeWidth={2.2} />
+        <span className={cn(collapseLabel && '@max-[260px]:hidden')}>{label}</span>
       </button>
     );
   }
-
-  if (variant === 'link') {
-    return (
-      <button
-        type="button"
-        onClick={handleClick}
-        disabled={isPending}
-        aria-pressed={showingTranslated}
-        title={title_}
-        className={cn(
-          'inline-flex items-center gap-1.5 text-sm font-medium transition-colors',
-          'text-foreground hover:text-brand-red',
-          isPending && 'opacity-70 cursor-not-allowed',
-          className
-        )}
-      >
-        <Icon
-          className={cn('size-3.5', isPending && 'animate-spin')}
-          strokeWidth={2}
-        />
-        {label}
-      </button>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={handleClick}
-      disabled={isPending}
-      aria-pressed={showingTranslated}
-      title={title_}
-      className={cn(
-        'inline-flex items-center justify-center rounded-sm border shrink-0 transition-colors',
-        CHIP_CLS[size],
-        showingTranslated
-          ? 'border-foreground/40 bg-surface-1 text-foreground font-semibold'
-          : 'border-border text-subtle hover:bg-surface-1 hover:text-foreground',
-        isPending && 'opacity-60 cursor-wait',
-        className
-      )}
-    >
-      <Icon className={iconCls} strokeWidth={2.2} />
-      {label}
-    </button>
-  );
-}
+);
+TranslatePaperButton.displayName = 'TranslatePaperButton';

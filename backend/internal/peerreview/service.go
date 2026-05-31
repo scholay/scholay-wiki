@@ -1,860 +1,1797 @@
 // ============================================================================
-// Scholay学术 V1.0
-// Copyright (c) 2025 成都恩特罐罐文化科技有限公司
-// 统一社会信用代码: 91510100MAEEHRNE26
-// All Rights Reserved.
+// 智能审稿 v3 — Service 层(业务逻辑 + 文件上传 + agent 编排)
+//
+// 公开方法(都需要 userID 做权限校验):
+//
+//   CreateDraft / GetSubmission / ListSubmissions / PatchSubmission
+//   UploadAsset / DeleteAsset / ListAssets / OpenAsset
+//   Submit (Step4 投递 → 启动 agent runner)
+//   RecommendJournals (Step2 期刊推荐 — 同步调一次 agent)
+//   DraftLetter       (Step3 AI 起草信件 — 同步调一次 agent)
+//   ListReports / GetReportByRole
+//
+// agent 编排(submit → 后台 4 轮):
+//
+//   1. 创建 / 复用 agentbridge session (feature_key='peerreview')
+//   2. 按 alpha → beta → gamma → chief 顺序 EnqueueChatMessage
+//   3. 每轮轮询 GetChatStatus 直到 idle,然后 GetSessionMessages 拿最新 assistant
+//   4. 从 assistant content 解析 { decision, scores, content } 三段
+//   5. 落 peer_review_reports + 4 份齐了就 MarkCompleted
 // ============================================================================
 
 package peerreview
 
 import (
 	"context"
-	"crypto/md5"
-	"crypto/rand"
+	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
-	"strconv"
+	"mime/multipart"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
-	"gorm.io/gorm"
+	"github.com/google/uuid"
 
-	"scholar-backend/internal/ai"
-	"scholar-backend/internal/mcp"
-	"scholar-backend/internal/thirdparty"
+	"scholar-backend/internal/agent"
+	"scholar-backend/internal/agentbridge"
+	"scholar-backend/internal/agentconfig"
+	"scholar-backend/internal/common/ctxutil"
+	"scholar-backend/internal/common/safego"
+	"scholar-backend/internal/promptregistry"
+	"scholar-backend/internal/storage"
 )
 
-// Service 审稿服务
+// ─── 配置常量 ────────────────────────────────────────────────────────────
+
+// 上传限制 —— 基于真实约束, 不是拍脑袋的 200MB:
+//   - 稿件: 存 MinIO; 审稿流程跑起来时推到 agent 会话 cwd 让大模型 Read 原生分析 (方案 B)。
+//     后端"全量读进内存"做 sha256 + 推送, 200MB 直接是后端 OOM 风险。
+//     学术论文 (含图表) 通常 1-20MB, 盲审脱敏版更小 → 50MB 足够且内存安全。
+//   - 附件: 0-10 份补充材料 (图 / 数据 / response letter), 同样存 MinIO + 推给 agent。
+//     每份 30MB × 10 = 300MB 上限, 再大无意义且占存储。
+// 前端 UploadStep 的 MAIN_MAX / ATT_MAX 必须与此一致 (改这里记得同步那边)。
+const (
+	MaxManuscriptBytes = 50 * 1024 * 1024 // 50MB
+	MaxAttachmentBytes = 30 * 1024 * 1024 // 30MB / 份
+	MaxAttachmentCount = 10
+)
+
+// ExtractedMeta 是 agent 抽出来的稿件结构化元数据,
+// 既用作 step2 cache 的 payload, 也作为 Submission.extra_meta_json 的反序列化目标,
+// 也作为前端 PatchPayload.ExtraMeta 的接收类型。
+type ExtractedMeta struct {
+	Title          string   `json:"title,omitempty"`
+	Abstract       string   `json:"abstract,omitempty"`
+	Keywords       []string `json:"keywords,omitempty"`
+	Subjects       []string `json:"subjects,omitempty"`
+	ManuscriptType string   `json:"manuscriptType,omitempty"`
+}
+
+// compute_state 取值, 跟 [[Submission.ComputeState]] 对齐。
+const (
+	StateIdle            = "idle"
+	StateComputingMeta   = "computing_meta"
+	StateComputingLetter = "computing_letter"
+	StateReviewing       = "reviewing"
+	StateFailed          = "failed"
+)
+
+// ─── 错误 ────────────────────────────────────────────────────────────────
+
+var (
+	ErrInvalidMode       = errors.New("peerreview: invalid mode")
+	ErrInvalidStep       = errors.New("peerreview: invalid step")
+	ErrManuscriptMissing = errors.New("peerreview: manuscript not uploaded")
+	ErrNotAgreed         = errors.New("peerreview: 用户未同意双盲规范")
+	ErrAttachmentLimit   = errors.New("peerreview: attachment 数量超过上限")
+	// ErrNotDraft —— 仅 draft 可被编辑 (改字段 / 传删文件 / 推进步骤)。已提交的投稿
+	// (queued/reviewing/completed/failed) 命中此错误。消息直接面向用户, 不加包前缀。
+	ErrNotDraft = errors.New("该投稿已提交, 无法再修改")
+)
+
+// ─── Service ────────────────────────────────────────────────────────────
+
+// Service 负责 peerreview feature 的全部业务编排 — 稿件 CRUD + agent 4 轮编排 +
+// reviewer prompt 选择 (走 promptregistry + 4 个 PersonaRandomPicker)。
 type Service struct {
-	db             *gorm.DB
-	aiService      *ai.Service
-	mcpServer      *mcp.MCPServer
-	accountService *thirdparty.Service
-	uploadPath     string          // 文件上传路径
-	rootCtx        context.Context // shutdown-aware parent for async tasks
+	repo      *Repository
+	promptSvc *promptregistry.Service // GetPromptByID 用 (handler 渲染 report DTO 时回查 Slug/Name)
+	feature   *agentbridge.FeatureBridge
+	bucket    func() string // 解耦:bucket name 从 storage 包动态取(测试可注入)
+	broker    *StreamBroker // agent goroutine 把 deltas 推给它, SSE handler 订阅
+
+	// 4 个 picker, 每轮一个: 每次 runReviewBackground 时分别 Pick → 得到 4 份
+	// PromptChoice → 拼 prompt 调 agent。这 4 个 picker 全部走 PersonaRandomPicker,
+	// 在 (feature_prompts feature_key='peerreview' persona='alpha'/...) 候选池里
+	// 按 subjects 学科匹配 + weight 加权随机, 跟原 PickSkillsForSubmission 同算法。
+	alphaPicker agentbridge.PromptPicker
+	betaPicker  agentbridge.PromptPicker
+	gammaPicker agentbridge.PromptPicker
+	chiefPicker agentbridge.PromptPicker
+
+	// agentCfg 读 agent 模型配置: meta/letter 用快模型 (haiku_model), review 用主模型 (main_model)。
+	// 可空 — 空 / 配置缺失时不切模型, 全用会话默认 (主模型), 功能不受影响只是没成本优化。
+	agentCfg *agentconfig.Service
 }
 
-// NewService 创建审稿服务
-func NewService(db *gorm.DB, aiService *ai.Service, mcpServer *mcp.MCPServer, accountService *thirdparty.Service) *Service {
+// NewService — bootstrap 阶段构造。
+// 调用方负责创建 4 个 PersonaRandomPicker 并传进来 (一般在 bootstrap.go 里构造):
+//
+//	alpha := agentbridge.NewPersonaRandomPicker(promptSvc, "peerreview", "alpha")
+//	beta  := agentbridge.NewPersonaRandomPicker(promptSvc, "peerreview", "beta")
+//	gamma := agentbridge.NewPersonaRandomPicker(promptSvc, "peerreview", "gamma")
+//	chief := agentbridge.NewPersonaRandomPicker(promptSvc, "peerreview", "chief")
+//	svc := peerreview.NewService(repo, promptSvc, feature, alpha, beta, gamma, chief)
+func NewService(
+	repo *Repository,
+	promptSvc *promptregistry.Service,
+	feature *agentbridge.FeatureBridge,
+	alphaPicker, betaPicker, gammaPicker, chiefPicker agentbridge.PromptPicker,
+	agentCfg *agentconfig.Service,
+) *Service {
 	return &Service{
-		db:             db,
-		aiService:      aiService,
-		mcpServer:      mcpServer,
-		accountService: accountService,
-		uploadPath:     "/app/uploads",
-		rootCtx:        context.Background(),
+		repo:        repo,
+		promptSvc:   promptSvc,
+		feature:     feature,
+		bucket:      storage.PeerReviewAssetBucket,
+		broker:      NewStreamBroker(),
+		alphaPicker: alphaPicker,
+		betaPicker:  betaPicker,
+		gammaPicker: gammaPicker,
+		chiefPicker: chiefPicker,
+		agentCfg:    agentCfg,
 	}
 }
 
-// SetRootContext 注入进程级 ctx，异步任务（processTaskAsync…）会以它为父 ctx，
-// 进程关停时一并 cancel，避免 60min 超时任务脱离 shutdown 掌控。
-func (s *Service) SetRootContext(ctx context.Context) {
-	if ctx != nil {
-		s.rootCtx = ctx
+// fastModel — meta/letter 用的快模型 (haiku_model)。空 = 不切, 用会话默认 (主模型)。
+func (s *Service) fastModel() string {
+	if s.agentCfg == nil {
+		return ""
+	}
+	cfg, err := s.agentCfg.GetConfig()
+	if err != nil || cfg == nil {
+		return ""
+	}
+	return cfg.HaikuModel
+}
+
+// mainModel — review 用的主模型 (main_model)。review 与 meta 共用会话, meta 把会话切到了
+// haiku, 所以 review 必须**显式切回** main; 空则退化为不切 (可能残留 haiku, 仅在 main 未配置时)。
+func (s *Service) mainModel() string {
+	if s.agentCfg == nil {
+		return ""
+	}
+	cfg, err := s.agentCfg.GetConfig()
+	if err != nil || cfg == nil {
+		return ""
+	}
+	return cfg.MainModel
+}
+
+// Broker 暴露给 handler — 单例 broker 由 service 持有,SSE 端点订阅它。
+func (s *Service) Broker() *StreamBroker { return s.broker }
+
+// BucketName 暴露 MinIO bucket 名 — DownloadAssets handler 流式打包 zip 时用。
+func (s *Service) BucketName() string { return s.bucket() }
+
+// ReconcileStaleOnBoot: 启动时调一次 —— 复位上次进程残留的卡死 computing / 审稿行,
+// 避免它们永久卡在"计算中 / 审稿进行中"。bootstrap 在构造完 service 后调用。
+func (s *Service) ReconcileStaleOnBoot() {
+	drafts, reviews, err := s.repo.ReconcileStaleOnBoot()
+	if err != nil {
+		slog.Error("peerreview reconcile stale on boot", "err", err)
+		return
+	}
+	if drafts > 0 || reviews > 0 {
+		slog.Warn("peerreview reconciled stale rows on boot",
+			"stuck_drafts", drafts, "stranded_reviews", reviews)
 	}
 }
 
-// generateAnonToken 生成匿名用户访问令牌
-func generateAnonToken() string {
-	b := make([]byte, 32)
-	rand.Read(b)
-	return hex.EncodeToString(b)
+// StartStaleSweeper: 后台周期兜底 —— 每 5min 把 computing_* 卡超 15min 的草稿复位 failed。
+// 三层防线: 各 goroutine 的 panic recover (崩溃) + ReconcileStaleOnBoot (重启) + 本方法
+// (运行期间没崩但卡死 / 漏复位)。进程退出时 goroutine 随之结束, 无需显式停止。
+func (s *Service) StartStaleSweeper() {
+	safego.Go("peerreview-stale-sweeper", func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			// 每 tick 独立 recover —— 否则单次 panic 会让整条 sweeper goroutine 永久退出
+			// (safego 的外层 recover 只兜一次), 兜底层就静默消失了。
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						slog.Error("peerreview stale sweep panic", "panic", r)
+					}
+				}()
+				n, err := s.repo.FailStaleComputing(15 * time.Minute)
+				if err != nil {
+					slog.Error("peerreview stale sweep", "err", err)
+				} else if n > 0 {
+					slog.Warn("peerreview swept stale computing rows", "count", n)
+				}
+			}()
+		}
+	})
 }
 
-// verifyTaskAccess 验证用户（登录或匿名）是否有权访问任务
-// 登录用户通过 userID 验证，匿名用户通过 anonToken 验证
-func (s *Service) verifyTaskAccess(task *PeerReviewTask, userID uint, anonToken string) bool {
-	// 登录用户：检查 user_id 匹配
-	if userID > 0 && task.UserID == userID {
-		return true
+// GetPromptByID 给 handler 渲染 reportDTO 时回查 prompt 的 slug/name (前端展示用)。
+// 失败 → 返回 (nil, err), 调用方自己决定是否致命。
+//
+// 旧 API GetSkill(*Skill) 已下线, 字段对齐: 旧 skill.Slug = 新 prompt.Slug,
+// 旧 skill.Name = 新 prompt.Name; handler 改取 prompt 字段不必改 DTO shape。
+func (s *Service) GetPromptByID(id uint64) (*promptregistry.Prompt, error) {
+	if s.promptSvc == nil {
+		return nil, ErrNotFound
 	}
-	// 匿名用户：检查 anon_token 匹配
-	if anonToken != "" && task.AnonToken != "" && task.AnonToken == anonToken {
-		return true
+	p, err := s.promptSvc.GetByID(id)
+	if err != nil {
+		if errors.Is(err, promptregistry.ErrNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, err
 	}
-	return false
+	return p, nil
 }
 
-// findTaskWithAccess 查找任务并验证访问权限
-func (s *Service) findTaskWithAccess(taskID uint, userID uint, anonToken string) (*PeerReviewTask, error) {
-	var task PeerReviewTask
-	if err := s.db.First(&task, taskID).Error; err != nil {
-		return nil, fmt.Errorf("任务不存在")
+// ─── 草稿 CRUD ────────────────────────────────────────────────────────────
+
+func (s *Service) CreateDraft(ctx context.Context, userID uint64, mode string) (*Submission, error) {
+	if mode != "journal" && mode != "thesis" {
+		return nil, ErrInvalidMode
 	}
-	if !s.verifyTaskAccess(&task, userID, anonToken) {
-		return nil, fmt.Errorf("无权访问此任务")
-	}
-	return &task, nil
-}
-
-// RecentPeerReviewItem is a lightweight DTO for task history
-type RecentPeerReviewItem struct {
-	ID        uint      `json:"id"`
-	Title     string    `json:"title"`
-	Status    string    `json:"status"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
-
-// GetRecentNonDraftTasks returns recent non-draft peer review tasks for a user since a given date
-func (s *Service) GetRecentNonDraftTasks(userID uint, since time.Time) ([]RecentPeerReviewItem, error) {
-	var items []RecentPeerReviewItem
-	err := s.db.Table("peer_review_tasks").
-		Select("id, title, status, updated_at").
-		Where("user_id = ? AND status != ? AND updated_at >= ?", userID, TaskStatusDraft, since).
-		Order("updated_at DESC").
-		Scan(&items).Error
-	return items, err
-}
-
-// generateManuscriptHash 生成稿件哈希
-func generateManuscriptHash(text string) string {
-	hash := md5.Sum([]byte(text))
-	return hex.EncodeToString(hash[:])
-}
-
-// truncateByRune 按字符数（而非字节数）截取字符串，避免截断 UTF-8 字符
-func truncateByRune(s string, maxChars int) string {
-	runes := []rune(s)
-	if len(runes) <= maxChars {
-		return s
-	}
-	return string(runes[:maxChars])
-}
-
-// extractBasicInfo 提取稿件基本信息（文本输入）
-func (s *Service) extractBasicInfo(ctx context.Context, manuscriptText, modelLevel string) (*ManuscriptMeta, error) {
-	prompt := fmt.Sprintf(`你是一位资深的学术编辑，请仔细阅读以下稿件内容，提取关键信息。
-
-稿件内容：
-%s
-
-请提取以下信息并以JSON格式返回（输出必须控制在3000字符以内）：
-{
-  "title": "论文标题（如果能识别）",
-  "abstract": "摘要（如果能识别，否则用前200字概括）",
-  "field": "研究领域（如 psychology, machine learning, medicine 等）",
-  "main_topic": "一句话描述研究主题",
-  "main_methods": ["研究方法1", "研究方法2"],
-  "key_variables": ["关键变量1", "关键变量2"],
-  "claimed_novelty": ["创新点1", "创新点2"],
-  "keywords": ["关键词1", "关键词2", "关键词3"]
-}
-
-只返回JSON，不要有其他文字。`, truncateByRune(manuscriptText, 50000))
-
-	messages := []ai.ChatMessage{
-		{Role: "user", Content: prompt},
-	}
-
-	level := getModelLevel(modelLevel)
-	response, err := s.aiService.ChatCompletionWithTools(ctx, messages, nil, "", level)
+	sub, err := s.repo.CreateDraft(userID, mode)
 	if err != nil {
 		return nil, err
 	}
-
-	if len(response.Choices) == 0 {
-		return nil, fmt.Errorf("no response from AI")
+	// 立即给 submission 绑一个 agent session, 整个 wizard + 4 轮审稿全程复用。
+	// 失败不阻塞 draft 创建 (前端拿到 submission 后还能上传文件等),
+	// 下次 advance 调用时会按需 lazy-create。
+	if sess, err := s.feature.AgentClient().CreateSession(ctx); err == nil {
+		_ = s.repo.SetAgentSession(sub.ID, sess.SessionID)
+		sub.AgentSessionID.String = sess.SessionID
+		sub.AgentSessionID.Valid = true
 	}
-
-	content := strings.TrimSpace(response.Choices[0].Message.Content)
-	content = extractJSON(content)
-
-	var meta ManuscriptMeta
-	if err := json.Unmarshal([]byte(content), &meta); err != nil {
-		return nil, fmt.Errorf("failed to parse meta: %w", err)
-	}
-
-	return &meta, nil
+	return sub, nil
 }
 
-// extractBasicInfoFromFile 从文件提取稿件基本信息（多模态输入，支持PDF、Word等）
-func (s *Service) extractBasicInfoFromFile(ctx context.Context, fileBase64 string, fileName string, mimeType string, modelLevel string) (*ManuscriptMeta, error) {
-	prompt := fmt.Sprintf(`你是一位资深的学术编辑，请仔细阅读附件中的论文文件，提取关键信息。
-
-文件名：%s
-
-请提取以下信息并以JSON格式返回（输出必须控制在3000字符以内）：
-{
-  "title": "论文标题（如果能识别）",
-  "abstract": "摘要（如果能识别，否则用前200字概括）",
-  "field": "研究领域（如 psychology, machine learning, medicine 等）",
-  "main_topic": "一句话描述研究主题",
-  "main_methods": ["研究方法1", "研究方法2"],
-  "key_variables": ["关键变量1", "关键变量2"],
-  "claimed_novelty": ["创新点1", "创新点2"],
-  "keywords": ["关键词1", "关键词2", "关键词3"]
+// LatestActiveDraft — 只读查询, 找用户 (mode) 最近一条**已上传过文件**的草稿。
+// 没有 → ErrNotFound, 前端 wizard 渲染空 UploadStep, 等用户上传文件再 lazy 创建。
+func (s *Service) LatestActiveDraft(userID uint64, mode string) (*Submission, error) {
+	if mode != "journal" && mode != "thesis" {
+		return nil, ErrInvalidMode
+	}
+	return s.repo.LatestActiveDraftOfMode(userID, mode)
 }
 
-只返回JSON，不要有其他文字。`, fileName)
-
-	// 构建多模态消息，使用 FileInputMeta 作为中间格式
-	// AI service 会根据实际使用的模型自动转换为对应格式
-	contentParts := []any{
-		ai.FileInputMeta{
-			Type:     "file_input_meta",
-			MimeType: mimeType,
-			Data:     fileBase64,
-		},
-		ai.TextContent{
-			Type: "text",
-			Text: prompt,
-		},
+// ResumeOrCreateDraft 是 wizard 入口的统一入口:
+//
+//   1. 找该用户该模式 (journal / thesis) 最近的草稿
+//   2. 有 → 返回它 (前端用 .step 字段自己定位到当前步骤,无副作用)
+//   3. 没 → CreateDraft 新建一条
+//
+// 这样保证用户每次进 /peer-review/journal 看到的都是"上次没投完的稿件",
+// 而不是每次都开新草稿堆积一堆空记录。
+// 已完成 / 已失败的提交不算 "未完成", 不会被 resume; 它们沉淀到审稿记录列表里。
+func (s *Service) ResumeOrCreateDraft(ctx context.Context, userID uint64, mode string) (*Submission, error) {
+	if mode != "journal" && mode != "thesis" {
+		return nil, ErrInvalidMode
 	}
-
-	messages := []ai.ChatMessage{
-		{Role: "user", Content: contentParts},
+	if sub, err := s.repo.LatestDraftOfMode(userID, mode); err == nil {
+		return sub, nil
 	}
+	return s.CreateDraft(ctx, userID, mode)
+}
 
-	level := getModelLevel(modelLevel)
-	response, err := s.aiService.ChatCompletionWithTools(ctx, messages, nil, "", level)
+// ensureAgentSession get-or-create — 给 advance flow 用,
+// session 不存在 / 已被 agent 端 GC 时, 透明重建并写回 DB。
+func (s *Service) ensureAgentSession(ctx context.Context, sub *Submission) (string, error) {
+	if sub.AgentSessionID.Valid && sub.AgentSessionID.String != "" {
+		return sub.AgentSessionID.String, nil
+	}
+	sess, err := s.feature.AgentClient().CreateSession(ctx)
+	if err != nil {
+		return "", fmt.Errorf("create agent session: %w", err)
+	}
+	if err := s.repo.SetAgentSession(sub.ID, sess.SessionID); err != nil {
+		return "", err
+	}
+	sub.AgentSessionID.String = sess.SessionID
+	sub.AgentSessionID.Valid = true
+	return sess.SessionID, nil
+}
+
+// resetAgentSession DELETE + CREATE — 在 assets_revision 变化时调用,
+// 让 agent 不带着旧 manuscript 干扰。同时清空 step_cache 让下次 advance
+// fingerprint 自然 miss。
+func (s *Service) resetAgentSession(ctx context.Context, sub *Submission) (string, error) {
+	if sub.AgentSessionID.Valid && sub.AgentSessionID.String != "" {
+		_ = s.feature.AgentClient().DeleteSession(ctx, sub.AgentSessionID.String)
+	}
+	sess, err := s.feature.AgentClient().CreateSession(ctx)
+	if err != nil {
+		return "", fmt.Errorf("recreate agent session: %w", err)
+	}
+	if err := s.repo.SetAgentSession(sub.ID, sess.SessionID); err != nil {
+		return "", err
+	}
+	_ = s.repo.DeleteAllStepCache(sub.ID)
+	sub.AgentSessionID.String = sess.SessionID
+	sub.AgentSessionID.Valid = true
+	return sess.SessionID, nil
+}
+
+// sessionAssets 描述已推送到 agent 会话 cwd 的文件 (供 prompt 引用)。
+type sessionAssets struct {
+	manuscriptPath string // agent 容器内绝对路径
+	manuscriptName string // 原始文件名 (展示用)
+	attachments    []pushedAttachment
+}
+
+type pushedAttachment struct {
+	path     string
+	name     string
+	category string
+}
+
+// pushAssetsToSession 把稿件 + 附件从 MinIO 下载后推到 agent 会话隔离 cwd,
+// 返回落盘路径供 prompt 引用 (方案 B: 让大模型用 Read 原生分析, backend 不抽文本)。
+// 稿件必须存在, 否则 ErrManuscriptMissing。
+//
+// 幂等: 多次调用会重复推送 (覆盖同名 uuid 文件), 用在 runMetaExtract / runReviewBackground
+// 各自的入口处, 保证即便 session 被 agent 端 GC / 重建后文件仍在 cwd。
+func (s *Service) pushAssetsToSession(ctx context.Context, submissionID uint64, sessionID string) (*sessionAssets, error) {
+	if sessionID == "" {
+		return nil, errors.New("peerreview: empty agent sessionId")
+	}
+	bucket := s.bucket()
+	if bucket == "" {
+		return nil, errors.New("peerreview: storage not configured")
+	}
+	assets, err := s.repo.ListAssets(submissionID)
 	if err != nil {
 		return nil, err
 	}
+	client := s.feature.AgentClient()
 
-	if len(response.Choices) == 0 {
-		return nil, fmt.Errorf("no response from AI")
-	}
-
-	content := strings.TrimSpace(response.Choices[0].Message.Content)
-	content = extractJSON(content)
-
-	var meta ManuscriptMeta
-	if err := json.Unmarshal([]byte(content), &meta); err != nil {
-		return nil, fmt.Errorf("failed to parse meta: %w", err)
-	}
-
-	return &meta, nil
-}
-
-// buildSemanticSearchQueries 构建语义搜索查询
-// 每个查询检索50篇，后续通过AI筛选
-func (s *Service) buildSemanticSearchQueries(meta *ManuscriptMeta) []SearchQuery {
-	queries := []SearchQuery{}
-	field := meta.Field // 获取领域信息，用于动态调整引用阈值
-
-	// 主题查询：main_topic + field + key_variables
-	if meta.MainTopic != "" {
-		topicQuery := meta.MainTopic
-		if meta.Field != "" {
-			topicQuery += " " + meta.Field
+	out := &sessionAssets{}
+	for _, a := range assets {
+		rc, _, gerr := storage.GetObject(ctx, bucket, a.ObjectKey)
+		if gerr != nil {
+			return nil, fmt.Errorf("get object %s: %w", a.ObjectKey, gerr)
 		}
-		if len(meta.KeyVariables) > 0 {
-			topicQuery += " " + strings.Join(meta.KeyVariables[:min(2, len(meta.KeyVariables))], " ")
+		body, rerr := io.ReadAll(rc)
+		_ = rc.Close()
+		if rerr != nil {
+			return nil, fmt.Errorf("read object %s: %w", a.ObjectKey, rerr)
 		}
-		queries = append(queries, SearchQuery{ID: "topic", Query: topicQuery, TopK: 50, Field: field})
-	}
-
-	// 方法查询：main_methods + field
-	if len(meta.MainMethods) > 0 {
-		methodQuery := strings.Join(meta.MainMethods, " ")
-		if meta.Field != "" {
-			methodQuery += " " + meta.Field
+		pushed, perr := client.PushSessionFile(ctx, sessionID, a.Filename, body)
+		if perr != nil {
+			return nil, fmt.Errorf("push asset %s: %w", a.Filename, perr)
 		}
-		queries = append(queries, SearchQuery{ID: "method", Query: methodQuery, TopK: 50, Field: field})
-	}
-
-	// 创新点查询：claimed_novelty
-	if len(meta.ClaimedNovelty) > 0 {
-		noveltyQuery := strings.Join(meta.ClaimedNovelty, " ")
-		queries = append(queries, SearchQuery{ID: "novelty", Query: noveltyQuery, TopK: 50, Field: field})
-	}
-
-	// 关键词查询：keywords（OR 连接）
-	if len(meta.Keywords) > 0 {
-		keywordQuery := strings.Join(meta.Keywords, " | ")
-		queries = append(queries, SearchQuery{ID: "keywords", Query: keywordQuery, TopK: 50, Field: field})
-	}
-
-	return queries
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func getModelLevel(level string) thirdparty.ModelLevel {
-	switch level {
-	case "high":
-		return thirdparty.ModelLevelHigh
-	case "mid":
-		return thirdparty.ModelLevelMid
-	default:
-		return thirdparty.ModelLevelLow
-	}
-}
-
-// getQueryTypeLabel 获取查询类型的中文标签
-func getQueryTypeLabel(queryID string) string {
-	labels := map[string]string{
-		"topic":    "主题",
-		"method":   "方法",
-		"novelty":  "创新点",
-		"keywords": "关键词",
-	}
-	if label, ok := labels[queryID]; ok {
-		return label
-	}
-	return queryID
-}
-
-// getMinCitationsByField 根据学术领域动态调整引用计数阈值
-// 不同领域的引用模式差异很大：
-// - 计算机科学/AI：引用快速积累，阈值可较高
-// - 医学/生命科学：引用周期较长但总量大，中等阈值
-// - 工程/物理：中等引用速度
-// - 人文社科：引用积累慢，阈值应较低
-// - 数学/理论：引用少但质量高，阈值应低
-func getMinCitationsByField(field string) int {
-	field = strings.ToLower(strings.TrimSpace(field))
-
-	// 高引用领域（快速积累）
-	highCitationFields := []string{
-		"computer science", "artificial intelligence", "machine learning",
-		"deep learning", "natural language processing", "computer vision",
-		"data science", "information retrieval", "计算机", "人工智能", "机器学习",
-	}
-	for _, f := range highCitationFields {
-		if strings.Contains(field, f) {
-			return 10
-		}
-	}
-
-	// 中高引用领域
-	mediumHighFields := []string{
-		"medicine", "biology", "biomedical", "neuroscience", "genetics",
-		"medical", "clinical", "health", "医学", "生物", "神经科学",
-	}
-	for _, f := range mediumHighFields {
-		if strings.Contains(field, f) {
-			return 8
-		}
-	}
-
-	// 中等引用领域
-	mediumFields := []string{
-		"physics", "chemistry", "engineering", "materials", "energy",
-		"environmental", "物理", "化学", "工程", "材料",
-	}
-	for _, f := range mediumFields {
-		if strings.Contains(field, f) {
-			return 5
-		}
-	}
-
-	// 低引用领域（积累慢）
-	lowCitationFields := []string{
-		"mathematics", "philosophy", "history", "literature", "linguistics",
-		"sociology", "psychology", "economics", "law", "art",
-		"数学", "哲学", "历史", "文学", "语言学", "社会学", "心理学", "经济学", "法学",
-	}
-	for _, f := range lowCitationFields {
-		if strings.Contains(field, f) {
-			return 2
-		}
-	}
-
-	// 默认阈值
-	return 3
-}
-
-// searchSingleQuery 执行单个查询
-func (s *Service) searchSingleQuery(ctx context.Context, q SearchQuery) ([]map[string]any, error) {
-	// 动态计算年份范围：当前年份-5 到 当前年份
-	currentYear := time.Now().Year()
-	yearFrom := strconv.Itoa(currentYear - 5)
-	yearTo := strconv.Itoa(currentYear)
-
-	// 根据领域动态调整引用计数阈值
-	minCitations := getMinCitationsByField(q.Field)
-
-	args := map[string]any{
-		"keywords":      strings.Split(q.Query, " "),
-		"year_from":     yearFrom,
-		"year_to":       yearTo,
-		"min_citations": minCitations,
-		"sort_by":       "citationCount:desc",
-		"limit":         q.TopK,
-	}
-
-	toolReq := mcp.ToolRequest{
-		Name:      "search_papers_advanced",
-		Arguments: args,
-	}
-
-	resp, err := s.mcpServer.CallTool(ctx, toolReq)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(resp.Content) > 0 {
-		if textContent, ok := resp.Content[0]["text"].(string); ok {
-			var searchResult struct {
-				Data  []map[string]any `json:"data"`
-				Total int                      `json:"total"`
+		if a.Role == "manuscript" {
+			out.manuscriptPath = pushed.Path
+			out.manuscriptName = a.Filename
+		} else {
+			cat := ""
+			if a.Category.Valid {
+				cat = a.Category.String
 			}
-			if err := json.Unmarshal([]byte(textContent), &searchResult); err == nil {
-				return searchResult.Data, nil
-			}
+			out.attachments = append(out.attachments, pushedAttachment{
+				path: pushed.Path, name: a.Filename, category: cat,
+			})
 		}
 	}
-
-	return nil, nil
+	if out.manuscriptPath == "" {
+		return nil, ErrManuscriptMissing
+	}
+	return out, nil
 }
 
-// filterPapersWithAbstract 过滤掉没有摘要的论文
-func (s *Service) filterPapersWithAbstract(papers []map[string]any) []map[string]any {
-	filtered := make([]map[string]any, 0)
-	for _, p := range papers {
-		abstract, ok := p["abstract"].(string)
-		if ok && strings.TrimSpace(abstract) != "" && len(abstract) > 50 {
-			filtered = append(filtered, p)
+// buildAssetsBlock 生成"文件已在工作目录, 请 Read"提示块, 供 meta / 审稿 prompt 共用。
+func buildAssetsBlock(files *sessionAssets) string {
+	var b strings.Builder
+	b.WriteString("【稿件文件 — 已放在你的当前工作目录, 用 Read 工具读取它们的真实内容】\n")
+	b.WriteString("- 论文正文: " + files.manuscriptPath + "\n")
+	for _, att := range files.attachments {
+		line := "- 补充材料: " + att.path
+		if att.category != "" {
+			line += " (" + att.category + ")"
 		}
+		b.WriteString(line + "\n")
 	}
-	return filtered
+	b.WriteString("\n请先用 Read 工具读取论文正文全文")
+	if len(files.attachments) > 0 {
+		b.WriteString(" (需要时一并读取补充材料)")
+	}
+	b.WriteString(", 不要凭文件名臆测内容。\n")
+	return b.String()
 }
 
-// filterPapersWithAI 使用AI筛选论文
-// 输入：有摘要的论文列表（最多50篇）
-// 输出：AI认为与研究高度相关的论文（通常10-20篇）
-func (s *Service) filterPapersWithAI(ctx context.Context, papers []map[string]any, query SearchQuery, meta *ManuscriptMeta, modelLevel string) ([]map[string]any, error) {
-	// 构建论文列表字符串
-	papersInfo := s.formatPapersForAIFilter(papers)
-
-	// 根据查询类型构建筛选提示
-	filterContext := s.buildFilterContext(query, meta)
-
-	prompt := fmt.Sprintf(`你是一位严谨的学术文献筛选专家。请帮助筛选与目标研究高度相关的论文。
-
-## 目标研究信息
-- 标题：%s
-- 领域：%s
-- 研究主题：%s
-- 主要方法：%s
-- 关键变量：%s
-- 声称的创新点：%s
-
-## 筛选任务
-%s
-
-## 候选论文列表（共%d篇）
-%s
-
-## 筛选要求
-1. 仔细阅读每篇论文的标题和摘要
-2. 评估其与目标研究的相关性（主题相关、方法相关、理论相关等）
-3. 选出最相关的10-20篇论文（质量优先，宁缺毋滥）
-4. 排除明显不相关、质量低下或摘要内容空泛的论文
-
-## 输出格式
-请返回JSON数组，包含选中论文的序号（从1开始），输出必须控制在2000字符以内：
-{
-  "selected_indices": [1, 3, 5, 7, ...],
-  "filter_reason": "简述筛选策略和排除的主要原因（100字以内）"
+func (s *Service) GetSubmission(userID, id uint64) (*Submission, error) {
+	return s.repo.GetByID(id, userID)
 }
 
-只返回JSON，不要有其他文字。`,
-		meta.Title,
-		meta.Field,
-		meta.MainTopic,
-		strings.Join(meta.MainMethods, ", "),
-		strings.Join(meta.KeyVariables, ", "),
-		strings.Join(meta.ClaimedNovelty, ", "),
-		filterContext,
-		len(papers),
-		papersInfo)
-
-	messages := []ai.ChatMessage{
-		{Role: "user", Content: prompt},
-	}
-
-	level := getModelLevel(modelLevel)
-	response, err := s.aiService.ChatCompletionWithTools(ctx, messages, nil, "", level)
+func (s *Service) ListSubmissions(userID uint64, mode string) ([]Submission, error) {
+	subs, err := s.repo.ListByUser(userID, mode)
 	if err != nil {
 		return nil, err
 	}
-
-	if len(response.Choices) == 0 {
-		return nil, fmt.Errorf("no response from AI")
-	}
-
-	content := strings.TrimSpace(response.Choices[0].Message.Content)
-	content = extractJSON(content)
-
-	// 解析AI返回的结果
-	var filterResult struct {
-		SelectedIndices []int  `json:"selected_indices"`
-		FilterReason    string `json:"filter_reason"`
-	}
-
-	if err := json.Unmarshal([]byte(content), &filterResult); err != nil {
-		slog.Error("failed to parse AI filter result", "err", err, "content_prefix", content[:min(200, len(content))])
-		return nil, err
-	}
-
-	slog.Info("AI filter reason", "reason", filterResult.FilterReason)
-
-	// 根据选中的索引提取论文
-	selectedPapers := make([]map[string]any, 0)
-	for _, idx := range filterResult.SelectedIndices {
-		if idx >= 1 && idx <= len(papers) {
-			selectedPapers = append(selectedPapers, papers[idx-1])
+	// 已完成投稿: 批量取主审决议填进 ChiefDecision, 让列表"决议"列直接显示结果而不是"已完成"。
+	var completedIDs []uint64
+	for i := range subs {
+		if subs[i].Status == "completed" {
+			completedIDs = append(completedIDs, subs[i].ID)
 		}
 	}
-
-	return selectedPapers, nil
-}
-
-// formatPapersForAIFilter 格式化论文列表供AI筛选
-func (s *Service) formatPapersForAIFilter(papers []map[string]any) string {
-	var sb strings.Builder
-
-	for i, p := range papers {
-		title, _ := p["title"].(string)
-		year := 0
-		if y, ok := p["year"].(float64); ok {
-			year = int(y)
-		}
-		abstract, _ := p["abstract"].(string)
-		// 限制摘要长度，避免提示词过长
-		if len(abstract) > 400 {
-			abstract = abstract[:400] + "..."
-		}
-		citations := 0
-		if c, ok := p["citationCount"].(float64); ok {
-			citations = int(c)
-		}
-		venue, _ := p["venue"].(string)
-
-		sb.WriteString(fmt.Sprintf("### 论文 %d\n", i+1))
-		sb.WriteString(fmt.Sprintf("- 标题: %s\n", title))
-		sb.WriteString(fmt.Sprintf("- 年份: %d | 引用数: %d", year, citations))
-		if venue != "" {
-			sb.WriteString(fmt.Sprintf(" | 发表于: %s", venue))
-		}
-		sb.WriteString("\n")
-		sb.WriteString(fmt.Sprintf("- 摘要: %s\n\n", abstract))
-	}
-
-	return sb.String()
-}
-
-// buildFilterContext 根据查询类型构建筛选上下文
-func (s *Service) buildFilterContext(query SearchQuery, meta *ManuscriptMeta) string {
-	switch query.ID {
-	case "topic":
-		return fmt.Sprintf(`当前任务是筛选【主题相关】的论文。
-查询条件：%s
-请选出与目标研究主题高度相关的论文，包括：
-- 研究相同或相近主题的论文
-- 涉及相同关键变量的论文
-- 在同一领域内探讨相似问题的论文`, query.Query)
-
-	case "method":
-		return fmt.Sprintf(`当前任务是筛选【方法相关】的论文。
-查询条件：%s
-请选出使用相似研究方法的论文，包括：
-- 使用相同或相近实验设计的论文
-- 采用类似数据分析方法的论文
-- 方法论上可作为参考的论文`, query.Query)
-
-	case "novelty":
-		return fmt.Sprintf(`当前任务是筛选【创新点相关】的论文。
-查询条件：%s
-请选出与目标研究创新点相关的论文，包括：
-- 声称有类似创新的论文（用于对比新颖性）
-- 提出相关改进或突破的论文
-- 可能与目标创新点存在重叠的论文`, query.Query)
-
-	case "keywords":
-		return fmt.Sprintf(`当前任务是筛选【关键词相关】的论文。
-查询条件：%s
-请选出涵盖关键概念的论文，包括：
-- 使用相同关键术语的论文
-- 探讨相关理论框架的论文
-- 在相关子领域有贡献的论文`, query.Query)
-
-	default:
-		return fmt.Sprintf(`查询条件：%s
-请选出与目标研究最相关的论文。`, query.Query)
-	}
-}
-
-// callSemanticScholarSearchWithAIFilterNoWriter 调用MCP搜索文献并进行AI筛选（无 writer 版本，用于后台任务）
-func (s *Service) callSemanticScholarSearchWithAIFilterNoWriter(ctx context.Context, queries []SearchQuery, meta *ManuscriptMeta, modelLevel string, progressCallback func(string)) (map[string][]map[string]any, error) {
-	results := make(map[string][]map[string]any)
-
-	for _, q := range queries {
-		if progressCallback != nil {
-			progressCallback(fmt.Sprintf("正在检索%s相关文献...", getQueryTypeLabel(q.ID)))
-		}
-
-		// 1. 调用MCP检索
-		rawPapers, err := s.searchSingleQuery(ctx, q)
-		if err != nil {
-			slog.Error("search failed", "query_id", q.ID, "err", err)
-			continue
-		}
-
-		slog.Info("query returned papers", "query_id", q.ID, "count", len(rawPapers))
-
-		if len(rawPapers) == 0 {
-			continue
-		}
-
-		// 2. 过滤掉没有摘要的论文
-		papersWithAbstract := s.filterPapersWithAbstract(rawPapers)
-		slog.Info("filtered papers without abstract", "remaining", len(papersWithAbstract))
-
-		if len(papersWithAbstract) == 0 {
-			results[q.ID] = topN(rawPapers, 10)
-			continue
-		}
-
-		// 3. AI二次筛选
-		if progressCallback != nil {
-			progressCallback(fmt.Sprintf("AI正在分析%s相关性...", getQueryTypeLabel(q.ID)))
-		}
-		filteredPapers, err := s.filterPapersWithAI(ctx, papersWithAbstract, q, meta, modelLevel)
-		if err != nil {
-			slog.Warn("AI filter failed, using raw results", "query_id", q.ID, "err", err)
-			results[q.ID] = topN(papersWithAbstract, 15)
-			continue
-		}
-
-		slog.Info("AI filtering complete", "selected", len(filteredPapers))
-		results[q.ID] = filteredPapers
-	}
-
-	return results, nil
-}
-
-// normalizeAndSelectPapers 整理和筛选论文
-func (s *Service) normalizeAndSelectPapers(resultsByID map[string][]map[string]any) *LiteratureContext {
-	allPapersMap := make(map[string]map[string]any)
-
-	// 去重
-	for _, papers := range resultsByID {
-		for _, p := range papers {
-			key := ""
-			if paperID, ok := p["paperId"].(string); ok && paperID != "" {
-				key = paperID
-			} else if title, ok := p["title"].(string); ok {
-				if year, ok := p["year"].(float64); ok {
-					key = fmt.Sprintf("%s_%d", title, int(year))
-				} else {
-					key = title
+	if len(completedIDs) > 0 {
+		chiefs, cerr := s.repo.ChiefReportsBySubmissionIDs(completedIDs)
+		if cerr != nil {
+			// 决议列拿不到不致命, 退化为"已完成"即可; 记一条 warn 便于排查。
+			slog.Warn("peerreview list: load chief decisions", "err", cerr)
+		} else {
+			for i := range subs {
+				if rep, ok := chiefs[subs[i].ID]; ok {
+					subs[i].ChiefDecision = chiefDecisionOf(&rep)
 				}
 			}
-			if key != "" && allPapersMap[key] == nil {
-				allPapersMap[key] = p
+		}
+	}
+	return subs, nil
+}
+
+var recommendationRe = regexp.MustCompile(`"recommendation"\s*:\s*"([^"]+)"`)
+
+// chiefDecisionOf 返回主审决议结果 (内部值 小修/大修/拒稿 或历史值; 前端 lib/recommendation 再映射展示名)。
+// 优先结构化列 recommendation / decision; 都缺失 (旧脏数据 JSON 解析失败) 时从 content_md 正则复原。
+func chiefDecisionOf(rep *Report) string {
+	if rep.Recommendation.Valid && strings.TrimSpace(rep.Recommendation.String) != "" {
+		return strings.TrimSpace(rep.Recommendation.String)
+	}
+	if rep.Decision.Valid && strings.TrimSpace(rep.Decision.String) != "" {
+		return strings.TrimSpace(rep.Decision.String)
+	}
+	if rep.ContentMd != "" {
+		if m := recommendationRe.FindStringSubmatch(rep.ContentMd); len(m) == 2 {
+			return strings.TrimSpace(m[1])
+		}
+	}
+	return ""
+}
+
+// PatchPayload 是 handler 解出来的 patch DTO。
+// 各字段为指针 / RawMessage,nil 表示不更新。
+type PatchPayload struct {
+	Step          *uint8           `json:"step,omitempty"`
+	Title         *string          `json:"title,omitempty"`
+	Abstract      *string          `json:"abstract,omitempty"`
+	ExtraMeta     *ExtractedMeta   `json:"extraMeta,omitempty"`
+	LetterBody    *string          `json:"letterBody,omitempty"`
+	JournalTarget json.RawMessage  `json:"journalTarget,omitempty"`
+	SchoolTarget  *SchoolTargetIn  `json:"schoolTarget,omitempty"`
+}
+
+type SchoolTargetIn struct {
+	SchoolName      string `json:"schoolName"`
+	DegreeType      string `json:"degreeType"`
+	DisciplineField string `json:"disciplineField"`
+	AdvisorName     string `json:"advisorName,omitempty"`
+}
+
+// PatchPayload 新增 ExtraMeta 透传, 持久化 keywords/subjects/manuscriptType。
+// service 内部根据用户改了什么字段, 自动 bump 对应 revision (assets/meta/letter)。
+func (s *Service) PatchSubmission(userID, id uint64, p PatchPayload) (*Submission, error) {
+	sub, err := s.repo.GetByID(id, userID)
+	if err != nil {
+		return nil, err
+	}
+	// 只能改草稿 —— 已提交的投稿不允许再回填字段 / bump revision (否则会改坏已提交/已完稿件)。
+	if sub.Status != "draft" {
+		return nil, ErrNotDraft
+	}
+	fields := map[string]any{}
+
+	// step 改动不算 revision 变化 (纯导航)
+	if p.Step != nil {
+		if *p.Step < 1 || *p.Step > 4 {
+			return nil, ErrInvalidStep
+		}
+		fields["step"] = *p.Step
+	}
+
+	// 以下任意字段改动 → bumpMeta=true (会在 commit 后触发 BumpMetaRevision)
+	bumpMeta := false
+	bumpLetter := false
+
+	if p.Title != nil && (!sub.Title.Valid || sub.Title.String != *p.Title) {
+		fields["title"] = *p.Title
+		bumpMeta = true
+	}
+	if p.Abstract != nil && (!sub.Abstract.Valid || sub.Abstract.String != *p.Abstract) {
+		fields["abstract"] = *p.Abstract
+		bumpMeta = true
+	}
+	if p.ExtraMeta != nil {
+		raw, _ := json.Marshal(p.ExtraMeta)
+		// 跟 DB 当前值比较 (简化: 任意改动就 bump)
+		fields["extra_meta_json"] = json.RawMessage(raw)
+		bumpMeta = true
+	}
+	if p.LetterBody != nil && (!sub.LetterBody.Valid || sub.LetterBody.String != *p.LetterBody) {
+		fields["letter_body"] = *p.LetterBody
+		bumpLetter = true
+	}
+	if len(p.JournalTarget) > 0 && string(p.JournalTarget) == "null" {
+		// 显式传 null = 用户点了"取消选择"; 清空期刊字段 + bump meta
+		if sub.JournalID.Valid || sub.JournalName.Valid {
+			bumpMeta = true
+		}
+		fields["journal_id"] = sql.NullInt64{}
+		fields["journal_name"] = sql.NullString{}
+		fields["journal_meta_json"] = nil
+	} else if len(p.JournalTarget) > 0 {
+		// 解出 journalId / canonicalName 单独存,meta 整块塞 JSON。
+		// journalId<=0 = 自定义期刊 (只有用户输入的 canonicalName, 无 IF/Quartile 等元数据)。
+		var jt struct {
+			JournalID       int64    `json:"journalId"`
+			CanonicalName   string   `json:"canonicalName"`
+			ISSNs           []string `json:"issns,omitempty"`
+			AIReason        string   `json:"aiReason,omitempty"`
+			JCRImpactFactor float64  `json:"jcrImpactFactor,omitempty"`
+			JCRQuartile     string   `json:"jcrQuartile,omitempty"`
+		}
+		if err := json.Unmarshal(p.JournalTarget, &jt); err == nil {
+			name := strings.TrimSpace(jt.CanonicalName)
+			if name == "" {
+				return nil, errors.New("期刊名称不能为空 (自定义期刊请填写完整名称)")
+			}
+			if len(name) > 250 {
+				return nil, errors.New("期刊名称过长 (最多 250 字)")
+			}
+			if jt.JournalID > 0 {
+				fields["journal_id"] = jt.JournalID
+			} else {
+				// 自定义期刊 — 显式清掉旧的 journal_id 关联
+				fields["journal_id"] = sql.NullInt64{}
+			}
+			fields["journal_name"] = name
+			fields["journal_meta_json"] = p.JournalTarget
+			// 期刊变化 → meta revision bump → 让 step3 letter cache 失效
+			if !sub.JournalID.Valid || sub.JournalID.Int64 != jt.JournalID ||
+				!sub.JournalName.Valid || sub.JournalName.String != jt.CanonicalName {
+				bumpMeta = true
+			}
+		}
+	}
+	if p.SchoolTarget != nil {
+		// 毕业模式 — 校名 / 学位 / 学科任何一个变 → bumpMeta
+		if !sub.SchoolName.Valid || sub.SchoolName.String != p.SchoolTarget.SchoolName ||
+			!sub.DegreeType.Valid || sub.DegreeType.String != p.SchoolTarget.DegreeType ||
+			!sub.DisciplineField.Valid || sub.DisciplineField.String != p.SchoolTarget.DisciplineField {
+			bumpMeta = true
+		}
+		fields["school_name"] = p.SchoolTarget.SchoolName
+		fields["degree_type"] = p.SchoolTarget.DegreeType
+		fields["discipline_field"] = p.SchoolTarget.DisciplineField
+		fields["advisor_name"] = p.SchoolTarget.AdvisorName
+	}
+
+	if len(fields) > 0 {
+		if err := s.repo.PatchSubmission(id, fields); err != nil {
+			return nil, err
+		}
+	}
+	if bumpMeta {
+		_ = s.repo.BumpMetaRevision(id)
+	}
+	if bumpLetter {
+		_ = s.repo.BumpLetterRevision(id)
+	}
+	return s.repo.GetByID(id, userID)
+}
+
+// ─── 文件上传 ─────────────────────────────────────────────────────────────
+
+// UploadAsset 把 multipart 文件存 MinIO + 落 DB 元数据。
+// 主稿件还会同步抽文本(超时 30s),失败不阻塞上传,只是 text_excerpt 为空,
+// 后续 Step2 推荐 / submit prompt 都没东西可喂 agent。
+func (s *Service) UploadAsset(
+	ctx context.Context, userID, submissionID uint64,
+	fh *multipart.FileHeader, role, category string,
+) (*Asset, error) {
+	sub, err := s.repo.GetByID(submissionID, userID)
+	if err != nil {
+		return nil, err
+	}
+	// 只能往草稿传文件 —— 已提交的投稿换/加稿件会改坏已提交/已完成审稿的资料集。
+	if sub.Status != "draft" {
+		return nil, ErrNotDraft
+	}
+	if role != "manuscript" && role != "attachment" {
+		return nil, errors.New("peerreview: role must be manuscript / attachment")
+	}
+
+	// 类型 / 空文件 / 大小 校验 —— 与前端一致, 防绕过前端直接打 API
+	// (前端 accept 属性只是建议, 0B / .txt / 超限文件都能伪造请求送进来)。
+	limit := int64(MaxAttachmentBytes)
+	if role == "manuscript" {
+		limit = MaxManuscriptBytes
+		ext := strings.ToLower(filepath.Ext(fh.Filename))
+		if ext != ".pdf" && ext != ".docx" {
+			return nil, errors.New("稿件正文只支持 .pdf / .docx")
+		}
+	}
+	if fh.Size == 0 {
+		return nil, errors.New("文件是空的 (0 字节)")
+	}
+	if fh.Size > limit {
+		return nil, fmt.Errorf("文件超过 %d MB 上限", limit/1024/1024)
+	}
+
+	// 附件数量上限
+	if role == "attachment" {
+		existing, _ := s.repo.ListAssets(submissionID)
+		count := 0
+		for _, a := range existing {
+			if a.Role == "attachment" {
+				count++
+			}
+		}
+		if count >= MaxAttachmentCount {
+			return nil, ErrAttachmentLimit
+		}
+	}
+
+	src, err := fh.Open()
+	if err != nil {
+		return nil, fmt.Errorf("open multipart: %w", err)
+	}
+	defer src.Close()
+
+	// 读全量到内存:稿件最大 200MB,我们要 sha256 + 抽文本(只对 manuscript),
+	// 而且 MinIO 单 part 上传需要预先知道 size,所以也不省了。
+	body, err := io.ReadAll(src)
+	if err != nil {
+		return nil, fmt.Errorf("read multipart: %w", err)
+	}
+
+	sum := sha256.Sum256(body)
+	hexsum := hex.EncodeToString(sum[:])
+
+	bucket := s.bucket()
+	if bucket == "" {
+		return nil, errors.New("peerreview: storage not configured")
+	}
+
+	ext := strings.ToLower(filepath.Ext(fh.Filename))
+	key := fmt.Sprintf("tmp/%d/%s%s", submissionID, uuid.New().String(), ext)
+
+	if _, err := storage.PutObject(ctx, bucket, key, strings.NewReader(string(body)),
+		int64(len(body)), storage.PutOptions{
+			ContentType: fh.Header.Get("Content-Type"),
+			UserMeta: map[string]string{
+				"original-name": fh.Filename,
+				"submission-id": fmt.Sprintf("%d", submissionID),
+				"role":          role,
+			},
+		}); err != nil {
+		return nil, fmt.Errorf("put object: %w", err)
+	}
+
+	a := &Asset{
+		SubmissionID: submissionID,
+		Role:         role,
+		Filename:     fh.Filename,
+		Size:         uint64(len(body)),
+		Mime:         fh.Header.Get("Content-Type"),
+		ObjectKey:    key,
+	}
+	if hexsum != "" {
+		a.SHA256.String = hexsum
+		a.SHA256.Valid = true
+	}
+	if category != "" {
+		a.Category.String = category
+		a.Category.Valid = true
+	}
+
+	// 方案 B: backend 不再抽文本 / 不再 pdfparse。原始文件存 MinIO, 审稿流程跑起来时
+	// 由 pushAssetsToSession 推到 agent 会话 cwd, 让大模型用 Read 工具原生分析。
+	// 标题 / 摘要 / 关键词等元数据统一由 agent 的 meta-extract 抽 (见 runMetaExtract)。
+	if err := s.repo.CreateAsset(a); err != nil {
+		_ = storage.DeleteObject(ctx, bucket, key)
+		return nil, err
+	}
+
+	// 主稿件更新到 submission.manuscript_asset_id
+	if role == "manuscript" {
+		_ = s.repo.SetManuscriptAsset(submissionID, a.ID)
+	}
+	// asset 增减 → bump assets_revision → 让 step2/3 cache 失效。
+	// 注意: 这里不主动 reset agent session, 只在下次 AdvanceStep 检测到 cache miss 时按需 reset,
+	// 避免用户上传/删除后再次上传过程中反复重建 session 浪费 agent 端 jsonl。
+	_ = s.repo.BumpAssetsRevision(submissionID)
+	return a, nil
+}
+
+func (s *Service) DeleteAsset(ctx context.Context, userID, submissionID, assetID uint64) error {
+	sub0, err := s.repo.GetByID(submissionID, userID)
+	if err != nil {
+		return err
+	}
+	// 只能删草稿里的文件 —— 已提交的投稿删稿件会改坏已提交/已完成审稿的资料集。
+	if sub0.Status != "draft" {
+		return ErrNotDraft
+	}
+	a, err := s.repo.GetAsset(assetID, submissionID)
+	if err != nil {
+		return err
+	}
+	if err := s.repo.DeleteAsset(assetID, submissionID); err != nil {
+		return err
+	}
+	if a.Role == "manuscript" {
+		_ = s.repo.DeleteManuscriptIfMatch(submissionID, assetID)
+	}
+	_ = storage.DeleteObject(ctx, s.bucket(), a.ObjectKey)
+	_ = s.repo.BumpAssetsRevision(submissionID)
+
+	// 删完之后如果该 draft 已经没有任何 asset, 整条 draft 也清掉(包含 agent session)。
+	// 业务语义:用户在 Step1 删光了文件 = 取消草稿。但只对 draft 状态做 — 已 submitted
+	// 的也走 DeleteAsset 时, sub 早已不是 draft, 不会触发。
+	sub, err := s.repo.GetByID(submissionID, userID)
+	if err == nil && sub.Status == "draft" {
+		if n, _ := s.repo.CountAssets(submissionID); n == 0 {
+			_ = s.DeleteSubmission(ctx, userID, submissionID)
+		}
+	}
+	return nil
+}
+
+func (s *Service) ListAssets(userID, submissionID uint64) ([]Asset, error) {
+	if _, err := s.repo.GetByID(submissionID, userID); err != nil {
+		return nil, err
+	}
+	return s.repo.ListAssets(submissionID)
+}
+
+// ─── 删除整条 submission ────────────────────────────────────────────────
+//
+// DeleteSubmission 等同于"取消草稿 / 删除审稿记录":
+//   1. 校验所有权 (GetByID with userID filter)
+//   2. 删 agent session (agent 容器的 jsonl + tool-results)
+//   3. 删所有 asset 对应的 MinIO 对象
+//   4. 删 DB 行 — peer_review_assets / _reports / _step_cache 走 FK CASCADE 自动清
+//   5. 通知 broker 终止 (如果正在 computing,SSE 订阅方会收到 error 并 close)
+//
+// 任意子步骤失败不阻塞后续 — agent / MinIO 失败只 log,DB 删除仍执行;
+// 残留的 agent session jsonl / MinIO 对象由 agent 端 GC / MinIO ILM 兜底。
+func (s *Service) DeleteSubmission(ctx context.Context, userID, submissionID uint64) error {
+	sub, err := s.repo.GetByID(submissionID, userID)
+	if err != nil {
+		return err
+	}
+
+	// 1) agent session
+	if sub.AgentSessionID.Valid && sub.AgentSessionID.String != "" {
+		if err := s.feature.AgentClient().DeleteSession(ctx, sub.AgentSessionID.String); err != nil {
+			// 404 = session 已不存在, OK; 其它错误只 log
+			if !errors.Is(err, agent.ErrSessionNotFound) {
+				// 不致命, 继续
+				_ = err
 			}
 		}
 	}
 
-	// 转为列表
-	allPapers := make([]map[string]any, 0, len(allPapersMap))
-	for _, p := range allPapersMap {
-		allPapers = append(allPapers, p)
+	// 2) MinIO 对象 (按 asset 列表取 objectKey 批删, 失败只 log)
+	bucket := s.bucket()
+	if bucket != "" {
+		assets, _ := s.repo.ListAssets(submissionID)
+		keys := make([]string, 0, len(assets))
+		for _, a := range assets {
+			if a.ObjectKey != "" {
+				keys = append(keys, a.ObjectKey)
+			}
+		}
+		if len(keys) > 0 {
+			_ = storage.DeleteObjects(ctx, bucket, keys, nil)
+		}
 	}
 
-	return &LiteratureContext{
-		AllPapers: allPapers,
-		ByTopic:   topN(resultsByID["topic"], 15),   // 增加每类保留数量
-		ByMethod:  topN(resultsByID["method"], 15),
-		ByNovelty: topN(resultsByID["novelty"], 15),
-		ByTheory:  topN(resultsByID["keywords"], 15),
-	}
+	// 3) 终止 broker — 一次性 fail 该 submission 下所有 slot
+	s.broker.FailAll(submissionID, "submission deleted")
+
+	// 4) DB 行 (FK CASCADE 删 assets / reports / step_cache)
+	return s.repo.DeleteSubmission(submissionID)
 }
 
-func topN(papers []map[string]any, n int) []map[string]any {
-	if len(papers) <= n {
-		return papers
-	}
-	return papers[:n]
-}
+// ─── AdvanceStep: wizard "下一步" 的统一入口 ───────────────────────────────
+//
+// 替代之前直接 PATCH(step) + 独立 ExtractMeta/DraftLetter 调用的拼凑做法。
+// 单一接口处理三种情况:
+//
+//   from=1 → 进 step2: 检查 step2 cache fingerprint; 命中复用; miss → reset session
+//            + 异步跑 meta extract goroutine
+//   from=2 → 进 step3: 检查 step3 cache fingerprint; 命中复用; miss → 异步跑 letter draft
+//            goroutine (session 保留, agent 还记得 manuscript)
+//   from=3 → 进 step4: 无 agent 调用, 直接 bump step
+//
+// 异步路径返回 compute_state='computing_xxx', 前端 polling submission detail。
+// 同步路径 (cache hit) 直接返回 compute_state='idle' + 新的 step。
 
-// summarizeLiterature 总结文献环境
-func (s *Service) summarizeLiterature(ctx context.Context, litCtx *LiteratureContext, meta *ManuscriptMeta, modelLevel string) (*LiteratureSummary, error) {
-	// 压缩论文列表
-	compactList := s.compactPapersForLLM(litCtx.AllPapers, 20)
-
-	prompt := fmt.Sprintf(`你是一位严谨的学术专家，正在帮助一位"审稿人代理"快速了解某一主题的研究前沿。
-
-下面是该稿件的关键信息：
-标题：%s
-领域：%s
-研究主题：%s
-主要方法：%s
-关键变量：%s
-作者声称的创新点：%s
-
-下面是从 Semantic Scholar 检索得到的相关论文列表：
-%s
-
-请你：
-1. 概括该主题最近几年的主要研究方向和共识；
-2. 点出与该稿件最相似的 3-5 篇论文，并说明相似点；
-3. 指出目前文献中尚存的典型 research gap（如果有）；
-4. 为后续审稿人评估"新颖性"和"文献是否充分"提供一个简短小结。
-
-输出结构为 JSON（输出必须控制在4000字符以内，请精简表达）：
-{
-  "field_state": "对该主题近期研究的概览（200字以内）",
-  "closest_papers": [
-    { "title": "论文标题", "year": 2023, "reason": "相似原因（50字以内）" }
-  ],
-  "typical_gaps": ["gap1（50字以内）", "gap2"],
-  "notes_for_reviewer": "给审稿人的备注（200字以内）"
-}
-
-只返回JSON，不要有其他文字。`,
-		meta.Title,
-		meta.Field,
-		meta.MainTopic,
-		strings.Join(meta.MainMethods, ", "),
-		strings.Join(meta.KeyVariables, ", "),
-		strings.Join(meta.ClaimedNovelty, ", "),
-		compactList)
-
-	messages := []ai.ChatMessage{
-		{Role: "user", Content: prompt},
-	}
-
-	level := getModelLevel(modelLevel)
-
-	// 调用 AI 并支持续写
-	content, err := s.callAIWithContinuation(ctx, messages, level, 3)
+// AdvanceStep 是 wizard 进入下一步的核心入口。
+func (s *Service) AdvanceStep(ctx context.Context, userID, submissionID uint64, fromStep int) (*Submission, error) {
+	sub, err := s.repo.GetByID(submissionID, userID)
 	if err != nil {
 		return nil, err
 	}
-
-	content = extractJSON(content)
-
-	var summary LiteratureSummary
-	if err := json.Unmarshal([]byte(content), &summary); err != nil {
-		// 记录原始内容便于调试
-		slog.Error("failed to parse summary JSON", "content_prefix", content[:min(500, len(content))], "err", err)
-		return nil, fmt.Errorf("failed to parse summary: %w", err)
+	// wizard 只能推进草稿。已提交的投稿 (queued/reviewing/completed/failed) 一律拒绝 ——
+	// 否则 reviewing 撞下面的 computeState 守卫报"计算中", 而 completed (computeState 已回 idle)
+	// 会绕过守卫被重新抽 meta / 起草, 把已完稿件改坏。Submit 同样有此守卫 (幂等)。
+	if sub.Status != "draft" {
+		return nil, ErrNotDraft
 	}
-
-	return &summary, nil
+	if sub.ComputeState != StateIdle && sub.ComputeState != StateFailed {
+		return nil, errors.New("当前正在计算中, 请稍候")
+	}
+	if fromStep < 1 || fromStep > 3 {
+		return nil, ErrInvalidStep
+	}
+	switch fromStep {
+	case 1:
+		return s.advanceTo2(ctx, sub)
+	case 2:
+		return s.advanceTo3(ctx, sub)
+	case 3:
+		// Step3 → Step4: 无 agent, 直接转
+		if err := s.repo.PatchSubmission(sub.ID, map[string]any{"step": 4}); err != nil {
+			return nil, err
+		}
+		return s.repo.GetByID(submissionID, userID)
+	}
+	return nil, ErrInvalidStep
 }
 
-// callAIWithContinuation 调用 AI 并支持自动续写被截断的响应
-func (s *Service) callAIWithContinuation(ctx context.Context, messages []ai.ChatMessage, level thirdparty.ModelLevel, maxContinuations int) (string, error) {
-	var fullContent strings.Builder
-	var previousContent string // 用于检测重复
-
-	currentMessages := make([]ai.ChatMessage, len(messages))
-	copy(currentMessages, messages)
-
-	for i := 0; i <= maxContinuations; i++ {
-		response, err := s.aiService.ChatCompletionWithTools(ctx, currentMessages, nil, "", level)
-		if err != nil {
-			return "", err
-		}
-
-		if len(response.Choices) == 0 {
-			return "", fmt.Errorf("no response from AI")
-		}
-
-		content := response.Choices[0].Message.Content
-		finishReason := response.Choices[0].FinishReason
-
-		// 续写时检测并去除重复内容
-		if i > 0 && previousContent != "" {
-			content = removeOverlappingContent(previousContent, content)
-		}
-
-		fullContent.WriteString(content)
-		previousContent = content // 保存当前内容用于下一轮去重
-
-		slog.Debug("AI response chunk", "chunk", i+1, "length", len(content), "finish_reason", finishReason)
-
-		// 如果正常结束（不是因为长度被截断），直接返回
-		if finishReason != "length" {
+// advanceTo2 处理 Step1 → Step2: 抽 meta。
+//
+// fingerprint = assets_revision (meta 只依赖 manuscript 文本)。
+// 命中 cache → reload payload 到 submission.title/abstract/extra_meta_json, 转 step=2。
+// miss → reset agent session (旧 manuscript 不能干扰) + spawn goroutine。
+func (s *Service) advanceTo2(ctx context.Context, sub *Submission) (*Submission, error) {
+	// 必须先有 manuscript
+	assets, _ := s.repo.ListAssets(sub.ID)
+	hasManuscript := false
+	for _, a := range assets {
+		if a.Role == "manuscript" {
+			hasManuscript = true
 			break
 		}
+	}
+	if !hasManuscript {
+		return nil, ErrManuscriptMissing
+	}
 
-		// 如果是因为长度被截断，需要续写
-		if i < maxContinuations {
-			slog.Info("response truncated, requesting continuation")
+	fingerprint := fingerprintStep2(sub.AssetsRevision)
 
-			// 构建续写请求：把当前的部分响应加入对话，让 AI 继续
-			currentMessages = append(currentMessages, ai.ChatMessage{
-				Role:    "assistant",
-				Content: content,
-			})
-			currentMessages = append(currentMessages, ai.ChatMessage{
-				Role:    "user",
-				Content: "请继续，从你上次停止的地方继续输出，不要重复已输出的内容。",
-			})
+	cache, err := s.repo.GetStepCache(sub.ID, 2)
+	if err != nil {
+		// 缓存查询失败别静默吞 —— 当作 miss 继续(重跑 agent)是对的, 但 DB/连接异常要可观测。
+		slog.Warn("peerreview: get step2 cache failed", "submission_id", sub.ID, "err", err)
+	}
+	if cache != nil && cache.InputFingerprint == fingerprint {
+		// Cache 命中: 直接转 step=2 (payload 已经在 submission.title/abstract/extra_meta_json,
+		// 因为上次成功后 goroutine 已经回填过)。
+		if err := s.repo.PatchSubmission(sub.ID, map[string]any{"step": 2}); err != nil {
+			return nil, err
+		}
+		return s.repo.GetByID(sub.ID, sub.UserID)
+	}
+
+	// Cache miss: 旧 cache 跟 agent session 里的 manuscript 可能都过时,
+	// 重建一切 (DeleteSession + CreateSession + 清所有 step_cache)。
+	if _, err := s.resetAgentSession(ctx, sub); err != nil {
+		return nil, err
+	}
+	if err := s.repo.PatchSubmission(sub.ID, map[string]any{"step": 2}); err != nil {
+		return nil, err
+	}
+	if err := s.repo.SetComputeState(sub.ID, StateComputingMeta, ""); err != nil {
+		return nil, err
+	}
+
+	// 异步 agent goroutine (detached context, 5min timeout)
+	sid := sub.ID
+	sessionID := sub.AgentSessionID.String
+	fp := fingerprint
+	safego.Go(fmt.Sprintf("peerreview-meta-%d", sid), func() {
+		bgCtx, cancel := ctxutil.With(ctxutil.LongIO)
+		defer cancel()
+		s.runMetaExtract(bgCtx, sid, sessionID, fp)
+	})
+
+	return s.repo.GetByID(sub.ID, sub.UserID)
+}
+
+// advanceTo3 处理 Step2 → Step3: 起草 letter。
+//
+// fingerprint = (assets_revision, meta_revision, journal_id 或 school_*) 。
+// 命中 → 把 cache.payload.body 写到 submission.letter_body, 转 step=3。
+// miss → spawn goroutine (不 reset session — agent 已经有 manuscript)。
+//
+// Safety check: 若 step2 cache fingerprint 跟当前 assets_revision 已对不上,
+// 拒绝 advance, 要求用户先回 step2 重新生成。这保证 agent session 里的 manuscript
+// 永远是 step2 cache 认可的版本。
+func (s *Service) advanceTo3(ctx context.Context, sub *Submission) (*Submission, error) {
+	// Sanity: step2 cache 必须还新
+	step2Cache, _ := s.repo.GetStepCache(sub.ID, 2)
+	if step2Cache == nil || step2Cache.InputFingerprint != fingerprintStep2(sub.AssetsRevision) {
+		return nil, errors.New("文件已变更, 请回到 Step 2 重新生成稿件信息后再继续")
+	}
+
+	// 期刊为"选填": journal 模式下没填期刊也允许 advance, agent 会走通用 STM 模板。
+	// 毕业模式仍要求填院校 (院校信息是审稿背景设定, 不可空)。
+	if sub.Mode == "thesis" && (!sub.SchoolName.Valid || sub.SchoolName.String == "") {
+		return nil, errors.New("请先填写目标院校信息")
+	}
+
+	fingerprint := fingerprintStep3(sub)
+
+	cache, err := s.repo.GetStepCache(sub.ID, 3)
+	if err != nil {
+		slog.Warn("peerreview: get step3 cache failed", "submission_id", sub.ID, "err", err)
+	}
+	if cache != nil && cache.InputFingerprint == fingerprint {
+		// 命中: 已经写过 letter_body 到 submission, 直接转 step=3
+		if err := s.repo.PatchSubmission(sub.ID, map[string]any{"step": 3}); err != nil {
+			return nil, err
+		}
+		return s.repo.GetByID(sub.ID, sub.UserID)
+	}
+
+	// miss: 异步起草 (session 保留)
+	if err := s.repo.PatchSubmission(sub.ID, map[string]any{"step": 3}); err != nil {
+		return nil, err
+	}
+	if err := s.repo.SetComputeState(sub.ID, StateComputingLetter, ""); err != nil {
+		return nil, err
+	}
+
+	sid := sub.ID
+	sessionID := sub.AgentSessionID.String
+	fp := fingerprint
+	safego.Go(fmt.Sprintf("peerreview-letter-%d", sid), func() {
+		bgCtx, cancel := ctxutil.With(ctxutil.LongIO)
+		defer cancel()
+		s.runLetterDraft(bgCtx, sid, sessionID, fp)
+	})
+
+	return s.repo.GetByID(sub.ID, sub.UserID)
+}
+
+// ─── 异步 agent goroutine 实现 ──────────────────────────────────────────
+
+// runMetaExtract: 发完整 manuscript prompt (单 session 的第一轮),
+// agent 返结构化 JSON, 解析 + 落 step_cache + 回填 submission。
+func (s *Service) runMetaExtract(ctx context.Context, submissionID uint64, sessionID, fingerprint string) {
+	failure := func(reason string) {
+		_ = s.repo.SetComputeState(submissionID, StateFailed, reason)
+		s.broker.Fail(submissionID, SlotMeta, reason)
+	}
+	// panic 兜底: 否则 compute_state 永远卡在 computing_meta —— 前端按钮禁用 + AdvanceStep 400,
+	// 用户除了取消草稿(删光文件)无路可退。复位 failed 让 FailureBanner 出"重试"。
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("peerreview meta goroutine panic", "submission_id", submissionID, "panic", r)
+			failure("内部错误, 请重试")
+		}
+	}()
+	s.broker.Begin(submissionID, SlotMeta)
+
+	// 方案 B: 把稿件 + 附件推到 agent 会话 cwd, 让它用 Read 读全文 (不再 backend 抽文本)。
+	files, perr := s.pushAssetsToSession(ctx, submissionID, sessionID)
+	if perr != nil {
+		if errors.Is(perr, ErrManuscriptMissing) {
+			failure("稿件未上传")
+		} else {
+			failure("推送稿件到 agent 失败: " + perr.Error())
+		}
+		return
+	}
+
+	// 元数据抽取**只需论文开头** (标题/摘要/关键词/学科/类型都在首页+摘要区)。
+	// 不要求通读全文 —— 全文留给后面的审稿轮 (runReviewBackground 会重读)。这样大幅减少
+	// Read 进上下文的体量, meta 抽取从"读整本 PDF"提速到"读前 1-2 页"。
+	prompt := fmt.Sprintf(
+`请从这篇论文里抽取投稿元数据。论文文件已放在你的当前工作目录:
+%s
+
+**只需读论文开头部分** (标题/摘要/关键词/学科通常都在首页与摘要区), **不必通读全文**, 以加快速度:
+- PDF: 优先用 `+"`pdftotext -l 2 \"<文件>\" -`"+` 只取前 2 页 (容器已装 poppler-utils); 不行再 Read。
+- docx/其它: 用 pandoc/python 转换后取开头即可。
+
+抽取结构化元数据, **严格 JSON 输出**(不要任何前后缀文本 / 不要 markdown 代码块):
+
+{
+  "title": "<论文完整标题, 不要带换行 / ligature artifact / 序号>",
+  "abstract": "<完整摘要, 1 段, 200-400 字>",
+  "keywords": ["<3-7 个关键词, 简短 1-3 词>"],
+  "subjects": ["<1-3 个学科领域, 例如 '计算机科学' / 'Computational Linguistics'>"],
+  "manuscriptType": "<research / review / short_communication 三选一, 不确定填 research>"
+}`, files.manuscriptPath)
+
+	reply, _, err := s.feature.Bridge().ServerSideChatStreaming(ctx, sessionID, prompt, func(delta string) {
+		s.broker.Append(submissionID, SlotMeta, delta)
+	}, func(note string) {
+		s.broker.Status(submissionID, SlotMeta, note)
+	}, s.fastModel())
+	if err != nil {
+		failure("agent chat: " + err.Error())
+		return
+	}
+	jsonBytes := extractFirstJSONObject(reply)
+	if jsonBytes == nil {
+		failure("agent 输出无法解析为 JSON")
+		return
+	}
+	var meta ExtractedMeta
+	if err := json.Unmarshal(jsonBytes, &meta); err != nil {
+		failure("agent JSON 解析失败: " + err.Error())
+		return
+	}
+
+	// 落 step_cache
+	payload, _ := json.Marshal(meta)
+	_ = s.repo.UpsertStepCache(&StepCache{
+		SubmissionID:     submissionID,
+		Step:             2,
+		InputFingerprint: fingerprint,
+		PayloadJSON:      payload,
+	})
+
+	// 回填 submission: title/abstract 顶层列 + extra_meta_json (keywords/subjects/type)
+	fields := map[string]any{}
+	if meta.Title != "" {
+		fields["title"] = meta.Title
+	}
+	if meta.Abstract != "" {
+		fields["abstract"] = meta.Abstract
+	}
+	extra := ExtractedMeta{
+		Keywords:       meta.Keywords,
+		Subjects:       meta.Subjects,
+		ManuscriptType: meta.ManuscriptType,
+	}
+	extraJSON, _ := json.Marshal(extra)
+	fields["extra_meta_json"] = json.RawMessage(extraJSON)
+	if len(fields) > 0 {
+		_ = s.repo.PatchSubmission(submissionID, fields)
+	}
+	_ = s.repo.SetComputeState(submissionID, StateIdle, "")
+	s.broker.Done(submissionID, SlotMeta)
+}
+
+// runLetterDraft: agent session 里已经有 manuscript —— step1→2 的 meta-extract 已用
+// Read 工具把稿件读进了会话上下文 (方案 B)。这里只发简短 prompt 告诉它 "起草 letter,
+// 目标 X, 风格 Y", 不重传也不重读稿件。这是 single-session 的核心 token 节省点。
+// (前置依赖: advanceTo3 的 safety check 保证 assets 没变, 会话里的稿件仍是当前版本。)
+func (s *Service) runLetterDraft(ctx context.Context, submissionID uint64, sessionID, fingerprint string) {
+	failure := func(reason string) {
+		_ = s.repo.SetComputeState(submissionID, StateFailed, reason)
+		s.broker.Fail(submissionID, SlotLetter, reason)
+	}
+	// panic 兜底: 否则 compute_state 永远卡在 computing_letter (同 runMetaExtract)。
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("peerreview letter goroutine panic", "submission_id", submissionID, "panic", r)
+			failure("内部错误, 请重试")
+		}
+	}()
+	s.broker.Begin(submissionID, SlotLetter)
+
+	sub, err := s.repo.GetByIDInternal(submissionID)
+	if err != nil {
+		failure("load submission: " + err.Error())
+		return
+	}
+
+	variant := "cover_letter"
+	target := "通用 STM 期刊投稿模板 (用户未指定目标期刊)"
+	if sub.Mode == "thesis" {
+		variant = "review_letter"
+		target = fmt.Sprintf("%s · %s · %s",
+			sub.SchoolName.String, degreeLabel(sub.DegreeType.String), sub.DisciplineField.String)
+		if sub.AdvisorName.Valid && sub.AdvisorName.String != "" {
+			target += " · 指导老师 " + sub.AdvisorName.String
+		}
+	} else if sub.JournalName.Valid && sub.JournalName.String != "" {
+		target = sub.JournalName.String
+	}
+
+	kind := "英文 Cover Letter (致期刊编辑部)"
+	if variant == "review_letter" {
+		kind = "中文致评阅老师审稿信"
+	}
+
+	prompt := fmt.Sprintf(
+`基于前面那篇论文 (你已经记住), 请帮我起草一份 %s。
+
+目标: %s
+风格: 正式严谨, 200-400 词
+
+直接输出信件正文, 不要任何前后缀 / 元注释 / markdown 代码块。`, kind, target)
+
+	reply, _, err := s.feature.Bridge().ServerSideChatStreaming(ctx, sessionID, prompt, func(delta string) {
+		s.broker.Append(submissionID, SlotLetter, delta)
+	}, func(note string) {
+		s.broker.Status(submissionID, SlotLetter, note)
+	}, s.fastModel())
+	if err != nil {
+		failure("agent chat: " + err.Error())
+		return
+	}
+	body := strings.TrimSpace(reply)
+	if body == "" {
+		failure("agent 输出为空")
+		return
+	}
+
+	// step_cache + 回填 submission.letter_body
+	payload, _ := json.Marshal(map[string]string{"body": body})
+	_ = s.repo.UpsertStepCache(&StepCache{
+		SubmissionID:     submissionID,
+		Step:             3,
+		InputFingerprint: fingerprint,
+		PayloadJSON:      payload,
+	})
+	_ = s.repo.PatchSubmission(submissionID, map[string]any{"letter_body": body})
+	_ = s.repo.SetComputeState(submissionID, StateIdle, "")
+	s.broker.Done(submissionID, SlotLetter)
+}
+
+// ─── fingerprint helpers ─────────────────────────────────────────────
+
+// fingerprintStep2 — meta extraction 只依赖 manuscript 文本, 而 manuscript 跟着 assets_revision 走。
+func fingerprintStep2(assetsRevision uint32) string {
+	return fmt.Sprintf("a%d", assetsRevision)
+}
+
+// fingerprintStep3 — letter 依赖 manuscript + meta + 目标 (期刊或院校)。
+func fingerprintStep3(sub *Submission) string {
+	target := ""
+	if sub.Mode == "journal" && sub.JournalID.Valid {
+		target = fmt.Sprintf("j%d", sub.JournalID.Int64)
+	} else if sub.Mode == "thesis" {
+		target = "t:" + sub.SchoolName.String + "/" + sub.DegreeType.String + "/" + sub.DisciplineField.String
+	}
+	return fmt.Sprintf("a%d_m%d_%s", sub.AssetsRevision, sub.MetaRevision, target)
+}
+
+// ─── 投递 ────────────────────────────────────────────────────────────────
+
+// Submit 把草稿 → queued,后台 goroutine 跑 agent 4 轮。
+// 同一份草稿被点两次 Submit,第二次会返回当前状态,不重复跑 agent(由 status 守门)。
+func (s *Service) Submit(ctx context.Context, userID, id uint64) (*Submission, error) {
+	sub, err := s.repo.GetByID(id, userID)
+	if err != nil {
+		return nil, err
+	}
+	if sub.Status != "draft" {
+		return sub, nil
+	}
+	if !sub.ManuscriptAssetID.Valid {
+		return nil, ErrManuscriptMissing
+	}
+
+	// 复用 submission 自己的 agent session (CreateDraft 时建的);
+	// 不存在则补建一个 (不调 reset, 避免清掉 wizard 期间累积的 manuscript / letter 对话)。
+	sessionID, err := s.ensureAgentSession(ctx, sub)
+	if err != nil {
+		return nil, fmt.Errorf("agent session: %w", err)
+	}
+
+	if err := s.repo.MarkSubmitted(id, time.Now(), sessionID); err != nil {
+		return nil, err
+	}
+	_ = s.repo.SetComputeState(id, StateReviewing, "")
+
+	// 异步跑 agent — 用 safego 包一层 recover,避免 panic 把主进程带崩
+	safego.Go(fmt.Sprintf("peerreview-runner-%d", id), func() {
+		s.runReviewBackground(id, sessionID)
+	})
+
+	return s.repo.GetByID(id, userID)
+}
+
+// runReviewBackground 后台 agent 编排 — 4 轮 skill-driven 串行。
+//
+// 流程:
+//   1. PickSkillsForSubmission 按 subjects 选 4 个 skill (alpha/beta/gamma/chief)
+//   2. 取 manuscript 文本 + meta 组成 commonContext
+//   3. 串行跑 alpha → beta → gamma: 每轮 prompt = skill.SystemPrompt + commonContext,
+//      agent 回严格 JSON, 解析到 ReviewerOutput 落 report 结构化字段
+//   4. 最后跑 chief: prompt = skill.SystemPrompt + commonContext + 三位 reviewer JSON 摘要,
+//      agent 回 ChiefOutput, 落 chief report
+//
+// 任何一轮失败 → MarkFailed 整份 submission, 前面成功的报告保留 (用户能在详情页看到)。
+// JSON 解析失败 → 不致命: 报告里 content_md 存原文, 结构化字段留 NULL, 前端优雅降级。
+func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
+	// panic 兜底: 否则 status 永远卡在 reviewing —— 工单详情永久"审稿进行中", 且 Submit 幂等
+	// 无法重触发。复位 failed 让用户看到失败终态 (markFailedAndLog 同时置 status + compute_state)。
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("peerreview review goroutine panic", "submission_id", submissionID, "panic", r)
+			s.markFailedAndLog(submissionID, "审稿内部错误, 请稍后重试")
+		}
+	}()
+	ctx, cancel := ctxutil.With(ctxutil.BackgroundJob)
+	defer cancel()
+
+	if err := s.repo.MarkReviewing(submissionID); err != nil {
+		return
+	}
+
+	sub, err := s.repo.GetByIDInternal(submissionID)
+	if err != nil {
+		s.markFailedAndLog(submissionID, "load submission: "+err.Error())
+		return
+	}
+
+	// 方案 B: 把稿件 + 附件推到 agent 会话 cwd (审稿可能在 meta 之后很久才触发,
+	// 此处再推一次保证 session 重建后文件仍在), 让审稿人用 Read 读原文。
+	files, perr := s.pushAssetsToSession(ctx, submissionID, sessionID)
+	if perr != nil {
+		if errors.Is(perr, ErrManuscriptMissing) {
+			s.markFailedAndLog(submissionID, "稿件未上传")
+		} else {
+			s.markFailedAndLog(submissionID, "推送稿件到 agent 失败: "+perr.Error())
+		}
+		return
+	}
+
+	// 从 extra_meta_json 拿 subjects 喂 picker
+	subjects := []string{}
+	if len(sub.ExtraMetaJSON) > 0 {
+		var em ExtractedMeta
+		if err := json.Unmarshal(sub.ExtraMetaJSON, &em); err == nil {
+			subjects = em.Subjects
 		}
 	}
 
-	return fullContent.String(), nil
-}
+	// 用 4 个 PersonaRandomPicker 各选 1 份 prompt。
+	// 每个 picker 内部走 promptregistry.ListByPersona → 按 subjects 学科匹配 +
+	// weight 加权随机, 算法与原 PickSkillsForSubmission 等价 (见 agentbridge/picker.go)。
+	pickInput := agentbridge.PickInput{Subjects: subjects}
+	choices := make(map[string]*agentbridge.PromptChoice, 4)
+	for _, slot := range []struct {
+		role   string
+		picker agentbridge.PromptPicker
+	}{
+		{"alpha", s.alphaPicker},
+		{"beta", s.betaPicker},
+		{"gamma", s.gammaPicker},
+		{"chief", s.chiefPicker},
+	} {
+		if slot.picker == nil {
+			s.markFailedAndLog(submissionID,
+				fmt.Sprintf("picker not configured for role=%s", slot.role))
+			return
+		}
+		choice, perr := slot.picker.Pick(ctx, pickInput)
+		if perr != nil {
+			s.markFailedAndLog(submissionID,
+				fmt.Sprintf("pick prompt role=%s: %v", slot.role, perr))
+			return
+		}
+		choices[slot.role] = choice
+	}
 
-// callAIWithContinuationMultimodal 调用 AI 并支持自动续写被截断的响应（多模态版本）
-// 用于处理包含文件（如PDF）的多模态消息
-func (s *Service) callAIWithContinuationMultimodal(ctx context.Context, messages []ai.ChatMessage, level thirdparty.ModelLevel, maxContinuations int) (string, error) {
-	var fullContent strings.Builder
-	var previousContent string // 用于检测重复
+	commonContext := buildCommonContext(sub, files)
 
-	currentMessages := make([]ai.ChatMessage, len(messages))
-	copy(currentMessages, messages)
+	// 3 位审稿人串行 — 每位独立 slot, 同时推 broker 让前端实时看到 agent 输出。
+	// 保留各自 ReviewerOutput 用于 chief 上下文。
+	reviewerOutputs := make(map[string]*ReviewerOutput, 3)
+	for _, role := range []string{"alpha", "beta", "gamma"} {
+		slot := ReviewerSlot(role)
+		choice := choices[role]
+		prompt := buildReviewerPromptFromChoice(choice, commonContext, role)
 
-	for i := 0; i <= maxContinuations; i++ {
-		response, err := s.aiService.ChatCompletionWithTools(ctx, currentMessages, nil, "", level)
+		s.broker.Begin(submissionID, slot)
+		reply, _, err := s.feature.Bridge().ServerSideChatStreaming(ctx, sessionID, prompt, func(delta string) {
+			s.broker.Append(submissionID, slot, delta)
+		}, func(note string) {
+			s.broker.Status(submissionID, slot, note)
+		}, s.mainModel())
 		if err != nil {
-			return "", err
+			s.broker.Fail(submissionID, slot, err.Error())
+			s.markFailedAndLog(submissionID,
+				fmt.Sprintf("agent chat role=%s slug=%s: %v", role, choice.Slug, err))
+			return
 		}
 
-		if len(response.Choices) == 0 {
-			return "", fmt.Errorf("no response from AI")
+		out, ok := parseReviewerJSON(reply)
+		rep := s.buildReportFromReviewer(submissionID, role, choice, out, ok, reply)
+		if err := s.repo.UpsertReport(rep); err != nil {
+			s.broker.Fail(submissionID, slot, "save report: "+err.Error())
+			s.markFailedAndLog(submissionID,
+				fmt.Sprintf("save role=%s report: %v", role, err))
+			return
 		}
-
-		content := response.Choices[0].Message.Content
-		finishReason := response.Choices[0].FinishReason
-
-		// 续写时检测并去除重复内容
-		if i > 0 && previousContent != "" {
-			content = removeOverlappingContent(previousContent, content)
+		if ok {
+			reviewerOutputs[role] = out
 		}
-
-		fullContent.WriteString(content)
-		previousContent = content // 保存当前内容用于下一轮去重
-
-		slog.Debug("multimodal AI response chunk", "chunk", i+1, "length", len(content), "finish_reason", finishReason)
-
-		// 如果正常结束（不是因为长度被截断），直接返回
-		if finishReason != "length" {
-			break
-		}
-
-		// 如果是因为长度被截断，需要续写
-		if i < maxContinuations {
-			slog.Info("multimodal response truncated, requesting continuation")
-
-			// 构建续写请求：把当前的部分响应加入对话，让 AI 继续
-			// 注意：续写请求不再包含文件，只需要文本
-			currentMessages = append(currentMessages, ai.ChatMessage{
-				Role:    "assistant",
-				Content: content,
-			})
-			currentMessages = append(currentMessages, ai.ChatMessage{
-				Role:    "user",
-				Content: "请继续，从你上次停止的地方继续输出，不要重复已输出的内容。",
-			})
-		}
+		s.broker.Done(submissionID, slot)
 	}
 
-	return fullContent.String(), nil
+	// chief — 把 3 份 reviewer JSON 拼成上下文, 让主审能逐位回应。
+	chiefSlot := ReviewerSlot("chief")
+	chiefChoice := choices["chief"]
+	chiefPrompt := buildChiefPromptFromChoice(chiefChoice, commonContext, reviewerOutputs)
+
+	s.broker.Begin(submissionID, chiefSlot)
+	chiefReply, _, err := s.feature.Bridge().ServerSideChatStreaming(ctx, sessionID, chiefPrompt, func(delta string) {
+		s.broker.Append(submissionID, chiefSlot, delta)
+	}, func(note string) {
+		s.broker.Status(submissionID, chiefSlot, note)
+	}, s.mainModel())
+	if err != nil {
+		s.broker.Fail(submissionID, chiefSlot, err.Error())
+		s.markFailedAndLog(submissionID, "agent chat chief: "+err.Error())
+		return
+	}
+	chiefOut, chiefOK := parseChiefJSON(chiefReply)
+	chiefRep := s.buildReportFromChief(submissionID, chiefChoice, chiefOut, chiefOK, chiefReply)
+	if err := s.repo.UpsertReport(chiefRep); err != nil {
+		s.broker.Fail(submissionID, chiefSlot, "save report: "+err.Error())
+		s.markFailedAndLog(submissionID, "save chief report: "+err.Error())
+		return
+	}
+	s.broker.Done(submissionID, chiefSlot)
+
+	_ = s.repo.MarkCompleted(submissionID)
+	_ = s.repo.SetComputeState(submissionID, StateIdle, "")
+}
+
+// buildReportFromReviewer 把 ReviewerOutput 编进 Report 结构化字段。
+// 若 JSON 解析失败 (ok=false), 落原文到 content_md, 结构化字段全 NULL,
+// 前端读到 NULL 自动降级到原 markdown 展示。
+//
+// reviewer_skill_id 列名是历史遗留 (v2 时代指 peer_review_skills.id);
+// v3 迁移后语义改为 feature_prompts.id, 列名保持不动避免破坏 schema 兼容性。
+// 历史 report (v2 时代写的) 由于 ID 区间重叠 (1-20) 可继续被 promptregistry.GetByID 命中。
+func (s *Service) buildReportFromReviewer(submissionID uint64, role string, choice *agentbridge.PromptChoice, out *ReviewerOutput, ok bool, raw string) *Report {
+	rep := &Report{
+		SubmissionID: submissionID,
+		Role:         role,
+		ContentMd:    raw, // 永远保留原文兜底
+	}
+	if choice != nil {
+		rep.ReviewerSkillID.Int64 = int64(choice.PromptID)
+		rep.ReviewerSkillID.Valid = true
+	}
+	if !ok || out == nil {
+		return rep
+	}
+	if out.Score > 0 {
+		rep.Score.Int32 = int32(out.Score)
+		rep.Score.Valid = true
+	}
+	if out.Recommendation != "" {
+		rep.Recommendation.String = out.Recommendation
+		rep.Recommendation.Valid = true
+		rep.Decision.String = out.Recommendation // 兼容旧字段
+		rep.Decision.Valid = true
+	}
+	if out.Expertise != "" {
+		rep.Expertise.String = out.Expertise
+		rep.Expertise.Valid = true
+	}
+	if len(out.Dimensions) > 0 {
+		b, _ := json.Marshal(out.Dimensions)
+		rep.DimensionsJSON = b
+	}
+	if len(out.LineComments) > 0 {
+		b, _ := json.Marshal(out.LineComments)
+		rep.LineCommentsJSON = b
+	}
+	if len(out.MacroComments) > 0 {
+		b, _ := json.Marshal(out.MacroComments)
+		rep.MacroCommentsJSON = b
+	}
+	if out.FinalSummary != "" {
+		rep.FinalSummaryMd.String = out.FinalSummary
+		rep.FinalSummaryMd.Valid = true
+	}
+	return rep
+}
+
+func (s *Service) buildReportFromChief(submissionID uint64, choice *agentbridge.PromptChoice, out *ChiefOutput, ok bool, raw string) *Report {
+	rep := &Report{
+		SubmissionID: submissionID,
+		Role:         "chief",
+		ContentMd:    raw,
+	}
+	if choice != nil {
+		rep.ReviewerSkillID.Int64 = int64(choice.PromptID)
+		rep.ReviewerSkillID.Valid = true
+	}
+	if !ok || out == nil {
+		return rep
+	}
+	if out.Score > 0 {
+		rep.Score.Int32 = int32(out.Score)
+		rep.Score.Valid = true
+	}
+	if out.Recommendation != "" {
+		rep.Recommendation.String = out.Recommendation
+		rep.Recommendation.Valid = true
+		rep.Decision.String = out.Recommendation
+		rep.Decision.Valid = true
+	}
+	if out.RulingSummary != "" {
+		rep.RulingSummaryMd.String = out.RulingSummary
+		rep.RulingSummaryMd.Valid = true
+	}
+	if out.RulingParagraph != "" {
+		rep.RulingParagraphMd.String = out.RulingParagraph
+		rep.RulingParagraphMd.Valid = true
+	}
+	if len(out.ReviewerResponses) > 0 {
+		b, _ := json.Marshal(out.ReviewerResponses)
+		rep.ReviewerResponsesJSON = b
+	}
+	if len(out.MustFix) > 0 {
+		b, _ := json.Marshal(out.MustFix)
+		rep.MustFixJSON = b
+	}
+	if len(out.Suggestions) > 0 {
+		b, _ := json.Marshal(out.Suggestions)
+		rep.SuggestionsJSON = b
+	}
+	if d := int(out.DeadlineDays); d > 0 {
+		rep.DeadlineDays.Int32 = int32(d)
+		rep.DeadlineDays.Valid = true
+	}
+	if out.SummaryForAuthor != "" {
+		rep.SummaryForAuthor.String = out.SummaryForAuthor
+		rep.SummaryForAuthor.Valid = true
+	}
+	return rep
+}
+
+func (s *Service) markFailedAndLog(submissionID uint64, reason string) {
+	_ = s.repo.MarkFailed(submissionID, reason)
+	_ = s.repo.SetComputeState(submissionID, StateFailed, reason)
 }
 
 
+// ─── Report 查询 ─────────────────────────────────────────────────────────
+
+func (s *Service) ListReports(userID, submissionID uint64) ([]Report, error) {
+	if _, err := s.repo.GetByID(submissionID, userID); err != nil {
+		return nil, err
+	}
+	return s.repo.ListReports(submissionID)
+}
+
+func (s *Service) GetReportByRole(userID, submissionID uint64, role string) (*Report, error) {
+	if _, err := s.repo.GetByID(submissionID, userID); err != nil {
+		return nil, err
+	}
+	return s.repo.GetReportByRole(submissionID, role)
+}
+
+// ─── 内部 helpers ────────────────────────────────────────────────────────
+
+// journalMetaLine 把前端选刊时存进 journal_meta_json 的定位字段格式化成一行,
+// 注入审稿 prompt。字段名与前端 JournalTarget 一致 (jcrImpactFactor / jcrQuartile /
+// fqbQuartile / ccfRank / publisher)。无 meta 或解析失败返回空串 (调用方跳过)。
+func journalMetaLine(raw json.RawMessage) string {
+	if len(raw) == 0 || string(raw) == "null" {
+		return ""
+	}
+	var m struct {
+		JCRImpactFactor float64 `json:"jcrImpactFactor"`
+		JCRQuartile     string  `json:"jcrQuartile"`
+		FqbQuartile     string  `json:"fqbQuartile"`
+		CCFRank         string  `json:"ccfRank"`
+		Publisher       string  `json:"publisher"`
+	}
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return ""
+	}
+	var parts []string
+	if m.JCRImpactFactor > 0 {
+		parts = append(parts, fmt.Sprintf("影响因子 IF %.1f", m.JCRImpactFactor))
+	}
+	if m.FqbQuartile != "" {
+		parts = append(parts, "中科院 "+m.FqbQuartile+" 区")
+	}
+	if m.JCRQuartile != "" {
+		parts = append(parts, "JCR "+m.JCRQuartile)
+	}
+	if m.CCFRank != "" {
+		parts = append(parts, "CCF "+m.CCFRank)
+	}
+	if m.Publisher != "" {
+		parts = append(parts, "出版商 "+m.Publisher)
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return "期刊定位:" + strings.Join(parts, " · ")
+}
+
+func buildCommonContext(sub *Submission, files *sessionAssets) string {
+	var b strings.Builder
+	b.WriteString("【稿件元信息】\n")
+	if sub.Title.Valid {
+		b.WriteString("标题:" + sub.Title.String + "\n")
+	}
+	if sub.Mode == "journal" && sub.JournalName.Valid {
+		b.WriteString("目标期刊:" + sub.JournalName.String + "\n")
+		// 把用户选定期刊的分区 / IF / CCF 等定位直接喂给审稿人 —— 省去 agent 再 get_journal 查一次,
+		// 也让"返修/录用 门槛"贴合期刊档次 (顶刊更严)。仅真实期刊有 meta;自定义期刊 (journal_id<=0) 没有。
+		if line := journalMetaLine(sub.JournalMetaJSON); line != "" {
+			b.WriteString(line + "\n")
+		}
+	}
+	if sub.Mode == "thesis" && sub.SchoolName.Valid {
+		fmt.Fprintf(&b, "目标院校:%s / %s / %s\n",
+			sub.SchoolName.String,
+			degreeLabel(sub.DegreeType.String),
+			sub.DisciplineField.String)
+		// 指导老师也是用户手填的, 一并喂给审稿人 (毕业审稿要贴合导师/学位点的口径)。
+		if sub.AdvisorName.Valid && sub.AdvisorName.String != "" {
+			b.WriteString("指导老师:" + sub.AdvisorName.String + "\n")
+		}
+	}
+	if sub.LetterBody.Valid && sub.LetterBody.String != "" {
+		b.WriteString("\n【作者致 reviewer 信件】\n")
+		b.WriteString(sub.LetterBody.String)
+		b.WriteString("\n")
+	}
+	b.WriteString("\n")
+	b.WriteString(buildAssetsBlock(files))
+
+	// 提示审稿人有学术检索工具可用 — 用来核查引用 / 找同类对比文献 / 确认期刊定位。
+	// 比写在每个 skill system_prompt 里更省: 改一次全员生效, 也不会让 prompt 重复。
+	//
+	// 强约束: 工具内部 enum (semantic/openalex/pubmed) 和原始品牌名 (Semantic Scholar /
+	// OpenAlex / PubMed) 都是实现细节, 任何形式向用户暴露都视为越权。
+	b.WriteString(`
+
+【可用工具:学术检索】
+你可以在审稿过程中调用以下工具来核查与稿件相关的事实, 让你的意见更有说服力:
+- mcp__minicod__search_papers       — 用稿件关键词 / 作者 / 主题反查同类工作 (限 limit ≤ 5)
+- mcp__minicod__get_paper           — 核对参考文献的真实信息 (年份 / 期刊 / 摘要)
+- mcp__minicod__get_paper_citations — 看这篇被谁引用过, 判断方法学是否被领域接受
+- mcp__minicod__search_authors      — 验证作者团队的领域权威度
+- mcp__minicod__get_journal         — 看目标期刊近期发表过什么、IF/分区
+
+【数据源 — 对外只用三个品牌名, 绝对不暴露工具 enum】
+你能访问三个学术数据源, 对外名称分别是:
+- **Graph**     — 引文图谱最完整的源
+- **Discovery** — 全量学术发现, metadata 最丰富
+- **Medicine**  — 生物医学和生命科学专属
+
+调用工具时 source 参数从工具 schema 里看可选 enum 值取对 (内部技术细节, 你认得就用)。
+**在你的 thinking、回复正文、JSON 输出、报告引文标注里, 必须只用 Graph / Discovery / Medicine 三个名字**。
+绝对禁止任何形式向用户暴露 source 工具 enum 值或原始数据库名;
+违反 = 审稿报告作废 + 用户投诉。
+
+【使用规则】
+- 仅在确实有助于你下判断时调用; 不要为调而调
+- 调用结果只用于支撑你的意见, 不要把检索过程写进最终 JSON 输出
+- 单次 limit ≤ 5, 空结果别死磕 (最多重试 1 次), 没数据就跳过
+- 你可以用 Read 工具读取上面列出的稿件 / 补充材料文件 (它们就在你的工作目录里);
+  但严禁 Write / Edit 这些文件, 也严禁 Bash / WebSearch 等本地或外网工具
+`)
+	return b.String()
+}
+
+// buildReviewerPromptFromChoice — prompt 驱动版本: choice.SystemPrompt 已含 role 设定 + 输出 schema,
+// 这里只需把 commonContext (稿件正文 + 元信息) 拼上, agent 即可按 prompt 风格审稿。
+//
+// role 参数仅用于在 prompt 头部明示 "你是审稿人 A/B/C", 让 agent 在 JSON
+// expertise/final_summary 字段中自我指认。
+//
+// 头部标识从 "skill" 改名为 "prompt" 是有意为之: v3 重构后 prompt 来源是 feature_prompts 表,
+// 概念上等价但术语统一; 历史 "skill" 措辞保留在 Report 列名 reviewer_skill_id 不动。
+func buildReviewerPromptFromChoice(choice *agentbridge.PromptChoice, commonContext, role string) string {
+	if choice == nil {
+		return commonContext
+	}
+	roleLabel := map[string]string{"alpha": "审稿人 A", "beta": "审稿人 B", "gamma": "审稿人 C"}[role]
+	if roleLabel == "" {
+		roleLabel = "审稿人"
+	}
+	var b strings.Builder
+	b.WriteString("【审稿身份】" + roleLabel + "\n")
+	b.WriteString("【prompt】" + choice.Name + " (" + choice.Slug + ")\n\n")
+	b.WriteString(choice.SystemPrompt)
+	b.WriteString("\n\n")
+	b.WriteString(commonContext)
+	b.WriteString("\n\n请基于以上稿件给出你的审稿意见, 严格按 JSON schema 输出。" +
+		"⚠️ 字符串值内部如需引用某个词/短语, 一律用中文引号「」或单引号, **绝不要**在 JSON 字符串里出现未转义的半角双引号 \"。")
+	return b.String()
+}
+
+// buildChiefPromptFromChoice — chief prompt 注入三位 reviewer 的 JSON 摘要 (而非依赖
+// session memory 精确度), 让主审能逐位回应。摘要只取关键字段, 避免 prompt 过长。
+func buildChiefPromptFromChoice(choice *agentbridge.PromptChoice, commonContext string, reviewerOutputs map[string]*ReviewerOutput) string {
+	if choice == nil {
+		return commonContext
+	}
+	var b strings.Builder
+	b.WriteString("【审稿身份】主审编辑\n")
+	b.WriteString("【prompt】" + choice.Name + " (" + choice.Slug + ")\n\n")
+	b.WriteString(choice.SystemPrompt)
+	b.WriteString("\n\n")
+	b.WriteString(commonContext)
+
+	b.WriteString("\n\n【三位审稿人的意见摘要】\n")
+	for _, role := range []string{"alpha", "beta", "gamma"} {
+		label := map[string]string{"alpha": "审稿人 A", "beta": "审稿人 B", "gamma": "审稿人 C"}[role]
+		out, ok := reviewerOutputs[role]
+		if !ok || out == nil {
+			fmt.Fprintf(&b, "\n- %s: (该审稿人 JSON 解析失败, 请仅根据稿件本身判断)\n", label)
+			continue
+		}
+		summary := map[string]any{
+			"score":          out.Score,
+			"recommendation": out.Recommendation,
+			"expertise":      out.Expertise,
+			"dimensions":     out.Dimensions,
+			"final_summary":  out.FinalSummary,
+			"must_fix_count": int(out.MustFixCount),
+		}
+		bb, _ := json.MarshalIndent(summary, "", "  ")
+		fmt.Fprintf(&b, "\n%s:\n%s\n", label, string(bb))
+	}
+	b.WriteString("\n请综合三位意见与你对稿件的独立复审, 严格按 JSON schema 输出主审决议。" +
+		"⚠️ 字符串值内部如需引用某个词/短语, 一律用中文引号「」或单引号, **绝不要**在 JSON 字符串里出现未转义的半角双引号 \"。")
+	return b.String()
+}
+
+// parseReviewerJSON / parseChiefJSON — 抽 agent 回复里第一个 {} 块解析。
+func parseReviewerJSON(reply string) (*ReviewerOutput, bool) {
+	raw := extractFirstJSONObject(reply)
+	if raw == nil {
+		return nil, false
+	}
+	var out ReviewerOutput
+	if err := json.Unmarshal(raw, &out); err == nil {
+		return &out, true
+	} else if err2 := json.Unmarshal(repairUnescapedInnerQuotes(raw), &out); err2 == nil {
+		// agent 常在 JSON 字符串值里写未转义的内嵌半角引号 (如中文 "xxx"), 导致 strict 解析失败。
+		// 修复内嵌引号后重试; 成功就拿到结构化字段, 避免前端降级成原始 JSON。
+		return &out, true
+	} else {
+		slog.Warn("peerreview: reviewer JSON unmarshal failed (even after quote repair)",
+			"err", err.Error(), "raw_len", len(raw))
+		return nil, false
+	}
+}
+
+func parseChiefJSON(reply string) (*ChiefOutput, bool) {
+	raw := extractFirstJSONObject(reply)
+	if raw == nil {
+		return nil, false
+	}
+	var out ChiefOutput
+	if err := json.Unmarshal(raw, &out); err == nil {
+		return &out, true
+	} else if err2 := json.Unmarshal(repairUnescapedInnerQuotes(raw), &out); err2 == nil {
+		return &out, true
+	} else {
+		slog.Warn("peerreview: chief JSON unmarshal failed (even after quote repair)",
+			"err", err.Error(), "raw_len", len(raw))
+		return nil, false
+	}
+}
+
+// repairUnescapedInnerQuotes 修一类常见畸形 JSON: agent 在字符串值内部写了**未转义的半角双引号**
+// (例如中文正文里的 "概念"), 让 strict json.Unmarshal 在该处提前认为字符串闭合而报错。
+//
+// 状态机: 处于字符串内时遇到裸 ", 向后跳过空白看下一个非空白字节 —— 若是 JSON 结构终止符
+// (, } ] :) 或已到末尾, 视为字符串**真正闭合**; 否则视为**内嵌引号** → 改写成 \"。
+// best-effort: 极少数 `"内嵌":` 形态(内嵌引号紧跟冒号)会被误判为闭合, 但对中文正文足够;
+// 修不好时调用方仍会退回 ok=false, 不会比原来更糟。
+func repairUnescapedInnerQuotes(b []byte) []byte {
+	out := make([]byte, 0, len(b)+16)
+	inString := false
+	for i := 0; i < len(b); i++ {
+		c := b[i]
+		if !inString {
+			out = append(out, c)
+			if c == '"' {
+				inString = true
+			}
+			continue
+		}
+		// 字符串内部
+		if c == '\\' {
+			out = append(out, c)
+			if i+1 < len(b) {
+				out = append(out, b[i+1])
+				i++
+			}
+			continue
+		}
+		if c == '"' {
+			j := i + 1
+			for j < len(b) && (b[j] == ' ' || b[j] == '\t' || b[j] == '\n' || b[j] == '\r') {
+				j++
+			}
+			if j >= len(b) || b[j] == ',' || b[j] == '}' || b[j] == ']' || b[j] == ':' {
+				out = append(out, c) // 真正闭合
+				inString = false
+			} else {
+				out = append(out, '\\', '"') // 内嵌引号 → 转义
+			}
+			continue
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
+// extractFirstJSONObject 从 agent 回复里挖出第一个完整的 {} 块。
+// agent 偶尔会在 JSON 前后塞 ```json``` 围栏 / "Here is" 前缀,
+// 我们对围栏宽容, 只要花括号深度归零就 cut。
+// 不解析转义字符串 — 假设元数据 JSON 里没有未转义的 } 字符。
+func extractFirstJSONObject(s string) []byte {
+	start := strings.Index(s, "{")
+	if start < 0 {
+		return nil
+	}
+	depth := 0
+	inString := false
+	escape := false
+	for i := start; i < len(s); i++ {
+		c := s[i]
+		if escape {
+			escape = false
+			continue
+		}
+		if inString {
+			if c == '\\' {
+				escape = true
+			} else if c == '"' {
+				inString = false
+			}
+			continue
+		}
+		switch c {
+		case '"':
+			inString = true
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return []byte(s[start : i+1])
+			}
+		}
+	}
+	return nil
+}
+
+func degreeLabel(d string) string {
+	switch d {
+	case "phd":
+		return "博士"
+	case "master":
+		return "硕士"
+	case "bachelor":
+		return "本科"
+	}
+	return d
+}

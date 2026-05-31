@@ -12,11 +12,10 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 	"sync"
@@ -25,8 +24,38 @@ import (
 	"gorm.io/gorm"
 
 	"scholar-backend/internal/ai"
+	"scholar-backend/internal/common/upstream"
 	"scholar-backend/internal/thirdparty"
 )
+
+// 共享 upstream.Client for api.weixin.qq.com/cgi-bin/* — token + media 都走。
+var (
+	wxOfficialOnce   sync.Once
+	wxOfficialClient *upstream.Client
+)
+
+func wxOfficial() *upstream.Client {
+	wxOfficialOnce.Do(func() {
+		// 30s timeout — media download 可能要拉几 MB 的图
+		hc := &http.Client{Timeout: 30 * time.Second}
+		wxOfficialClient = upstream.New("wechat_official").
+			BaseURL("https://api.weixin.qq.com").
+			HTTPClient(hc).
+			Retry(upstream.RetryConfig{
+				Max:         2,
+				BackoffBase: 300 * time.Millisecond,
+				BackoffMax:  2 * time.Second,
+			}).
+			Breaker(upstream.BreakerConfig{
+				MaxRequests:  3,
+				MinRequests:  5,
+				FailureRatio: 0.6,
+				Timeout:      30 * time.Second,
+			}).
+			MustBuild()
+	})
+	return wxOfficialClient
+}
 
 // Service handles WeChat Official Account operations
 type Service struct {
@@ -70,8 +99,11 @@ func (s *Service) VerifySignature(signature, timestamp, nonce, token string) boo
 	return hashStr == signature
 }
 
-// GetAccessToken gets WeChat access token (cached)
-func (s *Service) GetAccessToken() (string, error) {
+// GetAccessToken gets WeChat access token (cached).
+// ctx 用于:刷新 token 时给上游 HTTP 调用绑定超时;命中缓存路径不消耗 ctx。
+// 注意此处持写锁,token 刷新慢会卡住所有并发 caller —— 必须 ctx 兜底,
+// 不能让 wxOfficial 默认的 30s Timeout 卡满整个锁段。
+func (s *Service) GetAccessToken(ctx context.Context) (string, error) {
 	s.accessTokenMutex.RLock()
 	if s.accessToken != "" && time.Now().Before(s.accessTokenExpires) {
 		token := s.accessToken
@@ -95,19 +127,19 @@ func (s *Service) GetAccessToken() (string, error) {
 		return "", fmt.Errorf("failed to get config: %w", err)
 	}
 
+	// 8s ctx 兜底 —— 微信 token 接口正常 <500ms, 给 8s 已经非常宽松, 避免
+	// 因网络抖动卡住锁。父 ctx 已 cancel 时直接尊重(不再 WithTimeout)。
+	callCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	defer cancel()
+
 	// Fetch access token from WeChat API
-	url := fmt.Sprintf("https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=%s&secret=%s",
-		config.AppID, config.AppSecret)
-
-	resp, err := http.Get(url)
-	if err != nil {
-		return "", fmt.Errorf("failed to fetch access token: %w", err)
-	}
-	defer resp.Body.Close()
-
 	var tokenResp WeChatAccessTokenResponse
-	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-		return "", fmt.Errorf("failed to decode access token response: %w", err)
+	if err := wxOfficial().GetJSON(callCtx, "/cgi-bin/token", url.Values{
+		"grant_type": {"client_credential"},
+		"appid":      {config.AppID},
+		"secret":     {config.AppSecret},
+	}, &tokenResp); err != nil {
+		return "", fmt.Errorf("failed to fetch access token: %w", err)
 	}
 
 	if tokenResp.ErrCode != 0 {
@@ -123,50 +155,46 @@ func (s *Service) GetAccessToken() (string, error) {
 	return s.accessToken, nil
 }
 
-// DownloadImage downloads image from WeChat server and returns base64 encoded data
-func (s *Service) DownloadImage(mediaID string) (string, error) {
+// DownloadImage downloads image from WeChat server and returns base64 encoded data.
+// 15s ctx 上限 —— 微信图片一般 <2MB, 15s 比默认 30s 严格但仍宽松。
+func (s *Service) DownloadImage(ctx context.Context, mediaID string) (string, error) {
 	// Get access token
-	accessToken, err := s.GetAccessToken()
+	accessToken, err := s.GetAccessToken(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to get access token: %w", err)
 	}
 
-	// Download image from WeChat
-	url := fmt.Sprintf("https://api.weixin.qq.com/cgi-bin/media/get?access_token=%s&media_id=%s",
-		accessToken, mediaID)
+	callCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
 
-	resp, err := http.Get(url)
+	// Download image from WeChat — 注意成功是二进制 / JSON 是错误 (微信特殊响应)
+	resp, err := wxOfficial().Do(callCtx, upstream.Request{
+		Method: http.MethodGet,
+		Path:   "/cgi-bin/media/get",
+		Query:  url.Values{"access_token": {accessToken}, "media_id": {mediaID}},
+	})
 	if err != nil {
 		return "", fmt.Errorf("failed to download image: %w", err)
 	}
-	defer resp.Body.Close()
 
-	// Read image data
-	imageData, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read image data: %w", err)
+	// 微信对错误情况返回 JSON / text 而非二进制 — 用 Content-Type 区分
+	ct := resp.Headers.Get("Content-Type")
+	if strings.HasPrefix(ct, "application/json") || strings.HasPrefix(ct, "text/plain") {
+		return "", fmt.Errorf("failed to download image, response: %s", string(resp.Body))
 	}
 
-	// Check if response is error (JSON)
-	if resp.Header.Get("Content-Type") == "application/json" || resp.Header.Get("Content-Type") == "text/plain" {
-		return "", fmt.Errorf("failed to download image, response: %s", string(imageData))
-	}
-
-	// Encode to base64
-	base64Image := base64.StdEncoding.EncodeToString(imageData)
-
-	slog.Info("downloaded WeChat image", "size_bytes", len(imageData), "base64_length", len(base64Image))
-
+	base64Image := base64.StdEncoding.EncodeToString(resp.Body)
+	slog.Info("downloaded WeChat image", "size_bytes", len(resp.Body), "base64_length", len(base64Image))
 	return base64Image, nil
 }
 
 // GetAIReply gets AI reply for user message (text only)
-func (s *Service) GetAIReply(userMessage string, aiModelLevel string) (string, error) {
-	return s.GetAIReplyWithImage(userMessage, "", aiModelLevel)
+func (s *Service) GetAIReply(ctx context.Context, userMessage string, aiModelLevel string) (string, error) {
+	return s.GetAIReplyWithImage(ctx, userMessage, "", aiModelLevel)
 }
 
 // GetAIReplyWithImage gets AI reply for user message with optional image
-func (s *Service) GetAIReplyWithImage(userMessage string, base64Image string, aiModelLevel string) (string, error) {
+func (s *Service) GetAIReplyWithImage(ctx context.Context, userMessage string, base64Image string, aiModelLevel string) (string, error) {
 	// Get config to check if auto-reply is enabled
 	config, err := s.GetConfig()
 	if err != nil {
@@ -241,8 +269,14 @@ func (s *Service) GetAIReplyWithImage(userMessage string, base64Image string, ai
 		Content: userContent,
 	})
 
+	// 60s ctx 上限 —— 非流式 LLM 长任务 (vision 多模态可能 30-40s);
+	// 微信公众号回复在 5s 内是最佳, 但用户已显示"正在思考"提示, 60s 不会超用户预期。
+	// 父 ctx 若已 cancel (e.g. 微信端 webhook 重试) 直接终止。
+	aiCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
 	// Call AI service (non-streaming)
-	response, err := s.aiService.ChatCompletionWithTools(context.Background(), messages, nil, "", level)
+	response, err := s.aiService.ChatCompletionWithTools(aiCtx, messages, nil, "", level)
 	if err != nil {
 		return "", fmt.Errorf("failed to get AI response: %w", err)
 	}

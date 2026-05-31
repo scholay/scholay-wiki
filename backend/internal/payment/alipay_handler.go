@@ -16,7 +16,6 @@ import (
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
 	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -198,12 +197,14 @@ func (h *AlipayHandler) GetActiveConfig(c *gin.Context) {
 			utils.Error(c, 4404, "支付宝支付暂未开通")
 			return
 		}
-		utils.Error(c, 5000, "加载配置失败: "+err.Error())
+		utils.InternalError(c, 5000, "加载配置失败", err)
 		return
 	}
 
-	config.PrivateKey = "********"
-	config.AlipayPublicKey = "********"
+	// 默认遮罩,?show_sensitive=true 解蔽(?show_keys=true 老查询参数保持兼容)。
+	show := utils.IsShowSensitive(c, "show_sensitive") || c.Query("show_keys") == "true"
+	utils.MaskSecret(&config.PrivateKey, show)
+	utils.MaskSecret(&config.AlipayPublicKey, show)
 
 	utils.Success(c, config)
 }
@@ -212,15 +213,15 @@ func (h *AlipayHandler) GetActiveConfig(c *gin.Context) {
 func (h *AlipayHandler) ListConfigs(c *gin.Context) {
 	configs, err := h.alipayService.ListConfigs()
 	if err != nil {
-		utils.Error(c, 5000, "加载配置列表失败: "+err.Error())
+		utils.InternalError(c, 5000, "加载配置列表失败", err)
 		return
 	}
 
-	showKeys := c.Query("show_keys") == "true"
-	if !showKeys {
+	show := utils.IsShowSensitive(c, "show_sensitive") || c.Query("show_keys") == "true"
+	if !show {
 		for i := range configs {
-			configs[i].PrivateKey = "********"
-			configs[i].AlipayPublicKey = "********"
+			utils.MaskSecret(&configs[i].PrivateKey, false)
+			utils.MaskSecret(&configs[i].AlipayPublicKey, false)
 		}
 	}
 
@@ -262,12 +263,12 @@ func (h *AlipayHandler) CreateConfig(c *gin.Context) {
 	}
 
 	if err := h.alipayService.CreateConfig(config); err != nil {
-		utils.Error(c, 5001, "创建配置失败: "+err.Error())
+		utils.InternalError(c, 5001, "创建配置失败", err)
 		return
 	}
 
-	config.PrivateKey = "********"
-	config.AlipayPublicKey = "********"
+	utils.MaskSecret(&config.PrivateKey, false)
+	utils.MaskSecret(&config.AlipayPublicKey, false)
 
 	utils.Success(c, config)
 }
@@ -304,10 +305,12 @@ func (h *AlipayHandler) UpdateConfig(c *gin.Context) {
 	if req.AppID != "" {
 		config.AppID = req.AppID
 	}
-	if req.PrivateKey != "" {
+	// 密钥按"留空 / 仍是遮罩(********)→ 保留旧值"处理 —— 老逻辑只判 "" 会让
+	// 前端把 GET 拿到的遮罩字符串 PUT 回来时把真密钥覆盖成 "********"。
+	if req.PrivateKey != "" && req.PrivateKey != utils.MaskedSecretValue {
 		config.PrivateKey = req.PrivateKey
 	}
-	if req.AlipayPublicKey != "" {
+	if req.AlipayPublicKey != "" && req.AlipayPublicKey != utils.MaskedSecretValue {
 		config.AlipayPublicKey = req.AlipayPublicKey
 	}
 	if req.NotifyURL != "" {
@@ -329,12 +332,12 @@ func (h *AlipayHandler) UpdateConfig(c *gin.Context) {
 	}
 
 	if err := h.alipayService.UpdateConfig(config); err != nil {
-		utils.Error(c, 5002, "更新配置失败: "+err.Error())
+		utils.InternalError(c, 5002, "更新配置失败", err)
 		return
 	}
 
-	config.PrivateKey = "********"
-	config.AlipayPublicKey = "********"
+	utils.MaskSecret(&config.PrivateKey, false)
+	utils.MaskSecret(&config.AlipayPublicKey, false)
 
 	utils.Success(c, config)
 }
@@ -347,7 +350,7 @@ func (h *AlipayHandler) DeleteConfig(c *gin.Context) {
 	}
 
 	if err := h.alipayService.DeleteConfig(id); err != nil {
-		utils.Error(c, 5003, "删除配置失败: "+err.Error())
+		utils.InternalError(c, 5003, "删除配置失败", err)
 		return
 	}
 
@@ -362,84 +365,10 @@ func (h *AlipayHandler) SetActiveConfig(c *gin.Context) {
 	}
 
 	if err := h.alipayService.SetActiveConfig(id); err != nil {
-		utils.Error(c, 5004, "设置激活配置失败: "+err.Error())
+		utils.InternalError(c, 5004, "设置激活配置失败", err)
 		return
 	}
 
 	utils.Success(c, gin.H{"message": "Configuration activated successfully"})
 }
 
-// SimulatePayment simulates a successful payment for development/testing
-func (h *AlipayHandler) SimulatePayment(c *gin.Context) {
-	if h.orderService == nil {
-		utils.Error(c, 5000, "支付功能暂未开放")
-		return
-	}
-
-	var req struct {
-		OrderNo string  `json:"order_no" binding:"required"`
-		Amount  float64 `json:"amount" binding:"required,gt=0"`
-	}
-
-	if !utils.BindJSON(c, &req) {
-		return
-	}
-
-	userID, ok := utils.GetUserID(c)
-	if !ok {
-		return
-	}
-
-	orderRecord, err := h.orderService.GetOrderByOrderNo(req.OrderNo)
-	if err != nil {
-		utils.Error(c, 4001, "订单不存在,请刷新后重试")
-		return
-	}
-
-	if orderRecord.UserID != userID {
-		utils.Error(c, 4003, "无权访问该订单")
-		return
-	}
-
-	if orderRecord.Status != "pending" {
-		utils.Error(c, 4004, "订单状态异常,无法支付(可能已支付或已取消)")
-		return
-	}
-
-	if math.Abs(req.Amount-orderRecord.FinalAmount) > 0.01 {
-		utils.Error(c, 4005, fmt.Sprintf("支付金额与订单不一致(应付 ¥%.2f,实付 ¥%.2f)", orderRecord.FinalAmount, req.Amount))
-		return
-	}
-
-	mockTransactionNo := fmt.Sprintf("MOCK_%s_%d", req.OrderNo, time.Now().Unix())
-
-	mockCallbackData := map[string]string{
-		"out_trade_no":   req.OrderNo,
-		"trade_no":       mockTransactionNo,
-		"trade_status":   "TRADE_SUCCESS",
-		"total_amount":   fmt.Sprintf("%.2f", req.Amount),
-		"notify_time":    time.Now().Format("2006-01-02 15:04:05"),
-		"notify_type":    "trade_status_sync",
-		"app_id":         "MOCK_DEV_APP",
-		"seller_id":      "MOCK_SELLER",
-		"buyer_id":       "MOCK_BUYER",
-		"receipt_amount": fmt.Sprintf("%.2f", req.Amount),
-	}
-
-	slog.Info("simulating payment", "order_no", req.OrderNo, "amount", req.Amount, "transaction_no", mockTransactionNo)
-
-	if err := h.orderService.ProcessAlipayCallback(req.OrderNo, mockTransactionNo, req.Amount, mockCallbackData); err != nil {
-		slog.Error("simulate payment failed", "order_no", req.OrderNo, "err", err)
-		utils.Error(c, 5000, "模拟支付失败: "+err.Error())
-		return
-	}
-
-	slog.Info("simulate payment processed successfully", "order_no", req.OrderNo)
-
-	utils.Success(c, gin.H{
-		"message":        "Payment simulated successfully",
-		"order_no":       req.OrderNo,
-		"transaction_no": mockTransactionNo,
-		"status":         "paid",
-	})
-}

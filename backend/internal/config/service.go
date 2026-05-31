@@ -25,7 +25,7 @@ func NewService(repo *Repository) *Service {
 
 // GetActiveEmailConfig gets the active email configuration
 func (s *Service) GetActiveEmailConfig() (*model.EmailConfig, error) {
-	return s.repo.FindActiveEmailConfig()
+	return cachedEmail(s.repo.FindActiveEmailConfig)
 }
 
 // CreateEmailConfig creates a new email configuration and deactivates old ones
@@ -37,7 +37,11 @@ func (s *Service) CreateEmailConfig(config *model.EmailConfig) error {
 	}
 
 	// Create new config
-	return s.repo.CreateEmailConfig(config)
+	if err := s.repo.CreateEmailConfig(config); err != nil {
+		return err
+	}
+	invalidate(cacheKeyEmail)
+	return nil
 }
 
 // InitializeDefaultSystemConfig creates default system config if none exists
@@ -62,7 +66,7 @@ func (s *Service) InitializeDefaultSystemConfig() error {
 
 // GetSystemConfig gets the system configuration
 func (s *Service) GetSystemConfig() (*model.SystemConfig, error) {
-	return s.repo.GetSystemConfig()
+	return cachedSystem(s.repo.GetSystemConfig)
 }
 
 // UpdateSystemConfig updates system configuration
@@ -103,15 +107,22 @@ func (s *Service) UpdateSystemConfigPartial(req *SystemConfigPartialUpdate) erro
 		config.TurnstileSecretKey = *req.TurnstileSecretKey
 	}
 
+	var err2 error
 	if config.ID == 0 {
-		return s.repo.CreateSystemConfig(config)
+		err2 = s.repo.CreateSystemConfig(config)
+	} else {
+		err2 = s.repo.UpdateSystemConfig(config)
 	}
-	return s.repo.UpdateSystemConfig(config)
+	if err2 != nil {
+		return err2
+	}
+	invalidate(cacheKeySystem)
+	return nil
 }
 
 // GetActiveSMSConfig gets the active SMS configuration
 func (s *Service) GetActiveSMSConfig() (*model.SMSConfig, error) {
-	return s.repo.FindActiveSMSConfig()
+	return cachedSMS(s.repo.FindActiveSMSConfig)
 }
 
 // CreateSMSConfig creates a new SMS configuration and deactivates old ones
@@ -123,7 +134,11 @@ func (s *Service) CreateSMSConfig(config *model.SMSConfig) error {
 	}
 
 	// Create new config
-	return s.repo.CreateSMSConfig(config)
+	if err := s.repo.CreateSMSConfig(config); err != nil {
+		return err
+	}
+	invalidate(cacheKeySMS)
+	return nil
 }
 
 // ============================================
@@ -132,7 +147,7 @@ func (s *Service) CreateSMSConfig(config *model.SMSConfig) error {
 
 // GetGithubOAuthConfig gets the GitHub OAuth configuration
 func (s *Service) GetGithubOAuthConfig() (*model.GithubOAuthConfig, error) {
-	return s.repo.GetGithubOAuthConfig()
+	return cachedGithub(s.repo.GetGithubOAuthConfig)
 }
 
 // UpdateGithubOAuthConfig updates or creates GitHub OAuth configuration
@@ -141,6 +156,8 @@ func (s *Service) UpdateGithubOAuthConfig(clientID, clientSecret, redirectURI st
 	if err != nil {
 		return err
 	}
+
+	defer invalidate(cacheKeyGithub) // 不论 create 还是 update, 写完都清
 
 	if config == nil {
 		// Create new config
@@ -167,7 +184,7 @@ func (s *Service) UpdateGithubOAuthConfig(clientID, clientSecret, redirectURI st
 
 // GetGoogleOAuthConfig gets the Google OAuth configuration
 func (s *Service) GetGoogleOAuthConfig() (*model.GoogleOAuthConfig, error) {
-	return s.repo.GetGoogleOAuthConfig()
+	return cachedGoogle(s.repo.GetGoogleOAuthConfig)
 }
 
 // UpdateGoogleOAuthConfig updates or creates Google OAuth configuration
@@ -176,6 +193,8 @@ func (s *Service) UpdateGoogleOAuthConfig(clientID, clientSecret string, enabled
 	if err != nil {
 		return err
 	}
+
+	defer invalidate(cacheKeyGoogle)
 
 	if config == nil {
 		config = &model.GoogleOAuthConfig{
@@ -197,7 +216,7 @@ func (s *Service) UpdateGoogleOAuthConfig(clientID, clientSecret string, enabled
 // ============================================
 
 func (s *Service) GetOrcidOAuthConfig() (*model.OrcidOAuthConfig, error) {
-	return s.repo.GetOrcidOAuthConfig()
+	return cachedOrcid(s.repo.GetOrcidOAuthConfig)
 }
 
 func (s *Service) UpdateOrcidOAuthConfig(clientID, clientSecret, redirectURI string, useSandbox, enabled bool) error {
@@ -205,6 +224,7 @@ func (s *Service) UpdateOrcidOAuthConfig(clientID, clientSecret, redirectURI str
 	if err != nil {
 		return err
 	}
+	defer invalidate(cacheKeyOrcid)
 	if config == nil {
 		config = &model.OrcidOAuthConfig{
 			ClientID:     clientID,
@@ -228,7 +248,7 @@ func (s *Service) UpdateOrcidOAuthConfig(clientID, clientSecret, redirectURI str
 // ============================================
 
 func (s *Service) GetMicrosoftOAuthConfig() (*model.MicrosoftOAuthConfig, error) {
-	return s.repo.GetMicrosoftOAuthConfig()
+	return cachedMicrosoft(s.repo.GetMicrosoftOAuthConfig)
 }
 
 func (s *Service) UpdateMicrosoftOAuthConfig(clientID, clientSecret, redirectURI, tenant string, enabled bool) error {
@@ -236,6 +256,7 @@ func (s *Service) UpdateMicrosoftOAuthConfig(clientID, clientSecret, redirectURI
 	if err != nil {
 		return err
 	}
+	defer invalidate(cacheKeyMicrosoft)
 	if tenant == "" {
 		tenant = "common"
 	}
@@ -262,7 +283,7 @@ func (s *Service) UpdateMicrosoftOAuthConfig(clientID, clientSecret, redirectURI
 // ============================================
 
 func (s *Service) GetAppleOAuthConfig() (*model.AppleOAuthConfig, error) {
-	return s.repo.GetAppleOAuthConfig()
+	return cachedApple(s.repo.GetAppleOAuthConfig)
 }
 
 func (s *Service) UpdateAppleOAuthConfig(serviceID, teamID, keyID, privateKey, redirectURI string, enabled bool) error {
@@ -270,6 +291,7 @@ func (s *Service) UpdateAppleOAuthConfig(serviceID, teamID, keyID, privateKey, r
 	if err != nil {
 		return err
 	}
+	defer invalidate(cacheKeyApple)
 	if config == nil {
 		config = &model.AppleOAuthConfig{
 			ServiceID:   serviceID,
@@ -298,7 +320,7 @@ func (s *Service) UpdateAppleOAuthConfig(serviceID, teamID, keyID, privateKey, r
 
 // GetDiscourseSSOConfig gets the Discourse SSO configuration
 func (s *Service) GetDiscourseSSOConfig() (*model.DiscourseSSOConfig, error) {
-	return s.repo.GetDiscourseSSOConfig()
+	return cachedDiscourse(s.repo.GetDiscourseSSOConfig)
 }
 
 // UpdateDiscourseSSOConfig updates or creates Discourse SSO configuration
@@ -307,6 +329,8 @@ func (s *Service) UpdateDiscourseSSOConfig(siteURL, ssoSecret, redirectURI strin
 	if err != nil {
 		return err
 	}
+
+	defer invalidate(cacheKeyDiscourse)
 
 	if config == nil {
 		// Create new config
@@ -343,27 +367,40 @@ func (s *Service) GetCodeSnippetByID(id uint) (*model.CodeSnippet, error) {
 
 // CreateCodeSnippet 创建代码片段
 func (s *Service) CreateCodeSnippet(snippet *model.CodeSnippet) error {
-	return s.repo.CreateCodeSnippet(snippet)
+	if err := s.repo.CreateCodeSnippet(snippet); err != nil {
+		return err
+	}
+	invalidate(cacheKeyCodeSnippetsEnabled)
+	return nil
 }
 
 // UpdateCodeSnippet 更新代码片段
 func (s *Service) UpdateCodeSnippet(snippet *model.CodeSnippet) error {
-	return s.repo.UpdateCodeSnippet(snippet)
+	if err := s.repo.UpdateCodeSnippet(snippet); err != nil {
+		return err
+	}
+	invalidate(cacheKeyCodeSnippetsEnabled)
+	return nil
 }
 
 // DeleteCodeSnippet 删除代码片段
 func (s *Service) DeleteCodeSnippet(id uint) error {
-	return s.repo.DeleteCodeSnippet(id)
+	if err := s.repo.DeleteCodeSnippet(id); err != nil {
+		return err
+	}
+	invalidate(cacheKeyCodeSnippetsEnabled)
+	return nil
 }
 
 // GetEnabledCodeSnippets 获取启用的代码片段（用于用户端前端）
+// 缓存 10min, 已截断到 MaxEnabledCodeSnippets 防首屏过大。
 func (s *Service) GetEnabledCodeSnippets() ([]model.CodeSnippet, error) {
-	return s.repo.GetEnabledCodeSnippets()
+	return cachedEnabledCodeSnippets(s.repo.GetEnabledCodeSnippets)
 }
 
 // GetCodeSnippetsGrouped 获取按位置分组的代码片段（用于用户端前端）
 func (s *Service) GetCodeSnippetsGrouped() (*model.CodeSnippetsGroupedResponse, error) {
-	snippets, err := s.repo.GetEnabledCodeSnippets()
+	snippets, err := cachedEnabledCodeSnippets(s.repo.GetEnabledCodeSnippets)
 	if err != nil {
 		return nil, err
 	}

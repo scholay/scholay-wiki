@@ -56,8 +56,8 @@ export function HomePage() {
   };
 
   const handleSmartSearch = () => {
-    // 智能搜索目前是占位预览(SmartSearchPreview),登录与否都能看,直接跳。
-    // q 带上做为后续上线后的关键词预填,mode=smart 让 SearchPage 进入智能 tab。
+    // 智能搜索面板要求登录后才能用,未登录时 SmartSearchPanel 内部会提示登录,
+    // 这里无需提前拦截。q 带上做为关键词预填,mode=smart 让 SearchPage 进入智能 tab。
     const trimmed = q.trim();
     const params = new URLSearchParams();
     if (trimmed) params.set('q', trimmed);
@@ -68,9 +68,9 @@ export function HomePage() {
   return (
     <SidebarLayout sidebar={<HomeSidebar />}>
       <RouteSEO
-        title="Scholay - AI 驱动的学术搜索平台 | 智能文献检索与分析"
-        description="Scholay 是一个 AI 驱动的学术搜索平台,提供智能文献检索、论文分析、引用图谱可视化、文献集管理、智能审稿与 LaTeX 协作写作等功能。覆盖全球 3 亿+ 学术论文,助你高效科研。"
-        keywords="学术搜索,论文检索,文献查找,AI 论文分析,学术资源,科研工具,智能搜索,Scholay,文献综述,LaTeX 写作,期刊查询,学者主页"
+        title="Scholay学术 - AI 学术搜索平台 | 论文搜索、AI 审稿、文献管理工具"
+        description="Scholay学术(scholay)是 AI 驱动的一站式学术工具:智能论文搜索、AI 论文分析、AI 智能审稿、学者库、期刊查询、文献集管理与 LaTeX 在线写作,覆盖全球 2 亿+ 学术论文,助你高效科研。"
+        keywords="Scholay,Scholay学术,scholay学术,scholay学术工具,scholay ai 学术工具,scholay scholar,scholar,AI 学术工具,学术搜索,论文检索,AI 论文分析,智能审稿,文献管理,期刊查询,学者库,LaTeX 写作"
         canonical="/"
       />
 
@@ -78,6 +78,8 @@ export function HomePage() {
           首页 + 后续宣传页才有 footer,功能页(搜索/Prism/审稿等)不挂。 */}
       <div className="flex flex-col min-h-full">
         <div className="flex-1 flex flex-col items-center pt-24 pb-24 px-6">
+          {/* 可被爬虫读到的 H1 —— sr-only 不改 .pen 视觉,但给首页一个含品牌词的主标题 */}
+          <h1 className="sr-only">Scholay学术 - AI 驱动的学术搜索与研究平台</h1>
           <BrandLogo size="xl" />
           <p className="mt-6 text-sm text-muted-foreground">
             学术搜索 · AI 审稿 · LaTeX 协作
@@ -123,9 +125,8 @@ export function HomePage() {
             />
           </div>
 
-          {/* 智能搜索 CTA — .pen `C724y`: 红底白字 14/600,圆角 4,padding [9,24]
-             目前智能搜索仍是占位预览,挂"即将推出" amber 角标提醒用户。 */}
-          <div className="relative mt-5">
+          {/* 智能搜索 CTA — .pen `C724y`: 红底白字 14/600,圆角 4,padding [9,24] */}
+          <div className="mt-5">
             <Button
               onClick={handleSmartSearch}
               variant="destructive"
@@ -133,12 +134,6 @@ export function HomePage() {
             >
               智能搜索
             </Button>
-            <span
-              aria-hidden="true"
-              className="absolute -top-2 -right-3 inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-background text-[9px] font-bold leading-none whitespace-nowrap shadow-sm"
-            >
-              即将推出
-            </span>
           </div>
         </div>
 

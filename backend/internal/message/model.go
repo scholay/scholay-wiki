@@ -40,37 +40,6 @@ const (
 	StatusCancelled MessageStatus = "cancelled" // 已取消
 )
 
-// MessageTemplate 消息模板
-type MessageTemplate struct {
-	ID        uint            `gorm:"primaryKey" json:"id"`
-	Code      string          `gorm:"size:50;uniqueIndex" json:"code"`
-	Name      string          `gorm:"size:100;not null" json:"name"`
-	Title     string          `gorm:"size:200;not null" json:"title"`
-	Content   string          `gorm:"type:text;not null" json:"content"`
-	Category  MessageCategory `gorm:"size:50;default:system" json:"category"`
-	Variables *string         `gorm:"type:json" json:"variables"`
-	IsActive  bool            `gorm:"default:true" json:"is_active"`
-	CreatedAt time.Time       `json:"created_at"`
-	UpdatedAt time.Time       `json:"updated_at"`
-}
-
-// TableName 指定表名
-func (MessageTemplate) TableName() string {
-	return "message_templates"
-}
-
-// GetVariablesMap 获取变量定义
-func (t *MessageTemplate) GetVariablesMap() map[string]string {
-	if t.Variables == nil {
-		return nil
-	}
-	var vars map[string]string
-	if err := json.Unmarshal([]byte(*t.Variables), &vars); err != nil {
-		return nil
-	}
-	return vars
-}
-
 // Message 站内信主表
 type Message struct {
 	ID             uint            `gorm:"primaryKey" json:"id"`
@@ -260,58 +229,6 @@ type MessageStatsResponse struct {
 	} `json:"by_send_type"`
 }
 
-// ========== 模板相关 ==========
-
-// CreateTemplateRequest 创建模板请求
-type CreateTemplateRequest struct {
-	Code      string            `json:"code" binding:"required,max=50"`
-	Name      string            `json:"name" binding:"required,max=100"`
-	Title     string            `json:"title" binding:"required,max=200"`
-	Content   string            `json:"content" binding:"required"`
-	Category  MessageCategory   `json:"category" binding:"omitempty,oneof=system promotion transaction"`
-	Variables map[string]string `json:"variables"`
-}
-
-// UpdateTemplateRequest 更新模板请求
-type UpdateTemplateRequest struct {
-	Name      string            `json:"name" binding:"omitempty,max=100"`
-	Title     string            `json:"title" binding:"omitempty,max=200"`
-	Content   string            `json:"content"`
-	Category  MessageCategory   `json:"category" binding:"omitempty,oneof=system promotion transaction"`
-	Variables map[string]string `json:"variables"`
-	IsActive  *bool             `json:"is_active"`
-}
-
-// TemplateResponse 模板响应
-type TemplateResponse struct {
-	ID        uint              `json:"id"`
-	Code      string            `json:"code"`
-	Name      string            `json:"name"`
-	Title     string            `json:"title"`
-	Content   string            `json:"content"`
-	Category  MessageCategory   `json:"category"`
-	Variables map[string]string `json:"variables,omitempty"`
-	IsActive  bool              `json:"is_active"`
-	CreatedAt time.Time         `json:"created_at"`
-	UpdatedAt time.Time         `json:"updated_at"`
-}
-
-// TemplateListRequest 模板列表请求
-type TemplateListRequest struct {
-	Page     int             `form:"page" binding:"min=1"`
-	PageSize int             `form:"page_size" binding:"min=1,max=100"`
-	Category MessageCategory `form:"category"`
-	IsActive *bool           `form:"is_active"`
-	Keyword  string          `form:"keyword"`
-}
-
-// TemplateListResponse 模板列表响应
-type TemplateListResponse struct {
-	List     []TemplateResponse `json:"list"`
-	Total    int64              `json:"total"`
-	Page     int                `json:"page"`
-	PageSize int                `json:"page_size"`
-}
 
 
 

@@ -59,6 +59,22 @@ export interface EffectivePaperFields {
   hasOgOverride: boolean;
 }
 
+/**
+ * 该行是否有"本地保留信息"(og_* 任一非空)。
+ * 用途:取消关联是否可用(取消会清上游元数据只留 og_*,og 全空则整行为空)、
+ * 编辑弹窗"已修改"标记等。
+ */
+export function hasLocalOverride(paper: UserLibraryPaper): boolean {
+  return Boolean(
+    (paper.og_title ?? '').trim() ||
+      (paper.og_abstract ?? '').trim() ||
+      (paper.og_authors && paper.og_authors.length > 0) ||
+      (typeof paper.og_year === 'number' && paper.og_year > 0) ||
+      (paper.og_venue ?? '').trim() ||
+      (paper.og_doi ?? '').trim()
+  );
+}
+
 export function pickEffectiveFields(paper: UserLibraryPaper): EffectivePaperFields {
   const title = pickString(paper.og_title, paper.title);
   const abstract = pickString(paper.og_abstract, paper.abstract);
@@ -67,14 +83,5 @@ export function pickEffectiveFields(paper: UserLibraryPaper): EffectivePaperFiel
   const venue = pickString(paper.og_venue, paper.venue);
   const doi = pickString(paper.og_doi, paper.doi);
 
-  const hasOgOverride = Boolean(
-    (paper.og_title ?? '').trim() ||
-      (paper.og_abstract ?? '').trim() ||
-      (paper.og_authors && paper.og_authors.length > 0) ||
-      (typeof paper.og_year === 'number' && paper.og_year > 0) ||
-      (paper.og_venue ?? '').trim() ||
-      (paper.og_doi ?? '').trim()
-  );
-
-  return { title, abstract, authors, year, venue, doi, hasOgOverride };
+  return { title, abstract, authors, year, venue, doi, hasOgOverride: hasLocalOverride(paper) };
 }

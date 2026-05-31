@@ -33,6 +33,7 @@ import {
   TIME_OPTIONS,
 } from './search-sidebar/primitives';
 import { buildFilterChips } from './search-sidebar/chips-from-filters';
+import type { SearchMode } from './SearcherColumn';
 
 /**
  * 搜索结果页侧栏 —— shell + filter groups:
@@ -48,9 +49,19 @@ import { buildFilterChips } from './search-sidebar/chips-from-filters';
 interface SearchSidebarProps {
   filters: SearchFilters;
   onFiltersChange: (next: SearchFilters) => void;
+  /**
+   * 当前搜索器模式 —— 智能模式下整块"筛选器" SidebarSection 不渲染,
+   * 因为智能搜索由 agent 端理解自然语言意图,前端筛选器对它无效。
+   * 传统模式 = 渲染全部筛选维度。
+   */
+  mode: SearchMode;
 }
 
-export function SearchSidebar({ filters, onFiltersChange }: SearchSidebarProps) {
+export function SearchSidebar({
+  filters,
+  onFiltersChange,
+  mode,
+}: SearchSidebarProps) {
   const toggleSidebar = useSidebar((s) => s.toggle);
   const [chipsRef] = useAutoAnimate<HTMLDivElement>({
     duration: 160,
@@ -121,7 +132,9 @@ export function SearchSidebar({ filters, onFiltersChange }: SearchSidebarProps) 
         {/* 1. 文献集 — 真实数据 / 登录引导 */}
         <LibrarySection />
 
-        {/* 2. 筛选器(prominent:11px/700 #111,与 "清空" 操作配套强调) */}
+        {/* 2. 筛选器(prominent:11px/700 #111,与 "清空" 操作配套强调)——
+            只在 classic 模式渲染;智能模式由 agent 理解意图,前端筛选无效。 */}
+        {mode === 'classic' && (
         <SidebarSection
           id="filters"
           label="筛选器"
@@ -347,6 +360,7 @@ export function SearchSidebar({ filters, onFiltersChange }: SearchSidebarProps) 
             </FilterGroup>
           )}
         </SidebarSection>
+        )}
       </SidebarContent>
 
       <SidebarAuthFooter />

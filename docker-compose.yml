@@ -37,7 +37,10 @@ services:
       - ./data/mysql:/var/lib/mysql
       - ./docker/mysql/conf.d:/etc/mysql/conf.d:ro
       - /etc/localtime:/etc/localtime:ro
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    # --slow-query-log=0: 关掉慢查询日志, 之前默认 ON 时写 /var/lib/mysql/slow.log,
+    # 该文件挂到 host 的 data/mysql/ 下, 无 rotation, 长期会无限增长。没有 admin
+    # 工具消费它, 需要排查慢查询时临时打开即可 (`SET GLOBAL slow_query_log='ON'`)。
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --slow-query-log=0
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
       interval: 30s
@@ -181,8 +184,6 @@ services:
       SEO_BASE_URL: ${SITE_URL:-https://www.scholay.com}
       SITE_NAME: ${SITE_NAME:-Scholay}
       SUPPORT_EMAIL: ${SUPPORT_EMAIL:-support@scholay.com}
-      UNPAYWALL_EMAIL: ${UNPAYWALL_EMAIL:-api@scholay.com}
-      PDF_SERVICE_URL: ${PDF_SERVICE_URL:-https://pdf.scholay.com/api/v1/pdf}
       # 主动 SEO 提交(详见 .env 注释段)
       SEO_SUBMIT_ENABLED: ${SEO_SUBMIT_ENABLED:-false}
       INDEXNOW_ENABLED: ${INDEXNOW_ENABLED:-false}
@@ -193,9 +194,6 @@ services:
       BAIDU_PUSH_DAILY_QUOTA: ${BAIDU_PUSH_DAILY_QUOTA:-1000}
       SEO_PUSH_WORKER_INTERVAL_SECONDS: ${SEO_PUSH_WORKER_INTERVAL_SECONDS:-300}
       SEO_PUSH_BATCH_SIZE: ${SEO_PUSH_BATCH_SIZE:-100}
-      # peer-review V2 (peer.scholay.com 外部审稿服务)
-      PEER_REVIEW_API_KEY: ${PEER_REVIEW_API_KEY:-}
-      PEER_REVIEW_BASE_URL: ${PEER_REVIEW_BASE_URL:-https://peer.scholay.com}
       # MinIO 对象存储(用户上传 PDF) —— endpoint 用容器名 minio:9000
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-scholarminio}
@@ -208,6 +206,10 @@ services:
       # backend internal/umami 通过 umami:3000 拉取统计,admin /analytics 自渲染图表。
       # 内网 URL + 默认 admin/umami 都写死在 client.go 里,这里只需告诉 backend WebsiteID。
       UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-}
+      # AI Agent 桥接 —— backend POST agent /api/providers 必须带这个 Bearer
+      # 与 agent 容器的 ANTHROPIC_API_KEY 同源 (AGENT_INTERNAL_TOKEN)。
+      AGENT_BASE_URL: ${AGENT_BASE_URL:-http://scholar_agent:3456}
+      AGENT_AUTH_TOKEN: ${AGENT_INTERNAL_TOKEN:-}
       # Go memory limit (75% of container memory limit)
       GOMEMLIMIT: 768MiB
     volumes:
@@ -233,8 +235,62 @@ services:
     networks:
       - scholar-network
 
+  # AI agent 服务 (Bun + TypeScript,源在 agent/)
+  # 通用 Anthropic-format agent,作为内网服务被 backend 调用。
+  # 模型/端点配置最终走 DB,backend 启动后 POST 到 /api/providers 热更新;
+  # 这里 env_file 仅作 bootstrap (容器冷启动到 backend 推送之间的兜底)。
+  agent:
+    build:
+      context: ./agent
+      dockerfile: Dockerfile
+    container_name: scholar_agent
+    restart: unless-stopped
+    logging: *default-logging
+    env_file:
+      - ./agent/.env
+    environment:
+      <<: *tz-env
+      # 强制覆盖 agent/.env 里的 ANTHROPIC_API_KEY (内网 Bearer 鉴权 token)
+      # 必须与 backend 的 AGENT_AUTH_TOKEN 同值,否则 backend push 配置会 401。
+      ANTHROPIC_API_KEY: ${AGENT_INTERNAL_TOKEN:-}
+      # 可选: 自定义 CA 证书路径 (代理 / 内网 mTLS / 自签 CDN 场景)。
+      # Bun / Node fetch 会把这个文件合并进 trust store, 解决 Clash / mihomo
+      # fake-ip 模式或企业代理签证书时的 "unknown certificate verification error"。
+      # 用法: 在 .env 设置 EXTRA_CA_CERTS=/path/to/proxy-ca.pem,
+      # 然后取消注释下方 volumes 里的 EXTRA_CA_CERTS 挂载行。
+      NODE_EXTRA_CA_CERTS: ${EXTRA_CA_CERTS_TARGET:-}
+    expose:
+      - "3456"
+    volumes:
+      # 会话/记忆持久化 (~/.claude 在容器内是 /home/bun/.claude)
+      - ./data/agent:/home/bun/.claude
+      - /etc/localtime:/etc/localtime:ro
+      # 可选: 把 host 上的代理 CA pem 挂进容器, 配合上面的 NODE_EXTRA_CA_CERTS env
+      # - ${EXTRA_CA_CERTS_HOST:-./agent/extra-ca.pem.placeholder}:/certs/extra-ca.pem:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3456/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    # 安全加固 (Scholay): agent 会跑模型生成的任务, 即便 P0 已禁所有内建工具,
+    # 仍做纵深防御 —— 万一某条路径绕过, 容器层也碰不到提权 / 起不了 fork 炸弹。
+    cap_drop:
+      - ALL                          # agent 不需要任何 Linux capability (非 root, 端口 >1024)
+    security_opt:
+      - no-new-privileges:true       # 禁止 setuid 提权
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G               # agent 是资源大头: LLM 流式 + Bash 转换 (pandoc/python) + PDF 解析; 单会话实测峰值 ~765MiB, 提到 1.5G 给并发会话留头
+          cpus: "2.0"                # CPU 上限, 防单个重任务 (大 PDF 解析 / 死循环) 拖垮整机
+          pids: 512                  # 进程数上限, 挡 fork 炸弹 (Bash 转换会起 pandoc/python 子进程, 512 仍宽裕)
+        reservations:
+          memory: 256M
+    networks:
+      - scholar-network
+
   # 用户前端 (Vite + React 19,源在 frontend-user/)
-  # 旧版 CRA 源已归档到 frontend-user-old/,不构建不部署。
   frontend-user:
     build:
       context: ./frontend-user

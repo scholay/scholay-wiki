@@ -15,13 +15,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// registerPaymentCallbackRoutes 注册支付回调路由（公开，无需认证）
+// registerPaymentCallbackRoutes 注册支付回调路由(公开,无需认证)。
+// 这些路由是外部商户/平台主动回调进来的, 不会出现在前端代码里。
 func registerPaymentCallbackRoutes(api *gin.RouterGroup, h *allHandlers) {
 	api.POST("/payment/alipay/notify", h.alipay.HandleCallback)
 	api.POST("/payment/wechat/notify", h.wechatPay.HandleNotify)
-
-	// PDF 下载
-	api.POST("/pdf", h.pdf.GetPDF)
 
 	// 微信公众号 webhook
 	wechatOfficialWebhook := api.Group("/wechat-official")
@@ -31,64 +29,11 @@ func registerPaymentCallbackRoutes(api *gin.RouterGroup, h *allHandlers) {
 	}
 }
 
-// registerPublicAPIRoutes 注册公开 API 路由
-func registerPublicAPIRoutes(api *gin.RouterGroup, h *allHandlers) {
-	publicAPI := api.Group("/public")
-	{
-		publicAPI.GET("/papers/:paperId", h.scholar.GetPaper)
-		publicAPI.POST("/papers/search", h.scholar.SearchPapers)
-		publicAPI.POST("/papers/batch", h.scholar.GetPaperBatch)
-		publicAPI.GET("/papers/autocomplete", h.scholar.PaperAutocomplete)
-		publicAPI.GET("/search/suggestions", h.scholar.GetSearchSuggestions)
-		publicAPI.GET("/analysis/dimensions", h.ai.GetSystemDimensions)
-		// umami tracker 运行时配置 —— 前端 index.html 加载时 fetch 拿 website_id
-		// 后动态插入 tracker script,这样 umami DB 重建 / website 重建后无需 rebuild 前端
-		publicAPI.GET("/umami-config", h.umami.GetTrackerConfig)
-		publicAPI.GET("/papers/:paperId/citations", h.scholar.GetPaperCitations)
-		publicAPI.GET("/papers/:paperId/references", h.scholar.GetPaperReferences)
-		publicAPI.GET("/recommendations/papers/:paperId", h.scholar.GetRecommendationsForPaper)
-		publicAPI.GET("/author-detail/:authorId", h.scholar.GetAuthor)
-		publicAPI.GET("/author-detail/:authorId/papers", h.scholar.GetAuthorPapers)
-		publicAPI.POST("/feedback", h.feedback.CreateFeedback)
-		publicAPI.POST("/feedback/upload", h.feedback.UploadAttachments)
-		publicAPI.GET("/feedback/attachment/:id", h.feedback.GetAttachment)
-		publicAPI.POST("/usage-log", h.usageLog.Log)
-		publicAPI.POST("/translate/stream", h.ai.StreamTranslate)
-		publicAPI.POST("/translate/paper/stream", h.ai.StreamTranslatePaper)
-		publicAPI.GET("/hot-content/keywords", h.hotContent.GetRecentKeywords)
-		publicAPI.GET("/hot-content/papers", h.hotContent.GetRecentPapers)
-
-		// SEO 搜索曝光批量 seed（前端搜索结果加载后上报）
-		// 限流: 每 IP 每分钟最多 60 次。NAT 出口同 IP 的多用户共享配额,
-		// 一个学校/公司 60/min 的搜索量基本够用; 进一步可考虑 user-id+ip 双维度。
-		publicAPI.POST("/seo/expose",
-			middleware.RateLimitMiddleware(60, time.Minute),
-			h.seo.ExposeSeeds,
-		)
-		// SEO slug 解析（前端 /paper/:slug、/author/:slug 首屏用）
-		publicAPI.GET("/seo/paper/:slug", h.seo.ResolveBySlug)
-		publicAPI.GET("/seo/author/:slug", h.seo.ResolveAuthorBySlug)
-
-		// Public JNL Journal routes
-		publicAPI.POST("/journals/search", h.scholar.SearchJournals)
-		publicAPI.POST("/journals/list", h.scholar.ListJournals)
-		publicAPI.POST("/journals/get", h.scholar.GetJournal)
-		publicAPI.POST("/journals/filters", h.scholar.GetJournalFilters)
-		publicAPI.POST("/journals/stats", h.scholar.GetJournalStats)
-		publicAPI.POST("/journals/byIssn", h.scholar.GetJournalByISSN)
-		publicAPI.POST("/journals/compare", h.scholar.CompareJournals)
-		publicAPI.POST("/journals/suggest", h.scholar.SuggestJournals)
-		publicAPI.POST("/journals/byNames", h.scholar.JournalsByNames)
-		publicAPI.POST("/journals/batch", h.scholar.JournalsByISSNs)
-	}
-}
-
-// registerAnalysisRoutes 注册论文分析路由（已移除扣费中间件）
+// registerAnalysisRoutes 注册 Matrix 多维分析路由 (需登录, 用户维度 + 论文批量分析)
 func registerAnalysisRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL gin.HandlerFunc) {
 	analysisGroup := api.Group("/analysis")
 	analysisGroup.Use(middleware.UserAuthMiddleware(), tieredRL)
 	{
-		analysisGroup.POST("/paper", h.ai.AnalyzePaper)
 		analysisGroup.POST("/papers/batch", h.ai.BatchAnalyzePapers)
 		analysisGroup.GET("/dimensions", h.ai.GetAnalysisDimensions)
 		analysisGroup.GET("/dimensions/settings", h.ai.GetDimensionSettings)
@@ -98,56 +43,59 @@ func registerAnalysisRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL gin.H
 		analysisGroup.PUT("/dimensions/:id", h.ai.UpdateUserDimension)
 		analysisGroup.DELETE("/dimensions/:id", h.ai.DeleteUserDimension)
 		analysisGroup.DELETE("/dimensions/reset/:dimensionKey", h.ai.ResetUserDimension)
-		analysisGroup.DELETE("/dimensions/reset-all", h.ai.ResetAllUserDimensions)
-		analysisGroup.POST("/dimensions/copy-from-system", h.ai.CopySystemDimensionsToUser)
 	}
 }
 
-// registerScholarRoutes 注册学术搜索路由
-func registerScholarRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL gin.HandlerFunc) {
-	scholar := api.Group("/scholar")
-	scholar.Use(middleware.UserAuthMiddleware(), tieredRL)
+// registerPublicAPIRoutes 注册公开 API 路由。
+//
+// 历史上这里曾有 paper autocomplete / paper citations / recommendations / feedback 附件 /
+// usage-log / hot-content public / journals 的 filters/byIssn/compare/batch 一组路由,
+// 经过前端反查全部无人调用, 已下线 (handler 方法连带删)。
+// `/scholar/*` 鉴权版整组 (registerScholarRoutes) 也是 `/public/*` 的重复, 一并下线。
+func registerPublicAPIRoutes(api *gin.RouterGroup, h *allHandlers) {
+	publicAPI := api.Group("/public")
 	{
-		scholar.POST("/papers/search", h.scholar.SearchPapers)
-		scholar.GET("/papers/:paperId", h.scholar.GetPaper)
-		scholar.POST("/papers/batch", h.scholar.GetPaperBatch)
-		scholar.GET("/papers/:paperId/citations", h.scholar.GetPaperCitations)
-		scholar.GET("/papers/:paperId/references", h.scholar.GetPaperReferences)
-		scholar.GET("/papers/:paperId/authors", h.scholar.GetPaperAuthors)
-		scholar.GET("/authors/search", h.scholar.SearchAuthors)
-		scholar.GET("/authors/:authorId", h.scholar.GetAuthor)
-		scholar.GET("/authors/:authorId/papers", h.scholar.GetAuthorPapers)
-		scholar.GET("/recommendations/papers/:paperId", h.scholar.GetRecommendationsForPaper)
-		scholar.POST("/recommendations/papers", h.scholar.GetRecommendations)
+		// 论文
+		publicAPI.GET("/papers/:paperId", h.scholar.GetPaper)
+		publicAPI.POST("/papers/search", h.scholar.SearchPapers)
+		publicAPI.POST("/papers/batch", h.scholar.GetPaperBatch)
+		publicAPI.GET("/papers/:paperId/references", h.scholar.GetPaperReferences)
+		publicAPI.GET("/search/suggestions", h.scholar.GetSearchSuggestions)
 
-		// JNL Journal routes
-		scholar.POST("/journals/search", h.scholar.SearchJournals)
-		scholar.POST("/journals/list", h.scholar.ListJournals)
-		scholar.POST("/journals/get", h.scholar.GetJournal)
-		scholar.POST("/journals/filters", h.scholar.GetJournalFilters)
-		scholar.POST("/journals/stats", h.scholar.GetJournalStats)
-		scholar.POST("/journals/byIssn", h.scholar.GetJournalByISSN)
-		scholar.POST("/journals/compare", h.scholar.CompareJournals)
-	}
-}
+		// Matrix 多维分析: 公开拿系统默认维度 (登录用户的自定义维度走 /analysis/dimensions)
+		publicAPI.GET("/analysis/dimensions", h.ai.GetSystemDimensions)
 
-// registerMCPRoutes 注册 MCP 路由
-func registerMCPRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL gin.HandlerFunc) {
-	mcpGroup := api.Group("/mcp")
-	mcpGroup.Use(middleware.UserAuthMiddleware(), tieredRL)
-	{
-		mcpGroup.GET("/tools", h.mcpUnified.ListAllTools)
-		mcpGroup.GET("/tools/llm", h.mcpUnified.GetToolsForLLM)
-		mcpGroup.GET("/tools/category/:category", h.mcpUnified.ListToolsByCategory)
-		mcpGroup.GET("/tools/:name", h.mcpUnified.GetTool)
-		mcpGroup.POST("/call", h.mcpUnified.CallTool)
-		mcpGroup.POST("/batch", h.mcpUnified.BatchCallTools)
-	}
+		// 作者
+		publicAPI.GET("/author-detail/:authorId", h.scholar.GetAuthor)
+		publicAPI.GET("/author-detail/:authorId/papers", h.scholar.GetAuthorPapers)
 
-	mcpLegacy := api.Group("/mcp-legacy")
-	mcpLegacy.Use(middleware.UserAuthMiddleware(), tieredRL)
-	{
-		mcpLegacy.GET("/tools", h.mcpLegacy.ListTools)
-		mcpLegacy.POST("/call", h.mcpLegacy.CallTool)
+		// 反馈 (提交 + 附件上传/下载, 附件本体走 MinIO)
+		publicAPI.POST("/feedback", h.feedback.CreateFeedback)
+		publicAPI.POST("/feedback/upload", middleware.UploadLimitMiddleware(middleware.UploadMaxBodySize), h.feedback.UploadAttachments)
+		publicAPI.GET("/feedback/attachment/:id", h.feedback.GetAttachment)
+
+		// 翻译 (SSE 流) —— 仅论文翻译; 旧的"划词翻译" StreamTranslate 已下线
+		publicAPI.POST("/translate/paper/stream", h.ai.StreamTranslatePaper)
+
+		// umami tracker 运行时配置 —— 前端 index.html 加载时 fetch
+		publicAPI.GET("/umami-config", h.umami.GetTrackerConfig)
+
+		// SEO 搜索曝光批量 seed (前端搜索结果加载后上报)
+		// 限流: 每 IP 每分钟最多 60 次
+		publicAPI.POST("/seo/expose",
+			middleware.RateLimitMiddleware(60, time.Minute),
+			h.seo.ExposeSeeds,
+		)
+		// SEO slug 解析 (前端 /paper/:slug、/author/:slug 首屏用)
+		publicAPI.GET("/seo/paper/:slug", h.seo.ResolveBySlug)
+		publicAPI.GET("/seo/author/:slug", h.seo.ResolveAuthorBySlug)
+
+		// JNL Journal (前端用到 search/list/get/stats/suggest/byNames; filters/byIssn/compare/batch 已下线)
+		publicAPI.POST("/journals/search", h.scholar.SearchJournals)
+		publicAPI.POST("/journals/list", h.scholar.ListJournals)
+		publicAPI.POST("/journals/get", h.scholar.GetJournal)
+		publicAPI.POST("/journals/stats", h.scholar.GetJournalStats)
+		publicAPI.POST("/journals/suggest", h.scholar.SuggestJournals)
+		publicAPI.POST("/journals/byNames", h.scholar.JournalsByNames)
 	}
 }

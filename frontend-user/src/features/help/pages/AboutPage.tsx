@@ -84,7 +84,8 @@ const PILLARS: Pillar[] = [
     icon: Target,
     title: '智能审稿',
     desc: '为期刊与会议设计的智能评审工作台,提前发现可能被审稿人指出的问题。',
-    status: '即将推出',
+    to: '/peer-review',
+    status: '已上线',
   },
 ];
 

@@ -1,6 +1,11 @@
 // ============================================================================
 // Scholay学术 V1.0
-// 配置 Handler - 公共小工具：敏感字段遮罩、空值保留、回调 URL 规范化
+// 配置 Handler - 公共小工具:回调 URL 规范化 + 转发包外通用助手。
+//
+// 敏感字段处理 (maskSecret / preserveSecretOnEmpty / isShowSensitive) 已迁到
+// internal/common/utils/secret.go, 所有需要的模块直接 import utils 用。
+// 包外重构时一并修复了"前端把 '********' 遮罩值 PUT 回来被当真密钥存库"的 bug。
+// 包内沿用小写别名, 调用方无需改动。
 // ============================================================================
 
 package config
@@ -13,44 +18,23 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const maskedSecretValue = "********"
+// 兼容包内现有调用方: 转发到 common/utils 的新实现。
+const maskedSecretValue = utils.MaskedSecretValue
 
-// maskSecret 若 show=false 且字段非空，则替换为掩码；否则原样返回指针指向的值
-func maskSecret(field *string, show bool) {
-	if !show && field != nil && *field != "" {
-		*field = maskedSecretValue
-	}
-}
+func maskSecret(field *string, show bool) { utils.MaskSecret(field, show) }
 
-// isShowSensitive 统一读取 ?show_sensitive=true / ?show_password=true / ?show_secret=true
 func isShowSensitive(c *gin.Context, queryKey string) bool {
-	return c.Query(queryKey) == "true"
+	return utils.IsShowSensitive(c, queryKey)
 }
 
-// normalizeCallbackURL 确保回调 URL 以给定 suffix 结尾；空串不处理
+func preserveSecretOnEmpty(c *gin.Context, newValue, existingValue string, configExists bool, fieldLabel string) (string, bool) {
+	return utils.PreserveSecretOnEmpty(c, newValue, existingValue, configExists, fieldLabel)
+}
+
+// normalizeCallbackURL 确保回调 URL 以给定 suffix 结尾;空串不处理
 func normalizeCallbackURL(raw, suffix string) string {
 	if raw == "" || strings.HasSuffix(raw, suffix) {
 		return raw
 	}
 	return strings.TrimSuffix(raw, "/") + suffix
-}
-
-// preserveSecretOnEmpty 在更新配置时处理“空值保留旧密钥”的通用逻辑。
-//
-//	newValue       用户提交的密钥（可能为空）
-//	existingValue  数据库中已有的值（如果 configExists 为 false，则该值忽略）
-//	configExists   数据库是否存在既有配置
-//	c              gin 上下文（仅用于回写错误响应）
-//	fieldLabel     错误信息里的字段名，例如 "Client Secret"
-//
-// 返回最终应写入的值；若返回 ok=false，调用方应立即 return（错误已写入响应）。
-func preserveSecretOnEmpty(c *gin.Context, newValue, existingValue string, configExists bool, fieldLabel string) (string, bool) {
-	if newValue != "" {
-		return newValue, true
-	}
-	if configExists {
-		return existingValue, true
-	}
-	utils.BadRequest(c, fieldLabel+" is required for new configuration")
-	return "", false
 }

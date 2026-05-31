@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useQueries } from '@tanstack/react-query';
+import { STALE_COOL } from '@/shared/lib/query-config';
 import { useAuthStore } from '@/stores/auth.store';
 import type { Paper } from '@/shared/api/types';
 import { batchLoad } from './paperBatcher';
@@ -57,7 +58,7 @@ export function useMatrixAnalysis(papers: Paper[]): MatrixAnalysisResult {
     queries: usable.map((p) => ({
       queryKey: ['analysis', 'paper', p.paperId] as const,
       enabled: !!token,
-      staleTime: 5 * 60 * 1000,
+      staleTime: STALE_COOL,
       queryFn: () =>
         batchLoad({
           paperId: p.paperId,

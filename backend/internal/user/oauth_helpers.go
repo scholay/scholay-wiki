@@ -20,6 +20,8 @@ import (
 	"time"
 
 	"scholar-backend/internal/common/cache"
+	"scholar-backend/internal/common/httpclient"
+	"scholar-backend/internal/common/upstream"
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
@@ -28,6 +30,19 @@ import (
 
 // oauthStateTTL OAuth state / nonce 在 Redis 中的生存期。
 const oauthStateTTL = 5 * time.Minute
+
+// newOAuthUpstream 给各 OAuth provider 构造统一的 upstream 客户端:
+// 共用 httpclient.OAuthClient 连接池 + 每 provider 独立 breaker + 结构化观测。
+//
+// 关键: 不开 retry (零值 RetryConfig = 单次尝试)。OAuth authorization code 是
+// 一次性的, 自动重试可能撞上"code 已被消费" → 反而更难排查; 保持与迁移前
+// 单次请求的行为完全一致, 只额外获得 breaker / typed error / slog 观测。
+func newOAuthUpstream(name string) *upstream.Client {
+	return upstream.New(name).
+		HTTPClient(httpclient.OAuthClient).
+		Breaker(upstream.BreakerConfig{}).
+		MustBuild()
+}
 
 // issueOAuthState 生成随机 state，写入 Redis（如可用）并返回。
 // prefix 区分不同 provider，例如 "oauth_state:", "orcid_oauth_state:"。

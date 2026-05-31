@@ -187,35 +187,15 @@ interface ChipHoverPanelProps {
   headline: string;
   /** 主体 (字段 checklist) */
   children: React.ReactNode;
-  /** 底部色 tone 注解, 例如 "绿 · 完整" */
-  footerNote: string;
-  /** footer 提示色调 (匹配 status) */
-  status: ChipStatus;
 }
 
-const FOOTER_TONE_CLASSES: Record<ChipStatus, string> = {
-  complete: 'text-brand-green',
-  partial: 'text-brand-amber',
-  missing: 'text-faint',
-};
-
-export function ChipHoverPanel({
-  headline,
-  children,
-  footerNote,
-  status,
-}: ChipHoverPanelProps) {
+export function ChipHoverPanel({ headline, children }: ChipHoverPanelProps) {
   return (
     <div className="flex flex-col">
       <div className="px-4 pt-3 pb-2 border-b border-border-soft">
         <div className="text-xs text-muted-foreground">{headline}</div>
       </div>
       <div className="px-4 py-3 space-y-2">{children}</div>
-      <div className="px-4 py-2 border-t border-border-soft">
-        <span className={cn('text-2xs font-semibold', FOOTER_TONE_CLASSES[status])}>
-          {footerNote}
-        </span>
-      </div>
     </div>
   );
 }

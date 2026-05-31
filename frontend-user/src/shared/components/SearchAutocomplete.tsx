@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Search, X } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
@@ -65,21 +65,26 @@ function asArray<T>(v: unknown): T[] {
   return Array.isArray(v) ? (v as T[]) : [];
 }
 
-export function SearchAutocomplete({
-  value,
-  onChange,
-  onSubmit,
-  onSearchJournals,
-  onPickJournal,
-  onPickPaper,
-  onPickAuthor,
-  autoFocus,
-  placeholder = '搜索学术论文、期刊、作者…',
-  className,
-}: SearchAutocompleteProps) {
+export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteProps>(
+  (
+    {
+      value,
+      onChange,
+      onSubmit,
+      onSearchJournals,
+      onPickJournal,
+      onPickPaper,
+      onPickAuthor,
+      autoFocus,
+      placeholder = '搜索学术论文、期刊、作者…',
+      className,
+    },
+    ref
+  ) => {
   const [focused, setFocused] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  useImperativeHandle(ref, () => rootRef.current as HTMLDivElement);
   const pickerCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // dropdown 高度上限 —— 实测主框距视窗底距离,扣 24px 安全边距,防止滚动条贴到屏幕底缘
   const [dropdownMaxHeight, setDropdownMaxHeight] = useState<string>('70vh');
@@ -312,4 +317,6 @@ export function SearchAutocomplete({
       </AnimatePresence>
     </div>
   );
-}
+  }
+);
+SearchAutocomplete.displayName = 'SearchAutocomplete';

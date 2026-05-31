@@ -8,6 +8,8 @@
 package utils
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"scholar-backend/internal/common/config"
@@ -15,6 +17,16 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 )
+
+// newJTI 生成 16 字节随机 token ID, hex 编码成 32 字符. 用于 token-level revoke
+// (Redis blacklist 的 key). 失败回退到时间戳 + uid 拼装(理论上不会到 crypto rand 失败).
+func newJTI() string {
+	var b [16]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return fmt.Sprintf("ts-%d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(b[:])
+}
 
 // Token 过期时间配置
 const (
@@ -32,6 +44,10 @@ type Claims struct {
 	Type      string `json:"type"`       // "admin" or "user"
 	Role      string `json:"role"`       // "admin" or "user"
 	SessionID string `json:"session_id"` // 关联的会话ID，用于验证会话有效性
+	// JTI 是单 token 的唯一标识, 用于 Redis blacklist 单 token 吊销 (见 jwt_revoke.go).
+	// 旧 token 不带这个字段也能正常解析 — 旧 token 不能被单点吊销, 但 user-level revoke
+	// (改密 / 封号 → 比较 IssuedAt 与 user revoke 时间戳) 仍然能踢掉它们。
+	JTI string `json:"jti,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -62,6 +78,7 @@ func GenerateTokenWithSessionAndRole(userID uint, username, userType, role, sess
 		Type:      userType,
 		Role:      role,
 		SessionID: sessionID,
+		JTI:       newJTI(),
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(TokenExpiration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

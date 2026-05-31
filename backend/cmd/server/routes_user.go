@@ -8,10 +8,8 @@
 package main
 
 import (
-	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/middleware"
 	"scholar-backend/internal/peerreview"
-	"scholar-backend/internal/peerreview2"
 
 	"github.com/gin-gonic/gin"
 )
@@ -85,10 +83,6 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		userProtected.POST("/logout", h.user.Logout)
 		userProtected.POST("/change-password", h.user.ChangePassword)
 
-		// 账号可用性检查
-		userProtected.POST("/check-email-availability", h.user.CheckEmailAvailability)
-		userProtected.POST("/check-phone-availability", h.user.CheckPhoneAvailability)
-
 		// 账号绑定
 		userProtected.POST("/bind-phone", h.user.BindPhone)
 		userProtected.POST("/bind-email", h.user.BindEmail)
@@ -103,8 +97,6 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		userProtected.POST("/bind-orcid", h.user.BindOrcidAccount)
 		userProtected.POST("/bind-microsoft", h.user.BindMicrosoftAccount)
 		userProtected.POST("/bind-discourse", h.user.BindDiscourseAccount)
-		userProtected.POST("/bind-email-with-password", h.user.BindEmailWithPassword)
-		userProtected.POST("/bind-phone-with-password", h.user.BindPhoneWithPassword)
 
 		// 账号解绑
 		userProtected.POST("/unbind-phone", h.user.UnbindPhone)
@@ -117,150 +109,74 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		userProtected.POST("/unbind-microsoft", h.user.UnbindMicrosoft)
 		userProtected.POST("/unbind-discourse", h.user.UnbindDiscourse)
 
-		// 支付（保留支付宝支付逻辑）
+		// 支付 (用户端支付发起;simulate 调试入口已下线)
 		userProtected.POST("/payment/alipay/create", h.alipay.CreatePayment)
-		if appconfig.AppConfig != nil && !appconfig.AppConfig.App.IsRelease {
-			userProtected.POST("/payment/simulate", h.alipay.SimulatePayment)
-		}
 		userProtected.POST("/payment/wechat/create", h.wechatPay.CreatePayment)
 
 		// 反馈
 		userProtected.POST("/feedback", h.feedback.CreateFeedbackWithUser)
 
-		// 任务历史
-		userProtected.GET("/task-history", h.user.GetTaskHistory)
-
-		// 站内信
+		// 站内信 (前端只用 list + unread-count + read + read-all + delete; 单条 GET 已下线)
 		userProtected.GET("/messages", h.message.GetMessages)
 		userProtected.GET("/messages/unread-count", h.message.GetUnreadCount)
-		userProtected.GET("/messages/:id", h.message.GetMessage)
 		userProtected.PUT("/messages/:id/read", h.message.MarkAsRead)
 		userProtected.PUT("/messages/read-all", h.message.MarkAllAsRead)
 		userProtected.DELETE("/messages/:id", h.message.DeleteMessage)
-
-		// 对话
-		userProtected.GET("/conversations", h.conversation.GetUserConversations)
-		userProtected.POST("/conversations", h.conversation.CreateConversation)
-		userProtected.GET("/conversations/:id", h.conversation.GetConversation)
-		userProtected.DELETE("/conversations/:id", h.conversation.DeleteConversation)
-		userProtected.POST("/conversations/:id/messages", h.conversation.AddMessage)
-		userProtected.PUT("/conversations/:id/title", h.conversation.UpdateConversationTitle)
-		userProtected.GET("/conversations/:id/messages/:messageId/advanced-search", h.conversation.StreamAdvancedSearch)
-		userProtected.GET("/conversations/:id/messages/:messageId/follow-up-questions", h.conversation.GetFollowUpQuestions)
-		userProtected.POST("/conversations/:id/continue", h.conversation.StreamContinueConversation)
-
-		// 增强聊天
-		userProtected.POST("/conversations/chat/new", h.chat.CreateConversationAndChat)
-		userProtected.POST("/conversations/:id/chat/stream", h.chat.StreamChatMessage)
-		userProtected.POST("/conversations/:id/chat", h.chat.QuickChat)
-		userProtected.GET("/conversations/:id/tree", h.chat.GetMessageTree)
-		userProtected.GET("/conversations/:id/history", h.chat.GetConversationHistory)
-		userProtected.POST("/conversations/messages/:messageId/regenerate", h.chat.RegenerateMessage)
-		userProtected.POST("/conversations/messages/:messageId/edit", h.chat.EditMessage)
-		userProtected.GET("/conversations/messages/:messageId/siblings", h.chat.GetSiblingMessages)
-		userProtected.GET("/conversations/messages/:messageId/branch", h.chat.GetBranchChain)
-
-		// LaTeX Writer
-		registerLatexWriterRoutes(userProtected, h)
 
 		// 文献集 v1（单默认收藏夹）
 		h.library.RegisterRoutes(userProtected)
 
 		// 检索工作区 · 暂存区（每用户最多 5 个，每个最多 100 篇）
 		h.stagingArea.RegisterRoutes(userProtected)
+
+		// 智能搜索 · 用户唯一会话 (HTTP)。
+		// WS 端点不放这里 —— 浏览器 WS 不能带 Authorization header,
+		// WS 路由独立挂出,自己校验 ?token= + sessionId 归属。
+		//
+		// 改造背景: 0.2 之前是 "每次进页面新建 session 不留映射",留下大量孤儿 jsonl。
+		// 现在改成 1 用户 1 行的持久化绑定 (smart_search_sessions),get-or-create
+		// 复用、reset 显式换。详见 docker/mysql/migrations/0050_smart_search_sessions_fields.sql。
+		userProtected.GET("/smart-search/session", h.smartSearch.GetSession)
+		userProtected.POST("/smart-search/session/reset", h.smartSearch.ResetSession)
+		userProtected.GET("/smart-search/session/messages", h.smartSearch.GetSessionMessages)
+		userProtected.GET("/smart-search/session/context", h.smartSearch.GetContextEstimate)
+		// 一次性短命 ws ticket 颁发 —— 前端打开 WS 前调一次,30s TTL, 用即销毁。
+		// 替代直接把 JWT 放到 WS URL query (会被 nginx access log 落盘长期暴露)。
+		userProtected.POST("/smart-search/session/ws-ticket", h.smartSearch.IssueWSTicket)
+
+		// 智能审稿 v3 —— 投稿 wizard + 审稿记录 + agent 编排的 4 份报告。
+		// 路由表见 internal/peerreview/routes.go, 全部需要登录。
+		peerreview.RegisterRoutes(userProtected.Group("/peer-review"), h.peerReview)
+
+		// 智能助手 (Claw) — 通用对话 + 文件 / 图片上传 + Minicod MCP 检索。
+		// 跟 smart-search 一样的 session / ws-ticket 模式, 额外多一个 upload 端点。
+		userProtected.GET("/claw/session", h.claw.GetSession)
+		userProtected.POST("/claw/session/reset", h.claw.ResetSession)
+		userProtected.GET("/claw/session/messages", h.claw.GetSessionMessages)
+		userProtected.GET("/claw/session/context", h.claw.GetContextEstimate)
+		// 历史回放里图片缩略图/放大: 浏览器 <img src> 按 path 回取会话 cwd 内的原图 (cookie 鉴权)。
+		userProtected.GET("/claw/session/file", h.claw.GetSessionFile)
+		userProtected.POST("/claw/session/ws-ticket", h.claw.IssueWSTicket)
+		// 上传走通用 UploadLimitMiddleware (50MB 上限 + 业务码 7001), 跟 feedback/library upload 一致。
+		userProtected.POST("/claw/upload", middleware.UploadLimitMiddleware(middleware.UploadMaxBodySize), h.claw.UploadAttachment)
+
+		// 多会话 API — claw 侧边栏会话列表用。smart_search 故意不暴露这一组,
+		// 保持单会话语义。详见 internal/agentbridge/bridge.go 多会话方法注释。
+		userProtected.GET("/claw/sessions", h.claw.ListSessions)
+		userProtected.POST("/claw/sessions", h.claw.CreateNewSession)
+		userProtected.PATCH("/claw/sessions/:id", h.claw.RenameSession)
+		userProtected.DELETE("/claw/sessions/:id", h.claw.DeleteSession)
+		userProtected.POST("/claw/sessions/:id/activate", h.claw.ActivateSession)
+
+		// 模型切换 — sidebar ModelSelector 下拉用。GET 列出可用 model tier,
+		// 切换不走 HTTP, 直接在 WS 上发 set_runtime_config (agent 协议规定)。
+		userProtected.GET("/claw/models", h.claw.ListModels)
 	}
+
+	// 智能搜索 · WS 桥接 (单独挂在 /user 下,不走 UserAuthMiddleware)
+	// 路径: /api/v1/user/smart-search/ws/:sessionId?token=<jwt>
+	api.GET("/user/smart-search/ws/:sessionId", h.smartSearch.HandleWS)
+	// 智能助手 · WS 桥接 (同 smart-search 模式)
+	api.GET("/user/claw/ws/:sessionId", h.claw.HandleWS)
 }
 
-// registerPeerReviewPublicRoutes 注册 AI 审稿路由（使用 OptionalUserAuth，支持匿名使用）
-// 需要登录的操作（附件、任务列表等）在 handler 内部检查 user_id
-func registerPeerReviewPublicRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL gin.HandlerFunc) {
-	g := api.Group("/user/peer-review")
-	// DeviceIDMiddleware: 为匿名试用识别下发 HttpOnly cookie
-	g.Use(middleware.OptionalUserAuthMiddleware(), peerreview.DeviceIDMiddleware(), tieredRL)
-	{
-		// 草稿管理（匿名：按 anon_token 查询；登录：按 user_id 查询）
-		g.GET("/draft", h.peerReview.GetDraft)
-		g.PUT("/draft", h.peerReview.SaveDraft)
-		g.DELETE("/draft", h.peerReview.ClearDraft)
-
-		// 上传和提交（匿名或登录均可）
-		g.POST("/upload", h.peerReview.UploadFile)
-		g.POST("/draft/submit", h.peerReview.SubmitDraft)
-
-		// 任务管理
-		g.POST("/tasks", h.peerReview.CreateTask)       // handler 内部要求登录
-		g.GET("/tasks", h.peerReview.GetTaskList)       // handler 内部要求登录
-		g.GET("/tasks/:id", h.peerReview.GetTaskDetail) // 匿名或登录均可（通过 anon_token 验证）
-		g.GET("/tasks/:id/progress", h.peerReview.GetTaskProgress)
-		g.GET("/tasks/:id/steps", h.peerReview.GetTaskSteps)
-		g.GET("/tasks/:id/watch", h.peerReview.WatchTaskProgress)
-		g.DELETE("/tasks/:id", h.peerReview.DeleteTask) // 匿名或登录均可（通过 anon_token 验证）
-		g.POST("/tasks/:id/start", h.peerReview.StartTask)
-
-		// 附件管理（handler 内部要求登录，防止匿名垃圾文件）
-		g.POST("/attachments", h.peerReview.UploadAttachment)
-		g.DELETE("/attachments/:id", h.peerReview.DeleteAttachment)
-		g.DELETE("/manuscript", h.peerReview.DeleteManuscript)
-
-		// 文件下载（匿名或登录均可）
-		g.GET("/files/:id/download", h.peerReview.DownloadFile)
-
-		// 匿名试用状态 & 登录后认领
-		g.GET("/trial-status", h.peerReview.TrialStatus)
-		g.POST("/claim-task", h.peerReview.ClaimTask) // 单任务认领（保留兼容）
-		g.POST("/claim-all", h.peerReview.ClaimAll)   // 批量认领
-	}
-}
-
-// registerPeerReviewV2Routes 注册 V2 审稿路由 (对接 peer.scholay.com)。
-// 与老 peer-review 完全独立的路径前缀,支持匿名 (OptionalUserAuth + DeviceID 中间件)。
-// 流式接口 /turns/:turn_id/stream 不进 tieredRL,避免长连接被限流误杀。
-func registerPeerReviewV2Routes(api *gin.RouterGroup, h *allHandlers, tieredRL gin.HandlerFunc) {
-	g := api.Group("/user/peer-review2")
-	g.Use(middleware.OptionalUserAuthMiddleware(), peerreview2.DeviceIDMiddleware())
-	{
-		// 试用余额 & 认领 (无副作用,放限流外)
-		g.GET("/trial-status", h.peerReview2.TrialStatus)
-		g.POST("/claim-all", h.peerReview2.ClaimAll)
-
-		// 列表 / 详情 / 删除 / 上传 (有副作用,过限流)
-		rl := g.Group("", tieredRL)
-		{
-			rl.POST("/conversations", h.peerReview2.CreateConversation)
-			rl.GET("/conversations", h.peerReview2.ListConversations)
-			rl.GET("/conversations/:id", h.peerReview2.GetConversation)
-			rl.DELETE("/conversations/:id", h.peerReview2.DeleteConversation)
-			rl.GET("/conversations/:id/turns", h.peerReview2.ListTurns)
-			rl.GET("/conversations/:id/messages", h.peerReview2.ListMessages)
-			rl.POST("/conversations/:id/messages", h.peerReview2.SendMessage)
-			rl.POST("/conversations/:id/pause", h.peerReview2.PauseConversation)
-			rl.POST("/conversations/:id/resume", h.peerReview2.ResumeConversation)
-		}
-
-		// 流式接口:不走 tieredRL,长连接占席位会被误判
-		g.GET("/conversations/:id/turns/:turn_id/stream", h.peerReview2.StreamTurn)
-	}
-}
-
-// registerLatexWriterRoutes 注册 LaTeX Writer 路由
-func registerLatexWriterRoutes(parent *gin.RouterGroup, h *allHandlers) {
-	g := parent.Group("/latex-writer")
-	{
-		g.GET("/models", h.latexWriter.GetAvailableModels)
-		g.POST("/chat/stream", h.latexWriter.StreamChat)
-		g.POST("/task/stream", h.latexWriter.ExecuteTask)
-		g.POST("/section/stream", h.latexWriter.ExecuteSection)
-		g.GET("/tasks", h.latexWriter.GetAvailableTasks)
-		g.GET("/sections", h.latexWriter.GetAvailableSections)
-		g.GET("/files", h.latexWriter.GetDocuments)
-		g.POST("/files", h.latexWriter.CreateDocument)
-		g.GET("/files/:id", h.latexWriter.GetDocument)
-		g.PUT("/files/:id", h.latexWriter.UpdateDocument)
-		g.DELETE("/files/:id", h.latexWriter.DeleteDocument)
-		g.GET("/documents/:id/conversation", h.latexWriter.GetDocumentConversation)
-		g.GET("/documents/:id/conversation/messages", h.latexWriter.GetConversationHistory)
-		g.POST("/documents/:id/chat/stream", h.latexWriter.StreamChatWithContext)
-		g.DELETE("/documents/:id/conversation", h.latexWriter.ClearConversation)
-		g.POST("/export/word", h.latexWriter.ExportToWord)
-	}
-}

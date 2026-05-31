@@ -26,14 +26,14 @@ export const SOURCE_META: Record<UpstreamSource, SourceMeta> = {
     description: '生物医学文献索引库',
   },
   olx: {
-    letter: 'G',
-    name: 'Graph',
-    description: '全学科开放学术图谱库',
-  },
-  stc: {
     letter: 'D',
     name: 'Discovery',
-    description: 'AI 学术文献发现库',
+    description: '全学科开放学术发现库',
+  },
+  stc: {
+    letter: 'G',
+    name: 'Graph',
+    description: 'AI 引文图谱学术库',
   },
 };
 

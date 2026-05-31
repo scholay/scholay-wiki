@@ -104,7 +104,7 @@ function buildSearchWords(query: string | string[]): string[] {
 export function HighlightedText({
   text,
   query,
-  markClassName = 'bg-warning-soft text-foreground rounded-[2px]',
+  markClassName = 'bg-warning-soft text-foreground rounded-sm',
 }: HighlightedTextProps) {
   const searchWords = useMemo(() => buildSearchWords(query), [query]);
 

@@ -7,6 +7,8 @@
 
 package prompts
 
+import "strings"
+
 // PaperTranslationPrompt 论文翻译提示词
 // 使用结构化的XML格式输入输出，一次性翻译标题、摘要、TLDR三个字段
 const PaperTranslationPrompt = `<task>学术论文翻译</task>
@@ -35,8 +37,8 @@ const PaperTranslationPrompt = `<task>学术论文翻译</task>
 // RenderPaperTranslationPrompt 渲染论文翻译提示词，替换占位符
 func RenderPaperTranslationPrompt(title, abstract, tldr string) string {
 	result := PaperTranslationPrompt
-	result = replaceVariable(result, "title", title)
-	result = replaceVariable(result, "abstract", abstract)
-	result = replaceVariable(result, "tldr", tldr)
+	result = strings.ReplaceAll(result, "{{title}}", title)
+	result = strings.ReplaceAll(result, "{{abstract}}", abstract)
+	result = strings.ReplaceAll(result, "{{tldr}}", tldr)
 	return result
 }

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "minicod": {
+      "command": "bunx",
+      "args": ["-y", "@minicod/mcp-server"],
+      "env": {
+        "MINICOD_API_KEY": "${MINICOD_API_KEY}"
+      }
+    }
+  }
+}

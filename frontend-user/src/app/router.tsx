@@ -2,6 +2,7 @@ import { createBrowserRouter } from 'react-router-dom';
 import { AppShell } from './layouts/AppShell';
 import { HomePage } from '@/features/home/HomePage';
 import { NotFoundPage } from '@/features/home/NotFoundPage';
+import { RouteErrorBoundary } from '@/shared/components/RouteErrorBoundary';
 import { adminRoutes } from '@/features/admin/routes';
 import { searchRoutes } from '@/features/search/routes';
 import { journalsRoutes } from '@/features/journals/routes';
@@ -43,17 +44,33 @@ export const router = createBrowserRouter([
   ...adminLegacyRedirectRoutes.map((r) => ({ ...r, path: `/${r.path}` })),
   ...legacyRedirectRoutes.map((r) => ({ ...r, path: `/${r.path}` })),
 
-  ...adminRoutes.map((r) => ({ ...r, path: `/${r.path}` })),
+  // adminRoutes 是顶层路由,本身不属于 AppShell 的子树 —— 必须在这里挂
+  // errorElement, 否则 stale chunk / lazy import 抛错时会撞 react-router 的
+  // "Hey developer 👋" 默认开发者面板(而不是友好的"正在更新到最新版本")。
+  ...adminRoutes.map((r) => ({
+    ...r,
+    path: `/${r.path}`,
+    errorElement: <RouteErrorBoundary />,
+  })),
   // Landing 宣传页 —— **不挂 AppShell**,自带 LandingLayout(顶部 marketing nav + 大 footer)。
   // 挂到 AppShell 下会出现两层 TopNav。每条路径已是绝对 /features/<slug>,无需再前缀。
-  ...landingRoutes.map((r) => ({ ...r, path: `/${r.path}` })),
+  // errorElement 同 admin 的理由 —— 顶层路由必须自带, 否则 stale chunk 撞 react-router 默认开发者面板。
+  ...landingRoutes.map((r) => ({
+    ...r,
+    path: `/${r.path}`,
+    errorElement: <RouteErrorBoundary />,
+  })),
   // 帮助中心 / 关于 / 联系 / 反馈 / 法律 / 博客 / 资源 —— 同样不挂 AppShell,
   // 自带 HelpLayout(顶部返回 + 面包屑 + Footer)。路径与旧 frontend-user 保持一致。
-  ...helpRoutes.map((r) => ({ ...r, path: `/${r.path}` })),
+  ...helpRoutes.map((r) => ({
+    ...r,
+    path: `/${r.path}`,
+    errorElement: <RouteErrorBoundary />,
+  })),
   {
     path: '/',
     element: <AppShell />,
-    errorElement: <NotFoundPage />,
+    errorElement: <RouteErrorBoundary />,
     children: [
       { index: true, element: <HomePage /> },
       ...searchRoutes,

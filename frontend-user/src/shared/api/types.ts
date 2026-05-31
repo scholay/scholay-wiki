@@ -14,8 +14,8 @@
 /**
  * 论文上游来源 —— code 用 stc/olx/pmd(后端历史命名),
  * UI 展示统一走 [[SOURCE_META]]:
- *   stc → "D — Discovery"(Semantic Scholar · AI 学术文献发现库)
- *   olx → "G — Graph"   (OpenAlex · 全学科开放学术图谱库)
+ *   stc → "G — Graph"   (Semantic Scholar · AI 引文图谱学术库)
+ *   olx → "D — Discovery"(OpenAlex · 全学科开放学术发现库)
  *   pmd → "M — Medicine"(PubMed · 生物医学文献索引库)
  */
 export type UpstreamSource = 'stc' | 'olx' | 'pmd';

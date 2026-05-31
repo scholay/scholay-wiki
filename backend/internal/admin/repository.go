@@ -81,11 +81,6 @@ func (r *Repository) Update(admin *AdminUser) error {
 	return r.db.Save(admin).Error
 }
 
-// UpdatePassword updates an admin user's password
-func (r *Repository) UpdatePassword(id uint, passwordHash string) error {
-	return r.db.Model(&AdminUser{}).Where("id = ? AND role IN ?", id, adminRoles).Update("password_hash", passwordHash).Error
-}
-
 // UpdateLastLogin updates the last login timestamp
 func (r *Repository) UpdateLastLogin(id uint) error {
 	now := time.Now()

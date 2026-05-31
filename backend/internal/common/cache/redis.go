@@ -19,6 +19,9 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/singleflight"
+
+	"scholar-backend/internal/common/ctxutil"
+	"scholar-backend/internal/common/safego"
 )
 
 // ErrNotFound 是上游 fetch 函数在确认数据不存在时应返回的标记错误。
@@ -79,7 +82,7 @@ func InitRedis(host string, port string, password string, db int) error {
 	})
 
 	// Test connection
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := ctxutil.With(ctxutil.QuickIO)
 	defer cancel()
 
 	if err := rdb.Ping(ctx).Err(); err != nil {
@@ -286,7 +289,7 @@ func RunWithLock(ctx context.Context, lockKey string, ttl time.Duration, fn func
 	// 启动续期 goroutine：每 ttl/3 续一次（经典做法，留足重试窗口）。
 	renewCtx, cancelRenew := context.WithCancel(ctx)
 	renewDone := make(chan struct{})
-	go func() {
+	safego.Go("cache-dlock-renew", func() {
 		defer close(renewDone)
 		interval := ttl / 3
 		if interval < 500*time.Millisecond {
@@ -306,13 +309,13 @@ func RunWithLock(ctx context.Context, lockKey string, ttl time.Duration, fn func
 				}
 			}
 		}
-	}()
+	})
 
 	defer func() {
 		cancelRenew()
 		<-renewDone
 		// 用独立 ctx 释放锁，即使业务 ctx 已被取消也要确保释放（否则锁要等 TTL 自然过期）
-		releaseCtx, releaseCancel := context.WithTimeout(context.Background(), 2*time.Second)
+		releaseCtx, releaseCancel := ctxutil.With(ctxutil.CacheWrite)
 		defer releaseCancel()
 		_, _ = unlockIfOwnerScript.Run(releaseCtx, rdb, []string{fullKey}, token).Result()
 	}()

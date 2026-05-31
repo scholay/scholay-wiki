@@ -160,7 +160,7 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 	if count >= MaxAreasPerUser {
-		utils.Error(c, http.StatusConflict, "暂存区数量已达上限")
+		utils.ErrorResponse(c, http.StatusConflict, "暂存区数量已达上限")
 		return
 	}
 
@@ -316,7 +316,7 @@ func (h *Handler) AddPaper(c *gin.Context) {
 		return
 	}
 	if count >= MaxPapersPerArea {
-		utils.Error(c, http.StatusConflict, "该暂存区论文数量已达上限")
+		utils.ErrorResponse(c, http.StatusConflict, "该暂存区论文数量已达上限")
 		return
 	}
 

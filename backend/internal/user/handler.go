@@ -15,7 +15,6 @@
 package user
 
 import (
-	"context"
 	"time"
 
 	"scholar-backend/internal/common/middleware"
@@ -30,37 +29,10 @@ type WeChatService interface {
 	GetUserInfo(accessToken, openID string) (nickname, headImgURL, unionID string, err error)
 }
 
-// ConversationQueryService provides conversation queries needed by user handler
-type ConversationQueryService interface {
-	GetRecentByUser(ctx context.Context, userID uint, convType string, since time.Time) ([]ConversationItemDTO, error)
-}
-
-// ConversationItemDTO mirrors conversation.RecentConversationItem
-type ConversationItemDTO struct {
-	ID        uint      `json:"id"`
-	Title     string    `json:"title"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
-
-// PeerReviewQueryService provides peer review queries needed by user handler
-type PeerReviewQueryService interface {
-	GetRecentNonDraftTasks(userID uint, since time.Time) ([]PeerReviewItemDTO, error)
-}
-
-// PeerReviewItemDTO mirrors peerreview.RecentPeerReviewItem
-type PeerReviewItemDTO struct {
-	ID        uint      `json:"id"`
-	Title     string    `json:"title"`
-	Status    string    `json:"status"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
-
 // Handler handles HTTP requests for user operations
 type Handler struct {
-	service           *Service
-	wechatService     WeChatService
-	conversationQuery ConversationQueryService
-	peerReviewQuery   PeerReviewQueryService
+	service       *Service
+	wechatService WeChatService
 }
 
 // NewHandler creates a new user handler
@@ -74,16 +46,6 @@ func NewHandler(service *Service, db *gorm.DB) *Handler {
 // SetWeChatService sets the WeChat service
 func (h *Handler) SetWeChatService(wechatService WeChatService) {
 	h.wechatService = wechatService
-}
-
-// SetConversationQueryService sets the conversation query service
-func (h *Handler) SetConversationQueryService(svc ConversationQueryService) {
-	h.conversationQuery = svc
-}
-
-// SetPeerReviewQueryService sets the peer review query service
-func (h *Handler) SetPeerReviewQueryService(svc PeerReviewQueryService) {
-	h.peerReviewQuery = svc
 }
 
 // RegisterRoutes registers user routes
@@ -113,10 +75,6 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
 		user.POST("/login-phone", authLimit, h.LoginWithPhone)
 		user.POST("/login-phone-with-code", authLimit, h.LoginPhoneWithCode)
 		user.POST("/reset-password-phone", authLimit, h.ResetPasswordPhone)
-
-		// Token management (public endpoints for refresh)
-		user.POST("/refresh-token", h.RefreshToken)
-		user.GET("/token-info", h.GetTokenInfo)
 
 		// Protected routes will be added in the main server setup with middleware
 	}

@@ -9,11 +9,46 @@ package thirdparty
 
 import (
 	"math"
+	"strings"
 
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
 )
+
+// configSecretKeys 是各 AccountType 的 config map 里需要遮罩的 JSON 键名集合。
+// AIModelConfig / MinicodConfig 现在都只有 api_key 一个秘密字段; 后续若新增其他
+// (如 client_secret), 加进这个清单即可在 list / get / update 三个入口同时生效。
+var configSecretKeys = []string{"api_key"}
+
+// maskAccountConfig 把 config map 里的所有 secret key 替换为统一遮罩。
+// show=true 时不动 (admin "查询" 按钮 ?show_sensitive=true 解蔽)。
+func maskAccountConfig(cfg AccountConfig, show bool) {
+	if show || cfg == nil {
+		return
+	}
+	for _, k := range configSecretKeys {
+		if v, ok := cfg[k].(string); ok && v != "" {
+			cfg[k] = utils.MaskedSecretValue
+		}
+	}
+}
+
+// preserveSecretsFromExisting 把入参 config 里"留空 / 仍是遮罩"的 secret 字段
+// 从 existing 拷回 —— 防止前端 PUT 表单时把遮罩字符串 "********" 当真 api_key 存库。
+func preserveSecretsFromExisting(incoming, existing AccountConfig) {
+	if incoming == nil || existing == nil {
+		return
+	}
+	for _, k := range configSecretKeys {
+		newV, _ := incoming[k].(string)
+		if newV == "" || newV == utils.MaskedSecretValue || strings.Contains(newV, "****") {
+			if oldV, ok := existing[k].(string); ok {
+				incoming[k] = oldV
+			}
+		}
+	}
+}
 
 // Handler handles HTTP requests for third-party accounts
 type Handler struct {
@@ -50,23 +85,7 @@ func (h *Handler) CreateAccount(c *gin.Context) {
 
 	account, err := h.service.CreateAccountWithPriority(req.Name, req.Type, req.Config, req.Priority)
 	if err != nil {
-		utils.Error(c, 6002, "Failed to create account: "+err.Error())
-		return
-	}
-
-	utils.Success(c, account)
-}
-
-// GetAccount handles GET /api/v1/admin/third-party-accounts/:id
-func (h *Handler) GetAccount(c *gin.Context) {
-	id, ok := utils.ParseUintParam(c, "id")
-	if !ok {
-		return
-	}
-
-	account, err := h.service.GetAccount(id)
-	if err != nil {
-		utils.Error(c, 6004, "Failed to get account: "+err.Error())
+		utils.InternalError(c, 6002, "Failed to create account", err)
 		return
 	}
 
@@ -119,7 +138,7 @@ func (h *Handler) ListAccounts(c *gin.Context) {
 
 	accounts, err := h.service.ListAccounts(accountType, activeOnly)
 	if err != nil {
-		utils.Error(c, 6005, "Failed to list accounts: "+err.Error())
+		utils.InternalError(c, 6005, "Failed to list accounts", err)
 		return
 	}
 
@@ -129,8 +148,12 @@ func (h *Handler) ListAccounts(c *gin.Context) {
 		Stats APIStats `json:"stats"`
 	}
 
+	// 默认遮罩 api_key, ?show_sensitive=true 解蔽。Config 是 map[string]any 引用,
+	// 这里直接原地改 cfg —— accounts 切片是从 DB 新装的, 不会污染缓存。
+	show := utils.IsShowSensitive(c, "show_sensitive")
 	result := make([]accountWithStats, len(accounts))
 	for i := range accounts {
+		maskAccountConfig(accounts[i].Config, show)
 		result[i] = accountWithStats{
 			ThirdPartyAccount: &accounts[i],
 			Stats:             computeStats(&accounts[i]),
@@ -151,7 +174,7 @@ func (h *Handler) ResetAccountStats(c *gin.Context) {
 	}
 
 	if err := h.service.ResetAPIStats(id); err != nil {
-		utils.Error(c, 6010, "Failed to reset stats: "+err.Error())
+		utils.InternalError(c, 6010, "Failed to reset stats", err)
 		return
 	}
 
@@ -170,6 +193,13 @@ func (h *Handler) UpdateAccount(c *gin.Context) {
 		return
 	}
 
+	// 密钥字段 "留空 / 仍是遮罩" → 保留旧值 (防止前端 PUT 表单时把 "********" 当真 api_key 存库)。
+	if req.Config != nil {
+		if existing, err := h.service.GetAccount(id); err == nil && existing != nil {
+			preserveSecretsFromExisting(req.Config, existing.Config)
+		}
+	}
+
 	status := -1
 	if req.Status != nil {
 		status = *req.Status
@@ -182,10 +212,12 @@ func (h *Handler) UpdateAccount(c *gin.Context) {
 
 	account, err := h.service.UpdateAccountWithPriority(id, req.Name, req.Config, status, priority)
 	if err != nil {
-		utils.Error(c, 6008, "Failed to update account: "+err.Error())
+		utils.InternalError(c, 6008, "Failed to update account", err)
 		return
 	}
 
+	// 响应也按遮罩规则回显 (跟 List 一致, 前端 GET-After-PUT 拿到的还是遮罩)
+	maskAccountConfig(account.Config, utils.IsShowSensitive(c, "show_sensitive"))
 	utils.Success(c, account)
 }
 
@@ -197,24 +229,13 @@ func (h *Handler) DeleteAccount(c *gin.Context) {
 	}
 
 	if err := h.service.DeleteAccount(id); err != nil {
-		utils.Error(c, 6010, "Failed to delete account: "+err.Error())
+		utils.InternalError(c, 6010, "Failed to delete account", err)
 		return
 	}
 
 	utils.Success(c, map[string]any{
 		"message": "Account deleted successfully",
 	})
-}
-
-// GetStats handles GET /api/v1/admin/third-party-accounts/stats
-func (h *Handler) GetStats(c *gin.Context) {
-	stats, err := h.service.GetStats()
-	if err != nil {
-		utils.Error(c, 6011, "Failed to get stats: "+err.Error())
-		return
-	}
-
-	utils.Success(c, stats)
 }
 
 // TestAccount handles POST /api/v1/admin/third-party-accounts/:id/test
@@ -226,7 +247,7 @@ func (h *Handler) TestAccount(c *gin.Context) {
 
 	account, err := h.service.GetAccount(id)
 	if err != nil {
-		utils.Error(c, 6013, "Failed to get account: "+err.Error())
+		utils.InternalError(c, 6013, "Failed to get account", err)
 		return
 	}
 
@@ -239,14 +260,3 @@ func (h *Handler) TestAccount(c *gin.Context) {
 	})
 }
 
-// RefreshCache handles POST /api/v1/admin/third-party-accounts/refresh-cache
-func (h *Handler) RefreshCache(c *gin.Context) {
-	if err := h.service.RefreshCache(); err != nil {
-		utils.Error(c, 6014, "Failed to refresh cache: "+err.Error())
-		return
-	}
-
-	utils.Success(c, map[string]any{
-		"message": "Cache refreshed successfully",
-	})
-}

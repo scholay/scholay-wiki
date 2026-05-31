@@ -14,7 +14,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -22,8 +21,8 @@ import (
 	"time"
 
 	"scholar-backend/internal/common/cache"
-	"scholar-backend/internal/common/httpclient"
 	"scholar-backend/internal/common/model"
+	"scholar-backend/internal/common/upstream"
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
@@ -31,7 +30,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var appleHTTPClient = httpclient.OAuthClient
+var appleUpstream = newOAuthUpstream("apple_oauth")
 
 const (
 	appleAuthURL  = "https://appleid.apple.com/auth/authorize"
@@ -298,25 +297,18 @@ func exchangeAppleCode(ctx context.Context, code string, config *model.AppleOAut
 	data.Set("grant_type", "authorization_code")
 	data.Set("redirect_uri", config.RedirectURI)
 
-	req, err := http.NewRequestWithContext(ctx, "POST", appleTokenURL, strings.NewReader(data.Encode()))
+	resp, err := appleUpstream.Do(ctx, upstream.Request{
+		Method:  http.MethodPost,
+		Path:    appleTokenURL,
+		Headers: http.Header{"Content-Type": {"application/x-www-form-urlencoded"}},
+		Body:    strings.NewReader(data.Encode()),
+	})
 	if err != nil {
 		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	resp, err := appleHTTPClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("apple token exchange failed (%d): %s", resp.StatusCode, string(body))
 	}
 
 	var tokenResp AppleTokenResponse
-	if err := json.Unmarshal(body, &tokenResp); err != nil {
+	if err := resp.JSON(&tokenResp); err != nil {
 		return nil, err
 	}
 

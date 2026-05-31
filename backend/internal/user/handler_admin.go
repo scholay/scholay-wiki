@@ -8,7 +8,6 @@ package user
 import (
 	"strconv"
 
-	"scholar-backend/internal/admin"
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
@@ -93,38 +92,6 @@ func (h *Handler) GetUserList(c *gin.Context) {
 	})
 }
 
-// GetUserDetail handles getting detailed user information (admin only)
-func (h *Handler) GetUserDetail(c *gin.Context) {
-	uid, ok := utils.ParseUintParam(c, "id")
-	if !ok {
-		return
-	}
-
-	detail, err := h.service.GetUserDetail(uid)
-	if err != nil {
-		utils.InternalError(c, 2030, "Failed to get user detail", err)
-		return
-	}
-
-	utils.Success(c, detail)
-}
-
-// GetUserAggregate handles GET /api/v1/admin/users/:id/aggregate
-// 一次返回:基础详情 + 最近 10 个订单 + 最近 10 条反馈。
-// 替代前端为打开 Detail Drawer 多次拼接的 N 个独立请求。
-func (h *Handler) GetUserAggregate(c *gin.Context) {
-	uid, ok := utils.ParseUintParam(c, "id")
-	if !ok {
-		return
-	}
-	agg, err := h.service.GetUserAggregate(uid)
-	if err != nil {
-		utils.InternalError(c, 2031, "Failed to get user aggregate", err)
-		return
-	}
-	utils.Success(c, agg)
-}
-
 // DeleteUser handles deleting a user account (admin only)
 // This endpoint removes the user and all associated data except statistics
 func (h *Handler) DeleteUser(c *gin.Context) {
@@ -139,9 +106,6 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 		utils.Error(c, 3001, err.Error())
 		return
 	}
-
-	admin.LogAdminAction(c, admin.ActionDelete, admin.ResUser,
-		strconv.FormatUint(uint64(uid), 10), nil)
 
 	utils.SuccessWithMessage(c, "User deleted successfully", nil)
 }
@@ -187,12 +151,6 @@ func (h *Handler) BatchDeleteUsers(c *gin.Context) {
 		resp.SuccessCount++
 	}
 
-	admin.LogAdminAction(c, admin.ActionBatchDelete, admin.ResUser, "", gin.H{
-		"requested":     len(req.IDs),
-		"success_count": resp.SuccessCount,
-		"failed_count":  resp.FailedCount,
-		"ids":           req.IDs,
-	})
 
 	utils.Success(c, resp)
 }

@@ -2,8 +2,8 @@ import { memo } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Pencil, RotateCcw, X } from 'lucide-react';
-import { toast } from 'sonner';
 import { Switch } from '@/shared/ui/switch';
+import { useApiToast } from '@/shared/hooks';
 import { cn } from '@/shared/lib/utils';
 import {
   useToggleDimensionVisibility,
@@ -37,6 +37,7 @@ function DimensionRowImpl({
   onRequestDelete,
 }: Props) {
   const toggleMut = useToggleDimensionVisibility();
+  const apiToast = useApiToast();
   const isHidden = !!dim.isHidden;
 
   // dnd-kit:本组件就是 sortable item;父级 SortableContext 提供 id 数组
@@ -60,7 +61,7 @@ function DimensionRowImpl({
     // Switch: checked=true 表示"可见" → 后端 visible=true
     toggleMut.mutate(
       { dimensionKey: dim.dimensionKey, visible: checked },
-      { onError: (err) => toast.error((err as Error).message) }
+      { onError: apiToast.onError() }
     );
   };
 

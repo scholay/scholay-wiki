@@ -1,6 +1,6 @@
 // ============================================================================
 // Scholay学术 V1.0
-// Platform 域初始化：usagelog / hotcontent / seo / message / websocket / pdf / proxy
+// Platform 域初始化：usagelog / hotcontent / seo / message / websocket
 //
 // 这里的模块之间耦合较弱，集中在一个文件是因为都是"平台基础设施"类：
 // 日志、热门统计、SEO 索引、站内信、实时推送、文件代理 —— 对其它业务域的依赖基本只有 DB。
@@ -9,15 +9,12 @@
 package main
 
 import (
-	"log/slog"
 
 	"gorm.io/gorm"
 
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/hotcontent"
 	"scholar-backend/internal/message"
-	"scholar-backend/internal/pdf"
-	"scholar-backend/internal/proxy"
 	"scholar-backend/internal/seo"
 	"scholar-backend/internal/seosubmit"
 	"scholar-backend/internal/usagelog"
@@ -42,9 +39,6 @@ type platformBundle struct {
 
 	wsHub     *websocket.Hub
 	wsHandler *websocket.Handler
-
-	pdfHandler   *pdf.Handler
-	proxyHandler *proxy.Handler
 }
 
 // initPlatform 构造平台层所有基础设施模块。
@@ -71,15 +65,6 @@ func initPlatform(db *gorm.DB, cfg *appconfig.Config) *platformBundle {
 	wsHub := websocket.NewHub()
 	wsHandler := websocket.NewHandler(wsHub, cfg.JWT.Secret)
 
-	// PDF 服务: URL 和 unpaywall 联系邮箱都从 env 读,默认值在 config 包里
-	pdfURL := cfg.ExternalServices.PDFServiceURL
-	unpaywallEmail := cfg.ExternalServices.UnpaywallEmail
-	pdfService := pdf.NewService(pdfURL, unpaywallEmail)
-	pdfHandler := pdf.NewHandler(pdfService)
-	slog.Info("PDF service initialized", "url", pdfURL, "unpaywall_email", unpaywallEmail)
-
-	proxyHandler := proxy.NewHandler()
-
 	return &platformBundle{
 		usageLog:          usageLogHandler,
 		usageLogService:   usageLogService,
@@ -92,7 +77,5 @@ func initPlatform(db *gorm.DB, cfg *appconfig.Config) *platformBundle {
 		message:           messageHandler,
 		wsHub:             wsHub,
 		wsHandler:         wsHandler,
-		pdfHandler:        pdfHandler,
-		proxyHandler:      proxyHandler,
 	}
 }

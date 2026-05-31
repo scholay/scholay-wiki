@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import { cn } from '@/shared/lib/utils';
 
 /**
@@ -28,27 +29,30 @@ const LETTERS: { ch: string; color: string }[] = [
   { ch: 'y', color: 'text-brand-green' },
 ];
 
-export function BrandLogo({
-  size = 'md',
-  className,
-}: {
+interface BrandLogoProps {
   size?: Size;
   className?: string;
-}) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-end font-display font-bold tracking-tight select-none',
-        SIZE_MAP[size],
-        className
-      )}
-      aria-label="Scholay"
-    >
-      {LETTERS.map(({ ch, color }, i) => (
-        <span key={i} className={color}>
-          {ch}
-        </span>
-      ))}
-    </span>
-  );
 }
+
+export const BrandLogo = forwardRef<HTMLSpanElement, BrandLogoProps>(
+  ({ size = 'md', className }, ref) => {
+    return (
+      <span
+        ref={ref}
+        className={cn(
+          'inline-flex items-end font-display font-bold tracking-tight select-none',
+          SIZE_MAP[size],
+          className
+        )}
+        aria-label="Scholay"
+      >
+        {LETTERS.map(({ ch, color }, i) => (
+          <span key={i} className={color}>
+            {ch}
+          </span>
+        ))}
+      </span>
+    );
+  }
+);
+BrandLogo.displayName = 'BrandLogo';

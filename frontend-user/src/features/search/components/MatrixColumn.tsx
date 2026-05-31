@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { EmptyState } from '@/shared/components/EmptyState';
+import { ConfirmPopover } from '@/shared/components/ConfirmPopover';
 import { ExportMenu } from './matrix/ExportMenu';
 import {
   buildMatrixRows,
@@ -187,6 +188,10 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
                 style={{
                   width: PAPER_COL_WIDTH,
                   minWidth: PAPER_COL_WIDTH,
+                  // maxWidth 关键:table-layout:auto 下,光有 width/minWidth 不够 —— 单元格内容
+                  // (长 DOI/URL 等无空格长 token)仍会把整列撑过 320,导致与外层固定 320 的
+                  // header/footer "工作区"列错位(偶现:取决于具体暂存论文)。封死上限即对齐。
+                  maxWidth: PAPER_COL_WIDTH,
                   height: 36,
                 }}
               >
@@ -251,6 +256,8 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
                       style={{
                         width: PAPER_COL_WIDTH,
                         minWidth: PAPER_COL_WIDTH,
+                        // 见上方 thead 同款注释:封死 320 上限,防长 token 撑宽论文列致列错位。
+                        maxWidth: PAPER_COL_WIDTH,
                       }}
                     >
                       <PaperCell
@@ -323,13 +330,23 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
             {staged.length} 篇
           </span>
           {staged.length > 0 && (
-            <button
-              type="button"
-              onClick={handleClearAll}
-              className="text-xs text-muted-foreground hover:text-foreground"
+            <ConfirmPopover
+              title={`清空当前暂存区的 ${staged.length} 篇论文?`}
+              description="只清空这一个暂存区,不影响收藏与其它分区。此操作不可撤销。"
+              confirmText="清空"
+              cancelText="取消"
+              danger
+              side="top"
+              align="end"
+              onConfirm={handleClearAll}
             >
-              × 清空
-            </button>
+              <button
+                type="button"
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                × 清空
+              </button>
+            </ConfirmPopover>
           )}
         </div>
         {/* 右区:矩阵就绪状态 */}

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
+import { STALE_COLD, STALE_COOL, STALE_WARM } from '@/shared/lib/query-config';
 import type {
   Journal,
   JournalSearchResult,
@@ -31,7 +32,7 @@ export type {
 export function useJournalStats() {
   return useQuery({
     queryKey: ['journal', 'stats'] as const,
-    staleTime: 10 * 60 * 1000, // 10 分钟,stats 变化慢
+    staleTime: STALE_COLD, // stats 变化慢
     queryFn: async (): Promise<JournalStats> => {
       try {
         const { data } = await http.post<{ data: JournalStats }>(
@@ -68,7 +69,7 @@ export function useJournalList(opts: JournalListOptions = {}) {
   } = opts;
   return useQuery({
     queryKey: ['journal', 'list', sortBy, sortDir, page, pageSize, minSources] as const,
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE_COOL,
     queryFn: async (): Promise<JournalSearchResult> => {
       try {
         const body: Record<string, unknown> = {
@@ -161,7 +162,7 @@ export function useJournalSearch(opts: JournalSearchOptions) {
       page,
       pageSize,
     ] as const,
-    staleTime: 60_000,
+    staleTime: STALE_WARM,
     queryFn: async (): Promise<JournalSearchResult> => {
       try {
         const body: Record<string, unknown> = {

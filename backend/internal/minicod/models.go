@@ -77,10 +77,23 @@ type RawRecommendationResult struct {
 	RecommendedPapers []RawPaper `json:"recommended_papers"`
 }
 
-// RawAutocompleteItem matches Minicod's STC autocomplete item
+// RawAutocompleteItem 兼容 STC / OLX 两种 autocomplete item 形态:
+//   STC (SemanticAutocompleteItem): { id, title }
+//   OLX (AutocompleteItem):         { id, display_name, hint, ... }
+// 上游字段名不同 —— STC 用 title, OLX 用 display_name。Label() 取二者非空者,
+// 修掉了"OLX 联想结果标题全空"的 bug。
 type RawAutocompleteItem struct {
-	ID    string `json:"id"`
-	Title string `json:"title"`
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	DisplayName string `json:"display_name"`
+}
+
+// Label 返回展示标题, 优先 title (STC), 回落 display_name (OLX)。
+func (r RawAutocompleteItem) Label() string {
+	if r.Title != "" {
+		return r.Title
+	}
+	return r.DisplayName
 }
 
 // RawBulkSearchResult matches Minicod's bulk search result

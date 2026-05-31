@@ -16,6 +16,7 @@ import { Pagination } from '../components/Pagination';
 import { useApiToast } from '../hooks/useApiToast';
 import { useUrlState } from '@/shared/hooks';
 import {
+  useFeedbackDetail,
   useFeedbackList,
   useReplyFeedback,
   useUpdateFeedbackStatus,
@@ -51,6 +52,8 @@ export function FeedbackPage() {
   const reply = useReplyFeedback();
   const updateStatus = useUpdateFeedbackStatus();
   const apiToast = useApiToast();
+  /** 处理对话框打开后再拉详情 (含附件), 列表本身轻量不带 attachments */
+  const { data: detail } = useFeedbackDetail(replying?.id ?? null);
 
   const handleStatusChange = async (row: Feedback, status: FeedbackStatus) => {
     await apiToast(updateStatus.mutateAsync({ id: row.id, status }), {
@@ -148,6 +151,33 @@ export function FeedbackPage() {
                 <div className="text-2xs text-faint mb-1 tracking-[0.12em]">用户反馈</div>
                 <div className="text-sm text-subtle whitespace-pre-wrap">{replying.content}</div>
               </div>
+
+              {/* 附件预览 — 走 MinIO, 点缩略图新窗口看大图; 文件类则直接下载 */}
+              {detail?.attachments && detail.attachments.length > 0 && (
+                <div className="rounded-md border border-border bg-surface-1 p-3">
+                  <div className="text-2xs text-faint mb-2 tracking-[0.12em]">附件 ({detail.attachments.length})</div>
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                    {detail.attachments.map((a, idx) => (
+                      <a
+                        key={idx}
+                        href={a.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block rounded-sm border border-border bg-background overflow-hidden hover:border-foreground transition-colors"
+                        title={a.name}
+                      >
+                        {a.type === 'image' ? (
+                          <img src={a.url} alt={a.name} className="w-full h-20 object-cover" />
+                        ) : (
+                          <div className="w-full h-20 flex items-center justify-center text-2xs text-muted-foreground p-2 text-center">
+                            {a.name}
+                          </div>
+                        )}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <form
                 onSubmit={async (e) => {

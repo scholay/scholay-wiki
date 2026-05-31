@@ -34,7 +34,7 @@ interface PdfChipProps {
 }
 
 export function PdfChip({ paper, onViewPdf, onUploadPdf }: PdfChipProps) {
-  const { status, fileItem, headline, footerNote } = getPdfStatus(paper);
+  const { status, fileItem, headline } = getPdfStatus(paper);
 
   const menuItems: ChipMenuItem[] = (() => {
     if (status === 'complete') {
@@ -58,7 +58,7 @@ export function PdfChip({ paper, onViewPdf, onUploadPdf }: PdfChipProps) {
       label="PDF"
       icon={FileIcon}
       hoverContent={
-        <ChipHoverPanel headline={headline} footerNote={footerNote} status={status}>
+        <ChipHoverPanel headline={headline}>
           <ChipChecklistRow
             state={fileItem.state}
             label={fileItem.label}

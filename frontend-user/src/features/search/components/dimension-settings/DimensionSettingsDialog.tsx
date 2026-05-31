@@ -12,8 +12,8 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { Loader2, Plus } from 'lucide-react';
-import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogTitle } from '@/shared/ui/dialog';
+import { useApiToast } from '@/shared/hooks';
 import { cn } from '@/shared/lib/utils';
 import {
   useDimensionSettings,
@@ -59,6 +59,7 @@ export function DimensionSettingsDialog({ open, onOpenChange }: Props) {
     useState<DimensionSettingItem | null>(null);
 
   const reorderMut = useReorderDimensions();
+  const apiToast = useApiToast();
   // 拖拽 5px 才触发,避免和点击 Switch / Edit / Delete 等行内按钮冲突
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -81,10 +82,10 @@ export function DimensionSettingsDialog({ open, onOpenChange }: Props) {
       next.splice(newIndex, 0, moved);
       const orderedKeys = next.map((d) => d.dimensionKey);
       reorderMut.mutate(orderedKeys, {
-        onError: (err) => toast.error((err as Error).message),
+        onError: apiToast.onError(),
       });
     },
-    [dimensions, reorderMut]
+    [dimensions, reorderMut, apiToast]
   );
 
   const sortableIds = useMemo(

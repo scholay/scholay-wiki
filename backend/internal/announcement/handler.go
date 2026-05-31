@@ -4,7 +4,6 @@ import (
 	"strconv"
 	"time"
 
-	"scholar-backend/internal/admin"
 	"scholar-backend/internal/common/database"
 	"scholar-backend/internal/common/utils"
 
@@ -108,10 +107,6 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 
-	admin.LogAdminAction(c, admin.ActionCreate, "announcement",
-		strconv.FormatUint(uint64(row.ID), 10), gin.H{
-			"title": row.Title, "type": row.Type,
-		})
 	utils.Success(c, row)
 }
 
@@ -146,8 +141,6 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 
-	admin.LogAdminAction(c, admin.ActionUpdate, "announcement",
-		strconv.FormatUint(uint64(id), 10), gin.H{"title": req.Title})
 	utils.SuccessWithMessage(c, "Updated", nil)
 }
 
@@ -161,35 +154,7 @@ func (h *Handler) Delete(c *gin.Context) {
 		utils.Error(c, 7005, "Failed to delete")
 		return
 	}
-	admin.LogAdminAction(c, admin.ActionDelete, "announcement",
-		strconv.FormatUint(uint64(id), 10), nil)
 	utils.SuccessWithMessage(c, "Deleted", nil)
-}
-
-// ListPublicActive 公开接口:返回当前生效的公告(供用户端 banner 用)
-// GET /api/v1/announcements/active
-func (h *Handler) ListPublicActive(c *gin.Context) {
-	now := time.Now()
-
-	var items []Announcement
-	q := database.GetDB().
-		Where("is_active = 1").
-		Where("starts_at IS NULL OR starts_at <= ?", now).
-		Where("ends_at IS NULL OR ends_at >= ?", now)
-
-	// 区分匿名/登录/付费用户(若可识别)
-	// 此处简化为只返回 target_audience='all' 给匿名;已登录可看 all + logged_in
-	if _, loggedIn := utils.GetOptionalUserID(c); loggedIn {
-		q = q.Where("target_audience IN ?", []string{"all", "logged_in"})
-	} else {
-		q = q.Where("target_audience = ?", "all")
-	}
-
-	if err := q.Order("priority DESC, created_at DESC").Limit(20).Find(&items).Error; err != nil {
-		utils.Error(c, 7006, "Failed to fetch")
-		return
-	}
-	utils.Success(c, gin.H{"items": items})
 }
 
 func defaultStr(v, fallback string) string {

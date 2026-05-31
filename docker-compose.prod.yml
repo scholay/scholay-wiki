@@ -50,7 +50,8 @@ services:
       - ./data/mysql:/var/lib/mysql
       - ./docker/mysql/conf.d:/etc/mysql/conf.d:ro
       - /etc/localtime:/etc/localtime:ro
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    # --slow-query-log=0: 同 dev compose, 关闭无 rotation 的 /var/lib/mysql/slow.log
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --slow-query-log=0
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 30s
@@ -168,6 +169,9 @@ services:
     logging: *default-logging
     environment:
       <<: *tz-env
+      # release 模式:激活默认密钥/密码 fail-fast、支付金额篡改校验、JSON 结构化日志。
+      # 不设的话 gin 默认 debug, 这些"release 才生效"的安全分支全部静默失活。
+      GIN_MODE: ${GIN_MODE:-release}
       DB_HOST: mysql
       DB_PORT: 3306
       DB_USER: ${MYSQL_USER:-scholar_user}
@@ -188,8 +192,6 @@ services:
       SEO_BASE_URL: ${SITE_URL:?SITE_URL is required in prod}
       SITE_NAME: ${SITE_NAME:-Scholay}
       SUPPORT_EMAIL: ${SUPPORT_EMAIL:-support@scholay.com}
-      UNPAYWALL_EMAIL: ${UNPAYWALL_EMAIL:-api@scholay.com}
-      PDF_SERVICE_URL: ${PDF_SERVICE_URL:-https://pdf.scholay.com/api/v1/pdf}
       # 主动 SEO 提交 (详见 .env 注释段)
       SEO_SUBMIT_ENABLED: ${SEO_SUBMIT_ENABLED:-false}
       INDEXNOW_ENABLED: ${INDEXNOW_ENABLED:-false}
@@ -200,9 +202,6 @@ services:
       BAIDU_PUSH_DAILY_QUOTA: ${BAIDU_PUSH_DAILY_QUOTA:-1000}
       SEO_PUSH_WORKER_INTERVAL_SECONDS: ${SEO_PUSH_WORKER_INTERVAL_SECONDS:-300}
       SEO_PUSH_BATCH_SIZE: ${SEO_PUSH_BATCH_SIZE:-100}
-      # peer-review V2 外部审稿服务
-      PEER_REVIEW_API_KEY: ${PEER_REVIEW_API_KEY:-}
-      PEER_REVIEW_BASE_URL: ${PEER_REVIEW_BASE_URL:-https://peer.scholay.com}
       # MinIO 对象存储 (用户上传 PDF)
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-scholarminio}
@@ -213,12 +212,23 @@ services:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS is required in prod}
       # Umami HTTP API 接入 —— admin /analytics 走 backend 自渲染图表
       UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-}
+      # AI Agent 桥接 —— backend POST agent /api/providers 必须带这个 Bearer
+      # 与 agent 容器的 ANTHROPIC_API_KEY 同源 (AGENT_INTERNAL_TOKEN)。
+      AGENT_BASE_URL: ${AGENT_BASE_URL:-http://scholar_agent:3456}
+      AGENT_AUTH_TOKEN: ${AGENT_INTERNAL_TOKEN:?AGENT_INTERNAL_TOKEN is required in prod}
       # Go memory limit (75% of container memory limit)
       GOMEMLIMIT: 768MiB
     volumes:
       - /etc/localtime:/etc/localtime:ro
     expose:
       - "8080"
+    # /health 会 ping MySQL+Redis —— 容器级健康信号, 让 nginx/编排能识别"起来了但依赖挂了"的退化态
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     depends_on:
       mysql:
         condition: service_healthy
@@ -234,6 +244,48 @@ services:
           memory: 1G
         reservations:
           memory: 512M
+    networks:
+      - scholar-network
+
+  # AI agent 服务 (Bun + TypeScript,源在 agent/)
+  # 模型/端点配置最终走 DB,backend 启动后 POST 到 /api/providers 热更新;
+  # 下面的 ANTHROPIC_* 仅作冷启动到 backend 推送之间的 bootstrap,允许为空。
+  agent:
+    image: ${REGISTRY:-crpi-ebrftpuujezamyxv.cn-shanghai.personal.cr.aliyuncs.com}/scholay/agent:${IMAGE_TAG:-latest}
+    container_name: scholar_agent
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      <<: *tz-env
+      # 内网 Bearer 鉴权 token (backend → agent),与 backend AGENT_AUTH_TOKEN 同值
+      ANTHROPIC_API_KEY: ${AGENT_INTERNAL_TOKEN:?AGENT_INTERNAL_TOKEN is required in prod}
+      ANTHROPIC_BASE_URL: ${AGENT_ANTHROPIC_BASE_URL:-}
+      ANTHROPIC_AUTH_TOKEN: ${AGENT_ANTHROPIC_AUTH_TOKEN:-}
+      ANTHROPIC_MODEL: ${AGENT_ANTHROPIC_MODEL:-}
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: ${AGENT_ANTHROPIC_HAIKU_MODEL:-}
+      ANTHROPIC_DEFAULT_SONNET_MODEL: ${AGENT_ANTHROPIC_SONNET_MODEL:-}
+      ANTHROPIC_DEFAULT_OPUS_MODEL: ${AGENT_ANTHROPIC_OPUS_MODEL:-}
+      API_TIMEOUT_MS: ${AGENT_API_TIMEOUT_MS:-600000}
+      DISABLE_TELEMETRY: "1"
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
+      MINICOD_API_KEY: ${AGENT_MINICOD_API_KEY:-}
+    expose:
+      - "3456"
+    volumes:
+      - ./data/agent:/home/bun/.claude
+      - /etc/localtime:/etc/localtime:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3456/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G               # agent 资源大头 (LLM 流式 + Bash 转换 + PDF 解析); 单会话峰值 ~765MiB, 1.5G 给并发留头
+        reservations:
+          memory: 256M
     networks:
       - scholar-network
 

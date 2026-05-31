@@ -12,19 +12,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 
-	"scholar-backend/internal/common/httpclient"
 	"scholar-backend/internal/common/model"
+	"scholar-backend/internal/common/upstream"
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
-var googleHTTPClient = httpclient.OAuthClient
+var googleUpstream = newOAuthUpstream("google_oauth")
 
 // GoogleTokenInfo represents the response from Google's tokeninfo endpoint
 type GoogleTokenInfo struct {
@@ -90,7 +90,7 @@ func (h *Handler) GoogleIDTokenLogin(c *gin.Context) {
 	}
 
 	// Verify the ID token with Google
-	tokenInfo, err := verifyGoogleIDToken(req.IDToken)
+	tokenInfo, err := verifyGoogleIDToken(c.Request.Context(), req.IDToken)
 	if err != nil {
 		slog.Error("google oauth: failed to verify ID token", "err", err)
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Invalid Google ID token")
@@ -126,25 +126,21 @@ func (h *Handler) GoogleIDTokenLogin(c *gin.Context) {
 	respondOAuthSuccess(c, token, outcome.User, outcome.IsNewUser)
 }
 
-// verifyGoogleIDToken verifies a Google ID token using Google's tokeninfo endpoint
-func verifyGoogleIDToken(idToken string) (*GoogleTokenInfo, error) {
-	resp, err := googleHTTPClient.Get("https://oauth2.googleapis.com/tokeninfo?id_token=" + idToken)
+// verifyGoogleIDToken verifies a Google ID token using Google's tokeninfo endpoint.
+// ctx 由调用方透传请求 ctx —— 之前用 context.Background() 绕过了 APITimeoutMiddleware 的 15s 上限,
+// Google tokeninfo 端点卡住时登录请求会无限挂起并堆积僵尸 goroutine。
+func verifyGoogleIDToken(ctx context.Context, idToken string) (*GoogleTokenInfo, error) {
+	resp, err := googleUpstream.Do(ctx, upstream.Request{
+		Method: http.MethodGet,
+		Path:   "https://oauth2.googleapis.com/tokeninfo",
+		Query:  url.Values{"id_token": {idToken}},
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to call tokeninfo: %w", err)
 	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read tokeninfo response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("tokeninfo returned %d: %s", resp.StatusCode, string(body))
-	}
 
 	var info GoogleTokenInfo
-	if err := json.Unmarshal(body, &info); err != nil {
+	if err := resp.JSON(&info); err != nil {
 		return nil, fmt.Errorf("failed to parse tokeninfo: %w", err)
 	}
 
@@ -242,7 +238,7 @@ func (h *Handler) BindGoogleAccount(c *gin.Context) {
 	}
 
 	// Verify ID token
-	tokenInfo, err := verifyGoogleIDToken(req.IDToken)
+	tokenInfo, err := verifyGoogleIDToken(c.Request.Context(), req.IDToken)
 	if err != nil {
 		slog.Error("google bind: failed to verify ID token", "err", err)
 		utils.ErrorResponse(c, http.StatusUnauthorized, "Invalid Google ID token")

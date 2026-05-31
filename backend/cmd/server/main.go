@@ -28,7 +28,6 @@ import (
 	"scholar-backend/internal/common/logger"
 	"scholar-backend/internal/common/middleware"
 	"scholar-backend/internal/common/safego"
-	"scholar-backend/internal/peerreview"
 	"scholar-backend/internal/seosubmit"
 	"scholar-backend/internal/storage"
 
@@ -63,11 +62,13 @@ func main() {
 	// Initialize object storage (MinIO) —— 配置缺失时 IsEnabled()=false,
 	// PDF 上传/下载相关接口将返回 503,其余功能不受影响
 	if err := storage.Init(storage.Config{
-		Endpoint:        cfg.MinIO.Endpoint,
-		AccessKey:       cfg.MinIO.AccessKey,
-		SecretKey:       cfg.MinIO.SecretKey,
-		BucketPaperPDFs: cfg.MinIO.BucketPaperPDFs,
-		UseSSL:          cfg.MinIO.UseSSL,
+		Endpoint:                  cfg.MinIO.Endpoint,
+		AccessKey:                 cfg.MinIO.AccessKey,
+		SecretKey:                 cfg.MinIO.SecretKey,
+		BucketPaperPDFs:           cfg.MinIO.BucketPaperPDFs,
+		BucketFeedbackAttachments: cfg.MinIO.BucketFeedbackAttachments,
+		BucketPeerReviewAssets:    cfg.MinIO.BucketPeerReviewAssets,
+		UseSSL:                    cfg.MinIO.UseSSL,
 	}); err != nil {
 		log.Fatalf("Failed to initialize object storage: %v", err)
 	}
@@ -76,6 +77,9 @@ func main() {
 	svc := bootstrapServices(cfg)
 
 	// Setup Gin router
+	// gin 全局模式跟随 GIN_MODE —— 不设的话 gin 默认 debug, 既打印调试噪声也让一些
+	// "release 才生效"的安全分支(默认密钥 fail-fast / 支付金额校验 / JSON 日志)失活。
+	gin.SetMode(cfg.App.GinMode)
 	// 用 gin.New() 替代 gin.Default()：自定义 Recovery 增加 trace_id/结构化日志，
 	// 同时保留 gin.Logger() 行为。
 	router := gin.New()
@@ -99,14 +103,11 @@ func main() {
 
 	bgCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	svc.peerReviewService.SetRootContext(bgCtx)
 	startBackgroundTasks(bgCtx, svc.seoService)
-	// 隐私审稿数据定期清理（每小时检查一次过期的隐私任务）
-	startPrivateTaskCleanup(bgCtx, svc.peerReviewService)
 
 	// 主动 SEO 提交 worker:写入即推 + 启动期一次性 seed
 	svc.seoSubmitService.StartWorker(bgCtx)
-	svc.seoSubmitService.BootstrapEnqueue(bgCtx, &seoSeedSourceAdapter{seoSvc: svc.seoService}, 5000)
+	svc.seoSubmitService.BootstrapEnqueue(bgCtx, svc.seoService, 5000)
 
 	// Setup graceful shutdown
 	quit := make(chan os.Signal, 1)
@@ -157,24 +158,3 @@ func main() {
 	slog.Info("Server stopped")
 }
 
-// startPrivateTaskCleanup 启动隐私审稿任务清理 goroutine。
-// ctx 关闭时停止 ticker，避免 server 退出后仍在后台跑。
-func startPrivateTaskCleanup(ctx context.Context, peerReviewService *peerreview.Service) {
-	safego.Go("private-task-cleanup", func() {
-		ticker := time.NewTicker(1 * time.Hour)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				slog.Info("Private task cleanup stopped")
-				return
-			case <-ticker.C:
-				if cleaned, err := peerReviewService.CleanupExpiredPrivateTasks(); err != nil {
-					slog.Error("Failed to cleanup expired private tasks", "error", err)
-				} else if cleaned > 0 {
-					slog.Info("Cleaned up expired private review tasks", "count", cleaned)
-				}
-			}
-		}
-	})
-}

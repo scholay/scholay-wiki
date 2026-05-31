@@ -8,8 +8,10 @@
 package user
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"scholar-backend/internal/common/database"
 	"scholar-backend/internal/common/utils"
 	"time"
@@ -32,21 +34,6 @@ type UserDetail struct {
 
 	// Auth Providers
 	AuthProviders []string `json:"auth_providers"`
-
-	// Conversation Statistics
-	AIConversationStats     ConversationStats `json:"ai_conversation_stats"`      // AI对话统计
-	AnalysisConversationStats ConversationStats `json:"analysis_conversation_stats"` // 智能分析统计
-}
-
-// ConversationStats represents conversation statistics
-type ConversationStats struct {
-	TotalConversations int       `json:"total_conversations"` // 总对话数
-	TotalRounds        int       `json:"total_rounds"`        // 总轮次
-	TodayRounds        int       `json:"today_rounds"`        // 今日轮次
-	WeekRounds         int       `json:"week_rounds"`         // 本周轮次
-	MonthRounds        int       `json:"month_rounds"`        // 本月轮次
-	AvgRoundsPerConv   float64   `json:"avg_rounds_per_conv"` // 平均每个对话的轮次
-	LastConvAt         *time.Time `json:"last_conv_at,omitempty"` // 最后对话时间
 }
 
 // GetProfile gets a user's profile
@@ -54,28 +41,33 @@ func (s *Service) GetProfile(id uint) (*User, error) {
 	return s.repo.FindByID(id)
 }
 
-// UpdateProfile updates a user's profile
+// UpdateProfile updates a user's profile.
+// 部分更新走 UpdatePartial: 只 SET 用户实际改的列, 避免 18+ 列的 SAVE 把
+// 其他字段一并写回 (省网络/binlog, 也避免并发改其他字段时的覆盖竞争)。
 func (s *Service) UpdateProfile(id uint, username *string, avatarURL *string, bio *string) error {
-	user, err := s.repo.FindByID(id)
+	// 先确认用户存在 —— 仍需要 404 分支, UpdatePartial 自己只会"无影响行"不会报错。
+	exists, err := s.repo.FindByID(id)
 	if err != nil {
 		return err
 	}
-
-	if user == nil {
+	if exists == nil {
 		return errors.New("user not found")
 	}
 
+	fields := make(map[string]any, 3)
 	if username != nil {
-		user.Username = username
+		fields["username"] = username
 	}
 	if avatarURL != nil {
-		user.AvatarURL = avatarURL
+		fields["avatar_url"] = avatarURL
 	}
 	if bio != nil {
-		user.Bio = bio
+		fields["bio"] = bio
 	}
-
-	return s.repo.Update(user)
+	if len(fields) == 0 {
+		return nil // 没传任何字段就不发 SQL
+	}
+	return s.repo.UpdatePartial(id, fields)
 }
 
 // GetUserStatistics returns user registration counters for the admin overview.
@@ -122,91 +114,6 @@ func (s *Service) GetUserListWithFilter(page, pageSize int, f UserListFilter) ([
 	return s.repo.GetUserListWithFilter(database.CalcOffset(page, pageSize), pageSize, f)
 }
 
-// GetUserDetail returns detailed user information for admin
-func (s *Service) GetUserDetail(userID uint) (*UserDetail, error) {
-	// Get user basic info
-	user, err := s.repo.FindByID(userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find user: %w", err)
-	}
-	if user == nil {
-		return nil, fmt.Errorf("user not found")
-	}
-
-	detail := &UserDetail{
-		ID:            user.ID,
-		Username:      user.Username,
-		Email:         user.Email,
-		Phone:         user.Phone,
-		EmailVerified: user.EmailVerified,
-		PhoneVerified: user.PhoneVerified,
-		Status:        user.Status,
-		CreatedAt:     user.CreatedAt,
-		LastLoginAt:   user.LastLoginAt,
-		LastLoginIP:   user.LastLoginIP,
-		AuthProviders: []string{},
-	}
-
-	// Parse IP location
-	if user.LastLoginIP != nil && *user.LastLoginIP != "" {
-		location := utils.ParseIPLocation(*user.LastLoginIP)
-		detail.LastLoginIPInfo = utils.GetLocationString(location)
-	}
-
-	// Get auth providers
-	authProviders, err := s.repo.GetUserAuthProviders([]uint{userID})
-	if err == nil && len(authProviders[userID]) > 0 {
-		for _, provider := range authProviders[userID] {
-			detail.AuthProviders = append(detail.AuthProviders, provider.Provider)
-		}
-	}
-
-	// Get AI conversation statistics
-	todayStart := time.Now().Truncate(24 * time.Hour)
-	weekStart := todayStart.AddDate(0, 0, -int(todayStart.Weekday()))
-	monthStart := time.Date(todayStart.Year(), todayStart.Month(), 1, 0, 0, 0, 0, todayStart.Location())
-
-	detail.AIConversationStats = s.buildConversationStats(userID, "chat", user.CreatedAt, todayStart, weekStart, monthStart)
-
-	// Get Analysis conversation statistics
-	detail.AnalysisConversationStats = s.buildConversationStats(userID, "search", user.CreatedAt, todayStart, weekStart, monthStart)
-
-	return detail, nil
-}
-
-// buildConversationStats builds ConversationStats for a given conversation type using repository methods.
-func (s *Service) buildConversationStats(userID uint, convType string, userCreatedAt time.Time, todayStart, weekStart, monthStart time.Time) ConversationStats {
-	summary, _ := s.repo.GetConversationSummary(userID, convType)
-
-	todayRounds, _ := s.repo.CountConversationMessagesSince(userID, convType, todayStart)
-	weekRounds, _ := s.repo.CountConversationMessagesSince(userID, convType, weekStart)
-	monthRounds, _ := s.repo.CountConversationMessagesSince(userID, convType, monthStart)
-
-	totalConv := 0
-	totalRounds := 0
-	var lastConvAt *time.Time
-	avgRounds := 0.0
-
-	if summary != nil {
-		totalConv = summary.TotalConv
-		totalRounds = summary.TotalRounds
-		lastConvAt = summary.LastConvAt
-		if totalConv > 0 {
-			avgRounds = float64(totalRounds) / float64(totalConv)
-		}
-	}
-
-	return ConversationStats{
-		TotalConversations: totalConv,
-		TotalRounds:        totalRounds,
-		TodayRounds:        int(todayRounds),
-		WeekRounds:         int(weekRounds),
-		MonthRounds:        int(monthRounds),
-		AvgRoundsPerConv:   avgRounds,
-		LastConvAt:         lastConvAt,
-	}
-}
-
 // DeleteUser deletes a user account and all associated data (admin only)
 // This will remove all user data except statistics (for historical analysis)
 func (s *Service) DeleteUser(userID uint) error {
@@ -227,49 +134,12 @@ func (s *Service) DeleteUser(userID uint) error {
 		return fmt.Errorf("failed to delete user: %w", err)
 	}
 
+	// 删号后吊销其全部 token,避免已删除用户的 JWT 在过期前仍能调用接口
+	// (中间件只验签名+黑名单,不一定每次回查 user 行)。失败只记日志,删除已落库。
+	if err := utils.RevokeUserAllTokens(context.Background(), userID); err != nil {
+		slog.Error("delete user: revoke tokens failed", "user_id", userID, "err", err)
+	}
+
 	return nil
 }
 
-// CheckEmailAvailability checks if an email is available for binding
-// Returns true if email can be used (either doesn't exist or belongs to current user)
-func (s *Service) CheckEmailAvailability(email string, currentUserID uint) (bool, error) {
-	existing, err := s.repo.FindByEmail(email)
-	if err != nil {
-		return false, fmt.Errorf("failed to check email: %w", err)
-	}
-
-	// Email is available if it doesn't exist
-	if existing == nil {
-		return true, nil
-	}
-
-	// Email exists but belongs to current user (rebind case)
-	if existing.ID == currentUserID {
-		return true, nil
-	}
-
-	// Email already in use by another user
-	return false, nil
-}
-
-// CheckPhoneAvailability checks if a phone is available for binding
-// Returns true if phone can be used (either doesn't exist or belongs to current user)
-func (s *Service) CheckPhoneAvailability(phone string, currentUserID uint) (bool, error) {
-	existing, err := s.repo.FindByPhone(phone)
-	if err != nil {
-		return false, fmt.Errorf("failed to check phone: %w", err)
-	}
-
-	// Phone is available if it doesn't exist
-	if existing == nil {
-		return true, nil
-	}
-
-	// Phone exists but belongs to current user (rebind case)
-	if existing.ID == currentUserID {
-		return true, nil
-	}
-
-	// Phone already in use by another user
-	return false, nil
-}

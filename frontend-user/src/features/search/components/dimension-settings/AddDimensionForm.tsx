@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useApiToast } from '@/shared/hooks';
 import { useSaveDimension } from './use-save-dimension';
 
 /**
@@ -17,6 +18,7 @@ interface Props {
 export function AddDimensionForm({ disabled, onCancel, onCreated }: Props) {
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
+  const apiToast = useApiToast();
 
   const { save, busy } = useSaveDimension({
     newDimensionKey: `custom_${Date.now().toString(36)}`,
@@ -24,7 +26,7 @@ export function AddDimensionForm({ disabled, onCancel, onCreated }: Props) {
       toast.success('已添加');
       onCreated();
     },
-    onError: (err) => toast.error(err.message),
+    onError: apiToast.onError(),
   });
 
   if (disabled) return null;

@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { cn } from '@/shared/lib/utils';
@@ -13,46 +14,50 @@ interface LoadingStateProps {
 /**
  * 单图标 loading — 适合按钮/小区域。
  */
-export function LoadingState({
-  label = '加载中…',
-  dense,
-  className,
-}: LoadingStateProps) {
-  return (
-    <div
-      className={cn(
-        'flex items-center justify-center gap-2 text-sm text-muted-foreground',
-        dense ? 'py-6' : 'py-16',
-        className
-      )}
-    >
-      <Loader2 className="size-4 animate-spin" />
-      <span>{label}</span>
-    </div>
-  );
+export const LoadingState = forwardRef<HTMLDivElement, LoadingStateProps>(
+  ({ label = '加载中…', dense, className }, ref) => {
+    return (
+      <div
+        ref={ref}
+        className={cn(
+          'flex items-center justify-center gap-2 text-sm text-muted-foreground',
+          dense ? 'py-6' : 'py-16',
+          className
+        )}
+      >
+        <Loader2 className="size-4 animate-spin" />
+        <span>{label}</span>
+      </div>
+    );
+  }
+);
+LoadingState.displayName = 'LoadingState';
+
+interface ListSkeletonProps {
+  rows?: number;
+  withTrailing?: boolean;
+  className?: string;
 }
 
 /**
  * 列表行骨架 — 多行通用占位,可控制行数和是否带 trailing。
  */
-export function ListSkeleton({
-  rows = 6,
-  withTrailing = true,
-  className,
-}: {
-  rows?: number;
-  withTrailing?: boolean;
-  className?: string;
-}) {
-  return (
-    <div className={cn('flex flex-col divide-y divide-border-soft', className)}>
-      {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 px-4 py-3">
-          <Skeleton className="h-4 w-4 rounded-sm" />
-          <Skeleton className="h-4 flex-1 max-w-72" />
-          {withTrailing && <Skeleton className="h-3 w-12" />}
-        </div>
-      ))}
-    </div>
-  );
-}
+export const ListSkeleton = forwardRef<HTMLDivElement, ListSkeletonProps>(
+  ({ rows = 6, withTrailing = true, className }, ref) => {
+    return (
+      <div
+        ref={ref}
+        className={cn('flex flex-col divide-y divide-border-soft', className)}
+      >
+        {Array.from({ length: rows }).map((_, i) => (
+          <div key={i} className="flex items-center gap-3 px-4 py-3">
+            <Skeleton className="h-4 w-4 rounded-sm" />
+            <Skeleton className="h-4 flex-1 max-w-72" />
+            {withTrailing && <Skeleton className="h-3 w-12" />}
+          </div>
+        ))}
+      </div>
+    );
+  }
+);
+ListSkeleton.displayName = 'ListSkeleton';

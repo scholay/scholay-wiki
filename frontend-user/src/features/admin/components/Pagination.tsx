@@ -3,7 +3,7 @@ import { PaginationPrevNext } from '@/shared/components/PaginationPrevNext';
 /**
  * Admin 列表页分页 —— 薄包装 [[PaginationPrevNext]],保留与历史调用方
  * 兼容的 API(total/page/pageSize/onPageChange);视觉统一到 shared 组件,
- * 5 个 admin 列表页(Users/AuditLogs/Feedback/Messages/UsageLogs)零改动迁移。
+ * admin 列表页(Users/Feedback/Messages/UsageLogs ...)零改动迁移。
  *
  * 显示策略:total ≤ pageSize 时不渲染(单页 UI 干净点)。
  */

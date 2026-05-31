@@ -1,6 +1,7 @@
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogTitle } from '@/shared/ui/dialog';
+import { useApiToast } from '@/shared/hooks';
 import {
   useDeleteUserDimension,
   useResetDimension,
@@ -22,6 +23,7 @@ interface Props {
 export function DeleteConfirmDialog({ target, onClose }: Props) {
   const reset = useResetDimension();
   const remove = useDeleteUserDimension();
+  const apiToast = useApiToast();
   const busy = reset.isPending || remove.isPending;
 
   if (!target) return null;
@@ -32,8 +34,7 @@ export function DeleteConfirmDialog({ target, onClose }: Props) {
       toast.success(isReset ? '已重置为系统默认' : '已删除');
       onClose();
     };
-    const onError = (err: unknown) =>
-      toast.error((err as Error).message || '操作失败');
+    const onError = (err: unknown) => apiToast.show(err, '操作失败');
 
     if (isReset) {
       reset.mutate(target.dimensionKey, { onSuccess, onError });

@@ -5,10 +5,9 @@
 package user
 
 import (
-	"strconv"
+	"log/slog"
 	"time"
 
-	"scholar-backend/internal/admin"
 	"scholar-backend/internal/common/database"
 	"scholar-backend/internal/common/utils"
 
@@ -27,10 +26,8 @@ type FreezeUserRequest struct {
 //   - status 设为 2 (suspended)
 //   - frozen_at = now()
 //   - frozen_reason = 入参
-//   - 写 audit log
-//
-// 不再强制下线 —— user_sessions 表已下线,JWT 在过期前继续有效;
-// 想立刻踢人只能旋转 JWT secret 或缩短 token TTL。
+//   - 立即吊销该用户全部已签发 token(RevokeUserAllTokens),封号当场生效。
+//     否则被封用户手里的 JWT 在过期前仍可正常调用,封号形同虚设。
 func (h *Handler) FreezeUser(c *gin.Context) {
 	uid, ok := utils.ParseUintParam(c, "id")
 	if !ok {
@@ -64,9 +61,13 @@ func (h *Handler) FreezeUser(c *gin.Context) {
 		return
 	}
 
-	admin.LogAdminAction(c, "freeze", admin.ResUser, strconv.FormatUint(uint64(uid), 10), gin.H{
-		"reason": req.Reason,
-	})
+	// 强制下线靠两道防线:① 这里吊销该用户当前全部已签发 token(中间件 IsTokenRevoked 拦);
+	// ② 登录侧 LoginWithEmail / LoginWithEmailCode 均校验 status==1,封号后无法重新签发新 token。
+	// 吊销失败只记日志、不回滚冻结(状态已落库);真正的残留窗口仅限 Redis 故障期
+	// —— IsTokenRevoked 此时 fail-open 放行,这是全局所有吊销共用的可用性取舍,非本接口特例。
+	if err := utils.RevokeUserAllTokens(c.Request.Context(), uid); err != nil {
+		slog.Error("freeze user: revoke tokens failed", "user_id", uid, "err", err)
+	}
 
 	utils.SuccessWithMessage(c, "User frozen", nil)
 }
@@ -89,37 +90,6 @@ func (h *Handler) UnfreezeUser(c *gin.Context) {
 		return
 	}
 
-	admin.LogAdminAction(c, "unfreeze", admin.ResUser, strconv.FormatUint(uint64(uid), 10), nil)
 	utils.SuccessWithMessage(c, "User unfrozen", nil)
 }
 
-// UpdateAdminNotesRequest 更新管理员备注
-type UpdateAdminNotesRequest struct {
-	Notes string `json:"notes" binding:"max=10000"`
-}
-
-// UpdateAdminNotes PUT /api/v1/admin/users/:id/notes
-// 管理员对该用户的私人备注(用户不可见)
-func (h *Handler) UpdateAdminNotes(c *gin.Context) {
-	uid, ok := utils.ParseUintParam(c, "id")
-	if !ok {
-		return
-	}
-
-	var req UpdateAdminNotesRequest
-	if !utils.BindJSON(c, &req) {
-		return
-	}
-
-	if err := database.GetDB().Model(&User{}).Where("id = ?", uid).
-		Update("admin_notes", req.Notes).Error; err != nil {
-		utils.InternalError(c, 3012, "Failed to update notes", err)
-		return
-	}
-
-	admin.LogAdminAction(c, "update", admin.ResUser, strconv.FormatUint(uint64(uid), 10), gin.H{
-		"field":          "admin_notes",
-		"notes_length":   len(req.Notes),
-	})
-	utils.SuccessWithMessage(c, "Notes updated", nil)
-}

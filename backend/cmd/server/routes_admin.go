@@ -8,7 +8,6 @@
 package main
 
 import (
-	"scholar-backend/internal/admin"
 	"scholar-backend/internal/common/middleware"
 
 	"github.com/gin-gonic/gin"
@@ -19,10 +18,6 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 	adminProtected := api.Group("/admin")
 	adminProtected.Use(middleware.AdminAuthMiddleware())
 	{
-		adminProtected.GET("/profile", h.admin.GetProfile)
-		adminProtected.PUT("/password", h.admin.UpdatePassword)
-		adminProtected.POST("/verify-password", h.admin.VerifyPassword)
-
 		// 仪表板 —— active-users/payment-funnel 已下线,在线/活跃指标改用 umami
 		adminProtected.GET("/dashboard/statistics", h.dashboard.GetDashboardStatistics)
 
@@ -54,27 +49,25 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.GET("/discourse-config", h.config.GetDiscourseSSOConfig)
 		adminProtected.PUT("/discourse-config", h.config.UpdateDiscourseSSOConfig)
 
-		// 代码片段管理
+		// Matrix 多维分析 — 系统维度管理 (admin 编辑系统默认维度库)
+		adminProtected.GET("/analysis/dimensions", h.ai.AdminGetSystemDimensions)
+		adminProtected.PUT("/analysis/dimensions/:id", h.ai.AdminUpdateSystemDimension)
+
+		// 代码片段管理 (前端只用 list + create + update + delete; 单 GET 已下线)
 		adminProtected.GET("/code-snippets", h.config.ListCodeSnippets)
-		adminProtected.GET("/code-snippets/:id", h.config.GetCodeSnippet)
 		adminProtected.POST("/code-snippets", h.config.CreateCodeSnippet)
 		adminProtected.PUT("/code-snippets/:id", h.config.UpdateCodeSnippet)
 		adminProtected.DELETE("/code-snippets/:id", h.config.DeleteCodeSnippet)
 
-		// 用户管理
+		// 用户管理 (前端只用 list/stats/metrics + freeze/unfreeze + delete + batch-delete;
+		// 单 GET、aggregate、notes 已下线)
 		adminProtected.GET("/users/stats", h.user.GetUserStatistics)
 		adminProtected.GET("/users/metrics", h.user.GetUserMetrics)
 		adminProtected.GET("/users", h.user.GetUserList)
-		adminProtected.GET("/users/:id", h.user.GetUserDetail)
-		adminProtected.GET("/users/:id/aggregate", h.user.GetUserAggregate)
 		adminProtected.DELETE("/users/:id", h.user.DeleteUser)
 		adminProtected.POST("/users/batch-delete", h.user.BatchDeleteUsers)
 		adminProtected.PUT("/users/:id/freeze", h.user.FreezeUser)
 		adminProtected.PUT("/users/:id/unfreeze", h.user.UnfreezeUser)
-		adminProtected.PUT("/users/:id/notes", h.user.UpdateAdminNotes)
-
-		// 审计日志(只读)
-		adminProtected.GET("/audit-logs", admin.ListAuditLogsHandler)
 
 		// 公告管理
 		adminProtected.GET("/announcements", h.announcement.ListAdmin)
@@ -82,20 +75,14 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.PUT("/announcements/:id", h.announcement.Update)
 		adminProtected.DELETE("/announcements/:id", h.announcement.Delete)
 
-		// 第三方账号管理
+		// 第三方账号管理 (前端只用 list + create + update + delete + test + reset-stats;
+		// 单 GET、stats、refresh-cache 已下线)
 		adminProtected.GET("/third-party-accounts", h.thirdParty.ListAccounts)
 		adminProtected.POST("/third-party-accounts", h.thirdParty.CreateAccount)
-		adminProtected.GET("/third-party-accounts/stats", h.thirdParty.GetStats)
-		adminProtected.POST("/third-party-accounts/refresh-cache", h.thirdParty.RefreshCache)
-		adminProtected.GET("/third-party-accounts/:id", h.thirdParty.GetAccount)
 		adminProtected.PUT("/third-party-accounts/:id", h.thirdParty.UpdateAccount)
 		adminProtected.DELETE("/third-party-accounts/:id", h.thirdParty.DeleteAccount)
 		adminProtected.POST("/third-party-accounts/:id/test", h.thirdParty.TestAccount)
 		adminProtected.POST("/third-party-accounts/:id/reset-stats", h.thirdParty.ResetAccountStats)
-
-		// 分析维度管理
-		adminProtected.GET("/analysis/dimensions", h.ai.AdminGetSystemDimensions)
-		adminProtected.PUT("/analysis/dimensions/:id", h.ai.AdminUpdateSystemDimension)
 
 		// 支付宝配置
 		adminProtected.GET("/payment/alipay/config", h.alipay.GetActiveConfig)
@@ -113,52 +100,38 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.DELETE("/payment/wechat/config/:id", h.wechatPay.DeleteConfig)
 		adminProtected.POST("/payment/wechat/config/:id/activate", h.wechatPay.ActivateConfig)
 
-		// 微信 OAuth 配置
+		// 微信 OAuth 配置 (前端只用 active/configs/create/update/activate; DELETE 已下线)
 		adminProtected.GET("/wechat/config", h.wechat.GetActiveConfig)
 		adminProtected.GET("/wechat/configs", h.wechat.ListConfigs)
 		adminProtected.POST("/wechat/config", h.wechat.CreateConfig)
 		adminProtected.PUT("/wechat/config/:id", h.wechat.UpdateConfig)
-		adminProtected.DELETE("/wechat/config/:id", h.wechat.DeleteConfig)
 		adminProtected.POST("/wechat/config/:id/activate", h.wechat.SetActiveConfig)
 
 		// 微信公众号配置
 		adminProtected.GET("/wechat-official/config", h.wechatOfficial.GetConfig)
 		adminProtected.PUT("/wechat-official/config", h.wechatOfficial.UpdateConfig)
 
-		// LaTeX Agent 配置
-		adminProtected.GET("/latex-agent/config", h.latexAgentAdmin.GetAgentConfig)
-		adminProtected.PUT("/latex-agent/config", h.latexAgentAdmin.UpdateAgentConfig)
-		adminProtected.GET("/latex-agent/model-presets", h.latexAgentAdmin.GetModelPresets)
-		adminProtected.GET("/latex-agent/config-options", h.latexAgentAdmin.GetConfigOptions)
-		adminProtected.GET("/latex-agent/api-formats", h.latexAgentAdmin.GetAPIFormats)
-		adminProtected.POST("/latex-agent/apply-preset", h.latexAgentAdmin.ApplyModelPreset)
-		adminProtected.POST("/latex-agent/test-connection", h.latexAgentAdmin.TestConnection)
-		adminProtected.GET("/latex-agent/models", h.latexAgentAdmin.ListModels)
-		adminProtected.POST("/latex-agent/models", h.latexAgentAdmin.CreateModel)
-		adminProtected.PUT("/latex-agent/models/:id", h.latexAgentAdmin.UpdateModel)
-		adminProtected.DELETE("/latex-agent/models/:id", h.latexAgentAdmin.DeleteModel)
-		adminProtected.POST("/latex-agent/models/:id/set-default", h.latexAgentAdmin.SetDefaultModel)
+		// 通用 Agent 服务 (scholar_agent 容器) 的模型 / 端点配置
+		// 单行 (id=1), GET ?show_sensitive=true 返回明文 token, 默认返回打码
+		adminProtected.GET("/agent/config", h.agentConfig.GetConfig)
+		adminProtected.PUT("/agent/config", h.agentConfig.UpdateConfig)
 
-		// 反馈管理
+		// 反馈管理 (list / stats / 改 status / reply / 详情 / 删除; category/assignee/
+		// internal-notes 仍未接前端)
 		adminProtected.GET("/feedbacks", h.feedback.ListFeedbacks)
 		adminProtected.GET("/feedbacks/stats", h.feedback.GetStats)
 		adminProtected.GET("/feedbacks/:id", h.feedback.GetFeedback)
 		adminProtected.PUT("/feedbacks/:id/status", h.feedback.UpdateStatus)
-		adminProtected.PUT("/feedbacks/:id/category", h.feedback.UpdateCategory)
-		adminProtected.PUT("/feedbacks/:id/assignee", h.feedback.AssignFeedback)
-		adminProtected.PUT("/feedbacks/:id/internal-notes", h.feedback.UpdateInternalNotes)
 		adminProtected.POST("/feedbacks/:id/reply", h.feedback.ReplyFeedback)
 		adminProtected.DELETE("/feedbacks/:id", h.feedback.DeleteFeedback)
 
-		// 使用日志管理
+		// 使用日志管理 (前端用 list/summary/config GET+PUT/cleanup/export;
+		// features/filter-options/all 已下线)
 		adminProtected.GET("/usage-logs", h.usageLogAdmin.List)
 		adminProtected.GET("/usage-logs/summary", h.usageLogAdmin.GetStatsSummary)
-		adminProtected.GET("/usage-logs/filter-options", h.usageLogAdmin.GetFilterOptions)
-		adminProtected.GET("/usage-logs/features", h.usageLogAdmin.GetFeatureConfigs)
 		adminProtected.GET("/usage-logs/config", h.usageLogAdmin.GetConfig)
 		adminProtected.PUT("/usage-logs/config", h.usageLogAdmin.UpdateConfig)
 		adminProtected.POST("/usage-logs/cleanup", h.usageLogAdmin.TriggerCleanup)
-		adminProtected.DELETE("/usage-logs/all", h.usageLogAdmin.ClearAllLogs)
 		adminProtected.GET("/usage-logs/export", h.usageLogAdmin.ExportCSV)
 
 		// 热门内容管理
@@ -166,21 +139,27 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.GET("/hot-content/papers", h.hotContent.GetHotPapers)
 		adminProtected.GET("/hot-content/stats", h.hotContent.GetStats)
 		adminProtected.POST("/hot-content/cleanup", h.hotContent.ManualCleanup)
+		// 清理策略配置 (保留天数 / 最大记录数), 改了下一轮 cleanup 立即生效
+		adminProtected.GET("/hot-content/config", h.hotContent.GetConfig)
+		adminProtected.PUT("/hot-content/config", h.hotContent.UpdateConfig)
 
-		// 站内信管理
+		// 站内信管理 (单 GET、stats 历史下线;消息模板整套已下线 2026-05-28)
 		adminProtected.POST("/messages", h.message.AdminCreateMessage)
 		adminProtected.GET("/messages", h.message.AdminGetMessages)
-		adminProtected.GET("/messages/stats", h.message.AdminGetMessageStats)
-		adminProtected.GET("/messages/:id", h.message.AdminGetMessage)
 		adminProtected.POST("/messages/:id/send", h.message.AdminSendMessage)
-		adminProtected.POST("/message-templates", h.message.AdminCreateTemplate)
-		adminProtected.GET("/message-templates", h.message.AdminGetTemplates)
-		adminProtected.GET("/message-templates/:id", h.message.AdminGetTemplate)
-		adminProtected.PUT("/message-templates/:id", h.message.AdminUpdateTemplate)
-		adminProtected.DELETE("/message-templates/:id", h.message.AdminDeleteTemplate)
 
-		// PDF 缓存管理
-		adminProtected.GET("/pdf/cache/stats", h.pdf.GetCacheStats)
+		// ─── AI feature prompt 注册表 ──────────────────────────────────────
+		// 统一管理 smart_search / claw / peerreview 等 feature 的 system_prompt 文本;
+		// 改完不必重启 (write 路径 invalidate 缓存, 读路径 TTL 10min 兜底)。
+		// 详见 internal/promptregistry/handler.go。
+		adminProtected.GET("/feature-prompts", h.promptRegistry.List)
+		adminProtected.POST("/feature-prompts", h.promptRegistry.Create)
+		adminProtected.GET("/feature-prompts/:id", h.promptRegistry.Get)
+		adminProtected.PUT("/feature-prompts/:id", h.promptRegistry.Update)
+		adminProtected.POST("/feature-prompts/:id/toggle", h.promptRegistry.Toggle)
+		adminProtected.DELETE("/feature-prompts/:id", h.promptRegistry.Delete)
+		adminProtected.GET("/feature-prompts/:id/history", h.promptRegistry.History)
+		adminProtected.POST("/feature-prompts/:id/revert/:version", h.promptRegistry.Revert)
 	}
 
 	// 超级管理员专属：角色分配（提升/降级 admin）

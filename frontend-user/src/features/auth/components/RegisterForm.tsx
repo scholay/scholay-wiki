@@ -30,10 +30,13 @@ const phoneRule = z
 const codeRule = z.string().length(6, '验证码为 6 位数字').regex(/^\d{6}$/, '验证码为 6 位数字');
 const passwordRule = z.string().min(8, '密码至少 8 位,建议含字母和数字').max(64, '密码长度不能超过 64 位');
 
-const schemaFactory = (acc: AccountType) =>
+// requireCode 跟随后台 system_config.require_email_verification:
+//   true  → 6 位数字必填
+//   false → 字段允许为空(仍允许 6 位数字,但不强制),后端会忽略
+const schemaFactory = (acc: AccountType, requireCode: boolean) =>
   z.object({
     account: acc === 'email' ? emailRule : phoneRule,
-    code: codeRule,
+    code: requireCode ? codeRule : z.string().optional().default(''),
     password: passwordRule,
     invitation_code: z.string().optional(),
     agree_terms: z.literal(true, {
@@ -64,9 +67,11 @@ export function RegisterForm({
   const { data: publicConfig } = usePublicConfig();
   const turnstileRequired = !!publicConfig?.enable_turnstile && !!publicConfig.turnstile_site_key;
   const turnstileBlocked = turnstileRequired && !turnstileToken;
+  // 默认 true:配置未拉到时按"需要验证码"渲染,避免后端开着验证而前端跳过校验。
+  const emailVerifyRequired = publicConfig?.require_email_verification ?? true;
 
   const form = useForm<FormShape>({
-    resolver: zodResolver(schemaFactory(accountType)) as never,
+    resolver: zodResolver(schemaFactory(accountType, emailVerifyRequired)) as never,
     defaultValues: {
       account: '',
       code: '',
@@ -83,11 +88,14 @@ export function RegisterForm({
   const onSubmit = async (values: FormShape) => {
     try {
       const ts = turnstileToken ?? undefined;
+      // 关闭验证码时,后端 handler 会把任何前端传来的 code 直接置空跳过 cache.VerifyCode;
+      // 这里也对应传空字符串,语义清晰且不暴露脏 state。
+      const code = emailVerifyRequired ? values.code : '';
       if (accountType === 'email') {
         await registerEmail.mutateAsync({
           email: values.account,
           password: values.password,
-          code: values.code,
+          code,
           invitation_code: values.invitation_code || undefined,
           turnstile_token: ts,
         });
@@ -95,7 +103,7 @@ export function RegisterForm({
         await registerPhone.mutateAsync({
           phone: values.account,
           password: values.password,
-          code: values.code,
+          code,
           invitation_code: values.invitation_code || undefined,
           turnstile_token: ts,
         });
@@ -133,34 +141,36 @@ export function RegisterForm({
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="code"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>验证码</FormLabel>
-              <div className="flex gap-2">
-                <FormControl>
-                  <Input
-                    {...field}
-                    inputMode="numeric"
-                    maxLength={6}
-                    autoComplete="one-time-code"
-                    placeholder="6 位数字"
-                    className="h-10 text-sm tracking-widest"
+        {emailVerifyRequired && (
+          <FormField
+            control={form.control}
+            name="code"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>验证码</FormLabel>
+                <div className="flex gap-2">
+                  <FormControl>
+                    <Input
+                      {...field}
+                      inputMode="numeric"
+                      maxLength={6}
+                      autoComplete="one-time-code"
+                      placeholder="6 位数字"
+                      className="h-10 text-sm tracking-widest"
+                    />
+                  </FormControl>
+                  <SendCodeButton
+                    accountType={accountType}
+                    account={form.watch('account')}
+                    purpose="register"
+                    validate={() => form.trigger('account')}
                   />
-                </FormControl>
-                <SendCodeButton
-                  accountType={accountType}
-                  account={form.watch('account')}
-                  purpose="register"
-                  validate={() => form.trigger('account')}
-                />
-              </div>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+                </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
         <FormField
           control={form.control}

@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import { cn } from '@/shared/lib/utils';
 
 /**
@@ -27,10 +28,16 @@ const TONE_CLS: Record<BrandNameTone, string> = {
   subtle: 'font-display font-medium',
 };
 
-export function BrandName({ tone = 'default', className }: BrandNameProps) {
-  return (
-    <span className={cn('inline-block tracking-tight', TONE_CLS[tone], className)}>
-      Scholay
-    </span>
-  );
-}
+export const BrandName = forwardRef<HTMLSpanElement, BrandNameProps>(
+  ({ tone = 'default', className }, ref) => {
+    return (
+      <span
+        ref={ref}
+        className={cn('inline-block tracking-tight', TONE_CLS[tone], className)}
+      >
+        Scholay
+      </span>
+    );
+  }
+);
+BrandName.displayName = 'BrandName';

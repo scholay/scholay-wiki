@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"scholar-backend/internal/common/cache"
+	"scholar-backend/internal/common/ctxutil"
 )
 
 // PushSubmitter 由 seosubmit.Service 实现,把待收录的 URL 路径喂给主动提交队列。
@@ -235,7 +236,7 @@ func bumpVersionWithCoalesce(lockKey, versionKey string) {
 	if rdb == nil {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := ctxutil.With(ctxutil.CacheWrite)
 	defer cancel()
 
 	// 抢窗口锁

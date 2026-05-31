@@ -7,7 +7,7 @@ package user
 
 import (
 	"errors"
-	"strings"
+	"log/slog"
 
 	"scholar-backend/internal/common/turnstile"
 	"scholar-backend/internal/common/utils"
@@ -143,6 +143,16 @@ func (h *Handler) SendVerificationCode(c *gin.Context) {
 		return
 	}
 
+	// purpose=register 时跟随 admin 开关 —— 关掉就别浪费 SMTP / 验证码额度。
+	// 其他 purpose (login/bind/unbind/reset_password/change_email) 都是用户主动
+	// 走"用验证码做某事"的流程, 不受这个开关影响。
+	if req.Purpose == "register" {
+		if cfg, _ := h.service.GetSystemConfig(); cfg != nil && !cfg.RequireEmailVerification {
+			utils.Error(c, CodeSendCodeFailed, "管理员已关闭邮箱验证, 注册无需验证码")
+			return
+		}
+	}
+
 	err := h.service.SendVerificationCode(c.Request.Context(), req.Email, req.Purpose)
 	if err != nil {
 		// Return the specific error message from service (includes rate limit info)
@@ -178,7 +188,21 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 
-	user, token, err := h.service.RegisterWithEmailAndInvitation(c.Request.Context(), req.Email, req.Password, req.Code, req.InvitationCode, ip)
+	// 跟随 admin 的 RequireEmailVerification 开关:
+	//   ON  → code 必填, 走 service 内置的 cache.VerifyCode
+	//   OFF → 忽略前端可能仍带的 code, 传空给 service 跳过验证
+	// (service 自身的 `if code != ""` 守卫意味着空 code 就跳, 我们这里只统一意图。)
+	code := req.Code
+	if systemConfig != nil && systemConfig.RequireEmailVerification {
+		if code == "" {
+			utils.Error(c, CodeRegisterFailed, "请输入邮箱验证码")
+			return
+		}
+	} else {
+		code = "" // verification off → don't pass user-supplied code into VerifyCode at all
+	}
+
+	user, token, err := h.service.RegisterWithEmailAndInvitation(c.Request.Context(), req.Email, req.Password, code, req.InvitationCode, ip)
 	if err != nil {
 		utils.Error(c, CodeRegisterFailed, err.Error())
 		return
@@ -264,17 +288,22 @@ func (h *Handler) LoginWithCode(c *gin.Context) {
 	})
 }
 
-// ResetPassword handles password reset with email verification code
+// ResetPassword handles password reset with email verification code.
+// 改密成功后立刻 revoke 该用户所有在用 token, 强制全部设备重新登录。
 func (h *Handler) ResetPassword(c *gin.Context) {
 	var req ResetPasswordRequest
 	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	err := h.service.ResetPassword(c.Request.Context(), req.Email, req.Code, req.NewPassword)
+	userID, err := h.service.ResetPassword(c.Request.Context(), req.Email, req.Code, req.NewPassword)
 	if err != nil {
 		utils.Error(c, CodeResetPasswordFailed, err.Error())
 		return
+	}
+	if err := utils.RevokeUserAllTokens(c.Request.Context(), userID); err != nil {
+		// 不阻塞响应: Redis 故障最多让旧 token 续命到自然过期, 仍比之前更好
+		slog.Warn("reset password: revoke user tokens failed", "err", err, "user_id", userID)
 	}
 
 	utils.SuccessWithMessage(c, "Password reset successfully", nil)
@@ -409,17 +438,21 @@ func (h *Handler) LoginPhoneWithCode(c *gin.Context) {
 	})
 }
 
-// ResetPasswordPhone handles password reset with phone verification code
+// ResetPasswordPhone handles password reset with phone verification code.
+// 改密成功后立刻 revoke 该用户所有在用 token。
 func (h *Handler) ResetPasswordPhone(c *gin.Context) {
 	var req ResetPasswordPhoneRequest
 	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	err := h.service.ResetPasswordPhone(c.Request.Context(), req.Phone, req.Code, req.NewPassword)
+	userID, err := h.service.ResetPasswordPhone(c.Request.Context(), req.Phone, req.Code, req.NewPassword)
 	if err != nil {
 		utils.Error(c, CodeResetPasswordPhoneFailed, err.Error())
 		return
+	}
+	if err := utils.RevokeUserAllTokens(c.Request.Context(), userID); err != nil {
+		slog.Warn("reset password (phone): revoke user tokens failed", "err", err, "user_id", userID)
 	}
 
 	utils.SuccessWithMessage(c, "Password reset successfully", nil)
@@ -452,81 +485,32 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 		utils.Error(c, CodeChangePasswordFailed, "修改密码失败,请稍后重试")
 		return
 	}
+	// 改密成功 → 踢掉该用户所有设备, 强制重新登录
+	if err := utils.RevokeUserAllTokens(c.Request.Context(), userID); err != nil {
+		slog.Warn("change password: revoke user tokens failed", "err", err, "user_id", userID)
+	}
 
 	utils.SuccessWithMessage(c, "Password changed successfully", nil)
 }
 
 // Logout handles user logout.
 //
-// user_sessions 表已下线,后端无 token 黑名单 —— 真正的"登出"由前端清掉 localStorage
-// 完成。这里保留接口只为前端调用语义清晰、写埋点点位方便,服务端只回 200。
+// 把当前 token 写入 Redis blacklist (按 jti), 让本端立刻失效 —— 其他端不受影响。
+// Logout 全部设备需另调 utils.RevokeUserAllTokens (例如 /me/logout-all 端点, 暂未暴露)。
 func (h *Handler) Logout(c *gin.Context) {
 	if _, ok := utils.GetUserID(c); !ok {
 		return
 	}
+	// middleware 已经把 token 字符串挂到 context, 这里取出 claims 走 revoke
+	if tokRaw, ok := c.Get("token"); ok {
+		if tokStr, ok := tokRaw.(string); ok && tokStr != "" {
+			if claims, perr := utils.ParseToken(tokStr); perr == nil {
+				if err := utils.RevokeToken(c.Request.Context(), claims); err != nil {
+					slog.Warn("logout: revoke token failed", "err", err)
+				}
+			}
+		}
+	}
 	utils.SuccessWithMessage(c, "Logged out successfully", nil)
 }
 
-// RefreshToken handles token refresh
-// This endpoint allows refreshing a token before it expires
-// The session must be within 30 days of creation
-func (h *Handler) RefreshToken(c *gin.Context) {
-	// Get token from Authorization header
-	authHeader := c.GetHeader("Authorization")
-	var token string
-	if authHeader != "" {
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) == 2 && parts[0] == "Bearer" {
-			token = parts[1]
-		}
-	}
-
-	if token == "" {
-		utils.BadRequest(c, "登录凭证缺失,请重新登录")
-		return
-	}
-
-	newToken, err := h.service.RefreshToken(token)
-	if err != nil {
-		if errors.Is(err, ErrSessionExpired) {
-			utils.Error(c, CodeSessionExpired, err.Error())
-			return
-		}
-		if errors.Is(err, ErrSessionNotFound) {
-			utils.Error(c, CodeSessionTakenByOtherLogin, "您的账号已在其他设备登录")
-			return
-		}
-		utils.InternalError(c, CodeRefreshTokenFailed, "刷新登录态失败,请重新登录", err)
-		return
-	}
-
-	utils.Success(c, map[string]any{
-		"token": newToken,
-	})
-}
-
-// GetTokenInfo returns token expiry information
-func (h *Handler) GetTokenInfo(c *gin.Context) {
-	// Get token from Authorization header
-	authHeader := c.GetHeader("Authorization")
-	var token string
-	if authHeader != "" {
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) == 2 && parts[0] == "Bearer" {
-			token = parts[1]
-		}
-	}
-
-	if token == "" {
-		utils.BadRequest(c, "登录凭证缺失,请重新登录")
-		return
-	}
-
-	info, err := h.service.GetTokenInfo(token)
-	if err != nil {
-		utils.InternalError(c, CodeTokenInfoFailed, "获取登录信息失败,请稍后重试", err)
-		return
-	}
-
-	utils.Success(c, info)
-}

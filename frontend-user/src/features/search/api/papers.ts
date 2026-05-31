@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
+import { STALE_WARM } from '@/shared/lib/query-config';
 import { enrichPmdAbstracts } from '@/shared/api/paper-enrich';
 import type { Paper, UpstreamSource } from '@/shared/api/types';
 
@@ -87,7 +88,7 @@ export function useSearchPapers(opts: SearchPapersOptions) {
       opts.sort,
     ],
     enabled,
-    staleTime: 60_000,
+    staleTime: STALE_WARM,
     // 不用 placeholderData 持有旧数据 —— 任何 query/filter 变化都要"清空 + 重 loading",
     // 避免旧结果残留误导。SearcherColumn 基于 isFetching 渲染蒙层 loading。
     queryFn: async (): Promise<SearchPapersWrappedResult> => {

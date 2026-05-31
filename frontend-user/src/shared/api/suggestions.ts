@@ -1,5 +1,6 @@
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
+import { STALE_WARM } from '@/shared/lib/query-config';
 import { useDebounce } from '@/shared/hooks';
 import type {
   AuthorSuggestion,
@@ -63,7 +64,7 @@ export function useSearchSuggestions(
   return useQuery({
     queryKey: ['search', 'suggestions', q, paperLimit, authorLimit, source ?? ''],
     enabled: q.length >= minChars,
-    staleTime: 60_000,
+    staleTime: STALE_WARM,
     placeholderData: (prev) => prev, // 输入变化时保留旧结果,避免闪烁
     queryFn: async (): Promise<SearchSuggestionsResponse> => {
       try {
@@ -129,7 +130,7 @@ export function useMultiSourceSearchSuggestions(
         source,
       ] as const,
       enabled,
-      staleTime: 60_000,
+      staleTime: STALE_WARM,
       placeholderData: (prev: SearchSuggestionsResponse | undefined) => prev,
       queryFn: async (): Promise<SearchSuggestionsResponse> => {
         try {
@@ -198,7 +199,7 @@ export function useJournalSuggestions(
   return useQuery({
     queryKey: ['search', 'journals', q, limit],
     enabled: q.length >= minChars,
-    staleTime: 60_000,
+    staleTime: STALE_WARM,
     placeholderData: (prev) => prev,
     queryFn: async (): Promise<JournalSuggestion[]> => {
       try {

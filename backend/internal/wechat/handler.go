@@ -72,7 +72,7 @@ func (h *Handler) GetLoginURL(c *gin.Context) {
 
 	loginURL, err := h.service.GenerateLoginURL(state)
 	if err != nil {
-		utils.Error(c, 5001, "Failed to generate login URL: "+err.Error())
+		utils.InternalError(c, 5001, "Failed to generate login URL", err)
 		return
 	}
 
@@ -91,7 +91,7 @@ func (h *Handler) GetQRCodeConfig(c *gin.Context) {
 			utils.Error(c, 4404, "微信登录未配置")
 			return
 		}
-		utils.Error(c, 5000, "获取微信配置失败: "+err.Error())
+		utils.InternalError(c, 5000, "获取微信配置失败", err)
 		return
 	}
 
@@ -115,7 +115,7 @@ func (h *Handler) GetActiveConfig(c *gin.Context) {
 			utils.Error(c, 4404, "No active WeChat configuration found")
 			return
 		}
-		utils.Error(c, 5000, "Failed to get configuration: "+err.Error())
+		utils.InternalError(c, 5000, "Failed to get configuration", err)
 		return
 	}
 
@@ -130,7 +130,7 @@ func (h *Handler) GetActiveConfig(c *gin.Context) {
 func (h *Handler) ListConfigs(c *gin.Context) {
 	configs, err := h.service.ListConfigs()
 	if err != nil {
-		utils.Error(c, 5000, "Failed to list configurations: "+err.Error())
+		utils.InternalError(c, 5000, "Failed to list configurations", err)
 		return
 	}
 
@@ -180,7 +180,7 @@ func (h *Handler) CreateConfig(c *gin.Context) {
 	}
 
 	if err := h.service.CreateConfig(config); err != nil {
-		utils.Error(c, 5001, "Failed to create configuration: "+err.Error())
+		utils.InternalError(c, 5001, "Failed to create configuration", err)
 		return
 	}
 
@@ -215,13 +215,17 @@ func (h *Handler) UpdateConfig(c *gin.Context) {
 		return
 	}
 
-	// Get existing config (assuming we need to fetch first, or construct one)
-	// For simplicity, construct a config object with the ID and update fields
-	config := &model.WeChatConfig{
-		ID: uint(id),
+	// 必须先加载已有配置, 否则 repo.UpdateConfig 的 Updates(map) 会把没传的字段
+	// (AppID / RedirectURI / Scope) 写空 —— 之前的实现里 partial update 是把 app_id
+	// 等覆盖成 "" 的 bug。这里改成"加载 + 合并 + 校验 + 保存"。
+	existing, err := h.service.GetConfigByID(uint(id))
+	if err != nil || existing == nil {
+		utils.Error(c, 4404, "Configuration not found")
+		return
 	}
+	config := *existing // copy so we mutate without aliasing
+	config.ID = uint(id)
 
-	// Update fields only if provided
 	if req.AppID != "" {
 		config.AppID = req.AppID
 	}
@@ -238,8 +242,15 @@ func (h *Handler) UpdateConfig(c *gin.Context) {
 		config.IsActive = *req.IsActive
 	}
 
-	if err := h.service.UpdateConfig(config); err != nil {
-		utils.Error(c, 5002, "Failed to update configuration: "+err.Error())
+	// 启用必须有 AppID + AppSecret 齐全 —— 否则保存了 IsActive=true 也用不了, 还会让
+	// 登录页错误地显示"微信登录"按钮。
+	if config.IsActive && (config.AppID == "" || config.AppSecret == "") {
+		utils.BadRequest(c, "启用微信 OAuth 需先填好 AppID 与 AppSecret")
+		return
+	}
+
+	if err := h.service.UpdateConfig(&config); err != nil {
+		utils.InternalError(c, 5002, "Failed to update configuration", err)
 		return
 	}
 
@@ -247,24 +258,6 @@ func (h *Handler) UpdateConfig(c *gin.Context) {
 	config.AppSecret = "********"
 
 	utils.Success(c, config)
-}
-
-// DeleteConfig deletes a WeChat configuration (Admin only)
-// DELETE /api/v1/admin/wechat/config/:id
-func (h *Handler) DeleteConfig(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
-	if err != nil {
-		utils.BadRequest(c, "Invalid configuration ID")
-		return
-	}
-
-	if err := h.service.DeleteConfig(uint(id)); err != nil {
-		utils.Error(c, 5003, "Failed to delete configuration: "+err.Error())
-		return
-	}
-
-	utils.Success(c, gin.H{"message": "Configuration deleted successfully"})
 }
 
 // SetActiveConfig sets a specific configuration as active (Admin only)
@@ -277,8 +270,20 @@ func (h *Handler) SetActiveConfig(c *gin.Context) {
 		return
 	}
 
+	// 激活前必须确认凭据齐全 —— 否则同 UpdateConfig 那条 enabled-required-creds 规则
+	// 的"侧门"被绕过, 激活了没 AppSecret 的配置, 登录页会错误地显示"微信登录"按钮。
+	existing, err := h.service.GetConfigByID(uint(id))
+	if err != nil || existing == nil {
+		utils.Error(c, 4404, "Configuration not found")
+		return
+	}
+	if existing.AppID == "" || existing.AppSecret == "" {
+		utils.BadRequest(c, "激活该微信配置前请先填好 AppID 与 AppSecret")
+		return
+	}
+
 	if err := h.service.SetActiveConfig(uint(id)); err != nil {
-		utils.Error(c, 5004, "Failed to set active configuration: "+err.Error())
+		utils.InternalError(c, 5004, "Failed to set active configuration", err)
 		return
 	}
 

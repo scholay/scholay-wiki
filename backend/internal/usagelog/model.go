@@ -12,6 +12,30 @@ import (
 	"time"
 )
 
+// ─── 功能菜单常量 ──────────────────────────────────────────────────────────
+// 跟前端 menus.ts 一一对应; 不可漂移。新增菜单需要同时:
+//   1) 在前端 menus.ts 加一条
+//   2) 这里加 feature_code 常量 + 中文名
+//   3) 在对应 backend handler 的"用户实际使用"那一刻调 RecordFromGin / Record
+//
+// 占位类菜单 (ComingSoonView, 当前 prism / tools) 暂不接入 —— 没"用"可以记。
+const (
+	FeaturePaperSearch   = "paper_search"
+	FeatureJournalSearch = "journal_search"
+	FeatureClaw          = "claw"
+	FeaturePeerReview    = "peer_review"
+	FeatureLibrary       = "library"
+)
+
+// FeatureNames 给上面的 feature_code 配中文名 (用于 admin 看板列表 / CSV 导出)。
+var FeatureNames = map[string]string{
+	FeaturePaperSearch:   "文献搜索",
+	FeatureJournalSearch: "期刊搜索",
+	FeatureClaw:          "智能助手",
+	FeaturePeerReview:    "智能审稿",
+	FeatureLibrary:       "文献集",
+}
+
 // UsageLog 功能使用统计日志
 type UsageLog struct {
 	ID          uint            `gorm:"primaryKey" json:"id"`

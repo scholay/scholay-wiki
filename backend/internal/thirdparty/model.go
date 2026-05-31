@@ -18,9 +18,9 @@ import (
 type AccountType string
 
 const (
-	AccountTypeSemanticScholar AccountType = "semantic_scholar"
-	AccountTypeAIModel         AccountType = "ai_model"
-	AccountTypeMinicod         AccountType = "minicod"
+	// 注:semantic_scholar 账户类型已下线 —— 学术检索统一走 minicod。
+	AccountTypeAIModel AccountType = "ai_model"
+	AccountTypeMinicod AccountType = "minicod"
 )
 
 // ModelLevel represents the AI model capability level
@@ -81,12 +81,6 @@ func (ThirdPartyAccount) TableName() string {
 	return "third_party_accounts"
 }
 
-// SemanticScholarConfig represents the config structure for Semantic Scholar
-type SemanticScholarConfig struct {
-	APIKey  string `json:"api_key"`
-	BaseURL string `json:"base_url,omitempty"` // Optional: custom base URL (e.g., for proxies)
-}
-
 // AIModelConfig represents the config structure for AI models
 // One account can configure three different model codes for low/mid/high levels
 type AIModelConfig struct {
@@ -103,9 +97,10 @@ type AIModelConfig struct {
 }
 
 // MinicodConfig represents the config structure for Minicod API
+// BaseURL 必填 —— 论文/期刊/作者检索全走它, 没有兜底域名, 留空则该账户不可用。
 type MinicodConfig struct {
 	APIKey  string `json:"api_key"`
-	BaseURL string `json:"base_url,omitempty"` // Optional: custom base URL (default: https://open.scholay.com)
+	BaseURL string `json:"base_url"`
 }
 
 // GetMinicodConfig extracts Minicod config
@@ -115,25 +110,6 @@ func (a *ThirdPartyAccount) GetMinicodConfig() (*MinicodConfig, error) {
 	}
 
 	var config MinicodConfig
-	configBytes, err := json.Marshal(a.Config)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := json.Unmarshal(configBytes, &config); err != nil {
-		return nil, err
-	}
-
-	return &config, nil
-}
-
-// GetSemanticScholarConfig extracts Semantic Scholar config
-func (a *ThirdPartyAccount) GetSemanticScholarConfig() (*SemanticScholarConfig, error) {
-	if a.Type != AccountTypeSemanticScholar {
-		return nil, fmt.Errorf("account type is not semantic_scholar")
-	}
-
-	var config SemanticScholarConfig
 	configBytes, err := json.Marshal(a.Config)
 	if err != nil {
 		return nil, err

@@ -79,7 +79,6 @@ export const MENUS: Menu[] = [
     icon: Sparkles,
     href: '/claw',
     category: 'ai',
-    comingSoon: true,
     match: startsWith('/claw'),
   },
   {
@@ -101,7 +100,6 @@ export const MENUS: Menu[] = [
     icon: FileCheck,
     href: '/peer-review',
     category: 'ai',
-    comingSoon: true,
     match: startsWith('/peer-review'),
   },
 

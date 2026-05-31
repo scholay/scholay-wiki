@@ -18,13 +18,17 @@ import (
 // isStreamingPath checks if the request path is a streaming endpoint
 // that requires a longer timeout (e.g., SSE, AI chat, analysis).
 func isStreamingPath(path string) bool {
+	// 任何以 /stream 结尾的端点都是 SSE (覆盖 /peer-review/submissions/:id/stream 这种带参数的,
+	// 旧的 "/peer-review/stream" 字面匹配匹配不到 → SSE 被默认 15s 超时掐断, 流式中途断流)。
+	if strings.HasSuffix(path, "/stream") {
+		return true
+	}
 	streamingPatterns := []string{
 		"/chat/stream",
 		"/advanced-search",
 		"/continue",
 		"/analysis",
 		"/translate/stream",
-		"/peer-review/stream",
 	}
 	for _, pattern := range streamingPatterns {
 		if strings.Contains(path, pattern) {

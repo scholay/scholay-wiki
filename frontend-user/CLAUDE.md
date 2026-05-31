@@ -1,6 +1,6 @@
 # frontend-user 架构与开发约束
 
-工作在 `frontend-user/` 下时自动加载。所有规则**仅适用于这个当前项目**,不波及归档的 `frontend-user-old/`(旧 CRA 版,不构建不部署)。
+工作在 `frontend-user/` 下时自动加载。当前项目唯一一份前端(旧 CRA 版 `frontend-user-old/` 已于 2026-05-28 整体删除)。
 
 目标:**职责清晰、解耦、可扩展、不重复造轮子**。
 

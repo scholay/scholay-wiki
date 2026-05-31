@@ -8,10 +8,21 @@
 package admin
 
 import (
+	"context"
 	"errors"
+	"log/slog"
 
 	"scholar-backend/internal/common/utils"
 )
+
+// revokeAfterRoleChange — 角色变更后吊销该用户全部 token。
+// role 烤进了 JWT,不吊销的话:升级的用户要等下次登录才拿到 admin 权限,
+// 而**降级的管理员手里的 token 仍带 role=admin**,在过期前可继续越权 —— 必须当场失效。
+func revokeAfterRoleChange(targetID uint) {
+	if err := utils.RevokeUserAllTokens(context.Background(), targetID); err != nil {
+		slog.Error("role change: revoke tokens failed", "user_id", targetID, "err", err)
+	}
+}
 
 // Service handles business logic for admin operations
 type Service struct {
@@ -54,29 +65,6 @@ func (s *Service) Login(login, password string) (*AdminUser, string, error) {
 	return admin, token, nil
 }
 
-// UpdatePassword updates an admin user's password
-func (s *Service) UpdatePassword(id uint, oldPassword, newPassword string) error {
-	admin, err := s.repo.FindByID(id)
-	if err != nil {
-		return err
-	}
-
-	if admin == nil {
-		return errors.New("admin user not found")
-	}
-
-	if !utils.CheckPassword(oldPassword, admin.PasswordHash) {
-		return errors.New("invalid old password")
-	}
-
-	hashedPassword, err := utils.HashPassword(newPassword)
-	if err != nil {
-		return err
-	}
-
-	return s.repo.UpdatePassword(id, hashedPassword)
-}
-
 // VerifyPassword verifies an admin user's password (for sensitive operations)
 func (s *Service) VerifyPassword(id uint, password string) (bool, error) {
 	admin, err := s.repo.FindByID(id)
@@ -89,11 +77,6 @@ func (s *Service) VerifyPassword(id uint, password string) (bool, error) {
 	}
 
 	return utils.CheckPassword(password, admin.PasswordHash), nil
-}
-
-// GetProfile gets an admin user's profile
-func (s *Service) GetProfile(id uint) (*AdminUser, error) {
-	return s.repo.FindByID(id)
 }
 
 // InitializeDefaultAdmin creates the default admin user if not exists.
@@ -142,7 +125,11 @@ func (s *Service) PromoteToAdmin(targetID uint) error {
 	case RoleSuperAdmin:
 		return errors.New("cannot modify super admin role")
 	}
-	return s.repo.UpdateRole(targetID, RoleAdmin)
+	if err := s.repo.UpdateRole(targetID, RoleAdmin); err != nil {
+		return err
+	}
+	revokeAfterRoleChange(targetID)
+	return nil
 }
 
 // DemoteFromAdmin 把普通管理员降级为普通用户。
@@ -161,6 +148,10 @@ func (s *Service) DemoteFromAdmin(targetID uint) error {
 	if target.Role != RoleAdmin {
 		return errors.New("user is not an admin")
 	}
-	return s.repo.UpdateRole(targetID, RoleUser)
+	if err := s.repo.UpdateRole(targetID, RoleUser); err != nil {
+		return err
+	}
+	revokeAfterRoleChange(targetID)
+	return nil
 }
 

@@ -21,6 +21,7 @@ import {
   PopoverTrigger,
 } from '@/shared/ui/popover';
 import type { UserLibraryFolderItem } from '@/shared/api/types';
+import { useApiToast } from '@/shared/hooks';
 import {
   useBatchDeletePapers,
   useBatchMovePapers,
@@ -56,6 +57,7 @@ export function LibraryBulkToolbar({
 }: Props) {
   const moveMut = useBatchMovePapers();
   const deleteMut = useBatchDeletePapers();
+  const apiToast = useApiToast();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
   const [folderQuery, setFolderQuery] = useState('');
@@ -74,7 +76,7 @@ export function LibraryBulkToolbar({
           setFolderQuery('');
           onClear();
         },
-        onError: (err) => toast.error((err as Error).message),
+        onError: apiToast.onError(),
       }
     );
   };
@@ -85,7 +87,7 @@ export function LibraryBulkToolbar({
         setConfirmingDelete(false);
         onClear();
       },
-      onError: (err) => toast.error((err as Error).message),
+      onError: apiToast.onError(),
     });
   };
 

@@ -8,8 +8,10 @@
 package middleware
 
 import (
-	"scholar-backend/internal/common/utils"
 	"strings"
+
+	"scholar-backend/internal/common/errcode"
+	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -25,34 +27,38 @@ const SessionCookieName = "scholay_token"
 
 // AuthMiddleware validates JWT tokens.
 //
-// 会话校验完全靠 JWT 自身签名 + TTL —— 没有数据库 session 表兜底,JWT 一旦签发
-// 在过期前都视为有效。需要服务端踢人的话,改密码 / 旋转 JWT secret 是唯一手段。
+// 校验顺序:
+//  1. 解析 token (签名 + TTL, 走 utils.ParseToken)
+//  2. **查 Redis blacklist** (utils.IsTokenRevoked) — token-level (jti) 或 user-level (改密/封号);
+//     Redis 故障 fail-open 放行 (见 utils/jwt_revoke.go)
+//  3. 校验 type/role
+//
+// 真正的 "踢人" 链路:
+//   - Logout 单端 → utils.RevokeToken(ctx, claims)
+//   - 改密 / 管理员封号 → utils.RevokeUserAllTokens(ctx, userID)
+//   - 全量失效 → 切 JWT secret (config)
+// extractToken 统一从请求里取 JWT —— 全站鉴权(AuthMiddleware / OptionalUserAuthMiddleware 等)
+// 都走这一处, 保证取 token 的口径一致(历史上两处各写一份, OptionalAuth 还漏了 cookie 分支)。
+// 优先级: Authorization: Bearer header  >  ?token= query(SSE/EventSource 不能带 header)
+//        >  scholay_token cookie(iframe / 跨页签共享会话)。
+func extractToken(c *gin.Context) string {
+	if authHeader := c.GetHeader("Authorization"); authHeader != "" {
+		if parts := strings.SplitN(authHeader, " ", 2); len(parts) == 2 && parts[0] == "Bearer" {
+			return parts[1]
+		}
+	}
+	if q := c.Query("token"); q != "" {
+		return q
+	}
+	if cookie, err := c.Cookie(SessionCookieName); err == nil && cookie != "" {
+		return cookie
+	}
+	return ""
+}
+
 func AuthMiddleware(requiredType string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var token string
-
-		// Try to get token from Authorization header first
-		authHeader := c.GetHeader("Authorization")
-		if authHeader != "" {
-			// Extract token from "Bearer <token>"
-			parts := strings.SplitN(authHeader, " ", 2)
-			if len(parts) == 2 && parts[0] == "Bearer" {
-				token = parts[1]
-			}
-		}
-
-		// Fallback to query parameter (for SSE/EventSource support)
-		if token == "" {
-			token = c.Query("token")
-		}
-
-		// Fallback to cookie (iframe / 跨页签场景 —— 见 SessionCookieName 注释)
-		if token == "" {
-			if cookie, err := c.Cookie(SessionCookieName); err == nil {
-				token = cookie
-			}
-		}
-
+		token := extractToken(c)
 		if token == "" {
 			utils.Unauthorized(c, "未登录,请先登录")
 			c.Abort()
@@ -60,7 +66,16 @@ func AuthMiddleware(requiredType string) gin.HandlerFunc {
 		}
 		claims, err := utils.ParseToken(token)
 		if err != nil {
-			utils.Unauthorized(c, "登录已过期,请重新登录")
+			// token 自然过期 / 签名错 / 篡改 — 业务码 errcode.TokenExpired,
+			// 前端区分这种 "用户在过期前没续上" vs "被吊销" (TokenRevoked) → 不同 UI 文案。
+			utils.UnauthorizedWithCode(c, errcode.TokenExpired, "登录已过期,请重新登录")
+			c.Abort()
+			return
+		}
+
+		// Blacklist 校验: 改密 / 单端登出 / 封号 都会在这里被拦。Redis 故障 fail-open 放行。
+		if utils.IsTokenRevoked(c.Request.Context(), claims) {
+			utils.UnauthorizedWithCode(c, errcode.TokenRevoked, "登录已失效,请重新登录")
 			c.Abort()
 			return
 		}
@@ -123,19 +138,7 @@ func UserAuthMiddleware() gin.HandlerFunc {
 // If a valid token is provided, user_id is set in context. Otherwise, request proceeds without user_id.
 func OptionalUserAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var token string
-
-		authHeader := c.GetHeader("Authorization")
-		if authHeader != "" {
-			parts := strings.SplitN(authHeader, " ", 2)
-			if len(parts) == 2 && parts[0] == "Bearer" {
-				token = parts[1]
-			}
-		}
-
-		if token == "" {
-			token = c.Query("token")
-		}
+		token := extractToken(c)
 
 		// No token — proceed as anonymous
 		if token == "" {
@@ -151,6 +154,12 @@ func OptionalUserAuthMiddleware() gin.HandlerFunc {
 		}
 
 		if claims.Type != "user" {
+			c.Next()
+			return
+		}
+
+		// 同样要查 blacklist; 被吊销的 token 视为匿名 (而不是拒绝, 因为这是 optional middleware)
+		if utils.IsTokenRevoked(c.Request.Context(), claims) {
 			c.Next()
 			return
 		}

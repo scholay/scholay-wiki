@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
+import { useApiToast } from '@/shared/hooks';
 import { Button, Input } from '@/shared/ui';
 import { useProfile } from '@/shared/api/profile';
 
@@ -24,6 +25,7 @@ export function ProfilePage() {
     }
   }, [profile]);
 
+  const apiToast = useApiToast();
   const update = useMutation({
     mutationFn: async (input: { username?: string; bio?: string; avatar_url?: string }) => {
       try {
@@ -36,7 +38,7 @@ export function ProfilePage() {
       qc.invalidateQueries({ queryKey: ['auth', 'profile'] });
       toast.success('资料已保存');
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : '没能保存成功,请检查网络后再试'),
+    onError: apiToast.onError('没能保存成功,请检查网络后再试'),
   });
 
   if (isLoading) return <p className="text-sm text-muted-foreground">正在加载…</p>;

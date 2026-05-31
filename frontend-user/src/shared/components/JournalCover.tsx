@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import { cn } from '@/shared/lib/utils';
 
 /**
@@ -47,48 +48,47 @@ interface JournalCoverProps {
   className?: string;
 }
 
-export function JournalCover({
-  id,
-  name,
-  size = 'card',
-  className,
-}: JournalCoverProps) {
-  const color = pickColor(id);
-  const abbrev = pickAbbrev(name);
+export const JournalCover = forwardRef<HTMLDivElement, JournalCoverProps>(
+  ({ id, name, size = 'card', className }, ref) => {
+    const color = pickColor(id);
+    const abbrev = pickAbbrev(name);
 
-  const dims =
-    size === 'lg'
-      ? 'w-32 h-44'
-      : size === 'sm'
-        ? 'w-20 h-28'
-        : 'w-[120px] h-full';
+    const dims =
+      size === 'lg'
+        ? 'w-32 h-44'
+        : size === 'sm'
+          ? 'w-20 h-28'
+          : 'w-[120px] h-full';
 
-  const abbrevSize =
-    size === 'lg' ? 'text-3xl' : size === 'sm' ? 'text-xl' : 'text-2xl';
+    const abbrevSize =
+      size === 'lg' ? 'text-3xl' : size === 'sm' ? 'text-xl' : 'text-2xl';
 
-  return (
-    <div
-      className={cn(
-        'shrink-0 rounded-md overflow-hidden flex flex-col justify-between p-3 text-white',
-        dims,
-        className
-      )}
-      style={{ backgroundColor: color }}
-    >
-      <span
+    return (
+      <div
+        ref={ref}
         className={cn(
-          'font-bold tracking-wider leading-none',
-          abbrevSize
+          'shrink-0 rounded-md overflow-hidden flex flex-col justify-between p-3 text-white',
+          dims,
+          className
         )}
+        style={{ backgroundColor: color }}
       >
-        {abbrev}
-      </span>
-      <span
-        className="text-2xs text-white/70 leading-tight line-clamp-3"
-        title={name}
-      >
-        {name}
-      </span>
-    </div>
-  );
-}
+        <span
+          className={cn(
+            'font-bold tracking-wider leading-none',
+            abbrevSize
+          )}
+        >
+          {abbrev}
+        </span>
+        <span
+          className="text-2xs text-white/70 leading-tight line-clamp-3"
+          title={name}
+        >
+          {name}
+        </span>
+      </div>
+    );
+  }
+);
+JournalCover.displayName = 'JournalCover';

@@ -8,20 +8,58 @@
 package feedback
 
 import (
+	"crypto/subtle"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"scholar-backend/internal/admin"
 	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/utils"
 )
+
+// ========== 文件上传约束 (走 MinIO, 不入库 BLOB) ==========
+
+// MaxImageBytes 单个图片最大尺寸 (10MB) — image/* 类
+const MaxImageBytes int64 = 10 << 20
+
+// MaxFileBytes 单个文件最大尺寸 (10MB) — pdf/doc/zip 等
+const MaxFileBytes int64 = 10 << 20
+
+// MaxTotalBytes 单次上传总和上限 (50MB)
+const MaxTotalBytes int64 = 50 << 20
+
+// MaxImageCount 单次上传最多图片数
+const MaxImageCount = 10
+
+// MaxFileCount 单次上传最多文件数
+const MaxFileCount = 5
+
+// allowedImageTypes 允许的图片 MIME (通过 http.DetectContentType 嗅探)
+var allowedImageTypes = map[string]bool{
+	"image/jpeg": true,
+	"image/png":  true,
+	"image/gif":  true,
+	"image/webp": true,
+}
+
+// allowedFileTypes 允许的非图片附件 MIME
+var allowedFileTypes = map[string]bool{
+	"application/pdf":                                                        true,
+	"application/msword":                                                     true,
+	"application/vnd.openxmlformats-officedocument.wordprocessingml.document": true,
+	"application/vnd.ms-excel":                                               true,
+	"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":      true,
+	"text/plain":                                                             true,
+	"application/zip":                                                        true,
+	"application/x-zip-compressed":                                           true,
+}
 
 // Handler 反馈处理器
 type Handler struct {
@@ -80,34 +118,6 @@ func (h *Handler) cleanupUnusedAttachments() {
 	}
 }
 
-// 文件上传限制
-const (
-	MaxFileCount  = 2        // 最大文件数量
-	MaxImageCount = 10       // 最大图片数量
-	MaxFileSize   = 10 << 20 // 单个文件最大10MB
-	MaxTotalSize  = 50 << 20 // 总文件大小最大50MB
-)
-
-// 允许的文件类型
-var allowedImageTypes = map[string]bool{
-	"image/jpeg": true,
-	"image/png":  true,
-	"image/gif":  true,
-	"image/webp": true,
-}
-
-var allowedFileTypes = map[string]bool{
-	"application/pdf":                                                        true,
-	"application/msword":                                                     true,
-	"application/vnd.openxmlformats-officedocument.wordprocessingml.document": true,
-	"application/vnd.ms-excel":                                               true,
-	"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":      true,
-	"text/plain":                                                             true,
-	"application/zip":                                                        true,
-	"application/x-rar-compressed":                                           true,
-	"application/x-zip-compressed":                                           true,
-}
-
 // CreateFeedbackRequestWithKey 创建反馈请求（带附件key）
 type CreateFeedbackRequestWithKey struct {
 	Email          string `json:"email" binding:"required,email"`
@@ -136,7 +146,7 @@ func (h *Handler) CreateFeedback(c *gin.Context) {
 	// 使用attachmentsKey从数据库获取附件
 	feedback, err := h.service.CreateFeedbackWithAttachments(&req.Email, &req.Content, req.Category, userID, username, ip, req.AttachmentsKey)
 	if err != nil {
-		utils.Error(c, 5001, "创建反馈失败: "+err.Error())
+		utils.InternalError(c, 5001, "创建反馈失败", err)
 		return
 	}
 
@@ -167,162 +177,11 @@ func (h *Handler) CreateFeedbackWithUser(c *gin.Context) {
 	// 使用attachmentsKey从数据库获取附件
 	feedback, err := h.service.CreateFeedbackWithAttachments(&req.Email, &req.Content, req.Category, userID, username, ip, req.AttachmentsKey)
 	if err != nil {
-		utils.Error(c, 5001, "创建反馈失败: "+err.Error())
+		utils.InternalError(c, 5001, "创建反馈失败", err)
 		return
 	}
 
 	utils.Success(c, feedback)
-}
-
-// UploadAttachments 上传附件（公共接口）
-// POST /api/v1/public/feedback/upload
-func (h *Handler) UploadAttachments(c *gin.Context) {
-	// 解析multipart表单
-	if err := c.Request.ParseMultipartForm(MaxTotalSize); err != nil {
-		utils.Error(c, 4002, "文件过大或格式错误")
-		return
-	}
-
-	form := c.Request.MultipartForm
-	if form == nil || form.File == nil {
-		utils.Error(c, 4003, "没有上传文件")
-		return
-	}
-
-	// 获取或生成上传批次key
-	uploadKey := c.PostForm("uploadKey")
-	if uploadKey == "" {
-		uploadKey = uuid.New().String()
-	}
-
-	var savedAttachments []FeedbackAttachment
-	var imageCount, fileCount int
-	var totalSize int64
-
-	// 处理文件
-	files := form.File["files"]
-	for _, fileHeader := range files {
-		// 检查文件大小
-		if fileHeader.Size > MaxFileSize {
-			utils.Error(c, 4004, fmt.Sprintf("文件 %s 超过10MB限制", fileHeader.Filename))
-			return
-		}
-		totalSize += fileHeader.Size
-
-		// 检查总大小
-		if totalSize > MaxTotalSize {
-			utils.Error(c, 4005, "文件总大小超过50MB限制")
-			return
-		}
-
-		// 打开文件
-		file, err := fileHeader.Open()
-		if err != nil {
-			utils.Error(c, 5002, "打开文件失败")
-			return
-		}
-		defer file.Close()
-
-		// 读取整个文件到内存
-		fileData, err := io.ReadAll(file)
-		if err != nil {
-			utils.Error(c, 5003, "读取文件失败")
-			return
-		}
-
-		// 检测文件类型
-		contentType := http.DetectContentType(fileData)
-
-		// 判断是图片还是文件
-		isImage := allowedImageTypes[contentType]
-		isFile := allowedFileTypes[contentType]
-
-		if !isImage && !isFile {
-			utils.Error(c, 4006, fmt.Sprintf("不支持的文件类型: %s", contentType))
-			return
-		}
-
-		// 检查数量限制
-		if isImage {
-			imageCount++
-			if imageCount > MaxImageCount {
-				utils.Error(c, 4007, fmt.Sprintf("图片数量超过%d张限制", MaxImageCount))
-				return
-			}
-		} else {
-			fileCount++
-			if fileCount > MaxFileCount {
-				utils.Error(c, 4008, fmt.Sprintf("文件数量超过%d个限制", MaxFileCount))
-				return
-			}
-		}
-
-		fileType := "file"
-		if isImage {
-			fileType = "image"
-		}
-
-		// 保存到数据库
-		attachment := &FeedbackAttachment{
-			UploadKey:    uploadKey,
-			OriginalName: fileHeader.Filename,
-			FileData:     fileData,
-			FileSize:     fileHeader.Size,
-			FileType:     fileType,
-			MimeType:     contentType,
-			IsUsed:       false,
-		}
-
-		if err := h.service.SaveAttachment(attachment); err != nil {
-			utils.Error(c, 5007, "保存附件失败: "+err.Error())
-			return
-		}
-
-		savedAttachments = append(savedAttachments, *attachment)
-	}
-
-	// 转换为前端期望的格式
-	var attachments []Attachment
-	for _, att := range savedAttachments {
-		attachments = append(attachments, att.ToAttachment())
-	}
-
-	utils.Success(c, gin.H{
-		"attachmentsKey": uploadKey,
-		"uploadKey":      uploadKey,
-		"attachments":    attachments,
-		"files":          attachments, // 兼容前端期望的字段名
-	})
-}
-
-// GetAttachment 获取附件（公共接口，用于下载/预览）
-// GET /api/v1/public/feedback/attachment/:id
-func (h *Handler) GetAttachment(c *gin.Context) {
-	id, ok := utils.ParseUintParam(c, "id")
-	if !ok {
-		return
-	}
-
-	attachment, err := h.service.GetAttachmentByID(id)
-	if err != nil {
-		utils.Error(c, 5001, "附件不存在")
-		return
-	}
-
-	// 设置响应头
-	c.Header("Content-Type", attachment.MimeType)
-	c.Header("Content-Length", strconv.FormatInt(attachment.FileSize, 10))
-
-	// 如果是文件类型，设置下载头
-	if attachment.FileType == "file" {
-		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", attachment.OriginalName))
-	} else {
-		// 图片类型，设置为内联显示
-		c.Header("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"", attachment.OriginalName))
-	}
-
-	// 写入文件数据
-	c.Data(http.StatusOK, attachment.MimeType, attachment.FileData)
 }
 
 // ========== 管理端接口 ==========
@@ -338,34 +197,11 @@ func (h *Handler) ListFeedbacks(c *gin.Context) {
 
 	result, err := h.service.ListFeedbacks(&req)
 	if err != nil {
-		utils.Error(c, 5001, "获取反馈列表失败: "+err.Error())
+		utils.InternalError(c, 5001, "获取反馈列表失败", err)
 		return
 	}
 
 	utils.Success(c, result)
-}
-
-// GetFeedback 获取反馈详情（管理端）
-// GET /api/v1/admin/feedbacks/:id
-func (h *Handler) GetFeedback(c *gin.Context) {
-	id, ok := utils.ParseUintParam(c, "id")
-	if !ok {
-		return
-	}
-
-	feedback, err := h.service.GetFeedback(id)
-	if err != nil {
-		utils.Error(c, 5001, "获取反馈详情失败: "+err.Error())
-		return
-	}
-
-	// 解析附件
-	attachments, _ := h.service.GetAttachments(feedback)
-
-	utils.Success(c, gin.H{
-		"feedback":    feedback,
-		"attachments": attachments,
-	})
 }
 
 // UpdateStatus 更新反馈状态（管理端）
@@ -382,33 +218,7 @@ func (h *Handler) UpdateStatus(c *gin.Context) {
 	}
 
 	if err := h.service.UpdateStatus(id, req.Status); err != nil {
-		utils.Error(c, 5001, "更新状态失败: "+err.Error())
-		return
-	}
-
-	utils.Success(c, nil)
-}
-
-// UpdateCategoryRequest 分类更新请求
-type UpdateCategoryRequest struct {
-	Category string `json:"category" binding:"required,oneof=bug feature complaint praise other"`
-}
-
-// UpdateCategory 更新反馈分类(管理端)
-// PUT /api/v1/admin/feedbacks/:id/category
-func (h *Handler) UpdateCategory(c *gin.Context) {
-	id, ok := utils.ParseUintParam(c, "id")
-	if !ok {
-		return
-	}
-
-	var req UpdateCategoryRequest
-	if !utils.BindJSON(c, &req) {
-		return
-	}
-
-	if err := h.service.UpdateCategory(id, req.Category); err != nil {
-		utils.Error(c, 5004, "更新分类失败: "+err.Error())
+		utils.InternalError(c, 5001, "更新状态失败", err)
 		return
 	}
 
@@ -435,30 +245,9 @@ func (h *Handler) ReplyFeedback(c *gin.Context) {
 	}
 
 	if err := h.service.ReplyFeedback(id, req.ReplyContent, adminUsername); err != nil {
-		utils.Error(c, 5001, "回复反馈失败: "+err.Error())
+		utils.InternalError(c, 5001, "回复反馈失败", err)
 		return
 	}
-
-	utils.Success(c, nil)
-}
-
-// DeleteFeedback 删除反馈（管理端）
-// DELETE /api/v1/admin/feedbacks/:id
-func (h *Handler) DeleteFeedback(c *gin.Context) {
-	id, ok := utils.ParseUintParam(c, "id")
-	if !ok {
-		return
-	}
-
-	// 删除反馈及其附件记录（附件数据在数据库中，会级联删除）
-	_, err := h.service.DeleteFeedbackWithAttachments(id)
-	if err != nil {
-		utils.Error(c, 5001, "删除反馈失败: "+err.Error())
-		return
-	}
-
-	admin.LogAdminAction(c, admin.ActionDelete, admin.ResFeedback,
-		strconv.FormatUint(uint64(id), 10), nil)
 
 	utils.Success(c, nil)
 }
@@ -468,53 +257,205 @@ func (h *Handler) DeleteFeedback(c *gin.Context) {
 func (h *Handler) GetStats(c *gin.Context) {
 	stats, err := h.service.GetStats()
 	if err != nil {
-		utils.Error(c, 5001, "获取统计失败: "+err.Error())
+		utils.InternalError(c, 5001, "获取统计失败", err)
 		return
 	}
 
 	utils.Success(c, stats)
 }
 
-// AssignFeedback 指派反馈给某管理员
-// PUT /api/v1/admin/feedbacks/:id/assignee
-func (h *Handler) AssignFeedback(c *gin.Context) {
+// ========== 附件相关 (MinIO) ==========
+
+// UploadAttachments 上传附件 (公开接口, 走 MinIO)。
+// POST /api/v1/public/feedback/upload  Content-Type: multipart/form-data
+//
+// 表单字段:
+//   - files (repeated): 实际文件
+//   - uploadKey (可选): 想复用已有批次 key, 不传后端生成
+//
+// 响应: { uploadKey, attachments: [{ id, name, url, size, type }] }
+func (h *Handler) UploadAttachments(c *gin.Context) {
+	if err := c.Request.ParseMultipartForm(MaxTotalBytes); err != nil {
+		utils.Error(c, 4002, "文件过大或格式错误")
+		return
+	}
+	form := c.Request.MultipartForm
+	if form == nil || len(form.File["files"]) == 0 {
+		utils.Error(c, 4003, "没有上传文件")
+		return
+	}
+
+	uploadKey := c.PostForm("uploadKey")
+	if uploadKey == "" {
+		uploadKey = uuid.New().String()
+	}
+
+	var (
+		imageCount, fileCount int
+		totalSize             int64
+		saved                 []Attachment
+	)
+	for _, fh := range form.File["files"] {
+		if fh.Size > MaxImageBytes && fh.Size > MaxFileBytes {
+			utils.Error(c, 4004, fmt.Sprintf("文件 %s 超过 10MB 限制", fh.Filename))
+			return
+		}
+		totalSize += fh.Size
+		if totalSize > MaxTotalBytes {
+			utils.Error(c, 4005, "文件总大小超过 50MB 限制")
+			return
+		}
+
+		file, err := fh.Open()
+		if err != nil {
+			utils.Error(c, 5002, "打开文件失败")
+			return
+		}
+
+		// 读 512 字节 sniff MIME, 然后构造一个 multireader 把已读的拼回去 — 不需要把整文件读入内存。
+		header := make([]byte, 512)
+		n, _ := io.ReadFull(file, header)
+		header = header[:n]
+		contentType := http.DetectContentType(header)
+
+		isImage := allowedImageTypes[contentType]
+		isFile := allowedFileTypes[contentType]
+		if !isImage && !isFile {
+			file.Close()
+			utils.Error(c, 4006, fmt.Sprintf("不支持的文件类型: %s", contentType))
+			return
+		}
+		if isImage {
+			imageCount++
+			if imageCount > MaxImageCount {
+				file.Close()
+				utils.Error(c, 4007, fmt.Sprintf("图片数量超过 %d 张限制", MaxImageCount))
+				return
+			}
+		} else {
+			fileCount++
+			if fileCount > MaxFileCount {
+				file.Close()
+				utils.Error(c, 4008, fmt.Sprintf("文件数量超过 %d 个限制", MaxFileCount))
+				return
+			}
+		}
+
+		fileType := "file"
+		if isImage {
+			fileType = "image"
+		}
+
+		// 把已读的 header + 剩余流拼成完整 reader
+		body := io.MultiReader(bytesReader(header), file)
+		att, err := h.service.UploadAttachment(
+			c.Request.Context(), uploadKey, fh.Filename, contentType, fileType,
+			body, fh.Size,
+		)
+		file.Close()
+		if err != nil {
+			slog.Error("feedback: upload attachment failed",
+				"file", fh.Filename, "err", err)
+			utils.InternalError(c, 5007, "保存附件失败", err)
+			return
+		}
+		saved = append(saved, att.ToAttachment())
+	}
+
+	utils.Success(c, gin.H{
+		"uploadKey":   uploadKey,
+		"attachments": saved,
+	})
+}
+
+// bytesReader 把已读的字节包成 io.Reader (避免引入 bytes 包符号污染 import 列表)。
+func bytesReader(b []byte) io.Reader { return &sliceReader{b: b} }
+
+type sliceReader struct{ b []byte }
+
+func (r *sliceReader) Read(p []byte) (int, error) {
+	if len(r.b) == 0 {
+		return 0, io.EOF
+	}
+	n := copy(p, r.b)
+	r.b = r.b[n:]
+	return n, nil
+}
+
+// GetAttachment 下载/预览附件 (公开接口, 流式从 MinIO 透传)。
+// GET /api/v1/public/feedback/attachment/:id
+//
+// 图片走 inline (浏览器直接渲染), 其它走 attachment (触发下载)。
+func (h *Handler) GetAttachment(c *gin.Context) {
 	id, ok := utils.ParseUintParam(c, "id")
 	if !ok {
 		return
 	}
-	var req AssignFeedbackRequest
-	if !utils.BindJSON(c, &req) {
+
+	// 公开接口 + 自增 id ⇒ 必须用上传时返回的 uploadKey (UUID, 不可枚举) 做能力校验。
+	// 否则任何人 id++ 枚举就能拉走全部反馈附件 (含用户截图/PII)。先取元数据校验 key,
+	// 通过后才碰 MinIO;不区分 "不存在" 与 "key 不对",避免成为 id 枚举 oracle。
+	meta, err := h.service.GetAttachmentByID(id)
+	if err != nil || meta == nil {
+		utils.NotFound(c, "附件不存在")
 		return
 	}
-	if err := h.service.AssignFeedback(id, req.AssignedTo); err != nil {
-		utils.Error(c, 5001, "指派失败: "+err.Error())
+	key := strings.TrimSpace(c.Query("key"))
+	if key == "" || subtle.ConstantTimeCompare([]byte(key), []byte(meta.UploadKey)) != 1 {
+		utils.NotFound(c, "附件不存在")
 		return
 	}
-	target := "unassign"
-	if req.AssignedTo != nil {
-		target = strconv.FormatUint(uint64(*req.AssignedTo), 10)
+
+	rc, att, err := h.service.OpenAttachment(c.Request.Context(), id)
+	if err != nil {
+		utils.InternalError(c, 5001, "附件不存在或读取失败", err)
+		return
 	}
-	admin.LogAdminAction(c, "assign", admin.ResFeedback,
-		strconv.FormatUint(uint64(id), 10), gin.H{"assigned_to": target})
+	defer rc.Close()
+
+	c.Header("Content-Type", att.MimeType)
+	c.Header("Content-Length", strconv.FormatInt(att.FileSize, 10))
+	disposition := "attachment"
+	if att.FileType == "image" {
+		disposition = "inline"
+	}
+	c.Header("Content-Disposition", fmt.Sprintf(`%s; filename="%s"`, disposition, att.OriginalName))
+
+	if _, err := io.Copy(c.Writer, rc); err != nil {
+		slog.Warn("feedback: stream attachment failed", "id", id, "err", err)
+	}
+}
+
+// GetFeedback 反馈详情 (管理端) — 含附件列表。
+// GET /api/v1/admin/feedbacks/:id
+func (h *Handler) GetFeedback(c *gin.Context) {
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
+		return
+	}
+	feedback, err := h.service.GetFeedback(id)
+	if err != nil {
+		utils.InternalError(c, 5001, "获取反馈详情失败", err)
+		return
+	}
+	attachments, _ := h.service.GetAttachments(feedback)
+	utils.Success(c, gin.H{
+		"feedback":    feedback,
+		"attachments": attachments,
+	})
+}
+
+// DeleteFeedback 删反馈 + MinIO 附件 (管理端)。
+// DELETE /api/v1/admin/feedbacks/:id
+func (h *Handler) DeleteFeedback(c *gin.Context) {
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
+		return
+	}
+	if _, err := h.service.DeleteFeedbackWithAttachments(id); err != nil {
+		utils.InternalError(c, 5001, "删除反馈失败", err)
+		return
+	}
 	utils.Success(c, nil)
 }
 
-// UpdateInternalNotes 更新内部协作备注
-// PUT /api/v1/admin/feedbacks/:id/internal-notes
-func (h *Handler) UpdateInternalNotes(c *gin.Context) {
-	id, ok := utils.ParseUintParam(c, "id")
-	if !ok {
-		return
-	}
-	var req UpdateInternalNotesRequest
-	if !utils.BindJSON(c, &req) {
-		return
-	}
-	if err := h.service.UpdateInternalNotes(id, req.InternalNotes); err != nil {
-		utils.Error(c, 5001, "更新备注失败: "+err.Error())
-		return
-	}
-	admin.LogAdminAction(c, admin.ActionUpdate, admin.ResFeedback,
-		strconv.FormatUint(uint64(id), 10), gin.H{"action": "internal_notes"})
-	utils.Success(c, nil)
-}

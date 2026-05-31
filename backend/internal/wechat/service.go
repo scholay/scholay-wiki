@@ -8,22 +8,53 @@
 package wechat
 
 import (
+	"context"
 	"crypto/sha1"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"scholar-backend/internal/common/model"
+	"scholar-backend/internal/common/upstream"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"gorm.io/gorm"
 )
+
+// 全局 upstream.Client — base 是 api.weixin.qq.com, 所有 /sns/* 走它。
+// 微信开放平台接口正常 < 500ms 回, 用默认 httpclient (5min timeout 太长 — 不过
+// 我们靠 ctx.WithTimeout 自己控制单次时长, 或者继承调用方 ctx).
+var (
+	wxOnce   sync.Once
+	wxClient *upstream.Client
+)
+
+func wxUpstream() *upstream.Client {
+	wxOnce.Do(func() {
+		hc := &http.Client{Timeout: 10 * time.Second}
+		wxClient = upstream.New("wechat_open").
+			BaseURL("https://api.weixin.qq.com").
+			HTTPClient(hc).
+			Retry(upstream.RetryConfig{
+				Max:         2,
+				BackoffBase: 300 * time.Millisecond,
+				BackoffMax:  2 * time.Second,
+			}).
+			Breaker(upstream.BreakerConfig{
+				MaxRequests:  3,
+				MinRequests:  5,
+				FailureRatio: 0.6,
+				Timeout:      30 * time.Second,
+			}).
+			MustBuild()
+	})
+	return wxClient
+}
 
 // Service handles WeChat OAuth operations
 type Service struct {
@@ -89,77 +120,40 @@ func (s *Service) GetAccessToken(code string) (*WeChatAccessTokenResponse, error
 	if err != nil {
 		return nil, fmt.Errorf("no active WeChat configuration: %w", err)
 	}
-
-	// Build request URL
-	params := url.Values{}
-	params.Set("appid", config.AppID)
-	params.Set("secret", config.AppSecret)
-	params.Set("code", code)
-	params.Set("grant_type", "authorization_code")
-
-	tokenURL := "https://api.weixin.qq.com/sns/oauth2/access_token?" + params.Encode()
-
-	// Make HTTP request
-	resp, err := http.Get(tokenURL)
+	var tokenResp WeChatAccessTokenResponse
+	err = wxUpstream().GetJSON(context.Background(), "/sns/oauth2/access_token", url.Values{
+		"appid":      {config.AppID},
+		"secret":     {config.AppSecret},
+		"code":       {code},
+		"grant_type": {"authorization_code"},
+	}, &tokenResp)
 	if err != nil {
-		slog.Error("wechat: get access_token http error", "err", err)
+		slog.Error("wechat: access_token call failed", "err", err)
 		return nil, fmt.Errorf("failed to get access token: %w", err)
 	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		slog.Error("wechat: read access_token body", "err", err)
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	var tokenResp WeChatAccessTokenResponse
-	if err := json.Unmarshal(body, &tokenResp); err != nil {
-		slog.Error("wechat: parse access_token response", "err", err, "body", string(body))
-		return nil, fmt.Errorf("failed to parse response: %w", err)
-	}
-
 	if tokenResp.ErrCode != 0 {
 		slog.Error("wechat: access_token api error", "errcode", tokenResp.ErrCode, "errmsg", tokenResp.ErrMsg)
 		return nil, fmt.Errorf("WeChat API error: %s (code: %d)", tokenResp.ErrMsg, tokenResp.ErrCode)
 	}
-
 	return &tokenResp, nil
 }
 
 // GetUserInfo retrieves user information using access token
 func (s *Service) GetUserInfo(accessToken, openID string) (*WeChatUserInfo, error) {
-	params := url.Values{}
-	params.Set("access_token", accessToken)
-	params.Set("openid", openID)
-	params.Set("lang", "zh_CN")
-
-	userInfoURL := "https://api.weixin.qq.com/sns/userinfo?" + params.Encode()
-
-	resp, err := http.Get(userInfoURL)
+	var userInfo WeChatUserInfo
+	err := wxUpstream().GetJSON(context.Background(), "/sns/userinfo", url.Values{
+		"access_token": {accessToken},
+		"openid":       {openID},
+		"lang":         {"zh_CN"},
+	}, &userInfo)
 	if err != nil {
-		slog.Error("wechat: get userinfo http error", "err", err)
+		slog.Error("wechat: userinfo call failed", "err", err)
 		return nil, fmt.Errorf("failed to get user info: %w", err)
 	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		slog.Error("wechat: read userinfo body", "err", err)
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	var userInfo WeChatUserInfo
-	if err := json.Unmarshal(body, &userInfo); err != nil {
-		slog.Error("wechat: parse userinfo response", "err", err, "body", string(body))
-		return nil, fmt.Errorf("failed to parse response: %w", err)
-	}
-
 	if userInfo.ErrCode != 0 {
 		slog.Error("wechat: userinfo api error", "errcode", userInfo.ErrCode, "errmsg", userInfo.ErrMsg)
 		return nil, fmt.Errorf("WeChat API error: %s (code: %d)", userInfo.ErrMsg, userInfo.ErrCode)
 	}
-
 	return &userInfo, nil
 }
 
@@ -169,34 +163,18 @@ func (s *Service) RefreshAccessToken(refreshToken string) (*WeChatAccessTokenRes
 	if err != nil {
 		return nil, fmt.Errorf("no active WeChat configuration: %w", err)
 	}
-
-	params := url.Values{}
-	params.Set("appid", config.AppID)
-	params.Set("grant_type", "refresh_token")
-	params.Set("refresh_token", refreshToken)
-
-	tokenURL := "https://api.weixin.qq.com/sns/oauth2/refresh_token?" + params.Encode()
-
-	resp, err := http.Get(tokenURL)
+	var tokenResp WeChatAccessTokenResponse
+	err = wxUpstream().GetJSON(context.Background(), "/sns/oauth2/refresh_token", url.Values{
+		"appid":         {config.AppID},
+		"grant_type":    {"refresh_token"},
+		"refresh_token": {refreshToken},
+	}, &tokenResp)
 	if err != nil {
 		return nil, fmt.Errorf("failed to refresh token: %w", err)
 	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	var tokenResp WeChatAccessTokenResponse
-	if err := json.Unmarshal(body, &tokenResp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
-	}
-
 	if tokenResp.ErrCode != 0 {
 		return nil, fmt.Errorf("WeChat API error: %s (code: %d)", tokenResp.ErrMsg, tokenResp.ErrCode)
 	}
-
 	return &tokenResp, nil
 }
 
@@ -249,6 +227,11 @@ func (s *Service) CreateConfig(config *model.WeChatConfig) error {
 	}
 
 	return s.repo.CreateConfig(config)
+}
+
+// GetConfigByID 取单条 WeChat 配置 —— admin 编辑前 / Update 前合并旧值用。
+func (s *Service) GetConfigByID(id uint) (*model.WeChatConfig, error) {
+	return s.repo.GetConfigByID(id)
 }
 
 // UpdateConfig updates a WeChat configuration

@@ -89,34 +89,7 @@ func (h *Handler) GetMessages(c *gin.Context) {
 
 	resp, err := h.service.GetUserMessages(userID, &req)
 	if err != nil {
-		utils.Error(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	utils.Success(c, resp)
-}
-
-// GetMessage 获取消息详情
-// @Summary 获取消息详情
-// @Tags 站内信-用户端
-// @Security BearerAuth
-// @Param id path int true "消息ID"
-// @Success 200 {object} utils.Response{data=UserMessageResponse}
-// @Router /api/v1/user/messages/{id} [get]
-func (h *Handler) GetMessage(c *gin.Context) {
-	userID, ok := utils.GetUserID(c)
-	if !ok {
-		return
-	}
-
-	id, ok := utils.ParseUintParam(c, "id")
-	if !ok {
-		return
-	}
-
-	resp, err := h.service.GetUserMessage(userID, id)
-	if err != nil {
-		utils.Error(c, http.StatusNotFound, err.Error())
+		utils.InternalError(c, 500, "获取消息列表失败", err)
 		return
 	}
 
@@ -137,7 +110,7 @@ func (h *Handler) GetUnreadCount(c *gin.Context) {
 
 	resp, err := h.service.GetUnreadCount(userID)
 	if err != nil {
-		utils.Error(c, http.StatusInternalServerError, err.Error())
+		utils.InternalError(c, 500, "获取未读数量失败", err)
 		return
 	}
 
@@ -163,7 +136,7 @@ func (h *Handler) MarkAsRead(c *gin.Context) {
 	}
 
 	if err := h.service.MarkAsRead(userID, id); err != nil {
-		utils.Error(c, http.StatusInternalServerError, err.Error())
+		utils.InternalError(c, 500, "标记已读失败", err)
 		return
 	}
 
@@ -184,7 +157,7 @@ func (h *Handler) MarkAllAsRead(c *gin.Context) {
 
 	count, err := h.service.MarkAllAsRead(userID)
 	if err != nil {
-		utils.Error(c, http.StatusInternalServerError, err.Error())
+		utils.InternalError(c, 500, "标记全部已读失败", err)
 		return
 	}
 
@@ -210,7 +183,7 @@ func (h *Handler) DeleteMessage(c *gin.Context) {
 	}
 
 	if err := h.service.DeleteUserMessage(userID, id); err != nil {
-		utils.Error(c, http.StatusInternalServerError, err.Error())
+		utils.InternalError(c, 500, "删除消息失败", err)
 		return
 	}
 
@@ -243,7 +216,7 @@ func (h *Handler) AdminCreateMessage(c *gin.Context) {
 
 	resp, err := h.service.CreateMessage(&req, senderID, senderName)
 	if err != nil {
-		utils.Error(c, http.StatusInternalServerError, err.Error())
+		utils.InternalError(c, 500, "创建消息失败", err)
 		return
 	}
 
@@ -264,7 +237,7 @@ func (h *Handler) AdminSendMessage(c *gin.Context) {
 	}
 
 	if err := h.service.SendMessage(id); err != nil {
-		utils.Error(c, http.StatusInternalServerError, err.Error())
+		utils.InternalError(c, 500, "发送消息失败", err)
 		return
 	}
 
@@ -291,170 +264,12 @@ func (h *Handler) AdminGetMessages(c *gin.Context) {
 
 	resp, err := h.service.ListMessages(&req)
 	if err != nil {
-		utils.Error(c, http.StatusInternalServerError, err.Error())
+		utils.InternalError(c, 500, "获取消息列表失败", err)
 		return
 	}
 
 	utils.Success(c, resp)
 }
 
-// AdminGetMessage 获取消息详情
-// @Summary 获取消息详情
-// @Tags 站内信-管理端
-// @Security BearerAuth
-// @Param id path int true "消息ID"
-// @Success 200 {object} utils.Response{data=MessageResponse}
-// @Router /api/v1/admin/messages/{id} [get]
-func (h *Handler) AdminGetMessage(c *gin.Context) {
-	id, ok := utils.ParseUintParam(c, "id")
-	if !ok {
-		return
-	}
 
-	resp, err := h.service.GetMessage(id)
-	if err != nil {
-		utils.Error(c, http.StatusNotFound, err.Error())
-		return
-	}
-
-	utils.Success(c, resp)
-}
-
-// AdminGetMessageStats 获取消息统计
-// @Summary 获取消息统计
-// @Tags 站内信-管理端
-// @Security BearerAuth
-// @Success 200 {object} utils.Response{data=MessageStatsResponse}
-// @Router /api/v1/admin/messages/stats [get]
-func (h *Handler) AdminGetMessageStats(c *gin.Context) {
-	resp, err := h.service.GetMessageStats()
-	if err != nil {
-		utils.Error(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	utils.Success(c, resp)
-}
-
-// ========== 模板管理 API ==========
-
-// AdminCreateTemplate 创建模板
-// @Summary 创建消息模板
-// @Tags 站内信-模板管理
-// @Security BearerAuth
-// @Param body body CreateTemplateRequest true "创建模板请求"
-// @Success 200 {object} utils.Response{data=TemplateResponse}
-// @Router /api/v1/admin/message-templates [post]
-func (h *Handler) AdminCreateTemplate(c *gin.Context) {
-	var req CreateTemplateRequest
-	if !utils.BindJSON(c, &req) {
-		return
-	}
-
-	resp, err := h.service.CreateTemplate(&req)
-	if err != nil {
-		utils.Error(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	utils.Success(c, resp)
-}
-
-// AdminGetTemplates 获取模板列表
-// @Summary 获取模板列表
-// @Tags 站内信-模板管理
-// @Security BearerAuth
-// @Param page query int false "页码" default(1)
-// @Param page_size query int false "每页数量" default(20)
-// @Param category query string false "分类" Enums(system, promotion, transaction)
-// @Param is_active query bool false "是否启用"
-// @Param keyword query string false "关键词"
-// @Success 200 {object} utils.Response{data=TemplateListResponse}
-// @Router /api/v1/admin/message-templates [get]
-func (h *Handler) AdminGetTemplates(c *gin.Context) {
-	var req TemplateListRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
-		utils.Error(c, http.StatusBadRequest, "参数错误: "+err.Error())
-		return
-	}
-
-	resp, err := h.service.ListTemplates(&req)
-	if err != nil {
-		utils.Error(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	utils.Success(c, resp)
-}
-
-// AdminGetTemplate 获取模板详情
-// @Summary 获取模板详情
-// @Tags 站内信-模板管理
-// @Security BearerAuth
-// @Param id path int true "模板ID"
-// @Success 200 {object} utils.Response{data=TemplateResponse}
-// @Router /api/v1/admin/message-templates/{id} [get]
-func (h *Handler) AdminGetTemplate(c *gin.Context) {
-	id, ok := utils.ParseUintParam(c, "id")
-	if !ok {
-		return
-	}
-
-	resp, err := h.service.GetTemplate(id)
-	if err != nil {
-		utils.Error(c, http.StatusNotFound, err.Error())
-		return
-	}
-
-	utils.Success(c, resp)
-}
-
-// AdminUpdateTemplate 更新模板
-// @Summary 更新模板
-// @Tags 站内信-模板管理
-// @Security BearerAuth
-// @Param id path int true "模板ID"
-// @Param body body UpdateTemplateRequest true "更新模板请求"
-// @Success 200 {object} utils.Response{data=TemplateResponse}
-// @Router /api/v1/admin/message-templates/{id} [put]
-func (h *Handler) AdminUpdateTemplate(c *gin.Context) {
-	id, ok := utils.ParseUintParam(c, "id")
-	if !ok {
-		return
-	}
-
-	var req UpdateTemplateRequest
-	if !utils.BindJSON(c, &req) {
-		return
-	}
-
-	resp, err := h.service.UpdateTemplate(id, &req)
-	if err != nil {
-		utils.Error(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	utils.Success(c, resp)
-}
-
-// AdminDeleteTemplate 删除模板
-// @Summary 删除模板
-// @Tags 站内信-模板管理
-// @Security BearerAuth
-// @Param id path int true "模板ID"
-// @Success 200 {object} utils.Response
-// @Router /api/v1/admin/message-templates/{id} [delete]
-func (h *Handler) AdminDeleteTemplate(c *gin.Context) {
-	id, ok := utils.ParseUintParam(c, "id")
-	if !ok {
-		return
-	}
-
-	if err := h.service.DeleteTemplate(id); err != nil {
-		utils.Error(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	utils.Success(c, nil)
-}
 

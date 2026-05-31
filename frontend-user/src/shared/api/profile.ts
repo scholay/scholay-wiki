@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
+import { STALE_FRESH } from '@/shared/lib/query-config';
 import { useAuthStore } from '@/stores/auth.store';
 
 /**
@@ -51,7 +52,7 @@ export function useProfile() {
         throw apiErr;
       }
     },
-    staleTime: 5 * 60_000,
+    staleTime: STALE_FRESH,
     retry: false,
   });
 }

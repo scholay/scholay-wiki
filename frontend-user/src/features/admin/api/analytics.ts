@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
+import { STALE_WARM } from '@/shared/lib/query-config';
 
 /**
  * 字段严格对齐 backend/internal/umami/{client,handler}.go。
@@ -76,7 +77,7 @@ export function useAnalyticsOverview(params: AnalyticsRangeParams = {}) {
       return r.data.data;
     },
     // 概览数据 60s 内不重复拉,避免页面切 tab 来回触发
-    staleTime: 60_000,
+    staleTime: STALE_WARM,
   });
 }
 
@@ -92,7 +93,7 @@ export function usePageviews(
       });
       return r.data.data;
     },
-    staleTime: 60_000,
+    staleTime: STALE_WARM,
   });
 }
 
@@ -105,12 +106,16 @@ export function useTopMetric(type: TopType, limit = 10, params: AnalyticsRangePa
       });
       return r.data.data;
     },
-    staleTime: 60_000,
+    staleTime: STALE_WARM,
   });
 }
 
 /**
- * 实时在线 —— 30s 轮询。staleTime/refetchInterval 同步设置,后台 tab 切回来也会立刻刷。
+ * 实时在线 —— 30s 轮询。
+ * - staleTime = STALE_WARM (60s):前台切 tab 来回不会触发额外 refetch。
+ * - refetchInterval = 30s:前台轮询。
+ * - refetchIntervalInBackground=false:tab 不在前台时不轮询 (省后端 + 省流量)。
+ * - refetchOnWindowFocus=true:切回 tab 时主动刷一次,作为后台不轮询的兜底。
  */
 export function useActiveVisitors() {
   return useQuery({
@@ -120,6 +125,8 @@ export function useActiveVisitors() {
       return r.data.data;
     },
     refetchInterval: 30_000,
-    staleTime: 25_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    staleTime: STALE_WARM,
   });
 }
