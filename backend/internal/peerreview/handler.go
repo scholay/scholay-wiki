@@ -34,6 +34,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -439,6 +440,12 @@ func (h *Handler) ListAssets(c *gin.Context) {
 	}
 	items, err := h.svc.ListAssets(uidOf(c), id)
 	if err != nil {
+		// submission 不存在 / 不属于当前用户 → 404, 而不是 500(否则前端轮询 assets 时刷一片
+		// 500 错误日志, 且 TanStack Query 拿 500 保留旧缓存 → 删文件后 UI 不更新)。
+		if errors.Is(err, ErrNotFound) {
+			utils.NotFound(c, "submission not found")
+			return
+		}
 		utils.ServerError(c, err.Error())
 		return
 	}
@@ -607,7 +614,8 @@ func (h *Handler) DeleteAsset(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if err := h.svc.DeleteAsset(c.Request.Context(), uidOf(c), id, aid); err != nil {
+	submissionDeleted, err := h.svc.DeleteAsset(c.Request.Context(), uidOf(c), id, aid)
+	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			utils.NotFound(c, "asset not found")
 			return
@@ -619,7 +627,9 @@ func (h *Handler) DeleteAsset(c *gin.Context) {
 		utils.ServerError(c, err.Error())
 		return
 	}
-	utils.Success(c, gin.H{"ok": true})
+	// submissionDeleted=true: 删的是草稿最后一个文件, 整条草稿已一并取消 —— 前端据此重置向导,
+	// 不要再去拉这条已不存在的 submission。
+	utils.Success(c, gin.H{"ok": true, "submissionDeleted": submissionDeleted})
 }
 
 // ─── 流式输出 (SSE) ─────────────────────────────────────────────────────
@@ -724,11 +734,22 @@ func (h *Handler) StreamPartial(c *gin.Context) {
 	}
 
 	// 流式循环
+	// 30s 心跳: agent "思考 / 用工具" 的静默期可能 >60s 不产生 delta。不发心跳的话, 经过
+	// nginx (默认 60s proxy_read_timeout) 会被当 idle 连接掐断 —— 生产实测 reviewer/chief
+	// 流就报 "upstream timed out", 前端退化成"一口气出"。写 SSE comment frame ": ping"
+	// (EventSource 静默忽略, 不污染业务数据) 保持连接活跃, 跟 sse.BeginStream 同款机制。
+	heartbeat := time.NewTicker(30 * time.Second)
+	defer heartbeat.Stop()
 	clientGone := c.Request.Context().Done()
 	for {
 		select {
 		case <-clientGone:
 			return
+		case <-heartbeat.C:
+			if _, err := c.Writer.Write([]byte(": ping\n\n")); err != nil {
+				return
+			}
+			flusher.Flush()
 		case evt, alive := <-ch:
 			if !alive {
 				return

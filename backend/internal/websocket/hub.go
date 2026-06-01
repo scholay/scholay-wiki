@@ -14,6 +14,7 @@ import (
 
 	"scholar-backend/internal/common/safego"
 
+	gorillaws "github.com/gorilla/websocket"
 	"github.com/olahol/melody"
 )
 
@@ -178,6 +179,17 @@ func (h *Hub) setupHandlers() {
 
 	// 错误处理
 	h.melody.HandleError(func(s *melody.Session, err error) {
+		// 正常关闭(用户关页签 / 跳走 / 网络断 / 手机切后台)不是服务端错误 —— 降到 Debug,
+		// 避免污染 ERROR 日志、接监控时误报。只有真·非预期错误才记 ERROR。
+		if gorillaws.IsCloseError(err,
+			gorillaws.CloseNormalClosure,    // 1000 正常
+			gorillaws.CloseGoingAway,        // 1001 关页签 / 跳走
+			gorillaws.CloseNoStatusReceived, // 1005 无状态码关闭(浏览器默认)
+			gorillaws.CloseAbnormalClosure,  // 1006 TCP 直接断(网络抖动 / 切后台)
+		) {
+			slog.Debug("WebSocket closed", "err", err)
+			return
+		}
 		slog.Error("WebSocket error", "err", err)
 	})
 }

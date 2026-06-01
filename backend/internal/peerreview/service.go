@@ -721,21 +721,27 @@ func (s *Service) UploadAsset(
 	return a, nil
 }
 
-func (s *Service) DeleteAsset(ctx context.Context, userID, submissionID, assetID uint64) error {
+// DeleteAsset 删一个文件。
+//
+// 返回 submissionDeleted=true 表示"删的是草稿里最后一个文件, 整条草稿已被一并取消"
+// (连带 submission + agent session)。保留这个"删光=取消草稿"的行为, 是为了避免在审稿
+// 记录里残留空壳草稿。但前端必须据此把向导【重置到新建空态】, 而不是继续去拉这条已不存在的
+// submission —— 否则 ListAssets 返 404、前端 query 出错保留旧缓存, 表现为"删除不管用、强刷才消失"。
+func (s *Service) DeleteAsset(ctx context.Context, userID, submissionID, assetID uint64) (submissionDeleted bool, err error) {
 	sub0, err := s.repo.GetByID(submissionID, userID)
 	if err != nil {
-		return err
+		return false, err
 	}
 	// 只能删草稿里的文件 —— 已提交的投稿删稿件会改坏已提交/已完成审稿的资料集。
 	if sub0.Status != "draft" {
-		return ErrNotDraft
+		return false, ErrNotDraft
 	}
 	a, err := s.repo.GetAsset(assetID, submissionID)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if err := s.repo.DeleteAsset(assetID, submissionID); err != nil {
-		return err
+		return false, err
 	}
 	if a.Role == "manuscript" {
 		_ = s.repo.DeleteManuscriptIfMatch(submissionID, assetID)
@@ -743,16 +749,16 @@ func (s *Service) DeleteAsset(ctx context.Context, userID, submissionID, assetID
 	_ = storage.DeleteObject(ctx, s.bucket(), a.ObjectKey)
 	_ = s.repo.BumpAssetsRevision(submissionID)
 
-	// 删完之后如果该 draft 已经没有任何 asset, 整条 draft 也清掉(包含 agent session)。
-	// 业务语义:用户在 Step1 删光了文件 = 取消草稿。但只对 draft 状态做 — 已 submitted
-	// 的也走 DeleteAsset 时, sub 早已不是 draft, 不会触发。
-	sub, err := s.repo.GetByID(submissionID, userID)
-	if err == nil && sub.Status == "draft" {
+	// 删光草稿里所有文件 = 取消整条草稿 (连带 submission + agent session), 不留空壳记录。
+	sub, gerr := s.repo.GetByID(submissionID, userID)
+	if gerr == nil && sub.Status == "draft" {
 		if n, _ := s.repo.CountAssets(submissionID); n == 0 {
-			_ = s.DeleteSubmission(ctx, userID, submissionID)
+			if derr := s.DeleteSubmission(ctx, userID, submissionID); derr == nil {
+				return true, nil
+			}
 		}
 	}
-	return nil
+	return false, nil
 }
 
 func (s *Service) ListAssets(userID, submissionID uint64) ([]Asset, error) {

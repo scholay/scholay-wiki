@@ -422,7 +422,19 @@ export function JournalWizardPage() {
           uploadPending={uploadMut.isPending}
           onUpload={(p) => uploadMut.mutate(p)}
           deletePending={deleteAssetMut.isPending}
-          onDelete={(aid) => deleteAssetMut.mutate(aid)}
+          onDelete={(aid) =>
+            deleteAssetMut.mutate(aid, {
+              onSuccess: (res) => {
+                // 删的是草稿最后一个文件 → 后端把整条草稿一并取消 → 重置向导到新建空态
+                // (清空 URL ?id → 渲染空 UploadStep), 不再去拉这条已删的投稿(否则 404 卡旧缓存)。
+                if (res?.submissionDeleted) {
+                  toast.success('文件已删除 · 草稿已清空');
+                  setParams({}, { replace: true });
+                }
+              },
+              onError: (e) => toast.error(`删除失败:${(e as Error).message}`),
+            })
+          }
           onReplaceManuscript={async (oldId, file) => {
             // 先传新、再删旧: 资产数 1→2→1, 不经过 0, 草稿不会被后端当"删光=取消"误删。
             await uploadMut.mutateAsync({ file, role: 'manuscript' });

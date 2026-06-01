@@ -250,13 +250,33 @@ export function useUploadAsset(id?: number) {
   });
 }
 
+export interface DeleteAssetResult {
+  ok: boolean;
+  /** true = 删的是草稿最后一个文件, 整条草稿已被后端一并取消 → 向导应重置到新建空态 */
+  submissionDeleted: boolean;
+}
+
 export function useDeleteAsset(id?: number) {
   const qc = useQueryClient();
   return useMutation({
+    // 后端返回 { ok, submissionDeleted }: 删的是草稿最后一个文件时, 整条草稿被一并取消
+    // (避免审稿记录里残留空壳)。这里把 submissionDeleted 透出去, 调用方(向导)据此重置到空态。
     mutationFn: async (assetId: number) => {
-      await http.delete(`/user/peer-review/submissions/${id}/assets/${assetId}`);
+      const r = await http.delete<
+        { data?: DeleteAssetResult } & Partial<DeleteAssetResult>
+      >(`/user/peer-review/submissions/${id}/assets/${assetId}`);
+      return unwrap<DeleteAssetResult>(r.data);
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
+      if (res?.submissionDeleted) {
+        // 草稿已被取消 —— 跟删整条投稿一样清缓存(记录列表 / 入口探活刷新);
+        // 向导本身的重置由调用方 setParams({}) 负责(URL 是单一真相源)。
+        qc.removeQueries({ queryKey: KEY('detail', id ?? 0) });
+        qc.removeQueries({ queryKey: KEY('assets', id ?? 0) });
+        qc.invalidateQueries({ queryKey: KEY('list') });
+        qc.invalidateQueries({ queryKey: KEY('latest-draft') });
+        return;
+      }
       qc.invalidateQueries({ queryKey: KEY('detail', id ?? 0) });
       qc.invalidateQueries({ queryKey: KEY('assets', id ?? 0) });
     },
