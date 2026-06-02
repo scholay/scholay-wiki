@@ -32,19 +32,21 @@ const (
 	TLSHandshakeTimeout = 15 * time.Second
 	KeepAlive           = 30 * time.Second
 
-	// Search source constants — 与 api-1.json 上游 path 前缀对齐
-	// 注意:PMD 上游只暴露 papers/search,**没有** papers/autocomplete;
-	// 多源 autocomplete 走 multiSourcePaperAutocomplete 时 PMD 用 SearchPapers 降级。
+	// Search source constants — 与 api-1.json 上游 path 前缀对齐。
+	// 注意:PMD 上游**只有** papers/{search,authors,get,doi,...},
+	// 既没有 papers/autocomplete 也没有 authors/search —— 搜索补全 / 作者补全
+	// 一律只用 STC + OLX 两源(见下面 PaperSources / AuthorSources)。
 	SourceSTC = "stc" // Scholay 精选 (STC / Semantic Scholar)
 	SourceOLX = "olx" // Scholay 全域 (OpenAlex)
 	SourcePMD = "pmd" // Scholay 医学 (PubMed / NCBI E-utilities)
 )
 
-// PaperSources lists the 3 paper sources we fan out to in suggestion mode.
-// 顺序即"优先级"(展示时 STC 优先,OLX 其次,PMD 最后)。
-var PaperSources = []string{SourceSTC, SourceOLX, SourcePMD}
+// PaperSources lists the paper sources we fan out to in suggestion (autocomplete) mode.
+// **只** STC + OLX:PMD 上游无 papers/autocomplete(命中即 404),补全用这两源足够。
+// 顺序即"优先级"(展示时 STC 优先,OLX 其次)。
+var PaperSources = []string{SourceSTC, SourceOLX}
 
-// AuthorSources lists the 2 author sources(PMD 上游无 authors/* 接口)。
+// AuthorSources lists the author sources(PMD 上游无 authors/search,作者补全只用 STC + OLX)。
 var AuthorSources = []string{SourceSTC, SourceOLX}
 
 // sourcePrefix returns the API path prefix for the given source
@@ -545,9 +547,12 @@ func (c *Client) GetPaperAuthors(ctx context.Context, paperID string, fields []s
 // PaperAutocomplete returns paper title suggestions.
 //
 // 支持矩阵:
-//   STC → /v1/stc/papers/autocomplete  ✓
-//   OLX → /v1/olx/works/autocomplete   ✓ (注意是 works 不是 papers)
-//   PMD → ✗ 无此端点, 调用方 (manager.suggestPapersForSource) 已降级到 /papers/search
+//   STC → /v1/stc/papers/autocomplete  ✓  data 是裸数组 [SemanticAutocompleteItem]
+//   OLX → /v1/olx/works/autocomplete   ✓  data 是对象 {items:[AutocompleteItem], total}
+//   PMD → ✗ 无此端点, 调用方 (suggestPapersForSource) 不会传 PMD 进来
+//
+// 两家上游的 autocomplete 返回结构不同:STC 直接给数组,OLX 包了一层 {items,total}。
+// 早期统一按数组解析 → OLX 必报 "cannot unmarshal object into []RawAutocompleteItem"。
 func (c *Client) PaperAutocomplete(ctx context.Context, query, source string) (*AutocompleteResponse, error) {
 	body := map[string]any{
 		"query": query,
@@ -559,8 +564,20 @@ func (c *Client) PaperAutocomplete(ctx context.Context, query, source string) (*
 	}
 
 	var raws []RawAutocompleteItem
-	if err := json.Unmarshal(data, &raws); err != nil {
-		return nil, fmt.Errorf("failed to parse autocomplete: %w", err)
+	if source == SourceOLX {
+		// OLX(OpenAlex)autocomplete 的 data 是对象 {items:[...], total},取 items。
+		var wrap struct {
+			Items []RawAutocompleteItem `json:"items"`
+		}
+		if err := json.Unmarshal(data, &wrap); err != nil {
+			return nil, fmt.Errorf("failed to parse autocomplete (olx): %w", err)
+		}
+		raws = wrap.Items
+	} else {
+		// STC autocomplete 的 data 直接是数组。
+		if err := json.Unmarshal(data, &raws); err != nil {
+			return nil, fmt.Errorf("failed to parse autocomplete (stc): %w", err)
+		}
 	}
 
 	matches := make([]AutocompleteMatch, 0, len(raws))

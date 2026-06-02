@@ -1082,10 +1082,16 @@ func (s *Service) advanceTo2(ctx context.Context, sub *Submission) (*Submission,
 // 拒绝 advance, 要求用户先回 step2 重新生成。这保证 agent session 里的 manuscript
 // 永远是 step2 cache 认可的版本。
 func (s *Service) advanceTo3(ctx context.Context, sub *Submission) (*Submission, error) {
-	// Sanity: step2 cache 必须还新
+	// Sanity: step2 cache 必须存在且还新。
+	// 区分两种情况(此前都笼统报"文件已变更", 误导):
+	//   - cache 为 nil:Step 2 从未成功生成(常见:meta 抽取解析失败)→ 提示先生成。
+	//   - fingerprint 不一致:稿件文件确实变了 → 提示回 Step 2 重新生成。
 	step2Cache, _ := s.repo.GetStepCache(sub.ID, 2)
-	if step2Cache == nil || step2Cache.InputFingerprint != fingerprintStep2(sub.AssetsRevision) {
-		return nil, errors.New("文件已变更, 请回到 Step 2 重新生成稿件信息后再继续")
+	if step2Cache == nil {
+		return nil, errors.New("请先在第 2 步生成稿件信息后再继续")
+	}
+	if step2Cache.InputFingerprint != fingerprintStep2(sub.AssetsRevision) {
+		return nil, errors.New("文件已变更, 请回到第 2 步重新生成稿件信息后再继续")
 	}
 
 	// 期刊为"选填": journal 模式下没填期刊也允许 advance, agent 会走通用 STM 模板。
@@ -1206,24 +1212,36 @@ func (s *Service) runMetaExtract(ctx context.Context, submissionID uint64, sessi
   "manuscriptType": "<research / review / short_communication 三选一, 不确定填 research>"
 }`, files.manuscriptPath)
 
-	reply, _, err := s.feature.Bridge().ServerSideChatStreaming(ctx, sessionID, prompt, func(delta string) {
-		s.broker.Append(submissionID, SlotMeta, delta)
-	}, func(note string) {
-		s.broker.Status(submissionID, SlotMeta, note)
-	}, s.fastModel())
+	// 元数据 JSON 解析:模型偶发吐非法 JSON —— 尤其含非 ASCII 的论文(法语/带变音符),
+	// 会在结构位置漏出游离字符(如 'ç')冲碎 JSON。与审稿打分链一致,走 chatWithRetry 有界
+	// 重试(带"只输出合法 JSON"强约束)+ 引号修复兜底,不再一次解析失败就让整步 fail。
+	parseMeta := func(reply string) (ExtractedMeta, bool) {
+		var m ExtractedMeta
+		raw := extractFirstJSONObject(reply)
+		if raw == nil {
+			return m, false
+		}
+		if err := json.Unmarshal(raw, &m); err == nil {
+			return m, true
+		}
+		// 兜底:修复字符串内未转义的引号后再试(repairUnescapedInnerQuotes 已用于审稿报告解析)。
+		if err := json.Unmarshal(repairUnescapedInnerQuotes(raw), &m); err == nil {
+			return m, true
+		}
+		return m, false
+	}
+
+	reply, _, _, err := s.chatWithRetry(ctx, sessionID, submissionID, SlotMeta, prompt, s.fastModel(),
+		func(r string) bool { _, valid := parseMeta(r); return valid }, 2)
 	if err != nil {
 		slog.Error("peerreview meta agent chat failed", "submission_id", submissionID, "err", err)
 		failure("信息抽取失败,请稍后重试")
 		return
 	}
-	jsonBytes := extractFirstJSONObject(reply)
-	if jsonBytes == nil {
-		failure("信息抽取失败,请稍后重试")
-		return
-	}
-	var meta ExtractedMeta
-	if err := json.Unmarshal(jsonBytes, &meta); err != nil {
-		slog.Error("peerreview meta json parse failed", "submission_id", submissionID, "err", err)
+	meta, ok := parseMeta(reply)
+	if !ok {
+		// 重试后仍非法 —— 模型输出问题, 非系统故障, 记 Warn 让用户重试。
+		slog.Warn("peerreview meta json parse failed after retries", "submission_id", submissionID)
 		failure("信息抽取失败,请稍后重试")
 		return
 	}

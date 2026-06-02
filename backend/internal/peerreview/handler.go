@@ -833,7 +833,9 @@ func (h *Handler) Advance(c *gin.Context) {
 			utils.NotFound(c, "submission not found")
 			return
 		}
-		slog.Error("peerreview advance", "err", err, "submission_id", id, "from", req.From)
+		// advance 失败基本是业务校验(文件已变更 / 未生成稿件信息 / 缺院校等),作为 400 回给用户。
+		// 这类是用户侧 4xx 而非系统故障,记 Warn 不记 Error,避免污染 ERROR 日志。
+		slog.Warn("peerreview advance rejected", "err", err, "submission_id", id, "from", req.From)
 		utils.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}

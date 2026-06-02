@@ -372,70 +372,32 @@ func (m *Manager) fetchSearchSuggestions(ctx context.Context, query, source stri
 	return m.fetchSingleSourceSuggestions(ctx, query, source, paperLimit, authorLimit)
 }
 
-// fetchSingleSourceSuggestions —— legacy 行为,给定 source 时只调对应那一个源。
+// fetchSingleSourceSuggestions —— 指定 source 时只查该源。
+// 与多源模式共用 suggestPapersForSource / suggestAuthorsForSource,因此 PMD(无
+// autocomplete / authors/search 接口)在这里也会被安全跳过,不再打出 404。
 func (m *Manager) fetchSingleSourceSuggestions(ctx context.Context, query, source string, paperLimit, authorLimit int) (*SearchSuggestionsResponse, error) {
-	type paperResult struct {
-		data *AutocompleteResponse
-		err  error
-	}
-	type authorResult struct {
-		data *AuthorSearchResponse
-		err  error
-	}
+	type paperResult struct{ items []AutocompleteMatch }
+	type authorResult struct{ items []Author }
 
 	paperChan := make(chan paperResult, 1)
 	authorChan := make(chan authorResult, 1)
 
 	safego.Go("minicod-paper-autocomplete", func() {
-		result, err := m.PaperAutocomplete(ctx, query, source)
-		paperChan <- paperResult{data: result, err: err}
+		paperChan <- paperResult{items: m.suggestPapersForSource(ctx, query, source, paperLimit)}
 	})
-
 	safego.Go("minicod-author-search", func() {
-		opts := AuthorSearchOptions{Query: query, Limit: authorLimit, Offset: 0, Source: source}
-		result, err := m.SearchAuthors(ctx, opts)
-		authorChan <- authorResult{data: result, err: err}
+		authorChan <- authorResult{items: m.suggestAuthorsForSource(ctx, query, source, authorLimit)}
 	})
 
-	paperRes := <-paperChan
-	authorRes := <-authorChan
-
-	response := &SearchSuggestionsResponse{
-		Papers:  []AutocompleteMatch{},
-		Authors: []Author{},
+	papers := (<-paperChan).items
+	authors := (<-authorChan).items
+	if papers == nil {
+		papers = []AutocompleteMatch{}
 	}
-
-	if paperRes.err == nil && paperRes.data != nil {
-		count := len(paperRes.data.Matches)
-		if count > paperLimit {
-			count = paperLimit
-		}
-		// 补 Source 字段,与多源模式一致
-		matches := make([]AutocompleteMatch, count)
-		for i := 0; i < count; i++ {
-			matches[i] = paperRes.data.Matches[i]
-			matches[i].Source = source
-		}
-		response.Papers = matches
-	} else if paperRes.err != nil {
-		slog.Warn("minicod: paper autocomplete failed", "err", paperRes.err)
+	if authors == nil {
+		authors = []Author{}
 	}
-
-	if authorRes.err == nil && authorRes.data != nil {
-		count := len(authorRes.data.Data)
-		if count > authorLimit {
-			count = authorLimit
-		}
-		response.Authors = authorRes.data.Data[:count]
-	} else if authorRes.err != nil {
-		slog.Warn("minicod: author search failed", "err", authorRes.err)
-	}
-
-	if paperRes.err != nil && authorRes.err != nil {
-		return nil, fmt.Errorf("both paper and author search failed: paper: %v, author: %v", paperRes.err, authorRes.err)
-	}
-
-	return response, nil
+	return &SearchSuggestionsResponse{Papers: papers, Authors: authors}, nil
 }
 
 // fetchMultiSourceSuggestions —— 多源并行 fan-out。
@@ -504,31 +466,11 @@ func (m *Manager) fetchMultiSourceSuggestions(ctx context.Context, query string,
 	return &SearchSuggestionsResponse{Papers: papers, Authors: authors}
 }
 
-// suggestPapersForSource —— 单源拉论文建议。
-// STC/OLX 走原生 /papers/autocomplete;PMD 上游无 autocomplete,降级到 /papers/search。
+// suggestPapersForSource —— 单源拉论文建议(STC/OLX 走 /papers(works)/autocomplete)。
+// PMD 上游无 papers/autocomplete,补全不支持该源 —— 直接跳过,避免打出 /v1/pmd/papers/autocomplete 404。
 func (m *Manager) suggestPapersForSource(ctx context.Context, query, source string, limit int) []AutocompleteMatch {
 	if source == SourcePMD {
-		resp, err := m.SearchPapers(ctx, PaperSearchOptions{
-			Query:  query,
-			Limit:  limit,
-			Source: source,
-		})
-		if err != nil {
-			slog.Warn("minicod: pmd paper search fallback failed", "err", err)
-			return nil
-		}
-		out := make([]AutocompleteMatch, 0, len(resp.Data))
-		for i, p := range resp.Data {
-			if i >= limit {
-				break
-			}
-			out = append(out, AutocompleteMatch{
-				ID:     p.PaperID,
-				Title:  p.Title,
-				Source: source,
-			})
-		}
-		return out
+		return nil
 	}
 
 	resp, err := m.PaperAutocomplete(ctx, query, source)
@@ -548,8 +490,12 @@ func (m *Manager) suggestPapersForSource(ctx context.Context, query, source stri
 	return out
 }
 
-// suggestAuthorsForSource —— 单源拉作者建议(STC/OLX 都用 /authors/search)。
+// suggestAuthorsForSource —— 单源拉作者建议(STC/OLX 用 /authors/search)。
+// PMD 上游无 authors/search,作者补全不支持该源 —— 直接跳过,避免打出 /v1/pmd/authors/search 404。
 func (m *Manager) suggestAuthorsForSource(ctx context.Context, query, source string, limit int) []Author {
+	if source == SourcePMD {
+		return nil
+	}
 	resp, err := m.SearchAuthors(ctx, AuthorSearchOptions{
 		Query:  query,
 		Limit:  limit,
