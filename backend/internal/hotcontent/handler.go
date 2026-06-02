@@ -8,8 +8,10 @@
 package hotcontent
 
 import (
+	"net/http"
 	"strconv"
 
+	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
@@ -24,6 +26,63 @@ type Handler struct {
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
+
+// ============================ 公开上报端点 ============================
+//
+// 部分热度维度后端服务端看不到, 必须前端主动上报 (fire-and-forget, sendBeacon):
+//   - 曝光 impressions: 智能搜索结果集 (走 agent 容器, 后端搜索接口看不到; 传统搜索仍服务端记)
+//   - 点击 clicks:      站内从结果点开详情 (详情数据来自前端缓存, 不打 GET /papers/:id)
+//   - SEO 直访 seo_views: 论文页作为站外落地入口被打开
+// 三类共用一个端点, 一次可批量提交。
+
+// TrackRequest 前端热度上报体。三类事件可同批, 也可单类单独发。
+type TrackRequest struct {
+	Impressions []PaperViewData `json:"impressions,omitempty"`
+	Clicks      []PaperViewData `json:"clicks,omitempty"`
+	SeoViews    []PaperViewData `json:"seo_views,omitempty"`
+}
+
+// trackPaperCap 单类单次上报条数上限 —— 防滥用 / 防 sendBeacon 体积失控。
+const trackPaperCap = 100
+
+func capTrackPapers(p []PaperViewData) []PaperViewData {
+	if len(p) > trackPaperCap {
+		return p[:trackPaperCap]
+	}
+	return p
+}
+
+// Track 接收前端热度上报 (曝光 / 点击 / SEO 直访)。
+// fire-and-forget: 无论入参好坏都立即 204 (统计噪音不暴露给前端), 落库在 safego goroutine 里做。
+func (h *Handler) Track(c *gin.Context) {
+	var req TrackRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Status(http.StatusNoContent)
+		return
+	}
+	impressions := capTrackPapers(req.Impressions)
+	clicks := capTrackPapers(req.Clicks)
+	seoViews := capTrackPapers(req.SeoViews)
+	if len(impressions) == 0 && len(clicks) == 0 && len(seoViews) == 0 {
+		c.Status(http.StatusNoContent)
+		return
+	}
+	svc := h.service
+	safego.Go("hotcontent-track", func() {
+		if len(impressions) > 0 {
+			_ = svc.RecordImpressions(impressions)
+		}
+		for i := range clicks {
+			_ = svc.RecordClick(&clicks[i])
+		}
+		for i := range seoViews {
+			_ = svc.RecordSeoView(&seoViews[i])
+		}
+	})
+	c.Status(http.StatusNoContent)
+}
+
+// ============================ 后台读取端点 (admin) ============================
 
 // GetHotKeywords 获取热门搜索关键词
 func (h *Handler) GetHotKeywords(c *gin.Context) {

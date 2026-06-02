@@ -81,7 +81,12 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		// 「设置 → 已连接账号」一站拉全:邮箱/手机 + 8 个第三方 provider 的状态
 		userProtected.GET("/connections", h.user.GetUserConnections)
 		userProtected.POST("/logout", h.user.Logout)
+		userProtected.POST("/logout-all", h.user.LogoutAll) // 一键退出所有设备(user-level revoke)
 		userProtected.POST("/change-password", h.user.ChangePassword)
+
+		// 会员(VIP): 状态(等级/到期/各功能今日额度) + 兑换码兑换
+		userProtected.GET("/membership", h.vip.GetMembership)
+		userProtected.POST("/redeem-code", h.vip.RedeemCode)
 
 		// 账号绑定
 		userProtected.POST("/bind-phone", h.user.BindPhone)

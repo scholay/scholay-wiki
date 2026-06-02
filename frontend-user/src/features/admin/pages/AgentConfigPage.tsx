@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Save, Loader2, ShieldAlert } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
+import { SecretInput } from '@/shared/ui/secret-input';
 import { Label } from '@/shared/ui/label';
 import { Switch } from '@/shared/ui/switch';
 import { AdminPageLayout } from '../components/AdminPageLayout';
@@ -9,14 +10,22 @@ import { useApiToast } from '../hooks/useApiToast';
 import { useAgentConfig, useUpdateAgentConfig } from '../api/agent-config';
 
 export function AgentConfigPage() {
-  const { data, isLoading } = useAgentConfig({ showSensitive: true });
+  // 默认脱敏; 点 API Key 右侧小眼睛 → reveal=true → 重新拉取明文 (show_sensitive)。
+  const [reveal, setReveal] = useState(false);
+  const { data, isLoading } = useAgentConfig({ showSensitive: reveal });
   const update = useUpdateAgentConfig();
   const apiToast = useApiToast();
   const [enabled, setEnabled] = useState(false);
+  const [apiKey, setApiKey] = useState('');
 
   useEffect(() => {
     if (data) setEnabled(data.enabled);
   }, [data]);
+  // api_key 受控, 随后端返回同步 (脱敏 ******** ↔ 明文)。按 data.api_key 值变化触发,
+  // 而非整个 data —— 避免窗口重聚焦等无关重拉把用户正在编辑的值冲掉。
+  useEffect(() => {
+    setApiKey(data?.api_key ?? '');
+  }, [data?.api_key]);
 
   if (isLoading) {
     return (
@@ -59,7 +68,7 @@ export function AgentConfigPage() {
         <div className="flex items-start gap-2 rounded-md border border-border bg-warning-soft p-3 text-xs text-subtle">
           <ShieldAlert className="size-4 shrink-0 mt-0.5 text-brand-amber" />
           <p>
-            API key 字段为当前明文,谨慎填写;留空会清空已有 key。配置保存后会立即同步至 scholar_agent 容器。
+            API key 默认脱敏显示,点右侧小眼睛查看原值;留空或保持脱敏值表示不修改。配置保存后会立即同步至 scholar_agent 容器。
           </p>
         </div>
 
@@ -84,11 +93,13 @@ export function AgentConfigPage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="api_key">API Key</Label>
-              <Input
+              <SecretInput
                 id="api_key"
                 name="api_key"
-                type="password"
-                defaultValue={data?.api_key}
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                revealed={reveal}
+                onToggleReveal={() => setReveal((v) => !v)}
                 placeholder="sk-..."
               />
             </div>

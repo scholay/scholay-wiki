@@ -318,15 +318,29 @@ async function handleSessionWorkspaceRoute(
 }
 
 async function createSession(req: Request): Promise<Response> {
-  let body: { workDir?: string; repository?: CreateSessionRepositoryOptions }
+  let body: { workDir?: string; repository?: CreateSessionRepositoryOptions; disallowedTools?: string[]; addDirs?: string[] }
   try {
-    body = (await req.json()) as { workDir?: string; repository?: CreateSessionRepositoryOptions }
+    body = (await req.json()) as { workDir?: string; repository?: CreateSessionRepositoryOptions; disallowedTools?: string[]; addDirs?: string[] }
   } catch {
     throw ApiError.badRequest('Invalid JSON body')
   }
 
   if (body.workDir && typeof body.workDir !== 'string') {
     throw ApiError.badRequest('workDir must be a string')
+  }
+
+  // per-feature 工具策略: 该会话独有的 --disallowed-tools(评分会话用它关 Skill/Agent)。
+  if (body.disallowedTools !== undefined) {
+    if (!Array.isArray(body.disallowedTools) || body.disallowedTools.some((t) => typeof t !== 'string')) {
+      throw ApiError.badRequest('disallowedTools must be a string[]')
+    }
+  }
+
+  // per-feature skill 作用域: 该会话额外的 --add-dir 源(方法论会话用它加载审稿人 skill)。
+  if (body.addDirs !== undefined) {
+    if (!Array.isArray(body.addDirs) || body.addDirs.some((t) => typeof t !== 'string')) {
+      throw ApiError.badRequest('addDirs must be a string[]')
+    }
   }
 
   if (body.repository !== undefined) {
@@ -341,7 +355,7 @@ async function createSession(req: Request): Promise<Response> {
     }
   }
 
-  const result = await sessionService.createSession(body.workDir, body.repository)
+  const result = await sessionService.createSession(body.workDir, body.repository, body.disallowedTools, body.addDirs)
   recentProjectsCache = null
   return Response.json(result, { status: 201 })
 }

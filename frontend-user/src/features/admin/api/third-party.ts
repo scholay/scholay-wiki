@@ -53,12 +53,13 @@ export interface ThirdPartyAccount {
  * 后端实际返回 `{ accounts: [...], total: N }`(不是裸数组!)
  * hook 直接解出 accounts,使用方拿到的就是数组。
  */
-export function useThirdPartyAccounts() {
+export function useThirdPartyAccounts({ showSensitive }: { showSensitive: boolean }) {
   return useQuery({
-    queryKey: ['admin', 'third-party', 'list'],
+    queryKey: ['admin', 'third-party', 'list', { showSensitive }],
     queryFn: async () => {
       const r = await http.get<{ data: { accounts: ThirdPartyAccount[]; total: number } }>(
-        '/admin/third-party-accounts'
+        '/admin/third-party-accounts',
+        { params: showSensitive ? { show_sensitive: true } : undefined }
       );
       return r.data.data.accounts ?? [];
     },

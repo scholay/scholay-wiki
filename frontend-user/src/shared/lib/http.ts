@@ -1,5 +1,6 @@
 import axios, { AxiosError, type AxiosInstance } from 'axios';
-import { clearAuthToken, getAuthToken } from '@/shared/lib/auth-token';
+import { getAuthToken, notifyAuthLost } from '@/shared/lib/auth-token';
+import { getAnonId } from '@/shared/lib/anon-id';
 
 /**
  * HTTP 客户端 — 走 nginx 反代,生产同源相对路径,开发走 vite proxy。
@@ -16,32 +17,21 @@ export const http: AxiosInstance = axios.create({
 http.interceptors.request.use((config) => {
   const token = getAuthToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  // 匿名访客标识 —— 让后端"使用统计"对未登录用户也能按 anon_id 去重计人。
+  config.headers['X-Anon-Id'] = getAnonId();
   return config;
 });
 
-// 全局 401 / token revoke 拦截 —— 任何 endpoint 返回这两种业务码时, 立刻清掉本地 token
-// 并广播一次 "auth-evicted" 自定义事件; 上层 (AuthBootstrap / Layout) 监听后跳登录页 / 弹 banner。
-//
-// 不在 toApiError 里做这件事是因为有的 endpoint (e.g. useProfile 探活) 拿到 401 之后还想自己
-// 处理 (避免 cascading toast); 全局副作用只放清 token 这一个不可逆操作。
+// 全局认证失效拦截 —— 任何 endpoint 返回 401 / TokenRevoked / TokenExpired 时, 统一走
+// notifyAuthLost(): 清真源 token + 广播 "auth-evicted"。由 AuthBootstrap 单点消费
+// (清 store.user + 用户端弹登录框 / 管理端跳首页 + toast)。所有协议(http/WS/SSE/profile)
+// 都汇聚到这一个出口, 不再各写各的、漏弹登录。
 http.interceptors.response.use(
   (resp) => resp,
   (err) => {
     const apiErr = toApiError(err);
-    if (
-      apiErr.code === BizCode.TokenRevoked ||
-      apiErr.code === BizCode.TokenExpired ||
-      (apiErr.status === 401 && !apiErr.code) // 兼容老 endpoint 没下发 code 的情况
-    ) {
-      // 清真源(localStorage + cookie);store 镜像由 AuthBootstrap 的 'auth-evicted' 监听调 clear() 收口。
-      clearAuthToken();
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(
-          new CustomEvent('auth-evicted', {
-            detail: { code: apiErr.code, message: apiErr.message },
-          }),
-        );
-      }
+    if (isAuthError(apiErr)) {
+      notifyAuthLost({ code: apiErr.code, message: apiErr.message });
     }
     return Promise.reject(err);
   },
@@ -142,13 +132,20 @@ export function toApiError(err: unknown): ApiError {
   };
 }
 
-/** 便捷判断: 这个错是不是要求"立刻把用户踢回登录页"。 */
+/**
+ * 便捷判断: 这个错是不是"已登录会话失效, 要把用户踢回登录"。
+ *
+ * - TokenRevoked / TokenExpired: 后端明确的会话失效码, 无条件成立。
+ * - 裸 401: **仅当本地确实存在 token 时**才算"会话丢失"。否则这是一次「未登录态下的
+ *   登录尝试」(如 Google idtoken 校验失败→401)—— 本来就没有会话可失效, 不能触发
+ *   全局登出(否则登录失败反而弹"登录已过期"+ 双 toast)。这是 defense-in-depth:
+ *   后端也已把"邮箱验证码登录失败"从 2016(→401)改成 2004(→400),双保险。
+ */
 export function isAuthError(err: ApiError): boolean {
-  return (
-    err.code === BizCode.TokenRevoked ||
-    err.code === BizCode.TokenExpired ||
-    err.status === BizCode.Unauthorized
-  );
+  if (err.code === BizCode.TokenRevoked || err.code === BizCode.TokenExpired) {
+    return true;
+  }
+  return err.status === BizCode.Unauthorized && getAuthToken() != null;
 }
 
 /** 便捷判断: 这个错是"被另一端登录顶掉了", 应该走 banner 而不是直接跳转。 */

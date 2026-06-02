@@ -6,6 +6,8 @@ import {
   useTranslatePaper,
   type TranslatePaperResult,
 } from '@/shared/api/translate';
+import { useAuthStore } from '@/stores/auth.store';
+import { useAuthDialog } from '@/stores/auth-dialog.store';
 
 /**
  * AI 翻译按钮 —— 全局唯一实现,跨搜索卡 / 文献集行 / 详情页 复用。
@@ -90,11 +92,19 @@ export const TranslatePaperButton = forwardRef<HTMLButtonElement, TranslatePaper
   ) => {
     const mut = useTranslatePaper();
     const isPending = mut.isPending;
+    const token = useAuthStore((s) => s.token);
 
     const handleClick = () => {
       if (isPending) return;
       if (hasCache) {
         onToggle();
+        return;
+      }
+      // 翻译已改强制登录 (后端 /translate/paper/stream 现走 UserAuthMiddleware):
+      // 未登录直接引导登录, 不发请求避免吃 401。已有 cache 的 toggle 不受影响 (上面已 return)。
+      if (!token) {
+        useAuthDialog.getState().openDialog('login');
+        toast.info('登录后即可使用 AI 翻译');
         return;
       }
       mut.mutate(

@@ -212,7 +212,7 @@ export function SearchPage() {
 
   const handleStage = useCallback(
     (paper: Paper) => {
-      stagePaper(paper);
+      stagePaper(paper, mode === 'smart' ? 'smart' : 'traditional');
       // 加入暂存后:由 stagedIds 自动派生折叠态(不需要手动设 collapsedIds)。
       // 但要清掉本 paper 的 expandedOverrides,避免"刚暂存还展开着"的诡异态。
       setExpandedOverrides((s) => {
@@ -222,7 +222,7 @@ export function SearchPage() {
         return next;
       });
     },
-    [stagePaper]
+    [stagePaper, mode]
   );
 
   // ── 自管 split:SearcherColumn px 锁定 + 中间手柄 + 右侧 flex-1 ─────────────

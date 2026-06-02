@@ -22,7 +22,6 @@ import (
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/minicod"
 	"scholar-backend/internal/storage"
-	"scholar-backend/internal/usagelog"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -39,17 +38,11 @@ type Deps struct {
 }
 
 type Handler struct {
-	deps          Deps
-	usageRecorder usagelog.FeatureRecorder
+	deps Deps
 }
 
 func NewHandler(deps Deps) *Handler {
 	return &Handler{deps: deps}
-}
-
-// SetUsageRecorder 注入功能使用统计录入器(用户添加论文到文献集时记一次)
-func (h *Handler) SetUsageRecorder(r usagelog.FeatureRecorder) {
-	h.usageRecorder = r
 }
 
 // RegisterRoutes 挂在认证后的 /api/v1/user/library 下
@@ -329,17 +322,6 @@ func (h *Handler) Add(c *gin.Context) {
 		}
 		utils.Error(c, http.StatusInternalServerError, "保存失败")
 		return
-	}
-
-	// 功能使用统计: 用户实际收藏了一篇论文 = "文献集" 被真实使用一次。
-	if h.usageRecorder != nil {
-		h.usageRecorder.RecordFromGin(c,
-			usagelog.FeatureLibrary, usagelog.FeatureNames[usagelog.FeatureLibrary],
-			"add",
-			map[string]any{
-				"source":          req.Source,
-				"source_paper_id": req.SourcePaperID,
-			})
 	}
 
 	utils.Success(c, row)

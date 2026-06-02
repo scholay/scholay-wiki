@@ -17,7 +17,7 @@ import (
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/hotcontent"
 	"scholar-backend/internal/seo"
-	"scholar-backend/internal/usagelog"
+	"scholar-backend/internal/usagestat"
 
 	"github.com/gin-gonic/gin"
 )
@@ -35,16 +35,15 @@ type JournalSEORecorder interface {
 	RecordJournalDetailClick(seed *seo.JournalSeed) error
 }
 
-// HotContentRecorder 由 hotcontent.Service 直接实现 —— 落热门搜索词 / 论文曝光 / 点击。
+// HotContentRecorder 由 hotcontent.Service 直接实现 —— 落热门搜索词 / 论文曝光。
 //   - RecordSearch: 关键词按类型(文献/期刊)分桶计数
 //   - RecordImpressions: 一次搜索结果集的曝光量 +1
-//   - RecordClick: 从搜索结果点开详情(GET /papers/:id)的点击量 +1
 //
-// SEO 直访(/paper/:slug)由 seo 模块单独记 seo_view, 与 RecordClick 走不同接口, 不重复计数。
+// 点击量 / SEO 直访量改由前端主动上报 (POST /public/hot-content/track):
+// 站内从结果点开详情走前端缓存、不打 GET /papers/:id, 服务端这里看不到, 故不再在 GetPaper 记点击。
 type HotContentRecorder interface {
 	RecordSearch(keyword string, searchType hotcontent.SearchType) error
 	RecordImpressions(papers []hotcontent.PaperViewData) error
-	RecordClick(paper *hotcontent.PaperViewData) error
 }
 
 // Handler handles HTTP requests for Minicod API
@@ -53,7 +52,7 @@ type Handler struct {
 	authorSEORecorder  AuthorSEORecorder
 	journalSEORecorder JournalSEORecorder
 	hotRecorder        HotContentRecorder
-	usageRecorder      usagelog.FeatureRecorder
+	statRecorder       usagestat.Recorder
 }
 
 // NewHandler creates a new Minicod handler
@@ -78,9 +77,9 @@ func (h *Handler) SetHotContentRecorder(r HotContentRecorder) {
 	h.hotRecorder = r
 }
 
-// SetUsageRecorder 注入功能使用统计录入器(用户实际提交搜索时记一次)
-func (h *Handler) SetUsageRecorder(r usagelog.FeatureRecorder) {
-	h.usageRecorder = r
+// SetUsageStatRecorder 注入使用统计录入器(用户实际提交搜索时记一次)
+func (h *Handler) SetUsageStatRecorder(r usagestat.Recorder) {
+	h.statRecorder = r
 }
 
 // paperToViewData 把上游 Paper 映射成 hotcontent 落库用的 PaperViewData。
@@ -247,10 +246,8 @@ func (h *Handler) SearchPapers(c *gin.Context) {
 
 	// 功能使用统计: "文献搜索" 真实被用了一次(公开接口, 匿名 user_id 为 nil 也记)。
 	// 自身已 safego, 不必再包一层。
-	if h.usageRecorder != nil {
-		h.usageRecorder.RecordFromGin(c,
-			usagelog.FeaturePaperSearch, usagelog.FeatureNames[usagelog.FeaturePaperSearch],
-			"search",
+	if h.statRecorder != nil {
+		h.statRecorder.RecordFromGin(c, usagestat.FeaturePaperSearch, "search",
 			map[string]any{"query": req.Query})
 	}
 
@@ -277,16 +274,8 @@ func (h *Handler) GetPaper(c *gin.Context) {
 		return
 	}
 
-	// 热门内容: 从搜索结果点开详情 = 一次点击。异步, 不阻塞响应。
-	// (SEO 直访走 /paper/:slug → seo 模块记 seo_view, 两条入口接口不同, 不重复计数)
-	if h.hotRecorder != nil && result != nil && result.PaperID != "" {
-		rec := h.hotRecorder
-		vd := paperToViewData(result)
-		safego.Go("hotcontent-paper-click", func() {
-			_ = rec.RecordClick(&vd)
-		})
-	}
-
+	// 点击量不再在这里记 —— 站内从结果点开详情走前端缓存、根本不打本接口;
+	// 改由前端在"点开论文"那一刻上报 POST /public/hot-content/track。
 	utils.Success(c, result)
 }
 
@@ -505,10 +494,8 @@ func (h *Handler) SearchJournals(c *gin.Context) {
 	}
 
 	// 功能使用统计: "期刊搜索" 真实被用了一次。
-	if h.usageRecorder != nil {
-		h.usageRecorder.RecordFromGin(c,
-			usagelog.FeatureJournalSearch, usagelog.FeatureNames[usagelog.FeatureJournalSearch],
-			"search",
+	if h.statRecorder != nil {
+		h.statRecorder.RecordFromGin(c, usagestat.FeatureJournalSearch, "search",
 			map[string]any{"keyword": req.Keyword})
 	}
 

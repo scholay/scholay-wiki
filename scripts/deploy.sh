@@ -41,6 +41,7 @@ NC='\033[0m'
 BACKEND_IMAGE="${REGISTRY}/${NAMESPACE}/backend:${VERSION}"
 AGENT_IMAGE="${REGISTRY}/${NAMESPACE}/agent:${VERSION}"
 FRONTEND_USER_IMAGE="${REGISTRY}/${NAMESPACE}/frontend-user:${VERSION}"
+EGRESS_IMAGE="${REGISTRY}/${NAMESPACE}/egress:${VERSION}"
 
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}  Scholar 服务器部署工具${NC}"
@@ -80,6 +81,10 @@ pull_images() {
 
     echo "拉取 frontend-user..."
     docker pull ${FRONTEND_USER_IMAGE}
+    echo ""
+
+    echo "拉取 egress (agent 出网代理)..."
+    docker pull ${EGRESS_IMAGE}
     echo ""
 
     echo -e "${GREEN}镜像拉取完成${NC}"

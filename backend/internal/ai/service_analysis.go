@@ -17,6 +17,7 @@ import (
 	"sort"
 	"strings"
 
+	"scholar-backend/internal/prompts"
 	"scholar-backend/internal/thirdparty"
 )
 
@@ -313,7 +314,7 @@ func (s *Service) buildAnalysisPrompt(paperTitle, abstract string, dimensions []
 	// 系统级提示词模板下线后,这里直接 build 硬编码版本。
 	dimensionList := s.buildDimensionListString(dimensions)
 	jsonFormat := s.buildJSONFormatString(dimensions)
-	return s.buildAnalysisPromptFallback(paperTitle, abstract, dimensionList, jsonFormat)
+	return prompts.RenderPaperAnalysisPrompt(paperTitle, abstract, dimensionList, jsonFormat)
 }
 
 // buildDimensionListString 构建维度列表字符串
@@ -338,34 +339,6 @@ func (s *Service) buildJSONFormatString(dimensions []AnalysisDimension) string {
 		}
 	}
 	sb.WriteString("}")
-	return sb.String()
-}
-
-// buildAnalysisPromptFallback 本地兜底提示词
-func (s *Service) buildAnalysisPromptFallback(paperTitle, abstract, dimensionList, jsonFormat string) string {
-	var sb strings.Builder
-
-	sb.WriteString("请你阅读以下论文摘要，并严格根据摘要内容进行分析。\n\n")
-	sb.WriteString(fmt.Sprintf("论文标题：%s\n\n", paperTitle))
-	sb.WriteString(fmt.Sprintf("论文摘要：%s\n\n", abstract))
-
-	sb.WriteString("为确保输出稳定性、可控性与准确性，请遵守以下规则：\n")
-	sb.WriteString("【核心规则】\n")
-	sb.WriteString("1. 必须先在内部逐步推理，但不要展示推理过程，只输出最终结果。\n")
-	sb.WriteString("2. 所有分类必须完全基于摘要原文，不允许推断、不允许类比、不允许编造。\n")
-	sb.WriteString("3. 允许所有维度的结果为空。如果摘要中完全没有对应信息，请回答：未提及。\n")
-	sb.WriteString("4. 当摘要极短、极度模糊、非学术化、甚至不含任何可分析内容时，你必须保持结构完整，但允许全部返回未提及。\n")
-	sb.WriteString("5. 不要引入摘要中没有的技术、领域、理论、国家、组织、数据、研究方法等信息。\n")
-	sb.WriteString("6. 每一项结论都必须在摘要中找到明确对应的词句；若无法定位对应内容，必须回答：未提及。\n\n")
-
-	sb.WriteString("【分析维度】\n")
-	sb.WriteString(dimensionList)
-
-	sb.WriteString("【输出格式】\n")
-	sb.WriteString("请严格使用以下JSON格式输出，不得增删字段：\n")
-	sb.WriteString(jsonFormat)
-	sb.WriteString("\n\n所有维度都必须输出，即使内容全部为\"未提及\"。")
-
 	return sb.String()
 }
 
@@ -404,10 +377,10 @@ func (s *Service) convertMapToResult(dataMap map[string]string, dimensions []Ana
 
 // ChatCompletionWithLevel calls AI model without streaming and returns the complete response
 func (s *Service) ChatCompletionWithLevel(ctx context.Context, messages []ChatMessage, modelLevel thirdparty.ModelLevel) (string, error) {
-	result, err := s.executeWithRetry(ctx, modelLevel, func(config *thirdparty.AIModelConfig, _ uint) (any, error) {
+	result, err := s.executeWithRetry(ctx, modelLevel, func(config *thirdparty.AIModelConfig, _ uint) (any, *aiUsage, error) {
 		modelCode := config.ModelLow
 		if modelCode == "" {
-			return nil, fmt.Errorf("no model configured for level %q", modelLevel)
+			return nil, nil, fmt.Errorf("no model configured for level %q", modelLevel)
 		}
 		reqBody := ChatCompletionRequest{
 			Model:       modelCode,
@@ -417,12 +390,12 @@ func (s *Service) ChatCompletionWithLevel(ctx context.Context, messages []ChatMe
 		}
 		resp, err := doChatCompletion(ctx, config.BaseURL, config.APIKey, reqBody)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if len(resp.Choices) == 0 {
-			return nil, fmt.Errorf("no response choices returned")
+			return nil, nil, fmt.Errorf("no response choices returned")
 		}
-		return resp.Choices[0].Message.Content, nil
+		return resp.Choices[0].Message.Content, usageFromStats(resp.Usage), nil
 	})
 	if err != nil {
 		return "", err

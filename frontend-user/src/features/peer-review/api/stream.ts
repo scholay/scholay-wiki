@@ -20,7 +20,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { getAuthToken } from '@/shared/lib/auth-token';
+import { getAuthToken, notifyAuthLost } from '@/shared/lib/auth-token';
 import { useAuthStore } from '@/stores/auth.store';
 
 export type StreamPhase = 'computing' | 'done' | 'error';
@@ -102,6 +102,8 @@ export function useStreamingPartial({
           signal: ac.signal,
         });
         if (!resp.ok || !resp.body) {
+          // SSE 绕过 axios,认证失效要手动汇入统一出口(清 token + 弹登录框),否则审稿流 401 静默失败。
+          if (resp.status === 401) notifyAuthLost();
           throw new Error(`stream http ${resp.status}`);
         }
         const reader = resp.body.getReader();
@@ -121,7 +123,8 @@ export function useStreamingPartial({
         }
       } catch (err) {
         if ((err as Error).name === 'AbortError') return;
-        setState((s) => ({ ...s, phase: 'error', error: (err as Error).message }));
+        // 前端网络/解析异常 message 可能为空或晦涩 —— 兜一个友好默认, 避免空白错误。
+        setState((s) => ({ ...s, phase: 'error', error: (err as Error).message || '连接中断,请稍后重试' }));
       }
     })();
 

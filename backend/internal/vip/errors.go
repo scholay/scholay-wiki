@@ -1,0 +1,28 @@
+package vip
+
+import "errors"
+
+// ErrQuotaExceeded —— 当日某功能次数已达上限。调用方用 errors.Is(err, vip.ErrQuotaExceeded) 判别,
+// 再决定回前端的 code(6010 / quota_exceeded)+ 升级引导。
+var ErrQuotaExceeded = errors.New("vip: daily quota exceeded")
+
+// quotaError 让 err.Error() 是干净的中文友好文案(给用户看), 同时 errors.Is(ErrQuotaExceeded) 成立
+// (Unwrap 到 sentinel)—— 不像 fmt.Errorf("...: %w") 会把 sentinel 文案拼进 message。
+type quotaError struct{ msg string }
+
+func (e *quotaError) Error() string { return e.msg }
+func (e *quotaError) Unwrap() error { return ErrQuotaExceeded }
+
+// NewQuotaError 构造一个「配额超限」错误, msg 是给用户看的友好文案。
+func NewQuotaError(msg string) error { return &quotaError{msg: msg} }
+
+// 兑换码相关业务错误(handler 翻成对应 HTTP 文案)。
+var (
+	ErrCodeNotFound = errors.New("vip: redemption code not found")
+	ErrCodeRedeemed = errors.New("vip: redemption code already redeemed")
+	ErrCodeExpired  = errors.New("vip: redemption code expired")
+)
+
+// ErrUserNotFound —— admin 直授/取消会员时目标用户不存在(UPDATE 影响 0 行)。
+// 防止「写了 0 行却返回成功 + 伪造到期时间」掩盖路径里的错 id。
+var ErrUserNotFound = errors.New("vip: user not found")

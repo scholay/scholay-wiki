@@ -1,7 +1,8 @@
-import { useState, type ReactNode } from 'react';
-import { Plus, Pencil, Trash2, CheckCircle2, Circle } from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Plus, Pencil, Trash2, CheckCircle2, Circle, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
+import { SecretInput } from '@/shared/ui/secret-input';
 import { Label } from '@/shared/ui/label';
 import { Badge } from '@/shared/ui/badge';
 import {
@@ -47,7 +48,9 @@ export function PaymentConfigPage() {
 type AlipayMode = { kind: 'create' } | { kind: 'edit'; row: AlipayConfig } | null;
 
 function AlipayPanel() {
-  const { data, isLoading } = useAlipayConfigs();
+  // 默认脱敏; 点私钥/公钥旁小眼睛 → reveal=true → 重新拉取明文 (show_sensitive)。
+  const [reveal, setReveal] = useState(false);
+  const { data, isLoading } = useAlipayConfigs({ showSensitive: reveal });
   const create = useCreateAlipayConfig();
   const update = useUpdateAlipayConfig();
   const del = useDeleteAlipayConfig();
@@ -55,6 +58,20 @@ function AlipayPanel() {
   const [mode, setMode] = useState<AlipayMode>(null);
   const apiToast = useApiToast();
   const confirm = useConfirm();
+
+  // 编辑态: 从最新 list 里按 id 取出当前行 (reveal 切换会重拉 list, 拿到明文/脱敏)。
+  const editId = mode?.kind === 'edit' ? mode.row.id : null;
+  const liveRow = editId != null ? data?.find((r) => r.id === editId) : undefined;
+
+  // 两个 textarea 密文受控, 随该行的字段值变化同步 (不依赖整个 data, 避免无关重拉冲掉输入)。
+  const [privateKey, setPrivateKey] = useState('');
+  const [publicKey, setPublicKey] = useState('');
+  useEffect(() => {
+    setPrivateKey(liveRow?.private_key ?? '');
+  }, [liveRow?.private_key]);
+  useEffect(() => {
+    setPublicKey(liveRow?.alipay_public_key ?? '');
+  }, [liveRow?.alipay_public_key]);
 
   const handleActivate = async (r: AlipayConfig) => {
     if (r.is_active) return;
@@ -159,26 +176,28 @@ function AlipayPanel() {
                   <Input name="return_url" defaultValue={mode.kind === 'edit' ? mode.row.return_url : ''} required />
                 </Field>
               </div>
-              <Field label="商户私钥(Private Key)">
-                <textarea
-                  name="private_key"
-                  rows={4}
-                  defaultValue={mode.kind === 'edit' ? mode.row.private_key : ''}
-                  required={mode.kind === 'create'}
-                  placeholder={mode.kind === 'edit' ? '留空表示不修改' : ''}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </Field>
-              <Field label="支付宝公钥(Alipay Public Key)">
-                <textarea
-                  name="alipay_public_key"
-                  rows={3}
-                  defaultValue={mode.kind === 'edit' ? mode.row.alipay_public_key : ''}
-                  required={mode.kind === 'create'}
-                  placeholder={mode.kind === 'edit' ? '留空表示不修改' : ''}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </Field>
+              <SecretTextareaField
+                label="商户私钥(Private Key)"
+                name="private_key"
+                rows={4}
+                value={privateKey}
+                onChange={setPrivateKey}
+                revealed={reveal}
+                onToggleReveal={() => setReveal((v) => !v)}
+                required={mode.kind === 'create'}
+                placeholder={mode.kind === 'edit' ? '留空表示不修改' : ''}
+              />
+              <SecretTextareaField
+                label="支付宝公钥(Alipay Public Key)"
+                name="alipay_public_key"
+                rows={3}
+                value={publicKey}
+                onChange={setPublicKey}
+                revealed={reveal}
+                onToggleReveal={() => setReveal((v) => !v)}
+                required={mode.kind === 'create'}
+                placeholder={mode.kind === 'edit' ? '留空表示不修改' : ''}
+              />
               <div className="flex items-center gap-2">
                 <input id="alipay-sandbox" name="is_sandbox" type="checkbox"
                   defaultChecked={mode.kind === 'edit' ? mode.row.is_sandbox : false} className="size-4" />
@@ -203,7 +222,9 @@ function AlipayPanel() {
 type WechatMode = { kind: 'create' } | { kind: 'edit'; row: WeChatPayConfig } | null;
 
 function WechatPanel() {
-  const { data, isLoading } = useWechatPayConfigs();
+  // 默认脱敏; 点 APIv3 Key 小眼睛 / 私钥旁小眼睛 → reveal=true → 重拉明文 (show_sensitive)。
+  const [reveal, setReveal] = useState(false);
+  const { data, isLoading } = useWechatPayConfigs({ showSensitive: reveal });
   const create = useCreateWechatPayConfig();
   const update = useUpdateWechatPayConfig();
   const del = useDeleteWechatPayConfig();
@@ -211,6 +232,20 @@ function WechatPanel() {
   const [mode, setMode] = useState<WechatMode>(null);
   const apiToast = useApiToast();
   const confirm = useConfirm();
+
+  // 编辑态: 从最新 list 里按 id 取出当前行 (reveal 切换会重拉 list, 拿到明文/脱敏)。
+  const editId = mode?.kind === 'edit' ? mode.row.id : null;
+  const liveRow = editId != null ? data?.find((r) => r.id === editId) : undefined;
+
+  // api_v3_key (单行) + private_key (textarea) 受控, 随该行字段值变化同步。
+  const [apiV3Key, setApiV3Key] = useState('');
+  const [privateKey, setPrivateKey] = useState('');
+  useEffect(() => {
+    setApiV3Key(liveRow?.api_v3_key ?? '');
+  }, [liveRow?.api_v3_key]);
+  useEffect(() => {
+    setPrivateKey(liveRow?.private_key ?? '');
+  }, [liveRow?.private_key]);
 
   const handleActivate = async (r: WeChatPayConfig) => {
     if (r.is_active) return;
@@ -312,24 +347,27 @@ function WechatPanel() {
                 </Field>
               </div>
               <Field label="APIv3 Key">
-                <Input
+                <SecretInput
                   name="api_v3_key"
-                  type="password"
-                  defaultValue={mode.kind === 'edit' ? mode.row.api_v3_key : ''}
+                  value={apiV3Key}
+                  onChange={(e) => setApiV3Key(e.target.value)}
+                  revealed={reveal}
+                  onToggleReveal={() => setReveal((v) => !v)}
                   required={mode.kind === 'create'}
                   placeholder={mode.kind === 'edit' ? '留空表示不修改' : ''}
                 />
               </Field>
-              <Field label="商户 API 私钥">
-                <textarea
-                  name="private_key"
-                  rows={5}
-                  defaultValue={mode.kind === 'edit' ? mode.row.private_key : ''}
-                  required={mode.kind === 'create'}
-                  placeholder={mode.kind === 'edit' ? '留空表示不修改' : '-----BEGIN PRIVATE KEY-----'}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </Field>
+              <SecretTextareaField
+                label="商户 API 私钥"
+                name="private_key"
+                rows={5}
+                value={privateKey}
+                onChange={setPrivateKey}
+                revealed={reveal}
+                onToggleReveal={() => setReveal((v) => !v)}
+                required={mode.kind === 'create'}
+                placeholder={mode.kind === 'edit' ? '留空表示不修改' : '-----BEGIN PRIVATE KEY-----'}
+              />
               <div className="flex items-center gap-2">
                 <input id="wechat-sandbox" name="is_sandbox" type="checkbox"
                   defaultChecked={mode.kind === 'edit' ? mode.row.is_sandbox : false} className="size-4" />
@@ -406,6 +444,61 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
     <div className="space-y-1.5">
       <Label>{label}</Label>
       {children}
+    </div>
+  );
+}
+
+/**
+ * 多行私钥密文字段 —— textarea 不能用 SecretInput, 改在 Label 旁放眼睛按钮:
+ * value 直接来自后端 (脱敏时是 ********, reveal 后是明文), 受控并随该行字段值同步,
+ * 不做 type 切换。提交走 FormData (name 命中受控 value), PreserveSecretOnEmpty 兜底"不修改"。
+ */
+function SecretTextareaField({
+  label,
+  name,
+  rows,
+  value,
+  onChange,
+  revealed,
+  onToggleReveal,
+  required,
+  placeholder,
+}: {
+  label: string;
+  name: string;
+  rows: number;
+  value: string;
+  onChange: (v: string) => void;
+  revealed: boolean;
+  onToggleReveal: () => void;
+  required?: boolean;
+  placeholder?: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <Label htmlFor={name}>{label}</Label>
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={onToggleReveal}
+          aria-label={revealed ? '隐藏原值' : '查看原值'}
+          title={revealed ? '隐藏' : '查看原值'}
+          className="inline-flex size-7 items-center justify-center rounded-sm text-faint transition-colors hover:bg-surface-2 hover:text-foreground"
+        >
+          {revealed ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+        </button>
+      </div>
+      <textarea
+        id={name}
+        name={name}
+        rows={rows}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required={required}
+        placeholder={placeholder}
+        className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-ring"
+      />
     </div>
   );
 }

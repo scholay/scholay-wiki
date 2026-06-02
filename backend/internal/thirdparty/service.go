@@ -194,14 +194,18 @@ func (s *Service) GetRandomAPIKey(accountType AccountType) (string, uint, error)
 	return apiKey, selected.ID, nil
 }
 
-// RecordAPIUsage records the outcome of an API request for an account
+// RecordAPIUsage records the outcome of an API request for an account.
+// 异步落库 (safego 带 recover): 统计是 best-effort, 不能阻塞 / 拖慢上游 AI 响应,
+// 单条 UPDATE 失败仅 Warn。调用方在请求完成后直接调, 不必再自行 go。
 func (s *Service) RecordAPIUsage(accountID uint, success bool, latencyMs int64) {
 	if accountID == 0 {
 		return // free tier, no account to track
 	}
-	if err := s.repo.RecordAPIUsage(accountID, success, latencyMs); err != nil {
-		slog.Warn("failed to record API usage", "account_id", accountID, "err", err)
-	}
+	safego.Go("thirdparty-record-usage", func() {
+		if err := s.repo.RecordAPIUsage(accountID, success, latencyMs); err != nil {
+			slog.Warn("failed to record API usage", "account_id", accountID, "err", err)
+		}
+	})
 }
 
 // ResetAPIStats resets all API usage statistics for an account

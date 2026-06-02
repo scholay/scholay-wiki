@@ -30,8 +30,11 @@ type User struct {
 	PhoneVerified bool       `gorm:"not null;default:false" json:"phone_verified"`
 	LastLoginAt   *time.Time `json:"last_login_at"`
 	LastLoginIP   *string    `gorm:"size:45" json:"last_login_ip"` // 最后登录IP
-	CreatedAt     time.Time  `json:"created_at"`
-	UpdatedAt     time.Time  `json:"updated_at"`
+	// 会员(VIP)—— 列由迁移 0008 加在 users 表;internal/vip 是写侧真源, 这里只读出来给 admin 列表展示。
+	VIPTier      *string    `gorm:"column:vip_tier" json:"vip_tier"`
+	VIPExpiresAt *time.Time `gorm:"column:vip_expires_at" json:"vip_expires_at"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
 // TableName specifies the table name for User

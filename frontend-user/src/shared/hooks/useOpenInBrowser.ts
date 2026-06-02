@@ -12,6 +12,7 @@ import {
   exposeJournalDetail,
   exposePaperDetail,
 } from '@/shared/api/seo';
+import { trackPaperClick } from '@/shared/api/hot-content';
 import type { Author, Journal, Paper } from '@/shared/api/types';
 
 /**
@@ -48,6 +49,8 @@ interface OpenInBrowserConfig<E> {
   getPath: (entity: E) => string | null;
   /** SEO seed 上报(可选);pdf tab 不公开因此不需要 */
   exposeForSEO?: (entity: E) => void;
+  /** 热门内容「点击量」上报(可选);只有 paper 有 hot_papers 计数,其余实体不传 */
+  trackHotClick?: (entity: E) => void;
 }
 
 function createOpenInBrowserHook<E>(cfg: OpenInBrowserConfig<E>) {
@@ -67,6 +70,7 @@ function createOpenInBrowserHook<E>(cfg: OpenInBrowserConfig<E>) {
           : `${location.pathname}${location.search}`;
         cfg.invokeAction(entity, returnTo);
         cfg.exposeForSEO?.(entity);
+        cfg.trackHotClick?.(entity);
         navigate(path);
       },
       [navigate, location.pathname, location.search]
@@ -87,6 +91,7 @@ export const useOpenPaperInBrowser = createOpenInBrowserHook<Paper>({
   getPath: (p) =>
     `/paper/${p.source ?? 'stc'}/${encodeURIComponent(p.paperId)}`,
   exposeForSEO: exposePaperDetail,
+  trackHotClick: trackPaperClick,
 });
 
 /** 打开学者详情 tab。/author/:source/:authorId。无 authorId 不开(防呆) */

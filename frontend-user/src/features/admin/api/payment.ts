@@ -42,11 +42,15 @@ export interface WeChatPayConfig {
 }
 
 // ---------------- Alipay ----------------
-export function useAlipayConfigs() {
+export function useAlipayConfigs({ showSensitive }: { showSensitive: boolean }) {
   return useQuery({
-    queryKey: ['admin', 'payment', 'alipay', 'list'],
+    queryKey: ['admin', 'payment', 'alipay', 'list', { showSensitive }],
     queryFn: async () =>
-      (await http.get<{ data: AlipayConfig[] }>('/admin/payment/alipay/configs')).data.data,
+      (
+        await http.get<{ data: AlipayConfig[] }>('/admin/payment/alipay/configs', {
+          params: showSensitive ? { show_sensitive: true } : undefined,
+        })
+      ).data.data,
   });
 }
 
@@ -85,11 +89,15 @@ export function useActivateAlipayConfig() {
 }
 
 // ---------------- WeChat Pay ----------------
-export function useWechatPayConfigs() {
+export function useWechatPayConfigs({ showSensitive }: { showSensitive: boolean }) {
   return useQuery({
-    queryKey: ['admin', 'payment', 'wechat', 'list'],
+    queryKey: ['admin', 'payment', 'wechat', 'list', { showSensitive }],
     queryFn: async () =>
-      (await http.get<{ data: WeChatPayConfig[] }>('/admin/payment/wechat/configs')).data.data,
+      (
+        await http.get<{ data: WeChatPayConfig[] }>('/admin/payment/wechat/configs', {
+          params: showSensitive ? { show_sensitive: true } : undefined,
+        })
+      ).data.data,
   });
 }
 

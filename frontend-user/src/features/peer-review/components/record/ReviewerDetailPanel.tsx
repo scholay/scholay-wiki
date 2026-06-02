@@ -5,7 +5,22 @@ import { parsePartialReviewer, type PartialReviewerOutput } from '../../lib/part
 import { recAvatarClasses, recBorderClasses, recLabel, recTextColor } from '../../lib/recommendation';
 import { gradeFill, gradeTextColor } from '../../lib/grade';
 import { MarkdownRenderer } from '@/shared/components/chat';
+import { CyclingHint } from '@/shared/components/CyclingHint';
 import type { ReviewReport, ReviewerRole, DimensionScore, LineComment, MacroComment } from '../../types';
+
+// 审稿人"正在评议中"(首个 token 到达前 + 工具静默期)的循环打字等待文案 —— 减弱等待焦虑。
+const REVIEWER_HINTS = [
+  '正在逐段通读稿件',
+  '正在核对实验设计与数据',
+  '正在比对相关工作与基线',
+  '正在检索佐证文献',
+  '正在评估方法学严谨性',
+  '正在斟酌各维度评分',
+  '正在撰写逐句意见',
+  '正在权衡贡献与不足',
+  '正在整理可执行的修改建议',
+  '马上给出审稿意见',
+];
 
 /**
  * 审稿人 A/B/C 详情面板(.pen `DYLbv` mainCol)。
@@ -29,6 +44,10 @@ export interface ReviewerDetailPanelProps {
   submissionId?: number;
   report?: ReviewReport;
   status: string;                // submission status, 决定空态文案
+  // preparing: compute_state=computing_methodology(方法论编排/审稿团组建中)。此阶段审稿人尚未开跑,
+  // 面板显示"待评议"骨架且**不订阅 SSE**(订阅了只会拿到 done 空流);切到 reviewing 时 preparing→false,
+  // SSE 这才订阅, 配合 SubscribePending 从头 catch 该审稿人的流, 避免漏帧。
+  preparing?: boolean;
 }
 
 const ROLE_LETTER: Record<ReviewerRole, string> = {
@@ -38,15 +57,16 @@ const ROLE_LETTER: Record<ReviewerRole, string> = {
   chief: '主',
 };
 
-export function ReviewerDetailPanel({ role, submissionId, report, status }: ReviewerDetailPanelProps) {
+export function ReviewerDetailPanel({ role, submissionId, report, status, preparing }: ReviewerDetailPanelProps) {
   const letter = ROLE_LETTER[role];
 
-  // 没 report → 看 SSE 有没有 active stream (用户审稿中、进了这个 tab)
-  // 有 report 时也订阅一次会瞬间拿 done snapshot 再 close, 不浪费;
-  // 但既然结构化数据已经持久化, 没必要再渲染流式文本, 直接关掉省一次 SSE。
+  // 没 report 且非方法论编排阶段 → 订阅 SSE 看实时流。
+  // 方法论阶段(preparing)不订阅: 那时审稿人还没开跑, 订阅只会拿 done 空流, 且 effect 不会因
+  // compute_state 变化重订 → 漏掉后续真流。preparing 切 false(reviewing 起)时 enabled 翻 true,
+  // effect 重跑、订阅, SubscribePending 从头 catch。
   const stream = useStreamingPartial({
     submissionId,
-    enabled: !!submissionId && !report,
+    enabled: !!submissionId && !report && !preparing,
     slot: `reviewer:${role}`,
   });
 
@@ -65,20 +85,30 @@ export function ReviewerDetailPanel({ role, submissionId, report, status }: Revi
         />
       );
     }
-    // 还没有任何流内容 → 等待态。优先展示实时进度 (正在检索文献 / 通读稿件…), 让等待不黑盒。
+    // 还没有任何流内容 → 等待态。三种文案:
+    //   preparing(方法论编排中)→ "待评议",说明审稿团组建中;
+    //   reviewing 且已开跑 → "正在评议中…"(优先显示实时进度 note);
+    //   其它(已完成态历史回看缺流)→ "还没出意见"。
     return (
       <div className="flex h-72 flex-col items-center justify-center gap-3 rounded-md border border-dashed border-border bg-surface-1 text-center">
         <Loader2 className="h-6 w-6 animate-spin text-faint" />
         <p className="text-base font-semibold text-muted-foreground">
-          {status === 'reviewing' ? `审稿人 ${letter} 正在评议中…` : `审稿人 ${letter} 还没出意见`}
-        </p>
-        <p className="text-sm text-faint">
-          {stream.status
-            ? stream.status
+          {preparing
+            ? `审稿人 ${letter} · 待评议`
             : status === 'reviewing'
-              ? `审稿人 ${letter} 的意见会实时显示在这里, 你可以关掉页面稍后再回来。`
-              : '页面会自动刷新, 完成后即可查看完整意见。'}
+              ? `审稿人 ${letter} 正在评议中…`
+              : `审稿人 ${letter} 还没出意见`}
         </p>
+        {preparing ? (
+          <p className="text-sm text-faint">
+            审稿团正在组建(通读全文、制定审稿标准),稍后由该审稿人评议,意见会在这里实时填充。
+          </p>
+        ) : status === 'reviewing' ? (
+          // 正在评议、首个 token 还没到 → 循环打字等待文案(比静态"会实时显示在这里"更活、不像卡死)
+          <CyclingHint phrases={REVIEWER_HINTS} className="text-sm text-faint" />
+        ) : (
+          <p className="text-sm text-faint">页面会自动刷新, 完成后即可查看完整意见。</p>
+        )}
       </div>
     );
   }
@@ -276,7 +306,8 @@ function StreamingHead({ letter, partial }: { letter: string; partial: PartialRe
   const recCls = rec ? recBorderClasses(rec) : '';
   return (
     <header className="flex items-start justify-between gap-4 rounded-md border border-border bg-background px-5 py-4">
-      <div className="flex gap-3">
+      {/* 头像 + 名称:名称只剩单行(匿名审稿已去掉专长),用 items-center 让名称与头像垂直居中对齐 */}
+      <div className="flex items-center gap-3">
         {/* 流式中: rec 一旦解析出来就按结果上色, 之前 (unknown) 走深色兜底 */}
         <div
           className={cn(
@@ -286,16 +317,8 @@ function StreamingHead({ letter, partial }: { letter: string; partial: PartialRe
         >
           <span className="font-serif text-lg font-bold">{letter}</span>
         </div>
-        <div>
-          <p className="text-base font-bold text-foreground">审稿人 {letter}</p>
-          <p className="text-sm text-muted-foreground">
-            {partial.expertise || (
-              <span className="inline-flex items-center gap-1 text-faint">
-                <Loader2 className="h-3 w-3 animate-spin" /> 正在确认专长方向…
-              </span>
-            )}
-          </p>
-        </div>
+        {/* 匿名审稿:不展示审稿人专长/领域(只显示 A/B/C),避免泄露选了哪个专科审稿人 */}
+        <p className="text-base font-bold text-foreground">审稿人 {letter}</p>
       </div>
       <div className="flex flex-col items-end gap-1">
         <div className="flex items-end gap-1">
@@ -347,7 +370,8 @@ function ReviewerHead({ role, report }: { role: ReviewerRole; report: ReviewRepo
 
   return (
     <header className="flex items-start justify-between gap-4 rounded-md border border-border bg-background px-5 py-4">
-      <div className="flex gap-3">
+      {/* 头像 + 名称:名称只剩单行(匿名审稿已去掉专长),用 items-center 让名称与头像垂直居中对齐 */}
+      <div className="flex items-center gap-3">
         {/* 头像按该审稿人的推荐结果上色 (绿/黄/红), 跟状态栏 / tab 圆点一致 */}
         <div
           className={cn(
@@ -357,15 +381,8 @@ function ReviewerHead({ role, report }: { role: ReviewerRole; report: ReviewRepo
         >
           <span className="font-serif text-lg font-bold">{letter}</span>
         </div>
-        <div>
-          <p className="text-base font-bold text-foreground">审稿人 {letter}</p>
-          <p className="text-sm text-muted-foreground">
-            {report.expertise || report.skillName || '通用领域'}
-            {report.skillSlug && (
-              <span className="ml-1.5 text-faint">· {report.skillSlug}</span>
-            )}
-          </p>
-        </div>
+        {/* 匿名审稿:不展示审稿人专长/领域(只显示 A/B/C),避免泄露选了哪个专科审稿人 */}
+        <p className="text-base font-bold text-foreground">审稿人 {letter}</p>
       </div>
       <div className="flex flex-col items-end gap-1">
         <div className="flex items-end gap-1">

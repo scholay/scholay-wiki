@@ -23,6 +23,8 @@ import type { ReviewReport } from '../../types';
 export interface StatusGridProps {
   /** 投稿状态: 'reviewing' 或 'completed' 等 */
   status: string;
+  /** 异步 agent 细分状态; 'computing_methodology' 时进度条显示方法论阶段而非假"审稿人A评议中" */
+  computeState?: string;
   /** 4 份 report by role */
   reports: Map<string, ReviewReport>;
   /** 当前选中的 tab, 用于高亮对应状态格 */
@@ -30,7 +32,7 @@ export interface StatusGridProps {
   onTabChange: (tab: string) => void;
 }
 
-export function StatusGrid({ status, reports, activeTab, onTabChange }: StatusGridProps) {
+export function StatusGrid({ status, computeState, reports, activeTab, onTabChange }: StatusGridProps) {
   const a = reports.get('alpha');
   const b = reports.get('beta');
   const c = reports.get('gamma');
@@ -40,14 +42,18 @@ export function StatusGrid({ status, reports, activeTab, onTabChange }: StatusGr
   const reviewersDone = [a, b, c].filter(Boolean).length;
   const stagesDone = reviewersDone + (chief ? 1 : 0);
   const reviewing = status === 'reviewing' && stagesDone < 4;
-  // 当前正在跑的角色 (串行: 第一个还没出报告的)
-  const loadingRole = !reviewing
+  // 方法论编排阶段: 三位审稿人都还没开跑, 不能让任何一格脉冲成"评审中"(那是误标的根因)。
+  const inMethodology = computeState === 'computing_methodology';
+  // 当前正在跑的角色 (串行: 第一个还没出报告的); 方法论阶段统一为 null。
+  const loadingRole = !reviewing || inMethodology
     ? null
     : !a ? 'alpha' : !b ? 'beta' : !c ? 'gamma' : 'chief';
 
   return (
     <div className="flex w-full flex-col gap-2">
-      {reviewing && <ReviewProgress stagesDone={stagesDone} loadingRole={loadingRole} />}
+      {reviewing && (
+        <ReviewProgress stagesDone={stagesDone} loadingRole={loadingRole} inMethodology={inMethodology} />
+      )}
 
       {/* items-stretch: 初审 / 三审稿人 / 主审决议三块统一拉伸到同一高度 (取最高者),
           每块内部各自 justify-center 把内容垂直居中 —— 整行卡片上下对齐, 不再参差。 */}
@@ -97,26 +103,46 @@ export function StatusGrid({ status, reports, activeTab, onTabChange }: StatusGr
   );
 }
 
-/** 顶部量化进度条 — 审稿进行中显示 "已完成 N/4" + 当前正在评审的角色 + 动态进度条。 */
-function ReviewProgress({ stagesDone, loadingRole }: { stagesDone: number; loadingRole: string | null }) {
-  const pct = Math.round((stagesDone / 4) * 100);
-  const roleLabel =
-    loadingRole === 'chief'
+/**
+ * 顶部量化进度条 — 审稿是 5 个串行阶段: 方法论编排 → 审稿人 A → B → C → 主审决议。
+ * 显示「当前阶段文案 + 阶段 N/5 进度条 + 粗略预计剩余」, 让等待不黑盒(尤其方法论那段最久)。
+ * 预计时间是按每阶段 ~2 分钟的经验估计(实测一轮约 9-10 分钟), 标「预计」避免被重试拖长时显得失真。
+ */
+function ReviewProgress({
+  stagesDone,
+  loadingRole,
+  inMethodology,
+}: {
+  stagesDone: number;
+  loadingRole: string | null;
+  inMethodology: boolean;
+}) {
+  // 阶段号 1..5: 方法论=1; 之后 alpha=2 / beta=3 / gamma=4 / chief=5 (= 已完成报告数 + 2)。
+  const phaseNum = inMethodology ? 1 : Math.min(5, stagesDone + 2);
+  // 进度条按阶段推进, 留 8% 起步量避免方法论阶段显示成 0。
+  const pct = Math.min(100, Math.round(((phaseNum - 1) / 5) * 100) + 8);
+  // 粗略预计剩余: 含当前阶段在内还剩 (6 - phaseNum) 个阶段, 每阶段约 2 分钟。
+  const remainMin = Math.max(1, (6 - phaseNum) * 2);
+  const label = inMethodology
+    ? '通读全文 · 制定审稿标准…'
+    : loadingRole === 'chief'
       ? '主审决议中…'
       : loadingRole
         ? `审稿人 ${{ alpha: 'A', beta: 'B', gamma: 'C' }[loadingRole]} 评审中…`
-        : '汇总中…';
+        : '汇总结果中…';
   return (
     <div className="flex items-center gap-3 rounded-md border border-brand-amber/40 bg-warning-soft px-3.5 py-2">
       <Loader2 className="h-4 w-4 shrink-0 animate-spin text-brand-amber" />
-      <span className="shrink-0 text-xs font-bold text-brand-amber">{roleLabel}</span>
+      <span className="shrink-0 text-xs font-bold text-brand-amber">{label}</span>
       <div className="h-1.5 flex-1 overflow-hidden rounded-pill bg-brand-amber/15">
         <div
           className="h-full rounded-pill bg-brand-amber transition-all duration-500"
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="shrink-0 text-2xs font-bold tabular-nums text-brand-amber">已完成 {stagesDone}/4</span>
+      <span className="shrink-0 text-2xs font-bold tabular-nums text-brand-amber">
+        阶段 {phaseNum}/5 · 预计剩余 ~{remainMin} 分钟
+      </span>
     </div>
   );
 }

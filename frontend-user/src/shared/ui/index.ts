@@ -62,6 +62,18 @@ export {
 } from './resizable';
 export { ScrollArea, ScrollBar } from './scroll-area';
 export { Separator } from './separator';
+export {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetOverlay,
+  SheetPortal,
+  SheetTitle,
+  SheetTrigger,
+} from './sheet';
 export { Skeleton } from './skeleton';
 export { Switch } from './switch';
 export { Tabs, TabsContent, TabsList, TabsTrigger } from './tabs';

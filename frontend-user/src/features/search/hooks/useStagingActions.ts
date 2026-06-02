@@ -19,6 +19,7 @@ import {
   useRenameRemoteArea,
   type RemoteStagingArea,
 } from '../api/staging-areas';
+import { trackStaging } from '@/shared/api/usage-stat';
 import type { Paper, UpstreamSource } from '@/shared/api/types';
 import type { FacadeArea } from './useStagingView';
 
@@ -56,14 +57,17 @@ export interface StagingActions {
   createArea: (name?: string) => void;
   deleteArea: (id: string) => void;
   renameArea: (id: string, name: string) => void;
-  stagePaper: (paper: Paper) => void;
+  stagePaper: (paper: Paper, source?: 'traditional' | 'smart') => void;
   /**
    * 批量暂存(一键导入)—— 一次性把多篇论文加入 active 暂存区。
    * 不弹 per-item toast,调用方根据 BulkStageResult 弹一条汇总。
    * - 没有 active 区 → 自动创建一个
    * - 重复 / 超出 100 上限 → 计入 skipped / capped,不报错
    */
-  bulkStagePapers: (papers: Paper[]) => Promise<BulkStageResult>;
+  bulkStagePapers: (
+    papers: Paper[],
+    source?: 'traditional' | 'smart'
+  ) => Promise<BulkStageResult>;
   removePaper: (areaId: string, paperId: string) => void;
   /** 清空 area 内全部 papers,保留 area —— 走后端 batch endpoint,1 个请求搞定 */
   clearArea: (areaId: string) => void;
@@ -248,7 +252,7 @@ export function useStagingActions(): StagingActions {
   }, [readRemoteAreas, createMut, setActiveRemote]);
 
   const stagePaper = useCallback(
-    (paper: Paper) => {
+    (paper: Paper, source?: 'traditional' | 'smart') => {
       if (isAuthed) {
         ensureAuthedArea().then((area) => {
           if (!area || area.remoteId == null) return;
@@ -263,6 +267,7 @@ export function useStagingActions(): StagingActions {
           addPaperMut.mutate(
             { areaId: area.remoteId, paper },
             {
+              onSuccess: () => trackStaging(source), // 功能使用统计: 暂存一次(登录)
               onError: (err) =>
                 toast.error(`添加失败:${(err as Error).message}`),
             }
@@ -270,13 +275,17 @@ export function useStagingActions(): StagingActions {
         });
       } else {
         localStagePaper(paper);
+        trackStaging(source); // 功能使用统计: 暂存一次(匿名本地, 后端只能靠这里看到)
       }
     },
     [isAuthed, ensureAuthedArea, addPaperMut, localStagePaper]
   );
 
   const bulkStagePapers = useCallback(
-    async (papers: Paper[]): Promise<BulkStageResult> => {
+    async (
+      papers: Paper[],
+      source?: 'traditional' | 'smart'
+    ): Promise<BulkStageResult> => {
       // 1) 输入侧去重(同一 paperId 多次传入只算一次)
       const seen = new Set<string>();
       const candidates: Paper[] = [];
@@ -337,6 +346,7 @@ export function useStagingActions(): StagingActions {
         );
         const added = settles.filter(Boolean).length;
         skipped += settles.length - added;
+        if (added > 0) trackStaging(source, added); // 功能使用统计: 一键批量暂存(登录)
         return { added, skipped, capped };
       }
 
@@ -349,7 +359,9 @@ export function useStagingActions(): StagingActions {
       if (!activeId) {
         return { added: 0, skipped: 0, capped: 0 };
       }
-      return useStagingAreas.getState().bulkAddPapers(activeId, candidates);
+      const res = useStagingAreas.getState().bulkAddPapers(activeId, candidates);
+      if (res.added > 0) trackStaging(source, res.added); // 功能使用统计: 一键批量暂存(匿名)
+      return res;
     },
     [isAuthed, ensureAuthedArea, addPaperMut]
   );

@@ -45,6 +45,10 @@ const (
 const (
 	SlotMeta   = "meta"
 	SlotLetter = "letter"
+	// SlotMethodology — 评分前的方法论编排会话(读全文 + invoke 审稿 skill 产出"该怎么审")。
+	// 这一轮过去用 no-op 回调丢弃输出, 前端只能干等一个被误标成"审稿人A评议中"的空转圈;
+	// 现在推到这个 slot, 让前端在 compute_state=computing_methodology 时实时看到 agent 输出。
+	SlotMethodology = "methodology"
 )
 
 // ReviewerSlot 把 role (alpha/beta/gamma/chief) 拼成 "reviewer:<role>" slot 字符串。

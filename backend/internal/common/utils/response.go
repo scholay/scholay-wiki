@@ -80,7 +80,12 @@ func httpStatusFromCode(code int) int {
 	case code >= 5000 && code <= 5099: // server-side errors
 		return http.StatusInternalServerError
 	case code >= 6000 && code <= 6099: // external service errors
-		return http.StatusBadGateway
+		switch code {
+		case 6010: // AgentQuotaExceeded —— 配额耗尽是"请求过多", 不是网关故障
+			return http.StatusTooManyRequests
+		default:
+			return http.StatusBadGateway
+		}
 	}
 	// Fallback: treat unknown codes as bad request
 	return http.StatusBadRequest

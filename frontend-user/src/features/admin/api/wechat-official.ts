@@ -12,11 +12,15 @@ export interface WechatOfficialConfig {
   system_prompt?: string;
 }
 
-export function useWechatOfficialConfig() {
+export function useWechatOfficialConfig({ showSensitive }: { showSensitive: boolean }) {
   return useQuery({
-    queryKey: ['admin', 'wechat-official', 'config'],
+    queryKey: ['admin', 'wechat-official', 'config', { showSensitive }],
     queryFn: async () =>
-      (await http.get<{ data: WechatOfficialConfig }>('/admin/wechat-official/config')).data.data,
+      (
+        await http.get<{ data: WechatOfficialConfig }>('/admin/wechat-official/config', {
+          params: showSensitive ? { show_sensitive: true } : undefined,
+        })
+      ).data.data,
   });
 }
 

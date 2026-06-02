@@ -1,0 +1,54 @@
+// ============================================================================
+// 统一 LLM token 用量账本 —— 项目侧(internal/ai)+ agent 侧(scholar_agent)
+// 每次 LLM 调用(含每次 retry)记一行。读时按 user/feature/day 聚合。
+//
+// 设计要点见 backend/DESIGN-llm-token-accounting.md。一行一次调用; user_id 可空
+// (NULL = 公众号/匿名); 异步写、best-effort(同 usagestat, 非计费级 ACID)。
+// ============================================================================
+
+package llmusage
+
+import "time"
+
+// Source —— 调用来自项目自身的 LLM 客户端 还是 scholar_agent 容器。
+const (
+	SourceProject = "project" // internal/ai (translate / matrix / wechat_oa)
+	SourceAgent   = "agent"   // scholar_agent (smart_search / claw / peer_review)
+)
+
+// Feature 常量与 usagestat 对齐(同一套功能维度), 便于跨表关联。
+const (
+	FeatureSmartSearch = "smart_search"
+	FeatureClaw        = "claw"
+	FeaturePeerReview  = "peer_review"
+	FeatureMatrix      = "matrix"
+	FeatureTranslate   = "translate"
+	FeatureWechatOA    = "wechat_oa"
+)
+
+// RetentionDays —— 账本保留天数(cleanup 删超期行, 防 per-call 表无限增长)。
+const RetentionDays = 365
+
+// LLMTokenUsage 账本一行。GORM 默认把 CamelCase 字段映射成 snake_case 列, 与
+// 0006_llm_token_usage.sql 的列名一致(InputTokens→input_tokens 等)。
+type LLMTokenUsage struct {
+	ID                  uint64    `gorm:"primaryKey" json:"id"`
+	UserID              *uint     `json:"user_id"`  // NULL = 公众号 / 匿名
+	Feature             string    `json:"feature"`
+	Source              string    `json:"source"`   // project | agent
+	Provider            string    `json:"provider"`
+	AccountID           *uint     `json:"account_id"` // third_party_accounts.id(project 侧)
+	Model               string    `json:"model"`
+	InputTokens         int       `json:"input_tokens"`
+	OutputTokens        int       `json:"output_tokens"`
+	TotalTokens         int       `json:"total_tokens"`
+	CacheReadTokens     int       `json:"cache_read_tokens"`
+	CacheCreationTokens int       `json:"cache_creation_tokens"`
+	RequestID           string    `json:"request_id"`
+	CreatedAt           time.Time `gorm:"autoCreateTime" json:"created_at"`
+}
+
+// TableName 指定表名。
+func (LLMTokenUsage) TableName() string {
+	return "llm_token_usage"
+}

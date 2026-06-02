@@ -11,6 +11,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar';
 import { DropdownMenuItem, DropdownMenuSeparator } from '@/shared/ui/dropdown-menu';
 import { http } from '@/shared/lib/http';
+import { getAuthToken } from '@/shared/lib/auth-token';
 import { useAuthStore, isAdminRole } from '@/stores/auth.store';
 import { cn } from '@/shared/lib/utils';
 
@@ -43,14 +44,18 @@ export function UserMenuContent() {
   const isAdmin = isAdminRole(user.role);
   const planLabel = isAdmin ? '管理员' : '普通用户';
 
-  const handleLogout = async () => {
-    try {
-      await http.post('/user/logout');
-    } catch {
-      /* noop —— 服务端失败也要清本地,否则卡死 */
+  const handleLogout = () => {
+    const token = getAuthToken(); // 先捕获, 再立刻清本地 —— 退出"即时"且不被任何 401 弹框打断
+    clearAuth(); // 原子清 token + user + cookie
+    qc.clear(); // 清掉所有带登录态的缓存数据
+    navigate('/'); // 主动退出 → 回首页(不弹登录框;弹框只留给"被动失效"的 auth-evicted 路径)
+    // 后台吊销服务端 token:显式带上刚捕获的 token(此刻 getAuthToken 已空)。失败无所谓,本地已清;
+    // 即便它返回 401 也不会触发 auth-evicted —— isAuthError 见本地已无 token 即判 false。
+    if (token) {
+      void http
+        .post('/user/logout', null, { headers: { Authorization: `Bearer ${token}` } })
+        .catch(() => {});
     }
-    clearAuth();
-    qc.clear();
   };
 
   return (

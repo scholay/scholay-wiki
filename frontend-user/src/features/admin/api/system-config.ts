@@ -46,10 +46,16 @@ export interface SMSConfig {
 }
 
 // ---- email ----
-export function useEmailConfig() {
+// smtp_password 默认脱敏; reveal 时用 ?show_password=true 拉明文 (邮件端点参数名特殊)。
+export function useEmailConfig({ showSensitive }: { showSensitive: boolean }) {
   return useQuery({
-    queryKey: ['admin', 'config', 'email'],
-    queryFn: async () => (await http.get<{ data: EmailConfig }>('/admin/email-config')).data.data,
+    queryKey: ['admin', 'config', 'email', { showSensitive }],
+    queryFn: async () =>
+      (
+        await http.get<{ data: EmailConfig }>('/admin/email-config', {
+          params: showSensitive ? { show_password: true } : undefined,
+        })
+      ).data.data,
   });
 }
 export function useUpdateEmailConfig() {
@@ -66,10 +72,16 @@ export function useTestEmailConfig() {
 }
 
 // ---- sms ----
-export function useSMSConfig() {
+// access_secret 默认脱敏; reveal 时用 ?show_secret=true 拉明文 (短信端点参数名特殊)。
+export function useSMSConfig({ showSensitive }: { showSensitive: boolean }) {
   return useQuery({
-    queryKey: ['admin', 'config', 'sms'],
-    queryFn: async () => (await http.get<{ data: SMSConfig }>('/admin/sms-config')).data.data,
+    queryKey: ['admin', 'config', 'sms', { showSensitive }],
+    queryFn: async () =>
+      (
+        await http.get<{ data: SMSConfig }>('/admin/sms-config', {
+          params: showSensitive ? { show_secret: true } : undefined,
+        })
+      ).data.data,
   });
 }
 export function useUpdateSMSConfig() {
@@ -86,10 +98,16 @@ export function useTestSMSConfig() {
 }
 
 // ---- system ----
-export function useSystemConfig() {
+// turnstile_secret_key 默认脱敏; reveal 时用 ?show_sensitive=true 拉明文。
+export function useSystemConfig({ showSensitive }: { showSensitive: boolean }) {
   return useQuery({
-    queryKey: ['admin', 'config', 'system'],
-    queryFn: async () => (await http.get<{ data: SystemConfig }>('/admin/system-config')).data.data,
+    queryKey: ['admin', 'config', 'system', { showSensitive }],
+    queryFn: async () =>
+      (
+        await http.get<{ data: SystemConfig }>('/admin/system-config', {
+          params: showSensitive ? { show_sensitive: true } : undefined,
+        })
+      ).data.data,
   });
 }
 export function useUpdateSystemConfig() {

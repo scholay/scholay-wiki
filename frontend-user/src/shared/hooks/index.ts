@@ -10,5 +10,5 @@ export {
   useOpenPdfInBrowser,
 } from './useOpenInBrowser';
 export { useReplayPendingAction } from './useReplayPendingAction';
-export { useUrlState } from './useUrlState';
+export { useUrlState, usePatchUrlState } from './useUrlState';
 export { useScrollRestoration } from './useScrollRestoration';

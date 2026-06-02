@@ -14,10 +14,13 @@ import (
 
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/hotcontent"
+	"scholar-backend/internal/llmusage"
 	"scholar-backend/internal/message"
 	"scholar-backend/internal/seo"
 	"scholar-backend/internal/seosubmit"
 	"scholar-backend/internal/usagelog"
+	"scholar-backend/internal/usagestat"
+	"scholar-backend/internal/vip"
 	"scholar-backend/internal/websocket"
 )
 
@@ -26,6 +29,19 @@ type platformBundle struct {
 	usageLog        *usagelog.Handler
 	usageLogService *usagelog.Service
 	usageLogAdmin   *usagelog.AdminHandler
+
+	usageStat        *usagestat.Handler
+	usageStatService *usagestat.Service
+
+	// 统一 LLM token 账本 (项目侧 internal/ai + agent 侧)。注入给 ai.Service /
+	// wechatofficial / smartsearch / claw / peerreview, 各自在 LLM 调用咽喉点 Record。
+	llmUsageService *llmusage.Service
+	llmUsageAdmin   *llmusage.AdminHandler // 后台 token 用量看板 (读侧聚合/明细/导出)
+
+	// 会员(VIP):兑换码 + 按等级日限额。service 注入给 4 个 AI 功能做限额;handler 提供
+	// 用户兑换/会员状态 + 管理端生码/列表。
+	vipService *vip.Service
+	vipHandler *vip.Handler
 
 	hotContent        *hotcontent.Handler
 	hotContentService *hotcontent.Service
@@ -48,6 +64,18 @@ func initPlatform(db *gorm.DB, cfg *appconfig.Config) *platformBundle {
 	usageLogHandler := usagelog.NewHandler(usageLogService)
 	usageLogAdminHandler := usagelog.NewAdminHandler(usageLogService)
 
+	// 功能使用统计 v2 (usage_events) —— 取代旧 usagelog 埋点; 旧表/旧页保留为历史只读。
+	usageStatService := usagestat.NewService(usagestat.NewRepository(db))
+	usageStatHandler := usagestat.NewHandler(usageStatService)
+
+	// 统一 LLM token 账本 (llm_token_usage)。异步落库, best-effort。
+	llmUsageService := llmusage.NewService(llmusage.NewRepository(db))
+	llmUsageAdminHandler := llmusage.NewAdminHandler(llmUsageService)
+
+	// 会员(VIP)。
+	vipService := vip.NewService(vip.NewRepository(db))
+	vipHandler := vip.NewHandler(vipService)
+
 	hotContentRepo := hotcontent.NewRepository(db)
 	hotContentService := hotcontent.NewService(hotContentRepo)
 	hotContentHandler := hotcontent.NewHandler(hotContentService)
@@ -69,6 +97,12 @@ func initPlatform(db *gorm.DB, cfg *appconfig.Config) *platformBundle {
 		usageLog:          usageLogHandler,
 		usageLogService:   usageLogService,
 		usageLogAdmin:     usageLogAdminHandler,
+		usageStat:         usageStatHandler,
+		usageStatService:  usageStatService,
+		llmUsageService:   llmUsageService,
+		llmUsageAdmin:     llmUsageAdminHandler,
+		vipService:        vipService,
+		vipHandler:        vipHandler,
 		hotContent:        hotContentHandler,
 		hotContentService: hotContentService,
 		seoHandler:        seoHandler,

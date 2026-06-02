@@ -23,6 +23,14 @@ export function isAdminRole(role?: StoredUser['role']): boolean {
   return role === 'admin' || role === 'super_admin';
 }
 
+/**
+ * 全局**唯一**的「是否已登录」判断 —— 一律以 token 为准(user 仅作展示缓存,可能尚未拉到)。
+ * 组件别再各写 `!!user` / `!!getAuthToken()` / `!!token`,统一用这个,杜绝多套谓词分叉。
+ */
+export function useIsAuthenticated(): boolean {
+  return useAuthStore((s) => !!s.token);
+}
+
 interface AuthState {
   token: string | null;
   user: StoredUser | null;
@@ -56,12 +64,20 @@ export const useAuthStore = create<AuthState>()(
       name: 'scholay.auth',
       // 只持久化 user;token 不进 persist(它的真源是 localStorage.auth_token)。
       partialize: (s) => ({ user: s.user }),
-      // 无论 persist blob 里残留什么(旧版本可能存过 token),token 永远以真源为准。
-      merge: (persisted, current) => ({
-        ...current,
-        ...(persisted as Partial<AuthState>),
-        token: getAuthToken(),
-      }),
+      // token 永远以真源(localStorage.auth_token)为准。**关键**:token 与 user 同生同灭 ——
+      // 真源已无 token(登出/失效/被清)时,persist blob 里残留的 user 一律丢弃。
+      // 否则硬刷新后 rehydrate 出 token=null + user=旧值 → UI 按 !!user 仍显示"已登录"(幽灵登录态),
+      // 且 /?login=required 因 user 非空而不弹登录框(就是这个 bug)。
+      merge: (persisted, current) => {
+        const token = getAuthToken();
+        const p = persisted as Partial<AuthState>;
+        return {
+          ...current,
+          ...p,
+          token,
+          user: token ? (p.user ?? null) : null,
+        };
+      },
       // 刷新后补 cookie(浏览器关闭会清 cookie 但 localStorage 还在),避免 iframe 突然 401。
       onRehydrateStorage: () => () => {
         const t = getAuthToken();
@@ -77,7 +93,10 @@ export const useAuthStore = create<AuthState>()(
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', (e) => {
     if (e.key === 'auth_token') {
-      useAuthStore.setState({ token: e.newValue || null });
+      const t = e.newValue || null;
+      // token 与 user **同生同灭**:别的 tab 清了 token(登出/吊销),本 tab 必须把 user 一起清,
+      // 否则本 tab UI 仍按 user 判断显示"已登录"——这正是「退出登录后状态残留」的根因之一。
+      useAuthStore.setState(t ? { token: t } : { token: null, user: null });
     }
   });
 }

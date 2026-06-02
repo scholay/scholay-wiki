@@ -21,6 +21,7 @@ import (
 
 	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/utils"
+	"scholar-backend/internal/prompts"
 )
 
 // dedupMsgTTL — MsgId 去重闸的存活时长。覆盖 WeChat 5s 超时后的 3 次重投递窗口即可。
@@ -179,7 +180,7 @@ func (h *Handler) HandleMessage(c *gin.Context) {
 			reply = "抱歉，我无法处理这张图片，请稍后再试。"
 		} else {
 			// Get AI reply with image
-			userMessage := "请分析这张图片并回答相关问题。"
+			userMessage := prompts.WechatOfficialImageUserPrompt
 			reply, err = h.service.GetAIReplyWithImage(c.Request.Context(), userMessage, base64Image, "")
 			if err != nil {
 				slog.Error("failed to get AI reply with image", "err", err)

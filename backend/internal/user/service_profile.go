@@ -109,9 +109,18 @@ func (s *Service) GetUserListWithSort(page, pageSize int, sortBy, sortOrder stri
 }
 
 // GetUserListWithFilter is the recommended entrypoint for the admin user list:
-// supports server-side keyword search + status/role filter + sort.
+// supports server-side keyword search + status/role/tier/verified/date filter + sort.
 func (s *Service) GetUserListWithFilter(page, pageSize int, f UserListFilter) ([]User, int64, error) {
 	return s.repo.GetUserListWithFilter(database.CalcOffset(page, pageSize), pageSize, f)
+}
+
+// GetUserAuthProviders 返回某用户的第三方/账号绑定(admin 用户详情:登录方式)。
+func (s *Service) GetUserAuthProviders(userID uint) ([]UserAuthProvider, error) {
+	m, err := s.repo.GetUserAuthProviders([]uint{userID})
+	if err != nil {
+		return nil, err
+	}
+	return m[userID], nil
 }
 
 // DeleteUser deletes a user account and all associated data (admin only)

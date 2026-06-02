@@ -8,8 +8,16 @@
 package ai
 
 import (
+	"errors"
+	"log/slog"
+
+	"scholar-backend/internal/common/aierr"
+	"scholar-backend/internal/common/errcode"
 	"scholar-backend/internal/common/sse"
 	"scholar-backend/internal/common/utils"
+	"scholar-backend/internal/llmusage"
+	"scholar-backend/internal/usagestat"
+	"scholar-backend/internal/vip"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/sync/errgroup"
@@ -20,13 +28,25 @@ import (
 const batchAnalyzeConcurrency = 5
 
 type Handler struct {
-	service *Service
+	service      *Service
+	statRecorder usagestat.Recorder
+	vip          *vip.Service // 会员限额(翻译);nil = 不限
 }
 
 func NewHandler(service *Service) *Handler {
 	return &Handler{
 		service: service,
 	}
+}
+
+// SetUsageStatRecorder 注入使用统计录入器(矩阵维度修改 / 论文翻译)。允许 nil 禁用。
+func (h *Handler) SetUsageStatRecorder(r usagestat.Recorder) {
+	h.statRecorder = r
+}
+
+// SetVIPChecker 注入会员限额服务(翻译每日次数按等级限)。允许 nil 禁用。
+func (h *Handler) SetVIPChecker(v *vip.Service) {
+	h.vip = v
 }
 
 // 注:单篇 AnalyzePaperRequest/Response + AnalyzePaper handler 已下线 ——
@@ -92,8 +112,14 @@ func (h *Handler) BatchAnalyzePapers(c *gin.Context) {
 	// 批量分析论文 —— 并发处理（固定位索引保证输出顺序与输入一致）。
 	// 单篇失败不影响其他论文；所有篇目完成后一次性返回。
 	// errgroup 保证 goroutine 在 Wait 前全部退出；每个 goroutine 写入独立下标，无需额外互斥。
+	// ctx 带上 LLM 账本归属 (feature=matrix + user): 每篇/每维度的 LLM 调用都过
+	// executeWithRetry, 据此各落一行账本。
 	results := make([]PaperAnalysisItem, len(req.Papers))
-	eg, egCtx := errgroup.WithContext(c.Request.Context())
+	callCtx := llmusage.WithCall(c.Request.Context(), llmusage.Call{
+		Feature: llmusage.FeatureMatrix,
+		UserID:  userIDPtr,
+	})
+	eg, egCtx := errgroup.WithContext(callCtx)
 	eg.SetLimit(batchAnalyzeConcurrency)
 
 	for i, paper := range req.Papers {
@@ -102,8 +128,10 @@ func (h *Handler) BatchAnalyzePapers(c *gin.Context) {
 			item := PaperAnalysisItem{PaperID: paper.PaperID}
 			result, analysisCtx, err := h.service.AnalyzePaperAbstract(egCtx, paper.PaperID, paper.Title, paper.Abstract, userIDPtr)
 			if err != nil {
+				// 原始错误(账号池耗尽/熔断/超时等)记日志, 给用户只回友好文案, 不漏内部细节。
+				slog.Warn("batch analyze paper failed", "paper_id", paper.PaperID, "err", err)
 				item.Success = false
-				item.Error = err.Error()
+				item.Error = aierr.FriendlyMessage(err)
 			} else {
 				item.Success = true
 				item.Data = result.Data
@@ -213,6 +241,10 @@ func (h *Handler) SetDimensionVisibility(c *gin.Context) {
 		return
 	}
 
+	if h.statRecorder != nil {
+		h.statRecorder.RecordFromGin(c, usagestat.FeatureMatrix, "dimension_edit",
+			map[string]any{"op": "visibility", "dimension_key": req.DimensionKey})
+	}
 	utils.Success(c, dim)
 }
 
@@ -239,6 +271,10 @@ func (h *Handler) ReorderDimensions(c *gin.Context) {
 	if err := h.service.ReorderDimensions(uid, req.OrderedKeys); err != nil {
 		utils.InternalError(c, 500, "Failed to reorder dimensions", err)
 		return
+	}
+	if h.statRecorder != nil {
+		h.statRecorder.RecordFromGin(c, usagestat.FeatureMatrix, "dimension_edit",
+			map[string]any{"op": "reorder"})
 	}
 	utils.Success(c, gin.H{"ok": true})
 }
@@ -285,6 +321,10 @@ func (h *Handler) CreateUserDimension(c *gin.Context) {
 		return
 	}
 
+	if h.statRecorder != nil {
+		h.statRecorder.RecordFromGin(c, usagestat.FeatureMatrix, "dimension_edit",
+			map[string]any{"op": "create", "dimension_key": req.DimensionKey})
+	}
 	utils.Success(c, dimension)
 }
 
@@ -319,6 +359,10 @@ func (h *Handler) UpdateUserDimension(c *gin.Context) {
 		return
 	}
 
+	if h.statRecorder != nil {
+		h.statRecorder.RecordFromGin(c, usagestat.FeatureMatrix, "dimension_edit",
+			map[string]any{"op": "update", "dimension_id": dimensionID})
+	}
 	utils.Success(c, dimension)
 }
 
@@ -340,6 +384,10 @@ func (h *Handler) DeleteUserDimension(c *gin.Context) {
 		return
 	}
 
+	if h.statRecorder != nil {
+		h.statRecorder.RecordFromGin(c, usagestat.FeatureMatrix, "dimension_edit",
+			map[string]any{"op": "delete", "dimension_id": dimensionID})
+	}
 	utils.Success(c, gin.H{"message": "Dimension deleted successfully"})
 }
 
@@ -362,6 +410,10 @@ func (h *Handler) ResetUserDimension(c *gin.Context) {
 		return
 	}
 
+	if h.statRecorder != nil {
+		h.statRecorder.RecordFromGin(c, usagestat.FeatureMatrix, "dimension_edit",
+			map[string]any{"op": "reset", "dimension_key": dimensionKey})
+	}
 	utils.Success(c, gin.H{"message": "Dimension reset to default successfully"})
 }
 
@@ -440,12 +492,42 @@ func (h *Handler) StreamTranslatePaper(c *gin.Context) {
 		return
 	}
 
+	// 翻译已改为强制登录 (见 routes_scholar.go): user 必有, 用于 LLM 账本归属。
+	uid, ok := utils.GetUserID(c)
+	if !ok {
+		return
+	}
+	userIDPtr := &uid
+
+	// 会员每日额度(按 free/pro 等级)。超限在开 SSE 流前回一个 429+6010 的普通 JSON,
+	// 前端 streamSsePost 走 !res.ok 分支拿到友好文案(并据 code 6010 引导去会员页)。
+	if h.vip != nil {
+		if err := h.vip.CheckAndConsume(c.Request.Context(), uid, vip.FeatureTranslate); err != nil {
+			if errors.Is(err, vip.ErrQuotaExceeded) {
+				utils.Error(c, errcode.AgentQuotaExceeded, err.Error())
+				return
+			}
+		}
+	}
+
+	if h.statRecorder != nil {
+		h.statRecorder.RecordFromGin(c, usagestat.FeatureTranslate, "translate", nil)
+	}
+
 	w, stop := sse.BeginStream(c)
 	defer stop()
 
-	err := h.service.StreamTranslatePaperToChinese(c.Request.Context(), req.Title, req.Abstract, req.TLDR, w)
+	// ctx 带 LLM 账本归属 (feature=translate + user): 流式 usage 经 include_usage 末尾
+	// chunk 解析后由 executeWithRetry 落账本。
+	callCtx := llmusage.WithCall(c.Request.Context(), llmusage.Call{
+		Feature: llmusage.FeatureTranslate,
+		UserID:  userIDPtr,
+	})
+	err := h.service.StreamTranslatePaperToChinese(callCtx, req.Title, req.Abstract, req.TLDR, w)
 	if err != nil {
-		sse.WriteError(w, err.Error())
+		// 原始错误记日志, SSE 只回友好文案(之前直接回显 "all N AI retry attempts failed..." 给用户)。
+		slog.Warn("translate paper failed", "err", err)
+		sse.WriteError(w, aierr.FriendlyMessage(err))
 		return
 	}
 

@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { useProfile } from '@/features/auth/api/profile';
 import { BizCode } from '@/shared/lib/http';
 import { useAuthStore } from '@/stores/auth.store';
+import { useAuthDialog } from '@/stores/auth-dialog.store';
 
 /**
  * App 启动时:
@@ -30,19 +31,27 @@ export function AuthBootstrap() {
     });
   }, [data, patchUser]);
 
+  // 全前端「认证丢失」的**单一消费点**(notifyAuthLost 派发 auth-evicted)。
+  // 此前这里只弹 toast、不给任何登录入口 —— 正是"接口提示未登录但没有登录交互"的根因。
+  // 现在统一收口: 清 store(token+user 幂等)→ 文案提示 → 引导登录:
+  //   · 管理端整页(/admin)→ 硬跳回用户端首页(顺带把 SPA 重置成未登录态)
+  //   · 用户端 → 原地弹登录框(登录成功后 useReplayPendingAction 会重放刚才被打断的操作)
   useEffect(() => {
     const handler = (evt: Event) => {
       const detail = (evt as CustomEvent<{ code?: number; message?: string }>).detail;
-      // 已经清过的 store 调 clear 是幂等的; 这里再做一次保险, 防 axios interceptor
-      // 只清 localStorage 没动 zustand 状态。
       clear();
-      // 区分文案: TokenRevoked = 改密 / 封号; TokenExpired = 自然过期。
       if (detail?.code === BizCode.TokenRevoked) {
         toast.warning(detail.message || '登录已失效,请重新登录');
       } else if (detail?.code === BizCode.TokenExpired) {
         toast.info(detail.message || '登录已过期,请重新登录');
       } else {
-        toast.info('请重新登录');
+        toast.info(detail?.message || '请重新登录');
+      }
+      if (typeof window === 'undefined') return;
+      if (window.location.pathname.startsWith('/admin')) {
+        window.location.assign('/');
+      } else {
+        useAuthDialog.getState().openDialog('login');
       }
     };
     window.addEventListener('auth-evicted', handler);

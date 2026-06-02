@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"io"
 
-	"scholar-backend/internal/ai/prompts"
+	"scholar-backend/internal/prompts"
 	"scholar-backend/internal/thirdparty"
 )
 

@@ -172,7 +172,7 @@ export function ChiefVerdictPanel({ submissionId, chief: chiefProp, reviewers, s
           <p className="w-24 shrink-0 text-xs font-bold tracking-wider text-faint">主审签署</p>
           <div className="flex-1 space-y-0.5">
             <p className="text-base font-semibold text-subtle">
-              AI 主审 · {chief.skillName || '通用主审'}
+              AI 主审
             </p>
             <p className="text-sm italic text-muted-foreground">
               已基于稿件全文与三位审稿人的综合意见独立复审, 并确认上述结果。

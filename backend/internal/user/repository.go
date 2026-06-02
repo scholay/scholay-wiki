@@ -258,8 +258,9 @@ func (r *Repository) GetUserList(offset, limit int) ([]User, int64, error) {
 }
 
 var allowedSortColumns = map[string]bool{
-	"last_login_at": true,
-	"created_at":    true,
+	"last_login_at":  true,
+	"created_at":     true,
+	"vip_expires_at": true, // 按会员到期排序, 便于运营找将到期/已过期
 }
 
 // GetUserListWithSort returns a paginated list of non-admin users with sorting.
@@ -276,14 +277,21 @@ func (r *Repository) GetUserListWithSort(offset, limit int, sortBy, sortOrder st
 // Semantics:
 //   - Q       : LIKE 搜索 username / email / phone
 //   - Status  : nil 不过滤；指定值精确匹配 (0/1/-1/2)
-//   - Role    : "" 时默认排除 admin/super_admin；指定值精确匹配 (允许查看管理员行)
+//   - Role    : "" 默认**显示全部(含管理员)**；指定值精确匹配 (user/admin/super_admin)
+//   - Tier    : "" 不过滤；"pro"=生效 pro(未过期);"free"=其余
+//   - EmailVerified : nil 不过滤
+//   - CreatedFrom/To: 注册日期范围 (YYYY-MM-DD), 闭区间
 //   - SortBy  / SortOrder : 与 GetUserListWithSort 同义，走白名单校验
 type UserListFilter struct {
-	Q         string
-	Status    *int8
-	Role      string
-	SortBy    string
-	SortOrder string
+	Q             string
+	Status        *int8
+	Role          string
+	Tier          string
+	EmailVerified *bool
+	CreatedFrom   string
+	CreatedTo     string
+	SortBy        string
+	SortOrder     string
 }
 
 // GetUserListWithFilter returns paginated users with optional search/filter/sort.
@@ -298,19 +306,33 @@ func (r *Repository) GetUserListWithFilter(offset, limit int, f UserListFilter) 
 
 	query := r.db.Model(&User{})
 
-	// role: 指定就精确匹配（允许列出 admin/super_admin），未指定时按用户列表语义排除管理员
+	// role: 指定就精确匹配;**未指定(或非法)→ 显示全部(含 admin/super_admin)**。
+	// (历史默认 nonAdminScope 会让"提升为管理员后该用户从列表消失",且运营根本看不到管理员 —— 已移除该默认。)
 	switch f.Role {
-	case "":
-		query = query.Scopes(nonAdminScope)
 	case "user", "admin", "super_admin":
 		query = query.Where("role = ?", f.Role)
-	default:
-		// 非法 role 值 → 当作未指定，避免给攻击者枚举字段值的能力
-		query = query.Scopes(nonAdminScope)
 	}
 
 	if f.Status != nil {
 		query = query.Where("status = ?", *f.Status)
+	}
+
+	// 会员等级(effective):pro = vip_tier='pro' 且未过期;free = 其余。time.Now() 不做 UTC 转换(容器=北京)。
+	switch f.Tier {
+	case "pro":
+		query = query.Where("vip_tier = 'pro' AND (vip_expires_at IS NULL OR vip_expires_at > ?)", time.Now())
+	case "free":
+		query = query.Where("vip_tier IS NULL OR vip_tier <> 'pro' OR (vip_expires_at IS NOT NULL AND vip_expires_at <= ?)", time.Now())
+	}
+
+	if f.EmailVerified != nil {
+		query = query.Where("email_verified = ?", *f.EmailVerified)
+	}
+	if f.CreatedFrom != "" {
+		query = query.Where("created_at >= ?", f.CreatedFrom+" 00:00:00")
+	}
+	if f.CreatedTo != "" {
+		query = query.Where("created_at <= ?", f.CreatedTo+" 23:59:59")
 	}
 
 	if f.Q != "" {

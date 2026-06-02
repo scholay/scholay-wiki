@@ -519,7 +519,7 @@ function FailureBanner({ error, onRetry }: { error: string; onRetry: () => void 
       <AlertCircle className="mt-0.5 size-5 shrink-0 text-destructive" />
       <div className="min-w-0 flex-1">
         <p className="text-sm font-bold text-destructive">AI 暂时无响应</p>
-        <p className="mt-1 break-words text-xs text-muted-foreground">{error}</p>
+        <p className="mt-1 break-words text-xs text-muted-foreground">{error || '生成失败,请稍后重试'}</p>
       </div>
       <button
         type="button"

@@ -25,11 +25,12 @@ export type SubmissionStatus =
 /**
  * Wizard 异步 agent 调用的状态机(后端 compute_state 列)。
  *
- *   idle              空闲, 可点下一步
- *   computing_meta    Step1→2 抽 meta 中
- *   computing_letter  Step2→3 起草 letter 中
- *   reviewing         Step4 投递后 4 轮审稿中
- *   failed            agent 异常, computeError 给用户展示
+ *   idle                   空闲, 可点下一步
+ *   computing_meta         Step1→2 抽 meta 中
+ *   computing_letter       Step2→3 起草 letter 中
+ *   computing_methodology  Step4 投递后、三位审稿人开跑前的方法论编排(通读全文 + 制定审稿标准)
+ *   reviewing              Step4 方法论之后的 3+1 轮审稿中
+ *   failed                 agent 异常, computeError 给用户展示
  *
  * 前端用它决定:渲染骨架屏 / 启用"下一步" / 是否 polling submission detail。
  */
@@ -37,6 +38,7 @@ export type ComputeState =
   | 'idle'
   | 'computing_meta'
   | 'computing_letter'
+  | 'computing_methodology'
   | 'reviewing'
   | 'failed';
 

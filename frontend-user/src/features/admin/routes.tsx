@@ -1,14 +1,19 @@
 import { redirect, type RouteObject } from 'react-router-dom';
 import { useAuthStore, isAdminRole } from '@/stores/auth.store';
+import { getAuthToken } from '@/shared/lib/auth-token';
 
 /**
  * 管理员路由守卫 —— React Router v7 loader 模式。
  * 非 admin 用户尝试访问 /admin/* 时,被踢回首页。
  *
- * 注:loader 在 element 渲染前同步执行,符合 v2 CLAUDE.md §7
- * "不在组件里 useEffect + navigate"。
+ * 以 **token 真源**(getAuthToken)为第一道闸:没 token 一律踢回,避免 persist 残留的
+ * stale user 混进后台(退出登录后状态残留 bug 的一环);再校验角色。
+ * loader 在 element 渲染前同步执行,符合 v2 CLAUDE.md §7"不在组件里 useEffect + navigate"。
  */
 function adminGuard() {
+  if (!getAuthToken()) {
+    return redirect('/');
+  }
   const user = useAuthStore.getState().user;
   if (!isAdminRole(user?.role)) {
     return redirect('/');
@@ -76,9 +81,24 @@ export const adminRoutes: RouteObject[] = [
         lazy: lazyPage(() => import('./pages/AnalyticsPage'))('AnalyticsPage'),
       },
       {
+        path: 'usage-stats',
+        handle: { title: '使用统计' },
+        lazy: lazyPage(() => import('./pages/UsageStatsPage'))('UsageStatsPage'),
+      },
+      {
         path: 'usage-logs',
-        handle: { title: '用量记录' },
+        handle: { title: '用量记录(旧)' },
         lazy: lazyPage(() => import('./pages/UsageLogsPage'))('UsageLogsPage'),
+      },
+      {
+        path: 'token-usage',
+        handle: { title: 'Token 用量统计' },
+        lazy: lazyPage(() => import('./pages/TokenUsageStatsPage'))('TokenUsageStatsPage'),
+      },
+      {
+        path: 'vip-codes',
+        handle: { title: '会员兑换码' },
+        lazy: lazyPage(() => import('./pages/VipCodesPage'))('VipCodesPage'),
       },
       {
         path: 'third-party',
@@ -94,11 +114,6 @@ export const adminRoutes: RouteObject[] = [
         path: 'dimensions',
         handle: { title: '分析维度' },
         lazy: lazyPage(() => import('./pages/DimensionsPage'))('DimensionsPage'),
-      },
-      {
-        path: 'feature-prompts',
-        handle: { title: 'AI Prompt 注册表' },
-        lazy: lazyPage(() => import('./pages/FeaturePromptsPage'))('FeaturePromptsPage'),
       },
       {
         path: 'wechat-official',

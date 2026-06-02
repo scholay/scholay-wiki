@@ -281,13 +281,33 @@ type ToolFunction struct {
 
 // ChatCompletionRequest represents OpenAI chat completion request
 type ChatCompletionRequest struct {
-	Model       string        `json:"model"`
-	Messages    []ChatMessage `json:"messages"`
-	Stream      bool          `json:"stream"`
-	Temperature float32       `json:"temperature,omitempty"`
-	MaxTokens   int           `json:"max_tokens,omitempty"`
-	Tools       []Tool        `json:"tools,omitempty"`
-	ToolChoice  string        `json:"tool_choice,omitempty"` // "auto", "none", or specific tool
+	Model         string         `json:"model"`
+	Messages      []ChatMessage  `json:"messages"`
+	Stream        bool           `json:"stream"`
+	Temperature   float32        `json:"temperature,omitempty"`
+	MaxTokens     int            `json:"max_tokens,omitempty"`
+	Tools         []Tool         `json:"tools,omitempty"`
+	ToolChoice    string         `json:"tool_choice,omitempty"` // "auto", "none", or specific tool
+	StreamOptions *StreamOptions `json:"stream_options,omitempty"`
+}
+
+// StreamOptions 对应 OpenAI 兼容的 stream_options。IncludeUsage=true 让上游在流末尾
+// 追发一个 choices 为空、带 usage 的 chunk —— 这是流式拿 token 用量的唯一途径
+// (否则流式响应不带 usage)。供 token 账本统计用。部分上游不支持时会忽略, 该次记 0。
+type StreamOptions struct {
+	IncludeUsage bool `json:"include_usage,omitempty"`
+}
+
+// LLMUsageStats 对应 OpenAI 兼容响应里的 usage 字段。同步响应必带; 流式响应仅在
+// stream_options.include_usage=true 时由末尾 chunk 带上。PromptTokensDetails.CachedTokens
+// 是 prompt 命中缓存的部分 (= 账本 cache_read_tokens), 不是所有上游都吐。
+type LLMUsageStats struct {
+	PromptTokens        int `json:"prompt_tokens"`
+	CompletionTokens    int `json:"completion_tokens"`
+	TotalTokens         int `json:"total_tokens"`
+	PromptTokensDetails struct {
+		CachedTokens int `json:"cached_tokens"`
+	} `json:"prompt_tokens_details"`
 }
 
 // ToolCall represents a tool call in the response
@@ -337,11 +357,7 @@ type ChatCompletionResponse struct {
 		} `json:"message"`
 		FinishReason string `json:"finish_reason,omitempty"`
 	} `json:"choices"`
-	Usage struct {
-		PromptTokens     int `json:"prompt_tokens"`
-		CompletionTokens int `json:"completion_tokens"`
-		TotalTokens      int `json:"total_tokens"`
-	} `json:"usage"`
+	Usage LLMUsageStats `json:"usage"`
 }
 
 // ChatCompletionChunk represents a streaming response chunk
@@ -359,6 +375,8 @@ type ChatCompletionChunk struct {
 		} `json:"delta"`
 		FinishReason string `json:"finish_reason,omitempty"`
 	} `json:"choices"`
+	// Usage 仅在 stream_options.include_usage=true 时由流末尾 chunk 带上 (choices 通常为空)。
+	Usage *LLMUsageStats `json:"usage,omitempty"`
 }
 
 // PaperAnalysis 论文AI分析结果存储表

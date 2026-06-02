@@ -22,6 +22,7 @@ import (
 	gorillaws "github.com/gorilla/websocket"
 
 	"scholar-backend/internal/common/safego"
+	"scholar-backend/internal/llmusage"
 )
 
 // ServerSideChat 是 backend 自驱动的 agent 对话:
@@ -217,7 +218,33 @@ func (b *Bridge) ServerSideChatStreaming(
 		}
 	}
 
+	// 落统一 token 账本 (source=agent)。归属 (feature/user/request_id) 由调用方经
+	// llmusage.WithCall 塞进 ctx; model 用本轮 modelID override (空=会话默认, 记空)。
+	b.recordServerSideUsage(ctx, modelID, usage)
+
 	return textBuf.String(), usage, nil
+}
+
+// recordServerSideUsage 把一轮 server-side chat 的 token 落到统一账本 (best-effort)。
+// usage==nil (上游没吐) 或未注入 recorder 时跳过。feature/user/request_id 从 ctx 的
+// llmusage.Call 取 —— peerreview 在各 flow 入口用 WithCall 标好。
+func (b *Bridge) recordServerSideUsage(ctx context.Context, modelID string, usage *ChatUsage) {
+	if b.llmRec == nil || usage == nil {
+		return
+	}
+	call := llmusage.CallFromCtx(ctx)
+	b.llmRec.Record(llmusage.Usage{
+		UserID:              call.UserID,
+		Feature:             call.Feature,
+		Source:              llmusage.SourceAgent,
+		Provider:            "scholay-managed",
+		Model:               modelID,
+		InputTokens:         usage.InputTokens,
+		OutputTokens:        usage.OutputTokens,
+		CacheReadTokens:     usage.CacheReadTokens,
+		CacheCreationTokens: usage.CacheCreationTokens,
+		RequestID:           call.RequestID,
+	})
 }
 
 // serverEvent 是 agent S→C 消息的最小子集 — 只把我们 ServerSideChat 关心的字段抽出来。
@@ -262,11 +289,13 @@ func stateStatusNote(state string) string {
 }
 
 // ChatUsage 对应 agent message_complete.usage,记 token 计费用。
+// 字段名/tag 与 agent 实际下发(events.ts)+ AgentUsage 对齐: cache_read_tokens / cache_creation_tokens
+// (之前误写成 cache_*_input_tokens, 两个 cache 字段永远解析成 0, 已修)。
 type ChatUsage struct {
-	InputTokens             int `json:"input_tokens,omitempty"`
-	OutputTokens            int `json:"output_tokens,omitempty"`
-	CacheCreationInputTokens int `json:"cache_creation_input_tokens,omitempty"`
-	CacheReadInputTokens     int `json:"cache_read_input_tokens,omitempty"`
+	InputTokens         int `json:"input_tokens,omitempty"`
+	OutputTokens        int `json:"output_tokens,omitempty"`
+	CacheReadTokens     int `json:"cache_read_tokens,omitempty"`
+	CacheCreationTokens int `json:"cache_creation_tokens,omitempty"`
 }
 
 func truncateBytes(b []byte, n int) string {

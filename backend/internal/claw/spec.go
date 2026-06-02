@@ -6,29 +6,36 @@
 //   Claw 是通用研究助手 — 用户可以问任何科研问题、上传 PDF/图片、让它做总结/
 //   解释/翻译/写作建议, 同时也能调 mcp__minicod__* 查文献期刊。
 //
-// v3 演进:
-//   systemPrompt 从 Go const 改为走 feature_prompts 表 (feature_key='claw',
-//   slug=PromptSlug, persona='default'), 通过 agentbridge.BySlugPicker 解析;
-//   admin 可在后台调 prompt 不重启。
+// prompt 演进:
+//   v3 曾把 systemPrompt 从 Go const 迁到 feature_prompts 表 (走 BySlugPicker), 让 admin
+//   后台不重启改 prompt。后又决定: 这类"单条简单提示词"不必用 DB 表, 统一回到代码静态管理
+//   (internal/prompts), 复杂逻辑交给 skills。故现在 systemPrompt = prompts.ClawSystemPrompt
+//   const, 通过 agentbridge.StaticPicker 注入, 不再依赖 promptregistry / feature_prompts。
+//   代价: 改 prompt = 改代码 + 重新部署 (无 admin 热改 / 版本回滚)。
 // ============================================================================
 
 package claw
 
 import (
 	"context"
+	"errors"
 	"os"
 	"strconv"
 
 	"scholar-backend/internal/agentbridge"
-	"scholar-backend/internal/promptregistry"
-	"scholar-backend/internal/usagelog"
+	"scholar-backend/internal/llmusage"
+	"scholar-backend/internal/prompts"
+	"scholar-backend/internal/usagestat"
+	"scholar-backend/internal/vip"
 )
 
 const FeatureKey = "claw"
 const agentName = "scholay-claw"
 
-// PromptSlug — feature_prompts 表里这条 prompt 的 slug。
+// PromptSlug / PromptName — 仅作 PromptChoice 的元信息标签 (审计 / 日志展示);
+// 已不再对应任何 DB 行。
 const PromptSlug = "scholay-claw-v1"
+const PromptName = "Scholay 智能助手 · 默认 prompt"
 
 // defaultDailyMessageCap — 智能助手每用户每日 user_message 上限。
 // 比 smart_search 的 30 略松, 因为它的对话深度更大 (用户会上传文件, 问长问题)。
@@ -49,17 +56,40 @@ func dailyMessageCapFromEnv() int {
 // usageRecorder 由 SetUsageRecorder 注入; PreUserMessage 闭包在每次消息触发时
 // **懒读取**这个 package var, 因此 SetUsageRecorder 不必赶在 BuildSpec 之前
 // 调用 —— BuildSpec 拿到的是闭包, 闭包指向当前的 package var。
-var usageRecorder usagelog.FeatureRecorder
+var usageRecorder usagestat.Recorder
 
-// SetUsageRecorder 注入功能使用统计录入器 —— 用户每次"发消息"且通过配额时
-// 记一条 claw / send_message 使用日志。允许 nil 表示禁用。
-func SetUsageRecorder(r usagelog.FeatureRecorder) {
+// SetUsageRecorder 注入使用统计录入器 —— 用户每次"对话"(发 user_message)且通过
+// 配额时记一条 claw / message。允许 nil 表示禁用。
+func SetUsageRecorder(r usagestat.Recorder) {
 	usageRecorder = r
 }
 
-// quotaCap 在 init 时 eagerly 构造一次 (NewRedisDailyCap 是闭包工厂, 内部读 Redis,
-// 状态不在内存里, 多次构造也只是多一个 caller 共享同一组 Redis key, 不影响正确性)。
+// llmUsageRecorder 由 SetLLMUsageRecorder 注入; onMessageComplete 每轮 message_complete
+// 时懒读取, 落 token 账本 (llm_token_usage, source=agent)。
+var llmUsageRecorder llmusage.Recorder
+
+// SetLLMUsageRecorder 注入统一 LLM token 账本录入器。允许 nil 禁用 (只 slog 不落库)。
+func SetLLMUsageRecorder(r llmusage.Recorder) {
+	llmUsageRecorder = r
+}
+
+// onMessageComplete 每轮 agent 回复结束触发: ① slog (live grep) ② 落 token 账本。
+// 懒读 llmUsageRecorder, 因此 SetLLMUsageRecorder 与 BuildSpec 调用顺序无关。
+func onMessageComplete(ctx context.Context, userID uint, usage agentbridge.AgentUsage) {
+	agentbridge.NewSlogUsageRecorder(FeatureKey)(ctx, userID, usage)
+	if llmUsageRecorder != nil {
+		agentbridge.NewDBUsageRecorder(FeatureKey, llmUsageRecorder)(ctx, userID, usage)
+	}
+}
+
+// quotaCap 旧的 env 日额度(CLAW_DAILY_MESSAGES)—— 仅当 VIP 未注入时回落用。
 var quotaCap = agentbridge.NewRedisDailyCap(FeatureKey, dailyMessageCapFromEnv())
+
+// vipChecker 由 SetVIPChecker 注入(bootstrap)—— 按用户等级(free/pro)做 tier-aware 日额度。
+var vipChecker *vip.Service
+
+// SetVIPChecker 注入会员限额服务。允许 nil(回落到 quotaCap 的 env 日额度)。
+func SetVIPChecker(v *vip.Service) { vipChecker = v }
 
 // preUserMessageChain 把配额检查 + 功能使用统计组合成一个 PreUserMessageFn:
 //   1. 先跑 quotaCap, 超额直接 error 出去, 后续不记 (不是真正的"使用")
@@ -68,25 +98,34 @@ var quotaCap = agentbridge.NewRedisDailyCap(FeatureKey, dailyMessageCapFromEnv()
 // 闭包结构保证 usageRecorder 是**调用时**读取 (而不是注册时), 所以
 // BuildSpec 可以在 SetUsageRecorder 之前调用, 顺序无关。
 func preUserMessageChain(ctx context.Context, userID uint, content string) error {
-	if quotaCap != nil {
+	if vipChecker != nil {
+		if err := vipChecker.CheckAndConsume(ctx, userID, vip.FeatureClaw); err != nil {
+			if errors.Is(err, vip.ErrQuotaExceeded) {
+				return agentbridge.NewQuotaError(err.Error())
+			}
+			return err
+		}
+	} else if quotaCap != nil {
 		if err := quotaCap(ctx, userID, content); err != nil {
 			return err
 		}
 	}
 	if usageRecorder != nil {
-		uid := userID
-		usageRecorder.Record(usagelog.FeatureUseEvent{
-			UserID:      &uid,
-			FeatureCode: usagelog.FeatureClaw,
-			FeatureName: usagelog.FeatureNames[usagelog.FeatureClaw],
-			Action:      "send_message",
+		var uid *uint
+		if userID != 0 {
+			u := userID
+			uid = &u
+		}
+		usageRecorder.Record(usagestat.Event{
+			UserID:  uid,
+			Feature: usagestat.FeatureClaw,
+			Action:  "message",
 		})
 	}
 	return nil
 }
 
 // BuildSpec 构造 claw 的 FeatureSpec。
-// 必须在 bootstrap 阶段、promptregistry.Service 已初始化后调用。
 //
 // 关键选择:
 //   - InjectPromptOnFirstMsg=true: agent 默认 prompt 强, 我们的助手身份要在每个
@@ -94,16 +133,16 @@ func preUserMessageChain(ctx context.Context, userID uint, content string) error
 //     Scholay 平台、不知道有 Minicod MCP 可用。
 //   - AutoApprovePermission=true: Minicod MCP 全是只读检索, 自动批准让用户体验
 //     流畅; 后续如果允许 agent 写代码 / 改文件再调整。
-func BuildSpec(promptSvc *promptregistry.Service) agentbridge.FeatureSpec {
+func BuildSpec() agentbridge.FeatureSpec {
 	return agentbridge.FeatureSpec{
 		Key:                    FeatureKey,
 		AgentName:              agentName,
 		Description:            "Scholay 智能助手:基于 Minicod MCP 的科研对话助手, 支持上传文件 / 图片",
-		Picker:                 agentbridge.NewBySlugPicker(promptSvc, FeatureKey, PromptSlug),
+		Picker:                 agentbridge.NewStaticPicker(FeatureKey, PromptSlug, PromptName, prompts.ClawSystemPrompt),
 		Color:                  "purple",
 		InjectPromptOnFirstMsg: true,
 		AutoApprovePermission:  true,
 		PreUserMessage:         preUserMessageChain,
-		OnMessageComplete:      agentbridge.NewSlogUsageRecorder(FeatureKey),
+		OnMessageComplete:      onMessageComplete,
 	}
 }

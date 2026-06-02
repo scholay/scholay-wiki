@@ -496,7 +496,7 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 // Logout handles user logout.
 //
 // 把当前 token 写入 Redis blacklist (按 jti), 让本端立刻失效 —— 其他端不受影响。
-// Logout 全部设备需另调 utils.RevokeUserAllTokens (例如 /me/logout-all 端点, 暂未暴露)。
+// 全部设备登出走 LogoutAll(/user/logout-all)。admin 也用本端点(admin token type=user)。
 func (h *Handler) Logout(c *gin.Context) {
 	if _, ok := utils.GetUserID(c); !ok {
 		return
@@ -512,5 +512,18 @@ func (h *Handler) Logout(c *gin.Context) {
 		}
 	}
 	utils.SuccessWithMessage(c, "Logged out successfully", nil)
+}
+
+// LogoutAll 吊销该用户在**所有设备**上的 token(user-level 黑名单)。
+// 改密时后端已自动调 RevokeUserAllTokens;这里把"主动一键退出所有设备"也暴露成端点。
+func (h *Handler) LogoutAll(c *gin.Context) {
+	uid, ok := utils.GetUserID(c)
+	if !ok {
+		return
+	}
+	if err := utils.RevokeUserAllTokens(c.Request.Context(), uid); err != nil {
+		slog.Warn("logout-all: revoke all tokens failed", "err", err, "user_id", uid)
+	}
+	utils.SuccessWithMessage(c, "已退出所有设备", nil)
 }
 

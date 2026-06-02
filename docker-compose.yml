@@ -210,10 +210,16 @@ services:
       # 与 agent 容器的 ANTHROPIC_API_KEY 同源 (AGENT_INTERNAL_TOKEN)。
       AGENT_BASE_URL: ${AGENT_BASE_URL:-http://scholar_agent:3456}
       AGENT_AUTH_TOKEN: ${AGENT_INTERNAL_TOKEN:-}
+      # 智能审稿: backend 按 slug 读审稿人 skill 的「评分人格」段注入评分轮 (见 peerreview)。
+      # 只读挂载与 agent 同一份 committed skills 目录 (单一真相源)。
+      PEERREVIEW_SKILLS_DIR: ${PEERREVIEW_SKILLS_DIR:-/app/reviewer-skills}
       # Go memory limit (75% of container memory limit)
       GOMEMLIMIT: 768MiB
     volumes:
       - /etc/localtime:/etc/localtime:ro
+      # 审稿人 skill 库 (reviewer-roster + rv-*): backend 只读, 按 slug 读 SCORING_PERSONA 段。
+      # 这些 skill 已从共享的 skills/ 移到 reviewer-skills/ (claw 看不到, 仅 peerreview 方法论会话经 --add-dir 装)。
+      - ./agent/data/claude/reviewer-skills:/app/reviewer-skills:ro
     # Backend不暴露端口,通过Nginx访问
     expose:
       - "8080"
@@ -234,6 +240,10 @@ services:
           memory: 512M
     networks:
       - scholar-network
+      # backend 同时在 scholar-agent-net 上, 才能解析/调用 scholar_agent:3456
+      # (CreateSession / ServerSideChat / WS 推送)。注意是单向: agent 侧只看得到 backend,
+      # 看不到 mysql/redis/minio —— 即便 agent 被攻陷也够不到数据面。
+      - scholar-agent-net
 
   # AI agent 服务 (Bun + TypeScript,源在 agent/)
   # 通用 Anthropic-format agent,作为内网服务被 backend 调用。
@@ -245,6 +255,8 @@ services:
       dockerfile: Dockerfile
     container_name: scholar_agent
     restart: unless-stopped
+    depends_on:
+      - egress-proxy
     logging: *default-logging
     env_file:
       - ./agent/.env
@@ -259,11 +271,22 @@ services:
       # 用法: 在 .env 设置 EXTRA_CA_CERTS=/path/to/proxy-ca.pem,
       # 然后取消注释下方 volumes 里的 EXTRA_CA_CERTS 挂载行。
       NODE_EXTRA_CA_CERTS: ${EXTRA_CA_CERTS_TARGET:-}
+      # 出网经 egress-proxy —— scholar-agent-net 是 internal(无 NAT),agent 只能经代理出公网。
+      # 默认 open 放行一切外部 HTTPS;agent 自带 proxy 支持(src/utils/proxy.ts,Anthropic SDK + undici 都吃)。
+      HTTPS_PROXY: ${AGENT_HTTPS_PROXY:-http://scholar_egress_proxy:3128}
+      HTTP_PROXY: ${AGENT_HTTP_PROXY:-http://scholar_egress_proxy:3128}
+      NO_PROXY: ${AGENT_NO_PROXY:-localhost,127.0.0.1,scholar_backend,backend,scholar_agent}
     expose:
       - "3456"
     volumes:
       # 会话/记忆持久化 (~/.claude 在容器内是 /home/bun/.claude)
       - ./data/agent:/home/bun/.claude
+      # committed 的**共享** skill 库 (paper-review/journal-fit/citation-audit) 叠挂到 .claude/skills,
+      # 所有会话(含 claw)可见。否则 agent 只挂 gitignored 的 data/agent, 这些 skill 永远加载不到。
+      - ./agent/data/claude/skills:/home/bun/.claude/skills:ro
+      # 审稿人 skill (reviewer-roster + rv-*) 放在独立目录, **不进**全局 .claude/skills;
+      # 只有 peerreview 方法论会话经 --add-dir /peerreview-add 加载 <此处>/.claude/skills → claw 看不到。
+      - ./agent/data/claude/reviewer-skills:/peerreview-add/.claude/skills:ro
       - /etc/localtime:/etc/localtime:ro
       # 可选: 把 host 上的代理 CA pem 挂进容器, 配合上面的 NODE_EXTRA_CA_CERTS env
       # - ${EXTRA_CA_CERTS_HOST:-./agent/extra-ca.pem.placeholder}:/certs/extra-ca.pem:ro
@@ -288,7 +311,36 @@ services:
         reservations:
           memory: 256M
     networks:
-      - scholar-network
+      # 安全隔离: agent 只在 scholar-agent-net(internal,无 NAT)上,够不到 mysql/redis/minio/umami;
+      # 出公网只能经 egress-proxy(下方),统一记日志、可随 EGRESS_FILTER_MODE 收紧。
+      - scholar-agent-net
+
+  # agent 出公网的唯一出口:tinyproxy 代理(源在 egress/)。
+  # 默认 open(放行一切外部 HTTPS,经代理记日志);设 EGRESS_FILTER_MODE=allowlist 收紧到 egress/filter 域名。
+  # 内网由网络拓扑(proxy 不在 scholar-network)+ ConnectPort 443 挡住。
+  egress-proxy:
+    build:
+      context: ./egress
+      dockerfile: Dockerfile
+    container_name: scholar_egress_proxy
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      <<: *tz-env
+      EGRESS_FILTER_MODE: ${EGRESS_FILTER_MODE:-open}
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - scholar-agent-net
+      - egress-net
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 128M
 
   # 用户前端 (Vite + React 19,源在 frontend-user/)
   frontend-user:
@@ -395,4 +447,11 @@ services:
 
 networks:
   scholar-network:
+    driver: bridge
+  # 安全隔离: backend↔agent↔egress-proxy 内部网,internal=无 NAT —— agent 出公网只能经 egress-proxy。
+  scholar-agent-net:
+    driver: bridge
+    internal: true
+  # 只有 egress-proxy 在这张网上,它是唯一能 NAT 出公网的容器。
+  egress-net:
     driver: bridge

@@ -108,10 +108,12 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// 拿到自己的 *FeatureBridge, 在 handler 里只调几个 thin 方法。
 	agentBridge := agentbridge.New(agentClient, agentbridge.NewRepository(db))
 
-	// 各 feature Spec —— smartsearch / claw 走 BuildSpec(promptSvc) 注入 Picker;
+	// 各 feature Spec —— smartsearch / claw 的 prompt 已迁回代码静态管理 (internal/prompts),
+	// BuildSpec 内部用 agentbridge.StaticPicker, 不再依赖 promptSvc;
 	// peerreview.Spec 是静态 var (Picker=nil, 业务自管 prompt)。
-	smartSearchSpec := smartsearch.BuildSpec(promptSvc)
-	clawSpec := claw.BuildSpec(promptSvc)
+	// promptSvc 目前仍由 peerreview 的 4 个 PersonaRandomPicker (下方) 与 admin 注册表 handler 使用。
+	smartSearchSpec := smartsearch.BuildSpec()
+	clawSpec := claw.BuildSpec()
 	smartSearchFeature := agentBridge.For(smartSearchSpec)
 	peerReviewFeature := agentBridge.For(peerreview.Spec)
 	clawFeature := agentBridge.For(clawSpec)
@@ -130,18 +132,12 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 		}
 	})
 
-	// 智能审稿 service —— 持有 4 个 PersonaRandomPicker 做 prompt 选择 +
-	// peerReviewFeature 做 agent 编排; repo 用普通 GORM。
-	// 4 个 picker 都从 promptSvc 取数据 (feature_prompts 表里 feature_key='peerreview'
-	// persona ∈ {alpha,beta,gamma,chief} 的候选池)。
+	// 智能审稿 service —— 审稿人选择已移进 agent(reviewer-roster skill), 后端不再持有 picker;
+	// promptSvc 仅传给 service 给 handler 渲染老报告 (GetPromptByID legacy 回退)。
 	peerReviewService := peerreview.NewService(
 		peerreview.NewRepository(db),
 		promptSvc,
 		peerReviewFeature,
-		agentbridge.NewPersonaRandomPicker(promptSvc, peerreview.FeatureKey, "alpha"),
-		agentbridge.NewPersonaRandomPicker(promptSvc, peerreview.FeatureKey, "beta"),
-		agentbridge.NewPersonaRandomPicker(promptSvc, peerreview.FeatureKey, "gamma"),
-		agentbridge.NewPersonaRandomPicker(promptSvc, peerreview.FeatureKey, "chief"),
 		agentConfigService, // meta/letter 走 haiku_model, review 走 main_model
 	)
 	peerReviewHandler := peerreview.NewHandler(peerReviewService)
@@ -192,19 +188,37 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	aiB.minicodHandler.SetAuthorSEORecorder(plat.seoService)
 	aiB.minicodHandler.SetJournalSEORecorder(plat.seoService)
 
-	// 热门内容: 搜索词 / 论文曝光 / 点击 ← minicod 搜索与详情接口;
-	// SEO 直访 ← seo /paper/:slug。同一个 hotContentService 满足两个接口。
+	// 热门内容: 搜索词 + 论文曝光 ← minicod 搜索接口 (传统/期刊搜索, 服务端记)。
+	// 点击量 / SEO 直访量改由前端上报 POST /public/hot-content/track (见 hotcontent.Handler.Track)。
 	aiB.minicodHandler.SetHotContentRecorder(plat.hotContentService)
-	plat.seoHandler.SetHotContentRecorder(plat.hotContentService)
 
-	// 功能使用统计: 5 个菜单功能 (paper_search / journal_search / claw / peer_review / library)
-	// 在"用户实际使用"那一刻记一条 usage_logs。各模块依赖 usagelog.FeatureRecorder 接口,
-	// 由同一个 plat.usageLogService 满足。 claw 用 package-level 懒绑定 (PreUserMessage 闭包),
-	// 所以注入顺序可后于 Bridge.For(claw.Spec)。
-	aiB.minicodHandler.SetUsageRecorder(plat.usageLogService)
-	peerReviewHandler.SetUsageRecorder(plat.usageLogService)
-	libraryHandler.SetUsageRecorder(plat.usageLogService)
-	claw.SetUsageRecorder(plat.usageLogService)
+	// 功能使用统计 v2 (usage_events): 用户实际使用功能那一刻记一条事件。
+	// 旧 usagelog (usage_logs) 已废弃 —— 埋点全移除, 旧模块/旧页/旧表保留为历史只读。
+	//   minicod: 传统/期刊搜索;  ai: 矩阵维度修改 + 论文翻译;  peerreview: 审稿各步骤(连贯);
+	//   smartsearch/claw: agent PreUserMessage 钩子, 每次提问/对话一条 (package-level 懒绑定,
+	//   注入顺序可后于 Bridge.For)。暂存 / 收藏走前端上报, 不在这里注入。
+	aiB.minicodHandler.SetUsageStatRecorder(plat.usageStatService)
+	aiB.aiHandler.SetUsageStatRecorder(plat.usageStatService)
+	peerReviewHandler.SetUsageStatRecorder(plat.usageStatService)
+	smartsearch.SetUsageRecorder(plat.usageStatService)
+	claw.SetUsageRecorder(plat.usageStatService)
+
+	// 统一 LLM token 账本 (llm_token_usage):
+	//   - 项目侧 ai.Service: executeWithRetry 咽喉点每次成功落一行 (source=project),
+	//     覆盖 matrix / translate / wechat_oa (后者 user_id=NULL)。
+	//   - agent 侧 smart_search/claw: 每轮 message_complete 落一行 (source=agent)。
+	//   - peerreview: 在 ServerSideChatStreaming 内部记账 (下方 peerreview 注入)。
+	aiB.aiService.SetLLMUsageRecorder(plat.llmUsageService)
+	smartsearch.SetLLMUsageRecorder(plat.llmUsageService)
+	claw.SetLLMUsageRecorder(plat.llmUsageService)
+	// peerreview 的 server-side chat 走 Bridge.ServerSideChatStreaming, 在其内部落账本。
+	agentBridge.SetLLMUsageRecorder(plat.llmUsageService)
+
+	// 会员(VIP)按等级日限额:注入给 4 个受限 AI 功能。未注入则各自回落到旧 env 日额度/不限。
+	smartsearch.SetVIPChecker(plat.vipService)
+	claw.SetVIPChecker(plat.vipService)
+	aiB.aiHandler.SetVIPChecker(plat.vipService)
+	peerReviewService.SetVIPChecker(plat.vipService) // 注入到 service(在 Submit 内扣额度), 不在 handler
 
 	// seo → seosubmit (paper/author 写入后入队主动推送)
 	plat.seoService.SetPushSubmitter(plat.seoSubmitService)
@@ -236,6 +250,9 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 			wechatOfficial:  wechatOfficialHandler,
 			usageLog:        plat.usageLog,
 			usageLogAdmin:   plat.usageLogAdmin,
+			usageStats:      plat.usageStat,
+			llmUsageAdmin:   plat.llmUsageAdmin,
+			vip:             plat.vipHandler,
 			hotContent:      plat.hotContent,
 			seo:             plat.seoHandler,
 			message:         plat.message,
@@ -250,7 +267,6 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 			smartSearch:     smartsearch.NewHandler(smartSearchFeature),
 			peerReview:      peerReviewHandler,
 			claw:            claw.NewHandler(clawFeature),
-			promptRegistry:  promptregistry.NewHandler(promptSvc),
 			// umami HTTP API 接入 —— admin /analytics 自渲染图表 + tracker website id 自动 bootstrap
 			// 详见 internal/umami/client.go:EnsureWebsiteID。
 			// WebsiteID env 配了用配的;空 → 启动后首次需要时 list+create 自动建一个 Scholay website。

@@ -524,6 +524,15 @@ func permissionAllowed(toolName string, input json.RawMessage, sessionWorkDir st
 	if toolName == "Bash" || toolName == "BashOutput" || toolName == "KillShell" {
 		return true
 	}
+	// Web 工具 / Skill 放行 (2026-06, 配合 egress 代理): agent 在 internal 网, 出网只能经
+	// egress 代理 (域名/端口控制 + 统一记日志), SSRF/外泄由网络层兜底, 故这里放行 WebFetch/WebSearch。
+	// Skill 走 inline 执行 —— skill 正文里再调的工具 (Bash/文件/mcp/web) 仍会逐个回到本函数裁决,
+	// 故放行 Skill 本身不放大权限面。
+	// ⚠️ Task/Agent (子 agent) 不在此列, 仍全禁: 子 agent 的工具调用**旁路本裁决**, 必须等生产
+	// L2 沙箱 (bubblewrap/gVisor) 就位再放 (见 agent conversationService.ts 注释)。
+	if toolName == "WebFetch" || toolName == "WebSearch" || toolName == "Skill" {
+		return true
+	}
 	// 文件工具: 校验路径在会话目录内
 	switch toolName {
 	case "Read", "Write", "Edit", "MultiEdit", "NotebookEdit", "Glob", "Grep", "LS", "Ls":

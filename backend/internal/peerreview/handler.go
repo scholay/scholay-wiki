@@ -38,21 +38,36 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"scholar-backend/internal/common/errcode"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/storage"
-	"scholar-backend/internal/usagelog"
+	"scholar-backend/internal/usagestat"
+	"scholar-backend/internal/vip"
 )
 
 type Handler struct {
 	svc           *Service
-	usageRecorder usagelog.FeatureRecorder
+	statRecorder usagestat.Recorder
 }
 
 func NewHandler(svc *Service) *Handler { return &Handler{svc: svc} }
 
-// SetUsageRecorder 注入功能使用统计录入器(用户真正提交审稿时记一次)
-func (h *Handler) SetUsageRecorder(r usagelog.FeatureRecorder) {
-	h.usageRecorder = r
+// SetUsageStatRecorder 注入使用统计录入器(审稿各步骤连贯统计, correlation_id=submission_id)
+func (h *Handler) SetUsageStatRecorder(r usagestat.Recorder) {
+	h.statRecorder = r
+}
+
+// recordPR 记一条审稿步骤事件, correlation_id=submission_id 把同一次审稿的各步骤串起来。
+func (h *Handler) recordPR(c *gin.Context, action string, submissionID uint64, extra map[string]any) {
+	if h.statRecorder == nil {
+		return
+	}
+	e := usagestat.FromGin(c)
+	e.Feature = usagestat.FeaturePeerReview
+	e.Action = action
+	e.CorrelationID = strconv.FormatUint(submissionID, 10)
+	e.Extra = extra
+	h.statRecorder.Record(e)
 }
 
 // ─── helpers ────────────────────────────────────────────────────────────
@@ -300,6 +315,7 @@ func (h *Handler) CreateSubmission(c *gin.Context) {
 		utils.ServerError(c, "创建失败")
 		return
 	}
+	h.recordPR(c, "create", s.ID, map[string]any{"mode": req.Mode})
 	utils.Success(c, toSubmissionDTO(s))
 }
 
@@ -319,7 +335,7 @@ func (h *Handler) LatestDraft(c *gin.Context) {
 			utils.NotFound(c, "no draft")
 			return
 		}
-		utils.ServerError(c, err.Error())
+		utils.InternalError(c, 500, "操作失败,请稍后重试", err)
 		return
 	}
 	utils.Success(c, toSubmissionDTO(sub))
@@ -343,6 +359,9 @@ func (h *Handler) ResumeOrCreate(c *gin.Context) {
 		utils.ServerError(c, "创建失败")
 		return
 	}
+	// 复用既有草稿时, 同一 submission_id 会再记一条 create —— 漏斗用 COUNT(DISTINCT
+	// correlation_id) 天然去重, 不会把 resume 当成新审稿重复计。
+	h.recordPR(c, "create", s.ID, map[string]any{"mode": req.Mode})
 	utils.Success(c, toSubmissionDTO(s))
 }
 
@@ -357,7 +376,7 @@ func (h *Handler) GetSubmission(c *gin.Context) {
 			utils.NotFound(c, "submission not found")
 			return
 		}
-		utils.ServerError(c, err.Error())
+		utils.InternalError(c, 500, "操作失败,请稍后重试", err)
 		return
 	}
 	utils.Success(c, toSubmissionDTO(s))
@@ -390,10 +409,16 @@ func (h *Handler) Submit(c *gin.Context) {
 	if !ok {
 		return
 	}
+	// 会员额度在 service.Submit 内部、确认要真正跑一轮审稿时才扣(见 service);这里只把
+	// vip.ErrQuotaExceeded 映射成 6010/429 + 友好文案。
 	s, err := h.svc.Submit(c.Request.Context(), uidOf(c), id)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			utils.NotFound(c, "submission not found")
+			return
+		}
+		if errors.Is(err, vip.ErrQuotaExceeded) {
+			utils.Error(c, errcode.AgentQuotaExceeded, err.Error())
 			return
 		}
 		slog.Error("peerreview submit", "err", err, "submission_id", id)
@@ -401,13 +426,8 @@ func (h *Handler) Submit(c *gin.Context) {
 		return
 	}
 
-	// 功能使用统计: 提交审稿 = "智能审稿" 被真实使用一次。
-	if h.usageRecorder != nil {
-		h.usageRecorder.RecordFromGin(c,
-			usagelog.FeaturePeerReview, usagelog.FeatureNames[usagelog.FeaturePeerReview],
-			"submit",
-			map[string]any{"submission_id": id})
-	}
+	// 使用统计: 提交审稿 = 一次审稿流程走到"已投递"(漏斗终点)。
+	h.recordPR(c, "submit", id, nil)
 
 	utils.Success(c, toSubmissionDTO(s))
 }
@@ -446,7 +466,7 @@ func (h *Handler) ListAssets(c *gin.Context) {
 			utils.NotFound(c, "submission not found")
 			return
 		}
-		utils.ServerError(c, err.Error())
+		utils.InternalError(c, 500, "操作失败,请稍后重试", err)
 		return
 	}
 	out := make([]assetDTO, len(items))
@@ -469,13 +489,13 @@ func (h *Handler) DownloadAssets(c *gin.Context) {
 		if errors.Is(err, ErrNotFound) {
 			utils.NotFound(c, "submission not found")
 		} else {
-			utils.ServerError(c, err.Error())
+			utils.InternalError(c, 500, "操作失败,请稍后重试", err)
 		}
 		return
 	}
 	assets, err := h.svc.ListAssets(uid, id)
 	if err != nil {
-		utils.ServerError(c, err.Error())
+		utils.InternalError(c, 500, "操作失败,请稍后重试", err)
 		return
 	}
 	if len(assets) == 0 {
@@ -624,7 +644,7 @@ func (h *Handler) DeleteAsset(c *gin.Context) {
 			utils.BadRequest(c, err.Error())
 			return
 		}
-		utils.ServerError(c, err.Error())
+		utils.InternalError(c, 500, "操作失败,请稍后重试", err)
 		return
 	}
 	// submissionDeleted=true: 删的是草稿最后一个文件, 整条草稿已一并取消 —— 前端据此重置向导,
@@ -647,6 +667,8 @@ func streamSlotActive(sub *Submission, slot string) bool {
 		return sub.ComputeState == StateComputingMeta
 	case slot == SlotLetter:
 		return sub.ComputeState == StateComputingLetter
+	case slot == SlotMethodology:
+		return sub.ComputeState == StateComputingMethodology
 	}
 	return false
 }
@@ -677,7 +699,7 @@ func (h *Handler) StreamPartial(c *gin.Context) {
 			utils.NotFound(c, "submission not found")
 			return
 		}
-		utils.ServerError(c, err.Error())
+		utils.InternalError(c, 500, "操作失败,请稍后重试", err)
 		return
 	}
 
@@ -815,6 +837,8 @@ func (h *Handler) Advance(c *gin.Context) {
 		utils.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
+	h.recordPR(c, fmt.Sprintf("step_%d", req.From+1), id,
+		map[string]any{"from": req.From, "to": req.From + 1})
 	utils.Success(c, toSubmissionDTO(s))
 }
 
@@ -946,7 +970,7 @@ func (h *Handler) ListReports(c *gin.Context) {
 	}
 	items, err := h.svc.ListReports(uidOf(c), id)
 	if err != nil {
-		utils.ServerError(c, err.Error())
+		utils.InternalError(c, 500, "操作失败,请稍后重试", err)
 		return
 	}
 	out := make([]reportDTO, len(items))
@@ -968,7 +992,7 @@ func (h *Handler) GetReport(c *gin.Context) {
 			utils.NotFound(c, "report not found")
 			return
 		}
-		utils.ServerError(c, err.Error())
+		utils.InternalError(c, 500, "操作失败,请稍后重试", err)
 		return
 	}
 	utils.Success(c, h.toReportDTO(r))

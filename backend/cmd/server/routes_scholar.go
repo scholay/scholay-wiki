@@ -52,12 +52,14 @@ func registerAnalysisRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL gin.H
 // usage-log / hot-content public / journals 的 filters/byIssn/compare/batch 一组路由,
 // 经过前端反查全部无人调用, 已下线 (handler 方法连带删)。
 // `/scholar/*` 鉴权版整组 (registerScholarRoutes) 也是 `/public/*` 的重复, 一并下线。
-func registerPublicAPIRoutes(api *gin.RouterGroup, h *allHandlers) {
+func registerPublicAPIRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL gin.HandlerFunc) {
 	publicAPI := api.Group("/public")
 	{
 		// 论文
 		publicAPI.GET("/papers/:paperId", h.scholar.GetPaper)
-		publicAPI.POST("/papers/search", h.scholar.SearchPapers)
+		// search / journals / translate 是公开路由, 但"使用统计"要把登录用户的操作归到
+		// 其名下 → 挂 OptionalUserAuth: 带 token 取 user_id, 没 token 按匿名(X-Anon-Id 去重)。
+		publicAPI.POST("/papers/search", middleware.OptionalUserAuthMiddleware(), h.scholar.SearchPapers)
 		publicAPI.POST("/papers/batch", h.scholar.GetPaperBatch)
 		publicAPI.GET("/papers/:paperId/references", h.scholar.GetPaperReferences)
 		publicAPI.GET("/search/suggestions", h.scholar.GetSearchSuggestions)
@@ -74,8 +76,11 @@ func registerPublicAPIRoutes(api *gin.RouterGroup, h *allHandlers) {
 		publicAPI.POST("/feedback/upload", middleware.UploadLimitMiddleware(middleware.UploadMaxBodySize), h.feedback.UploadAttachments)
 		publicAPI.GET("/feedback/attachment/:id", h.feedback.GetAttachment)
 
-		// 翻译 (SSE 流) —— 仅论文翻译; 旧的"划词翻译" StreamTranslate 已下线
-		publicAPI.POST("/translate/paper/stream", h.ai.StreamTranslatePaper)
+		// 翻译 (SSE 流) —— 仅论文翻译; 旧的"划词翻译" StreamTranslate 已下线。
+		// 已改强制登录 (UserAuthMiddleware + tieredRL): 翻译是项目侧 LLM 调用, 要可归属
+		// 到用户 + 计入 token 账本 (feature=translate), 不再允许匿名。路径仍在 /public 下
+		// 是为兼容前端既有调用, 语义上它已是登录端点。匿名请求会拿到 401。
+		publicAPI.POST("/translate/paper/stream", middleware.UserAuthMiddleware(), tieredRL, h.ai.StreamTranslatePaper)
 
 		// umami tracker 运行时配置 —— 前端 index.html 加载时 fetch
 		publicAPI.GET("/umami-config", h.umami.GetTrackerConfig)
@@ -86,12 +91,25 @@ func registerPublicAPIRoutes(api *gin.RouterGroup, h *allHandlers) {
 			middleware.RateLimitMiddleware(60, time.Minute),
 			h.seo.ExposeSeeds,
 		)
+		// 热门内容上报 (智能搜索曝光 / 站内点击 / SEO 直访) —— 前端 fire-and-forget sendBeacon。
+		// 传统/期刊搜索的关键词+曝光仍由 SearchPapers/SearchJournals 服务端记, 不走这里 (防双计)。
+		publicAPI.POST("/hot-content/track",
+			middleware.RateLimitMiddleware(60, time.Minute),
+			h.hotContent.Track,
+		)
+		// 功能使用统计上报 (暂存 / 收藏 等前端事件) —— OptionalUserAuth: 带 token 取
+		// user_id, 否则按匿名(anon_id)记。白名单见 usagestat.Handler.Track。
+		publicAPI.POST("/usage-events/track",
+			middleware.OptionalUserAuthMiddleware(),
+			middleware.RateLimitMiddleware(120, time.Minute),
+			h.usageStats.Track,
+		)
 		// SEO slug 解析 (前端 /paper/:slug、/author/:slug 首屏用)
 		publicAPI.GET("/seo/paper/:slug", h.seo.ResolveBySlug)
 		publicAPI.GET("/seo/author/:slug", h.seo.ResolveAuthorBySlug)
 
 		// JNL Journal (前端用到 search/list/get/stats/suggest/byNames; filters/byIssn/compare/batch 已下线)
-		publicAPI.POST("/journals/search", h.scholar.SearchJournals)
+		publicAPI.POST("/journals/search", middleware.OptionalUserAuthMiddleware(), h.scholar.SearchJournals)
 		publicAPI.POST("/journals/list", h.scholar.ListJournals)
 		publicAPI.POST("/journals/get", h.scholar.GetJournal)
 		publicAPI.POST("/journals/stats", h.scholar.GetJournalStats)

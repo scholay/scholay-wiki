@@ -36,12 +36,12 @@ import (
 // 现役消费者: wechatofficial (自动回复) / library (导入解析) / ai/service.go
 // (TranslateToEnglish, GetSearchSuggestions)。
 func (s *Service) ChatCompletionWithTools(ctx context.Context, messages []ChatMessage, tools []Tool, toolChoice string, modelLevel thirdparty.ModelLevel) (*ChatCompletionResponse, error) {
-	result, err := s.executeWithRetry(ctx, modelLevel, func(config *thirdparty.AIModelConfig, _ uint) (any, error) {
+	result, err := s.executeWithRetry(ctx, modelLevel, func(config *thirdparty.AIModelConfig, _ uint) (any, *aiUsage, error) {
 		// modelLevel 已由 thirdparty 解析成具体模型编码放进 ModelLow;为空说明
 		// admin 没给该 level 配模型,直接报错而不是兜底到某个写死的模型。
 		modelCode := config.ModelLow
 		if modelCode == "" {
-			return nil, fmt.Errorf("no model configured for level %q", modelLevel)
+			return nil, nil, fmt.Errorf("no model configured for level %q", modelLevel)
 		}
 		reqBody := ChatCompletionRequest{
 			Model:       modelCode,
@@ -54,7 +54,11 @@ func (s *Service) ChatCompletionWithTools(ctx context.Context, messages []ChatMe
 		}
 		// 走 common/upstream (breaker=ai_llm + typed error + 观测); 失败 typed error
 		// 由 executeWithRetry 判 ErrAuth/ErrRateLimit/... 换账户重试。
-		return doChatCompletion(ctx, config.BaseURL, config.APIKey, reqBody)
+		resp, err := doChatCompletion(ctx, config.BaseURL, config.APIKey, reqBody)
+		if err != nil {
+			return nil, nil, err
+		}
+		return resp, usageFromStats(resp.Usage), nil
 	})
 	if err != nil {
 		return nil, err
@@ -67,34 +71,44 @@ func (s *Service) ChatCompletionWithTools(ctx context.Context, messages []ChatMe
 //
 // 现役消费者: ai/service_translate.go (StreamTranslateToChinese / StreamTranslatePaperToChinese)。
 func (s *Service) StreamChatCompletionWithLevel(ctx context.Context, messages []ChatMessage, writer io.Writer, modelLevel thirdparty.ModelLevel) error {
-	_, err := s.executeWithRetry(ctx, modelLevel, func(config *thirdparty.AIModelConfig, _ uint) (any, error) {
+	_, err := s.executeWithRetry(ctx, modelLevel, func(config *thirdparty.AIModelConfig, _ uint) (any, *aiUsage, error) {
 		modelCode := config.ModelLow
 		if modelCode == "" {
-			return nil, fmt.Errorf("no model configured for level %q", modelLevel)
+			return nil, nil, fmt.Errorf("no model configured for level %q", modelLevel)
 		}
 		reqBody := ChatCompletionRequest{
 			Model:       modelCode,
 			Messages:    messages,
 			Stream:      true,
 			Temperature: defaultLLMTemperature,
+			// 流式响应默认不带 usage; 要 token 账本必须显式请求末尾 usage chunk。
+			StreamOptions: &StreamOptions{IncludeUsage: true},
 		}
 		// 走 common/upstream DoStream (breaker=ai_llm_stream); 上游 SSE 流交给
 		// streamResponse 边读边转发, 非 2xx 会被分类成 typed error 触发换账户重试。
+		var usage *aiUsage
 		streamErr := streamChatCompletion(ctx, config.BaseURL, config.APIKey, reqBody, func(resp *upstream.StreamResponse) error {
-			return s.streamResponse(resp.Body, writer)
+			u, e := s.streamResponse(resp.Body, writer)
+			usage = u
+			return e
 		})
-		return nil, streamErr
+		if streamErr != nil {
+			return nil, nil, streamErr
+		}
+		return nil, usage, nil
 	})
 	return err
 }
 
 // streamResponse 读上游 SSE 流并以 SSE 帧形式写到 writer (data: <json>\n\n)。
 // 只转发包含非空 delta.content 的 chunk; "[DONE]" 结束流。
-func (s *Service) streamResponse(reader io.Reader, writer io.Writer) error {
+// 返回流末尾 include_usage chunk 解析出的 token 用量 (上游不支持时为 nil), 供账本记账。
+func (s *Service) streamResponse(reader io.Reader, writer io.Writer) (*aiUsage, error) {
 	scanner := bufio.NewScanner(reader)
 	const maxScannerBuffer = 1024 * 1024 // 1MB, SSE chunk 可能很大
 	scanner.Buffer(make([]byte, maxScannerBuffer), maxScannerBuffer)
 
+	var usage *aiUsage
 	for scanner.Scan() {
 		line := scanner.Text()
 		if line == "" {
@@ -115,6 +129,12 @@ func (s *Service) streamResponse(reader io.Reader, writer io.Writer) error {
 			continue
 		}
 
+		// include_usage 的末尾 chunk: choices 通常为空、带 usage。记下后不转发给前端
+		// (前端只认 delta.content), 但也不 break —— 后面可能还有 [DONE]。
+		if chunk.Usage != nil {
+			usage = usageFromStats(*chunk.Usage)
+		}
+
 		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
 			chunkJSON, err := json.Marshal(chunk)
 			if err != nil {
@@ -122,7 +142,7 @@ func (s *Service) streamResponse(reader io.Reader, writer io.Writer) error {
 				continue
 			}
 			if _, err := fmt.Fprintf(writer, "data: %s\n\n", string(chunkJSON)); err != nil {
-				return err
+				return usage, err
 			}
 			if flusher, ok := writer.(http.Flusher); ok {
 				flusher.Flush()
@@ -131,7 +151,7 @@ func (s *Service) streamResponse(reader io.Reader, writer io.Writer) error {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("error reading stream: %w", err)
+		return usage, fmt.Errorf("error reading stream: %w", err)
 	}
-	return nil
+	return usage, nil
 }

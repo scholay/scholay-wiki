@@ -59,16 +59,24 @@ const CONTROL_READY_POLL_MS = 50
 //      (bubblewrap/socat 已预装在镜像里)。可用 env SCHOLAY_AGENT_DISALLOWED_TOOLS 把 Bash
 //      重新加回禁用列表来临时收紧。
 //
-// **仍然全禁** 的是跟"分析文件 / 跑转换"无关、却能外泄 / 提权 / 起子 agent 的:
+// **已放开** (2026-06, 在 egress 代理把出网收口到 internal 网 + 域名/端口控制之后):
+//   - WebFetch/WebSearch: agent 需请求互联网资源; SSRF/外泄由 egress 代理 + 网络隔离兜底
+//   - Skill: 启用 skills 能力 (inline 执行 → 其工具调用仍逐个回到 backend permission 裁决)
+//   - Task/Agent (子 agent): 本服务 headless(--print) → 子 agent 走 **sync**, 其工具调用与主 agent
+//     一样逐个回到 backend decidePermission + 路径裁决 (**并非旁路**); 出网同走 egress;
+//     exfil 类工具 (SendUserFile 等) 仍在下方禁用列表 → 子 agent 也调不到。增量风险≈0, 不需等 L2。
+//     注: 仅改本列表即可, **不要**动 backend ws.go permissionAllowed (被裁决的是子 agent 内部 tool_use)。
+//
+// **仍然全禁** 的:
 //   - PowerShell: Linux 用不上
-//   - WebFetch/WebSearch: 主动外联 / SSRF (转换文件不需要联网)
-//   - Task/Agent/Skill/REPL/ToolSearch: 起子 agent / 旁路执行
+//   - ToolSearch/REPL/LSP: 暂不需要
+//   - AskUserQuestion / EnterPlanMode / ExitPlanMode: 交互式 —— 裸开会被 backend default-deny 抢答成拒绝
+//     → 对话卡死/退化/白问。必须先做「WS 双向协议 + 前端渲染回传 + 持久化 + 暂停」才能开 (见 compat 计划)。
 //   - SendUserFile/SendMessage: 外传文件
 //   - Cron/Team/RemoteTrigger/Monitor/PushNotification/SubscribePR: 跟学术分析无关
 const DEFAULT_DISALLOWED_TOOLS = [
   'PowerShell',
-  'WebFetch', 'WebSearch',
-  'Task', 'Agent', 'ToolSearch', 'Skill', 'REPL', 'LSP',
+  'ToolSearch', 'REPL', 'LSP',
   'Brief', 'Config', 'CtxInspect', 'Snip', 'Sleep',
   'EnterWorktree', 'ExitWorktree', 'EnterPlanMode', 'ExitPlanMode',
   'CronCreate', 'CronDelete', 'CronList', 'CronUpdate',
@@ -127,6 +135,11 @@ type SessionStartOptions = {
   effort?: string
   thinking?: 'enabled' | 'adaptive' | 'disabled'
   providerId?: string | null
+  // per-feature 工具策略: 在全局 --disallowed-tools 基础上**追加**(union;评分会话关 Skill/Agent)。
+  disallowedTools?: string[]
+  // per-feature skill 作用域: 额外的 --add-dir 源(加载 <dir>/.claude/skills)。
+  // 让不同入口装不同 skill —— peerreview 方法论会话加载审稿人 skill, claw 不传 → 看不到。
+  addDirs?: string[]
 }
 
 export class ConversationStartupError extends Error {
@@ -187,10 +200,17 @@ export class ConversationService {
       '--replay-user-messages',
       ...this.getRuntimeArgs(options),
       ...this.getPermissionArgs(options?.permissionMode, dangerousMode),
-      // Scholay 安全加固: 全局禁用所有内建工具, 只留 MCP 检索 (见 DEFAULT_DISALLOWED_TOOLS)。
+      // Scholay 安全加固: 禁用内建工具。per-feature 会话级禁用是在全局基础上**追加(union)**,
+      // 不是替换 —— 否则评分会话只传 [Skill,Agent] 会把全局那串(PowerShell/Cron/Send* 等)反而放开。
       ...((): string[] => {
-        const denied = resolveDisallowedTools()
+        const denied = Array.from(new Set([...resolveDisallowedTools(), ...(options?.disallowedTools ?? [])]))
         return denied.length > 0 ? ['--disallowed-tools', ...denied] : []
+      })(),
+      // per-feature skill 作用域: 每个额外目录 → --add-dir, CLI 会加载 <dir>/.claude/skills
+      // (projectSettings 默认开)。只有传了 addDirs 的会话(如 peerreview 方法论)才装这些 skill。
+      ...((): string[] => {
+        const dirs = Array.from(new Set(options?.addDirs ?? [])).filter((d) => d.length > 0)
+        return dirs.flatMap((d) => ['--add-dir', d])
       })(),
     ])
   }
@@ -265,11 +285,18 @@ export class ConversationService {
       )
     }
 
+    // per-feature 工具策略: 显式 options 优先, 否则用持久化在 session-meta 里的(经 getSessionLaunchInfo 读出)。
+    // 这条路保证首启/resume/runtime重启/permission重启都重读 jsonl 自动套用, 不依赖内存 runtimeOverrides。
+    const effectiveOptions: SessionStartOptions = {
+      ...options,
+      disallowedTools: options?.disallowedTools ?? launchInfo?.disallowedTools,
+      addDirs: options?.addDirs ?? launchInfo?.addDirs,
+    }
     const args = this.buildSessionCliArgs(
       sessionId,
       sdkUrl,
       shouldResume,
-      options,
+      effectiveOptions,
       launchRepository,
     )
 

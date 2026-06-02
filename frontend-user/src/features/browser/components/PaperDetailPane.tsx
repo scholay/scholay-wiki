@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMatch } from 'react-router-dom';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { EmptyState } from '@/shared/components/EmptyState';
 import type { TranslatePaperResult } from '@/shared/api/translate';
+import { trackPaperSeoView } from '@/shared/api/hot-content';
 import {
   paperTabKey,
   useBrowserTabs,
@@ -86,6 +87,22 @@ export function PaperDetailPane() {
       openPaperTab(fallback.data, tab?.returnTo ?? '/library');
     }
   }, [fallback.data, tab?.returnTo, source, openPaperTab]);
+
+  // 热门内容「SEO 直访量」上报 —— 论文页作为站外落地入口(冷进入)被打开时报一次。
+  // 冷进入判定 = mount 时 browser-tabs(持久化在 localStorage)里没有该 paper 的 tab:
+  //   - 站内点开: useOpenPaperInBrowser 先建 tab 再 navigate, mount 时 tab 已在 → 非冷进入
+  //     (该路径的点击已由 useOpenPaperInBrowser → trackPaperClick 上报, 这里不重复)
+  //   - 刷新自己的页: tab 持久化仍在 → 非冷进入 (不把刷新算成 SEO 直访)
+  //   - SEO / 分享链接 / 站外直达: 无持久化 tab → 冷进入 → 报 seo_view
+  const coldEntryRef = useRef(!tab && !isLocal && !!source && !!paperId);
+  const seoViewReportedRef = useRef(false);
+  useEffect(() => {
+    if (seoViewReportedRef.current || !coldEntryRef.current) return;
+    if (fallback.data) {
+      seoViewReportedRef.current = true;
+      trackPaperSeoView(fallback.data);
+    }
+  }, [fallback.data]);
 
   // 自由文件:把 libraryRow → Paper 也灌进 tabs,这样左侧 tab 标题等能正确显示
   useEffect(() => {

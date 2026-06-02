@@ -15,6 +15,7 @@ import type { ReviewReport, ReviewerRole } from '../types';
 
 import { StatusGrid } from '../components/record/StatusGrid';
 import { EditorialCheckPanel } from '../components/record/EditorialCheckPanel';
+import { MethodologyPhaseCard } from '../components/record/MethodologyPhaseCard';
 import { ReviewerDetailPanel } from '../components/record/ReviewerDetailPanel';
 import { ChiefVerdictPanel } from '../components/record/ChiefVerdictPanel';
 import { DetailRail } from '../components/record/DetailRail';
@@ -82,6 +83,7 @@ export function RecordDetailPage() {
         submissionId={sub.id}
         report={reportMap.get(tab as ReviewerRole)}
         status={sub.status}
+        preparing={sub.computeState === 'computing_methodology'}
       />
     );
   };
@@ -115,15 +117,22 @@ export function RecordDetailPage() {
           <div className="flex gap-3.5">
             <div className="min-w-0 flex-1">
               {sub.status === 'reviewing' ? (
-                // 审稿中:把所有 tab 都挂上(隐藏非当前 tab),让每个 reviewer/chief 面板各自从 t=0
-                // 订阅 SSE。配合后端 SubscribePending(slot 没起步也先挂住),切到任意 tab 都能看到
-                // 实时流式渲染,而不是等审稿人写完一口气出。隐藏用 hidden(display:none),组件仍挂载、
-                // SSE 仍订阅;当前 tab 用 contents 不额外生成盒子。
-                REVIEW_TABS.map((tab) => (
-                  <div key={tab} className={activeTab === tab ? 'contents' : 'hidden'}>
-                    {renderPanel(tab)}
-                  </div>
-                ))
+                // 审稿中(含方法论编排阶段)布局**全程稳定**:tab 内容一直在,不做"整卡消失→loading→表单"的重构。
+                // 方法论编排阶段(computing_methodology)只在顶部加一条**匿名进度条**(不 dump 原始推理、不暴露
+                // 选了哪个审稿人),审稿人面板此时是"待评议"骨架;切到 reviewing 后,同一个面板原地填充成流式表单。
+                // 所有 tab 挂上(隐藏非当前 tab)→ 配合后端 SubscribePending,切到任意 reviewer tab 都能从头看流。
+                <>
+                  {sub.computeState === 'computing_methodology' && (
+                    <div className="mb-3.5">
+                      <MethodologyPhaseCard />
+                    </div>
+                  )}
+                  {REVIEW_TABS.map((tab) => (
+                    <div key={tab} className={activeTab === tab ? 'contents' : 'hidden'}>
+                      {renderPanel(tab)}
+                    </div>
+                  ))}
+                </>
               ) : reportsLoading && activeTab !== 'editorial' ? (
                 <LoadingState />
               ) : (
@@ -233,6 +242,7 @@ function Header({
 
       <StatusGrid
         status={sub.status}
+        computeState={sub.computeState}
         reports={reports as unknown as Map<string, ReviewReport>}
         activeTab={activeTab}
         onTabChange={onTabChange}

@@ -11,6 +11,7 @@ import type { Paper, UpstreamSource } from '@/shared/api/types';
 import { useFavoriteCheck } from '@/shared/api/user-library-mutations';
 import { useJournalEnrichments } from '@/shared/api/journal-enrichment';
 import { enrichPmdAbstracts } from '@/shared/api/paper-enrich';
+import { trackPaperImpressions } from '@/shared/api/hot-content';
 import { PaperResultCard } from '../PaperResultCard';
 import { useStagingActions } from '../../hooks/useStagingActions';
 import { useStagingView } from '../../hooks/useStagingView';
@@ -44,6 +45,10 @@ const VISIBLE_CARD_COUNT = 3;
 // DefaultCard 三张展开 ~580-600px, cap 在 580 给底部留 ~8px 余量。
 const MAX_HEIGHT_PX = 580;
 
+// 已上报曝光的 tool result —— 模块级, 单次页面会话内按 toolUseId 去重,
+// 避免用户回看历史会话时同一组结果被重复计曝光。整页刷新即清空。
+const reportedImpressionGroups = new Set<string>();
+
 export function PaperListScroller({
   content,
   toolUseId,
@@ -54,6 +59,16 @@ export function PaperListScroller({
   const papers = useMemo(() => parsePapersFromToolResult(content), [content]);
 
   const enriched = useEnrichedPapers(papers);
+
+  // 热门内容「曝光量」上报 —— 智能搜索的论文走 agent 容器, 后端搜索接口看不到,
+  // 必须前端在这里补点。按 toolUseId 去重: 同一组结果(含 PMD 补 abstract 触发的
+  // re-render)只报一次, 历史回看也不重复 (见 reportedImpressionGroups)。
+  useEffect(() => {
+    if (!toolUseId || papers.length === 0) return;
+    if (reportedImpressionGroups.has(toolUseId)) return;
+    reportedImpressionGroups.add(toolUseId);
+    trackPaperImpressions(papers);
+  }, [toolUseId, papers]);
 
   // staging: 全局 stagedIds + actions
   const { areas, stagedIds } = useStagingView();
@@ -156,7 +171,7 @@ export function PaperListScroller({
   // 避免"刚暂存还展开着"的诡异态。
   const handleStage = useCallback(
     (paper: Paper) => {
-      stagePaper(paper);
+      stagePaper(paper, 'smart');
       setExpandedOverrides((s) => {
         if (!s.has(paper.paperId)) return s;
         const next = new Set(s);
@@ -184,7 +199,7 @@ export function PaperListScroller({
     if (bulkBusy || unstagedCount === 0) return;
     setBulkBusy(true);
     try {
-      const { added, skipped, capped } = await bulkStagePapers(enriched);
+      const { added, skipped, capped } = await bulkStagePapers(enriched, 'smart');
       const parts: string[] = [];
       if (added > 0) parts.push(`已暂存 ${added} 篇`);
       if (skipped > 0) parts.push(`${skipped} 篇已在暂存区`);

@@ -68,6 +68,12 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.POST("/users/batch-delete", h.user.BatchDeleteUsers)
 		adminProtected.PUT("/users/:id/freeze", h.user.FreezeUser)
 		adminProtected.PUT("/users/:id/unfreeze", h.user.UnfreezeUser)
+		// 用户详情抽屉:登录方式 + 该用户会员状态/今日额度
+		adminProtected.GET("/users/:id/detail", h.user.GetUserDetail)
+		adminProtected.GET("/users/:id/vip", h.vip.AdminUserVIPStatus)
+		// 管理员直接授予/取消会员(不走兑换码)
+		adminProtected.POST("/users/:id/vip", h.vip.AdminGrantVIP)
+		adminProtected.DELETE("/users/:id/vip", h.vip.AdminRevokeVIP)
 
 		// 公告管理
 		adminProtected.GET("/announcements", h.announcement.ListAdmin)
@@ -134,6 +140,23 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.POST("/usage-logs/cleanup", h.usageLogAdmin.TriggerCleanup)
 		adminProtected.GET("/usage-logs/export", h.usageLogAdmin.ExportCSV)
 
+		// 功能使用统计 v2 (usage_events) —— 取代旧 usage-logs 统计, 新菜单"使用统计"用。
+		adminProtected.GET("/usage-stats/summary", h.usageStats.GetSummary)
+		adminProtected.GET("/usage-stats/peer-review-funnel", h.usageStats.GetFunnel)
+		adminProtected.GET("/usage-stats/events", h.usageStats.ListEvents)
+		adminProtected.POST("/usage-stats/cleanup", h.usageStats.TriggerCleanup)
+
+		// LLM Token 用量看板 (llm_token_usage) —— 总览/明细/筛选项/CSV 导出/手动清理。
+		adminProtected.GET("/llm-token-usage/summary", h.llmUsageAdmin.GetSummary)
+		adminProtected.GET("/llm-token-usage/logs", h.llmUsageAdmin.ListLogs)
+		adminProtected.GET("/llm-token-usage/facets", h.llmUsageAdmin.GetFacets)
+		adminProtected.GET("/llm-token-usage/export", h.llmUsageAdmin.ExportCSV)
+		adminProtected.POST("/llm-token-usage/cleanup", h.llmUsageAdmin.TriggerCleanup)
+
+		// 会员兑换码: 批量生成 + 列表
+		adminProtected.POST("/vip-codes", h.vip.GenerateCodes)
+		adminProtected.GET("/vip-codes", h.vip.ListCodes)
+
 		// 热门内容管理
 		adminProtected.GET("/hot-content/keywords", h.hotContent.GetHotKeywords)
 		adminProtected.GET("/hot-content/papers", h.hotContent.GetHotPapers)
@@ -148,18 +171,11 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.GET("/messages", h.message.AdminGetMessages)
 		adminProtected.POST("/messages/:id/send", h.message.AdminSendMessage)
 
-		// ─── AI feature prompt 注册表 ──────────────────────────────────────
-		// 统一管理 smart_search / claw / peerreview 等 feature 的 system_prompt 文本;
-		// 改完不必重启 (write 路径 invalidate 缓存, 读路径 TTL 10min 兜底)。
-		// 详见 internal/promptregistry/handler.go。
-		adminProtected.GET("/feature-prompts", h.promptRegistry.List)
-		adminProtected.POST("/feature-prompts", h.promptRegistry.Create)
-		adminProtected.GET("/feature-prompts/:id", h.promptRegistry.Get)
-		adminProtected.PUT("/feature-prompts/:id", h.promptRegistry.Update)
-		adminProtected.POST("/feature-prompts/:id/toggle", h.promptRegistry.Toggle)
-		adminProtected.DELETE("/feature-prompts/:id", h.promptRegistry.Delete)
-		adminProtected.GET("/feature-prompts/:id/history", h.promptRegistry.History)
-		adminProtected.POST("/feature-prompts/:id/revert/:version", h.promptRegistry.Revert)
+		// ─── AI feature prompt 注册表 (已下线) ─────────────────────────────
+		// smart_search/claw 提示词已迁回代码 const (internal/prompts), peerreview 审稿人
+		// 改用 skill (agent/data/claude/skills/rv-*), feature_prompts 表不再驱动任何 feature。
+		// 这套 admin CRUD 只会编辑"死行"(改了不生效), 故整组路由下线。
+		// promptregistry.Service 仍保留 (peerreview handler GetPromptByID 渲染老报告用)。
 	}
 
 	// 超级管理员专属：角色分配（提升/降级 admin）

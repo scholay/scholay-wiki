@@ -216,10 +216,14 @@ services:
       # 与 agent 容器的 ANTHROPIC_API_KEY 同源 (AGENT_INTERNAL_TOKEN)。
       AGENT_BASE_URL: ${AGENT_BASE_URL:-http://scholar_agent:3456}
       AGENT_AUTH_TOKEN: ${AGENT_INTERNAL_TOKEN:?AGENT_INTERNAL_TOKEN is required in prod}
+      # 智能审稿: backend 按 slug 读审稿人 skill 的「评分人格」段注入评分轮 (见 peerreview)。
+      PEERREVIEW_SKILLS_DIR: ${PEERREVIEW_SKILLS_DIR:-/app/reviewer-skills}
       # Go memory limit (75% of container memory limit)
       GOMEMLIMIT: 768MiB
     volumes:
       - /etc/localtime:/etc/localtime:ro
+      # 审稿人 skill 库 (reviewer-roster + rv-*, 已移到 reviewer-skills/, claw 看不到): backend 只读读 SCORING_PERSONA。
+      - ./agent/data/claude/reviewer-skills:/app/reviewer-skills:ro
     expose:
       - "8080"
     # /health 会 ping MySQL+Redis —— 容器级健康信号, 让 nginx/编排能识别"起来了但依赖挂了"的退化态
@@ -246,6 +250,8 @@ services:
           memory: 512M
     networks:
       - scholar-network
+      # backend 同时在 scholar-agent-net 上, 才能解析/调用 scholar_agent:3456 (CreateSession / ServerSideChat / WS)。
+      - scholar-agent-net
 
   # AI agent 服务 (Bun + TypeScript,源在 agent/)
   # 模型/端点配置最终走 DB,backend 启动后 POST 到 /api/providers 热更新;
@@ -254,6 +260,8 @@ services:
     image: ${REGISTRY:-crpi-ebrftpuujezamyxv.cn-shanghai.personal.cr.aliyuncs.com}/scholay/agent:${IMAGE_TAG:-latest}
     container_name: scholar_agent
     restart: unless-stopped
+    depends_on:
+      - egress-proxy
     logging: *default-logging
     environment:
       <<: *tz-env
@@ -269,10 +277,19 @@ services:
       DISABLE_TELEMETRY: "1"
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
       MINICOD_API_KEY: ${AGENT_MINICOD_API_KEY:-}
+      # 出网经 egress-proxy —— scholar-agent-net 是 internal(无 NAT),agent 只能经代理出公网。
+      # 默认 open 放行一切外部 HTTPS。生产收紧设 EGRESS_FILTER_MODE=allowlist + egress/filter 列上游域名。
+      HTTPS_PROXY: ${AGENT_HTTPS_PROXY:-http://scholar_egress_proxy:3128}
+      HTTP_PROXY: ${AGENT_HTTP_PROXY:-http://scholar_egress_proxy:3128}
+      NO_PROXY: ${AGENT_NO_PROXY:-localhost,127.0.0.1,scholar_backend,backend,scholar_agent}
     expose:
       - "3456"
     volumes:
       - ./data/agent:/home/bun/.claude
+      # committed 的**共享** skill (paper-review/journal-fit/citation-audit) 叠挂到 .claude/skills, 所有会话可见。
+      - ./agent/data/claude/skills:/home/bun/.claude/skills:ro
+      # 审稿人 skill (reviewer-roster + rv-*) 独立目录, 仅 peerreview 方法论会话经 --add-dir /peerreview-add 加载 → claw 看不到。
+      - ./agent/data/claude/reviewer-skills:/peerreview-add/.claude/skills:ro
       # 会话工作目录 (cwd + 上传文件) 持久化 —— 否则重建容器(重部署)会清空, 旧会话续聊报
       # "Working directory does not exist"。属主由镜像 entrypoint 自愈 (chown 到 bun)。
       - ./data/agent-sessions:/home/bun/sessions
@@ -290,7 +307,32 @@ services:
         reservations:
           memory: 256M
     networks:
-      - scholar-network
+      # 安全隔离: agent 只在 scholar-agent-net(internal,无 NAT)上,够不到 mysql/redis/minio/umami;出公网只能经 egress-proxy。
+      - scholar-agent-net
+
+  # agent 出公网的唯一出口:tinyproxy 代理(源在 egress/)。默认 open;EGRESS_FILTER_MODE=allowlist 收紧到 egress/filter。
+  # 生产用 ACR 镜像(build-and-push 推、deploy 拉),与 backend/agent/frontend 一致 —— 服务器不本地 build。
+  egress-proxy:
+    image: ${REGISTRY:-crpi-ebrftpuujezamyxv.cn-shanghai.personal.cr.aliyuncs.com}/scholay/egress:${IMAGE_TAG:-latest}
+    container_name: scholar_egress_proxy
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      <<: *tz-env
+      EGRESS_FILTER_MODE: ${EGRESS_FILTER_MODE:-open}
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - scholar-agent-net
+      - egress-net
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 128M
 
   frontend-user:
     image: ${REGISTRY:-crpi-ebrftpuujezamyxv.cn-shanghai.personal.cr.aliyuncs.com}/scholay/frontend-user:${IMAGE_TAG:-latest}
@@ -383,4 +425,11 @@ services:
 
 networks:
   scholar-network:
+    driver: bridge
+  # 安全隔离: backend↔agent↔egress-proxy 内部网,internal=无 NAT —— agent 出公网只能经 egress-proxy。
+  scholar-agent-net:
+    driver: bridge
+    internal: true
+  # 只有 egress-proxy 在这张网上,它是唯一能 NAT 出公网的容器。
+  egress-net:
     driver: bridge

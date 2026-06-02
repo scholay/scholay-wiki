@@ -18,9 +18,15 @@ export interface Column<T> {
   className?: string;
   /**
    * 可排序 —— 指定一个值提取器,table 会用它做客户端排序。
-   * 后端分页 + 客户端排序只对当前页有效;若需要跨页排序,把字段通过 url state 传给后端。
+   * 后端分页 + 客户端排序只对当前页有效;若需要跨页排序,改用 serverSortKey + DataTable.serverSort。
    */
   sortKey?: (row: T) => string | number | null | undefined;
+  /**
+   * 服务端排序键 —— 配合 DataTable 的 serverSort 使用。
+   * 指定后该列表头点击会改服务端 sort 参数(跨页全量重排),并**覆盖** sortKey 的客户端排序。
+   * 只有后端排序白名单内的列才该设(否则会被后端忽略)。
+   */
+  serverSortKey?: string;
 }
 
 /**
@@ -37,12 +43,23 @@ export function DataTable<T>({
   // ---- 多选(可选)----
   selection,
   bulkActions,
+  // ---- 服务端排序(可选)----
+  serverSort,
 }: {
   columns: Column<T>[];
   rows: T[] | undefined;
   loading?: boolean;
   emptyMessage?: string;
   rowKey?: (row: T, index: number) => string | number;
+  /**
+   * 服务端排序 —— 传入则带 serverSortKey 的列表头点击改服务端 sort 参数(跨页全量重排),
+   * 而非客户端只排当前页;此模式下客户端 sortKey 排序被禁用(行序完全由后端决定)。
+   */
+  serverSort?: {
+    sortBy: string;
+    sortOrder: 'asc' | 'desc';
+    onChange: (sortBy: string, sortOrder: 'asc' | 'desc') => void;
+  };
   /** 多选状态 —— 传入则自动渲染 checkbox 列 + 头部 master checkbox + 批量 bar */
   selection?: {
     selectedKeys: Set<string | number>;
@@ -62,6 +79,7 @@ export function DataTable<T>({
   // 行内 + 排序应用
   const sortedRows = useMemo(() => {
     if (!safeRows) return safeRows;
+    if (serverSort) return safeRows; // 服务端已全量排序,前端不再二次排
     if (!sort) return safeRows;
     const col = columns[sort.col];
     if (!col?.sortKey) return safeRows;
@@ -78,7 +96,7 @@ export function DataTable<T>({
       return 0;
     });
     return copy;
-  }, [safeRows, sort, columns]);
+  }, [safeRows, sort, columns, serverSort]);
 
   if (loading) return <LoadingState />;
   if (!sortedRows || sortedRows.length === 0) return <EmptyState title={emptyMessage} />;
@@ -115,6 +133,15 @@ export function DataTable<T>({
 
   const toggleSort = (colIdx: number) => {
     const col = columns[colIdx];
+    // 服务端排序模式:点击带 serverSortKey 的列 → 通知上层改 sort 参数(asc⇄desc 两态切换;
+    // 切到别的列默认 desc)。行序完全交给后端,这里不动客户端 sort state。
+    if (serverSort) {
+      if (!col?.serverSortKey) return;
+      const isActive = serverSort.sortBy === col.serverSortKey;
+      const nextOrder: 'asc' | 'desc' = isActive && serverSort.sortOrder === 'desc' ? 'asc' : isActive ? 'desc' : 'desc';
+      serverSort.onChange(col.serverSortKey, nextOrder);
+      return;
+    }
     if (!col?.sortKey) return;
     setSort((s) => {
       if (s?.col !== colIdx) return { col: colIdx, dir: 'asc' };
@@ -155,8 +182,14 @@ export function DataTable<T>({
               </th>
             )}
             {columns.map((c, i) => {
-              const sortable = !!c.sortKey;
-              const sortState = sort?.col === i ? sort.dir : null;
+              const sortable = serverSort ? !!c.serverSortKey : !!c.sortKey;
+              const sortState = serverSort
+                ? c.serverSortKey && serverSort.sortBy === c.serverSortKey
+                  ? serverSort.sortOrder
+                  : null
+                : sort?.col === i
+                  ? sort.dir
+                  : null;
               return (
                 <th
                   key={i}

@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react';
 import { Save, Loader2 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
+import { SecretInput } from '@/shared/ui/secret-input';
 import { Label } from '@/shared/ui/label';
 import { AdminPageLayout } from '../components/AdminPageLayout';
 import { useApiToast } from '../hooks/useApiToast';
@@ -22,9 +24,26 @@ const MODEL_LEVELS = [
 ];
 
 export function WechatOfficialPage() {
-  const { data, isLoading } = useWechatOfficialConfig();
+  // 默认脱敏; 点任一密文字段右侧小眼睛 → reveal=true → 重新拉取明文 (show_sensitive)。
+  const [reveal, setReveal] = useState(false);
+  const { data, isLoading } = useWechatOfficialConfig({ showSensitive: reveal });
   const update = useUpdateWechatOfficialConfig();
   const apiToast = useApiToast();
+
+  // 三个密文字段受控, 随后端返回同步 (脱敏 ******** ↔ 明文)。按各自字段值变化触发,
+  // 而非整个 data —— 避免窗口重聚焦等无关重拉把用户正在编辑的值冲掉。
+  const [appSecret, setAppSecret] = useState('');
+  const [token, setToken] = useState('');
+  const [encodingAesKey, setEncodingAesKey] = useState('');
+  useEffect(() => {
+    setAppSecret(data?.app_secret ?? '');
+  }, [data?.app_secret]);
+  useEffect(() => {
+    setToken(data?.token ?? '');
+  }, [data?.token]);
+  useEffect(() => {
+    setEncodingAesKey(data?.encoding_aes_key ?? '');
+  }, [data?.encoding_aes_key]);
 
   if (isLoading) {
     return (
@@ -71,15 +90,39 @@ export function WechatOfficialPage() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="app_secret">App Secret</Label>
-            <Input id="app_secret" name="app_secret" type="password" placeholder="留空表示不修改" />
+            <SecretInput
+              id="app_secret"
+              name="app_secret"
+              value={appSecret}
+              onChange={(e) => setAppSecret(e.target.value)}
+              revealed={reveal}
+              onToggleReveal={() => setReveal((v) => !v)}
+              placeholder="留空表示不修改"
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="token">Token</Label>
-            <Input id="token" name="token" defaultValue={data?.token} />
+            <SecretInput
+              id="token"
+              name="token"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              revealed={reveal}
+              onToggleReveal={() => setReveal((v) => !v)}
+              placeholder="留空表示不修改"
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="encoding_aes_key">EncodingAESKey</Label>
-            <Input id="encoding_aes_key" name="encoding_aes_key" type="password" placeholder="留空表示不修改" />
+            <SecretInput
+              id="encoding_aes_key"
+              name="encoding_aes_key"
+              value={encodingAesKey}
+              onChange={(e) => setEncodingAesKey(e.target.value)}
+              revealed={reveal}
+              onToggleReveal={() => setReveal((v) => !v)}
+              placeholder="留空表示不修改"
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="encryption_mode">加密模式</Label>

@@ -99,8 +99,10 @@ export function SubmitSuccessPage() {
           <div className="flex flex-col gap-1">
             <p className="text-base font-bold text-brand-amber">接下来会发生什么？</p>
             <p className="text-sm leading-relaxed text-brand-amber/80">
-              编辑部将在 3-5 个工作日内完成初审,进入同行评审后您将收到邮件通知。
-              审稿期间您可以随时在「审稿记录」中查看实时进度与反馈意见。
+              投递后系统会立即启动 AI 审稿流程:编辑部初审 → 通读全文并为本文匹配合适的审稿人 →
+              三位审稿人依次给出结构化意见(逐句意见、维度评分)→ 主审综合三方意见做出决议。
+              整个过程通常十分钟左右,点下方「前往审稿记录」可<strong className="font-bold">实时观看</strong>每位审稿人的意见逐条生成;
+              也可以关掉页面,稍后回来查看完整结果。
             </p>
           </div>
         </aside>

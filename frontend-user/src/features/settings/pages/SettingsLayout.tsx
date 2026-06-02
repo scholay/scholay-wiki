@@ -1,13 +1,14 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { User, Shield, Link2 } from 'lucide-react';
+import { User, Shield, Link2, Crown } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 
 /**
- * Settings 页壳:左侧 3 tab,右侧 Outlet。
+ * Settings 页壳:左侧 tab,右侧 Outlet。
  * 顶部 AppShell 的 TopNav 已经在,这里只渲染设置区的左侧 nav。
  */
 const TABS = [
   { to: '/settings/profile', label: '个人资料', icon: User },
+  { to: '/settings/membership', label: '我的会员', icon: Crown },
   { to: '/settings/security', label: '安全', icon: Shield },
   { to: '/settings/connections', label: '已连接账号', icon: Link2 },
 ];

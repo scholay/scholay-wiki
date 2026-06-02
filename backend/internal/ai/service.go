@@ -11,12 +11,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
 
 	"scholar-backend/internal/common/circuitbreaker"
 	"scholar-backend/internal/common/upstream"
+	"scholar-backend/internal/llmusage"
 	"scholar-backend/internal/thirdparty"
 )
 
@@ -41,6 +44,10 @@ type Service struct {
 	db             *gorm.DB
 	repo           *Repository
 	accountService *thirdparty.Service
+
+	// llmRec 统一 LLM token 账本录入器, bootstrap 注入 (允许 nil = 不记账)。
+	// executeWithRetry 在每次成功调用后落一行 (source=project), 调用方无法漏记。
+	llmRec llmusage.Recorder
 }
 
 func NewService(db *gorm.DB, accountService *thirdparty.Service) *Service {
@@ -49,6 +56,44 @@ func NewService(db *gorm.DB, accountService *thirdparty.Service) *Service {
 		repo:           NewRepository(db),
 		accountService: accountService,
 	}
+}
+
+// SetLLMUsageRecorder 注入统一 LLM token 账本录入器。bootstrap 调用一次; nil = 不记账。
+func (s *Service) SetLLMUsageRecorder(r llmusage.Recorder) {
+	s.llmRec = r
+}
+
+// aiUsage 是单次 LLM attempt 消耗的 token, 由 attemptFn 从响应里抽出回传给
+// executeWithRetry 统一记账 (model / provider / account 由 executeWithRetry 从 config 补全)。
+type aiUsage struct {
+	InputTokens         int
+	OutputTokens        int
+	TotalTokens         int
+	CacheReadTokens     int
+	CacheCreationTokens int
+}
+
+// usageFromStats 把 OpenAI 兼容响应的 LLMUsageStats 转成账本用的 aiUsage。
+func usageFromStats(u LLMUsageStats) *aiUsage {
+	return &aiUsage{
+		InputTokens:     u.PromptTokens,
+		OutputTokens:    u.CompletionTokens,
+		TotalTokens:     u.TotalTokens,
+		CacheReadTokens: u.PromptTokensDetails.CachedTokens,
+		// OpenAI 兼容无 cache_creation 概念, 留 0。
+	}
+}
+
+// providerFromBaseURL 从上游 base_url 取 host 作为 provider 标签 (account_id 已能精确对账,
+// 这里只要个可读的厂商维度)。解析失败回退原串。
+func providerFromBaseURL(baseURL string) string {
+	if baseURL == "" {
+		return ""
+	}
+	if u, err := url.Parse(baseURL); err == nil && u.Host != "" {
+		return u.Host
+	}
+	return baseURL
 }
 
 // AI 重试相关常量
@@ -90,8 +135,9 @@ func isAIRetryableError(err error) bool {
 
 // aiAttemptFn is the per-attempt callback used by executeWithRetry.
 // It receives the resolved model config and the originating account ID.
-// Return (result, nil) on success, or (nil, err) on failure.
-type aiAttemptFn func(config *thirdparty.AIModelConfig, accountID uint) (any, error)
+// Return (result, usage, nil) on success, or (nil, nil, err) on failure.
+// usage 可为 nil (上游没吐 token 时) —— 记账时跳过。
+type aiAttemptFn func(config *thirdparty.AIModelConfig, accountID uint) (any, *aiUsage, error)
 
 // executeWithRetry encapsulates the common retry-with-account-switching pattern
 // used across all AI service methods. On retryable errors (non-200 API status)
@@ -111,18 +157,30 @@ func (s *Service) executeWithRetry(ctx context.Context, modelLevel thirdparty.Mo
 			continue
 		}
 
-		result, err := fn(config, accountID)
+		start := time.Now()
+		result, usage, err := fn(config, accountID)
+		latencyMs := time.Since(start).Milliseconds()
+
+		// breaker open: 老的 gobreaker 错误 或 新的 upstream.ErrCircuit — 都直接 bail
+		// (换账号也救不了, 上游本身在被保护)。fn 是快速失败、没真打上游, 因此不计入账号
+		// 用量统计 (否则 fail 会被熔断噪声灌爆)。
+		if circuitbreaker.IsCircuitBreakerError(err) || errors.Is(err, upstream.ErrCircuit) {
+			lastErr = err
+			return nil, fmt.Errorf("AI service temporarily unavailable (circuit breaker open): %w", err)
+		}
+
+		// 真实发生了一次上游请求 → 记一次三方账号用量 (成败 + 耗时; 含重试, 与
+		// total_requests "总请求次数(含重试)" 语义一致)。RecordAPIUsage 内部异步, 不阻塞。
+		s.accountService.RecordAPIUsage(accountID, err == nil, latencyMs)
+
 		if err == nil {
+			// 唯一的项目侧 LLM 记账点: 成功一次落一行账本 (source=project)。feature/user
+			// 从 ctx (llmusage.WithCall) 取; model/provider/account 从本次 config 补全。
+			s.recordLLMUsage(ctx, config, accountID, usage)
 			return result, nil
 		}
 
 		lastErr = err
-
-		// breaker open: 老的 gobreaker 错误 或 新的 upstream.ErrCircuit — 都直接 bail
-		// (换账号也救不了, 上游本身在被保护)。
-		if circuitbreaker.IsCircuitBreakerError(err) || errors.Is(err, upstream.ErrCircuit) {
-			return nil, fmt.Errorf("AI service temporarily unavailable (circuit breaker open): %w", err)
-		}
 
 		if isAIRetryableError(err) {
 			excludeAccountIDs = append(excludeAccountIDs, accountID)
@@ -132,4 +190,40 @@ func (s *Service) executeWithRetry(ctx context.Context, modelLevel thirdparty.Mo
 		return nil, err
 	}
 	return nil, fmt.Errorf("all %d AI retry attempts failed, last error: %w", AIMaxRetries+1, lastErr)
+}
+
+// recordLLMUsage 把一次成功的项目侧 LLM 调用落到统一 token 账本。
+// feature/user/request_id 由入口 handler 经 llmusage.WithCall 塞进 ctx; 没有 feature
+// 时 llmusage.Service 自己降级成 "unknown" + Warn (让漏埋点可见)。usage==nil (上游没吐
+// token) 时跳过。account_id 精确对账, provider 取 base_url host, model 取本次解析出的 code。
+func (s *Service) recordLLMUsage(ctx context.Context, config *thirdparty.AIModelConfig, accountID uint, usage *aiUsage) {
+	if s.llmRec == nil || usage == nil {
+		return
+	}
+	call := llmusage.CallFromCtx(ctx)
+	model := ""
+	provider := ""
+	if config != nil {
+		model = config.ModelLow // executeWithRetry 解析后把当次模型放进 ModelLow
+		provider = providerFromBaseURL(config.BaseURL)
+	}
+	var accID *uint
+	if accountID != 0 {
+		a := accountID
+		accID = &a
+	}
+	s.llmRec.Record(llmusage.Usage{
+		UserID:              call.UserID,
+		Feature:             call.Feature,
+		Source:              llmusage.SourceProject,
+		Provider:            provider,
+		AccountID:           accID,
+		Model:               model,
+		InputTokens:         usage.InputTokens,
+		OutputTokens:        usage.OutputTokens,
+		TotalTokens:         usage.TotalTokens,
+		CacheReadTokens:     usage.CacheReadTokens,
+		CacheCreationTokens: usage.CacheCreationTokens,
+		RequestID:           call.RequestID,
+	})
 }

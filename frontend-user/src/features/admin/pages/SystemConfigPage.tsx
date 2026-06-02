@@ -1,7 +1,8 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Save, Send, Loader2 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
+import { SecretInput } from '@/shared/ui/secret-input';
 import { Label } from '@/shared/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs';
 import { AdminPageLayout } from '../components/AdminPageLayout';
@@ -93,9 +94,17 @@ function SaveButton({ pending }: { pending: boolean }) {
 // ============================================================================
 
 function SystemBasicForm() {
-  const { data, isLoading } = useSystemConfig();
+  // 默认脱敏; 点 Secret Key 右侧小眼睛 → reveal=true → 重新拉取明文 (show_sensitive)。
+  const [reveal, setReveal] = useState(false);
+  const { data, isLoading } = useSystemConfig({ showSensitive: reveal });
   const update = useUpdateSystemConfig();
   const apiToast = useApiToast();
+  const [secretKey, setSecretKey] = useState('');
+
+  // 受控, 随后端返回同步 (脱敏 ******** ↔ 明文)。按字段值变化触发, 避免无关重拉冲掉编辑中的值。
+  useEffect(() => {
+    setSecretKey(data?.turnstile_secret_key ?? '');
+  }, [data?.turnstile_secret_key]);
 
   if (isLoading) return <LoadingPanel />;
 
@@ -131,7 +140,14 @@ function SystemBasicForm() {
         <Input name="turnstile_site_key" defaultValue={data?.turnstile_site_key} placeholder="0x4AAAA..." />
       </Field>
       <Field label="Turnstile Secret Key">
-        <Input name="turnstile_secret_key" type="password" defaultValue={data?.turnstile_secret_key} placeholder="留空表示不修改" />
+        <SecretInput
+          name="turnstile_secret_key"
+          value={secretKey}
+          onChange={(e) => setSecretKey(e.target.value)}
+          revealed={reveal}
+          onToggleReveal={() => setReveal((v) => !v)}
+          placeholder="留空表示不修改"
+        />
       </Field>
 
       <SaveButton pending={update.isPending} />
@@ -144,11 +160,19 @@ function SystemBasicForm() {
 // ============================================================================
 
 function EmailForm() {
-  const { data, isLoading } = useEmailConfig();
+  // 默认脱敏; 点 SMTP Password 右侧小眼睛 → reveal=true → 重新拉取明文 (show_password)。
+  const [reveal, setReveal] = useState(false);
+  const { data, isLoading } = useEmailConfig({ showSensitive: reveal });
   const update = useUpdateEmailConfig();
   const testApi = useTestEmailConfig();
   const apiToast = useApiToast();
   const [testTo, setTestTo] = useState('');
+  const [smtpPassword, setSmtpPassword] = useState('');
+
+  // 受控, 随后端返回同步 (脱敏 ******** ↔ 明文)。按字段值变化触发, 避免无关重拉冲掉编辑中的值。
+  useEffect(() => {
+    setSmtpPassword(data?.smtp_password ?? '');
+  }, [data?.smtp_password]);
 
   if (isLoading) return <LoadingPanel />;
 
@@ -177,7 +201,16 @@ function EmailForm() {
         <Field label="SMTP Host"><Input name="smtp_host" defaultValue={data?.smtp_host} required /></Field>
         <Field label="SMTP Port"><Input name="smtp_port" type="number" defaultValue={data?.smtp_port || 587} required /></Field>
         <Field label="SMTP User"><Input name="smtp_user" defaultValue={data?.smtp_user} required /></Field>
-        <Field label="SMTP Password"><Input name="smtp_password" type="password" placeholder="留空表示不修改" /></Field>
+        <Field label="SMTP Password">
+          <SecretInput
+            name="smtp_password"
+            value={smtpPassword}
+            onChange={(e) => setSmtpPassword(e.target.value)}
+            revealed={reveal}
+            onToggleReveal={() => setReveal((v) => !v)}
+            placeholder="留空表示不修改"
+          />
+        </Field>
         <Field label="From Email"><Input name="from_email" type="email" defaultValue={data?.from_email} required /></Field>
         <Field label="From Name"><Input name="from_name" defaultValue={data?.from_name} placeholder="Scholay" /></Field>
       </div>
@@ -212,11 +245,19 @@ function EmailForm() {
 // ============================================================================
 
 function SMSForm() {
-  const { data, isLoading } = useSMSConfig();
+  // 默认脱敏; 点 Access Secret 右侧小眼睛 → reveal=true → 重新拉取明文 (show_secret)。
+  const [reveal, setReveal] = useState(false);
+  const { data, isLoading } = useSMSConfig({ showSensitive: reveal });
   const update = useUpdateSMSConfig();
   const testApi = useTestSMSConfig();
   const apiToast = useApiToast();
   const [testPhone, setTestPhone] = useState('');
+  const [accessSecret, setAccessSecret] = useState('');
+
+  // 受控, 随后端返回同步 (脱敏 ******** ↔ 明文)。按字段值变化触发, 避免无关重拉冲掉编辑中的值。
+  useEffect(() => {
+    setAccessSecret(data?.access_secret ?? '');
+  }, [data?.access_secret]);
 
   if (isLoading) return <LoadingPanel />;
 
@@ -243,7 +284,16 @@ function SMSForm() {
     >
       <div className="grid grid-cols-2 gap-3">
         <Field label="Access Key ID"><Input name="access_key_id" defaultValue={data?.access_key_id} required /></Field>
-        <Field label="Access Secret"><Input name="access_secret" type="password" placeholder="留空表示不修改" /></Field>
+        <Field label="Access Secret">
+          <SecretInput
+            name="access_secret"
+            value={accessSecret}
+            onChange={(e) => setAccessSecret(e.target.value)}
+            revealed={reveal}
+            onToggleReveal={() => setReveal((v) => !v)}
+            placeholder="留空表示不修改"
+          />
+        </Field>
         <Field label="签名"><Input name="sign_name" defaultValue={data?.sign_name} required /></Field>
         <Field label="模板 Code"><Input name="template_code" defaultValue={data?.template_code} placeholder="SMS_xxxxxxxxx" required /></Field>
         <Field label="Endpoint"><Input name="endpoint" defaultValue={data?.endpoint} placeholder="dysmsapi.aliyuncs.com" /></Field>

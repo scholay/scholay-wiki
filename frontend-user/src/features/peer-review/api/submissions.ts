@@ -19,7 +19,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { http } from '@/shared/lib/http';
+import { http, toApiError } from '@/shared/lib/http';
 import type {
   AttachmentCategory,
   Submission,
@@ -60,9 +60,14 @@ export function useSubmission(id?: number) {
     },
     // computing_* / reviewing 状态下 2s 一次 polling, idle / failed 后停。
     // 用 query 函数级 refetchInterval, 而不是组件层 useEffect, 自动跟着 enabled / status 走。
+    // computing_methodology 必须在列 —— 否则方法论阶段(数分钟)轮询会停, 前端永远看不到
+    // computing_methodology → reviewing 的切换, 卡在方法论态。
     refetchInterval: (q) => {
       const s = q.state.data?.computeState;
-      return s === 'computing_meta' || s === 'computing_letter' || s === 'reviewing'
+      return s === 'computing_meta' ||
+        s === 'computing_letter' ||
+        s === 'computing_methodology' ||
+        s === 'reviewing'
         ? 2000
         : false;
     },
@@ -202,10 +207,16 @@ export function useSubmitSubmission(id?: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      const r = await http.post<{ data?: Submission } & Partial<Submission>>(
-        `/user/peer-review/submissions/${id}/submit`
-      );
-      return unwrap<Submission>(r.data);
+      try {
+        const r = await http.post<{ data?: Submission } & Partial<Submission>>(
+          `/user/peer-review/submissions/${id}/submit`
+        );
+        return unwrap<Submission>(r.data);
+      } catch (err) {
+        // 抛归一化错误, 让 wizard 的 onError 拿到后端友好文案(如配额超限的「今日额度已用完, 升级专业版…」),
+        // 而不是 axios 的 "Request failed with status code 429"。
+        throw toApiError(err);
+      }
     },
     onSuccess: (data) => {
       qc.setQueryData(KEY('detail', id ?? 0), data);

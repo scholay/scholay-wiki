@@ -45,11 +45,9 @@ export function useProfile() {
         const { data } = await http.get<{ data: User }>('/user/profile');
         return data.data;
       } catch (err) {
-        const apiErr = toApiError(err);
-        if (apiErr.status === 401 || apiErr.status === 403) {
-          useAuthStore.getState().clear();
-        }
-        throw apiErr;
+        // 401/认证失效由 http 全局拦截器统一处理(notifyAuthLost → 清 store + 弹登录框),
+        // 这里不再各自 clear,避免双重清理 / 双重弹框。只归一化错误抛出。
+        throw toApiError(err);
       }
     },
     staleTime: STALE_FRESH,

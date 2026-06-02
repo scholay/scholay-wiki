@@ -119,8 +119,10 @@ func (h *Handler) GetActiveConfig(c *gin.Context) {
 		return
 	}
 
-	// Mask sensitive information
-	config.AppSecret = "********"
+	// 私密字段按统一遮罩规则:默认 "********",前端 ?show_sensitive=true 解蔽(与其他配置页的小眼睛一致)。
+	if !utils.IsShowSensitive(c, "show_sensitive") {
+		config.AppSecret = "********"
+	}
 
 	utils.Success(c, config)
 }

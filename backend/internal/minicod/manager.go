@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/circuitbreaker"
@@ -95,7 +96,13 @@ func (m *Manager) executeWithRetry(operation func(client *Client) (any, error)) 
 			slog.Info("minicod: retry attempt", "attempt", attempt, "maxRetries", MaxRetries, "accountID", accountID)
 		}
 
+		start := time.Now()
 		result, err := operation(client)
+		latencyMs := time.Since(start).Milliseconds()
+		// 记一次三方账号(minicod)用量 —— 后端直连的搜索/详情/期刊/作者等调用都过这里
+		// (含重试; RecordAPIUsage 内部异步, 不阻塞)。注: agent 容器内的 minicod MCP
+		// 用量后端看不到, 不计在此。熔断在外层 fetch (MinicodBreaker), 故此处都是真实请求。
+		m.accountService.RecordAPIUsage(accountID, err == nil, latencyMs)
 		if err == nil {
 			return result, nil
 		}

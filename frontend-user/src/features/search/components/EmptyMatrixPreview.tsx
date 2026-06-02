@@ -275,7 +275,7 @@ export function EmptyImportButton() {
     setBusy(true);
     try {
       const { added, skipped, capped } =
-        await bulkStagePapers(visiblePapers);
+        await bulkStagePapers(visiblePapers, 'traditional');
       const parts: string[] = [];
       if (added > 0) parts.push(`已导入 ${added} 篇`);
       if (skipped > 0) parts.push(`${skipped} 篇已在暂存区跳过`);

@@ -1,8 +1,10 @@
+import { useEffect } from 'react';
 import { Outlet, useMatches } from 'react-router-dom';
 import { PanelLeft } from 'lucide-react';
 import { SidebarLayout } from '@/shared/components/sidebar';
 import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
 import { useSidebar } from '@/stores/sidebar.store';
+import { useIsAuthenticated } from '@/stores/auth.store';
 import { AdminSidebar } from '../components/AdminSidebar';
 
 /**
@@ -38,6 +40,14 @@ export function AdminShell() {
   // 挂一个常驻的"折叠态展开"按钮:fixed 在左边缘,只有 !expanded 时显示。
   const expanded = useSidebar((s) => s.expanded);
   const toggleSidebar = useSidebar((s) => s.toggle);
+
+  // 反应式兜底:token 一旦消失(本 tab 退出 / 跨 tab 登出 / 失效)立刻离开后台回首页。
+  // adminGuard 只在导航时跑一次;停在 /admin 页时的跨 tab 登出不会触发 loader,靠这里收尾。
+  // (被动 401 已由 AuthBootstrap 的 auth-evicted → window.location 处理;这里覆盖"无 401 的纯登出"。)
+  const authed = useIsAuthenticated();
+  useEffect(() => {
+    if (!authed && typeof window !== 'undefined') window.location.assign('/');
+  }, [authed]);
 
   return (
     <div className="flex h-screen min-h-0 flex-col bg-background text-foreground">

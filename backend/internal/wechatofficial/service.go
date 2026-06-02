@@ -25,6 +25,8 @@ import (
 
 	"scholar-backend/internal/ai"
 	"scholar-backend/internal/common/upstream"
+	"scholar-backend/internal/llmusage"
+	"scholar-backend/internal/prompts"
 	"scholar-backend/internal/thirdparty"
 )
 
@@ -228,7 +230,7 @@ func (s *Service) GetAIReplyWithImage(ctx context.Context, userMessage string, b
 	systemPrompt := config.SystemPrompt
 	if systemPrompt == "" {
 		// Default system prompt if not configured
-		systemPrompt = "你是一个友好的助手，请简洁准确地回答用户的问题。回复不要超过200字。"
+		systemPrompt = prompts.WechatOfficialDefaultSystemPrompt
 	}
 
 	// Prepare messages for AI
@@ -272,7 +274,9 @@ func (s *Service) GetAIReplyWithImage(ctx context.Context, userMessage string, b
 	// 60s ctx 上限 —— 非流式 LLM 长任务 (vision 多模态可能 30-40s);
 	// 微信公众号回复在 5s 内是最佳, 但用户已显示"正在思考"提示, 60s 不会超用户预期。
 	// 父 ctx 若已 cancel (e.g. 微信端 webhook 重试) 直接终止。
-	aiCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	// LLM 账本归属: feature=wechat_oa, user_id=NULL (公众号非登录用户, 单独统计成本)。
+	llmCtx := llmusage.WithCall(ctx, llmusage.Call{Feature: llmusage.FeatureWechatOA})
+	aiCtx, cancel := context.WithTimeout(llmCtx, 60*time.Second)
 	defer cancel()
 
 	// Call AI service (non-streaming)

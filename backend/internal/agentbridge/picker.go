@@ -94,6 +94,38 @@ func (p *BySlugPicker) Pick(_ context.Context, _ PickInput) (*PromptChoice, erro
 	return promptRowToChoice(row), nil
 }
 
+// ─── StaticPicker ────────────────────────────────────────────────────────
+
+// StaticPicker — 固定返回一份**代码里写死**的 prompt, 不查 DB。
+// smart_search / claw 这类"单 prompt feature"用: prompt 内容是 internal/prompts 里的
+// Go const, 改 prompt = 改代码 + 重新部署 (不再走 promptregistry / feature_prompts DB)。
+//
+// 与 BySlugPicker 的区别: BySlugPicker 从 promptregistry 解析 DB 行; StaticPicker 不依赖
+// 任何 service, SystemPrompt 由构造时直接传入。fail-fast 契约同样满足 —— 只要构造时
+// 传了非空 systemPrompt, Pick 永远返回非空 PromptChoice。
+type StaticPicker struct {
+	choice PromptChoice
+}
+
+func NewStaticPicker(featureKey, slug, name, systemPrompt string) *StaticPicker {
+	return &StaticPicker{choice: PromptChoice{
+		FeatureKey:   featureKey,
+		Slug:         slug,
+		Persona:      "default",
+		Name:         name,
+		Version:      1,
+		SystemPrompt: systemPrompt,
+	}}
+}
+
+func (p *StaticPicker) Pick(_ context.Context, _ PickInput) (*PromptChoice, error) {
+	if p.choice.SystemPrompt == "" {
+		return nil, fmt.Errorf("staticPicker(%s/%s): empty system prompt", p.choice.FeatureKey, p.choice.Slug)
+	}
+	c := p.choice // 返回副本, 防调用方改到内部状态
+	return &c, nil
+}
+
 // ─── PersonaRandomPicker ────────────────────────────────────────────────
 
 // PersonaRandomPicker — 同 persona 候选池中按学科匹配 + 加权随机选 1 个。

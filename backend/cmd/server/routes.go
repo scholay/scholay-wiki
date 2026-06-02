@@ -36,8 +36,10 @@ import (
 	"scholar-backend/internal/thirdparty"
 	"scholar-backend/internal/umami"
 	"scholar-backend/internal/usagelog"
+	"scholar-backend/internal/llmusage"
+	"scholar-backend/internal/usagestat"
+	"scholar-backend/internal/vip"
 	"scholar-backend/internal/peerreview"
-	"scholar-backend/internal/promptregistry"
 	"scholar-backend/internal/user"
 	"scholar-backend/internal/wechat"
 	"scholar-backend/internal/wechatofficial"
@@ -60,6 +62,9 @@ type allHandlers struct {
 	wechatOfficial  *wechatofficial.Handler
 	usageLog        *usagelog.Handler
 	usageLogAdmin   *usagelog.AdminHandler
+	usageStats      *usagestat.Handler
+	llmUsageAdmin   *llmusage.AdminHandler // 后台 token 用量看板 (llm_token_usage 聚合/明细/导出)
+	vip             *vip.Handler           // 会员: 用户兑换/状态 + 管理端生码/列表
 	hotContent      *hotcontent.Handler
 	seo             *seo.Handler
 	message         *message.Handler
@@ -75,7 +80,6 @@ type allHandlers struct {
 	smartSearch     *smartsearch.Handler // 智能搜索 backend 桥接 (HTTP 创会话 + WS 双向 pipe)
 	peerReview      *peerreview.Handler  // 智能审稿 v3 (我要投稿 + 审稿记录,服务端 4 轮编排)
 	claw            *claw.Handler        // 智能助手 (通用对话 + 上传附件 + Minicod MCP)
-	promptRegistry  *promptregistry.Handler // admin: 通用 prompt 注册表 CRUD + 历史/回滚
 }
 
 // registerRoutes 注册所有 API 路由
@@ -108,7 +112,7 @@ func registerRoutes(router *gin.Engine, h *allHandlers, cfg *appconfig.Config) {
 		registerPaymentCallbackRoutes(api, h)
 		registerPublicUserRoutes(api, h)
 		registerProtectedUserRoutes(api, h, tieredRL)
-		registerPublicAPIRoutes(api, h)
+		registerPublicAPIRoutes(api, h, tieredRL)
 		registerAnalysisRoutes(api, h, tieredRL)
 
 		// 前端错误上报 —— 无需登录,IP rate-limit 已经在 api 组顶层挂了

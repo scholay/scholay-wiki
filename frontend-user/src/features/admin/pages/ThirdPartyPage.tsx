@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Plus, Pencil, Trash2, Zap, RotateCcw } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
+import { SecretInput } from '@/shared/ui/secret-input';
 import { Badge } from '@/shared/ui/badge';
 import { Label } from '@/shared/ui/label';
 import {
@@ -40,7 +41,10 @@ const TYPE_OPTIONS: { value: AccountType; label: string }[] = [
 ];
 
 export function ThirdPartyPage() {
-  const { data, isLoading } = useThirdPartyAccounts();
+  // reveal 由编辑弹窗的小眼睛控制; reveal=true 时列表用 ?show_sensitive=true 重拉明文,
+  // 弹窗选中 row 的 secret 字段随之同步成明文。脱敏/明文分开缓存(queryKey 含 showSensitive)。
+  const [reveal, setReveal] = useState(false);
+  const { data, isLoading } = useThirdPartyAccounts({ showSensitive: reveal });
   const create = useCreateThirdParty();
   const update = useUpdateThirdParty();
   const del = useDeleteThirdParty();
@@ -77,14 +81,14 @@ export function ThirdPartyPage() {
     await apiToast(reset.mutateAsync(r.id), { success: '用量已重置', failure: '重置失败' });
   };
 
-  // 成功率展示 —— 优先用后端预计算 stats.success_rate,fallback 到 success_count / total_requests
+  // 成功率展示 —— total_requests 是成功率的真实分母(= success + fail,含重试)。
+  // 没有任何请求记录(total=0,如未被使用过、或不纳入统计的 minicod 账号)时显示「—」,
+  // 不显示 0.0%(那会被误读成"全部失败")。
   const successRate = (r: ThirdPartyAccount): string => {
-    if (r.stats?.success_rate != null) {
-      return `${(r.stats.success_rate * 100).toFixed(1)}%`;
-    }
     const total = r.total_requests ?? 0;
     if (total === 0) return '—';
-    return `${(((r.success_count ?? 0) / total) * 100).toFixed(1)}%`;
+    const rate = r.stats?.success_rate ?? (r.success_count ?? 0) / total;
+    return `${(rate * 100).toFixed(1)}%`;
   };
 
   const columns: Column<ThirdPartyAccount>[] = [
@@ -118,7 +122,9 @@ export function ThirdPartyPage() {
       align: 'right',
       cell: (r) => (
         <div className="flex flex-col items-end">
-          <span className="text-xs text-foreground">{(r.usage_count ?? 0).toLocaleString()}</span>
+          <span className="text-xs text-foreground">
+            {(r.total_requests ?? 0) > 0 ? (r.total_requests ?? 0).toLocaleString() : '—'}
+          </span>
           <span className="text-2xs text-faint">成功率 {successRate(r)}</span>
         </div>
       ),
@@ -170,6 +176,9 @@ export function ThirdPartyPage() {
 
       <ThirdPartyDialog
         mode={mode}
+        accounts={data}
+        reveal={reveal}
+        onToggleReveal={() => setReveal((v) => !v)}
         onClose={() => setMode(null)}
         onSubmit={async (form) => {
           const ok =
@@ -197,15 +206,27 @@ export function ThirdPartyPage() {
  */
 function ThirdPartyDialog({
   mode,
+  accounts,
+  reveal,
+  onToggleReveal,
   onClose,
   onSubmit,
 }: {
   mode: EditMode;
+  /** 列表实时数据(随 reveal 切 ?show_sensitive 重拉);弹窗据此重解选中 row 的明文/脱敏值 */
+  accounts: ThirdPartyAccount[] | undefined;
+  reveal: boolean;
+  onToggleReveal: () => void;
   onClose: () => void;
   onSubmit: (form: Omit<ThirdPartyAccount, 'id' | 'created_at' | 'updated_at' | 'usage_count' | 'last_used_at'>) => void;
 }) {
   const isEdit = mode?.kind === 'edit';
-  const initial = isEdit ? (mode as { kind: 'edit'; row: ThirdPartyAccount }).row : undefined;
+  // 编辑态: 用 row.id 从实时 accounts 重解当前 row —— reveal 切换后列表重拉,
+  // 这里拿到的 config 才是 ?show_sensitive 解蔽后的明文(mode.row 是打开时的旧快照)。
+  const editingId = isEdit ? (mode as { kind: 'edit'; row: ThirdPartyAccount }).row.id : undefined;
+  const liveRow =
+    isEdit ? accounts?.find((a) => a.id === editingId) ?? (mode as { kind: 'edit'; row: ThirdPartyAccount }).row : undefined;
+  const initial = liveRow;
 
   const [name, setName] = useState(initial?.name ?? '');
   const [type, setType] = useState<AccountType>(initial?.type ?? 'ai_model');
@@ -233,9 +254,29 @@ function ThirdPartyDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modeKey]);
 
-  if (!mode) return null;
-
   const fieldsByType = FIELDS_BY_TYPE[type];
+
+  // reveal 切换后 liveRow 的 secret 值从 ******** 变明文(或反之),把这些 secret 字段
+  // 重新同步进受控 config —— 依赖"各 secret 值"而非整个 liveRow 对象引用,避免列表
+  // 窗口重聚焦重拉时冲掉用户正在编辑的非 secret 字段。非 secret 字段不在此处覆盖。
+  const liveConfig = liveRow?.config ?? {};
+  const secretSig = fieldsByType
+    .filter((f) => f.secret)
+    .map((f) => `${f.key}=${String(liveConfig[f.key] ?? '')}`)
+    .join('|');
+  useEffect(() => {
+    if (!isEdit) return;
+    setConfig((prev) => {
+      const next = { ...prev };
+      for (const f of fieldsByType) {
+        if (f.secret) next[f.key] = liveConfig[f.key] ?? '';
+      }
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [secretSig]);
+
+  if (!mode) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -320,6 +361,8 @@ function ThirdPartyDialog({
               fields={fieldsByType}
               values={config}
               onChange={(k, v) => setConfig({ ...config, [k]: v })}
+              reveal={reveal}
+              onToggleReveal={onToggleReveal}
             />
           </div>
 
@@ -363,10 +406,15 @@ function DynamicFields({
   fields,
   values,
   onChange,
+  reveal,
+  onToggleReveal,
 }: {
   fields: DynamicField[];
   values: AccountConfig;
   onChange: (key: string, value: string) => void;
+  /** secret 字段是否显示明文(受控,弹窗级别共享) */
+  reveal: boolean;
+  onToggleReveal: () => void;
 }) {
   // 把 colSpan=1 的字段按对儿分组进 grid-cols-2 行,其余字段整行
   const rows: Array<DynamicField[]> = [];
@@ -388,14 +436,26 @@ function DynamicFields({
           {row.map((f) => (
             <div key={f.key} className="space-y-1.5">
               <Label htmlFor={`cfg-${f.key}`}>{f.label}</Label>
-              <Input
-                id={`cfg-${f.key}`}
-                type={f.secret ? 'password' : 'text'}
-                value={(values[f.key] as string) ?? ''}
-                onChange={(e) => onChange(f.key, e.target.value)}
-                placeholder={f.placeholder}
-                autoComplete={f.secret ? 'new-password' : undefined}
-              />
+              {f.secret ? (
+                <SecretInput
+                  id={`cfg-${f.key}`}
+                  name={f.key}
+                  value={(values[f.key] as string) ?? ''}
+                  onChange={(e) => onChange(f.key, e.target.value)}
+                  placeholder={f.placeholder}
+                  autoComplete="new-password"
+                  revealed={reveal}
+                  onToggleReveal={onToggleReveal}
+                />
+              ) : (
+                <Input
+                  id={`cfg-${f.key}`}
+                  type="text"
+                  value={(values[f.key] as string) ?? ''}
+                  onChange={(e) => onChange(f.key, e.target.value)}
+                  placeholder={f.placeholder}
+                />
+              )}
             </div>
           ))}
         </div>

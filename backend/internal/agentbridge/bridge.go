@@ -19,6 +19,7 @@ import (
 	"scholar-backend/internal/agent"
 	"scholar-backend/internal/common/ctxutil"
 	"scholar-backend/internal/common/safego"
+	"scholar-backend/internal/llmusage"
 )
 
 // ghostCleanupDelay 是 reset 流程中 "二次 DELETE" 的等待时间。
@@ -45,11 +46,23 @@ type Bridge struct {
 	// 方案 A 是 "best-effort 提示, 不是强互斥"; 跨实例真互斥需 Redis 锁 (方案 B,
 	// 暂不实施)。生产用单实例 backend 时此实现等效真互斥。
 	activeWSConns sync.Map
+
+	// llmRec 统一 LLM token 账本录入器 (允许 nil = 不记账)。
+	// server-side chat (peerreview) 在 ServerSideChatStreaming 内部用它落一行账本,
+	// 调用方 (5 个 peerreview 调用点) 无法漏记。WS 路 (smart_search/claw) 不走这里 ——
+	// 它们各自在 spec.OnMessageComplete 落库 (见 hooks.NewDBUsageRecorder)。
+	llmRec llmusage.Recorder
 }
 
 // New 装配 Bridge。client 由 agent.LoadFromEnv() 构造, repo 由 NewRepository(db) 构造。
 func New(client *agent.Client, repo *Repository) *Bridge {
 	return &Bridge{client: client, repo: repo}
+}
+
+// SetLLMUsageRecorder 注入统一 LLM token 账本录入器 (server-side chat 用)。
+// bootstrap 调用一次; nil = 不记账。
+func (b *Bridge) SetLLMUsageRecorder(r llmusage.Recorder) {
+	b.llmRec = r
 }
 
 // displacementKey 拼 activeWSConns 的 key, 二维寻址 (feature, user)。
@@ -143,7 +156,7 @@ func (f *FeatureBridge) ResetSession(ctx context.Context, userID uint) (string, 
 
 	oldSessionID := row.AgentSessionID
 
-	created, err := f.bridge.client.CreateSession(ctx)
+	created, err := f.bridge.client.CreateSession(ctx, nil)
 	if err != nil {
 		return "", fmt.Errorf("create new agent session: %w", err)
 	}
@@ -395,7 +408,7 @@ func (f *FeatureBridge) ListSessions(ctx context.Context, userID uint) ([]Sessio
 // 返回新建的 agent_session_id; DB mapping 一并写入, last_accessed_at = NOW 让新
 // session 自动成为"当前活跃"。
 func (f *FeatureBridge) CreateNewSession(ctx context.Context, userID uint) (string, error) {
-	created, err := f.bridge.client.CreateSession(ctx)
+	created, err := f.bridge.client.CreateSession(ctx, nil)
 	if err != nil {
 		return "", fmt.Errorf("create agent session: %w", err)
 	}
@@ -480,7 +493,7 @@ func (f *FeatureBridge) ActivateSession(userID uint, sessionID string) error {
 }
 
 func (f *FeatureBridge) createAndPersist(ctx context.Context, userID uint) (string, error) {
-	created, err := f.bridge.client.CreateSession(ctx)
+	created, err := f.bridge.client.CreateSession(ctx, nil)
 	if err != nil {
 		return "", fmt.Errorf("create agent session: %w", err)
 	}
@@ -510,7 +523,7 @@ func (f *FeatureBridge) createAndPersist(ctx context.Context, userID uint) (stri
 
 // recreate 自愈路径: agent 端 404 时清旧 mapping + 建新 + 写 DB。
 func (f *FeatureBridge) recreate(ctx context.Context, userID uint) (string, error) {
-	created, err := f.bridge.client.CreateSession(ctx)
+	created, err := f.bridge.client.CreateSession(ctx, nil)
 	if err != nil {
 		return "", fmt.Errorf("recreate agent session: %w", err)
 	}

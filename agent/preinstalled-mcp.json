@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "minicod": {
-      "command": "bunx",
-      "args": ["-y", "@minicod/mcp-server@0.3.0"],
+      "command": "bun",
+      "args": ["/app/node_modules/@minicod/mcp-server/dist/index.js"],
       "env": {
         "MINICOD_API_KEY": "${MINICOD_API_KEY}",
         "MINICOD_API_BASE_URL": "https://www.minicod.com/v1"

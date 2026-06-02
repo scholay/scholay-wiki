@@ -35,6 +35,11 @@ export const settingsRoutes: RouteObject[] = [
           import('./pages/ProfilePage').then((m) => ({ Component: m.ProfilePage })),
       },
       {
+        path: 'membership',
+        lazy: () =>
+          import('./pages/MembershipPage').then((m) => ({ Component: m.MembershipPage })),
+      },
+      {
         path: 'security',
         lazy: () =>
           import('./pages/SecurityPage').then((m) => ({ Component: m.SecurityPage })),

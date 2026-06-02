@@ -52,6 +52,12 @@ func (s *CleanupService) Start() {
 	safego.Go("cleanup-hot-content", func() {
 		s.runDaily("hot_content", 4, 30, s.cleanHotContent)
 	})
+	safego.Go("cleanup-old-usage-events", func() {
+		s.runDaily("old_usage_events", 4, 15, s.cleanOldUsageEvents)
+	})
+	safego.Go("cleanup-old-llm-token-usage", func() {
+		s.runDaily("old_llm_token_usage", 4, 20, s.cleanOldLLMTokenUsage)
+	})
 
 	slog.Info("Cleanup service started")
 }
@@ -61,6 +67,35 @@ func (s *CleanupService) Stop() {
 	slog.Info("Stopping cleanup service")
 	s.cancel()
 	slog.Info("Cleanup service stopped")
+}
+
+// cleanOldUsageEvents 删除 usage_events (功能使用统计 v2) 中超过保留期的事件。
+// 保留 365 天 (与 usagestat.RetentionDays 一致; 此处用字面值避免对 usagestat 的依赖)。
+func (s *CleanupService) cleanOldUsageEvents() error {
+	cutoff := time.Now().AddDate(0, 0, -365)
+	result := s.db.Exec("DELETE FROM usage_events WHERE created_at < ?", cutoff)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected > 0 {
+		slog.Info("Cleaned old usage_events", "deleted", result.RowsAffected)
+	}
+	return nil
+}
+
+// cleanOldLLMTokenUsage 删除 llm_token_usage (统一 LLM token 账本, 一行一次调用) 中
+// 超过保留期的行 —— per-call 表增长快, 不清会涨爆。保留 365 天 (与 llmusage.RetentionDays
+// 一致; 此处用字面值避免对 llmusage 的依赖)。
+func (s *CleanupService) cleanOldLLMTokenUsage() error {
+	cutoff := time.Now().AddDate(0, 0, -365)
+	result := s.db.Exec("DELETE FROM llm_token_usage WHERE created_at < ?", cutoff)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected > 0 {
+		slog.Info("Cleaned old llm_token_usage", "deleted", result.RowsAffected)
+	}
+	return nil
 }
 
 // runPeriodic runs a cleanup task at regular intervals

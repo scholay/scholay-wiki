@@ -76,6 +76,9 @@ export type TokenUsage = {
   output_tokens: number
   cache_read_tokens?: number
   cache_creation_tokens?: number
+  /** 本轮实际调用的模型 code。后端账本(llm_token_usage.model)据此统计 agent 侧用量;
+   *  来源是本轮 assistant / system-init 消息里的 model(result 消息本身不带 model)。 */
+  model?: string
 }
 
 export type ChatState = 'idle' | 'thinking' | 'tool_executing' | 'streaming' | 'permission_pending'

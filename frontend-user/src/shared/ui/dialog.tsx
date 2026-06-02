@@ -23,10 +23,32 @@ const DialogOverlay = React.forwardRef<
 ));
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
+interface DialogContentProps
+  extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
+  /**
+   * 是否允许「点击遮罩层 / 按 Esc」关闭弹窗。
+   * 默认 false —— 弹窗(尤其是填写中的表单)只能通过右上角的关闭按钮关闭,
+   * 避免用户误点外部区域、或(中文输入法下)误按 Esc 收候选框时把整个表单关掉、内容丢失。
+   * 仅图片灯箱 / 命令面板这类「点外面关闭本就是预期行为」的场景显式传 dismissable。
+   */
+  dismissable?: boolean;
+}
+
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+  DialogContentProps
+>(
+  (
+    {
+      className,
+      children,
+      dismissable = false,
+      onInteractOutside,
+      onEscapeKeyDown,
+      ...props
+    },
+    ref
+  ) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
@@ -38,6 +60,14 @@ const DialogContent = React.forwardRef<
         'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
         className
       )}
+      onInteractOutside={(event) => {
+        if (!dismissable) event.preventDefault();
+        onInteractOutside?.(event);
+      }}
+      onEscapeKeyDown={(event) => {
+        if (!dismissable) event.preventDefault();
+        onEscapeKeyDown?.(event);
+      }}
       {...props}
     >
       {children}

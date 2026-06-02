@@ -32,7 +32,7 @@ func NewWeChatPayHandler(service *WeChatPayService, orderService OrderServiceInt
 
 // GetAllConfigs 获取所有微信支付配置
 func (h *WeChatPayHandler) GetAllConfigs(c *gin.Context) {
-	showKeys := c.Query("show_keys") == "true"
+	showKeys := utils.IsShowSensitive(c, "show_sensitive") || c.Query("show_keys") == "true"
 
 	configs, err := h.service.GetAllConfigs(showKeys)
 	if err != nil {
@@ -51,7 +51,7 @@ func (h *WeChatPayHandler) GetActiveConfig(c *gin.Context) {
 		return
 	}
 
-	showKeys := c.Query("show_keys") == "true"
+	showKeys := utils.IsShowSensitive(c, "show_sensitive") || c.Query("show_keys") == "true"
 	utils.Success(c, config.ToDTO(showKeys))
 }
 

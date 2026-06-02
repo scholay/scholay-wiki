@@ -91,19 +91,25 @@ func AuthMiddleware(requiredType string) gin.HandlerFunc {
 
 		// Check user type/role if required
 		if requiredType == "user" && claims.Type != "user" {
-			utils.Unauthorized(c, "无权访问该资源")
+			// 已登录但角色/类型不匹配 = 无权限, 用 403(不是 401)。
+			// 否则前端 isAuthError 会把它当"认证失效"→ 把一个有效登录用户直接登出。
+			utils.ForbiddenWithCode(c, errcode.Forbidden, "无权访问该资源")
 			c.Abort()
 			return
 		}
 		// admin 路由：放行 admin / super_admin（兼容旧 type=admin token）
 		if requiredType == "admin" && !(claims.Type == "admin" || (claims.Type == "user" && (role == "admin" || role == "super_admin"))) {
-			utils.Unauthorized(c, "无权访问该资源")
+			// 已登录但角色/类型不匹配 = 无权限, 用 403(不是 401)。
+			// 否则前端 isAuthError 会把它当"认证失效"→ 把一个有效登录用户直接登出。
+			utils.ForbiddenWithCode(c, errcode.Forbidden, "无权访问该资源")
 			c.Abort()
 			return
 		}
 		// super_admin 路由：仅放行 role=super_admin
 		if requiredType == "super_admin" && !(claims.Type == "user" && role == "super_admin") {
-			utils.Unauthorized(c, "无权访问该资源")
+			// 已登录但角色/类型不匹配 = 无权限, 用 403(不是 401)。
+			// 否则前端 isAuthError 会把它当"认证失效"→ 把一个有效登录用户直接登出。
+			utils.ForbiddenWithCode(c, errcode.Forbidden, "无权访问该资源")
 			c.Abort()
 			return
 		}
@@ -158,9 +164,12 @@ func OptionalUserAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// 同样要查 blacklist; 被吊销的 token 视为匿名 (而不是拒绝, 因为这是 optional middleware)
+		// 被显式吊销的 token(改密/封号/在别处登出)即使在 optional 端点也要**拒绝**, 回 401 TokenRevoked,
+		// 让前端 notifyAuthLost 感知到"登录已失效"并清状态 + 弹登录框 —— 否则 token 已废、UI 却一直显示已登录。
+		// (无 token / 解析失败 仍按匿名放行, 见上面两个分支;只有"有效但被吊销"才拒。)
 		if utils.IsTokenRevoked(c.Request.Context(), claims) {
-			c.Next()
+			utils.UnauthorizedWithCode(c, errcode.TokenRevoked, "登录已失效,请重新登录")
+			c.Abort()
 			return
 		}
 

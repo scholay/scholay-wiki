@@ -7,7 +7,7 @@
  */
 
 import type { ServerWebSocket } from 'bun'
-import type { ClientMessage, ServerMessage } from './events.js'
+import type { ClientMessage, ServerMessage, TokenUsage } from './events.js'
 import * as os from 'node:os'
 import {
   ConversationStartupError,
@@ -700,6 +700,8 @@ type SessionStreamState = {
     message: string
     code: string
   }
+  /** 本轮最近一次见到的模型 code(system-init / assistant 消息携带),用于填进 message_complete.usage.model。 */
+  lastModel?: string
 }
 
 const sessionStreamStates = new Map<string, SessionStreamState>()
@@ -887,6 +889,10 @@ function translateCliMessage(cliMsg: any, sessionId: string): ServerMessage[] {
   const streamState = getStreamState(sessionId)
   switch (cliMsg.type) {
     case 'assistant': {
+      // 记下本轮模型 —— assistant 消息带 message.model;result 消息不带, 靠这里缓存后填进 usage。
+      if (typeof cliMsg.message?.model === 'string' && cliMsg.message.model) {
+        streamState.lastModel = cliMsg.message.model
+      }
       if (cliMsg.error || cliMsg.isApiErrorMessage) {
         const message = extractAssistantText(cliMsg) || cliMsg.error || 'Unknown API error'
         const code = typeof cliMsg.error === 'string' ? cliMsg.error : 'API_ERROR'
@@ -1118,10 +1124,14 @@ function translateCliMessage(cliMsg: any, sessionId: string): ServerMessage[] {
       return []
 
     case 'result': {
-      // 对话结果（成功或错误）
-      const usage = {
+      // 对话结果（成功或错误）。带上本轮模型(缓存自 init/assistant)+ 缓存 token,
+      // 让后端账本(llm_token_usage)能统计 agent 侧的模型与缓存命中, 而不只是 in/out。
+      const usage: TokenUsage = {
         input_tokens: cliMsg.usage?.input_tokens || 0,
         output_tokens: cliMsg.usage?.output_tokens || 0,
+        cache_read_tokens: cliMsg.usage?.cache_read_input_tokens || 0,
+        cache_creation_tokens: cliMsg.usage?.cache_creation_input_tokens || 0,
+        model: streamState.lastModel,
       }
 
       if (cliMsg.is_error) {
@@ -1166,6 +1176,9 @@ function translateCliMessage(cliMsg: any, sessionId: string): ServerMessage[] {
         // NOTE: Do NOT send status:idle here — the CLI init fires while
         // processing the first user message, and sending idle would reset
         // the frontend's streaming state prematurely.
+        if (typeof cliMsg.model === 'string' && cliMsg.model) {
+          streamState.lastModel = cliMsg.model // init 最早带 model, 先兜底
+        }
         cacheSessionInitMetadata(sessionId, cliMsg)
         const messages: ServerMessage[] = [
           // Send model info as a system notification, not a status change

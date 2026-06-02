@@ -8,6 +8,9 @@ import {
   Flame,
   Activity,
   BarChart3,
+  BarChart2,
+  Coins,
+  Gift,
   Settings,
   KeyRound,
   CreditCard,
@@ -15,7 +18,6 @@ import {
   Cpu,
   Send,
   Compass,
-  Sparkles,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -51,6 +53,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     label: '用户与权限',
     items: [
       { id: 'users', label: '用户管理', icon: Users, href: '/admin/users' },
+      { id: 'vip-codes', label: '会员兑换码', icon: Gift, href: '/admin/vip-codes' },
     ],
   },
   {
@@ -75,7 +78,9 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     label: '观测与日志',
     items: [
       { id: 'analytics', label: '数据统计', icon: BarChart3, href: '/admin/analytics' },
-      { id: 'usage-logs', label: '使用日志', icon: Activity, href: '/admin/usage-logs' },
+      { id: 'usage-stats', label: '使用统计', icon: BarChart2, href: '/admin/usage-stats' },
+      { id: 'token-usage', label: 'Token 用量', icon: Coins, href: '/admin/token-usage' },
+      { id: 'usage-logs', label: '使用日志(旧)', icon: Activity, href: '/admin/usage-logs' },
     ],
   },
   {
@@ -84,7 +89,6 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     items: [
       { id: 'third-party', label: '三方账号', icon: Plug, href: '/admin/third-party' },
       { id: 'agent-config', label: 'AI Agent 服务', icon: Cpu, href: '/admin/agent-config' },
-      { id: 'feature-prompts', label: 'AI Prompt 注册表', icon: Sparkles, href: '/admin/feature-prompts' },
       { id: 'dimensions', label: '分析维度', icon: Compass, href: '/admin/dimensions' },
       { id: 'wechat-official', label: '公众号', icon: Send, href: '/admin/wechat-official' },
     ],

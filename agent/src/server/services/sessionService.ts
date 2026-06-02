@@ -64,6 +64,11 @@ export type SessionLaunchInfo = {
   worktreeSession?: PersistedWorktreeSession | null
   transcriptMessageCount: number
   customTitle: string | null
+  // per-feature 工具策略: 该会话独有的 --disallowed-tools 覆盖(缺省走全局 resolveDisallowedTools)。
+  disallowedTools?: string[]
+  // per-feature skill 作用域: 该会话额外加载的 skill 源目录 (→ --add-dir, 加载 <dir>/.claude/skills)。
+  // 让不同入口装不同 skill (如 peerreview 方法论会话才加载审稿人 skill, claw 看不到)。
+  addDirs?: string[]
 }
 
 export type TrimSessionResult = {
@@ -310,6 +315,32 @@ export class SessionService {
       const repository = (entries[i] as Record<string, unknown>)?.repository
       if (repository && typeof repository === 'object') {
         return repository as PreparedSessionWorkspace['repository']
+      }
+    }
+    return undefined
+  }
+
+  // per-feature 工具策略: 从 session-meta 读出该会话独有的 disallowedTools。
+  // clearSessionTranscript / appendSessionMetadata 重写 jsonl 时必须靠它 carry-forward,
+  // 否则 placeholder-clear 会把 createSession 写进去的 disallowedTools 抹掉。
+  private resolveDisallowedToolsFromEntries(entries: RawEntry[]): string[] | undefined {
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const dt = (entries[i] as Record<string, unknown>)?.disallowedTools
+      if (Array.isArray(dt)) {
+        return dt.filter((t): t is string => typeof t === 'string')
+      }
+    }
+    return undefined
+  }
+
+  // per-feature skill 作用域: 从 session-meta 读出该会话额外的 addDirs (→ --add-dir)。
+  // 同 disallowedTools 一样, clearSessionTranscript / appendSessionMetadata 重写时必须 carry-forward,
+  // 否则 placeholder-clear 会把 createSession 写进去的 addDirs 抹掉 (方法论会话首启即丢审稿人 skill)。
+  private resolveAddDirsFromEntries(entries: RawEntry[]): string[] | undefined {
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const ad = (entries[i] as Record<string, unknown>)?.addDirs
+      if (Array.isArray(ad)) {
+        return ad.filter((t): t is string => typeof t === 'string')
       }
     }
     return undefined
@@ -1287,6 +1318,8 @@ export class SessionService {
   async createSession(
     workDir?: string,
     repositoryOptions?: CreateSessionRepositoryOptions,
+    disallowedTools?: string[],
+    addDirs?: string[],
   ): Promise<{ sessionId: string; workDir: string }> {
     const sessionId = crypto.randomUUID()
     // Scholay 隔离: 每个会话用独立的 cwd (~/sessions/<sessionId>), 不再共享 /home/bun。
@@ -1344,6 +1377,10 @@ export class SessionService {
       isMeta: true,
       workDir: absWorkDir,
       repository: preparedWorkspace.repository,
+      // per-feature 工具策略: 落进 session-meta, 经 getSessionLaunchInfo 重读注入 --disallowed-tools。
+      ...(disallowedTools && disallowedTools.length > 0 ? { disallowedTools } : {}),
+      // per-feature skill 作用域: 落进 session-meta, 经 getSessionLaunchInfo 重读注入 --add-dir。
+      ...(addDirs && addDirs.length > 0 ? { addDirs } : {}),
       timestamp: now,
     }
 
@@ -1470,6 +1507,8 @@ export class SessionService {
     const entries = await this.readJsonlFile(found.filePath)
     const workDir = this.resolveWorkDirFromEntries(entries, found.projectDir) || process.cwd()
     const repository = this.resolveRepositoryFromEntries(entries)
+    const disallowedTools = this.resolveDisallowedToolsFromEntries(entries)
+    const addDirs = this.resolveAddDirsFromEntries(entries)
     const worktreeSession = this.resolveWorktreeSessionFromEntries(entries)
     let customTitle: string | null = null
 
@@ -1485,6 +1524,8 @@ export class SessionService {
       projectDir: found.projectDir,
       workDir,
       repository,
+      disallowedTools,
+      addDirs,
       worktreeSession,
       transcriptMessageCount,
       customTitle,
@@ -1516,6 +1557,10 @@ export class SessionService {
     const entries = await this.readJsonlFile(found.filePath)
     const workDir = this.resolveWorkDirFromEntries(entries, found.projectDir) || fallbackWorkDir || process.cwd()
     const repository = this.resolveRepositoryFromEntries(entries)
+    // carry-forward per-feature 工具策略 —— 否则 placeholder-clear 重写会抹掉它, 评分会话首条消息即放开。
+    const disallowedTools = this.resolveDisallowedToolsFromEntries(entries)
+    // carry-forward per-feature skill 作用域 —— 同理, 否则方法论会话首启即丢审稿人 skill。
+    const addDirs = this.resolveAddDirsFromEntries(entries)
     const now = new Date().toISOString()
 
     const initialEntry = {
@@ -1534,6 +1579,8 @@ export class SessionService {
       isMeta: true,
       workDir,
       repository,
+      ...(disallowedTools && disallowedTools.length > 0 ? { disallowedTools } : {}),
+      ...(addDirs && addDirs.length > 0 ? { addDirs } : {}),
       timestamp: now,
     }
 
@@ -1556,13 +1603,23 @@ export class SessionService {
     if (matches.length === 0) return
 
     let repository = metadata.repository
+    // carry-forward per-feature 工具策略 + skill 作用域(同 repository 一样,从旧 entries 读出再写回)。
+    let disallowedTools: string[] | undefined
+    let addDirs: string[] | undefined
     if (!repository) {
       for (const match of matches) {
-        const candidate = this.resolveRepositoryFromEntries(await this.readJsonlFile(match.filePath))
-        if (candidate) {
-          repository = candidate
-          break
-        }
+        const entries = await this.readJsonlFile(match.filePath)
+        if (!repository) repository = this.resolveRepositoryFromEntries(entries)
+        if (!disallowedTools) disallowedTools = this.resolveDisallowedToolsFromEntries(entries)
+        if (!addDirs) addDirs = this.resolveAddDirsFromEntries(entries)
+        if (repository) break
+      }
+    } else {
+      for (const match of matches) {
+        const entries = await this.readJsonlFile(match.filePath)
+        if (!disallowedTools) disallowedTools = this.resolveDisallowedToolsFromEntries(entries)
+        if (!addDirs) addDirs = this.resolveAddDirsFromEntries(entries)
+        if (disallowedTools || addDirs) break
       }
     }
 
@@ -1575,6 +1632,8 @@ export class SessionService {
       isMeta: true,
       workDir: metadata.workDir,
       repository,
+      ...(disallowedTools && disallowedTools.length > 0 ? { disallowedTools } : {}),
+      ...(addDirs && addDirs.length > 0 ? { addDirs } : {}),
       timestamp: new Date().toISOString(),
     })
 

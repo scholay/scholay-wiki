@@ -57,7 +57,8 @@ export function AdminCommandPalette({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl p-0 overflow-hidden">
+      {/* 命令面板: 点外面 / 按 Esc 关闭是预期行为, 显式 dismissable 覆盖默认的「仅关闭按钮」 */}
+      <DialogContent dismissable className="max-w-xl p-0 overflow-hidden">
         <Command
           shouldFilter={true}
           loop

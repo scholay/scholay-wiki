@@ -227,13 +227,14 @@ func (r *Repository) GetStatsByType() ([]TypeStats, error) {
 			return nil, err
 		}
 
-		// 总请求次数
+		// 总请求次数 —— 汇总 total_requests(由 RecordAPIUsage 在请求完成后累加, 含重试)。
+		// 注: usage_count 是另一套语义(取 key 次数, 现仅用于账号负载均衡的加权选择), 不在这里汇总。
 		var usageResult struct {
 			TotalUsage uint64
 		}
 		if err := r.db.Model(&ThirdPartyAccount{}).
 			Where("type = ?", accountType).
-			Select("COALESCE(SUM(usage_count), 0) as total_usage").
+			Select("COALESCE(SUM(total_requests), 0) as total_usage").
 			Scan(&usageResult).Error; err != nil {
 			return nil, err
 		}

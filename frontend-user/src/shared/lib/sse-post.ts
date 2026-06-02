@@ -19,7 +19,7 @@
  *   });
  */
 
-import { getAuthToken } from '@/shared/lib/auth-token';
+import { getAuthToken, notifyAuthLost } from '@/shared/lib/auth-token';
 
 export interface ParsedSseEvent {
   /** SSE `event:` 行的值;无 `event:` 行时为空串(标准 SSE 行为) */
@@ -73,6 +73,8 @@ export async function streamSsePost({
   });
 
   if (!res.ok) {
+    // SSE 绕过 axios 拦截器 —— 认证失效要手动汇入统一出口(清 token + 弹登录框)。
+    if (res.status === 401) notifyAuthLost();
     // 非 SSE 错误 —— 后端走 utils.BadRequest 返回 JSON,尽量取 message
     let msg = `请求失败 (${res.status})`;
     try {

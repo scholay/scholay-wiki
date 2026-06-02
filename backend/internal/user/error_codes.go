@@ -24,7 +24,10 @@ const (
 	CodeChangePasswordInvalid = 2012
 	CodeChangePasswordFailed  = 2013
 	CodeResetPasswordFailed   = 2014
-	CodeLoginWithCodeFailed   = 2016
+	// 邮箱验证码登录失败 = 输入错误(验证码错/过期/超频),属客户端错误 → 映射 400。
+	// 曾误用 2016(与 CodeSessionExpired 共号 → 映射 401),导致"登录失败被当成会话过期、
+	// 触发全局登出 + 双 toast"。改用独立的 2004(2000-2099 默认 400)。
+	CodeLoginWithCodeFailed = 2004
 
 	// ---- phone 通道 ----
 	CodeCheckPhoneFailed         = 2020
@@ -36,7 +39,7 @@ const (
 
 	// ---- token / session ----
 	CodeLogoutFailed             = 2010
-	CodeSessionExpired           = 2016 // 与 LoginWithCodeFailed 共号,但语义独立(historical)
+	CodeSessionExpired           = 2016 // 会话过期 → 映射 401(LoginWithCodeFailed 已迁出 2016,不再共号)
 	CodeRefreshTokenFailed       = 2017
 	CodeSessionTakenByOtherLogin = 2019
 	CodeTokenInfoFailed          = 2018

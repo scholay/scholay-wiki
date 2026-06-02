@@ -36,7 +36,12 @@ export function setAuthToken(token: string): void {
     /* ignore */
   }
   writeSessionCookie(token);
+  authLostDispatched = false; // 重新登录 → 解除"认证丢失"去重锁,下次失效能再次引导
 }
+
+// 认证丢失去重锁:一次会话失效里, 并发的多个 401(一个页面好几条受保护请求同时失败)只引导一次,
+// 避免连弹多个 toast / 反复开登录框;下次成功登录(setAuthToken)后复位。
+let authLostDispatched = false;
 
 /** 清 token —— localStorage + cookie 一起清。登出 / 401 吊销时调。 */
 export function clearAuthToken(): void {
@@ -46,6 +51,25 @@ export function clearAuthToken(): void {
     /* ignore */
   }
   clearSessionCookie();
+}
+
+/**
+ * 通知「鉴权已失效」—— 全前端**唯一**的「认证丢失」出口。
+ * 清 token(真源)+ 广播 `auth-evicted` 事件;由 AuthBootstrap 单点消费
+ * (清 store.user + 用户端弹登录框 / 管理端跳首页 + toast)。
+ *
+ * http 401 拦截器 / useProfile / WS 鉴权失败 / SSE 401 全部调它,确保
+ * 「未登录 / 登录失效」在所有协议上走同一条引导路径(不再各写各的、漏弹登录)。
+ * 放在 auth-token(而非 http.ts)是为了让不依赖 axios 的 WS/SSE 也能调,
+ * 且不引入对 zustand store 的反向依赖(store → auth-token 单向)。
+ */
+export function notifyAuthLost(detail?: { code?: number; message?: string }): void {
+  clearAuthToken(); // 清 token 永远执行(幂等)
+  if (authLostDispatched) return; // 并发 401 只引导一次, 直到下次登录复位
+  authLostDispatched = true;
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('auth-evicted', { detail: detail ?? {} }));
+  }
 }
 
 // ─── cookie(仅 iframe / 跨页签共享会话用;主流请求仍走 Authorization header)─────

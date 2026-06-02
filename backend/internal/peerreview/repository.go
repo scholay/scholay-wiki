@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // ErrNotFound 是 service / handler 层判断 404 的 sentinel。
@@ -172,35 +173,29 @@ func (r *Repository) MarkFailed(id uint64, reason string) error {
 
 // ─── 卡死复位 (stuck draft / stranded review 兜底) ──────────────────────────
 
-// ReconcileStaleOnBoot: 进程重启后, 所有处于 computing_* / queued / reviewing 的行, 其推进
-// goroutine 都已随旧进程消失, 不可能再自行完成 → 复位成可恢复的失败态, 避免永久卡死。
+// ReconcileStaleComputingDraftsOnBoot: 进程重启后, computing_meta/letter 的 wizard 步骤
+// (其 goroutine 已随旧进程消失, 且是用户驱动的快步骤)复位 failed 让用户重试。
+// **reviewing 行不在此处判失败** —— 改由 Service.ReconcileStaleOnBoot 重新拉起 runReviewBackground
+// 续审(发版后自动续上, 用户基本无感)。返回复位的草稿计算行数。
 //
 // **单实例部署假设**: 启动时把所有 in-progress 行判为"上个进程残留"。若将来横向扩容多实例,
 // 需改成只扫 updated_at 超阈值的行, 以免误杀其它实例正在跑的任务 (当前 docker-compose 单后端)。
-//
-// 返回 (复位的草稿计算行数, 复位的审稿行数)。
-func (r *Repository) ReconcileStaleOnBoot() (int64, int64, error) {
+func (r *Repository) ReconcileStaleComputingDraftsOnBoot() (int64, error) {
 	d := r.db.Model(&Submission{}).
 		Where("compute_state IN ?", []string{"computing_meta", "computing_letter"}).
 		Updates(map[string]any{"compute_state": "failed", "compute_error": "服务重启中断, 请重试"})
-	if d.Error != nil {
-		return 0, 0, d.Error
-	}
-	rv := r.db.Model(&Submission{}).
+	return d.RowsAffected, d.Error
+}
+
+// StrandedReviewIDs: 进程重启后仍处于 queued/reviewing 的审稿行 ID —— 其推进 goroutine 已随旧
+// 进程消失, 由 Service 在 boot 时重新拉起 runReviewBackground 续审(UpsertReport 已幂等, 重跑安全)。
+// 单实例假设同上。
+func (r *Repository) StrandedReviewIDs() ([]uint64, error) {
+	var ids []uint64
+	err := r.db.Model(&Submission{}).
 		Where("status IN ?", []string{"queued", "reviewing"}).
-		// 同时复位 compute_state —— reviewing 行的 status 与 compute_state 都是 "reviewing"
-		// (Submit 里 SetComputeState(StateReviewing))。前端 useSubmission 的轮询只看 computeState,
-		// 只改 status 不改 compute_state 会让详情页永远轮询、永不显示失败终态 (markFailedAndLog 同样置双字段)。
-		Updates(map[string]any{
-			"status":        "failed",
-			"failed_reason": "服务重启中断, 审稿未完成",
-			"compute_state": "failed",
-			"compute_error": "服务重启中断, 审稿未完成",
-		})
-	if rv.Error != nil {
-		return d.RowsAffected, 0, rv.Error
-	}
-	return d.RowsAffected, rv.RowsAffected, nil
+		Pluck("id", &ids).Error
+	return ids, err
 }
 
 // FailStaleComputing: 周期兜底 —— 把 compute_state 卡在 computing_* 且 updated_at 超过 olderThan
@@ -256,8 +251,14 @@ func (r *Repository) SetManuscriptAsset(submissionID, aid uint64) error {
 // ─── Report ──────────────────────────────────────────────────────────────
 
 func (r *Repository) UpsertReport(rep *Report) error {
-	// 同 (submission_id, role) 走 ON DUPLICATE KEY UPDATE —— gorm 用 OnConflict
-	return r.db.Save(rep).Error
+	// 同 (submission_id, role) 走 ON DUPLICATE KEY UPDATE。
+	// 之前是 r.db.Save(rep) —— rep.ID=0 时 Save 走 INSERT, 同一 submission 重跑(或 chatWithRetry
+	// 之后再写)会撞唯一键 uk_submission_role(submission_id, role)报错 → 整单 markFailed。
+	// 改成显式 OnConflict + UpdateAll: 冲突时按新值整行覆盖(重跑=重审, 覆盖语义正确)。
+	return r.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "submission_id"}, {Name: "role"}},
+		UpdateAll: true,
+	}).Create(rep).Error
 }
 
 func (r *Repository) ListReports(submissionID uint64) ([]Report, error) {

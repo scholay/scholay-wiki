@@ -15,11 +15,22 @@ import (
 	"time"
 
 	"scholar-backend/internal/common/cache"
+	"scholar-backend/internal/llmusage"
 )
 
 // ErrQuotaExceeded 是 PreUserMessage 钩子达到日额时返回的语义化错误,
 // pipe 据此回前端 code=quota_exceeded + retryable=false。
 var ErrQuotaExceeded = errors.New("agentbridge: daily quota exceeded")
+
+// NewQuotaError 构造一个「配额超限」错误:err.Error() 是给用户看的干净文案,
+// 同时 errors.Is(err, ErrQuotaExceeded) 成立(classifyPreUserMessageError 据此回 quota_exceeded)。
+// 给 vip 等外部配额来源用 —— 它们有自己的友好文案, 但想复用 WS 的 quota_exceeded 分类。
+func NewQuotaError(msg string) error { return &quotaError{msg: msg} }
+
+type quotaError struct{ msg string }
+
+func (e *quotaError) Error() string { return e.msg }
+func (e *quotaError) Unwrap() error { return ErrQuotaExceeded }
 
 // NewRedisDailyCap 返回一个 PreUserMessage 钩子: 每 (user, feature) 每日不超过 perDay 条
 // user_message。计数走 Redis INCR 一个 utc day key, TTL 25h 自动到期。
@@ -41,9 +52,9 @@ func NewRedisDailyCap(featureKey string, perDay int) PreUserMessageFn {
 				"feature", featureKey, "user_id", userID)
 			return nil
 		}
-		// 用 UTC 日期对齐 redis key, 跨时区一致性更好; 业务上日额起算时间 = 0:00 UTC + 8h = 8:00 北京时间。
-		// 如果产品要严格按北京时间日切, 把 UTC() 换成 In(time.FixedZone("CST", 8*3600))。
-		ymd := time.Now().UTC().Format("20060102")
+		// 日额按本地日切 —— 直接用 time.Now() (容器时区统一为北京, 见 docker-compose
+		// x-tz-env)。本项目铁律: 代码不用 UTC、不做时区转换, 时区只在容器层面解决。
+		ymd := time.Now().Format("20060102")
 		key := fmt.Sprintf("agent:daily:%s:%d:%s", featureKey, userID, ymd)
 
 		count, err := rdb.Incr(ctx, key).Result()
@@ -73,8 +84,8 @@ func NewRedisDailyCap(featureKey string, perDay int) PreUserMessageFn {
 // NewSlogUsageRecorder 返回一个 OnMessageComplete 钩子: 把每轮 usage 打到 slog,
 // 标签 "agent_usage=1" 方便 grep / 切到日志聚合工具时按 label 过滤。
 //
-// 这是 P0 阶段的最小记账方案; 后续可以再加一个 NewDBUsageRecorder 落到 agent_usage_logs
-// 表做长期审计, 接口签名都一样, smart-search 只换一行 wiring 就行。
+// 这是最早的 P0 记账方案; 现在已配合 NewDBUsageRecorder 落库长期审计。两者签名一致,
+// 用 ChainOnMessageComplete 串起来即可让一轮 usage 既进 slog (live grep) 又进账本表。
 func NewSlogUsageRecorder(featureKey string) OnMessageCompleteFn {
 	return func(_ context.Context, userID uint, usage AgentUsage) {
 		slog.Info("agent_usage",
@@ -86,6 +97,47 @@ func NewSlogUsageRecorder(featureKey string) OnMessageCompleteFn {
 			"cache_read_tokens", usage.CacheReadTokens,
 			"cache_creation_tokens", usage.CacheCreationTokens,
 		)
+	}
+}
+
+// NewDBUsageRecorder 返回一个 OnMessageComplete 钩子: 把 agent 侧每轮 usage 落到统一
+// llm_token_usage 账本(source=agent)。userID==0 视为无归属(理论上 WS 必登录, 仅兜底),
+// 落 user_id=NULL。provider 固定 "scholay-managed"(agent 上游 provider/model 由 agent_config
+// 单行托管, backend 黑盒, 这里不细分); 实际 model 由 pipe 注入到 usage.Model。
+// request_id 留空 —— WS 钩子签名只有 (ctx,userID,usage), 拿不到 sessionID, session 关联非必需。
+func NewDBUsageRecorder(featureKey string, rec llmusage.Recorder) OnMessageCompleteFn {
+	return func(_ context.Context, userID uint, usage AgentUsage) {
+		if rec == nil {
+			return
+		}
+		var uid *uint
+		if userID != 0 {
+			u := userID
+			uid = &u
+		}
+		rec.Record(llmusage.Usage{
+			UserID:              uid,
+			Feature:             featureKey,
+			Source:              llmusage.SourceAgent,
+			Provider:            "scholay-managed",
+			Model:               usage.Model,
+			InputTokens:         usage.InputTokens,
+			OutputTokens:        usage.OutputTokens,
+			CacheReadTokens:     usage.CacheReadTokens,
+			CacheCreationTokens: usage.CacheCreationTokens,
+		})
+	}
+}
+
+// ChainOnMessageComplete 把多个 OnMessageComplete 钩子串成一个, 按顺序依次调用
+// (各自已被 safego 包裹, 互不影响)。nil 元素自动跳过。
+func ChainOnMessageComplete(fns ...OnMessageCompleteFn) OnMessageCompleteFn {
+	return func(ctx context.Context, userID uint, usage AgentUsage) {
+		for _, fn := range fns {
+			if fn != nil {
+				fn(ctx, userID, usage)
+			}
+		}
 	}
 }
 

@@ -29,7 +29,6 @@ import (
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/utils"
-	"scholar-backend/internal/hotcontent"
 
 	"github.com/gin-gonic/gin"
 )
@@ -50,26 +49,14 @@ func baseURL() string {
 	return appconfig.CanonicalBaseURL()
 }
 
-// HotSeoViewRecorder 由 hotcontent.Service 实现 —— 记录 /paper/:slug 直接访问的 SEO 直访量。
-// 与搜索点击(minicod GET /papers/:id → RecordClick)走不同接口, 天然不重复计数。
-type HotSeoViewRecorder interface {
-	RecordSeoView(paper *hotcontent.PaperViewData) error
-}
-
 // Handler HTTP 处理器
 type Handler struct {
-	service     *Service
-	hotRecorder HotSeoViewRecorder
+	service *Service
 }
 
 // NewHandler 构造
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
-}
-
-// SetHotContentRecorder 注入热门内容记录器(SEO 直访量)
-func (h *Handler) SetHotContentRecorder(r HotSeoViewRecorder) {
-	h.hotRecorder = r
 }
 
 // ExposeRequest 搜索曝光请求体 (papers + authors + journals 同一通道, 节流)
@@ -166,15 +153,8 @@ func (h *Handler) ResolveBySlug(c *gin.Context) {
 		return
 	}
 
-	// 热门内容: SEO 直访量 +1。异步, 不阻塞首屏。
-	if h.hotRecorder != nil && p.PaperID != "" {
-		rec := h.hotRecorder
-		vd := seoPaperToViewData(p)
-		safego.Go("hotcontent-seo-view", func() {
-			_ = rec.RecordSeoView(&vd)
-		})
-	}
-
+	// SEO 直访量改由前端在论文页冷进入时上报 POST /public/hot-content/track,
+	// 这里不再记 (本接口只做 slug→paper_id 解析)。
 	utils.Success(c, gin.H{
 		"paper_id":       p.PaperID,
 		"slug":           p.Slug,
@@ -185,28 +165,6 @@ func (h *Handler) ResolveBySlug(c *gin.Context) {
 		"doi":            p.DOI,
 		"citation_count": p.CitationCount,
 	})
-}
-
-// seoPaperToViewData 把 SEOPaper 映射成 hotcontent 落库用的 PaperViewData。
-func seoPaperToViewData(p *SEOPaper) hotcontent.PaperViewData {
-	vd := hotcontent.PaperViewData{PaperID: p.PaperID, Year: p.Year}
-	if p.Title != "" {
-		t := p.Title
-		vd.Title = &t
-	}
-	if p.Abstract != "" {
-		a := p.Abstract
-		vd.Abstract = &a
-	}
-	if p.Venue != "" {
-		v := p.Venue
-		vd.Venue = &v
-	}
-	if p.DOI != "" {
-		d := p.DOI
-		vd.DOI = &d
-	}
-	return vd
 }
 
 // ServeSitemapIndex 返回 sitemap 索引（/sitemap.xml）

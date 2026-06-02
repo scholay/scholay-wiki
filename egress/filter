@@ -1,0 +1,13 @@
+# agent 出网域名 allowlist —— 仅在 EGRESS_FILTER_MODE=allowlist 时生效(open 模式不读本文件)。
+# tinyproxy FilterType=ere(POSIX 扩展正则),匹配 CONNECT 目标 host;FilterDefaultDeny Yes:
+# 只有匹配下面任一行的 host 才放行,其余(含内网主机名/IP)一律拒。
+#
+# ⚠️ 切换上游模型 provider 时(admin 改 agent_config 的 base_url),
+#    必须先把新 provider 的域名加到这里 + `docker compose ... exec egress-proxy kill -HUP 1`
+#    重载,再 push 新配置 —— 顺序反了会导致新 provider 第一波请求全被拒(push_status 仍显示成功,易误判)。
+
+# 上游模型:DeepSeek 的原生 Anthropic 端点(agent/.env: ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic)
+(^|\.)deepseek\.com$
+
+# Minicod 学术检索 API(@minicod/mcp-server 调用,已 build 期预装,无需 registry.npmjs.org)
+(^|\.)minicod\.com$

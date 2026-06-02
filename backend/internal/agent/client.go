@@ -115,18 +115,41 @@ type CreatedSession struct {
 	WorkDir   string `json:"workDir,omitempty"`
 }
 
-// CreateSession 让 scholar_agent 创建一个新会话。body 留空即可,
+// CreateSessionOptions 是 CreateSession 的可选 per-session 配置(nil = 旧行为, 发空 body)。
+type CreateSessionOptions struct {
+	WorkDir string `json:"workDir,omitempty"`
+	// per-feature 工具策略: 该会话独有的 --disallowed-tools(如审稿评分会话关 Skill/Agent)。
+	// agent 侧落进 session-meta、resume 重读;缺省(nil)走 agent 全局 DEFAULT_DISALLOWED_TOOLS。
+	DisallowedTools []string `json:"disallowedTools,omitempty"`
+	// per-feature skill 作用域: 该会话额外的 --add-dir 源(agent 加载 <dir>/.claude/skills)。
+	// 让不同入口装不同 skill —— peerreview 方法论会话传审稿人 skill 目录, claw 不传 → 看不到审稿人 skill。
+	AddDirs []string `json:"addDirs,omitempty"`
+}
+
+// CreateSession 让 scholar_agent 创建一个新会话。opts==nil 时发空 body(旧行为),
 // agent 自动用默认 workDir (~/.claude/projects/scholay-smart-search/)。
 // 上层(internal/smartsearch)拿到 sessionId 后做 WS 桥接。
-func (c *Client) CreateSession(ctx context.Context) (*CreatedSession, error) {
+func (c *Client) CreateSession(ctx context.Context, opts *CreateSessionOptions) (*CreatedSession, error) {
 	if c.baseURL == "" {
 		return nil, errors.New("agent: empty base url")
 	}
 	ctx, cancel := context.WithTimeout(ctx, roundTripTimeout)
 	defer cancel()
 
+	body := map[string]any{}
+	if opts != nil {
+		if opts.WorkDir != "" {
+			body["workDir"] = opts.WorkDir
+		}
+		if len(opts.DisallowedTools) > 0 {
+			body["disallowedTools"] = opts.DisallowedTools
+		}
+		if len(opts.AddDirs) > 0 {
+			body["addDirs"] = opts.AddDirs
+		}
+	}
 	var out CreatedSession
-	if err := c.doJSON(ctx, http.MethodPost, "/api/sessions", map[string]any{}, &out); err != nil {
+	if err := c.doJSON(ctx, http.MethodPost, "/api/sessions", body, &out); err != nil {
 		return nil, err
 	}
 	if out.SessionID == "" {

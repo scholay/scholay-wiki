@@ -34,6 +34,7 @@ import (
 	"mime/multipart"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -44,8 +45,10 @@ import (
 	"scholar-backend/internal/agentconfig"
 	"scholar-backend/internal/common/ctxutil"
 	"scholar-backend/internal/common/safego"
+	"scholar-backend/internal/llmusage"
 	"scholar-backend/internal/promptregistry"
 	"scholar-backend/internal/storage"
+	"scholar-backend/internal/vip"
 )
 
 // ─── 配置常量 ────────────────────────────────────────────────────────────
@@ -79,8 +82,12 @@ const (
 	StateIdle            = "idle"
 	StateComputingMeta   = "computing_meta"
 	StateComputingLetter = "computing_letter"
-	StateReviewing       = "reviewing"
-	StateFailed          = "failed"
+	// StateComputingMethodology — Step4 投递后、三位审稿人开跑前的方法论编排阶段。
+	// status 仍是 reviewing, 但 compute_state 用它区分: 前端据此显示"通读全文·制定审稿标准",
+	// 而不是把这 ~数分钟误标成"审稿人A正在评议中"(那一轮其实还没开始)。
+	StateComputingMethodology = "computing_methodology"
+	StateReviewing            = "reviewing"
+	StateFailed               = "failed"
 )
 
 // ─── 错误 ────────────────────────────────────────────────────────────────
@@ -98,55 +105,42 @@ var (
 
 // ─── Service ────────────────────────────────────────────────────────────
 
-// Service 负责 peerreview feature 的全部业务编排 — 稿件 CRUD + agent 4 轮编排 +
-// reviewer prompt 选择 (走 promptregistry + 4 个 PersonaRandomPicker)。
+// Service 负责 peerreview feature 的全部业务编排 — 稿件 CRUD + agent 编排。
+// 审稿人选择已移进 agent(reviewer-roster skill, 见 runMethodologyPhase / service_reviewers.go),
+// 后端不再持有 PersonaRandomPicker; promptSvc 仅留给 handler 渲染老报告 (GetPromptByID)。
 type Service struct {
 	repo      *Repository
-	promptSvc *promptregistry.Service // GetPromptByID 用 (handler 渲染 report DTO 时回查 Slug/Name)
+	promptSvc *promptregistry.Service // GetPromptByID 用 (handler 渲染老 report DTO 时回查 Slug/Name)
 	feature   *agentbridge.FeatureBridge
 	bucket    func() string // 解耦:bucket name 从 storage 包动态取(测试可注入)
 	broker    *StreamBroker // agent goroutine 把 deltas 推给它, SSE handler 订阅
 
-	// 4 个 picker, 每轮一个: 每次 runReviewBackground 时分别 Pick → 得到 4 份
-	// PromptChoice → 拼 prompt 调 agent。这 4 个 picker 全部走 PersonaRandomPicker,
-	// 在 (feature_prompts feature_key='peerreview' persona='alpha'/...) 候选池里
-	// 按 subjects 学科匹配 + weight 加权随机, 跟原 PickSkillsForSubmission 同算法。
-	alphaPicker agentbridge.PromptPicker
-	betaPicker  agentbridge.PromptPicker
-	gammaPicker agentbridge.PromptPicker
-	chiefPicker agentbridge.PromptPicker
-
 	// agentCfg 读 agent 模型配置: meta/letter 用快模型 (haiku_model), review 用主模型 (main_model)。
 	// 可空 — 空 / 配置缺失时不切模型, 全用会话默认 (主模型), 功能不受影响只是没成本优化。
 	agentCfg *agentconfig.Service
+
+	// vip 会员每日额度。可空(不限)。**在 Submit 内、确认要真正跑一轮审稿时**才扣,
+	// 不放 handler —— 否则非法/非自己的/重复点击/无稿件 的 Submit 会白白烧掉额度(审稿 free=1/天)。
+	vip *vip.Service
 }
 
+// SetVIPChecker 注入会员限额服务(每次真正投递审稿扣 1)。允许 nil 禁用。
+func (s *Service) SetVIPChecker(v *vip.Service) { s.vip = v }
+
 // NewService — bootstrap 阶段构造。
-// 调用方负责创建 4 个 PersonaRandomPicker 并传进来 (一般在 bootstrap.go 里构造):
-//
-//	alpha := agentbridge.NewPersonaRandomPicker(promptSvc, "peerreview", "alpha")
-//	beta  := agentbridge.NewPersonaRandomPicker(promptSvc, "peerreview", "beta")
-//	gamma := agentbridge.NewPersonaRandomPicker(promptSvc, "peerreview", "gamma")
-//	chief := agentbridge.NewPersonaRandomPicker(promptSvc, "peerreview", "chief")
-//	svc := peerreview.NewService(repo, promptSvc, feature, alpha, beta, gamma, chief)
 func NewService(
 	repo *Repository,
 	promptSvc *promptregistry.Service,
 	feature *agentbridge.FeatureBridge,
-	alphaPicker, betaPicker, gammaPicker, chiefPicker agentbridge.PromptPicker,
 	agentCfg *agentconfig.Service,
 ) *Service {
 	return &Service{
-		repo:        repo,
-		promptSvc:   promptSvc,
-		feature:     feature,
-		bucket:      storage.PeerReviewAssetBucket,
-		broker:      NewStreamBroker(),
-		alphaPicker: alphaPicker,
-		betaPicker:  betaPicker,
-		gammaPicker: gammaPicker,
-		chiefPicker: chiefPicker,
-		agentCfg:    agentCfg,
+		repo:      repo,
+		promptSvc: promptSvc,
+		feature:   feature,
+		bucket:    storage.PeerReviewAssetBucket,
+		broker:    NewStreamBroker(),
+		agentCfg:  agentCfg,
 	}
 }
 
@@ -181,18 +175,63 @@ func (s *Service) Broker() *StreamBroker { return s.broker }
 // BucketName 暴露 MinIO bucket 名 — DownloadAssets handler 流式打包 zip 时用。
 func (s *Service) BucketName() string { return s.bucket() }
 
-// ReconcileStaleOnBoot: 启动时调一次 —— 复位上次进程残留的卡死 computing / 审稿行,
-// 避免它们永久卡在"计算中 / 审稿进行中"。bootstrap 在构造完 service 后调用。
+// resumeBootDelay: boot 续审前等一会儿, 给 agent 容器起来的时间(backend 不 depends_on agent)。
+// resumeConcurrency: boot 时并发续审上限, 防一次发版有多条在审时把 agent 打爆。
+const (
+	resumeBootDelay   = 30 * time.Second
+	resumeConcurrency = 2
+)
+
+// ReconcileStaleOnBoot: 启动时调一次。
+//   - computing_meta/letter 的 wizard 步骤(快、用户驱动)→ 复位 failed 让用户重试;
+//   - queued/reviewing 的审稿行(发版中断、goroutine 已没)→ **自动续审**: 延迟等 agent 就绪后
+//     限流重新拉起 runReviewBackground。UpsertReport 已 OnConflict 幂等, 重跑会覆盖已存报告、不撞唯一键,
+//     所以从头重跑安全(代价: 浪费已完成轮次算力, 且可能选到不同的 3 位审稿人, 可接受)。
+// bootstrap 在构造完 service 后调用。
 func (s *Service) ReconcileStaleOnBoot() {
-	drafts, reviews, err := s.repo.ReconcileStaleOnBoot()
+	drafts, err := s.repo.ReconcileStaleComputingDraftsOnBoot()
 	if err != nil {
-		slog.Error("peerreview reconcile stale on boot", "err", err)
+		slog.Error("peerreview reconcile stale drafts on boot", "err", err)
+	}
+	ids, err := s.repo.StrandedReviewIDs()
+	if err != nil {
+		slog.Error("peerreview list stranded reviews on boot", "err", err)
 		return
 	}
-	if drafts > 0 || reviews > 0 {
-		slog.Warn("peerreview reconciled stale rows on boot",
-			"stuck_drafts", drafts, "stranded_reviews", reviews)
+	if drafts > 0 || len(ids) > 0 {
+		slog.Warn("peerreview boot reconcile",
+			"failed_stuck_drafts", drafts, "resuming_reviews", len(ids))
 	}
+	if len(ids) == 0 {
+		return
+	}
+	// 后台续审 —— 等 agent 就绪 + 限流, 逐条重跑(runReviewBackground 自带 30min ctx + panic recover)。
+	safego.Go("peerreview-resume-on-boot", func() {
+		time.Sleep(resumeBootDelay)
+		sem := make(chan struct{}, resumeConcurrency)
+		for _, raw := range ids {
+			id := raw
+			ctx, cancel := ctxutil.With(ctxutil.BackgroundJob)
+			sub, gerr := s.repo.GetByIDInternal(id)
+			if gerr != nil {
+				cancel()
+				slog.Warn("peerreview resume: load submission failed", "submission_id", id, "err", gerr)
+				continue
+			}
+			sessionID, serr := s.ensureAgentSession(ctx, sub)
+			cancel()
+			if serr != nil {
+				s.markFailedAndLog(id, "续审重建 agent 会话失败: "+serr.Error())
+				continue
+			}
+			sem <- struct{}{}
+			safego.Go(fmt.Sprintf("peerreview-resume-%d", id), func() {
+				defer func() { <-sem }()
+				slog.Info("peerreview resuming stranded review", "submission_id", id)
+				s.runReviewBackground(id, sessionID)
+			})
+		}
+	})
 }
 
 // StartStaleSweeper: 后台周期兜底 —— 每 5min 把 computing_* 卡超 15min 的草稿复位 failed。
@@ -254,7 +293,7 @@ func (s *Service) CreateDraft(ctx context.Context, userID uint64, mode string) (
 	// 立即给 submission 绑一个 agent session, 整个 wizard + 4 轮审稿全程复用。
 	// 失败不阻塞 draft 创建 (前端拿到 submission 后还能上传文件等),
 	// 下次 advance 调用时会按需 lazy-create。
-	if sess, err := s.feature.AgentClient().CreateSession(ctx); err == nil {
+	if sess, err := s.feature.AgentClient().CreateSession(ctx, &agent.CreateSessionOptions{DisallowedTools: scoringSessionDeny}); err == nil {
 		_ = s.repo.SetAgentSession(sub.ID, sess.SessionID)
 		sub.AgentSessionID.String = sess.SessionID
 		sub.AgentSessionID.Valid = true
@@ -296,7 +335,7 @@ func (s *Service) ensureAgentSession(ctx context.Context, sub *Submission) (stri
 	if sub.AgentSessionID.Valid && sub.AgentSessionID.String != "" {
 		return sub.AgentSessionID.String, nil
 	}
-	sess, err := s.feature.AgentClient().CreateSession(ctx)
+	sess, err := s.feature.AgentClient().CreateSession(ctx, &agent.CreateSessionOptions{DisallowedTools: scoringSessionDeny})
 	if err != nil {
 		return "", fmt.Errorf("create agent session: %w", err)
 	}
@@ -315,7 +354,7 @@ func (s *Service) resetAgentSession(ctx context.Context, sub *Submission) (strin
 	if sub.AgentSessionID.Valid && sub.AgentSessionID.String != "" {
 		_ = s.feature.AgentClient().DeleteSession(ctx, sub.AgentSessionID.String)
 	}
-	sess, err := s.feature.AgentClient().CreateSession(ctx)
+	sess, err := s.feature.AgentClient().CreateSession(ctx, &agent.CreateSessionOptions{DisallowedTools: scoringSessionDeny})
 	if err != nil {
 		return "", fmt.Errorf("recreate agent session: %w", err)
 	}
@@ -413,6 +452,114 @@ func buildAssetsBlock(files *sessionAssets) string {
 	}
 	b.WriteString(", 不要凭文件名臆测内容。\n")
 	return b.String()
+}
+
+// buildMethodologyPrompt 方法论 + 审稿人选择会话的提示 —— Skill-开 的临时会话里跑。
+// agent 读论文 + invoke reviewer-roster 编排 skill, 选 3 位审稿人, 末尾输出选择 JSON。
+// 自由文本方法论注入后续评分轮; 选择 JSON 由后端 parseSelection 解析 → 按 slug 读各审稿人 SKILL.md。
+func buildMethodologyPrompt(files *sessionAssets, menu []reviewerMenuEntry) string {
+	var b strings.Builder
+	b.WriteString("你是审稿流程的「方法论编排」。请先读完稿件原文, 判断这篇论文的领域 / 类型 / 方法学。\n\n")
+	b.WriteString(buildAssetsBlock(files))
+	if len(menu) > 0 {
+		// 后端把真实花名册喂进来(agent 从清单挑、不凭空编 slug), 按"专攻优先 → 通用兜底"分两组提示。
+		var specialized, general []reviewerMenuEntry
+		for _, m := range menu {
+			if len(m.Fit) > 0 {
+				specialized = append(specialized, m)
+			} else {
+				general = append(general, m)
+			}
+		}
+		render := func(m reviewerMenuEntry, showFit bool) string {
+			line := "- " + m.Slug
+			if m.Name != "" {
+				line += " — " + m.Name
+			}
+			if m.Domain != "" {
+				line += " · " + m.Domain
+			}
+			if showFit && len(m.Fit) > 0 {
+				line += "  [学科:" + strings.Join(m.Fit, ", ") + "]"
+			}
+			if m.Desc != "" {
+				line += ":" + m.Desc
+			}
+			return line
+		}
+		b.WriteString("\n【可选审稿人花名册 —— 必须从下列挑【恰好 3 位】互补审稿人, slug 照抄, 严禁自创不在列表里的 slug】\n")
+		if len(specialized) > 0 {
+			b.WriteString("\n《领域专家(其 fit 学科若与本文学科相交, 优先选)》\n")
+			for _, m := range specialized {
+				b.WriteString(render(m, true) + "\n")
+			}
+		}
+		if len(general) > 0 {
+			b.WriteString("\n《通用审稿人(各覆盖一个通用维度; 无领域专家匹配时全选, 否则补满剩余槽)》\n")
+			for _, m := range general {
+				b.WriteString(render(m, false) + "\n")
+			}
+		}
+		b.WriteString("\n【选择规则】先判断本文学科;若有领域专家的学科与之相交, **优先选 1-2 位最匹配的领域专家**, 再用通用审稿人按视角互补补满到恰好 3 位;若无任何领域专家匹配, 则选 3 位最相关的通用审稿人。不要选 3 个同质审稿人(典型组合:1 位领域专家 + 方法学 + 创新性/可复现性)。\n")
+	}
+	b.WriteString("\n【输出要求】\n")
+	b.WriteString("先用简洁中文条列你的方法论(不要 JSON):1) 论文领域/类型/方法学判断;2) 为何选这 3 位审稿人;3) 三位应分别重点关注什么。\n")
+	b.WriteString("**然后在回复的最末尾**输出一个 ```json 代码块(本次回复的最后一个 json 块),格式严格如下:\n")
+	b.WriteString("```json\n{\"reviewers\":[{\"slug\":\"rv-xxx\",\"why_chosen\":\"一句理由\"},{\"slug\":\"rv-yyy\",\"why_chosen\":\"...\"},{\"slug\":\"rv-zzz\",\"why_chosen\":\"...\"}]}\n```\n")
+	b.WriteString("约束:slug **必须照抄上面【可选审稿人花名册】里的某一项**(原样复制, 不要改写/翻译/自创);恰好 3 个互不相同;不要选 chief;不要把审稿人画像正文塞进 JSON。\n")
+	return b.String()
+}
+
+// runMethodologyPhase 跑方法论 + 审稿人选择会话: 临时新建一个 Skill-开 的会话(nil opts → 全局默认含 Skill),
+// 让 agent 读论文 + invoke reviewer-roster 选 3 位审稿人, 产出自由文本方法论 + 末尾选择 JSON。
+// 返回 (注入评分轮的方法论自由文本, 恰好 3 位 ReviewerChoice)。任何失败都降级:
+// 方法论返回空串、审稿人退化到内置三人格 —— 评分照常进行, 永不 hard-fail。会话用完即删。
+func (s *Service) runMethodologyPhase(ctx context.Context, submissionID uint64, files *sessionAssets) (string, []ReviewerChoice) {
+	// 把这一轮的 agent 输出推到 SlotMethodology, 让前端在"通读全文·制定审稿标准"阶段看到实时进度,
+	// 而不是干等一个空转圈。Begin/Done 包住整段: 任何提前 return(降级)也会让前端的 SSE 收尾,
+	// 不会卡在 pending。defer 顺序 LIFO → 先 DeleteSession 再 broker.Done, 符合预期。
+	s.broker.Begin(submissionID, SlotMethodology)
+	defer s.broker.Done(submissionID, SlotMethodology)
+
+	// AddDirs: 只给方法论会话加载审稿人 skill(reviewer-roster + rv-*, 经 --add-dir);
+	// Skill 工具保持开(不传 DisallowedTools)→ agent 可 invoke。claw 等其它会话不传 → 看不到这些 skill。
+	created, err := s.feature.AgentClient().CreateSession(ctx, &agent.CreateSessionOptions{
+		AddDirs: []string{reviewerSkillAddDir()},
+	})
+	if err != nil {
+		slog.Warn("peerreview methodology session create failed; builtin reviewers",
+			"submission_id", submissionID, "err", err)
+		return "", builtinReviewerChoices()
+	}
+	methSessID := created.SessionID
+	defer func() {
+		dctx, dcancel := ctxutil.With(ctxutil.BackgroundJob)
+		defer dcancel()
+		if derr := s.feature.AgentClient().DeleteSession(dctx, methSessID); derr != nil {
+			slog.Warn("peerreview methodology session cleanup failed", "session_id", methSessID, "err", derr)
+		}
+	}()
+
+	// 方法论会话也要能 Read 原文 → 把稿件推到它自己的 cwd。
+	mfiles, perr := s.pushAssetsToSession(ctx, submissionID, methSessID)
+	if perr != nil {
+		slog.Warn("peerreview push assets to methodology session failed; builtin reviewers",
+			"submission_id", submissionID, "err", perr)
+		return "", builtinReviewerChoices()
+	}
+	reply, _, cerr := s.feature.Bridge().ServerSideChatStreaming(ctx, methSessID,
+		buildMethodologyPrompt(mfiles, availableReviewers()),
+		func(delta string) { s.broker.Append(submissionID, SlotMethodology, delta) },
+		func(note string) { s.broker.Status(submissionID, SlotMethodology, note) },
+		s.mainModel())
+	if cerr != nil {
+		slog.Warn("peerreview methodology round failed; builtin reviewers",
+			"submission_id", submissionID, "err", cerr)
+		return "", builtinReviewerChoices()
+	}
+	// 选择轮成功: 自由文本方法论(去掉末尾选择 JSON 块)注入评分轮; 选择 JSON → 3 位审稿人(失败自退化)。
+	choices := s.resolveReviewerChoices(submissionID, reply)
+	return stripTrailingFencedJSON(reply), choices
 }
 
 func (s *Service) GetSubmission(userID, id uint64) (*Submission, error) {
@@ -985,6 +1132,31 @@ func (s *Service) advanceTo3(ctx context.Context, sub *Submission) (*Submission,
 
 // runMetaExtract: 发完整 manuscript prompt (单 session 的第一轮),
 // agent 返结构化 JSON, 解析 + 落 step_cache + 回填 submission。
+// reviewCallCtxWith 用已知 userID 给 ctx 打上 LLM 账本归属 (feature=peer_review,
+// user=投稿人, request_id=submissionID)。ServerSideChatStreaming 内部据此把每轮 token
+// 落统一账本。userID=0 → user_id=NULL。
+func reviewCallCtxWith(ctx context.Context, submissionID, userID uint64) context.Context {
+	var uid *uint
+	if userID > 0 {
+		u := uint(userID)
+		uid = &u
+	}
+	return llmusage.WithCall(ctx, llmusage.Call{
+		Feature:   llmusage.FeaturePeerReview,
+		UserID:    uid,
+		RequestID: strconv.FormatUint(submissionID, 10),
+	})
+}
+
+// reviewCallCtx 没有现成 submission 时从 DB 取 userID 再打归属 (取不到则 NULL)。
+func (s *Service) reviewCallCtx(ctx context.Context, submissionID uint64) context.Context {
+	var userID uint64
+	if sub, err := s.repo.GetByIDInternal(submissionID); err == nil {
+		userID = sub.UserID
+	}
+	return reviewCallCtxWith(ctx, submissionID, userID)
+}
+
 func (s *Service) runMetaExtract(ctx context.Context, submissionID uint64, sessionID, fingerprint string) {
 	failure := func(reason string) {
 		_ = s.repo.SetComputeState(submissionID, StateFailed, reason)
@@ -998,6 +1170,7 @@ func (s *Service) runMetaExtract(ctx context.Context, submissionID uint64, sessi
 			failure("内部错误, 请重试")
 		}
 	}()
+	ctx = s.reviewCallCtx(ctx, submissionID) // LLM 账本归属 (feature=peer_review + 投稿人)
 	s.broker.Begin(submissionID, SlotMeta)
 
 	// 方案 B: 把稿件 + 附件推到 agent 会话 cwd, 让它用 Read 读全文 (不再 backend 抽文本)。
@@ -1006,7 +1179,8 @@ func (s *Service) runMetaExtract(ctx context.Context, submissionID uint64, sessi
 		if errors.Is(perr, ErrManuscriptMissing) {
 			failure("稿件未上传")
 		} else {
-			failure("推送稿件到 agent 失败: " + perr.Error())
+			slog.Error("peerreview meta push assets failed", "submission_id", submissionID, "err", perr)
+			failure("稿件处理失败,请稍后重试")
 		}
 		return
 	}
@@ -1038,17 +1212,19 @@ func (s *Service) runMetaExtract(ctx context.Context, submissionID uint64, sessi
 		s.broker.Status(submissionID, SlotMeta, note)
 	}, s.fastModel())
 	if err != nil {
-		failure("agent chat: " + err.Error())
+		slog.Error("peerreview meta agent chat failed", "submission_id", submissionID, "err", err)
+		failure("信息抽取失败,请稍后重试")
 		return
 	}
 	jsonBytes := extractFirstJSONObject(reply)
 	if jsonBytes == nil {
-		failure("agent 输出无法解析为 JSON")
+		failure("信息抽取失败,请稍后重试")
 		return
 	}
 	var meta ExtractedMeta
 	if err := json.Unmarshal(jsonBytes, &meta); err != nil {
-		failure("agent JSON 解析失败: " + err.Error())
+		slog.Error("peerreview meta json parse failed", "submission_id", submissionID, "err", err)
+		failure("信息抽取失败,请稍后重试")
 		return
 	}
 
@@ -1103,9 +1279,11 @@ func (s *Service) runLetterDraft(ctx context.Context, submissionID uint64, sessi
 
 	sub, err := s.repo.GetByIDInternal(submissionID)
 	if err != nil {
-		failure("load submission: " + err.Error())
+		slog.Error("peerreview letter load submission failed", "submission_id", submissionID, "err", err)
+		failure("加载投稿信息失败,请稍后重试")
 		return
 	}
+	ctx = reviewCallCtxWith(ctx, submissionID, sub.UserID) // LLM 账本归属
 
 	variant := "cover_letter"
 	target := "通用 STM 期刊投稿模板 (用户未指定目标期刊)"
@@ -1139,12 +1317,13 @@ func (s *Service) runLetterDraft(ctx context.Context, submissionID uint64, sessi
 		s.broker.Status(submissionID, SlotLetter, note)
 	}, s.fastModel())
 	if err != nil {
-		failure("agent chat: " + err.Error())
+		slog.Error("peerreview letter agent chat failed", "submission_id", submissionID, "err", err)
+		failure("推荐信生成失败,请稍后重试")
 		return
 	}
 	body := strings.TrimSpace(reply)
 	if body == "" {
-		failure("agent 输出为空")
+		failure("推荐信生成失败,请稍后重试")
 		return
 	}
 
@@ -1189,10 +1368,18 @@ func (s *Service) Submit(ctx context.Context, userID, id uint64) (*Submission, e
 		return nil, err
 	}
 	if sub.Status != "draft" {
-		return sub, nil
+		return sub, nil // 幂等:已投递/审稿中/完成 直接返回, 不重复跑、不扣额度
 	}
 	if !sub.ManuscriptAssetID.Valid {
 		return nil, ErrManuscriptMissing
+	}
+
+	// 到这里才是"草稿 + 稿件齐备、确实要跑一轮审稿" —— 此刻扣会员每日额度(最贵的功能)。
+	// 放在 status/manuscript 守门之后, 保证非法 id / 重复点击 / 无稿件 不会白烧额度。
+	if s.vip != nil {
+		if err := s.vip.CheckAndConsume(ctx, uint(userID), vip.FeaturePeerReview); err != nil {
+			return nil, err // vip.ErrQuotaExceeded → handler 映射成 6010/429
+		}
 	}
 
 	// 复用 submission 自己的 agent session (CreateDraft 时建的);
@@ -1248,6 +1435,9 @@ func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 		s.markFailedAndLog(submissionID, "load submission: "+err.Error())
 		return
 	}
+	// LLM 账本归属: methodology / 3 审稿人 / chief 的每轮 server-side chat 都用这个 ctx,
+	// ServerSideChatStreaming 内部据此各落一行 (feature=peer_review + 投稿人)。
+	ctx = reviewCallCtxWith(ctx, submissionID, sub.UserID)
 
 	// 方案 B: 把稿件 + 附件推到 agent 会话 cwd (审稿可能在 meta 之后很久才触发,
 	// 此处再推一次保证 session 重建后文件仍在), 让审稿人用 Read 读原文。
@@ -1261,72 +1451,39 @@ func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 		return
 	}
 
-	// 从 extra_meta_json 拿 subjects 喂 picker
-	subjects := []string{}
-	if len(sub.ExtraMetaJSON) > 0 {
-		var em ExtractedMeta
-		if err := json.Unmarshal(sub.ExtraMetaJSON, &em); err == nil {
-			subjects = em.Subjects
-		}
-	}
+	// 选择 + 方法论会话(临时, Skill 开): agent 读论文 + invoke reviewer-roster 选 3 位审稿人, 产出方法论。
+	// 期间 compute_state=computing_methodology: status 仍 reviewing, 但前端据此显示"通读全文·制定审稿标准"
+	// + 实时方法论流(slot=methodology), 不把这段误标成"审稿人A评议中"。完成/降级后切回 reviewing。
+	//
+	// 挑审稿人已从后端 Go(原 4 个 PersonaRandomPicker + feature_prompts DB)整体移进 agent;
+	// 返回的 choices 恒为 3 位 ReviewerChoice(选择失败自动退化到内置三人格), 永不 hard-fail。
+	_ = s.repo.SetComputeState(submissionID, StateComputingMethodology, "")
+	methodology, choices := s.runMethodologyPhase(ctx, submissionID, files)
+	_ = s.repo.SetComputeState(submissionID, StateReviewing, "")
 
-	// 用 4 个 PersonaRandomPicker 各选 1 份 prompt。
-	// 每个 picker 内部走 promptregistry.ListByPersona → 按 subjects 学科匹配 +
-	// weight 加权随机, 算法与原 PickSkillsForSubmission 等价 (见 agentbridge/picker.go)。
-	pickInput := agentbridge.PickInput{Subjects: subjects}
-	choices := make(map[string]*agentbridge.PromptChoice, 4)
-	for _, slot := range []struct {
-		role   string
-		picker agentbridge.PromptPicker
-	}{
-		{"alpha", s.alphaPicker},
-		{"beta", s.betaPicker},
-		{"gamma", s.gammaPicker},
-		{"chief", s.chiefPicker},
-	} {
-		if slot.picker == nil {
-			s.markFailedAndLog(submissionID,
-				fmt.Sprintf("picker not configured for role=%s", slot.role))
-			return
-		}
-		choice, perr := slot.picker.Pick(ctx, pickInput)
-		if perr != nil {
-			s.markFailedAndLog(submissionID,
-				fmt.Sprintf("pick prompt role=%s: %v", slot.role, perr))
-			return
-		}
-		choices[slot.role] = choice
-	}
-
-	commonContext := buildCommonContext(sub, files)
+	commonContext := buildCommonContext(sub, files, methodology)
 
 	// 3 位审稿人串行 — 每位独立 slot, 同时推 broker 让前端实时看到 agent 输出。
 	// 保留各自 ReviewerOutput 用于 chief 上下文。
 	reviewerOutputs := make(map[string]*ReviewerOutput, 3)
-	for _, role := range []string{"alpha", "beta", "gamma"} {
+	for i, role := range []string{"alpha", "beta", "gamma"} {
 		slot := ReviewerSlot(role)
-		choice := choices[role]
-		prompt := buildReviewerPromptFromChoice(choice, commonContext, role)
+		choice := choices[i] // 第 i 位 agent 选中的审稿人 → 固定槽 alpha/beta/gamma(前端仍匿名显示 A/B/C)
+		prompt := buildReviewerPrompt(choice, commonContext, role)
 
-		s.broker.Begin(submissionID, slot)
-		reply, _, err := s.feature.Bridge().ServerSideChatStreaming(ctx, sessionID, prompt, func(delta string) {
-			s.broker.Append(submissionID, slot, delta)
-		}, func(note string) {
-			s.broker.Status(submissionID, slot, note)
-		}, s.mainModel())
+		reply, usage, _, err := s.chatWithRetry(ctx, sessionID, submissionID, slot, prompt, s.mainModel(),
+			func(r string) bool { _, ok := parseReviewerJSON(r); return ok }, peerReviewJSONRetries)
 		if err != nil {
-			s.broker.Fail(submissionID, slot, err.Error())
-			s.markFailedAndLog(submissionID,
-				fmt.Sprintf("agent chat role=%s slug=%s: %v", role, choice.Slug, err))
+			s.failUser(submissionID, slot, "审稿生成失败,请稍后重试",
+				fmt.Errorf("reviewer chat role=%s reviewer=%s: %w", role, choice.Slug, err))
 			return
 		}
 
 		out, ok := parseReviewerJSON(reply)
-		rep := s.buildReportFromReviewer(submissionID, role, choice, out, ok, reply)
+		rep := s.buildReportFromReviewer(submissionID, role, out, ok, reply, usage)
 		if err := s.repo.UpsertReport(rep); err != nil {
-			s.broker.Fail(submissionID, slot, "save report: "+err.Error())
-			s.markFailedAndLog(submissionID,
-				fmt.Sprintf("save role=%s report: %v", role, err))
+			s.failUser(submissionID, slot, "保存审稿结果失败,请稍后重试",
+				fmt.Errorf("save role=%s report: %w", role, err))
 			return
 		}
 		if ok {
@@ -1335,27 +1492,20 @@ func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 		s.broker.Done(submissionID, slot)
 	}
 
-	// chief — 把 3 份 reviewer JSON 拼成上下文, 让主审能逐位回应。
+	// chief — 把 3 份 reviewer JSON 拼成上下文, 让主审能逐位回应。chief 人格固定(内置 const)。
 	chiefSlot := ReviewerSlot("chief")
-	chiefChoice := choices["chief"]
-	chiefPrompt := buildChiefPromptFromChoice(chiefChoice, commonContext, reviewerOutputs)
+	chiefPrompt := buildChiefPrompt(commonContext, reviewerOutputs)
 
-	s.broker.Begin(submissionID, chiefSlot)
-	chiefReply, _, err := s.feature.Bridge().ServerSideChatStreaming(ctx, sessionID, chiefPrompt, func(delta string) {
-		s.broker.Append(submissionID, chiefSlot, delta)
-	}, func(note string) {
-		s.broker.Status(submissionID, chiefSlot, note)
-	}, s.mainModel())
+	chiefReply, chiefUsage, _, err := s.chatWithRetry(ctx, sessionID, submissionID, chiefSlot, chiefPrompt, s.mainModel(),
+		func(r string) bool { _, ok := parseChiefJSON(r); return ok }, peerReviewJSONRetries)
 	if err != nil {
-		s.broker.Fail(submissionID, chiefSlot, err.Error())
-		s.markFailedAndLog(submissionID, "agent chat chief: "+err.Error())
+		s.failUser(submissionID, chiefSlot, "主审决议生成失败,请稍后重试", fmt.Errorf("chief chat: %w", err))
 		return
 	}
 	chiefOut, chiefOK := parseChiefJSON(chiefReply)
-	chiefRep := s.buildReportFromChief(submissionID, chiefChoice, chiefOut, chiefOK, chiefReply)
+	chiefRep := s.buildReportFromChief(submissionID, chiefOut, chiefOK, chiefReply, chiefUsage)
 	if err := s.repo.UpsertReport(chiefRep); err != nil {
-		s.broker.Fail(submissionID, chiefSlot, "save report: "+err.Error())
-		s.markFailedAndLog(submissionID, "save chief report: "+err.Error())
+		s.failUser(submissionID, chiefSlot, "保存审稿结果失败,请稍后重试", fmt.Errorf("save chief report: %w", err))
 		return
 	}
 	s.broker.Done(submissionID, chiefSlot)
@@ -1364,23 +1514,83 @@ func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 	_ = s.repo.SetComputeState(submissionID, StateIdle, "")
 }
 
+// peerReviewJSONRetries 评分轮 JSON 解析失败时的最大重发次数(带强约束提示重发)。
+const peerReviewJSONRetries = 2
+
+// scoringSessionDeny: 审稿是 server 单发要 JSON 的批处理 —— 给评分会话**追加**禁用
+// Skill/Agent(子 agent), 防模型在评分轮 invoke skill / 起子 agent 产生叙述文本冲碎 JSON。
+// union 进 agent 全局禁用列表(见 conversationService.buildSessionCliArgs)。
+// 方法论会话(P3 step2)不传这个 → Skill 开, 可 invoke 审稿 skill。
+var scoringSessionDeny = []string{"Skill", "Agent", "Task"}
+
+// chatWithRetry 发一轮 server-side chat 并用 validate 校验输出; 不通过则带「只输出合法 JSON」
+// 强约束提示重发, 最多 maxRetry 次。**每次尝试前 broker.Begin 重置该 slot** —— 否则坏输出与
+// 重试输出会在 stream buffer 里拼接, 前端拿到脏文本。
+// 返回: 最后一次 reply、是否最终通过校验、agent 通信错误 (校验失败不算 err, 交调用方软降级)。
+// 返回 (最终回复, 最后一轮 usage, 是否通过校验, error)。usage 供调用方写进 report 的
+// agent_tokens_* 列 (展示用); 统一 token 账本由 ServerSideChatStreaming 内部按轮自动落,
+// 与这里无关。usage 可能为 nil (上游没吐 token)。
+func (s *Service) chatWithRetry(
+	ctx context.Context,
+	sessionID string,
+	submissionID uint64,
+	slot string,
+	prompt, model string,
+	validate func(string) bool,
+	maxRetry int,
+) (string, *agentbridge.ChatUsage, bool, error) {
+	const retryHint = "\n\n⚠️ 上一条回复无法解析为合法 JSON。请【只输出】符合上面要求的那个 JSON 对象本身, " +
+		"从 { 开始到 } 结束, 不要任何解释、前后缀或 markdown 代码围栏。"
+	cur := prompt
+	var lastReply string
+	var lastUsage *agentbridge.ChatUsage
+	for attempt := 0; ; attempt++ {
+		s.broker.Begin(submissionID, slot)
+		reply, usage, err := s.feature.Bridge().ServerSideChatStreaming(ctx, sessionID, cur,
+			func(delta string) { s.broker.Append(submissionID, slot, delta) },
+			func(note string) { s.broker.Status(submissionID, slot, note) },
+			model)
+		if err != nil {
+			return "", nil, false, err
+		}
+		lastReply = reply
+		lastUsage = usage
+		if validate(reply) {
+			return reply, usage, true, nil
+		}
+		if attempt >= maxRetry {
+			return lastReply, lastUsage, false, nil
+		}
+		s.broker.Status(submissionID, slot, "输出格式异常, 正在重新生成…")
+		cur = prompt + retryHint
+	}
+}
+
+// applyAgentTokens 把一轮 server-side chat 的 token 写进 report 的 agent_tokens_* 列
+// (展示/审计用)。usage==nil (上游没吐) 时留 NULL。统一账本另有 ServerSideChatStreaming
+// 内部按轮记录, 与此处独立。
+func applyAgentTokens(rep *Report, usage *agentbridge.ChatUsage) {
+	if usage == nil {
+		return
+	}
+	rep.AgentTokensIn = sql.NullInt32{Int32: int32(usage.InputTokens), Valid: true}
+	rep.AgentTokensOut = sql.NullInt32{Int32: int32(usage.OutputTokens), Valid: true}
+}
+
 // buildReportFromReviewer 把 ReviewerOutput 编进 Report 结构化字段。
 // 若 JSON 解析失败 (ok=false), 落原文到 content_md, 结构化字段全 NULL,
 // 前端读到 NULL 自动降级到原 markdown 展示。
 //
-// reviewer_skill_id 列名是历史遗留 (v2 时代指 peer_review_skills.id);
-// v3 迁移后语义改为 feature_prompts.id, 列名保持不动避免破坏 schema 兼容性。
-// 历史 report (v2 时代写的) 由于 ID 区间重叠 (1-20) 可继续被 promptregistry.GetByID 命中。
-func (s *Service) buildReportFromReviewer(submissionID uint64, role string, choice *agentbridge.PromptChoice, out *ReviewerOutput, ok bool, raw string) *Report {
+// 审稿人-as-skills 后新报告不再写 reviewer_skill_id(留 NULL)—— 它历史上指 feature_prompts.id,
+// 现在审稿人来自 skill 文件, 真实身份(若要审计)走另加的 reviewer_slug/name 列(后续迁移)。
+// 老报告的 reviewer_skill_id 仍由 handler 走 promptregistry.GetByID 渲染(legacy 回退)。
+func (s *Service) buildReportFromReviewer(submissionID uint64, role string, out *ReviewerOutput, ok bool, raw string, usage *agentbridge.ChatUsage) *Report {
 	rep := &Report{
 		SubmissionID: submissionID,
 		Role:         role,
 		ContentMd:    raw, // 永远保留原文兜底
 	}
-	if choice != nil {
-		rep.ReviewerSkillID.Int64 = int64(choice.PromptID)
-		rep.ReviewerSkillID.Valid = true
-	}
+	applyAgentTokens(rep, usage) // 写 agent_tokens_*; 即便 JSON 解析失败 token 也已消耗
 	if !ok || out == nil {
 		return rep
 	}
@@ -1417,16 +1627,13 @@ func (s *Service) buildReportFromReviewer(submissionID uint64, role string, choi
 	return rep
 }
 
-func (s *Service) buildReportFromChief(submissionID uint64, choice *agentbridge.PromptChoice, out *ChiefOutput, ok bool, raw string) *Report {
+func (s *Service) buildReportFromChief(submissionID uint64, out *ChiefOutput, ok bool, raw string, usage *agentbridge.ChatUsage) *Report {
 	rep := &Report{
 		SubmissionID: submissionID,
 		Role:         "chief",
 		ContentMd:    raw,
 	}
-	if choice != nil {
-		rep.ReviewerSkillID.Int64 = int64(choice.PromptID)
-		rep.ReviewerSkillID.Valid = true
-	}
+	applyAgentTokens(rep, usage)
 	if !ok || out == nil {
 		return rep
 	}
@@ -1474,6 +1681,15 @@ func (s *Service) buildReportFromChief(submissionID uint64, choice *agentbridge.
 func (s *Service) markFailedAndLog(submissionID uint64, reason string) {
 	_ = s.repo.MarkFailed(submissionID, reason)
 	_ = s.repo.SetComputeState(submissionID, StateFailed, reason)
+}
+
+// failUser 审稿失败统一收口: 原始错误(agent/存储/JSON 解析等内部细节)只进日志,
+// 给用户的两条路 —— broker 实时 SSE + DB compute_error(FailureBanner 回看)—— 都只回友好中文。
+// 避免把 "agent chat role=alpha reviewer=...: <raw>" 这类内部串漏给用户。
+func (s *Service) failUser(submissionID uint64, slot, friendly string, raw error) {
+	slog.Error("peerreview failed", "submission_id", submissionID, "slot", slot, "err", raw)
+	s.broker.Fail(submissionID, slot, friendly)
+	s.markFailedAndLog(submissionID, friendly)
 }
 
 
@@ -1534,7 +1750,7 @@ func journalMetaLine(raw json.RawMessage) string {
 	return "期刊定位:" + strings.Join(parts, " · ")
 }
 
-func buildCommonContext(sub *Submission, files *sessionAssets) string {
+func buildCommonContext(sub *Submission, files *sessionAssets, methodology string) string {
 	var b strings.Builder
 	b.WriteString("【稿件元信息】\n")
 	if sub.Title.Valid {
@@ -1561,6 +1777,11 @@ func buildCommonContext(sub *Submission, files *sessionAssets) string {
 	if sub.LetterBody.Valid && sub.LetterBody.String != "" {
 		b.WriteString("\n【作者致 reviewer 信件】\n")
 		b.WriteString(sub.LetterBody.String)
+		b.WriteString("\n")
+	}
+	if m := strings.TrimSpace(methodology); m != "" {
+		b.WriteString("\n【本文审稿方法论 — 方法论编排阶段基于论文 + 审稿 skill 生成, 供你参考】\n")
+		b.WriteString(m)
 		b.WriteString("\n")
 	}
 	b.WriteString("\n")
@@ -1602,26 +1823,20 @@ func buildCommonContext(sub *Submission, files *sessionAssets) string {
 	return b.String()
 }
 
-// buildReviewerPromptFromChoice — prompt 驱动版本: choice.SystemPrompt 已含 role 设定 + 输出 schema,
-// 这里只需把 commonContext (稿件正文 + 元信息) 拼上, agent 即可按 prompt 风格审稿。
-//
-// role 参数仅用于在 prompt 头部明示 "你是审稿人 A/B/C", 让 agent 在 JSON
-// expertise/final_summary 字段中自我指认。
-//
-// 头部标识从 "skill" 改名为 "prompt" 是有意为之: v3 重构后 prompt 来源是 feature_prompts 表,
-// 概念上等价但术语统一; 历史 "skill" 措辞保留在 Report 列名 reviewer_skill_id 不动。
-func buildReviewerPromptFromChoice(choice *agentbridge.PromptChoice, commonContext, role string) string {
-	if choice == nil {
-		return commonContext
-	}
+// buildReviewerPrompt — 审稿人-as-skills 版本: persona 身份/视角来自被选审稿人 SKILL.md 的
+// SCORING_PERSONA 段(choice.Persona), 所有审稿人共用的 JSON 输出 schema + 规则来自
+// reviewerJSONSchemaSpec const(persona_schema.go), 拼上 commonContext(稿件正文 + 元信息)。
+// role 仅用于头部标明"审稿人 A/B/C"(前端匿名), 真实审稿人身份(name/slug)只内部记录。
+func buildReviewerPrompt(choice ReviewerChoice, commonContext, role string) string {
 	roleLabel := map[string]string{"alpha": "审稿人 A", "beta": "审稿人 B", "gamma": "审稿人 C"}[role]
 	if roleLabel == "" {
 		roleLabel = "审稿人"
 	}
 	var b strings.Builder
-	b.WriteString("【审稿身份】" + roleLabel + "\n")
-	b.WriteString("【prompt】" + choice.Name + " (" + choice.Slug + ")\n\n")
-	b.WriteString(choice.SystemPrompt)
+	b.WriteString("【审稿身份】" + roleLabel + "\n\n")
+	b.WriteString(choice.Persona)
+	b.WriteString("\n\n")
+	b.WriteString(reviewerJSONSchemaSpec)
 	b.WriteString("\n\n")
 	b.WriteString(commonContext)
 	b.WriteString("\n\n请基于以上稿件给出你的审稿意见, 严格按 JSON schema 输出。" +
@@ -1629,16 +1844,14 @@ func buildReviewerPromptFromChoice(choice *agentbridge.PromptChoice, commonConte
 	return b.String()
 }
 
-// buildChiefPromptFromChoice — chief prompt 注入三位 reviewer 的 JSON 摘要 (而非依赖
-// session memory 精确度), 让主审能逐位回应。摘要只取关键字段, 避免 prompt 过长。
-func buildChiefPromptFromChoice(choice *agentbridge.PromptChoice, commonContext string, reviewerOutputs map[string]*ReviewerOutput) string {
-	if choice == nil {
-		return commonContext
-	}
+// buildChiefPrompt — 主审 prompt: 人格固定(chiefPersona const)+ schema(chiefJSONSchemaSpec const),
+// 注入三位 reviewer 的 JSON 摘要(而非依赖 session memory), 让主审逐位回应。摘要只取关键字段。
+func buildChiefPrompt(commonContext string, reviewerOutputs map[string]*ReviewerOutput) string {
 	var b strings.Builder
-	b.WriteString("【审稿身份】主审编辑\n")
-	b.WriteString("【prompt】" + choice.Name + " (" + choice.Slug + ")\n\n")
-	b.WriteString(choice.SystemPrompt)
+	b.WriteString("【审稿身份】主审编辑\n\n")
+	b.WriteString(chiefPersona)
+	b.WriteString("\n\n")
+	b.WriteString(chiefJSONSchemaSpec)
 	b.WriteString("\n\n")
 	b.WriteString(commonContext)
 
