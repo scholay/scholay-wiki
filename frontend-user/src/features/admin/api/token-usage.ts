@@ -161,6 +161,7 @@ export const FEATURE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'matrix', label: '矩阵分析' },
   { value: 'translate', label: '论文翻译' },
   { value: 'wechat_oa', label: '公众号' },
+  { value: 'prism', label: '智能写作' },
 ];
 
 export const SOURCE_OPTIONS: Array<{ value: string; label: string }> = [

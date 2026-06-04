@@ -9,8 +9,13 @@ import type { AuthResponse } from '../types';
  * 触发路径:
  *   OAuth callback(GitHub/Google/...) → 后端发现 email 已存在 → 返回
  *   `{requires_merge: true, merge_token, provider, target_email}` →
- *   前端把 merge_token 存到 URL 跳到本中间页 → 拿 GET /pending-merge 拉摘要 →
+ *   前端把 merge_token 存到 state 跳到本中间页 → 拿 GET /pending-merge 拉摘要 →
  *   用户二选一:确认合并(POST /confirm-merge)/ 新建独立账号(POST /cancel-merge)
+ *
+ * 【安全】POST /confirm-merge 是**受保护**接口(需 JWT):必须先以目标账号本人身份登录,
+ * 后端校验当前登录用户 == 合并目标,只持有 merge_token 不足以合并。useConfirmOAuthMerge
+ * 仅在 UI 确认用户已登录目标账号后才调用(见 OAuthMergeConfirmDialog),http 实例会自动
+ * 带上 Authorization 头。cancel-merge / pending-merge 仍是公开接口(token 即凭据)。
  */
 
 export interface PendingMergeInfo {

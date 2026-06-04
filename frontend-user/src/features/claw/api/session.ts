@@ -7,7 +7,7 @@
  * 行为含义已升级为 "取当前活跃 session" / "删当前 + 建新" (历史行不删)。
  */
 
-import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
 import { STALE_FRESH } from '@/shared/lib/query-config';
 import { useAuthStore } from '@/stores/auth.store';
@@ -72,24 +72,45 @@ export function useResetClawSession() {
 interface HistoryResponse {
   sessionId: string;
   messages: ClawHistoryEntry[] | null;
+  /** 全部用户轮数 (后端统计, 分页时用) */
+  totalTurns?: number;
+  /** 是否还有更早的轮没返回 → 前端显示"加载更早" */
+  hasMore?: boolean;
 }
 
+/**
+ * 拉历史会话。limitTurns>0 时只取**最近 N 个用户轮**(超长会话分页, 后端 sliceRecentTurns):
+ * 避免上万轮 transcript 一次性推给浏览器 JSON.parse + 折叠 + 渲染。"加载更早"增大 limitTurns。
+ */
 export function useClawHistory(
   sessionId: string | null | undefined,
+  limitTurns?: number,
 ): UseQueryResult<HistoryResponse> {
   const token = useAuthStore((s) => s.token);
   return useQuery<HistoryResponse>({
-    queryKey: ['claw', 'history', sessionId],
+    queryKey: ['claw', 'history', sessionId, limitTurns ?? 0],
     enabled: !!token && !!sessionId,
-    staleTime: Infinity, // 只追加, 进入页面拉一次足够; reset 时 invalidate
+    // 只追加, 同一 mount 内不反复刷 (staleTime: Infinity); 但**每次重新挂载必须重拉**。
+    // 修复"切到别的页面再回 /claw, 对话凭空消失"的同构 bug (跟 smart-search 一致):
+    //   实时 turns 只在 ClawPage 局部 state (socket.messages + pendingTurns), 跨路由
+    //   导航离开时整个 ClawPage unmount → 局部 state 丢; 回来重挂载若只靠
+    //   staleTime:Infinity 旧缓存, 会原样返回首挂时的空快照 → 对话整段不见, 必须 F5。
+    //   refetchOnMount:'always' 让每次重挂都从 transcript 重放完整对话。reset 仍 invalidate。
+    staleTime: Infinity,
+    refetchOnMount: 'always',
+    // "加载更早"增大 limitTurns 会换 queryKey 重取; keepPreviousData 让旧(较少)列表先留着,
+    // 新(更多)到了再替换, 避免刷新瞬间列表塌成空。
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       try {
         // 显式带 ?session_id=xxx 让后端走 GetSessionMessagesByID 而不是 latest active,
         // 否则切会话时会有 race (前端 sessionId 已切到 B 但后端 latest 还是 A,
         // 返回 A 的 messages 但 query 缓存在 [history, B] 下 → 渲染串了)。
-        const url = sessionId
-          ? `/user/claw/session/messages?session_id=${encodeURIComponent(sessionId)}`
-          : '/user/claw/session/messages';
+        const params = new URLSearchParams();
+        if (sessionId) params.set('session_id', sessionId);
+        if (limitTurns && limitTurns > 0) params.set('limit', String(limitTurns));
+        const qs = params.toString();
+        const url = `/user/claw/session/messages${qs ? `?${qs}` : ''}`;
         const { data } = await http.get<
           { data?: HistoryResponse } & Partial<HistoryResponse>
         >(url);
@@ -97,6 +118,8 @@ export function useClawHistory(
         return {
           sessionId: payload?.sessionId ?? sessionId ?? '',
           messages: payload?.messages ?? [],
+          totalTurns: payload?.totalTurns ?? 0,
+          hasMore: payload?.hasMore ?? false,
         };
       } catch (err) {
         throw toApiError(err);

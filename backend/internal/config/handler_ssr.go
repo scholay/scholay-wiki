@@ -184,6 +184,16 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 		}
 	}
 
+	// 功能广场工具详情页 SEO 元数据注入 (/tools/{slug}) —— 单段 slug, 列表页 /tools 不命中。
+	if h.toolSEOProvider != nil && strings.HasPrefix(requestPath, "/tools/") {
+		rest := strings.TrimPrefix(requestPath, "/tools/")
+		if rest != "" && !strings.Contains(rest, "/") {
+			if meta, err := h.toolSEOProvider.ResolveToolBySlug(rest); err == nil && meta != nil {
+				modifiedHTML = injectToolSEOMeta(modifiedHTML, meta, requestPath)
+			}
+		}
+	}
+
 	// Return the modified HTML
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	c.Header("Cache-Control", "no-cache, must-revalidate")
@@ -859,6 +869,147 @@ func buildJournalNoscriptCard(meta *seo.JournalSSRMeta) string {
 %s
 %s
 </article>`, baseStyle, headingStyle, name, metaHTML, statHTML)
+}
+
+// injectToolSEOMeta 功能广场工具详情页 SEO 注入(与 paper/author/journal 同构)。
+func injectToolSEOMeta(html string, meta *seo.ToolSSRMeta, path string) string {
+	if meta.Name == "" {
+		return html
+	}
+	enSeg := ""
+	if meta.NameEn != "" && meta.NameEn != meta.Name {
+		enSeg = " (" + meta.NameEn + ")"
+	}
+	catSeg := ""
+	if meta.CategoryLabel != "" {
+		catSeg = " · " + meta.CategoryLabel
+	}
+	seoTitle := fmt.Sprintf("%s%s - 功能广场%s | Scholay学术", truncate(meta.Name, 80), enSeg, catSeg)
+
+	desc := meta.Tagline
+	if desc == "" {
+		desc = meta.Description
+	}
+	if desc == "" {
+		desc = fmt.Sprintf("%s —— 科研工具详情、获取方式与使用说明,在 Scholay 功能广场收录。", meta.Name)
+	} else {
+		desc = fmt.Sprintf("%s —— %s。Scholay 功能广场收录的科研工具,含分类、获取方式与使用说明。", meta.Name, desc)
+	}
+	desc = truncate(desc, 300)
+
+	titleRe := regexp.MustCompile(`(?is)<title>.*?</title>`)
+	html = titleRe.ReplaceAllString(html, "<title>"+htmlEscape(seoTitle)+"</title>")
+
+	descRe := regexp.MustCompile(`(?is)<meta\s+name=["']description["'][^>]*>`)
+	if descRe.MatchString(html) {
+		html = descRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="description" content="%s">`, htmlEscape(desc)))
+	}
+
+	keywords := buildToolKeywords(meta)
+	keywordsRe := regexp.MustCompile(`(?is)<meta\s+name=["']keywords["'][^>]*>`)
+	if keywordsRe.MatchString(html) {
+		html = keywordsRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="keywords" content="%s">`, htmlEscape(keywords)))
+	}
+
+	canonical := fmt.Sprintf("%s%s", appconfig.CanonicalBaseURL(), path)
+	canonRe := regexp.MustCompile(`(?is)<link\s+rel=["']canonical["'][^>]*>`)
+	canonTag := fmt.Sprintf(`<link rel="canonical" href="%s">`, htmlEscape(canonical))
+	if canonRe.MatchString(html) {
+		html = canonRe.ReplaceAllString(html, canonTag)
+	} else {
+		html = strings.Replace(html, "</head>", canonTag+"\n</head>", 1)
+	}
+
+	if jsonLD := buildToolJSONLD(meta, canonical); jsonLD != "" {
+		html = strings.Replace(html, "</head>", jsonLD+"\n</head>", 1)
+	}
+
+	if card := buildToolNoscriptCard(meta); card != "" {
+		insertBefore := `<p style="text-align: center; margin-top: 30px;`
+		if idx := strings.Index(html, insertBefore); idx > 0 {
+			html = html[:idx] + card + "\n" + html[idx:]
+		} else if idx := strings.Index(html, "</noscript>"); idx > 0 {
+			html = html[:idx] + card + "\n" + html[idx:]
+		}
+	}
+	return html
+}
+
+// buildToolKeywords 工具页 keywords meta。
+func buildToolKeywords(meta *seo.ToolSSRMeta) string {
+	parts := []string{meta.Name}
+	if meta.NameEn != "" && meta.NameEn != meta.Name {
+		parts = append(parts, meta.NameEn)
+	}
+	parts = append(parts, "科研工具", "学术软件", "功能广场", "科研软件下载", "Scholay")
+	if meta.CategoryLabel != "" {
+		parts = append(parts, meta.CategoryLabel)
+	}
+	parts = append(parts, meta.Tags...)
+	return strings.Join(parts, ",")
+}
+
+// buildToolJSONLD —— SoftwareApplication(名称/分类/描述/价格/图标)。
+func buildToolJSONLD(meta *seo.ToolSSRMeta, canonical string) string {
+	if meta.Name == "" {
+		return ""
+	}
+	obj := map[string]any{
+		"@context":            "https://schema.org",
+		"@type":               "SoftwareApplication",
+		"name":                meta.Name,
+		"url":                 canonical,
+		"applicationCategory": "ResearchApplication",
+		"publisher":           map[string]any{"@type": "Organization", "name": "Scholay学术", "url": appconfig.CanonicalBaseURL()},
+	}
+	if d := meta.Tagline; d != "" {
+		obj["description"] = truncate(d, 200)
+	} else if meta.Description != "" {
+		obj["description"] = truncate(meta.Description, 200)
+	}
+	if meta.Logo != "" {
+		img := meta.Logo
+		if strings.HasPrefix(img, "/") {
+			img = appconfig.CanonicalBaseURL() + img
+		}
+		obj["image"] = img
+	}
+	if meta.PriceType == "free" {
+		obj["offers"] = map[string]any{"@type": "Offer", "price": "0", "priceCurrency": "USD"}
+	}
+	return jsonLDScript(obj)
+}
+
+// buildToolNoscriptCard 渲染工具的 noscript 卡片(供爬虫)。
+func buildToolNoscriptCard(meta *seo.ToolSSRMeta) string {
+	baseStyle := `style="max-width: 1000px; margin: 20px auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #e0e0e0;"`
+	headingStyle := `style="color: #ffffff; border-bottom: 1px solid #424242; padding-bottom: 10px; font-size: 1.4rem;"`
+	metaStyle := `style="color: #9e9e9e; font-size: 0.9rem; margin-bottom: 8px;"`
+	textStyle := `style="color: #bdbdbd; line-height: 1.8; margin-bottom: 12px;"`
+
+	var metaLines []string
+	if meta.CategoryLabel != "" {
+		metaLines = append(metaLines, "分类："+htmlEscape(meta.CategoryLabel))
+	}
+	if len(meta.Tags) > 0 {
+		metaLines = append(metaLines, "标签："+htmlEscape(strings.Join(meta.Tags, " / ")))
+	}
+	var metaHTML string
+	if len(metaLines) > 0 {
+		metaHTML = fmt.Sprintf("<p %s>%s</p>", metaStyle, strings.Join(metaLines, " · "))
+	}
+	var bodyHTML string
+	if meta.Tagline != "" {
+		bodyHTML += fmt.Sprintf("<p %s>%s</p>", textStyle, htmlEscape(meta.Tagline))
+	}
+	if meta.Description != "" {
+		bodyHTML += fmt.Sprintf("<p %s>%s</p>", textStyle, htmlEscape(truncate(meta.Description, 1500)))
+	}
+	return fmt.Sprintf(`<article %s>
+<h1 %s>%s</h1>
+%s
+%s
+</article>`, baseStyle, headingStyle, htmlEscape(meta.Name), metaHTML, bodyHTML)
 }
 
 func truncate(s string, n int) string {

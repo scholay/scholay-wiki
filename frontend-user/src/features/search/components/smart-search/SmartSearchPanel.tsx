@@ -18,6 +18,8 @@ import {
   notifySessionChanged,
   useSessionBroadcast,
 } from '@/shared/lib/agent-session-broadcast';
+import { stripAgentBridgePrefix } from '@/shared/lib/agent-prefix';
+import { useHeightVar } from '@/shared/hooks';
 import {
   useResetSmartSearchSession,
   useSmartSearchContext,
@@ -46,6 +48,15 @@ import {
  *   - 流式自动跟随滚动: use-stick-to-bottom 实现 chat 三态滚动 (贴底/手动/恢复)。
  *   - 未登录直接显示登录提示。
  */
+/** 长会话渲染窗口: 默认只把最近 RENDER_WINDOW 轮渲染进 DOM, "加载更早"每次再多放 RENDER_STEP 轮。
+ *  防上万轮一次性进 DOM 把浏览器拖垮(虚拟化的"窗口化"形态, 与 use-stick-to-bottom 零冲突)。 */
+const RENDER_WINDOW = 60;
+const RENDER_STEP = 60;
+/** 历史分页: 初始只从后端拉最近 HISTORY_WINDOW 个用户轮, "加载更早"每次再多拉 HISTORY_STEP。
+ *  避免上万轮 transcript 一次性 JSON.parse + 折叠。后端 sliceRecentTurns 按 ?limit= 切。 */
+const HISTORY_WINDOW = 100;
+const HISTORY_STEP = 100;
+
 export function SmartSearchPanel() {
   const token = useAuthStore((s) => s.token);
   const queryClient = useQueryClient();
@@ -61,13 +72,25 @@ export function SmartSearchPanel() {
   const sessionId = sessionQuery.data?.sessionId ?? null;
 
   // 2. 历史回放: sessionId 出现后立即拉一次, 之后 invalidate 才会 refetch。
-  const historyQuery = useSmartSearchHistory(sessionId);
+  //    historyLimit = 当前从后端拉取的"最近 N 轮"分页窗口; "加载更早"增大它。切 session 复位。
+  const [historyLimit, setHistoryLimit] = useState(HISTORY_WINDOW);
+  useEffect(() => {
+    setHistoryLimit(HISTORY_WINDOW);
+  }, [sessionId]);
+  const historyQuery = useSmartSearchHistory(sessionId, historyLimit);
+  const historyHasMore = historyQuery.data?.hasMore ?? false;
 
   // 3. 上下文水位: panel 顶部小 chip 用; reset 后 invalidate 强制刷。
   const contextQuery = useSmartSearchContext(sessionId);
 
   const reset = useResetSmartSearchSession();
   const [resetOpen, setResetOpen] = useState(false);
+
+  // 量出"对话框可视区"像素高 → 写进 --chat-area-h, 供底部留白按比例计算 (见 StickToBottom.Content)。
+  const chatAreaRef = useHeightVar<HTMLDivElement>('chat-area-h');
+
+  // 发送新一轮后立刻滚到底: scrollToBottom 由 StickToBottom 内的 <ScrollController> 注入到这个 ref。
+  const scrollToBottomRef = useRef<(() => void) | null>(null);
 
   // 本轮聊天输入状态。
   const [input, setInput] = useState('');
@@ -79,7 +102,7 @@ export function SmartSearchPanel() {
       避免重复触发。terminal 事件到达 → busy 自动翻 false → 这里下面 useEffect 重置回 false。 */
   const [stopping, setStopping] = useState(false);
 
-  const { state, messages, send, reconnectAttempt, displacedReason, takeOver } =
+  const { state, messages, send, reconnectAttempt, displacedReason, takeOver, resyncUserText } =
     useSmartSearchSocket(sessionId);
 
   // 历史 turns: 只在 history 数据变化时重建一次。
@@ -88,16 +111,67 @@ export function SmartSearchPanel() {
     [historyQuery.data]
   );
 
-  // 实时 turns: 仅本次 mount 之后的 pendingTurns。
+  // 断线续流: 重连命中 in-flight 轮时, agent 回放本轮事件并下发 resync_user(本轮用户文本)。
+  // 若本地 pendingTurns 已空(= 页面被卸载过, 重挂载丢了局部 turns), 就用它补一条 pending turn,
+  // 让回放/续流的 assistant 事件配上用户气泡, 且后续新一轮能与 messages 正确对齐。
+  // seededResync 记下"确实补过", 用来判定 history 末尾那条是否就是这同一轮:
+  //   - 重挂载: refetchOnMount 拉到的 history **含** in-flight 轮(它的 user 是 transcript 最后一条)
+  //     → 必须去掉, 否则和 live 回放的同一轮双份(用户报的"回答中切回来重复")。
+  //   - 同 mount 重连: history 是挂载时旧快照, **不含** in-flight 轮 → 不能去, 否则误删旧轮。
+  const [seededResync, setSeededResync] = useState(false);
+  useEffect(() => {
+    setSeededResync(false);
+  }, [sessionId]);
+  useEffect(() => {
+    if (resyncUserText && pendingTurns.length === 0 && !seededResync) {
+      setPendingTurns([
+        { id: 'resync-inflight', userText: stripAgentBridgePrefix(resyncUserText) },
+      ]);
+      setSeededResync(true);
+    }
+  }, [resyncUserText, pendingTurns.length, seededResync]);
+
+  // pendingTurns 增多 (用户发了新一轮 / 续流补轮) → 立刻滚到底, 让新一轮进入视野。
+  // effect 在 DOM 提交后跑, 新 turn 已在 DOM 里, scrollToBottom 落到真实新底部。
+  const prevPendingLenRef = useRef(pendingTurns.length);
+  useEffect(() => {
+    if (pendingTurns.length > prevPendingLenRef.current) {
+      scrollToBottomRef.current?.();
+    }
+    prevPendingLenRef.current = pendingTurns.length;
+  }, [pendingTurns.length]);
+
+  // 实时 turns: 本次 mount 的 pendingTurns(含续流补的那条)。
   const liveTurns = useMemo<Turn[]>(
     () => foldMessagesIntoTurns(messages, pendingTurns),
     [messages, pendingTurns]
   );
 
+  // 续流对账: 仅当我们为续流补过 in-flight 轮(seededResync)时, 去掉 history 末尾那条(= 同一轮)。
+  const reconciledHistoryTurns = useMemo<Turn[]>(
+    () =>
+      seededResync && historyTurns.length > 0
+        ? historyTurns.slice(0, -1)
+        : historyTurns,
+    [historyTurns, seededResync]
+  );
+
   // 拼接展示: 历史在前, 实时在后。
   const turns = useMemo<Turn[]>(
-    () => [...historyTurns, ...liveTurns],
-    [historyTurns, liveTurns]
+    () => [...reconciledHistoryTurns, ...liveTurns],
+    [reconciledHistoryTurns, liveTurns]
+  );
+
+  // 渲染窗口: 只把最近 renderLimit 轮渲染进 DOM (其余仍在内存, 仅不进 DOM)。切 session 复位。
+  // in-flight 轮永远是最新一轮 → 必在窗口内, 故 streaming / 贴底 / 续流 / 底部留白都不受影响。
+  const [renderLimit, setRenderLimit] = useState(RENDER_WINDOW);
+  useEffect(() => {
+    setRenderLimit(RENDER_WINDOW);
+  }, [sessionId]);
+  const hiddenCount = Math.max(0, turns.length - renderLimit);
+  const visibleTurns = useMemo<Turn[]>(
+    () => (hiddenCount > 0 ? turns.slice(hiddenCount) : turns),
+    [turns, hiddenCount]
   );
 
   const lastTurn = turns[turns.length - 1];
@@ -141,7 +215,8 @@ export function SmartSearchPanel() {
     setInput('');
     setPendingTurns((prev) => [
       ...prev,
-      { id: `turn-${Date.now()}-${prev.length}`, userText: text },
+      // crypto.randomUUID 防同毫秒连发撞 id (Date.now 兜底虽有 prev.length, 但 UUID 更稳)
+      { id: `turn-${crypto.randomUUID()}`, userText: text },
     ]);
     if (state === 'open') {
       send({ type: 'user_message', content: text });
@@ -230,10 +305,20 @@ export function SmartSearchPanel() {
       {turns.length === 0 ? (
         <div className="flex-1 min-h-0 overflow-y-auto bg-surface-1 px-4 py-4">
           <EmptyHero
-            loadingHistory={historyQuery.isLoading || sessionQuery.isLoading}
+            // refetchOnMount:'always' 下, 重入页面时 history 走后台 refetch
+            // (isLoading 为 false 但 isFetching 为 true)。此时还没有 turns,
+            // 用 isFetching 一并兜住, 避免"空 hero 闪一下 → 突然冒出对话"。
+            loadingHistory={
+              historyQuery.isLoading ||
+              historyQuery.isFetching ||
+              sessionQuery.isLoading
+            }
           />
         </div>
       ) : (
+        // 外层量高 div: useHeightVar 把这块"对话框可视区"的像素高写进 --chat-area-h,
+        // 供最后一轮按比例留白 (见下)。它就是 flex-1 的可视区, StickToBottom 在里面 h-full 填满。
+        <div ref={chatAreaRef} className="flex-1 min-h-0">
         <StickToBottom
           // ⚠️ 这个 wrapper 绝对不能加任何 overflow-* 工具类。
           //
@@ -249,12 +334,39 @@ export function SmartSearchPanel() {
           // markdown 表格 overflow-x-auto, 工具 chip max-w-full。外层不需要也不能管 overflow。
           //
           // padding / background / relative 可以放心保留 (不影响 overflow 计算)。
-          className="flex-1 min-h-0 bg-surface-1 px-4 py-4 relative"
+          className="h-full bg-surface-1 px-4 py-4 relative"
           resize="smooth"
           initial="smooth"
         >
-          <StickToBottom.Content className="space-y-3.5 min-w-0">
-            {turns.map((turn) => (
+          {/* 底部留白 = 滚动内容的 padding-bottom (而不是撑最后一轮的 min-height)。
+              为什么不是 min-height: CSS min-height 只在内容**比它矮**时才撑高 —— 一条多论文长回答
+              本身就超过半屏, min-height 被忽略 → 回答仍紧贴输入框 (前几版都栽在这)。
+              padding-bottom 会被算进 scrollHeight, use-stick-to-bottom 贴底时
+              (scrollTop = scrollHeight - clientHeight) 这段 padding 必然露在视口底部 = 稳定留白,
+              短/长回答、流式中、重入 全都有。--chat-area-h 由 useHeightVar 实时量(本对话框高),
+              ×0.3 ≈ 留出三成对话框高; fallback 100dvh 保证 hook 没就绪时也有留白。改 0.3 调多少。 */}
+          <StickToBottom.Content className="space-y-3.5 min-w-0 pb-[calc(var(--chat-area-h,100dvh)*0.3)]">
+            {(hiddenCount > 0 || historyHasMore) && (
+              <div className="flex justify-center pb-1">
+                <button
+                  type="button"
+                  // 两段式"加载更早": 先把已拉到但没渲染的轮放进 DOM (hiddenCount>0, 不发请求);
+                  // 都渲染完了还有更早的 → 向后端多要一页 (historyLimit += STEP) 并同步放开渲染窗口。
+                  onClick={() => {
+                    if (hiddenCount > 0) {
+                      setRenderLimit((n) => n + RENDER_STEP);
+                    } else {
+                      setHistoryLimit((n) => n + HISTORY_STEP);
+                      setRenderLimit((n) => n + HISTORY_STEP);
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 h-7 px-3 rounded-pill bg-surface-2 text-xs text-muted-foreground hover:text-foreground hover:bg-surface-2/70 transition-colors"
+                >
+                  {hiddenCount > 0 ? `加载更早的 ${hiddenCount} 轮对话` : '加载更早的对话'}
+                </button>
+              </div>
+            )}
+            {visibleTurns.map((turn) => (
               <div key={turn.id} className="space-y-3.5 min-w-0">
                 <UserBubble text={turn.userText} />
                 <AssistantTurn turn={turn} />
@@ -276,8 +388,10 @@ export function SmartSearchPanel() {
               </div>
             )}
           </StickToBottom.Content>
+          <ScrollController scrollRef={scrollToBottomRef} />
           <ScrollToBottomFab />
         </StickToBottom>
+        </div>
       )}
 
       <SmartSearchInputBar
@@ -365,6 +479,28 @@ function ResetConfirmDialog({
  * 当用户向上滚动取消贴底时, 右下角浮出"回到底部"小按钮。
  * 必须放在 <StickToBottom> 内部, 因为依赖 useStickToBottomContext()。
  */
+/**
+ * 把库的 scrollToBottom 注入到外部传进来的 ref —— 让 panel 的"发送后滚到底"逻辑
+ * (在 StickToBottom 外) 能调到只在 StickToBottom 内部可用的 useStickToBottomContext。
+ * 自身不渲染任何东西。
+ */
+function ScrollController({
+  scrollRef,
+}: {
+  scrollRef: { current: (() => void) | null };
+}) {
+  const { scrollToBottom } = useStickToBottomContext();
+  useEffect(() => {
+    scrollRef.current = () => {
+      void scrollToBottom();
+    };
+    return () => {
+      scrollRef.current = null;
+    };
+  }, [scrollToBottom, scrollRef]);
+  return null;
+}
+
 function ScrollToBottomFab() {
   const { isAtBottom, scrollToBottom } = useStickToBottomContext();
   if (isAtBottom) return null;

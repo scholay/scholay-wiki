@@ -25,6 +25,7 @@ const (
 	FeaturePeerReview    = "peer_review"    // 智能审稿
 	FeatureClaw          = "claw"           // 智能助手
 	FeatureTranslate     = "translate"      // 论文翻译
+	FeaturePrism         = "prism"          // 智能写作
 )
 
 // FeatureNames 功能中文名 —— admin 展示用。新增功能时在这里登记。
@@ -38,6 +39,7 @@ var FeatureNames = map[string]string{
 	FeaturePeerReview:    "智能审稿",
 	FeatureClaw:          "智能助手",
 	FeatureTranslate:     "论文翻译",
+	FeaturePrism:         "智能写作",
 }
 
 // FeatureName 取功能中文名, 未登记则回退原 code。

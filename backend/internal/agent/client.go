@@ -246,6 +246,8 @@ type WorkspaceFile struct {
 	State       string `json:"state"`       // ok | binary | too_large | missing | error
 	Path        string `json:"path"`
 	PreviewType string `json:"previewType"` // text | image
+	Content     string `json:"content"`     // text 正文(state=ok + previewType=text 时);Prism 固化回读用
+	Truncated   bool   `json:"truncated"`   // 是否被 1MB 截断(?full=1 可绕过)
 	DataURL     string `json:"dataUrl"`
 	MimeType    string `json:"mimeType"`
 	Size        int64  `json:"size"`
@@ -276,6 +278,83 @@ func (c *Client) GetWorkspaceFile(ctx context.Context, sessionID, relPath string
 		return nil, err
 	}
 	return &out, nil
+}
+
+// ReadWorkspaceFileFull 同 GetWorkspaceFile,但带 ?full=1 绕过 agent 端 1MB 预览截断 —— Prism
+// 轮末固化必须读全量正文,被截断写进 DB = 静默损坏。返回 out.Content 为完整 UTF-8 文本。
+func (c *Client) ReadWorkspaceFileFull(ctx context.Context, sessionID, relPath string) (*WorkspaceFile, error) {
+	if c.baseURL == "" {
+		return nil, errors.New("agent: empty base url")
+	}
+	if sessionID == "" || relPath == "" {
+		return nil, errors.New("agent: empty sessionId or path")
+	}
+	ctx, cancel := context.WithTimeout(ctx, roundTripTimeout)
+	defer cancel()
+	var out WorkspaceFile
+	path := "/api/sessions/" + sessionID + "/workspace/file?path=" + url.QueryEscape(relPath) + "&full=1"
+	if err := c.doJSON(ctx, http.MethodGet, path, nil, &out); err != nil {
+		if isNotFoundErr(err) {
+			return nil, ErrSessionNotFound
+		}
+		return nil, err
+	}
+	return &out, nil
+}
+
+// PutWorkspaceFile 把内容按相对路径**原样覆盖写**进会话隔离 cwd(保子目录、不加 UUID、原子)。
+// 供 Prism 铺源(DB current → cwd)/ 用户手改写回 / 撤销同步。agent 侧 resolveWorkspacePath 越界校验。
+func (c *Client) PutWorkspaceFile(ctx context.Context, sessionID, relPath string, content []byte) error {
+	if c.baseURL == "" {
+		return errors.New("agent: empty base url")
+	}
+	if sessionID == "" || relPath == "" {
+		return errors.New("agent: empty sessionId or path")
+	}
+	ctx, cancel := context.WithTimeout(ctx, roundTripTimeout)
+	defer cancel()
+	u := c.baseURL + "/api/sessions/" + sessionID + "/workspace/file?path=" + url.QueryEscape(relPath)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, u, bytes.NewReader(content))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "text/plain; charset=utf-8")
+	if c.authToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.authToken)
+	}
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
+	if resp.StatusCode >= 400 {
+		if resp.StatusCode == 404 {
+			return ErrSessionNotFound
+		}
+		return &HTTPError{StatusCode: resp.StatusCode, Raw: truncate(string(raw), 200)}
+	}
+	return nil
+}
+
+// DeleteWorkspaceFile 删会话 cwd 内一个文件(幂等,不存在不报错)。Prism 铺源时清理 DB 已删的文件。
+func (c *Client) DeleteWorkspaceFile(ctx context.Context, sessionID, relPath string) error {
+	if c.baseURL == "" {
+		return errors.New("agent: empty base url")
+	}
+	if sessionID == "" || relPath == "" {
+		return errors.New("agent: empty sessionId or path")
+	}
+	ctx, cancel := context.WithTimeout(ctx, roundTripTimeout)
+	defer cancel()
+	path := "/api/sessions/" + sessionID + "/workspace/file?path=" + url.QueryEscape(relPath)
+	if err := c.doJSON(ctx, http.MethodDelete, path, nil, nil); err != nil {
+		if isNotFoundErr(err) {
+			return ErrSessionNotFound
+		}
+		return err
+	}
+	return nil
 }
 
 // SessionSummary 是 agent GET /api/sessions 列表中的单行 (轻量, 不带 messages)。
@@ -708,6 +787,12 @@ func (c *Client) activateProvider(ctx context.Context, id string) error {
 	return c.doJSON(ctx, http.MethodPost, "/api/providers/"+id+"/activate", nil, nil)
 }
 
+// maxAgentResponseBytes 是 agent 响应体的安全上限。防御:超大会话(几十~上百 MB transcript)
+// 即便 agent 侧已做 tail 截断, 这里再兜一道——避免任何上游返回的巨型响应被 io.ReadAll 全量读进
+// 内存 + json.Unmarshal 建对象树, 把 backend 容器(1G limit)OOM。超过即返回错误(优雅失败, 不崩)。
+// 48MB 远大于正常/已截断响应, 只在异常巨型响应时触发。
+const maxAgentResponseBytes = 48 * 1024 * 1024
+
 // doJSON 是统一的 JSON 往返,把 agent 的 {error,message} 4xx/5xx 翻成 Go error。
 func (c *Client) doJSON(ctx context.Context, method, path string, in, out any) error {
 	var body io.Reader
@@ -736,9 +821,13 @@ func (c *Client) doJSON(ctx context.Context, method, path string, in, out any) e
 	}
 	defer resp.Body.Close()
 
-	raw, err := io.ReadAll(resp.Body)
+	// 限读 maxAgentResponseBytes+1: 读到上限+1 说明响应超限 → 优雅报错而不是把 backend 撑爆。
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxAgentResponseBytes+1))
 	if err != nil {
 		return fmt.Errorf("read response: %w", err)
+	}
+	if int64(len(raw)) > maxAgentResponseBytes {
+		return fmt.Errorf("agent response too large (> %d bytes) for %s; session may be too large to load", maxAgentResponseBytes, path)
 	}
 
 	if resp.StatusCode >= 400 {

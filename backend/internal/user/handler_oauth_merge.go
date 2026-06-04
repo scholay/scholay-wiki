@@ -46,14 +46,22 @@ type ConfirmPendingOAuthMergeRequest struct {
 }
 
 // ConfirmPendingOAuthMerge POST /api/v1/user/oauth/confirm-merge
-// 用户「确认合并」分支:把 provider 链接到 target 用户上,然后登入 target 用户。
-// 无需 auth(merge_token 是凭据)。
+// 用户「确认合并」分支:把 provider 链接到 target 用户上。
+//
+// 受保护路由(UserAuthMiddleware):必须先以目标账号本人身份登录,
+// FinalizePendingMerge 会校验 JWT 里的 userID == pending.TargetUserID。
+// 只持有 merge_token 不足以合并 —— 防止只控制第三方身份的攻击者接管同邮箱的本地账号。
 func (h *Handler) ConfirmPendingOAuthMerge(c *gin.Context) {
 	var req ConfirmPendingOAuthMergeRequest
 	if !utils.BindJSON(c, &req) {
 		return
 	}
-	user, token, err := h.service.FinalizePendingMerge(c.Request.Context(), req.Token, c.ClientIP())
+	authUserID, ok := utils.GetUserID(c)
+	if !ok {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "请先登录目标账号再确认绑定")
+		return
+	}
+	user, token, err := h.service.FinalizePendingMerge(c.Request.Context(), req.Token, authUserID, c.ClientIP())
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
 		return

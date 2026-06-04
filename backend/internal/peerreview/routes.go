@@ -1,6 +1,10 @@
 package peerreview
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+
+	"scholar-backend/internal/common/middleware"
+)
 
 // RegisterRoutes 把智能审稿的所有路由挂到一个已带 UserAuthMiddleware 的 group 下。
 // 调用方:
@@ -22,7 +26,10 @@ func RegisterRoutes(rg *gin.RouterGroup, h *Handler) {
 		subs.POST("/:id/submit", h.Submit)
 
 		subs.GET("/:id/assets", h.ListAssets)
-		subs.POST("/:id/assets", h.UploadAsset)
+		// 上传走通用 UploadLimitMiddleware(稿件上限 50MB, 业务码 7001), 跟 claw/feedback/library 一致;
+		// 之前漏挂, 加上全局 BodyLimitMiddleware 已对 multipart 放行, 这里是稿件体积的唯一硬上限。
+		// 单文件按 role 的细分上限(稿件 50 / 附件 30MB)仍由 handler 内 fh.Size 守第二道。
+		subs.POST("/:id/assets", middleware.UploadLimitMiddleware(int64(MaxManuscriptBytes)), h.UploadAsset)
 		subs.DELETE("/:id/assets/:aid", h.DeleteAsset)
 		// 打包下载该投稿的原始稿件 + 附件 (zip)
 		subs.GET("/:id/download", h.DownloadAssets)

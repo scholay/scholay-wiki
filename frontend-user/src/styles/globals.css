@@ -99,6 +99,27 @@
     --prism-badge-bg:   41 36% 85%;   /* #F0E8D8  Prism · AI 写作 角标 */
     --prism-badge-fg:   41 51% 33%;   /* #806A2E  对应文字色 */
 
+    /* Prism 代码编辑器面板 —— 深色 code surface(同 .pen `prism-editor`)。
+     * 集中成 token 供 CodeMirror 主题用 var() 引用(CM 主题取具体 CSS 值,这里直接给 hex/rgba,
+     * 不走 hsl() 三元组);组件内不再硬编码 hex。要做亮色编辑器在 .dark 或专用 scope 里重定义即可。 */
+    --prism-editor-bg:            #111111;
+    --prism-editor-fg:            #e6e6e6;
+    --prism-editor-gutter-bg:     #0a0a0a;
+    --prism-editor-gutter-fg:     #555555;
+    --prism-editor-active:        rgba(255, 255, 255, 0.04);
+    --prism-editor-cursor:        #e6e6e6;
+    --prism-editor-selection:     rgba(204, 34, 34, 0.25);
+    --prism-editor-chrome-bg:     #1a1a1a;
+    --prism-editor-chrome-border: #333333;
+    --prism-editor-chrome-muted:  #999999;
+    /* LaTeX 语法高亮 —— 给非程序员的柔和配色:正文(默认 fg)最亮最突出,标记(命令/括号/注释)
+     * 柔和上色并适度弱化,让结构清晰但不喧宾夺主。不用刺眼的开发者高对比配色。 */
+    --prism-editor-cmd:           #7aa2f7;  /* \命令(\section/\usepackage 等)柔和蓝 */
+    --prism-editor-comment:       #6a7d6a;  /* % 注释 柔和灰绿,弱化 */
+    --prism-editor-brace:         #8a8f98;  /* {} [] 暗灰,退到背景 */
+    --prism-editor-math:          #d8a657;  /* 数学/atom 柔和琥珀 */
+    --prism-editor-num:           #b58bd1;  /* 数字 柔和紫 */
+
     /* -----------------------------------------------------------------------
      * 语义别名 — 这些 var 给 shadcn 组件直接用,本质是上面 token 的指针,
      * 不要在业务代码里直接引用,业务用 `bg-card` / `bg-primary` 等更语义的类。

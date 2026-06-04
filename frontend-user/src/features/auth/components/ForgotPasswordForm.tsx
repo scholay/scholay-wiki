@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { toast } from 'sonner';
+import { useApiToast } from '@/shared/hooks';
 import { z } from 'zod';
 import {
   Button,
@@ -48,6 +48,7 @@ export function ForgotPasswordForm({
   onSwitchMode,
 }: ForgotPasswordFormProps) {
   const [accountType, setAccountType] = useState<AccountType>(initialAccountType);
+  const apiToast = useApiToast();
 
   const form = useForm<FormShape>({
     resolver: zodResolver(schemaFactory(accountType)) as never,
@@ -75,8 +76,8 @@ export function ForgotPasswordForm({
       }
       onSwitchMode('login');
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '重置失败,请稍后重试';
-      toast.error(msg);
+      // 抛出的是 ApiError 普通对象(非 Error 实例),用 apiToast 取后端真实文案。
+      apiToast.show(err, '重置失败,请稍后重试');
     }
   };
 

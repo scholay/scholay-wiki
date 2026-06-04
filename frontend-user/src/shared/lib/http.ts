@@ -95,8 +95,24 @@ export interface ApiError {
   isNetworkError: boolean;
 }
 
+/** 判定一个值是否已经是 ApiError(避免二次转换丢失 message)。 */
+function isApiError(e: unknown): e is ApiError {
+  return (
+    typeof e === 'object' &&
+    e !== null &&
+    'isNetworkError' in e &&
+    'message' in e &&
+    'status' in e
+  );
+}
+
 /** 把任何错误归一成 ApiError. http error message 优先用后端 message, 兜底 axios message。 */
 export function toApiError(err: unknown): ApiError {
+  // 幂等:已是 ApiError(常见于 mutation 里已 toApiError 过一次再上抛)直接返回。
+  // 否则会落到下面的「非 axios 错」分支 —— ApiError 不是 AxiosError 也不是 Error 实例,
+  // 二次转换会把真实 message 覆盖成「未知错误」,导致上层只能看到兜底文案(登录/注册/
+  // 改密的报错全部退化成「xx失败,请检查网络」就是这个原因)。
+  if (isApiError(err)) return err;
   if (err instanceof AxiosError) {
     const status = err.response?.status ?? 0;
     // axios 在请求发不出去 / response 完全没收到时 status = 0; ECONNABORTED / ENOTFOUND 也算

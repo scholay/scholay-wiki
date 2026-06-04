@@ -62,6 +62,11 @@ type JournalSEOProvider interface {
 	ResolveByJournalID(journalID int64) (*seo.JournalSSRMeta, error)
 }
 
+// ToolSEOProvider 由 featuretool.Service 实现, 用于功能广场工具详情页 (/tools/{slug}) SSR 元数据注入。
+type ToolSEOProvider interface {
+	ResolveToolBySlug(slug string) (*seo.ToolSSRMeta, error)
+}
+
 // htmlCacheEntry stores a cached HTML page with its expiry time
 type htmlCacheEntry struct {
 	html      string
@@ -87,6 +92,9 @@ type Handler struct {
 
 	// 期刊详情页 SSR 元数据提供者 (/journal/{id} / /journal/{id}/{slug})
 	journalSEOProvider JournalSEOProvider
+
+	// 功能广场工具详情页 SSR 元数据提供者 (/tools/{slug})
+	toolSEOProvider ToolSEOProvider
 
 	// WeChat OAuth 启用探针 —— bootstrap 注入,handler_system.GetSystemConfig 用它
 	// 决定 public 响应里 `wechat_enabled` 的值。这里用 probe 是为了避免 config 包
@@ -135,6 +143,11 @@ func (h *Handler) SetAuthorSEOProvider(p AuthorSEOProvider) {
 // SetJournalSEOProvider 设置期刊 SSR 元数据提供者
 func (h *Handler) SetJournalSEOProvider(p JournalSEOProvider) {
 	h.journalSEOProvider = p
+}
+
+// SetToolSEOProvider 设置功能广场工具 SSR 元数据提供者
+func (h *Handler) SetToolSEOProvider(p ToolSEOProvider) {
+	h.toolSEOProvider = p
 }
 
 // RegisterRoutes registers config routes

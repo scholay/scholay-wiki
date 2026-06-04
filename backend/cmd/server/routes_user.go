@@ -61,12 +61,12 @@ func registerPublicUserRoutes(api *gin.RouterGroup, h *allHandlers) {
 		discoursePublic.GET("/callback", h.user.DiscourseSSOCallback)
 	}
 
-	// OAuth 邮箱冲突合并确认中间页 —— 三个端点共享 merge_token,无需 user auth
-	// (token 本身是凭据)。详见 internal/user/handler_oauth_merge.go。
+	// OAuth 邮箱冲突合并确认中间页 —— pending-merge(读摘要)/ cancel-merge(新建独立账号)
+	// 无需 auth(merge_token 是凭据);但 confirm-merge(并入已有账号)改为受保护路由,
+	// 见 registerProtectedUserRoutes —— 必须先登录目标账号本人,只持 merge_token 不足以合并。
 	oauthMerge := api.Group("/user/oauth")
 	{
 		oauthMerge.GET("/pending-merge", h.user.GetPendingOAuthMerge)
-		oauthMerge.POST("/confirm-merge", h.user.ConfirmPendingOAuthMerge)
 		oauthMerge.POST("/cancel-merge", h.user.CancelPendingOAuthMerge)
 	}
 }
@@ -84,9 +84,46 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		userProtected.POST("/logout-all", h.user.LogoutAll) // 一键退出所有设备(user-level revoke)
 		userProtected.POST("/change-password", h.user.ChangePassword)
 
+		// OAuth 合并「确认并入已有账号」—— 受保护:JWT 证明你就是目标账号本人,
+		// FinalizePendingMerge 再校验 userID == merge 目标。详见 handler_oauth_merge.go。
+		userProtected.POST("/oauth/confirm-merge", h.user.ConfirmPendingOAuthMerge)
+
 		// 会员(VIP): 状态(等级/到期/各功能今日额度) + 兑换码兑换
 		userProtected.GET("/membership", h.vip.GetMembership)
 		userProtected.POST("/redeem-code", h.vip.RedeemCode)
+
+		// 智能写作 (Prism · LaTeX IDE): 项目/文件 CRUD + 编译(异步)+ 取 PDF。
+		prismG := userProtected.Group("/prism")
+		{
+			prismG.POST("/projects", h.prism.CreateProject)
+			prismG.GET("/projects", h.prism.ListProjects)
+			prismG.GET("/projects/:id", h.prism.GetProject)
+			prismG.PATCH("/projects/:id", h.prism.UpdateProject)
+			prismG.DELETE("/projects/:id", h.prism.DeleteProject)
+			prismG.GET("/projects/:id/files/:fileId", h.prism.GetFile)
+			prismG.PUT("/projects/:id/files/:fileId", h.prism.SaveFile)
+			prismG.POST("/projects/:id/files", h.prism.CreateFile)
+			prismG.POST("/projects/:id/files/:fileId/rename", h.prism.RenameFile)
+			prismG.DELETE("/projects/:id/files/:fileId", h.prism.DeleteFile)
+			prismG.POST("/projects/:id/compile", h.prism.Compile)
+			prismG.GET("/projects/:id/compile/:compileId", h.prism.GetCompile)
+			prismG.GET("/projects/:id/pdf", h.prism.GetPDF)
+			// 历史:文件版本(查看/回滚)。对话历史走 WS 的 /session/messages(agent jsonl)。
+			prismG.GET("/projects/:id/files/:fileId/versions", h.prism.ListVersions)
+			prismG.POST("/projects/:id/files/:fileId/versions/:versionId/restore", h.prism.RestoreVersion)
+			// \cite 文献库 RAG(检索真实库行 + 写 references.bib)
+			prismG.GET("/projects/:id/cite/search", h.prism.CiteSearch)
+			prismG.POST("/projects/:id/cite/apply", h.prism.CiteApply)
+			// agent-native 用户 WS 编辑(实时流式 + diff + 应用门 + 重入续流)。
+			// AI 对话走下面独立挂的 /prism/ws/:sessionId;这里是轮次边界 HTTP 端点。
+			prismG.POST("/projects/:id/ws-ticket", h.prism.IssueWSTicket)
+			prismG.GET("/projects/:id/session/messages", h.prism.GetWSMessages)
+			prismG.POST("/projects/:id/round/prepare", h.prism.PrepareRound) // 铺源 DB→cwd
+			prismG.GET("/projects/:id/round/pending", h.prism.PendingRound)  // 待应用 diff(重入)
+			prismG.POST("/projects/:id/round/apply", h.prism.ApplyRound)     // 固化 cwd→DB
+			prismG.POST("/projects/:id/round/reject", h.prism.RejectRound)   // 丢弃(重铺源还原)
+			prismG.GET("/projects/:id/workspace/file", h.prism.ReadWorkspaceFile) // 读 cwd(实时 diff refetch)
+		}
 
 		// 账号绑定
 		userProtected.POST("/bind-phone", h.user.BindPhone)
@@ -183,5 +220,7 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 	api.GET("/user/smart-search/ws/:sessionId", h.smartSearch.HandleWS)
 	// 智能助手 · WS 桥接 (同 smart-search 模式)
 	api.GET("/user/claw/ws/:sessionId", h.claw.HandleWS)
+	// 智能写作 (Prism) · WS 桥接 (ticket 已校验项目归属;agent-native 实时编辑)
+	api.GET("/user/prism/ws/:sessionId", h.prism.HandleWS)
 }
 

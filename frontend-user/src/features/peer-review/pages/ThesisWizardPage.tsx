@@ -26,6 +26,7 @@ import {
   useSubmitSubmission,
   useUploadAsset,
   type UploadAssetParams,
+  type SubmissionPatch,
 } from '../api/submissions';
 import { unwrap } from '../api/_unwrap';
 import { extractPartialMeta, useStreamingPartial } from '../api/stream';
@@ -159,10 +160,17 @@ export function ThesisWizardPage() {
   const [agreed, setAgreed] = useState(false);
   // 稿件识别表单 (标题/摘要/关键词/主题/类型) —— 跟期刊投稿同一套 ManuscriptMetaForm。
   const [manuscriptMeta, setManuscriptMeta] = useState<ManuscriptMeta>({});
+  // 院校信息也走本地 state(同 manuscriptMeta)—— 之前 SchoolPicker 直接 onChange→PATCH 是
+  // "每个按键一次网络请求", 且 PATCH 会 bump metaRevision 触发下面的 reset effect 把表单清空,
+  // 表现为"边打字边被刷新、无法输入"。改成本地编辑、在"下一步"时随 meta 一起 PATCH。
+  const [schoolTarget, setSchoolTarget] = useState<SchoolTarget | undefined>(undefined);
 
-  // Hard reset 本地状态 — 同 JournalWizardPage,以 submission 为单一真相源,
-  // submission.id / assetsRevision / metaRevision 任一变 → 全清 + 重新同步。
-  // 防止"取消草稿 + 新建"或"重新上传文件后"看到旧 letter / meta / agreed 残留。
+  // Hard reset 本地状态 — 以 submission 为单一真相源,submission.id / assetsRevision 变
+  // (切草稿 / 重新上传文件)→ 全清 + 重新同步。
+  // ⚠️ 不再依赖 metaRevision:metaRevision 只由 PatchSubmission(改院校 / 标题等)bump,而 picker
+  //    的 PATCH 不携带本地 manuscriptMeta;若放进 deps,改一次院校就会把用户还没存的标题/摘要清掉,
+  //    并让本地 schoolTarget 被服务端值覆盖 = 无法连续输入。AI 抽取回填 meta 走下面的 computeState
+  //    effect(不经 metaRevision),所以去掉它不影响 AI 同步。
   useEffect(() => {
     setManuscriptMeta({
       title: submission?.title ?? '',
@@ -171,9 +179,10 @@ export function ThesisWizardPage() {
       subjects: submission?.extraMeta?.subjects ?? [],
       manuscriptType: submission?.extraMeta?.manuscriptType,
     });
+    setSchoolTarget(submission?.schoolTarget);
     setLetterBody(submission?.letterBody ?? '');
     setAgreed(false);
-  }, [submission?.id, submission?.assetsRevision, submission?.metaRevision]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [submission?.id, submission?.assetsRevision]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // AI 异步抽取/起草完成 (computing_* → idle) 时, 把 backend 回填的 title/abstract/extraMeta/
   // letterBody 兜底同步进表单 (meta 回填不 bump revision, 上面 effect 不会触发)。
@@ -254,10 +263,10 @@ export function ThesisWizardPage() {
     if (s === 1) return !assets.find((a) => a.role === 'manuscript');
     if (s === 2) {
       // 院校 (手填) + 稿件标题 (AI 识别可改) 都要齐 —— 标题是 ManuscriptMetaForm 唯一必填项。
-      const t = submission!.schoolTarget;
+      // 读本地 schoolTarget(用户正在编辑的值),不是 submission 的 server 值。
       return (
-        !t?.schoolName.trim() ||
-        !t?.disciplineField.trim() ||
+        !schoolTarget?.schoolName.trim() ||
+        !schoolTarget?.disciplineField.trim() ||
         !manuscriptMeta.title?.trim()
       );
     }
@@ -266,22 +275,28 @@ export function ThesisWizardPage() {
   }
 
   async function goNext() {
-    // Step2 本地改过的稿件识别字段 → 先 PATCH 持久化 (跟期刊投稿一致, 写入后供 agent 起草信用)。
+    // Step2 本地改过的院校 + 稿件识别字段 → 合并成一次 PATCH 持久化 (写入后供 agent 起草信用)。
+    // 一次性发, 避免两次往返 + 两次 metaRevision bump。
     if (step === 2) {
-      const needsPatch =
+      const patch: SubmissionPatch = {};
+      const metaChanged =
         manuscriptMeta.title !== (submission!.title ?? '') ||
         manuscriptMeta.abstract !== (submission!.abstract ?? '') ||
         !sameMeta(manuscriptMeta, submission!.extraMeta);
-      if (needsPatch) {
-        await patchMut.mutateAsync({
-          title: manuscriptMeta.title,
-          abstract: manuscriptMeta.abstract,
-          extraMeta: {
-            keywords: manuscriptMeta.keywords,
-            subjects: manuscriptMeta.subjects,
-            manuscriptType: manuscriptMeta.manuscriptType,
-          },
-        });
+      if (metaChanged) {
+        patch.title = manuscriptMeta.title;
+        patch.abstract = manuscriptMeta.abstract;
+        patch.extraMeta = {
+          keywords: manuscriptMeta.keywords,
+          subjects: manuscriptMeta.subjects,
+          manuscriptType: manuscriptMeta.manuscriptType,
+        };
+      }
+      if (schoolTarget && !sameSchool(schoolTarget, submission!.schoolTarget)) {
+        patch.schoolTarget = schoolTarget;
+      }
+      if (Object.keys(patch).length > 0) {
+        await patchMut.mutateAsync(patch);
       }
     }
     if (step === 3 && letterBody !== (submission!.letterBody ?? '')) {
@@ -330,13 +345,9 @@ export function ThesisWizardPage() {
     });
   }
 
-  async function patchSchoolTarget(target: SchoolTarget) {
-    await patchMut.mutateAsync({ schoolTarget: target });
-  }
-
   const schoolMini =
-    step >= 2 && submission.schoolTarget && submission.schoolTarget.schoolName ? (
-      <SelectedSchoolMini target={submission.schoolTarget} />
+    step >= 2 && schoolTarget && schoolTarget.schoolName ? (
+      <SelectedSchoolMini target={schoolTarget} />
     ) : null;
 
   return (
@@ -405,10 +416,10 @@ export function ThesisWizardPage() {
               onRetry={() => advanceMut.mutate(1)}
             />
           )}
-          {/* 院校选择 (手动输入), 跟期刊投稿里的期刊选择对位 */}
+          {/* 院校选择 (手动输入), 跟期刊投稿里的期刊选择对位。本地 state, "下一步"时统一 PATCH。 */}
           <SchoolPickerStep
-            value={submission.schoolTarget}
-            onChange={patchSchoolTarget}
+            value={schoolTarget}
+            onChange={setSchoolTarget}
           />
           {/* 稿件识别表单 —— 跟期刊投稿完全一致 (标题/摘要/关键词/主题/类型 AI 识别 + 可改) */}
           <ManuscriptMetaForm
@@ -465,6 +476,17 @@ function SelectedSchoolMini({ target }: { target: SchoolTarget }) {
         {target.advisorName && ` · 指导:${target.advisorName}`}
       </p>
     </section>
+  );
+}
+
+/** 本地 schoolTarget 与 server 值是否一致 —— 决定 goNext 时是否需要 PATCH 院校。 */
+function sameSchool(local: SchoolTarget, remote: SchoolTarget | undefined): boolean {
+  if (!remote) return false;
+  return (
+    local.schoolName === remote.schoolName &&
+    local.degreeType === remote.degreeType &&
+    local.disciplineField === remote.disciplineField &&
+    (local.advisorName ?? '') === (remote.advisorName ?? '')
   );
 }
 

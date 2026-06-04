@@ -101,6 +101,72 @@ export type WebSocketData = {
 // Active WebSocket sessions
 const activeSessions = new Map<string, ServerWebSocket<WebSocketData>>()
 
+// ─── 断线续流 (resync) 状态 ──────────────────────────────────────────────
+//
+// liveTurnBuffers: 当前 in-flight 轮已翻译的 ServerMessage 缓冲 (按 sessionId)。
+//   - forwarding callback 每翻译出一条就 push 到这里, 同时 sendToSession 转给当前 ws;
+//   - 用户断连期间 ws 不存在, sendToSession 静默, 但翻译+缓冲照常进行 (CLI 子进程不停);
+//   - 用户重连时整段回放, 让前端从头重建这一轮 (它卸载时 messages 已清空);
+//   - message_complete 到达即清空 (完成的轮由 transcript/history 提供, 不再需要回放)。
+// liveTurnUserText: 当前 in-flight 轮的用户消息文本, 重连时随 resync_user 下发,
+//   让前端渲染用户气泡 (前端局部 pendingTurns 随卸载丢失, 拿不到用户文本)。
+const liveTurnBuffers = new Map<string, ServerMessage[]>()
+const liveTurnUserText = new Map<string, string>()
+
+/**
+ * 客户端断连后保活 CLI 子进程的宽限期。续流要求生成在断连期间继续跑完并落盘,
+ * 30s 太短 (长回答会被腰斩), 默认放宽到 10min; 可用 env 调小以省资源。
+ */
+const DEFAULT_CLIENT_DISCONNECT_GRACE_MS = 10 * 60_000
+function getClientDisconnectGraceMs(): number {
+  const raw = process.env.SCHOLAY_AGENT_DISCONNECT_GRACE_MS
+  if (!raw) return DEFAULT_CLIENT_DISCONNECT_GRACE_MS
+  const parsed = Number.parseInt(raw, 10)
+  return Number.isFinite(parsed) && parsed >= 0
+    ? parsed
+    : DEFAULT_CLIENT_DISCONNECT_GRACE_MS
+}
+
+/**
+ * 哪些 ServerMessage 类型需要进回放缓冲 —— 只缓冲"重建对话气泡"必需的轮内容事件。
+ * 刻意排除:
+ *   - permission_request: 控制帧, 原始流里已被 backend auto-approve 过; 回放会让 backend
+ *     对同一个 (已解决的) requestId 再 approve 一次 → 噪音 / 潜在错配。重连后真正在跑的
+ *     工具会通过 live 续推 tool_result, 不需要回放权限请求。
+ *   - session_title_updated / system_notification / pong / connected / computer_use_* / team_* /
+ *     task_*: 与"重建这一轮对话内容"无关, 回放只会干扰。
+ * 前端 fold 也只消费下面这几类 (见 fold.ts), 缓冲范围与之对齐。
+ */
+const REPLAYABLE_TYPES = new Set<ServerMessage['type']>([
+  'content_start',
+  'content_delta',
+  'tool_use_complete',
+  'tool_result',
+  'thinking',
+  'status',
+  'error',
+  'message_complete',
+])
+
+/**
+ * 把一条已翻译的 ServerMessage 追加进本轮回放缓冲。
+ * 合并相邻文本 delta (等价于前端 appendServerMessage), 把缓冲长度从 O(token) 降到 O(块),
+ * 防长回答把缓冲撑爆内存。仅在缓冲存在 (= 本轮处于 in-flight) 且类型可回放时生效。
+ */
+function pushToLiveBuffer(sessionId: string, msg: ServerMessage) {
+  const buf = liveTurnBuffers.get(sessionId)
+  if (!buf) return
+  if (!REPLAYABLE_TYPES.has(msg.type)) return
+  if (msg.type === 'content_delta' && typeof msg.text === 'string') {
+    const last = buf[buf.length - 1]
+    if (last && last.type === 'content_delta' && typeof last.text === 'string') {
+      buf[buf.length - 1] = { ...last, text: last.text + msg.text }
+      return
+    }
+  }
+  buf.push(msg)
+}
+
 export const handleWebSocket = {
   open(ws: ServerWebSocket<WebSocketData>) {
     const { sessionId, channel, sdkToken } = ws.data
@@ -130,7 +196,7 @@ export const handleWebSocket = {
     if (prewarmedSessions.has(sessionId)) {
       bindPrewarmMetadataCapture(sessionId)
     } else {
-      rebindSessionOutput(sessionId, ws)
+      resyncSessionOutput(sessionId, ws)
     }
 
     const msg: ServerMessage = { type: 'connected', sessionId }
@@ -215,18 +281,24 @@ export const handleWebSocket = {
     }
     computerUseApprovalService.cancelSession(sessionId)
     activeSessions.delete(sessionId)
-    conversationService.clearOutputCallbacks(sessionId)
+    // 断线续流: **故意不** clearOutputCallbacks —— 让 in-flight 轮的 forwarding callback
+    // 在断连期间继续翻译 CLI 输出并写入 liveTurnBuffers (sendToSession 找不到 ws 时静默)。
+    // callback 不持有 ws 引用 (转发走 sendToSession 动态查), 故无悬挂引用 / 写已关 ws 的问题。
+    // 用户重连时 resyncSessionOutput 整段回放本轮缓冲。若超过宽限期没人回来, 下面的定时器
+    // 会 stopSession 顺带清掉缓冲。
 
-    // Schedule delayed cleanup: if the client doesn't reconnect within 30 seconds,
-    // stop the CLI subprocess to avoid leaking resources.
+    // Schedule delayed cleanup: if the client doesn't reconnect within the grace
+    // window, stop the CLI subprocess to avoid leaking resources. 宽限期放宽 (默认
+    // 10min, 见 getClientDisconnectGraceMs) 让生成在断连期间能跑完并落盘。
+    const graceMs = getClientDisconnectGraceMs()
     const cleanupTimer = setTimeout(() => {
       sessionCleanupTimers.delete(sessionId)
       if (!activeSessions.has(sessionId)) {
-        console.log(`[WS] Session ${sessionId} not reconnected after 30s, stopping CLI subprocess`)
+        console.log(`[WS] Session ${sessionId} not reconnected after ${graceMs}ms, stopping CLI subprocess`)
         conversationService.stopSession(sessionId)
         cleanupSessionRuntimeState(sessionId)
       }
-    }, 30_000)
+    }, graceMs)
     sessionCleanupTimers.set(sessionId, cleanupTimer)
   },
 
@@ -291,7 +363,7 @@ async function handleUserMessage(
   if (titleState.userMessageCount === 1) {
     titleState.firstUserMessage = message.content
   }
-  triggerTitleGeneration(ws, sessionId)
+  triggerTitleGeneration(sessionId)
 
   // 启动 CLI 子进程（如果还没有）
   try {
@@ -326,8 +398,11 @@ async function handleUserMessage(
   // any pre-turn SDK chatter as fresh chat history.
   let userMessageSent = false
 
-  rebindSessionOutput(sessionId, ws, {
+  // 断线续流: 记下本轮用户文本 (重连回放时随 resync_user 下发) + 复位回放缓冲 (新一轮开始)。
+  liveTurnUserText.set(sessionId, message.content)
+  rebindSessionOutput(sessionId, {
     shouldForward: (cliMsg) => userMessageSent || (cliMsg.type === 'result' && cliMsg.is_error),
+    resetBuffer: true,
   })
 
   const sent = conversationService.sendMessage(
@@ -336,6 +411,9 @@ async function handleUserMessage(
     message.attachments
   )
   if (!sent) {
+    // 起不来的轮没有 in-flight 缓冲意义, 清掉避免脏数据被后续重连误回放。
+    liveTurnBuffers.delete(sessionId)
+    liveTurnUserText.delete(sessionId)
     sendMessage(ws, {
       type: 'error',
       message: 'CLI process is not running. The session may have ended or the process crashed.',
@@ -358,6 +436,8 @@ async function handleDesktopClearCommand(
   conversationService.clearOutputCallbacks(sessionId)
   sessionSlashCommands.delete(sessionId)
   sessionTitleState.delete(sessionId)
+  liveTurnBuffers.delete(sessionId)
+  liveTurnUserText.delete(sessionId)
   cleanupStreamState(sessionId)
 
   try {
@@ -633,7 +713,9 @@ function handleStopGeneration(ws: ServerWebSocket<WebSocketData>) {
 // Title generation
 // ============================================================================
 
-function triggerTitleGeneration(ws: ServerWebSocket<WebSocketData>, sessionId: string): void {
+function triggerTitleGeneration(sessionId: string): void {
+  // 用 sendToSession 动态查当前 ws (而非闭包捕获), 让断线续流的持久 pump 能在任意
+  // 连接状态下安全调用 —— 没有活跃 ws 时标题仍会落盘, 重连后由 history/sessions 刷新。
   const state = sessionTitleState.get(sessionId)
   if (!state || state.hasCustomTitle) return
 
@@ -661,7 +743,7 @@ function triggerTitleGeneration(ws: ServerWebSocket<WebSocketData>, sessionId: s
             state.hasCustomTitle = true
             return
           }
-          sendMessage(ws, { type: 'session_title_updated', sessionId, title: placeholder })
+          sendToSession(sessionId, { type: 'session_title_updated', sessionId, title: placeholder })
         }
       }
 
@@ -673,7 +755,7 @@ function triggerTitleGeneration(ws: ServerWebSocket<WebSocketData>, sessionId: s
           state.hasCustomTitle = true
           return
         }
-        sendMessage(ws, { type: 'session_title_updated', sessionId, title: aiTitle })
+        sendToSession(sessionId, { type: 'session_title_updated', sessionId, title: aiTitle })
       }
     } catch (err) {
       console.error(`[Title] Failed to generate title for ${sessionId}:`, err)
@@ -734,6 +816,8 @@ function cleanupSessionRuntimeState(sessionId: string) {
   runtimeTransitionPromises.delete(sessionId)
   sessionStartupPromises.delete(sessionId)
   lastResolvedStartupWorkDirs.delete(sessionId)
+  liveTurnBuffers.delete(sessionId)
+  liveTurnUserText.delete(sessionId)
   clearPrewarmState(sessionId)
 }
 
@@ -1325,16 +1409,28 @@ function getCompactBoundaryMessage(cliMsg: any): string {
   return 'Context compacted'
 }
 
+/**
+ * 绑定 session 的 forwarding pump —— 把 CLI 输出翻译成 ServerMessage, 既 push 进
+ * liveTurnBuffers (供断线重连回放), 又 sendToSession 转给**当前**活跃 ws。
+ *
+ * 关键: callback **不捕获具体 ws**, 而是每条消息 sendToSession 动态查 activeSessions。
+ * 这样客户端断开后我们不清除 callback (见 close handler), CLI 在断连期间产出的事件
+ * 仍被翻译+缓冲, 用户重连即可整段回放, 实现"断线续流"。
+ *
+ * resetBuffer: 新一轮开始时传 true 清空上一轮缓冲; 重连时传 false 保住本轮已缓冲事件。
+ * shouldForward: 沿用旧的"首轮 startup 期间静默 pre-turn SDK chatter"逻辑。
+ */
 function rebindSessionOutput(
   sessionId: string,
-  ws: ServerWebSocket<WebSocketData>,
   options?: {
     shouldForward?: (cliMsg: any) => boolean
+    resetBuffer?: boolean
   },
 ) {
   if (!conversationService.hasSession(sessionId)) return
 
   conversationService.clearOutputCallbacks(sessionId)
+  if (options?.resetBuffer) liveTurnBuffers.set(sessionId, [])
   conversationService.onOutput(sessionId, (cliMsg) => {
     if (options?.shouldForward && !options.shouldForward(cliMsg)) {
       return
@@ -1342,13 +1438,62 @@ function rebindSessionOutput(
 
     const serverMsgs = translateCliMessage(cliMsg, sessionId)
     for (const msg of serverMsgs) {
-      sendMessage(ws, msg)
+      pushToLiveBuffer(sessionId, msg) // 累积本轮, 供重连回放
+      sendToSession(sessionId, msg) // 动态找当前 ws; 断连期间静默 (只缓冲)
+      if (msg.type === 'message_complete') {
+        // 一轮完成 → 丢弃回放缓冲 + 用户文本 (完成轮由 transcript/history 提供)
+        liveTurnBuffers.delete(sessionId)
+        liveTurnUserText.delete(sessionId)
+      }
     }
 
     if (cliMsg.type === 'result') {
-      triggerTitleGeneration(ws, sessionId)
+      triggerTitleGeneration(sessionId)
     }
   })
+}
+
+/**
+ * 客户端 (重)连接时调用。若命中"上一连接的生成仍在进行" (liveTurnBuffers 非空),
+ * 先把本轮已缓冲事件整段回放给这条新 ws (resync_start → resync_user → 事件 → resync_end),
+ * 让前端从头重建这一轮; 再重绑 pump (保留缓冲继续累积) 让后续事件继续流向新 ws。
+ *
+ * 非 in-flight (idle 重连 / 普通首连后续) 时只重绑 pump —— 行为等价于旧 open 路径。
+ */
+function resyncSessionOutput(
+  sessionId: string,
+  ws: ServerWebSocket<WebSocketData>,
+) {
+  if (!conversationService.hasSession(sessionId)) {
+    // CLI 已不在 (宽限期内崩了 / 被杀) → 清掉可能残留的缓冲, 让前端回落到 history。
+    liveTurnBuffers.delete(sessionId)
+    liveTurnUserText.delete(sessionId)
+    return
+  }
+
+  const buf = liveTurnBuffers.get(sessionId)
+  if (buf && buf.length > 0) {
+    sendMessage(ws, { type: 'resync_start' })
+    const userText = liveTurnUserText.get(sessionId)
+    if (userText) sendMessage(ws, { type: 'resync_user', content: userText })
+    for (const msg of buf) sendMessage(ws, msg)
+    sendMessage(ws, { type: 'resync_end' })
+  }
+
+  // 保留缓冲 (resetBuffer:false): 重连后 CLI 续推的事件继续累积, 支持二次断连再回放。
+  rebindSessionOutput(sessionId, { resetBuffer: false })
+
+  // 断连期间 backend pipe 已关 → 期间 CLI 发起的工具权限请求没人 auto-approve, 生成卡住。
+  // 重连后把仍未决的权限请求重新发一遍 (经 backend decidePermission 补批), 续上生成。
+  // 这些帧前端不渲染 (fold 不消费 permission_request), 仅用于触发 backend 补批。
+  for (const p of conversationService.getPendingPermissionRequests(sessionId)) {
+    sendMessage(ws, {
+      type: 'permission_request',
+      requestId: p.requestId,
+      toolName: p.toolName,
+      input: p.input,
+    })
+  }
 }
 
 type RuntimeSettings = {
@@ -1596,4 +1741,6 @@ export function __resetWebSocketHandlerStateForTests(): void {
   activeSessions.clear()
   sessionCleanupTimers.clear()
   prewarmIdleTimers.clear()
+  liveTurnBuffers.clear()
+  liveTurnUserText.clear()
 }

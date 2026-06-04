@@ -49,6 +49,8 @@ type Config struct {
 	BucketPaperPDFs           string
 	BucketFeedbackAttachments string
 	BucketPeerReviewAssets    string
+	BucketPrism               string
+	BucketFeatureTools        string
 	UseSSL                    bool
 }
 
@@ -112,6 +114,12 @@ func Init(cfg Config) error {
 				"bucket", cfg.BucketFeedbackAttachments, "err", err)
 		}
 	}
+	if cfg.BucketPrism != "" {
+		if err := ensureBucket(ctx, c, cfg.BucketPrism); err != nil {
+			return fmt.Errorf("storage: 创建 bucket %q 失败: %w", cfg.BucketPrism, err)
+		}
+	}
+
 	if cfg.BucketPeerReviewAssets != "" {
 		if err := ensureBucket(ctx, c, cfg.BucketPeerReviewAssets); err != nil {
 			return fmt.Errorf("storage: 创建 bucket %q 失败: %w", cfg.BucketPeerReviewAssets, err)
@@ -122,6 +130,13 @@ func Init(cfg Config) error {
 		if err := ensureTmpLifecycle(ctx, c, cfg.BucketPeerReviewAssets); err != nil {
 			slog.Warn("storage: 设置 peer-review tmp 生命周期规则失败",
 				"bucket", cfg.BucketPeerReviewAssets, "err", err)
+		}
+	}
+
+	// 功能广场工具 logo —— 永久资源, 不挂 tmp lifecycle。
+	if cfg.BucketFeatureTools != "" {
+		if err := ensureBucket(ctx, c, cfg.BucketFeatureTools); err != nil {
+			return fmt.Errorf("storage: 创建 bucket %q 失败: %w", cfg.BucketFeatureTools, err)
 		}
 	}
 
@@ -201,6 +216,20 @@ func PeerReviewAssetBucket() string {
 	mu.RLock()
 	defer mu.RUnlock()
 	return config.BucketPeerReviewAssets
+}
+
+// PrismBucket 暴露 Prism 智能写作编译产物 bucket 名。
+func PrismBucket() string {
+	mu.RLock()
+	defer mu.RUnlock()
+	return config.BucketPrism
+}
+
+// FeatureToolsBucket 暴露功能广场工具 logo bucket 名。
+func FeatureToolsBucket() string {
+	mu.RLock()
+	defer mu.RUnlock()
+	return config.BucketFeatureTools
 }
 
 // PutOptions Put 时的可选参数

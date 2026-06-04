@@ -18,6 +18,17 @@ import (
 	"time"
 )
 
+// 注:历史上这里有个 isPrivilegedRole 闸门,把 admin/super_admin 挡在用户端登录/改密之外
+// (那时管理员走独立的 5455 后台)。5455 后台已下线,现在管理员与普通用户**共用** 5411
+// 这一套登录入口 —— 管理员也必须能从 /user/login 登入、登入后凭 role=admin token 进 /admin
+// (前端 adminGuard 校验角色)。因此该闸门已移除。原 2.5 担心的「经用户面爆破 OTP 改管理员
+// 密码」由验证码失败计数(cache.VerifyCode)+ 限流可信代理修复(SetTrustedProxies)兜底。
+
+// dummyBcryptHash 用于「账号不存在 / 未设密码」时也跑一次 bcrypt 比较,把登录响应耗时抹平
+// 到与「账号存在但密码错」一致,堵住「响应快 = 该邮箱/手机号未注册」的时间侧信道枚举。
+// 包加载时算一次;万一算失败(返回 ""),CheckPassword 仍安全返回 false,只是少了恒定耗时保护。
+var dummyBcryptHash, _ = utils.HashPassword("scholay-constant-time-dummy")
+
 // SendWelcomeMessage 发送新用户欢迎站内信
 func (s *Service) SendWelcomeMessage(userID uint) {
 	if s.messageService == nil {
@@ -61,7 +72,7 @@ func (s *Service) RegisterWithEmailAndInvitation(ctx context.Context, email, pas
 		return nil, "", err
 	}
 	if existing != nil {
-		return nil, "", errors.New("该邮箱已被注册")
+		return nil, "", errors.New("该邮箱已注册,请直接登录")
 	}
 
 	// Hash password
@@ -81,7 +92,7 @@ func (s *Service) RegisterWithEmailAndInvitation(ctx context.Context, email, pas
 			return err
 		}
 		if existing != nil {
-			return errors.New("该邮箱已被注册")
+			return errors.New("该邮箱已注册,请直接登录")
 		}
 
 		// Generate random username
@@ -147,20 +158,22 @@ func (s *Service) LoginWithEmail(email, password, ip string) (*User, string, err
 		return nil, "", err
 	}
 
-	if user == nil {
+	// 统一口径 + 恒定耗时:无论账号是否存在,都先跑一次 bcrypt(不存在/无密码则比对 dummy hash),
+	// 再把「不存在 / 未设密码 / 密码错」全部收敛成同一句「邮箱或密码错误」。
+	// 这样既不靠错误文案、也不靠响应快慢泄露「某邮箱是否注册」(防账号枚举)。
+	// 管理员/超管不再特殊处理:与普通用户共用本登录入口,登入后凭 role=admin token 进 /admin。
+	hash := dummyBcryptHash
+	if user != nil && user.PasswordHash != nil {
+		hash = *user.PasswordHash
+	}
+	passwordOK := utils.CheckPassword(password, hash)
+	if user == nil || user.PasswordHash == nil || !passwordOK {
 		return nil, "", errors.New("邮箱或密码错误")
 	}
 
+	// 密码正确后才区分停用 —— 此时对方已证明掌控账号,可如实告知,不构成枚举。
 	if user.Status != 1 {
 		return nil, "", errors.New("账号已被停用")
-	}
-
-	if user.PasswordHash == nil {
-		return nil, "", errors.New("该账号未开通邮箱登录")
-	}
-
-	if !utils.CheckPassword(password, *user.PasswordHash) {
-		return nil, "", errors.New("邮箱或密码错误")
 	}
 
 	// Update last login time and IP
@@ -196,8 +209,10 @@ func (s *Service) ResetPassword(ctx context.Context, email, code, newPassword st
 	if err != nil {
 		return 0, err
 	}
+	// 验证码已校验通过 = 已证明掌控该邮箱(攻击者拿不到别人邮箱的码,错 5 次即烧码),
+	// 因此如实告知「未注册」不构成账号枚举,反而让走「忘记密码」却其实没注册的用户不再一头雾水。
 	if user == nil {
-		return 0, errors.New("该邮箱未注册")
+		return 0, errors.New("该邮箱未注册,请先注册")
 	}
 
 	// Hash new password
@@ -228,8 +243,10 @@ func (s *Service) LoginWithEmailCode(ctx context.Context, email, code, ip string
 	if err != nil {
 		return nil, "", err
 	}
+	// 验证码已校验通过 = 已证明掌控该邮箱(攻击者拿不到别人邮箱的码,错 5 次即烧码),
+	// 故如实告知「未注册」不构成枚举,避免用户在「密码登录失败→验证码登录也失败」之间一头雾水。
 	if user == nil {
-		return nil, "", errors.New("该邮箱未注册")
+		return nil, "", errors.New("该邮箱未注册,请先注册")
 	}
 
 	if user.Status != 1 {

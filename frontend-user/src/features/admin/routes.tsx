@@ -66,6 +66,26 @@ export const adminRoutes: RouteObject[] = [
         lazy: lazyPage(() => import('./pages/HotContentPage'))('HotContentPage'),
       },
       {
+        path: 'tools',
+        handle: { title: '功能广场' },
+        lazy: lazyPage(() => import('./pages/FeatureToolsPage'))('FeatureToolsPage'),
+      },
+      {
+        path: 'tools-import',
+        handle: { title: '导入工具' },
+        lazy: lazyPage(() => import('./pages/FeatureToolImportPage'))('FeatureToolImportPage'),
+      },
+      {
+        path: 'tools-jobs',
+        handle: { title: '导入任务' },
+        lazy: lazyPage(() => import('./pages/FeatureToolJobsPage'))('FeatureToolJobsPage'),
+      },
+      {
+        path: 'tools-webhooks',
+        handle: { title: 'Webhook 同步' },
+        lazy: lazyPage(() => import('./pages/FeatureToolWebhooksPage'))('FeatureToolWebhooksPage'),
+      },
+      {
         path: 'feedback',
         handle: { title: '用户反馈' },
         lazy: lazyPage(() => import('./pages/FeedbackPage'))('FeedbackPage'),

@@ -8,3 +8,4 @@ dist
 .vite
 coverage
 src/shared/api/schema.d.ts
+public/pdfjs-cmaps/

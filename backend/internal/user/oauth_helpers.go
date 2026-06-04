@@ -186,11 +186,19 @@ func (h *Handler) findOrCreateOAuthUser(ctx context.Context, identity oauthIdent
 	providerDataBytes, _ := json.Marshal(identity.ProviderDataExtras)
 	providerDataJSON := string(providerDataBytes)
 
-	// 3. email 已被其他 user 占用 → 发 merge_token,等用户决策
+	// 3. email 已被其他 user 占用 → 发 merge_token,等用户登录目标账号后确认
 	if identity.Email != "" {
 		found, err := h.service.FindByEmail(identity.Email)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return oauthOutcome{}, fmt.Errorf("find user by email: %w", err)
+		}
+		if found != nil && !identity.EmailVerified {
+			// 第三方给的邮箱「未经验证」却撞上了已有账号:既不能信任它去合并(可能是
+			// 冒用他人邮箱),也不能拿它建新号(邮箱已被占用)。降级为「建一个不带邮箱的
+			// 独立账号」—— 等同用户主动选「新建独立账号」,绝不静默并入受害者账号。
+			// 清空 email 后落到下面的新建分支即可(新号无 email,不触发唯一键冲突)。
+			identity.Email = ""
+			found = nil
 		}
 		if found != nil {
 			displayName := identity.DisplayName

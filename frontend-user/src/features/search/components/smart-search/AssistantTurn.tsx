@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import {
   AssistantBubble,
   ChatStyles,
@@ -25,7 +26,9 @@ import { MINICOD_TOOL_PREFIX } from './types';
  *
  * 其它视觉契约 (气泡 / markdown / thinking / 流式 indicator) 全部走 shared, 跟 claw 保持一致。
  */
-export function AssistantTurn({ turn }: { turn: Turn }) {
+// memo: 长会话里历史轮 turn 引用稳定(replayHistoryAsTurns 经 useMemo 缓存)→ 跳过重渲染,
+// 只有流式中那轮重渲染。配合 SmartSearchPanel 的渲染窗口压住长会话开销。
+export const AssistantTurn = memo(function AssistantTurn({ turn }: { turn: Turn }) {
   const visible = hasVisibleAssistantContent(turn);
   const isThinkingActive =
     !turn.complete && turn.placeholder?.state === 'thinking';
@@ -120,7 +123,7 @@ export function AssistantTurn({ turn }: { turn: Turn }) {
       {turn.complete && turn.paused && !turn.errorMessage && <PausedNotice />}
     </div>
   );
-}
+});
 
 /** chip 标题区追加的 "Discovery 「query」" 两块, smart-search 特有. */
 function ToolHeaderExtras({

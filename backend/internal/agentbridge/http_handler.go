@@ -28,11 +28,30 @@ package agentbridge
 //   - 模型切换 (claw /models) — 各 feature 暴露不一样的 tier
 
 import (
+	"strconv"
+
 	"github.com/gin-gonic/gin"
 
 	"scholar-backend/internal/common/errcode"
 	"scholar-backend/internal/common/utils"
 )
+
+// ParseLimitTurns 从 ?limit= 读取"最近 N 轮"分页参数。缺省/非法/<=0 → 0 (= 不分页, 返回全部)。
+// 上限 500 防止前端传超大值把分页架空。各 feature 的 messages handler 共用。
+func ParseLimitTurns(c *gin.Context) int {
+	raw := c.Query("limit")
+	if raw == "" {
+		return 0
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n <= 0 {
+		return 0
+	}
+	if n > 500 {
+		return 500
+	}
+	return n
+}
 
 // Labels 控制 5 个端点的错误响应文案 (前端用户看到的中文)。
 // 业务码不需要传 — 都是 errcode.AgentUnreachable / 5001 (WS ticket); 见 sendAgentErr。
@@ -121,14 +140,16 @@ func (h *SessionHandler) ResetSession(c *gin.Context) {
 // GetSessionMessages — GET /session/messages: 拉历史消息 (latest active session).
 func (h *SessionHandler) GetSessionMessages(c *gin.Context) {
 	userID := c.GetUint("user_id")
-	result, err := h.Feature.GetSessionMessages(c.Request.Context(), userID)
+	result, err := h.Feature.GetSessionMessages(c.Request.Context(), userID, ParseLimitTurns(c))
 	if err != nil {
 		utils.InternalError(c, errcode.AgentUnreachable, h.Labels.LoadMessagesFailed, err)
 		return
 	}
 	utils.Success(c, gin.H{
-		"sessionId": result.SessionID,
-		"messages":  result.Messages,
+		"sessionId":  result.SessionID,
+		"messages":   result.Messages,
+		"totalTurns": result.TotalTurns,
+		"hasMore":    result.HasMore,
 	})
 }
 

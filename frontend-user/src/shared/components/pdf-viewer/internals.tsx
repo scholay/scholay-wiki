@@ -39,8 +39,19 @@ export function buildPairs(numPages: number): Array<[number, number | null]> {
 }
 
 /**
+ * pdf.js 资源选项 —— CJK(中/日/韩)字体在浏览器渲染必须提供 CMap 文件,否则 react-pdf 预览里
+ * 中文字符会"字体丢失"显示为空白(英文/数学正常)。cmaps 由 predev/prebuild 脚本拷到 public/pdfjs-cmaps/。
+ * 对纯 ASCII PDF 无副作用(仅按需懒加载)。所有 PDF 一律带上,故 peer-review / library 等也一并修好。
+ */
+const PDFJS_ASSET_OPTIONS = {
+  cMapUrl: `${import.meta.env.BASE_URL}pdfjs-cmaps/`,
+  cMapPacked: true,
+};
+
+/**
  * 把 PdfSource union 拆成 react-pdf 的 `file` 和 `options` 两个 prop。
  * 鉴权场景 (`{ url, httpHeaders, withCredentials }`) 走 options;其他形态原样透传。
+ * 两种形态都注入 CJK CMap 选项。
  */
 export function resolvePdfSource(file: PdfSource): {
   fileProp: unknown;
@@ -60,12 +71,13 @@ export function resolvePdfSource(file: PdfSource): {
     return {
       fileProp: { url },
       options: {
+        ...PDFJS_ASSET_OPTIONS,
         ...(httpHeaders ? { httpHeaders } : {}),
         ...(withCredentials != null ? { withCredentials } : {}),
       },
     };
   }
-  return { fileProp: file, options: undefined };
+  return { fileProp: file, options: { ...PDFJS_ASSET_OPTIONS } };
 }
 
 /**

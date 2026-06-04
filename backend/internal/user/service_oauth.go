@@ -146,16 +146,27 @@ func (s *Service) GetPendingMerge(ctx context.Context, token string) (*cache.Pen
 
 // FinalizePendingMerge 是「确认合并」分支:
 //   - 取出 pending 数据
+//   - 校验调用方已登录、且登录的就是目标账号本人(authUserID == TargetUserID)
 //   - 在 user_auth_providers 表里给 TargetUserID 加一行 provider 链接
 //   - 删除 token(一次性)
 //   - 签发 JWT 并返回 user 让 caller 走标准 OAuth 成功响应
-func (s *Service) FinalizePendingMerge(ctx context.Context, token, ip string) (*User, string, error) {
+//
+// 安全:authUserID 来自 confirm-merge 受保护路由的 JWT。只持有 merge_token 不足以合并
+// —— 必须先以目标账号身份登录(密码 / 验证码 / 已绑定的其他 provider 均可),证明你确实
+// 掌控该账号,否则只控制了一个第三方身份(且其 email 撞上受害者邮箱)的攻击者就能把自己
+// 的第三方账号绑进受害者账号并拿到受害者 JWT。详见 oauth merge 接管漏洞修复。
+func (s *Service) FinalizePendingMerge(ctx context.Context, token string, authUserID uint, ip string) (*User, string, error) {
 	pending, err := cache.GetOAuthMerge(ctx, token)
 	if err != nil {
 		return nil, "", err
 	}
 	if pending == nil {
 		return nil, "", errors.New("合并链接已过期或无效,请重新发起第三方登录")
+	}
+
+	// 所有权闸门:必须以目标账号本人身份登录后才能确认合并。
+	if authUserID == 0 || authUserID != pending.TargetUserID {
+		return nil, "", errors.New("请先登录邮箱为 " + pending.TargetEmail + " 的账号,再确认绑定")
 	}
 
 	user, err := s.repo.FindByID(pending.TargetUserID)

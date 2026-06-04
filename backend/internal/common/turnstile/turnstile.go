@@ -104,11 +104,15 @@ func VerifyWithConfig(ctx context.Context, token string, remoteIP string, system
 		return false, fmt.Errorf("人机验证码不能为空")
 	}
 
-	// Use configured secret key
+	// Use configured secret key.
+	// 关键:启用了人机验证但密钥为空时必须 fail-closed。历史实现会回退到
+	// Cloudflare 文档里的「永远通过」测试密钥 1x0000...AA —— 这会让任何 token(甚至
+	// 垃圾值)都校验通过,而 /config/system 仍报 enable_turnstile=true、前端照常渲染
+	// 控件,管理员以为防护开着实则完全失效。这里改为拒绝并 Error,逼管理员补上密钥。
 	secretKey := systemConfig.TurnstileSecretKey
 	if secretKey == "" {
-		// Fallback to test key for development
-		secretKey = "1x0000000000000000000000000000000AA"
+		slog.Error("turnstile: enabled but secret key is empty — refusing to verify (fail closed)")
+		return false, fmt.Errorf("人机验证未正确配置,请联系管理员")
 	}
 
 	// Verify token using configured secret key

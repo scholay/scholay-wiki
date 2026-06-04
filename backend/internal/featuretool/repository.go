@@ -1,0 +1,336 @@
+// ============================================================================
+// 功能广场 —— 仓储层 (GORM)
+// ============================================================================
+
+package featuretool
+
+import (
+	"errors"
+	"strings"
+	"time"
+
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+)
+
+type Repository struct {
+	db *gorm.DB
+}
+
+func NewRepository(db *gorm.DB) *Repository { return &Repository{db: db} }
+
+// ── 查询过滤 ─────────────────────────────────────────────────────────────────
+
+// ListФilter 列表过滤条件。
+type ListFilter struct {
+	Status     string // 空 = 不限 (admin); "published" = 仅上线 (public)
+	Category   string
+	AccessType string
+	PriceType  string
+	OpenSource string // "" 不限 | "open" 仅开源 | "closed" 仅闭源
+	Keyword    string // 搜索词:>=2 字走 FULLTEXT(ngram), 1 字回退 LIKE
+	Page       int
+	PageSize   int
+	SortBy     string // created_at | updated_at | name | view_count | sort_weight
+	SortOrder  string // asc | desc
+}
+
+// useFulltext 关键词 >=2 字(含 1 个中文字 = 2 字节但 1 rune,这里按 rune 计)走 ngram 全文检索;
+// 1 rune 太短 ngram 命中不到, 回退 LIKE。
+func (f ListFilter) keyword() (kw string, ft bool) {
+	kw = strings.TrimSpace(f.Keyword)
+	return kw, len([]rune(kw)) >= 2
+}
+
+func (r *Repository) applyFilter(q *gorm.DB, f ListFilter) *gorm.DB {
+	if f.Status != "" {
+		q = q.Where("status = ?", f.Status)
+	}
+	if f.Category != "" {
+		q = q.Where("category = ?", f.Category)
+	}
+	if f.AccessType != "" {
+		// 形式筛选只暴露 在线(website)/ 下载(download);"两者"(both) 不单列,
+		// 而是同时归入这两类 —— 筛 website / download 时都把 both 计入。
+		if f.AccessType == "website" || f.AccessType == "download" {
+			q = q.Where("access_type IN ?", []string{f.AccessType, "both"})
+		} else {
+			q = q.Where("access_type = ?", f.AccessType)
+		}
+	}
+	if f.PriceType != "" {
+		q = q.Where("price_type = ?", f.PriceType)
+	}
+	switch f.OpenSource {
+	case "open":
+		q = q.Where("is_open_source = 1")
+	case "closed":
+		q = q.Where("is_open_source = 0")
+	}
+	// 搜索:优先标题(name/name_en)其次内容(tagline/description_md)。
+	// >=2 rune 走 ngram FULLTEXT(对 10W+ 行可用索引, 不全表扫); 1 rune 回退 LIKE。
+	if kw, ft := f.keyword(); kw != "" {
+		if ft {
+			q = q.Where(
+				"(MATCH(`name`,`name_en`) AGAINST(? IN NATURAL LANGUAGE MODE) OR MATCH(`tagline`,`description_md`) AGAINST(? IN NATURAL LANGUAGE MODE))",
+				kw, kw,
+			)
+		} else {
+			like := "%" + kw + "%"
+			q = q.Where("name LIKE ? OR name_en LIKE ?", like, like)
+		}
+	}
+	return q
+}
+
+// List 分页列表 + 总数。
+func (r *Repository) List(f ListFilter) ([]Tool, int64, error) {
+	q := r.applyFilter(r.db.Model(&Tool{}), f)
+
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	page, pageSize := f.Page, f.PageSize
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 200 {
+		pageSize = 24
+	}
+
+	// 排序:有全文搜索词时按相关度;否则按 权重/指定列。
+	if kw, ft := f.keyword(); kw != "" && ft {
+		// 标题命中优先:标题精确相等(3) > 标题包含(2) > 仅内容命中(0);同档再按全文相关度
+		// (标题 3× + 内容 1×),最后按热度兜底。ngram 对 "matlab" 这类拉丁词会在大量中文/英文
+		// 简介里命中 bigram(噪声),靠这一档把"标题正中"的工具(如 MATLAB)稳定顶到内容命中之上。
+		like := "%" + kw + "%"
+		// 注意:GORM v1.25 的 db.Order() 只认 string / clause.OrderByColumn,直接传 clause.Expr
+		// 会被静默丢弃(ORDER BY 根本不生成,结果退化成主键序)。必须用 Clauses(OrderBy{Expression}).
+		q = q.Clauses(clause.OrderBy{Expression: clause.Expr{
+			SQL: "(CASE WHEN `name` = ? OR `name_en` = ? THEN 3 " +
+				"WHEN `name` LIKE ? OR `name_en` LIKE ? THEN 2 ELSE 0 END) DESC, " +
+				"(MATCH(`name`,`name_en`) AGAINST(? IN NATURAL LANGUAGE MODE) * 3 + " +
+				"MATCH(`tagline`,`description_md`) AGAINST(? IN NATURAL LANGUAGE MODE)) DESC, " +
+				"`view_count` DESC",
+			Vars: []interface{}{kw, kw, like, like, kw, kw},
+		}})
+	} else {
+		sortBy := "created_at"
+		switch f.SortBy {
+		case "updated_at", "name", "view_count", "sort_weight", "created_at":
+			sortBy = f.SortBy
+		}
+		order := "DESC"
+		if strings.EqualFold(f.SortOrder, "asc") {
+			order = "ASC"
+		}
+		q = q.Order("sort_weight DESC, " + sortBy + " " + order)
+	}
+
+	var items []Tool
+	if err := q.Offset((page - 1) * pageSize).Limit(pageSize).
+		Find(&items).Error; err != nil {
+		return nil, 0, err
+	}
+	return items, total, nil
+}
+
+func (r *Repository) GetByID(id uint64) (*Tool, error) {
+	var t Tool
+	if err := r.db.First(&t, id).Error; err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
+func (r *Repository) GetBySlug(slug string) (*Tool, error) {
+	var t Tool
+	if err := r.db.Where("slug = ?", slug).First(&t).Error; err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
+func (r *Repository) GetBySourceTopicID(topicID int64) (*Tool, error) {
+	var t Tool
+	err := r.db.Where("source_topic_id = ?", topicID).First(&t).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
+func (r *Repository) Create(t *Tool) error { return r.db.Create(t).Error }
+
+func (r *Repository) Save(t *Tool) error { return r.db.Save(t).Error }
+
+func (r *Repository) Delete(id uint64) error {
+	return r.db.Delete(&Tool{}, id).Error
+}
+
+// IncrViewCount 详情页访问 +1 (best-effort, 不阻塞)。
+func (r *Repository) IncrViewCount(id uint64) error {
+	return r.db.Model(&Tool{}).Where("id = ?", id).
+		UpdateColumn("view_count", gorm.Expr("view_count + 1")).Error
+}
+
+// CategoryCounts 各分类下 status 命中的工具数 (public 传 "published")。
+func (r *Repository) CategoryCounts(status string) (map[string]int64, int64, error) {
+	type row struct {
+		Category string
+		Cnt      int64
+	}
+	q := r.db.Model(&Tool{}).Select("category, COUNT(*) AS cnt")
+	if status != "" {
+		q = q.Where("status = ?", status)
+	}
+	var rows []row
+	if err := q.Group("category").Scan(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+	m := make(map[string]int64, len(rows))
+	var total int64
+	for _, x := range rows {
+		m[x.Category] = x.Cnt
+		total += x.Cnt
+	}
+	return m, total, nil
+}
+
+func (r *Repository) SlugExists(slug string, exceptID uint64) (bool, error) {
+	var cnt int64
+	q := r.db.Model(&Tool{}).Where("slug = ?", slug)
+	if exceptID > 0 {
+		q = q.Where("id <> ?", exceptID)
+	}
+	if err := q.Count(&cnt).Error; err != nil {
+		return false, err
+	}
+	return cnt > 0, nil
+}
+
+// ── 导入任务 ─────────────────────────────────────────────────────────────────
+
+func (r *Repository) CreateJob(j *ImportJob) error { return r.db.Create(j).Error }
+func (r *Repository) SaveJob(j *ImportJob) error    { return r.db.Save(j).Error }
+
+func (r *Repository) GetJob(id uint64) (*ImportJob, error) {
+	var j ImportJob
+	if err := r.db.First(&j, id).Error; err != nil {
+		return nil, err
+	}
+	return &j, nil
+}
+
+func (r *Repository) ListJobs(page, pageSize int) ([]ImportJob, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+	var items []ImportJob
+	var total int64
+	if err := r.db.Model(&ImportJob{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	if err := r.db.Order("created_at DESC").
+		Offset((page - 1) * pageSize).Limit(pageSize).
+		Find(&items).Error; err != nil {
+		return nil, 0, err
+	}
+	return items, total, nil
+}
+
+// ── Webhook ──────────────────────────────────────────────────────────────────
+
+func (r *Repository) CreateWebhook(w *Webhook) error { return r.db.Create(w).Error }
+func (r *Repository) SaveWebhook(w *Webhook) error    { return r.db.Save(w).Error }
+func (r *Repository) DeleteWebhook(id uint64) error   { return r.db.Delete(&Webhook{}, id).Error }
+
+func (r *Repository) GetWebhook(id uint64) (*Webhook, error) {
+	var w Webhook
+	if err := r.db.First(&w, id).Error; err != nil {
+		return nil, err
+	}
+	return &w, nil
+}
+
+func (r *Repository) ListWebhooks() ([]Webhook, error) {
+	var items []Webhook
+	err := r.db.Order("created_at DESC").Find(&items).Error
+	return items, err
+}
+
+// EnabledWebhooks 取所有启用的 webhook (派发时用)。
+func (r *Repository) EnabledWebhooks() ([]Webhook, error) {
+	var items []Webhook
+	err := r.db.Where("enabled = 1").Find(&items).Error
+	return items, err
+}
+
+// UpdateWebhookStatus 回写最近一次投递结果 (last_status/last_error/last_delivered_at)。
+func (r *Repository) UpdateWebhookStatus(id uint64, status, lastErr string, at time.Time) error {
+	return r.db.Model(&Webhook{}).Where("id = ?", id).Updates(map[string]any{
+		"last_status":       status,
+		"last_error":        lastErr,
+		"last_delivered_at": at,
+	}).Error
+}
+
+func (r *Repository) InsertDelivery(d *WebhookDelivery) error { return r.db.Create(d).Error }
+
+func (r *Repository) ListDeliveries(webhookID uint64, limit int) ([]WebhookDelivery, error) {
+	if limit < 1 || limit > 200 {
+		limit = 50
+	}
+	var items []WebhookDelivery
+	err := r.db.Where("webhook_id = ?", webhookID).
+		Order("created_at DESC").Limit(limit).Find(&items).Error
+	return items, err
+}
+
+// ── Sitemap ──────────────────────────────────────────────────────────────────
+
+// SitemapRow sitemap 一条:slug + 最后更新时间。
+type SitemapRow struct {
+	Slug      string    `gorm:"column:slug"`
+	UpdatedAt time.Time `gorm:"column:updated_at"`
+}
+
+// SitemapCount 已上线工具总数 + 全表最近 updated_at。
+func (r *Repository) SitemapCount() (int64, time.Time, error) {
+	var cnt int64
+	if err := r.db.Model(&Tool{}).Where("status = ?", "published").Count(&cnt).Error; err != nil {
+		return 0, time.Time{}, err
+	}
+	var maxT *time.Time
+	_ = r.db.Model(&Tool{}).Where("status = ?", "published").
+		Select("MAX(updated_at)").Scan(&maxT).Error
+	t := time.Now()
+	if maxT != nil {
+		t = *maxT
+	}
+	return cnt, t, nil
+}
+
+// SitemapPage 第 page 页(1-based)已上线工具 slug+updated_at,按 id 升序稳定分页。
+func (r *Repository) SitemapPage(page, size int) ([]SitemapRow, error) {
+	if page < 1 {
+		page = 1
+	}
+	if size < 1 {
+		size = 20000
+	}
+	var rows []SitemapRow
+	err := r.db.Model(&Tool{}).Select("slug, updated_at").
+		Where("status = ?", "published").
+		Order("id ASC").Offset((page - 1) * size).Limit(size).
+		Scan(&rows).Error
+	return rows, err
+}

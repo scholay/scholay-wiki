@@ -78,6 +78,30 @@ func (s *Service) CheckAndConsume(ctx context.Context, userID uint, feature stri
 	return nil
 }
 
+// Refund 退还一次已扣的配额(CheckAndConsume 后,本次工作失败时回滚计数)。
+// best-effort:Redis 不可用就算了;DECR 不低于 0(并发下兜底)。不重置 TTL。
+func (s *Service) Refund(ctx context.Context, userID uint, feature string) {
+	if userID == 0 {
+		return
+	}
+	rdb := cache.GetRedis()
+	if rdb == nil {
+		return
+	}
+	key := dailyKey(feature, userID)
+	v, err := rdb.Decr(ctx, key).Result()
+	if err != nil {
+		slog.Warn("vip: refund decr failed", "feature", feature, "user_id", userID, "err", err)
+		return
+	}
+	if v < 0 {
+		// 不应出现(refund 多于 consume);兜底夹到 0,保留原 TTL 由后续 INCR 续。
+		if e := rdb.Set(ctx, key, 0, 25*time.Hour).Err(); e != nil {
+			slog.Warn("vip: refund floor failed", "feature", feature, "user_id", userID, "err", e)
+		}
+	}
+}
+
 func quotaMessage(feature, tier string, limit int) string {
 	if tier == TierFree {
 		return fmt.Sprintf("今日「%s」免费额度已用完(%d 次/天),升级专业版可大幅提升额度。", featureName(feature), limit)

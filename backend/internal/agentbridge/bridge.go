@@ -119,9 +119,34 @@ func (f *FeatureBridge) Bridge() *Bridge { return f.bridge }
 
 // SessionMessagesResult 是 GetSessionMessages 的返回包装, 把 sessionId 一并带回,
 // 让前端拿一份 payload 就能既建 WS 又渲染历史。
+//
+// 分页 (limitTurns>0 时): Messages 只含最近 limitTurns 个"用户轮", TotalTurns 是全部轮数,
+// HasMore 表示还有更早的轮没返回 (前端据此显示"加载更早")。超长会话靠这个避免一次性把
+// 上万轮 transcript 全量推给浏览器解析/渲染。
 type SessionMessagesResult struct {
-	SessionID string                 `json:"sessionId"`
-	Messages  []agent.SessionMessage `json:"messages"`
+	SessionID  string                 `json:"sessionId"`
+	Messages   []agent.SessionMessage `json:"messages"`
+	TotalTurns int                    `json:"totalTurns"`
+	HasMore    bool                   `json:"hasMore"`
+}
+
+// sliceRecentTurns 取 msgs 末尾、覆盖最近 limitTurns 个"用户轮"的子切片, 返回 (切片, 总轮数, 是否还有更早)。
+// 轮边界 = type=="user" 的 entry —— agent 已把带 tool_result 的 user entry 归类为 "tool_result"
+// (见 sessionService.entryToMessage), 所以 type=="user" 必是真实用户提问起点, 不会切在轮中间。
+// limitTurns<=0 或总轮数不超过 limit → 原样返回, hasMore=false。
+func sliceRecentTurns(msgs []agent.SessionMessage, limitTurns int) ([]agent.SessionMessage, int, bool) {
+	starts := make([]int, 0, 32)
+	for i := range msgs {
+		if msgs[i].Type == "user" {
+			starts = append(starts, i)
+		}
+	}
+	total := len(starts)
+	if limitTurns <= 0 || total <= limitTurns {
+		return msgs, total, false
+	}
+	startIdx := starts[total-limitTurns]
+	return msgs[startIdx:], total, true
 }
 
 // GetOrCreateSession 进入 feature 页时调 — 拿当前 (user, feature) 的 agent_session_id,
@@ -156,7 +181,7 @@ func (f *FeatureBridge) ResetSession(ctx context.Context, userID uint) (string, 
 
 	oldSessionID := row.AgentSessionID
 
-	created, err := f.bridge.client.CreateSession(ctx, nil)
+	created, err := f.bridge.client.CreateSession(ctx, f.spec.SessionOptions)
 	if err != nil {
 		return "", fmt.Errorf("create new agent session: %w", err)
 	}
@@ -200,7 +225,8 @@ func (f *FeatureBridge) ResetSession(ctx context.Context, userID uint) (string, 
 }
 
 // GetSessionMessages 拉历史消息; agent 端 404 时清旧 mapping + 重建空 session。
-func (f *FeatureBridge) GetSessionMessages(ctx context.Context, userID uint) (*SessionMessagesResult, error) {
+// limitTurns>0 时只返回最近 limitTurns 个用户轮 (分页, 见 sliceRecentTurns)。
+func (f *FeatureBridge) GetSessionMessages(ctx context.Context, userID uint, limitTurns int) (*SessionMessagesResult, error) {
 	sessionID, err := f.GetOrCreateSession(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -216,7 +242,8 @@ func (f *FeatureBridge) GetSessionMessages(ctx context.Context, userID uint) (*S
 		}
 		return nil, fmt.Errorf("agent get messages: %w", err)
 	}
-	return &SessionMessagesResult{SessionID: sessionID, Messages: msgs.Messages}, nil
+	sliced, total, hasMore := sliceRecentTurns(msgs.Messages, limitTurns)
+	return &SessionMessagesResult{SessionID: sessionID, Messages: sliced, TotalTurns: total, HasMore: hasMore}, nil
 }
 
 // GetSessionMessagesByID 拉指定 sessionID 的历史 (多会话场景: 用户在侧边栏选了某 session,
@@ -226,7 +253,7 @@ func (f *FeatureBridge) GetSessionMessages(ctx context.Context, userID uint) (*S
 // agent 端 404: 不自愈 (跟 GetSessionMessages 的"自动重建空 session"不同) —
 // 用户特意指定了一个 sessionId, 它真不存在时直接报 ErrNotFound 让前端 toast 提示,
 // 不应该静默换一个新 session 让用户困惑。
-func (f *FeatureBridge) GetSessionMessagesByID(ctx context.Context, userID uint, sessionID string) (*SessionMessagesResult, error) {
+func (f *FeatureBridge) GetSessionMessagesByID(ctx context.Context, userID uint, sessionID string, limitTurns int) (*SessionMessagesResult, error) {
 	owns, err := f.OwnsSession(userID, sessionID)
 	if err != nil {
 		return nil, fmt.Errorf("ownership check: %w", err)
@@ -246,7 +273,8 @@ func (f *FeatureBridge) GetSessionMessagesByID(ctx context.Context, userID uint,
 		}
 		return nil, fmt.Errorf("agent get messages: %w", err)
 	}
-	return &SessionMessagesResult{SessionID: sessionID, Messages: msgs.Messages}, nil
+	sliced, total, hasMore := sliceRecentTurns(msgs.Messages, limitTurns)
+	return &SessionMessagesResult{SessionID: sessionID, Messages: sliced, TotalTurns: total, HasMore: hasMore}, nil
 }
 
 // GetContextEstimate 透传上下文水位; 会话还没说过话时 agent 返回空 contextEstimate,
@@ -408,7 +436,7 @@ func (f *FeatureBridge) ListSessions(ctx context.Context, userID uint) ([]Sessio
 // 返回新建的 agent_session_id; DB mapping 一并写入, last_accessed_at = NOW 让新
 // session 自动成为"当前活跃"。
 func (f *FeatureBridge) CreateNewSession(ctx context.Context, userID uint) (string, error) {
-	created, err := f.bridge.client.CreateSession(ctx, nil)
+	created, err := f.bridge.client.CreateSession(ctx, f.spec.SessionOptions)
 	if err != nil {
 		return "", fmt.Errorf("create agent session: %w", err)
 	}
@@ -493,7 +521,7 @@ func (f *FeatureBridge) ActivateSession(userID uint, sessionID string) error {
 }
 
 func (f *FeatureBridge) createAndPersist(ctx context.Context, userID uint) (string, error) {
-	created, err := f.bridge.client.CreateSession(ctx, nil)
+	created, err := f.bridge.client.CreateSession(ctx, f.spec.SessionOptions)
 	if err != nil {
 		return "", fmt.Errorf("create agent session: %w", err)
 	}
@@ -523,7 +551,7 @@ func (f *FeatureBridge) createAndPersist(ctx context.Context, userID uint) (stri
 
 // recreate 自愈路径: agent 端 404 时清旧 mapping + 建新 + 写 DB。
 func (f *FeatureBridge) recreate(ctx context.Context, userID uint) (string, error) {
-	created, err := f.bridge.client.CreateSession(ctx, nil)
+	created, err := f.bridge.client.CreateSession(ctx, f.spec.SessionOptions)
 	if err != nil {
 		return "", fmt.Errorf("recreate agent session: %w", err)
 	}

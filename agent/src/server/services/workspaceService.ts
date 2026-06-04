@@ -392,6 +392,7 @@ export class WorkspaceService {
   async readFile(
     sessionId: string,
     filePath: string,
+    options?: { full?: boolean },
   ): Promise<WorkspaceReadFileResult> {
     const resolvedPath = await this.resolveWorkspacePath(sessionId, filePath)
 
@@ -419,7 +420,7 @@ export class WorkspaceService {
 
     let content: Buffer
     try {
-      if (!imageMimeType && stat.stat.size > MAX_PREVIEW_BYTES) {
+      if (!imageMimeType && !options?.full && stat.stat.size > MAX_PREVIEW_BYTES) {
         const fileHandle = await fs.open(resolvedPath.absolutePath, 'r')
         try {
           const previewBuffer = Buffer.alloc(MAX_PREVIEW_BYTES)
@@ -475,6 +476,45 @@ export class WorkspaceService {
       truncated: content.length < stat.stat.size,
       readBytes: content.length,
     }
+  }
+
+  // ── Scholay Prism agent-native: 写回会话工作区(保 relPath、原子、越界校验)──────
+  // 与 uploadSessionFile 不同:按相对路径原样覆盖写,**不加 UUID 前缀、保留子目录**,
+  // 供 backend 铺源(DB→cwd)/ 用户手改写回 / 撤销同步回 cwd。路径经 resolveWorkspacePath
+  // 双重校验(相对越界 + canonical realpath),杜绝写出工作区。
+
+  /** 原子写一个工作区文件(write-temp + rename)。父目录自动创建。返回相对路径与字节数。 */
+  async writeFile(
+    sessionId: string,
+    filePath: string,
+    content: string,
+  ): Promise<{ path: string; size: number }> {
+    const resolved = await this.resolveWorkspacePath(sessionId, filePath)
+    await fs.mkdir(path.dirname(resolved.absolutePath), { recursive: true })
+    const tmp = `${resolved.absolutePath}.tmp-${crypto.randomUUID()}`
+    await fs.writeFile(tmp, content, 'utf8')
+    await fs.rename(tmp, resolved.absolutePath) // 同目录 rename 原子
+    return { path: resolved.relativePath, size: Buffer.byteLength(content, 'utf8') }
+  }
+
+  /** 删一个工作区文件(force:不存在也不报错,幂等)。 */
+  async deleteFile(sessionId: string, filePath: string): Promise<{ path: string }> {
+    const resolved = await this.resolveWorkspacePath(sessionId, filePath)
+    await fs.rm(resolved.absolutePath, { force: true })
+    return { path: resolved.relativePath }
+  }
+
+  /** 原子改名一个工作区文件(两端都越界校验,目标父目录自动创建)。 */
+  async renameFile(
+    sessionId: string,
+    fromPath: string,
+    toPath: string,
+  ): Promise<{ from: string; to: string }> {
+    const src = await this.resolveWorkspacePath(sessionId, fromPath)
+    const dst = await this.resolveWorkspacePath(sessionId, toPath)
+    await fs.mkdir(path.dirname(dst.absolutePath), { recursive: true })
+    await fs.rename(src.absolutePath, dst.absolutePath)
+    return { from: src.relativePath, to: dst.relativePath }
   }
 
   async readTree(

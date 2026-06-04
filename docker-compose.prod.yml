@@ -218,12 +218,16 @@ services:
       AGENT_AUTH_TOKEN: ${AGENT_INTERNAL_TOKEN:?AGENT_INTERNAL_TOKEN is required in prod}
       # 智能审稿: backend 按 slug 读审稿人 skill 的「评分人格」段注入评分轮 (见 peerreview)。
       PEERREVIEW_SKILLS_DIR: ${PEERREVIEW_SKILLS_DIR:-/app/reviewer-skills}
+      # Prism 编译任务共享目录(与 scholar_prism_tex 同卷)
+      PRISM_WORK_DIR: ${PRISM_WORK_DIR:-/data/prism-work}
       # Go memory limit (75% of container memory limit)
       GOMEMLIMIT: 768MiB
     volumes:
       - /etc/localtime:/etc/localtime:ro
       # 审稿人 skill 库 (reviewer-roster + rv-*, 已移到 reviewer-skills/, claw 看不到): backend 只读读 SCORING_PERSONA。
       - ./agent/data/claude/reviewer-skills:/app/reviewer-skills:ro
+      # Prism 编译任务共享卷(后端写任务,scholar_prism_tex watcher 编译回写)
+      - ./data/prism-work:/data/prism-work
     expose:
       - "8080"
     # /health 会 ping MySQL+Redis —— 容器级健康信号, 让 nginx/编排能识别"起来了但依赖挂了"的退化态
@@ -333,6 +337,41 @@ services:
       resources:
         limits:
           memory: 128M
+
+  # Scholay Prism LaTeX 编译沙箱 (源在 prism_tex/)。生产用 ACR 镜像。
+  # 与后端只经共享卷 ./data/prism-work 通信,network_mode: none 彻底断网 + 全套硬化。
+  prism-tex:
+    image: ${REGISTRY:-crpi-ebrftpuujezamyxv.cn-shanghai.personal.cr.aliyuncs.com}/scholay/prism_tex:${IMAGE_TAG:-latest}
+    container_name: scholar_prism_tex
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      <<: *tz-env
+      COMPILE_TIMEOUT: ${PRISM_COMPILE_TIMEOUT:-60}
+    network_mode: none
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - ./data/prism-work:/work
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.5"
+          pids: 256
+        reservations:
+          memory: 128M
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/heartbeat && [ $(( $(date +%s) - $(stat -c %Y /tmp/heartbeat) )) -lt 30 ]"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   frontend-user:
     image: ${REGISTRY:-crpi-ebrftpuujezamyxv.cn-shanghai.personal.cr.aliyuncs.com}/scholay/frontend-user:${IMAGE_TAG:-latest}

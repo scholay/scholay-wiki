@@ -55,13 +55,15 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
 		// 敏感认证接口严格限流（防暴力破解 / 防短信&邮件轰炸）
 		// 登录/注册/改密 —— 每 IP 每分钟 30 次（普通用户足够，恶意扫号远达不到）
 		// 发码类 —— 每 IP 每分钟 8 次（足够正常重试，但无法用于短信轰炸）
-		// 账号存在性查询 —— 每 IP 每分钟 20 次（防用户枚举攻击,但允许正常注册流程的存在性提示）
 		authLimit := middleware.RateLimitMiddleware(30, time.Minute)
 		codeLimit := middleware.RateLimitMiddleware(8, time.Minute)
-		checkLimit := middleware.RateLimitMiddleware(20, time.Minute)
+
+		// 注:/check-email 与 /check-phone(返回 {exists}) 已下线 —— 它们是纯账号枚举
+		// 探针,且前端无任何消费者。登录改为统一「邮箱/手机号或密码错误」+ 恒定耗时,
+		// 不再从任何登录路径泄露账号是否存在。CheckEmail/CheckPhone handler 保留为死代码,
+		// 不再注册路由。
 
 		// Email-based auth
-		user.POST("/check-email", checkLimit, h.CheckEmail)
 		user.POST("/send-code", codeLimit, h.SendVerificationCode)
 		user.POST("/register", authLimit, h.Register)
 		user.POST("/login", authLimit, h.Login)
@@ -69,7 +71,6 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
 		user.POST("/reset-password", authLimit, h.ResetPassword)
 
 		// Phone-based auth
-		user.POST("/check-phone", checkLimit, h.CheckPhone)
 		user.POST("/send-phone-code", codeLimit, h.SendPhoneVerificationCode)
 		user.POST("/register-phone", authLimit, h.RegisterWithPhone)
 		user.POST("/login-phone", authLimit, h.LoginWithPhone)

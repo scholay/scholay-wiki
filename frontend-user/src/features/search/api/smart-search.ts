@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useMutation, useQuery, type UseQueryResult } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
 import { STALE_FRESH } from '@/shared/lib/query-config';
 import { useAuthStore } from '@/stores/auth.store';
@@ -91,7 +91,12 @@ export type ServerMessage =
   | { type: 'pong' }
   // ── 多窗口接管: 后端 displacement 路径下发, 表示当前 WS 被另一个 tab 顶掉了。
   // 收到这帧时, useSmartSearchSocket 不应重连; 应 set displaced=true 让 UI 弹 banner。
-  | { type: 'displaced'; message: string };
+  | { type: 'displaced'; message: string }
+  // ── 断线续流: 重连后 agent 整段回放当前 in-flight 轮 (见 agent ws/events.ts)。
+  //    resync_start → (可选)resync_user → 缓冲事件 → resync_end。
+  | { type: 'resync_start' }
+  | { type: 'resync_user'; content: string }
+  | { type: 'resync_end' };
 
 export type SmartSearchWSState =
   | 'idle'
@@ -199,27 +204,51 @@ export interface SmartSearchHistoryEntry {
 interface HistoryResponse {
   sessionId: string;
   messages: SmartSearchHistoryEntry[] | null;
+  /** 全部用户轮数 (后端统计, 分页时用) */
+  totalTurns?: number;
+  /** 是否还有更早的轮没返回 → 前端显示"加载更早" */
+  hasMore?: boolean;
 }
 
-/** 拉历史会话,用户回到智能搜索页时一次性灌入。 */
+/** 拉历史会话。limitTurns>0 时只取**最近 N 个用户轮**(超长会话分页, 后端 sliceRecentTurns)。 */
 export function useSmartSearchHistory(
-  sessionId: string | null | undefined
+  sessionId: string | null | undefined,
+  limitTurns?: number
 ): UseQueryResult<HistoryResponse> {
   const token = useAuthStore((s) => s.token);
   return useQuery<HistoryResponse>({
-    queryKey: ['smart-search', 'history', sessionId],
+    queryKey: ['smart-search', 'history', sessionId, limitTurns ?? 0],
     enabled: !!token && !!sessionId,
-    // 历史是只追加的; 进入页面拉一次足够。reset 时 invalidate 强制 refetch。
+    // 历史是只追加的, 同一 mount 生命周期内不需要反复刷 (staleTime: Infinity);
+    // 但**每次 panel 重新挂载都必须重拉一次** —— 这是修复"切走再回来对话凭空消失"的关键。
+    //
+    // 背景: 实时对话的 turns 只存在于 useSmartSearchSocket 的 messages + panel 的
+    //   pendingTurns (组件局部 state), 并不会写回这个 history cache; 后端 transcript
+    //   才是真源。用户跨页面导航离开 /search 时, 整个 SearchPage 路由 unmount, 局部
+    //   state 全丢; 回来时 panel 重新 mount, 若仅靠 staleTime:Infinity 的旧缓存,
+    //   react-query 会原样返回**首次挂载时拉到的空快照**, 于是对话整段消失, 必须 F5
+    //   清掉 RQ 缓存才出来。
+    //   refetchOnMount:'always' 让每次重挂都从 transcript 重放完整对话, 与"刷新页面"
+    //   行为一致, 但不需要真刷新。reset 时仍走 invalidate 强制刷。
     staleTime: Infinity,
+    refetchOnMount: 'always',
+    // "加载更早"增大 limitTurns 换 queryKey 重取时, 保留旧列表直到新的到, 避免列表塌成空。
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       try {
+        const url =
+          limitTurns && limitTurns > 0
+            ? `/user/smart-search/session/messages?limit=${limitTurns}`
+            : '/user/smart-search/session/messages';
         const { data } = await http.get<
           { data?: HistoryResponse } & Partial<HistoryResponse>
-        >('/user/smart-search/session/messages');
+        >(url);
         const payload = unwrap<HistoryResponse>(data);
         return {
           sessionId: payload?.sessionId ?? sessionId ?? '',
           messages: payload?.messages ?? [],
+          totalTurns: payload?.totalTurns ?? 0,
+          hasMore: payload?.hasMore ?? false,
         };
       } catch (err) {
         throw toApiError(err);
@@ -333,6 +362,12 @@ interface UseSmartSearchSocket {
    * 顶下去 (后端 displacement 是对称的: 谁后到谁是活跃)。
    */
   takeOver: () => void;
+  /**
+   * 断线续流: 重连命中"上一连接的生成仍在进行"时, agent 通过 resync_user 下发本轮的
+   * 用户消息文本。UI 用它兜出一个 in-flight pending turn (重连后局部 pendingTurns 已丢失),
+   * 让回放的 assistant 事件能配上用户气泡。无续流时为 null。
+   */
+  resyncUserText: string | null;
 }
 
 /** 最多自动重连次数(不含首次连接);超过后 state → 'error'。 */
@@ -356,6 +391,17 @@ function appendServerMessage(prev: ServerMessage[], evt: ServerMessage): ServerM
     }
   }
   return [...prev, evt];
+}
+
+// 断线续流: 收到 resync_start 时, 把本地"当前未完成轮"的残留事件截掉 —— 截到最后一条
+// 轮终结事件 (message_complete / error) 之后。之后服务端回放的事件会从头重建这一轮,
+// 不截会和回放重复。没有任何完成轮时返回空数组。
+function truncateToLastComplete(prev: ServerMessage[]): ServerMessage[] {
+  for (let i = prev.length - 1; i >= 0; i--) {
+    const t = prev[i].type;
+    if (t === 'message_complete' || t === 'error') return prev.slice(0, i + 1);
+  }
+  return [];
 }
 
 /**
@@ -384,6 +430,7 @@ export function useSmartSearchSocket(
   const [messages, setMessages] = useState<ServerMessage[]>([]);
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const [displacedReason, setDisplacedReason] = useState<string | null>(null);
+  const [resyncUserText, setResyncUserText] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   /** 标记本轮订阅是否已被卸载/换 session,以阻止过期 timer 触发 connect */
   const cancelledRef = useRef(false);
@@ -406,9 +453,33 @@ export function useSmartSearchSocket(
     setReconnectAttempt(0);
     displacedRef.current = false;
     setDisplacedReason(null);
+    setResyncUserText(null);
     // 只在 sessionId 真正变化(useEffect 重新执行)时重置 messages;
     // 重连过程中不清空,保留对话历史。
     setMessages([]);
+
+    // ── 流式批处理 (rAF coalesce) ──────────────────────────────────────────
+    // 把高频内容帧 (content_delta 等) 在同一动画帧内合并成一次 setMessages, 避免每个 token
+    // 都触发一次"全量重折叠 + 重渲染"—— 这是长会话单 mount 一路聊下去 O(N²) 卡顿的来源。
+    // 控制帧 (displaced / resync_*) 仍即时按序处理 (handle 前先 flushNow 保证顺序)。
+    const pendingEvents: ServerMessage[] = [];
+    let rafId: number | null = null;
+    const flushPending = () => {
+      rafId = null;
+      if (pendingEvents.length === 0) return;
+      const batch = pendingEvents.splice(0, pendingEvents.length);
+      setMessages((prev) => batch.reduce(appendServerMessage, prev));
+    };
+    const scheduleFlush = () => {
+      if (rafId === null) rafId = window.requestAnimationFrame(flushPending);
+    };
+    const flushNow = () => {
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      flushPending();
+    };
 
     /** 共享的 close 处理: 决策是不是要重连。任一失败路径 (ticket / 网络) 都走这里。
         被另一窗口接管 (displacedRef=true) 时跳过自动重连; 等用户点 takeOver。 */
@@ -489,15 +560,31 @@ export function useSmartSearchSocket(
         if (!isCurrent()) return; // 过期 ws 的消息不消费, 防 displaced 误触发等
         try {
           const parsed = JSON.parse(ev.data) as ServerMessage;
-          // displaced 是控制帧, 不进 messages 列表 (UI fold 不消费; 进了反而干扰 turns)。
-          // 设置 displacedRef + 状态后, 紧跟的 onclose 会读 ref 走 displaced 分支不重连。
-          if (parsed.type === 'displaced') {
-            displacedRef.current = true;
-            setDisplacedReason(parsed.message ?? '此会话已在其他窗口打开');
-            setState('displaced');
+          // 控制帧 (displaced / resync_*) 即时按序处理: 先 flushNow 把已缓冲的内容帧打出去,
+          // 否则 resync_start 的 truncate 会错位到回放内容之后, displaced 也可能被内容帧盖过。
+          if (
+            parsed.type === 'displaced' ||
+            parsed.type === 'resync_start' ||
+            parsed.type === 'resync_user' ||
+            parsed.type === 'resync_end'
+          ) {
+            flushNow();
+            if (parsed.type === 'displaced') {
+              displacedRef.current = true;
+              setDisplacedReason(parsed.message ?? '此会话已在其他窗口打开');
+              setState('displaced');
+            } else if (parsed.type === 'resync_start') {
+              // 截掉本地当前未完成轮的残留, 等回放从头重建 (避免与回放重复)。
+              setMessages((prev) => truncateToLastComplete(prev));
+            } else if (parsed.type === 'resync_user') {
+              setResyncUserText(parsed.content ?? '');
+            }
+            // resync_end: 无操作
             return;
           }
-          setMessages((prev) => appendServerMessage(prev, parsed));
+          // 内容帧: 入缓冲, 下一动画帧合并成一次 setMessages。
+          pendingEvents.push(parsed);
+          scheduleFlush();
         } catch {
           // 非 JSON 直接忽略 —— 服务端协议保证全是 JSON,这里是防御性。
         }
@@ -527,6 +614,10 @@ export function useSmartSearchSocket(
     return () => {
       cancelledRef.current = true;
       reconnectNowRef.current = null;
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+        rafId = null;
+      }
       if (reconnectTimerRef.current !== null) {
         window.clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;
@@ -562,5 +653,5 @@ export function useSmartSearchSocket(
     reconnectNowRef.current?.();
   };
 
-  return { state, messages, send, close, reconnectAttempt, displacedReason, takeOver };
+  return { state, messages, send, close, reconnectAttempt, displacedReason, takeOver, resyncUserText };
 }

@@ -70,6 +70,15 @@ export type ServerMessage =
   | { type: 'team_deleted'; teamName: string }
   | { type: 'task_update'; taskId: string; status: string; progress?: string }
   | { type: 'session_title_updated'; sessionId: string; title: string }
+  // ─── 断线续流 (resync) ────────────────────────────────────────────────
+  // 用户在生成途中断开 WS 又重连时, 服务端把"当前这一轮已产生的事件"整段回放。
+  // 协议: resync_start → (可选)resync_user → 缓冲的本轮 ServerMessage 序列 → resync_end。
+  // 前端收到 resync_start 先把本轮已渲染的局部清掉 (截到上一条 message_complete),
+  // 然后用回放事件从头重建这一轮; resync_user 携带本轮用户消息文本, 用来渲染用户气泡
+  // (重连后前端局部 pendingTurns 已随卸载清空, 拿不到用户文本)。
+  | { type: 'resync_start' }
+  | { type: 'resync_user'; content: string }
+  | { type: 'resync_end' }
 
 export type TokenUsage = {
   input_tokens: number

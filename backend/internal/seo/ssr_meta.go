@@ -74,6 +74,22 @@ type JournalSSRMeta struct {
 	OpenAlexHIndex  *int
 }
 
+// ToolSSRMeta 功能广场工具详情页 (/tools/{slug}) 的 SSR 元数据。
+// 由 internal/featuretool 的 Service 实现 ResolveToolBySlug 后回填(featuretool → seo 单向, 无 cycle),
+// config 包注入到 index.html (title/description/keywords/canonical/JSON-LD/noscript)。
+type ToolSSRMeta struct {
+	Slug          string
+	Name          string
+	NameEn        string
+	Tagline       string
+	Description   string
+	CategoryLabel string
+	Logo          string
+	Tags          []string
+	AccessType    string
+	PriceType     string
+}
+
 // ResolveSlug 老 /paper/{slug} 直接根据 slug 反查, 返回 SSR meta (legacy 301 流量)。
 // 返回 (nil, nil) 表示 slug 不存在 — handler 走 404 路径。
 func (s *Service) ResolveSlug(slug string) (*PaperSSRMeta, error) {

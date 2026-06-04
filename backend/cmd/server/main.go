@@ -68,6 +68,8 @@ func main() {
 		BucketPaperPDFs:           cfg.MinIO.BucketPaperPDFs,
 		BucketFeedbackAttachments: cfg.MinIO.BucketFeedbackAttachments,
 		BucketPeerReviewAssets:    cfg.MinIO.BucketPeerReviewAssets,
+		BucketPrism:               cfg.MinIO.BucketPrism,
+		BucketFeatureTools:        cfg.MinIO.BucketFeatureTools,
 		UseSSL:                    cfg.MinIO.UseSSL,
 	}); err != nil {
 		log.Fatalf("Failed to initialize object storage: %v", err)
@@ -83,6 +85,14 @@ func main() {
 	// 用 gin.New() 替代 gin.Default()：自定义 Recovery 增加 trace_id/结构化日志，
 	// 同时保留 gin.Logger() 行为。
 	router := gin.New()
+	// 反代信任边界:不设的话 gin 默认信任所有代理,c.ClientIP() 会直接回显客户端
+	// 伪造的 X-Forwarded-For 最左值,使所有按 IP 的限流/风控形同虚设(改一个 header
+	// 就换一个令牌桶)。这里只信任 nginx 所在的私网段,让 ClientIP() 取到 nginx 追加
+	// 的真实客户端 IP。配置见 cfg.App.TrustedProxies(TRUSTED_PROXIES 可覆盖)。
+	if err := router.SetTrustedProxies(cfg.App.TrustedProxies); err != nil {
+		slog.Error("failed to set trusted proxies, falling back to trust-none", "err", err)
+		_ = router.SetTrustedProxies(nil)
+	}
 	// RequestID 必须最早:Recovery / utils.Error 等的 slog 输出都会带上它,
 	// 这样 docker logs 里搜一个 X-Request-Id 就能串起整条请求的所有日志。
 	router.Use(middleware.RequestIDMiddleware())

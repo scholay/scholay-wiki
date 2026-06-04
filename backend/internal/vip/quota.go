@@ -12,6 +12,7 @@ var dailyLimits = map[string]map[string]int{
 	FeatureSmartSearch: {TierFree: 5, TierPro: 100},
 	FeatureClaw:        {TierFree: 10, TierPro: 200},
 	FeaturePeerReview:  {TierFree: 1, TierPro: 20},
+	FeaturePrism:       {TierFree: 15, TierPro: 300},
 }
 
 // featureLabel 给用户看的功能名(用于超限文案)。
@@ -20,11 +21,12 @@ var featureLabel = map[string]string{
 	FeatureSmartSearch: "智能搜索",
 	FeatureClaw:        "智能助手",
 	FeaturePeerReview:  "智能审稿",
+	FeaturePrism:       "智能写作 AI 编辑",
 }
 
 // GatedFeatures 返回受限额门槛的功能 key 列表(给 Status 接口遍历)。
 func GatedFeatures() []string {
-	return []string{FeatureTranslate, FeatureSmartSearch, FeatureClaw, FeaturePeerReview}
+	return []string{FeatureTranslate, FeatureSmartSearch, FeatureClaw, FeaturePeerReview, FeaturePrism}
 }
 
 // limitFor 返回 (feature, tier) 的每日上限。优先读 env `VIP_LIMIT_<FEATURE>_<TIER>`(整数),

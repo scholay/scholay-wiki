@@ -1,0 +1,9 @@
+% Scholay Prism 编译沙箱 —— kpathsea 安全覆盖(经 Dockerfile 的 TEXMFCNF 前置生效)。
+% 与 Dockerfile 同名 env + latexmk 的 -no-shell-escape 三重保险,堵死 \write18 / 任意读写。
+%
+% shell_escape = f  : 关闭 \write18(禁止 LaTeX 调外部 shell 命令,首要提权面)。
+% openout_any  = p  : 只许写「相对当前目录树」的文件,禁绝对路径 / ../ 越界写。
+% openin_any   = p  : 只许读相对路径,防止读容器内任意文件(如 /etc/passwd)。
+shell_escape = f
+openout_any = p
+openin_any = p

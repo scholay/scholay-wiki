@@ -22,6 +22,7 @@ import (
 	"scholar-backend/internal/common/middleware"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/config"
+	"scholar-backend/internal/featuretool"
 	"scholar-backend/internal/feedback"
 	"scholar-backend/internal/hotcontent"
 	"scholar-backend/internal/clientlog"
@@ -29,6 +30,7 @@ import (
 	"scholar-backend/internal/message"
 	"scholar-backend/internal/minicod"
 	"scholar-backend/internal/payment"
+	"scholar-backend/internal/prism"
 	"scholar-backend/internal/seo"
 	"scholar-backend/internal/claw"
 	"scholar-backend/internal/smartsearch"
@@ -80,6 +82,8 @@ type allHandlers struct {
 	smartSearch     *smartsearch.Handler // 智能搜索 backend 桥接 (HTTP 创会话 + WS 双向 pipe)
 	peerReview      *peerreview.Handler  // 智能审稿 v3 (我要投稿 + 审稿记录,服务端 4 轮编排)
 	claw            *claw.Handler        // 智能助手 (通用对话 + 上传附件 + Minicod MCP)
+	prism           *prism.Handler       // 智能写作 (LaTeX IDE: 项目/文件/编译沙箱; Phase 1 接 agent)
+	featureTool     *featuretool.Handler // 功能大全 (学术工具黄页: 导入/CRUD/webhook 同步/公开浏览)
 }
 
 // registerRoutes 注册所有 API 路由
@@ -178,6 +182,9 @@ func registerRoutes(router *gin.Engine, h *allHandlers, cfg *appconfig.Config) {
 	router.GET("/sitemap-papers-:page.xml", h.seo.ServePaperSitemap)
 	router.GET("/sitemap-authors-:page.xml", h.seo.ServeAuthorSitemap)
 	router.GET("/sitemap-journals-:page.xml", h.seo.ServeJournalSitemap)
+	// 功能大全工具 sitemap(匿名收录)—— 索引 + 分页, robots.txt 里独立列出。
+	router.GET("/sitemap-tools.xml", h.featureTool.ServeToolSitemapIndex)
+	router.GET("/sitemap-tools-:page.xml", h.featureTool.ServeToolSitemap)
 	router.GET("/robots.txt", h.seo.ServeRobotsTxt)
 
 	// SPA 兜底路由（SSR 代码片段注入）

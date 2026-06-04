@@ -32,11 +32,14 @@ import (
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/database"
 	"scholar-backend/internal/common/safego"
+	"scholar-backend/internal/featuretool"
 	"scholar-backend/internal/library"
+	"scholar-backend/internal/prism"
 	"scholar-backend/internal/promptregistry"
 	"scholar-backend/internal/seo"
 	"scholar-backend/internal/seosubmit"
 	"scholar-backend/internal/stagingarea"
+	"scholar-backend/internal/storage"
 	"scholar-backend/internal/thirdparty"
 	"scholar-backend/internal/umami"
 	"scholar-backend/internal/user"
@@ -117,6 +120,8 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	smartSearchFeature := agentBridge.For(smartSearchSpec)
 	peerReviewFeature := agentBridge.For(peerreview.Spec)
 	clawFeature := agentBridge.For(clawSpec)
+	// 智能写作 (Prism): AI 定点编辑走 ServerSideChatStreaming;会话禁写盘工具(见 prism.BuildSpec)。
+	prismFeature := agentBridge.For(prism.BuildSpec())
 
 	// 启动时 upsert 全部 feature 的 subagent 定义到 scholar_agent /api/agents。
 	// Picker=nil 的 spec (peerreview) 自动跳过推送, 见 agentbridge/skill.go。
@@ -202,6 +207,7 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	peerReviewHandler.SetUsageStatRecorder(plat.usageStatService)
 	smartsearch.SetUsageRecorder(plat.usageStatService)
 	claw.SetUsageRecorder(plat.usageStatService)
+	prism.SetUsageStatRecorder(plat.usageStatService) // WS preUserMessageChain 用(包级 var,区别于 Handler 方法)
 
 	// 统一 LLM token 账本 (llm_token_usage):
 	//   - 项目侧 ai.Service: executeWithRetry 咽喉点每次成功落一行 (source=project),
@@ -211,11 +217,13 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	aiB.aiService.SetLLMUsageRecorder(plat.llmUsageService)
 	smartsearch.SetLLMUsageRecorder(plat.llmUsageService)
 	claw.SetLLMUsageRecorder(plat.llmUsageService)
+	prism.SetLLMUsageRecorder(plat.llmUsageService) // WS onMessageComplete 落 token 账本(source=agent)
 	// peerreview 的 server-side chat 走 Bridge.ServerSideChatStreaming, 在其内部落账本。
 	agentBridge.SetLLMUsageRecorder(plat.llmUsageService)
 
 	// 会员(VIP)按等级日限额:注入给 4 个受限 AI 功能。未注入则各自回落到旧 env 日额度/不限。
 	smartsearch.SetVIPChecker(plat.vipService)
+	prism.SetVIPChecker(plat.vipService)
 	claw.SetVIPChecker(plat.vipService)
 	aiB.aiHandler.SetVIPChecker(plat.vipService)
 	peerReviewService.SetVIPChecker(plat.vipService) // 注入到 service(在 Submit 内扣额度), 不在 handler
@@ -234,6 +242,25 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 
 	// message → user（注册欢迎信）
 	core.userService.SetMessageService(plat.message.GetAdapter())
+
+	// 功能大全 (学术工具黄页): repo → dispatcher(webhook) → service → handler
+	featureToolRepo := featuretool.NewRepository(db)
+	featureToolDisp := featuretool.NewDispatcher(featureToolRepo)
+	featureToolSvc := featuretool.NewService(featureToolRepo, featureToolDisp)
+	featureToolHandler := featuretool.NewHandler(featureToolSvc, featureToolDisp)
+	// 功能大全工具详情页 /tools/{slug} SSR 元数据(匿名 SEO)
+	core.configHandler.SetToolSEOProvider(featureToolSvc)
+
+	// 智能写作 (Prism) handler —— 提前构造以注入功能使用统计录入器(同 peerReview/claw)。
+	prismHandler := prism.NewHandler(prism.NewService(
+		prism.NewRepository(db),
+		prism.NewTexClient(os.Getenv("PRISM_WORK_DIR")),
+		storage.PrismBucket(),
+		prismFeature,
+		agentClient, // 每项目独立 agent 会话:prism 直接建/管 session,存 prism_projects.agent_session_id
+		aiB.aiService, // 轻量模型(ModelLow)给项目按首条指令自动起名
+	))
+	prismHandler.SetUsageStatRecorder(plat.usageStatService)
 
 	// ---- 聚合 handlers ----
 	return &services{
@@ -267,6 +294,9 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 			smartSearch:     smartsearch.NewHandler(smartSearchFeature),
 			peerReview:      peerReviewHandler,
 			claw:            claw.NewHandler(clawFeature),
+			featureTool:     featureToolHandler,
+			// 智能写作 (Prism): DB 真源 + 编译沙箱(共享卷 watcher)+ AI 定点编辑(prismFeature/agent)。
+			prism: prismHandler,
 			// umami HTTP API 接入 —— admin /analytics 自渲染图表 + tracker website id 自动 bootstrap
 			// 详见 internal/umami/client.go:EnsureWebsiteID。
 			// WebsiteID env 配了用配的;空 → 启动后首次需要时 list+create 自动建一个 Scholay website。

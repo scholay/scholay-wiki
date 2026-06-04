@@ -12,6 +12,16 @@ ENV NODE_ENV=production \
     SERVER_PORT=3456
 
 USER root
+# apt 镜像按环境可覆盖(默认官方 deb.debian.org;同 prism_tex 说明)。纯国内直连可用
+# --build-arg APT_MIRROR=mirrors.aliyun.com;clash fake-ip 环境治本是对该域名走 DIRECT。
+ARG APT_MIRROR=deb.debian.org
+RUN set -eux; \
+    if [ "$APT_MIRROR" != "deb.debian.org" ]; then \
+      for f in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
+        [ -f "$f" ] && sed -i "s|deb.debian.org|$APT_MIRROR|g; s|security.debian.org|$APT_MIRROR|g" "$f" || true; \
+      done; \
+    fi
+
 # ca-certificates 必装 ——
 #   1) curl / openssl 走系统 CA bundle, 没这个 HTTPS 一律失败
 #   2) Bun 自带 bundled CA, 但代理 (Clash / mihomo fake-ip) 改签证书时

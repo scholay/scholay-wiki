@@ -55,6 +55,17 @@ function appendServerMessage(prev: ServerMessage[], evt: ServerMessage): ServerM
   return [...prev, evt];
 }
 
+// 断线续流: 收到 resync_start 时把本地"当前未完成轮"的残留事件截掉 —— 截到最后一条
+// 轮终结事件 (message_complete / error) 之后。之后 agent 回放的事件会从头重建这一轮,
+// 不截会与回放重复。没有任何完成轮时返回空数组。
+function truncateToLastComplete(prev: ServerMessage[]): ServerMessage[] {
+  for (let i = prev.length - 1; i >= 0; i--) {
+    const t = prev[i].type;
+    if (t === 'message_complete' || t === 'error') return prev.slice(0, i + 1);
+  }
+  return [];
+}
+
 // 弱网友好的指数退避: 1s, 2s, 4s, 8s, 16s, 32s, 60s, 60s ...
 // 上限 8 次 ≈ 大约 3-4 分钟内自动重连, 之后停止; 用户主动 takeOver / 切回 tab 触发 visibilitychange 时 reset。
 // 比起旧的 (cap 16s, 5 次共 1 分钟) 对地铁 / 网格抖 / 设备休眠场景更友好。
@@ -78,6 +89,11 @@ export interface UseClawSocket {
   displacedReason: string | null;
   /** "切回这里" → 抢回活跃权 (本端重连, 把其他窗口顶下去) */
   takeOver: () => void;
+  /**
+   * 断线续流: 重连命中"上一连接的生成仍在进行"时 agent 通过 resync_user 下发本轮用户文本。
+   * ClawPage 用它兜出 in-flight pending turn (重连后局部 pendingTurns 已丢失)。无续流时为 null。
+   */
+  resyncUserText: string | null;
 }
 
 export function useClawSocket(sessionId: string | null): UseClawSocket {
@@ -86,6 +102,7 @@ export function useClawSocket(sessionId: string | null): UseClawSocket {
   const [messages, setMessages] = useState<ServerMessage[]>([]);
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const [displacedReason, setDisplacedReason] = useState<string | null>(null);
+  const [resyncUserText, setResyncUserText] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const cancelledRef = useRef(false);
   const reconnectTimerRef = useRef<number | null>(null);
@@ -106,7 +123,30 @@ export function useClawSocket(sessionId: string | null): UseClawSocket {
     setReconnectAttempt(0);
     displacedRef.current = false;
     setDisplacedReason(null);
+    setResyncUserText(null);
     setMessages([]);
+
+    // ── 流式批处理 (rAF coalesce) ──────────────────────────────────────────
+    // 高频内容帧在同一动画帧内合并成一次 setMessages, 避免每 token 全量重折叠+重渲染
+    // (长会话单 mount O(N²) 卡顿来源)。控制帧 (displaced/resync_*) 仍即时按序处理 (先 flushNow)。
+    const pendingEvents: ServerMessage[] = [];
+    let rafId: number | null = null;
+    const flushPending = () => {
+      rafId = null;
+      if (pendingEvents.length === 0) return;
+      const batch = pendingEvents.splice(0, pendingEvents.length);
+      setMessages((prev) => batch.reduce(appendServerMessage, prev));
+    };
+    const scheduleFlush = () => {
+      if (rafId === null) rafId = window.requestAnimationFrame(flushPending);
+    };
+    const flushNow = () => {
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      flushPending();
+    };
 
     const scheduleReconnectOrError = () => {
       if (cancelledRef.current) {
@@ -183,13 +223,30 @@ export function useClawSocket(sessionId: string | null): UseClawSocket {
         try {
           const evt = JSON.parse(ev.data) as ServerMessage;
           // displaced 是控制帧, 不进 messages 列表 (fold 不消费)。
-          if (evt.type === 'displaced') {
-            displacedRef.current = true;
-            setDisplacedReason(evt.message ?? '此会话已在其他窗口打开');
-            setState('displaced');
+          // 控制帧即时按序处理: 先 flushNow 把已缓冲内容打出去, 保证 resync_start 的 truncate /
+          // displaced 不被高频内容帧错位或盖过。
+          if (
+            evt.type === 'displaced' ||
+            evt.type === 'resync_start' ||
+            evt.type === 'resync_user' ||
+            evt.type === 'resync_end'
+          ) {
+            flushNow();
+            if (evt.type === 'displaced') {
+              displacedRef.current = true;
+              setDisplacedReason(evt.message ?? '此会话已在其他窗口打开');
+              setState('displaced');
+            } else if (evt.type === 'resync_start') {
+              setMessages((prev) => truncateToLastComplete(prev));
+            } else if (evt.type === 'resync_user') {
+              setResyncUserText(evt.content ?? '');
+            }
+            // resync_end: 无操作
             return;
           }
-          setMessages((prev) => appendServerMessage(prev, evt));
+          // 内容帧: 入缓冲, 下一动画帧合并 flush。
+          pendingEvents.push(evt);
+          scheduleFlush();
         } catch {
           // 忽略非 JSON 帧 (理论上不会发生)
         }
@@ -230,6 +287,10 @@ export function useClawSocket(sessionId: string | null): UseClawSocket {
     return () => {
       cancelledRef.current = true;
       reconnectNowRef.current = null;
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+        rafId = null;
+      }
       if (reconnectTimerRef.current) {
         window.clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;
@@ -260,5 +321,6 @@ export function useClawSocket(sessionId: string | null): UseClawSocket {
     },
     clearMessages: () => setMessages([]),
     takeOver: () => reconnectNowRef.current?.(),
+    resyncUserText,
   };
 }

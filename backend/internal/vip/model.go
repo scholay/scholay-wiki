@@ -25,6 +25,7 @@ const (
 	FeatureSmartSearch = "smart_search"
 	FeatureClaw        = "claw"
 	FeaturePeerReview  = "peer_review"
+	FeaturePrism       = "prism" // 智能写作 AI 编辑(每次 AI patch / Fix-with-AI 计一次)
 )
 
 // RedemptionCode 兑换码一行(表 vip_redemption_codes)。

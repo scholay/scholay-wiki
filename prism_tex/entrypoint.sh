@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# Scholay Prism 编译沙箱 watcher。
+#
+# 协议(后端 ↔ 本容器只经共享卷 /work,无网络):
+#   后端: mkdir /work/<cid> → 写项目文件(main.tex/*.bib/*.sty/图...) → 原子写 /work/<cid>/.request
+#         (.request 内容: 两行 `main=<入口.tex>` 与 `engine=pdflatex|xelatex`)
+#   本容器: 轮询 /work,认领 .request(mv→.processing,单 watcher 无竞争)→ latexmk 编译
+#           → 回写 main.pdf(成功时)+ compile.log + error.txt(摘要)+ 原子写 status.json
+#   后端: 轮询 status.json 出现 → 读 pdf/log → 传 MinIO → 删 /work/<cid>
+#
+# status.json 只含安全标量(无需 JSON 转义):
+#   {"status":"success|error","pdf":"main.pdf","log":"compile.log","exit":N,"duration_ms":N}
+set -u
+
+WORK="${PRISM_WORK_DIR:-/work}"
+TIMEOUT="${COMPILE_TIMEOUT:-60}"
+HEARTBEAT=/tmp/heartbeat
+
+mkdir -p "${TEXMFVAR:-/tmp/texmf-var}" "${TEXMFCACHE:-/tmp/texmf-cache}" 2>/dev/null || true
+echo "[prism_tex] watcher up · work=$WORK · timeout=${TIMEOUT}s"
+
+# 编译单个任务目录。$1=任务目录(绝对)
+compile_one() {
+  local dir="$1"
+  local main engine flag pdf log code start end dur status
+  main=$(sed -n 's/^main=//p' "$dir/.processing" | head -1)
+  engine=$(sed -n 's/^engine=//p' "$dir/.processing" | head -1)
+  main="${main:-main.tex}"
+  engine="${engine:-pdflatex}"
+  # 仅允许 basename 入口(防 ../ 越界);非法则当 error。
+  case "$main" in */*|..*|"") echo "invalid main: $main" > "$dir/error.txt"; _write_status "$dir" error "" "" 2 0; return;; esac
+
+  flag="-pdf"
+  [ "$engine" = "xelatex" ] && flag="-xelatex"
+  log="compile.log"
+  pdf="${main%.tex}.pdf"
+
+  start=$(date +%s%3N)
+  # 在任务目录内编译;-no-shell-escape 是三重保险之一(另两重: texmf.cnf + env)。
+  ( cd "$dir" && timeout "$TIMEOUT" latexmk "$flag" -interaction=nonstopmode -halt-on-error \
+      -no-shell-escape -outdir=. "$main" ) > "$dir/$log" 2>&1
+  code=$?
+  end=$(date +%s%3N)
+  dur=$((end - start))
+
+  if [ "$code" -eq 0 ] && [ -f "$dir/$pdf" ]; then
+    status=success
+    : > "$dir/error.txt"
+  else
+    status=error
+    if [ "$code" -eq 124 ]; then
+      echo "编译超时(>${TIMEOUT}s)" > "$dir/error.txt"
+    else
+      # 取第一条有意义的报错行(latexmk/tex 后续多为级联,首条最有用)。
+      grep -m1 -E '^! |^!|Error|Undefined|Emergency stop|Fatal' "$dir/$log" 2>/dev/null \
+        | head -1 | cut -c1-480 > "$dir/error.txt" || true
+      [ -s "$dir/error.txt" ] || echo "编译失败(exit=$code)" > "$dir/error.txt"
+    fi
+  fi
+  _write_status "$dir" "$status" "$pdf" "$log" "$code" "$dur"
+  echo "[prism_tex] $(basename "$dir") · $status · ${dur}ms · exit=$code"
+}
+
+# 原子写 status.json($1=dir $2=status $3=pdf $4=log $5=exit $6=dur_ms)
+_write_status() {
+  local dir="$1"
+  printf '{"status":"%s","pdf":"%s","log":"%s","exit":%s,"duration_ms":%s}\n' \
+    "$2" "$3" "$4" "$5" "$6" > "$dir/.status.tmp"
+  mv -f "$dir/.status.tmp" "$dir/status.json"
+}
+
+while true; do
+  : > "$HEARTBEAT" 2>/dev/null || true   # 健康检查心跳
+  if [ -d "$WORK" ]; then
+    for dir in "$WORK"/*/; do
+      [ -d "$dir" ] || continue
+      dir="${dir%/}"
+      [ -f "$dir/status.json" ] && continue        # 已完成
+      [ -f "$dir/.processing" ] && continue         # 进行中(异常残留也跳过,避免重复)
+      [ -f "$dir/.request" ] || continue            # 未就绪
+      mv -f "$dir/.request" "$dir/.processing" 2>/dev/null || continue  # 认领
+      compile_one "$dir"
+    done
+  fi
+  sleep 0.5
+done

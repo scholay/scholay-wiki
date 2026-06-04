@@ -112,7 +112,7 @@ func (s *Service) RegisterWithPhone(ctx context.Context, phone, password, code, 
 		return nil, "", err
 	}
 	if existing != nil {
-		return nil, "", errors.New("该手机号已被注册")
+		return nil, "", errors.New("该手机号已注册,请直接登录")
 	}
 
 	// Hash password
@@ -132,7 +132,7 @@ func (s *Service) RegisterWithPhone(ctx context.Context, phone, password, code, 
 			return err
 		}
 		if existing != nil {
-			return errors.New("该手机号已被注册")
+			return errors.New("该手机号已注册,请直接登录")
 		}
 
 		// Generate random username
@@ -198,22 +198,21 @@ func (s *Service) LoginWithPhone(phone, password, ip string) (*User, string, err
 		return nil, "", err
 	}
 
-	if user == nil {
-		return nil, "", errors.New("该手机号未注册")
+	// 统一口径 + 恒定耗时(同 LoginWithEmail):不靠文案/快慢泄露手机号是否注册。
+	// 「不存在 / 未设密码 / 密码错」一律「手机号或密码错误」;停用留到密码正确后再说。
+	// 管理员/超管不再特殊处理:与普通用户共用本登录入口。
+	hash := dummyBcryptHash
+	if user != nil && user.PasswordHash != nil {
+		hash = *user.PasswordHash
+	}
+	passwordOK := utils.CheckPassword(password, hash)
+	if user == nil || user.PasswordHash == nil || !passwordOK {
+		return nil, "", errors.New("手机号或密码错误")
 	}
 
-	// Check if user is active
+	// 密码正确后才区分停用 —— 对方已证明掌控账号,可如实告知。
 	if user.Status != 1 {
 		return nil, "", errors.New("账号已被停用")
-	}
-
-	// Verify password
-	if user.PasswordHash == nil {
-		return nil, "", errors.New("请先设置密码")
-	}
-
-	if !utils.CheckPassword(password, *user.PasswordHash) {
-		return nil, "", errors.New("密码错误")
 	}
 
 	// Update last login time and IP
@@ -245,8 +244,10 @@ func (s *Service) ResetPasswordPhone(ctx context.Context, phone, code, newPasswo
 	if err != nil {
 		return 0, err
 	}
+	// 验证码已校验通过 = 已证明掌控该手机号(攻击者拿不到别人的码,错 5 次即烧码),
+	// 故如实告知「未注册」不构成枚举,让走「忘记密码」却没注册的用户不再一头雾水。
 	if user == nil {
-		return 0, errors.New("该手机号未注册")
+		return 0, errors.New("该手机号未注册,请先注册")
 	}
 
 	// Hash new password
@@ -277,8 +278,10 @@ func (s *Service) LoginWithPhoneCode(ctx context.Context, phone, code, ip string
 	if err != nil {
 		return nil, "", err
 	}
+	// 验证码已校验通过 = 已证明掌控该手机号(攻击者拿不到别人的码,错 5 次即烧码),
+	// 故如实告知「未注册」不构成枚举,避免用户在「密码登录失败→验证码登录也失败」之间一头雾水。
 	if user == nil {
-		return nil, "", errors.New("该手机号未注册")
+		return nil, "", errors.New("该手机号未注册,请先注册")
 	}
 
 	// Check if user is active

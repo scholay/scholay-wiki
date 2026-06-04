@@ -17,6 +17,9 @@ ARG VITE_SITE_URL
 ENV VITE_SITE_URL=$VITE_SITE_URL
 ARG VITE_SITE_NAME
 ENV VITE_SITE_NAME=$VITE_SITE_NAME
+# 临时:智能写作「即将推出」门(见 src/shared/lib/feature-flags.ts)。'true' = 入口角标 + 页面蒙层。
+ARG VITE_PRISM_COMING_SOON
+ENV VITE_PRISM_COMING_SOON=$VITE_PRISM_COMING_SOON
 # Umami 接入完全运行时化:index.html 加载后 fetch /api/v1/public/umami-config 拿
 # website_id 再动态插入 tracker 脚本 —— 不再需要 build-time 注入 website id。
 # 见 frontend-user/index.html 顶部注释 + backend internal/umami/client.go EnsureWebsiteID。

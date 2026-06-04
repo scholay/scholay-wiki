@@ -377,7 +377,7 @@ func (f *FeatureBridge) pipe(
 			if mt == gorillaws.TextMessage {
 				if f.spec.AutoApprovePermission {
 					sessionWorkDir := path.Join(agentSessionWorkdirRoot(), sessionID)
-					if reply, ok := decidePermission(data, sessionWorkDir); ok {
+					if reply, ok := decidePermission(data, sessionWorkDir, specDeny(f.spec)); ok {
 						if err := writeAgent(gorillaws.TextMessage, reply); err != nil {
 							slog.Debug("agentbridge ws: permission decision write failed",
 								"feature", f.spec.Key, "err", err)
@@ -471,7 +471,7 @@ func buildInjectionPrefix(systemPrompt string) string {
 // 为什么靠这里而不是只靠 Claude Code 的 cwd 限定: Claude Code 对 cwd 内文件不弹权限 (自动放行),
 // 对 cwd 外才弹 permission_request → 到我们这。我们对"弹上来的(=cwd 外的)"文件操作默认拒,
 // 就堵死了跨会话读取。Bash 已全禁, 没法用 `cat` 绕过路径校验。
-func decidePermission(raw []byte, sessionWorkDir string) ([]byte, bool) {
+func decidePermission(raw []byte, sessionWorkDir string, denyTools []string) ([]byte, bool) {
 	if len(raw) == 0 || raw[0] != '{' {
 		return nil, false
 	}
@@ -488,7 +488,7 @@ func decidePermission(raw []byte, sessionWorkDir string) ([]byte, bool) {
 		return nil, false
 	}
 
-	allowed := permissionAllowed(probe.ToolName, probe.Input, sessionWorkDir)
+	allowed := permissionAllowed(probe.ToolName, probe.Input, sessionWorkDir, denyTools)
 	if !allowed {
 		slog.Warn("agentbridge ws: permission DENIED (out-of-workspace or unsafe tool)",
 			"tool", probe.ToolName, "workdir", sessionWorkDir)
@@ -512,7 +512,15 @@ func decidePermission(raw []byte, sessionWorkDir string) ([]byte, bool) {
 var fileToolPathKeys = []string{"file_path", "path", "notebook_path", "filePath", "notebookPath"}
 
 // permissionAllowed 判定一次工具调用是否放行。
-func permissionAllowed(toolName string, input json.RawMessage, sessionWorkDir string) bool {
+// denyTools: 该会话(feature)显式禁用的工具 —— 后端二道防线,即便 agent 端 --disallowed-tools
+// 被绕过,这里也对禁用工具一律拒绝(Prism 写作:禁 Bash/Write/Edit/...,见 review F9)。
+func permissionAllowed(toolName string, input json.RawMessage, sessionWorkDir string, denyTools []string) bool {
+	// 显式禁用名单最高优先级:任何匹配一律拒绝(无视路径/类型)。
+	for _, d := range denyTools {
+		if d == toolName {
+			return false
+		}
+	}
 	// MCP 工具一律放行 (只读学术检索)
 	if strings.HasPrefix(toolName, "mcp__") {
 		return true

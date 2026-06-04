@@ -31,8 +31,11 @@ type User struct {
 	LastLoginAt   *time.Time `json:"last_login_at"`
 	LastLoginIP   *string    `gorm:"size:45" json:"last_login_ip"` // 最后登录IP
 	// 会员(VIP)—— 列由迁移 0008 加在 users 表;internal/vip 是写侧真源, 这里只读出来给 admin 列表展示。
-	VIPTier      *string    `gorm:"column:vip_tier" json:"vip_tier"`
-	VIPExpiresAt *time.Time `gorm:"column:vip_expires_at" json:"vip_expires_at"`
+	// 关键:加 GORM `->`(只读权限),让本模型的 Create/Update **永不写** 这两列。否则注册时
+	// nil 指针会被当成显式 NULL 插入(vip_tier NOT NULL DEFAULT 'free' → 报 1048 Column 'vip_tier'
+	// cannot be null);只读后 INSERT 直接省略该列 → 走 DB 默认 'free',也避免改资料时把 VIP 清掉。
+	VIPTier      *string    `gorm:"column:vip_tier;->" json:"vip_tier"`
+	VIPExpiresAt *time.Time `gorm:"column:vip_expires_at;->" json:"vip_expires_at"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
 }

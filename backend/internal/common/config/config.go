@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -57,6 +58,8 @@ type MinIOConfig struct {
 	BucketPaperPDFs           string // 存论文 PDF 的 bucket
 	BucketFeedbackAttachments string // 存用户反馈附件 (图片/文件) 的 bucket
 	BucketPeerReviewAssets    string // 存智能审稿稿件 + 附件 的 bucket
+	BucketPrism               string // 存 Prism 智能写作编译产物 (PDF/log) + 二进制 asset 的 bucket
+	BucketFeatureTools        string // 存功能广场工具 logo (真 logo + 生成的 SVG) 的 bucket
 	UseSSL                    bool
 }
 
@@ -73,11 +76,12 @@ type RateLimitConfig struct {
 
 // AppConfig_ 通用应用配置（避免与全局变量 AppConfig 冲突）
 type AppConfig_ struct {
-	GinMode            string // GIN_MODE: release / debug
-	CORSAllowedOrigins string // 逗号分隔的允许 CORS 来源
-	TurnstileSecretKey string // Cloudflare Turnstile 密钥
-	FrontendUserURL    string // 前端用户门户 URL
-	IsRelease          bool   // 是否为 release 模式（预计算，方便使用）
+	GinMode            string   // GIN_MODE: release / debug
+	CORSAllowedOrigins string   // 逗号分隔的允许 CORS 来源
+	TurnstileSecretKey string   // Cloudflare Turnstile 密钥
+	FrontendUserURL    string   // 前端用户门户 URL
+	TrustedProxies     []string // 反向代理信任名单(CIDR);gin ClientIP() 只认这些代理追加的 XFF
+	IsRelease          bool     // 是否为 release 模式（预计算，方便使用）
 }
 
 type ExternalServicesConfig struct {
@@ -208,6 +212,8 @@ func Load() *Config {
 		BucketPaperPDFs:           getEnv("MINIO_BUCKET_PAPER_PDFS", "scholar-paper-pdfs"),
 		BucketFeedbackAttachments: getEnv("MINIO_BUCKET_FEEDBACK_ATTACHMENTS", "scholar-feedback-attachments"),
 		BucketPeerReviewAssets:    getEnv("MINIO_BUCKET_PEER_REVIEW_ASSETS", "scholar-peer-review-assets"),
+		BucketPrism:               getEnv("MINIO_BUCKET_PRISM", "scholar-prism"),
+		BucketFeatureTools:        getEnv("MINIO_BUCKET_FEATURE_TOOLS", "scholar-feature-tools"),
 		UseSSL:                    getEnvAsBool("MINIO_USE_SSL", false),
 	}
 
@@ -237,6 +243,7 @@ func Load() *Config {
 		CORSAllowedOrigins: getEnv("CORS_ALLOWED_ORIGINS", ""),
 		TurnstileSecretKey: getEnv("TURNSTILE_SECRET_KEY", ""),
 		FrontendUserURL:    getEnv("FRONTEND_USER_URL", ""),
+		TrustedProxies:     getTrustedProxies(),
 		IsRelease:          ginMode == "release",
 	}
 
@@ -323,6 +330,25 @@ func joinErrs(errs []string) string {
 			out += "; "
 		}
 		out += e
+	}
+	return out
+}
+
+// getTrustedProxies 返回反代信任名单。后端只经 nginx(docker 私网)对外暴露,
+// 所以默认信任 RFC1918 私网段 + 本机回环即可:gin 的 ClientIP() 会沿 X-Forwarded-For
+// 从右往左跳过这些受信代理,取到 nginx 追加的真实客户端 IP,而不是客户端自己伪造的
+// 最左 XFF 值(否则一切按 IP 的限流/风控都能用一个 header 绕过)。
+// 可用 TRUSTED_PROXIES(逗号分隔 CIDR)覆盖,例如前面还有 CDN/LB 时。
+func getTrustedProxies() []string {
+	raw := getEnv("TRUSTED_PROXIES", "")
+	if strings.TrimSpace(raw) == "" {
+		return []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.1/32", "::1/128"}
+	}
+	var out []string
+	for _, p := range strings.Split(raw, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
 	}
 	return out
 }

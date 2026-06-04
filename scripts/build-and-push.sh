@@ -12,7 +12,7 @@
 #   ./scripts/build-and-push.sh patch agent    # 只构建 agent (scholar_agent / cc-haha Bun 容器)
 #   ./scripts/build-and-push.sh patch egress   # 只构建 egress (agent 出网代理 / tinyproxy)
 #
-# 构建目标: backend | agent | frontend-user | egress | all (默认 all)
+# 构建目标: backend | agent | frontend-user | egress | prism_tex | all (默认 all)
 #
 # 注意:
 #   - frontend-admin 已合并到 frontend-user(/admin 路由), 不再单独构建。
@@ -57,6 +57,8 @@ fi
 # 兜底默认值(.env 不存在或没设时)
 : "${SITE_URL:=https://www.scholay.com}"
 : "${SITE_NAME:=Scholay}"
+# 临时:智能写作「即将推出」门。默认 true(本版上线先盖蒙层);Prism 正式上线时在 .env 设 PRISM_COMING_SOON=false 再 build。
+: "${PRISM_COMING_SOON:=true}"
 # UMAMI_WEBSITE_ID 不再 build-time 注入 —— 改为 runtime fetch /api/v1/public/umami-config
 
 # 检查并设置 buildx (仅用于 backend)
@@ -130,11 +132,13 @@ BACKEND_IMAGE="${REGISTRY}/${NAMESPACE}/backend:${NEW_VERSION}"
 AGENT_IMAGE="${REGISTRY}/${NAMESPACE}/agent:${NEW_VERSION}"
 FRONTEND_USER_IMAGE="${REGISTRY}/${NAMESPACE}/frontend-user:${NEW_VERSION}"
 EGRESS_IMAGE="${REGISTRY}/${NAMESPACE}/egress:${NEW_VERSION}"
+PRISM_TEX_IMAGE="${REGISTRY}/${NAMESPACE}/prism_tex:${NEW_VERSION}"
 
 BACKEND_LATEST="${REGISTRY}/${NAMESPACE}/backend:latest"
 AGENT_LATEST="${REGISTRY}/${NAMESPACE}/agent:latest"
 FRONTEND_USER_LATEST="${REGISTRY}/${NAMESPACE}/frontend-user:latest"
 EGRESS_LATEST="${REGISTRY}/${NAMESPACE}/egress:latest"
+PRISM_TEX_LATEST="${REGISTRY}/${NAMESPACE}/prism_tex:latest"
 
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}  Scholar 镜像构建推送工具${NC}"
@@ -214,6 +218,7 @@ build_frontend() {
         --build-arg VITE_API_BASE_URL= \
         --build-arg VITE_SITE_URL="${SITE_URL}" \
         --build-arg VITE_SITE_NAME="${SITE_NAME}" \
+        --build-arg VITE_PRISM_COMING_SOON="${PRISM_COMING_SOON}" \
         ${context}
 
     # 打 latest 标签
@@ -241,15 +246,19 @@ case ${BUILD_TARGET} in
     "egress")
         build_server_image "egress" "${EGRESS_IMAGE}" "${EGRESS_LATEST}" "./egress"
         ;;
+    "prism_tex"|"prism-tex")
+        build_server_image "prism_tex" "${PRISM_TEX_IMAGE}" "${PRISM_TEX_LATEST}" "./prism_tex"
+        ;;
     "all")
         build_server_image "backend" "${BACKEND_IMAGE}" "${BACKEND_LATEST}" "./backend"
         build_server_image "agent" "${AGENT_IMAGE}" "${AGENT_LATEST}" "./agent"
         build_frontend "frontend-user" "${FRONTEND_USER_IMAGE}" "${FRONTEND_USER_LATEST}" "./frontend-user"
         build_server_image "egress" "${EGRESS_IMAGE}" "${EGRESS_LATEST}" "./egress"
+        build_server_image "prism_tex" "${PRISM_TEX_IMAGE}" "${PRISM_TEX_LATEST}" "./prism_tex"
         ;;
     *)
         echo -e "${RED}错误: 未知的构建目标 '${BUILD_TARGET}'${NC}"
-        echo "可用选项: backend, agent, frontend-user, egress, all"
+        echo "可用选项: backend, agent, frontend-user, egress, prism_tex, all"
         exit 1
         ;;
 esac

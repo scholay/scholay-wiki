@@ -18,6 +18,7 @@ import {
   Cpu,
   Send,
   Compass,
+  Boxes,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -63,6 +64,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { id: 'code-snippets', label: '代码片段库', icon: Code2, href: '/admin/code-snippets' },
       { id: 'announcements', label: '公告', icon: Megaphone, href: '/admin/announcements' },
       { id: 'hot-content', label: '热门内容', icon: Flame, href: '/admin/hot-content' },
+      { id: 'tools', label: '功能广场', icon: Boxes, href: '/admin/tools' },
     ],
   },
   {

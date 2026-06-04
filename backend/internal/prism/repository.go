@@ -1,0 +1,442 @@
+package prism
+
+import (
+	"errors"
+	"strings"
+	"time"
+
+	"gorm.io/gorm"
+)
+
+type Repository struct {
+	db *gorm.DB
+}
+
+func NewRepository(db *gorm.DB) *Repository { return &Repository{db: db} }
+
+// ─── 项目 ────────────────────────────────────────────────────────────────
+
+func (r *Repository) CreateProject(p *Project) error { return r.db.Create(p).Error }
+
+// GetProject 取项目并校验归属;不存在/非本人 → (nil, nil)。
+func (r *Repository) GetProject(id, userID uint) (*Project, error) {
+	var p Project
+	err := r.db.Where("id = ? AND user_id = ?", id, userID).First(&p).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+func (r *Repository) ListProjects(userID uint) ([]Project, error) {
+	var ps []Project
+	err := r.db.Where("user_id = ?", userID).Order("updated_at DESC").Find(&ps).Error
+	return ps, err
+}
+
+// UpdateProjectTitle 改项目标题(调用方已校验归属 + 非空)。
+func (r *Repository) UpdateProjectTitle(id uint, title string) error {
+	return r.db.Model(&Project{}).Where("id = ?", id).Updates(map[string]any{
+		"title": title, "updated_at": time.Now(),
+	}).Error
+}
+
+// UpdateProjectTitleIfDefault 仅当标题仍是默认占位时才写入(自动命名用)。
+// 单条条件 UPDATE → 幂等 + 永不覆盖用户已改/已自动命名的名字,且与并发手动重命名无 read-modify-write 竞态。
+// 返回是否命中(false=标题已非默认,自动命名跳过)。
+func (r *Repository) UpdateProjectTitleIfDefault(id uint, defaultTitle, title string) (bool, error) {
+	res := r.db.Model(&Project{}).
+		Where("id = ? AND title = ?", id, defaultTitle).
+		Update("title", title)
+	if res.Error != nil {
+		return false, res.Error
+	}
+	return res.RowsAffected > 0, nil
+}
+
+// CompileObjectKeys 取项目全部编译产物 pdf/log 的 MinIO key(删项目前清对象用)。
+func (r *Repository) CompileObjectKeys(projectID uint) ([]string, error) {
+	var cs []Compile
+	if err := r.db.Select("pdf_object_key, log_object_key").Where("project_id = ?", projectID).Find(&cs).Error; err != nil {
+		return nil, err
+	}
+	keys := make([]string, 0, len(cs)*2)
+	for _, c := range cs {
+		if c.PdfObjectKey != nil && *c.PdfObjectKey != "" {
+			keys = append(keys, *c.PdfObjectKey)
+		}
+		if c.LogObjectKey != nil && *c.LogObjectKey != "" {
+			keys = append(keys, *c.LogObjectKey)
+		}
+	}
+	return keys, nil
+}
+
+// DeleteProjectCascade 事务删项目 + 全部子表(版本/文件/编译/编辑/对话);DB 真源一次清干净。
+func (r *Repository) DeleteProjectCascade(projectID uint) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		var fileIDs []uint
+		if err := tx.Model(&File{}).Where("project_id = ?", projectID).Pluck("id", &fileIDs).Error; err != nil {
+			return err
+		}
+		if len(fileIDs) > 0 {
+			if err := tx.Where("file_id IN ?", fileIDs).Delete(&FileVersion{}).Error; err != nil {
+				return err
+			}
+		}
+		if err := tx.Where("project_id = ?", projectID).Delete(&File{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("project_id = ?", projectID).Delete(&Compile{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("project_id = ?", projectID).Delete(&Edit{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("project_id = ?", projectID).Delete(&ChatMessage{}).Error; err != nil {
+			return err
+		}
+		return tx.Where("id = ?", projectID).Delete(&Project{}).Error
+	})
+}
+
+func (r *Repository) TouchProject(id uint) error {
+	return r.db.Model(&Project{}).Where("id = ?", id).Update("updated_at", time.Now()).Error
+}
+
+// SetProjectSession 写项目的 agent 会话 id(每项目独立会话;""=清空让下次重建)。
+func (r *Repository) SetProjectSession(id uint, sessionID string) error {
+	var v any
+	if sessionID == "" {
+		v = nil
+	} else {
+		v = sessionID
+	}
+	return r.db.Model(&Project{}).Where("id = ?", id).Update("agent_session_id", v).Error
+}
+
+// ClaimProjectSession 原子认领项目会话:仅当当前为空(NULL/'')时写入。
+// 返回 true=认领成功;false=已被并发请求抢先(调用方应删掉本次多建的会话,改用既存的)。
+// 这是跨进程也成立的并发兜底;同进程的并发由 Service 的 per-project 锁先行串行化。
+func (r *Repository) ClaimProjectSession(id uint, sessionID string) (bool, error) {
+	res := r.db.Model(&Project{}).
+		Where("id = ? AND (agent_session_id IS NULL OR agent_session_id = '')", id).
+		Update("agent_session_id", sessionID)
+	if res.Error != nil {
+		return false, res.Error
+	}
+	return res.RowsAffected > 0, nil
+}
+
+// GetProjectSession 取项目当前 agent 会话 id(认领竞态后取胜者用,无需 userID)。空=未设置。
+func (r *Repository) GetProjectSession(id uint) (string, error) {
+	var p Project
+	if err := r.db.Select("agent_session_id").Where("id = ?", id).First(&p).Error; err != nil {
+		return "", err
+	}
+	if p.AgentSessionID == nil {
+		return "", nil
+	}
+	return *p.AgentSessionID, nil
+}
+
+// ─── 文件 ────────────────────────────────────────────────────────────────
+
+func (r *Repository) CreateFile(f *File) error { return r.db.Create(f).Error }
+
+func (r *Repository) ListFiles(projectID uint) ([]File, error) {
+	var fs []File
+	err := r.db.Where("project_id = ?", projectID).Order("rel_path ASC").Find(&fs).Error
+	return fs, err
+}
+
+// GetFileInProject 取文件并校验它属于该项目;不存在 → (nil, nil)。
+func (r *Repository) GetFileInProject(projectID, fileID uint) (*File, error) {
+	var f File
+	err := r.db.Where("id = ? AND project_id = ?", fileID, projectID).First(&f).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &f, nil
+}
+
+// RenameFileTx 改文件相对路径;updateMain 时在**同一事务**内同步 project.main_file,
+// 保证「改主文件名」时 main_file 指针与文件 rel_path 要么一起变、要么都不变(消除孤儿主文件)。
+// 调用方已校验路径安全 + 唯一。
+func (r *Repository) RenameFileTx(fileID, projectID uint, newRelPath string, updateMain bool) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if updateMain {
+			if err := tx.Model(&Project{}).Where("id = ?", projectID).Update("main_file", newRelPath).Error; err != nil {
+				return err
+			}
+		}
+		return tx.Model(&File{}).Where("id = ?", fileID).Update("rel_path", newRelPath).Error
+	})
+}
+
+// DeleteFile 删文件 + 其全部版本(事务)。
+func (r *Repository) DeleteFile(fileID uint) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("file_id = ?", fileID).Delete(&FileVersion{}).Error; err != nil {
+			return err
+		}
+		return tx.Where("id = ?", fileID).Delete(&File{}).Error
+	})
+}
+
+func (r *Repository) GetVersion(id uint) (*FileVersion, error) {
+	var v FileVersion
+	if err := r.db.Where("id = ?", id).First(&v).Error; err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+// ListVersions 列某文件的版本(不含 body,列表轻量;按 version_no 倒序)。
+func (r *Repository) ListVersions(fileID uint, limit int) ([]FileVersion, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	var vs []FileVersion
+	err := r.db.Select("id, file_id, version_no, content_sha256, author, status, created_at").
+		Where("file_id = ?", fileID).Order("version_no DESC").Limit(limit).Find(&vs).Error
+	return vs, err
+}
+
+// ─── 对话持久化 ────────────────────────────────────────────────────────────
+
+// AppendChatPair 把 user + assistant 两条**一次性批量插入**(单条 INSERT,两行)。
+// 单语句多行插入 → 自增 id 连续 → ListChat(id ASC)里这对消息必相邻,
+// 既保证原子(不会有问无答的孤儿气泡),又消除并发编辑下「问答交错」的错配(review F9/F10)。
+func (r *Repository) AppendChatPair(user, assistant *ChatMessage) error {
+	return r.db.Create(&[]*ChatMessage{user, assistant}).Error
+}
+
+func (r *Repository) ListChat(projectID uint, limit int) ([]ChatMessage, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 200
+	}
+	var ms []ChatMessage
+	err := r.db.Where("project_id = ?", projectID).Order("id ASC").Limit(limit).Find(&ms).Error
+	return ms, err
+}
+
+// AppendCurrentVersion 追加一个 current 版本:事务内 supersede 旧 current → 插入新版本
+// → 更新 file 的 current_version_id / content_sha256 / size。返回新版本。
+func (r *Repository) AppendCurrentVersion(fileID uint, body, sha, author string, baseVersionID *uint) (*FileVersion, error) {
+	var ver FileVersion
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		var maxNo int
+		tx.Model(&FileVersion{}).Where("file_id = ?", fileID).
+			Select("COALESCE(MAX(version_no),0)").Scan(&maxNo)
+
+		// 旧 current → superseded(防多 current)。
+		if err := tx.Model(&FileVersion{}).
+			Where("file_id = ? AND status = ?", fileID, VerCurrent).
+			Update("status", VerSuperseded).Error; err != nil {
+			return err
+		}
+
+		ver = FileVersion{
+			FileID: fileID, VersionNo: maxNo + 1, Body: body, ContentSHA256: sha,
+			Author: author, Status: VerCurrent, BaseVersionID: baseVersionID,
+		}
+		if err := tx.Create(&ver).Error; err != nil {
+			return err
+		}
+		return tx.Model(&File{}).Where("id = ?", fileID).Updates(map[string]any{
+			"current_version_id": ver.ID,
+			"content_sha256":     sha,
+			"size":               len(body),
+		}).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &ver, nil
+}
+
+// VersionWrite 一次批量固化里的一个文件改动(轮末把 agent 在 cwd 的改动写穿进 DB)。
+type VersionWrite struct {
+	FileID        uint
+	Body          string
+	SHA           string
+	BaseVersionID *uint
+}
+
+// BatchAppendCurrentVersions 在**单个事务**里给多个文件各追加一个 current 版本:
+// 多文件改动要么一起进 DB、要么一起回滚,杜绝半固化(改了 3 个落了 2 个)的不自洽稿件。
+// author 统一(轮末固化传 AuthorAgent)。每个文件:supersede 旧 current → 插新版本 → 更新 file 指针。
+func (r *Repository) BatchAppendCurrentVersions(items []VersionWrite, author string) ([]FileVersion, error) {
+	out := make([]FileVersion, 0, len(items))
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		for _, it := range items {
+			var maxNo int
+			tx.Model(&FileVersion{}).Where("file_id = ?", it.FileID).
+				Select("COALESCE(MAX(version_no),0)").Scan(&maxNo)
+			if err := tx.Model(&FileVersion{}).
+				Where("file_id = ? AND status = ?", it.FileID, VerCurrent).
+				Update("status", VerSuperseded).Error; err != nil {
+				return err
+			}
+			ver := FileVersion{
+				FileID: it.FileID, VersionNo: maxNo + 1, Body: it.Body, ContentSHA256: it.SHA,
+				Author: author, Status: VerCurrent, BaseVersionID: it.BaseVersionID,
+			}
+			if err := tx.Create(&ver).Error; err != nil {
+				return err
+			}
+			if err := tx.Model(&File{}).Where("id = ?", it.FileID).Updates(map[string]any{
+				"current_version_id": ver.ID,
+				"content_sha256":     it.SHA,
+				"size":               len(it.Body),
+			}).Error; err != nil {
+				return err
+			}
+			out = append(out, ver)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ─── 编译 ────────────────────────────────────────────────────────────────
+
+func (r *Repository) CreateCompile(c *Compile) error { return r.db.Create(c).Error }
+
+func (r *Repository) GetCompileInProject(projectID, id uint) (*Compile, error) {
+	var c Compile
+	err := r.db.Where("id = ? AND project_id = ?", id, projectID).First(&c).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+func (r *Repository) UpdateCompile(id uint, fields map[string]any) error {
+	return r.db.Model(&Compile{}).Where("id = ?", id).Updates(fields).Error
+}
+
+// FindCachedCompile 命中未过期的成功编译(内容哈希一致)→ 复用其 PDF,免起容器。
+func (r *Repository) FindCachedCompile(projectID uint, contentHash string, now time.Time) (*Compile, error) {
+	if contentHash == "" {
+		return nil, nil
+	}
+	var c Compile
+	err := r.db.Where("project_id = ? AND content_hash = ? AND status = ? AND expires_at > ?",
+		projectID, contentHash, CompileSuccess, now).Order("id DESC").First(&c).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+// GetFileByPath 按相对路径取项目内文件;不存在 → (nil, nil)。
+func (r *Repository) GetFileByPath(projectID uint, relPath string) (*File, error) {
+	var f File
+	err := r.db.Where("project_id = ? AND rel_path = ?", projectID, relPath).First(&f).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &f, nil
+}
+
+// ─── AI 编辑作业 ───────────────────────────────────────────────────────────
+
+func (r *Repository) CreateEdit(e *Edit) error { return r.db.Create(e).Error }
+
+func (r *Repository) GetEditInProject(projectID, id uint) (*Edit, error) {
+	var e Edit
+	err := r.db.Where("id = ? AND project_id = ?", id, projectID).First(&e).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &e, nil
+}
+
+func (r *Repository) UpdateEdit(id uint, fields map[string]any) error {
+	return r.db.Model(&Edit{}).Where("id = ?", id).Updates(fields).Error
+}
+
+// ─── 文献库检索(\cite RAG 源)───────────────────────────────────────────────
+
+// libRow 只取生成 BibTeX 所需列(读 user_library_papers,不依赖 library 包)。
+type libRow struct {
+	ID          uint
+	Title       string
+	AuthorsJSON []byte `gorm:"column:authors_json"`
+	Year        *uint16
+	Venue       string
+	DOI         string
+}
+
+// SearchLibrary 在用户文献库里按关键词 LIKE 检索(title/venue/doi),只返真实库行 —— \cite 反幻觉的根。
+func (r *Repository) SearchLibrary(userID uint, query string, limit int) ([]libRow, error) {
+	if limit <= 0 || limit > 50 {
+		limit = 20
+	}
+	q := r.db.Table("user_library_papers").
+		Select("id, title, authors_json, year, venue, doi").
+		Where("user_id = ?", userID)
+	if s := strings.TrimSpace(query); s != "" {
+		esc := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(s)
+		if len(esc) > 100 {
+			esc = esc[:100]
+		}
+		like := "%" + esc + "%"
+		q = q.Where("title LIKE ? ESCAPE '\\\\' OR venue LIKE ? ESCAPE '\\\\' OR doi LIKE ? ESCAPE '\\\\'", like, like, like)
+	}
+	var rows []libRow
+	err := q.Order("year DESC").Limit(limit).Find(&rows).Error
+	return rows, err
+}
+
+// GetLibraryPaper 取某条库论文(cite apply 用,校验归属)。
+func (r *Repository) GetLibraryPaper(userID, paperID uint) (*libRow, error) {
+	var row libRow
+	err := r.db.Table("user_library_papers").
+		Select("id, title, authors_json, year, venue, doi").
+		Where("id = ? AND user_id = ?", paperID, userID).First(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &row, nil
+}
+
+// LatestSuccessCompile 项目最近一次成功编译(取 PDF 用)。
+func (r *Repository) LatestSuccessCompile(projectID uint) (*Compile, error) {
+	var c Compile
+	err := r.db.Where("project_id = ? AND status = ?", projectID, CompileSuccess).
+		Order("id DESC").First(&c).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}

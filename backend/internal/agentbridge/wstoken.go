@@ -59,6 +59,22 @@ func (f *FeatureBridge) IssueWSTicket(ctx context.Context, userID uint, sessionI
 	if !owns {
 		return "", ErrSessionMismatch
 	}
+	return f.mintWSTicket(ctx, userID, sessionID)
+}
+
+// IssueWSTicketTrusted 同 IssueWSTicket,但**跳过** OwnsSession 检查 —— 用于 session 不在
+// 通用 agent_sessions 映射、而由 feature 自己管归属的场景(如 Prism 每项目独立会话存
+// prism_projects.agent_session_id)。**调用方必须已自行校验归属**(如 prism 先 GetProject(uid)
+// 确认项目属本人,再解析出该项目的 sessionID),否则就是越权漏洞。
+func (f *FeatureBridge) IssueWSTicketTrusted(ctx context.Context, userID uint, sessionID string) (string, error) {
+	if sessionID == "" {
+		return "", errors.New("agentbridge: empty session id")
+	}
+	return f.mintWSTicket(ctx, userID, sessionID)
+}
+
+// mintWSTicket 铸一张 ticket 写进 Redis(归属校验由调用方决定)。
+func (f *FeatureBridge) mintWSTicket(ctx context.Context, userID uint, sessionID string) (string, error) {
 	rdb := cache.GetRedis()
 	if rdb == nil {
 		return "", errors.New("agentbridge: redis unavailable, cannot issue ws ticket")

@@ -24,6 +24,7 @@ const (
 	FeatureMatrix      = "matrix"
 	FeatureTranslate   = "translate"
 	FeatureWechatOA    = "wechat_oa"
+	FeaturePrism       = "prism"
 )
 
 // RetentionDays —— 账本保留天数(cleanup 删超期行, 防 per-call 表无限增长)。

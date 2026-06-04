@@ -148,13 +148,7 @@ export async function handleSessionsApi(
     }
 
     if (subResource === 'workspace') {
-      if (req.method !== 'GET') {
-        return Response.json(
-          { error: 'METHOD_NOT_ALLOWED', message: `Method ${req.method} not allowed` },
-          { status: 405 }
-        )
-      }
-      return await handleSessionWorkspaceRoute(sessionId, url, segments[4])
+      return await handleSessionWorkspaceRoute(req, sessionId, url, segments[4])
     }
 
     // POST /api/sessions/:id/files — Scholay: 把上传文件写进会话隔离 cwd。
@@ -288,12 +282,40 @@ async function getSessionMessages(sessionId: string): Promise<Response> {
 }
 
 async function handleSessionWorkspaceRoute(
+  req: Request,
   sessionId: string,
   url: URL,
   workspaceResource?: string,
 ): Promise<Response> {
   await requireSessionWorkspace(sessionId)
 
+  // ── Scholay Prism agent-native 写回路由(保 relPath、原子、越界校验)──
+  if (workspaceResource === 'file' && req.method === 'PUT') {
+    return await runWorkspaceRequest(async () => workspaceService.writeFile(
+      sessionId, requireWorkspacePath(url, 'file'), await req.text(),
+    ))
+  }
+  if (workspaceResource === 'file' && req.method === 'DELETE') {
+    return await runWorkspaceRequest(() => workspaceService.deleteFile(
+      sessionId, requireWorkspacePath(url, 'file'),
+    ))
+  }
+  if (workspaceResource === 'rename' && req.method === 'POST') {
+    return await runWorkspaceRequest(async () => {
+      const body = (await req.json().catch(() => ({}))) as { to?: string }
+      const to = body.to || url.searchParams.get('to') || ''
+      if (!to) throw ApiError.badRequest('workspace rename requires "to"')
+      return workspaceService.renameFile(sessionId, requireWorkspacePath(url, 'rename'), to)
+    })
+  }
+
+  // ── 读路由:仅 GET ──
+  if (req.method !== 'GET') {
+    return Response.json(
+      { error: 'METHOD_NOT_ALLOWED', message: `Method ${req.method} not allowed` },
+      { status: 405 },
+    )
+  }
   switch (workspaceResource) {
     case 'status':
       return Response.json(await workspaceService.getStatus(sessionId))
@@ -306,6 +328,7 @@ async function handleSessionWorkspaceRoute(
       return await runWorkspaceRequest(() => workspaceService.readFile(
         sessionId,
         requireWorkspacePath(url, 'file'),
+        { full: url.searchParams.get('full') === '1' }, // 固化回读需绕 1MB 截断
       ))
     case 'diff':
       return await runWorkspaceDiffRequest(() => workspaceService.getDiff(
@@ -381,7 +404,7 @@ async function requireSessionWorkspace(sessionId: string): Promise<string> {
   return workDir
 }
 
-function requireWorkspacePath(url: URL, route: 'file' | 'diff'): string {
+function requireWorkspacePath(url: URL, route: 'file' | 'diff' | 'rename'): string {
   const filePath = url.searchParams.get('path')
   if (!filePath) {
     throw ApiError.badRequest(`path query parameter is required for workspace ${route}`)

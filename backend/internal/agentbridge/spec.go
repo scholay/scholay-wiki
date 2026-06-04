@@ -31,6 +31,8 @@ package agentbridge
 import (
 	"context"
 	"time"
+
+	"scholar-backend/internal/agent"
 )
 
 // AgentUsage 是 agent message_complete 事件里 usage 字段的 Go 视图,
@@ -119,6 +121,22 @@ type FeatureSpec struct {
 	// OnMessageComplete 在每轮 agent 回答完 (拿到 message_complete) 后异步调用。
 	// nil → 不记账 (usage 仅在 agent 端 transcript 留底)。
 	OnMessageComplete OnMessageCompleteFn
+
+	// specDeny 见下:取 SessionOptions.DisallowedTools 给后端 permission 二道防线用。
+	//
+	// SessionOptions 创建该 feature 的 agent session 时透传给 agent.CreateSession,
+	// 用于 per-feature 收紧工具集 / 指定 work dir / add-dir。nil → 用 agent 默认(全工具)。
+	// 例: Prism 写作设 DisallowedTools=[Bash,Write,Edit,MultiEdit] —— agent 只能产
+	// [PRISM_PATCH] 文本, 永不直接落盘真源(文件真源在后端 DB)。
+	SessionOptions *agent.CreateSessionOptions
+}
+
+// specDeny 取该 feature 会话的显式禁用工具(给后端 permission 二道防线)。无则 nil。
+func specDeny(spec FeatureSpec) []string {
+	if spec.SessionOptions != nil {
+		return spec.SessionOptions.DisallowedTools
+	}
+	return nil
 }
 
 // PingIntervalOrDefault 处理 0 → 25s 的默认值兜底。

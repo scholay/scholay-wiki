@@ -45,20 +45,29 @@ export function RecordDetailPage() {
   const { data: sub, isLoading: subLoading } = useSubmission(id);
   const { data: reports, isLoading: reportsLoading } = useSubmissionReports(id);
 
-  // 默认 tab: 主审已决议 → 主审; 否则展示编辑部初审 (因为最早完成)。
-  // 用户手动切 tab 后, state 接管, 不再被 reports 变化影响。
   const reportMap = useMemo(() => {
     const m = new Map<ReviewerRole, ReviewReport>();
     reports?.forEach((r) => m.set(r.role, r));
     return m;
   }, [reports]);
 
-  const [activeTab, setActiveTab] = useState<string>('editorial');
+  // Tab 自动跟随"当前在等的那张卡"(live front):
+  //   - pinnedTab=null = 跟随态 → activeTab 实时 = live front,随审稿推进自动切卡(reports 5s 轮询)。
+  //   - 手动点了别的卡 → 钉在那张(pinnedTab=该卡),停止跟随。
+  //   - 再点回"当前在等的那张卡" → pinnedTab 归 null,恢复跟随。
+  // live front 见 liveFrontTab:审稿中=第一张没出报告的卡;已完成/终态=主审决议。
+  const [pinnedTab, setPinnedTab] = useState<string | null>(null);
 
   if (subLoading) return <LoadingState />;
   if (!sub) {
     return <EmptyState title="找不到这份审稿" description="可能已被删除, 或没有访问权限。" />;
   }
+
+  // 当前"在等的那张卡" + 实际展示的 tab(钉住优先,否则跟随)。
+  const waitingTab = liveFrontTab(sub.status, reportMap);
+  const activeTab = pinnedTab ?? waitingTab;
+  // 切到当前在等的卡 → 归 null 恢复跟随;切到其它卡 → 钉住停跟随。
+  const handleTabChange = (tab: string) => setPinnedTab(tab === waitingTab ? null : tab);
 
   // 审稿中要把 5 个 tab 全挂上(见下方 contentRow), 这里抽出单 tab 的渲染。
   const REVIEW_TABS = ['editorial', 'alpha', 'beta', 'gamma', 'chief'] as const;
@@ -103,12 +112,12 @@ export function RecordDetailPage() {
       <div className="flex-1 overflow-auto bg-surface-3 px-7 py-5">
         <div className="mx-auto flex max-w-[1400px] flex-col gap-3.5">
           {/* 1) mHeader */}
-          <Header sub={sub} reports={reportMap} activeTab={activeTab} onTabChange={setActiveTab} />
+          <Header sub={sub} reports={reportMap} activeTab={activeTab} onTabChange={handleTabChange} />
 
           {/* 2) tabsBar */}
           <TabsBar
             activeTab={activeTab}
-            onTabChange={setActiveTab}
+            onTabChange={handleTabChange}
             reports={reportMap}
             status={sub.status}
           />
@@ -143,7 +152,7 @@ export function RecordDetailPage() {
               submission={sub}
               reports={reportMap as unknown as Map<string, ReviewReport>}
               activeTab={activeTab}
-              onTabChange={setActiveTab}
+              onTabChange={handleTabChange}
             />
           </div>
         </div>
@@ -340,6 +349,19 @@ function TabsBar({
       })}
     </div>
   );
+}
+
+// live front = 当前"在等的那张卡",tab 自动跟随的目标:
+//   审稿中 / 排队中 → 第一张还没出报告的卡 (alpha→beta→gamma→chief);
+//   已完成 / 失败 / 其它终态 → 主审决议 (chief)。
+// 编辑部初审是提交即过的合规检查,永不作为 live front。
+const REVIEW_FRONT: ReviewerRole[] = ['alpha', 'beta', 'gamma', 'chief'];
+function liveFrontTab(status: string, reports: Map<ReviewerRole, ReviewReport>): string {
+  if (status !== 'reviewing' && status !== 'queued') return 'chief';
+  for (const role of REVIEW_FRONT) {
+    if (!reports.get(role)) return role;
+  }
+  return 'chief';
 }
 
 function statusLabel(s: string) {

@@ -213,6 +213,8 @@ services:
       # 智能审稿: backend 按 slug 读审稿人 skill 的「评分人格」段注入评分轮 (见 peerreview)。
       # 只读挂载与 agent 同一份 committed skills 目录 (单一真相源)。
       PEERREVIEW_SKILLS_DIR: ${PEERREVIEW_SKILLS_DIR:-/app/reviewer-skills}
+      # Prism 编译任务共享目录(与 scholar_prism_tex 同卷;后端写任务、watcher 编译回写)
+      PRISM_WORK_DIR: ${PRISM_WORK_DIR:-/data/prism-work}
       # Go memory limit (75% of container memory limit)
       GOMEMLIMIT: 768MiB
     volumes:
@@ -220,6 +222,8 @@ services:
       # 审稿人 skill 库 (reviewer-roster + rv-*): backend 只读, 按 slug 读 SCORING_PERSONA 段。
       # 这些 skill 已从共享的 skills/ 移到 reviewer-skills/ (claw 看不到, 仅 peerreview 方法论会话经 --add-dir 装)。
       - ./agent/data/claude/reviewer-skills:/app/reviewer-skills:ro
+      # Prism 编译任务共享卷:后端写「任务目录+.request」,scholar_prism_tex watcher 轮询编译回写 PDF/log。
+      - ./data/prism-work:/data/prism-work
     # Backend不暴露端口,通过Nginx访问
     expose:
       - "8080"
@@ -287,6 +291,10 @@ services:
       # 审稿人 skill (reviewer-roster + rv-*) 放在独立目录, **不进**全局 .claude/skills;
       # 只有 peerreview 方法论会话经 --add-dir /peerreview-add 加载 <此处>/.claude/skills → claw 看不到。
       - ./agent/data/claude/reviewer-skills:/peerreview-add/.claude/skills:ro
+      # 会话工作目录 (cwd + 上传文件) 持久化 —— 与 docker-compose.prod.yml 对齐(prod 早已挂)。
+      # 否则重建容器会清空 /home/bun/sessions/<id>,旧会话续聊报 "Working directory does not exist";
+      # Prism agent-native 模式下该目录是「每项目工作副本」,更须持久。属主由镜像 entrypoint chown 自愈。
+      - ./data/agent-sessions:/home/bun/sessions
       - /etc/localtime:/etc/localtime:ro
       # 可选: 把 host 上的代理 CA pem 挂进容器, 配合上面的 NODE_EXTRA_CA_CERTS env
       # - ${EXTRA_CA_CERTS_HOST:-./agent/extra-ca.pem.placeholder}:/certs/extra-ca.pem:ro
@@ -342,6 +350,44 @@ services:
         limits:
           memory: 128M
 
+  # Scholay Prism LaTeX 编译沙箱 (源在 prism_tex/)。
+  # 与后端只经共享卷 ./data/prism-work 通信(watcher 轮询任务),故 network_mode: none 彻底断网。
+  # 纵深防御: 无 cap / 无网络 / 只读 rootfs / no-new-privileges / pids·mem·cpu 限额 + 编译超时。
+  prism-tex:
+    build:
+      context: ./prism_tex
+      dockerfile: Dockerfile
+    container_name: scholar_prism_tex
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      <<: *tz-env
+      COMPILE_TIMEOUT: ${PRISM_COMPILE_TIMEOUT:-60}
+    network_mode: none
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - ./data/prism-work:/work
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.5"
+          pids: 256
+        reservations:
+          memory: 128M
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/heartbeat && [ $(( $(date +%s) - $(stat -c %Y /tmp/heartbeat) )) -lt 30 ]"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
   # 用户前端 (Vite + React 19,源在 frontend-user/)
   frontend-user:
     build:
@@ -352,6 +398,8 @@ services:
         # 站点配置 build-time 注入到 Vite bundle (运行期不能变)
         VITE_SITE_URL: ${SITE_URL:-https://www.scholay.com}
         VITE_SITE_NAME: ${SITE_NAME:-Scholay}
+        # 临时:智能写作「即将推出」门(读 .env 的 PRISM_COMING_SOON,默认 true)。true=盖蒙层。
+        VITE_PRISM_COMING_SOON: ${PRISM_COMING_SOON:-true}
         # umami tracker 已改为运行时 fetch /api/v1/public/umami-config 拿 website_id,
         # 不需要 build-time 注入。换 umami DB / 重建 website 都无需 rebuild 前端。
     container_name: scholar_frontend_user

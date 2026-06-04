@@ -57,6 +57,8 @@ import (
 // peerreview 用它把 meta/letter 切到快模型 (haiku), review 切回主模型。空 = 用会话当前/默认模型。
 // agent 的 user_message 处理会先 waitForRuntimeTransition, 所以先发 set_runtime_config 再发
 // user_message 不会有竞态 (agent 内部串行)。
+// denyTools(可变参)是本会话(feature)显式禁用的工具,作后端二道防线传给 permission 裁决:
+// 命中即拒(无视路径)。现有调用方(peerreview)不传 → nil → 行为不变;Prism 传 prismDisallowedTools。
 func (b *Bridge) ServerSideChatStreaming(
 	ctx context.Context,
 	sessionID string,
@@ -64,6 +66,7 @@ func (b *Bridge) ServerSideChatStreaming(
 	onDelta func(string),
 	onStatus func(string),
 	modelID string,
+	denyTools ...string,
 ) (string, *ChatUsage, error) {
 	if sessionID == "" {
 		return "", nil, errors.New("agentbridge: empty sessionId")
@@ -205,7 +208,7 @@ func (b *Bridge) ServerSideChatStreaming(
 		case "permission_request":
 			// 路径感知裁决 (跟 HandleWS 同一函数): MCP 放行, 文件工具仅会话 cwd 内放行。
 			// decidePermission 直接吃原始帧 (含 toolName/input), 回完整 permission_response 字节。
-			if reply, ok := decidePermission(raw, sessionWorkDir); ok {
+			if reply, ok := decidePermission(raw, sessionWorkDir, denyTools); ok {
 				_ = writeMsg(gorillaws.TextMessage, reply)
 			}
 		case "message_complete":

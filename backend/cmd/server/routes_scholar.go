@@ -115,5 +115,14 @@ func registerPublicAPIRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL gin.
 		publicAPI.POST("/journals/stats", h.scholar.GetJournalStats)
 		publicAPI.POST("/journals/suggest", h.scholar.SuggestJournals)
 		publicAPI.POST("/journals/byNames", h.scholar.JournalsByNames)
+
+		// 功能大全 (学术工具黄页) 公开浏览。
+		// detail 走 /tools/detail/:idOrSlug, categories 走 /tools/categories —— 都是
+		// /tools 的静态子节点, 避免 gin "static vs :param" 同层冲突。
+		publicAPI.GET("/tools", h.featureTool.PublicList)
+		publicAPI.GET("/tools/categories", h.featureTool.PublicCategories)
+		publicAPI.GET("/tools/detail/:idOrSlug", h.featureTool.PublicGet)
+		// 工具 logo 从 MinIO 流式服务 (导入 zip 时上传), 永久缓存
+		publicAPI.GET("/tools/logo/:slug", h.featureTool.PublicLogo)
 	}
 }

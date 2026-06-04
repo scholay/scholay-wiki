@@ -555,7 +555,8 @@ User-agent: Sogou web spider
 Crawl-delay: 2
 
 Sitemap: %s/sitemap.xml
-`, baseURL())
+Sitemap: %s/sitemap-tools.xml
+`, baseURL(), baseURL())
 	c.Header("Content-Type", "text/plain; charset=utf-8")
 	c.Header("Cache-Control", "public, max-age=86400")
 	c.String(http.StatusOK, body)

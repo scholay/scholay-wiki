@@ -9,6 +9,7 @@ package middleware
 
 import (
 	"net/http"
+	"strings"
 
 	"scholar-backend/internal/common/errcode"
 	"scholar-backend/internal/common/utils"
@@ -25,8 +26,21 @@ const (
 
 // BodyLimitMiddleware rejects requests whose body exceeds maxBytes.
 // This prevents oversized payloads from exhausting server memory.
+//
+// 但 multipart/form-data 文件上传**不**在这里限。原因: 这道全局中间件用
+// http.MaxBytesReader 把 body 包死在 maxBytes(默认 10MB)。各上传路由后面再挂的
+// UploadLimitMiddleware(50MB) 是在已包过的 reader 外**再包一层** —— MaxBytesReader
+// 不会解包/放大, 内层 10MB 先报错, 于是 per-route 的 50MB 被彻底架空, 全平台文件上传
+// 被悄悄卡在 10MB(claw/feedback/library/peer-review 都中招)。
+// 改法: multipart 请求直接放行, 体积交给各自路由的 UploadLimitMiddleware 或 handler 内的
+// ContentLength / FileHeader.Size 守门(它们都比 10MB 大且各自合理)。非上传的 JSON 等
+// 请求仍按 maxBytes 限, DoS 防护不变。
 func BodyLimitMiddleware(maxBytes int64) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if strings.HasPrefix(c.GetHeader("Content-Type"), "multipart/form-data") {
+			c.Next()
+			return
+		}
 		if c.Request.Body != nil {
 			c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBytes)
 		}

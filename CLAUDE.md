@@ -39,8 +39,9 @@ cd frontend-user && npm start
 
 **URLs** (check .env for actual ports):
 - User Portal: http://localhost:5411
-- Admin Dashboard: http://localhost:5455
-- Default admin: `admin` / `adminadmin`
+- Admin Dashboard: http://localhost:5411/admin (同一个 5411 SPA 的 `/admin` 路由,**没有独立端口**;旧的 ADMIN_PORT/5455 已下线)
+- Admin login: 管理员与普通用户**共用** http://localhost:5411 的登录弹窗(`/api/v1/user/login`),登录后凭 `role=admin` 的 token 进 `/admin`(前端 `adminGuard` 校验角色)
+- Default super_admin: `admin` / `adminadmin`(该种子账号 email 为空,实际请用带邮箱的管理员账号从用户登录入口登入)
 
 ## Essential Commands
 
@@ -58,10 +59,10 @@ docker-compose logs -f
 
 # View logs for specific service
 docker logs scholar_backend -f
-docker logs scholar_frontend_user -f
-docker logs scholar_frontend_admin -f
+docker logs scholar_frontend_user -f   # 用户端 + /admin 后台同一个容器
 docker logs scholar_mysql -f
 docker logs scholar_redis -f
+# 注:scholar_frontend_admin 容器已下线(后台并入 frontend_user 的 /admin 路由)
 
 # Restart specific service after code changes
 docker-compose restart backend
@@ -180,8 +181,10 @@ docker exec -it scholar_redis redis-cli MONITOR
 # Health check (via Nginx - check actual port from .env)
 curl http://localhost:5411/health
 
-# Admin login (use actual ADMIN_PORT from .env)
-curl -X POST http://localhost:5455/api/v1/admin/login \
+# Admin login —— 前端现在统一走用户登录入口(/api/v1/user/login,email+密码),
+# 登录后凭 role=admin 的 token 进 /admin。下面这个 /admin/login 是仍保留的遗留后端端点
+# (FindByLogin 支持 username 或 email),前端已不再调用,仅作兼容/调试。
+curl -X POST http://localhost:5411/api/v1/admin/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"adminadmin"}'
 
@@ -205,11 +208,11 @@ curl -X POST "http://localhost:5411/api/v1/user/smart-search/session/ws-ticket" 
 
 # Get WeChat Official Account config (admin only)
 ADMIN_TOKEN="your-admin-jwt-token"
-curl "http://localhost:5455/api/v1/admin/wechat-official/config" \
+curl "http://localhost:5411/api/v1/admin/wechat-official/config" \
   -H "Authorization: Bearer $ADMIN_TOKEN"
 
 # Update WeChat Official Account config (admin only)
-curl -X PUT "http://localhost:5455/api/v1/admin/wechat-official/config" \
+curl -X PUT "http://localhost:5411/api/v1/admin/wechat-official/config" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -224,7 +227,7 @@ curl -X PUT "http://localhost:5455/api/v1/admin/wechat-official/config" \
   }'
 
 # List coupon templates (admin only)
-curl "http://localhost:5455/api/v1/admin/coupon-templates" \
+curl "http://localhost:5411/api/v1/admin/coupon-templates" \
   -H "Authorization: Bearer $ADMIN_TOKEN"
 
 # Get user's available coupons for an order
@@ -239,11 +242,11 @@ curl -X POST "http://localhost:5411/api/v1/user/invitation/generate" \
 curl "http://localhost:5411/api/v1/user/github/login-url"
 
 # Get GitHub OAuth config (admin only)
-curl "http://localhost:5455/api/v1/admin/github-oauth/config" \
+curl "http://localhost:5411/api/v1/admin/github-oauth/config" \
   -H "Authorization: Bearer $ADMIN_TOKEN"
 
 # Update GitHub OAuth config (admin only)
-curl -X PUT "http://localhost:5455/api/v1/admin/github-oauth/config" \
+curl -X PUT "http://localhost:5411/api/v1/admin/github-oauth/config" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -260,18 +263,16 @@ curl -X PUT "http://localhost:5455/api/v1/admin/github-oauth/config" \
 
 The project uses Nginx as a reverse proxy to provide unified entry points and solve CORS issues:
 
-- **HTTP_PORT** (configured in .env) → User Portal (frontend-user + backend API via `/api/*`)
+- **HTTP_PORT** (configured in .env) → 整站唯一入口(frontend-user + backend API via `/api/*`)
   - Nginx listens on port 80 internally, mapped to HTTP_PORT (default: 5411) on host
-  - Config: `nginx/conf.d/user.conf`
-- **ADMIN_PORT** (configured in .env) → Admin Dashboard (frontend-user `/admin` route + backend API via `/api/*`)
-  - Nginx listens on port 8001 internally, mapped to ADMIN_PORT (default: 5455) on host
-  - Root path redirects to `/admin`
-  - Config: `nginx/conf.d/admin.conf`
+  - Config: `nginx/conf.d/user.conf`(全站只有这一份 conf)
+  - 管理后台是同一个 5411 SPA 的 `/admin` 路由,**不再有独立端口/独立 nginx conf**
+  - ⚠️ 旧版的 **ADMIN_PORT / 5455 / 8001 / `admin.conf` / `frontend-admin` 容器已全部下线**,如在老文档/老 .env 见到请忽略
 - **Internal**: MySQL (3306), Backend (8080), Redis (6379) are NOT exposed to host
 
 **How it works**:
-- User requests → Nginx:80 (HTTP_PORT) → Routes `/api/*` to backend:8080, `/` to frontend-user:80
-- Admin requests → Nginx:8001 (ADMIN_PORT) → Routes `/api/*` to backend:8080, `/` redirects to `/admin` on frontend-user:80
+- 所有请求(含管理后台)→ Nginx:80 (HTTP_PORT) → Routes `/api/*` to backend:8080, `/` to frontend-user:80
+- `/admin/*` 只是 SPA 内的前端路由,由前端 `adminGuard`(读 token 里的 role)守卫;后端 `/api/v1/admin/*` 数据接口用 `AdminAuthMiddleware` 校验 role
 - All frontend-to-backend API calls go through Nginx, enabling same-origin requests
 - Backend containers communicate via internal Docker network (`scholar-network`)
 
@@ -570,14 +571,19 @@ The platform supports GitHub OAuth for user authentication:
 
 ### Authentication System
 
-**Two separate authentication flows**:
+**统一登录入口(管理员与普通用户共用)**:
 
-1. **Admin** (username/password):
-   - Table: `users` (filtered by `role='admin'`)
-   - JWT with type="user", role="admin" (unified with user tokens)
-   - Middleware: `middleware.AdminAuthMiddleware()`
-   - Default: username=`admin`, password=`adminadmin`
-   - Sessions: managed via `user_sessions` (same as regular users)
+> 历史上 admin 走独立的 5455 后台 + `/api/v1/admin/login`,**现已合并**:所有人都在 5411
+> 用同一套登录(`/api/v1/user/login` 等),登录后由 **token 里的 `role`** 决定权限。
+> 因此用户端的登录/改密接口**不再区分**普通用户与管理员(查到 admin 行也照常处理)。
+
+1. **Admin / Super Admin**:
+   - Table: `users`(`role='admin'` / `'super_admin'`),与普通用户同表同登录入口
+   - 登录:走用户端 `/api/v1/user/login`(email+密码)等;签发的 JWT 为 type="user" + role=admin/super_admin
+   - 进后台:前端 `/admin` 路由由 `adminGuard`(读 store 里的 role)守卫;后端 `/api/v1/admin/*` 数据接口用 `middleware.AdminAuthMiddleware()` 校验 role
+   - 遗留:`/api/v1/admin/login` 后端端点仍在(`FindByLogin` 认 username 或 email),但前端已不调用
+   - Default super_admin: username=`admin` / `adminadmin`(email 为空,无法走 email 登录;实际请用带邮箱的管理员账号)
+   - Sessions: managed via `user_sessions`(same as regular users)
 
 2. **User** (email/OAuth, extensible):
    - Table: `users` + `user_auth_providers`
@@ -799,7 +805,7 @@ Key variables in `.env`:
 - `MYSQL_*` - Database credentials
 - `REDIS_PASSWORD` - Redis password (optional, currently empty)
 - `SEMANTIC_SCHOLAR_API_KEY` - Optional (uses free tier if not set)
-- Port mappings: `HTTP_PORT` (user portal port, default: 5411), `ADMIN_PORT` (admin dashboard port, default: 5455)
+- Port mapping: `HTTP_PORT` (整站唯一对外端口, default: 5411;后台 `/admin` 同端口同 SPA)。旧的 `ADMIN_PORT` 已废弃
 
 外部观测平台(SigNoz / OpenTelemetry)已下线,所有日志走 docker logs(`json-file` 驱动,见 docker-compose.yml `x-default-logging`)。
 
@@ -888,13 +894,14 @@ The following tools are used in various operations:
 
 **Development URLs** (check `.env` for actual port configuration):
 - User Portal: http://localhost:${HTTP_PORT} (default in current setup: 5411)
-- Admin Dashboard: http://localhost:${ADMIN_PORT} (default in current setup: 5455)
+- Admin Dashboard: http://localhost:${HTTP_PORT}/admin(同端口同 SPA 的 `/admin` 路由,无独立端口)
 - Backend API: http://localhost:8080 (internal only, access via Nginx)
 - Health Check: http://localhost:8080/health (internal only)
 
 **Default Credentials**:
-- Admin: username=`admin`, password=`adminadmin` (CHANGE IN PRODUCTION)
+- Super Admin: username=`admin`, password=`adminadmin` (CHANGE IN PRODUCTION;该种子账号无 email,实际用带邮箱的管理员账号从用户登录入口登入)
 - User: Register via email at user portal
+- 管理员与普通用户共用 5411 登录入口,登录后凭 role 进 `/admin`
 
 **Database**:
 - Host: localhost (only via docker exec)
@@ -906,10 +913,9 @@ The following tools are used in various operations:
 
 ### Port Conflicts
 
-If you encounter port conflicts, edit `.env` and change port mappings:
+If you encounter port conflicts, edit `.env` and change the port mapping:
 ```
-HTTP_PORT=5411    # Change to any available port for user portal
-ADMIN_PORT=5455   # Change to any available port for admin dashboard
+HTTP_PORT=5411    # 整站唯一对外端口(用户端 + /admin 后台同一端口)
 ```
 Then restart services: `docker-compose down && docker-compose up -d --build`
 

@@ -61,10 +61,12 @@ func (h *Handler) ResetSession(c *gin.Context) {
 
 func (h *Handler) GetSessionMessages(c *gin.Context) {
 	userID := c.GetUint("user_id")
+	// limit=最近 N 轮分页 (超长会话: 不一次性全量推给浏览器解析/渲染)。缺省 0 = 全量。
+	limit := agentbridge.ParseLimitTurns(c)
 	// 多会话场景下前端会显式带 ?session_id=xxx 指定要看哪个 session 的历史 (避免
 	// 切换中 race); 不带就走 "latest active" 路径兼容旧调用。
 	if sid := c.Query("session_id"); sid != "" {
-		result, err := h.feature.GetSessionMessagesByID(c.Request.Context(), userID, sid)
+		result, err := h.feature.GetSessionMessagesByID(c.Request.Context(), userID, sid, limit)
 		if err != nil {
 			if isErrNotFound(err) {
 				utils.Error(c, 4404, "会话不存在或不属于你")
@@ -73,15 +75,15 @@ func (h *Handler) GetSessionMessages(c *gin.Context) {
 			utils.InternalError(c, codeAgentUnreachable, "无法加载历史会话,请稍后重试", err)
 			return
 		}
-		utils.Success(c, gin.H{"sessionId": result.SessionID, "messages": result.Messages})
+		utils.Success(c, gin.H{"sessionId": result.SessionID, "messages": result.Messages, "totalTurns": result.TotalTurns, "hasMore": result.HasMore})
 		return
 	}
-	result, err := h.feature.GetSessionMessages(c.Request.Context(), userID)
+	result, err := h.feature.GetSessionMessages(c.Request.Context(), userID, limit)
 	if err != nil {
 		utils.InternalError(c, codeAgentUnreachable, "无法加载历史会话,请稍后重试", err)
 		return
 	}
-	utils.Success(c, gin.H{"sessionId": result.SessionID, "messages": result.Messages})
+	utils.Success(c, gin.H{"sessionId": result.SessionID, "messages": result.Messages, "totalTurns": result.TotalTurns, "hasMore": result.HasMore})
 }
 
 func (h *Handler) GetContextEstimate(c *gin.Context) {

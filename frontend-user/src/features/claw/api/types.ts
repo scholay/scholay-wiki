@@ -85,7 +85,12 @@ export type ServerMessage =
     }
   // agent 在首轮回答后会异步起 title gen, 完成后 push 这个事件。
   // ClawPage 收到 → invalidate ['claw', 'sessions'] 让 sidebar 拿到新 title。
-  | { type: 'session_title_updated'; sessionId: string; title: string };
+  | { type: 'session_title_updated'; sessionId: string; title: string }
+  // 断线续流: 重连后 agent 整段回放当前 in-flight 轮 (见 agent ws/events.ts)。
+  //   resync_start → (可选)resync_user → 缓冲事件 → resync_end。
+  | { type: 'resync_start' }
+  | { type: 'resync_user'; content: string }
+  | { type: 'resync_end' };
 
 export type ClawWSState =
   | 'idle'

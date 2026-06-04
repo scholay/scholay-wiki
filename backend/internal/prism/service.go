@@ -1,0 +1,341 @@
+// ============================================================================
+// prism.Service —— 项目/文件 CRUD + 编译编排。
+//
+// 编译异步:HTTP 写超时 30s < 编译可能 60s,故 StartCompile 立即建 queued 记录 + 起后台
+// goroutine(自带超时 ctx),前端轮询 GetCompile。内容哈希命中缓存则免起沙箱。
+// 文件真源在 DB(锁定架构 D1);编译时从 DB 物化 current 版本喂给沙箱。
+// ============================================================================
+
+package prism
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"io"
+	"log/slog"
+	"sort"
+	"strings"
+	"sync"
+	"time"
+	"unicode"
+
+	"scholar-backend/internal/agent"
+	"scholar-backend/internal/agentbridge"
+	"scholar-backend/internal/ai"
+	"scholar-backend/internal/common/safego"
+	"scholar-backend/internal/storage"
+
+	"github.com/minio/minio-go/v7"
+)
+
+// defaultProjectTitle 新建项目的占位标题;自动命名只在标题仍为此值时生效(永不覆盖用户/已命名)。
+const defaultProjectTitle = "未命名项目"
+
+type Service struct {
+	repo      *Repository
+	tex       *TexClient
+	bucket    string
+	feature   *agentbridge.FeatureBridge // 提供 ServerSideChatStreaming
+	agent     *agent.Client              // 直接建/管「每项目」agent 会话(存 prism_projects.agent_session_id)
+	ai        *ai.Service                // 轻量模型(ModelLow)给项目自动起名;nil = 不自动命名
+	sessionMu sync.Map                   // map[projectID]*sync.Mutex —— 串行化「每项目会话」的取/建,防并发双建(review F2)
+}
+
+func NewService(repo *Repository, tex *TexClient, bucket string, feature *agentbridge.FeatureBridge, agentClient *agent.Client, aiSvc *ai.Service) *Service {
+	return &Service{repo: repo, tex: tex, bucket: bucket, feature: feature, agent: agentClient, ai: aiSvc}
+}
+
+// 新项目脚手架(对齐 OpenAI Prism 的 article 起始模板)。
+const scaffoldMainTex = `\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+
+% Core packages
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\title{Untitled}
+\author{Author Name}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+
+\end{document}
+`
+
+func sha256Hex(s string) string {
+	h := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(h[:])
+}
+
+// ─── 项目 / 文件 ──────────────────────────────────────────────────────────
+
+// CreateProject 建项目 + 种入 main.tex 脚手架(文件 + current 版本)。
+func (s *Service) CreateProject(userID uint, title string) (*Project, []File, error) {
+	if strings.TrimSpace(title) == "" {
+		title = defaultProjectTitle
+	}
+	p := &Project{UserID: userID, Title: title, MainFile: "main.tex", Status: "active"}
+	if err := s.repo.CreateProject(p); err != nil {
+		return nil, nil, err
+	}
+	f := &File{ProjectID: p.ID, RelPath: "main.tex", FileKind: KindTex, Mime: "text/x-tex"}
+	if err := s.repo.CreateFile(f); err != nil {
+		return nil, nil, err
+	}
+	if _, err := s.repo.AppendCurrentVersion(f.ID, scaffoldMainTex, sha256Hex(scaffoldMainTex), AuthorUser, nil); err != nil {
+		return nil, nil, err
+	}
+	files, err := s.repo.ListFiles(p.ID)
+	return p, files, err
+}
+
+func (s *Service) GetProject(id, userID uint) (*Project, error) {
+	return s.repo.GetProject(id, userID)
+}
+
+// RenameProject 改项目标题(空→兜底"未命名项目")。proj 由 handler 传入(已校验归属)。
+func (s *Service) RenameProject(proj *Project, title string) (*Project, error) {
+	t := strings.TrimSpace(title)
+	if t == "" {
+		t = defaultProjectTitle
+	}
+	if err := s.repo.UpdateProjectTitle(proj.ID, t); err != nil {
+		return nil, err
+	}
+	proj.Title = t
+	return proj, nil
+}
+
+// DeleteProject 删项目:先清 MinIO 编译产物 + agent 会话(best-effort),再事务删 DB 全部子表。
+func (s *Service) DeleteProject(ctx context.Context, proj *Project) error {
+	if keys, err := s.repo.CompileObjectKeys(proj.ID); err == nil && len(keys) > 0 {
+		_ = storage.DeleteObjects(ctx, s.bucket, keys, func(k string, e error) {
+			slog.Warn("prism: delete project object failed", "key", k, "err", e)
+		})
+	}
+	if proj.AgentSessionID != nil && *proj.AgentSessionID != "" {
+		s.deleteSessionBestEffort(*proj.AgentSessionID) // 释放 agent 端会话,不留孤儿
+	}
+	return s.repo.DeleteProjectCascade(proj.ID)
+}
+
+func (s *Service) ListProjects(userID uint) ([]Project, error) {
+	return s.repo.ListProjects(userID)
+}
+
+func (s *Service) ListFiles(projectID uint) ([]File, error) {
+	return s.repo.ListFiles(projectID)
+}
+
+// GetFileBody 取文件 current 版本正文。
+func (s *Service) GetFileBody(projectID, fileID uint) (*File, string, error) {
+	f, err := s.repo.GetFileInProject(projectID, fileID)
+	if err != nil || f == nil {
+		return nil, "", err
+	}
+	if f.CurrentVersionID == nil {
+		return f, "", nil
+	}
+	v, err := s.repo.GetVersion(*f.CurrentVersionID)
+	if err != nil {
+		return f, "", err
+	}
+	return f, v.Body, nil
+}
+
+// SaveFile 用户手动保存 → 追加 current 版本(author=user)。
+func (s *Service) SaveFile(projectID, fileID uint, body string) (*FileVersion, error) {
+	f, err := s.repo.GetFileInProject(projectID, fileID)
+	if err != nil || f == nil {
+		return nil, err
+	}
+	ver, err := s.repo.AppendCurrentVersion(fileID, body, sha256Hex(body), AuthorUser, nil)
+	if err != nil {
+		return nil, err
+	}
+	_ = s.repo.TouchProject(projectID)
+	return ver, nil
+}
+
+// ─── 编译 ────────────────────────────────────────────────────────────────
+
+// needsXeLaTeX 判断项目是否必须用 xelatex 编译:任一 .tex 正文含 CJK 字符,或已加载
+// ctex/xeCJK/CJK 宏包(这类包在 pdflatex 下本身会报错)。pdflatex 无法处理 UTF-8 CJK,
+// 正是「! LaTeX Error: Unicode character 大 (U+5927) not set up」的根因 → 自动切 xelatex。
+func needsXeLaTeX(files map[string]string) bool {
+	for _, body := range files {
+		if containsCJK(body) || loadsCJKPackage(body) {
+			return true
+		}
+	}
+	return false
+}
+
+func containsCJK(s string) bool {
+	for _, r := range s {
+		if unicode.Is(unicode.Han, r) || unicode.Is(unicode.Hiragana, r) ||
+			unicode.Is(unicode.Katakana, r) || unicode.Is(unicode.Hangul, r) {
+			return true
+		}
+	}
+	return false
+}
+
+// loadsCJKPackage 粗判文档是否加载了中文支持包(只用于「向上」强制 xelatex,误判也只是多用 xelatex,安全)。
+func loadsCJKPackage(s string) bool {
+	return strings.Contains(s, "ctex") || strings.Contains(s, "xeCJK") ||
+		strings.Contains(s, "CJKutf8") || strings.Contains(s, "{CJK}") || strings.Contains(s, "{CJK*}")
+}
+
+// gatherCurrent 物化项目全部 current 文本文件 → map[relPath]body + 内容哈希。
+func (s *Service) gatherCurrent(projectID uint) (map[string]string, string, error) {
+	files, err := s.repo.ListFiles(projectID)
+	if err != nil {
+		return nil, "", err
+	}
+	out := make(map[string]string, len(files))
+	for _, f := range files {
+		// Phase 0 只处理文本文件;asset(二进制)走 MinIO,后续阶段接。
+		if f.FileKind == KindAsset || f.CurrentVersionID == nil {
+			continue
+		}
+		v, err := s.repo.GetVersion(*f.CurrentVersionID)
+		if err != nil {
+			return nil, "", err
+		}
+		out[f.RelPath] = v.Body
+	}
+	// 内容哈希 = sha256(按路径排序后的 path\x00body 串接),作缓存键。
+	keys := make([]string, 0, len(out))
+	for k := range out {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var sb strings.Builder
+	for _, k := range keys {
+		sb.WriteString(k)
+		sb.WriteByte(0)
+		sb.WriteString(out[k])
+		sb.WriteByte('\n')
+	}
+	return out, sha256Hex(sb.String()), nil
+}
+
+// StartCompile 立即建 queued 记录并起后台编译,返回该记录(前端轮询 GetCompile)。
+func (s *Service) StartCompile(projectID uint, mainFile, engine string) (*Compile, error) {
+	if engine != EngineXeLaTeX {
+		engine = EnginePDFLaTeX
+	}
+	c := &Compile{ProjectID: projectID, Status: CompileQueued, Engine: engine}
+	if err := s.repo.CreateCompile(c); err != nil {
+		return nil, err
+	}
+	compileID := c.ID
+	safego.Go("prism-compile", func() {
+		s.runCompile(compileID, projectID, mainFile, engine)
+	})
+	return c, nil
+}
+
+// runCompile 后台执行:缓存命中→直接复用;否则物化→沙箱编译→PDF/log 传 MinIO→更新记录。
+func (s *Service) runCompile(compileID, projectID uint, mainFile, engine string) {
+	files, hash, err := s.gatherCurrent(projectID)
+	if err != nil {
+		s.failCompile(compileID, "内部错误,无法读取项目文件", err)
+		return
+	}
+
+	// CJK 自动选引擎:含中文/已加载 ctex → 强制 xelatex(pdflatex 处理不了 UTF-8 CJK)。
+	// engine 由内容确定 → 仍幂等;缓存键带上 engine,避免同内容不同引擎产物串用。
+	if engine != EngineXeLaTeX && needsXeLaTeX(files) {
+		engine = EngineXeLaTeX
+	}
+	cacheKey := sha256Hex(hash + "|" + engine)
+
+	// 缓存命中(同内容+同引擎 1h 内编过且成功)→ 复用 PDF,免起沙箱。
+	if cached, _ := s.repo.FindCachedCompile(projectID, cacheKey, time.Now()); cached != nil && cached.PdfObjectKey != nil {
+		_ = s.repo.UpdateCompile(compileID, map[string]any{
+			"status": CompileSuccess, "content_hash": cacheKey, "engine": engine,
+			"pdf_object_key": *cached.PdfObjectKey, "log_object_key": cached.LogObjectKey,
+			"duration_ms": 0, "expires_at": time.Now().Add(time.Hour),
+		})
+		return
+	}
+
+	_ = s.repo.UpdateCompile(compileID, map[string]any{"status": CompileRunning, "content_hash": cacheKey, "engine": engine})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+	defer cancel()
+	res, err := s.tex.Compile(ctx, files, mainFile, engine)
+	if err != nil {
+		s.failCompile(compileID, "编译服务异常,请稍后重试", err)
+		return
+	}
+
+	// 上传 log(无论成败,便于排错)+ PDF(成功时)。
+	base := fmt.Sprintf("prism/%d/%d/%s", projectID, compileID, cacheKey)
+	logKey := base + ".log"
+	_ = s.putObject(ctx, logKey, []byte(res.Log), "text/plain; charset=utf-8")
+
+	excerpt := res.ErrorSummary
+	if len(excerpt) > 480 {
+		excerpt = excerpt[:480]
+	}
+
+	if res.Status == CompileSuccess && len(res.PDF) > 0 {
+		pdfKey := base + ".pdf"
+		if err := s.putObject(ctx, pdfKey, res.PDF, "application/pdf"); err != nil {
+			s.failCompile(compileID, "保存编译产物失败,请稍后重试", err)
+			return
+		}
+		_ = s.repo.UpdateCompile(compileID, map[string]any{
+			"status": CompileSuccess, "pdf_object_key": pdfKey, "log_object_key": logKey,
+			"duration_ms": res.DurationMs, "expires_at": time.Now().Add(time.Hour),
+		})
+		return
+	}
+
+	if excerpt == "" {
+		excerpt = "编译失败,请检查 LaTeX 语法"
+	}
+	_ = s.repo.UpdateCompile(compileID, map[string]any{
+		"status": CompileError, "log_object_key": logKey,
+		"log_excerpt": excerpt, "error_summary": excerpt, "duration_ms": res.DurationMs,
+	})
+}
+
+func (s *Service) failCompile(compileID uint, friendly string, err error) {
+	slog.Error("prism compile failed", "compile_id", compileID, "err", err)
+	_ = s.repo.UpdateCompile(compileID, map[string]any{
+		"status": CompileError, "error_summary": friendly, "log_excerpt": friendly,
+	})
+}
+
+func (s *Service) putObject(ctx context.Context, key string, body []byte, contentType string) error {
+	_, err := storage.PutObject(ctx, s.bucket, key, bytes.NewReader(body), int64(len(body)),
+		storage.PutOptions{ContentType: contentType})
+	return err
+}
+
+func (s *Service) GetCompile(projectID, id uint) (*Compile, error) {
+	return s.repo.GetCompileInProject(projectID, id)
+}
+
+// OpenLatestPDF 取项目最近成功编译的 PDF 流(handler 转发给浏览器 react-pdf)。
+func (s *Service) OpenLatestPDF(ctx context.Context, projectID uint) (io.ReadCloser, *minio.ObjectInfo, error) {
+	c, err := s.repo.LatestSuccessCompile(projectID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if c == nil || c.PdfObjectKey == nil {
+		return nil, nil, nil
+	}
+	return storage.GetObject(ctx, s.bucket, *c.PdfObjectKey)
+}

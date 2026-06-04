@@ -157,6 +157,36 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.POST("/vip-codes", h.vip.GenerateCodes)
 		adminProtected.GET("/vip-codes", h.vip.ListCodes)
 
+		// 功能大全 (学术工具黄页) —— 导入/任务/CRUD/webhook。
+		// 路径结构刻意避免 gin "static vs :param" 同层冲突:
+		// 集合子资源 (categories/import/import-jobs/webhooks) 是 /admin/tools 的静态子节点,
+		// 单条 CRUD 走 /admin/tools/items/:id (参数节点在 /items 下, 不与上面静态节点同层)。
+		tools := adminProtected.Group("/tools")
+		{
+			tools.GET("", h.featureTool.AdminList)
+			tools.POST("", h.featureTool.AdminCreate)
+			tools.GET("/categories", h.featureTool.AdminCategories)
+
+			// 批量导入 (JSON body) + zip 上传导入 + 任务管理
+			tools.POST("/import", h.featureTool.AdminImport)
+			tools.POST("/import-zip", middleware.UploadLimitMiddleware(middleware.UploadMaxBodySize), h.featureTool.AdminImportZip)
+			tools.GET("/import-jobs", h.featureTool.AdminListJobs)
+			tools.GET("/import-jobs/:id", h.featureTool.AdminGetJob)
+
+			// Webhook 订阅 + 投递记录
+			tools.GET("/webhooks", h.featureTool.AdminListWebhooks)
+			tools.POST("/webhooks", h.featureTool.AdminCreateWebhook)
+			tools.PUT("/webhooks/:id", h.featureTool.AdminUpdateWebhook)
+			tools.DELETE("/webhooks/:id", h.featureTool.AdminDeleteWebhook)
+			tools.POST("/webhooks/:id/test", h.featureTool.AdminTestWebhook)
+			tools.GET("/webhooks/:id/deliveries", h.featureTool.AdminWebhookDeliveries)
+
+			// 单条 CRUD
+			tools.GET("/items/:id", h.featureTool.AdminGet)
+			tools.PUT("/items/:id", h.featureTool.AdminUpdate)
+			tools.DELETE("/items/:id", h.featureTool.AdminDelete)
+		}
+
 		// 热门内容管理
 		adminProtected.GET("/hot-content/keywords", h.hotContent.GetHotKeywords)
 		adminProtected.GET("/hot-content/papers", h.hotContent.GetHotPapers)

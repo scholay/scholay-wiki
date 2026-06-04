@@ -42,6 +42,7 @@ BACKEND_IMAGE="${REGISTRY}/${NAMESPACE}/backend:${VERSION}"
 AGENT_IMAGE="${REGISTRY}/${NAMESPACE}/agent:${VERSION}"
 FRONTEND_USER_IMAGE="${REGISTRY}/${NAMESPACE}/frontend-user:${VERSION}"
 EGRESS_IMAGE="${REGISTRY}/${NAMESPACE}/egress:${VERSION}"
+PRISM_TEX_IMAGE="${REGISTRY}/${NAMESPACE}/prism_tex:${VERSION}"
 
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}  Scholar 服务器部署工具${NC}"
@@ -87,6 +88,10 @@ pull_images() {
     docker pull ${EGRESS_IMAGE}
     echo ""
 
+    echo "拉取 prism_tex (Prism LaTeX 编译沙箱)..."
+    docker pull ${PRISM_TEX_IMAGE}
+    echo ""
+
     echo -e "${GREEN}镜像拉取完成${NC}"
     echo ""
 }
@@ -105,6 +110,10 @@ restart_services() {
     echo -e "${YELLOW}=== 修正 agent 数据目录属主 (uid 1000 = 容器内 bun) ===${NC}"
     mkdir -p ./data/agent ./data/agent-sessions
     chown -R 1000:1000 ./data/agent ./data/agent-sessions
+    echo ""
+
+    # Prism 编译任务共享卷:backend 与 scholar_prism_tex 都以 root 读写(Phase 0),只需存在即可。
+    mkdir -p ./data/prism-work
     echo ""
 
     echo -e "${YELLOW}=== 启动新服务 ===${NC}"

@@ -6,6 +6,8 @@
  */
 
 import * as fs from 'node:fs/promises'
+import { createReadStream } from 'node:fs'
+import * as readline from 'node:readline'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import { ApiError } from '../middleware/errorHandler.js'
@@ -282,6 +284,84 @@ export class SessionService {
       }
     }
     return entries
+  }
+
+  /**
+   * 读 jsonl 但**只读末尾 maxBytes 字节** —— 防超大 transcript(几十~上百 MB)被一次性
+   * 读进内存把 agent 容器 OOM (1.5G limit)。文件不超过 maxBytes 时 start=0, 等价读全量。
+   *
+   * 仅用于 **UI 展示路径** (getSessionMessages / getTranscriptContextEstimate):
+   *   - getSessionMessages: 配合 backend sliceRecentTurns(只取最近 N 轮)+ 前端分页, UI 本就
+   *     只展示最近若干轮, 截掉更早的字节无影响 (更早历史前端"加载更早"也只到这个上限)。
+   *   - getTranscriptContextEstimate: 只取最后一条带 usage 的 assistant, 它必在末尾, tail 足够。
+   * **不影响对话连续性**: CLI 续聊的上下文由 Claude Code 自己按 --resume 读取 jsonl, 不走这里。
+   * 截断起点通常落在某行中间 → 丢弃第一段不完整的行。
+   */
+  private async readJsonlFileTail(
+    filePath: string,
+    maxBytes = 16 * 1024 * 1024,
+  ): Promise<RawEntry[]> {
+    let handle: fs.FileHandle
+    try {
+      handle = await fs.open(filePath, 'r')
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        return []
+      }
+      throw err
+    }
+    try {
+      const { size } = await handle.stat()
+      const start = size > maxBytes ? size - maxBytes : 0
+      const length = size - start
+      if (length <= 0) return []
+      const buf = Buffer.allocUnsafe(length)
+      await handle.read(buf, 0, length, start)
+      let content = buf.toString('utf-8')
+      if (start > 0) {
+        // 起点落在行中间, 丢掉开头那段残缺行
+        const nl = content.indexOf('\n')
+        content = nl >= 0 ? content.slice(nl + 1) : ''
+      }
+      const entries: RawEntry[] = []
+      for (const line of content.split('\n')) {
+        const trimmed = line.trim()
+        if (!trimmed) continue
+        try {
+          entries.push(JSON.parse(trimmed) as RawEntry)
+        } catch {
+          // skip malformed lines (含被截断丢弃后仍可能的边界行)
+        }
+      }
+      return entries
+    } finally {
+      await handle.close()
+    }
+  }
+
+  /**
+   * 流式逐行迭代 jsonl —— **O(1) 内存**(只在内存里持一行), 文件多大都不会 OOM。
+   * 用于"必须遍历全部 entry 但只做聚合、不需要保留数组"的场景 (如 getTranscriptUsage 求和),
+   * 替代 readJsonlFile 把整个文件 + 解析后的数组同时驻留内存。坏行跳过, 与 readJsonlFile 一致。
+   */
+  private async *iterJsonlEntries(filePath: string): AsyncGenerator<RawEntry> {
+    const rl = readline.createInterface({
+      input: createReadStream(filePath, { encoding: 'utf-8' }),
+      crlfDelay: Infinity,
+    })
+    try {
+      for await (const line of rl) {
+        const trimmed = line.trim()
+        if (!trimmed) continue
+        try {
+          yield JSON.parse(trimmed) as RawEntry
+        } catch {
+          // skip malformed lines
+        }
+      }
+    } finally {
+      rl.close()
+    }
   }
 
   private async appendJsonlEntry(filePath: string, entry: Record<string, unknown>): Promise<void> {
@@ -665,7 +745,8 @@ export class SessionService {
     agentId: string,
   ): Promise<MessageEntry[]> {
     const filePath = this.subagentTranscriptPath(projectDir, sessionId, agentId)
-    const entries = await this.readJsonlFile(filePath)
+    // 子 agent transcript 同样限末尾 16MB 读, 防多层/超大子会话叠加把内存读爆 (UI 只展示其近期 tool 消息)。
+    const entries = await this.readJsonlFileTail(filePath)
     const namespace = `${parentToolUseId}/${agentId}`
     const messages: MessageEntry[] = []
 
@@ -977,7 +1058,8 @@ export class SessionService {
     const found = await this.findSessionFile(sessionId)
     if (!found) return null
 
-    const entries = await this.readJsonlFile(found.filePath)
+    // 只需最后一条带 usage 的 assistant(必在末尾) → tail 读足够, 防超大会话 OOM。
+    const entries = await this.readJsonlFileTail(found.filePath)
     let latest: {
       model: string
       inputTokens: number
@@ -1066,7 +1148,7 @@ export class SessionService {
     const found = await this.findSessionFile(sessionId)
     if (!found) return null
 
-    const entries = await this.readJsonlFile(found.filePath)
+    // 流式逐行累加 token/成本, 不把整份 transcript 读进内存 —— 超大会话(几十~上百 MB)防 OOM。
     const models = new Map<string, TranscriptUsageSnapshot['models'][number]>()
     let totalCostUSD = 0
     let totalInputTokens = 0
@@ -1078,7 +1160,7 @@ export class SessionService {
     let firstUsageAt: number | null = null
     let lastUsageAt: number | null = null
 
-    for (const entry of entries) {
+    for await (const entry of this.iterJsonlEntries(found.filePath)) {
       const usage = entry.message?.usage
       const model = entry.message?.model
       if (!usage || typeof model !== 'string') continue
@@ -1212,44 +1294,59 @@ export class SessionService {
     const limit = options?.limit ?? 50
     const paginatedFiles = filesWithStats.slice(offset, offset + limit)
 
-    // Build session list items with metadata from file stats & first entries
-    const items = (await Promise.all(paginatedFiles.map(async ({ filePath, projectDir, sessionId, stat }) => {
-      try {
-        const entries = await this.readJsonlFile(filePath)
-        const workDir = this.resolveWorkDirFromEntries(entries, projectDir)
-        const workDirExists = await this.pathExists(workDir)
+    // Build session list items with metadata from file stats & first entries.
+    // 防 OOM 两道:
+    //  1) 每个会话用 readJsonlFileTail 限末尾 8MB 读 (小会话=读全量, 精确; 仅 >8MB 的超大会话
+    //     messageCount 可能偏少、无 custom/ai-title 时标题回退 —— 侧边栏项可接受)。
+    //  2) 限并发: 不再一次 Promise.all 读完整页(默认 50 个), 改成每批 6 个, 把内存峰值压到
+    //     ~6×8MB 而不是 50×(整文件)。
+    const SESSION_SUMMARY_READ_CAP = 8 * 1024 * 1024
+    const SESSION_SUMMARY_CONCURRENCY = 6
+    const built: (SessionListItem | null)[] = []
+    for (let i = 0; i < paginatedFiles.length; i += SESSION_SUMMARY_CONCURRENCY) {
+      const chunk = paginatedFiles.slice(i, i + SESSION_SUMMARY_CONCURRENCY)
+      const chunkItems = await Promise.all(
+        chunk.map(async ({ filePath, projectDir, sessionId, stat }) => {
+          try {
+            const entries = await this.readJsonlFileTail(filePath, SESSION_SUMMARY_READ_CAP)
+            const workDir = this.resolveWorkDirFromEntries(entries, projectDir)
+            const workDirExists = await this.pathExists(workDir)
 
-        // Count transcript messages only (user + assistant)
-        const messageCount = entries.filter(
-          (e) => (e.type === 'user' || e.type === 'assistant') && e.message?.role
-        ).length
+            // Count transcript messages only (user + assistant)
+            const messageCount = entries.filter(
+              (e) => (e.type === 'user' || e.type === 'assistant') && e.message?.role
+            ).length
 
-        const title = this.extractTitle(entries)
+            const title = this.extractTitle(entries)
 
-        // Find the earliest timestamp from entries, fallback to file birthtime
-        let createdAt = stat.birthtime.toISOString()
-        for (const e of entries) {
-          if (e.timestamp) {
-            createdAt = e.timestamp
-            break
+            // Find the earliest timestamp from entries, fallback to file birthtime
+            let createdAt = stat.birthtime.toISOString()
+            for (const e of entries) {
+              if (e.timestamp) {
+                createdAt = e.timestamp
+                break
+              }
+            }
+
+            return {
+              id: sessionId,
+              title,
+              createdAt,
+              modifiedAt: stat.mtime.toISOString(),
+              messageCount,
+              projectPath: projectDir,
+              workDir,
+              workDirExists,
+            }
+          } catch {
+            // Skip unreadable files
+            return null
           }
-        }
-
-        return {
-          id: sessionId,
-          title,
-          createdAt,
-          modifiedAt: stat.mtime.toISOString(),
-          messageCount,
-          projectPath: projectDir,
-          workDir,
-          workDirExists,
-        }
-      } catch {
-        // Skip unreadable files
-        return null
-      }
-    }))).filter((item): item is SessionListItem => item !== null)
+        }),
+      )
+      built.push(...chunkItems)
+    }
+    const items = built.filter((item): item is SessionListItem => item !== null)
 
     return { sessions: items, total }
   }
@@ -1304,7 +1401,8 @@ export class SessionService {
       throw ApiError.notFound(`Session not found: ${sessionId}`)
     }
 
-    const entries = await this.readJsonlFile(found.filePath)
+    // 限末尾 16MB 读, 防超大会话 OOM (UI 只展示最近若干轮, backend 还会再切到最近 N 轮)。
+    const entries = await this.readJsonlFileTail(found.filePath)
     return await this.appendSubagentToolMessages(
       found.projectDir,
       sessionId,

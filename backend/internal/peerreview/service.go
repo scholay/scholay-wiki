@@ -1072,6 +1072,27 @@ func (s *Service) advanceTo2(ctx context.Context, sub *Submission) (*Submission,
 	return s.repo.GetByID(sub.ID, sub.UserID)
 }
 
+// validateReadyForReview 校验"开始起草投稿信 / 提交审稿"所需的必填元信息,
+// 与前端 wizard step2 的 nextDisabled 规则保持一致(前端 ManuscriptMetaForm 唯一必填=标题;
+// SchoolPickerStep 在毕业模式额外要求院校 + 学科)。后端做权威校验,堵住绕过前端的直连 API。
+//
+// 复用在两处闸门: advanceTo3 (Step2→3 起草信) 与 Submit (Step4 提交),前者用户改一次就过,
+// 后者是兜底(wizard 虽不让前跳, 但 API 仍可能被直接调用)。
+func validateReadyForReview(sub *Submission) error {
+	if strings.TrimSpace(sub.Title.String) == "" {
+		return errors.New("请先填写稿件标题")
+	}
+	if sub.Mode == "thesis" {
+		if strings.TrimSpace(sub.SchoolName.String) == "" {
+			return errors.New("请先填写目标院校")
+		}
+		if strings.TrimSpace(sub.DisciplineField.String) == "" {
+			return errors.New("请先填写学科 / 研究方向")
+		}
+	}
+	return nil
+}
+
 // advanceTo3 处理 Step2 → Step3: 起草 letter。
 //
 // fingerprint = (assets_revision, meta_revision, journal_id 或 school_*) 。
@@ -1094,10 +1115,11 @@ func (s *Service) advanceTo3(ctx context.Context, sub *Submission) (*Submission,
 		return nil, errors.New("文件已变更, 请回到第 2 步重新生成稿件信息后再继续")
 	}
 
-	// 期刊为"选填": journal 模式下没填期刊也允许 advance, agent 会走通用 STM 模板。
-	// 毕业模式仍要求填院校 (院校信息是审稿背景设定, 不可空)。
-	if sub.Mode == "thesis" && (!sub.SchoolName.Valid || sub.SchoolName.String == "") {
-		return nil, errors.New("请先填写目标院校信息")
+	// 必填元信息校验 —— 与前端 wizard step2 的 nextDisabled 规则一致 (见 validateReadyForReview)。
+	// 期刊为"选填": journal 模式没填期刊也允许 advance, agent 会走通用 STM 模板;
+	// 毕业模式要求院校 + 学科 (审稿背景设定);两种模式都要求标题。
+	if err := validateReadyForReview(sub); err != nil {
+		return nil, err
 	}
 
 	fingerprint := fingerprintStep3(sub)
@@ -1390,6 +1412,11 @@ func (s *Service) Submit(ctx context.Context, userID, id uint64) (*Submission, e
 	}
 	if !sub.ManuscriptAssetID.Valid {
 		return nil, ErrManuscriptMissing
+	}
+	// 必填元信息兜底校验 (标题 / 毕业模式院校 + 学科) —— 与 advanceTo3 同一规则,
+	// 防直连 API 绕过前端用空标题/空院校提交, 否则审稿 prompt 背景为空、质量退化。
+	if err := validateReadyForReview(sub); err != nil {
+		return nil, err
 	}
 
 	// 到这里才是"草稿 + 稿件齐备、确实要跑一轮审稿" —— 此刻扣会员每日额度(最贵的功能)。

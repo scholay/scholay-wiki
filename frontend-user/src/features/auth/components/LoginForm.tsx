@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import { useApiToast } from '@/shared/hooks';
 import {
   Button,
   Form,
@@ -53,6 +54,7 @@ export function LoginForm({ initialAccountType, onSwitchMode }: LoginFormProps) 
   // Turnstile token —— enable_turnstile=true 时必填;关闭时父表单不会渲染 widget,token 保持 null
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const close = useAuthDialog((s) => s.close);
+  const apiToast = useApiToast();
   const { data: publicConfig } = usePublicConfig();
 
   const form = useForm<FormShape>({
@@ -91,8 +93,9 @@ export function LoginForm({ initialAccountType, onSwitchMode }: LoginFormProps) 
       toast.success('登录成功');
       close();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '登录失败,请检查网络后重试';
-      toast.error(msg);
+      // 后端会返回可读 message(如「邮箱或密码错误」),用 apiToast 取真实文案;
+      // 注意不能用 `err instanceof Error` —— 抛出来的是 ApiError 普通对象,不是 Error 实例。
+      apiToast.show(err, '登录失败,请稍后重试');
     }
   };
 

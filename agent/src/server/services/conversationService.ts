@@ -618,6 +618,28 @@ export class ConversationService {
     return this.sessions.has(sessionId)
   }
 
+  /**
+   * 当前仍未答复的工具权限请求 (断线续流用)。
+   *
+   * 背景: 权限请求由 backend (agentbridge decidePermission) auto-approve, 而非 agent 自身。
+   * 用户断连时 backend↔agent pipe 一并关闭, 断连期间 CLI 发起的 can_use_tool 没人批 → 卡住。
+   * 重连后 handler.resyncSessionOutput 调本方法, 把仍未决的请求重新发一遍, 让 backend 补批,
+   * 把生成续上。已被批过的请求会在 respondToPermission 里从 map 删除, 故这里只剩真未决的。
+   */
+  getPendingPermissionRequests(
+    sessionId: string,
+  ): Array<{ requestId: string; toolName: string; input: Record<string, unknown> }> {
+    const session = this.sessions.get(sessionId)
+    if (!session) return []
+    return Array.from(session.pendingPermissionRequests.entries()).map(
+      ([requestId, req]) => ({
+        requestId,
+        toolName: req.toolName,
+        input: req.input,
+      }),
+    )
+  }
+
   getSessionWorkDir(sessionId: string): string {
     const session = this.sessions.get(sessionId)
     return session?.workDir || ''

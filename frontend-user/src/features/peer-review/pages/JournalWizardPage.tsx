@@ -188,11 +188,11 @@ export function JournalWizardPage() {
   // Hard reset 本地状态 — 任一以下情况触发本地全清 + 从 submission 重新同步:
   //   1. submission.id 切换 (cancel→new, 从 records 跳进, 切 mode 等)
   //   2. assetsRevision 变 (用户在 Step1 改了文件, backend 清了 title/abstract/extra/letter)
-  //   3. metaRevision 变 (用户改了 journal/title/abstract, backend 清了 letter_body)
   //
-  // 之前用 `m.title || submission.title` 的合并策略会让旧本地数据残留 (取消后看到上一稿),
-  // 现在以 submission 为单一真相源, 用户的手动编辑通过 PatchSubmission 同步回 server
-  // 后, 下一次 polling 拿到的 submission 已经包含该编辑, 重置后 local === remote, 无数据丢失。
+  // ⚠️ 不依赖 metaRevision:它只由 PatchSubmission(选期刊 / 改标题)bump,而"选期刊"的 PATCH
+  //    不携带本地 manuscriptMeta;若放进 deps,用户编辑完标题再选期刊,会被服务端旧值覆盖 = 丢编辑
+  //    (毕业模式 SchoolPicker 每键 PATCH 时更是直接"无法输入")。AI 抽取回填 meta 走下面的
+  //    computeState effect(不经 metaRevision),去掉它不影响 AI 同步。
   useEffect(() => {
     setManuscriptMeta({
       title: submission?.title ?? '',
@@ -203,7 +203,7 @@ export function JournalWizardPage() {
     });
     setLetterBody(submission?.letterBody ?? '');
     setAgreed(false);
-  }, [submission?.id, submission?.assetsRevision, submission?.metaRevision]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [submission?.id, submission?.assetsRevision]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // AI 异步抽取/起草完成 (computing_* → idle) 时, 把 backend 回填的 title/abstract/extraMeta/
   // letterBody 同步进表单。meta-extract 回填这些字段时**不会** bump assetsRevision/metaRevision,

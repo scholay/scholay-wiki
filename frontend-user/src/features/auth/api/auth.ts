@@ -31,33 +31,10 @@ function normalizeUser(raw: User): import('@/stores/auth.store').StoredUser {
   };
 }
 
-// ============================================================================
-// 检查存在性
-// ============================================================================
-
-export async function checkEmailExists(email: string): Promise<boolean> {
-  try {
-    const { data } = await http.post<{ data: { exists: boolean } }>(
-      '/user/check-email',
-      { email }
-    );
-    return data.data.exists;
-  } catch (err) {
-    throw toApiError(err);
-  }
-}
-
-export async function checkPhoneExists(phone: string): Promise<boolean> {
-  try {
-    const { data } = await http.post<{ data: { exists: boolean } }>(
-      '/user/check-phone',
-      { phone }
-    );
-    return data.data.exists;
-  } catch (err) {
-    throw toApiError(err);
-  }
-}
+// 注:checkEmailExists / checkPhoneExists 已移除 —— 对应的 /user/check-email、
+// /user/check-phone 后端探针(返回 {exists})是纯账号枚举接口,前端也无消费者。
+// 「该邮箱是否注册」的存在性现在只在注册提交时如实反馈(无法避免),登录一律走
+// 统一的「邮箱/手机号或密码错误」,不再单独提供存在性查询。
 
 // ============================================================================
 // 发送验证码

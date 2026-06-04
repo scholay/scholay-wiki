@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { AlertCircle } from 'lucide-react';
 import {
   AssistantBubble,
@@ -29,7 +30,10 @@ import {
  *   1. claw 支持 userAttachments → 通过 <AttachmentChipList> 挂在用户气泡上方
  *   2. claw 不做 minicod 论文工具特化 (ToolCallBlock 默认 JSON 展开就够用)
  */
-export function MessageTurn({ turn }: { turn: Turn }) {
+// memo: 长会话(成百上千轮)里, 父组件每次 re-render / 流式每个 delta 都会让所有轮重渲染。
+// 历史轮的 turn 对象引用稳定(replayHistoryAsTurns 被 useMemo 缓存)→ memo 直接跳过它们,
+// 只有正在流式的那轮(引用每次变)才重渲染。配合下方 ClawPage 的渲染窗口一起把开销压下来。
+export const MessageTurn = memo(function MessageTurn({ turn }: { turn: Turn }) {
   const visible = hasVisibleAssistantContent(turn);
   const isThinkingActive =
     !turn.complete && turn.placeholder?.state === 'thinking';
@@ -96,4 +100,4 @@ export function MessageTurn({ turn }: { turn: Turn }) {
       {turn.complete && turn.paused && !turn.errorMessage && <PausedNotice />}
     </article>
   );
-}
+});

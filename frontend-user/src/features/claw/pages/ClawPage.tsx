@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, AlertTriangle, Cpu, History, Loader2, MessageSquarePlus, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
-import { StickToBottom } from 'use-stick-to-bottom';
+import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom';
 import { Button } from '@/shared/ui/button';
 import { SidebarLayout } from '@/shared/components/sidebar';
 import { useAuthStore } from '@/stores/auth.store';
@@ -12,6 +12,8 @@ import {
   notifySessionChanged,
   useSessionBroadcast,
 } from '@/shared/lib/agent-session-broadcast';
+import { stripAgentBridgePrefix } from '@/shared/lib/agent-prefix';
+import { useHeightVar } from '@/shared/hooks';
 import {
   transferNewConversationModel,
   useClawContext,
@@ -64,6 +66,15 @@ function clawSessionFileUrl(sessionId: string, absPath: string): string {
   return `${CLAW_API_BASE}/user/claw/session/file?${qs.toString()}`;
 }
 
+/** 长会话渲染窗口: 默认只渲染最近 RENDER_WINDOW 轮, "加载更早"每次再多放 RENDER_STEP 轮。
+ *  防上万轮一次性进 DOM (窗口化, 与 use-stick-to-bottom 零冲突)。 */
+const RENDER_WINDOW = 60;
+const RENDER_STEP = 60;
+/** 历史分页: 初始只从后端拉最近 HISTORY_WINDOW 个用户轮, "加载更早"每次再多拉 HISTORY_STEP。
+ *  避免上万轮 transcript 一次性 JSON.parse + 折叠 (后端 sliceRecentTurns 按 ?limit= 切)。 */
+const HISTORY_WINDOW = 100;
+const HISTORY_STEP = 100;
+
 export function ClawPage() {
   const token = useAuthStore((s) => s.token);
   const openAuth = useAuthDialog((s) => s.openDialog);
@@ -103,11 +114,30 @@ export function ClawPage() {
   }, [sessionsQuery.data]);
 
   const sessionId = activeSessionId; // 别名让下面读起来更自然
-  const historyQuery = useClawHistory(sessionId);
+  // historyLimit = 从后端拉取的"最近 N 轮"分页窗口; "加载更早"增大它。切 session 复位。
+  const [historyLimit, setHistoryLimit] = useState(HISTORY_WINDOW);
+  useEffect(() => {
+    setHistoryLimit(HISTORY_WINDOW);
+  }, [sessionId]);
+  const historyQuery = useClawHistory(sessionId, historyLimit);
+  const historyHasMore = historyQuery.data?.hasMore ?? false;
   const contextQuery = useClawContext(sessionId);
   const createSession = useCreateClawSession();
 
   const [pendingTurns, setPendingTurns] = useState<Pick<Turn, 'id' | 'userText' | 'userAttachments' | 'paused'>[]>([]);
+
+  // 量出"对话框可视区"像素高 → 写进 --chat-area-h, 供底部留白按比例计算 (见 StickToBottom.Content)。
+  const chatAreaRef = useHeightVar<HTMLDivElement>('chat-area-h');
+
+  // 发送新一轮后立刻滚到底: scrollToBottom 由 StickToBottom 内的 <ScrollController> 注入到这个 ref。
+  const scrollToBottomRef = useRef<(() => void) | null>(null);
+  const prevPendingLenRef = useRef(pendingTurns.length);
+  useEffect(() => {
+    if (pendingTurns.length > prevPendingLenRef.current) {
+      scrollToBottomRef.current?.();
+    }
+    prevPendingLenRef.current = pendingTurns.length;
+  }, [pendingTurns.length]);
 
   // 懒新建: 第一次 send 时 activeSessionId 还是 null, 先 await createSession 拿新 id,
   // setActiveSessionId 触发 socket 重连; WS 没 open 之前 user_message 发不出去,
@@ -160,11 +190,56 @@ export function ClawPage() {
     [historyQuery.data?.messages, sessionId],
   );
 
+  // 断线续流: 重连命中 in-flight 轮时, agent 回放本轮事件并下发 resync_user(本轮用户文本)。
+  // 若本地 pendingTurns 已空(= 页面被卸载过, 重挂载丢了局部 turns), 补一条 pending turn, 让
+  // 回放/续流的 assistant 事件配上用户气泡, 且后续新一轮能与 messages 正确对齐。
+  // seededResync 记下"确实补过", 用来判定 history 末尾那条是否就是这同一轮:
+  //   - 重挂载: refetchOnMount 拉到的 history **含** in-flight 轮 → 必须去掉, 否则与 live 回放双份
+  //     (用户报的"回答中切回来重复");
+  //   - 同 mount 重连: history 是挂载时旧快照, **不含** in-flight 轮 → 不能去, 否则误删旧轮。
+  const [seededResync, setSeededResync] = useState(false);
+  useEffect(() => {
+    setSeededResync(false);
+  }, [sessionId]);
+  useEffect(() => {
+    if (socket.resyncUserText && pendingTurns.length === 0 && !seededResync) {
+      setPendingTurns([
+        { id: 'resync-inflight', userText: stripAgentBridgePrefix(socket.resyncUserText) },
+      ]);
+      setSeededResync(true);
+    }
+  }, [socket.resyncUserText, pendingTurns.length, seededResync]);
+
   const liveTurns = useMemo(
     () => foldMessagesIntoTurns(socket.messages, pendingTurns),
     [socket.messages, pendingTurns],
   );
-  const turns: Turn[] = [...historyTurns, ...liveTurns];
+
+  // 续流对账: 仅当我们为续流补过 in-flight 轮(seededResync)时, 去掉 history 末尾那条(= 同一轮)。
+  const reconciledHistoryTurns = useMemo<Turn[]>(
+    () =>
+      seededResync && historyTurns.length > 0
+        ? historyTurns.slice(0, -1)
+        : historyTurns,
+    [historyTurns, seededResync],
+  );
+
+  const turns: Turn[] = useMemo(
+    () => [...reconciledHistoryTurns, ...liveTurns],
+    [reconciledHistoryTurns, liveTurns],
+  );
+
+  // 渲染窗口: 只把最近 renderLimit 轮渲染进 DOM (其余仍在内存, 仅不进 DOM), 防上万轮 DOM 爆炸。
+  // "加载更早"增大窗口; 切 session 复位。in-flight 轮永远是最新一轮 → 必在窗口内, 不影响流式/贴底/续流。
+  const [renderLimit, setRenderLimit] = useState(RENDER_WINDOW);
+  useEffect(() => {
+    setRenderLimit(RENDER_WINDOW);
+  }, [sessionId]);
+  const hiddenCount = Math.max(0, turns.length - renderLimit);
+  const visibleTurns = useMemo<Turn[]>(
+    () => (hiddenCount > 0 ? turns.slice(hiddenCount) : turns),
+    [turns, hiddenCount],
+  );
 
   /** "正在等 AI 回答" — 看最后一条 turn 是否还没 complete (跟 SmartSearchPanel 完全同款)。
       不能再用 pendingTurns.length —— 去掉 handoff 后 pendingTurns 整个 session 都累积着,
@@ -236,7 +311,7 @@ export function ClawPage() {
         setPendingTurns((prev) => [
           ...prev,
           {
-            id: `pending-${Date.now()}`,
+            id: `pending-${crypto.randomUUID()}`,
             userText: text,
             userAttachments: attachments.map((a) => ({
               type: a.type,
@@ -280,7 +355,7 @@ export function ClawPage() {
       setPendingTurns((prev) => [
         ...prev,
         {
-          id: `pending-${Date.now()}`,
+          id: `pending-${crypto.randomUUID()}`,
           userText: text,
           userAttachments: attachments.map((a) => ({
             type: a.type,
@@ -321,8 +396,12 @@ export function ClawPage() {
   // 全屏 loader 只在"真的没东西可渲染"时显示。
   // 关键: lazy create 第一条消息时, setActiveSessionId(newId) 会让 historyQuery 短暂 loading,
   // 但此时已有 pendingTurns (用户气泡 + 流式回答) → turns.length>0, 不能用 spinner 盖掉它。
+  //
+  // refetchOnMount:'always' 下, 重入页面时 history 走后台 refetch (isLoading=false 但
+  // isFetching=true), 此时若还没 turns, 用 isFetching 一并兜住, 避免空态闪一下再冒出对话。
   const loading =
-    (sessionsQuery.isLoading || (!!sessionId && historyQuery.isLoading)) &&
+    (sessionsQuery.isLoading ||
+      (!!sessionId && (historyQuery.isLoading || historyQuery.isFetching))) &&
     turns.length === 0;
 
   return (
@@ -386,7 +465,8 @@ export function ClawPage() {
       )}
 
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="min-h-0 flex-1">
+        {/* 量出"对话框可视区"像素高 → 写进 --chat-area-h, 供最后一轮按比例留白 (见下方 turns 渲染)。 */}
+        <div ref={chatAreaRef} className="min-h-0 flex-1">
           {loading ? (
             <div className="flex h-full items-center justify-center">
               <Loader2 className="h-5 w-5 animate-spin text-faint" />
@@ -399,11 +479,36 @@ export function ClawPage() {
               resize="smooth"
               initial="smooth"
             >
-              <StickToBottom.Content className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-6 py-6">
-                {turns.map((t) => (
+              {/* 底部留白 = 滚动内容的 padding-bottom (pt-6 保留顶部 24px; py-6 拆成 pt-6 + pb 避免
+                  padding-bottom 冲突)。不用 min-height 撑最后一轮: 长回答本身超过半屏时 min-height
+                  会被忽略 → 仍紧贴输入框。padding-bottom 进 scrollHeight, 贴底时必然露在视口底部 =
+                  稳定留白 (短/长/流式/重入 全有)。--chat-area-h 由 useHeightVar 实时量本对话框高,
+                  ×0.3 ≈ 三成; fallback 100dvh 兜底。改 0.3 调留白多少。 */}
+              <StickToBottom.Content className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-6 pt-6 pb-[calc(var(--chat-area-h,100dvh)*0.3)]">
+                {(hiddenCount > 0 || historyHasMore) && (
+                  <div className="flex justify-center">
+                    <button
+                      type="button"
+                      // 两段式: 先渲染已拉到但没进 DOM 的轮 (不发请求); 都渲染完还有更早的 → 向后端多要一页。
+                      onClick={() => {
+                        if (hiddenCount > 0) {
+                          setRenderLimit((n) => n + RENDER_STEP);
+                        } else {
+                          setHistoryLimit((n) => n + HISTORY_STEP);
+                          setRenderLimit((n) => n + HISTORY_STEP);
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-pill bg-surface-2 text-xs text-muted-foreground hover:text-foreground hover:bg-surface-2/70 transition-colors"
+                    >
+                      {hiddenCount > 0 ? `加载更早的 ${hiddenCount} 轮对话` : '加载更早的对话'}
+                    </button>
+                  </div>
+                )}
+                {visibleTurns.map((t) => (
                   <MessageTurn key={t.id} turn={t} />
                 ))}
               </StickToBottom.Content>
+              <ScrollController scrollRef={scrollToBottomRef} />
             </StickToBottom>
           )}
         </div>
@@ -443,6 +548,27 @@ export function ClawPage() {
     </div>
     </SidebarLayout>
   );
+}
+
+/**
+ * 把库的 scrollToBottom 注入外部 ref —— 让 ClawPage 的"发送后滚到底"逻辑 (在 StickToBottom 外)
+ * 能调到只在 StickToBottom 内部可用的 useStickToBottomContext。自身不渲染。
+ */
+function ScrollController({
+  scrollRef,
+}: {
+  scrollRef: { current: (() => void) | null };
+}) {
+  const { scrollToBottom } = useStickToBottomContext();
+  useEffect(() => {
+    scrollRef.current = () => {
+      void scrollToBottom();
+    };
+    return () => {
+      scrollRef.current = null;
+    };
+  }, [scrollToBottom, scrollRef]);
+  return null;
 }
 
 function ConnectionBadge({ state, reconnectAttempt }: { state: string; reconnectAttempt: number }) {

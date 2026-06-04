@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
+import { useApiToast } from '@/shared/hooks';
 import { z } from 'zod';
 import {
   Button,
@@ -64,6 +65,7 @@ export function RegisterForm({
   const [accountType, setAccountType] = useState<AccountType>(initialAccountType);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const close = useAuthDialog((s) => s.close);
+  const apiToast = useApiToast();
   const { data: publicConfig } = usePublicConfig();
   const turnstileRequired = !!publicConfig?.enable_turnstile && !!publicConfig.turnstile_site_key;
   const turnstileBlocked = turnstileRequired && !turnstileToken;
@@ -111,8 +113,8 @@ export function RegisterForm({
       toast.success('注册成功,欢迎加入 Scholay~');
       close();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '注册失败,请检查网络后重试';
-      toast.error(msg);
+      // 抛出的是 ApiError 普通对象(非 Error 实例),用 apiToast 取后端真实文案。
+      apiToast.show(err, '注册失败,请稍后重试');
     }
   };
 
