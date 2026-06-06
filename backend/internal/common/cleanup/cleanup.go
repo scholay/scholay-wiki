@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"time"
 
+	"scholar-backend/internal/agentbridge"
 	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/hotcontent"
 
@@ -25,6 +26,10 @@ type CleanupService struct {
 	ctx               context.Context
 	cancel            context.CancelFunc
 	hotContentService *hotcontent.Service
+
+	// 归属表对账(self-heal):实体级 feature 的业务表 → agent_sessions 归属行补漏。
+	agentReconciler  *agentbridge.Repository
+	reconcileTargets []agentbridge.OwnerReconcileTarget
 }
 
 // NewCleanupService creates a new cleanup service
@@ -40,6 +45,13 @@ func NewCleanupService(db *gorm.DB) *CleanupService {
 // SetHotContentService 设置热门内容服务
 func (s *CleanupService) SetHotContentService(service *hotcontent.Service) {
 	s.hotContentService = service
+}
+
+// SetAgentSessionReconciler 注入 agent_sessions 归属对账依赖。targets 列出各实体级 feature
+// 的业务表来源(prism/peerreview)。两者都给齐才会启用对账任务。
+func (s *CleanupService) SetAgentSessionReconciler(repo *agentbridge.Repository, targets []agentbridge.OwnerReconcileTarget) {
+	s.agentReconciler = repo
+	s.reconcileTargets = targets
 }
 
 // Start starts all cleanup tasks as background goroutines
@@ -59,7 +71,42 @@ func (s *CleanupService) Start() {
 		s.runDaily("old_llm_token_usage", 4, 20, s.cleanOldLLMTokenUsage)
 	})
 
+	// 归属表对账(self-heal):启动先跑一次(补上部署间隙/历史漂移),之后每天 04:35 兜底。
+	if s.agentReconciler != nil && len(s.reconcileTargets) > 0 {
+		safego.Go("reconcile-agent-session-owners", func() {
+			if err := s.reconcileAgentSessionOwners(); err != nil {
+				slog.Warn("Cleanup task failed", "task", "agent_session_owner_reconcile(boot)", "err", err)
+			}
+			s.runDaily("agent_session_owner_reconcile", 4, 35, s.reconcileAgentSessionOwners)
+		})
+	}
+
 	slog.Info("Cleanup service started")
+}
+
+// reconcileAgentSessionOwners 把实体级 feature(prism/peerreview)业务表里有 agent 会话、
+// 但归属表 agent_sessions 缺行/对不上的行补写回去(self-heal)。纯加法,不删任何行。
+// 这是 best-effort 双写的兜底:漂移在这里被周期性扫平,支撑「对账清零后删 prism Trusted 后门」。
+func (s *CleanupService) reconcileAgentSessionOwners() error {
+	var totalFixed int64
+	for _, t := range s.reconcileTargets {
+		fixed, err := s.agentReconciler.ReconcileOwnerSessions(t)
+		if err != nil {
+			// 单个 target 失败不影响其它(best-effort 兜底任务)。
+			slog.Warn("agent_sessions owner reconcile target failed",
+				"feature", t.FeatureKey, "owner_kind", t.OwnerKind, "table", t.SourceTable, "err", err)
+			continue
+		}
+		if fixed > 0 {
+			slog.Warn("agent_sessions owner reconcile fixed drift",
+				"feature", t.FeatureKey, "owner_kind", t.OwnerKind, "rows_affected", fixed)
+		}
+		totalFixed += fixed
+	}
+	if totalFixed == 0 {
+		slog.Info("agent_sessions owner reconcile: no drift", "targets", len(s.reconcileTargets))
+	}
+	return nil
 }
 
 // Stop gracefully stops all cleanup tasks

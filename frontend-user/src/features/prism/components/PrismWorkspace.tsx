@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { FileText, FolderTree, Play, Loader2, AlertTriangle, Sparkles, History, Languages, X } from 'lucide-react';
+import { FileText, FolderTree, Play, Loader2, AlertTriangle, Sparkles, History, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/shared/ui/button';
 import { PdfViewer } from '@/shared/components/PdfViewer';
 import { SidebarLayout } from '@/shared/components/sidebar';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/shared/ui/resizable';
 import { useRegisterSidebarRail } from '@/stores/sidebar.store';
 import { useDebounce } from '@/shared/hooks';
-import { toApiError } from '@/shared/lib/http';
+import { http, toApiError } from '@/shared/lib/http';
 import { LatexEditor, type LatexEditorHandle, type InlineEditTarget } from './LatexEditor';
 import { LatexDiffEditor } from './LatexDiffEditor';
 import { PrismChatPanel } from './PrismChatPanel';
@@ -18,15 +19,7 @@ import { PrismVersionsDialog } from './PrismVersionsDialog';
 import { usePrismChat } from '../hooks/usePrismChat';
 import { useProject, useFileBody, useSaveFile, useStartCompile, useCompile, prismPdfSource } from '../api/prism';
 
-// CJK 检测 + ctex 插入(纯函数)。中文文档需 \usepackage{ctex} 才能在 xelatex 下正常渲染。
-const CJK_RE = /[㐀-鿿぀-ヿ가-힯]/;
-const CJK_PKG_RE = /ctex|xeCJK|CJKutf8|\{CJK\*?\}/;
-function insertCtex(body: string): string {
-  if (CJK_PKG_RE.test(body)) return body; // 已加载,幂等
-  const m = body.match(/\\documentclass[^\n]*\n/);
-  const ins = '\\usepackage{ctex}\n';
-  return m && m.index !== undefined ? body.slice(0, m.index + m[0].length) + ins + body.slice(m.index + m[0].length) : ins + body;
-}
+// 中文支持(\usepackage{ctex})等 LaTeX 格式约束由 agent 的 skills 负责,前端不再做字符识别/自动插包。
 
 function parseOutline(body: string) {
   const out: { level: number; title: string; line: number }[] = [];
@@ -70,7 +63,14 @@ export function PrismWorkspace({ projectId, onBack }: { projectId: number; onBac
   };
 
   // agent-native 用户 WS:apply 固化进 DB / reject 还原 cwd → 都重载编辑器看最新真源。
-  const chat = usePrismChat(projectId, { onApplied: reloadActiveFile, onReverted: reloadActiveFile });
+  // 应用后自动编译一次(带 loading)—— 用户审完改动点「应用」即可直接看到新 PDF,无需再手点编译。
+  const chat = usePrismChat(projectId, {
+    onApplied: () => {
+      reloadActiveFile();
+      triggerCompile();
+    },
+    onReverted: reloadActiveFile,
+  });
   const busy = chat.roundState !== 'idle'; // 流式中 或 待应用 → 锁编辑/切文件/编译
   const showDiff = chat.live != null;
 
@@ -79,7 +79,7 @@ export function PrismWorkspace({ projectId, onBack }: { projectId: number; onBac
   useEffect(() => {
     if (autoNamePolled.current) return;
     if (project.data?.project.title !== '未命名项目') return;
-    if (!chat.messages.some((m) => m.changeset)) return;
+    if (!chat.changeset) return; // 本轮产生了改动(= 发生过 AI 编辑)→ 触发轮询自动起名
     autoNamePolled.current = true;
     let tries = 0;
     const iv = setInterval(async () => {
@@ -90,7 +90,7 @@ export function PrismWorkspace({ projectId, onBack }: { projectId: number; onBac
     }, 3000);
     return () => clearInterval(iv);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chat.messages, project.data?.project.title]);
+  }, [chat.changeset, project.data?.project.title]);
 
   const [buffer, setBuffer] = useState('');
   const loadedRef = useRef('');
@@ -148,18 +148,28 @@ export function PrismWorkspace({ projectId, onBack }: { projectId: number; onBac
     const c = await start.mutateAsync(undefined).catch(() => null);
     if (c) setCompileId(c.id);
   };
-  const onCompile = async () => {
-    if (!fileId) return;
-    let body = buffer;
-    if (isMainFile && CJK_RE.test(buffer) && !CJK_PKG_RE.test(buffer)) {
-      body = insertCtex(buffer);
-      setBuffer(body);
-      toast.success('检测到中文,已自动加载中文支持(\\usepackage{ctex})');
+  // 下载本次编译产物 PDF —— /pdf 端点需 Bearer 鉴权,走 http 实例取 blob 再触发下载(裸 <a download> 带不上 token)。
+  const downloadPdf = async () => {
+    try {
+      const res = await http.get(`/user/prism/projects/${projectId}/pdf`, { responseType: 'blob' });
+      const url = URL.createObjectURL(res.data as Blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${project.data?.project.title || 'document'}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error(toApiError(err).message || '下载失败,请重试');
     }
-    if (body !== loadedRef.current) {
-      loadedRef.current = body;
+  };
+  const onCompile = async () => {
+    if (!fileId || compiling) return; // 已在编译中则忽略重复点击(按钮本身始终可点,不置灰)
+    if (buffer !== loadedRef.current) {
+      loadedRef.current = buffer;
       try {
-        if (fileId) await save.mutateAsync({ fileId, body });
+        await save.mutateAsync({ fileId, body: buffer });
       } catch (err) {
         toast.error(toApiError(err).message || '保存失败,请重试');
         return;
@@ -202,10 +212,13 @@ export function PrismWorkspace({ projectId, onBack }: { projectId: number; onBac
     setSelToolbar(!sel || busy ? null : sel);
   };
 
+  // 红条只显示简短带行号的 error_summary;喂给 AI 的是带「! 错误 + l.NNN + 出错源码」的完整
+  // 错误块 log_excerpt —— 让它能按行号精准定位修复,不再因为信息不全而瞎猜改错地方。
   const compileError = compile.data?.status === 'error' ? compile.data.error_summary || compile.data.log_excerpt : '';
   const fixCompile = async () => {
     if (compile.data?.status !== 'error' || busy) return;
-    await runEdit(`这是 LaTeX 编译报错,请定点修复导致编译失败的错误(只改出错相关处):\n\n${compileError}`);
+    const detail = compile.data?.log_excerpt || compile.data?.error_summary || '';
+    await runEdit(`这是 LaTeX 编译报错,请按行号定点修复导致编译失败的错误(只改出错相关处,注意行号 l.NNN):\n\n${detail}`);
   };
   const openHistory = async () => {
     if (!(await flushBuffer())) return;
@@ -214,20 +227,8 @@ export function PrismWorkspace({ projectId, onBack }: { projectId: number; onBac
 
   const outline = useMemo(() => parseOutline(buffer), [buffer]);
   const activeFile = files.find((f) => f.id === fileId);
-  const isMainFile = !!activeFile && activeFile.rel_path === project.data?.project.main_file;
 
   const pdfSource = useMemo(() => prismPdfSource(projectId, pdfKey), [projectId, pdfKey]);
-
-  // 中文支持提示(主文件含 CJK 但无 ctex)。
-  const [cjkHintDismissed, setCjkHintDismissed] = useState(false);
-  const needsCJKSupport = isMainFile && !cjkHintDismissed && CJK_RE.test(buffer) && !CJK_PKG_RE.test(buffer);
-  const addCJKSupport = async () => {
-    const next = insertCtex(buffer);
-    setBuffer(next);
-    loadedRef.current = next;
-    if (fileId) await save.mutateAsync({ fileId, body: next }).catch(() => {});
-    await triggerCompile();
-  };
 
   return (
     <SidebarLayout
@@ -261,57 +262,73 @@ export function PrismWorkspace({ projectId, onBack }: { projectId: number; onBac
             <Button size="sm" variant="outline" onClick={openHistory} disabled={!fileId || busy}>
               <History className="size-3" /> 历史
             </Button>
-            <Button size="sm" onClick={onCompile} disabled={compiling || !fileId || busy}>
+            {/* 编译按钮始终可点(不置灰);编译中显示 loading,重复点击由 onCompile 内部忽略。 */}
+            <Button size="sm" onClick={onCompile}>
               {compiling ? <Loader2 className="size-3 animate-spin" /> : <Play className="size-3" />}
               编译
             </Button>
           </div>
         </header>
 
-        <div className="flex min-h-0 flex-1 overflow-hidden">
-          <div className="flex min-w-0 flex-1 flex-col">
-            {!busy && needsCJKSupport && (
-              <div className="flex items-center gap-2 border-b border-border bg-warning-soft px-3 py-1.5 text-xs text-prism-badge-fg">
-                <Languages className="size-3.5 shrink-0" />
-                <span className="min-w-0 flex-1">检测到中文 —— 点「编译」会自动加载中文支持包(ctex)使其正常显示,也可立即添加。</span>
-                <Button size="sm" variant="outline" className="h-7" onClick={addCJKSupport}>
-                  立即添加
+        {/* 可拖拽三区:左(编辑↕对话)↔ 右(PDF)。宽高都可拖,autoSaveId 持久化用户偏好。 */}
+        <ResizablePanelGroup direction="horizontal" autoSaveId="prism-ws-h" className="min-h-0 flex-1">
+          <ResizablePanel defaultSize={62} minSize={34} className="min-w-0">
+            <ResizablePanelGroup direction="vertical" autoSaveId="prism-ws-v">
+              {/* 上:编辑器 / 实时 diff */}
+              <ResizablePanel defaultSize={58} minSize={25} className="flex min-h-0 flex-col">
+                <div className="min-h-0 flex-1">
+                  {fileBody.isLoading && !showDiff ? (
+                    <div className="flex h-full items-center justify-center bg-[#111]"><Loader2 className="size-5 animate-spin text-faint" /></div>
+                  ) : showDiff ? (
+                    // 实时 diff:original = 轮开始时 DB 正文,proposed = cwd 实时正文(随 agent 改动刷新)。
+                    // 只读展示;应用/丢弃在下方对话卡片(round 级,固化整份 cwd)。
+                    <LatexDiffEditor key="prism-livediff" original={chat.live!.baseline} proposed={chat.live!.content} displayOnly />
+                  ) : (
+                    <LatexEditor
+                      key="prism-editor"
+                      ref={editorRef}
+                      value={buffer}
+                      onChange={setBuffer}
+                      onInlineEdit={(t) => {
+                        if (!busy) setInlineTarget(t);
+                      }}
+                      onSelectionChange={onSelectionChange}
+                    />
+                  )}
+                </div>
+              </ResizablePanel>
+              <ResizableHandle withHandle />
+              {/* 下:AI 对话面板 */}
+              <ResizablePanel defaultSize={42} minSize={18} className="flex min-h-0 flex-col">
+                <PrismChatPanel
+                  chat={chat}
+                  fileId={fileId}
+                  quote={quote}
+                  onClearQuote={() => setQuote('')}
+                  onSend={(instr) => runEdit(instr)}
+                />
+              </ResizablePanel>
+            </ResizablePanelGroup>
+          </ResizablePanel>
+
+          <ResizableHandle withHandle />
+
+          {/* 右:编译错误 + PDF 预览 */}
+          <ResizablePanel defaultSize={38} minSize={20} className="flex min-h-0 flex-col bg-surface-1">
+            {/* 有 PDF 时顶部给下载按钮 —— 下载本次编译产物。 */}
+            {pdfKey > 0 && (
+              <div className="flex h-9 shrink-0 items-center justify-between border-b border-border bg-background px-3">
+                <span className="text-2xs font-bold text-muted-foreground">PDF 预览</span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 gap-1 text-muted-foreground hover:text-foreground"
+                  onClick={downloadPdf}
+                >
+                  <Download className="size-3.5" /> 下载
                 </Button>
-                <button type="button" onClick={() => setCjkHintDismissed(true)} className="text-faint hover:text-foreground" aria-label="忽略">
-                  <X className="size-3.5" />
-                </button>
               </div>
             )}
-            <div className="min-h-0 flex-1">
-              {fileBody.isLoading && !showDiff ? (
-                <div className="flex h-full items-center justify-center bg-[#111]"><Loader2 className="size-5 animate-spin text-faint" /></div>
-              ) : showDiff ? (
-                // 实时 diff:original = 轮开始时 DB 正文,proposed = cwd 实时正文(随 agent 改动刷新)。
-                // 只读展示;应用/丢弃在下方对话卡片(round 级,固化整份 cwd)。
-                <LatexDiffEditor key="prism-livediff" original={chat.live!.baseline} proposed={chat.live!.content} displayOnly />
-              ) : (
-                <LatexEditor
-                  key="prism-editor"
-                  ref={editorRef}
-                  value={buffer}
-                  onChange={setBuffer}
-                  onInlineEdit={(t) => {
-                    if (!busy) setInlineTarget(t);
-                  }}
-                  onSelectionChange={onSelectionChange}
-                />
-              )}
-            </div>
-            <PrismChatPanel
-              chat={chat}
-              fileId={fileId}
-              quote={quote}
-              onClearQuote={() => setQuote('')}
-              onSend={(instr) => runEdit(instr)}
-            />
-          </div>
-
-          <aside className="flex w-[440px] shrink-0 flex-col border-l border-border bg-surface-1">
             {compileError ? (
               <div className="m-3 rounded-md border border-brand-red/30 bg-danger-soft p-3 text-xs text-brand-red">
                 <div className="flex items-start gap-2">
@@ -338,8 +355,8 @@ export function PrismWorkspace({ projectId, onBack }: { projectId: number; onBac
                 </div>
               )}
             </div>
-          </aside>
-        </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
 
         <PrismVersionsDialog
           projectId={projectId}

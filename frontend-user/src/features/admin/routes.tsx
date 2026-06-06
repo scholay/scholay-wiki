@@ -96,6 +96,11 @@ export const adminRoutes: RouteObject[] = [
         lazy: lazyPage(() => import('./pages/MessagesPage'))('MessagesPage'),
       },
       {
+        path: 'session-monitor',
+        handle: { title: '用户会话监控' },
+        lazy: lazyPage(() => import('./pages/SessionMonitorPage'))('SessionMonitorPage'),
+      },
+      {
         path: 'analytics',
         handle: { title: '数据统计' },
         lazy: lazyPage(() => import('./pages/AnalyticsPage'))('AnalyticsPage'),

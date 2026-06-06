@@ -501,7 +501,7 @@ The backend integrates Semantic Scholar Academic Graph API with two access metho
 
 **关键约定**:
 - session 数据在 agent 容器内 jsonl, backend DB 只存映射 (`agent_sessions`)
-- WS 鉴权: 前端先 POST `/<feature>/session/ws-ticket` 拿 30s 一次性 token, 再用 `?ws_token=<...>` 升级 WS。直接放 JWT 在 URL 是 deprecated 路径 (会写 warn 日志)
+- WS 鉴权: 前端先 POST `/<feature>/session/ws-ticket` 拿 30s 一次性 token, 再用 `?ws_token=<...>` 升级 WS。**只认 ws_token** —— 旧的 `?token=<jwt>` 裸 JWT 回落已下线(缺/错 ws_token 一律 401);裸 JWT 落 URL 会被 nginx access log 长期暴露、且能绕过 HTTP 中间件用已吊销 token 升级 WS,故移除
 - 成本控制: 通过 `FeatureSpec.PreUserMessage` 钩子接配额(目前提供 `agentbridge.NewRedisDailyCap`, 后续可替换为完整 subscription 系统)
 - 用量审计: `FeatureSpec.OnMessageComplete` 拿 agent 返回的 token usage; 默认 `NewSlogUsageRecorder` 打到日志, `docker logs scholar_backend | grep agent_usage` 直接看
 - agent 容器的 model / provider 配置在 `agent_config` 表, admin 后台可改, 改完后台异步 push 到 agent;`push_status` / `last_pushed_at` / `push_error` 字段反映推送结果

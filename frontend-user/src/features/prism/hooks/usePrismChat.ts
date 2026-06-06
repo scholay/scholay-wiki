@@ -1,99 +1,133 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { stripAgentBridgePrefix } from '@/shared/lib/agent-prefix';
+import type { Turn } from '@/shared/types/chat';
+import type { ToolFileInput } from '../api/ws-types';
 import { usePrismSocket } from '../api/socket';
-import { applyRound, fetchPendingRound, fetchWSHistory, prepareRound, readWorkspaceFile, rejectRound } from '../api/prism';
-import type { PrismHistoryMsg } from '../api/prism';
-import type { PrismServerMessage } from '../api/ws-types';
+import {
+  applyRound,
+  fetchPendingRound,
+  fetchWSHistory,
+  prepareRound,
+  readWorkspaceFile,
+  rejectRound,
+  usePrismContext,
+} from '../api/prism';
+import { foldHistoryToTurns, foldPrismMessages } from '../components/chat/fold';
 
-/** 一条对话消息(用户 / 助手)。助手消息含进度轨迹 + 本轮改动卡片状态。 */
-export interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  text: string;
-  statuses: string[];
-  startedAt?: number;
-  durationMs?: number;
-  error?: string;
-  changeset?: {
-    applied: number; // 本轮改动文件数
-    state: 'streaming' | 'awaiting_apply' | 'applied' | 'discarded' | 'historical';
-  };
-}
-
-/** 当前轮的实时 diff 数据(编辑器据此渲染:original=baseline,modified=cwd 实时内容)。 */
+/** 当前轮的实时 diff(编辑器据此渲染:original=baseline,modified=cwd 实时内容)。 */
 export interface LiveDiff {
   relPath: string;
-  baseline: string; // 轮开始时该文件的 DB current 正文
-  content: string; // cwd 实时正文(随 tool_result refetch 更新)
+  baseline: string;
+  content: string;
 }
 
 export type RoundState = 'idle' | 'streaming' | 'awaiting_apply';
 
+/** 本轮改动卡片状态(应用/丢弃门)。 */
+export interface PrismChangeset {
+  applied: number;
+  state: 'awaiting_apply' | 'applied' | 'discarded';
+}
+
 let seq = 0;
 const nextId = () => `m${++seq}`;
 
-const stripPrefix = (s: string) =>
-  s.replace(/\[AGENT BRIDGE[\s\S]*?\[\/AGENT BRIDGE[^\]]*\]\s*以下是用户的请求:\s*/i, '').trim();
+// 历史分页:进项目默认拉最近 100 个用户轮(超长会话不一次性全推),「加载更早」每次再多 100。
+const DEFAULT_HISTORY_TURNS = 100;
+const HISTORY_STEP = 100;
 
-// 从 Anthropic content(字符串 或 block[])抽出纯文本(text block)。tool_use/tool_result/thinking 忽略。
-function extractText(content: unknown): string {
-  if (typeof content === 'string') return content.trim();
-  if (Array.isArray(content)) {
-    return content
-      .filter((b): b is { type: string; text: string } => !!b && (b as { type?: string }).type === 'text' && typeof (b as { text?: unknown }).text === 'string')
-      .map((b) => b.text)
-      .join('\n')
-      .trim();
-  }
-  return '';
+const stripPrefix = stripAgentBridgePrefix;
+
+// ── 乐观预览(用户选的「A」):agent 的 Write/Edit/MultiEdit 一拿到完整入参(tool_use_complete,
+//    早于工具执行完成)就把改动结果算出来灌进 diff,不等 tool_result 回拉整文件。纯猜测 ——
+//    tool_result 的 refetch 是权威真源会覆盖它;猜不中(路径不符 / old_string 没匹配)返回 null,
+//    保持原样等 refetch 兜底,绝不会让预览与最终真值长期不一致。
+
+/** 在 haystack 里替换 needle→repl;all=false 只替首个。needle 空或未命中返回 null(不可预览)。 */
+function replaceInContent(haystack: string, needle: string, repl: string, all: boolean): string | null {
+  if (!needle || !haystack.includes(needle)) return null;
+  if (all) return haystack.split(needle).join(repl);
+  const i = haystack.indexOf(needle);
+  return haystack.slice(0, i) + repl + haystack.slice(i + needle.length);
 }
 
-// 把 agent 历史消息折成对话轮(只取 user/assistant 的文本,合并连续同角色;tool_result 等空文本跳过)。
-function foldHistory(raw: PrismHistoryMsg[]): ChatMessage[] {
-  const out: ChatMessage[] = [];
-  for (const m of raw) {
-    if (m.type !== 'user' && m.type !== 'assistant') continue;
-    let text = extractText(m.content);
-    if (m.type === 'user') text = stripPrefix(text);
-    if (!text) continue;
-    const role = m.type as 'user' | 'assistant';
-    const last = out[out.length - 1];
-    if (last && last.role === role) {
-      last.text = `${last.text}\n\n${text}`.trim(); // 合并连续同角色(同一轮里 tool 前后的助手文本)
-    } else {
-      out.push({ id: `h${m.id}`, role, text, statuses: [] });
-    }
+/** 据工具入参算出预览后的文件正文;无法预览(工具不认 / 入参缺 / 未命中)返回 null。 */
+function applyToolEditPreview(current: string, toolName: string, input: ToolFileInput): string | null {
+  if (toolName === 'Write') return typeof input.content === 'string' ? input.content : null;
+  if (toolName === 'Edit') {
+    if (typeof input.old_string !== 'string' || typeof input.new_string !== 'string') return null;
+    return replaceInContent(current, input.old_string, input.new_string, !!input.replace_all);
   }
-  return out;
+  if (toolName === 'MultiEdit') {
+    if (!Array.isArray(input.edits)) return null;
+    let out = current;
+    let changed = false;
+    for (const e of input.edits) {
+      if (typeof e?.old_string !== 'string' || typeof e?.new_string !== 'string') continue;
+      const next = replaceInContent(out, e.old_string, e.new_string, !!e.replace_all);
+      if (next !== null) {
+        out = next;
+        changed = true;
+      }
+    }
+    return changed ? out : null;
+  }
+  return null;
+}
+
+/** tool 入参 file_path 是否指向当前活动文件(agent 多为容器绝对路径,按 relPath 后缀 / basename 匹配)。 */
+function fileMatchesActive(filePath: string | undefined, relPath: string): boolean {
+  if (!filePath) return false;
+  if (filePath === relPath || filePath.endsWith('/' + relPath)) return true;
+  return filePath.split('/').pop() === relPath.split('/').pop();
 }
 
 /**
- * Prism agent-native 用户 WS 对话编排:持久 WS + 实时工具流驱动编辑器 diff + 应用门 + 重入。
- * - send:先 prepareRound(铺源 DB→cwd)+ 截 baseline → WS 发指令 → 流式。
- * - 工具事件(Edit/Write 的 tool_result)→ refetch cwd 文件 → 更新 live.content(编辑器实时 diff)。
- * - message_complete → roundState='awaiting_apply'(不自动落库)→ 前端给 apply/reject。
- * - apply/reject → 固化 / 还原。重入:进来拉 /round/pending,有改动则直接进待应用态。
+ * Prism agent-native 对话编排:持久 WS + 实时工具流驱动编辑器 diff + 应用门 + 重入。
+ *
+ * 渲染走「重折叠」:turns = 历史轮(foldHistoryToTurns)+ 实时轮(foldPrismMessages(socket.messages))。
+ * 每次 socket.messages 变就整段重折 —— 根治旧版增量 patchMsg 与 appendStreamMessage 就地合并打架
+ * 导致的「文本块只截开头」碎片 bug;同时拿到富 block(thinking/工具/文本)给 shared 组件渲染。
+ *
+ * 副作用(refetch 实时 diff / message_complete 收尾)仍走一条 processedRef 增量循环 —— 它只认
+ * 离散帧(tool_result/message_complete/error,这些会增长数组,processedRef 不会漏),不碰文本。
  */
 export function usePrismChat(
   projectId: number,
   opts: { onApplied?: () => void; onReverted?: () => void } = {},
 ) {
   const socket = usePrismSocket(projectId);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const qc = useQueryClient();
+  const contextQuery = usePrismContext(projectId); // footer 上下文水位;每轮结束失效刷新
+  const [historyTurns, setHistoryTurns] = useState<Turn[]>([]);
+  const [pendingTurns, setPendingTurns] = useState<
+    { id: string; userText: string; paused?: boolean }[]
+  >([]);
   const [roundState, setRoundState] = useState<RoundState>('idle');
   const [live, setLive] = useState<LiveDiff | null>(null);
+  const [changeset, setChangeset] = useState<PrismChangeset | null>(null);
+  const [hasMoreHistory, setHasMoreHistory] = useState(false);
+  const [loadingEarlier, setLoadingEarlier] = useState(false);
+  const historyLimitRef = useRef(DEFAULT_HISTORY_TURNS);
 
   const onAppliedRef = useRef(opts.onApplied);
   onAppliedRef.current = opts.onApplied;
   const onRevertedRef = useRef(opts.onReverted);
   onRevertedRef.current = opts.onReverted;
 
-  const assistantIdRef = useRef<string | null>(null); // 当前流式中的助手消息
-  const processedRef = useRef(0); // 已消费的 socket.messages 数
-  const activeRef = useRef<{ relPath: string; baseline: string } | null>(null); // 本轮目标文件
+  const processedRef = useRef(0); // 已消费 socket.messages 数(只用于副作用)
+  const roundActiveRef = useRef(false); // 当前是否有在途轮(gate finalize,避免重复收尾)
+  const activeRef = useRef<{ relPath: string; baseline: string } | null>(null);
+  const lastInstructionRef = useRef('');
   const refetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const patchMsg = (id: string, fn: (m: ChatMessage) => ChatMessage) =>
-    setMessages((prev) => prev.map((m) => (m.id === id ? fn(m) : m)));
+  // 实时轮 = socket.messages + pendingTurns 折叠;叠在历史轮之后。
+  const liveTurns = useMemo(
+    () => foldPrismMessages(socket.messages, pendingTurns),
+    [socket.messages, pendingTurns],
+  );
+  const turns = useMemo(() => [...historyTurns, ...liveTurns], [historyTurns, liveTurns]);
 
   // 去抖 refetch cwd 活动文件 → 更新实时 diff(方案 B:比增量套用稳)。
   const scheduleRefetch = useCallback(() => {
@@ -110,82 +144,69 @@ export function usePrismChat(
     }, 250);
   }, [projectId]);
 
-  // 消费 socket 新事件:累积助手文本 / 工具事件 refetch / message_complete 收尾。
+  // 轮末:确定本轮改动文件数 → 若有改动进 awaiting_apply,否则 idle。
+  const finalizeRound = useCallback(
+    (ok: boolean) => {
+      if (!roundActiveRef.current) return;
+      roundActiveRef.current = false;
+      if (!ok) {
+        setRoundState('idle');
+        setLive(null);
+        activeRef.current = null;
+        return;
+      }
+      fetchPendingRound(projectId)
+        .then((files) => {
+          if (files.length === 0) {
+            setRoundState('idle');
+            setLive(null);
+            activeRef.current = null;
+            setChangeset(null);
+            return;
+          }
+          setRoundState('awaiting_apply');
+          setChangeset({ applied: files.length, state: 'awaiting_apply' });
+          const act = activeRef.current;
+          const pick = (act && files.find((f) => f.rel_path === act.relPath)) || files[0];
+          setLive({ relPath: pick.rel_path, baseline: pick.old_body, content: pick.new_body });
+        })
+        .catch(() => {
+          setRoundState('idle');
+          setLive(null);
+        });
+    },
+    [projectId],
+  );
+
+  // 副作用消费:只处理离散帧(tool_use_complete→乐观预览 / tool_result→refetch /
+  // message_complete→finalize / error)。
   useEffect(() => {
     const msgs = socket.messages;
     if (processedRef.current > msgs.length) processedRef.current = 0; // 续流 truncate 后重放
     for (let i = processedRef.current; i < msgs.length; i++) {
-      handleEvent(msgs[i]);
+      const evt = msgs[i];
+      if (evt.type === 'tool_use_complete') {
+        // 乐观预览:改的是当前活动文件 → 立刻把结果灌进 diff(早于 tool_result 回拉真文件)。
+        const act = activeRef.current;
+        const input = (evt.input ?? {}) as ToolFileInput;
+        if (act && fileMatchesActive(input.file_path, act.relPath)) {
+          setLive((prev) => {
+            if (!prev) return prev;
+            const next = applyToolEditPreview(prev.content, evt.toolName, input);
+            return next == null ? prev : { ...prev, content: next };
+          });
+        }
+      } else if (evt.type === 'tool_result') {
+        if (!evt.isError) scheduleRefetch();
+      } else if (evt.type === 'error') {
+        finalizeRound(false);
+      } else if (evt.type === 'message_complete') {
+        finalizeRound(true);
+        qc.invalidateQueries({ queryKey: ['prism', 'context', projectId] }); // 轮结束 → 刷新上下文水位
+      }
     }
     processedRef.current = msgs.length;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socket.messages]);
-
-  const handleEvent = (evt: PrismServerMessage) => {
-    const aid = assistantIdRef.current;
-    switch (evt.type) {
-      case 'content_delta':
-        if (aid && typeof evt.text === 'string' && evt.text) {
-          patchMsg(aid, (m) => ({ ...m, text: m.text + evt.text }));
-        }
-        break;
-      case 'thinking':
-        if (aid) patchMsg(aid, (m) => ({ ...m, statuses: [...m.statuses.slice(-3), '思考中…'] }));
-        break;
-      case 'content_start':
-        if (aid && evt.blockType === 'tool_use' && evt.toolName) {
-          patchMsg(aid, (m) => ({ ...m, statuses: [...m.statuses.slice(-3), toolVerb(evt.toolName!)] }));
-        }
-        break;
-      case 'tool_result':
-        // Edit/Write 改完一处 → refetch cwd 活动文件刷实时 diff。
-        if (!evt.isError) scheduleRefetch();
-        break;
-      case 'error':
-        if (aid) patchMsg(aid, (m) => ({ ...m, error: evt.message || 'AI 编辑失败' }));
-        finalizeRound(false);
-        break;
-      case 'message_complete':
-        finalizeRound(true);
-        break;
-      default:
-        break;
-    }
-  };
-
-  // 轮末:确定本轮改动文件数 → 若有改动进 awaiting_apply,否则 idle。
-  const finalizeRound = (ok: boolean) => {
-    const aid = assistantIdRef.current;
-    assistantIdRef.current = null;
-    if (aid) patchMsg(aid, (m) => ({ ...m, durationMs: m.startedAt ? Date.now() - m.startedAt : undefined }));
-    if (!ok) {
-      setRoundState('idle');
-      setLive(null);
-      activeRef.current = null;
-      return;
-    }
-    // 拉 pending 确认有无改动(也兜住 agent 改了别的文件的情况)。
-    fetchPendingRound(projectId)
-      .then((files) => {
-        if (files.length === 0) {
-          setRoundState('idle');
-          setLive(null);
-          activeRef.current = null;
-          if (aid) patchMsg(aid, (m) => ({ ...m, changeset: undefined }));
-          return;
-        }
-        setRoundState('awaiting_apply');
-        if (aid) patchMsg(aid, (m) => ({ ...m, changeset: { applied: files.length, state: 'awaiting_apply' } }));
-        // live diff 以活动文件优先;活动文件没改则取第一个改动文件。
-        const act = activeRef.current;
-        const pick = (act && files.find((f) => f.rel_path === act.relPath)) || files[0];
-        setLive({ relPath: pick.rel_path, baseline: pick.old_body, content: pick.new_body });
-      })
-      .catch(() => {
-        setRoundState('idle');
-        setLive(null);
-      });
-  };
+  }, [socket.messages, scheduleRefetch, finalizeRound, qc, projectId]);
 
   // send:铺源 → 截 baseline → WS 发指令。active = 当前编辑文件(relPath + DB 正文)。
   const send = useCallback(
@@ -198,13 +219,10 @@ export function usePrismChat(
         return; // 铺源失败不发(保留输入)
       }
       activeRef.current = active;
-      const assistantId = nextId();
-      assistantIdRef.current = assistantId;
-      setMessages((prev) => [
-        ...prev,
-        { id: nextId(), role: 'user', text: ins, statuses: [] },
-        { id: assistantId, role: 'assistant', text: '', statuses: [], startedAt: Date.now(), changeset: { applied: 0, state: 'streaming' } },
-      ]);
+      lastInstructionRef.current = ins;
+      roundActiveRef.current = true;
+      setChangeset(null);
+      setPendingTurns((prev) => [...prev, { id: nextId(), userText: ins }]);
       setRoundState('streaming');
       setLive({ relPath: active.relPath, baseline: active.baseline, content: active.baseline });
       socket.send({ type: 'user_message', content: ins });
@@ -213,13 +231,11 @@ export function usePrismChat(
   );
 
   const apply = useCallback(async () => {
-    const n = await applyRound(projectId).catch(() => -1);
+    const n = await applyRound(projectId, lastInstructionRef.current).catch(() => -1);
     setRoundState('idle');
     setLive(null);
     activeRef.current = null;
-    setMessages((prev) =>
-      prev.map((m) => (m.changeset?.state === 'awaiting_apply' ? { ...m, changeset: { applied: n < 0 ? m.changeset.applied : n, state: 'applied' } } : m)),
-    );
+    setChangeset((c) => (c ? { applied: n < 0 ? c.applied : n, state: 'applied' } : null));
     onAppliedRef.current?.();
   }, [projectId]);
 
@@ -228,52 +244,64 @@ export function usePrismChat(
     setRoundState('idle');
     setLive(null);
     activeRef.current = null;
-    setMessages((prev) =>
-      prev.map((m) => (m.changeset?.state === 'awaiting_apply' ? { ...m, changeset: { ...m.changeset, state: 'discarded' } } : m)),
-    );
+    setChangeset((c) => (c ? { ...c, state: 'discarded' } : null));
     onRevertedRef.current?.();
   }, [projectId]);
 
-  const stop = useCallback(() => socket.send({ type: 'stop_generation' }), [socket]);
+  const stop = useCallback(() => {
+    // 标记最后一轮被暂停(渲染末尾「已暂停」),再发 stop_generation。
+    setPendingTurns((prev) =>
+      prev.length ? [...prev.slice(0, -1), { ...prev[prev.length - 1], paused: true }] : prev,
+    );
+    socket.send({ type: 'stop_generation' });
+  }, [socket]);
 
-  // 进项目(重入):① 拉 agent 历史渲染过往对话 ② 拉 /round/pending,若有未应用改动直接进 awaiting_apply。
+  // 进项目(重入):① 拉 agent 历史(最近 N 轮)折成 turns ② 拉 /round/pending,有未应用改动直接进 awaiting_apply。
   useEffect(() => {
     let cancelled = false;
+    historyLimitRef.current = DEFAULT_HISTORY_TURNS;
+    setHasMoreHistory(false);
     (async () => {
-      const hist = await fetchWSHistory(projectId).catch(() => [] as PrismHistoryMsg[]);
+      const res = await fetchWSHistory(projectId, DEFAULT_HISTORY_TURNS).catch(() => null);
       if (cancelled) return;
-      const folded = foldHistory(hist);
-      folded.forEach((m) => {
-        if (m.role === 'assistant') m.changeset = undefined;
-      });
-      setMessages(folded);
+      setHistoryTurns(foldHistoryToTurns(res?.messages ?? []));
+      setHasMoreHistory(res?.hasMore ?? false);
       const files = await fetchPendingRound(projectId).catch(() => []);
       if (cancelled || files.length === 0) return;
       setRoundState('awaiting_apply');
+      setChangeset({ applied: files.length, state: 'awaiting_apply' });
       const pick = files[0];
       setLive({ relPath: pick.rel_path, baseline: pick.old_body, content: pick.new_body });
-      setMessages((prev) => [
-        ...prev,
-        { id: nextId(), role: 'assistant', text: '上次有未应用的 AI 改动,请在上方审阅后应用或丢弃。', statuses: [], changeset: { applied: files.length, state: 'awaiting_apply' } },
-      ]);
     })();
     return () => {
       cancelled = true;
     };
   }, [projectId]);
 
-  // 断线续流:重连后 agent 回放 in-flight 轮;若本地助手消息已丢(重挂载),用 resyncUserText 兜一条。
+  // 「加载更早」:把 limit +100 重新拉历史并重折(只在 idle 时由 UI 触发)。
+  const loadEarlier = useCallback(async () => {
+    if (loadingEarlier) return;
+    setLoadingEarlier(true);
+    const next = historyLimitRef.current + HISTORY_STEP;
+    try {
+      const res = await fetchWSHistory(projectId, next);
+      historyLimitRef.current = next;
+      setHistoryTurns(foldHistoryToTurns(res.messages));
+      setHasMoreHistory(res.hasMore);
+    } catch {
+      /* 加载失败保持现状,用户可再点 */
+    } finally {
+      setLoadingEarlier(false);
+    }
+  }, [projectId, loadingEarlier]);
+
+  // 断线续流:重连后 agent 回放 in-flight 轮;本地无在途轮则补一个 pendingTurn,fold 据回放重建。
   useEffect(() => {
     if (!socket.resyncUserText) return;
-    if (assistantIdRef.current) return; // 本地仍有在途轮,无需补
-    const assistantId = nextId();
-    assistantIdRef.current = assistantId;
-    processedRef.current = 0; // 让回放事件从头灌进这条
-    setMessages((prev) => [
-      ...prev,
-      { id: nextId(), role: 'user', text: stripPrefix(socket.resyncUserText!), statuses: [] },
-      { id: assistantId, role: 'assistant', text: '', statuses: [], startedAt: Date.now(), changeset: { applied: 0, state: 'streaming' } },
-    ]);
+    if (roundActiveRef.current) return; // 本地仍有在途轮,无需补
+    roundActiveRef.current = true;
+    processedRef.current = 0; // 让回放事件从头进副作用循环
+    setPendingTurns((prev) => [...prev, { id: nextId(), userText: stripPrefix(socket.resyncUserText!) }]);
     setRoundState('streaming');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket.resyncUserText]);
@@ -281,33 +309,33 @@ export function usePrismChat(
   const newChat = useCallback(() => {
     socket.clearMessages();
     processedRef.current = 0;
-    assistantIdRef.current = null;
+    roundActiveRef.current = false;
     activeRef.current = null;
-    setMessages([]);
+    setPendingTurns([]);
+    setHistoryTurns([]);
+    setChangeset(null);
     setRoundState('idle');
     setLive(null);
   }, [socket]);
 
   return {
-    messages,
+    turns,
+    changeset,
     roundState,
     live,
+    context: contextQuery.data, // footer 上下文水位(PrismChatPanel 用)
     wsState: socket.state,
     displacedReason: socket.displacedReason,
     takeOver: socket.takeOver,
     streaming: roundState === 'streaming',
     awaitingApply: roundState === 'awaiting_apply',
+    hasMoreHistory,
+    loadingEarlier,
+    loadEarlier,
     send,
     apply,
     reject,
     stop,
     newChat,
   };
-}
-
-function toolVerb(toolName: string): string {
-  if (/Read|Glob|Grep/i.test(toolName)) return '查阅文件…';
-  if (/Edit|MultiEdit/i.test(toolName)) return '修改中…';
-  if (/Write/i.test(toolName)) return '写入中…';
-  return '处理中…';
 }

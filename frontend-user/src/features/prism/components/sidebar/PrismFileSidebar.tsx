@@ -1,4 +1,4 @@
-import { ChevronLeft, FileText, FolderTree, MoreVertical, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ChevronLeft, FileText, FolderTree, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/shared/ui/button';
@@ -29,7 +29,7 @@ import {
 import { useSidebar } from '@/stores/sidebar.store';
 import { toApiError } from '@/shared/lib/http';
 import { cn } from '@/shared/lib/utils';
-import { useCreateFile, useDeleteFile, useRenameFile, type PrismFile } from '../../api/prism';
+import { useDeleteFile, useRenameFile, type PrismFile } from '../../api/prism';
 
 interface OutlineItem {
   level: number;
@@ -68,24 +68,10 @@ export function PrismFileSidebar({
   onOutlineClick: (line: number) => void;
 }) {
   const toggleSidebar = useSidebar((s) => s.toggle);
-  const create = useCreateFile(projectId);
   const rename = useRenameFile(projectId);
   const del = useDeleteFile(projectId);
-  const [creating, setCreating] = useState(false);
   const [renamingId, setRenamingId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PrismFile | null>(null);
-
-  const submitNew = async (raw: string) => {
-    setCreating(false);
-    const n = raw.trim();
-    if (!n) return;
-    try {
-      const f = await create.mutateAsync(n);
-      onSelect(f.id);
-    } catch (e) {
-      toast.error(toApiError(e).message || '新建失败');
-    }
-  };
 
   const submitRename = async (file: PrismFile, raw: string) => {
     setRenamingId(null);
@@ -114,36 +100,8 @@ export function PrismFileSidebar({
           <span className="truncate group-hover:text-brand-red">{projectTitle || '未命名项目'}</span>
         </button>
 
-        <SidebarSection
-          id="prism-files"
-          label="文件"
-          prominent
-          action={
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() => setCreating(true)}
-              className="inline-flex items-center gap-1 text-brand-red transition-opacity hover:opacity-80 disabled:opacity-40"
-            >
-              <Plus className="size-3" /> 新建
-            </button>
-          }
-        >
-          {creating && (
-            <div className="px-3 py-1">
-              <Input
-                autoFocus
-                defaultValue=""
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) submitNew((e.target as HTMLInputElement).value);
-                  if (e.key === 'Escape') setCreating(false);
-                }}
-                onBlur={(e) => submitNew(e.target.value)}
-                placeholder="intro.tex"
-                className="h-7 text-xs"
-              />
-            </div>
-          )}
+        {/* 暂不允许手动新建文件(文件由 AI 写作流程产生);移除「新建」入口。 */}
+        <SidebarSection id="prism-files" label="文件" prominent>
           {files.map((f) => (
             <FileRow
               key={f.id}

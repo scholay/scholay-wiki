@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { ImagePlus, Send, Sparkles, X } from 'lucide-react';
+import { Paperclip, Send, Sparkles, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
 import { useAuthStore } from '@/stores/auth.store';
@@ -17,9 +17,14 @@ interface UploadedAttachment {
   type: 'image' | 'file';
 }
 
-/** 限制对齐后端 handler.go const (MaxImageBytes / MaxImageCount) */
+/** 限制对齐后端 handler.go const (MaxImageBytes/Count、MaxFileBytes/Count、MaxTotalBytes) */
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_IMAGE_COUNT = 10;
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
+const MAX_FILE_COUNT = 5;
+const MAX_TOTAL_BYTES = 50 * 1024 * 1024;
+/** 表单 accept —— 图片(白名单与后端一致)+ 文件(pdf/doc/xls/txt/zip)。 */
+const ACCEPT = 'image/jpeg,image/png,image/gif,image/webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip';
 
 /**
  * 反馈表单 —— 用户填写后 POST `/public/feedback`(后端公开端点)。
@@ -47,16 +52,38 @@ export function FeedbackPage() {
   const [attachments, setAttachments] = useState<UploadedAttachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  /** 选择图片后立即上传 → 拿到附件 id, 暂存; 提交反馈时携 uploadKey 一并绑定 */
+  /** 选择附件(图片/文件)后立即上传 → 拿到附件 id, 暂存; 提交反馈时携 uploadKey 一并绑定。
+   *  前端按类型分别校验大小/数量 + 总大小(与后端一致),提前拦截避免上传后被 400。 */
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    const overSize = Array.from(files).find((f) => f.size > MAX_IMAGE_BYTES);
-    if (overSize) {
-      toast.error(`图片 ${overSize.name} 超过 10MB 限制`);
+    const picked = Array.from(files);
+    const curImg = attachments.filter((a) => a.type === 'image').length;
+    const curFile = attachments.filter((a) => a.type === 'file').length;
+    const curBytes = attachments.reduce((s, a) => s + a.size, 0);
+
+    let newImg = 0;
+    let newFile = 0;
+    let newBytes = 0;
+    for (const f of picked) {
+      const isImg = f.type.startsWith('image/');
+      if (f.size > (isImg ? MAX_IMAGE_BYTES : MAX_FILE_BYTES)) {
+        toast.error(`${isImg ? '图片' : '文件'} ${f.name} 超过 10MB 限制`);
+        return;
+      }
+      if (isImg) newImg++;
+      else newFile++;
+      newBytes += f.size;
+    }
+    if (curImg + newImg > MAX_IMAGE_COUNT) {
+      toast.error(`最多上传 ${MAX_IMAGE_COUNT} 张图片`);
       return;
     }
-    if (attachments.length + files.length > MAX_IMAGE_COUNT) {
-      toast.error(`最多上传 ${MAX_IMAGE_COUNT} 张图片`);
+    if (curFile + newFile > MAX_FILE_COUNT) {
+      toast.error(`最多上传 ${MAX_FILE_COUNT} 个文件`);
+      return;
+    }
+    if (curBytes + newBytes > MAX_TOTAL_BYTES) {
+      toast.error('附件总大小超过 50MB 限制');
       return;
     }
 
@@ -206,10 +233,13 @@ export function FeedbackPage() {
           />
         </div>
 
-        {/* 图片附件 — 复制 bug / 截图反馈时用 */}
+        {/* 附件 — 截图(复现 bug)或文件(pdf/doc/xls/txt/zip) */}
         <div>
           <label className="block text-xs font-bold text-foreground mb-2">
-            截图附件 <span className="text-faint font-normal">(可选, 最多 {MAX_IMAGE_COUNT} 张, 每张 ≤ 10MB)</span>
+            截图 / 文件附件{' '}
+            <span className="text-faint font-normal">
+              (可选 · 图片 ≤10MB×{MAX_IMAGE_COUNT} · 文件 ≤10MB×{MAX_FILE_COUNT} · 总计 ≤50MB)
+            </span>
           </label>
 
           {attachments.length > 0 && (
@@ -246,7 +276,7 @@ export function FeedbackPage() {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/jpeg,image/png,image/gif,image/webp"
+            accept={ACCEPT}
             multiple
             className="hidden"
             onChange={(e) => handleFiles(e.target.files)}
@@ -254,12 +284,12 @@ export function FeedbackPage() {
           <Button
             type="button"
             variant="ghost"
-            disabled={uploading || attachments.length >= MAX_IMAGE_COUNT}
+            disabled={uploading || attachments.length >= MAX_IMAGE_COUNT + MAX_FILE_COUNT}
             onClick={() => fileInputRef.current?.click()}
             className="inline-flex items-center gap-2 h-8 px-3 border border-border"
           >
-            <ImagePlus className="size-3.5" />
-            {uploading ? '上传中…' : '添加图片'}
+            <Paperclip className="size-3.5" />
+            {uploading ? '上传中…' : '添加附件'}
           </Button>
         </div>
 

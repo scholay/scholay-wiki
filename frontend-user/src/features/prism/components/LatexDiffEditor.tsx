@@ -9,6 +9,45 @@ import { cn } from '@/shared/lib/utils';
 import { prismEditorTheme, prismSyntax } from './LatexEditor';
 
 /**
+ * 内联 diff 配色 —— @codemirror/merge 默认在暗色里很刺眼:词级改动是高饱和亮绿下划线
+ * (#88ff88aa),整篇新内容时满屏亮绿。这里覆写成柔和半透明叠色 + 左侧 accent 竖条:整行只
+ * 轻微着底,词级精确改动才稍重,删除走柔和红。颜色全取 globals.css 的 --prism-editor-diff-* token。
+ *
+ * 关键:用 **EditorView.baseTheme**(不是 .theme)—— `&dark`/`&light` 这种暗/亮变体选择器
+ * **只有 baseTheme 支持**;放进 .theme 会在模块加载时抛 `RangeError: Unsupported selector: &dark`,
+ * 整个 PrismPage chunk 求值失败 → /prism 被 RouteErrorBoundary 兜成 404(踩过)。
+ * 选择器与 @codemirror/merge baseTheme 同特异性(根带 `cm-merge-b` + 暗色 `cm-dark`,规则形如
+ * `&dark.cm-merge-b .cm-changedText` 0,4,0),同 baseTheme 层、且本扩展放在 mergeView 之后注册 →
+ * 平局后插入取胜,盖过其默认刺眼配色。
+ */
+const prismDiffTheme = EditorView.baseTheme({
+  // 新增/变更行底色(unified = merge-b):柔和绿,覆写默认 rgba(100,160,128,.08)。
+  '&.cm-merge-b .cm-changedLine, .cm-inlineChangedLine, .cm-insertedLine': {
+    backgroundColor: 'var(--prism-editor-diff-ins-soft)',
+  },
+  // 词级精确改动:亮绿下划线渐变 → 柔和底色块(匹配 &dark/&light.cm-merge-b 才盖得住)。
+  '&.cm-merge-b .cm-changedText, &dark.cm-merge-b .cm-changedText, &light.cm-merge-b .cm-changedText': {
+    background: 'var(--prism-editor-diff-ins-strong)',
+    borderRadius: '2px',
+  },
+  // 删除块底色(覆写默认 rgba(160,128,100,.08))。
+  '.cm-deletedChunk': { backgroundColor: 'var(--prism-editor-diff-del-soft)' },
+  // 删除文本:柔和红底 + 红灰字(覆写默认亮红下划线渐变 / #ff000033)。
+  '&.cm-merge-b .cm-deletedText, &dark .cm-deletedChunk .cm-deletedText, &light .cm-deletedChunk .cm-deletedText': {
+    background: 'var(--prism-editor-diff-del-strong)',
+    color: 'var(--prism-editor-diff-del-fg)',
+    borderRadius: '2px',
+  },
+  // 变更 / 删除 gutter 竖条(3px)改柔和 accent(覆写默认亮色),当作左侧改动指示条。
+  '&.cm-merge-b .cm-changedLineGutter, &dark.cm-merge-b .cm-changedLineGutter, &light.cm-merge-b .cm-changedLineGutter': {
+    background: 'var(--prism-editor-diff-ins-accent)',
+  },
+  '&dark .cm-deletedLineGutter, &light .cm-deletedLineGutter': {
+    background: 'var(--prism-editor-diff-del-accent)',
+  },
+});
+
+/**
  * LaTeX 内联 diff —— 官方 @codemirror/merge unifiedMergeView 在主编辑器里渲染红删/绿增。
  * mergeControls:false —— 不显示每个 hunk 上方的内置 accept/reject 块控件,取舍统一走右上浮动导航,
  * 界面更干净(对齐 OpenAI Canvas:文档区只读 + 一个轻量控制条)。allowInlineDiffs 让句子级小改以词级呈现。
@@ -71,6 +110,7 @@ export function LatexDiffEditor({
         EditorView.lineWrapping,
         unifiedMergeView({ original, mergeControls: false, allowInlineDiffs: true }),
         prismEditorTheme,
+        prismDiffTheme, // 覆写 merge 默认刺眼配色为柔和叠色(放 mergeView 之后才能盖住其 baseTheme)
         EditorView.updateListener.of((u) => {
           if (u.docChanged) onChangeRef.current?.(u.state.doc.toString());
           if (u.docChanged || u.selectionSet) refresh(u.view);

@@ -100,32 +100,42 @@ func NewSlogUsageRecorder(featureKey string) OnMessageCompleteFn {
 	}
 }
 
-// NewDBUsageRecorder 返回一个 OnMessageComplete 钩子: 把 agent 侧每轮 usage 落到统一
-// llm_token_usage 账本(source=agent)。userID==0 视为无归属(理论上 WS 必登录, 仅兜底),
-// 落 user_id=NULL。provider 固定 "scholay-managed"(agent 上游 provider/model 由 agent_config
-// 单行托管, backend 黑盒, 这里不细分); 实际 model 由 pipe 注入到 usage.Model。
-// request_id 留空 —— WS 钩子签名只有 (ctx,userID,usage), 拿不到 sessionID, session 关联非必需。
+// recordAgentTokens 是 **agent 侧 token 记账的唯一构造点** —— WS 轮次(OnMessageComplete)、
+// peerreview server-side(recordServerSideUsage)、agent 内网回调(title-gen 等「带外」用量)
+// 三条路都经它落统一账本 llm_token_usage,避免各自手搓 llmusage.Usage{} 漂移。
+// Source 固定 agent、Provider 固定 "scholay-managed"(agent 上游 provider/model 由 agent_config
+// 托管,backend 黑盒,不细分);rec==nil 跳过;userID==nil = 无归属(落 user_id=NULL)。
+//
+// 未来 per-user token 总额预算的「实际扣减」就接在这里(唯一 decrement 点),见设计 seam。
+func recordAgentTokens(rec llmusage.Recorder, userID *uint, feature, requestID string, u AgentUsage) {
+	if rec == nil {
+		return
+	}
+	rec.Record(llmusage.Usage{
+		UserID:              userID,
+		Feature:             feature,
+		Source:              llmusage.SourceAgent,
+		Provider:            "scholay-managed",
+		Model:               u.Model,
+		InputTokens:         u.InputTokens,
+		OutputTokens:        u.OutputTokens,
+		CacheReadTokens:     u.CacheReadTokens,
+		CacheCreationTokens: u.CacheCreationTokens,
+		RequestID:           requestID,
+	})
+}
+
+// NewDBUsageRecorder 返回一个 OnMessageComplete 钩子: 把 agent 侧每轮 usage 落统一账本。
+// userID==0 视为无归属(理论上 WS 必登录, 仅兜底)→ user_id=NULL。request_id 留空(WS 钩子签名
+// 拿不到 sessionID)。落库统一走 recordAgentTokens(三喂养点共用,不再各自手搓 Usage{})。
 func NewDBUsageRecorder(featureKey string, rec llmusage.Recorder) OnMessageCompleteFn {
 	return func(_ context.Context, userID uint, usage AgentUsage) {
-		if rec == nil {
-			return
-		}
 		var uid *uint
 		if userID != 0 {
 			u := userID
 			uid = &u
 		}
-		rec.Record(llmusage.Usage{
-			UserID:              uid,
-			Feature:             featureKey,
-			Source:              llmusage.SourceAgent,
-			Provider:            "scholay-managed",
-			Model:               usage.Model,
-			InputTokens:         usage.InputTokens,
-			OutputTokens:        usage.OutputTokens,
-			CacheReadTokens:     usage.CacheReadTokens,
-			CacheCreationTokens: usage.CacheCreationTokens,
-		})
+		recordAgentTokens(rec, uid, featureKey, "", usage)
 	}
 }
 

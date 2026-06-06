@@ -4,7 +4,7 @@ import { SidebarSection } from '@/shared/components/sidebar';
 import { FavoriteBurst } from '@/shared/components/FavoriteBurst';
 import { LeaveToLibraryLink } from '@/shared/components/LeaveToLibraryLink';
 import { Button } from '@/shared/ui/button';
-import { useAuthStore } from '@/stores/auth.store';
+import { useIsAuthenticated } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useLibraryFoldersSummary } from '../../api/library';
 
@@ -19,13 +19,13 @@ import { useLibraryFoldersSummary } from '../../api/library';
  * useFavoriteBurst fallback 到 toast(详见 stores/favorite-burst.store)。
  */
 export function LibrarySection() {
-  const user = useAuthStore((s) => s.user);
+  const authenticated = useIsAuthenticated();
   const openDialog = useAuthDialog((s) => s.openDialog);
   const foldersQ = useLibraryFoldersSummary();
   // FavoriteBurst 锚点 —— burst 浮在 section 屏幕坐标上方(走 portal 不被裁)
   const sectionRef = useRef<HTMLDivElement>(null);
 
-  if (!user) {
+  if (!authenticated) {
     return (
       <SidebarSection id="library" label="我的文献集">
         <div className="mx-4 my-2 px-3 py-3 rounded-md bg-surface-1 border border-border-soft">

@@ -131,6 +131,14 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.POST("/feedbacks/:id/reply", h.feedback.ReplyFeedback)
 		adminProtected.DELETE("/feedbacks/:id", h.feedback.DeleteFeedback)
 
+		// 用户会话监控(内测期定位用户问题)—— 列某 feature 下用户的 agent 会话 + 拉 transcript(只读)。
+		// 覆盖 smart_search/claw/prism;审稿走 peer_review 报告另算。
+		adminProtected.GET("/agent-sessions", h.agentBridge.AdminListSessions)
+		adminProtected.GET("/agent-sessions/:sessionId/messages", h.agentBridge.AdminGetSessionMessages)
+		// 审稿监控:投稿列表 + 一份投稿的完整数据(草稿过程 + 审稿报告 + 附件)。
+		adminProtected.GET("/peer-review/submissions", h.peerReview.AdminListSubmissions)
+		adminProtected.GET("/peer-review/submissions/:id", h.peerReview.AdminGetSubmission)
+
 		// 使用日志管理 (前端用 list/summary/config GET+PUT/cleanup/export;
 		// features/filter-options/all 已下线)
 		adminProtected.GET("/usage-logs", h.usageLogAdmin.List)

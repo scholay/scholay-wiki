@@ -69,6 +69,15 @@ func registerPublicUserRoutes(api *gin.RouterGroup, h *allHandlers) {
 		oauthMerge.GET("/pending-merge", h.user.GetPendingOAuthMerge)
 		oauthMerge.POST("/cancel-merge", h.user.CancelPendingOAuthMerge)
 	}
+
+	// 内网回调:scholar_agent 上报「带外」token 用量(title-gen 等无 message_complete 帧的调用)。
+	// 不走 user JWT —— 用内网共享密钥 Bearer(InternalAgentAuthMiddleware,= AGENT_AUTH_TOKEN)。
+	// nginx 另有 deny 公网 /api/v1/internal/ 作纵深防御。
+	internal := api.Group("/internal")
+	internal.Use(middleware.InternalAgentAuthMiddleware())
+	{
+		internal.POST("/agent/usage", h.agentBridge.HandleAgentUsageCallback)
+	}
 }
 
 // registerProtectedUserRoutes 注册用户受保护路由
@@ -118,6 +127,7 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 			// AI 对话走下面独立挂的 /prism/ws/:sessionId;这里是轮次边界 HTTP 端点。
 			prismG.POST("/projects/:id/ws-ticket", h.prism.IssueWSTicket)
 			prismG.GET("/projects/:id/session/messages", h.prism.GetWSMessages)
+			prismG.GET("/projects/:id/session/context", h.prism.GetContext) // 上下文水位(token 占用)
 			prismG.POST("/projects/:id/round/prepare", h.prism.PrepareRound) // 铺源 DB→cwd
 			prismG.GET("/projects/:id/round/pending", h.prism.PendingRound)  // 待应用 diff(重入)
 			prismG.POST("/projects/:id/round/apply", h.prism.ApplyRound)     // 固化 cwd→DB
@@ -173,7 +183,7 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 
 		// 智能搜索 · 用户唯一会话 (HTTP)。
 		// WS 端点不放这里 —— 浏览器 WS 不能带 Authorization header,
-		// WS 路由独立挂出,自己校验 ?token= + sessionId 归属。
+		// WS 路由独立挂出,自己校验 ?ws_token=<ticket> + sessionId 归属。
 		//
 		// 改造背景: 0.2 之前是 "每次进页面新建 session 不留映射",留下大量孤儿 jsonl。
 		// 现在改成 1 用户 1 行的持久化绑定 (smart_search_sessions),get-or-create
@@ -216,7 +226,7 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 	}
 
 	// 智能搜索 · WS 桥接 (单独挂在 /user 下,不走 UserAuthMiddleware)
-	// 路径: /api/v1/user/smart-search/ws/:sessionId?token=<jwt>
+	// 路径: /api/v1/user/smart-search/ws/:sessionId?ws_token=<ticket> (30s 一次性, 用即销毁)
 	api.GET("/user/smart-search/ws/:sessionId", h.smartSearch.HandleWS)
 	// 智能助手 · WS 桥接 (同 smart-search 模式)
 	api.GET("/user/claw/ws/:sessionId", h.claw.HandleWS)

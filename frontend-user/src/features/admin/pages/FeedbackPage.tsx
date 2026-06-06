@@ -39,6 +39,9 @@ const STATUS_FILTERS: { value: FeedbackStatus | undefined; label: string }[] = [
   { value: 'closed', label: '已关闭' },
 ];
 
+/** ISO 时间 → "YYYY-MM-DD HH:mm"; 空值显示占位。 */
+const fmtTime = (s?: string) => (s ? s.slice(0, 16).replace('T', ' ') : '—');
+
 export function FeedbackPage() {
   const [page, setPage] = useUrlState('page', 1, Number);
   const [statusFilter, setStatusFilter] = useUrlState<FeedbackStatus | undefined>(
@@ -141,12 +144,31 @@ export function FeedbackPage() {
       <Pagination total={data?.total ?? 0} page={page} pageSize={20} onPageChange={setPage} />
 
       <Dialog open={!!replying} onOpenChange={(o) => !o && setReplying(null)}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>处理反馈 · {replying?.username || replying?.email}</DialogTitle>
+            <DialogTitle>反馈详情 · {replying?.username || replying?.email}</DialogTitle>
           </DialogHeader>
           {replying && (
             <div className="space-y-4">
+              {/* 元信息 —— 分类/状态/时间/提交者/邮箱/IP归属地/负责人 */}
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-md border border-border bg-surface-1 p-3">
+                {([
+                  ['分类', replying.category || '其他'],
+                  ['状态', STATUS_LABEL[replying.status].text],
+                  ['提交时间', fmtTime(replying.createdAt)],
+                  ['提交者', `${replying.username || '匿名'}${replying.userId ? ` · ID ${replying.userId}` : ' · 未登录'}`],
+                  ['邮箱', replying.email || '—'],
+                  ['IP / 归属地', `${replying.ip || '—'}${replying.ipLocation ? ` · ${replying.ipLocation}` : ''}`],
+                  ['负责人', replying.assigneeName || '未分配'],
+                  ['首次响应', fmtTime(replying.firstResponseAt)],
+                ] as const).map(([label, value]) => (
+                  <div key={label} className="min-w-0">
+                    <div className="text-2xs text-faint tracking-[0.12em]">{label}</div>
+                    <div className="text-xs text-subtle truncate" title={value}>{value}</div>
+                  </div>
+                ))}
+              </div>
+
               <div className="rounded-md border border-border bg-surface-1 p-3">
                 <div className="text-2xs text-faint mb-1 tracking-[0.12em]">用户反馈</div>
                 <div className="text-sm text-subtle whitespace-pre-wrap">{replying.content}</div>
@@ -176,6 +198,24 @@ export function FeedbackPage() {
                       </a>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* 已有回复 (若已回复过) */}
+              {replying.replyContent && (
+                <div className="rounded-md border border-brand-green/30 bg-brand-green/5 p-3">
+                  <div className="text-2xs text-faint mb-1 tracking-[0.12em]">
+                    已回复{replying.repliedBy ? ` · ${replying.repliedBy}` : ''}{replying.repliedAt ? ` · ${fmtTime(replying.repliedAt)}` : ''}
+                  </div>
+                  <div className="text-sm text-subtle whitespace-pre-wrap">{replying.replyContent}</div>
+                </div>
+              )}
+
+              {/* 内部协作备注 —— 仅管理端可见, 不发给用户 */}
+              {replying.internalNotes && (
+                <div className="rounded-md border border-border bg-warning-soft p-3">
+                  <div className="text-2xs text-faint mb-1 tracking-[0.12em]">内部备注 (用户不可见)</div>
+                  <div className="text-sm text-subtle whitespace-pre-wrap">{replying.internalNotes}</div>
                 </div>
               )}
 

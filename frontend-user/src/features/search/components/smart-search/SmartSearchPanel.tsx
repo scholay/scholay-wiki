@@ -12,6 +12,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom';
 import { Dialog, DialogContent, DialogTitle } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/button';
+import { AgentDisplacedBanner } from '@/shared/components/AgentDisplacedBanner';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import {
@@ -285,21 +286,7 @@ export function SmartSearchPanel() {
           这个 banner 占顶部一行, 用户点 "切回这里" 调 takeOver() 抢回活跃权。
           banner 只在 state='displaced' 时出现; takeOver 后 state 变 connecting → open 自动消失。 */}
       {state === 'displaced' && (
-        <div className="shrink-0 bg-warning-soft border-b border-brand-amber/30 px-4 py-2.5 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-xs text-brand-amber">
-            <AlertTriangle className="size-3.5 shrink-0" />
-            <span>{displacedReason ?? '此会话已在其他窗口打开'}</span>
-          </div>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={takeOver}
-            className="h-7 px-3 text-xs shrink-0"
-          >
-            切回这里
-          </Button>
-        </div>
+        <AgentDisplacedBanner reason={displacedReason} onTakeOver={takeOver} />
       )}
 
       {turns.length === 0 ? (

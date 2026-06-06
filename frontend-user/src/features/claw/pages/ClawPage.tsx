@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, AlertTriangle, Cpu, History, Loader2, MessageSquarePlus, Sparkles } from 'lucide-react';
+import { AlertCircle, Cpu, History, Loader2, MessageSquarePlus, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom';
 import { Button } from '@/shared/ui/button';
+import { AgentDisplacedBanner } from '@/shared/components/AgentDisplacedBanner';
 import { SidebarLayout } from '@/shared/components/sidebar';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
@@ -447,21 +448,11 @@ export function ClawPage() {
       {/* 多窗口接管 banner — 后端 displacement 路径下发 displaced 帧后出现。
           点 "切回这里" → socket.takeOver() 重新建 WS 把活跃权抢回。 */}
       {socket.state === 'displaced' && (
-        <div className="shrink-0 bg-warning-soft border-b border-brand-amber/30 px-6 py-2.5 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-xs text-brand-amber">
-            <AlertTriangle className="size-3.5 shrink-0" />
-            <span>{socket.displacedReason ?? '此会话已在其他窗口打开'}</span>
-          </div>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={socket.takeOver}
-            className="h-7 px-3 text-xs shrink-0"
-          >
-            切回这里
-          </Button>
-        </div>
+        <AgentDisplacedBanner
+          reason={socket.displacedReason}
+          onTakeOver={socket.takeOver}
+          className="px-6"
+        />
       )}
 
       <div className="flex min-h-0 flex-1 flex-col">

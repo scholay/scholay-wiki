@@ -27,10 +27,19 @@ export type PrismServerMessage =
 
 export type PrismWSState = 'idle' | 'connecting' | 'open' | 'reconnecting' | 'closed' | 'error' | 'displaced';
 
-/** tool_use_complete.input 里 Edit/Write 工具的入参(用于取 file_path 判断改了哪个文件)。 */
+/**
+ * tool_use_complete.input 里 Edit/Write/MultiEdit 工具的入参。
+ * 用途:取 file_path 判断改了哪个文件;并据 old_string/new_string/content/edits 在 tool_result
+ * 回拉真文件之前**乐观预览**改动到 diff(见 usePrismChat 的 applyToolEditPreview)。
+ */
 export interface ToolFileInput {
   file_path?: string;
+  // Edit
   old_string?: string;
   new_string?: string;
+  replace_all?: boolean;
+  // Write
   content?: string;
+  // MultiEdit
+  edits?: { old_string?: string; new_string?: string; replace_all?: boolean }[];
 }

@@ -117,6 +117,24 @@ func (f *FeatureBridge) AgentClient() *agent.Client { return f.bridge.client }
 // Bridge 暴露父 Bridge, 让 feature 可以调用 ServerSideChat 等 backend-driven 方法。
 func (f *FeatureBridge) Bridge() *Bridge { return f.bridge }
 
+// BindOwnerSession — 实体级会话「双写」: feature (prism/peerreview) 把 agent_session_id
+// 写进自己业务表后, 再调这个把同一映射写进统一归属表 agent_sessions
+// (owner_kind=project/submission, owner_id=实体主键)。
+//
+// 按 (owner_kind, owner_id) upsert (见 repo.UpsertByOwnerEntity): churn 时同行换
+// session_id, 不留孤儿不破唯一键。写进归属表后, 标准 OwnsSession / IssueWSTicket 即可
+// 覆盖该 feature, 无需各自的 Trusted 后门。best-effort 语义由 caller 决定 (建议
+// 记 warn 不阻断主流程, 漏写由阶段2 对账 SQL 兜底)。
+func (f *FeatureBridge) BindOwnerSession(userID uint, ownerKind string, ownerID uint64, agentSessionID string) error {
+	return f.bridge.repo.UpsertByOwnerEntity(userID, f.spec.Key, ownerKind, ownerID, agentSessionID)
+}
+
+// UnbindOwnerSession — 实体被删除时清掉归属表里对应行 (按 owner 删), 避免悬空映射。
+// best-effort: 删失败不致命 (孤儿行无害, agent_session_id 全局唯一不会被复用)。
+func (f *FeatureBridge) UnbindOwnerSession(ownerKind string, ownerID uint64) error {
+	return f.bridge.repo.DeleteByOwner(ownerKind, ownerID)
+}
+
 // SessionMessagesResult 是 GetSessionMessages 的返回包装, 把 sessionId 一并带回,
 // 让前端拿一份 payload 就能既建 WS 又渲染历史。
 //
@@ -270,6 +288,27 @@ func (f *FeatureBridge) GetSessionMessagesByID(ctx context.Context, userID uint,
 					"feature", f.spec.Key, "user_id", userID, "session_id", sessionID, "err", delErr)
 			}
 			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("agent get messages: %w", err)
+	}
+	sliced, total, hasMore := sliceRecentTurns(msgs.Messages, limitTurns)
+	return &SessionMessagesResult{SessionID: sessionID, Messages: sliced, TotalTurns: total, HasMore: hasMore}, nil
+}
+
+// PaginateSessionMessages 拉指定 sessionID 的历史并按 limitTurns 分页(同 sliceRecentTurns),
+// **不做 OwnsSession 校验** —— 给「会话归属由 feature 自己业务表确认」的场景用(如 prism 已先
+// GetProject(uid) 校验项目归属,不应再耦合到归属表/双写;一次双写漏写不能让历史加载失败)。
+//
+// agent 端 404(会话被 GC/重启)→ 返回空结果优雅降级(让前端显示空历史,下一轮 feature 自行
+// recreate),不报错。sessionID 为空同样返回空结果。
+func (f *FeatureBridge) PaginateSessionMessages(ctx context.Context, sessionID string, limitTurns int) (*SessionMessagesResult, error) {
+	if sessionID == "" {
+		return &SessionMessagesResult{Messages: nil}, nil
+	}
+	msgs, err := f.bridge.client.GetSessionMessages(ctx, sessionID)
+	if err != nil {
+		if errors.Is(err, agent.ErrSessionNotFound) {
+			return &SessionMessagesResult{SessionID: sessionID, Messages: nil}, nil
 		}
 		return nil, fmt.Errorf("agent get messages: %w", err)
 	}

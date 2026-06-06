@@ -122,6 +122,9 @@ func (s *Service) DeleteProject(ctx context.Context, proj *Project) error {
 	}
 	if proj.AgentSessionID != nil && *proj.AgentSessionID != "" {
 		s.deleteSessionBestEffort(*proj.AgentSessionID) // 释放 agent 端会话,不留孤儿
+		if s.feature != nil {
+			_ = s.feature.UnbindOwnerSession("project", uint64(proj.ID)) // 清统一归属表映射
+		}
 	}
 	return s.repo.DeleteProjectCascade(proj.ID)
 }
@@ -200,15 +203,27 @@ func (s *Service) gatherCurrent(projectID uint) (map[string]string, string, erro
 	if err != nil {
 		return nil, "", err
 	}
-	out := make(map[string]string, len(files))
+	// 收集所有 current 文本文件的版本 id,一次批量取(消 N×单查)。
+	verIDs := make([]uint, 0, len(files))
 	for _, f := range files {
 		// Phase 0 只处理文本文件;asset(二进制)走 MinIO,后续阶段接。
 		if f.FileKind == KindAsset || f.CurrentVersionID == nil {
 			continue
 		}
-		v, err := s.repo.GetVersion(*f.CurrentVersionID)
-		if err != nil {
-			return nil, "", err
+		verIDs = append(verIDs, *f.CurrentVersionID)
+	}
+	vers, err := s.repo.GetVersionsByIDs(verIDs)
+	if err != nil {
+		return nil, "", err
+	}
+	out := make(map[string]string, len(verIDs))
+	for _, f := range files {
+		if f.FileKind == KindAsset || f.CurrentVersionID == nil {
+			continue
+		}
+		v := vers[*f.CurrentVersionID]
+		if v == nil {
+			return nil, "", fmt.Errorf("prism: current version %d missing for file %s", *f.CurrentVersionID, f.RelPath)
 		}
 		out[f.RelPath] = v.Body
 	}
@@ -284,11 +299,6 @@ func (s *Service) runCompile(compileID, projectID uint, mainFile, engine string)
 	logKey := base + ".log"
 	_ = s.putObject(ctx, logKey, []byte(res.Log), "text/plain; charset=utf-8")
 
-	excerpt := res.ErrorSummary
-	if len(excerpt) > 480 {
-		excerpt = excerpt[:480]
-	}
-
 	if res.Status == CompileSuccess && len(res.PDF) > 0 {
 		pdfKey := base + ".pdf"
 		if err := s.putObject(ctx, pdfKey, res.PDF, "application/pdf"); err != nil {
@@ -302,12 +312,25 @@ func (s *Service) runCompile(compileID, projectID uint, mainFile, engine string)
 		return
 	}
 
+	// 失败:优先从完整 log 抠带行号的错误块。
+	//   summary(带「第 N 行」)给 UI 红条;excerpt(! 错误 + l.NNN + 源码)给 AI 精准定位修复。
+	//   log 里没有 "! " 块 → 回落容器友好摘要 → 再回落通用文案。
+	summary, excerpt := extractCompileError(res.Log)
+	if summary == "" {
+		summary = strings.TrimSpace(res.ErrorSummary)
+	}
 	if excerpt == "" {
-		excerpt = "编译失败,请检查 LaTeX 语法"
+		excerpt = strings.TrimSpace(res.ErrorSummary)
+	}
+	if summary == "" {
+		summary = "编译失败,请检查 LaTeX 语法"
+	}
+	if excerpt == "" {
+		excerpt = summary
 	}
 	_ = s.repo.UpdateCompile(compileID, map[string]any{
 		"status": CompileError, "log_object_key": logKey,
-		"log_excerpt": excerpt, "error_summary": excerpt, "duration_ms": res.DurationMs,
+		"log_excerpt": excerpt, "error_summary": summary, "duration_ms": res.DurationMs,
 	})
 }
 

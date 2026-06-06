@@ -17,6 +17,8 @@ package prism
 import (
 	"context"
 	"errors"
+	"os"
+	"strings"
 
 	"scholar-backend/internal/agent"
 	"scholar-backend/internal/agentbridge"
@@ -34,8 +36,17 @@ const PromptName = "Scholay 智能写作 · 默认 prompt"
 
 // prism 会话禁用的工具:跑命令(Bash 无法路径限定)/ 起子 agent(Task/Agent 旁路裁决)/ NotebookEdit。
 // 放开 Read/Glob/Grep + Write/Edit/MultiEdit —— agent 在会话 cwd 里原生读写,写被 decidePermission
-// 限定在 cwd 内(越界拒)。仍可用 mcp__minicod__*。
+// 限定在 cwd 内(越界拒)。仍可用 mcp__minicod__*。Skill 未禁用 → 可加载下方写作 skill。
 var prismDisallowedTools = []string{"Bash", "NotebookEdit", "Task", "Agent"}
+
+// prismSkillAddDir —— 传给 agent --add-dir 的目录(agent 加载 <dir>/.claude/skills:写作/学科/LaTeX 格式 skill)。
+// 同 peerreview 的 reviewerSkillAddDir:独立目录,只有 prism 会话装,claw/审稿看不到。
+func prismSkillAddDir() string {
+	if d := strings.TrimSpace(os.Getenv("PRISM_SKILL_ADDDIR")); d != "" {
+		return d
+	}
+	return "/prism-add"
+}
 
 // vipChecker 由 SetVIPChecker 注入;PreUserMessage 在每轮前查会员配额。
 var vipChecker *vip.Service
@@ -98,6 +109,8 @@ func BuildSpec() agentbridge.FeatureSpec {
 		OnMessageComplete:      onMessageComplete,
 		SessionOptions: &agent.CreateSessionOptions{
 			DisallowedTools: prismDisallowedTools,
+			// 每项目会话加载写作 skill(--add-dir),agent 写/改时可经 Skill 调对应指南。
+			AddDirs: []string{prismSkillAddDir()},
 		},
 	}
 }

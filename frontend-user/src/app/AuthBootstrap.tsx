@@ -17,19 +17,24 @@ import { useAuthDialog } from '@/stores/auth-dialog.store';
  */
 export function AuthBootstrap() {
   const { data } = useProfile();
-  const patchUser = useAuthStore((s) => s.patchUser);
+  const setUser = useAuthStore((s) => s.setUser);
   const clear = useAuthStore((s) => s.clear);
 
+  // useProfile 拉到档案后,**整体写入** user(setUser,不是 patchUser)。
+  // 关键:token 有效但 user 为 null 的「幽灵未登录」场景(跨 tab 登录只同步了 token、
+  // 或 persist blob 丢了 user)下,useProfile 是 enabled 的、能成功取回档案 —— 必须用
+  // setUser 才能把它写进去。早先用 patchUser 时 user 为 null 会被原样丢弃,导致
+  // 「接口能看到自己历史、但界面显示未登录」。token→user 由这里收口自愈。
   useEffect(() => {
     if (!data) return;
-    patchUser({
+    setUser({
       id: data.id,
       email: data.email ?? '',
       username: data.username ?? undefined,
       avatar: data.avatar_url ?? undefined,
       role: data.role,
     });
-  }, [data, patchUser]);
+  }, [data, setUser]);
 
   // 全前端「认证丢失」的**单一消费点**(notifyAuthLost 派发 auth-evicted)。
   // 此前这里只弹 toast、不给任何登录入口 —— 正是"接口提示未登录但没有登录交互"的根因。

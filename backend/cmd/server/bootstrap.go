@@ -86,8 +86,9 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	db := database.GetDB()
 
 	// ---- 基础设施 ----
+	// 注:cleanupService.Start() 延后到所有 Set*(hotContent / 归属对账)注入完之后再调,
+	// 因为归属对账任务在 Start() 内按依赖是否注入决定要不要注册。
 	cleanupService := cleanup.NewCleanupService(db)
-	cleanupService.Start()
 
 	// agent_config:DB 服务 + HTTP 推送客户端解耦构造,
 	// 一是 handler 需要 service,二是启动后还要发一次 SyncOnce。
@@ -109,7 +110,8 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 
 	// agent 桥接: 一份 Bridge 多 feature 复用; 每个 feature 通过 Bridge.For(spec)
 	// 拿到自己的 *FeatureBridge, 在 handler 里只调几个 thin 方法。
-	agentBridge := agentbridge.New(agentClient, agentbridge.NewRepository(db))
+	agentSessionRepo := agentbridge.NewRepository(db)
+	agentBridge := agentbridge.New(agentClient, agentSessionRepo)
 
 	// 各 feature Spec —— smartsearch / claw 的 prompt 已迁回代码静态管理 (internal/prompts),
 	// BuildSpec 内部用 agentbridge.StaticPicker, 不再依赖 promptSvc;
@@ -237,11 +239,24 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// cleanup → hotContent（定期清理过期热门统计）
 	cleanupService.SetHotContentService(plat.hotContentService)
 
+	// cleanup → agent_sessions 归属对账(self-heal):实体级 feature 的业务表 → 归属表补漏。
+	// best-effort 双写漏写后,这里周期性扫平,支撑「对账清零后删 prism Trusted 后门」。
+	cleanupService.SetAgentSessionReconciler(agentSessionRepo, []agentbridge.OwnerReconcileTarget{
+		{FeatureKey: prism.FeatureKey, OwnerKind: "project", SourceTable: "prism_projects", SessionCol: "agent_session_id"},
+		{FeatureKey: peerreview.FeatureKey, OwnerKind: "submission", SourceTable: "peer_review_submissions", SessionCol: "agent_session_id"},
+	})
+
+	// 依赖全部注入完成,启动后台清理 + 对账任务。
+	cleanupService.Start()
+
 	// message + ws：站内信实时推送
 	plat.message.SetWebSocketHub(plat.wsHub)
 
 	// message → user（注册欢迎信）
 	core.userService.SetMessageService(plat.message.GetAdapter())
+
+	// message → feedback（回复反馈时给登录用户发站内信;复用同一个 message adapter,匿名反馈只走邮件）
+	core.feedbackService.SetNotifier(plat.message.GetAdapter())
 
 	// 功能大全 (学术工具黄页): repo → dispatcher(webhook) → service → handler
 	featureToolRepo := featuretool.NewRepository(db)
@@ -295,6 +310,7 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 			peerReview:      peerReviewHandler,
 			claw:            claw.NewHandler(clawFeature),
 			featureTool:     featureToolHandler,
+			agentBridge:     agentBridge, // 内网回调端点: agent 上报带外 token 用量 (title-gen 等)
 			// 智能写作 (Prism): DB 真源 + 编译沙箱(共享卷 watcher)+ AI 定点编辑(prismFeature/agent)。
 			prism: prismHandler,
 			// umami HTTP API 接入 —— admin /analytics 自渲染图表 + tracker website id 自动 bootstrap

@@ -236,17 +236,12 @@ func (b *Bridge) recordServerSideUsage(ctx context.Context, modelID string, usag
 		return
 	}
 	call := llmusage.CallFromCtx(ctx)
-	b.llmRec.Record(llmusage.Usage{
-		UserID:              call.UserID,
-		Feature:             call.Feature,
-		Source:              llmusage.SourceAgent,
-		Provider:            "scholay-managed",
+	recordAgentTokens(b.llmRec, call.UserID, call.Feature, call.RequestID, AgentUsage{
 		Model:               modelID,
 		InputTokens:         usage.InputTokens,
 		OutputTokens:        usage.OutputTokens,
 		CacheReadTokens:     usage.CacheReadTokens,
 		CacheCreationTokens: usage.CacheCreationTokens,
-		RequestID:           call.RequestID,
 	})
 }
 

@@ -10,6 +10,7 @@ import { ArrowUp, FileText, Loader2, Paperclip, Square, Upload, X } from 'lucide
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
 import { AttachmentLightbox } from '@/shared/components/chat/AttachmentLightbox';
+import { ContextMeter } from '@/shared/components/chat';
 import { useUploadClawAttachment } from '../../api/session';
 import type { AttachmentDTO } from '../../api/types';
 
@@ -288,7 +289,14 @@ export function ChatComposer({
 
         {/* 上下文水位 — footer 右侧, 紧贴发送按钮 (Claude / Cursor 同位)。
             没有数据 (新会话还没问过话) 不显示, 避免空 0%。 */}
-        {context && context.totalTokens > 0 && <ContextMeter context={context} />}
+        {context && context.totalTokens > 0 && (
+          <ContextMeter
+            totalTokens={context.totalTokens}
+            maxTokens={context.maxTokens}
+            percentage={context.percentage}
+            model={context.model}
+          />
+        )}
 
         {/* 发送/停止 切换 — busy 时按钮换成方块停止图标, 直调 onStop 走 stop_generation 协议。
             type=button 必要 — 留在 type=submit 会先触发 form onSubmit,
@@ -348,42 +356,6 @@ export function ChatComposer({
         onClose={() => setLightbox(null)}
       />
     </form>
-  );
-}
-
-/**
- * 上下文水位指示 — footer 右下角的紧凑版 (区别于之前 header 那个大 pill)。
- *
- * 设计参考 Claude / Cursor: 一个细环 (donut) + 百分比, 不抢眼; hover 看明细。
- *   - < 80%: 灰色 (text-faint) — 常态, 不打扰
- *   - >= 80%: brand-red — 提醒用户该考虑新开对话 / 精简上下文
- * 环用纯 CSS conic-gradient, 不引第三方图表库。
- */
-function ContextMeter({ context }: { context: ComposerContext }) {
-  const pct = Math.max(0, Math.min(100, Math.round(context.percentage)));
-  const danger = pct >= 80;
-  // conic-gradient 是动态角度, 属于"动态计算的尺寸", 允许内联 style (globals 约定例外项)。
-  const ringStyle = {
-    background: `conic-gradient(currentColor ${pct * 3.6}deg, var(--color-border) 0deg)`,
-  };
-  return (
-    <span
-      className={cn(
-        'inline-flex shrink-0 items-center gap-1.5 text-2xs tabular-nums',
-        danger ? 'text-brand-red' : 'text-faint',
-      )}
-      title={`上下文 ${context.totalTokens.toLocaleString()} / ${context.maxTokens.toLocaleString()} tokens (${context.model || '未知模型'})`}
-    >
-      <span
-        className="inline-block size-3 shrink-0 rounded-full"
-        style={ringStyle}
-        aria-hidden="true"
-      >
-        {/* 中心挖空成环: 内层小圆用背景色盖住, 留 ~2px 环宽 */}
-        <span className="block size-3 scale-[0.55] rounded-full bg-background" />
-      </span>
-      上下文 {pct}%
-    </span>
   );
 }
 

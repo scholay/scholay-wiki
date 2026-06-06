@@ -139,21 +139,8 @@ type Edit struct {
 
 func (Edit) TableName() string { return "prism_edits" }
 
-// ChatMessage 对话线一条(持久化,重入恢复)。表 prism_chat_messages(migration 0012)。
-type ChatMessage struct {
-	ID           uint      `gorm:"column:id;primaryKey" json:"id"`
-	ProjectID    uint      `gorm:"column:project_id" json:"project_id"`
-	UserID       uint      `gorm:"column:user_id" json:"-"`
-	Role         string    `gorm:"column:role" json:"role"`
-	Text         string    `gorm:"column:text" json:"text"`
-	EditID       *uint     `gorm:"column:edit_id" json:"edit_id,omitempty"`
-	FileID       *uint     `gorm:"column:file_id" json:"file_id,omitempty"`
-	AppliedHunks int       `gorm:"column:applied_hunks" json:"applied_hunks"`
-	FailedHunks  int       `gorm:"column:failed_hunks" json:"failed_hunks"`
-	CreatedAt    time.Time `gorm:"column:created_at" json:"created_at"`
-}
-
-func (ChatMessage) TableName() string { return "prism_chat_messages" }
+// 注:旧的 prism_chat_messages 对话双轨(ChatMessage model)已删除 —— prism 对话历史真源是
+// agent jsonl(见 ws_round.go GetWSHistory),DB 不再存对话。表保留为 stranded(不读写)。
 
 // CiteCandidate 文献库检索结果(给 \cite 用),来自 user_library_papers 真实行。
 type CiteCandidate struct {

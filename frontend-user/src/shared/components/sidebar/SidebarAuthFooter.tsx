@@ -1,5 +1,5 @@
 import { LogIn } from 'lucide-react';
-import { useAuthStore } from '@/stores/auth.store';
+import { useAuthStatus } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { cn } from '@/shared/lib/utils';
 import { UserMenuContent } from '../UserMenuContent';
@@ -16,11 +16,16 @@ import { SidebarUser } from './SidebarUser';
  * 用法:任意 sidebar 在最下面 `<SidebarAuthFooter />` 即可,无 props。
  */
 export function SidebarAuthFooter() {
-  const user = useAuthStore((s) => s.user);
+  // 登录与否只看 token(authenticated);user 仅用于展示,已登录但 profile 未到时为 null。
+  const { authenticated, user } = useAuthStatus();
   const openDialog = useAuthDialog((s) => s.openDialog);
 
-  if (!user) {
+  if (!authenticated) {
     return <UnauthedFooter onLogin={() => openDialog('login')} onRegister={() => openDialog('register')} />;
+  }
+  if (!user) {
+    // 已登录但 profile 尚未拉到 —— 占位条(同 h-14),**不**回退成登录/注册。
+    return <LoadingUserFooter />;
   }
 
   const name = user.username || user.email.split('@')[0] || '用户';
@@ -31,6 +36,19 @@ export function SidebarAuthFooter() {
       avatarUrl={user.avatar}
       menu={<UserMenuContent />}
     />
+  );
+}
+
+// ============================================================================
+// 已登录但 profile 未到 —— 同尺寸占位(h-14 + border-t),避免闪现「登录/注册」
+// ============================================================================
+
+function LoadingUserFooter() {
+  return (
+    <div className="flex h-14 items-center gap-2 px-4 border-t border-border-soft shrink-0">
+      <div className="size-8 rounded-pill bg-surface-2 animate-pulse shrink-0" />
+      <div className="h-3 w-24 rounded-sm bg-surface-2 animate-pulse" />
+    </div>
   );
 }
 

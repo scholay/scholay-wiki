@@ -19,8 +19,6 @@ package claw
 import (
 	"context"
 	"errors"
-	"os"
-	"strconv"
 
 	"scholar-backend/internal/agentbridge"
 	"scholar-backend/internal/llmusage"
@@ -36,22 +34,6 @@ const agentName = "scholay-claw"
 // 已不再对应任何 DB 行。
 const PromptSlug = "scholay-claw-v1"
 const PromptName = "Scholay 智能助手 · 默认 prompt"
-
-// defaultDailyMessageCap — 智能助手每用户每日 user_message 上限。
-// 比 smart_search 的 30 略松, 因为它的对话深度更大 (用户会上传文件, 问长问题)。
-const defaultDailyMessageCap = 50
-
-func dailyMessageCapFromEnv() int {
-	raw := os.Getenv("CLAW_DAILY_MESSAGES")
-	if raw == "" {
-		return defaultDailyMessageCap
-	}
-	n, err := strconv.Atoi(raw)
-	if err != nil {
-		return defaultDailyMessageCap
-	}
-	return n
-}
 
 // usageRecorder 由 SetUsageRecorder 注入; PreUserMessage 闭包在每次消息触发时
 // **懒读取**这个 package var, 因此 SetUsageRecorder 不必赶在 BuildSpec 之前
@@ -82,31 +64,25 @@ func onMessageComplete(ctx context.Context, userID uint, usage agentbridge.Agent
 	}
 }
 
-// quotaCap 旧的 env 日额度(CLAW_DAILY_MESSAGES)—— 仅当 VIP 未注入时回落用。
-var quotaCap = agentbridge.NewRedisDailyCap(FeatureKey, dailyMessageCapFromEnv())
-
 // vipChecker 由 SetVIPChecker 注入(bootstrap)—— 按用户等级(free/pro)做 tier-aware 日额度。
+// vip.Service 自带「未配额→不限额 + Redis 挂→fail-open」,故无需再保留旧的 env 日额度回落。
 var vipChecker *vip.Service
 
-// SetVIPChecker 注入会员限额服务。允许 nil(回落到 quotaCap 的 env 日额度)。
+// SetVIPChecker 注入会员限额服务。允许 nil(不限额)。
 func SetVIPChecker(v *vip.Service) { vipChecker = v }
 
 // preUserMessageChain 把配额检查 + 功能使用统计组合成一个 PreUserMessageFn:
-//   1. 先跑 quotaCap, 超额直接 error 出去, 后续不记 (不是真正的"使用")
-//   2. 配额过了 → 记一条 usage_logs (claw/send_message), userID 必填
+//   1. 先查 vip 配额, 超额直接 error 出去, 后续不记 (不是真正的"使用")
+//   2. 配额过了 → 记一条 usage_events (claw/message), userID 必填
 //
-// 闭包结构保证 usageRecorder 是**调用时**读取 (而不是注册时), 所以
-// BuildSpec 可以在 SetUsageRecorder 之前调用, 顺序无关。
-func preUserMessageChain(ctx context.Context, userID uint, content string) error {
+// 闭包结构保证 usageRecorder/vipChecker 是**调用时**读取 (而不是注册时), 所以
+// BuildSpec 可以在 SetUsageRecorder/SetVIPChecker 之前调用, 顺序无关。
+func preUserMessageChain(ctx context.Context, userID uint, _ string) error {
 	if vipChecker != nil {
 		if err := vipChecker.CheckAndConsume(ctx, userID, vip.FeatureClaw); err != nil {
 			if errors.Is(err, vip.ErrQuotaExceeded) {
 				return agentbridge.NewQuotaError(err.Error())
 			}
-			return err
-		}
-	} else if quotaCap != nil {
-		if err := quotaCap(ctx, userID, content); err != nil {
 			return err
 		}
 	}

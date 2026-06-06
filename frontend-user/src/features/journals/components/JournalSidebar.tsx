@@ -10,7 +10,7 @@ import {
 } from '@/shared/components/sidebar';
 import { LeaveToLibraryLink } from '@/shared/components/LeaveToLibraryLink';
 import { Button } from '@/shared/ui/button';
-import { useAuthStore } from '@/stores/auth.store';
+import { useIsAuthenticated } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useSidebar } from '@/stores/sidebar.store';
 import { cn } from '@/shared/lib/utils';
@@ -145,11 +145,11 @@ export function JournalSidebar({
 // ============================================================================
 
 function LibrarySection() {
-  const user = useAuthStore((s) => s.user);
+  const authenticated = useIsAuthenticated();
   const openDialog = useAuthDialog((s) => s.openDialog);
   const foldersQ = useLibraryFoldersForJournals();
 
-  if (!user) {
+  if (!authenticated) {
     return (
       <SidebarSection id="library" label="我的文献集">
         <div className="mx-4 my-2 px-3 py-3 rounded-md bg-surface-1 border border-border-soft">

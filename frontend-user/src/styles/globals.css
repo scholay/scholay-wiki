@@ -119,6 +119,15 @@
     --prism-editor-brace:         #8a8f98;  /* {} [] 暗灰,退到背景 */
     --prism-editor-math:          #d8a657;  /* 数学/atom 柔和琥珀 */
     --prism-editor-num:           #b58bd1;  /* 数字 柔和紫 */
+    /* 内联 diff(@codemirror/merge)—— 柔和半透明叠色,避免整屏刺眼亮绿/红;
+     * -soft=整行底色,-strong=词级精确改动,-accent=行首竖条,del-fg=删除文本(带删除线)。 */
+    --prism-editor-diff-ins-soft:   rgba(63, 185, 80, 0.12);
+    --prism-editor-diff-ins-strong: rgba(63, 185, 80, 0.28);
+    --prism-editor-diff-ins-accent: rgba(63, 185, 80, 0.65);
+    --prism-editor-diff-del-soft:   rgba(248, 81, 73, 0.11);
+    --prism-editor-diff-del-strong: rgba(248, 81, 73, 0.26);
+    --prism-editor-diff-del-accent: rgba(248, 81, 73, 0.55);
+    --prism-editor-diff-del-fg:     #cf938e;
 
     /* -----------------------------------------------------------------------
      * 语义别名 — 这些 var 给 shadcn 组件直接用,本质是上面 token 的指针,

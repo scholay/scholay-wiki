@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Headphones } from 'lucide-react';
-import { useAuthStore } from '@/stores/auth.store';
+import { useAuthStatus } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { Button } from '@/shared/ui/button';
 import {
@@ -26,7 +26,8 @@ import { cn } from '@/shared/lib/utils';
  *   userPill rounded-pill bg-surface-2, padding [4,14,4,4], gap 8, 32 avatar
  */
 export function UserSection() {
-  const user = useAuthStore((s) => s.user);
+  // 登录与否只看 token(authenticated);user 仅用于展示身份,已登录但 profile 未到时为 null。
+  const { authenticated, user } = useAuthStatus();
   const openDialog = useAuthDialog((s) => s.openDialog);
   const navigate = useNavigate();
 
@@ -45,9 +46,22 @@ export function UserSection() {
 
       {/* 通知按钮仅登录态显示 —— 未登录用户没有站内信概念,
           且 /user/messages 是 protected 接口,挂着也是 401 */}
-      {user && <NotificationBell />}
+      {authenticated && <NotificationBell />}
 
-      {user ? (
+      {!authenticated ? (
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={() => openDialog('login')}>
+            登录
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => openDialog('register')}
+          >
+            注册
+          </Button>
+        </div>
+      ) : user ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
@@ -75,17 +89,16 @@ export function UserSection() {
           </DropdownMenuContent>
         </DropdownMenu>
       ) : (
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={() => openDialog('login')}>
-            登录
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => openDialog('register')}
-          >
-            注册
-          </Button>
+        // 已登录但 profile 尚未拉到(token 有效、user 暂为 null)—— 渲染静态身份占位,
+        // **绝不**回退成登录/注册按钮(那会让已登录用户看起来"未登录")。profile 一到自动切到上面的 pill。
+        <div
+          className="inline-flex items-center gap-2 h-10 pl-1 pr-3.5 rounded-pill bg-surface-2"
+          aria-label="账户加载中"
+        >
+          <Avatar className="h-8 w-8 bg-primary">
+            <AvatarFallback className="text-xs">·</AvatarFallback>
+          </Avatar>
+          <span className="text-sm font-semibold text-faint">我的账户</span>
         </div>
       )}
     </div>

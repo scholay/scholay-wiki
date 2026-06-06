@@ -45,11 +45,18 @@ type UserInfo struct {
 	AvatarURL *string `json:"avatar_url"`
 }
 
+// Notifier 站内信通知接口（回复反馈时通知登录用户）。签名对齐 message.MessageServiceAdapter.SendToUser,
+// bootstrap 直接把 message 的 adapter 注进来,无需新适配器。匿名反馈无 user_id → 不发站内信(只走邮件)。
+type Notifier interface {
+	SendToUser(userID uint, title, content string, category string, linkURL, linkText string) error
+}
+
 // Service 反馈服务
 type Service struct {
 	repo          *Repository
 	configService ConfigService
 	userRepo      UserRepository
+	notifier      Notifier
 }
 
 // NewService 创建反馈服务
@@ -67,6 +74,11 @@ func (s *Service) SetConfigService(configService ConfigService) {
 // SetUserRepository 设置用户仓库（用于依赖注入）
 func (s *Service) SetUserRepository(userRepo UserRepository) {
 	s.userRepo = userRepo
+}
+
+// SetNotifier 设置站内信通知器（回复反馈时给登录用户发站内信;允许 nil = 不发）。
+func (s *Service) SetNotifier(n Notifier) {
+	s.notifier = n
 }
 
 // CreateFeedback 创建反馈
@@ -254,6 +266,18 @@ func (s *Service) ReplyFeedback(id uint, replyContent, repliedBy string) error {
 
 	if err := s.repo.Update(feedback); err != nil {
 		return err
+	}
+
+	// 站内信通知:登录用户(有 user_id)才发 —— 可靠、不依赖 SMTP;匿名反馈无账号,只能走下面的邮件。
+	// best-effort:失败只记日志,不影响回复主流程(回复已落库)。
+	if feedback.UserID != nil && *feedback.UserID != 0 && s.notifier != nil {
+		title := "您的反馈已收到回复"
+		content := "您之前提交的反馈已由客服回复:\n\n" + replyContent
+		if err := s.notifier.SendToUser(*feedback.UserID, title, content, "system", "", ""); err != nil {
+			slog.Error("failed to send in-app feedback reply notification", "feedback_id", id, "user_id", *feedback.UserID, "err", err)
+		} else {
+			slog.Info("in-app feedback reply notification sent", "feedback_id", id, "user_id", *feedback.UserID)
+		}
 	}
 
 	// 发送回复邮件

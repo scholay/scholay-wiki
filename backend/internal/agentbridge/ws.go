@@ -74,11 +74,9 @@ const closeMessageWriteTimeout = 500 * time.Millisecond
 // HandleWS 是给 gin 路由用的 WS handler, 自动用 FeatureBridge 的 spec 串起来
 // 鉴权 + 升级 + dial agent + pipe。
 //
-// 鉴权策略 (优先级):
-//  1. `?ws_token=<...>` 短命一次性 ticket (推荐): consume Redis ticket, 拿 userID + sessionID;
-//     ticket 用一次就销毁, 避免 JWT 落到 nginx access log 长期暴露。
-//  2. `?token=<jwt>` 完整 JWT (DEPRECATED, 兼容旧前端): 直接 ParseToken + OwnsSession,
-//     命中时打 warn 日志,2 个版本周期后下掉。
+// 鉴权策略:`?ws_token=<...>` 短命一次性 ticket —— consume Redis ticket 拿 userID + sessionID,
+// 用一次即销毁,避免 JWT 落到 nginx access log 长期暴露。前端先 POST /<feature>/session/ws-ticket
+// 拿 ticket 再升级 WS。(旧的 `?token=<jwt>` 裸 JWT 回落已下线,见 authenticateWSRequest。)
 //
 // 不走 UserAuthMiddleware —— 浏览器 WS 无法带 Authorization header。
 func (f *FeatureBridge) HandleWS(c *gin.Context) {
@@ -591,73 +589,37 @@ func pathWithin(p, workDir string) bool {
 	return cleaned == root || strings.HasPrefix(cleaned, root+"/")
 }
 
-// authenticateWSRequest 实现 HandleWS 的双轨鉴权 (ws_token 优先, JWT 回落)。
-// 任一路径失败都直接 c.JSON 写 response 并 return error, caller 仅需 return。
+// authenticateWSRequest 用 `?ws_token=<...>` 一次性 ticket 鉴权 HandleWS。
+// 任一失败都直接 c.JSON 写 response 并 return error, caller 仅需 return。
+// ticket 内已绑定 userID + sessionID, ConsumeWSTicket 一次性消费 (GETDEL) + 校验
+// feature key, 这里再比对 sessionID 与 pathSessionID 一致即放行。
+//
+// 历史上还接受 `?token=<jwt>` 裸 JWT 回落 (兼容旧前端), 现已下线 —— 三个 feature 的前端
+// 早已统一只发 ws_token, 留着裸 JWT 反而是「吊销后的 token 仍能从 URL 升级 WS、绕过 HTTP
+// 中间件」的攻击面。现在缺/错 ws_token 一律 401。
 //
 // 返回 (userID, sessionID, nil) 表示鉴权通过; sessionID 已与 pathSessionID 比对一致。
 func (f *FeatureBridge) authenticateWSRequest(c *gin.Context, pathSessionID string) (uint, string, error) {
-	if wsToken := strings.TrimSpace(c.Query("ws_token")); wsToken != "" {
-		uid, sid, err := f.ConsumeWSTicket(c.Request.Context(), wsToken)
-		if err != nil {
-			slog.Warn("agentbridge ws: ws_token consume failed",
-				"feature", f.spec.Key, "session_id", pathSessionID, "err", err)
-			utils.Unauthorized(c, "invalid or expired ws_token")
-			return 0, "", err
-		}
-		if sid != pathSessionID {
-			slog.Warn("agentbridge ws: ws_token session mismatch",
-				"feature", f.spec.Key, "user_id", uid,
-				"ticket_sid", sid, "path_sid", pathSessionID)
-			utils.Forbidden(c, "ws_token does not match sessionId")
-			return 0, "", ErrSessionMismatch
-		}
-		return uid, sid, nil
-	}
-
-	// JWT fallback (deprecated)
-	jwtToken := strings.TrimSpace(c.Query("token"))
-	if jwtToken == "" {
+	wsToken := strings.TrimSpace(c.Query("ws_token"))
+	if wsToken == "" {
 		utils.Unauthorized(c, "missing ws_token")
 		return 0, "", errors.New("missing ws_token")
 	}
-	slog.Warn("agentbridge ws: DEPRECATED JWT-in-URL fallback used, frontend should switch to ws_token",
-		"feature", f.spec.Key, "session_id", pathSessionID)
-	claims, err := utils.ParseToken(jwtToken)
+	uid, sid, err := f.ConsumeWSTicket(c.Request.Context(), wsToken)
 	if err != nil {
-		slog.Warn("agentbridge ws: invalid jwt token",
+		slog.Warn("agentbridge ws: ws_token consume failed",
 			"feature", f.spec.Key, "session_id", pathSessionID, "err", err)
-		utils.Unauthorized(c, "invalid token")
+		utils.Unauthorized(c, "invalid or expired ws_token")
 		return 0, "", err
 	}
-	// 对齐 UserAuthMiddleware:仅接受 user 类型 token,且必须查 Redis 黑名单。
-	// 少了这两道,登出/封号/降级后被吊销的 JWT 仍能从 ?token= 升级 WS(绕过 HTTP 中间件)。
-	if claims.Type != "user" {
-		slog.Warn("agentbridge ws: jwt wrong token type",
-			"feature", f.spec.Key, "session_id", pathSessionID, "type", claims.Type)
-		utils.Unauthorized(c, "invalid token type")
-		return 0, "", errors.New("invalid token type")
-	}
-	if utils.IsTokenRevoked(c.Request.Context(), claims) {
-		slog.Warn("agentbridge ws: jwt revoked",
-			"feature", f.spec.Key, "session_id", pathSessionID, "user_id", claims.UserID)
-		utils.Unauthorized(c, "token revoked")
-		return 0, "", errors.New("token revoked")
-	}
-	uid := claims.UserID
-	owns, ownErr := f.OwnsSession(uid, pathSessionID)
-	if ownErr != nil {
-		slog.Error("agentbridge ws: ownership check failed",
-			"feature", f.spec.Key, "user_id", uid, "session_id", pathSessionID, "err", ownErr)
-		utils.ServerError(c, "ownership check failed")
-		return 0, "", ownErr
-	}
-	if !owns {
-		slog.Warn("agentbridge ws: jwt session ownership failed",
-			"feature", f.spec.Key, "user_id", uid, "session_id", pathSessionID)
-		utils.Forbidden(c, "session does not belong to user")
+	if sid != pathSessionID {
+		slog.Warn("agentbridge ws: ws_token session mismatch",
+			"feature", f.spec.Key, "user_id", uid,
+			"ticket_sid", sid, "path_sid", pathSessionID)
+		utils.Forbidden(c, "ws_token does not match sessionId")
 		return 0, "", ErrSessionMismatch
 	}
-	return uid, pathSessionID, nil
+	return uid, sid, nil
 }
 
 // extractUserMessageContent 浅 parse 一帧 front→agent 消息, 仅识别 user_message 类型。

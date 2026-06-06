@@ -52,3 +52,4 @@ export {
   type AttachmentChipListProps,
 } from './AttachmentChipList';
 export { PausedNotice } from './PausedNotice';
+export { ContextMeter, type ContextMeterProps } from './ContextMeter';

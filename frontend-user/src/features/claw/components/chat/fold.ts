@@ -11,6 +11,11 @@
  */
 
 import { stripAgentBridgePrefix } from '@/shared/lib/agent-prefix';
+import {
+  replayHistoryAsTurns as sharedReplayHistoryAsTurns,
+  extractHistoryText,
+  type ParsedUserEntry,
+} from '@/shared/lib/agent-history';
 import type { ClawHistoryEntry, ServerMessage } from '../../api/types';
 
 export type {
@@ -153,23 +158,8 @@ type AnthropicBlock = {
   source?: { type: string; media_type?: string; data?: string };
 };
 
-// agentbridge prefix strip — 用 shared 实现 (同 smart-search), 防止 marker drift。
-// 原本这里也有本地 marker "SCHOLAY 智能助手 — 规则结束", backend 改名后未同步导致
-// 整段系统提示泄漏到用户对话气泡。统一收口到 @/shared/lib/agent-prefix。
-const stripInjectedPromptPrefix = stripAgentBridgePrefix;
-
-function extractUserText(content: unknown): string {
-  if (typeof content === 'string') return content;
-  if (!Array.isArray(content)) return '';
-  return content
-    .filter(
-      (b): b is AnthropicBlock =>
-        b !== null && typeof b === 'object' && (b as AnthropicBlock).type === 'text',
-    )
-    .map((b) => (typeof b.text === 'string' ? b.text : ''))
-    .join('\n')
-    .trim();
-}
+// user 正文抽取 + agentbridge 注入前缀剥离 已收口到 @/shared/lib/agent-history
+// (extractHistoryText)与下面的 clawParseUserEntry。claw 只额外负责附件 chip 还原。
 
 function extractUserAttachments(content: unknown): Turn['userAttachments'] {
   if (!Array.isArray(content)) return undefined;
@@ -258,168 +248,23 @@ function splitAttachmentPrefix(text: string): {
   return { text: rest, attachments };
 }
 
-function extractToolResults(
-  content: unknown,
-): { toolUseId: string; content: unknown; isError: boolean }[] {
-  if (!Array.isArray(content)) return [];
-  const out: { toolUseId: string; content: unknown; isError: boolean }[] = [];
-  for (const block of content) {
-    if (
-      block &&
-      typeof block === 'object' &&
-      (block as AnthropicBlock).type === 'tool_result'
-    ) {
-      const b = block as AnthropicBlock;
-      if (typeof b.tool_use_id === 'string') {
-        out.push({
-          toolUseId: b.tool_use_id,
-          content: b.content,
-          isError: b.is_error === true,
-        });
-      }
-    }
-  }
-  return out;
+/**
+ * claw 的 user entry 解析:先剥 `@"path"` 附件前缀(恢复原名 chip),再剥 agentbridge
+ * SystemPrompt 前缀;附件优先取 @path 文本前缀,老格式才回落到内联 image block(二选一不叠加)。
+ * 折叠主逻辑(tool 块配对 / thinking / 相邻文本合并)走 shared 的 replayHistoryAsTurns。
+ */
+function clawParseUserEntry(content: unknown): ParsedUserEntry {
+  const rawText = extractHistoryText(content);
+  const { text: bodyText, attachments: pathAttachments } = splitAttachmentPrefix(rawText);
+  const imageAttachments = extractUserAttachments(content) ?? [];
+  const attachments = pathAttachments.length > 0 ? pathAttachments : imageAttachments;
+  return {
+    text: stripAgentBridgePrefix(bodyText),
+    attachments: attachments.length > 0 ? attachments : undefined,
+  };
 }
 
-export function replayHistoryAsTurns(
-  entries: ClawHistoryEntry[] | null | undefined,
-): Turn[] {
-  if (!entries || entries.length === 0) return [];
-
-  const turns: Turn[] = [];
-  let current: Turn | null = null;
-  let userTurnCount = 0;
-  const toolBlockByUseId = new Map<string, ToolBlock>();
-
-  const finishTurn = () => {
-    if (current) {
-      // 历史里被暂停过的在途 tool 没有 result —— 标"已停止", 回放时不再转圈
-      markPendingToolsAborted(current, !!current.paused);
-      current.complete = true;
-      turns.push(current);
-      current = null;
-    }
-  };
-  const ensureCurrentTurn = () => {
-    if (!current) {
-      userTurnCount += 1;
-      current = {
-        id: `history-turn-${userTurnCount}-orphan`,
-        userText: '',
-        blocks: [],
-        complete: false,
-      };
-    }
-    return current;
-  };
-  const pushToolUse = (block: AnthropicBlock) => {
-    if (typeof block.id !== 'string') return;
-    const turn = ensureCurrentTurn();
-    const tb: ToolBlock = {
-      kind: 'tool',
-      id: `tool-${block.id}`,
-      toolName: typeof block.name === 'string' ? block.name : '',
-      toolUseId: block.id,
-      input: block.input,
-    };
-    turn.blocks.push(tb);
-    toolBlockByUseId.set(block.id, tb);
-  };
-  const attachToolResult = (block: AnthropicBlock) => {
-    if (typeof block.tool_use_id !== 'string') return;
-    const tb = toolBlockByUseId.get(block.tool_use_id);
-    if (tb) {
-      tb.result = block.content;
-      tb.isError = block.is_error === true;
-    }
-  };
-
-  for (const entry of entries) {
-    if (entry.isSidechain) continue;
-    if (entry.type === 'system') continue;
-
-    // agent 把"被用户打断那条消息"标了 interrupted (synthetic「[Request interrupted by user]」
-    // 标记被服务端隐藏, 改挂成 flag) → 当前轮标"已暂停", 重入回放时末尾渲染「已暂停」。
-    if (entry.interrupted && current) current.paused = true;
-
-    if (entry.type === 'user') {
-      const rawText = extractUserText(entry.content);
-      // 先剥 @"path" 附件前缀 (恢复原名 chip), 再剥 agentbridge SystemPrompt 前缀。
-      const { text: bodyText, attachments: pathAttachments } = splitAttachmentPrefix(rawText);
-      const imageAttachments = extractUserAttachments(entry.content) ?? [];
-      // 现行 agent 流程附件走 @path 文本前缀; 老格式才有内联 image block —— 二选一不叠加。
-      const attachments = pathAttachments.length > 0 ? pathAttachments : imageAttachments;
-      const toolResults = extractToolResults(entry.content);
-      for (const tr of toolResults) {
-        const tb = toolBlockByUseId.get(tr.toolUseId);
-        if (tb) {
-          tb.result = tr.content;
-          tb.isError = tr.isError;
-        }
-      }
-      if (bodyText || attachments.length > 0) {
-        finishTurn();
-        userTurnCount += 1;
-        current = {
-          id: `history-turn-${userTurnCount}`,
-          userText: stripInjectedPromptPrefix(bodyText),
-          userAttachments: attachments.length > 0 ? attachments : undefined,
-          blocks: [],
-          complete: false,
-        };
-      }
-      continue;
-    }
-
-    if (entry.type === 'tool_use') {
-      const blocks = Array.isArray(entry.content) ? (entry.content as AnthropicBlock[]) : [];
-      for (const b of blocks) {
-        if (b && typeof b === 'object' && b.type === 'tool_use') pushToolUse(b);
-      }
-      continue;
-    }
-    if (entry.type === 'tool_result') {
-      const blocks = Array.isArray(entry.content) ? (entry.content as AnthropicBlock[]) : [];
-      for (const b of blocks) {
-        if (b && typeof b === 'object' && b.type === 'tool_result') attachToolResult(b);
-      }
-      continue;
-    }
-
-    if (entry.type === 'assistant') {
-      const turn = ensureCurrentTurn();
-      const blocks = Array.isArray(entry.content) ? (entry.content as AnthropicBlock[]) : [];
-      for (const block of blocks) {
-        if (!block || typeof block !== 'object') continue;
-        switch (block.type) {
-          case 'text':
-            if (typeof block.text === 'string' && block.text.length > 0) {
-              const last = turn.blocks[turn.blocks.length - 1];
-              if (last && last.kind === 'text') {
-                last.text += block.text;
-              } else {
-                turn.blocks.push({
-                  kind: 'text',
-                  id: `text-${turn.blocks.length}-${turn.id}`,
-                  text: block.text,
-                });
-              }
-            }
-            break;
-          case 'thinking':
-            if (typeof block.thinking === 'string' && block.thinking.length > 0) {
-              turn.thinkingText = (turn.thinkingText ?? '') + block.thinking;
-            }
-            break;
-          case 'tool_use':
-            pushToolUse(block);
-            break;
-        }
-      }
-      continue;
-    }
-  }
-  finishTurn();
-  return turns;
+/** 智能助手历史回放 = shared 核心 + claw 附件解析。 */
+export function replayHistoryAsTurns(entries: ClawHistoryEntry[] | null | undefined): Turn[] {
+  return sharedReplayHistoryAsTurns(entries, { parseUserEntry: clawParseUserEntry });
 }

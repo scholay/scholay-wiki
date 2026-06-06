@@ -12,7 +12,7 @@ import {
   useOpenPaperInBrowser,
 } from '@/shared/hooks';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
-import { useAuthStore } from '@/stores/auth.store';
+import { useIsAuthenticated } from '@/stores/auth.store';
 import { HomeSidebar } from './components/HomeSidebar';
 
 /**
@@ -30,7 +30,7 @@ export function HomePage() {
   const [q, setQ] = useState('');
   const navigate = useNavigate();
   const openDialog = useAuthDialog((s) => s.openDialog);
-  const user = useAuthStore((s) => s.user);
+  const authenticated = useIsAuthenticated();
   const openPaper = useOpenPaperInBrowser();
   const openJournal = useOpenJournalInBrowser();
   const openAuthor = useOpenAuthorInBrowser();
@@ -39,13 +39,13 @@ export function HomePage() {
   // /settings/* loader 把未登录用户 redirect 到 /?login=required。
   // 拿到后立即弹 AuthDialog,然后清掉 query 避免刷新页面又弹一次。
   useEffect(() => {
-    if (searchParams.get('login') === 'required' && !user) {
+    if (searchParams.get('login') === 'required' && !authenticated) {
       openDialog('login');
       const next = new URLSearchParams(searchParams);
       next.delete('login');
       setSearchParams(next, { replace: true });
     }
-  }, [searchParams, user, openDialog, setSearchParams]);
+  }, [searchParams, authenticated, openDialog, setSearchParams]);
 
   const goSearch = (query: string) => {
     if (!query.trim()) {

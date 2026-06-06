@@ -19,6 +19,7 @@ import { SettingsService } from '../services/settingsService.js'
 import { ProviderService } from '../services/providerService.js'
 import { diagnosticsService } from '../services/diagnosticsService.js'
 import { deriveTitle, generateTitle, saveAiTitle } from '../services/titleService.js'
+import { reportTokenUsage } from '../services/backendUsageClient.js'
 import { parseSlashCommand } from '../../utils/slashCommandParsing.js'
 import {
   LOCAL_COMMAND_STDERR_TAG,
@@ -44,6 +45,25 @@ const sessionCleanupTimers = new Map<string, ReturnType<typeof setTimeout>>()
  * follows an interrupt so the frontend doesn't show "处理过程中发生错误".
  */
 const sessionStopRequested = new Set<string>()
+
+/**
+ * Track the 3s "force-kill after interrupt" fallback timer per session so it can
+ * be CANCELLED. Without this, a stop's force-kill timer leaks into the *next* turn:
+ * the user stops (interrupt finishes normally), then immediately sends a new message
+ * that reuses the same CLI subprocess (hasSession=true), and ~3s later the orphan
+ * timer fires stopSession() and kills the live process serving the NEW turn —
+ * a cross-turn use-after-stop that surfaces as the "continue" turn hanging / CLI_ERROR.
+ */
+const stopForceKillTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+/** Cancel a pending force-kill fallback timer for a session (new turn / cleanup). */
+function cancelStopForceKill(sessionId: string): void {
+  const timer = stopForceKillTimers.get(sessionId)
+  if (timer) {
+    clearTimeout(timer)
+    stopForceKillTimers.delete(sessionId)
+  }
+}
 
 /**
  * Track user message count and title state per session for auto-title generation.
@@ -319,6 +339,8 @@ async function handleUserMessage(
 
   // Clear any stale stop flag from a previous turn
   sessionStopRequested.delete(sessionId)
+  // 新一轮开始 → 作废上一次 stop 排的兜底强杀 timer,否则它 3s 后会误杀本轮复用的 CLI 进程。
+  cancelStopForceKill(sessionId)
   clearPrewarmState(sessionId)
 
   const desktopSlashCommand = getDesktopSlashCommand(message.content)
@@ -697,13 +719,18 @@ function handleStopGeneration(ws: ServerWebSocket<WebSocketData>) {
     // First try graceful interrupt via SDK control message
     conversationService.sendInterrupt(sessionId)
 
-    // Force-kill if still running after 3 seconds
-    setTimeout(() => {
+    // Force-kill if still running after 3 seconds. Store the handle so it can be
+    // cancelled when the user starts a NEW turn (handleUserMessage) — otherwise the
+    // timer leaks across turns and kills the next turn's reused CLI process.
+    cancelStopForceKill(sessionId) // 防连点叠加
+    const timer = setTimeout(() => {
+      stopForceKillTimers.delete(sessionId)
       if (conversationService.hasSession(sessionId)) {
         console.log(`[WS] Force-killing CLI subprocess for session: ${sessionId}`)
         conversationService.stopSession(sessionId)
       }
     }, 3_000)
+    stopForceKillTimers.set(sessionId, timer)
   }
 
   sendMessage(ws, { type: 'status', state: 'idle' })
@@ -747,8 +774,11 @@ function triggerTitleGeneration(sessionId: string): void {
         }
       }
 
-      // Stage 2: AI-generated title
-      const aiTitle = await generateTitle(text, runtimeProviderId)
+      // Stage 2: AI-generated title —— 顺带把这次「带外」标题调用的 token 用量上报后端统一账本
+      // (它不产生 message_complete 帧,后端 WS 看不到;不报就漏记)。fire-and-forget,不阻塞起名。
+      const aiTitle = await generateTitle(text, runtimeProviderId, ({ model, usage }) => {
+        void reportTokenUsage({ sessionId, kind: 'title_gen', model, usage })
+      })
       if (aiTitle) {
         const saved = await saveAiTitle(sessionId, aiTitle)
         if (!saved) {
@@ -810,6 +840,7 @@ function cleanupStreamState(sessionId: string) {
 
 function cleanupSessionRuntimeState(sessionId: string) {
   cleanupStreamState(sessionId)
+  cancelStopForceKill(sessionId)
   sessionSlashCommands.delete(sessionId)
   sessionTitleState.delete(sessionId)
   runtimeOverrides.delete(sessionId)
@@ -1738,9 +1769,11 @@ export function getActiveSessionIds(): string[] {
 export function __resetWebSocketHandlerStateForTests(): void {
   for (const timer of sessionCleanupTimers.values()) clearTimeout(timer)
   for (const timer of prewarmIdleTimers.values()) clearTimeout(timer)
+  for (const timer of stopForceKillTimers.values()) clearTimeout(timer)
   activeSessions.clear()
   sessionCleanupTimers.clear()
   prewarmIdleTimers.clear()
+  stopForceKillTimers.clear()
   liveTurnBuffers.clear()
   liveTurnUserText.clear()
 }

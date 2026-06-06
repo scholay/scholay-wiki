@@ -34,7 +34,10 @@ const (
 	CodeSendPhoneCodeFailed      = 2021
 	CodeRegisterPhoneFailed      = 2022
 	CodeLoginPhoneFailed         = 2023
-	CodeLoginPhoneWithCodeFailed = 2017
+	// 手机验证码登录失败 = 客户端输入错误(验证码错/过期/超频)→ 映射 400(2000-2099 默认)。
+	// 曾误用 2017(与 token/session 段的 CodeRefreshTokenFailed 重号);虽然两者当前都落 400、
+	// 无行为差异,但同值常量是隐患(将来谁给 2017 加特判会一锅端)。独立成 phone 段的 2024。
+	CodeLoginPhoneWithCodeFailed = 2024
 	CodeResetPasswordPhoneFailed = 2015
 
 	// ---- token / session ----

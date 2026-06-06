@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"scholar-backend/internal/admin"
+	"scholar-backend/internal/agentbridge"
 	"scholar-backend/internal/agentconfig"
 	"scholar-backend/internal/ai"
 	"scholar-backend/internal/announcement"
@@ -84,6 +85,7 @@ type allHandlers struct {
 	claw            *claw.Handler        // 智能助手 (通用对话 + 上传附件 + Minicod MCP)
 	prism           *prism.Handler       // 智能写作 (LaTeX IDE: 项目/文件/编译沙箱; Phase 1 接 agent)
 	featureTool     *featuretool.Handler // 功能大全 (学术工具黄页: 导入/CRUD/webhook 同步/公开浏览)
+	agentBridge     *agentbridge.Bridge  // agent 内网回调端点 (带外 token 用量上报: title-gen 等)
 }
 
 // registerRoutes 注册所有 API 路由

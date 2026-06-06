@@ -96,9 +96,6 @@ func (r *Repository) DeleteProjectCascade(projectID uint) error {
 		if err := tx.Where("project_id = ?", projectID).Delete(&Edit{}).Error; err != nil {
 			return err
 		}
-		if err := tx.Where("project_id = ?", projectID).Delete(&ChatMessage{}).Error; err != nil {
-			return err
-		}
 		return tx.Where("id = ?", projectID).Delete(&Project{}).Error
 	})
 }
@@ -198,6 +195,23 @@ func (r *Repository) GetVersion(id uint) (*FileVersion, error) {
 	return &v, nil
 }
 
+// GetVersionsByIDs 一次取多条版本(含 body),返回 id→版本 映射。
+// 给铺源 / 轮末收集用:消掉「每文件一次 GetVersion」的 N 次单查(改一次 IN 查询)。
+func (r *Repository) GetVersionsByIDs(ids []uint) (map[uint]*FileVersion, error) {
+	if len(ids) == 0 {
+		return map[uint]*FileVersion{}, nil
+	}
+	var vs []FileVersion
+	if err := r.db.Where("id IN ?", ids).Find(&vs).Error; err != nil {
+		return nil, err
+	}
+	m := make(map[uint]*FileVersion, len(vs))
+	for i := range vs {
+		m[vs[i].ID] = &vs[i]
+	}
+	return m, nil
+}
+
 // ListVersions 列某文件的版本(不含 body,列表轻量;按 version_no 倒序)。
 func (r *Repository) ListVersions(fileID uint, limit int) ([]FileVersion, error) {
 	if limit <= 0 || limit > 100 {
@@ -207,24 +221,6 @@ func (r *Repository) ListVersions(fileID uint, limit int) ([]FileVersion, error)
 	err := r.db.Select("id, file_id, version_no, content_sha256, author, status, created_at").
 		Where("file_id = ?", fileID).Order("version_no DESC").Limit(limit).Find(&vs).Error
 	return vs, err
-}
-
-// ─── 对话持久化 ────────────────────────────────────────────────────────────
-
-// AppendChatPair 把 user + assistant 两条**一次性批量插入**(单条 INSERT,两行)。
-// 单语句多行插入 → 自增 id 连续 → ListChat(id ASC)里这对消息必相邻,
-// 既保证原子(不会有问无答的孤儿气泡),又消除并发编辑下「问答交错」的错配(review F9/F10)。
-func (r *Repository) AppendChatPair(user, assistant *ChatMessage) error {
-	return r.db.Create(&[]*ChatMessage{user, assistant}).Error
-}
-
-func (r *Repository) ListChat(projectID uint, limit int) ([]ChatMessage, error) {
-	if limit <= 0 || limit > 500 {
-		limit = 200
-	}
-	var ms []ChatMessage
-	err := r.db.Where("project_id = ?", projectID).Order("id ASC").Limit(limit).Find(&ms).Error
-	return ms, err
 }
 
 // AppendCurrentVersion 追加一个 current 版本:事务内 supersede 旧 current → 插入新版本

@@ -9,9 +9,12 @@ package agentbridge
 
 import (
 	"errors"
+	"fmt"
+	"regexp"
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // ErrNotFound 是 repository 层把 gorm.ErrRecordNotFound 包了一层语义化错误,
@@ -34,6 +37,12 @@ type SessionRow struct {
 	LastAccessedAt time.Time `gorm:"column:last_accessed_at;not null;default:CURRENT_TIMESTAMP"`
 	CreatedAt      time.Time `gorm:"column:created_at;autoCreateTime"`
 	UpdatedAt      time.Time `gorm:"column:updated_at;autoUpdateTime"`
+
+	// 归属归一 (migration 0014): 实体级会话用 owner_kind/owner_id 锚定到业务实体,
+	// 一实体一会话 (uk_owner)。用户级会话 (smart_search / claw 多会话) 两列留 NULL,
+	// 多行 (NULL,NULL) 在 uk_owner 下互不冲突。指针类型让 NULL 与 0/'' 区分开。
+	OwnerKind *string `gorm:"column:owner_kind;type:varchar(32)"`
+	OwnerID   *uint64 `gorm:"column:owner_id"`
 }
 
 func (SessionRow) TableName() string {
@@ -109,6 +118,21 @@ func (r *Repository) GetByAgentSessionID(userID uint, featureKey, agentSessionID
 	return &row, nil
 }
 
+// FindByAgentSessionID — 仅按 agent session UUID 全局唯一查一行(不带 user/feature 过滤)。
+// 给 agent 内网回调用:agent 只知道 sessionId,后端据此反查归属(user_id / feature_key),
+// 再把「带外」token 用量(title-gen 等)记到正确的 user/feature 上。
+func (r *Repository) FindByAgentSessionID(agentSessionID string) (*SessionRow, error) {
+	var row SessionRow
+	err := r.db.Where("agent_session_id = ?", agentSessionID).First(&row).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &row, nil
+}
+
 // Touch — 更新 last_accessed_at = NOW(). 用户每次访问/切换某 session 调一次。
 // 多次连续 Touch 同一 sessionID 不会击穿 DB (一行 update 极轻), 不用在应用层 debounce。
 func (r *Repository) Touch(agentSessionID string) error {
@@ -146,4 +170,109 @@ func (r *Repository) UpdateSessionID(userID uint, featureKey, newSessionID strin
 			"reset_count":      gorm.Expr("reset_count + 1"),
 			"last_accessed_at": time.Now(),
 		}).Error
+}
+
+// ─── 实体级归属路径 (prism / peerreview 用, migration 0014) ───────────────
+
+// GetByOwner — 按 (owner_kind, owner_id) 取该实体当前绑定的会话行。不存在返回 ErrNotFound。
+// 供 prism/peerreview 之外想直接按实体反查会话时用 (当前主路径仍读各自业务表的
+// agent_session_id 列, 这里是统一归属表的对称读口)。
+func (r *Repository) GetByOwner(ownerKind string, ownerID uint64) (*SessionRow, error) {
+	var row SessionRow
+	err := r.db.
+		Where("owner_kind = ? AND owner_id = ?", ownerKind, ownerID).
+		First(&row).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &row, nil
+}
+
+// DeleteByOwner — 按 (owner_kind, owner_id) 删该实体的归属行。实体被删时清理用。
+func (r *Repository) DeleteByOwner(ownerKind string, ownerID uint64) error {
+	return r.db.
+		Where("owner_kind = ? AND owner_id = ?", ownerKind, ownerID).
+		Delete(&SessionRow{}).Error
+}
+
+// ─── 归属对账(self-heal,给定时 reconcile 用)──────────────────────────────
+
+// OwnerReconcileTarget 描述一个「实体级会话」业务表 → agent_sessions 归属表的对账目标。
+// 字段都是代码内常量(非用户输入),由 bootstrap 按 feature 填好传进来。
+type OwnerReconcileTarget struct {
+	FeatureKey  string // agent_sessions.feature_key,如 "prism" / "peerreview"
+	OwnerKind   string // owner_kind,如 "project" / "submission"
+	SourceTable string // 业务表名,如 "prism_projects" / "peer_review_submissions"
+	SessionCol  string // 业务表里存 agent session id 的列名,通常 "agent_session_id"
+}
+
+// identRe 校验表名/列名(防 SQL 注入兜底;实际调用方传的都是代码常量)。
+var identRe = regexp.MustCompile(`^[a-z_][a-z0-9_]*$`)
+
+// ReconcileOwnerSessions 把业务表里「有 agent 会话、但归属表 agent_sessions 缺行/对不上」的
+// 实体级会话补写进归属表(self-heal)。纯加法:INSERT … ON DUPLICATE KEY UPDATE,只补漏/纠偏,
+// 绝不删除任何行(孤儿清理另议)。返回受影响行数(MySQL 下 insert 计 1、update 计 2,仅供日志参考)。
+//
+// 这是 best-effort 双写(BindOwnerSession)的兜底对账:运行期某次双写失败只 warn 不阻断,
+// 留下「业务表有 session 但归属表缺行」的漂移;本方法周期性扫出来补上,让标准 OwnsSession /
+// IssueWSTicket 始终覆盖,从而支撑「对账清零后删 prism Trusted 后门」。
+func (r *Repository) ReconcileOwnerSessions(t OwnerReconcileTarget) (int64, error) {
+	if !identRe.MatchString(t.SourceTable) || !identRe.MatchString(t.SessionCol) {
+		return 0, fmt.Errorf("agentbridge: invalid reconcile identifiers %q/%q", t.SourceTable, t.SessionCol)
+	}
+	// %[1]s=业务表 %[2]s=session 列;feature_key / owner_kind 走参数。
+	// 三个 ? 依次:feature_key 列值、owner_kind 列值、JOIN 的 owner_kind。
+	sql := fmt.Sprintf(`
+INSERT INTO agent_sessions
+  (user_id, feature_key, agent_session_id, owner_kind, owner_id, reset_count, last_accessed_at, created_at, updated_at)
+SELECT s.user_id, ?, s.%[2]s, ?, s.id, 0, NOW(), NOW(), NOW()
+FROM %[1]s s
+LEFT JOIN agent_sessions a ON a.owner_kind = ? AND a.owner_id = s.id
+WHERE s.%[2]s IS NOT NULL AND s.%[2]s <> ''
+  AND (a.id IS NULL OR a.agent_session_id <> s.%[2]s)
+ON DUPLICATE KEY UPDATE
+  agent_session_id = VALUES(agent_session_id),
+  user_id          = VALUES(user_id),
+  last_accessed_at = NOW(),
+  updated_at       = NOW()`, t.SourceTable, t.SessionCol)
+	res := r.db.Exec(sql, t.FeatureKey, t.OwnerKind, t.OwnerKind)
+	if res.Error != nil {
+		return 0, res.Error
+	}
+	return res.RowsAffected, nil
+}
+
+// UpsertByOwnerEntity — 实体级会话的「按归属唯一键 upsert」。
+//
+// 关键: 必须按 (owner_kind, owner_id) upsert, 不能用 INSERT IGNORE。
+// churn 场景 (peerreview assets 变更 reset / prism recreate) 会换 agent_session_id,
+// 若新插一行不动旧行 → 同一实体出现两行 → 撞 uk_owner; 用 ON DUPLICATE KEY UPDATE
+// 在同一行原地把 agent_session_id 换掉 (旧 UUID 随之消失, 也不会撞 uk_agent_session_id),
+// 既不留孤儿也不破唯一约束。reset_count 在 churn 时 +1。
+//
+// 这是 prism/peerreview 写自己业务表 agent_session_id 后的「双写」, 让 agent_sessions
+// 成为四个 feature 统一的归属表, 标准 OwnsSession 即可覆盖 (无需各 feature 自建后门)。
+func (r *Repository) UpsertByOwnerEntity(userID uint, featureKey, ownerKind string, ownerID uint64, agentSessionID string) error {
+	now := time.Now()
+	row := SessionRow{
+		UserID:         userID,
+		FeatureKey:     featureKey,
+		AgentSessionID: agentSessionID,
+		OwnerKind:      &ownerKind,
+		OwnerID:        &ownerID,
+		LastAccessedAt: now,
+	}
+	return r.db.Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "owner_kind"}, {Name: "owner_id"}},
+		DoUpdates: clause.Assignments(map[string]any{
+			"agent_session_id": agentSessionID,
+			"user_id":          userID,
+			"reset_count":      gorm.Expr("reset_count + IF(agent_session_id <> ?, 1, 0)", agentSessionID),
+			"last_accessed_at": now,
+			"updated_at":       now,
+		}),
+	}).Create(&row).Error
 }

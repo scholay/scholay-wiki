@@ -21,8 +21,6 @@ package smartsearch
 import (
 	"context"
 	"errors"
-	"os"
-	"strconv"
 
 	"scholar-backend/internal/agentbridge"
 	"scholar-backend/internal/llmusage"
@@ -46,26 +44,6 @@ const agentName = "scholay-smart-search"
 // 已不再对应任何 DB 行 (prompt 内容是 prompts.SmartSearchSystemPrompt const)。
 const PromptSlug = "scholay-smart-search-v1"
 const PromptName = "Scholay 文献智能搜索 · 默认 prompt"
-
-// defaultDailyMessageCap 是智能搜索每用户每日 user_message 上限的默认值, 30 是粗估的
-// "认真用一天" 的天花板。可以通过 env SMART_SEARCH_DAILY_MESSAGES 覆盖 (0 或负值 → 不限额)。
-//
-// 计数走 Redis (见 agentbridge.NewRedisDailyCap), 跨实例共享; Redis 不可用时 fail-open。
-const defaultDailyMessageCap = 30
-
-// dailyMessageCapFromEnv 读 SMART_SEARCH_DAILY_MESSAGES env, 失败回落默认值。
-// 显式区分 "未设置 → 用默认" 和 "设置为 0/负 → 显式关闭限额"。
-func dailyMessageCapFromEnv() int {
-	raw := os.Getenv("SMART_SEARCH_DAILY_MESSAGES")
-	if raw == "" {
-		return defaultDailyMessageCap
-	}
-	n, err := strconv.Atoi(raw)
-	if err != nil {
-		return defaultDailyMessageCap
-	}
-	return n
-}
 
 // usageRecorder 由 SetUsageRecorder 注入; preUserMessageChain 每次提问时懒读取。
 var usageRecorder usagestat.Recorder
@@ -94,17 +72,15 @@ func onMessageComplete(ctx context.Context, userID uint, usage agentbridge.Agent
 	}
 }
 
-// quotaCap 旧的 env 日额度(SMART_SEARCH_DAILY_MESSAGES)—— 仅当 VIP 未注入时回落用。
-var quotaCap = agentbridge.NewRedisDailyCap(FeatureKey, dailyMessageCapFromEnv())
-
 // vipChecker 由 SetVIPChecker 注入(bootstrap)—— 按用户等级(free/pro)做 tier-aware 日额度。
+// vip.Service 自带「未配额→不限额 + Redis 挂→fail-open」,故无需再保留旧的 env 日额度回落。
 var vipChecker *vip.Service
 
-// SetVIPChecker 注入会员限额服务。允许 nil(回落到 quotaCap 的 env 日额度)。
+// SetVIPChecker 注入会员限额服务。允许 nil(不限额)。
 func SetVIPChecker(v *vip.Service) { vipChecker = v }
 
 // preUserMessageChain: 先配额检查(超额直接 error 出去, 不记), 通过后记一条提问统计。
-func preUserMessageChain(ctx context.Context, userID uint, content string) error {
+func preUserMessageChain(ctx context.Context, userID uint, _ string) error {
 	if vipChecker != nil {
 		// tier-aware 会员限额。vip.ErrQuotaExceeded → 转成 agentbridge 的 quota_exceeded(干净文案),
 		// 让 WS pipe 回前端 code=quota_exceeded + retryable=false。
@@ -112,10 +88,6 @@ func preUserMessageChain(ctx context.Context, userID uint, content string) error
 			if errors.Is(err, vip.ErrQuotaExceeded) {
 				return agentbridge.NewQuotaError(err.Error())
 			}
-			return err
-		}
-	} else if quotaCap != nil {
-		if err := quotaCap(ctx, userID, content); err != nil {
 			return err
 		}
 	}

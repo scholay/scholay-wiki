@@ -213,6 +213,8 @@ services:
       # 智能审稿: backend 按 slug 读审稿人 skill 的「评分人格」段注入评分轮 (见 peerreview)。
       # 只读挂载与 agent 同一份 committed skills 目录 (单一真相源)。
       PEERREVIEW_SKILLS_DIR: ${PEERREVIEW_SKILLS_DIR:-/app/reviewer-skills}
+      # Prism 会话经 --add-dir 加载写作 skill 的目录(agent 容器内 <此处>/.claude/skills)。
+      PRISM_SKILL_ADDDIR: ${PRISM_SKILL_ADDDIR:-/prism-add}
       # Prism 编译任务共享目录(与 scholar_prism_tex 同卷;后端写任务、watcher 编译回写)
       PRISM_WORK_DIR: ${PRISM_WORK_DIR:-/data/prism-work}
       # Go memory limit (75% of container memory limit)
@@ -269,6 +271,9 @@ services:
       # 强制覆盖 agent/.env 里的 ANTHROPIC_API_KEY (内网 Bearer 鉴权 token)
       # 必须与 backend 的 AGENT_AUTH_TOKEN 同值,否则 backend push 配置会 401。
       ANTHROPIC_API_KEY: ${AGENT_INTERNAL_TOKEN:-}
+      # agent → backend 内网回调地址(上报「带外」token 用量,如会话标题生成)。
+      # NO_PROXY 已含 scholar_backend → 直连内网,不经 egress 代理。
+      BACKEND_BASE_URL: ${BACKEND_BASE_URL:-http://scholar_backend:8080}
       # 可选: 自定义 CA 证书路径 (代理 / 内网 mTLS / 自签 CDN 场景)。
       # Bun / Node fetch 会把这个文件合并进 trust store, 解决 Clash / mihomo
       # fake-ip 模式或企业代理签证书时的 "unknown certificate verification error"。
@@ -291,6 +296,9 @@ services:
       # 审稿人 skill (reviewer-roster + rv-*) 放在独立目录, **不进**全局 .claude/skills;
       # 只有 peerreview 方法论会话经 --add-dir /peerreview-add 加载 <此处>/.claude/skills → claw 看不到。
       - ./agent/data/claude/reviewer-skills:/peerreview-add/.claude/skills:ro
+      # 智能写作 skill (prism-latex-format / prism-academic-writing / prism-discipline-conventions):
+      # 同样独立目录, 仅 prism 会话经 --add-dir /prism-add 加载 → claw/审稿看不到。
+      - ./agent/data/claude/prism-skills:/prism-add/.claude/skills:ro
       # 会话工作目录 (cwd + 上传文件) 持久化 —— 与 docker-compose.prod.yml 对齐(prod 早已挂)。
       # 否则重建容器会清空 /home/bun/sessions/<id>,旧会话续聊报 "Working directory does not exist";
       # Prism agent-native 模式下该目录是「每项目工作副本」,更须持久。属主由镜像 entrypoint chown 自愈。

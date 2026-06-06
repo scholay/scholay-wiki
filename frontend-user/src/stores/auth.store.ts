@@ -31,10 +31,32 @@ export function useIsAuthenticated(): boolean {
   return useAuthStore((s) => !!s.token);
 }
 
+/**
+ * 组件读取「鉴权展示态」的**唯一**入口 —— 凡是要在 UI 上分「登录 vs 未登录」并展示身份的地方都用它,
+ * **不要再各自 `useAuthStore((s)=>s.user)` 然后拿 `!!user` 当登录判定**(user 是异步填的展示缓存,
+ * 已登录但 profile 未到时它是 null → 会把已登录用户错显成「登录/注册」,正是「接口看得到自己历史、
+ * 界面却显示未登录」那个 bug 的来源)。三态语义:
+ *   - `authenticated`:是否已登录(= !!token,真源镜像)。**登录与否的分叉只看这个**。
+ *   - `user`:展示身份(用户名/头像/邮箱),已登录但 profile 未到时为 null。
+ *   - `profileLoading`:已登录但 user 尚未填 —— 这一态渲染「身份占位」,**绝不能回退成未登录 UI**。
+ */
+export function useAuthStatus(): {
+  authenticated: boolean;
+  user: StoredUser | null;
+  profileLoading: boolean;
+} {
+  const token = useAuthStore((s) => s.token);
+  const user = useAuthStore((s) => s.user);
+  return { authenticated: !!token, user, profileLoading: !!token && !user };
+}
+
 interface AuthState {
   token: string | null;
   user: StoredUser | null;
   setSession: (token: string, user: StoredUser) => void;
+  /** 整体覆盖 user(完整 StoredUser)。AuthBootstrap 用它把 useProfile 拉到的档案写进来。 */
+  setUser: (user: StoredUser) => void;
+  /** 局部合并 **已存在** 的 user(profile 编辑等)。user 为 null 时刻意不创建 —— 创建要走 setUser。 */
   patchUser: (patch: Partial<StoredUser>) => void;
   clear: () => void;
 }
@@ -53,6 +75,12 @@ export const useAuthStore = create<AuthState>()(
         setAuthToken(token);
         set({ token, user });
       },
+      setUser: (user) => set({ user }),
+      // 局部合并:仅在 user 已存在时合 patch。**绝不能**用它来「填充」一个 null user ——
+      // 历史 bug:AuthBootstrap 拿 useProfile 的档案走 patchUser,而 user 为 null 时这里
+      // 原样返回 null → 档案被丢弃、user 永远填不上。结果:token 有效(各受保护接口照常
+      // 返回该用户自己的历史),但 footer/topnav 按 !!user 显示「未登录」(幽灵未登录态)。
+      // 填充 user 一律走 setUser(见 AuthBootstrap)。
       patchUser: (patch) =>
         set((s) => ({ user: s.user ? { ...s.user, ...patch } : s.user })),
       clear: () => {

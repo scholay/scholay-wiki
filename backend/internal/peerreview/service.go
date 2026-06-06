@@ -297,6 +297,7 @@ func (s *Service) CreateDraft(ctx context.Context, userID uint64, mode string) (
 		_ = s.repo.SetAgentSession(sub.ID, sess.SessionID)
 		sub.AgentSessionID.String = sess.SessionID
 		sub.AgentSessionID.Valid = true
+		s.bindOwnerSession(sub, sess.SessionID)
 	}
 	return sub, nil
 }
@@ -344,6 +345,7 @@ func (s *Service) ensureAgentSession(ctx context.Context, sub *Submission) (stri
 	}
 	sub.AgentSessionID.String = sess.SessionID
 	sub.AgentSessionID.Valid = true
+	s.bindOwnerSession(sub, sess.SessionID)
 	return sess.SessionID, nil
 }
 
@@ -364,7 +366,21 @@ func (s *Service) resetAgentSession(ctx context.Context, sub *Submission) (strin
 	_ = s.repo.DeleteAllStepCache(sub.ID)
 	sub.AgentSessionID.String = sess.SessionID
 	sub.AgentSessionID.Valid = true
+	s.bindOwnerSession(sub, sess.SessionID)
 	return sess.SessionID, nil
+}
+
+// bindOwnerSession 把「投稿↔agent 会话」映射双写进统一归属表 agent_sessions
+// (owner_kind=submission, owner_id=sub.ID)。主真源仍是 peer_review_submissions.agent_session_id;
+// 这里 best-effort 让标准 OwnsSession / IssueWSTicket 也覆盖 peerreview。失败仅告警不阻断。
+func (s *Service) bindOwnerSession(sub *Submission, sessionID string) {
+	if s.feature == nil || sub == nil || sub.UserID == 0 || sessionID == "" {
+		return
+	}
+	if err := s.feature.BindOwnerSession(uint(sub.UserID), "submission", sub.ID, sessionID); err != nil {
+		slog.Warn("peerreview: dual-write agent_sessions(owner) failed",
+			"submission_id", sub.ID, "user_id", sub.UserID, "session_id", sessionID, "err", err)
+	}
 }
 
 // sessionAssets 描述已推送到 agent 会话 cwd 的文件 (供 prompt 引用)。
@@ -940,6 +956,10 @@ func (s *Service) DeleteSubmission(ctx context.Context, userID, submissionID uin
 				// 不致命, 继续
 				_ = err
 			}
+		}
+		// 清掉统一归属表里的映射 (best-effort, 孤儿无害但保持整洁)
+		if s.feature != nil {
+			_ = s.feature.UnbindOwnerSession("submission", submissionID)
 		}
 	}
 

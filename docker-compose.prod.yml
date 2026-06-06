@@ -218,6 +218,8 @@ services:
       AGENT_AUTH_TOKEN: ${AGENT_INTERNAL_TOKEN:?AGENT_INTERNAL_TOKEN is required in prod}
       # 智能审稿: backend 按 slug 读审稿人 skill 的「评分人格」段注入评分轮 (见 peerreview)。
       PEERREVIEW_SKILLS_DIR: ${PEERREVIEW_SKILLS_DIR:-/app/reviewer-skills}
+      # Prism 写作 skill 经 --add-dir 加载的目录(agent 容器内 <此处>/.claude/skills)。
+      PRISM_SKILL_ADDDIR: ${PRISM_SKILL_ADDDIR:-/prism-add}
       # Prism 编译任务共享目录(与 scholar_prism_tex 同卷)
       PRISM_WORK_DIR: ${PRISM_WORK_DIR:-/data/prism-work}
       # Go memory limit (75% of container memory limit)
@@ -271,6 +273,8 @@ services:
       <<: *tz-env
       # 内网 Bearer 鉴权 token (backend → agent),与 backend AGENT_AUTH_TOKEN 同值
       ANTHROPIC_API_KEY: ${AGENT_INTERNAL_TOKEN:?AGENT_INTERNAL_TOKEN is required in prod}
+      # agent → backend 内网回调地址(上报「带外」token 用量,如会话标题生成)。NO_PROXY 含 scholar_backend → 直连。
+      BACKEND_BASE_URL: ${BACKEND_BASE_URL:-http://scholar_backend:8080}
       ANTHROPIC_BASE_URL: ${AGENT_ANTHROPIC_BASE_URL:-}
       ANTHROPIC_AUTH_TOKEN: ${AGENT_ANTHROPIC_AUTH_TOKEN:-}
       ANTHROPIC_MODEL: ${AGENT_ANTHROPIC_MODEL:-}
@@ -294,6 +298,8 @@ services:
       - ./agent/data/claude/skills:/home/bun/.claude/skills:ro
       # 审稿人 skill (reviewer-roster + rv-*) 独立目录, 仅 peerreview 方法论会话经 --add-dir /peerreview-add 加载 → claw 看不到。
       - ./agent/data/claude/reviewer-skills:/peerreview-add/.claude/skills:ro
+      # 智能写作 skill 独立目录, 仅 prism 会话经 --add-dir /prism-add 加载 → claw/审稿看不到。
+      - ./agent/data/claude/prism-skills:/prism-add/.claude/skills:ro
       # 会话工作目录 (cwd + 上传文件) 持久化 —— 否则重建容器(重部署)会清空, 旧会话续聊报
       # "Working directory does not exist"。属主由镜像 entrypoint 自愈 (chown 到 bun)。
       - ./data/agent-sessions:/home/bun/sessions

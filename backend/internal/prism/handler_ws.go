@@ -9,6 +9,7 @@ package prism
 import (
 	"net/http"
 
+	"scholar-backend/internal/agentbridge"
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
@@ -92,7 +93,12 @@ func (h *Handler) ApplyRound(c *gin.Context) {
 	if !ok {
 		return
 	}
-	applied, err := h.svc.ApplyRound(c.Request.Context(), uid, pid)
+	// 可选 body {instruction}:本轮干净指令,用于首次固化后自动给项目起名(缺省也行)。
+	var body struct {
+		Instruction string `json:"instruction"`
+	}
+	_ = c.ShouldBindJSON(&body)
+	applied, err := h.svc.ApplyRound(c.Request.Context(), uid, pid, body.Instruction)
 	if err != nil {
 		if err == ErrProjectNotFound {
 			utils.NotFound(c, "项目不存在")
@@ -146,12 +152,13 @@ func (h *Handler) ReadWorkspaceFile(c *gin.Context) {
 }
 
 // GetWSMessages GET /user/prism/projects/:id/session/messages → agent 会话历史(重入恢复用)。
+// ?limit=N 取最近 N 个用户轮(超长会话分页,同 claw/smart-search);返回 {messages,totalTurns,hasMore}。
 func (h *Handler) GetWSMessages(c *gin.Context) {
 	uid, pid, ok := h.wsProject(c)
 	if !ok {
 		return
 	}
-	msgs, err := h.svc.GetWSHistory(c.Request.Context(), uid, pid)
+	res, err := h.svc.GetWSHistory(c.Request.Context(), uid, pid, agentbridge.ParseLimitTurns(c))
 	if err != nil {
 		if err == ErrProjectNotFound {
 			utils.NotFound(c, "项目不存在")
@@ -160,5 +167,33 @@ func (h *Handler) GetWSMessages(c *gin.Context) {
 		utils.InternalError(c, 500, "加载历史失败,请稍后重试", err)
 		return
 	}
-	utils.Success(c, gin.H{"messages": msgs})
+	utils.Success(c, res)
+}
+
+// GetContext GET /user/prism/projects/:id/session/context → 当前会话上下文水位(token 占用)。
+// 前端 footer 实时展示百分比;没会话 / 没说过话 / 会话已失效都按 0 返回(自愈,不报错)。
+func (h *Handler) GetContext(c *gin.Context) {
+	uid, pid, ok := h.wsProject(c)
+	if !ok {
+		return
+	}
+	est, err := h.svc.ContextEstimate(c.Request.Context(), uid, pid)
+	if err != nil {
+		if err == ErrProjectNotFound {
+			utils.NotFound(c, "项目不存在")
+			return
+		}
+		utils.InternalError(c, 500, "无法读取上下文用量", err)
+		return
+	}
+	if est == nil {
+		utils.Success(c, gin.H{"totalTokens": 0, "maxTokens": 0, "percentage": 0, "model": ""})
+		return
+	}
+	utils.Success(c, gin.H{
+		"totalTokens": est.TotalTokens,
+		"maxTokens":   est.MaxTokens,
+		"percentage":  est.Percentage,
+		"model":       est.Model,
+	})
 }

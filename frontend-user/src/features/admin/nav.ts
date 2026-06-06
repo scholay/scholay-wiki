@@ -19,6 +19,7 @@ import {
   Send,
   Compass,
   Boxes,
+  ScanEye,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -79,6 +80,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     id: 'observability',
     label: '观测与日志',
     items: [
+      { id: 'session-monitor', label: '用户会话监控', icon: ScanEye, href: '/admin/session-monitor' },
       { id: 'analytics', label: '数据统计', icon: BarChart3, href: '/admin/analytics' },
       { id: 'usage-stats', label: '使用统计', icon: BarChart2, href: '/admin/usage-stats' },
       { id: 'token-usage', label: 'Token 用量', icon: Coins, href: '/admin/token-usage' },

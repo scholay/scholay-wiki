@@ -12,7 +12,7 @@ var dailyLimits = map[string]map[string]int{
 	FeatureSmartSearch: {TierFree: 5, TierPro: 100},
 	FeatureClaw:        {TierFree: 10, TierPro: 200},
 	FeaturePeerReview:  {TierFree: 1, TierPro: 20},
-	FeaturePrism:       {TierFree: 15, TierPro: 300},
+	FeaturePrism:       {TierFree: 10, TierPro: 300},
 }
 
 // featureLabel 给用户看的功能名(用于超限文案)。

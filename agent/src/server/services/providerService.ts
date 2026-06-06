@@ -114,7 +114,7 @@ function omitAuthEnv(env: Record<string, string>): Record<string, string> {
   )
 }
 
-function getPresetAuthStrategy(presetId: string): ProviderAuthStrategy {
+export function getPresetAuthStrategy(presetId: string): ProviderAuthStrategy {
   return PROVIDER_PRESETS.find((preset) => preset.id === presetId)?.authStrategy ?? 'auth_token'
 }
 
@@ -601,7 +601,7 @@ function buildDirectTestRequest(
   }
 }
 
-function buildAnthropicAuthHeaders(apiKey: string, authStrategy: ProviderAuthStrategy): Record<string, string> {
+export function buildAnthropicAuthHeaders(apiKey: string, authStrategy: ProviderAuthStrategy): Record<string, string> {
   switch (authStrategy) {
     case 'api_key':
       return { 'x-api-key': apiKey }

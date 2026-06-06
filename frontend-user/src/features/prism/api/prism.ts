@@ -86,6 +86,37 @@ export function useProject(id?: number) {
   });
 }
 
+// ─── 上下文水位(token 占用)─────────────────────────────────────────────
+
+/** 当前项目 agent 会话的上下文用量;footer 实时展示百分比。totalTokens=0(没说过话)时不显示。 */
+export interface PrismContextSnapshot {
+  totalTokens: number;
+  maxTokens: number;
+  percentage: number;
+  model: string;
+}
+
+/** 取项目会话上下文水位。30s staleTime;每轮结束(message_complete)由 usePrismChat 主动失效刷新。 */
+export function usePrismContext(projectId?: number) {
+  return useQuery<PrismContextSnapshot>({
+    queryKey: ['prism', 'context', projectId],
+    enabled: !!projectId,
+    staleTime: 30 * 1000,
+    queryFn: async () => {
+      const { data } = await http.get<{ data?: Partial<PrismContextSnapshot> }>(
+        `/user/prism/projects/${projectId}/session/context`,
+      );
+      const p = data.data ?? {};
+      return {
+        totalTokens: p.totalTokens ?? 0,
+        maxTokens: p.maxTokens ?? 0,
+        percentage: p.percentage ?? 0,
+        model: p.model ?? '',
+      };
+    },
+  });
+}
+
 // ─── 文件 ────────────────────────────────────────────────────────────────
 
 export function useFileBody(projectId?: number, fileId?: number) {
@@ -282,10 +313,11 @@ export async function fetchPendingRound(projectId: number): Promise<PrismPending
 }
 
 /** 应用:固化 cwd 改动进 DB,返回固化文件数。 */
-export async function applyRound(projectId: number): Promise<number> {
+// instruction:本轮干净指令,透传给后端 → 首次成功固化后用它自动给项目起名(best-effort)。
+export async function applyRound(projectId: number, instruction?: string): Promise<number> {
   const { data } = await http.post<{ data: { applied: number } }>(
     `/user/prism/projects/${projectId}/round/apply`,
-    {},
+    instruction ? { instruction } : {},
   );
   return data.data?.applied ?? 0;
 }
@@ -312,12 +344,29 @@ export interface PrismHistoryMsg {
   timestamp?: string;
 }
 
-/** 取项目 agent 会话历史(重入恢复过往对话文本)。 */
-export async function fetchWSHistory(projectId: number): Promise<PrismHistoryMsg[]> {
-  const { data } = await http.get<{ data: { messages: { messages?: PrismHistoryMsg[] } | PrismHistoryMsg[] } }>(
-    `/user/prism/projects/${projectId}/session/messages`,
-  );
-  const m = data.data?.messages as { messages?: PrismHistoryMsg[] } | PrismHistoryMsg[] | undefined;
-  if (Array.isArray(m)) return m;
-  return m?.messages ?? [];
+/** 历史分页结果(同 claw/smart-search:最近 N 轮 + 是否还有更早)。 */
+export interface PrismHistoryResult {
+  messages: PrismHistoryMsg[];
+  totalTurns: number;
+  hasMore: boolean;
+}
+
+/**
+ * 取项目 agent 会话历史(重入恢复过往对话文本)。
+ * limitTurns>0 时只取最近 N 个用户轮(超长会话分页,后端 sliceRecentTurns),带回 hasMore 供「加载更早」。
+ */
+export async function fetchWSHistory(projectId: number, limitTurns?: number): Promise<PrismHistoryResult> {
+  const url =
+    limitTurns && limitTurns > 0
+      ? `/user/prism/projects/${projectId}/session/messages?limit=${limitTurns}`
+      : `/user/prism/projects/${projectId}/session/messages`;
+  const { data } = await http.get<{
+    data: { messages?: PrismHistoryMsg[] | null; totalTurns?: number; hasMore?: boolean };
+  }>(url);
+  const d = data.data;
+  return {
+    messages: d?.messages ?? [],
+    totalTurns: d?.totalTurns ?? 0,
+    hasMore: d?.hasMore ?? false,
+  };
 }

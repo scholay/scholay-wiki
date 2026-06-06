@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { BrandLogo } from '@/shared/components/BrandLogo';
-import { useAuthStore } from '@/stores/auth.store';
+import { useIsAuthenticated } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { cn } from '@/shared/lib/utils';
 import { LANDINGS, LANDING_ORDER } from '../data/landings';
@@ -15,7 +15,8 @@ import { LANDINGS, LANDING_ORDER } from '../data/landings';
  */
 export function LandingNav() {
   const { pathname } = useLocation();
-  const user = useAuthStore((s) => s.user);
+  // 登录与否只看 token(useIsAuthenticated),不看 user(展示缓存,可能未填)。
+  const authenticated = useIsAuthenticated();
   const openDialog = useAuthDialog((s) => s.openDialog);
 
   return (
@@ -48,7 +49,7 @@ export function LandingNav() {
         </nav>
 
         <div className="flex items-center gap-2 shrink-0 ml-auto">
-          {user ? (
+          {authenticated ? (
             <Link
               to="/library"
               className="inline-flex items-center h-9 px-4 rounded-sm bg-foreground text-background text-sm font-semibold hover:bg-foreground/85 transition-colors"
