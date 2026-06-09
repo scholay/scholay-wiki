@@ -368,6 +368,8 @@ services:
       context: ./prism_tex
       dockerfile: Dockerfile
     container_name: scholar_prism_tex
+    # 与 backend(appuser uid 1001)同 uid 跑,才能写回共享卷里 backend(1001)建的编译任务目录。
+    user: "1001:1001"
     restart: unless-stopped
     logging: *default-logging
     environment:

@@ -349,6 +349,10 @@ services:
   prism-tex:
     image: ${REGISTRY:-crpi-ebrftpuujezamyxv.cn-shanghai.personal.cr.aliyuncs.com}/scholay/prism_tex:${IMAGE_TAG:-latest}
     container_name: scholar_prism_tex
+    # 与 backend(appuser uid 1001)同 uid 跑 —— 编译任务目录在共享卷 ./data/prism-work 里
+    # 由 backend(1001)创建,prism-tex 必须也是 1001 才能写回 status.json/pdf(cap_drop ALL
+    # 后 root 没了 DAC_OVERRIDE,跨 uid 写不了)。deploy.sh 会把该卷 chown 到 1001:1001。
+    user: "1001:1001"
     restart: unless-stopped
     logging: *default-logging
     environment:

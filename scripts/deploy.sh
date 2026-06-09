@@ -112,8 +112,11 @@ restart_services() {
     chown -R 1000:1000 ./data/agent ./data/agent-sessions
     echo ""
 
-    # Prism 编译任务共享卷:backend 与 scholar_prism_tex 都以 root 读写(Phase 0),只需存在即可。
+    # Prism 编译任务共享卷:backend(appuser uid 1001)在这里建任务目录,prism-tex 也以 1001 跑
+    # (见 compose 的 user: "1001:1001")回写 status.json/pdf。该卷默认 root 属主 → backend 建目录
+    # 会 permission denied → 前端报「编译服务异常」。这里把属主修正到 1001:1001(同 agent 数据目录的处理)。
     mkdir -p ./data/prism-work
+    chown -R 1001:1001 ./data/prism-work
     echo ""
 
     echo -e "${YELLOW}=== 启动新服务 ===${NC}"
