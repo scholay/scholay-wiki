@@ -11,7 +11,7 @@ import {
 } from 'recharts';
 import { AdminPageLayout } from '../components/AdminPageLayout';
 import { StatCard } from '../components/StatCard';
-import { cn } from '@/shared/lib/utils';
+import { DateRangeControl, type DateWindow } from '../components/DateRangeControl';
 import { useUsageStatsSummary, useUsageStatsFunnel } from '../api/usage-stats';
 
 /**
@@ -21,12 +21,10 @@ import { useUsageStatsSummary, useUsageStatsFunnel } from '../api/usage-stats';
  * 三块: KPI 卡 / 每日趋势折线 (recharts) / 功能排行 + 智能审稿漏斗 (横条)。
  */
 
-const DAY_OPTIONS = [7, 30, 90];
-
 export function UsageStatsPage() {
-  const [days, setDays] = useState(30);
-  const summary = useUsageStatsSummary(days);
-  const funnel = useUsageStatsFunnel(days);
+  const [win, setWin] = useState<DateWindow>({ days: 30 });
+  const summary = useUsageStatsSummary(win);
+  const funnel = useUsageStatsFunnel(win);
 
   const s = summary.data;
   const features = s?.by_feature ?? [];
@@ -37,26 +35,8 @@ export function UsageStatsPage() {
   return (
     <AdminPageLayout
       title="使用统计"
-      description={`最近 ${days} 天 · 各功能使用量 / 趋势 / 智能审稿漏斗`}
-      actions={
-        <div className="flex gap-1">
-          {DAY_OPTIONS.map((d) => (
-            <button
-              key={d}
-              type="button"
-              onClick={() => setDays(d)}
-              className={cn(
-                'h-7 px-3 rounded-md text-xs font-medium transition-colors',
-                d === days
-                  ? 'bg-foreground text-background'
-                  : 'text-muted-foreground hover:bg-surface-1 hover:text-foreground'
-              )}
-            >
-              {d} 天
-            </button>
-          ))}
-        </div>
-      }
+      description="各功能使用量 / 趋势 / 智能审稿漏斗"
+      actions={<DateRangeControl value={win} onChange={setWin} />}
     >
       {/* KPI */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

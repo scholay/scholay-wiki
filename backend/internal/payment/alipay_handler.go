@@ -119,7 +119,9 @@ func (h *AlipayHandler) HandleCallback(c *gin.Context) {
 		return
 	}
 
-	for k, v := range c.Request.Form {
+	// 用 PostForm(请求体)而非 Form(体 + URL query):支付宝异步通知只对请求体参数签名,
+	// 若 notify_url 带 query string,Form 会把它混进待验签内容导致验签必然失败。
+	for k, v := range c.Request.PostForm {
 		if len(v) > 0 {
 			params[k] = v[0]
 		}
@@ -131,6 +133,13 @@ func (h *AlipayHandler) HandleCallback(c *gin.Context) {
 			"param_count", len(params),
 			"err", err,
 		)
+		c.String(400, "fail")
+		return
+	}
+
+	// 防御性校验:app_id 必须属于本商户(签名已是主要防线, 这里再加一道, 防错配/跨 app 误回调)。
+	if cfg, _ := h.alipayService.GetActiveConfig(); cfg != nil && cfg.AppID != "" && params["app_id"] != cfg.AppID {
+		slog.Error("alipay callback app_id mismatch", "got", params["app_id"], "want", cfg.AppID, "order_no", params["out_trade_no"])
 		c.String(400, "fail")
 		return
 	}

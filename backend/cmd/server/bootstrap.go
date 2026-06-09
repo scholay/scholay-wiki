@@ -32,6 +32,8 @@ import (
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/database"
 	"scholar-backend/internal/common/safego"
+	"scholar-backend/internal/common/utils"
+	"scholar-backend/internal/emaillog"
 	"scholar-backend/internal/featuretool"
 	"scholar-backend/internal/library"
 	"scholar-backend/internal/prism"
@@ -156,7 +158,8 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	core := initCore(db, cfg)
 	aiB := initAI(db, cfg)
 	plat := initPlatform(db, cfg)
-	alipayHandler, wechatPayHandler := initPaymentHandlers(db)
+	// 支付回调履约由 vip 的 OrderService 承接(充值入账永久经费 / 订阅开通会员 + 赠临时经费)。
+	alipayHandler, wechatPayHandler := initPaymentHandlers(db, plat.vipService.Order())
 	wechatService, wechatHandler, wechatOfficialHandler := initWeChatDomain(db, aiB.aiService)
 	// library handler 提前构造命名变量, 跨域注入(usage recorder)需要在它上面调 setter
 	libraryHandler := library.NewHandler(library.Deps{Minicod: aiB.minicodManager})
@@ -230,6 +233,12 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	aiB.aiHandler.SetVIPChecker(plat.vipService)
 	peerReviewService.SetVIPChecker(plat.vipService) // 注入到 service(在 Submit 内扣额度), 不在 handler
 
+	// 统一 token 额度计数:llmusage 每记一行账本 → 同步累加进用户当日 token 预算(billing/vip)。
+	// 这是「按 token 限制」的唯一扣减点;预检(CheckDailyQuota)只读闸门, 真实消耗在此累加。
+	plat.llmUsageService.SetObserver(func(userID uint, tokens int) {
+		plat.vipService.AddUsage(context.Background(), userID, tokens)
+	})
+
 	// seo → seosubmit (paper/author 写入后入队主动推送)
 	plat.seoService.SetPushSubmitter(plat.seoSubmitService)
 
@@ -257,6 +266,29 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 
 	// message → feedback（回复反馈时给登录用户发站内信;复用同一个 message adapter,匿名反馈只走邮件）
 	core.feedbackService.SetNotifier(plat.message.GetAdapter())
+
+	// message + email → vip（充值/订阅/续期/升级/兑换 成功后发站内信 + 邮件;统一品牌邮件模板）
+	plat.vipService.SetNotifier(plat.message.GetAdapter(), core.configService)
+
+	// 发送记录:给 utils 邮件 / 短信发送各注册一个 observer —— 全站每封邮件、每条短信(验证码/
+	// 反馈/会员/测试)发送后无差别落 email_logs(channel 区分),异步 best-effort,不阻塞发送。
+	// 后台「发送记录」页用 tab 切换查看邮件 / 短信。
+	emailLogService := emaillog.NewService(emaillog.NewRepository(db))
+	emailLogHandler := emaillog.NewHandler(emailLogService)
+	utils.SetEmailObserver(func(oc utils.EmailOutcome) {
+		safego.Go("email-log-record", func() {
+			emailLogService.Record("email", oc.To, oc.Subject, oc.FromEmail, oc.FromName, oc.Success, oc.Error)
+		})
+	})
+	utils.SetSMSObserver(func(oc utils.SMSOutcome) {
+		safego.Go("sms-log-record", func() {
+			subject := oc.TemplateContent // 模板内容更可读(含"验证码"利于归类);空则回退模板代码
+			if subject == "" {
+				subject = oc.TemplateCode
+			}
+			emailLogService.Record("sms", oc.Phone, subject, "", oc.SignName, oc.Success, oc.Error)
+		})
+	})
 
 	// 功能大全 (学术工具黄页): repo → dispatcher(webhook) → service → handler
 	featureToolRepo := featuretool.NewRepository(db)
@@ -299,6 +331,7 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 			seo:             plat.seoHandler,
 			message:         plat.message,
 			feedback:        core.feedback,
+			emailLog:        emailLogHandler,
 			ws:              plat.wsHandler,
 			thirdParty:      aiB.thirdPartyHandler,
 			announcement:    announcement.NewHandler(),

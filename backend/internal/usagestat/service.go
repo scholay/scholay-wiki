@@ -40,14 +40,14 @@ type Summary struct {
 	Daily       []DayCount    `json:"daily"`
 }
 
-// GetSummary 总览 (KPI + 功能排行 + 按日趋势, 趋势补 0 连续)。
-func (s *Service) GetSummary(days int) (*Summary, error) {
-	days = normalizeDays(days)
-	total, today, uu, ua, err := s.repo.Totals(days)
+// GetSummary 总览 (KPI + 功能排行 + 按日趋势, 趋势补 0 连续)。窗口 [from,to]。
+func (s *Service) GetSummary(from, to time.Time) (*Summary, error) {
+	from, to = clampWindow(from, to)
+	total, today, uu, ua, err := s.repo.Totals(from, to)
 	if err != nil {
 		return nil, err
 	}
-	feats, err := s.repo.ByFeature(days)
+	feats, err := s.repo.ByFeature(from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -61,18 +61,18 @@ func (s *Service) GetSummary(days int) (*Summary, error) {
 			UniqueAnon:  f.UniqueAnon,
 		})
 	}
-	daily, err := s.repo.ByDay(days)
+	daily, err := s.repo.ByDay(from, to)
 	if err != nil {
 		return nil, err
 	}
 	return &Summary{
-		Days:        days,
+		Days:        daySpan(from, to),
 		Total:       total,
 		Today:       today,
 		UniqueUsers: uu,
 		UniqueAnon:  ua,
 		ByFeature:   items,
-		Daily:       fillDailyGaps(daily, days),
+		Daily:       fillDailyGaps(daily, from, to),
 	}, nil
 }
 
@@ -97,10 +97,10 @@ var peerReviewStageLabels = map[string]string{
 	"submit": "已投递",
 }
 
-// GetPeerReviewFunnel 审稿连贯性漏斗 —— 按固定阶段顺序返回, 缺失阶段补 0。
-func (s *Service) GetPeerReviewFunnel(days int) ([]FunnelItem, error) {
-	days = normalizeDays(days)
-	stages, err := s.repo.PeerReviewFunnel(days)
+// GetPeerReviewFunnel 审稿连贯性漏斗 —— 按固定阶段顺序返回, 缺失阶段补 0。窗口 [from,to]。
+func (s *Service) GetPeerReviewFunnel(from, to time.Time) ([]FunnelItem, error) {
+	from, to = clampWindow(from, to)
+	stages, err := s.repo.PeerReviewFunnel(from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -145,29 +145,39 @@ func (s *Service) Cleanup() (int64, error) {
 	return n, nil
 }
 
-func normalizeDays(days int) int {
-	if days <= 0 {
-		return 30
+// clampWindow 守卫窗口:from 不早于保留期起点(事件本就会被清理, 防止 fillDailyGaps 生成超长序列),
+// 且 from<=to。
+func clampWindow(from, to time.Time) (time.Time, time.Time) {
+	earliest := time.Now().AddDate(0, 0, -RetentionDays)
+	if from.Before(earliest) {
+		from = earliest
 	}
-	if days > RetentionDays {
-		return RetentionDays
+	if to.Before(from) {
+		to = from
 	}
-	return days
+	return from, to
 }
 
-// fillDailyGaps 把按日聚合补成 [cutoff, today] 的连续序列 (缺失日补 0), 便于折线图。
-func fillDailyGaps(rows []DayCount, days int) []DayCount {
+// daySpan 窗口跨越的天数(含首尾, 至少 1)。
+func daySpan(from, to time.Time) int {
+	d := int(to.Sub(from).Hours()/24) + 1
+	if d < 1 {
+		d = 1
+	}
+	return d
+}
+
+// fillDailyGaps 把按日聚合补成 [from, to] 的连续日序列 (缺失日补 0), 便于折线图。
+func fillDailyGaps(rows []DayCount, from, to time.Time) []DayCount {
 	counts := make(map[string]int64, len(rows))
 	for _, r := range rows {
 		counts[r.Date] = r.Count
 	}
-	// 直接用 time.Now() 往前推日期串, 不做任何时区转换 (容器时区=北京, 与 DB 同区)。
-	// Format("2006-01-02") 只取日期部分, 与查询里 DATE_FORMAT 的分桶口径一致。
-	now := time.Now()
-	out := make([]DayCount, 0, days)
-	for i := days - 1; i >= 0; i-- {
-		d := now.AddDate(0, 0, -i).Format("2006-01-02")
-		out = append(out, DayCount{Date: d, Count: counts[d]})
+	// 按日历日从 from 走到 to(只取日期部分, 与查询 DATE_FORMAT 分桶口径一致; 不做时区转换)。
+	out := make([]DayCount, 0, daySpan(from, to))
+	for d := from; !d.After(to); d = d.AddDate(0, 0, 1) {
+		ds := d.Format("2006-01-02")
+		out = append(out, DayCount{Date: ds, Count: counts[ds]})
 	}
 	return out
 }

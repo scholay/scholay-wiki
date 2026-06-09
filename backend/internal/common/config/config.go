@@ -82,6 +82,7 @@ type AppConfig_ struct {
 	FrontendUserURL    string   // 前端用户门户 URL
 	TrustedProxies     []string // 反向代理信任名单(CIDR);gin ClientIP() 只认这些代理追加的 XFF
 	IsRelease          bool     // 是否为 release 模式（预计算，方便使用）
+	TestPaymentEnabled bool     // PAYMENT_TEST_ENABLED: 开启"测试支付"(无网关, 下单后一键完成履约), 仅供测试/演示, 生产务必关
 }
 
 type ExternalServicesConfig struct {
@@ -245,6 +246,7 @@ func Load() *Config {
 		FrontendUserURL:    getEnv("FRONTEND_USER_URL", ""),
 		TrustedProxies:     getTrustedProxies(),
 		IsRelease:          ginMode == "release",
+		TestPaymentEnabled: getEnvAsBool("PAYMENT_TEST_ENABLED", false),
 	}
 
 	validate(AppConfig)

@@ -10,7 +10,8 @@ import { Pagination } from '../components/Pagination';
 import { StatCard } from '../components/StatCard';
 import { useApiToast } from '../hooks/useApiToast';
 import { useConfirm } from '../hooks/useConfirm';
-import { useUrlState } from '@/shared/hooks';
+import { useUrlState, useDebounce, usePatchUrlState } from '@/shared/hooks';
+import { DateRangeControl, windowToDateRange, type DateWindow } from '../components/DateRangeControl';
 import {
   useUsageLogs,
   useUsageLogSummary,
@@ -24,22 +25,35 @@ import {
 export function UsageLogsPage() {
   const [page, setPage] = useUrlState('page', 1, Number);
   const [featureCode, setFeatureCode] = useUrlState('feature', '');
-  const [startDate, setStartDate] = useUrlState('start', '');
-  const [endDate, setEndDate] = useUrlState('end', '');
+  const [days] = useUrlState('days', '');
+  const [startDate] = useUrlState('start', '');
+  const [endDate] = useUrlState('end', '');
+  const [searchInput, setSearchInput] = useState('');
+  const search = useDebounce(searchInput, 400);
   const [exporting, setExporting] = useState(false);
   const apiToast = useApiToast();
   const confirm = useConfirm();
+  const patch = usePatchUrlState();
+
+  // 日期窗口:start+end(今天/自定义)优先,否则按 days 预设(默认近 7 天)。
+  const win: DateWindow = startDate && endDate ? { start: startDate, end: endDate } : { days: days ? Number(days) : 7 };
+  const setWin = (w: DateWindow) => {
+    if (w.start && w.end) patch({ days: null, start: w.start, end: w.end, page: '1' });
+    else patch({ days: String(w.days ?? 7), start: null, end: null, page: '1' });
+  };
+  const range = windowToDateRange(win);
 
   const params = {
     page,
     page_size: 30,
     feature_code: featureCode || undefined,
-    start_date: startDate || undefined,
-    end_date: endDate || undefined,
+    keyword: search || undefined,
+    start_date: range.start,
+    end_date: range.end,
   };
 
   const { data, isLoading } = useUsageLogs(params);
-  const { data: summary } = useUsageLogSummary({ start_date: startDate || undefined, end_date: endDate || undefined });
+  const { data: summary } = useUsageLogSummary({ start_date: range.start, end_date: range.end });
   const { data: config } = useUsageLogConfig();
   const updateConfig = useUpdateUsageLogConfig();
   const cleanup = useTriggerUsageLogCleanup();
@@ -121,7 +135,7 @@ export function UsageLogsPage() {
           icon={<Activity />}
           label="总调用次数"
           value={(summary?.total_calls ?? 0).toLocaleString()}
-          hint={startDate || endDate ? `${startDate || '起始'} → ${endDate || '至今'}` : '全部时间'}
+          hint={`${range.start} → ${range.end}`}
         />
         <StatCard
           icon={<Users />}
@@ -148,6 +162,18 @@ export function UsageLogsPage() {
 
       <section className="mb-4 flex flex-wrap items-end gap-2 rounded-md border border-border-soft bg-surface-1 p-3">
         <div className="space-y-1">
+          <Label className="text-2xs text-faint tracking-[0.12em]">用户 / 关键词</Label>
+          <Input
+            placeholder="ID / 用户名 / 邮箱 / 手机号 / 路径"
+            value={searchInput}
+            onChange={(e) => {
+              setSearchInput(e.target.value);
+              setPage(1);
+            }}
+            className="h-8 w-56"
+          />
+        </div>
+        <div className="space-y-1">
           <Label className="text-2xs text-faint tracking-[0.12em]">功能代码</Label>
           <Input
             placeholder="search / chat / analysis"
@@ -160,21 +186,16 @@ export function UsageLogsPage() {
           />
         </div>
         <div className="space-y-1">
-          <Label className="text-2xs text-faint tracking-[0.12em]">开始</Label>
-          <Input type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setPage(1); }} className="h-8 w-40" />
+          <Label className="text-2xs text-faint tracking-[0.12em]">日期</Label>
+          <DateRangeControl value={win} onChange={setWin} />
         </div>
-        <div className="space-y-1">
-          <Label className="text-2xs text-faint tracking-[0.12em]">结束</Label>
-          <Input type="date" value={endDate} onChange={(e) => { setEndDate(e.target.value); setPage(1); }} className="h-8 w-40" />
-        </div>
-        {(featureCode || startDate || endDate) && (
+        {(featureCode || searchInput) && (
           <Button
             size="sm"
             variant="ghost"
             onClick={() => {
               setFeatureCode('');
-              setStartDate('');
-              setEndDate('');
+              setSearchInput('');
               setPage(1);
             }}
           >

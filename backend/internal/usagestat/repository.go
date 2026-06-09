@@ -55,17 +55,9 @@ type FunnelStage struct {
 	Events      int64  `json:"events"`      // 该阶段事件总数
 }
 
-func cutoff(days int) time.Time {
-	if days <= 0 {
-		days = 30
-	}
-	return time.Now().AddDate(0, 0, -days)
-}
-
-// Totals 总览数字 (窗口内)
-func (r *Repository) Totals(days int) (total, today, uniqueUsers, uniqueAnon int64, err error) {
-	c := cutoff(days)
-	base := r.db.Model(&UsageEvent{}).Where("created_at >= ?", c)
+// Totals 总览数字 (窗口 [from,to] 内)
+func (r *Repository) Totals(from, to time.Time) (total, today, uniqueUsers, uniqueAnon int64, err error) {
+	base := r.db.Model(&UsageEvent{}).Where("created_at BETWEEN ? AND ?", from, to)
 
 	if err = base.Session(&gorm.Session{}).Count(&total).Error; err != nil {
 		return
@@ -79,14 +71,14 @@ func (r *Repository) Totals(days int) (total, today, uniqueUsers, uniqueAnon int
 		return
 	}
 	if err = r.db.Model(&UsageEvent{}).
-		Where("created_at >= ? AND user_id IS NOT NULL", c).
+		Where("created_at BETWEEN ? AND ? AND user_id IS NOT NULL", from, to).
 		Distinct("user_id").Count(&uniqueUsers).Error; err != nil {
 		return
 	}
 	// 独立匿名访客 = 仅未登录(user_id 为空)的事件按 anon_id 去重; 登录用户即便也带
 	// anon_id 也不算进匿名, 避免和 uniqueUsers 重叠。
 	if err = r.db.Model(&UsageEvent{}).
-		Where("created_at >= ? AND user_id IS NULL AND anon_id <> ''", c).
+		Where("created_at BETWEEN ? AND ? AND user_id IS NULL AND anon_id <> ''", from, to).
 		Distinct("anon_id").Count(&uniqueAnon).Error; err != nil {
 		return
 	}
@@ -94,13 +86,13 @@ func (r *Repository) Totals(days int) (total, today, uniqueUsers, uniqueAnon int
 }
 
 // ByFeature 按功能聚合 (count DESC)
-func (r *Repository) ByFeature(days int) ([]FeatureCount, error) {
+func (r *Repository) ByFeature(from, to time.Time) ([]FeatureCount, error) {
 	var out []FeatureCount
 	err := r.db.Model(&UsageEvent{}).
 		Select("feature, COUNT(*) AS count, " +
 			"COUNT(DISTINCT user_id) AS unique_users, " +
 			"COUNT(DISTINCT CASE WHEN user_id IS NULL AND anon_id <> '' THEN anon_id END) AS unique_anon").
-		Where("created_at >= ?", cutoff(days)).
+		Where("created_at BETWEEN ? AND ?", from, to).
 		Group("feature").
 		Order("count DESC").
 		Scan(&out).Error
@@ -108,11 +100,11 @@ func (r *Repository) ByFeature(days int) ([]FeatureCount, error) {
 }
 
 // ByAction 某功能内按动作聚合 (count DESC); feature 为空则跨全部功能
-func (r *Repository) ByAction(days int, feature string) ([]ActionCount, error) {
+func (r *Repository) ByAction(from, to time.Time, feature string) ([]ActionCount, error) {
 	var out []ActionCount
 	q := r.db.Model(&UsageEvent{}).
 		Select("feature, action, COUNT(*) AS count").
-		Where("created_at >= ?", cutoff(days))
+		Where("created_at BETWEEN ? AND ?", from, to)
 	if feature != "" {
 		q = q.Where("feature = ?", feature)
 	}
@@ -121,7 +113,7 @@ func (r *Repository) ByAction(days int, feature string) ([]ActionCount, error) {
 }
 
 // ByDay 按日聚合 (升序; 缺失日期由 service 补 0)
-func (r *Repository) ByDay(days int) ([]DayCount, error) {
+func (r *Repository) ByDay(from, to time.Time) ([]DayCount, error) {
 	var out []DayCount
 	// 用 DATE_FORMAT 而非 DATE(): DSN 开了 parseTime, DATE() 会被驱动解析成 time.Time
 	// 再塞进 string 字段, 变成带时区后缀的 "2006-01-02T00:00:00+08:00", 和 Go 侧
@@ -129,7 +121,7 @@ func (r *Repository) ByDay(days int) ([]DayCount, error) {
 	// 格式可控 (旧 usagelog 也踩过这个坑, 见其 "DATE_FORMAT 确保格式一致" 注释)。
 	err := r.db.Model(&UsageEvent{}).
 		Select("DATE_FORMAT(created_at, '%Y-%m-%d') AS date, COUNT(*) AS count").
-		Where("created_at >= ?", cutoff(days)).
+		Where("created_at BETWEEN ? AND ?", from, to).
 		Group("DATE_FORMAT(created_at, '%Y-%m-%d')").
 		Order("date ASC").
 		Scan(&out).Error
@@ -137,11 +129,11 @@ func (r *Repository) ByDay(days int) ([]DayCount, error) {
 }
 
 // PeerReviewFunnel 审稿连贯性漏斗 —— 每个 action 阶段的去重 submission 数。
-func (r *Repository) PeerReviewFunnel(days int) ([]FunnelStage, error) {
+func (r *Repository) PeerReviewFunnel(from, to time.Time) ([]FunnelStage, error) {
 	var out []FunnelStage
 	err := r.db.Model(&UsageEvent{}).
 		Select("action, COUNT(DISTINCT correlation_id) AS submissions, COUNT(*) AS events").
-		Where("feature = ? AND created_at >= ? AND correlation_id <> ''", FeaturePeerReview, cutoff(days)).
+		Where("feature = ? AND created_at BETWEEN ? AND ? AND correlation_id <> ''", FeaturePeerReview, from, to).
 		Group("action").
 		Scan(&out).Error
 	return out, err
@@ -149,7 +141,8 @@ func (r *Repository) PeerReviewFunnel(days int) ([]FunnelStage, error) {
 
 // ListFilter 事件列表过滤条件
 type ListFilter struct {
-	Days          int
+	From          time.Time
+	To            time.Time
 	Feature       string
 	Action        string
 	CorrelationID string
@@ -158,7 +151,7 @@ type ListFilter struct {
 
 // ListEvents 分页拉原始事件 (admin 下钻)
 func (r *Repository) ListEvents(f ListFilter, limit, offset int) ([]UsageEvent, int64, error) {
-	q := r.db.Model(&UsageEvent{}).Where("created_at >= ?", cutoff(f.Days))
+	q := r.db.Model(&UsageEvent{}).Where("created_at BETWEEN ? AND ?", f.From, f.To)
 	if f.Feature != "" {
 		q = q.Where("feature = ?", f.Feature)
 	}

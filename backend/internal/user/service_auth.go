@@ -306,29 +306,14 @@ func (s *Service) SendVerificationCode(ctx context.Context, email, purpose strin
 			refCode := utils.SecureRandomString(3, "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 			subject := fmt.Sprintf("Scholay %s [Ref: %s]", purposeText, refCode)
 
-			// Add timestamp to body to avoid content deduplication
+			// 时间戳进正文,避免邮件服务按内容去重
 			currentTime := time.Now().Format("2006-01-02 15:04:05")
-			body := fmt.Sprintf(`
-			<html>
-			<body style="font-family: Arial, sans-serif; padding: 20px;">
-				<h2 style="color: #2563eb;">Scholay %s</h2>
-				<p>您的验证码是：</p>
-				<div style="background: #f1f5f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
-					<h1 style="color: #1e293b; letter-spacing: 8px; text-align: center; margin: 0;">%s</h1>
-				</div>
-				<p style="color: #64748b; font-size: 0.875rem;">
-					验证码将在 <strong>10 分钟</strong> 后失效，请尽快使用。
-				</p>
-				<p style="color: #94a3b8; font-size: 0.75rem;">
-					发送时间: %s
-				</p>
-				<hr style="border: 1px solid #e2e8f0; margin: 20px 0;">
-				<p style="color: #94a3b8; font-size: 0.75rem;">
-					这是一封自动发送的邮件，请勿直接回复。如果您没有请求此验证码，请忽略此邮件。
-				</p>
-			</body>
-			</html>
-			`, purposeText, code, currentTime)
+			body := utils.RenderBrandedEmail(utils.EmailContent{
+				Title: purposeText,
+				Intro: "请在页面输入以下验证码以完成操作:",
+				Code:  code,
+				Note:  fmt.Sprintf("验证码 10 分钟内有效,请尽快使用。发送时间 %s。如果这不是您本人的操作,请忽略本邮件。", currentTime),
+			})
 
 			config := utils.EmailConfig{
 				SMTPHost:     emailConfig.SMTPHost,

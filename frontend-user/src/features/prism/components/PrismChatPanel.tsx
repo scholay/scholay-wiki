@@ -223,10 +223,10 @@ function ChangesetCard({
         </div>
         {awaiting ? (
           <div className="flex shrink-0 items-center gap-1">
-            <Button size="sm" variant="ghost" className="h-7 px-2 text-faint hover:text-brand-red" onClick={onReject}>
+            <Button size="sm" variant="ghost" data-testid="prism-reject" className="h-7 px-2 text-faint hover:text-brand-red" onClick={onReject}>
               丢弃
             </Button>
-            <Button size="sm" className="h-7 px-2.5" onClick={onApply}>
+            <Button size="sm" data-testid="prism-apply" className="h-7 px-2.5" onClick={onApply}>
               <Check className="size-3.5" /> 应用
             </Button>
           </div>

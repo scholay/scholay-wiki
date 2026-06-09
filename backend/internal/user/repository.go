@@ -10,7 +10,6 @@ package user
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"scholar-backend/internal/common/utils"
@@ -335,20 +334,9 @@ func (r *Repository) GetUserListWithFilter(offset, limit int, f UserListFilter) 
 		query = query.Where("created_at <= ?", f.CreatedTo+" 23:59:59")
 	}
 
-	if f.Q != "" {
-		// 转义 LIKE 元字符；上限 100 字符防滥用
-		raw := f.Q
-		if len(raw) > 100 {
-			raw = raw[:100]
-		}
-		escaped := strings.ReplaceAll(raw, `\`, `\\`)
-		escaped = strings.ReplaceAll(escaped, "%", `\%`)
-		escaped = strings.ReplaceAll(escaped, "_", `\_`)
-		like := "%" + escaped + "%"
-		query = query.Where(
-			"username LIKE ? ESCAPE '\\\\' OR email LIKE ? ESCAPE '\\\\' OR phone LIKE ? ESCAPE '\\\\'",
-			like, like, like,
-		)
+	// 关键词:ID 精确(纯数字)+ username/email/phone 模糊。全站统一口径(utils.UserSearchClause)。
+	if sql, args := utils.UserSearchClause(f.Q, "id", "username", "email", "phone"); sql != "" {
+		query = query.Where(sql, args...)
 	}
 
 	var total int64
@@ -452,14 +440,8 @@ func (r *Repository) FindAuthProviderByUnionID(provider, unionID string) (*UserA
 // 使用原生 SQL 操作关联表，避免跨包导入 subscription 模型
 func (r *Repository) DeleteUser(userID uint) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
-		// 1. 删除使用配额（外键未配置级联）
-		if err := tx.Exec("DELETE FROM usage_quotas WHERE user_id = ?", userID).Error; err != nil {
-			return fmt.Errorf("failed to delete usage quotas: %w", err)
-		}
-
-		// 2. 删除用户（以下通过外键 ON DELETE CASCADE 自动级联删除）：
+		// 删除用户（以下通过外键 ON DELETE CASCADE 自动级联删除）：
 		//    - user_auth_providers
-		//    - user_subscriptions
 		//    - orders → payment_transactions
 		if err := tx.Delete(&User{}, userID).Error; err != nil {
 			return fmt.Errorf("failed to delete user: %w", err)

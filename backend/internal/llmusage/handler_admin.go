@@ -9,6 +9,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"scholar-backend/internal/common/utils"
@@ -48,6 +49,7 @@ func parseStatsFilter(c *gin.Context) StatsFilter {
 			}
 		}
 	}
+	f.Keyword = strings.TrimSpace(c.Query("keyword"))
 	if c.Query("anon") == "1" {
 		f.AnonOnly = true
 	} else if uidStr := c.Query("user_id"); uidStr != "" {
@@ -59,9 +61,22 @@ func parseStatsFilter(c *gin.Context) StatsFilter {
 	return f
 }
 
+// statsFilter 解析过滤条件,并把「用户关键词」(ID/用户名/邮箱/手机号)解析成 user_id 集合。
+func (h *AdminHandler) statsFilter(c *gin.Context) StatsFilter {
+	f := parseStatsFilter(c)
+	if f.Keyword != "" && !f.AnonOnly {
+		ids := h.service.ResolveUserIDs(f.Keyword, 500)
+		if len(ids) == 0 {
+			ids = []uint{0} // 关键词无命中 → 空结果(0 不是合法 user_id)
+		}
+		f.UserIDs = ids
+	}
+	return f
+}
+
 // GetSummary GET /admin/llm-token-usage/summary —— KPI + 趋势 + 多维拆分 + top 用户(一次拉全)。
 func (h *AdminHandler) GetSummary(c *gin.Context) {
-	res, err := h.service.GetOverview(parseStatsFilter(c))
+	res, err := h.service.GetOverview(h.statsFilter(c))
 	if err != nil {
 		utils.ServerError(c, "获取 token 用量统计失败")
 		return
@@ -74,7 +89,7 @@ func (h *AdminHandler) ListLogs(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "30"))
 	sortBy := c.DefaultQuery("sort", "created_at")
-	items, total, err := h.service.GetLogs(parseStatsFilter(c), page, pageSize, sortBy)
+	items, total, err := h.service.GetLogs(h.statsFilter(c), page, pageSize, sortBy)
 	if err != nil {
 		utils.ServerError(c, "获取调用明细失败")
 		return
@@ -98,7 +113,7 @@ func (h *AdminHandler) GetFacets(c *gin.Context) {
 func (h *AdminHandler) ExportCSV(c *gin.Context) {
 	// 走 ExportLogs(非分页, 受 exportRowCap 约束); 不要复用 GetLogs —— 它把 pageSize>100
 	// 夹成 30, 会把导出静默截断到 30 行。
-	items, err := h.service.ExportLogs(parseStatsFilter(c), c.DefaultQuery("sort", "created_at"))
+	items, err := h.service.ExportLogs(h.statsFilter(c), c.DefaultQuery("sort", "created_at"))
 	if err != nil {
 		utils.ServerError(c, "导出失败")
 		return

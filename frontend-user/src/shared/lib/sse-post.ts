@@ -20,6 +20,7 @@
  */
 
 import { getAuthToken, notifyAuthLost } from '@/shared/lib/auth-token';
+import { notifyQuotaExceeded } from '@/shared/lib/quota-events';
 
 export interface ParsedSseEvent {
   /** SSE `event:` 行的值;无 `event:` 行时为空串(标准 SSE 行为) */
@@ -73,14 +74,17 @@ export async function streamSsePost({
   });
 
   if (!res.ok) {
-    // SSE 绕过 axios 拦截器 —— 认证失效要手动汇入统一出口(清 token + 弹登录框)。
+    // SSE 绕过 axios 拦截器 —— 认证失效 / 额度耗尽 要手动汇入统一出口。
     if (res.status === 401) notifyAuthLost();
-    // 非 SSE 错误 —— 后端走 utils.BadRequest 返回 JSON,尽量取 message
+    // 非 SSE 错误 —— 后端走 utils.Error 返回 JSON,尽量取 message + code
     let msg = `请求失败 (${res.status})`;
     try {
       const j = await res.json();
       if (j && typeof j === 'object' && 'message' in j && j.message) {
         msg = String(j.message);
+      }
+      if (j && typeof j === 'object' && (j as { code?: number }).code === 6010) {
+        notifyQuotaExceeded({ message: msg });
       }
     } catch {
       /* ignore parse failure */

@@ -18,6 +18,7 @@ import {
   truncateToLastComplete,
   type AgentStreamMessage,
 } from '@/shared/lib/agent-stream';
+import { notifyQuotaExceeded, notifyBillingChanged } from '@/shared/lib/quota-events';
 
 /** 后端 ws-ticket 端点响应:sessionId 一并返回方便兜底,wsToken 是 30s 一次性 ticket。 */
 export interface AgentWSTicket {
@@ -243,6 +244,16 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
           // resync_end: 无操作
           return;
         }
+        // 额度耗尽帧:agent 桥接以 error/quota_exceeded 下发 → 弹全局重置弹窗(不进 messages)。
+        if (
+          evt.type === 'error' &&
+          (evt as { code?: string }).code === 'quota_exceeded'
+        ) {
+          notifyQuotaExceeded({ message: (evt as { message?: string }).message });
+          return;
+        }
+        // 一轮 AI 结束 → 用量已落账,广播刷新额度(触发过半/将尽阈值 toastr)。
+        if (evt.type === 'message_complete') notifyBillingChanged();
         // 内容帧:入缓冲,下一动画帧合并 flush。
         pendingEvents.push(evt);
         scheduleFlush();

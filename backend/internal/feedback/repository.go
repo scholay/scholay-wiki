@@ -11,6 +11,8 @@ import (
 	"database/sql"
 	"time"
 
+	"scholar-backend/internal/common/utils"
+
 	"gorm.io/gorm"
 )
 
@@ -77,9 +79,15 @@ func (r *Repository) List(req *FeedbackListRequest) (*FeedbackListResponse, erro
 		query = query.Where("email LIKE ?", "%"+req.Email+"%")
 	}
 
-	// 关键词搜索（搜索内容和邮箱）
+	// 关键词搜索:内容 + 用户(ID 精确 + 用户名/邮箱 模糊)。feedbacks 已冗余 username/email/user_id,无需 JOIN。
 	if req.Keyword != "" {
-		query = query.Where("content LIKE ? OR email LIKE ?", "%"+req.Keyword+"%", "%"+req.Keyword+"%")
+		clause := "content LIKE ?"
+		args := []any{"%" + req.Keyword + "%"}
+		if sql, uargs := utils.UserSearchClause(req.Keyword, "user_id", "username", "email", ""); sql != "" {
+			clause += " OR " + sql
+			args = append(args, uargs...)
+		}
+		query = query.Where(clause, args...)
 	}
 
 	// 日期范围筛选

@@ -1,6 +1,8 @@
 // ============================================================================
-// vip.Service —— 等级判定 + 每日限额(Redis 计数)+ 兑换码生成/兑换 + 会员状态。
-// 限额计数走 Redis(同 agentbridge 日额度风格, fail-open);兑换/发码落 DB。
+// vip.Service —— 会员等级判定 + 统一 token 额度闸门 + 经费钱包 + 兑换码/订阅。
+//
+// 等级判定(EffectiveTier)与兑换码留在本文件;每日 token 额度在 quota.go;
+// 经费钱包在 wallet.go;单行计费配置在 config.go。Service 聚合 cfg/wallet 供各处用。
 // ============================================================================
 
 package vip
@@ -8,21 +10,73 @@ package vip
 import (
 	"context"
 	"crypto/rand"
-	"fmt"
 	"log/slog"
 	"strings"
 	"time"
 
-	"scholar-backend/internal/common/cache"
+	"gorm.io/gorm"
 )
 
 type Service struct {
-	repo *Repository
+	repo     *Repository
+	cfg      *ConfigService
+	wallet   *WalletService
+	order    *OrderService
+	msg      MessageSender       // 站内信(bootstrap 注入, 可 nil)
+	emailCfg EmailConfigProvider // 邮件配置(bootstrap 注入, 可 nil)
 }
 
-func NewService(repo *Repository) *Service { return &Service{repo: repo} }
+// NewService 构造会员/计费服务(含配置缓存 + 钱包 + 订单)。
+func NewService(repo *Repository) *Service {
+	s := &Service{
+		repo:   repo,
+		cfg:    NewConfigService(repo),
+		wallet: NewWalletService(repo.DB()),
+	}
+	s.order = newOrderService(s)
+	return s
+}
 
-// EffectiveTier 返回**当前生效**等级:pro 且未过期 → pro;否则 free(到期自动回落, 无需定时任务)。
+// Config / Wallet / Order 暴露给 handler / 支付回调。
+func (s *Service) Config() *ConfigService { return s.cfg }
+func (s *Service) Wallet() *WalletService { return s.wallet }
+func (s *Service) Order() *OrderService   { return s.order }
+
+// PaymentMethods 返回当前可用的支付渠道(按 admin 配置表里有无 is_active 配置决定)。
+// 充值前端据此决定显示哪些支付方式(再叠加 dev 的测试支付)。
+func (s *Service) PaymentMethods() (alipay bool, wechat bool) {
+	var a, w int64
+	s.repo.DB().Table("alipay_configs").Where("is_active = ?", true).Count(&a)
+	s.repo.DB().Table("wechat_pay_configs").Where("is_active = ?", true).Count(&w)
+	return a > 0, w > 0
+}
+
+// SubQuote 订阅报价(给前端弹窗显示动作 + 应付金额 + 经费)。
+type SubQuote struct {
+	Action        string `json:"action"`       // new | renew | upgrade
+	Tier          string `json:"tier"`
+	AmountCents   int    `json:"amount_cents"` // 本次应付(分)
+	Credits       int    `json:"credits"`      // 本单赠送经费
+	Deferred      bool   `json:"deferred"`     // 经费延后生效(续期=true)
+	CurrentTier   string `json:"current_tier"` // 用户当前生效档
+	RemainingDays int    `json:"remaining_days"`
+}
+
+// QuoteSubscription 给前端算「订阅/续期/升级」的动作与应付金额(不建单)。降级回 ErrNoDowngrade。
+func (s *Service) QuoteSubscription(userID uint, target string) (*SubQuote, error) {
+	now := time.Now()
+	uv, _ := s.repo.GetUserVIP(userID)
+	sp, err := computeSubscription(uv, target, s.cfg.Get(), now)
+	if err != nil {
+		return nil, err
+	}
+	return &SubQuote{
+		Action: sp.Action, Tier: sp.Tier, AmountCents: sp.AmountCents, Credits: sp.Credits,
+		Deferred: sp.Deferred, CurrentTier: effectiveTier(uv, now), RemainingDays: sp.RemainingDays,
+	}, nil
+}
+
+// EffectiveTier 返回**当前生效**等级:pro/max 且未过期 → 该档;否则 free(到期自动回落, 无定时任务)。
 func (s *Service) EffectiveTier(userID uint) string {
 	uv, err := s.repo.GetUserVIP(userID)
 	if err != nil {
@@ -33,181 +87,163 @@ func (s *Service) EffectiveTier(userID uint) string {
 }
 
 func effectiveTier(uv UserVIP, now time.Time) string {
-	if uv.VIPTier == TierPro && (uv.VIPExpiresAt == nil || uv.VIPExpiresAt.After(now)) {
-		return TierPro
+	if isPaidTier(uv.VIPTier) && (uv.VIPExpiresAt == nil || uv.VIPExpiresAt.After(now)) {
+		return uv.VIPTier
 	}
 	return TierFree
 }
 
-func dailyKey(feature string, userID uint) string {
-	// 与容器时区(北京)一致, 直接 time.Now();不做 UTC 转换(项目铁律)。
-	return fmt.Sprintf("vip:quota:%s:%d:%s", feature, userID, time.Now().Format("20060102"))
-}
-
-// CheckAndConsume 在一次受限功能调用前调:按用户当前等级取该功能的每日上限, Redis INCR 计数,
-// 超限返回 vip.ErrQuotaExceeded(带友好文案)。limit<=0 不限;Redis 不可用 fail-open(放行)。
-// 含 retry 的功能每次调用各算一次(与 total_requests / 现有日额度口径一致)。
-func (s *Service) CheckAndConsume(ctx context.Context, userID uint, feature string) error {
-	if userID == 0 {
-		return nil // 无登录用户(理论上这些功能都已强制登录)不计, 安全放行
+// applyMembershipGrant —— 单调地把「授予 grantTier 续 days 天」叠加到当前会员状态上(纯函数)。
+// 规则:① 绝不降级(取当前生效等级与 grantTier 中更高的);② 绝不截断(在期则从现到期日顺延)。
+// 返回(新等级, 新到期)。被 兑换码 / admin 直授 / 订阅开通 复用。
+func applyMembershipGrant(cur UserVIP, grantTier string, days int, now time.Time) (string, time.Time) {
+	curTier := effectiveTier(cur, now)
+	base := now
+	if isPaidTier(curTier) && cur.VIPExpiresAt != nil && cur.VIPExpiresAt.After(now) {
+		base = *cur.VIPExpiresAt
 	}
-	tier := s.EffectiveTier(userID)
-	limit := limitFor(feature, tier)
-	if limit <= 0 {
-		return nil // 不限额
+	newTier := grantTier
+	if tierRank(curTier) > tierRank(grantTier) {
+		newTier = curTier // 不降级
 	}
-	rdb := cache.GetRedis()
-	if rdb == nil {
-		slog.Warn("vip: redis unavailable, quota fail-open", "feature", feature, "user_id", userID)
-		return nil
-	}
-	key := dailyKey(feature, userID)
-	count, err := rdb.Incr(ctx, key).Result()
-	if err != nil {
-		slog.Warn("vip: redis incr failed, quota fail-open", "feature", feature, "user_id", userID, "err", err)
-		return nil
-	}
-	if count == 1 {
-		if e := rdb.Expire(ctx, key, 25*time.Hour).Err(); e != nil {
-			slog.Warn("vip: redis expire failed", "feature", feature, "user_id", userID, "err", e)
-		}
-	}
-	if count > int64(limit) {
-		return NewQuotaError(quotaMessage(feature, tier, limit))
-	}
-	return nil
-}
-
-// Refund 退还一次已扣的配额(CheckAndConsume 后,本次工作失败时回滚计数)。
-// best-effort:Redis 不可用就算了;DECR 不低于 0(并发下兜底)。不重置 TTL。
-func (s *Service) Refund(ctx context.Context, userID uint, feature string) {
-	if userID == 0 {
-		return
-	}
-	rdb := cache.GetRedis()
-	if rdb == nil {
-		return
-	}
-	key := dailyKey(feature, userID)
-	v, err := rdb.Decr(ctx, key).Result()
-	if err != nil {
-		slog.Warn("vip: refund decr failed", "feature", feature, "user_id", userID, "err", err)
-		return
-	}
-	if v < 0 {
-		// 不应出现(refund 多于 consume);兜底夹到 0,保留原 TTL 由后续 INCR 续。
-		if e := rdb.Set(ctx, key, 0, 25*time.Hour).Err(); e != nil {
-			slog.Warn("vip: refund floor failed", "feature", feature, "user_id", userID, "err", e)
-		}
-	}
-}
-
-func quotaMessage(feature, tier string, limit int) string {
-	if tier == TierFree {
-		return fmt.Sprintf("今日「%s」免费额度已用完(%d 次/天),升级专业版可大幅提升额度。", featureName(feature), limit)
-	}
-	return fmt.Sprintf("今日「%s」额度已用完(%d 次/天),请明天再试。", featureName(feature), limit)
-}
-
-// ─── 会员状态(给前端「我的会员」页)─────────────────────────────────────────
-
-// FeatureUsage 单个功能的今日用量。
-type FeatureUsage struct {
-	Feature   string `json:"feature"`
-	Label     string `json:"label"`
-	Limit     int    `json:"limit"`     // <=0 表示不限
-	Used      int    `json:"used"`      // 今日已用
-	Remaining int    `json:"remaining"` // 剩余(不限时为 -1)
-}
-
-// Status 会员状态总览。
-type Status struct {
-	Tier      string         `json:"tier"`       // 当前生效等级 free/pro
-	ExpiresAt *time.Time     `json:"expires_at"` // pro 到期(free 为 null)
-	Features  []FeatureUsage `json:"features"`   // 各受限功能今日用量
-}
-
-// GetStatus 拼装会员状态:等级 + 到期 + 各功能今日 used/limit/remaining。
-func (s *Service) GetStatus(ctx context.Context, userID uint) (*Status, error) {
-	uv, err := s.repo.GetUserVIP(userID)
-	if err != nil {
-		return nil, err
-	}
-	now := time.Now()
-	tier := effectiveTier(uv, now)
-	st := &Status{Tier: tier, Features: make([]FeatureUsage, 0, len(GatedFeatures()))}
-	if tier == TierPro {
-		st.ExpiresAt = uv.VIPExpiresAt
-	}
-	rdb := cache.GetRedis()
-	for _, f := range GatedFeatures() {
-		limit := limitFor(f, tier)
-		used := 0
-		if rdb != nil {
-			if v, e := rdb.Get(ctx, dailyKey(f, userID)).Int(); e == nil {
-				used = v
-			}
-		}
-		remaining := -1
-		if limit > 0 {
-			remaining = limit - used
-			if remaining < 0 {
-				remaining = 0
-			}
-		}
-		st.Features = append(st.Features, FeatureUsage{
-			Feature: f, Label: featureName(f), Limit: limit, Used: used, Remaining: remaining,
-		})
-	}
-	return st, nil
+	return newTier, base.AddDate(0, 0, days)
 }
 
 // ─── 兑换 / 发码 ─────────────────────────────────────────────────────────
 
-// RedeemResult 兑换成功返回。
+// RedeemResult 兑换成功返回(tier 码:返回等级 + 到期;credit 码:返回到账经费)。
 type RedeemResult struct {
-	Tier      string    `json:"tier"`
-	ExpiresAt time.Time `json:"expires_at"`
+	Kind      string     `json:"kind"`                 // tier | credit
+	Tier      string     `json:"tier,omitempty"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	Credits   int        `json:"credits,omitempty"`
+	CreditKind string    `json:"credit_kind,omitempty"` // temp | perm
 }
 
-// Redeem 用户兑换:归一化码 → 事务里校验+授予。错误是 vip.ErrCode*（handler 翻文案）。
+// Redeem 用户兑换:归一化码 → 事务里校验 + 授予(会员 or 经费)。成功后发站内信 + 邮件通知。
 func (s *Service) Redeem(ctx context.Context, userID uint, rawCode string) (*RedeemResult, error) {
 	code := normalizeCode(rawCode)
 	if code == "" {
 		return nil, ErrCodeNotFound
 	}
-	tier, expires, err := s.repo.Redeem(userID, code, time.Now())
+	res, err := s.repo.Redeem(userID, code, time.Now())
 	if err != nil {
 		return nil, err
 	}
-	return &RedeemResult{Tier: tier, ExpiresAt: expires}, nil
+	s.notifyRedeem(userID, res)
+	return res, nil
 }
 
-// GenerateCodes 管理员批量生成兑换码, 返回生成的码字符串。count 限 1..1000。
-func (s *Service) GenerateCodes(count int, tier string, grantDays int, validUntil *time.Time, note string, createdBy *uint) ([]string, error) {
+// CodePreview 兑换前预览(给确认弹窗):码有效时返回将授予的内容;无效则方法返回 error
+// (handler 翻成「无效/过期/已用完/已兑换过」等失败态)。
+type CodePreview struct {
+	GrantKind    string     `json:"grant_kind"` // tier | credit
+	GrantTier    string     `json:"grant_tier,omitempty"`
+	GrantDays    int        `json:"grant_days,omitempty"`
+	GrantCredits int        `json:"grant_credits,omitempty"`
+	CreditKind   string     `json:"credit_kind,omitempty"`
+	Note         string     `json:"note,omitempty"`
+	ValidUntil   *time.Time `json:"valid_until,omitempty"`
+	UsesLeft     int        `json:"uses_left"` // 剩余可兑次数
+}
+
+// PreviewCode 只读校验兑换码(不兑换), 供确认弹窗展示「对应活动 / 兑换内容」。
+// 校验顺序与 Redeem 一致:不存在 → 过期 → 用完 → 本人已兑换。
+func (s *Service) PreviewCode(ctx context.Context, userID uint, rawCode string) (*CodePreview, error) {
+	code := normalizeCode(rawCode)
+	if code == "" {
+		return nil, ErrCodeNotFound
+	}
+	rc, err := s.repo.GetCodeByCode(code)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now()
+	if rc.RevokedAt != nil {
+		return nil, ErrCodeRevoked
+	}
+	if rc.ValidUntil != nil && rc.ValidUntil.Before(now) {
+		return nil, ErrCodeExpired
+	}
+	maxUses := rc.MaxUses
+	if maxUses < 1 {
+		maxUses = 1
+	}
+	if rc.UsedCount >= maxUses {
+		return nil, ErrCodeExhausted
+	}
+	if done, err := s.repo.HasUserRedeemed(rc.ID, userID); err != nil {
+		return nil, err
+	} else if done {
+		return nil, ErrCodeAlreadyRedeemed
+	}
+	return &CodePreview{
+		GrantKind: rc.GrantKind, GrantTier: rc.GrantTier, GrantDays: rc.GrantDays,
+		GrantCredits: rc.GrantCredits, CreditKind: rc.CreditKind,
+		Note: rc.Note, ValidUntil: rc.ValidUntil, UsesLeft: maxUses - rc.UsedCount,
+	}, nil
+}
+
+// GenerateCodes 管理员批量生成兑换码(tier 码:发会员;credit 码:发经费), 返回生成的码字符串。
+func (s *Service) GenerateCodes(in GenerateCodesInput, createdBy *uint) ([]string, error) {
+	count := in.Count
 	if count < 1 {
 		count = 1
 	}
 	if count > 1000 {
 		count = 1000
 	}
-	// 兑换码只授予 pro —— 不允许生成 free 码(否则被在期 pro 用户兑换会触发降级语义, 无意义)。
-	tier = TierPro
+	kind := in.GrantKind
+	if kind != GrantKindCredit {
+		kind = GrantKindTier
+	}
+	tier := in.Tier
+	if kind == GrantKindTier {
+		// tier 码默认 pro;只允许 pro/max(不发 free 码)。
+		if tier != TierMax {
+			tier = TierPro
+		}
+	}
+	grantDays := in.GrantDays
 	if grantDays <= 0 {
 		grantDays = 30
 	}
+	creditKind := in.CreditKind
+	if creditKind != CreditKindPerm {
+		creditKind = CreditKindTemp
+	}
+	creditValidity := in.CreditValidityDays
+	if creditValidity <= 0 {
+		creditValidity = 30
+	}
+	// 兑换次数上限:默认 1, 最多 100。
+	maxUses := in.MaxUses
+	if maxUses < 1 {
+		maxUses = 1
+	}
+	if maxUses > 100 {
+		maxUses = 100
+	}
+	// 码有效期窗口:默认 7 天, 最长 30 天。valid_until = now + validDays(发码时一次性算定)。
+	validDays := in.ValidDays
+	if validDays < 1 {
+		validDays = 7
+	}
+	if validDays > 30 {
+		validDays = 30
+	}
+	validUntil := time.Now().AddDate(0, 0, validDays)
 	codes := make([]RedemptionCode, 0, count)
 	out := make([]string, 0, count)
 	seen := make(map[string]struct{}, count)
 	for len(out) < count {
-		c, err := randomCode(12)
+		c, err := randomGiftCode()
 		if err != nil {
 			return nil, err
 		}
 		if _, dup := seen[c]; dup {
 			continue
 		}
-		// DB 去重(极小概率撞已存在的码)。
 		if exists, err := s.repo.CodeExists(c); err != nil {
 			return nil, err
 		} else if exists {
@@ -215,43 +251,86 @@ func (s *Service) GenerateCodes(count int, tier string, grantDays int, validUnti
 		}
 		seen[c] = struct{}{}
 		out = append(out, c)
+		vu := validUntil
 		codes = append(codes, RedemptionCode{
-			Code: c, GrantTier: tier, GrantDays: grantDays, ValidUntil: validUntil, Note: note, CreatedBy: createdBy,
+			Code: c, GrantKind: kind, GrantTier: tier, GrantDays: grantDays,
+			GrantCredits: in.GrantCredits, CreditKind: creditKind, CreditValidityDays: creditValidity,
+			MaxUses: maxUses, ValidUntil: &vu, Note: in.Note, CreatedBy: createdBy,
 		})
 	}
 	if err := s.repo.CreateCodes(codes); err != nil {
 		return nil, err
 	}
-	slog.Info("vip: generated redemption codes", "count", len(out), "tier", tier, "grant_days", grantDays)
+	slog.Info("vip: generated redemption codes", "count", len(out), "kind", kind, "tier", tier)
 	return out, nil
 }
 
-// GrantToUser 管理员**直接**授予/续期会员(不走兑换码)。同等级未过期则顺延, 否则从 now 起算。
-// 返回新的到期时间。
+// GenerateCodesInput admin 发码入参。
+type GenerateCodesInput struct {
+	Count              int
+	GrantKind          string // tier | credit
+	Tier               string // tier 码:pro|max
+	GrantDays          int
+	GrantCredits       int    // credit 码:经费数
+	CreditKind         string // credit 码:temp|perm
+	CreditValidityDays int    // credit 码 temp 时有效天数
+	MaxUses            int    // 可兑换总次数(默认 1, 最多 100)
+	ValidDays          int    // 码有效期窗口天数(默认 7, 最长 30);valid_until = now + ValidDays
+	Note               string
+}
+
+// GrantToUser 管理员**直接**授予/续期会员(不走兑换码)。单调:不降级 + 在期顺延。返回新到期。
 func (s *Service) GrantToUser(userID uint, tier string, days int) (time.Time, error) {
-	if tier != TierPro && tier != TierFree {
+	if tier != TierPro && tier != TierMax {
 		tier = TierPro
 	}
 	if days <= 0 {
 		days = 30
 	}
-	now := time.Now()
 	uv, _ := s.repo.GetUserVIP(userID)
-	base := now
-	if uv.VIPTier == tier && uv.VIPExpiresAt != nil && uv.VIPExpiresAt.After(now) {
-		base = *uv.VIPExpiresAt
-	}
-	exp := base.AddDate(0, 0, days)
-	if err := s.repo.SetUserVIP(userID, tier, &exp); err != nil {
+	newTier, exp := applyMembershipGrant(uv, tier, days, time.Now())
+	if err := s.repo.SetUserVIP(userID, newTier, &exp); err != nil {
 		return time.Time{}, err
 	}
-	slog.Info("vip: admin granted membership", "user_id", userID, "tier", tier, "days", days)
+	slog.Info("vip: admin granted membership", "user_id", userID, "tier", newTier, "days", days)
 	return exp, nil
 }
 
-// RevokeUser 管理员取消某用户会员(回 free, 清到期)。
+// RevokeUser 管理员取消某用户会员(危险动作):会员立即过期(回 free + 清到期)
+// + 清零订阅赠送的临时经费(随会员的那部分),其他来源临时经费 + 永久经费不动。整体一个事务。
 func (s *Service) RevokeUser(userID uint) error {
-	return s.repo.SetUserVIP(userID, TierFree, nil)
+	err := s.repo.DB().Transaction(func(tx *gorm.DB) error {
+		// 1. 会员过期:tier=free, 清到期。rows=0 时显式查存在性(free→free 是合法 no-op)。
+		res := tx.Table("users").Where("id = ?", userID).
+			Updates(map[string]any{"vip_tier": TierFree, "vip_expires_at": nil})
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			var n int64
+			if err := tx.Table("users").Where("id = ?", userID).Count(&n).Error; err != nil {
+				return err
+			}
+			if n == 0 {
+				return ErrUserNotFound
+			}
+		}
+		// 2. 清零订阅赠送的临时经费(其他经费保留)。
+		return revokeSubscriptionCreditsInTx(tx, userID)
+	})
+	if err == nil {
+		slog.Info("vip: admin revoked membership + zeroed subscription credits", "user_id", userID)
+	}
+	return err
+}
+
+// SetCodeStatus 管理员停用 / 恢复兑换码(停用后不可再兑, 已兑换的用户不受影响)。
+func (s *Service) SetCodeStatus(id uint64, revoked bool) error {
+	if err := s.repo.SetCodeRevoked(id, revoked, time.Now()); err != nil {
+		return err
+	}
+	slog.Info("vip: set redemption code status", "code_id", id, "revoked", revoked)
+	return nil
 }
 
 // ListCodes 管理员分页查看兑换码。
@@ -280,6 +359,16 @@ func randomCode(n int) (string, error) {
 		out[i] = codeAlphabet[int(buf[i])%len(codeAlphabet)]
 	}
 	return string(out), nil
+}
+
+// randomGiftCode 生成 XXXX-XXXX-XXXX-XXXX 格式兑换码(4 组 4 位 + 短横, 去歧义字母表)。
+// 前端用 4 段输入框录入、按横线拼接;存库即带横线(varchar 32 容得下 19 字符)。
+func randomGiftCode() (string, error) {
+	raw, err := randomCode(16)
+	if err != nil {
+		return "", err
+	}
+	return raw[0:4] + "-" + raw[4:8] + "-" + raw[8:12] + "-" + raw[12:16], nil
 }
 
 func normalizeCode(s string) string {

@@ -1,0 +1,78 @@
+{
+  "base": "http://localhost:5411",
+  "total": 1,
+  "counts": {
+    "PASS": 1
+  },
+  "globalInvariants": [
+    "WS upgrade with a freshly minted ws_token succeeds (HTTP 101, no 401/403) for an owned session; the harness must POST /user/claw/session/ws-ticket?session_id=<id> immediately before each WS connect (30s TTL, one-time GETDEL).",
+    "Every turn terminates deterministically: within a per-turn timeout (default 180s) the WS receives exactly one message_complete frame OR exactly one {type:'error'} frame OR (for whitespace/degenerate input) is gracefully ignored — never a hang and never an abnormal/unexpected WS close before a terminal frame.",
+    "No unhandled error frame: any {type:'error'} frame MUST carry a string code and a boolean retryable; quota errors specifically have code=='quota_exceeded' && retryable==false.",
+    "WS stays open after a non-fatal error frame (quota_exceeded, hook_error, prompt_unavailable) so the user can retry — the harness asserts no close frame follows a quota error.",
+    "Source-branding invariant for EVERY assistant text (concatenated content_delta + any artifact text the harness downloads): MUST NOT contain raw internal source enum tokens or real DB names. The harness checks a static blocklist (case-insensitive, word-boundary): 'Semantic Scholar','OpenAlex','PubMed','NCBI','E-utilities', and standalone enum-looking tokens 'stc','olx','pmd'. Allowed source mentions are limited to Graph/Discovery/Medicine.",
+    "System-prompt / tool-internal non-leak: assistant text MUST NOT contain a verbatim dump of the system prompt nor the literal 'source 参数' enum list nor 'mcp__minicod__search_papers 的 source'.",
+    "limit<=8 contract: whenever the harness can observe a search_papers tool invocation's input (via tool_use_complete or agent transcript), every search_papers call has limit<=8.",
+    "Tool-name observation is via the REAL frames: content_start{blockType:'tool_use',toolName} and tool_use_complete{toolName} (there is no bare type:'tool_use' event); the harness normalizes both into an observed-tools set used for all 'tool_use with name X' assertions, and tolerates LLM non-determinism by treating tool assertions as 'at least one of {set}' where the raw scenario listed alternatives.",
+    "Every HTTP response is the standard envelope {code,message,data?}; Success⇒HTTP200&code0. Error business codes map to HTTP status: 4404⇒HTTP404, 4001⇒HTTP400, 400⇒HTTP400, 401⇒HTTP401, 403⇒HTTP403, 6010⇒HTTP429 — harness asserts BOTH http status and body.code.",
+    "Ownership: any session-scoped GET/POST/DELETE (messages/context/ws-ticket/artifacts/artifact/file/sessions/:id) with a session_id NOT owned by the caller returns body code 4404 (HTTP404) and leaks zero content from the foreign session; missing session_id returns HTTP400 code400.",
+    "Artifact security: GET /user/claw/session/artifact with any path not matching ^out/<basename>$ (../, absolute, nested, manifest.json, non-out dir) returns HTTP400 code400 ('missing or invalid'); a valid-but-absent out/<name> returns HTTP404 code4404; never 5xx and never bytes outside out/.",
+    "Downloaded artifacts always carry X-Content-Type-Options: nosniff; text artifacts are Content-Type text/plain; charset=utf-8 (never text/html or image/svg+xml); image artifacts are only the raster whitelist."
+  ],
+  "results": [
+    {
+      "id": "search-author-en",
+      "domain": "search",
+      "category": "search",
+      "title": "英文作者检索 + 代表作",
+      "status": "PASS",
+      "reasons": [],
+      "notes": [],
+      "weirdness": "",
+      "declaredAssertions": [
+        "observed tools intersect {search_authors,get_author,get_author_papers}",
+        "message_complete received",
+        "no error frame",
+        "branding blocklist passes"
+      ],
+      "observed": {
+        "turns": [
+          {
+            "sent": "Find papers by Geoffrey Hinton, list his most cited recent work",
+            "completed": true,
+            "errored": false,
+            "errorMessage": "",
+            "timedOut": false,
+            "displaced": false,
+            "toolUses": [
+              "mcp__minicod__search_authors",
+              "mcp__minicod__get_author_papers",
+              "Read",
+              "Read",
+              "Read",
+              "Read",
+              "Bash",
+              "Bash",
+              "Bash",
+              "Bash",
+              "mcp__minicod__search_papers"
+            ],
+            "textLen": 2172,
+            "durationMs": 84709
+          }
+        ],
+        "artifacts": [],
+        "toolUses": [
+          "mcp__minicod__search_authors",
+          "mcp__minicod__get_author_papers",
+          "Read",
+          "Bash",
+          "mcp__minicod__search_papers"
+        ],
+        "leaks": {
+          "hard": [],
+          "soft": []
+        }
+      }
+    }
+  ]
+}

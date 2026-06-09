@@ -45,18 +45,36 @@ export interface UserAuthProviderView {
   created_at: string;
 }
 
-export interface UserFeatureUsage {
-  feature: string;
-  label: string;
-  limit: number;
-  used: number;
-  remaining: number;
+/** /admin/users/:id/detail —— 身份 + 登录方式(供「用户单元」展开)。 */
+export interface UserLoginMethods {
+  id: number;
+  username: string;
+  email: string;
+  email_verified: boolean;
+  phone: string;
+  phone_verified: boolean;
+  auth_providers: UserAuthProviderView[];
 }
 
+export interface UserTokenStatus {
+  used: number;
+  ceiling: number; // -1 = 不限
+  percent: number;
+  unlimited: boolean;
+}
+export interface UserCreditBalance {
+  temp: number;
+  perm: number;
+  total: number;
+}
+// 对齐 backend vip.Overview(统一 token 额度 + 经费钱包),已不再按功能计次。
 export interface UserVipStatus {
-  tier: 'free' | 'pro';
+  tier: 'free' | 'pro' | 'max';
   expires_at: string | null;
-  features: UserFeatureUsage[];
+  token: UserTokenStatus;
+  credit: UserCreditBalance;
+  auto_reset: boolean;
+  reset_cost: number;
 }
 
 /** 后端字段:users / total / page / page_size(handler_admin.go GetUserList) */
@@ -136,7 +154,8 @@ export function useUserDetail(id?: number) {
     queryKey: ['admin', 'users', 'detail', id],
     enabled: !!id,
     queryFn: async () =>
-      (await http.get<{ data: { auth_providers: UserAuthProviderView[] } }>(`/admin/users/${id}/detail`)).data.data,
+      (await http.get<{ data: UserLoginMethods }>(`/admin/users/${id}/detail`)).data.data,
+    staleTime: 60_000,
   });
 }
 

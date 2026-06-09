@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import { TooltipProvider } from '@radix-ui/react-tooltip';
 import { ConfirmDialogRoot } from '@/shared/components';
+import { QuotaNotifier } from '@/shared/components/QuotaNotifier';
 import {
   DEFAULT_GC_TIME,
   DEFAULT_REFETCH_ON_WINDOW_FOCUS,
@@ -36,6 +37,8 @@ export function Providers({ children }: { children: ReactNode }) {
         <Toaster position="top-right" richColors closeButton />
         {/* 全局命令式确认 dialog 渲染槽 —— 任意位置 useConfirm() 都能弹 */}
         <ConfirmDialogRoot />
+        {/* 全局额度通知器:6010 → 重置弹窗;用量过半/将尽 → toastr */}
+        <QuotaNotifier />
       </TooltipProvider>
     </QueryClientProvider>
   );

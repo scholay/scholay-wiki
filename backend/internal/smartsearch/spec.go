@@ -84,7 +84,7 @@ func preUserMessageChain(ctx context.Context, userID uint, _ string) error {
 	if vipChecker != nil {
 		// tier-aware 会员限额。vip.ErrQuotaExceeded → 转成 agentbridge 的 quota_exceeded(干净文案),
 		// 让 WS pipe 回前端 code=quota_exceeded + retryable=false。
-		if err := vipChecker.CheckAndConsume(ctx, userID, vip.FeatureSmartSearch); err != nil {
+		if err := vipChecker.CheckDailyQuota(ctx, userID); err != nil {
 			if errors.Is(err, vip.ErrQuotaExceeded) {
 				return agentbridge.NewQuotaError(err.Error())
 			}

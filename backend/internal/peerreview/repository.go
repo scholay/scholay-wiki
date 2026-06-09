@@ -13,12 +13,20 @@ import (
 	"errors"
 	"time"
 
+	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 // ErrNotFound 是 service / handler 层判断 404 的 sentinel。
 var ErrNotFound = errors.New("peerreview: not found")
+
+// isDuplicateKey 判断是否 MySQL 唯一键冲突 (1062)。check→insert 的 TOCTOU 竞态下,
+// 让并发的第二个 INSERT 命中唯一索引兜底,再回查复用(同 prism/files.go 的做法)。
+func isDuplicateKey(err error) bool {
+	var me *mysql.MySQLError
+	return errors.As(err, &me) && me.Number == 1062
+}
 
 type Repository struct {
 	db *gorm.DB
@@ -29,17 +37,27 @@ func NewRepository(db *gorm.DB) *Repository { return &Repository{db: db} }
 // ─── Submission ──────────────────────────────────────────────────────────
 
 // CreateDraft 新建草稿;调用方只需指定 user/mode。
-func (r *Repository) CreateDraft(userID uint64, mode string) (*Submission, error) {
+//
+// 返回 created:true=确实插了新行;false=并发下命中唯一索引
+// uk_one_draft_per_user_mode(别的请求已建)→ 回查复用了既有草稿。
+// 调用方据 created 决定是否要为草稿绑 agent session(复用时不要重复建)。
+func (r *Repository) CreateDraft(userID uint64, mode string) (sub *Submission, created bool, err error) {
 	s := &Submission{
 		UserID: userID,
 		Mode:   mode,
 		Status: "draft",
 		Step:   1,
 	}
-	if err := r.db.Create(s).Error; err != nil {
-		return nil, err
+	if e := r.db.Create(s).Error; e != nil {
+		// 唯一索引兜底:并发同 (user,mode) 同时建草稿,落败方回查复用赢家那条。
+		if isDuplicateKey(e) {
+			if existing, e2 := r.LatestDraftOfMode(userID, mode); e2 == nil {
+				return existing, false, nil
+			}
+		}
+		return nil, false, e
 	}
-	return s, nil
+	return s, true, nil
 }
 
 // GetByID 按 id 取,带 user 校验(防越权)。

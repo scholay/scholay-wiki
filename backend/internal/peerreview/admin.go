@@ -187,15 +187,15 @@ func toAdminAsset(a Asset) AdminPRAsset {
 
 // ─── Repository ─────────────────────────────────────────────────────────
 
-// AdminListSubmissions 列投稿(userID 精确 / keyword 模糊邮箱+用户名+标题),按创建倒序。
+// AdminListSubmissions 列投稿(userID 精确 / keyword 按 ID+用户名+邮箱+手机号+标题),按创建倒序。
 func (r *Repository) AdminListSubmissions(userID *uint64, keyword string, offset, limit int) ([]AdminPRListRow, int64, error) {
 	q := r.db.Table("peer_review_submissions AS s").Joins("LEFT JOIN users u ON u.id = s.user_id")
 	if userID != nil {
 		q = q.Where("s.user_id = ?", *userID)
 	}
-	if keyword != "" {
-		like := "%" + keyword + "%"
-		q = q.Where("u.email LIKE ? OR u.username LIKE ? OR s.title LIKE ?", like, like, like)
+	// 统一用户口径(ID 精确 + username/email/phone 模糊)再 OR 上标题。
+	if sql, args := utils.UserSearchClause(keyword, "u.id", "u.username", "u.email", "u.phone"); sql != "" {
+		q = q.Where(sql+" OR s.title LIKE ?", append(args, "%"+keyword+"%")...)
 	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {

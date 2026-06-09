@@ -302,6 +302,49 @@ func (c *Client) ReadWorkspaceFileFull(ctx context.Context, sessionID, relPath s
 	return &out, nil
 }
 
+// WorkspaceTreeEntry 是 agent workspace/tree 返回的一个目录项。
+type WorkspaceTreeEntry struct {
+	Name        string `json:"name"`
+	Path        string `json:"path"`
+	IsDirectory bool   `json:"isDirectory"`
+}
+
+// WorkspaceTree 是 GET /api/sessions/:id/workspace/tree 的响应 (agent WorkspaceTreeResult)。
+// State: ok | missing | error。missing = 目录不存在 (例: 还没产出任何交付物时的 out/),
+// 调用方应把它当作"空目录"处理而非错误。
+type WorkspaceTree struct {
+	State   string               `json:"state"`
+	Path    string               `json:"path"`
+	Entries []WorkspaceTreeEntry `json:"entries"`
+	Error   string               `json:"error,omitempty"`
+}
+
+// ListWorkspaceFiles 列出会话隔离 cwd 内某个相对目录的内容 (relDir 为空 = cwd 根)。
+// 用于"成果交付": 后端列约定的 ./out 子目录, 把 agent 产出的成品作为可下载产物呈现给用户。
+// agent 侧 resolveWorkspacePath 做越界校验; 目录不存在时返回 State="missing" + 空 entries。
+func (c *Client) ListWorkspaceFiles(ctx context.Context, sessionID, relDir string) (*WorkspaceTree, error) {
+	if c.baseURL == "" {
+		return nil, errors.New("agent: empty base url")
+	}
+	if sessionID == "" {
+		return nil, errors.New("agent: empty sessionId")
+	}
+	ctx, cancel := context.WithTimeout(ctx, roundTripTimeout)
+	defer cancel()
+	var out WorkspaceTree
+	path := "/api/sessions/" + sessionID + "/workspace/tree"
+	if relDir != "" {
+		path += "?path=" + url.QueryEscape(relDir)
+	}
+	if err := c.doJSON(ctx, http.MethodGet, path, nil, &out); err != nil {
+		if isNotFoundErr(err) {
+			return nil, ErrSessionNotFound
+		}
+		return nil, err
+	}
+	return &out, nil
+}
+
 // PutWorkspaceFile 把内容按相对路径**原样覆盖写**进会话隔离 cwd(保子目录、不加 UUID、原子)。
 // 供 Prism 铺源(DB current → cwd)/ 用户手改写回 / 撤销同步。agent 侧 resolveWorkspacePath 越界校验。
 func (c *Client) PutWorkspaceFile(ctx context.Context, sessionID, relPath string, content []byte) error {

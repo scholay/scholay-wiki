@@ -75,11 +75,13 @@ func (s *Service) PrepareRound(ctx context.Context, userID, projectID uint) erro
 }
 
 // PendingFile 一个待应用(或已检出)的文件改动:DB 旧正文 + cwd 新正文,前端据此渲染 diff。
+// IsNew=true 表示 agent 本轮新建的文件(DB 还没有,OldBody 为空,渲染为全新增);FileID 为 0。
 type PendingFile struct {
 	FileID  uint   `json:"file_id"`
 	RelPath string `json:"rel_path"`
 	OldBody string `json:"old_body"`
 	NewBody string `json:"new_body"`
+	IsNew   bool   `json:"is_new,omitempty"`
 }
 
 // PendingRound 检出当前 cwd 相对 DB 的改动(= 待应用集合)。重入时前端拉它渲染「待应用 diff」。
@@ -101,14 +103,16 @@ func (s *Service) PendingRound(ctx context.Context, userID, projectID uint) ([]P
 	}
 	out := make([]PendingFile, 0, len(changes))
 	for _, c := range changes {
-		out = append(out, PendingFile{FileID: c.fileID, RelPath: c.relPath, OldBody: c.oldBody, NewBody: c.newBody})
+		out = append(out, PendingFile{FileID: c.fileID, RelPath: c.relPath, OldBody: c.oldBody, NewBody: c.newBody, IsNew: c.isNew})
 	}
 	return out, nil
 }
 
-// ApplyRound 应用:读回 cwd 变更 → 单事务批量固化进 DB(author=agent)。返回固化的文件数。
+// ApplyRound 应用:读回 cwd 变更 → 单事务固化进 DB(author=agent)。返回固化的文件数。
 // instruction 为本轮干净指令(前端透传):首次成功固化后用它异步给项目自动起名(best-effort+幂等)。
-func (s *Service) ApplyRound(ctx context.Context, userID, projectID uint, instruction string) (int, error) {
+// overrides(可选,per-file/per-hunk):relPath→最终正文(前端在 diff 编辑器里可能删掉了部分 hunk)。
+//   非空 → 只固化 overrides 列出的文件、用其正文(用户选择性接受);为空 → 固化 cwd 全部改动(整轮应用)。
+func (s *Service) ApplyRound(ctx context.Context, userID, projectID uint, instruction string, overrides map[string]string) (int, error) {
 	proj, err := s.repo.GetProject(projectID, userID)
 	if err != nil {
 		return 0, err
@@ -127,13 +131,43 @@ func (s *Service) ApplyRound(ctx context.Context, userID, projectID uint, instru
 	if len(changes) == 0 {
 		return 0, nil
 	}
-	writes := make([]VersionWrite, 0, len(changes))
+
+	byPath := make(map[string]changedFile, len(changes))
 	for _, c := range changes {
-		writes = append(writes, VersionWrite{FileID: c.fileID, Body: c.newBody, SHA: c.newSHA, BaseVersionID: c.baseVer})
+		byPath[c.relPath] = c
 	}
-	if _, err := s.repo.BatchAppendCurrentVersions(writes, AuthorAgent); err != nil {
+	var existing []VersionWrite
+	var created []NewFileWrite
+	add := func(c changedFile, body string) {
+		if c.isNew {
+			created = append(created, NewFileWrite{
+				RelPath: c.relPath, Kind: c.kind, Mime: mimeFor(c.relPath), Body: body, SHA: sha256Hex(body),
+			})
+			return
+		}
+		if body == c.oldBody {
+			return // 用户把改动全部还原 → 无实质变化,跳过(不写空版本)
+		}
+		existing = append(existing, VersionWrite{FileID: c.fileID, Body: body, SHA: sha256Hex(body), BaseVersionID: c.baseVer})
+	}
+	if len(overrides) > 0 {
+		for relPath, body := range overrides {
+			if c, ok := byPath[relPath]; ok {
+				add(c, body)
+			}
+		}
+	} else {
+		for _, c := range changes {
+			add(c, c.newBody)
+		}
+	}
+	if len(existing) == 0 && len(created) == 0 {
+		return 0, nil
+	}
+	if err := s.repo.ApplyRoundTx(projectID, existing, created, AuthorAgent); err != nil {
 		return 0, err
 	}
+	appliedCount := len(existing) + len(created)
 	_ = s.repo.TouchProject(projectID)
 	// 首次成功固化 → 自动给项目起名(幂等:仅标题仍是默认占位时落库)。独立 goroutine + background ctx
 	// (请求结束就 cancel 会打断 LLM 调用),不阻塞 apply 返回;失败全在 maybeAutoNameProject 内部吞掉。
@@ -144,7 +178,7 @@ func (s *Service) ApplyRound(ctx context.Context, userID, projectID uint, instru
 			s.maybeAutoNameProject(actx, projectID, userID, instruction)
 		})
 	}
-	return len(changes), nil
+	return appliedCount, nil
 }
 
 // RejectRound 丢弃:重铺源(DB current 覆盖回 cwd)→ 抹掉 agent 本轮未应用的改动。

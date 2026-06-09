@@ -1,6 +1,7 @@
 import axios, { AxiosError, type AxiosInstance } from 'axios';
 import { getAuthToken, notifyAuthLost } from '@/shared/lib/auth-token';
 import { getAnonId } from '@/shared/lib/anon-id';
+import { notifyQuotaExceeded } from '@/shared/lib/quota-events';
 
 /**
  * HTTP 客户端 — 走 nginx 反代,生产同源相对路径,开发走 vite proxy。
@@ -32,6 +33,10 @@ http.interceptors.response.use(
     const apiErr = toApiError(err);
     if (isAuthError(apiErr)) {
       notifyAuthLost({ code: apiErr.code, message: apiErr.message });
+    }
+    // AI 额度耗尽(6010)→ 汇入全局额度通知器(弹重置弹窗)。
+    if (apiErr.code === BizCode.AgentQuotaExceeded) {
+      notifyQuotaExceeded({ message: apiErr.message });
     }
     return Promise.reject(err);
   },

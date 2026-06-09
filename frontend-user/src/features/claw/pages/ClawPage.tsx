@@ -26,6 +26,7 @@ import { useClawSocket } from '../api/socket';
 import type { AttachmentDTO, ClientMessage } from '../api/types';
 import { ChatComposer } from '../components/chat/ChatComposer';
 import { MessageTurn } from '../components/chat/MessageTurn';
+import { useClawArtifacts } from '../api/artifacts';
 import { ClawSidebar } from '../components/sidebar/ClawSidebar';
 import { foldMessagesIntoTurns, replayHistoryAsTurns, type Turn } from '../components/chat/fold';
 
@@ -123,6 +124,8 @@ export function ClawPage() {
   const historyQuery = useClawHistory(sessionId, historyLimit);
   const historyHasMore = historyQuery.data?.hasMore ?? false;
   const contextQuery = useClawContext(sessionId);
+  // 当前会话 ./out 产物列表(给每轮回答认领其产出的可下载文件);每轮 message_complete 后由下方 effect 刷新。
+  const sessionArtifacts = useClawArtifacts(sessionId).data;
   const createSession = useCreateClawSession();
 
   const [pendingTurns, setPendingTurns] = useState<Pick<Turn, 'id' | 'userText' | 'userAttachments' | 'paused'>[]>([]);
@@ -177,6 +180,8 @@ export function ClawPage() {
     if (last.type === 'message_complete' || last.type === 'error') {
       qc.invalidateQueries({ queryKey: ['claw', 'context'] });
       qc.invalidateQueries({ queryKey: ['claw', 'sessions'] });
+      // 本轮可能往 ./out 产出了新交付物 → 刷新产物面板。
+      qc.invalidateQueries({ queryKey: ['claw', 'artifacts'] });
     } else if (last.type === 'session_title_updated') {
       qc.invalidateQueries({ queryKey: ['claw', 'sessions'] });
     }
@@ -184,10 +189,11 @@ export function ClawPage() {
 
   const historyTurns = useMemo(
     () =>
-      withHistoryImagePreviews(
-        replayHistoryAsTurns(historyQuery.data?.messages),
-        sessionId,
-      ),
+      // sessionId=null 是「新对话准备态」: useClawHistory 此时被 disable,但 placeholderData:keepPreviousData
+      // 会一直回退展示上一会话的 history(新 key 永不 resolve)→ 点"新对话"仍停留在旧对话。这里显式清空。
+      sessionId
+        ? withHistoryImagePreviews(replayHistoryAsTurns(historyQuery.data?.messages), sessionId)
+        : [],
     [historyQuery.data?.messages, sessionId],
   );
 
@@ -496,7 +502,7 @@ export function ClawPage() {
                   </div>
                 )}
                 {visibleTurns.map((t) => (
-                  <MessageTurn key={t.id} turn={t} />
+                  <MessageTurn key={t.id} turn={t} artifacts={sessionArtifacts} sessionId={sessionId} />
                 ))}
               </StickToBottom.Content>
               <ScrollController scrollRef={scrollToBottomRef} />

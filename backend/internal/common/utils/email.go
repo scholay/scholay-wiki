@@ -40,9 +40,42 @@ type EmailConfig struct {
 	FromName     string
 }
 
-// SendEmailWithTLS sends email with TLS/SSL support
-// Supports both STARTTLS (port 587) and SMTPS (port 465)
+// EmailOutcome 一次邮件发送的结果(回调给 observer,用于落「邮件发送记录」)。
+type EmailOutcome struct {
+	To        string // 收件地址(多个用逗号连接)
+	Subject   string
+	FromEmail string
+	FromName  string
+	Success   bool
+	Error     string // 失败原因(成功为空)
+}
+
+// emailObserver 全局邮件发送回调(bootstrap 注一次)。nil = 不记录。
+var emailObserver func(EmailOutcome)
+
+// SetEmailObserver 注册邮件发送回调 —— 每封邮件(无论成功/失败)发送后都会回调一次。
+func SetEmailObserver(fn func(EmailOutcome)) { emailObserver = fn }
+
+// SendEmailWithTLS 发邮件(STARTTLS/SMTPS),并把发送结果回调给 observer(若已注册)。
+// 包一层是为了无论内部走哪条 return 路径,都能统一捕获结果落「邮件发送记录」,无需改各调用方。
 func SendEmailWithTLS(config EmailConfig, to []string, subject, body string) error {
+	err := sendEmailWithTLS(config, to, subject, body)
+	if emailObserver != nil {
+		oc := EmailOutcome{
+			To: strings.Join(to, ", "), Subject: subject,
+			FromEmail: config.FromEmail, FromName: config.FromName,
+			Success: err == nil,
+		}
+		if err != nil {
+			oc.Error = err.Error()
+		}
+		emailObserver(oc)
+	}
+	return err
+}
+
+// sendEmailWithTLS 实际发送(STARTTLS 587 / SMTPS 465)。
+func sendEmailWithTLS(config EmailConfig, to []string, subject, body string) error {
 	addr := fmt.Sprintf("%s:%d", config.SMTPHost, config.SMTPPort)
 
 	// Prepare email message

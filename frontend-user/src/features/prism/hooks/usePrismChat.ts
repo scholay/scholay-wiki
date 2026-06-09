@@ -12,6 +12,7 @@ import {
   readWorkspaceFile,
   rejectRound,
   usePrismContext,
+  type PrismPendingFile,
 } from '../api/prism';
 import { foldHistoryToTurns, foldPrismMessages } from '../components/chat/fold';
 
@@ -107,6 +108,10 @@ export function usePrismChat(
   const [roundState, setRoundState] = useState<RoundState>('idle');
   const [live, setLive] = useState<LiveDiff | null>(null);
   const [changeset, setChangeset] = useState<PrismChangeset | null>(null);
+  // awaiting_apply 阶段的多文件待应用集合 + 当前选中文件 + 用户逐块取舍后的最终正文(relPath→body)。
+  const [pendingFiles, setPendingFiles] = useState<PrismPendingFile[]>([]);
+  const [selectedPending, setSelectedPending] = useState<string | null>(null);
+  const mergedRef = useRef<Record<string, string>>({});
   const [hasMoreHistory, setHasMoreHistory] = useState(false);
   const [loadingEarlier, setLoadingEarlier] = useState(false);
   const historyLimitRef = useRef(DEFAULT_HISTORY_TURNS);
@@ -160,15 +165,21 @@ export function usePrismChat(
           if (files.length === 0) {
             setRoundState('idle');
             setLive(null);
+            setPendingFiles([]);
+            setSelectedPending(null);
             activeRef.current = null;
             setChangeset(null);
             return;
           }
           setRoundState('awaiting_apply');
           setChangeset({ applied: files.length, state: 'awaiting_apply' });
+          setPendingFiles(files);
+          mergedRef.current = {};
+          for (const f of files) mergedRef.current[f.rel_path] = f.new_body;
           const act = activeRef.current;
           const pick = (act && files.find((f) => f.rel_path === act.relPath)) || files[0];
-          setLive({ relPath: pick.rel_path, baseline: pick.old_body, content: pick.new_body });
+          setSelectedPending(pick.rel_path);
+          setLive(null); // awaiting 阶段改由 pendingFiles 驱动多文件可编辑 diff
         })
         .catch(() => {
           setRoundState('idle');
@@ -230,10 +241,19 @@ export function usePrismChat(
     [projectId, roundState, socket],
   );
 
+  const clearPending = () => {
+    setPendingFiles([]);
+    setSelectedPending(null);
+    mergedRef.current = {};
+  };
+
   const apply = useCallback(async () => {
-    const n = await applyRound(projectId, lastInstructionRef.current).catch(() => -1);
+    // overrides = 用户逐块取舍后的各文件最终正文(per-file/per-hunk);后端按此固化(空改动自动跳过)。
+    const overrides = { ...mergedRef.current };
+    const n = await applyRound(projectId, lastInstructionRef.current, overrides).catch(() => -1);
     setRoundState('idle');
     setLive(null);
+    clearPending();
     activeRef.current = null;
     setChangeset((c) => (c ? { applied: n < 0 ? c.applied : n, state: 'applied' } : null));
     onAppliedRef.current?.();
@@ -243,10 +263,17 @@ export function usePrismChat(
     await rejectRound(projectId).catch(() => {});
     setRoundState('idle');
     setLive(null);
+    clearPending();
     activeRef.current = null;
     setChangeset((c) => (c ? { ...c, state: 'discarded' } : null));
     onRevertedRef.current?.();
   }, [projectId]);
+
+  const selectPending = useCallback((relPath: string) => setSelectedPending(relPath), []);
+  const setMergedBody = useCallback((relPath: string, body: string) => {
+    mergedRef.current[relPath] = body;
+  }, []);
+  const getMergedBody = useCallback((relPath: string) => mergedRef.current[relPath], []);
 
   const stop = useCallback(() => {
     // 标记最后一轮被暂停(渲染末尾「已暂停」),再发 stop_generation。
@@ -270,8 +297,10 @@ export function usePrismChat(
       if (cancelled || files.length === 0) return;
       setRoundState('awaiting_apply');
       setChangeset({ applied: files.length, state: 'awaiting_apply' });
-      const pick = files[0];
-      setLive({ relPath: pick.rel_path, baseline: pick.old_body, content: pick.new_body });
+      setPendingFiles(files);
+      mergedRef.current = {};
+      for (const f of files) mergedRef.current[f.rel_path] = f.new_body;
+      setSelectedPending(files[0].rel_path);
     })();
     return () => {
       cancelled = true;
@@ -316,6 +345,7 @@ export function usePrismChat(
     setChangeset(null);
     setRoundState('idle');
     setLive(null);
+    clearPending();
   }, [socket]);
 
   return {
@@ -323,6 +353,11 @@ export function usePrismChat(
     changeset,
     roundState,
     live,
+    pendingFiles,
+    selectedPending,
+    selectPending,
+    getMergedBody,
+    setMergedBody,
     context: contextQuery.data, // footer 上下文水位(PrismChatPanel 用)
     wsState: socket.state,
     displacedReason: socket.displacedReason,

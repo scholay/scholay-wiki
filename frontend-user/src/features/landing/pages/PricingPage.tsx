@@ -1,177 +1,125 @@
-import { Link } from 'react-router-dom';
-import { Check, Sparkles } from 'lucide-react';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { RouteSEO } from '@/shared/components/RouteSEO';
-import { LandingLayout } from '../layout/LandingLayout';
+import {
+  SubscribeDialog,
+  subscribePayMethods,
+  MembershipPlanCard,
+  PLAN_META,
+} from '@/shared/components';
+import { getAuthToken } from '@/shared/lib/auth-token';
 import { cn } from '@/shared/lib/utils';
+import { LandingLayout } from '../layout/LandingLayout';
+import { usePublicPlans, useLandingSubscribe, useCurrentTier, quoteSubscription } from '../api/plans';
+
+const RANK: Record<string, number> = { free: 0, pro: 1, max: 2 };
+
+/** 价格页某档卡片 CTA(随当前会员档变化:立即订阅 / 续期 / 升级 / 已拥有)。 */
+function ctaFor(cardTier: string, currentTier?: string): { label: string; disabled: boolean } {
+  if (!currentTier || RANK[currentTier] === 0) return { label: '立即订阅', disabled: false };
+  const tr = RANK[cardTier] ?? 0;
+  const cr = RANK[currentTier] ?? 0;
+  if (tr < cr) return { label: '已拥有', disabled: true };
+  if (tr === cr) return { label: '续期', disabled: false };
+  return { label: '升级', disabled: false };
+}
 
 /**
- * 定价页 —— /pricing
- *
- * 当前是个**占位页**:仅展示三档基础方案(免费 / Pro / 团队),并明确告诉
- * 用户付费体系还在打磨。等真正的订阅 / 支付系统接入后,把价格、配额、
- * 计费周期切换器等填上即可。
+ * 学者订阅计划 · Plans —— /pricing。对齐设计稿 scholay-money.pen(UUq6B)。
+ * 三档 Free/Pro/Max 用 shared MembershipPlanCard 渲染(与升级弹窗同款卡片)。
+ * 价格/倍率/赠送经费全部从后端 /billing/plans 取;最受欢迎档由后台配置。
+ * 点「立即订阅」→ 未登录跳登录弹窗;已登录开「选套餐 + 选支付」弹窗。
  */
-type Tier = {
-  name: string;
-  price: string;
-  priceSub?: string;
-  desc: string;
-  features: string[];
-  cta: string;
-  ctaHref: string;
-  highlight?: boolean;
-};
-
-const TIERS: Tier[] = [
-  {
-    name: '免费版',
-    price: '¥0',
-    priceSub: '永久免费',
-    desc: '面向单个研究者,日常文献检索与轻量协作',
-    features: [
-      '完整的文献搜索 / 期刊搜索',
-      '文献集云端同步,3 个文件夹',
-      '每月 50 次 AI 摘要 / 翻译',
-      '社区支持',
-    ],
-    cta: '立即开始',
-    ctaHref: '/',
-  },
-  {
-    name: 'Pro',
-    price: '¥39',
-    priceSub: '/ 月 · 学生 5 折',
-    desc: '面向高强度科研用户,解锁全部 AI 工具',
-    features: [
-      '免费版全部功能',
-      '无限文件夹 + 跨设备同步',
-      '不限次 AI 摘要 / 翻译 / 矩阵分析',
-      '智能助手 优先额度 · 智能写作优先体验(即将推出)',
-      '邮件支持 1 工作日响应',
-    ],
-    cta: '即将开放',
-    ctaHref: '/feedback',
-    highlight: true,
-  },
-  {
-    name: '团队 / 机构',
-    price: '联系销售',
-    desc: '面向实验室、期刊编辑部、出版机构',
-    features: [
-      'Pro 版全部功能',
-      '团队共享文献集与权限管理',
-      '智能审稿工单流',
-      '机构 SSO 接入',
-      '专属客服 + SLA',
-    ],
-    cta: '联系销售',
-    ctaHref: 'mailto:hello@scholay.com',
-  },
-];
-
 export function PricingPage() {
+  const { data } = usePublicPlans();
+  const { subscribe } = useLandingSubscribe();
+  const currentTier = useCurrentTier();
+  const navigate = useNavigate();
+  const [sub, setSub] = useState<{ open: boolean; tier?: 'pro' | 'max' }>({ open: false });
+
+  const plans = data?.plans ?? [];
+  const resetCost = data?.reset_cost_credits ?? 0;
+
+  const onSubscribe = (tier: 'pro' | 'max') => {
+    if (!getAuthToken()) {
+      navigate('/?login=required');
+      return;
+    }
+    setSub({ open: true, tier });
+  };
+
+  const methods = subscribePayMethods(data?.payment_methods, data?.test_payment ?? false);
+
   return (
     <LandingLayout>
       <RouteSEO
-        title="定价方案 - Scholay | 全功能限时免费"
-        description="Scholay 学术搜索、AI 论文分析、AI 智能审稿、AI 学术聊天、LaTeX 在线编辑器全部限时免费开放。了解我们未来的付费方案与用户承诺。"
-        keywords="Scholay 定价,学术搜索免费,AI 论文工具,免费学术工具,Scholay 订阅,学术工具价格"
+        title="学者订阅计划 - Scholay"
+        description="Scholay 学者订阅:统一每日 AI 额度 + 科研经费。专业版/旗舰版获更高额度并赠送经费,经费可随时重置额度。"
+        keywords="Scholay 会员,学术 AI 订阅,科研经费,Scholay 价格"
       />
-      <section className="px-6 py-16 md:py-24 max-w-6xl mx-auto">
-        <div className="text-center max-w-2xl mx-auto mb-3">
-          <span className="inline-flex items-center gap-1 h-5 px-2 rounded-pill bg-warning-soft text-brand-amber text-2xs font-bold">
-            <Sparkles className="size-3" strokeWidth={2.5} />
-            付费体系即将开放,以下为初步方案
-          </span>
-        </div>
-        <h1 className="text-3xl md:text-4xl font-bold text-center text-foreground">
-          一个 Scholay,匹配你科研阶段的全部需求
-        </h1>
-        <p className="mt-3 text-center text-muted-foreground max-w-2xl mx-auto">
-          学生免费用,科研旺盛期升 Pro,团队/机构走定制 —— 没有锁定的功能门槛,只有匹配当前节奏的合理价格。
-        </p>
+      <section className="mx-auto max-w-6xl px-6 py-12 md:py-16">
+        <div className="rounded-lg border border-border bg-surface-1 p-6 md:p-10">
+          <p className="text-xs font-bold text-brand-red">SCHOLAY 学者订阅</p>
+          <h1 className="mt-1 text-2xl font-bold text-foreground">学者订阅计划</h1>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            会员订阅提供更高的每日 AI 额度与每月赠送的科研经费。额度每日 00:00 自动重置满额,耗尽后可消耗经费
+            {resetCost ? `(每次 ${resetCost} 经费)` : ''}立即重置。
+          </p>
 
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-4">
-          {TIERS.map((t) => (
-            <TierCard key={t.name} tier={t} />
-          ))}
+          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
+            {plans.map((p) => {
+              const isFree = p.tier === 'free';
+              const popular = data?.popular_plan === p.tier;
+              const cta = ctaFor(p.tier, currentTier);
+              return (
+                <MembershipPlanCard
+                  key={p.tier}
+                  plan={p}
+                  popularBadge={popular}
+                  highlighted={popular}
+                  footer={
+                    isFree ? (
+                      <Link
+                        to="/"
+                        className="inline-flex h-10 items-center justify-center rounded-md border border-border-button text-sm font-bold text-faint transition-colors hover:bg-surface-2"
+                      >
+                        FREE
+                      </Link>
+                    ) : (
+                      <button
+                        onClick={() => !cta.disabled && onSubscribe(p.tier as 'pro' | 'max')}
+                        disabled={cta.disabled}
+                        className={cn(
+                          'inline-flex h-10 items-center justify-center gap-2 rounded-md text-sm font-bold transition-colors',
+                          cta.disabled
+                            ? 'cursor-not-allowed border border-border-button text-faint'
+                            : popular
+                              ? 'bg-brand-red text-background hover:bg-brand-red/90'
+                              : 'border border-border-button text-foreground hover:bg-surface-2',
+                        )}
+                      >
+                        {cta.label}
+                      </button>
+                    )
+                  }
+                />
+              );
+            })}
+          </div>
         </div>
-
-        <p className="mt-10 text-center text-2xs text-faint">
-          所有价格含税。学生 / 教育邮箱享 5 折优惠。教育机构席位与 API 接入请联系
-          <a
-            href="mailto:hello@scholay.com"
-            className="text-brand-red hover:underline ml-1"
-          >
-            hello@scholay.com
-          </a>。
-        </p>
       </section>
-    </LandingLayout>
-  );
-}
 
-function TierCard({ tier }: { tier: Tier }) {
-  return (
-    <div
-      className={cn(
-        'flex flex-col gap-4 p-6 rounded-md border bg-background',
-        tier.highlight
-          ? 'border-brand-red shadow-lg'
-          : 'border-border'
-      )}
-    >
-      {tier.highlight && (
-        <span className="inline-flex w-fit items-center h-5 px-2 rounded-pill bg-brand-red text-background text-2xs font-bold">
-          推荐
-        </span>
-      )}
-      <div>
-        <p className="text-base font-bold text-foreground">{tier.name}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{tier.desc}</p>
-      </div>
-      <div>
-        <p className="text-3xl font-display font-bold text-foreground">
-          {tier.price}
-        </p>
-        {tier.priceSub && (
-          <p className="mt-0.5 text-xs text-faint">{tier.priceSub}</p>
-        )}
-      </div>
-      <ul className="flex flex-col gap-2 flex-1">
-        {tier.features.map((f) => (
-          <li
-            key={f}
-            className="flex items-start gap-2 text-sm text-subtle leading-relaxed"
-          >
-            <Check
-              className="size-4 text-brand-green shrink-0 mt-0.5"
-              strokeWidth={2.5}
-            />
-            <span>{f}</span>
-          </li>
-        ))}
-      </ul>
-      {tier.ctaHref.startsWith('/') ? (
-        <Link
-          to={tier.ctaHref}
-          className={cn(
-            'inline-flex items-center justify-center h-10 px-4 rounded-sm text-sm font-bold transition-colors',
-            tier.highlight
-              ? 'bg-brand-red text-background hover:bg-brand-red/90'
-              : 'bg-foreground text-background hover:bg-foreground/85'
-          )}
-        >
-          {tier.cta}
-        </Link>
-      ) : (
-        <a
-          href={tier.ctaHref}
-          className="inline-flex items-center justify-center h-10 px-4 rounded-sm bg-foreground text-background text-sm font-bold hover:bg-foreground/85 transition-colors"
-        >
-          {tier.cta}
-        </a>
-      )}
-    </div>
+      <SubscribeDialog
+        open={sub.open}
+        onOpenChange={(o) => setSub((s) => ({ ...s, open: o }))}
+        plans={plans}
+        popularTier={data?.popular_plan}
+        currentTier={currentTier}
+        quote={quoteSubscription}
+        methods={methods}
+        initialTier={sub.tier}
+        onPay={(tier, method) => subscribe(tier, method, PLAN_META[tier]?.name ?? tier)}
+      />
+    </LandingLayout>
   );
 }

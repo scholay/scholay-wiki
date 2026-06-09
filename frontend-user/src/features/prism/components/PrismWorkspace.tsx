@@ -9,6 +9,7 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/shared/u
 import { useRegisterSidebarRail } from '@/stores/sidebar.store';
 import { useDebounce } from '@/shared/hooks';
 import { http, toApiError } from '@/shared/lib/http';
+import { cn } from '@/shared/lib/utils';
 import { LatexEditor, type LatexEditorHandle, type InlineEditTarget } from './LatexEditor';
 import { LatexDiffEditor } from './LatexDiffEditor';
 import { PrismChatPanel } from './PrismChatPanel';
@@ -20,6 +21,51 @@ import { usePrismChat } from '../hooks/usePrismChat';
 import { useProject, useFileBody, useSaveFile, useStartCompile, useCompile, prismPdfSource } from '../api/prism';
 
 // 中文支持(\usepackage{ctex})等 LaTeX 格式约束由 agent 的 skills 负责,前端不再做字符识别/自动插包。
+
+// PrismPendingDiff —— 待应用阶段的多文件可编辑 diff:顶部文件切换条(>1 文件时),下方对选中文件
+// 渲染可编辑 LatexDiffEditor(逐块 ✓/✗ 取舍 → onChange 回写该文件最终正文;「全部保留/撤销」= 应用/丢弃)。
+function PrismPendingDiff({ chat }: { chat: ReturnType<typeof usePrismChat> }) {
+  const files = chat.pendingFiles;
+  const sel = files.find((f) => f.rel_path === chat.selectedPending) ?? files[0];
+  if (!sel) return null;
+  return (
+    <div className="flex h-full flex-col">
+      {files.length > 1 && (
+        <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border bg-surface-1 px-2 py-1">
+          {files.map((f) => {
+            const active = f.rel_path === sel.rel_path;
+            return (
+              <button
+                key={f.rel_path}
+                type="button"
+                data-testid="prism-pending-tab"
+                data-rel={f.rel_path}
+                onClick={() => chat.selectPending(f.rel_path)}
+                className={cn(
+                  'inline-flex shrink-0 items-center gap-1 rounded px-2 py-1 text-2xs transition-colors',
+                  active ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-surface-2',
+                )}
+              >
+                {f.rel_path}
+                {f.is_new && <span className={active ? 'text-background' : 'text-brand-green'}>· 新</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      <div className="min-h-0 flex-1">
+        <LatexDiffEditor
+          key={`prism-apply-${sel.rel_path}`}
+          original={sel.old_body}
+          proposed={chat.getMergedBody(sel.rel_path) ?? sel.new_body}
+          onChange={(merged) => chat.setMergedBody(sel.rel_path, merged)}
+          onApplyAll={chat.apply}
+          onDiscardAll={chat.reject}
+        />
+      </div>
+    </div>
+  );
+}
 
 function parseOutline(body: string) {
   const out: { level: number; title: string; line: number }[] = [];
@@ -72,7 +118,10 @@ export function PrismWorkspace({ projectId, onBack }: { projectId: number; onBac
     onReverted: reloadActiveFile,
   });
   const busy = chat.roundState !== 'idle'; // 流式中 或 待应用 → 锁编辑/切文件/编译
-  const showDiff = chat.live != null;
+  const streaming = chat.roundState === 'streaming';
+  const awaiting = chat.roundState === 'awaiting_apply';
+  const showDiff = streaming ? chat.live != null : awaiting && chat.pendingFiles.length > 0;
+  const diffName = streaming ? chat.live?.relPath : chat.selectedPending;
 
   // 首次 AI 编辑后端异步起名(轮询刷新,拿到新名即停)。
   const autoNamePolled = useRef(false);
@@ -253,7 +302,7 @@ export function PrismWorkspace({ projectId, onBack }: { projectId: number; onBac
           <div className="flex items-center gap-2.5">
             <FileText className="size-4 text-brand-red" strokeWidth={2.5} />
             <span className="text-md font-bold text-foreground">
-              {showDiff ? chat.live!.relPath : activeFile?.rel_path || project.data?.project.title || 'Prism'}
+              {showDiff ? diffName : activeFile?.rel_path || project.data?.project.title || 'Prism'}
             </span>
             {showDiff && <span className="rounded-pill bg-brand-green/10 px-2 py-0.5 text-2xs text-brand-green">AI 改动 · 审阅中</span>}
             {save.isPending && <span className="ml-1 text-2xs text-faint">保存中…</span>}
@@ -263,7 +312,7 @@ export function PrismWorkspace({ projectId, onBack }: { projectId: number; onBac
               <History className="size-3" /> 历史
             </Button>
             {/* 编译按钮始终可点(不置灰);编译中显示 loading,重复点击由 onCompile 内部忽略。 */}
-            <Button size="sm" onClick={onCompile}>
+            <Button size="sm" data-testid="prism-compile" onClick={onCompile}>
               {compiling ? <Loader2 className="size-3 animate-spin" /> : <Play className="size-3" />}
               编译
             </Button>
@@ -279,10 +328,13 @@ export function PrismWorkspace({ projectId, onBack }: { projectId: number; onBac
                 <div className="min-h-0 flex-1">
                   {fileBody.isLoading && !showDiff ? (
                     <div className="flex h-full items-center justify-center bg-[#111]"><Loader2 className="size-5 animate-spin text-faint" /></div>
-                  ) : showDiff ? (
-                    // 实时 diff:original = 轮开始时 DB 正文,proposed = cwd 实时正文(随 agent 改动刷新)。
-                    // 只读展示;应用/丢弃在下方对话卡片(round 级,固化整份 cwd)。
-                    <LatexDiffEditor key="prism-livediff" original={chat.live!.baseline} proposed={chat.live!.content} displayOnly />
+                  ) : streaming && chat.live ? (
+                    // 流式实时 diff:original=轮开始 DB 正文,proposed=cwd 实时正文(随 agent 改动刷新)。
+                    // 只读(逐块取舍放在 awaiting 阶段的可编辑 diff)。
+                    <LatexDiffEditor key="prism-livediff" original={chat.live.baseline} proposed={chat.live.content} displayOnly />
+                  ) : awaiting && chat.pendingFiles.length > 0 ? (
+                    // 待应用:多文件可编辑 diff —— 切文件、逐块 ✓/✗ 取舍,「全部保留/撤销」= 应用/丢弃整轮。
+                    <PrismPendingDiff chat={chat} />
                   ) : (
                     <LatexEditor
                       key="prism-editor"

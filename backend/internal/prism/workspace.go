@@ -14,6 +14,8 @@ package prism
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -48,7 +50,62 @@ type changedFile struct {
 	oldBody string
 	newBody string
 	newSHA  string
-	baseVer *uint // 固化前的 current 版本 id(= 本轮 base,新版本 base_version_id 指它)
+	baseVer *uint  // 固化前的 current 版本 id(= 本轮 base,新版本 base_version_id 指它)
+	isNew   bool   // agent 本轮新建(DB 还没有)→ 固化时建 File+首版本(fileID/baseVer 为零)
+	kind    string // 新文件的 FileKind(按扩展名);仅 isNew 时有意义
+}
+
+// allowedNewFileExt —— agent 本轮可新建并固化的文本文件扩展名白名单。
+// 控制面:杜绝把 .log/.aux/.synctex 等编译垃圾或意外 scratch 固化进项目;LaTeX 工程常见文本类全覆盖
+// (含 pgfplots 用的 .dat/.csv 数据文件)。二进制不在内(图表走 TikZ 文本,无需位图资产)。
+var allowedNewFileExt = map[string]bool{
+	".tex": true, ".bib": true, ".sty": true, ".cls": true,
+	".dat": true, ".csv": true, ".tsv": true, ".txt": true, ".tikz": true, ".pgf": true,
+}
+
+func isAllowedNewFile(rel string) bool {
+	return allowedNewFileExt[strings.ToLower(filepath.Ext(rel))]
+}
+
+const (
+	maxNewFilesPerRound = 50   // 一轮最多固化的新文件数(防 agent 失控刷文件)
+	maxCwdListDepth     = 5    // cwd 递归列目录深度上限
+	maxCwdEntries       = 2000 // cwd 递归列目录条目上限(防超大目录拖垮)
+)
+
+// listCwdFiles 递归列出会话 cwd 下所有文件的相对路径(跳过隐藏项;有界深度/条目)。
+func (s *Service) listCwdFiles(ctx context.Context, sessionID string) ([]string, error) {
+	var out []string
+	var walk func(dir string, depth int) error
+	walk = func(dir string, depth int) error {
+		if depth > maxCwdListDepth || len(out) >= maxCwdEntries {
+			return nil
+		}
+		tree, err := s.agent.ListWorkspaceFiles(ctx, sessionID, dir)
+		if err != nil {
+			return err
+		}
+		if tree == nil || tree.State != "ok" {
+			return nil
+		}
+		for _, e := range tree.Entries {
+			if strings.HasPrefix(e.Name, ".") {
+				continue
+			}
+			if e.IsDirectory {
+				if err := walk(e.Path, depth+1); err != nil {
+					return err
+				}
+			} else if len(out) < maxCwdEntries {
+				out = append(out, e.Path)
+			}
+		}
+		return nil
+	}
+	if err := walk("", 0); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // collectWorkspaceChanges 轮末读回 cwd 里 DB-known 文本文件,对比 sha,返回被改动的集合。
@@ -109,6 +166,36 @@ func (s *Service) collectWorkspaceChanges(ctx context.Context, projectID uint, s
 	for _, r := range results {
 		if r != nil {
 			changed = append(changed, *r)
+		}
+	}
+
+	// 检出 agent 本轮**新建**的文件(DB 还没有)→ 作为新文件固化。列举失败不致命:
+	// 退化为「只固化已知文件改动」(老行为),保证主流程不被一次 tree 列举异常打断。
+	dbPaths := make(map[string]bool, len(dbFiles))
+	for _, f := range dbFiles {
+		dbPaths[f.RelPath] = true
+	}
+	if cwdFiles, lerr := s.listCwdFiles(ctx, sessionID); lerr == nil {
+		newCount := 0
+		for _, rel := range cwdFiles {
+			if newCount >= maxNewFilesPerRound {
+				break
+			}
+			if dbPaths[rel] || !isAllowedNewFile(rel) {
+				continue
+			}
+			if clean, ok := safeRel(rel); !ok || clean != rel {
+				continue // 防 ../、绝对路径、非规整路径
+			}
+			wf, rerr := s.agent.ReadWorkspaceFileFull(ctx, sessionID, rel)
+			if rerr != nil || wf == nil || wf.State != "ok" || wf.PreviewType != "text" {
+				continue // 读不回 / 非文本(如意外二进制)→ 跳过
+			}
+			changed = append(changed, changedFile{
+				relPath: rel, oldBody: "", newBody: wf.Content, newSHA: sha256Hex(wf.Content),
+				isNew: true, kind: kindFromPath(rel),
+			})
+			newCount++
 		}
 	}
 	return changed, nil

@@ -5,6 +5,7 @@ import { Badge } from '@/shared/ui/badge';
 import { cn } from '@/shared/lib/utils';
 import { DataTable, type Column } from '../DataTable';
 import { Pagination } from '../Pagination';
+import { UserCell } from '../UserCell';
 import { useApiToast } from '../../hooks/useApiToast';
 import {
   useTokenUsageLogs,
@@ -15,12 +16,6 @@ import {
   type TokenUsageFilters,
   type TokenLogParams,
 } from '../../api/token-usage';
-
-/** user_id 为 null → 公众号/匿名;否则优先用户名/邮箱,兜底 #id。 */
-function userLabel(r: TokenLog): string {
-  if (r.user_id == null) return '公众号/匿名';
-  return r.username || r.email || `#${r.user_id}`;
-}
 
 const featureLabel = (f: string) => FEATURE_OPTIONS.find((o) => o.value === f)?.label ?? f;
 const sourceLabel = (s: string) => SOURCE_OPTIONS.find((o) => o.value === s)?.label ?? s;
@@ -64,15 +59,8 @@ export function TokenUsageLogTable({ filters }: { filters: TokenUsageFilters }) 
     },
     {
       header: '用户',
-      width: 150,
-      cell: (r) => (
-        <div className="flex flex-col">
-          <span className={cn('text-xs font-bold', r.user_id == null ? 'text-faint' : 'text-foreground')}>
-            {userLabel(r)}
-          </span>
-          {r.user_id != null && r.email && <span className="text-2xs text-faint truncate">{r.email}</span>}
-        </div>
-      ),
+      width: 160,
+      cell: (r) => <UserCell id={r.user_id} name={r.username} email={r.email} />,
     },
     { header: '功能', width: 90, cell: (r) => <Badge variant="muted">{featureLabel(r.feature)}</Badge> },
     {

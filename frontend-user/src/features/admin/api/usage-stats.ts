@@ -2,6 +2,7 @@
 // 字段对齐 backend/internal/usagestat。旧 usage-logs.ts 是被废弃的 v1, 保留作历史页。
 import { useQuery } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
+import { windowToDateRange, type DateWindow } from '../components/DateRangeControl';
 
 export interface FeatureItem {
   feature: string;
@@ -26,16 +27,13 @@ export interface UsageStatsSummary {
   daily: DayCount[];
 }
 
-export function useUsageStatsSummary(days: number) {
+export function useUsageStatsSummary(win: DateWindow) {
+  const r = windowToDateRange(win);
+  const params = { start_date: r.start, end_date: r.end };
   return useQuery({
-    queryKey: ['admin', 'usage-stats', 'summary', days],
+    queryKey: ['admin', 'usage-stats', 'summary', params],
     queryFn: async () =>
-      (
-        await http.get<{ data: UsageStatsSummary }>(
-          '/admin/usage-stats/summary',
-          { params: { days } }
-        )
-      ).data.data,
+      (await http.get<{ data: UsageStatsSummary }>('/admin/usage-stats/summary', { params })).data.data,
     staleTime: 60_000,
   });
 }
@@ -47,16 +45,14 @@ export interface FunnelItem {
   events: number;
 }
 
-export function useUsageStatsFunnel(days: number) {
+export function useUsageStatsFunnel(win: DateWindow) {
+  const r = windowToDateRange(win);
+  const params = { start_date: r.start, end_date: r.end };
   return useQuery({
-    queryKey: ['admin', 'usage-stats', 'funnel', days],
+    queryKey: ['admin', 'usage-stats', 'funnel', params],
     queryFn: async () =>
-      (
-        await http.get<{ data: { stages: FunnelItem[] } }>(
-          '/admin/usage-stats/peer-review-funnel',
-          { params: { days } }
-        )
-      ).data.data.stages,
+      (await http.get<{ data: { stages: FunnelItem[] } }>('/admin/usage-stats/peer-review-funnel', { params }))
+        .data.data.stages,
     staleTime: 60_000,
   });
 }

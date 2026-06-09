@@ -20,6 +20,7 @@ import {
   Compass,
   Boxes,
   ScanEye,
+  Mail,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -74,6 +75,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     items: [
       { id: 'feedback', label: '用户反馈', icon: MessageSquare, href: '/admin/feedback' },
       { id: 'messages', label: '站内消息', icon: Bell, href: '/admin/messages' },
+      { id: 'email-logs', label: '发送记录', icon: Mail, href: '/admin/email-logs' },
     ],
   },
   {
@@ -104,6 +106,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { id: 'system', label: '系统设置', icon: Settings, href: '/admin/system' },
       { id: 'oauth', label: 'OAuth / SSO', icon: KeyRound, href: '/admin/oauth' },
       { id: 'payment', label: '支付配置', icon: CreditCard, href: '/admin/payment' },
+      { id: 'billing-config', label: '计费配置', icon: Coins, href: '/admin/billing-config' },
     ],
   },
 ];

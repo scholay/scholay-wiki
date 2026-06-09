@@ -74,6 +74,12 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		// 管理员直接授予/取消会员(不走兑换码)
 		adminProtected.POST("/users/:id/vip", h.vip.AdminGrantVIP)
 		adminProtected.DELETE("/users/:id/vip", h.vip.AdminRevokeVIP)
+		// 管理员给用户加/扣经费
+		adminProtected.POST("/users/:id/wallet/adjust", h.vip.AdminAdjustWallet)
+
+		// 计费体系配置(基准额度/倍率/价格/赠送/汇率/重置花费…)
+		adminProtected.GET("/billing/config", h.vip.AdminGetBillingConfig)
+		adminProtected.PUT("/billing/config", h.vip.AdminUpdateBillingConfig)
 
 		// 公告管理
 		adminProtected.GET("/announcements", h.announcement.ListAdmin)
@@ -161,9 +167,10 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.GET("/llm-token-usage/export", h.llmUsageAdmin.ExportCSV)
 		adminProtected.POST("/llm-token-usage/cleanup", h.llmUsageAdmin.TriggerCleanup)
 
-		// 会员兑换码: 批量生成 + 列表
+		// 会员兑换码: 批量生成 + 列表 + 停用/恢复
 		adminProtected.POST("/vip-codes", h.vip.GenerateCodes)
 		adminProtected.GET("/vip-codes", h.vip.ListCodes)
+		adminProtected.PUT("/vip-codes/:id/status", h.vip.SetCodeStatus)
 
 		// 功能大全 (学术工具黄页) —— 导入/任务/CRUD/webhook。
 		// 路径结构刻意避免 gin "static vs :param" 同层冲突:
@@ -208,6 +215,9 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.POST("/messages", h.message.AdminCreateMessage)
 		adminProtected.GET("/messages", h.message.AdminGetMessages)
 		adminProtected.POST("/messages/:id/send", h.message.AdminSendMessage)
+
+		// 邮件发送记录(全站邮件无差别记录:成功/失败/报错/收件人)
+		adminProtected.GET("/email-logs", h.emailLog.AdminList)
 
 		// ─── AI feature prompt 注册表 (已下线) ─────────────────────────────
 		// smart_search/claw 提示词已迁回代码 const (internal/prompts), peerreview 审稿人

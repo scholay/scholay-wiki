@@ -1,17 +1,18 @@
 import { useState } from 'react';
-import { Copy, Gift, Loader2 } from 'lucide-react';
+import { Copy, Gift, Loader2, Ban, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
 import { Badge } from '@/shared/ui/badge';
 import { cn } from '@/shared/lib/utils';
-import { useUrlState } from '@/shared/hooks';
+import { useConfirm } from '@/shared/components';
+import { useUrlState, useDebounce } from '@/shared/hooks';
 import { AdminPageLayout } from '../components/AdminPageLayout';
 import { DataTable, type Column } from '../components/DataTable';
 import { Pagination } from '../components/Pagination';
 import { useApiToast } from '../hooks/useApiToast';
-import { useVipCodes, useGenerateVipCodes, type VipCode } from '../api/vip-codes';
+import { useVipCodes, useGenerateVipCodes, useSetVipCodeStatus, type VipCode } from '../api/vip-codes';
 
 const SELECT_CLS = 'h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground';
 
@@ -23,35 +24,77 @@ export function VipCodesPage() {
   const [page, setPage] = useUrlState('page', 1, Number);
   const [status, setStatus] = useUrlState('status', '');
   const [tier, setTier] = useUrlState('tier', '');
+  const [redeemerInput, setRedeemerInput] = useState('');
+  const redeemer = useDebounce(redeemerInput, 400);
   const apiToast = useApiToast();
 
   // 生成表单
   const [count, setCount] = useState(10);
+  const [genKind, setGenKind] = useState<'tier' | 'credit'>('tier');
   const [genTier, setGenTier] = useState('pro');
   const [grantDays, setGrantDays] = useState(30);
-  const [validUntil, setValidUntil] = useState('');
+  const [genCredits, setGenCredits] = useState(500);
+  const [creditKind, setCreditKind] = useState<'temp' | 'perm'>('temp');
+  const [creditDays, setCreditDays] = useState(30);
+  const [maxUses, setMaxUses] = useState(1); // 兑换次数 1..100
+  const [validDays, setValidDays] = useState(7); // 码有效期窗口 1..30 天
   const [note, setNote] = useState('');
   const [generated, setGenerated] = useState<string[]>([]);
   const gen = useGenerateVipCodes();
+  const setStatusMut = useSetVipCodeStatus();
+  const confirm = useConfirm();
 
-  const params = { page, page_size: 30, status: status || undefined, tier: tier || undefined };
+  const params = {
+    page,
+    page_size: 30,
+    status: status || undefined,
+    tier: tier || undefined,
+    redeemer: redeemer || undefined,
+  };
   const { data, isLoading } = useVipCodes(params);
 
   const handleGenerate = async () => {
-    const res = await apiToast(
-      gen.mutateAsync({
-        count,
-        tier: genTier,
-        grant_days: grantDays,
-        valid_until: validUntil || undefined,
-        note: note || undefined,
-      }),
-      { success: '已生成兑换码', failure: '生成失败' }
-    ).catch(() => null);
+    const common = { count, max_uses: maxUses, valid_days: validDays, note: note || undefined };
+    const payload =
+      genKind === 'credit'
+        ? {
+            ...common,
+            grant_kind: 'credit',
+            grant_credits: genCredits,
+            credit_kind: creditKind,
+            credit_validity_days: creditDays,
+          }
+        : {
+            ...common,
+            grant_kind: 'tier',
+            tier: genTier,
+            grant_days: grantDays,
+          };
+    const res = await apiToast(gen.mutateAsync(payload), {
+      success: '已生成兑换码',
+      failure: '生成失败',
+    }).catch(() => null);
     if (res?.codes?.length) {
       setGenerated(res.codes);
       setPage(1);
     }
+  };
+
+  const toggleStatus = async (r: VipCode) => {
+    const revoked = !r.revoked_at; // 当前有效 → 停用;当前停用 → 恢复
+    const ok = await confirm({
+      title: revoked ? '停用该兑换码?' : '恢复该兑换码?',
+      description: revoked
+        ? `停用后 ${r.code} 将无法再被兑换(已兑换的用户不受影响)。`
+        : `恢复后 ${r.code} 可再次被兑换(若未过期 / 未用完)。`,
+      confirmText: revoked ? '停用' : '恢复',
+      danger: revoked,
+    });
+    if (!ok) return;
+    apiToast(setStatusMut.mutateAsync({ id: r.id, revoked }), {
+      success: revoked ? '已停用' : '已恢复',
+      failure: '操作失败',
+    }).catch(() => null);
   };
 
   const copyCodes = () => {
@@ -61,33 +104,66 @@ export function VipCodesPage() {
 
   const columns: Column<VipCode>[] = [
     { header: '兑换码', width: 150, cell: (r) => <span className="font-mono text-xs text-foreground select-all">{r.code}</span> },
-    { header: '等级', width: 70, cell: (r) => <Badge variant={r.grant_tier === 'pro' ? 'default' : 'muted'}>{r.grant_tier}</Badge> },
-    { header: '天数', width: 60, align: 'right', cell: (r) => <span className="text-xs tabular-nums">{r.grant_days}</span> },
     {
-      header: '有效期',
+      header: '内容',
+      width: 90,
+      cell: (r) =>
+        r.grant_kind === 'credit' ? (
+          <Badge variant="muted">{r.credit_kind === 'perm' ? '永久' : '临时'}经费 {r.grant_credits}</Badge>
+        ) : (
+          <Badge variant="default">{r.grant_tier}</Badge>
+        ),
+    },
+    {
+      header: '天数',
+      width: 60,
+      align: 'right',
+      cell: (r) => (
+        <span className="text-xs tabular-nums">
+          {r.grant_kind === 'credit' ? (r.credit_kind === 'perm' ? '—' : r.credit_validity_days) : r.grant_days}
+        </span>
+      ),
+    },
+    {
+      header: '次数',
+      width: 70,
+      align: 'right',
+      cell: (r) => (
+        <span className="text-xs tabular-nums text-foreground">
+          {r.used_count}
+          <span className="text-faint">/{r.max_uses}</span>
+        </span>
+      ),
+    },
+    {
+      header: '有效期至',
       width: 110,
       cell: (r) => <span className="text-2xs text-faint">{r.valid_until ? r.valid_until.slice(0, 10) : '永久'}</span>,
     },
     {
       header: '状态',
-      width: 90,
-      cell: (r) =>
-        r.redeemed_at ? (
-          <Badge variant="muted">已兑换</Badge>
-        ) : (
-          <span className="text-xs text-brand-green">未兑换</span>
-        ),
-    },
-    {
-      header: '兑换者',
-      width: 90,
-      cell: (r) => <span className="text-2xs text-faint">{r.redeemed_by_user_id ? `#${r.redeemed_by_user_id}` : '—'}</span>,
+      width: 80,
+      cell: (r) => <CodeStatusBadge code={r} />,
     },
     { header: '备注', cell: (r) => <span className="text-2xs text-faint truncate">{r.note || '—'}</span> },
     {
       header: '生成时间',
       width: 150,
       cell: (r) => <span className="text-2xs text-faint tabular-nums">{r.created_at?.slice(0, 19).replace('T', ' ')}</span>,
+    },
+    {
+      header: '操作',
+      width: 80,
+      cell: (r) =>
+        r.revoked_at ? (
+          <Button size="sm" variant="outline" className="h-7 px-2 text-2xs" onClick={() => toggleStatus(r)}>
+            <RotateCcw className="size-3" /> 恢复
+          </Button>
+        ) : (
+          <Button size="sm" variant="outline" className="h-7 px-2 text-2xs text-brand-red" onClick={() => toggleStatus(r)}>
+            <Ban className="size-3" /> 停用
+          </Button>
+        ),
     },
   ];
 
@@ -102,17 +178,61 @@ export function VipCodesPage() {
           <Field label="数量">
             <Input type="number" min={1} max={1000} value={count} onChange={(e) => setCount(Number(e.target.value))} className="h-8 w-24" />
           </Field>
-          <Field label="等级">
-            {/* 兑换码只授予 pro(后端强制);保留 select 形态以便将来扩展更多付费等级。 */}
-            <select value={genTier} onChange={(e) => setGenTier(e.target.value)} className={cn(SELECT_CLS, 'w-24')}>
-              <option value="pro">pro</option>
+          <Field label="发放类型">
+            <select value={genKind} onChange={(e) => setGenKind(e.target.value as 'tier' | 'credit')} className={cn(SELECT_CLS, 'w-24')}>
+              <option value="tier">会员</option>
+              <option value="credit">经费</option>
             </select>
           </Field>
-          <Field label="授予天数">
-            <Input type="number" min={1} value={grantDays} onChange={(e) => setGrantDays(Number(e.target.value))} className="h-8 w-24" />
+          {genKind === 'tier' ? (
+            <>
+              <Field label="等级">
+                <select value={genTier} onChange={(e) => setGenTier(e.target.value)} className={cn(SELECT_CLS, 'w-24')}>
+                  <option value="pro">pro</option>
+                  <option value="max">max</option>
+                </select>
+              </Field>
+              <Field label="授予天数">
+                <Input type="number" min={1} value={grantDays} onChange={(e) => setGrantDays(Number(e.target.value))} className="h-8 w-24" />
+              </Field>
+            </>
+          ) : (
+            <>
+              <Field label="经费数">
+                <Input type="number" min={1} value={genCredits} onChange={(e) => setGenCredits(Number(e.target.value))} className="h-8 w-24" />
+              </Field>
+              <Field label="经费类型">
+                <select value={creditKind} onChange={(e) => setCreditKind(e.target.value as 'temp' | 'perm')} className={cn(SELECT_CLS, 'w-24')}>
+                  <option value="temp">临时</option>
+                  <option value="perm">永久</option>
+                </select>
+              </Field>
+              {creditKind === 'temp' && (
+                <Field label="有效天数">
+                  <Input type="number" min={1} value={creditDays} onChange={(e) => setCreditDays(Number(e.target.value))} className="h-8 w-24" />
+                </Field>
+              )}
+            </>
+          )}
+          <Field label="兑换次数(1-100)">
+            <Input
+              type="number"
+              min={1}
+              max={100}
+              value={maxUses}
+              onChange={(e) => setMaxUses(Math.min(100, Math.max(1, Number(e.target.value) || 1)))}
+              className="h-8 w-24"
+            />
           </Field>
-          <Field label="码有效期(可空=永久)">
-            <Input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} className="h-8 w-40" />
+          <Field label="有效天数(1-30)">
+            <Input
+              type="number"
+              min={1}
+              max={30}
+              value={validDays}
+              onChange={(e) => setValidDays(Math.min(30, Math.max(1, Number(e.target.value) || 1)))}
+              className="h-8 w-24"
+            />
           </Field>
           <Field label="备注">
             <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="批次标签" className="h-8 w-40" />
@@ -141,8 +261,8 @@ export function VipCodesPage() {
         <Field label="状态">
           <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className={cn(SELECT_CLS, 'w-28')}>
             <option value="">全部</option>
-            <option value="unredeemed">未兑换</option>
-            <option value="redeemed">已兑换</option>
+            <option value="unredeemed">可兑换</option>
+            <option value="redeemed">已用完</option>
           </select>
         </Field>
         <Field label="等级">
@@ -151,6 +271,14 @@ export function VipCodesPage() {
             <option value="pro">pro</option>
             <option value="free">free</option>
           </select>
+        </Field>
+        <Field label="兑换人">
+          <Input
+            value={redeemerInput}
+            onChange={(e) => { setRedeemerInput(e.target.value); setPage(1); }}
+            placeholder="ID / 用户名 / 邮箱 / 手机号"
+            className="h-8 w-52"
+          />
         </Field>
       </section>
 
@@ -167,4 +295,14 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       {children}
     </div>
   );
+}
+
+/** 兑换码状态:已停用 > 已用完 > 已过期 > 可兑换。 */
+function CodeStatusBadge({ code }: { code: VipCode }) {
+  if (code.revoked_at) return <Badge variant="destructive">已停用</Badge>;
+  if (code.used_count >= code.max_uses) return <Badge variant="muted">已用完</Badge>;
+  if (code.valid_until && new Date(code.valid_until).getTime() < Date.now()) {
+    return <Badge variant="muted">已过期</Badge>;
+  }
+  return <span className="text-xs text-brand-green">可兑换</span>;
 }

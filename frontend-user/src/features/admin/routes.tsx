@@ -96,6 +96,11 @@ export const adminRoutes: RouteObject[] = [
         lazy: lazyPage(() => import('./pages/MessagesPage'))('MessagesPage'),
       },
       {
+        path: 'email-logs',
+        handle: { title: '发送记录' },
+        lazy: lazyPage(() => import('./pages/EmailLogsPage'))('EmailLogsPage'),
+      },
+      {
         path: 'session-monitor',
         handle: { title: '用户会话监控' },
         lazy: lazyPage(() => import('./pages/SessionMonitorPage'))('SessionMonitorPage'),
@@ -159,6 +164,11 @@ export const adminRoutes: RouteObject[] = [
         path: 'payment',
         handle: { title: '支付配置' },
         lazy: lazyPage(() => import('./pages/PaymentConfigPage'))('PaymentConfigPage'),
+      },
+      {
+        path: 'billing-config',
+        handle: { title: '计费配置' },
+        lazy: lazyPage(() => import('./pages/BillingConfigPage'))('BillingConfigPage'),
       },
     ],
   },

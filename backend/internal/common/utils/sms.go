@@ -91,9 +91,46 @@ func CreateSMSClient(accessKeyID, accessSecret, endpoint string) (*dysmsapi.Clie
 	return client, nil
 }
 
-// SendSMS sends SMS with dynamic template parameters
-// params: map of template variables, e.g., map[string]string{"code": "123456", "min": "5"}
+// SMSOutcome 一次短信发送的结果(回调给 observer,用于落「发送记录」)。
+type SMSOutcome struct {
+	Phone           string
+	SignName        string
+	TemplateCode    string
+	TemplateContent string
+	Success         bool
+	Error           string
+}
+
+var smsObserver func(SMSOutcome)
+
+// SetSMSObserver 注册短信发送回调 —— 每条短信(无论成功/失败)发送后都回调一次。
+func SetSMSObserver(fn func(SMSOutcome)) { smsObserver = fn }
+
+func emitSMSOutcome(config SMSConfig, phone string, err error) {
+	if smsObserver == nil {
+		return
+	}
+	oc := SMSOutcome{
+		Phone: phone, SignName: config.SignName,
+		TemplateCode: config.TemplateCode, TemplateContent: config.TemplateContent,
+		Success: err == nil,
+	}
+	if err != nil {
+		oc.Error = err.Error()
+	}
+	smsObserver(oc)
+}
+
+// SendSMS 发短信(动态模板),并把结果回调给 observer。
 func SendSMS(config SMSConfig, phoneNumber string, params map[string]string) error {
+	err := sendSMS(config, phoneNumber, params)
+	emitSMSOutcome(config, phoneNumber, err)
+	return err
+}
+
+// sendSMS sends SMS with dynamic template parameters
+// params: map of template variables, e.g., map[string]string{"code": "123456", "min": "5"}
+func sendSMS(config SMSConfig, phoneNumber string, params map[string]string) error {
 	// Create SMS client
 	client, err := CreateSMSClient(config.AccessKeyID, config.AccessSecret, config.Endpoint)
 	if err != nil {
@@ -193,9 +230,16 @@ func SendSMSVerificationCode(config SMSConfig, phoneNumber, code string) error {
 	return SendSMS(config, phoneNumber, params)
 }
 
-// SendSMSVerifyCodePNS sends SMS verification code using Aliyun Phone Number Service
-// Uses CallApi method as per official documentation
+// SendSMSVerifyCodePNS 走 Aliyun PNS 发短信验证码,并把结果回调给 observer。
 func SendSMSVerifyCodePNS(config SMSConfig, phoneNumber string, params map[string]string) error {
+	err := sendSMSVerifyCodePNS(config, phoneNumber, params)
+	emitSMSOutcome(config, phoneNumber, err)
+	return err
+}
+
+// sendSMSVerifyCodePNS sends SMS verification code using Aliyun Phone Number Service
+// Uses CallApi method as per official documentation
+func sendSMSVerifyCodePNS(config SMSConfig, phoneNumber string, params map[string]string) error {
 	// Create OpenAPI client
 	accessKeyID := strings.TrimSpace(config.AccessKeyID)
 	accessSecret := strings.TrimSpace(config.AccessSecret)

@@ -35,7 +35,7 @@ type AdminSessionRow struct {
 	LastAccessedAt time.Time `json:"lastAccessedAt"`
 }
 
-// AdminListSessions 列某 feature 下的会话(userID 精确 / keyword 模糊邮箱+用户名),按最近活跃倒序。
+// AdminListSessions 列某 feature 下的会话(userID 精确 / keyword 按 ID+用户名+邮箱+手机号),按最近活跃倒序。
 func (r *Repository) AdminListSessions(feature string, userID *uint, keyword string, offset, limit int) ([]AdminSessionRow, int64, error) {
 	q := r.db.Table("agent_sessions AS s").
 		Joins("LEFT JOIN users u ON u.id = s.user_id").
@@ -43,9 +43,9 @@ func (r *Repository) AdminListSessions(feature string, userID *uint, keyword str
 	if userID != nil {
 		q = q.Where("s.user_id = ?", *userID)
 	}
-	if keyword != "" {
-		like := "%" + keyword + "%"
-		q = q.Where("u.email LIKE ? OR u.username LIKE ?", like, like)
+	// 统一口径:ID 精确 + username/email/phone 模糊。
+	if sql, args := utils.UserSearchClause(keyword, "u.id", "u.username", "u.email", "u.phone"); sql != "" {
+		q = q.Where(sql, args...)
 	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {

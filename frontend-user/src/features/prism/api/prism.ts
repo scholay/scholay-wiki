@@ -291,12 +291,14 @@ export function prismPdfSource(projectId: number, version?: number): PdfSource {
 
 // ─── agent-native 用户 WS 轮次(实时编辑 + 应用门 + 重入)──────────────────────
 
-/** 待应用的一个文件改动:DB 旧正文 + cwd 新正文(前端据此渲染 diff)。 */
+/** 待应用的一个文件改动:DB 旧正文 + cwd 新正文(前端据此渲染 diff)。
+ * is_new=true 表示 agent 本轮新建的文件(DB 还没有,old_body 为空,渲染为全新增)。 */
 export interface PrismPendingFile {
   file_id: number;
   rel_path: string;
   old_body: string;
   new_body: string;
+  is_new?: boolean;
 }
 
 /** 每轮 AI 前铺源(DB current → 会话 cwd)。 */
@@ -312,12 +314,21 @@ export async function fetchPendingRound(projectId: number): Promise<PrismPending
   return data.data?.files ?? [];
 }
 
-/** 应用:固化 cwd 改动进 DB,返回固化文件数。 */
-// instruction:本轮干净指令,透传给后端 → 首次成功固化后用它自动给项目起名(best-effort)。
-export async function applyRound(projectId: number, instruction?: string): Promise<number> {
+/** 应用:固化 cwd 改动进 DB,返回固化文件数。
+ * instruction:本轮干净指令,透传给后端 → 首次成功固化后用它自动给项目起名(best-effort)。
+ * overrides(可选,per-file/per-hunk):relPath→最终正文(用户在 diff 编辑器里逐块取舍后的结果)。
+ *   非空时后端只固化列出的文件、用其正文(用户选择性接受);为空则固化 cwd 全部改动。 */
+export async function applyRound(
+  projectId: number,
+  instruction?: string,
+  overrides?: Record<string, string>,
+): Promise<number> {
+  const body: Record<string, unknown> = {};
+  if (instruction) body.instruction = instruction;
+  if (overrides && Object.keys(overrides).length > 0) body.files = overrides;
   const { data } = await http.post<{ data: { applied: number } }>(
     `/user/prism/projects/${projectId}/round/apply`,
-    instruction ? { instruction } : {},
+    body,
   );
   return data.data?.applied ?? 0;
 }

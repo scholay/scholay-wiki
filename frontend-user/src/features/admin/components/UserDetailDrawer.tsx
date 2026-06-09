@@ -22,10 +22,11 @@ import {
   useGrantVip,
   useRevokeVip,
   type AdminUser,
-  type UserFeatureUsage,
+  type UserVipStatus,
 } from '../api/users';
 
 const DAY_PRESETS = [30, 90, 180, 365];
+const TIER_LABEL: Record<string, string> = { free: '免费', pro: '专业版', max: '旗舰版' };
 
 /** 第三方登录方式的图标(无品牌图标的回落到通用)。 */
 function ProviderIcon({ provider }: { provider: string }) {
@@ -78,7 +79,8 @@ export function UserDetailDrawer({
   if (!user) return null;
 
   const displayName = user.username || user.email?.split('@')[0] || user.phone || `User #${user.id}`;
-  const isPro = vip.data?.tier === 'pro';
+  const tier = vip.data?.tier ?? 'free';
+  const isPro = tier === 'pro' || tier === 'max'; // 是否付费会员
 
   const copy = (text: string, label: string) => {
     navigator.clipboard?.writeText(text);
@@ -96,7 +98,8 @@ export function UserDetailDrawer({
   const handleRevoke = async () => {
     const ok = await confirm({
       title: `取消 ${displayName} 的会员?`,
-      description: '该用户将立即回到免费等级,各 AI 功能额度按免费档计算。',
+      description:
+        '危险操作:会员立即过期回到免费档(额度按免费计),并清零其随会员发放的订阅经费(含已预发放的下一周期)。充值的永久经费、兑换码等其他来源的临时经费不受影响。',
       danger: true,
       confirmText: '取消会员',
     });
@@ -190,7 +193,7 @@ export function UserDetailDrawer({
                 )}
               >
                 <Crown className="size-3.5" />
-                {isPro ? '专业版' : '免费'}
+                {TIER_LABEL[tier]}
               </span>
             }
           >
@@ -205,9 +208,17 @@ export function UserDetailDrawer({
                       : '永久有效'
                     : '免费等级'}
                 </p>
-                <div className="mt-3 flex flex-col gap-2">
-                  {vip.data?.features?.map((f) => <QuotaBar key={f.feature} f={f} />)}
-                </div>
+                {vip.data && (
+                  <div className="mt-3 flex flex-col gap-3">
+                    <TokenQuotaBar vip={vip.data} />
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-faint">科研经费</span>
+                      <span className="tabular-nums text-subtle">
+                        {vip.data.credit.total}(永久 {vip.data.credit.perm} · 临时 {vip.data.credit.temp})
+                      </span>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </Section>
@@ -275,24 +286,23 @@ function InfoRow({ icon, label, children }: { icon: React.ReactNode; label: stri
   );
 }
 
-/** 今日额度条:剩余/上限。limit<=0 视为不限。 */
-function QuotaBar({ f }: { f: UserFeatureUsage }) {
-  const unlimited = f.limit <= 0;
-  const pct = unlimited ? 0 : Math.min(100, Math.round((f.used / f.limit) * 100));
-  const exhausted = !unlimited && f.remaining <= 0;
+/** 今日统一 token 额度条(已不分功能)。ceiling<0 视为不限。 */
+function TokenQuotaBar({ vip }: { vip: UserVipStatus }) {
+  const t = vip.token;
+  const exhausted = !t.unlimited && t.used >= t.ceiling;
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between text-xs">
-        <span className="text-subtle">{f.label}</span>
+        <span className="text-subtle">今日 AI 额度(token)</span>
         <span className={cn('tabular-nums', exhausted ? 'text-brand-red' : 'text-faint')}>
-          {unlimited ? '不限' : `${f.used} / ${f.limit}`}
+          {t.unlimited ? '不限' : `${t.used.toLocaleString()} / ${t.ceiling.toLocaleString()}`}
         </span>
       </div>
-      {!unlimited && (
+      {!t.unlimited && (
         <div className="h-1.5 overflow-hidden rounded-pill bg-surface-2">
           <div
             className={cn('h-full rounded-pill transition-all', exhausted ? 'bg-brand-red' : 'bg-brand-green')}
-            style={{ width: `${pct}%` }}
+            style={{ width: `${t.percent}%` }}
           />
         </div>
       )}

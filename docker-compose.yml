@@ -180,6 +180,8 @@ services:
       ADMIN_INITIAL_USERNAME: ${ADMIN_INITIAL_USERNAME:-admin}
       ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:-adminadmin}
       FRONTEND_USER_URL: http://frontend-user:80
+      # 测试支付:开后「账户资产」出现"测试支付"按钮, 下单后一键完成履约(无网关)。生产务必 false。
+      PAYMENT_TEST_ENABLED: ${PAYMENT_TEST_ENABLED:-false}
       # 站点 / 第三方服务地址 —— 来源是 .env 的 SITE_URL 等单一变量,这里 fan-out 给 backend
       SEO_BASE_URL: ${SITE_URL:-https://www.scholay.com}
       SITE_NAME: ${SITE_NAME:-Scholay}

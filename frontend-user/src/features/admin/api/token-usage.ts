@@ -13,7 +13,8 @@ export interface TokenUsageFilters {
   source?: string;
   model?: string;
   provider?: string;
-  user_id?: number;
+  user_id?: number; // legacy(精确 ID),前端已改走 keyword
+  keyword?: string; // 用户关键词:ID / 用户名 / 邮箱 / 手机号
   anon?: 1; // 仅 user_id IS NULL(公众号/匿名)
 }
 

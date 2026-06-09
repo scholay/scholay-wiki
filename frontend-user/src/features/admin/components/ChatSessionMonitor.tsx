@@ -11,6 +11,7 @@ import { useDebounce } from '@/shared/hooks';
 import { DataTable, type Column } from './DataTable';
 import { Pagination } from './Pagination';
 import { AdminTranscriptView } from './AdminTranscriptView';
+import { UserCell } from './UserCell';
 import {
   useAdminSessions,
   useAdminTranscript,
@@ -41,15 +42,7 @@ export function ChatSessionMonitor({ feature }: { feature: MonitorFeature }) {
     {
       header: '用户',
       width: 220,
-      cell: (r) => (
-        <div className="flex flex-col">
-          <span className="text-foreground text-xs font-bold">{r.username || r.userEmail || '—'}</span>
-          <span className="text-2xs text-faint">
-            {r.userEmail}
-            {r.userId ? ` · ID ${r.userId}` : ''}
-          </span>
-        </div>
-      ),
+      cell: (r) => <UserCell id={r.userId} name={r.username} email={r.userEmail} />,
     },
     {
       header: '会话 ID',
@@ -87,7 +80,7 @@ export function ChatSessionMonitor({ feature }: { feature: MonitorFeature }) {
             setKwInput(e.target.value);
             setPage(1);
           }}
-          placeholder="按邮箱 / 用户名筛选"
+          placeholder="ID / 用户名 / 邮箱 / 手机号"
           className="h-9 w-64 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         />
       </div>

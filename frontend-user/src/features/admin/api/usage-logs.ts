@@ -33,6 +33,7 @@ export interface UsageLogParams {
   page_size?: number;
   feature_code?: string;
   user_id?: number;
+  keyword?: string; // 功能/路径 + 用户(ID/用户名/邮箱/手机号)
   start_date?: string;
   end_date?: string;
 }

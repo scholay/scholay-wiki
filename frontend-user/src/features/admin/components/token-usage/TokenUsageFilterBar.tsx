@@ -4,6 +4,7 @@ import { Label } from '@/shared/ui/label';
 import { Button } from '@/shared/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { useUrlState, usePatchUrlState } from '@/shared/hooks';
+import { todayISO } from '../DateRangeControl';
 import {
   useTokenUsageFacets,
   FEATURE_OPTIONS,
@@ -34,7 +35,7 @@ export function TokenUsageFilterBar({ onChange }: { onChange: (f: TokenUsageFilt
   const [source] = useUrlState('source', '');
   const [model] = useUrlState('model', '');
   const [provider] = useUrlState('provider', '');
-  const [userId] = useUrlState('uid', '');
+  const [keyword] = useUrlState('kw', '');
   const [anon] = useUrlState('anon', '');
   const patch = usePatchUrlState();
 
@@ -58,18 +59,18 @@ export function TokenUsageFilterBar({ onChange }: { onChange: (f: TokenUsageFilt
     if (provider) f.provider = provider;
     if (anon === '1') {
       f.anon = 1;
-    } else if (userId && /^\d+$/.test(userId)) {
-      f.user_id = Number(userId);
+    } else if (keyword) {
+      f.keyword = keyword;
     }
     onChange(f);
     // onChange 是父级稳定引用; 仅在控件值变化时重算
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [days, start, end, feature, source, model, provider, userId, anon, customRange]);
+  }, [days, start, end, feature, source, model, provider, keyword, anon, customRange]);
 
-  const hasDimFilter = !!(feature || source || model || provider || userId || anon === '1' || start || end);
+  const hasDimFilter = !!(feature || source || model || provider || keyword || anon === '1' || start || end);
 
   const reset = () =>
-    patch({ days: null, start: null, end: null, feature: null, source: null, model: null, provider: null, uid: null, anon: null });
+    patch({ days: null, start: null, end: null, feature: null, source: null, model: null, provider: null, kw: null, anon: null });
 
   return (
     <section className="mb-6 flex flex-wrap items-end gap-3 rounded-md border border-border-soft bg-surface-1 p-3">
@@ -77,6 +78,18 @@ export function TokenUsageFilterBar({ onChange }: { onChange: (f: TokenUsageFilt
       <div className="space-y-1">
         <Label className="text-2xs text-faint tracking-[0.12em]">时间范围</Label>
         <div className="flex gap-1">
+          <button
+            type="button"
+            onClick={() => patch({ days: null, start: todayISO(), end: todayISO() })}
+            className={cn(
+              'h-8 px-3 rounded-md text-xs font-medium transition-colors',
+              start && start === todayISO() && end === todayISO()
+                ? 'bg-foreground text-background'
+                : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground'
+            )}
+          >
+            今天
+          </button>
           {DAY_OPTIONS.map((d) => (
             <button
               key={d}
@@ -156,13 +169,13 @@ export function TokenUsageFilterBar({ onChange }: { onChange: (f: TokenUsageFilt
       </div>
 
       <div className="space-y-1">
-        <Label className="text-2xs text-faint tracking-[0.12em]">用户 ID</Label>
+        <Label className="text-2xs text-faint tracking-[0.12em]">用户</Label>
         <Input
-          value={userId}
-          onChange={(e) => patch({ uid: e.target.value || null, anon: e.target.value ? null : undefined })}
-          placeholder="如 42"
+          value={keyword}
+          onChange={(e) => patch({ kw: e.target.value || null, anon: e.target.value ? null : undefined })}
+          placeholder="ID / 用户名 / 邮箱 / 手机号"
           disabled={anon === '1'}
-          className="h-8 w-24"
+          className="h-8 w-48"
         />
       </div>
 
@@ -170,7 +183,7 @@ export function TokenUsageFilterBar({ onChange }: { onChange: (f: TokenUsageFilt
         <input
           type="checkbox"
           checked={anon === '1'}
-          onChange={(e) => patch({ anon: e.target.checked ? '1' : null, uid: e.target.checked ? null : undefined })}
+          onChange={(e) => patch({ anon: e.target.checked ? '1' : null, kw: e.target.checked ? null : undefined })}
           className="size-3.5 accent-[var(--color-brand-green)]"
         />
         仅公众号/匿名

@@ -1,41 +1,251 @@
-// 会员(VIP)—— 用户端 hooks。字段对齐 backend/internal/vip (service.go Status / RedeemResult)。
+// 会员 / 计费 / 账户资产 —— 用户端 hooks。字段对齐 backend/internal/vip
+// (quota.go Overview / wallet.go BalanceView / order.go Order / billing_handler.go)。
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
+import { type SubQuote } from '@/shared/components';
 
-export interface FeatureUsage {
-  feature: string;
-  label: string;
-  limit: number; // <=0 表示不限
+export type Tier = 'free' | 'pro' | 'max';
+
+export interface TokenStatus {
   used: number;
-  remaining: number; // 不限时为 -1
+  ceiling: number; // -1 = 不限
+  percent: number;
+  unlimited: boolean;
 }
-
-export interface Membership {
-  tier: 'free' | 'pro';
+export interface CreditLot {
+  amount: number;
+  expires_at: string;
+  source: string;
+}
+export interface Balance {
+  temp: number;
+  perm: number;
+  total: number;
+  lots: CreditLot[];
+}
+export interface Overview {
+  tier: Tier;
   expires_at: string | null;
-  features: FeatureUsage[];
+  token: TokenStatus;
+  credit: Balance;
+  auto_reset: boolean;
+  reset_cost: number;
 }
 
 export interface RedeemResult {
-  tier: 'free' | 'pro';
-  expires_at: string;
+  kind: 'tier' | 'credit';
+  tier?: Tier;
+  expires_at?: string;
+  credits?: number;
+  credit_kind?: 'temp' | 'perm';
 }
 
-/** 当前会员状态(等级/到期/各功能今日额度)。 */
-export function useMembership() {
+/** 兑换前预览(确认弹窗用):码有效时返回将授予的内容。 */
+export interface CodePreview {
+  grant_kind: 'tier' | 'credit';
+  grant_tier?: Tier;
+  grant_days?: number;
+  grant_credits?: number;
+  credit_kind?: 'temp' | 'perm';
+  note?: string;
+  valid_until?: string | null;
+  uses_left: number;
+}
+
+export interface ResetResult {
+  used: number;
+  ceiling: number;
+  balance: Balance;
+}
+
+export interface CreditTxn {
+  id: number;
+  type: string;
+  amount: number;
+  temp_after: number;
+  perm_after: number;
+  ref_type: string;
+  ref_id: string;
+  note: string;
+  created_at: string;
+}
+
+export interface PlanCard {
+  tier: Tier;
+  price_cents: number;
+  original_cents: number;
+  multiplier: number;
+  grant_credits: number;
+}
+export interface Plans {
+  free_daily_tokens: number;
+  reset_cost_credits: number;
+  recharge_rate: number;
+  min_recharge_cents: number;
+  popular_plan: string;
+  enabled: boolean;
+  test_payment: boolean; // 测试支付开关(PAYMENT_TEST_ENABLED)
+  payment_methods: { alipay: boolean; wechat: boolean }; // admin 配置里启用的支付渠道
+  plans: PlanCard[];
+}
+
+export interface Order {
+  id?: number;
+  order_no: string;
+  order_type: string; // subscription | recharge
+  plan_code: string;
+  plan_name?: string;
+  amount: number;
+  final_amount: number;
+  credits_granted: number;
+  status: string;
+  payment_method?: string;
+  created_at?: string;
+  payment_time?: string | null;
+}
+
+/** 已支付订单明细(明细查看)。type 可选 subscription|recharge。 */
+export function useOrders(type?: string) {
   return useQuery({
-    queryKey: ['settings', 'membership'],
-    queryFn: async () => (await http.get<{ data: Membership }>('/user/membership')).data.data,
+    queryKey: ['settings', 'billing', 'orders', type ?? 'all'],
+    queryFn: async () =>
+      (await http.get<{ data: { items: Order[] } }>('/user/billing/orders', { params: type ? { type } : {} })).data.data
+        .items,
     staleTime: 30_000,
   });
 }
 
-/** 兑换码。成功后刷新会员状态。 */
-export function useRedeemCode() {
+const KEY = ['settings', 'billing'];
+
+/** 账户资产总览(等级/到期/今日额度/经费余额/重置参数)。 */
+export function useBillingOverview() {
+  return useQuery({
+    queryKey: KEY,
+    queryFn: async () => (await http.get<{ data: Overview }>('/user/billing/overview')).data.data,
+    staleTime: 15_000,
+  });
+}
+
+/** 套餐(公开):价格/倍率/赠送 + 充值/重置参数。 */
+export function usePlans() {
+  return useQuery({
+    queryKey: ['billing', 'plans'],
+    queryFn: async () => (await http.get<{ data: Plans }>('/billing/plans')).data.data,
+    staleTime: 60_000,
+  });
+}
+
+export interface DayUsage {
+  date: string; // YYYY-MM-DD
+  tokens: number;
+}
+export interface UsageCalendar {
+  days: DayUsage[];
+  daily_ceiling: number; // -1 = 不限
+}
+
+/** 当月每日 token 用量(绿格热力图)。 */
+export function useUsageCalendar() {
+  return useQuery({
+    queryKey: ['settings', 'billing', 'usage-calendar'],
+    queryFn: async () => (await http.get<{ data: UsageCalendar }>('/user/billing/usage-calendar')).data.data,
+    staleTime: 60_000,
+  });
+}
+
+/** 经费流水(分页)。 */
+export function useTransactions(params: { type?: string; page?: number; page_size?: number }) {
+  return useQuery({
+    queryKey: ['settings', 'billing', 'txns', params],
+    queryFn: async () =>
+      (await http.get<{ data: { items: CreditTxn[]; total: number } }>('/user/billing/transactions', { params }))
+        .data.data,
+  });
+}
+
+function useInvalidate() {
   const qc = useQueryClient();
+  return () => qc.invalidateQueries({ queryKey: KEY });
+}
+
+/** 订阅/续期/升级报价(不建单):算应付金额 + 动作。供购买弹窗显示。模块级函数=稳定引用。 */
+export async function quoteSubscription(tier: 'pro' | 'max'): Promise<SubQuote> {
+  return (await http.get<{ data: SubQuote }>('/user/billing/subscribe/quote', { params: { tier } })).data.data;
+}
+
+/** 兑换前预览(不兑换):返回码将授予的内容;码无效/过期/用完/已兑换则 reject(走失败态)。 */
+export function useRedeemPreview() {
+  return useMutation({
+    mutationFn: async (code: string) =>
+      (await http.post<{ data: CodePreview }>('/user/redeem-code/preview', { code })).data.data,
+  });
+}
+
+/** 兑换码(会员 or 经费)。 */
+export function useRedeemCode() {
+  const invalidate = useInvalidate();
   return useMutation({
     mutationFn: async (code: string) =>
       (await http.post<{ data: RedeemResult }>('/user/redeem-code', { code })).data.data,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings', 'membership'] }),
+    onSuccess: invalidate,
+  });
+}
+
+/** 消耗经费立即重置今日额度。 */
+export function useResetQuota() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async () => (await http.post<{ data: ResetResult }>('/user/billing/reset')).data.data,
+    onSuccess: invalidate,
+  });
+}
+
+/** 自动消耗经费重置开关。 */
+export function useSetAutoReset() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (enabled: boolean) =>
+      (await http.put('/user/billing/auto-reset', { enabled })).data,
+    onSuccess: invalidate,
+  });
+}
+
+/** 建充值订单(金额单位:分)。 */
+export function useCreateRecharge() {
+  return useMutation({
+    mutationFn: async (amountCents: number) =>
+      (await http.post<{ data: Order }>('/user/billing/recharge', { amount_cents: amountCents })).data.data,
+  });
+}
+
+/** 建订阅订单(plan = pro|max)。 */
+export function useCreateSubscription() {
+  return useMutation({
+    mutationFn: async (plan: Tier) =>
+      (await http.post<{ data: Order }>('/user/billing/subscribe', { plan })).data.data,
+  });
+}
+
+/** 测试支付(无网关, 一键完成订单履约)。仅后端开 PAYMENT_TEST_ENABLED 时可用。成功后刷新总览。 */
+export function useTestPay() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (orderNo: string) =>
+      (await http.post<{ data: Overview }>('/user/billing/test-pay', { order_no: orderNo })).data.data,
+    onSuccess: invalidate,
+  });
+}
+
+/** 对已建订单发起支付宝支付, 返回收银台 URL(由调用方跳转)。 */
+export function useStartAlipay() {
+  return useMutation({
+    mutationFn: async (args: { order_no: string; amount: number; subject: string }) =>
+      (
+        await http.post<{ data: { payment_url: string; order_no: string } }>('/user/payment/alipay/create', {
+          order_no: args.order_no,
+          amount: args.amount,
+          subject: args.subject,
+        })
+      ).data.data,
   });
 }

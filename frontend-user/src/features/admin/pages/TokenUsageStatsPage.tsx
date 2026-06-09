@@ -31,7 +31,8 @@ function dimRows(items: TokenBreakdownItem[]): TokenBreakdownRow[] {
 function userRows(items: TokenUserItem[]): TokenBreakdownRow[] {
   return items.map((u) => ({
     key: u.user_id == null ? 'anon' : String(u.user_id),
-    label: u.user_id == null ? '公众号/匿名' : u.username || u.email || `用户 #${u.user_id}`,
+    // 统一:始终带 #ID。匿名(公众号/系统)无 user_id。
+    label: u.user_id == null ? '公众号/匿名' : `${u.username || u.email || '用户'} #${u.user_id}`,
     tokens: u.total_tokens,
     calls: u.calls,
     sub: u.user_id != null && u.username && u.email ? u.email : undefined,

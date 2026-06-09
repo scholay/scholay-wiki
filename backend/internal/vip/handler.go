@@ -7,7 +7,6 @@ package vip
 import (
 	"errors"
 	"strconv"
-	"time"
 
 	"scholar-backend/internal/common/utils"
 
@@ -28,7 +27,7 @@ func (h *Handler) GetMembership(c *gin.Context) {
 	if !ok {
 		return
 	}
-	st, err := h.svc.GetStatus(c.Request.Context(), uid)
+	st, err := h.svc.GetOverview(c.Request.Context(), uid)
 	if err != nil {
 		utils.InternalError(c, 500, "获取会员信息失败", err)
 		return
@@ -50,54 +49,83 @@ func (h *Handler) RedeemCode(c *gin.Context) {
 	}
 	res, err := h.svc.Redeem(c.Request.Context(), uid, req.Code)
 	if err != nil {
-		switch {
-		case errors.Is(err, ErrCodeNotFound):
-			utils.BadRequest(c, "兑换码无效")
-		case errors.Is(err, ErrCodeRedeemed):
-			utils.BadRequest(c, "该兑换码已被使用")
-		case errors.Is(err, ErrCodeExpired):
-			utils.BadRequest(c, "该兑换码已过期")
-		default:
-			utils.InternalError(c, 500, "兑换失败,请稍后重试", err)
-		}
+		h.writeCodeError(c, err)
 		return
 	}
 	utils.SuccessWithMessage(c, "兑换成功", res)
 }
 
-// ─── 管理端 ──────────────────────────────────────────────────────────────
-
-// GenerateCodes POST /admin/vip-codes {count, tier, grant_days, valid_until?, note?} —— 批量生成。
-func (h *Handler) GenerateCodes(c *gin.Context) {
-	adminID, _ := utils.GetUserID(c)
+// PreviewCode POST /user/redeem-code/preview {code} —— 兑换前只读预览(不兑换)。
+// 成功返回将授予的内容(确认弹窗用);失败态(无效/过期/用完/本人已兑换)走 writeCodeError。
+func (h *Handler) PreviewCode(c *gin.Context) {
+	uid, ok := utils.GetUserID(c)
+	if !ok {
+		return
+	}
 	var req struct {
-		Count      int     `json:"count"`
-		Tier       string  `json:"tier"`
-		GrantDays  int     `json:"grant_days"`
-		ValidUntil *string `json:"valid_until"` // YYYY-MM-DD;空=永久
-		Note       string  `json:"note"`
+		Code string `json:"code"`
 	}
 	if !utils.BindJSON(c, &req) {
 		return
 	}
-	var validUntil *time.Time
-	if req.ValidUntil != nil && *req.ValidUntil != "" {
-		// ParseInLocation + Local(容器=北京), 取当天 23:59:59 为截止。不做 UTC 转换。
-		t, err := time.ParseInLocation("2006-01-02", *req.ValidUntil, time.Local)
-		if err != nil {
-			// 格式错时**不能**静默忽略 —— 否则会生成一批"永久有效"的码(本想限期)。
-			utils.BadRequest(c, "码有效期格式应为 YYYY-MM-DD")
-			return
-		}
-		tt := t.Add(24*time.Hour - time.Second)
-		validUntil = &tt
+	pv, err := h.svc.PreviewCode(c.Request.Context(), uid, req.Code)
+	if err != nil {
+		h.writeCodeError(c, err)
+		return
+	}
+	utils.Success(c, pv)
+}
+
+// writeCodeError 把兑换码业务错误翻成统一的用户文案(预览 / 兑换共用)。
+func (h *Handler) writeCodeError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, ErrCodeNotFound):
+		utils.BadRequest(c, "兑换码无效")
+	case errors.Is(err, ErrCodeExpired):
+		utils.BadRequest(c, "该兑换码已过期")
+	case errors.Is(err, ErrCodeExhausted):
+		utils.BadRequest(c, "该兑换码兑换次数已用完")
+	case errors.Is(err, ErrCodeAlreadyRedeemed):
+		utils.BadRequest(c, "您已经兑换过该兑换码")
+	case errors.Is(err, ErrCodeRevoked):
+		utils.BadRequest(c, "该兑换码已停用")
+	case errors.Is(err, ErrCodeRedeemed): // 旧单次模型遗留
+		utils.BadRequest(c, "该兑换码已被使用")
+	default:
+		utils.InternalError(c, 500, "兑换失败,请稍后重试", err)
+	}
+}
+
+// ─── 管理端 ──────────────────────────────────────────────────────────────
+
+// GenerateCodes POST /admin/vip-codes {count, tier, grant_days, max_uses, valid_days, note?} —— 批量生成。
+func (h *Handler) GenerateCodes(c *gin.Context) {
+	adminID, _ := utils.GetUserID(c)
+	var req struct {
+		Count              int    `json:"count"`
+		GrantKind          string `json:"grant_kind"` // tier(默认) | credit
+		Tier               string `json:"tier"`       // tier 码: pro|max
+		GrantDays          int    `json:"grant_days"`
+		GrantCredits       int    `json:"grant_credits"`        // credit 码: 经费数
+		CreditKind         string `json:"credit_kind"`          // temp|perm
+		CreditValidityDays int    `json:"credit_validity_days"` // credit temp 时有效天数
+		MaxUses            int    `json:"max_uses"`             // 可兑换次数(默认 1, 最多 100)
+		ValidDays          int    `json:"valid_days"`           // 码有效期窗口天数(默认 7, 最长 30)
+		Note               string `json:"note"`
+	}
+	if !utils.BindJSON(c, &req) {
+		return
 	}
 	var createdBy *uint
 	if adminID != 0 {
 		u := adminID
 		createdBy = &u
 	}
-	codes, err := h.svc.GenerateCodes(req.Count, req.Tier, req.GrantDays, validUntil, req.Note, createdBy)
+	codes, err := h.svc.GenerateCodes(GenerateCodesInput{
+		Count: req.Count, GrantKind: req.GrantKind, Tier: req.Tier, GrantDays: req.GrantDays,
+		GrantCredits: req.GrantCredits, CreditKind: req.CreditKind, CreditValidityDays: req.CreditValidityDays,
+		MaxUses: req.MaxUses, ValidDays: req.ValidDays, Note: req.Note,
+	}, createdBy)
 	if err != nil {
 		utils.InternalError(c, 500, "生成兑换码失败", err)
 		return
@@ -112,7 +140,7 @@ func (h *Handler) AdminUserVIPStatus(c *gin.Context) {
 		utils.BadRequest(c, "无效的用户 id")
 		return
 	}
-	st, err := h.svc.GetStatus(c.Request.Context(), uint(id))
+	st, err := h.svc.GetOverview(c.Request.Context(), uint(id))
 	if err != nil {
 		utils.InternalError(c, 500, "获取会员状态失败", err)
 		return
@@ -164,11 +192,39 @@ func (h *Handler) AdminRevokeVIP(c *gin.Context) {
 	utils.SuccessWithMessage(c, "已取消会员", nil)
 }
 
+// SetCodeStatus PUT /admin/vip-codes/:id/status {revoked} —— 管理员停用 / 恢复兑换码。
+func (h *Handler) SetCodeStatus(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		utils.BadRequest(c, "无效的兑换码 id")
+		return
+	}
+	var req struct {
+		Revoked bool `json:"revoked"`
+	}
+	if !utils.BindJSON(c, &req) {
+		return
+	}
+	if err := h.svc.SetCodeStatus(id, req.Revoked); err != nil {
+		if errors.Is(err, ErrCodeNotFound) {
+			utils.BadRequest(c, "兑换码不存在")
+			return
+		}
+		utils.InternalError(c, 500, "更新兑换码状态失败", err)
+		return
+	}
+	msg := "已停用"
+	if !req.Revoked {
+		msg = "已恢复"
+	}
+	utils.SuccessWithMessage(c, msg, nil)
+}
+
 // ListCodes GET /admin/vip-codes?status=&tier=&page=&page_size= —— 分页列表。
 func (h *Handler) ListCodes(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "30"))
-	items, total, err := h.svc.ListCodes(CodeFilter{Status: c.Query("status"), Tier: c.Query("tier")}, page, pageSize)
+	items, total, err := h.svc.ListCodes(CodeFilter{Status: c.Query("status"), Tier: c.Query("tier"), Redeemer: c.Query("redeemer")}, page, pageSize)
 	if err != nil {
 		utils.ServerError(c, "获取兑换码失败")
 		return

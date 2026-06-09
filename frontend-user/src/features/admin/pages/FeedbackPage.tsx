@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, Search } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Badge } from '@/shared/ui/badge';
+import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
 import {
   Dialog,
@@ -12,9 +13,10 @@ import {
 } from '@/shared/ui/dialog';
 import { AdminPageLayout } from '../components/AdminPageLayout';
 import { DataTable, type Column } from '../components/DataTable';
+import { UserCell } from '../components/UserCell';
 import { Pagination } from '../components/Pagination';
 import { useApiToast } from '../hooks/useApiToast';
-import { useUrlState } from '@/shared/hooks';
+import { useUrlState, useDebounce } from '@/shared/hooks';
 import {
   useFeedbackDetail,
   useFeedbackList,
@@ -50,8 +52,15 @@ export function FeedbackPage() {
     (raw) => (['pending', 'processed', 'replied', 'closed'].includes(raw) ? (raw as FeedbackStatus) : undefined)
   );
   const [replying, setReplying] = useState<Feedback | null>(null);
+  const [searchInput, setSearchInput] = useState('');
+  const search = useDebounce(searchInput, 400);
 
-  const { data, isLoading } = useFeedbackList({ page, pageSize: 20, status: statusFilter });
+  const { data, isLoading } = useFeedbackList({
+    page,
+    pageSize: 20,
+    status: statusFilter,
+    keyword: search || undefined,
+  });
   const reply = useReplyFeedback();
   const updateStatus = useUpdateFeedbackStatus();
   const apiToast = useApiToast();
@@ -69,12 +78,7 @@ export function FeedbackPage() {
     {
       header: '用户',
       width: 180,
-      cell: (r) => (
-        <div className="flex flex-col">
-          <span className="text-foreground text-xs font-bold">{r.username || r.email}</span>
-          <span className="text-2xs text-faint">{r.email}{r.userId ? ` · ID ${r.userId}` : ''}</span>
-        </div>
-      ),
+      cell: (r) => <UserCell id={r.userId ?? null} name={r.username} email={r.email} anonymousLabel="未登录用户" />,
     },
     {
       header: '分类',
@@ -139,6 +143,18 @@ export function FeedbackPage() {
         </div>
       }
     >
+      <div className="mb-4 flex h-9 w-full max-w-sm items-center gap-1.5 rounded-md border border-input bg-background px-2.5">
+        <Search className="size-3.5 text-faint" />
+        <Input
+          value={searchInput}
+          onChange={(e) => {
+            setSearchInput(e.target.value);
+            setPage(1);
+          }}
+          placeholder="搜索 ID / 用户名 / 邮箱 / 反馈内容"
+          className="h-8 flex-1 border-0 bg-transparent px-0 text-xs shadow-none focus-visible:ring-0"
+        />
+      </div>
       <DataTable columns={columns} rows={data?.list} loading={isLoading} />
 
       <Pagination total={data?.total ?? 0} page={page} pageSize={20} onPageChange={setPage} />

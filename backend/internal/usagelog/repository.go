@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"time"
 
+	"scholar-backend/internal/common/utils"
+
 	"gorm.io/gorm"
 )
 
@@ -70,8 +72,15 @@ func (r *Repository) List(query *ListQuery) ([]UsageLogWithUser, int64, error) {
 		db = db.Where("usage_logs.ip_address LIKE ?", "%"+query.IPAddress+"%")
 	}
 	if query.Keyword != "" {
-		db = db.Where("(usage_logs.feature_name LIKE ? OR usage_logs.request_path LIKE ? OR usage_logs.referer_path LIKE ? OR users.username LIKE ?)",
-			"%"+query.Keyword+"%", "%"+query.Keyword+"%", "%"+query.Keyword+"%", "%"+query.Keyword+"%")
+		// 功能/路径 + 用户(ID 精确 + 用户名/邮箱/手机号 模糊)。
+		like := "%" + query.Keyword + "%"
+		clause := "usage_logs.feature_name LIKE ? OR usage_logs.request_path LIKE ? OR usage_logs.referer_path LIKE ?"
+		args := []any{like, like, like}
+		if sql, uargs := utils.UserSearchClause(query.Keyword, "usage_logs.user_id", "users.username", "users.email", "users.phone"); sql != "" {
+			clause += " OR " + sql
+			args = append(args, uargs...)
+		}
+		db = db.Where("("+clause+")", args...)
 	}
 	if query.DeviceType != "" {
 		db = db.Where("usage_logs.device_type = ?", query.DeviceType)

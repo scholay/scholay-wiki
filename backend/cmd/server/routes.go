@@ -23,6 +23,7 @@ import (
 	"scholar-backend/internal/common/middleware"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/config"
+	"scholar-backend/internal/emaillog"
 	"scholar-backend/internal/featuretool"
 	"scholar-backend/internal/feedback"
 	"scholar-backend/internal/hotcontent"
@@ -72,6 +73,7 @@ type allHandlers struct {
 	seo             *seo.Handler
 	message         *message.Handler
 	feedback        *feedback.Handler
+	emailLog        *emaillog.Handler // 邮件发送记录(后台「邮件记录」菜单)
 	ws              *websocket.Handler
 	thirdParty      *thirdparty.Handler
 	announcement    *announcement.Handler

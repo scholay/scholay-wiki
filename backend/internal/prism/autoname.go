@@ -43,6 +43,14 @@ func (s *Service) maybeAutoNameProject(ctx context.Context, projectID, userID ui
 		ins = string([]rune(ins)[:300])
 	}
 
+	// 软配额闸:已超额用户不为「自动命名」这种 best-effort 系统调用再烧额度 —— 直接保持默认名,
+	// 不报错、不中断编辑(编辑轮本身已过 preUserMessageChain 的硬闸门)。
+	if vipChecker != nil {
+		if err := vipChecker.CheckDailyQuota(ctx, userID); err != nil {
+			return
+		}
+	}
+
 	// token 账本:挂到 prism feature(同 runStream 的咽喉点)。
 	uid := userID
 	ctx = llmusage.WithCall(ctx, llmusage.Call{Feature: llmusage.FeaturePrism, UserID: &uid})

@@ -12,6 +12,7 @@ import { useDebounce } from '@/shared/hooks';
 import { MarkdownRenderer } from '@/shared/components/chat';
 import { DataTable, type Column } from './DataTable';
 import { Pagination } from './Pagination';
+import { UserCell } from './UserCell';
 import {
   usePRSubmissions,
   usePRSubmissionDetail,
@@ -123,15 +124,7 @@ export function PeerReviewMonitor() {
     {
       header: '用户',
       width: 200,
-      cell: (r) => (
-        <div className="flex flex-col">
-          <span className="text-foreground text-xs font-bold">{r.username || r.userEmail || '—'}</span>
-          <span className="text-2xs text-faint">
-            {r.userEmail}
-            {r.userId ? ` · ID ${r.userId}` : ''}
-          </span>
-        </div>
-      ),
+      cell: (r) => <UserCell id={r.userId} name={r.username} email={r.userEmail} />,
     },
     { header: '标题', cell: (r) => <span className="text-xs text-subtle line-clamp-2">{r.title || '(未填)'}</span> },
     {
@@ -167,7 +160,7 @@ export function PeerReviewMonitor() {
             setKwInput(e.target.value);
             setPage(1);
           }}
-          placeholder="按邮箱 / 用户名 / 标题筛选"
+          placeholder="ID / 用户名 / 邮箱 / 手机号 / 标题"
           className="h-9 w-72 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         />
       </div>

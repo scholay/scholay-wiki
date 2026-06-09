@@ -113,27 +113,19 @@ func (h *Handler) TestEmailConfig(c *gin.Context) {
 		return
 	}
 
-	// Prepare email content
+	// Prepare email content(统一品牌模板)
 	subject := "Scholay 邮箱配置测试"
-	body := fmt.Sprintf(`
-	<html>
-	<body style="font-family: Arial, sans-serif; padding: 20px;">
-		<h2 style="color: #2563eb;">邮箱配置测试成功！</h2>
-		<p>您的 SMTP 邮箱配置已成功通过测试。</p>
-		<hr style="border: 1px solid #e2e8f0; margin: 20px 0;">
-		<h3>配置信息：</h3>
-		<ul>
-			<li><strong>SMTP服务器：</strong> %s</li>
-			<li><strong>SMTP端口：</strong> %d</li>
-			<li><strong>发件邮箱：</strong> %s</li>
-			<li><strong>发件人名称：</strong> %s</li>
-		</ul>
-		<p style="color: #64748b; font-size: 0.875rem; margin-top: 20px;">
-			这是一封自动发送的测试邮件，如果您收到此邮件，说明邮箱配置正确。
-		</p>
-	</body>
-	</html>
-	`, emailConfig.SMTPHost, emailConfig.SMTPPort, emailConfig.FromEmail, emailConfig.FromName)
+	body := utils.RenderBrandedEmail(utils.EmailContent{
+		Title: "邮箱配置测试成功",
+		Intro: "您的 SMTP 邮箱配置已成功通过测试。能收到这封邮件,说明发信配置正确。",
+		Rows: [][2]string{
+			{"SMTP 服务器", emailConfig.SMTPHost},
+			{"SMTP 端口", fmt.Sprintf("%d", emailConfig.SMTPPort)},
+			{"发件邮箱", emailConfig.FromEmail},
+			{"发件人名称", emailConfig.FromName},
+		},
+		Note: "这是一封自动发送的测试邮件。",
+	})
 
 	// Send email with TLS/SSL support using shared utility
 	config := utils.EmailConfig{

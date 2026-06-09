@@ -98,7 +98,9 @@ export function ToolCallBlock({
   const succeeded = hasResult && !tool.isError;
   const pending = !hasResult && !aborted;
 
-  const [expanded, setExpanded] = useState(!!defaultExpanded || failed);
+  // 失败的工具也默认收起(只保留红色 ✗ chip 提示);否则重新进入对话时每个报错工具都自动展开,
+  // 又长又吵(如 Read 超 token 限制的大段错误)。要看详情点开即可;defaultExpanded 仍可显式覆盖。
+  const [expanded, setExpanded] = useState(!!defaultExpanded);
 
   const Icon = toolIcon(tool.toolName);
 

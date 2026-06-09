@@ -97,6 +97,17 @@ func (h *Handler) BatchAnalyzePapers(c *gin.Context) {
 		return
 	}
 
+	// 会员每日 token 额度闸门(与翻译同款)。论文矩阵分析是并发批量、单请求多次 LLM 调用、
+	// 最烧 token 的功能之一,必须在启动并发分析前拦超额用户(真实扣减仍由 AddUsage 后置完成)。
+	if h.vip != nil {
+		if err := h.vip.CheckDailyQuota(c.Request.Context(), uid); err != nil {
+			if errors.Is(err, vip.ErrQuotaExceeded) {
+				utils.Error(c, errcode.AgentQuotaExceeded, err.Error())
+				return
+			}
+		}
+	}
+
 	// 获取用户的分析维度（所有论文使用相同的维度配置）
 	userIDPtr := &uid
 	dimensionResult, err := h.service.GetAnalysisDimensions(userIDPtr)
@@ -502,7 +513,7 @@ func (h *Handler) StreamTranslatePaper(c *gin.Context) {
 	// 会员每日额度(按 free/pro 等级)。超限在开 SSE 流前回一个 429+6010 的普通 JSON,
 	// 前端 streamSsePost 走 !res.ok 分支拿到友好文案(并据 code 6010 引导去会员页)。
 	if h.vip != nil {
-		if err := h.vip.CheckAndConsume(c.Request.Context(), uid, vip.FeatureTranslate); err != nil {
+		if err := h.vip.CheckDailyQuota(c.Request.Context(), uid); err != nil {
 			if errors.Is(err, vip.ErrQuotaExceeded) {
 				utils.Error(c, errcode.AgentQuotaExceeded, err.Error())
 				return

@@ -77,14 +77,10 @@ func (h *Handler) Track(c *gin.Context) {
 
 // ============================ admin 读取端点 ============================
 
-func queryDays(c *gin.Context) int {
-	d, _ := strconv.Atoi(c.DefaultQuery("days", "30"))
-	return d
-}
-
-// GetSummary GET /admin/usage-stats/summary?days=
+// GetSummary GET /admin/usage-stats/summary?days= 或 ?start_date=&end_date=
 func (h *Handler) GetSummary(c *gin.Context) {
-	res, err := h.service.GetSummary(queryDays(c))
+	from, to := utils.ParseDateWindow(c, 30)
+	res, err := h.service.GetSummary(from, to)
 	if err != nil {
 		utils.ServerError(c, "获取使用统计失败")
 		return
@@ -92,9 +88,10 @@ func (h *Handler) GetSummary(c *gin.Context) {
 	utils.Success(c, res)
 }
 
-// GetFunnel GET /admin/usage-stats/peer-review-funnel?days=
+// GetFunnel GET /admin/usage-stats/peer-review-funnel?days= 或 ?start_date=&end_date=
 func (h *Handler) GetFunnel(c *gin.Context) {
-	res, err := h.service.GetPeerReviewFunnel(queryDays(c))
+	from, to := utils.ParseDateWindow(c, 30)
+	res, err := h.service.GetPeerReviewFunnel(from, to)
 	if err != nil {
 		utils.ServerError(c, "获取审稿漏斗失败")
 		return
@@ -102,12 +99,14 @@ func (h *Handler) GetFunnel(c *gin.Context) {
 	utils.Success(c, gin.H{"stages": res})
 }
 
-// ListEvents GET /admin/usage-stats/events?days=&feature=&action=&correlation_id=&page=&page_size=
+// ListEvents GET /admin/usage-stats/events?days=|start_date=&end_date=&feature=&action=&correlation_id=&page=&page_size=
 func (h *Handler) ListEvents(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	from, to := utils.ParseDateWindow(c, 30)
 	f := ListFilter{
-		Days:          queryDays(c),
+		From:          from,
+		To:            to,
 		Feature:       c.Query("feature"),
 		Action:        c.Query("action"),
 		CorrelationID: c.Query("correlation_id"),

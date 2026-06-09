@@ -19,10 +19,19 @@ func NewQuotaError(msg string) error { return &quotaError{msg: msg} }
 // 兑换码相关业务错误(handler 翻成对应 HTTP 文案)。
 var (
 	ErrCodeNotFound = errors.New("vip: redemption code not found")
-	ErrCodeRedeemed = errors.New("vip: redemption code already redeemed")
+	ErrCodeRedeemed = errors.New("vip: redemption code already redeemed") // 旧单次模型遗留, 仍兼容
 	ErrCodeExpired  = errors.New("vip: redemption code expired")
+	// ErrCodeExhausted 兑换次数已达 max_uses 上限(无人可再兑)。
+	ErrCodeExhausted = errors.New("vip: redemption code exhausted")
+	// ErrCodeAlreadyRedeemed 当前用户已兑换过此码(每用户每码一次)。
+	ErrCodeAlreadyRedeemed = errors.New("vip: redemption code already redeemed by this user")
+	// ErrCodeRevoked 管理员已停用此码。
+	ErrCodeRevoked = errors.New("vip: redemption code revoked")
 )
 
 // ErrUserNotFound —— admin 直授/取消会员时目标用户不存在(UPDATE 影响 0 行)。
 // 防止「写了 0 行却返回成功 + 伪造到期时间」掩盖路径里的错 id。
 var ErrUserNotFound = errors.New("vip: user not found")
+
+// ErrNoDowngrade —— 不支持降级:在期会员订阅/报价更低档时拒绝。
+var ErrNoDowngrade = errors.New("vip: downgrade not supported")

@@ -1,121 +1,69 @@
 import { useState } from 'react';
-import { Crown, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
-import { Button } from '@/shared/ui/button';
-import { Input } from '@/shared/ui/input';
+import { LayoutGrid, Coins, Ticket, FileText, Gift, type LucideIcon } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
-import { toApiError } from '@/shared/lib/http';
-import { useMembership, useRedeemCode, type FeatureUsage } from '../api/membership';
+import { useBillingOverview } from '../api/membership';
+import { AccountAssetsCard } from '../components/account-assets-card';
+import { RechargePanel, RedeemPanel, OrdersTable, OverviewContent } from '../components/billing-panels';
+
+type TabId = 'overview' | 'recharge' | 'redeem' | 'txns' | 'earn';
+const TABS: { id: TabId; label: string; icon: LucideIcon }[] = [
+  { id: 'overview', label: '总览', icon: LayoutGrid },
+  { id: 'recharge', label: '经费充值', icon: Coins },
+  { id: 'redeem', label: '兑换码激活', icon: Ticket },
+  { id: 'txns', label: '明细查看', icon: FileText },
+  { id: 'earn', label: '经费领取', icon: Gift },
+];
 
 /**
- * 我的会员 —— 等级/到期 + 各 AI 功能今日额度 + 兑换码兑换。
- * 简单版:VIP 通过兑换码发放;free 与 pro 在各 AI 功能上有不同的每日次数上限。
+ * 账户资产(合并原「我的会员」)—— 对齐设计稿 scholay-money.pen:
+ * 顶部常驻汇总卡 + 分段式 tab(白底胶囊 active)。总览=近期流水+即将接入计费项。
  */
 export function MembershipPage() {
-  const { data, isLoading } = useMembership();
-  const redeem = useRedeemCode();
-  const [code, setCode] = useState('');
-
-  const isPro = data?.tier === 'pro';
-
-  const onRedeem = async () => {
-    const c = code.trim();
-    if (!c) return;
-    try {
-      const res = await redeem.mutateAsync(c);
-      toast.success(`兑换成功!专业版有效期至 ${res.expires_at.slice(0, 10)}`);
-      setCode('');
-    } catch (err) {
-      toast.error(toApiError(err).message || '兑换失败');
-    }
-  };
+  const { data, isLoading } = useBillingOverview();
+  const [tab, setTab] = useState<TabId>('overview');
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* 等级卡 */}
-      <section className="rounded-md border border-border bg-background p-5">
-        <div className="flex items-center gap-3">
-          <span
+    <div className="flex flex-col gap-5">
+      {isLoading || !data ? (
+        <section className="rounded-md border border-border bg-background p-5">
+          <p className="text-xs text-faint">加载中…</p>
+        </section>
+      ) : (
+        <AccountAssetsCard data={data} onGoRecharge={() => setTab('recharge')} />
+      )}
+
+      {/* 分段式 tab —— 灰底 bar + 白底胶囊(红 icon/文字)active */}
+      <div className="flex items-center gap-1 rounded-md border border-border bg-surface-1 p-1">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
             className={cn(
-              'inline-flex size-10 items-center justify-center rounded-pill',
-              isPro ? 'bg-brand-amber/15 text-brand-amber' : 'bg-surface-2 text-faint'
+              'flex flex-1 items-center justify-center gap-1.5 h-9 rounded-sm text-sm font-medium transition-colors',
+              tab === t.id
+                ? 'bg-background text-brand-red shadow-sm'
+                : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground'
             )}
           >
-            <Crown className="size-5" />
-          </span>
-          <div>
-            <p className="text-base font-bold text-foreground">
-              {isPro ? '专业版会员' : '免费用户'}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {isPro
-                ? data?.expires_at
-                  ? `有效期至 ${data.expires_at.slice(0, 10)}`
-                  : '永久有效'
-                : '升级专业版可大幅提升各 AI 功能的每日额度'}
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* 兑换码 */}
-      <section className="rounded-md border border-border bg-background p-5">
-        <h3 className="text-sm font-bold text-foreground mb-1">兑换码</h3>
-        <p className="text-xs text-faint mb-3">输入兑换码升级 / 续期专业版会员。</p>
-        <div className="flex gap-2">
-          <Input
-            value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
-            placeholder="输入兑换码"
-            className="h-9 max-w-xs font-mono tracking-wider"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') onRedeem();
-            }}
-          />
-          <Button onClick={onRedeem} disabled={redeem.isPending || !code.trim()}>
-            {redeem.isPending && <Loader2 className="size-3.5 animate-spin" />}
-            兑换
-          </Button>
-        </div>
-      </section>
-
-      {/* 今日额度 */}
-      <section className="rounded-md border border-border bg-background p-5">
-        <h3 className="text-sm font-bold text-foreground mb-3">今日额度(每日 0 点重置)</h3>
-        {isLoading ? (
-          <p className="text-xs text-faint">加载中…</p>
-        ) : (
-          <div className="flex flex-col gap-4">
-            {(data?.features ?? []).map((f) => (
-              <QuotaRow key={f.feature} f={f} />
-            ))}
-          </div>
-        )}
-      </section>
-    </div>
-  );
-}
-
-function QuotaRow({ f }: { f: FeatureUsage }) {
-  const unlimited = f.limit <= 0;
-  const pct = unlimited ? 0 : Math.min(100, Math.round((f.used / f.limit) * 100));
-  const exhausted = !unlimited && f.remaining <= 0;
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between text-xs">
-        <span className="text-subtle font-medium">{f.label}</span>
-        <span className={cn('tabular-nums', exhausted ? 'text-brand-red' : 'text-faint')}>
-          {unlimited ? '不限' : `已用 ${f.used} / ${f.limit} · 剩 ${f.remaining}`}
-        </span>
+            <t.icon className="size-3.5" />
+            {t.label}
+          </button>
+        ))}
       </div>
-      {!unlimited && (
-        <div className="h-2 rounded-pill bg-surface-2 overflow-hidden">
-          <div
-            className={cn('h-full rounded-pill', exhausted ? 'bg-brand-red' : 'bg-brand-green')}
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-      )}
+
+      <div className="mt-1">
+        {tab === 'overview' && <OverviewContent onViewAll={() => setTab('txns')} />}
+        {tab === 'recharge' && <RechargePanel />}
+        {tab === 'redeem' && <RedeemPanel />}
+        {tab === 'txns' && <OrdersTable />}
+        {tab === 'earn' && (
+          <section className="flex flex-col items-center gap-2 rounded-md border border-border bg-background p-10 text-center">
+            <Gift className="size-7 text-faint" />
+            <p className="text-sm font-bold text-foreground">任务中心即将上线</p>
+            <p className="text-xs text-muted-foreground">完成签到与任务即可领取科研经费,敬请期待。</p>
+          </section>
+        )}
+      </div>
     </div>
   );
 }

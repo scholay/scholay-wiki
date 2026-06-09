@@ -1,12 +1,16 @@
 import { useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Info,
   Link2,
   LogOut,
   Shield,
   ShieldCheck,
+  Sparkles,
+  Gem,
+  Crown,
   User as UserIcon,
+  type LucideIcon,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar';
 import { DropdownMenuItem, DropdownMenuSeparator } from '@/shared/ui/dropdown-menu';
@@ -14,6 +18,16 @@ import { http } from '@/shared/lib/http';
 import { getAuthToken } from '@/shared/lib/auth-token';
 import { useAuthStore, isAdminRole } from '@/stores/auth.store';
 import { cn } from '@/shared/lib/utils';
+
+// 会员档位展示(与账户资产卡一致):Pro=宝石/琥珀,Max=皇冠/品牌红,Free=免费/绿。
+type Tier = 'free' | 'pro' | 'max';
+const TIER_LABEL: Record<Tier, string> = { free: '免费用户', pro: 'Pro 会员', max: 'Max 会员' };
+const TIER_BADGE_CLS: Record<Tier, string> = {
+  free: 'bg-[hsl(var(--brand-green)/0.12)] text-brand-green',
+  pro: 'bg-brand-amber/10 text-brand-amber',
+  max: 'bg-brand-red/10 text-brand-red',
+};
+const TIER_BADGE_ICON: Record<Tier, LucideIcon | null> = { free: null, pro: Gem, max: Crown };
 
 /**
  * 用户账号下拉菜单 —— 对照 .pen `g1qah` dropdown。
@@ -37,12 +51,23 @@ export function UserMenuContent() {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
+  const isAdmin = user ? isAdminRole(user.role) : false;
+  // 会员档位 —— 复用 ['settings','billing'] 缓存(与 QuotaNotifier / 会员页同源,通常已是热的)。
+  // shared 不能引 feature API,这里直接打同一个 overview 端点。管理员不展示会员档,故不查。
+  const { data: billing } = useQuery({
+    queryKey: ['settings', 'billing'],
+    queryFn: async () => (await http.get<{ data: { tier: string } }>('/user/billing/overview')).data.data,
+    enabled: !!getAuthToken() && !isAdmin,
+    staleTime: 30_000,
+  });
+
   if (!user) return null;
 
   const initial = (user.username || user.email || '?').slice(0, 1).toUpperCase();
   const displayName = user.username || user.email.split('@')[0] || '用户';
-  const isAdmin = isAdminRole(user.role);
-  const planLabel = isAdmin ? '管理员' : '普通用户';
+  const tier = (['free', 'pro', 'max'].includes(billing?.tier ?? '') ? billing!.tier : 'free') as Tier;
+  const TierIcon = TIER_BADGE_ICON[tier];
+  const showUpgrade = !isAdmin && tier !== 'max'; // Free/Pro 显示"升级会员";Max 已顶级不显示
 
   const handleLogout = () => {
     const token = getAuthToken(); // 先捕获, 再立刻清本地 —— 退出"即时"且不被任何 401 弹框打断
@@ -68,17 +93,36 @@ export function UserMenuContent() {
         </Avatar>
         <span className="text-md font-bold text-foreground">{displayName}</span>
         <span className="text-xs text-faint">{user.email}</span>
-        <span
-          className={cn(
-            'inline-flex items-center px-2.5 py-0.5 rounded-pill text-2xs font-bold mt-1',
-            isAdmin
-              ? 'bg-danger-soft text-brand-red'
-              : 'bg-[hsl(var(--brand-green)/0.12)] text-brand-green'
-          )}
-        >
-          {planLabel}
-        </span>
+        {isAdmin ? (
+          <span className="mt-1 inline-flex items-center rounded-pill bg-danger-soft px-2.5 py-0.5 text-2xs font-bold text-brand-red">
+            管理员
+          </span>
+        ) : (
+          <span className={cn('mt-1 inline-flex items-center gap-1 rounded-pill px-2.5 py-0.5 text-2xs font-bold', TIER_BADGE_CLS[tier])}>
+            {TierIcon && <TierIcon className="size-3" />}
+            {TIER_LABEL[tier]}
+          </span>
+        )}
       </div>
+
+      {/* 快捷升级会员(Free/Pro 可见,Max 顶级隐藏)→ 进套餐页选购 */}
+      {showUpgrade && (
+        <div className="px-3 pb-3">
+          <DropdownMenuItem
+            className={cn(
+              'w-full cursor-pointer justify-center gap-1.5 rounded-md bg-brand-red px-3 py-2 text-background',
+              // DropdownMenuItem 默认 hover/highlight 是 data-[highlighted]:bg-surface-2 + focus:text-foreground,
+              // 会盖掉红底→白字浮在浅灰上(washed out)。显式覆盖这两个状态保持红底白字。
+              'hover:bg-brand-red/90 focus:bg-brand-red/90 focus:text-background',
+              'data-[highlighted]:bg-brand-red/90 data-[highlighted]:text-background',
+            )}
+            onSelect={() => navigate('/pricing')}
+          >
+            <Sparkles className="size-3.5" />
+            <span className="text-sm font-bold">升级会员</span>
+          </DropdownMenuItem>
+        </div>
+      )}
 
       <DropdownMenuSeparator />
 

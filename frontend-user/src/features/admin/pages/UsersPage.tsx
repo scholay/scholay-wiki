@@ -177,8 +177,11 @@ export function UsersPage() {
           onClick={() => openDetail(u)}
           className="flex flex-col text-left transition-colors hover:text-brand-red"
         >
-          <span className="text-foreground font-bold">
-            {u.username || u.email?.split('@')[0] || u.phone || `User #${u.id}`}
+          <span className="flex items-center gap-1.5">
+            <span className="text-foreground font-bold">
+              {u.username || u.email?.split('@')[0] || u.phone || '用户'}
+            </span>
+            <span className="shrink-0 rounded-sm bg-surface-2 px-1 font-mono text-2xs text-faint">#{u.id}</span>
           </span>
           <span className="text-xs text-faint">{u.email || u.phone || '—'}</span>
         </button>
@@ -308,7 +311,7 @@ export function UsersPage() {
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-faint" />
           <Input
-            placeholder="搜索邮箱 / 用户名 / 手机号"
+            placeholder="搜索 ID / 用户名 / 邮箱 / 手机号"
             value={keyword}
             onChange={(e) => patch({ q: e.target.value || null, page: null })}
             className="pl-8 h-8 w-64"

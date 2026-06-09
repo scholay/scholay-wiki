@@ -22,11 +22,12 @@ func (h *Handler) GetUserDetail(c *gin.Context) {
 		utils.BadRequest(c, "无效的用户 id")
 		return
 	}
-	providers, err := h.service.GetUserAuthProviders(uint(id))
-	if err != nil {
+	u, err := h.service.FindByID(uint(id))
+	if err != nil || u == nil {
 		utils.Error(c, 2008, "获取用户详情失败")
 		return
 	}
+	providers, _ := h.service.GetUserAuthProviders(uint(id))
 	// 精简视图:只回登录方式 + 绑定时间, 不泄露 openID/union/provider_data 等敏感原始数据。
 	type providerView struct {
 		Provider  string    `json:"provider"`
@@ -36,7 +37,22 @@ func (h *Handler) GetUserDetail(c *gin.Context) {
 	for _, p := range providers {
 		views = append(views, providerView{Provider: p.Provider, CreatedAt: p.CreatedAt})
 	}
-	utils.Success(c, gin.H{"auth_providers": views})
+	deref := func(p *string) string {
+		if p == nil {
+			return ""
+		}
+		return *p
+	}
+	// 身份 + 登录方式(供 admin「用户单元」展开:邮箱/手机号 + 验证态 + OAuth 绑定)。
+	utils.Success(c, gin.H{
+		"id":             u.ID,
+		"username":       deref(u.Username),
+		"email":          deref(u.Email),
+		"email_verified": u.EmailVerified,
+		"phone":          deref(u.Phone),
+		"phone_verified": u.PhoneVerified,
+		"auth_providers": views,
+	})
 }
 
 // GetUserStatistics handles getting user statistics (admin only)

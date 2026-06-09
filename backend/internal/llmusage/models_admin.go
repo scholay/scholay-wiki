@@ -18,8 +18,10 @@ type StatsFilter struct {
 	Source   string    // project | agent
 	Model    string    // 精确模型 code
 	Provider string    // provider 标签
-	UserID   *uint     // 精确用户
-	AnonOnly bool       // 仅 user_id IS NULL(公众号/匿名 成本)
+	UserID   *uint     // 精确用户(legacy)
+	AnonOnly bool      // 仅 user_id IS NULL(公众号/匿名 成本)
+	Keyword  string    // 用户关键词(ID/用户名/邮箱/手机号),由 handler 解析成 UserIDs
+	UserIDs  []uint    // Keyword 解析出的用户集合;非空 → user_id IN(...);[0] = 关键词无命中
 }
 
 // Totals 是看板顶部 KPI 的汇总数字(过滤窗口内)。

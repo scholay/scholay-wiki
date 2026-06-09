@@ -4,6 +4,8 @@ import (
 	"errors"
 	"time"
 
+	"scholar-backend/internal/common/utils"
+
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -13,6 +15,53 @@ type Repository struct {
 }
 
 func NewRepository(db *gorm.DB) *Repository { return &Repository{db: db} }
+
+// DB 暴露底层连接, 供同包的 WalletService 起事务用。
+func (r *Repository) DB() *gorm.DB { return r.db }
+
+// GetBillingConfig 拉取单行计费配置(id=1)。
+func (r *Repository) GetBillingConfig() (*BillingConfig, error) {
+	var c BillingConfig
+	if err := r.db.First(&c).Error; err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+// UpdateBillingConfig upsert 单行配置(显式字段 Updates, 避免 gorm 跳零值 —— enabled/各数值需可写 0)。
+func (r *Repository) UpdateBillingConfig(c *BillingConfig) error {
+	var existing BillingConfig
+	if err := r.db.First(&existing).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		c.ID = 1
+		return r.db.Create(c).Error
+	} else if err != nil {
+		return err
+	}
+	return r.db.Model(&existing).Updates(map[string]any{
+		"free_daily_tokens":        c.FreeDailyTokens,
+		"pro_multiplier":           c.ProMultiplier,
+		"max_multiplier":           c.MaxMultiplier,
+		"pro_price_cents":          c.ProPriceCents,
+		"pro_original_cents":       c.ProOriginalCents,
+		"max_price_cents":          c.MaxPriceCents,
+		"max_original_cents":       c.MaxOriginalCents,
+		"pro_grant_credits":        c.ProGrantCredits,
+		"max_grant_credits":        c.MaxGrantCredits,
+		"recharge_rate":            c.RechargeRate,
+		"min_recharge_cents":       c.MinRechargeCents,
+		"reset_cost_credits":       c.ResetCostCredits,
+		"subscription_period_days": c.SubscriptionPeriodDays,
+		"popular_plan":             c.PopularPlan,
+		"enabled":                  c.Enabled,
+	}).Error
+}
+
+// GetUserContact 读某用户的邮箱(通知邮件用)。无邮箱/不存在 → 返回空串(调用方据此跳过发邮件)。
+func (r *Repository) GetUserContact(userID uint) (email string, err error) {
+	var u struct{ Email string }
+	err = r.db.Table("users").Select("email").Where("id = ?", userID).Scan(&u).Error
+	return u.Email, err
+}
 
 // GetUserVIP 读某用户的 VIP 等级 + 到期(从 users 表两列)。用户不存在时返回零值(视为 free)。
 func (r *Repository) GetUserVIP(userID uint) (UserVIP, error) {
@@ -62,23 +111,74 @@ func (r *Repository) CodeExists(code string) (bool, error) {
 	return n > 0, err
 }
 
-// CodeFilter 列表过滤。Status: ""(全部)/ "unredeemed" / "redeemed"。
+// GetCodeByCode 读一行兑换码(预览用, 不锁不改)。未命中回 ErrCodeNotFound。
+func (r *Repository) GetCodeByCode(code string) (*RedemptionCode, error) {
+	var rc RedemptionCode
+	if err := r.db.Where("code = ?", code).First(&rc).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrCodeNotFound
+		}
+		return nil, err
+	}
+	return &rc, nil
+}
+
+// HasUserRedeemed 该用户是否已兑换过此码(每用户每码一次的判据)。
+func (r *Repository) HasUserRedeemed(codeID uint64, userID uint) (bool, error) {
+	return r.hasUserRedeemedTx(r.db, codeID, userID)
+}
+
+// hasUserRedeemedTx 同 HasUserRedeemed, 但跑在给定事务/连接上(Redeem 事务内复用)。
+func (r *Repository) hasUserRedeemedTx(tx *gorm.DB, codeID uint64, userID uint) (bool, error) {
+	var n int64
+	err := tx.Model(&CodeRedemption{}).Where("code_id = ? AND user_id = ?", codeID, userID).Count(&n).Error
+	return n > 0, err
+}
+
+// SetCodeRevoked 管理员停用 / 恢复一个兑换码。revoked=true 写入停用时间, false 清空。
+// 影响 0 行(id 不存在)回 ErrCodeNotFound。
+func (r *Repository) SetCodeRevoked(id uint64, revoked bool, now time.Time) error {
+	var revokedAt *time.Time
+	if revoked {
+		revokedAt = &now
+	}
+	res := r.db.Model(&RedemptionCode{}).Where("id = ?", id).Update("revoked_at", revokedAt)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrCodeNotFound
+	}
+	return nil
+}
+
+// CodeFilter 列表过滤。Status: ""(全部)/ "unredeemed"(仍可兑) / "redeemed"(已用完)。
+// Redeemer: 兑换人关键词(ID/用户名/邮箱/手机号)—— 只看被该用户兑换过的码。
 type CodeFilter struct {
-	Status string
-	Tier   string
+	Status   string
+	Tier     string
+	Redeemer string
 }
 
 // ListCodes 分页列出兑换码(created_at DESC)。
 func (r *Repository) ListCodes(f CodeFilter, limit, offset int) ([]RedemptionCode, int64, error) {
 	q := r.db.Model(&RedemptionCode{})
 	switch f.Status {
-	case "redeemed":
-		q = q.Where("redeemed_at IS NOT NULL")
-	case "unredeemed":
-		q = q.Where("redeemed_at IS NULL")
+	case "redeemed": // 已用完:已兑次数达上限
+		q = q.Where("used_count >= max_uses")
+	case "unredeemed": // 仍可兑:未达上限
+		q = q.Where("used_count < max_uses")
 	}
 	if f.Tier != "" {
 		q = q.Where("grant_tier = ?", f.Tier)
+	}
+	// 按兑换人筛选:命中用户兑换过的码(走兑换流水 vip_code_redemptions)。
+	if f.Redeemer != "" {
+		if sql, args := utils.UserSearchClause(f.Redeemer, "id", "username", "email", "phone"); sql != "" {
+			uidSub := r.db.Table("users").Select("id").Where(sql, args...)
+			codeSub := r.db.Table("vip_code_redemptions").Select("code_id").Where("user_id IN (?)", uidSub)
+			q = q.Where("id IN (?)", codeSub)
+		}
 	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
@@ -91,11 +191,10 @@ func (r *Repository) ListCodes(f CodeFilter, limit, offset int) ([]RedemptionCod
 	return rows, total, nil
 }
 
-// Redeem 兑换:校验码 → 顺延/设置 users 的 vip_tier+expires → 标记码已用。整体在事务里, 防并发重复兑换。
-// 返回 (授予等级, 新到期时间)。
-func (r *Repository) Redeem(userID uint, code string, now time.Time) (string, time.Time, error) {
-	var grantTier string
-	var newExpires time.Time
+// Redeem 兑换:事务里 校验码 → 记流水(每用户每码一次)→ 计数 +1 → 授予(会员 or 经费),
+// 全原子。对码行加 FOR UPDATE 行锁:并发兑同一码被串行化, 故次数判定与每用户去重都准确。
+func (r *Repository) Redeem(userID uint, code string, now time.Time) (*RedeemResult, error) {
+	var result *RedeemResult
 	err := r.db.Transaction(func(tx *gorm.DB) error {
 		var rc RedemptionCode
 		// 行锁, 防并发两个请求兑换同一码。
@@ -106,43 +205,78 @@ func (r *Repository) Redeem(userID uint, code string, now time.Time) (string, ti
 			}
 			return err
 		}
-		if rc.RedeemedAt != nil {
-			return ErrCodeRedeemed
+		if rc.RevokedAt != nil {
+			return ErrCodeRevoked
 		}
 		if rc.ValidUntil != nil && rc.ValidUntil.Before(now) {
 			return ErrCodeExpired
 		}
-
-		var uv UserVIP
-		if err := tx.Table("users").Select("vip_tier, vip_expires_at").Where("id = ?", userID).Scan(&uv).Error; err != nil {
+		maxUses := rc.MaxUses
+		if maxUses < 1 {
+			maxUses = 1
+		}
+		if rc.UsedCount >= maxUses {
+			return ErrCodeExhausted
+		}
+		// 每用户每码一次:先查流水(持码行锁, 同用户并发被串行化), 唯一键再兜底。
+		dup, err := r.hasUserRedeemedTx(tx, rc.ID, userID)
+		if err != nil {
 			return err
 		}
-		// 单调(绝不让用户变差):当前是**未过期的 pro** → 永远保持 pro 且从现有到期日顺延,
-		// 即便兑换的是较低等级的码 —— 否则一张 free 码会把在期 pro 直接降级并截断剩余时间。
-		// 否则(free / 已过期)→ 从 now 起算, 授予码的等级。
-		base := now
-		grantTier = rc.GrantTier
-		if uv.VIPTier == TierPro && uv.VIPExpiresAt != nil && uv.VIPExpiresAt.After(now) {
-			base = *uv.VIPExpiresAt
-			grantTier = TierPro
+		if dup {
+			return ErrCodeAlreadyRedeemed
 		}
-		newExpires = base.AddDate(0, 0, rc.GrantDays)
-
-		if err := tx.Table("users").Where("id = ?", userID).
-			Updates(map[string]any{"vip_tier": rc.GrantTier, "vip_expires_at": newExpires}).Error; err != nil {
+		if err := tx.Create(&CodeRedemption{CodeID: rc.ID, UserID: userID, RedeemedAt: now}).Error; err != nil {
 			return err
 		}
-		// 仅当仍未兑换时才标记(并发兜底:RowsAffected==0 说明被另一个事务抢先)。
+		// 计数 +1(并发兜底:used_count < max_uses 抢占, RowsAffected==0 说明刚被抢光)。
 		res := tx.Model(&RedemptionCode{}).
-			Where("id = ? AND redeemed_at IS NULL", rc.ID).
-			Updates(map[string]any{"redeemed_by_user_id": userID, "redeemed_at": now})
+			Where("id = ? AND used_count < ?", rc.ID, maxUses).
+			Updates(map[string]any{
+				"used_count":          gorm.Expr("used_count + 1"),
+				"redeemed_by_user_id": userID,
+				"redeemed_at":         now,
+			})
 		if res.Error != nil {
 			return res.Error
 		}
 		if res.RowsAffected == 0 {
-			return ErrCodeRedeemed
+			return ErrCodeExhausted
 		}
+
+		if rc.GrantKind == GrantKindCredit {
+			if rc.CreditKind == CreditKindPerm {
+				if err := grantPermInTx(tx, userID, rc.GrantCredits, SourceGift, code, TxGift); err != nil {
+					return err
+				}
+				result = &RedeemResult{Kind: GrantKindCredit, Credits: rc.GrantCredits, CreditKind: CreditKindPerm}
+			} else {
+				days := rc.CreditValidityDays
+				if days <= 0 {
+					days = 30
+				}
+				exp := now.AddDate(0, 0, days)
+				if err := grantTempInTx(tx, userID, rc.GrantCredits, SourceGift, code, now, exp, TxGift); err != nil {
+					return err
+				}
+				result = &RedeemResult{Kind: GrantKindCredit, Credits: rc.GrantCredits, CreditKind: CreditKindTemp}
+			}
+			return nil
+		}
+
+		// 会员码:单调叠加(不降级 + 在期顺延)。
+		var uv UserVIP
+		if err := tx.Table("users").Select("vip_tier, vip_expires_at").Where("id = ?", userID).Scan(&uv).Error; err != nil {
+			return err
+		}
+		newTier, newExpires := applyMembershipGrant(uv, rc.GrantTier, rc.GrantDays, now)
+		if err := tx.Table("users").Where("id = ?", userID).
+			Updates(map[string]any{"vip_tier": newTier, "vip_expires_at": newExpires}).Error; err != nil {
+			return err
+		}
+		exp := newExpires
+		result = &RedeemResult{Kind: GrantKindTier, Tier: newTier, ExpiresAt: &exp}
 		return nil
 	})
-	return grantTier, newExpires, err
+	return result, err
 }

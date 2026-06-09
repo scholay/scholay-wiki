@@ -79,7 +79,7 @@ func SetVIPChecker(v *vip.Service) { vipChecker = v }
 // BuildSpec 可以在 SetUsageRecorder/SetVIPChecker 之前调用, 顺序无关。
 func preUserMessageChain(ctx context.Context, userID uint, _ string) error {
 	if vipChecker != nil {
-		if err := vipChecker.CheckAndConsume(ctx, userID, vip.FeatureClaw); err != nil {
+		if err := vipChecker.CheckDailyQuota(ctx, userID); err != nil {
 			if errors.Is(err, vip.ErrQuotaExceeded) {
 				return agentbridge.NewQuotaError(err.Error())
 			}

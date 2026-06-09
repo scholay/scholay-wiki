@@ -321,51 +321,13 @@ func (s *Service) ReplyFeedback(id uint, replyContent, repliedBy string) error {
 
 // buildReplyEmailBody 构建回复邮件内容
 func (s *Service) buildReplyEmailBody(feedback *Feedback, replyContent string) string {
-	return fmt.Sprintf(`
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #10a37f, #0d8a6a); color: white; padding: 20px; border-radius: 8px 8px 0 0; }
-        .content { background: #f9f9f9; padding: 20px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px; }
-        .original { background: #fff; padding: 15px; border-left: 4px solid #10a37f; margin: 15px 0; }
-        .reply { background: #e8f5e9; padding: 15px; border-radius: 8px; margin: 15px 0; }
-        .footer { text-align: center; color: #888; font-size: 12px; margin-top: 20px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h2 style="margin: 0;">您的反馈已收到回复</h2>
-        </div>
-        <div class="content">
-            <p>您好，</p>
-            <p>感谢您的反馈，我们已经处理了您的问题。以下是我们的回复：</p>
-            
-            <h4>您的原始反馈：</h4>
-            <div class="original">
-                %s
-            </div>
-            
-            <h4>我们的回复：</h4>
-            <div class="reply">
-                %s
-            </div>
-            
-            <p>如果您还有其他问题，欢迎继续向我们反馈。</p>
-            
-            <div class="footer">
-                <p>此邮件由系统自动发送，请勿直接回复。</p>
-                <p>© Scholay - 智能学术检索平台</p>
-            </div>
-        </div>
-    </div>
-</body>
-</html>
-`, feedback.Content, replyContent)
+	return utils.RenderBrandedEmail(utils.EmailContent{
+		Title: "您的反馈已收到回复",
+		Intro: "感谢您的反馈,我们已经处理了您的问题。您的原始反馈:",
+		Quote: feedback.Content,
+		Outro: "我们的回复:\n" + replyContent,
+		Note:  "如果您还有其他问题,欢迎继续向我们反馈。",
+	})
 }
 
 // DeleteFeedback 删除反馈

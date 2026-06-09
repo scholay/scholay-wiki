@@ -305,6 +305,74 @@ func (r *Repository) BatchAppendCurrentVersions(items []VersionWrite, author str
 	return out, nil
 }
 
+// appendVersionTx 在给定事务里给一个**已存在**文件追加一个 current 版本(supersede 旧 → 插新 → 更新指针)。
+func appendVersionTx(tx *gorm.DB, fileID uint, body, sha, author string, baseVersionID *uint) error {
+	var maxNo int
+	tx.Model(&FileVersion{}).Where("file_id = ?", fileID).Select("COALESCE(MAX(version_no),0)").Scan(&maxNo)
+	if err := tx.Model(&FileVersion{}).
+		Where("file_id = ? AND status = ?", fileID, VerCurrent).
+		Update("status", VerSuperseded).Error; err != nil {
+		return err
+	}
+	ver := FileVersion{
+		FileID: fileID, VersionNo: maxNo + 1, Body: body, ContentSHA256: sha,
+		Author: author, Status: VerCurrent, BaseVersionID: baseVersionID,
+	}
+	if err := tx.Create(&ver).Error; err != nil {
+		return err
+	}
+	return tx.Model(&File{}).Where("id = ?", fileID).Updates(map[string]any{
+		"current_version_id": ver.ID, "content_sha256": sha, "size": len(body),
+	}).Error
+}
+
+// NewFileWrite 本轮 agent 新建的文件(轮末检出);固化时建 File + 首版本。
+type NewFileWrite struct {
+	RelPath string
+	Kind    string
+	Mime    string
+	Body    string
+	SHA     string
+}
+
+// ApplyRoundTx 单事务固化一轮:已存在文件追加 current 版本 + 新建文件建 File+首版本。
+// 全成功或全回滚(杜绝半固化)。新文件遇唯一键冲突(并发已建)→ 降级为给既存文件追加版本,不致整轮失败。
+func (r *Repository) ApplyRoundTx(projectID uint, existing []VersionWrite, created []NewFileWrite, author string) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		for _, it := range existing {
+			if err := appendVersionTx(tx, it.FileID, it.Body, it.SHA, author, it.BaseVersionID); err != nil {
+				return err
+			}
+		}
+		for _, nf := range created {
+			f := File{ProjectID: projectID, RelPath: nf.RelPath, FileKind: nf.Kind, Mime: nf.Mime}
+			if err := tx.Create(&f).Error; err != nil {
+				if isDuplicateKey(err) {
+					var ex File
+					if e := tx.Where("project_id = ? AND rel_path = ?", projectID, nf.RelPath).First(&ex).Error; e != nil {
+						return e
+					}
+					if err := appendVersionTx(tx, ex.ID, nf.Body, nf.SHA, author, nil); err != nil {
+						return err
+					}
+					continue
+				}
+				return err
+			}
+			ver := FileVersion{FileID: f.ID, VersionNo: 1, Body: nf.Body, ContentSHA256: nf.SHA, Author: author, Status: VerCurrent}
+			if err := tx.Create(&ver).Error; err != nil {
+				return err
+			}
+			if err := tx.Model(&File{}).Where("id = ?", f.ID).Updates(map[string]any{
+				"current_version_id": ver.ID, "content_sha256": nf.SHA, "size": len(nf.Body),
+			}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 // ─── 编译 ────────────────────────────────────────────────────────────────
 
 func (r *Repository) CreateCompile(c *Compile) error { return r.db.Create(c).Error }

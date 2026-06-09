@@ -69,7 +69,7 @@ func SetLLMUsageRecorder(r llmusage.Recorder) { llmUsageRecorder = r }
 // preUserMessageChain:每轮提问前查 vip 配额(超额转 quota_exceeded 干净文案)+ 记一条功能使用统计。
 func preUserMessageChain(ctx context.Context, userID uint, _ string) error {
 	if vipChecker != nil {
-		if err := vipChecker.CheckAndConsume(ctx, userID, vip.FeaturePrism); err != nil {
+		if err := vipChecker.CheckDailyQuota(ctx, userID); err != nil {
 			if errors.Is(err, vip.ErrQuotaExceeded) {
 				return agentbridge.NewQuotaError(err.Error())
 			}

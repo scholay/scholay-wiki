@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"time"
 
+	"scholar-backend/internal/common/utils"
+
 	"gorm.io/gorm"
 )
 
@@ -43,10 +45,24 @@ func applyStatsFilter(q *gorm.DB, f StatsFilter) *gorm.DB {
 	}
 	if f.AnonOnly {
 		q = q.Where("llm_token_usage.user_id IS NULL")
+	} else if len(f.UserIDs) > 0 {
+		q = q.Where("llm_token_usage.user_id IN ?", f.UserIDs) // 关键词解析出的用户集合([0]=无命中→空结果)
 	} else if f.UserID != nil {
 		q = q.Where("llm_token_usage.user_id = ?", *f.UserID)
 	}
 	return q
+}
+
+// ResolveUserIDs 把「用户关键词」(ID/用户名/邮箱/手机号)解析成 user_id 集合(上限 limit)。
+// 给按用户筛选 token 用量用 —— 先在 users 表查命中,再 user_id IN(...)。无命中回 nil。
+func (r *Repository) ResolveUserIDs(keyword string, limit int) []uint {
+	sql, args := utils.UserSearchClause(keyword, "id", "username", "email", "phone")
+	if sql == "" {
+		return nil
+	}
+	var ids []uint
+	r.db.Table("users").Where(sql, args...).Limit(limit).Pluck("id", &ids)
+	return ids
 }
 
 // StatsTotals 汇总 KPI(过滤窗口内一次查完)。

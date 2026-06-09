@@ -23,6 +23,7 @@ import {
 } from 'recharts';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { Badge } from '@/shared/ui/badge';
+import { DateRangeControl, type DateWindow } from '../components/DateRangeControl';
 import { AdminPageLayout } from '../components/AdminPageLayout';
 import { EmptyState } from '@/shared/components/EmptyState';
 import {
@@ -44,18 +45,26 @@ import {
  * 容错:任何 hook 返回 503 (UMAMI_WEBSITE_ID 未配) → 顶部显示空态卡片,告诉用户去配。
  */
 export function AnalyticsPage() {
-  const [range, setRange] = useState<7 | 30 | 90>(30);
+  const [win, setWin] = useState<DateWindow>({ days: 30 });
 
-  // ⚠️ 必须 useMemo:nowISO() 每次 render 返回新毫秒时间戳,
-  // 直接传 `{start, end}` 会让 useQuery 的 queryKey 每次都不一样 → 无限重新拉取。
-  // 仅依赖 range 时,同一窗口 (7/30/90) 内 params 引用稳定。
+  // 窗口跨越天数:决定折线聚合粒度(<=7 天按小时,否则按天)。
+  const spanDays =
+    win.start && win.end
+      ? Math.round((new Date(win.end).getTime() - new Date(win.start).getTime()) / 86400000) + 1
+      : win.days ?? 30;
+
+  // ⚠️ 必须 useMemo:toISOString() 每次 render 返回新毫秒时间戳,直接传 `{start,end}` 会让
+  // useQuery 的 queryKey 每次都不一样 → 无限重拉。依赖窗口的原始值,稳定。
   const params = useMemo(
-    () => ({ start: daysAgoISO(range), end: nowISO() }),
-    [range],
+    () =>
+      win.start && win.end
+        ? { start: new Date(win.start + 'T00:00:00').toISOString(), end: new Date(win.end + 'T23:59:59').toISOString() }
+        : { start: daysAgoISO(win.days ?? 30), end: nowISO() },
+    [win.start, win.end, win.days],
   );
 
   const overview = useAnalyticsOverview(params);
-  const pv = usePageviews(range <= 7 ? 'hour' : 'day', params);
+  const pv = usePageviews(spanDays <= 7 ? 'hour' : 'day', params);
   const active = useActiveVisitors();
 
   // 任一接口 503 → 视为 umami 没接好;只看 overview 这个最稳的
@@ -84,7 +93,7 @@ export function AnalyticsPage() {
     <AdminPageLayout
       title="数据统计"
       description="Umami 自托管 · 后端拉取数据,本页直接渲染图表(不再 iframe)"
-      actions={<RangeTabs value={range} onChange={setRange} />}
+      actions={<DateRangeControl value={win} onChange={setWin} />}
     >
       {/* 概览卡片 5 个 + 实时在线 */}
       <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
@@ -130,7 +139,7 @@ export function AnalyticsPage() {
       <section className="mb-6">
         <Panel
           icon={BarChart3}
-          title={`访问趋势 · 最近 ${range} 天 · 按${range <= 7 ? '小时' : '天'}聚合`}
+          title={`访问趋势 · 按${spanDays <= 7 ? '小时' : '天'}聚合`}
           loading={pv.isLoading}
         >
           {pv.data && pv.data.series.pageviews.length > 0 ? (
@@ -194,38 +203,6 @@ export function AnalyticsPage() {
 }
 
 // ----------------- 子组件 -----------------
-
-function RangeTabs({
-  value,
-  onChange,
-}: {
-  value: 7 | 30 | 90;
-  onChange: (v: 7 | 30 | 90) => void;
-}) {
-  const opts: Array<{ v: 7 | 30 | 90; label: string }> = [
-    { v: 7, label: '7 天' },
-    { v: 30, label: '30 天' },
-    { v: 90, label: '90 天' },
-  ];
-  return (
-    <div className="inline-flex rounded-pill border border-border bg-background p-0.5">
-      {opts.map((o) => (
-        <button
-          key={o.v}
-          type="button"
-          onClick={() => onChange(o.v)}
-          className={`px-3 h-7 text-xs rounded-pill transition-colors ${
-            value === o.v
-              ? 'bg-foreground text-background'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 function KPI({
   icon: Icon,

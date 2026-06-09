@@ -93,12 +93,16 @@ func (h *Handler) ApplyRound(c *gin.Context) {
 	if !ok {
 		return
 	}
-	// 可选 body {instruction}:本轮干净指令,用于首次固化后自动给项目起名(缺省也行)。
+	// 可选 body:
+	//   instruction —— 本轮干净指令,用于首次固化后自动给项目起名(缺省也行)。
+	//   files       —— per-file / per-hunk 固化:relPath→最终正文(前端在 diff 编辑器里可能已删掉部分 hunk)。
+	//                  非空时只固化列出的文件、用其正文;为空则固化 cwd 全部改动(整轮应用)。
 	var body struct {
-		Instruction string `json:"instruction"`
+		Instruction string            `json:"instruction"`
+		Files       map[string]string `json:"files"`
 	}
 	_ = c.ShouldBindJSON(&body)
-	applied, err := h.svc.ApplyRound(c.Request.Context(), uid, pid, body.Instruction)
+	applied, err := h.svc.ApplyRound(c.Request.Context(), uid, pid, body.Instruction, body.Files)
 	if err != nil {
 		if err == ErrProjectNotFound {
 			utils.NotFound(c, "项目不存在")

@@ -15,14 +15,16 @@ import (
 	"scholar-backend/internal/wechatofficial"
 )
 
-// initPaymentHandlers 支付域（支付宝 + 微信支付）
-func initPaymentHandlers(db *gorm.DB) (*payment.AlipayHandler, *payment.WeChatPayHandler) {
+// initPaymentHandlers 支付域（支付宝 + 微信支付）。
+// orderSvc 实现 payment.OrderServiceInterface（充值/订阅履约), 由 vip.Service.Order() 提供;
+// 传 nil 则支付功能不可用(回调不入账)。
+func initPaymentHandlers(db *gorm.DB, orderSvc payment.OrderServiceInterface) (*payment.AlipayHandler, *payment.WeChatPayHandler) {
 	alipayService := payment.NewAlipayService(db)
-	alipayHandler := payment.NewAlipayHandler(alipayService, nil)
+	alipayHandler := payment.NewAlipayHandler(alipayService, orderSvc)
 
 	wechatPayRepo := payment.NewWeChatPayRepository(db)
 	wechatPayService := payment.NewWeChatPayService(wechatPayRepo)
-	wechatPayHandler := payment.NewWeChatPayHandler(wechatPayService, nil)
+	wechatPayHandler := payment.NewWeChatPayHandler(wechatPayService, orderSvc)
 
 	return alipayHandler, wechatPayHandler
 }

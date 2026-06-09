@@ -78,6 +78,9 @@ func registerPublicUserRoutes(api *gin.RouterGroup, h *allHandlers) {
 	{
 		internal.POST("/agent/usage", h.agentBridge.HandleAgentUsageCallback)
 	}
+
+	// 计费套餐(公开):价格/倍率/赠送/起充等非敏感配置, 给落地价格页 + 套餐卡用。
+	api.GET("/billing/plans", h.vip.PublicPlans)
 }
 
 // registerProtectedUserRoutes 注册用户受保护路由
@@ -97,9 +100,25 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		// FinalizePendingMerge 再校验 userID == merge 目标。详见 handler_oauth_merge.go。
 		userProtected.POST("/oauth/confirm-merge", h.user.ConfirmPendingOAuthMerge)
 
-		// 会员(VIP): 状态(等级/到期/各功能今日额度) + 兑换码兑换
+		// 会员(VIP): 状态(等级/到期/今日 token 额度/经费余额) + 兑换码兑换
 		userProtected.GET("/membership", h.vip.GetMembership)
+		userProtected.POST("/redeem-code/preview", h.vip.PreviewCode) // 兑换前预览(确认弹窗)
 		userProtected.POST("/redeem-code", h.vip.RedeemCode)
+
+		// 计费/账户资产: 总览 + 重置额度 + 自动重置开关 + 经费流水
+		billingG := userProtected.Group("/billing")
+		{
+			billingG.GET("/overview", h.vip.BillingOverview)
+			billingG.POST("/reset", h.vip.ResetQuota)
+			billingG.PUT("/auto-reset", h.vip.SetAutoReset)
+			billingG.GET("/transactions", h.vip.ListTransactions)
+			billingG.GET("/usage-calendar", h.vip.UsageCalendar) // 当月每日 token 用量(热力图)
+			billingG.GET("/orders", h.vip.ListOrders)            // 已支付订单明细(明细查看)
+			billingG.POST("/recharge", h.vip.CreateRecharge)     // 建充值订单
+			billingG.GET("/subscribe/quote", h.vip.SubscribeQuote) // 订阅/续期/升级报价(不建单)
+			billingG.POST("/subscribe", h.vip.CreateSubscription)  // 建订阅订单
+			billingG.POST("/test-pay", h.vip.TestPay)             // 测试支付(PAYMENT_TEST_ENABLED 时可用)
+		}
 
 		// 智能写作 (Prism · LaTeX IDE): 项目/文件 CRUD + 编译(异步)+ 取 PDF。
 		prismG := userProtected.Group("/prism")
@@ -208,6 +227,10 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		userProtected.GET("/claw/session/context", h.claw.GetContextEstimate)
 		// 历史回放里图片缩略图/放大: 浏览器 <img src> 按 path 回取会话 cwd 内的原图 (cookie 鉴权)。
 		userProtected.GET("/claw/session/file", h.claw.GetSessionFile)
+		// 成果交付: 列出会话 ./out 交付目录的产物 + 下载/预览单个产物 (agent 产出 → web 用户)。
+		userProtected.GET("/claw/session/artifacts", h.claw.GetSessionArtifacts)
+		userProtected.GET("/claw/session/artifact", h.claw.DownloadSessionArtifact)
+		userProtected.GET("/claw/session/artifact.zip", h.claw.DownloadArtifactZip) // 目录产物打包下载
 		userProtected.POST("/claw/session/ws-ticket", h.claw.IssueWSTicket)
 		// 上传走通用 UploadLimitMiddleware (50MB 上限 + 业务码 7001), 跟 feedback/library upload 一致。
 		userProtected.POST("/claw/upload", middleware.UploadLimitMiddleware(middleware.UploadMaxBodySize), h.claw.UploadAttachment)

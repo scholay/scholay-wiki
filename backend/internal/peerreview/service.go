@@ -286,11 +286,25 @@ func (s *Service) CreateDraft(ctx context.Context, userID uint64, mode string) (
 	if mode != "journal" && mode != "thesis" {
 		return nil, ErrInvalidMode
 	}
-	sub, err := s.repo.CreateDraft(userID, mode)
+	// 收口:每用户每模式至多一个草稿。先复用既有草稿(含尚未上传文件的空草稿),
+	// 没有再新建 —— 修复 wizard 反复进入 / 上传失败 / 重复触发时空草稿堆积。
+	// 注意:入口探活用的是 LatestActiveDraft(带 EXISTS(asset) 过滤,看不到空草稿),
+	// 这里刻意用 LatestDraftOfMode(不过滤)兜底复用空草稿;并发竞态再由 DB 唯一索引
+	// uk_one_draft_per_user_mode + repo.CreateDraft 的 1062 回查保证最终只剩一条。
+	if existing, err := s.repo.LatestDraftOfMode(userID, mode); err == nil {
+		return existing, nil
+	} else if !errors.Is(err, ErrNotFound) {
+		return nil, err
+	}
+	sub, created, err := s.repo.CreateDraft(userID, mode)
 	if err != nil {
 		return nil, err
 	}
-	// 立即给 submission 绑一个 agent session, 整个 wizard + 4 轮审稿全程复用。
+	if !created {
+		// 并发下复用了别的请求刚建的草稿,它已自带 agent session,不要重复建(否则泄漏 session)。
+		return sub, nil
+	}
+	// 立即给新草稿绑一个 agent session, 整个 wizard + 4 轮审稿全程复用。
 	// 失败不阻塞 draft 创建 (前端拿到 submission 后还能上传文件等),
 	// 下次 advance 调用时会按需 lazy-create。
 	if sess, err := s.feature.AgentClient().CreateSession(ctx, &agent.CreateSessionOptions{DisallowedTools: scoringSessionDeny}); err == nil {
@@ -1442,7 +1456,7 @@ func (s *Service) Submit(ctx context.Context, userID, id uint64) (*Submission, e
 	// 到这里才是"草稿 + 稿件齐备、确实要跑一轮审稿" —— 此刻扣会员每日额度(最贵的功能)。
 	// 放在 status/manuscript 守门之后, 保证非法 id / 重复点击 / 无稿件 不会白烧额度。
 	if s.vip != nil {
-		if err := s.vip.CheckAndConsume(ctx, uint(userID), vip.FeaturePeerReview); err != nil {
+		if err := s.vip.CheckDailyQuota(ctx, uint(userID)); err != nil {
 			return nil, err // vip.ErrQuotaExceeded → handler 映射成 6010/429
 		}
 	}

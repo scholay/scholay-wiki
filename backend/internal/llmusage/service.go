@@ -39,11 +39,25 @@ type Recorder interface {
 	Record(u Usage)
 }
 
+// UsageObserver —— 每记一行账本时同步回调(userID 已登录 + total>0 才触发)。
+// 用于把真实 token 累加进「每日 token 额度」计数(billing/vip.AddUsage)。
+// 必须轻量(一次 Redis INCRBY 级别), 不可阻塞。
+type UsageObserver func(userID uint, totalTokens int)
+
 type Service struct {
-	repo *Repository
+	repo     *Repository
+	observer UsageObserver
 }
 
 func NewService(repo *Repository) *Service { return &Service{repo: repo} }
+
+// SetObserver 注入用量观察者(bootstrap 接到 vip.AddUsage)。
+func (s *Service) SetObserver(o UsageObserver) { s.observer = o }
+
+// ResolveUserIDs 把「用户关键词」解析成 user_id 集合(给按用户筛选 token 用量用)。
+func (s *Service) ResolveUserIDs(keyword string, limit int) []uint {
+	return s.repo.ResolveUserIDs(keyword, limit)
+}
 
 // Record 异步写一行账本(safego 带 recover; 单条 INSERT 失败仅 Warn, 不阻塞业务)。
 // feature 缺省 → "unknown" + Warn, 让漏埋点可见。total 缺省时用 input+output 兜底(agent 不吐 total)。
@@ -57,6 +71,10 @@ func (s *Service) Record(u Usage) {
 	}
 	if u.TotalTokens == 0 && (u.InputTokens > 0 || u.OutputTokens > 0) {
 		u.TotalTokens = u.InputTokens + u.OutputTokens
+	}
+	// 同步喂「每日 token 额度」计数(轻量 Redis INCRBY);只对已登录用户的非零用量。
+	if s.observer != nil && u.UserID != nil && u.TotalTokens > 0 {
+		s.observer(*u.UserID, u.TotalTokens)
 	}
 	safego.Go("llmusage:"+u.Feature, func() {
 		row := &LLMTokenUsage{
