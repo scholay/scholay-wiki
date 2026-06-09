@@ -1,4 +1,4 @@
-// 会员套餐购买弹窗(presentational)—— 上方用价格页同款套餐卡(免费 / Pro 套餐 / Max 套餐)选套餐,
+// 会员套餐购买弹窗(presentational)—— 上方用价格页同款套餐卡(Free / Pro / Max)选套餐,
 // 下方选支付方式(微信/支付宝/测试支付)+ 确认支付。纯展示:数据与建单付款(onPay)由各 feature 注入。
 //
 // 续期 / 升级 / 不降级:
@@ -59,7 +59,7 @@ function cardActionFor(cardTier: string, currentTier?: string): CardAction {
 }
 
 const ACTION_LABEL: Record<CardAction, string> = {
-  free: '免费版',
+  free: 'Free',
   new: '立即订阅',
   renew: '续期',
   upgrade: '升级',

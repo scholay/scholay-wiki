@@ -7,6 +7,8 @@ import {
   Separator,
 } from '@/shared/ui';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
+import { useAuthStore } from '@/stores/auth.store';
+import { usePendingAction } from '@/stores/pending-action.store';
 import { BrandLogo } from '@/shared/components/BrandLogo';
 import { LoginForm } from './LoginForm';
 import { RegisterForm } from './RegisterForm';
@@ -36,8 +38,18 @@ export function AuthDialog() {
   const t = TITLES[mode];
   const isWeChatQR = mode === 'wechat-qr';
 
+  // 用户**主动关弹窗且仍未登录**(Esc / 点外面 / ×)→ 顺手丢掉 pending-action,
+  // 否则之后从别处(topnav / OAuth)登录会被莫名重放(如未登录点首页「智能搜索」排了个
+  // navigate,取消后又从别处登录 → 莫名跳进智能搜索)。
+  // 成功登录是 LoginForm 直接调 close()(改 open prop),**不**经过这里的 onOpenChange,
+  // 且此时 token 已就位,故 guard 再兜一层,绝不会误清掉要被 useReplayPendingAction 消费的动作。
+  const handleClose = () => {
+    close();
+    if (!useAuthStore.getState().token) usePendingAction.getState().clear();
+  };
+
   return (
-    <Dialog open={open} onOpenChange={(v) => (v ? null : close())}>
+    <Dialog open={open} onOpenChange={(v) => (v ? null : handleClose())}>
       <DialogContent className="max-w-md p-0 gap-0 border-border">
         <div className="relative flex flex-col items-center gap-1 pt-7 pb-4 px-6 border-b border-border-soft">
           {/* 微信扫码模式:左上角返回箭头,回到 login;其他模式无返回(可关弹窗) */}

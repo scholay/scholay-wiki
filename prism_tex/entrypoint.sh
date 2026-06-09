@@ -37,8 +37,19 @@ compile_one() {
 
   start=$(date +%s%3N)
   # 在任务目录内编译;-no-shell-escape 是三重保险之一(另两重: texmf.cnf + env)。
-  ( cd "$dir" && timeout "$TIMEOUT" latexmk "$flag" -interaction=nonstopmode -halt-on-error \
-      -no-shell-escape -outdir=. "$main" ) > "$dir/$log" 2>&1
+  # timeout -k 15: SIGTERM 到点(TIMEOUT)后再等 15s,仍没退出就 SIGKILL —— 确保卡死的
+  #   latexmk/xelatex(重 TikZ/pgfplots 期间可能吃不到 SIGTERM)一定被收掉、status.json 一定回写;
+  #   否则后端轮询不到 status,只能报「编译服务异常」。
+  # 编译放后台,前台 while 持续刷新 heartbeat —— 长编译(>30s)期间不让 healthcheck 误判
+  #   unhealthy(否则编排器重启容器会丢掉正在编的 status.json,同样表现为「编译服务异常」)。
+  ( cd "$dir" && timeout -k 15 "$TIMEOUT" latexmk "$flag" -interaction=nonstopmode -halt-on-error \
+      -no-shell-escape -outdir=. "$main" ) > "$dir/$log" 2>&1 &
+  local pid=$!
+  while kill -0 "$pid" 2>/dev/null; do
+    : > "$HEARTBEAT" 2>/dev/null || true
+    sleep 1
+  done
+  wait "$pid"
   code=$?
   end=$(date +%s%3N)
   dur=$((end - start))
@@ -48,8 +59,9 @@ compile_one() {
     : > "$dir/error.txt"
   else
     status=error
-    if [ "$code" -eq 124 ]; then
-      echo "编译超时(>${TIMEOUT}s)" > "$dir/error.txt"
+    # 124 = timeout 的 SIGTERM;137 = 128+9(SIGKILL:来自 timeout -k 或内存超限 OOM)。
+    if [ "$code" -eq 124 ] || [ "$code" -eq 137 ]; then
+      echo "编译超时或资源超限(>${TIMEOUT}s,可尝试精简图表 / 减少 pgfplots 数据点)" > "$dir/error.txt"
     else
       # 取第一条有意义的报错行(latexmk/tex 后续多为级联,首条最有用)。
       grep -m1 -E '^! |^!|Error|Undefined|Emergency stop|Fatal' "$dir/$log" 2>/dev/null \

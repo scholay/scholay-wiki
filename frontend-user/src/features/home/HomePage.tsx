@@ -13,6 +13,7 @@ import {
 } from '@/shared/hooks';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useIsAuthenticated } from '@/stores/auth.store';
+import { usePendingAction } from '@/stores/pending-action.store';
 import { HomeSidebar } from './components/HomeSidebar';
 
 /**
@@ -56,13 +57,20 @@ export function HomePage() {
   };
 
   const handleSmartSearch = () => {
-    // 智能搜索面板要求登录后才能用,未登录时 SmartSearchPanel 内部会提示登录,
-    // 这里无需提前拦截。q 带上做为关键词预填,mode=smart 让 SearchPage 进入智能 tab。
+    // q 带上做为关键词预填,mode=smart 让 SearchPage 进入智能 tab。
     const trimmed = q.trim();
     const params = new URLSearchParams();
     if (trimmed) params.set('q', trimmed);
     params.set('mode', 'smart');
-    navigate(`/search?${params.toString()}`);
+    const target = `/search?${params.toString()}`;
+    // 智能搜索要登录后才能用 —— 未登录直接弹登录/注册引导,不再跳到示例预览页;
+    // 登录成功后由 useReplayPendingAction 消费这个 navigate 动作,自动进智能搜索。
+    if (!authenticated) {
+      usePendingAction.getState().set({ type: 'navigate', to: target });
+      openDialog('login');
+      return;
+    }
+    navigate(target);
   };
 
   return (

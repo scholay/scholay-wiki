@@ -68,12 +68,12 @@ func (s *Service) notify(userID uint, title, inApp string, ec utils.EmailContent
 	})
 }
 
-// tierDisplayName 套餐展示名。
+// tierDisplayName 等级展示名(统一 Free / Pro / Max,不带「套餐」后缀)。
 func tierDisplayName(tier string) string {
 	if tier == TierMax {
-		return "Max 套餐"
+		return "Max"
 	}
-	return "Pro 套餐"
+	return "Pro"
 }
 
 func yuanStr(f float64) string { return fmt.Sprintf("¥%.2f", f) }

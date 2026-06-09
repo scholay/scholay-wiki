@@ -70,7 +70,7 @@ export function AccountAssetsCard({ data, onGoRecharge }: { data: Overview; onGo
         <h3 className="text-sm font-bold text-foreground">账户资产</h3>
         <div className="flex items-center gap-2">
           <span className="text-xs text-faint">
-            {PLAN_LABEL[data.tier]} 套餐
+            {PLAN_LABEL[data.tier]}
             {data.tier !== 'free' && data.expires_at ? ` · 有效期至 ${data.expires_at.slice(0, 10)}` : ''}
           </span>
           <Button
@@ -108,7 +108,7 @@ export function AccountAssetsCard({ data, onGoRecharge }: { data: Overview; onGo
         quote={quoteSubscription}
         methods={methods}
         initialTier={upgrade.tier}
-        onPay={(tier, method) => subscribe(tier, method, `${PLAN_LABEL[tier]} 套餐`)}
+        onPay={(tier, method) => subscribe(tier, method, PLAN_LABEL[tier])}
       />
     </section>
   );

@@ -16,7 +16,7 @@ const GROUPS: Group[] = [
   {
     title: '每日额度(token)',
     fields: [
-      { key: 'free_daily_tokens', label: 'Free 每日基准 Q', hint: '免费用户每日 token;Pro/Max 按倍率派生' },
+      { key: 'free_daily_tokens', label: 'Free 每日基准 Q', hint: 'Free 用户每日 token;Pro/Max 按倍率派生' },
       { key: 'pro_multiplier', label: 'Pro 倍率(× Free)', hint: 'Pro 每日额度 = Free × 此值;<=0 = 不限', step: 0.5 },
       { key: 'max_multiplier', label: 'Max 倍率(× Pro)', hint: 'Max 每日额度 = Pro × 此值;<=0 = 不限', step: 0.5 },
     ],
@@ -101,7 +101,7 @@ export function BillingConfigPage() {
                         : 'border-border text-subtle hover:bg-surface-2'
                     )}
                   >
-                    {p === 'pro' ? '专业版' : p === 'max' ? '旗舰版' : '不标'}
+                    {p === 'pro' ? 'Pro' : p === 'max' ? 'Max' : '不标'}
                   </button>
                 ))}
               </div>

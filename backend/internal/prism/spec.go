@@ -48,6 +48,19 @@ func prismSkillAddDir() string {
 	return "/prism-add"
 }
 
+// prismSessionOptions —— prism 会话创建的统一 per-session 配置(禁用工具 + 写作 skill 目录)。
+// 单一真源: BuildSpec 和 edit.go 的 createProjectSession **都必须**用它。
+// 历史 bug: createProjectSession 曾手搓 options 只填 DisallowedTools、漏了 AddDirs,
+// 导致每个 prism 会话都不挂写作 skill,agent 调 Skill 一律 "Unknown skill: prism-*"。
+// 走同一个构造器后,两处不会再漂移。
+func prismSessionOptions() *agent.CreateSessionOptions {
+	return &agent.CreateSessionOptions{
+		DisallowedTools: prismDisallowedTools,
+		// 每项目会话加载写作 skill(--add-dir),agent 写/改时可经 Skill 调对应指南。
+		AddDirs: []string{prismSkillAddDir()},
+	}
+}
+
 // vipChecker 由 SetVIPChecker 注入;PreUserMessage 在每轮前查会员配额。
 var vipChecker *vip.Service
 
@@ -107,10 +120,7 @@ func BuildSpec() agentbridge.FeatureSpec {
 		AutoApprovePermission:  true, // 经 decidePermission 路径感知裁决:cwd 内文件操作放行,越界/Bash 等拒
 		PreUserMessage:         preUserMessageChain,
 		OnMessageComplete:      onMessageComplete,
-		SessionOptions: &agent.CreateSessionOptions{
-			DisallowedTools: prismDisallowedTools,
-			// 每项目会话加载写作 skill(--add-dir),agent 写/改时可经 Skill 调对应指南。
-			AddDirs: []string{prismSkillAddDir()},
-		},
+		// 与 edit.go createProjectSession 共用同一构造器(单一真源,见 prismSessionOptions)。
+		SessionOptions: prismSessionOptions(),
 	}
 }

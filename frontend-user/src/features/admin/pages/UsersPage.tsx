@@ -39,7 +39,7 @@ const SELECT_CLS = 'h-8 rounded-md border border-input bg-background px-2 text-x
 const DEFAULT_SORT_BY = 'last_login_at';
 const DEFAULT_SORT_ORDER = 'desc';
 
-/** 行内会员状态:vip_tier='pro' 且未过期 → 专业版,否则免费。与后端 effectiveTier 同口径。 */
+/** 行内会员状态:vip_tier='pro' 且未过期 → Pro,否则 Free。与后端 effectiveTier 同口径。 */
 function isEffectivePro(u: AdminUser): boolean {
   if (u.vip_tier !== 'pro') return false;
   if (!u.vip_expires_at) return true; // 永久
@@ -202,13 +202,13 @@ export function UsersPage() {
         isEffectivePro(u) ? (
           <span className="inline-flex items-center gap-1 text-xs font-bold text-brand-amber">
             <Crown className="size-3.5" />
-            专业版
+            Pro
             {u.vip_expires_at && (
               <span className="font-normal text-faint">· {u.vip_expires_at.slice(0, 10)}</span>
             )}
           </span>
         ) : (
-          <span className="text-xs text-faint">免费</span>
+          <span className="text-xs text-faint">Free</span>
         ),
       width: 160,
       serverSortKey: 'vip_expires_at',
@@ -342,8 +342,8 @@ export function UsersPage() {
             className={cn(SELECT_CLS, 'w-24')}
           >
             <option value="">全部</option>
-            <option value="pro">专业版</option>
-            <option value="free">免费</option>
+            <option value="pro">Pro</option>
+            <option value="free">Free</option>
           </select>
         </FilterField>
         <FilterField label="状态">

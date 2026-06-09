@@ -21,7 +21,8 @@ import { cn } from '@/shared/lib/utils';
 
 // 会员档位展示(与账户资产卡一致):Pro=宝石/琥珀,Max=皇冠/品牌红,Free=免费/绿。
 type Tier = 'free' | 'pro' | 'max';
-const TIER_LABEL: Record<Tier, string> = { free: '免费用户', pro: 'Pro 会员', max: 'Max 会员' };
+// 会员等级展示名全站统一:Free / Pro / Max。
+const TIER_LABEL: Record<Tier, string> = { free: 'Free', pro: 'Pro', max: 'Max' };
 const TIER_BADGE_CLS: Record<Tier, string> = {
   free: 'bg-[hsl(var(--brand-green)/0.12)] text-brand-green',
   pro: 'bg-brand-amber/10 text-brand-amber',
@@ -126,10 +127,9 @@ export function UserMenuContent() {
 
       <DropdownMenuSeparator />
 
-      {/* ---------- 设置区:直链到 settings 的 3 个真实 tab(profile/security/connections)
-           之前用一条"个人设置"(/settings)+ 一条"账户管理"(/account,死链 404)。
-           现在拆成三条直链 —— 每个 tab 一键直达,顺手剔掉死链;条目名对齐
-           SettingsLayout.tsx 的 tab label,避免名字漂移 ---------- */}
+      {/* ---------- 设置区:直链到 settings 的 4 个真实 tab —— 顺序 / 图标 / 名称都与
+           SettingsLayout.tsx 的 TABS 一一对应(profile/membership/security/connections),
+           避免下拉菜单与设置页漂移。末尾再补「帮助中心」「管理员后台」两条非设置项。 ---------- */}
       <div className="p-1.5">
         <DropdownMenuItem
           className="cursor-pointer rounded-md px-3 py-2 gap-2.5"
@@ -137,6 +137,13 @@ export function UserMenuContent() {
         >
           <UserIcon className="size-3.5 text-faint" />
           <span className="text-sm text-subtle">个人资料</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className="cursor-pointer rounded-md px-3 py-2 gap-2.5"
+          onSelect={() => navigate('/settings/membership')}
+        >
+          <Crown className="size-3.5 text-faint" />
+          <span className="text-sm text-subtle">账户资产</span>
         </DropdownMenuItem>
         <DropdownMenuItem
           className="cursor-pointer rounded-md px-3 py-2 gap-2.5"

@@ -56,7 +56,10 @@ func (s *Service) createProjectSession(ctx context.Context, projectID, userID ui
 	if s.agent == nil {
 		return "", errors.New("AI 编辑暂不可用")
 	}
-	created, err := s.agent.CreateSession(ctx, &agent.CreateSessionOptions{DisallowedTools: prismDisallowedTools})
+	// 必须用 prismSessionOptions() —— 含 DisallowedTools + 写作 skill 的 AddDirs(/prism-add)。
+	// 曾在这里手搓只填 DisallowedTools、漏掉 AddDirs,导致 prism 会话不挂写作 skill,
+	// agent 调 Skill 报 "Unknown skill: prism-academic-writing"(见 prismSessionOptions 注释)。
+	created, err := s.agent.CreateSession(ctx, prismSessionOptions())
 	if err != nil {
 		return "", err
 	}

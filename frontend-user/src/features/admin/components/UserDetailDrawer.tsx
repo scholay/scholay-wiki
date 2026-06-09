@@ -26,7 +26,8 @@ import {
 } from '../api/users';
 
 const DAY_PRESETS = [30, 90, 180, 365];
-const TIER_LABEL: Record<string, string> = { free: '免费', pro: '专业版', max: '旗舰版' };
+// 会员等级展示名全站统一:Free / Pro / Max(不用「专业版 / 旗舰版」)。
+const TIER_LABEL: Record<string, string> = { free: 'Free', pro: 'Pro', max: 'Max' };
 
 /** 第三方登录方式的图标(无品牌图标的回落到通用)。 */
 function ProviderIcon({ provider }: { provider: string }) {
@@ -90,7 +91,7 @@ export function UserDetailDrawer({
   const handleGrant = async () => {
     if (days < 1) return;
     await apiToast(grant.mutateAsync({ id: user.id, tier: 'pro', days }), {
-      success: `已为 ${displayName} 授予/续期 ${days} 天专业版`,
+      success: `已为 ${displayName} 授予/续期 ${days} 天 Pro`,
       failure: '授予会员失败',
     });
   };
@@ -99,7 +100,7 @@ export function UserDetailDrawer({
     const ok = await confirm({
       title: `取消 ${displayName} 的会员?`,
       description:
-        '危险操作:会员立即过期回到免费档(额度按免费计),并清零其随会员发放的订阅经费(含已预发放的下一周期)。充值的永久经费、兑换码等其他来源的临时经费不受影响。',
+        '危险操作:会员立即过期回到 Free 档(额度按 Free 计),并清零其随会员发放的订阅经费(含已预发放的下一周期)。充值的永久经费、兑换码等其他来源的临时经费不受影响。',
       danger: true,
       confirmText: '取消会员',
     });
@@ -206,7 +207,7 @@ export function UserDetailDrawer({
                     ? vip.data?.expires_at
                       ? `有效期至 ${vip.data.expires_at.slice(0, 10)}`
                       : '永久有效'
-                    : '免费等级'}
+                    : 'Free'}
                 </p>
                 {vip.data && (
                   <div className="mt-3 flex flex-col gap-3">
@@ -226,7 +227,7 @@ export function UserDetailDrawer({
 
         {/* 授予 / 取消会员 */}
         <SheetFooter>
-          <Label className="text-2xs tracking-[0.12em] text-faint">授予 / 续期专业版</Label>
+          <Label className="text-2xs tracking-[0.12em] text-faint">授予 / 续期 Pro</Label>
           <div className="flex items-center gap-1.5">
             {DAY_PRESETS.map((d) => (
               <Button

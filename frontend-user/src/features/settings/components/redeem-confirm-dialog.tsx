@@ -12,7 +12,8 @@ import { toApiError } from '@/shared/lib/http';
 import { notifyBillingChanged } from '@/shared/lib/quota-events';
 import { useRedeemPreview, useRedeemCode, type CodePreview, type Tier } from '../api/membership';
 
-const TIER_NAME: Record<Tier, string> = { free: '免费套餐', pro: 'Pro 套餐', max: 'Max 套餐' };
+// 会员等级展示名全站统一:Free / Pro / Max(不用「免费套餐 / Pro 套餐」等变体)。
+const TIER_NAME: Record<Tier, string> = { free: 'Free', pro: 'Pro', max: 'Max' };
 
 function grantContent(pv: CodePreview): string {
   if (pv.grant_kind === 'tier') {

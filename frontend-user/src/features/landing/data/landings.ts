@@ -413,8 +413,8 @@ const search: LandingFeature = {
       a: '可以。所有命中结果可一键导出 BibTeX / RIS / EndNote XML / GB-7714 / APA 文本,或直接 push 到个人文献集中持续追踪。',
     },
     {
-      q: '免费版有多少搜索次数限制?',
-      a: '免费版每天 200 次自然语言搜索 + 50 次引文矩阵展开,足够大多数日常文献调研。学生认证后限额翻倍,机构席位无限。',
+      q: 'Free 有多少搜索次数限制?',
+      a: 'Free 每天 200 次自然语言搜索 + 50 次引文矩阵展开,足够大多数日常文献调研。学生认证后限额翻倍,机构席位无限。',
     },
   ],
 
@@ -519,7 +519,7 @@ const library: LandingFeature = {
   ],
 
   stats: [
-    { value: '1,000+', label: '单个文献集容量', sub: '免费版,付费版无上限' },
+    { value: '1,000+', label: '单个文献集容量', sub: 'Free 限此,Pro / Max 无上限' },
     { value: '91%', label: 'AI 自动标签准确率', sub: '基于 5 万篇标注论文测试', tone: 'green' },
     { value: '4 种', label: '批注颜色 + 便签', sub: '跨端实时同步' },
     { value: '12+', label: '导出引用格式', sub: 'BibTeX / RIS / GB-7714 / APA …' },

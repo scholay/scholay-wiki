@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/stores/auth.store';
 import { usePendingAction } from '@/stores/pending-action.store';
@@ -22,6 +23,7 @@ export function useReplayPendingAction() {
   const token = useAuthStore((s) => s.token);
   const prevTokenRef = useRef<string | null>(token);
   const favoriteMut = useFavoritePaper();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const prev = prevTokenRef.current;
@@ -49,6 +51,10 @@ export function useReplayPendingAction() {
       // 可能变化,直接重放等于盲动。这里只做一次提示,引导用户回到搜索器
       // 重新点 CTA;现在的导入实现已支持批量 + 去重 + 100 上限。
       toast.success('登录成功,在工作区再点一次"从搜索器一键导入"即可');
+    } else if (action.type === 'navigate') {
+      // 首页「智能搜索」未登录拦截:登录成功后直接跳到目标路由
+      // (/search?mode=smart),进 SearchPage 即落在智能 tab、token 已就绪 → 渲染真实面板。
+      navigate(action.to);
     }
-  }, [token, favoriteMut]);
+  }, [token, favoriteMut, navigate]);
 }

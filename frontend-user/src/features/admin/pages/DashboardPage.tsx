@@ -69,7 +69,7 @@ export function DashboardPage() {
             <StatCard
               label="付费用户"
               value={fmt(stats?.paid_users)}
-              hint={`免费 ${fmt(stats?.free_users)}`}
+              hint={`Free ${fmt(stats?.free_users)}`}
             />
             <StatCard
               label="对话总数"

@@ -54,7 +54,7 @@ export function PricingPage() {
     <LandingLayout>
       <RouteSEO
         title="学者订阅计划 - Scholay"
-        description="Scholay 学者订阅:统一每日 AI 额度 + 科研经费。专业版/旗舰版获更高额度并赠送经费,经费可随时重置额度。"
+        description="Scholay 学者订阅:统一每日 AI 额度 + 科研经费。Pro / Max 获更高额度并赠送经费,经费可随时重置额度。"
         keywords="Scholay 会员,学术 AI 订阅,科研经费,Scholay 价格"
       />
       <section className="mx-auto max-w-6xl px-6 py-12 md:py-16">

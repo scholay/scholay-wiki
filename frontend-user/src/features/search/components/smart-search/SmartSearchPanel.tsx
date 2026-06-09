@@ -1,20 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  AlertCircle,
-  AlertTriangle,
-  ArrowDown,
-  Loader2,
-  LogIn,
-  Sparkles,
-} from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { AlertCircle, AlertTriangle, ArrowDown, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom';
 import { Dialog, DialogContent, DialogTitle } from '@/shared/ui/dialog';
-import { Button } from '@/shared/ui/button';
 import { AgentDisplacedBanner } from '@/shared/components/AgentDisplacedBanner';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
+import { usePendingAction } from '@/stores/pending-action.store';
 import {
   notifySessionChanged,
   useSessionBroadcast,
@@ -29,7 +23,8 @@ import {
   useSmartSearchSocket,
 } from '../../api/smart-search';
 import { AssistantTurn } from './AssistantTurn';
-import { SmartSearchInputBar } from './SmartSearchInputBar';
+import { SmartComposer } from './SmartComposer';
+import { SmartSearchHero } from './SmartSearchHero';
 import {
   foldMessagesIntoTurns,
   replayHistoryAsTurns,
@@ -94,7 +89,10 @@ export function SmartSearchPanel() {
   const scrollToBottomRef = useRef<(() => void) | null>(null);
 
   // 本轮聊天输入状态。
-  const [input, setInput] = useState('');
+  // 首挂载时用 URL 的 ?q= 预填(首页输入关键词点「智能搜索」→ 登录 → 跳进来时带着它):
+  // 只读一次(lazy init),之后用户敲字 / 发送清空都不再被 URL 覆写;无 q 时为空串。
+  const [searchParams] = useSearchParams();
+  const [input, setInput] = useState(() => searchParams.get('q')?.trim() ?? '');
   /** 按发送顺序排列的用户提问骨架; 长度 = 本会话生命周期内已发起的轮数 */
   const [pendingTurns, setPendingTurns] = useState<
     { id: string; userText: string; paused?: boolean }[]
@@ -226,6 +224,19 @@ export function SmartSearchPanel() {
     }
   }, [input, state, send]);
 
+  // 未登录态 hero 的提交 —— 不真正发送,而是弹登录;把刚输入的关键词排进
+  // pending navigate(/search?mode=smart&q=…),登录成功后由 useReplayPendingAction
+  // 跳进来 + q 预填(与首页「智能搜索」按钮同一套,见 HomePage.handleSmartSearch)。
+  const openDialog = useAuthDialog((s) => s.openDialog);
+  const handleLoggedOutSubmit = useCallback(() => {
+    const text = input.trim();
+    const params = new URLSearchParams();
+    if (text) params.set('q', text);
+    params.set('mode', 'smart');
+    usePendingAction.getState().set({ type: 'navigate', to: `/search?${params.toString()}` });
+    openDialog('login');
+  }, [input, openDialog]);
+
   // 停止当前生成 —— 把 {type:'stop_generation'} 直接 push 到 WS:
   //   agent 收到后会 (1) 立即 emit {status:'idle'}, (2) 向 SDK 发 interrupt,
   //   (3) 3s 未退则强杀 subprocess, 最终 emit message_complete 让 fold 标 complete。
@@ -277,8 +288,23 @@ export function SmartSearchPanel() {
   }, [reset, queryClient]);
 
   if (!token) {
-    return <LoggedOutPreview />;
+    // 未登录:居中 hero 对话框(同已登录起始态),输入框提示登录,回车/发送弹登录。
+    return (
+      <div className="flex flex-col h-full min-h-0 bg-background">
+        <SmartSearchHero
+          loggedOut
+          value={input}
+          onChange={setInput}
+          onSubmit={handleLoggedOutSubmit}
+        />
+      </div>
+    );
   }
+
+  // history 后台 refetch 期间(refetchOnMount:'always' 下重入页面:isLoading=false 但
+  // isFetching=true)先显示加载态,避免 hero 闪一下又突然冒出对话。
+  const loadingHistory =
+    historyQuery.isLoading || historyQuery.isFetching || sessionQuery.isLoading;
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-background">
@@ -290,21 +316,26 @@ export function SmartSearchPanel() {
       )}
 
       {turns.length === 0 ? (
-        <div className="flex-1 min-h-0 overflow-y-auto bg-surface-1 px-4 py-4">
-          <EmptyHero
-            // refetchOnMount:'always' 下, 重入页面时 history 走后台 refetch
-            // (isLoading 为 false 但 isFetching 为 true)。此时还没有 turns,
-            // 用 isFetching 一并兜住, 避免"空 hero 闪一下 → 突然冒出对话"。
-            loadingHistory={
-              historyQuery.isLoading ||
-              historyQuery.isFetching ||
-              sessionQuery.isLoading
-            }
+        loadingHistory ? (
+          <div className="flex-1 min-h-0 flex flex-col items-center justify-center text-center px-8">
+            <Loader2 className="size-5 text-muted-foreground animate-spin mb-3" />
+            <div className="text-sm text-muted-foreground">正在加载历史会话…</div>
+          </div>
+        ) : (
+          // 起始态:居中 hero 对话框(输入框在正中);发送后 turns>0 → 切到下面的
+          // 对话视图 + 底部输入栏,即"输入内容后输入框移到下方"。
+          <SmartSearchHero
+            value={input}
+            onChange={setInput}
+            onSubmit={handleSubmit}
+            ready={ready && !reset.isPending}
           />
-        </div>
+        )
       ) : (
-        // 外层量高 div: useHeightVar 把这块"对话框可视区"的像素高写进 --chat-area-h,
-        // 供最后一轮按比例留白 (见下)。它就是 flex-1 的可视区, StickToBottom 在里面 h-full 填满。
+        // 有对话:对话视图(flex-1)+ 底部输入栏。输入框从「正中 hero」移到这里的底部。
+        <>
+        {/* 外层量高 div: useHeightVar 把这块"对话框可视区"的像素高写进 --chat-area-h,
+            供最后一轮按比例留白 (见下)。它就是 flex-1 的可视区, StickToBottom 在里面 h-full 填满。 */}
         <div ref={chatAreaRef} className="flex-1 min-h-0">
         <StickToBottom
           // ⚠️ 这个 wrapper 绝对不能加任何 overflow-* 工具类。
@@ -379,21 +410,26 @@ export function SmartSearchPanel() {
           <ScrollToBottomFab />
         </StickToBottom>
         </div>
-      )}
 
-      <SmartSearchInputBar
-        value={input}
-        onChange={setInput}
-        onSubmit={handleSubmit}
-        ready={ready && !reset.isPending}
-        busy={busy}
-        onStop={handleStop}
-        stopping={stopping}
-        contextSnapshot={contextQuery.data}
-        onResetClick={() => setResetOpen(true)}
-        resetDisabled={!sessionId || reset.isPending || busy}
-        resetPending={reset.isPending}
-      />
+        {/* 底部输入栏 —— 与起始态 hero 同一个 SmartComposer,样式一致;放进 border-t footer。 */}
+        <div className="px-4 py-3 border-t border-border shrink-0">
+          <SmartComposer
+            value={input}
+            onChange={setInput}
+            onSubmit={handleSubmit}
+            placeholder="继续与智能搜索对话…"
+            ready={ready && !reset.isPending}
+            busy={busy}
+            onStop={handleStop}
+            stopping={stopping}
+            contextSnapshot={contextQuery.data}
+            onResetClick={() => setResetOpen(true)}
+            resetDisabled={!sessionId || reset.isPending || busy}
+            resetPending={reset.isPending}
+          />
+        </div>
+        </>
+      )}
 
       <ResetConfirmDialog
         open={resetOpen}
@@ -511,233 +547,4 @@ function UserBubble({ text }: { text: string }) {
       </div>
     </div>
   );
-}
-
-function EmptyHero({ loadingHistory }: { loadingHistory: boolean }) {
-  if (loadingHistory) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center text-center px-8">
-        <Loader2 className="size-5 text-muted-foreground animate-spin mb-3" />
-        <div className="text-sm text-muted-foreground">正在加载历史会话…</div>
-      </div>
-    );
-  }
-  return (
-    <div className="h-full flex flex-col items-center justify-center text-center px-8">
-      <Sparkles className="size-8 text-brand-green mb-3" strokeWidth={1.8} />
-      <div className="text-base font-semibold text-foreground mb-1">
-        和 AI 一起找论文
-      </div>
-      <div className="text-sm text-muted-foreground max-w-[320px]">
-        描述你想了解的方向、研究问题或方法, AI 会调用学术检索工具帮你筛出相关文献。
-      </div>
-    </div>
-  );
-}
-
-/**
- * 未登录态预览 ——
- *
- * 用一段写死的"用户提问 → AI 思考 → mcp 检索 → 论文卡 → AI 总结"完整 demo,
- * 复用真实的 <AssistantTurn /> + <PaperListScroller /> + <PaperResultCard />,
- * 让用户直观感知智能搜索的形态; 底部 CTA 取代输入栏, 点击弹出登录/注册 dialog。
- *
- * 安全性:
- *   - demo 区整块 pointer-events-none + select-none, 用户在示例论文上点暂存/收藏
- *     不会真实修改本地 staging / 触发请求;
- *   - useFavoriteCheck 在内层有 enabled: !!token, 未登录天然不发请求;
- *   - demo 全部 source='stc', 不触发 useEnrichedPapers 的 PMD 异步补全。
- */
-function LoggedOutPreview() {
-  const openDialog = useAuthDialog((s) => s.openDialog);
-  const demoTurns = useMemo<Turn[]>(() => buildDemoTurns(), []);
-
-  return (
-    <div className="flex flex-col h-full min-h-0 bg-background">
-      {/* 示例区 —— 整块用三层效果叠加做"示例感":
-            1) 内容外层 opacity-65 + grayscale-[20%] 褪色, 拉开与真实对话的视觉权重;
-            2) 顶部 + 底部各 40px 的 gradient mask, 让示例"渐隐入背景", 不是硬切;
-            3) pointer-events-none + select-none, demo 整块禁交互. */}
-      <div
-        className="relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-surface-1 px-4 py-4"
-        aria-hidden="true"
-      >
-        <div className="flex justify-center mb-3">
-          <span className="inline-flex items-center gap-1.5 h-5 px-2.5 rounded-pill bg-surface-2 text-2xs text-muted-foreground">
-            <Sparkles className="size-2.5 text-brand-green" strokeWidth={2.4} />
-            示例对话 · 看一眼智能搜索能做什么
-          </span>
-        </div>
-        <div className="pointer-events-none select-none space-y-3.5 opacity-65 [filter:grayscale(20%)]">
-          {demoTurns.map((turn) => (
-            <div key={turn.id} className="space-y-3.5">
-              <UserBubble text={turn.userText} />
-              <AssistantTurn turn={turn} />
-            </div>
-          ))}
-        </div>
-        {/* 底部渐隐 —— 与 CTA 之间的过渡, 让示例最后一段自然 fade 入 CTA 上沿。
-            sticky 贴在 scroll container 底部 (而不是 absolute), 内容长滚到末尾时
-            遮罩也会跟着浮出, 始终保持"渐隐感"。 */}
-        <div className="sticky bottom-0 -mx-4 -mb-4 h-12 bg-gradient-to-b from-transparent to-surface-1 pointer-events-none" />
-      </div>
-
-      {/* CTA 取代输入栏位置 —— 视觉权重与输入栏对齐(顶 border, 同 padding) */}
-      <div className="border-t border-border bg-background px-5 py-4 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold text-foreground inline-flex items-center gap-1.5">
-              <Sparkles
-                className="size-3.5 text-brand-green"
-                strokeWidth={2.2}
-              />
-              开始你自己的智能搜索
-            </div>
-            <div className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-              登录后用自然语言对话, 让 AI 跨 Graph / Discovery / Medicine 三个学术源帮你找论文。
-            </div>
-          </div>
-          <Button
-            variant="primary"
-            className="h-9 shrink-0"
-            onClick={() => openDialog('login')}
-          >
-            <LogIn className="size-3.5" />
-            登录 / 注册
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/**
- * 构造一组写死的 demo turns。
- *
- * 三篇都是真实存在的、被广泛引用的 LLM 可解释性代表工作 (Jain & Wallace 2019,
- * Anthropic Toy Models 2022, Bereska & Gavves Survey 2024), 用真实标题 + 真实
- * 引用数让示例看起来"是真的能查到的", 而不是占位文本。
- *
- * 数据 shape 严格对齐 minicod search_papers 上游 (snake_case + items 包裹),
- * 走 parsePapersFromToolResult → Paper[] → PaperResultCard, 与登录后视觉一致。
- */
-function buildDemoTurns(): Turn[] {
-  const demoSearchResult = {
-    items: [
-      {
-        id: 'demo-attention-not-explanation',
-        source: 'stc',
-        title: 'Attention is not Explanation',
-        abstract:
-          'Attention mechanisms have seen wide adoption in neural NLP models. In addition to improving predictive performance, these are often touted as affording transparency: models equipped with attention provide a distribution over attended-to input units, which is commonly presented (at least implicitly) as communicating the relative importance of inputs. However, it is unclear what relationship exists between attention weights and model outputs. In this work we perform extensive experiments across a variety of NLP tasks that aim to assess the degree to which attention weights provide meaningful "explanations" for predictions.',
-        year: 2019,
-        publication_date: '2019-02-26',
-        venue: 'NAACL-HLT',
-        doi: '10.18653/v1/N19-1357',
-        citation_count: 1820,
-        reference_count: 38,
-        is_open_access: true,
-        pdf_url: 'https://aclanthology.org/N19-1357.pdf',
-        url: 'https://aclanthology.org/N19-1357/',
-        fields_of_study: ['Computer Science', 'Linguistics'],
-        authors: [
-          {
-            id: 'demo-author-jain',
-            source: 'stc',
-            name: 'Sarthak Jain',
-            affiliations: ['Northeastern University'],
-          },
-          {
-            id: 'demo-author-wallace',
-            source: 'stc',
-            name: 'Byron C. Wallace',
-            affiliations: ['Northeastern University'],
-          },
-        ],
-      },
-      {
-        id: 'demo-toy-models-superposition',
-        source: 'stc',
-        title: 'Toy Models of Superposition',
-        abstract:
-          'Neural networks often pack many unrelated features into the same neurons — a phenomenon we call "superposition." We use toy models, where the ground truth is known, to investigate when and why superposition occurs, and how it relates to feature importance, sparsity, and the geometry of features in activation space. This work lays a foundation for mechanistic interpretability of large transformer-based language models.',
-        year: 2022,
-        publication_date: '2022-09-21',
-        venue: 'Transformer Circuits Thread',
-        doi: '10.48550/arXiv.2209.10652',
-        citation_count: 412,
-        reference_count: 47,
-        is_open_access: true,
-        pdf_url: 'https://arxiv.org/pdf/2209.10652',
-        url: 'https://transformer-circuits.pub/2022/toy_model/index.html',
-        fields_of_study: ['Computer Science'],
-        authors: [
-          { id: 'demo-author-elhage', source: 'stc', name: 'Nelson Elhage' },
-          { id: 'demo-author-hume', source: 'stc', name: 'Tristan Hume' },
-          { id: 'demo-author-olsson', source: 'stc', name: 'Catherine Olsson' },
-        ],
-      },
-      {
-        id: 'demo-survey-mech-interp',
-        source: 'stc',
-        title:
-          'Mechanistic Interpretability for AI Safety — A Review',
-        abstract:
-          'We review recent advances in mechanistic interpretability of transformer-based language models, organized around circuits, features, induction heads and superposition. We discuss methodologies that scale to billion-parameter models and connect interpretability findings to alignment and AI safety.',
-        year: 2024,
-        publication_date: '2024-04-22',
-        venue: 'arXiv',
-        doi: '10.48550/arXiv.2404.14082',
-        citation_count: 89,
-        reference_count: 154,
-        is_open_access: true,
-        pdf_url: 'https://arxiv.org/pdf/2404.14082',
-        url: 'https://arxiv.org/abs/2404.14082',
-        fields_of_study: ['Computer Science'],
-        authors: [
-          { id: 'demo-author-bereska', source: 'stc', name: 'Leonard Bereska' },
-          {
-            id: 'demo-author-gavves',
-            source: 'stc',
-            name: 'Efstratios Gavves',
-            affiliations: ['University of Amsterdam'],
-          },
-        ],
-      },
-    ],
-    total: 3,
-    offset: 0,
-    limit: 5,
-    sources_queried: ['stc'],
-  };
-
-  const turn: Turn = {
-    id: 'demo-turn-1',
-    userText: '帮我找 3 篇关于大语言模型可解释性的代表论文',
-    complete: true,
-    thinkingText:
-      'User wants 3 representative papers on LLM interpretability.\nPlan:\n  1. Call mcp__minicod__search_papers with query "LLM interpretability" on the Graph (stc) source.\n  2. Pick 3 highly-cited / foundational works covering attention, mechanistic interp, and a recent survey.\n  3. Summarize each in one line, suggest follow-ups.',
-    blocks: [
-      {
-        kind: 'text',
-        id: 'demo-text-1',
-        text: '我会从 **Graph** 源里搜「LLM 可解释性」, 优先挑高引、被广泛引用的代表工作。',
-      },
-      {
-        kind: 'tool',
-        id: 'demo-tool-1',
-        toolName: 'mcp__minicod__search_papers',
-        toolUseId: 'demo-tool-use-1',
-        input: { query: 'LLM interpretability', source: 'stc', limit: 5 },
-        result: demoSearchResult,
-      },
-      {
-        kind: 'text',
-        id: 'demo-text-2',
-        text: '上面这三篇是 LLM 可解释性常被引用的代表:\n\n- **Attention is not Explanation** (Jain & Wallace, NAACL 2019) —— 实证质疑注意力权重是否真能解释模型决策, 引发后续大量讨论。\n- **Toy Models of Superposition** (Anthropic, 2022) —— 提出"特征叠加"假说, 是机制可解释性的奠基工作。\n- **Mechanistic Interpretability for AI Safety — A Review** (2024) —— 系统综述电路、Induction Head 等机制可解释性手段在 LLM 上的最新进展。\n\n你可以点上面任意一张卡的「暂存」加入对比矩阵, 后续继续追问我"对比这三篇的方法论"。',
-      },
-    ],
-  };
-
-  return [turn];
 }

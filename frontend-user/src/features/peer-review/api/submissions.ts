@@ -213,7 +213,7 @@ export function useSubmitSubmission(id?: number) {
         );
         return unwrap<Submission>(r.data);
       } catch (err) {
-        // 抛归一化错误, 让 wizard 的 onError 拿到后端友好文案(如配额超限的「今日额度已用完, 升级专业版…」),
+        // 抛归一化错误, 让 wizard 的 onError 拿到后端友好文案(如配额超限的「今日额度已用完, 升级会员…」),
         // 而不是 axios 的 "Request failed with status code 429"。
         throw toApiError(err);
       }

@@ -9,7 +9,7 @@ import { cn } from '@/shared/lib/utils';
 const TABS = [
   { to: '/settings/profile', label: '个人资料', icon: User },
   { to: '/settings/membership', label: '账户资产', icon: Crown },
-  { to: '/settings/security', label: '安全', icon: Shield },
+  { to: '/settings/security', label: '安全设置', icon: Shield },
   { to: '/settings/connections', label: '已连接账号', icon: Link2 },
 ];
 

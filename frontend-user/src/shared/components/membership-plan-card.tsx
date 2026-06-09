@@ -1,7 +1,7 @@
 // 会员套餐卡(presentational)—— 价格页「订阅套餐」三卡 + 升级弹窗的套餐选择共用同一张卡,
 // 保证两处视觉完全一致。卡身(名称/价格/赠送经费/特性)固定,底部 footer slot 由调用方决定:
 // 价格页放 CTA 按钮;弹窗放「选择此套餐 / 已选择」态。
-// 术语统一:额度每日「重置」(不用「刷新」);免费套餐不展示具体 token 数;套餐叫 Pro/Max 套餐。
+// 术语统一:额度每日「重置」(不用「刷新」);Free 不展示具体 token 数;等级一律叫 Free / Pro / Max。
 import { type ReactNode } from 'react';
 import { Check, RefreshCw } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
@@ -17,9 +17,10 @@ export interface MembershipPlanData {
 
 /** 各档展示文案(价格页 + 弹窗共用,保持一致)。 */
 export const PLAN_META: Record<'free' | 'pro' | 'max', { name: string; sub: string }> = {
-  free: { name: '免费套餐', sub: '面向全体学者永久免费' },
-  pro: { name: 'Pro 套餐', sub: '轻量检索与日常写作' },
-  max: { name: 'Max 套餐', sub: '高频科研的主力之选' },
+  // 等级名全站统一 Free / Pro / Max;sub 是各档定位副标题。
+  free: { name: 'Free', sub: '面向全体学者永久免费' },
+  pro: { name: 'Pro', sub: '轻量检索与日常写作' },
+  max: { name: 'Max', sub: '高频科研的主力之选' },
 };
 
 function planFeatures(plan: MembershipPlanData): string[] {

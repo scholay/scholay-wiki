@@ -200,11 +200,11 @@ func proratedDiff(delta, remainingDays, cycle int) int {
 	return int(math.Round(float64(delta) * float64(remainingDays) / float64(cycle)))
 }
 
-// planActionName 订单展示名:「Pro 套餐 · 续期」等。
+// planActionName 订单展示名:「Pro · 续期」等。等级名统一 Free / Pro / Max,不带「套餐」后缀。
 func planActionName(tier, action string) string {
-	label := "Pro 套餐"
+	label := "Pro"
 	if tier == TierMax {
-		label = "Max 套餐"
+		label = "Max"
 	}
 	switch action {
 	case "renew":

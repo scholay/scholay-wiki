@@ -26,6 +26,13 @@ export type PendingAction =
       // 登录成功后由 useReplayPendingAction 触发一次提示。当前的"一键导入"
       // 实际还是引导(toast),后续要真正批量入库时直接在 replay 里换实现即可。
       type: 'bulk-import-search';
+    }
+  | {
+      // 未登录点首页「智能搜索」CTA → 弹登录 → 登录成功后由 useReplayPendingAction
+      // 自动 navigate 到目标路由(通常是 /search?mode=smart,带上预填关键词)。
+      // 只存站内路径,replay 时跳过去,省得用户登录完还要再点一次。
+      type: 'navigate';
+      to: string;
     };
 
 interface PendingActionState {

@@ -1247,7 +1247,7 @@ func getRouteNoscriptContent(path string) string {
 	case path == "/pricing":
 		return fmt.Sprintf(`<section %s>
 <h2 %s>订阅方案</h2>
-<p %s>Scholay 提供灵活的订阅方案，从免费体验到专业版和旗舰版，满足不同层次的学术研究需求。免费用户可使用基础检索和有限次数的 AI 分析功能，付费订阅解锁高级 AI 模型、更多使用配额和专属功能。支持支付宝和微信支付。</p>
+<p %s>Scholay 提供灵活的订阅方案，从 Free 到 Pro 和 Max，满足不同层次的学术研究需求。Free 用户可使用基础检索和有限次数的 AI 分析功能，付费订阅解锁高级 AI 模型、更多使用配额和专属功能。支持支付宝和微信支付。</p>
 </section>`, baseStyle, headingStyle, textStyle)
 
 	default:
