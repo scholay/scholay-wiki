@@ -13,6 +13,9 @@ backend/bin/
 backend/.go-cache/
 .go-cache/
 *.exe
+# 编译产物二进制 —— Docker 构建从源码重编,不该进 git(曾误提 ~48MB 进历史)。
+/backend/server
+/backend/seo-backfill
 *.exe~
 *.dll
 *.so

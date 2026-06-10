@@ -10,16 +10,16 @@ import "time"
 
 // SEOAuthor 对应 seo_authors 表
 type SEOAuthor struct {
-	ID                uint64 `gorm:"primaryKey" json:"id"`
-	AuthorID          string `gorm:"size:64;not null;uniqueIndex:uk_author_id" json:"author_id"`
-	Slug              string `gorm:"size:200;not null;uniqueIndex:uk_slug" json:"slug"`
-	Name              string `gorm:"size:500;not null" json:"name"`
-	AffiliationsJSON  string `gorm:"column:affiliations;type:json" json:"-"`
-	Homepage          string `gorm:"size:500" json:"homepage,omitempty"`
-	PaperCount        int    `gorm:"column:paper_count;not null;default:0" json:"paper_count"`
-	CitationCount     int    `gorm:"column:citation_count;not null;default:0" json:"citation_count"`
-	HIndex            *int   `gorm:"column:h_index" json:"h_index,omitempty"`
-	Source            string `gorm:"size:32" json:"source,omitempty"`
+	ID               uint64 `gorm:"primaryKey" json:"id"`
+	AuthorID         string `gorm:"size:64;not null;uniqueIndex:uk_author_id" json:"author_id"`
+	Slug             string `gorm:"size:200;not null;uniqueIndex:uk_slug" json:"slug"`
+	Name             string `gorm:"size:500;not null" json:"name"`
+	AffiliationsJSON string `gorm:"column:affiliations;type:json" json:"-"`
+	Homepage         string `gorm:"size:500" json:"homepage,omitempty"`
+	PaperCount       int    `gorm:"column:paper_count;not null;default:0" json:"paper_count"`
+	CitationCount    int    `gorm:"column:citation_count;not null;default:0" json:"citation_count"`
+	HIndex           *int   `gorm:"column:h_index" json:"h_index,omitempty"`
+	Source           string `gorm:"size:32" json:"source,omitempty"`
 
 	SitemapPage int     `gorm:"column:sitemap_page;not null;default:0" json:"sitemap_page"`
 	Status      int     `gorm:"not null;default:1" json:"status"`

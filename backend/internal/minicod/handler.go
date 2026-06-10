@@ -236,7 +236,7 @@ func (h *Handler) SearchPapers(c *gin.Context) {
 		rec := h.hotRecorder
 		query := req.Query
 		impressions := papersToViewData(result.Data)
-		safego.Go("hotcontent-paper-search", func() {
+		safego.Record("hotcontent-paper-search", func() {
 			_ = rec.RecordSearch(query, hotcontent.SearchTypePaper)
 			if len(impressions) > 0 {
 				_ = rec.RecordImpressions(impressions)
@@ -341,7 +341,7 @@ func (h *Handler) GetAuthor(c *gin.Context) {
 			seed.HIndex = &hi
 		}
 		recorder := h.authorSEORecorder
-		safego.Go("seo-author-detail-click", func() {
+		safego.Record("seo-author-detail-click", func() {
 			if err := recorder.RecordAuthorDetailClick(seed); err != nil {
 				slog.Warn("seo author detail click record failed", "author_id", seed.AuthorID, "err", err)
 			}
@@ -488,7 +488,7 @@ func (h *Handler) SearchJournals(c *gin.Context) {
 	if h.hotRecorder != nil && req.Keyword != "" {
 		rec := h.hotRecorder
 		keyword := req.Keyword
-		safego.Go("hotcontent-journal-search", func() {
+		safego.Record("hotcontent-journal-search", func() {
 			_ = rec.RecordSearch(keyword, hotcontent.SearchTypeJournal)
 		})
 	}
@@ -550,7 +550,7 @@ func (h *Handler) GetJournal(c *gin.Context) {
 	if h.journalSEORecorder != nil && len(result) > 0 {
 		if seed := buildJournalSEOSeed(result); seed != nil {
 			recorder := h.journalSEORecorder
-			safego.Go("seo-journal-detail-click", func() {
+			safego.Record("seo-journal-detail-click", func() {
 				if err := recorder.RecordJournalDetailClick(seed); err != nil {
 					slog.Warn("seo journal detail click record failed", "journal_id", seed.JournalID, "err", err)
 				}

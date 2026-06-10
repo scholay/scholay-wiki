@@ -72,11 +72,14 @@ export const MessageTurn = memo(function MessageTurn({
   turn,
   artifacts,
   sessionId,
+  onPreview,
 }: {
   turn: Turn;
   /** 当前会话 ./out 的产物列表(含 manifest 标题);用来认领"本轮产出的可下载文件"。 */
   artifacts?: ClawArtifact[];
   sessionId?: string | null;
+  /** 点「预览」→ 打开 ClawPage 右侧预览面板(传 ClawPage 的 setPreviewArtifact,引用稳定不破 memo)。 */
+  onPreview?: (a: ClawArtifact) => void;
 }) {
   const visible = hasVisibleAssistantContent(turn);
   const turnFiles = useMemo(
@@ -134,7 +137,7 @@ export const MessageTurn = memo(function MessageTurn({
 
       {/* 本轮产出的可下载文件 —— 挂在这条回答下面(多文件/多轮各归各回答)。 */}
       {sessionId && turnFiles.length > 0 && (
-        <TurnArtifacts sessionId={sessionId} files={turnFiles} />
+        <TurnArtifacts sessionId={sessionId} files={turnFiles} onPreview={onPreview} />
       )}
 
       {turn.errorMessage && (

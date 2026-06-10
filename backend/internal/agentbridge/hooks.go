@@ -98,4 +98,3 @@ func ChainOnMessageComplete(fns ...OnMessageCompleteFn) OnMessageCompleteFn {
 		}
 	}
 }
-

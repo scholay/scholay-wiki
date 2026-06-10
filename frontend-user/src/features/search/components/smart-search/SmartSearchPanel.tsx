@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AlertCircle, AlertTriangle, ArrowDown, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom';
 import { Dialog, DialogContent, DialogTitle } from '@/shared/ui/dialog';
@@ -23,7 +24,7 @@ import {
   useSmartSearchSocket,
 } from '../../api/smart-search';
 import { AssistantTurn } from './AssistantTurn';
-import { SmartComposer } from './SmartComposer';
+import { SmartComposer, COMPOSER_LAYOUT_ID, composerDockTransition } from './SmartComposer';
 import { SmartSearchHero } from './SmartSearchHero';
 import {
   foldMessagesIntoTurns,
@@ -56,6 +57,7 @@ const HISTORY_STEP = 100;
 export function SmartSearchPanel() {
   const token = useAuthStore((s) => s.token);
   const queryClient = useQueryClient();
+  const reduce = useReducedMotion();
 
   // 跨 tab 同步: 另一个 tab reset 会通过 BroadcastChannel 推一帧, 本 tab 收到
   // 后 invalidate ['smart-search'] 全部 query → 本 tab 自动拿到新 sessionId。
@@ -307,6 +309,7 @@ export function SmartSearchPanel() {
     historyQuery.isLoading || historyQuery.isFetching || sessionQuery.isLoading;
 
   return (
+    <LayoutGroup>
     <div className="flex flex-col h-full min-h-0 bg-background">
       {/* 多窗口接管 banner: 后端 displacement 路径下发 {type:displaced} 后,
           这个 banner 占顶部一行, 用户点 "切回这里" 调 takeOver() 抢回活跃权。
@@ -315,121 +318,151 @@ export function SmartSearchPanel() {
         <AgentDisplacedBanner reason={displacedReason} onTakeOver={takeOver} />
       )}
 
-      {turns.length === 0 ? (
-        loadingHistory ? (
-          <div className="flex-1 min-h-0 flex flex-col items-center justify-center text-center px-8">
+      {/* 内容区:hero(空态)与对话视图是两层 absolute 叠层,互不挤压布局。
+          - 对话视图常驻底层;悬浮对话框 + 底部渐隐都在这层。
+          - hero 在最上层,发送首条消息后整体淡出(大标题 + 流动背景渐隐),
+            而对话框借同一个 layoutId 从居中平滑滑到底部停靠。 */}
+      <div className="relative flex-1 min-h-0">
+        {/* 对话视图(底层) */}
+        {turns.length > 0 && (
+          // 外层量高 div: useHeightVar 把"对话框可视区"像素高写进 --chat-area-h,供留白按比例算。
+          <div ref={chatAreaRef} className="absolute inset-0">
+            <StickToBottom
+              // ⚠️ 这个 wrapper 绝对不能加任何 overflow-* 工具类。
+              //
+              // use-stick-to-bottom 的真实 scroll container 是 StickToBottom.Content 内部的
+              // scrollRef div (库 useLayoutEffect 自动给它设 overflow: auto)。
+              //
+              // 踩过的坑: 之前为了"防横滚"给这里加了 overflow-x-hidden, 结果出现两个垂直滚动条。
+              //   根因是 CSS 计算规则: 当 overflow-x=hidden 而 overflow-y=visible 时,
+              //   overflow-y 会被**计算成 auto** → 这个外层 div 自己也变成了垂直 scroll container,
+              //   叠加内层 scrollRef = 双滚动条。
+              //
+              // 横向溢出的正确防线在内容层: 每个气泡 min-w-0 + max-w-full + overflow-hidden,
+              // markdown 表格 overflow-x-auto, 工具 chip max-w-full。外层不需要也不能管 overflow。
+              //
+              // padding / background / relative 可以放心保留 (不影响 overflow 计算)。
+              className="h-full bg-surface-1 px-4 py-4 relative"
+              resize="smooth"
+              initial="smooth"
+            >
+              {/* 底部留白 = 滚动内容的 padding-bottom(算进 scrollHeight,贴底时稳定露在视口底)。
+                  现在对话框是"悬浮"在底部,所以留白要 ≥ 悬浮框高度,内容才不会被它盖住 —— 用
+                  max(三成框高, 132px) 兜底:高屏保留三成呼吸感,矮屏也至少留出悬浮框的高度。 */}
+              <StickToBottom.Content
+                // scrollClassName 落在库真正的 scroll 元素上(overflow:auto 那层),
+                // 给它挂「仅手动滚动时浮现」的滚动条样式;className 落在内容层。
+                scrollClassName="chat-scrollbar-autohide"
+                className="space-y-3.5 min-w-0 pb-[max(calc(var(--chat-area-h,100dvh)*0.3),132px)]"
+              >
+                {(hiddenCount > 0 || historyHasMore) && (
+                  <div className="flex justify-center pb-1">
+                    <button
+                      type="button"
+                      // 两段式"加载更早": 先把已拉到但没渲染的轮放进 DOM (hiddenCount>0, 不发请求);
+                      // 都渲染完了还有更早的 → 向后端多要一页 (historyLimit += STEP) 并同步放开渲染窗口。
+                      onClick={() => {
+                        if (hiddenCount > 0) {
+                          setRenderLimit((n) => n + RENDER_STEP);
+                        } else {
+                          setHistoryLimit((n) => n + HISTORY_STEP);
+                          setRenderLimit((n) => n + HISTORY_STEP);
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 h-7 px-3 rounded-pill bg-surface-2 text-xs text-muted-foreground hover:text-foreground hover:bg-surface-2/70 transition-colors"
+                    >
+                      {hiddenCount > 0 ? `加载更早的 ${hiddenCount} 轮对话` : '加载更早的对话'}
+                    </button>
+                  </div>
+                )}
+                {visibleTurns.map((turn) => (
+                  <div key={turn.id} className="space-y-3.5 min-w-0">
+                    <UserBubble text={turn.userText} />
+                    <AssistantTurn turn={turn} />
+                  </div>
+                ))}
+                {state === 'reconnecting' && (
+                  <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="size-3 animate-spin" />
+                    连接断开,正在重连
+                    {reconnectAttempt > 0 && (
+                      <span className="text-faint">({reconnectAttempt}/5)</span>
+                    )}
+                  </div>
+                )}
+                {state === 'error' && (
+                  <div className="inline-flex items-center gap-1.5 text-xs text-brand-red">
+                    <AlertCircle className="size-3.5" />
+                    连接中断, 请刷新页面重试
+                  </div>
+                )}
+              </StickToBottom.Content>
+              <ScrollController scrollRef={scrollToBottomRef} />
+              <ScrollbarAutoHide />
+              <ScrollToBottomFab />
+            </StickToBottom>
+
+            {/* 底部渐隐:内容贴近底部时淡入 surface-1,让悬浮对话框"浮"在对话之上(不被文字顶到边)。 */}
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28 bg-gradient-to-t from-surface-1 via-surface-1/85 to-transparent" />
+
+            {/* 悬浮对话框 —— 与空态 hero 完全相同的 SmartComposer(prominent + 居中 max-w-2xl
+                + 同一个 layoutId),绝对定位悬浮在对话区底部中央。发送首条消息后由 framer-motion
+                据 layoutId 从居中平滑滑到这里(同尺寸 → 纯位移,就是"同一个框浮下来")。
+                外层 pointer-events-none 让框两侧的空白不挡滚动,框本体 pointer-events-auto 可交互。 */}
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-4 pb-4">
+              <motion.div
+                layoutId={COMPOSER_LAYOUT_ID}
+                transition={composerDockTransition(reduce)}
+                className="pointer-events-auto mx-auto w-full max-w-2xl"
+              >
+                <SmartComposer
+                  prominent
+                  value={input}
+                  onChange={setInput}
+                  onSubmit={handleSubmit}
+                  placeholder="继续与智能搜索对话…"
+                  ready={ready && !reset.isPending}
+                  busy={busy}
+                  onStop={handleStop}
+                  stopping={stopping}
+                  contextSnapshot={contextQuery.data}
+                  onResetClick={() => setResetOpen(true)}
+                  resetDisabled={!sessionId || reset.isPending || busy}
+                  resetPending={reset.isPending}
+                />
+              </motion.div>
+            </div>
+          </div>
+        )}
+
+        {/* 加载历史(覆盖层) */}
+        {turns.length === 0 && loadingHistory && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-8">
             <Loader2 className="size-5 text-muted-foreground animate-spin mb-3" />
             <div className="text-sm text-muted-foreground">正在加载历史会话…</div>
           </div>
-        ) : (
-          // 起始态:居中 hero 对话框(输入框在正中);发送后 turns>0 → 切到下面的
-          // 对话视图 + 底部输入栏,即"输入内容后输入框移到下方"。
-          <SmartSearchHero
-            value={input}
-            onChange={setInput}
-            onSubmit={handleSubmit}
-            ready={ready && !reset.isPending}
-          />
-        )
-      ) : (
-        // 有对话:对话视图(flex-1)+ 底部输入栏。输入框从「正中 hero」移到这里的底部。
-        <>
-        {/* 外层量高 div: useHeightVar 把这块"对话框可视区"的像素高写进 --chat-area-h,
-            供最后一轮按比例留白 (见下)。它就是 flex-1 的可视区, StickToBottom 在里面 h-full 填满。 */}
-        <div ref={chatAreaRef} className="flex-1 min-h-0">
-        <StickToBottom
-          // ⚠️ 这个 wrapper 绝对不能加任何 overflow-* 工具类。
-          //
-          // use-stick-to-bottom 的真实 scroll container 是 StickToBottom.Content 内部的
-          // scrollRef div (库 useLayoutEffect 自动给它设 overflow: auto)。
-          //
-          // 踩过的坑: 之前为了"防横滚"给这里加了 overflow-x-hidden, 结果出现两个垂直滚动条。
-          //   根因是 CSS 计算规则: 当 overflow-x=hidden 而 overflow-y=visible 时,
-          //   overflow-y 会被**计算成 auto** → 这个外层 div 自己也变成了垂直 scroll container,
-          //   叠加内层 scrollRef = 双滚动条。
-          //
-          // 横向溢出的正确防线在内容层: 每个气泡 min-w-0 + max-w-full + overflow-hidden,
-          // markdown 表格 overflow-x-auto, 工具 chip max-w-full。外层不需要也不能管 overflow。
-          //
-          // padding / background / relative 可以放心保留 (不影响 overflow 计算)。
-          className="h-full bg-surface-1 px-4 py-4 relative"
-          resize="smooth"
-          initial="smooth"
-        >
-          {/* 底部留白 = 滚动内容的 padding-bottom (而不是撑最后一轮的 min-height)。
-              为什么不是 min-height: CSS min-height 只在内容**比它矮**时才撑高 —— 一条多论文长回答
-              本身就超过半屏, min-height 被忽略 → 回答仍紧贴输入框 (前几版都栽在这)。
-              padding-bottom 会被算进 scrollHeight, use-stick-to-bottom 贴底时
-              (scrollTop = scrollHeight - clientHeight) 这段 padding 必然露在视口底部 = 稳定留白,
-              短/长回答、流式中、重入 全都有。--chat-area-h 由 useHeightVar 实时量(本对话框高),
-              ×0.3 ≈ 留出三成对话框高; fallback 100dvh 保证 hook 没就绪时也有留白。改 0.3 调多少。 */}
-          <StickToBottom.Content className="space-y-3.5 min-w-0 pb-[calc(var(--chat-area-h,100dvh)*0.3)]">
-            {(hiddenCount > 0 || historyHasMore) && (
-              <div className="flex justify-center pb-1">
-                <button
-                  type="button"
-                  // 两段式"加载更早": 先把已拉到但没渲染的轮放进 DOM (hiddenCount>0, 不发请求);
-                  // 都渲染完了还有更早的 → 向后端多要一页 (historyLimit += STEP) 并同步放开渲染窗口。
-                  onClick={() => {
-                    if (hiddenCount > 0) {
-                      setRenderLimit((n) => n + RENDER_STEP);
-                    } else {
-                      setHistoryLimit((n) => n + HISTORY_STEP);
-                      setRenderLimit((n) => n + HISTORY_STEP);
-                    }
-                  }}
-                  className="inline-flex items-center gap-1.5 h-7 px-3 rounded-pill bg-surface-2 text-xs text-muted-foreground hover:text-foreground hover:bg-surface-2/70 transition-colors"
-                >
-                  {hiddenCount > 0 ? `加载更早的 ${hiddenCount} 轮对话` : '加载更早的对话'}
-                </button>
-              </div>
-            )}
-            {visibleTurns.map((turn) => (
-              <div key={turn.id} className="space-y-3.5 min-w-0">
-                <UserBubble text={turn.userText} />
-                <AssistantTurn turn={turn} />
-              </div>
-            ))}
-            {state === 'reconnecting' && (
-              <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-                <Loader2 className="size-3 animate-spin" />
-                连接断开,正在重连
-                {reconnectAttempt > 0 && (
-                  <span className="text-faint">({reconnectAttempt}/5)</span>
-                )}
-              </div>
-            )}
-            {state === 'error' && (
-              <div className="inline-flex items-center gap-1.5 text-xs text-brand-red">
-                <AlertCircle className="size-3.5" />
-                连接中断, 请刷新页面重试
-              </div>
-            )}
-          </StickToBottom.Content>
-          <ScrollController scrollRef={scrollToBottomRef} />
-          <ScrollToBottomFab />
-        </StickToBottom>
-        </div>
+        )}
 
-        {/* 底部输入栏 —— 与起始态 hero 同一个 SmartComposer,样式一致;放进 border-t footer。 */}
-        <div className="px-4 py-3 border-t border-border shrink-0">
-          <SmartComposer
-            value={input}
-            onChange={setInput}
-            onSubmit={handleSubmit}
-            placeholder="继续与智能搜索对话…"
-            ready={ready && !reset.isPending}
-            busy={busy}
-            onStop={handleStop}
-            stopping={stopping}
-            contextSnapshot={contextQuery.data}
-            onResetClick={() => setResetOpen(true)}
-            resetDisabled={!sessionId || reset.isPending || busy}
-            resetPending={reset.isPending}
-          />
-        </div>
-        </>
-      )}
+        {/* 起始态 hero(顶层):发送首条消息后整体淡出(大标题 + 流动背景),
+            对话框则借 layoutId 从这里平滑滑到底部停靠。 */}
+        <AnimatePresence initial={false}>
+          {turns.length === 0 && !loadingHistory && (
+            <motion.div
+              key="smart-hero"
+              className="absolute inset-0 z-30 flex"
+              exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.985 }}
+              transition={{ duration: reduce ? 0 : 0.3, ease: 'easeOut' }}
+            >
+              <SmartSearchHero
+                value={input}
+                onChange={setInput}
+                onSubmit={handleSubmit}
+                ready={ready && !reset.isPending}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
       <ResetConfirmDialog
         open={resetOpen}
@@ -438,6 +471,7 @@ export function SmartSearchPanel() {
         pending={reset.isPending}
       />
     </div>
+    </LayoutGroup>
   );
 }
 
@@ -524,6 +558,36 @@ function ScrollController({
   return null;
 }
 
+/**
+ * 会话滚动条「仅手动滚动时浮现」—— 只听 wheel / touchmove 这类**用户手势**:
+ * 手势触发时给真正的 scroll 元素(context.scrollRef)加 .is-scrolling 让滚动条浮现,
+ * 停手约 1s 后移除、滚动条再隐藏。配合 .chat-scrollbar-autohide(见 globals.css)。
+ *
+ * 关键:程序化「自动贴底跟随」改的是 scrollTop,**不会**触发 wheel/touchmove,
+ * 所以自动滚动期间这里不动作 → 滚动条保持隐藏(正是需求要的)。自身不渲染任何 DOM。
+ */
+function ScrollbarAutoHide() {
+  const { scrollRef } = useStickToBottomContext();
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const reveal = () => {
+      el.classList.add('is-scrolling');
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => el.classList.remove('is-scrolling'), 1000);
+    };
+    el.addEventListener('wheel', reveal, { passive: true });
+    el.addEventListener('touchmove', reveal, { passive: true });
+    return () => {
+      if (timer) clearTimeout(timer);
+      el.removeEventListener('wheel', reveal);
+      el.removeEventListener('touchmove', reveal);
+    };
+  }, [scrollRef]);
+  return null;
+}
+
 function ScrollToBottomFab() {
   const { isAtBottom, scrollToBottom } = useStickToBottomContext();
   if (isAtBottom) return null;
@@ -531,7 +595,8 @@ function ScrollToBottomFab() {
     <button
       type="button"
       onClick={() => scrollToBottom()}
-      className="sticky bottom-3 ml-auto mr-1 flex size-8 items-center justify-center rounded-pill bg-foreground text-background shadow-elevation-2 hover:opacity-90 transition-opacity"
+      // bottom-28 抬高,让它浮在底部"悬浮对话框"之上,而不是被对话框盖住。
+      className="sticky bottom-28 ml-auto mr-1 flex size-8 items-center justify-center rounded-pill bg-foreground text-background shadow-elevation-2 hover:opacity-90 transition-opacity"
       aria-label="回到底部"
     >
       <ArrowDown className="size-4" strokeWidth={2.4} />

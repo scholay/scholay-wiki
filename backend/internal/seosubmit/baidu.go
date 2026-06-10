@@ -166,7 +166,7 @@ func reserveBaiduQuota(ctx context.Context, wantN, quota int) (int, error) {
 	if quota <= 0 {
 		return wantN, nil // 配额配 0/负值 视为不限
 	}
-	rdb := cache.GetRedis()
+	rdb := cache.GetRedisPersist()
 	if rdb == nil {
 		return wantN, nil
 	}

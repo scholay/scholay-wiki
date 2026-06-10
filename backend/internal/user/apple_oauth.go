@@ -588,7 +588,7 @@ func (h *Handler) UnbindApple(c *gin.Context) {
 	}
 	err := h.service.UnbindApple(userID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		utils.SafeError(c, http.StatusBadRequest, err)
 		return
 	}
 	utils.SuccessWithMessage(c, "Apple account unbound successfully", nil)

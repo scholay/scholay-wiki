@@ -288,7 +288,7 @@ func (h *Handler) UnbindMicrosoft(c *gin.Context) {
 	}
 	err := h.service.UnbindMicrosoft(userID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		utils.SafeError(c, http.StatusBadRequest, err)
 		return
 	}
 	utils.SuccessWithMessage(c, "Microsoft account unbound successfully", nil)

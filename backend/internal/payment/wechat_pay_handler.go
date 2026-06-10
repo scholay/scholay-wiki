@@ -36,7 +36,7 @@ func (h *WeChatPayHandler) GetAllConfigs(c *gin.Context) {
 
 	configs, err := h.service.GetAllConfigs(showKeys)
 	if err != nil {
-		utils.Error(c, 3001, "加载微信支付配置失败: "+err.Error())
+		utils.InternalError(c, 3001, "加载微信支付配置失败", err)
 		return
 	}
 
@@ -47,7 +47,7 @@ func (h *WeChatPayHandler) GetAllConfigs(c *gin.Context) {
 func (h *WeChatPayHandler) GetActiveConfig(c *gin.Context) {
 	config, err := h.service.GetActiveConfig()
 	if err != nil {
-		utils.Error(c, 3002, "加载激活微信支付配置失败: "+err.Error())
+		utils.InternalError(c, 3002, "加载激活微信支付配置失败", err)
 		return
 	}
 
@@ -63,7 +63,7 @@ func (h *WeChatPayHandler) CreateConfig(c *gin.Context) {
 	}
 
 	if err := h.service.CreateConfig(&dto); err != nil {
-		utils.Error(c, 3003, "创建微信支付配置失败: "+err.Error())
+		utils.InternalError(c, 3003, "创建微信支付配置失败", err)
 		return
 	}
 
@@ -83,7 +83,7 @@ func (h *WeChatPayHandler) UpdateConfig(c *gin.Context) {
 	}
 
 	if err := h.service.UpdateConfig(uint64(id), &dto); err != nil {
-		utils.Error(c, 3004, "更新微信支付配置失败: "+err.Error())
+		utils.InternalError(c, 3004, "更新微信支付配置失败", err)
 		return
 	}
 
@@ -98,7 +98,7 @@ func (h *WeChatPayHandler) DeleteConfig(c *gin.Context) {
 	}
 
 	if err := h.service.DeleteConfig(uint64(id)); err != nil {
-		utils.Error(c, 3005, "删除微信支付配置失败: "+err.Error())
+		utils.InternalError(c, 3005, "删除微信支付配置失败", err)
 		return
 	}
 
@@ -113,7 +113,7 @@ func (h *WeChatPayHandler) ActivateConfig(c *gin.Context) {
 	}
 
 	if err := h.service.ActivateConfig(uint64(id)); err != nil {
-		utils.Error(c, 3006, "Failed to activate WeChat Pay config: "+err.Error())
+		utils.InternalError(c, 3006, "Failed to activate WeChat Pay config", err)
 		return
 	}
 
@@ -193,7 +193,7 @@ func (h *WeChatPayHandler) HandleNotify(c *gin.Context) {
 
 	decrypted, err := h.service.VerifyNotify(&req)
 	if err != nil {
-		utils.Error(c, 3007, "Failed to verify notify: "+err.Error())
+		utils.InternalError(c, 3007, "Failed to verify notify", err)
 		return
 	}
 
@@ -234,7 +234,7 @@ func (h *WeChatPayHandler) HandleNotify(c *gin.Context) {
 	)
 	if err != nil {
 		slog.Error("wechat pay failed to process payment", "err", err)
-		utils.Error(c, 3009, "Failed to process payment: "+err.Error())
+		utils.InternalError(c, 3009, "Failed to process payment", err)
 		return
 	}
 

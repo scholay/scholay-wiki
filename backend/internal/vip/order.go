@@ -297,7 +297,7 @@ func (o *OrderService) fulfill(orderNo, txNo string, amount float64, method stri
 				return err
 			}
 		case "subscription":
-			if err := activateSubscriptionInTx(tx, &ord, now); err != nil {
+			if err := o.activateSubscriptionInTx(tx, &ord, now); err != nil {
 				return err
 			}
 		default:
@@ -318,42 +318,84 @@ func (o *OrderService) fulfill(orderNo, txNo string, amount float64, method stri
 	return nil
 }
 
-// activateSubscriptionInTx 事务内履约订阅订单(new/renew/upgrade)。动作参数已算定并落在订单上:
-//   等级 = 不降级(当前生效档与目标档取高者);到期日 = 订单算定值与当前到期取更晚者(防回退);
-//   赠送经费 = 按订单的 grant_starts_at/grant_expires_at 发放(续期是预发放, 生效日在未来)。
-func activateSubscriptionInTx(tx *gorm.DB, ord *Order, now time.Time) error {
+// activateSubscriptionInTx 事务内履约订阅订单(new/renew/upgrade)。
+//
+// 关键修复(此前 bug):授予窗口在**支付时刻**按当前会员状态重算,不再用下单时冻结在订单上的
+// grant_starts_at/grant_expires_at/new_expires_at。冻结窗口会导致:逾期支付拿到「生来过期」的经费
+// 批次(grant_expires < now)、两张同基线续费的第二笔零延长。重算锚点 = max(now, 当前到期):
+//   - 逾期支付(会员已过期)→ 从 now 起算,经费不会born-expired;
+//   - 在期支付 → 叠加到当前到期之后(每笔续费各加一个周期)。
+// 金额 / 赠送经费数额仍按下单时算定(用户已为此付款),只重算「窗口」。
+// FOR UPDATE 锁 users 行:串行化同一用户的并发履约(两张不同订单可同时回调)。
+func (o *OrderService) activateSubscriptionInTx(tx *gorm.DB, ord *Order, now time.Time) error {
+	// 秒对齐(同 computeSubscription):MySQL DATETIME 会四舍五入进位,否则即时 starts_at 落到下一秒。
+	now = now.Truncate(time.Second)
+
 	var uv UserVIP
-	if err := tx.Table("users").Select("vip_tier, vip_expires_at").Where("id = ?", ord.UserID).Scan(&uv).Error; err != nil {
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Table("users").Select("vip_tier, vip_expires_at").Where("id = ?", ord.UserID).Scan(&uv).Error; err != nil {
 		return err
 	}
-	// 等级:不降级。
+
+	cfg := o.svc.cfg.Get()
+	cycle := cfg.SubscriptionPeriodDays
+	if cycle <= 0 {
+		cycle = 30
+	}
+
+	curEff := effectiveTier(uv, now)
+	// 锚点 = max(now, 当前到期)。
+	base := now
+	if uv.VIPExpiresAt != nil && uv.VIPExpiresAt.After(base) {
+		base = *uv.VIPExpiresAt
+	}
+
 	newTier := ord.PlanCode
-	if curEff := effectiveTier(uv, now); tierRank(curEff) > tierRank(newTier) {
-		newTier = curEff
+	if tierRank(curEff) > tierRank(newTier) {
+		newTier = curEff // 不降级
 	}
-	// 到期日:订单算定值与当前到期取更晚者(并发/重复履约不回退)。
-	newExp := now.AddDate(0, 0, 30)
-	if ord.NewExpiresAt != nil {
-		newExp = *ord.NewExpiresAt
+
+	var newExp, grantStarts, grantExpires time.Time
+	if ord.SubAction == "upgrade" {
+		// 升级:按剩余天数补差价,不延长周期,只升档。到期日=锚点;经费即时生效到到期。
+		newExp = base
+		grantStarts = now
+		grantExpires = base
+	} else {
+		// new | renew:从锚点 +1 周期。renew=叠加到当前到期之后(预发放);逾期则 base=now 即时。
+		newExp = base.AddDate(0, 0, cycle)
+		grantStarts = base
+		grantExpires = newExp
 	}
+	// 防回退:到期日不低于当前(并发/重复履约兜底,虽已 FOR UPDATE)。
 	if uv.VIPExpiresAt != nil && uv.VIPExpiresAt.After(newExp) {
 		newExp = *uv.VIPExpiresAt
 	}
+
 	if err := tx.Table("users").Where("id = ?", ord.UserID).
 		Updates(map[string]any{"vip_tier": newTier, "vip_expires_at": newExp}).Error; err != nil {
 		return err
 	}
 	if ord.CreditsGranted > 0 {
-		gs, ge := now, newExp
-		if ord.GrantStartsAt != nil {
-			gs = *ord.GrantStartsAt
-		}
-		if ord.GrantExpiresAt != nil {
-			ge = *ord.GrantExpiresAt
-		}
-		return grantTempInTx(tx, ord.UserID, ord.CreditsGranted, SourceSubscription, ord.OrderNo, gs, ge, TxGrantSubscription)
+		return grantTempInTx(tx, ord.UserID, ord.CreditsGranted, SourceSubscription, ord.OrderNo, grantStarts, grantExpires, TxGrantSubscription)
 	}
 	return nil
+}
+
+// CancelStalePending 把超过 ttl 仍 pending 的订单标记 expired。返回作废数。
+//
+// 网关侧已设 120m 超时关单(见 alipay/wechat create),ttl 取得更宽松(默认 24h)只清真正被遗弃的单,
+// 不会误杀「网关超时窗口内」的待支付单。作废后 order_no 仍唯一,用户须重新下单 —— 新单按支付时刻
+// 重算授予窗口,从根上避免逾期支付拿到过期会员。纯 DB 写,不碰履约。
+func (o *OrderService) CancelStalePending(ttl time.Duration) (int64, error) {
+	if ttl <= 0 {
+		ttl = 24 * time.Hour
+	}
+	cutoff := time.Now().Add(-ttl)
+	res := o.db.Model(&Order{}).
+		Where("status = ? AND created_at < ?", "pending", cutoff).
+		Update("status", "expired")
+	return res.RowsAffected, res.Error
 }
 
 // genOrderNo 生成订单号:前缀 + 北京时间到秒 + 6 位随机(防同秒撞);order_no 唯一索引兜底。

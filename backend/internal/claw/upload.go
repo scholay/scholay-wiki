@@ -24,6 +24,7 @@
 package claw
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -39,8 +40,8 @@ import (
 )
 
 const (
-	MaxFileBytes   = 30 * 1024 * 1024
-	MaxImageBytes  = 5 * 1024 * 1024
+	MaxFileBytes    = 30 * 1024 * 1024
+	MaxImageBytes   = 5 * 1024 * 1024
 	pushFileTimeout = 30 * time.Second
 )
 
@@ -139,7 +140,8 @@ func (u *Uploader) HandleUpload(c *gin.Context, userID uint) (*AttachmentDTO, er
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), pushFileTimeout)
 	defer cancel()
-	pushed, err := u.feature.AgentClient().PushSessionFile(ctx, sessionID, fh.Filename, body)
+	// body 已在内存(gin multipart 读出),包成 reader 流给 agent —— 至少省掉 client 端的 multipart 整份缓冲。
+	pushed, err := u.feature.AgentClient().PushSessionFile(ctx, sessionID, fh.Filename, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("文件推送失败: %w", err)
 	}

@@ -25,6 +25,7 @@ package peerreview
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 )
@@ -65,9 +66,11 @@ type StreamEvent struct {
 
 // stream 是单条 (submissionID, slot) 的流式状态。
 type stream struct {
-	mu     sync.Mutex
-	slot   string // 给所有 outbound event 自动填 (一次设, 永不改)
-	text   string
+	mu   sync.Mutex
+	slot string // 给所有 outbound event 自动填 (一次设, 永不改)
+	// text 用 strings.Builder 累积，避免 `text += delta` 每个 content_delta 重分配复制整串 (O(L²))。
+	// 所有读写都在 s.mu 下，Builder 不被拷贝 (stream 永远按指针用)，安全。
+	text   strings.Builder
 	phase  StreamPhase
 	errMsg string
 	subs      map[chan StreamEvent]struct{}
@@ -111,7 +114,7 @@ func (b *StreamBroker) gcOnce() {
 		// (a) 正常结束/出错且保留期已过、无订阅者; 或
 		// (b) SubscribePending 建的占位流: 始终没出过内容(text 空)、无订阅者、超 5min 仍未 Begin —— 视为僵尸清掉。
 		dead := (s.phase != StreamPhaseComputing && !s.doneAt.IsZero() && s.doneAt.Before(cutoff) && len(s.subs) == 0) ||
-			(s.phase == StreamPhaseComputing && len(s.subs) == 0 && s.text == "" && !s.createdAt.IsZero() && s.createdAt.Before(staleCutoff))
+			(s.phase == StreamPhaseComputing && len(s.subs) == 0 && s.text.Len() == 0 && !s.createdAt.IsZero() && s.createdAt.Before(staleCutoff))
 		s.mu.Unlock()
 		if dead {
 			delete(b.streams, id)
@@ -131,7 +134,7 @@ func (b *StreamBroker) Begin(id uint64, slot string) {
 	b.mu.Unlock()
 
 	s.mu.Lock()
-	s.text = ""
+	s.text.Reset()
 	s.phase = StreamPhaseComputing
 	s.errMsg = ""
 	s.doneAt = time.Time{}
@@ -155,7 +158,7 @@ func (b *StreamBroker) Append(id uint64, slot, delta string) {
 		return
 	}
 	s.mu.Lock()
-	s.text += delta
+	s.text.WriteString(delta)
 	evt := StreamEvent{Phase: StreamPhaseComputing, Slot: slot, Text: delta}
 	for ch := range s.subs {
 		nonBlockingSend(ch, evt)
@@ -194,7 +197,7 @@ func (b *StreamBroker) Done(id uint64, slot string) {
 	s.mu.Lock()
 	s.phase = StreamPhaseDone
 	s.doneAt = time.Now()
-	evt := StreamEvent{Phase: StreamPhaseDone, Slot: slot, Text: s.text}
+	evt := StreamEvent{Phase: StreamPhaseDone, Slot: slot, Text: s.text.String()}
 	for ch := range s.subs {
 		nonBlockingSend(ch, evt)
 	}
@@ -253,7 +256,7 @@ func (b *StreamBroker) Subscribe(id uint64, slot string, bufSize int) (StreamEve
 
 	ch := make(chan StreamEvent, bufSize)
 	s.mu.Lock()
-	snap := StreamEvent{Phase: s.phase, Slot: slot, Text: s.text, Error: s.errMsg}
+	snap := StreamEvent{Phase: s.phase, Slot: slot, Text: s.text.String(), Error: s.errMsg}
 	s.subs[ch] = struct{}{}
 	s.mu.Unlock()
 
@@ -283,7 +286,7 @@ func (b *StreamBroker) SubscribePending(id uint64, slot string, bufSize int) (St
 
 	ch := make(chan StreamEvent, bufSize)
 	s.mu.Lock()
-	snap := StreamEvent{Phase: s.phase, Slot: slot, Text: s.text, Error: s.errMsg}
+	snap := StreamEvent{Phase: s.phase, Slot: slot, Text: s.text.String(), Error: s.errMsg}
 	s.subs[ch] = struct{}{}
 	s.mu.Unlock()
 

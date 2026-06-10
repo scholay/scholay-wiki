@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"time"
 
+	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/database"
 	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/seo"
@@ -21,6 +22,9 @@ import (
 func startBackgroundTasks(ctx context.Context, seoService *seo.Service) {
 	// 数据库连接池监控
 	database.StartConnectionPoolMonitoring(ctx, 5*time.Minute)
+
+	// Redis 逐出监控:correctness 键(吊销/配额/队列)与大缓存共池 allkeys-lru,逐出即告警。
+	cache.StartEvictionMonitoring(ctx, 5*time.Minute)
 
 	// 每 1 分钟回填 seo_papers / seo_authors 的 sitemap_page
 	// （新插入行首次 page=0，事后按 id 区间修正）
@@ -43,6 +47,11 @@ func startBackgroundTasks(ctx context.Context, seoService *seo.Service) {
 		if err := seoService.ReconcileAuthorSitemapPages(); err != nil {
 			slog.Error("Failed initial SEO author sitemap reconcile", "err", err)
 		}
+		// 期刊也必须 reconcile —— 否则 seo_journals.sitemap_page 永远=0,GetJournalSitemapSummary
+		// 过滤 >0 → sitemap 索引里 0 条 journals 分页,整条 /journal 垂类对搜索引擎不可发现。
+		if err := seoService.ReconcileJournalSitemapPages(); err != nil {
+			slog.Error("Failed initial SEO journal sitemap reconcile", "err", err)
+		}
 
 		for {
 			select {
@@ -52,6 +61,9 @@ func startBackgroundTasks(ctx context.Context, seoService *seo.Service) {
 				}
 				if err := seoService.ReconcileAuthorSitemapPages(); err != nil {
 					slog.Error("Failed SEO author sitemap reconcile", "err", err)
+				}
+				if err := seoService.ReconcileJournalSitemapPages(); err != nil {
+					slog.Error("Failed SEO journal sitemap reconcile", "err", err)
 				}
 			case <-ctx.Done():
 				slog.Info("SEO sitemap reconcile task stopped")

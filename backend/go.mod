@@ -14,7 +14,6 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/joho/godotenv v1.5.1
-	github.com/mileusna/useragent v1.3.4
 	github.com/minio/minio-go/v7 v7.0.77
 	github.com/olahol/melody v1.4.0
 	github.com/redis/go-redis/v9 v9.0.5

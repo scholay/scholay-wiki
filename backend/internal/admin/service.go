@@ -34,36 +34,8 @@ func NewService(repo *Repository) *Service {
 	return &Service{repo: repo}
 }
 
-// Login authenticates an admin user and returns a unified JWT (type=user, role=admin).
-func (s *Service) Login(login, password string) (*AdminUser, string, error) {
-	admin, err := s.repo.FindByLogin(login)
-	if err != nil {
-		return nil, "", err
-	}
-
-	if admin == nil {
-		return nil, "", errors.New("invalid username or password")
-	}
-
-	if admin.Status != 1 {
-		return nil, "", errors.New("account is inactive")
-	}
-
-	if !utils.CheckPassword(password, admin.PasswordHash) {
-		return nil, "", errors.New("invalid username or password")
-	}
-
-	// JWT 中的 role 直接使用账号实际角色（admin 或 super_admin），
-	// 让 SuperAdminAuthMiddleware 能据此区分权限。
-	token, err := utils.GenerateTokenWithRole(admin.ID, admin.Username, "user", admin.Role)
-	if err != nil {
-		return nil, "", err
-	}
-
-	_ = s.repo.UpdateLastLogin(admin.ID)
-
-	return admin, token, nil
-}
+// 注:遗留的 admin Login 已下线(见 handler.go 注释)—— 管理员走统一的
+// /api/v1/user/login 入口。repo 的 FindByLogin/UpdateLastLogin 暂保留(兼容/调试)。
 
 // VerifyPassword verifies an admin user's password (for sensitive operations)
 func (s *Service) VerifyPassword(id uint, password string) (bool, error) {

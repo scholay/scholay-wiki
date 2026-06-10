@@ -11,18 +11,18 @@ import "time"
 
 // SEOJournal 对应 seo_journals 表
 type SEOJournal struct {
-	ID               uint64  `gorm:"primaryKey" json:"id"`
-	JournalID        int64   `gorm:"column:journal_id;not null;uniqueIndex:uk_journal_id" json:"journal_id"`
-	Slug             string  `gorm:"size:220;not null;default:''" json:"slug"`
-	CanonicalName    string  `gorm:"column:canonical_name;size:500;not null" json:"canonical_name"`
-	Publisher        string  `gorm:"size:500" json:"publisher,omitempty"`
-	ISSNsJSON        string  `gorm:"column:issns_json;type:json" json:"-"`
-	Country          string  `gorm:"size:64" json:"country,omitempty"`
-	Type             string  `gorm:"size:64" json:"type,omitempty"`
-	IsOA             bool    `gorm:"column:is_oa;not null;default:0" json:"is_oa"`
-	JCRImpactFactor  float64 `gorm:"column:jcr_impact_factor;type:decimal(8,3)" json:"jcr_impact_factor,omitempty"`
-	JCRQuartile      string  `gorm:"column:jcr_quartile;size:8" json:"jcr_quartile,omitempty"`
-	OpenAlexHIndex   *int    `gorm:"column:openalex_h_index" json:"openalex_h_index,omitempty"`
+	ID              uint64  `gorm:"primaryKey" json:"id"`
+	JournalID       int64   `gorm:"column:journal_id;not null;uniqueIndex:uk_journal_id" json:"journal_id"`
+	Slug            string  `gorm:"size:220;not null;default:''" json:"slug"`
+	CanonicalName   string  `gorm:"column:canonical_name;size:500;not null" json:"canonical_name"`
+	Publisher       string  `gorm:"size:500" json:"publisher,omitempty"`
+	ISSNsJSON       string  `gorm:"column:issns_json;type:json" json:"-"`
+	Country         string  `gorm:"size:64" json:"country,omitempty"`
+	Type            string  `gorm:"size:64" json:"type,omitempty"`
+	IsOA            bool    `gorm:"column:is_oa;not null;default:0" json:"is_oa"`
+	JCRImpactFactor float64 `gorm:"column:jcr_impact_factor;type:decimal(8,3)" json:"jcr_impact_factor,omitempty"`
+	JCRQuartile     string  `gorm:"column:jcr_quartile;size:8" json:"jcr_quartile,omitempty"`
+	OpenAlexHIndex  *int    `gorm:"column:openalex_h_index" json:"openalex_h_index,omitempty"`
 
 	SitemapPage int     `gorm:"column:sitemap_page;not null;default:0" json:"sitemap_page"`
 	Status      int     `gorm:"not null;default:1" json:"status"`

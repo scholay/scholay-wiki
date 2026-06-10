@@ -30,8 +30,6 @@ import (
 	"time"
 
 	"scholar-backend/internal/common/cache"
-
-	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -50,7 +48,7 @@ func RevokeToken(ctx context.Context, claims *Claims) error {
 	if claims == nil || claims.JTI == "" {
 		return nil
 	}
-	rdb := cache.GetRedis()
+	rdb := cache.GetRedisPersist()
 	if rdb == nil {
 		return errors.New("redis not initialized")
 	}
@@ -71,7 +69,7 @@ func RevokeUserAllTokens(ctx context.Context, userID uint) error {
 	if userID == 0 {
 		return errors.New("userID required")
 	}
-	rdb := cache.GetRedis()
+	rdb := cache.GetRedisPersist()
 	if rdb == nil {
 		return errors.New("redis not initialized")
 	}
@@ -85,7 +83,7 @@ func IsTokenRevoked(ctx context.Context, claims *Claims) bool {
 	if claims == nil {
 		return false
 	}
-	rdb := cache.GetRedis()
+	rdb := cache.GetRedisPersist()
 	if rdb == nil {
 		return false
 	}
@@ -93,32 +91,53 @@ func IsTokenRevoked(ctx context.Context, claims *Claims) bool {
 	rctx, cancel := context.WithTimeout(ctx, revokeReadTimeout)
 	defer cancel()
 
-	// 1. token-level: 只对有 jti 的 token 有效 (旧 token 跳过这层)
-	if claims.JTI != "" {
-		if _, err := rdb.Get(rctx, revokeTokenKeyPrefix+claims.JTI).Result(); err == nil {
+	// token-level (只对有 jti 的 token 有效，旧 token 跳过) 与 user-level 两个 key
+	// 用单次 MGET 合并，省掉每个鉴权请求的第二次串行 Redis 往返。
+	hasToken := claims.JTI != ""
+	hasUser := claims.UserID != 0 && claims.IssuedAt != nil
+	if !hasToken && !hasUser {
+		return false
+	}
+
+	keys := make([]string, 0, 2)
+	if hasToken {
+		keys = append(keys, revokeTokenKeyPrefix+claims.JTI)
+	}
+	if hasUser {
+		keys = append(keys, revokeUserKeyPrefix+strconv.FormatUint(uint64(claims.UserID), 10))
+	}
+
+	vals, err := rdb.MGet(rctx, keys...).Result()
+	if err != nil {
+		// fail-open: Redis 故障放行, 只记日志
+		slog.Warn("jwt revoke: MGET lookup failed (fail-open)", "err", err, "user_id", claims.UserID)
+		return false
+	}
+
+	idx := 0
+	// 1. token-level: 命中任意值即吊销
+	if hasToken {
+		if vals[idx] != nil {
 			return true
-		} else if !errors.Is(err, redis.Nil) {
-			slog.Warn("jwt revoke: token-level lookup failed (fail-open)", "err", err, "jti", claims.JTI)
 		}
+		idx++
 	}
 
 	// 2. user-level: 比对 IssuedAt 与 revoke 时间戳
-	if claims.UserID == 0 || claims.IssuedAt == nil {
-		return false
-	}
-	val, err := rdb.Get(rctx, revokeUserKeyPrefix+strconv.FormatUint(uint64(claims.UserID), 10)).Result()
-	if err != nil {
-		if !errors.Is(err, redis.Nil) {
-			slog.Warn("jwt revoke: user-level lookup failed (fail-open)", "err", err, "user_id", claims.UserID)
+	if hasUser {
+		raw, ok := vals[idx].(string)
+		if !ok {
+			return false // 未命中 (nil) 或非字符串
 		}
-		return false
+		revokedAt, parseErr := strconv.ParseInt(raw, 10, 64)
+		if parseErr != nil {
+			slog.Warn("jwt revoke: bad timestamp in user-level revoke key", "err", parseErr, "raw", raw)
+			return false
+		}
+		// token IssuedAt 严格早于 revoke 时间戳 → 拒。
+		// 相等情况放行 (1 秒内重新登录的同秒签发新 token, 不应被自己刚刚的吊销影响)。
+		return claims.IssuedAt.Time.Unix() < revokedAt
 	}
-	revokedAt, parseErr := strconv.ParseInt(val, 10, 64)
-	if parseErr != nil {
-		slog.Warn("jwt revoke: bad timestamp in user-level revoke key", "err", parseErr, "raw", val)
-		return false
-	}
-	// token IssuedAt 严格早于 revoke 时间戳 → 拒。
-	// 相等情况放行 (1 秒内重新登录的同秒签发新 token, 不应被自己刚刚的吊销影响)。
-	return claims.IssuedAt.Time.Unix() < revokedAt
+
+	return false
 }

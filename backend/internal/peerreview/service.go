@@ -22,6 +22,7 @@
 package peerreview
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"database/sql"
@@ -436,12 +437,9 @@ func (s *Service) pushAssetsToSession(ctx context.Context, submissionID uint64, 
 		if gerr != nil {
 			return nil, fmt.Errorf("get object %s: %w", a.ObjectKey, gerr)
 		}
-		body, rerr := io.ReadAll(rc)
+		// 直接把 MinIO 对象 reader 流给 agent —— 不再 io.ReadAll 整份读进内存(50MB 稿件省一份完整拷贝)。
+		pushed, perr := client.PushSessionFile(ctx, sessionID, a.Filename, rc)
 		_ = rc.Close()
-		if rerr != nil {
-			return nil, fmt.Errorf("read object %s: %w", a.ObjectKey, rerr)
-		}
-		pushed, perr := client.PushSessionFile(ctx, sessionID, a.Filename, body)
 		if perr != nil {
 			return nil, fmt.Errorf("push asset %s: %w", a.Filename, perr)
 		}
@@ -850,7 +848,7 @@ func (s *Service) UploadAsset(
 	ext := strings.ToLower(filepath.Ext(fh.Filename))
 	key := fmt.Sprintf("tmp/%d/%s%s", submissionID, uuid.New().String(), ext)
 
-	if _, err := storage.PutObject(ctx, bucket, key, strings.NewReader(string(body)),
+	if _, err := storage.PutObject(ctx, bucket, key, bytes.NewReader(body),
 		int64(len(body)), storage.PutOptions{
 			ContentType: fh.Header.Get("Content-Type"),
 			UserMeta: map[string]string{

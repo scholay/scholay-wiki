@@ -5,6 +5,7 @@
  * 个别 query 想要更激进的缓存(例:一天不刷的 enrichment / 静态字典),在自己
  * 的 useQuery 选项里覆写 staleTime 即可,无需改全局。
  */
+import { toApiError } from './http';
 
 /** 30 秒内重复 query 直接复用缓存,不打后端 —— 用户态资源默认档 */
 export const DEFAULT_STALE_TIME = 30_000;
@@ -14,6 +15,22 @@ export const DEFAULT_GC_TIME = 5 * 60_000;
 
 /** 失败重试 1 次(默认 3 太多;auth/perm 错误 retry 反而越错越烦) */
 export const DEFAULT_RETRY = 1;
+
+/**
+ * 详情类 query 的 retry 策略 —— 用在「按 id 取单个资源」的 useQuery 上。
+ *
+ * 后端对「资源不存在」与「非本人(越权)」统一返回 404(防枚举,见 backend
+ * repository 的 `WHERE id=? AND user_id=?`)。这类错误重试毫无意义,只会让
+ * 详情页的「任务不存在」友好态推迟 ~1 个退避周期才出现(用户先盯一会 spinner)。
+ * 因此 404 / 403 立即失败不重试;其余(网络抖动 / 5xx)仍重试 1 次。
+ *
+ * 用法:`useQuery({ ..., retry: retryDetailQuery })`。
+ */
+export function retryDetailQuery(failureCount: number, error: unknown): boolean {
+  const status = toApiError(error).status;
+  if (status === 404 || status === 403) return false;
+  return failureCount < DEFAULT_RETRY;
+}
 
 /** 切回 Tab 不自动 refetch —— 桌面用户来回切窗很频繁,refetch 视觉抖动 */
 export const DEFAULT_REFETCH_ON_WINDOW_FOCUS = false;

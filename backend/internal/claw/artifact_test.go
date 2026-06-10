@@ -94,14 +94,14 @@ func TestParseArtifactManifest(t *testing.T) {
 
 func TestArtifactRelPathExtra(t *testing.T) {
 	cases := []struct{ in, wantRel, wantName string }{
-		{"out//x.md", "out/x.md", "x.md"},                  // 双斜杠经 path.Clean 归一
-		{"OUT/x.md", "", ""},                               // 目录名大小写敏感, OUT != out
-		{"out/.hidden", "out/.hidden", ".hidden"},          // dotfile 在 relPath 层放行 (过滤在 list 层)
-		{"out/x.md.", "out/x.md.", "x.md."},                // 结尾点是合法 basename
-		{"out/CON", "out/CON", "CON"},                      // 本平台 CON 只是普通 basename
-		{"out/数据📊.csv", "out/数据📊.csv", "数据📊.csv"},        // emoji + unicode
-		{"out/a/b/c.md", "", ""},                           // 嵌套子目录不允许
-		{"out/../../secret.key", "", ""},                   // 穿越
+		{"out//x.md", "out/x.md", "x.md"},         // 双斜杠经 path.Clean 归一
+		{"OUT/x.md", "", ""},                      // 目录名大小写敏感, OUT != out
+		{"out/.hidden", "out/.hidden", ".hidden"}, // dotfile 在 relPath 层放行 (过滤在 list 层)
+		{"out/x.md.", "out/x.md.", "x.md."},       // 结尾点是合法 basename
+		{"out/CON", "out/CON", "CON"},             // 本平台 CON 只是普通 basename
+		{"out/数据📊.csv", "out/数据📊.csv", "数据📊.csv"}, // emoji + unicode
+		{"out/a/b/c.md", "", ""},                  // 嵌套子目录不允许
+		{"out/../../secret.key", "", ""},          // 穿越
 	}
 	for _, c := range cases {
 		rel, name := artifactRelPath(c.in)

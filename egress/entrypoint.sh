@@ -9,10 +9,14 @@ CONF=/tmp/tinyproxy.conf
 cp /etc/tinyproxy/tinyproxy.base.conf "$CONF"
 
 if [ "$MODE" = "allowlist" ]; then
+  # deny-by-default:只放行 egress/filter 内域名,内网 / 云元数据天然被拒。
   printf 'Filter "/etc/tinyproxy/filter"\nFilterDefaultDeny Yes\nFilterType ere\nFilterCaseSensitive Off\n' >> "$CONF"
   echo "[egress] EGRESS_FILTER_MODE=allowlist — deny-by-default,仅放行 egress/filter 内域名。"
 else
-  echo "[egress] EGRESS_FILTER_MODE=open — 放行一切外部 HTTPS(经代理记日志;内网被拓扑+ConnectPort 挡住)。要锁紧设 EGRESS_FILTER_MODE=allowlist。"
+  # open 模式也必须加载内网/元数据基线 deny-list(FilterDefaultDeny No = 命中即拒、其余放行),
+  # 否则明文 GET http://100.100.100.200/...(元数据)/ http://10.x/... 直通 → SSRF / 凭证窃取。
+  printf 'Filter "/etc/tinyproxy/filter-deny-internal"\nFilterDefaultDeny No\nFilterType ere\nFilterCaseSensitive Off\n' >> "$CONF"
+  echo "[egress] EGRESS_FILTER_MODE=open — 放行外部 HTTPS,但内网/云元数据网段已基线 deny。生产建议 EGRESS_FILTER_MODE=allowlist 彻底闭合。"
 fi
 
 exec tinyproxy -d -c "$CONF"

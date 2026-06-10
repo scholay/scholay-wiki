@@ -136,6 +136,42 @@ services:
     networks:
       - scholar-network
 
+  # Redis(correctness 键专用,noeviction)—— 可选,与 dev compose 一致。
+  # 启用:在 .env 设 REDIS_PERSIST_HOST=scholar_redis_persist;未设则相关键回落主 Redis。
+  # noeviction:写满返回 OOM 而非逐出 —— 吊销/配额/SEO队列宁可写失败也不静默丢。
+  redis-persist:
+    image: redis:7-alpine
+    container_name: scholar_redis_persist
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      <<: *tz-env
+    expose:
+      - "6379"
+    volumes:
+      - ./data/redis-persist:/data
+      - /etc/localtime:/etc/localtime:ro
+    command: >-
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 128mb
+      --maxmemory-policy noeviction
+      --tcp-keepalive 60
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+        reservations:
+          memory: 64M
+    networks:
+      - scholar-network
+
   # 数据库迁移服务 - 每次启动按顺序执行 migrations/ 下的 SQL 文件
   schema-sync:
     image: mysql:8.0
@@ -310,10 +346,18 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+    # 安全加固 (Scholay): agent 跑模型生成的任务, 生产最需要这些控制 —— 与 dev compose 对齐。
+    # 此前 prod 漏抄, 只有 memory 限制: 无 fork-bomb 防护(pids)、无 CPU 上限、无提权防御。
+    cap_drop:
+      - ALL                          # agent 不需要任何 Linux capability (非 root, 端口 >1024)
+    security_opt:
+      - no-new-privileges:true       # 禁止 setuid 提权
     deploy:
       resources:
         limits:
           memory: 1.5G               # agent 资源大头 (LLM 流式 + Bash 转换 + PDF 解析); 单会话峰值 ~765MiB, 1.5G 给并发留头
+          cpus: "2.0"                # CPU 上限, 防单个重任务 (大 PDF 解析 / 死循环) 拖垮整机
+          pids: 512                  # 进程数上限, 挡 fork 炸弹 (Bash 转换会起 pandoc/python 子进程, 512 仍宽裕)
         reservations:
           memory: 256M
     networks:

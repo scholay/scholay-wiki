@@ -87,23 +87,29 @@ func (c *ipLRUCache) Get(ip string) (*IPLocation, bool) {
 		return nil, false
 	}
 	entry := elem.Value.(*ipCacheEntry)
-	// Check TTL
-	if time.Now().After(entry.expiresAt) {
-		c.mu.RUnlock()
-		// Entry expired, remove it
+	// 锁内拷贝出 location 指针与过期判定 —— 锁外再读 entry.location 会与 Set 的锁内写
+	// (entry.location = location) 构成数据竞争(-race 必标)。
+	loc := entry.location
+	expired := time.Now().After(entry.expiresAt)
+	c.mu.RUnlock()
+
+	if expired {
 		c.mu.Lock()
-		c.removeElement(elem)
+		// 复核:可能已被并发 Set 刷新成另一个 element,只删仍是同一个 element 的,
+		// 否则会误删并发刚写入的新项。
+		if cur, ok := c.cache[ip]; ok && cur == elem {
+			c.removeElement(elem)
+		}
 		c.mu.Unlock()
 		return nil, false
 	}
-	c.mu.RUnlock()
-	
+
 	// Move to front (most recently used)
 	c.mu.Lock()
 	c.lruList.MoveToFront(elem)
 	c.mu.Unlock()
-	
-	return entry.location, true
+
+	return loc, true
 }
 
 // Set adds a value to the cache

@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"scholar-backend/internal/common/ctxutil"
 	"scholar-backend/internal/common/safego"
 )
 
@@ -25,17 +26,43 @@ type Service struct {
 	cache  map[AccountType][]ThirdPartyAccount // Cached active accounts
 	ctx    context.Context
 	cancel context.CancelFunc
+
+	// API 调用统计的进程内聚合 (替代 per-call 单行 UPDATE):
+	// 全部 AI/minicod 流量汇聚到 1-N 个账号热行, 原来每次上游调用一条 +1 UPDATE 集中打
+	// 同几行; 现改为内存累加, usageFlushInterval 周期批量 flush, 每账号每窗口只剩一条
+	// 聚合 UPDATE。崩溃最多丢一个窗口的监控计数, 可接受 (账本真源在 llm_token_usage)。
+	aggMu    sync.Mutex
+	usageAgg map[uint]*apiUsageAgg
 }
+
+// apiUsageAgg 单账号一个 flush 窗口内的统计增量 (语义与旧 per-call UPDATE 完全一致)。
+type apiUsageAgg struct {
+	total       int64
+	success     int64
+	fail        int64
+	latencySum  int64 // 仅 success 计入
+	latencySq   int64
+	latencyMax  int64
+	slowCount   int64
+	slowLatency int64
+	lastUsed    time.Time
+}
+
+// usageFlushInterval 统计聚合落库周期。
+const usageFlushInterval = 10 * time.Second
 
 // NewService creates a new service
 func NewService(repo *Repository) *Service {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Service{
-		repo:   repo,
-		cache:  make(map[AccountType][]ThirdPartyAccount),
-		ctx:    ctx,
-		cancel: cancel,
+	s := &Service{
+		repo:     repo,
+		cache:    make(map[AccountType][]ThirdPartyAccount),
+		ctx:      ctx,
+		cancel:   cancel,
+		usageAgg: make(map[uint]*apiUsageAgg),
 	}
+	s.startUsageFlushTask()
+	return s
 }
 
 // CreateAccount creates a new third-party account
@@ -195,21 +222,81 @@ func (s *Service) GetRandomAPIKey(accountType AccountType) (string, uint, error)
 }
 
 // RecordAPIUsage records the outcome of an API request for an account.
-// 异步落库 (safego 带 recover): 统计是 best-effort, 不能阻塞 / 拖慢上游 AI 响应,
-// 单条 UPDATE 失败仅 Warn。调用方在请求完成后直接调, 不必再自行 go。
+// 纯内存累加 (互斥锁内纳秒级), 不打 DB —— 由后台 flush 任务按 usageFlushInterval
+// 批量落库, 每账号每窗口一条聚合 UPDATE, 消除热行的 per-call 行锁集中。
 func (s *Service) RecordAPIUsage(accountID uint, success bool, latencyMs int64) {
 	if accountID == 0 {
 		return // free tier, no account to track
 	}
-	safego.Go("thirdparty-record-usage", func() {
-		if err := s.repo.RecordAPIUsage(accountID, success, latencyMs); err != nil {
-			slog.Warn("failed to record API usage", "account_id", accountID, "err", err)
+	s.aggMu.Lock()
+	defer s.aggMu.Unlock()
+	a := s.usageAgg[accountID]
+	if a == nil {
+		a = &apiUsageAgg{}
+		s.usageAgg[accountID] = a
+	}
+	a.total++
+	if success {
+		a.success++
+		a.latencySum += latencyMs
+		a.latencySq += latencyMs * latencyMs
+		if latencyMs > a.latencyMax {
+			a.latencyMax = latencyMs
+		}
+		if latencyMs > int64(SlowThresholdMs) {
+			a.slowCount++
+			a.slowLatency += latencyMs
+		}
+	} else {
+		a.fail++
+	}
+	a.lastUsed = time.Now()
+}
+
+// startUsageFlushTask 周期把内存聚合的统计增量批量落库; 服务退出 (ctx.Done) 前补刷一次。
+func (s *Service) startUsageFlushTask() {
+	safego.Go("thirdparty-usage-flush", func() {
+		ticker := time.NewTicker(usageFlushInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				s.flushAPIUsage()
+			case <-s.ctx.Done():
+				s.flushAPIUsage() // 退出前把窗口内未落库的增量刷掉
+				return
+			}
 		}
 	})
 }
 
+// flushAPIUsage 把当前窗口的全部账号增量换出并逐账号落库 (失败丢弃该窗口增量:
+// 统计是 best-effort, 失败重排可能在歧义错误下双计, 宁可少不可错)。
+func (s *Service) flushAPIUsage() {
+	s.aggMu.Lock()
+	if len(s.usageAgg) == 0 {
+		s.aggMu.Unlock()
+		return
+	}
+	pending := s.usageAgg
+	s.usageAgg = make(map[uint]*apiUsageAgg)
+	s.aggMu.Unlock()
+
+	fctx, cancel := ctxutil.With(ctxutil.QuickIO)
+	defer cancel()
+	for id, agg := range pending {
+		if err := s.repo.ApplyAPIUsageDeltas(fctx, id, agg); err != nil {
+			slog.Warn("thirdparty: flush api usage failed", "account_id", id, "err", err)
+		}
+	}
+}
+
 // ResetAPIStats resets all API usage statistics for an account
 func (s *Service) ResetAPIStats(accountID uint) error {
+	// 同时清掉在途的内存增量, 否则下个 flush 窗口会把刚清零的计数又加回去
+	s.aggMu.Lock()
+	delete(s.usageAgg, accountID)
+	s.aggMu.Unlock()
 	return s.repo.ResetAPIStats(accountID)
 }
 
@@ -319,7 +406,10 @@ func (s *Service) getActiveAccounts(accountType AccountType) ([]ThirdPartyAccoun
 	cached, exists := s.cache[accountType]
 	s.mu.RUnlock()
 
-	if exists && len(cached) > 0 {
+	// 只看 exists：空池(全禁用/未配置)也缓存(负缓存),避免每次调用都落 DB 重查。
+	// create/update/delete 三个写路径都会 invalidateCache，新增账号会立即 exists=false → 重新拉库,
+	// 故负缓存不会让新账号不可见。
+	if exists {
 		return cached, nil
 	}
 
@@ -394,6 +484,10 @@ func (s *Service) StartCacheRefreshTask(interval time.Duration) {
 func (s *Service) Stop() {
 	slog.Info("stopping third-party service")
 	s.cancel()
+	// 同步补刷一次:cancel() 只通知后台 flush goroutine 退出、不等它跑完,
+	// 否则优雅重启会丢掉当前窗口(最多 10s)未落库的统计增量。
+	// flushAPIUsage 是 swap-under-mutex,与后台 goroutine 的最后一次 flush 并发也无害(各取各的 pending)。
+	s.flushAPIUsage()
 	slog.Info("third-party service stopped")
 }
 

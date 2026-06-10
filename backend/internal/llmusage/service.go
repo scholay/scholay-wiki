@@ -15,6 +15,7 @@ import (
 	"context"
 	"log/slog"
 
+	"scholar-backend/internal/common/ctxutil"
 	"scholar-backend/internal/common/safego"
 )
 
@@ -69,14 +70,19 @@ func (s *Service) Record(u Usage) {
 		u.Feature = "unknown"
 		slog.Warn("llmusage: record with empty feature", "source", u.Source, "model", u.Model)
 	}
-	if u.TotalTokens == 0 && (u.InputTokens > 0 || u.OutputTokens > 0) {
-		u.TotalTokens = u.InputTokens + u.OutputTokens
+	// total 缺省时(agent 侧不吐 total)用四项之和兜底 —— 必须含 cache_read / cache_creation,
+	// 否则 prism/审稿这类「一轮读大缓存上下文」的功能对上游计费数万 token、却只向日配额记
+	// input+output 几百,成本帽对最烧钱的功能系统性漏气(Anthropic 用量里 input 不含缓存项,
+	// 缓存 token 单列上报,故四项相加不重复)。如需把更便宜的 cache_read 降权,在此乘系数即可。
+	if u.TotalTokens == 0 {
+		u.TotalTokens = u.InputTokens + u.OutputTokens + u.CacheReadTokens + u.CacheCreationTokens
 	}
 	// 同步喂「每日 token 额度」计数(轻量 Redis INCRBY);只对已登录用户的非零用量。
 	if s.observer != nil && u.UserID != nil && u.TotalTokens > 0 {
 		s.observer(*u.UserID, u.TotalTokens)
 	}
-	safego.Go("llmusage:"+u.Feature, func() {
+	// 走独立 ledger 池:账本喂计费,不与匿名 beacon 抢同一 drop-on-full 队列。
+	safego.RecordLedger("llmusage:"+u.Feature, func() {
 		row := &LLMTokenUsage{
 			UserID:              u.UserID,
 			Feature:             u.Feature,
@@ -91,7 +97,9 @@ func (s *Service) Record(u Usage) {
 			CacheCreationTokens: u.CacheCreationTokens,
 			RequestID:           u.RequestID,
 		}
-		if err := s.repo.Create(row); err != nil {
+		ctx, cancel := ctxutil.With(ctxutil.QuickIO)
+		defer cancel()
+		if err := s.repo.Create(ctx, row); err != nil {
 			slog.Warn("llmusage: record failed",
 				"feature", u.Feature, "source", u.Source, "model", u.Model, "err", err)
 		}

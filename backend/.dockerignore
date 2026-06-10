@@ -8,6 +8,9 @@ bin/
 *.dylib
 *.test
 *.out
+# 编译产物裸名二进制(避免随 COPY . . 进构建上下文 / 误用旧产物)
+server
+seo-backfill
 
 # Documentation (not needed in Docker build)
 *.md

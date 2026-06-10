@@ -132,11 +132,11 @@ func (p *StaticPicker) Pick(_ context.Context, _ PickInput) (*PromptChoice, erro
 //
 // peerreview 用法: 各创建 4 个 picker (alpha/beta/gamma/chief), 每轮一个 picker 调一次。
 // 选择算法 (与原 peerreview/skill.go pickWithFallback 等价, 但加上 weight 加权):
-//   1. 候选池 = 同 (feature_key, persona) 且 enabled=true 的全部行
-//   2. 优先匹配 applicable_subjects 与 input.Subjects 有交集的行
-//   3. 无匹配 → fallback 到 applicable_subjects 为空/[] (= 通用) 的行
-//   4. 仍无 → fallback 到候选池任意一行 (兜底, 不应触发, 否则配置漏了)
-//   5. 池中按 weight 加权随机选 1 个 (crypto/rand)
+//  1. 候选池 = 同 (feature_key, persona) 且 enabled=true 的全部行
+//  2. 优先匹配 applicable_subjects 与 input.Subjects 有交集的行
+//  3. 无匹配 → fallback 到 applicable_subjects 为空/[] (= 通用) 的行
+//  4. 仍无 → fallback 到候选池任意一行 (兜底, 不应触发, 否则配置漏了)
+//  5. 池中按 weight 加权随机选 1 个 (crypto/rand)
 type PersonaRandomPicker struct {
 	svc        *promptregistry.Service
 	featureKey string

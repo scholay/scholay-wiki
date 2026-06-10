@@ -124,22 +124,36 @@ func (f *FeatureBridge) HandleWS(c *gin.Context) {
 	}
 	defer agentConn.Close()
 
-	// 探测 session 是否已经有过 user entry:
-	//   - 没有 (空会话 / 刚 reset) → 这次 WS 的第一条 user_message 注入 system prompt prefix
-	//   - 有 (页面刷新或重连)     → prefix 已在 transcript 里, 跳过注入
-	// 探测失败 → 按 "未注入" 兜底 (代价: 多注入一次, 远小于完全不注入)。
-	// 仅当 spec.InjectPromptOnFirstMsg = true 才做探测。
+	// 判定 session 是否已注入过 system prompt prefix (仅 spec.InjectPromptOnFirstMsg=true):
+	//
+	//   1. 快路径: 读 agent_sessions.prompt_injected 标记 (uk 点查, migration 0024)。
+	//      =true → 直接跳过, 不再为读一个 bool 把整段 transcript 从 agent 拉回来
+	//      (原探测无 limit, 长会话每次开页/刷新/重连都付随会话长度线性增长的传输+解析成本)。
+	//   2. 标记缺失/读失败 → 回落原 transcript 探测:
+	//        - 没有 user entry (空会话 / 刚 reset) → 这次 WS 的第一条 user_message 注入 prefix
+	//        - 有 (存量会话标记未回填)             → 跳过注入, 并回填标记让下次走快路径
+	//      探测失败 → 按 "未注入" 兜底 (代价: 多注入一次, 远小于完全不注入)。
 	alreadyInjected := true
 	if f.spec.InjectPromptOnFirstMsg {
-		probeCtx, probeCancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
-		hasUser, probeErr := f.SessionAlreadyHasUserMessage(probeCtx, sessionID)
-		probeCancel()
-		if probeErr != nil {
-			slog.Warn("agentbridge ws: probe injected state failed, falling back to inject",
-				"feature", f.spec.Key, "user_id", userID, "session_id", sessionID, "err", probeErr)
-			alreadyInjected = false
-		} else {
-			alreadyInjected = hasUser
+		flagKnown := false
+		if row, derr := f.bridge.repo.FindByAgentSessionID(sessionID); derr == nil && row.PromptInjected {
+			flagKnown = true
+		}
+		if !flagKnown {
+			probeCtx, probeCancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
+			hasUser, probeErr := f.SessionAlreadyHasUserMessage(probeCtx, sessionID)
+			probeCancel()
+			if probeErr != nil {
+				slog.Warn("agentbridge ws: probe injected state failed, falling back to inject",
+					"feature", f.spec.Key, "user_id", userID, "session_id", sessionID, "err", probeErr)
+				alreadyInjected = false
+			} else {
+				alreadyInjected = hasUser
+				if hasUser {
+					// 探测到 transcript 已有 user entry (= prefix 已注入) → 回填标记
+					f.markPromptInjected(sessionID)
+				}
+			}
 		}
 	}
 
@@ -164,7 +178,9 @@ func (f *FeatureBridge) HandleWS(c *gin.Context) {
 		userID:     userID,
 		agentSID:   sessionID,
 	}
-	cleanupRegistry := f.bridge.registerAndDisplaceOldWS(f.spec.Key, userID, registered)
+	// 接管判定按 (feature, **agent session**) 寻址 —— 只有同一个 session 被两条 WS 同时驱动才算
+	// 冲突;同一用户开不同会话/项目(claw 多会话、prism 多项目)不再互相误踢(见 displacementKey)。
+	cleanupRegistry := f.bridge.registerAndDisplaceOldWS(f.spec.Key, sessionID, registered)
 	defer cleanupRegistry()
 
 	f.pipe(hookCtx, userID, sessionID, frontConn, agentConn, frontWriteMu, alreadyInjected)
@@ -179,9 +195,12 @@ func (f *FeatureBridge) HandleWS(c *gin.Context) {
 // hookCtx: 给 PreUserMessage / OnMessageComplete 钩子用的 ctx (WS 关闭时一并 cancel)。
 // userID: 已通过 JWT 校验的用户 ID, 注入给钩子做配额/账单识别。
 // frontWriteMu: 从 HandleWS 传入的 front 写锁 (跟 displacement 共用); pipe 内所有
-//   front.Write* 都走这把锁, 防止与 displacer "踢老 WS" 时并发写违反 gorilla 契约。
+//
+//	front.Write* 都走这把锁, 防止与 displacer "踢老 WS" 时并发写违反 gorilla 契约。
+//
 // alreadyInjected: 当此 session 之前已注入过 system prompt prefix 时传 true,
-//   pipe 会跳过本次的首条 user_message 改写。
+//
+//	pipe 会跳过本次的首条 user_message 改写。
 func (f *FeatureBridge) pipe(
 	hookCtx context.Context, userID uint, sessionID string,
 	front, agentSide *gorillaws.Conn,
@@ -192,6 +211,9 @@ func (f *FeatureBridge) pipe(
 		closeOnce      sync.Once
 		writeMu        sync.Mutex // agentSide 的写要互斥 (pipe 转发 + 心跳两路写)
 		promptInjected atomic.Bool
+		// pendingMark: 本连接做了 prefix 注入、但还没确认 agent 落盘。等首个 message_complete
+		// 到达(agent 已处理并持久化首轮)才把 prompt_injected 落库 —— 见 agent→front 分支。
+		pendingMark atomic.Bool
 	)
 	if alreadyInjected || !f.spec.InjectPromptOnFirstMsg {
 		promptInjected.Store(true)
@@ -280,6 +302,9 @@ func (f *FeatureBridge) pipe(
 				}
 				return
 			}
+			// didInjectThisFrame: 本帧真的做了 prefix 注入 → 转发成功后把 prompt_injected
+			// 标记落库。放在 writeAgent 成功之后才标, 避免"注入了但没送达 agent"时标脏。
+			didInjectThisFrame := false
 			if mt == gorillaws.TextMessage {
 				// "继续对话" = 发出 user_message 才算会话活跃 → Touch last_accessed_at, 让它在
 				// 侧边栏列表置顶。单纯点选历史会话 (ActivateSession) 不再 Touch, 所以查看历史
@@ -330,6 +355,7 @@ func (f *FeatureBridge) pipe(
 						if rewritten, ok := injectSystemPromptIntoFirstUserMessage(
 							&promptInjected, data, choice.SystemPrompt); ok {
 							data = rewritten
+							didInjectThisFrame = true
 							slog.Info("agentbridge ws: injected system prompt prefix into first user_message",
 								"feature", f.spec.Key,
 								"prompt_id", choice.PromptID,
@@ -354,6 +380,11 @@ func (f *FeatureBridge) pipe(
 			if err := writeAgent(mt, data); err != nil {
 				slog.Debug("agentbridge ws: agent write end", "feature", f.spec.Key, "err", err)
 				return
+			}
+			if didInjectThisFrame {
+				// 仅记「待标记」—— 真正落库推迟到 agent 回首个 message_complete(确认已处理+落盘)。
+				// 旧实现在 writeAgent 成功(= 帧已送达,≠ jsonl 已持久化)即标,agent 落盘前崩溃会 stale-true。
+				pendingMark.Store(true)
 			}
 		}
 	})
@@ -383,8 +414,13 @@ func (f *FeatureBridge) pipe(
 						}
 					}
 				}
-				if f.spec.OnMessageComplete != nil {
-					if usage, ok := extractMessageCompleteUsage(data); ok {
+				if usage, isComplete := extractMessageCompleteUsage(data); isComplete {
+					// 首个 message_complete = agent 已处理并落盘首轮(含注入了 prefix 的首条 user_message)。
+					// 此刻才把 prompt_injected 落库,杜绝「帧送达但落盘前崩溃」的 stale-true。
+					if pendingMark.CompareAndSwap(true, false) {
+						f.markPromptInjected(sessionID)
+					}
+					if f.spec.OnMessageComplete != nil {
 						// 非阻塞 — 钩子做 DB 写入 / 日志 / 账单, 不能拖累 pipe 转发
 						hook := f.spec.OnMessageComplete
 						featureKey := f.spec.Key

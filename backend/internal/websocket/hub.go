@@ -8,7 +8,10 @@
 package websocket
 
 import (
+	"errors"
+	"io"
 	"log/slog"
+	"net"
 	"sync"
 	"time"
 
@@ -116,9 +119,12 @@ func (h *Hub) setupHandlers() {
 			h.userSessions[uid] = make(map[*melody.Session]bool)
 		}
 		h.userSessions[uid][s] = true
+		// 在临界区内取计数 —— 锁外 len(h.userSessions[uid]) 会与 HandleDisconnect 持写锁的
+		// delete(sessions, s) 构成「concurrent map read and map write」整进程 fatal(同 SendToUser 已修)。
+		sessionCount := len(h.userSessions[uid])
 		h.mu.Unlock()
 
-		slog.Info("user connected", "user_id", uid, "total_sessions", len(h.userSessions[uid]))
+		slog.Info("user connected", "user_id", uid, "total_sessions", sessionCount)
 	})
 
 	// 连接断开
@@ -179,19 +185,42 @@ func (h *Hub) setupHandlers() {
 
 	// 错误处理
 	h.melody.HandleError(func(s *melody.Session, err error) {
-		// 正常关闭(用户关页签 / 跳走 / 网络断 / 手机切后台)不是服务端错误 —— 降到 Debug,
-		// 避免污染 ERROR 日志、接监控时误报。只有真·非预期错误才记 ERROR。
-		if gorillaws.IsCloseError(err,
-			gorillaws.CloseNormalClosure,    // 1000 正常
-			gorillaws.CloseGoingAway,        // 1001 关页签 / 跳走
-			gorillaws.CloseNoStatusReceived, // 1005 无状态码关闭(浏览器默认)
-			gorillaws.CloseAbnormalClosure,  // 1006 TCP 直接断(网络抖动 / 切后台)
-		) {
+		// 正常断连(用户关页签 / 跳走 / 网络断 / 手机切后台 / 本 hub idle 检查器主动关)不是服务端
+		// 错误 —— 降到 Debug,避免污染 ERROR 日志、接监控时误报。只有真·非预期错误才记 ERROR。
+		if isBenignWSErr(err) {
 			slog.Debug("WebSocket closed", "err", err)
 			return
 		}
 		slog.Error("WebSocket error", "err", err)
 	})
+}
+
+// isBenignWSErr 判定一个 WS 读/写错误是否为"正常断连"(不该当 ERROR)。覆盖两类:
+//  1. WS 协议级关闭码(1000/1001/1005/1006)—— gorilla *CloseError。
+//  2. 底层网络层:连接已关闭(含本 hub idle 检查器主动 session.Close() 后读循环读到的
+//     "use of closed network connection")、读超时(i/o timeout)、EOF —— 这些是
+//     *net.OpError / net.ErrClosed,不是 *CloseError,IsCloseError 抓不到,正是线上刷屏那
+//     ~190 条 "WebSocket error" 的真实来源(绝大多数是 idle 主动收割连接,属预期行为)。
+func isBenignWSErr(err error) bool {
+	if err == nil {
+		return true
+	}
+	if gorillaws.IsCloseError(err,
+		gorillaws.CloseNormalClosure,    // 1000 正常
+		gorillaws.CloseGoingAway,        // 1001 关页签 / 跳走
+		gorillaws.CloseNoStatusReceived, // 1005 无状态码关闭(浏览器默认)
+		gorillaws.CloseAbnormalClosure,  // 1006 TCP 直接断(网络抖动 / 切后台)
+	) {
+		return true
+	}
+	if errors.Is(err, net.ErrClosed) || errors.Is(err, io.EOF) {
+		return true
+	}
+	var nerr net.Error
+	if errors.As(err, &nerr) && nerr.Timeout() {
+		return true
+	}
+	return false
 }
 
 // GetMelody 获取 melody 实例（用于 handler）
@@ -206,20 +235,27 @@ func (h *Hub) SendToUser(userID uint, msg *Message) error {
 		return err
 	}
 
+	// 在 RLock 内把内层 map 快照成本地 slice，再在锁外迭代写。
+	// 直接锁外迭代 h.userSessions[userID] 这个 map 会与 HandleDisconnect 持写锁的
+	// delete(sessions, s) 形成并发 map 迭代+写 —— Go 运行时会抛不可 recover 的 fatal error
+	// 整进程崩溃（RecoveryMiddleware 救不了）。范式同 checkIdleConnections。
 	h.mu.RLock()
-	sessions, exists := h.userSessions[userID]
-	sessionCount := len(sessions)
+	sessions := h.userSessions[userID]
+	snapshot := make([]*melody.Session, 0, len(sessions))
+	for session := range sessions {
+		snapshot = append(snapshot, session)
+	}
 	h.mu.RUnlock()
 
-	if !exists || sessionCount == 0 {
+	if len(snapshot) == 0 {
 		// 用户不在线，记录日志
-		slog.Debug("user not online, message not sent", "user_id", userID, "sessions", sessionCount, "msg_type", msg.Type)
+		slog.Debug("user not online, message not sent", "user_id", userID, "sessions", 0, "msg_type", msg.Type)
 		return nil
 	}
 
-	slog.Debug("sending message to user", "user_id", userID, "sessions", sessionCount, "msg_type", msg.Type)
+	slog.Debug("sending message to user", "user_id", userID, "sessions", len(snapshot), "msg_type", msg.Type)
 
-	for session := range sessions {
+	for _, session := range snapshot {
 		if err := session.Write(data); err != nil {
 			slog.Error("failed to send WebSocket message", "user_id", userID, "err", err)
 		}

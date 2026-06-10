@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -151,10 +152,25 @@ func FromNetworkError(upstream, endpoint string, err error) *Error {
 	if err == nil {
 		return nil
 	}
+	err = redactURLError(err) // 抹掉 URL 里的 query(常带 token 等凭证),防经日志泄露
 	kind := classifyNetError(err)
 	return &Error{
 		Kind: kind, Upstream: upstream, Endpoint: endpoint, inner: err,
 	}
+}
+
+// redactURLError 把链中 *url.Error 的 URL query 抹成 REDACTED —— 凭证常走 query
+// (如百度 SEO 推送的 ?token=),网络错误的 .Error() 会把完整 URL 含 token 打进日志。
+// classifyNetError 只看 Timeout()/Temporary()/DNS 类型,不依赖 URL 字符串,故不受影响。
+func redactURLError(err error) error {
+	var ue *url.Error
+	if errors.As(err, &ue) {
+		if u, perr := url.Parse(ue.URL); perr == nil && u.RawQuery != "" {
+			u.RawQuery = "REDACTED"
+			ue.URL = u.String()
+		}
+	}
+	return err
 }
 
 // FromCircuitOpen — circuit breaker 拒绝放行时调。

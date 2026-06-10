@@ -23,6 +23,7 @@ type Config struct {
 	Server           ServerConfig
 	Database         DatabaseConfig
 	Redis            RedisConfig
+	RedisPersist     RedisPersistConfig
 	JWT              JWTConfig
 	Admin            AdminConfig
 	ExternalServices ExternalServicesConfig
@@ -60,6 +61,7 @@ type MinIOConfig struct {
 	BucketPeerReviewAssets    string // 存智能审稿稿件 + 附件 的 bucket
 	BucketPrism               string // 存 Prism 智能写作编译产物 (PDF/log) + 二进制 asset 的 bucket
 	BucketFeatureTools        string // 存功能广场工具 logo (真 logo + 生成的 SVG) 的 bucket
+	BucketAgentArtifacts      string // 存 agent (claw 等) 成果交付物字节的 bucket
 	UseSSL                    bool
 }
 
@@ -113,6 +115,16 @@ type DatabaseConfig struct {
 }
 
 type RedisConfig struct {
+	Host     string
+	Port     string
+	Password string
+	DB       int
+}
+
+// RedisPersistConfig 可选的「correctness 键」专用 Redis(noeviction):
+// 吊销标记 / 每日配额 / SEO 推送队列等不能被 LRU 静默逐出的键放这里。
+// Host 为空 = 未启用 → 代码回落到主 Redis(单实例部署行为不变)。
+type RedisPersistConfig struct {
 	Host     string
 	Port     string
 	Password string
@@ -184,6 +196,13 @@ func Load() *Config {
 			Password: getEnv("REDIS_PASSWORD", ""),
 			DB:       getEnvAsInt("REDIS_DB", 0),
 		},
+		RedisPersist: RedisPersistConfig{
+			// 未设 REDIS_PERSIST_HOST = 不启用,correctness 键回落主 Redis(行为同今天)。
+			Host:     getEnv("REDIS_PERSIST_HOST", ""),
+			Port:     getEnv("REDIS_PERSIST_PORT", "6379"),
+			Password: getEnv("REDIS_PERSIST_PASSWORD", ""),
+			DB:       getEnvAsInt("REDIS_PERSIST_DB", 0),
+		},
 		JWT: JWTConfig{
 			Secret: getEnv("JWT_SECRET", "default-secret-change-in-production"),
 		},
@@ -192,9 +211,9 @@ func Load() *Config {
 			InitialPassword: getEnv("ADMIN_INITIAL_PASSWORD", "adminadmin"),
 		},
 		ExternalServices: ExternalServicesConfig{
-			SerperAPIKey: getEnv("SERPER_API_KEY", ""),
+			SerperAPIKey:  getEnv("SERPER_API_KEY", ""),
 			CrossrefEmail: getEnv("CROSSREF_EMAIL", ""),
-			SupportEmail: getEnv("SUPPORT_EMAIL", "support@scholay.com"),
+			SupportEmail:  getEnv("SUPPORT_EMAIL", "support@scholay.com"),
 		},
 		RateLimit: RateLimitConfig{
 			IPRPS:         getEnvAsInt("RATE_LIMIT_IP_RPS", 100),
@@ -215,6 +234,7 @@ func Load() *Config {
 		BucketPeerReviewAssets:    getEnv("MINIO_BUCKET_PEER_REVIEW_ASSETS", "scholar-peer-review-assets"),
 		BucketPrism:               getEnv("MINIO_BUCKET_PRISM", "scholar-prism"),
 		BucketFeatureTools:        getEnv("MINIO_BUCKET_FEATURE_TOOLS", "scholar-feature-tools"),
+		BucketAgentArtifacts:      getEnv("MINIO_BUCKET_AGENT_ARTIFACTS", "scholar-agent-artifacts"),
 		UseSSL:                    getEnvAsBool("MINIO_USE_SSL", false),
 	}
 

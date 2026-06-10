@@ -5,7 +5,7 @@ import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 import { Button } from '@/shared/ui/button';
 import { cn } from '@/shared/lib/utils';
-import { EmptyState } from '@/shared/components/EmptyState';
+import { ResourceError } from '@/shared/components';
 import { LoadingState } from '@/shared/components/LoadingState';
 import { useSubmission, useDownloadSubmissionAssets } from '../api/submissions';
 import { useSubmissionReports } from '../api/reports';
@@ -42,7 +42,7 @@ export function RecordDetailPage() {
   const { id: idStr } = useParams();
   const id = idStr ? Number(idStr) : undefined;
 
-  const { data: sub, isLoading: subLoading } = useSubmission(id);
+  const { data: sub, isLoading: subLoading, isError: subError, error: subErr } = useSubmission(id);
   const { data: reports, isLoading: reportsLoading } = useSubmissionReports(id);
 
   const reportMap = useMemo(() => {
@@ -59,8 +59,17 @@ export function RecordDetailPage() {
   const [pinnedTab, setPinnedTab] = useState<string | null>(null);
 
   if (subLoading) return <LoadingState />;
-  if (!sub) {
-    return <EmptyState title="找不到这份审稿" description="可能已被删除, 或没有访问权限。" />;
+  // id 不存在 / 非本人(后端统一 404)/ 上游失败 —— 友好提示 + 自动回审稿记录列表,
+  // 不再停在没有任何出口的「找不到」死页。
+  if (subError || !sub) {
+    return (
+      <ResourceError
+        resourceName="审稿"
+        error={subErr}
+        backTo="/peer-review/records"
+        backLabel="返回所有审稿"
+      />
+    );
   }
 
   // 当前"在等的那张卡" + 实际展示的 tab(钉住优先,否则跟随)。

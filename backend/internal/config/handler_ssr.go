@@ -87,6 +87,20 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 		return
 	}
 
+	// 尾斜杠归一:/paper/x/ → 301 /paper/x。NoRoute 走的路径 gin 的 RedirectTrailingSlash 不生效,
+	// 不归一会让尾斜杠变体拿到通用壳 + 首页 canonical(未自指),形成重复页。带 query 时保留 query。
+	if len(requestPath) > 1 && strings.HasSuffix(requestPath, "/") {
+		target := strings.TrimRight(requestPath, "/")
+		if target == "" {
+			target = "/"
+		}
+		if raw := c.Request.URL.RawQuery; raw != "" {
+			target += "?" + raw
+		}
+		c.Redirect(http.StatusMovedPermanently, target)
+		return
+	}
+
 	// Legacy /paper/{slug} / /author/{slug} → canonical /paper/{source}/{paperId} 永久重定向
 	// (新前端路由全部用 source+paperId,旧 slug 仍在 sitemap fallback / 收录里出现,
 	// 这里 301 把 link equity 收拢到 canonical,避免 Google 当 duplicate 内容)。
@@ -379,6 +393,71 @@ func buildJournalJSONLD(meta *seo.JournalSSRMeta, canonical string) string {
 	return jsonLDScript(obj)
 }
 
+// SSR 注入用的正则在包级编译一次。原先每个 inject{Paper,Author,Journal,Tool}SEOMeta
+// 在函数体内 regexp.MustCompile 同样的模式，而 ServeIndexHTML 对每个爬虫请求都会跑一次注入，
+// 等于每请求重编译；提到包级 var 后只在 init 编译一次。
+var (
+	ssrTitleRe    = regexp.MustCompile(`(?is)<title>.*?</title>`)
+	ssrDescRe     = regexp.MustCompile(`(?is)<meta\s+name=["']description["'][^>]*>`)
+	ssrKeywordsRe = regexp.MustCompile(`(?is)<meta\s+name=["']keywords["'][^>]*>`)
+	ssrCanonRe    = regexp.MustCompile(`(?is)<link\s+rel=["']canonical["'][^>]*>`)
+	ssrBodyTagRe  = regexp.MustCompile(`(?i)(<body[^>]*>)`)
+	// Open Graph 标签(社媒分享卡片)。壳里硬编码成首页值,实体页必须改写成本页的 url/title/desc,
+	// 否则 facebook/twitter/linkedin/whatsapp(已被 $is_crawler 路由到 SSR)抓分享链接全塌缩成首页卡片。
+	ssrOgTitleRe = regexp.MustCompile(`(?is)<meta\s+property=["']og:title["'][^>]*>`)
+	ssrOgURLRe   = regexp.MustCompile(`(?is)<meta\s+property=["']og:url["'][^>]*>`)
+	ssrOgDescRe  = regexp.MustCompile(`(?is)<meta\s+property=["']og:description["'][^>]*>`)
+)
+
+// injectOG 改写 og:title / og:url / og:description 为本页值(标签存在则替换,缺失则插在 </head> 前)。
+// title/desc 走 htmlAttrEscape 防属性注入;canonical 已是安全 URL。空值不动对应标签。
+func injectOG(html, ogTitle, ogURL, ogDesc string) string {
+	if ogTitle != "" {
+		tag := fmt.Sprintf(`<meta property="og:title" content="%s" />`, htmlEscape(ogTitle))
+		if ssrOgTitleRe.MatchString(html) {
+			html = ssrOgTitleRe.ReplaceAllString(html, tag)
+		} else {
+			html = strings.Replace(html, "</head>", tag+"\n</head>", 1)
+		}
+	}
+	if ogURL != "" {
+		tag := fmt.Sprintf(`<meta property="og:url" content="%s" />`, htmlEscape(ogURL))
+		if ssrOgURLRe.MatchString(html) {
+			html = ssrOgURLRe.ReplaceAllString(html, tag)
+		} else {
+			html = strings.Replace(html, "</head>", tag+"\n</head>", 1)
+		}
+	}
+	if ogDesc != "" {
+		tag := fmt.Sprintf(`<meta property="og:description" content="%s" />`, htmlEscape(ogDesc))
+		if ssrOgDescRe.MatchString(html) {
+			html = ssrOgDescRe.ReplaceAllString(html, tag)
+		} else {
+			html = strings.Replace(html, "</head>", tag+"\n</head>", 1)
+		}
+	}
+	return html
+}
+
+// insertNoscriptBlock 把一段「爬虫友好正文」包进 <noscript> 后插进 shell。
+//
+// 关键修复:当前 Vite 构建的 index.html **既没有 <noscript> 也没有旧锚点**
+// (`<p style="text-align:center;margin-top:30px`),旧实现找不到锚点就**静默丢弃整张卡**
+// → 弱 JS 爬虫(百度/搜狗)拿到空 <body>,SSR 为爬虫提供真实正文/H1/摘要的核心目的被打穿。
+// 这里统一改为:把内容包进 <noscript> 后插在 </body> 前(Vite 壳唯一保证存在的锚点),
+// 保证 noscript 正文一定进 HTML。浏览器执行 JS 时 <noscript> 不渲染(SPA 接管),爬虫则能读到。
+func insertNoscriptBlock(html, innerHTML string) string {
+	if innerHTML == "" {
+		return html
+	}
+	block := "<noscript>\n" + innerHTML + "\n</noscript>"
+	if idx := strings.LastIndex(html, "</body>"); idx >= 0 {
+		return html[:idx] + block + "\n" + html[idx:]
+	}
+	// 极端兜底:连 </body> 都没有(理论不会)也把正文追加到末尾,crawler 仍可读。
+	return html + "\n" + block
+}
+
 // injectPaperSEOMeta 替换 <title>/<meta description>，并在 noscript 中插入论文摘要卡片
 // 目的：让 Googlebot 等爬虫看到真实论文元数据，而不是 SPA 通用壳
 func injectPaperSEOMeta(html string, meta *seo.PaperSSRMeta, path string) string {
@@ -418,18 +497,18 @@ func injectPaperSEOMeta(html string, meta *seo.PaperSSRMeta, path string) string
 	desc = truncate(desc, 300)
 
 	// 1) 替换 <title>
-	titleRe := regexp.MustCompile(`(?is)<title>.*?</title>`)
+	titleRe := ssrTitleRe
 	html = titleRe.ReplaceAllString(html, "<title>"+htmlEscape(seoTitle)+"</title>")
 
 	// 2) 替换 <meta name="description" ...>（若不存在则跳过，不主动插入以免破坏已有结构）
-	descRe := regexp.MustCompile(`(?is)<meta\s+name=["']description["'][^>]*>`)
+	descRe := ssrDescRe
 	if descRe.MatchString(html) {
 		html = descRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="description" content="%s">`, htmlEscape(desc)))
 	}
 
 	// 2.5) 替换 <meta name="keywords"> —— 论文场景词 + 标题中的关键名词作为长尾
 	keywords := buildPaperKeywords(meta)
-	keywordsRe := regexp.MustCompile(`(?is)<meta\s+name=["']keywords["'][^>]*>`)
+	keywordsRe := ssrKeywordsRe
 	if keywordsRe.MatchString(html) {
 		html = keywordsRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="keywords" content="%s">`, htmlEscape(keywords)))
 	}
@@ -438,7 +517,7 @@ func injectPaperSEOMeta(html string, meta *seo.PaperSSRMeta, path string) string
 	// 域名由 SEO_BASE_URL 环境变量控制，默认 https://www.scholay.com。
 	// 必须和 sitemap <loc> 前缀保持一致，否则爬虫会把 sitemap 里的 URL 当 duplicate 忽略。
 	canonical := fmt.Sprintf("%s%s", appconfig.CanonicalBaseURL(), path)
-	canonRe := regexp.MustCompile(`(?is)<link\s+rel=["']canonical["'][^>]*>`)
+	canonRe := ssrCanonRe
 	canonTag := fmt.Sprintf(`<link rel="canonical" href="%s">`, htmlEscape(canonical))
 	if canonRe.MatchString(html) {
 		html = canonRe.ReplaceAllString(html, canonTag)
@@ -451,16 +530,11 @@ func injectPaperSEOMeta(html string, meta *seo.PaperSSRMeta, path string) string
 		html = strings.Replace(html, "</head>", jsonLD+"\n</head>", 1)
 	}
 
+	// 3.6) 改写 Open Graph 为本页值(否则社媒分享塌缩到首页)
+	html = injectOG(html, seoTitle, canonical, desc)
+
 	// 4) 注入 noscript 论文卡片（爬虫友好）
-	noscriptCard := buildPaperNoscriptCard(meta)
-	if noscriptCard != "" {
-		insertBefore := `<p style="text-align: center; margin-top: 30px;`
-		if idx := strings.Index(html, insertBefore); idx > 0 {
-			html = html[:idx] + noscriptCard + "\n" + html[idx:]
-		} else if idx := strings.Index(html, "</noscript>"); idx > 0 {
-			html = html[:idx] + noscriptCard + "\n" + html[idx:]
-		}
-	}
+	html = insertNoscriptBlock(html, buildPaperNoscriptCard(meta))
 
 	return html
 }
@@ -482,8 +556,9 @@ func buildPaperVenueSegment(meta *seo.PaperSSRMeta) string {
 }
 
 // buildPaperKeywords 论文页 keywords meta:
-//   通用学术高频词(让 Google 知道这是论文详情页) + 论文自身上下文(venue/year/作者/DOI)
-//   原始论文标题里的关键名词由 Google 自己从内容中提取,我们不强塞,避免堆砌惩罚。
+//
+//	通用学术高频词(让 Google 知道这是论文详情页) + 论文自身上下文(venue/year/作者/DOI)
+//	原始论文标题里的关键名词由 Google 自己从内容中提取,我们不强塞,避免堆砌惩罚。
 func buildPaperKeywords(meta *seo.PaperSSRMeta) string {
 	parts := []string{
 		"论文详情", "学术论文", "论文阅读", "论文摘要", "AI 论文",
@@ -593,23 +668,23 @@ func injectAuthorSEOMeta(html string, meta *seo.AuthorSSRMeta, path string) stri
 	}
 	desc = truncate(desc, 300)
 
-	titleRe := regexp.MustCompile(`(?is)<title>.*?</title>`)
+	titleRe := ssrTitleRe
 	html = titleRe.ReplaceAllString(html, "<title>"+htmlEscape(seoTitle)+"</title>")
 
-	descRe := regexp.MustCompile(`(?is)<meta\s+name=["']description["'][^>]*>`)
+	descRe := ssrDescRe
 	if descRe.MatchString(html) {
 		html = descRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="description" content="%s">`, htmlEscape(desc)))
 	}
 
 	// keywords meta —— 作者场景高频词 + 个人元数据
 	keywords := buildAuthorKeywords(meta)
-	keywordsRe := regexp.MustCompile(`(?is)<meta\s+name=["']keywords["'][^>]*>`)
+	keywordsRe := ssrKeywordsRe
 	if keywordsRe.MatchString(html) {
 		html = keywordsRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="keywords" content="%s">`, htmlEscape(keywords)))
 	}
 
 	canonical := fmt.Sprintf("%s%s", appconfig.CanonicalBaseURL(), path)
-	canonRe := regexp.MustCompile(`(?is)<link\s+rel=["']canonical["'][^>]*>`)
+	canonRe := ssrCanonRe
 	canonTag := fmt.Sprintf(`<link rel="canonical" href="%s">`, htmlEscape(canonical))
 	if canonRe.MatchString(html) {
 		html = canonRe.ReplaceAllString(html, canonTag)
@@ -621,21 +696,15 @@ func injectAuthorSEOMeta(html string, meta *seo.AuthorSSRMeta, path string) stri
 		html = strings.Replace(html, "</head>", jsonLD+"\n</head>", 1)
 	}
 
-	noscriptCard := buildAuthorNoscriptCard(meta)
-	if noscriptCard != "" {
-		insertBefore := `<p style="text-align: center; margin-top: 30px;`
-		if idx := strings.Index(html, insertBefore); idx > 0 {
-			html = html[:idx] + noscriptCard + "\n" + html[idx:]
-		} else if idx := strings.Index(html, "</noscript>"); idx > 0 {
-			html = html[:idx] + noscriptCard + "\n" + html[idx:]
-		}
-	}
+	html = injectOG(html, seoTitle, canonical, desc)
+	html = insertNoscriptBlock(html, buildAuthorNoscriptCard(meta))
 
 	return html
 }
 
 // buildAuthorKeywords 作者页 keywords meta
-//   学术作者高频词(让 Google 知道这是作者档案页) + 作者具体机构/姓名信息
+//
+//	学术作者高频词(让 Google 知道这是作者档案页) + 作者具体机构/姓名信息
 func buildAuthorKeywords(meta *seo.AuthorSSRMeta) string {
 	parts := []string{
 		meta.Name,
@@ -750,23 +819,23 @@ func injectJournalSEOMeta(html string, meta *seo.JournalSSRMeta, path string) st
 	}
 	desc = truncate(desc, 300)
 
-	titleRe := regexp.MustCompile(`(?is)<title>.*?</title>`)
+	titleRe := ssrTitleRe
 	html = titleRe.ReplaceAllString(html, "<title>"+htmlEscape(seoTitle)+"</title>")
 
-	descRe := regexp.MustCompile(`(?is)<meta\s+name=["']description["'][^>]*>`)
+	descRe := ssrDescRe
 	if descRe.MatchString(html) {
 		html = descRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="description" content="%s">`, htmlEscape(desc)))
 	}
 
 	keywords := buildJournalKeywords(meta)
-	keywordsRe := regexp.MustCompile(`(?is)<meta\s+name=["']keywords["'][^>]*>`)
+	keywordsRe := ssrKeywordsRe
 	if keywordsRe.MatchString(html) {
 		html = keywordsRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="keywords" content="%s">`, htmlEscape(keywords)))
 	}
 
 	// canonical 永远指向当前 path —— canonicalRedirectFor 已经把非 canonical 的路径 301 走了
 	canonical := fmt.Sprintf("%s%s", appconfig.CanonicalBaseURL(), path)
-	canonRe := regexp.MustCompile(`(?is)<link\s+rel=["']canonical["'][^>]*>`)
+	canonRe := ssrCanonRe
 	canonTag := fmt.Sprintf(`<link rel="canonical" href="%s">`, htmlEscape(canonical))
 	if canonRe.MatchString(html) {
 		html = canonRe.ReplaceAllString(html, canonTag)
@@ -778,15 +847,8 @@ func injectJournalSEOMeta(html string, meta *seo.JournalSSRMeta, path string) st
 		html = strings.Replace(html, "</head>", jsonLD+"\n</head>", 1)
 	}
 
-	noscriptCard := buildJournalNoscriptCard(meta)
-	if noscriptCard != "" {
-		insertBefore := `<p style="text-align: center; margin-top: 30px;`
-		if idx := strings.Index(html, insertBefore); idx > 0 {
-			html = html[:idx] + noscriptCard + "\n" + html[idx:]
-		} else if idx := strings.Index(html, "</noscript>"); idx > 0 {
-			html = html[:idx] + noscriptCard + "\n" + html[idx:]
-		}
-	}
+	html = injectOG(html, seoTitle, canonical, desc)
+	html = insertNoscriptBlock(html, buildJournalNoscriptCard(meta))
 
 	return html
 }
@@ -897,22 +959,22 @@ func injectToolSEOMeta(html string, meta *seo.ToolSSRMeta, path string) string {
 	}
 	desc = truncate(desc, 300)
 
-	titleRe := regexp.MustCompile(`(?is)<title>.*?</title>`)
+	titleRe := ssrTitleRe
 	html = titleRe.ReplaceAllString(html, "<title>"+htmlEscape(seoTitle)+"</title>")
 
-	descRe := regexp.MustCompile(`(?is)<meta\s+name=["']description["'][^>]*>`)
+	descRe := ssrDescRe
 	if descRe.MatchString(html) {
 		html = descRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="description" content="%s">`, htmlEscape(desc)))
 	}
 
 	keywords := buildToolKeywords(meta)
-	keywordsRe := regexp.MustCompile(`(?is)<meta\s+name=["']keywords["'][^>]*>`)
+	keywordsRe := ssrKeywordsRe
 	if keywordsRe.MatchString(html) {
 		html = keywordsRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="keywords" content="%s">`, htmlEscape(keywords)))
 	}
 
 	canonical := fmt.Sprintf("%s%s", appconfig.CanonicalBaseURL(), path)
-	canonRe := regexp.MustCompile(`(?is)<link\s+rel=["']canonical["'][^>]*>`)
+	canonRe := ssrCanonRe
 	canonTag := fmt.Sprintf(`<link rel="canonical" href="%s">`, htmlEscape(canonical))
 	if canonRe.MatchString(html) {
 		html = canonRe.ReplaceAllString(html, canonTag)
@@ -924,14 +986,8 @@ func injectToolSEOMeta(html string, meta *seo.ToolSSRMeta, path string) string {
 		html = strings.Replace(html, "</head>", jsonLD+"\n</head>", 1)
 	}
 
-	if card := buildToolNoscriptCard(meta); card != "" {
-		insertBefore := `<p style="text-align: center; margin-top: 30px;`
-		if idx := strings.Index(html, insertBefore); idx > 0 {
-			html = html[:idx] + card + "\n" + html[idx:]
-		} else if idx := strings.Index(html, "</noscript>"); idx > 0 {
-			html = html[:idx] + card + "\n" + html[idx:]
-		}
-	}
+	html = injectOG(html, seoTitle, canonical, desc)
+	html = insertNoscriptBlock(html, buildToolNoscriptCard(meta))
 	return html
 }
 
@@ -1012,11 +1068,15 @@ func buildToolNoscriptCard(meta *seo.ToolSSRMeta) string {
 </article>`, baseStyle, headingStyle, htmlEscape(meta.Name), metaHTML, bodyHTML)
 }
 
+// truncate 按 **rune(字符)** 截断而非字节 —— 中文 1 字符 3 字节,按字节 s[:n] 几乎必然
+// 切在 rune 中间,产生半个字符的坏字节,喂进 <title>/meta/JSON-LD/noscript 会在 SERP 显示乱码
+// (mojibake)、压低 CTR。本平台面向中文市场,必须 rune 感知。n 是字符预算。
 func truncate(s string, n int) string {
-	if len(s) <= n {
+	r := []rune(s)
+	if len(r) <= n {
 		return s
 	}
-	return s[:n] + "..."
+	return string(r[:n]) + "..."
 }
 
 // htmlEscape 轻量 HTML 转义（足以覆盖 title/description 中的常见特殊字符）
@@ -1049,7 +1109,12 @@ func (h *Handler) getPageHTML(requestPath string) (string, error) {
 		requestPath = "/"
 	}
 
-	if cached, ok := h.ssrCache.get(requestPath); ok {
+	// 缓存 key 归一:前端 SPA 对所有路由返回**同一份** index.html 壳(try_files 回落)。
+	// 旧实现按完整路径 key → 深度爬论文/作者 sitemap(10^5~10^6 唯一 slug)时,每 URL 一个 key,
+	// 512 LRU 在复用前就被驱逐 → 命中率≈0,每个爬虫实体请求都多打一次 frontend 取同一份壳。
+	// 实体路径归并到 /paper/ /author/ /journal/ /tools/ 一份缓存即可(逐页 SEO 注入在缓存读取之后)。
+	cacheKey := normalizeSSRCacheKey(requestPath)
+	if cached, ok := h.ssrCache.get(cacheKey); ok {
 		return cached, nil
 	}
 
@@ -1071,10 +1136,21 @@ func (h *Handler) getPageHTML(requestPath string) (string, error) {
 	}
 
 	html := string(body)
-	h.ssrCache.set(requestPath, html)
+	h.ssrCache.set(cacheKey, html)
 
-	slog.Info("HTML cached successfully", "path", requestPath, "bytes", len(body))
+	slog.Info("HTML cached successfully", "path", requestPath, "cache_key", cacheKey, "bytes", len(body))
 	return html, nil
+}
+
+// normalizeSSRCacheKey 把实体详情路径归并到类目前缀(/paper/* → "/paper/" 等),
+// 让所有同类实体共用一份壳缓存,深度爬时命中率≈100%。其余路径按自身 key。
+func normalizeSSRCacheKey(path string) string {
+	for _, prefix := range []string{"/paper/", "/author/", "/journal/", "/tools/"} {
+		if strings.HasPrefix(path, prefix) {
+			return prefix
+		}
+	}
+	return path
 }
 
 // injectCodeSnippets injects code snippets into the HTML at appropriate positions
@@ -1115,7 +1191,7 @@ func (h *Handler) injectCodeSnippets(html string, snippets *model.CodeSnippetsGr
 		bodyStartContent.WriteString("<!-- End SSR Code Snippets: body_start -->\n")
 
 		// Inject after <body> (handle potential attributes on body tag)
-		bodyTagRegex := regexp.MustCompile(`(?i)(<body[^>]*>)`)
+		bodyTagRegex := ssrBodyTagRe
 		result = bodyTagRegex.ReplaceAllString(result, "${1}"+bodyStartContent.String())
 	}
 
@@ -1140,25 +1216,9 @@ func (h *Handler) injectCodeSnippets(html string, snippets *model.CodeSnippetsGr
 // so each page has unique text content visible to crawlers that don't execute JS.
 // This is critical for Google AdSense "low value content" compliance.
 func injectRouteNoscript(html string, path string) string {
-	routeContent := getRouteNoscriptContent(path)
-	if routeContent == "" {
-		return html
-	}
-
-	// Find existing noscript and append route-specific content BEFORE the closing </noscript>
-	noscriptEnd := "</noscript>"
-	insertBefore := `<p style="text-align: center; margin-top: 30px;`
-	if idx := strings.Index(html, insertBefore); idx > 0 {
-		// Insert route-specific section before the "enable JavaScript" message
-		return html[:idx] + routeContent + "\n" + html[idx:]
-	}
-
-	// Fallback: insert before </noscript>
-	if idx := strings.Index(html, noscriptEnd); idx > 0 {
-		return html[:idx] + routeContent + "\n" + html[idx:]
-	}
-
-	return html
+	// 统一走 insertNoscriptBlock:包进 <noscript> 插在 </body> 前(当前 Vite 壳无 noscript 锚点,
+	// 旧实现找不到锚点会静默丢弃这段静态页正文)。
+	return insertNoscriptBlock(html, getRouteNoscriptContent(path))
 }
 
 // getRouteNoscriptContent returns route-specific HTML for noscript injection
@@ -1188,6 +1248,10 @@ func getRouteNoscriptContent(path string) string {
 		slug := strings.TrimPrefix(path, "/resources/")
 		return getArticleNoscript(slug, baseStyle, headingStyle, textStyle)
 
+	case strings.HasPrefix(path, "/blog/"):
+		slug := strings.TrimPrefix(path, "/blog/")
+		return renderArticleNoscript(blogArticleMeta, slug, "/blog", "返回博客", baseStyle, headingStyle, textStyle)
+
 	case path == "/help":
 		return fmt.Sprintf(`<section %s>
 <h2 %s>帮助中心</h2>
@@ -1211,31 +1275,56 @@ func getRouteNoscriptContent(path string) string {
 </dl>
 </section>`, baseStyle, headingStyle, textStyle)
 
-	case path == "/assistant":
-		return fmt.Sprintf(`<section %s>
-<h2 %s>精品 AI 工具</h2>
-<p %s>Scholay 将先进的人工智能技术与学术研究深度融合，打造了一套专业的 AI 学术工具集。</p>
-<dl style="color: #bdbdbd; line-height: 1.8;">
-<dt style="color: #ffffff; font-weight: bold; margin-top: 12px;">智能助手</dt>
-<dd>支持多种大语言模型，帮助解答学术问题、讨论研究方向、分析论文观点、生成文献综述。</dd>
-<dt style="color: #ffffff; font-weight: bold; margin-top: 12px;">智能审稿</dt>
-<dd>AI 从论文结构、方法论、论证逻辑等多维度进行全面评估，提供专业修改意见和改进建议。</dd>
-<dt style="color: #ffffff; font-weight: bold; margin-top: 12px;">ScholayPrism LaTeX 编辑器</dt>
-<dd>原生支持 LaTeX 的在线学术写作工作空间，实时编译预览，内置多种学术模板。</dd>
-</dl>
-</section>`, baseStyle, headingStyle, textStyle)
-
-	case path == "/search-results":
+	case path == "/search":
 		return fmt.Sprintf(`<section %s>
 <h2 %s>学术搜索</h2>
 <p %s>Scholay 学术搜索覆盖超过 2 亿篇学术论文，支持直接检索和 AI 智能检索两种模式。使用布尔运算符（AND、OR、NOT）和精确短语检索提升搜索精度。结果可按相关度、被引次数和发表时间排序，并支持按年份、领域、论文类型等条件筛选。</p>
 <p %s>热门研究领域包括：深度学习、量子计算、CRISPR 基因编辑、气候变化、大语言模型、新能源技术、计算机视觉、自然语言处理、生物信息学等。</p>
 </section>`, baseStyle, headingStyle, textStyle, textStyle)
 
-	case path == "/chat":
+	case path == "/claw":
 		return fmt.Sprintf(`<section %s>
-<h2 %s>AI 学术聊天</h2>
-<p %s>Scholay AI 助手可以帮您解答学术问题、讨论研究方向、分析论文观点、生成文献综述等。支持多种 AI 模型选择，对话内容支持上下文连续交流。您可以直接粘贴论文片段让 AI 解读，或请 AI 帮助改善论文表达。</p>
+<h2 %s>智能助手 — AI 学术对话</h2>
+<p %s>Scholay 智能助手是面向科研的 AI 学术对话工具，可帮您解答学术问题、讨论研究方向、分析论文观点、生成文献综述。支持多种大语言模型，对话支持上下文连续交流，可直接粘贴论文片段让 AI 解读，或请 AI 帮助改善论文表达、检索并引用相关文献。</p>
+</section>`, baseStyle, headingStyle, textStyle)
+
+	case path == "/prism":
+		return fmt.Sprintf(`<section %s>
+<h2 %s>智能写作 — ScholayPrism AI-native LaTeX 编辑器</h2>
+<p %s>ScholayPrism 是原生支持 LaTeX 的在线学术写作工作空间，AI 内联协作、实时编译预览、内置多种期刊模板。AI 可按指令直接修改正文并以 diff 形式呈现、自动 \cite 引用检索到的文献、按学科规范排版，是论文写作与投稿前排版的一体化工具。</p>
+</section>`, baseStyle, headingStyle, textStyle)
+
+	case path == "/about":
+		return fmt.Sprintf(`<section %s>
+<h2 %s>关于 Scholay 学术</h2>
+<p %s>Scholay（学术）是一个 AI 驱动的学术搜索与科研协作平台，整合超过 2 亿篇学术论文，提供学术检索、AI 论文分析、智能学术对话、AI 智能审稿与 LaTeX 智能写作等一站式科研工具，致力于用人工智能提升科研工作者的文献检索与论文写作效率。</p>
+</section>`, baseStyle, headingStyle, textStyle)
+
+	case path == "/features" || strings.HasPrefix(path, "/features/"):
+		return fmt.Sprintf(`<section %s>
+<h2 %s>Scholay 核心功能</h2>
+<p %s>Scholay 提供覆盖科研全流程的 AI 学术工具：</p>
+<ul style="color: #bdbdbd; line-height: 2; padding-left: 24px;">
+<li><a href="/features/search" style="color: #64b5f6;">学术检索</a> — 直接检索 + AI 智能检索,覆盖 2 亿+ 论文</li>
+<li><a href="/features/library" style="color: #64b5f6;">个人文献集</a> — 收藏、整理、管理论文与 PDF</li>
+<li><a href="/features/claw" style="color: #64b5f6;">智能助手</a> — AI 学术对话与文献辅助</li>
+<li><a href="/features/prism" style="color: #64b5f6;">智能写作 Prism</a> — AI-native LaTeX 编辑器</li>
+<li><a href="/features/peer-review" style="color: #64b5f6;">智能审稿</a> — AI 多维度审稿意见</li>
+<li><a href="/features/submit" style="color: #64b5f6;">投稿辅助</a> — 期刊推荐与投稿信起草</li>
+</ul>
+</section>`, baseStyle, headingStyle, textStyle)
+
+	case path == "/blog":
+		return fmt.Sprintf(`<section %s>
+<h2 %s>Scholay 学术博客</h2>
+<p %s>Scholay 学术博客分享文献检索技巧、学术工具评测、论文写作与同行评审经验、AI 科研应用等原创长文,帮助研究者提升科研效率。精选文章:</p>
+%s
+</section>`, baseStyle, headingStyle, textStyle, blogArticleListNoscript())
+
+	case path == "/tools":
+		return fmt.Sprintf(`<section %s>
+<h2 %s>科研工具广场 — 学术软件与工具大全</h2>
+<p %s>Scholay 功能广场收录科研工作者常用的学术工具与软件,涵盖文献检索、文献管理、论文写作、数据分析、AI 学术助手、LaTeX 排版、参考文献管理、学术绘图等类目。每个工具含分类、获取方式、官网链接与使用说明,帮助研究者快速找到合适的科研工具。</p>
 </section>`, baseStyle, headingStyle, textStyle)
 
 	case path == "/peer-review":
@@ -1255,29 +1344,86 @@ func getRouteNoscriptContent(path string) string {
 	}
 }
 
-// getArticleNoscript returns noscript HTML for specific article pages
-func getArticleNoscript(slug, baseStyle, headingStyle, textStyle string) string {
-	articleMeta := map[string][2]string{
-		"how-to-search":          {"如何高效检索学术文献：从入门到精通", "学术文献检索是每位研究者的基本功。本文系统介绍学术文献检索的方法论和实用技巧，包括如何明确检索目标、掌握布尔检索逻辑、选择合适的学术数据库、评估文献质量和管理检索结果。掌握这些技巧能大幅提升科研效率，帮助你更快找到高质量的学术论文。"},
-		"literature-review-guide": {"文献综述撰写全攻略：结构、方法与常见误区", "文献综述是学术论文中最基础也最重要的组成部分。本文详细介绍叙述性综述、系统性综述和元分析三种类型的写作要点，以及系统化的文献收集策略、文献综述的结构组织方法、批判性分析技巧和常见写作误区的解决方案。"},
-		"paper-writing-tips":      {"学术论文写作技巧：如何让你的研究脱颖而出", "从标题构思到结论撰写，本文分享学术论文各部分的实用写作技巧。包括如何撰写吸引人的标题和摘要、使用倒漏斗结构写好引言、确保方法部分的可重复性、客观呈现结果并深入讨论，以及学术写作的风格和语言建议。"},
-		"citation-guide":          {"学术引用格式完全指南：APA、MLA、Chicago 与 IEEE", "详细对比四大主流引用格式的使用规则与适用场景。涵盖 APA 第 7 版、MLA 第 9 版、Chicago 第 17 版和 IEEE 格式的核心特点、内文引用方式和参考文献列表格式，以及如何根据学科和期刊要求选择合适的引用格式。"},
-		"research-methodology":    {"研究方法论入门：定量、定性与混合方法的选择", "系统介绍三大研究方法范式的核心理念、适用场景和实施步骤。包括定量研究的实验设计和样本量计算、定性研究的扎根理论和现象学方法、混合方法的设计类型，以及如何根据研究问题选择最合适的方法和研究伦理考量。"},
-		"ai-in-research":          {"AI 在学术研究中的应用：机遇、实践与伦理思考", "探讨人工智能如何改变学术研究的方方面面。从 AI 驱动的语义检索到辅助论文分析、从机器学习数据分析到 AI 辅助写作，以及使用 AI 工具时需要注意的学术诚信、数据隐私和偏见等伦理问题和最佳实践。"},
-		"peer-review-guide":       {"同行评审完全指南：如何写出高质量的审稿意见", "从审稿人视角解析同行评审流程。包括审稿前的准备工作和评审清单、论文评审的核心标准、如何撰写具体且建设性的审稿意见、保持客观和专业的原则，以及如何利用 AI 工具辅助审稿提升效率。"},
-		"latex-tutorial":          {"LaTeX 入门教程：学术排版的必备技能", "从零开始学习 LaTeX 学术排版。涵盖 LaTeX 的基本概念与环境搭建、文档结构与章节组织、数学公式排版、图表与浮动体插入、BibTeX 参考文献管理，以及中文支持和常见问题解决等实用技巧。"},
+// blogArticleListNoscript 从 seo.BlogArticles 注册表生成博客文章链接列表(供爬虫发现 16 篇文章)。
+// anchor 优先用 blogArticleMeta 里的真实中文标题(摘要也带上),缺失时回落 slug 派生文本。
+func blogArticleListNoscript() string {
+	var b strings.Builder
+	b.WriteString(`<ul style="color: #bdbdbd; line-height: 2; padding-left: 24px;">`)
+	for _, e := range seo.BlogArticles {
+		if e.Slug == "" {
+			continue
+		}
+		title := strings.ReplaceAll(e.Slug, "-", " ")
+		excerpt := ""
+		if m, ok := blogArticleMeta[e.Slug]; ok {
+			title = m[0]
+			excerpt = m[1]
+		}
+		if excerpt != "" {
+			fmt.Fprintf(&b, `<li><a href="/blog/%s" style="color: #64b5f6;">%s</a> — %s</li>`, e.Slug, htmlEscape(title), htmlEscape(excerpt))
+		} else {
+			fmt.Fprintf(&b, `<li><a href="/blog/%s" style="color: #64b5f6;">%s</a></li>`, e.Slug, htmlEscape(title))
+		}
 	}
+	b.WriteString(`</ul>`)
+	return b.String()
+}
 
-	meta, ok := articleMeta[slug]
+// resourceArticleMeta / blogArticleMeta: slug → {标题, 摘要}。镜像前端
+// frontend-user/src/features/help/data/{resource,blog}-articles.ts —— 让弱 JS 爬虫(百度)在
+// /resources/{slug} 与 /blog/{slug} 详情页看到逐篇真实标题+摘要,而非首页通用壳(薄内容)。
+// 两表 slug 无冲突。与前端数据若漂移,以前端为准同步(后续可考虑改 build 期生成,消除双源)。
+var resourceArticleMeta = map[string][2]string{
+	"how-to-search":                   {"如何高效检索学术文献：从入门到精通", "掌握学术文献检索的核心技巧，学会使用布尔运算符、关键词策略和数据库筛选功能，大幅提升科研效率。"},
+	"literature-review-guide":         {"文献综述撰写全攻略：结构、方法与常见误区", "从选题到成文，全面解析文献综述的撰写方法论，包含叙述式、系统式和元分析三种综述类型的写作要点。"},
+	"paper-writing-tips":              {"学术论文写作技巧：如何让你的研究脱颖而出", "从标题构思到结论撰写，分享学术论文各部分的写作技巧，帮助提升论文的可读性和影响力。"},
+	"citation-guide":                  {"学术引用格式完全指南：APA、MLA、Chicago 与 IEEE", "详细对比四大主流引用格式的使用规则与适用场景，附带常见引用场景的示例和易错点提醒。"},
+	"research-methodology":            {"研究方法论入门：定量、定性与混合方法的选择", "系统介绍三大研究方法范式的核心理念、适用场景和实施步骤，帮助研究者选择最合适的研究设计。"},
+	"ai-in-research":                  {"AI 在学术研究中的应用：机遇、实践与伦理思考", "探讨人工智能如何改变学术研究的方方面面，从文献检索到论文写作，以及使用 AI 工具时需要注意的伦理边界。"},
+	"peer-review-guide":               {"同行评审完全指南：如何写出高质量的审稿意见", "从审稿人视角解析同行评审流程，分享审稿的方法论和写作技巧，帮助研究者更好地理解和参与评审过程。"},
+	"latex-tutorial":                  {"LaTeX 入门教程：学术排版的必备技能", "从零开始学习 LaTeX 学术排版，涵盖文档结构、数学公式、图表插入和参考文献管理等核心功能。"},
+	"open-access-guide":               {"开放获取（Open Access）发表完全指南", "全面解析学术论文开放获取发表模式，帮助研究者选择合适的 OA 期刊，了解费用结构、版权协议和合规要求。"},
+	"systematic-review-meta-analysis": {"系统综述与 Meta 分析撰写指南", "从选题到发表的系统综述完整流程，涵盖 PRISMA 规范、文献检索策略、质量评价方法和统计分析要点。"},
+	"academic-english-writing":        {"学术英语写作核心技巧与常见错误", "系统讲解学术英语写作规范，从句式结构、时态运用到学术用词，帮助非英语母语研究者提升论文语言质量。"},
+	"research-data-management":        {"科研数据管理与共享最佳实践", "详解科研数据全生命周期管理：从数据收集、整理、存储到开放共享，遵循 FAIR 原则，满足期刊和资助方的数据政策要求。"},
+	"academic-conference-guide":       {"学术会议参与全攻略：从投稿到报告", "覆盖学术会议全流程：会议选择、摘要投稿、海报设计、口头报告技巧和学术社交方法，助你最大化会议参与收益。"},
+}
+
+var blogArticleMeta = map[string][2]string{
+	"ai-literature-search-efficiency":       {"如何使用 AI 提升学术文献检索效率：从关键词到语义搜索的跨越", "传统关键词搜索常常遗漏大量相关文献。本文详解 AI 语义搜索的工作原理，以及如何利用 Scholay 的智能检索功能将文献发现效率提升 3-5 倍。"},
+	"academic-search-tools-comparison-2026": {"2026 年学术搜索工具全景对比：选对工具让科研效率翻倍", "面对琳琅满目的学术搜索工具，如何选择最适合自己的？本文从数据覆盖、搜索精度、AI 功能和用户体验四个维度，深度对比 2026 年主流学术搜索工具的优劣。"},
+	"semantic-scholar-vs-google-scholar":    {"AI 学术搜索与 Google Scholar 深度对比：哪个更适合你的研究？", "新一代 AI 学术搜索引擎与传统 Google Scholar 的全方位对比，从数据源、搜索算法、引用分析到 AI 功能，帮助你在不同研究场景中做出最佳选择。"},
+	"graduate-literature-review-workflow":   {"研究生文献综述的完整工作流程：从零开始到成稿的系统方法", "文献综述不是简单的论文堆砌。本文提供一套从确定范围、检索文献、阅读笔记到组织成文的完整工作流程，特别适合正在撰写学位论文的研究生。"},
+	"judge-paper-quality-impact":            {"如何快速判断一篇论文的质量和影响力：5 个关键指标详解", "面对海量检索结果，如何快速识别高质量论文？本文详解 5 个核心评估指标，并介绍利用 AI 工具辅助论文质量评估的实用方法。"},
+	"citation-network-analysis":             {"学术论文引用网络分析：用引用关系图发现领域核心文献", "引用关系是学术知识传播的脉络。本文教你如何利用引用网络分析快速绘制研究领域的知识地图，发现关键论文和新兴方向。"},
+	"ai-academic-writing-ethics":            {"AI 辅助学术写作的伦理边界：什么可以做，什么不应该做", "随着 ChatGPT 等 AI 工具在学术界的广泛使用，如何在利用 AI 提效的同时维护学术诚信，成为每位研究者必须面对的问题。"},
+	"open-access-legal-free-papers":         {"开放获取完全指南：合法免费获取学术论文的 8 种途径", "付费墙不应该成为知识获取的障碍。本文介绍 8 种合法获取学术论文全文的方法，帮助你在遵守版权的前提下获取所需文献。"},
+	"latex-vs-word-academic-writing":        {"LaTeX 与 Word 选择指南：学术论文排版工具该如何选", "LaTeX 和 Word 各有优劣，适用场景也不同。本文从排版质量、学习成本、协作效率和期刊要求四个维度提供选择建议。"},
+	"peer-review-process-explained":         {"同行评审流程揭秘：从投稿到发表的每一步", "同行评审是学术出版的质量保障机制。本文详细解析整个流程的每个环节，以及如何提高论文通过评审的概率。"},
+	"citation-trend-discovery":              {"如何利用引文分析发现研究趋势：数据驱动的选题方法", "研究趋势隐藏在引用数据中。本文介绍如何利用引文增长曲线、突发检测和共词分析等方法，数据驱动地发现和验证研究趋势。"},
+	"cross-disciplinary-search-strategies":  {"跨学科文献检索策略：突破学科壁垒发现创新研究", "创新往往发生在学科交叉处。本文分享四种跨学科文献检索策略，帮助你发现其他领域中与你研究相关的重要工作。"},
+	"conference-vs-journal-papers":          {"学术会议论文 vs 期刊论文：有何不同，如何选择发表渠道", "会议论文和期刊论文在评审流程、发表周期和学术影响力上有显著差异。了解这些区别，帮你为不同类型的研究选择最合适的发表渠道。"},
+	"scholay-platform-complete-guide":       {"Scholay 平台完全使用指南：从入门到精通的一站式教程", "系统介绍 Scholay 平台的所有功能模块——从学术搜索、AI 分析到智能审稿和 LaTeX 编辑器，帮你充分发挥平台的全部潜力。"},
+	"common-search-mistakes-solutions":      {"学术搜索中的 7 个常见误区与破解方法", "很多研究者在文献检索中不自觉地犯着同样的错误。本文总结 7 个最常见的搜索误区，并提供针对性的破解策略。"},
+	"ai-tools-research-workflow-2026":       {"AI 工具如何重塑科研工作流：2026 年学术研究者的新常态", "从文献检索到论文写作，AI 工具正在改变科研的每一个环节。本文梳理 2026 年 AI 在学术研究中的典型应用场景和最佳实践。"},
+}
+
+// renderArticleNoscript 渲染单篇文章的 noscript 卡片(标题 + 摘要 + 返回链接)。slug 未命中返回空。
+func renderArticleNoscript(meta map[string][2]string, slug, backHref, backLabel, baseStyle, headingStyle, textStyle string) string {
+	m, ok := meta[slug]
 	if !ok {
 		return ""
 	}
-
 	return fmt.Sprintf(`<article %s>
-<h2 %s>%s</h2>
+<h1 %s>%s</h1>
 <p %s>%s</p>
-<p style="color: #9e9e9e; font-size: 0.9rem;">作者：Scholay 学术团队 | <a href="/resources" style="color: #64b5f6;">返回资源中心</a></p>
-</article>`, baseStyle, headingStyle, meta[0], textStyle, meta[1])
+<p style="color: #9e9e9e; font-size: 0.9rem;">作者：Scholay 学术团队 | <a href="%s" style="color: #64b5f6;">%s</a></p>
+</article>`, baseStyle, headingStyle, htmlEscape(m[0]), textStyle, htmlEscape(m[1]), backHref, backLabel)
+}
+
+// getArticleNoscript 资源中心单篇(保留旧签名给 /resources/{slug} 调用)。
+func getArticleNoscript(slug, baseStyle, headingStyle, textStyle string) string {
+	return renderArticleNoscript(resourceArticleMeta, slug, "/resources", "返回资源中心", baseStyle, headingStyle, textStyle)
 }
 
 // proxyToFrontend proxies the request to the frontend container

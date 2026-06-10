@@ -280,11 +280,11 @@ The project uses Nginx as a reverse proxy to provide unified entry points and so
 - **Worker processes**: Auto-scale based on CPU cores
 - **Worker connections**: 1024 per process
 - **Gzip compression**: Level 6 for text/JSON content
-- **Two-tier caching**:
+- **Static caching** (静态资源 proxy_cache):
   - Static cache: 1GB max, 7-day inactive timeout
-  - API cache: 100MB max, 1-hour inactive timeout
   - Static assets: 1-year cache headers
   - HTML files: no-cache headers
+  - 注:原 API cache zone 已删除(声明后零 location 引用;鉴权 API 微缓存需 proxy_cache_bypass 才安全)
 
 ### Backend Layered Architecture
 
@@ -300,26 +300,25 @@ internal/
 ├── agentconfig/    # Admin-managed agent model/provider config (单行表)
 ├── smartsearch/    # 智能搜索 feature: 一份 FeatureSpec + thin handler 即可挂上 agentbridge
 ├── minicod/        # Minicod 学术 API client (papers / authors / journals)
-├── semanticscholar/# Semantic Scholar API client (legacy)
 ├── thirdparty/     # Third-party account management (API keys, OAuth)
 ├── payment/        # Payment integration (Alipay + WeChat Pay)
 ├── wechat/         # WeChat integration (Mini Program, OAuth)
 ├── wechatofficial/ # WeChat Official Account auto-reply with AI
-├── peerreview/     # AI 审稿 v1
-├── peerreview2/    # AI 审稿 v2
-├── latexwriter/    # LaTeX 写作 agent
+├── peerreview/     # AI 审稿 (prism/peerreview agent 化)
+├── prism/          # 智能写作 (Scholay Prism, AI-native LaTeX IDE)
+├── claw/           # 智能助手 (通用 agent 对话)
 ├── library/        # 个人文献集
 ├── stagingarea/    # 检索工作区 · 暂存区
 ├── feedback/       # 用户反馈工单
 ├── seo/            # SEO 索引 (papers/authors/journals)
 ├── seosubmit/      # 主动推送 SEO 给百度等搜索引擎
-├── proxy/          # HTTP proxy for external AI services
-├── mcp/            # MCP (Model Context Protocol) server
-├── usagelog/       # 用户行为日志 + 热度统计
+├── usagelog/       # 用户行为日志 (旧, 只读保留) · usagestat 是 v2
+│                   # 注:semanticscholar / mcp / proxy / peerreview2 / latexwriter / pdf
+│                   #     早已下线,不再存在;Semantic Scholar 集成已被 minicod 取代。
 ├── hotcontent/     # 热门内容
 ├── message/        # 站内信 / 系统消息
 ├── announcement/   # 全站公告
-├── pdf/, pdfparse/ # PDF 预览 + 文本解析
+├── pdfparse/       # PDF 文本解析
 ├── storage/        # MinIO 抽象
 ├── websocket/      # 通用 WS hub (站内信推送)
 ├── clientlog/      # 前端错误日志上报
@@ -437,7 +436,11 @@ Frontend-user ↗            ↓
 Frontend-admin → Nginx → User/Admin access
 ```
 
-### Semantic Scholar Integration
+### Semantic Scholar Integration  ⚠️ 已下线(历史记录,勿据此找代码)
+
+> 本节描述的 `internal/semanticscholar/`、`internal/mcp/`、`/api/v1/scholar/*`、`/api/v1/mcp/*`、
+> `swagger.json`、`backend/SEMANTIC_SCHOLAR_API.md` 均**已不存在**。学术检索现由 **Minicod**
+> (`internal/minicod/`)提供。下文仅作历史背景保留。
 
 The backend integrates Semantic Scholar Academic Graph API with two access methods:
 
@@ -600,7 +603,10 @@ The platform supports GitHub OAuth for user authentication:
 - Background task records snapshots every 5 minutes
 - Redis caches session data and API keys for performance
 
-### HTTP Proxy Service
+### HTTP Proxy Service  ⚠️ 已下线(历史记录,勿据此找代码)
+
+> `internal/proxy/`、`/api/v1/proxy/*`、`proxy.GetProxyHTTPClient` 均**已不存在**。
+> AI 调用现统一走 `internal/ai`(项目侧)与 agent 容器(`internal/agent` + `agentbridge`)。
 
 The platform includes a built-in HTTP proxy for AI service access:
 

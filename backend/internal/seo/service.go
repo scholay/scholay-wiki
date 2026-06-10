@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"net/url"
 	"time"
 
 	"scholar-backend/internal/common/cache"
@@ -44,32 +45,55 @@ func (s *Service) SetPushSubmitter(p PushSubmitter) {
 	s.submitter = p
 }
 
-// enqueuePaperSlugs 把若干 paper slug 转成 /paper/{slug} 入队
-func (s *Service) enqueuePaperSlugs(slugs ...string) {
-	if s.submitter == nil || len(slugs) == 0 {
-		return
+// paperCanonicalPath 由 source + paperID 拼出**canonical** 论文路径 /paper/{source}/{id}。
+// 必须与 sitemap(canonicalEntityURL)和 SSR canonical link 一致 —— 主动推送(百度/IndexNow)
+// 若推 legacy /paper/{slug} 会被 canonicalRedirectFor 301,浪费推送配额、稀释 canonical 信号。
+func paperCanonicalPath(source, paperID string) string {
+	if source == "" || paperID == "" {
+		return ""
 	}
-	paths := make([]string, 0, len(slugs))
-	for _, slug := range slugs {
-		if slug != "" {
-			paths = append(paths, "/paper/"+slug)
-		}
-	}
-	s.submitter.EnqueuePaths(context.Background(), paths)
+	return "/paper/" + source + "/" + url.PathEscape(paperID)
 }
 
-// enqueueAuthorSlugs 把若干 author slug 转成 /author/{slug} 入队
-func (s *Service) enqueueAuthorSlugs(slugs ...string) {
-	if s.submitter == nil || len(slugs) == 0 {
+// enqueuePaperPaths 把若干**已是 canonical** 的论文路径入队主动推送。
+func (s *Service) enqueuePaperPaths(paths ...string) {
+	if s.submitter == nil || len(paths) == 0 {
 		return
 	}
-	paths := make([]string, 0, len(slugs))
-	for _, slug := range slugs {
-		if slug != "" {
-			paths = append(paths, "/author/"+slug)
+	out := make([]string, 0, len(paths))
+	for _, p := range paths {
+		if p != "" {
+			out = append(out, p)
 		}
 	}
-	s.submitter.EnqueuePaths(context.Background(), paths)
+	if len(out) > 0 {
+		s.submitter.EnqueuePaths(context.Background(), out)
+	}
+}
+
+// authorCanonicalPath 由 source + authorID 拼出 canonical 作者路径 /author/{source}/{id}
+// (与 sitemap canonicalEntityURL 一致;避免推送 legacy /author/{slug} 被 301)。
+func authorCanonicalPath(source, authorID string) string {
+	if source == "" || authorID == "" {
+		return ""
+	}
+	return "/author/" + source + "/" + url.PathEscape(authorID)
+}
+
+// enqueueAuthorPaths 把若干**已是 canonical** 的作者路径入队主动推送。
+func (s *Service) enqueueAuthorPaths(paths ...string) {
+	if s.submitter == nil || len(paths) == 0 {
+		return
+	}
+	out := make([]string, 0, len(paths))
+	for _, p := range paths {
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	if len(out) > 0 {
+		s.submitter.EnqueuePaths(context.Background(), out)
+	}
 }
 
 // RecordDetailClick 记录用户点击详情页（tier=1 高质量）
@@ -93,8 +117,26 @@ func (s *Service) RecordDetailClick(seed *PaperSeed) error {
 		return err
 	}
 	s.invalidatePapersCache()
-	s.enqueuePaperSlugs(slug)
+	s.enqueuePaperPaths(paperCanonicalPath(seed.Source, seed.PaperID))
 	return nil
+}
+
+// RecordDetailSeeds 把论文**详情曝光**按 tier-1 记录(priority 高 / changefreq weekly)。返回成功数。
+// 详情正常 1 条;设小上限防滥用。每条走 RecordDetailClick(tier-1 upsert + canonical 入队)。
+func (s *Service) RecordDetailSeeds(seeds []PaperSeed) (int, error) {
+	const detailSeedBatchLimit = 10
+	if len(seeds) > detailSeedBatchLimit {
+		seeds = seeds[:detailSeedBatchLimit]
+	}
+	n := 0
+	for i := range seeds {
+		if err := s.RecordDetailClick(&seeds[i]); err != nil {
+			slog.Warn("seo detail seed upsert failed", "paper_id", seeds[i].PaperID, "err", err)
+			continue
+		}
+		n++
+	}
+	return n, nil
 }
 
 // RecordSearchSeeds 记录一批搜索曝光（tier=2 长尾种子）
@@ -109,7 +151,7 @@ func (s *Service) RecordSearchSeeds(seeds []PaperSeed) (int, error) {
 	}
 
 	written := 0
-	pushSlugs := make([]string, 0, len(seeds))
+	pushPaths := make([]string, 0, len(seeds))
 	for i := range seeds {
 		seed := &seeds[i]
 		if seed.PaperID == "" || seed.Title == "" {
@@ -127,12 +169,12 @@ func (s *Service) RecordSearchSeeds(seeds []PaperSeed) (int, error) {
 			continue
 		}
 		written++
-		pushSlugs = append(pushSlugs, slug)
+		pushPaths = append(pushPaths, paperCanonicalPath(seed.Source, seed.PaperID))
 	}
 
 	if written > 0 {
 		s.invalidatePapersCache()
-		s.enqueuePaperSlugs(pushSlugs...)
+		s.enqueuePaperPaths(pushPaths...)
 	}
 	return written, nil
 }
@@ -152,22 +194,22 @@ func (s *Service) GetSitemapPage(page int) ([]SitemapEntry, error) {
 	return s.repo.ListSitemapPage(page)
 }
 
-// GetTopPaperSlugs 用于主动 SEO 提交的启动 seed:返回最值得推送的 paper slug。
-func (s *Service) GetTopPaperSlugs(limit int) []string {
-	slugs, err := s.repo.ListTopSlugs(limit)
+// GetTopPaperPaths 用于主动 SEO 提交的启动 seed:返回最值得推送的论文 canonical 路径。
+func (s *Service) GetTopPaperPaths(limit int) []string {
+	paths, err := s.repo.ListTopPaperPaths(limit)
 	if err != nil {
 		return nil
 	}
-	return slugs
+	return paths
 }
 
-// GetTopAuthorSlugs 用于主动 SEO 提交的启动 seed:返回最值得推送的 author slug。
-func (s *Service) GetTopAuthorSlugs(limit int) []string {
-	slugs, err := s.repo.ListTopAuthorSlugs(limit)
+// GetTopAuthorPaths 用于主动 SEO 提交的启动 seed:返回最值得推送的作者 canonical 路径。
+func (s *Service) GetTopAuthorPaths(limit int) []string {
+	paths, err := s.repo.ListTopAuthorPaths(limit)
 	if err != nil {
 		return nil
 	}
-	return slugs
+	return paths
 }
 
 // GetSitemapSummary 生成 sitemap 索引文件所需的摘要
@@ -230,6 +272,7 @@ func (s *Service) invalidateAuthorsCache() {
 // bumpVersionWithCoalesce SETNX 合并锁实现:
 //   - SETNX lock=1 EX 5s 成功 → 当前调用是窗口内第一个,执行 INCR
 //   - 失败 → 已有同窗口内的调用做过 INCR,本次跳过
+//
 // 这样高 QPS 下也只产生 ~1 INCR / 5s,平稳缓存键。
 func bumpVersionWithCoalesce(lockKey, versionKey string) {
 	rdb := cache.GetRedis()

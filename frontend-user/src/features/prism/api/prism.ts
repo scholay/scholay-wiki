@@ -1,6 +1,7 @@
 // 智能写作 (Prism) —— 用户端 react-query hooks。字段对齐 backend/internal/prism。
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
+import { retryDetailQuery } from '@/shared/lib/query-config';
 import { getAuthToken } from '@/shared/lib/auth-token';
 import type { PdfSource } from '@/shared/components/PdfViewer';
 
@@ -81,6 +82,8 @@ export function useProject(id?: number) {
   return useQuery({
     queryKey: ['prism', 'project', id],
     enabled: !!id,
+    // 不存在 / 非本人 → 后端 404,立即失败(不重试),让「项目不存在」友好态秒出。
+    retry: retryDetailQuery,
     queryFn: async () =>
       (await http.get<{ data: { project: PrismProject; files: PrismFile[] } }>(`/user/prism/projects/${id}`)).data.data,
   });

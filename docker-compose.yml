@@ -131,6 +131,45 @@ services:
     networks:
       - scholar-network
 
+  # Redis(correctness 键专用,noeviction)—— 可选。
+  # 吊销标记 / 每日配额 / SEO 推送队列等不能被 LRU 静默逐出的键放这里(主 Redis 是 allkeys-lru,
+  # 内存打满会逐出任意键 → 吊销复活 / 配额清零)。启用方式:在 .env 设
+  #   REDIS_PERSIST_HOST=scholar_redis_persist
+  # backend 未设该 env 时这些键回落主 Redis(行为同今天),本容器闲置无害。
+  # maxmemory-policy noeviction:写满即返回 OOM 错误而非逐出 —— correctness 键宁可写失败也不静默丢。
+  redis-persist:
+    image: redis:7-alpine
+    container_name: scholar_redis_persist
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      <<: *tz-env
+    expose:
+      - "6379"
+    volumes:
+      - ./data/redis-persist:/data
+      - /etc/localtime:/etc/localtime:ro
+    command: >-
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 128mb
+      --maxmemory-policy noeviction
+      --tcp-keepalive 60
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+        reservations:
+          memory: 64M
+    networks:
+      - scholar-network
+
   # 数据库迁移服务 - 每次启动按顺序执行 migrations/ 下的 SQL 文件
   schema-sync:
     image: mysql:8.0

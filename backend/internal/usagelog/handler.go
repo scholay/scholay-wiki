@@ -15,15 +15,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Handler HTTP处理器
-type Handler struct {
-	service *Service
-}
-
-// NewHandler 创建Handler
-func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
-}
+// 注:用户侧 usagelog.Handler 已随 usagestat v2 迁移下线(空 Handler 零路由,接线残留已清)。
+// 保留 AdminHandler(后台只读)+ Recorder(埋点录入)。
 
 // AdminHandler 管理后台处理器
 type AdminHandler struct {

@@ -18,6 +18,7 @@
 package umami
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -80,9 +81,12 @@ func parseRange(c *gin.Context, defaultDays int) (time.Time, time.Time) {
 func (h *Handler) GetTrackerConfig(c *gin.Context) {
 	id, err := h.client.EnsureWebsiteID(c.Request.Context())
 	if err != nil {
+		// 不回显原始 err —— 它含内部容器主机名(http://umami:3000/...)与上游响应体,
+		// 而本端点匿名可达、每页加载都打。原始错误进日志即可,前端只需知道暂不可用。
+		slog.Warn("umami tracker config unavailable", "err", err)
 		c.JSON(http.StatusServiceUnavailable, gin.H{
 			"code":    503,
-			"message": "umami not ready: " + err.Error(),
+			"message": "umami 统计暂不可用",
 		})
 		return
 	}

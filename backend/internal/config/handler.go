@@ -17,8 +17,6 @@
 package config
 
 import (
-	"time"
-
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/seo"
 
@@ -65,12 +63,6 @@ type JournalSEOProvider interface {
 // ToolSEOProvider 由 featuretool.Service 实现, 用于功能广场工具详情页 (/tools/{slug}) SSR 元数据注入。
 type ToolSEOProvider interface {
 	ResolveToolBySlug(slug string) (*seo.ToolSSRMeta, error)
-}
-
-// htmlCacheEntry stores a cached HTML page with its expiry time
-type htmlCacheEntry struct {
-	html      string
-	fetchedAt time.Time
 }
 
 // Handler handles HTTP requests for configuration operations

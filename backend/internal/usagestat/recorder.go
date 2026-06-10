@@ -14,6 +14,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"scholar-backend/internal/common/ctxutil"
 	"scholar-backend/internal/common/safego"
 
 	"github.com/gin-gonic/gin"
@@ -66,12 +67,12 @@ func (s *Service) RecordFromGin(c *gin.Context, feature, action string, extra ma
 	s.Record(e)
 }
 
-// Record 异步写一条事件 (safego 带 recover; 单条 INSERT 失败仅 Warn)。
+// Record 异步写一条事件 (全局有界 record 池 + QuickIO deadline; 单条 INSERT 失败仅 Warn)。
 func (s *Service) Record(e Event) {
 	if e.Feature == "" || e.Action == "" {
 		return
 	}
-	safego.Go("usagestat:"+e.Feature, func() {
+	safego.Record("usagestat:"+e.Feature, func() {
 		ev := &UsageEvent{
 			UserID:        e.UserID,
 			AnonID:        e.AnonID,
@@ -88,7 +89,9 @@ func (s *Service) Record(e Event) {
 				ev.Extra = b
 			}
 		}
-		if err := s.repo.Create(ev); err != nil {
+		ctx, cancel := ctxutil.With(ctxutil.QuickIO)
+		defer cancel()
+		if err := s.repo.Create(ctx, ev); err != nil {
 			slog.Warn("usagestat: record failed",
 				"feature", e.Feature, "action", e.Action, "err", err)
 		}

@@ -12,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strconv"
 	"sync"
 	"time"
 
@@ -39,8 +38,8 @@ type Bridge struct {
 	// 体验: 新窗口建 WS 时, 先把老 WS 发一帧 displaced 通知再 Close, 让前端 banner
 	// 提示用户"此会话已在其他窗口打开"。
 	//
-	// key 形如 "smart_search:42"; value 是 *displacedConn。同 (user, feature) 永远只
-	// 保留一条 active 记录。
+	// key 形如 "claw:<agentSessionId>"; value 是 *displacedConn。同 (feature, **session**)
+	// 永远只保留一条 active 记录 —— 按 session 而非 user,故不同会话/项目可并存(见 displacementKey)。
 	//
 	// 注意: 这是 process-local 状态, 多实例部署时只在同一实例命中。这是 by design —
 	// 方案 A 是 "best-effort 提示, 不是强互斥"; 跨实例真互斥需 Redis 锁 (方案 B,
@@ -65,18 +64,24 @@ func (b *Bridge) SetLLMUsageRecorder(r llmusage.Recorder) {
 	b.llmRec = r
 }
 
-// displacementKey 拼 activeWSConns 的 key, 二维寻址 (feature, user)。
-func displacementKey(featureKey string, userID uint) string {
-	return featureKey + ":" + strconv.FormatUint(uint64(userID), 10)
+// displacementKey 拼 activeWSConns 的 key, 按 (feature, **agent session**) 寻址。
+//
+// ⚠️ 关键:按 session 而非 user。displacement 要防的是"**同一个 agent session 被两条 WS
+// 同时驱动**"(jsonl 双写损坏)。但 claw 多会话、prism 多项目下,同一用户在两个 tab 打开
+// **不同**会话/项目本就该并存 —— 按 user 寻址会把它们也误判成"接管",弹出 displaced banner
+// (用户反馈的"不是并发也会出现")。session_id 全局唯一,feature 前缀仅作命名空间清晰。
+// smart-search 是用户级单会话,两个 tab 拿到同一 session_id,按 session 仍正确互斥。
+func displacementKey(featureKey, sessionID string) string {
+	return featureKey + ":" + sessionID
 }
 
-// registerAndDisplaceOldWS 把新 WS 注册进 activeWSConns, 并把同 key 的旧 WS
-// (如有) 发 displaced 帧后 Close。返回一个 cleanup 函数, caller 必须 defer 调用
+// registerAndDisplaceOldWS 把新 WS 注册进 activeWSConns, 并把同 key (= 同一 agent session)
+// 的旧 WS (如有) 发 displaced 帧后 Close。返回一个 cleanup 函数, caller 必须 defer 调用
 // (在 WS pipe 退出后) 把自己从 map 摘掉。
 //
 // 注意: 摘掉只会摘"还是我"的情况; 如果中途又有更新的 WS 把我替换了, 不会误删。
-func (b *Bridge) registerAndDisplaceOldWS(featureKey string, userID uint, newConn *displacedConn) func() {
-	key := displacementKey(featureKey, userID)
+func (b *Bridge) registerAndDisplaceOldWS(featureKey, sessionID string, newConn *displacedConn) func() {
+	key := displacementKey(featureKey, sessionID)
 	if prev, loaded := b.activeWSConns.Swap(key, newConn); loaded {
 		if old, ok := prev.(*displacedConn); ok {
 			// 异步 displace, 不阻塞新 WS 建联流程。失败也只是老 WS 没收到通知,
@@ -167,6 +172,19 @@ func sliceRecentTurns(msgs []agent.SessionMessage, limitTurns int) ([]agent.Sess
 	return msgs[startIdx:], total, true
 }
 
+// sliceWithAgentMeta 本地切片兜底 + 采用 agent 服务端切片元数据。
+// 新版 agent 已按 limitTurns 服务端切好并带回 totalTurns(全量轮数): 本地 sliceRecentTurns
+// 对已切片结果幂等 no-op, 但 total/hasMore 必须用 agent 的全量轮数纠正(本地只看得到切片后的)。
+// 旧版 agent (TotalTurns=nil) 返回全量, 本地切片照常生效, 行为与历史一致。
+func sliceWithAgentMeta(resp *agent.SessionMessagesResponse, limitTurns int) ([]agent.SessionMessage, int, bool) {
+	sliced, total, hasMore := sliceRecentTurns(resp.Messages, limitTurns)
+	if resp.TotalTurns != nil {
+		total = *resp.TotalTurns
+		hasMore = limitTurns > 0 && total > limitTurns
+	}
+	return sliced, total, hasMore
+}
+
 // GetOrCreateSession 进入 feature 页时调 — 拿当前 (user, feature) 的 agent_session_id,
 // 没有就新建并写库。
 //
@@ -180,6 +198,20 @@ func (f *FeatureBridge) GetOrCreateSession(ctx context.Context, userID uint) (st
 		return row.AgentSessionID, nil
 	case errors.Is(err, ErrNotFound):
 		return f.createAndPersist(ctx, userID)
+	default:
+		return "", fmt.Errorf("get session mapping: %w", err)
+	}
+}
+
+// GetSessionID 只读当前 (user, feature) 的 agent session id;不存在返回 ""(**绝不创建**)。
+// 用于「重置前先拿旧 sid 去清理交付物」这类场景 —— 不能像 GetOrCreateSession 那样误建空会话。
+func (f *FeatureBridge) GetSessionID(userID uint) (string, error) {
+	row, err := f.bridge.repo.Get(userID, f.spec.Key)
+	switch {
+	case err == nil:
+		return row.AgentSessionID, nil
+	case errors.Is(err, ErrNotFound):
+		return "", nil
 	default:
 		return "", fmt.Errorf("get session mapping: %w", err)
 	}
@@ -205,7 +237,7 @@ func (f *FeatureBridge) ResetSession(ctx context.Context, userID uint) (string, 
 	}
 	newSessionID := created.SessionID
 
-	if err := f.bridge.repo.UpdateSessionID(userID, f.spec.Key, newSessionID); err != nil {
+	if err := f.bridge.repo.UpdateSessionID(userID, f.spec.Key, oldSessionID, newSessionID); err != nil {
 		slog.Error("agentbridge reset: DB update failed, cleaning up new session",
 			"feature", f.spec.Key, "user_id", userID,
 			"new_session_id", newSessionID, "err", err)
@@ -249,10 +281,10 @@ func (f *FeatureBridge) GetSessionMessages(ctx context.Context, userID uint, lim
 	if err != nil {
 		return nil, err
 	}
-	msgs, err := f.bridge.client.GetSessionMessages(ctx, sessionID)
+	msgs, err := f.bridge.client.GetSessionMessages(ctx, sessionID, limitTurns)
 	if err != nil {
 		if errors.Is(err, agent.ErrSessionNotFound) {
-			newID, createErr := f.recreate(ctx, userID)
+			newID, createErr := f.recreate(ctx, userID, sessionID)
 			if createErr != nil {
 				return nil, createErr
 			}
@@ -260,7 +292,7 @@ func (f *FeatureBridge) GetSessionMessages(ctx context.Context, userID uint, lim
 		}
 		return nil, fmt.Errorf("agent get messages: %w", err)
 	}
-	sliced, total, hasMore := sliceRecentTurns(msgs.Messages, limitTurns)
+	sliced, total, hasMore := sliceWithAgentMeta(msgs, limitTurns)
 	return &SessionMessagesResult{SessionID: sessionID, Messages: sliced, TotalTurns: total, HasMore: hasMore}, nil
 }
 
@@ -279,7 +311,7 @@ func (f *FeatureBridge) GetSessionMessagesByID(ctx context.Context, userID uint,
 	if !owns {
 		return nil, ErrNotFound
 	}
-	msgs, err := f.bridge.client.GetSessionMessages(ctx, sessionID)
+	msgs, err := f.bridge.client.GetSessionMessages(ctx, sessionID, limitTurns)
 	if err != nil {
 		if errors.Is(err, agent.ErrSessionNotFound) {
 			// agent 端确实没有 (孤儿 DB 行) → 顺手清 DB row 防止下次列表里又出现
@@ -291,7 +323,7 @@ func (f *FeatureBridge) GetSessionMessagesByID(ctx context.Context, userID uint,
 		}
 		return nil, fmt.Errorf("agent get messages: %w", err)
 	}
-	sliced, total, hasMore := sliceRecentTurns(msgs.Messages, limitTurns)
+	sliced, total, hasMore := sliceWithAgentMeta(msgs, limitTurns)
 	return &SessionMessagesResult{SessionID: sessionID, Messages: sliced, TotalTurns: total, HasMore: hasMore}, nil
 }
 
@@ -305,14 +337,14 @@ func (f *FeatureBridge) PaginateSessionMessages(ctx context.Context, sessionID s
 	if sessionID == "" {
 		return &SessionMessagesResult{Messages: nil}, nil
 	}
-	msgs, err := f.bridge.client.GetSessionMessages(ctx, sessionID)
+	msgs, err := f.bridge.client.GetSessionMessages(ctx, sessionID, limitTurns)
 	if err != nil {
 		if errors.Is(err, agent.ErrSessionNotFound) {
 			return &SessionMessagesResult{SessionID: sessionID, Messages: nil}, nil
 		}
 		return nil, fmt.Errorf("agent get messages: %w", err)
 	}
-	sliced, total, hasMore := sliceRecentTurns(msgs.Messages, limitTurns)
+	sliced, total, hasMore := sliceWithAgentMeta(msgs, limitTurns)
 	return &SessionMessagesResult{SessionID: sessionID, Messages: sliced, TotalTurns: total, HasMore: hasMore}, nil
 }
 
@@ -326,7 +358,7 @@ func (f *FeatureBridge) GetContextEstimate(ctx context.Context, userID uint) (*a
 	est, err := f.bridge.client.GetSessionContextEstimate(ctx, sessionID)
 	if err != nil {
 		if errors.Is(err, agent.ErrSessionNotFound) {
-			newID, createErr := f.recreate(ctx, userID)
+			newID, createErr := f.recreate(ctx, userID, sessionID)
 			if createErr != nil {
 				return nil, "", createErr
 			}
@@ -367,12 +399,17 @@ func (f *FeatureBridge) SessionAlreadyHasUserMessage(ctx context.Context, sessio
 	if sessionID == "" {
 		return false, nil
 	}
-	msgs, err := f.bridge.client.GetSessionMessages(ctx, sessionID)
+	// limitTurns=1: 新版 agent 只返最近一轮 + totalTurns 元数据, 探测从"拉整段 transcript"
+	// 降为一轮的传输量; 旧版 agent 忽略参数返回全量, 下面的逐条扫描兜底。
+	msgs, err := f.bridge.client.GetSessionMessages(ctx, sessionID, 1)
 	if err != nil {
 		if errors.Is(err, agent.ErrSessionNotFound) {
 			return false, nil
 		}
 		return false, fmt.Errorf("agent get messages: %w", err)
+	}
+	if msgs.TotalTurns != nil {
+		return *msgs.TotalTurns > 0, nil
 	}
 	for _, m := range msgs.Messages {
 		if m.Type == "user" {
@@ -380,6 +417,22 @@ func (f *FeatureBridge) SessionAlreadyHasUserMessage(ctx context.Context, sessio
 		}
 	}
 	return false, nil
+}
+
+// markPromptInjected 异步把 agent_sessions.prompt_injected 置 1 (migration 0024)。
+// 纯优化标记: 置位后, 后续 WS 升级用一次 DB 点查替代全量 transcript 探测
+// (SessionAlreadyHasUserMessage)。写失败只意味着下次连接多探测一次, 不影响正确性,
+// 故走全局有界 record 池 + Debug 级日志。
+func (f *FeatureBridge) markPromptInjected(sessionID string) {
+	if sessionID == "" {
+		return
+	}
+	safego.Record("agentbridge-mark-injected:"+f.spec.Key, func() {
+		if err := f.bridge.repo.MarkPromptInjected(sessionID); err != nil {
+			slog.Debug("agentbridge: mark prompt_injected failed",
+				"feature", f.spec.Key, "session_id", sessionID, "err", err)
+		}
+	})
 }
 
 // OwnsSession 校验 sessionId 是否归当前 (user, feature) 所有。
@@ -434,8 +487,16 @@ func (f *FeatureBridge) ListSessions(ctx context.Context, userID uint) ([]Sessio
 		return []SessionListItem{}, nil
 	}
 
-	// 拉 agent 全量 (TODO: agent 加 ids 过滤后改用)
-	agentList, agentErr := f.bridge.client.ListSessions(ctx, nil)
+	// 把用户名下的 sessionId 集合传给 agent 做服务端过滤: agent 只 stat/读这些会话的
+	// jsonl, 不再拉全平台 top-200 —— 总会话数超 200 后用户旧会话也不会再静默丢元数据。
+	// (旧版 agent 忽略 ids 返回全量, 下面按 agentByID map 取交集的逻辑天然兜底。)
+	ids := make([]string, 0, len(rows))
+	for _, r := range rows {
+		if r.AgentSessionID != "" {
+			ids = append(ids, r.AgentSessionID)
+		}
+	}
+	agentList, agentErr := f.bridge.client.ListSessions(ctx, ids)
 	// agent 拉失败不致命: 仍返 DB 行, title/messageCount 留空
 	agentByID := make(map[string]agent.SessionSummary)
 	if agentErr == nil && agentList != nil {
@@ -588,13 +649,18 @@ func (f *FeatureBridge) createAndPersist(ctx context.Context, userID uint) (stri
 	return created.SessionID, nil
 }
 
-// recreate 自愈路径: agent 端 404 时清旧 mapping + 建新 + 写 DB。
-func (f *FeatureBridge) recreate(ctx context.Context, userID uint) (string, error) {
+// recreate 自愈路径: agent 端 404 时把 oldSessionID 那一行换成新建的会话 (行级,不动其它会话)。
+func (f *FeatureBridge) recreate(ctx context.Context, userID uint, oldSessionID string) (string, error) {
 	created, err := f.bridge.client.CreateSession(ctx, f.spec.SessionOptions)
 	if err != nil {
 		return "", fmt.Errorf("recreate agent session: %w", err)
 	}
-	if err := f.bridge.repo.UpdateSessionID(userID, f.spec.Key, created.SessionID); err != nil {
+	if err := f.bridge.repo.UpdateSessionID(userID, f.spec.Key, oldSessionID, created.SessionID); err != nil {
+		// 回收刚建的 agent 会话,避免重试一次漏一个孤儿(audit rank 16)。
+		if delErr := f.bridge.client.DeleteSession(ctx, created.SessionID); delErr != nil {
+			slog.Warn("agentbridge recreate: cleanup new session after DB fail also failed",
+				"feature", f.spec.Key, "session_id", created.SessionID, "err", delErr)
+		}
 		return "", fmt.Errorf("recreate update mapping: %w", err)
 	}
 	slog.Info("agentbridge recreate: session rebuilt after agent 404",

@@ -1268,14 +1268,20 @@ export class SessionService {
   // --------------------------------------------------------------------------
 
   /**
-   * List all sessions, optionally filtered by project path.
+   * List all sessions, optionally filtered by project path and/or session id set.
    */
   async listSessions(options?: {
     project?: string
     limit?: number
     offset?: number
+    /** 只返回指定 sessionId 集合 (Scholay backend 按用户过滤用)。在 stat/读 jsonl 之前收窄。 */
+    ids?: string[]
   }): Promise<{ sessions: SessionListItem[]; total: number }> {
-    const sessionFiles = await this.discoverSessionFiles(options?.project)
+    let sessionFiles = await this.discoverSessionFiles(options?.project)
+    if (options?.ids && options.ids.length > 0) {
+      const idSet = new Set(options.ids)
+      sessionFiles = sessionFiles.filter((f) => idSet.has(f.sessionId))
+    }
     const filesWithStats = (await Promise.all(sessionFiles.map(async (sessionFile) => {
       try {
         return {
@@ -1578,7 +1584,10 @@ export class SessionService {
     const found = await this.findSessionFile(sessionId)
     if (!found) return null
 
-    const entries = await this.readJsonlFile(found.filePath)
+    // 只读末尾(readJsonlFileTail)而非整份 transcript —— resolveWorkDirFromEntries 本就从尾部扫,
+    // session-meta.workDir 不在尾窗时也能回落到最近一条 cwd(隔离会话里 cwd 即 workDir,一致)。
+    // 本方法在冷会话的每个工作区 HTTP 请求里被调多次,旧的整份读会把几十~上百 MB transcript 反复解析。
+    const entries = await this.readJsonlFileTail(found.filePath)
     return this.resolveWorkDirFromEntries(entries, found.projectDir)
   }
 

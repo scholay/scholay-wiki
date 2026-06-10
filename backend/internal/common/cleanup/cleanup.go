@@ -30,7 +30,19 @@ type CleanupService struct {
 	// 归属表对账(self-heal):实体级 feature 的业务表 → agent_sessions 归属行补漏。
 	agentReconciler  *agentbridge.Repository
 	reconcileTargets []agentbridge.OwnerReconcileTarget
+
+	// 临时经费过期清扫(注入 vip.WalletService.ExpireSweep,用函数型避免 import vip)。
+	creditExpirer CreditExpireSweeper
+
+	// 超时 pending 订单作废(注入 vip.OrderService.CancelStalePending)。
+	pendingOrderCanceller PendingOrderCanceller
 }
+
+// CreditExpireSweeper 把已过期临时经费批次清零并写 expire 流水,返回清理批次数。
+type CreditExpireSweeper func(now time.Time) (int, error)
+
+// PendingOrderCanceller 把超过 ttl 仍 pending 的订单作废,返回作废数。
+type PendingOrderCanceller func(ttl time.Duration) (int64, error)
 
 // NewCleanupService creates a new cleanup service
 func NewCleanupService(db *gorm.DB) *CleanupService {
@@ -54,6 +66,16 @@ func (s *CleanupService) SetAgentSessionReconciler(repo *agentbridge.Repository,
 	s.reconcileTargets = targets
 }
 
+// SetCreditExpirer 注入临时经费过期清扫(vip.WalletService.ExpireSweep)。给齐才会启用该日任务。
+func (s *CleanupService) SetCreditExpirer(sweep CreditExpireSweeper) {
+	s.creditExpirer = sweep
+}
+
+// SetPendingOrderCanceller 注入超时 pending 订单作废(vip.OrderService.CancelStalePending)。
+func (s *CleanupService) SetPendingOrderCanceller(cancel PendingOrderCanceller) {
+	s.pendingOrderCanceller = cancel
+}
+
 // Start starts all cleanup tasks as background goroutines
 func (s *CleanupService) Start() {
 	slog.Info("Starting cleanup service")
@@ -70,6 +92,22 @@ func (s *CleanupService) Start() {
 	safego.Go("cleanup-old-llm-token-usage", func() {
 		s.runDaily("old_llm_token_usage", 4, 20, s.cleanOldLLMTokenUsage)
 	})
+
+	// 临时经费过期清扫:把已过期批次账面归零并写 expire 流水(余额读时本就按 now 过滤,
+	// 这里是为了账本可对账 —— 否则用户账单里 temp 会跨过期界无解释下跌)。每天 04:25。
+	if s.creditExpirer != nil {
+		safego.Go("cleanup-expired-credits", func() {
+			s.runDaily("expired_credits", 4, 25, s.cleanExpiredCredits)
+		})
+	}
+
+	// 超时 pending 订单作废:网关 120m 关单后这些单永远不会再被履约,清掉防堆积 +
+	// 防「逾期支付得到过期会员」(作废后用户须重新下单,新单按支付时刻重算窗口)。每天 04:45。
+	if s.pendingOrderCanceller != nil {
+		safego.Go("cleanup-stale-pending-orders", func() {
+			s.runDaily("stale_pending_orders", 4, 45, s.cleanStalePendingOrders)
+		})
+	}
 
 	// 归属表对账(self-heal):启动先跑一次(补上部署间隙/历史漂移),之后每天 04:35 兜底。
 	if s.agentReconciler != nil && len(s.reconcileTargets) > 0 {
@@ -116,16 +154,50 @@ func (s *CleanupService) Stop() {
 	slog.Info("Cleanup service stopped")
 }
 
+// batchDeleteByCreatedAt 按 created_at 分批删除过期行 (LIMIT 1000 + 100ms 间隔)。
+// 取代单条 `DELETE ... WHERE created_at < ?`：稳态每天只删一天量无所谓，但首次跨过保留期
+// 边界或长时间停机恢复时，单语句可能删数百万行，生成巨大 undo/purge 积压、阻塞同表并发 INSERT。
+// 分批 + created_at 索引对在线写入友好。范式同 cleanOldUsageLogs。
+func (s *CleanupService) batchDeleteByCreatedAt(table string, cutoff time.Time) (int64, error) {
+	const batchSize = 1000                    // 每批删除 1000 条
+	const batchDelay = 100 * time.Millisecond // 批次间隔 100ms
+
+	var totalDeleted int64
+	for {
+		select {
+		case <-s.ctx.Done():
+			return totalDeleted, nil
+		default:
+		}
+
+		// #nosec G202 -- table 为代码内常量, 非用户输入
+		result := s.db.Exec(
+			"DELETE FROM "+table+" WHERE created_at < ? ORDER BY created_at ASC LIMIT ?",
+			cutoff, batchSize,
+		)
+		if result.Error != nil {
+			return totalDeleted, result.Error
+		}
+		totalDeleted += result.RowsAffected
+
+		if result.RowsAffected < int64(batchSize) {
+			break
+		}
+		time.Sleep(batchDelay)
+	}
+	return totalDeleted, nil
+}
+
 // cleanOldUsageEvents 删除 usage_events (功能使用统计 v2) 中超过保留期的事件。
 // 保留 365 天 (与 usagestat.RetentionDays 一致; 此处用字面值避免对 usagestat 的依赖)。
 func (s *CleanupService) cleanOldUsageEvents() error {
 	cutoff := time.Now().AddDate(0, 0, -365)
-	result := s.db.Exec("DELETE FROM usage_events WHERE created_at < ?", cutoff)
-	if result.Error != nil {
-		return result.Error
+	deleted, err := s.batchDeleteByCreatedAt("usage_events", cutoff)
+	if err != nil {
+		return err
 	}
-	if result.RowsAffected > 0 {
-		slog.Info("Cleaned old usage_events", "deleted", result.RowsAffected)
+	if deleted > 0 {
+		slog.Info("Cleaned old usage_events", "deleted", deleted)
 	}
 	return nil
 }
@@ -135,12 +207,42 @@ func (s *CleanupService) cleanOldUsageEvents() error {
 // 一致; 此处用字面值避免对 llmusage 的依赖)。
 func (s *CleanupService) cleanOldLLMTokenUsage() error {
 	cutoff := time.Now().AddDate(0, 0, -365)
-	result := s.db.Exec("DELETE FROM llm_token_usage WHERE created_at < ?", cutoff)
-	if result.Error != nil {
-		return result.Error
+	deleted, err := s.batchDeleteByCreatedAt("llm_token_usage", cutoff)
+	if err != nil {
+		return err
 	}
-	if result.RowsAffected > 0 {
-		slog.Info("Cleaned old llm_token_usage", "deleted", result.RowsAffected)
+	if deleted > 0 {
+		slog.Info("Cleaned old llm_token_usage", "deleted", deleted)
+	}
+	return nil
+}
+
+// cleanExpiredCredits 调用注入的 ExpireSweep 把过期临时经费批次归零并留痕。
+func (s *CleanupService) cleanExpiredCredits() error {
+	if s.creditExpirer == nil {
+		return nil
+	}
+	n, err := s.creditExpirer(time.Now())
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		slog.Info("Cleaned expired credit lots", "lots", n)
+	}
+	return nil
+}
+
+// cleanStalePendingOrders 作废超过 24h 仍 pending 的订单(网关 120m 已关单,此后永不履约)。
+func (s *CleanupService) cleanStalePendingOrders() error {
+	if s.pendingOrderCanceller == nil {
+		return nil
+	}
+	n, err := s.pendingOrderCanceller(24 * time.Hour)
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		slog.Info("Cancelled stale pending orders", "orders", n)
 	}
 	return nil
 }

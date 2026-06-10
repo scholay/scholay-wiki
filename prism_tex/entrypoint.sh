@@ -15,6 +15,12 @@ set -u
 WORK="${PRISM_WORK_DIR:-/work}"
 TIMEOUT="${COMPILE_TIMEOUT:-60}"
 HEARTBEAT=/tmp/heartbeat
+# 单文件写入上限(KB,ulimit -f 单位):防病态 .tex(\newwrite 循环 / compile.log 洪写)
+# 把与 mysql/minio 共享的宿主分区写爆(磁盘耗尽 DoS)。legit PDF/log 远小于此。
+MAXFILEKB="${COMPILE_MAX_FILE_KB:-102400}"   # 100MB
+# 并发编译上限:认领走原子 mv(.request→.processing),天然单认领,可安全并行。
+# 串行 watcher 下 2+ 并发用户会触发后端 95s 轮询超时(伪「编译服务异常」)。
+MAXPAR="${COMPILE_MAX_PARALLEL:-2}"
 
 mkdir -p "${TEXMFVAR:-/tmp/texmf-var}" "${TEXMFCACHE:-/tmp/texmf-cache}" 2>/dev/null || true
 echo "[prism_tex] watcher up · work=$WORK · timeout=${TIMEOUT}s"
@@ -42,7 +48,8 @@ compile_one() {
   #   否则后端轮询不到 status,只能报「编译服务异常」。
   # 编译放后台,前台 while 持续刷新 heartbeat —— 长编译(>30s)期间不让 healthcheck 误判
   #   unhealthy(否则编排器重启容器会丢掉正在编的 status.json,同样表现为「编译服务异常」)。
-  ( cd "$dir" && timeout -k 15 "$TIMEOUT" latexmk "$flag" -interaction=nonstopmode -halt-on-error \
+  # ulimit -f $MAXFILEKB:任一输出文件超限即 SIGXFSZ 终止编译(防写爆共享磁盘);子 shell 内生效不影响 watcher。
+  ( cd "$dir" && ulimit -f "$MAXFILEKB" && timeout -k 15 "$TIMEOUT" latexmk "$flag" -interaction=nonstopmode -halt-on-error \
       -no-shell-escape -outdir=. "$main" ) > "$dir/$log" 2>&1 &
   local pid=$!
   while kill -0 "$pid" 2>/dev/null; do
@@ -90,8 +97,14 @@ while true; do
       [ -f "$dir/status.json" ] && continue        # 已完成
       [ -f "$dir/.processing" ] && continue         # 进行中(异常残留也跳过,避免重复)
       [ -f "$dir/.request" ] || continue            # 未就绪
-      mv -f "$dir/.request" "$dir/.processing" 2>/dev/null || continue  # 认领
-      compile_one "$dir"
+      mv -f "$dir/.request" "$dir/.processing" 2>/dev/null || continue  # 认领(原子)
+      # 后台化编译 + 有界并行:认领后台跑;达到并行上限就等任意一个完成再认领下一个。
+      # 主循环不再被单个长编译阻塞 → 心跳持续刷新、多用户不必排队到轮询超时。
+      compile_one "$dir" &
+      while [ "$(jobs -rp | wc -l)" -ge "$MAXPAR" ]; do
+        : > "$HEARTBEAT" 2>/dev/null || true
+        sleep 0.3
+      done
     done
   fi
   sleep 0.5

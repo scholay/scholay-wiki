@@ -72,8 +72,8 @@ var vipChecker *vip.Service
 func SetVIPChecker(v *vip.Service) { vipChecker = v }
 
 // preUserMessageChain 把配额检查 + 功能使用统计组合成一个 PreUserMessageFn:
-//   1. 先查 vip 配额, 超额直接 error 出去, 后续不记 (不是真正的"使用")
-//   2. 配额过了 → 记一条 usage_events (claw/message), userID 必填
+//  1. 先查 vip 配额, 超额直接 error 出去, 后续不记 (不是真正的"使用")
+//  2. 配额过了 → 记一条 usage_events (claw/message), userID 必填
 //
 // 闭包结构保证 usageRecorder/vipChecker 是**调用时**读取 (而不是注册时), 所以
 // BuildSpec 可以在 SetUsageRecorder/SetVIPChecker 之前调用, 顺序无关。

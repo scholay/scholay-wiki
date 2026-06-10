@@ -1,0 +1,36 @@
+# 基线「内网 / 云元数据」拒绝清单 —— 在所有 EGRESS_FILTER_MODE(含 open)下都加载。
+#
+# 背景:tinyproxy 的 ConnectPort 443 只约束 CONNECT 方法(HTTPS),挡不住明文正向代理
+#   GET http://100.100.100.200/...(阿里云元数据)/ GET http://10.x.x.x/...(内网)。
+#   open 模式原本不加任何 Filter,这些明文请求直通 → SSRF / 云 RAM 凭证窃取。
+#   ws.go 的注释把 SSRF 兜底委托给了本代理层,故必须在这里闭合。
+#
+# tinyproxy FilterType=ere(POSIX 扩展正则),大小写不敏感,匹配请求目标 host。
+# 配合 entrypoint.sh 在 open 模式下用 FilterDefaultDeny No(deny-list 语义:命中即拒,其余放行)。
+#
+# 注意:本过滤按「请求里写的 host 字符串」匹配,直接写 IP / 元数据域名会被挡;
+# 一个解析到内网 IP 的恶意域名(DNS rebinding)绕不过 host 过滤 —— 生产请用
+# EGRESS_FILTER_MODE=allowlist(deny-by-default)彻底闭合,本清单是 open 模式的纵深兜底。
+
+# ── 云厂商元数据端点 ──
+^169\.254\.169\.254$
+^100\.100\.100\.200$
+(^|\.)metadata\.google\.internal$
+(^|\.)metadata\.goog$
+
+# ── link-local(含全部元数据 169.254.0.0/16)──
+^169\.254\.
+
+# ── RFC1918 私网 ──
+^10\.
+^192\.168\.
+^172\.(1[6-9]|2[0-9]|3[01])\.
+
+# ── 回环 / 本机 ──
+^127\.
+^0\.0\.0\.0$
+^localhost$
+(^|\.)localhost$
+
+# ── 同 compose 内网服务名(即便网络拓扑已隔离,双保险)──
+^(mysql|redis|minio|backend|scholar_[a-z_]+|umami)$

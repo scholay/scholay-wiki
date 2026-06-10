@@ -2,7 +2,7 @@ import { Sparkles } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/shared/lib/utils';
 import { BrandLogo } from '@/shared/components/BrandLogo';
-import { SmartComposer } from './SmartComposer';
+import { SmartComposer, COMPOSER_LAYOUT_ID, composerDockTransition } from './SmartComposer';
 
 /**
  * 智能搜索「起始态」hero —— 没有任何对话时(未登录 / 已登录但新会话)居中展示的入口,
@@ -41,6 +41,7 @@ export function SmartSearchHero({
   loggedOut = false,
   ready = true,
 }: SmartSearchHeroProps) {
+  const reduce = useReducedMotion();
   return (
     <div className="relative flex-1 min-h-0 flex flex-col items-center justify-center overflow-hidden px-6 py-8">
       <AmbientBackdrop />
@@ -56,10 +57,17 @@ export function SmartSearchHero({
           </h2>
         </div>
 
-        {/* 对话框 —— 与对话中底部栏共用 SmartComposer,样式一致 */}
-        <div className="w-full">
+        {/* 对话框 —— 与对话中底部栏共用 SmartComposer + 同一个 layoutId:
+            发送首条消息后,framer-motion 据 layoutId 把这个对话框从居中平滑地滑到底部
+            (底部栏在 SmartSearchPanel,同 layoutId + 同 prominent 尺寸 → 纯位移、不变形)。 */}
+        <motion.div
+          layoutId={COMPOSER_LAYOUT_ID}
+          transition={composerDockTransition(reduce)}
+          className="w-full"
+        >
           <SmartComposer
             prominent
+            autoFocus
             value={value}
             onChange={onChange}
             onSubmit={onSubmit}
@@ -67,7 +75,7 @@ export function SmartSearchHero({
             ready={ready}
             rotatingPlaceholders={SUGGESTIONS}
           />
-        </div>
+        </motion.div>
       </div>
     </div>
   );

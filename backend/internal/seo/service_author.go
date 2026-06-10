@@ -30,7 +30,7 @@ func (s *Service) RecordAuthorDetailClick(seed *AuthorSeed) error {
 		return err
 	}
 	s.invalidateAuthorsCache()
-	s.enqueueAuthorSlugs(slug)
+	s.enqueueAuthorPaths(authorCanonicalPath(seed.Source, seed.AuthorID))
 	return nil
 }
 
@@ -45,7 +45,7 @@ func (s *Service) RecordAuthorSearchSeeds(seeds []AuthorSeed) (int, error) {
 	}
 
 	written := 0
-	pushSlugs := make([]string, 0, len(seeds))
+	pushPaths := make([]string, 0, len(seeds))
 	for i := range seeds {
 		seed := &seeds[i]
 		if seed.AuthorID == "" || seed.Name == "" {
@@ -62,12 +62,12 @@ func (s *Service) RecordAuthorSearchSeeds(seeds []AuthorSeed) (int, error) {
 			continue
 		}
 		written++
-		pushSlugs = append(pushSlugs, slug)
+		pushPaths = append(pushPaths, authorCanonicalPath(seed.Source, seed.AuthorID))
 	}
 
 	if written > 0 {
 		s.invalidateAuthorsCache()
-		s.enqueueAuthorSlugs(pushSlugs...)
+		s.enqueueAuthorPaths(pushPaths...)
 	}
 	return written, nil
 }

@@ -102,7 +102,7 @@ func (h *Handler) BatchAnalyzePapers(c *gin.Context) {
 	if h.vip != nil {
 		if err := h.vip.CheckDailyQuota(c.Request.Context(), uid); err != nil {
 			if errors.Is(err, vip.ErrQuotaExceeded) {
-				utils.Error(c, errcode.AgentQuotaExceeded, err.Error())
+				utils.SafeError(c, errcode.AgentQuotaExceeded, err)
 				return
 			}
 		}
@@ -515,7 +515,7 @@ func (h *Handler) StreamTranslatePaper(c *gin.Context) {
 	if h.vip != nil {
 		if err := h.vip.CheckDailyQuota(c.Request.Context(), uid); err != nil {
 			if errors.Is(err, vip.ErrQuotaExceeded) {
-				utils.Error(c, errcode.AgentQuotaExceeded, err.Error())
+				utils.SafeError(c, errcode.AgentQuotaExceeded, err)
 				return
 			}
 		}

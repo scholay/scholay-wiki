@@ -19,9 +19,9 @@ import (
 // UpsertJournalDetail 用户点击期刊详情页 (tier=1, 高质量)
 //
 // updated_at 触发条件:
-//   1. quality_tier 由 2 升级到 1 (新晋活跃)
-//   2. canonical_name 变化
-//   3. publisher / issns_json 真的变长 (升级覆盖)
+//  1. quality_tier 由 2 升级到 1 (新晋活跃)
+//  2. canonical_name 变化
+//  3. publisher / issns_json 真的变长 (升级覆盖)
 func (r *Repository) UpsertJournalDetail(seed *JournalSeed, slug, issnsJSON string) error {
 	if seed == nil || seed.JournalID <= 0 {
 		return errors.New("empty journal_id")

@@ -23,13 +23,13 @@ import (
 // SeedSource 由调用方实现,提供启动 seed 的全部 URL 路径。
 // 拆出接口避免 seosubmit 反向依赖 seo 包(那里有 BlogArticles / ResourceArticles 数据)。
 type SeedSource interface {
-	StaticPaths() []string  // 像 ["/", "/pricing", "/about", ...]
-	BlogPaths() []string    // 像 ["/blog", "/blog/foo-slug", ...]
+	StaticPaths() []string   // 像 ["/", "/pricing", "/about", ...]
+	BlogPaths() []string     // 像 ["/blog", "/blog/foo-slug", ...]
 	ResourcePaths() []string // 像 ["/resources", "/resources/foo-slug", ...]
-	// 数据库 paper/author slug 通过 LimitedPaperSlugs / LimitedAuthorSlugs 获取
-	// 限量 + 优先 tier=1 的实现见 seo.Service.GetTopSlugsForBootstrap
-	BootstrapPaperSlugs(ctx context.Context, limit int) []string
-	BootstrapAuthorSlugs(ctx context.Context, limit int) []string
+	// paper/author 返回**完整 canonical 路径**(/paper/{source}/{id}、/author/{source}/{id}),
+	// 不是 slug —— 避免推送 legacy /xxx/{slug} 被 canonicalRedirectFor 301(rank 12)。限量 + tier=1 优先。
+	BootstrapPaperPaths(ctx context.Context, limit int) []string
+	BootstrapAuthorPaths(ctx context.Context, limit int) []string
 }
 
 // BootstrapEnqueue 启动时一次性 seed 队列。
@@ -50,26 +50,19 @@ func (s *Service) BootstrapEnqueue(parent context.Context, src SeedSource, limit
 		all = append(all, src.BlogPaths()...)
 		all = append(all, src.ResourcePaths()...)
 
-		paperSlugs := src.BootstrapPaperSlugs(ctx, limit)
-		for _, slug := range paperSlugs {
-			if slug != "" {
-				all = append(all, "/paper/"+slug)
-			}
-		}
-		authorSlugs := src.BootstrapAuthorSlugs(ctx, limit)
-		for _, slug := range authorSlugs {
-			if slug != "" {
-				all = append(all, "/author/"+slug)
-			}
-		}
+		// 已是完整 canonical 路径,直接入队(不再前缀拼 slug)。
+		paperPaths := src.BootstrapPaperPaths(ctx, limit)
+		all = append(all, paperPaths...)
+		authorPaths := src.BootstrapAuthorPaths(ctx, limit)
+		all = append(all, authorPaths...)
 
 		s.EnqueuePaths(ctx, all)
 		slog.Info("seo push bootstrap seeded",
 			"static", len(src.StaticPaths()),
 			"blogs", len(src.BlogPaths()),
 			"resources", len(src.ResourcePaths()),
-			"papers", len(paperSlugs),
-			"authors", len(authorSlugs),
+			"papers", len(paperPaths),
+			"authors", len(authorPaths),
 		)
 	})
 }

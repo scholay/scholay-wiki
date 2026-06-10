@@ -52,6 +52,16 @@ func ExtractTemplateVariables(templateContent string) []string {
 	return variables
 }
 
+// templateParamKeys 返回模板参数的键名列表(不含值)—— 给日志用,
+// 既能看出请求形状,又绝不把含 OTP 的值写进日志。
+func templateParamKeys(params map[string]string) []string {
+	keys := make([]string, 0, len(params))
+	for k := range params {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 // BuildTemplateParams builds template parameters JSON from variable map
 // Example: {"code": "123456", "min": "5"} -> {"code":"123456","min":"5"}
 func BuildTemplateParams(params map[string]string) (string, error) {
@@ -143,14 +153,15 @@ func sendSMS(config SMSConfig, phoneNumber string, params map[string]string) err
 		return err
 	}
 
+	// 注意:不记 templateParam —— 它含活的验证码(OTP),进 docker logs 即等于把 OTP
+	// 泄露给任何有日志读权限者(CWE-532)。只记参数键名,值不落日志。
 	slog.Info("sending SMS",
 		"phoneNumber", phoneNumber,
 		"signName", config.SignName,
 		"signNameLen", len(config.SignName),
 		"templateCode", config.TemplateCode,
 		"templateCodeLen", len(config.TemplateCode),
-		"templateCodeBytes", []byte(config.TemplateCode),
-		"templateParam", templateParam,
+		"paramKeys", templateParamKeys(params),
 		"endpoint", config.Endpoint,
 	)
 
@@ -169,13 +180,12 @@ func sendSMS(config SMSConfig, phoneNumber string, params map[string]string) err
 		TemplateParam: tea.String(templateParam),
 	}
 
-	// Log the actual values being sent
+	// Log request shape only —— 同样不记 templateParam(含活 OTP)。
 	slog.Debug("SMS request details",
 		"phoneNumbers", tea.StringValue(request.PhoneNumbers),
 		"signName", tea.StringValue(request.SignName),
 		"templateCode", tea.StringValue(request.TemplateCode),
-		"templateParam", tea.StringValue(request.TemplateParam),
-		"templateParamBytes", []byte(tea.StringValue(request.TemplateParam)),
+		"paramKeys", templateParamKeys(params),
 	)
 
 	runtime := &util.RuntimeOptions{}
@@ -264,11 +274,12 @@ func sendSMSVerifyCodePNS(config SMSConfig, phoneNumber string, params map[strin
 		return err
 	}
 
+	// 不记 templateParam(含活 OTP),只记键名 —— 见上文 SendSMS 同处说明。
 	slog.Info("sending PNS SMS verification code",
 		"phoneNumber", phoneNumber,
 		"signName", config.SignName,
 		"templateCode", config.TemplateCode,
-		"templateParam", templateParam,
+		"paramKeys", templateParamKeys(params),
 	)
 
 	// Create API params according to official example
@@ -302,7 +313,7 @@ func sendSMSVerifyCodePNS(config SMSConfig, phoneNumber string, params map[strin
 		"phoneNumber", phoneNumber,
 		"signName", config.SignName,
 		"templateCode", config.TemplateCode,
-		"templateParam", templateParam,
+		"paramKeys", templateParamKeys(params),
 	)
 
 	// Call API

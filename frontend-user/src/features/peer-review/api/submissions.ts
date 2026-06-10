@@ -20,6 +20,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
+import { retryDetailQuery } from '@/shared/lib/query-config';
 import type {
   AttachmentCategory,
   Submission,
@@ -52,6 +53,8 @@ export function useSubmission(id?: number) {
   return useQuery({
     queryKey: KEY('detail', id ?? 0),
     enabled: !!id,
+    // 不存在 / 非本人 → 后端 404,立即失败(不重试),让「投稿不存在」友好态秒出。
+    retry: retryDetailQuery,
     queryFn: async () => {
       const r = await http.get<{ data?: Submission } & Partial<Submission>>(
         `/user/peer-review/submissions/${id}`

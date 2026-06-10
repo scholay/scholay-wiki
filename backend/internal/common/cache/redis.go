@@ -15,6 +15,8 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -48,6 +50,48 @@ func jitterTTL(d time.Duration) time.Duration {
 }
 
 var rdb *redis.Client
+
+// rdbPersist 是可选的「correctness 键」专用 Redis(noeviction 策略):吊销标记 / 每日配额 /
+// SEO 推送队列等不能被主实例 allkeys-lru 静默逐出的键放这里。未配置时 GetRedisPersist 回落主 Redis。
+var rdbPersist *redis.Client
+
+// InitRedisPersist 初始化 correctness 键专用 Redis(可选)。host 为空则跳过(回落主 Redis)。
+func InitRedisPersist(host, port, password string, db int) error {
+	if host == "" {
+		slog.Info("Redis persist instance not configured — correctness keys fall back to main Redis")
+		return nil
+	}
+	addr := fmt.Sprintf("%s:%s", host, port)
+	rdbPersist = redis.NewClient(&redis.Options{
+		Addr:         addr,
+		Password:     password,
+		DB:           db,
+		DialTimeout:  5 * time.Second,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		PoolSize:     50,
+		MinIdleConns: 10,
+	})
+	ctx, cancel := ctxutil.With(ctxutil.QuickIO)
+	defer cancel()
+	if err := rdbPersist.Ping(ctx).Err(); err != nil {
+		// 可选实例:连不上不致命,降级回落主 Redis(correctness 键仍在,只是回到逐出风险 + 告警兜底)。
+		rdbPersist = nil
+		slog.Warn("persist Redis configured but unreachable — falling back to main Redis", "addr", addr, "err", err)
+		return nil
+	}
+	slog.Info("Redis persist instance connected", "addr", addr)
+	return nil
+}
+
+// GetRedisPersist 返回 correctness 键应使用的 Redis:配了专用 noeviction 实例就用它,
+// 否则回落主实例(单实例部署行为不变;此时逐出风险仍由 StartEvictionMonitoring 告警兜底)。
+func GetRedisPersist() *redis.Client {
+	if rdbPersist != nil {
+		return rdbPersist
+	}
+	return rdb
+}
 
 // sfShardCount 分片数：取 2 的幂便于位掩码取模。每个 shard 一个独立 Group，
 // 避免单一 Group 内部 mutex 在大量不同 key 高并发时成为瓶颈。
@@ -96,6 +140,67 @@ func InitRedis(host string, port string, password string, db int) error {
 // GetRedis returns the Redis client instance
 func GetRedis() *redis.Client {
 	return rdb
+}
+
+// StartEvictionMonitoring 周期性读 Redis INFO stats 的 evicted_keys,>0 即告警。
+//
+// 本实例是 allkeys-lru + 512MB,与吊销标记 / 每日配额 / SEO 队列等 correctness 键共池。
+// 内存打满时这些键会被静默逐出(吊销复活 / 配额清零 / 队列丢失)且 fail-open 文档不覆盖
+// 「健康实例逐出」这一路径。在 correctness 键彻底分池前,至少让逐出**不再静默**:有逐出就报警,
+// 运维据此扩容 / 分池。仅观测,不改任何行为。
+func StartEvictionMonitoring(ctx context.Context, interval time.Duration) {
+	if rdb == nil {
+		return
+	}
+	safego.Go("redis-eviction-monitor", func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		var lastEvicted int64 = -1
+		for {
+			select {
+			case <-ticker.C:
+				evicted := readEvictedKeys(ctx)
+				if evicted < 0 {
+					continue // 读失败,跳过本次
+				}
+				if lastEvicted < 0 {
+					lastEvicted = evicted // 首次只记基线,不报(可能是历史累计)
+					continue
+				}
+				if evicted > lastEvicted {
+					slog.Warn("redis evicted keys detected — correctness 键(吊销/配额/队列)可能被逐出,请扩容或分池",
+						"evicted_total", evicted, "delta", evicted-lastEvicted,
+						"hint", "INFO stats evicted_keys / 见 maxmemory 512MB allkeys-lru")
+				}
+				lastEvicted = evicted
+			case <-ctx.Done():
+				slog.Info("Redis eviction monitoring stopped")
+				return
+			}
+		}
+	})
+	slog.Info("Redis eviction monitoring started", "interval", interval)
+}
+
+// readEvictedKeys 解析 INFO stats 的 evicted_keys;失败返回 -1。
+func readEvictedKeys(ctx context.Context) int64 {
+	rctx, cancel := context.WithTimeout(ctx, ctxutil.CacheRead)
+	defer cancel()
+	info, err := rdb.Info(rctx, "stats").Result()
+	if err != nil {
+		return -1
+	}
+	for _, line := range strings.Split(info, "\n") {
+		line = strings.TrimSpace(line)
+		if rest, ok := strings.CutPrefix(line, "evicted_keys:"); ok {
+			n, perr := strconv.ParseInt(strings.TrimSpace(rest), 10, 64)
+			if perr != nil {
+				return -1
+			}
+			return n
+		}
+	}
+	return -1
 }
 
 // Set sets a key-value pair with expiration（自动叠加 TTL 抖动以防雪崩）

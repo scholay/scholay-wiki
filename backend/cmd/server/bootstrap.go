@@ -21,12 +21,11 @@ import (
 	"time"
 
 	"scholar-backend/internal/agent"
+	"scholar-backend/internal/agentartifact"
 	"scholar-backend/internal/agentbridge"
 	"scholar-backend/internal/agentconfig"
 	"scholar-backend/internal/announcement"
-	"scholar-backend/internal/peerreview"
 	"scholar-backend/internal/claw"
-	"scholar-backend/internal/smartsearch"
 	"scholar-backend/internal/clientlog"
 	"scholar-backend/internal/common/cleanup"
 	appconfig "scholar-backend/internal/common/config"
@@ -36,17 +35,19 @@ import (
 	"scholar-backend/internal/emaillog"
 	"scholar-backend/internal/featuretool"
 	"scholar-backend/internal/library"
+	"scholar-backend/internal/peerreview"
 	"scholar-backend/internal/prism"
 	"scholar-backend/internal/promptregistry"
 	"scholar-backend/internal/seo"
 	"scholar-backend/internal/seosubmit"
+	"scholar-backend/internal/smartsearch"
 	"scholar-backend/internal/stagingarea"
 	"scholar-backend/internal/storage"
 	"scholar-backend/internal/thirdparty"
 	"scholar-backend/internal/umami"
 	"scholar-backend/internal/user"
-	"scholar-backend/internal/wechat"
 	"scholar-backend/internal/websocket"
+	"scholar-backend/internal/wechat"
 )
 
 // domainFromSiteURL 从 https://www.scholay.com → www.scholay.com,给 umami
@@ -226,7 +227,13 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// peerreview 的 server-side chat 走 Bridge.ServerSideChatStreaming, 在其内部落账本。
 	agentBridge.SetLLMUsageRecorder(plat.llmUsageService)
 
-	// 会员(VIP)按等级日限额:注入给 4 个受限 AI 功能。未注入则各自回落到旧 env 日额度/不限。
+	// 会员(VIP)按等级日限额 + token 计费:**所有付费 AI 功能必须在此注入**。
+	// ⚠️ 漏接线 = 该功能静默无配额、无计费(收入泄漏)。新增付费 feature 时务必在这里加一行 SetVIPChecker
+	//    (CLAUDE.md「加新 feature 最小动作」已补此步)。vipService 由 bootstrap 构造,理论不为 nil;
+	//    防御性断言一下,nil 则 fail-fast 而非让全部付费功能静默免费。
+	if plat.vipService == nil {
+		panic("bootstrap: vipService is nil — 付费功能将无配额/无计费,拒绝启动")
+	}
 	smartsearch.SetVIPChecker(plat.vipService)
 	prism.SetVIPChecker(plat.vipService)
 	claw.SetVIPChecker(plat.vipService)
@@ -254,6 +261,12 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 		{FeatureKey: prism.FeatureKey, OwnerKind: "project", SourceTable: "prism_projects", SessionCol: "agent_session_id"},
 		{FeatureKey: peerreview.FeatureKey, OwnerKind: "submission", SourceTable: "peer_review_submissions", SessionCol: "agent_session_id"},
 	})
+
+	// cleanup → 临时经费过期清扫(账本可对账;余额读时本就按 now 过滤)。
+	cleanupService.SetCreditExpirer(plat.vipService.Wallet().ExpireSweep)
+
+	// cleanup → 超时 pending 订单作废(网关已关单,清掉防堆积)。
+	cleanupService.SetPendingOrderCanceller(plat.vipService.Order().CancelStalePending)
 
 	// 依赖全部注入完成,启动后台清理 + 对账任务。
 	cleanupService.Start()
@@ -304,7 +317,7 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 		prism.NewTexClient(os.Getenv("PRISM_WORK_DIR")),
 		storage.PrismBucket(),
 		prismFeature,
-		agentClient, // 每项目独立 agent 会话:prism 直接建/管 session,存 prism_projects.agent_session_id
+		agentClient,   // 每项目独立 agent 会话:prism 直接建/管 session,存 prism_projects.agent_session_id
 		aiB.aiService, // 轻量模型(ModelLow)给项目按首条指令自动起名
 	))
 	prismHandler.SetUsageStatRecorder(plat.usageStatService)
@@ -312,38 +325,37 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// ---- 聚合 handlers ----
 	return &services{
 		handlers: &allHandlers{
-			admin:           core.admin,
-			dashboard:       core.dashboard,
-			user:            core.userHandler,
-			config:          core.configHandler,
-			scholar:         aiB.minicodHandler,
-			ai:              aiB.aiHandler,
-			alipay:          alipayHandler,
-			wechatPay:       wechatPayHandler,
-			wechat:          wechatHandler,
-			wechatOfficial:  wechatOfficialHandler,
-			usageLog:        plat.usageLog,
-			usageLogAdmin:   plat.usageLogAdmin,
-			usageStats:      plat.usageStat,
-			llmUsageAdmin:   plat.llmUsageAdmin,
-			vip:             plat.vipHandler,
-			hotContent:      plat.hotContent,
-			seo:             plat.seoHandler,
-			message:         plat.message,
-			feedback:        core.feedback,
-			emailLog:        emailLogHandler,
-			ws:              plat.wsHandler,
-			thirdParty:      aiB.thirdPartyHandler,
-			announcement:    announcement.NewHandler(),
-			library:         libraryHandler,
-			stagingArea:     stagingarea.NewHandler(),
-			clientLog:       clientlog.NewHandler(),
-			agentConfig:     agentconfig.NewHandler(agentConfigService),
-			smartSearch:     smartsearch.NewHandler(smartSearchFeature),
-			peerReview:      peerReviewHandler,
-			claw:            claw.NewHandler(clawFeature),
-			featureTool:     featureToolHandler,
-			agentBridge:     agentBridge, // 内网回调端点: agent 上报带外 token 用量 (title-gen 等)
+			admin:          core.admin,
+			dashboard:      core.dashboard,
+			user:           core.userHandler,
+			config:         core.configHandler,
+			scholar:        aiB.minicodHandler,
+			ai:             aiB.aiHandler,
+			alipay:         alipayHandler,
+			wechatPay:      wechatPayHandler,
+			wechat:         wechatHandler,
+			wechatOfficial: wechatOfficialHandler,
+			usageLogAdmin:  plat.usageLogAdmin,
+			usageStats:     plat.usageStat,
+			llmUsageAdmin:  plat.llmUsageAdmin,
+			vip:            plat.vipHandler,
+			hotContent:     plat.hotContent,
+			seo:            plat.seoHandler,
+			message:        plat.message,
+			feedback:       core.feedback,
+			emailLog:       emailLogHandler,
+			ws:             plat.wsHandler,
+			thirdParty:     aiB.thirdPartyHandler,
+			announcement:   announcement.NewHandler(),
+			library:        libraryHandler,
+			stagingArea:    stagingarea.NewHandler(),
+			clientLog:      clientlog.NewHandler(),
+			agentConfig:    agentconfig.NewHandler(agentConfigService),
+			smartSearch:    smartsearch.NewHandler(smartSearchFeature),
+			peerReview:     peerReviewHandler,
+			claw:           claw.NewHandler(clawFeature, agentartifact.NewRepository(db)),
+			featureTool:    featureToolHandler,
+			agentBridge:    agentBridge, // 内网回调端点: agent 上报带外 token 用量 (title-gen 等)
 			// 智能写作 (Prism): DB 真源 + 编译沙箱(共享卷 watcher)+ AI 定点编辑(prismFeature/agent)。
 			prism: prismHandler,
 			// umami HTTP API 接入 —— admin /analytics 自渲染图表 + tracker website id 自动 bootstrap

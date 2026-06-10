@@ -249,13 +249,13 @@ func (b *Bridge) recordServerSideUsage(ctx context.Context, modelID string, usag
 // 完整协议见 agent/src/server/ws/events.ts。
 type serverEvent struct {
 	Type      string     `json:"type"`
-	Text      string     `json:"text,omitempty"`        // content_delta / thinking
-	RequestID string     `json:"requestId,omitempty"`    // permission_request
-	Message   string     `json:"message,omitempty"`      // error
-	Usage     *ChatUsage `json:"usage,omitempty"`        // message_complete
-	BlockType string     `json:"blockType,omitempty"`    // content_start: "text" | "tool_use"
-	ToolName  string     `json:"toolName,omitempty"`     // content_start (tool_use)
-	State     string     `json:"state,omitempty"`        // status
+	Text      string     `json:"text,omitempty"`      // content_delta / thinking
+	RequestID string     `json:"requestId,omitempty"` // permission_request
+	Message   string     `json:"message,omitempty"`   // error
+	Usage     *ChatUsage `json:"usage,omitempty"`     // message_complete
+	BlockType string     `json:"blockType,omitempty"` // content_start: "text" | "tool_use"
+	ToolName  string     `json:"toolName,omitempty"`  // content_start (tool_use)
+	State     string     `json:"state,omitempty"`     // status
 }
 
 // toolStatusNote — 把工具名翻译成给用户看的中文进度提示。

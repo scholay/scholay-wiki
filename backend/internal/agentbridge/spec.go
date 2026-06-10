@@ -8,24 +8,26 @@
 // Package agentbridge 把 scholar_agent (Scholay 科研助手 daemon) 的会话/WS 接入能力收成一个通用桥。
 //
 // 设计动机:
-//   smartsearch 是 agent 的第一个消费者; 后续 paper-review / latex-writer 等
-//   feature 都会重写一遍 "用户↔session 映射 + WS upgrade + JWT 校验 + 心跳 +
-//   首条 user_message 注入 system prompt + 自动 approve permission" 这套样板代码。
-//   本包把这些抽出来, 每个 feature 只声明一份 FeatureSpec, handler 就是 3-4 行
-//   thin wrapper, 业务模块零样板。
+//
+//	smartsearch 是 agent 的第一个消费者; 后续 paper-review / latex-writer 等
+//	feature 都会重写一遍 "用户↔session 映射 + WS upgrade + JWT 校验 + 心跳 +
+//	首条 user_message 注入 system prompt + 自动 approve permission" 这套样板代码。
+//	本包把这些抽出来, 每个 feature 只声明一份 FeatureSpec, handler 就是 3-4 行
+//	thin wrapper, 业务模块零样板。
 //
 // 使用方式:
-//   1. feature 定义一份 FeatureSpec (key/agent name/system prompt/选项)
-//   2. bootstrap: bridge := agentbridge.New(agentClient, repo);
-//                 fb := bridge.For(featureSpec)
-//   3. feature handler 持有 *FeatureBridge, gin 路由直接挂 fb.HandleWS 等方法
+//  1. feature 定义一份 FeatureSpec (key/agent name/system prompt/选项)
+//  2. bootstrap: bridge := agentbridge.New(agentClient, repo);
+//     fb := bridge.For(featureSpec)
+//  3. feature handler 持有 *FeatureBridge, gin 路由直接挂 fb.HandleWS 等方法
 //
 // 数据流:
-//   POST /<feature>/session         → FeatureBridge.GetOrCreateSession → repo + agent
-//   POST /<feature>/session/reset   → FeatureBridge.ResetSession
-//   GET  /<feature>/session/messages → FeatureBridge.GetSessionMessages
-//   GET  /<feature>/session/context → FeatureBridge.GetContextEstimate
-//   GET  /<feature>/ws/:sessionId   → FeatureBridge.HandleWS (JWT query + ownership)
+//
+//	POST /<feature>/session         → FeatureBridge.GetOrCreateSession → repo + agent
+//	POST /<feature>/session/reset   → FeatureBridge.ResetSession
+//	GET  /<feature>/session/messages → FeatureBridge.GetSessionMessages
+//	GET  /<feature>/session/context → FeatureBridge.GetContextEstimate
+//	GET  /<feature>/ws/:sessionId   → FeatureBridge.HandleWS (JWT query + ownership)
 package agentbridge
 
 import (

@@ -84,6 +84,18 @@ const PING_INTERVAL_MS = 25000;
 const STALL_TIMEOUT_MS = 45000;
 const STALL_CHECK_MS = 10000;
 
+// ── 被接管(displaced)后的「自动恢复」──────────────────────────────────────
+// 被踢的页签在**可见**时定时尝试 takeOver 重连:占用方若已走开,就静默接回来。
+// 三道防 ping-pong / 死锁的闸:
+//   ① 只有 document 可见的 tab 才尝试 —— 后台 tab 不参与抢,所以"多 tab、只看一个"天然无竞争;
+//   ② 间隔 + 随机抖动 —— 错开两个**同时可见**窗口的尝试,不会同一刻对撞;
+//   ③ 连续被踢累计到上限 → 放弃自动、退回手动 banner —— 两个都想要时不会无限互抢(livelock);
+//   ④ 连上后稳定保持一段时间 → 把"连续被踢"计数清零 —— 恢复下一轮自动能力。
+const AUTO_RECOVER_BASE_MS = 4000; // 基础重试间隔
+const AUTO_RECOVER_JITTER_MS = 2500; // 随机抖动上限(错开同时可见的两 tab)
+const AUTO_RECOVER_MAX_ATTEMPTS = 4; // 连续被踢上限 → 放弃自动恢复
+const AUTO_RECOVER_STABLE_MS = 15000; // 连上稳定保持这么久 → 清零计数
+
 export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
   opts: UseAgentSocketOptions,
 ): UseAgentSocket<TServer, TClient> {
@@ -106,6 +118,10 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
   const displacedRef = useRef(false);
   /** 暴露给 takeOver 用 — useEffect 内才有 connect 闭包,通过 ref 桥到外部 */
   const reconnectNowRef = useRef<(() => void) | null>(null);
+  /** 自动恢复:连续被踢计数(防 livelock)+ 重试 timer + 稳定保持 timer。 */
+  const displacedAttemptsRef = useRef(0);
+  const recoverTimerRef = useRef<number | null>(null);
+  const stableTimerRef = useRef<number | null>(null);
   /** 回调放 ref:effect 只依赖 connectionKey + token,connect 内读到的永远是最新闭包(fetchTicket 绑当前 key)。 */
   const optsRef = useRef(opts);
   optsRef.current = opts;
@@ -320,6 +336,69 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
     // optsRef 让 fetchTicket/buildWsUrl/onOpen 始终最新,故只需 connectionKey + token 作依赖。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connectionKey, token]);
+
+  // ── displaced 自动恢复 ────────────────────────────────────────────────────
+  // 被接管后:可见的 tab 间隔 + 抖动地尝试 takeOver(占用方走了就静默接回);连续被踢到上限就
+  // 放弃自动、退手动 banner(防两 tab 无限互抢);连上稳定保持一段时间则清零计数。
+  // 依赖 state:每次进入 displaced / open 各跑一次,timer 在 cleanup 里清干净(无悬挂 → 无死锁)。
+  useEffect(() => {
+    const clearRecover = () => {
+      if (recoverTimerRef.current !== null) {
+        window.clearTimeout(recoverTimerRef.current);
+        recoverTimerRef.current = null;
+      }
+    };
+    const clearStable = () => {
+      if (stableTimerRef.current !== null) {
+        window.clearTimeout(stableTimerRef.current);
+        stableTimerRef.current = null;
+      }
+    };
+
+    if (state === 'open') {
+      // 连上了:稳定保持 AUTO_RECOVER_STABLE_MS 后清零"连续被踢"计数(下一轮又能自动恢复)。
+      clearRecover();
+      clearStable();
+      stableTimerRef.current = window.setTimeout(() => {
+        displacedAttemptsRef.current = 0;
+      }, AUTO_RECOVER_STABLE_MS);
+      return clearStable;
+    }
+
+    if (state !== 'displaced') {
+      clearRecover();
+      return;
+    }
+
+    // state === 'displaced':累计一次;超上限就不再自动(退回手动 banner,断开 livelock)。
+    clearStable();
+    displacedAttemptsRef.current += 1;
+    if (displacedAttemptsRef.current > AUTO_RECOVER_MAX_ATTEMPTS) {
+      clearRecover();
+      return;
+    }
+
+    const schedule = () => {
+      clearRecover();
+      if (document.visibilityState !== 'visible') return; // 后台 tab 不参与抢
+      const delay = AUTO_RECOVER_BASE_MS + Math.random() * AUTO_RECOVER_JITTER_MS;
+      recoverTimerRef.current = window.setTimeout(() => {
+        recoverTimerRef.current = null;
+        if (document.visibilityState === 'visible') {
+          reconnectNowRef.current?.(); // takeOver:重连接管;成功则 open,失败/被抢回则再次 displaced
+        }
+      }, delay);
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') schedule();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    schedule();
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      clearRecover();
+    };
+  }, [state]);
 
   return {
     state,

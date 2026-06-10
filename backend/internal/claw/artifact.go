@@ -24,16 +24,20 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"scholar-backend/internal/agent"
+	"scholar-backend/internal/agentartifact"
 	"scholar-backend/internal/common/utils"
+	"scholar-backend/internal/storage"
 )
 
 // artifactDir 是会话 cwd 内约定的"交付目录"。与 prompts/claw.go 的成果交付段一致。
@@ -51,10 +55,17 @@ const (
 )
 
 // ArtifactDTO — 一个可交付产物的元信息。Title/Description 来自 agent 的 manifest.json (可空)。
+//
+// ID/Mime/Size 仅在「已落 MinIO」路径(storage 启用)有值:前端见 ID>0 即走
+// GET /claw/artifact/:id(MinIO,真实 mime,二进制可预览/下载);ID=0 是 storage 未启用时
+// 的实时回退,前端回落老的 path 直读(只文本/图)。
 type ArtifactDTO struct {
-	Path        string `json:"path"` // 相对会话 cwd: 文件形如 out/xxx.md, 目录形如 out/proj
-	Name        string `json:"name"` // 文件名 / 目录名
-	Kind        string `json:"kind"` // "file"(单文件直下) | "dir"(整目录打包 zip 下载)
+	ID          uint64 `json:"id,omitempty"`   // agent_artifacts 行 id(MinIO 路径才有)
+	Path        string `json:"path"`           // 相对会话 cwd: 文件形如 out/xxx.md, 目录形如 out/proj
+	Name        string `json:"name"`           // 文件名 / 目录名
+	Kind        string `json:"kind"`           // "file"(单文件直下) | "dir"(整目录打包 zip 下载)
+	Mime        string `json:"mime,omitempty"` // 真实 MIME(前端据此挑预览渲染器)
+	Size        int64  `json:"size,omitempty"` // 字节数
 	Title       string `json:"title,omitempty"`
 	Description string `json:"description,omitempty"`
 }
@@ -144,6 +155,18 @@ func shouldListArtifact(name string, isDir bool) bool {
 	return true
 }
 
+// liveBinaryExts —— storage 未启用的「实时回退」下载路径(DownloadSessionArtifact)只服务文本/光栅图,
+// 这些二进制扩展名在该路径下载必 404,故回退列表里直接跳过,避免给用户一个点了报错的死下载按钮。
+// (storage 启用的正常路径走 MinIO,二进制完全可下载,不受此限。)
+var liveBinaryExts = map[string]bool{
+	".pdf": true, ".docx": true, ".doc": true, ".xlsx": true, ".xls": true,
+	".pptx": true, ".ppt": true, ".zip": true,
+}
+
+func liveServableFile(name string) bool {
+	return !liveBinaryExts[strings.ToLower(path.Ext(name))]
+}
+
 // GetSessionArtifacts — GET /claw/session/artifacts?session_id=<id>
 //
 // 列出会话交付目录 out/ 下的文件 (agent 产出的成品), 供前端渲染成可下载/预览的产物卡片。
@@ -167,6 +190,45 @@ func (h *Handler) GetSessionArtifacts(c *gin.Context) {
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), artifactListTimeout)
 	defer cancel()
+
+	// storage 未启用 / 无 repo → 实时回读回退(老行为:文本/图,无 id,前端走 path 直读)。
+	if h.artifactRepo == nil || !storage.IsEnabled() {
+		h.listArtifactsLive(c, ctx, sessionID)
+		return
+	}
+
+	// 正常路径:on-list 收割 ./out → MinIO,再从 DB 出 DTO(带 id,前端走 /artifact/:id 预览/下载)。
+	if err := h.harvestSession(ctx, userID, sessionID); err != nil {
+		if agentClientErrIs4xxOrMissing(err) {
+			utils.Success(c, gin.H{"items": []ArtifactDTO{}, "total": 0})
+			return
+		}
+		// 收割失败(如 agent 暂时不可达)→ 不报错,回退展示 DB 现有行(best-effort)。
+		slog.Warn("claw artifacts: harvest failed, serving stale rows", "session", sessionID, "err", err)
+	}
+	rows, lerr := h.artifactRepo.ListBySession(sessionID)
+	if lerr != nil {
+		utils.InternalError(c, codeAgentUnreachable, "无法加载产物列表,请稍后重试", lerr)
+		return
+	}
+	items := make([]ArtifactDTO, 0, len(rows))
+	for _, r := range rows {
+		items = append(items, ArtifactDTO{
+			ID:          r.ID,
+			Path:        r.RelPath,
+			Name:        r.Filename,
+			Kind:        r.Kind,
+			Mime:        r.Mime,
+			Size:        r.SizeBytes,
+			Title:       r.Title,
+			Description: r.Description,
+		})
+	}
+	utils.Success(c, gin.H{"items": items, "total": len(items)})
+}
+
+// listArtifactsLive 是 storage 未启用时的实时回读回退(老行为:列 ./out 顶层,文本/图)。
+func (h *Handler) listArtifactsLive(c *gin.Context, ctx context.Context, sessionID string) {
 	tree, err := h.feature.AgentClient().ListWorkspaceFiles(ctx, sessionID, artifactDir)
 	if err != nil {
 		if agentClientErrIs4xxOrMissing(err) {
@@ -181,15 +243,14 @@ func (h *Handler) GetSessionArtifacts(c *gin.Context) {
 		meta := h.readArtifactManifest(ctx, sessionID) // 可能为 nil, 取值时安全
 		for _, e := range tree.Entries {
 			if strings.HasPrefix(e.Name, ".") {
-				continue // 隐藏项(.开头)一律跳过
+				continue
 			}
 			if e.IsDirectory {
-				// 子目录 → 作为一个"打包 zip"产物(整目录递归打包下载, 见 DownloadArtifactZip)。
 				items = append(items, ArtifactDTO{Path: artifactDir + "/" + e.Name, Name: e.Name, Kind: "dir"})
 				continue
 			}
-			if !shouldListArtifact(e.Name, false) {
-				continue // 过滤 manifest.json / 空名
+			if !shouldListArtifact(e.Name, false) || !liveServableFile(e.Name) {
+				continue // manifest/空名,或回退路径下载不了的二进制 → 不列(免死按钮)
 			}
 			dto := ArtifactDTO{Path: artifactDir + "/" + e.Name, Name: e.Name, Kind: "file"}
 			if m, ok := meta[e.Name]; ok {
@@ -200,6 +261,63 @@ func (h *Handler) GetSessionArtifacts(c *gin.Context) {
 		}
 	}
 	utils.Success(c, gin.H{"items": items, "total": len(items)})
+}
+
+// DownloadArtifactByID — GET /claw/artifact/:id
+//
+// 从 MinIO 取一个已收割的交付物字节,按真实 mime 回写。**安全:一律 attachment + nosniff** ——
+// 子资源加载(<img> / fetch / pdfjs XHR)忽略 Content-Disposition,所以前端预览不受影响;
+// 但直接导航到该 URL 会下载而非作为文档执行,杜绝 html/svg 内联执行偷 cookie 的同源 XSS。
+// 鉴权:行的 OwnerID 必须 == 当前用户(行自带归属,等价 OwnsSession)。
+func (h *Handler) DownloadArtifactByID(c *gin.Context) {
+	userID := c.GetUint("user_id")
+	if h.artifactRepo == nil || !storage.IsEnabled() {
+		utils.Error(c, 4404, "产物不可用")
+		return
+	}
+	id, perr := strconv.ParseUint(strings.TrimSpace(c.Param("id")), 10, 64)
+	if perr != nil || id == 0 {
+		utils.BadRequest(c, "invalid id")
+		return
+	}
+	row, err := h.artifactRepo.GetByID(id)
+	if err != nil {
+		if errors.Is(err, agentartifact.ErrNotFound) {
+			utils.Error(c, 4404, "产物不存在")
+			return
+		}
+		utils.InternalError(c, codeAgentUnreachable, "加载产物失败,请稍后重试", err)
+		return
+	}
+	if row.OwnerID != uint64(userID) {
+		utils.Error(c, 4404, "产物不存在或不属于你") // 防枚举:越权也回 404
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), artifactListTimeout)
+	defer cancel()
+	obj, info, err := storage.GetObject(ctx, storage.AgentArtifactsBucket(), row.StorageKey)
+	if err != nil {
+		utils.Error(c, 4404, "产物已失效")
+		return
+	}
+	defer obj.Close()
+
+	mime := row.Mime
+	if mime == "" {
+		mime = "application/octet-stream"
+	}
+	filename := row.Filename
+	if row.Kind == "dir" && !strings.HasSuffix(filename, ".zip") {
+		filename += ".zip"
+	}
+	size := row.SizeBytes
+	if info != nil && info.Size > 0 {
+		size = info.Size
+	}
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Header("Content-Disposition", "attachment; filename*=UTF-8''"+url.QueryEscape(filename))
+	c.DataFromReader(http.StatusOK, size, mime, obj, nil)
 }
 
 // DownloadSessionArtifact — GET /claw/session/artifact?session_id=<id>&path=out/<name>[&download=1]
@@ -319,26 +437,14 @@ func (h *Handler) collectDirForZip(ctx context.Context, sessionID, dir string) (
 				}
 				continue
 			}
-			wf, rerr := h.feature.AgentClient().ReadWorkspaceFileFull(ctx, sessionID, e.Path)
-			if rerr != nil || wf == nil || wf.State != "ok" || wf.Size > maxZipPerFileBytes {
+			// 二进制安全 raw 读 —— 任意类型(含 xlsx/pdf/docx)都拿原始字节,
+			// 不再像旧实现那样只收文本/图(zip 现在能完整包含二进制文件)。
+			raw, rerr := h.feature.AgentClient().ReadWorkspaceFileRaw(ctx, sessionID, e.Path)
+			if rerr != nil || raw == nil || raw.State != "ok" || raw.Size > maxZipPerFileBytes {
 				skipped++
 				continue
 			}
-			var data []byte
-			switch wf.PreviewType {
-			case "text":
-				data = []byte(wf.Content)
-			case "image":
-				_, payload, derr := decodeDataURL(wf.DataURL)
-				if derr != nil {
-					skipped++
-					continue
-				}
-				data = payload
-			default:
-				skipped++ // 二进制等暂不支持
-				continue
-			}
+			data := raw.Bytes
 			if total+len(data) > maxZipTotalBytes {
 				skipped++
 				continue

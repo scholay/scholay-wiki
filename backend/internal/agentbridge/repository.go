@@ -38,6 +38,11 @@ type SessionRow struct {
 	CreatedAt      time.Time `gorm:"column:created_at;autoCreateTime"`
 	UpdatedAt      time.Time `gorm:"column:updated_at;autoUpdateTime"`
 
+	// PromptInjected (migration 0024): 该 agent 会话是否已注入过 system prompt 前缀。
+	// 纯优化标记 —— WS 升级时先读它, =true 直接跳过昂贵的全量 transcript 探测;
+	// =false/缺失则回落探测并回填。换新 agent_session_id (reset/churn) 时必须清零。
+	PromptInjected bool `gorm:"column:prompt_injected;not null;default:false"`
+
 	// 归属归一 (migration 0014): 实体级会话用 owner_kind/owner_id 锚定到业务实体,
 	// 一实体一会话 (uk_owner)。用户级会话 (smart_search / claw 多会话) 两列留 NULL,
 	// 多行 (NULL,NULL) 在 uk_owner 下互不冲突。指针类型让 NULL 与 0/'' 区分开。
@@ -159,17 +164,30 @@ func (r *Repository) Create(row *SessionRow) error {
 	return r.db.Create(row).Error
 }
 
-// UpdateSessionID 重置场景: 把指定 mapping 行的 agent_session_id 换成新的, reset_count + 1。
-// 这是单会话语义的 "原地替换" — 给 smart_search / peerreview 的 reset 路径用。
-// claw 多会话场景应该走 Create 新增另一行, 不调这个。
-func (r *Repository) UpdateSessionID(userID uint, featureKey, newSessionID string) error {
+// UpdateSessionID 重置/自愈场景: 把 oldSessionID 那一行的 agent_session_id 换成新的, reset_count + 1。
+//
+// 按 agent_session_id=oldSessionID **行级**定位(而非按 user+feature 更新全部行):
+// 否则当 (user,feature) 下意外存在多行(claw 多会话,或单会话 feature 首访竞态产生重复行)时,
+// 旧实现会把全部行更新成同一个 newSessionID → 撞 uk_agent_session_id 唯一索引(1062)整句回滚。
+// 行级定位天然只动目标会话,既正确又不会 1062。
+func (r *Repository) UpdateSessionID(userID uint, featureKey, oldSessionID, newSessionID string) error {
 	return r.db.Model(&SessionRow{}).
-		Where("user_id = ? AND feature_key = ?", userID, featureKey).
+		Where("user_id = ? AND feature_key = ? AND agent_session_id = ?", userID, featureKey, oldSessionID).
 		Updates(map[string]any{
 			"agent_session_id": newSessionID,
 			"reset_count":      gorm.Expr("reset_count + 1"),
 			"last_accessed_at": time.Now(),
+			// 新 agent 会话还没注入过 prompt, 标记必须随 session id 一起清零
+			"prompt_injected": false,
 		}).Error
+}
+
+// MarkPromptInjected 把 prompt_injected 置 1 (uk_agent_session_id 点查级 UPDATE)。
+// 纯优化标记: 写失败只意味着下次 WS 连接多做一次 transcript 探测, 不影响正确性。
+func (r *Repository) MarkPromptInjected(agentSessionID string) error {
+	return r.db.Model(&SessionRow{}).
+		Where("agent_session_id = ?", agentSessionID).
+		Update("prompt_injected", true).Error
 }
 
 // ─── 实体级归属路径 (prism / peerreview 用, migration 0014) ───────────────
@@ -225,6 +243,9 @@ func (r *Repository) ReconcileOwnerSessions(t OwnerReconcileTarget) (int64, erro
 	}
 	// %[1]s=业务表 %[2]s=session 列;feature_key / owner_kind 走参数。
 	// 三个 ? 依次:feature_key 列值、owner_kind 列值、JOIN 的 owner_kind。
+	// prompt_injected 的清零判断必须排在 agent_session_id 赋值**之前**:
+	// MySQL ON DUPLICATE KEY UPDATE 按书写顺序求值, 列引用读到的是"此前赋值后"的当前值,
+	// 放在后面会拿新值自比恒等、永远清不掉。
 	sql := fmt.Sprintf(`
 INSERT INTO agent_sessions
   (user_id, feature_key, agent_session_id, owner_kind, owner_id, reset_count, last_accessed_at, created_at, updated_at)
@@ -234,6 +255,7 @@ LEFT JOIN agent_sessions a ON a.owner_kind = ? AND a.owner_id = s.id
 WHERE s.%[2]s IS NOT NULL AND s.%[2]s <> ''
   AND (a.id IS NULL OR a.agent_session_id <> s.%[2]s)
 ON DUPLICATE KEY UPDATE
+  prompt_injected  = IF(agent_session_id <> VALUES(agent_session_id), 0, prompt_injected),
   agent_session_id = VALUES(agent_session_id),
   user_id          = VALUES(user_id),
   last_accessed_at = NOW(),
@@ -273,6 +295,11 @@ func (r *Repository) UpsertByOwnerEntity(userID uint, featureKey, ownerKind stri
 			"reset_count":      gorm.Expr("reset_count + IF(agent_session_id <> ?, 1, 0)", agentSessionID),
 			"last_accessed_at": now,
 			"updated_at":       now,
+			// 无条件清零而非 IF(agent_session_id <> ...) 条件清零: GORM 的 Assignments(map)
+			// 按字母序生成赋值, agent_session_id 排最前先被赋新值, 之后的列引用读到的是新值,
+			// 条件判断会恒为"未变"而失效。无条件清零的代价只是同 id 重复 upsert 后多一次
+			// transcript 探测 (探测命中会自动回填标记), 正确性不受影响。
+			"prompt_injected": false,
 		}),
 	}).Create(&row).Error
 }

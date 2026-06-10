@@ -36,7 +36,7 @@ func Enqueue(ctx context.Context, urls []string) error {
 	if len(urls) == 0 {
 		return nil
 	}
-	rdb := cache.GetRedis()
+	rdb := cache.GetRedisPersist()
 	if rdb == nil {
 		return errors.New("redis unavailable")
 	}
@@ -63,7 +63,7 @@ func PopBatch(ctx context.Context, n int) ([]string, error) {
 	if n <= 0 {
 		return nil, nil
 	}
-	rdb := cache.GetRedis()
+	rdb := cache.GetRedisPersist()
 	if rdb == nil {
 		return nil, errors.New("redis unavailable")
 	}
@@ -91,7 +91,7 @@ func Requeue(ctx context.Context, urls []string) error {
 
 // QueueLen 返回队列剩余条数(诊断/监控用)
 func QueueLen(ctx context.Context) (int64, error) {
-	rdb := cache.GetRedis()
+	rdb := cache.GetRedisPersist()
 	if rdb == nil {
 		return 0, nil
 	}

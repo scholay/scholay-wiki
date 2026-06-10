@@ -223,16 +223,25 @@ func RedisRateLimitMiddleware(maxRequests int, windowSize time.Duration) gin.Han
 	}
 }
 
-// redisRateCheck implements a fixed-window counter using Redis INCR + EXPIRE.
+// rateLimitScript 原子地 INCR + 设置/自愈 TTL，返回当前计数。
+// 用单条 Lua 取代「INCR 后再单独 EXPIRE」：避免 EXPIRE 那次独立往返偶发失败时
+// key 永不过期、被 LRU 保活，导致用户在窗口边界被永久卡死。
+// 自愈条款:count>1 但 PTTL<0(无 TTL —— 旧代码遗留的不死键 / EXPIRE 曾失败的键)时也补 TTL,
+// 否则那些存量无 TTL 键会让对应 IP/用户一旦越限即永久 429 且 LRU 逐不出(AOF 还跨重启存活)。
+var rateLimitScript = redis.NewScript(`
+local count = redis.call('INCR', KEYS[1])
+if count == 1 or redis.call('PTTL', KEYS[1]) < 0 then
+  redis.call('PEXPIRE', KEYS[1], ARGV[1])
+end
+return count
+`)
+
+// redisRateCheck implements a fixed-window counter using an atomic INCR+PEXPIRE Lua script.
 func redisRateCheck(rdb *redis.Client, c *gin.Context, key string, maxRequests, windowSeconds int) (bool, error) {
 	ctx := c.Request.Context()
-	count, err := rdb.Incr(ctx, key).Result()
+	count, err := rateLimitScript.Run(ctx, rdb, []string{key}, windowSeconds*1000).Int64()
 	if err != nil {
 		return false, err
-	}
-	// Set expiry on first request in the window
-	if count == 1 {
-		rdb.Expire(ctx, key, time.Duration(windowSeconds)*time.Second)
 	}
 	return count <= int64(maxRequests), nil
 }

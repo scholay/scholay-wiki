@@ -12,7 +12,6 @@ import (
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/hmac"
 	crand "crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -203,6 +202,9 @@ func (s *WeChatPayService) CreateNativeOrder(ctx context.Context, orderNo string
 		"description":  description,
 		"out_trade_no": orderNo,
 		"notify_url":   config.NotifyURL,
+		// 网关侧 120 分钟未支付自动关单(RFC3339,容器 TZ=北京 → +08:00,不做 UTC 转换)。
+		// 与后端 pending 清扫配合,避免「逾期支付得到过期会员」。
+		"time_expire": time.Now().Add(120 * time.Minute).Format(time.RFC3339),
 		"amount": map[string]any{
 			"total":    amountInCents,
 			"currency": "CNY",
@@ -336,6 +338,12 @@ func (s *WeChatPayService) VerifyNotify(req *WeChatPayNotifyRequest) (*WeChatPay
 		return nil, fmt.Errorf("failed to parse decrypted data: %w", err)
 	}
 
+	// 断言 mchid/appid 与本商户配置一致(微信 v3 规范要求)—— 防止「为其他商户/应用的回调」
+	// 被错误地当作本商户的成功通知履约。AES-GCM 已是认证加密,这是纵深的一层。
+	if result.MchID != config.MchID || result.AppID != config.AppID {
+		return nil, fmt.Errorf("wechat notify mchid/appid mismatch")
+	}
+
 	return &result, nil
 }
 
@@ -392,29 +400,7 @@ func generateNonce(length int) string {
 	return string(b)
 }
 
-// VerifySignature 验证微信支付回调签名
-func (s *WeChatPayService) VerifySignature(timestamp, nonce, body, signature string, serialNo string) error {
-	config, err := s.GetActiveConfig()
-	if err != nil {
-		return fmt.Errorf("failed to get active config: %w", err)
-	}
-
-	// 验证序列号是否匹配
-	if serialNo != config.SerialNo {
-		return errors.New("serial number mismatch")
-	}
-
-	// 构建待验签字符串
-	message := fmt.Sprintf("%s\n%s\n%s\n", timestamp, nonce, body)
-
-	// 验证HMAC签名（简化版本，实际应该用微信平台公钥验证）
-	h := hmac.New(sha256.New, []byte(config.APIv3Key))
-	h.Write([]byte(message))
-	expectedSignature := base64.StdEncoding.EncodeToString(h.Sum(nil))
-
-	if signature != expectedSignature {
-		return errors.New("signature verification failed")
-	}
-
-	return nil
-}
+// 注:旧的 VerifySignature 已删除 —— 它是错误实现(用 HMAC-SHA256 而微信 v3 回调要求 RSA
+// 平台证书验签),且零调用方。接上反而会拒绝全部真实回调,是维护陷阱。回调真伪当前靠
+// VerifyNotify 的 AES-GCM 认证解密 + mchid/appid 断言把关;真正的平台证书验签(含证书轮换,
+// 建议直接用 wechatpay-go validator)留作后续加固。

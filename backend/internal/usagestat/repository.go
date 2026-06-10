@@ -5,6 +5,7 @@
 package usagestat
 
 import (
+	"context"
 	"time"
 
 	"gorm.io/gorm"
@@ -20,9 +21,9 @@ func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
 }
 
-// Create 插入一条事件
-func (r *Repository) Create(ev *UsageEvent) error {
-	return r.db.Create(ev).Error
+// Create 插入一条事件 (ctx 带 deadline —— DB 卡住时写入及时放弃, 不积压 record 池 worker)
+func (r *Repository) Create(ctx context.Context, ev *UsageEvent) error {
+	return r.db.WithContext(ctx).Create(ev).Error
 }
 
 // ---- admin 聚合查询 ----

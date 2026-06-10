@@ -156,7 +156,7 @@ func (h *Handler) SendVerificationCode(c *gin.Context) {
 	err := h.service.SendVerificationCode(c.Request.Context(), req.Email, req.Purpose)
 	if err != nil {
 		// Return the specific error message from service (includes rate limit info)
-		utils.Error(c, CodeSendCodeFailed, err.Error())
+		utils.SafeError(c, CodeSendCodeFailed, err)
 		return
 	}
 
@@ -204,7 +204,7 @@ func (h *Handler) Register(c *gin.Context) {
 
 	user, token, err := h.service.RegisterWithEmailAndInvitation(c.Request.Context(), req.Email, req.Password, code, req.InvitationCode, ip)
 	if err != nil {
-		utils.Error(c, CodeRegisterFailed, err.Error())
+		utils.SafeError(c, CodeRegisterFailed, err)
 		return
 	}
 
@@ -241,7 +241,7 @@ func (h *Handler) Login(c *gin.Context) {
 
 	user, token, err := h.service.LoginWithEmail(req.Email, req.Password, ip)
 	if err != nil {
-		utils.Error(c, CodeLoginFailed, err.Error())
+		utils.SafeError(c, CodeLoginFailed, err)
 		return
 	}
 
@@ -278,7 +278,7 @@ func (h *Handler) LoginWithCode(c *gin.Context) {
 
 	user, token, err := h.service.LoginWithEmailCode(c.Request.Context(), req.Email, req.Code, ip)
 	if err != nil {
-		utils.Error(c, CodeLoginWithCodeFailed, err.Error())
+		utils.SafeError(c, CodeLoginWithCodeFailed, err)
 		return
 	}
 
@@ -298,7 +298,7 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 
 	userID, err := h.service.ResetPassword(c.Request.Context(), req.Email, req.Code, req.NewPassword)
 	if err != nil {
-		utils.Error(c, CodeResetPasswordFailed, err.Error())
+		utils.SafeError(c, CodeResetPasswordFailed, err)
 		return
 	}
 	if err := utils.RevokeUserAllTokens(c.Request.Context(), userID); err != nil {
@@ -371,7 +371,7 @@ func (h *Handler) RegisterWithPhone(c *gin.Context) {
 
 	user, token, err := h.service.RegisterWithPhone(c.Request.Context(), req.Phone, req.Password, req.Code, req.InvitationCode, ip)
 	if err != nil {
-		utils.Error(c, CodeRegisterPhoneFailed, err.Error())
+		utils.SafeError(c, CodeRegisterPhoneFailed, err)
 		return
 	}
 
@@ -391,7 +391,7 @@ func (h *Handler) LoginWithPhone(c *gin.Context) {
 	ip := c.ClientIP()
 	user, token, err := h.service.LoginWithPhone(req.Phone, req.Password, ip)
 	if err != nil {
-		utils.Error(c, CodeLoginPhoneFailed, err.Error())
+		utils.SafeError(c, CodeLoginPhoneFailed, err)
 		return
 	}
 
@@ -428,7 +428,7 @@ func (h *Handler) LoginPhoneWithCode(c *gin.Context) {
 
 	user, token, err := h.service.LoginWithPhoneCode(c.Request.Context(), req.Phone, req.Code, ip)
 	if err != nil {
-		utils.Error(c, CodeLoginPhoneWithCodeFailed, err.Error())
+		utils.SafeError(c, CodeLoginPhoneWithCodeFailed, err)
 		return
 	}
 
@@ -448,7 +448,7 @@ func (h *Handler) ResetPasswordPhone(c *gin.Context) {
 
 	userID, err := h.service.ResetPasswordPhone(c.Request.Context(), req.Phone, req.Code, req.NewPassword)
 	if err != nil {
-		utils.Error(c, CodeResetPasswordPhoneFailed, err.Error())
+		utils.SafeError(c, CodeResetPasswordPhoneFailed, err)
 		return
 	}
 	if err := utils.RevokeUserAllTokens(c.Request.Context(), userID); err != nil {

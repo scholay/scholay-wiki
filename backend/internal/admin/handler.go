@@ -8,14 +8,17 @@
 package admin
 
 import (
-	"log/slog"
 	"scholar-backend/internal/common/utils"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
 
-// Handler handles HTTP requests for admin operations
+// Handler handles HTTP requests for admin operations.
+//
+// 注:遗留的 admin 登录(Login / LoginRequest / RegisterRoutes)已整体下线 ——
+// 管理员与普通用户共用 /api/v1/user/login 入口,凭 role=admin 的 token 进 /admin;
+// 旧的 /api/v1/admin/login 绕过了那条链路的全部防爆破加固,故移除。
 type Handler struct {
 	service *Service
 }
@@ -23,56 +26,6 @@ type Handler struct {
 // NewHandler creates a new admin handler
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
-}
-
-// LoginRequest represents a login request
-type LoginRequest struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
-}
-
-// LoginResponse represents a login response
-type LoginResponse struct {
-	Token string     `json:"token"`
-	Admin *AdminUser `json:"admin"`
-}
-
-
-// Login handles admin login
-func (h *Handler) Login(c *gin.Context) {
-	var req LoginRequest
-	if !utils.BindJSON(c, &req) {
-		return
-	}
-
-	adminUser, token, err := h.service.Login(req.Username, req.Password)
-	if err != nil {
-		utils.Error(c, 1001, err.Error())
-		return
-	}
-
-	ip := c.ClientIP()
-
-	// 异常登录检测:首次登录 / IP 变化打 warn 日志, 留作运维排查信号。
-	if ipChanged(adminUser.LastLoginIP, ip) {
-		slog.Warn("admin abnormal login",
-			"admin_id", adminUser.ID, "username", adminUser.Username, "ip", ip,
-			"reason", "first_login_or_new_ip")
-	}
-
-	utils.Success(c, LoginResponse{
-		Token: token,
-		Admin: adminUser,
-	})
-}
-
-// ipChanged 判断是否是新 IP 登录(首次登录或 IP 与上次不同).
-// 数据源切到 users.last_login_ip,user_sessions 表已下线。
-func ipChanged(lastIP *string, currentIP string) bool {
-	if lastIP == nil || *lastIP == "" {
-		return true
-	}
-	return *lastIP != currentIP
 }
 
 // UpdateUserRoleRequest 角色变更请求体
@@ -98,12 +51,12 @@ func (h *Handler) UpdateUserRole(c *gin.Context) {
 	switch req.Role {
 	case RoleAdmin:
 		if err := h.service.PromoteToAdmin(uint(id64)); err != nil {
-			utils.Error(c, 1010, err.Error())
+			utils.SafeError(c, 1010, err)
 			return
 		}
 	case RoleUser:
 		if err := h.service.DemoteFromAdmin(uint(id64)); err != nil {
-			utils.Error(c, 1011, err.Error())
+			utils.SafeError(c, 1011, err)
 			return
 		}
 	default:
@@ -115,14 +68,4 @@ func (h *Handler) UpdateUserRole(c *gin.Context) {
 		"id":   id64,
 		"role": req.Role,
 	})
-}
-
-// RegisterRoutes registers admin routes
-func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
-	admin := router.Group("/admin")
-	{
-		admin.POST("/login", h.Login)
-		// Protected routes (require authentication)
-		// These will be added in the main server setup with middleware
-	}
 }

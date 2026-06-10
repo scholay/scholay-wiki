@@ -279,6 +279,40 @@ func (w *WalletService) Consume(userID uint, amount int, txType, refType, refID,
 	})
 }
 
+// ConsumePerm 只从**永久**余额扣减(不碰临时批次)。事务 + 行锁;永久余额不足返回
+// ErrInsufficientCredit(不扣分文)。给「admin 指定扣永久积分」用 —— 通用 Consume 是临时优先,
+// 会先烧掉用户的临时经费,与「扣 perm」意图相反。
+func (w *WalletService) ConsumePerm(userID uint, amount int, txType, refType, refID, note string) error {
+	if amount <= 0 {
+		return nil
+	}
+	return w.db.Transaction(func(tx *gorm.DB) error {
+		if err := ensureWallet(tx, userID); err != nil {
+			return err
+		}
+		var wallet UserWallet
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("user_id = ?", userID).First(&wallet).Error; err != nil {
+			return err
+		}
+		if wallet.PermBalance < amount {
+			return ErrInsufficientCredit
+		}
+		if err := tx.Model(&UserWallet{}).Where("user_id = ?", userID).
+			UpdateColumn("perm_balance", gorm.Expr("perm_balance - ?", amount)).Error; err != nil {
+			return err
+		}
+		temp, perm, err := balancesInTx(tx, userID)
+		if err != nil {
+			return err
+		}
+		return tx.Create(&CreditTransaction{
+			UserID: userID, Type: txType, Amount: -amount,
+			TempAfter: temp, PermAfter: perm, RefType: refType, RefID: refID, Note: note,
+		}).Error
+	})
+}
+
 // ExpireSweep 把已过期且仍有余额的临时批次清零, 并逐批写 expire 流水。返回清理批次数。
 // 周期任务调用;读余额本就按 now 过滤, 这里只是把账面归零并留痕。
 func (w *WalletService) ExpireSweep(now time.Time) (int, error) {
@@ -337,9 +371,14 @@ func (w *WalletService) ListTransactions(userID uint, txType string, limit, offs
 // —— 含当前周期 + 续期预发放的未来批次 —— 并写一条 refund 流水。其他来源(gift/task)的临时经费
 // 与永久经费一律不动(用户可能通过别的方式获得临时经费,不应被取消会员牵连)。无可清时为幂等 no-op。
 func revokeSubscriptionCreditsInTx(tx *gorm.DB, userID uint) error {
+	// 只清/退「未过期」的订阅批次(含未来预发放):already-expired 批次账面价值已为 0,
+	// 把它们算进退款会让 refund 流水虚高(ExpireSweep 从前未调度时这些行 amount_remaining 仍 >0)。
+	// 故用 expires_at > now 过滤;预发放的未来批次(starts_at>now)仍要清,所以不加 starts_at 条件。
+	now := time.Now()
+	revokeWhere := "user_id = ? AND source = ? AND amount_remaining > 0 AND expires_at > ?"
 	var sum struct{ S *int }
 	if err := tx.Model(&CreditTempLot{}).Select("COALESCE(SUM(amount_remaining),0) AS s").
-		Where("user_id = ? AND source = ? AND amount_remaining > 0", userID, SourceSubscription).
+		Where(revokeWhere, userID, SourceSubscription, now).
 		Scan(&sum).Error; err != nil {
 		return err
 	}
@@ -351,7 +390,7 @@ func revokeSubscriptionCreditsInTx(tx *gorm.DB, userID uint) error {
 		return nil
 	}
 	if err := tx.Model(&CreditTempLot{}).
-		Where("user_id = ? AND source = ? AND amount_remaining > 0", userID, SourceSubscription).
+		Where(revokeWhere, userID, SourceSubscription, now).
 		UpdateColumn("amount_remaining", 0).Error; err != nil {
 		return err
 	}

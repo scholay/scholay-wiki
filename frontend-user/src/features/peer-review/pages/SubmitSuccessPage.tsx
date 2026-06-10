@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowRight, Check, Info } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { Button } from '@/shared/ui/button';
+import { ResourceError } from '@/shared/components';
 import { useSubmission } from '../api/submissions';
 
 /**
@@ -24,7 +25,7 @@ export function SubmitSuccessPage() {
   const params = useParams<{ id: string }>();
   const navigate = useNavigate();
   const id = params.id ? Number(params.id) : undefined;
-  const { data: submission, isLoading } = useSubmission(id);
+  const { data: submission, isLoading, isError, error } = useSubmission(id);
 
   // 投稿编号:用 submission.id 拼一个看起来像期刊收到的回执号。
   // 设计稿示例: NM-2026-051408-A7K3,这里用 id + 提交日期 hash 出可读编号。
@@ -46,11 +47,24 @@ export function SubmitSuccessPage() {
       ? `${submission.schoolTarget.schoolName} · ${degreeLabel(submission.schoolTarget.degreeType)}`
       : '——';
 
-  if (isLoading || !submission) {
+  if (isLoading) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-surface-3">
         <div className="text-faint text-base">加载中…</div>
       </div>
+    );
+  }
+
+  // id 不存在 / 非本人(后端统一 404)/ 上游失败 —— 不再永远卡在「加载中…」,
+  // 给友好提示并自动回审稿记录列表。
+  if (isError || !submission) {
+    return (
+      <ResourceError
+        resourceName="投稿"
+        error={error}
+        backTo="/peer-review/records"
+        backLabel="返回审稿记录"
+      />
     );
   }
 

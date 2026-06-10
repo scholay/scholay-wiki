@@ -109,6 +109,14 @@ func (m *Manager) executeWithRetry(operation func(client *Client) (any, error)) 
 
 		lastErr = err
 
+		// 调用方取消(用户关页 / 跳走 → 请求 ctx 被 cancel):既不该重试,也不是系统错误。
+		// 不拦的话会被当成 "network error" 误判为可重试,白白重试一个已被取消的请求 + 刷日志。
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) ||
+			strings.Contains(err.Error(), "context canceled") {
+			slog.Debug("minicod: request canceled by caller", "attempt", attempt+1)
+			return nil, err
+		}
+
 		if isRetryableError(err) {
 			slog.Warn("minicod: retryable error", "attempt", attempt+1, "accountID", accountID, "err", err)
 			continue
@@ -175,9 +183,15 @@ func (m *Manager) getClientWithAccountID() (*Client, uint, error) {
 
 func (m *Manager) SearchPapers(ctx context.Context, opts PaperSearchOptions) (*SearchResponse, error) {
 	params := map[string]any{
-		"query":            opts.Query,
-		"yearFrom":         opts.YearFrom,
-		"yearTo":           opts.YearTo,
+		"query":    opts.Query,
+		"yearFrom": opts.YearFrom,
+		"yearTo":   opts.YearTo,
+		// date_* / sort 同样会进上游请求体 (见 client.go SearchPapers),
+		// 必须进缓存键，否则只是日期范围或排序方式不同的检索会塌缩到同一 Redis key、
+		// 返回错误的结果(并诱发更多付费上游调用)。
+		"dateFrom":         opts.DateFrom,
+		"dateTo":           opts.DateTo,
+		"sort":             opts.Sort,
 		"publicationTypes": opts.PublicationTypes,
 		"openAccessPDF":    opts.OpenAccessPDF,
 		"venue":            opts.Venue,
@@ -247,7 +261,9 @@ func (m *Manager) GetPaperReferences(ctx context.Context, paperID string, opts C
 func (m *Manager) GetPaperAuthors(ctx context.Context, paperID string, fields []string, offset, limit int) (*AuthorSearchResponse, error) {
 	var resp AuthorSearchResponse
 	err := cache.GetOrSetMinicodPaperAuthors(ctx, paperID, fields, offset, limit, func() (any, error) {
-		return fetch(m, func(c *Client) (*AuthorSearchResponse, error) { return c.GetPaperAuthors(ctx, paperID, fields, offset, limit) })
+		return fetch(m, func(c *Client) (*AuthorSearchResponse, error) {
+			return c.GetPaperAuthors(ctx, paperID, fields, offset, limit)
+		})
 	}, &resp)
 	if err != nil {
 		return nil, err
@@ -300,7 +316,9 @@ func (m *Manager) GetAuthor(ctx context.Context, authorID string, fields []strin
 func (m *Manager) GetAuthorPapers(ctx context.Context, authorID string, fields []string, offset, limit int) (*SearchResponse, error) {
 	var resp SearchResponse
 	err := cache.GetOrSetMinicodAuthorPapers(ctx, authorID, fields, offset, limit, func() (any, error) {
-		return fetch(m, func(c *Client) (*SearchResponse, error) { return c.GetAuthorPapers(ctx, authorID, fields, offset, limit) })
+		return fetch(m, func(c *Client) (*SearchResponse, error) {
+			return c.GetAuthorPapers(ctx, authorID, fields, offset, limit)
+		})
 	}, &resp)
 	if err != nil {
 		return nil, err
@@ -314,7 +332,9 @@ func (m *Manager) GetRecommendationsForPaper(ctx context.Context, paperID string
 	params := map[string]any{"fields": opts.Fields, "limit": opts.Limit}
 	var resp RecommendationsResponse
 	err := cache.GetOrSetMinicodRecForPaper(ctx, paperID, params, func() (any, error) {
-		return fetch(m, func(c *Client) (*RecommendationsResponse, error) { return c.GetRecommendationsForPaper(ctx, paperID, opts) })
+		return fetch(m, func(c *Client) (*RecommendationsResponse, error) {
+			return c.GetRecommendationsForPaper(ctx, paperID, opts)
+		})
 	}, &resp)
 	if err != nil {
 		return nil, err
@@ -345,6 +365,11 @@ func (m *Manager) GetRecommendations(ctx context.Context, opts RecommendationsOp
 func (m *Manager) GetSearchSuggestions(ctx context.Context, query, source string, paperLimit, authorLimit int) (*SearchSuggestionsResponse, error) {
 	if query == "" {
 		return nil, fmt.Errorf("query is required")
+	}
+	// 上游 autocomplete 要求 query >= 3 字符;< 3 直接回空,不打上游 —— 否则每次都拿一个
+	// 400 "'query' must be >= 3 characters" 还被记成 ERROR(纯用户输入,非系统故障)。
+	if len([]rune(strings.TrimSpace(query))) < 3 {
+		return &SearchSuggestionsResponse{Papers: []AutocompleteMatch{}, Authors: []Author{}}, nil
 	}
 	if paperLimit <= 0 {
 		paperLimit = 5

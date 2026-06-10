@@ -436,13 +436,33 @@ func (r *Repository) FindAuthProviderByUnionID(provider, unionID string) (*UserA
 	return &authProvider, err
 }
 
-// DeleteUser 删除用户及所有关联数据（统计数据除外）
-// 使用原生 SQL 操作关联表，避免跨包导入 subscription 模型
+// DeleteUser 硬删用户 + 一致地清理「无外键级联」的资金相关孤儿表。
+//
+// FK ON DELETE CASCADE 只会带走:user_auth_providers、orders→payment_transactions、
+// user_coupons、user_messages、user_invitations、usage_logs 等(见 0001_baseline FK)。
+// 而 0015 的计费表(user_wallets / credit_temp_lots / credit_transactions / vip_code_redemptions)
+// **没有 FK**,旧实现不清理 → 订单审计轨迹被级联删除、但同一笔钱的钱包/账本/兑换流水滞留,
+// 形成「两套资金记录互相矛盾」的孤儿(本次修复点)。这里在同一事务里显式清掉,保持一致。
+//
+// ⚠️ 仍未清理(需 storage 客户端,跨模块;属隐私/留存而非资金一致性,留作后续决策):
+//    user_library_* / peer_review_* / prism_* / user_staging_* 及其 MinIO 对象键、
+//    agent_sessions 映射与 agent 容器内 jsonl。
+//    彻底方案应改「软删 / 匿名化」以保留资金审计轨迹,并由 storage-aware 级联清对象 —— 属产品决策。
 func (r *Repository) DeleteUser(userID uint) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
-		// 删除用户（以下通过外键 ON DELETE CASCADE 自动级联删除）：
-		//    - user_auth_providers
-		//    - orders → payment_transactions
+		// 先清无 FK 的计费孤儿表(顺序无关,均无相互 FK)。用表名直删,避免跨包导入 vip 模型。
+		for _, table := range []string{
+			"credit_transactions",
+			"credit_temp_lots",
+			"user_wallets",
+			"vip_code_redemptions",
+		} {
+			if err := tx.Exec("DELETE FROM "+table+" WHERE user_id = ?", userID).Error; err != nil {
+				return fmt.Errorf("failed to delete %s: %w", table, err)
+			}
+		}
+
+		// 删除用户主行(FK ON DELETE CASCADE 带走 auth_providers / orders→payment_transactions / 等)。
 		if err := tx.Delete(&User{}, userID).Error; err != nil {
 			return fmt.Errorf("failed to delete user: %w", err)
 		}

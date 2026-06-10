@@ -35,19 +35,20 @@ type UpsertResult struct {
 //   - slug 字段一旦写入后不再更新（保持 SEO 稳定）
 //
 // 数据降级保护（abstract / authors_json）:
-//   早期 bug — usagelog 钩子上来的 extra_data 里 abstract 被前端截断到 500 字符,
-//   authors_json 又是从 name-only 字符串拼出来的(无 authorId),
-//   COALESCE(NULLIF(NEW,''), OLD) 的写法会让"短截断版"覆盖"完整版",
-//   破坏 tier=2 搜索曝光时已经写入的优质数据。
 //
-//   现在改为长度比较: 仅当新值比旧值更长才覆盖。
-//   前端已同步修复(不再截断 abstract,authors_json 直接传完整 JSON),
-//   两侧合力确保 SEO 落地页拿到的是最完整的元数据。
+//	早期 bug — usagelog 钩子上来的 extra_data 里 abstract 被前端截断到 500 字符,
+//	authors_json 又是从 name-only 字符串拼出来的(无 authorId),
+//	COALESCE(NULLIF(NEW,''), OLD) 的写法会让"短截断版"覆盖"完整版",
+//	破坏 tier=2 搜索曝光时已经写入的优质数据。
+//
+//	现在改为长度比较: 仅当新值比旧值更长才覆盖。
+//	前端已同步修复(不再截断 abstract,authors_json 直接传完整 JSON),
+//	两侧合力确保 SEO 落地页拿到的是最完整的元数据。
 //
 // updated_at (sitemap <lastmod> 数据源) 与 abstract 实际变化保持一致:
-//   1. quality_tier 由 2 升级到 1 （priority 0.5→0.7，对爬虫是有意义的变化）
-//   2. title 发生变化
-//   3. abstract 真的变长 (会被新值覆盖)
+//  1. quality_tier 由 2 升级到 1 （priority 0.5→0.7，对爬虫是有意义的变化）
+//  2. title 发生变化
+//  3. abstract 真的变长 (会被新值覆盖)
 //
 // ⚠️ updated_at 必须放在所有其它赋值之前 —— ON DUPLICATE KEY UPDATE 按左到右求值。
 func (r *Repository) UpsertDetail(seed *PaperSeed, slug, authorsJSON, fieldsJSON string) error {
@@ -280,18 +281,22 @@ func (r *Repository) GetSitemapLastModPerPage() (map[int]time.Time, error) {
 	return out, nil
 }
 
-// ListTopSlugs 返回最值得主动推送的 paper slug 列表(按 quality_tier 升序 + view_count 降序)。
-// 用于服务首次接入主动 SEO 提交时打底:把已经在库里的高价值论文一次性 seed 进队列。
-//   limit: 最多返回多少条;0 或负值表示不查
-func (r *Repository) ListTopSlugs(limit int) ([]string, error) {
+// ListTopPaperPaths 返回最值得主动推送的论文 **canonical 路径** /paper/{source}/{id}
+// (按 quality_tier 升序 + view_count 降序)。用于首次接入主动 SEO 提交时打底。
+// 返回 canonical 而非 legacy /paper/{slug},避免推送时被 301(rank 12)。source/id 缺失时回落 slug。
+//
+//	limit: 最多返回多少条;0 或负值表示不查
+func (r *Repository) ListTopPaperPaths(limit int) ([]string, error) {
 	if limit <= 0 {
 		return nil, nil
 	}
 	var rows []struct {
-		Slug string `gorm:"column:slug"`
+		Slug    string `gorm:"column:slug"`
+		Source  string `gorm:"column:source"`
+		PaperID string `gorm:"column:paper_id"`
 	}
 	err := r.db.Table("seo_papers").
-		Select("slug").
+		Select("slug, source, paper_id").
 		Where("status = ? AND slug <> ''", StatusActive).
 		Order("quality_tier ASC, view_count DESC, id ASC"). // tier=1 优先,然后看人气
 		Limit(limit).
@@ -300,8 +305,12 @@ func (r *Repository) ListTopSlugs(limit int) ([]string, error) {
 		return nil, err
 	}
 	out := make([]string, 0, len(rows))
-	for _, r := range rows {
-		out = append(out, r.Slug)
+	for _, row := range rows {
+		if p := paperCanonicalPath(row.Source, row.PaperID); p != "" {
+			out = append(out, p)
+		} else if row.Slug != "" {
+			out = append(out, "/paper/"+row.Slug)
+		}
 	}
 	return out, nil
 }

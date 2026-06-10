@@ -64,6 +64,10 @@ type ExposeRequest struct {
 	Papers   []PaperSeed   `json:"papers,omitempty"`
 	Authors  []AuthorSeed  `json:"authors,omitempty"`
 	Journals []JournalSeed `json:"journals,omitempty"`
+	// DetailPapers: 论文**详情页**打开的曝光(tier-1,高优先级)。站内详情走前端缓存、不打
+	// GET /papers/:id,服务端看不到,故论文 tier-1 只能由前端 exposePaperDetail 经此字段上报。
+	// 作者/期刊详情由后端 GetAuthor/GetJournal 服务端记 tier-1,不依赖此字段。
+	DetailPapers []PaperSeed `json:"detail_papers,omitempty"`
 }
 
 // ExposeSeeds 接收搜索曝光批量种子
@@ -74,8 +78,8 @@ func (h *Handler) ExposeSeeds(c *gin.Context) {
 		utils.BadRequest(c, "invalid payload")
 		return
 	}
-	papers, authors, journals := req.Papers, req.Authors, req.Journals
-	if len(papers) == 0 && len(authors) == 0 && len(journals) == 0 {
+	papers, authors, journals, detailPapers := req.Papers, req.Authors, req.Journals, req.DetailPapers
+	if len(papers) == 0 && len(authors) == 0 && len(journals) == 0 && len(detailPapers) == 0 {
 		utils.Success(c, gin.H{"accepted": false})
 		return
 	}
@@ -84,7 +88,13 @@ func (h *Handler) ExposeSeeds(c *gin.Context) {
 	// 原本同步跑最多 20+20+20 条 upsert,把全部 DB 往返压在请求路径上(N+1,纯浪费的请求延迟)。
 	// 改成立即 ACK + 后台落库:请求 O(1) 返回,写入在 goroutine(safego 带 recover)里慢慢做。
 	// req.* 切片由本请求独占,捕获进 goroutine 安全;goroutine 内不得再碰 gin.Context。
-	safego.Go("seo-expose-seeds", func() {
+	safego.Record("seo-expose-seeds", func() {
+		if len(detailPapers) > 0 {
+			// 论文详情曝光 → tier-1(priority 高 / changefreq weekly),与作者/期刊详情对齐。
+			if _, err := h.service.RecordDetailSeeds(detailPapers); err != nil {
+				slog.Warn("seo expose detail papers failed", "err", err)
+			}
+		}
 		if len(papers) > 0 {
 			if _, err := h.service.RecordSearchSeeds(papers); err != nil {
 				slog.Warn("seo expose papers failed", "err", err)
@@ -191,9 +201,9 @@ func (h *Handler) ServeSitemapIndex(c *gin.Context) {
 
 	// 各子 sitemap 的真实 lastmod ——
 	// 用真实数据而非 now,避免误导爬虫每分钟都来抓
-	staticLastMod := StaticPagesLastMod                       // 静态页面常量(代码维护)
-	blogLastMod := MaxArticleLastMod(BlogArticles)            // 博客文章里最新的
-	resourceLastMod := MaxArticleLastMod(ResourceArticles)    // 资源文章里最新的
+	staticLastMod := StaticPagesLastMod                    // 静态页面常量(代码维护)
+	blogLastMod := MaxArticleLastMod(BlogArticles)         // 博客文章里最新的
+	resourceLastMod := MaxArticleLastMod(ResourceArticles) // 资源文章里最新的
 	if blogLastMod == "" {
 		blogLastMod = staticLastMod
 	}
@@ -456,10 +466,11 @@ func parseSitemapPageParam(c *gin.Context, prefix string) (int, bool) {
 //   - fetcher: 拉取该实体某分页全部条目的函数（差异点）
 //
 // URL 格式 (2026-05 改 SEO canonical):
-//   `${base}${urlPrefix}${source}/${entityID}` — 与前端路由 `/paper/:source/:paperId`
-//   / `/author/:source/:authorId` 完全对齐。
-//   缺 source/entityID 的旧数据回落到 legacy `${base}${urlPrefix}${slug}`,
-//   /paper/{slug} 端点(handler_ssr 注册的 fallback)会继续 SSR + 301。
+//
+//	`${base}${urlPrefix}${source}/${entityID}` — 与前端路由 `/paper/:source/:paperId`
+//	/ `/author/:source/:authorId` 完全对齐。
+//	缺 source/entityID 的旧数据回落到 legacy `${base}${urlPrefix}${slug}`,
+//	/paper/{slug} 端点(handler_ssr 注册的 fallback)会继续 SSR + 301。
 //
 // changefreq 按 quality_tier 区分: tier=1(详情点击,活跃)→weekly,
 // tier=2(搜索曝光,长尾)→monthly,降低 Googlebot 对长尾页的无效抓取。
@@ -535,8 +546,10 @@ func changefreqForTier(tier int) string {
 // ServeRobotsTxt 返回 robots.txt，声明 sitemap 入口
 // 索引文件 /sitemap.xml 会枚举所有子 sitemap，爬虫跟随即可
 func (h *Handler) ServeRobotsTxt(c *gin.Context) {
-	body := fmt.Sprintf(`User-agent: *
-Allow: /
+	// 规则按 robots 规范:爬虫只遵从**最具体匹配**的 User-agent 组,**不继承** * 组。
+	// 故 Baiduspider / Sogou 这两个主力中文爬虫的具名组必须各自自带 Disallow,
+	// 否则它们会无视下面的禁爬目录,去爬 /admin、/api、OAuth 回调(query 带 code/state)等非 SEO 面。
+	rules := `Allow: /
 Disallow: /admin
 Disallow: /settings
 Disallow: /alipay-return
@@ -546,17 +559,22 @@ Disallow: /apple/callback
 Disallow: /orcid/callback
 Disallow: /microsoft/callback
 Disallow: /discourse/callback
-Disallow: /api/
+Disallow: /api/`
+
+	body := fmt.Sprintf(`User-agent: *
+%s
 
 User-agent: Baiduspider
+%s
 Crawl-delay: 2
 
 User-agent: Sogou web spider
+%s
 Crawl-delay: 2
 
 Sitemap: %s/sitemap.xml
 Sitemap: %s/sitemap-tools.xml
-`, baseURL(), baseURL())
+`, rules, rules, rules, baseURL(), baseURL())
 	c.Header("Content-Type", "text/plain; charset=utf-8")
 	c.Header("Cache-Control", "public, max-age=86400")
 	c.String(http.StatusOK, body)

@@ -8,6 +8,7 @@
 package usagelog
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -27,9 +28,9 @@ func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
 }
 
-// Create 创建日志记录
-func (r *Repository) Create(log *UsageLog) error {
-	return r.db.Create(log).Error
+// Create 创建日志记录 (ctx 带 deadline —— DB 卡住时及时放弃, 不积压 record 池 worker)
+func (r *Repository) Create(ctx context.Context, log *UsageLog) error {
+	return r.db.WithContext(ctx).Create(log).Error
 }
 
 // List 分页查询日志

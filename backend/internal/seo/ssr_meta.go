@@ -226,13 +226,13 @@ func (s *Service) BlogPaths() []string { return AllBlogPaths() }
 // ResourcePaths 暴露资源页 URL 列表
 func (s *Service) ResourcePaths() []string { return AllResourcePaths() }
 
-// BootstrapPaperSlugs 给 seosubmit 启动期 seed 用 —— 热门论文 slug
+// BootstrapPaperPaths 给 seosubmit 启动期 seed 用 —— 热门论文 canonical 路径 /paper/{source}/{id}。
 // ctx 当前不参与 (实现是同步 in-memory), 保留以匹配接口签名。
-func (s *Service) BootstrapPaperSlugs(_ context.Context, limit int) []string {
-	return s.GetTopPaperSlugs(limit)
+func (s *Service) BootstrapPaperPaths(_ context.Context, limit int) []string {
+	return s.GetTopPaperPaths(limit)
 }
 
-// BootstrapAuthorSlugs 同上, 热门作者 slug
-func (s *Service) BootstrapAuthorSlugs(_ context.Context, limit int) []string {
-	return s.GetTopAuthorSlugs(limit)
+// BootstrapAuthorPaths 同上, 热门作者 canonical 路径 /author/{source}/{id}。
+func (s *Service) BootstrapAuthorPaths(_ context.Context, limit int) []string {
+	return s.GetTopAuthorPaths(limit)
 }

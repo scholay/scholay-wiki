@@ -23,6 +23,9 @@ type WebSocketHub interface {
 	SendNotification(userID uint, msgID uint, title, content, category, linkURL, linkText string) error
 	SendUnreadCount(userID uint, count int) error
 	SendToast(userID uint, title, content, category string) error
+	// IsUserOnline 在线判定 —— 广播路径用它跳过离线用户:
+	// WS 推送对离线者本来就短路, 但未读数的 DB 查询不会, 全员公告时不能为离线大多数白跑 N 条 JOIN。
+	IsUserOnline(userID uint) bool
 }
 
 // Service 消息服务
@@ -186,9 +189,7 @@ func (s *Service) SendMessage(messageID uint) error {
 	if message.LinkText != nil {
 		linkText = *message.LinkText
 	}
-	for _, uid := range userIDs {
-		s.pushNotification(uid, message.ID, message.Title, message.Content, string(message.Category), linkURL, linkText)
-	}
+	s.pushNotificationBatch(userIDs, message.ID, message.Title, message.Content, string(message.Category), linkURL, linkText)
 
 	return nil
 }
@@ -449,19 +450,46 @@ func (s *Service) pushNotification(userID uint, msgID uint, title, content, cate
 	}
 
 	safego.Go("message-push-notification", func() {
-		// 推送新消息通知
-		if err := s.wsHub.SendNotification(userID, msgID, title, content, category, linkURL, linkText); err != nil {
-			slog.Error("failed to push notification", "user_id", userID, "err", err)
-		}
-
-		// 推送未读数量更新
-		count, err := s.repo.GetUnreadCount(userID)
-		if err == nil {
-			if err := s.wsHub.SendUnreadCount(userID, int(count)); err != nil {
-				slog.Error("failed to push unread count", "user_id", userID, "err", err)
-			}
-		}
+		s.pushToUser(userID, msgID, title, content, category, linkURL, linkText)
 	})
+}
+
+// pushNotificationBatch 给一批收件人推送通知（全员公告 / 按等级 / 批量发送用）。
+//
+// 原实现对每个收件人各起一个 goroutine + 一条 GetUnreadCount JOIN 查询:
+// 一次全员公告瞬间起数万 goroutine 抢 90 连接的池, 可打满连接池阻塞搜索/聊天/登录。
+// 现改为: 单 goroutine 顺序推 + 离线用户整体跳过 —— 离线者上线时前端会主动拉未读数,
+// 不需要也收不到实时推送。在线用户量级有限(Hub 内存映射), 顺序推最多占用 1 个 DB 连接。
+func (s *Service) pushNotificationBatch(userIDs []uint, msgID uint, title, content, category, linkURL, linkText string) {
+	if s.wsHub == nil {
+		return
+	}
+
+	safego.Go("message-broadcast-push", func() {
+		online := 0
+		for _, uid := range userIDs {
+			if !s.wsHub.IsUserOnline(uid) {
+				continue
+			}
+			online++
+			s.pushToUser(uid, msgID, title, content, category, linkURL, linkText)
+		}
+		slog.Info("broadcast push done", "recipients", len(userIDs), "online", online)
+	})
+}
+
+// pushToUser 同步推一条通知 + 未读数给单个用户 (调用方负责异步包裹)。
+func (s *Service) pushToUser(userID uint, msgID uint, title, content, category, linkURL, linkText string) {
+	if err := s.wsHub.SendNotification(userID, msgID, title, content, category, linkURL, linkText); err != nil {
+		slog.Error("failed to push notification", "user_id", userID, "err", err)
+	}
+
+	count, err := s.repo.GetUnreadCount(userID)
+	if err == nil {
+		if err := s.wsHub.SendUnreadCount(userID, int(count)); err != nil {
+			slog.Error("failed to push unread count", "user_id", userID, "err", err)
+		}
+	}
 }
 
 // SendToUserWithCategory 发送消息给用户（使用字符串类型的分类，供外部模块调用）

@@ -63,7 +63,7 @@ func (h *Handler) ConfirmPendingOAuthMerge(c *gin.Context) {
 	}
 	user, token, err := h.service.FinalizePendingMerge(c.Request.Context(), req.Token, authUserID, c.ClientIP())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		utils.SafeError(c, http.StatusBadRequest, err)
 		return
 	}
 	// 复用 OAuth 成功响应,前端处理路径与正常登录一致
@@ -80,7 +80,7 @@ func (h *Handler) CancelPendingOAuthMerge(c *gin.Context) {
 	}
 	user, token, err := h.service.CancelPendingMergeAndCreateUser(c.Request.Context(), req.Token, c.ClientIP())
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		utils.SafeError(c, http.StatusBadRequest, err)
 		return
 	}
 	respondOAuthSuccess(c, token, user, true)

@@ -400,6 +400,33 @@
   display: none;                  /* WebKit / Blink */
 }
 
+/* 会话滚动条「仅手动滚动时浮现」—— 智能搜索/智能助手等会话区专用。
+   默认滚动条透明(看不见),JS 监听 wheel/touchmove 时给元素加 .is-scrolling 让滑块浮现,
+   停手约 1s 后移除该类、滑块再隐藏。程序化「自动贴底」改的是 scrollTop,不会触发 wheel/touchmove,
+   故自动滚动期间滚动条始终隐藏(符合需求)。配合库的 scrollbar-gutter:stable 预留宽度,显隐不抖动。
+   作用域仅限挂了本类的会话滚动元素,不影响论文卡片等内部滚动区。 */
+.chat-scrollbar-autohide {
+  scrollbar-width: thin;                       /* Firefox */
+  scrollbar-color: transparent transparent;
+}
+.chat-scrollbar-autohide.is-scrolling {
+  scrollbar-color: hsl(var(--border-strong)) transparent;
+}
+.chat-scrollbar-autohide::-webkit-scrollbar-thumb {
+  background: transparent;                      /* 默认透明 = 不可见(宽度仍保留,显隐不抖动) */
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 8px;
+}
+.chat-scrollbar-autohide.is-scrolling::-webkit-scrollbar-thumb {
+  background: hsl(var(--border-strong));
+  background-clip: padding-box;
+}
+.chat-scrollbar-autohide.is-scrolling::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--faint-foreground));
+  background-clip: padding-box;
+}
+
 /* input-otp 闪烁光标 */
 @keyframes caret-blink {
   0%, 70%, 100% { opacity: 1; }

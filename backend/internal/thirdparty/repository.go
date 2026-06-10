@@ -8,6 +8,7 @@
 package thirdparty
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -92,32 +93,32 @@ func (r *Repository) IncrementUsage(id uint) error {
 		}).Error
 }
 
-// RecordAPIUsage records a single API request's outcome with timing information
-func (r *Repository) RecordAPIUsage(id uint, success bool, latencyMs int64) error {
-	now := time.Now()
+// ApplyAPIUsageDeltas 把一个 flush 窗口内聚合的统计增量一次性落到账号行。
+// 替代旧的 per-call RecordAPIUsage 单行 UPDATE: 每账号每窗口只打一条聚合 UPDATE,
+// 消除全部 AI 流量汇聚到少数热行时的行锁集中。ctx 带 deadline, DB 卡住及时放弃。
+func (r *Repository) ApplyAPIUsageDeltas(ctx context.Context, id uint, agg *apiUsageAgg) error {
+	if agg == nil || agg.total == 0 {
+		return nil
+	}
 	updates := map[string]any{
-		"total_requests": gorm.Expr("total_requests + 1"),
-		"last_used_at":   now,
+		"total_requests": gorm.Expr("total_requests + ?", agg.total),
+		"last_used_at":   agg.lastUsed,
 	}
-
-	if success {
-		updates["success_count"] = gorm.Expr("success_count + 1")
-		updates["total_latency_ms"] = gorm.Expr("total_latency_ms + ?", latencyMs)
-		updates["total_latency_sq_ms"] = gorm.Expr("total_latency_sq_ms + ?", latencyMs*latencyMs)
-
-		// Update max latency using GREATEST
-		updates["max_latency_ms"] = gorm.Expr("GREATEST(max_latency_ms, ?)", latencyMs)
-
-		// Track slow requests (> threshold)
-		if latencyMs > int64(SlowThresholdMs) {
-			updates["slow_count"] = gorm.Expr("slow_count + 1")
-			updates["slow_total_latency_ms"] = gorm.Expr("slow_total_latency_ms + ?", latencyMs)
+	if agg.success > 0 {
+		updates["success_count"] = gorm.Expr("success_count + ?", agg.success)
+		updates["total_latency_ms"] = gorm.Expr("total_latency_ms + ?", agg.latencySum)
+		updates["total_latency_sq_ms"] = gorm.Expr("total_latency_sq_ms + ?", agg.latencySq)
+		updates["max_latency_ms"] = gorm.Expr("GREATEST(max_latency_ms, ?)", agg.latencyMax)
+		if agg.slowCount > 0 {
+			updates["slow_count"] = gorm.Expr("slow_count + ?", agg.slowCount)
+			updates["slow_total_latency_ms"] = gorm.Expr("slow_total_latency_ms + ?", agg.slowLatency)
 		}
-	} else {
-		updates["fail_count"] = gorm.Expr("fail_count + 1")
+	}
+	if agg.fail > 0 {
+		updates["fail_count"] = gorm.Expr("fail_count + ?", agg.fail)
 	}
 
-	return r.db.Model(&ThirdPartyAccount{}).
+	return r.db.WithContext(ctx).Model(&ThirdPartyAccount{}).
 		Where("id = ?", id).
 		Updates(updates).Error
 }

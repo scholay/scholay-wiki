@@ -131,14 +131,15 @@ func TestPlanConsume(t *testing.T) {
 // ─── 配置派生 ────────────────────────────────────────────────────────────────
 
 func TestDailyCeiling(t *testing.T) {
+	// 语义见 migration 0021:Pro = base × pro倍率;Max = base × pro倍率 × max倍率(Max 是 Pro 的几倍)。
 	c := &BillingConfig{FreeDailyTokens: 200000, ProMultiplier: 3, MaxMultiplier: 5}
 	if c.DailyCeiling(TierFree) != 200000 {
 		t.Errorf("free ceiling=%d", c.DailyCeiling(TierFree))
 	}
-	if c.DailyCeiling(TierPro) != 600000 {
+	if c.DailyCeiling(TierPro) != 600000 { // 200000 × 3
 		t.Errorf("pro ceiling=%d", c.DailyCeiling(TierPro))
 	}
-	if c.DailyCeiling(TierMax) != 1000000 {
+	if c.DailyCeiling(TierMax) != 3000000 { // 200000 × 3 × 5(Max = base × pro × max)
 		t.Errorf("max ceiling=%d", c.DailyCeiling(TierMax))
 	}
 	// 倍率<=0 = 不限。

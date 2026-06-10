@@ -112,12 +112,12 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 			billingG.POST("/reset", h.vip.ResetQuota)
 			billingG.PUT("/auto-reset", h.vip.SetAutoReset)
 			billingG.GET("/transactions", h.vip.ListTransactions)
-			billingG.GET("/usage-calendar", h.vip.UsageCalendar) // 当月每日 token 用量(热力图)
-			billingG.GET("/orders", h.vip.ListOrders)            // 已支付订单明细(明细查看)
-			billingG.POST("/recharge", h.vip.CreateRecharge)     // 建充值订单
+			billingG.GET("/usage-calendar", h.vip.UsageCalendar)   // 当月每日 token 用量(热力图)
+			billingG.GET("/orders", h.vip.ListOrders)              // 已支付订单明细(明细查看)
+			billingG.POST("/recharge", h.vip.CreateRecharge)       // 建充值订单
 			billingG.GET("/subscribe/quote", h.vip.SubscribeQuote) // 订阅/续期/升级报价(不建单)
 			billingG.POST("/subscribe", h.vip.CreateSubscription)  // 建订阅订单
-			billingG.POST("/test-pay", h.vip.TestPay)             // 测试支付(PAYMENT_TEST_ENABLED 时可用)
+			billingG.POST("/test-pay", h.vip.TestPay)              // 测试支付(PAYMENT_TEST_ENABLED 时可用)
 		}
 
 		// 智能写作 (Prism · LaTeX IDE): 项目/文件 CRUD + 编译(异步)+ 取 PDF。
@@ -146,11 +146,11 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 			// AI 对话走下面独立挂的 /prism/ws/:sessionId;这里是轮次边界 HTTP 端点。
 			prismG.POST("/projects/:id/ws-ticket", h.prism.IssueWSTicket)
 			prismG.GET("/projects/:id/session/messages", h.prism.GetWSMessages)
-			prismG.GET("/projects/:id/session/context", h.prism.GetContext) // 上下文水位(token 占用)
-			prismG.POST("/projects/:id/round/prepare", h.prism.PrepareRound) // 铺源 DB→cwd
-			prismG.GET("/projects/:id/round/pending", h.prism.PendingRound)  // 待应用 diff(重入)
-			prismG.POST("/projects/:id/round/apply", h.prism.ApplyRound)     // 固化 cwd→DB
-			prismG.POST("/projects/:id/round/reject", h.prism.RejectRound)   // 丢弃(重铺源还原)
+			prismG.GET("/projects/:id/session/context", h.prism.GetContext)       // 上下文水位(token 占用)
+			prismG.POST("/projects/:id/round/prepare", h.prism.PrepareRound)      // 铺源 DB→cwd
+			prismG.GET("/projects/:id/round/pending", h.prism.PendingRound)       // 待应用 diff(重入)
+			prismG.POST("/projects/:id/round/apply", h.prism.ApplyRound)          // 固化 cwd→DB
+			prismG.POST("/projects/:id/round/reject", h.prism.RejectRound)        // 丢弃(重铺源还原)
 			prismG.GET("/projects/:id/workspace/file", h.prism.ReadWorkspaceFile) // 读 cwd(实时 diff refetch)
 		}
 
@@ -229,8 +229,9 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		userProtected.GET("/claw/session/file", h.claw.GetSessionFile)
 		// 成果交付: 列出会话 ./out 交付目录的产物 + 下载/预览单个产物 (agent 产出 → web 用户)。
 		userProtected.GET("/claw/session/artifacts", h.claw.GetSessionArtifacts)
-		userProtected.GET("/claw/session/artifact", h.claw.DownloadSessionArtifact)
-		userProtected.GET("/claw/session/artifact.zip", h.claw.DownloadArtifactZip) // 目录产物打包下载
+		userProtected.GET("/claw/artifact/:id", h.claw.DownloadArtifactByID)        // MinIO 交付物按 id 取(预览/下载)
+		userProtected.GET("/claw/session/artifact", h.claw.DownloadSessionArtifact) // 实时回退(storage 未启用)
+		userProtected.GET("/claw/session/artifact.zip", h.claw.DownloadArtifactZip) // 实时回退:目录打包下载
 		userProtected.POST("/claw/session/ws-ticket", h.claw.IssueWSTicket)
 		// 上传走通用 UploadLimitMiddleware (50MB 上限 + 业务码 7001), 跟 feedback/library upload 一致。
 		userProtected.POST("/claw/upload", middleware.UploadLimitMiddleware(middleware.UploadMaxBodySize), h.claw.UploadAttachment)
@@ -256,4 +257,3 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 	// 智能写作 (Prism) · WS 桥接 (ticket 已校验项目归属;agent-native 实时编辑)
 	api.GET("/user/prism/ws/:sessionId", h.prism.HandleWS)
 }
-

@@ -214,6 +214,9 @@ func (h *Handler) List(c *gin.Context) {
 
 	var items []UserLibraryPaper
 	if err := db.
+		// raw_json 是 json:"-" 的完整上游对象(每行多 KB)，列表视图永不序列化它，
+		// SELECT 进来纯属浪费带宽与 GC；详情端点才需要完整对象。
+		Omit("raw_json").
 		Order(orderClause).
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).

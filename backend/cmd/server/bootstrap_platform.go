@@ -26,7 +26,6 @@ import (
 
 // platformBundle 聚合平台域构造产物。
 type platformBundle struct {
-	usageLog        *usagelog.Handler
 	usageLogService *usagelog.Service
 	usageLogAdmin   *usagelog.AdminHandler
 
@@ -61,7 +60,6 @@ type platformBundle struct {
 func initPlatform(db *gorm.DB, cfg *appconfig.Config) *platformBundle {
 	usageLogRepo := usagelog.NewRepository(db)
 	usageLogService := usagelog.NewService(usageLogRepo)
-	usageLogHandler := usagelog.NewHandler(usageLogService)
 	usageLogAdminHandler := usagelog.NewAdminHandler(usageLogService)
 
 	// 功能使用统计 v2 (usage_events) —— 取代旧 usagelog 埋点; 旧表/旧页保留为历史只读。
@@ -94,7 +92,6 @@ func initPlatform(db *gorm.DB, cfg *appconfig.Config) *platformBundle {
 	wsHandler := websocket.NewHandler(wsHub, cfg.JWT.Secret)
 
 	return &platformBundle{
-		usageLog:          usageLogHandler,
 		usageLogService:   usageLogService,
 		usageLogAdmin:     usageLogAdminHandler,
 		usageStat:         usageStatHandler,

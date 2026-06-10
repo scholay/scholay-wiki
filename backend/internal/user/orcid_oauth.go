@@ -299,7 +299,7 @@ func (h *Handler) UnbindOrcid(c *gin.Context) {
 	}
 	err := h.service.UnbindOrcid(userID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		utils.SafeError(c, http.StatusBadRequest, err)
 		return
 	}
 	utils.SuccessWithMessage(c, "ORCID account unbound successfully", nil)

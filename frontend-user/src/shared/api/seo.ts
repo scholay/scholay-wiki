@@ -155,11 +155,14 @@ export function paperToSeed(p: Paper | undefined | null): PaperSeedPayload | nul
   return seed;
 }
 
-/** 详情点击 fire 一条 paper seed (tier=1) */
+/** 详情点击 fire 一条 paper seed (tier=1)。
+ * 走 detail_papers 字段(而非 papers)—— 论文详情走前端缓存、后端 GET /papers/:id 看不到,
+ * 故论文 tier-1 只能靠这里上报;后端据此走 RecordDetailSeeds(priority 高 / changefreq weekly)。
+ * 用 papers 字段会被当 tier-2 搜索曝光,所有论文恒 priority 0.5。 */
 export function exposePaperDetail(paper: Paper | undefined | null): void {
   const seed = paperToSeed(paper);
   if (!seed) return;
-  postExpose({ papers: [seed] });
+  postExpose({ detail_papers: [seed] });
 }
 
 /** 搜索结果渲染 fire 一批 paper seeds (tier=2) */

@@ -47,6 +47,38 @@ const IMAGE_MIME_BY_EXTENSION: Record<string, string> = {
   webp: 'image/webp',
 }
 
+// raw 模式(二进制安全字节读取,成果交付收割用)按扩展名给出的 MIME。
+// 覆盖常见交付物类型;命中不到回落 application/octet-stream。图片走 IMAGE_MIME_BY_EXTENSION。
+const MIME_BY_EXTENSION: Record<string, string> = {
+  // 文档 / 表格 / 演示(二进制,正是历史 binary→404 的那批)
+  pdf: 'application/pdf',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  xls: 'application/vnd.ms-excel',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  doc: 'application/msword',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  ppt: 'application/vnd.ms-powerpoint',
+  zip: 'application/zip',
+  // 文本 / 数据
+  md: 'text/markdown',
+  markdown: 'text/markdown',
+  txt: 'text/plain',
+  csv: 'text/csv',
+  tsv: 'text/tab-separated-values',
+  json: 'application/json',
+  jsonl: 'application/json',
+  xml: 'application/xml',
+  yaml: 'text/yaml',
+  yml: 'text/yaml',
+  html: 'text/html',
+  htm: 'text/html',
+  tex: 'text/x-tex',
+  bib: 'text/x-bibtex',
+}
+
+// raw 字节读取上限 —— 与 backend maxArtifactBytes(12MB)对齐;超出回 too_large。
+const MAX_RAW_BYTES = 12 * 1024 * 1024
+
 export type WorkspaceFileStatus =
   | 'modified'
   | 'added'
@@ -78,9 +110,11 @@ export type WorkspaceStatusResult = {
 export type WorkspaceReadFileResult = {
   state: 'ok' | 'binary' | 'too_large' | 'missing' | 'error'
   path: string
-  previewType?: 'text' | 'image'
+  previewType?: 'text' | 'image' | 'raw'
   content?: string
   dataUrl?: string
+  /** raw 模式:文件原始字节的 base64(任意类型,含二进制);成果交付收割用。 */
+  bytesBase64?: string
   mimeType?: string
   language: string
   size: number
@@ -93,6 +127,10 @@ export type WorkspaceTreeEntry = {
   name: string
   path: string
   isDirectory: boolean
+  /** 字节数(轻量 stat,目录为其自身 inode 大小);后端收割变更检测用。 */
+  size?: number
+  /** 修改时间(毫秒);后端收割变更检测用。 */
+  mtimeMs?: number
 }
 
 export type WorkspaceTreeResult = {
@@ -392,7 +430,7 @@ export class WorkspaceService {
   async readFile(
     sessionId: string,
     filePath: string,
-    options?: { full?: boolean },
+    options?: { full?: boolean; raw?: boolean },
   ): Promise<WorkspaceReadFileResult> {
     const resolvedPath = await this.resolveWorkspacePath(sessionId, filePath)
 
@@ -416,6 +454,36 @@ export class WorkspaceService {
     }
 
     const language = this.detectLanguage(resolvedPath.absolutePath)
+
+    // raw 模式:二进制安全 —— 任意文件按原始字节回 base64 + 真实 MIME,不做 text/binary 分类。
+    // 成果交付收割(后端 → MinIO)用:历史 readFile 对二进制丢字节(state=binary),xlsx/pdf/docx 因此 404。
+    if (options?.raw) {
+      if (stat.stat.size > MAX_RAW_BYTES) {
+        return { state: 'too_large', path: resolvedPath.relativePath, language, size: stat.stat.size }
+      }
+      let bytes: Buffer
+      try {
+        bytes = await fs.readFile(resolvedPath.absolutePath)
+      } catch (error) {
+        return {
+          state: 'error',
+          path: resolvedPath.relativePath,
+          language,
+          size: stat.stat.size,
+          error: this.formatFsError('Failed to read workspace file', resolvedPath.absolutePath, error),
+        }
+      }
+      return {
+        state: 'ok',
+        path: resolvedPath.relativePath,
+        previewType: 'raw',
+        bytesBase64: bytes.toString('base64'),
+        mimeType: this.detectMimeType(resolvedPath.absolutePath),
+        language,
+        size: stat.stat.size,
+      }
+    }
+
     const imageMimeType = this.detectImageMimeType(resolvedPath.absolutePath)
 
     let content: Buffer
@@ -551,7 +619,7 @@ export class WorkspaceService {
         ),
       }
     }
-    const visibleEntries = entries
+    const sorted = entries
       .filter((entry) => !entry.name.startsWith('.'))
       .sort((a, b) => {
         if (a.isDirectory() !== b.isDirectory()) {
@@ -559,16 +627,30 @@ export class WorkspaceService {
         }
         return a.name.localeCompare(b.name)
       })
-      .map((entry) => ({
-        name: entry.name,
-        path: this.normalizeRelativePath(
-          path.relative(
-            resolvedPath.workspaceRoot,
-            path.join(resolvedPath.absolutePath, entry.name),
-          ),
-        ),
-        isDirectory: entry.isDirectory(),
-      }))
+
+    // 每项轻量 stat 拿 size + mtimeMs(只看元数据,不读字节)—— 后端成果收割据此做变更检测,
+    // 文件没变(size:mtime 一致)就跳过昂贵的字节重读 / zip 重打。取不到给 0 = 当作"需重读"。
+    const visibleEntries = await Promise.all(
+      sorted.map(async (entry) => {
+        const abs = path.join(resolvedPath.absolutePath, entry.name)
+        let size = 0
+        let mtimeMs = 0
+        try {
+          const st = await fs.stat(abs)
+          size = st.size
+          mtimeMs = Math.floor(st.mtimeMs)
+        } catch {
+          /* 取不到元数据就保持 0 */
+        }
+        return {
+          name: entry.name,
+          path: this.normalizeRelativePath(path.relative(resolvedPath.workspaceRoot, abs)),
+          isDirectory: entry.isDirectory(),
+          size,
+          mtimeMs,
+        }
+      }),
+    )
 
     return {
       state: 'ok',
@@ -1270,6 +1352,14 @@ export class WorkspaceService {
   private detectImageMimeType(filePath: string): string | null {
     const ext = path.extname(filePath).slice(1).toLowerCase()
     return IMAGE_MIME_BY_EXTENSION[ext] ?? null
+  }
+
+  // raw 读取的通用 MIME 推断:先图片,再文档/数据扩展名表,兜底 octet-stream。
+  private detectMimeType(filePath: string): string {
+    const img = this.detectImageMimeType(filePath)
+    if (img) return img
+    const ext = path.extname(filePath).slice(1).toLowerCase()
+    return MIME_BY_EXTENSION[ext] ?? 'application/octet-stream'
   }
 
   private async safeStat(targetPath: string): Promise<WorkspaceStatResult> {

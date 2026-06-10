@@ -8,6 +8,7 @@
 package admin
 
 import (
+	"sync"
 	"time"
 
 	"gorm.io/gorm"
@@ -63,25 +64,50 @@ type ChartDataPoint struct {
 // 收进 service 层 (handler 不再持有 *gorm.DB), 与其他模块的分层保持一致。
 type dashboardService struct {
 	db *gorm.DB
+
+	// 看板缓存: 每次加载要跑 ~17 条串行 COUNT/SUM, 30s 内多次打开/刷新复用同一份。
+	// 锁覆盖整个计算过程, 顺带把并发冷加载折叠成一次 (admin-only 低频, 简单优先)。
+	mu       sync.Mutex
+	cached   *DashboardStatistics
+	cachedAt time.Time
 }
+
+// dashboardCacheTTL 看板汇总缓存时长 —— 运营指标不需要秒级新鲜。
+const dashboardCacheTTL = 30 * time.Second
 
 func newDashboardService(db *gorm.DB) *dashboardService {
 	return &dashboardService{db: db}
 }
 
-// GetStatistics 跑全部看板汇总查询并装配成 DashboardStatistics。
+// GetStatistics 返回看板汇总 (30s 进程内缓存; 缓存结果只读共享, handler 仅序列化)。
 func (s *dashboardService) GetStatistics() *DashboardStatistics {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.cached != nil && time.Since(s.cachedAt) < dashboardCacheTTL {
+		return s.cached
+	}
+	stats := s.computeStatistics()
+	s.cached = stats
+	s.cachedAt = time.Now()
+	return stats
+}
+
+// computeStatistics 跑全部看板汇总查询并装配成 DashboardStatistics。
+func (s *dashboardService) computeStatistics() *DashboardStatistics {
 	stats := &DashboardStatistics{}
 	now := time.Now()
-	today := now.Format("2006-01-02")
-	date7dAgo := now.AddDate(0, 0, -7).Format("2006-01-02")
-	date30dAgo := now.AddDate(0, 0, -30).Format("2006-01-02")
+	// 半开区间替代 DATE(col) = / >= : DATE() 包列不可走索引 (非 sargable), 会扫全部候选行。
+	// 北京时间语义不变 —— 容器 TZ 即北京时, 直接取本地零点, 不做任何时区转换。
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	tomorrowStart := todayStart.AddDate(0, 0, 1)
+	start7d := todayStart.AddDate(0, 0, -7)
+	start30d := todayStart.AddDate(0, 0, -30)
 
 	// 用户统计
 	s.db.Table("users").Count(&stats.TotalUsers)
-	s.db.Table("users").Where("DATE(created_at) = ?", today).Count(&stats.NewUsersToday)
-	s.db.Table("users").Where("DATE(created_at) >= ?", date7dAgo).Count(&stats.NewUsers7d)
-	s.db.Table("users").Where("DATE(created_at) >= ?", date30dAgo).Count(&stats.NewUsers30d)
+	s.db.Table("users").Where("created_at >= ? AND created_at < ?", todayStart, tomorrowStart).Count(&stats.NewUsersToday)
+	s.db.Table("users").Where("created_at >= ?", start7d).Count(&stats.NewUsers7d)
+	s.db.Table("users").Where("created_at >= ?", start30d).Count(&stats.NewUsers30d)
 
 	// (对话统计已下线 — conversations/conversation_messages 表在迁移 0049 DROP)
 
@@ -93,17 +119,17 @@ func (s *dashboardService) GetStatistics() *DashboardStatistics {
 
 	s.db.Table("orders").
 		Select("COALESCE(SUM(final_amount), 0)").
-		Where("status = ? AND DATE(payment_time) = ?", "paid", today).
+		Where("status = ? AND payment_time >= ? AND payment_time < ?", "paid", todayStart, tomorrowStart).
 		Scan(&stats.RevenueToday)
 
 	s.db.Table("orders").
 		Select("COALESCE(SUM(final_amount), 0)").
-		Where("status = ? AND DATE(payment_time) >= ?", "paid", date7dAgo).
+		Where("status = ? AND payment_time >= ?", "paid", start7d).
 		Scan(&stats.Revenue7d)
 
 	s.db.Table("orders").
 		Select("COALESCE(SUM(final_amount), 0)").
-		Where("status = ? AND DATE(payment_time) >= ?", "paid", date30dAgo).
+		Where("status = ? AND payment_time >= ?", "paid", start30d).
 		Scan(&stats.Revenue30d)
 
 	// 订单统计

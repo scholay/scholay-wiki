@@ -17,6 +17,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"scholar-backend/internal/common/ctxutil"
 	"scholar-backend/internal/common/safego"
 
 	"github.com/gin-gonic/gin"
@@ -79,7 +80,7 @@ func (s *Service) Record(event FeatureUseEvent) {
 	if event.FeatureName == "" {
 		event.FeatureName = FeatureNames[event.FeatureCode]
 	}
-	safego.Go("usagelog-record:"+event.FeatureCode, func() {
+	safego.Record("usagelog-record:"+event.FeatureCode, func() {
 		log := &UsageLog{
 			UserID:      event.UserID,
 			SessionID:   event.SessionID,
@@ -97,7 +98,9 @@ func (s *Service) Record(event FeatureUseEvent) {
 				log.ExtraData = b
 			}
 		}
-		if err := s.repo.Create(log); err != nil {
+		ctx, cancel := ctxutil.With(ctxutil.QuickIO)
+		defer cancel()
+		if err := s.repo.Create(ctx, log); err != nil {
 			slog.Warn("usagelog: record feature use failed",
 				"feature_code", event.FeatureCode, "action", event.Action, "err", err)
 		}

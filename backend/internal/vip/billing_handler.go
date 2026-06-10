@@ -291,8 +291,12 @@ func (h *Handler) AdminAdjustWallet(c *gin.Context) {
 		err = w.GrantTemp(uid, req.Amount, SourceAdmin, "admin", time.Now().AddDate(0, 0, days), TxAdminAdjust)
 	case req.Amount > 0:
 		err = w.GrantPerm(uid, req.Amount, SourceAdmin, "admin", TxAdminAdjust)
-	case req.Amount < 0:
+	case req.Amount < 0 && req.Kind == CreditKindTemp:
+		// 显式扣临时经费(临时优先,Consume 语义即此)。
 		err = w.Consume(uid, -req.Amount, TxAdminAdjust, "admin", "admin", req.Note)
+	case req.Amount < 0:
+		// 默认/Kind==perm:扣永久经费 —— 不烧用户的临时经费(与「扣 perm」意图一致)。
+		err = w.ConsumePerm(uid, -req.Amount, TxAdminAdjust, "admin", "admin", req.Note)
 	default:
 		utils.BadRequest(c, "调账金额不能为 0")
 		return

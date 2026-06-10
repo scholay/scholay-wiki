@@ -13,8 +13,8 @@ const (
 	URLsPerSitemapPage = 50000
 
 	// quality_tier 定义
-	TierDetailClick   = 1 // 用户点击过详情页
-	TierSearchSeeded  = 2 // 仅搜索曝光（长尾种子）
+	TierDetailClick  = 1 // 用户点击过详情页
+	TierSearchSeeded = 2 // 仅搜索曝光（长尾种子）
 
 	// status 定义
 	StatusActive = 1
@@ -85,9 +85,10 @@ type Author struct {
 // QualityTier 用于按 tier 区分 <changefreq>（tier=1 weekly / tier=2 monthly）。
 //
 // URL 构造(2026-05 改为 SEO canonical 后):
-//   论文 → /paper/{Source}/{EntityID}   ← Source/EntityID 来自 seo_papers
-//   学者 → /author/{Source}/{EntityID}  ← Source/EntityID 来自 seo_authors
-//   期刊 → /journal/{EntityID}          ← 暂未实现,Source 留空,EntityID 是 journal id
+//
+//	论文 → /paper/{Source}/{EntityID}   ← Source/EntityID 来自 seo_papers
+//	学者 → /author/{Source}/{EntityID}  ← Source/EntityID 来自 seo_authors
+//	期刊 → /journal/{EntityID}          ← 暂未实现,Source 留空,EntityID 是 journal id
 //
 // Slug 字段保留 —— 旧 /paper/{slug} legacy 301 端点要用它做反查。
 type SitemapEntry struct {

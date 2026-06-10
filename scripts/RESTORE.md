@@ -46,6 +46,15 @@ docker compose up -d
 - **属主**:agent/minio 数据卷文件属主由各自镜像 entrypoint 启动时自愈(chown);若起容器报权限,重启对应容器一次。
 - **跨机恢复**:把整个 `./backups/<时间戳>/` 拷到新机的项目根下同样路径,再执行上面步骤即可。
 
-## 建议
-- 用 cron 定时跑 `./scripts/backup-all.sh`(如每日)+ 把 `./backups/` 同步到异机/对象存储冷桶。
+## 定时备份(可选脚手架,**尚未启用**)
+> ⚠️ 当前**没有任何定时备份在运行**。下面是一套可选脚手架,备份方案后续会统一单独设计,
+> 这里仅留作参考,采用与否由那套方案决定(不要据此误判「备份已在跑」)。
+- **可选安装**:生产服务器上以「能跑 docker 的用户」执行一次即可启用:
+  ```bash
+  BACKUP_OFFSITE_DEST=user@host:/srv/scholay-backups KEEP=14 ./scripts/install-backup-cron.sh
+  ```
+  这会装一条每日 04:00 跑 `scripts/backup-cron.sh` 的 crontab(幂等,标记 `# SCHOLAY_BACKUP`)。
+- **包装做的事**:flock 串行化 + 固定 PATH/cwd + 落 `./backups/backup.log` + 可选 rsync 异机同步。
+- **异机同步**:设 `BACKUP_OFFSITE_DEST` 后自动 rsync —— 备份与 `./data` 同盘时,单盘故障会同时带走主数据和备份(RPO 无界),异机才有意义。
+- **演练**:真正启用后务必做一次真实恢复演练,别只信备份跑过。
 - 想要 MinIO 对象级强一致 + 版本化:改用 `mc mirror` + 开桶 versioning(需 mc 客户端),代价是多一个依赖。

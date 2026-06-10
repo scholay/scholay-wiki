@@ -19,9 +19,9 @@ import (
 // 同 UpsertDetail —— 避免某条短数据来源覆盖此前更完整的版本。
 //
 // updated_at (sitemap <lastmod> 数据源) 仅在以下情况才 bump:
-//   1. quality_tier 由 2 升级到 1
-//   2. name 变化
-//   3. affiliations 真的变长 (会被新值覆盖)
+//  1. quality_tier 由 2 升级到 1
+//  2. name 变化
+//  3. affiliations 真的变长 (会被新值覆盖)
 func (r *Repository) UpsertAuthorDetail(seed *AuthorSeed, slug, affiliationsJSON string) error {
 	if seed == nil || seed.AuthorID == "" {
 		return errors.New("empty author_id")
@@ -202,16 +202,19 @@ func (r *Repository) ListAuthorSitemapPage(page int) ([]SitemapEntry, error) {
 	return out, nil
 }
 
-// ListTopAuthorSlugs 返回最值得主动推送的 author slug 列表(同 ListTopSlugs 思路)。
-func (r *Repository) ListTopAuthorSlugs(limit int) ([]string, error) {
+// ListTopAuthorPaths 返回最值得主动推送的作者 canonical 路径 /author/{source}/{id}
+// (同 ListTopPaperPaths 思路;canonical 避免推送被 301,source/id 缺失回落 slug)。
+func (r *Repository) ListTopAuthorPaths(limit int) ([]string, error) {
 	if limit <= 0 {
 		return nil, nil
 	}
 	var rows []struct {
-		Slug string `gorm:"column:slug"`
+		Slug     string `gorm:"column:slug"`
+		Source   string `gorm:"column:source"`
+		AuthorID string `gorm:"column:author_id"`
 	}
 	err := r.db.Table("seo_authors").
-		Select("slug").
+		Select("slug, source, author_id").
 		Where("status = ? AND slug <> ''", StatusActive).
 		Order("quality_tier ASC, view_count DESC, id ASC").
 		Limit(limit).
@@ -220,8 +223,12 @@ func (r *Repository) ListTopAuthorSlugs(limit int) ([]string, error) {
 		return nil, err
 	}
 	out := make([]string, 0, len(rows))
-	for _, r := range rows {
-		out = append(out, r.Slug)
+	for _, row := range rows {
+		if p := authorCanonicalPath(row.Source, row.AuthorID); p != "" {
+			out = append(out, p)
+		} else if row.Slug != "" {
+			out = append(out, "/author/"+row.Slug)
+		}
 	}
 	return out, nil
 }

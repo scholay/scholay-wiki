@@ -64,7 +64,6 @@ type allHandlers struct {
 	wechatPay       *payment.WeChatPayHandler
 	wechat          *wechat.Handler
 	wechatOfficial  *wechatofficial.Handler
-	usageLog        *usagelog.Handler
 	usageLogAdmin   *usagelog.AdminHandler
 	usageStats      *usagestat.Handler
 	llmUsageAdmin   *llmusage.AdminHandler // 后台 token 用量看板 (llm_token_usage 聚合/明细/导出)
@@ -113,8 +112,9 @@ func registerRoutes(router *gin.Engine, h *allHandlers, cfg *appconfig.Config) {
 		// 公共配置路由
 		h.config.RegisterRoutes(api)
 
-		// 管理员登录路由
-		h.admin.RegisterRoutes(api)
+		// 注:遗留的 POST /api/v1/admin/login 已下线 —— 它绕过了用户登录入口的全部
+		// 防爆破加固(Turnstile / 专属限流 / dummy-bcrypt 防枚举),且前端早已统一走
+		// /api/v1/user/login。管理员凭 role=admin 的 token 进 /admin。
 
 		registerAdminRoutes(api, h)
 		registerPaymentCallbackRoutes(api, h)

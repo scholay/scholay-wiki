@@ -95,8 +95,9 @@ ANTHROPIC_API_KEY=your-internal-service-token
 | 名称 | 类型 | 默认 | 说明 |
 |---|---|---|---|
 | `project` | string | (全部) | 过滤指定 project 路径 |
-| `limit` | int | 20 | 单页数量 |
+| `limit` | int | 20(带 `ids` 时 = ids 数量) | 单页数量 |
 | `offset` | int | 0 | 分页偏移 |
+| `ids` | string | (不过滤) | 逗号分隔的 sessionId 集合;在 stat/读 jsonl 之前先收窄,backend 按用户过滤用(上限 500,超出忽略) |
 
 **响应** `200`:
 ```json
@@ -168,6 +169,11 @@ ANTHROPIC_API_KEY=your-internal-service-token
 ### `GET /api/sessions/:id/messages`
 
 只取消息历史(轻量)。
+
+**Query 参数**:
+| 名称 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| `limitTurns` | int | 0(全量) | >0 时只返最近 N 个用户轮(一轮 = 一条 user 消息到下一条 user 之前的全部条目),并在响应中附加 `totalTurns`(全量轮数)供调用方算分页元数据 |
 
 **响应** `200`:
 ```json

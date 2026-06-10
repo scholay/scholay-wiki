@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { LoadingState } from '@/shared/components/LoadingState';
+import { ResourceError } from '@/shared/components';
 import { WizardLayout } from '../components/wizard/WizardLayout';
 import { UploadStep } from '../components/wizard/UploadStep';
 import { SchoolPickerStep } from '../components/wizard/SchoolPickerStep';
@@ -90,7 +91,7 @@ export function ThesisWizardPage() {
 
   const qc = useQueryClient();
   const createMut = useCreateSubmission();
-  const { data: submission, isLoading } = useSubmission(id);
+  const { data: submission, isLoading, isError: submissionError, error: submissionErr } = useSubmission(id);
   const { data: assets = [] } = useSubmissionAssets(id);
   const patchMut = usePatchSubmission(id);
   const advanceMut = useAdvanceStep(id);
@@ -234,6 +235,19 @@ export function ThesisWizardPage() {
   }, [stream.text, submission?.computeState]);
 
   if ((!id && latestLoading) || (id && isLoading)) return <LoadingState />;
+
+  // ?id 指向的草稿不存在 / 非本人(后端统一 404)→ 不再静默退化成「新建草稿」空表单
+  // (那样旧坏 id 还赖在地址栏、用户也不知道草稿没了),给友好提示并自动回投稿首页。
+  if (id && submissionError) {
+    return (
+      <ResourceError
+        resourceName="草稿"
+        error={submissionErr}
+        backTo="/peer-review"
+        backLabel="返回投稿"
+      />
+    );
+  }
 
   if (!id || !submission) {
     return (

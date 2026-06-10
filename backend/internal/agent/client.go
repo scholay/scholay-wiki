@@ -10,6 +10,7 @@ package agent
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,6 +19,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -185,10 +187,11 @@ type PushedFile struct {
 	Size int64  `json:"size"`
 }
 
-// PushSessionFile 把一个文件以 multipart 推到 agent 的会话隔离 cwd
+// PushSessionFile 把一个文件以 multipart **流式**推到 agent 的会话隔离 cwd
 // (POST /api/sessions/:id/files), 返回落盘路径。方案 B: 让 agent 用 Read 原生分析文件。
-// content 是文件全量字节; filename 用于落盘命名 (agent 端会再做一次清洗)。
-func (c *Client) PushSessionFile(ctx context.Context, sessionID, filename string, content []byte) (*PushedFile, error) {
+// content 是文件内容的 reader(调用方传 MinIO 对象 reader 或 bytes.NewReader);filename 用于落盘命名。
+// 用 io.Pipe 把 multipart 边封装边发,不再先在 bytes.Buffer 里整份缓冲一遍(50MB 稿件可省一份完整拷贝)。
+func (c *Client) PushSessionFile(ctx context.Context, sessionID, filename string, content io.Reader) (*PushedFile, error) {
 	if c.baseURL == "" {
 		return nil, errors.New("agent: empty base url")
 	}
@@ -198,21 +201,28 @@ func (c *Client) PushSessionFile(ctx context.Context, sessionID, filename string
 	ctx, cancel := context.WithTimeout(ctx, roundTripTimeout)
 	defer cancel()
 
-	var buf bytes.Buffer
-	mw := multipart.NewWriter(&buf)
-	fw, err := mw.CreateFormFile("file", filename)
-	if err != nil {
-		return nil, fmt.Errorf("multipart create: %w", err)
-	}
-	if _, err := fw.Write(content); err != nil {
-		return nil, fmt.Errorf("multipart write: %w", err)
-	}
-	if err := mw.Close(); err != nil {
-		return nil, fmt.Errorf("multipart close: %w", err)
-	}
+	pr, pw := io.Pipe()
+	mw := multipart.NewWriter(pw)
+	// 边写边发:goroutine 把 content 拷进 multipart part,经 pipe 流给 HTTP body。
+	go func() {
+		var werr error
+		defer func() { _ = pw.CloseWithError(werr) }() // 把写端错误传给读端(HTTP 发送方)
+		fw, err := mw.CreateFormFile("file", filename)
+		if err != nil {
+			werr = fmt.Errorf("multipart create: %w", err)
+			return
+		}
+		if _, err := io.Copy(fw, content); err != nil {
+			werr = fmt.Errorf("multipart write: %w", err)
+			return
+		}
+		if err := mw.Close(); err != nil {
+			werr = fmt.Errorf("multipart close: %w", err)
+		}
+	}()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		c.baseURL+"/api/sessions/"+sessionID+"/files", &buf)
+		c.baseURL+"/api/sessions/"+sessionID+"/files", pr)
 	if err != nil {
 		return nil, err
 	}
@@ -243,15 +253,57 @@ func (c *Client) PushSessionFile(ctx context.Context, sessionID, filename string
 // WorkspaceFile 是 GET /api/sessions/:id/workspace/file 的响应子集 (agent WorkspaceReadFileResult)。
 // 图片时 State="ok" / PreviewType="image" / DataURL 带 base64; 其余字段按需。
 type WorkspaceFile struct {
-	State       string `json:"state"`       // ok | binary | too_large | missing | error
+	State       string `json:"state"` // ok | binary | too_large | missing | error
 	Path        string `json:"path"`
 	PreviewType string `json:"previewType"` // text | image
 	Content     string `json:"content"`     // text 正文(state=ok + previewType=text 时);Prism 固化回读用
 	Truncated   bool   `json:"truncated"`   // 是否被 1MB 截断(?full=1 可绕过)
 	DataURL     string `json:"dataUrl"`
+	BytesBase64 string `json:"bytesBase64"` // raw 模式(?raw=1):原始字节 base64(任意类型,含二进制)
 	MimeType    string `json:"mimeType"`
 	Size        int64  `json:"size"`
 	Error       string `json:"error,omitempty"`
+}
+
+// WorkspaceRawFile —— ReadWorkspaceFileRaw 的解码结果。State="ok" 时 Bytes 为完整原始字节。
+type WorkspaceRawFile struct {
+	Path     string
+	MimeType string
+	Size     int64
+	State    string // ok | too_large | missing | error
+	Bytes    []byte
+}
+
+// ReadWorkspaceFileRaw 以**二进制安全**方式读取 cwd 内一个文件的原始字节(?raw=1)。
+// 与 GetWorkspaceFile/ReadWorkspaceFileFull 不同:任意类型(含 xlsx/pdf/docx 等二进制)都回
+// base64,这里解码成 []byte。用于「成果交付」收割(后端把 ./out 字节落 MinIO)。
+// State != "ok"(too_large / missing / error)时 Bytes 为空。
+func (c *Client) ReadWorkspaceFileRaw(ctx context.Context, sessionID, relPath string) (*WorkspaceRawFile, error) {
+	if c.baseURL == "" {
+		return nil, errors.New("agent: empty base url")
+	}
+	if sessionID == "" || relPath == "" {
+		return nil, errors.New("agent: empty sessionId or path")
+	}
+	ctx, cancel := context.WithTimeout(ctx, roundTripTimeout)
+	defer cancel()
+	var out WorkspaceFile
+	path := "/api/sessions/" + sessionID + "/workspace/file?path=" + url.QueryEscape(relPath) + "&raw=1"
+	if err := c.doJSON(ctx, http.MethodGet, path, nil, &out); err != nil {
+		if isNotFoundErr(err) {
+			return nil, ErrSessionNotFound
+		}
+		return nil, err
+	}
+	res := &WorkspaceRawFile{Path: out.Path, MimeType: out.MimeType, Size: out.Size, State: out.State}
+	if out.State == "ok" && out.BytesBase64 != "" {
+		b, err := base64.StdEncoding.DecodeString(out.BytesBase64)
+		if err != nil {
+			return nil, fmt.Errorf("agent: decode raw bytes (path=%s): %w", relPath, err)
+		}
+		res.Bytes = b
+	}
+	return res, nil
 }
 
 // GetWorkspaceFile 读会话隔离 cwd 内的一个文件 (relPath 是相对 cwd 的路径, 上传文件即 basename)。
@@ -303,10 +355,13 @@ func (c *Client) ReadWorkspaceFileFull(ctx context.Context, sessionID, relPath s
 }
 
 // WorkspaceTreeEntry 是 agent workspace/tree 返回的一个目录项。
+// Size/MTimeMs 来自 agent 轻量 stat(不读字节),供「成果收割」做变更检测(没变就跳过重读)。
 type WorkspaceTreeEntry struct {
 	Name        string `json:"name"`
 	Path        string `json:"path"`
 	IsDirectory bool   `json:"isDirectory"`
+	Size        int64  `json:"size"`
+	MTimeMs     int64  `json:"mtimeMs"`
 }
 
 // WorkspaceTree 是 GET /api/sessions/:id/workspace/tree 的响应 (agent WorkspaceTreeResult)。
@@ -422,26 +477,59 @@ type ListSessionsResponse struct {
 	Offset   int              `json:"offset"`
 }
 
-// ListSessions 列出 agent 端的所有 session (按 modifiedAt DESC)。
-// agent 不区分 user / feature, 所有 session 一起返; backend 用 agentbridge.Repository
-// 的 ListByUserFeature 来过滤"此 user 此 feature 拥有的 session id 集合", 然后跟
-// agent 返回结果做交集 — 见 agentbridge.FeatureBridge.ListSessions。
+// ListSessions 列出 agent 端的 session (按 modifiedAt DESC)。
+// agent 不区分 user / feature; backend 用 agentbridge.Repository 的 ListByUserFeature
+// 拿到"此 user 此 feature 拥有的 session id 集合", 通过 ids 参数让 agent 服务端过滤
+// (?ids=a,b,c) —— agent 在 stat/读 jsonl 之前先收窄, 成本从 O(全平台会话) 降到
+// O(用户会话), 也不再受全局 limit=200 窗口影响 (用户旧会话不会静默丢元数据)。
 //
-// 这里给的 ids 参数会被拼成 ?ids=a,b,c 让 agent 内部只返指定集合, 减少传输量。
+// 兼容性: 旧版 agent 忽略未知的 ids 参数退化为全量列表, caller 端的按 ids 交集过滤
+// (agentbridge.FeatureBridge.ListSessions 的 map 匹配) 仍然兜底, 行为不回退。
 // 空 ids 则返全部 (谨慎用, 当 agent 上 session 数大时会很慢)。
 func (c *Client) ListSessions(ctx context.Context, ids []string) (*ListSessionsResponse, error) {
 	if c.baseURL == "" {
 		return nil, errors.New("agent: empty base url")
 	}
+	// 无 ids:单次全量请求(旧行为)。
+	if len(ids) == 0 {
+		return c.listSessionsOnce(ctx, nil)
+	}
+	// 有 ids:按 maxIDsPerListReq 分批 —— 一次塞太多 id 进 ?ids= 会撑爆 Bun 16KB 请求头上限
+	// (~417 id 即返 431,自设 500 上限根本到不了)。分批请求后在 caller 端合并。
+	const maxIDsPerListReq = 300
+	if len(ids) <= maxIDsPerListReq {
+		return c.listSessionsOnce(ctx, ids)
+	}
+	merged := &ListSessionsResponse{}
+	for start := 0; start < len(ids); start += maxIDsPerListReq {
+		end := start + maxIDsPerListReq
+		if end > len(ids) {
+			end = len(ids)
+		}
+		resp, err := c.listSessionsOnce(ctx, ids[start:end])
+		if err != nil {
+			return nil, err
+		}
+		merged.Sessions = append(merged.Sessions, resp.Sessions...)
+	}
+	merged.Total = len(merged.Sessions)
+	return merged, nil
+}
+
+// listSessionsOnce 发一次 GET /api/sessions(可带 ids 过滤)。ids 由 caller 保证不超分批上限。
+func (c *Client) listSessionsOnce(ctx context.Context, ids []string) (*ListSessionsResponse, error) {
 	ctx, cancel := context.WithTimeout(ctx, roundTripTimeout)
 	defer cancel()
 
 	path := "/api/sessions?limit=200"
 	if len(ids) > 0 {
-		// agent 当前 GET /api/sessions 不直接支持 ids 过滤, 我们就拉全量后在 caller
-		// 端按 ids 集合过滤。当 agent 端 session 数大时这里会变慢, 后续 agent 支持
-		// 后再加 ?ids=a,b,c。
-		_ = ids
+		// limit 取 max(200, len(ids)): 新 agent 按 ids 过滤后 limit≥集合大小返回全部;
+		// 旧 agent 忽略 ids 时仍保持与历史一致的 200 窗口, 不因 len(ids) 小而变差。
+		limit := 200
+		if len(ids) > limit {
+			limit = len(ids)
+		}
+		path = "/api/sessions?limit=" + strconv.Itoa(limit) + "&ids=" + url.QueryEscape(strings.Join(ids, ","))
 	}
 	var out ListSessionsResponse
 	if err := c.doJSON(ctx, http.MethodGet, path, nil, &out); err != nil {
@@ -543,13 +631,20 @@ type SessionMessage struct {
 type SessionMessagesResponse struct {
 	Messages          []SessionMessage `json:"messages"`
 	TaskNotifications json.RawMessage  `json:"taskNotifications,omitempty"`
+	// TotalTurns: 仅当请求带 limitTurns 且 agent 支持服务端切片时返回 —— 全量用户轮数,
+	// 让 backend 的分页元数据 (TotalTurns/HasMore) 不因服务端切片而失真。
+	// nil = 旧版 agent (忽略 limitTurns 返回全量), caller 用本地 sliceRecentTurns 兜底。
+	TotalTurns *int `json:"totalTurns,omitempty"`
 }
 
 // GetSessionMessages 取一个 agent session 的全部历史消息。
 // 这是 "用户回到智能搜索页时拉历史回放" 的核心接口。
 // 注意: messages 里同时包含 user / assistant / tool_use / tool_result 等条目,
 // 调用方需自行折叠成 turn (前端的 foldMessagesIntoTurns / replayHistoryAsTurns)。
-func (c *Client) GetSessionMessages(ctx context.Context, sessionID string) (*SessionMessagesResponse, error) {
+// limitTurns>0 时请求带 ?limitTurns=N: 新版 agent 服务端只返最近 N 个用户轮 + totalTurns
+// 元数据, 长会话不再全量传输+解析; 旧版 agent 忽略该参数返回全量, caller 的本地
+// sliceRecentTurns 兜底, 行为不回退。limitTurns<=0 = 全量 (与历史行为一致)。
+func (c *Client) GetSessionMessages(ctx context.Context, sessionID string, limitTurns int) (*SessionMessagesResponse, error) {
 	if c.baseURL == "" {
 		return nil, errors.New("agent: empty base url")
 	}
@@ -558,8 +653,12 @@ func (c *Client) GetSessionMessages(ctx context.Context, sessionID string) (*Ses
 	}
 	ctx, cancel := context.WithTimeout(ctx, roundTripTimeout)
 	defer cancel()
+	path := "/api/sessions/" + sessionID + "/messages"
+	if limitTurns > 0 {
+		path += "?limitTurns=" + strconv.Itoa(limitTurns)
+	}
 	var out SessionMessagesResponse
-	if err := c.doJSON(ctx, http.MethodGet, "/api/sessions/"+sessionID+"/messages", nil, &out); err != nil {
+	if err := c.doJSON(ctx, http.MethodGet, path, nil, &out); err != nil {
 		if isNotFoundErr(err) {
 			return nil, ErrSessionNotFound
 		}

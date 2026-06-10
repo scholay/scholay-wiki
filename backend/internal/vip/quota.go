@@ -15,10 +15,23 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"scholar-backend/internal/common/cache"
 )
+
+// resetLockShards 把「配额重置」按 user 分片串行化(单实例进程锁)。
+// 防 CheckDailyQuota 的 check-then-act 并发双扣:钱包行锁只防透支、不防「两个并发耗尽请求
+// 各自决定重置各扣一次重置费」。256 片足够分散,偶发跨用户假争用可忽略。
+// 多副本部署时换成 Redis SETNX quota:reset:<uid>:<day>。
+var resetLockShards [256]sync.Mutex
+
+func lockUserReset(userID uint) func() {
+	m := &resetLockShards[userID%uint(len(resetLockShards))]
+	m.Lock()
+	return m.Unlock
+}
 
 // tokenDayKey —— 当日 token 计数 key(含日期,跨 0 点自然换 key = 自动满血)。
 func tokenDayKey(userID uint, now time.Time) string {
@@ -27,7 +40,7 @@ func tokenDayKey(userID uint, now time.Time) string {
 
 // tokenUsed 读当日已消耗 token。Redis 挂 / key 不存在 → 0。
 func (s *Service) tokenUsed(ctx context.Context, userID uint) int64 {
-	rdb := cache.GetRedis()
+	rdb := cache.GetRedisPersist()
 	if rdb == nil {
 		return 0
 	}
@@ -80,7 +93,7 @@ func (s *Service) AddUsage(ctx context.Context, userID uint, tokens int) {
 	if !s.cfg.Get().Enabled {
 		return
 	}
-	rdb := cache.GetRedis()
+	rdb := cache.GetRedisPersist()
 	if rdb == nil {
 		return
 	}
@@ -122,19 +135,48 @@ func (s *Service) ResetQuota(ctx context.Context, userID uint) (*ResetResult, er
 	}, nil
 }
 
-// resetInternal 先扣经费(够才扣)、再清当日 token 计数。经费不足 → ErrInsufficientCredit(不清计数)。
+// resetInternal 消耗经费 → 清当日 token 计数(额度满血)。经费不足 → ErrInsufficientCredit(不清计数)。
+//
+// 并发与失败安全(per-user 锁内):
+//   1. 锁内重读计数:已被并发重置 / 跨 0 点自然滚动清空 → 直接成功,绝不重复扣费(防双扣)。
+//   2. 先校验余额,再【先清计数(Redis 写)、后扣费】:Redis 写失败(宕机/MISCONF)直接返回错误、
+//      不扣费 —— 杜绝旧实现「扣了钱但 DEL 失败仅 Warn 返 nil → 计数没清 → 每条消息再扣一次」的循环扣费。
 func (s *Service) resetInternal(ctx context.Context, userID uint, cfg *BillingConfig) error {
+	unlock := lockUserReset(userID)
+	defer unlock()
+
+	// 1) 锁内重读:已被并发重置 / 自然滚动清空 → 无需再扣。
+	if ceiling := cfg.DailyCeiling(s.EffectiveTier(userID)); ceiling >= 0 && s.tokenUsed(ctx, userID) < ceiling {
+		return nil
+	}
+
 	cost := cfg.ResetCostCredits
+	// 2) 余额预检(锁内、本用户已串行化):不足直接返回,不清计数、不扣费。
 	if cost > 0 {
-		day := time.Now().Format("20060102")
-		if err := s.wallet.Consume(userID, cost, TxResetConsume, "reset", day, "重置每日额度"); err != nil {
+		bal, err := s.wallet.Balance(userID)
+		if err != nil {
+			return err
+		}
+		if bal.Total < cost {
+			return ErrInsufficientCredit
+		}
+	}
+
+	// 3) 先清计数(Redis 写)。失败即返回错误、不扣费,杜绝循环扣费。
+	rdb := cache.GetRedisPersist()
+	if rdb != nil {
+		if err := rdb.Del(ctx, tokenDayKey(userID, time.Now())).Err(); err != nil {
+			slog.Warn("billing: reset del key failed, not charging", "user_id", userID, "err", err)
 			return err
 		}
 	}
-	rdb := cache.GetRedis()
-	if rdb != nil {
-		if err := rdb.Del(ctx, tokenDayKey(userID, time.Now())).Err(); err != nil {
-			slog.Warn("billing: reset del key failed", "user_id", userID, "err", err)
+
+	// 4) 计数已清,扣费(余额已校验足够,Consume 行锁兜底)。
+	if cost > 0 {
+		if err := s.wallet.Consume(userID, cost, TxResetConsume, "reset", time.Now().Format("20060102"), "重置每日额度"); err != nil {
+			// 计数已清(用户已得重置)但扣费失败 —— 校验后到此被掏空,已被本锁串行化基本排除。
+			// 给一次免费重置远胜把用户卡死或重复扣费,这里只告警不回滚。
+			slog.Error("billing: reset consume failed after counter cleared (free reset granted)", "user_id", userID, "err", err)
 		}
 	}
 	return nil

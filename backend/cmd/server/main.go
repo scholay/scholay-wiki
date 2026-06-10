@@ -51,8 +51,10 @@ func main() {
 	}
 	slog.Info("Redis initialized successfully")
 
-	// Initialize cache worker pool (prevents goroutine accumulation from async cache writes)
-	cache.InitWorkerPool(10, 100)
+	// 可选 correctness 键专用 Redis(noeviction)。未配置则跳过,相关键回落主实例。
+	if err := cache.InitRedisPersist(cfg.RedisPersist.Host, cfg.RedisPersist.Port, cfg.RedisPersist.Password, cfg.RedisPersist.DB); err != nil {
+		log.Fatalf("Failed to initialize persist Redis: %v", err)
+	}
 
 	// Initialize database
 	if err := database.Initialize(cfg); err != nil {
@@ -70,6 +72,7 @@ func main() {
 		BucketPeerReviewAssets:    cfg.MinIO.BucketPeerReviewAssets,
 		BucketPrism:               cfg.MinIO.BucketPrism,
 		BucketFeatureTools:        cfg.MinIO.BucketFeatureTools,
+		BucketAgentArtifacts:      cfg.MinIO.BucketAgentArtifacts,
 		UseSSL:                    cfg.MinIO.UseSSL,
 	}); err != nil {
 		log.Fatalf("Failed to initialize object storage: %v", err)
@@ -131,8 +134,8 @@ func main() {
 		ReadTimeout:       60 * time.Second,
 		// SSE/streaming endpoints rely on per-handler ctx timeouts (APITimeoutMiddleware)
 		// so the server-level WriteTimeout is generous enough to cover the longest stream.
-		WriteTimeout: 10 * time.Minute,
-		IdleTimeout:  120 * time.Second,
+		WriteTimeout:   10 * time.Minute,
+		IdleTimeout:    120 * time.Second,
 		MaxHeaderBytes: 1 << 20, // 1MB
 	}
 
@@ -159,12 +162,9 @@ func main() {
 	svc.cleanupService.Stop()
 	svc.thirdPartyService.Stop()
 
-	cache.ShutdownGlobalPool()
-
 	if err := svc.wsHub.Close(); err != nil {
 		slog.Error("Error closing WebSocket hub", "err", err)
 	}
 
 	slog.Info("Server stopped")
 }
-

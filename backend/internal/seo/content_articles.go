@@ -56,11 +56,11 @@ type StaticPage struct {
 var StaticPages = []StaticPage{
 	// ── 核心功能首页 ──────────────────────────────────
 	{"/", "daily", "1.0"},
-	{"/search", "weekly", "0.8"},         // 文献搜索入口
+	{"/search", "weekly", "0.8"},          // 文献搜索入口
 	{"/journals/search", "weekly", "0.7"}, // 期刊搜索入口
-	{"/claw", "weekly", "0.8"},           // 智能助手(原 /chat /assistant)
-	{"/prism", "weekly", "0.8"},          // 智能写作(原 /latex-writer)
-	{"/peer-review", "weekly", "0.8"},    // 同行评审 / 智能审稿
+	{"/claw", "weekly", "0.8"},            // 智能助手(原 /chat /assistant)
+	{"/prism", "weekly", "0.8"},           // 智能写作(原 /latex-writer)
+	{"/peer-review", "weekly", "0.8"},     // 同行评审 / 智能审稿
 
 	// ── 营销 / 品牌页(7 个 feature 落地页 + 概览 + 价格) ─────
 	{"/features", "monthly", "0.7"},

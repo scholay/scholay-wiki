@@ -31,6 +31,7 @@ import (
 //   - token_revoked: 管理员强制下线 / 改密
 //   - quota_exhausted: 配额耗尽强制中断
 //   - server_shutdown: 服务端 graceful shutdown 告知
+//
 // 新增 reason 时同步更新前端 ClientMessage / ServerMessage 协议。
 type DisplacedReason string
 

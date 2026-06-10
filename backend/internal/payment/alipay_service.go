@@ -217,6 +217,9 @@ func (s *AlipayService) buildBizContent(req PaymentRequest) string {
 		"total_amount": fmt.Sprintf("%.2f", req.Amount),
 		"subject":      req.Subject,
 		"body":         req.Description,
+		// 网关侧 120 分钟未支付自动关单 —— 与后端 pending 清扫配合,避免「逾期支付得到过期会员」:
+		// 超时后网关拒收付款,用户须重新下单(新单按支付时刻重算授予窗口)。
+		"timeout_express": "120m",
 	}
 	b, _ := json.Marshal(content)
 	return string(b)

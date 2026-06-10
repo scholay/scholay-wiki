@@ -6,6 +6,8 @@ import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom';
 import { Button } from '@/shared/ui/button';
 import { AgentDisplacedBanner } from '@/shared/components/AgentDisplacedBanner';
 import { SidebarLayout } from '@/shared/components/sidebar';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/shared/ui/resizable';
+import { Sheet, SheetContent } from '@/shared/ui/sheet';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useRegisterSidebarRail } from '@/stores/sidebar.store';
@@ -14,7 +16,7 @@ import {
   useSessionBroadcast,
 } from '@/shared/lib/agent-session-broadcast';
 import { stripAgentBridgePrefix } from '@/shared/lib/agent-prefix';
-import { useHeightVar } from '@/shared/hooks';
+import { useHeightVar, useMediaQuery } from '@/shared/hooks';
 import {
   transferNewConversationModel,
   useClawContext,
@@ -26,7 +28,8 @@ import { useClawSocket } from '../api/socket';
 import type { AttachmentDTO, ClientMessage } from '../api/types';
 import { ChatComposer } from '../components/chat/ChatComposer';
 import { MessageTurn } from '../components/chat/MessageTurn';
-import { useClawArtifacts } from '../api/artifacts';
+import { useClawArtifacts, type ClawArtifact } from '../api/artifacts';
+import { ClawArtifactPreview } from '../components/preview/ClawArtifactPreview';
 import { ClawSidebar } from '../components/sidebar/ClawSidebar';
 import { foldMessagesIntoTurns, replayHistoryAsTurns, type Turn } from '../components/chat/fold';
 
@@ -127,6 +130,12 @@ export function ClawPage() {
   // 当前会话 ./out 产物列表(给每轮回答认领其产出的可下载文件);每轮 message_complete 后由下方 effect 刷新。
   const sessionArtifacts = useClawArtifacts(sessionId).data;
   const createSession = useCreateClawSession();
+
+  // 成果预览:点卡片「预览」→ 选中该交付物。桌面(≥1024px)右侧分栏,窄屏走 Sheet 抽屉。
+  const [previewArtifact, setPreviewArtifact] = useState<ClawArtifact | null>(null);
+  const isNarrow = useMediaQuery('(max-width: 1024px)');
+  const showSidePreview = !!previewArtifact && !isNarrow;
+  const closePreview = useCallback(() => setPreviewArtifact(null), []);
 
   const [pendingTurns, setPendingTurns] = useState<Pick<Turn, 'id' | 'userText' | 'userAttachments' | 'paused'>[]>([]);
 
@@ -461,7 +470,11 @@ export function ClawPage() {
         />
       )}
 
-      <div className="flex min-h-0 flex-1 flex-col">
+      {/* 对话 | 预览 可拖拽分栏(桌面)。预览未开时只有左栏;窄屏走下方 Sheet 不分栏。
+          左栏给稳定 id/order,开关预览时不重挂 → StickToBottom 滚动位置不丢。 */}
+      <ResizablePanelGroup direction="horizontal" autoSaveId="claw-preview-h" className="flex min-h-0 flex-1">
+      <ResizablePanel id="claw-chat" order={1} minSize={36} className="min-w-0">
+      <div className="flex h-full min-h-0 flex-col">
         {/* 量出"对话框可视区"像素高 → 写进 --chat-area-h, 供最后一轮按比例留白 (见下方 turns 渲染)。 */}
         <div ref={chatAreaRef} className="min-h-0 flex-1">
           {loading ? (
@@ -502,7 +515,13 @@ export function ClawPage() {
                   </div>
                 )}
                 {visibleTurns.map((t) => (
-                  <MessageTurn key={t.id} turn={t} artifacts={sessionArtifacts} sessionId={sessionId} />
+                  <MessageTurn
+                    key={t.id}
+                    turn={t}
+                    artifacts={sessionArtifacts}
+                    sessionId={sessionId}
+                    onPreview={setPreviewArtifact}
+                  />
                 ))}
               </StickToBottom.Content>
               <ScrollController scrollRef={scrollToBottomRef} />
@@ -542,6 +561,30 @@ export function ClawPage() {
           </div>
         </div>
       </div>
+      </ResizablePanel>
+      {showSidePreview && previewArtifact && (
+        <>
+          <ResizableHandle withHandle />
+          <ResizablePanel id="claw-preview" order={2} defaultSize={42} minSize={26} className="min-w-0">
+            <ClawArtifactPreview artifact={previewArtifact} onClose={closePreview} />
+          </ResizablePanel>
+        </>
+      )}
+      </ResizablePanelGroup>
+
+      {/* 窄屏(<1024px):预览走右侧 Sheet 抽屉,不挤压对话。 */}
+      <Sheet
+        open={!!previewArtifact && isNarrow}
+        onOpenChange={(o) => {
+          if (!o) closePreview();
+        }}
+      >
+        <SheetContent className="w-full p-0 sm:max-w-xl">
+          {previewArtifact && (
+            <ClawArtifactPreview artifact={previewArtifact} onClose={closePreview} hideHeaderClose />
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
     </SidebarLayout>
   );

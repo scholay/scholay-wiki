@@ -98,8 +98,11 @@ func (h *Handler) GithubCallback(c *gin.Context) {
 	state := c.Query("state")
 	invitationCode := c.Query("invitation_code")
 
-	if code == "" {
-		utils.ErrorResponse(c, http.StatusBadRequest, "授权码缺失,请重新发起登录")
+	// 必须同时要求 code 与 state —— GetGithubLoginURL 永远下发 state,不存在合法的无 state 流程。
+	// validateOAuthState 对空 state 返回 true(为兼容某些 mobile 流),故空 state 必须在此显式预拒,
+	// 否则攻击者直接不带 state 即绕过 CSRF 校验(登录 CSRF / 账号绑定攻击)。与 microsoft/orcid/apple 对齐。
+	if code == "" || state == "" {
+		utils.ErrorResponse(c, http.StatusBadRequest, "授权码或 state 缺失,请重新发起登录")
 		return
 	}
 

@@ -51,23 +51,24 @@ type Config struct {
 	BucketPeerReviewAssets    string
 	BucketPrism               string
 	BucketFeatureTools        string
+	BucketAgentArtifacts      string
 	UseSSL                    bool
 }
 
 var (
-	mu       sync.RWMutex
-	client   *minio.Client
-	config   Config
-	enabled  bool
+	mu      sync.RWMutex
+	client  *minio.Client
+	config  Config
+	enabled bool
 )
 
 // Init 初始化 storage 单例 —— 在 main bootstrap 里调一次。
 // 配置不完整时返回 nil error,但 IsEnabled() 会是 false,所有 PDF 接口走 503 分支。
 //
 // 启动时会:
-//  1) 建 minio client(此时还不会真连 MinIO,只建客户端对象)
-//  2) Ping 一下 ListBuckets 确认凭证 / endpoint 可用
-//  3) 幂等创建 BucketPaperPDFs(已存在则跳过)
+//  1. 建 minio client(此时还不会真连 MinIO,只建客户端对象)
+//  2. Ping 一下 ListBuckets 确认凭证 / endpoint 可用
+//  3. 幂等创建 BucketPaperPDFs(已存在则跳过)
 func Init(cfg Config) error {
 	if cfg.Endpoint == "" {
 		slog.Warn("storage: MINIO_ENDPOINT 未配置,对象存储相关接口将返回 503")
@@ -137,6 +138,11 @@ func Init(cfg Config) error {
 	if cfg.BucketFeatureTools != "" {
 		if err := ensureBucket(ctx, c, cfg.BucketFeatureTools); err != nil {
 			return fmt.Errorf("storage: 创建 bucket %q 失败: %w", cfg.BucketFeatureTools, err)
+		}
+	}
+	if cfg.BucketAgentArtifacts != "" {
+		if err := ensureBucket(ctx, c, cfg.BucketAgentArtifacts); err != nil {
+			return fmt.Errorf("storage: 创建 bucket %q 失败: %w", cfg.BucketAgentArtifacts, err)
 		}
 	}
 
@@ -230,6 +236,13 @@ func FeatureToolsBucket() string {
 	mu.RLock()
 	defer mu.RUnlock()
 	return config.BucketFeatureTools
+}
+
+// AgentArtifactsBucket 暴露 agent 成果交付物 bucket 名。
+func AgentArtifactsBucket() string {
+	mu.RLock()
+	defer mu.RUnlock()
+	return config.BucketAgentArtifacts
 }
 
 // PutOptions Put 时的可选参数

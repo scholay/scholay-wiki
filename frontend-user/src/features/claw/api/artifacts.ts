@@ -13,11 +13,18 @@ import { useAuthStore } from '@/stores/auth.store';
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 export interface ClawArtifact {
-  /** 相对会话 cwd: 文件 out/xxx.md, 目录 out/proj; 下载/打包时原样回传 */
+  /** agent_artifacts 行 id —— 仅「已落 MinIO」路径有值;前端见 id>0 即走 /claw/artifact/:id
+   *  (预览/下载,二进制可用)。id 缺省 = storage 未启用的实时回退,回落老的 path 直读(只文本/图)。 */
+  id?: number;
+  /** 相对会话 cwd: 文件 out/xxx.md, 目录 out/proj; 实时回退下载时原样回传 */
   path: string;
   name: string;
   /** "file"=单文件直下; "dir"=整目录打包 zip 下载。缺省按 file 处理(向后兼容)。 */
   kind?: 'file' | 'dir';
+  /** 真实 MIME(MinIO 路径才有);前端据此 + 扩展名挑预览渲染器。 */
+  mime?: string;
+  /** 字节数。 */
+  size?: number;
   /** 来自 agent 的 out/manifest.json (可选); 卡片优先展示 title, 缺省回退文件名。 */
   title?: string;
   description?: string;
@@ -75,4 +82,40 @@ export function clawArtifactUrl(
 export function clawArtifactZipUrl(sessionId: string, dir: string): string {
   const params = new URLSearchParams({ session_id: sessionId, dir });
   return `${API_BASE}/user/claw/session/artifact.zip?${params.toString()}`;
+}
+
+/**
+ * MinIO 交付物按 id 取的 URL —— 直接给 <img src> / <a download> / pdfjs / fetch 用。
+ * 同源 cookie(scholay_token)鉴权;后端一律 Content-Disposition: attachment + nosniff
+ * (子资源加载忽略 disposition,所以预览不受影响,但直接导航会下载而非执行 → 防内联 XSS)。
+ */
+export function clawArtifactByIdUrl(id: number): string {
+  return `${API_BASE}/user/claw/artifact/${id}`;
+}
+
+/**
+ * 取交付物原始字节(ArrayBuffer)—— 预览面板对「文本 / 表格 / docx」客户端渲染用
+ * (图片走 <img src>、PDF 走 pdfjs URL,都不用这个)。仅在面板打开且 id 存在时拉。
+ */
+export function useClawArtifactBytes(
+  id: number | null | undefined,
+  enabled: boolean,
+): UseQueryResult<ArrayBuffer> {
+  return useQuery<ArrayBuffer>({
+    queryKey: ['claw', 'artifact-bytes', id],
+    enabled: !!id && enabled,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    retry: 1,
+    queryFn: async () => {
+      try {
+        const r = await http.get<ArrayBuffer>(`/user/claw/artifact/${id}`, {
+          responseType: 'arraybuffer',
+        });
+        return r.data;
+      } catch (err) {
+        throw toApiError(err);
+      }
+    },
+  });
 }

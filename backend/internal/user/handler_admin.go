@@ -155,7 +155,7 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 
 	// Call service to delete the user
 	if err := h.service.DeleteUser(uid); err != nil {
-		utils.Error(c, 3001, err.Error())
+		utils.SafeError(c, 3001, err)
 		return
 	}
 

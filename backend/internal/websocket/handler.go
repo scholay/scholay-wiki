@@ -8,17 +8,21 @@
 package websocket
 
 import (
-	"fmt"
+	"context"
+	"errors"
 	"log/slog"
 	"strings"
 
+	"scholar-backend/internal/common/utils"
+
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 // Handler WebSocket HTTP 处理器
 type Handler struct {
-	hub       *Hub
+	hub *Hub
+	// jwtSecret 已不再使用:token 校验改走 utils.ParseToken(统一密钥源 + 吊销检查)。
+	// 保留字段仅为兼容 NewHandler 签名,后续接入 ws-ticket 后连同 ?token= 一起下线。
 	jwtSecret string
 }
 
@@ -54,8 +58,8 @@ func (h *Handler) HandleWebSocket(c *gin.Context) {
 		return
 	}
 
-	// 验证 token
-	userID, username, err := h.validateToken(token)
+	// 验证 token(含吊销检查)
+	userID, username, err := h.validateToken(c.Request.Context(), token)
 	if err != nil {
 		// Token 无效，也可以作为访客连接
 		slog.Warn("invalid token, connecting as guest", "err", err)
@@ -83,41 +87,19 @@ func (h *Handler) HandleWebSocket(c *gin.Context) {
 	}
 }
 
-// validateToken 验证 JWT token
-func (h *Handler) validateToken(tokenString string) (uint, string, error) {
-	// 移除 Bearer 前缀（如果有）
+// validateToken 验证 JWT token(统一走 utils.ParseToken:签名+过期+alg 锁定),
+// 并查吊销黑名单 —— 改密/封号/单端登出后的 token 虽未自然过期,也不得再升级 WS 收推送。
+// 这是 ws-ticket 迁移前的最低限度加固(原实现裸 jwt.Parse、不查吊销)。
+func (h *Handler) validateToken(ctx context.Context, tokenString string) (uint, string, error) {
 	tokenString = strings.TrimPrefix(tokenString, "Bearer ")
-
-	// 解析 token
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
-		// 验证签名方法
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return []byte(h.jwtSecret), nil
-	})
-
+	claims, err := utils.ParseToken(tokenString)
 	if err != nil {
 		return 0, "", err
 	}
-
-	// 提取 claims
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok || !token.Valid {
-		return 0, "", fmt.Errorf("invalid token claims")
+	if utils.IsTokenRevoked(ctx, claims) {
+		return 0, "", errors.New("token revoked")
 	}
-
-	// 获取用户ID
-	userIDFloat, ok := claims["user_id"].(float64)
-	if !ok {
-		return 0, "", fmt.Errorf("user_id not found in token")
-	}
-	userID := uint(userIDFloat)
-
-	// 获取用户名（可选）
-	username, _ := claims["username"].(string)
-
-	return userID, username, nil
+	return claims.UserID, claims.Username, nil
 }
 
 // GetHub 获取 Hub 实例

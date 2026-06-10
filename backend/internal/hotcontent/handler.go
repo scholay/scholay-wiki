@@ -68,7 +68,8 @@ func (h *Handler) Track(c *gin.Context) {
 		return
 	}
 	svc := h.service
-	safego.Go("hotcontent-track", func() {
+	// 走全局有界 record 池: 每请求一个任务而非一个裸 goroutine, DB 变慢时丢统计保业务。
+	safego.Record("hotcontent-track", func() {
 		if len(impressions) > 0 {
 			_ = svc.RecordImpressions(impressions)
 		}

@@ -10,18 +10,20 @@ echo "=========================================="
 echo "Alipay Callback Log Viewer"
 echo "=========================================="
 
+# 注:后端已迁到 slog 结构化日志,日志行形如 `msg="alipay callback ..." order_no=...`,
+# 不再有旧的 [ALIPAY_CALLBACK_START/END] 标签。这里按 slog 实际输出 grep。
 if [ -z "$1" ]; then
     echo "Showing all Alipay callback logs..."
     echo ""
-    docker logs scholar_backend 2>&1 | grep -E "\[ALIPAY_CALLBACK"
+    docker logs scholar_backend 2>&1 | grep -i "alipay callback"
 elif [[ "$1" =~ ^[0-9]+$ ]]; then
-    echo "Showing last $1 callback sessions..."
+    echo "Showing last $1 callback log lines..."
     echo ""
-    docker logs scholar_backend 2>&1 | grep -E "ALIPAY_CALLBACK_START|ALIPAY_CALLBACK_END" | tail -n $(($1 * 2))
+    docker logs scholar_backend 2>&1 | grep -i "alipay callback" | tail -n "$1"
 else
     echo "Searching for order: $1..."
     echo ""
-    docker logs scholar_backend 2>&1 | grep -E "\[ALIPAY_CALLBACK" | grep "$1"
+    docker logs scholar_backend 2>&1 | grep -i "alipay callback" | grep "$1"
 fi
 
 echo ""

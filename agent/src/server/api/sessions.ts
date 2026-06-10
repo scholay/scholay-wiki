@@ -92,7 +92,7 @@ export async function handleSessionsApi(
           { status: 405 }
         )
       }
-      return await getSessionMessages(sessionId)
+      return await getSessionMessages(sessionId, url)
     }
 
     if (subResource === 'git-info') {
@@ -251,7 +251,15 @@ function sanitizeUploadFileName(raw: string): string {
 
 async function listSessions(url: URL): Promise<Response> {
   const project = url.searchParams.get('project') || undefined
-  const limit = parseInt(url.searchParams.get('limit') || '20', 10)
+  // Scholay: ids=a,b,c —— backend 只关心指定会话集合(某用户名下的)时传入,
+  // 服务层在 stat/读 jsonl 之前先收窄, 成本从 O(全平台会话) 降到 O(用户会话)。
+  // 上限 500 防 URL 滥用; 超出部分忽略(调用方只丢列表元数据, 不丢数据)。
+  const idsParam = url.searchParams.get('ids')
+  const ids = idsParam
+    ? idsParam.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 500)
+    : undefined
+  // 带 ids 时默认 limit = ids 数量(调用方就要这些), 显式 limit 仍可覆盖
+  const limit = parseInt(url.searchParams.get('limit') || (ids ? String(ids.length) : '20'), 10)
   const offset = parseInt(url.searchParams.get('offset') || '0', 10)
 
   if (isNaN(limit) || limit < 0) {
@@ -261,7 +269,7 @@ async function listSessions(url: URL): Promise<Response> {
     throw ApiError.badRequest('Invalid offset parameter')
   }
 
-  const result = await sessionService.listSessions({ project, limit, offset })
+  const result = await sessionService.listSessions({ project, limit, offset, ids })
   return Response.json(result)
 }
 
@@ -273,12 +281,44 @@ async function getSession(sessionId: string): Promise<Response> {
   return Response.json(detail)
 }
 
-async function getSessionMessages(sessionId: string): Promise<Response> {
+async function getSessionMessages(sessionId: string, url: URL): Promise<Response> {
   const [messages, taskNotifications] = await Promise.all([
     sessionService.getSessionMessages(sessionId),
     sessionService.getSessionTaskNotifications(sessionId),
   ])
+
+  // Scholay: limitTurns=N —— 服务端只返最近 N 个用户轮, 长会话不再全量传输。
+  // 同时带回 totalTurns(全量轮数), 让 backend 的分页元数据 (TotalTurns/HasMore)
+  // 不因服务端切片而失真。不带参数时行为与旧版完全一致(全量, 无 totalTurns 字段)。
+  const limitTurnsParam = url.searchParams.get('limitTurns')
+  const limitTurns = limitTurnsParam ? parseInt(limitTurnsParam, 10) : 0
+  if (limitTurnsParam && (isNaN(limitTurns) || limitTurns < 0)) {
+    throw ApiError.badRequest('Invalid limitTurns parameter')
+  }
+  if (limitTurns > 0) {
+    const { sliced, totalTurns } = sliceRecentTurns(messages, limitTurns)
+    return Response.json({ messages: sliced, taskNotifications, totalTurns })
+  }
   return Response.json({ messages, taskNotifications })
+}
+
+/**
+ * 取最近 limitTurns 个用户轮(一轮 = 一条 user 消息到下一条 user 消息之前的全部条目)。
+ * 语义与 backend agentbridge.sliceRecentTurns 完全一致, 保证两侧切片幂等可叠加。
+ */
+function sliceRecentTurns<T extends { type?: string }>(
+  messages: T[],
+  limitTurns: number,
+): { sliced: T[]; totalTurns: number } {
+  const starts: number[] = []
+  for (let i = 0; i < messages.length; i++) {
+    if (messages[i]?.type === 'user') starts.push(i)
+  }
+  const totalTurns = starts.length
+  if (limitTurns <= 0 || totalTurns <= limitTurns) {
+    return { sliced: messages, totalTurns }
+  }
+  return { sliced: messages.slice(starts[totalTurns - limitTurns]), totalTurns }
 }
 
 async function handleSessionWorkspaceRoute(
@@ -328,7 +368,10 @@ async function handleSessionWorkspaceRoute(
       return await runWorkspaceRequest(() => workspaceService.readFile(
         sessionId,
         requireWorkspacePath(url, 'file'),
-        { full: url.searchParams.get('full') === '1' }, // 固化回读需绕 1MB 截断
+        {
+          full: url.searchParams.get('full') === '1', // 固化回读需绕 1MB 截断
+          raw: url.searchParams.get('raw') === '1', // 二进制安全:任意文件回 base64 原始字节(成果交付收割)
+        },
       ))
     case 'diff':
       return await runWorkspaceDiffRequest(() => workspaceService.getDiff(

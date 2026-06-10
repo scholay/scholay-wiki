@@ -157,7 +157,7 @@ func (h *Handler) mapFileErr(c *gin.Context, err error) bool {
 	case err == nil:
 		return false
 	case errors.Is(err, ErrInvalidPath), errors.Is(err, ErrFileExists), errors.Is(err, ErrCannotDeleteMain):
-		utils.BadRequest(c, err.Error())
+		utils.SafeBadRequest(c, err)
 	case errors.Is(err, ErrFileNotFound):
 		utils.NotFound(c, "文件不存在")
 	default:
@@ -326,11 +326,11 @@ func (h *Handler) mapEditErr(c *gin.Context, err error) bool {
 	case err == nil:
 		return false
 	case errors.Is(err, vip.ErrQuotaExceeded):
-		utils.BadRequest(c, err.Error()) // quotaError 文案本就友好
+		utils.SafeBadRequest(c, err) // quotaError 文案本就友好
 	case errors.Is(err, ErrFileNotFound), errors.Is(err, ErrCompileNotFound), errors.Is(err, ErrEditNotFound):
 		utils.NotFound(c, "目标不存在")
 	case errors.Is(err, ErrCiteNotInLibrary), errors.Is(err, ErrStaleBase):
-		utils.BadRequest(c, err.Error())
+		utils.SafeBadRequest(c, err)
 	default:
 		utils.InternalError(c, 500, "AI 操作失败,请稍后重试", err)
 	}

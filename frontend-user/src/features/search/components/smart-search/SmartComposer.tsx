@@ -13,6 +13,14 @@ import type { SmartSearchContextSnapshot } from '../../api/smart-search';
  * 聚焦态用柔和的浅描边 + 极淡外圈(不再是刺眼的纯黑边框)。
  */
 
+/** hero(空态)与对话中底部栏共用的 layoutId —— 发送首条消息后 framer-motion 据此把对话框
+ *  从居中平滑地滑动/停靠到底部(见 SmartSearchHero / SmartSearchPanel,二者同 layoutId)。 */
+export const COMPOSER_LAYOUT_ID = 'smart-search-composer';
+
+/** 对话框「居中 → 底部」停靠动画的过渡;reduced-motion 下直接瞬切(去掉位移,避免前庭不适)。 */
+export const composerDockTransition = (reduce: boolean | null) =>
+  reduce ? { duration: 0 } : ({ type: 'spring', bounce: 0.18, duration: 0.55 } as const);
+
 export interface SmartComposerProps {
   value: string;
   onChange: (v: string) => void;
@@ -35,8 +43,10 @@ export interface SmartComposerProps {
   onResetClick?: () => void;
   resetDisabled?: boolean;
   resetPending?: boolean;
-  /** hero 起始态:更大、自动聚焦。 */
+  /** hero 起始态尺寸:更大(rows=3)。底部栏也传它以复用同一套「空态」尺寸,保证两处完全一致。 */
   prominent?: boolean;
+  /** 挂载时自动聚焦 —— 与 prominent 解耦:空态 hero 需要,底部栏不需要(避免抢焦/滚动跳)。 */
+  autoFocus?: boolean;
 }
 
 export function SmartComposer({
@@ -55,6 +65,7 @@ export function SmartComposer({
   resetDisabled = false,
   resetPending = false,
   prominent = false,
+  autoFocus = false,
 }: SmartComposerProps) {
   const canSend = loggedOut || (!!value.trim() && ready && !busy);
   const rotating = !!rotatingPlaceholders && rotatingPlaceholders.length > 0;
@@ -101,9 +112,9 @@ export function SmartComposer({
           onKeyDown={handleKey}
           placeholder={rotating ? '' : placeholder}
           aria-label={loggedOut ? '智能搜索输入(登录后可用)' : '智能搜索输入'}
-          // hero 起始态更高(≈ 两个按钮高,rows=3);底部栏紧凑 rows=1。
+          // prominent = 空态 hero 尺寸(rows=3);底部栏现在也复用它,保证两处尺寸一致。
           rows={prominent ? 3 : 1}
-          autoFocus={prominent}
+          autoFocus={autoFocus}
           className="block max-h-44 w-full resize-none bg-transparent px-2 py-1.5 text-base leading-relaxed text-foreground outline-none placeholder:text-faint"
         />
       </div>

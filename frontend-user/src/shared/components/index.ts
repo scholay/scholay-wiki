@@ -8,6 +8,7 @@ export { Footer } from './Footer';
 export { IconButton } from './IconButton';
 export { ListSkeleton, LoadingState } from './LoadingState';
 export { PageHeader } from './PageHeader';
+export { ResourceError } from './ResourceError';
 export { TruncatedText, type TruncatedTextProps } from './TruncatedText';
 export {
   MembershipPlanCard,

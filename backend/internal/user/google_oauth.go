@@ -254,7 +254,7 @@ func (h *Handler) BindGoogleAccount(c *gin.Context) {
 	err = h.bindGoogleToUser(userID, tokenInfo)
 	if err != nil {
 		slog.Error("google bind: failed to bind", "err", err)
-		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		utils.SafeError(c, http.StatusBadRequest, err)
 		return
 	}
 
@@ -325,7 +325,7 @@ func (h *Handler) UnbindGoogle(c *gin.Context) {
 
 	err := h.service.UnbindGoogle(userID)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		utils.SafeError(c, http.StatusBadRequest, err)
 		return
 	}
 

@@ -398,7 +398,7 @@ func (h *Handler) PatchSubmission(c *gin.Context) {
 			utils.NotFound(c, "submission not found")
 			return
 		}
-		utils.Error(c, http.StatusBadRequest, err.Error())
+		utils.SafeError(c, http.StatusBadRequest, err)
 		return
 	}
 	utils.Success(c, toSubmissionDTO(s))
@@ -418,11 +418,11 @@ func (h *Handler) Submit(c *gin.Context) {
 			return
 		}
 		if errors.Is(err, vip.ErrQuotaExceeded) {
-			utils.Error(c, errcode.AgentQuotaExceeded, err.Error())
+			utils.SafeError(c, errcode.AgentQuotaExceeded, err)
 			return
 		}
 		slog.Error("peerreview submit", "err", err, "submission_id", id)
-		utils.Error(c, http.StatusBadRequest, err.Error())
+		utils.SafeError(c, http.StatusBadRequest, err)
 		return
 	}
 
@@ -619,7 +619,7 @@ func (h *Handler) UploadAsset(c *gin.Context) {
 			return
 		}
 		slog.Error("peerreview upload", "err", err, "submission_id", id)
-		utils.Error(c, http.StatusBadRequest, err.Error())
+		utils.SafeError(c, http.StatusBadRequest, err)
 		return
 	}
 	utils.Success(c, toAssetDTO(a))
@@ -641,7 +641,7 @@ func (h *Handler) DeleteAsset(c *gin.Context) {
 			return
 		}
 		if errors.Is(err, ErrNotDraft) {
-			utils.BadRequest(c, err.Error())
+			utils.SafeBadRequest(c, err)
 			return
 		}
 		utils.InternalError(c, 500, "操作失败,请稍后重试", err)
@@ -836,7 +836,7 @@ func (h *Handler) Advance(c *gin.Context) {
 		// advance 失败基本是业务校验(文件已变更 / 未生成稿件信息 / 缺院校等),作为 400 回给用户。
 		// 这类是用户侧 4xx 而非系统故障,记 Warn 不记 Error,避免污染 ERROR 日志。
 		slog.Warn("peerreview advance rejected", "err", err, "submission_id", id, "from", req.From)
-		utils.Error(c, http.StatusBadRequest, err.Error())
+		utils.SafeError(c, http.StatusBadRequest, err)
 		return
 	}
 	h.recordPR(c, fmt.Sprintf("step_%d", req.From+1), id,

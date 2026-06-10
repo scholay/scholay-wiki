@@ -14,6 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"scholar-backend/internal/agentartifact"
 	"scholar-backend/internal/agentbridge"
 	"scholar-backend/internal/common/errcode"
 	"scholar-backend/internal/common/utils"
@@ -28,14 +29,16 @@ const (
 )
 
 type Handler struct {
-	feature *agentbridge.FeatureBridge
-	uploader *Uploader
+	feature      *agentbridge.FeatureBridge
+	uploader     *Uploader
+	artifactRepo *agentartifact.Repository // 成果交付物(MinIO)元数据访问;nil 时退化为实时回读
 }
 
-func NewHandler(feature *agentbridge.FeatureBridge) *Handler {
+func NewHandler(feature *agentbridge.FeatureBridge, artifactRepo *agentartifact.Repository) *Handler {
 	return &Handler{
-		feature:  feature,
-		uploader: NewUploader(feature),
+		feature:      feature,
+		uploader:     NewUploader(feature),
+		artifactRepo: artifactRepo,
 	}
 }
 
@@ -51,10 +54,17 @@ func (h *Handler) GetSession(c *gin.Context) {
 
 func (h *Handler) ResetSession(c *gin.Context) {
 	userID := c.GetUint("user_id")
-	sessionID, err := h.feature.ResetSession(c.Request.Context(), userID)
+	ctx := c.Request.Context()
+	// 旧会话的交付物(MinIO 对象 + 元数据行)随会话一起作废 → 重置前先**只读**旧 sid(不创建,
+	// 否则无 mapping 时会误建一个空会话再删),重置成功后清理(会话 TTL)。
+	oldSid, _ := h.feature.GetSessionID(userID)
+	sessionID, err := h.feature.ResetSession(ctx, userID)
 	if err != nil {
 		utils.InternalError(c, codeAgentUnreachable, "新建对话失败,请稍后重试", err)
 		return
+	}
+	if oldSid != "" && oldSid != sessionID {
+		h.cleanupArtifacts(ctx, oldSid)
 	}
 	utils.Success(c, gin.H{"sessionId": sessionID})
 }
@@ -274,6 +284,8 @@ func (h *Handler) DeleteSession(c *gin.Context) {
 		utils.InternalError(c, codeAgentUnreachable, "删除失败,请稍后重试", err)
 		return
 	}
+	// 会话删了 → 其交付物(MinIO 对象 + 元数据行)一并清理(会话 TTL)。
+	h.cleanupArtifacts(c.Request.Context(), sessionID)
 	utils.SuccessWithMessage(c, "已删除", nil)
 }
 
@@ -307,12 +319,12 @@ func isErrNotFound(err error) bool {
 
 // UploadAttachment — POST /claw/upload (multipart):
 //
-//   form field: file        — 文件本身 (图片 ≤5MB / 文件 ≤30MB)
+//	form field: file        — 文件本身 (图片 ≤5MB / 文件 ≤30MB)
 //
 // 方案 B: backend 不抽文本, 把原始文件推到 agent 的会话隔离 cwd, 让大模型用 Read 原生分析。
 // 返回 JSON, 前端把 path 放进下一条 user_message.attachments[].path:
 //
-//   { sessionId, type:"image"|"file", name, mimeType, size, path:"<agent 容器内绝对路径>" }
+//	{ sessionId, type:"image"|"file", name, mimeType, size, path:"<agent 容器内绝对路径>" }
 //
 // sessionId 用于"添加文件即开会话": 新对话下首次上传会 get-or-create 会话, 前端 adopt 它;
 // 历史会话上传时 sessionId 不变。文件随会话删除/重置一并清理 (见 agent sessionService)。
@@ -321,7 +333,7 @@ func (h *Handler) UploadAttachment(c *gin.Context) {
 	att, err := h.uploader.HandleUpload(c, userID)
 	if err != nil {
 		// HandleUpload 的错误是面向用户的校验反馈(类型不支持 / 超限),原样回显。
-		utils.Error(c, codeUploadFailed, err.Error())
+		utils.SafeError(c, codeUploadFailed, err)
 		return
 	}
 	utils.Success(c, att)

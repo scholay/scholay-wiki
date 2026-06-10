@@ -104,7 +104,7 @@ func (b *Bridge) AdminGetSessionMessages(c *gin.Context) {
 		utils.BadRequest(c, "sessionId 必填")
 		return
 	}
-	resp, err := b.client.GetSessionMessages(c.Request.Context(), sessionID)
+	resp, err := b.client.GetSessionMessages(c.Request.Context(), sessionID, 0) // admin 看完整 transcript, 不分页
 	if err != nil {
 		if errors.Is(err, agent.ErrSessionNotFound) {
 			utils.Success(c, gin.H{"messages": []any{}})

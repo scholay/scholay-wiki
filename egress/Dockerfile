@@ -7,6 +7,7 @@ FROM alpine:3.20
 RUN apk add --no-cache tinyproxy
 COPY tinyproxy.base.conf /etc/tinyproxy/tinyproxy.base.conf
 COPY filter /etc/tinyproxy/filter
+COPY filter-deny-internal /etc/tinyproxy/filter-deny-internal
 COPY entrypoint.sh /entrypoint.sh
 EXPOSE 3128
 # 非 root 运行(端口 >1024 无需 cap;conf 在 /tmp 由 nobody 生成;基础配置/filter world-readable)。

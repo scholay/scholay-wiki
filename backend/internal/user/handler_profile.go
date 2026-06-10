@@ -250,7 +250,7 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 
 	err := h.service.UpdateProfile(userID, req.Username, req.AvatarURL, req.Bio)
 	if err != nil {
-		utils.Error(c, 2006, err.Error())
+		utils.SafeError(c, 2006, err)
 		return
 	}
 
@@ -273,7 +273,7 @@ func (h *Handler) BindPhone(c *gin.Context) {
 
 	err := h.service.BindPhone(c.Request.Context(), userID, req.Phone, req.Code, req.OldPhoneCode)
 	if err != nil {
-		utils.Error(c, 2024, err.Error())
+		utils.SafeError(c, 2024, err)
 		return
 	}
 
@@ -294,7 +294,7 @@ func (h *Handler) BindEmail(c *gin.Context) {
 
 	err := h.service.BindEmail(c.Request.Context(), userID, req.Email, req.Code, req.OldEmailCode)
 	if err != nil {
-		utils.Error(c, 2025, err.Error())
+		utils.SafeError(c, 2025, err)
 		return
 	}
 
@@ -315,7 +315,7 @@ func (h *Handler) UnbindPhone(c *gin.Context) {
 
 	err := h.service.UnbindPhone(c.Request.Context(), userID, req.Code)
 	if err != nil {
-		utils.Error(c, 2026, err.Error())
+		utils.SafeError(c, 2026, err)
 		return
 	}
 
@@ -336,7 +336,7 @@ func (h *Handler) UnbindEmail(c *gin.Context) {
 
 	err := h.service.UnbindEmail(c.Request.Context(), userID, req.Code)
 	if err != nil {
-		utils.Error(c, 2027, err.Error())
+		utils.SafeError(c, 2027, err)
 		return
 	}
 
@@ -352,7 +352,7 @@ func (h *Handler) UnbindWeChat(c *gin.Context) {
 
 	err := h.service.UnbindWeChat(userID)
 	if err != nil {
-		utils.Error(c, 2028, err.Error())
+		utils.SafeError(c, 2028, err)
 		return
 	}
 
@@ -368,7 +368,7 @@ func (h *Handler) UnbindGitHub(c *gin.Context) {
 
 	err := h.service.UnbindGitHub(userID)
 	if err != nil {
-		utils.Error(c, 2029, err.Error())
+		utils.SafeError(c, 2029, err)
 		return
 	}
 
@@ -384,7 +384,7 @@ func (h *Handler) UnbindDiscourse(c *gin.Context) {
 
 	err := h.service.UnbindDiscourse(userID)
 	if err != nil {
-		utils.Error(c, 2029, err.Error())
+		utils.SafeError(c, 2029, err)
 		return
 	}
 
