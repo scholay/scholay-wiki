@@ -255,7 +255,7 @@ LEFT JOIN agent_sessions a ON a.owner_kind = ? AND a.owner_id = s.id
 WHERE s.%[2]s IS NOT NULL AND s.%[2]s <> ''
   AND (a.id IS NULL OR a.agent_session_id <> s.%[2]s)
 ON DUPLICATE KEY UPDATE
-  prompt_injected  = IF(agent_session_id <> VALUES(agent_session_id), 0, prompt_injected),
+  prompt_injected  = IF(agent_sessions.agent_session_id <> VALUES(agent_session_id), 0, agent_sessions.prompt_injected),
   agent_session_id = VALUES(agent_session_id),
   user_id          = VALUES(user_id),
   last_accessed_at = NOW(),
