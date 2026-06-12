@@ -39,6 +39,8 @@ export interface ChipMenuItem {
   label: string;
   /** 右侧附加说明 (例如 "敬请期待" 灰文) */
   hint?: string;
+  /** 原生 title tooltip —— hint 放不下的长说明(如 disabled 原因)用这里 */
+  title?: string;
   /** 点击行为; 未传 + disabled=true 时是"即将开放"占位项 */
   onClick?: () => void;
   /** 灰态(不可点) */
@@ -59,7 +61,7 @@ interface StatusChipProps {
 
 /** label 上根据 status 追加后缀: "基础信息" → "基础信息·异常" / "·缺失" */
 function labelWithSuffix(label: string, status: ChipStatus): string {
-  if (status === 'partial') return `${label}·异常`;
+  if (status === 'partial') return `${label}·待补全`;
   if (status === 'missing') return `${label}·缺失`;
   return label;
 }
@@ -156,6 +158,7 @@ function ChipMenuList({ items, onItemClick }: ChipMenuListProps) {
             key={i}
             type="button"
             disabled={isDisabled}
+            title={item.title}
             onClick={() => {
               if (isDisabled) return;
               item.onClick?.();
@@ -239,7 +242,7 @@ export function ChipChecklistRow({ state, label, preview }: ChipChecklistRowProp
         )}
         title={preview}
       >
-        {state === 'absent' ? '未识别' : preview ?? '—'}
+        {state === 'absent' ? '暂无' : preview ?? '—'}
       </span>
     </div>
   );

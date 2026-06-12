@@ -308,6 +308,11 @@ type LLMUsageStats struct {
 	PromptTokensDetails struct {
 		CachedTokens int `json:"cached_tokens"`
 	} `json:"prompt_tokens_details"`
+	// DeepSeek 原生缓存字段(不走 OpenAI 的 prompt_tokens_details 结构):命中/未命中分列,
+	// 满足 prompt_cache_hit_tokens + prompt_cache_miss_tokens == prompt_tokens。
+	// usageFromStats 与 PromptTokensDetails.CachedTokens 取较大者, 兼容两类上游。
+	PromptCacheHitTokens  int `json:"prompt_cache_hit_tokens"`
+	PromptCacheMissTokens int `json:"prompt_cache_miss_tokens"`
 }
 
 // ToolCall represents a tool call in the response

@@ -96,7 +96,10 @@ export function ChatSessionMonitor({ feature }: { feature: MonitorFeature }) {
           {loadingTranscript ? (
             <div className="py-8 text-center text-sm text-faint">加载中…</div>
           ) : (
-            <AdminTranscriptView messages={transcript ?? []} />
+            <AdminTranscriptView
+              messages={transcript ?? []}
+              featureKey={viewing?.featureKey ?? feature}
+            />
           )}
         </DialogContent>
       </Dialog>

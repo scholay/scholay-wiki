@@ -27,7 +27,11 @@ import {
 import {
   getModelUsage,
   getTotalAPIDuration,
+  getTotalCacheCreationInputTokens,
+  getTotalCacheReadInputTokens,
   getTotalCost,
+  getTotalInputTokens,
+  getTotalOutputTokens,
 } from './cost-tracker.js'
 import type { CanUseToolFn } from './hooks/useCanUseTool.js'
 import { loadMemoryPrompt } from './memdir/memdir.js'
@@ -181,6 +185,22 @@ export type QueryEngineConfig = {
  * turn within the same conversation. State (messages, file cache, usage, etc.)
  * persists across turns.
  */
+
+/**
+ * 会话累计 token 计数快照(来自全局 cost-tracker)。统计本会话 CLI 子进程内的**每一次**模型调用:
+ * 主对话轮 + 子 agent(Task)+ 上下文压缩(autocompact)+ advisor。随每个 result 帧上报,
+ * 后端取相邻两帧的差值得到「本轮真实总花销」—— 子 agent / 压缩这类不产生独立 message_complete 的
+ * 带外用量不再漏记,且只记增量、不与历史轮重复计。`this.totalUsage` 只含主轮,不可替代本快照。
+ */
+function sessionTotalUsageSnapshot() {
+  return {
+    input_tokens: getTotalInputTokens(),
+    output_tokens: getTotalOutputTokens(),
+    cache_read_input_tokens: getTotalCacheReadInputTokens(),
+    cache_creation_input_tokens: getTotalCacheCreationInputTokens(),
+  }
+}
+
 export class QueryEngine {
   private config: QueryEngineConfig
   private mutableMessages: Message[]
@@ -627,6 +647,7 @@ export class QueryEngine {
         session_id: getSessionId(),
         total_cost_usd: getTotalCost(),
         usage: this.totalUsage,
+        session_total_usage: sessionTotalUsageSnapshot(),
         modelUsage: getModelUsage(),
         permission_denials: this.permissionDenials,
         fast_mode_state: getFastModeState(
@@ -859,6 +880,7 @@ export class QueryEngine {
               session_id: getSessionId(),
               total_cost_usd: getTotalCost(),
               usage: this.totalUsage,
+        session_total_usage: sessionTotalUsageSnapshot(),
               modelUsage: getModelUsage(),
               permission_denials: this.permissionDenials,
               fast_mode_state: getFastModeState(
@@ -989,6 +1011,7 @@ export class QueryEngine {
           session_id: getSessionId(),
           total_cost_usd: getTotalCost(),
           usage: this.totalUsage,
+        session_total_usage: sessionTotalUsageSnapshot(),
           modelUsage: getModelUsage(),
           permission_denials: this.permissionDenials,
           fast_mode_state: getFastModeState(
@@ -1032,6 +1055,7 @@ export class QueryEngine {
             session_id: getSessionId(),
             total_cost_usd: getTotalCost(),
             usage: this.totalUsage,
+        session_total_usage: sessionTotalUsageSnapshot(),
             modelUsage: getModelUsage(),
             permission_denials: this.permissionDenials,
             fast_mode_state: getFastModeState(
@@ -1091,6 +1115,7 @@ export class QueryEngine {
         session_id: getSessionId(),
         total_cost_usd: getTotalCost(),
         usage: this.totalUsage,
+        session_total_usage: sessionTotalUsageSnapshot(),
         modelUsage: getModelUsage(),
         permission_denials: this.permissionDenials,
         fast_mode_state: getFastModeState(
@@ -1144,6 +1169,7 @@ export class QueryEngine {
       session_id: getSessionId(),
       total_cost_usd: getTotalCost(),
       usage: this.totalUsage,
+      session_total_usage: sessionTotalUsageSnapshot(),
       modelUsage: getModelUsage(),
       permission_denials: this.permissionDenials,
       structured_output: structuredOutputFromTool,

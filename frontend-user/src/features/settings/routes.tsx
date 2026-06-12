@@ -54,3 +54,48 @@ export const settingsRoutes: RouteObject[] = [
     ],
   },
 ];
+
+/**
+ * 移动版「我的」体系 —— 挂在 /m/* (MobileShell) 下,由 app/router.tsx 组装。
+ * 与 PC settings 共用全部数据 hooks(profile/membership/connections)。
+ *
+ * 刻意**不挂** ensureAuthed loader:移动端未登录进「我的」是常态入口
+ * (展示登录/注册按钮),子页由 MeSubpageShell 原地弹登录,不跳走。
+ */
+export const settingsMobileRoutes: RouteObject[] = [
+  {
+    path: 'me',
+    lazy: () =>
+      import('./pages/mobile/MobileMePage').then((m) => ({
+        Component: m.MobileMePage,
+      })),
+  },
+  {
+    path: 'me/profile',
+    lazy: () =>
+      import('./pages/mobile/MobileProfilePage').then((m) => ({
+        Component: m.MobileProfilePage,
+      })),
+  },
+  {
+    path: 'me/security',
+    lazy: () =>
+      import('./pages/mobile/MobileSecurityPage').then((m) => ({
+        Component: m.MobileSecurityPage,
+      })),
+  },
+  {
+    path: 'me/connections',
+    lazy: () =>
+      import('./pages/mobile/MobileConnectionsPage').then((m) => ({
+        Component: m.MobileConnectionsPage,
+      })),
+  },
+  {
+    path: 'me/billing',
+    lazy: () =>
+      import('./pages/mobile/MobileBillingPage').then((m) => ({
+        Component: m.MobileBillingPage,
+      })),
+  },
+];

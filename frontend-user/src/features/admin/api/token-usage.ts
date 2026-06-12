@@ -35,6 +35,8 @@ export interface TokenDayPoint {
   total_tokens: number;
   input_tokens: number;
   output_tokens: number;
+  cache_read_tokens: number;
+  cache_creation_tokens: number;
   calls: number;
 }
 
@@ -45,6 +47,7 @@ export interface TokenBreakdownItem {
   input_tokens: number;
   output_tokens: number;
   cache_read_tokens: number;
+  cache_creation_tokens: number;
   calls: number;
 }
 
@@ -55,6 +58,21 @@ export interface TokenUserItem {
   total_tokens: number;
   input_tokens: number;
   output_tokens: number;
+  cache_read_tokens: number;
+  cache_creation_tokens: number;
+  calls: number;
+}
+
+/** 「天 × 维度(model/feature)」交叉聚合的一格 —— 主图分段堆叠柱用(稀疏,按 daily 的日期 spine 合并)。 */
+export interface TokenDayDimPoint {
+  date: string;
+  key: string;
+  label: string;
+  total_tokens: number;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_creation_tokens: number;
   calls: number;
 }
 
@@ -67,6 +85,8 @@ export interface TokenUsageOverview {
   by_model: TokenBreakdownItem[];
   by_provider: TokenBreakdownItem[];
   top_users: TokenUserItem[];
+  daily_by_model: TokenDayDimPoint[];
+  daily_by_feature: TokenDayDimPoint[];
 }
 
 export interface TokenLog {

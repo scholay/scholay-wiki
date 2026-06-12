@@ -1,18 +1,35 @@
 import { useRef, useState } from 'react';
-import { Paperclip, Send, Sparkles, X } from 'lucide-react';
+import {
+  Bug,
+  CheckCircle2,
+  Lightbulb,
+  Loader2,
+  MessageCircle,
+  Paperclip,
+  Send,
+  Sparkles,
+  X,
+} from 'lucide-react';
 import { toast } from 'sonner';
+import { Link } from 'react-router-dom';
+import type { LucideIcon } from 'lucide-react';
 import { http, toApiError } from '@/shared/lib/http';
 import { useAuthStore } from '@/stores/auth.store';
 import { RouteSEO } from '@/shared/components/RouteSEO';
+import { BrandName } from '@/shared/components/BrandName';
+import { Button } from '@/shared/ui/button';
+import { Dialog, DialogContent } from '@/shared/ui/dialog';
+import { cn } from '@/shared/lib/utils';
+import { trackEvent } from '@/shared/lib/track';
 import { HelpLayout } from '../components/HelpLayout';
 import { FeatureJumpCTA } from '../components/FeatureJumpCTA';
-import { Button } from '@/shared/ui/button';
+import { ContactChannels } from '../components/ContactChannels';
 
 /** 单个已上传附件 (后端 /public/feedback/upload 返回项形态) */
 interface UploadedAttachment {
   id: number;
   name: string;
-  url: string;   // /api/v1/public/feedback/attachment/<id>
+  url: string; // /api/v1/public/feedback/attachment/<id>
   size: number;
   type: 'image' | 'file';
 }
@@ -23,23 +40,27 @@ const MAX_IMAGE_COUNT = 10;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const MAX_FILE_COUNT = 5;
 const MAX_TOTAL_BYTES = 50 * 1024 * 1024;
+const MAX_ATTACHMENTS = MAX_IMAGE_COUNT + MAX_FILE_COUNT;
 /** 表单 accept —— 图片(白名单与后端一致)+ 文件(pdf/doc/xls/txt/zip)。 */
 const ACCEPT = 'image/jpeg,image/png,image/gif,image/webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip';
 
+const MIN_CONTENT = 10;
+const MAX_CONTENT = 2000;
+
 /**
  * 反馈表单 —— 用户填写后 POST `/public/feedback`(后端公开端点)。
+ * 后端 schema:{ email required, content 10-5000 字, category oneof, attachmentsKey 可选 }。
  *
- * 后端 schema(internal/feedback/handler.go `CreateFeedbackRequestWithKey`):
- *   { email: required email, content: required 10-5000 字, category: 可选,
- *     oneof bug/feature/complaint/praise/other, attachmentsKey: 可选 }
- *
- * 之前这里发的是 `{kind, content, contact}` —— email 缺失会被后端 400 binding 报错,
- * 一直在线但提交必跪。修复:
- *   - 加 email 输入(必填,登录态预填 auth user email)
- *   - kind → category(语义对齐 admin 列表的"分类"列,真实落库)
- *   - 删 contact(后端无对应字段,且 email 已能联系)
+ * 优化点(2026-06):品牌名走 <BrandName/>;分类用 lucide 图标(去 emoji);桌面两栏(表单 + 承诺/客服侧栏);
+ * 提交成功转 inline 成功态;附件支持拖拽 + 图片点击放大;字数门槛实时提示;提交 loading spinner。
  */
 type FeedbackCategory = 'bug' | 'feature' | 'other';
+
+const CATEGORIES: Array<{ value: FeedbackCategory; label: string; hint: string; icon: LucideIcon }> = [
+  { value: 'feature', label: '功能建议', hint: '改进想法 / 新功能', icon: Lightbulb },
+  { value: 'bug', label: 'Bug 报告', hint: '遇到的问题 / 异常', icon: Bug },
+  { value: 'other', label: '其他', hint: '投诉 / 表扬 / 咨询', icon: MessageCircle },
+];
 
 export function FeedbackPage() {
   const user = useAuthStore((s) => s.user);
@@ -47,14 +68,19 @@ export function FeedbackPage() {
   const [content, setContent] = useState('');
   const [email, setEmail] = useState(user?.email ?? '');
   const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const [uploadKey, setUploadKey] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<UploadedAttachment[]>([]);
+  const [lightbox, setLightbox] = useState<UploadedAttachment | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  /** 选择附件(图片/文件)后立即上传 → 拿到附件 id, 暂存; 提交反馈时携 uploadKey 一并绑定。
-   *  前端按类型分别校验大小/数量 + 总大小(与后端一致),提前拦截避免上传后被 400。 */
-  const handleFiles = async (files: FileList | null) => {
+  const contentLen = content.trim().length;
+  const contentTooShort = contentLen > 0 && contentLen < MIN_CONTENT;
+
+  /** 选择附件(图片/文件)后立即上传 → 拿 id 暂存;提交时携 uploadKey 一并绑定。 */
+  const handleFiles = async (files: FileList | File[] | null) => {
     if (!files || files.length === 0) return;
     const picked = Array.from(files);
     const curImg = attachments.filter((a) => a.type === 'image').length;
@@ -89,7 +115,7 @@ export function FeedbackPage() {
 
     const fd = new FormData();
     if (uploadKey) fd.append('uploadKey', uploadKey);
-    Array.from(files).forEach((f) => fd.append('files', f));
+    picked.forEach((f) => fd.append('files', f));
 
     setUploading(true);
     try {
@@ -122,8 +148,8 @@ export function FeedbackPage() {
       toast.error('请填写邮箱,方便我们回复你');
       return;
     }
-    if (text.length < 10) {
-      toast.error('反馈内容请至少 10 个字,方便我们准确定位');
+    if (text.length < MIN_CONTENT) {
+      toast.error(`反馈内容请至少 ${MIN_CONTENT} 个字,方便我们准确定位`);
       return;
     }
     setSubmitting(true);
@@ -134,19 +160,23 @@ export function FeedbackPage() {
         category,
         attachmentsKey: attachments.length > 0 ? uploadKey : '',
       });
-      toast.success('感谢反馈!我们会认真看每一条');
-      setContent('');
-      setAttachments([]);
-      setUploadKey(null);
-      // email 保留 —— 同一会话再提交一次不用重新填
+      trackEvent('feedback_submit', { category });
+      setSubmitted(true);
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : '提交失败,请稍后重试'
-      );
+      toast.error(err instanceof Error ? err.message : '提交失败,请稍后重试');
       void toApiError(err);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  /** 再写一条 —— 从成功态返回空表单(保留邮箱,省得重填)。 */
+  const resetForm = () => {
+    setSubmitted(false);
+    setContent('');
+    setAttachments([]);
+    setUploadKey(null);
+    setCategory('feature');
   };
 
   return (
@@ -154,182 +184,291 @@ export function FeedbackPage() {
       breadcrumbs={[{ label: '帮助中心', to: '/help' }, { label: '产品反馈' }]}
       eyebrow="FEEDBACK"
       title="告诉我们哪里可以做得更好"
-      lead="无论是 bug、功能建议还是吐槽,每一条反馈我们都会认真看。"
+      lead={
+        <>
+          无论是 bug、功能建议还是吐槽,<BrandName /> 团队每一条反馈都会认真看。
+        </>
+      }
+      contentMaxWidth="max-w-5xl"
     >
       <RouteSEO
         title="意见反馈 - Scholay | 帮助我们改进"
         description="向 Scholay 团队提交您的反馈意见、功能建议或问题报告,帮助我们持续改进学术搜索服务。"
         keywords="Scholay 反馈,意见建议,功能建议,问题报告,用户反馈,Bug 报告"
       />
-      {/* 表单卡 —— 用 surface-1 软底 + border 把表单视觉收成一块,与 hero 区隔
-         避免 hero 下面直接是裸字段的"无边界"观感 */}
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-5 rounded-lg bg-surface-1 border border-border-soft p-6 md:p-8"
-      >
-        <div>
-          <label className="block text-xs font-bold text-foreground mb-2">
-            反馈类型
-          </label>
-          <div className="inline-flex items-center gap-1 p-0.5 rounded-md bg-surface-2">
-            {(
-              [
-                { value: 'feature', label: '✨ 功能建议' },
-                { value: 'bug', label: '🐛 Bug 报告' },
-                { value: 'other', label: '💬 其他' },
-              ] as Array<{ value: FeedbackCategory; label: string }>
-            ).map((k) => (
-              <button
-                key={k.value}
-                type="button"
-                onClick={() => setCategory(k.value)}
-                className={
-                  category === k.value
-                    ? 'inline-flex items-center h-8 px-3 rounded-sm bg-background text-foreground text-xs font-bold shadow-sm'
-                    : 'inline-flex items-center h-8 px-3 rounded-sm text-muted-foreground text-xs hover:text-foreground transition-colors'
-                }
-              >
-                {k.label}
-              </button>
-            ))}
-          </div>
-        </div>
 
-        <div>
-          <label
-            htmlFor="feedback-content"
-            className="block text-xs font-bold text-foreground mb-2"
+      {submitted ? (
+        <SuccessPanel email={email.trim()} onAgain={resetForm} />
+      ) : (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_300px]">
+          {/* 左:表单 */}
+          <form
+            onSubmit={handleSubmit}
+            className="space-y-5 rounded-lg border border-border-soft bg-surface-1 p-6 md:p-8"
           >
-            反馈内容 <span className="text-brand-red">*</span>
-          </label>
-          <textarea
-            id="feedback-content"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            rows={6}
-            maxLength={2000}
-            placeholder="请详细描述遇到的问题或您的建议(至少 10 字,最多 2000 字)"
-            className="w-full px-3 py-2.5 rounded-sm border border-border bg-background text-sm leading-relaxed resize-y focus:outline-none focus:border-foreground focus:ring-2 focus:ring-ring/20"
-          />
-          <p className="mt-1 text-2xs text-faint">{content.length}/2000</p>
-        </div>
-
-        <div>
-          <label
-            htmlFor="feedback-email"
-            className="block text-xs font-bold text-foreground mb-2"
-          >
-            邮箱 <span className="text-brand-red">*</span>{' '}
-            <span className="text-faint font-normal">(用于回复反馈结果)</span>
-          </label>
-          <input
-            id="feedback-email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            placeholder="you@example.com"
-            className="w-full h-10 px-3 rounded-sm border border-border bg-background text-sm focus:outline-none focus:border-foreground focus:ring-2 focus:ring-ring/20"
-          />
-        </div>
-
-        {/* 附件 — 截图(复现 bug)或文件(pdf/doc/xls/txt/zip) */}
-        <div>
-          <label className="block text-xs font-bold text-foreground mb-2">
-            截图 / 文件附件{' '}
-            <span className="text-faint font-normal">
-              (可选 · 图片 ≤10MB×{MAX_IMAGE_COUNT} · 文件 ≤10MB×{MAX_FILE_COUNT} · 总计 ≤50MB)
-            </span>
-          </label>
-
-          {attachments.length > 0 && (
-            <div className="mb-3 grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
-              {attachments.map((a) => (
-                <div
-                  key={a.id}
-                  className="relative group rounded-sm border border-border bg-background overflow-hidden"
-                >
-                  {a.type === 'image' ? (
-                    <img
-                      src={a.url}
-                      alt={a.name}
-                      className="w-full h-20 object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-20 flex items-center justify-center text-2xs text-muted-foreground p-2 text-center">
-                      {a.name}
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => removeAttachment(a.id)}
-                    className="absolute top-1 right-1 inline-flex items-center justify-center size-5 rounded-full bg-foreground/70 text-background opacity-0 group-hover:opacity-100 transition-opacity hover:bg-foreground"
-                    aria-label="移除附件"
-                  >
-                    <X className="size-3" />
-                  </button>
-                </div>
-              ))}
+            {/* 分类 */}
+            <div>
+              <label className="mb-2 block text-xs font-bold text-foreground">反馈类型</label>
+              <div className="grid grid-cols-3 gap-2">
+                {CATEGORIES.map((c) => {
+                  const active = category === c.value;
+                  const Icon = c.icon;
+                  return (
+                    <button
+                      key={c.value}
+                      type="button"
+                      onClick={() => setCategory(c.value)}
+                      aria-pressed={active}
+                      className={cn(
+                        'flex flex-col items-center gap-1 rounded-md border px-2 py-2.5 text-center transition-colors',
+                        active
+                          ? 'border-brand-red/40 bg-danger-soft'
+                          : 'border-border bg-background hover:border-foreground/30 hover:bg-surface-2',
+                      )}
+                    >
+                      <Icon
+                        className={cn('size-4', active ? 'text-brand-red' : 'text-subtle')}
+                        strokeWidth={2}
+                      />
+                      <span className={cn('text-xs font-bold', active ? 'text-foreground' : 'text-subtle')}>
+                        {c.label}
+                      </span>
+                      <span className="text-2xs text-faint">{c.hint}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          )}
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={ACCEPT}
-            multiple
-            className="hidden"
-            onChange={(e) => handleFiles(e.target.files)}
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={uploading || attachments.length >= MAX_IMAGE_COUNT + MAX_FILE_COUNT}
-            onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center gap-2 h-8 px-3 border border-border"
-          >
-            <Paperclip className="size-3.5" />
-            {uploading ? '上传中…' : '添加附件'}
-          </Button>
+            {/* 内容 */}
+            <div>
+              <label htmlFor="feedback-content" className="mb-2 block text-xs font-bold text-foreground">
+                反馈内容 <span className="text-brand-red">*</span>
+              </label>
+              <textarea
+                id="feedback-content"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                rows={6}
+                maxLength={MAX_CONTENT}
+                aria-invalid={contentTooShort}
+                aria-describedby="feedback-content-hint"
+                placeholder="请详细描述遇到的问题或您的建议,越具体我们越能帮上忙"
+                className={cn(
+                  'w-full resize-y rounded-sm border bg-background px-3 py-2.5 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring/20',
+                  contentTooShort ? 'border-brand-red focus:border-brand-red' : 'border-border focus:border-foreground',
+                )}
+              />
+              <p
+                id="feedback-content-hint"
+                className={cn('mt-1 text-2xs', contentTooShort ? 'text-brand-red' : 'text-faint')}
+              >
+                {contentTooShort
+                  ? `还差 ${MIN_CONTENT - contentLen} 个字(至少 ${MIN_CONTENT} 字)`
+                  : `${content.length}/${MAX_CONTENT} · 最少 ${MIN_CONTENT} 字`}
+              </p>
+            </div>
+
+            {/* 邮箱 */}
+            <div>
+              <label htmlFor="feedback-email" className="mb-2 block text-xs font-bold text-foreground">
+                邮箱 <span className="text-brand-red">*</span>{' '}
+                <span className="font-normal text-faint">(用于回复反馈结果)</span>
+              </label>
+              <input
+                id="feedback-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                placeholder="you@example.com"
+                className="h-10 w-full rounded-sm border border-border bg-background px-3 text-sm focus:border-foreground focus:outline-none focus:ring-2 focus:ring-ring/20"
+              />
+              {user?.email && email.trim() === user.email && (
+                <p className="mt-1 inline-flex items-center gap-1 text-2xs text-brand-green">
+                  <CheckCircle2 className="size-3" />
+                  已使用你的登录邮箱
+                </p>
+              )}
+            </div>
+
+            {/* 附件 — 拖拽或点击 */}
+            <div>
+              <label className="mb-2 block text-xs font-bold text-foreground">
+                截图 / 文件附件{' '}
+                <span className="font-normal text-faint">
+                  (可选 · 图片 ≤10MB×{MAX_IMAGE_COUNT} · 文件 ≤10MB×{MAX_FILE_COUNT} · 总 ≤50MB)
+                </span>
+              </label>
+
+              {attachments.length > 0 && (
+                <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                  {attachments.map((a) => (
+                    <div
+                      key={a.id}
+                      className="group relative overflow-hidden rounded-sm border border-border bg-background"
+                    >
+                      {a.type === 'image' ? (
+                        <button
+                          type="button"
+                          onClick={() => setLightbox(a)}
+                          className="block w-full"
+                          title="点击放大"
+                        >
+                          <img src={a.url} alt={a.name} className="h-20 w-full object-cover" />
+                        </button>
+                      ) : (
+                        <div className="flex h-20 w-full items-center justify-center p-2 text-center text-2xs text-muted-foreground">
+                          {a.name}
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeAttachment(a.id)}
+                        className="absolute right-1 top-1 inline-flex size-5 items-center justify-center rounded-full bg-foreground/70 text-background opacity-0 transition-opacity hover:bg-foreground group-hover:opacity-100"
+                        aria-label="移除附件"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={ACCEPT}
+                multiple
+                className="hidden"
+                onChange={(e) => handleFiles(e.target.files)}
+              />
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOver(false);
+                  if (attachments.length < MAX_ATTACHMENTS) void handleFiles(e.dataTransfer.files);
+                }}
+                className={cn(
+                  'flex flex-col items-center justify-center gap-1.5 rounded-md border border-dashed py-5 text-center transition-colors',
+                  dragOver ? 'border-brand-green bg-brand-green/5' : 'border-border bg-background',
+                )}
+              >
+                <Paperclip className="size-4 text-faint" />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={uploading || attachments.length >= MAX_ATTACHMENTS}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="h-8 border border-border px-3"
+                >
+                  {uploading ? (
+                    <>
+                      <Loader2 className="size-3.5 animate-spin" />
+                      上传中…
+                    </>
+                  ) : attachments.length >= MAX_ATTACHMENTS ? (
+                    '已达上限'
+                  ) : (
+                    '选择文件'
+                  )}
+                </Button>
+                <span className="text-2xs text-faint">也可以把文件拖到这里</span>
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              variant="primary"
+              aria-busy={submitting}
+              disabled={submitting || contentLen < MIN_CONTENT || !email.trim()}
+              className="h-10 px-5"
+            >
+              {submitting ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
+              {submitting ? '提交中…' : '提交反馈'}
+            </Button>
+          </form>
+
+          {/* 右:承诺 + 其他联系方式(桌面侧栏 / 移动堆叠在表单下) */}
+          <aside className="space-y-6">
+            <PromiseCard />
+            <ContactChannels />
+          </aside>
         </div>
+      )}
 
-        <Button
-          type="submit"
-          variant="primary"
-          disabled={submitting || content.trim().length < 10 || !email.trim()}
-          className="inline-flex items-center gap-2 h-10 px-5"
-        >
-          <Send className="size-3.5" />
-          {submitting ? '提交中…' : '提交反馈'}
-        </Button>
-      </form>
+      {/* 提交完反馈 → 引导回产品(成功态自带 CTA,这里只在表单态展示) */}
+      {!submitted && (
+        <div className="mt-6">
+          <FeatureJumpCTA />
+        </div>
+      )}
 
-      {/* 承诺区 —— 与表单卡平级,视觉成对(都是软底卡),区分提交动作 vs 信息读取 */}
-      <div className="mt-6 rounded-lg bg-background border border-border-soft p-6 md:p-8">
-        <h2 className="inline-flex items-center gap-2 text-base font-bold text-foreground mb-3">
-          <Sparkles className="size-4 text-brand-amber" strokeWidth={2.2} />
-          我们承诺
-        </h2>
-        <ul className="space-y-2 text-sm text-subtle leading-relaxed">
-          <li className="flex items-start gap-2">
-            <span className="text-brand-amber mt-1.5 inline-block size-1 rounded-full bg-current shrink-0" />
-            每一条反馈都会被产品团队看到
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-brand-amber mt-1.5 inline-block size-1 rounded-full bg-current shrink-0" />
-            明确的 bug 通常在 1-3 个工作日内修复
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-brand-amber mt-1.5 inline-block size-1 rounded-full bg-current shrink-0" />
-            功能建议会进入产品 backlog,采纳后会单独邮件告知
-          </li>
-        </ul>
-      </div>
-
-      {/* 提交完反馈 → 引导回产品 */}
-      <div className="mt-6">
-        <FeatureJumpCTA />
-      </div>
+      {/* 图片放大 */}
+      <Dialog open={!!lightbox} onOpenChange={(o) => !o && setLightbox(null)}>
+        <DialogContent className="max-w-3xl">
+          {lightbox && (
+            <img src={lightbox.url} alt={lightbox.name} className="max-h-[75vh] w-full rounded-sm object-contain" />
+          )}
+        </DialogContent>
+      </Dialog>
     </HelpLayout>
+  );
+}
+
+/** 「我们承诺」卡(品牌信心区)。 */
+function PromiseCard() {
+  return (
+    <section className="rounded-lg border border-border-soft bg-background p-5">
+      <h2 className="mb-3 inline-flex items-center gap-2 text-sm font-bold text-foreground">
+        <Sparkles className="size-4 text-brand-amber" strokeWidth={2.2} />
+        我们承诺
+      </h2>
+      <ul className="space-y-2 text-xs leading-relaxed text-subtle">
+        {[
+          '每一条反馈都会被产品团队看到',
+          '明确的 bug 通常在 1–3 个工作日内修复',
+          '功能建议会进入 backlog,采纳后单独邮件告知',
+        ].map((t) => (
+          <li key={t} className="flex items-start gap-2">
+            <span className="mt-1.5 inline-block size-1 shrink-0 rounded-full bg-brand-amber" />
+            {t}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** 提交成功 inline 态 —— 取代静默清空,给明确的完成反馈 + 下一步。 */
+function SuccessPanel({ email, onAgain }: { email: string; onAgain: () => void }) {
+  return (
+    <div className="rounded-lg border border-border-soft bg-surface-1 p-8 text-center md:p-12">
+      <span className="mx-auto inline-flex size-12 items-center justify-center rounded-full bg-brand-green/10">
+        <CheckCircle2 className="size-6 text-brand-green" strokeWidth={2.2} />
+      </span>
+      <h2 className="mt-4 text-lg font-bold text-foreground">感谢你的反馈!</h2>
+      <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
+        <BrandName /> 团队会认真看每一条。如有结论,我们会通过{' '}
+        {email ? <span className="font-medium text-subtle">{email}</span> : '你填写的邮箱'} 回复你。
+      </p>
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+        <Button variant="outline" onClick={onAgain}>
+          <Send className="size-3.5" />
+          再写一条
+        </Button>
+        <Button asChild variant="primary">
+          <Link to="/search">返回产品</Link>
+        </Button>
+      </div>
+      <div className="mt-8 text-left">
+        <ContactChannels />
+      </div>
+    </div>
   );
 }

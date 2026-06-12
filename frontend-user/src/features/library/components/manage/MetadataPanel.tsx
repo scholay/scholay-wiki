@@ -1,51 +1,78 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { CheckCircle2, Eye, History, RotateCcw, Save, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
 import { useApiToast } from '@/shared/hooks';
 import { useUpdatePaper } from '../../api/papers';
+import { pickEffectiveFields } from '../../lib/pick-field';
 import { authorsToInputText } from '../../lib/resolve-paper';
 import { useMetadataForm, type MetadataFormValues } from '../../hooks/useMetadataForm';
 import { MetadataFields } from '../shared/MetadataFields';
+import {
+  DialogFooterBar,
+  footerGhostCn,
+  footerOutlineCn,
+  footerPrimaryCn,
+} from '../shared/dialog-chrome';
 import type { UserLibraryPaper } from '@/shared/api/types';
 
 /**
- * 统一管理弹窗 · 元数据 tab —— 手动编辑 og_* 字段(双列:左 [[MetadataFields]] / 右实时预览)。
- * 只写 og_*,差量提交(RHF dirtyFields)。原 PaperEditDialog 的弹窗外壳由 PaperManageDialog 提供。
+ * 统一管理弹窗 ·「基本信息」tab(内部 id 'metadata')—— 双列:左 [[MetadataFields]] / 右实时预览。
+ *
+ * 表单语义(2026-06 改版):
+ *   - 初值 = **生效值**(pickEffectiveFields:og 非空用 og,否则用在线数据快照),
+ *     用户看到的表单就是文献卡当前显示的内容;
+ *   - 提交仍是差量(RHF dirtyFields vs defaultValues)→ 只写 og_*:
+ *     没动过的"在线预填"字段不会被复制进 og(避免旧副本压住日后换关联的新数据);
+ *     清空某字段保存 = 清掉该 og 字段,展示回落在线数据。
+ *   - 在线数据列(title/authors/...)只读,永远不被本表单触碰。
+ *
+ * 原 PaperEditDialog 的弹窗外壳由 PaperWorkbenchDialog 提供。
  */
 
-function ogToValues(paper: UserLibraryPaper): MetadataFormValues {
+function effectiveToValues(paper: UserLibraryPaper): MetadataFormValues {
+  const eff = pickEffectiveFields(paper);
   return {
-    title: paper.og_title ?? '',
-    authors: authorsToInputText(paper.og_authors, '; '),
-    venue: paper.og_venue ?? '',
-    year: paper.og_year ? String(paper.og_year) : '',
-    doi: paper.og_doi ?? '',
-    abstract: paper.og_abstract ?? '',
+    title: eff.title,
+    authors: authorsToInputText(eff.authors, '; '),
+    venue: eff.venue,
+    year: eff.year ? String(eff.year) : '',
+    doi: eff.doi,
+    abstract: eff.abstract,
   };
 }
 
 export function MetadataPanel({
   paper,
   onClose,
+  justAdded,
 }: {
   paper: UserLibraryPaper;
   onClose: () => void;
+  /** 工作台「添加 → 完善」切换时为 true:表单上方渲染成功 banner */
+  justAdded?: boolean;
 }) {
   const updateMut = useUpdatePaper();
   const apiToast = useApiToast();
-  const { form, toOgPayload } = useMetadataForm(ogToValues(paper));
+  const { form, toOgPayload } = useMetadataForm(effectiveToValues(paper));
 
+  // 只在换了另一行 paper(id 变化)时 reset —— 工作台用 by-upstream 订阅保活,
+  // refetch 会让 paper 对象身份变化,若依赖对象本身会把正在打字的编辑清掉。
+  const prevPaperIdRef = useRef(paper.id);
   useEffect(() => {
-    form.reset(ogToValues(paper));
+    if (prevPaperIdRef.current === paper.id) return;
+    prevPaperIdRef.current = paper.id;
+    form.reset(effectiveToValues(paper));
   }, [paper, form]);
 
   const isPending = updateMut.isPending;
   const dirtyCount = Object.keys(form.formState.dirtyFields).length;
   const values = form.watch();
 
+  // placeholder = 在线数据值兜底:值已预填(生效值),placeholder 只在用户清空
+  // 字段时露出 —— 此时它恰好就是"保存后将回落显示的在线数据",语义自洽。
   const placeholders: Partial<MetadataFormValues> = {
-    title: paper.title || '(上游无标题)',
+    title: paper.title || '',
     authors: authorsToInputText(paper.authors, '; '),
     venue: paper.venue || '',
     year: paper.year ? String(paper.year) : '',
@@ -84,6 +111,19 @@ export function MetadataPanel({
             </span>
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
+            {justAdded && (
+              <div className="mb-4 flex items-start gap-2 rounded-md border border-brand-green/30 bg-brand-green/5 px-3 py-2.5">
+                <CheckCircle2 className="size-4 text-brand-green shrink-0 mt-0.5" strokeWidth={2.25} />
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-brand-green">
+                    已加入文献集 · 继续完善信息
+                  </div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">
+                    信息已自动填好,你可以检查和修改;没问题直接关闭就行
+                  </div>
+                </div>
+              </div>
+            )}
             <MetadataFields form={form} placeholders={placeholders} disabled={isPending} />
           </div>
         </div>
@@ -91,44 +131,42 @@ export function MetadataPanel({
         <PreviewPanel values={values} paper={paper} />
       </div>
 
-      <div className="flex items-center justify-between gap-2 px-6 py-3 bg-surface-1 border-t border-border-soft shrink-0">
-        <span className="text-xs text-muted-foreground">
-          标 <span className="text-brand-red">*</span> 字段为必填 · 仅写入你的本地字段(og),不动上游
-        </span>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex items-center h-8 px-3 rounded-sm text-sm font-semibold text-subtle hover:bg-surface-2 hover:text-foreground transition-colors"
-          >
-            取消
-          </button>
-          <button
-            type="button"
-            onClick={() => form.reset(ogToValues(paper))}
-            disabled={isPending || dirtyCount === 0}
-            className={cn(
-              'inline-flex items-center gap-1 h-8 px-3 rounded-sm bg-background border border-border text-sm font-semibold text-subtle',
-              'hover:bg-surface-2 hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
-            )}
-          >
-            <RotateCcw className="size-3.5" />
-            重置
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={isPending}
-            className={cn(
-              'inline-flex items-center gap-1.5 h-8 px-3.5 rounded-sm bg-brand-green text-background text-sm font-bold',
-              'hover:bg-brand-green/90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors'
-            )}
-          >
-            <Save className="size-3.5" strokeWidth={2.25} />
-            {isPending ? '保存中…' : '保存修改'}
-          </button>
-        </div>
-      </div>
+      <DialogFooterBar
+        hint={
+          paper.link_state === 'linked' ? (
+            <>
+              标 <span className="text-brand-red">*</span> 为必填 ·
+              清空某项并保存,该项会恢复为在线论文的信息
+            </>
+          ) : (
+            <>
+              标 <span className="text-brand-red">*</span> 为必填
+            </>
+          )
+        }
+      >
+        <button type="button" onClick={onClose} className={footerGhostCn}>
+          取消
+        </button>
+        <button
+          type="button"
+          onClick={() => form.reset(effectiveToValues(paper))}
+          disabled={isPending || dirtyCount === 0}
+          className={footerOutlineCn}
+        >
+          <RotateCcw className="size-3.5" />
+          重置
+        </button>
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={isPending}
+          className={footerPrimaryCn('green')}
+        >
+          <Save className="size-3.5" strokeWidth={2.25} />
+          {isPending ? '保存中…' : '保存修改'}
+        </button>
+      </DialogFooterBar>
     </div>
   );
 }
@@ -187,7 +225,7 @@ function PreviewPanel({
         </div>
         <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
           <Sparkles className="size-3.5 text-brand-amber shrink-0 mt-0.5" />
-          预览实时同步表单内容 · 保存后立即应用至文献库
+          预览随输入实时更新 · 保存后立即更新文献卡
         </div>
       </div>
     </div>

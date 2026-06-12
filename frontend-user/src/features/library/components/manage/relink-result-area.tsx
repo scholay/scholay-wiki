@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Loader2 } from 'lucide-react';
+import { Check, Loader2 } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { formatAuthorsDisplay, keyOfHit, sourceBrandLabel } from '../../lib/resolve-paper';
 import type { SearchHit } from '../../api/upload-resolve';
@@ -10,6 +10,7 @@ export function RelinkResultArea({
   tabLabel,
   hits,
   selectedKey,
+  currentKey,
   onSelect,
 }: {
   loading: boolean;
@@ -17,6 +18,8 @@ export function RelinkResultArea({
   tabLabel: string;
   hits: SearchHit[];
   selectedKey: string | null;
+  /** 当前已关联论文的 "source:source_paper_id"(free 行为 null)—— 命中候选标记「当前关联」 */
+  currentKey: string | null;
   onSelect: (key: string) => void;
 }) {
   if (loading) {
@@ -37,33 +40,26 @@ export function RelinkResultArea({
   if (hits.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-        <div className="text-sm font-semibold text-foreground">{tabLabel} 没找到匹配的条目</div>
-        <div className="text-xs text-muted-foreground">换个标题关键词 / 切换其他数据源试试</div>
+        <div className="text-sm font-semibold text-foreground">{tabLabel} 没找到匹配的论文</div>
+        <div className="text-xs text-muted-foreground">换个标题关键词,或切到其他来源试试</div>
       </div>
     );
   }
 
   return (
     <>
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Check className="size-3.5 text-brand-green" strokeWidth={2.5} />
-          已从 <span className="font-bold text-foreground">{tabLabel}</span> 找到{' '}
-          <span className="font-bold text-foreground tabular-nums">{hits.length}</span> 条候选 ·
-          默认按匹配度排序
-        </div>
-        <button
-          type="button"
-          className="inline-flex items-center gap-1 h-7 px-2 rounded-sm text-xs text-muted-foreground hover:bg-surface-2 hover:text-foreground transition-colors"
-        >
-          排序:匹配度 <ChevronDown className="size-3" />
-        </button>
+      <div className="flex items-center gap-1.5 mb-3 text-xs text-muted-foreground">
+        <Check className="size-3.5 text-brand-green" strokeWidth={2.5} />
+        已从 <span className="font-bold text-foreground">{tabLabel}</span> 找到{' '}
+        <span className="font-bold text-foreground tabular-nums">{hits.length}</span> 条候选 ·
+        按相关度排序
       </div>
 
       <ul className="space-y-2">
         {hits.map((h) => {
           const key = keyOfHit(h);
           const selected = key === selectedKey;
+          const isCurrent = currentKey != null && key === currentKey;
           return (
             <li key={key}>
               <button
@@ -71,7 +67,8 @@ export function RelinkResultArea({
                 onClick={() => onSelect(key)}
                 className={cn(
                   'w-full flex items-start gap-3 px-4 py-3 rounded-md border-2 text-left transition-colors',
-                  selected ? 'border-brand-amber bg-warning-soft/40' : 'border-border hover:bg-surface-1'
+                  selected ? 'border-brand-amber bg-warning-soft/40' : 'border-border hover:bg-surface-1',
+                  isCurrent && !selected && 'opacity-70'
                 )}
               >
                 <span
@@ -90,8 +87,15 @@ export function RelinkResultArea({
                     >
                       {h.title || '无标题'}
                     </div>
-                    <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-sm bg-surface-2 text-subtle text-[10px] font-bold leading-none uppercase tracking-wide">
-                      {sourceBrandLabel(h.source)}
+                    <span className="shrink-0 inline-flex items-center gap-1">
+                      {isCurrent && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-warning-soft text-brand-amber text-2xs font-bold leading-none whitespace-nowrap">
+                          当前关联
+                        </span>
+                      )}
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-surface-2 text-subtle text-2xs font-bold leading-none uppercase tracking-wide">
+                        {sourceBrandLabel(h.source)}
+                      </span>
                     </span>
                   </div>
                   {(() => {

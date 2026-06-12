@@ -17,7 +17,7 @@
 //
 // 设计原则:
 //   - 元数据严格冻结 (来自上游, 不可修改)
-//   - og_* 是"用户那一边的真值" —— PDF AI 抽取 + 手动编辑共用同一组列
+//   - og_* 是"用户那一边的真值" —— PDF 解析抽取(pdfparse)+ 手动编辑共用同一组列
 //   - 前端 pickField(og, metadata): og 非空就显示 og, 否则 fallback 到元数据
 //   - 想清空某字段恢复显示元数据 → 显式传 "" (空字符串) 或 null
 // ============================================================================
@@ -82,8 +82,8 @@ func (h *Handler) UpdatePaper(c *gin.Context) {
 	if req.OGAuthors != nil {
 		// nil RawMessage 与空 RawMessage("null"/"[]") 区分:
 		//   - 不传 → req.OGAuthors == nil → 跳过
-		//   - 传 [] / null → 清空
-		if len(*req.OGAuthors) == 0 || string(*req.OGAuthors) == "null" {
+		//   - 传 [] / null → 清空(归一成 SQL NULL,与 jsonFieldEmpty 判空标准一致)
+		if jsonFieldEmpty(*req.OGAuthors) {
 			updates["og_authors_json"] = nil
 		} else {
 			updates["og_authors_json"] = *req.OGAuthors

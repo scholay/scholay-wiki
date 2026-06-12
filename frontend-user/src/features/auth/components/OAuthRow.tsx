@@ -39,8 +39,20 @@ const PROVIDER_META: Record<
   discourse: { label: '恩特学术社区', urlPath: '/user/discourse/login-url' },
 };
 
-export function OAuthRow() {
-  const providers = useEnabledProviders();
+export function OAuthRow({
+  exclude,
+}: {
+  /**
+   * 按场景隐藏的 provider —— 移动整页登录(/m/auth)传 ['wechat']:
+   * PC 扫码在手机上自己扫不了自己,公众号网页授权(P1,需认证服务号)落地前
+   * 移动端不提供微信入口(调研结论见 wechat-mobile-login-research)。
+   */
+  exclude?: EnabledProvider[];
+} = {}) {
+  const allProviders = useEnabledProviders();
+  const providers = exclude
+    ? allProviders.filter((p) => !exclude.includes(p))
+    : allProviders;
   const setMode = useAuthDialog((s) => s.setMode);
 
   const handleRedirect = async (provider: EnabledProvider) => {

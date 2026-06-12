@@ -36,7 +36,7 @@ export function CurrentPaperCard({
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-2">
           <CheckCircle2 className="size-3.5 text-brand-green" strokeWidth={2.5} />
-          <span className="text-xs font-bold text-foreground">当前文献信息(只读)</span>
+          <span className="text-xs font-bold text-foreground">当前文献信息</span>
           {isComplete && (
             <span className="inline-flex items-center px-1.5 py-0.5 rounded-pill bg-brand-green/10 text-brand-green text-[10px] font-bold leading-none">
               已完整
@@ -173,7 +173,7 @@ export function FileTab({
         <div>
           <div className="text-sm font-bold text-foreground">将 PDF 文件拖拽到这里</div>
           <div className="mt-1 text-xs text-muted-foreground">
-            支持 .pdf,单个文件最大 {MAX_PDF_SIZE / 1024 / 1024} MB,自动校验与现有信息的一致性
+            支持 .pdf,单个文件最大 {MAX_PDF_SIZE / 1024 / 1024} MB
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -239,8 +239,8 @@ export function UrlTab({
       </div>
       <p className="text-xs text-muted-foreground">
         {inputType === 'url'
-          ? '粘贴公开可访问的 PDF 链接;系统会自动校验文件可用性'
-          : '输入论文 DOI;系统会从 OpenAccess 仓库尝试抓取 PDF'}
+          ? '粘贴公开可访问的 PDF 链接'
+          : '输入论文 DOI,自动尝试获取 PDF'}
       </p>
     </div>
   );

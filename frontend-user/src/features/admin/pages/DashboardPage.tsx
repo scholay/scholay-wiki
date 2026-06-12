@@ -1,4 +1,4 @@
-import { TrendingUp, Users, Wallet, ShoppingCart, type LucideIcon } from 'lucide-react';
+import { TrendingUp, Users, Wallet, ShoppingCart, Coins, Gift, type LucideIcon } from 'lucide-react';
 import {
   Area,
   AreaChart,
@@ -14,6 +14,8 @@ import { AdminPageLayout } from '../components/AdminPageLayout';
 import { StatCard } from '../components/StatCard';
 import { TodayPanel } from '../components/TodayPanel';
 import { useDashboardStats, type ChartDataPoint } from '../api/dashboard';
+import { compactTokens } from '../api/token-usage';
+import { buildDailyTrend, localDateKey } from '@/shared/lib/daily-trend';
 import { Skeleton } from '@/shared/ui/skeleton';
 
 export function DashboardPage() {
@@ -32,7 +34,7 @@ export function DashboardPage() {
       {/* 今日待办 —— 第一屏最显眼位置 */}
       <TodayPanel />
 
-      {/* KPI 第一行 —— 用户/订单/营收 */}
+      {/* KPI 第一行 —— 增长与钱:用户 / 营收 / 订单 */}
       <section className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {l1 ? (
           [...Array(3)].map((_, i) => <Skeleton key={i} className="h-28 rounded-md" />)
@@ -45,25 +47,25 @@ export function DashboardPage() {
               hint={`今日新增 ${fmt(stats?.new_users_today)} · 30 日 ${fmt(stats?.new_users_30d)}`}
             />
             <StatCard
+              icon={<Wallet />}
+              label="30 日营收"
+              value={money(stats?.revenue_30d)}
+              hint={`今日 ${money(stats?.revenue_today)} · 累计 ${money(stats?.total_revenue)}`}
+            />
+            <StatCard
               icon={<ShoppingCart />}
               label="已支付订单"
               value={fmt(stats?.paid_orders)}
-              hint={`总订单 ${fmt(stats?.total_orders)} · 待支付 ${fmt(stats?.pending_orders)}`}
-            />
-            <StatCard
-              icon={<Wallet />}
-              label="累计营收"
-              value={money(stats?.total_revenue)}
-              hint={`30 日 ${money(stats?.revenue_30d)} · 今日 ${money(stats?.revenue_today)}`}
+              hint={`待支付 ${fmt(stats?.pending_orders)} · 总 ${fmt(stats?.total_orders)}`}
             />
           </>
         )}
       </section>
 
-      {/* KPI 第二行 —— 业务量(对话、付费比、优惠券) */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+      {/* KPI 第二行 —— 付费转化与成本:付费用户 / AI 成本 / 兑换码 */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
         {l1 ? (
-          [...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-md" />)
+          [...Array(3)].map((_, i) => <Skeleton key={i} className="h-28 rounded-md" />)
         ) : (
           <>
             <StatCard
@@ -72,25 +74,22 @@ export function DashboardPage() {
               hint={`Free ${fmt(stats?.free_users)}`}
             />
             <StatCard
-              label="对话总数"
-              value={fmt(stats?.total_conversations)}
-              hint={`今日 ${fmt(stats?.conversations_today)}`}
+              icon={<Coins />}
+              label="今日 AI 消耗"
+              value={`${compactTokens(stats?.tokens_today ?? 0)} tokens`}
+              hint={`30 日 ${compactTokens(stats?.tokens_30d ?? 0)} · 明细见 Token 用量`}
             />
             <StatCard
-              label="优惠券"
-              value={fmt(stats?.used_coupons)}
-              hint={`未使用 ${fmt(stats?.unused_coupons)} / 总 ${fmt(stats?.total_coupons)}`}
-            />
-            <StatCard
-              label="三方账号"
-              value={fmt(stats?.third_party_accounts)}
-              hint="AI / 学术数据源 API key 池"
+              icon={<Gift />}
+              label="兑换码已核销"
+              value={fmt(stats?.redeemed_codes)}
+              hint={`总生成 ${fmt(stats?.total_codes)}`}
             />
           </>
         )}
       </section>
 
-      {/* 趋势图 —— 近 30 天 用户增长 / 已支付订单 / 营收 (后端 dashboard_handler 已聚合) */}
+      {/* 趋势图 —— 近 30 天:增长(新增用户)/ 收入(营收)/ 成本(Token)并排 = 粗粒度经营视角 */}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
         <TrendCard
           icon={Users}
@@ -101,20 +100,23 @@ export function DashboardPage() {
           yLabel="人"
         />
         <TrendCard
-          icon={ShoppingCart}
-          title="已支付订单 · 30 天"
-          data={stats?.order_trend_chart}
-          loading={l1}
-          color="var(--color-brand-amber)"
-          yLabel="单"
-        />
-        <TrendCard
           icon={Wallet}
           title="营收(¥) · 30 天"
           data={stats?.revenue_trend_chart}
           loading={l1}
           color="var(--color-brand-red)"
           yLabel="¥"
+          gradientId="grad-revenue"
+          area
+        />
+        <TrendCard
+          icon={Coins}
+          title="Token 消耗 · 30 天"
+          data={stats?.token_trend_chart}
+          loading={l1}
+          color="var(--color-brand-amber)"
+          yLabel=""
+          gradientId="grad-tokens"
           area
         />
       </section>
@@ -129,6 +131,7 @@ function TrendCard({
   loading,
   color,
   yLabel,
+  gradientId,
   area = false,
 }: {
   icon: LucideIcon;
@@ -137,14 +140,25 @@ function TrendCard({
   loading?: boolean;
   color: string;
   yLabel: string;
+  /** 面积图渐变 id(必须全页唯一;yLabel 可能含非法字符/为空,不能用它拼 id) */
+  gradientId?: string;
   /** true 走面积图(更醒目),false 走纯线图 */
   area?: boolean;
 }) {
+  const gradId = gradientId ?? `grad-${yLabel}`;
+  const { data: rows, isLive } = buildDailyTrend(data ?? [], { valueKeys: ['value'] });
+  const fmt = (v: number) =>
+    yLabel === '¥'
+      ? `¥${Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+      : `${Number(v).toLocaleString()}${yLabel ? ` ${yLabel}` : ''}`;
   return (
     <div className="rounded-md border border-border bg-background p-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-bold text-foreground">{title}</h3>
-        <Icon className="size-3.5 text-faint" />
+        <div className="flex items-center gap-2">
+          {isLive && <span className="text-2xs text-faint">— — 今日(进行中)</span>}
+          <Icon className="size-3.5 text-faint" />
+        </div>
       </div>
       <div className="h-56">
         {loading ? (
@@ -157,9 +171,9 @@ function TrendCard({
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             {area ? (
-              <AreaChart data={data} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
+              <AreaChart data={rows} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
                 <defs>
-                  <linearGradient id={`grad-${yLabel}`} x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor={color} stopOpacity={0.3} />
                     <stop offset="100%" stopColor={color} stopOpacity={0} />
                   </linearGradient>
@@ -180,22 +194,29 @@ function TrendCard({
                   axisLine={false}
                   width={48}
                 />
-                <Tooltip
-                  contentStyle={tooltipStyle}
-                  labelStyle={tooltipLabelStyle}
-                  itemStyle={{ color: 'var(--color-foreground)' }}
-                  formatter={(v) => [`${yLabel}${Number(v ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`, '']}
-                />
+                <Tooltip content={<TrendTooltip fmt={fmt} />} />
                 <Area
                   type="monotone"
-                  dataKey="value"
+                  dataKey="value__main"
                   stroke={color}
                   strokeWidth={2}
-                  fill={`url(#grad-${yLabel})`}
+                  fill={`url(#${gradId})`}
+                  connectNulls={false}
                 />
+                {isLive && (
+                  <Line
+                    type="monotone"
+                    dataKey="value__live"
+                    stroke={color}
+                    strokeWidth={2}
+                    strokeDasharray="5 4"
+                    dot={false}
+                    connectNulls={false}
+                  />
+                )}
               </AreaChart>
             ) : (
-              <LineChart data={data} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
+              <LineChart data={rows} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
                 <XAxis
                   dataKey="date"
@@ -212,25 +233,59 @@ function TrendCard({
                   axisLine={false}
                   width={40}
                 />
-                <Tooltip
-                  contentStyle={tooltipStyle}
-                  labelStyle={tooltipLabelStyle}
-                  itemStyle={{ color: 'var(--color-foreground)' }}
-                  formatter={(v) => [`${Number(v ?? 0).toLocaleString()} ${yLabel}`, '']}
-                />
+                <Tooltip content={<TrendTooltip fmt={fmt} />} />
                 <Line
                   type="monotone"
-                  dataKey="value"
+                  dataKey="value__main"
                   stroke={color}
                   strokeWidth={2}
                   dot={{ r: 2, fill: color, strokeWidth: 0 }}
                   activeDot={{ r: 5 }}
+                  connectNulls={false}
                 />
+                {isLive && (
+                  <Line
+                    type="monotone"
+                    dataKey="value__live"
+                    stroke={color}
+                    strokeWidth={2}
+                    strokeDasharray="5 4"
+                    dot={{ r: 2, fill: color, strokeWidth: 0 }}
+                    connectNulls={false}
+                  />
+                )}
               </LineChart>
             )}
           </ResponsiveContainer>
         )}
       </div>
+    </div>
+  );
+}
+
+/** 趋势图自定义 Tooltip —— 读原始 value(main/live 拆分后 dataKey 变了),今日桶标注"进行中"。 */
+function TrendTooltip({
+  active,
+  payload,
+  label,
+  fmt,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload?: ChartDataPoint }>;
+  label?: string | number;
+  fmt: (v: number) => string;
+}) {
+  if (!active || !payload?.length) return null;
+  const row = payload[0]?.payload;
+  if (!row) return null;
+  const isToday = String(row.date) === localDateKey();
+  return (
+    <div style={tooltipStyle}>
+      <div style={tooltipLabelStyle}>
+        {String(label ?? row.date)}
+        {isToday && <span className="ml-1 text-brand-amber">· 进行中</span>}
+      </div>
+      <div style={{ color: 'var(--color-foreground)' }}>{fmt(Number(row.value ?? 0))}</div>
     </div>
   );
 }

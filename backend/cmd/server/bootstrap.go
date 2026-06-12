@@ -43,6 +43,7 @@ import (
 	"scholar-backend/internal/smartsearch"
 	"scholar-backend/internal/stagingarea"
 	"scholar-backend/internal/storage"
+	"scholar-backend/internal/supportcenter"
 	"scholar-backend/internal/thirdparty"
 	"scholar-backend/internal/umami"
 	"scholar-backend/internal/user"
@@ -81,6 +82,8 @@ type services struct {
 	seoService        *seo.Service
 	seoSubmitService  *seosubmit.Service
 	wsHub             *websocket.Hub
+	// supportCenter 客服与联系中心(IMAP 收件轮询在 startBackgroundTasks 启动)
+	supportCenterService *supportcenter.Service
 }
 
 // bootstrapServices 初始化全部模块与依赖注入。
@@ -280,6 +283,13 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// message → feedback（回复反馈时给登录用户发站内信;复用同一个 message adapter,匿名反馈只走邮件）
 	core.feedbackService.SetNotifier(plat.message.GetAdapter())
 
+	// ---- 客服与联系中心(联系方式配置 / IMAP 收件箱 / 飞书通知) ----
+	supportCenterService := supportcenter.NewService(supportcenter.NewRepository(db))
+	supportCenterService.SetConfigService(core.configService) // 回信/写信复用全站激活 SMTP
+	// 新反馈提交 → 飞书群推送(supportcenter 读自己的 webhook 配置,事件开关可关)
+	core.feedbackService.SetFeishuNotifier(supportCenterService.NotifyFeedback)
+	supportCenterHandler := supportcenter.NewHandler(supportCenterService)
+
 	// message + email → vip（充值/订阅/续期/升级/兑换 成功后发站内信 + 邮件;统一品牌邮件模板）
 	plat.vipService.SetNotifier(plat.message.GetAdapter(), core.configService)
 
@@ -367,12 +377,14 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 				siteName(),
 				domainFromSiteURL(),
 			)),
+			supportCenter: supportCenterHandler,
 		},
-		userService:       core.userService,
-		cleanupService:    cleanupService,
-		thirdPartyService: aiB.thirdPartyService,
-		seoService:        plat.seoService,
-		seoSubmitService:  plat.seoSubmitService,
-		wsHub:             plat.wsHub,
+		userService:          core.userService,
+		cleanupService:       cleanupService,
+		thirdPartyService:    aiB.thirdPartyService,
+		seoService:           plat.seoService,
+		seoSubmitService:     plat.seoSubmitService,
+		wsHub:                plat.wsHub,
+		supportCenterService: supportCenterService,
 	}
 }

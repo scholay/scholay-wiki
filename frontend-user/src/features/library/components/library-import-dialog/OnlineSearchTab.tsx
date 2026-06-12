@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, FileText, Loader2, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -6,8 +6,10 @@ import { FavoritePaperButton } from '@/shared/components/FavoritePaperButton';
 import { SourceBadge } from '@/shared/components/SourceBadge';
 import { cn } from '@/shared/lib/utils';
 import { useArrivalOrderedPapers, useQuickPaperSearch } from '@/shared/api/quick-search';
-import type { Paper, PaperSource } from '@/shared/api/types';
+import type { Paper, PaperSource, UserLibraryPaper } from '@/shared/api/types';
 import type { LibraryFolderFilter } from '../../api/papers';
+import { formatAuthorsDisplay } from '../../lib/resolve-paper';
+import { DialogFooterBar, footerOutlineCn } from '../shared/dialog-chrome';
 
 /**
  * 在线搜索加入 tab —— 嵌入式版本(原 QuickAddDialog 是 popover 形态)。
@@ -22,16 +24,21 @@ interface OnlineSearchTabProps {
   currentFilter: LibraryFolderFilter;
   currentFolderName: string;
   onDone: () => void;
+  /** 收藏成功后点「完善信息」→ 工作台原地切到该行的管理语境 */
+  onManagePaper: (row: UserLibraryPaper) => void;
 }
 
 export function OnlineSearchTab({
   currentFilter,
   currentFolderName,
   onDone,
+  onManagePaper,
 }: OnlineSearchTabProps) {
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const [favoritedKeys, setFavoritedKeys] = useState<Set<string>>(new Set());
+  const [favoritedRows, setFavoritedRows] = useState<Map<string, UserLibraryPaper>>(
+    new Map()
+  );
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -54,18 +61,29 @@ export function OnlineSearchTab({
     navigate(q ? `/search?q=${encodeURIComponent(q)}` : '/search');
   };
 
-  const handleFavoriteSuccess = (paper: Paper) => {
+  const handleFavoriteSuccess = (paper: Paper, row: UserLibraryPaper) => {
     const key = `${paper.source ?? 'stc'}:${paper.paperId}`;
-    setFavoritedKeys((s) => {
-      const next = new Set(s);
-      next.add(key);
+    setFavoritedRows((m) => {
+      const next = new Map(m);
+      next.set(key, row);
       return next;
     });
     toast.success(`已加入「${currentFolderName}」`);
   };
 
+  // 收藏后又在本弹窗内取消 → 本地"已收藏"态同步回退(否则「完善信息」会指向已删的行)
+  const handleUnfavorited = (paper: Paper) => {
+    const key = `${paper.source ?? 'stc'}:${paper.paperId}`;
+    setFavoritedRows((m) => {
+      if (!m.has(key)) return m;
+      const next = new Map(m);
+      next.delete(key);
+      return next;
+    });
+  };
+
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col flex-1 min-h-0">
       {/* 搜索条 */}
       <div className="flex items-center gap-2.5 h-11 px-6 border-b border-border-soft">
         <Search className="size-4 text-muted-foreground shrink-0" />
@@ -91,7 +109,7 @@ export function OnlineSearchTab({
       </div>
 
       {/* 列表 */}
-      <div className="flex-1 min-h-[320px] max-h-[60vh] overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {!hasQuery ? (
           <EmptyHint text="输入关键词后开始搜索" />
         ) : initialLoading ? (
@@ -106,9 +124,11 @@ export function OnlineSearchTab({
                 <PaperRow
                   key={key}
                   paper={p}
-                  isFavorited={favoritedKeys.has(key)}
+                  favoritedRow={favoritedRows.get(key)}
                   folderId={folderId}
                   onFavoriteSuccess={handleFavoriteSuccess}
+                  onUnfavorited={handleUnfavorited}
+                  onManagePaper={onManagePaper}
                 />
               );
             })}
@@ -123,21 +143,20 @@ export function OnlineSearchTab({
       </div>
 
       {/* footer */}
-      <div className="flex items-center justify-between gap-2 px-6 py-3 bg-surface-1 border-t border-border-soft">
-        <span className="text-xs text-muted-foreground">
-          收藏到{' '}
-          <span className="font-semibold text-foreground">
-            「{currentFolderName}」
-          </span>
-        </span>
-        <button
-          type="button"
-          onClick={onDone}
-          className="inline-flex items-center h-8 px-3 rounded-sm bg-background border border-border text-sm font-semibold text-subtle hover:bg-surface-2 hover:text-foreground transition-colors"
-        >
+      <DialogFooterBar
+        hint={
+          <>
+            收藏到{' '}
+            <span className="font-semibold text-foreground">
+              「{currentFolderName}」
+            </span>
+          </>
+        }
+      >
+        <button type="button" onClick={onDone} className={footerOutlineCn}>
           完成
         </button>
-      </div>
+      </DialogFooterBar>
     </div>
   );
 }
@@ -148,21 +167,22 @@ export function OnlineSearchTab({
 
 function PaperRow({
   paper,
-  isFavorited,
+  favoritedRow,
   folderId,
   onFavoriteSuccess,
+  onUnfavorited,
+  onManagePaper,
 }: {
   paper: Paper;
-  isFavorited: boolean;
+  /** 已收藏时为创建的文献集行(收藏成功回调带回),未收藏为 undefined */
+  favoritedRow: UserLibraryPaper | undefined;
   folderId: number | undefined;
-  onFavoriteSuccess: (paper: Paper) => void;
+  onFavoriteSuccess: (paper: Paper, row: UserLibraryPaper) => void;
+  onUnfavorited: (paper: Paper) => void;
+  onManagePaper: (row: UserLibraryPaper) => void;
 }) {
-  const authorsLine = useMemo(() => {
-    const names = (paper.authors ?? []).map((a) => a.name).filter(Boolean);
-    if (names.length === 0) return paper.venue ?? '';
-    const head = names.slice(0, 3).join(', ');
-    return names.length > 3 ? `${head} et al.` : head;
-  }, [paper.authors, paper.venue]);
+  // 无作者时回落 venue(与原本地逻辑一致)
+  const authorsLine = formatAuthorsDisplay(paper.authors) || paper.venue || '';
 
   const source = (paper.source ?? 'stc') as PaperSource;
 
@@ -199,14 +219,27 @@ function PaperRow({
           )}
         </div>
       </div>
+      {favoritedRow && (
+        <button
+          type="button"
+          onClick={() => onManagePaper(favoritedRow)}
+          className="inline-flex items-center h-7 px-2 rounded-sm border border-brand-amber text-xs font-semibold text-brand-amber hover:bg-warning-soft transition-colors shrink-0"
+        >
+          完善信息
+        </button>
+      )}
       <FavoritePaperButton
         paper={paper}
-        isFavorited={isFavorited}
+        isFavorited={favoritedRow != null}
         folderId={folderId}
         variant="icon"
         size="lg"
         showToast={false}
-        onSuccess={() => onFavoriteSuccess(paper)}
+        // 本 tab 自己在 onFavoriteSuccess 里 toast「已加入文件夹」,收藏反馈走
+        // 单通道:跳过 burst / 兜底 toast,避免双 toast
+        silentSuccess
+        onSuccess={(row: UserLibraryPaper) => onFavoriteSuccess(paper, row)}
+        onUnfavorited={() => onUnfavorited(paper)}
       />
     </li>
   );

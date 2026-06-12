@@ -15,6 +15,7 @@ import { RightRailPanel } from '../components/wizard/RightRailPanel';
 import { Step4Rail } from '../components/wizard/Step4Rail';
 import { useConfirm } from '@/shared/components/ConfirmDialog';
 import { http } from '@/shared/lib/http';
+import { trackEvent } from '@/shared/lib/track';
 import {
   useAdvanceStep,
   useCreateSubmission,
@@ -338,7 +339,10 @@ export function JournalWizardPage() {
     if (step === 4) {
       submitMut.mutate(undefined, {
         // 投递成功 → 投递成功 splash (J9MCZ); splash 提供 「前往审稿记录」/「返回投稿管理」
-        onSuccess: (s) => navigate(`/peer-review/submitted/${s.id}`),
+        onSuccess: (s) => {
+          trackEvent('review_submit', { kind: 'journal' });
+          navigate(`/peer-review/submitted/${s.id}`);
+        },
         onError: (e) => toast.error(`投递失败:${(e as Error).message}`),
       });
       return;

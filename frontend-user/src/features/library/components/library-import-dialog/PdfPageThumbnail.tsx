@@ -10,10 +10,10 @@ import 'react-pdf/dist/Page/TextLayer.css';
 pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorkerSrc;
 
 /**
- * PDF 首页缩略图 —— LibraryImportDialog 上传 State 1 左列预览用。
+ * PDF 首页缩略图 —— PaperWorkbenchDialog 本地上传 tab State 1 左列预览用。
  *
  * 用 React.lazy 包装可以让 react-pdf + pdfjs 这坨大包(~800KB gzip)只在用户
- * 真的进入 State 1 时才加载,其他 tab(在线搜索/Zotero/Endnote)不受影响。
+ * 真的进入 State 1 时才加载,其他 tab(在线搜索/Zotero/EndNote)不受影响。
  *
  * pageIndex 默认 0(第一页)。父组件可以加 prev/next 按钮翻页。
  */

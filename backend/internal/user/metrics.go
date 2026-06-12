@@ -98,6 +98,22 @@ func (s *Service) GetUserMetrics(days int, granularity string) (*UserMetrics, er
 	for _, r := range regRows {
 		out.Registrations = append(out.Registrations, MetricsPoint{Date: r.Bucket, Value: r.Total})
 	}
+	// day 粒度补连续日(缺失日补 0,最后一桶恒为今天)——否则没注册的天会被折线跳过、最后一桶也不一定是今天。
+	// week/month 桶口径特殊(%x-W%v / %Y-%m),不在此补;前端"今日虚线"也只对 day 生效。
+	if granularity == "day" {
+		byDate := make(map[string]int64, len(out.Registrations))
+		for _, p := range out.Registrations {
+			byDate[p.Date] = p.Value
+		}
+		d0 := time.Date(since.Year(), since.Month(), since.Day(), 0, 0, 0, 0, now.Location())
+		today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		filled := make([]MetricsPoint, 0)
+		for d := d0; !d.After(today); d = d.AddDate(0, 0, 1) {
+			ds := d.Format("2006-01-02")
+			filled = append(filled, MetricsPoint{Date: ds, Value: byDate[ds]})
+		}
+		out.Registrations = filled
+	}
 
 	// --- 2. sources 饼图 ---
 	// 每个用户取「最早绑定的 provider」作为注册来源 —— 既能识别 OAuth (wechat/github/...)

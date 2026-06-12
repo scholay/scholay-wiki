@@ -144,6 +144,7 @@ import {
 import type { QuerySource } from "src/constants/querySource.js";
 import type { Notification } from "src/context/notifications.js";
 import { addToTotalSessionCost } from "src/cost-tracker.js";
+import { reportTokenUsage } from "src/server/services/backendUsageClient.js";
 import { getFeatureValue_CACHED_MAY_BE_STALE } from "src/services/analytics/growthbook.js";
 import type { AgentId } from "src/types/ids.js";
 import {
@@ -2318,6 +2319,20 @@ async function* queryModel(
               usage,
               options.model,
             );
+            // per-call 记账:每次真实模型调用上报一行(后端按 sessionId 归属 user/feature)。
+            // 这是 agent 侧 token 的唯一记账源(主轮 / 子 agent / 压缩都经此),一次调用一条记录。
+            // fire-and-forget;与 message_complete(整轮 UI 展示)互不相关。
+            void reportTokenUsage({
+              sessionId: getSessionId(),
+              kind: "agent_call",
+              model: options.model,
+              usage: {
+                input_tokens: usage.input_tokens ?? 0,
+                output_tokens: usage.output_tokens ?? 0,
+                cache_read_tokens: usage.cache_read_input_tokens ?? 0,
+                cache_creation_tokens: usage.cache_creation_input_tokens ?? 0,
+              },
+            });
 
             const refusalMessage = getErrorMessageIfRefusal(
               part.delta.stop_reason,
@@ -2891,6 +2906,18 @@ async function* queryModel(
         fallbackUsage,
         options.model,
       );
+      // per-call 记账(非流式回退路径):同上,一次调用一条记录。
+      void reportTokenUsage({
+        sessionId: getSessionId(),
+        kind: "agent_call",
+        model: options.model,
+        usage: {
+          input_tokens: fallbackUsage.input_tokens ?? 0,
+          output_tokens: fallbackUsage.output_tokens ?? 0,
+          cache_read_tokens: fallbackUsage.cache_read_input_tokens ?? 0,
+          cache_creation_tokens: fallbackUsage.cache_creation_input_tokens ?? 0,
+        },
+      });
     }
   }
 

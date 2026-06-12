@@ -1,10 +1,10 @@
 // ============================================================================
 // Scholay 文献集 · 上传 PDF 智能识别 —— 辅助函数
 // ----------------------------------------------------------------------------
-// 三源标题搜索 + AI 全文兜底抽取 —— 上传弹窗的"解析"阶段串这两个调用,
+// 三源标题搜索 —— 上传弹窗的"解析"阶段调用,
 // 由 handler_upload_resolve.go 的 SSE 流编排。
 //
-// 与 handler.go 分文件:这个流程跨多个外部依赖(minicod、ai、storage),
+// 与 handler.go 分文件:这个流程跨多个外部依赖(minicod、storage),
 // 文件体量会比单纯 CRUD 大,单独切出来好维护。
 // ============================================================================
 
@@ -41,11 +41,10 @@ type SearchHit struct {
 	AlreadySaved bool `json:"already_saved"`
 	// AlreadyPaperID 已收藏对应的 user_library_papers.id —— 合并场景需要
 	AlreadyPaperID uint64 `json:"already_paper_id,omitempty"`
-	// Authors / publication_types / raw 由 confirm 阶段从 SearchHit 复刻进入库,
+	// Authors / raw 由 confirm 阶段从 SearchHit 复刻进入库,
 	// 这里展开一层透传,前端只用前面那几个字段做选择
-	Authors          json.RawMessage `json:"authors,omitempty"`
-	PublicationTypes json.RawMessage `json:"publication_types,omitempty"`
-	Raw              json.RawMessage `json:"raw,omitempty"`
+	Authors json.RawMessage `json:"authors,omitempty"`
+	Raw     json.RawMessage `json:"raw,omitempty"`
 }
 
 // SearchThreeSources 标题并行查 stc / olx / pmd,合并去重 + 标记已收藏。
@@ -317,21 +316,6 @@ func (h *Handler) searchMultiQueriesMerged(ctx context.Context, userID uint64, q
 	return merged
 }
 
-// ============================================================================
-// AI 兜底抽取(全文 → 结构化字段)
-// ============================================================================
-
-// AIPaperMeta AI 从 PDF 全文抽取出来的论文元数据 —— 字段名与 ai_* 列对应
-type AIPaperMeta struct {
-	Title    string   `json:"title"`
-	Abstract string   `json:"abstract"`
-	Authors  []string `json:"authors"`
-	Year     uint16   `json:"year"`
-	Venue    string   `json:"venue"`
-	DOI      string   `json:"doi"`
-}
-
-// 注:历史上这里有一个 ExtractMetadataFromPDF(LLM 把 PDF 全文抽成 AIPaperMeta),
-// 已下线 —— 实际上传解析只走 pdfparse(标题/DOI/摘要文本),不调大模型。
-// AIPaperMeta 类型保留(handler_upload_resolve.go 的 job.AIMeta 字段仍引用它,
-// 当前恒为 nil,fillOGFields/applyOGUpdates 已做 nil 兜底)。
+// 注:历史上这里有一段"AI 兜底抽取"(LLM 把 PDF 全文抽成结构化元数据 AIPaperMeta),
+// 已下线删除 —— 实际上传解析只走 pdfparse(标题/DOI/摘要文本),不调大模型,
+// 抽取结果经 JobState.Parsed* 落 og_* 字段。

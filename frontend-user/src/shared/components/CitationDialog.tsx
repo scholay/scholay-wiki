@@ -82,7 +82,8 @@ export function CitationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      {/* 移动端:留 12px 边距 + 全断点圆角 + 内边距收紧(基座小屏默认全宽贴边直角) */}
+      <DialogContent className="w-[calc(100%-24px)] max-w-2xl rounded-lg p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
@@ -90,7 +91,8 @@ export function CitationDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {/* 格式 tabs */}
+        {/* 格式 tabs + 复制按钮(右端) —— 复制不再悬浮在正文上:
+            窄屏下浮层会压住第一行引文(用户反馈遮挡),进 tabs 行任何屏宽都不遮挡 */}
         <div className="flex items-center gap-1">
           {ALL_FORMATS.map((f) => (
             <button
@@ -109,13 +111,23 @@ export function CitationDialog({
               {CITATION_FORMAT_LABELS[f]}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={handleCopy}
+            disabled={!citation}
+            className="ml-auto inline-flex h-7 shrink-0 items-center gap-1 rounded-sm border border-border bg-background px-2.5 text-2xs font-bold text-subtle transition-colors hover:border-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label={`复制 ${CITATION_FORMAT_LABELS[format]}`}
+          >
+            <Copy className="size-3" strokeWidth={2.5} />
+            复制
+          </button>
         </div>
 
-        {/* 主体 + 右上复制按钮 ——
+        {/* 主体 ——
             min-w-0 关键:DialogContent 是 grid 容器,grid item 默认 min-width=auto
             会被 <pre whitespace-pre> 的 min-content(最长行宽)撑爆,直接突破外层
             max-w-2xl;给本 div 加 min-w-0,长行就只在 pre 内部 overflow-x-auto 横滚 */}
-        <div className="relative min-w-0">
+        <div className="min-w-0">
           {isMono ? (
             <pre className="w-full rounded-sm bg-surface-1 border border-border px-5 py-4 font-mono text-xs leading-[1.65] text-subtle overflow-x-auto whitespace-pre max-h-[360px]">
               {citation || '—'}
@@ -125,16 +137,6 @@ export function CitationDialog({
               {citation ? <CitationProse text={citation} /> : '—'}
             </p>
           )}
-          <button
-            type="button"
-            onClick={handleCopy}
-            disabled={!citation}
-            className="absolute top-2 right-2 inline-flex items-center gap-1 h-7 px-2.5 rounded-sm bg-background border border-border text-2xs font-bold text-subtle hover:border-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            aria-label={`复制 ${CITATION_FORMAT_LABELS[format]}`}
-          >
-            <Copy className="size-3" strokeWidth={2.5} />
-            复制
-          </button>
         </div>
 
         <p className="text-2xs text-faint">

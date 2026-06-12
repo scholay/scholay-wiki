@@ -250,6 +250,101 @@ export interface JournalSearchResult {
   has_more?: boolean;
 }
 
+/**
+ * /public/journals/list 的**原始透传**行(上游 /v1/jnl/list,backend 不规整直接转发,
+ * 与 search 端点的 Journal 规整形态不同)。字段在 rows[].unified 里,
+ * 数值多为字符串("232.4"),布尔是 0/1,中文标记是 "是"/"否" —— 消费方自行转换。
+ */
+export interface JournalListUnified {
+  id: number;
+  canonical_name: string;
+  issn_l?: string | null;
+  print_issn?: string | null;
+  electronic_issn?: string | null;
+  source_count?: number;
+  /** 逗号分隔来源名: "crossref,openalex,jcr,fqb" */
+  sources?: string;
+  crossref_publisher?: string | null;
+  crossref_total_dois?: number;
+  openalex_country?: string | null;
+  /** journal / repository / conference ... */
+  openalex_type?: string | null;
+  openalex_works_count?: number;
+  openalex_cited_by_count?: number;
+  openalex_h_index?: number;
+  openalex_2yr_mean_citedness?: string | null;
+  /** 0/1 */
+  openalex_is_oa?: number;
+  doaj_is_in_doaj?: number;
+  /** 期刊中文名(如有) */
+  wikidata_label_zh?: string | null;
+  /** 字符串数值,如 "232.4" */
+  jcr_impact_factor?: string | null;
+  jcr_quartile?: string | null;
+  jcr_year?: number | string | null;
+  /** 中科院大类学科,如 "医学" */
+  fqb_major_category?: string | null;
+  /** 中科院大类分区,格式 "1 [77/5603]" */
+  fqb_major_quartile?: string | null;
+  /** "是"/"否" */
+  fqb_top?: string | null;
+  fqb_year?: number | string | null;
+  ccf_rank?: string | null;
+  ccf_field?: string | null;
+  ccf_year?: number | string | null;
+  scimago_best_quartile?: string | null;
+  scimago_sjr?: string | null;
+  scimago_year?: number | string | null;
+  /** 平均初审周期(月),字符串数值 */
+  scirev_first_review_months?: string | null;
+  scirev_overall_rating?: string | null;
+  scirev_slug?: string | null;
+  /** 国际期刊预警等级(非空即在预警名单) */
+  gjqk_warning_level?: string | null;
+  gjqk_year?: number | string | null;
+  letpub_id?: number | string | null;
+}
+
+/** /public/journals/list 原始透传分页壳 */
+export interface JournalListPage {
+  rows: Array<{ unified: JournalListUnified }>;
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  hasMore: boolean;
+}
+
+/** /public/journals/get full=1 的 openalex 子表年度计数(年度发文量/被引量趋势) */
+export interface JournalYearCount {
+  year: number;
+  works_count?: number;
+  oa_works_count?: number;
+  cited_by_count?: number;
+}
+
+/** /public/journals/get full=1 的 jcr 子表年度行(年度影响因子趋势) */
+export interface JournalJcrYear {
+  year: number;
+  /** 字符串数值,如 "232.4" */
+  impact_factor?: string | null;
+  if_quartile?: string | null;
+  if_rank?: string | null;
+  category?: string | null;
+}
+
+/**
+ * /public/journals/get full=1 响应(原始透传)的**精简声明** —— 只声明趋势图
+ * 消费的部分;子表还有 crossref/scimago/fqb/wikidata 等,需要时再补字段。
+ */
+export interface JournalFullDetail {
+  unified: JournalListUnified;
+  sources?: {
+    openalex?: { counts_by_year?: JournalYearCount[] };
+    jcr?: { all_years?: JournalJcrYear[] };
+  };
+}
+
 /** /v1/jnl/stats —— 期刊总览数据(给 Journal Home 用) */
 export interface JournalStats {
   totalJournals: number;

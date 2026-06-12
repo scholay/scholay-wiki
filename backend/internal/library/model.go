@@ -20,13 +20,13 @@ const (
 	SourceSTC   = "stc"   // 精选(Semantic Scholar)
 	SourceOLX   = "olx"   // 全域(OpenAlex)
 	SourcePMD   = "pmd"   // 医学(PubMed)
-	SourceLocal = "local" // 自由文件 —— AI 识别的本地 PDF,source_paper_id 用 PDF sha256
+	SourceLocal = "local" // 自由文件 —— 本地上传的 PDF(pdfparse 识别),source_paper_id 用 PDF sha256
 )
 
 // 收藏行的关联状态(对应 column link_state)
 const (
 	LinkStateLinked = "linked" // 关联到上游论文(stc/olx/pmd 任一)
-	LinkStateFree   = "free"   // 自由文件 —— 上游搜不到 / 没标题,AI 兜底识别字段
+	LinkStateFree   = "free"   // 自由文件 —— 未关联上游,字段由 pdfparse 兜底识别落 og_*
 )
 
 // 用户单一资源上限(防止恶意 / 误操作把存储吃满)
@@ -103,9 +103,9 @@ type UserLibraryPaper struct {
 	PdfSHA256           string     `json:"pdf_sha256,omitempty" gorm:"column:pdf_sha256;size:64;not null;default:''"`
 	PdfMime             string     `json:"pdf_mime,omitempty" gorm:"column:pdf_mime;size:64;not null;default:''"`
 	PdfUploadedAt       *time.Time `json:"pdf_uploaded_at,omitempty" gorm:"column:pdf_uploaded_at"`
-	// ---- og_*: 用户/AI 编辑的覆盖字段, 与上游"元数据"分离 ----
+	// ---- og_*: 用户侧覆盖字段(用户编辑 / pdfparse 抽取), 与上游"元数据"分离 ----
 	// 写入路径:
-	//   1) PDF 上传 → AI / heuristic 抽取 → 写 og_*
+	//   1) PDF 上传 → pdfparse heuristic 抽取 → 写 og_*(只填空, 绝不覆盖非空 og)
 	//   2) 用户手动编辑 (PATCH /library/papers/:id) → 写 og_*
 	// 读取展示:
 	//   前端 pickField(og, metadata) —— og_xx 非空就用 og, 否则 fallback 到元数据,
@@ -116,7 +116,7 @@ type UserLibraryPaper struct {
 	OGYear        *uint16         `json:"og_year,omitempty" gorm:"column:og_year"`
 	OGVenue       string          `json:"og_venue,omitempty" gorm:"column:og_venue;size:512;not null;default:''"`
 	OGDOI         string          `json:"og_doi,omitempty" gorm:"column:og_doi;size:255;not null;default:''"`
-	// ---- 关联状态 —— 'linked' (常规上游收藏) / 'free' (AI 识别的自由文件) ----
+	// ---- 关联状态 —— 'linked' (常规上游收藏) / 'free' (本地自由文件) ----
 	LinkState string `json:"link_state" gorm:"column:link_state;size:16;not null;default:'linked'"`
 	// ---- 来源动作 —— 'search' (用户在搜索/详情/QuickAdd 点收藏) / 'upload' (PDF 上传走出来的) ----
 	// 与 LinkState 正交:linked+search 是搜索来的、linked+upload 是上传后关联的、free+upload 是上传未关联;

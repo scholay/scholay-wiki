@@ -1,15 +1,16 @@
-import { memo, useState } from 'react';
-import { AlertCircle, ChevronRight, Loader2, Sparkles } from 'lucide-react';
+import { memo } from 'react';
+import { AlertCircle } from 'lucide-react';
 import {
   AssistantBubble,
   ChatStyles,
+  PausedNotice,
+  ProcessFold,
   StreamingIndicator,
   ThinkingFold,
   ToolCallBlock,
   UserBubble,
 } from '@/shared/components/chat';
 import { hasVisibleAssistantContent, isLastBlockStreamingText, type Turn } from '@/shared/types/chat';
-import { cn } from '@/shared/lib/utils';
 
 /**
  * Prism 单轮对话渲染 —— 与 claw/smart-search 共用 shared/components/chat 原子,视觉一致。
@@ -63,43 +64,12 @@ export const PrismMessageTurn = memo(function PrismMessageTurn({ turn }: { turn:
           <p className="flex-1 min-w-0 text-xs text-brand-red break-words">{turn.errorMessage}</p>
         </div>
       )}
+
+      {/* 整轮被用户暂停 —— 末尾收尾标识(与 claw / smart-search 同款,历史回放也走这里) */}
+      {turn.complete && turn.paused && !turn.errorMessage && <PausedNotice />}
     </article>
   );
 });
 
-/**
- * 「处理过程」可收起容器:流式中默认展开(让用户实时看到工具步骤),完成后默认收起成一行标题。
- * 用户可点标题手动 override 展开/收起。
- */
-function ProcessFold({
-  streaming,
-  toolSteps,
-  children,
-}: {
-  streaming: boolean;
-  toolSteps: number;
-  children: React.ReactNode;
-}) {
-  const [override, setOverride] = useState<boolean | undefined>(undefined);
-  const expanded = override ?? streaming;
-  return (
-    <div className="rounded-lg border border-border-soft bg-surface-1/60">
-      <button
-        type="button"
-        onClick={() => setOverride(!expanded)}
-        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-2xs text-muted-foreground transition-colors hover:text-foreground"
-      >
-        {streaming ? (
-          <Loader2 className="size-3 shrink-0 animate-spin text-brand-green" />
-        ) : (
-          <Sparkles className="size-3 shrink-0 text-brand-green" />
-        )}
-        <span className="font-medium">处理过程{toolSteps > 0 ? ` · ${toolSteps} 步` : ''}</span>
-        <ChevronRight
-          className={cn('ml-auto size-3 shrink-0 transition-transform', expanded && 'rotate-90')}
-        />
-      </button>
-      {expanded && <div className="flex flex-col gap-2 px-2.5 pb-2.5">{children}</div>}
-    </div>
-  );
-}
+// ProcessFold(「处理过程」折叠容器)已提升到 @/shared/components/chat —— admin 会话监控
+// 渲染 prism transcript 复用同一份,保证「管理端看到的 = 用户看到的」。

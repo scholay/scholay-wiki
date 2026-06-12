@@ -49,35 +49,36 @@ export interface HotStats {
  * 后端返回 `{ items, total, page, page_size }`,backend 用 days/page/page_size query。
  * searchType 为空 = 全部类型;传 'paper' / 'journal' 按类型过滤。
  */
-export function useHotKeywords(pageSize = 50, days = 30, searchType?: SearchType) {
+export function useHotKeywords(page = 1, pageSize = 50, days = 30, searchType?: SearchType) {
   return useQuery({
-    queryKey: ['admin', 'hot-content', 'keywords', pageSize, days, searchType ?? 'all'],
+    queryKey: ['admin', 'hot-content', 'keywords', page, pageSize, days, searchType ?? 'all'],
     queryFn: async () => {
       const r = await http.get<{ data: { items: HotKeyword[]; total: number } }>(
         '/admin/hot-content/keywords',
         {
           params: {
             days,
-            page: 1,
+            page,
             page_size: pageSize,
             ...(searchType ? { search_type: searchType } : {}),
           },
         }
       );
-      return r.data.data.items ?? [];
+      // 透传 total —— 此前只回 items 且写死 page=1,列表被钉死在前 50 条(后端数据本身是全量的)。
+      return { items: r.data.data.items ?? [], total: r.data.data.total ?? 0 };
     },
   });
 }
 
-export function useHotPapers(pageSize = 50, days = 30) {
+export function useHotPapers(page = 1, pageSize = 50, days = 30) {
   return useQuery({
-    queryKey: ['admin', 'hot-content', 'papers', pageSize, days],
+    queryKey: ['admin', 'hot-content', 'papers', page, pageSize, days],
     queryFn: async () => {
       const r = await http.get<{ data: { items: HotPaper[]; total: number } }>(
         '/admin/hot-content/papers',
-        { params: { days, page: 1, page_size: pageSize } }
+        { params: { days, page, page_size: pageSize } }
       );
-      return r.data.data.items ?? [];
+      return { items: r.data.data.items ?? [], total: r.data.data.total ?? 0 };
     },
   });
 }

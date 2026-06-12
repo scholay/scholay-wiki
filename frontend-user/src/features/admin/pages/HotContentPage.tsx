@@ -6,6 +6,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/ui/tabs';
 import { AdminPageLayout } from '../components/AdminPageLayout';
 import { StatCard } from '../components/StatCard';
 import { DataTable, type Column } from '../components/DataTable';
+import { Pagination } from '../components/Pagination';
 import { useApiToast } from '../hooks/useApiToast';
 import { useConfirm } from '../hooks/useConfirm';
 import {
@@ -123,14 +124,23 @@ function CleanupConfigCard() {
   );
 }
 
+const PAGE_SIZE = 50;
+
 export function HotContentPage() {
   const [kwType, setKwType] = useState<SearchType | undefined>(undefined);
+  const [kwPage, setKwPage] = useState(1);
+  const [paperPage, setPaperPage] = useState(1);
   const { data: stats } = useHotStats();
-  const { data: keywords, isLoading: loadingK } = useHotKeywords(50, 30, kwType);
-  const { data: papers, isLoading: loadingP } = useHotPapers(50);
+  const { data: keywords, isLoading: loadingK } = useHotKeywords(kwPage, PAGE_SIZE, 30, kwType);
+  const { data: papers, isLoading: loadingP } = useHotPapers(paperPage, PAGE_SIZE);
   const cleanup = useCleanupHotContent();
   const apiToast = useApiToast();
   const confirm = useConfirm();
+
+  // 切换类型筛选 → 回第 1 页(防停在不存在的页码)。
+  useEffect(() => {
+    setKwPage(1);
+  }, [kwType]);
 
   const handleCleanup = async () => {
     const ok = await confirm({
@@ -143,9 +153,9 @@ export function HotContentPage() {
     await apiToast(cleanup.mutateAsync(), { success: '已清理', failure: '清理失败' });
   };
 
-  // 排名 = 数组下标(后端按 count desc 排序后返回)
+  // 排名 = 页偏移 + 数组下标(后端按 count desc 排序后返回)
   const keywordColumns: Column<HotKeyword>[] = [
-    { header: '#', width: 50, align: 'right', cell: (_r, i) => <span className="text-faint">{i + 1}</span> },
+    { header: '#', width: 50, align: 'right', cell: (_r, i) => <span className="text-faint">{(kwPage - 1) * PAGE_SIZE + i + 1}</span> },
     { header: '搜索词', cell: (r) => <span className="font-bold text-foreground">{r.keyword}</span> },
     {
       header: '类型',
@@ -172,7 +182,7 @@ export function HotContentPage() {
   ];
 
   const paperColumns: Column<HotPaper>[] = [
-    { header: '#', width: 50, align: 'right', cell: (_r, i) => <span className="text-faint">{i + 1}</span> },
+    { header: '#', width: 50, align: 'right', cell: (_r, i) => <span className="text-faint">{(paperPage - 1) * PAGE_SIZE + i + 1}</span> },
     {
       header: '论文',
       cell: (r) => (
@@ -202,12 +212,12 @@ export function HotContentPage() {
         <StatCard
           icon={<Search />}
           label="热搜词条数"
-          value={(stats?.total_keywords ?? keywords?.length ?? 0).toLocaleString()}
+          value={(stats?.total_keywords ?? keywords?.total ?? 0).toLocaleString()}
         />
         <StatCard
           icon={<FileText />}
           label="热门论文数"
-          value={(stats?.total_papers ?? papers?.length ?? 0).toLocaleString()}
+          value={(stats?.total_papers ?? papers?.total ?? 0).toLocaleString()}
         />
       </section>
 
@@ -240,13 +250,15 @@ export function HotContentPage() {
           </div>
           <DataTable
             columns={keywordColumns}
-            rows={keywords}
+            rows={keywords?.items}
             loading={loadingK}
             rowKey={(r) => `${r.search_type}:${r.keyword}`}
           />
+          <Pagination total={keywords?.total ?? 0} page={kwPage} pageSize={PAGE_SIZE} onPageChange={setKwPage} />
         </TabsContent>
         <TabsContent value="papers" className="mt-4">
-          <DataTable columns={paperColumns} rows={papers} loading={loadingP} rowKey={(r) => r.paper_id} />
+          <DataTable columns={paperColumns} rows={papers?.items} loading={loadingP} rowKey={(r) => r.paper_id} />
+          <Pagination total={papers?.total ?? 0} page={paperPage} pageSize={PAGE_SIZE} onPageChange={setPaperPage} />
         </TabsContent>
       </Tabs>
     </AdminPageLayout>

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { RouteSEO } from '@/shared/components/RouteSEO';
+import { BrandName } from '@/shared/components/BrandName';
 import { HelpLayout } from '../components/HelpLayout';
 import { resourceArticles } from '../data/resource-articles';
 import { blogArticles } from '../data/blog-articles';
@@ -62,7 +63,11 @@ export function HelpCenterPage() {
     <HelpLayout
       eyebrow="HELP CENTER"
       title="帮助中心"
-      lead="Scholay 使用问题、学术研究方法指南、产品更新与博客 —— 都在这里。"
+      lead={
+        <>
+          <BrandName /> 使用问题、学术研究方法指南、产品更新与博客 —— 都在这里。
+        </>
+      }
       contentMaxWidth="max-w-6xl"
     >
       <RouteSEO

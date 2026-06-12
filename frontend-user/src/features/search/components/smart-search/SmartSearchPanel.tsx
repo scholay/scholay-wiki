@@ -15,6 +15,7 @@ import {
   useSessionBroadcast,
 } from '@/shared/lib/agent-session-broadcast';
 import { stripAgentBridgePrefix } from '@/shared/lib/agent-prefix';
+import { trackEvent } from '@/shared/lib/track';
 import { useHeightVar } from '@/shared/hooks';
 import {
   useResetSmartSearchSession,
@@ -213,6 +214,7 @@ export function SmartSearchPanel() {
   const handleSubmit = useCallback(() => {
     const text = input.trim();
     if (!text) return;
+    trackEvent('search_submit', { len: text.length });
     setInput('');
     setPendingTurns((prev) => [
       ...prev,

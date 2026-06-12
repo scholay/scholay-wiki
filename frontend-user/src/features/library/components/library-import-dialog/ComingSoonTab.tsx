@@ -1,7 +1,7 @@
 import { Construction } from 'lucide-react';
 
 /**
- * Zotero / Endnote 导入 tab 的占位 —— 后端 / 集成尚未实现,展示"即将推出"友好提示。
+ * Zotero / EndNote 导入 tab 的占位 —— 后端 / 集成尚未实现,展示"即将推出"友好提示。
  */
 export function ComingSoonTab({ name }: { name: string }) {
   return (

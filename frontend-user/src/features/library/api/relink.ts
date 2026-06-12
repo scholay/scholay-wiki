@@ -86,10 +86,12 @@ export function useRelinkPaper() {
 }
 
 /**
- * 取消关联 —— 把一条 linked 行退回 free 状态(清上游元数据,只留 og_* + pdf_*)。
+ * 取消关联 —— 把一条 linked 行退回 free 状态(快照式)。
  * 后端 DELETE /user/library/papers/:id/unlink:
- *   - 允许任何 linked 行,但要求该行有 og_* 本地信息(否则取消后整行为空 → 后端回 400)
- *   - source → 'local',link_state → 'free',title/abstract/... 清空(保留 og_* + pdf_*)
+ *   - 任何 linked 行均可取消(不再要求行已有 og_*,不再 400)
+ *   - og_* 的空字段先自动固化当前生效展示值(og 优先 → 上游元数据),再清上游快照
+ *   - source → 'local',link_state → 'free',title/abstract/... 清空(展示内容不变,
+ *     保留 og_* + pdf_*)
  *
  * 成功后 invalidate ['library'],列表刷新 → 行的展示自动切回 free 模式。
  */

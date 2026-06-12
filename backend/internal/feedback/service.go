@@ -21,6 +21,7 @@ import (
 
 	"scholar-backend/internal/common/ctxutil"
 	"scholar-backend/internal/common/model"
+	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/storage"
 )
@@ -57,6 +58,9 @@ type Service struct {
 	configService ConfigService
 	userRepo      UserRepository
 	notifier      Notifier
+	// feishuNotify 新反馈提交后推送飞书(supportcenter 经 bootstrap 注入;nil = 不推)。
+	// 异步 best-effort:由 notifyFeishuCreated 包 safego,绝不阻塞/影响提交主流程。
+	feishuNotify func(category, content, email, username string)
 }
 
 // NewService 创建反馈服务
@@ -79,6 +83,22 @@ func (s *Service) SetUserRepository(userRepo UserRepository) {
 // SetNotifier 设置站内信通知器（回复反馈时给登录用户发站内信;允许 nil = 不发）。
 func (s *Service) SetNotifier(n Notifier) {
 	s.notifier = n
+}
+
+// SetFeishuNotifier 注入「新反馈 → 飞书群」推送钩子(supportcenter.NotifyFeedback)。
+func (s *Service) SetFeishuNotifier(fn func(category, content, email, username string)) {
+	s.feishuNotify = fn
+}
+
+// notifyFeishuCreated 提交成功后异步推飞书(safego 包裹,绝不影响主流程)。
+func (s *Service) notifyFeishuCreated(f *Feedback) {
+	if s.feishuNotify == nil || f == nil {
+		return
+	}
+	fn, category, content, email, username := s.feishuNotify, f.Category, f.Content, f.Email, f.Username
+	safego.Go("feedback-feishu-notify", func() {
+		fn(category, content, email, username)
+	})
 }
 
 // CreateFeedback 创建反馈
@@ -493,6 +513,9 @@ func (s *Service) CreateFeedbackWithAttachments(email, content *string, category
 			slog.Error("failed to bind attachments to feedback", "feedback_id", feedback.ID, "err", err)
 		}
 	}
+
+	// 新反馈 → 飞书群通知(异步 best-effort)
+	s.notifyFeishuCreated(feedback)
 
 	return feedback, nil
 }

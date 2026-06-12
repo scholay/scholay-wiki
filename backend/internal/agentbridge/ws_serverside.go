@@ -221,9 +221,9 @@ func (b *Bridge) ServerSideChatStreaming(
 		}
 	}
 
-	// 落统一 token 账本 (source=agent)。归属 (feature/user/request_id) 由调用方经
-	// llmusage.WithCall 塞进 ctx; model 用本轮 modelID override (空=会话默认, 记空)。
-	b.recordServerSideUsage(ctx, modelID, usage)
+	// token 账本已改为 **per-call** 记账(agent 端 claude.ts 每次真实模型调用 → 内网回调一次一行)。
+	// peerreview 的 server-side 流同样跑在 CLI 子进程内,其每次调用已被 per-call 覆盖,
+	// 故此处不再落库,否则与 per-call 双计。(recordServerSideUsage 暂保留未调用,便于回退。)
 
 	return textBuf.String(), usage, nil
 }

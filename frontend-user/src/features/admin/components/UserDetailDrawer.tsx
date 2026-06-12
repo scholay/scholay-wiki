@@ -16,6 +16,7 @@ import { Label } from '@/shared/ui/label';
 import { cn } from '@/shared/lib/utils';
 import { useApiToast } from '../hooks/useApiToast';
 import { useConfirm } from '../hooks/useConfirm';
+import { UserTokenUsagePanel } from './UserTokenUsagePanel';
 import {
   useUserDetail,
   useUserVipStatus,
@@ -222,6 +223,11 @@ export function UserDetailDrawer({
                 )}
               </>
             )}
+          </Section>
+
+          {/* Token 用量(历史天/模型拆分)—— 今日额度条之外的明细视角 */}
+          <Section title="Token 用量">
+            <UserTokenUsagePanel userId={user.id} />
           </Section>
         </div>
 

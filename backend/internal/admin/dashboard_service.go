@@ -16,10 +16,15 @@ import (
 
 // DashboardStatistics represents overall dashboard statistics
 //
-// 历史上还有 conversations / conversation_messages 两组字段, 在迁移 0049
-// DROP 那两张表后只能 500; 已彻底移除字段 + 查询 (前端会拿不到这两个 key)。
-//
-// 订单/收入/优惠券字段保留 — 支付流以后会重启, 当前空查只是返回 0, 不会报错。
+// 指标口径(2026-06 体检后收口,只留运营者真实会看的):
+//   - 用户:users 表(活)。付费用户 = users.vip_tier IN (pro,max) 且未过期 —— 旧版读
+//     stranded 的 user_subscriptions(vip 重做后无代码写入)导致永远停在历史值,已修正。
+//   - 订单/营收:orders 表 —— vip 重做**复用了**该表(充值 recharge / 订阅 subscription,
+//     status=pending|paid|expired,金额「元」),是活数据,口径与 internal/vip/order.go 一致。
+//   - AI 成本:llm_token_usage(per-call 账本)按日汇总 —— 营收旁边放成本,看板才能看出毛利。
+//   - 兑换码:vip_redemption_codes / vip_code_redemptions(活)。
+//   - 已删除:优惠券(user_coupons stranded)、对话数(conversations 表 0049 已 DROP)、
+//     三方账号计数(配置库存不是经营指标,健康告警由 TodayPanel 负责)。
 type DashboardStatistics struct {
 	// 用户统计
 	TotalUsers    int64 `json:"total_users"`
@@ -29,7 +34,7 @@ type DashboardStatistics struct {
 	PaidUsers     int64 `json:"paid_users"`
 	FreeUsers     int64 `json:"free_users"`
 
-	// 收入统计
+	// 收入统计(orders, status=paid)
 	TotalRevenue float64 `json:"total_revenue"`
 	RevenueToday float64 `json:"revenue_today"`
 	Revenue7d    float64 `json:"revenue_7d"`
@@ -40,18 +45,18 @@ type DashboardStatistics struct {
 	PaidOrders    int64 `json:"paid_orders"`
 	PendingOrders int64 `json:"pending_orders"`
 
-	// 优惠券统计
-	TotalCoupons  int64 `json:"total_coupons"`
-	UsedCoupons   int64 `json:"used_coupons"`
-	UnusedCoupons int64 `json:"unused_coupons"`
+	// AI 成本(llm_token_usage 总 token,含缓存口径见 llmusage)
+	TokensToday int64 `json:"tokens_today"`
+	Tokens30d   int64 `json:"tokens_30d"`
 
-	// 系统统计
-	ThirdPartyAccounts int64 `json:"third_party_accounts"`
+	// 兑换码
+	TotalCodes    int64 `json:"total_codes"`
+	RedeemedCodes int64 `json:"redeemed_codes"`
 
 	// 趋势数据 (用于图表)
 	UserGrowthChart   []ChartDataPoint `json:"user_growth_chart"`
-	OrderTrendChart   []ChartDataPoint `json:"order_trend_chart"`
 	RevenueTrendChart []ChartDataPoint `json:"revenue_trend_chart"`
+	TokenTrendChart   []ChartDataPoint `json:"token_trend_chart"`
 }
 
 // ChartDataPoint represents a point in time-series chart
@@ -60,12 +65,33 @@ type ChartDataPoint struct {
 	Value float64 `json:"value"` // 数值
 }
 
+// fillChartDays 把 GROUP BY DATE 的稀疏结果补成 [今天-(days-1) .. 今天] 的连续日序列(缺失日补 0)。
+// 否则趋势图会跳过无数据的天 → 点漏掉、折线连错;补 0 后还保证最后一桶恒为"今天"(供前端画虚线)。
+// 直接 time.Now()(容器时区=北京),不做时区转换。
+func fillChartDays(points []ChartDataPoint, days int) []ChartDataPoint {
+	if days <= 0 {
+		days = 30
+	}
+	byDate := make(map[string]float64, len(points))
+	for _, p := range points {
+		byDate[p.Date] = p.Value
+	}
+	now := time.Now()
+	day0 := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	out := make([]ChartDataPoint, 0, days)
+	for i := days - 1; i >= 0; i-- {
+		d := day0.AddDate(0, 0, -i).Format("2006-01-02")
+		out = append(out, ChartDataPoint{Date: d, Value: byDate[d]})
+	}
+	return out
+}
+
 // dashboardService 汇总看板所需的业务库表统计 —— 把直连 DB 的查询从 handler
 // 收进 service 层 (handler 不再持有 *gorm.DB), 与其他模块的分层保持一致。
 type dashboardService struct {
 	db *gorm.DB
 
-	// 看板缓存: 每次加载要跑 ~17 条串行 COUNT/SUM, 30s 内多次打开/刷新复用同一份。
+	// 看板缓存: 每次加载要跑十多条串行 COUNT/SUM, 30s 内多次打开/刷新复用同一份。
 	// 锁覆盖整个计算过程, 顺带把并发冷加载折叠成一次 (admin-only 低频, 简单优先)。
 	mu       sync.Mutex
 	cached   *DashboardStatistics
@@ -105,13 +131,22 @@ func (s *dashboardService) computeStatistics() *DashboardStatistics {
 
 	// 用户统计
 	s.db.Table("users").Count(&stats.TotalUsers)
+	// 全部半开区间 [start, tomorrowStart):缺上界时,异常的未来时间戳会把窗口统计虚增。
 	s.db.Table("users").Where("created_at >= ? AND created_at < ?", todayStart, tomorrowStart).Count(&stats.NewUsersToday)
-	s.db.Table("users").Where("created_at >= ?", start7d).Count(&stats.NewUsers7d)
-	s.db.Table("users").Where("created_at >= ?", start30d).Count(&stats.NewUsers30d)
+	s.db.Table("users").Where("created_at >= ? AND created_at < ?", start7d, tomorrowStart).Count(&stats.NewUsers7d)
+	s.db.Table("users").Where("created_at >= ? AND created_at < ?", start30d, tomorrowStart).Count(&stats.NewUsers30d)
 
-	// (对话统计已下线 — conversations/conversation_messages 表在迁移 0049 DROP)
+	// 付费用户 —— 真值在 users.vip_tier / vip_expires_at(与 vip.effectiveTier 同口径:
+	// 付费档 + 未过期;expires NULL = 永久)。
+	s.db.Table("users").
+		Where("vip_tier IN ('pro','max') AND (vip_expires_at IS NULL OR vip_expires_at > ?)", now).
+		Count(&stats.PaidUsers)
+	stats.FreeUsers = stats.TotalUsers - stats.PaidUsers
+	if stats.FreeUsers < 0 {
+		stats.FreeUsers = 0
+	}
 
-	// 收入统计
+	// 收入统计(orders: vip 充值/订阅,status=paid,金额「元」)
 	s.db.Table("orders").
 		Select("COALESCE(SUM(final_amount), 0)").
 		Where("status = ?", "paid").
@@ -124,12 +159,12 @@ func (s *dashboardService) computeStatistics() *DashboardStatistics {
 
 	s.db.Table("orders").
 		Select("COALESCE(SUM(final_amount), 0)").
-		Where("status = ? AND payment_time >= ?", "paid", start7d).
+		Where("status = ? AND payment_time >= ? AND payment_time < ?", "paid", start7d, tomorrowStart).
 		Scan(&stats.Revenue7d)
 
 	s.db.Table("orders").
 		Select("COALESCE(SUM(final_amount), 0)").
-		Where("status = ? AND payment_time >= ?", "paid", start30d).
+		Where("status = ? AND payment_time >= ? AND payment_time < ?", "paid", start30d, tomorrowStart).
 		Scan(&stats.Revenue30d)
 
 	// 订单统计
@@ -137,28 +172,24 @@ func (s *dashboardService) computeStatistics() *DashboardStatistics {
 	s.db.Table("orders").Where("status = ?", "paid").Count(&stats.PaidOrders)
 	s.db.Table("orders").Where("status = ?", "pending").Count(&stats.PendingOrders)
 
-	// 付费/免费用户
-	s.db.Table("user_subscriptions").
-		Where("status = ? AND end_date > ?", "active", now).
-		Distinct("user_id").
-		Count(&stats.PaidUsers)
-	stats.FreeUsers = stats.TotalUsers - stats.PaidUsers
-	if stats.FreeUsers < 0 {
-		stats.FreeUsers = 0
-	}
+	// AI 成本(token 账本;与营收并排看)
+	s.db.Table("llm_token_usage").
+		Select("COALESCE(SUM(total_tokens), 0)").
+		Where("created_at >= ? AND created_at < ?", todayStart, tomorrowStart).
+		Scan(&stats.TokensToday)
+	s.db.Table("llm_token_usage").
+		Select("COALESCE(SUM(total_tokens), 0)").
+		Where("created_at >= ? AND created_at < ?", start30d, tomorrowStart).
+		Scan(&stats.Tokens30d)
 
-	// 优惠券统计
-	s.db.Table("user_coupons").Count(&stats.TotalCoupons)
-	s.db.Table("user_coupons").Where("status = ?", "used").Count(&stats.UsedCoupons)
-	s.db.Table("user_coupons").Where("status = ?", "unused").Count(&stats.UnusedCoupons)
-
-	// 系统统计
-	s.db.Table("third_party_accounts").Count(&stats.ThirdPartyAccounts)
+	// 兑换码
+	s.db.Table("vip_redemption_codes").Count(&stats.TotalCodes)
+	s.db.Table("vip_code_redemptions").Count(&stats.RedeemedCodes)
 
 	// 趋势图表数据
 	stats.UserGrowthChart = s.getUserGrowthChart(30)
-	stats.OrderTrendChart = s.getOrderTrendChart(30)
 	stats.RevenueTrendChart = s.getRevenueTrendChart(30)
+	stats.TokenTrendChart = s.getTokenTrendChart(30)
 
 	return stats
 }
@@ -171,9 +202,9 @@ func (s *dashboardService) getUserGrowthChart(days int) []ChartDataPoint {
 	}
 
 	s.db.Table("users").
-		Select("DATE(created_at) as date, COUNT(*) as count").
+		Select("DATE_FORMAT(created_at, '%Y-%m-%d') as date, COUNT(*) as count").
 		Where("created_at >= ?", time.Now().AddDate(0, 0, -days)).
-		Group("DATE(created_at)").
+		Group("DATE_FORMAT(created_at, '%Y-%m-%d')").
 		Order("date ASC").
 		Scan(&results)
 
@@ -185,32 +216,7 @@ func (s *dashboardService) getUserGrowthChart(days int) []ChartDataPoint {
 		})
 	}
 
-	return chart
-}
-
-// getOrderTrendChart 获取订单趋势图表数据（已支付订单）
-func (s *dashboardService) getOrderTrendChart(days int) []ChartDataPoint {
-	var results []struct {
-		Date  string
-		Count int64
-	}
-
-	s.db.Table("orders").
-		Select("DATE(payment_time) as date, COUNT(*) as count").
-		Where("status = ? AND payment_time >= ?", "paid", time.Now().AddDate(0, 0, -days)).
-		Group("DATE(payment_time)").
-		Order("date ASC").
-		Scan(&results)
-
-	chart := make([]ChartDataPoint, 0, len(results))
-	for _, r := range results {
-		chart = append(chart, ChartDataPoint{
-			Date:  r.Date,
-			Value: float64(r.Count),
-		})
-	}
-
-	return chart
+	return fillChartDays(chart, days)
 }
 
 // getRevenueTrendChart 获取收入趋势图表数据
@@ -221,9 +227,9 @@ func (s *dashboardService) getRevenueTrendChart(days int) []ChartDataPoint {
 	}
 
 	s.db.Table("orders").
-		Select("DATE(payment_time) as date, COALESCE(SUM(final_amount), 0) as amount").
+		Select("DATE_FORMAT(payment_time, '%Y-%m-%d') as date, COALESCE(SUM(final_amount), 0) as amount").
 		Where("status = ? AND payment_time >= ?", "paid", time.Now().AddDate(0, 0, -days)).
-		Group("DATE(payment_time)").
+		Group("DATE_FORMAT(payment_time, '%Y-%m-%d')").
 		Order("date ASC").
 		Scan(&results)
 
@@ -235,5 +241,31 @@ func (s *dashboardService) getRevenueTrendChart(days int) []ChartDataPoint {
 		})
 	}
 
-	return chart
+	return fillChartDays(chart, days)
+}
+
+// getTokenTrendChart AI token 成本趋势(每日总 token)。与营收趋势并排 = 粗粒度毛利视角。
+// 用 DATE_FORMAT 而非 DATE():DSN 开 parseTime 时 DATE() 会被扫成带时区 time(llmusage 同款坑)。
+func (s *dashboardService) getTokenTrendChart(days int) []ChartDataPoint {
+	var results []struct {
+		Date   string
+		Tokens int64
+	}
+
+	s.db.Table("llm_token_usage").
+		Select("DATE_FORMAT(created_at, '%Y-%m-%d') as date, COALESCE(SUM(total_tokens), 0) as tokens").
+		Where("created_at >= ?", time.Now().AddDate(0, 0, -days)).
+		Group("DATE_FORMAT(created_at, '%Y-%m-%d')").
+		Order("date ASC").
+		Scan(&results)
+
+	chart := make([]ChartDataPoint, 0, len(results))
+	for _, r := range results {
+		chart = append(chart, ChartDataPoint{
+			Date:  r.Date,
+			Value: float64(r.Tokens),
+		})
+	}
+
+	return fillChartDays(chart, days)
 }

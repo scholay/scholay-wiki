@@ -126,6 +126,21 @@ export const adminRoutes: RouteObject[] = [
         lazy: lazyPage(() => import('./pages/TokenUsageStatsPage'))('TokenUsageStatsPage'),
       },
       {
+        path: 'orders',
+        handle: { title: '订单与营收' },
+        lazy: lazyPage(() => import('./pages/OrdersPage'))('OrdersPage'),
+      },
+      {
+        path: 'mail-center',
+        handle: { title: '邮件中心' },
+        lazy: lazyPage(() => import('./pages/MailCenterPage'))('MailCenterPage'),
+      },
+      {
+        path: 'support-config',
+        handle: { title: '客服配置' },
+        lazy: lazyPage(() => import('./pages/SupportCenterConfigPage'))('SupportCenterConfigPage'),
+      },
+      {
         path: 'vip-codes',
         handle: { title: '会员兑换码' },
         lazy: lazyPage(() => import('./pages/VipCodesPage'))('VipCodesPage'),

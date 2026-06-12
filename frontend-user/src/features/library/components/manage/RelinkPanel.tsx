@@ -1,17 +1,30 @@
 import { useMemo, useState } from 'react';
-import { Check, Loader2, RotateCcw, Search } from 'lucide-react';
+import { Check, Link2, Loader2, RotateCcw, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
-import { useApiToast } from '@/shared/hooks';
+import { useApiToast, useDebounce } from '@/shared/hooks';
+import { ConfirmPopover } from '@/shared/components/ConfirmPopover';
 import { useRelinkPaper, useRelinkSearch } from '../../api/relink';
-import { hitToConfirmLink, keyOfHit } from '../../lib/resolve-paper';
+import { hasLocalOverride } from '../../lib/pick-field';
+import { hitToConfirmLink, keyOfHit, sourceBrandLabel } from '../../lib/resolve-paper';
+import {
+  DialogFooterBar,
+  DialogTabBar,
+  footerGhostCn,
+  footerPrimaryCn,
+  type DialogTabDef,
+} from '../shared/dialog-chrome';
 import { RelinkResultArea } from './relink-result-area';
 import type { PaperSource, UserLibraryPaper } from '@/shared/api/types';
 
 /**
  * 统一管理弹窗 · 在线关联 tab —— 三源(Discovery/Graph/Medicine)检索 + 单选 + 落库。
- * 自动用 og_title / title 兜底查询;选 1 条 → 下一步 → relink(merged 时合并到已有行)。
- * 原 PaperRelinkDialog 的弹窗外壳由 PaperManageDialog 提供。
+ * 自动用 og_title / title 兜底查询;选 1 条 → 确认/替换关联 → relink(merged 时合并到已有行)。
+ *
+ * linked 行(已有关联)的特殊处理:
+ *   - 顶部展示「当前关联」卡(在线论文标题/来源/DOI),让用户知道自己在替换什么
+ *   - 「替换关联」是覆盖性操作 → ConfirmPopover 二次确认
+ *   - 候选里命中当前关联的条目带「当前关联」标记,选它提交会被拦截(无意义替换)
  */
 
 type SourceTab = 'discovery' | 'graph' | 'medicine';
@@ -33,7 +46,9 @@ export function RelinkPanel({
   const [queryOverride, setQueryOverride] = useState<string | undefined>(undefined);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
-  const searchQ = useRelinkSearch(paper.id, queryOverride);
+  // 输入框即时受控,但检索请求按 300ms 防抖,避免每个键击都发一次 POST
+  const debouncedQuery = useDebounce(queryOverride, 300);
+  const searchQ = useRelinkSearch(paper.id, debouncedQuery);
   const relinkMut = useRelinkPaper();
   const apiToast = useApiToast();
 
@@ -56,17 +71,31 @@ export function RelinkPanel({
     return c;
   }, [allHits]);
 
+  const sourceTabs: Array<DialogTabDef<SourceTab>> = TAB_DEFS.map((t) => ({
+    id: t.id,
+    label: t.label,
+    count: counts[t.id],
+  }));
+
+  const isLinked = paper.link_state === 'linked';
+  // 当前关联的唯一键 —— 候选标记 + 防"替换成同一篇"
+  const currentKey = isLinked ? `${paper.source}:${paper.source_paper_id}` : null;
+
   const handleRelink = () => {
     const hit = filteredHits.find((h) => keyOfHit(h) === selectedKey);
     if (!hit) {
       toast.info('请先选择一条候选');
       return;
     }
+    if (currentKey && keyOfHit(hit) === currentKey) {
+      toast.info('该论文已是当前关联,无需替换');
+      return;
+    }
     relinkMut.mutate(
       { paperId: paper.id, link: hitToConfirmLink(hit) },
       {
         onSuccess: (r) => {
-          toast.success(r.merged ? '已合并到已有条目' : '已关联到上游');
+          toast.success(r.merged ? '你已收藏过这篇论文,已为你合并' : '已关联到在线论文');
           onClose();
         },
         onError: (err) => apiToast.show(err, '关联失败'),
@@ -74,46 +103,69 @@ export function RelinkPanel({
     );
   };
 
+  const confirmDisabled =
+    !selectedKey ||
+    relinkMut.isPending ||
+    !filteredHits.find((h) => keyOfHit(h) === selectedKey);
+
+  const confirmButtonBody = (
+    <>
+      {relinkMut.isPending ? (
+        <Loader2 className="size-3.5 animate-spin" />
+      ) : (
+        <Check className="size-3.5" strokeWidth={2.5} />
+      )}
+      {/* linked 行是"换一条在线论文"(替换关联),free 行是首次关联 */}
+      {isLinked ? '替换关联' : '确认关联'}
+    </>
+  );
+
   return (
     <div className="flex flex-1 min-h-0 flex-col">
-      {/* 源 tab */}
-      <div role="tablist" aria-label="数据源" className="flex items-center gap-1 px-6 border-b border-border shrink-0">
-        {TAB_DEFS.map((t) => {
-          const active = tab === t.id;
-          const count = counts[t.id];
-          return (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setTab(t.id)}
-              className={cn(
-                'relative inline-flex items-center gap-1.5 h-10 px-3 text-sm font-semibold transition-colors',
-                active ? 'text-brand-amber' : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              {t.label}
-              {count > 0 && (
-                <span
-                  className={cn(
-                    'inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-pill text-[10px] font-bold leading-none tabular-nums',
-                    active ? 'bg-brand-amber text-background' : 'bg-surface-2 text-subtle'
-                  )}
-                >
-                  {count} 命中
+      {/* 当前关联卡 —— linked 行先让用户看到"现在关联的是哪篇",再谈替换 */}
+      {isLinked && (
+        <div className="px-6 pt-4 shrink-0">
+          <div className="flex items-start gap-3 rounded-md border border-border-soft bg-surface-1 px-4 py-2.5">
+            <div className="flex h-6 w-6 items-center justify-center rounded-sm bg-background border border-border shrink-0 mt-0.5">
+              <Link2 className="size-3.5 text-brand-amber" strokeWidth={2.25} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-2xs font-bold text-faint uppercase tracking-wide">
+                  当前关联
                 </span>
-              )}
-              {active && (
-                <span
-                  aria-hidden="true"
-                  className="absolute bottom-0 left-2 right-2 h-0.5 rounded-pill bg-brand-amber"
-                />
-              )}
-            </button>
-          );
-        })}
-      </div>
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-surface-2 text-subtle text-2xs font-bold leading-none uppercase tracking-wide">
+                  {sourceBrandLabel(paper.source)}
+                </span>
+              </div>
+              <div
+                className="mt-0.5 text-sm font-semibold text-foreground line-clamp-1"
+                title={paper.title || undefined}
+              >
+                {paper.title || '(无标题)'}
+              </div>
+              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-2xs text-faint">
+                {paper.venue && <span>{paper.venue}</span>}
+                {paper.year ? (
+                  <>
+                    {paper.venue && <span>·</span>}
+                    <span className="tabular-nums">{paper.year}</span>
+                  </>
+                ) : null}
+                {paper.doi && (
+                  <>
+                    {(paper.venue || paper.year) && <span>·</span>}
+                    <span className="font-mono">DOI {paper.doi}</span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 源 tab */}
+      <DialogTabBar tabs={sourceTabs} value={tab} onChange={setTab} ariaLabel="在线论文库" size="sm" />
 
       {/* 搜索条 */}
       <div className="px-6 pt-4 pb-3 shrink-0">
@@ -163,43 +215,52 @@ export function RelinkPanel({
           tabLabel={TAB_DEFS.find((t) => t.id === tab)?.label ?? ''}
           hits={filteredHits}
           selectedKey={selectedKey}
+          currentKey={currentKey}
           onSelect={setSelectedKey}
         />
       </div>
 
-      {/* footer */}
-      <div className="flex items-center justify-between gap-2 px-6 py-3 bg-surface-1 border-t border-border-soft shrink-0">
-        <span className="text-xs text-muted-foreground">应用后将覆盖文献卡当前对应字段</span>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex items-center h-8 px-3 rounded-sm text-sm font-semibold text-subtle hover:bg-surface-2 hover:text-foreground transition-colors"
+      {/* hint 按"是否有本地 og_* 覆盖"动态:展示规则是 og 优先,关联只换在线数据快照 */}
+      <DialogFooterBar
+        hint={
+          hasLocalOverride(paper)
+            ? '关联后,你编辑过的内容和已上传的 PDF 都会保留'
+            : '关联后,文献卡会显示这篇在线论文的信息'
+        }
+      >
+        <button type="button" onClick={onClose} className={footerGhostCn}>
+          取消
+        </button>
+        {isLinked ? (
+          // 替换关联是覆盖性操作(整体换掉在线数据快照)→ 二次确认
+          <ConfirmPopover
+            title="替换当前关联?"
+            description={
+              hasLocalOverride(paper)
+                ? '文献卡将改为关联这篇新论文;你编辑过的内容和已上传的 PDF 都会保留。'
+                : '文献卡将显示新论文的信息;已上传的 PDF 会保留。'
+            }
+            confirmText="替换关联"
+            cancelText="再想想"
+            side="top"
+            align="end"
+            onConfirm={handleRelink}
           >
-            取消
-          </button>
+            <button type="button" disabled={confirmDisabled} className={footerPrimaryCn('amber')}>
+              {confirmButtonBody}
+            </button>
+          </ConfirmPopover>
+        ) : (
           <button
             type="button"
             onClick={handleRelink}
-            disabled={
-              !selectedKey ||
-              relinkMut.isPending ||
-              !filteredHits.find((h) => keyOfHit(h) === selectedKey)
-            }
-            className={cn(
-              'inline-flex items-center gap-1.5 h-8 px-3.5 rounded-sm bg-brand-amber text-background text-sm font-bold',
-              'hover:bg-brand-amber/90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors'
-            )}
+            disabled={confirmDisabled}
+            className={footerPrimaryCn('amber')}
           >
-            {relinkMut.isPending ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <Check className="size-3.5" strokeWidth={2.5} />
-            )}
-            下一步
+            {confirmButtonBody}
           </button>
-        </div>
-      </div>
+        )}
+      </DialogFooterBar>
     </div>
   );
 }

@@ -108,15 +108,15 @@ export function getBasicInfoStatus(paper: UserLibraryPaper): BasicInfoStatus {
   let footerNote: string;
   if (absentCount === items.length) {
     status = 'missing';
-    headline = '字段未补充 · 解析失败';
+    headline = '还没有任何信息 · 可以手动补全';
     footerNote = '灰 · 缺失';
   } else if (absentCount === 0 && partialCount === 0) {
     status = 'complete';
-    headline = '已检查 · 全部字段已补全';
+    headline = '信息完整';
     footerNote = '绿 · 完整';
   } else {
     status = 'partial';
-    headline = `部分字段缺失 · 建议补全 (${presentCount}/${items.length})`;
+    headline = `部分信息缺失 · 建议补全 (${presentCount}/${items.length})`;
     footerNote = '黄 · 异常';
   }
 
@@ -153,7 +153,7 @@ export function getPdfStatus(paper: UserLibraryPaper): PdfStatus {
   return {
     status: 'missing',
     fileItem: { label: 'PDF', state: 'absent', preview: '未上传' },
-    headline: '当前无本地 PDF',
+    headline: '还没有上传 PDF',
     footerNote: '灰 · 缺失',
   };
 }

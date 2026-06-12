@@ -30,7 +30,7 @@ export function MetadataFields({ form, placeholders = {}, disabled }: MetadataFi
 
   return (
     <div className="space-y-3">
-      <Field label="标题" required hint="文献卡显示与全文检索 · 修改后映射所有引用">
+      <Field label="标题" required hint="显示在文献卡上,也用于搜索和引用">
         <input
           {...register('title')}
           placeholder={placeholders.title}

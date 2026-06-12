@@ -1,6 +1,11 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, redirect } from 'react-router-dom';
 import { AppShell } from './layouts/AppShell';
 import { HomePage } from '@/features/home/HomePage';
+import {
+  markAutoRedirected,
+  mobileEquivalentPath,
+  shouldAutoRedirectToMobile,
+} from '@/shared/lib/device';
 import { NotFoundPage } from '@/features/home/NotFoundPage';
 import { RouteErrorBoundary } from '@/shared/components/RouteErrorBoundary';
 import { adminRoutes } from '@/features/admin/routes';
@@ -8,18 +13,19 @@ import { searchRoutes } from '@/features/search/routes';
 import { journalsRoutes } from '@/features/journals/routes';
 import { libraryRoutes } from '@/features/library/routes';
 import { browserRoutes } from '@/features/browser/routes';
-import { toolsRoutes } from '@/features/tools/routes';
+import { toolsRoutes, toolsMobileRoutes } from '@/features/tools/routes';
 import { peerReviewRoutes } from '@/features/peer-review/routes';
 import { prismRoutes } from '@/features/prism/routes';
-import { clawRoutes } from '@/features/claw/routes';
+import { clawRoutes, clawMobileRoutes } from '@/features/claw/routes';
 import { landingRoutes } from '@/features/landing/routes';
 import { helpRoutes } from '@/features/help/routes';
+import { mobileRoutes } from '@/features/mobile/routes';
 import {
   adminLegacyRedirectRoutes,
   legacyRedirectRoutes,
 } from '@/features/legacy-redirects/routes';
-import { authRoutes } from '@/features/auth/routes';
-import { settingsRoutes } from '@/features/settings/routes';
+import { authRoutes, authMobileRoutes } from '@/features/auth/routes';
+import { settingsRoutes, settingsMobileRoutes } from '@/features/settings/routes';
 
 /**
  * 顶层路由 —— 仅做组装,不再写死任何 feature 的页面路径。
@@ -67,10 +73,41 @@ export const router = createBrowserRouter([
     path: `/${r.path}`,
     errorElement: <RouteErrorBoundary />,
   })),
+  // 移动端 /m/* —— 全新设计逻辑的移动版,**不挂 AppShell**,自带 MobileShell
+  // (底部 Tab),与 landing / help 同模式。children 在这里组装:feed 归 mobile,
+  // 功能广场/智能助手的移动页归各自业务域 feature(避免跨 feature import),
+  // 详见 features/mobile/routes.tsx 顶部注释。
+  {
+    path: '/m',
+    lazy: () =>
+      import('@/features/mobile/layouts/MobileShell').then((m) => ({
+        Component: m.MobileShell,
+      })),
+    errorElement: <RouteErrorBoundary />,
+    children: [
+      ...mobileRoutes,
+      ...toolsMobileRoutes,
+      ...clawMobileRoutes,
+      ...settingsMobileRoutes,
+      ...authMobileRoutes,
+    ],
+  },
   {
     path: '/',
     element: <AppShell />,
     errorElement: <RouteErrorBoundary />,
+    // 手机访问桌面路由 → 自动进移动**对等页**(映射表 MOBILE_EQUIVALENTS,
+    // 有对等页才跳:/settings/membership→/m/me、/tools/*→/m/tools/* 等;
+    // 论文详情/文献集这类没有移动版的深链留在桌面,不丢用户意图)。
+    // pad / 爬虫 / 点过「使用电脑版」的不跳 —— 裁决逻辑收口在 shared/lib/device.ts。
+    // 挂在 AppShell 父级,所有桌面子路由(含客户端内部导航)都过这道闸。
+    loader: ({ request }) => {
+      if (!shouldAutoRedirectToMobile()) return null;
+      const target = mobileEquivalentPath(new URL(request.url).pathname);
+      if (!target) return null;
+      markAutoRedirected();
+      return redirect(target);
+    },
     children: [
       { index: true, element: <HomePage /> },
       ...searchRoutes,

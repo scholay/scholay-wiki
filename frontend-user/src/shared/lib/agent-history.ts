@@ -263,3 +263,113 @@ export function replayHistoryAsTurns(
   finishTurn();
   return turns;
 }
+
+// ─── 带附件的 user entry 解析(claw 语境;admin 会话监控渲染 claw transcript 也用)─────
+//
+// agent 的 buildUserContent 把上传附件落成纯文本前缀:
+//   `@"/home/bun/sessions/<sid>/<uuid>-screenshot.png" <用户文字>`
+// transcript 里没有 image block / base64 —— 只有这段 @"path"。若不处理,回放时:
+//   (1) 整条 @"绝对路径" 会泄漏进用户气泡(用户看到 UUID 文件名);
+//   (2) 附件不会以 chip 形式出现。
+// 老格式 transcript 里图片是内联 base64 image block —— 两种形态二选一不叠加。
+// 原实现在 features/claw/components/chat/fold.ts;提升到 shared 供 admin 复用(features 互不 import)。
+
+/** agent 存盘时加的 `${crypto.randomUUID()}-` 前缀 (8-4-4-4-12 小写 hex)。 */
+const STORED_UUID_PREFIX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/i;
+const IMAGE_EXT_RE = /\.(png|jpe?g|webp|gif|bmp|svg|avif|heic|heif)$/i;
+/** 用户没打字、只发附件时 agent 注入的占位句 —— 回放时不该显示给用户。 */
+const EMPTY_ATTACHMENT_PLACEHOLDER = 'Please analyze the attached files.';
+
+/** 内联 image block 的 source 形态(老格式 transcript)。 */
+interface AnthropicImageBlock {
+  type?: string;
+  source?: { media_type?: string; data?: string };
+}
+
+function attachmentMimeFromName(name: string): string {
+  const ext = name.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] ?? '';
+  const map: Record<string, string> = {
+    png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp',
+    gif: 'image/gif', bmp: 'image/bmp', svg: 'image/svg+xml', avif: 'image/avif',
+    pdf: 'application/pdf', md: 'text/markdown', txt: 'text/plain', csv: 'text/csv',
+    json: 'application/json',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  };
+  if (map[ext]) return map[ext];
+  return IMAGE_EXT_RE.test(name) ? 'image/*' : 'application/octet-stream';
+}
+
+/** 老格式:user content[] 里的内联 base64 image block → 附件 chip(带 data URL 缩略图)。 */
+function extractInlineImageAttachments(content: unknown): TurnAttachment[] {
+  if (!Array.isArray(content)) return [];
+  const out: TurnAttachment[] = [];
+  for (const block of content) {
+    if (!block || typeof block !== 'object') continue;
+    const b = block as AnthropicImageBlock;
+    if (b.type === 'image') {
+      out.push({
+        type: 'image',
+        name: 'image',
+        mimeType: b.source?.media_type ?? 'image/png',
+        size: b.source?.data ? Math.floor((b.source.data.length * 3) / 4) : 0,
+        previewUrl: b.source?.data
+          ? `data:${b.source.media_type ?? 'image/png'};base64,${b.source.data}`
+          : undefined,
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * 剥离 user 文本开头的 `@"path"` 附件前缀,返回 { 清理后的正文, 还原的附件 chip }。
+ * 没有前缀时原样返回 + 空附件。
+ */
+function splitAttachmentPrefix(text: string): {
+  text: string;
+  attachments: TurnAttachment[];
+} {
+  const attachments: TurnAttachment[] = [];
+  let rest = text;
+  const tokenRe = /^@"([^"]+)"\s*/;
+  let m: RegExpExecArray | null;
+  while ((m = tokenRe.exec(rest)) !== null) {
+    const abs = m[1];
+    const base = abs.split('/').pop() ?? abs;
+    // 只认真附件: 绝对路径 + basename 带 agent 落盘的 UUID 前缀。否则是用户自己打的
+    // @"..." 文本(比如让助手处理一段带引号的内容), 原样留在气泡里, 不当附件剥走。
+    if (!abs.startsWith('/') || !STORED_UUID_PREFIX.test(base)) break;
+    const name = base.replace(STORED_UUID_PREFIX, '') || base;
+    attachments.push({
+      type: IMAGE_EXT_RE.test(name) ? 'image' : 'file',
+      name,
+      mimeType: attachmentMimeFromName(name),
+      size: 0,
+      path: abs,
+    });
+    rest = rest.slice(m[0].length);
+  }
+  // 只发附件、没打字 → 去掉 agent 注入的英文占位句, 留空正文。
+  if (attachments.length > 0 && rest.trim() === EMPTY_ATTACHMENT_PLACEHOLDER) {
+    rest = '';
+  }
+  return { text: rest, attachments };
+}
+
+/**
+ * 带附件还原的 user entry 解析:先剥 `@"path"` 附件前缀(恢复原名 chip),再剥 agentbridge
+ * SystemPrompt 前缀;附件优先取 @path 文本前缀,老格式才回落到内联 image block(二选一不叠加)。
+ * claw 历史回放与 admin 会话监控(featureKey=claw)共用。
+ */
+export function parseUserEntryWithAttachments(content: unknown): ParsedUserEntry {
+  const rawText = extractHistoryText(content);
+  const { text: bodyText, attachments: pathAttachments } = splitAttachmentPrefix(rawText);
+  const imageAttachments = extractInlineImageAttachments(content);
+  const attachments = pathAttachments.length > 0 ? pathAttachments : imageAttachments;
+  return {
+    text: stripAgentBridgePrefix(bodyText),
+    attachments: attachments.length > 0 ? attachments : undefined,
+  };
+}

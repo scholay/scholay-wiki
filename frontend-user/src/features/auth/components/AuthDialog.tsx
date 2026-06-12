@@ -16,7 +16,8 @@ import { ForgotPasswordForm } from './ForgotPasswordForm';
 import { OAuthRow } from './OAuthRow';
 import { WeChatQRPanel } from './WeChatQRPanel';
 
-const TITLES = {
+// 移动整页版(MobileAuthPage)共用同一份标题文案 —— 双端措辞永远一致
+export const TITLES = {
   login: { title: '欢迎回来', desc: '继续你的学术之旅' },
   register: { title: '创建账号', desc: '免费开始使用 Scholay' },
   forgot: { title: '找回密码', desc: '通过验证码重置你的密码' },
@@ -37,6 +38,17 @@ export function AuthDialog() {
   const { open, mode, initialAccountType, setMode, close } = useAuthDialog();
   const t = TITLES[mode];
   const isWeChatQR = mode === 'wechat-qr';
+
+  // 移动端(/m/*)的登录走 /m/auth 整页(MobileShell 的桥接 effect 会立刻转跳),
+  // 这里不渲染弹窗本体,避免转跳前闪一帧 PC 弹窗。扫码视图例外(移动端就用弹窗)。
+  if (
+    open &&
+    !isWeChatQR &&
+    typeof window !== 'undefined' &&
+    (window.location.pathname === '/m' || window.location.pathname.startsWith('/m/'))
+  ) {
+    return null;
+  }
 
   // 用户**主动关弹窗且仍未登录**(Esc / 点外面 / ×)→ 顺手丢掉 pending-action,
   // 否则之后从别处(topnav / OAuth)登录会被莫名重放(如未登录点首页「智能搜索」排了个

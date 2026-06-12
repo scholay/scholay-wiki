@@ -43,8 +43,11 @@ function pickAbbrev(name: string): string {
 interface JournalCoverProps {
   id: number;
   name: string;
-  /** 卡片尺寸:'sm' = 详情页 hero,'card' = 搜索结果卡左侧,'lg' = 详情大 cover */
-  size?: 'card' | 'sm' | 'lg';
+  /**
+   * 卡片尺寸:'sm' = 详情页 hero,'card' = 搜索结果卡左侧,'lg' = 详情大 cover,
+   * 'tile' = 64px 方形纯字标(移动端期刊 feed identity 行,.pen `eBxVg`,无底部全名)
+   */
+  size?: 'card' | 'sm' | 'lg' | 'tile';
   className?: string;
 }
 
@@ -52,6 +55,24 @@ export const JournalCover = forwardRef<HTMLDivElement, JournalCoverProps>(
   ({ id, name, size = 'card', className }, ref) => {
     const color = pickColor(id);
     const abbrev = pickAbbrev(name);
+
+    if (size === 'tile') {
+      return (
+        <div
+          ref={ref}
+          className={cn(
+            'shrink-0 rounded-md overflow-hidden flex items-center justify-center w-16 h-16 text-white',
+            className
+          )}
+          style={{ backgroundColor: color }}
+          title={name}
+        >
+          <span className="font-bold tracking-wider leading-none text-xl">
+            {abbrev}
+          </span>
+        </div>
+      );
+    }
 
     const dims =
       size === 'lg'

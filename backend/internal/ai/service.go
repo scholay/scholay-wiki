@@ -74,12 +74,26 @@ type aiUsage struct {
 }
 
 // usageFromStats 把 OpenAI 兼容响应的 LLMUsageStats 转成账本用的 aiUsage。
+//
+// 语义对齐(关键):OpenAI / DeepSeek / GLM 的 prompt_tokens 是「整段输入,含命中缓存的部分」,
+// 与 Anthropic「input 不含缓存、缓存单列」相反。账本按「四列互不重叠」存:
+//   input_tokens = 未命中输入(prompt - 命中), cache_read_tokens = 命中, output = completion。
+// 这样 input + output + cache_read == 上游 total, 且 llmusage 的「total 缺省时四列求和」兜底
+// 不会把命中缓存重复计一遍; 前端后台「命中率 = cache_read /(input+cache_read)」也才正确。
 func usageFromStats(u LLMUsageStats) *aiUsage {
+	cached := u.PromptTokensDetails.CachedTokens
+	if u.PromptCacheHitTokens > cached {
+		cached = u.PromptCacheHitTokens // DeepSeek 原生字段(prompt_cache_hit_tokens)
+	}
+	input := u.PromptTokens - cached // 未命中输入
+	if input < 0 {
+		input = 0 // 上游字段不自洽时兜底, 避免负数(命中数 > prompt 数)
+	}
 	return &aiUsage{
-		InputTokens:     u.PromptTokens,
+		InputTokens:     input,
 		OutputTokens:    u.CompletionTokens,
 		TotalTokens:     u.TotalTokens,
-		CacheReadTokens: u.PromptTokensDetails.CachedTokens,
+		CacheReadTokens: cached,
 		// OpenAI 兼容无 cache_creation 概念, 留 0。
 	}
 }

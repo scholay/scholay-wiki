@@ -8,6 +8,8 @@
 package config
 
 import (
+	"strings"
+
 	"scholar-backend/internal/common/model"
 )
 
@@ -76,6 +78,7 @@ type SystemConfigPartialUpdate struct {
 	EnableTurnstile          *bool
 	TurnstileSiteKey         *string
 	TurnstileSecretKey       *string
+	GoogleAnalyticsID        *string
 }
 
 // UpdateSystemConfigPartial updates system configuration with partial update support
@@ -105,6 +108,9 @@ func (s *Service) UpdateSystemConfigPartial(req *SystemConfigPartialUpdate) erro
 	}
 	if req.TurnstileSecretKey != nil {
 		config.TurnstileSecretKey = *req.TurnstileSecretKey
+	}
+	if req.GoogleAnalyticsID != nil {
+		config.GoogleAnalyticsID = strings.TrimSpace(*req.GoogleAnalyticsID)
 	}
 
 	var err2 error

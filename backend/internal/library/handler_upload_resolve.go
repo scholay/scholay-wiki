@@ -7,7 +7,6 @@
 //      → SSE 流回:
 //          event: parsed   { title, abstract, sha256, has_text }
 //          event: searched { papers: [...] }            // 标题非空才推
-//          event: ai_done  { og_title, og_abstract, .. } // searched 空时才推
 //          event: ready    { job_id }                   // 末尾
 //          event: error    { message }                  // 任意阶段失败
 //
@@ -53,20 +52,19 @@ const jobTTL = 30 * time.Minute
 
 // JobState Redis 里存的 job 上下文 —— 用户 confirm 时拿这个落库
 type JobState struct {
-	UserID         uint64       `json:"user_id"`
-	SHA256         string       `json:"sha256"`
-	OriginalName   string       `json:"original_name"`
-	Size           int64        `json:"size"`
-	TmpObjectKey   string       `json:"tmp_object_key"`
-	ParsedTitle    string       `json:"parsed_title"`
-	ParsedAbstract string       `json:"parsed_abstract"`
-	ParsedAuthors  []string     `json:"parsed_authors,omitempty"`
-	ParsedYear     uint16       `json:"parsed_year,omitempty"`
-	ParsedVenue    string       `json:"parsed_venue,omitempty"`
-	ParsedDOI      string       `json:"parsed_doi,omitempty"`
-	ParsedArXiv    string       `json:"parsed_arxiv,omitempty"`
-	SearchResults  []SearchHit  `json:"search_results,omitempty"`
-	AIMeta         *AIPaperMeta `json:"ai_meta,omitempty"`
+	UserID         uint64      `json:"user_id"`
+	SHA256         string      `json:"sha256"`
+	OriginalName   string      `json:"original_name"`
+	Size           int64       `json:"size"`
+	TmpObjectKey   string      `json:"tmp_object_key"`
+	ParsedTitle    string      `json:"parsed_title"`
+	ParsedAbstract string      `json:"parsed_abstract"`
+	ParsedAuthors  []string    `json:"parsed_authors,omitempty"`
+	ParsedYear     uint16      `json:"parsed_year,omitempty"`
+	ParsedVenue    string      `json:"parsed_venue,omitempty"`
+	ParsedDOI      string      `json:"parsed_doi,omitempty"`
+	ParsedArXiv    string      `json:"parsed_arxiv,omitempty"`
+	SearchResults  []SearchHit `json:"search_results,omitempty"`
 }
 
 // jobRedisKey 生成 Redis key —— 命名空间 `library:upload-job:<jobId>`
@@ -205,12 +203,12 @@ func (h *Handler) UploadAndResolve(c *gin.Context) {
 	// Step 2: pdftotext + heuristic 切标题摘要
 	parseCtx, parseCancel := context.WithTimeout(ctx, 60*time.Second)
 	parsed, err := pdfparse.Parse(parseCtx, buf, pdfparse.Options{
-		// 全文都要(extract.js 内部已限制前 25 页);AI 兜底用
+		// 全文都要(extract.js 内部已限制前 25 页)
 		Timeout: 50 * time.Second,
 	})
 	parseCancel()
 	if err != nil {
-		// 解析失败不算 fatal —— title 留空走 AI 兜底
+		// 解析失败不算 fatal —— title 留空,自由保存路径仍可用
 		slog.Warn("library: pdfparse failed", "err", err, "job_id", jobID)
 		parsed = &pdfparse.Result{}
 	}
@@ -264,7 +262,7 @@ func (h *Handler) UploadAndResolve(c *gin.Context) {
 	}
 
 	// (AI 兜底识别已下线 —— 防止滥用大模型 token。三源搜索没命中时,confirmFree
-	// 仍会用 pdftotext heuristic 抽到的 title/abstract 落到 ai_* 字段,保证自由保存可用)
+	// 仍会用 pdftotext heuristic 抽到的 title/abstract 落到 og_* 字段,保证自由保存可用)
 
 	// Step 4: 持久化 job state,推 ready 事件
 	if err := saveJob(ctx, jobID, job); err != nil {
@@ -373,13 +371,13 @@ func (h *Handler) ConfirmUploadJob(c *gin.Context) {
 	}
 
 	// decision == "free"
-	paper, err := h.confirmFree(ctx, db, uid, folderID, bucket, job, &now)
+	paper, merged, err := h.confirmFree(ctx, db, uid, folderID, bucket, job, &now)
 	if err != nil {
 		writeConfirmError(c, err)
 		return
 	}
 	deleteJob(ctx, req.JobID)
-	utils.Success(c, ConfirmUploadJobResponse{Paper: paper, Merged: false})
+	utils.Success(c, ConfirmUploadJobResponse{Paper: paper, Merged: merged})
 }
 
 // writeConfirmError 把 confirmLinked / confirmFree 抛出的错误统一回前端:
@@ -445,10 +443,7 @@ func (h *Handler) confirmLinked(
 			RawJSON:       choice.Raw,
 			LinkState:     LinkStateLinked,
 			Origin:        OriginUpload, // 用户上传 PDF 关联到上游的行,后续展示走 upload 主操作
-			// og_* 字段 —— 保留 AI / heuristic 抽取结果作参照
-		}
-		if job.AIMeta != nil {
-			fillOGFields(newPaper, job.AIMeta)
+			// og_* 留空 —— linked 行展示走上游元数据,og 只承接用户后续手动编辑
 		}
 		// 风控 + 插入原子化:锁用户区间 → 计数 → 插入,撞 1000 上限直接退回
 		if err := insertPaperAtomic(db, newPaper); err != nil {
@@ -485,7 +480,7 @@ func (h *Handler) confirmLinked(
 		return &refreshed, false, nil
 	}
 
-	// 合并:把 tmp 移到既有行的 key,更新 PDF 元数据 + og_* 字段
+	// 合并:把 tmp 移到既有行的 key,更新 PDF 元数据(og_* 不动 —— 用户侧真值)
 	newKey := fmt.Sprintf("papers/%d/%d/%s.pdf", uid, existing.ID, job.SHA256)
 	if err := movePdfTmpToFinal(ctx, bucket, job.TmpObjectKey, newKey); err != nil {
 		return nil, false, fmt.Errorf("move pdf to final: %w", err)
@@ -504,9 +499,6 @@ func (h *Handler) confirmLinked(
 		"pdf_uploaded_at":       now,
 		"link_state":            LinkStateLinked,
 	}
-	if job.AIMeta != nil {
-		applyOGUpdates(updates, job.AIMeta)
-	}
 	if err := db.Model(&UserLibraryPaper{}).Where("id = ?", existing.ID).Updates(updates).Error; err != nil {
 		return nil, false, fmt.Errorf("update existing: %w", err)
 	}
@@ -519,11 +511,11 @@ func (h *Handler) confirmLinked(
 
 // confirmFree decision=free 路径 —— 落自由文件
 // source='local', source_paper_id=sha256(PDF 内容)。
-// 重复上传同 PDF → 唯一键冲突 → 合并到既有自由文件行。
+// 重复上传同 PDF → 唯一键冲突 → 合并到既有自由文件行(返回 merged=true)。
 func (h *Handler) confirmFree(
 	ctx context.Context, db *gorm.DB, uid uint64, folderID *uint64,
 	bucket string, job *JobState, now *time.Time,
-) (*UserLibraryPaper, error) {
+) (*UserLibraryPaper, bool, error) {
 	// 查同 sha 是否已经收过为自由文件(秒传)
 	var existing UserLibraryPaper
 	q := db.Where("user_id = ? AND source = ? AND source_paper_id = ?",
@@ -531,10 +523,16 @@ func (h *Handler) confirmFree(
 	merging := q.Error == nil
 
 	if merging {
-		// 同一 PDF 已经传过 —— 只更新 PDF 元数据 + og_*(若新一次 AI 抽取得更全)
+		// 同一 PDF 已经传过(秒传)—— 更新 PDF 元数据;og_* 只填空:
+		// 既有 og 非空(可能是用户手动编辑)绝不覆盖,只把 parsed 值补进为空的 og 字段
 		newKey := fmt.Sprintf("papers/%d/%d/%s.pdf", uid, existing.ID, job.SHA256)
 		if err := movePdfTmpToFinal(ctx, bucket, job.TmpObjectKey, newKey); err != nil {
-			return nil, fmt.Errorf("move pdf to final: %w", err)
+			return nil, false, fmt.Errorf("move pdf to final: %w", err)
+		}
+		// 若旧 key 不同 → 异步删旧(对齐 confirmLinked 合并分支),避免 MinIO 孤儿
+		if existing.PdfObjectKey != "" && existing.PdfObjectKey != newKey {
+			oldKey := existing.PdfObjectKey
+			go cleanupTmpObject(bucket, oldKey)
 		}
 		updates := map[string]interface{}{
 			"pdf_object_key":        newKey,
@@ -544,20 +542,15 @@ func (h *Handler) confirmFree(
 			"pdf_mime":              pdfContentType,
 			"pdf_uploaded_at":       now,
 		}
-		if job.AIMeta != nil {
-			applyOGUpdates(updates, job.AIMeta)
-		} else {
-			// 秒传 + 新版 heuristic 抽出更多字段 → 覆盖空字段(非空字段不动)
-			applyParsedUpdatesIfPresent(updates, job)
-		}
+		applyParsedFillEmptyOG(updates, &existing, job)
 		if err := db.Model(&UserLibraryPaper{}).Where("id = ?", existing.ID).Updates(updates).Error; err != nil {
-			return nil, fmt.Errorf("update existing free: %w", err)
+			return nil, false, fmt.Errorf("update existing free: %w", err)
 		}
 		var refreshed UserLibraryPaper
 		if err := db.First(&refreshed, existing.ID).Error; err != nil {
-			return nil, fmt.Errorf("refresh: %w", err)
+			return nil, false, fmt.Errorf("refresh: %w", err)
 		}
-		return &refreshed, nil
+		return &refreshed, true, nil
 	}
 
 	// 新建自由文件行 —— 正常字段(source/source_paper_id/title/...)按规则填:
@@ -572,36 +565,32 @@ func (h *Handler) confirmFree(
 		LinkState: LinkStateFree,
 		Origin:    OriginUpload, // 自由文件一律是上传上来的
 	}
-	if job.AIMeta != nil {
-		fillOGFields(newPaper, job.AIMeta)
-	} else {
-		// AI 已下线 —— 用 pdfparse heuristic 抽到的全部字段填 og_*。
-		// 任一字段为空时不写,保持 GORM default。
-		newPaper.OGTitle = job.ParsedTitle
-		newPaper.OGAbstract = job.ParsedAbstract
-		newPaper.OGVenue = job.ParsedVenue
-		newPaper.OGDOI = job.ParsedDOI
-		if job.ParsedYear > 0 {
-			y := job.ParsedYear
-			newPaper.OGYear = &y
-		}
-		if b, ok := marshalAuthorNames(job.ParsedAuthors); ok {
-			newPaper.OGAuthorsJSON = b
-		}
+	// 用 pdfparse heuristic 抽到的全部字段填 og_*(新行,og 本就为空,不存在覆盖)。
+	// 任一字段为空时不写,保持 GORM default。
+	newPaper.OGTitle = job.ParsedTitle
+	newPaper.OGAbstract = job.ParsedAbstract
+	newPaper.OGVenue = job.ParsedVenue
+	newPaper.OGDOI = job.ParsedDOI
+	if job.ParsedYear > 0 {
+		y := job.ParsedYear
+		newPaper.OGYear = &y
+	}
+	if b, ok := marshalAuthorNames(job.ParsedAuthors); ok {
+		newPaper.OGAuthorsJSON = b
 	}
 	// 风控 + 插入原子化:锁用户区间 → 计数 → 插入,撞 1000 上限直接退回
 	if err := insertPaperAtomic(db, newPaper); err != nil {
 		if errors.Is(err, errPaperLimit) {
-			return nil, fmt.Errorf("文献集已达上限(%d 条),请删除一些不用的论文再试", MaxPapersPerUser)
+			return nil, false, fmt.Errorf("文献集已达上限(%d 条),请删除一些不用的论文再试", MaxPapersPerUser)
 		}
-		return nil, fmt.Errorf("create free paper row: %w", err)
+		return nil, false, fmt.Errorf("create free paper row: %w", err)
 	}
 	newKey := fmt.Sprintf("papers/%d/%d/%s.pdf", uid, newPaper.ID, job.SHA256)
 	if err := movePdfTmpToFinal(ctx, bucket, job.TmpObjectKey, newKey); err != nil {
 		// 同 linked 路径:回滚 DB 行 + 同步清 tmp,避免短期孤儿。
 		db.Delete(&UserLibraryPaper{}, newPaper.ID)
 		cleanupTmpObject(bucket, job.TmpObjectKey)
-		return nil, fmt.Errorf("move pdf to final: %w", err)
+		return nil, false, fmt.Errorf("move pdf to final: %w", err)
 	}
 	if err := db.Model(&UserLibraryPaper{}).Where("id = ?", newPaper.ID).Updates(map[string]interface{}{
 		"pdf_object_key":        newKey,
@@ -611,13 +600,13 @@ func (h *Handler) confirmFree(
 		"pdf_mime":              pdfContentType,
 		"pdf_uploaded_at":       now,
 	}).Error; err != nil {
-		return nil, fmt.Errorf("update pdf meta: %w", err)
+		return nil, false, fmt.Errorf("update pdf meta: %w", err)
 	}
 	var refreshed UserLibraryPaper
 	if err := db.First(&refreshed, newPaper.ID).Error; err != nil {
-		return nil, fmt.Errorf("refresh: %w", err)
+		return nil, false, fmt.Errorf("refresh: %w", err)
 	}
-	return &refreshed, nil
+	return &refreshed, false, nil
 }
 
 // ============================================================================
@@ -656,58 +645,37 @@ func marshalAuthorNames(names []string) (json.RawMessage, bool) {
 	return b, true
 }
 
-// fillOGFields 把 AI/heuristic 抽到的字段写到 paper 的 og_* 列。
-// 用于 INSERT 路径(新建 paper 行时填充)。
-func fillOGFields(p *UserLibraryPaper, m *AIPaperMeta) {
-	p.OGTitle = m.Title
-	p.OGAbstract = m.Abstract
-	if b, ok := marshalAuthorNames(m.Authors); ok {
-		p.OGAuthorsJSON = b
-	}
-	if m.Year > 0 {
-		y := m.Year
-		p.OGYear = &y
-	}
-	p.OGVenue = m.Venue
-	p.OGDOI = m.DOI
+// jsonFieldEmpty 判断 JSON 列是否"语义为空" —— 未设置("")、null、空数组([])
+// 都视为空。og_authors_json / authors_json 的填空判断共用。
+func jsonFieldEmpty(raw json.RawMessage) bool {
+	s := strings.TrimSpace(string(raw))
+	return s == "" || s == "null" || s == "[]"
 }
 
-// applyParsedUpdatesIfPresent 把 heuristic 抽到的字段写进 updates。
-// 只覆盖**非空**的 parsed 字段 —— 空字段不写,避免把上一次的好结果擦掉。
-func applyParsedUpdatesIfPresent(updates map[string]interface{}, job *JobState) {
-	if job.ParsedTitle != "" {
+// applyParsedFillEmptyOG 秒传(同 sha 重复上传)路径把 heuristic 抽到的字段补进 og_*。
+// **只填空**:og 是用户侧真值,自动化路径绝不覆盖非空 og —— 仅当既有行 og 字段为空
+// 且本次 parsed 值非空时才写入。
+func applyParsedFillEmptyOG(updates map[string]interface{}, existing *UserLibraryPaper, job *JobState) {
+	if strings.TrimSpace(existing.OGTitle) == "" && job.ParsedTitle != "" {
 		updates["og_title"] = job.ParsedTitle
 	}
-	if job.ParsedAbstract != "" {
+	if strings.TrimSpace(existing.OGAbstract) == "" && job.ParsedAbstract != "" {
 		updates["og_abstract"] = job.ParsedAbstract
 	}
-	if job.ParsedVenue != "" {
+	if strings.TrimSpace(existing.OGVenue) == "" && job.ParsedVenue != "" {
 		updates["og_venue"] = job.ParsedVenue
 	}
-	if job.ParsedDOI != "" {
+	if strings.TrimSpace(existing.OGDOI) == "" && job.ParsedDOI != "" {
 		updates["og_doi"] = job.ParsedDOI
 	}
-	if job.ParsedYear > 0 {
+	if existing.OGYear == nil && job.ParsedYear > 0 {
 		updates["og_year"] = job.ParsedYear
 	}
-	if b, ok := marshalAuthorNames(job.ParsedAuthors); ok {
-		updates["og_authors_json"] = b
+	if jsonFieldEmpty(existing.OGAuthorsJSON) {
+		if b, ok := marshalAuthorNames(job.ParsedAuthors); ok {
+			updates["og_authors_json"] = b
+		}
 	}
-}
-
-// applyOGUpdates 用 AI 抽取结果**全量覆盖** og_* 字段(用于 UPDATE 路径)。
-// 与 applyParsedUpdatesIfPresent 不同 —— 这里假设 AI 结果是权威的, 空字段也覆盖。
-func applyOGUpdates(updates map[string]interface{}, m *AIPaperMeta) {
-	updates["og_title"] = m.Title
-	updates["og_abstract"] = m.Abstract
-	if b, ok := marshalAuthorNames(m.Authors); ok {
-		updates["og_authors_json"] = b
-	}
-	if m.Year > 0 {
-		updates["og_year"] = m.Year
-	}
-	updates["og_venue"] = m.Venue
-	updates["og_doi"] = m.DOI
 }
 
 // movePdfTmpToFinal 把 tmp/<jobId>.pdf 移动到正式 key —— MinIO 没有原生 rename,
@@ -733,4 +701,3 @@ func movePdfTmpToFinal(ctx context.Context, bucket, tmpKey, finalKey string) err
 	}
 	return nil
 }
-

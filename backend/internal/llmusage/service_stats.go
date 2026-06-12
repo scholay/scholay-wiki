@@ -20,6 +20,10 @@ type Overview struct {
 	ByModel    []BreakdownItem `json:"by_model"`
 	ByProvider []BreakdownItem `json:"by_provider"`
 	TopUsers   []UserUsageItem `json:"top_users"`
+	// 「天 × 维度」交叉(主图分段堆叠柱:按模型 / 按功能 两种堆叠方式)。
+	// 稀疏(只有有用量的 天×取值 才有行), 日期连续性由前端用 Daily 当 spine 合并。
+	DailyByModel   []DayDimPoint `json:"daily_by_model"`
+	DailyByFeature []DayDimPoint `json:"daily_by_feature"`
 }
 
 const (
@@ -72,17 +76,35 @@ func (s *Service) GetOverview(f StatsFilter) (*Overview, error) {
 	if err != nil {
 		return nil, err
 	}
+	dailyByModel, err := s.repo.StatsByDayDimension(f, "model")
+	if err != nil {
+		return nil, err
+	}
+	dailyByFeature, err := s.repo.StatsByDayDimension(f, "feature")
+	if err != nil {
+		return nil, err
+	}
 
 	return &Overview{
-		Days:       f.Days,
-		Totals:     *totals,
-		Daily:      fillDailyGaps(daily, f),
-		ByFeature:  labelBreakdown(byFeature, FeatureLabel),
-		BySource:   labelBreakdown(bySource, SourceLabel),
-		ByModel:    labelBreakdown(byModel, keyAsLabel),
-		ByProvider: labelBreakdown(byProvider, keyAsLabel),
-		TopUsers:   topUsers,
+		Days:           f.Days,
+		Totals:         *totals,
+		Daily:          fillDailyGaps(daily, f),
+		ByFeature:      labelBreakdown(byFeature, FeatureLabel),
+		BySource:       labelBreakdown(bySource, SourceLabel),
+		ByModel:        labelBreakdown(byModel, keyAsLabel),
+		ByProvider:     labelBreakdown(byProvider, keyAsLabel),
+		TopUsers:       topUsers,
+		DailyByModel:   labelDayDim(dailyByModel, keyAsLabel),
+		DailyByFeature: labelDayDim(dailyByFeature, FeatureLabel),
 	}, nil
+}
+
+// labelDayDim 给「天 × 维度」每格填 Label(展示名), 与 labelBreakdown 同口径。
+func labelDayDim(items []DayDimPoint, labeler func(string) string) []DayDimPoint {
+	for i := range items {
+		items[i].Label = labeler(items[i].Key)
+	}
+	return items
 }
 
 // GetLogs 明细分页(校验 page/pageSize/sort)。

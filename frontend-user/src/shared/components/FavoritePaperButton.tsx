@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { Bookmark, BookmarkCheck, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
@@ -8,8 +9,9 @@ import {
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { usePendingAction } from '@/stores/pending-action.store';
+import { useFavoriteBurst } from '@/stores/favorite-burst.store';
 import { ConfirmPopover } from '@/shared/components/ConfirmPopover';
-import type { Paper, UpstreamSource } from '@/shared/api/types';
+import type { Paper, UpstreamSource, UserLibraryPaper } from '@/shared/api/types';
 
 /**
  * 收藏按钮 —— 全局唯一实现,跨搜索 / 矩阵 / Quick Add / 详情页等所有场景。
@@ -45,11 +47,27 @@ export interface FavoritePaperButtonProps {
   variant?: FavoriteButtonVariant;
   size?: FavoriteButtonSize;
   /**
-   * **仅控制错误 toast** —— 成功反馈由 useFavoriteBurst 全局统筹(可见 sidebar
-   * → "+1" 动画,无可见 sink → toast),与本组件无关。默认 true。
+   * 控制错误 / 取消收藏 toast,并影响收藏成功反馈的通道(默认 true):
+   *   - true  : 有可见 FavoriteBurst sink → "+1" 动画;无 sink → 带「完善信息」
+   *             深链 action 的成功 toast(跳 /library?manage=… 打开管理弹窗)
+   *   - false : 嵌入场景(矩阵单元格 / 弹窗内)——沿用 burst store 原行为
+   *             (有 sink 飞 "+1",无 sink 普通 toast 兜底),且错误不弹 toast
    */
   showToast?: boolean;
-  onSuccess?: () => void;
+  /**
+   * 收藏成功后完全静默(不 burst 也不 toast,仍回调 onSuccess)。
+   * 调用方自己有成功反馈时用(如 OnlineSearchTab 自己 toast),避免
+   * burst-store 无 sink 时的兜底 toast 造成双 toast。默认 false,
+   * 不影响其他调用方;优先级高于 showToast 的成功反馈通道。
+   */
+  silentSuccess?: boolean;
+  /**
+   * 收藏成功回调,带后端创建的文献集行。
+   * 取消收藏成功不触发(行已删除,无值可传)。
+   */
+  onSuccess?: (row: UserLibraryPaper) => void;
+  /** 取消收藏成功后回调(父级本地"已收藏"状态需要回退时用) */
+  onUnfavorited?: () => void;
   onError?: (err: Error) => void;
   /** 额外的容器 className,通常只用来加 hover-show 控制 */
   className?: string;
@@ -88,7 +106,9 @@ export function FavoritePaperButton({
   variant = 'chip',
   size = 'md',
   showToast = true,
+  silentSuccess = false,
   onSuccess,
+  onUnfavorited,
   onError,
   className,
   collapseLabel = false,
@@ -96,6 +116,7 @@ export function FavoritePaperButton({
   const favMut = useFavoritePaper();
   const unfavMut = useUnfavoritePaper();
   const token = useAuthStore((s) => s.token);
+  const navigate = useNavigate();
   // 仅当本按钮触发的 mutation 才算 pending(多个按钮共用同一个 hook 实例时正确)
   const isFavPending =
     favMut.isPending && favMut.variables?.paper.paperId === paper.paperId;
@@ -112,10 +133,37 @@ export function FavoritePaperButton({
       toast.info('登录后自动收藏这篇论文');
       return;
     }
+    // silentSuccess —— 跳过 useFavoritePaper 默认的 pushBurst,成功反馈由
+    // 下面 onSuccess 单通道统筹(避免 burst + toast 双重反馈)。
     favMut.mutate(
-      { paper, folderId },
+      { paper, folderId, silentSuccess: true },
       {
-        onSuccess: () => onSuccess?.(),
+        onSuccess: (row) => {
+          if (silentSuccess) {
+            // 调用方自带成功反馈(单通道)→ 既不 burst 也不 toast
+            onSuccess?.(row);
+            return;
+          }
+          const burst = useFavoriteBurst.getState();
+          if (showToast === false || burst.sinkCount > 0) {
+            // 嵌入场景照旧走 burst store(行为与改造前一致);
+            // 有可见 sink 时飞 "+1" 动画(sidebar 文献集段就是管理入口)
+            burst.pushBurst();
+          } else {
+            // 无 sink 的独立场景(详情页 / 移动端 feed)→ 成功 toast 带
+            // 「完善信息」深链,LibraryPage 解析 ?manage= 后打开管理弹窗
+            toast.success('已加入文献集', {
+              action: {
+                label: '完善信息',
+                onClick: () =>
+                  navigate(
+                    `/library?manage=${row.source}:${encodeURIComponent(row.source_paper_id)}`
+                  ),
+              },
+            });
+          }
+          onSuccess?.(row);
+        },
         onError: (err: unknown) => {
           const e = err instanceof Error ? err : new Error('收藏失败');
           if (showToast) toast.error(e.message);
@@ -136,7 +184,7 @@ export function FavoritePaperButton({
         {
           onSuccess: () => {
             if (showToast) toast.success('已取消收藏');
-            onSuccess?.();
+            onUnfavorited?.();
             resolve();
           },
           onError: (err: unknown) => {

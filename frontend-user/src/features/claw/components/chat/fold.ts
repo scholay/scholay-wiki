@@ -10,11 +10,9 @@
  * 加 fold 算法。
  */
 
-import { stripAgentBridgePrefix } from '@/shared/lib/agent-prefix';
 import {
   replayHistoryAsTurns as sharedReplayHistoryAsTurns,
-  extractHistoryText,
-  type ParsedUserEntry,
+  parseUserEntryWithAttachments,
 } from '@/shared/lib/agent-history';
 import type { ClawHistoryEntry, ServerMessage } from '../../api/types';
 
@@ -145,126 +143,11 @@ export function foldMessagesIntoTurns(
 
 // ─── transcript history → Turn[] ─────────────────────────────────────────
 
-type AnthropicBlock = {
-  type?: string;
-  text?: string;
-  thinking?: string;
-  id?: string;
-  name?: string;
-  input?: unknown;
-  tool_use_id?: string;
-  content?: unknown;
-  is_error?: boolean;
-  source?: { type: string; media_type?: string; data?: string };
-};
+// user 正文抽取 + agentbridge 前缀剥离 + `@"path"` 附件前缀/内联 image 还原 全部收口到
+// @/shared/lib/agent-history(parseUserEntryWithAttachments)—— admin 会话监控渲染 claw
+// transcript 也复用同一份, 保证「管理端看到的 = 用户看到的」。
 
-// user 正文抽取 + agentbridge 注入前缀剥离 已收口到 @/shared/lib/agent-history
-// (extractHistoryText)与下面的 clawParseUserEntry。claw 只额外负责附件 chip 还原。
-
-function extractUserAttachments(content: unknown): Turn['userAttachments'] {
-  if (!Array.isArray(content)) return undefined;
-  const out: NonNullable<Turn['userAttachments']> = [];
-  for (const block of content) {
-    if (!block || typeof block !== 'object') continue;
-    const b = block as AnthropicBlock;
-    if (b.type === 'image') {
-      out.push({
-        type: 'image',
-        name: 'image',
-        mimeType: b.source?.media_type ?? 'image/png',
-        size: b.source?.data ? Math.floor((b.source.data.length * 3) / 4) : 0,
-        // 老格式 transcript 里图片直接内联 base64 —— 拼成 data URL 当缩略图源。
-        previewUrl: b.source?.data
-          ? `data:${b.source.media_type ?? 'image/png'};base64,${b.source.data}`
-          : undefined,
-      });
-    }
-  }
-  return out.length > 0 ? out : undefined;
-}
-
-// ─── 历史回放: 从 user 文本里恢复附件原名 ──────────────────────────────────
-//
-// 当前 agent 的 buildUserContent(conversationService.ts) 把附件落成纯文本前缀:
-//   `@"/home/bun/sessions/<sid>/<uuid>-screenshot.png" @"/.../<uuid>-paper.pdf" <用户文字>`
-// transcript 里没有 image block / base64 —— 只有这段 @"path"。若不处理, 回放时:
-//   (1) 整条 @"绝对路径" 会泄漏进用户气泡, 用户看到的就是 UUID 文件名;
-//   (2) 附件不会以 chip 形式出现。
-// 这里把开头的 @"path" 前缀剥下来, 还原 **去掉 UUID 前缀的原始文件名** 当 chip。
-
-/** agent 存盘时加的 `${crypto.randomUUID()}-` 前缀 (8-4-4-4-12 小写 hex)。 */
-const STORED_UUID_PREFIX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/i;
-const IMAGE_EXT_RE = /\.(png|jpe?g|webp|gif|bmp|svg|avif|heic|heif)$/i;
-/** 用户没打字、只发附件时 agent 注入的占位句 —— 回放时不该显示给用户。 */
-const EMPTY_ATTACHMENT_PLACEHOLDER = 'Please analyze the attached files.';
-
-function attachmentMimeFromName(name: string): string {
-  const ext = name.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] ?? '';
-  const map: Record<string, string> = {
-    png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp',
-    gif: 'image/gif', bmp: 'image/bmp', svg: 'image/svg+xml', avif: 'image/avif',
-    pdf: 'application/pdf', md: 'text/markdown', txt: 'text/plain', csv: 'text/csv',
-    json: 'application/json',
-    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  };
-  if (map[ext]) return map[ext];
-  return IMAGE_EXT_RE.test(name) ? 'image/*' : 'application/octet-stream';
-}
-
-/**
- * 剥离 user 文本开头的 `@"path"` 附件前缀, 返回 { 清理后的正文, 还原的附件 chip }。
- * 没有前缀时原样返回 + 空附件。
- */
-function splitAttachmentPrefix(text: string): {
-  text: string;
-  attachments: NonNullable<Turn['userAttachments']>;
-} {
-  const attachments: NonNullable<Turn['userAttachments']> = [];
-  let rest = text;
-  const tokenRe = /^@"([^"]+)"\s*/;
-  let m: RegExpExecArray | null;
-  while ((m = tokenRe.exec(rest)) !== null) {
-    const abs = m[1];
-    const base = abs.split('/').pop() ?? abs;
-    // 只认真附件: 绝对路径 + basename 带 agent 落盘的 UUID 前缀。否则是用户自己打的
-    // @"..." 文本(比如让助手处理一段带引号的内容), 原样留在气泡里, 不当附件剥走。
-    if (!abs.startsWith('/') || !STORED_UUID_PREFIX.test(base)) break;
-    const name = base.replace(STORED_UUID_PREFIX, '') || base;
-    attachments.push({
-      type: IMAGE_EXT_RE.test(name) ? 'image' : 'file',
-      name,
-      mimeType: attachmentMimeFromName(name),
-      size: 0,
-      path: abs,
-    });
-    rest = rest.slice(m[0].length);
-  }
-  // 只发附件、没打字 → 去掉 agent 注入的英文占位句, 留空正文。
-  if (attachments.length > 0 && rest.trim() === EMPTY_ATTACHMENT_PLACEHOLDER) {
-    rest = '';
-  }
-  return { text: rest, attachments };
-}
-
-/**
- * claw 的 user entry 解析:先剥 `@"path"` 附件前缀(恢复原名 chip),再剥 agentbridge
- * SystemPrompt 前缀;附件优先取 @path 文本前缀,老格式才回落到内联 image block(二选一不叠加)。
- * 折叠主逻辑(tool 块配对 / thinking / 相邻文本合并)走 shared 的 replayHistoryAsTurns。
- */
-function clawParseUserEntry(content: unknown): ParsedUserEntry {
-  const rawText = extractHistoryText(content);
-  const { text: bodyText, attachments: pathAttachments } = splitAttachmentPrefix(rawText);
-  const imageAttachments = extractUserAttachments(content) ?? [];
-  const attachments = pathAttachments.length > 0 ? pathAttachments : imageAttachments;
-  return {
-    text: stripAgentBridgePrefix(bodyText),
-    attachments: attachments.length > 0 ? attachments : undefined,
-  };
-}
-
-/** 智能助手历史回放 = shared 核心 + claw 附件解析。 */
+/** 智能助手历史回放 = shared 核心 + 附件还原解析(shared 同款)。 */
 export function replayHistoryAsTurns(entries: ClawHistoryEntry[] | null | undefined): Turn[] {
-  return sharedReplayHistoryAsTurns(entries, { parseUserEntry: clawParseUserEntry });
+  return sharedReplayHistoryAsTurns(entries, { parseUserEntry: parseUserEntryWithAttachments });
 }

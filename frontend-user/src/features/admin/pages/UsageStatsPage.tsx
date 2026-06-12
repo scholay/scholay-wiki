@@ -13,6 +13,7 @@ import { AdminPageLayout } from '../components/AdminPageLayout';
 import { StatCard } from '../components/StatCard';
 import { DateRangeControl, type DateWindow } from '../components/DateRangeControl';
 import { useUsageStatsSummary, useUsageStatsFunnel } from '../api/usage-stats';
+import { buildDailyTrend } from '@/shared/lib/daily-trend';
 
 /**
  * 使用统计 (功能使用统计 v2) —— 取代旧"使用日志"页的统计部分。
@@ -27,6 +28,7 @@ export function UsageStatsPage() {
   const funnel = useUsageStatsFunnel(win);
 
   const s = summary.data;
+  const usageTrend = buildDailyTrend(s?.daily ?? [], { valueKeys: ['count'] });
   const features = s?.by_feature ?? [];
   const maxFeature = Math.max(1, ...features.map((f) => f.count));
   const stages = funnel.data ?? [];
@@ -64,11 +66,14 @@ export function UsageStatsPage() {
 
       {/* 每日趋势 */}
       <section className="rounded-md border border-border bg-background p-4 mb-6">
-        <h3 className="text-sm font-bold text-foreground mb-3">每日使用趋势</h3>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-bold text-foreground">每日使用趋势</h3>
+          {usageTrend.isLive && <span className="text-2xs text-faint">— — 今日(进行中)</span>}
+        </div>
         <div className="h-56">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
-              data={s?.daily ?? []}
+              data={usageTrend.data}
               margin={{ top: 8, right: 8, left: -20, bottom: 0 }}
             >
               <defs>
@@ -100,15 +105,28 @@ export function UsageStatsPage() {
                   fontSize: 12,
                 }}
                 labelStyle={{ color: 'var(--color-muted-foreground)', fontSize: 11 }}
+                formatter={(v) => [Number(v ?? 0).toLocaleString(), '使用次数']}
               />
               <Area
                 type="monotone"
-                dataKey="count"
+                dataKey="count__main"
                 name="使用次数"
                 stroke="var(--color-brand-green)"
                 fill="url(#usageGrad)"
                 strokeWidth={2}
+                connectNulls={false}
               />
+              {usageTrend.isLive && (
+                <Area
+                  type="monotone"
+                  dataKey="count__live"
+                  stroke="var(--color-brand-green)"
+                  strokeWidth={2}
+                  strokeDasharray="5 4"
+                  fill="none"
+                  connectNulls={false}
+                />
+              )}
             </AreaChart>
           </ResponsiveContainer>
         </div>

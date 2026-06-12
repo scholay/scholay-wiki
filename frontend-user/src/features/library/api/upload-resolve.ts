@@ -9,7 +9,6 @@ import type { PaperSource, UserLibraryPaper } from '@/shared/api/types';
  * 流式协议(后端 handler_upload_resolve.go 推):
  *   event: parsed   { title, abstract, sha256, has_text }
  *   event: searched { papers: SearchHit[] }    // title 非空才推
- *   event: ai_done  { title, abstract, ... }   // searched 空时推
  *   event: ready    { job_id }                 // 末尾
  *   event: error    { message }
  *
@@ -59,19 +58,9 @@ export interface SearchHit {
   raw?: unknown;
 }
 
-export interface AIMeta {
-  title: string;
-  abstract: string;
-  authors: string[];
-  year: number;
-  venue: string;
-  doi: string;
-}
-
 export type UploadResolveEvent =
   | { type: 'parsed'; payload: ParsedEvent }
   | { type: 'searched'; payload: { papers: SearchHit[] } }
-  | { type: 'ai_done'; payload: AIMeta }
   | { type: 'ready'; payload: { job_id: string } }
   | { type: 'error'; payload: { message: string } };
 
@@ -121,9 +110,6 @@ export async function uploadAndResolveStream({
             type: 'searched',
             payload: payload as { papers: SearchHit[] },
           });
-          break;
-        case 'ai_done':
-          onEvent({ type: 'ai_done', payload: payload as AIMeta });
           break;
         case 'ready': {
           const p = payload as { job_id: string };

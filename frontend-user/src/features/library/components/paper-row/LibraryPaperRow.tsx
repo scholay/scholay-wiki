@@ -26,12 +26,12 @@ import { cn } from '@/shared/lib/utils';
 import { pickEffectiveFields } from '../../lib/pick-field';
 import { useUnlinkPaper } from '../../api/relink';
 
-// 统一管理弹窗(在线关联 / 元数据 / PDF 三 tab)—— lazy + 条件 mount:用户没点
-// chip 上任一动作前根本不下载也不实例化,首屏轻很多。
-const PaperManageDialog = lazy(() =>
-  import('../PaperManageDialog').then((m) => ({ default: m.PaperManageDialog })),
+// 统一工作台弹窗的「管理」语境(元数据 / PDF / 在线关联三 tab)—— lazy + 条件
+// mount:用户没点 chip 上任一动作前根本不下载也不实例化,首屏轻很多。
+const PaperWorkbenchDialog = lazy(() =>
+  import('../PaperWorkbenchDialog').then((m) => ({ default: m.PaperWorkbenchDialog })),
 );
-import type { ManageTab } from '../PaperManageDialog';
+import type { ManageTab } from '../PaperWorkbenchDialog';
 import { AuthorsRow } from './AuthorsRow';
 import { MetaRow } from './MetaRow';
 import { RowActionsMenu } from './RowActionsMenu';
@@ -132,7 +132,8 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
     setManageOpen(true);
   };
 
-  // 取消关联:清上游元数据、退回 free,只保留 og_*。是直接动作(非弹窗),先确认再调。
+  // 取消关联:后端快照式 unlink —— og 空字段自动固化当前展示值再清上游元数据,
+  // 显示内容不变,行退回 free。是直接动作(非弹窗),先确认再调。
   const unlinkMut = useUnlinkPaper();
   const confirm = useConfirm();
   const apiToast = useApiToast();
@@ -140,7 +141,7 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
     const ok = await confirm({
       title: '取消关联?',
       description:
-        '将清除该论文的上游元数据(标题/摘要/作者/期刊/DOI 等),仅保留你本地编辑或识别的信息;可随时重新在线关联。',
+        '取消后,这篇文献的信息和 PDF 都会保留,只是不再关联在线论文;随时可以重新关联。',
       confirmText: '取消关联',
     });
     if (!ok) return;
@@ -295,16 +296,16 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
         </div>
       </div>
 
-      {/* 统一管理弹窗(在线关联 / 元数据 / PDF 三 tab)—— lazy + 条件 mount:
+      {/* 统一工作台弹窗 ·「管理」语境 —— lazy + 条件 mount:
           open=false 时 chunk 不下载,open=true 才走 Suspense。各入口 chip 通过 manageTab 指定初始 tab。
+          弹窗内部用 by-upstream 订阅行数据保活,PATCH 后不会读到这里的陈旧 paper。
           (linked 行的"取消关联"是 chip 菜单的 onUnlink 直接动作,不走本弹窗。) */}
       {manageOpen && (
         <Suspense fallback={null}>
-          <PaperManageDialog
+          <PaperWorkbenchDialog
             open
             onOpenChange={setManageOpen}
-            paper={paper}
-            initialTab={manageTab}
+            initial={{ mode: 'manage', paper, tab: manageTab }}
           />
         </Suspense>
       )}
@@ -343,7 +344,7 @@ function TypeBadge({
     return (
       <span
         className="shrink-0 mt-0.5 inline-flex items-center h-4 px-1.5 rounded-sm bg-surface-2 text-faint text-2xs font-bold"
-        title="本地文件 —— 用户上传的 PDF,未关联到上游论文"
+        title="这篇文献还没有关联在线论文,内容由你自己维护"
       >
         本地
       </span>

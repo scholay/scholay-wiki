@@ -814,6 +814,15 @@ type SessionStreamState = {
   }
   /** 本轮最近一次见到的模型 code(system-init / assistant 消息携带),用于填进 message_complete.usage.model。 */
   lastModel?: string
+  /** 上一轮已上报的「会话累计」token 计数(取自 CLI result 帧的 session_total_usage 全局计数器)。
+   *  本轮真实总花销 = 当前累计 − 上轮累计;全局计数器含主轮 + 子 agent(Task) + 上下文压缩 + advisor,
+   *  故增量不漏带外用量、又不与历史轮重复。CLI 子进程重启会清零累计,故检测回退并从 0 起算。 */
+  reportedSessionTotals?: {
+    input: number
+    output: number
+    cacheRead: number
+    cacheCreation: number
+  }
 }
 
 const sessionStreamStates = new Map<string, SessionStreamState>()
@@ -997,6 +1006,59 @@ async function ensureCliSessionStarted(
     if (sessionStartupPromises.get(sessionId) === startup) {
       sessionStartupPromises.delete(sessionId)
     }
+  }
+}
+
+/**
+ * 计算「本轮真实 token 总花销」并填进 message_complete.usage。
+ *
+ * 优先用 CLI result 帧带的 session_total_usage(全局累计计数器:本会话 CLI 子进程内每一次模型调用 —
+ * 主对话轮 + 子 agent(Task) + 上下文压缩 + advisor)的「相邻轮增量」:既不漏子 agent / 压缩这类不产生
+ * 独立 message_complete 帧的带外用量,又只记增量、绝不与历史轮重复计。
+ * CLI 子进程重启会把全局累计清零 → 检测到任一项回退即视作新进程, 从 0 起算(重启前用量已在历史轮记过)。
+ * 老版 CLI 不带该字段时回退到 cliMsg.usage(仅主轮, 可能漏子 agent / 压缩)。
+ */
+function computeTurnUsage(streamState: SessionStreamState, cliMsg: any): TokenUsage {
+  const model = streamState.lastModel
+  const sess = cliMsg.session_total_usage
+  if (sess && typeof sess === 'object') {
+    const curr = {
+      input: Number(sess.input_tokens) || 0,
+      output: Number(sess.output_tokens) || 0,
+      cacheRead: Number(sess.cache_read_input_tokens) || 0,
+      cacheCreation: Number(sess.cache_creation_input_tokens) || 0,
+    }
+    let prev = streamState.reportedSessionTotals ?? {
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheCreation: 0,
+    }
+    // 任一累计项回退 = CLI 子进程已重启(全局计数器清零)→ 从 0 起算。
+    if (
+      curr.input < prev.input ||
+      curr.output < prev.output ||
+      curr.cacheRead < prev.cacheRead ||
+      curr.cacheCreation < prev.cacheCreation
+    ) {
+      prev = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }
+    }
+    streamState.reportedSessionTotals = curr
+    return {
+      input_tokens: curr.input - prev.input,
+      output_tokens: curr.output - prev.output,
+      cache_read_tokens: curr.cacheRead - prev.cacheRead,
+      cache_creation_tokens: curr.cacheCreation - prev.cacheCreation,
+      model,
+    }
+  }
+  // 回退:老 CLI 无全局累计字段。
+  return {
+    input_tokens: cliMsg.usage?.input_tokens || 0,
+    output_tokens: cliMsg.usage?.output_tokens || 0,
+    cache_read_tokens: cliMsg.usage?.cache_read_input_tokens || 0,
+    cache_creation_tokens: cliMsg.usage?.cache_creation_input_tokens || 0,
+    model,
   }
 }
 
@@ -1239,15 +1301,9 @@ function translateCliMessage(cliMsg: any, sessionId: string): ServerMessage[] {
       return []
 
     case 'result': {
-      // 对话结果（成功或错误）。带上本轮模型(缓存自 init/assistant)+ 缓存 token,
-      // 让后端账本(llm_token_usage)能统计 agent 侧的模型与缓存命中, 而不只是 in/out。
-      const usage: TokenUsage = {
-        input_tokens: cliMsg.usage?.input_tokens || 0,
-        output_tokens: cliMsg.usage?.output_tokens || 0,
-        cache_read_tokens: cliMsg.usage?.cache_read_input_tokens || 0,
-        cache_creation_tokens: cliMsg.usage?.cache_creation_input_tokens || 0,
-        model: streamState.lastModel,
-      }
+      // 对话结果（成功或错误）。本轮 token 总花销取「会话累计计数器的相邻轮增量」(computeTurnUsage),
+      // 覆盖主轮 + 子 agent + 上下文压缩;带上本轮模型, 让后端账本(llm_token_usage)统计模型与缓存命中。
+      const usage: TokenUsage = computeTurnUsage(streamState, cliMsg)
 
       if (cliMsg.is_error) {
         // If the user requested stop, this "error" is just the interrupt

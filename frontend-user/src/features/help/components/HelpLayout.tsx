@@ -1,8 +1,8 @@
 import { type ReactNode } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
+import { TopNav } from '@/app/layouts/TopNav';
 import { Footer } from '@/shared/components/Footer';
-import { BrandName } from '@/shared/components/BrandName';
 import { cn } from '@/shared/lib/utils';
 
 /**
@@ -61,27 +61,29 @@ export function HelpLayout({
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      {/* 顶栏 —— 返回 + 面包屑 + Logo */}
-      <header className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b border-border-soft">
-        <div className={cn('mx-auto px-6 h-12 flex items-center gap-4', outerMaxW)}>
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ChevronLeft className="size-3.5" />
-            返回
-          </button>
-          {breadcrumbs && breadcrumbs.length > 0 && (
+      {/* 全站统一顶部导航 —— 与首页(AppShell)同一个 TopNav,保证一致。
+         TopNav 自身 sticky top-0 h-16;help 页无 sidebar panel,故只显示 Logo + 菜单 + 用户区。 */}
+      <TopNav />
+
+      {/* 面包屑次级行(返回 + 路径)—— 仅内容页(传了 breadcrumbs)渲染,hub 页不需要。
+         不 sticky:导航靠上面的 TopNav,这行只是页面内的路径上下文。 */}
+      {breadcrumbs && breadcrumbs.length > 0 && (
+        <div className="border-b border-border-soft bg-background/95">
+          <div className={cn('mx-auto px-6 h-10 flex items-center gap-4', outerMaxW)}>
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0"
+            >
+              <ChevronLeft className="size-3.5" />
+              返回
+            </button>
             <nav className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">
               {breadcrumbs.map((b, i) => (
                 <span key={i} className="flex items-center gap-1.5 min-w-0">
                   {i > 0 && <span className="text-faint shrink-0">/</span>}
                   {b.to ? (
-                    <Link
-                      to={b.to}
-                      className="hover:text-foreground transition-colors truncate"
-                    >
+                    <Link to={b.to} className="hover:text-foreground transition-colors truncate">
                       {b.label}
                     </Link>
                   ) : (
@@ -90,15 +92,9 @@ export function HelpLayout({
                 </span>
               ))}
             </nav>
-          )}
-          <Link
-            to="/"
-            className="ml-auto text-sm text-foreground hover:opacity-80 transition-opacity"
-          >
-            <BrandName tone="strong" />
-          </Link>
+          </div>
         </div>
-      </header>
+      )}
 
       {/* Hero —— surface-1 软底 + 极淡 brand-red 装饰圈(右上)+ eyebrow 装饰短线 */}
       <section className="relative border-b border-border-soft bg-surface-1 overflow-hidden">

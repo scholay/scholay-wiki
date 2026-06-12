@@ -5,6 +5,7 @@ import {
   FileText,
   MoreHorizontal,
 } from 'lucide-react';
+import { formatSize } from '../../api/pdf';
 import type { ParsedEvent } from '../../api/upload-resolve';
 
 /**
@@ -17,7 +18,7 @@ import type { ParsedEvent } from '../../api/upload-resolve';
  *   - 解析到标题/作者后,卡片底部展示一条
  *
  * react-pdf 用 React.lazy 包,只在卡片真的挂载时拉 chunk(~800KB gzip),
- * 不影响其他 tab(在线搜索/Zotero/Endnote)。
+ * 不影响其他 tab(在线搜索/Zotero/EndNote)。
  */
 
 const PdfPageThumbnail = lazy(() => import('./PdfPageThumbnail'));
@@ -131,11 +132,5 @@ function ThumbnailFallback() {
       </div>
     </div>
   );
-}
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 

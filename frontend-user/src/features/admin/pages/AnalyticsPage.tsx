@@ -23,6 +23,7 @@ import {
 } from 'recharts';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { Badge } from '@/shared/ui/badge';
+import { buildDailyTrend, localDateKey } from '@/shared/lib/daily-trend';
 import { DateRangeControl, type DateWindow } from '../components/DateRangeControl';
 import { AdminPageLayout } from '../components/AdminPageLayout';
 import { EmptyState } from '@/shared/components/EmptyState';
@@ -95,15 +96,8 @@ export function AnalyticsPage() {
       description="Umami 自托管 · 后端拉取数据,本页直接渲染图表(不再 iframe)"
       actions={<DateRangeControl value={win} onChange={setWin} />}
     >
-      {/* 概览卡片 5 个 + 实时在线 */}
+      {/* 概览卡片 —— GA4 口径排序:用户 → 会话 → 访问页 → 跳出率 → 篇均时长 → 实时 */}
       <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-        <KPI
-          loading={overview.isLoading}
-          icon={Eye}
-          label="访问页数"
-          value={overview.data?.stats.pageviews.value}
-          prev={overview.data?.stats.pageviews.prev}
-        />
         <KPI
           loading={overview.isLoading}
           icon={Users}
@@ -120,17 +114,22 @@ export function AnalyticsPage() {
         />
         <KPI
           loading={overview.isLoading}
+          icon={Eye}
+          label="访问页数"
+          value={overview.data?.stats.pageviews.value}
+          prev={overview.data?.stats.pageviews.prev}
+        />
+        <KPI
+          loading={overview.isLoading}
           icon={BarChart3}
-          label="跳出"
-          value={overview.data?.stats.bounces.value}
-          prev={overview.data?.stats.bounces.prev}
+          label="跳出率"
+          valueText={rateText(overview.data?.stats.bounces.value, overview.data?.stats.visits.value)}
         />
         <KPI
           loading={overview.isLoading}
           icon={Activity}
-          label="总停留(秒)"
-          value={overview.data?.stats.totaltime.value}
-          prev={overview.data?.stats.totaltime.prev}
+          label="篇均时长"
+          valueText={durationText(overview.data?.stats.totaltime.value, overview.data?.stats.visits.value)}
         />
         <RealtimeCard loading={active.isLoading} value={active.data?.visitors} />
       </section>
@@ -209,15 +208,21 @@ function KPI({
   label,
   value,
   prev,
+  valueText,
   loading,
 }: {
   icon: LucideIcon;
   label: string;
   value?: number;
   prev?: number;
+  /** 预格式化展示值(跳出率/时长这类非计数指标用;给了它就不显示同环比) */
+  valueText?: string;
   loading?: boolean;
 }) {
-  const delta = value != null && prev != null && prev > 0 ? ((value - prev) / prev) * 100 : null;
+  const delta =
+    valueText == null && value != null && prev != null && prev > 0
+      ? ((value - prev) / prev) * 100
+      : null;
   return (
     <div className="rounded-md border border-border bg-background p-3">
       <div className="flex items-center justify-between mb-1.5">
@@ -228,7 +233,7 @@ function KPI({
         <Skeleton className="h-6 w-16" />
       ) : (
         <div className="text-lg font-bold text-foreground tabular-nums">
-          {value?.toLocaleString() ?? '—'}
+          {valueText ?? value?.toLocaleString() ?? '—'}
         </div>
       )}
       {delta != null && (
@@ -303,10 +308,14 @@ function Sparkline({
     pv: p.y,
     sess: sessions[i]?.y ?? 0,
   }));
+  // 最后一桶=今天(进行中)→ pv/sess 各拆 main(实线)+ live(虚线段)。
+  const { data, isLive } = buildDailyTrend(merged, { dateKey: 'x', valueKeys: ['pv', 'sess'] });
   return (
+    <>
+    {isLive && <div className="mb-1 text-right text-2xs text-faint">— — 今日(进行中,非最终值)</div>}
     <div className="h-56">
     <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={merged} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+      <AreaChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
         <defs>
           <linearGradient id="pvGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="var(--color-brand-green)" stopOpacity={0.3} />
@@ -329,43 +338,55 @@ function Sparkline({
           axisLine={false}
           width={40}
         />
-        <Tooltip
-          contentStyle={{
-            backgroundColor: 'var(--color-background)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 6,
-            fontSize: 12,
-            padding: '6px 10px',
-          }}
-          labelStyle={{ color: 'var(--color-muted-foreground)', fontSize: 11, marginBottom: 2 }}
-          formatter={(value, name) => [
-            Number(value ?? 0).toLocaleString(),
-            name === 'pv' ? '访问页数' : '会话数',
-          ]}
-          labelFormatter={(label) => shortDate(String(label ?? ''))}
-        />
+        <Tooltip content={<PvTooltip />} />
         <Legend
           wrapperStyle={{ fontSize: 11, color: 'var(--color-subtle)' }}
           iconType="square"
           iconSize={8}
-          formatter={(v) => (v === 'pv' ? '访问页' : '会话')}
+          formatter={(v) => (v === 'pv__main' ? '访问页' : v === 'sess__main' ? '会话' : '')}
         />
         <Area
           type="monotone"
-          dataKey="pv"
+          dataKey="pv__main"
           stroke="var(--color-brand-green)"
           strokeWidth={2}
           fill="url(#pvGrad)"
+          connectNulls={false}
         />
-        <Line
-          type="monotone"
-          dataKey="sess"
-          stroke="var(--color-brand-red)"
-          strokeWidth={2}
-          dot={false}
-        />
+        <Line type="monotone" dataKey="sess__main" stroke="var(--color-brand-red)" strokeWidth={2} dot={false} connectNulls={false} />
+        {isLive && (
+          <>
+            <Line type="monotone" dataKey="pv__live" stroke="var(--color-brand-green)" strokeWidth={2} strokeDasharray="5 4" dot={false} connectNulls={false} legendType="none" />
+            <Line type="monotone" dataKey="sess__live" stroke="var(--color-brand-red)" strokeWidth={2} strokeDasharray="5 4" dot={false} connectNulls={false} legendType="none" />
+          </>
+        )}
       </AreaChart>
     </ResponsiveContainer>
+    </div>
+    </>
+  );
+}
+
+/** PV/会话 Tooltip —— 读原始 pv/sess(main/live 拆分后 dataKey 变了)。 */
+function PvTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload?: { x: string; pv: number; sess: number } }>;
+}) {
+  if (!active || !payload?.length) return null;
+  const row = payload[0]?.payload;
+  if (!row) return null;
+  const isToday = String(row.x).slice(0, 10) === localDateKey();
+  return (
+    <div style={{ backgroundColor: 'var(--color-background)', border: '1px solid var(--color-border)', borderRadius: 6, fontSize: 12, padding: '6px 10px' }}>
+      <div style={{ color: 'var(--color-muted-foreground)', fontSize: 11, marginBottom: 2 }}>
+        {shortDate(row.x)}
+        {isToday && <span style={{ color: 'var(--color-brand-amber)', marginLeft: 4 }}>· 进行中</span>}
+      </div>
+      <div style={{ color: 'var(--color-foreground)' }}>访问页 {row.pv.toLocaleString()}</div>
+      <div style={{ color: 'var(--color-foreground)' }}>会话 {row.sess.toLocaleString()}</div>
     </div>
   );
 }
@@ -433,6 +454,20 @@ function Empty({ hint }: { hint: string }) {
 }
 
 // ----------------- 工具 -----------------
+
+/** 跳出率 = bounces / visits(百分比);无会话显示 —。 */
+function rateText(part?: number, total?: number): string {
+  if (!total || total <= 0 || part == null) return '—';
+  return `${((part / total) * 100).toFixed(1)}%`;
+}
+
+/** 篇均时长 = totaltime(秒)/ visits → mm:ss。 */
+function durationText(totalSec?: number, visits?: number): string {
+  if (!visits || visits <= 0 || totalSec == null) return '—';
+  const s = Math.round(totalSec / visits);
+  const m = Math.floor(s / 60);
+  return `${m}:${String(s % 60).padStart(2, '0')}`;
+}
 
 function nowISO(): string {
   return new Date().toISOString();

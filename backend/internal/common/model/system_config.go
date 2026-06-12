@@ -16,6 +16,7 @@ type SystemConfig struct {
 	EnableTurnstile          bool      `gorm:"default:false" json:"enable_turnstile"`          // 是否启用 Cloudflare Turnstile 人机验证
 	TurnstileSiteKey         string    `gorm:"type:varchar(100)" json:"turnstile_site_key"`    // Turnstile Site Key (公钥)
 	TurnstileSecretKey       string    `gorm:"type:varchar(100)" json:"turnstile_secret_key"`  // Turnstile Secret Key (私钥)
+	GoogleAnalyticsID        string    `gorm:"column:google_analytics_id;type:varchar(40)" json:"google_analytics_id"` // GA4 衡量 ID(G-XXXX);非机密;空=不接入
 	CreatedAt                time.Time `json:"created_at"`
 	UpdatedAt                time.Time `json:"updated_at"`
 }

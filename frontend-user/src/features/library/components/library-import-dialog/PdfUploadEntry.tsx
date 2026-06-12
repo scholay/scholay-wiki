@@ -1,16 +1,19 @@
 import { Check, Edit3, FileText, FolderInput, Search, Upload } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
 import { MAX_PDF_SIZE } from '../../api/pdf';
+import { StepBanner } from '../shared/dialog-chrome';
 
 /**
  * 本地上传 PDF · State 0 —— 起点(等待用户上传 PDF)
  *
  * 对照设计稿 scholay0523.pen 帧 `M6NQBY` 第一段 State 0:
  *   - 顶部状态条:State 0 · 起点 · 等待用户上传 PDF
- *   - 双卡片入口:[先上传 PDF · 橙][先填写信息 · 蓝]
- *   - 底部 4 步预告 stepper:上传 PDF → 自动检索 → 确认/接受 → 保存入库
+ *   - 双卡片入口:[先上传 PDF · 橙][先填写信息 · 蓝,即将推出]
+ *   - 底部 4 步预告 stepper:上传 PDF → 自动检索 → 确认匹配 → 入库并完善
  *
- * "先填写信息"路径暂未实现,点了 toast 占位。"先上传 PDF" 触发 onPickFile,
+ * "先填写信息"(无 PDF 直接建条目)需后端提供独立创建入口,暂未实现 —— 卡片
+ * 保留并标注「即将推出」,点击给明确反馈。"先上传 PDF" 触发 onPickFile,
  * 父组件打开 file picker;同时整张左卡片是 dropzone(拖拽 PDF 进来也行)。
  */
 interface PdfUploadEntryProps {
@@ -20,7 +23,6 @@ interface PdfUploadEntryProps {
   onDragLeave: () => void;
   onDrop: (e: React.DragEvent) => void;
   onPickFile: () => void;
-  onStartFill: () => void;
 }
 
 export function PdfUploadEntry({
@@ -30,24 +32,16 @@ export function PdfUploadEntry({
   onDragLeave,
   onDrop,
   onPickFile,
-  onStartFill,
 }: PdfUploadEntryProps) {
   return (
     <div className="flex flex-col gap-5">
-      {/* 状态条:State 0 起点提示 */}
-      <div className="rounded-md border border-border-soft bg-surface-1 px-4 py-2.5">
-        <div className="flex items-center gap-2.5">
-          <span className="inline-flex h-5 w-5 items-center justify-center rounded-pill bg-foreground text-background text-2xs font-bold tabular-nums">
-            0
-          </span>
-          <span className="text-sm font-semibold text-foreground">起点</span>
-          <span className="text-faint">·</span>
-          <span className="text-xs text-muted-foreground">
-            等待用户上传 PDF;首次打开「本地上传」面板,可拖拽 PDF 触发自动匹配,
-            或选择「先填写信息」
-          </span>
-        </div>
-      </div>
+      {/* 状态条:State 0 起点提示(active=false → 前景黑底编号 pill) */}
+      <StepBanner
+        step={1}
+        active={false}
+        title="上传 PDF"
+        desc="拖拽文件进来,或点击选择;上传后会自动识别并匹配在线论文"
+      />
 
       {/* 双卡片入口 */}
       <div className="grid grid-cols-[1fr_auto_1fr] items-stretch gap-4">
@@ -71,7 +65,7 @@ export function PdfUploadEntry({
           <div className="space-y-1.5">
             <div className="text-base font-bold text-foreground">先上传 PDF</div>
             <div className="text-xs text-muted-foreground max-w-[280px]">
-              拖拽到这里 / 点下面按钮选择文件 · 上传后系统自动识别并匹配上游来源
+              拖拽到这里,或点下面的按钮选择文件;上传后会自动识别并匹配在线论文
             </div>
           </div>
           <div className="inline-flex items-center gap-1.5 h-9 px-4 rounded-sm bg-brand-amber text-background text-sm font-bold group-hover:bg-brand-amber/90 transition-colors">
@@ -87,22 +81,31 @@ export function PdfUploadEntry({
           <div className="flex-1 w-px bg-border-soft" />
         </div>
 
-        {/* 右:先填写信息(占位) */}
+        {/* 右:先填写信息 —— 无 PDF 直接建条目需后端独立创建入口,暂未实现,
+            卡片保留占位 + 「即将推出」角标,点击给明确反馈(不做静默 no-op) */}
         <button
           type="button"
-          onClick={onStartFill}
+          onClick={() =>
+            toast.info('「先填写信息」即将推出 — 现在可先上传 PDF,或用「在线搜索加入」')
+          }
           className={cn(
-            'group flex flex-col items-center justify-center gap-4 p-8 rounded-md border transition-all text-center min-h-[240px]',
+            'group relative flex flex-col items-center justify-center gap-4 p-8 rounded-md border transition-all text-center min-h-[240px]',
             'border-border-strong bg-brand-blue-soft/40 hover:bg-brand-blue-soft hover:border-brand-blue/60'
           )}
         >
+          <span
+            aria-hidden="true"
+            className="absolute top-3 right-3 inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-background text-[9px] font-bold leading-none whitespace-nowrap"
+          >
+            即将推出
+          </span>
           <div className="flex h-12 w-12 items-center justify-center rounded-pill bg-brand-blue/15 group-hover:bg-brand-blue/25 transition-colors">
             <Edit3 className="size-5 text-brand-blue" strokeWidth={2.25} />
           </div>
           <div className="space-y-1.5">
             <div className="text-base font-bold text-foreground">先填写信息</div>
             <div className="text-xs text-muted-foreground max-w-[280px]">
-              没有 PDF 也可以先建条目 · 之后再附加 PDF 让系统补全引用 / DOI
+              没有 PDF 也可以先填好文献信息,之后再补充 PDF
             </div>
           </div>
           <div className="inline-flex items-center gap-1.5 h-9 px-4 rounded-sm border border-brand-blue text-brand-blue text-sm font-bold group-hover:bg-brand-blue/5 transition-colors">
@@ -130,28 +133,28 @@ export function PdfUploadEntry({
             n={2}
             icon={<Search className="size-3.5" strokeWidth={2.25} />}
             label="自动检索"
-            hint="系统匹配上游元数据"
+            hint="系统匹配在线论文信息"
           />
           <StepNode
             n={3}
             icon={<Check className="size-3.5" strokeWidth={2.25} />}
-            label="确认 / 接受"
-            hint="或拒绝后切换手动填写"
+            label="确认匹配"
+            hint="接受候选,或直接保存"
           />
           <StepNode
             n={4}
             icon={<FolderInput className="size-3.5" strokeWidth={2.25} />}
-            label="保存入库"
-            hint={`卡片自动生成到「${currentFolderName}」`}
+            label="加入并完善"
+            hint={`存入「${currentFolderName}」后可继续编辑`}
           />
         </ol>
       </div>
 
       {/* 兜底文案 */}
       <p className="text-2xs text-faint leading-relaxed">
-        仅支持 PDF,大小 ≤ {MAX_PDF_SIZE / 1024 / 1024} MB。我们会自动解析标题 →
-        从多个上游论文源搜索关联;若搜不到,走 AI 智能识别为
-        <span className="text-brand-green font-semibold">自由文件</span>。
+        仅支持 PDF,大小 ≤ {MAX_PDF_SIZE / 1024 / 1024} MB。上传后会自动识别标题并匹配在线论文;没有匹配也可以
+        <span className="text-brand-green font-semibold">直接保存</span>
+        ,之后再完善信息。
       </p>
     </div>
   );

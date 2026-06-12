@@ -9,6 +9,7 @@ import {
 import { ArrowUp, FileText, Loader2, Paperclip, Square, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
+import { trackEvent } from '@/shared/lib/track';
 import { AttachmentLightbox } from '@/shared/components/chat/AttachmentLightbox';
 import { ContextMeter } from '@/shared/components/chat';
 import { useUploadClawAttachment } from '../../api/session';
@@ -101,6 +102,7 @@ export function ChatComposer({
     const text = input.trim();
     if (!text && attachments.length === 0) return;
     if (disabled || upload.isPending) return;
+    trackEvent('claw_query', { len: text.length, files: attachments.length });
     onSubmit(text, attachments);
     setInput('');
     // 提交后释放 compose 预览的 object URL —— 已发送气泡的缩略图改用后端代理 URL

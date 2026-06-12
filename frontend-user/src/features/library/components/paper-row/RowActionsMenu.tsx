@@ -181,7 +181,7 @@ export function RowActionsMenu({
             />
             <ConfirmPopover
               title="删除这篇论文?"
-              description="将从文献集中移除该论文(包括关联的 PDF / 笔记)。"
+              description="会从文献集中删除这篇文献,你上传的 PDF 也会一起删除。"
               confirmText="删除"
               cancelText="取消"
               danger

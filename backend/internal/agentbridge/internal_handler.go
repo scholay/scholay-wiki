@@ -1,13 +1,13 @@
 // ============================================================================
-// agent → backend 内网回调:scholar_agent 上报「带外」token 用量(没有 message_complete
-// 帧的那部分:会话标题生成 / 上下文压缩 / 子-agent)。
+// agent → backend 内网回调:scholar_agent 上报 token 用量,**一次真实模型调用一行(per-call)**。
 //
-// 不变量(钉死,防双计):**正常对话轮的 token 永远走 WS OnMessageComplete / ServerSideChat,
-// 绝不经此端点**;此端点只收 title_gen / compaction / subagent —— 它们是 agent 内部直连模型、
-// 不产生 message_complete 帧的调用。两路互斥,不会重复计。
+// 记账口径(钉死,防双计):agent 侧所有 token 都经此端点 per-call 落库:
+//   - agent_call: CLI 子进程内每次真实模型调用(主轮 / 子 agent / 上下文压缩),由 claude.ts 上报;
+//   - title_gen:  agent server 端直连模型起标题的带外用量(不进 CLI 会话)。
+// WS message_complete **不再落库**(改为只供前端 UI 展示整轮用量),故正常轮不经此双计。
 //
 // agent 只知道 sessionId(无 user 身份),后端用 sessionId 反查 agent_sessions 得到 user/feature,
-// 再经 recordAgentTokens(三喂养点唯一构造点)落统一账本 llm_token_usage。
+// 再经 recordAgentTokens(唯一构造点)落统一账本 llm_token_usage(一次调用一行)。
 // ============================================================================
 
 package agentbridge
@@ -41,6 +41,17 @@ func (b *Bridge) HandleAgentUsageCallback(c *gin.Context) {
 	var body agentUsageCallbackBody
 	if err := c.ShouldBindJSON(&body); err != nil || body.SessionID == "" {
 		c.Status(http.StatusBadRequest)
+		return
+	}
+
+	// 记账口径(per-call,防双计):agent 侧 token **一次真实模型调用一行**,全部经此回调落库。
+	//   - agent_call: CLI 子进程内每次模型调用(主轮 / 子 agent / 上下文压缩),由 claude.ts 上报;
+	//   - title_gen:  agent server 端直连模型起标题的带外用量(不进 CLI 会话)。
+	// 仅收这两类;WS message_complete 不再落库(只供前端 UI),故正常轮不会经此双计。
+	if body.Kind != "agent_call" && body.Kind != "title_gen" {
+		slog.Warn("agent usage callback: ignoring unknown kind",
+			"kind", body.Kind, "session_id", body.SessionID)
+		c.Status(http.StatusNoContent)
 		return
 	}
 

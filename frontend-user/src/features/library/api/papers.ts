@@ -181,53 +181,6 @@ export function libraryRowToPaper(row: UserLibraryPaper): Paper {
   };
 }
 
-export interface AddPaperPayload {
-  source: UpstreamSource;
-  source_paper_id: string;
-  folder_id?: number | null;
-  title?: string;
-  abstract?: string;
-  year?: number;
-  venue?: string;
-  doi?: string;
-  pdf_url?: string;
-  citation_count?: number;
-}
-
-export function useAddLibraryPaper() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (payload: AddPaperPayload) => {
-      try {
-        const { data } = await http.post<{ data: UserLibraryPaper }>(
-          '/user/library',
-          payload
-        );
-        return data.data;
-      } catch (err) {
-        throw toApiError(err);
-      }
-    },
-    onSuccess: () => invalidateLibrary(qc),
-  });
-}
-
-export function useRemoveLibraryPaper() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (vars: { source: UpstreamSource; paperId: string }) => {
-      try {
-        await http.delete(
-          `/user/library/${vars.source}/${encodeURIComponent(vars.paperId)}`
-        );
-      } catch (err) {
-        throw toApiError(err);
-      }
-    },
-    onSuccess: () => invalidateLibrary(qc),
-  });
-}
-
 export function useMovePaperToFolder() {
   const qc = useQueryClient();
   return useMutation({

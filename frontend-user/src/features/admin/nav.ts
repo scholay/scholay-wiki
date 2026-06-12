@@ -21,11 +21,14 @@ import {
   Boxes,
   ScanEye,
   Mail,
+  ShoppingCart,
+  Inbox,
+  Headset,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 /**
- * Admin 侧栏导航配置 —— 17 个后端 domain 分组到 6 个段。
+ * Admin 侧栏导航配置 —— 后端 domain 分组到 8 个段(含「订单与计费」收费经营区)。
  * 单一来源:AdminSidebar 渲染 + AdminLayout 标题渲染都从这里取。
  */
 export interface AdminNavItem {
@@ -56,7 +59,15 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     label: '用户与权限',
     items: [
       { id: 'users', label: '用户管理', icon: Users, href: '/admin/users' },
+    ],
+  },
+  {
+    id: 'commerce',
+    label: '订单与计费',
+    items: [
+      { id: 'orders', label: '订单与营收', icon: ShoppingCart, href: '/admin/orders' },
       { id: 'vip-codes', label: '会员兑换码', icon: Gift, href: '/admin/vip-codes' },
+      { id: 'billing-config', label: '计费配置', icon: Coins, href: '/admin/billing-config' },
     ],
   },
   {
@@ -74,6 +85,8 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     label: '运营互动',
     items: [
       { id: 'feedback', label: '用户反馈', icon: MessageSquare, href: '/admin/feedback' },
+      { id: 'mail-center', label: '邮件中心', icon: Inbox, href: '/admin/mail-center' },
+      { id: 'support-config', label: '客服配置', icon: Headset, href: '/admin/support-config' },
       { id: 'messages', label: '站内消息', icon: Bell, href: '/admin/messages' },
       { id: 'email-logs', label: '发送记录', icon: Mail, href: '/admin/email-logs' },
     ],
@@ -105,8 +118,8 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     items: [
       { id: 'system', label: '系统设置', icon: Settings, href: '/admin/system' },
       { id: 'oauth', label: 'OAuth / SSO', icon: KeyRound, href: '/admin/oauth' },
+      // 支付配置 = 商户凭证(支付宝/微信),属系统集成;订单/计费的经营面在「订单与计费」组
       { id: 'payment', label: '支付配置', icon: CreditCard, href: '/admin/payment' },
-      { id: 'billing-config', label: '计费配置', icon: Coins, href: '/admin/billing-config' },
     ],
   },
 ];

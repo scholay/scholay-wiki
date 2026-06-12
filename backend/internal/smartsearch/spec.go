@@ -63,13 +63,11 @@ func SetLLMUsageRecorder(r llmusage.Recorder) {
 	llmUsageRecorder = r
 }
 
-// onMessageComplete 每轮 agent 回复结束触发: ① slog (live grep) ② 落 token 账本。
-// 懒读 llmUsageRecorder, 因此 SetLLMUsageRecorder 与 BuildSpec 调用顺序无关。
+// onMessageComplete 每轮 agent 回复结束触发:只做 slog(docker logs | grep agent_usage)实时观测。
+// token 账本已改为 **per-call** 记账(agent 端 claude.ts 每次真实模型调用 → 内网回调落库,一次调用一行),
+// 故这里**不再落库**,否则与 per-call 双计。llmUsageRecorder 仍由 bootstrap 注入(保留接线)但此处不再用。
 func onMessageComplete(ctx context.Context, userID uint, usage agentbridge.AgentUsage) {
 	agentbridge.NewSlogUsageRecorder(FeatureKey)(ctx, userID, usage)
-	if llmUsageRecorder != nil {
-		agentbridge.NewDBUsageRecorder(FeatureKey, llmUsageRecorder)(ctx, userID, usage)
-	}
 }
 
 // vipChecker 由 SetVIPChecker 注入(bootstrap)—— 按用户等级(free/pro)做 tier-aware 日额度。

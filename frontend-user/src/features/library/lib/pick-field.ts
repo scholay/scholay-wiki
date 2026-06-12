@@ -61,8 +61,9 @@ export interface EffectivePaperFields {
 
 /**
  * 该行是否有"本地保留信息"(og_* 任一非空)。
- * 用途:取消关联是否可用(取消会清上游元数据只留 og_*,og 全空则整行为空)、
+ * 用途:在线关联 footer hint(本地字段会继续压住新关联的上游信息)、
  * 编辑弹窗"已修改"标记等。
+ * (取消关联已不再以此置灰 —— 后端快照式 unlink 会自动固化当前展示值。)
  */
 export function hasLocalOverride(paper: UserLibraryPaper): boolean {
   return Boolean(
@@ -72,6 +73,27 @@ export function hasLocalOverride(paper: UserLibraryPaper): boolean {
       (typeof paper.og_year === 'number' && paper.og_year > 0) ||
       (paper.og_venue ?? '').trim() ||
       (paper.og_doi ?? '').trim()
+  );
+}
+
+/**
+ * 该条目是否"有自己的东西"(非空壳)—— 与后端空壳守卫同一口径:
+ *
+ *   hasOwnSubstance = hasLocalOverride(paper)(任一 og_* 本地信息非空)
+ *                     || 已上传 PDF(pdf_uploaded_at 或 pdf_sha256 非空)
+ *
+ * ⚠️ 注意 pdf_url 是在线数据列(收藏时带过来的 OA 直链),**不代表用户上传过 PDF**,
+ * 不参与此判定。
+ *
+ * 空壳规则:linked 行若两者皆无,其展示内容全部来自在线数据快照 —— 此时
+ * 「取消关联」会让条目变成不含任何信息的空数据,入口应置灰;同理 free 行
+ * 无本地信息时「移除 PDF」会清掉条目仅剩的内容,也应置灰。
+ */
+export function hasOwnSubstance(paper: UserLibraryPaper): boolean {
+  return (
+    hasLocalOverride(paper) ||
+    Boolean(paper.pdf_uploaded_at) ||
+    Boolean((paper.pdf_sha256 ?? '').trim())
   );
 }
 

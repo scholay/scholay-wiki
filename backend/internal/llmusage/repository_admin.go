@@ -17,11 +17,15 @@ import (
 )
 
 // cutoff 回看窗口起点;days<=0 回退 30 天。直接 time.Now()(容器时区=北京, 与 DB 同区)。
+//
+// 用 -(days-1):窗口含今天共 days 个自然日(如 days=30 → [今天-29, 今天]),与 fillDailyGaps
+// 的折线区间口径一致。否则 cutoff 多回看一天(-days = days+1 天)→ KPI/明细比折线多统计最旧一天,
+// 出现「KPI 总数 ≠ 各柱之和」的对不上。
 func cutoff(days int) time.Time {
 	if days <= 0 {
 		days = 30
 	}
-	return time.Now().AddDate(0, 0, -days)
+	return time.Now().AddDate(0, 0, -(days - 1))
 }
 
 // applyStatsFilter 把 StatsFilter 翻成 WHERE 链(时间窗口 + 维度过滤)。
@@ -94,6 +98,8 @@ func (r *Repository) StatsByDay(f StatsFilter) ([]DayPoint, error) {
 			"COALESCE(SUM(llm_token_usage.total_tokens),0) AS total_tokens, " +
 			"COALESCE(SUM(llm_token_usage.input_tokens),0) AS input_tokens, " +
 			"COALESCE(SUM(llm_token_usage.output_tokens),0) AS output_tokens, " +
+			"COALESCE(SUM(llm_token_usage.cache_read_tokens),0) AS cache_read_tokens, " +
+			"COALESCE(SUM(llm_token_usage.cache_creation_tokens),0) AS cache_creation_tokens, " +
 			"COUNT(*) AS calls",
 	).Group("DATE_FORMAT(llm_token_usage.created_at, '%Y-%m-%d')").
 		Order("date ASC").
@@ -122,9 +128,33 @@ func (r *Repository) StatsByDimension(f StatsFilter, col string) ([]BreakdownIte
 			"COALESCE(SUM(llm_token_usage.input_tokens),0) AS input_tokens, "+
 			"COALESCE(SUM(llm_token_usage.output_tokens),0) AS output_tokens, "+
 			"COALESCE(SUM(llm_token_usage.cache_read_tokens),0) AS cache_read_tokens, "+
+			"COALESCE(SUM(llm_token_usage.cache_creation_tokens),0) AS cache_creation_tokens, "+
 			"COUNT(*) AS calls", col),
 	).Group(fmt.Sprintf("llm_token_usage.%s", col)).
 		Order("total_tokens DESC").
+		Scan(&out).Error
+	return out, err
+}
+
+// StatsByDayDimension 「天 × 维度」交叉聚合(看板主图分段堆叠柱:同一天按 model/feature 分段)。
+// col 必须在 statsDimColumns 白名单内。行数有界:窗口天数 × 维度取值数, admin 流量低可直查。
+func (r *Repository) StatsByDayDimension(f StatsFilter, col string) ([]DayDimPoint, error) {
+	if !statsDimColumns[col] {
+		return nil, fmt.Errorf("llmusage: invalid day-dimension %q", col)
+	}
+	var out []DayDimPoint
+	q := applyStatsFilter(r.db.Model(&LLMTokenUsage{}), f)
+	err := q.Select(fmt.Sprintf(
+		"DATE_FORMAT(llm_token_usage.created_at, '%%Y-%%m-%%d') AS date, "+
+			"llm_token_usage.%s AS dim_key, "+
+			"COALESCE(SUM(llm_token_usage.total_tokens),0) AS total_tokens, "+
+			"COALESCE(SUM(llm_token_usage.input_tokens),0) AS input_tokens, "+
+			"COALESCE(SUM(llm_token_usage.output_tokens),0) AS output_tokens, "+
+			"COALESCE(SUM(llm_token_usage.cache_read_tokens),0) AS cache_read_tokens, "+
+			"COALESCE(SUM(llm_token_usage.cache_creation_tokens),0) AS cache_creation_tokens, "+
+			"COUNT(*) AS calls", col),
+	).Group(fmt.Sprintf("DATE_FORMAT(llm_token_usage.created_at, '%%Y-%%m-%%d'), llm_token_usage.%s", col)).
+		Order("date ASC").
 		Scan(&out).Error
 	return out, err
 }
@@ -147,6 +177,8 @@ func (r *Repository) StatsTopUsers(f StatsFilter, limit int) ([]UserUsageItem, e
 			"COALESCE(SUM(llm_token_usage.total_tokens),0) AS total_tokens, " +
 			"COALESCE(SUM(llm_token_usage.input_tokens),0) AS input_tokens, " +
 			"COALESCE(SUM(llm_token_usage.output_tokens),0) AS output_tokens, " +
+			"COALESCE(SUM(llm_token_usage.cache_read_tokens),0) AS cache_read_tokens, " +
+			"COALESCE(SUM(llm_token_usage.cache_creation_tokens),0) AS cache_creation_tokens, " +
 			"COUNT(*) AS calls",
 	).Group("llm_token_usage.user_id, users.username, users.email").
 		Order("total_tokens DESC").

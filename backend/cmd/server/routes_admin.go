@@ -81,6 +81,22 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.GET("/billing/config", h.vip.AdminGetBillingConfig)
 		adminProtected.PUT("/billing/config", h.vip.AdminUpdateBillingConfig)
 
+		// 订单与营收(orders 表 = vip 充值/订阅唯一收款真源;payment_transactions 是 stranded 勿用)
+		adminProtected.GET("/billing/orders", h.vip.AdminListOrders)
+		adminProtected.GET("/billing/orders/stats", h.vip.AdminOrderStats)
+
+		// 客服与联系中心:配置(联系方式展示/IMAP/飞书)+ 收件箱 + 回信/写信
+		adminProtected.GET("/support-center/config", h.supportCenter.GetConfig)
+		adminProtected.PUT("/support-center/config", h.supportCenter.UpdateConfig)
+		adminProtected.POST("/support-center/feishu/test", h.supportCenter.TestFeishu)
+		adminProtected.POST("/support-center/smtp/test", h.supportCenter.TestSMTP)
+		adminProtected.POST("/support-center/imap/test", h.supportCenter.TestIMAP)
+		adminProtected.POST("/support-center/imap/poll", h.supportCenter.PollNow)
+		adminProtected.GET("/support-center/inbox", h.supportCenter.ListInbox)
+		adminProtected.GET("/support-center/inbox/:id", h.supportCenter.GetInboxMail)
+		adminProtected.POST("/support-center/inbox/:id/reply", h.supportCenter.ReplyInbox)
+		adminProtected.POST("/support-center/compose", h.supportCenter.Compose)
+
 		// 公告管理
 		adminProtected.GET("/announcements", h.announcement.ListAdmin)
 		adminProtected.POST("/announcements", h.announcement.Create)

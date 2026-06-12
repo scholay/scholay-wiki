@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ChevronDown, Folder, LogIn } from 'lucide-react';
 import {
   Sidebar,
@@ -8,6 +8,7 @@ import {
   SidebarAuthFooter,
   SidebarCollapseButton,
 } from '@/shared/components/sidebar';
+import { FavoriteBurst } from '@/shared/components/FavoriteBurst';
 import { LeaveToLibraryLink } from '@/shared/components/LeaveToLibraryLink';
 import { Button } from '@/shared/ui/button';
 import { useIsAuthenticated } from '@/stores/auth.store';
@@ -148,6 +149,8 @@ function LibrarySection() {
   const authenticated = useIsAuthenticated();
   const openDialog = useAuthDialog((s) => s.openDialog);
   const foldersQ = useLibraryFoldersForJournals();
+  // FavoriteBurst 锚点 —— burst 浮在 section 屏幕坐标上方(走 portal 不被裁)
+  const sectionRef = useRef<HTMLDivElement>(null);
 
   if (!authenticated) {
     return (
@@ -173,48 +176,55 @@ function LibrarySection() {
   const folders = foldersQ.data?.folders ?? [];
 
   return (
-    <SidebarSection
-      id="library"
-      label="我的文件夹"
-      action={
-        <LeaveToLibraryLink
-          to="/library"
-          className="text-2xs font-bold text-foreground hover:opacity-70"
-        >
-          管理
-        </LeaveToLibraryLink>
-      }
-    >
-      <div className="max-h-[260px] overflow-y-auto">
-        {foldersQ.isLoading && folders.length === 0 && (
-          <div className="px-4 py-2 text-2xs text-faint">加载中…</div>
-        )}
-        {!foldersQ.isLoading && folders.length === 0 && (
-          <div className="px-4 py-2 text-2xs text-faint">
-            还没有文件夹 ·
-            <LeaveToLibraryLink to="/library" className="ml-1 underline">
-              去创建
+    <>
+      <div ref={sectionRef}>
+        <SidebarSection
+          id="library"
+          label="我的文件夹"
+          action={
+            <LeaveToLibraryLink
+              to="/library"
+              className="text-2xs font-bold text-foreground hover:opacity-70"
+            >
+              管理
             </LeaveToLibraryLink>
+          }
+        >
+          <div className="max-h-[260px] overflow-y-auto">
+            {foldersQ.isLoading && folders.length === 0 && (
+              <div className="px-4 py-2 text-2xs text-faint">加载中…</div>
+            )}
+            {!foldersQ.isLoading && folders.length === 0 && (
+              <div className="px-4 py-2 text-2xs text-faint">
+                还没有文件夹 ·
+                <LeaveToLibraryLink to="/library" className="ml-1 underline">
+                  去创建
+                </LeaveToLibraryLink>
+              </div>
+            )}
+            {folders.map((f) => (
+              <LeaveToLibraryLink
+                key={f.id}
+                to={`/library?folder=${f.id}`}
+                className="group flex items-center gap-1.5 px-4 h-8 hover:bg-surface-1 transition-colors"
+                title={f.name}
+              >
+                <Folder className="size-3.5 text-muted-foreground shrink-0" />
+                <span className="flex-1 min-w-0 truncate text-xs text-subtle group-hover:text-foreground">
+                  {f.name}
+                </span>
+                <span className="text-2xs text-faint tabular-nums shrink-0">
+                  {f.paper_count.toLocaleString()}
+                </span>
+              </LeaveToLibraryLink>
+            ))}
           </div>
-        )}
-        {folders.map((f) => (
-          <LeaveToLibraryLink
-            key={f.id}
-            to={`/library?folder=${f.id}`}
-            className="group flex items-center gap-1.5 px-4 h-8 hover:bg-surface-1 transition-colors"
-            title={f.name}
-          >
-            <Folder className="size-3.5 text-muted-foreground shrink-0" />
-            <span className="flex-1 min-w-0 truncate text-xs text-subtle group-hover:text-foreground">
-              {f.name}
-            </span>
-            <span className="text-2xs text-faint tabular-nums shrink-0">
-              {f.paper_count.toLocaleString()}
-            </span>
-          </LeaveToLibraryLink>
-        ))}
+        </SidebarSection>
       </div>
-    </SidebarSection>
+      {/* FavoriteBurst:任意位置收藏成功后,"+1" 浮在 section 屏幕坐标。
+          与 SearchSidebar 的 LibrarySection 同款挂法(portal 不被 ScrollArea 裁剪) */}
+      <FavoriteBurst anchorRef={sectionRef} />
+    </>
   );
 }
 

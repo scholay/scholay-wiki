@@ -14,7 +14,9 @@ const BACKEND_BASE_URL = process.env.BACKEND_BASE_URL || 'http://scholar_backend
 
 export interface AgentUsageReport {
   sessionId: string
-  kind: 'title_gen' | 'compaction' | 'subagent'
+  // agent_call: CLI 子进程内每一次真实模型调用(主轮 / 子 agent / 压缩等),一次一报、后端一次一记录。
+  // title_gen: server 端直连模型的带外用量(不进 CLI 会话)。compaction/subagent 已被 agent_call 覆盖。
+  kind: 'agent_call' | 'title_gen' | 'compaction' | 'subagent'
   model: string
   usage: TitleGenUsage
 }

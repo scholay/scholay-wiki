@@ -11,6 +11,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { RouteSEO } from '@/shared/components/RouteSEO';
+import { BrandName } from '@/shared/components/BrandName';
 import { HelpLayout } from '../components/HelpLayout';
 
 /**
@@ -95,7 +96,11 @@ export function AboutPage() {
       breadcrumbs={[{ label: '帮助中心', to: '/help' }, { label: '关于我们' }]}
       eyebrow="ABOUT SCHOLAY"
       title="重新定义学术研究的方式"
-      lead="Scholay 是一个 AI 驱动的学术工作平台 —— 检索、阅读、写作、审稿,我们让科研全流程更高效。"
+      lead={
+        <>
+          <BrandName /> 是一个 AI 驱动的学术工作平台 —— 检索、阅读、写作、审稿,我们让科研全流程更高效。
+        </>
+      }
       contentMaxWidth="max-w-5xl"
     >
       <RouteSEO
@@ -108,7 +113,7 @@ export function AboutPage() {
         <div>
           <SectionTitle>我们是谁</SectionTitle>
           <p className="mt-4 text-sm text-subtle leading-[1.85]">
-            Scholay 由一群热爱学术、相信技术的研究者与工程师创办。我们见过太多研究生在文献海洋里翻找数月却找不到关键论文,见过太多导师在重复的审稿与回信中消耗本可以用来思考的时间。
+            <BrandName /> 由一群热爱学术、相信技术的研究者与工程师创办。我们见过太多研究生在文献海洋里翻找数月却找不到关键论文,见过太多导师在重复的审稿与回信中消耗本可以用来思考的时间。
           </p>
           <p className="mt-3 text-sm text-subtle leading-[1.85]">
             我们想做的事很简单:把这些重复消耗砍掉,让科研工作者把时间留给真正重要的判断。
@@ -141,7 +146,7 @@ export function AboutPage() {
       <section className="mt-16">
         <SectionTitle>我们在做什么</SectionTitle>
         <p className="mt-3 text-sm text-muted-foreground">
-          围绕"检索 → 阅读 → 写作 → 审稿"四步,Scholay 提供端到端的 AI 学术工作台。
+          围绕"检索 → 阅读 → 写作 → 审稿"四步,<BrandName /> 提供端到端的 AI 学术工作台。
         </p>
         <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-3">
           {PILLARS.map((p) => (

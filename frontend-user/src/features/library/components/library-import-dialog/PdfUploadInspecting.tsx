@@ -1,7 +1,8 @@
 import { Check, Info, Loader2 } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
-import type { ParsingPhase } from '../pdf-import-wizard/types';
+import type { ParsingPhase } from './types';
 import type { ParsedEvent } from '../../api/upload-resolve';
+import { StepBanner } from '../shared/dialog-chrome';
 import { PdfPreviewCard } from './PdfPreviewCard';
 
 /**
@@ -11,12 +12,16 @@ import { PdfPreviewCard } from './PdfPreviewCard';
  *   - 左列:PDF 首页缩略图卡片(文件名 / 大小 · 页数 / 1/N 翻页 / 第 1 页预览)
  *   - 右列:5 步检索进度 checklist + ⓘ "跳过自动匹配" 提示卡
  *
- * 后端 SSE 只暴露 2 个事件(parsed → searched),设计上是 5 步:
- *   1. 提取 PDF 元数据指纹      —— phase ≥ 'searching' 即完成
- *   2. 查询 Crossref            —— phase ≥ 'searching' 即完成(后端打包到 search 阶段)
- *   3. 查询 Semantic Scholar    —— phase === 'searching' active,phase === 'done' 完成
- *   4. 归并 / 排序候选项        —— phase === 'done' 完成
- *   5. 返回最佳建议             —— phase === 'done' 完成(下一帧 step 切到 decide)
+ * 后端 SSE 只暴露 2 个事件(parsed → searched),phase 三档
+ * uploading → searching → done,映射到设计上的 5 步:
+ *   1. 提取 PDF 元数据指纹                —— 'uploading' active,phase ≥ 'searching' 完成
+ *   2. 检索 Graph / Discovery 学术源      —— 'searching' active,'done' 完成
+ *   3. 检索 Medicine 医学源               —— 'searching' active,'done' 完成
+ *   4. 归并 / 排序候选项                  —— 'done' 完成
+ *   5. 返回最佳建议                       —— 'done' 完成(下一帧 step 切到 decide)
+ *
+ * 三源品牌名(stc=Graph / olx=Discovery / pmd=Medicine)见 ../../lib/resolve-paper
+ * 的 sourceBrandLabel。
  */
 
 interface PdfUploadInspectingProps {
@@ -32,19 +37,12 @@ export function PdfUploadInspecting({
 }: PdfUploadInspectingProps) {
   return (
     <div className="flex flex-col gap-4">
-      {/* 顶部状态条 —— State 1 起点提示(对照设计稿) */}
-      <div className="rounded-md border border-border-soft bg-surface-1 px-4 py-2.5">
-        <div className="flex items-center gap-2.5">
-          <span className="inline-flex h-5 w-5 items-center justify-center rounded-pill bg-brand-amber text-background text-2xs font-bold tabular-nums">
-            1
-          </span>
-          <span className="text-sm font-semibold text-foreground">刚上传</span>
-          <span className="text-faint">·</span>
-          <span className="text-xs text-muted-foreground">
-            PDF 已上传 / 提取指纹 / 调用 Crossref + Semantic Scholar / 准备结果
-          </span>
-        </div>
-      </div>
+      {/* 顶部状态条 —— State 1 提示(对照设计稿) */}
+      <StepBanner
+        step={2}
+        title="自动匹配中"
+        desc="正在识别这份 PDF,并在在线论文库中查找匹配的论文"
+      />
 
       {/* 双列主体:左 PDF 预览(共享),右检索进度 */}
       <div className="grid grid-cols-[minmax(0,300px)_1fr] gap-4">
@@ -55,16 +53,16 @@ export function PdfUploadInspecting({
           <div className="flex items-center gap-2.5 mb-1">
             <Loader2 className="size-4 animate-spin text-brand-amber" />
             <span className="text-sm font-bold text-foreground">
-              正在自动检索文献元数据…
+              正在自动检索在线论文信息…
             </span>
           </div>
           <div className="text-xs text-muted-foreground mb-5">
-            结合 PDF 指纹 + 文本特征,匹配通常在 5-10 秒完成
+            匹配通常在 5-10 秒内完成
           </div>
 
           <ul className="space-y-3">
             <ProgressItem
-              label="提取 PDF 元数据指纹"
+              label="识别 PDF 内容"
               state={stateFor(phase, 'fingerprint')}
               doneHint={
                 parsed?.title
@@ -75,21 +73,21 @@ export function PdfUploadInspecting({
               pendingHint="待执行"
             />
             <ProgressItem
-              label="查询 Crossref"
-              state={stateFor(phase, 'crossref')}
+              label="检索在线论文库 (Graph / Discovery)"
+              state={stateFor(phase, 'scholarly')}
               doneHint="完成"
               activeHint="处理中…"
               pendingHint="待执行"
             />
             <ProgressItem
-              label="查询 Semantic Scholar"
-              state={stateFor(phase, 'semantic')}
+              label="检索医学库 (Medicine)"
+              state={stateFor(phase, 'medicine')}
               doneHint="完成"
               activeHint="进行中…"
               pendingHint="待执行"
             />
             <ProgressItem
-              label="归并 / 排序候选项"
+              label="整理候选结果"
               state={stateFor(phase, 'merge')}
               doneHint="完成"
               activeHint="处理中…"
@@ -108,7 +106,7 @@ export function PdfUploadInspecting({
           <div className="mt-5 flex items-center gap-2 px-3 py-2 rounded-sm bg-surface-1 border border-border-soft">
             <Info className="size-3.5 text-faint shrink-0" />
             <span className="text-xs text-muted-foreground">
-              不想等?点击右下角「跳过自动匹配」可立即手动填写
+              检索完成后,可以跳过匹配直接保存
             </span>
           </div>
         </div>
@@ -183,31 +181,30 @@ function StateMark({ state }: { state: ItemState }) {
 // ─── phase → 各步骤状态映射 ─────────────────────────────────────────────────
 
 /**
- * 后端 SSE 只有 'uploading' / 'parsed' / 'searching' / 'done' 4 阶段,
- * 这里映射到设计稿的 5 个 step。原则:
- *   - fingerprint:phase >= 'searching' 即完成(parsed 事件后)
- *   - crossref:与 fingerprint 同步完成(后端打包了)
- *   - semantic:'searching' 时 active,'done' 时完成
- *   - merge / finalize:phase === 'done' 时完成
+ * 后端 SSE 只有 'uploading' / 'searching' / 'done' 3 阶段(parsed 事件直接把
+ * phase 推到 'searching'),这里映射到设计稿的 5 个 step,保证各步按
+ * pending → active → done 连贯推进:
+ *   - fingerprint:'uploading' active,phase ≥ 'searching' 完成
+ *   - scholarly / medicine(三源检索):'searching' 时 active,'done' 时完成
+ *   - merge / finalize:'done' 时完成(瞬时收尾,不展示 active;下一帧切 decide)
  */
-type StepKey = 'fingerprint' | 'crossref' | 'semantic' | 'merge' | 'finalize';
+type StepKey = 'fingerprint' | 'scholarly' | 'medicine' | 'merge' | 'finalize';
 
 function stateFor(phase: ParsingPhase, key: StepKey): ItemState {
   const phaseRank: Record<ParsingPhase, number> = {
     uploading: 0,
-    parsed: 1,
-    searching: 2,
-    done: 3,
+    searching: 1,
+    done: 2,
   };
   const r = phaseRank[phase];
 
   // 各 step 在哪个 phaseRank 下变 active / done
   const map: Record<StepKey, { doneAt: number; activeAt: number }> = {
-    fingerprint: { activeAt: 0, doneAt: 2 },
-    crossref: { activeAt: 1, doneAt: 2 },
-    semantic: { activeAt: 2, doneAt: 3 },
-    merge: { activeAt: 2, doneAt: 3 },
-    finalize: { activeAt: 2, doneAt: 3 },
+    fingerprint: { activeAt: 0, doneAt: 1 },
+    scholarly: { activeAt: 1, doneAt: 2 },
+    medicine: { activeAt: 1, doneAt: 2 },
+    merge: { activeAt: 2, doneAt: 2 },
+    finalize: { activeAt: 2, doneAt: 2 },
   };
   const m = map[key];
   if (r >= m.doneAt) return 'done';

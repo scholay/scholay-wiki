@@ -24,6 +24,7 @@ import {
   YAxis,
 } from 'recharts';
 import { Skeleton } from '@/shared/ui/skeleton';
+import { buildDailyTrend, localDateKey } from '@/shared/lib/daily-trend';
 import { useUserMetrics } from '../api/user-metrics';
 
 /**
@@ -170,9 +171,11 @@ const tooltipLabelStyle: React.CSSProperties = {
 // ----------------- 注册量(Area)-----------------
 
 function RegistrationsArea({ data }: { data: Array<{ date: string; value: number }> }) {
+  // 最后一桶=今天(进行中)→ 实线到昨天 + 虚线段连今天。
+  const { data: rows, isLive } = buildDailyTrend(data, { valueKeys: ['value'] });
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+      <AreaChart data={rows} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
         <defs>
           <linearGradient id="regGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={COLOR_GREEN} stopOpacity={0.35} />
@@ -195,21 +198,53 @@ function RegistrationsArea({ data }: { data: Array<{ date: string; value: number
           axisLine={false}
           width={40}
         />
-        <Tooltip
-          contentStyle={tooltipStyle}
-          labelStyle={tooltipLabelStyle}
-          itemStyle={{ color: 'var(--color-foreground)' }}
-          formatter={(v) => [Number(v ?? 0).toLocaleString(), '新注册']}
-        />
+        <Tooltip content={<MetricTooltip name="新注册" />} />
         <Area
           type="monotone"
-          dataKey="value"
+          dataKey="value__main"
           stroke={COLOR_GREEN}
           strokeWidth={2}
           fill="url(#regGrad)"
+          connectNulls={false}
         />
+        {isLive && (
+          <Area
+            type="monotone"
+            dataKey="value__live"
+            stroke={COLOR_GREEN}
+            strokeWidth={2}
+            strokeDasharray="5 4"
+            fill="none"
+            connectNulls={false}
+          />
+        )}
       </AreaChart>
     </ResponsiveContainer>
+  );
+}
+
+/** UserMetrics 图共用 Tooltip —— main/live 拆分后 dataKey 变了,读原始 value。 */
+function MetricTooltip({
+  active,
+  payload,
+  label,
+  name,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload?: { date: string; value: number } }>;
+  label?: string | number;
+  name: string;
+}) {
+  if (!active || !payload?.length) return null;
+  const row = payload[0]?.payload;
+  if (!row) return null;
+  return (
+    <div style={tooltipStyle}>
+      <div style={tooltipLabelStyle}>{String(label ?? row.date)}</div>
+      <div style={{ color: 'var(--color-foreground)' }}>
+        {name} {Number(row.value ?? 0).toLocaleString()}
+      </div>
+    </div>
   );
 }
 
@@ -325,9 +360,14 @@ function HourlyBarChart({ data }: { data: Array<{ hour: number; value: number }>
 // ----------------- MAU(Line)-----------------
 
 function MAULine({ data }: { data: Array<{ date: string; value: number }> }) {
+  // 月度:最后一桶=当前月(进行中,不足整月)→ 传 today=YYYY-MM 让本月画虚线段。
+  const { data: rows, isLive } = buildDailyTrend(data, {
+    valueKeys: ['value'],
+    today: localDateKey().slice(0, 7),
+  });
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+      <LineChart data={rows} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
         <XAxis
           dataKey="date"
@@ -342,20 +382,27 @@ function MAULine({ data }: { data: Array<{ date: string; value: number }> }) {
           axisLine={false}
           width={40}
         />
-        <Tooltip
-          contentStyle={tooltipStyle}
-          labelStyle={tooltipLabelStyle}
-          itemStyle={{ color: 'var(--color-foreground)' }}
-          formatter={(v) => [Number(v ?? 0).toLocaleString(), 'MAU']}
-        />
+        <Tooltip content={<MetricTooltip name="MAU" />} />
         <Line
           type="monotone"
-          dataKey="value"
+          dataKey="value__main"
           stroke={COLOR_RED}
           strokeWidth={2}
           dot={{ r: 3, fill: COLOR_RED, strokeWidth: 0 }}
           activeDot={{ r: 5 }}
+          connectNulls={false}
         />
+        {isLive && (
+          <Line
+            type="monotone"
+            dataKey="value__live"
+            stroke={COLOR_RED}
+            strokeWidth={2}
+            strokeDasharray="5 4"
+            dot={{ r: 3, fill: COLOR_RED, strokeWidth: 0 }}
+            connectNulls={false}
+          />
+        )}
       </LineChart>
     </ResponsiveContainer>
   );

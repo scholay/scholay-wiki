@@ -5,20 +5,22 @@ import {
   FileText,
   Mail,
   MessageSquare,
+  QrCode,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { RouteSEO } from '@/shared/components/RouteSEO';
 import { HelpLayout } from '../components/HelpLayout';
 import { FeatureJumpCTA } from '../components/FeatureJumpCTA';
+import { useSupportContact } from '../api/contact';
 
 /**
- * 联系我们 —— 重设计版。
+ * 联系我们 —— 配置驱动版(后台「客服配置」维护邮箱/二维码/说明,接口未配置时回落默认文案)。
  *
  * 三段:
- *   1. 4 张渠道卡 —— 与 Help Center 主入口卡同款样式(icon 在顶 + 大标题
- *      + 描述 + CTA 行),hover 加 brand-red soft 高亮 icon 区
- *   2. SLA 时效区 —— 横排 3 列,clock icon + 时长 + 说明
+ *   1. 4 张渠道卡 —— 产品支持/商务合作 邮箱来自后台配置;反馈/帮助为站内入口
+ *   2. 社交渠道 —— 企微/飞书二维码(仅在后台配置后展示)
+ *   3. SLA 时效区 —— 横排 3 列,clock icon + 时长 + 说明
  */
 
 interface Channel {
@@ -29,36 +31,42 @@ interface Channel {
   href: string;
 }
 
-const CHANNELS: Channel[] = [
-  {
-    icon: Mail,
-    title: '产品支持',
-    desc: '使用问题、bug 报告、账号问题',
-    cta: 'support@scholay.com',
-    href: 'mailto:support@scholay.com',
-  },
-  {
-    icon: Briefcase,
-    title: '商务合作',
-    desc: '机构席位、API 接入、媒体采访',
-    cta: 'hello@scholay.com',
-    href: 'mailto:hello@scholay.com',
-  },
-  {
-    icon: MessageSquare,
-    title: '产品反馈',
-    desc: '功能建议、改进意见、用户体验',
-    cta: '前往反馈页',
-    href: '/feedback',
-  },
-  {
-    icon: FileText,
-    title: '帮助中心',
-    desc: '常见问题、使用指南、文章资源',
-    cta: '查看帮助',
-    href: '/help',
-  },
-];
+// 后台未配置时的回落邮箱(与历史展示一致)。
+const FALLBACK_SUPPORT_EMAIL = 'support@scholay.com';
+const FALLBACK_BUSINESS_EMAIL = 'hello@scholay.com';
+
+function buildChannels(supportEmail: string, businessEmail: string): Channel[] {
+  return [
+    {
+      icon: Mail,
+      title: '产品支持',
+      desc: '使用问题、bug 报告、账号问题',
+      cta: supportEmail,
+      href: `mailto:${supportEmail}`,
+    },
+    {
+      icon: Briefcase,
+      title: '商务合作',
+      desc: '机构席位、API 接入、媒体采访',
+      cta: businessEmail,
+      href: `mailto:${businessEmail}`,
+    },
+    {
+      icon: MessageSquare,
+      title: '产品反馈',
+      desc: '功能建议、改进意见、用户体验',
+      cta: '前往反馈页',
+      href: '/feedback',
+    },
+    {
+      icon: FileText,
+      title: '帮助中心',
+      desc: '常见问题、使用指南、文章资源',
+      cta: '查看帮助',
+      href: '/help',
+    },
+  ];
+}
 
 interface SLAItem {
   scope: string;
@@ -85,6 +93,16 @@ const SLA: SLAItem[] = [
 ];
 
 export function ContactPage() {
+  const { data: contact } = useSupportContact();
+  const channels = buildChannels(
+    contact?.support_email || FALLBACK_SUPPORT_EMAIL,
+    contact?.business_email || FALLBACK_BUSINESS_EMAIL,
+  );
+  const qrs = [
+    { title: '企业微信', src: contact?.wecom_qr },
+    { title: '飞书', src: contact?.feishu_qr },
+  ].filter((q): q is { title: string; src: string } => !!q.src);
+
   return (
     <HelpLayout
       breadcrumbs={[{ label: '帮助中心', to: '/help' }, { label: '联系我们' }]}
@@ -102,13 +120,37 @@ export function ContactPage() {
       <section>
         <h2 className="text-base font-bold text-foreground mb-4">联系渠道</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {CHANNELS.map((c) => (
+          {channels.map((c) => (
             <ChannelCard key={c.title} channel={c} />
           ))}
         </div>
+        {contact?.contact_note && (
+          <p className="mt-3 text-xs text-muted-foreground leading-relaxed">{contact.contact_note}</p>
+        )}
       </section>
 
-      {/* 2. SLA */}
+      {/* 2. 社交渠道二维码(后台配置后才展示) */}
+      {qrs.length > 0 && (
+        <section className="mt-14">
+          <h2 className="text-base font-bold text-foreground inline-flex items-center gap-2 mb-5">
+            <QrCode className="size-4 text-brand-red" strokeWidth={2.2} />
+            扫码联系
+          </h2>
+          <div className="flex flex-wrap gap-4">
+            {qrs.map((q) => (
+              <div
+                key={q.title}
+                className="flex flex-col items-center gap-2 rounded-md border border-border bg-background p-4"
+              >
+                <img src={q.src} alt={`${q.title}二维码`} className="size-36 rounded-sm object-contain" />
+                <p className="text-xs font-semibold text-subtle">{q.title}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* 3. SLA */}
       <section className="mt-14">
         <h2 className="text-base font-bold text-foreground inline-flex items-center gap-2 mb-5">
           <Clock className="size-4 text-brand-red" strokeWidth={2.2} />

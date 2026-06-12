@@ -118,6 +118,11 @@ func main() {
 	defer cancel()
 	startBackgroundTasks(bgCtx, svc.seoService)
 
+	// 客服邮箱 IMAP 收件轮询(配置未启用时空转;间隔随后台配置即时生效)
+	safego.Go("supportcenter-imap-poll", func() {
+		svc.supportCenterService.StartPoller(bgCtx.Done())
+	})
+
 	// 主动 SEO 提交 worker:写入即推 + 启动期一次性 seed
 	svc.seoSubmitService.StartWorker(bgCtx)
 	svc.seoSubmitService.BootstrapEnqueue(bgCtx, svc.seoService, 5000)

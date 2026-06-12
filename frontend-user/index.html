@@ -3,7 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover: 移动端 /m 的底部导航用 env(safe-area-inset-bottom) 给全面屏 home indicator 让位 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#ffffff" />
 
     <!--
@@ -59,6 +60,38 @@
             document.head.appendChild(s);
           })
           .catch(function () { /* 静默 —— 监控不可用不应该影响站点 */ });
+      })();
+    </script>
+
+    <!--
+      Google 分析(GA4 / GTM)—— 运行时加载,衡量 ID 由后台「系统设置」配置(/config/system)。
+      自动判断:G-XXXX → 直接 gtag.js(GA4 增强衡量默认开,自动统计 SPA 路由切换);
+                GTM-XXXX → GTM 容器(GA4 标签需在 GTM 后台自行配置)。
+      空 / backend 不可达 → 静默跳过,不影响站点。
+    -->
+    <script>
+      (function () {
+        window.dataLayer = window.dataLayer || [];
+        window.gtag = window.gtag || function () { window.dataLayer.push(arguments); };
+        fetch('/api/v1/config/system')
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (resp) {
+            var id = resp && resp.data && resp.data.google_analytics_id;
+            if (!id) return;
+            var isGTM = id.indexOf('GTM-') === 0;
+            var s = document.createElement('script');
+            s.async = true;
+            s.src = 'https://www.googletagmanager.com/' +
+              (isGTM ? 'gtm.js?id=' : 'gtag/js?id=') + encodeURIComponent(id);
+            document.head.appendChild(s);
+            if (isGTM) {
+              window.dataLayer.push({ 'gtm.start': Date.now(), event: 'gtm.js' });
+            } else {
+              window.gtag('js', new Date());
+              window.gtag('config', id);
+            }
+          })
+          .catch(function () { /* 静默 —— 监控不可用不应影响站点 */ });
       })();
     </script>
 

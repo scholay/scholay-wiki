@@ -100,12 +100,11 @@ func preUserMessageChain(ctx context.Context, userID uint, _ string) error {
 	return nil
 }
 
-// onMessageComplete 每轮 agent 回复结束:① slog(docker logs | grep agent_usage)② 落 token 账本。
+// onMessageComplete 每轮 agent 回复结束:只做 slog(docker logs | grep agent_usage)实时观测。
+// token 账本已改为 **per-call** 记账(agent 端 claude.ts 每次真实模型调用 → 内网回调落库,一次调用一行),
+// 故这里**不再落库**,否则与 per-call 双计。llmUsageRecorder 仍由 bootstrap 注入(保留接线)但此处不再用。
 func onMessageComplete(ctx context.Context, userID uint, usage agentbridge.AgentUsage) {
 	agentbridge.NewSlogUsageRecorder(FeatureKey)(ctx, userID, usage)
-	if llmUsageRecorder != nil {
-		agentbridge.NewDBUsageRecorder(FeatureKey, llmUsageRecorder)(ctx, userID, usage)
-	}
 }
 
 // BuildSpec 返回 Prism 的 agentbridge FeatureSpec(用户 WS 模式)。

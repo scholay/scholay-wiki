@@ -15,6 +15,7 @@ import { RightRailPanel } from '../components/wizard/RightRailPanel';
 import { Step4Rail } from '../components/wizard/Step4Rail';
 import { useConfirm } from '@/shared/components/ConfirmDialog';
 import { http } from '@/shared/lib/http';
+import { trackEvent } from '@/shared/lib/track';
 import {
   useAdvanceStep,
   useCreateSubmission,
@@ -318,7 +319,10 @@ export function ThesisWizardPage() {
     }
     if (step === 4) {
       submitMut.mutate(undefined, {
-        onSuccess: (s) => navigate(`/peer-review/submitted/${s.id}`),
+        onSuccess: (s) => {
+          trackEvent('review_submit', { kind: 'thesis' });
+          navigate(`/peer-review/submitted/${s.id}`);
+        },
         onError: (e) => toast.error(`投递失败:${(e as Error).message}`),
       });
       return;

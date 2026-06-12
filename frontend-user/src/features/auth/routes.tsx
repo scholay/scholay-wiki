@@ -29,3 +29,17 @@ export const authRoutes: RouteObject[] = [
       })),
   },
 ];
+
+/**
+ * 移动版整页登录/注册(/m/auth) —— 挂在 /m/* (MobileShell) 下,由 app/router.tsx
+ * 组装。复用 AuthDialog 的全部表单组件,未登录访问 /m/me 会被重定向到这里。
+ */
+export const authMobileRoutes: RouteObject[] = [
+  {
+    path: 'auth',
+    lazy: () =>
+      import('./pages/mobile/MobileAuthPage').then((m) => ({
+        Component: m.MobileAuthPage,
+      })),
+  },
+];

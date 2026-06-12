@@ -1,5 +1,15 @@
-import { forwardRef, useCallback, useMemo, useRef, useState } from 'react';
+import {
+  forwardRef,
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import {
   ChevronDown,
   Inbox,
@@ -24,10 +34,11 @@ import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useDebounce, useScrollRestoration, useUrlState } from '@/shared/hooks';
 import { LibrarySidebar } from '../components/LibrarySidebar';
 import { LibraryPaperList } from '../components/LibraryPaperList';
-import { LibraryImportDialog } from '../components/LibraryImportDialog';
+import type { WorkbenchView } from '../components/PaperWorkbenchDialog';
 import type { ImportTab } from '../components/library-import-dialog/types';
 import { useLibraryFolders } from '../api/folders';
 import {
+  useLibraryPaperByUpstream,
   useLibraryPapers,
   type LibraryFolderFilter,
   type LibrarySortOrder,
@@ -35,6 +46,14 @@ import {
 import { useLibrarySelection } from '../hooks/useLibrarySelection';
 import { LibraryBulkToolbar } from '../components/LibraryBulkToolbar';
 import { cn } from '@/shared/lib/utils';
+
+// 统一工作台弹窗 —— 与 LibraryPaperRow 同款 lazy + 条件 mount:静态 import 会把
+// 这个大弹窗打进页面主 chunk,击穿行级入口的 lazy 拆分;type import 不影响 chunk。
+const PaperWorkbenchDialog = lazy(() =>
+  import('../components/PaperWorkbenchDialog').then((m) => ({
+    default: m.PaperWorkbenchDialog,
+  })),
+);
 
 /**
  * 我的文献集 —— 只有"我的文件夹列表 + 论文列表 + 工具栏"。
@@ -102,7 +121,7 @@ function LibraryLoginPrompt() {
 // ============================================================================
 
 function LibraryFolderView() {
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const foldersQ = useLibraryFolders();
 
   const folderParam = params.get('folder') ?? '';
@@ -149,11 +168,62 @@ function LibraryFolderView() {
   );
   const setPage = setPageRaw;
 
-  // 统一导入弹窗 —— 4 个入口按钮(在线搜索 / PDF / Zotero / Endnote)开同一个 Dialog,
-  // 只是 initialTab 不同。importOpen=null 关弹窗,= tab id 打开并定位到该 tab。
-  const [importTab, setImportTab] = useState<ImportTab | null>(null);
-  const openImport = useCallback((t: ImportTab) => setImportTab(t), []);
-  const closeImport = useCallback(() => setImportTab(null), []);
+  // 统一工作台弹窗 —— 4 个工具栏按钮(在线搜索 / PDF / Zotero / EndNote)开同一个
+  // PaperWorkbenchDialog 的「添加」语境,只是 initialTab 不同;行级 chip 入口在
+  // LibraryPaperRow 内部各自挂「管理」语境。null = 关闭(unmount 清理内部状态)。
+  const [workbench, setWorkbench] = useState<WorkbenchView | null>(null);
+  const openImport = useCallback(
+    (t: ImportTab) => setWorkbench({ mode: 'add', tab: t }),
+    []
+  );
+  const closeImport = useCallback(() => setWorkbench(null), []);
+
+  // 深链 ?manage=<source>:<sourcePaperId> —— 库外收藏成功 toast 的「完善信息」
+  // action 跳转到这里:等 by-upstream 查到行后打开管理语境,并清掉 param
+  // (避免刷新 / 后退重复弹)。
+  const manageParam = params.get('manage') ?? '';
+  const manageKey = useMemo(() => {
+    const i = manageParam.indexOf(':');
+    if (i <= 0) return null;
+    return {
+      source: manageParam.slice(0, i) as import('@/shared/api/types').PaperSource,
+      id: manageParam.slice(i + 1),
+    };
+  }, [manageParam]);
+  const deepRowQ = useLibraryPaperByUpstream(manageKey?.source, manageKey?.id);
+  const clearManageParam = useCallback(() => {
+    setParams(
+      (p) => {
+        p.delete('manage');
+        return p;
+      },
+      { replace: true }
+    );
+  }, [setParams]);
+  useEffect(() => {
+    // 新鲜度门槛:挂载瞬间缓存里可能躺着上次深链的陈旧 null(行其实已重新收藏),
+    // 等本次 refetch 落定再消费,避免按陈旧缓存误判。
+    if (deepRowQ.isFetching) return;
+    if (!manageKey) return;
+    if (deepRowQ.isSuccess) {
+      if (deepRowQ.data) {
+        setWorkbench({ mode: 'manage', paper: deepRowQ.data, tab: 'metadata' });
+      } else {
+        // 行真不存在(已被删除/取消收藏)→ 给出明确反馈,不再完全静默
+        toast.error('该论文已不在文献集中');
+      }
+      clearManageParam();
+    } else if (deepRowQ.isError) {
+      clearManageParam();
+    }
+  }, [
+    manageKey,
+    deepRowQ.isFetching,
+    deepRowQ.isSuccess,
+    deepRowQ.isError,
+    deepRowQ.data,
+    clearManageParam,
+  ]);
 
   // 列表滚动位置恢复 —— 点击论文进详情页 → 浏览器后退,自动滚回原位
   // 键 = URL(包含 folder/q/page/sort/size 所有过滤),不同视图各自独立
@@ -265,7 +335,7 @@ function LibraryFolderView() {
             {/* 加入按钮组 —— 响应式
                 ≥xl(1280px):全部按钮平铺
                 <xl:折叠成单个「更多 ▾」hover dropdown
-                所有按钮都打开同一个统一弹窗 LibraryImportDialog,仅 initialTab 不同 */}
+                所有按钮都打开同一个统一工作台 PaperWorkbenchDialog,仅初始 tab 不同 */}
             <div className="hidden xl:flex items-center gap-2 shrink-0">
               <ToolbarButton
                 label="+ 在线搜索加入"
@@ -328,17 +398,19 @@ function LibraryFolderView() {
         )}
       </header>
 
-      {/* 统一导入弹窗 —— 4 个 tab(在线搜索 / 本地上传 / Zotero / Endnote),
-          打开时定位到 toolbar 按钮触发的 tab,内部可自由切换。挂载条件 `importTab != null`,
-          关闭后 unmount 让内部 tab state(SSE / 上传进度等)自然清理。 */}
-      {importTab && (
-        <LibraryImportDialog
-          open
-          onOpenChange={(v) => !v && closeImport()}
-          initialTab={importTab}
-          currentFilter={filter}
-          currentFolderName={title}
-        />
+      {/* 统一工作台弹窗 —— 「添加」语境(在线搜索 / 本地上传 / Zotero / EndNote)
+          + 深链打开的「管理」语境共用。挂载条件 `workbench != null`,
+          关闭后 unmount 让内部状态(SSE / 上传进度等)自然清理。 */}
+      {workbench && (
+        <Suspense fallback={null}>
+          <PaperWorkbenchDialog
+            open
+            onOpenChange={(v) => !v && closeImport()}
+            initial={workbench}
+            currentFilter={filter}
+            currentFolderName={title}
+          />
+        </Suspense>
       )}
 
       <div ref={scrollRef} className="flex-1 min-h-0 overflow-auto">

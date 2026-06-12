@@ -77,6 +77,11 @@ func (s *Service) Record(u Usage) {
 	if u.TotalTokens == 0 {
 		u.TotalTokens = u.InputTokens + u.OutputTokens + u.CacheReadTokens + u.CacheCreationTokens
 	}
+	// 全 0 用量不入账本:合成/空轮、上游没吐 usage、agent 增量为 0 的轮 —— 没有 token 可计,
+	// 记一行只会虚增后台「调用次数(total_calls)」、污染明细。无 token = 无消耗, 跳过不算遗漏。
+	if u.TotalTokens == 0 {
+		return
+	}
 	// 同步喂「每日 token 额度」计数(轻量 Redis INCRBY);只对已登录用户的非零用量。
 	if s.observer != nil && u.UserID != nil && u.TotalTokens > 0 {
 		s.observer(*u.UserID, u.TotalTokens)

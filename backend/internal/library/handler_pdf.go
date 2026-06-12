@@ -43,10 +43,10 @@ import (
 
 // PDF 上传约束
 const (
-	maxPDFSize       int64  = 50 * 1024 * 1024 // 50 MiB
-	pdfContentType   string = "application/pdf"
-	pdfMagicPrefix   string = "%PDF-" // PDF 文件前 5 字节
-	pdfDownloadTTL          = 10 * time.Minute
+	maxPDFSize     int64  = 50 * 1024 * 1024 // 50 MiB
+	pdfContentType string = "application/pdf"
+	pdfMagicPrefix string = "%PDF-" // PDF 文件前 5 字节
+	pdfDownloadTTL        = 10 * time.Minute
 )
 
 // objectKeyForPaper 生成 MinIO 对象 key —— 包含 user_id 隔离,避免误删别人的
@@ -75,13 +75,13 @@ func loadOwnedPaper(c *gin.Context, db *gorm.DB, uid, paperID uint64) (*UserLibr
 //	file=<binary>  必填,application/pdf,≤ 50 MiB
 //
 // 行为:
-//  1) 读 file → 缓存到内存(因为要先算 sha256 再 PutObject 给 MinIO,
+//  1. 读 file → 缓存到内存(因为要先算 sha256 再 PutObject 给 MinIO,
 //     MinIO 单 part 上传要求预知 size)。50MiB 上限保证内存压力可控
-//  2) 校验:大小 / Content-Type / magic bytes
-//  3) 算 sha256 → object key
-//  4) PutObject 到 MinIO
-//  5) 旧对象与新对象 key 不同则异步删旧
-//  6) 更新 user_library_papers 元数据列
+//  2. 校验:大小 / Content-Type / magic bytes
+//  3. 算 sha256 → object key
+//  4. PutObject 到 MinIO
+//  5. 旧对象与新对象 key 不同则异步删旧
+//  6. 更新 user_library_papers 元数据列
 //
 // 返回:更新后的 UserLibraryPaper(含 pdf_uploaded_at 等)
 func (h *Handler) UploadPDF(c *gin.Context) {
@@ -317,6 +317,14 @@ func (h *Handler) DeletePDF(c *gin.Context) {
 	}
 	if paper.PdfObjectKey == "" {
 		utils.Success(c, gin.H{"deleted": false})
+		return
+	}
+
+	// 空壳守卫:free 行(未关联上游)若基本信息全空,PDF 是它唯一的内容,
+	// 移除后会变成彻底空壳 —— 阻断并引导直接删条目。linked 行不受限。
+	if paper.LinkState == LinkStateFree && ogAllEmpty(paper) {
+		utils.Error(c, http.StatusBadRequest,
+			"移除后该条目将不包含任何信息;如不需要请直接删除该条目")
 		return
 	}
 

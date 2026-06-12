@@ -1,0 +1,202 @@
+import { useState } from 'react';
+import { Crown, Gem, RotateCcw, Ticket, Wallet } from 'lucide-react';
+import { toast } from 'sonner';
+import { cn } from '@/shared/lib/utils';
+import { Switch } from '@/shared/ui/switch';
+import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
+import { RedeemConfirmDialog } from '../redeem-confirm-dialog';
+import {
+  useBillingOverview,
+  useResetQuota,
+  useSetAutoReset,
+  type Tier,
+} from '../../api/membership';
+
+const TIER_LABEL: Record<Tier, string> = { free: 'Free', pro: 'Pro', max: 'Max' };
+const TIER_BADGE_CLS: Record<Tier, string> = {
+  free: 'bg-surface-2 text-muted-foreground',
+  pro: 'bg-brand-green text-white',
+  max: 'bg-brand-amber text-white',
+};
+
+/**
+ * 移动端会员/账户资产卡 —— PC AccountAssetsCard 的纵向重排:
+ * 等级铭牌+到期 / 今日额度进度条 / 经费余额(临时+永久) / 重置+自动重置 / 兑换码。
+ * 数据与 mutation 全部复用 settings 的 membership hooks。
+ * 升级/充值走支付网关,移动端暂不开,提示去电脑端操作。
+ */
+export function MobileAssetsCard() {
+  const overviewQ = useBillingOverview();
+  const resetMut = useResetQuota();
+  const autoResetMut = useSetAutoReset();
+
+  const [resetOpen, setResetOpen] = useState(false);
+  const [redeemCode, setRedeemCode] = useState('');
+  const [redeemOpen, setRedeemOpen] = useState(false);
+
+  const data = overviewQ.data;
+  if (overviewQ.isLoading) {
+    return (
+      <div className="h-44 animate-pulse rounded-lg border border-border bg-surface-1" />
+    );
+  }
+  if (!data) return null;
+
+  const tier = data.tier;
+  const TierIcon = tier === 'max' ? Crown : tier === 'pro' ? Gem : null;
+  const { token, credit } = data;
+  // 与 PC AccountAssetsCard 同口径:展示**剩余**百分比,进度条宽度 = 剩余
+  const remaining = token.unlimited ? 100 : Math.max(0, 100 - token.percent);
+  const exhausted = !token.unlimited && remaining <= 0;
+
+  return (
+    <section className="overflow-hidden rounded-lg border border-border bg-background">
+      {/* 等级行 */}
+      <div className="flex items-center gap-2 border-b border-border-soft px-4 py-3">
+        <span
+          className={cn(
+            'flex items-center gap-1 rounded-pill px-2.5 py-0.5 text-xs font-semibold',
+            TIER_BADGE_CLS[tier]
+          )}
+        >
+          {TierIcon && <TierIcon className="size-3" />}
+          {TIER_LABEL[tier]}
+        </span>
+        {data.expires_at && (
+          <span className="text-xs text-faint">
+            {new Date(data.expires_at).toLocaleDateString('zh-CN')} 到期
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={() => toast.info('升级与充值请先在电脑端操作,移动端支付即将上线')}
+          className="ml-auto rounded-pill bg-foreground px-3 py-1 text-xs font-medium text-white active:opacity-80"
+        >
+          {tier === 'max' ? '续期' : '升级会员'}
+        </button>
+      </div>
+
+      {/* 今日额度 */}
+      <div className="space-y-2 px-4 py-3">
+        <div className="flex items-baseline justify-between">
+          <span className="text-sm font-medium text-foreground">今日额度</span>
+          <span className="text-xs text-muted-foreground">
+            {token.unlimited
+              ? '不限'
+              : `剩余 ${Math.round(remaining)}%${exhausted ? ' · 已耗尽' : ''}`}
+          </span>
+        </div>
+        <div className="h-2 overflow-hidden rounded-pill bg-surface-2">
+          <div
+            className={cn(
+              'h-full rounded-pill transition-all',
+              // 同 PC 三档色:耗尽红 / 剩余 ≤20% 琥珀 / 充足绿
+              exhausted
+                ? 'bg-brand-red'
+                : remaining <= 20
+                  ? 'bg-brand-amber'
+                  : 'bg-brand-green'
+            )}
+            /* 动态进度宽度 — 运行时计算,只能内联 */
+            style={{ width: `${remaining}%` }}
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Switch
+              checked={data.auto_reset}
+              disabled={autoResetMut.isPending}
+              onCheckedChange={(v) =>
+                autoResetMut.mutate(v, {
+                  onError: (e) => toast.error((e as Error).message || '设置失败'),
+                })
+              }
+            />
+            耗尽自动消耗经费重置
+          </label>
+          <button
+            type="button"
+            onClick={() => setResetOpen(true)}
+            disabled={resetMut.isPending}
+            className={cn(
+              'flex items-center gap-1 rounded-pill border px-2.5 py-1 text-xs',
+              exhausted
+                ? 'border-brand-red text-brand-red'
+                : 'border-border-button text-muted-foreground'
+            )}
+          >
+            <RotateCcw className="size-3" />
+            重置额度
+          </button>
+        </div>
+      </div>
+
+      {/* 经费 */}
+      <div className="flex items-center gap-2 border-t border-border-soft px-4 py-3">
+        <Wallet className="size-4 text-brand-amber" />
+        <span className="text-sm text-foreground">
+          经费 <span className="font-semibold">{credit.total.toLocaleString('en-US')}</span>
+        </span>
+        <span className="ml-auto text-xs text-faint">
+          临时 {credit.temp.toLocaleString('en-US')} · 永久{' '}
+          {credit.perm.toLocaleString('en-US')}
+        </span>
+      </div>
+
+      {/* 兑换码 */}
+      <form
+        className="flex items-center gap-2 border-t border-border-soft px-4 py-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (redeemCode.trim()) setRedeemOpen(true);
+        }}
+      >
+        <Ticket className="size-4 shrink-0 text-faint" />
+        <input
+          value={redeemCode}
+          onChange={(e) => setRedeemCode(e.target.value)}
+          placeholder="输入兑换码"
+          className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-faint"
+        />
+        <button
+          type="submit"
+          disabled={!redeemCode.trim()}
+          className="rounded-pill border border-border-button px-3 py-1 text-xs text-foreground disabled:opacity-40"
+        >
+          兑换
+        </button>
+      </form>
+
+      <ConfirmDialog
+        open={resetOpen}
+        onOpenChange={setResetOpen}
+        title="重置今日额度"
+        description={
+          credit.total >= data.reset_cost
+            ? `将消耗 ${data.reset_cost.toLocaleString('en-US')} 经费立即恢复今日额度,确认重置?`
+            : `重置需要 ${data.reset_cost.toLocaleString('en-US')} 经费,当前余额不足(${credit.total.toLocaleString('en-US')}),请先兑换或在电脑端充值`
+        }
+        confirmText="确认重置"
+        onConfirm={async () => {
+          if (credit.total < data.reset_cost) {
+            toast.error('经费不足,无法重置');
+            return;
+          }
+          try {
+            await resetMut.mutateAsync();
+            toast.success('今日额度已重置');
+          } catch (e) {
+            toast.error((e as Error).message || '重置失败');
+          }
+        }}
+      />
+
+      <RedeemConfirmDialog
+        code={redeemCode.trim()}
+        open={redeemOpen}
+        onOpenChange={setRedeemOpen}
+        onRedeemed={() => setRedeemCode('')}
+      />
+    </section>
+  );
+}

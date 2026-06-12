@@ -13,6 +13,8 @@ export interface SystemConfig {
   enable_turnstile: boolean;
   turnstile_site_key: string;
   turnstile_secret_key: string;
+  /** Google 分析 ID:GA4 衡量 ID(G-XXXX)或 GTM 容器 ID(GTM-XXXX);空=不接入。非机密。 */
+  google_analytics_id: string;
   created_at: string;
   updated_at: string;
 }

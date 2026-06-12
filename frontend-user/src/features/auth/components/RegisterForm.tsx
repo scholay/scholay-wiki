@@ -22,6 +22,7 @@ import { AccountTypeTabs } from './AccountTypeTabs';
 import { SendCodeButton } from './SendCodeButton';
 import { TurnstileField } from './TurnstileField';
 import { usePublicConfig } from '../api/public-config';
+import { trackEvent } from '@/shared/lib/track';
 
 const emailRule = z.string().min(1, '请输入邮箱').email('邮箱格式有误,请检查后重新输入(如 user@example.com)');
 const phoneRule = z
@@ -110,6 +111,7 @@ export function RegisterForm({
           turnstile_token: ts,
         });
       }
+      trackEvent('register', { method: accountType });
       toast.success('注册成功,欢迎加入 Scholay~');
       close();
     } catch (err) {

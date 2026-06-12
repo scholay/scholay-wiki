@@ -1416,6 +1416,16 @@ export const SDKResultSuccessSchema = lazySchema(() =>
     stop_reason: z.string().nullable(),
     total_cost_usd: z.number(),
     usage: NonNullableUsagePlaceholder(),
+    // 会话累计 token 计数(全局 cost-tracker:主轮 + 子 agent + 压缩 + advisor)。可选, 供后端按相邻轮差值
+    // 算「本轮真实总花销」, 覆盖子 agent / 压缩这类不产生独立 message_complete 的带外用量。
+    session_total_usage: z
+      .object({
+        input_tokens: z.number(),
+        output_tokens: z.number(),
+        cache_read_input_tokens: z.number(),
+        cache_creation_input_tokens: z.number(),
+      })
+      .optional(),
     modelUsage: z.record(z.string(), ModelUsageSchema()),
     permission_denials: z.array(SDKPermissionDenialSchema()),
     structured_output: z.unknown().optional(),
@@ -1441,6 +1451,16 @@ export const SDKResultErrorSchema = lazySchema(() =>
     stop_reason: z.string().nullable(),
     total_cost_usd: z.number(),
     usage: NonNullableUsagePlaceholder(),
+    // 会话累计 token 计数(全局 cost-tracker:主轮 + 子 agent + 压缩 + advisor)。可选, 供后端按相邻轮差值
+    // 算「本轮真实总花销」, 覆盖子 agent / 压缩这类不产生独立 message_complete 的带外用量。
+    session_total_usage: z
+      .object({
+        input_tokens: z.number(),
+        output_tokens: z.number(),
+        cache_read_input_tokens: z.number(),
+        cache_creation_input_tokens: z.number(),
+      })
+      .optional(),
     modelUsage: z.record(z.string(), ModelUsageSchema()),
     permission_denials: z.array(SDKPermissionDenialSchema()),
     errors: z.array(z.string()),

@@ -136,8 +136,8 @@ func getUserID(c *gin.Context) (uint64, bool) {
 //	folder : "root"     根目录(folder_id IS NULL)
 //	         <id>       某文件夹内
 //	         缺省/空      全部(不过滤)
-//	q      : 关键词模糊搜索(title / abstract / venue / doi)
-//	         非空时附加 OR LIKE 过滤;不传跳过
+//	q      : 关键词模糊搜索(title / abstract / venue / doi + og_* 同名四列,
+//	         覆盖用户编辑过的 og 真值与自由文件)非空时附加 OR LIKE 过滤;不传跳过
 //	order  : asc | desc(按 created_at 升 / 降);缺省 desc(最新在前)
 //
 // **不会全表扫**:WHERE 永远以 user_id = ? 起头(走 idx_user_created_at /
@@ -191,12 +191,14 @@ func (h *Handler) List(c *gin.Context) {
 		db = db.Where("folder_id = ?", fid)
 	}
 
-	// 模糊搜索 —— 转义 LIKE 通配符(_ % \)防注入,然后 4 字段 OR
+	// 模糊搜索 —— 转义 LIKE 通配符(_ % \)防注入,元数据 4 列 + og_* 4 列 OR
+	// (og 是用户侧真值,自由文件/用户编辑过的行内容都在 og_* 里,不搜会漏)
 	if q != "" {
 		like := "%" + escapeLikePattern(q) + "%"
 		db = db.Where(
-			"title LIKE ? OR abstract LIKE ? OR venue LIKE ? OR doi LIKE ?",
-			like, like, like, like,
+			"title LIKE ? OR abstract LIKE ? OR venue LIKE ? OR doi LIKE ?"+
+				" OR og_title LIKE ? OR og_abstract LIKE ? OR og_venue LIKE ? OR og_doi LIKE ?",
+			like, like, like, like, like, like, like, like,
 		)
 	}
 
@@ -331,6 +333,9 @@ func (h *Handler) Add(c *gin.Context) {
 }
 
 // Remove DELETE /api/v1/user/library/:source/:paperId
+//
+// 防游离(与 BatchDeletePapers 对齐):删 DB 行之前先收集 pdf_object_key;
+// DB 删成功后异步删 MinIO 对象,失败只 warn,不阻塞行删除。
 func (h *Handler) Remove(c *gin.Context) {
 	uid, ok := getUserID(c)
 	if !ok {
@@ -348,12 +353,39 @@ func (h *Handler) Remove(c *gin.Context) {
 		return
 	}
 
-	res := database.GetDB().
+	db := database.GetDB()
+
+	// 1) 先把待删行的 pdf_object_key 拉出来(唯一键定位,至多一行)
+	var keys []string
+	if err := db.Model(&UserLibraryPaper{}).
+		Where("user_id = ? AND source = ? AND source_paper_id = ?", uid, source, paperID).
+		Where("pdf_object_key <> ''").
+		Pluck("pdf_object_key", &keys).Error; err != nil {
+		utils.Error(c, http.StatusInternalServerError, "查询失败")
+		return
+	}
+
+	// 2) DB 删
+	res := db.
 		Where("user_id = ? AND source = ? AND source_paper_id = ?", uid, source, paperID).
 		Delete(&UserLibraryPaper{})
 	if res.Error != nil {
 		utils.Error(c, http.StatusInternalServerError, "删除失败")
 		return
+	}
+
+	// 3) DB 成功后异步删 MinIO 对象 —— 失败只 warn(同批删的容错风格)
+	if len(keys) > 0 {
+		bucket := storage.PaperPDFBucket()
+		ks := keys
+		safego.Go("library-remove-pdf-cleanup", func() {
+			ctx, cancel := ctxutil.With(ctxutil.NormalIO)
+			defer cancel()
+			_ = storage.DeleteObjects(ctx, bucket, ks, func(key string, err error) {
+				slog.Warn("library: Remove 清理对象失败",
+					"key", key, "err", err)
+			})
+		})
 	}
 
 	utils.Success(c, gin.H{"deleted": res.RowsAffected})
@@ -363,7 +395,7 @@ func (h *Handler) Remove(c *gin.Context) {
 //
 // 详情页场景:用户打开任意论文详情(可能从搜索来 / 从文献集来 / 从外部链接来),
 // 想知道"我有没有收藏过 + 我有没有给这条上传过 PDF"。
-// 命中返回完整 UserLibraryPaper(含 pdf_* 与 ai_* 等所有列)。
+// 命中返回完整 UserLibraryPaper(含 pdf_* 与 og_* 等所有列)。
 //
 // **未收藏不是错误**,返 200 + data:null —— 这是查询型接口,
 // "没收藏过"是有效查询结果而不是 404。早期返 404 会让 DevTools 控制台

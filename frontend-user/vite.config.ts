@@ -15,7 +15,8 @@ export default defineConfig(({ command }) => ({
     host: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        // backend 容器不向宿主机暴露 8080(安全设计),API 统一入口是 nginx(HTTP_PORT, 默认 5411)
+        target: 'http://localhost:5411',
         changeOrigin: true,
       },
     },

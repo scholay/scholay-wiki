@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Loader2, ArrowUp, Square, Check, FileText, RotateCcw, Quote, X, WifiOff } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { cn } from '@/shared/lib/utils';
+import { trackEvent } from '@/shared/lib/track';
 import { ContextMeter } from '@/shared/components/chat';
 import type { usePrismChat, PrismChangeset } from '../hooks/usePrismChat';
 import { PrismMessageTurn } from './chat/PrismMessageTurn';
@@ -50,6 +51,7 @@ export function PrismChatPanel({
   const send = () => {
     const ins = instruction.trim();
     if (!ins || blocked || !wsReady) return;
+    trackEvent('prism_edit', { len: ins.length });
     setInstruction('');
     onSend(ins);
   };

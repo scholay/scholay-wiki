@@ -121,6 +121,7 @@ function SystemBasicForm() {
             enable_turnstile: fd.get('enable_turnstile') === 'on',
             turnstile_site_key: String(fd.get('turnstile_site_key') || ''),
             turnstile_secret_key: String(fd.get('turnstile_secret_key') || ''),
+            google_analytics_id: String(fd.get('google_analytics_id') || '').trim(),
           }),
           { success: '已保存', failure: '保存失败' }
         );
@@ -148,6 +149,13 @@ function SystemBasicForm() {
           onToggleReveal={() => setReveal((v) => !v)}
           placeholder="留空表示不修改"
         />
+      </Field>
+
+      <Field label="Google 分析 ID">
+        <Input name="google_analytics_id" defaultValue={data?.google_analytics_id} placeholder="G-XXXXXXXXXX(GA4)或 GTM-XXXXXXX(GTM),留空 = 不接入" />
+        <p className="mt-1 text-2xs text-faint">
+          GA4 衡量 ID(G- 开头)或 GTM 容器 ID(GTM- 开头),前端自动按前缀加载对应脚本。analytics.google.com → 管理 → 数据流 获取 G-XXXX。
+        </p>
       </Field>
 
       <SaveButton pending={update.isPending} />

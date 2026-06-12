@@ -39,33 +39,52 @@ type Totals struct {
 
 // DayPoint 是每日趋势的一个点(已按日分桶)。
 type DayPoint struct {
-	Date         string `json:"date"` // YYYY-MM-DD
-	TotalTokens  int64  `json:"total_tokens"`
-	InputTokens  int64  `json:"input_tokens"`
-	OutputTokens int64  `json:"output_tokens"`
-	Calls        int64  `json:"calls"`
+	Date                string `json:"date"` // YYYY-MM-DD
+	TotalTokens         int64  `json:"total_tokens"`
+	InputTokens         int64  `json:"input_tokens"`         // 未命中输入
+	OutputTokens        int64  `json:"output_tokens"`
+	CacheReadTokens     int64  `json:"cache_read_tokens"`     // 命中缓存
+	CacheCreationTokens int64  `json:"cache_creation_tokens"` // 缓存创建(Anthropic 才有)
+	Calls               int64  `json:"calls"`
+}
+
+// DayDimPoint 是「天 × 维度(model/feature)」交叉聚合的一格 —— 看板主图的分段堆叠柱用:
+// 同一天一根柱子, 按维度取值分段。token 四列与 DayPoint 同口径(互不重叠)。
+type DayDimPoint struct {
+	Date                string `json:"date"`                      // YYYY-MM-DD
+	Key                 string `gorm:"column:dim_key" json:"key"` // 维度原始值
+	Label               string `gorm:"-" json:"label"`            // 展示名, 由 service 填
+	TotalTokens         int64  `json:"total_tokens"`
+	InputTokens         int64  `json:"input_tokens"`
+	OutputTokens        int64  `json:"output_tokens"`
+	CacheReadTokens     int64  `json:"cache_read_tokens"`
+	CacheCreationTokens int64  `json:"cache_creation_tokens"`
+	Calls               int64  `json:"calls"`
 }
 
 // BreakdownItem 是按某维度(feature/source/model/provider)聚合的一行。
 type BreakdownItem struct {
-	Key             string `gorm:"column:dim_key" json:"key"` // 维度原始值(feature/source/model/provider);别名 dim_key 避开保留字 key
-	Label           string `gorm:"-" json:"label"`            // 展示名, 由 service 填(不来自 DB)
-	TotalTokens     int64  `json:"total_tokens"`
-	InputTokens     int64  `json:"input_tokens"`
-	OutputTokens    int64  `json:"output_tokens"`
-	CacheReadTokens int64  `json:"cache_read_tokens"`
-	Calls           int64  `json:"calls"`
+	Key                 string `gorm:"column:dim_key" json:"key"` // 维度原始值(feature/source/model/provider);别名 dim_key 避开保留字 key
+	Label               string `gorm:"-" json:"label"`            // 展示名, 由 service 填(不来自 DB)
+	TotalTokens         int64  `json:"total_tokens"`
+	InputTokens         int64  `json:"input_tokens"`
+	OutputTokens        int64  `json:"output_tokens"`
+	CacheReadTokens     int64  `json:"cache_read_tokens"`
+	CacheCreationTokens int64  `json:"cache_creation_tokens"`
+	Calls               int64  `json:"calls"`
 }
 
 // UserUsageItem 是 top 用户榜的一行(LEFT JOIN users)。
 type UserUsageItem struct {
-	UserID       *uint  `json:"user_id"`  // NULL = 公众号/匿名
-	Username     string `json:"username"` // 来自 join, NULL user 为空
-	Email        string `json:"email"`
-	TotalTokens  int64  `json:"total_tokens"`
-	InputTokens  int64  `json:"input_tokens"`
-	OutputTokens int64  `json:"output_tokens"`
-	Calls        int64  `json:"calls"`
+	UserID              *uint  `json:"user_id"`  // NULL = 公众号/匿名
+	Username            string `json:"username"` // 来自 join, NULL user 为空
+	Email               string `json:"email"`
+	TotalTokens         int64  `json:"total_tokens"`
+	InputTokens         int64  `json:"input_tokens"`
+	OutputTokens        int64  `json:"output_tokens"`
+	CacheReadTokens     int64  `json:"cache_read_tokens"`
+	CacheCreationTokens int64  `json:"cache_creation_tokens"`
+	Calls               int64  `json:"calls"`
 }
 
 // LogEntry 是明细调用日志一行(LEFT JOIN users + third_party_accounts)。

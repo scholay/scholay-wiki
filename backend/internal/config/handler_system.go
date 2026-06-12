@@ -42,6 +42,7 @@ func (h *Handler) GetSystemConfig(c *gin.Context) {
 		"enable_turnstile":           config.EnableTurnstile,
 		"turnstile_site_key":         config.TurnstileSiteKey,
 		"turnstile_secret_key":       turnstileSecretKey,
+		"google_analytics_id":        config.GoogleAnalyticsID,
 		"created_at":                 config.CreatedAt,
 		"updated_at":                 config.UpdatedAt,
 	}
@@ -93,6 +94,7 @@ type UpdateSystemConfigRequest struct {
 	EnableTurnstile          *bool   `json:"enable_turnstile"`
 	TurnstileSiteKey         *string `json:"turnstile_site_key"`
 	TurnstileSecretKey       *string `json:"turnstile_secret_key"`
+	GoogleAnalyticsID        *string `json:"google_analytics_id"`
 }
 
 // UpdateSystemConfig handles updating system configuration (admin only)
@@ -114,6 +116,7 @@ func (h *Handler) UpdateSystemConfig(c *gin.Context) {
 		EnableTurnstile:          req.EnableTurnstile,
 		TurnstileSiteKey:         req.TurnstileSiteKey,
 		TurnstileSecretKey:       req.TurnstileSecretKey,
+		GoogleAnalyticsID:        req.GoogleAnalyticsID,
 	}
 
 	err := h.service.UpdateSystemConfigPartial(serviceReq)
@@ -149,6 +152,7 @@ func (h *Handler) GetSystemConfigAdmin(c *gin.Context) {
 		"enable_turnstile":           config.EnableTurnstile,
 		"turnstile_site_key":         config.TurnstileSiteKey,
 		"turnstile_secret_key":       turnstileSecretKey,
+		"google_analytics_id":        config.GoogleAnalyticsID,
 		"created_at":                 config.CreatedAt,
 		"updated_at":                 config.UpdatedAt,
 	}

@@ -13,6 +13,12 @@ import {
 import { cn } from '@/shared/lib/utils';
 import { useJournalEnrichments } from '@/shared/api/journal-enrichment';
 import type { ParsedEvent, SearchHit } from '../../api/upload-resolve';
+import {
+  formatAuthorsDisplay,
+  keyOfHit,
+  sourceBrandLabel,
+} from '../../lib/resolve-paper';
+import { StepBanner } from '../shared/dialog-chrome';
 import { PdfPreviewCard } from './PdfPreviewCard';
 
 /**
@@ -22,12 +28,13 @@ import { PdfPreviewCard } from './PdfPreviewCard';
  *   - 顶部状态条:State 2 · 找到匹配建议 · 等待确认
  *   - 左列:同 State 1 的 PdfPreviewCard
  *   - 右列:
- *      - 顶 banner(amber):找到 N 条高匹配结果...
- *      - 最佳建议卡(✨ + 匹配度 96% chip + 标题 + 作者 + DOI/期刊/badges + [接受并填充][拒绝])
- *      - "其他候选项 (N)" 可折叠列表,每行 [标题 + 元数据 + 匹配 X% chip + 采用按钮]
+ *      - 顶 banner(amber):找到 N 条匹配结果,已按相关度排序
+ *      - 最佳建议卡(✨ + 标题 + 作者 + DOI/期刊/badges + [接受并入库][拒绝])
+ *      - "其他候选项 (N)" 可折叠列表,每行 [标题 + 元数据 + 采用按钮]
  *
- * 匹配度数字是**前端 mock**(后端尚未返回 score)—— 按候选位置线性递减,
- * 视觉先做到位,后端补 score 后只换映射函数即可。
+ * 选定(接受/采用/拒绝)后由父级立即 confirm 入库,然后工作台切到该行的
+ * 管理语境继续完善。(旧版的"匹配度 X%"是前端 mock 数字,已移除 —— 后端
+ * 返回真实 score 后再恢复展示。)
  */
 
 interface PdfUploadDecideProps {
@@ -35,9 +42,9 @@ interface PdfUploadDecideProps {
   parsed: ParsedEvent | null;
   searchHits: SearchHit[];
   isPending: boolean;
-  /** 选择某个上游候选 → 走 confirm({decision:'link', link}) */
+  /** 选择某个上游候选 → confirm({decision:'link', link}) 入库 */
   onPickHit: (hit: SearchHit) => void;
-  /** 拒绝所有候选 → 走 confirm({decision:'free'}),AI 自由文件兜底 */
+  /** 拒绝所有候选 → confirm({decision:'free'}) 存为自由文件 */
   onReject: () => void;
 }
 
@@ -63,20 +70,11 @@ export function PdfUploadDecide({
   return (
     <div className="flex flex-col gap-4">
       {/* 状态条 */}
-      <div className="rounded-md border border-border-soft bg-surface-1 px-4 py-2.5">
-        <div className="flex items-center gap-2.5">
-          <span className="inline-flex h-5 w-5 items-center justify-center rounded-pill bg-brand-amber text-background text-2xs font-bold tabular-nums">
-            2
-          </span>
-          <span className="text-sm font-semibold text-foreground">
-            找到匹配建议 · 等待确认
-          </span>
-          <span className="text-faint">·</span>
-          <span className="text-xs text-muted-foreground">
-            系统返回最佳建议 / 其他候选项 / 用户接受 / 拒绝 / 查看更多 / 跳过
-          </span>
-        </div>
-      </div>
+      <StepBanner
+        step={3}
+        title="确认匹配"
+        desc="从候选中选出这份 PDF 对应的论文;都不对的话,跳过直接保存也可以"
+      />
 
       <div className="grid grid-cols-[minmax(0,300px)_1fr] gap-4 items-start">
         {/* 左列:PDF 预览(与 State 1 共享) */}
@@ -89,13 +87,12 @@ export function PdfUploadDecide({
           ) : (
             <>
               {/* 顶 banner */}
-              <TopBanner total={searchHits.length} topScore={scoreFor(0)} />
+              <TopBanner total={searchHits.length} />
 
               {/* 最佳建议卡片 */}
               {best && (
                 <BestMatchCard
                   hit={best}
-                  score={scoreFor(0)}
                   enrichment={
                     best.venue ? (enrichments[best.venue.trim()] ?? null) : null
                   }
@@ -112,7 +109,6 @@ export function PdfUploadDecide({
                   open={othersOpen}
                   onToggle={() => setOthersOpen((v) => !v)}
                   hits={others}
-                  scoreFor={(i) => scoreFor(i + 1)}
                   disabled={isPending}
                   onPickHit={onPickHit}
                 />
@@ -129,16 +125,16 @@ export function PdfUploadDecide({
 // 顶 banner
 // ────────────────────────────────────────────────────────────────────────────
 
-function TopBanner({ total, topScore }: { total: number; topScore: number }) {
+function TopBanner({ total }: { total: number }) {
   return (
     <div className="flex items-start gap-3 rounded-md border border-brand-amber/30 bg-warning-soft px-4 py-3">
       <Info className="size-4 text-brand-amber shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
         <div className="text-sm font-semibold text-foreground">
-          找到 {total} 条匹配结果,请确认是否填充
+          找到 {total} 条匹配结果,请确认
         </div>
         <div className="mt-0.5 text-xs text-muted-foreground">
-          通过 PDF 全文 + DOI 比对 · 最高匹配度 {topScore}%
+          根据 PDF 内容在在线论文库中检索,已按相关度排序
         </div>
       </div>
     </div>
@@ -151,30 +147,30 @@ function TopBanner({ total, topScore }: { total: number; topScore: number }) {
 
 function BestMatchCard({
   hit,
-  score,
   enrichment,
   disabled,
   onAccept,
   onReject,
 }: {
   hit: SearchHit;
-  score: number;
   enrichment: JournalEnrichmentMaybe;
   disabled: boolean;
   onAccept: () => void;
   onReject: () => void;
 }) {
   const externalUrl = hit.doi ? `https://doi.org/${hit.doi}` : undefined;
-  const authorsLine = formatAuthors(hit.authors);
+  const authorsLine = formatAuthorsDisplay(hit.authors);
 
   return (
     <div className="rounded-md border border-border bg-background overflow-hidden">
-      {/* 头部:✨ 最佳建议 + 匹配度 badge + 外链 */}
+      {/* 头部:✨ 最佳建议 + 来源 badge + 外链 */}
       <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-border-soft bg-surface-1">
         <div className="flex items-center gap-2">
           <Sparkles className="size-3.5 text-brand-amber" strokeWidth={2.25} />
           <span className="text-xs font-bold text-foreground">最佳建议</span>
-          <ScoreBadge score={score} />
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-surface-2 text-subtle text-[10px] font-bold leading-none uppercase tracking-wide">
+            {sourceBrandLabel(hit.source)}
+          </span>
         </div>
         {externalUrl && (
           <a
@@ -184,7 +180,7 @@ function BestMatchCard({
             className="inline-flex items-center gap-1 text-xs text-brand-blue hover:underline underline-offset-2"
           >
             <ExternalLink className="size-3" />
-            查看{sourceLabel(hit.source)}原文
+            查看原文
           </a>
         )}
       </div>
@@ -241,7 +237,7 @@ function BestMatchCard({
             ) : (
               <Check className="size-3.5" strokeWidth={2.5} />
             )}
-            接受并填充
+            接受并加入
           </button>
           <button
             type="button"
@@ -269,14 +265,12 @@ function OtherCandidatesSection({
   open,
   onToggle,
   hits,
-  scoreFor,
   disabled,
   onPickHit,
 }: {
   open: boolean;
   onToggle: () => void;
   hits: SearchHit[];
-  scoreFor: (index: number) => number;
   disabled: boolean;
   onPickHit: (hit: SearchHit) => void;
 }) {
@@ -298,11 +292,8 @@ function OtherCandidatesSection({
       </button>
       {open && (
         <ul className="divide-y divide-border-soft border-t border-border-soft">
-          {hits.map((h, i) => (
-            <li
-              key={`${h.source}:${h.source_paper_id}`}
-              className="flex items-start gap-3 px-4 py-2.5"
-            >
+          {hits.map((h) => (
+            <li key={keyOfHit(h)} className="flex items-start gap-3 px-4 py-2.5">
               <div className="flex h-6 w-6 items-center justify-center rounded-sm bg-background border border-border shrink-0 mt-0.5">
                 <FileText className="size-3 text-subtle" strokeWidth={2} />
               </div>
@@ -312,7 +303,7 @@ function OtherCandidatesSection({
                 </div>
                 <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-2xs text-muted-foreground">
                   {(() => {
-                    const line = formatAuthors(h.authors);
+                    const line = formatAuthorsDisplay(h.authors);
                     return line ? <span>{line}</span> : null;
                   })()}
                   {h.venue && (
@@ -330,7 +321,9 @@ function OtherCandidatesSection({
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <ScoreBadge score={scoreFor(i)} subtle />
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-surface-2 text-subtle text-[10px] font-bold leading-none uppercase tracking-wide">
+                  {sourceBrandLabel(h.source)}
+                </span>
                 <button
                   type="button"
                   onClick={() => onPickHit(h)}
@@ -369,10 +362,10 @@ function NoMatchBanner({
       </div>
       <div>
         <div className="text-sm font-semibold text-foreground">
-          三源没找到匹配的论文
+          没有找到匹配的在线论文
         </div>
         <div className="mt-1 text-xs text-muted-foreground">
-          可能是新论文未被索引,或扫描件 / 罕见排版导致解析不全
+          可能是论文太新还没被收录,也可能是扫描件不便识别
         </div>
       </div>
       <button
@@ -385,42 +378,15 @@ function NoMatchBanner({
         )}
       >
         {isPending && <Loader2 className="size-3.5 animate-spin" />}
-        保存为自由文件
+        直接保存
       </button>
     </div>
   );
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// 子件:匹配度 chip / 期刊 badges
+// 子件:期刊 badges
 // ────────────────────────────────────────────────────────────────────────────
-
-function ScoreBadge({ score, subtle }: { score: number; subtle?: boolean }) {
-  const tone =
-    score >= 90 ? 'green' : score >= 70 ? 'amber' : score >= 50 ? 'neutral' : 'red';
-  const colorMap = {
-    green: subtle
-      ? 'bg-brand-green/10 text-brand-green'
-      : 'bg-brand-green text-background',
-    amber: subtle
-      ? 'bg-warning-soft text-brand-amber'
-      : 'bg-brand-amber text-background',
-    neutral: 'bg-surface-2 text-subtle',
-    red: subtle
-      ? 'bg-danger-soft text-brand-red'
-      : 'bg-brand-red text-background',
-  } as const;
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center px-1.5 py-0.5 rounded-pill text-[10px] font-bold leading-none tabular-nums',
-        colorMap[tone]
-      )}
-    >
-      匹配度 {score}%
-    </span>
-  );
-}
 
 type JournalEnrichmentMaybe = ReturnType<
   typeof useJournalEnrichments
@@ -487,45 +453,5 @@ function quartileTone(q: string): 'solid-green' | 'solid-amber' | 'solid-red' {
   return 'solid-red';
 }
 
-function sourceLabel(s: string): string {
-  if (s === 'olx') return ' OpenAlex ';
-  if (s === 'pmd') return ' PubMed ';
-  if (s === 'stc') return ' Crossref ';
-  return ' 上游 ';
-}
-
-function formatAuthors(authors: unknown): string {
-  if (!Array.isArray(authors)) return '';
-  const names = authors
-    .map((a) => {
-      if (typeof a === 'string') return a;
-      if (a && typeof a === 'object' && 'name' in a) {
-        const n = (a as { name?: unknown }).name;
-        return typeof n === 'string' ? n : '';
-      }
-      return '';
-    })
-    .filter(Boolean);
-  if (names.length === 0) return '';
-  const head = names.slice(0, 5).join(', ');
-  return names.length > 5
-    ? `${head}, et al. (${names.length} authors)`
-    : head;
-}
-
-/**
- * 匹配度 mock —— 按位置线性递减。后端补 score 后这里换成
- * 真实读取即可,组件 API 不变。
- *   pos 0 → 96
- *   pos 1 → 78
- *   pos 2 → 72
- *   pos 3 → 65
- *   pos i → max(40, 96 - i*8)(下限 40)
- */
-function scoreFor(pos: number): number {
-  if (pos === 0) return 96;
-  if (pos === 1) return 78;
-  if (pos === 2) return 72;
-  if (pos === 3) return 65;
-  return Math.max(40, 60 - (pos - 3) * 5);
-}
+// 来源品牌名 / 作者展示串 / 候选 key 统一走 lib/resolve-paper(单一真源),
+// 本文件原私有副本(sourceLabel 曾把 stc 误标为 Crossref)已删除。
