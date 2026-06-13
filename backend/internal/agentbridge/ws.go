@@ -67,6 +67,12 @@ const agentReadDeadline = 60 * time.Second
 // (用户输入是事件驱动), 所以设宽松些 — 仅作为防止 TCP 半死连接的安全网。
 const frontReadDeadline = 10 * time.Minute
 
+// frontWriteDeadline 是写 front 每帧的最大阻塞时长。慢/卡死的浏览器若 TCP 接收窗口填满,
+// 无 deadline 的 WriteMessage 会永久阻塞 → 卡住 agent→front goroutine(停止读 agent leg)→
+// HOL 阻塞 + goroutine/连接泄漏永不回收, 且 closeBoth 也要抢 frontWriteMu 会被一起拖死。
+// 给个有界写超时, 超时即报错, 让 pipe 收口踢掉慢客户端(性能审计 ws-backpressure)。
+const frontWriteDeadline = 30 * time.Second
+
 // closeMessageWriteTimeout 是写 CloseMessage 控制帧时给对端的最大等待时间。
 // 短到不阻塞清理流程, 长到允许网卡 flush。500ms 足够内网 + 公网常规延迟。
 const closeMessageWriteTimeout = 500 * time.Millisecond
@@ -250,6 +256,8 @@ func (f *FeatureBridge) pipe(
 	writeFront := func(mt int, data []byte) error {
 		frontWriteMu.Lock()
 		defer frontWriteMu.Unlock()
+		// 写超时收口: 防慢客户端把转发 goroutine 永久阻塞在 WriteMessage 上(详见 frontWriteDeadline)。
+		_ = front.SetWriteDeadline(time.Now().Add(frontWriteDeadline))
 		return front.WriteMessage(mt, data)
 	}
 
@@ -404,29 +412,38 @@ func (f *FeatureBridge) pipe(
 				return
 			}
 			if mt == gorillaws.TextMessage {
-				if f.spec.AutoApprovePermission {
-					sessionWorkDir := path.Join(agentSessionWorkdirRoot(), sessionID)
-					if reply, ok := decidePermission(data, sessionWorkDir, specDeny(f.spec)); ok {
-						if err := writeAgent(gorillaws.TextMessage, reply); err != nil {
-							slog.Debug("agentbridge ws: permission decision write failed",
-								"feature", f.spec.Key, "err", err)
-							return
+				// 先做一次极轻量 type 探测(只解 `{type}`)。agent 的 WS 协议每个流式 token 发一帧
+				// content_delta —— 一次回答就是成百上千帧, 而它既不是 permission_request 也不是
+				// message_complete。旧实现对每一帧都跑 decidePermission + extractMessageCompleteUsage
+				// 两次完整 json.Unmarshal; 这里改成先探 type, 只有命中的帧才做重解析。
+				// content_delta(绝大多数)只付一次微型 unmarshal。
+				switch frameType(data) {
+				case "permission_request":
+					if f.spec.AutoApprovePermission {
+						sessionWorkDir := path.Join(agentSessionWorkdirRoot(), sessionID)
+						if reply, ok := decidePermission(data, sessionWorkDir, specDeny(f.spec)); ok {
+							if err := writeAgent(gorillaws.TextMessage, reply); err != nil {
+								slog.Debug("agentbridge ws: permission decision write failed",
+									"feature", f.spec.Key, "err", err)
+								return
+							}
 						}
 					}
-				}
-				if usage, isComplete := extractMessageCompleteUsage(data); isComplete {
-					// 首个 message_complete = agent 已处理并落盘首轮(含注入了 prefix 的首条 user_message)。
-					// 此刻才把 prompt_injected 落库,杜绝「帧送达但落盘前崩溃」的 stale-true。
-					if pendingMark.CompareAndSwap(true, false) {
-						f.markPromptInjected(sessionID)
-					}
-					if f.spec.OnMessageComplete != nil {
-						// 非阻塞 — 钩子做 DB 写入 / 日志 / 账单, 不能拖累 pipe 转发
-						hook := f.spec.OnMessageComplete
-						featureKey := f.spec.Key
-						safego.Go("agentbridge-on-message-complete:"+featureKey, func() {
-							hook(hookCtx, userID, usage)
-						})
+				case "message_complete":
+					if usage, isComplete := extractMessageCompleteUsage(data); isComplete {
+						// 首个 message_complete = agent 已处理并落盘首轮(含注入了 prefix 的首条 user_message)。
+						// 此刻才把 prompt_injected 落库,杜绝「帧送达但落盘前崩溃」的 stale-true。
+						if pendingMark.CompareAndSwap(true, false) {
+							f.markPromptInjected(sessionID)
+						}
+						if f.spec.OnMessageComplete != nil {
+							// 非阻塞 — 钩子做 DB 写入 / 日志 / 账单, 不能拖累 pipe 转发
+							hook := f.spec.OnMessageComplete
+							featureKey := f.spec.Key
+							safego.Go("agentbridge-on-message-complete:"+featureKey, func() {
+								hook(hookCtx, userID, usage)
+							})
+						}
 					}
 				}
 			}
@@ -676,6 +693,22 @@ func extractUserMessageContent(raw []byte) (string, bool) {
 		return "", false
 	}
 	return probe.Content, true
+}
+
+// frameType 只解析一帧消息的 `type` 字段, 用于在转发循环里先做廉价分流, 避免对每个
+// content_delta 帧都跑完整的 decidePermission / extractMessageCompleteUsage 解析。
+// 非 JSON 帧返回 ""。
+func frameType(raw []byte) string {
+	if len(raw) == 0 || raw[0] != '{' {
+		return ""
+	}
+	var probe struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &probe); err != nil {
+		return ""
+	}
+	return probe.Type
 }
 
 // extractMessageCompleteUsage 浅 parse 一帧 agent→front 消息, 仅识别 message_complete 的 usage。

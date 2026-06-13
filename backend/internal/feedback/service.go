@@ -212,10 +212,17 @@ func (s *Service) ListFeedbacks(req *FeedbackListRequest) (*FeedbackListResponse
 		userMap, _ = s.userRepo.FindByIDs(userIDs)
 	}
 
+	// 批量取本页所有反馈的附件 (一次 WHERE feedback_id IN (?)), 避免逐行查询的 N+1。
+	feedbackIDs := make([]uint, 0, len(result.List))
+	for i := range result.List {
+		feedbackIDs = append(feedbackIDs, result.List[i].ID)
+	}
+	attMap, _ := s.repo.GetAttachmentsByFeedbackIDs(feedbackIDs)
+
 	// 为每个反馈填充附件信息和用户信息
 	for i := range result.List {
-		// 填充附件
-		attachments, _ := s.GetAttachments(&result.List[i])
+		// 填充附件 (用预取的 attMap, 不再每行查 DB)
+		attachments := attachmentsFromRows(&result.List[i], attMap[result.List[i].ID])
 		if len(attachments) > 0 {
 			data, _ := json.Marshal(attachments)
 			result.List[i].Attachments = string(data)
@@ -375,6 +382,27 @@ func (s *Service) UpdateInternalNotes(id uint, notes string) error {
 	// 写备注也算一次内部响应
 	_ = s.repo.MarkFirstResponseIfNull(id, time.Now())
 	return nil
+}
+
+// attachmentsFromRows 用「预取的 DB 附件行」构造对外 Attachment 列表,逻辑与 GetAttachments
+// 一致(优先 DB 行、否则回落旧 JSON 字段),只是不再自己查 DB —— 供 ListFeedbacks 批量填充用。
+func attachmentsFromRows(feedback *Feedback, dbRows []FeedbackAttachment) []Attachment {
+	if len(dbRows) > 0 {
+		out := make([]Attachment, len(dbRows))
+		for i, att := range dbRows {
+			out[i] = att.ToAttachment()
+		}
+		return out
+	}
+	// 兼容旧数据:从 JSON 字段解析
+	if feedback.Attachments == "" {
+		return []Attachment{}
+	}
+	var atts []Attachment
+	if err := json.Unmarshal([]byte(feedback.Attachments), &atts); err != nil {
+		return []Attachment{}
+	}
+	return atts
 }
 
 // GetAttachments 获取附件列表（优先从数据库获取，兼容旧的JSON格式）

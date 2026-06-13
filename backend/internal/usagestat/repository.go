@@ -63,11 +63,15 @@ func (r *Repository) Totals(from, to time.Time) (total, today, uniqueUsers, uniq
 	if err = base.Session(&gorm.Session{}).Count(&total).Error; err != nil {
 		return
 	}
-	// "今日" 直接用 time.Now() 取当天日期串比对 (DATE_FORMAT), 不在代码里做任何时区
-	// 转换 —— 容器时区统一设为北京 (TZ=Asia/Shanghai), time.Now() 与 DB 时间天然同区。
-	todayStr := time.Now().Format("2006-01-02")
+	// "今日" 用 [当天 0 点, 次日 0 点) 半开区间, 而不是 DATE_FORMAT(created_at)=today ——
+	// 后者把 created_at 包进函数, 非 sargable, 用不上 idx_created_at, 随 usage_events 增长
+	// 退化成全表函数求值。半开区间可走索引。不做任何时区转换:容器统一北京时区, time.Now()
+	// 的本地零点与 DB 时间天然同区(见 time-handling 铁律)。
+	nowT := time.Now()
+	todayStart := time.Date(nowT.Year(), nowT.Month(), nowT.Day(), 0, 0, 0, 0, nowT.Location())
+	tomorrowStart := todayStart.AddDate(0, 0, 1)
 	if err = r.db.Model(&UsageEvent{}).
-		Where("DATE_FORMAT(created_at, '%Y-%m-%d') = ?", todayStr).
+		Where("created_at >= ? AND created_at < ?", todayStart, tomorrowStart).
 		Count(&today).Error; err != nil {
 		return
 	}

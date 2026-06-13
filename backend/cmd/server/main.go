@@ -99,7 +99,9 @@ func main() {
 	// RequestID 必须最早:Recovery / utils.Error 等的 slog 输出都会带上它,
 	// 这样 docker logs 里搜一个 X-Request-Id 就能串起整条请求的所有日志。
 	router.Use(middleware.RequestIDMiddleware())
-	router.Use(gin.Logger())
+	// 访问日志跳过 /health —— docker healthcheck 每 10s 探一次, 否则 access log 被它刷屏,
+	// 既稀释信号又加速 json-file 轮转(性能审计 be-http)。其余路径照常记录。
+	router.Use(gin.LoggerWithConfig(gin.LoggerConfig{SkipPaths: []string{"/health"}}))
 	router.Use(middleware.RecoveryMiddleware())
 	router.Use(middleware.CORSMiddleware())
 

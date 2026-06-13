@@ -281,9 +281,9 @@ export function SearcherColumn({
                   <PaperResultCard
                     key={p.paperId}
                     paper={p}
-                    stagedIds={stagedIds}
-                    collapsedIds={collapsedIds}
-                    favoritedIds={favoritedIds}
+                    isStaged={stagedIds.has(p.paperId)}
+                    isFolded={collapsedIds.has(p.paperId)}
+                    isFavorited={favoritedIds.has(p.paperId)}
                     journalEnrichment={
                       p.venue ? journalEnrichments[p.venue.trim()] : null
                     }

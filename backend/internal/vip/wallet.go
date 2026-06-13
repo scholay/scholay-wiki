@@ -141,25 +141,8 @@ func (w *WalletService) Balance(userID uint) (*BalanceView, error) {
 	return view, nil
 }
 
-// AutoResetEnabled 读用户的自动重置开关。
-func (w *WalletService) AutoResetEnabled(userID uint) bool {
-	var wallet UserWallet
-	if err := w.db.Where("user_id = ?", userID).First(&wallet).Error; err != nil {
-		return false
-	}
-	return wallet.AutoResetEnabled
-}
-
-// SetAutoReset 设置自动重置开关。
-func (w *WalletService) SetAutoReset(userID uint, enabled bool) error {
-	return w.db.Transaction(func(tx *gorm.DB) error {
-		if err := ensureWallet(tx, userID); err != nil {
-			return err
-		}
-		return tx.Model(&UserWallet{}).Where("user_id = ?", userID).
-			Update("auto_reset_enabled", enabled).Error
-	})
-}
+// (AutoResetEnabled / SetAutoReset 已下线 —— 自动消耗经费重置功能移除,只保留手动重置。
+//  user_wallets.auto_reset_enabled 列保留不删(项目约定不做 DROP),仅不再被读写驱动行为。)
 
 // GrantTemp 发放临时经费(订阅赠送/礼品/任务)。即时生效(starts_at=now)。新建批次 + 写流水。
 func (w *WalletService) GrantTemp(userID uint, amount int, source, ref string, expiresAt time.Time, txType string) error {

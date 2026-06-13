@@ -189,6 +189,10 @@ func sendSMS(config SMSConfig, phoneNumber string, params map[string]string) err
 	)
 
 	runtime := &util.RuntimeOptions{}
+	// 建连/读超时: 不设的话 SDK 把 http.Client.Timeout 置 0 = 无超时, 卡住的 Aliyun 连接会把
+	// 调用 goroutine 无限阻塞(性能审计 email-sms-sync)。单位毫秒。
+	runtime.SetConnectTimeout(5000)
+	runtime.SetReadTimeout(10000)
 
 	// Send SMS
 	resp, err := client.SendSmsWithOptions(request, runtime)
@@ -308,6 +312,10 @@ func sendSMSVerifyCodePNS(config SMSConfig, phoneNumber string, params map[strin
 	}
 
 	runtime := &util.RuntimeOptions{}
+	// 建连/读超时: 不设的话 SDK 把 http.Client.Timeout 置 0 = 无超时, 卡住的 Aliyun 连接会把
+	// 调用 goroutine 无限阻塞(性能审计 email-sms-sync)。单位毫秒。
+	runtime.SetConnectTimeout(5000)
+	runtime.SetReadTimeout(10000)
 
 	slog.Debug("PNS request details",
 		"phoneNumber", phoneNumber,

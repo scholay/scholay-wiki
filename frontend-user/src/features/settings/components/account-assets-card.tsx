@@ -6,7 +6,6 @@ import { RefreshCw, Lock, Loader2, ChevronLeft, ChevronRight, Coins, Gem, Crown,
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/shared/ui/button';
-import { Switch } from '@/shared/ui/switch';
 import {
   Dialog,
   DialogContent,
@@ -19,7 +18,7 @@ import {
 import { SubscribeDialog, subscribePayMethods } from '@/shared/components';
 import { cn } from '@/shared/lib/utils';
 import { toApiError } from '@/shared/lib/http';
-import { useResetQuota, useSetAutoReset, usePlans, quoteSubscription, type Overview, type Tier } from '../api/membership';
+import { useResetQuota, usePlans, quoteSubscription, type Overview, type Tier } from '../api/membership';
 import { useSubscribeFlow } from './billing-panels';
 
 const PLAN_LABEL: Record<Tier, string> = { free: 'Free', pro: 'Pro', max: 'Max' };
@@ -205,7 +204,6 @@ function ExplainerCarousel({ proMult, maxMult }: { proMult: number; maxMult: num
 
 function ResetDialog({ data, exhausted, onGoRecharge }: { data: Overview; exhausted: boolean; onGoRecharge: () => void }) {
   const reset = useResetQuota();
-  const setAuto = useSetAutoReset();
   const [open, setOpen] = useState(false);
   const enough = data.credit.total >= data.reset_cost;
 
@@ -240,17 +238,6 @@ function ResetDialog({ data, exhausted, onGoRecharge }: { data: Overview; exhaus
                 消耗 <b className="text-foreground">{data.reset_cost}</b> 经费立即把今日 AI 额度重置为 100%(当前 {data.credit.total} 经费),或静候今日 00:00 自动重置。
               </DialogDescription>
             </DialogHeader>
-            <div className="flex items-center justify-between rounded-md border border-border bg-surface-1 p-3">
-              <div className="flex flex-col">
-                <span className="text-xs font-medium text-subtle">自动消耗经费重置额度</span>
-                <span className="text-2xs text-faint">额度耗尽时自动消耗 {data.reset_cost} 经费</span>
-              </div>
-              <Switch
-                checked={data.auto_reset}
-                disabled={setAuto.isPending}
-                onCheckedChange={(v) => setAuto.mutateAsync(v).catch((e) => toast.error(toApiError(e).message || '保存失败'))}
-              />
-            </div>
             <DialogFooter>
               <DialogClose asChild>
                 <Button variant="outline" size="sm">稍后再说</Button>

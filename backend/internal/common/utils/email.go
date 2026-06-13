@@ -13,6 +13,15 @@ import (
 	"net"
 	"net/smtp"
 	"strings"
+	"time"
+)
+
+// SMTP 连接/操作超时: 原实现用裸 net.Dial/tls.Dial 且对建连后的 Auth/Mail/Rcpt/Data 无任何
+// deadline —— 一个接受 TCP 后卡住的邮件服务器会把调用 goroutine 无限阻塞(性能审计 email-sms-sync)。
+// 这里给建连一个超时, 并对整段 SMTP 交互压一个总 deadline。
+const (
+	smtpDialTimeout = 10 * time.Second
+	smtpOpDeadline  = 30 * time.Second
 )
 
 // NormalizeEmail 把邮箱统一为「小写 + trim 空白」,作为持久化和查询的规范形式。
@@ -95,11 +104,13 @@ func sendEmailWithTLS(config EmailConfig, to []string, subject, body string) err
 
 	// Port 465: Use SMTPS (SSL from start)
 	if config.SMTPPort == 465 {
-		conn, err := tls.Dial("tcp", addr, tlsConfig)
+		conn, err := tls.DialWithDialer(&net.Dialer{Timeout: smtpDialTimeout}, "tcp", addr, tlsConfig)
 		if err != nil {
 			return fmt.Errorf("failed to connect via SSL: %w", err)
 		}
 		defer conn.Close()
+		// 总 deadline: 覆盖建连后的 Auth/Mail/Rcpt/Data/Quit, 防卡住的服务器无限阻塞。
+		_ = conn.SetDeadline(time.Now().Add(smtpOpDeadline))
 
 		client, err := smtp.NewClient(conn, config.SMTPHost)
 		if err != nil {
@@ -143,11 +154,13 @@ func sendEmailWithTLS(config EmailConfig, to []string, subject, body string) err
 	}
 
 	// Port 587 or others: Use STARTTLS
-	conn, err := net.Dial("tcp", addr)
+	conn, err := net.DialTimeout("tcp", addr, smtpDialTimeout)
 	if err != nil {
 		return fmt.Errorf("failed to connect: %w", err)
 	}
 	defer conn.Close()
+	// 总 deadline: 覆盖 STARTTLS 后的 Auth/Mail/Rcpt/Data/Quit, 防卡住的服务器无限阻塞。
+	_ = conn.SetDeadline(time.Now().Add(smtpOpDeadline))
 
 	client, err := smtp.NewClient(conn, config.SMTPHost)
 	if err != nil {

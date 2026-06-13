@@ -227,6 +227,27 @@ func (r *Repository) GetAttachmentsByFeedbackID(feedbackID uint) ([]FeedbackAtta
 	return attachments, err
 }
 
+// GetAttachmentsByFeedbackIDs 一次性批量取多个反馈的附件并按 feedback_id 分组,
+// 替代列表页对每行各查一次 (N+1)。NULL feedback_id 的孤儿附件被 IN 查询天然排除。
+func (r *Repository) GetAttachmentsByFeedbackIDs(feedbackIDs []uint) (map[uint][]FeedbackAttachment, error) {
+	out := make(map[uint][]FeedbackAttachment)
+	if len(feedbackIDs) == 0 {
+		return out, nil
+	}
+	var rows []FeedbackAttachment
+	if err := r.db.Where("feedback_id IN ?", feedbackIDs).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	for i := range rows {
+		if rows[i].FeedbackID == nil {
+			continue
+		}
+		fid := *rows[i].FeedbackID
+		out[fid] = append(out[fid], rows[i])
+	}
+	return out, nil
+}
+
 // GetAttachmentByID 根据ID获取单个附件（包含文件数据）
 func (r *Repository) GetAttachmentByID(id uint) (*FeedbackAttachment, error) {
 	var attachment FeedbackAttachment

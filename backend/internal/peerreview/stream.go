@@ -28,6 +28,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"scholar-backend/internal/common/safego"
 )
 
 // StreamPhase 标记 stream 当前阶段, 前端 UI 用来区分骨架屏 / 流式中 / 完结。
@@ -91,8 +93,10 @@ func streamKey(id uint64, slot string) string {
 
 func NewStreamBroker() *StreamBroker {
 	b := &StreamBroker{streams: make(map[string]*stream)}
-	// 后台 GC: 每 5 min 扫一次, 已 done 超过 30s 的 evict
-	go b.gcLoop()
+	// 后台 GC: 每 5 min 扫一次, 已 done 超过 30s 的 evict。
+	// 走 safego(panic-recover): 这是唯一的 janitor goroutine, 裸 go 一旦 gcOnce panic
+	// 就静默死掉, streams map 此后无限增长(慢内存泄漏)。与全仓后台循环约定一致。
+	safego.Go("peerreview-stream-gc", b.gcLoop)
 	return b
 }
 

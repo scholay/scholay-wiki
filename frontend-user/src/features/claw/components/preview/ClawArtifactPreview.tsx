@@ -1,9 +1,8 @@
-import { useMemo, type ReactNode } from 'react';
+import { lazy, Suspense, useMemo, type ReactNode } from 'react';
 import { Download, FileQuestion, Loader2, X } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { MarkdownRenderer, ChatStyles } from '@/shared/components/chat';
-import { PdfViewer } from '@/shared/components/PdfViewer';
 import {
   clawArtifactByIdUrl,
   useClawArtifactBytes,
@@ -15,8 +14,17 @@ import {
   categoryNeedsBytes,
   type ArtifactCategory,
 } from './artifact-format';
-import { SpreadsheetPreview } from './SpreadsheetPreview';
 import { DocxPreview } from './DocxPreview';
+
+// react-pdf + pdfjs-dist(~几百 KB)与 xlsx(~250KB gzip)只在用户真正预览 PDF / 表格
+// 交付物时才需要 —— lazy 化, 别让它们静态进 Claw 路由的入口 chunk(与 BrowserPage 同款处理,
+// 大多数会话从不打开这两类交付物)。DocxPreview 内部已动态 import mammoth, 无需在此再切。
+const PdfViewer = lazy(() =>
+  import('@/shared/components/PdfViewer').then((m) => ({ default: m.PdfViewer })),
+);
+const SpreadsheetPreview = lazy(() =>
+  import('./SpreadsheetPreview').then((m) => ({ default: m.SpreadsheetPreview })),
+);
 
 /**
  * 交付物预览面板 —— 按类型挑渲染器:图片 <img>、PDF pdfjs、md/txt/code/json 文本、
@@ -111,7 +119,11 @@ function PreviewBody({
     );
   }
   if (category === 'pdf' && url) {
-    return <PdfViewer file={{ url, withCredentials: true }} className="h-full" />;
+    return (
+      <Suspense fallback={<PreviewLoading />}>
+        <PdfViewer file={{ url, withCredentials: true }} className="h-full" />
+      </Suspense>
+    );
   }
   if (category === 'archive') {
     return <Unavailable text="压缩包 / 文件夹不支持预览,请下载查看。" downloadUrl={url} />;
@@ -122,11 +134,7 @@ function PreviewBody({
   // 需要字节的:text / code / json / markdown / spreadsheet / docx
   if (!bytesQ) return null;
   if (bytesQ.isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> 加载中…
-      </div>
-    );
+    return <PreviewLoading />;
   }
   if (bytesQ.isError || !bytesQ.data) {
     return <Unavailable text="预览加载失败,请重试或下载查看。" downloadUrl={url} />;
@@ -149,7 +157,12 @@ function BytesPreview({
     return new TextDecoder('utf-8').decode(new Uint8Array(bytes));
   }, [category, bytes]);
 
-  if (category === 'spreadsheet') return <SpreadsheetPreview bytes={bytes} />;
+  if (category === 'spreadsheet')
+    return (
+      <Suspense fallback={<PreviewLoading />}>
+        <SpreadsheetPreview bytes={bytes} />
+      </Suspense>
+    );
   if (category === 'docx') return <DocxPreview bytes={bytes} />;
 
   if (category === 'markdown') {
@@ -174,6 +187,14 @@ function BytesPreview({
     <pre className="h-full overflow-auto whitespace-pre-wrap break-words px-4 py-3 text-xs leading-relaxed text-subtle">
       {text}
     </pre>
+  );
+}
+
+function PreviewLoading(): ReactNode {
+  return (
+    <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
+      <Loader2 className="size-4 animate-spin" /> 加载中…
+    </div>
   );
 }
 

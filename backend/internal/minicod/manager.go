@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -24,6 +25,19 @@ import (
 )
 
 const MaxRetries = 5
+
+// retryBackoff 第 attempt 次重试前的等待:指数退避 + ±50% 抖动, 封顶 1s。
+// 上游 429/5xx 时账号轮转若零间隔连发会放大冲击; 小退避削平重试风暴。注: 调用方取消
+// (context.Canceled/DeadlineExceeded)在外层已先于本退避 return, 故已取消的请求不会在此 sleep。
+func retryBackoff(attempt int) time.Duration {
+	base := 100 * time.Millisecond
+	d := base << uint(attempt) // 100ms, 200ms, 400ms, 800ms, ...
+	const maxBackoff = 1000 * time.Millisecond
+	if d > maxBackoff || d <= 0 {
+		d = maxBackoff
+	}
+	return d/2 + time.Duration(rand.Int63n(int64(d)/2+1))
+}
 
 // Manager manages Minicod API clients with key rotation
 type Manager struct {
@@ -119,6 +133,8 @@ func (m *Manager) executeWithRetry(operation func(client *Client) (any, error)) 
 
 		if isRetryableError(err) {
 			slog.Warn("minicod: retryable error", "attempt", attempt+1, "accountID", accountID, "err", err)
+			// 退避 + 抖动后再换账号重试, 避免零间隔背靠背放大上游故障。
+			time.Sleep(retryBackoff(attempt))
 			continue
 		}
 

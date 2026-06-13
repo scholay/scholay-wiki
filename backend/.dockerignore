@@ -12,6 +12,11 @@ bin/
 server
 seo-backfill
 
+# 本地 Go 模块/构建缓存(GOMODCACHE/GOCACHE)—— git-ignored 但 .dockerignore 不会自动跟随,
+# 不排除的话 ~532MB 会随 COPY . . 灌进构建上下文, 拖慢每次本地 docker build。性能审计 infra。
+.go-cache/
+.go-build/
+
 # Documentation (not needed in Docker build)
 *.md
 SEMANTIC_SCHOLAR_API.md

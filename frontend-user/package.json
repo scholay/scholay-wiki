@@ -8,6 +8,7 @@
     "dev": "vite",
     "prebuild": "node scripts/copy-pdf-cmaps.mjs",
     "build": "tsc -b && vite build",
+    "postbuild": "node scripts/strip-katex-legacy-fonts.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
     "typecheck": "tsc -b --noEmit",

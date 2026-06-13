@@ -5,7 +5,6 @@ import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
-import { Switch } from '@/shared/ui/switch';
 import {
   Dialog,
   DialogContent,
@@ -26,7 +25,6 @@ interface Overview {
   tier: string;
   token: { used: number; ceiling: number; percent: number; unlimited: boolean };
   credit: { temp: number; perm: number; total: number };
-  auto_reset: boolean;
   reset_cost: number;
 }
 const KEY = ['settings', 'billing'];
@@ -84,10 +82,6 @@ export function QuotaNotifier() {
     },
     onError: (err) => toast.error(toApiError(err).message || '重置失败'),
   });
-  const setAuto = useMutation({
-    mutationFn: async (enabled: boolean) => (await http.put('/user/billing/auto-reset', { enabled })).data,
-    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
-  });
 
   if (!data) return null;
   const enough = data.credit.total >= data.reset_cost;
@@ -103,13 +97,6 @@ export function QuotaNotifier() {
                 额度每日 00:00 自动重置满额。您也可以消耗 <b className="text-foreground">{data.reset_cost}</b> 经费立即重置(当前 {data.credit.total} 经费)。
               </DialogDescription>
             </DialogHeader>
-            <div className="flex items-center justify-between rounded-md border border-border bg-surface-1 p-3">
-              <div className="flex flex-col">
-                <span className="text-xs font-medium text-subtle">自动消耗经费重置额度</span>
-                <span className="text-2xs text-faint">额度耗尽时自动消耗 {data.reset_cost} 经费</span>
-              </div>
-              <Switch checked={data.auto_reset} disabled={setAuto.isPending} onCheckedChange={(v) => setAuto.mutate(v)} />
-            </div>
             <DialogFooter>
               <DialogClose asChild>
                 <Button variant="outline" size="sm">稍后再说</Button>

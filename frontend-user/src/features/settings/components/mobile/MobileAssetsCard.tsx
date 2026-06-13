@@ -2,13 +2,11 @@ import { useState } from 'react';
 import { Crown, Gem, RotateCcw, Ticket, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
-import { Switch } from '@/shared/ui/switch';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 import { RedeemConfirmDialog } from '../redeem-confirm-dialog';
 import {
   useBillingOverview,
   useResetQuota,
-  useSetAutoReset,
   type Tier,
 } from '../../api/membership';
 
@@ -28,7 +26,6 @@ const TIER_BADGE_CLS: Record<Tier, string> = {
 export function MobileAssetsCard() {
   const overviewQ = useBillingOverview();
   const resetMut = useResetQuota();
-  const autoResetMut = useSetAutoReset();
 
   const [resetOpen, setResetOpen] = useState(false);
   const [redeemCode, setRedeemCode] = useState('');
@@ -101,19 +98,7 @@ export function MobileAssetsCard() {
             style={{ width: `${remaining}%` }}
           />
         </div>
-        <div className="flex items-center justify-between">
-          <label className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Switch
-              checked={data.auto_reset}
-              disabled={autoResetMut.isPending}
-              onCheckedChange={(v) =>
-                autoResetMut.mutate(v, {
-                  onError: (e) => toast.error((e as Error).message || '设置失败'),
-                })
-              }
-            />
-            耗尽自动消耗经费重置
-          </label>
+        <div className="flex items-center justify-end">
           <button
             type="button"
             onClick={() => setResetOpen(true)}

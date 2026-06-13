@@ -46,7 +46,7 @@ const (
 	maxPDFSize     int64  = 50 * 1024 * 1024 // 50 MiB
 	pdfContentType string = "application/pdf"
 	pdfMagicPrefix string = "%PDF-" // PDF 文件前 5 字节
-	pdfDownloadTTL        = 10 * time.Minute
+	// (下载传输预算改由 middleware 的 object-serve 超时类提供, 原 pdfDownloadTTL 已移除)
 )
 
 // objectKeyForPaper 生成 MinIO 对象 key —— 包含 user_id 隔离,避免误删别人的
@@ -257,38 +257,33 @@ func (h *Handler) DownloadPDF(c *gin.Context) {
 	}
 
 	bucket := storage.PaperPDFBucket()
-	ctx, cancel := context.WithTimeout(c.Request.Context(), pdfDownloadTTL)
-	defer cancel()
-
-	reader, info, err := storage.GetObject(ctx, bucket, paper.PdfObjectKey)
-	if err != nil {
-		if errors.Is(err, storage.ErrNotFound) {
-			utils.Error(c, http.StatusNotFound, "PDF 对象已被删除")
-			return
-		}
-		slog.Error("library: GetObject 失败", "err", err, "key", paper.PdfObjectKey)
-		utils.Error(c, http.StatusInternalServerError, "下载失败")
-		return
-	}
-	defer reader.Close()
 
 	// 文件名做下 ASCII fallback + UTF-8 编码,兼容老浏览器
 	filename := paper.PdfOriginalFilename
 	if filename == "" {
 		filename = "paper.pdf"
 	}
-
-	c.Header("Content-Type", pdfContentType)
-	c.Header("Content-Length", fmt.Sprintf("%d", info.Size))
 	c.Header("Content-Disposition", fmt.Sprintf(
 		`inline; filename="paper.pdf"; filename*=UTF-8''%s`,
 		urlEscape(filename),
 	))
 	c.Header("Cache-Control", "private, max-age=0, must-revalidate")
 
-	if _, err := io.Copy(c.Writer, reader); err != nil {
-		// 客户端断流是常态,只 debug 日志
-		slog.Debug("library: 下载 PDF 流式写入中断", "err", err)
+	// ServeObject 支持 Range(pdf.js 渐进加载/续传)+ 整份回退;传输预算由 APITimeoutMiddleware
+	// 的 object-serve 类(10min)提供, 不再手搓 ctx。鉴权/归属上面已校验。
+	if err := storage.ServeObject(c.Writer, c.Request, bucket, paper.PdfObjectKey, pdfContentType); err != nil {
+		if errors.Is(err, storage.ErrNotFound) {
+			utils.Error(c, http.StatusNotFound, "PDF 对象已被删除")
+			return
+		}
+		// c.Writer.Written()==false ⇒ 打开对象阶段就失败、尚未写响应 → 回 500;
+		// 否则 body 已在写(客户端断流等)→ 只 debug, 不能再改状态码。
+		if !c.Writer.Written() {
+			slog.Error("library: serve PDF 失败", "err", err, "key", paper.PdfObjectKey)
+			utils.Error(c, http.StatusInternalServerError, "下载失败")
+			return
+		}
+		slog.Debug("library: 下载 PDF 写入中断", "err", err, "key", paper.PdfObjectKey)
 	}
 }
 

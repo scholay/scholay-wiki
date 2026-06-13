@@ -32,8 +32,10 @@ export default defineConfig(({ command }) => ({
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom', 'react-router-dom'],
-          // lucide 全站 icon, 本就首屏需要; 单独成 chunk, 不再和 framer-motion 绑死
-          icons: ['lucide-react'],
+          // 不再把 lucide-react 强制聚成单 chunk: 那会把全站 ~143 个图标(含 admin/prism 等
+          // 懒加载路由专用的)统统塞进首屏必下的 icons chunk(实测 ~80KB / 14.9KB gzip),而首屏
+          // TopNav 实际只用 ~9 个。去掉后让 Rollup 把每个图标就近并进引用它的 chunk —— 常驻
+          // TopNav 的图标落进 entry/shared, admin/prism 的随各自懒 chunk 走。(性能审计 fe-bundle)
           // framer-motion 单独成 chunk —— 否则它会掉进 entry 把首屏 chunk 撑大
           motion: ['framer-motion'],
           query: ['@tanstack/react-query', 'axios', 'zustand'],

@@ -238,6 +238,13 @@ const TASK_NOTIFICATION_BLOCK_RE = /<task-notification>\s*[\s\S]*?<\/task-notifi
 // ============================================================================
 
 export class SessionService {
+  // sessionId → 已解析的 jsonl 路径缓存。findSessionFile 被 ~20 个读路径(取消息/元数据/usage/
+  // 上下文/启动信息…)调用, 原本每次都 readdir 全部 project 目录 + 逐目录 fs.access —— 在会话
+  // 隔离(每会话一个 project 目录)下是 O(全平台会话数), 随平台使用量线性增长。路径在会话生命
+  // 周期内稳定, 缓存后命中只需一次 fs.access 确认仍在 → O(1)。删除会话时显式清理; 文件意外消失
+  // 时 access 失败会自动从缓存剔除并回落全量扫描重缓存(自愈)。性能审计 agent-runtime。
+  private sessionFileCache = new Map<string, { filePath: string; projectDir: string }>()
+
   // --------------------------------------------------------------------------
   // Config helpers
   // --------------------------------------------------------------------------
@@ -1004,7 +1011,21 @@ export class SessionService {
   async findSessionFile(
     sessionId: string
   ): Promise<{ filePath: string; projectDir: string } | null> {
-    return (await this.findSessionFiles(sessionId))[0] ?? null
+    // 缓存命中: 只需一次 fs.access 确认路径仍在, 省掉 readdir 全部目录 + 逐目录 access。
+    const cached = this.sessionFileCache.get(sessionId)
+    if (cached) {
+      try {
+        await fs.access(cached.filePath)
+        return cached
+      } catch {
+        this.sessionFileCache.delete(sessionId) // 文件没了 → 剔除并回落全量扫描
+      }
+    }
+    const found = (await this.findSessionFiles(sessionId))[0] ?? null
+    if (found) {
+      this.sessionFileCache.set(sessionId, found)
+    }
+    return found
   }
 
   private isValidSessionId(id: string): boolean {
@@ -1503,6 +1524,7 @@ export class SessionService {
     }
 
     await fs.unlink(found.filePath)
+    this.sessionFileCache.delete(sessionId)
     // Scholay 清理: 连同会话的隔离工作目录 (上传文件 + agent 写的中间产物) 一起删,
     // 避免删了会话却把用户上传的文件 / 临时产物留在卷里堆积。
     await this.cleanupSessionWorkspace(sessionId)
@@ -1643,6 +1665,7 @@ export class SessionService {
     const found = await this.findSessionFile(sessionId)
     if (!found) return
     await fs.unlink(found.filePath)
+    this.sessionFileCache.delete(sessionId)
   }
 
   async clearSessionTranscript(sessionId: string, fallbackWorkDir?: string): Promise<void> {

@@ -38,6 +38,22 @@ func isStreamingPath(path string) bool {
 	return false
 }
 
+// isObjectServePath 标记「从对象存储往客户端 stream 下载大文件」的端点(PDF / 附件 / 产物 / 打包 zip)。
+// 这些是 GET, 但传输时长取决于文件大小 × 客户端带宽, 可能远超普通读请求的 15s —— 大 PDF /
+// 弱网移动端 / 多文件 zip 会在 15s 处被 ctx 掐断, 流到一半截成坏文件(性能审计 file-download)。
+// 给它们更长的传输预算, 但不并入 SSE 的 15min。
+func isObjectServePath(path string) bool {
+	if strings.HasSuffix(path, "/pdf") || strings.HasSuffix(path, "/download") {
+		return true
+	}
+	for _, p := range []string{"/feedback/attachment/", "/claw/artifact/", "/tools/logo/"} {
+		if strings.Contains(path, p) {
+			return true
+		}
+	}
+	return false
+}
+
 // APITimeoutMiddleware provides different timeouts for different API types.
 // Streaming endpoints (SSE, AI chat) get 15 minutes (硬上限，避免慢客户端让 goroutine 无限累积);
 // write ops get 30s; reads get 15s.
@@ -50,6 +66,10 @@ func APITimeoutMiddleware() gin.HandlerFunc {
 
 		if c.GetHeader("Accept") == "text/event-stream" || isStreamingPath(c.Request.URL.Path) {
 			timeout = 15 * time.Minute
+		} else if isObjectServePath(c.Request.URL.Path) {
+			// 大文件下载: 传输时长随文件大小/客户端带宽变化, 给足预算防中途截断。
+			// (各 handler 自己仍可在此预算内用更短的 ctx, 如 claw artifact 的 10s。)
+			timeout = 10 * time.Minute
 		} else if c.Request.Method == "POST" || c.Request.Method == "PUT" {
 			timeout = 30 * time.Second
 		} else {

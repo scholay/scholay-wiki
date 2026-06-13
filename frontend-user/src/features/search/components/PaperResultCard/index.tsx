@@ -17,8 +17,9 @@ import { CollapsedRow } from './CollapsedRow';
  *
  * 对应 .pen `CMKIx`(default)/ `Q6TEbO`(staged-folded)/ `BEXqq`(folded)。
  *
- * **memo 友好**:父组件传 `stagedIds / collapsedIds`(稳定引用)+ 4 个稳定回调,
- * 卡片内部通过 paper.paperId 自查 + 闭包绑定 —— 父级 setState 不会让全部卡片重渲。
+ * **memo 友好**:父组件按 paperId 自查后传入**标量** `isStaged / isFolded / isFavorited` + 4 个
+ * 稳定回调(不再传整个 Set)。这样暂存/折叠一篇时只有该篇的标量变化, 其余卡 memo 命中、不重渲。
+ * (早先传 Set 引用: 任一篇 stage/fold 都会让 Set 换引用, 打穿全页所有卡的 memo —— 性能审计 fe-render。)
  *
  * **文件拆分**(原 647 行 → 拆成 5 个 ≤ 200 行的子文件):
  *   - index.tsx        路由分发 + memo 入口(本文件)
@@ -30,12 +31,12 @@ import { CollapsedRow } from './CollapsedRow';
  */
 interface PaperResultCardProps {
   paper: Paper;
-  /** 跨所有暂存区合并的 paperId 集合;有 paper.paperId 即为已暂存 */
-  stagedIds: Set<string>;
-  /** 主动折叠的 paperId 集合 */
-  collapsedIds: Set<string>;
-  /** 本页所有已收藏的 paperId(SearcherColumn 调 /library/check 拿到) */
-  favoritedIds: ReadonlySet<string>;
+  /** 是否已暂存(父组件按 paperId 自查后传入的标量,memo 友好) */
+  isStaged: boolean;
+  /** 是否折叠 */
+  isFolded: boolean;
+  /** 是否已收藏 */
+  isFavorited: boolean;
   /** 期刊增强信息(JCR/IF/CCF/中科院)— 异步拿到,先空后有,不阻塞卡渲染 */
   journalEnrichment?: JournalEnrichment | null;
   onStage: (paper: Paper) => void;
@@ -47,9 +48,9 @@ interface PaperResultCardProps {
 
 function PaperResultCardImpl({
   paper,
-  stagedIds,
-  collapsedIds,
-  favoritedIds,
+  isStaged,
+  isFolded,
+  isFavorited,
   journalEnrichment,
   onStage,
   onUnstage,
@@ -58,9 +59,6 @@ function PaperResultCardImpl({
   highlightQuery,
 }: PaperResultCardProps) {
   const id = paper.paperId;
-  const isStaged = stagedIds.has(id);
-  const isFolded = collapsedIds.has(id);
-  const isFavorited = favoritedIds.has(id);
 
   // 在子组件内 useCallback 绑定 paperId —— 父级稳定回调 + 稳定 id ⇒ 稳定 fn
   const toggleStage = useCallback(
@@ -93,8 +91,9 @@ function PaperResultCardImpl({
   );
 }
 
-/** memo:只要 paper / Set 引用 + 4 个回调引用都没变,就跳过整张卡的重渲。
+/** memo:只要 paper 引用 + 3 个标量(isStaged/isFolded/isFavorited)+ 4 个回调引用都没变,
+ * 就跳过整张卡的重渲。
  * - paper 来自 useQuery 缓存,引用稳定
- * - stagedIds / collapsedIds 父组件 useMemo 稳定
- * - onStage 等 4 个回调由 SearchPage useCallback 稳定 */
+ * - isStaged/isFolded/isFavorited 是标量,只有本篇状态变了才变(父组件 .has 自查后传入)
+ * - onStage 等 4 个回调由父组件 useCallback 稳定 */
 export const PaperResultCard = memo(PaperResultCardImpl);

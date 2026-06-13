@@ -130,7 +130,9 @@ func (h *Handler) List(c *gin.Context) {
 		Where("user_id = ?", uid).
 		Order("position ASC, id ASC").
 		Preload("Papers", func(db *gorm.DB) *gorm.DB {
-			return db.Order("position ASC, id ASC")
+			// Omit raw_json: 它是每行多 KB 的完整上游 json 对象, 列表视图永不序列化(前端
+			// RemoteStagingPaper 不含 raw)。与 library.List 的 Omit 一致(性能审计 select-breadth)。
+			return db.Omit("raw_json").Order("position ASC, id ASC")
 		}).
 		Find(&areas).Error; err != nil {
 		utils.Error(c, http.StatusInternalServerError, "查询失败")

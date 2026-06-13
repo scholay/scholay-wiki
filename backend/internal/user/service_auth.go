@@ -324,12 +324,17 @@ func (s *Service) SendVerificationCode(ctx context.Context, email, purpose strin
 				FromName:     emailConfig.FromName,
 			}
 
-			if err := utils.SendEmailWithTLS(config, []string{email}, subject, body); err != nil {
-				slog.Warn("failed to send email, code generated but not delivered", "err", err, "email", email, "purpose", purpose)
-				return nil
-			}
-
-			slog.Info("verification code sent via email", "email", email, "purpose", purpose)
+			// 异步投递: 验证码已落 Redis(上方 SaveVerificationCode), 用户已可用; SMTP 往返
+			// (可能慢/卡)不该阻塞这个公开的 pre-auth 请求。原同步实现失败也只 Warn 不影响返回,
+			// 故改 async 无行为损失(性能审计 email-sms-sync)。email.go 侧另有建连/操作超时兜底。
+			mailCfg, mailTo := config, email
+			safego.Go("send-verification-email", func() {
+				if err := utils.SendEmailWithTLS(mailCfg, []string{mailTo}, subject, body); err != nil {
+					slog.Warn("failed to send email, code generated but not delivered", "err", err, "email", mailTo, "purpose", purpose)
+					return
+				}
+				slog.Info("verification code sent via email", "email", mailTo, "purpose", purpose)
+			})
 			return nil
 		}
 	}
