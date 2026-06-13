@@ -1,29 +1,34 @@
 # 03 · 搜索工作区 交互明细
 
-> 列定义见 [README](README.md)。Ground truth = 前端代码实际行为（非设计图）。
+> 列定义见 [README](README.md)。Ground truth = 最新开发环境可观察行为 + 当前前端代码（非设计图）。
 
 ## PART 1 — 页面/流程概要
 
 > **现状说明**：任务给定的部分路径与实际不符。实际页面是 `pages/SearchPage.tsx`；侧栏三件套是 `components/SearchSidebar.tsx` + `components/search-sidebar/LibrarySection.tsx`；搜索器列为 `components/SearcherColumn.tsx`；暂存 tab 为 `components/StagingTabs.tsx`；卡片为 `PaperResultCard/{index,DefaultCard,StagedRow,CollapsedRow,MetaLine,tags}`；矩阵为 `components/MatrixColumn.tsx` + `components/matrix/{PaperCell,DimensionCell,ExportMenu,MatrixMoreToolsMenu}`；维度设置为 `components/dimension-settings/{DimensionSettingsDialog,DimensionRow,EditInlineForm,AddDimensionForm,DeleteConfirmDialog,use-save-dimension}`。
+>
+> **智能搜索版本口径**：2026-05-30 开发环境已验证 `/search?mode=smart` 为真实智能搜索主链路，包含对话输入、Thinking、思考过程、工具调用、论文结果组、停止生成、单篇/一键暂存、翻译、收藏、详情与右侧矩阵联动；不再按旧版 `SmartSearchPreview` 占位处理。若本地代码快照仍出现旧占位组件，应视为代码与开发环境待同步。
 
 **路由**：`/search`（`routes.tsx` lazy 加载 `SearchPage`）。SEO title 随 `?q=` 动态；`?q / ?src / ?tr / ?yf / ?yt / ?ven / ?sub / ?pt / ?oa / ?mc / ?s / ?p / ?ps / ?mode` 全部 URL-backed。无 params 进入时从 `localStorage['scholay.last-search']` 自动恢复上次搜索串（`SearchPage.tsx:80-101`）。
 
 **布局**（`SearchPage.tsx`）：`SidebarLayout` 包裹，内部纯 flex 三栏：
 1. **侧栏**（`SearchSidebar`）：`LibrarySection`（我的文献集，登录引导）+ 筛选器（数据源/排序/时间/学科/类型/OA），无「应用」按钮，改即查。
-2. **搜索器列**（`SearcherColumn`，px 固定宽度，可拖手柄改，记忆 `localStorage['search.searcher-width']`）：模式切换（传统/智能）+ 搜索框 + 计数 + 结果列（`PaperResultCard`）+ 分页。
+2. **搜索器列**（`SearcherColumn`，px 固定宽度，可拖手柄改，记忆 `localStorage['search.searcher-width']`）：模式切换（传统/智能）+ 传统检索框或智能对话输入 + 计数/Thinking + 工具调用卡/结果列（`PaperResultCard`）+ 分页。
 3. **右侧工作区**（lazy）：任一暂存区有论文 → `MatrixColumn`（暂存 tabs + 单 `<table>` 矩阵：左 sticky-left 论文列 `PaperCell` + 右维度列 `DimensionCell`）；全空 → `WelcomeBoard`（`MockMatrixPreview` 假表 + `EmptyImportButton` CTA）。
 
 **关键流程**：
-- **输入查询并搜索**：输入框提交 → 写 `?q` + 删 `?p` → `useSearchPapers` 重查（蒙层 loading）。
+- **输入查询并搜索**：传统模式输入框提交 → 写 `?q` + 删 `?p` → `useSearchPapers` 重查（蒙层 loading）。
+- **进入智能搜索**：URL `?mode=smart` 与内部 `searchMode` 同步；从首页 CTA、顶部导航或搜索页模式切换进入后均保持三栏布局，刷新/返回/前进应保持或合理恢复智能模式。
+- **智能搜索对话**：非空输入 → 提交用户问题 → 显示 Thinking/思考过程/工具调用/停止生成 → 工具返回论文结果组 → 回答引用或总结论文；生成完成或停止后输入框恢复。
+- **智能结果组**：工具调用结果以论文组呈现，论文卡复用标题、作者、摘要、年份、来源、引用数、操作按钮；支持单篇 `+ 暂存`、`一键暂存`、收藏、AI 翻译和详情入口。
 - **暂存论文**：卡片「+ 暂存」→ `useStagingActions.stagePaper` → 匿名走 zustand、登录走 backend mutation；暂存后 auto-collapse 该卡。
 - **加入矩阵**：暂存即进入 active 区，`MatrixColumn` 把该区 papers 渲为表行。
 - **配置维度**：「设置列」→ `DimensionSettingsDialog`（dnd-kit 拖拽重排 / Switch 显隐 / 编辑名+提示词 / 新增 / 删除或重置）。
 - **矩阵分析**：`useMatrixAnalysis` 每篇一个 `useQuery`，经 `paperBatcher` microtask 合并成 ≤10/批 `POST /analysis/papers/batch`。
 
 **实现状态**：
-- **真实 react-query 接口**：论文搜索、文献集、收藏 check、暂存区 CRUD（`/user/staging-areas/*`）、维度 CRUD（`/analysis/dimensions*`）、矩阵分析（`POST /analysis/papers/batch`）、导出（纯前端 CSV/MD + 动态 import xlsx）。
+- **真实 react-query/AI 链路**：论文搜索、智能搜索对话与工具调用、文献集、收藏 check、暂存区 CRUD（`/user/staging-areas/*`）、维度 CRUD（`/analysis/dimensions*`）、矩阵分析（`POST /analysis/papers/batch`）、导出（纯前端 CSV/MD + 动态 import xlsx）。
 - **无 SSE**：矩阵分析是批量 POST + react-query `useQueries`，非流式。
-- **mock 静态**：智能模式整块（`SmartSearchPreview`，`pointer-events-none`，标「即将推出」）+ 空态假表（`MockMatrixPreview` MOCK_ROWS/MOCK_DIMENSIONS）。
+- **mock 静态**：空态假表（`MockMatrixPreview` MOCK_ROWS/MOCK_DIMENSIONS）。
 - **登录门控**：暂存/收藏/维度/矩阵分析均需 token；矩阵在未登录时显「登录后展开 AI 维度分析」。
 
 ## PART 2 — 元素级交互表
@@ -33,8 +38,12 @@
 | SRCH-001 | 页面挂载 | 自动恢复上次搜索 | 进入 `/search` 且 URL 无任何 param | localStorage 有 `scholay.last-search` 且长度>1 | `navigate({search: saved}, replace)` 还原上次搜索串 | URL 已带 param→跳过；无 saved→跳过 | localStorage(纯前端) | real；`SearchPage.tsx:80-91` |
 | SRCH-002 | 页面挂载 | 搜索状态持久化 | URL params 变化 | params 非空 | 写 `localStorage['scholay.last-search']=?<params>` | params 空→不覆写 | localStorage | real；`SearchPage.tsx:97-101` |
 | SRCH-003 | 搜索器 header | 模式切换「传统」 | click | mode=smart | `onModeChange('classic')`，删 `?mode`，渲染搜索框/结果 | — | 纯前端(URL) | real；`SearcherColumn.tsx:174` |
-| SRCH-004 | 搜索器 header | 模式切换「智能」 | click | mode=classic | `setMode('smart')`，写 `?mode=smart`(replace)，整块换 `SmartSearchPreview` | 功能未上线，内容纯静态预览 | 纯前端(URL) | mock；按钮带「即将推出」气泡；`SearcherColumn.tsx:185-204` |
-| SRCH-005 | 智能模式区 | 整个预览面板 | hover/click 任意元素 | mode=smart | 无反应（`pointer-events-none` + `aria-hidden`），仅顶部「即将推出」提示条 | 全禁用 | mock静态 | mock；`SmartSearchPreview.tsx` |
+| SRCH-004 | 搜索器 header | 模式切换「智能」 | click | mode=classic | `setMode('smart')`，写 `?mode=smart`(replace)，智能搜索对话区出现；SearchLayout 仍三栏；右侧 MatrixColumn/WelcomeBoard 不崩 | 接口异常时仍保留智能模式并显示可恢复状态 | URL + 智能搜索/AI 链路 | 真实；`docs/testing/smart-search-functional-test-report-2026-05-30.md` |
+| SRCH-005 | 智能模式区 | 输入框与发送按钮 | 输入为空/聚焦 | mode=smart | 发送按钮 disabled；不发送请求；输入框可聚焦 | 空白字符 trim 后仍不可发送 | 纯前端状态 | 真实；`docs/testing/smart-search-functional-test-report-2026-05-30.md` |
+| SRCH-005A | 智能模式区 | 输入框与发送按钮 | 发送中文复杂检索问题 | mode=smart，输入非空 | 出现用户气泡、Thinking、思考过程、工具调用卡、停止生成按钮；输入框暂时禁用；最终返回回答与论文结果组 | 生成失败/接口超时应显示错误或可恢复状态；输入框恢复 | 智能搜索/AI 生成 + 论文检索工具调用 | 真实；`docs/testing/smart-search-functional-test-report-2026-05-30.md` |
+| SRCH-005B | 智能模式区 | 输入框与发送按钮 | 发送英文检索问题 | mode=smart，输入英文 | 可正常进入 Thinking 并返回英文问题相关论文或英文回答 | 不应乱码；语言不匹配时应给出可理解反馈 | 智能搜索/AI 生成 + 论文检索工具调用 | 真实；`docs/testing/smart-search-functional-test-report-2026-05-30.md` |
+| SRCH-005C | 智能模式区 | 对话追问 | 多轮追问 | 已有一轮智能搜索结果 | 追加对话消息；保留上下文；必要时再次调用检索工具 | 旧消息不丢失；输入框完成后恢复 | 智能搜索/AI 生成 | 真实；`docs/testing/smart-search-functional-test-report-2026-05-30.md` |
+| SRCH-005D | 智能模式区 | 停止生成按钮 | click | 正在 Thinking/生成 | 当前生成可靠中断；停止按钮消失；输入框恢复；可继续发送新问题 | 不出现永久 loading 或重复提交上一条问题 | 智能搜索/AI 中断控制 | 真实；`docs/testing/smart-search-functional-test-report-2026-05-30.md` |
 | SRCH-006 | 搜索器 searchRow | 关键词输入框 | type | mode=classic | 更新本地 `input` state（不触发查询；URL 不变） | — | 纯前端(useState) | real；`SearcherColumn.tsx:219-225` |
 | SRCH-007 | 搜索器 searchRow | URL `?q` 变化同步 | 外部 navigate/back 改 `?q` | — | `useEffect` 把 `queryFromUrl` 写回输入框 | 用户敲字时 URL 不变，不反向覆写 | 纯前端 | real；`SearcherColumn.tsx:76-78` |
 | SRCH-008 | 搜索器 searchRow | 「搜索」按钮 / Enter 提交 | click submit / 表单 submit | mode=classic | trim→写 `?q`(或删)+ 删 `?p` 回第1页(replace)→ `useSearchPapers` 重查 | 空输入→删 `?q`，结果区回「试试搜点什么」 | `useSearchPapers` `POST /public/papers/search` | real；`SearcherColumn.tsx:146-158` |
@@ -110,9 +119,21 @@
 | SRCH-078 | 维度 删除确认 | 确认删除/重置 | click | target 存在 | 系统→`useResetDimension`；自定义→`useDeleteUserDimension`，toast | busy 禁用；失败 toast | `DELETE /analysis/dimensions/reset/{key}` 或 `/{id}` | real；`DeleteConfirmDialog.tsx:30-43` |
 | SRCH-079 | 维度 删除确认 | 取消 | click | — | `onClose` 关闭 | — | 纯前端 | real；`DeleteConfirmDialog.tsx:62-68` |
 | SRCH-080 | 矩阵分析 | 增量加载 | 暂存新增 1 篇 | 已登录 | 仅该论文一个 `useQuery` 触发，其余读缓存(单行 skeleton) | 无摘要→直接占位「无摘要,无法分析」；最多分析 MAX_PAPERS=100 篇 | `useQueries` + `paperBatcher`(microtask 合并 ≤10/批) | real；`matrix.ts:43-98` |
+| SRCH-081 | 智能结果组 | 工具调用卡 | 生成中/生成后渲染 | 智能搜索已发送 | 展示工具调用名称、查询条件/摘要、结果数量；结果组可展开查看论文 | 工具失败应给出失败态，不影响后续输入 | 智能搜索工具调用 | 真实；`docs/testing/smart-search-functional-test-report-2026-05-30.md` |
+| SRCH-082 | 智能结果组 | 论文结果卡字段 | 渲染 | 工具返回论文结果 | 每张卡包含标题、作者、摘要、年份、来源、引用数与操作按钮 | 缺失摘要时应有空摘要兜底；长标题/作者不撑破布局 | 智能搜索工具返回数据 | 真实；`docs/testing/smart-search-functional-test-report-2026-05-30.md` |
+| SRCH-083 | 智能结果组 | 单篇 `+ 暂存` | click | 结果组内至少 1 篇论文 | 该卡状态更新；右侧切换/保持 MatrixColumn；暂存数量增加 | 重复暂存应有已暂存提示或幂等处理 | 暂存接口 | 真实；`docs/testing/smart-search-functional-test-report-2026-05-30.md` |
+| SRCH-084 | 智能结果组 | 「一键暂存」 | click | 结果组内多篇论文 | 批量导入结果组论文；显示 toast；右侧工作区论文列表更新 | 专项测试最多 3-5 篇，避免污染账号数据；满额应提示 capped/skipped | 批量/循环暂存接口 | 真实；`docs/testing/smart-search-functional-test-report-2026-05-30.md` |
+| SRCH-085 | 智能结果组 | AI 翻译 | click | 结果卡有标题/摘要 | 显示翻译中状态，完成后展示译文，并支持原文/译文切换 | 接口失败应 toast/error，不影响卡片其他操作 | AI 翻译接口 | 真实；`docs/testing/smart-search-functional-test-report-2026-05-30.md` |
+| SRCH-086 | 智能结果组 | 收藏按钮 | click 一次 | 结果卡可收藏 | 收藏图标/状态变化；若成功改变则保留当前状态，不批量收藏 | 接口失败时恢复原状态或显示错误 | 收藏接口 | 真实；`docs/testing/smart-search-functional-test-report-2026-05-30.md` |
+| SRCH-087 | 工作区/矩阵 | 智能结果暂存后矩阵 | 查看右侧工作区 | 已从智能结果暂存论文 | WelcomeBoard 切为 MatrixColumn；论文列表、暂存 tab、数量、矩阵列头可见；行/单元格先 loading 后出分析内容 | 新增论文时只新增行进入 loading；已有缓存尽量复用 | 暂存区查询 + AI 矩阵分析接口 | 真实；`docs/testing/smart-search-functional-test-report-2026-05-30.md` |
+| SRCH-088 | 页面恢复 | 智能模式刷新 | refresh | mode=smart，有对话/暂存/矩阵状态 | URL 仍为 `/search?mode=smart`；暂存区与矩阵可恢复或合理降级；页面不白屏 | 若对话历史不恢复，应保留明确空态和可继续输入能力 | URL + 暂存/矩阵查询 | 真实；`docs/testing/smart-search-functional-test-report-2026-05-30.md` |
+| SRCH-089 | 页面恢复 | 浏览器返回/前进 | back/forward | simple 与 smart 间切换过 | 模式随 URL 恢复；关键暂存/矩阵状态不丢失 | 不重复提交上一次问题 | URLSearchParams 同步 | 真实；`docs/testing/smart-search-functional-test-report-2026-05-30.md` |
+| SRCH-090 | 智能模式异常 | 极窄/无结果查询 | submit | mode=smart，输入极窄或噪声 query | 页面保持稳定；可能返回无结果说明、澄清问题或少量相关论文 | 不应无限 Thinking；90s 后按 WARN/BLOCKED 记录并测试停止 | 智能搜索/检索工具调用视模型判断 | 真实；`docs/testing/smart-search-functional-test-report-2026-05-30.md` |
 
 **附注**：
 - 暂存区上限：5 个区(`MAX_AREAS`)，每区 100 篇(`MAX_PAPERS_PER_AREA`)；`bulkStagePapers` 返回 `{added, skipped, capped}` 用于汇总 toast。
 - 数据源/排序/学科/类型按 source 联动剪枝(`types.ts` `pruneFiltersForSource`)，pmd 仅支持 query/time/venue/sort。
 - 匿名 vs 登录双轨：匿名走 zustand+localStorage，登录走 backend mutation，登录后由全局 `useStagingSync`（挂在 AppShell）迁移。
 - 矩阵分析全程批量 HTTP POST，**无 SSE/流式**。
+- 智能搜索生成链路含 AI 流式/长轮询或同等异步生成表现；矩阵分析仍是批量 HTTP POST，二者不要混淆。
+- 智能搜索专项回归依据：`docs/testing/smart-search-functional-test-report-2026-05-30.md`。

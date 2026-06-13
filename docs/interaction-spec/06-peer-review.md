@@ -1,52 +1,100 @@
-# 06 · 评审 交互明细（🟡 刚起步）
+# 06 · 智能审稿 / 投稿审稿交互规约（开发环境版）
 
-> 列定义见 [README](README.md)。Ground truth = 前端代码实际行为（非设计图）。本模块处于早期开发，注意「状态/备注」列对 mock/未接线/占位 的标注。
+> 列定义见 [README](README.md)。本页以 2026-05-30 开发环境 `http://192.168.210.59:5411` 的真实 UI 行为为准。注意：当前仓库 `frontend-user/src/features/peer-review/pages/PeerReviewPage.tsx` 仍是 `ComingSoonView` 占位实现，和开发环境存在明显 `SPEC-DRIFT`；本规约用于记录正在联调/验收的最新产品行为。
 
-## PART 1 — 页面/流程概要
+## PART 1 — 页面 / 流程概要
 
-> ⚠️ **重要：实际代码与「评分雷达图 / 证据面板 / 反驳撰写 / Prompt Studio」等设计设想完全不符。** 任务里点名的组件（`ReviewerCard` / `ScoreRadarChart` / `EvidencePanel` / `RebuttalComposer` / `PromptStudioDialog`）以及 `types.ts` **在代码中均不存在**。本规格只描述代码里真实存在的东西。
+**入口与路由**
 
-**路由**：`/peer-review`（含 `peer-review/*` 通配）。`routes.tsx:5` 定义 lazy 路由，`app/router.tsx:11` import、第 64 行 `...peerReviewRoutes` 展开进 `AppShell` 子路由——**已接入应用，可访问**。导航入口 `app/menus.ts:97`（label「智能审稿」/ `AI Reviewer`，`comingSoon: true`，`href: '/peer-review'`）。
+- 顶部/侧栏导航：`智能审稿`
+- 投稿入口：`/peer-review/journal`
+- 期刊投稿草稿：`/peer-review/journal?id={draftId}&step={1|2|3|4}`
+- 提交成功页：`/peer-review/submitted/{submissionId}`
+- 审稿记录列表：`/peer-review/records`
+- 审稿详情：`/peer-review/records/{submissionId}`
 
-**整体实现状态**：本模块仍是「即将推出」占位页，**无任何真实评审功能、无后端、无 react-query、无 API 调用、无表单**。页面 = 通用占位壳 `ComingSoonView` + 一张静态 mock 预览图 `PeerReviewPreview`。
+**核心流程**
 
-**实际文件清单（仅 4 个）**：
-- `pages/PeerReviewPage.tsx`（12 行）— 渲染 `<ComingSoonView title="智能审稿" description="..." preview={<PeerReviewPreview/>} />`。
-- `components/PeerReviewPreview.tsx`（162 行）— **纯静态占位 UI**（「工单总览」：页头 + 过滤条 + 4 张工单卡），数据全为模块级 `MOCK_TICKETS`；所有按钮 `tabIndex={-1}` 且无 `onClick`。
-- `components/PeerReviewSidebar.tsx`（120 行）— **已写好但全代码库无人 import 的死组件**（`grep` 仅命中其自身定义，未被 `PeerReviewPage` 使用）。内部有本地 state 交互逻辑，但当前不渲染在任何页面上。
-- `routes.tsx`（11 行）。
+1. 进入期刊投稿，上传稿件正文 PDF。
+2. 可选上传 PDF 附件，进入 AI 识别。
+3. 选择目标期刊，或打开自定义期刊入口。
+4. 核对并编辑 AI 识别出的题名、摘要、关键词、稿件类型、学科领域。
+5. AI 起草 Cover Letter，完成后进入核对投递。
+6. 勾选必选条款后提交审稿。
+7. 成功页显示投稿编号、目标期刊、提交时间，并提供前往审稿记录入口。
+8. 审稿详情展示编辑部初审、三位 AI 审稿人、主审决议的实时进度。
+9. 审稿完成后，记录列表同步为 100% 与最终决议。
 
-**占位壳 `ComingSoonView`（`shared/components/ComingSoonView.tsx`，通用组件、非评审专属）实际结构**：
-- `SidebarLayout` + `ComingSoonSidebar`（左 aside）：含 `SidebarHeaderNav`（顶栏菜单切换）、一段静态「即将推出」提示框、`SidebarAuthFooter`、`SidebarCollapseButton`（收起/展开侧栏）。
-- 主区顶部一条 amber banner：「{title}即将推出 · {description}」。
-- banner 下方：`preview` slot 外包 `aria-hidden + opacity-60 + pointer-events-none + select-none`——**整块预览不可交互、不可选中**。
+**非破坏性测试边界**
 
-> 注意：`ComingSoonView` **没有** 返回首页链接、**没有** 邮箱订阅输入框。唯一真实交互来自侧栏（顶栏菜单导航 + 折叠按钮 + 登录态 footer），均为通用组件行为。
-
-**核心流程**：用户访问 `/peer-review` → 见占位页（banner + 灰显预览）→ 仅能通过侧栏导航离开 / 折叠侧栏。无评审业务流程落地。
-
-**Mock / 占位数据**：
-- `MOCK_TICKETS`（`PeerReviewPreview.tsx:81`）— 4 条写死工单，仅供预览展示。
-- 过滤条 `count`（4 / 12，`PeerReviewPreview.tsx:27-28`）— 写死数字，无逻辑。
+- 可上传公开论文 PDF、创建草稿、提交审稿、触发 AI 审稿、下载稿件包。
+- 不主动点击 `取消草稿`、`删除`、清空数据等不可恢复动作。
+- `撰写回复函` 属返修后续流程，需单独测试。
 
 ## PART 2 — 元素级交互表
 
 | 用例ID | 页面/区域 | 元素 | 触发动作 | 前置条件 | 预期结果 | 边界/异常 | 数据/接口依赖 | 状态/备注 |
-|---|---|---|---|---|---|---|---|---|
-| REV-001 | 占位壳·主区 | amber banner「智能审稿即将推出 · 投稿前 AI 预审」 | 展示（无交互） | — | 静态展示 title + description 文案 | — | 无 | 真实渲染（占位文案）；`ComingSoonView.tsx:41-48`、`PeerReviewPage.tsx:6-10` |
-| REV-002 | 占位壳·主区 | 预览容器（`opacity-60 pointer-events-none` 包 `PeerReviewPreview`） | 任意点击/选中 | — | **全部被拦截**：`pointer-events-none` 屏蔽点击，`select-none` 禁选中，`aria-hidden` 屏读隐藏 | 内部元素再有 onClick 也不触发 | mock静态 `MOCK_TICKETS` | 占位（整块禁用交互）；`ComingSoonView.tsx:52-57` |
-| REV-003 | 占位壳·侧栏 | `SidebarHeaderNav`（顶栏菜单切换） | click（菜单项） | — | 通用侧栏头部导航，切换到其他 feature 路由 | — | 纯前端/无后端（通用组件） | 真实（继承通用 Sidebar 行为）；`ComingSoonView.tsx:73` |
-| REV-004 | 占位壳·侧栏 | `SidebarCollapseButton` 折叠按钮 | click | — | 调 `useSidebar(s=>s.toggle)` 切换全局侧栏折叠态 | — | zustand `sidebar.store` | 真实（通用组件）；`ComingSoonView.tsx:70,89` |
-| REV-005 | 占位壳·侧栏 | 「即将推出」提示框 + `SidebarAuthFooter` | 展示 / 登录态交互 | — | 提示框纯展示；footer 为通用登录态组件 | — | 通用组件 | 真实渲染（占位）；`ComingSoonView.tsx:75-86,88` |
-| REV-006 | 预览·页头 | 搜索框「搜索投稿编号/标题」 | （无交互） | — | 纯展示占位文案——是 `<span>` 不是真 `<input>` | — | 无 | 占位；`PeerReviewPreview.tsx:16-19` |
-| REV-007 | 预览·过滤条 | 过滤按钮（全部/待我审稿/已提交/主审决议/我的投稿） | click | — | **空操作**：`<button tabIndex={-1}>` 无 `onClick`；「全部」恒为 active（写死） | count 徽章（4 / 12）为写死数字，无过滤逻辑 | mock静态 | 占位/未接线；`PeerReviewPreview.tsx:32-57` |
-| REV-008 | 预览·工单列表 | 工单卡 `TicketCard` ×4 | （无交互） | — | 遍历 `MOCK_TICKETS` 渲染：编号/期刊/标题/作者/天数/轮次 + 状态徽章（5 色编码 `STATUS_CLS`） | 标题 `truncate` 截断；外层 `overflow-hidden` 不滚动 | mock静态 `MOCK_TICKETS` | 占位（无 onClick）；`PeerReviewPreview.tsx:62-63,132,152-159` |
-| REV-009 | （死组件）`PeerReviewSidebar` | 6 个 `SidebarItem`（我要投稿/期刊审稿/毕业审稿/审稿助理/智能代理/审稿记录） | click | 组件被渲染时 | `setActive(id)`→更新本地 `internal` state，选中项 `active='danger'`（danger-soft 底 + 左 3px 红边 + 加粗）；受控时回调 `onSelect(id)` | 默认选中 `'assistant'` | 纯前端/无后端 | ⚠️ **死代码**：全库无 import，当前不渲染在任何页面；`PeerReviewSidebar.tsx:40,44-49,60-110` |
-| REV-010 | （死组件）`PeerReviewSidebar` | 折叠按钮 `SidebarCollapseButton` | click | 组件被渲染时 | 调 `useSidebar(s=>s.toggle)` 切换全局侧栏折叠态 | — | zustand `sidebar.store` | 死代码（同上，未挂载）；`PeerReviewSidebar.tsx:50,117` |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| REV-ENTRY-001 | 导航 | `智能审稿` | 点击 | 已登录 | 进入智能审稿模块，侧栏高亮 | 未登录应跳转登录或被认证拦截 | 前端路由/认证 | 真实环境可用；仓库代码仍为占位 |
+| REV-JOURNAL-001 | 投稿首页 | `期刊投稿` | 点击 | 已登录 | 进入 `/peer-review/journal` 文件上传页 | 路由首次渲染可能短暂白屏/空白 | 前端路由 | 2026-05-30 观察到一次视觉空白后恢复 |
+| REV-UPLOAD-001 | 文件上传 | 稿件正文上传框 / `选择文件` | 选择 PDF | PDF 可访问 | 上传按钮禁用并显示 loading；成功后显示文件名、大小、类型；生成草稿 id | 非 PDF / 超大文件应给出错误提示 | 上传 API、草稿 API | 已测 PDF 6.5 MB 成功 |
+| REV-UPLOAD-002 | 文件上传 | `下一步 · AI 识别稿件` | 点击 | 正文 PDF 已上传 | 进入 step 2，AI 识别中；按钮禁用、页面显示骨架/加载态 | AI 超时应可提示重试 | AI 识别 API | 已测约 20-30 秒完成 |
+| REV-UPLOAD-003 | 文件上传 | PDF 附件上传 | 选择 PDF 附件 | 正文已上传 | 附件列表显示文件名、大小、类型；计数从 `0/10` 更新 | 超过 10 个应阻止并提示 | 上传 API | 已测 1 个附件成功 |
+| REV-UPLOAD-004 | 文件上传 | 附件删除 | 点击删除 | 附件已存在 | 删除附件并更新计数 | 属数据变更，测试需确认 | 上传/草稿 API | 本轮未执行 |
+| REV-DRAFT-001 | 顶部操作 | `取消草稿` | 点击 | 草稿存在 | 应弹确认或删除草稿并退出 | 不可恢复动作，测试需确认 | 草稿 API | 本轮未执行 |
+| REV-JOURNAL-002 | 期刊选择 | 期刊搜索框 | 输入期刊名/ISSN/学科 | AI 识别完成 | 返回期刊卡片列表，卡片含名称、出版商、ISSN、分区、IF、CCF、投稿要求 | 相关性差、无结果应提示 | 期刊搜索 API | 已测检索可用，但排序/精确命中有风险 |
+| REV-JOURNAL-003 | 期刊卡片 | `选择这本` | 点击 | 期刊搜索有结果 | 页面显示 `已选: {期刊名}`；对应按钮变为 `✓ 已选`；可点击 `取消选择` | 切换期刊应更新最终核对页 | 草稿 API | 已测选择 IJCV 成功 |
+| REV-JOURNAL-004 | 期刊选择 | `取消选择` | 点击 | 已选期刊 | 清除目标期刊，改用通用 STM 模板 | 应不影响稿件识别信息 | 草稿 API | 本轮未执行 |
+| REV-JOURNAL-005 | 期刊选择 | `+ 自定义期刊` | 点击 | step 2 | 展开自定义期刊输入区；空输入时确认禁用；输入后显示字数并启用确认 | 关闭不应保存 | 本地状态/草稿 API | 已测打开、输入、关闭；未保存 |
+| REV-META-001 | 稿件信息 | 标题输入框 | 编辑 | step 2 | 文本可编辑，进入核对页后同步 | 标题为空应阻止提交或提示必填 | 草稿 API | 本轮只观察未改标题 |
+| REV-META-002 | 稿件信息 | 摘要文本域 | 编辑 | step 2 | 文本可编辑，进入核对页后同步 | 超长摘要应限制/提示 | 草稿 API | 本轮只观察未改摘要 |
+| REV-META-003 | 稿件信息 | 关键词输入框 | 输入关键词并回车 | step 2 | 新关键词变为 tag/chip，可删除 | 重复关键词应去重或提示 | 本地状态/草稿 API | 已测新增 `open-vocabulary recognition` |
+| REV-META-004 | 稿件信息 | 稿件类型按钮 | 点击 `Research` / `Review` / `Short Communication` | step 2 | 选中态切换，核对页显示相应文章类型 | 应支持切回 | 本地状态/草稿 API | 已测 Review 与 Research 间切换 |
+| REV-META-005 | 稿件信息 | 学科领域输入框 | 输入并回车 | step 2 | 新学科变为 tag/chip，可删除 | 重复学科应去重或提示 | 本地状态/草稿 API | 本轮未新增 |
+| REV-COVER-001 | Cover Letter | `下一步 · AI 起草投稿信` | 点击 | step 2 信息有效 | 进入 step 3；顶部按钮显示 `AI 处理中…` 且禁用；正文区域显示起草 loading 和字数 | 超时应提示可重试 | Cover Letter AI API | 已测生成成功 |
+| REV-COVER-002 | Cover Letter | 投稿信文本域 | AI 写入/手动编辑 | AI 生成完成 | 文本域填入投稿信；字数显示；`下一步 · 核对` 启用 | 为空应阻止下一步 | 草稿 API | 已测 2432 字生成成功 |
+| REV-REVIEW-001 | 核对投递 | `上传材料` 卡片 | 展示 / `编辑` | step 4 | 显示正文 PDF 与附件；点击编辑应回到上传步骤 | 编辑后应保留已有草稿 | 草稿路由 | 仅观察展示，未点编辑 |
+| REV-REVIEW-002 | 核对投递 | `投递期刊` 卡片 | 展示 / `编辑` | step 4 | 显示目标期刊、IF、JCR、ISSN；编辑应回到期刊步骤 | 无期刊时应显示通用模板 | 草稿路由 | 已测显示 IJCV |
+| REV-REVIEW-003 | 核对投递 | `稿件基本信息` 卡片 | 展示 / `编辑` | step 4 | 显示标题、摘要、文章类型、学科、关键词 | 编辑后返回应同步 | 草稿路由 | 已测展示 |
+| REV-REVIEW-004 | 核对投递 | `投稿信摘要` 卡片 | 展示 / `编辑` | step 4 | 显示投稿信摘录和字数 | 编辑后返回应同步 | 草稿路由 | 已测展示 |
+| REV-REVIEW-005 | 核对投递 | 隐私与数据保护 | 展示 | step 4 | 展示传输加密、双盲评审、数据保留、访问范围说明 | — | 静态文案 | 已测展示 |
+| REV-REVIEW-006 | 核对投递 | 必选真实性承诺 checkbox | 点击 | step 4 | 未勾选时 `提交审稿` 禁用；勾选后启用，并显示 `已确认` | 取消勾选应再次禁用 | 本地状态 | 已测通过 |
+| REV-REVIEW-007 | 核对投递 | 服务条款 checkbox | 展示 | step 4 | 默认勾选且 disabled | 若条款缺失应阻止提交 | 静态/配置 | 已测展示 |
+| REV-REVIEW-008 | 核对投递 | 匿名数据集授权 checkbox | 点击 | step 4 | 可选项，不影响提交启用 | 需清楚说明用途 | 本地状态 | 本轮保持未勾选 |
+| REV-SUBMIT-001 | 核对投递 | `提交审稿` | 点击 | 必选承诺已勾选 | 创建审稿任务，跳转 `/peer-review/submitted/{id}` | 接口失败应可重试，不应丢草稿 | 提交 API | 已测 id 22 成功 |
+| REV-SUBMITTED-001 | 提交成功页 | 投稿信息卡 | 展示 | 提交成功 | 显示标题、目标期刊、投稿编号、提交时间、通讯作者、下一步说明 | 编号/时间应稳定 | 提交 API | 已测 `SCY-2026-0530-000M` |
+| REV-SUBMITTED-002 | 提交成功页 | `返回投稿管理` | 点击 | 提交成功 | 返回投稿管理/投稿入口 | — | 路由 | 本轮未执行 |
+| REV-SUBMITTED-003 | 提交成功页 | `前往审稿记录` | 点击 | 提交成功 | 打开对应审稿详情 | — | 路由 | 已测进入 `/peer-review/records/22` |
+| REV-RECORDS-001 | 审稿记录列表 | 状态 tab：全部/草稿/进行中/已完成 | 点击 | 有记录 | 表格按状态过滤，tab 计数同步 | 空列表应显示空态 | 列表 API | 已测过滤正常 |
+| REV-RECORDS-002 | 审稿记录列表 | 记录行 / `查看进度` / `查看评议` | 点击 | 有记录 | 打开审稿详情 | — | 路由 | 已测 |
+| REV-RECORDS-003 | 审稿记录列表 | 删除按钮 | 点击 | 有记录 | 应确认后永久删除 | 不可恢复动作，测试需确认 | 删除 API | 本轮未执行 |
+| REV-DETAIL-001 | 审稿详情 | 顶部基础信息 | 展示 | 任务存在 | 显示状态、投稿时间、最近更新、标题、期刊、学科 | 状态应随阶段刷新 | 详情 API/SSE/轮询 | 已测 |
+| REV-DETAIL-002 | 审稿详情 | `编辑部初审` 阶段 | 展示 / 点击 tab | 初审完成 | 显示四项基础检查、4/4 通过、查重/AIGC/排版/定位说明 | 失败应显示失败原因 | 初审结果 API | 已测 |
+| REV-DETAIL-003 | 审稿详情 | 审稿人 A/B/C tab | 点击 | 审稿中/已完成 | 审稿中显示 loading 占位；完成后显示分数、推荐、四维评分、主观评论 | tab 与顶部卡片状态应一致 | 审稿结果 API | 已测 |
+| REV-DETAIL-004 | 审稿详情 | 主审决议 tab | 点击 | 三位审稿人完成前/后 | 完成前显示汇总等待；完成后显示综合分、决议、必改/建议清单、主审说明 | 主审耗时长应给进度提示 | 主审 API | 已测最终 `返修 68/100` |
+| REV-DETAIL-005 | 审稿详情 | 同行评审快览 | 点击审稿人快捷项 | 详情页已打开 | 跳转/切换到对应审稿人意见 | 快览状态应与顶部卡片一致 | 前端状态 | 已测显示，发现文案短暂不一致 |
+| REV-DETAIL-006 | 审稿详情 | 时间线 | 展示 | 任务存在 | 按阶段显示投稿、审稿人提交意见、主审决议时间 | 时间应和顶部最近更新一致 | 详情 API | 已测 |
+| REV-DETAIL-007 | 审稿详情 | `下载稿件` | 点击 | 有稿件文件 | 触发下载稿件包 | HTTP 开发环境可能被 Chrome 拦截 | 下载 API | 已测触发 zip，但 Chrome 报 `Insecure download blocked` |
+| REV-DETAIL-008 | 审稿详情 | `查看完整决议书` | 点击 | 主审已决议 | 应打开完整决议书或跳转详情 | 不应改变审稿数据 | 决议 API/前端路由 | 本轮未执行 |
+| REV-DETAIL-009 | 审稿详情 | `撰写回复函` | 点击 | 主审为返修 | 应进入回复函/返修响应流程 | 属新流程，需单独专项 | AI 写作/返修 API | 本轮未执行 |
 
-**未实现 / 缺口汇总**：
-- 任务设想的评审核心（评审员卡片 / 评分雷达图 / 证据面板 / 反驳撰写 / Prompt Studio / `types.ts`）**代码中均不存在**——尚未开始实现。
-- 整页是 `ComingSoonView` 占位，无后端 / react-query / API / SSE / 表单。
-- `ComingSoonView` 本身也没有任务设想的「邮箱订阅 / 返回首页」交互，唯一真实交互来自通用侧栏（导航 + 折叠）。
-- `PeerReviewPreview` 为纯静态展示，搜索/过滤/工单卡全部 no-op 占位，且被 `pointer-events-none` 整体禁用。
-- `PeerReviewSidebar` 已写好交互逻辑但是死代码（无人引用），需后续接入真实页面才生效。
+## PART 3 — 已知问题与风险
+
+| 编号 | 优先级 | 类型 | 现象 | 建议 |
+| --- | --- | --- | --- | --- |
+| REV-RISK-001 | P1 | SPEC-DRIFT | 仓库 `frontend-user` 中智能审稿仍为 `ComingSoonView`，但开发环境已是完整投稿/审稿流程 | 合并或拉取最新前端代码；后续以同一代码基线维护规约 |
+| REV-RISK-002 | P2 | 体验/渲染 | 访问 `/peer-review/journal` 时观察到一次视觉空白/延迟，DOM 与页面最终可恢复 | 检查路由 hydration/loading fallback，避免用户误判白屏 |
+| REV-RISK-003 | P2 | 数据质量 | 搜 `Nature Machine Intelligence` 返回 Nature Reviews 相关期刊；搜 `Computer Vision and Image Understanding` 首屏未精确命中，但包含 IJCV | 优化期刊搜索排序、精确匹配权重和无精确命中提示 |
+| REV-RISK-004 | P2 | 状态一致性 | 审稿人阶段切换时，顶部卡片显示某审稿人评审中，但右侧快览短暂显示等待中 | 统一详情页各区域状态来源或刷新节奏 |
+| REV-RISK-005 | P2 | 下载 | `下载稿件` 触发 zip 后被 Chrome 标记为 `Insecure download blocked` | 开发环境启用 HTTPS 或调整下载头/MIME；生产环境复测 |
+| REV-RISK-006 | P3 | 范围 | `取消草稿`、附件删除、记录删除、回复函等破坏性或后置流程未在本轮执行 | 单独使用可清理测试账号并获得确认后测试 |
+
+## PART 4 — 测试数据快照
+
+- 测试账号：`codex-test-20260530-001@example.com`，实际登录用户 `user_355073`
+- 第二次投稿正文：`clip-learning-transferable-visual-models.pdf`
+- 第二次投稿附件：`bert-pre-training-of-deep-bidirectional-transformers.pdf`
+- 投稿编号：`SCY-2026-0530-000M`
+- 任务 ID：`22`
+- 目标期刊：`International Journal of Computer Vision`
+- 审稿结果：A `68 · 返修`，B `72 · 返修`，C `55 · 返修`，主审 `返修 · 68/100`

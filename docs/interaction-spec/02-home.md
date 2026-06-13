@@ -1,6 +1,6 @@
 # 02 · 主页 + 详情页 交互明细
 
-> 列定义见 [README](README.md)。Ground truth = 前端代码实际行为（非设计图）。
+> 列定义见 [README](README.md)。Ground truth = 最新开发环境可观察行为 + 当前前端代码（非设计图）。
 
 ## PART 1 — 页面/流程概要
 
@@ -20,7 +20,7 @@
 
 ### 主页区域（HomePage，挂 `SidebarLayout` + `HomeSidebar`）
 - 左侧 `HomeSidebar`：`menus.ts` 分类（检索 / 智能 / 资源）渲染 RichMenuItem；library 卡副文已登录拉真实计数。
-- 主区：`BrandLogo` + tagline + `SearchAutocomplete`（640 宽搜索条 + 联想下拉）+「智能搜索」CTA（红底 destructive 按钮 + amber「即将推出」角标）+ `Footer`。
+- 主区：`BrandLogo` + tagline + `SearchAutocomplete`（640 宽搜索条 + 联想下拉）+「智能搜索」CTA（红底 destructive 按钮，进入智能搜索模式）+ `Footer`。
 
 ### 详情页区域
 - **BrowserPage shell**：顶部 `BrowserTabsBar`（返回 + 多页签滚动条 + "+" QuickOpenPaperDialog）+ 详情 Pane（四选一），无侧栏。tabs 为空 → BrowserTabsBar 返回 null。
@@ -31,7 +31,7 @@
 
 ### 关键流程
 - **搜索**：HomePage 输入 → SearchAutocomplete 联想（论文多源 fan-out + 作者 + 期刊推荐）；回车/点搜索按钮 → `/search?q=`；hover 搜索按钮 → picker 切「期刊检索」→ `/journals/search?q=`。
-- **切换搜索模式**：HomePage「智能搜索」CTA → `/search?mode=smart`（占位预览）。
+- **切换搜索模式**：HomePage「智能搜索」CTA → `/search?mode=smart`（真实智能搜索入口）。
 - **查看详情**：选论文/学者/期刊联想项 → `useOpenPaperInBrowser` / `useOpenAuthorInBrowser` / `useOpenJournalInBrowser`（写 browser-tabs store + SEO seed + navigate）。
 - **查看引用**：PaperReferences 拉 `/public/papers/:id/references`，引用项点击 → 站内打开该论文详情（有 paperId）/ 外链（仅 url）。
 - **相关学者**：AuthorDetailPane 的 CollaboratorsCol（从作品作者聚合）+ PaperHeader 作者跳转 + FeaturedPapersCol → 论文详情。
@@ -39,7 +39,8 @@
 ### 实现状态（真实接口 vs mock）
 - **全部真实 react-query**，无 mock 静态数据：`useFetchPaperDetail` / `useFetchPaperReferences` / `useAuthorDetail` / `useAuthorPapers` / `useJournalDetail` / `useMultiSourceSearchSuggestions` / `useJournalSuggestions` / `useQuickPaperSearch` / `useLibraryFoldersForHome`。
 - **派生数据（纯前端聚合）**：研究方向 / 合作学者 / 年度趋势 / 代表作均从 `useAuthorPapers` 结果聚合。
-- **占位（未上线）**：智能搜索、期刊评分/投稿要求/编委/论坛、论文「读者笔记与讨论」、学者「关注」。
+- **占位（未上线）**：期刊评分/投稿要求/编委/论坛、论文「读者笔记与讨论」、学者「关注」。
+- **智能搜索状态**：2026-05-30 开发环境已验证首页 CTA 进入 `/search?mode=smart` 后为真实智能搜索主链路，后续交互规约见 `03-search.md`。
 - **skeleton/loading**：无独立 DetailSkeletons 文件；各 Pane 用内联 `Loader2` spinner + EmptyState 处理 loading/error/失效三态；PDF chunk 用 `Suspense` fallback spinner。
 
 ## PART 2 — 元素级交互表
@@ -56,7 +57,7 @@
 | HOME-008 | 主页/联想 dropdown | 论文项(PaperSection) | 点击 | 有论文联想 | `onPickPaper` → `useOpenPaperInBrowser` 打开论文详情 tab；无 handler 时 fallback onSubmit(title) | — | 联想接口 + browser-tabs store | HomePage.tsx:105-111 |
 | HOME-009 | 主页/联想 dropdown | 作者项(AuthorSection) | 点击 | 有作者联想 | `onPickAuthor`：有 authorId → `useOpenAuthorInBrowser` 开学者详情；无 id 直接 return | 无 authorId 不跳转 | 联想接口 + store | HomePage.tsx:112-122 |
 | HOME-010 | 主页/联想 dropdown | 期刊项(JournalSection,米黄底) | 点击 | 有期刊联想 | `onPickJournal` → `useOpenJournalInBrowser` 开期刊详情 `/journal/:id` | — | `useJournalSuggestions` + store | HomePage.tsx:99-104 |
-| HOME-011 | 主页/Hero | 「智能搜索」CTA 按钮 | 点击 | — | `handleSmartSearch` → `/search?mode=smart`(+q 若有)；进 SearchPage 智能 tab | 仍为占位预览，挂「即将推出」角标 | 纯前端导航 | HomePage.tsx:58-66,128-142 |
+| HOME-011 | 主页/Hero | 「智能搜索」CTA 按钮 | 点击 | — | `handleSmartSearch` → `/search?mode=smart`(+q 若有)；进 SearchPage 智能 tab；刷新后仍保持智能搜索状态 | 未登录时目标页按认证策略拦截；智能搜索接口异常时保留智能模式并显示可恢复状态 | 纯前端导航；SearchPage 智能链路见 `03-search.md` | 真实入口；HomePage.tsx:58-66,128-142；`docs/testing/smart-search-functional-test-report-2026-05-30.md` |
 | HOME-012 | 主页 | 整页加载（带 `?login=required`） | 进入(effect) | 未登录且 query 含 login=required | 弹 AuthDialog(login) 并清掉该 query(replace) | 已登录则不弹 | `useAuthDialog`/`useAuthStore` 纯前端 | HomePage.tsx:41-48 |
 | HOME-013 | 主页/侧栏 | RichMenuItem 菜单行 | 点击(NavLink) | — | 导航到 `m.href`；active 态高亮 bg-surface-1 | comingSoon 项显示「即将推出」标 | `menus.ts` 静态配置 | HomeSidebar.tsx:60-130 |
 | HOME-014 | 主页/侧栏 | library 卡副文 | 渲染 | 已登录(有 token) | 显示真实「N 篇 · M 个文件夹」，否则默认文案 | 未登录/无 data → 默认 SUBTITLES.library | `useLibraryFoldersForHome` `GET /user/library/folders` | HomeSidebar.tsx:39-43；library api.ts |
