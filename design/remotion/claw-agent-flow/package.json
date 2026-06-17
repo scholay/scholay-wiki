@@ -1,0 +1,19 @@
+{
+  "name": "scholay-claw-agent-flow",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "preview": "remotion preview src/Root.tsx",
+    "render": "remotion render src/Root.tsx ClawAgentFlow out/claw-agent-flow.mp4",
+    "render:gif": "python3 render_gif.py"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.366",
+    "remotion": "^4.0.366",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

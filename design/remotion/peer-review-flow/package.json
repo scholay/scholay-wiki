@@ -1,0 +1,17 @@
+{
+  "name": "scholay-peer-review-flow-animation",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "preview": "remotion preview src/Root.tsx",
+    "render:gif": "remotion render src/Root.tsx PeerReviewFlow out/peer-review-flow-remotion.gif --codec gif",
+    "render:local-gif": "python3 render_gif.py"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.340",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "remotion": "^4.0.340"
+  }
+}
