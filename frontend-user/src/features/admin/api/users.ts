@@ -18,6 +18,8 @@ export interface AdminUser {
   phone_verified: boolean;
   last_login_at?: string | null;
   last_login_ip?: string | null;
+  /** 最后活跃(真实使用)时间:每次鉴权请求节流更新,反映最后实际使用而非仅登录动作。 */
+  last_active_at?: string | null;
   /** 会员(VIP):vip_tier='pro' 且 vip_expires_at>now 才算生效 pro;否则当 free。 */
   vip_tier?: 'free' | 'pro' | null;
   vip_expires_at?: string | null;
@@ -36,7 +38,7 @@ export interface UserListParams {
   email_verified?: '0' | '1';
   created_from?: string; // YYYY-MM-DD
   created_to?: string;
-  sort_by?: 'last_login_at' | 'created_at' | 'vip_expires_at';
+  sort_by?: 'last_active_at' | 'last_login_at' | 'created_at' | 'vip_expires_at';
   sort_order?: 'asc' | 'desc';
 }
 

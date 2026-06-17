@@ -1,33 +1,21 @@
 import { useState } from 'react';
 import { Loader2, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '@/shared/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/shared/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu';
-import { Input } from '@/shared/ui/input';
-import { Label } from '@/shared/ui/label';
 import { SidebarSection } from '@/shared/components/sidebar';
 import { useAuthStore } from '@/stores/auth.store';
 import { cn } from '@/shared/lib/utils';
 import {
   useActivateClawSession,
   useClawSessions,
-  useDeleteClawSession,
-  useRenameClawSession,
   type ClawSessionItem,
 } from '../../api/session';
+import { ClawRenameDialog, ClawDeleteDialog } from './ClawSessionDialogs';
 
 /**
  * 智能助手侧边栏 — 会话历史列表区域。
@@ -96,8 +84,8 @@ export function ClawSessionList({
         </div>
       )}
 
-      <RenameDialog target={renameTarget} onClose={() => setRenameTarget(null)} />
-      <DeleteDialog
+      <ClawRenameDialog target={renameTarget} onClose={() => setRenameTarget(null)} />
+      <ClawDeleteDialog
         target={deleteTarget}
         activeSessionId={activeSessionId}
         onClose={() => setDeleteTarget(null)}
@@ -204,126 +192,5 @@ function SessionRow({
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
-  );
-}
-
-// ─── Rename dialog ─────────────────────────────────────────────────────
-
-function RenameDialog({
-  target,
-  onClose,
-}: {
-  target: ClawSessionItem | null;
-  onClose: () => void;
-}) {
-  const rename = useRenameClawSession();
-  const [title, setTitle] = useState('');
-
-  // target 变化时同步初始值; 通过 key={target?.sessionId} 让 Input 重置
-  return (
-    <Dialog
-      open={!!target}
-      onOpenChange={(open) => {
-        if (!open) {
-          setTitle('');
-          onClose();
-        }
-      }}
-    >
-      <DialogContent className="max-w-md" key={target?.sessionId}>
-        <DialogHeader>
-          <DialogTitle>重命名会话</DialogTitle>
-          <DialogDescription>
-            标题会同步到 agent 端, 不影响会话内容。
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-1.5">
-          <Label htmlFor="claw-rename-title">新标题</Label>
-          <Input
-            id="claw-rename-title"
-            autoFocus
-            defaultValue={target?.title ?? ''}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="例如: 论文方法学讨论"
-          />
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            取消
-          </Button>
-          <Button
-            disabled={!title.trim() || rename.isPending}
-            onClick={async () => {
-              if (!target) return;
-              try {
-                await rename.mutateAsync({
-                  sessionId: target.sessionId,
-                  title: title.trim(),
-                });
-                toast.success('已重命名');
-                onClose();
-              } catch (err) {
-                toast.error((err as Error).message || '重命名失败');
-              }
-            }}
-          >
-            {rename.isPending ? '保存中…' : '保存'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ─── Delete dialog ─────────────────────────────────────────────────────
-
-function DeleteDialog({
-  target,
-  activeSessionId,
-  onClose,
-  onActiveDeleted,
-}: {
-  target: ClawSessionItem | null;
-  activeSessionId: string | null;
-  onClose: () => void;
-  onActiveDeleted: () => void;
-}) {
-  const del = useDeleteClawSession();
-  const isActive = !!target && target.sessionId === activeSessionId;
-
-  return (
-    <Dialog open={!!target} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>确定删除这个会话?</DialogTitle>
-          <DialogDescription>
-            会话 <span className="font-mono text-foreground">"{target?.title?.trim() || '新会话'}"</span> 将被永久删除, 包括 agent
-            端的全部消息历史。{isActive && <strong>这是你当前的会话, 删除后会切到列表中的下一条 (或新建一条)。</strong>}
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            取消
-          </Button>
-          <Button
-            variant="destructive"
-            disabled={del.isPending}
-            onClick={async () => {
-              if (!target) return;
-              try {
-                await del.mutateAsync(target.sessionId);
-                if (isActive) onActiveDeleted();
-                toast.success('已删除');
-                onClose();
-              } catch (err) {
-                toast.error((err as Error).message || '删除失败');
-              }
-            }}
-          >
-            {del.isPending ? '删除中…' : '确认删除'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

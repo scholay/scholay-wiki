@@ -19,13 +19,25 @@ package claw
 import (
 	"context"
 	"errors"
+	"os"
 
 	"scholar-backend/internal/agentbridge"
-	"scholar-backend/internal/llmusage"
 	"scholar-backend/internal/prompts"
 	"scholar-backend/internal/usagestat"
 	"scholar-backend/internal/vip"
 )
+
+// clawPermissionMode —— C14 审批轴。默认 auto(backend 自动裁决,不透传前端);
+// 仅当 env CLAW_PERMISSION_PASSTHROUGH=1 时切 passthrough —— 这是**测试 / 未来 HITL 的验证开关**,
+// 让客户端能收到 permission_request 并回 permission_response 解锁工具。生产不设此 env,行为 = auto。
+// 安全:claw 的 AllowBash=true(能力轴本就放开)+ agent 端 --disallowed-tools 是独立第一道防线,
+// 故 passthrough 不放大 claw 权限面。其它靠 cwd 围栏的 feature 绝不可这样开。
+func clawPermissionMode() agentbridge.PermissionMode {
+	if os.Getenv("CLAW_PERMISSION_PASSTHROUGH") == "1" {
+		return agentbridge.PermissionPassthrough
+	}
+	return agentbridge.PermissionAuto
+}
 
 const FeatureKey = "claw"
 const agentName = "scholay-claw"
@@ -46,22 +58,6 @@ func SetUsageRecorder(r usagestat.Recorder) {
 	usageRecorder = r
 }
 
-// llmUsageRecorder 由 SetLLMUsageRecorder 注入; onMessageComplete 每轮 message_complete
-// 时懒读取, 落 token 账本 (llm_token_usage, source=agent)。
-var llmUsageRecorder llmusage.Recorder
-
-// SetLLMUsageRecorder 注入统一 LLM token 账本录入器。允许 nil 禁用 (只 slog 不落库)。
-func SetLLMUsageRecorder(r llmusage.Recorder) {
-	llmUsageRecorder = r
-}
-
-// onMessageComplete 每轮 agent 回复结束触发:只做 slog(docker logs | grep agent_usage)实时观测。
-// token 账本已改为 **per-call** 记账(agent 端 claude.ts 每次真实模型调用 → 内网回调落库,一次调用一行),
-// 故这里**不再落库**,否则与 per-call 双计。llmUsageRecorder 仍由 bootstrap 注入(保留接线)但此处不再用。
-func onMessageComplete(ctx context.Context, userID uint, usage agentbridge.AgentUsage) {
-	agentbridge.NewSlogUsageRecorder(FeatureKey)(ctx, userID, usage)
-}
-
 // vipChecker 由 SetVIPChecker 注入(bootstrap)—— 按用户等级(free/pro)做 tier-aware 日额度。
 // vip.Service 自带「未配额→不限额 + Redis 挂→fail-open」,故无需再保留旧的 env 日额度回落。
 var vipChecker *vip.Service
@@ -69,34 +65,34 @@ var vipChecker *vip.Service
 // SetVIPChecker 注入会员限额服务。允许 nil(不限额)。
 func SetVIPChecker(v *vip.Service) { vipChecker = v }
 
-// preUserMessageChain 把配额检查 + 功能使用统计组合成一个 PreUserMessageFn:
-//  1. 先查 vip 配额, 超额直接 error 出去, 后续不记 (不是真正的"使用")
-//  2. 配额过了 → 记一条 usage_events (claw/message), userID 必填
+// checkQuota / recordQuestion 是给 agentbridge.StandardHooks 的适配闭包:
+//  1. checkQuota: 先查 vip 配额, 超额转 quota_exceeded(干净文案)直接 error 出去。
+//  2. recordQuestion: 配额过了 → 记一条 usage_events (claw/message)。
 //
-// 闭包结构保证 usageRecorder/vipChecker 是**调用时**读取 (而不是注册时), 所以
-// BuildSpec 可以在 SetUsageRecorder/SetVIPChecker 之前调用, 顺序无关。
-func preUserMessageChain(ctx context.Context, userID uint, _ string) error {
-	if vipChecker != nil {
-		if err := vipChecker.CheckDailyQuota(ctx, userID); err != nil {
-			if errors.Is(err, vip.ErrQuotaExceeded) {
-				return agentbridge.NewQuotaError(err.Error())
-			}
-			return err
-		}
+// 闭包结构保证 vipChecker/usageRecorder 在**调用时**读取(而非注册时),所以
+// BuildSpec 可在 SetUsageRecorder/SetVIPChecker 之前调用,顺序无关。
+func checkQuota(ctx context.Context, userID uint) error {
+	if vipChecker == nil {
+		return nil
 	}
-	if usageRecorder != nil {
-		var uid *uint
-		if userID != 0 {
-			u := userID
-			uid = &u
+	if err := vipChecker.CheckDailyQuota(ctx, userID); err != nil {
+		if errors.Is(err, vip.ErrQuotaExceeded) {
+			return agentbridge.NewQuotaError(err.Error())
 		}
-		usageRecorder.Record(usagestat.Event{
-			UserID:  uid,
-			Feature: usagestat.FeatureClaw,
-			Action:  "message",
-		})
+		return err
 	}
 	return nil
+}
+
+func recordQuestion(uid *uint) {
+	if usageRecorder == nil {
+		return
+	}
+	usageRecorder.Record(usagestat.Event{
+		UserID:  uid,
+		Feature: usagestat.FeatureClaw,
+		Action:  "message",
+	})
 }
 
 // BuildSpec 构造 claw 的 FeatureSpec。
@@ -108,6 +104,11 @@ func preUserMessageChain(ctx context.Context, userID uint, _ string) error {
 //   - AutoApprovePermission=true: Minicod MCP 全是只读检索, 自动批准让用户体验
 //     流畅; 后续如果允许 agent 写代码 / 改文件再调整。
 func BuildSpec() agentbridge.FeatureSpec {
+	pre, onComplete := agentbridge.StandardHooks(agentbridge.StandardHooksConfig{
+		FeatureKey:     FeatureKey,
+		CheckQuota:     checkQuota,
+		RecordQuestion: recordQuestion,
+	})
 	return agentbridge.FeatureSpec{
 		Key:                    FeatureKey,
 		AgentName:              agentName,
@@ -115,8 +116,13 @@ func BuildSpec() agentbridge.FeatureSpec {
 		Picker:                 agentbridge.NewStaticPicker(FeatureKey, PromptSlug, PromptName, prompts.ClawSystemPrompt),
 		Color:                  "purple",
 		InjectPromptOnFirstMsg: true,
-		AutoApprovePermission:  true,
-		PreUserMessage:         preUserMessageChain,
-		OnMessageComplete:      onMessageComplete,
+		// C14: 审批轴。默认 auto;CLAW_PERMISSION_PASSTHROUGH=1 时 passthrough(测试/HITL 验证)。
+		PermissionMode: clawPermissionMode(),
+		// C1 (2026-06): claw 是唯一允许 Bash 的 feature —— 要跑 pandoc/python 把 docx/xlsx
+		// 转成可读文本。AllowBash=true 让 backend 权限门放行 Bash;agent 端全局 denylist 本就
+		// 不含 Bash, claw 又不追加禁用, 故 agent 侧天然有 Bash, 无需 SessionOptions。
+		AllowBash:         true,
+		PreUserMessage:    pre,
+		OnMessageComplete: onComplete,
 	}
 }

@@ -11,6 +11,8 @@ import { corsHeaders } from './middleware/cors.js'
 import { requireAuth } from './middleware/auth.js'
 import { teamWatcher } from './services/teamWatcher.js'
 import { cronScheduler } from './services/cronScheduler.js'
+import { feature } from 'bundle-feature'
+import { isAgentSwarmsEnabled } from '../utils/agentSwarmsEnabled.js'
 import { handleHahaOAuthCallback } from './api/haha-oauth.js'
 import { ensureDesktopCliLauncherInstalled } from './services/desktopCliLauncherService.js'
 import { enableConfigs } from '../utils/config.js'
@@ -193,11 +195,19 @@ export function startServer(port = PORT, host = HOST) {
     websocket: handleWebSocket,
   })
 
-  // Start watching ~/.claude/teams/ for real-time WebSocket push
-  teamWatcher.start()
+  // Start watching ~/.claude/teams/ for real-time WebSocket push.
+  // B2 (冗余审计): 仅当 agent swarms feature 开启时才起 —— 多用户 Web 部署默认关,
+  // 省掉一个空转 fs watcher;无 teams 输入文件时它本就 no-op。
+  if (isAgentSwarmsEnabled()) {
+    teamWatcher.start()
+  }
 
-  // Start the cron scheduler to execute scheduled tasks
-  cronScheduler.start()
+  // Start the cron scheduler to execute scheduled tasks.
+  // B2: 仅当 AGENT_TRIGGERS feature 开启时才起 —— 否则省一个 60s 空转 tick,
+  // 并关掉「调度任务 spawn cli.tsx --print 子进程」这一未沙箱化的潜在面。
+  if (feature('AGENT_TRIGGERS')) {
+    cronScheduler.start()
+  }
 
   void ensureDesktopCliLauncherInstalled().catch((error) => {
     console.error(

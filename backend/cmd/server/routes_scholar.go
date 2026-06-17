@@ -104,6 +104,10 @@ func registerPublicAPIRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL gin.
 			middleware.RateLimitMiddleware(120, time.Minute),
 			h.usageStats.Track,
 		)
+		// 文献集分享:收件人公开获取(免登录;OptionalUserAuth 让登录访客记到名下)。
+		// 带提取码的分享缺/错 code 时只回最小信息让前端弹输入框。转存仍需登录(在 /user 下)。
+		publicAPI.GET("/share/:token", middleware.OptionalUserAuthMiddleware(), h.library.PublicGetShare)
+
 		// SEO slug 解析 (前端 /paper/:slug、/author/:slug 首屏用)
 		publicAPI.GET("/seo/paper/:slug", h.seo.ResolveBySlug)
 		publicAPI.GET("/seo/author/:slug", h.seo.ResolveAuthorBySlug)

@@ -24,6 +24,7 @@ import (
 	"github.com/gin-gonic/gin"
 	gorillaws "github.com/gorilla/websocket"
 
+	"scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/utils"
 )
@@ -38,12 +39,39 @@ func agentSessionWorkdirRoot() string {
 	return "/home/bun/sessions"
 }
 
-// frontUpgrader 升级浏览器 WS。CORS 由 nginx 同源策略兜底; 桥接本身是内部 API,
-// 默认 CheckOrigin 放行 (生产部署若要收紧, 在这里读 allow-list env)。
+// frontUpgrader 升级浏览器 WS。CORS 由 nginx 同源策略兜底; CheckOrigin 是 CSWSH 二道防线。
 var frontUpgrader = gorillaws.Upgrader{
 	ReadBufferSize:  4096,
 	WriteBufferSize: 4096,
-	CheckOrigin:     func(r *http.Request) bool { return true },
+	CheckOrigin:     checkWSOrigin,
+}
+
+// checkWSOrigin: WS 跨站防护(CSWSH)二道防线 (C16),复用 CORS_ALLOWED_ORIGINS 白名单。
+//   - 无 Origin 头(非浏览器客户端 / 同源内网调用)→ 放行。
+//   - 配了白名单 → 只放行白名单内的 Origin。
+//   - 没配白名单 → 放行 (dev 默认, 与 CORS AllowAllOrigins-when-empty 一致; 同源仍由 nginx 兜底)。
+//
+// 在请求时读 config(而非包级 var 初始化时), 确保 config.AppConfig 已加载。
+func checkWSOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+	allowed := config.AppConfig.App.CORSAllowedOrigins
+	if strings.TrimSpace(allowed) == "" {
+		return true
+	}
+	for _, o := range strings.Split(allowed, ",") {
+		o = strings.TrimSpace(o)
+		// "*" = 放行一切, 与 CORS 中间件 (parseAllowedOrigins → AllowAllOrigins) 语义一致;
+		// 否则精确匹配 Origin。⚠️ 不处理 "*" 会让 CORS_ALLOWED_ORIGINS=* (生产常见 / .env.example 默认)
+		// 直接拒掉所有 WS 升级。
+		if o == "*" || o == origin {
+			return true
+		}
+	}
+	slog.Warn("agentbridge ws: rejected WS upgrade by origin allowlist", "origin", origin)
+	return false
 }
 
 // agentDialer 用于 backend → agent 的内网 WS, 与 agent HTTP 池分开。
@@ -360,8 +388,10 @@ func (f *FeatureBridge) pipe(
 							})
 							continue
 						}
+						// 首条消息一并注入该用户的长期记忆 (跨所有 feature 共享同一份)。
+						memCtx := f.bridge.MemoryBlocks(userID)
 						if rewritten, ok := injectSystemPromptIntoFirstUserMessage(
-							&promptInjected, data, choice.SystemPrompt); ok {
+							&promptInjected, data, choice.SystemPrompt, memCtx); ok {
 							data = rewritten
 							didInjectThisFrame = true
 							slog.Info("agentbridge ws: injected system prompt prefix into first user_message",
@@ -419,7 +449,10 @@ func (f *FeatureBridge) pipe(
 				// content_delta(绝大多数)只付一次微型 unmarshal。
 				switch frameType(data) {
 				case "permission_request":
-					if f.spec.AutoApprovePermission {
+					// C14 审批轴: auto = backend 自动裁决 (decidePermission, 不透传前端);
+					// passthrough = 不裁决, 让 permission_request 落到下方统一 writeFront 原样转发给前端,
+					// 前端回的 permission_response 经 front2agent 循环原样写回 agent (无特殊处理)。
+					if f.spec.EffectivePermissionMode() == PermissionAuto {
 						sessionWorkDir := path.Join(agentSessionWorkdirRoot(), sessionID)
 						if reply, ok := decidePermission(data, sessionWorkDir, specDeny(f.spec)); ok {
 							if err := writeAgent(gorillaws.TextMessage, reply); err != nil {
@@ -430,21 +463,46 @@ func (f *FeatureBridge) pipe(
 						}
 					}
 				case "message_complete":
-					if usage, isComplete := extractMessageCompleteUsage(data); isComplete {
+					if usage, calls, sessionTotal, isComplete := extractMessageComplete(data); isComplete {
 						// 首个 message_complete = agent 已处理并落盘首轮(含注入了 prefix 的首条 user_message)。
 						// 此刻才把 prompt_injected 落库,杜绝「帧送达但落盘前崩溃」的 stale-true。
 						if pendingMark.CompareAndSwap(true, false) {
 							f.markPromptInjected(sessionID)
 						}
 						if f.spec.OnMessageComplete != nil {
-							// 非阻塞 — 钩子做 DB 写入 / 日志 / 账单, 不能拖累 pipe 转发
+							// 非阻塞 — 钩子做 slog / 审计, 不能拖累 pipe 转发
 							hook := f.spec.OnMessageComplete
 							featureKey := f.spec.Key
 							safego.Go("agentbridge-on-message-complete:"+featureKey, func() {
 								hook(hookCtx, userID, usage)
 							})
 						}
+						// 带内 token 账本:按会话累计水位算出本轮要落库的行(per-call 明细 + 必要时一行对账补差)。
+						// 水位读改写在 pipe 读循环内串行完成(保证幂等);真正落库(含 Redis 日配额)异步,
+						// 归属(user/feature)直接来自已鉴权会话, 不反查。
+						if rows := f.bridge.accrueTurnUsage(sessionID, usage, calls, sessionTotal); len(rows) > 0 {
+							uid, feat, sid, rec := userID, f.spec.Key, sessionID, f.bridge.llmRec
+							safego.Go("agentbridge-usage-record:"+feat, func() {
+								for i := range rows {
+									recordAgentTokens(rec, &uid, feat, sid, rows[i])
+								}
+							})
+						}
+						// 一轮结束后异步从最近对话抽取用户长期记忆 (限流 + 不阻塞 pipe);
+						// 仅对会真正产生用户画像的 WS 对话 feature 生效 (peerreview 走 server-side, 不在此路径)。
+						f.bridge.triggerMemoryExtract(userID, sessionID)
 					}
+				case "token_usage":
+					// 带外模型调用(会话标题生成等不产生 message_complete 帧的调用)的 token 用量:
+					// 不进会话累计水位,按「附加」记一行(归属来自已鉴权会话)。这是纯后端记账信号,
+					// 前端无用 → 记完即 continue, 不 writeFront 转发(避免给前端塞不渲染的杂帧)。
+					if u, ok := extractTokenUsageFrame(data); ok {
+						uid, feat, sid, rec := userID, f.spec.Key, sessionID, f.bridge.llmRec
+						safego.Go("agentbridge-token-usage-record:"+feat, func() {
+							recordAgentTokens(rec, &uid, feat, sid, u)
+						})
+					}
+					continue
 				}
 			}
 			if err := writeFront(mt, data); err != nil {
@@ -467,7 +525,7 @@ func (f *FeatureBridge) pipe(
 // 否则 (nil, false), caller 原样转发。
 //
 // 并发安全: 用 atomic.CompareAndSwap 保证同一连接生命周期内只会真正改写一次。
-func injectSystemPromptIntoFirstUserMessage(injected *atomic.Bool, raw []byte, systemPrompt string) ([]byte, bool) {
+func injectSystemPromptIntoFirstUserMessage(injected *atomic.Bool, raw []byte, systemPrompt, memoryContext string) ([]byte, bool) {
 	if injected.Load() {
 		return nil, false
 	}
@@ -492,7 +550,7 @@ func injectSystemPromptIntoFirstUserMessage(injected *atomic.Bool, raw []byte, s
 	if err := json.Unmarshal(raw, &generic); err != nil {
 		return nil, false
 	}
-	generic["content"] = buildInjectionPrefix(systemPrompt) + probe.Content
+	generic["content"] = buildInjectionPrefix(systemPrompt, memoryContext) + probe.Content
 
 	out, err := json.Marshal(generic)
 	if err != nil {
@@ -501,12 +559,19 @@ func injectSystemPromptIntoFirstUserMessage(injected *atomic.Bool, raw []byte, s
 	return out, true
 }
 
-// buildInjectionPrefix 用 marker 包住 systemPrompt, 让模型清楚 prefix 边界。
-// marker 是英文 + 醒目大括号, 减少与用户内容冲突的概率。
-func buildInjectionPrefix(systemPrompt string) string {
-	return "[AGENT BRIDGE — STRICT RULES YOU MUST FOLLOW]\n" +
+// buildInjectionPrefix 用 marker 包住 systemPrompt + per-user 记忆, 让模型清楚 prefix 边界。
+// marker 是英文 + 醒目大括号, 减少与用户内容冲突的概率。memoryContext 为空时不注入记忆段。
+func buildInjectionPrefix(systemPrompt, memoryContext string) string {
+	prefix := "[AGENT BRIDGE — STRICT RULES YOU MUST FOLLOW]\n" +
 		systemPrompt +
-		"\n[/AGENT BRIDGE — END OF RULES]\n\n以下是用户的请求:\n"
+		"\n[/AGENT BRIDGE — END OF RULES]\n\n"
+	if strings.TrimSpace(memoryContext) != "" {
+		prefix += "[关于这位用户 — 长期记忆, 跨会话持久。据此个性化你的回答; 若与用户当前明确诉求冲突, 以当前诉求为准]\n" +
+			memoryContext +
+			"[/长期记忆]\n\n"
+	}
+	prefix += "以下是用户的请求:\n"
+	return prefix
 }
 
 // decidePermission 解析一帧 agent→front 消息; 若是 permission_request 就**按工具 + 路径**
@@ -576,13 +641,12 @@ func permissionAllowed(toolName string, input json.RawMessage, sessionWorkDir st
 	if strings.HasPrefix(toolName, "mcp__") {
 		return true
 	}
-	// Bash 放行 (2026-05): agent 需要 Bash 跑 pandoc/python 把 docx/xlsx 转成可读文本。
-	// ⚠️ Bash 是 shell, 无法做路径限制 —— 本地接受此风险 (见 agent
-	// conversationService.ts DEFAULT_DISALLOWED_TOOLS 注释); 生产应靠 bubblewrap sandbox
+	// Bash 三件套 (Bash/BashOutput/KillShell) 现在按 feature 收敛 (C1, 2026-06):
+	// 只有 AllowBash=true 的 feature (目前仅 claw, 它要跑 pandoc/python 转 docx/xlsx) 才放行 ——
+	// 其余 feature 的 Bash 已由 specDeny() 注入到上方 denyTools, 在本函数顶部命中 denylist 被直接拒,
+	// 走不到这里。claw 的 Bash 在下方 switch 之前放行(见该处)。
+	// ⚠️ Bash 是 shell, 即便对 claw 放行也无法做路径限制; 生产应靠 bubblewrap sandbox
 	// 把 Bash 关进 cwd + 断网, 而不是靠这里的 permission 裁决。
-	if toolName == "Bash" || toolName == "BashOutput" || toolName == "KillShell" {
-		return true
-	}
 	// Web 工具 / Skill 放行 (2026-06, 配合 egress 代理): agent 在 internal 网, 出网只能经
 	// egress 代理 (域名/端口控制 + 统一记日志), SSRF/外泄由网络层兜底, 故这里放行 WebFetch/WebSearch。
 	// Skill 走 inline 执行 —— skill 正文里再调的工具 (Bash/文件/mcp/web) 仍会逐个回到本函数裁决,
@@ -590,6 +654,11 @@ func permissionAllowed(toolName string, input json.RawMessage, sessionWorkDir st
 	// ⚠️ Task/Agent (子 agent) 不在此列, 仍全禁: 子 agent 的工具调用**旁路本裁决**, 必须等生产
 	// L2 沙箱 (bubblewrap/gVisor) 就位再放 (见 agent conversationService.ts 注释)。
 	if toolName == "WebFetch" || toolName == "WebSearch" || toolName == "Skill" {
+		return true
+	}
+	// Bash 三件套: 走到这里 = 该 feature AllowBash=true (否则已在顶部 denylist 被拒)。
+	// shell 无法做路径限制, 对 AllowBash feature (claw) 放行 (风险见上方注释 / 生产靠 sandbox)。
+	if toolName == "Bash" || toolName == "BashOutput" || toolName == "KillShell" {
 		return true
 	}
 	// 文件工具: 校验路径在会话目录内
@@ -711,22 +780,40 @@ func frameType(raw []byte) string {
 	return probe.Type
 }
 
-// extractMessageCompleteUsage 浅 parse 一帧 agent→front 消息, 仅识别 message_complete 的 usage。
-// 返回 (usage, true) 仅当本帧是 message_complete 且 usage 非空。
-func extractMessageCompleteUsage(raw []byte) (AgentUsage, bool) {
-	var zero AgentUsage
+// extractMessageComplete 浅 parse 一帧 message_complete:
+//   - usage:本轮整轮用量(agent 侧算的相邻轮增量),给 slog 钩子用。
+//   - calls:本轮每次真实模型调用的 per-call 明细(带内账本据此按模型逐行记账)。
+//   - sessionTotal:会话累计用量快照(带内账本据此做水位自愈;老 agent 不带 → nil)。
+//
+// 返回 ok=true 仅当本帧确为 message_complete。calls / sessionTotal 可能为空/nil(老 agent 兼容)。
+func extractMessageComplete(raw []byte) (usage AgentUsage, calls []AgentUsage, sessionTotal *AgentUsage, ok bool) {
 	if len(raw) == 0 || raw[0] != '{' {
-		return zero, false
+		return AgentUsage{}, nil, nil, false
+	}
+	var probe struct {
+		Type         string       `json:"type"`
+		Usage        AgentUsage   `json:"usage"`
+		Calls        []AgentUsage `json:"calls"`
+		SessionTotal *AgentUsage  `json:"session_total"`
+	}
+	if err := json.Unmarshal(raw, &probe); err != nil || probe.Type != "message_complete" {
+		return AgentUsage{}, nil, nil, false
+	}
+	return probe.Usage, probe.Calls, probe.SessionTotal, true
+}
+
+// extractTokenUsageFrame 浅 parse 一帧 token_usage(带外模型调用,如会话标题生成):
+// 不进会话累计水位,按「附加」记一行。返回 (usage, true) 仅当本帧确为 token_usage。
+func extractTokenUsageFrame(raw []byte) (AgentUsage, bool) {
+	if len(raw) == 0 || raw[0] != '{' {
+		return AgentUsage{}, false
 	}
 	var probe struct {
 		Type  string     `json:"type"`
 		Usage AgentUsage `json:"usage"`
 	}
-	if err := json.Unmarshal(raw, &probe); err != nil {
-		return zero, false
-	}
-	if probe.Type != "message_complete" {
-		return zero, false
+	if err := json.Unmarshal(raw, &probe); err != nil || probe.Type != "token_usage" {
+		return AgentUsage{}, false
 	}
 	return probe.Usage, true
 }

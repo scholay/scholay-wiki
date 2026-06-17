@@ -485,9 +485,14 @@ func buildAssetsBlock(files *sessionAssets) string {
 // buildMethodologyPrompt 方法论 + 审稿人选择会话的提示 —— Skill-开 的临时会话里跑。
 // agent 读论文 + invoke reviewer-roster 编排 skill, 选 3 位审稿人, 末尾输出选择 JSON。
 // 自由文本方法论注入后续评分轮; 选择 JSON 由后端 parseSelection 解析 → 按 slug 读各审稿人 SKILL.md。
-func buildMethodologyPrompt(files *sessionAssets, menu []reviewerMenuEntry) string {
+func buildMethodologyPrompt(files *sessionAssets, menu []reviewerMenuEntry, memCtx string) string {
 	var b strings.Builder
 	b.WriteString("你是审稿流程的「方法论编排」。请先读完稿件原文, 判断这篇论文的领域 / 类型 / 方法学。\n\n")
+	if strings.TrimSpace(memCtx) != "" {
+		b.WriteString("[投稿人背景 — 长期记忆, 仅帮助你理解论文所属领域/作者水平; 绝不可影响你对论文本身的客观判断]\n")
+		b.WriteString(memCtx)
+		b.WriteString("[/投稿人背景]\n\n")
+	}
 	b.WriteString(buildAssetsBlock(files))
 	if len(menu) > 0 {
 		// 后端把真实花名册喂进来(agent 从清单挑、不凭空编 slug), 按"专攻优先 → 通用兜底"分两组提示。
@@ -542,7 +547,7 @@ func buildMethodologyPrompt(files *sessionAssets, menu []reviewerMenuEntry) stri
 // 让 agent 读论文 + invoke reviewer-roster 选 3 位审稿人, 产出自由文本方法论 + 末尾选择 JSON。
 // 返回 (注入评分轮的方法论自由文本, 恰好 3 位 ReviewerChoice)。任何失败都降级:
 // 方法论返回空串、审稿人退化到内置三人格 —— 评分照常进行, 永不 hard-fail。会话用完即删。
-func (s *Service) runMethodologyPhase(ctx context.Context, submissionID uint64, files *sessionAssets) (string, []ReviewerChoice) {
+func (s *Service) runMethodologyPhase(ctx context.Context, submissionID uint64, files *sessionAssets, memCtx string) (string, []ReviewerChoice) {
 	// 把这一轮的 agent 输出推到 SlotMethodology, 让前端在"通读全文·制定审稿标准"阶段看到实时进度,
 	// 而不是干等一个空转圈。Begin/Done 包住整段: 任何提前 return(降级)也会让前端的 SSE 收尾,
 	// 不会卡在 pending。defer 顺序 LIFO → 先 DeleteSession 再 broker.Done, 符合预期。
@@ -576,7 +581,7 @@ func (s *Service) runMethodologyPhase(ctx context.Context, submissionID uint64, 
 		return "", builtinReviewerChoices()
 	}
 	reply, _, cerr := s.feature.Bridge().ServerSideChatStreaming(ctx, methSessID,
-		buildMethodologyPrompt(mfiles, availableReviewers()),
+		buildMethodologyPrompt(mfiles, availableReviewers(), memCtx),
 		func(delta string) { s.broker.Append(submissionID, SlotMethodology, delta) },
 		func(note string) { s.broker.Status(submissionID, SlotMethodology, note) },
 		s.mainModel())
@@ -1535,7 +1540,11 @@ func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 	// 挑审稿人已从后端 Go(原 4 个 PersonaRandomPicker + feature_prompts DB)整体移进 agent;
 	// 返回的 choices 恒为 3 位 ReviewerChoice(选择失败自动退化到内置三人格), 永不 hard-fail。
 	_ = s.repo.SetComputeState(submissionID, StateComputingMethodology, "")
-	methodology, choices := s.runMethodologyPhase(ctx, submissionID, files)
+	// 把投稿人长期记忆(画像/偏好)作为背景注入「方法论分析」这一用户向步骤(帮助理解论文所属
+	// 领域/作者水平)。注意:只注入方法论会话,**不进入审稿人盲评打分**——methodology 产出的是
+	// 分析文本而非原始记忆,commonContext 据此不含用户画像,保持评分客观(融合进智能审稿,但不偏审)。
+	memCtx := s.feature.Bridge().MemoryBlocks(uint(sub.UserID))
+	methodology, choices := s.runMethodologyPhase(ctx, submissionID, files, memCtx)
 	_ = s.repo.SetComputeState(submissionID, StateReviewing, "")
 
 	commonContext := buildCommonContext(sub, files, methodology)

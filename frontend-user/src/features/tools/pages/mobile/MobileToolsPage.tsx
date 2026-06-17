@@ -1,12 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { ChevronRight, Search, X } from 'lucide-react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { ChevronLeft, Search, Share2, SlidersHorizontal, X } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { CyclingHint } from '@/shared/components/CyclingHint';
+import { usePullToRefresh } from '@/shared/hooks';
+import { PullToRefreshIndicator } from '@/shared/components/PullToRefreshIndicator';
+import { useShareSheet } from '@/stores/share.store';
 import { useInfiniteToolList, useToolCategories } from '../../api/tools';
 import { ToolLogo } from '../../components/ToolLogo';
+import { MobileToolsFilterSheet, type ToolFilters } from '../../components/mobile/MobileToolsFilterSheet';
 import { PRICE_TYPE_LABEL } from '@/types/feature-tool';
 import type { FeatureTool } from '@/types/feature-tool';
+
+/** 排序值 → 后端 sort_by/sort_order。 */
+const SORT_MAP: Record<string, { sort_by: string; sort_order: 'asc' | 'desc' }> = {
+  hot: { sort_by: 'view_count', sort_order: 'desc' },
+  new: { sort_by: 'created_at', sort_order: 'desc' },
+  name: { sort_by: 'name', sort_order: 'asc' },
+};
 
 /**
  * 移动端功能页 = PC 功能广场(/tools)的移动版。
@@ -15,20 +27,55 @@ import type { FeatureTool } from '@/types/feature-tool';
  * URL 驱动(q/category)与 PC 同思路,刷新/分享保留筛选态。
  */
 export function MobileToolsPage() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const q = searchParams.get('q') ?? '';
   const category = searchParams.get('category') ?? '';
   const [draft, setDraft] = useState(q);
+  const [filterOpen, setFilterOpen] = useState(false);
+
+  // 高级筛选(价格/获取方式/开源/排序)走 URL,与 PC 同思路;分类走顶部 chips。
+  const filters: ToolFilters = {
+    price: searchParams.get('price') ?? '',
+    access: searchParams.get('access') ?? '',
+    os: searchParams.get('os') ?? '',
+    sort: searchParams.get('sort') ?? '',
+  };
+  const activeFilterCount = [filters.price, filters.access, filters.os, filters.sort].filter(Boolean).length;
+  const sort = filters.sort ? SORT_MAP[filters.sort] : undefined;
 
   const categoriesQ = useToolCategories();
-  const listQ = useInfiniteToolList({ q: q || undefined, category: category || undefined });
+  const listQ = useInfiniteToolList({
+    q: q || undefined,
+    category: category || undefined,
+    price_type: filters.price || undefined,
+    access_type: filters.access || undefined,
+    open_source: (filters.os as '' | 'open' | 'closed') || undefined,
+    sort_by: sort?.sort_by,
+    sort_order: sort?.sort_order,
+  });
   const tools = useMemo(
     () => (listQ.data?.pages ?? []).flatMap((p) => p.items),
     [listQ.data]
   );
   const total = listQ.data?.pages[0]?.total;
 
-  const patchParams = (patch: Record<string, string>) => {
+  // 列表虚拟化 —— 工具数可达数百,只挂载视口附近行
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const toolVirtualizer = useVirtualizer({
+    count: tools.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 92,
+    overscan: 6,
+    getItemKey: (index) => tools[index]?.id ?? index,
+  });
+
+  const ptr = usePullToRefresh({
+    onRefresh: () => listQ.refetch(),
+    enabled: !listQ.isLoading,
+  });
+
+  const patchParams = (patch: Record<string, string | undefined>) => {
     const next = new URLSearchParams(searchParams);
     for (const [k, v] of Object.entries(patch)) {
       if (v) next.set(k, v);
@@ -55,34 +102,59 @@ export function MobileToolsPage() {
   return (
     <div className="flex h-full flex-col">
       <header className="shrink-0 space-y-3 border-b border-border bg-background px-4 pt-3 pb-3">
-        <h1 className="text-lg font-semibold text-foreground">功能广场</h1>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            patchParams({ q: draft.trim() });
-          }}
-          className="flex h-10 items-center gap-2 rounded-pill border border-border bg-surface-1 px-3.5"
-        >
-          <Search className="size-4 shrink-0 text-faint" />
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="搜索科研工具"
-            className="min-w-0 flex-1 bg-transparent text-md text-foreground outline-none placeholder:text-faint"
-          />
-          {draft && (
-            <button
-              type="button"
-              aria-label="清空"
-              onClick={() => {
-                setDraft('');
-                patchParams({ q: '' });
-              }}
-            >
-              <X className="size-4 text-faint" />
-            </button>
-          )}
-        </form>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            aria-label="返回功能首页"
+            onClick={() => navigate('/m/tools')}
+            className="-ml-1.5 flex size-8 items-center justify-center rounded-pill text-foreground active:bg-surface-2"
+          >
+            <ChevronLeft className="size-5" />
+          </button>
+          <h1 className="text-lg font-semibold text-foreground">功能广场</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              patchParams({ q: draft.trim() });
+            }}
+            className="flex h-10 flex-1 items-center gap-2 rounded-pill border border-border bg-surface-1 px-3.5"
+          >
+            <Search className="size-4 shrink-0 text-faint" />
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="搜索网站、工具、数据库…"
+              className="min-w-0 flex-1 bg-transparent text-md text-foreground outline-none placeholder:text-faint"
+            />
+            {draft && (
+              <button
+                type="button"
+                aria-label="清空"
+                onClick={() => {
+                  setDraft('');
+                  patchParams({ q: '' });
+                }}
+              >
+                <X className="size-4 text-faint" />
+              </button>
+            )}
+          </form>
+          <button
+            type="button"
+            aria-label="筛选"
+            onClick={() => setFilterOpen(true)}
+            className="relative flex size-10 shrink-0 items-center justify-center rounded-pill border border-border bg-surface-1 text-foreground active:bg-surface-2"
+          >
+            <SlidersHorizontal className="size-4" />
+            {activeFilterCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex min-w-4 items-center justify-center rounded-pill bg-brand-red px-1 text-2xs font-semibold text-white">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+        </div>
 
         {/* 分类 chips 横滑(PC 是侧栏,移动端收成一行) */}
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]">
@@ -102,7 +174,12 @@ export function MobileToolsPage() {
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto bg-surface-1">
+      <div
+        ref={scrollRef}
+        className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain bg-surface-1"
+        {...ptr.handlers}
+      >
+        <PullToRefreshIndicator pull={ptr.pull} refreshing={ptr.refreshing} />
         {listQ.isLoading && (
           <div className="flex h-40 items-center justify-center">
             <CyclingHint
@@ -136,10 +213,31 @@ export function MobileToolsPage() {
             {total != null && (
               <p className="px-4 pt-3 text-xs text-faint">共 {total} 个工具</p>
             )}
-            <ul className="space-y-2 p-3">
-              {tools.map((tool) => (
-                <MobileToolRow key={tool.id} tool={tool} />
-              ))}
+            <ul
+              style={{ height: toolVirtualizer.getTotalSize(), position: 'relative', width: '100%' }}
+              className="pt-2"
+            >
+              {toolVirtualizer.getVirtualItems().map((vi) => {
+                const tool = tools[vi.index];
+                if (!tool) return null;
+                return (
+                  <li
+                    key={vi.key}
+                    data-index={vi.index}
+                    ref={toolVirtualizer.measureElement}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      transform: `translateY(${vi.start}px)`,
+                    }}
+                    className="px-3 pb-2"
+                  >
+                    <MobileToolRow tool={tool} />
+                  </li>
+                );
+              })}
             </ul>
           </>
         )}
@@ -150,6 +248,14 @@ export function MobileToolsPage() {
           )}
         </div>
       </div>
+
+      <MobileToolsFilterSheet
+        open={filterOpen}
+        onOpenChange={setFilterOpen}
+        value={filters}
+        onChange={(patch) => patchParams(patch)}
+        onReset={() => patchParams({ price: '', access: '', os: '', sort: '' })}
+      />
     </div>
   );
 }
@@ -180,32 +286,42 @@ function CategoryChip({
 }
 
 function MobileToolRow({ tool }: { tool: FeatureTool }) {
+  const openShare = useShareSheet((s) => s.openShare);
   return (
-    <li>
-      <Link
-        to={`/m/tools/${tool.slug || tool.id}`}
-        className="flex items-center gap-3 rounded-lg border border-border bg-background p-3 active:bg-surface-2"
-      >
-        <ToolLogo tool={tool} className="h-11 w-11" textClass="text-lg" />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="truncate text-md font-medium text-foreground">
-              {tool.name}
+    <Link
+      to={`/m/tools/${tool.slug || tool.id}`}
+      className="flex items-center gap-3 rounded-lg border border-border bg-background p-3 transition-transform active:scale-[0.98] active:bg-surface-2"
+    >
+      <ToolLogo tool={tool} className="h-11 w-11" textClass="text-lg" />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="truncate text-md font-medium text-foreground">
+            {tool.name}
+          </span>
+          {tool.price_type && (
+            <span className="shrink-0 rounded-sm bg-surface-2 px-1.5 py-0.5 text-2xs text-muted-foreground">
+              {PRICE_TYPE_LABEL[tool.price_type] ?? tool.price_type}
             </span>
-            {tool.price_type && (
-              <span className="shrink-0 rounded-sm bg-surface-2 px-1.5 py-0.5 text-2xs text-muted-foreground">
-                {PRICE_TYPE_LABEL[tool.price_type] ?? tool.price_type}
-              </span>
-            )}
-          </div>
-          {tool.tagline && (
-            <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-              {tool.tagline}
-            </p>
           )}
         </div>
-        <ChevronRight className="size-4 shrink-0 text-faint" />
-      </Link>
-    </li>
+        {tool.tagline && (
+          <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+            {tool.tagline}
+          </p>
+        )}
+      </div>
+      <button
+        type="button"
+        aria-label="分享"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          openShare({ kind: 'tool', tool });
+        }}
+        className="flex size-9 shrink-0 items-center justify-center rounded-pill text-faint active:bg-surface-2"
+      >
+        <Share2 className="size-4" />
+      </button>
+    </Link>
   );
 }

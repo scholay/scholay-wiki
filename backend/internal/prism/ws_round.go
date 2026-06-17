@@ -23,10 +23,11 @@ func (s *Service) WSFeature() *agentbridge.FeatureBridge { return s.feature }
 
 // IssueWSTicket 校验项目归属 → 解析/建该项目的 agent 会话 → 颁发一次性 ws ticket。
 //
-// 归属归一(migration 0014)后,prism 会话已双写进 agent_sessions,优先走**标准**
-// IssueWSTicket(经 OwnsSession 校验,与 smart_search/claw/peerreview 一致)。仅当归属表
-// 偶发缺行(双写漏写/回填前的老会话)时,GetProject 已确认项目属本人,降级到 Trusted 颁发
-// 并打 warn ——「降级即告警」: 阶段2 对账 SQL 据此盘点,清零后可彻底删掉 Trusted 后门。
+// 归属归一(migration 0014)后,prism 会话已双写进 agent_sessions,走**标准**
+// IssueWSTicket(经 OwnsSession 校验,与 smart_search/claw/peerreview 一致)。若归属表偶发
+// 缺行(双写漏写 / reconcile 尚未扫到的新会话),不再绕过校验:GetProject 已确认项目属本人,
+// 据此**自愈补写** owner 映射(BindOwnerSession),再重试一次标准 IssueWSTicket。
+// Trusted 后门(IssueWSTicketTrusted)已退役 —— 缺行从「绕过鉴权」变成「补全鉴权数据」(C12)。
 func (s *Service) IssueWSTicket(ctx context.Context, userID, projectID uint) (string, string, error) {
 	proj, err := s.repo.GetProject(projectID, userID)
 	if err != nil {
@@ -39,16 +40,24 @@ func (s *Service) IssueWSTicket(ctx context.Context, userID, projectID uint) (st
 	if err != nil {
 		return "", "", err
 	}
-	// 优先标准路径(OwnsSession 查统一归属表)。
+	// 标准路径(OwnsSession 查统一归属表)。
 	token, err := s.feature.IssueWSTicket(ctx, userID, sessionID)
 	if err == nil {
 		return sessionID, token, nil
 	}
-	// 归属表缺行 → 降级 Trusted(项目归属已由上面 GetProject 校验,安全),并告警留痕给对账。
+	// 归属表缺行(双写漏写 / reconcile 未扫到的新会话)→ 不绕过校验,而是用已校验的归属
+	// (上面 GetProject 已确认项目属本人)自愈补写 owner 映射,再重试一次标准颁发。
 	if errors.Is(err, agentbridge.ErrSessionMismatch) {
-		slog.Warn("prism: agent_sessions owner row missing, fallback to trusted ws-ticket",
+		slog.Warn("prism: agent_sessions owner row missing, self-healing owner binding",
 			"project_id", projectID, "user_id", userID, "session_id", sessionID)
-		token, terr := s.feature.IssueWSTicketTrusted(ctx, userID, sessionID)
+		if bindErr := s.feature.BindOwnerSession(userID, "project", uint64(projectID), sessionID); bindErr != nil {
+			// 自愈写失败 → fail-closed:不颁发 ticket,WS 升级会 401。这关系到鉴权数据完整性,
+			// 不能在补写失败时还颁发(否则等于退回后门)。前端可重试,reconcile 兜底亦会补上。
+			slog.Error("prism: self-heal owner binding failed, refusing ws-ticket",
+				"project_id", projectID, "user_id", userID, "session_id", sessionID, "err", bindErr)
+			return "", "", bindErr
+		}
+		token, terr := s.feature.IssueWSTicket(ctx, userID, sessionID)
 		if terr != nil {
 			return "", "", terr
 		}

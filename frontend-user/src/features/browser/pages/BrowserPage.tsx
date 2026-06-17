@@ -1,7 +1,11 @@
 import { lazy, Suspense } from 'react';
-import { useMatch } from 'react-router-dom';
+import { useLocation, useMatch, useNavigate } from 'react-router-dom';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
+import { useHorizontalSwipe } from '@/shared/hooks';
+import { isPhoneDevice } from '@/shared/lib/device';
 import { BrowserTabsBar } from '../components/BrowserTabsBar';
+import { MobileDetailHeader } from '../components/mobile/MobileDetailHeader';
 import { PaperDetailPane } from '../components/PaperDetailPane';
 import { JournalDetailPane } from '../components/JournalDetailPane';
 import { AuthorDetailPane } from '../components/AuthorDetailPane';
@@ -38,10 +42,45 @@ export function BrowserPage() {
   const authorMatch = useMatch('/author/:source/:authorId');
   const pdfMatch = useMatch('/pdf/:libPaperId');
 
+  // 移动端「从左边缘右滑返回」—— 只认左 24px 内起手,避开正文横向滚动区;桌面无 touch → no-op。
+  const navigate = useNavigate();
+  const swipeBack = useHorizontalSwipe({
+    edgeStart: 24,
+    onSwipeRight: () => navigate(-1),
+  });
+
+  // 移动端「列表→详情」进场:淡入 + 轻微上浮/放大,营造从列表展开的连续感(桌面/减少动态不启用)。
+  // 按 pathname 取 key:每次进新详情都重放进场。
+  const { pathname } = useLocation();
+  const reduceMotion = useReducedMotion();
+  const animateEnter = isPhoneDevice() && !reduceMotion;
+
+  // 移动端顶栏的分类标签(实体大标题在正文里,顶栏只交代「这是什么」)。
+  const mobileLabel = paperMatch
+    ? '论文详情'
+    : journalMatch
+      ? '期刊详情'
+      : authorMatch
+        ? '学者详情'
+        : pdfMatch
+          ? 'PDF 预览'
+          : '详情';
+
   return (
     <div className="flex flex-col h-full min-h-0 bg-background">
-      <BrowserTabsBar />
-      <div className="flex-1 min-w-0 min-h-0 overflow-auto">
+      {/* 桌面:多页签条;移动:返回 + 标签 + 分享(纯 CSS 断点切换,同一 DOM/URL → 不影响 SEO/SSR)。 */}
+      <div className="hidden sm:block">
+        <BrowserTabsBar />
+      </div>
+      <MobileDetailHeader label={mobileLabel} className="sm:hidden" />
+      <motion.div
+        key={pathname}
+        className="flex-1 min-w-0 min-h-0 overflow-auto"
+        {...swipeBack}
+        initial={animateEnter ? { opacity: 0, y: 12 } : false}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+      >
         {paperMatch ? (
           <PaperDetailPane />
         ) : journalMatch ? (
@@ -59,7 +98,7 @@ export function BrowserPage() {
             <PdfBrowserPane />
           </Suspense>
         ) : null}
-      </div>
+      </motion.div>
     </div>
   );
 }

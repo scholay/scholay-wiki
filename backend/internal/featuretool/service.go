@@ -355,6 +355,11 @@ func slugify(s string) string {
 }
 
 // ensureUniqueSlug 选定一个全局唯一 slug。优先 provided → name_en → name → 源topic回退。
+// reservedToolSlugs: 移动端 /m/tools/* 的保留路由段(all=功能广场列表, pc=「建议电脑端使用」引导),
+// 不能作为工具 slug —— 否则 /m/tools/all 之类会被静态路由遮蔽,该工具详情页永远打不开。
+// 命中则在 ensureUniqueSlug 里视作「已占用」自动退避到 base-2(如 "all" → "all-2")。
+var reservedToolSlugs = map[string]bool{"all": true, "pc": true}
+
 func (s *Service) ensureUniqueSlug(provided, name, nameEn string, topicID *int64, exceptID uint64) (string, error) {
 	base := slugify(provided)
 	if base == "" {
@@ -375,7 +380,7 @@ func (s *Service) ensureUniqueSlug(provided, name, nameEn string, topicID *int64
 		if err != nil {
 			return "", err
 		}
-		if !exists {
+		if !exists && !reservedToolSlugs[candidate] {
 			return candidate, nil
 		}
 		candidate = fmt.Sprintf("%s-%d", base, i)

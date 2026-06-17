@@ -9,9 +9,11 @@ package agentbridge
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,6 +21,7 @@ import (
 	"scholar-backend/internal/common/ctxutil"
 	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/llmusage"
+	"scholar-backend/internal/usermemory"
 )
 
 // ghostCleanupDelay 是 reset 流程中 "二次 DELETE" 的等待时间。
@@ -47,10 +50,116 @@ type Bridge struct {
 	activeWSConns sync.Map
 
 	// llmRec 统一 LLM token 账本录入器 (允许 nil = 不记账)。
-	// server-side chat (peerreview) 在 ServerSideChatStreaming 内部用它落一行账本,
-	// 调用方 (5 个 peerreview 调用点) 无法漏记。WS 路 (smart_search/claw) 不走这里 ——
-	// 它们各自在 spec.OnMessageComplete 落库 (见 hooks.NewDBUsageRecorder)。
+	// **带内**落账本路径(ws.go pipe):agent 把 per-call 明细 + 会话累计随 message_complete /
+	// token_usage 帧经已鉴权 WS 带回, pipe 用 accrueTurnUsage 按水位算增量 → recordAgentTokens。
+	// 归属(user/feature)来自已鉴权会话本身, 不反查; 不再走独立 HTTP 旁路(那条因子进程里
+	// ANTHROPIC_API_KEY 被 provider 覆盖而鉴权失败、且 fire-and-forget 易丢, 已删除)。
+	// server-side peerreview 的 token 同样靠 agent per-call → 此 WS 路(经其会话)记账。
 	llmRec llmusage.Recorder
+
+	// memSvc per-user 长期记忆服务 (允许 nil = 不启用记忆)。所有 feature 共享同一份用户记忆:
+	// 读(注入)经 MemoryBlocks;写(后台抽取)经 triggerMemoryExtract(WS message_complete 触发)。
+	memSvc *usermemory.Service
+
+	// tokenWatermarks: 每个 agent session 已记账的「会话累计 token 水位」(4 元组
+	// [input, output, cacheRead, cacheCreation])。带内 token 账本据此**只记累计相对水位的增量** ——
+	// 既自愈丢帧(丢的那轮由下一轮累计差额补回), 又防重连重发旧帧时双计。
+	// process-local:重连复用同一 sessionID 的水位(不双计);进程重启丢失 → 跨重启的在途会话
+	// 首帧会按全量累计重记一次(罕见、有界,对 best-effort 账本可接受)。key=agentSessionID(string),
+	// value=[4]int64。session reset 会换新 agentSessionID(旧条目自然作废、新条目从 0 起算)。
+	tokenWatermarks sync.Map
+
+	// watermarkMu 串行化 accrueTurnUsage 的「读-改-写」水位(sync.Map 单次 Load/Store 原子,
+	// 但 RMW 不原子)。WS pipe 路每会话单 goroutine 本就串行;server-side(peerreview)并行
+	// reviewer 可能共享同一会话并发记账 → 全局粗锁兜底。accrueTurnUsage 纯内存、微秒级、低频,
+	// 全局锁争用可忽略。
+	watermarkMu sync.Mutex
+}
+
+// loadTokenWatermark 取某 agent session 的已记账累计水位(缺省全 0)。
+func (b *Bridge) loadTokenWatermark(sessionID string) [4]int64 {
+	if v, ok := b.tokenWatermarks.Load(sessionID); ok {
+		if wm, ok2 := v.([4]int64); ok2 {
+			return wm
+		}
+	}
+	return [4]int64{}
+}
+
+// storeTokenWatermark 推进某 agent session 的累计水位。
+func (b *Bridge) storeTokenWatermark(sessionID string, wm [4]int64) {
+	b.tokenWatermarks.Store(sessionID, wm)
+}
+
+// deleteTokenWatermark 会话删除时清理水位条目(防 process-local map 无界增长)。
+func (b *Bridge) deleteTokenWatermark(sessionID string) {
+	b.tokenWatermarks.Delete(sessionID)
+}
+
+// accrueTurnUsage 按「会话累计水位」算出本轮要落账本的行(per-call 明细 + 必要时一行对账补差),
+// 并就地推进水位。纯内存、与 pipe 读循环同一 goroutine 串行执行(保证水位读改写原子、幂等);
+// 真正落库(含 Redis 日配额累加)由调用方异步做,不阻塞帧转发。
+//
+//   - sessionTotal==nil(老 agent 不带累计字段)→ 返回 nil:无水位锚点,裸记会双计,宁可不记。
+//   - 任一累计分量回退 = CLI 子进程重启(全局计数器清零)→ 水位归零重算。
+//   - 累计无进展(重连重发旧帧 / 空轮)→ 返回 nil:幂等跳过,不双计。
+//   - per-call 明细之和 < 累计增量(此前丢过帧)→ 追加一行差额(model="(reconciled)"),
+//     保证账本总额 == 会话累计、日配额不少算(自愈)。
+func (b *Bridge) accrueTurnUsage(sessionID string, turnUsage AgentUsage, calls []AgentUsage, sessionTotal *AgentUsage) []AgentUsage {
+	if sessionTotal == nil {
+		return nil
+	}
+	b.watermarkMu.Lock()
+	defer b.watermarkMu.Unlock()
+	cur := [4]int64{
+		int64(sessionTotal.InputTokens), int64(sessionTotal.OutputTokens),
+		int64(sessionTotal.CacheReadTokens), int64(sessionTotal.CacheCreationTokens),
+	}
+	wm := b.loadTokenWatermark(sessionID)
+	if cur[0] < wm[0] || cur[1] < wm[1] || cur[2] < wm[2] || cur[3] < wm[3] {
+		wm = [4]int64{} // CLI 重启 → 累计清零, 从 0 起算
+	}
+	delta := [4]int64{cur[0] - wm[0], cur[1] - wm[1], cur[2] - wm[2], cur[3] - wm[3]}
+	if delta[0] <= 0 && delta[1] <= 0 && delta[2] <= 0 && delta[3] <= 0 {
+		return nil // 无进展 → 幂等跳过
+	}
+	b.storeTokenWatermark(sessionID, cur)
+
+	var rows []AgentUsage
+	var sum [4]int64
+	for _, c := range calls {
+		ci := [4]int64{int64(c.InputTokens), int64(c.OutputTokens), int64(c.CacheReadTokens), int64(c.CacheCreationTokens)}
+		if ci[0] <= 0 && ci[1] <= 0 && ci[2] <= 0 && ci[3] <= 0 {
+			continue
+		}
+		rows = append(rows, c)
+		sum[0] += ci[0]
+		sum[1] += ci[1]
+		sum[2] += ci[2]
+		sum[3] += ci[3]
+	}
+	rd := [4]int64{nonNegInt64(delta[0] - sum[0]), nonNegInt64(delta[1] - sum[1]), nonNegInt64(delta[2] - sum[2]), nonNegInt64(delta[3] - sum[3])}
+	if rd[0] > 0 || rd[1] > 0 || rd[2] > 0 || rd[3] > 0 {
+		model := "(reconciled)"
+		if len(rows) == 0 && turnUsage.Model != "" {
+			model = turnUsage.Model // 无 per-call 明细(老 agent / 空 calls)→ 用本轮模型标注差额行
+		}
+		rows = append(rows, AgentUsage{
+			Model:               model,
+			InputTokens:         int(rd[0]),
+			OutputTokens:        int(rd[1]),
+			CacheReadTokens:     int(rd[2]),
+			CacheCreationTokens: int(rd[3]),
+		})
+	}
+	return rows
+}
+
+func nonNegInt64(x int64) int64 {
+	if x < 0 {
+		return 0
+	}
+	return x
 }
 
 // New 装配 Bridge。client 由 agent.LoadFromEnv() 构造, repo 由 NewRepository(db) 构造。
@@ -62,6 +171,168 @@ func New(client *agent.Client, repo *Repository) *Bridge {
 // bootstrap 调用一次; nil = 不记账。
 func (b *Bridge) SetLLMUsageRecorder(r llmusage.Recorder) {
 	b.llmRec = r
+}
+
+// SetMemoryService 注入 per-user 长期记忆服务 (bootstrap 调用一次; nil = 不启用记忆)。
+func (b *Bridge) SetMemoryService(s *usermemory.Service) {
+	b.memSvc = s
+}
+
+// MemoryBlocks 返回某用户的记忆块渲染文本 (bullet 列表, 无记忆/未启用返回 "")。
+// 供注入路径用:WS 首条消息前缀 (ws.go) 与 peerreview prompt (service.go) 各自包 frame。
+func (b *Bridge) MemoryBlocks(userID uint) string {
+	if b.memSvc == nil {
+		return ""
+	}
+	return b.memSvc.RenderBlocks(userID)
+}
+
+// triggerMemoryExtract 在一轮对话结束后异步从最近对话抽取用户持久信息更新记忆。
+// 绝不内联热路径 (safego 异步);限流闸 ShouldExtract 控成本。仅 WS 对话 feature 调用
+// (peerreview 是审稿不学用户画像, 只读注入不写)。
+func (b *Bridge) triggerMemoryExtract(userID uint, sessionID string) {
+	if b.memSvc == nil || userID == 0 || sessionID == "" {
+		return
+	}
+	safego.Go("usermemory-extract", func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		if !b.memSvc.ShouldExtract(ctx, userID) {
+			return // 冷却中, 跳过
+		}
+		resp, err := b.client.GetSessionMessages(ctx, sessionID, 3) // 最近 3 个用户轮足够抽画像
+		if err != nil || resp == nil {
+			return
+		}
+		transcript := flattenTranscript(resp.Messages)
+		b.memSvc.Extract(ctx, userID, transcript)
+	})
+}
+
+// flattenTranscript 把 agent 会话消息压成纯文本 (user/assistant 文本), 供抽取用。
+// 跳过 sidechain (子 agent) 与工具块;剥掉 backend 注入的 STRICT RULES/记忆前缀。
+func flattenTranscript(msgs []agent.SessionMessage) string {
+	var sb strings.Builder
+	for _, m := range msgs {
+		if m.IsSidechain {
+			continue
+		}
+		if m.Type != "user" && m.Type != "assistant" {
+			continue
+		}
+		text := extractMessageText(m.Content)
+		if m.Type == "user" {
+			text = stripInjectionPrefix(text)
+		}
+		text = strings.TrimSpace(text)
+		if text == "" {
+			continue
+		}
+		sb.WriteString(m.Type)
+		sb.WriteString(": ")
+		sb.WriteString(text)
+		sb.WriteString("\n")
+	}
+	return sb.String()
+}
+
+// extractMessageText 从 agent content (string 或 Anthropic content[] blocks) 抠出文本。
+func extractMessageText(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		return s
+	}
+	var blocks []struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	}
+	if err := json.Unmarshal(raw, &blocks); err == nil {
+		var sb strings.Builder
+		for _, bl := range blocks {
+			if bl.Type == "text" && bl.Text != "" {
+				sb.WriteString(bl.Text)
+				sb.WriteString(" ")
+			}
+		}
+		return sb.String()
+	}
+	return ""
+}
+
+// injectionHeader / injectionMarker —— 与 ws.go buildInjectionPrefix 对齐。
+const injectionHeader = "[AGENT BRIDGE — STRICT RULES"
+const injectionMarker = "以下是用户的请求:\n"
+
+// stripInjectionPrefix 去掉 backend 注入的「[AGENT BRIDGE — STRICT RULES…] … 以下是用户的请求:\n」
+// 前缀, 还原用户真实输入。**只在文本确实以注入头开头时才剥**, 避免误伤用户自己输入里
+// 恰好含 marker 的内容。用于:(1) 记忆抽取只看真实输入;(2) 历史消息回前端时隐藏系统规则。
+func stripInjectionPrefix(s string) string {
+	if !strings.HasPrefix(s, injectionHeader) {
+		return s
+	}
+	if idx := strings.LastIndex(s, injectionMarker); idx >= 0 {
+		return s[idx+len(injectionMarker):]
+	}
+	return s
+}
+
+// stripInjectionFromMessages 把发给前端的历史里、被后端注入到首条 user_message 的系统规则/
+// 记忆前缀去掉(系统级提示词不该展示给用户)。只动 user 文本块,assistant/工具块不碰。
+// 兼容存量数据:历史会话的首条 user 早已把前缀落进 jsonl,这里在出口统一隐藏。
+func stripInjectionFromMessages(msgs []agent.SessionMessage) {
+	for i := range msgs {
+		if msgs[i].Type != "user" {
+			continue
+		}
+		if stripped, changed := stripInjectionInContent(msgs[i].Content); changed {
+			msgs[i].Content = stripped
+		}
+	}
+}
+
+// stripInjectionInContent 处理 agent content(string 或 Anthropic content[] blocks),
+// 把其中 text 的注入前缀剥掉。返回 (新内容, 是否变更)。
+func stripInjectionInContent(raw json.RawMessage) (json.RawMessage, bool) {
+	if len(raw) == 0 {
+		return raw, false
+	}
+	// string 形态
+	var s string
+	if json.Unmarshal(raw, &s) == nil {
+		ns := stripInjectionPrefix(s)
+		if ns == s {
+			return raw, false
+		}
+		if b, err := json.Marshal(ns); err == nil {
+			return b, true
+		}
+		return raw, false
+	}
+	// content[] blocks 形态
+	var blocks []map[string]any
+	if json.Unmarshal(raw, &blocks) == nil {
+		changed := false
+		for _, bl := range blocks {
+			if bl["type"] != "text" {
+				continue
+			}
+			if t, ok := bl["text"].(string); ok {
+				if nt := stripInjectionPrefix(t); nt != t {
+					bl["text"] = nt
+					changed = true
+				}
+			}
+		}
+		if changed {
+			if b, err := json.Marshal(blocks); err == nil {
+				return b, true
+			}
+		}
+	}
+	return raw, false
 }
 
 // displacementKey 拼 activeWSConns 的 key, 按 (feature, **agent session**) 寻址。
@@ -89,6 +360,14 @@ func (b *Bridge) registerAndDisplaceOldWS(featureKey, sessionID string, newConn 
 			safego.Go("agentbridge-ws-displace:"+featureKey, old.displace)
 		}
 	}
+	// 跨实例接管 (C2): 本地 Swap 之后广播给其它副本 —— 若别的实例也持有同一 session 的活跃 WS,
+	// 它的订阅 goroutine 会把那条旧 WS displace 掉, 避免两实例同时驱动一个 agent session (jsonl 双写)。
+	// best-effort: Redis 挂只是退化到纯本地 displacement; 异步发, 不阻塞建连。
+	safego.Go("agentbridge-ws-displace-publish:"+featureKey, func() {
+		pubCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		b.publishDisplace(pubCtx, key)
+	})
 	return func() {
 		b.activeWSConns.CompareAndDelete(key, newConn)
 	}
@@ -117,6 +396,13 @@ func (f *FeatureBridge) Spec() FeatureSpec { return f.spec }
 // AgentClient 暴露底层 agent.Client, 适用于 feature 在 server 端自驱动
 // (POST chat → poll status → fetch messages) 的场景, 例如 peer review 的
 // 后台 4 轮串行编排。普通对话场景应该走 WebSocket 桥接, 不需要直接持有 client。
+//
+// 成果交付 (C13): 「agent 把成品写进会话 ./out/ → 后端收割落 MinIO → 交给 web 用户下载」
+// 这套能力**不是** bridge 的内建方法, 而是各 feature 组合 AgentClient()(读 workspace)+
+// internal/agentartifact(MinIO 元数据, 契约见 agentartifact.Delivery)实现的。目前唯一实现
+// 是 claw(internal/claw/artifact*.go);未来 feature 想要交付物时, 复用 agentartifact.Repository
+// + 抄 claw 的 harvest/serve 端点即可, 无需在 bridge 加新方法(避免把 claw-specific 的 ./out
+// 约定为单一消费者上升为一等公民, 见 agentartifact/delivery.go 的诚实评估)。
 func (f *FeatureBridge) AgentClient() *agent.Client { return f.bridge.client }
 
 // Bridge 暴露父 Bridge, 让 feature 可以调用 ServerSideChat 等 backend-driven 方法。
@@ -231,7 +517,8 @@ func (f *FeatureBridge) ResetSession(ctx context.Context, userID uint) (string, 
 
 	oldSessionID := row.AgentSessionID
 
-	created, err := f.bridge.client.CreateSession(ctx, f.spec.SessionOptions)
+	opts, delivered := f.buildCreateOptions(ctx, userID)
+	created, err := f.bridge.client.CreateSession(ctx, opts)
 	if err != nil {
 		return "", fmt.Errorf("create new agent session: %w", err)
 	}
@@ -248,7 +535,12 @@ func (f *FeatureBridge) ResetSession(ctx context.Context, userID uint) (string, 
 		return "", fmt.Errorf("update session mapping: %w", err)
 	}
 
+	if delivered {
+		f.markPromptInjectedSync(newSessionID) // 已系统级下发, 抑制 WS in-band 回落
+	}
+
 	if oldSessionID != "" {
+		f.bridge.deleteTokenWatermark(oldSessionID) // 旧会话的 token 水位作废(新会话从 0 起算)
 		slog.Info("agentbridge reset: deleting old session",
 			"feature", f.spec.Key, "user_id", userID, "old_session_id", oldSessionID)
 		delErr := f.bridge.client.DeleteSession(ctx, oldSessionID)
@@ -293,6 +585,7 @@ func (f *FeatureBridge) GetSessionMessages(ctx context.Context, userID uint, lim
 		return nil, fmt.Errorf("agent get messages: %w", err)
 	}
 	sliced, total, hasMore := sliceWithAgentMeta(msgs, limitTurns)
+	stripInjectionFromMessages(sliced) // 隐藏注入到首条 user 的系统规则/记忆前缀
 	return &SessionMessagesResult{SessionID: sessionID, Messages: sliced, TotalTurns: total, HasMore: hasMore}, nil
 }
 
@@ -324,6 +617,7 @@ func (f *FeatureBridge) GetSessionMessagesByID(ctx context.Context, userID uint,
 		return nil, fmt.Errorf("agent get messages: %w", err)
 	}
 	sliced, total, hasMore := sliceWithAgentMeta(msgs, limitTurns)
+	stripInjectionFromMessages(sliced) // 隐藏注入前缀
 	return &SessionMessagesResult{SessionID: sessionID, Messages: sliced, TotalTurns: total, HasMore: hasMore}, nil
 }
 
@@ -345,6 +639,7 @@ func (f *FeatureBridge) PaginateSessionMessages(ctx context.Context, sessionID s
 		return nil, fmt.Errorf("agent get messages: %w", err)
 	}
 	sliced, total, hasMore := sliceWithAgentMeta(msgs, limitTurns)
+	stripInjectionFromMessages(sliced) // 隐藏注入前缀
 	return &SessionMessagesResult{SessionID: sessionID, Messages: sliced, TotalTurns: total, HasMore: hasMore}, nil
 }
 
@@ -433,6 +728,77 @@ func (f *FeatureBridge) markPromptInjected(sessionID string) {
 				"feature", f.spec.Key, "session_id", sessionID, "err", err)
 		}
 	})
+}
+
+// buildSystemPromptPayload 拼「系统级」附加提示词 = 规则正文 + (可选) 该用户长期记忆。
+// 与 ws.go buildInjectionPrefix 的区别: **不带** [AGENT BRIDGE — STRICT RULES] 包裹 marker、
+// 也不带「以下是用户的请求:」尾巴 —— 因为它作为真正的 system prompt 下发 (agent appendSystemPrompt),
+// 本就在 system 角色里, 无需再向模型声明「这段是规则不是用户输入」(那套 marker 正是 in-band
+// 注入的产物, 也正是泄漏给用户看的东西)。记忆段仍保留中文 marker 以界定边界。
+// deliveryMode 把 buildCreateOptions 的 delivered 布尔翻成可读的日志值, 方便排查某会话走的是
+// 系统级 appendSystemPrompt 还是 in-band 兜底。
+func deliveryMode(delivered bool) string {
+	if delivered {
+		return "system_level_append" // 系统级 appendSystemPrompt
+	}
+	return "in_band_fallback" // 旧路径: WS 首条消息前缀
+}
+
+func buildSystemPromptPayload(systemPrompt, memoryContext string) string {
+	payload := systemPrompt
+	if strings.TrimSpace(memoryContext) != "" {
+		payload += "\n\n[关于这位用户 — 长期记忆, 跨会话持久。据此个性化你的回答; 若与用户当前明确诉求冲突, 以当前诉求为准]\n" +
+			memoryContext +
+			"[/长期记忆]"
+	}
+	return payload
+}
+
+// buildCreateOptions 构造创建 agent session 的选项:在 feature 静态 SessionOptions 基础上,
+// 填入该用户的**系统级**附加提示词 (规则 + 长期记忆),走 agent appendSystemPrompt —— 取代旧的
+// 「注入到首条 user_message 前缀」(in-band, 会泄漏给用户)。返回 (opts, deliveredSystemPrompt)。
+//
+// deliveredSystemPrompt=true 时, 调用方在会话落库后应同步 markPromptInjectedSync, 把
+// agent_sessions.prompt_injected 置 1 —— 这样 WS 桥首条消息的 in-band 注入会被抑制, 规则不会
+// 被重复注入 (系统级 appendSystemPrompt + in-band 两份)。
+//
+// 仅对 InjectPromptOnFirstMsg 且配了 Picker 的 feature 生效 (smart_search/claw/prism);
+// peerreview 等业务自管 prompt 的 feature 不受影响 (deliveredSystemPrompt=false, 原样行为)。
+// Pick 失败时**不阻塞建会话**: 退回 deliveredSystemPrompt=false, WS 首条消息仍走 in-band 兜底。
+func (f *FeatureBridge) buildCreateOptions(ctx context.Context, userID uint) (*agent.CreateSessionOptions, bool) {
+	base := f.spec.SessionOptions
+	if !f.spec.InjectPromptOnFirstMsg || f.spec.Picker == nil {
+		return base, false
+	}
+	choice, err := f.spec.Picker.Pick(ctx, PickInput{UserID: userID})
+	if err != nil || choice == nil || choice.SystemPrompt == "" {
+		slog.Warn("agentbridge: pick system prompt at create failed, falling back to in-band",
+			"feature", f.spec.Key, "user_id", userID, "err", err)
+		return base, false
+	}
+	payload := buildSystemPromptPayload(choice.SystemPrompt, f.bridge.MemoryBlocks(userID))
+	// 浅拷贝静态 spec.SessionOptions (它被所有用户复用), 避免把 per-user payload 写进共享对象。
+	opts := &agent.CreateSessionOptions{}
+	if base != nil {
+		clone := *base
+		opts = &clone
+	}
+	opts.AppendSystemPrompt = payload
+	return opts, true
+}
+
+// markPromptInjectedSync 同步把 prompt_injected 置 1 —— 用在「建会话时已系统级下发 systemPrompt」
+// 之后, 必须在用户可能发起 WS 之前生效, 故不能像 markPromptInjected 那样异步 (异步存在
+// create→WS 之间的竞态窗口, 会导致 in-band 兜底误触发、规则双注入)。写失败只退化为可能多一次
+// in-band 注入 (无害, 会被 strip 隐藏), 故仅告警不阻断。
+func (f *FeatureBridge) markPromptInjectedSync(sessionID string) {
+	if sessionID == "" {
+		return
+	}
+	if err := f.bridge.repo.MarkPromptInjected(sessionID); err != nil {
+		slog.Warn("agentbridge: sync mark prompt_injected failed (in-band may double-inject, harmless)",
+			"feature", f.spec.Key, "session_id", sessionID, "err", err)
+	}
 }
 
 // OwnsSession 校验 sessionId 是否归当前 (user, feature) 所有。
@@ -536,7 +902,8 @@ func (f *FeatureBridge) ListSessions(ctx context.Context, userID uint) ([]Sessio
 // 返回新建的 agent_session_id; DB mapping 一并写入, last_accessed_at = NOW 让新
 // session 自动成为"当前活跃"。
 func (f *FeatureBridge) CreateNewSession(ctx context.Context, userID uint) (string, error) {
-	created, err := f.bridge.client.CreateSession(ctx, f.spec.SessionOptions)
+	opts, delivered := f.buildCreateOptions(ctx, userID)
+	created, err := f.bridge.client.CreateSession(ctx, opts)
 	if err != nil {
 		return "", fmt.Errorf("create agent session: %w", err)
 	}
@@ -555,8 +922,12 @@ func (f *FeatureBridge) CreateNewSession(ctx context.Context, userID uint) (stri
 		}
 		return "", fmt.Errorf("persist session mapping: %w", err)
 	}
+	if delivered {
+		f.markPromptInjectedSync(created.SessionID) // 已系统级下发, 抑制 WS in-band 回落
+	}
 	slog.Info("agentbridge CreateNewSession: session created",
-		"feature", f.spec.Key, "user_id", userID, "session_id", created.SessionID)
+		"feature", f.spec.Key, "user_id", userID, "session_id", created.SessionID,
+		"system_prompt_delivery", deliveryMode(delivered))
 	return created.SessionID, nil
 }
 
@@ -598,6 +969,7 @@ func (f *FeatureBridge) DeleteSessionByID(ctx context.Context, userID uint, sess
 	if err := f.bridge.repo.DeleteByAgentSessionID(userID, f.spec.Key, sessionID); err != nil {
 		return fmt.Errorf("db delete: %w", err)
 	}
+	f.bridge.deleteTokenWatermark(sessionID) // 清 token 账本水位条目, 防 process-local map 泄漏
 	slog.Info("agentbridge DeleteSessionByID",
 		"feature", f.spec.Key, "user_id", userID, "session_id", sessionID)
 	return nil
@@ -621,7 +993,8 @@ func (f *FeatureBridge) ActivateSession(userID uint, sessionID string) error {
 }
 
 func (f *FeatureBridge) createAndPersist(ctx context.Context, userID uint) (string, error) {
-	created, err := f.bridge.client.CreateSession(ctx, f.spec.SessionOptions)
+	opts, delivered := f.buildCreateOptions(ctx, userID)
+	created, err := f.bridge.client.CreateSession(ctx, opts)
 	if err != nil {
 		return "", fmt.Errorf("create agent session: %w", err)
 	}
@@ -631,8 +1004,21 @@ func (f *FeatureBridge) createAndPersist(ctx context.Context, userID uint) (stri
 		AgentSessionID: created.SessionID,
 	}
 	if err := f.bridge.repo.Create(row); err != nil {
+		// 仅唯一键冲突 (1062, migration 0034 的 uk_user_feature_single) 才是并发竞态:
+		// 另一个请求已经写了同 (user, feature) 的用户级行, 把刚建的 agent session 回收,
+		// 复用对方写的 id, 让 get-or-create 真正幂等。其余错误 (DB 故障等) 不该误删 +
+		// 回读, 直接回滚刚建的 agent session 并返回原错误。
+		if !IsDuplicateKey(err) {
+			slog.Error("agentbridge create: DB insert failed (non-duplicate), rolling back agent session",
+				"feature", f.spec.Key, "user_id", userID, "session_id", created.SessionID, "err", err)
+			if delErr := f.bridge.client.DeleteSession(ctx, created.SessionID); delErr != nil {
+				slog.Warn("agentbridge create: rollback agent session failed",
+					"session_id", created.SessionID, "err", delErr)
+			}
+			return "", fmt.Errorf("persist session mapping: %w", err)
+		}
 		// 并发竞态: 另一个请求已经写了一行, 把刚建的 agent session 回收, 复用对方写的 id。
-		slog.Warn("agentbridge create: mapping race, retrying with read",
+		slog.Warn("agentbridge create: mapping race (duplicate key), retrying with read",
 			"feature", f.spec.Key, "user_id", userID, "err", err)
 		if delErr := f.bridge.client.DeleteSession(ctx, created.SessionID); delErr != nil {
 			slog.Warn("agentbridge create: cleanup orphaned session failed",
@@ -644,14 +1030,19 @@ func (f *FeatureBridge) createAndPersist(ctx context.Context, userID uint) (stri
 		}
 		return existing.AgentSessionID, nil
 	}
+	if delivered {
+		f.markPromptInjectedSync(created.SessionID) // 已系统级下发, 抑制 WS in-band 回落
+	}
 	slog.Info("agentbridge create: session created",
-		"feature", f.spec.Key, "user_id", userID, "session_id", created.SessionID)
+		"feature", f.spec.Key, "user_id", userID, "session_id", created.SessionID,
+		"system_prompt_delivery", deliveryMode(delivered))
 	return created.SessionID, nil
 }
 
 // recreate 自愈路径: agent 端 404 时把 oldSessionID 那一行换成新建的会话 (行级,不动其它会话)。
 func (f *FeatureBridge) recreate(ctx context.Context, userID uint, oldSessionID string) (string, error) {
-	created, err := f.bridge.client.CreateSession(ctx, f.spec.SessionOptions)
+	opts, delivered := f.buildCreateOptions(ctx, userID)
+	created, err := f.bridge.client.CreateSession(ctx, opts)
 	if err != nil {
 		return "", fmt.Errorf("recreate agent session: %w", err)
 	}
@@ -663,8 +1054,12 @@ func (f *FeatureBridge) recreate(ctx context.Context, userID uint, oldSessionID 
 		}
 		return "", fmt.Errorf("recreate update mapping: %w", err)
 	}
+	if delivered {
+		f.markPromptInjectedSync(created.SessionID) // 已系统级下发, 抑制 WS in-band 回落
+	}
 	slog.Info("agentbridge recreate: session rebuilt after agent 404",
-		"feature", f.spec.Key, "user_id", userID, "new_session_id", created.SessionID)
+		"feature", f.spec.Key, "user_id", userID, "new_session_id", created.SessionID,
+		"system_prompt_delivery", deliveryMode(delivered))
 	return created.SessionID, nil
 }
 

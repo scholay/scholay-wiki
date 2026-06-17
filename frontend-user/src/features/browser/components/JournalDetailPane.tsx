@@ -1,23 +1,19 @@
 import { useEffect, useMemo } from 'react';
 import { useMatch } from 'react-router-dom';
-import {
-  AlertCircle,
-  ExternalLink,
-  Loader2,
-  Share2,
-  Sparkles,
-  Star,
-} from 'lucide-react';
+import { AlertCircle, ExternalLink, Loader2, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { copyToClipboard } from '@/shared/lib/clipboard';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { JournalCover } from '@/shared/components/JournalCover';
+import { JournalTrendChart } from '@/shared/components/JournalTrendChart';
+import { JournalSubmissionCard } from '@/shared/components/JournalSubmissionCard';
+import { JournalMetricsGroups } from '@/shared/components/JournalMetricsGroups';
 import { cn } from '@/shared/lib/utils';
 import {
   journalTabKey,
   useBrowserTabs,
 } from '@/stores/browser-tabs.store';
-import { useJournalDetail } from '@/shared/api/journals';
+import { useJournalDetail, useJournalFullDetail } from '@/shared/api/journals';
 
 /**
  * 期刊详情面板 —— 文献集右侧 pane 的内容(kind='journal' tab 命中时渲染),
@@ -58,6 +54,25 @@ export function JournalDetailPane() {
 
   const journal = tab?.journal ?? fallback.data;
 
+  // full=1 完整详情 —— 全字段分组 / 年度趋势 / 投稿资源共用(与 useJournalDetail 同缓存键,
+  // 不额外多打一次上游)。无论 tab 来自何处都按 id 拉,因为 store/规范化后的 journal 不含这些。
+  const validId = Number.isFinite(id) && id > 0;
+  const fullQ = useJournalFullDetail(validId ? id : 0, validId);
+  const unified = fullQ.data?.unified;
+  // 投稿资源真实结构在 sources.submission(main.has_* + latex.class);规整成卡片要的精简态。
+  const subSrc = fullQ.data?.sources?.submission;
+  const submissionInfo = subSrc
+    ? {
+        has_guideline: !!subSrc.main?.has_guideline,
+        has_latex: !!subSrc.main?.has_latex,
+        latex_class: subSrc.latex?.class ?? null,
+      }
+    : null;
+  const hasSubmission = !!(
+    submissionInfo &&
+    (submissionInfo.has_guideline || submissionInfo.has_latex)
+  );
+
   const issns = useMemo(
     () => (journal?.issns ?? []).filter(Boolean).join(' / '),
     [journal]
@@ -93,18 +108,18 @@ export function JournalDetailPane() {
 
   return (
     <div className="h-full overflow-auto">
-      <div className="max-w-6xl mx-auto px-10 py-7 space-y-6">
+      <div className="max-w-6xl mx-auto px-4 py-4 sm:px-10 sm:py-7 space-y-4 sm:space-y-6">
         {/* breadcrumb 已删除 —— 浏览器 tabs 条已经能交代"我从哪来 / 现在看什么",
             再叠一层"我的收藏 › 期刊 › <name>"反而冗余 */}
 
-        {/* ───── Hero —— .pen `L3sjEN`(rounded-10 bg-FAFAFA border) ───── */}
-        <section className="rounded-lg bg-surface-1 border border-border-soft p-6 flex items-stretch gap-6">
-          {/* Cover —— .pen `oWWC5` 140x180 */}
+        {/* ───── Hero —— .pen `L3sjEN`(rounded-10 bg-FAFAFA border);移动端封面在上、信息在下 ───── */}
+        <section className="rounded-lg bg-surface-1 border border-border-soft p-4 sm:p-6 flex flex-col sm:flex-row sm:items-stretch gap-4 sm:gap-6">
+          {/* Cover —— .pen `oWWC5` 140x180,移动端略缩 */}
           <JournalCover
             id={journal.id}
             name={journal.canonical_name}
             size="lg"
-            className="w-[140px] h-[180px] shrink-0"
+            className="w-[110px] h-[145px] sm:w-[140px] sm:h-[180px] shrink-0"
           />
 
           <div className="flex-1 min-w-0 flex flex-col gap-3.5">
@@ -130,6 +145,11 @@ export function JournalDetailPane() {
                   Open Access
                 </span>
               )}
+              {journal.xr_quartile && (
+                <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-brand-green/10 text-brand-green text-2xs font-bold">
+                  新锐 {journal.xr_quartile} 区{journal.xr_top ? ' · Top' : ''}
+                </span>
+              )}
               {journal.gjqk_warning && (
                 <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-warning-soft text-brand-amber text-2xs font-bold">
                   ⚠ 中科院预警
@@ -137,8 +157,8 @@ export function JournalDetailPane() {
               )}
             </div>
 
-            {/* Title —— .pen `n9lzJB` 32/700 Playfair(arbitrary,token 表最大 24) */}
-            <h1 className="font-display font-bold leading-tight text-[32px] text-foreground">
+            {/* Title —— .pen `n9lzJB` 32/700 Playfair(arbitrary,token 表最大 24);移动端收到 text-2xl */}
+            <h1 className="font-display font-bold leading-tight text-2xl sm:text-[32px] text-foreground">
               {journal.canonical_name}
             </h1>
 
@@ -198,6 +218,17 @@ export function JournalDetailPane() {
               </button>
             </div>
           </div>
+
+          {/* 投稿资源 —— Hero 右侧栏(有数据才出现;非 Max 会员锁定)。移动端落到信息下方。 */}
+          {hasSubmission && submissionInfo && (
+            <div className="shrink-0 border-t border-border-soft pt-4 sm:w-60 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-6">
+              <JournalSubmissionCard
+                journalId={journal.id}
+                journalName={journal.canonical_name}
+                submission={submissionInfo}
+              />
+            </div>
+          )}
         </section>
 
         {/* ───── 分区与影响因子 —— .pen `lVZBz` / `pBYQd` ───── */}
@@ -239,63 +270,26 @@ export function JournalDetailPane() {
           />
         </div>
 
-        {/* ───── twoCol —— .pen `ddnpH` ───── */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6">
-          {/* mainCol */}
-          <div className="space-y-6">
-            {/* Scope / 出版社信息 / 数据源 —— 真数据,不占位 */}
-            <section className="rounded-lg bg-background border border-border p-5 space-y-3">
-              <h3 className="font-display font-bold text-md leading-none text-foreground">
-                出版与收录
-              </h3>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-xs">
-                <Field label="出版社" value={journal.publisher ?? '—'} />
-                <Field label="国家 / 地区" value={journal.country ?? '—'} />
-                <Field label="期刊类型" value={journal.type ?? '—'} mono />
-                <Field
-                  label="开放获取"
-                  value={journal.is_oa ? '✓ Open Access' : '订阅期刊'}
-                />
-              </div>
-            </section>
+        {/* 年度趋势(IF / 发文量 / 被引量)—— 复用 feed 同款图;无足够年份数据时自隐。
+            与上方详情同缓存键,不额外打上游。 */}
+        {validId && <JournalTrendChart journalId={id} active />}
 
-            {/* 评分占位 —— ratSec —— "投稿口碑"/"审稿周期" 等社区数据,即将上线 */}
-            <Placeholder
-              icon={Star}
-              title="期刊评分即将上线"
-              body="投稿口碑、平均审稿周期、命中率等社区评分功能尚在开发中,届时将根据真实研究者投稿经历汇总展示。"
-            />
+        {/* 全部指标 —— full=1 返回但主区没铺开的几十个字段,按数据源分组;无数据自隐。 */}
+        {unified && <JournalMetricsGroups unified={unified} />}
+
+        {/* 出版与收录 —— 真数据。评分 / 投稿要求 / 发稿周期 / 编委会 / 研究论坛(评论)等
+            社区占位卡按需求已移除(后端未上线),只保留有真实数据的区块。 */}
+        <section className="rounded-lg bg-background border border-border p-5 space-y-3">
+          <h3 className="font-display font-bold text-md leading-none text-foreground">
+            出版与收录
+          </h3>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-xs">
+            <Field label="出版社" value={journal.publisher ?? '—'} />
+            <Field label="国家 / 地区" value={journal.country ?? '—'} />
+            <Field label="期刊类型" value={journal.type ?? '—'} mono />
+            <Field label="开放获取" value={journal.is_oa ? '✓ Open Access' : '订阅期刊'} />
           </div>
-
-          {/* sideCol —— .pen `rIJAi` w-340 五卡(投稿要求/截稿/版面费等)占位 */}
-          <aside className="space-y-3.5">
-            <Placeholder
-              icon={Sparkles}
-              title="投稿要求即将上线"
-              body="格式规范、版面费、首页配图要求等。"
-              compact
-            />
-            <Placeholder
-              icon={Sparkles}
-              title="发稿周期即将上线"
-              body="近 3 年平均审稿周期、命中率分布等。"
-              compact
-            />
-            <Placeholder
-              icon={Sparkles}
-              title="编委会信息即将上线"
-              body="主编、副主编、责任编辑联系方式等。"
-              compact
-            />
-          </aside>
-        </div>
-
-        {/* ───── 评论区 —— .pen `P6Pqr6` 占位 ───── */}
-        <Placeholder
-          icon={Sparkles}
-          title="研究论坛即将上线"
-          body="同行投稿经验、审稿心得、相关讨论将在此聚合,目前功能正在开发中。"
-        />
+        </section>
       </div>
     </div>
   );
@@ -399,52 +393,3 @@ function Field({
   );
 }
 
-function Placeholder({
-  icon: Icon,
-  title,
-  body,
-  compact,
-}: {
-  icon: typeof Sparkles;
-  title: string;
-  body: string;
-  compact?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        'rounded-lg border border-dashed border-border bg-background',
-        compact ? 'p-4' : 'p-6'
-      )}
-    >
-      <div
-        className={cn(
-          'flex items-start gap-3',
-          compact ? 'gap-2.5' : 'gap-3'
-        )}
-      >
-        <span
-          className={cn(
-            'inline-flex shrink-0 items-center justify-center rounded-md bg-surface-2 text-muted-foreground',
-            compact ? 'h-8 w-8' : 'h-10 w-10'
-          )}
-        >
-          <Icon className={cn(compact ? 'size-3.5' : 'size-4')} strokeWidth={2} />
-        </span>
-        <div className="space-y-1">
-          <div
-            className={cn(
-              'font-bold text-foreground leading-none',
-              compact ? 'text-xs' : 'text-base'
-            )}
-          >
-            {title}
-          </div>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            {body}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}

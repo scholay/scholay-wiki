@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import {
   Line,
   LineChart,
@@ -9,7 +9,7 @@ import {
 } from 'recharts';
 import { cn } from '@/shared/lib/utils';
 import type { JournalFullDetail } from '@/shared/api/types';
-import { useJournalFullDetail } from '../api/journal-feed';
+import { useJournalFullDetail } from '@/shared/api/journals';
 
 const LINE_COLOR = 'var(--color-brand-green)';
 const AXIS_COLOR = 'var(--color-faint)';
@@ -70,29 +70,30 @@ export interface JournalTrendChartProps {
  * 影响因子(jcr.all_years)/ 发文量 / 被引量(openalex.counts_by_year)三指标切换。
  * 数据按需拉取:滑到当前卡才请求 full 详情,长缓存,回滑不重打。
  */
-export function JournalTrendChart({ journalId, active }: JournalTrendChartProps) {
+export const JournalTrendChart = memo(function JournalTrendChart({
+  journalId,
+  active,
+}: JournalTrendChartProps) {
   const detailQ = useJournalFullDetail(journalId, active);
   const [metric, setMetric] = useState<MetricKey>('if');
 
-  const series = useMemo(
-    () => buildSeries(detailQ.data, metric),
-    [detailQ.data, metric]
-  );
+  // 三个指标的序列一次性算好(数据变才重算),避免 metric 切换时重复跑 buildSeries。
+  const seriesByMetric = useMemo(() => {
+    const map = {} as Record<MetricKey, Point[]>;
+    for (const m of METRICS) map[m.key] = buildSeries(detailQ.data, m.key);
+    return map;
+  }, [detailQ.data]);
 
   // 哪些指标有数据 —— 没有 JCR 历史的期刊默认落到第一个有数据的指标
   const available = useMemo(
-    () =>
-      METRICS.filter((m) => buildSeries(detailQ.data, m.key).length >= 2),
-    [detailQ.data]
+    () => METRICS.filter((m) => seriesByMetric[m.key].length >= 2),
+    [seriesByMetric]
   );
 
   // 数据到达后,若当前指标无序列 → 自动切到第一个可用指标
   const effectiveMetric =
-    series.length >= 2 ? metric : (available[0]?.key ?? metric);
-  const effectiveSeries =
-    effectiveMetric === metric
-      ? series
-      : buildSeries(detailQ.data, effectiveMetric);
+    seriesByMetric[metric].length >= 2 ? metric : (available[0]?.key ?? metric);
+  const effectiveSeries = seriesByMetric[effectiveMetric] ?? [];
 
   if (detailQ.isLoading || !detailQ.data) {
     return (
@@ -170,4 +171,4 @@ export function JournalTrendChart({ journalId, active }: JournalTrendChartProps)
       </div>
     </section>
   );
-}
+});

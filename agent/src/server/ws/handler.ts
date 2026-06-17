@@ -19,7 +19,6 @@ import { SettingsService } from '../services/settingsService.js'
 import { ProviderService } from '../services/providerService.js'
 import { diagnosticsService } from '../services/diagnosticsService.js'
 import { deriveTitle, generateTitle, saveAiTitle } from '../services/titleService.js'
-import { reportTokenUsage } from '../services/backendUsageClient.js'
 import { parseSlashCommand } from '../../utils/slashCommandParsing.js'
 import {
   LOCAL_COMMAND_STDERR_TAG,
@@ -779,10 +778,22 @@ function triggerTitleGeneration(sessionId: string): void {
         }
       }
 
-      // Stage 2: AI-generated title —— 顺带把这次「带外」标题调用的 token 用量上报后端统一账本
-      // (它不产生 message_complete 帧,后端 WS 看不到;不报就漏记)。fire-and-forget,不阻塞起名。
+      // Stage 2: AI-generated title —— 顺带把这次「带外」标题调用的 token 用量带内上报后端账本
+      // (它不产生 message_complete 帧)。改走会话 WS 的 token_usage 帧(sendToSession 实为发给
+      // 后端 pipe,后端在已鉴权会话上记账)—— 取代旧的 HTTP 旁路。WS 已断时静默丢弃(标题用量极小,
+      // 可接受;且此刻通常刚发完首条消息、WS 仍在)。
       const aiTitle = await generateTitle(text, runtimeProviderId, ({ model, usage }) => {
-        void reportTokenUsage({ sessionId, kind: 'title_gen', model, usage })
+        sendToSession(sessionId, {
+          type: 'token_usage',
+          kind: 'title_gen',
+          usage: {
+            model,
+            input_tokens: usage.input_tokens ?? 0,
+            output_tokens: usage.output_tokens ?? 0,
+            cache_read_tokens: usage.cache_read_tokens ?? 0,
+            cache_creation_tokens: usage.cache_creation_tokens ?? 0,
+          },
+        })
       })
       if (aiTitle) {
         const saved = await saveAiTitle(sessionId, aiTitle)
@@ -1067,6 +1078,39 @@ function computeTurnUsage(streamState: SessionStreamState, cliMsg: any): TokenUs
   }
 }
 
+/**
+ * 构造 message_complete 事件,并把「带内 token 账本」需要的两段数据一并带上:
+ *  - calls: 本轮每次真实模型调用的 per-call 用量明细(后端按模型逐行记账,保留拆分粒度)。
+ *  - session_total: 会话累计用量快照(后端据此做「水位自愈」—— 丢帧由下一轮累计差额补回、不双计)。
+ * 前端不消费这两个字段(未知字段优雅穿过);它们只给后端 WS pipe 记账用。
+ * session_total 用 Anthropic 风格字段名(cache_read_input_tokens)归一到账本口径(cache_read_tokens)。
+ */
+function buildMessageCompleteEvent(
+  usage: TokenUsage,
+  cliMsg: any,
+): Extract<ServerMessage, { type: 'message_complete' }> {
+  const calls: TokenUsage[] | undefined = Array.isArray(cliMsg?.per_call_usages)
+    ? cliMsg.per_call_usages.map((c: any) => ({
+        model: typeof c?.model === 'string' ? c.model : undefined,
+        input_tokens: Number(c?.input_tokens) || 0,
+        output_tokens: Number(c?.output_tokens) || 0,
+        cache_read_tokens: Number(c?.cache_read_tokens) || 0,
+        cache_creation_tokens: Number(c?.cache_creation_tokens) || 0,
+      }))
+    : undefined
+  const st = cliMsg?.session_total_usage
+  const session_total: TokenUsage | undefined =
+    st && typeof st === 'object'
+      ? {
+          input_tokens: Number(st.input_tokens) || 0,
+          output_tokens: Number(st.output_tokens) || 0,
+          cache_read_tokens: Number(st.cache_read_input_tokens) || 0,
+          cache_creation_tokens: Number(st.cache_creation_input_tokens) || 0,
+        }
+      : undefined
+  return { type: 'message_complete', usage, calls, session_total }
+}
+
 function translateCliMessage(cliMsg: any, sessionId: string): ServerMessage[] {
   const streamState = getStreamState(sessionId)
   switch (cliMsg.type) {
@@ -1309,13 +1353,17 @@ function translateCliMessage(cliMsg: any, sessionId: string): ServerMessage[] {
       // 对话结果（成功或错误）。本轮 token 总花销取「会话累计计数器的相邻轮增量」(computeTurnUsage),
       // 覆盖主轮 + 子 agent + 上下文压缩;带上本轮模型, 让后端账本(llm_token_usage)统计模型与缓存命中。
       const usage: TokenUsage = computeTurnUsage(streamState, cliMsg)
+      // 带内 token 账本:把本轮 per-call 明细(calls)与会话累计(session_total)随 message_complete
+      // 一并带回后端 —— 后端在已鉴权会话上按模型逐行记账,并用累计做「水位自愈」(丢帧由下一轮
+      // 累计差额补回,不双计)。前端忽略这两个字段(未知字段优雅穿过)。已取代旧的 HTTP 旁路上报。
+      const completeEvent = buildMessageCompleteEvent(usage, cliMsg)
 
       if (cliMsg.is_error) {
         // If the user requested stop, this "error" is just the interrupt
         // result — don't show it as an error in the chat UI.
         if (sessionStopRequested.has(sessionId)) {
           sessionStopRequested.delete(sessionId)
-          return [{ type: 'message_complete', usage }]
+          return [completeEvent]
         }
 
         const resultMessage =
@@ -1325,7 +1373,7 @@ function translateCliMessage(cliMsg: any, sessionId: string): ServerMessage[] {
             : 'Unknown error')
         if (isDuplicateOfLastApiError(streamState.lastApiError, resultMessage)) {
           streamState.lastApiError = undefined
-          return [{ type: 'message_complete', usage }]
+          return [completeEvent]
         }
         // 错误和完成消息都发送
         return [
@@ -1334,14 +1382,14 @@ function translateCliMessage(cliMsg: any, sessionId: string): ServerMessage[] {
             message: resultMessage,
             code: 'CLI_ERROR',
           },
-          { type: 'message_complete', usage },
+          completeEvent,
         ]
       }
 
       // Clear stop flag on successful completion too
       sessionStopRequested.delete(sessionId)
       streamState.lastApiError = undefined
-      return [{ type: 'message_complete', usage }]
+      return [completeEvent]
     }
 
     case 'system': {

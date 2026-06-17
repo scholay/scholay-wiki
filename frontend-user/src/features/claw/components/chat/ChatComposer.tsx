@@ -1,4 +1,7 @@
 import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
   useRef,
   useState,
   type ClipboardEvent,
@@ -68,7 +71,12 @@ export interface ChatComposerProps {
   onRequireAuth?: () => void;
 }
 
-export function ChatComposer({
+/** 命令式句柄 —— 新对话 hero 点「示例提问」chip 时, 把文案填进输入框并聚焦(不直接发送, 允许用户编辑)。 */
+export interface ChatComposerHandle {
+  prefill: (text: string) => void;
+}
+
+export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(function ChatComposer({
   disabled,
   busy,
   stopping,
@@ -79,7 +87,7 @@ export function ChatComposer({
   onSessionEnsured,
   requireAuth,
   onRequireAuth,
-}: ChatComposerProps) {
+}, ref) {
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<AttachmentDTO[]>([]);
   // 点击附件缩略图放大查看的 lightbox。
@@ -90,6 +98,35 @@ export function ChatComposer({
   const dragDepth = useRef(0);
   const upload = useUploadClawAttachment();
   const fileRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // 自适应高度:单行起、随内容增高到上限(现代 AI 输入框观感)。input 变化(打字 / prefill /
+  // 提交后清空)后统一重算 —— 用 effect 而非 onChange,prefill 这类程序化改值也能正确收/放高。
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
+  }, [input]);
+
+  // 暴露给 hero: 点示例提问 → 填入输入框并聚焦(光标置末尾)。
+  useImperativeHandle(
+    ref,
+    () => ({
+      prefill: (text: string) => {
+        setInput(text);
+        // 同步 focus(仍在点示例卡片的手势调用栈里)→ 移动端软键盘随之弹出;
+        // 选区移到末尾等下一帧 value 渲染后再设(此刻 el.value 才是新文本)。
+        textareaRef.current?.focus();
+        requestAnimationFrame(() => {
+          const el = textareaRef.current;
+          if (!el) return;
+          el.setSelectionRange(el.value.length, el.value.length);
+        });
+      },
+    }),
+    [],
+  );
 
   const submit = (e?: FormEvent) => {
     e?.preventDefault();
@@ -207,11 +244,11 @@ export function ChatComposer({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className="relative flex flex-col gap-2 rounded-lg border border-border-strong bg-background p-2.5 shadow-sm focus-within:border-foreground"
+      className="relative flex flex-col gap-2 rounded-2xl border border-border-strong bg-background p-2.5 shadow-sm focus-within:border-foreground"
     >
       {/* 拖拽蒙层 — 拖文件悬停在输入框上时显示 */}
       {dragOver && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-brand-green bg-background/90 text-sm font-medium text-brand-green">
+        <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-brand-green bg-background/90 text-sm font-medium text-brand-green">
           <Upload className="size-4" />
           松开上传图片 / 文件
         </div>
@@ -246,6 +283,7 @@ export function ChatComposer({
 
       {/* 文本框 */}
       <textarea
+        ref={textareaRef}
         value={input}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKey}
@@ -257,9 +295,9 @@ export function ChatComposer({
               ? '正在等待 AI 回答…'
               : '问问智能助手 · Enter 发送 / Shift+Enter 换行 · 可直接粘贴/拖入图片文件'
         }
-        rows={2}
+        rows={1}
         disabled={disabled}
-        className="min-h-[44px] w-full resize-none border-0 bg-transparent px-1 py-1 text-base text-foreground placeholder:text-faint focus:outline-none focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+        className="max-h-[140px] w-full resize-none overflow-y-auto border-0 bg-transparent px-1 py-1 text-base leading-relaxed text-foreground placeholder:text-faint focus:outline-none focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
       />
 
       {/* 底部工具栏 */}
@@ -359,7 +397,7 @@ export function ChatComposer({
       />
     </form>
   );
-}
+});
 
 /**
  * 已上传附件预览 — 参考 GPT / Claude 的输入框附件样式:

@@ -83,7 +83,7 @@ export function PaperHeader({
   }, [authors]);
 
   return (
-    <header className="space-y-8">
+    <header className="space-y-5 sm:space-y-8">
       {/* metaRow —— uppercase letter-spaced 10px #888 */}
       {meta && (
         <div className="text-2xs font-bold uppercase tracking-[0.18em] text-faint">
@@ -92,8 +92,9 @@ export function PaperHeader({
       )}
 
       {/* Title —— Playfair 42(.pen `J6zGLj`),token 表最大 24,arbitrary 必要。
+          移动端收到 text-3xl,避免 42px 在 ~390px 屏一行没几个字、占满整屏;桌面恢复 42px。
           展示用 displayedTitle,翻译切换时这里跟着变 */}
-      <h1 className="font-display font-bold leading-[1.18] text-[42px] text-foreground tracking-tight">
+      <h1 className="font-display font-bold leading-[1.2] sm:leading-[1.18] text-3xl sm:text-[42px] text-foreground tracking-tight">
         {displayedTitle}
       </h1>
 

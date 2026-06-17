@@ -59,7 +59,18 @@ export type ServerMessage =
       requestId: string
       request: ComputerUsePermissionRequest
     }
-  | { type: 'message_complete'; usage: TokenUsage }
+  | {
+      type: 'message_complete'
+      usage: TokenUsage
+      // ─── 带内 token 账本(后端消费,前端忽略)────────────────────────────
+      // calls: 本轮每次真实模型调用的 per-call 用量明细 → 后端按模型逐行记账(保留拆分粒度)。
+      // session_total: 会话累计用量快照 → 后端「水位自愈」(丢帧由下一轮累计差额补回、不双计)。
+      calls?: TokenUsage[]
+      session_total?: TokenUsage
+    }
+  // 带外模型调用(会话标题生成等不产生 message_complete 帧的调用)的 token 用量,带内回后端账本。
+  // 后端按「附加」记一行(不进水位:它不在 CLI 会话累计计数器内)。前端忽略。
+  | { type: 'token_usage'; usage: TokenUsage; kind?: string }
   | { type: 'thinking'; text: string }
   | { type: 'status'; state: ChatState; verb?: string; elapsed?: number; tokens?: number }
   | { type: 'error'; message: string; code: string; retryable?: boolean }

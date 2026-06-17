@@ -97,7 +97,7 @@ export function AuthorDetailPane() {
 
   return (
     <div className="h-full overflow-auto bg-background">
-      <div className="max-w-6xl mx-auto px-10 py-7 space-y-6">
+      <div className="max-w-6xl mx-auto px-4 py-4 sm:px-10 sm:py-7 space-y-4 sm:space-y-6">
         <AuthorHero author={author} />
         <TopicSection
           papers={papersQ.data?.items ?? []}

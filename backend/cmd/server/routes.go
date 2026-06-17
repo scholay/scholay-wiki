@@ -43,6 +43,7 @@ import (
 	"scholar-backend/internal/usagelog"
 	"scholar-backend/internal/llmusage"
 	"scholar-backend/internal/usagestat"
+	"scholar-backend/internal/usermemory"
 	"scholar-backend/internal/vip"
 	"scholar-backend/internal/peerreview"
 	"scholar-backend/internal/user"
@@ -89,6 +90,7 @@ type allHandlers struct {
 	featureTool     *featuretool.Handler // 功能大全 (学术工具黄页: 导入/CRUD/webhook 同步/公开浏览)
 	agentBridge     *agentbridge.Bridge  // agent 内网回调端点 (带外 token 用量上报: title-gen 等)
 	supportCenter   *supportcenter.Handler // 客服与联系中心 (联系方式配置/IMAP 收件箱/飞书通知/写信)
+	memory          *usermemory.Handler  // per-user 长期记忆 (查看/编辑/删除; agent 注入由 Bridge 负责)
 }
 
 // registerRoutes 注册所有 API 路由

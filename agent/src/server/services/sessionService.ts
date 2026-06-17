@@ -71,6 +71,9 @@ export type SessionLaunchInfo = {
   // per-feature skill 作用域: 该会话额外加载的 skill 源目录 (→ --add-dir, 加载 <dir>/.claude/skills)。
   // 让不同入口装不同 skill (如 peerreview 方法论会话才加载审稿人 skill, claw 看不到)。
   addDirs?: string[]
+  // 系统级附加提示词(规则 + per-user 长期记忆): 建会话时由 backend 下发、落进 session-meta,
+  // 每次冷启 (首条消息 / prewarm / resume) 都以 --append-system-prompt 注入模型 system prompt。
+  appendSystemPrompt?: string
 }
 
 export type TrimSessionResult = {
@@ -428,6 +431,19 @@ export class SessionService {
       const ad = (entries[i] as Record<string, unknown>)?.addDirs
       if (Array.isArray(ad)) {
         return ad.filter((t): t is string => typeof t === 'string')
+      }
+    }
+    return undefined
+  }
+
+  // 系统级附加提示词: 从 session-meta 读出该会话的 appendSystemPrompt (→ --append-system-prompt)。
+  // 同 disallowedTools/addDirs, clearSessionTranscript / appendSessionMetadata 重写时必须 carry-forward,
+  // 否则 placeholder-clear 会把 createSession 写进去的 appendSystemPrompt 抹掉 (新会话首启即丢规则/记忆)。
+  private resolveAppendSystemPromptFromEntries(entries: RawEntry[]): string | undefined {
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const asp = (entries[i] as Record<string, unknown>)?.appendSystemPrompt
+      if (typeof asp === 'string' && asp.length > 0) {
+        return asp
       }
     }
     return undefined
@@ -1445,6 +1461,7 @@ export class SessionService {
     repositoryOptions?: CreateSessionRepositoryOptions,
     disallowedTools?: string[],
     addDirs?: string[],
+    appendSystemPrompt?: string,
   ): Promise<{ sessionId: string; workDir: string }> {
     const sessionId = crypto.randomUUID()
     // Scholay 隔离: 每个会话用独立的 cwd (~/sessions/<sessionId>), 不再共享 /home/bun。
@@ -1506,6 +1523,8 @@ export class SessionService {
       ...(disallowedTools && disallowedTools.length > 0 ? { disallowedTools } : {}),
       // per-feature skill 作用域: 落进 session-meta, 经 getSessionLaunchInfo 重读注入 --add-dir。
       ...(addDirs && addDirs.length > 0 ? { addDirs } : {}),
+      // 系统级附加提示词: 落进 session-meta, 经 getSessionLaunchInfo 重读、每次冷启注入 --append-system-prompt。
+      ...(appendSystemPrompt && appendSystemPrompt.length > 0 ? { appendSystemPrompt } : {}),
       timestamp: now,
     }
 
@@ -1638,6 +1657,7 @@ export class SessionService {
     const repository = this.resolveRepositoryFromEntries(entries)
     const disallowedTools = this.resolveDisallowedToolsFromEntries(entries)
     const addDirs = this.resolveAddDirsFromEntries(entries)
+    const appendSystemPrompt = this.resolveAppendSystemPromptFromEntries(entries)
     const worktreeSession = this.resolveWorktreeSessionFromEntries(entries)
     let customTitle: string | null = null
 
@@ -1655,6 +1675,7 @@ export class SessionService {
       repository,
       disallowedTools,
       addDirs,
+      appendSystemPrompt,
       worktreeSession,
       transcriptMessageCount,
       customTitle,
@@ -1691,6 +1712,8 @@ export class SessionService {
     const disallowedTools = this.resolveDisallowedToolsFromEntries(entries)
     // carry-forward per-feature skill 作用域 —— 同理, 否则方法论会话首启即丢审稿人 skill。
     const addDirs = this.resolveAddDirsFromEntries(entries)
+    // carry-forward 系统级附加提示词 —— 否则 placeholder-clear 重写会抹掉它, 新会话首条消息即丢规则/记忆。
+    const appendSystemPrompt = this.resolveAppendSystemPromptFromEntries(entries)
     const now = new Date().toISOString()
 
     const initialEntry = {
@@ -1711,6 +1734,7 @@ export class SessionService {
       repository,
       ...(disallowedTools && disallowedTools.length > 0 ? { disallowedTools } : {}),
       ...(addDirs && addDirs.length > 0 ? { addDirs } : {}),
+      ...(appendSystemPrompt && appendSystemPrompt.length > 0 ? { appendSystemPrompt } : {}),
       timestamp: now,
     }
 
@@ -1733,15 +1757,17 @@ export class SessionService {
     if (matches.length === 0) return
 
     let repository = metadata.repository
-    // carry-forward per-feature 工具策略 + skill 作用域(同 repository 一样,从旧 entries 读出再写回)。
+    // carry-forward per-feature 工具策略 + skill 作用域 + 系统级提示词(同 repository 一样,从旧 entries 读出再写回)。
     let disallowedTools: string[] | undefined
     let addDirs: string[] | undefined
+    let appendSystemPrompt: string | undefined
     if (!repository) {
       for (const match of matches) {
         const entries = await this.readJsonlFile(match.filePath)
         if (!repository) repository = this.resolveRepositoryFromEntries(entries)
         if (!disallowedTools) disallowedTools = this.resolveDisallowedToolsFromEntries(entries)
         if (!addDirs) addDirs = this.resolveAddDirsFromEntries(entries)
+        if (!appendSystemPrompt) appendSystemPrompt = this.resolveAppendSystemPromptFromEntries(entries)
         if (repository) break
       }
     } else {
@@ -1749,7 +1775,8 @@ export class SessionService {
         const entries = await this.readJsonlFile(match.filePath)
         if (!disallowedTools) disallowedTools = this.resolveDisallowedToolsFromEntries(entries)
         if (!addDirs) addDirs = this.resolveAddDirsFromEntries(entries)
-        if (disallowedTools || addDirs) break
+        if (!appendSystemPrompt) appendSystemPrompt = this.resolveAppendSystemPromptFromEntries(entries)
+        if (disallowedTools || addDirs || appendSystemPrompt) break
       }
     }
 
@@ -1764,6 +1791,7 @@ export class SessionService {
       repository,
       ...(disallowedTools && disallowedTools.length > 0 ? { disallowedTools } : {}),
       ...(addDirs && addDirs.length > 0 ? { addDirs } : {}),
+      ...(appendSystemPrompt && appendSystemPrompt.length > 0 ? { appendSystemPrompt } : {}),
       timestamp: new Date().toISOString(),
     })
 

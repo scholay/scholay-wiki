@@ -30,6 +30,7 @@ import (
 	"scholar-backend/internal/common/cleanup"
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/database"
+	"scholar-backend/internal/common/middleware"
 	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/emaillog"
@@ -47,6 +48,8 @@ import (
 	"scholar-backend/internal/thirdparty"
 	"scholar-backend/internal/umami"
 	"scholar-backend/internal/user"
+	"scholar-backend/internal/usermemory"
+	"scholar-backend/internal/vip"
 	"scholar-backend/internal/websocket"
 	"scholar-backend/internal/wechat"
 )
@@ -84,6 +87,8 @@ type services struct {
 	wsHub             *websocket.Hub
 	// supportCenter 客服与联系中心(IMAP 收件轮询在 startBackgroundTasks 启动)
 	supportCenterService *supportcenter.Service
+	// agentBridge 顶层暴露给 main:跨实例 displacement 订阅 goroutine 需用 bgCtx 启动 (C2)。
+	agentBridge *agentbridge.Bridge
 }
 
 // bootstrapServices 初始化全部模块与依赖注入。
@@ -172,6 +177,9 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// core 域：config → user/feedback（邮件发送依赖 config）
 	core.userService.SetConfigService(core.configService)
 	core.feedbackService.SetConfigService(core.configService)
+	// 「最后活跃时间」记录器: 每次通过鉴权的 user 请求节流更新 users.last_active_at,
+	// 让后台看到的是用户最后实际使用时间, 而非仅登录动作(last_login_at)。
+	middleware.SetActivityHook(core.userService.RecordActivity)
 
 	// core 域：user → feedback（工单里展示用户信息）
 	core.feedbackService.SetUserRepository(&feedbackUserRepoAdapter{userRepo: core.userRepo})
@@ -202,6 +210,12 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	aiB.minicodHandler.SetAuthorSEORecorder(plat.seoService)
 	aiB.minicodHandler.SetJournalSEORecorder(plat.seoService)
 
+	// 已登录用户的论文搜索结果由 library 标注 isFavorited(省一次 /user/library/check 往返)
+	aiB.minicodHandler.SetFavoriteChecker(libraryHandler)
+
+	// 期刊投稿资源下载的 Max 会员门槛(EffectiveTier),接 vip.Service。
+	aiB.minicodHandler.SetMembershipChecker(plat.vipService)
+
 	// 热门内容: 搜索词 + 论文曝光 ← minicod 搜索接口 (传统/期刊搜索, 服务端记)。
 	// 点击量 / SEO 直访量改由前端上报 POST /public/hot-content/track (见 hotcontent.Handler.Track)。
 	aiB.minicodHandler.SetHotContentRecorder(plat.hotContentService)
@@ -221,14 +235,20 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// 统一 LLM token 账本 (llm_token_usage):
 	//   - 项目侧 ai.Service: executeWithRetry 咽喉点每次成功落一行 (source=project),
 	//     覆盖 matrix / translate / wechat_oa (后者 user_id=NULL)。
-	//   - agent 侧 smart_search/claw: 每轮 message_complete 落一行 (source=agent)。
-	//   - peerreview: 在 ServerSideChatStreaming 内部记账 (下方 peerreview 注入)。
+	//   - agent 侧 (smart_search/claw/prism/peerreview): token 由 agent per-call 内网回调
+	//     统一落库 (agentbridge internal_handler.go → b.llmRec),其 OnMessageComplete 只 slog
+	//     不落库 (StandardHooks),故三 feature 不再各自 SetLLMUsageRecorder (已是死注入,移除)。
 	aiB.aiService.SetLLMUsageRecorder(plat.llmUsageService)
-	smartsearch.SetLLMUsageRecorder(plat.llmUsageService)
-	claw.SetLLMUsageRecorder(plat.llmUsageService)
-	prism.SetLLMUsageRecorder(plat.llmUsageService) // WS onMessageComplete 落 token 账本(source=agent)
-	// peerreview 的 server-side chat 走 Bridge.ServerSideChatStreaming, 在其内部落账本。
+	// Bridge 级 llmRec 是活代码:被 ws_serverside.go (peerreview) 与 internal_handler.go
+	// (agent per-call 回调) 消费,记下全部 agent 侧 token。务必保留。
 	agentBridge.SetLLMUsageRecorder(plat.llmUsageService)
+
+	// per-user 长期记忆 (C4): 所有 feature 共享同一份用户记忆。
+	//   - 读(注入): Bridge 在 WS 首条消息前缀 (smart_search/claw/prism) + peerreview 方法论 prompt 注入;
+	//   - 写(后台抽取): 每轮对话后异步用便宜模型 (ai.Service ModelLow) 从对话抽取用户持久信息, 限流控成本;
+	//   - 用户编辑: /api/v1/user/memory (handler 见下)。
+	userMemoryService := usermemory.NewService(usermemory.NewRepository(db), aiB.aiService.SimpleCompletion)
+	agentBridge.SetMemoryService(userMemoryService)
 
 	// 会员(VIP)按等级日限额 + token 计费:**所有付费 AI 功能必须在此注入**。
 	// ⚠️ 漏接线 = 该功能静默无配额、无计费(收入泄漏)。新增付费 feature 时务必在这里加一行 SetVIPChecker
@@ -292,6 +312,28 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 
 	// message + email → vip（充值/订阅/续期/升级/兑换 成功后发站内信 + 邮件;统一品牌邮件模板）
 	plat.vipService.SetNotifier(plat.message.GetAdapter(), core.configService)
+
+	// 付费成功 → 飞书群客服消息(仅支付回调真正到账时触发,创建订单不触发;事件开关在后台,默认开)
+	plat.vipService.SetPaymentNotifier(func(ord *vip.Order) {
+		notice := supportcenter.PaymentNotice{
+			OrderType: ord.OrderType,
+			SubAction: ord.SubAction,
+			OrderNo:   ord.OrderNo,
+			PlanCode:  ord.PlanCode,
+			Amount:    ord.FinalAmount,
+			Credits:   ord.CreditsGranted,
+			Method:    ord.PaymentMethod,
+		}
+		if u, err := core.userService.FindByID(ord.UserID); err == nil && u != nil {
+			if u.Username != nil {
+				notice.Username = *u.Username
+			}
+			if u.Email != nil {
+				notice.Email = *u.Email
+			}
+		}
+		supportCenterService.NotifyPayment(notice)
+	})
 
 	// 发送记录:给 utils 邮件 / 短信发送各注册一个 observer —— 全站每封邮件、每条短信(验证码/
 	// 反馈/会员/测试)发送后无差别落 email_logs(channel 区分),异步 best-effort,不阻塞发送。
@@ -363,6 +405,7 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 			agentConfig:    agentconfig.NewHandler(agentConfigService),
 			smartSearch:    smartsearch.NewHandler(smartSearchFeature),
 			peerReview:     peerReviewHandler,
+			memory:         usermemory.NewHandler(userMemoryService),
 			claw:           claw.NewHandler(clawFeature, agentartifact.NewRepository(db)),
 			featureTool:    featureToolHandler,
 			agentBridge:    agentBridge, // 内网回调端点: agent 上报带外 token 用量 (title-gen 等)
@@ -386,5 +429,6 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 		seoSubmitService:     plat.seoSubmitService,
 		wsHub:                plat.wsHub,
 		supportCenterService: supportCenterService,
+		agentBridge:          agentBridge,
 	}
 }

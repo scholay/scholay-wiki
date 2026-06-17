@@ -41,6 +41,8 @@ export function SourceBadge({
 }: SourceBadgeProps) {
   if (!source) return null;
   const meta = SOURCE_META[source];
+  // 防御:source 只应是 stc/olx/pmd(逐篇真实来源),万一传进 'auto'/未知值不崩溃
+  if (!meta) return null;
 
   const display =
     variant === 'full' ? `${meta.letter} — ${meta.name}` : meta.letter;

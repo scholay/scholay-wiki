@@ -25,10 +25,27 @@ export const toolsRoutes: RouteObject[] = [
  */
 export const toolsMobileRoutes: RouteObject[] = [
   {
+    // /m/tools = 功能首页(站内功能 + 全网功能入口),设计稿 g2rFng。
     path: 'tools',
+    lazy: () =>
+      import('./pages/mobile/MobileToolsHomePage').then((m) => ({
+        Component: m.MobileToolsHomePage,
+      })),
+  },
+  {
+    // /m/tools/all = 功能广场列表(原 MobileToolsPage,改挂子路由)。静态段,排在 :idOrSlug 之前。
+    path: 'tools/all',
     lazy: () =>
       import('./pages/mobile/MobileToolsPage').then((m) => ({
         Component: m.MobileToolsPage,
+      })),
+  },
+  {
+    // /m/tools/pc/:key = 纯 PC 能力的「建议电脑端使用」引导页(审稿/写作/矩阵)。
+    path: 'tools/pc/:key',
+    lazy: () =>
+      import('./pages/mobile/MobilePcOnlyPage').then((m) => ({
+        Component: m.MobilePcOnlyPage,
       })),
   },
   {

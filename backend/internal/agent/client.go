@@ -126,6 +126,11 @@ type CreateSessionOptions struct {
 	// per-feature skill 作用域: 该会话额外的 --add-dir 源(agent 加载 <dir>/.claude/skills)。
 	// 让不同入口装不同 skill —— peerreview 方法论会话传审稿人 skill 目录, claw 不传 → 看不到审稿人 skill。
 	AddDirs []string `json:"addDirs,omitempty"`
+	// AppendSystemPrompt: 该会话的**系统级**附加提示词(规则 + per-user 长期记忆)。
+	// agent 侧落进 session-meta、每次冷启 (首条消息 / prewarm / resume) 都以 --append-system-prompt
+	// 注入到模型 system prompt —— 不写进用户消息、不进 transcript, 用户永远看不到。
+	// 取代旧的「注入到首条 user_message 前缀」(in-band) 方案;旧会话仍走 in-band 兜底。
+	AppendSystemPrompt string `json:"appendSystemPrompt,omitempty"`
 }
 
 // CreateSession 让 scholar_agent 创建一个新会话。opts==nil 时发空 body(旧行为),
@@ -148,6 +153,9 @@ func (c *Client) CreateSession(ctx context.Context, opts *CreateSessionOptions) 
 		}
 		if len(opts.AddDirs) > 0 {
 			body["addDirs"] = opts.AddDirs
+		}
+		if opts.AppendSystemPrompt != "" {
+			body["appendSystemPrompt"] = opts.AppendSystemPrompt
 		}
 	}
 	var out CreatedSession

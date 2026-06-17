@@ -51,5 +51,6 @@ var Spec = agentbridge.FeatureSpec{
 	Description:            "Scholay AI 审稿:多视角 (alpha/beta/gamma/chief) 同行评审",
 	Picker:                 nil, // 业务自管, 见 service.go 的 alphaPicker 等字段
 	InjectPromptOnFirstMsg: false,
-	AutoApprovePermission:  true,
+	// C14: 审批轴 = auto。peerreview 走 server-side (ws_serverside.go), 只支持 auto 自动裁决。
+	PermissionMode: agentbridge.PermissionAuto,
 }

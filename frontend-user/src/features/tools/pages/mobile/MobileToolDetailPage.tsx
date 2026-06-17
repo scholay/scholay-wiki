@@ -1,7 +1,8 @@
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Download, ExternalLink, Globe } from 'lucide-react';
+import { ArrowLeft, Download, ExternalLink, Globe, Share2 } from 'lucide-react';
 import { CyclingHint } from '@/shared/components/CyclingHint';
 import { ResourceError } from '@/shared/components/ResourceError';
+import { useShareSheet } from '@/stores/share.store';
 import { useToolDetail } from '../../api/tools';
 import { ToolLogo } from '../../components/ToolLogo';
 import { PRICE_TYPE_LABEL, ACCESS_TYPE_LABEL } from '@/types/feature-tool';
@@ -14,20 +15,31 @@ export function MobileToolDetailPage() {
   const { idOrSlug } = useParams<{ idOrSlug: string }>();
   const toolQ = useToolDetail(idOrSlug);
   const tool = toolQ.data;
+  const openShare = useShareSheet((s) => s.openShare);
 
   return (
     <div className="flex h-full flex-col">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background px-2">
         <Link
-          to="/m/tools"
+          to="/m/tools/all"
           aria-label="返回功能广场"
           className="flex h-9 w-9 items-center justify-center rounded-pill active:bg-surface-2"
         >
           <ArrowLeft className="size-5 text-foreground" />
         </Link>
-        <span className="truncate text-md font-medium text-foreground">
+        <span className="min-w-0 flex-1 truncate text-md font-medium text-foreground">
           {tool?.name ?? '工具详情'}
         </span>
+        {tool && (
+          <button
+            type="button"
+            aria-label="分享"
+            onClick={() => openShare({ kind: 'tool', tool })}
+            className="flex h-9 w-9 items-center justify-center rounded-pill active:bg-surface-2"
+          >
+            <Share2 className="size-5 text-foreground" />
+          </button>
+        )}
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto bg-surface-1">
@@ -44,7 +56,7 @@ export function MobileToolDetailPage() {
           <ResourceError
             error={toolQ.error}
             resourceName="工具"
-            backTo="/m/tools"
+            backTo="/m/tools/all"
             backLabel="返回功能广场"
             onRetry={() => void toolQ.refetch()}
           />

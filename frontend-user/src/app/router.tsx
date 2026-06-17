@@ -11,7 +11,7 @@ import { RouteErrorBoundary } from '@/shared/components/RouteErrorBoundary';
 import { adminRoutes } from '@/features/admin/routes';
 import { searchRoutes } from '@/features/search/routes';
 import { journalsRoutes } from '@/features/journals/routes';
-import { libraryRoutes } from '@/features/library/routes';
+import { libraryRoutes, libraryMobileRoutes, shareReceiveRoutes } from '@/features/library/routes';
 import { browserRoutes } from '@/features/browser/routes';
 import { toolsRoutes, toolsMobileRoutes } from '@/features/tools/routes';
 import { peerReviewRoutes } from '@/features/peer-review/routes';
@@ -73,6 +73,12 @@ export const router = createBrowserRouter([
     path: `/${r.path}`,
     errorElement: <RouteErrorBoundary />,
   })),
+  // 分享接收页 /s/:token —— 公开、免登录、PC/移动通用,不挂 AppShell/MobileShell。
+  ...shareReceiveRoutes.map((r) => ({
+    ...r,
+    path: `/${r.path}`,
+    errorElement: <RouteErrorBoundary />,
+  })),
   // 移动端 /m/* —— 全新设计逻辑的移动版,**不挂 AppShell**,自带 MobileShell
   // (底部 Tab),与 landing / help 同模式。children 在这里组装:feed 归 mobile,
   // 功能广场/智能助手的移动页归各自业务域 feature(避免跨 feature import),
@@ -88,6 +94,7 @@ export const router = createBrowserRouter([
       ...mobileRoutes,
       ...toolsMobileRoutes,
       ...clawMobileRoutes,
+      ...libraryMobileRoutes,
       ...settingsMobileRoutes,
       ...authMobileRoutes,
     ],

@@ -56,6 +56,7 @@ func (r *Repository) UpdateConfig(c *SupportCenterConfig) error {
 		"feishu_secret":           c.FeishuSecret,
 		"feishu_notify_feedback":  c.FeishuNotifyFeedback,
 		"feishu_notify_email":     c.FeishuNotifyEmail,
+		"feishu_notify_payment":   c.FeishuNotifyPayment,
 	}).Error
 }
 

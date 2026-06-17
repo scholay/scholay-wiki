@@ -25,6 +25,8 @@ export interface JournalEnrichment {
   fqb_quartile?: string;
   /** 中科院 TOP 期刊标记 */
   fqb_top?: boolean;
+  /** 中科院「新锐分区」:"1" / "2" / "3" / "4"(从 "1 区" 中抽出) */
+  xr_quartile?: string;
   /** CCF 等级:A / B / C */
   ccf_rank?: string;
   /** OpenAlex H-index */
@@ -43,6 +45,7 @@ interface RawJournal {
   jcr_impact_factor?: string | number | null;
   fqb_major_quartile?: string | null;
   fqb_top?: string | boolean | null;
+  xr_major_quartile?: string | null;
   ccf_rank?: string | null;
   openalex_h_index?: number | null;
   openalex_is_oa?: number | boolean | null;
@@ -98,6 +101,7 @@ function toEnrichment(raw: RawJournal, name: string): JournalEnrichment | null {
   const ifNum = parseNumberLoose(raw.jcr_impact_factor);
   const fqbStr = String(raw.fqb_major_quartile ?? '').trim();
   const fqbMatch = fqbStr.match(/^([1-4])/);
+  const xrMatch = String(raw.xr_major_quartile ?? '').trim().match(/^([1-4])/);
 
   return {
     id: raw.id,
@@ -106,6 +110,7 @@ function toEnrichment(raw: RawJournal, name: string): JournalEnrichment | null {
     jcr_impact_factor: ifNum,
     fqb_quartile: fqbMatch ? fqbMatch[1] : undefined,
     fqb_top: raw.fqb_top === true || raw.fqb_top === '是' || raw.fqb_top === '1',
+    xr_quartile: xrMatch ? xrMatch[1] : undefined,
     ccf_rank: raw.ccf_rank ? raw.ccf_rank.toString().toUpperCase() : undefined,
     openalex_h_index:
       typeof raw.openalex_h_index === 'number' && raw.openalex_h_index > 0

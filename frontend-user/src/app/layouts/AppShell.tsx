@@ -1,5 +1,6 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useMatch } from 'react-router-dom';
 import { TopNav } from './TopNav';
+import { cn } from '@/shared/lib/utils';
 import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
 import { useReplayPendingAction } from '@/shared/hooks';
 import { useNotificationSocket } from '@/shared/hooks/useNotificationSocket';
@@ -27,9 +28,26 @@ export function AppShell() {
   // 立即同步进 react-query,顶栏铃铛红点 & 列表实时刷新。
   useNotificationSocket();
 
+  // 论文/期刊/学者/PDF 详情是 SEO 落地页(同 canonical URL),移动端自带 MobileDetailHeader(返回+分享),
+  // 不该再叠 PC 全局 TopNav。仅这些路由 + 仅移动宽度隐藏 TopNav(桌面 'contents' 透传、零变化),
+  // 不重定向、不改 URL → 保住 canonical/SSR/SEO。其余路由 TopNav 行为完全不变。
+  // ⚠️ Rules of Hooks:useMatch 是 hook,必须**无条件**逐个调用。
+  // 之前写成 `useMatch(a) || useMatch(b) || ...` —— `||` 短路会让后面的 useMatch
+  // 在前一个命中时**不被调用**,于是 hook 数量随路由变化(/journal 调 2 个、
+  // /journals/search 调 4 个)。在详情页↔其它页之间跳转时 AppShell 复用同一实例、
+  // 前后渲染 hook 数不一致 → React 抛「Rendered fewer hooks than expected」→ 整个路由树崩。
+  // 全部先各自调用、再用普通布尔合并,hook 数恒定。
+  const matchPaper = useMatch('/paper/*');
+  const matchJournal = useMatch('/journal/*');
+  const matchAuthor = useMatch('/author/*');
+  const matchPdf = useMatch('/pdf/*');
+  const isBrowserDetail = !!(matchPaper || matchJournal || matchAuthor || matchPdf);
+
   return (
     <div className="flex h-full min-h-screen flex-col bg-background text-foreground">
-      <TopNav />
+      <div className={cn('contents', isBrowserDetail && 'max-sm:hidden')}>
+        <TopNav />
+      </div>
       <main className="flex-1 min-h-0">
         <ErrorBoundary>
           <Outlet />

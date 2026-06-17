@@ -163,6 +163,13 @@ func (r *Repository) UpdateLastLoginWithIP(id uint, ip string) error {
 	}).Error
 }
 
+// UpdateLastActive 更新「最后活跃时间」(真实使用时间, 0036)。
+// 由 service.RecordActivity 在每次鉴权请求节流后异步调用 —— 反映用户最后实际使用,
+// 而非仅登录动作(last_login_at)。单列点查 UPDATE, 极轻。
+func (r *Repository) UpdateLastActive(id uint) error {
+	return r.db.Model(&User{}).Where("id = ?", id).Update("last_active_at", time.Now()).Error
+}
+
 // UpdatePassword updates the user's password
 func (r *Repository) UpdatePassword(id uint, passwordHash string) error {
 	return r.db.Model(&User{}).Where("id = ?", id).Update("password_hash", passwordHash).Error
@@ -257,6 +264,7 @@ func (r *Repository) GetUserList(offset, limit int) ([]User, int64, error) {
 }
 
 var allowedSortColumns = map[string]bool{
+	"last_active_at": true, // 最后活跃(真实使用)时间, 运营按此找近期活跃/沉睡用户
 	"last_login_at":  true,
 	"created_at":     true,
 	"vip_expires_at": true, // 按会员到期排序, 便于运营找将到期/已过期

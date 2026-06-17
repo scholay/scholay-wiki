@@ -156,14 +156,19 @@ export function useClawConversation() {
     }
   }, [socket.messages, qc]);
 
+  // keepPreviousData 会在 queryKey 切换、新 query 未 resolve 前继续回退「上一条 query 的数据」。
+  // 两个串台场景都得挡掉,判据统一为「历史数据自带的 sessionId 必须 === 当前 sessionId 才采用」:
+  //   1) sessionId=null 新对话准备态(query 被 disable,回退上一会话 history)→ 点"新对话"仍停留旧对话;
+  //   2) 懒新建 null→newId 的瞬间:newId 的 history 还在 fetch,回退的还是上一会话 history
+  //      → 发完第一条消息「一闪而过上一个对话」(本次用户报的 bug)。
+  // "加载更早"(同 session 只换 limitTurns)data.sessionId 仍等于当前 session → 不误伤、照常保留。
+  const historyData = historyQuery.data;
   const historyTurns = useMemo(
     () =>
-      // sessionId=null 是「新对话准备态」: useClawHistory 此时被 disable,但 placeholderData:keepPreviousData
-      // 会一直回退展示上一会话的 history(新 key 永不 resolve)→ 点"新对话"仍停留在旧对话。这里显式清空。
-      sessionId
-        ? withHistoryImagePreviews(replayHistoryAsTurns(historyQuery.data?.messages), sessionId)
+      sessionId && historyData?.sessionId === sessionId
+        ? withHistoryImagePreviews(replayHistoryAsTurns(historyData.messages), sessionId)
         : [],
-    [historyQuery.data?.messages, sessionId],
+    [historyData, sessionId],
   );
 
   // 断线续流: 重连命中 in-flight 轮时, agent 回放本轮事件并下发 resync_user(本轮用户文本)。

@@ -22,8 +22,8 @@ import (
 	"context"
 	"errors"
 
+	"scholar-backend/internal/agent"
 	"scholar-backend/internal/agentbridge"
-	"scholar-backend/internal/llmusage"
 	"scholar-backend/internal/prompts"
 	"scholar-backend/internal/usagestat"
 	"scholar-backend/internal/vip"
@@ -54,22 +54,6 @@ func SetUsageRecorder(r usagestat.Recorder) {
 	usageRecorder = r
 }
 
-// llmUsageRecorder 由 SetLLMUsageRecorder 注入; onMessageComplete 每轮 message_complete
-// 时懒读取, 落 token 账本 (llm_token_usage, source=agent)。
-var llmUsageRecorder llmusage.Recorder
-
-// SetLLMUsageRecorder 注入统一 LLM token 账本录入器。允许 nil 禁用 (只 slog 不落库)。
-func SetLLMUsageRecorder(r llmusage.Recorder) {
-	llmUsageRecorder = r
-}
-
-// onMessageComplete 每轮 agent 回复结束触发:只做 slog(docker logs | grep agent_usage)实时观测。
-// token 账本已改为 **per-call** 记账(agent 端 claude.ts 每次真实模型调用 → 内网回调落库,一次调用一行),
-// 故这里**不再落库**,否则与 per-call 双计。llmUsageRecorder 仍由 bootstrap 注入(保留接线)但此处不再用。
-func onMessageComplete(ctx context.Context, userID uint, usage agentbridge.AgentUsage) {
-	agentbridge.NewSlogUsageRecorder(FeatureKey)(ctx, userID, usage)
-}
-
 // vipChecker 由 SetVIPChecker 注入(bootstrap)—— 按用户等级(free/pro)做 tier-aware 日额度。
 // vip.Service 自带「未配额→不限额 + Redis 挂→fail-open」,故无需再保留旧的 env 日额度回落。
 var vipChecker *vip.Service
@@ -77,35 +61,42 @@ var vipChecker *vip.Service
 // SetVIPChecker 注入会员限额服务。允许 nil(不限额)。
 func SetVIPChecker(v *vip.Service) { vipChecker = v }
 
-// preUserMessageChain: 先配额检查(超额直接 error 出去, 不记), 通过后记一条提问统计。
-func preUserMessageChain(ctx context.Context, userID uint, _ string) error {
-	if vipChecker != nil {
-		// tier-aware 会员限额。vip.ErrQuotaExceeded → 转成 agentbridge 的 quota_exceeded(干净文案),
-		// 让 WS pipe 回前端 code=quota_exceeded + retryable=false。
-		if err := vipChecker.CheckDailyQuota(ctx, userID); err != nil {
-			if errors.Is(err, vip.ErrQuotaExceeded) {
-				return agentbridge.NewQuotaError(err.Error())
-			}
-			return err
-		}
+// checkQuota / recordQuestion 是给 agentbridge.StandardHooks 的适配闭包:
+// 闭包结构保证 vipChecker/usageRecorder 在**调用时**懒读包级 var(而非 BuildSpec 注册时),
+// 故 SetVIPChecker/SetUsageRecorder 可后于 BuildSpec 调用,顺序无关。
+func checkQuota(ctx context.Context, userID uint) error {
+	if vipChecker == nil {
+		return nil
 	}
-	if usageRecorder != nil {
-		var uid *uint
-		if userID != 0 {
-			u := userID
-			uid = &u
+	// tier-aware 会员限额。vip.ErrQuotaExceeded → 转成 agentbridge 的 quota_exceeded(干净文案),
+	// 让 WS pipe 回前端 code=quota_exceeded + retryable=false。
+	if err := vipChecker.CheckDailyQuota(ctx, userID); err != nil {
+		if errors.Is(err, vip.ErrQuotaExceeded) {
+			return agentbridge.NewQuotaError(err.Error())
 		}
-		usageRecorder.Record(usagestat.Event{
-			UserID:  uid,
-			Feature: usagestat.FeatureSmartSearch,
-			Action:  "question",
-		})
+		return err
 	}
 	return nil
 }
 
+func recordQuestion(uid *uint) {
+	if usageRecorder == nil {
+		return
+	}
+	usageRecorder.Record(usagestat.Event{
+		UserID:  uid,
+		Feature: usagestat.FeatureSmartSearch,
+		Action:  "question",
+	})
+}
+
 // BuildSpec 构造 smart_search 的 FeatureSpec。
 func BuildSpec() agentbridge.FeatureSpec {
+	pre, onComplete := agentbridge.StandardHooks(agentbridge.StandardHooksConfig{
+		FeatureKey:     FeatureKey,
+		CheckQuota:     checkQuota,
+		RecordQuestion: recordQuestion,
+	})
 	return agentbridge.FeatureSpec{
 		Key:                    FeatureKey,
 		AgentName:              agentName,
@@ -113,12 +104,17 @@ func BuildSpec() agentbridge.FeatureSpec {
 		Picker:                 agentbridge.NewStaticPicker(FeatureKey, PromptSlug, PromptName, prompts.SmartSearchSystemPrompt),
 		Color:                  "green",
 		InjectPromptOnFirstMsg: true, // 主 agent 默认带 Bash/Read, 必须强约束
-		AutoApprovePermission:  true, // 只暴露 mcp__minicod__* 只读检索, 无破坏性操作
+		// C14: 审批轴 = auto (backend 自动裁决, 不透传前端)。只暴露 mcp__minicod__* 只读检索, 无破坏性操作。
+		PermissionMode: agentbridge.PermissionAuto,
 		// PingInterval: 0 → 走 agentbridge 默认 25s (< agent idleTimeout 60s)
-
-		// 配额检查 + 提问统计 (见 preUserMessageChain); 0/负数 → 不限额
-		PreUserMessage: preUserMessageChain,
-		// usage: slog (docker logs | grep agent_usage) + 落统一 token 账本 (见 onMessageComplete)
-		OnMessageComplete: onMessageComplete,
+		// C1 (2026-06): smart_search 是只读检索, 不需要 Bash。AllowBash 保持零值 false。
+		// 显式把 Bash 三件套塞进 agent --disallowed-tools(纵深防御:agent 端工具池硬移除);
+		// backend 门由 specDeny 据 AllowBash=false 另行补禁。
+		SessionOptions: &agent.CreateSessionOptions{
+			DisallowedTools: agentbridge.SessionDisallowedTools(nil, false),
+		},
+		// 配额检查 + 提问统计 + slog 用量 收口到 agentbridge.StandardHooks(三 feature 共用)。
+		PreUserMessage:    pre,
+		OnMessageComplete: onComplete,
 	}
 }

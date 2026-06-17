@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2, Search } from 'lucide-react';
 import { EmptyState } from '@/shared/components/EmptyState';
-import { extractPapers, useSearchPapers, type Paper } from '../api/papers';
+import { extractPapers, useSearchPapers, type Paper, type UpstreamSource } from '../api/papers';
 import { useFavoriteCheck } from '../api/library';
 import { useJournalEnrichments } from '@/shared/api/journal-enrichment';
 import {
@@ -142,7 +142,10 @@ export function SearcherColumn({
   // 当前页所有 paperId,批量查"哪些已收藏",卡片用稳定的 Set 判断
   // 引用稳定化:papers 变化才重算,memo 后避免每次父级 re-render 都重建 Set
   const pageIds = useMemo(() => papers.map((p) => p.paperId), [papers]);
-  const favQ = useFavoriteCheck(filters.source, pageIds);
+  // 收藏批查按「结果实际所属源」(综合/auto 会落到某个具体源,结果同源);
+  // filters.source 可能是 'auto',不能直接用。
+  const effectiveSource = (papers[0]?.source ?? 'stc') as UpstreamSource;
+  const favQ = useFavoriteCheck(effectiveSource, pageIds);
   const favoritedIds = favQ.data ?? EMPTY_SET;
 
   // 当前页所有 venue,批量去后端要 JCR/IF/CCF/中科院 等增强信息(命中过的不重发)

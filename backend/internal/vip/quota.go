@@ -13,6 +13,8 @@ package vip
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -21,16 +23,65 @@ import (
 	"scholar-backend/internal/common/cache"
 )
 
-// resetLockShards 把「配额重置」按 user 分片串行化(单实例进程锁)。
+// resetLockShards 把「配额重置」按 user 分片串行化(进程内快路径)。
 // 防 CheckDailyQuota 的 check-then-act 并发双扣:钱包行锁只防透支、不防「两个并发耗尽请求
 // 各自决定重置各扣一次重置费」。256 片足够分散,偶发跨用户假争用可忽略。
-// 多副本部署时换成 Redis SETNX quota:reset:<uid>:<day>。
 var resetLockShards [256]sync.Mutex
 
-func lockUserReset(userID uint) func() {
+// resetUnlockLua 释放锁:仅当值仍是自己持有时才 DEL(防误删他人/已超时重发的锁)。
+const resetUnlockLua = `if redis.call("get", KEYS[1]) == ARGV[1] then return redis.call("del", KEYS[1]) else return 0 end`
+
+// acquireResetLock 获取某用户的「配额重置」互斥锁。双层:
+//   - 进程内分片 mutex:同实例内串行(快、零依赖,Redis 抖动时仍然安全)。
+//   - 跨实例 Redis SETNX(quota:reset:<uid>:<day>,5s TTL):多副本部署下串行化同一用户的重置,
+//     补上 C3「reset lock 计划用 Redis 但未实现 → 单实例押注」的缺口。Redis 不可用 → 仅靠进程内锁
+//     (单实例下等效;多实例下退化到旧行为,fail-open 不阻断功能)。
+//
+// 返回 unlock:释放 Redis 锁(CAS 防误删)后再解进程锁。重置体执行 <100ms,远短于 5s TTL,
+// 正常不会锁过期;TTL 仅防持锁实例崩溃后死锁。
+func (s *Service) acquireResetLock(ctx context.Context, userID uint) func() {
 	m := &resetLockShards[userID%uint(len(resetLockShards))]
 	m.Lock()
-	return m.Unlock
+
+	rdb := cache.GetRedisPersist()
+	if rdb == nil {
+		return m.Unlock // Redis 不可用 → 仅进程内锁
+	}
+	key := fmt.Sprintf("quota:reset:%d:%s", userID, time.Now().Format("20060102"))
+	val := randHex()
+	// 低频操作,自旋等待至多 ~3s 拿跨实例锁;等不到也放行(进程内锁已串行化本实例)。
+	deadline := time.Now().Add(3 * time.Second)
+	held := false
+	for {
+		ok, err := rdb.SetNX(ctx, key, val, 5*time.Second).Result()
+		if err != nil {
+			break // Redis 异常 → 退到仅进程内锁
+		}
+		if ok {
+			held = true
+			break
+		}
+		if time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	return func() {
+		if held {
+			if err := rdb.Eval(ctx, resetUnlockLua, []string{key}, val).Err(); err != nil {
+				slog.Warn("billing: reset redis lock release failed", "user_id", userID, "err", err)
+			}
+		}
+		m.Unlock()
+	}
+}
+
+func randHex() string {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return fmt.Sprintf("%d", time.Now().UnixNano()) // 退化兜底,仅作锁值唯一性
+	}
+	return hex.EncodeToString(b)
 }
 
 // tokenDayKey —— 当日 token 计数 key(含日期,跨 0 点自然换 key = 自动满血)。
@@ -136,7 +187,7 @@ func (s *Service) ResetQuota(ctx context.Context, userID uint) (*ResetResult, er
 //   2. 先校验余额,再【先清计数(Redis 写)、后扣费】:Redis 写失败(宕机/MISCONF)直接返回错误、
 //      不扣费 —— 杜绝旧实现「扣了钱但 DEL 失败仅 Warn 返 nil → 计数没清 → 每条消息再扣一次」的循环扣费。
 func (s *Service) resetInternal(ctx context.Context, userID uint, cfg *BillingConfig) error {
-	unlock := lockUserReset(userID)
+	unlock := s.acquireResetLock(ctx, userID)
 	defer unlock()
 
 	// 「本次重置是否还有必要」:当前生效 tier 的上限下,当日已耗 < 上限 = 不需要重置

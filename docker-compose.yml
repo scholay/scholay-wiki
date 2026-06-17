@@ -254,6 +254,10 @@ services:
       # 与 agent 容器的 ANTHROPIC_API_KEY 同源 (AGENT_INTERNAL_TOKEN)。
       AGENT_BASE_URL: ${AGENT_BASE_URL:-http://scholar_agent:3456}
       AGENT_AUTH_TOKEN: ${AGENT_INTERNAL_TOKEN:-}
+      # C14 审批轴 **dev/测试** 开关: =1 时 claw 切 passthrough(permission_request 透传前端人审,
+      # 绕过后端自动裁决)。默认空 = auto,行为与改造前一致。
+      # ⚠️ docker-compose.prod.yml **故意不含此项**(生产恒 auto);仅本地保留以便测 passthrough/未来 HITL。
+      CLAW_PERMISSION_PASSTHROUGH: ${CLAW_PERMISSION_PASSTHROUGH:-}
       # 智能审稿: backend 按 slug 读审稿人 skill 的「评分人格」段注入评分轮 (见 peerreview)。
       # 只读挂载与 agent 同一份 committed skills 目录 (单一真相源)。
       PEERREVIEW_SKILLS_DIR: ${PEERREVIEW_SKILLS_DIR:-/app/reviewer-skills}
@@ -463,6 +467,9 @@ services:
       <<: *tz-env
     volumes:
       - /etc/localtime:/etc/localtime:ro
+      # 发版灰度:持久化 hash 分包目录,旧版本 chunk 跨重建保留(默认 7 天,见
+      # docker-entrypoint.d/40-sync-site.sh)→ 老标签页发版后跳转不再「页面加载失败」。
+      - ./data/frontend-assets:/usr/share/nginx/html/assets
     expose:
       - "80"
     depends_on:

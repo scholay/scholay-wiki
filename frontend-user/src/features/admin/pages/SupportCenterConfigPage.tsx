@@ -50,6 +50,7 @@ const EMPTY: FormState = {
   feishu_secret: '',
   feishu_notify_feedback: true,
   feishu_notify_email: true,
+  feishu_notify_payment: true,
 };
 
 export function SupportCenterConfigPage() {
@@ -258,6 +259,10 @@ export function SupportCenterConfigPage() {
             <label className="flex items-center gap-2 text-xs text-subtle">
               <Switch checked={form.feishu_notify_email} onCheckedChange={(v) => set('feishu_notify_email', v)} />
               收件箱新邮件时推送
+            </label>
+            <label className="flex items-center gap-2 text-xs text-subtle">
+              <Switch checked={form.feishu_notify_payment} onCheckedChange={(v) => set('feishu_notify_payment', v)} />
+              用户付费成功时推送
             </label>
             <Button size="sm" variant="outline" onClick={handleTestFeishu} disabled={testFeishu.isPending}>
               {testFeishu.isPending && <Loader2 className="size-3.5 animate-spin" />}

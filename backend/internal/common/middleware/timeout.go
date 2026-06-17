@@ -46,7 +46,7 @@ func isObjectServePath(path string) bool {
 	if strings.HasSuffix(path, "/pdf") || strings.HasSuffix(path, "/download") {
 		return true
 	}
-	for _, p := range []string{"/feedback/attachment/", "/claw/artifact/", "/tools/logo/"} {
+	for _, p := range []string{"/feedback/attachment/", "/claw/artifact/", "/tools/logo/", "/submission/"} {
 		if strings.Contains(path, p) {
 			return true
 		}

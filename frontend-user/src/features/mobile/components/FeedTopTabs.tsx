@@ -2,6 +2,8 @@ import { useNavigate } from 'react-router-dom';
 import { Search, SlidersHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
+import { primeMobileKeyboard } from '@/shared/lib/ios-keyboard';
+import { useMobileSearchOverlay } from '@/stores/mobile-search.store';
 
 const TABS = [
   { key: 'papers', label: '论文', to: '/m/feed' },
@@ -18,6 +20,7 @@ export type FeedTabKey = (typeof TABS)[number]['key'];
  */
 export function FeedTopTabs({ active }: { active: FeedTabKey }) {
   const navigate = useNavigate();
+  const openSearch = useMobileSearchOverlay((s) => s.openSearch);
   const comingSoon = () => toast.info('移动端即将上线,敬请期待');
 
   return (
@@ -26,7 +29,7 @@ export function FeedTopTabs({ active }: { active: FeedTabKey }) {
         type="button"
         aria-label="筛选"
         onClick={comingSoon}
-        className="text-muted-foreground"
+        className="text-muted-foreground transition-transform active:scale-90"
       >
         <SlidersHorizontal className="size-5" />
       </button>
@@ -70,8 +73,13 @@ export function FeedTopTabs({ active }: { active: FeedTabKey }) {
       <button
         type="button"
         aria-label="搜索"
-        onClick={comingSoon}
-        className="text-muted-foreground"
+        // 搜索对象跟随当前 tab:期刊 tab 搜期刊,其余(论文/情报)搜论文。
+        // 先在手势同步栈里 primeMobileKeyboard() 唤起软键盘,浮层挂载后输入框接管焦点 → 键盘不收起。
+        onClick={() => {
+          primeMobileKeyboard();
+          openSearch(active === 'journals' ? 'journals' : 'papers');
+        }}
+        className="text-muted-foreground transition-transform active:scale-90"
       >
         <Search className="size-5" />
       </button>

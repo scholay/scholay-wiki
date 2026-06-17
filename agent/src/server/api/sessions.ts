@@ -384,15 +384,21 @@ async function handleSessionWorkspaceRoute(
 }
 
 async function createSession(req: Request): Promise<Response> {
-  let body: { workDir?: string; repository?: CreateSessionRepositoryOptions; disallowedTools?: string[]; addDirs?: string[] }
+  let body: { workDir?: string; repository?: CreateSessionRepositoryOptions; disallowedTools?: string[]; addDirs?: string[]; appendSystemPrompt?: string }
   try {
-    body = (await req.json()) as { workDir?: string; repository?: CreateSessionRepositoryOptions; disallowedTools?: string[]; addDirs?: string[] }
+    body = (await req.json()) as { workDir?: string; repository?: CreateSessionRepositoryOptions; disallowedTools?: string[]; addDirs?: string[]; appendSystemPrompt?: string }
   } catch {
     throw ApiError.badRequest('Invalid JSON body')
   }
 
   if (body.workDir && typeof body.workDir !== 'string') {
     throw ApiError.badRequest('workDir must be a string')
+  }
+
+  // 系统级附加提示词(规则 + per-user 长期记忆):backend 在建会话时下发, 落进 session-meta,
+  // 每次冷启以 --append-system-prompt 注入到模型 system prompt —— 取代旧的「写进首条 user_message」。
+  if (body.appendSystemPrompt !== undefined && typeof body.appendSystemPrompt !== 'string') {
+    throw ApiError.badRequest('appendSystemPrompt must be a string')
   }
 
   // per-feature 工具策略: 该会话独有的 --disallowed-tools(评分会话用它关 Skill/Agent)。
@@ -421,7 +427,7 @@ async function createSession(req: Request): Promise<Response> {
     }
   }
 
-  const result = await sessionService.createSession(body.workDir, body.repository, body.disallowedTools, body.addDirs)
+  const result = await sessionService.createSession(body.workDir, body.repository, body.disallowedTools, body.addDirs, body.appendSystemPrompt)
   recentProjectsCache = null
   return Response.json(result, { status: 201 })
 }

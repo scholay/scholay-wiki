@@ -8,8 +8,12 @@
 package minicod
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
 	"log/slog"
+	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -46,6 +50,25 @@ type HotContentRecorder interface {
 	RecordImpressions(papers []hotcontent.PaperViewData) error
 }
 
+// FavoriteChecker 由 library.Handler 实现 —— 把「当前用户是否已收藏」标注进搜索结果,
+// 让结果直接显示「已收藏」、省掉前端额外的 /user/library/check 往返。
+// 用接口注入(而非 minicod import library)避免反向依赖。
+type FavoriteChecker interface {
+	CheckFavorites(userID uint64, source string, ids []string) map[string]bool
+}
+
+// MembershipChecker 由 vip.Service 实现(EffectiveTier(uint) string)。
+// 仅用于「期刊投稿资源下载」的会员门槛(Max 专享),用接口注入避免 minicod import vip。
+type MembershipChecker interface {
+	EffectiveTier(userID uint) string
+}
+
+// membershipTierMax 与 vip.TierMax 同值;此处不 import vip,用常量对齐(见 vip/model.go)。
+const membershipTierMax = "max"
+
+// 投稿资源下载门槛未达时返回的业务码(前端据此弹「升级到 Max」)。
+const codeJournalSubmissionUpgradeRequired = 40310
+
 // Handler handles HTTP requests for Minicod API
 type Handler struct {
 	manager            *Manager
@@ -53,6 +76,8 @@ type Handler struct {
 	journalSEORecorder JournalSEORecorder
 	hotRecorder        HotContentRecorder
 	statRecorder       usagestat.Recorder
+	favChecker         FavoriteChecker
+	membership         MembershipChecker
 }
 
 // NewHandler creates a new Minicod handler
@@ -80,6 +105,63 @@ func (h *Handler) SetHotContentRecorder(r HotContentRecorder) {
 // SetUsageStatRecorder 注入使用统计录入器(用户实际提交搜索时记一次)
 func (h *Handler) SetUsageStatRecorder(r usagestat.Recorder) {
 	h.statRecorder = r
+}
+
+// SetFavoriteChecker 注入收藏态查询器(已登录时给搜索结果标注 isFavorited)
+func (h *Handler) SetFavoriteChecker(fc FavoriteChecker) {
+	h.favChecker = fc
+}
+
+// SetMembershipChecker 注入会员等级查询器(期刊投稿资源下载的 Max 门槛)。
+func (h *Handler) SetMembershipChecker(m MembershipChecker) {
+	h.membership = m
+}
+
+// optionalUserID 从 gin 上下文读 user_id(OptionalUserAuth 注入;匿名返回 0)。
+func optionalUserID(c *gin.Context) uint64 {
+	v, ok := c.Get("user_id")
+	if !ok {
+		return 0
+	}
+	switch id := v.(type) {
+	case uint64:
+		return id
+	case uint:
+		return uint64(id)
+	case int:
+		return uint64(id)
+	case int64:
+		return uint64(id)
+	case float64:
+		return uint64(id)
+	default:
+		return 0
+	}
+}
+
+// annotateFavorites 给搜索结果逐篇标注 isFavorited(在公共缓存命中之后、逐请求标注,不污染缓存)。
+// source=all 时各篇 source 不同 → 按 source 分组分别查。
+func annotateFavorites(uid uint64, papers []Paper, fc FavoriteChecker) {
+	bySource := make(map[string][]string)
+	for i := range papers {
+		if papers[i].PaperID == "" || papers[i].Source == "" {
+			continue
+		}
+		bySource[papers[i].Source] = append(bySource[papers[i].Source], papers[i].PaperID)
+	}
+	favored := make(map[string]bool) // key = source + "\x00" + paperID
+	for src, ids := range bySource {
+		for id := range fc.CheckFavorites(uid, src, ids) {
+			favored[src+"\x00"+id] = true
+		}
+	}
+	for i := range papers {
+		// new(bool) 每轮新分配 —— fav 本是 body 作用域(各版本 Go 都逐轮新建,取址安全),
+		// 这里写成最不易误读的形式,杜绝「取循环变量地址」的歧义。
+		fav := new(bool)
+		*fav = favored[papers[i].Source+"\x00"+papers[i].PaperID]
+		papers[i].IsFavorited = fav
+	}
 }
 
 // paperToViewData 把上游 Paper 映射成 hotcontent 落库用的 PaperViewData。
@@ -164,6 +246,18 @@ type SearchPapersResponse struct {
 	SearchStrategy    string   `json:"searchStrategy"`
 }
 
+// searchSourceOrder 决定一次搜索依次尝试哪些源:
+//   - "" / "auto" → 自动换源 stc → olx → pmd(某源上游报错则换下一个,任一成功即返回)
+//   - 具体源       → 只查该源(用户手动选源时不自动换)
+func searchSourceOrder(source string) []string {
+	switch source {
+	case "", "auto":
+		return []string{SourceSTC, SourceOLX, SourcePMD}
+	default:
+		return []string{source}
+	}
+}
+
 // SearchPapers handles paper search requests
 // POST /api/v1/scholar/papers/search
 func (h *Handler) SearchPapers(c *gin.Context) {
@@ -217,10 +311,29 @@ func (h *Handler) SearchPapers(c *gin.Context) {
 		opts.Offset = 0
 	}
 
-	result, err := h.manager.SearchPapers(c.Request.Context(), opts)
-	if err != nil {
+	// 自动换源:source 为空 / "auto" 时按 stc→olx→pmd 依次尝试,某源上游报错就换下一个;
+	// 用户显式选了某个源(stc/olx/pmd)则只查该源、不换(尊重用户选择)。
+	var result *SearchResponse
+	var err error
+	for _, src := range searchSourceOrder(req.Source) {
+		o := opts
+		o.Source = src
+		result, err = h.manager.SearchPapers(c.Request.Context(), o)
+		if err == nil {
+			break
+		}
+		slog.Warn("minicod search: source failed, trying next", "source", src, "err", err)
+	}
+	if err != nil || result == nil {
 		utils.Error(c, 4002, "搜索论文失败,请稍后重试")
 		return
+	}
+
+	// 已登录:逐请求标注 isFavorited(在公共缓存命中之后,不污染按 query 缓存的公共结果)。
+	if h.favChecker != nil && result != nil && len(result.Data) > 0 {
+		if uid := optionalUserID(c); uid != 0 {
+			annotateFavorites(uid, result.Data, h.favChecker)
+		}
 	}
 
 	response := SearchPapersResponse{
@@ -499,7 +612,7 @@ func (h *Handler) SearchJournals(c *gin.Context) {
 			map[string]any{"keyword": req.Keyword})
 	}
 
-	utils.Success(c, result)
+	utils.Success(c, redactJournalSubmissionURLs(result))
 }
 
 // ListJournals handles journal listing requests
@@ -522,7 +635,7 @@ func (h *Handler) ListJournals(c *gin.Context) {
 		return
 	}
 
-	utils.Success(c, result)
+	utils.Success(c, redactJournalSubmissionURLs(result))
 }
 
 // GetJournal handles get journal detail requests
@@ -558,7 +671,9 @@ func (h *Handler) GetJournal(c *gin.Context) {
 		}
 	}
 
-	utils.Success(c, result)
+	// 抹掉投稿资源下载地址再回前端(保留 has_guideline/has_latex/latex_class)——
+	// 下载必须走 Max 会员专享的后端代理,不能让公开详情泄漏上游可直链的下载地址。
+	utils.Success(c, redactJournalSubmissionURLs(result))
 }
 
 // buildJournalSEOSeed 从 GetJournal raw 响应里抽出 SEO 入库需要的字段。
@@ -704,7 +819,207 @@ func (h *Handler) JournalsByNames(c *gin.Context) {
 		utils.Error(c, 4040, "批量加载期刊失败,请稍后重试")
 		return
 	}
-	utils.Success(c, result)
+	utils.Success(c, redactJournalSubmissionURLs(result))
+}
+
+// ======================== 投稿资源 (submission, v2) ========================
+
+// redactJournalSubmissionURLs 把 journal 响应里 submission.{guideline_url,latex_url}
+// 抹成 null,防止公开端点把上游可直链的下载地址泄漏给非会员。
+// 常见路径(无 full / 无 submission)零成本:先按子串探测,没命中就原样返回。
+func redactJournalSubmissionURLs(raw json.RawMessage) json.RawMessage {
+	if len(raw) == 0 {
+		return raw
+	}
+	// 真实下载地址键:sources.submission.latex.zip_url / sources.submission.guidelines_md_url
+	//(老文档里的 guideline_url / latex_url 一并兜底)。都不出现就零成本返回。
+	if !bytes.Contains(raw, []byte("zip_url")) &&
+		!bytes.Contains(raw, []byte("guidelines_md_url")) &&
+		!bytes.Contains(raw, []byte("guideline_url")) &&
+		!bytes.Contains(raw, []byte("latex_url")) {
+		return raw
+	}
+	var v any
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return raw
+	}
+	redactSubmissionURLsDeep(v)
+	if b, err := json.Marshal(v); err == nil {
+		return b
+	}
+	return raw
+}
+
+// redactSubmissionURLsDeep 递归把投稿下载地址键置 null。这些键(zip_url /
+// guidelines_md_url / guideline_url / latex_url)只出现在 submission 子树里,
+// 直接全局抹掉即可 —— 防止公开端点泄漏上游可直链的下载地址(下载须走 Max 会员专享代理)。
+func redactSubmissionURLsDeep(v any) {
+	urlKeys := []string{"zip_url", "guidelines_md_url", "guideline_url", "latex_url"}
+	switch t := v.(type) {
+	case map[string]any:
+		for _, k := range urlKeys {
+			if _, ok := t[k]; ok {
+				t[k] = nil
+			}
+		}
+		for _, val := range t {
+			redactSubmissionURLsDeep(val)
+		}
+	case []any:
+		for _, val := range t {
+			redactSubmissionURLsDeep(val)
+		}
+	}
+}
+
+// DownloadJournalSubmission 期刊投稿资源下载(投稿须知 .md / LaTeX 模板 .zip)。
+// GET /api/v1/user/journals/:id/submission/:kind  (kind = guideline | latex)
+//
+// Max 会员专享:后端校验 tier=max → 取 full=1 详情里的真实下载地址 → 流式代理回传
+// (上游 key 不出后端;真实下载地址不暴露给前端)。
+func (h *Handler) DownloadJournalSubmission(c *gin.Context) {
+	id, err := strconv.Atoi(strings.TrimSpace(c.Param("id")))
+	if err != nil || id <= 0 {
+		utils.Error(c, 40001, "无效的期刊 ID")
+		return
+	}
+	kind := c.Param("kind")
+	if kind != "guideline" && kind != "latex" {
+		utils.Error(c, 40001, "无效的资源类型")
+		return
+	}
+
+	uid, ok := utils.GetUserID(c)
+	if !ok {
+		utils.Unauthorized(c, "请先登录")
+		return
+	}
+	if h.membership == nil || h.membership.EffectiveTier(uid) != membershipTierMax {
+		utils.ForbiddenWithCode(c, codeJournalSubmissionUpgradeRequired,
+			"投稿须知与 LaTeX 模板下载为 Max 会员专享,升级后即可下载")
+		return
+	}
+
+	raw, err := h.manager.GetJournal(c.Request.Context(), id, "1")
+	if err != nil {
+		utils.Error(c, 4032, "加载期刊投稿资源失败,请稍后重试")
+		return
+	}
+	name, sub := extractJournalSubmission(raw)
+	if sub == nil {
+		utils.Error(c, 40401, "该期刊暂无投稿资源")
+		return
+	}
+
+	var dlURL, contentType, fileSuffix string
+	switch kind {
+	case "guideline":
+		if sub.HasGuideline {
+			dlURL = sub.GuidelineURL
+		}
+		contentType = "text/markdown; charset=utf-8"
+		fileSuffix = "-投稿须知.md"
+	case "latex":
+		if sub.HasLatex {
+			dlURL = sub.LatexURL
+		}
+		contentType = "application/zip"
+		fileSuffix = "-LaTeX模板.zip"
+	}
+	if strings.TrimSpace(dlURL) == "" {
+		utils.Error(c, 40401, "该期刊暂无该投稿资源")
+		return
+	}
+
+	resp, err := h.manager.DownloadJournalSubmissionFile(c.Request.Context(), dlURL)
+	if err != nil {
+		slog.Warn("journal submission download failed", "journal_id", id, "kind", kind, "err", err)
+		utils.Error(c, 4032, "下载投稿资源失败,请稍后重试")
+		return
+	}
+	defer resp.Body.Close()
+
+	if name == "" {
+		name = "journal-" + strconv.Itoa(id)
+	}
+	filename := sanitizeFilename(name) + fileSuffix
+	if upstreamCT := resp.Header.Get("Content-Type"); upstreamCT != "" && !strings.HasPrefix(upstreamCT, "text/html") {
+		contentType = upstreamCT
+	}
+	c.Header("Content-Type", contentType)
+	if cl := resp.Header.Get("Content-Length"); cl != "" {
+		c.Header("Content-Length", cl)
+	}
+	// RFC 5987: ASCII 回退 + UTF-8 文件名,中文名才不乱码。
+	c.Header("Content-Disposition",
+		"attachment; filename=\"submission"+fileSuffix+"\"; filename*=UTF-8''"+url.PathEscape(filename))
+	c.Status(http.StatusOK)
+	if _, err := io.Copy(c.Writer, resp.Body); err != nil {
+		slog.Warn("journal submission stream copy failed", "journal_id", id, "kind", kind, "err", err)
+	}
+}
+
+// extractJournalSubmission 从 /v1/jnl/get full=1 原始响应里取出 canonical_name + submission。
+//
+// 实测上游真实结构(文档里那个扁平 JournalSubmission schema 不准):
+//
+//	data.sources.submission = {
+//	  main: { has_guideline, has_latex, ... },
+//	  latex: { class, zip_url },          // zip_url 是相对地址,如 /api/submission/file/latex%2Fxxx.zip
+//	  guidelines_md_url: "..."            // 投稿须知 .md 下载地址
+//	}
+func extractJournalSubmission(raw json.RawMessage) (string, *JournalSubmission) {
+	var env struct {
+		CanonicalName string `json:"canonical_name"`
+		Unified       struct {
+			CanonicalName string `json:"canonical_name"`
+		} `json:"unified"`
+		Sources struct {
+			Submission *struct {
+				Main struct {
+					HasGuideline bool `json:"has_guideline"`
+					HasLatex     bool `json:"has_latex"`
+				} `json:"main"`
+				Latex struct {
+					Class  string `json:"class"`
+					ZipURL string `json:"zip_url"`
+				} `json:"latex"`
+				GuidelinesMdURL string `json:"guidelines_md_url"`
+			} `json:"submission"`
+		} `json:"sources"`
+	}
+	if err := json.Unmarshal(raw, &env); err != nil {
+		return "", nil
+	}
+	name := env.CanonicalName
+	if name == "" {
+		name = env.Unified.CanonicalName
+	}
+	s := env.Sources.Submission
+	if s == nil {
+		return name, nil
+	}
+	return name, &JournalSubmission{
+		HasGuideline: s.Main.HasGuideline,
+		HasLatex:     s.Main.HasLatex,
+		LatexClass:   s.Latex.Class,
+		GuidelineURL: s.GuidelinesMdURL,
+		LatexURL:     s.Latex.ZipURL,
+	}
+}
+
+// sanitizeFilename 去掉文件名里的路径分隔符 / 控制字符,截断到合理长度。
+func sanitizeFilename(s string) string {
+	s = strings.TrimSpace(s)
+	repl := strings.NewReplacer("/", "_", "\\", "_", "\n", " ", "\r", " ", "\t", " ", "\"", "")
+	s = repl.Replace(s)
+	if r := []rune(s); len(r) > 80 {
+		s = string(r[:80])
+	}
+	if s == "" {
+		s = "journal"
+	}
+	return s
 }
 
 // SuggestJournals returns journal-name prefix autocomplete suggestions.

@@ -142,17 +142,18 @@ func (s *Service) GetUserMetrics(days int, granularity string) (*UserMetrics, er
 	}
 
 	// --- 3. hourly_activity 24h 柱状 ---
-	// 基于「时间窗口 days 内最后登录时间」的 0..23 桶 —— 反映用户活跃时段。
-	// 用 HOUR(last_login_at) 不区分时区,假设服务时区为业务时区 (docker UTC+8)。
+	// 基于「时间窗口 days 内最后活跃时间」的 0..23 桶 —— 反映用户活跃时段。
+	// 用 COALESCE(last_active_at, last_login_at): 优先真实使用时间, 老数据(还没产生活跃记录)
+	// 回落到 last_login_at, 避免迁移后指标一夜归零。不区分时区(服务时区即业务时区 UTC+8)。
 	var hourRows []struct {
 		Hour  int
 		Total int64
 	}
 	db.Raw(`
-		SELECT HOUR(last_login_at) AS hour, COUNT(*) AS total
+		SELECT HOUR(COALESCE(last_active_at, last_login_at)) AS hour, COUNT(*) AS total
 		FROM users
-		WHERE last_login_at IS NOT NULL
-		  AND last_login_at >= ?
+		WHERE COALESCE(last_active_at, last_login_at) IS NOT NULL
+		  AND COALESCE(last_active_at, last_login_at) >= ?
 		  AND role NOT IN ('admin','super_admin')
 		GROUP BY hour
 		ORDER BY hour ASC
@@ -167,7 +168,8 @@ func (s *Service) GetUserMetrics(days int, granularity string) (*UserMetrics, er
 	}
 
 	// --- 4. mau_trend 最近 12 个月 ---
-	// 每个月格子 = 该月最后一天往前 30 天内 last_login_at 不为空的用户数。
+	// 每个月格子 = 该月最后一天往前 30 天内「最后活跃」不为空的用户数(MAU 看的是活跃, 非登录)。
+	// 用 COALESCE(last_active_at, last_login_at): 优先真实使用时间, 老数据回落 last_login_at。
 	// 当前月格子用「今天往前 30 天」,与首页 KPI 对齐。
 	for i := 11; i >= 0; i-- {
 		anchor := time.Date(now.Year(), now.Month()-time.Month(i), 1, 0, 0, 0, 0, now.Location())
@@ -182,9 +184,9 @@ func (s *Service) GetUserMetrics(days int, granularity string) (*UserMetrics, er
 		var count int64
 		db.Raw(`
 			SELECT COUNT(*) FROM users
-			WHERE last_login_at IS NOT NULL
-			  AND last_login_at >= ?
-			  AND last_login_at <= ?
+			WHERE COALESCE(last_active_at, last_login_at) IS NOT NULL
+			  AND COALESCE(last_active_at, last_login_at) >= ?
+			  AND COALESCE(last_active_at, last_login_at) <= ?
 			  AND role NOT IN ('admin','super_admin')
 		`, windowStart, windowEnd).Scan(&count)
 		out.MAUTrend = append(out.MAUTrend, MetricsPoint{

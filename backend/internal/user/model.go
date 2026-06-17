@@ -28,8 +28,12 @@ type User struct {
 	AdminNotes    string     `gorm:"column:admin_notes;type:text" json:"admin_notes,omitempty"`
 	EmailVerified bool       `gorm:"not null;default:false" json:"email_verified"`
 	PhoneVerified bool       `gorm:"not null;default:false" json:"phone_verified"`
-	LastLoginAt   *time.Time `json:"last_login_at"`
+	LastLoginAt   *time.Time `json:"last_login_at"`                // 最后一次「登录动作」时间(+IP);不反映持续使用
 	LastLoginIP   *string    `gorm:"size:45" json:"last_login_ip"` // 最后登录IP
+	// LastActiveAt 最后活跃(真实使用)时间: 每次通过鉴权的 user 请求异步节流更新(0036),
+	// 反映用户最后实际使用时间(而非仅登录动作)。可空(DEFAULT NULL),注册时 nil → 插 NULL 即可,
+	// 故不需要 vip 列那种 `->` 守卫;由 repo.UpdateLastActive 专门更新。
+	LastActiveAt *time.Time `gorm:"column:last_active_at" json:"last_active_at"`
 	// 会员(VIP)—— 列由迁移 0008 加在 users 表;internal/vip 是写侧真源, 这里只读出来给 admin 列表展示。
 	// 关键:加 GORM `->`(只读权限),让本模型的 Create/Update **永不写** 这两列。否则注册时
 	// nil 指针会被当成显式 NULL 插入(vip_tier NOT NULL DEFAULT 'free' → 报 1048 Column 'vip_tier'

@@ -243,9 +243,12 @@ interface RawJournal {
   jcr_quartile?: string;
   fqb_major_quartile?: string;
   fqb_top?: string | boolean;
+  xr_major_quartile?: string | null;
+  xr_top?: string | boolean | null;
   ccf_rank?: string | null;
   gjqk_year?: number | null;
   gjqk_warning_level?: string | null;
+  has_submission?: number | boolean | null;
 }
 
 function normalizeSearchPayload(
@@ -283,6 +286,7 @@ function normalizeJournal(r: RawJournal): Journal {
   const ifNum = parseNumberLoose(r.jcr_impact_factor);
   const fqbStr = String(r.fqb_major_quartile ?? '').trim();
   const fqbMatch = fqbStr.match(/^([1-4])/);
+  const xrMatch = String(r.xr_major_quartile ?? '').trim().match(/^([1-4])/);
 
   const issns = [r.issn_l, r.print_issn, r.electronic_issn]
     .filter((s): s is string => !!s && !!s.trim())
@@ -318,6 +322,8 @@ function normalizeJournal(r: RawJournal): Journal {
     jcr_impact_factor: ifNum,
     jcr_quartile: r.jcr_quartile?.toString().toUpperCase() || undefined,
     fqb_quartile: fqbMatch ? fqbMatch[1] : undefined,
+    xr_quartile: xrMatch ? xrMatch[1] : undefined,
+    xr_top: r.xr_top === true || r.xr_top === '是' || r.xr_top === '1',
     ccf_rank: r.ccf_rank ? r.ccf_rank.toString().toUpperCase() : undefined,
     openalex_h_index:
       typeof r.openalex_h_index === 'number' && r.openalex_h_index > 0
@@ -326,6 +332,8 @@ function normalizeJournal(r: RawJournal): Journal {
     gjqk_warning: isRecentWarning(r),
     source_count: r.source_count,
     sources,
+    has_submission:
+      r.has_submission === 1 || r.has_submission === true || undefined,
   };
 }
 

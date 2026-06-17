@@ -328,14 +328,24 @@ function JournalCard({
               {j.is_oa && <> · OA</>}
             </div>
           </div>
-          {j.gjqk_warning && (
-            <span
-              className="shrink-0 inline-flex items-center gap-1 h-6 px-2 rounded-sm bg-warning-soft text-brand-amber text-2xs font-bold"
-              title="中科院预警期刊"
-            >
-              ⚠ 预警
-            </span>
-          )}
+          <div className="shrink-0 flex items-center gap-1.5">
+            {j.xr_quartile && (
+              <span
+                className="inline-flex items-center h-6 px-2 rounded-sm bg-brand-green/10 text-brand-green text-2xs font-bold"
+                title="中科院新锐分区"
+              >
+                新锐 {j.xr_quartile} 区
+              </span>
+            )}
+            {j.gjqk_warning && (
+              <span
+                className="inline-flex items-center gap-1 h-6 px-2 rounded-sm bg-warning-soft text-brand-amber text-2xs font-bold"
+                title="中科院预警期刊"
+              >
+                ⚠ 预警
+              </span>
+            )}
+          </div>
         </div>
 
         {/* KPI 三栏 —— .pen `YpqvW`(rounded-8 border) */}
@@ -366,6 +376,14 @@ function JournalCard({
             {(j.source_count ?? 0) > 0 && (
               <span className="inline-flex items-center h-5 px-2 rounded-sm bg-surface-2 text-subtle text-2xs">
                 {j.source_count} 个数据源
+              </span>
+            )}
+            {j.has_submission && (
+              <span
+                className="inline-flex items-center h-5 px-2 rounded-sm bg-prism-badge-bg text-prism-badge-fg text-2xs font-medium"
+                title="提供投稿须知 / LaTeX 模板(Max 会员可下载)"
+              >
+                投稿资源
               </span>
             )}
           </div>

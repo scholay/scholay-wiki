@@ -144,9 +144,11 @@ func (b *Bridge) ServerSideChatStreaming(
 	}
 
 	var (
-		textBuf  strings.Builder
-		usage    *ChatUsage
-		complete bool
+		textBuf      strings.Builder
+		usage        *ChatUsage
+		calls        []AgentUsage
+		sessionTotal *AgentUsage
+		complete     bool
 	)
 
 	// 应用层 ping 让 agent Bun.serve idleTimeout 不触发 (跟 HandleWS 同款)
@@ -208,11 +210,17 @@ func (b *Bridge) ServerSideChatStreaming(
 		case "permission_request":
 			// 路径感知裁决 (跟 HandleWS 同一函数): MCP 放行, 文件工具仅会话 cwd 内放行。
 			// decidePermission 直接吃原始帧 (含 toolName/input), 回完整 permission_response 字节。
+			//
+			// C14 审批轴: server-side 没有前端 WS, 没人能做人审, 故**只支持 auto** —— 无条件
+			// 自动裁决。唯一调用方 peerreview 的 spec 本就是 PermissionAuto, 行为不变。若将来有
+			// server-side feature 想要 passthrough, 需另设回调 (这里没有 *FeatureBridge / spec 可读)。
 			if reply, ok := decidePermission(raw, sessionWorkDir, denyTools); ok {
 				_ = writeMsg(gorillaws.TextMessage, reply)
 			}
 		case "message_complete":
 			usage = ev.Usage
+			calls = ev.Calls
+			sessionTotal = ev.SessionTotal
 			complete = true
 		case "pong", "connected":
 			// 心跳应答 / 握手 ack — 忽略
@@ -221,28 +229,41 @@ func (b *Bridge) ServerSideChatStreaming(
 		}
 	}
 
-	// token 账本已改为 **per-call** 记账(agent 端 claude.ts 每次真实模型调用 → 内网回调一次一行)。
-	// peerreview 的 server-side 流同样跑在 CLI 子进程内,其每次调用已被 per-call 覆盖,
-	// 故此处不再落库,否则与 per-call 双计。(recordServerSideUsage 暂保留未调用,便于回退。)
+	// 带内 token 账本(server-side,如 peerreview):message_complete 带回本轮 per-call 明细(calls)
+	// 与会话累计(session_total)。归属(user/feature)取 ctx 里的 llmusage.Call —— peerreview 的
+	// reviewCallCtxWith 注入(此前是「记账死代码」,现接上)。用 accrueTurnUsage 按会话累计水位算增量、
+	// 自愈丢帧、防重连双计,与 WS pipe 路同一套。不再依赖已删除的 HTTP per-call 旁路。
+	if b.llmRec != nil {
+		if rows := b.accrueTurnUsage(sessionID, chatUsageToAgentUsage(usage), calls, sessionTotal); len(rows) > 0 {
+			call := llmusage.CallFromCtx(ctx)
+			feature := call.Feature
+			if feature == "" {
+				feature = llmusage.FeaturePeerReview // server-side 当前唯一用途;无 ctx 归属时兜底
+			}
+			uid, feat, sid, rec := call.UserID, feature, sessionID, b.llmRec
+			safego.Go("agentbridge-serverside-usage-record:"+feat, func() {
+				for i := range rows {
+					recordAgentTokens(rec, uid, feat, sid, rows[i])
+				}
+			})
+		}
+	}
 
 	return textBuf.String(), usage, nil
 }
 
-// recordServerSideUsage 把一轮 server-side chat 的 token 落到统一账本 (best-effort)。
-// usage==nil (上游没吐) 或未注入 recorder 时跳过。feature/user/request_id 从 ctx 的
-// llmusage.Call 取 —— peerreview 在各 flow 入口用 WithCall 标好。
-func (b *Bridge) recordServerSideUsage(ctx context.Context, modelID string, usage *ChatUsage) {
-	if b.llmRec == nil || usage == nil {
-		return
+// chatUsageToAgentUsage 把 message_complete.usage(ChatUsage,无 model)转成 AgentUsage,
+// 仅作 accrueTurnUsage 的整轮兜底(per-call 明细缺失时给对账补差行用;model 留空)。
+func chatUsageToAgentUsage(u *ChatUsage) AgentUsage {
+	if u == nil {
+		return AgentUsage{}
 	}
-	call := llmusage.CallFromCtx(ctx)
-	recordAgentTokens(b.llmRec, call.UserID, call.Feature, call.RequestID, AgentUsage{
-		Model:               modelID,
-		InputTokens:         usage.InputTokens,
-		OutputTokens:        usage.OutputTokens,
-		CacheReadTokens:     usage.CacheReadTokens,
-		CacheCreationTokens: usage.CacheCreationTokens,
-	})
+	return AgentUsage{
+		InputTokens:         u.InputTokens,
+		OutputTokens:        u.OutputTokens,
+		CacheReadTokens:     u.CacheReadTokens,
+		CacheCreationTokens: u.CacheCreationTokens,
+	}
 }
 
 // serverEvent 是 agent S→C 消息的最小子集 — 只把我们 ServerSideChat 关心的字段抽出来。
@@ -256,6 +277,9 @@ type serverEvent struct {
 	BlockType string     `json:"blockType,omitempty"` // content_start: "text" | "tool_use"
 	ToolName  string     `json:"toolName,omitempty"`  // content_start (tool_use)
 	State     string     `json:"state,omitempty"`     // status
+	// ─── 带内 token 账本(message_complete 携带)──────────────────────────────
+	Calls        []AgentUsage `json:"calls,omitempty"`         // 本轮每次模型调用的 per-call 明细
+	SessionTotal *AgentUsage  `json:"session_total,omitempty"` // 会话累计快照(水位自愈用)
 }
 
 // toolStatusNote — 把工具名翻译成给用户看的中文进度提示。

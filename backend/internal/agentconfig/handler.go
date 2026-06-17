@@ -9,7 +9,6 @@ package agentconfig
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -42,8 +41,10 @@ func (h *Handler) GetConfig(c *gin.Context) {
 
 // UpdateConfig 全量覆盖单行配置。
 // 密钥按"留空 / 仍是遮罩(MaskSensitiveData 返回 <前4>****<后4>)→ 保留旧值"。
-// 之前的注释把责任推给前端 "前端要先用 ?show_sensitive=true 拿明文" —— 不够稳, 现
-// 在 server 自己识别遮罩 contains "****", 切 enabled / 改 baseURL 时不会再洗掉真 token。
+// 之前的注释把责任推给前端 "前端要先用 ?show_sensitive=true 拿明文" —— 不够稳, 现在 server
+// 自己识别遮罩, 切 enabled / 改 baseURL 时不会再洗掉真 token。
+// C22: 用「精确等于当前 key 的遮罩形态」判定, 不再 strings.Contains(..., "****") ——
+// 否则真 key 若恰含 "****" 子串会被误判成遮罩而静默丢弃。
 func (h *Handler) UpdateConfig(c *gin.Context) {
 	var config AgentConfig
 	if err := c.ShouldBindJSON(&config); err != nil {
@@ -51,7 +52,7 @@ func (h *Handler) UpdateConfig(c *gin.Context) {
 		return
 	}
 	if existing, err := h.service.GetConfig(); err == nil && existing != nil {
-		if config.APIKey == "" || strings.Contains(config.APIKey, "****") {
+		if config.APIKey == "" || config.APIKey == existing.MaskSensitiveData().APIKey {
 			config.APIKey = existing.APIKey
 		}
 	}

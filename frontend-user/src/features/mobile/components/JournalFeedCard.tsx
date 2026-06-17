@@ -1,25 +1,39 @@
-import { memo } from 'react';
-import { Bell, Bookmark, FolderPlus, Share2 } from 'lucide-react';
+import { lazy, memo, Suspense } from 'react';
+import { Bookmark, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
 import { JournalCover } from '@/shared/components/JournalCover';
-import type { JournalListUnified } from '@/shared/api/types';
+import type { Journal, JournalListUnified } from '@/shared/api/types';
+import { useShareSheet } from '@/stores/share.store';
 import { formatNumeric, parseFqbQuartile } from '../api/journal-feed';
-import { JournalTrendChart } from './JournalTrendChart';
 
-async function shareJournal(j: JournalListUnified) {
-  const url = `${window.location.origin}/journals?keyword=${encodeURIComponent(j.canonical_name)}`;
-  const payload = { title: `${j.canonical_name} - Scholay 期刊`, url };
-  if (navigator.share) {
-    try {
-      await navigator.share(payload);
-      return;
-    } catch {
-      return;
-    }
-  }
-  await navigator.clipboard.writeText(`${payload.title}\n${url}`);
-  toast.success('链接已复制');
+// recharts(~325KB)单独切块,懒加载:仅当某张期刊卡成为「当前激活卡」才拉趋势图代码,
+// 刷期刊 feed 的首屏 JS 不再背 recharts → TTI 更快。
+const JournalTrendChart = lazy(() =>
+  import('@/shared/components/JournalTrendChart').then((m) => ({
+    default: m.JournalTrendChart,
+  }))
+);
+
+/** feed 的 raw 行 → 分享要的 Journal(带分区/IF/h-index,海报与卡片才能显徽章)。 */
+function toShareJournal(j: JournalListUnified): Journal {
+  const ifNum = j.jcr_impact_factor != null ? parseFloat(String(j.jcr_impact_factor)) : NaN;
+  return {
+    id: j.id,
+    canonical_name: j.canonical_name,
+    publisher: j.crossref_publisher ?? undefined,
+    country: j.openalex_country ?? undefined,
+    type: j.openalex_type ?? undefined,
+    jcr_quartile: j.jcr_quartile ?? undefined,
+    jcr_impact_factor: Number.isFinite(ifNum) ? ifNum : undefined,
+    // fqb_major_quartile 原始可能是 "1区"/"1" → 归一成数字串供徽章解析。
+    fqb_quartile: String(j.fqb_major_quartile ?? '').match(/^([1-4])/)?.[1] ?? undefined,
+    xr_quartile: String(j.xr_major_quartile ?? '').match(/^([1-4])/)?.[1] ?? undefined,
+    xr_top: j.xr_top === '是' || j.xr_top === '1',
+    ccf_rank: j.ccf_rank ?? undefined,
+    openalex_h_index: j.openalex_h_index ?? undefined,
+    has_submission: j.has_submission === 1 || j.has_submission === true || undefined,
+  };
 }
 
 const comingSoon = () => toast.info('移动端即将上线,敬请期待');
@@ -43,6 +57,9 @@ export const JournalFeedCard = memo(function JournalFeedCard({
   const ifValue = formatNumeric(j.jcr_impact_factor);
   const fqb = parseFqbQuartile(j.fqb_major_quartile);
   const isTop = j.fqb_top === '是';
+  const xr = parseFqbQuartile(j.xr_major_quartile);
+  const isXrTop = j.xr_top === '是';
+  const openShare = useShareSheet((s) => s.openShare);
   const hIndex = j.openalex_h_index;
   const works = j.openalex_works_count;
   const review = formatNumeric(j.scirev_first_review_months);
@@ -86,6 +103,12 @@ export const JournalFeedCard = memo(function JournalFeedCard({
             {isTop ? ' Top' : ''}
           </Pill>
         )}
+        {xr && (
+          <Pill className="bg-brand-green/15 text-brand-green">
+            新锐 {xr}
+            {isXrTop ? ' Top' : ''}
+          </Pill>
+        )}
         {ifValue && (
           <Pill className="bg-foreground text-white">IF {ifValue}</Pill>
         )}
@@ -121,8 +144,16 @@ export const JournalFeedCard = memo(function JournalFeedCard({
         />
       </div>
 
-      {/* 年度趋势折线图(影响因子/发文量/被引量)—— 滑到本卡才拉详情数据 */}
-      <JournalTrendChart journalId={j.id} active={isActive} />
+      {/* 年度趋势折线图(影响因子/发文量/被引量)—— 仅当前激活卡才挂载(懒加载 recharts + 拉数据) */}
+      {isActive && (
+        <Suspense
+          fallback={
+            <div className="h-44 shrink-0 animate-pulse rounded-md border border-border bg-surface-1" />
+          }
+        >
+          <JournalTrendChart journalId={j.id} active />
+        </Suspense>
+      )}
 
       {j.fqb_major_category && (
         <p className="shrink-0 text-sm leading-relaxed text-muted-foreground">
@@ -137,14 +168,8 @@ export const JournalFeedCard = memo(function JournalFeedCard({
         <RailButton label="收藏" onClick={comingSoon}>
           <Bookmark className="size-5" />
         </RailButton>
-        <RailButton label="期刊集" onClick={comingSoon}>
-          <FolderPlus className="size-5" />
-        </RailButton>
-        <RailButton label="分享" onClick={() => void shareJournal(j)}>
+        <RailButton label="分享" onClick={() => openShare({ kind: 'journal', journal: toShareJournal(j) })}>
           <Share2 className="size-5" />
-        </RailButton>
-        <RailButton label="关注" onClick={comingSoon}>
-          <Bell className="size-5" />
         </RailButton>
       </div>
     </article>
@@ -180,11 +205,12 @@ function Metric({
   highlight?: boolean;
 }) {
   return (
-    <div className="bg-surface-1 px-3 py-2.5">
+    /* min-h 与 PaperFeedCard 指标格一致,预留两行高度防 CLS */
+    <div className="min-h-[62px] bg-surface-1 px-3 py-2.5">
       <p className="text-2xs text-faint">{label}</p>
       <p
         className={cn(
-          'mt-0.5 text-lg font-semibold',
+          'mt-0.5 text-lg font-semibold leading-snug',
           highlight ? 'text-brand-green' : 'text-foreground'
         )}
       >
@@ -209,7 +235,7 @@ function RailButton({
         type="button"
         aria-label={label}
         onClick={onClick}
-        className="flex h-12 w-12 items-center justify-center rounded-pill border border-border-strong bg-background text-subtle transition-colors active:bg-surface-2"
+        className="flex h-12 w-12 items-center justify-center rounded-pill border border-border-strong bg-background text-subtle transition-[transform,background-color] active:scale-90 active:bg-surface-2"
       >
         {children}
       </button>

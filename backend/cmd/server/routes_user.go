@@ -70,14 +70,9 @@ func registerPublicUserRoutes(api *gin.RouterGroup, h *allHandlers) {
 		oauthMerge.POST("/cancel-merge", h.user.CancelPendingOAuthMerge)
 	}
 
-	// 内网回调:scholar_agent 上报「带外」token 用量(title-gen 等无 message_complete 帧的调用)。
-	// 不走 user JWT —— 用内网共享密钥 Bearer(InternalAgentAuthMiddleware,= AGENT_AUTH_TOKEN)。
-	// nginx 另有 deny 公网 /api/v1/internal/ 作纵深防御。
-	internal := api.Group("/internal")
-	internal.Use(middleware.InternalAgentAuthMiddleware())
-	{
-		internal.POST("/agent/usage", h.agentBridge.HandleAgentUsageCallback)
-	}
+	// (已移除)scholar_agent token 用量 HTTP 旁路回调:token 账本改走带内 —— agent 把 per-call
+	// 明细 + 会话累计随 message_complete / token_usage 帧经已鉴权 WS 带回, 后端在 ws.go pipe 记账
+	// (归属来自会话本身,无需反查 / 无需内网共享密钥)。InternalAgentAuthMiddleware 已无调用方。
 
 	// 计费套餐(公开):价格/倍率/赠送/起充等非敏感配置, 给落地价格页 + 套餐卡用。
 	api.GET("/billing/plans", h.vip.PublicPlans)
@@ -104,6 +99,10 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		userProtected.GET("/membership", h.vip.GetMembership)
 		userProtected.POST("/redeem-code/preview", h.vip.PreviewCode) // 兑换前预览(确认弹窗)
 		userProtected.POST("/redeem-code", h.vip.RedeemCode)
+
+		// 期刊投稿资源下载(投稿须知 .md / LaTeX 模板 .zip)—— Max 会员专享。
+		// 后端校验 tier=max + 代理拉取(上游 key 与真实下载地址都不暴露给前端)。
+		userProtected.GET("/journals/:id/submission/:kind", h.scholar.DownloadJournalSubmission)
 
 		// 计费/账户资产: 总览 + 手动重置额度 + 经费流水(自动重置开关已下线)
 		billingG := userProtected.Group("/billing")
@@ -246,6 +245,13 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		// 模型切换 — sidebar ModelSelector 下拉用。GET 列出可用 model tier,
 		// 切换不走 HTTP, 直接在 WS 上发 set_runtime_config (agent 协议规定)。
 		userProtected.GET("/claw/models", h.claw.ListModels)
+
+		// per-user 长期记忆 (C4): 查看/编辑/删除自己的记忆块 (隐私/GDPR)。
+		// agent 侧注入(读)由 agentbridge.Bridge 负责, 不在此暴露; 这里只给用户管理面。
+		userProtected.GET("/memory", h.memory.List)
+		userProtected.PUT("/memory/:label", h.memory.SetBlock)
+		userProtected.DELETE("/memory/:label", h.memory.DeleteBlock)
+		userProtected.DELETE("/memory", h.memory.Clear)
 	}
 
 	// 智能搜索 · WS 桥接 (单独挂在 /user 下,不走 UserAuthMiddleware)

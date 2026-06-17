@@ -38,23 +38,24 @@ export const SOURCE_META: Record<UpstreamSource, SourceMeta> = {
 };
 
 /** 兼容旧 import:返回单字母,例 'stc' → 'D' */
+// 以下 helper 只接受三源(stc/olx/pmd)。用 ?. 兜底:万一被传进 'auto'/未知值(类型外的 cast),
+// 返回空串而不是抛 "Cannot read properties of undefined"。
 export function sourceBadge(s: UpstreamSource | undefined): string {
-  return s ? SOURCE_META[s].letter : '';
+  return (s && SOURCE_META[s]?.letter) || '';
 }
 
 /** 单字母 letter,密集列表用 —— 'D' / 'G' / 'M' */
 export function sourceLetter(s: UpstreamSource | undefined): string {
-  return s ? SOURCE_META[s].letter : '';
+  return (s && SOURCE_META[s]?.letter) || '';
 }
 
 /** 完整 "M — Medicine" 文本,筛选器单选用 */
 export function sourceFullLabel(s: UpstreamSource | undefined): string {
-  if (!s) return '';
-  const m = SOURCE_META[s];
-  return `${m.letter} — ${m.name}`;
+  const m = s ? SOURCE_META[s] : undefined;
+  return m ? `${m.letter} — ${m.name}` : '';
 }
 
 /** 中文描述,所有 badge 的 Tooltip 内容 */
 export function sourceDescription(s: UpstreamSource | undefined): string {
-  return s ? SOURCE_META[s].description : '';
+  return (s && SOURCE_META[s]?.description) || '';
 }

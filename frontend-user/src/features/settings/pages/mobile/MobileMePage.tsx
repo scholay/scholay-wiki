@@ -1,6 +1,7 @@
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
+  BookMarked,
   ChevronRight,
   Link2,
   LogOut,
@@ -9,9 +10,12 @@ import {
   UserPen,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar';
+import { Button } from '@/shared/ui/button';
+import { BrandLogo } from '@/shared/components/BrandLogo';
 import { http } from '@/shared/lib/http';
 import { getAuthToken } from '@/shared/lib/auth-token';
 import { useAuthStore, useAuthStatus } from '@/stores/auth.store';
+import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useProfile } from '@/shared/api/profile';
 import { MobileAssetsCard } from '../../components/mobile/MobileAssetsCard';
 
@@ -24,11 +28,31 @@ import { MobileAssetsCard } from '../../components/mobile/MobileAssetsCard';
 export function MobileMePage() {
   const { authenticated } = useAuthStatus();
 
-  if (!authenticated) return <Navigate to="/m/auth" replace />;
-
   return (
     <div className="h-full overflow-y-auto bg-surface-1">
-      <LoggedInView />
+      {authenticated ? <LoggedInView /> : <LoggedOutView />}
+    </div>
+  );
+}
+
+/** 未登录态:不再整页跳 /m/auth,改成提示 + 触发全局底部登录弹窗(就地登录)。 */
+function LoggedOutView() {
+  const openDialog = useAuthDialog((s) => s.openDialog);
+  return (
+    <div className="flex h-full flex-col items-center justify-center px-8 text-center">
+      <BrandLogo size="lg" />
+      <h1 className="mt-5 text-xl font-bold text-foreground">登录 Scholay</h1>
+      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+        登录后查看你的会员、科研经费、文献集与设置
+      </p>
+      <div className="mt-7 flex w-full max-w-xs flex-col gap-2.5">
+        <Button className="h-12" onClick={() => openDialog('login')}>
+          登录
+        </Button>
+        <Button variant="outline" className="h-12" onClick={() => openDialog('register')}>
+          注册新账号
+        </Button>
+      </div>
     </div>
   );
 }
@@ -77,6 +101,16 @@ function LoggedInView() {
         </div>
         <ChevronRight className="size-4 shrink-0 text-faint" />
       </Link>
+
+      {/* 我的文献集 —— 独立入口卡(收藏/分享/转存) */}
+      <nav className="overflow-hidden rounded-lg border border-border bg-background">
+        <MenuRow
+          to="/m/library"
+          icon={<BookMarked className="size-4.5" />}
+          label="我的文献集"
+          last
+        />
+      </nav>
 
       {/* 会员 / 资产 */}
       <MobileAssetsCard />

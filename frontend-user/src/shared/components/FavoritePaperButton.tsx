@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Bookmark, BookmarkCheck, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
+import { haptic } from '@/shared/lib/haptics';
 import {
   useFavoritePaper,
   useUnfavoritePaper,
@@ -10,6 +11,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { usePendingAction } from '@/stores/pending-action.store';
 import { useFavoriteBurst } from '@/stores/favorite-burst.store';
+import { useCollectPicker } from '@/stores/collect-picker.store';
 import { ConfirmPopover } from '@/shared/components/ConfirmPopover';
 import type { Paper, UpstreamSource, UserLibraryPaper } from '@/shared/api/types';
 
@@ -124,8 +126,9 @@ export function FavoritePaperButton({
     unfavMut.isPending && unfavMut.variables?.paperId === paper.paperId;
   const isPending = isFavPending || isUnfavPending;
 
-  // 未登录态 → 走收藏意图存储 → 弹登录(已收藏路径下不会触发,因为未登录不会显示已收藏)
-  const handleFavorite = () => {
+  // 收藏点击入口:未登录→存意图+弹登录;已指定 folderId(工作台「加到当前集」)→ 直接收藏;
+  // 否则(通用收藏按钮)→ 弹「选择文件夹」选择器,选定后 doFavorite(fid)。
+  const handleCollectClick = () => {
     if (isPending) return;
     if (!token) {
       usePendingAction.getState().set({ type: 'favorite', paper, folderId });
@@ -133,12 +136,26 @@ export function FavoritePaperButton({
       toast.info('登录后自动收藏这篇论文');
       return;
     }
+    if (folderId !== undefined) {
+      doFavorite(folderId); // 调用方指定了文件夹 → 不弹选择器
+      return;
+    }
+    useCollectPicker.getState().openCollect({
+      paperTitle: paper.title || undefined,
+      onPick: (fid) => doFavorite(fid),
+    });
+  };
+
+  // 实际收藏 mutation(假定已登录;chosenFolderId=null → 默认文件夹)。
+  const doFavorite = (chosenFolderId: number | null) => {
+    if (isPending) return;
     // silentSuccess —— 跳过 useFavoritePaper 默认的 pushBurst,成功反馈由
     // 下面 onSuccess 单通道统筹(避免 burst + toast 双重反馈)。
     favMut.mutate(
-      { paper, folderId, silentSuccess: true },
+      { paper, folderId: chosenFolderId, silentSuccess: true },
       {
         onSuccess: (row) => {
+          haptic(); // 收藏成功轻震一下(仅 Android 等支持设备,桌面 no-op)
           if (silentSuccess) {
             // 调用方自带成功反馈(单通道)→ 既不 burst 也不 toast
             onSuccess?.(row);
@@ -310,6 +327,6 @@ export function FavoritePaperButton({
     );
   }
 
-  // 未收藏 → 直接挂 onClick
-  return <>{renderButton(handleFavorite)}</>;
+  // 未收藏 → 点击弹「选择文件夹」选择器(或已指定 folderId 时直接收藏)
+  return <>{renderButton(handleCollectClick)}</>;
 }

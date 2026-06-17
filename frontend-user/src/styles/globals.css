@@ -354,6 +354,15 @@
     height: 100%;
   }
 
+  html,
+  body {
+    /* 移动端「左右晃荡 / 无限画布」根因:文档级横向 sub-pixel 溢出可横滚 + 触摸 overscroll 橡皮筋回弹。
+       横向永远不需要文档滚动 → overflow-x 直接裁掉;overscroll-behavior 关掉两轴回弹与滚动链。
+       对桌面无副作用:纵向 body 滚动照常(只裁横向),桌面本就无触摸回弹。 */
+    overflow-x: hidden;
+    overscroll-behavior: none;
+  }
+
   body {
     margin: 0;
     background-color: hsl(var(--background));
@@ -364,6 +373,10 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    /* 移动端触控打磨:去掉点按时的蓝色高亮方块(改用受控的 active: 反馈),
+       禁止 iOS 横竖屏自动放大正文字号。 */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
   }
 
   :focus-visible {
@@ -434,4 +447,18 @@
 }
 .animate-caret-blink {
   animation: caret-blink 1.25s ease-out infinite;
+}
+
+/* 「减少动态」全局兜底 —— 系统开启 prefers-reduced-motion 时,几乎关闭所有 CSS 动画/过渡
+   (tw-animate-css 的 Radix sheet 进出场、active:scale、骨架脉冲等)。framer-motion 的 m.* 由
+   MobileShell 的 <MotionConfig reducedMotion="user"> 单独处理,二者合起来覆盖全部动画来源。 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

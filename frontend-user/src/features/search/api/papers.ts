@@ -2,7 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
 import { STALE_WARM } from '@/shared/lib/query-config';
 import { enrichPmdAbstracts } from '@/shared/api/paper-enrich';
-import type { Paper, UpstreamSource } from '@/shared/api/types';
+import type { Paper } from '@/shared/api/types';
+import type { SearchSource } from '@/shared/lib/search-filters';
 
 // re-export 给老 import 路径继续可用,避免一次性大爆改
 export type { Paper, PaperAuthor, UpstreamSource } from '@/shared/api/types';
@@ -38,7 +39,7 @@ export interface SearchPapersOptions {
   query: string;
   limit?: number;
   offset?: number;
-  source?: UpstreamSource;
+  source?: SearchSource;
   yearFrom?: number;
   yearTo?: number;
   dateFrom?: string; // YYYY-MM-DD
@@ -114,10 +115,13 @@ export function useSearchPapers(opts: SearchPapersOptions) {
           }
         );
         const raw = data.data;
-        if (source !== 'pmd' || !raw?.data?.data?.length) return raw;
+        const rows = raw?.data?.data;
+        // 自动换源可能落到 pmd —— 按「实际返回的源」判断(而非请求源),确保 pmd 结果也补 abstract
+        const effSource = rows?.[0]?.source ?? source;
+        if (effSource !== 'pmd' || !rows?.length) return raw;
 
         // PMD 无 abstract,补一次 batch 拿 abstract,merge 回去
-        const enriched = await enrichPmdAbstracts(raw.data.data);
+        const enriched = await enrichPmdAbstracts(rows);
         return { ...raw, data: { ...raw.data, data: enriched } };
       } catch (err) {
         throw toApiError(err);

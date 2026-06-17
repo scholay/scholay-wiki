@@ -304,6 +304,11 @@ func (o *OrderService) fulfill(orderNo, txNo string, amount float64, method stri
 			slog.Warn("billing: unknown order type on fulfill", "order_no", orderNo, "type", ord.OrderType)
 			return nil
 		}
+		// 同步内存态(DB 经 map Updates 写入,ord 结构体仍是更新前的值)→ 通知用到准确的支付字段。
+		ord.Status = "paid"
+		ord.PaymentTime = &now
+		ord.PaymentMethod = method
+		ord.TransactionNo = txNo
 		ordCopy := ord
 		fulfilled = &ordCopy
 		return nil

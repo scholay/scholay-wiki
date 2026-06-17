@@ -80,6 +80,11 @@ func yuanStr(f float64) string { return fmt.Sprintf("¥%.2f", f) }
 
 // notifyOrderFulfilled 支付成功(充值 / 订阅 / 续期 / 升级)后通知。
 func (s *Service) notifyOrderFulfilled(ord *Order) {
+	// 付费成功外部通知(飞书客服消息等)—— best-effort 异步,不阻塞站内信/邮件与主流程。
+	if s.payNotify != nil {
+		o := ord
+		safego.Go("vip-payment-notify", func() { s.payNotify(o) })
+	}
 	switch ord.OrderType {
 	case "recharge":
 		title := "经费充值成功"

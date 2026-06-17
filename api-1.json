@@ -72,7 +72,7 @@
     },
     {
       "name": "JNL - Journals",
-      "description": "学术期刊元数据平台 - 搜索、筛选和对比学术期刊的影响因子、分区排名等信息"
+      "description": "学术期刊元数据平台 - 搜索、筛选和对比学术期刊的影响因子、分区排名等信息。v2 起每条期刊还含「中科院新锐分区」(xr_*)与「投稿须知 / LaTeX 模板」(submission)信息"
     },
     {
       "name": "PMD - Papers",
@@ -2429,7 +2429,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "$ref": "#/components/schemas/JournalListResponse"
                 }
               }
             }
@@ -2586,7 +2586,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "$ref": "#/components/schemas/JournalListResponse"
                 }
               }
             }
@@ -2699,7 +2699,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "$ref": "#/components/schemas/JournalDetailResponse"
                 }
               }
             }
@@ -2751,7 +2751,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "$ref": "#/components/schemas/JournalArrayResponse"
                 }
               }
             }
@@ -2803,7 +2803,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "$ref": "#/components/schemas/JournalArrayResponse"
                 }
               }
             }
@@ -2855,7 +2855,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "$ref": "#/components/schemas/JournalArrayResponse"
                 }
               }
             }
@@ -2907,7 +2907,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "$ref": "#/components/schemas/JournalArrayResponse"
                 }
               }
             }
@@ -2959,7 +2959,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "$ref": "#/components/schemas/JournalArrayResponse"
                 }
               }
             }
@@ -3003,7 +3003,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "$ref": "#/components/schemas/JournalArrayResponse"
                 }
               }
             }
@@ -3139,7 +3139,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "$ref": "#/components/schemas/JournalListResponse"
                 }
               }
             }
@@ -3256,6 +3256,310 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jnl/meta": {
+      "post": {
+        "tags": [
+          "JNL - Journals"
+        ],
+        "summary": "平台元信息",
+        "description": "返回期刊库最后构建时间、数据来源说明(含新增「中科院新锐分区 xr」「投稿须知/模板 submission」)、期刊总数。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jnl/byKeyword": {
+      "post": {
+        "tags": [
+          "JNL - Journals"
+        ],
+        "summary": "按 DOAJ 关键词查询期刊",
+        "description": "按 DOAJ 主题关键词检索期刊,分页返回。响应每条含新锐分区(xr_*)与投稿信息(submission)字段。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "keyword"
+                ],
+                "properties": {
+                  "keyword": {
+                    "type": "string",
+                    "description": "DOAJ 关键词"
+                  },
+                  "page": {
+                    "type": "integer"
+                  },
+                  "page_size": {
+                    "type": "integer"
+                  },
+                  "fields": {
+                    "type": "string",
+                    "description": "字段白名单(逗号分隔)"
+                  },
+                  "count_mode": {
+                    "type": "string",
+                    "description": "none 跳过总数统计,用 hasMore 替代"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JournalListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jnl/keywords": {
+      "post": {
+        "tags": [
+          "JNL - Journals"
+        ],
+        "summary": "DOAJ 关键词列表",
+        "description": "返回 DOAJ 关键词及其期刊数量。",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "q": {
+                    "type": "string",
+                    "description": "前缀过滤"
+                  },
+                  "limit": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jnl/reviews": {
+      "post": {
+        "tags": [
+          "JNL - Journals"
+        ],
+        "summary": "期刊评论",
+        "description": "某期刊的审稿/评论分页(LetPub + SciRev 合并)。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "id"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "description": "期刊稳定 id"
+                  },
+                  "source": {
+                    "type": "string",
+                    "description": "letpub / scirev(可选)"
+                  },
+                  "page": {
+                    "type": "integer"
+                  },
+                  "page_size": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jnl/timeline": {
+      "post": {
+        "tags": [
+          "JNL - Journals"
+        ],
+        "summary": "期刊跨年指标趋势",
+        "description": "聚合 SCImago / JCR / 中科院分区 / CCF 历年数据 + OpenAlex 年度引用/产出。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "id"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "description": "期刊稳定 id"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jnl/publisherJournals": {
+      "post": {
+        "tags": [
+          "JNL - Journals"
+        ],
+        "summary": "出版商旗下期刊",
+        "description": "某出版商完整名称下的期刊列表,分页返回。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "出版商完整名称"
+                  },
+                  "page": {
+                    "type": "integer"
+                  },
+                  "page_size": {
+                    "type": "integer"
+                  },
+                  "fields": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JournalListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jnl/export": {
+      "post": {
+        "tags": [
+          "JNL - Journals"
+        ],
+        "summary": "导出 CSV",
+        "description": "按筛选条件导出固定列 CSV(UTF-8 BOM,单次最多 5000 行),直接返回文件流。",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "limit": {
+                    "type": "integer",
+                    "description": "最多 5000"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "country": {
+                    "type": "string"
+                  },
+                  "jcr_quartile": {
+                    "type": "string"
+                  },
+                  "fqb_quartile": {
+                    "type": "string"
+                  },
+                  "min_impact_factor": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "CSV 文件",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -3629,6 +3933,336 @@
           "data": {
             "type": "object",
             "description": "响应数据"
+          }
+        }
+      },
+      "Journal": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "稳定 id:跨次整理不变且永不复用,可安全持久化。"
+          },
+          "canonical_name": {
+            "type": "string",
+            "description": "规范期刊名。"
+          },
+          "issn_l": {
+            "type": "string",
+            "description": "Linking ISSN。"
+          },
+          "print_issn": {
+            "type": "string"
+          },
+          "electronic_issn": {
+            "type": "string"
+          },
+          "all_issns": {
+            "type": "string",
+            "description": "所有已知 ISSN(逗号分隔)。"
+          },
+          "source_count": {
+            "type": "integer",
+            "description": "贡献数据源数量。"
+          },
+          "sources": {
+            "type": "string",
+            "description": "逗号分隔的来源列表。"
+          },
+          "crossref_title": {
+            "type": "string"
+          },
+          "crossref_publisher": {
+            "type": "string"
+          },
+          "crossref_total_dois": {
+            "type": "integer"
+          },
+          "crossref_current_dois": {
+            "type": "integer"
+          },
+          "openalex_name": {
+            "type": "string"
+          },
+          "openalex_type": {
+            "type": "string"
+          },
+          "openalex_country": {
+            "type": "string",
+            "description": "ISO 2 字母国家代码。"
+          },
+          "openalex_works_count": {
+            "type": "integer"
+          },
+          "openalex_cited_by_count": {
+            "type": "integer"
+          },
+          "openalex_h_index": {
+            "type": "integer"
+          },
+          "openalex_2yr_mean_citedness": {
+            "type": "number"
+          },
+          "openalex_is_oa": {
+            "type": "integer",
+            "description": "开放获取标志 (0/1)。"
+          },
+          "doaj_publisher": {
+            "type": "string"
+          },
+          "doaj_country": {
+            "type": "string"
+          },
+          "doaj_is_in_doaj": {
+            "type": "integer",
+            "description": "是否在 DOAJ 收录 (0/1)。"
+          },
+          "wikidata_qid": {
+            "type": "string"
+          },
+          "wikidata_label_zh": {
+            "type": "string"
+          },
+          "wikidata_label_en": {
+            "type": "string"
+          },
+          "scimago_year": {
+            "type": "integer"
+          },
+          "scimago_sjr": {
+            "type": "string",
+            "description": "原始 VARCHAR;数值排序用 scimago_sjr_num。"
+          },
+          "scimago_sjr_num": {
+            "type": "number",
+            "description": "VIRTUAL 数值列(非数字字符串为 null)。"
+          },
+          "scimago_best_quartile": {
+            "type": "string"
+          },
+          "scimago_h_index": {
+            "type": "integer"
+          },
+          "jcr_year": {
+            "type": "integer"
+          },
+          "jcr_impact_factor": {
+            "type": "string",
+            "description": "原始 VARCHAR;数值排序用 jcr_impact_factor_num。"
+          },
+          "jcr_impact_factor_num": {
+            "type": "number",
+            "description": "VIRTUAL 数值列。"
+          },
+          "jcr_quartile": {
+            "type": "string"
+          },
+          "jcr_category": {
+            "type": "string"
+          },
+          "fqb_year": {
+            "type": "integer"
+          },
+          "fqb_major_category": {
+            "type": "string",
+            "description": "中科院大类。"
+          },
+          "fqb_major_quartile": {
+            "type": "string",
+            "description": "中科院大类分区;v2 起含排名,形如 \"4 [2568/5603]\"。"
+          },
+          "fqb_top": {
+            "type": "string",
+            "description": "中科院 Top 期刊标志。"
+          },
+          "ccf_year": {
+            "type": "integer"
+          },
+          "ccf_rank": {
+            "type": "string",
+            "description": "CCF 分级 (A/B/C)。"
+          },
+          "ccf_field": {
+            "type": "string"
+          },
+          "gjqk_year": {
+            "type": "integer"
+          },
+          "gjqk_warning_level": {
+            "type": "string",
+            "description": "国际期刊预警等级 (GJQK)。"
+          },
+          "letpub_id": {
+            "type": "integer"
+          },
+          "scirev_slug": {
+            "type": "string"
+          },
+          "scirev_overall_rating": {
+            "type": "number"
+          },
+          "scirev_first_review_months": {
+            "type": "number"
+          },
+          "has_crossref": {
+            "type": "integer",
+            "description": "存在标志 (0/1);虚拟列,可在 ?fields= 中请求。"
+          },
+          "has_openalex": {
+            "type": "integer"
+          },
+          "has_doaj": {
+            "type": "integer"
+          },
+          "has_wikidata": {
+            "type": "integer"
+          },
+          "has_scimago": {
+            "type": "integer"
+          },
+          "has_jcr": {
+            "type": "integer"
+          },
+          "has_fqb": {
+            "type": "integer"
+          },
+          "has_ccf": {
+            "type": "integer"
+          },
+          "has_gjqk": {
+            "type": "integer"
+          },
+          "has_letpub": {
+            "type": "integer"
+          },
+          "has_scirev": {
+            "type": "integer"
+          },
+          "has_submission": {
+            "type": "integer",
+            "description": "是否有投稿须知/LaTeX 模板(submission 源)。v2 起。文件下载是站内「最高价位套餐会员」专享,不在本按次计费 API 内。"
+          },
+          "has_xr": {
+            "type": "integer",
+            "description": "是否有中科院新锐分区(XR 源)。v2 起。"
+          },
+          "xr_year": {
+            "type": "integer"
+          },
+          "xr_major_category": {
+            "type": "string",
+            "description": "大类(英文)。"
+          },
+          "xr_major_category_cn": {
+            "type": "string",
+            "description": "大类(中文)。"
+          },
+          "xr_major_quartile": {
+            "type": "string",
+            "description": "大类新锐分区(如 \"1 区\")。"
+          },
+          "xr_top": {
+            "type": "string",
+            "description": "中科院新锐 Top 期刊标志。"
+          }
+        }
+      },
+      "JournalSubmission": {
+        "type": "object",
+        "description": "投稿资源元信息(submission 源;full=1 时附带,或对应 /v1/jnl/submission/* 端点)。",
+        "properties": {
+          "has_guideline": {
+            "type": "boolean",
+            "description": "是否有投稿须知文件。"
+          },
+          "has_latex": {
+            "type": "boolean",
+            "description": "是否有 LaTeX 投稿模板文件。"
+          },
+          "latex_class": {
+            "type": "string",
+            "description": "LaTeX 文档类(如 elsarticle.cls);无模板时为 null。"
+          },
+          "guideline_url": {
+            "type": "string",
+            "description": "投稿须知(.md)下载地址;has_guideline=false 时为 null。"
+          },
+          "latex_url": {
+            "type": "string",
+            "description": "LaTeX 模板(.zip)下载地址;has_latex=false 时为 null。"
+          }
+        }
+      },
+      "JournalDetailResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "example": 0
+          },
+          "message": {
+            "type": "string",
+            "example": "success"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Journal"
+          }
+        }
+      },
+      "JournalArrayResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "example": 0
+          },
+          "message": {
+            "type": "string",
+            "example": "success"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Journal"
+            }
+          }
+        }
+      },
+      "JournalListResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "example": 0
+          },
+          "message": {
+            "type": "string",
+            "example": "success"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Journal"
+                }
+              },
+              "total": {
+                "type": "integer",
+                "description": "命中总数(count_mode=none 时省略)。"
+              },
+              "has_more": {
+                "type": "boolean",
+                "description": "count_mode=none 时替代 total 返回。"
+              },
+              "page": {
+                "type": "integer"
+              },
+              "page_size": {
+                "type": "integer"
+              }
+            }
           }
         }
       },

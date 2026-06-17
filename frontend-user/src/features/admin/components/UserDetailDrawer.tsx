@@ -156,6 +156,9 @@ export function UserDetailDrawer({
             <InfoRow icon={<Clock className="size-3.5" />} label="注册时间">
               {user.created_at?.slice(0, 10) || '—'}
             </InfoRow>
+            <InfoRow icon={<Clock className="size-3.5" />} label="最后活跃">
+              {user.last_active_at ? user.last_active_at.slice(0, 16).replace('T', ' ') : '—'}
+            </InfoRow>
             <InfoRow icon={<Clock className="size-3.5" />} label="最后登录">
               {user.last_login_at ? user.last_login_at.slice(0, 16).replace('T', ' ') : '—'}
               {user.last_login_ip ? <span className="ml-2 text-faint">{user.last_login_ip}</span> : null}

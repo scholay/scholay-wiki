@@ -98,6 +98,14 @@ func (h *Handler) RegisterRoutes(g *gin.RouterGroup) {
 		lib.POST("/papers/batch/move", h.BatchMovePapers)
 		lib.POST("/papers/batch/delete", h.BatchDeletePapers)
 
+		// 分享(网盘式:链接 + 提取码 + 过期 + 转存 + 访问追踪)。
+		// owner 管理在此(登录);收件人公开获取在 /api/v1/public/share/:token;转存需登录。
+		lib.POST("/shares", h.CreateShare)
+		lib.GET("/shares", h.ListShares)
+		lib.DELETE("/shares/:id", h.RevokeShare)
+		lib.GET("/shares/:id/access", h.ShareAccess)
+		lib.POST("/shares/:token/save", h.SaveShare)
+
 		// 注意:这个 catch-all 通配段必须放最后
 		lib.DELETE("/:source/:paperId", h.Remove)
 	}
@@ -459,19 +467,31 @@ func (h *Handler) Check(c *gin.Context) {
 		return
 	}
 
-	var found []string
-	if err := database.GetDB().Model(&UserLibraryPaper{}).
-		Where("user_id = ? AND source = ? AND source_paper_id IN ?",
-			uid, req.Source, req.PaperIDs).
-		Pluck("source_paper_id", &found).Error; err != nil {
-		utils.Error(c, http.StatusInternalServerError, "查询失败")
-		return
-	}
-	for _, id := range found {
+	for id := range h.CheckFavorites(uid, req.Source, req.PaperIDs) {
 		saved[id] = true
 	}
 
 	utils.Success(c, CheckResponse{Saved: saved})
+}
+
+// CheckFavorites 批量查「这些 (source, source_paper_id) 是否在该用户文献集」,返回已收藏 id 集合。
+// 同时实现 minicod.FavoriteChecker —— 让搜索结果可在服务端直接标注 isFavorited(省一次 /library/check)。
+// source 非法或入参为空时返回空集合,不报错(供调用方安全降级)。
+func (h *Handler) CheckFavorites(userID uint64, source string, ids []string) map[string]bool {
+	out := make(map[string]bool)
+	if userID == 0 || len(ids) == 0 || !IsValidSource(source) {
+		return out
+	}
+	var found []string
+	if err := database.GetDB().Model(&UserLibraryPaper{}).
+		Where("user_id = ? AND source = ? AND source_paper_id IN ?", userID, source, ids).
+		Pluck("source_paper_id", &found).Error; err != nil {
+		return out
+	}
+	for _, id := range found {
+		out[id] = true
+	}
+	return out
 }
 
 // ============================================================================

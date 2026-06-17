@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { AlertCircle, Inbox, Loader2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { AlertCircle, ChevronDown, Inbox, Loader2 } from 'lucide-react';
 import { CitationProse } from '@/shared/components/CitationProse';
 import { generateCitation } from '@/shared/lib/citation';
 import { useOpenPaperInBrowser } from '@/shared/hooks';
@@ -20,6 +20,13 @@ export function PaperReferences({ paper }: { paper: Paper }) {
   const refsQ = useFetchPaperReferences(paper.paperId, hasReferences);
 
   const refs = refsQ.data ?? [];
+  // 分批渲染上限 —— 引用可达数百条,一次性挂满会拖慢移动端。先渲染 STEP 条,「显示更多」逐批加。
+  const STEP = 30;
+  const [visible, setVisible] = useState(STEP);
+  // 切换论文(paperId 变)时复位
+  useEffect(() => setVisible(STEP), [paper.paperId]);
+  const shownRefs = refs.slice(0, visible);
+
   const totalLabel = paper.referenceCount
     ? `共 ${paper.referenceCount.toLocaleString()} 篇`
     : refs.length
@@ -70,11 +77,23 @@ export function PaperReferences({ paper }: { paper: Paper }) {
         )}
 
       {hasReferences && !refsQ.isLoading && refs.length > 0 && (
-        <ol className="space-y-3.5">
-          {refs.map((r, idx) => (
-            <ReferenceItem key={r.paperId ?? idx} index={idx + 1} ref={r} />
-          ))}
-        </ol>
+        <>
+          <ol className="space-y-3.5">
+            {shownRefs.map((r, idx) => (
+              <ReferenceItem key={r.paperId ?? idx} index={idx + 1} ref={r} />
+            ))}
+          </ol>
+          {refs.length > visible && (
+            <button
+              type="button"
+              onClick={() => setVisible((v) => v + STEP)}
+              className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-md border border-border py-2.5 text-sm text-muted-foreground transition-colors hover:bg-surface-1 active:bg-surface-2"
+            >
+              <ChevronDown className="size-4" />
+              显示更多({refs.length - visible} 篇)
+            </button>
+          )}
+        </>
       )}
     </section>
   );

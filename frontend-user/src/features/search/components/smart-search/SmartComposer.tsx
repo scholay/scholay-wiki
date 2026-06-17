@@ -122,7 +122,9 @@ export function SmartComposer({
       {hasUsage && (
         <span
           className={cn(
-            'inline-flex h-5 shrink-0 items-center rounded-pill px-1.5 text-2xs font-medium',
+            // 行是 items-end(让 textarea 向上长、按钮贴底);chip 只有 h-5 而按钮是 size-8,
+            // 底对齐会让 chip 中心比按钮低 (32-20)/2=6px → 用 mb-1.5 抬起,使三者垂直居中对齐。
+            'mb-1.5 inline-flex h-5 shrink-0 items-center rounded-pill px-1.5 text-2xs font-medium',
             usageChipClass
           )}
           title={`${contextSnapshot!.totalTokens.toLocaleString()} / ${contextSnapshot!.maxTokens.toLocaleString()} tokens · ${contextSnapshot!.model || ''}`}

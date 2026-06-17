@@ -184,8 +184,8 @@ function PaperDetailView({
   return (
     <article className="h-full flex flex-col bg-background min-h-0">
       <div className="flex-1 min-h-0 overflow-auto">
-        {/* 880 居中阅读栏 —— .pen `MVlP1` width 880 */}
-        <div className="max-w-[880px] mx-auto px-8 pt-16 pb-20">
+        {/* 880 居中阅读栏 —— .pen `MVlP1` width 880;移动端收窄 padding 单列阅读 */}
+        <div className="max-w-[880px] mx-auto px-4 pt-6 pb-16 sm:px-8 sm:pt-16 sm:pb-20">
           <PaperHeader
             paper={paper}
             displayedTitle={displayPaper.title || '无标题'}

@@ -37,6 +37,7 @@ import type { CanUseToolFn } from './hooks/useCanUseTool.js'
 import { loadMemoryPrompt } from './memdir/memdir.js'
 import { hasAutoMemPathOverride } from './memdir/paths.js'
 import { query } from './query.js'
+import { drainPerCallUsages } from './server/services/turnUsageCollector.js'
 import { categorizeRetryableAPIError } from './services/api/errors.js'
 import type { MCPServerConnection } from './services/mcp/types.js'
 import type { AppState } from './state/AppState.js'
@@ -648,6 +649,7 @@ export class QueryEngine {
         total_cost_usd: getTotalCost(),
         usage: this.totalUsage,
         session_total_usage: sessionTotalUsageSnapshot(),
+        per_call_usages: drainPerCallUsages(),
         modelUsage: getModelUsage(),
         permission_denials: this.permissionDenials,
         fast_mode_state: getFastModeState(
@@ -881,6 +883,7 @@ export class QueryEngine {
               total_cost_usd: getTotalCost(),
               usage: this.totalUsage,
         session_total_usage: sessionTotalUsageSnapshot(),
+        per_call_usages: drainPerCallUsages(),
               modelUsage: getModelUsage(),
               permission_denials: this.permissionDenials,
               fast_mode_state: getFastModeState(
@@ -1012,6 +1015,7 @@ export class QueryEngine {
           total_cost_usd: getTotalCost(),
           usage: this.totalUsage,
         session_total_usage: sessionTotalUsageSnapshot(),
+        per_call_usages: drainPerCallUsages(),
           modelUsage: getModelUsage(),
           permission_denials: this.permissionDenials,
           fast_mode_state: getFastModeState(
@@ -1056,6 +1060,7 @@ export class QueryEngine {
             total_cost_usd: getTotalCost(),
             usage: this.totalUsage,
         session_total_usage: sessionTotalUsageSnapshot(),
+        per_call_usages: drainPerCallUsages(),
             modelUsage: getModelUsage(),
             permission_denials: this.permissionDenials,
             fast_mode_state: getFastModeState(
@@ -1116,6 +1121,7 @@ export class QueryEngine {
         total_cost_usd: getTotalCost(),
         usage: this.totalUsage,
         session_total_usage: sessionTotalUsageSnapshot(),
+        per_call_usages: drainPerCallUsages(),
         modelUsage: getModelUsage(),
         permission_denials: this.permissionDenials,
         fast_mode_state: getFastModeState(
@@ -1170,6 +1176,7 @@ export class QueryEngine {
       total_cost_usd: getTotalCost(),
       usage: this.totalUsage,
       session_total_usage: sessionTotalUsageSnapshot(),
+      per_call_usages: drainPerCallUsages(),
       modelUsage: getModelUsage(),
       permission_denials: this.permissionDenials,
       structured_output: structuredOutputFromTool,

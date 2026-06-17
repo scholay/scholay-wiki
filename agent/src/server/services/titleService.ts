@@ -61,7 +61,7 @@ export interface TitleGenUsage {
 export async function generateTitle(
   conversationText: string,
   providerId?: string | null,
-  // 成功时回调本次标题调用的 model + token 用量;调用方据此上报后端统一账本(见 backendUsageClient)。
+  // 成功时回调本次标题调用的 model + token 用量;调用方据此带内回后端账本(发 token_usage WS 帧)。
   // 可选 —— 不传则纯生成标题(单测/旧调用不受影响)。
   onUsage?: (info: { model: string; usage: TitleGenUsage }) => void,
 ): Promise<string | null> {

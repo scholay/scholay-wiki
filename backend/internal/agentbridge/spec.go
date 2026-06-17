@@ -58,6 +58,33 @@ type PreUserMessageFn func(ctx context.Context, userID uint, content string) err
 // 典型用途: 把 usage 写到日志或账单表, 做事后审计。失败仅打 warn, 不影响业务。
 type OnMessageCompleteFn func(ctx context.Context, userID uint, usage AgentUsage)
 
+// PermissionMode 是权限模型的「何时问人」轴 (C14, 2026-06)。
+//
+// 设计动机: 旧的单 bool AutoApprovePermission 语义分裂 —— 对 smart_search 表示「approve
+// 一切只读 MCP」, 对 prism/claw 表示「路径感知 decidePermission 裁决」。但四个 feature
+// 其实跑同一段 decidePermission, 真正的差异在能力轴 (specDeny/AllowBash), 不在这个 bool。
+// 这个 bool 实际只有一个语义: permission_request 是否由 backend 自动裁决 (不转发前端)。
+//
+// 两轴权限模型:
+//   - 能力轴 (用什么工具): SessionOptions.DisallowedTools + AllowBash → specDeny(), 已存在。
+//   - 审批轴 (何时问人): 本 PermissionMode。
+//
+// 取值:
+//   - PermissionAuto: backend 自动裁决 (现状) —— 走 decidePermission, MCP/Web/Skill 放行,
+//     文件工具按会话 cwd 路径限定, denylist 命中拒。前端**不**参与, 无人审 UI。
+//   - PermissionPassthrough: backend 不裁决, 把 permission_request 原样透传给前端 (= "ask")。
+//     前端/测试客户端收到后回 permission_response, 经 pipe 原样转发回 agent 解锁工具。
+//     ⚠️ passthrough 绕过 specDeny 二道防线 —— 仅给「能力轴本就放开/有 agent 端 --disallowed-tools
+//     兜底」的 feature 用; 靠 cwd 围栏的 feature (smart_search/prism) **绝不**默认开 passthrough。
+type PermissionMode string
+
+const (
+	// PermissionAuto: backend 自动裁决 permission_request, 不转发前端 (现状默认)。
+	PermissionAuto PermissionMode = "auto"
+	// PermissionPassthrough: 把 permission_request 透传给前端人审 (HITL / 测试)。
+	PermissionPassthrough PermissionMode = "passthrough"
+)
+
 // FeatureSpec 描述一个 agent 消费者 feature 的全部定制信息。
 //
 // 这些字段在 bootstrap 阶段静态填好, 之后只读, 跨多个请求复用同一份。
@@ -107,10 +134,15 @@ type FeatureSpec struct {
 	// 注意: true 时 Picker 必填; false 时 Picker 可以是 nil (业务自管)。
 	InjectPromptOnFirstMsg bool
 
-	// AutoApprovePermission 控制是否在 WS pipe 里拦截 permission_request 自动回
-	// allowed=true。只读检索类工具 (mcp__minicod__*) 可以开; 涉及写操作的 feature
-	// 必须关并把 permission_request 透传给前端走人工审批。
+	// Deprecated: 用 PermissionMode 取代 (C14)。这个单 bool 语义分裂, 见 PermissionMode 文档。
+	// 仍读它做向后兼容: EffectivePermissionMode() 在 PermissionMode 空时把 AutoApprovePermission=true
+	// 映射成 PermissionAuto。迁移完所有 feature 后可删本字段。
+	// ⚠️ 不要同时设 PermissionMode 和 AutoApprovePermission —— 以 PermissionMode 为准。
 	AutoApprovePermission bool
+
+	// PermissionMode 是「何时问人」审批轴 (C14)。空 → EffectivePermissionMode() 回落到
+	// AutoApprovePermission 兼容逻辑。四个现有 feature 显式置 PermissionAuto。详见 PermissionMode 文档。
+	PermissionMode PermissionMode
 
 	// PingInterval 应用层 keepalive 周期, 必须小于 agent 端 Bun.serve idleTimeout (60s)。
 	// 0 时取默认值 (25s)。
@@ -124,7 +156,19 @@ type FeatureSpec struct {
 	// nil → 不记账 (usage 仅在 agent 端 transcript 留底)。
 	OnMessageComplete OnMessageCompleteFn
 
-	// specDeny 见下:取 SessionOptions.DisallowedTools 给后端 permission 二道防线用。
+	// AllowBash 是「该 feature 是否允许 agent 跑 Bash/BashOutput/KillShell」的**单一真源**。
+	// 默认零值 false = 禁 Bash(默认安全:新 feature 不显式置 true 就没有 shell)。
+	// 目前仅 claw 置 true —— 它要 Bash 跑 pandoc/python 把 docx/xlsx 转成可读文本。
+	// smart_search(只读检索)/ prism(只产 patch)/ peerreview(只读取 JSON)都不需要,保持 false。
+	//
+	// 这个 bool 同时驱动两层防线,二者读同一真源,杜绝硬编码 "claw" 散落:
+	//   1. agent 容器层:BuildSpec 用 SessionDisallowedTools 据它决定 --disallowed-tools 是否含
+	//      Bash 三件套(含 → agent 工具池硬移除 Bash)。
+	//   2. backend 权限门:specDeny() 据它在二道防线 denylist 里补 Bash 三件套
+	//      (permissionAllowed 顶部命中 denylist 直接拒,见 ws.go)。
+	AllowBash bool
+
+	// specDeny 见下:取 SessionOptions.DisallowedTools(并按 AllowBash 补 Bash)给后端 permission 二道防线用。
 	//
 	// SessionOptions 创建该 feature 的 agent session 时透传给 agent.CreateSession,
 	// 用于 per-feature 收紧工具集 / 指定 work dir / add-dir。nil → 用 agent 默认(全工具)。
@@ -133,12 +177,41 @@ type FeatureSpec struct {
 	SessionOptions *agent.CreateSessionOptions
 }
 
-// specDeny 取该 feature 会话的显式禁用工具(给后端 permission 二道防线)。无则 nil。
+// bashTools 是「跑 shell」相关的三件套。AllowBash=false 时,backend 在 agent --disallowed-tools
+// 与 permission 二道防线里都把它们禁掉;true(仅 claw)时保留。集中一处避免散落硬编码。
+var bashTools = []string{"Bash", "BashOutput", "KillShell"}
+
+// specDeny 取该 feature 会话**实际禁用**的工具(给后端 permission 二道防线 permissionAllowed 用):
+// SessionOptions.DisallowedTools ∪ (AllowBash ? ∅ : bashTools)。
+// 这样 ws.go 不再硬编码 "Bash 一律放行";AllowBash=false 的 feature 的 Bash 调用会在
+// permissionAllowed 顶部命中 denylist 被直接拒(即便 agent 端 --disallowed-tools 被绕过也兜得住)。
 func specDeny(spec FeatureSpec) []string {
+	var deny []string
 	if spec.SessionOptions != nil {
-		return spec.SessionOptions.DisallowedTools
+		deny = append(deny, spec.SessionOptions.DisallowedTools...)
 	}
-	return nil
+	if !spec.AllowBash {
+		deny = append(deny, bashTools...)
+	}
+	if len(deny) == 0 {
+		return nil
+	}
+	return deny
+}
+
+// SessionDisallowedTools 是创建 agent session 时该 feature 应传给 --disallowed-tools 的工具集
+// (= specDeny 的同一真源)。BuildSpec 用它拼 SessionOptions.DisallowedTools,保证「agent 端禁的」
+// 与「backend 门禁的」完全一致,不漂移。导出供各 feature 的 BuildSpec 调用。
+func SessionDisallowedTools(baseDisallowed []string, allowBash bool) []string {
+	var deny []string
+	deny = append(deny, baseDisallowed...)
+	if !allowBash {
+		deny = append(deny, bashTools...)
+	}
+	if len(deny) == 0 {
+		return nil
+	}
+	return deny
 }
 
 // PingIntervalOrDefault 处理 0 → 25s 的默认值兜底。
@@ -147,4 +220,24 @@ func (s FeatureSpec) PingIntervalOrDefault() time.Duration {
 		return s.PingInterval
 	}
 	return 25 * time.Second
+}
+
+// EffectivePermissionMode 解析该 feature 实际生效的审批模式 (C14)。
+//
+// 解析优先级:
+//  1. 显式设了 PermissionMode → 直接用 (auto / passthrough)。
+//  2. PermissionMode 空 → 向后兼容旧 AutoApprovePermission:
+//     true  → PermissionAuto (现状: backend 自动裁决)
+//     false → PermissionPassthrough (旧代码 AutoApprovePermission=false 时根本不拦截
+//             permission_request, 等价于让它流向前端; 这里显式表达成 passthrough, 行为等价)。
+//
+// 注: 历史上四个 feature 全是 AutoApprovePermission=true, 现已显式迁到 PermissionAuto。
+func (s FeatureSpec) EffectivePermissionMode() PermissionMode {
+	if s.PermissionMode != "" {
+		return s.PermissionMode
+	}
+	if s.AutoApprovePermission {
+		return PermissionAuto
+	}
+	return PermissionPassthrough
 }

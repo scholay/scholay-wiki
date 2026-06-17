@@ -13,9 +13,21 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+// IsDuplicateKey 判断 err 是否 MySQL 唯一键冲突 (1062)。
+//
+// 用于 createAndPersist 的并发首次 get-or-create: migration 0034 给单会话 feature
+// (owner 均 NULL 的用户级行, 如 smart_search) 加了 uk_user_feature_single 唯一索引,
+// 第二个并发 INSERT 撞 1062 时 caller 据此回退到「回读复用既存行」, 而非把 agent
+// session 当孤儿误删后报错。沿用 peerreview/prism 既有同款判断 (errors.As + Number==1062)。
+func IsDuplicateKey(err error) bool {
+	var me *mysql.MySQLError
+	return errors.As(err, &me) && me.Number == 1062
+}
 
 // ErrNotFound 是 repository 层把 gorm.ErrRecordNotFound 包了一层语义化错误,
 // service 层据此分支决定是 "首次访问 → 创建" 还是其它真异常。

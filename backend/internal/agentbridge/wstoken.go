@@ -62,18 +62,8 @@ func (f *FeatureBridge) IssueWSTicket(ctx context.Context, userID uint, sessionI
 	return f.mintWSTicket(ctx, userID, sessionID)
 }
 
-// IssueWSTicketTrusted 同 IssueWSTicket,但**跳过** OwnsSession 检查 —— 用于 session 不在
-// 通用 agent_sessions 映射、而由 feature 自己管归属的场景(如 Prism 每项目独立会话存
-// prism_projects.agent_session_id)。**调用方必须已自行校验归属**(如 prism 先 GetProject(uid)
-// 确认项目属本人,再解析出该项目的 sessionID),否则就是越权漏洞。
-func (f *FeatureBridge) IssueWSTicketTrusted(ctx context.Context, userID uint, sessionID string) (string, error) {
-	if sessionID == "" {
-		return "", errors.New("agentbridge: empty session id")
-	}
-	return f.mintWSTicket(ctx, userID, sessionID)
-}
-
-// mintWSTicket 铸一张 ticket 写进 Redis(归属校验由调用方决定)。
+// mintWSTicket 铸一张 ticket 写进 Redis(归属校验由 IssueWSTicket 在调用前完成)。
+// (历史上的 IssueWSTicketTrusted 后门已退役 —— prism 缺行改走自愈绑定 + 标准颁发,见 C12。)
 //
 // 走 persist 池:ws ticket 被主池 LRU 逐出 = 用户拿着有效 ticket 却升级 WS 失败(401),
 // 是硬性鉴权破坏而非优雅降级,正是 noeviction 池要保护的 correctness 键。persist 未配置

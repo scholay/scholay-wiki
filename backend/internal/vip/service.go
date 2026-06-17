@@ -24,7 +24,13 @@ type Service struct {
 	order    *OrderService
 	msg      MessageSender       // 站内信(bootstrap 注入, 可 nil)
 	emailCfg EmailConfigProvider // 邮件配置(bootstrap 注入, 可 nil)
+	payNotify func(*Order)       // 付费成功外部通知(飞书等;bootstrap 注入, 可 nil)
 }
+
+// SetPaymentNotifier 注入「付费成功」外部通知钩子(如飞书客服消息)。
+// 仅在订单经支付回调真正到账(notifyOrderFulfilled)时触发,创建订单不触发;
+// 调用方钩子内自管异步/容错,这里仍以 safego 兜底,绝不阻塞/影响支付主流程。
+func (s *Service) SetPaymentNotifier(fn func(*Order)) { s.payNotify = fn }
 
 // NewService 构造会员/计费服务(含配置缓存 + 钱包 + 订单)。
 func NewService(repo *Repository) *Service {

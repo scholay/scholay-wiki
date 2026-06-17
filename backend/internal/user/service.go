@@ -8,9 +8,13 @@
 package user
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/model"
+	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/utils"
 	"time"
 )
@@ -171,6 +175,30 @@ func (s *Service) UpdateAuthProvider(provider *UserAuthProvider) error {
 
 func (s *Service) UpdateLastLoginWithIP(id uint, ip string) error {
 	return s.repo.UpdateLastLoginWithIP(id, ip)
+}
+
+// RecordActivity 记一次「最后活跃时间」(真实使用)。每次通过鉴权的 user 请求都会调到,
+// 故**全异步 + Redis 节流**(每用户每 5min 至多一次 DB 写),零请求路径开销。
+// 由 middleware.SetActivityHook 注入。反映用户最后实际使用(而非仅登录动作 last_login_at)。
+func (s *Service) RecordActivity(userID uint) {
+	if userID == 0 {
+		return
+	}
+	safego.Go("user-last-active", func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		// Redis 节流:SETNX 抢到(5min 内首次)才写 DB;抢不到 = 近期已记,跳过。
+		// Redis 不可用 → 不节流直接写(降级 best-effort,Redis 故障罕见)。
+		if rdb := cache.GetRedis(); rdb != nil {
+			ok, err := rdb.SetNX(ctx, fmt.Sprintf("user:lastactive:%d", userID), "1", 5*time.Minute).Result()
+			if err == nil && !ok {
+				return
+			}
+		}
+		if err := s.repo.UpdateLastActive(userID); err != nil {
+			slog.Debug("user: update last_active failed", "user_id", userID, "err", err)
+		}
+	})
 }
 
 func (s *Service) GetGithubOAuthConfig() (*model.GithubOAuthConfig, error) {

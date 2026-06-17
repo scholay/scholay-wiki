@@ -120,6 +120,10 @@ func main() {
 	defer cancel()
 	startBackgroundTasks(bgCtx, svc.seoService)
 
+	// 跨实例「多窗口接管」订阅 (C2): 多副本部署时, 收到别的实例的接管通知就关掉本实例
+	// 持有的同一 session 旧 WS。Redis 不可用时内部直接 no-op (退化到纯本地 displacement)。
+	svc.agentBridge.StartDisplaceSubscriber(bgCtx)
+
 	// 客服邮箱 IMAP 收件轮询(配置未启用时空转;间隔随后台配置即时生效)
 	safego.Go("supportcenter-imap-poll", func() {
 		svc.supportCenterService.StartPoller(bgCtx.Done())

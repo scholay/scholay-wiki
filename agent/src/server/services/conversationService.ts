@@ -48,9 +48,12 @@ const CONTROL_READY_POLL_MS = 50
 // 安全靠两层:① 每会话独立 cwd (SCHOLAY_ISOLATE_SESSIONS) → 文件工具被 Claude Code 限定在
 // cwd 子树; ② backend 路径感知 auto-approve → 越界 (读别人会话目录 / jsonl) 一律拒。
 //
-// **Bash 现在放开** (2026-05): 为了让 agent 能像 Claude Code 一样自己调工具把 docx/xlsx
-// 等二进制 office 文件转成可理解的文本 (容器内已装 pandoc / python3 / openpyxl)。
-//   ⚠️ 安全代价 (本地接受, 见下): Bash = 容器内任意命令 → 可 `cat /home/bun/.claude/cc-haha/
+// **Bash 按 feature 收敛** (C1, 2026-06): 全局默认仍放开 Bash (本数组不含它), 但 backend 用
+// per-session --disallowed-tools 把 Bash 三件套追加禁掉给**除 claw 外**的所有 feature
+// (FeatureSpec.AllowBash 是单一真源, 见 backend agentbridge/spec.go)。只有 claw 保留 Bash ——
+// 它要 Bash 跑 pandoc/python 把 docx/xlsx 等 office 文件转成可理解的文本 (容器内已装
+// pandoc / python3 / openpyxl)。smart_search/prism/peerreview 都不需要 Bash, backend 已禁。
+//   ⚠️ 安全代价 (本地接受, 仅对 claw): Bash = 容器内任意命令 → 可 `cat /home/bun/.claude/cc-haha/
 //      providers.json` 读真·LLM 密钥、`cat 别会话 jsonl` 跨用户、`printenv` 偷 MINICOD_API_KEY、
 //      curl 外联。路径感知 auto-approve 只能管住 Read/Glob/Grep, **管不住 Bash**。
 //   ✅ 真正的关法是 bubblewrap sandbox (fs 白名单 + 断网), 但本地 Docker Desktop/LinuxKit
@@ -140,6 +143,9 @@ type SessionStartOptions = {
   // per-feature skill 作用域: 额外的 --add-dir 源(加载 <dir>/.claude/skills)。
   // 让不同入口装不同 skill —— peerreview 方法论会话加载审稿人 skill, claw 不传 → 看不到。
   addDirs?: string[]
+  // 系统级附加提示词(规则 + per-user 长期记忆): 经 --append-system-prompt 注入模型 system prompt。
+  // 缺省走 session-meta 里持久化的值(getSessionLaunchInfo 重读), 保证每次冷启都带上。
+  appendSystemPrompt?: string
 }
 
 export class ConversationStartupError extends Error {
@@ -211,6 +217,12 @@ export class ConversationService {
       ...((): string[] => {
         const dirs = Array.from(new Set(options?.addDirs ?? [])).filter((d) => d.length > 0)
         return dirs.flatMap((d) => ['--add-dir', d])
+      })(),
+      // 系统级附加提示词: --print 模式经 print.ts → QueryEngine 拼进 system prompt(在 system 角色,
+      // 不进 transcript, 用户看不到)。~几 KB 远低于 ARG_MAX, 直接做 CLI 参数无需临时文件。
+      ...((): string[] => {
+        const asp = options?.appendSystemPrompt
+        return asp && asp.length > 0 ? ['--append-system-prompt', asp] : []
       })(),
     ])
   }
@@ -291,6 +303,9 @@ export class ConversationService {
       ...options,
       disallowedTools: options?.disallowedTools ?? launchInfo?.disallowedTools,
       addDirs: options?.addDirs ?? launchInfo?.addDirs,
+      // 系统级提示词: 显式 options 优先, 否则用建会话时落进 session-meta 的值。每次冷启(首条/prewarm/resume)
+      // 都重读 → 注入, 保证规则/记忆始终在 system prompt 里, 而不写进用户消息(不泄漏给用户)。
+      appendSystemPrompt: options?.appendSystemPrompt ?? launchInfo?.appendSystemPrompt,
     }
     const args = this.buildSessionCliArgs(
       sessionId,

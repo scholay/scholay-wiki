@@ -87,7 +87,7 @@ func (h *Handler) GetUserMetrics(c *gin.Context) {
 //   tier           会员等级 effective 过滤（pro=未过期的 pro / free=其余），缺省不过滤
 //   email_verified 邮箱验证状态（1/0），缺省不过滤
 //   created_from / created_to  注册时间区间（YYYY-MM-DD），缺省不过滤
-//   sort_by        last_login_at | created_at | vip_expires_at
+//   sort_by        last_active_at | last_login_at | created_at | vip_expires_at
 //   sort_order     asc | desc
 func (h *Handler) GetUserList(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
@@ -102,7 +102,7 @@ func (h *Handler) GetUserList(c *gin.Context) {
 		pageSize = 20
 	}
 
-	validSortFields := map[string]bool{"last_login_at": true, "created_at": true, "vip_expires_at": true}
+	validSortFields := map[string]bool{"last_active_at": true, "last_login_at": true, "created_at": true, "vip_expires_at": true}
 	if !validSortFields[sortBy] {
 		sortBy = "last_login_at"
 	}

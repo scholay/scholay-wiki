@@ -436,6 +436,9 @@ services:
       <<: *tz-env
     volumes:
       - /etc/localtime:/etc/localtime:ro
+      # 发版灰度:持久化 hash 分包目录,旧版本 chunk 跨发版保留(默认 7 天,见
+      # frontend-user/docker-entrypoint.d/40-sync-site.sh)→ 老标签页发版后跳转不再「页面加载失败」。
+      - ./data/frontend-assets:/usr/share/nginx/html/assets
     expose:
       - "80"
     depends_on:

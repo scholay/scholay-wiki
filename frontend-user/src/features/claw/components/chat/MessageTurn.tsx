@@ -57,7 +57,7 @@ function extractTurnArtifacts(turn: Turn, artifacts: ClawArtifact[]): ClawArtifa
  * 跟 smart-search 共享同一套 shared/components/chat 原子, 视觉契约一致:
  *   - <UserBubble> 右对齐深底气泡 (上方挂可选附件 chip)
  *   - <ThinkingFold> 三态折叠面板 (流式展开+滚动跟随; 完成后预览收起)
- *   - <AssistantBubble> 白底 markdown 气泡 (含绿色 ol 序号 chip)
+ *   - <AssistantBubble variant="plain"> 无气泡·全宽 markdown 正文 (claw 现代风;智能搜索仍是白底卡片)
  *   - <ToolCallBlock> 通用工具调用块, 默认 JSON 折叠展示 input/result
  *   - <StreamingIndicator> 末尾占位胶囊, "正在检索学者/正在执行命令…"
  *
@@ -126,6 +126,8 @@ export const MessageTurn = memo(function MessageTurn({
                   key={b.id}
                   text={b.text}
                   streaming={isLastTextStreaming}
+                  // 智能助手用「无气泡·全宽正文」现代风(智能搜索仍是默认 card)。
+                  variant="plain"
                 />
               );
             }

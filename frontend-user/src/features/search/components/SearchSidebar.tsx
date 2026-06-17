@@ -14,7 +14,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/shared/ui/tooltip';
 import { useSidebar } from '@/stores/sidebar.store';
 import { SOURCE_META } from '@/shared/lib/source';
 import { cn } from '@/shared/lib/utils';
-import type { UpstreamSource } from '@/shared/api/types';
 import {
   SOURCE_OPTIONS,
   isSubjectsSingleSelect,
@@ -24,6 +23,7 @@ import {
   subjectsForSource,
   typesForSource,
   type SearchFilters,
+  type SearchSource,
   type SortOrder,
 } from '../types';
 import { LibrarySection } from './search-sidebar/LibrarySection';
@@ -96,7 +96,7 @@ export function SearchSidebar({
 
   /** 切换源 —— 同时 prune 掉新源不支持的已选值,避免幽灵筛选 */
   const handleSourceChange = useCallback(
-    (next: UpstreamSource) => {
+    (next: SearchSource) => {
       onFiltersChange(pruneFiltersForSource(filters, next));
     },
     [filters, onFiltersChange]
@@ -175,7 +175,14 @@ export function SearchSidebar({
           <FilterGroup label="数据源">
             <div className="flex flex-col">
               {SOURCE_OPTIONS.map((opt) => {
-                const meta = SOURCE_META[opt.value];
+                // 'auto'(综合)不在三源 SOURCE_META 里,给一份内联展示元数据
+                const meta =
+                  opt.value === 'auto'
+                    ? {
+                        name: '综合',
+                        description: '自动选源:某个源暂时不可用时自动切换到下一个,搜索不中断',
+                      }
+                    : SOURCE_META[opt.value];
                 return (
                   <Tooltip key={opt.value}>
                     <TooltipTrigger asChild>

@@ -96,6 +96,39 @@ var (
 	})
 )
 
+// newMinicodBreaker 按 Minicod 的统一阈值创建一个命名熔断器(供 per-source 用)。
+func newMinicodBreaker(name string) *gobreaker.CircuitBreaker {
+	return gobreaker.NewCircuitBreaker(gobreaker.Settings{
+		Name:        name,
+		MaxRequests: 3,
+		Interval:    time.Minute,
+		Timeout:     30 * time.Second,
+		ReadyToTrip: func(counts gobreaker.Counts) bool {
+			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
+			return counts.Requests >= 3 && failureRatio >= 0.6
+		},
+		OnStateChange: onStateChangeWithStats,
+	})
+}
+
+// minicodSourceBreakers —— 按上游源(stc/olx/pmd)各一把熔断器。
+// 目的:某个源上游故障(如 stc 返回 500)只熔断该源,不连累其它源,
+// 以支撑搜索的「自动换源」(stc 挂了自动落到 olx/pmd)。
+var minicodSourceBreakers = map[string]*gobreaker.CircuitBreaker{
+	"stc": newMinicodBreaker("Minicod:stc"),
+	"olx": newMinicodBreaker("Minicod:olx"),
+	"pmd": newMinicodBreaker("Minicod:pmd"),
+}
+
+// MinicodBreakerFor 返回指定源的熔断器;未知/空源回落到总 MinicodBreaker
+// (期刊 / 推荐等无源调用仍走总闸)。
+func MinicodBreakerFor(source string) *gobreaker.CircuitBreaker {
+	if b, ok := minicodSourceBreakers[source]; ok {
+		return b
+	}
+	return MinicodBreaker
+}
+
 // IsCircuitBreakerError checks if an error is from circuit breaker being open
 func IsCircuitBreakerError(err error) bool {
 	return err == gobreaker.ErrOpenState || err == gobreaker.ErrTooManyRequests
@@ -108,6 +141,9 @@ func init() {
 		"AIServiceStream",
 		"AIService",
 		"Minicod",
+		"Minicod:stc",
+		"Minicod:olx",
+		"Minicod:pmd",
 		"ProxyService",
 		"Agent",
 		"PeerReview",

@@ -88,6 +88,9 @@ func (s *Service) notifyFeishu(event string, lines []string) {
 	if event == "email" && !cfg.FeishuNotifyEmail {
 		return
 	}
+	if event == "payment" && !cfg.FeishuNotifyPayment {
+		return
+	}
 	text := strings.Join(lines, "\n")
 	if err := sendFeishuText(cfg.FeishuWebhookURL, cfg.FeishuSecret, text); err != nil {
 		slog.Warn("supportcenter: feishu notify failed", "event", event, "err", err)
@@ -126,6 +129,63 @@ func (s *Service) notifyInboundMail(fromName, fromAddr, subject, snippet string)
 		"预览:" + snippet,
 		"→ 后台「邮件中心」查看与回复",
 	})
+}
+
+// PaymentNotice 一笔「付费成功」推送所需的字段(由 vip 经 bootstrap 闭包翻译填入,
+// supportcenter 不反向依赖 vip)。仅在支付回调真正到账后构造,创建订单不构造。
+type PaymentNotice struct {
+	OrderType string  // recharge=经费充值 / subscription=会员订阅
+	SubAction string  // 仅订阅:""=开通 / renew=续期 / upgrade=升级
+	OrderNo   string  // 订单号
+	PlanCode  string  // 仅订阅:pro / max
+	Amount    float64 // 实付金额(元)
+	Credits   int     // 到账/赠送经费
+	Method    string  // alipay / wechat
+	Username  string  // 用户名(可空)
+	Email     string  // 邮箱(可空)
+}
+
+// NotifyPayment 用户付费成功 → 飞书。给 vip 模块经 bootstrap 注入的钩子用。
+// 异步语义由调用方(vip notifyOrderFulfilled 内 safego)保证。
+func (s *Service) NotifyPayment(p PaymentNotice) {
+	method := map[string]string{"alipay": "支付宝", "wechat": "微信"}[p.Method]
+	if method == "" {
+		method = p.Method
+	}
+	who := p.Username
+	if who == "" {
+		who = "用户 #" + p.OrderNo // 退化:无用户名时用订单号占位,避免空括号
+	}
+	if p.Email != "" {
+		who += "(" + p.Email + ")"
+	}
+
+	lines := []string{"💰 用户付费成功"}
+	if p.OrderType == "recharge" {
+		lines = append(lines,
+			"类型:经费充值",
+			fmt.Sprintf("到账经费:%d 永久经费", p.Credits),
+		)
+	} else {
+		plan := "Pro"
+		if p.PlanCode == "max" {
+			plan = "Max"
+		}
+		action := map[string]string{"renew": "续期", "upgrade": "升级"}[p.SubAction]
+		if action == "" {
+			action = "开通"
+		}
+		lines = append(lines, "类型:会员"+action+" · "+plan)
+		if p.Credits > 0 {
+			lines = append(lines, fmt.Sprintf("赠送经费:%d 经费", p.Credits))
+		}
+	}
+	lines = append(lines,
+		"用户:"+who,
+		fmt.Sprintf("金额:¥%.2f · %s", p.Amount, method),
+		"订单号:"+p.OrderNo,
+	)
+	s.notifyFeishu("payment", lines)
 }
 
 // TestFeishu 用**当前已保存**的配置发一条测试消息(配置页「发送测试」按钮)。

@@ -1,9 +1,11 @@
 import { memo } from 'react';
-import { AlignLeft, Quote, Share2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { AnimatePresence, m } from 'framer-motion';
+import { AlignLeft, Heart, Quote, Share2 } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { JournalCover } from '@/shared/components/JournalCover';
 import { FavoritePaperButton } from '@/shared/components/FavoritePaperButton';
+import { useDoubleTapFavorite } from '@/shared/hooks';
+import { useShareSheet } from '@/stores/share.store';
 import type { Paper } from '@/shared/api/types';
 
 /** 万/k 缩写 —— 设计稿口径(被引 12.8万 / 引用此文 2.1k) */
@@ -29,26 +31,12 @@ function venueHash(venue: string): number {
   return Math.abs(h);
 }
 
-async function sharePaper(paper: Paper) {
-  const url = paper.url ?? window.location.href;
-  const payload = { title: paper.title ?? 'Scholay 论文', url };
-  // 移动端原生分享面板优先;桌面/不支持时落剪贴板
-  if (navigator.share) {
-    try {
-      await navigator.share(payload);
-      return;
-    } catch {
-      return; // 用户取消分享,不打扰
-    }
-  }
-  await navigator.clipboard.writeText(`${payload.title}\n${url}`);
-  toast.success('链接已复制');
-}
-
 export interface PaperFeedCardProps {
   paper: Paper;
   isFavorited: boolean;
   onCite: (paper: Paper) => void;
+  /** 收藏/取消成功回调 —— 就地翻转「已收藏」态(多源 feed 用真实源,无需重拉) */
+  onFavoriteToggle?: (paperId: string, favorited: boolean) => void;
 }
 
 /**
@@ -60,14 +48,36 @@ export const PaperFeedCard = memo(function PaperFeedCard({
   paper,
   isFavorited,
   onCite,
+  onFavoriteToggle,
 }: PaperFeedCardProps) {
   const authors = formatAuthors(paper);
   const venue = paper.venue || '未知来源';
   const firstAuthorInitial =
     paper.authors?.[0]?.name?.trim().charAt(0).toUpperCase() ?? '·';
+  const openShare = useShareSheet((s) => s.openShare);
+  // 双击卡片空白处收藏(Instagram 式)+ ❤️ 弹出
+  const { onTap, showHeart } = useDoubleTapFavorite(paper, isFavorited);
 
   return (
-    <article className="relative flex h-full min-h-0 flex-col gap-3.5 overflow-hidden bg-background py-4 pr-16 pl-5">
+    <article
+      onClick={onTap}
+      className="relative flex h-full min-h-0 flex-col gap-3.5 overflow-hidden bg-background py-4 pr-16 pl-5"
+    >
+      {/* 双击收藏的 ❤️ 反馈 */}
+      <AnimatePresence>
+        {showHeart && (
+          <m.div
+            key="dt-heart"
+            initial={{ scale: 0.3, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 1.5, opacity: 0 }}
+            transition={{ duration: 0.32, ease: 'easeOut' }}
+            className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
+          >
+            <Heart className="size-24 fill-brand-red text-brand-red drop-shadow-lg" />
+          </m.div>
+        )}
+      </AnimatePresence>
       {/* Identity Row(同期刊卡 `H9UYGQ`):venue 字标 + 来源/年份 */}
       <div className="flex shrink-0 items-center gap-3">
         <JournalCover
@@ -158,10 +168,12 @@ export const PaperFeedCard = memo(function PaperFeedCard({
             variant="icon"
             size="lg"
             className="h-12 w-12 rounded-pill border border-border-strong bg-background"
+            onSuccess={onFavoriteToggle ? () => onFavoriteToggle(paper.paperId, true) : undefined}
+            onUnfavorited={onFavoriteToggle ? () => onFavoriteToggle(paper.paperId, false) : undefined}
           />
         </RailItem>
         <RailItem label="分享">
-          <RailButton ariaLabel="分享" onClick={() => void sharePaper(paper)}>
+          <RailButton ariaLabel="分享" onClick={() => openShare({ kind: 'single', paper })}>
             <Share2 className="size-5" />
           </RailButton>
         </RailItem>
@@ -199,11 +211,12 @@ function Metric({
   highlight?: boolean;
 }) {
   return (
-    <div className="bg-surface-1 px-3 py-2.5">
+    /* min-h 预留两行高度 —— 数值缺失/到达时不再撑动网格(防 CLS) */
+    <div className="min-h-[62px] bg-surface-1 px-3 py-2.5">
       <p className="text-2xs text-faint">{label}</p>
       <p
         className={cn(
-          'mt-0.5 text-lg font-semibold',
+          'mt-0.5 text-lg font-semibold leading-snug',
           highlight ? 'text-brand-green' : 'text-foreground'
         )}
       >
@@ -242,7 +255,7 @@ function RailButton({
       type="button"
       aria-label={ariaLabel}
       onClick={onClick}
-      className="flex h-12 w-12 items-center justify-center rounded-pill border border-border-strong bg-background text-subtle transition-colors active:bg-surface-2"
+      className="flex h-12 w-12 items-center justify-center rounded-pill border border-border-strong bg-background text-subtle transition-[transform,background-color] active:scale-90 active:bg-surface-2"
     >
       {children}
     </button>

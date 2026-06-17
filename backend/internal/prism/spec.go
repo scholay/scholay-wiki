@@ -22,7 +22,6 @@ import (
 
 	"scholar-backend/internal/agent"
 	"scholar-backend/internal/agentbridge"
-	"scholar-backend/internal/llmusage"
 	"scholar-backend/internal/usagestat"
 	"scholar-backend/internal/vip"
 )
@@ -34,10 +33,12 @@ const agentName = "scholay-prism"
 const PromptSlug = "scholay-prism-v1"
 const PromptName = "Scholay 智能写作 · 默认 prompt"
 
-// prism 会话禁用的工具:跑命令(Bash 无法路径限定)/ 起子 agent(Task/Agent 旁路裁决)/ NotebookEdit。
+// prism 会话禁用的工具:起子 agent(Task/Agent 旁路裁决)/ NotebookEdit。
 // 放开 Read/Glob/Grep + Write/Edit/MultiEdit —— agent 在会话 cwd 里原生读写,写被 decidePermission
 // 限定在 cwd 内(越界拒)。仍可用 mcp__minicod__*。Skill 未禁用 → 可加载下方写作 skill。
-var prismDisallowedTools = []string{"Bash", "NotebookEdit", "Task", "Agent"}
+// C1 (2026-06): Bash 三件套(Bash/BashOutput/KillShell)由 prismSessionOptions 经
+// agentbridge.SessionDisallowedTools(allowBash=false) 统一补齐,这里只列「非 Bash」的额外禁用项。
+var prismDisallowedTools = []string{"NotebookEdit", "Task", "Agent"}
 
 // prismSkillAddDir —— 传给 agent --add-dir 的目录(agent 加载 <dir>/.claude/skills:写作/学科/LaTeX 格式 skill)。
 // 同 peerreview 的 reviewerSkillAddDir:独立目录,只有 prism 会话装,claw/审稿看不到。
@@ -55,7 +56,8 @@ func prismSkillAddDir() string {
 // 走同一个构造器后,两处不会再漂移。
 func prismSessionOptions() *agent.CreateSessionOptions {
 	return &agent.CreateSessionOptions{
-		DisallowedTools: prismDisallowedTools,
+		// allowBash=false → 在 prismDisallowedTools 基础上并入 Bash/BashOutput/KillShell。
+		DisallowedTools: agentbridge.SessionDisallowedTools(prismDisallowedTools, false),
 		// 每项目会话加载写作 skill(--add-dir),agent 写/改时可经 Skill 调对应指南。
 		AddDirs: []string{prismSkillAddDir()},
 	}
@@ -73,42 +75,36 @@ var usageRecorder usagestat.Recorder
 // SetUsageStatRecorder 注入功能使用统计录入器。允许 nil。
 func SetUsageStatRecorder(r usagestat.Recorder) { usageRecorder = r }
 
-// llmUsageRecorder 由 SetLLMUsageRecorder 注入(token 账本);onMessageComplete 懒读。
-var llmUsageRecorder llmusage.Recorder
-
-// SetLLMUsageRecorder 注入统一 LLM token 账本录入器。允许 nil(只 slog 不落库)。
-func SetLLMUsageRecorder(r llmusage.Recorder) { llmUsageRecorder = r }
-
-// preUserMessageChain:每轮提问前查 vip 配额(超额转 quota_exceeded 干净文案)+ 记一条功能使用统计。
-func preUserMessageChain(ctx context.Context, userID uint, _ string) error {
-	if vipChecker != nil {
-		if err := vipChecker.CheckDailyQuota(ctx, userID); err != nil {
-			if errors.Is(err, vip.ErrQuotaExceeded) {
-				return agentbridge.NewQuotaError(err.Error())
-			}
-			return err
-		}
+// checkQuota / recordQuestion 是给 agentbridge.StandardHooks 的适配闭包(每轮提问前):
+// checkQuota 查 vip 配额(超额转 quota_exceeded 干净文案);recordQuestion 记一条功能使用统计。
+// 闭包在**调用时**懒读包级 vipChecker/usageRecorder,故注入可后于 BuildSpec,顺序无关。
+func checkQuota(ctx context.Context, userID uint) error {
+	if vipChecker == nil {
+		return nil
 	}
-	if usageRecorder != nil {
-		var uid *uint
-		if userID != 0 {
-			u := userID
-			uid = &u
+	if err := vipChecker.CheckDailyQuota(ctx, userID); err != nil {
+		if errors.Is(err, vip.ErrQuotaExceeded) {
+			return agentbridge.NewQuotaError(err.Error())
 		}
-		usageRecorder.Record(usagestat.Event{UserID: uid, Feature: usagestat.FeaturePrism, Action: "edit"})
+		return err
 	}
 	return nil
 }
 
-// onMessageComplete 每轮 agent 回复结束:只做 slog(docker logs | grep agent_usage)实时观测。
-// token 账本已改为 **per-call** 记账(agent 端 claude.ts 每次真实模型调用 → 内网回调落库,一次调用一行),
-// 故这里**不再落库**,否则与 per-call 双计。llmUsageRecorder 仍由 bootstrap 注入(保留接线)但此处不再用。
-func onMessageComplete(ctx context.Context, userID uint, usage agentbridge.AgentUsage) {
-	agentbridge.NewSlogUsageRecorder(FeatureKey)(ctx, userID, usage)
+func recordQuestion(uid *uint) {
+	if usageRecorder == nil {
+		return
+	}
+	usageRecorder.Record(usagestat.Event{UserID: uid, Feature: usagestat.FeaturePrism, Action: "edit"})
 }
 
 // BuildSpec 返回 Prism 的 agentbridge FeatureSpec(用户 WS 模式)。
 func BuildSpec() agentbridge.FeatureSpec {
+	pre, onComplete := agentbridge.StandardHooks(agentbridge.StandardHooksConfig{
+		FeatureKey:     FeatureKey,
+		CheckQuota:     checkQuota,
+		RecordQuestion: recordQuestion,
+	})
 	return agentbridge.FeatureSpec{
 		Key:                    FeatureKey,
 		AgentName:              agentName,
@@ -116,9 +112,11 @@ func BuildSpec() agentbridge.FeatureSpec {
 		Picker:                 agentbridge.NewStaticPicker(FeatureKey, PromptSlug, PromptName, agentNativeProtocol),
 		Color:                  "amber",
 		InjectPromptOnFirstMsg: true, // agent 默认带全工具,首条注入 agent-native 系统提示强约束
-		AutoApprovePermission:  true, // 经 decidePermission 路径感知裁决:cwd 内文件操作放行,越界/Bash 等拒
-		PreUserMessage:         preUserMessageChain,
-		OnMessageComplete:      onMessageComplete,
+		// C14: 审批轴 = auto。经 decidePermission 路径感知裁决:cwd 内文件操作放行,越界/Bash 等拒。
+		// ⚠️ prism 的越界文件防护只在 decidePermission 里,绝不能改 passthrough(会让前端能批越界)。
+		PermissionMode: agentbridge.PermissionAuto,
+		PreUserMessage:         pre,
+		OnMessageComplete:      onComplete,
 		// 与 edit.go createProjectSession 共用同一构造器(单一真源,见 prismSessionOptions)。
 		SessionOptions: prismSessionOptions(),
 	}

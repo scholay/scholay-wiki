@@ -91,31 +91,34 @@ export function CitationDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {/* 格式 tabs + 复制按钮(右端) —— 复制不再悬浮在正文上:
-            窄屏下浮层会压住第一行引文(用户反馈遮挡),进 tabs 行任何屏宽都不遮挡 */}
-        <div className="flex items-center gap-1">
-          {ALL_FORMATS.map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => setFormat(f)}
-              onDoubleClick={() => setAsDefault(f)}
-              className={cn(
-                'h-7 px-3 rounded-md text-xs font-bold transition-colors',
-                format === f
-                  ? 'bg-foreground text-background'
-                  : 'text-muted-foreground hover:bg-surface-1 hover:text-foreground'
-              )}
-              title="单击切换 · 双击设为默认"
-            >
-              {CITATION_FORMAT_LABELS[f]}
-            </button>
-          ))}
+        {/* 格式 tabs + 复制按钮(右端)。窄屏处理:tabs 放进可横向滚动的 min-w-0 容器,
+            复制按钮 shrink-0 固定在右侧,整行不再撑破弹窗(之前 grid item min-width:auto +
+            不换行的 flex 行 → 小屏溢出错位)。 */}
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="-mx-1 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {ALL_FORMATS.map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFormat(f)}
+                onDoubleClick={() => setAsDefault(f)}
+                className={cn(
+                  'h-7 shrink-0 px-3 rounded-md text-xs font-bold transition-colors',
+                  format === f
+                    ? 'bg-foreground text-background'
+                    : 'text-muted-foreground hover:bg-surface-1 hover:text-foreground'
+                )}
+                title="单击切换 · 双击设为默认"
+              >
+                {CITATION_FORMAT_LABELS[f]}
+              </button>
+            ))}
+          </div>
           <button
             type="button"
             onClick={handleCopy}
             disabled={!citation}
-            className="ml-auto inline-flex h-7 shrink-0 items-center gap-1 rounded-sm border border-border bg-background px-2.5 text-2xs font-bold text-subtle transition-colors hover:border-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-7 shrink-0 items-center gap-1 rounded-sm border border-border bg-background px-2.5 text-2xs font-bold text-subtle transition-colors hover:border-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
             aria-label={`复制 ${CITATION_FORMAT_LABELS[format]}`}
           >
             <Copy className="size-3" strokeWidth={2.5} />

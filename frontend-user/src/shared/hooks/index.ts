@@ -13,3 +13,6 @@ export { useReplayPendingAction } from './useReplayPendingAction';
 export { useUrlState, usePatchUrlState } from './useUrlState';
 export { useScrollRestoration } from './useScrollRestoration';
 export { useHeightVar } from './useHeightVar';
+export { useHorizontalSwipe } from './useHorizontalSwipe';
+export { useDoubleTapFavorite } from './useDoubleTapFavorite';
+export { usePullToRefresh } from './usePullToRefresh';

@@ -29,8 +29,13 @@ RUN npm run build
 # Runtime stage
 FROM nginx:alpine
 
-COPY --from=builder /app/build /usr/share/nginx/html
+# 构建产物**暂存**在镜像里(不直接作 web root)。容器启动时由 40-sync-site.sh 合并进
+# web root:index.html 等覆盖最新;/assets 下 hash 分包增量并入持久目录(挂
+# ./data/frontend-assets)→ 发版后老标签页仍能拉到旧 chunk,避免「页面加载失败」。
+COPY --from=builder /app/build /opt/dist
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY docker-entrypoint.d/40-sync-site.sh /docker-entrypoint.d/40-sync-site.sh
+RUN chmod +x /docker-entrypoint.d/40-sync-site.sh
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

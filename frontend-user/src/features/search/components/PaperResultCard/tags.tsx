@@ -60,6 +60,16 @@ export function pickTags(
       });
     }
   }
+  if (j?.xr_quartile) {
+    const n = j.xr_quartile.replace(/^Q/i, '').trim();
+    if (/^[1-4]$/.test(n)) {
+      tags.push({
+        key: 'xr',
+        label: `新锐 ${n} 区`,
+        tone: quartileTone(`Q${n}`),
+      });
+    }
+  }
   if (j?.ccf_rank) {
     const r = j.ccf_rank.toUpperCase();
     tags.push({

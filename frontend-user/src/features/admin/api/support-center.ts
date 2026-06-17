@@ -26,6 +26,7 @@ export interface SupportCenterConfig {
   feishu_secret: string;
   feishu_notify_feedback: boolean;
   feishu_notify_email: boolean;
+  feishu_notify_payment: boolean;
 }
 
 const CONFIG_KEY = ['admin', 'support-center', 'config'];

@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type Ref } from 'react';
 import { Cpu, History, Loader2, MessageSquarePlus, Sparkles } from 'lucide-react';
+import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'framer-motion';
 import { StickToBottom } from 'use-stick-to-bottom';
 import { Button } from '@/shared/ui/button';
 import { AgentDisplacedBanner } from '@/shared/components/AgentDisplacedBanner';
@@ -9,15 +10,21 @@ import { Sheet, SheetContent } from '@/shared/ui/sheet';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useRegisterSidebarRail } from '@/stores/sidebar.store';
 import { useHeightVar, useMediaQuery } from '@/shared/hooks';
-import { ChatComposer } from '../components/chat/ChatComposer';
+import { ChatComposer, type ChatComposerHandle } from '../components/chat/ChatComposer';
 import { MessageTurn } from '../components/chat/MessageTurn';
 import { type ClawArtifact } from '../api/artifacts';
 import { ClawArtifactPreview } from '../components/preview/ClawArtifactPreview';
 import { ClawSidebar } from '../components/sidebar/ClawSidebar';
 import { ScrollController } from '../components/chat/ScrollController';
 import { ConnectionBadge } from '../components/chat/ConnectionBadge';
-import { ClawEmptyState } from '../components/chat/ClawEmptyState';
+import { ClawHero } from '../components/chat/ClawHero';
 import { useClawConversation } from '../hooks/useClawConversation';
+
+/** 居中 hero ↔ 底部停靠 共用的 layoutId:发首条消息后 framer 据此把对话框从居中平滑滑到底部。 */
+const CLAW_COMPOSER_LAYOUT_ID = 'claw-composer';
+/** 停靠过渡(与智能搜索同款 spring);reduced-motion 下瞬切(去位移,避免前庭不适)。 */
+const composerDock = (reduce: boolean | null) =>
+  reduce ? { duration: 0 } : ({ type: 'spring', bounce: 0.18, duration: 0.55 } as const);
 
 /**
  * 智能助手主页(桌面) —— standalone 路由 `/claw`。
@@ -73,6 +80,29 @@ export function ClawPage() {
     prevPendingLenRef.current = pendingCount;
   }, [pendingCount]);
 
+  const reduce = useReducedMotion();
+
+  // composer 在「空态 hero(居中)」与「对话中底部停靠」两处复用同一套 props。hero 传 ref 以支持
+  // 点示例提问 prefill;停靠位不需要 ref。两处各是一份实例 + 同一个 layoutId → 发首条消息时
+  // framer 把框从居中平滑滑到底部(切换发生在 submit 后,内部文本已清空,无内容丢失)。
+  const composerRef = useRef<ChatComposerHandle>(null);
+  const renderComposer = (ref?: Ref<ChatComposerHandle>) => (
+    <ChatComposer
+      ref={ref}
+      disabled={composerDisabled}
+      busy={busy}
+      stopping={stopping}
+      context={contextQuery.data}
+      onStop={conv.handleStop}
+      onSubmit={conv.handleSubmit}
+      sessionId={sessionId}
+      onSessionEnsured={conv.adoptSession}
+      // 未登录:发送/上传 → 弹登录注册, 不真的发请求
+      requireAuth={!token}
+      onRequireAuth={() => openAuth('login')}
+    />
+  );
+
   return (
     <SidebarLayout
       sidebar={
@@ -126,27 +156,17 @@ export function ClawPage() {
           左栏给稳定 id/order,开关预览时不重挂 → StickToBottom 滚动位置不丢。 */}
       <ResizablePanelGroup direction="horizontal" autoSaveId="claw-preview-h" className="flex min-h-0 flex-1">
       <ResizablePanel id="claw-chat" order={1} minSize={36} className="min-w-0">
-      <div className="flex h-full min-h-0 flex-col">
-        {/* 量出"对话框可视区"像素高 → 写进 --chat-area-h, 供最后一轮按比例留白 (见下方 turns 渲染)。 */}
-        <div ref={chatAreaRef} className="min-h-0 flex-1">
-          {loading ? (
-            <div className="flex h-full items-center justify-center">
-              <Loader2 className="h-5 w-5 animate-spin text-faint" />
-            </div>
-          ) : turns.length === 0 ? (
-            <ClawEmptyState />
-          ) : (
-            <StickToBottom
-              className="h-full"
-              resize="smooth"
-              initial="smooth"
-            >
-              {/* 底部留白 = 滚动内容的 padding-bottom (pt-6 保留顶部 24px; py-6 拆成 pt-6 + pb 避免
-                  padding-bottom 冲突)。不用 min-height 撑最后一轮: 长回答本身超过半屏时 min-height
-                  会被忽略 → 仍紧贴输入框。padding-bottom 进 scrollHeight, 贴底时必然露在视口底部 =
-                  稳定留白 (短/长/流式/重入 全有)。--chat-area-h 由 useHeightVar 实时量本对话框高,
-                  ×0.3 ≈ 三成; fallback 100dvh 兜底。改 0.3 调留白多少。 */}
-              <StickToBottom.Content className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-6 pt-6 pb-[calc(var(--chat-area-h,100dvh)*0.3)]">
+      {/* hero(居中)与对话视图是两层叠层,互不挤压;对话框借同一 layoutId 在两层间平滑停靠。 */}
+      <LayoutGroup>
+      <div className="relative h-full min-h-0">
+        {/* 对话视图(底层)—— 仅有对话时渲染;输入框悬浮停靠在底部中央(参考智能搜索)。 */}
+        {turns.length > 0 && (
+          // 量高 div: useHeightVar 把"对话框可视区"像素高写进 --chat-area-h, 供留白按比例算。
+          <div ref={chatAreaRef} className="absolute inset-0">
+            <StickToBottom className="h-full" resize="smooth" initial="smooth">
+              {/* 底部留白 = 滚动内容的 padding-bottom(算进 scrollHeight,贴底时稳定露在视口底)。
+                  对话框现在"悬浮"在底部 → 留白要 ≥ 框高, 内容才不被它盖住:max(三成框高, 140px)。 */}
+              <StickToBottom.Content className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-6 pt-6 pb-[max(calc(var(--chat-area-h,100dvh)*0.3),140px)]">
                 {(hiddenCount > 0 || historyHasMore) && (
                   <div className="flex justify-center">
                     <button
@@ -171,27 +191,58 @@ export function ClawPage() {
               </StickToBottom.Content>
               <ScrollController scrollRef={scrollToBottomRef} />
             </StickToBottom>
-          )}
-        </div>
 
-        <div className="border-t border-border bg-background px-6 py-3">
-          <div className="mx-auto max-w-3xl">
-            <ChatComposer
-              disabled={composerDisabled}
-              busy={busy}
-              stopping={stopping}
-              context={contextQuery.data}
-              onStop={conv.handleStop}
-              onSubmit={conv.handleSubmit}
-              sessionId={sessionId}
-              onSessionEnsured={conv.adoptSession}
-              // 未登录:发送/上传 → 弹登录注册, 不真的发请求
-              requireAuth={!token}
-              onRequireAuth={() => openAuth('login')}
-            />
+            {/* 底部渐隐:让悬浮对话框"浮"在对话之上,文字不顶到框边。 */}
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28 bg-gradient-to-t from-background via-background/85 to-transparent" />
+
+            {/* 悬浮 / 停靠的对话框 —— 与 hero 同一个 layoutId, 发首条消息后从居中滑到这里(同尺寸=纯位移)。
+                外层 pointer-events-none 让框两侧空白不挡滚动,框本体 pointer-events-auto 可交互。 */}
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-6 pb-4">
+              <motion.div
+                layoutId={CLAW_COMPOSER_LAYOUT_ID}
+                transition={composerDock(reduce)}
+                className="pointer-events-auto mx-auto w-full max-w-2xl"
+              >
+                {renderComposer()}
+              </motion.div>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* 加载历史(覆盖层) */}
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Loader2 className="h-5 w-5 animate-spin text-faint" />
+          </div>
+        )}
+
+        {/* 新对话 hero(顶层):发首条消息后整体淡出(图标 + 标题 + chip),
+            对话框则借 layoutId 从居中平滑滑到底部停靠。 */}
+        <AnimatePresence initial={false}>
+          {!loading && turns.length === 0 && (
+            <motion.div
+              key="claw-hero"
+              className="absolute inset-0 z-30 flex"
+              exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.985 }}
+              transition={{ duration: reduce ? 0 : 0.3, ease: 'easeOut' }}
+            >
+              <ClawHero
+                composer={
+                  <motion.div
+                    layoutId={CLAW_COMPOSER_LAYOUT_ID}
+                    transition={composerDock(reduce)}
+                    className="w-full"
+                  >
+                    {renderComposer(composerRef)}
+                  </motion.div>
+                }
+                onPickSuggestion={(t) => composerRef.current?.prefill(t)}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
+      </LayoutGroup>
       </ResizablePanel>
       {showSidePreview && previewArtifact && (
         <>

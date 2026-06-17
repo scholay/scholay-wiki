@@ -16,6 +16,7 @@ import {
   LogIn,
   Lock,
   Search,
+  Share2,
   UserPlus,
   X,
 } from 'lucide-react';
@@ -34,6 +35,8 @@ import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useDebounce, useScrollRestoration, useUrlState } from '@/shared/hooks';
 import { LibrarySidebar } from '../components/LibrarySidebar';
 import { LibraryPaperList } from '../components/LibraryPaperList';
+import { ShareSheet } from '@/shared/components/share/ShareSheet';
+import { useShareSheetStore } from '@/shared/components/share/use-share-sheet';
 import type { WorkbenchView } from '../components/PaperWorkbenchDialog';
 import type { ImportTab } from '../components/library-import-dialog/types';
 import { useLibraryFolders } from '../api/folders';
@@ -123,6 +126,9 @@ function LibraryLoginPrompt() {
 function LibraryFolderView() {
   const [params, setParams] = useSearchParams();
   const foldersQ = useLibraryFolders();
+  const openShare = useShareSheetStore((s) => s.openShare);
+  const shareTarget = useShareSheetStore((s) => s.target);
+  const closeShare = useShareSheetStore((s) => s.closeShare);
 
   const folderParam = params.get('folder') ?? '';
   const folders = foldersQ.data?.folders ?? [];
@@ -301,6 +307,30 @@ function LibraryFolderView() {
               <span className="inline-flex items-center px-1.5 py-px rounded-sm bg-surface-2 text-xs font-semibold text-muted-foreground tabular-nums">
                 {count.toLocaleString()} 篇
               </span>
+              {currentFolder && count > 0 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    openShare({
+                      kind: 'collection',
+                      folderId: currentFolder.id,
+                      folderName: title,
+                      paperCount: count,
+                      samplePapers: papers
+                        .slice(0, 5)
+                        .map((r) => ({
+                          title: (r.og_title || r.title) ?? '',
+                          venue: r.og_venue || r.venue,
+                          year: r.og_year || r.year,
+                        }))
+                        .filter((p) => p.title),
+                    })
+                  }
+                  className="inline-flex items-center gap-1 h-7 px-2 rounded-sm text-sm font-semibold text-subtle hover:bg-surface-1 hover:text-foreground transition-colors"
+                >
+                  <Share2 className="size-3.5" /> 分享
+                </button>
+              )}
             </div>
 
             {/* 搜索框 —— 受控输入,300ms debounce 后给 LibraryPaperList
@@ -429,6 +459,9 @@ function LibraryFolderView() {
           onToggleSortOrder={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
         />
       </div>
+
+      {/* 分享面板(PC):工具栏分享当前文件夹 / 论文行分享单篇,共用本实例(store 驱动) */}
+      <ShareSheet target={shareTarget} open={!!shareTarget} onOpenChange={(v) => !v && closeShare()} />
     </div>
   );
 }

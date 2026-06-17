@@ -12,13 +12,13 @@ export function AuthorHero({ author }: { author: Author }) {
   const aff = author.affiliations?.[0];
 
   return (
-    <section className="rounded-lg bg-surface-1 border border-border-soft p-7 flex items-stretch gap-7">
-      {/* 圆形 avatar —— .pen `VcqDs` 140×140 圆 */}
+    <section className="rounded-lg bg-surface-1 border border-border-soft p-4 sm:p-7 flex flex-col sm:flex-row sm:items-stretch gap-4 sm:gap-7">
+      {/* 圆形 avatar —— .pen `VcqDs` 140×140 圆;移动端缩到 88 */}
       <div
-        className="shrink-0 w-[140px] h-[140px] rounded-full flex items-center justify-center"
+        className="shrink-0 w-[88px] h-[88px] sm:w-[140px] sm:h-[140px] rounded-full flex items-center justify-center"
         style={{ backgroundColor: color }}
       >
-        <span className="font-display font-bold text-[64px] text-white leading-none">
+        <span className="font-display font-bold text-[40px] sm:text-[64px] text-white leading-none">
           {initial}
         </span>
       </div>
@@ -33,7 +33,7 @@ export function AuthorHero({ author }: { author: Author }) {
           </span>
         </div>
 
-        <h1 className="font-display font-bold text-[36px] leading-tight text-foreground">
+        <h1 className="font-display font-bold text-2xl sm:text-[36px] leading-tight text-foreground">
           {author.name}
         </h1>
 
@@ -65,7 +65,7 @@ export function AuthorHero({ author }: { author: Author }) {
       </div>
 
       {/* 右侧 actions —— 关注学者已暂时下线(等后端关注接口) */}
-      <div className="shrink-0 flex flex-col items-end gap-2">
+      <div className="shrink-0 flex flex-row flex-wrap sm:flex-col items-start sm:items-end gap-2">
         {author.homepage && (
           <a
             href={author.homepage}

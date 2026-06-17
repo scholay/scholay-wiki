@@ -129,6 +129,9 @@ type Paper struct {
 	TLDR             *TLDR              `json:"tldr,omitempty"`
 	Journal          *JournalRef        `json:"journal,omitempty"`
 	Source           string             `json:"source,omitempty"`
+	// IsFavorited 仅在「已登录」请求时由 handler 后置标注(在共享缓存命中之后,逐请求标注,
+	// 不污染按 query 缓存的公共结果);匿名请求省略。供搜索结果直接显示「已收藏」,省一次 /library/check。
+	IsFavorited *bool `json:"isFavorited,omitempty"`
 }
 
 // Author matches the existing frontend Author contract
@@ -310,6 +313,20 @@ type Journal struct {
 	GJQKWarning       bool               `json:"gjqk_warning,omitempty"`
 	SourceCount       int                `json:"source_count,omitempty"`
 	Sources           map[string]any     `json:"sources,omitempty"`
+}
+
+// JournalSubmission 投稿资源元信息(upstream v2:/v1/jnl/get full=1 时附带,key 为 "submission")。
+//
+// 安全约定:guideline_url / latex_url 是上游下载地址,**绝不**透传给前端 ——
+// 公开 /journals/* 响应会被 redactJournalSubmissionURLs 抹掉这两个 url(置 null),
+// 只保留 has_guideline / has_latex / latex_class 让前端知道"有没有、是什么模板"。
+// 真正下载走 Max 会员专享的后端代理端点 DownloadJournalSubmission(后端持 key 拉取并流式回传)。
+type JournalSubmission struct {
+	HasGuideline bool   `json:"has_guideline"`
+	HasLatex     bool   `json:"has_latex"`
+	LatexClass   string `json:"latex_class,omitempty"`
+	GuidelineURL string `json:"guideline_url,omitempty"`
+	LatexURL     string `json:"latex_url,omitempty"`
 }
 
 // JournalSearchOptions 期刊搜索过滤参数 —— 对齐上游 /v1/jnl/search 全量字段(api-1.json 2440-2580)。

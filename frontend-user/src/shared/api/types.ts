@@ -80,6 +80,12 @@ export interface Paper {
    * 消费方记得:涉及调上游 API / 三源 search filter 时,要先 narrow / 兜底过滤掉 'local'。
    */
   source?: PaperSource;
+  /**
+   * 服务端标注的「当前登录用户是否已收藏」—— 仅 /public/papers/search 在已登录请求里逐篇标注
+   * (公共缓存命中后标注,不污染缓存);匿名请求 / 其它来源为 undefined。
+   * 用作搜索结果「已收藏」红心的初值,省一次 /user/library/check 往返。
+   */
+  isFavorited?: boolean;
 }
 
 // ============================================================================
@@ -234,10 +240,16 @@ export interface Journal {
   jcr_quartile?: string;
   fqb_quartile?: string;
   ccf_rank?: string;
+  /** 中科院「新锐分区」单数字 "1"-"4"(从 "1 区" 抽出)。v2 起。 */
+  xr_quartile?: string;
+  /** 中科院新锐 Top 期刊标记。 */
+  xr_top?: boolean;
   openalex_h_index?: number;
   gjqk_warning?: boolean;
   source_count?: number;
   sources?: Record<string, unknown>;
+  /** 是否有投稿须知 / LaTeX 模板(下载为 Max 会员专享)。v2 起。 */
+  has_submission?: boolean;
 }
 
 export interface JournalSearchResult {
@@ -265,7 +277,10 @@ export interface JournalListUnified {
   /** 逗号分隔来源名: "crossref,openalex,jcr,fqb" */
   sources?: string;
   crossref_publisher?: string | null;
+  /** DOAJ 出版商(crossref_publisher 缺失时的回退) */
+  doaj_publisher?: string | null;
   crossref_total_dois?: number;
+  crossref_current_dois?: number;
   openalex_country?: string | null;
   /** journal / repository / conference ... */
   openalex_type?: string | null;
@@ -273,9 +288,9 @@ export interface JournalListUnified {
   openalex_cited_by_count?: number;
   openalex_h_index?: number;
   openalex_2yr_mean_citedness?: string | null;
-  /** 0/1 */
-  openalex_is_oa?: number;
-  doaj_is_in_doaj?: number;
+  /** 0/1(上游不同源偶有 bool,消费方按 ===1/===true 兜底) */
+  openalex_is_oa?: number | boolean | null;
+  doaj_is_in_doaj?: number | boolean | null;
   /** 期刊中文名(如有) */
   wikidata_label_zh?: string | null;
   /** 字符串数值,如 "232.4" */
@@ -303,6 +318,44 @@ export interface JournalListUnified {
   gjqk_warning_level?: string | null;
   gjqk_year?: number | string | null;
   letpub_id?: number | string | null;
+  // ── 中科院「新锐分区」(XR 源,v2 起) ──
+  has_xr?: number | boolean | null;
+  xr_year?: number | string | null;
+  /** 大类(英文),如 "Medicine" */
+  xr_major_category?: string | null;
+  /** 大类(中文),如 "医学" */
+  xr_major_category_cn?: string | null;
+  /** 大类新锐分区,如 "1 区" */
+  xr_major_quartile?: string | null;
+  /** 中科院新锐 Top 期刊标记("是"/"否") */
+  xr_top?: string | null;
+  // ── 投稿资源(submission 源,v2 起) ──
+  /** 是否有投稿须知 / LaTeX 模板(0/1)。详细资源在 full=1 的 sources.submission 里。 */
+  has_submission?: number | boolean | null;
+}
+
+/**
+ * 投稿资源「展示态」—— 详情页从 full=1 的 sources.submission 规整出来喂给
+ * JournalSubmissionCard 的精简结构。真实下载地址被后端抹成 null,前端拿不到,
+ * 下载走 Max 会员专享代理端点(useDownloadJournalSubmission)。这里只留安全字段。
+ */
+export interface JournalSubmissionMeta {
+  has_guideline?: boolean;
+  has_latex?: boolean;
+  /** LaTeX 文档类,如 "sn-jnl.cls";无模板时 null */
+  latex_class?: string | null;
+}
+
+/** full=1 的 sources.submission 原始结构(实测;url 已被后端抹除)。 */
+export interface JournalSubmissionSource {
+  main?: {
+    has_guideline?: boolean;
+    has_latex?: boolean;
+  } | null;
+  latex?: {
+    class?: string | null;
+  } | null;
+  guidelines_md_url?: string | null;
 }
 
 /** /public/journals/list 原始透传分页壳 */
@@ -342,6 +395,8 @@ export interface JournalFullDetail {
   sources?: {
     openalex?: { counts_by_year?: JournalYearCount[] };
     jcr?: { all_years?: JournalJcrYear[] };
+    /** 投稿资源(投稿须知 / LaTeX 模板);url 字段已被后端抹除 */
+    submission?: JournalSubmissionSource;
   };
 }
 
@@ -410,4 +465,39 @@ export interface DimensionSettingItem extends AnalysisDimension {
   isSystem: boolean;
   /** 是否当前是用户 override(name/desc/可见性等被改过) */
   isCustomized: boolean;
+}
+
+// ============================================================================
+// 分享对象 —— 论文 single / 期刊 journal / 文献集 collection 三态
+//
+// 放在 shared/api/types(而非 ShareSheet 组件)以满足分层铁律:
+// stores/(share.store)、shared/components/ 都能引用,而 stores 不允许 import
+// shared/components/。ShareSheet 仍 re-export 这个类型,旧 import 路径不受影响。
+// ============================================================================
+
+export type ShareTarget =
+  | { kind: 'single'; paper: Paper }
+  | { kind: 'journal'; journal: Journal }
+  | {
+      kind: 'collection';
+      folderId: number;
+      folderName: string;
+      paperCount: number;
+      /** 篇目预览(调用方按需提供前几篇:题名 + venue/年,供卡片/海报渲染;省略则只显示封面+篇数)。 */
+      samplePapers?: { title: string; venue?: string; year?: number }[];
+    }
+  // 功能广场的功能/工具:公开页,直接分享 /tools/:slug 链接(无提取码/转存),含分享海报。
+  | { kind: 'tool'; tool: ShareToolInput };
+
+/** 分享一个「功能/工具」所需的最小字段(从 FeatureTool 取子集,避免 ShareTarget 依赖整张表)。 */
+export interface ShareToolInput {
+  id: number;
+  slug?: string;
+  name: string;
+  tagline?: string;
+  description_md?: string;
+  category_label?: string;
+  price_type?: string;
+  access_type?: string;
+  logo?: string;
 }

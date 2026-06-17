@@ -1,7 +1,9 @@
 import { Link, useLocation } from 'react-router-dom';
+import { m } from 'framer-motion';
 import { Compass, LayoutGrid, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
+import { SNAPPY_SPRING } from '@/shared/lib/motion';
 import { ClawBrandIcon } from '@/shared/components/ClawBrandIcon';
 
 interface NavItem {
@@ -56,11 +58,19 @@ export function MobileBottomNav() {
           // 未登录的「我的」整页跳 /m/auth,Tab 高亮跟随
           (item.key === 'me' && pathname.startsWith('/m/auth'));
         const cls = cn(
-          'flex flex-1 flex-col items-center justify-center gap-1',
+          'relative flex flex-1 flex-col items-center justify-center gap-1 transition-transform active:scale-90',
           active ? 'text-foreground' : 'text-faint'
         );
         const body = (
           <>
+            {/* 激活指示条 —— layoutId 让它在切 tab 时平滑滑动到新位置 */}
+            {active && (
+              <m.span
+                layoutId="mobile-nav-indicator"
+                transition={SNAPPY_SPRING}
+                className="absolute top-0 h-0.5 w-8 rounded-full bg-brand-red"
+              />
+            )}
             {item.icon(active)}
             <span className={cn('text-2xs', active && 'font-medium')}>
               {item.label}

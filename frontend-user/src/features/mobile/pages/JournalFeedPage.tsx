@@ -1,9 +1,16 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { JournalCover } from '@/shared/components/JournalCover';
+import { useHorizontalSwipe } from '@/shared/hooks';
+import { getFeedSeed, rotateFeedSeed } from '@/shared/lib/feed-seed';
+import { persistFeedPages } from '@/shared/lib/feed-cache';
+import { getFeedPosition, setFeedPosition } from '@/shared/lib/feed-position';
 import {
   useJournalFeed,
   flattenJournalPages,
   formatNumeric,
+  journalFeedKey,
   JOURNAL_FEED_PAGE_SIZE,
 } from '../api/journal-feed';
 import { JournalFeedCard } from '../components/JournalFeedCard';
@@ -22,31 +29,60 @@ const LOADING_HINTS = [
  * (点击直接滑到下一刊,.pen `RSOTM` Next Card Peek)。
  */
 export function JournalFeedPage() {
-  const feedQ = useJournalFeed();
+  const [seed, setSeed] = useState(getFeedSeed);
+  const feedQ = useJournalFeed(seed);
   const journals = useMemo(
     () => flattenJournalPages(feedQ.data?.pages),
     [feedQ.data]
   );
+  // 二次进入接着上次位置往后刷(seed 一致才恢复;下拉刷新换 seed 自然从头)
+  const initialIndex = useMemo(() => getFeedPosition('journals', seed), [seed]);
+
+  // 持久化前几页 → 下次进入无缝显示上次内容(只在 ≤3 页时写,避免写放大)
+  const qc = useQueryClient();
+  useEffect(() => {
+    if (feedQ.data && feedQ.data.pages.length <= 3) {
+      persistFeedPages('journals', seed, feedQ.data.pages, feedQ.data.pageParams);
+    }
+  }, [feedQ.data, seed]);
 
   const { fetchNextPage, hasNextPage, isFetchingNextPage } = feedQ;
   const onPrefetch = useCallback(() => {
     void fetchNextPage();
   }, [fetchNextPage]);
 
+  // 横滑切 tab:期刊 →(右滑)论文。被动检测,不干扰纵向 embla。
+  const navigate = useNavigate();
+  const swipe = useHorizontalSwipe({
+    onSwipeRight: () => navigate('/m/feed', { replace: true }),
+  });
+
+  // 下拉刷新:回收旧 seed 查询 → 换 seed(换排序维度/起始页)→ 刷出一批不同期刊
+  const handleRefresh = useCallback(() => {
+    qc.removeQueries({ queryKey: journalFeedKey(seed) });
+    setSeed(rotateFeedSeed());
+  }, [qc, seed]);
+
   return (
     <div className="flex h-full flex-col">
       <FeedTopTabs active="journals" />
 
-      <div className="min-h-0 flex-1">
+      <div className="min-h-0 flex-1" {...swipe}>
         <VerticalSwipeFeed
+          key={seed}
           items={journals}
           itemKey={(j) => j.id}
+          initialIndex={initialIndex}
+          onIndexChange={(i) => setFeedPosition('journals', seed, i)}
           pageSize={JOURNAL_FEED_PAGE_SIZE}
           onPrefetch={onPrefetch}
           canPrefetch={!!hasNextPage && !isFetchingNextPage}
           isLoading={feedQ.isLoading}
+          isFetchingMore={isFetchingNextPage}
           isError={feedQ.isError}
           onRetry={() => void feedQ.refetch()}
+          onEmptyRetry={handleRefresh}
+          onRefresh={handleRefresh}
           loadingHints={LOADING_HINTS}
           errorText="期刊加载失败,请检查网络后重试"
           swipeHint="上滑 · 下一本期刊"

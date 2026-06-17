@@ -53,7 +53,10 @@ export function OnlineSearchTab({
   const hasQuery = query.trim().length > 0;
   const initialLoading = hasQuery && !allDone && totalCount === 0;
 
-  const folderId = typeof currentFilter === 'number' ? currentFilter : undefined;
+  // 工作台已是「加到当前文献集」语境(头/脚已声明目标):具体夹用其 id,根/全部视图用 null
+  // (= 默认文件夹直接收藏)。**不能用 undefined** —— 那会让 FavoritePaperButton 在已打开的
+  // 工作台弹窗之上再弹一个全局文件夹选择器(弹窗叠弹窗 + 行为回归)。
+  const folderId = typeof currentFilter === 'number' ? currentFilter : null;
 
   const handleJumpToSearch = () => {
     const q = query.trim();
@@ -176,7 +179,7 @@ function PaperRow({
   paper: Paper;
   /** 已收藏时为创建的文献集行(收藏成功回调带回),未收藏为 undefined */
   favoritedRow: UserLibraryPaper | undefined;
-  folderId: number | undefined;
+  folderId: number | null;
   onFavoriteSuccess: (paper: Paper, row: UserLibraryPaper) => void;
   onUnfavorited: (paper: Paper) => void;
   onManagePaper: (row: UserLibraryPaper) => void;

@@ -25,7 +25,15 @@
  *
  * 同步契约:
  *   marker 字符串必须跟 backend `agentbridge/ws.go:buildInjectionPrefix` 保持一致。
- *   改 backend 时, 同步改这里的两个 marker 即可 (中间 .*? 是通配, 不用动)。
+ *   改 backend 时, 同步改这里的 marker 即可 (中间 .*? 是通配, 不用动)。
+ *
+ * ⚠️ 历史 bug (memory 段漏匹配):
+ *   buildInjectionPrefix 在 END-OF-RULES marker 与「以下是用户的请求:」之间, 当 per-user
+ *   长期记忆非空时还会插一段 `[关于这位用户 — 长期记忆…]…[/长期记忆]\n\n`。早期正则把
+ *   END-OF-RULES 与「以下是用户的请求:」写成相邻 —— 凡是有记忆的用户, 整段 prefix 匹配
+ *   失败、原样泄漏给用户 (= 截图里看到的现象)。现在用可选分组兼容「有/无记忆」两种形态。
+ *   后端也已在历史出口 (agentbridge/bridge.go stripInjectionFromMessages) 兜底剥离,
+ *   本前端正则是 defense-in-depth。
  *
  * 边界:
  *   - 文本不以 "[AGENT BRIDGE — STRICT RULES YOU MUST FOLLOW]" 开头 → 原样返回
@@ -37,11 +45,13 @@
 //   ^                                                     必须在文本开头, 防止匹配到用户自己引用的 marker
 //   \[AGENT BRIDGE — STRICT RULES YOU MUST FOLLOW\]\n     start marker (\n 是 buildInjectionPrefix 必有的换行)
 //   [\s\S]*?                                              systemPrompt 全文 (非贪婪, [\s\S] 是为了跨行)
-//   \n\[\/AGENT BRIDGE — END OF RULES\]\n\n以下是用户的请求:\n  end marker (前导 \n 在 systemPrompt 末尾)
+//   \n\[\/AGENT BRIDGE — END OF RULES\]\n\n               rules 段结束 marker
+//   (?:\[关于这位用户[\s\S]*?\[\/长期记忆\]\n\n)?           可选的 per-user 长期记忆段 (memory 为空时不出现)
+//   以下是用户的请求:\n                                     用户真实输入前的最后一行
 //
 // 注意 "—" 是 EM DASH (U+2014) 不是普通 "-", 跟 backend 字面量必须一致。
 const INJECTED_PREFIX_RE =
-  /^\[AGENT BRIDGE — STRICT RULES YOU MUST FOLLOW\]\n[\s\S]*?\n\[\/AGENT BRIDGE — END OF RULES\]\n\n以下是用户的请求:\n/;
+  /^\[AGENT BRIDGE — STRICT RULES YOU MUST FOLLOW\]\n[\s\S]*?\n\[\/AGENT BRIDGE — END OF RULES\]\n\n(?:\[关于这位用户[\s\S]*?\[\/长期记忆\]\n\n)?以下是用户的请求:\n/;
 
 /**
  * 把 agentbridge 注入的 prompt prefix 从用户消息文本里剥掉。

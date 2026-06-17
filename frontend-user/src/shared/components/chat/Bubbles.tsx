@@ -53,12 +53,25 @@ export interface AssistantBubbleProps {
   text: string;
   /** true 时末尾追加闪烁竖线光标; turn 还在流且当前块在写字时传 true */
   streaming?: boolean;
+  /**
+   * 视觉变体:
+   *   - 'card'(默认):白底 + 边框 + shadow 的卡片(智能搜索沿用,保持现状不动)。
+   *   - 'plain':无边框 / 无底 / 无 shadow,markdown 全宽直接铺在背景上 —— 现在常见的 AI 助手
+   *     聊天观感(ChatGPT / Claude / DeepSeek)。智能助手 claw 用这个。
+   */
+  variant?: 'card' | 'plain';
 }
 
-// memo: 同上 —— text/streaming 都是标量, 非活跃气泡在流式期间不再重渲染。
-export const AssistantBubble = memo(function AssistantBubble({ text, streaming }: AssistantBubbleProps) {
+// memo: 同上 —— text/streaming/variant 都是标量, 非活跃气泡在流式期间不再重渲染。
+export const AssistantBubble = memo(function AssistantBubble({ text, streaming, variant = 'card' }: AssistantBubbleProps) {
   return (
-    <div className="rounded-2xl rounded-tl-md border border-border bg-background px-4 py-3 shadow-sm min-w-0 overflow-hidden">
+    <div
+      className={
+        variant === 'plain'
+          ? 'min-w-0 overflow-hidden' // 无气泡:全宽正文铺背景
+          : 'rounded-2xl rounded-tl-md border border-border bg-background px-4 py-3 shadow-sm min-w-0 overflow-hidden'
+      }
+    >
       <MarkdownRenderer text={text} />
       {streaming && (
         <span

@@ -230,6 +230,14 @@ export function UsersPage() {
       serverSortKey: 'created_at',
     },
     {
+      header: '最后活跃',
+      cell: (u) => (
+        <span className="text-xs text-muted-foreground">{u.last_active_at?.slice(0, 16).replace('T', ' ') || '—'}</span>
+      ),
+      width: 150,
+      serverSortKey: 'last_active_at',
+    },
+    {
       header: '最后登录',
       cell: (u) => (
         <span className="text-xs text-muted-foreground">{u.last_login_at?.slice(0, 16).replace('T', ' ') || '—'}</span>

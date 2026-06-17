@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand"
+	"net/http"
 	"strings"
 	"time"
 
@@ -22,6 +23,8 @@ import (
 	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/upstream"
 	"scholar-backend/internal/thirdparty"
+
+	"github.com/sony/gobreaker"
 )
 
 const MaxRetries = 5
@@ -151,8 +154,18 @@ func (m *Manager) executeWithRetry(operation func(client *Client) (any, error)) 
 //
 // call 只需描述"给定一个 client 怎么发这次请求", 不关心重试/熔断/账户。
 func fetch[T any](m *Manager, call func(c *Client) (T, error)) (T, error) {
+	return fetchVia[T](m, circuitbreaker.MinicodBreaker, call)
+}
+
+// fetchSrc 同 fetch,但用「按源隔离」的熔断器(stc/olx/pmd 各一把)。
+// 这样某个源故障只熔断该源,搜索的自动换源才能落到下一个好源。
+func fetchSrc[T any](m *Manager, source string, call func(c *Client) (T, error)) (T, error) {
+	return fetchVia[T](m, circuitbreaker.MinicodBreakerFor(source), call)
+}
+
+func fetchVia[T any](m *Manager, breaker *gobreaker.CircuitBreaker, call func(c *Client) (T, error)) (T, error) {
 	var zero T
-	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
+	result, err := breaker.Execute(func() (any, error) {
 		return m.executeWithRetry(func(client *Client) (any, error) {
 			return call(client)
 		})
@@ -220,7 +233,8 @@ func (m *Manager) SearchPapers(ctx context.Context, opts PaperSearchOptions) (*S
 	}
 	var resp SearchResponse
 	err := cache.GetOrSetMinicodSearch(ctx, params, func() (any, error) {
-		return fetch(m, func(c *Client) (*SearchResponse, error) { return c.SearchPapers(ctx, opts) })
+		// 按源隔离熔断:支撑搜索的自动换源(stc 挂了不连累 olx/pmd)
+		return fetchSrc(m, opts.Source, func(c *Client) (*SearchResponse, error) { return c.SearchPapers(ctx, opts) })
 	}, &resp)
 	if err != nil {
 		return nil, err
@@ -611,4 +625,15 @@ func (m *Manager) GetJournalByISSN(ctx context.Context, issn string, full string
 
 func (m *Manager) CompareJournals(ctx context.Context, ids string) (json.RawMessage, error) {
 	return fetch(m, func(c *Client) (json.RawMessage, error) { return c.CompareJournals(ctx, ids) })
+}
+
+// DownloadJournalSubmissionFile 取一个账户(含 key + baseURL)流式代理下载投稿资源文件。
+// 不走 fetch/breaker(那是 envelope JSON 语义);下载是稀有动作 + 二进制流,单账户直拉即可。
+// 调用方负责关闭返回 resp.Body。
+func (m *Manager) DownloadJournalSubmissionFile(ctx context.Context, url string) (*http.Response, error) {
+	client, _, err := m.getClientWithAccountID()
+	if err != nil {
+		return nil, err
+	}
+	return client.DownloadFile(ctx, url)
 }

@@ -44,6 +44,7 @@ type SupportCenterConfig struct {
 	FeishuSecret          string `gorm:"column:feishu_secret" json:"feishu_secret"`
 	FeishuNotifyFeedback  bool   `gorm:"column:feishu_notify_feedback" json:"feishu_notify_feedback"`
 	FeishuNotifyEmail     bool   `gorm:"column:feishu_notify_email" json:"feishu_notify_email"`
+	FeishuNotifyPayment   bool   `gorm:"column:feishu_notify_payment" json:"feishu_notify_payment"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

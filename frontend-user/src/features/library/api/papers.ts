@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
 import { STALE_FRESH } from '@/shared/lib/query-config';
 import { useAuthStore } from '@/stores/auth.store';
@@ -83,6 +88,54 @@ export function useLibraryPapers(
       }
     },
   });
+}
+
+/**
+ * 文件夹论文「无限滚动」版 —— 移动端文件夹详情用(替代一次性 pageSize:100 拉满)。
+ * 每页 pageSize 条,滚到接近末尾再拉下一页;移动端配合虚拟化只挂载视口附近的行。
+ */
+export function useInfiniteLibraryPapers(
+  filter: LibraryFolderFilter = 'root',
+  options: { pageSize?: number; q?: string; order?: LibrarySortOrder } = {}
+) {
+  const { pageSize = 20, q = '', order = 'desc' } = options;
+  const trimmed = q.trim();
+  const token = useAuthStore((s) => s.token);
+  return useInfiniteQuery({
+    queryKey: ['library', 'papers-inf', filter, pageSize, trimmed, order] as const,
+    enabled: !!token,
+    staleTime: STALE_FRESH,
+    initialPageParam: 1,
+    getNextPageParam: (lastPage: ListResponse, allPages: ListResponse[]) => {
+      const loaded = allPages.reduce((n, p) => n + p.items.length, 0);
+      return loaded < lastPage.total ? allPages.length + 1 : undefined;
+    },
+    queryFn: async ({ pageParam }): Promise<ListResponse> => {
+      const params = new URLSearchParams({
+        page: String(pageParam),
+        page_size: String(pageSize),
+        folder: folderQueryValue(filter),
+        order,
+      });
+      if (trimmed) params.set('q', trimmed);
+      try {
+        const { data } = await http.get<{ data: ListResponse }>(
+          `/user/library?${params}`
+        );
+        return data.data ?? { items: [], total: 0 };
+      } catch (err) {
+        throw toApiError(err);
+      }
+    },
+  });
+}
+
+/** 摊平无限分页的所有论文行。 */
+export function flattenLibraryPages(
+  pages: ListResponse[] | undefined
+): UserLibraryPaper[] {
+  if (!pages) return [];
+  return pages.flatMap((p) => p.items);
 }
 
 function invalidateLibrary(qc: ReturnType<typeof useQueryClient>) {
