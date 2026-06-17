@@ -56,10 +56,15 @@ func refreshMaintenanceState() {
 //   /api/v1/user/login            (登录入口)
 func MaintenanceModeMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 30s 缓存
+		// 30s 缓存。用 CAS 抢刷新权:只有一个 goroutine 真正查 DB, 其余请求沿用缓存的
+		// atomic 值。否则在缓存过期的瞬间, 同一窗口内所有在途请求会各自 inline 查一次
+		// system_configs(惊群)—— 见性能审计 be-http。
 		now := time.Now().Unix()
-		if now-maintenanceUpdated.Load() > int64(maintenanceCacheTTL.Seconds()) {
-			refreshMaintenanceState()
+		last := maintenanceUpdated.Load()
+		if now-last > int64(maintenanceCacheTTL.Seconds()) {
+			if maintenanceUpdated.CompareAndSwap(last, now) {
+				refreshMaintenanceState()
+			}
 		}
 
 		if !maintenanceEnabled.Load() {

@@ -55,8 +55,11 @@ innodb_random_read_ahead = 0
 wait_timeout = 28800
 interactive_timeout = 28800
 
-# 慢查询日志（启用，用于性能监控）
-slow_query_log = 1
-slow_query_log_file = /var/lib/mysql/slow.log
+# 慢查询日志:此处不启用。
+# 历史上这里写 slow_query_log=1 + 文件到 /var/lib/mysql/slow.log,但 docker-compose 的
+# `command:` 传了 `--slow-query-log=0`(命令行覆盖 cnf),所以实际一直是关的 —— 那几行是
+# 误导性死配置(性能审计 infra)。FILE 模式落到无轮转的挂载卷会无限增长, 故刻意保持关闭。
+# 若需观测慢查询, 改在 command 用 `--slow-query-log=1 --log-output=TABLE`(写 mysql.slow_log
+# 表, 无磁盘无限增长问题), 不要在这里用 FILE 模式。
 long_query_time = 2
 log_queries_not_using_indexes = 0

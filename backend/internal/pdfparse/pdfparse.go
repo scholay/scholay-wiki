@@ -65,7 +65,58 @@ type Options struct {
 const (
 	defaultMaxFullText = 60_000
 	defaultTimeout     = 60 * time.Second
+
+	// pdfParseMaxConcurrent 同时运行的 node 解析子进程上限。每个解析驻留 ~50MB 输入 +
+	// 一个 node 进程(数十 MB)+ 完整缓冲的 JSON stdout, 无上限并发会在突发上传下把单
+	// 后端容器顶到 OOM(审计 high)。4 是经验默认, 可按容器内存上调。
+	pdfParseMaxConcurrent = 4
+	// pdfParseAcquireTimeout 抢解析槽位的最长等待。等不到就快速失败 —— 否则大量请求会各自
+	// 攥着已读入的 50MB 输入在闸门前排队, 把内存堆爆。失败对 handler 是非致命(降级为
+	// 「未抽取到元数据」, 用户仍可手填保存)。
+	pdfParseAcquireTimeout = 8 * time.Second
+	// maxPdfStdoutBytes node stdout 缓冲上限, 防失控子进程输出顶爆内存。extract.mjs 限 25 页,
+	// 正常输出远小于此; 纯防御。
+	maxPdfStdoutBytes = 64 << 20
 )
+
+// ErrPdfParseBusy 解析槽位已满且等待超时。handler 视为非致命(降级处理)。
+var ErrPdfParseBusy = errors.New("pdf parse: too many concurrent parses, retry later")
+
+// pdfParseSem 解析并发闸门(带缓冲 channel 当信号量)。
+var pdfParseSem = make(chan struct{}, pdfParseMaxConcurrent)
+
+// acquirePdfParseSlot 抢一个解析槽位: 先非阻塞试拿, 满了再限时等待, 超时快速失败。
+func acquirePdfParseSlot(ctx context.Context) error {
+	select {
+	case pdfParseSem <- struct{}{}:
+		return nil
+	default:
+	}
+	timer := time.NewTimer(pdfParseAcquireTimeout)
+	defer timer.Stop()
+	select {
+	case pdfParseSem <- struct{}{}:
+		return nil
+	case <-timer.C:
+		return ErrPdfParseBusy
+	case <-ctx.Done():
+		return ErrPdfParseBusy
+	}
+}
+
+// cappedBuffer 是带上限的写缓冲: 超过 cap 时 Write 返回错误, 让 cmd.Run 失败,
+// 防止失控的 node 子进程把 stdout 写到撑爆内存。
+type cappedBuffer struct {
+	buf bytes.Buffer
+	cap int
+}
+
+func (b *cappedBuffer) Write(p []byte) (int, error) {
+	if b.buf.Len()+len(p) > b.cap {
+		return 0, fmt.Errorf("pdf-extract: output exceeded %d bytes cap", b.cap)
+	}
+	return b.buf.Write(p)
+}
 
 // 与 extract.js 输出对应的 raw 结构
 type rawItem struct {
@@ -122,6 +173,12 @@ func Parse(ctx context.Context, pdfData []byte, opts Options) (*Result, error) {
 		return nil, err
 	}
 
+	// 并发闸门: 限制同时运行的 node 子进程数, 防突发上传 OOM。等不到槽位即返回 ErrPdfParseBusy。
+	if err := acquirePdfParseSlot(ctx); err != nil {
+		return nil, err
+	}
+	defer func() { <-pdfParseSem }()
+
 	timeout := opts.Timeout
 	if timeout == 0 {
 		timeout = defaultTimeout
@@ -131,7 +188,8 @@ func Parse(ctx context.Context, pdfData []byte, opts Options) (*Result, error) {
 
 	cmd := exec.CommandContext(ctx, "node", script)
 	cmd.Stdin = bytes.NewReader(pdfData)
-	var stdout, stderr bytes.Buffer
+	stdout := cappedBuffer{cap: maxPdfStdoutBytes}
+	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
@@ -139,7 +197,7 @@ func Parse(ctx context.Context, pdfData []byte, opts Options) (*Result, error) {
 	}
 
 	var raw rawExtract
-	if err := json.Unmarshal(stdout.Bytes(), &raw); err != nil {
+	if err := json.Unmarshal(stdout.buf.Bytes(), &raw); err != nil {
 		return nil, fmt.Errorf("pdf-extract: invalid JSON output: %w", err)
 	}
 
@@ -559,6 +617,9 @@ var (
 	authorAdornmentsRe = regexp.MustCompile("[⁰-₟¹²³†‡§¶⁋★☆*✉#§¶†‡]")
 	// 单位编号后跟逗号(如 "Yang Smith, John¹, Jane²,3" 切完没问题)
 	authorSplitRe = regexp.MustCompile(`(?i)\s*(?:[,;]|\s+and\s+|\s+&\s+|\s*·\s*)\s*`)
+	// 裸数字(单位编号脱掉 superscript 后残留的普通数字)。提到包级, 与本文件其它
+	// 正则一致, 避免每次 parseAuthorNames 调用都重新编译。
+	bareDigitRe = regexp.MustCompile(`\b\d{1,3}\b`)
 )
 
 func extractAuthorsFromPages(pages []rawPage, titleMaxY float64) []string {
@@ -616,7 +677,7 @@ func parseAuthorNames(raw string) []string {
 	// 1) 去 superscript / email 标记
 	cleaned := authorAdornmentsRe.ReplaceAllString(raw, "")
 	// 2) 去裸数字(单位编号脱掉 superscript 后会留下普通数字)—— 切前先 strip
-	cleaned = regexp.MustCompile(`\b\d{1,3}\b`).ReplaceAllString(cleaned, "")
+	cleaned = bareDigitRe.ReplaceAllString(cleaned, "")
 	// 3) 切割
 	parts := authorSplitRe.Split(cleaned, -1)
 	seen := make(map[string]bool)

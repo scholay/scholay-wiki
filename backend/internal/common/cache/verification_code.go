@@ -50,7 +50,9 @@ func SaveVerificationCode(ctx context.Context, email, code, purpose string) erro
 		Purpose: purpose,
 	}
 
-	return Set(ctx, key, vc, verificationCodeTTL)
+	// 走 persist 池: 验证码被 LRU 逐出 = 用户验证码「提前过期」, 是硬性的注册/登录失败,
+	// 正是 noeviction 池要保护的 correctness 键。persist 未配置时回落主池, 行为不变。
+	return SetPersist(ctx, key, vc, verificationCodeTTL)
 }
 
 // VerifyCode verifies a verification code and deletes it if valid
@@ -60,7 +62,7 @@ func VerifyCode(ctx context.Context, email, code, purpose string) (bool, error) 
 	key := fmt.Sprintf("%s:%s:%s", verificationCodePrefix, email, purpose)
 
 	var vc VerificationCode
-	err := Get(ctx, key, &vc)
+	err := GetPersist(ctx, key, &vc)
 	if err != nil {
 		// Code not found or expired
 		return false, nil
@@ -71,14 +73,14 @@ func VerifyCode(ctx context.Context, email, code, purpose string) (bool, error) 
 		// 猜错:累计失败次数,超过阈值就把这个码烧掉(连同计数器),
 		// 否则码会在整个 10 分钟窗口里一直可被继续穷举。
 		if bumpVerifyFailures(ctx, key) {
-			_ = Delete(ctx, key)
+			_ = DeletePersist(ctx, key)
 			delVerifyFailures(ctx, key)
 		}
 		return false, nil
 	}
 
 	// Delete the code after verification (one-time use)
-	if err := Delete(ctx, key); err != nil {
+	if err := DeletePersist(ctx, key); err != nil {
 		slog.Warn("Failed to delete verification code", "key", key, "err", err)
 	}
 	// 成功核验后清掉失败计数器,避免下一张同 key 的码继承上一轮的失败数。
@@ -91,7 +93,8 @@ func VerifyCode(ctx context.Context, email, code, purpose string) (bool, error) 
 // (调用方应据此烧掉验证码)。Redis 不可用时返回 false(不锁定,但此时 Get 也会
 // 失败、码本就取不到,不影响安全)。计数器与码同窗口过期,自动清理。
 func bumpVerifyFailures(ctx context.Context, codeKey string) bool {
-	rdb := GetRedis()
+	// 失败计数器与验证码同池 (persist): 计数器被逐出会让暴力穷举绕过锁定阈值。
+	rdb := GetRedisPersist()
 	if rdb == nil {
 		return false
 	}
@@ -108,7 +111,7 @@ func bumpVerifyFailures(ctx context.Context, codeKey string) bool {
 
 // delVerifyFailures 清除某个验证码 key 的失败计数器。
 func delVerifyFailures(ctx context.Context, codeKey string) {
-	rdb := GetRedis()
+	rdb := GetRedisPersist()
 	if rdb == nil {
 		return
 	}
@@ -120,7 +123,7 @@ func GetVerificationCode(ctx context.Context, email, purpose string) (*Verificat
 	key := fmt.Sprintf("%s:%s:%s", verificationCodePrefix, normEmail(email), purpose)
 
 	var vc VerificationCode
-	err := Get(ctx, key, &vc)
+	err := GetPersist(ctx, key, &vc)
 	if err != nil {
 		return nil, err
 	}
@@ -131,11 +134,11 @@ func GetVerificationCode(ctx context.Context, email, purpose string) (*Verificat
 // DeleteVerificationCode deletes a verification code
 func DeleteVerificationCode(ctx context.Context, email, purpose string) error {
 	key := fmt.Sprintf("%s:%s:%s", verificationCodePrefix, normEmail(email), purpose)
-	return Delete(ctx, key)
+	return DeletePersist(ctx, key)
 }
 
 // GetVerificationCodeTTL returns the remaining TTL of a verification code
 func GetVerificationCodeTTL(ctx context.Context, email, purpose string) (time.Duration, error) {
 	key := fmt.Sprintf("%s:%s:%s", verificationCodePrefix, normEmail(email), purpose)
-	return TTL(ctx, key)
+	return TTLPersist(ctx, key)
 }

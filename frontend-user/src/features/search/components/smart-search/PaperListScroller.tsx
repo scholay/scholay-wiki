@@ -284,9 +284,9 @@ export function PaperListScroller({
             <PaperResultCard
               key={p.paperId || `${toolUseId}-${i}`}
               paper={p}
-              stagedIds={stagedIds}
-              collapsedIds={effectivelyCollapsed}
-              favoritedIds={favoritedIds}
+              isStaged={stagedIds.has(p.paperId)}
+              isFolded={effectivelyCollapsed.has(p.paperId)}
+              isFavorited={favoritedIds.has(p.paperId)}
               journalEnrichment={
                 p.venue
                   ? (journalEnrichments[p.venue.trim()] ?? null)

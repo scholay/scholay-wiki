@@ -74,8 +74,12 @@ func (f *FeatureBridge) IssueWSTicketTrusted(ctx context.Context, userID uint, s
 }
 
 // mintWSTicket 铸一张 ticket 写进 Redis(归属校验由调用方决定)。
+//
+// 走 persist 池:ws ticket 被主池 LRU 逐出 = 用户拿着有效 ticket 却升级 WS 失败(401),
+// 是硬性鉴权破坏而非优雅降级,正是 noeviction 池要保护的 correctness 键。persist 未配置
+// 时 GetRedisPersist 回落主池,单实例部署行为不变。
 func (f *FeatureBridge) mintWSTicket(ctx context.Context, userID uint, sessionID string) (string, error) {
-	rdb := cache.GetRedis()
+	rdb := cache.GetRedisPersist()
 	if rdb == nil {
 		return "", errors.New("agentbridge: redis unavailable, cannot issue ws ticket")
 	}
@@ -101,7 +105,7 @@ func (f *FeatureBridge) ConsumeWSTicket(ctx context.Context, token string) (uint
 	if token == "" {
 		return 0, "", ErrWSTicketInvalid
 	}
-	rdb := cache.GetRedis()
+	rdb := cache.GetRedisPersist() // 与 mintWSTicket 同池, 否则 GETDEL 查不到 ticket
 	if rdb == nil {
 		return 0, "", errors.New("agentbridge: redis unavailable")
 	}

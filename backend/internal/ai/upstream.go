@@ -59,10 +59,15 @@ func aiUpstreamClient(name, baseURL string, hc *http.Client) *upstream.Client {
 		HTTPClient(hc).
 		// 不在 upstream 层重试 — executeWithRetry 外层做账户轮换 (语义更准确:
 		// 同账户重打多半还是同样失败, 换账户才有意义)
+		//
+		// 阈值与 minicod breaker (MaxRequests=3 / MinRequests=3 / FailureRatio=0.6) 对齐:
+		// 原来的 10/10/0.8 太松 —— 上游硬故障要攒满 10 次失败才开断路器, 而低吞吐功能
+		// (wechatofficial 自动回复 / 库导入)一个 60s 窗口攒不够 10 次, breaker 形同虚设。
+		// 收紧后能更快 fail-fast, 低吞吐 caller 也能受保护。
 		Breaker(upstream.BreakerConfig{
-			MaxRequests:  10,
-			MinRequests:  10,
-			FailureRatio: 0.8,
+			MaxRequests:  5,
+			MinRequests:  5,
+			FailureRatio: 0.6,
 			Timeout:      30 * time.Second,
 		}).
 		MustBuild()

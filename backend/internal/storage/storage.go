@@ -23,7 +23,10 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -308,6 +311,154 @@ func GetObject(ctx context.Context, bucket, key string) (io.ReadCloser, *minio.O
 	return obj, &info, nil
 }
 
+// StatObject 取对象元数据(HEAD),用于 Range 服务前拿总大小 / Content-Type。
+func StatObject(ctx context.Context, bucket, key string) (*minio.ObjectInfo, error) {
+	if !IsEnabled() {
+		return nil, ErrDisabled
+	}
+	mu.RLock()
+	c := client
+	mu.RUnlock()
+
+	info, err := c.StatObject(ctx, bucket, key, minio.StatObjectOptions{})
+	if err != nil {
+		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("storage: StatObject(bucket=%s,key=%s): %w", bucket, key, err)
+	}
+	return &info, nil
+}
+
+// GetObjectRange 用 MinIO 原生 Range GET 读 [start,end](闭区间)的字节。调用方负责 Close。
+func GetObjectRange(ctx context.Context, bucket, key string, start, end int64) (io.ReadCloser, error) {
+	if !IsEnabled() {
+		return nil, ErrDisabled
+	}
+	mu.RLock()
+	c := client
+	mu.RUnlock()
+
+	opts := minio.GetObjectOptions{}
+	if err := opts.SetRange(start, end); err != nil {
+		return nil, fmt.Errorf("storage: SetRange(%d,%d): %w", start, end, err)
+	}
+	obj, err := c.GetObject(ctx, bucket, key, opts)
+	if err != nil {
+		return nil, fmt.Errorf("storage: GetObjectRange(bucket=%s,key=%s): %w", bucket, key, err)
+	}
+	return obj, nil
+}
+
+// ServeObject 把对象流式写到 w, 支持 HTTP Range(单区间)断点/渐进下载 —— 让 pdf.js 能按需
+// 取页/续传, 而不必每次整份拉取(性能审计 file-download)。框架无关(用 net/http 而非 gin)。
+//
+// 行为:
+//   - 无 Range / Range 解析失败 / 多区间 → 整份 200 + Content-Length + Accept-Ranges(无回归:
+//     最差等同原来的 io.Copy 全量转发)。
+//   - 合法单区间 → 206 + Content-Range + Accept-Ranges,只取该段字节。
+//
+// 鉴权/归属由调用方在调用前完成;contentType 为空则用对象自身的。对象不存在返回 ErrNotFound
+// 且**不写任何响应头/状态**, 调用方可据此回干净的 404;一旦开始写 body 后的错误(客户端断流)
+// 通过返回值上抛, 调用方按 debug 处理即可。
+func ServeObject(w http.ResponseWriter, r *http.Request, bucket, key, contentType string) error {
+	ctx := r.Context()
+
+	if rangeHdr := r.Header.Get("Range"); rangeHdr != "" {
+		if info, err := StatObject(ctx, bucket, key); err != nil {
+			return err
+		} else if start, end, ok := parseSingleByteRange(rangeHdr, info.Size); ok {
+			reader, rerr := GetObjectRange(ctx, bucket, key, start, end)
+			if rerr != nil {
+				return rerr
+			}
+			defer reader.Close()
+			ct := contentType
+			if ct == "" {
+				ct = info.ContentType
+			}
+			h := w.Header()
+			if ct != "" {
+				h.Set("Content-Type", ct)
+			}
+			h.Set("Accept-Ranges", "bytes")
+			h.Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, info.Size))
+			h.Set("Content-Length", strconv.FormatInt(end-start+1, 10))
+			w.WriteHeader(http.StatusPartialContent)
+			_, cerr := io.Copy(w, reader)
+			return cerr
+		}
+		// 解析失败 / 不可满足 / 多区间 → 跌落到整份(无回归)
+	}
+
+	reader, info, err := GetObject(ctx, bucket, key)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+	ct := contentType
+	if ct == "" {
+		ct = info.ContentType
+	}
+	h := w.Header()
+	if ct != "" {
+		h.Set("Content-Type", ct)
+	}
+	h.Set("Accept-Ranges", "bytes")
+	h.Set("Content-Length", strconv.FormatInt(info.Size, 10))
+	w.WriteHeader(http.StatusOK)
+	_, cerr := io.Copy(w, reader)
+	return cerr
+}
+
+// parseSingleByteRange 解析单区间 `Range: bytes=...`(pdf.js 用的就是单区间)。
+// 支持 `bytes=START-END` / `bytes=START-` / `bytes=-SUFFIX`。多区间(含逗号)、空、越界、
+// 非法一律返回 ok=false, 让调用方跌落到整份响应(故意从严, 永不出错胜过出错)。
+func parseSingleByteRange(spec string, size int64) (start, end int64, ok bool) {
+	const prefix = "bytes="
+	if size <= 0 || !strings.HasPrefix(spec, prefix) {
+		return 0, 0, false
+	}
+	spec = strings.TrimSpace(strings.TrimPrefix(spec, prefix))
+	if spec == "" || strings.Contains(spec, ",") { // 多区间不支持 → 跌落整份
+		return 0, 0, false
+	}
+	dash := strings.IndexByte(spec, '-')
+	if dash < 0 {
+		return 0, 0, false
+	}
+	startStr := strings.TrimSpace(spec[:dash])
+	endStr := strings.TrimSpace(spec[dash+1:])
+
+	if startStr == "" {
+		// 后缀区间: bytes=-N → 末尾 N 字节
+		n, err := strconv.ParseInt(endStr, 10, 64)
+		if err != nil || n <= 0 {
+			return 0, 0, false
+		}
+		if n > size {
+			n = size
+		}
+		return size - n, size - 1, true
+	}
+
+	s, err := strconv.ParseInt(startStr, 10, 64)
+	if err != nil || s < 0 || s >= size {
+		return 0, 0, false
+	}
+	e := size - 1
+	if endStr != "" {
+		e, err = strconv.ParseInt(endStr, 10, 64)
+		if err != nil || e < s {
+			return 0, 0, false
+		}
+		if e >= size {
+			e = size - 1
+		}
+	}
+	return s, e, true
+}
+
 // DeleteObject 删 —— 对象不存在不报错(MinIO 行为)
 func DeleteObject(ctx context.Context, bucket, key string) error {
 	if !IsEnabled() {
@@ -362,8 +513,12 @@ func DeleteObjects(
 }
 
 // PresignedGetURL 给前端直接下载用 —— 不暴露 backend 流量。
-// 当前实现没用,handler 走 backend stream 转发,保证鉴权 + 私有 bucket。
-// 留着后续要做大文件 / CDN 加速时启用。
+// ⚠️ 当前**未使用**,所有下载走 backend stream 转发(ServeObject,带鉴权 + 私有 bucket + Range)。
+// 不能直接把本函数的返回值发给浏览器:MINIO_ENDPOINT 是 `minio:9000`(容器内网名,且 expose-only
+// 不对宿主暴露),浏览器解析/直连不了 → presigned 链接在生产 100% 失败。
+// 真要卸载 backend egress, 正确做法是 nginx `X-Accel-Redirect` 到一个 `internal;` 的 minio
+// location, 由 nginx 用本函数生成的 presigned URL(带 SigV4 签名)代浏览器拉取(鉴权仍在 Go,
+// 字节不过 backend, 原生支持 Range)。该改造需联调真实 stack 验证, 故暂未启用。性能审计 file-download。
 func PresignedGetURL(ctx context.Context, bucket, key string, expires time.Duration, reqParams url.Values) (string, error) {
 	if !IsEnabled() {
 		return "", ErrDisabled

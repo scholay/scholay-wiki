@@ -105,12 +105,11 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		userProtected.POST("/redeem-code/preview", h.vip.PreviewCode) // 兑换前预览(确认弹窗)
 		userProtected.POST("/redeem-code", h.vip.RedeemCode)
 
-		// 计费/账户资产: 总览 + 重置额度 + 自动重置开关 + 经费流水
+		// 计费/账户资产: 总览 + 手动重置额度 + 经费流水(自动重置开关已下线)
 		billingG := userProtected.Group("/billing")
 		{
 			billingG.GET("/overview", h.vip.BillingOverview)
 			billingG.POST("/reset", h.vip.ResetQuota)
-			billingG.PUT("/auto-reset", h.vip.SetAutoReset)
 			billingG.GET("/transactions", h.vip.ListTransactions)
 			billingG.GET("/usage-calendar", h.vip.UsageCalendar)   // 当月每日 token 用量(热力图)
 			billingG.GET("/orders", h.vip.ListOrders)              // 已支付订单明细(明细查看)

@@ -14,13 +14,23 @@ import { useAuthStore } from '@/stores/auth.store';
  *
  * 连接策略:
  *   - 仅在 token 非空时连;token 变化(登录/登出/换号)关闭后重连
- *   - 5s ping 心跳防 idle timeout
- *   - 异常断开 5s 后自动重连(简单线性退避)
+ *   - 25s ping 心跳防 idle timeout
+ *   - 异常断开后用指数退避 + 抖动重连, 超过上限放弃(不再无限握手)
  *
  * 用法:在 AppShell 顶层调一次 useNotificationSocket() 即可。
  */
 const PING_INTERVAL = 25_000;
-const RECONNECT_DELAY = 5_000;
+// 重连用指数退避 + 抖动 + 次数上限, 而非固定 5s 线性重连。否则后端重启/部署/nginx 502 时,
+// 每个登录用户都按对齐的 5s 节拍无限重连 → 自制惊群, 拖慢本就不健康的后端恢复(性能审计 fe-data)。
+const RECONNECT_BASE_DELAY = 1_000;
+const RECONNECT_MAX_DELAY = 60_000;
+const MAX_RECONNECT_ATTEMPTS = 10;
+
+function reconnectDelay(attempt: number): number {
+  const expo = Math.min(RECONNECT_BASE_DELAY * 2 ** Math.min(attempt, 6), RECONNECT_MAX_DELAY);
+  // 抖动: 让并发客户端错峰, 避免对齐的重连波同时砸向后端
+  return expo + Math.floor(Math.random() * 1_000);
+}
 
 interface ServerMessage<T = unknown> {
   type: 'notification' | 'unread_count' | 'toast' | 'pong' | 'error';
@@ -59,10 +69,12 @@ export function useNotificationSocket() {
   const wsRef = useRef<WebSocket | null>(null);
   const pingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptsRef = useRef(0);
   const closedByUserRef = useRef(false);
 
   useEffect(() => {
     closedByUserRef.current = false;
+    reconnectAttemptsRef.current = 0;
 
     function cleanup() {
       if (pingTimerRef.current) {
@@ -91,6 +103,7 @@ export function useNotificationSocket() {
       wsRef.current = ws;
 
       ws.onopen = () => {
+        reconnectAttemptsRef.current = 0; // 连上即重置退避计数
         // 启动心跳
         pingTimerRef.current = setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
@@ -142,9 +155,12 @@ export function useNotificationSocket() {
           pingTimerRef.current = null;
         }
         wsRef.current = null;
-        if (!closedByUserRef.current) {
-          // 异常断开 → 延迟重连
-          reconnectTimerRef.current = setTimeout(connect, RECONNECT_DELAY);
+        if (!closedByUserRef.current && reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+          // 异常断开 → 指数退避 + 抖动后重连; 超过上限放弃, 不再无限握手(死会话/长时间宕机)。
+          // 用户重新聚焦页面 / 下次 token 变化(登录态刷新)会重建连接。
+          const delay = reconnectDelay(reconnectAttemptsRef.current);
+          reconnectAttemptsRef.current += 1;
+          reconnectTimerRef.current = setTimeout(connect, delay);
         }
       };
 

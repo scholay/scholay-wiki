@@ -461,7 +461,10 @@ services:
     environment:
       <<: *tz-env
       DATABASE_TYPE: mysql
-      DATABASE_URL: mysql://${MYSQL_USER:-scholar_user}:${MYSQL_PASSWORD}@mysql:3306/umami
+      # connection_limit=5 显式限住 Prisma 连接池: 不设的话 Prisma 默认 num_cpus*2+1(8 核=17),
+      # 与 backend 池(90)合计可能逼近/超过 MySQL max_connections=100, 触发 "Too many connections"。
+      # umami 写入量很低, 5 条足够。性能审计 infra。
+      DATABASE_URL: mysql://${MYSQL_USER:-scholar_user}:${MYSQL_PASSWORD}@mysql:3306/umami?connection_limit=5
       APP_SECRET: ${UMAMI_APP_SECRET:?UMAMI_APP_SECRET is required in prod (>=32 chars random)}
       DISABLE_TELEMETRY: "1"
       TRACKER_SCRIPT_NAME: script

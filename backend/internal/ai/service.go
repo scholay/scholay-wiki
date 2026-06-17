@@ -11,6 +11,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net/url"
 	"strings"
 	"time"
@@ -113,6 +114,21 @@ func providerFromBaseURL(baseURL string) string {
 // AI 重试相关常量
 const AIMaxRetries = 5
 
+// retryBackoff 返回第 attempt 次重试前应等待的时长:指数退避 + ±50% 抖动, 上限封顶。
+// 账号轮转重试若零间隔背靠背连发, 上游故障(429/5xx)时一个用户请求会瞬间打出最多
+// AIMaxRetries+1 次调用, 放大对已经在挣扎的上游的冲击; 小退避在不显著拖慢用户的前提下
+// (总退避 < 数秒, 远小于请求 30s ctx 预算)削平重试风暴, 并让并发请求错峰。
+func retryBackoff(attempt int) time.Duration {
+	base := 150 * time.Millisecond
+	d := base << uint(attempt) // 150ms, 300ms, 600ms, 1.2s, ...
+	const maxBackoff = 1500 * time.Millisecond
+	if d > maxBackoff || d <= 0 {
+		d = maxBackoff
+	}
+	// d/2 + [0, d/2] = ±50% 抖动
+	return d/2 + time.Duration(rand.Int63n(int64(d)/2+1))
+}
+
 // LLM 默认调参 —— 非流式/流式 chat completion 共用。
 // 模型编码本身不在这里写死:它由 thirdparty 按 modelLevel 解析 admin 配置得到。
 const (
@@ -198,6 +214,12 @@ func (s *Service) executeWithRetry(ctx context.Context, modelLevel thirdparty.Mo
 
 		if isAIRetryableError(err) {
 			excludeAccountIDs = append(excludeAccountIDs, accountID)
+			// 退避 + 抖动后再换账号重试, 避免零间隔背靠背放大上游故障。可被 ctx 取消打断。
+			select {
+			case <-time.After(retryBackoff(attempt)):
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
 			continue
 		}
 

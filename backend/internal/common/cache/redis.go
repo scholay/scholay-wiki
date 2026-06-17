@@ -239,6 +239,42 @@ func Exists(ctx context.Context, key string) (bool, error) {
 	return count > 0, err
 }
 
+// --- persist 池变体 -----------------------------------------------------------
+// 下面四个函数行为与主池版 Set/Get/Delete/TTL 完全一致, 只是底层走 GetRedisPersist()
+// (配了 noeviction 专用实例就用它, 否则回落主池)。供「不能被 LRU 静默逐出 = 逐出即
+// 硬性鉴权失败」的 correctness 键使用: 验证码 / WS 一次性票据等。
+
+// SetPersist 同 Set, 写 persist 池。
+func SetPersist(ctx context.Context, key string, value any, expiration time.Duration) error {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return fmt.Errorf("failed to marshal value: %w", err)
+	}
+	return GetRedisPersist().Set(ctx, key, data, jitterTTL(expiration)).Err()
+}
+
+// GetPersist 同 Get, 读 persist 池。
+func GetPersist(ctx context.Context, key string, result any) error {
+	val, err := GetRedisPersist().Get(ctx, key).Result()
+	if err != nil {
+		return err
+	}
+	if val == nullSentinel {
+		return ErrNotFound
+	}
+	return json.Unmarshal([]byte(val), result)
+}
+
+// DeletePersist 同 Delete, 删 persist 池。
+func DeletePersist(ctx context.Context, key string) error {
+	return GetRedisPersist().Del(ctx, key).Err()
+}
+
+// TTLPersist 同 TTL, 查 persist 池。
+func TTLPersist(ctx context.Context, key string) (time.Duration, error) {
+	return GetRedisPersist().TTL(ctx, key).Result()
+}
+
 // SetString sets a string value directly (no JSON marshaling)
 func SetString(ctx context.Context, key string, value string, expiration time.Duration) error {
 	return rdb.Set(ctx, key, value, expiration).Err()
@@ -287,12 +323,15 @@ func GetOrSet(ctx context.Context, key string, expiration time.Duration, fetch f
 			}
 			return nil, fmt.Errorf("fetch error: %w", err)
 		}
-		if err := Set(ctx, key, v, expiration); err != nil {
-			slog.Warn("Failed to cache value", "key", key, "err", err)
-		}
+		// 只 marshal 一次: 复用同一份 bytes 既写 Redis 又作 singleflight 返回值, 避免对
+		// (可能数十~数百 KB 的 minicod)payload 在 miss 路径上重复 marshal。直接 rdb.Set +
+		// jitterTTL 与 Set() 等价(Set 内部也是 marshal→rdb.Set→jitter)。
 		data, err := json.Marshal(v)
 		if err != nil {
 			return nil, fmt.Errorf("marshal error: %w", err)
+		}
+		if err := rdb.Set(ctx, key, data, jitterTTL(expiration)).Err(); err != nil {
+			slog.Warn("Failed to cache value", "key", key, "err", err)
 		}
 		return data, nil
 	})

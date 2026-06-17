@@ -73,14 +73,8 @@ func (s *Service) CheckDailyQuota(ctx context.Context, userID uint) error {
 	if s.tokenUsed(ctx, userID) < ceiling {
 		return nil
 	}
-	// 超限:尝试自动重置(开关开 + 经费足)。
-	if s.wallet.AutoResetEnabled(userID) {
-		if err := s.resetInternal(ctx, userID, cfg); err == nil {
-			slog.Info("billing: auto-reset on quota exhausted", "user_id", userID, "tier", tier)
-			return nil
-		}
-		// 自动重置失败(多半经费不足)→ 落到超限文案
-	}
+	// 超限:**不再自动扣经费重置**(该逻辑已下线——避免静默扣费让用户感觉经费莫名减少)。
+	// 直接返回友好文案,由前端弹窗让用户**显式**点「消耗 N 经费重置」,或升级套餐 / 等明日 0 点恢复。
 	return NewQuotaError(quotaExceededMessage(tier, cfg))
 }
 
@@ -145,8 +139,15 @@ func (s *Service) resetInternal(ctx context.Context, userID uint, cfg *BillingCo
 	unlock := lockUserReset(userID)
 	defer unlock()
 
-	// 1) 锁内重读:已被并发重置 / 自然滚动清空 → 无需再扣。
-	if ceiling := cfg.DailyCeiling(s.EffectiveTier(userID)); ceiling >= 0 && s.tokenUsed(ctx, userID) < ceiling {
+	// 「本次重置是否还有必要」:当前生效 tier 的上限下,当日已耗 < 上限 = 不需要重置
+	// (已被并发重置 / 跨 0 点自然滚动清空 / **刚升级抬高了上限**)。复用为闭包,扣费前再判一次堵竞态。
+	resetNotNeeded := func() bool {
+		ceiling := cfg.DailyCeiling(s.EffectiveTier(userID))
+		return ceiling >= 0 && s.tokenUsed(ctx, userID) < ceiling
+	}
+
+	// 1) 锁内首判:不需要就直接成功,绝不扣费。
+	if resetNotNeeded() {
 		return nil
 	}
 
@@ -160,6 +161,14 @@ func (s *Service) resetInternal(ctx context.Context, userID uint, cfg *BillingCo
 		if bal.Total < cost {
 			return ErrInsufficientCredit
 		}
+	}
+
+	// 2.5) 竞态护栏(关键):读 tier(首判)与读余额是两条独立查询,期间「升级到 Pro」事务可能
+	//      恰好提交 —— tier→Pro 上限从 Free 抬到 5×, 当日用量已被新上限覆盖, 本次重置已无必要。
+	//      扣费前用**最新 tier** 再判一次, 杜绝「用户刚充值升级、却被白扣一次重置费」的 TOCTOU。
+	//      (线上已发现:充 Pro 送 600 经费,落账却是 540 = 升级瞬间误触一次重置。)
+	if resetNotNeeded() {
+		return nil
 	}
 
 	// 3) 先清计数(Redis 写)。失败即返回错误、不扣费,杜绝循环扣费。

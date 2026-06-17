@@ -55,24 +55,7 @@ func (h *Handler) ResetQuota(c *gin.Context) {
 	utils.SuccessWithMessage(c, "已重置今日额度", res)
 }
 
-// SetAutoReset PUT /user/billing/auto-reset {enabled} —— 自动消耗经费重置开关。
-func (h *Handler) SetAutoReset(c *gin.Context) {
-	uid, ok := utils.GetUserID(c)
-	if !ok {
-		return
-	}
-	var req struct {
-		Enabled bool `json:"enabled"`
-	}
-	if !utils.BindJSON(c, &req) {
-		return
-	}
-	if err := h.svc.Wallet().SetAutoReset(uid, req.Enabled); err != nil {
-		utils.InternalError(c, 500, "保存设置失败", err)
-		return
-	}
-	utils.SuccessWithMessage(c, "已保存", gin.H{"enabled": req.Enabled})
-}
+// (SetAutoReset / 自动消耗经费重置开关已下线 —— 额度耗尽不再自动扣经费,只保留用户显式手动重置。)
 
 // ListOrders GET /user/billing/orders?type=subscription|recharge —— 已支付订单(明细查看)。
 func (h *Handler) ListOrders(c *gin.Context) {

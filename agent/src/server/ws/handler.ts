@@ -381,7 +381,12 @@ async function handleUserMessage(
     sessionTitleState.set(sessionId, titleState)
   }
   titleState.userMessageCount++
-  titleState.allUserMessages.push(message.content)
+  // 标题只在第 1、3 条用户消息时生成, 且 allUserMessages 仅在 count===3 时 join 用一次(见
+  // triggerTitleGeneration)。超过 3 条后继续累积是纯内存浪费(每会话留全部用户消息文本),
+  // 故只保留前 3 条。性能审计 agent-runtime。
+  if (titleState.allUserMessages.length < 3) {
+    titleState.allUserMessages.push(message.content)
+  }
   if (titleState.userMessageCount === 1) {
     titleState.firstUserMessage = message.content
   }
@@ -1481,8 +1486,16 @@ function extractLocalCommandOutput(
   return null
 }
 
+// 预编译两个固定 tag 的正则: extractTaggedContent 在流式转发路径上对每条 local-command /
+// tool_result 消息调用, 原本每次都 new RegExp(编译开销)。tag 是模块级常量, 故预编译复用。
+const TAGGED_CONTENT_RE: Record<string, RegExp> = {
+  [LOCAL_COMMAND_STDOUT_TAG]: new RegExp(`<${LOCAL_COMMAND_STDOUT_TAG}>([\\s\\S]*?)</${LOCAL_COMMAND_STDOUT_TAG}>`),
+  [LOCAL_COMMAND_STDERR_TAG]: new RegExp(`<${LOCAL_COMMAND_STDERR_TAG}>([\\s\\S]*?)</${LOCAL_COMMAND_STDERR_TAG}>`),
+}
+
 function extractTaggedContent(raw: string, tag: string): string | null {
-  const match = raw.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`))
+  const re = TAGGED_CONTENT_RE[tag] ?? new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`)
+  const match = raw.match(re)
   return match?.[1]?.trim() ?? null
 }
 

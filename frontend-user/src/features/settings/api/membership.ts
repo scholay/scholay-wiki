@@ -200,15 +200,7 @@ export function useResetQuota() {
   });
 }
 
-/** 自动消耗经费重置开关。 */
-export function useSetAutoReset() {
-  const invalidate = useInvalidate();
-  return useMutation({
-    mutationFn: async (enabled: boolean) =>
-      (await http.put('/user/billing/auto-reset', { enabled })).data,
-    onSuccess: invalidate,
-  });
-}
+/* 自动消耗经费重置开关已下线 —— 额度耗尽只保留用户显式手动重置(useResetQuota)。 */
 
 /** 建充值订单(金额单位:分)。 */
 export function useCreateRecharge() {
