@@ -4,6 +4,7 @@ import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'framer-m
 import { StickToBottom } from 'use-stick-to-bottom';
 import { Button } from '@/shared/ui/button';
 import { AgentDisplacedBanner } from '@/shared/components/AgentDisplacedBanner';
+import { ResourceError } from '@/shared/components/ResourceError';
 import { SidebarLayout } from '@/shared/components/sidebar';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/shared/ui/resizable';
 import { Sheet, SheetContent } from '@/shared/ui/sheet';
@@ -58,6 +59,9 @@ export function ClawPage() {
     busy,
     stopping,
     loading,
+    historyError,
+    historyErrorObj,
+    retryHistory,
     composerDisabled,
   } = conv;
 
@@ -186,6 +190,8 @@ export function ClawPage() {
                     artifacts={sessionArtifacts}
                     sessionId={sessionId}
                     onPreview={setPreviewArtifact}
+                    onResendBlocked={conv.resendBlocked}
+                    onDismissBlocked={conv.dismissBlocked}
                   />
                 ))}
               </StickToBottom.Content>
@@ -216,10 +222,25 @@ export function ClawPage() {
           </div>
         )}
 
+        {/* 历史加载失败(覆盖层)—— 后端读 agent 历史 10s 超时 / 5xx 会 502;
+            给「加载失败 + 重试」出口,而非把瞬时失败伪装成「没有对话内容」的空 hero。 */}
+        {!loading && turns.length === 0 && historyError && (
+          <div className="absolute inset-0 z-30 flex items-center justify-center p-6">
+            <ResourceError
+              error={historyErrorObj}
+              resourceName="对话"
+              onRetry={retryHistory}
+              onBack={conv.handleNewConversation}
+              backLabel="开始新对话"
+              autoRedirect={false}
+            />
+          </div>
+        )}
+
         {/* 新对话 hero(顶层):发首条消息后整体淡出(图标 + 标题 + chip),
             对话框则借 layoutId 从居中平滑滑到底部停靠。 */}
         <AnimatePresence initial={false}>
-          {!loading && turns.length === 0 && (
+          {!loading && turns.length === 0 && !historyError && (
             <motion.div
               key="claw-hero"
               className="absolute inset-0 z-30 flex"

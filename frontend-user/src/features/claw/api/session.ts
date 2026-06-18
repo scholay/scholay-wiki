@@ -239,6 +239,17 @@ export function useClawSessions(): UseQueryResult<ClawSessionItem[]> {
     queryKey: ['claw', 'sessions'],
     enabled: !!token,
     staleTime: 30 * 1000,
+    // 每次重挂载无条件重拉(对齐 useClawHistory 的 refetchOnMount:'always')。
+    // 修「最新会话从侧边栏列表消失、要退出重登才出现」: 列表缓存可能被定格成
+    // 「创建该会话之前的旧快照」并在 30s staleTime 窗内标记为 fresh —— 此时
+    // 仅靠 staleTime 的重挂载不会重拉(refetchOnMount 默认只在 stale 时刷),
+    // 站内来回切页 / 切 tab / 移动端重开抽屉全部无法自愈, 唯一出口是退登 qc.clear()。
+    // 触发器: 进页面首屏 sessions 请求 in-flight 时懒新建会话, create 的 invalidate
+    // 被并进那条更早发出、只带回旧列表的 in-flight 请求(query-core 在 data===undefined
+    // 时复用 in-flight 而非取消重发), 旧响应无版本守卫地覆盖成 fresh-but-stale;
+    // 命中额度那一轮又因 quota_exceeded 帧不进 socket.messages、丢了 message_complete
+    // 的兜底刷新(见 useClawConversation WS effect)。加这一行让任意重挂载强制核对, 根除「卡到退登才好」。
+    refetchOnMount: 'always',
     queryFn: async () => {
       try {
         const { data } = await http.get<{
@@ -475,4 +486,67 @@ export function useActivateClawSession() {
       void qc.invalidateQueries({ queryKey: ['claw'] });
     },
   });
+}
+
+// ─── 未发送(命中额度被拦)消息的持久化 ─────────────────────────────────────
+//
+// 命中每日额度时, 那条消息被后端**在转发给 agent 之前**拒绝(根本没发出去)。把它按 session
+// 存进 localStorage —— 这样无论用户怎么解额度(就地经费重置 / 跳支付宝充会员后整页返回 /
+// 在另一台设备充值后回来),重新进入该会话都能看到这条「未发送」消息并**一键重发**, 不必重打。
+// 文件附件已上传在会话隔离 cwd(按 path 引用), 故只持久化元数据即可重发。
+const BLOCKED_MSG_KEY = 'scholay:claw:blocked-message';
+
+export interface BlockedMessage {
+  text: string;
+  /** 含 agent cwd path, 重发时直接复用(文件仍在会话 cwd); previewUrl(本地 blob)不持久化。 */
+  attachments: AttachmentDTO[];
+}
+
+interface BlockedMap {
+  [sessionId: string]: BlockedMessage;
+}
+
+function readBlockedMap(): BlockedMap {
+  if (typeof localStorage === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(BLOCKED_MSG_KEY);
+    return raw ? (JSON.parse(raw) as BlockedMap) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeBlockedMap(map: BlockedMap) {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(BLOCKED_MSG_KEY, JSON.stringify(map));
+  } catch {
+    // localStorage 满 / 隐私模式 → silently skip(重发能力降级为"要重打", 不报错)
+  }
+}
+
+/** 读某 session 的「未发送」消息; 没有返回 undefined。 */
+export function getBlockedMessage(sessionId: string | null): BlockedMessage | undefined {
+  if (!sessionId) return undefined;
+  return readBlockedMap()[sessionId];
+}
+
+/** 存某 session 的「未发送」消息(命中额度时); 自动剥离 attachments 上不可持久化的本地 previewUrl。 */
+export function setBlockedMessage(sessionId: string, msg: BlockedMessage) {
+  const map = readBlockedMap();
+  map[sessionId] = {
+    text: msg.text,
+    attachments: msg.attachments.map((a) => ({ ...a, previewUrl: undefined })),
+  };
+  writeBlockedMap(map);
+}
+
+/** 清某 session 的「未发送」消息(成功重发 / 用户忽略后)。 */
+export function clearBlockedMessage(sessionId: string | null) {
+  if (!sessionId) return;
+  const map = readBlockedMap();
+  if (map[sessionId]) {
+    delete map[sessionId];
+    writeBlockedMap(map);
+  }
 }

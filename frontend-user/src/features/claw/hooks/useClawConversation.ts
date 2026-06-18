@@ -8,6 +8,9 @@ import {
 } from '@/shared/lib/agent-session-broadcast';
 import { stripAgentBridgePrefix } from '@/shared/lib/agent-prefix';
 import {
+  clearBlockedMessage,
+  getBlockedMessage,
+  setBlockedMessage,
   transferNewConversationModel,
   useClawContext,
   useClawHistory,
@@ -109,8 +112,15 @@ export function useClawConversation() {
   const createSession = useCreateClawSession();
 
   const [pendingTurns, setPendingTurns] = useState<
-    Pick<Turn, 'id' | 'userText' | 'userAttachments' | 'paused'>[]
+    Pick<Turn, 'id' | 'userText' | 'userAttachments' | 'paused' | 'blocked'>[]
   >([]);
+
+  // activeSessionId 的最新镜像 —— 给只依赖 [socket.quotaExceeded] 的 effect / resend 回调读,
+  // 避免把 activeSessionId 放进那些 effect 的依赖里(否则切 session 会误触发 blocked 逻辑)。
+  const activeSessionIdRef = useRef<string | null>(activeSessionId);
+  activeSessionIdRef.current = activeSessionId;
+  // 最近一次提交的原始 payload(text + 含 path 的 attachments)—— 命中额度时据此持久化「未发送」消息。
+  const lastSubmitRef = useRef<{ text: string; attachments: AttachmentDTO[] } | null>(null);
 
   // 懒新建: 第一次 send 时 activeSessionId 还是 null, 先 await createSession 拿新 id,
   // setActiveSessionId 触发 socket 重连; WS 没 open 之前 user_message 发不出去,
@@ -236,7 +246,8 @@ export function useClawConversation() {
       不能再用 pendingTurns.length —— 去掉 handoff 后 pendingTurns 整个 session 都累积着,
       用它判断 busy 会让 composer 永久 disable。turn.complete 由 fold 在 message_complete 时翻 true。 */
   const lastTurn = turns[turns.length - 1];
-  const busy = !!lastTurn && !lastTurn.complete;
+  // blocked 轮(命中额度未发送)不算 busy —— 它停在末尾 complete=false, 不排除会把 composer 永久禁用。
+  const busy = !!lastTurn && !lastTurn.complete && !lastTurn.blocked;
 
   /** 用户已经按过 stop 但 agent 还没 emit terminal (message_complete/error) 前的过渡态。
       busy → false 时下面 useEffect 自动重置。 */
@@ -244,6 +255,59 @@ export function useClawConversation() {
   useEffect(() => {
     if (!busy && stopping) setStopping(false);
   }, [busy, stopping]);
+
+  // 命中每日额度: backend 在转发给 agent **之前**就拒了这条 user_message(回 quota_exceeded 帧,
+  // 该帧不进 socket.messages), agent 永不对这轮发 message_complete → 这条 pendingTurn 的
+  // turn.complete 永远 false → busy 卡死、composer 永久禁用、stop 也救不了。
+  // socket.quotaExceeded 是单调自增信号(从 0 起), >0 即「刚发生一次额度拦截」。
+  // 处理: ① 把卡住的本轮标成 blocked(不是丢弃)→ busy 排除 blocked, composer 解锁;
+  //       ② 把这条消息持久化到 localStorage(按 session)→ 用户开完会员/重置后能一键重发, 不必重打,
+  //          且跳支付宝整页离开 / 换设备回来也不丢(见 restore effect)。
+  // 用户已由全局额度弹窗(notifyQuotaExceeded → QuotaNotifier)知道原因并选择如何解额度。
+  useEffect(() => {
+    if (socket.quotaExceeded === 0) return; // 初次挂载(无拦截)跳过, 仅在自增时处理
+    const sid = activeSessionIdRef.current;
+    const payload = lastSubmitRef.current;
+    if (sid && payload) {
+      setBlockedMessage(sid, { text: payload.text, attachments: payload.attachments });
+    }
+    setPendingTurns((prev) =>
+      prev.length > 0
+        ? prev.map((t, i) => (i === prev.length - 1 ? { ...t, blocked: true } : t))
+        : prev,
+    );
+    pendingSendRef.current = null;
+    setStopping(false);
+  }, [socket.quotaExceeded]);
+
+  // 恢复「未发送」消息: 进入(或切回)某 session 时, 若 localStorage 里存着该会话的额度未发送消息,
+  // 补一条 blocked 轮渲染出来(带一键重发)。覆盖三条路径: 跳支付宝充会员整页返回 / 换设备回来 /
+  // 切到别的会话再切回来。已有 blocked 轮(live 刚标记 / 已恢复过)则不重复补。
+  useEffect(() => {
+    if (!sessionId) return;
+    const blocked = getBlockedMessage(sessionId);
+    if (!blocked) return;
+    setPendingTurns((prev) => {
+      if (prev.some((t) => t.blocked)) return prev;
+      return [
+        ...prev,
+        {
+          id: `blocked-${sessionId}`,
+          userText: blocked.text,
+          userAttachments: blocked.attachments.map((a) => ({
+            type: a.type,
+            name: a.name,
+            mimeType: a.mimeType,
+            size: a.size,
+            path: a.path,
+            previewUrl:
+              a.type === 'image' && a.path ? clawSessionFileUrl(sessionId, a.path) : undefined,
+          })),
+          blocked: true,
+        },
+      ];
+    });
+  }, [sessionId]);
 
   /** 停止生成 — 直接走 stop_generation 协议; 后端透传给 agent, agent emit message_complete
       → fold 标 turn 完成 → busy 翻 false → useEffect 自动清 stopping。 */
@@ -277,6 +341,8 @@ export function useClawConversation() {
 
   const handleSubmit = useCallback(
     async (text: string, attachments: AttachmentDTO[]) => {
+      // 记下本次提交的原始 payload(含 path 的 attachments)—— 命中额度时据此持久化「未发送」消息供重发。
+      lastSubmitRef.current = { text, attachments };
       // 方案 B: content 只放文本; 文件已由 backend 推到会话隔离 cwd, 这里只透传 path。
       // 图片和文件走同一条 path 通道, agent 用 Read 工具原生分析 (vision / 文档理解 / 文本)。
       const content = text;
@@ -380,6 +446,22 @@ export function useClawConversation() {
     socket.clearMessages();
   }, [socket]);
 
+  // 一键重发「未发送」消息(命中额度被拦的那条): 清持久化 + 移除 blocked 轮 → 走正常发送。
+  // 若额度仍未解(没开会员/没重置), 会再次被拦成 blocked(行为一致, 不会卡死)。
+  const resendBlocked = useCallback(() => {
+    const sid = activeSessionIdRef.current;
+    const payload = getBlockedMessage(sid);
+    if (sid) clearBlockedMessage(sid);
+    setPendingTurns((prev) => prev.filter((t) => !t.blocked));
+    if (payload) void handleSubmit(payload.text, payload.attachments);
+  }, [handleSubmit]);
+
+  // 忽略「未发送」消息: 清持久化 + 移除 blocked 轮(用户决定不再发这条)。
+  const dismissBlocked = useCallback(() => {
+    clearBlockedMessage(activeSessionIdRef.current);
+    setPendingTurns((prev) => prev.filter((t) => !t.blocked));
+  }, []);
+
   // 全屏 loader 只在"真的没东西可渲染"时显示。
   // 关键: lazy create 第一条消息时, setActiveSessionId(newId) 会让 historyQuery 短暂 loading,
   // 但此时已有 pendingTurns (用户气泡 + 流式回答) → turns.length>0, 不能用 spinner 盖掉它。
@@ -390,6 +472,16 @@ export function useClawConversation() {
     (sessionsQuery.isLoading ||
       (!!sessionId && (historyQuery.isLoading || historyQuery.isFetching))) &&
     turns.length === 0;
+
+  // 历史读失败的错误态 —— 让页面显示「加载失败 + 重试」而非静默退化成空白 hero。
+  // 背景: 后端读 agent 历史的往返超时只有 10s, 会话大 / agent 忙时超时 → 502;
+  // 之前 ClawPage 只有 loading 和「turns 空 → 空 hero」两个分支, 不读 isError →
+  // 一次瞬时失败就被伪装成「这个会话没有内容」。这里把错误态透出, 由页面给可重试出口。
+  // (注: 只在确有 sessionId 且没东西可渲染时算错误态; 重试中 isFetching=true → loading 接管。)
+  const historyError = !!sessionId && historyQuery.isError && turns.length === 0;
+  const retryHistory = useCallback(() => {
+    void historyQuery.refetch();
+  }, [historyQuery]);
 
   // 三种 disable 场景:
   //   1) busy: AI 正在回答, 不允许插队
@@ -421,6 +513,9 @@ export function useClawConversation() {
     busy,
     stopping,
     loading,
+    historyError,
+    historyErrorObj: historyQuery.error,
+    retryHistory,
     composerDisabled,
     loadEarlier,
     handleSubmit,
@@ -428,5 +523,7 @@ export function useClawConversation() {
     handleNewConversation,
     handleActivateSession,
     adoptSession,
+    resendBlocked,
+    dismissBlocked,
   };
 }

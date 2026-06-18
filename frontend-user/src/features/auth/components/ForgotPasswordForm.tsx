@@ -20,12 +20,8 @@ import {
 import type { AccountType } from '../types';
 import { AccountTypeTabs } from './AccountTypeTabs';
 import { SendCodeButton } from './SendCodeButton';
+import { emailRule, phoneRule } from '@/shared/lib/account-validation';
 
-const emailRule = z.string().min(1, '请输入邮箱').email('邮箱格式有误,请检查后重新输入(如 user@example.com)');
-const phoneRule = z
-  .string()
-  .min(1, '请输入手机号')
-  .regex(/^1[3-9]\d{9}$/, '请输入 11 位中国手机号(如 13812345678)');
 const codeRule = z.string().length(6, '验证码为 6 位数字').regex(/^\d{6}$/, '验证码为 6 位数字');
 const passwordRule = z.string().min(8, '密码至少 8 位,建议含字母和数字').max(64, '密码长度不能超过 64 位');
 

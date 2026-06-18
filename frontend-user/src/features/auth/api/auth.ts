@@ -148,7 +148,6 @@ export function useRegisterEmail() {
       email: string;
       password: string;
       code: string;
-      invitation_code?: string;
       turnstile_token?: string;
     }) => {
       try {
@@ -172,7 +171,6 @@ export function useRegisterPhone() {
       phone: string;
       password: string;
       code: string;
-      invitation_code?: string;
       turnstile_token?: string;
     }) => {
       try {

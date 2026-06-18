@@ -20,8 +20,9 @@ export interface AdminUser {
   last_login_ip?: string | null;
   /** 最后活跃(真实使用)时间:每次鉴权请求节流更新,反映最后实际使用而非仅登录动作。 */
   last_active_at?: string | null;
-  /** 会员(VIP):vip_tier='pro' 且 vip_expires_at>now 才算生效 pro;否则当 free。 */
-  vip_tier?: 'free' | 'pro' | null;
+  /** 会员(VIP):vip_tier 为 'pro'/'max' 且 vip_expires_at>now 才算生效;否则当 free。
+   *  **必须含 'max'** —— 漏了它,列表把 max 用户当 free 显示(与详情页 /vip 不一致)。 */
+  vip_tier?: 'free' | 'pro' | 'max' | null;
   vip_expires_at?: string | null;
   created_at: string;
   updated_at: string;

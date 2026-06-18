@@ -324,12 +324,16 @@ func (r *Repository) GetUserListWithFilter(offset, limit int, f UserListFilter) 
 		query = query.Where("status = ?", *f.Status)
 	}
 
-	// 会员等级(effective):pro = vip_tier='pro' 且未过期;free = 其余。time.Now() 不做 UTC 转换(容器=北京)。
+	// 会员等级(effective):pro/max = 对应 vip_tier 且未过期;free = 其余(无 / 非付费 / 已过期)。
+	// time.Now() 不做 UTC 转换(容器=北京)。**必须含 max** —— 早期只判 'pro' 时,
+	// "free" 用的是 vip_tier<>'pro',会把 max 用户错算进 free(列表/筛选都漏 max)。
 	switch f.Tier {
 	case "pro":
 		query = query.Where("vip_tier = 'pro' AND (vip_expires_at IS NULL OR vip_expires_at > ?)", time.Now())
+	case "max":
+		query = query.Where("vip_tier = 'max' AND (vip_expires_at IS NULL OR vip_expires_at > ?)", time.Now())
 	case "free":
-		query = query.Where("vip_tier IS NULL OR vip_tier <> 'pro' OR (vip_expires_at IS NOT NULL AND vip_expires_at <= ?)", time.Now())
+		query = query.Where("vip_tier IS NULL OR vip_tier NOT IN ('pro','max') OR (vip_expires_at IS NOT NULL AND vip_expires_at <= ?)", time.Now())
 	}
 
 	if f.EmailVerified != nil {

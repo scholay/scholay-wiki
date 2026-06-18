@@ -39,6 +39,15 @@ export function isPhoneDevice(): boolean {
   return PHONE_RE.test(ua);
 }
 
+/**
+ * 是否在微信内置浏览器(MicroMessenger)。
+ * 微信内**无法唤起支付宝**(行业限制),手机网站支付会失败 —— 需提示用户「在浏览器打开后再付款」。
+ */
+export function isWeChatBrowser(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /micromessenger/i.test(navigator.userAgent);
+}
+
 /** 用户是否点过「使用电脑版」(localStorage 持久,清除 = 恢复自动分流) */
 export function prefersDesktop(): boolean {
   try {

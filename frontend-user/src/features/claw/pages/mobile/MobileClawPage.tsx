@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Loader2, PanelLeft, SquarePen } from 'lucide-react';
 import { StickToBottom } from 'use-stick-to-bottom';
 import { AgentDisplacedBanner } from '@/shared/components/AgentDisplacedBanner';
+import { ResourceError } from '@/shared/components/ResourceError';
 import { Sheet, SheetContent } from '@/shared/ui/sheet';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useHeightVar } from '@/shared/hooks';
@@ -40,6 +41,9 @@ export function MobileClawPage() {
     busy,
     stopping,
     loading,
+    historyError,
+    historyErrorObj,
+    retryHistory,
     composerDisabled,
   } = conv;
 
@@ -99,6 +103,19 @@ export function MobileClawPage() {
           <div className="flex h-full items-center justify-center">
             <Loader2 className="h-5 w-5 animate-spin text-faint" />
           </div>
+        ) : historyError ? (
+          // 历史读失败(后端读 agent 历史 10s 超时 / 5xx → 502)给「加载失败 + 重试」
+          // 而非把瞬时失败伪装成空白态(与桌面 ClawPage 同构)。
+          <div className="flex h-full items-center justify-center p-6 pt-14">
+            <ResourceError
+              error={historyErrorObj}
+              resourceName="对话"
+              onRetry={retryHistory}
+              onBack={conv.handleNewConversation}
+              backLabel="开始新对话"
+              autoRedirect={false}
+            />
+          </div>
         ) : turns.length === 0 ? (
           <ClawEmptyState onPickSuggestion={(t) => composerRef.current?.prefill(t)} />
         ) : (
@@ -125,6 +142,8 @@ export function MobileClawPage() {
                   artifacts={sessionArtifacts}
                   sessionId={sessionId}
                   onPreview={setPreviewArtifact}
+                  onResendBlocked={conv.resendBlocked}
+                  onDismissBlocked={conv.dismissBlocked}
                 />
               ))}
             </StickToBottom.Content>

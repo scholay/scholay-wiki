@@ -66,6 +66,12 @@ export interface UseAgentSocket<TServer, TClient> {
   takeOver: () => void;
   /** 断线续流:重连命中"上一连接的生成仍在进行"时 agent 通过 resync_user 下发本轮用户文本。无续流时 null。 */
   resyncUserText: string | null;
+  /**
+   * 命中每日额度的单调计数 —— 每收到一帧 `error/quota_exceeded` 自增(从不归零)。
+   * 该帧不进 `messages`(见下方拦截),所以末帧不会是 terminal、本轮 turn 永远 complete=false →
+   * 上层 busy 会卡死 composer。消费方据此「自增信号」回滚卡住的本轮(见 claw useClawConversation)。
+   */
+  quotaExceeded: number;
 }
 
 /** 弱网友好的指数退避:1s, 2s, 4s, 8s, 16s, 32s, 60s, 60s ... 上限 8 次 ≈ 3-4 分钟。 */
@@ -106,6 +112,9 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const [displacedReason, setDisplacedReason] = useState<string | null>(null);
   const [resyncUserText, setResyncUserText] = useState<string | null>(null);
+  // 单调递增,不随 connectionKey/token 重连归零 —— 保持单调让消费方的 effect 只在「真发生新一次
+  // 额度拦截」时触发(若归零, 1→0 的变化会误触发回滚一个并未超额的会话)。
+  const [quotaExceeded, setQuotaExceeded] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
   const cancelledRef = useRef(false);
   const reconnectTimerRef = useRef<number | null>(null);
@@ -266,6 +275,9 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
           (evt as { code?: string }).code === 'quota_exceeded'
         ) {
           notifyQuotaExceeded({ message: (evt as { message?: string }).message });
+          // 信号上抛:本轮被 backend 在转发前拒绝, 不会有 message_complete 收尾 →
+          // 消费方据此回滚卡住的本轮, 否则 busy 永久 disable composer。
+          setQuotaExceeded((n) => n + 1);
           return;
         }
         // 一轮 AI 结束 → 用量已落账,广播刷新额度(触发过半/将尽阈值 toastr)。
@@ -417,5 +429,6 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
     clearMessages: () => setMessages([]),
     takeOver: () => reconnectNowRef.current?.(),
     resyncUserText,
+    quotaExceeded,
   };
 }

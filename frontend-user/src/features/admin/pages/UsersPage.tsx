@@ -39,11 +39,14 @@ const SELECT_CLS = 'h-8 rounded-md border border-input bg-background px-2 text-x
 const DEFAULT_SORT_BY = 'last_login_at';
 const DEFAULT_SORT_ORDER = 'desc';
 
-/** 行内会员状态:vip_tier='pro' 且未过期 → Pro,否则 Free。与后端 effectiveTier 同口径。 */
-function isEffectivePro(u: AdminUser): boolean {
-  if (u.vip_tier !== 'pro') return false;
-  if (!u.vip_expires_at) return true; // 永久
-  return new Date(u.vip_expires_at).getTime() > Date.now();
+/** 行内会员等级(effective):vip_tier 为 pro/max 且未过期 → 对应等级,否则 Free。与后端 effectiveTier 同口径。
+ *  **必须含 max** —— 早期只判 'pro' 时,max 用户会被错显成 Free(详情页读 /vip 接口正确显示 Max → 列表与详情不一致)。 */
+function effectiveTier(u: AdminUser): 'free' | 'pro' | 'max' {
+  if (u.vip_tier === 'pro' || u.vip_tier === 'max') {
+    const active = !u.vip_expires_at || new Date(u.vip_expires_at).getTime() > Date.now();
+    if (active) return u.vip_tier;
+  }
+  return 'free';
 }
 
 export function UsersPage() {
@@ -198,18 +201,23 @@ export function UsersPage() {
     },
     {
       header: '会员',
-      cell: (u) =>
-        isEffectivePro(u) ? (
-          <span className="inline-flex items-center gap-1 text-xs font-bold text-brand-amber">
+      cell: (u) => {
+        const t = effectiveTier(u);
+        if (t === 'free') return <span className="text-xs text-faint">Free</span>;
+        return (
+          <span
+            className={`inline-flex items-center gap-1 text-xs font-bold ${
+              t === 'max' ? 'text-brand-red' : 'text-brand-amber'
+            }`}
+          >
             <Crown className="size-3.5" />
-            Pro
+            {t === 'max' ? 'Max' : 'Pro'}
             {u.vip_expires_at && (
               <span className="font-normal text-faint">· {u.vip_expires_at.slice(0, 10)}</span>
             )}
           </span>
-        ) : (
-          <span className="text-xs text-faint">Free</span>
-        ),
+        );
+      },
       width: 160,
       serverSortKey: 'vip_expires_at',
     },
@@ -350,6 +358,7 @@ export function UsersPage() {
             className={cn(SELECT_CLS, 'w-24')}
           >
             <option value="">全部</option>
+            <option value="max">Max</option>
             <option value="pro">Pro</option>
             <option value="free">Free</option>
           </select>

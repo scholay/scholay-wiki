@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 import {
   AssistantBubble,
   AttachmentChipList,
@@ -15,6 +15,8 @@ import {
   isLastBlockStreamingText,
   type Turn,
 } from '@/shared/types/chat';
+import { Button } from '@/shared/ui/button';
+import { useQuotaStore } from '@/stores/quota.store';
 import type { ClawArtifact } from '../../api/artifacts';
 import { TurnArtifacts } from './TurnArtifacts';
 
@@ -73,6 +75,8 @@ export const MessageTurn = memo(function MessageTurn({
   artifacts,
   sessionId,
   onPreview,
+  onResendBlocked,
+  onDismissBlocked,
 }: {
   turn: Turn;
   /** 当前会话 ./out 的产物列表(含 manifest 标题);用来认领"本轮产出的可下载文件"。 */
@@ -80,7 +84,12 @@ export const MessageTurn = memo(function MessageTurn({
   sessionId?: string | null;
   /** 点「预览」→ 打开 ClawPage 右侧预览面板(传 ClawPage 的 setPreviewArtifact,引用稳定不破 memo)。 */
   onPreview?: (a: ClawArtifact) => void;
+  /** blocked(命中额度未发送)轮:点「重新发送」。引用稳定不破 memo。 */
+  onResendBlocked?: () => void;
+  /** blocked 轮:点「忽略」丢弃这条未发送消息。 */
+  onDismissBlocked?: () => void;
 }) {
+  const openReset = useQuotaStore((s) => s.openReset);
   const visible = hasVisibleAssistantContent(turn);
   const turnFiles = useMemo(
     () => (artifacts && artifacts.length ? extractTurnArtifacts(turn, artifacts) : []),
@@ -90,7 +99,7 @@ export const MessageTurn = memo(function MessageTurn({
     !turn.complete && turn.placeholder?.state === 'thinking';
   const isStreamingText = isLastBlockStreamingText(turn);
   const showTrailingIndicator =
-    !turn.complete && !turn.errorMessage && visible && !isStreamingText;
+    !turn.complete && !turn.errorMessage && !turn.blocked && visible && !isStreamingText;
 
   return (
     <article className="flex flex-col gap-2.5 min-w-0">
@@ -108,7 +117,7 @@ export const MessageTurn = memo(function MessageTurn({
         <ThinkingFold text={turn.thinkingText} isActive={isThinkingActive} />
       )}
 
-      {!turn.complete && !turn.errorMessage && !visible && (
+      {!turn.complete && !turn.errorMessage && !turn.blocked && !visible && (
         <StreamingIndicator turn={turn} />
       )}
 
@@ -150,6 +159,34 @@ export const MessageTurn = memo(function MessageTurn({
             <p className="text-xs text-muted-foreground break-words">
               {turn.errorMessage}
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* 命中额度「未发送」轮 —— 保留用户气泡 + 一键重发(无需重打)。开通会员/重置额度后点重发即可继续。
+          消息已持久化(localStorage),跳支付宝充会员整页返回 / 换设备回来都能在此一键重发。 */}
+      {turn.blocked && (
+        <div className="flex flex-col gap-2 rounded-md border border-brand-amber/30 bg-warning-soft px-3 py-2.5">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-brand-amber" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground">今日 AI 额度已用完,这条消息尚未发送</p>
+              <p className="text-xs text-muted-foreground">
+                开通会员或重置额度后,点「重新发送」即可继续(无需重新输入)。
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={() => onResendBlocked?.()}>
+              <RefreshCw className="h-3.5 w-3.5" />
+              重新发送
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => openReset()}>
+              开通会员 / 重置额度
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => onDismissBlocked?.()}>
+              忽略
+            </Button>
           </div>
         </div>
       )}

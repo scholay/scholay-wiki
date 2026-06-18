@@ -60,6 +60,12 @@ type PaymentRequest struct {
 	Amount      float64 `json:"amount" binding:"required"`
 	ReturnURL   string  `json:"return_url"`
 	Description string  `json:"description"`
+	// Channel 支付渠道:"wap"=手机网站支付(alipay.trade.wap.pay + QUICK_WAP_WAY);
+	// 空/其他=电脑网站支付(alipay.trade.page.pay + FAST_INSTANT_TRADE_PAY,默认)。
+	// 两个渠道仅 method / product_code / quit_url 不同,签名 / 网关 / 异步回调 / 履约完全一致。
+	Channel string `json:"channel"`
+	// QuitURL 仅手机网站支付:用户在收银台点「退出」时的回跳地址(须 HTTPS)。
+	QuitURL string `json:"quit_url"`
 }
 
 // PaymentResponse represents the Alipay payment response
@@ -76,11 +82,17 @@ func (s *AlipayService) CreatePayment(req PaymentRequest) (*PaymentResponse, err
 		return nil, fmt.Errorf("no active Alipay configuration found: %w", err)
 	}
 
+	// 渠道决定 method:wap=手机网站支付,其余=电脑网站支付(默认)。product_code 在 buildBizContent 里同步切。
+	method := "alipay.trade.page.pay"
+	if req.Channel == "wap" {
+		method = "alipay.trade.wap.pay"
+	}
+
 	// Build payment parameters
 	// Note: sign_type must be included in params for signing
 	params := map[string]string{
 		"app_id":      config.AppID,
-		"method":      "alipay.trade.page.pay",
+		"method":      method,
 		"charset":     "utf-8",
 		"sign_type":   "RSA2",
 		"timestamp":   time.Now().Format("2006-01-02 15:04:05"),
@@ -211,15 +223,24 @@ func (s *AlipayService) SetActiveConfig(id uint) error {
 
 // buildBizContent 构建支付宝 biz_content JSON，使用 json.Marshal 防止特殊字符注入
 func (s *AlipayService) buildBizContent(req PaymentRequest) string {
+	// 手机网站支付用 QUICK_WAP_WAY,电脑网站支付用 FAST_INSTANT_TRADE_PAY(默认)。
+	productCode := "FAST_INSTANT_TRADE_PAY"
+	if req.Channel == "wap" {
+		productCode = "QUICK_WAP_WAY"
+	}
 	content := map[string]any{
 		"out_trade_no": req.OrderNo,
-		"product_code": "FAST_INSTANT_TRADE_PAY",
+		"product_code": productCode,
 		"total_amount": fmt.Sprintf("%.2f", req.Amount),
 		"subject":      req.Subject,
 		"body":         req.Description,
 		// 网关侧 120 分钟未支付自动关单 —— 与后端 pending 清扫配合,避免「逾期支付得到过期会员」:
 		// 超时后网关拒收付款,用户须重新下单(新单按支付时刻重算授予窗口)。
 		"timeout_express": "120m",
+	}
+	// 手机网站支付:用户在收银台点「退出」时的回跳地址(仅 wap 生效)。
+	if req.Channel == "wap" && req.QuitURL != "" {
+		content["quit_url"] = req.QuitURL
 	}
 	b, _ := json.Marshal(content)
 	return string(b)

@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 import { RedeemConfirmDialog } from '../redeem-confirm-dialog';
+import { MobileMembershipDialog } from './MobileMembershipDialog';
 import {
   useBillingOverview,
   useResetQuota,
@@ -30,6 +31,7 @@ export function MobileAssetsCard() {
   const [resetOpen, setResetOpen] = useState(false);
   const [redeemCode, setRedeemCode] = useState('');
   const [redeemOpen, setRedeemOpen] = useState(false);
+  const [membershipOpen, setMembershipOpen] = useState(false);
 
   const data = overviewQ.data;
   if (overviewQ.isLoading) {
@@ -66,7 +68,7 @@ export function MobileAssetsCard() {
         )}
         <button
           type="button"
-          onClick={() => toast.info('升级与充值请先在电脑端操作,移动端支付即将上线')}
+          onClick={() => setMembershipOpen(true)}
           className="ml-auto rounded-pill bg-foreground px-3 py-1 text-xs font-medium text-white active:opacity-80"
         >
           {tier === 'max' ? '续期' : '升级会员'}
@@ -173,6 +175,19 @@ export function MobileAssetsCard() {
           } catch (e) {
             toast.error((e as Error).message || '重置失败');
           }
+        }}
+      />
+
+      {/* 「升级会员/续期」按钮打开的开通弹层 —— 突出兑换码开通会员(替代原来的死胡同 toast)。
+          兑换确认复用下方同一个 RedeemConfirmDialog:这里只把码交回来 + 关本弹层 + 开确认弹层。 */}
+      <MobileMembershipDialog
+        open={membershipOpen}
+        onOpenChange={setMembershipOpen}
+        tier={tier}
+        onRedeem={(c) => {
+          setRedeemCode(c);
+          setMembershipOpen(false);
+          setRedeemOpen(true);
         }}
       />
 

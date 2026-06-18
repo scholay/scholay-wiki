@@ -107,6 +107,14 @@ export interface Turn {
    *     改挂成 flag), replay 据此回填。两条路径最终都让 UI 显示「已暂停」。
    */
   paused?: boolean;
+
+  /**
+   * 该轮因命中每日 token 额度被后端**在转发给 agent 之前**拒绝、**尚未发送**(claw 用)。
+   * UI 保留用户气泡并渲染「未发送 · 重新发送 / 开通会员」页脚,不显示流式指示;
+   * busy 判定必须排除 blocked 轮(否则它停在末尾会把 composer 永久禁用)。
+   * 一键重发后该 blocked 轮被移除、替换为正常发送轮。
+   */
+  blocked?: boolean;
 }
 
 export interface TurnAttachment {

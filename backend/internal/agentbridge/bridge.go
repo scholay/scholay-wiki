@@ -593,9 +593,7 @@ func (f *FeatureBridge) GetSessionMessages(ctx context.Context, userID uint, lim
 // 前端应当显式带 sessionID 而不是依赖 "latest active" 隐式选择, 避免切换中 race)。
 //
 // 鉴权: 强制 OwnsSession 检查, 防止越权读他人 session。
-// agent 端 404: 不自愈 (跟 GetSessionMessages 的"自动重建空 session"不同) —
-// 用户特意指定了一个 sessionId, 它真不存在时直接报 ErrNotFound 让前端 toast 提示,
-// 不应该静默换一个新 session 让用户困惑。
+// agent 端 404: 不自愈、也**绝不删 DB 映射行** —— 返回空历史优雅降级 (见下方说明)。
 func (f *FeatureBridge) GetSessionMessagesByID(ctx context.Context, userID uint, sessionID string, limitTurns int) (*SessionMessagesResult, error) {
 	owns, err := f.OwnsSession(userID, sessionID)
 	if err != nil {
@@ -607,12 +605,13 @@ func (f *FeatureBridge) GetSessionMessagesByID(ctx context.Context, userID uint,
 	msgs, err := f.bridge.client.GetSessionMessages(ctx, sessionID, limitTurns)
 	if err != nil {
 		if errors.Is(err, agent.ErrSessionNotFound) {
-			// agent 端确实没有 (孤儿 DB 行) → 顺手清 DB row 防止下次列表里又出现
-			if delErr := f.bridge.repo.DeleteByAgentSessionID(userID, f.spec.Key, sessionID); delErr != nil {
-				slog.Warn("agentbridge GetSessionMessagesByID: cleanup orphan failed",
-					"feature", f.spec.Key, "user_id", userID, "session_id", sessionID, "err", delErr)
-			}
-			return nil, ErrNotFound
+			// 历史教训(数据丢失 bug): 这里**曾**顺手 DeleteByAgentSessionID "清孤儿"。
+			// 但 agent 端 404 不一定是"真不存在" —— 容器重启窗口 / 卷挂载抖动 / jsonl 临时读不到
+			// 都可能瞬时 404;一旦误删, claw 是用户级会话(无业务源表), 无法经 ReconcileOwnerSessions
+			// 重建 → 该会话从侧边栏**永久消失、退登也回不来**(真·数据丢失)。
+			// 改为非破坏性优雅降级: 保留 DB 行, 返回空历史 (对齐 PaginateSessionMessages 的 prism 路径)。
+			// 会话仍留在列表里; 内容真没了用户可自行删除; 瞬时故障下次重拉即恢复。
+			return &SessionMessagesResult{SessionID: sessionID, Messages: nil}, nil
 		}
 		return nil, fmt.Errorf("agent get messages: %w", err)
 	}

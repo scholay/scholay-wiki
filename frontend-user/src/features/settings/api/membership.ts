@@ -228,15 +228,27 @@ export function useTestPay() {
   });
 }
 
-/** 对已建订单发起支付宝支付, 返回收银台 URL(由调用方跳转)。 */
+/** 对已建订单发起支付宝支付, 返回收银台 URL(由调用方跳转)。
+ *  channel='wap' → 手机网站支付(移动端);省略/'pc' → 电脑网站支付(默认)。
+ *  手机端建议传 return_url/quit_url=移动端落地页(如 /m/me),付完 / 退出都回到 App 内。 */
 export function useStartAlipay() {
   return useMutation({
-    mutationFn: async (args: { order_no: string; amount: number; subject: string }) =>
+    mutationFn: async (args: {
+      order_no: string;
+      amount: number;
+      subject: string;
+      channel?: 'pc' | 'wap';
+      return_url?: string;
+      quit_url?: string;
+    }) =>
       (
         await http.post<{ data: { payment_url: string; order_no: string } }>('/user/payment/alipay/create', {
           order_no: args.order_no,
           amount: args.amount,
           subject: args.subject,
+          ...(args.channel ? { channel: args.channel } : {}),
+          ...(args.return_url ? { return_url: args.return_url } : {}),
+          ...(args.quit_url ? { quit_url: args.quit_url } : {}),
         })
       ).data.data,
   });
