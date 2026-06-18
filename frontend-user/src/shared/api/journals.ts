@@ -98,7 +98,10 @@ export function useDownloadJournalSubmission() {
       try {
         const resp = await http.get(
           `/user/journals/${vars.id}/submission/${vars.kind}`,
-          { responseType: 'blob' }
+          {
+            responseType: 'blob',
+            params: vars.journalName ? { name: vars.journalName } : undefined,
+          }
         );
         const suffix = vars.kind === 'guideline' ? '-投稿须知.md' : '-LaTeX模板.zip';
         const base = (vars.journalName?.trim() || `journal-${vars.id}`)

@@ -875,8 +875,8 @@ func redactSubmissionURLsDeep(v any) {
 // DownloadJournalSubmission 期刊投稿资源下载(投稿须知 .md / LaTeX 模板 .zip)。
 // GET /api/v1/user/journals/:id/submission/:kind  (kind = guideline | latex)
 //
-// Max 会员专享:后端校验 tier=max → 取 full=1 详情里的真实下载地址 → 流式代理回传
-// (上游 key 不出后端;真实下载地址不暴露给前端)。
+// 双重门槛:① 后端校验【站内】用户 tier=max(下面)② 上游再校验 API Key 账号为最高价位套餐。
+// 后端持 key 代理 POST 上游 /v1/jnl/submission/{kind} 并把文件流原样回传(key 不出后端)。
 func (h *Handler) DownloadJournalSubmission(c *gin.Context) {
 	id, err := strconv.Atoi(strings.TrimSpace(c.Param("id")))
 	if err != nil || id <= 0 {
@@ -900,38 +900,9 @@ func (h *Handler) DownloadJournalSubmission(c *gin.Context) {
 		return
 	}
 
-	raw, err := h.manager.GetJournal(c.Request.Context(), id, "1")
-	if err != nil {
-		utils.Error(c, 4032, "加载期刊投稿资源失败,请稍后重试")
-		return
-	}
-	name, sub := extractJournalSubmission(raw)
-	if sub == nil {
-		utils.Error(c, 40401, "该期刊暂无投稿资源")
-		return
-	}
-
-	var dlURL, contentType, fileSuffix string
-	switch kind {
-	case "guideline":
-		if sub.HasGuideline {
-			dlURL = sub.GuidelineURL
-		}
-		contentType = "text/markdown; charset=utf-8"
-		fileSuffix = "-投稿须知.md"
-	case "latex":
-		if sub.HasLatex {
-			dlURL = sub.LatexURL
-		}
-		contentType = "application/zip"
-		fileSuffix = "-LaTeX模板.zip"
-	}
-	if strings.TrimSpace(dlURL) == "" {
-		utils.Error(c, 40401, "该期刊暂无该投稿资源")
-		return
-	}
-
-	resp, err := h.manager.DownloadJournalSubmissionFile(c.Request.Context(), dlURL)
+	// 上游 v2:POST /v1/jnl/submission/{kind} {id} 直接回文件流(按次计费 + 要求 key 账号
+	// 是最高价位套餐;否则 403,该刊无文件 404)。我们已先在上面校验了**站内**用户 tier=max。
+	resp, err := h.manager.DownloadJournalSubmission(c.Request.Context(), kind, id)
 	if err != nil {
 		slog.Warn("journal submission download failed", "journal_id", id, "kind", kind, "err", err)
 		utils.Error(c, 4032, "下载投稿资源失败,请稍后重试")
@@ -939,13 +910,36 @@ func (h *Handler) DownloadJournalSubmission(c *gin.Context) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		switch resp.StatusCode {
+		case http.StatusNotFound:
+			utils.Error(c, 40401, "该期刊暂无该投稿资源")
+		case http.StatusForbidden:
+			// 上游:API Key 账号非最高价位套餐(我们的 key 应为 max,真到这说明上游账号掉级)
+			slog.Warn("journal submission upstream 403 (api key account not top-tier)", "journal_id", id, "kind", kind)
+			utils.Error(c, 4032, "投稿资源下载暂不可用,请联系管理员")
+		default:
+			slog.Warn("journal submission upstream non-200", "journal_id", id, "kind", kind, "status", resp.StatusCode)
+			utils.Error(c, 4032, "下载投稿资源失败,请稍后重试")
+		}
+		return
+	}
+
+	var contentType, fileSuffix string
+	if kind == "latex" {
+		contentType, fileSuffix = "application/zip", "-LaTeX模板.zip"
+	} else {
+		contentType, fileSuffix = "text/markdown; charset=utf-8", "-投稿须知.md"
+	}
+	if ct := resp.Header.Get("Content-Type"); ct != "" && !strings.HasPrefix(ct, "text/html") {
+		contentType = ct
+	}
+	// 文件名:前端可带 ?name=<期刊名> 作友好名(前端 blob 下载也会自己再命名,这里是兜底)。
+	name := strings.TrimSpace(c.Query("name"))
 	if name == "" {
 		name = "journal-" + strconv.Itoa(id)
 	}
 	filename := sanitizeFilename(name) + fileSuffix
-	if upstreamCT := resp.Header.Get("Content-Type"); upstreamCT != "" && !strings.HasPrefix(upstreamCT, "text/html") {
-		contentType = upstreamCT
-	}
 	c.Header("Content-Type", contentType)
 	if cl := resp.Header.Get("Content-Length"); cl != "" {
 		c.Header("Content-Length", cl)
@@ -956,55 +950,6 @@ func (h *Handler) DownloadJournalSubmission(c *gin.Context) {
 	c.Status(http.StatusOK)
 	if _, err := io.Copy(c.Writer, resp.Body); err != nil {
 		slog.Warn("journal submission stream copy failed", "journal_id", id, "kind", kind, "err", err)
-	}
-}
-
-// extractJournalSubmission 从 /v1/jnl/get full=1 原始响应里取出 canonical_name + submission。
-//
-// 实测上游真实结构(文档里那个扁平 JournalSubmission schema 不准):
-//
-//	data.sources.submission = {
-//	  main: { has_guideline, has_latex, ... },
-//	  latex: { class, zip_url },          // zip_url 是相对地址,如 /api/submission/file/latex%2Fxxx.zip
-//	  guidelines_md_url: "..."            // 投稿须知 .md 下载地址
-//	}
-func extractJournalSubmission(raw json.RawMessage) (string, *JournalSubmission) {
-	var env struct {
-		CanonicalName string `json:"canonical_name"`
-		Unified       struct {
-			CanonicalName string `json:"canonical_name"`
-		} `json:"unified"`
-		Sources struct {
-			Submission *struct {
-				Main struct {
-					HasGuideline bool `json:"has_guideline"`
-					HasLatex     bool `json:"has_latex"`
-				} `json:"main"`
-				Latex struct {
-					Class  string `json:"class"`
-					ZipURL string `json:"zip_url"`
-				} `json:"latex"`
-				GuidelinesMdURL string `json:"guidelines_md_url"`
-			} `json:"submission"`
-		} `json:"sources"`
-	}
-	if err := json.Unmarshal(raw, &env); err != nil {
-		return "", nil
-	}
-	name := env.CanonicalName
-	if name == "" {
-		name = env.Unified.CanonicalName
-	}
-	s := env.Sources.Submission
-	if s == nil {
-		return name, nil
-	}
-	return name, &JournalSubmission{
-		HasGuideline: s.Main.HasGuideline,
-		HasLatex:     s.Main.HasLatex,
-		LatexClass:   s.Latex.Class,
-		GuidelineURL: s.GuidelinesMdURL,
-		LatexURL:     s.Latex.ZipURL,
 	}
 }
 

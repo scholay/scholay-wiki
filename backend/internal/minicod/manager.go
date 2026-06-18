@@ -627,13 +627,13 @@ func (m *Manager) CompareJournals(ctx context.Context, ids string) (json.RawMess
 	return fetch(m, func(c *Client) (json.RawMessage, error) { return c.CompareJournals(ctx, ids) })
 }
 
-// DownloadJournalSubmissionFile 取一个账户(含 key + baseURL)流式代理下载投稿资源文件。
-// 不走 fetch/breaker(那是 envelope JSON 语义);下载是稀有动作 + 二进制流,单账户直拉即可。
-// 调用方负责关闭返回 resp.Body。
-func (m *Manager) DownloadJournalSubmissionFile(ctx context.Context, url string) (*http.Response, error) {
+// DownloadJournalSubmission 取一个账户(含 key + baseURL)流式代理下载投稿资源。
+// kind = "guideline" | "latex"。不走 fetch/breaker(envelope JSON 语义);下载是稀有动作
+// + 二进制流,单账户直拉即可。原样返回 *http.Response(含非 200),由 handler 判状态码 + 关 Body。
+func (m *Manager) DownloadJournalSubmission(ctx context.Context, kind string, id int) (*http.Response, error) {
 	client, _, err := m.getClientWithAccountID()
 	if err != nil {
 		return nil, err
 	}
-	return client.DownloadFile(ctx, url)
+	return client.DownloadSubmission(ctx, kind, id)
 }

@@ -3567,6 +3567,99 @@
         }
       }
     },
+    "/v1/jnl/submission/guideline": {
+      "post": {
+        "tags": [
+          "JNL - Journals"
+        ],
+        "summary": "下载投稿须知(.md)",
+        "description": "下载某期刊的投稿须知 Markdown 文件,直接返回文件流。**按次计费**(与其它 /v1/jnl/* 一致), 并额外要求:调用所用 API Key 所属账号必须是「最高价位套餐」有效会员,否则 403(且不扣调用次数)。 该刊无投稿须知文件时返回 404。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "id"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "description": "期刊 ID(同 /v1/jnl/get 的 id)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "投稿须知文件(text/markdown,作为附件返回)",
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API Key 所属账号非最高价位套餐会员(不扣调用次数)"
+          },
+          "404": {
+            "description": "该期刊无投稿须知文件"
+          }
+        }
+      }
+    },
+    "/v1/jnl/submission/latex": {
+      "post": {
+        "tags": [
+          "JNL - Journals"
+        ],
+        "summary": "下载 LaTeX 投稿模板(.zip)",
+        "description": "下载某期刊的 LaTeX 投稿模板 ZIP 包,直接返回文件流。**按次计费**(与其它 /v1/jnl/* 一致), 并额外要求:调用所用 API Key 所属账号必须是「最高价位套餐」有效会员,否则 403(且不扣调用次数)。 该刊无 LaTeX 模板时返回 404。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "id"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "description": "期刊 ID(同 /v1/jnl/get 的 id)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "LaTeX 模板 ZIP(application/zip,作为附件返回)",
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API Key 所属账号非最高价位套餐会员(不扣调用次数)"
+          },
+          "404": {
+            "description": "该期刊无 LaTeX 模板"
+          }
+        }
+      }
+    },
     "/v1/pmd/papers/search": {
       "post": {
         "tags": [
@@ -4140,7 +4233,7 @@
           },
           "has_submission": {
             "type": "integer",
-            "description": "是否有投稿须知/LaTeX 模板(submission 源)。v2 起。文件下载是站内「最高价位套餐会员」专享,不在本按次计费 API 内。"
+            "description": "是否有投稿须知/LaTeX 模板(submission 源)。v2 起。文件下载经 POST /v1/jnl/submission/{guideline,latex}(按次计费 + 仅最高价位套餐会员)。"
           },
           "has_xr": {
             "type": "integer",
@@ -4169,27 +4262,19 @@
       },
       "JournalSubmission": {
         "type": "object",
-        "description": "投稿资源元信息(submission 源;full=1 时附带,或对应 /v1/jnl/submission/* 端点)。",
+        "description": "投稿资源元信息(submission 源)。has_latex / has_guideline 标志该刊是否有对应文件; 文件本体经 POST /v1/jnl/submission/{guideline,latex} 下载(按次计费,且要求 API Key 所属账号为「最高价位套餐」会员)。本 schema 仅含标志位,不含下载地址。",
         "properties": {
           "has_guideline": {
             "type": "boolean",
-            "description": "是否有投稿须知文件。"
+            "description": "是否有投稿须知文件(为 true 才可经 /v1/jnl/submission/guideline 下载)。"
           },
           "has_latex": {
             "type": "boolean",
-            "description": "是否有 LaTeX 投稿模板文件。"
+            "description": "是否有 LaTeX 投稿模板文件(为 true 才可经 /v1/jnl/submission/latex 下载)。"
           },
           "latex_class": {
             "type": "string",
-            "description": "LaTeX 文档类(如 elsarticle.cls);无模板时为 null。"
-          },
-          "guideline_url": {
-            "type": "string",
-            "description": "投稿须知(.md)下载地址;has_guideline=false 时为 null。"
-          },
-          "latex_url": {
-            "type": "string",
-            "description": "LaTeX 模板(.zip)下载地址;has_latex=false 时为 null。"
+            "description": "LaTeX 文档类(如 elsarticle.cls / USG.cls);无模板时为空字符串。"
           }
         }
       },

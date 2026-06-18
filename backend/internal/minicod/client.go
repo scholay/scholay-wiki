@@ -8,6 +8,7 @@
 package minicod
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -15,7 +16,6 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -851,52 +851,27 @@ func (c *Client) JournalsByISSNs(ctx context.Context, issns, fields string) (jso
 	return c.doPost(ctx, "/v1/jnl/batch", body)
 }
 
-// DownloadFile 流式 GET 一个(绝对或相对 baseURL 的)文件地址,带 Bearer 鉴权。
+// DownloadSubmission 下载期刊投稿资源(kind = "guideline" | "latex"),流式返回。
 //
-// 用于期刊投稿资源(投稿须知 .md / LaTeX 模板 .zip)的后端代理下载 —— 上游文档明确
-// "文件下载不在按次计费 API 内",这里直接 GET 资源 URL 并把响应体原样回流给调用方。
-// 不走 c.up(那是 POST + envelope 解析 + breaker 的语义,不适合二进制流)。
-// 调用方负责关闭返回 resp.Body。
-func (c *Client) DownloadFile(ctx context.Context, rawURL string) (*http.Response, error) {
-	raw := strings.TrimSpace(rawURL)
-	if raw == "" {
-		return nil, fmt.Errorf("minicod: empty download url")
-	}
-	// 相对地址按 baseURL 拼成绝对地址
-	if !strings.HasPrefix(raw, "http://") && !strings.HasPrefix(raw, "https://") {
-		raw = strings.TrimRight(c.baseURL, "/") + "/" + strings.TrimLeft(raw, "/")
-	}
-	// 只允许 http/https,挡掉 file:// / data:// 等非预期 scheme(URL 来自上游 JSON)。
-	u, err := url.Parse(raw)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return nil, fmt.Errorf("minicod: invalid download url")
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+// 上游 v2(api-1.json):POST /v1/jnl/submission/{kind},body {id};直接回文件流
+// (guideline=text/markdown,latex=application/zip)。**按次计费 + 要求 API Key 账号是
+// 最高价位套餐会员**,否则 403(不扣次);该刊无对应文件 404。
+//
+// 不走 c.up(那是 envelope JSON + breaker 语义,不适合二进制流)。**不在客户端判状态码**
+// —— 原样把 *http.Response 交给 handler,由它区分 200/403/404 映射友好文案。调用方负责关闭 Body。
+func (c *Client) DownloadSubmission(ctx context.Context, kind string, id int) (*http.Response, error) {
+	body, err := json.Marshal(map[string]any{"id": id})
 	if err != nil {
 		return nil, err
 	}
-	// 仅当下载地址与配置的 upstream 同 host 时才带 Bearer —— 上游若返回第三方
-	// CDN/对象存储直链(presigned),把我们的 API key 发过去会泄漏给该域。
-	// (跨 host 重定向时 Go 标准库也会自动剥离 Authorization 头,双保险。)
-	if c.apiKey != "" && sameHost(u, c.baseURL) {
+	u := strings.TrimRight(c.baseURL, "/") + "/v1/jnl/submission/" + kind
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if c.apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	}
-	resp, err := getSharedHTTPClient().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
-		return nil, fmt.Errorf("minicod: download failed, status %d", resp.StatusCode)
-	}
-	return resp, nil
-}
-
-// sameHost 判断下载地址与 baseURL 是否同 host(忽略大小写)。
-func sameHost(u *url.URL, baseURL string) bool {
-	b, err := url.Parse(strings.TrimSpace(baseURL))
-	if err != nil {
-		return false
-	}
-	return b.Host != "" && strings.EqualFold(u.Host, b.Host)
+	return getSharedHTTPClient().Do(req)
 }
