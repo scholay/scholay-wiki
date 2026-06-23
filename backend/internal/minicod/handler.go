@@ -322,9 +322,14 @@ func (h *Handler) SearchPapers(c *gin.Context) {
 		if err == nil {
 			break
 		}
-		slog.Warn("minicod search: source failed, trying next", "source", src, "err", err)
+		// 换源是设计内的正常降级(stc→olx→pmd),单源失败 → DEBUG;只有全源都失败才在下面 WARN。
+		slog.Debug("minicod search: source failed, trying next", "source", src, "err", err)
 	}
 	if err != nil || result == nil {
+		// 客户端主动取消(翻页/离开)不算真失败,不打 WARN;只有上游确实全挂才记一条聚合 WARN。
+		if c.Request.Context().Err() == nil {
+			slog.Warn("minicod search: all sources failed", "query_len", len(req.Query), "err", err)
+		}
 		utils.Error(c, 4002, "搜索论文失败,请稍后重试")
 		return
 	}

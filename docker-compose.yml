@@ -319,9 +319,9 @@ services:
       # 强制覆盖 agent/.env 里的 ANTHROPIC_API_KEY (内网 Bearer 鉴权 token)
       # 必须与 backend 的 AGENT_AUTH_TOKEN 同值,否则 backend push 配置会 401。
       ANTHROPIC_API_KEY: ${AGENT_INTERNAL_TOKEN:-}
-      # agent → backend 内网回调地址(上报「带外」token 用量,如会话标题生成)。
-      # NO_PROXY 已含 scholar_backend → 直连内网,不经 egress 代理。
-      BACKEND_BASE_URL: ${BACKEND_BASE_URL:-http://scholar_backend:8080}
+      # (已移除 BACKEND_BASE_URL:agent→backend 的 token 用量 HTTP 回调旁路早已下线,
+      #  agent 侧 token 改走会话 WS 的带内 token_usage 帧上报,backend 在已鉴权会话上记账;
+      #  该 env 后端/agent 均无人读取,留着只会误导以为存在 live HTTP 回调。)
       # 可选: 自定义 CA 证书路径 (代理 / 内网 mTLS / 自签 CDN 场景)。
       # Bun / Node fetch 会把这个文件合并进 trust store, 解决 Clash / mihomo
       # fake-ip 模式或企业代理签证书时的 "unknown certificate verification error"。

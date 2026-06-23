@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Copy, Crown, Loader2, Mail, Phone, ShieldCheck, Clock, Github, Chrome } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -9,24 +8,17 @@ import {
   SheetDescription,
   SheetFooter,
 } from '@/shared/ui/sheet';
-import { Button } from '@/shared/ui/button';
-import { Input } from '@/shared/ui/input';
 import { Badge } from '@/shared/ui/badge';
-import { Label } from '@/shared/ui/label';
 import { cn } from '@/shared/lib/utils';
-import { useApiToast } from '../hooks/useApiToast';
-import { useConfirm } from '../hooks/useConfirm';
 import { UserTokenUsagePanel } from './UserTokenUsagePanel';
+import { UserGrantPanel } from './UserGrantPanel';
 import {
   useUserDetail,
   useUserVipStatus,
-  useGrantVip,
-  useRevokeVip,
   type AdminUser,
   type UserVipStatus,
 } from '../api/users';
 
-const DAY_PRESETS = [30, 90, 180, 365];
 // 会员等级展示名全站统一:Free / Pro / Max(不用「专业版 / 旗舰版」)。
 const TIER_LABEL: Record<string, string> = { free: 'Free', pro: 'Pro', max: 'Max' };
 
@@ -71,12 +63,6 @@ export function UserDetailDrawer({
   const id = user?.id;
   const detail = useUserDetail(open ? id : undefined);
   const vip = useUserVipStatus(open ? id : undefined);
-  const grant = useGrantVip();
-  const revoke = useRevokeVip();
-  const apiToast = useApiToast();
-  const confirm = useConfirm();
-
-  const [days, setDays] = useState(30);
 
   if (!user) return null;
 
@@ -87,26 +73,6 @@ export function UserDetailDrawer({
   const copy = (text: string, label: string) => {
     navigator.clipboard?.writeText(text);
     toast.success(`已复制${label}`);
-  };
-
-  const handleGrant = async () => {
-    if (days < 1) return;
-    await apiToast(grant.mutateAsync({ id: user.id, tier: 'pro', days }), {
-      success: `已为 ${displayName} 授予/续期 ${days} 天 Pro`,
-      failure: '授予会员失败',
-    });
-  };
-
-  const handleRevoke = async () => {
-    const ok = await confirm({
-      title: `取消 ${displayName} 的会员?`,
-      description:
-        '危险操作:会员立即过期回到 Free 档(额度按 Free 计),并清零其随会员发放的订阅经费(含已预发放的下一周期)。充值的永久经费、兑换码等其他来源的临时经费不受影响。',
-      danger: true,
-      confirmText: '取消会员',
-    });
-    if (!ok) return;
-    await apiToast(revoke.mutateAsync(user.id), { success: '已取消会员', failure: '操作失败' });
   };
 
   return (
@@ -234,40 +200,9 @@ export function UserDetailDrawer({
           </Section>
         </div>
 
-        {/* 授予 / 取消会员 */}
+        {/* 发放会员 / 调整经费 */}
         <SheetFooter>
-          <Label className="text-2xs tracking-[0.12em] text-faint">授予 / 续期 Pro</Label>
-          <div className="flex items-center gap-1.5">
-            {DAY_PRESETS.map((d) => (
-              <Button
-                key={d}
-                type="button"
-                size="sm"
-                variant={days === d ? 'default' : 'outline'}
-                onClick={() => setDays(d)}
-              >
-                {d}天
-              </Button>
-            ))}
-            <Input
-              type="number"
-              min={1}
-              value={days}
-              onChange={(e) => setDays(Number(e.target.value))}
-              className="h-8 w-20"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <Button onClick={handleGrant} disabled={grant.isPending || days < 1} className="flex-1">
-              {grant.isPending && <Loader2 className="size-3.5 animate-spin" />}
-              {isPro ? '续期' : '授予'} {days} 天
-            </Button>
-            {isPro && (
-              <Button variant="outline" onClick={handleRevoke} disabled={revoke.isPending}>
-                取消会员
-              </Button>
-            )}
-          </div>
+          <UserGrantPanel user={user} vip={vip.data} displayName={displayName} />
         </SheetFooter>
       </SheetContent>
     </Sheet>

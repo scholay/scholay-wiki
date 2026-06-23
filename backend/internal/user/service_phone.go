@@ -278,10 +278,10 @@ func (s *Service) LoginWithPhoneCode(ctx context.Context, phone, code, ip string
 	if err != nil {
 		return nil, "", err
 	}
-	// 验证码已校验通过 = 已证明掌控该手机号(攻击者拿不到别人的码,错 5 次即烧码),
-	// 故如实告知「未注册」不构成枚举,避免用户在「密码登录失败→验证码登录也失败」之间一头雾水。
+	// 未注册 → 自动注册并直接登录:验证码已证明掌控该手机号,门槛与独立注册流等同
+	// (Turnstile + 验证码 + 限流均已在上游通过),免去「先注册再登录」两步。
 	if user == nil {
-		return nil, "", errors.New("该手机号未注册,请先注册")
+		return s.autoRegisterPhone(ctx, phone, ip)
 	}
 
 	// Check if user is active
@@ -298,6 +298,68 @@ func (s *Service) LoginWithPhoneCode(ctx context.Context, phone, code, ip string
 		return nil, "", err
 	}
 
+	return user, token, nil
+}
+
+// autoRegisterPhone 在「验证码登录时手机号尚未注册」时自动建号并登录。
+// 调用方已校验验证码(证明掌控该号)+ Turnstile,故此处不再二次校验码;创建的是**无密码**账号
+// (与 OAuth 账号一致,后续可经改密设置),手机号置为已验证、账号 active。
+// 并发下若被同号请求抢先建号,事务内回退为复用既有账号(不报错、不重复发欢迎)。
+func (s *Service) autoRegisterPhone(ctx context.Context, phone, ip string) (*User, string, error) {
+	var user *User
+	var created bool
+	err := s.repo.ExecuteInTransaction(func(txRepo *Repository) error {
+		existing, err := txRepo.FindByPhone(phone)
+		if err != nil {
+			return err
+		}
+		if existing != nil {
+			user = existing // 并发抢先建号 → 复用登录
+			return nil
+		}
+		username, err := s.generateRandomUsername()
+		if err != nil {
+			return fmt.Errorf("failed to generate username: %w", err)
+		}
+		user = &User{
+			Phone:         &phone,
+			Username:      &username,
+			Role:          "user",
+			Status:        1,
+			PhoneVerified: true,
+		}
+		if err := txRepo.Create(user); err != nil {
+			return err
+		}
+		_ = txRepo.UpdateLastLoginWithIP(user.ID, ip)
+		if err := txRepo.CreateAuthProvider(&UserAuthProvider{
+			UserID:         user.ID,
+			Provider:       "phone",
+			ProviderUserID: phone,
+		}); err != nil {
+			return err
+		}
+		created = true
+		return nil
+	})
+	if err != nil {
+		return nil, "", err
+	}
+	if user.Status != 1 {
+		return nil, "", errors.New("账号已被停用")
+	}
+	_ = s.repo.UpdateLastLoginWithIP(user.ID, ip)
+	tokenUsername := phone
+	if user.Username != nil {
+		tokenUsername = *user.Username
+	}
+	token, err := s.generateTokenForUser(user, tokenUsername)
+	if err != nil {
+		return nil, "", err
+	}
+	if created {
+		s.SendWelcomeMessage(user.ID)
+	}
 	return user, token, nil
 }
 

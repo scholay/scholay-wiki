@@ -33,6 +33,10 @@ type Usage struct {
 	CacheReadTokens     int
 	CacheCreationTokens int
 	RequestID           string
+	// SkipQuota —— 系统开销类调用(如后台记忆抽取):仍记账本(成本可见 + 按用户归属),
+	// 但**不触发 observer / 不扣用户每日额度**。用户未主动发起、又会高频后台跑的 AI 调用用它,
+	// 避免悄悄吃掉用户额度。默认 false = 正常计费。
+	SkipQuota bool
 }
 
 // Recorder 业务依赖的最小接口 —— Service 实现, bootstrap 注入。
@@ -83,7 +87,8 @@ func (s *Service) Record(u Usage) {
 		return
 	}
 	// 同步喂「每日 token 额度」计数(轻量 Redis INCRBY);只对已登录用户的非零用量。
-	if s.observer != nil && u.UserID != nil && u.TotalTokens > 0 {
+	// SkipQuota 的系统开销调用(如记忆抽取)记账本但不扣额度,故跳过 observer。
+	if s.observer != nil && u.UserID != nil && u.TotalTokens > 0 && !u.SkipQuota {
 		s.observer(*u.UserID, u.TotalTokens)
 	}
 	// 走独立 ledger 池:账本喂计费,不与匿名 beacon 抢同一 drop-on-full 队列。
@@ -121,6 +126,9 @@ type Call struct {
 	Feature   string
 	UserID    *uint
 	RequestID string
+	// SkipQuota —— 见 Usage.SkipQuota:系统开销类调用记账本但不扣用户每日额度。
+	// 经 recordLLMUsage 透传到 Usage。
+	SkipQuota bool
 }
 
 type callKey struct{}

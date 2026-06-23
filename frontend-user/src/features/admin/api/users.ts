@@ -189,3 +189,19 @@ export function useRevokeVip() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'users'] }),
   });
 }
+
+/** 管理员给某用户加/扣科研经费。amount>0 发放、<0 扣减;kind=perm 永久 / temp 临时(temp 发放需 days)。
+ *  对齐后端 POST /admin/users/:id/wallet/adjust(AdminAdjustWallet)。 */
+export function useAdjustWallet() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { id: number; amount: number; kind: 'perm' | 'temp'; days?: number; note?: string }) =>
+      http.post(`/admin/users/${vars.id}/wallet/adjust`, {
+        amount: vars.amount,
+        kind: vars.kind,
+        days: vars.days ?? 0,
+        note: vars.note ?? '',
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'users'] }),
+  });
+}

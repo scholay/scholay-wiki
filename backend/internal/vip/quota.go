@@ -1,11 +1,20 @@
 // ============================================================================
 // 统一每日 token 额度(取代旧的「每功能每日次数」)。
 //
-// 每用户一条每日额度 = FreeDailyTokens × 倍率(tier);所有 AI 功能共用,消耗按真实
-// token 后置累加(AddUsage, 由 llmusage.Record 唯一咽喉喂数)。额度耗尽:可消耗经费
-// 立即重置(ResetQuota),或每日 00:00 自然滚动到新 key 满血。
+// **统计与限额分离**(本文件的核心设计):
+//   - 真实消耗统计 used = quota:tokens:<uid>:<日>,单调累加(AddUsage),**永不被重置删减**;
+//   - 额度窗口起点 base = quota:base:<uid>:<日>,重置/升级时抬到当前 used(缺省 0);
+//   - 限额判定用「窗口内消耗」= used - base < ceiling(tier),而**不是直接拿统计当闸**。
+// 这样「重置 / 升级满血」只动 base(限额侧),绝不擦除 used(统计侧)—— 重置后仍能看到
+// 用户当天真实消耗了多少(旧实现重置=DEL 计数,会把当天统计一并清零,统计与限额纠缠)。
+// 每用户一条每日额度 = FreeDailyTokens × 倍率(tier),所有 AI 功能共用。
 //
-// 计数走 Redis:quota:tokens:<uid>:<YYYYMMDD>,TTL 25h,fail-open(Redis 挂→放行)。
+// 满血的三条路径,都只动 base、不动 used:
+//   - 手动重置:消耗经费(ResetQuota → base=used);
+//   - 升级到付费档:免费(ResetBaselineOnUpgrade → base=used,套餐升级立即满血);
+//   - 每日 00:00:自然滚动到新 key(used、base 皆 0)。
+//
+// 计数走 Redis(persist 池),TTL 25h,fail-open(Redis 挂→放行)。
 // 北京时区直接 time.Now()(项目铁律:不做 UTC 转换)。
 // ============================================================================
 
@@ -89,10 +98,39 @@ func tokenDayKey(userID uint, now time.Time) string {
 	return fmt.Sprintf("quota:tokens:%d:%s", userID, now.Format("20060102"))
 }
 
-// tokenUsed 读当日已消耗 token。Redis 挂 / key 不存在 → 0。
+// 「额度计数器 Redis 不可用」告警限流:每分钟至多一条 WARN。
+var (
+	quotaDegradedMu sync.Mutex
+	quotaDegradedAt time.Time
+)
+
+// warnQuotaDegraded 把「每日额度计数器所在 Redis 不可用」这一敞口可见化(限流,每分钟一条)。
+// 此刻 CheckDailyQuota/AddUsage 双双 fail-open = 配额暂时不强制(全功能实质放行),账本(MySQL)
+// 仍记可事后核账。限流避免 Redis 抖动期逐请求刷屏(沿用「per-call 失败不刷屏」的初衷),
+// 但保证这个「无限免费窗口」不再是 DEBUG 级的完全静默 —— 见 docs/research/ai-token-surface R3。
+func warnQuotaDegraded(reason string, attrs ...any) {
+	now := time.Now()
+	quotaDegradedMu.Lock()
+	if now.Sub(quotaDegradedAt) < time.Minute {
+		quotaDegradedMu.Unlock()
+		return
+	}
+	quotaDegradedAt = now
+	quotaDegradedMu.Unlock()
+	slog.Warn("billing: 每日额度计数器 Redis 不可用,配额暂时 fail-open(不强制)— "+reason, attrs...)
+}
+
+// tokenBaseKey —— 当日额度「窗口起点」key。重置/升级时置为当时的 used,使窗口内消耗归零
+// 而不删除 used 统计。缺省(不存在)= 0。
+func tokenBaseKey(userID uint, now time.Time) string {
+	return fmt.Sprintf("quota:base:%d:%s", userID, now.Format("20060102"))
+}
+
+// tokenUsed 读当日**真实累计消耗**(统计口径,单调,永不被重置删减)。Redis 挂 / key 不存在 → 0。
 func (s *Service) tokenUsed(ctx context.Context, userID uint) int64 {
 	rdb := cache.GetRedisPersist()
 	if rdb == nil {
+		warnQuotaDegraded("counter read")
 		return 0
 	}
 	v, err := rdb.Get(ctx, tokenDayKey(userID, time.Now())).Int64()
@@ -100,6 +138,28 @@ func (s *Service) tokenUsed(ctx context.Context, userID uint) int64 {
 		return 0 // key 不存在(redis.Nil)或读失败 → 视为 0
 	}
 	return v
+}
+
+// tokenBaseline 读当前额度窗口起点(上次重置/升级时的 used 快照)。缺省 0。
+func (s *Service) tokenBaseline(ctx context.Context, userID uint) int64 {
+	rdb := cache.GetRedisPersist()
+	if rdb == nil {
+		return 0
+	}
+	v, err := rdb.Get(ctx, tokenBaseKey(userID, time.Now())).Int64()
+	if err != nil {
+		return 0
+	}
+	return v
+}
+
+// tokenWindowUsed 当前额度窗口内已消耗 = 真实累计 - 窗口起点(clamp ≥0)。**配额判定用它**,
+// 不直接拿 used 统计当闸 —— 这样重置/升级抬 base 后窗口归零,但 used 统计完好。
+func (s *Service) tokenWindowUsed(ctx context.Context, userID uint) int64 {
+	if w := s.tokenUsed(ctx, userID) - s.tokenBaseline(ctx, userID); w > 0 {
+		return w
+	}
+	return 0
 }
 
 // CheckDailyQuota —— **每日 token 额度闸门**(统一池, 所有 AI 功能共用, 不分功能)。
@@ -121,7 +181,7 @@ func (s *Service) CheckDailyQuota(ctx context.Context, userID uint) error {
 	if ceiling < 0 {
 		return nil // 不限额
 	}
-	if s.tokenUsed(ctx, userID) < ceiling {
+	if s.tokenWindowUsed(ctx, userID) < ceiling {
 		return nil
 	}
 	// 超限:**不再自动扣经费重置**(该逻辑已下线——避免静默扣费让用户感觉经费莫名减少)。
@@ -140,17 +200,42 @@ func (s *Service) AddUsage(ctx context.Context, userID uint, tokens int) {
 	}
 	rdb := cache.GetRedisPersist()
 	if rdb == nil {
+		warnQuotaDegraded("usage incr", "user_id", userID)
 		return
 	}
 	key := tokenDayKey(userID, time.Now())
 	n, err := rdb.IncrBy(ctx, key, int64(tokens)).Result()
 	if err != nil {
-		slog.Warn("billing: token usage incr failed", "user_id", userID, "err", err)
+		// fail-open 是既定契约(Redis 挂 → 放行,不阻塞用户),但敞口要可见 → 限流 WARN
+		// (每分钟至多一条,避免逐请求刷屏)。账本仍记 MySQL,可事后核账。
+		warnQuotaDegraded("usage incr failed", "user_id", userID, "err", err)
 		return
 	}
 	if n == int64(tokens) { // 当日首次累加 → 设 25h 过期(防时钟漂移)
 		if e := rdb.Expire(ctx, key, 25*time.Hour).Err(); e != nil {
-			slog.Warn("billing: token usage expire set failed", "user_id", userID, "err", e)
+			slog.Debug("billing: token usage expire set failed (fail-open)", "user_id", userID, "err", e)
+		}
+	}
+	// R8 可观测:额度只在操作入口做只读 gate、无单轮帽 → 一次操作(尤其 peerreview 4 轮 / agent 大扇出)
+	// 可在后置扣减时冲过当日上限。这里在「本次累加恰好把用户从上限内推到上限外」时记一笔(每用户每天
+	// 至多一次),量化超支幅度。不在此阻断 —— 操作已发生、扣减后置;是否上硬约束(带 UX 取舍)按这些
+	// 数据再单独决策。显著超支(单次越线 >25% 当日预算)升 WARN,普通越线 DEBUG(release 不输出)。
+	if cfg := s.cfg.Get(); cfg.Enabled {
+		if ceiling := cfg.DailyCeiling(s.EffectiveTier(userID)); ceiling > 0 {
+			// 用窗口口径(used-base)判越线,与 CheckDailyQuota 一致;否则重置后 used 仍 > ceiling 会误报。
+			base := s.tokenBaseline(ctx, userID)
+			prevWin := (n - int64(tokens)) - base
+			curWin := n - base
+			if prevWin < ceiling && curWin >= ceiling {
+				overshoot := curWin - ceiling
+				if overshoot > ceiling/4 {
+					slog.Warn("billing: 单次操作显著越过当日额度(入口只读 gate 的后置超支)",
+						"user_id", userID, "ceiling", ceiling, "window_used", curWin, "overshoot", overshoot)
+				} else {
+					slog.Debug("billing: 当日额度越线",
+						"user_id", userID, "ceiling", ceiling, "window_used", curWin, "overshoot", overshoot)
+				}
+			}
 		}
 	}
 }
@@ -174,7 +259,7 @@ func (s *Service) ResetQuota(ctx context.Context, userID uint) (*ResetResult, er
 		return nil, err
 	}
 	return &ResetResult{
-		Used:    s.tokenUsed(ctx, userID),
+		Used:    s.tokenWindowUsed(ctx, userID), // 窗口口径(重置后应为 0),与额度条一致
 		Ceiling: cfg.DailyCeiling(s.EffectiveTier(userID)),
 		Balance: bal,
 	}, nil
@@ -194,7 +279,7 @@ func (s *Service) resetInternal(ctx context.Context, userID uint, cfg *BillingCo
 	// (已被并发重置 / 跨 0 点自然滚动清空 / **刚升级抬高了上限**)。复用为闭包,扣费前再判一次堵竞态。
 	resetNotNeeded := func() bool {
 		ceiling := cfg.DailyCeiling(s.EffectiveTier(userID))
-		return ceiling >= 0 && s.tokenUsed(ctx, userID) < ceiling
+		return ceiling >= 0 && s.tokenWindowUsed(ctx, userID) < ceiling
 	}
 
 	// 1) 锁内首判:不需要就直接成功,绝不扣费。
@@ -222,11 +307,13 @@ func (s *Service) resetInternal(ctx context.Context, userID uint, cfg *BillingCo
 		return nil
 	}
 
-	// 3) 先清计数(Redis 写)。失败即返回错误、不扣费,杜绝循环扣费。
+	// 3) 先抬窗口起点 base=当前 used(Redis 写)→ 窗口内消耗归零 = 满血,但 used 统计完整保留。
+	//    失败即返回错误、不扣费,杜绝「扣了钱但额度没满血 → 每条消息再扣一次」的循环扣费。
 	rdb := cache.GetRedisPersist()
 	if rdb != nil {
-		if err := rdb.Del(ctx, tokenDayKey(userID, time.Now())).Err(); err != nil {
-			slog.Warn("billing: reset del key failed, not charging", "user_id", userID, "err", err)
+		used := s.tokenUsed(ctx, userID)
+		if err := rdb.Set(ctx, tokenBaseKey(userID, time.Now()), used, 25*time.Hour).Err(); err != nil {
+			slog.Warn("billing: reset set baseline failed, not charging", "user_id", userID, "err", err)
 			return err
 		}
 	}
@@ -242,6 +329,31 @@ func (s *Service) resetInternal(ctx context.Context, userID uint, cfg *BillingCo
 	return nil
 }
 
+// ResetBaselineOnUpgrade —— 升级/续费到付费档后**免费满血**:把额度窗口起点 base 抬到当前 used,
+// 用户立刻获得新档全额当日预算,且不动真实消耗统计(used)。不收经费。best-effort:Redis 挂 / 写失败
+// 仅告警 —— 失败时新档更高的 ceiling 本身也给出更多余量兜底,不影响付费履约。
+//
+// 由 GrantToUser(管理员授予)/ Redeem(兑换码授予会员)/ 订阅订单履约后(activateSubscription)调用;
+// 撤销/降级(RevokeUser)**不调** —— 降级不该平白给一份新预算。今日还没消耗(used<=0)直接跳过。
+func (s *Service) ResetBaselineOnUpgrade(ctx context.Context, userID uint) {
+	if userID == 0 {
+		return
+	}
+	rdb := cache.GetRedisPersist()
+	if rdb == nil {
+		return
+	}
+	used := s.tokenUsed(ctx, userID)
+	if used <= 0 {
+		return // 今天还没消耗, 窗口本就满血, 无需抬基线
+	}
+	if err := rdb.Set(ctx, tokenBaseKey(userID, time.Now()), used, 25*time.Hour).Err(); err != nil {
+		slog.Warn("billing: upgrade baseline reset failed (falls back to higher ceiling)", "user_id", userID, "err", err)
+		return
+	}
+	slog.Info("billing: 升级满血 — 额度窗口已重置", "user_id", userID, "baseline", used)
+}
+
 // quotaExceededMessage 超限友好文案(含重置花费 + 升级/充值引导)。
 func quotaExceededMessage(tier string, cfg *BillingConfig) string {
 	if tier == TierFree {
@@ -253,11 +365,14 @@ func quotaExceededMessage(tier string, cfg *BillingConfig) string {
 // ─── 会员/额度总览(给前端「账户资产 · 总览」+ 旧「我的会员」)────────────────────
 
 // TokenStatus 当日额度状态。
+// Used/Percent 是**额度窗口口径**(used-base,即额度条该显示的"本窗口已用"),重置/升级后归零;
+// ConsumedToday 是**真实累计统计**(当天实际烧了多少 token,含重置前),给"今日消耗"展示用。
 type TokenStatus struct {
-	Used      int64 `json:"used"`
-	Ceiling   int64 `json:"ceiling"` // -1 = 不限
-	Percent   int   `json:"percent"` // 已用百分比(0..100;不限时 0)
-	Unlimited bool  `json:"unlimited"`
+	Used          int64 `json:"used"`           // 窗口内已用(额度条用)
+	Ceiling       int64 `json:"ceiling"`        // -1 = 不限
+	Percent       int   `json:"percent"`        // 窗口已用百分比(0..100;不限时 0)
+	Unlimited     bool  `json:"unlimited"`
+	ConsumedToday int64 `json:"consumed_today"` // 当天真实累计消耗(统计口径,重置不清零)
 }
 
 // Overview 账户资产总览:等级 + 到期 + 额度 + 经费 + 重置参数。
@@ -299,10 +414,11 @@ func (s *Service) GetOverview(ctx context.Context, userID uint) (*Overview, erro
 	tier := effectiveTier(uv, now)
 	cfg := s.cfg.Get()
 	ceiling := cfg.DailyCeiling(tier)
-	used := s.tokenUsed(ctx, userID)
-	ts := TokenStatus{Used: used, Ceiling: ceiling, Unlimited: ceiling < 0}
+	consumed := s.tokenUsed(ctx, userID)        // 真实累计(统计)
+	windowUsed := s.tokenWindowUsed(ctx, userID) // 窗口内已用(限额条)
+	ts := TokenStatus{Used: windowUsed, Ceiling: ceiling, Unlimited: ceiling < 0, ConsumedToday: consumed}
 	if ceiling > 0 {
-		p := int(used * 100 / ceiling)
+		p := int(windowUsed * 100 / ceiling)
 		if p > 100 {
 			p = 100
 		}

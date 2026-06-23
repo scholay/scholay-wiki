@@ -33,8 +33,8 @@ func (e *quotaError) Unwrap() error { return ErrQuotaExceeded }
 // 标签 "agent_usage=1" 方便 grep / 切到日志聚合工具时按 label 过滤。
 //
 // 这是三 WS feature (smart_search/claw/prism) 的 OnMessageComplete 唯一在用的钩子;刻意**只 slog
-// 不落库** —— token 账本由 agent per-call 内网回调统一记 (见 recordAgentTokens / internal_handler.go),
-// 此处再落会与 per-call 双计。
+// 不落库** —— token 账本由 ws.go 的 accrueTurnUsage **带内帧**统一记 (见 recordAgentTokens 调用处),
+// 此处再落会与带内帧路径双计账本 + 双扣额度。
 func NewSlogUsageRecorder(featureKey string) OnMessageCompleteFn {
 	return func(_ context.Context, userID uint, usage AgentUsage) {
 		slog.Info("agent_usage",
@@ -49,12 +49,13 @@ func NewSlogUsageRecorder(featureKey string) OnMessageCompleteFn {
 	}
 }
 
-// recordAgentTokens 是 **agent 侧 token 记账的唯一构造点** —— agent 内网回调
-// (per-call agent_call / title_gen,见 internal_handler.go)经它落统一账本 llm_token_usage,
-// 避免各自手搓 llmusage.Usage{} 漂移。
+// recordAgentTokens 是 **agent 侧 token 记账的唯一构造点** —— ws.go(交互三件套)与
+// ws_serverside.go(peerreview)的 accrueTurnUsage 算出每轮要落库的行后,经它落统一账本
+// llm_token_usage,避免各自手搓 llmusage.Usage{} 漂移。
 //
-// requestID 用作 session/turn 关联键:per-call 回调传 agent sessionID(C7),server-side 传 ctx 关联键;
-// WS OnMessageComplete 现已不落库(只 slog,见各 spec.go),故不在此列。
+// requestID 用作 session/turn 关联键:WS pipe 与 server-side 都传 agent sessionID。
+// WS OnMessageComplete 现只 slog 不落库(见 NewSlogUsageRecorder),故不在此列。
+// (历史的 agent per-call HTTP 内网回调 /internal_handler.go 旁路已删除。)
 // Source 固定 agent、Provider 固定 "scholay-managed"(agent 上游 provider/model 由 agent_config
 // 托管,backend 黑盒,不细分);rec==nil 跳过;userID==nil = 无归属(落 user_id=NULL)。
 //

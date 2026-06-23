@@ -11,6 +11,7 @@ package claw
 
 import (
 	"errors"
+	"log/slog"
 
 	"github.com/gin-gonic/gin"
 
@@ -105,7 +106,10 @@ func (h *Handler) GetContextEstimate(c *gin.Context) {
 				utils.Error(c, 4404, "会话不存在或不属于你")
 				return
 			}
-			utils.InternalError(c, codeAgentUnreachable, "无法读取上下文用量", err)
+			// 上下文水位只是 footer 的非关键 UI 表;agent 慢/超时不该让前端吃 502。
+			// 降级返 0(与"还没说过话"同形)+ DEBUG 记一笔,不污染错误日志、不打断用户。
+			slog.Debug("claw: context estimate unavailable, degrading", "session_id", sid, "err", err)
+			utils.Success(c, gin.H{"sessionId": sid, "totalTokens": 0, "maxTokens": 0, "percentage": 0, "model": "", "degraded": true})
 			return
 		}
 		if est == nil {
@@ -123,7 +127,9 @@ func (h *Handler) GetContextEstimate(c *gin.Context) {
 	}
 	est, sessionID, err := h.feature.GetContextEstimate(c.Request.Context(), userID)
 	if err != nil {
-		utils.InternalError(c, codeAgentUnreachable, "无法读取上下文用量", err)
+		// 同上:非关键水位表降级返 0,不让 agent 慢拖出 502。
+		slog.Debug("claw: context estimate unavailable, degrading", "err", err)
+		utils.Success(c, gin.H{"sessionId": sessionID, "totalTokens": 0, "maxTokens": 0, "percentage": 0, "model": "", "degraded": true})
 		return
 	}
 	if est == nil {

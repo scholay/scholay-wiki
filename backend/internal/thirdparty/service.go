@@ -9,6 +9,7 @@ package thirdparty
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math/rand"
@@ -502,6 +503,11 @@ func (s *Service) GetRandomAIModelConfigByLevel(modelLevel ModelLevel) (*AIModel
 	return s.GetRandomAIModelConfigByLevelExcluding(modelLevel, nil)
 }
 
+// ErrNoAccountsAvailable —— 某档位没有可用 AI 账号(完全没配 / 全被禁 / 本轮重试已全试过)。
+// 调用方用 errors.Is 区分"账号池被打空"(运营问题:余额/启用/上游可用性)与单次上游抖动,
+// 以便对前者打醒目告警而不是淹没在 per-request 的通用 WARN 里。
+var ErrNoAccountsAvailable = errors.New("no ai_model accounts available")
+
 // GetRandomAIModelConfigByLevelExcluding gets a random AI model configuration excluding specific account IDs
 // This is used for retry logic - when an account fails, we exclude it and try another one
 func (s *Service) GetRandomAIModelConfigByLevelExcluding(modelLevel ModelLevel, excludeIDs []uint) (*AIModelConfig, uint, error) {
@@ -512,7 +518,7 @@ func (s *Service) GetRandomAIModelConfigByLevelExcluding(modelLevel ModelLevel, 
 	}
 
 	if len(accounts) == 0 {
-		return nil, 0, fmt.Errorf("no active ai_model accounts found")
+		return nil, 0, fmt.Errorf("%w: no active ai_model accounts", ErrNoAccountsAvailable)
 	}
 
 	// Build exclude map for O(1) lookup
@@ -536,9 +542,9 @@ func (s *Service) GetRandomAIModelConfigByLevelExcluding(modelLevel ModelLevel, 
 
 	if len(validAccounts) == 0 {
 		if len(excludeIDs) > 0 {
-			return nil, 0, fmt.Errorf("no more ai_model accounts available for level %s (all tried)", modelLevel)
+			return nil, 0, fmt.Errorf("%w for level %s (all tried)", ErrNoAccountsAvailable, modelLevel)
 		}
-		return nil, 0, fmt.Errorf("no active ai_model accounts found with %s model configured", modelLevel)
+		return nil, 0, fmt.Errorf("%w: none with %s model configured", ErrNoAccountsAvailable, modelLevel)
 	}
 
 	// Use priority-based random selection

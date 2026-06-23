@@ -222,6 +222,23 @@ func (b *Bridge) ServerSideChatStreaming(
 			calls = ev.Calls
 			sessionTotal = ev.SessionTotal
 			complete = true
+		case "token_usage":
+			// 带外模型调用(会话标题生成等不产生 message_complete 帧)的 token:不进会话累计水位,
+			// 按「附加」记一行,归属取 ctx 的 llmusage.Call。镜像 ws.go 的交互路径 —— 补回 server-side
+			// (peerreview)此前因 switch 缺该 case 而**静默丢弃** title_gen token 帧的系统性漏计。
+			if b.llmRec != nil {
+				if u, ok := extractTokenUsageFrame(raw); ok {
+					call := llmusage.CallFromCtx(ctx)
+					feature := call.Feature
+					if feature == "" {
+						feature = llmusage.FeaturePeerReview
+					}
+					uid, feat, sid, rec := call.UserID, feature, sessionID, b.llmRec
+					safego.Go("agentbridge-serverside-token-usage-record:"+feat, func() {
+						recordAgentTokens(rec, uid, feat, sid, u)
+					})
+				}
+			}
 		case "pong", "connected":
 			// 心跳应答 / 握手 ack — 忽略
 		case "error":

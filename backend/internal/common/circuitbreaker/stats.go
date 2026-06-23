@@ -121,10 +121,13 @@ func onStateChangeWithStats(name string, from gobreaker.State, to gobreaker.Stat
 	}
 	switch to {
 	case gobreaker.StateOpen:
-		slog.Error("circuit breaker state changed", attrs...)
+		// WARN 而非 ERROR: breaker 打开是"外部依赖在抖、保护机制按预期生效",不是我方后端故障。
+		// ERROR 留给真正的后端缺陷, 这样值班 grep ERROR 才不会被上游(minicod/AI)抖动淹没。
+		slog.Warn("circuit breaker opened (upstream degraded)", attrs...)
 	case gobreaker.StateHalfOpen:
-		slog.Warn("circuit breaker state changed", attrs...)
+		// 进入试探恢复, 信息性事件。
+		slog.Info("circuit breaker half-open (probing recovery)", attrs...)
 	default:
-		slog.Info("circuit breaker state changed", attrs...)
+		slog.Info("circuit breaker closed (recovered)", attrs...)
 	}
 }

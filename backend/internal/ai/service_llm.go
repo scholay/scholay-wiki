@@ -113,6 +113,13 @@ func (s *Service) StreamChatCompletionWithLevel(ctx context.Context, messages []
 		if streamErr != nil {
 			return nil, nil, streamErr
 		}
+		// 流式整段已服务但没拿到 usage(上游忽略了 include_usage 末尾 chunk,或在它之前就结束):
+		// recordLLMUsage 会因 usage==nil 静默跳过 → 本次调用**不进账本、不扣额度**。把这个漏计
+		// 可见化(R6),便于定位是哪个上游不遵守 include_usage 契约 —— 否则它会悄悄漏气。
+		if usage == nil {
+			slog.Warn("ai: streaming finished without usage — token NOT metered (upstream ignored include_usage?)",
+				"model", modelCode, "level", string(modelLevel))
+		}
 		return nil, usage, nil
 	})
 	return err

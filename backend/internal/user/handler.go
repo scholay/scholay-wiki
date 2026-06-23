@@ -54,9 +54,11 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
 	{
 		// 敏感认证接口严格限流（防暴力破解 / 防短信&邮件轰炸）
 		// 登录/注册/改密 —— 每 IP 每分钟 30 次（普通用户足够，恶意扫号远达不到）
-		// 发码类 —— 每 IP 每分钟 8 次（足够正常重试，但无法用于短信轰炸）
+		// 发码类 —— 每 IP 每分钟 15 次：放宽以适配运营商 CGNAT / 公司同出口 IP 多用户共享的场景
+		//   (8 次在同网多人时会误伤真实用户)。真正护住短信成本的是「同一手机/邮箱 60s 冷却」+
+		//   「验证码错 5 次即作废」，这两道是 per-target 的、不随 IP 放宽而削弱。
 		authLimit := middleware.RateLimitMiddleware(30, time.Minute)
-		codeLimit := middleware.RateLimitMiddleware(8, time.Minute)
+		codeLimit := middleware.RateLimitMiddleware(15, time.Minute)
 
 		// 注:/check-email 与 /check-phone(返回 {exists}) 已下线 —— 它们是纯账号枚举
 		// 探针,且前端无任何消费者。登录改为统一「邮箱/手机号或密码错误」+ 恒定耗时,

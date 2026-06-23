@@ -606,7 +606,9 @@ func decidePermission(raw []byte, sessionWorkDir string, denyTools []string) ([]
 
 	allowed := permissionAllowed(probe.ToolName, probe.Input, sessionWorkDir, denyTools)
 	if !allowed {
-		slog.Warn("agentbridge ws: permission DENIED (out-of-workspace or unsafe tool)",
+		// INFO 而非 WARN: 这是沙箱护栏按预期拒绝越界/危险工具(agent 探索时常态发生),
+		// 是安全审计信息而非系统故障。保留可见性(docker logs 可查), 但不污染 WARN/ERROR。
+		slog.Info("agentbridge ws: permission denied (guard enforced)",
 			"tool", probe.ToolName, "workdir", sessionWorkDir)
 	}
 	reply, err := json.Marshal(struct {

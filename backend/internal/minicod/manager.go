@@ -135,7 +135,10 @@ func (m *Manager) executeWithRetry(operation func(client *Client) (any, error)) 
 		}
 
 		if isRetryableError(err) {
-			slog.Warn("minicod: retryable error", "attempt", attempt+1, "accountID", accountID, "err", err)
+			// DEBUG 而非 WARN: 这条与 upstream 层的 "upstream call failed" 一一对应,
+			// 留 WARN 会让每次重试刷两条同义日志(429 风暴时尤其明显)。真正失败由本函数
+			// 末尾 "all N retry attempts failed" 兜底,可重试中途态降到 DEBUG。
+			slog.Debug("minicod: retryable error, switching account", "attempt", attempt+1, "accountID", accountID, "err", err)
 			// 退避 + 抖动后再换账号重试, 避免零间隔背靠背放大上游故障。
 			time.Sleep(retryBackoff(attempt))
 			continue

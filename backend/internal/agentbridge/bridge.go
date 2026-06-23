@@ -205,6 +205,15 @@ func (b *Bridge) triggerMemoryExtract(userID uint, sessionID string) {
 			return
 		}
 		transcript := flattenTranscript(resp.Messages)
+		// 归属:记忆抽取此前用裸 context.Background() → 账本记成 feature='unknown'、无用户归属、不计费。
+		// 现在打 Feature=memory + 发起用户,落账本可见、可按用户核成本;SkipQuota=true → 不扣用户每日额度
+		// (这是系统后台开销,不是用户主动发起的生成)。uid 取局部副本传指针。
+		uid := userID
+		ctx = llmusage.WithCall(ctx, llmusage.Call{
+			Feature:   llmusage.FeatureMemory,
+			UserID:    &uid,
+			SkipQuota: true,
+		})
 		b.memSvc.Extract(ctx, userID, transcript)
 	})
 }

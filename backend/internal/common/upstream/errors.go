@@ -65,6 +65,12 @@ var (
 	// ErrCircuit — 本地 circuit breaker open, 上游根本没被调到。可重试 (等
 	// breaker half-open)。
 	ErrCircuit = errors.New("upstream: circuit open")
+
+	// ErrCanceled — 调用方 ctx 被 cancel (用户关页 / 跳走 / 上层放弃)。这不是
+	// 上游故障, **不可**重试 (上层已经不要这个结果了), 且日志该降到 DEBUG ——
+	// 否则用户随手翻页就会刷出一条 "network error" WARN, 污染错误日志。
+	// 注意只认 context.Canceled; context.DeadlineExceeded (我方超时) 仍归 ErrTimeout。
+	ErrCanceled = errors.New("upstream: canceled")
 )
 
 // Error 是 upstream 统一返回的错误信封。它包含足够的元数据让上层做诊断:
@@ -201,9 +207,14 @@ func classifyStatus(status int) error {
 	return ErrServer // ??? 兜底
 }
 
-// classifyNetError — 区分 timeout / 网络抖动 / 其他。
-// 不消费 ctx.Err(), 调用方有需要自己 errors.Is(err, context.Canceled) 判断。
+// classifyNetError — 区分 canceled / timeout / 网络抖动 / 其他。
 func classifyNetError(err error) error {
+	// 调用方主动取消优先识别: 它会以 context.Canceled 出现在 net 错误链里
+	// (http.Client.Do 在 ctx cancel 时返回 *url.Error{Err: context.Canceled})。
+	// 必须在 net.Error / DeadlineExceeded 判断之前拦, 否则会被误判成可重试的 timeout。
+	if errors.Is(err, context.Canceled) {
+		return ErrCanceled
+	}
 	var netErr net.Error
 	if errors.As(err, &netErr) {
 		if netErr.Timeout() {

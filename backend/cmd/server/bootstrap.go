@@ -235,12 +235,15 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// 统一 LLM token 账本 (llm_token_usage):
 	//   - 项目侧 ai.Service: executeWithRetry 咽喉点每次成功落一行 (source=project),
 	//     覆盖 matrix / translate / wechat_oa (后者 user_id=NULL)。
-	//   - agent 侧 (smart_search/claw/prism/peerreview): token 由 agent per-call 内网回调
-	//     统一落库 (agentbridge internal_handler.go → b.llmRec),其 OnMessageComplete 只 slog
-	//     不落库 (StandardHooks),故三 feature 不再各自 SetLLMUsageRecorder (已是死注入,移除)。
+	//   - agent 侧 (smart_search/claw/prism/peerreview): token 经 WS **带内帧**落库 ——
+	//     交互三件套走 ws.go 的 accrueTurnUsage(message_complete + 带外 token_usage 帧),
+	//     peerreview 走 ws_serverside.go 的 accrueTurnUsage,二者都喂 b.llmRec。
+	//     ⚠️ OnMessageComplete 钩子刻意只 slog 不落库(见 hooks.go NewSlogUsageRecorder)——
+	//     **切勿**给它再接 ledger recorder,否则与 accrueTurnUsage 带内帧双计账本 + 双扣额度。
+	//     (历史的 agent per-call HTTP 内网回调 /internal_handler.go 旁路早已删除,勿据旧注释找它。)
 	aiB.aiService.SetLLMUsageRecorder(plat.llmUsageService)
-	// Bridge 级 llmRec 是活代码:被 ws_serverside.go (peerreview) 与 internal_handler.go
-	// (agent per-call 回调) 消费,记下全部 agent 侧 token。务必保留。
+	// Bridge 级 llmRec 是活代码:被 ws.go(交互三件套)与 ws_serverside.go(peerreview)的
+	// accrueTurnUsage 消费,记下全部 agent 侧 token。务必保留。
 	agentBridge.SetLLMUsageRecorder(plat.llmUsageService)
 
 	// per-user 长期记忆 (C4): 所有 feature 共享同一份用户记忆。

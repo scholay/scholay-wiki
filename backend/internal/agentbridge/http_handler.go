@@ -28,6 +28,7 @@ package agentbridge
 //   - 模型切换 (claw /models) — 各 feature 暴露不一样的 tier
 
 import (
+	"log/slog"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -158,7 +159,17 @@ func (h *SessionHandler) GetContextEstimate(c *gin.Context) {
 	userID := c.GetUint("user_id")
 	est, sessionID, err := h.Feature.GetContextEstimate(c.Request.Context(), userID)
 	if err != nil {
-		utils.InternalError(c, errcode.AgentUnreachable, h.Labels.ContextEstimateFailed, err)
+		// 上下文水位是非关键 footer 表;agent 慢/超时降级返 0(与"还没说过话"同形),
+		// 不让它拖出 502 + ERROR。仅 DEBUG 记一笔。
+		slog.Debug("agentbridge: context estimate unavailable, degrading", "err", err)
+		utils.Success(c, gin.H{
+			"sessionId":   sessionID,
+			"totalTokens": 0,
+			"maxTokens":   0,
+			"percentage":  0,
+			"model":       "",
+			"degraded":    true,
+		})
 		return
 	}
 	if est == nil {

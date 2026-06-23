@@ -11,9 +11,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/rand"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"gorm.io/gorm"
@@ -225,7 +227,32 @@ func (s *Service) executeWithRetry(ctx context.Context, modelLevel thirdparty.Mo
 
 		return nil, err
 	}
+	// 账号池被打空(没配 / 全禁 / 全部超时)是运营级故障, 跟"单次上游抖动"要区分对待:
+	// 打一条醒目且按档位限流的 ERROR, 否则它只能埋在调用方 per-request 的通用 WARN 里。
+	if errors.Is(lastErr, thirdparty.ErrNoAccountsAvailable) {
+		alertAIPoolExhausted(modelLevel)
+	}
 	return nil, fmt.Errorf("all %d AI retry attempts failed, last error: %w", AIMaxRetries+1, lastErr)
+}
+
+// AI 账号池耗尽告警限流: 每档位每分钟最多一条 ERROR, 防上游全挂时被每个请求刷爆。
+var (
+	aiPoolAlertMu sync.Mutex
+	aiPoolAlertAt = map[thirdparty.ModelLevel]time.Time{}
+)
+
+// alertAIPoolExhausted 在某档位无可用账号时打一条限流后的 ERROR(运营信号:
+// 检查该档 key 余额 / 启用状态 / 上游可用性)。与 per-request 的友好错误互补。
+func alertAIPoolExhausted(level thirdparty.ModelLevel) {
+	now := time.Now()
+	aiPoolAlertMu.Lock()
+	if now.Sub(aiPoolAlertAt[level]) < time.Minute {
+		aiPoolAlertMu.Unlock()
+		return
+	}
+	aiPoolAlertAt[level] = now
+	aiPoolAlertMu.Unlock()
+	slog.Error("ai: model account pool exhausted — 该档位无可用账号(检查余额/启用状态/上游可用性)", "level", level)
 }
 
 // recordLLMUsage 把一次成功的项目侧 LLM 调用落到统一 token 账本。
@@ -255,6 +282,7 @@ func (s *Service) recordLLMUsage(ctx context.Context, config *thirdparty.AIModel
 		Provider:            provider,
 		AccountID:           accID,
 		Model:               model,
+		SkipQuota:           call.SkipQuota, // 系统开销类(记忆抽取)记账本但不扣额度
 		InputTokens:         usage.InputTokens,
 		OutputTokens:        usage.OutputTokens,
 		TotalTokens:         usage.TotalTokens,

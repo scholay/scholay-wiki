@@ -463,6 +463,13 @@ func (c *Client) logAttempt(ctx context.Context, req *Request, resp *Response, e
 		slog.LogAttrs(ctx, slog.LevelInfo, "upstream call ok", toAttrs(args)...)
 		return
 	}
+	// 调用方主动取消 (用户关页 / 跳走 / 上层放弃) 不是上游故障 —— 降到 DEBUG,
+	// 否则正常的翻页/离开会把 "network error" WARN 刷满错误日志。errors.Is 同时覆盖
+	// typed ErrCanceled 和裸 context.Canceled (尚未经分类的路径)。
+	if errors.Is(err, ErrCanceled) || errors.Is(err, context.Canceled) {
+		slog.LogAttrs(ctx, slog.LevelDebug, "upstream call canceled by caller", toAttrs(args)...)
+		return
+	}
 	if ue != nil {
 		args = append(args, "kind", strings.TrimPrefix(ue.Kind.Error(), "upstream: "))
 		if ue.Status > 0 && status == 0 {

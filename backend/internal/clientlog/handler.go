@@ -21,12 +21,42 @@ package clientlog
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
 )
+
+// thirdPartyNoiseMarkers — 已知与本应用无关的客户端错误特征(第三方脚本 / 浏览器扩展 /
+// 浏览器自身 bug)。命中则降到 DEBUG(release 下不输出),避免值班把它们当成我方前端崩溃。
+// 匹配错误的 message / stack / url(小写后做子串匹配)。
+var thirdPartyNoiseMarkers = []string{
+	"clarity.ms",                 // 微软 Clarity 体验分析脚本
+	"googletagmanager",           // GA/GTM
+	"google-analytics",           //
+	"gtag/js",                    //
+	"hm.baidu.com",               // 百度统计
+	"resizeobserver loop",        // 浏览器已知良性告警, 非真崩溃
+	"extension context",          // 浏览器扩展失效
+	"chrome-extension://",        // 扩展注入脚本
+	"moz-extension://",           //
+	"safari-extension://",        //
+	"script error.",              // 跨域脚本不透明错误, 拿不到栈, 无可分析价值
+	"top.gg",                     //
+}
+
+// isThirdPartyNoise 判断一条前端上报是否属于上面的已知噪音。
+func isThirdPartyNoise(message, stack, url string) bool {
+	hay := strings.ToLower(message + "\n" + stack + "\n" + url)
+	for _, m := range thirdPartyNoiseMarkers {
+		if strings.Contains(hay, m) {
+			return true
+		}
+	}
+	return false
+}
 
 // MaxPayloadBytes 单条 payload 上限(message + stack + 元数据合起来,utf8 字节)。
 // 浏览器抓到的 stack trace 通常 1-3KB,留余量到 8KB 防截断丢失关键信息。
@@ -80,20 +110,23 @@ func (h *Handler) ReportClientError(c *gin.Context) {
 		source = "manual"
 	}
 
-	// 用 WARN 级别记录 —— 前端错误不是后端系统故障,但需要可见;
-	// 浏览器扩展 / 用户脚本 / iOS 17 上的 ResizeObserver 等噪音很多,
-	// 标 WARN 后值班 grep ERROR 不会被它们干扰。
-	slog.Warn("client-side error reported",
-		"source", source,
-		"message", req.Message,
-		"stack", req.Stack,
-		"url", url,
-		"user_agent", ua,
-		"app_version", req.AppVersion,
-		"user_id", req.UserID,
-		"client_ip", c.ClientIP(),
-		"request_id", c.GetString("RequestID"),
-		"reported_at", time.Now().Format(time.RFC3339),
+	// 已知第三方/扩展/浏览器自身噪音 → DEBUG(release 下不输出);其余前端错误 → WARN。
+	// 前端错误不是后端系统故障,但 WARN 可见;值班 grep ERROR 不会被它们干扰。
+	level := slog.LevelWarn
+	if isThirdPartyNoise(req.Message, req.Stack, url) {
+		level = slog.LevelDebug
+	}
+	slog.LogAttrs(c.Request.Context(), level, "client-side error reported",
+		slog.String("source", source),
+		slog.String("message", req.Message),
+		slog.String("stack", req.Stack),
+		slog.String("url", url),
+		slog.String("user_agent", ua),
+		slog.String("app_version", req.AppVersion),
+		slog.Uint64("user_id", uint64(req.UserID)),
+		slog.String("client_ip", c.ClientIP()),
+		slog.String("request_id", c.GetString("RequestID")),
+		slog.String("reported_at", time.Now().Format(time.RFC3339)),
 	)
 
 	c.JSON(http.StatusNoContent, nil)

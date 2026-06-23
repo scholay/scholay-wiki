@@ -46,9 +46,42 @@ func dialIMAP(cfg *SupportCenterConfig) (*imapclient.Client, error) {
 	}
 	if err := c.Login(cfg.IMAPUsername, cfg.IMAPPassword); err != nil {
 		_ = c.Logout()
+		// 区分"连接被服务器中途掐断"(瞬时,会自愈)与"凭证/配置不对"(持续,需人工)——
+		// 否则连接抖动会被一律包成"登录失败(检查账号/密码/授权码)"误导排查方向。
+		if isTransientIMAPErr(err) {
+			return nil, fmt.Errorf("IMAP 连接中断(将自动重试): %w", err)
+		}
 		return nil, fmt.Errorf("IMAP 登录失败(检查账号/密码/授权码): %w", err)
 	}
 	return c, nil
+}
+
+// isTransientIMAPErr 判断 IMAP 错误是否瞬时(连接被掐/超时/网络抖动)。瞬时错误会自愈,
+// 不该每个轮询周期刷一条 WARN;非瞬时(认证/配置)则需要人工介入,要稳定可见。
+// 用字符串嗅探(go-imap v1 不暴露结构化错误类型),覆盖常见网络层文案。
+func isTransientIMAPErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	for _, s := range []string{
+		"connection closed",
+		"connection reset",
+		"broken pipe",
+		"eof",
+		"i/o timeout",
+		"timeout",
+		"connection refused",
+		"no such host",
+		"tls handshake",
+		"use of closed network connection",
+		"network is unreachable",
+	} {
+		if strings.Contains(msg, s) {
+			return true
+		}
+	}
+	return false
 }
 
 // TestIMAP 用已保存配置连一次(配置页「测试连接」):登录 + 选 INBOX,回邮件总数。
@@ -270,6 +303,7 @@ func (s *Service) StartPoller(stop <-chan struct{}) {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 	var lastRun time.Time
+	var consecutiveFail int // 连续失败计数:抑制每个周期刷同一条 WARN,并在恢复时打点
 	slog.Info("supportcenter: IMAP poller started")
 	for {
 		select {
@@ -286,14 +320,47 @@ func (s *Service) StartPoller(stop <-chan struct{}) {
 				continue
 			}
 			lastRun = time.Now()
-			if n, err := s.PollOnce(); err != nil {
-				slog.Warn("supportcenter: imap poll failed", "err", err)
-			} else if n > 0 {
+			n, err := s.PollOnce()
+			if err != nil {
+				consecutiveFail++
+				logIMAPPollFailure(err, consecutiveFail)
+				continue
+			}
+			if consecutiveFail > 0 {
+				slog.Info("supportcenter: imap poll recovered", "after_failures", consecutiveFail)
+				consecutiveFail = 0
+			}
+			if n > 0 {
 				slog.Info("supportcenter: imap poll done", "new_mails", n)
 			}
 		case <-stop:
 			slog.Info("supportcenter: IMAP poller stopped")
 			return
 		}
+	}
+}
+
+// logIMAPPollFailure 按"瞬时 vs 认证/配置"两类分级,避免每个轮询周期刷同一条 WARN:
+//   - 瞬时(连接被掐/超时/网络抖动):首次 WARN 提示,之后 DEBUG;长期不愈(每 60 次失败)
+//     再 WARN 一次,防止根因其实不瞬时(如授权码过期表现为断连)被永久淹没。
+//   - 认证/配置(账号/密码/授权码/IMAP 开关不对):持续存在且不会自愈 → 首次 + 每 30 次
+//     失败打一条 ERROR,带明确处置指引;其余降 DEBUG。
+func logIMAPPollFailure(err error, consecutive int) {
+	if isTransientIMAPErr(err) {
+		switch {
+		case consecutive == 1:
+			slog.Warn("supportcenter: imap poll failed (transient, auto-retry)", "err", err)
+		case consecutive%60 == 0:
+			slog.Warn("supportcenter: imap poll still failing", "err", err, "consecutive", consecutive)
+		default:
+			slog.Debug("supportcenter: imap poll failed (transient)", "err", err, "consecutive", consecutive)
+		}
+		return
+	}
+	if consecutive == 1 || consecutive%30 == 0 {
+		slog.Error("supportcenter: imap login/config error — 检查邮箱账号/密码/授权码或 IMAP 是否开启",
+			"err", err, "consecutive", consecutive)
+	} else {
+		slog.Debug("supportcenter: imap poll failed (config error, alert suppressed)", "err", err, "consecutive", consecutive)
 	}
 }

@@ -56,8 +56,8 @@ func FriendlyMessage(err error) string {
 	case strings.Contains(lower, "no model configured"):
 		// admin 没给该 level 配模型 —— 不是用户能解决的, 提示联系管理员。
 		return msgNotConfigured
-	case strings.Contains(lower, "no more") && strings.Contains(lower, "accounts available"):
-		// thirdparty 账号池耗尽。
+	case strings.Contains(lower, "accounts available"):
+		// thirdparty 账号池耗尽 (thirdparty.ErrNoAccountsAvailable 的各变体文案都含此子串)。
 		return msgUnavailable
 	case strings.Contains(lower, "circuit breaker open"):
 		return msgUnavailable

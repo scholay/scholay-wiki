@@ -238,16 +238,23 @@ func TestIntegrationBilling(t *testing.T) {
 			t.Fatalf("reset: %v", err)
 		}
 		if res.Used != 0 {
-			t.Fatalf("重置后 used=%d want 0", res.Used)
+			t.Fatalf("重置后窗口 used=%d want 0", res.Used)
+		}
+		// 关键:重置只抬窗口起点 base,**不清零真实统计 used**(统计与限额分离)。
+		if used := svc.tokenUsed(ctx, id); used != 1234 {
+			t.Fatalf("重置不应清零真实统计: used=%d want 1234", used)
 		}
 		if bal, _ := svc.Wallet().Balance(id); bal.Total != 10 {
 			t.Fatalf("重置应扣 %d 经费, 余 %d want 10", resetCost, bal.Total)
 		}
 
-		// 过 0 点:今日累加后, 次日 key 为全新(used=0)
+		// 重置后再消耗:真实统计单调累加(1234+500),窗口 used 从 0 起算(=500)。
 		svc.AddUsage(ctx, id, 500)
-		if used := svc.tokenUsed(ctx, id); used != 500 {
-			t.Fatalf("当日 used=%d want 500", used)
+		if used := svc.tokenUsed(ctx, id); used != 1734 {
+			t.Fatalf("重置后统计应继续累加: used=%d want 1734", used)
+		}
+		if win := svc.tokenWindowUsed(ctx, id); win != 500 {
+			t.Fatalf("重置后窗口应从 0 起算: window=%d want 500", win)
 		}
 		tomorrow := now.AddDate(0, 0, 1)
 		v, _ := cache.GetRedis().Get(ctx, tokenDayKey(id, tomorrow)).Int64()

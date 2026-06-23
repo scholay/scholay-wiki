@@ -136,6 +136,10 @@ func (s *Service) Redeem(ctx context.Context, userID uint, rawCode string) (*Red
 	if err != nil {
 		return nil, err
 	}
+	// 兑换的是会员(非经费)→ 升级满血(只抬额度窗口起点,不动 used 统计)。
+	if res != nil && res.Kind == "tier" {
+		s.ResetBaselineOnUpgrade(ctx, userID)
+	}
 	s.notifyRedeem(userID, res)
 	return res, nil
 }
@@ -298,6 +302,8 @@ func (s *Service) GrantToUser(userID uint, tier string, days int) (time.Time, er
 	if err := s.repo.SetUserVIP(userID, newTier, &exp); err != nil {
 		return time.Time{}, err
 	}
+	// 授予/续期到付费档 → 免费满血(只抬额度窗口起点,不动 used 统计)。
+	s.ResetBaselineOnUpgrade(context.Background(), userID)
 	slog.Info("vip: admin granted membership", "user_id", userID, "tier", newTier, "days", days)
 	return exp, nil
 }

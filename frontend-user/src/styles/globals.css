@@ -361,6 +361,10 @@
        对桌面无副作用:纵向 body 滚动照常(只裁横向),桌面本就无触摸回弹。 */
     overflow-x: hidden;
     overscroll-behavior: none;
+    /* 关掉「双击放大」与点按 300ms 延迟(iOS 忽略 viewport 的 user-scalable=no 走这条);
+       manipulation 仍保留单指平移/滚动,不影响 embla/嵌套滚动。捏合缩放另由 index.html 的
+       gesture 守卫拦(iOS 对用户捏合同样忽略 viewport,需 JS preventDefault)。 */
+    touch-action: manipulation;
   }
 
   body {

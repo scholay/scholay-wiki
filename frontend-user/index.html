@@ -3,9 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <!-- viewport-fit=cover: 移动端 /m 的底部导航用 env(safe-area-inset-bottom) 给全面屏 home indicator 让位 -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- viewport-fit=cover: 移动端 /m 的底部导航用 env(safe-area-inset-bottom) 给全面屏 home indicator 让位
+         maximum-scale=1 + user-scalable=no: 禁止页面缩放 —— ① 拦掉妨碍使用的误触放大/缩小;
+         ② 同时阻止 iOS 聚焦输入框时的「自动放大」(maximum-scale=1 时 iOS 不再 focus-zoom)。
+         注:桌面浏览器 Ctrl± 缩放不受 viewport 影响,仅作用移动端。 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#ffffff" />
+    <!-- iOS Safari 出于无障碍会忽略 viewport 的 user-scalable=no 对「用户捏合」的限制,
+         需 JS 拦截 Safari 私有 gesture 事件才能真正禁掉双指捏合放大(双击放大由 CSS touch-action 拦)。
+         其他浏览器无 gesture 事件,addEventListener 即 no-op,无副作用。 -->
+    <script>
+      (function () {
+        var stop = function (e) { e.preventDefault(); };
+        document.addEventListener('gesturestart', stop, { passive: false });
+        document.addEventListener('gesturechange', stop, { passive: false });
+        document.addEventListener('gestureend', stop, { passive: false });
+      })();
+    </script>
 
     <!--
       字体加载策略 —— 故意不走 Google Fonts CDN:

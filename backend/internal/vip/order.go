@@ -11,6 +11,7 @@
 package vip
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -319,6 +320,11 @@ func (o *OrderService) fulfill(orderNo, txNo string, amount float64, method stri
 	// 事务已提交 → 通知(站内信可靠 + 邮件 best-effort)。失败不影响履约结果。
 	if fulfilled != nil {
 		o.svc.notifyOrderFulfilled(fulfilled)
+		// 订阅履约(新购/续费/升级)→ 升级满血:只抬额度窗口起点,不动 used 统计。
+		// 充值(recharge)只加经费、不动会员档,不触发。best-effort,post-commit,不影响履约。
+		if fulfilled.OrderType == "subscription" {
+			o.svc.ResetBaselineOnUpgrade(context.Background(), fulfilled.UserID)
+		}
 	}
 	return nil
 }

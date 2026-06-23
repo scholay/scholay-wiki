@@ -130,6 +130,7 @@ var featureLabels = map[string]string{
 	FeatureTranslate:   "论文翻译",
 	FeatureWechatOA:    "公众号",
 	FeaturePrism:       "智能写作",
+	FeatureMemory:      "记忆抽取",
 }
 
 // FeatureLabel 返回 feature 的中文名;无映射时回退原值。

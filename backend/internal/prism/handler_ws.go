@@ -7,6 +7,7 @@
 package prism
 
 import (
+	"log/slog"
 	"net/http"
 
 	"scholar-backend/internal/agentbridge"
@@ -187,7 +188,10 @@ func (h *Handler) GetContext(c *gin.Context) {
 			utils.NotFound(c, "项目不存在")
 			return
 		}
-		utils.InternalError(c, 500, "无法读取上下文用量", err)
+		// 非关键水位表:agent 慢/超时降级返 0(注释已声明"会话已失效都按 0 返回,自愈"),
+		// 不让它拖出 500 + ERROR。仅 DEBUG 记一笔。
+		slog.Debug("prism: context estimate unavailable, degrading", "err", err)
+		utils.Success(c, gin.H{"totalTokens": 0, "maxTokens": 0, "percentage": 0, "model": "", "degraded": true})
 		return
 	}
 	if est == nil {

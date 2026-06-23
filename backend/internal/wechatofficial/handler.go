@@ -47,6 +47,53 @@ func (h *Handler) isDuplicateMessage(ctx context.Context, msgID int64) bool {
 	return !ok // ok=false → 键已存在 → 重复投递
 }
 
+// AI 回复防滥用成本帽:公众号是**匿名入口、不扣任何用户每日额度**,任何能通过签名的请求方都能
+// 驱动 LLM 花费(见 docs/research/ai-token-surface-2026-06 R1)。两道按天的闸把成本敞口封住:
+//   - 单粉丝(OpenID)每日 AI 回复上限 —— 挡单用户/单脚本刷;
+//   - 全局每日 AI 回复上限 —— 封顶整体成本,即便伪造多个 OpenID 也兜得住。
+// 需要时可提升为 admin 可配(加 config 列 + 迁移);先用安全默认值堵住敞口。
+const (
+	aiReplyPerUserDaily = 30
+	aiReplyGlobalDaily  = 8000
+)
+
+// wechatReplyRateLimited 命中成本帽时回给粉丝的友好提示(不消耗 LLM)。
+const wechatReplyRateLimited = "今天聊得有点多啦,我先歇一歇,明天再来找我吧~"
+
+// allowAIReply 原子地为一次 AI 回复计数并判断是否在每日上限内。先判单粉丝(超限即拦,
+// 不再累加全局),再判全局。Redis 不可用 → fail-open(不因配额设施故障拒服务,与系统其余
+// 配额一致;全局闸同样依赖 Redis)。openID 为空 → 仅计全局。
+func (h *Handler) allowAIReply(ctx context.Context, openID string) bool {
+	rdb := cache.GetRedis()
+	if rdb == nil {
+		return true
+	}
+	day := time.Now().Format("20060102")
+	if openID != "" {
+		uk := "wechat_oa:ai:u:" + openID + ":" + day
+		if n, err := rdb.Incr(ctx, uk).Result(); err == nil {
+			if n == 1 {
+				_ = rdb.Expire(ctx, uk, 25*time.Hour).Err()
+			}
+			if n > aiReplyPerUserDaily {
+				slog.Info("wechat oa: per-user daily AI reply cap reached", "open_id", openID, "count", n, "cap", aiReplyPerUserDaily)
+				return false
+			}
+		}
+	}
+	gk := "wechat_oa:ai:all:" + day
+	if n, err := rdb.Incr(ctx, gk).Result(); err == nil {
+		if n == 1 {
+			_ = rdb.Expire(ctx, gk, 25*time.Hour).Err()
+		}
+		if n > aiReplyGlobalDaily {
+			slog.Warn("wechat oa: global daily AI reply cap reached", "count", n, "cap", aiReplyGlobalDaily)
+			return false
+		}
+	}
+	return true
+}
+
 // Handler handles HTTP requests for WeChat Official Account
 type Handler struct {
 	service *Service
@@ -145,11 +192,16 @@ func (h *Handler) HandleMessage(c *gin.Context) {
 		toUser = msg.FromUserName
 		fromUser = msg.ToUserName
 
-		// Get AI reply (text only) — 透传 gin 请求 ctx, service 自己再加超时
-		reply, err = h.service.GetAIReply(c.Request.Context(), msg.Content, "")
-		if err != nil {
-			slog.Error("failed to get AI reply", "err", err)
-			reply = "抱歉，我暂时无法处理您的消息，请稍后再试。"
+		// 匿名成本帽:超过单粉丝/全局每日上限就回友好提示, 不再触发 LLM。
+		if !h.allowAIReply(c.Request.Context(), msg.FromUserName) {
+			reply = wechatReplyRateLimited
+		} else {
+			// Get AI reply (text only) — 透传 gin 请求 ctx, service 自己再加超时
+			reply, err = h.service.GetAIReply(c.Request.Context(), msg.Content, "")
+			if err != nil {
+				slog.Error("failed to get AI reply", "err", err)
+				reply = "抱歉，我暂时无法处理您的消息，请稍后再试。"
+			}
 		}
 
 	case "image":
@@ -173,18 +225,23 @@ func (h *Handler) HandleMessage(c *gin.Context) {
 		toUser = msg.FromUserName
 		fromUser = msg.ToUserName
 
-		// Download image from WeChat —— 复用请求 ctx, service 内部自加 15s 上限
-		base64Image, err := h.service.DownloadImage(c.Request.Context(), msg.MediaId)
-		if err != nil {
-			slog.Error("failed to download WeChat image", "err", err)
-			reply = "抱歉，我无法处理这张图片，请稍后再试。"
+		// 匿名成本帽:先判额度再下载/调 AI(图片走视觉模型更贵, 超限直接回提示, 省下载也省 LLM)。
+		if !h.allowAIReply(c.Request.Context(), msg.FromUserName) {
+			reply = wechatReplyRateLimited
 		} else {
-			// Get AI reply with image
-			userMessage := prompts.WechatOfficialImageUserPrompt
-			reply, err = h.service.GetAIReplyWithImage(c.Request.Context(), userMessage, base64Image, "")
-			if err != nil {
-				slog.Error("failed to get AI reply with image", "err", err)
-				reply = "抱歉，我暂时无法处理您的图片，请稍后再试。"
+			// Download image from WeChat —— 复用请求 ctx, service 内部自加 15s 上限
+			base64Image, derr := h.service.DownloadImage(c.Request.Context(), msg.MediaId)
+			if derr != nil {
+				slog.Error("failed to download WeChat image", "err", derr)
+				reply = "抱歉，我无法处理这张图片，请稍后再试。"
+			} else {
+				// Get AI reply with image
+				userMessage := prompts.WechatOfficialImageUserPrompt
+				reply, err = h.service.GetAIReplyWithImage(c.Request.Context(), userMessage, base64Image, "")
+				if err != nil {
+					slog.Error("failed to get AI reply with image", "err", err)
+					reply = "抱歉，我暂时无法处理您的图片，请稍后再试。"
+				}
 			}
 		}
 

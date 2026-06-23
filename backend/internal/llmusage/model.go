@@ -25,6 +25,10 @@ const (
 	FeatureTranslate   = "translate"
 	FeatureWechatOA    = "wechat_oa"
 	FeaturePrism       = "prism"
+	// FeatureMemory —— per-user 长期记忆的后台抽取(每轮对话后用便宜模型从对话里提画像)。
+	// 它是系统开销而非用户主动发起的生成,记账本(成本可见、按用户归属)但**不扣用户每日额度**
+	// (见 Usage.SkipQuota);否则活跃用户的额度会被这笔每 90s 的后台开销悄悄吃掉。
+	FeatureMemory = "memory"
 )
 
 // RetentionDays —— 账本保留天数(cleanup 删超期行, 防 per-call 表无限增长)。

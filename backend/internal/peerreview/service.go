@@ -1071,8 +1071,8 @@ func (s *Service) advanceTo2(ctx context.Context, sub *Submission) (*Submission,
 	fingerprint := fingerprintStep2(sub.AssetsRevision)
 
 	cache, err := s.repo.GetStepCache(sub.ID, 2)
-	if err != nil {
-		// 缓存查询失败别静默吞 —— 当作 miss 继续(重跑 agent)是对的, 但 DB/连接异常要可观测。
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		// cache miss (ErrNotFound) 是正常路径(首跑 / 输入变更)→ 不记;只有真正的 DB/连接异常才 WARN。
 		slog.Warn("peerreview: get step2 cache failed", "submission_id", sub.ID, "err", err)
 	}
 	if cache != nil && cache.InputFingerprint == fingerprint {
@@ -1162,7 +1162,8 @@ func (s *Service) advanceTo3(ctx context.Context, sub *Submission) (*Submission,
 	fingerprint := fingerprintStep3(sub)
 
 	cache, err := s.repo.GetStepCache(sub.ID, 3)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		// cache miss 正常, 同 step2: 只有真正的 DB/连接异常才 WARN。
 		slog.Warn("peerreview: get step3 cache failed", "submission_id", sub.ID, "err", err)
 	}
 	if cache != nil && cache.InputFingerprint == fingerprint {
