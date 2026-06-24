@@ -12,7 +12,7 @@ import { useFavoriteCheck } from '@/shared/api/user-library-mutations';
 import { useJournalEnrichments } from '@/shared/api/journal-enrichment';
 import { enrichPmdAbstracts } from '@/shared/api/paper-enrich';
 import { trackPaperImpressions } from '@/shared/api/hot-content';
-import { PaperResultCard } from '../PaperResultCard';
+import { PaperResultCard } from '@/shared/components/PaperResultCard';
 import { useStagingActions } from '../../hooks/useStagingActions';
 import { useStagingView } from '../../hooks/useStagingView';
 import { parsePapersFromToolResult } from './types';

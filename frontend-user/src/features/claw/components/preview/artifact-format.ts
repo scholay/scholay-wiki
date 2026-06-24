@@ -7,6 +7,7 @@
 
 export type ArtifactCategory =
   | 'image'
+  | 'svg' // 内联 SVG → DOMPurify 清洗后渲染(不归 image:img 不渲染 svg 脚本但我们要内联展示矢量图)
   | 'pdf'
   | 'markdown'
   | 'spreadsheet' // xlsx / xls / csv / tsv → SheetJS 表格
@@ -84,6 +85,7 @@ export function artifactCategory(a: {
   const m = (a.mime || '').toLowerCase();
 
   if (e === 'zip' || m === 'application/zip' || m === 'application/x-zip-compressed') return 'archive';
+  if (e === 'svg' || m === 'image/svg+xml') return 'svg'; // 在 image 之前:svg 走清洗内联,不当光栅图
   if (IMAGE_EXT.includes(e) || (m.startsWith('image/') && m !== 'image/svg+xml')) return 'image';
   if (e === 'pdf' || m === 'application/pdf') return 'pdf';
   if (e === 'md' || e === 'markdown' || m === 'text/markdown') return 'markdown';
@@ -108,5 +110,13 @@ export function artifactCategory(a: {
 
 /** 该分类是否需要拉原始字节做客户端渲染(图片/PDF 走 URL 直读,不在此列)。 */
 export function categoryNeedsBytes(c: ArtifactCategory): boolean {
-  return c === 'markdown' || c === 'text' || c === 'code' || c === 'json' || c === 'spreadsheet' || c === 'docx';
+  return (
+    c === 'markdown' ||
+    c === 'text' ||
+    c === 'code' ||
+    c === 'json' ||
+    c === 'spreadsheet' ||
+    c === 'docx' ||
+    c === 'svg' // 需取字节解码出 SVG 源文本 → DOMPurify 清洗后渲染
+  );
 }

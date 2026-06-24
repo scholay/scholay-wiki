@@ -4,12 +4,18 @@ import {
   AssistantBubble,
   AttachmentChipList,
   ChatStyles,
+  extractToolQuery,
+  extractToolSourceBrand,
   PausedNotice,
+  ReferenceChipList,
   StreamingIndicator,
   ThinkingFold,
   ToolCallBlock,
+  ToolHeaderExtras,
   UserBubble,
 } from '@/shared/components/chat';
+import { MINICOD_TOOL_PREFIX } from '@/shared/lib/minicod-papers';
+import { ClawPaperList } from './ClawPaperList';
 import {
   hasVisibleAssistantContent,
   isLastBlockStreamingText,
@@ -107,8 +113,16 @@ export const MessageTurn = memo(function MessageTurn({
       <UserBubble
         text={turn.userText}
         attachments={
-          turn.userAttachments && turn.userAttachments.length > 0 ? (
-            <AttachmentChipList attachments={turn.userAttachments} />
+          (turn.userReferences && turn.userReferences.length > 0) ||
+          (turn.userAttachments && turn.userAttachments.length > 0) ? (
+            <div className="flex flex-col items-end gap-1.5">
+              {turn.userReferences && turn.userReferences.length > 0 && (
+                <ReferenceChipList references={turn.userReferences} align="end" />
+              )}
+              {turn.userAttachments && turn.userAttachments.length > 0 && (
+                <AttachmentChipList attachments={turn.userAttachments} />
+              )}
+            </div>
           ) : undefined
         }
       />
@@ -138,6 +152,28 @@ export const MessageTurn = memo(function MessageTurn({
                   // 智能助手用「无气泡·全宽正文」现代风(智能搜索仍是默认 card)。
                   variant="plain"
                 />
+              );
+            }
+            // minicod 论文工具:结果渲染成卡片列表(与智能搜索一致,但无暂存)。
+            // 已可视化成卡片,默认 JSON 折叠就多余 → expandable=false;非论文结果(作者/期刊)
+            // ClawPaperList 解析为空返回 null,只剩 chip,与智能搜索行为对齐。
+            if (b.toolName.startsWith(MINICOD_TOOL_PREFIX)) {
+              return (
+                <div key={b.id} className="space-y-2 min-w-0">
+                  <ToolCallBlock
+                    tool={b}
+                    expandable={false}
+                    renderHeaderExtras={() => (
+                      <ToolHeaderExtras
+                        brand={extractToolSourceBrand(b.input)}
+                        query={extractToolQuery(b.input)}
+                      />
+                    )}
+                  />
+                  {b.result !== undefined && (
+                    <ClawPaperList content={b.result} toolUseId={b.toolUseId} />
+                  )}
+                </div>
               );
             }
             return <ToolCallBlock key={b.id} tool={b} />;

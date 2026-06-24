@@ -27,6 +27,7 @@ import {
   type TurnAttachment,
 } from '@/shared/types/chat';
 import { stripAgentBridgePrefix } from '@/shared/lib/agent-prefix';
+import { stripReferenceBlock } from '@/shared/lib/agent-references';
 
 /**
  * 历史 entry 的最小公共形状 —— claw(ClawHistoryEntry)、smart-search
@@ -191,14 +192,17 @@ export function replayHistoryAsTurns(
         }
       }
       // 2. 解析用户可见正文 + 附件(feature 可定制)。
-      const { text, attachments } = parseUser(entry.content);
+      const { text: parsedText, attachments } = parseUser(entry.content);
+      // 2.5 剥离「引用文献」块(claw),还原成引用 chip;其它 feature 无此块 → 原样返回。
+      const { text, references } = stripReferenceBlock(parsedText);
       // 3. 有用户可见内容才切新轮 —— 纯 tool_result 的 user entry 不开新轮。
-      if (text || (attachments && attachments.length > 0)) {
+      if (text || references.length > 0 || (attachments && attachments.length > 0)) {
         finishTurn();
         userTurnCount += 1;
         current = {
           id: `history-turn-${userTurnCount}`,
           userText: text,
+          userReferences: references.length > 0 ? references : undefined,
           userAttachments: attachments && attachments.length > 0 ? attachments : undefined,
           blocks: [],
           complete: false, // 暂 false,finishTurn 翻成 true

@@ -1,4 +1,4 @@
-import { memo, type ReactNode } from 'react';
+import { isValidElement, memo, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -10,6 +10,31 @@ import rehypeKatex from 'rehype-katex';
 import 'highlight.js/styles/github.css';
 import 'katex/dist/katex.min.css';
 import { CodeBlock } from './CodeBlock';
+import { MermaidDiagram } from './MermaidDiagram';
+import { InlineSvg } from './InlineSvg';
+import { HtmlRender } from './HtmlRender';
+
+// mermaid 图识别:① fence 语言是 mermaid / 各图类型;② 无语言但内容首行是 mermaid 图关键字
+// (模型有时写 ```mermaid,有时直接 ```flowchart,甚至漏标语言)。命中则渲染成图而非代码块。
+const MERMAID_LANG_RE =
+  /language-(mermaid|flowchart|graph|sequenceDiagram|gantt|classDiagram|stateDiagram|erDiagram|journey|pie|mindmap|gitGraph|timeline|quadrantChart)\b/i;
+const MERMAID_HEAD_RE =
+  /^\s*(flowchart|graph|sequenceDiagram|gantt|classDiagram|stateDiagram(-v2)?|erDiagram|journey|pie|mindmap|gitGraph|timeline|quadrantChart)\b/;
+// 内联 SVG:fence 标 svg,或内容直接是 <svg>(完整闭合,见 pre)。
+const SVG_LANG_RE = /language-svg\b/i;
+// HTML 文档/片段:fence 标 html → 渲染成「页面样式」(沙箱 iframe)而非展示源码。
+const HTML_LANG_RE = /language-html\b/i;
+
+// 从 <code> 元素的 children 里抽出纯文本源码(mermaid 未被 hljs 高亮 → children 通常就是字符串)。
+function extractCodeText(node: ReactNode): string {
+  if (typeof node === 'string') return node;
+  if (typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(extractCodeText).join('');
+  if (isValidElement(node)) {
+    return extractCodeText((node.props as { children?: ReactNode }).children);
+  }
+  return '';
+}
 
 /**
  * 统一的 AI 回答 markdown 渲染器 —— 跨 chat feature 共享。
@@ -91,8 +116,28 @@ const components = {
     }
     return <code className={props.className}>{props.children}</code>;
   },
-  // fenced 代码块: CodeBlock 提供复制按钮 + 横滚 + 容器壳; 内部 <code> 已被 rehype-highlight 高亮
-  pre: (props: { children?: ReactNode }) => <CodeBlock>{props.children}</CodeBlock>,
+  // fenced 代码块按内容分流(各渲染器内部用 useSettled 做「流式稳定后再渲染」,避免抽搐):
+  //   mermaid 图 → MermaidDiagram(可放大);内联 SVG → InlineSvg(清洗+可放大);
+  //   HTML → HtmlRender(沙箱 iframe 渲染样式,可放大);其余 → CodeBlock(复制+横滚+hljs)。
+  pre: (props: { children?: ReactNode }) => {
+    const child = props.children;
+    if (isValidElement(child)) {
+      const cls = (child.props as { className?: string }).className ?? '';
+      const raw = extractCodeText((child.props as { children?: ReactNode }).children);
+      if (MERMAID_LANG_RE.test(cls) || MERMAID_HEAD_RE.test(raw)) {
+        return <MermaidDiagram code={raw} />;
+      }
+      // SVG:语言标 svg,或内容直接以 <svg> 开头(完整性由 InlineSvg 稳定后判定)。
+      if (SVG_LANG_RE.test(cls) || /^\s*<svg[\s>]/i.test(raw)) {
+        return <InlineSvg code={raw} />;
+      }
+      // HTML:语言标 html 且确有标记 → 渲染页面样式而非源码。
+      if (HTML_LANG_RE.test(cls) && /<[a-zA-Z!]/.test(raw)) {
+        return <HtmlRender html={raw} />;
+      }
+    }
+    return <CodeBlock>{props.children}</CodeBlock>;
+  },
   a: (props: { href?: string; children?: ReactNode }) => (
     <a
       href={props.href}

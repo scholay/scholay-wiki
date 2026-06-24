@@ -15,6 +15,7 @@ import {
 } from '@/shared/ui/dropdown-menu';
 import { IconButton } from '@/shared/components/IconButton';
 import { NotificationBell } from '@/shared/components/NotificationBell';
+import { PromoNavButton } from './PromoNavButton';
 import { UserMenuContent } from '@/shared/components/UserMenuContent';
 import { cn } from '@/shared/lib/utils';
 
@@ -33,6 +34,9 @@ export function UserSection() {
 
   return (
     <div className="flex items-center gap-2">
+      {/* 限时领取会员推广入口 —— 仅推广开启且非付费会员时显示(组件内部自判),点击弹二维码 */}
+      <PromoNavButton />
+
       {/* 反馈 / 客服入口 —— /feedback 是 public 路由,登录与否都给入口。
           放在通知铃铛左边、用户区最外侧,与通知一组,视觉一致 (rounded-lg + bg-surface-2) */}
       <IconButton

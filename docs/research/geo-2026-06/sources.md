@@ -1,0 +1,92 @@
+# GEO 调研来源清单(去重 90 条)
+
+- [GEO: Generative Engine Optimization (arXiv abstract)](https://arxiv.org/abs/2311.09735) — 一手论文摘要, 含'可见度最高提升40%''黑盒优化框架''领域特定优化'等原文表述。
+- [GEO: Generative Engine Optimization (arXiv HTML v3 全文)](https://arxiv.org/html/2311.09735v3) — 一手全文, 9 种方法的逐条定义、生成式引擎定义、GEO-bench 10000 查询/8 域、keyword stuffing 失败(17.8<基线19.5)。
+- [GEO: Generative Engine Optimization (KDD 2024, ACM DL)](https://dl.acm.org/doi/abs/10.1145/3637528.3671900) — 正式发表出处, 确认 KDD 2024/SIGKDD。
+- [The Princeton GEO Paper in Plain English (DerivateX)](https://derivatex.agency/blog/princeton-geo-paper-plain-english/) — 对论文的细读: 5 种有效方法各自提升区间、两指标定义、领域差异、Cite Sources +115.1%/第5名、失败方法清单、10000查询模仿Bing Chat。
+- [How Perplexity AI Answers Work: Retrieval, Ranking, Citation (ZipTie)](https://ziptie.dev/blog/how-perplexity-ai-answers-work/) — RAG 六阶段流水线、60+候选、五门重排信号、retrieved vs cited 二元门、cite-while-writing、结构化数据47%vs28%。行业研究, 非一手论文。
+- [GEO vs SEO in 2025 (Strapi)](https://strapi.io/blog/generative-engine-optimization-vs-traditional-seo-guide) — GEO/SEO 区别: 点击vs引用、关键词vs实体、零点击主导。行业说法。
+- [GEO vs SEO higher-ed guide (iFactory)](https://www.ifactory.com/insights/geo-vs-seo-a-higher-ed-marketers-guide-to-whats-actually-different-and-what-isnt/) — 引用 SparkToro 2024 的 58.5% 零点击数据; 区分排名与引用。行业说法。
+- [How each platform cites sources differently (Discovered Labs)](https://discoveredlabs.com/blog/chatgpt-claude-perplexity-and-google-ai-overviews-how-each-platform-cites-sources-differently) — 各引擎选源偏好与每答引用数; 跨平台差异。行业审计数据, 需谨慎。
+- [Winning the Citation Economy with GEO (The Branding Corner)](https://www.thebrandingcorner.com/p/winning-the-citation-economy-with) — 强调低排名站点获益更大的'民主化'解读。二手解读。
+- [7 Tips to get Cited by LLMs (Surfer SEO)](https://surferseo.com/blog/llm-citations/) — 行业研究。答案胶囊(72.4%被引页问题标题后跟直接答案)、44.2%引用来自前30%正文、确定性语言36.2%vs20.3%、chunk 100-300token、原创研究占67%、freshness、schema。
+- [How to Optimize Content for Perplexity AI (Contently, 2026-02)](https://contently.com/2026/02/20/how-to-optimize-content-for-perplexity-ai/) — Perplexity专项:65%爬虫命中近一年内容;答案胶囊40-60词;对比表/编号步/FAQ高、长散文低;citations+115%、statistics+22%、quotations+37%;多平台2.8x。
+- [24 GEO statistics marketing leaders should know (HubSpot)](https://blog.hubspot.com/marketing/generative-engine-optimization-statistics) — 把GEO一手结论提炼为'加引用/引语/统计提升约30-40%';清晰格式使引用概率高28-40%;99% AI Overview引用来自organic top10的说法(与Ahrefs新数据有出入,需注意时间)。
+- [38% of AI Overview Citations Pull From The Top 10 (Ahrefs)](https://ahrefs.com/blog/ai-overview-citations-top-10/) — 75K品牌研究。品牌网络提及0.664为最强相关因子(>外链3x)、YouTube最强、被引中位页龄14个月、top10占比从76%降至38%、query fan-out机制。
+- [E-E-A-T and AI: The Human Edge in Search Authority (ClickRank, 2026)](https://www.clickrank.ai/e-e-a-t-and-ai/) — E-E-A-T成为AI可见度过滤器;96%引用来自强E-E-A-T来源;域名权重相关性塌缩至0.18;具名作者+资质bio。行业研究/相关性数据。
+- [EEAT and AI Search: Why Author Credentials Matter (Contently, 2026-05)](https://contently.com/2026/05/11/eeat-and-ai-search-author-credentials/) — 作者署名作为信任信号;具名专家替换匿名署名、链到实质bio、列资质;品牌声誉强的被引概率3-5x。
+- [Searching for Best Practices in RAG (arXiv 2407.01219)](https://arxiv.org/pdf/2407.01219) — RAG学术一手。chunk切分、self-contained passage、语义切块对召回的影响,解释chunk-level检索为何要求每段自洽。
+- [Chunking Strategies for RAG (Weaviate)](https://weaviate.io/blog/chunking-strategies-for-rag) — 语义切块可提升召回最多约9%;每chunk自洽一个观点;overlap/sliding window防边界信息丢失;400-512 token默认。
+- [10.4% of AI Overview Citations are AI-Generated (Originality.AI)](https://originality.ai/blog/ai-overview-ai-citations-study) — 对立/补充证据:部分AI Overview引用本身是AI生成内容;用于平衡'新鲜度一定有利'的说法。
+- [The rise of the AI crawler — Vercel](https://vercel.com/blog/the-rise-of-the-ai-crawler) — 一手量化研究:真实流量分析,确证主流 AI 爬虫不执行 JS、抓取量级、404/重定向比例、内容类型分布。最硬证据。
+- [AI Crawlers Do Not Render JavaScript — Lantern](https://www.asklantern.com/blogs/ai-crawlers-do-not-render-javascript) — 佐证无 JS 渲染结论,强调 SSR 必要性。
+- [The AI User-Agent Landscape in 2026: A Complete Reference — No Hacks](https://nohacks.co/blog/ai-user-agents-landscape-2026) — 完整 user-agent 分类表(训练/检索/取页/opt-out 令牌),指出 Google-Extended/Applebot-Extended 非爬虫、Bytespider 无视 robots.txt。
+- [AI Crawlers Explained: GPTBot, ClaudeBot, PerplexityBot — Anagram](https://www.anagram.ai/blog/ai-crawlers-explained-gptbot-claudebot-perplexitybot-and-how-to-let-them-in-2026) — robots.txt 取舍逻辑:封训练 vs 封检索的不同后果;每 token 须独立指令。
+- [Google's Mueller Says llms.txt Can't Help LLMs Differentiate Sites — Search Engine Journal](https://www.searchenginejournal.com/googles-mueller-says-llms-txt-cant-help-llms-differentiate-sites/579304/) — Mueller 2026-06 原话与 keywords meta 类比;Google 官方否定 llms.txt。
+- [What is llms.txt? — Ahrefs](https://ahrefs.com/blog/what-is-llms-txt/) — 实测 97% llms.txt 从未被请求;无主流厂商承诺读取;判定当前无效。
+- [Meet llms.txt, a proposed standard — Search Engine Land](https://searchengineland.com/llms-txt-proposed-standard-453676) — 提案起源(Jeremy Howard 2024-09)、Mintlify+Anthropic 推动与采用现状背景。
+- [What is llms.txt? Breaking down the skepticism — Mintlify](https://www.mintlify.com/blog/what-is-llms-txt) — 提案推动方视角,llms.txt/llms-full.txt 用途与采用量。
+- [Structured Data for AI Search Engines — Hashmeta](https://www.hashmeta.ai/en/blog/structured-data-for-ai-search-engines-the-complete-guide-to-schema-markup-for-chatgpt-perplexity-google-ai) — Schema 对 AI 被引影响的汇总数据(Semrush 2.3x、FAQPage 4.2x、Web Almanac 41%);需注意多为厂商研究。
+- [ScholarlyArticle — Schema.org](https://schema.org/ScholarlyArticle) — 官方 type 定义:author/isPartOf/volume/issueNumber 等属性,学术站结构化数据权威依据。
+- [Schema.org Implementation Guide 2025 — Thibaut Campana](https://thibautcampana.com/en/guides/schema-org-implementation-guide) — GEO 视角的 type 优先级与 JSON-LD 实现方法、@id 内部图谱实践。
+- [Schema Markup Best Practices for AI Citations 2025 — Geneo](https://geneo.app/blog/schema-markup-best-practices-ai-citations-2025/) — 学术/作者 markup 实践(Person credentials、Dataset 链接、about/citation 串图谱)。
+- [AI Features and Your Website — Google Search Central (官方文档)](https://developers.google.com/search/docs/appearance/ai-features) — 一手官方: 确认query fan-out机制 + 被引硬门槛=可索引可出snippet, 明确'无额外技术要求/无需特殊优化'。最权威的反营销证据。
+- [BrightEdge: Rank Overlap After 16 Months of AIO](https://www.brightedge.com/resources/weekly-ai-search-insights/rank-overlap-after-16-months-of-aio) — 行业研究: AIO与自然排名重叠32.3%→54.5%(2024-05至2025-09), 含9行业明细。方法论细节(样本量)未披露, 需谨慎。
+- [SEOClarity: The Overlap Between AI Overviews and Organic Rankings](https://www.seoclarity.net/research/aio-rankings-overlap) — 36.2万查询(2025-10-12 US桌面): 每AIO平均约3个Top20 URL、position-1出现43%、44%引用来自Top20外。样本量明确, 较可信。
+- [Princeton GEO: Generative Engine Optimization (KDD 2024)](https://collaborate.princeton.edu/en/publications/geo-generative-engine-optimization/) — 学术一手: 9方法×1万查询, GEO-bench, Position-Adjusted Word Count指标。GEO概念奠基论文。
+- [Go Fish Digital: How ChatGPT, Gemini, Copilot Decide What to Cite](https://gofishdigital.com/blog/ai-citation-sources/) — 跨引擎对比: 索引来源(ChatGPT/Copilot用Bing, Gemini用Google Search+Maps)、RAG/grounding机制、Bing Top3与实际引用仅6.8–7.8%吻合。
+- [OpenAI: Overview of OpenAI Crawlers (官方)](https://developers.openai.com/api/docs/bots) — 一手官方: OAI-SearchBot(搜索引用)与GPTBot(训练)独立, robots.txt可分别控制。被引前提=放行OAI-SearchBot。
+- [Pew Research: Do people click links in Google AI summaries?](https://www.pewresearch.org/short-reads/2025/07/22/google-users-are-less-likely-to-click-on-links-when-an-ai-summary-appears-in-the-results/) — 一手权威调研(900名美国成年人真实浏览数据): 有AI摘要时点击15%→8%, 摘要内链接点击仅1%。零点击量化证据。
+- [Bttr: How Perplexity Chooses Sources](https://www.makebttr.com/insights/how-perplexity-chooses-sources) — Perplexity引用信号: 可抽取性/新鲜度/主题一致性/schema偏好。行业分析非官方。
+- [新榜:深度分析超1600万条AI引用数据,解密GEO站点偏好](https://a.newrank.cn/trade/news/8386) — 最权威量化来源:1683.6万信源网址/142.9万次问答;豆包TOP5中3个字节系、移动端60%;元宝公众号占比10%;搜狐网易头条跨平台高引用率
+- [搜狐:如何让产品信息快速成为豆包引用源(头条系+抖音系)](https://www.sohu.com/a/992318618_385306) — 豆包引用占比:今日头条35%/知乎20%/抖音百科/搜狐号;三阶段铺设法+FAQ/列表/参数表格式要求
+- [白杨SEO:元宝/文心/豆包/kimi/deepseek生成内容引用来源对比](https://www.baiyangseo.com/blog/1096.html) — 逐产品列出引用来源:元宝=公众号,文心=百家号+百度数据,豆包=抖音头条,Kimi=最广公开网络,DeepSeek=多领域文化中文语境
+- [搜狗微信搜索官方(订阅号及文章内容独家收录)](https://weixin.sogou.com/) — 证实搜狗独家收录公众号文章,是元宝检索公众号内容的底层通道
+- [53AI:腾讯元宝与微信公众号内容生态的互利共赢](https://www.53ai.com/news/LargeLanguageModel/2024053016479.html) — 元宝接入微信搜一搜+搜狗搜索,对3.6亿公众号内容语义召回排序,引用可溯源标注来源公众号与日期
+- [百度搜索资源平台:链接提交/普通收录工具](https://ziyuan.baidu.com/linksubmit/url) — 官方文档:主动推送(最快)/自动推送JS/Sitemap/手动四种提交;百度不保证收录
+- [极客公园:重构品牌内容霸权-生成式AI搜索GEO实战指南](https://www.geekpark.net/news/347974) — 自有站技术做法:Schema/FAQ标记、内容结构、关键词密度1.5-2.5%、多模态、HTTPS/<2s加载;GEO vs SEO差异表
+- [CSDN:Kimi/豆包/DeepSeek三大生成式引擎特性与GEO优化差异](https://blog.csdn.net/feibai110/article/details/146249306) — 各引擎用户画像与内容偏好:豆包场景化多模态、DeepSeek逻辑链权威数据财报、Kimi体系化可溯源文献
+- [财经头条/新浪:夸克AI搜索深度思考基于阿里自研模型,暂未接入DeepSeek](https://finance.sina.com.cn/cj/2025-02-28/doc-inemzyrh9784239.shtml) — 夸克基于通义千问自研推理模型,溯源能力;阿里生态
+- [首晒:夸克搜索与神马搜索的区别与关系](https://www.shoushai.com/p/912) — 证实夸克与神马同属阿里、技术资源打通,神马专注移动端
+- [cnblogs:2026年AI搜索优化GEO平台选型指南(四大主流平台)](https://www.cnblogs.com/newjpz/p/20219613) — 平台铺设优先级:知乎/公众号/百家号/头条;1-3个月见效、被高权重媒体引用后指数增长
+- [王尘宇/百度帮助:百度AI搜索上线后网站SEO怎么做](https://www.wangchenyu.com/baidu-help/155696.html) — 百度AI摘要标注来源、权威性打分、YMYL内容需资质与引用文献
+- [知乎:2026年GEO生成式引擎优化行业研究报告(摘要)](https://zhuanlan.zhihu.com/p/2012459780288046392) — 403未抓取正文,经搜索摘要佐证:国产模型重点抓取知乎/百家号/公众号/头条/B站/小红书;GEO市场千亿/增速87%属行业说法待核实
+- [The Most-Cited Domains in AI: A 3-Month Study (Semrush)](https://www.semrush.com/blog/most-cited-domains-ai/) — 一手数据:23万+提示词、1亿+引用、13周(2025-07~10)。给出 ChatGPT/Google AI Mode/Perplexity 各自被引域名排名与百分比,记录 Reddit/Wikipedia 权重暴跌事件。最权威的引用份额数据来源。
+- [Generative engine optimization (GEO): How to win AI mentions (Search Engine Land)](https://searchengineland.com/what-is-generative-engine-optimization-geo-444418) — 权威行业媒体。系统讲 GEO 范式转移、无链接提及=外链、多平台 earned mention(G2/Capterra/Trustpilot/行业报道/社区)、实体一致性、数字公关。
+- [How Reddit became the biggest source of LLM citations (Soar Agency)](https://www.soar.sh/blog/how-reddit-became-the-biggest-llm-citation-source) — Reddit 高引用机制(长链推理/upvote/垂直覆盖)、品牌真实参与 vs 刷帖、子版块运营、Google 6000万/年+OpenAI 训练授权合计约2.03亿。
+- [AI'引用'品牌时发生了什么——基于ELM的GEO策略(特比昂科技)](https://www.talpiotech.com/geo-618/) — 国内一手实测:1150组数据、五国产模型差异9倍、双路径+287%、三企业改造前后引用率;知乎/百度百科/公众号/小红书具体做法与合规边界。
+- [Outreach Guide: How to Get Listicle & Citation placements (Chosenly)](https://chosenly.com/blog/how-to-get-listicle-citation-placements/) — 进 best-X listicle 的实操:43.8% ChatGPT 引用来自 best-X 清单(引 Ahrefs);找活页、补缺口、个性化外联、2-6周落地。
+- [The Role of Wikipedia in Training LLMs to Recognize Your Brand (GEO AIO Marketing)](https://geoaiomarketing.com/the-role-of-wikipedia-in-training-llms-to-recognize-your-brand/) — Wikipedia 训练语料超配数据(GPT-3 3% vs 0.6% token;LLaMA 4.5%)、notability 门槛、低门槛替代(Wikidata/G2/YouTube)。
+- [Wikidata for SEO: How Brands Use It to Win Google (Reputation X)](https://www.reputationx.com/blog/wikidata) — Wikidata 无 notability 门槛、3.2x 知识面板概率、Q-ID 写入 sameAs 建立机器可读实体连接。
+- [Listicle Outreach Guide (Position Digital)](https://www.position.digital/blog/listicle-outreach-guide/) — 补充 listicle 外联实操与编辑沟通时间线。
+- [Google Scholar Inclusion Guidelines (官方)](https://scholar.google.com/intl/en/scholar/inclusion.html) — 收录硬性技术要求:Highwire meta、citation_pdf_url、可搜索PDF≤5MB、robots/抓取规则、≤10链接导航
+- [The Most Cited B2B SaaS Domains in AI Search (Goodie)](https://higoodie.com/blog/most-cited-b2b-saas-domains-in-ai-search/) — 官网仅12%被引/88%第三方;Best X 榜单占 ChatGPT 43.8%;各引擎域名偏好(PCMag/G2/Capterra/Reddit)
+- [AI Citation Patterns: ChatGPT/Claude/Perplexity (Discovered Labs)](https://discoveredlabs.com/blog/ai-citation-patterns-how-chatgpt-claude-and-perplexity-choose-sources) — 各引擎源偏好百分比;CITABLE 七要素结构;30天更新内容被引3.2倍;实体命名/分块/schema
+- [SEO's new battleground: Winning the consensus layer (Search Engine Land)](https://searchengineland.com/seos-new-battleground-winning-the-consensus-layer-472001) — 共识层机制(RAG 多源一致才采信);分布式 earned media/原创研究/专家署名/社区参与等具体战术
+- [How to Get Listed on G2 & Capterra (GEO for SaaS)](https://saasairank.com/blog/how-to-get-listed-g2-capterra-geo) — 评测站引用占比与最低评论门槛;定义优先描述+选精准小分类;25条G2评论阈值
+- [Schema Markup for AI Citations (Averi.ai)](https://www.averi.ai/blog/schema-markup-for-ai-citations-the-technical-implementation-guide) — schema 提升引用率30%+;ScholarlyArticle 关联 Dataset(isBasedOn/citation);about/mentions/isPartOf 织实体图
+- [AI Answer Engine Citation Behavior: GEO16 Framework (arXiv)](https://arxiv.org/pdf/2509.10762) — 16 因子框架:权威/结构/统计/引文密度/时效/显著性对被引的系统影响
+- [Unmediated AI-Assisted Scholarly Citations (arXiv, AAAI-26)](https://arxiv.org/html/2602.01686) — AI 辅助引用完美匹配 82.7% vs 网搜 28.2%;PubMed/arXiv/Semantic Scholar/Crossref/OpenAlex 作 grounding 源
+- [Duke / Purdue University Library AI Research Tool Guides](https://guides.library.duke.edu/litreviews/AI) — .edu LibGuides 持续推荐 Consensus/Elicit/scite/Semantic Scholar——学术权威收录渠道范例
+- [Author E-E-A-T in AI Search (WebiMax)](https://www.webimax.com/blog/author-eeat-expert-bylines-ai-search) — 具名作者+可验证资质署名是高杠杆信号;匿名 vs 具名专家引用率可测差异
+- [llms.txt, robots.txt and AI Crawlability (Detekia)](https://detekia.fr/en/blog/llms-txt-robots-crawlabilite-ia) — GPTBot/ClaudeBot/PerplexityBot 准入;llms.txt 2026 现状(Perplexity 与部分学术爬虫识别,大厂未正式生效)
+- [How to Track AI Referral Traffic (and Leads) in GA4 — Orbit Media](https://www.orbitmedia.com/blog/track-ai-traffic-ga4/) — GA4 自定义 channel group 正则、域名清单、Direct/AI Overviews 限制、Channel 排序要点。实操一手做法。
+- [How to Track AI Search Traffic in GA4: Full 2026 Setup Guide — AuthorityTech](https://authoritytech.io/blog/ai-traffic-attribution-how-to-track-chatgpt-perplexity-gemini) — 覆盖 99%+ AI 转介的完整域名正则;ChatGPT 占 78% 份额、转化率倍数等(部分为行业说法)。
+- [How to Identify AI Crawlers in Your Server Logs — Am I Cited](https://www.amicited.com/blog/identify-ai-crawlers-server-logs/) — grep 命令、UA 清单、反向 DNS 验证、bot_verified 字段、robots.txt 合约层。日志监测一手方法。
+- [List of Top AI Search Crawlers + User Agents (Winter 2025) — Momentic](https://momenticmarketing.com/blog/ai-search-crawlers-bots) — 逐个 UA 的用途(训练 vs 搜索索引 vs 实时拉取)权威清单。
+- [The crawl-to-click gap: Cloudflare data on AI bots, training, and referrals](https://blog.cloudflare.com/crawlers-click-ai-bots-training/) — Cloudflare 一手数据:训练占 79%、crawl-to-refer 比率(ClaudeBot 38000:1、GPTBot 3700:1)。最权威的'抓取≠引用'证据。
+- [GEO Metrics: What KPIs Matter & How to Track Them (2026) — Discovered Labs](https://discoveredlabs.com/blog/geo-metrics-what-kpis-matter-how-to-track-them-2026) — 完整 KPI 框架:被引率/SOV/情感/转介/ROI 定义、公式、基准、测试节奏、prompt 集构建、CITABLE 内容法。
+- [Profound vs Peec vs Otterly: Which AI Visibility Platform Should You Buy — Discovered Labs](https://discoveredlabs.com/blog/profound-vs-peec-vs-otterly-which-ai-visibility-platform-should-you-buy) — 三大商业工具引擎覆盖/价格/盲区(无闭环归因)对比。
+- [Ahrefs Brand Radar — 官方页](https://ahrefs.com/brand-radar) — 250M+ 真实 prompt 库、6 引擎、impressions/SOV。商业工具能力边界。
+- [OneGlanse — 开源 GEO 追踪器 (GitHub)](https://github.com/aryamantodkar/oneglanse) — 免费自建 prompt 监测:Camoufox 抓 UI+自带 LLM key 分析+GEO Score 权重。低成本自建蓝本。
+- [现在大家用哪些工具做 GEO 品牌监控?GEOBase 评测 — 腾讯新闻](https://news.qq.com/rain/a/20260122A04ORH00) — 国内 GEO 监测工具(SheepGeo/独角兽/GEOBase)覆盖豆包/DeepSeek/Kimi 等本土引擎、T+1 频率。
+- [豆包、DeepSeek、元宝等主流 AI 搜索引用来源深度解析 — fuyuan7](https://www.fuyuan7.com/post-1789.html) — 国内各引擎引用源生态偏好(抖音/公众号/百家号/门户),决定内容投放渠道。
+- [8 best AI visibility tools in 2026 — Zapier](https://zapier.com/blog/best-ai-visibility-tool/) — 工具市场全景与定位,辅助选型对照。
+- [Creating Helpful, Reliable, People-First Content (Google Search Central 官方文档)](https://developers.google.com/search/docs/fundamentals/creating-helpful-content) — 官方一手。Who/How/Why 框架、E-E-A-T(Trust 最重要)、AI 自动化披露要求、search-engine-first 内容红旗。
+- [The Ultimate Guide to Google's Scaled Content Abuse Policies (Breakline)](https://www.breaklineagency.com/guide-to-googles-scaled-content-abuse/) — 详解 scaled content abuse 与 site reputation abuse 政策:intent+volume 判定、SpamBrain、QualityCopiaFireflySiteSignal、manual vs 算法处罚。
+- [Topical Authority Clusters for AI Citations (Passionfruit, 2026)](https://www.getpassionfruit.com/blog/topical-authority-clusters-for-ai-search-citations) — 集群结构与被引数据:支柱 2000-4000 词、5-30 支撑文、被引率 2-3 倍、Yext 2.7 倍内链、query fan-out 5-15。
+- [Programmatic SEO Quality Rules to Avoid Thin Content (BlogSEO)](https://www.blogseo.io/blog/programmatic-seo-quality-rules-avoid-thin-content) — 可量化薄内容门槛:≥3 独特块、≥500 独特词、30-40% 差异、canary batch、60-90 天决策环、门页工厂判定。
+- [AI Platform Citation Patterns (Profound, 2025-2026)](https://www.tryprofound.com/blog/ai-platform-citation-patterns) — 各引擎来源偏好与新鲜度:ChatGPT-Wikipedia、Perplexity-Reddit、AIO-YouTube;11% 共引;Perplexity 新鲜度敏感。
+- [What Is Generative Engine Optimization (GEO)? (Seer Interactive)](https://www.seerinteractive.com/insights/what-is-generative-engine-optimization-geo) — 行业说法:结构化列表/引述/统计页面可见度 +30-40%;AI 系统性偏好第三方权威来源胜过品牌自有页。
+- [Google August 2025 Spam Update Officially Completed (SEO-Kreativ)](https://www.seo-kreativ.de/en/blog/google-august-2025-spam-update-officially-complete/) — 2025-08-26 起至 09-22 的 spam update 时间线与执法范围(scaled content + site reputation abuse)。
+- [公众号流量主运营规范 / 微信公众平台运营规范](https://ad.weixin.qq.com/docs/48) — 国内平台红线:低质/营销/诱导内容处罚(禁转发/删文/删粉/封禁直至封号),商业推广须走官方广告平台。

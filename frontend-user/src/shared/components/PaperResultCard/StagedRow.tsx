@@ -1,5 +1,5 @@
 import { Check, ChevronDown, X } from 'lucide-react';
-import type { Paper } from '../../api/papers';
+import type { Paper } from '@/shared/api/types';
 
 /**
  * 已暂存折叠行 — .pen `Q6TEbO`(浅绿底,padding [8,14])

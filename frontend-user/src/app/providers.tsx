@@ -4,6 +4,7 @@ import { Toaster } from 'sonner';
 import { TooltipProvider } from '@radix-ui/react-tooltip';
 import { ConfirmDialogRoot } from '@/shared/components';
 import { QuotaNotifier } from '@/shared/components/QuotaNotifier';
+import { PromoModal } from '@/shared/components/PromoModal';
 // 全局 feed 预取/水合:任意入口进入即准备好移动端论文/期刊流数据(仅手机生效)。
 // 需全站唯一挂载点而无根布局,故在此引入 mobile feature 的预取器(刻意的全局编排例外)。
 import { FeedPrefetcher } from '@/features/mobile/components/FeedPrefetcher';
@@ -45,6 +46,8 @@ export function Providers({ children }: { children: ReactNode }) {
         <ConfirmDialogRoot />
         {/* 全局额度通知器:6010 → 重置弹窗;用量过半/将尽 → toastr */}
         <QuotaNotifier />
+        {/* 限时领取会员推广弹窗:首屏自动 / 额度用尽 / 导航按钮触发(开关关闭时不渲染) */}
+        <PromoModal />
         {/* 全局「收藏到文献集」选择器(任意收藏按钮 openCollect 触发) */}
         <CollectFolderPicker />
       </TooltipProvider>

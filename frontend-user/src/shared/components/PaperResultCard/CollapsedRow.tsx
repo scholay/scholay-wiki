@@ -1,5 +1,5 @@
 import { Minimize2, RotateCcw } from 'lucide-react';
-import type { Paper } from '../../api/papers';
+import type { Paper } from '@/shared/api/types';
 
 /**
  * 未暂存折叠行 — .pen `BEXqq`(浅灰底)

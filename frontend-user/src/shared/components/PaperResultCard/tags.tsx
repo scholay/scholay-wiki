@@ -1,4 +1,4 @@
-import type { Paper } from '../../api/papers';
+import type { Paper } from '@/shared/api/types';
 import type { JournalEnrichment } from '@/shared/api/journal-enrichment';
 
 /**

@@ -220,19 +220,16 @@ export function useSmartSearchHistory(
   return useQuery<HistoryResponse>({
     queryKey: ['smart-search', 'history', sessionId, limitTurns ?? 0],
     enabled: !!token && !!sessionId,
-    // 历史是只追加的, 同一 mount 生命周期内不需要反复刷 (staleTime: Infinity);
-    // 但**每次 panel 重新挂载都必须重拉一次** —— 这是修复"切走再回来对话凭空消失"的关键。
-    //
-    // 背景: 实时对话的 turns 只存在于 useSmartSearchSocket 的 messages + panel 的
-    //   pendingTurns (组件局部 state), 并不会写回这个 history cache; 后端 transcript
-    //   才是真源。用户跨页面导航离开 /search 时, 整个 SearchPage 路由 unmount, 局部
-    //   state 全丢; 回来时 panel 重新 mount, 若仅靠 staleTime:Infinity 的旧缓存,
-    //   react-query 会原样返回**首次挂载时拉到的空快照**, 于是对话整段消失, 必须 F5
-    //   清掉 RQ 缓存才出来。
-    //   refetchOnMount:'always' 让每次重挂都从 transcript 重放完整对话, 与"刷新页面"
-    //   行为一致, 但不需要真刷新。reset 时仍走 invalidate 强制刷。
-    staleTime: Infinity,
+    // 修复"切走再回来, 刚结束的实时对话凭空消失":实时 turns 只在 socket.messages + panel
+    //   pendingTurns(局部 state), 不写回 history cache; 后端 transcript 才是真源。跨路由离开
+    //   /search 时 SearchPage unmount → 局部丢; 回来要靠重拉 transcript 还原。
+    //   ⚠️ 不能用 staleTime:Infinity —— sessionId 由 useSmartSearchSession 异步解析, query 常在
+    //   sessionId 仍空时挂载(disabled), refetchOnMount 只在挂载那刻判定、已错过; 等 enable 时
+    //   Infinity 又判缓存"新鲜"→ 永不重取, 沿用上次挂载旧快照 = 那条实时轮永久不见(必须 F5)。
+    //   staleTime:0 让 enable / 重挂载都重取; refetchOnWindowFocus:false 避免流式中切窗口误刷。
+    staleTime: 0,
     refetchOnMount: 'always',
+    refetchOnWindowFocus: false,
     // "加载更早"增大 limitTurns 换 queryKey 重取时, 保留旧列表直到新的到, 避免列表塌成空。
     placeholderData: keepPreviousData,
     queryFn: async () => {

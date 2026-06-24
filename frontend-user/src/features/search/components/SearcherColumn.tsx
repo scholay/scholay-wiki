@@ -10,7 +10,7 @@ import {
   extractAuthorsFromPapers,
 } from '@/shared/api/seo';
 import { useSearchVisiblePapers } from '@/stores/search-visible-papers.store';
-import { PaperResultCard } from './PaperResultCard';
+import { PaperResultCard } from '@/shared/components/PaperResultCard';
 import { resolveYearRange, type SearchFilters } from '../types';
 import { cn } from '@/shared/lib/utils';
 import { SmartSearchPanel } from './smart-search/SmartSearchPanel';

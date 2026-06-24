@@ -33,6 +33,7 @@ import (
 	"scholar-backend/internal/minicod"
 	"scholar-backend/internal/payment"
 	"scholar-backend/internal/prism"
+	"scholar-backend/internal/promo"
 	"scholar-backend/internal/seo"
 	"scholar-backend/internal/claw"
 	"scholar-backend/internal/smartsearch"
@@ -90,6 +91,7 @@ type allHandlers struct {
 	featureTool     *featuretool.Handler // 功能大全 (学术工具黄页: 导入/CRUD/webhook 同步/公开浏览)
 	agentBridge     *agentbridge.Bridge  // agent 内网回调端点 (带外 token 用量上报: title-gen 等)
 	supportCenter   *supportcenter.Handler // 客服与联系中心 (联系方式配置/IMAP 收件箱/飞书通知/写信)
+	promo           *promo.Handler         // 限时领取会员推广 (开关/二维码/文案 + 公开下发)
 	memory          *usermemory.Handler  // per-user 长期记忆 (查看/编辑/删除; agent 注入由 Bridge 负责)
 }
 
@@ -117,6 +119,8 @@ func registerRoutes(router *gin.Engine, h *allHandlers, cfg *appconfig.Config) {
 		h.config.RegisterRoutes(api)
 		// 用户端「联系我们」展示数据(免登录;空字段前端自然隐藏)
 		api.GET("/config/support-contact", h.supportCenter.GetPublicContact)
+		// 限时领取会员推广配置(免登录;关闭时只回 enabled=false,不泄漏二维码/文案)
+		api.GET("/config/promo", h.promo.GetPublic)
 
 		// 注:遗留的 POST /api/v1/admin/login 已下线 —— 它绕过了用户登录入口的全部
 		// 防爆破加固(Turnstile / 专属限流 / dummy-bcrypt 防枚举),且前端早已统一走

@@ -1,0 +1,364 @@
+import { useEffect, useMemo, useState } from 'react';
+import { LazyMotion, domMax } from 'framer-motion';
+import { FolderOpen, Loader2, Search } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/shared/ui/dialog';
+import { MobileBottomSheet } from '@/shared/components/MobileBottomSheet';
+import { SourceBadge } from '@/shared/components/SourceBadge';
+import { TruncatedText } from '@/shared/components/TruncatedText';
+import { JournalBadges } from '@/shared/components/JournalBadges';
+import { Button } from '@/shared/ui/button';
+import { Input } from '@/shared/ui/input';
+import { Checkbox } from '@/shared/ui/checkbox';
+import { cn } from '@/shared/lib/utils';
+import { isPhoneDevice } from '@/shared/lib/device';
+import { useJournalEnrichments } from '@/shared/api/journal-enrichment';
+import type { PaperAuthor, PaperSource, UpstreamSource } from '@/shared/api/types';
+import {
+  useClawLibraryFolders,
+  useClawLibraryPapers,
+  effectivePaperAbstract,
+  effectivePaperAuthorList,
+  effectivePaperAuthors,
+  effectivePaperTitle,
+  effectivePaperVenue,
+  effectivePaperYear,
+} from '../../api/library-browse';
+
+export interface ReferenceSelection {
+  paperIds: number[];
+  folderIds: number[];
+}
+
+/**
+ * 「引用文献」选择器 —— 从用户文献集挑论文 / 整个文件夹引用进 claw 对话。
+ *   - 文件夹列表(每个带「引用整夹」勾选 + 点名字切换查看其论文)+ 该夹内论文(搜索 + 多选)
+ *   - PC:居中 Dialog 两栏(文件夹左 / 论文右);移动端:底部抽屉,上下堆叠(文件夹上 / 论文下)
+ *
+ * 容器分两套(PC Dialog / 移动 MobileBottomSheet,同 CollectFolderPicker),共用一份 body。
+ * 之前 PC/移动共用一个 Dialog 会:① 桌面被 dialog 基样式 max-w-lg 夹住 + 论文列缺 min-w-0 → 右侧溢出/截断;
+ * ② 手机上是个挤在中间的小弹窗而非顺手的底部抽屉。
+ */
+export function LibraryReferencePicker({
+  open,
+  onOpenChange,
+  onConfirm,
+  busy,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onConfirm: (sel: ReferenceSelection) => void;
+  busy?: boolean;
+}) {
+  const foldersQ = useClawLibraryFolders(open);
+  const folders = foldersQ.data?.folders ?? [];
+
+  const [activeFolder, setActiveFolder] = useState<number | null>(null);
+  const [q, setQ] = useState('');
+  const [selPapers, setSelPapers] = useState<Set<number>>(() => new Set());
+  const [selFolders, setSelFolders] = useState<Set<number>>(() => new Set());
+
+  // 打开时 / 文件夹到位后,默认看第一个文件夹;关闭时清空选择。
+  useEffect(() => {
+    if (!open) {
+      setSelPapers(new Set());
+      setSelFolders(new Set());
+      setQ('');
+      setActiveFolder(null);
+      return;
+    }
+    if (activeFolder == null && folders.length > 0) {
+      setActiveFolder(folders[0].id);
+    }
+  }, [open, folders, activeFolder]);
+
+  const papersQ = useClawLibraryPapers(open ? activeFolder : null, { q });
+  const papers = papersQ.data?.items ?? [];
+
+  // 期刊分区/IF 增强 —— 按本页 venue 批量拉(同文献集 LibraryPaperList 的做法,缓存共享)。
+  const pageVenues = useMemo(
+    () => papers.map((p) => effectivePaperVenue(p)).filter(Boolean),
+    [papers],
+  );
+  const enrichMap = useJournalEnrichments(pageVenues);
+
+  const togglePaper = (id: number) =>
+    setSelPapers((s) => {
+      const next = new Set(s);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  const toggleFolder = (id: number) =>
+    setSelFolders((s) => {
+      const next = new Set(s);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  const totalSel = selPapers.size + selFolders.size;
+
+  const confirm = () => {
+    if (totalSel === 0 || busy) return;
+    // 整夹已选的文件夹里的单篇勾选剔掉,避免 chip 重复(后端物化本就去重)。
+    const folderIds = [...selFolders];
+    const paperIds = [...selPapers].filter((pid) => {
+      const p = papers.find((x) => x.id === pid);
+      return !(p && p.folder_id != null && selFolders.has(Number(p.folder_id)));
+    });
+    onConfirm({ paperIds, folderIds });
+  };
+
+  const summary = useMemo(() => {
+    const parts: string[] = [];
+    if (selPapers.size) parts.push(`${selPapers.size} 篇`);
+    if (selFolders.size) parts.push(`${selFolders.size} 个文件夹`);
+    return parts.join(' + ');
+  }, [selPapers.size, selFolders.size]);
+
+  // ── 两栏内容(PC 横排 / 移动竖排),容器无关,两套壳共用 ──
+  const columns = (
+    <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
+      {/* 文件夹列 */}
+      <div className="flex max-h-[30vh] shrink-0 flex-col overflow-y-auto border-b border-border-soft sm:max-h-none sm:w-56 sm:border-b-0 sm:border-r">
+        {foldersQ.isLoading ? (
+          <div className="flex items-center justify-center py-6 text-faint">
+            <Loader2 className="size-4 animate-spin" />
+          </div>
+        ) : folders.length === 0 ? (
+          <p className="px-3 py-6 text-center text-xs text-faint">文献集还是空的</p>
+        ) : (
+          folders.map((f) => (
+            <div
+              key={f.id}
+              className={cn(
+                'flex items-center gap-2 px-3 py-2 text-sm transition-colors',
+                activeFolder === f.id ? 'bg-surface-2' : 'hover:bg-surface-1',
+              )}
+            >
+              <Checkbox
+                checked={selFolders.has(f.id)}
+                onCheckedChange={() => toggleFolder(f.id)}
+                title="引用整个文件夹"
+              />
+              <button
+                type="button"
+                onClick={() => setActiveFolder(f.id)}
+                className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+              >
+                <FolderOpen className="size-3.5 shrink-0 text-faint" />
+                <span className="truncate text-subtle">{f.name}</span>
+                <span className="shrink-0 text-2xs text-faint">{f.paper_count}</span>
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* 论文列 —— min-w-0 关键:flex 子项不加会被内容(长标题)撑破导致右侧溢出/截断 */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div className="relative border-b border-border-soft p-2">
+          <Search className="pointer-events-none absolute left-4 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="搜索本文件夹论文…"
+            className="h-8 pl-8 text-xs"
+          />
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">
+          {activeFolder == null ? (
+            <p className="px-3 py-8 text-center text-xs text-faint">选择文件夹查看论文</p>
+          ) : papersQ.isLoading ? (
+            <div className="flex items-center justify-center py-8 text-faint">
+              <Loader2 className="size-4 animate-spin" />
+            </div>
+          ) : papers.length === 0 ? (
+            <p className="px-3 py-8 text-center text-xs text-faint">该文件夹没有论文</p>
+          ) : (
+            papers.map((p) => {
+              const wholeFolderSelected = p.folder_id != null && selFolders.has(Number(p.folder_id));
+              const checked = selPapers.has(p.id) || wholeFolderSelected;
+              const authorList = effectivePaperAuthorList(p);
+              const authorsText = effectivePaperAuthors(p);
+              const year = effectivePaperYear(p);
+              const venue = effectivePaperVenue(p);
+              const enr = venue ? enrichMap[venue] : null;
+              const abstract = effectivePaperAbstract(p);
+              return (
+                <label
+                  key={p.id}
+                  className={cn(
+                    'group flex cursor-pointer items-start gap-2.5 border-b border-border-soft py-3 pl-3 pr-4 hover:bg-surface-1',
+                    checked && 'bg-danger-soft/30',
+                    wholeFolderSelected && 'opacity-60',
+                  )}
+                >
+                  <Checkbox
+                    className="mt-1 shrink-0"
+                    checked={checked}
+                    disabled={wholeFolderSelected}
+                    onCheckedChange={() => togglePaper(p.id)}
+                  />
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    {/* 标题行:类型徽章(D/G/M 或 本地)+ 标题 + PDF —— 对齐文献集单行观感 */}
+                    <div className="flex items-start gap-1.5">
+                      <TypeBadge source={p.source} isFree={p.link_state === 'free'} />
+                      <span className="min-w-0 flex-1 text-sm font-semibold leading-[1.4] text-foreground line-clamp-2">
+                        {effectivePaperTitle(p)}
+                      </span>
+                      {p.pdf_uploaded_at && (
+                        <span className="mt-0.5 shrink-0 rounded-sm bg-brand-green/10 px-1 text-2xs font-semibold text-brand-green">
+                          PDF
+                        </span>
+                      )}
+                    </div>
+
+                    {/* 作者:头像(首字母圆点)+ 名字 */}
+                    {authorsText && (
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <AuthorAvatars authors={authorList} />
+                        <span className="min-w-0 truncate text-2xs text-subtle">{authorsText}</span>
+                      </div>
+                    )}
+
+                    {/* 元信息:年份 · 期刊 + 分区/IF chip */}
+                    {(year || venue || enr) && (
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-2xs text-faint">
+                        {year && <span>{year}</span>}
+                        {year && venue && <span className="text-border-strong">·</span>}
+                        {venue && <span className="min-w-0 max-w-[55%] truncate">{venue}</span>}
+                        <JournalBadges enrichment={enr} />
+                      </div>
+                    )}
+
+                    {abstract && (
+                      // preventDefault:在摘要(含「更多」)上操作不触发 label 勾选
+                      <div onClick={(e) => e.preventDefault()}>
+                        <TruncatedText
+                          lines={2}
+                          className="text-xs leading-[1.6] text-subtle"
+                          popoverClassName="max-w-md text-xs leading-relaxed"
+                        >
+                          {abstract}
+                        </TruncatedText>
+                      </div>
+                    )}
+                  </div>
+                </label>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const footer = (
+    <DialogFooter className="flex-row items-center justify-between gap-2 border-t border-border-soft px-4 py-2.5">
+      <span className="text-xs text-faint">{summary ? `已选 ${summary}` : '未选择'}</span>
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+          取消
+        </Button>
+        <Button size="sm" onClick={confirm} disabled={totalSel === 0 || busy}>
+          {busy && <Loader2 className="size-3.5 animate-spin" />}
+          引用
+        </Button>
+      </div>
+    </DialogFooter>
+  );
+
+  // ── 移动端:底部抽屉(MobileBottomSheet 用 m.*,挂在 composer 处需自带 LazyMotion 祖先)──
+  if (isPhoneDevice()) {
+    return (
+      <LazyMotion features={domMax}>
+        <MobileBottomSheet open={open} onOpenChange={onOpenChange} title="引用文献">
+          <div className="flex max-h-[80dvh] min-h-0 flex-col">
+            <div className="border-b border-border-soft px-4 pb-2 pt-1">
+              <h2 className="text-base font-semibold text-foreground">引用文献</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                从文献集选论文或整夹,引用给智能助手(在线元数据 + 你上传的 PDF 都带上)。
+              </p>
+            </div>
+            {columns}
+            {footer}
+          </div>
+        </MobileBottomSheet>
+      </LazyMotion>
+    );
+  }
+
+  // ── PC:居中 Dialog,两栏。显式 max-w 覆盖基样式 max-w-lg,否则被夹到 512px。──
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[85vh] w-[min(92vw,720px)] max-w-[min(92vw,720px)] flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="border-b border-border-soft px-4 py-3">
+          <DialogTitle className="text-base">引用文献</DialogTitle>
+          <DialogDescription className="text-xs">
+            从你的文献集选论文或整个文件夹,引用给智能助手(在线元数据 + 你上传的 PDF 都会带上)。
+          </DialogDescription>
+        </DialogHeader>
+        {columns}
+        {footer}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// 作者头像配色(token,按名字 hash 取一种;同收藏夹脊色思路)。
+const AVATAR_TONES = ['bg-brand-green', 'bg-brand-amber', 'bg-brand-red', 'bg-foreground'];
+function toneOf(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return AVATAR_TONES[h % AVATAR_TONES.length];
+}
+
+/** 作者头像 —— 前 3 位首字母圆点(论文无真实头像,用首字母色块,微叠加)。 */
+function AuthorAvatars({ authors }: { authors: PaperAuthor[] }) {
+  const names = authors.map((a) => a.name?.trim()).filter(Boolean) as string[];
+  if (names.length === 0) return null;
+  return (
+    <span className="flex shrink-0 -space-x-1">
+      {names.slice(0, 3).map((n, i) => (
+        <span
+          key={i}
+          className={cn(
+            'inline-flex size-4 items-center justify-center rounded-full text-[8px] font-bold text-white ring-1 ring-background',
+            toneOf(n),
+          )}
+          title={n}
+        >
+          {n.slice(0, 1).toUpperCase()}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/**
+ * 类型徽章 —— 紧贴标题左侧(镜像 features/library 的 LibraryPaperRow,不跨 feature import):
+ *   linked 上游 → SourceBadge(D/G/M 字母);free/local → 「本地」灰标签。
+ */
+function TypeBadge({ source, isFree }: { source: PaperSource; isFree: boolean }) {
+  if (isFree || source === 'local') {
+    return (
+      <span
+        className="mt-0.5 inline-flex h-4 shrink-0 items-center rounded-sm bg-surface-2 px-1.5 text-2xs font-bold text-faint"
+        title="本地文献(未关联在线论文)"
+      >
+        本地
+      </span>
+    );
+  }
+  return (
+    <span className="mt-0.5 shrink-0">
+      <SourceBadge source={source as UpstreamSource} variant="letter" size="sm" />
+    </span>
+  );
+}

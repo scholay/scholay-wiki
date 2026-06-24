@@ -19,6 +19,7 @@ import (
 	"scholar-backend/internal/agentbridge"
 	"scholar-backend/internal/common/errcode"
 	"scholar-backend/internal/common/utils"
+	"scholar-backend/internal/library"
 )
 
 // 业务错误码 alias 到 errcode 包. 跨模块共享的 (AgentUnreachable / Turnstile) 走 errcode,
@@ -32,13 +33,15 @@ const (
 type Handler struct {
 	feature      *agentbridge.FeatureBridge
 	uploader     *Uploader
+	referencer   *Referencer               // 引用用户文献集 → 物化进会话 cwd;libReader 为 nil 时不挂引用路由
 	artifactRepo *agentartifact.Repository // 成果交付物(MinIO)元数据访问;nil 时退化为实时回读
 }
 
-func NewHandler(feature *agentbridge.FeatureBridge, artifactRepo *agentartifact.Repository) *Handler {
+func NewHandler(feature *agentbridge.FeatureBridge, artifactRepo *agentartifact.Repository, libReader *library.Reader) *Handler {
 	return &Handler{
 		feature:      feature,
 		uploader:     NewUploader(feature),
+		referencer:   NewReferencer(feature, libReader),
 		artifactRepo: artifactRepo,
 	}
 }
@@ -343,4 +346,16 @@ func (h *Handler) UploadAttachment(c *gin.Context) {
 		return
 	}
 	utils.Success(c, att)
+}
+
+// ReferenceLibrary — POST /claw/reference {session_id?, paper_ids[], folder_ids[]}:
+// 把用户文献集里选中的论文 / 文件夹物化进会话 cwd 的 references/,返回 chip 元数据。
+func (h *Handler) ReferenceLibrary(c *gin.Context) {
+	userID := c.GetUint("user_id")
+	res, err := h.referencer.HandleReference(c, userID)
+	if err != nil {
+		utils.SafeError(c, codeUploadFailed, err)
+		return
+	}
+	utils.Success(c, res)
 }

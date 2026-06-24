@@ -97,6 +97,10 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.POST("/support-center/inbox/:id/reply", h.supportCenter.ReplyInbox)
 		adminProtected.POST("/support-center/compose", h.supportCenter.Compose)
 
+		// 限时领取会员推广:开关 + 微信客服二维码 + 文案
+		adminProtected.GET("/promo/config", h.promo.GetConfig)
+		adminProtected.PUT("/promo/config", h.promo.UpdateConfig)
+
 		// 公告管理
 		adminProtected.GET("/announcements", h.announcement.ListAdmin)
 		adminProtected.POST("/announcements", h.announcement.Create)

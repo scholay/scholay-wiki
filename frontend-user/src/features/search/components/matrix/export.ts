@@ -13,6 +13,7 @@ import type { PaperAnalysisItem } from '../../api/analysis';
 
 export interface ExportRow {
   paperTitle: string;
+  paperAbstract: string;
   // dimensionKey → value
   dims: Record<string, string>;
 }
@@ -35,7 +36,8 @@ export function buildMatrixRows(
       const raw = r?.data?.[d.dimensionKey] ?? r?.error ?? '';
       dims[d.dimensionKey] = flattenTagValue(raw);
     }
-    return { paperTitle: p.title ?? p.paperId, dims };
+    const paperAbstract = (p.abstract ?? '').trim();
+    return { paperTitle: p.title ?? p.paperId, paperAbstract, dims };
   });
 }
 
@@ -95,9 +97,10 @@ export function exportCsv(
   dimensions: DimensionMeta[],
   filenamePrefix = 'matrix'
 ) {
-  const header = ['论文', ...dimensions.map((d) => d.name)];
+  const header = ['论文', '摘要', ...dimensions.map((d) => d.name)];
   const lines = [header, ...rows.map((r) => [
     r.paperTitle,
+    r.paperAbstract.replace(/\n/g, ' '),
     ...dimensions.map((d) => (r.dims[d.dimensionKey] ?? '').replace(/\n/g, ' ')),
   ])];
   const csv = lines
@@ -124,10 +127,11 @@ export function exportMarkdown(
   dimensions: DimensionMeta[],
   filenamePrefix = 'matrix'
 ) {
-  const header = ['论文', ...dimensions.map((d) => d.name)];
+  const header = ['论文', '摘要', ...dimensions.map((d) => d.name)];
   const sep = header.map(() => '---');
   const body = rows.map((r) => [
     mdCell(r.paperTitle),
+    mdCell(r.paperAbstract),
     ...dimensions.map((d) => mdCell(r.dims[d.dimensionKey] ?? '')),
   ]);
 
@@ -151,19 +155,20 @@ export async function exportXlsx(
   // 动态加载 SheetJS —— 只在用户点 Excel 导出时才下载
   const XLSX = await import('xlsx');
 
-  const header = ['论文', ...dimensions.map((d) => d.name)];
+  const header = ['论文', '摘要', ...dimensions.map((d) => d.name)];
   const aoa = [
     header,
     ...rows.map((r) => [
       r.paperTitle,
+      r.paperAbstract,
       ...dimensions.map((d) => r.dims[d.dimensionKey] ?? ''),
     ]),
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
 
-  // 列宽:论文列宽一些(40 字符),其他维度列固定 25
-  const colWidths = [{ wch: 40 }, ...dimensions.map(() => ({ wch: 25 }))];
+  // 列宽:论文 40,摘要最宽(60),其他维度列固定 25
+  const colWidths = [{ wch: 40 }, { wch: 60 }, ...dimensions.map(() => ({ wch: 25 }))];
   ws['!cols'] = colWidths;
 
   // 表头加 bold + 居中(SheetJS 社区版 cell styling 受限,这里只能改字体)

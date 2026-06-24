@@ -93,6 +93,10 @@ export interface Turn {
    */
   userAttachments?: TurnAttachment[];
 
+  /** 该轮用户引用的文献集论文 / 文件夹 (claw「引用文献」)。与附件同属 user 侧元数据,
+   *  渲染成特有的「引用」chip。实时轮由 composer 透传;历史回放从 user 文本的引用块解析恢复。 */
+  userReferences?: TurnReference[];
+
   /** 该轮使用的 model (history transcript 回放时填; 实时流不一定填) */
   model?: string;
 
@@ -130,6 +134,20 @@ export interface TurnAttachment {
   previewUrl?: string;
   /** agent 容器内绝对路径 (history 回放时从 user 文本的 @"path" 前缀恢复); 预留给"取回原图"。 */
   path?: string;
+}
+
+/**
+ * 用户从文献集引用的一项 —— 单篇论文或整个文件夹。展示成「引用」chip(区别于上传附件)。
+ * 完整资料由后端物化进会话 cwd 的 references/(见 backend internal/claw/references.go),
+ * 这里只承载 chip 展示所需的最小信息。
+ */
+export interface TurnReference {
+  kind: 'paper' | 'folder';
+  title: string;
+  /** 文件夹:实际纳入的论文篇数 */
+  paperCount?: number;
+  /** 单篇:是否带用户上传的 PDF 全文(实时轮已知;历史回放无法恢复 → undefined) */
+  hasPdf?: boolean;
 }
 
 export interface TurnTokenUsage {

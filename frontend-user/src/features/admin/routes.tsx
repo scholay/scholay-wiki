@@ -146,6 +146,11 @@ export const adminRoutes: RouteObject[] = [
         lazy: lazyPage(() => import('./pages/VipCodesPage'))('VipCodesPage'),
       },
       {
+        path: 'promo-config',
+        handle: { title: '限时领取会员' },
+        lazy: lazyPage(() => import('./pages/PromoConfigPage'))('PromoConfigPage'),
+      },
+      {
         path: 'third-party',
         handle: { title: '第三方账号' },
         lazy: lazyPage(() => import('./pages/ThirdPartyPage'))('ThirdPartyPage'),

@@ -41,6 +41,7 @@ import (
 	"scholar-backend/internal/promptregistry"
 	"scholar-backend/internal/seo"
 	"scholar-backend/internal/seosubmit"
+	"scholar-backend/internal/promo"
 	"scholar-backend/internal/smartsearch"
 	"scholar-backend/internal/stagingarea"
 	"scholar-backend/internal/storage"
@@ -313,6 +314,9 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	core.feedbackService.SetFeishuNotifier(supportCenterService.NotifyFeedback)
 	supportCenterHandler := supportcenter.NewHandler(supportCenterService)
 
+	// ---- 限时领取会员推广(开关 / 微信客服二维码 / 文案)----
+	promoHandler := promo.NewHandler(promo.NewService(promo.NewRepository(db)))
+
 	// message + email → vip（充值/订阅/续期/升级/兑换 成功后发站内信 + 邮件;统一品牌邮件模板）
 	plat.vipService.SetNotifier(plat.message.GetAdapter(), core.configService)
 
@@ -409,7 +413,7 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 			smartSearch:    smartsearch.NewHandler(smartSearchFeature),
 			peerReview:     peerReviewHandler,
 			memory:         usermemory.NewHandler(userMemoryService),
-			claw:           claw.NewHandler(clawFeature, agentartifact.NewRepository(db)),
+			claw:           claw.NewHandler(clawFeature, agentartifact.NewRepository(db), library.NewReader(db)),
 			featureTool:    featureToolHandler,
 			agentBridge:    agentBridge, // 内网回调端点: agent 上报带外 token 用量 (title-gen 等)
 			// 智能写作 (Prism): DB 真源 + 编译沙箱(共享卷 watcher)+ AI 定点编辑(prismFeature/agent)。
@@ -424,6 +428,7 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 				domainFromSiteURL(),
 			)),
 			supportCenter: supportCenterHandler,
+			promo:         promoHandler,
 		},
 		userService:          core.userService,
 		cleanupService:       cleanupService,

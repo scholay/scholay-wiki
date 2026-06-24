@@ -28,6 +28,28 @@ export interface AttachmentDTO {
   previewUrl?: string;
 }
 
+// ─── 引用文献(文献集 → 物化进会话 cwd 的 references/)────────────────────
+
+/** Backend /claw/reference 返回的单个引用项(chip 展示元数据)。对齐 ReferenceItemDTO。 */
+export interface ReferenceItemDTO {
+  kind: 'paper' | 'folder';
+  refId: number;
+  title: string;
+  /** 文件夹:实际纳入篇数 */
+  paperCount?: number;
+  /** 文件夹:实际超过上限被截断 */
+  truncated?: boolean;
+  /** 单篇:是否带用户上传的 PDF 全文 */
+  hasPdf?: boolean;
+}
+
+/** Backend /claw/reference 响应。sessionId 可能是新建并回传的(前端需 adopt,同上传)。 */
+export interface ReferenceResultDTO {
+  sessionId: string;
+  items: ReferenceItemDTO[];
+  paperTotal: number;
+}
+
 // ─── WS 消息协议 ─────────────────────────────────────────────────────────
 
 /**

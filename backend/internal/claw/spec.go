@@ -21,11 +21,25 @@ import (
 	"errors"
 	"os"
 
+	"scholar-backend/internal/agent"
 	"scholar-backend/internal/agentbridge"
 	"scholar-backend/internal/prompts"
 	"scholar-backend/internal/usagestat"
 	"scholar-backend/internal/vip"
 )
+
+// clawSkillAddDir —— 传给 agent --add-dir 的目录(agent 加载 <dir>/.claude/skills 与 <dir>/CLAUDE.md)。
+// claw 专属:放 library-reference skill(教 agent 用「引用文献」物化进 cwd 的 references/)+ CLAUDE.md
+// (始终生效的渲染约束:聊天界面渲染 mermaid/svg/表格,禁 ASCII 画图 / 禁为渲染生成 HTML)。
+// CLAUDE.md 经 --add-dir 加载需容器 env CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1(见 compose)。
+// 与 prism /prism-add、peerreview /peerreview-add 同模式,互不可见。compose 把
+// ./agent/data/claude/claw-add 整目录挂到 /claw-add。
+func clawSkillAddDir() string {
+	if d := os.Getenv("CLAW_SKILL_ADDDIR"); d != "" {
+		return d
+	}
+	return "/claw-add"
+}
 
 // clawPermissionMode —— C14 审批轴。默认 auto(backend 自动裁决,不透传前端);
 // 仅当 env CLAW_PERMISSION_PASSTHROUGH=1 时切 passthrough —— 这是**测试 / 未来 HITL 的验证开关**,
@@ -124,5 +138,10 @@ func BuildSpec() agentbridge.FeatureSpec {
 		AllowBash:         true,
 		PreUserMessage:    pre,
 		OnMessageComplete: onComplete,
+		// claw 会话加载 library-reference skill(--add-dir /claw-add)。DisallowedTools 留空
+		// (claw 不裁工具,Bash 由 AllowBash 单独管),仅借 SessionOptions 挂 AddDirs。
+		SessionOptions: &agent.CreateSessionOptions{
+			AddDirs: []string{clawSkillAddDir()},
+		},
 	}
 }

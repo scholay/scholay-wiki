@@ -9,14 +9,16 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from 'react';
-import { ArrowUp, FileText, Loader2, Paperclip, Square, Upload, X } from 'lucide-react';
+import { ArrowUp, FileText, Library, Loader2, Paperclip, Square, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
 import { trackEvent } from '@/shared/lib/track';
 import { AttachmentLightbox } from '@/shared/components/chat/AttachmentLightbox';
-import { ContextMeter } from '@/shared/components/chat';
-import { useUploadClawAttachment } from '../../api/session';
-import type { AttachmentDTO } from '../../api/types';
+import { ContextMeter, ReferenceChipList } from '@/shared/components/chat';
+import type { TurnReference } from '@/shared/types/chat';
+import { useUploadClawAttachment, useReferenceClawLibrary } from '../../api/session';
+import type { AttachmentDTO, ReferenceItemDTO } from '../../api/types';
+import { LibraryReferencePicker, type ReferenceSelection } from './LibraryReferencePicker';
 
 /**
  * 输入框 + 附件管理。
@@ -52,7 +54,7 @@ export interface ChatComposerProps {
   stopping?: boolean;
   /** 当前会话上下文水位; 放 footer 右下角展示。null / totalTokens=0 时不显示。 */
   context?: ComposerContext | null;
-  onSubmit: (text: string, attachments: AttachmentDTO[]) => void;
+  onSubmit: (text: string, attachments: AttachmentDTO[], references: ReferenceItemDTO[]) => void;
   /** 停止生成 — busy 时点按钮调这个; 不传时 stop 按钮 disable */
   onStop?: () => void;
   /** 当前会话 id — 上传文件时透传给后端, 让文件落到正在看的这个会话 cwd (claw 多会话)。 */
@@ -90,6 +92,10 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
 }, ref) {
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<AttachmentDTO[]>([]);
+  // 「引用文献」选中的论文/文件夹(后端已物化进会话 cwd,这里持 chip 元数据)。
+  const [references, setReferences] = useState<ReferenceItemDTO[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const reference = useReferenceClawLibrary();
   // 点击附件缩略图放大查看的 lightbox。
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
   // 拖拽悬停态: 拖文件到输入框上方时显示 "松开上传" 蒙层。用 ref 计数避免子元素
@@ -137,16 +143,50 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
       return;
     }
     const text = input.trim();
-    if (!text && attachments.length === 0) return;
+    if (!text && attachments.length === 0 && references.length === 0) return;
     if (disabled || upload.isPending) return;
-    trackEvent('claw_query', { len: text.length, files: attachments.length });
-    onSubmit(text, attachments);
+    trackEvent('claw_query', { len: text.length, files: attachments.length, refs: references.length });
+    onSubmit(text, attachments, references);
     setInput('');
     // 提交后释放 compose 预览的 object URL —— 已发送气泡的缩略图改用后端代理 URL
     // (ClawPage 用 clawSessionFileUrl 拼, 与历史回放一致), 不留 blob 泄漏。
     attachments.forEach((a) => a.previewUrl && URL.revokeObjectURL(a.previewUrl));
     setAttachments([]);
+    setReferences([]);
   };
+
+  // 「引用文献」确认 —— 调后端把选中的论文/文件夹物化进会话 cwd,拿回 chip 元数据。
+  // 同上传:后端可能新建会话(新对话首次引用),需 adopt;去重避免同一项重复加 chip。
+  const handleReferenceConfirm = async (sel: ReferenceSelection) => {
+    if (requireAuth) {
+      onRequireAuth?.();
+      return;
+    }
+    try {
+      const res = await reference.mutateAsync({
+        sessionId: sessionId ?? null,
+        paperIds: sel.paperIds,
+        folderIds: sel.folderIds,
+      });
+      if (res.sessionId && res.sessionId !== sessionId) onSessionEnsured?.(res.sessionId);
+      setReferences((prev) => {
+        const seen = new Set(prev.map((r) => `${r.kind}:${r.refId}`));
+        const add = res.items.filter((r) => !seen.has(`${r.kind}:${r.refId}`));
+        return [...prev, ...add];
+      });
+      setPickerOpen(false);
+      if (res.items.length === 0) toast.info('所选文献为空或不可用');
+    } catch (err) {
+      toast.error((err as Error).message || '引用失败');
+    }
+  };
+
+  const refToTurn = (r: ReferenceItemDTO): TurnReference => ({
+    kind: r.kind,
+    title: r.title,
+    paperCount: r.paperCount,
+    hasPdf: r.hasPdf,
+  });
 
   const handleKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -281,6 +321,22 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
         </div>
       )}
 
+      {/* 引用文献 chip 行 —— 区别于附件的特有「引用」样式 */}
+      {(references.length > 0 || reference.isPending) && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <ReferenceChipList
+            references={references.map(refToTurn)}
+            onRemove={(i) => setReferences((prev) => prev.filter((_, idx) => idx !== i))}
+          />
+          {reference.isPending && (
+            <span className="inline-flex items-center gap-1 text-2xs text-faint">
+              <Loader2 className="size-3 animate-spin" />
+              引用中…
+            </span>
+          )}
+        </div>
+      )}
+
       {/* 文本框 */}
       <textarea
         ref={textareaRef}
@@ -321,6 +377,21 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
           title="上传图片 / PDF / 文本文件"
         >
           <Paperclip className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (requireAuth) {
+              onRequireAuth?.();
+              return;
+            }
+            setPickerOpen(true);
+          }}
+          disabled={disabled}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-40"
+          title="引用文献集里的文献"
+        >
+          <Library className="h-4 w-4" />
         </button>
 
         {/* 占位撑开, 让上下文水位 + 发送按钮靠右。不再常驻文件大小提示 ——
@@ -394,6 +465,14 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
         src={lightbox?.src ?? null}
         alt={lightbox?.alt}
         onClose={() => setLightbox(null)}
+      />
+
+      {/* 引用文献选择器(Radix Dialog,portal 渲染) */}
+      <LibraryReferencePicker
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        onConfirm={handleReferenceConfirm}
+        busy={reference.isPending}
       />
     </form>
   );

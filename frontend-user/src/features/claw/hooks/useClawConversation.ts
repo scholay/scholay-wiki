@@ -17,8 +17,10 @@ import {
   useClawSessions,
   useCreateClawSession,
 } from '../api/session';
+import { buildReferenceBlock } from '@/shared/lib/agent-references';
+import type { TurnReference } from '@/shared/types/chat';
 import { useClawSocket } from '../api/socket';
-import type { AttachmentDTO, ClientMessage } from '../api/types';
+import type { AttachmentDTO, ClientMessage, ReferenceItemDTO } from '../api/types';
 import { useClawArtifacts } from '../api/artifacts';
 import {
   foldMessagesIntoTurns,
@@ -120,7 +122,11 @@ export function useClawConversation() {
   const activeSessionIdRef = useRef<string | null>(activeSessionId);
   activeSessionIdRef.current = activeSessionId;
   // 最近一次提交的原始 payload(text + 含 path 的 attachments)—— 命中额度时据此持久化「未发送」消息。
-  const lastSubmitRef = useRef<{ text: string; attachments: AttachmentDTO[] } | null>(null);
+  const lastSubmitRef = useRef<{
+    text: string;
+    attachments: AttachmentDTO[];
+    references: ReferenceItemDTO[];
+  } | null>(null);
 
   // 懒新建: 第一次 send 时 activeSessionId 还是 null, 先 await createSession 拿新 id,
   // setActiveSessionId 触发 socket 重连; WS 没 open 之前 user_message 发不出去,
@@ -269,7 +275,11 @@ export function useClawConversation() {
     const sid = activeSessionIdRef.current;
     const payload = lastSubmitRef.current;
     if (sid && payload) {
-      setBlockedMessage(sid, { text: payload.text, attachments: payload.attachments });
+      setBlockedMessage(sid, {
+        text: payload.text,
+        attachments: payload.attachments,
+        references: payload.references,
+      });
     }
     setPendingTurns((prev) =>
       prev.length > 0
@@ -340,12 +350,20 @@ export function useClawConversation() {
   );
 
   const handleSubmit = useCallback(
-    async (text: string, attachments: AttachmentDTO[]) => {
-      // 记下本次提交的原始 payload(含 path 的 attachments)—— 命中额度时据此持久化「未发送」消息供重发。
-      lastSubmitRef.current = { text, attachments };
-      // 方案 B: content 只放文本; 文件已由 backend 推到会话隔离 cwd, 这里只透传 path。
+    async (text: string, attachments: AttachmentDTO[], references: ReferenceItemDTO[] = []) => {
+      // 记下本次提交的原始 payload —— 命中额度时据此持久化「未发送」消息供重发(含引用)。
+      lastSubmitRef.current = { text, attachments, references };
+      // 引用文献:资料已由后端物化进会话 cwd 的 references/;这里把「引用块」追加到发送内容末尾
+      // (agent 看见 + 历史回放可解析回 chip),展示用的 userText 仍只显示用户真正打的字。
+      const turnRefs: TurnReference[] = references.map((r) => ({
+        kind: r.kind,
+        title: r.title,
+        paperCount: r.paperCount,
+        hasPdf: r.hasPdf,
+      }));
+      // 方案 B: content 文本 + 引用块; 文件已由 backend 推到会话隔离 cwd, 这里只透传 path。
       // 图片和文件走同一条 path 通道, agent 用 Read 工具原生分析 (vision / 文档理解 / 文本)。
-      const content = text;
+      const content = text + buildReferenceBlock(turnRefs);
       const wsAttachments = attachments.map((a) => ({
         type: a.type,
         name: a.name,
@@ -370,6 +388,7 @@ export function useClawConversation() {
           {
             id: `pending-${crypto.randomUUID()}`,
             userText: text,
+            userReferences: turnRefs,
             userAttachments: attachments.map((a) => ({
               type: a.type,
               name: a.name,
@@ -414,6 +433,7 @@ export function useClawConversation() {
         {
           id: `pending-${crypto.randomUUID()}`,
           userText: text,
+          userReferences: turnRefs,
           userAttachments: attachments.map((a) => ({
             type: a.type,
             name: a.name,
@@ -453,7 +473,7 @@ export function useClawConversation() {
     const payload = getBlockedMessage(sid);
     if (sid) clearBlockedMessage(sid);
     setPendingTurns((prev) => prev.filter((t) => !t.blocked));
-    if (payload) void handleSubmit(payload.text, payload.attachments);
+    if (payload) void handleSubmit(payload.text, payload.attachments, payload.references ?? []);
   }, [handleSubmit]);
 
   // 忽略「未发送」消息: 清持久化 + 移除 blocked 轮(用户决定不再发这条)。

@@ -15,6 +15,8 @@ import type {
   AttachmentDTO,
   ClawContextSnapshot,
   ClawHistoryEntry,
+  ReferenceItemDTO,
+  ReferenceResultDTO,
 } from './types';
 // TODO: 30s 没对应 STALE_* preset, 保留硬编码 (claw context 水位 + sessions list)。
 
@@ -90,14 +92,18 @@ export function useClawHistory(
   return useQuery<HistoryResponse>({
     queryKey: ['claw', 'history', sessionId, limitTurns ?? 0],
     enabled: !!token && !!sessionId,
-    // 只追加, 同一 mount 内不反复刷 (staleTime: Infinity); 但**每次重新挂载必须重拉**。
-    // 修复"切到别的页面再回 /claw, 对话凭空消失"的同构 bug (跟 smart-search 一致):
-    //   实时 turns 只在 ClawPage 局部 state (socket.messages + pendingTurns), 跨路由
-    //   导航离开时整个 ClawPage unmount → 局部 state 丢; 回来重挂载若只靠
-    //   staleTime:Infinity 旧缓存, 会原样返回首挂时的空快照 → 对话整段不见, 必须 F5。
-    //   refetchOnMount:'always' 让每次重挂都从 transcript 重放完整对话。reset 仍 invalidate。
-    staleTime: Infinity,
+    // 修复"切到别的页面再回来, 刚结束的实时对话凭空消失":
+    //   实时 turns 只在 ClawPage 局部 state (socket.messages + pendingTurns), 跨路由导航离开
+    //   时整个 ClawPage unmount → 局部丢; 回来要靠重拉 transcript 还原。
+    //   ⚠️ 不能用 staleTime:Infinity —— 本 query 在 sessionId 仍为 null 时挂载(disabled),
+    //   activeSessionId 要等 sessions 列表解析后才落定→此刻 query 才 enable;但 refetchOnMount
+    //   只在"挂载那一刻"判定, disabled 挂载已错过, enable 时 Infinity 又判缓存"新鲜"→ 永不重取,
+    //   沿用上次挂载的旧快照 = 那条实时轮永久不见(必须 F5)。
+    //   staleTime:0 让 enable / 重挂载都重取; refetchOnWindowFocus:false 避免流式中切窗口回来误刷
+    //   (此刻 transcript 还不含在途轮, 刷了无害但没必要)。reset 仍 invalidate。
+    staleTime: 0,
     refetchOnMount: 'always',
+    refetchOnWindowFocus: false,
     // "加载更早"增大 limitTurns 会换 queryKey 重取; keepPreviousData 让旧(较少)列表先留着,
     // 新(更多)到了再替换, 避免刷新瞬间列表塌成空。
     placeholderData: keepPreviousData,
@@ -193,6 +199,35 @@ export function useUploadClawAttachment() {
         return payload.type === 'image'
           ? { ...payload, previewUrl: URL.createObjectURL(file) }
           : payload;
+      } catch (err) {
+        throw toApiError(err);
+      }
+    },
+  });
+}
+
+/**
+ * 引用文献集论文 / 文件夹 → 后端把资料物化进会话隔离 cwd 的 references/,返回 chip 元数据。
+ * 同上传:sessionId 为空(新对话首次引用)→ 后端新建会话并回传,前端必须 adopt(onSessionEnsured)。
+ */
+export function useReferenceClawLibrary() {
+  return useMutation<
+    ReferenceResultDTO,
+    Error,
+    { sessionId?: string | null; paperIds?: number[]; folderIds?: number[] }
+  >({
+    mutationFn: async ({ sessionId, paperIds, folderIds }) => {
+      try {
+        const { data } = await http.post<
+          { data?: ReferenceResultDTO } & Partial<ReferenceResultDTO>
+        >('/user/claw/reference', {
+          session_id: sessionId ?? '',
+          paper_ids: paperIds ?? [],
+          folder_ids: folderIds ?? [],
+        });
+        const payload = unwrap<ReferenceResultDTO>(data);
+        if (!payload?.items) throw new Error('后端未返回引用结果');
+        return payload;
       } catch (err) {
         throw toApiError(err);
       }
@@ -500,6 +535,8 @@ export interface BlockedMessage {
   text: string;
   /** 含 agent cwd path, 重发时直接复用(文件仍在会话 cwd); previewUrl(本地 blob)不持久化。 */
   attachments: AttachmentDTO[];
+  /** 引用文献(资料已物化进会话 cwd 的 references/,重发时只需重附引用块)。 */
+  references?: ReferenceItemDTO[];
 }
 
 interface BlockedMap {

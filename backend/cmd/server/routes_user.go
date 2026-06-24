@@ -233,6 +233,7 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		userProtected.POST("/claw/session/ws-ticket", h.claw.IssueWSTicket)
 		// 上传走通用 UploadLimitMiddleware (50MB 上限 + 业务码 7001), 跟 feedback/library upload 一致。
 		userProtected.POST("/claw/upload", middleware.UploadLimitMiddleware(middleware.UploadMaxBodySize), h.claw.UploadAttachment)
+		userProtected.POST("/claw/reference", h.claw.ReferenceLibrary) // 引用文献集论文/文件夹 → 物化进会话 cwd
 
 		// 多会话 API — claw 侧边栏会话列表用。smart_search 故意不暴露这一组,
 		// 保持单会话语义。详见 internal/agentbridge/bridge.go 多会话方法注释。

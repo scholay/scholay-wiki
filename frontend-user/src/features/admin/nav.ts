@@ -24,6 +24,7 @@ import {
   ShoppingCart,
   Inbox,
   Headset,
+  Sparkles,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -67,6 +68,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     items: [
       { id: 'orders', label: '订单与营收', icon: ShoppingCart, href: '/admin/orders' },
       { id: 'vip-codes', label: '会员兑换码', icon: Gift, href: '/admin/vip-codes' },
+      { id: 'promo-config', label: '限时领取会员', icon: Sparkles, href: '/admin/promo-config' },
       { id: 'billing-config', label: '计费配置', icon: Coins, href: '/admin/billing-config' },
     ],
   },

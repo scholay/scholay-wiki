@@ -1,5 +1,5 @@
 import { memo, useCallback } from 'react';
-import type { Paper } from '../../api/papers';
+import type { Paper } from '@/shared/api/types';
 import type { JournalEnrichment } from '@/shared/api/journal-enrichment';
 import { DefaultCard } from './DefaultCard';
 import { StagedRow } from './StagedRow';
@@ -44,6 +44,9 @@ interface PaperResultCardProps {
   onCollapse: (paperId: string) => void;
   onRestore: (paperId: string) => void;
   highlightQuery?: string;
+  /** 隐藏「暂存」按钮(智能助手等无暂存区语境用):收藏/翻译/折叠照常,只是不出现暂存。
+   *  此模式下调用方应恒传 isStaged=false(无暂存区→不会进 StagedRow)。 */
+  hideStage?: boolean;
 }
 
 function PaperResultCardImpl({
@@ -57,6 +60,7 @@ function PaperResultCardImpl({
   onCollapse,
   onRestore,
   highlightQuery,
+  hideStage,
 }: PaperResultCardProps) {
   const id = paper.paperId;
 
@@ -87,6 +91,7 @@ function PaperResultCardImpl({
       onToggleStage={toggleStage}
       onFold={toggleFold}
       highlightQuery={highlightQuery}
+      hideStage={hideStage}
     />
   );
 }

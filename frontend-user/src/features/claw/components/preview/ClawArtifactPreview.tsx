@@ -2,7 +2,7 @@ import { lazy, Suspense, useMemo, type ReactNode } from 'react';
 import { Download, FileQuestion, Loader2, X } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { cn } from '@/shared/lib/utils';
-import { MarkdownRenderer, ChatStyles } from '@/shared/components/chat';
+import { MarkdownRenderer, ChatStyles, SafeSvg } from '@/shared/components/chat';
 import {
   clawArtifactByIdUrl,
   useClawArtifactBytes,
@@ -164,6 +164,14 @@ function BytesPreview({
       </Suspense>
     );
   if (category === 'docx') return <DocxPreview bytes={bytes} />;
+
+  if (category === 'svg') {
+    return (
+      <div className="flex h-full items-center justify-center overflow-auto bg-surface-2 p-4">
+        <SafeSvg code={text} className="max-h-full" />
+      </div>
+    );
+  }
 
   if (category === 'markdown') {
     return (

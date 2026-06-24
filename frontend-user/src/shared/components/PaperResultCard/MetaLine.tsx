@@ -7,7 +7,7 @@ import {
   useOpenAuthorInBrowser,
   useOpenJournalInBrowser,
 } from '@/shared/hooks';
-import type { Paper, PaperAuthor } from '../../api/papers';
+import type { Paper, PaperAuthor } from '@/shared/api/types';
 import type { JournalEnrichment } from '@/shared/api/journal-enrichment';
 
 /**

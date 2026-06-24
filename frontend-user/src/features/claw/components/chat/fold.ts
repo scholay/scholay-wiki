@@ -36,12 +36,16 @@ import { markPendingToolsAborted } from '@/shared/types/chat';
 
 export function foldMessagesIntoTurns(
   messages: ServerMessage[],
-  pendingTurns: Pick<Turn, 'id' | 'userText' | 'userAttachments' | 'paused' | 'blocked'>[],
+  pendingTurns: Pick<
+    Turn,
+    'id' | 'userText' | 'userAttachments' | 'userReferences' | 'paused' | 'blocked'
+  >[],
 ): Turn[] {
   const turns: Turn[] = pendingTurns.map((p) => ({
     id: p.id,
     userText: p.userText,
     userAttachments: p.userAttachments,
+    userReferences: p.userReferences,
     blocks: [],
     complete: false,
     // 点过 stop 的那轮 —— 本地标记透传到 Turn, 末尾渲染「已暂停」

@@ -5,9 +5,9 @@ import { TruncatedText } from '@/shared/components/TruncatedText';
 import { FavoritePaperButton } from '@/shared/components/FavoritePaperButton';
 import { TranslatePaperButton } from '@/shared/components/TranslatePaperButton';
 import { cn } from '@/shared/lib/utils';
-import type { Paper } from '../../api/papers';
+import type { Paper } from '@/shared/api/types';
 import type { JournalEnrichment } from '@/shared/api/journal-enrichment';
-import { type TranslatePaperResult } from '../../api/translate';
+import { type TranslatePaperResult } from '@/shared/api/translate';
 import { MetaLine } from './MetaLine';
 import { needsTranslation, pickTags, renderHighlight } from './tags';
 
@@ -23,6 +23,7 @@ export function DefaultCard({
   onToggleStage,
   onFold,
   highlightQuery,
+  hideStage,
 }: {
   paper: Paper;
   isStaged: boolean;
@@ -31,6 +32,7 @@ export function DefaultCard({
   onToggleStage: () => void;
   onFold: () => void;
   highlightQuery?: string;
+  hideStage?: boolean;
 }) {
   const tags = pickTags(paper, journalEnrichment);
   const openPaper = useOpenPaperInBrowser();
@@ -117,27 +119,29 @@ export function DefaultCard({
          - whitespace-nowrap + shrink-0:任何宽度下文案都不换行、按钮不被挤变形。
          - 折叠按钮平时不显,卡片 hover 才出(group / group-hover)。 */}
       <div className="@container mt-2.5 flex items-center gap-1.5">
-        <button
-          type="button"
-          onClick={onToggleStage}
-          aria-pressed={isStaged}
-          className={cn(
-            'inline-flex items-center justify-center gap-1 h-6 px-2.5 rounded-sm text-xs font-bold whitespace-nowrap shrink-0 transition-colors',
-            // 窄容器:塌成 24×24 纯图标方块
-            '@max-[260px]:w-6 @max-[260px]:px-0 @max-[260px]:gap-0',
-            isStaged
-              ? 'bg-brand-green text-white hover:bg-brand-green/85'
-              : 'bg-brand-red text-white hover:bg-brand-red/90'
-          )}
-          title={isStaged ? '点击取消暂存' : '加入当前活跃暂存区'}
-        >
-          {isStaged ? (
-            <Check className="size-3 shrink-0" strokeWidth={3} />
-          ) : (
-            <Plus className="size-3 shrink-0" strokeWidth={3} />
-          )}
-          <span className="@max-[260px]:hidden">{isStaged ? '已暂存' : '暂存'}</span>
-        </button>
+        {!hideStage && (
+          <button
+            type="button"
+            onClick={onToggleStage}
+            aria-pressed={isStaged}
+            className={cn(
+              'inline-flex items-center justify-center gap-1 h-6 px-2.5 rounded-sm text-xs font-bold whitespace-nowrap shrink-0 transition-colors',
+              // 窄容器:塌成 24×24 纯图标方块
+              '@max-[260px]:w-6 @max-[260px]:px-0 @max-[260px]:gap-0',
+              isStaged
+                ? 'bg-brand-green text-white hover:bg-brand-green/85'
+                : 'bg-brand-red text-white hover:bg-brand-red/90'
+            )}
+            title={isStaged ? '点击取消暂存' : '加入当前活跃暂存区'}
+          >
+            {isStaged ? (
+              <Check className="size-3 shrink-0" strokeWidth={3} />
+            ) : (
+              <Plus className="size-3 shrink-0" strokeWidth={3} />
+            )}
+            <span className="@max-[260px]:hidden">{isStaged ? '已暂存' : '暂存'}</span>
+          </button>
+        )}
 
         <FavoritePaperButton
           paper={paper}

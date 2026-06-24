@@ -333,6 +333,11 @@ services:
       HTTPS_PROXY: ${AGENT_HTTPS_PROXY:-http://scholar_egress_proxy:3128}
       HTTP_PROXY: ${AGENT_HTTP_PROXY:-http://scholar_egress_proxy:3128}
       NO_PROXY: ${AGENT_NO_PROXY:-localhost,127.0.0.1,scholar_backend,backend,scholar_agent}
+      # 让 --add-dir 目录里的 CLAUDE.md 也作为始终生效的 Project 记忆加载 (默认关)。
+      # 仅 /claw-add/CLAUDE.md 存在 → 只影响 claw (prism/peerreview 的 add-dir 无 CLAUDE.md, 不受影响)。
+      # 用途: 把"聊天界面渲染 mermaid/svg/表格, 禁 ASCII 画图 / 禁为渲染生成 HTML"的约束放在
+      # claw 专属 CLAUDE.md, 不占用宝贵的系统提示词。
+      CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD: "1"
     expose:
       - "3456"
     volumes:
@@ -347,6 +352,11 @@ services:
       # 智能写作 skill (prism-latex-format / prism-academic-writing / prism-discipline-conventions):
       # 同样独立目录, 仅 prism 会话经 --add-dir /prism-add 加载 → claw/审稿看不到。
       - ./agent/data/claude/prism-skills:/prism-add/.claude/skills:ro
+      # 智能助手 add-dir (/claw-add): 整目录挂载 —— 含 .claude/skills (library-reference)
+      # + CLAUDE.md (始终生效的渲染约束: 聊天界面渲染 mermaid/svg/表格, 禁止 ASCII 画图 / 禁止
+      # 为渲染生成 HTML)。CLAUDE.md 经 --add-dir 加载需 CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1
+      # (见 environment)。仅 claw 会话经 --add-dir /claw-add 加载 → smart_search/prism/审稿看不到。
+      - ./agent/data/claude/claw-add:/claw-add:ro
       # 会话工作目录 (cwd + 上传文件) 持久化 —— 与 docker-compose.prod.yml 对齐(prod 早已挂)。
       # 否则重建容器会清空 /home/bun/sessions/<id>,旧会话续聊报 "Working directory does not exist";
       # Prism agent-native 模式下该目录是「每项目工作副本」,更须持久。属主由镜像 entrypoint chown 自愈。
