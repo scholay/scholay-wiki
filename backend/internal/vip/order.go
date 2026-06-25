@@ -227,6 +227,29 @@ func (o *OrderService) ListUserOrders(userID uint, orderType string) ([]Order, e
 	return rows, q.Find(&rows).Error
 }
 
+// AdminListUserOrders 管理端列某用户的订单 —— 与用户面 ListUserOrders 的区别:
+//   - 不强制 status='paid'(admin 要看 pending/expired/refunded 等全状态),可选 status 过滤;
+//   - 分页(limit/offset)+ 返回 total。
+// orderType / status 为空则不过滤。
+func (o *OrderService) AdminListUserOrders(userID uint, orderType, status string, limit, offset int) ([]Order, int64, error) {
+	q := o.db.Model(&Order{}).Where("user_id = ?", userID)
+	if orderType == "subscription" || orderType == "recharge" {
+		q = q.Where("order_type = ?", orderType)
+	}
+	if status != "" {
+		q = q.Where("status = ?", status)
+	}
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var rows []Order
+	if err := q.Order("created_at DESC").Limit(limit).Offset(offset).Find(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+	return rows, total, nil
+}
+
 // GetOrderByOrderNo 实现 payment.OrderServiceInterface —— 供支付 create/callback 读单。
 func (o *OrderService) GetOrderByOrderNo(orderNo string) (*payment.OrderRecord, error) {
 	var ord Order

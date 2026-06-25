@@ -36,12 +36,13 @@ type HourlyPoint struct {
 
 // UserMetrics 总响应
 type UserMetrics struct {
-	Granularity     string          `json:"granularity"`      // day / week / month (registrations 维度)
-	Days            int             `json:"days"`             // registrations 查询窗口
-	Registrations   []MetricsPoint  `json:"registrations"`
-	Sources         []CategoryCount `json:"sources"`
-	HourlyActivity  []HourlyPoint   `json:"hourly_activity"`
-	MAUTrend        []MetricsPoint  `json:"mau_trend"` // 最近 12 个月
+	Granularity    string          `json:"granularity"` // day / week / month (registrations 维度)
+	Days           int             `json:"days"`        // registrations 查询窗口
+	Registrations  []MetricsPoint  `json:"registrations"`
+	Sources        []CategoryCount `json:"sources"`
+	HourlyActivity []HourlyPoint   `json:"hourly_activity"`
+	MAUTrend       []MetricsPoint  `json:"mau_trend"`     // 最近 12 个月
+	DailyActive    []MetricsPoint  `json:"daily_active"`  // 每日活跃(去重)用户数,按天 —— 见下注释口径
 }
 
 // GetUserMetrics 聚合返回 4 维数据 —— 给 admin /users 顶部图表区。
@@ -67,6 +68,7 @@ func (s *Service) GetUserMetrics(days int, granularity string) (*UserMetrics, er
 		Sources:        []CategoryCount{},
 		HourlyActivity: []HourlyPoint{},
 		MAUTrend:       []MetricsPoint{},
+		DailyActive:    []MetricsPoint{},
 	}
 
 	db := database.GetDB()
@@ -168,9 +170,15 @@ func (s *Service) GetUserMetrics(days int, granularity string) (*UserMetrics, er
 	}
 
 	// --- 4. mau_trend 最近 12 个月 ---
-	// 每个月格子 = 该月最后一天往前 30 天内「最后活跃」不为空的用户数(MAU 看的是活跃, 非登录)。
-	// 用 COALESCE(last_active_at, last_login_at): 优先真实使用时间, 老数据回落 last_login_at。
-	// 当前月格子用「今天往前 30 天」,与首页 KPI 对齐。
+	// 每个月格子 = 该月最后一天往前 30 天内的活跃(去重)用户数(滚动 MAU 在各月末的快照)。
+	//
+	// 数据源改用 usage_events(append-only,每个被埋点功能动作一行)而**非** users.last_active_at:
+	// 后者是**单列覆盖**,只保留每个用户「最后一次」活跃时间 → 历史月份会**系统性少算**(老用户的
+	// last_active 早被刷新成近期,不再落进过去月份的 30 天窗口,只有当前月准确)。usage_events 才能
+	// 按任意历史窗口 COUNT(DISTINCT user_id) 还原真实 MAU。口径与 daily_active 一致(engaged:窗口内
+	// 有功能动作的用户;纯登录不发事件)。JOIN users 排除 admin/super_admin(与其它指标同口径)。
+	// 注:usage_events 留存 365 天,最旧 1~2 个月的 30 天窗口可能触达留存边界而略偏低 —— 可接受,
+	// 远好于旧实现的系统性衰减。当前月窗口用「今天往前 30 天」,与首页 KPI 对齐。
 	for i := 11; i >= 0; i-- {
 		anchor := time.Date(now.Year(), now.Month()-time.Month(i), 1, 0, 0, 0, 0, now.Location())
 		// 取本月最后一天 (= 次月 1 号 - 1 秒);当前月直接用 now
@@ -183,16 +191,40 @@ func (s *Service) GetUserMetrics(days int, granularity string) (*UserMetrics, er
 		windowStart := windowEnd.AddDate(0, 0, -30)
 		var count int64
 		db.Raw(`
-			SELECT COUNT(*) FROM users
-			WHERE COALESCE(last_active_at, last_login_at) IS NOT NULL
-			  AND COALESCE(last_active_at, last_login_at) >= ?
-			  AND COALESCE(last_active_at, last_login_at) <= ?
-			  AND role NOT IN ('admin','super_admin')
+			SELECT COUNT(DISTINCT ue.user_id)
+			FROM usage_events ue
+			JOIN users u ON u.id = ue.user_id
+			WHERE ue.created_at >= ? AND ue.created_at <= ?
+			  AND u.role NOT IN ('admin','super_admin')
 		`, windowStart, windowEnd).Scan(&count)
 		out.MAUTrend = append(out.MAUTrend, MetricsPoint{
 			Date:  anchor.Format("2006-01"),
 			Value: count,
 		})
+	}
+
+	// --- 5. daily_active 每日活跃用户折线 ---
+	// 口径:当天**执行过被埋点功能动作**的去重用户数(usage_events 按天 COUNT(DISTINCT user_id))。
+	// 这是唯一能产出**真实历史每日序列**的源 —— last_active_at 是单列覆盖、无法重建历史每天;
+	// 而 usage_events 是 append-only 每动作一行,按天去重才准。语义=engaged-DAU(登录但啥也没干的不计,
+	// 这正是「活跃」最实在的定义),非纯登录 DAU(登录动作本身不发事件)。用 DATE_FORMAT 不用 DATE()。
+	// JOIN users 排除 admin/super_admin(与 registrations/hourly/mau_trend 同口径);join 隐含 user_id 非空。
+	// 缺失日补 0 + 今日虚线进行中由前端 buildDailyTrend 处理(同 registrations 的渲染口径)。
+	var daRows []struct {
+		Bucket string
+		Total  int64
+	}
+	db.Raw(`
+		SELECT DATE_FORMAT(ue.created_at, '%Y-%m-%d') AS bucket, COUNT(DISTINCT ue.user_id) AS total
+		FROM usage_events ue
+		JOIN users u ON u.id = ue.user_id
+		WHERE ue.created_at >= ?
+		  AND u.role NOT IN ('admin','super_admin')
+		GROUP BY bucket
+		ORDER BY bucket ASC
+	`, since).Scan(&daRows)
+	for _, r := range daRows {
+		out.DailyActive = append(out.DailyActive, MetricsPoint{Date: r.Bucket, Value: r.Total})
 	}
 
 	return out, nil

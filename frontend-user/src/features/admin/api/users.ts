@@ -205,3 +205,96 @@ export function useAdjustWallet() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'users'] }),
   });
 }
+
+// ─── 用户财务下钻(订单 / 交易流水 / 兑换记录;与用户设置页对齐)──────────────────────
+// 全部懒加载(抽屉打开才取),信封 {data:{items,total}},queryKey 三段式 ['admin','user',id,resource]。
+
+export interface Paged<T> {
+  items: T[];
+  total: number;
+}
+
+/** 对齐 backend vip.Order(orders 表)。admin 视图含全状态(pending/paid/expired/refunded…)。 */
+export interface AdminOrder {
+  id: number;
+  order_no: string;
+  order_type: string; // recharge | subscription
+  plan_code: string;
+  plan_name: string;
+  billing_cycle: string;
+  amount: number;
+  final_amount: number;
+  status: string; // pending | paid | expired | refunded …
+  payment_method: string;
+  payment_time: string | null;
+  credits_granted: number;
+  transaction_no: string;
+  created_at: string;
+}
+
+/** 对齐 backend vip.CreditTransaction(credit_transactions 表)。ref_type=code 的 ref_id 后端已打码。 */
+export interface AdminCreditTransaction {
+  id: number;
+  type: string; // recharge | grant_subscription | gift | reset_consume | expire | refund | admin_adjust …
+  amount: number; // 正=入账 负=消耗
+  temp_after: number;
+  perm_after: number;
+  ref_type: string;
+  ref_id: string;
+  note: string;
+  created_at: string;
+}
+
+/** 对齐 backend vip.UserRedemptionView(兑换流水 join 码定义)。code 后端已打码。 */
+export interface AdminRedemption {
+  redeemed_at: string;
+  code: string;
+  grant_kind: string; // tier | credit
+  grant_tier: string;
+  grant_days: number;
+  grant_credits: number;
+  credit_kind: string; // temp | perm
+  note: string;
+}
+
+export function useAdminUserOrders(
+  id: number | undefined,
+  params: { type?: string; status?: string; page?: number; page_size?: number },
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: ['admin', 'user', id, 'orders', params],
+    enabled: !!id && enabled,
+    queryFn: async () =>
+      (await http.get<{ data: Paged<AdminOrder> }>(`/admin/users/${id}/orders`, { params })).data.data,
+    staleTime: 60_000,
+  });
+}
+
+export function useAdminUserTransactions(
+  id: number | undefined,
+  params: { type?: string; page?: number; page_size?: number },
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: ['admin', 'user', id, 'transactions', params],
+    enabled: !!id && enabled,
+    queryFn: async () =>
+      (await http.get<{ data: Paged<AdminCreditTransaction> }>(`/admin/users/${id}/transactions`, { params })).data.data,
+    staleTime: 60_000,
+  });
+}
+
+export function useAdminUserRedemptions(
+  id: number | undefined,
+  params: { page?: number; page_size?: number },
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: ['admin', 'user', id, 'redemptions', params],
+    enabled: !!id && enabled,
+    queryFn: async () =>
+      (await http.get<{ data: Paged<AdminRedemption> }>(`/admin/users/${id}/redemptions`, { params })).data.data,
+    staleTime: 60_000,
+  });
+}

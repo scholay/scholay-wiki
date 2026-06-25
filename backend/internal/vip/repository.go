@@ -140,6 +140,41 @@ func (r *Repository) HasUserRedeemed(codeID uint64, userID uint) (bool, error) {
 	return r.hasUserRedeemedTx(r.db, codeID, userID)
 }
 
+// UserRedemptionView 某用户一条兑换记录(兑换流水 join 兑换码定义),供 admin「用户详情」展示。
+// Code 是兑换码原文 —— handler 落地前会打码(防仍可多次兑换的有效码经 admin 视图泄漏)。
+type UserRedemptionView struct {
+	RedeemedAt   time.Time `json:"redeemed_at"`
+	Code         string    `json:"code"`
+	GrantKind    string    `json:"grant_kind"` // tier | credit
+	GrantTier    string    `json:"grant_tier"`
+	GrantDays    int       `json:"grant_days"`
+	GrantCredits int       `json:"grant_credits"`
+	CreditKind   string    `json:"credit_kind"` // temp | perm
+	Note         string    `json:"note"`
+}
+
+// ListUserRedemptions 列某用户的兑换记录(vip_code_redemptions join vip_redemption_codes),分页 + total。
+// 用户面无此读路径(只有 HasUserRedeemed bool),为 admin 用户详情新增。
+func (r *Repository) ListUserRedemptions(userID uint, limit, offset int) ([]UserRedemptionView, int64, error) {
+	base := r.db.Table("vip_code_redemptions AS cr").
+		Joins("JOIN vip_redemption_codes AS c ON c.id = cr.code_id").
+		Where("cr.user_id = ?", userID)
+	var total int64
+	if err := base.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var rows []UserRedemptionView
+	if err := base.
+		Select("cr.redeemed_at AS redeemed_at, c.code AS code, c.grant_kind AS grant_kind, " +
+			"c.grant_tier AS grant_tier, c.grant_days AS grant_days, c.grant_credits AS grant_credits, " +
+			"c.credit_kind AS credit_kind, c.note AS note").
+		Order("cr.redeemed_at DESC").Limit(limit).Offset(offset).
+		Scan(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+	return rows, total, nil
+}
+
 // hasUserRedeemedTx 同 HasUserRedeemed, 但跑在给定事务/连接上(Redeem 事务内复用)。
 func (r *Repository) hasUserRedeemedTx(tx *gorm.DB, codeID uint64, userID uint) (bool, error) {
 	var n int64

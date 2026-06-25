@@ -4,6 +4,7 @@ import {
   CalendarRange,
   Clock,
   UserPlus,
+  Users,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -81,6 +82,14 @@ export function UserMetricsPanel() {
             <Empty hint="历史月份还没有数据" />
           )}
         </ChartCard>
+
+        <ChartCard icon={Users} title={`每日活跃用户 · 最近 ${days} 天`} loading={isLoading} hint="当天有功能使用动作的去重用户(engaged-DAU)">
+          {data && data.daily_active.length > 0 ? (
+            <DailyActiveLine data={data.daily_active} />
+          ) : (
+            <Empty hint="该窗口内暂无活跃记录" />
+          )}
+        </ChartCard>
       </div>
     </section>
   );
@@ -123,19 +132,24 @@ function RangeTabs({
 function ChartCard({
   icon: Icon,
   title,
+  hint,
   loading,
   children,
 }: {
   icon: LucideIcon;
   title: string;
+  hint?: string;
   loading?: boolean;
   children?: React.ReactNode;
 }) {
   return (
     <div className="rounded-md border border-border bg-background p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-bold text-foreground">{title}</h3>
-        <Icon className="size-3.5 text-faint" />
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="text-sm font-bold text-foreground">{title}</h3>
+          {hint && <p className="mt-0.5 text-2xs text-faint">{hint}</p>}
+        </div>
+        <Icon className="size-3.5 shrink-0 text-faint" />
       </div>
       <div className="h-56">{loading ? <Skeleton className="h-full w-full" /> : children}</div>
     </div>
@@ -400,6 +414,53 @@ function MAULine({ data }: { data: Array<{ date: string; value: number }> }) {
             strokeWidth={2}
             strokeDasharray="5 4"
             dot={{ r: 3, fill: COLOR_RED, strokeWidth: 0 }}
+            connectNulls={false}
+          />
+        )}
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+// 每日活跃用户(engaged-DAU)折线 —— 日粒度,最后一桶=今天(进行中)画虚线段(buildDailyTrend 默认 today=今天)。
+function DailyActiveLine({ data }: { data: Array<{ date: string; value: number }> }) {
+  const { data: rows, isLive } = buildDailyTrend(data, { valueKeys: ['value'] });
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={rows} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
+        <XAxis
+          dataKey="date"
+          tick={{ fontSize: 11, fill: AXIS_COLOR }}
+          tickLine={false}
+          axisLine={{ stroke: GRID_COLOR }}
+          tickFormatter={(d: string) => (d.length >= 10 ? d.slice(5) : d)}
+        />
+        <YAxis
+          allowDecimals={false}
+          tick={{ fontSize: 11, fill: AXIS_COLOR }}
+          tickLine={false}
+          axisLine={false}
+          width={40}
+        />
+        <Tooltip content={<MetricTooltip name="活跃用户" />} />
+        <Line
+          type="monotone"
+          dataKey="value__main"
+          stroke={COLOR_AMBER}
+          strokeWidth={2}
+          dot={false}
+          activeDot={{ r: 5 }}
+          connectNulls={false}
+        />
+        {isLive && (
+          <Line
+            type="monotone"
+            dataKey="value__live"
+            stroke={COLOR_AMBER}
+            strokeWidth={2}
+            strokeDasharray="5 4"
+            dot={false}
             connectNulls={false}
           />
         )}

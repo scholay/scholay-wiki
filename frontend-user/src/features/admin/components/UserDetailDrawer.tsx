@@ -12,6 +12,7 @@ import { Badge } from '@/shared/ui/badge';
 import { cn } from '@/shared/lib/utils';
 import { UserTokenUsagePanel } from './UserTokenUsagePanel';
 import { UserGrantPanel } from './UserGrantPanel';
+import { UserBillingSections } from './UserBillingPanels';
 import {
   useUserDetail,
   useUserVipStatus,
@@ -198,6 +199,9 @@ export function UserDetailDrawer({
           <Section title="Token 用量">
             <UserTokenUsagePanel userId={user.id} />
           </Section>
+
+          {/* 财务下钻:订单 / 经费流水(充值·消费) / 经费兑换 —— 与用户设置页对齐,懒加载 */}
+          <UserBillingSections userId={user.id} open={open} />
         </div>
 
         {/* 发放会员 / 调整经费 */}

@@ -76,6 +76,10 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.DELETE("/users/:id/vip", h.vip.AdminRevokeVIP)
 		// 管理员给用户加/扣经费
 		adminProtected.POST("/users/:id/wallet/adjust", h.vip.AdminAdjustWallet)
+		// 用户详情财务下钻:订单 / 交易流水(充值·消费) / 兑换记录(复用用户面查询,与设置页对齐)
+		adminProtected.GET("/users/:id/orders", h.vip.AdminListUserOrders)
+		adminProtected.GET("/users/:id/transactions", h.vip.AdminListUserTransactions)
+		adminProtected.GET("/users/:id/redemptions", h.vip.AdminListUserRedemptions)
 
 		// 计费体系配置(基准额度/倍率/价格/赠送/汇率/重置花费…)
 		adminProtected.GET("/billing/config", h.vip.AdminGetBillingConfig)

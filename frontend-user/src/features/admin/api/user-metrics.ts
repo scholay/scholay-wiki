@@ -28,6 +28,9 @@ export interface UserMetrics {
   sources: CategoryCount[];
   hourly_activity: HourlyPoint[];
   mau_trend: MetricsPoint[];
+  /** 每日活跃(去重)用户数,按天。口径=当天执行过被埋点功能动作的去重用户(engaged-DAU),
+   *  非纯登录 DAU(登录动作不发事件;last_active_at 单列无法重建历史每日序列)。 */
+  daily_active: MetricsPoint[];
 }
 
 export function useUserMetrics(days = 30, granularity: 'day' | 'week' | 'month' = 'day') {

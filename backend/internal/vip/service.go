@@ -48,6 +48,11 @@ func (s *Service) Config() *ConfigService { return s.cfg }
 func (s *Service) Wallet() *WalletService { return s.wallet }
 func (s *Service) Order() *OrderService   { return s.order }
 
+// ListUserRedemptions 透传 repo:列某用户兑换记录(admin 用户详情用)。
+func (s *Service) ListUserRedemptions(userID uint, limit, offset int) ([]UserRedemptionView, int64, error) {
+	return s.repo.ListUserRedemptions(userID, limit, offset)
+}
+
 // PaymentMethods 返回当前可用的支付渠道(按 admin 配置表里有无 is_active 配置决定)。
 // 充值前端据此决定显示哪些支付方式(再叠加 dev 的测试支付)。
 func (s *Service) PaymentMethods() (alipay bool, wechat bool) {
