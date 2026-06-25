@@ -65,6 +65,14 @@ type ToolSEOProvider interface {
 	ResolveToolBySlug(slug string) (*seo.ToolSSRMeta, error)
 }
 
+// NewsSEOProvider 由 news.Service 实现, 用于情报详情页 (/news/{slug}) + 列表页 (/news) SSR 注入。
+//   - ResolveNewsBySlug:详情页全文 + 元数据(功能未开启时返回 nil,SSR 走默认壳)
+//   - RecentNewsForSEO :列表页 noscript 链接列表(供爬虫从 /news 发现各详情页)
+type NewsSEOProvider interface {
+	ResolveNewsBySlug(slug string) (*seo.NewsSSRMeta, error)
+	RecentNewsForSEO(limit int) ([]*seo.NewsSSRMeta, error)
+}
+
 // Handler handles HTTP requests for configuration operations
 type Handler struct {
 	service *Service
@@ -87,6 +95,9 @@ type Handler struct {
 
 	// 功能广场工具详情页 SSR 元数据提供者 (/tools/{slug})
 	toolSEOProvider ToolSEOProvider
+
+	// 情报详情/列表页 SSR 元数据提供者 (/news/{slug} / /news)
+	newsSEOProvider NewsSEOProvider
 
 	// WeChat OAuth 启用探针 —— bootstrap 注入,handler_system.GetSystemConfig 用它
 	// 决定 public 响应里 `wechat_enabled` 的值。这里用 probe 是为了避免 config 包
@@ -140,6 +151,11 @@ func (h *Handler) SetJournalSEOProvider(p JournalSEOProvider) {
 // SetToolSEOProvider 设置功能广场工具 SSR 元数据提供者
 func (h *Handler) SetToolSEOProvider(p ToolSEOProvider) {
 	h.toolSEOProvider = p
+}
+
+// SetNewsSEOProvider 设置情报 SSR 元数据提供者
+func (h *Handler) SetNewsSEOProvider(p NewsSEOProvider) {
+	h.newsSEOProvider = p
 }
 
 // RegisterRoutes registers config routes

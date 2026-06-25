@@ -15,6 +15,8 @@
 
 package seo
 
+import "scholar-backend/internal/content"
+
 // ArticleEntry sitemap 条目（博客/资源通用）
 type ArticleEntry struct {
 	Slug    string // URL slug
@@ -53,14 +55,14 @@ type StaticPage struct {
 //   - 公开搜索入口 /search /journals/search 是公开页(空状态有引导文案 + 装饰),
 //     加入 sitemap 不构成 thin content;具体结果仍走 /paper/{slug}、
 //     /author/{slug} 动态 sitemap
+//   - 裸应用入口 /claw /prism /peer-review 已移出 sitemap(2026-06):它们的 SEO 落地
+//     语义由营销页 /features/{claw,prism,peer-review} 承担(canonical 集中,避免重复内容);
+//     /contact /feedback 是表单/反馈页,非 SEO 落地页,也一并移出,杜绝"进 sitemap 却空壳"的低质收录。
 var StaticPages = []StaticPage{
 	// ── 核心功能首页 ──────────────────────────────────
 	{"/", "daily", "1.0"},
 	{"/search", "weekly", "0.8"},          // 文献搜索入口
 	{"/journals/search", "weekly", "0.7"}, // 期刊搜索入口
-	{"/claw", "weekly", "0.8"},            // 智能助手(原 /chat /assistant)
-	{"/prism", "weekly", "0.8"},           // 智能写作(原 /latex-writer)
-	{"/peer-review", "weekly", "0.8"},     // 同行评审 / 智能审稿
 
 	// ── 营销 / 品牌页(7 个 feature 落地页 + 概览 + 价格) ─────
 	{"/features", "monthly", "0.7"},
@@ -72,18 +74,16 @@ var StaticPages = []StaticPage{
 	{"/features/peer-review", "monthly", "0.6"},
 	{"/pricing", "monthly", "0.7"},
 	{"/about", "monthly", "0.6"},
-	{"/contact", "monthly", "0.6"},
 
 	// ── 内容中心入口 ──────────────────────────────────
-	{"/resources", "weekly", "0.8"},
+	{"/resources", "weekly", "0.8"}, // 学术资源中心(博客+资源合并,/blog 进同一中心)
 	{"/blog", "weekly", "0.8"},
-	{"/help", "monthly", "0.7"},
+	{"/help", "weekly", "0.8"}, // 帮助中心 = 学术问答(QA 列表首页);/qa 裸列表 301→/help 故不再单列
 
-	// ── 合规 / 反馈 ───────────────────────────────────
+	// ── 合规页(信任信号,需可索引) ───────────────────
 	{"/privacy", "monthly", "0.5"},
 	{"/terms", "monthly", "0.5"},
 	{"/disclaimer", "monthly", "0.5"},
-	{"/feedback", "monthly", "0.5"},
 }
 
 // AllStaticPaths 返回 StaticPages 的纯路径列表(主动提交 bootstrap 用)
@@ -95,29 +95,42 @@ func AllStaticPaths() []string {
 	return out
 }
 
-// AllBlogPaths 返回 /blog + /blog/{slug} 全集
-func AllBlogPaths() []string {
-	out := make([]string, 0, len(BlogArticles)+1)
-	out = append(out, "/blog")
-	for _, e := range BlogArticles {
-		if e.Slug != "" {
-			out = append(out, "/blog/"+e.Slug)
+// articleSeedPaths 从 content 包(正文单一真源)生成某类的 /{index} + /{index}/{slug} 全集,
+// 供主动推送(IndexNow/百度)seed 用。content 包加文章即自动覆盖,不再依赖旧 registry。
+func articleSeedPaths(kind, indexPath string) []string {
+	arts := content.List(kind)
+	out := make([]string, 0, len(arts)+1)
+	out = append(out, indexPath)
+	for _, a := range arts {
+		if a.Slug != "" {
+			out = append(out, indexPath+"/"+a.Slug)
 		}
 	}
 	return out
 }
 
-// AllResourcePaths 返回 /resources + /resources/{slug} 全集
-func AllResourcePaths() []string {
-	out := make([]string, 0, len(ResourceArticles)+1)
-	out = append(out, "/resources")
-	for _, e := range ResourceArticles {
-		if e.Slug != "" {
-			out = append(out, "/resources/"+e.Slug)
+// AllBlogPaths 返回 /blog + /blog/{slug} 全集(content 单一真源)
+func AllBlogPaths() []string { return articleSeedPaths("blog", "/blog") }
+
+// AllResourcePaths 返回 /resources + /resources/{slug} 全集(content 单一真源)
+func AllResourcePaths() []string { return articleSeedPaths("resources", "/resources") }
+
+// AllQAPaths 返回 QA 的主动推送路径:列表首页 /help(帮助中心=学术问答)+ 详情 /qa/{slug}。
+// 详情 URL 保持 /qa/(canonical 不变);裸 /qa 列表已 301→/help,故列表入口用 /help。
+func AllQAPaths() []string {
+	arts := content.List("qa")
+	out := make([]string, 0, len(arts)+1)
+	out = append(out, "/help")
+	for _, a := range arts {
+		if a.Slug != "" {
+			out = append(out, "/qa/"+a.Slug)
 		}
 	}
 	return out
 }
+
+// 注:BlogArticles / ResourceArticles registries 与 MaxArticleLastMod 现已无人读
+// (sitemap 走 content.MaxLastMod、seed 走 content.List),保留为历史兜底,Go 允许未使用的包级声明。
 
 // MaxArticleLastMod 计算一组文章中最近的 lastmod (YYYY-MM-DD 字典序比较即可)
 // 空切片返回空串,调用方应回退到默认值。

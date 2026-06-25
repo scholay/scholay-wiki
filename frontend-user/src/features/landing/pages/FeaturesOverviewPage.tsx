@@ -31,7 +31,7 @@ const FEATURES: FeatureEntry[] = [
   {
     to: '/features/search',
     name: '文献搜索',
-    englishName: 'Scholar Search',
+    englishName: 'Paper Search',
     desc: '覆盖 2 亿+ 论文,关键词 + 语义双引擎,中英双语',
     icon: Search,
   },

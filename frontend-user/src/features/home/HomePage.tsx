@@ -15,6 +15,7 @@ import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useIsAuthenticated } from '@/stores/auth.store';
 import { usePendingAction } from '@/stores/pending-action.store';
 import { HomeSidebar } from './components/HomeSidebar';
+import { NewsSection } from './components/NewsSection';
 
 /**
  * 首页 — 对齐 .pen frame `lXZ2Y` [01-主页] 首页 + `n0GFZR` [Sidebar] 首页 · 全功能:
@@ -144,6 +145,9 @@ export function HomePage() {
             </Button>
           </div>
         </div>
+
+        {/* 首页底部「学术情报」区(无内容时自隐藏) */}
+        <NewsSection />
 
         <Footer />
       </div>

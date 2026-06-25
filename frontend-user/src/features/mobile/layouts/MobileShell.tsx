@@ -1,10 +1,4 @@
-import { useEffect } from 'react';
-import { useLocation, useNavigate, useOutlet } from 'react-router-dom';
-import { toast } from 'sonner';
-import {
-  consumeAutoRedirectedFlag,
-  setPrefersDesktop,
-} from '@/shared/lib/device';
+import { useLocation, useOutlet } from 'react-router-dom';
 import { AnimatePresence, LazyMotion, domMax, MotionConfig, m } from 'framer-motion';
 import { useMobileSearchOverlay } from '@/stores/mobile-search.store';
 import { useShareSheet } from '@/stores/share.store';
@@ -24,7 +18,6 @@ import { MobileSearchOverlay } from '../components/MobileSearchOverlay';
  * 桌面浏览器访问时用 max-w-md 居中,模拟手机宽度方便调试。
  */
 export function MobileShell() {
-  const navigate = useNavigate();
   const location = useLocation();
 
   // 登录后重放"未登录时点的收藏"等动作 —— 桌面挂在 AppShell,移动壳对等挂一份
@@ -33,22 +26,9 @@ export function MobileShell() {
   // 鉴权:/m/* 下任何代码触发 openDialog(分享面板「登录后生成」、收藏、401 失效…)→
   // 由下方 <MobileAuthSheet> 从底部滑出弹窗就地登录,**不再跳 /m/auth 整页**,原面板上下文保留;
   // 登录成功后 useReplayPendingAction 继续后续动作。无需在此桥接。
-
-  // 被首页自动分流进来的访问 → 弹一次性「使用电脑版」逃生口
-  // (点了就持久记住偏好,之后访问 / 不再自动跳;手动访问 /m 永远可用)
-  useEffect(() => {
-    if (!consumeAutoRedirectedFlag()) return;
-    toast('已为你切换到移动版', {
-      duration: 5000,
-      action: {
-        label: '使用电脑版',
-        onClick: () => {
-          setPrefersDesktop(true);
-          void navigate('/');
-        },
-      },
-    });
-  }, [navigate]);
+  //
+  // PC↔移动切换完全由 UA 决定(router 的 / 与 /m 两个 loader 双向自动分流),
+  // App 内不提供任何手动切换入口,故此处不再有「使用电脑版」toast。
 
   // 悬浮搜索:由 Feed 顶栏搜索 icon 触发,覆盖在 feed 之上(feed 不卸载、位置保留)。
   // 只在 feed 路由渲染:既保证「点结果进详情→返回」时浮层带 store 状态自动复原(含滚动条位置),

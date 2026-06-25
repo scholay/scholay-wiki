@@ -8,7 +8,7 @@ import { useMobileSearchOverlay } from '@/stores/mobile-search.store';
 const TABS = [
   { key: 'papers', label: '论文', to: '/m/feed' },
   { key: 'journals', label: '期刊', to: '/m/feed/journals' },
-  { key: 'intel', label: '情报', to: null },
+  { key: 'intel', label: '情报', to: '/m/feed/news' },
 ] as const;
 
 export type FeedTabKey = (typeof TABS)[number]['key'];

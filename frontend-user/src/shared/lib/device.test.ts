@@ -1,12 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  consumeAutoRedirectedFlag,
+  desktopEquivalentPath,
   isPhoneDevice,
-  markAutoRedirected,
   mobileEquivalentPath,
-  prefersDesktop,
-  setPrefersDesktop,
-  shouldAutoRedirectToMobile,
 } from './device';
 
 function stubUA(userAgent: string, uaDataMobile?: boolean) {
@@ -17,26 +13,6 @@ function stubUA(userAgent: string, uaDataMobile?: boolean) {
       : { userAgentData: { mobile: uaDataMobile } }),
   });
 }
-
-// node 环境无 Web Storage(jsdom 在本项目里也只给空壳对象),自带 Map 实现最省事
-function makeStorage(): Storage {
-  const m = new Map<string, string>();
-  return {
-    getItem: (k: string) => m.get(k) ?? null,
-    setItem: (k: string, v: string) => void m.set(k, String(v)),
-    removeItem: (k: string) => void m.delete(k),
-    clear: () => m.clear(),
-    key: (i: number) => [...m.keys()][i] ?? null,
-    get length() {
-      return m.size;
-    },
-  } as Storage;
-}
-
-beforeEach(() => {
-  vi.stubGlobal('localStorage', makeStorage());
-  vi.stubGlobal('sessionStorage', makeStorage());
-});
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -83,10 +59,18 @@ describe('isPhoneDevice — pad 一律按 PC(已拍板)', () => {
   });
 });
 
-describe('isPhoneDevice — 桌面与爬虫排除', () => {
+describe('isPhoneDevice — 桌面、爬虫、请求桌面版排除', () => {
   it('Windows 桌面 Chrome → PC', () => {
     stubUA(
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      false
+    );
+    expect(isPhoneDevice()).toBe(false);
+  });
+
+  it('Android 手机开「请求桌面版」(UA 去掉 Mobile + uaData.mobile=false)→ PC', () => {
+    stubUA(
+      'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
       false
     );
     expect(isPhoneDevice()).toBe(false);
@@ -107,28 +91,8 @@ describe('isPhoneDevice — 桌面与爬虫排除', () => {
   });
 });
 
-describe('prefersDesktop / 自动分流裁决', () => {
-  it('手机 + 未选电脑版 → 分流;选过电脑版 → 不再分流', () => {
-    stubUA(
-      'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1'
-    );
-    expect(shouldAutoRedirectToMobile()).toBe(true);
-    setPrefersDesktop(true);
-    expect(prefersDesktop()).toBe(true);
-    expect(shouldAutoRedirectToMobile()).toBe(false);
-    setPrefersDesktop(false);
-    expect(shouldAutoRedirectToMobile()).toBe(true);
-  });
-
-  it('重定向打标读后即清(toast 只弹一次)', () => {
-    markAutoRedirected();
-    expect(consumeAutoRedirectedFlag()).toBe(true);
-    expect(consumeAutoRedirectedFlag()).toBe(false);
-  });
-});
-
-describe('mobileEquivalentPath — 桌面路由→移动对等页映射', () => {
-  it('有对等页的路由按表映射', () => {
+describe('mobileEquivalentPath — PC 路由 → 移动对等页(正向)', () => {
+  it('有 /m 对等页的路由按表映射', () => {
     expect(mobileEquivalentPath('/')).toBe('/m/feed');
     expect(mobileEquivalentPath('/journals/search')).toBe('/m/feed/journals');
     expect(mobileEquivalentPath('/claw')).toBe('/m/claw');
@@ -139,17 +103,53 @@ describe('mobileEquivalentPath — 桌面路由→移动对等页映射', () => 
     expect(mobileEquivalentPath('/settings/connections')).toBe('/m/me/connections');
   });
 
-  it('tools 前缀映射保留子路径(详情深链不丢)', () => {
+  it('tools / library 前缀映射保留子路径(详情 / 文件夹深链不丢)', () => {
     expect(mobileEquivalentPath('/tools')).toBe('/m/tools');
     expect(mobileEquivalentPath('/tools/ipa')).toBe('/m/tools/ipa');
+    expect(mobileEquivalentPath('/library')).toBe('/m/library');
+    expect(mobileEquivalentPath('/library/42')).toBe('/m/library/42');
   });
 
-  it('没有移动对等页的深链返回 null(留在桌面版)', () => {
+  it('暂无移动版的纯 PC 页 → 先统一送 /m/feed(子路径折叠)', () => {
+    expect(mobileEquivalentPath('/search')).toBe('/m/feed');
+    expect(mobileEquivalentPath('/prism')).toBe('/m/feed');
+    expect(mobileEquivalentPath('/prism/abc123')).toBe('/m/feed');
+    expect(mobileEquivalentPath('/peer-review')).toBe('/m/feed');
+    expect(mobileEquivalentPath('/peer-review/records/7')).toBe('/m/feed');
+  });
+
+  it('同 URL 响应式页(详情 / landing / help / 分享)无对等 → null = 留在原地', () => {
     expect(mobileEquivalentPath('/paper/olx/W123')).toBeNull();
-    expect(mobileEquivalentPath('/library')).toBeNull();
-    expect(mobileEquivalentPath('/prism')).toBeNull();
-    expect(mobileEquivalentPath('/search')).toBeNull();
+    expect(mobileEquivalentPath('/journal/123')).toBeNull();
+    expect(mobileEquivalentPath('/author/olx/A1')).toBeNull();
+    expect(mobileEquivalentPath('/pdf/9')).toBeNull();
+    expect(mobileEquivalentPath('/pricing')).toBeNull();
+    expect(mobileEquivalentPath('/blog/some-post')).toBeNull();
+    expect(mobileEquivalentPath('/s/abc123')).toBeNull();
     // 前缀不误伤同名前缀路径
     expect(mobileEquivalentPath('/toolsxyz')).toBeNull();
+  });
+});
+
+describe('desktopEquivalentPath — 移动路由 → PC 对等页(反向)', () => {
+  it('有 PC 对等的按表映射', () => {
+    expect(desktopEquivalentPath('/m/feed')).toBe('/');
+    expect(desktopEquivalentPath('/m/feed/journals')).toBe('/journals/search');
+    expect(desktopEquivalentPath('/m/claw')).toBe('/claw');
+    expect(desktopEquivalentPath('/m/tools')).toBe('/tools');
+    expect(desktopEquivalentPath('/m/tools/ipa')).toBe('/tools/ipa');
+    expect(desktopEquivalentPath('/m/library')).toBe('/library');
+    expect(desktopEquivalentPath('/m/me')).toBe('/settings');
+    expect(desktopEquivalentPath('/m/me/profile')).toBe('/settings/profile');
+    expect(desktopEquivalentPath('/m/me/billing')).toBe('/settings/membership');
+  });
+
+  it('文献集文件夹深链:/m/library/:id → /library?folder=:id(桌面文件夹是 query)', () => {
+    expect(desktopEquivalentPath('/m/library/42')).toBe('/library?folder=42');
+  });
+
+  it('无对等的移动路径一律回 /(不留在移动壳)', () => {
+    expect(desktopEquivalentPath('/m/auth')).toBe('/');
+    expect(desktopEquivalentPath('/m/unknown/page')).toBe('/');
   });
 });

@@ -51,10 +51,11 @@ export function JournalFeedPage() {
     void fetchNextPage();
   }, [fetchNextPage]);
 
-  // 横滑切 tab:期刊 →(右滑)论文。被动检测,不干扰纵向 embla。
+  // 横滑切 tab:期刊 →(右滑)论文 /(左滑)情报。被动检测,不干扰纵向 embla。
   const navigate = useNavigate();
   const swipe = useHorizontalSwipe({
     onSwipeRight: () => navigate('/m/feed', { replace: true }),
+    onSwipeLeft: () => navigate('/m/feed/news', { replace: true }),
   });
 
   // 下拉刷新:回收旧 seed 查询 → 换 seed(换排序维度/起始页)→ 刷出一批不同期刊

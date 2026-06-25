@@ -47,6 +47,7 @@ const KNOWN_FIRST_SEGMENTS: ReadonlySet<string> = new Set([
   'feedback',
   'disclaimer',
   'resources',
+  'news',
   // ─── 账户 / 设置 / 通知 ───
   'settings',
   'profile',

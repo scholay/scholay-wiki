@@ -19,6 +19,7 @@ import (
 
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/model"
+	"scholar-backend/internal/content"
 	"scholar-backend/internal/seo"
 
 	"github.com/gin-gonic/gin"
@@ -137,6 +138,27 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 	// Inject route-specific noscript content for SEO (Google AdSense compliance)
 	modifiedHTML = injectRouteNoscript(modifiedHTML, requestPath)
 
+	// 静态/入口页专属 title/description/自指 canonical —— SPA 壳对所有路由回落同一份
+	// 首页 index.html,不注入则新纳入索引的 search/journals/privacy/terms/disclaimer
+	// 全是首页通用标题。实体页(paper/author/...)不在 map 内,此调用对其为 no-op。
+	modifiedHTML = injectStaticPageSEOMeta(modifiedHTML, requestPath)
+
+	// 博客 / 资源文章:完整正文已由上面的 injectRouteNoscript 写进 noscript(content 包单一真源),
+	// 这里补专属 title/description/自指 canonical + BlogPosting/Article JSON-LD + OG。
+	if strings.HasPrefix(requestPath, "/blog/") {
+		if slug := strings.TrimPrefix(requestPath, "/blog/"); slug != "" && !strings.Contains(slug, "/") {
+			modifiedHTML = injectArticleSEOMeta(modifiedHTML, "blog", slug, requestPath)
+		}
+	} else if strings.HasPrefix(requestPath, "/resources/") {
+		if slug := strings.TrimPrefix(requestPath, "/resources/"); slug != "" && !strings.Contains(slug, "/") {
+			modifiedHTML = injectArticleSEOMeta(modifiedHTML, "resources", slug, requestPath)
+		}
+	} else if strings.HasPrefix(requestPath, "/qa/") {
+		if slug := strings.TrimPrefix(requestPath, "/qa/"); slug != "" && !strings.Contains(slug, "/") {
+			modifiedHTML = injectArticleSEOMeta(modifiedHTML, "qa", slug, requestPath)
+		}
+	}
+
 	// 论文详情页 SEO 元数据注入 —— 同时支持新 canonical 和 legacy 两种路径形式:
 	//   新 canonical /paper/{source}/{paperId}   → ResolveByPaperID
 	//   legacy      /paper/{slug}                → ResolveSlug
@@ -208,6 +230,11 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 		}
 	}
 
+	// 情报 SEO 注入:/news 列表(noscript 链接列表)+ /news/{slug} 详情(全文 noscript + NewsArticle JSON-LD)。
+	if h.newsSEOProvider != nil && (requestPath == "/news" || strings.HasPrefix(requestPath, "/news/")) {
+		modifiedHTML = h.injectNewsSSR(modifiedHTML, requestPath)
+	}
+
 	// Return the modified HTML
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	c.Header("Cache-Control", "no-cache, must-revalidate")
@@ -263,6 +290,10 @@ func (h *Handler) canonicalRedirectFor(requestPath string) string {
 				}
 			}
 		}
+	}
+	// /qa 裸列表页 → /help(帮助中心 = 学术问答;详情 /qa/{slug} 不受影响,保持 canonical)
+	if requestPath == "/qa" {
+		return "/help"
 	}
 	return ""
 }
@@ -337,6 +368,18 @@ func buildPaperJSONLD(meta *seo.PaperSSRMeta, canonical string) string {
 	if meta.DOI != "" {
 		obj["identifier"] = map[string]any{"@type": "PropertyValue", "propertyID": "DOI", "value": meta.DOI}
 		obj["sameAs"] = "https://doi.org/" + meta.DOI
+	}
+	// GEO: 学科领域作为 about(主题实体),帮 AI 引擎把论文关联到正确学科。
+	if len(meta.FieldsOfStudy) > 0 {
+		about := make([]map[string]string, 0, len(meta.FieldsOfStudy))
+		for _, f := range meta.FieldsOfStudy {
+			if f != "" {
+				about = append(about, map[string]string{"@type": "Thing", "name": f})
+			}
+		}
+		if len(about) > 0 {
+			obj["about"] = about
+		}
 	}
 	return jsonLDScript(obj)
 }
@@ -486,6 +529,9 @@ func injectPaperSEOMeta(html string, meta *seo.PaperSSRMeta, path string) string
 		if meta.Year != nil && *meta.Year > 0 {
 			parts = append(parts, fmt.Sprintf("%d", *meta.Year))
 		}
+		if meta.CitationCount > 0 {
+			parts = append(parts, fmt.Sprintf("被引 %d 次", meta.CitationCount))
+		}
 		if meta.DOI != "" {
 			parts = append(parts, "DOI: "+meta.DOI)
 		}
@@ -582,6 +628,12 @@ func buildPaperKeywords(meta *seo.PaperSSRMeta) string {
 			parts = append(parts, name)
 		}
 	}
+	// 学科领域作为长尾关键词 + 实体信号
+	for _, f := range meta.FieldsOfStudy {
+		if f != "" {
+			parts = append(parts, f)
+		}
+	}
 	return strings.Join(parts, ",")
 }
 
@@ -617,6 +669,13 @@ func buildPaperNoscriptCard(meta *seo.PaperSSRMeta) string {
 	}
 	if meta.DOI != "" {
 		metaLines = append(metaLines, "DOI："+htmlEscape(meta.DOI))
+	}
+	// GEO 证据信号:被引数(可量化权威度) + 研究领域(实体关联)。AI 引擎偏好可引用的统计数字。
+	if meta.CitationCount > 0 {
+		metaLines = append(metaLines, fmt.Sprintf("被引用次数：%d", meta.CitationCount))
+	}
+	if len(meta.FieldsOfStudy) > 0 {
+		metaLines = append(metaLines, "研究领域："+htmlEscape(strings.Join(meta.FieldsOfStudy, "、")))
 	}
 
 	var metaHTML string
@@ -1145,7 +1204,7 @@ func (h *Handler) getPageHTML(requestPath string) (string, error) {
 // normalizeSSRCacheKey 把实体详情路径归并到类目前缀(/paper/* → "/paper/" 等),
 // 让所有同类实体共用一份壳缓存,深度爬时命中率≈100%。其余路径按自身 key。
 func normalizeSSRCacheKey(path string) string {
-	for _, prefix := range []string{"/paper/", "/author/", "/journal/", "/tools/"} {
+	for _, prefix := range []string{"/paper/", "/author/", "/journal/", "/tools/", "/news/"} {
 		if strings.HasPrefix(path, prefix) {
 			return prefix
 		}
@@ -1221,6 +1280,274 @@ func injectRouteNoscript(html string, path string) string {
 	return insertNoscriptBlock(html, getRouteNoscriptContent(path))
 }
 
+// staticPageSEO 给已纳入 SSR 白名单的静态/入口页的专属 title + meta description。
+// 前端 SPA 对所有路由回落同一份 index.html(首页通用 title),不注入则这些页全用首页标题,
+// 削弱 SERP 主题相关性。仅覆盖 map 内路径,实体页等不在内即 no-op。
+var staticPageSEO = map[string]struct{ title, desc string }{
+	"/search": {
+		"学术文献搜索 — 2 亿+ 论文检索 | Scholay 学术",
+		"Scholay 学术搜索覆盖 2 亿+ 学术论文,支持直接检索与 AI 智能检索、布尔运算符与精确短语,结果可按相关度、被引次数与发表时间排序。",
+	},
+	"/journals/search": {
+		"期刊检索 — 影响因子 / 分区 / 收录查询 | Scholay 学术",
+		"按刊名、ISSN、学科与影响因子分区查找学术期刊,查看 JCR 影响因子、CiteScore、中科院分区与开放获取(OA)信息,辅助选刊投稿。",
+	},
+	"/privacy": {
+		"隐私政策 | Scholay 学术",
+		"Scholay(成都恩特罐罐文化科技有限公司)隐私政策:个人信息的收集、使用、存储、保护,以及用户的数据访问、更正与删除权利。",
+	},
+	"/terms": {
+		"服务条款 | Scholay 学术",
+		"Scholay 学术平台服务条款:用户使用检索、AI 分析、智能写作与审稿服务的权利义务、账号订阅规则与知识产权规范。",
+	},
+	"/disclaimer": {
+		"免责声明 | Scholay 学术",
+		"Scholay 免责声明:检索结果与 AI 生成的论文分析、审稿与写作建议仅供学术参考,论文版权归原作者及出版方所有。",
+	},
+	"/help": {
+		"帮助中心 · 学术问答 — 科研常见问题深度解答 | Scholay 学术",
+		"Scholay 帮助中心即学术问答:开题、研究方法、数据集、AI 辅助写作、模拟审稿、论文查重、AI 写作幻觉、文献核对等科研真实问题的深度长答案。",
+	},
+	"/qa": {
+		"学术问答 — 科研常见问题深度解答 | Scholay 学术",
+		"Scholay 学术问答:开题、研究方法、数据集、AI 辅助写作、模拟审稿、论文查重、AI 写作幻觉、文献核对等科研真实问题的深度长答案。",
+	},
+}
+
+// injectArticleSEOMeta 为博客/资源文章页注入专属 title/description/自指 canonical
+// + BlogPosting/Article JSON-LD + OG。正文 noscript 已在别处注入,这里只补 head 元数据。
+func injectArticleSEOMeta(html, kind, slug, path string) string {
+	a, ok := content.Get(kind, slug)
+	if !ok {
+		return html
+	}
+	label := "博客"
+	switch kind {
+	case "resources":
+		label = "学术资源"
+	case "qa":
+		label = "学术问答"
+	}
+	seoTitle := fmt.Sprintf("%s | Scholay %s", truncate(a.Title, 100), label)
+	desc := truncate(a.Excerpt, 300)
+
+	if ssrTitleRe.MatchString(html) {
+		html = ssrTitleRe.ReplaceAllString(html, "<title>"+htmlEscape(seoTitle)+"</title>")
+	}
+	if ssrDescRe.MatchString(html) {
+		html = ssrDescRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="description" content="%s">`, htmlEscape(desc)))
+	}
+	canonical := appconfig.CanonicalBaseURL() + path
+	canonTag := fmt.Sprintf(`<link rel="canonical" href="%s">`, htmlEscape(canonical))
+	if ssrCanonRe.MatchString(html) {
+		html = ssrCanonRe.ReplaceAllString(html, canonTag)
+	} else {
+		html = strings.Replace(html, "</head>", canonTag+"\n</head>", 1)
+	}
+	if jsonLD := a.BuildJSONLD(canonical, appconfig.CanonicalBaseURL()); jsonLD != "" {
+		html = strings.Replace(html, "</head>", jsonLD+"\n</head>", 1)
+	}
+	// 含 FAQ 的文章额外注入 FAQPage JSON-LD(AI/富结果最易抽取)
+	if faqLD := a.BuildFAQJSONLD(); faqLD != "" {
+		html = strings.Replace(html, "</head>", faqLD+"\n</head>", 1)
+	}
+	html = injectOG(html, seoTitle, canonical, desc)
+	return html
+}
+
+// injectNewsSSR 情报 SSR 注入(方法,持有 newsSEOProvider):
+//   - /news        列表页:专属 title/desc/canonical + noscript 链接列表(爬虫发现各详情)
+//   - /news/{slug} 详情页:title/desc/自指 canonical + NewsArticle JSON-LD + OG + 全文 noscript
+// 功能未开启 / 不存在时 provider 返回 nil → 回落默认壳(不注入)。
+func (h *Handler) injectNewsSSR(html, path string) string {
+	base := appconfig.CanonicalBaseURL()
+
+	// 列表页
+	if path == "/news" {
+		seoTitle := "学术情报 - 顶刊速递 · 重大事件 · 国内政策 | Scholay 学术"
+		desc := "Scholay 学术情报:实时汇集顶级期刊论文速递、学术界重大事件、国内科研政策等学术新闻,按热度与时间持续更新。"
+		canonical := base + "/news"
+		html = replaceSSRTitleDescCanon(html, seoTitle, desc, canonical)
+		if metas, err := h.newsSEOProvider.RecentNewsForSEO(50); err == nil && len(metas) > 0 {
+			html = insertNoscriptBlock(html, buildNewsListNoscript(metas))
+		}
+		html = injectOG(html, seoTitle, canonical, desc)
+		return html
+	}
+
+	// 详情页:单段 slug
+	slug := strings.TrimPrefix(path, "/news/")
+	if slug == "" || strings.Contains(slug, "/") {
+		return html
+	}
+	meta, err := h.newsSEOProvider.ResolveNewsBySlug(slug)
+	if err != nil || meta == nil || meta.Title == "" {
+		return html
+	}
+	seoTitle := truncate(meta.Title, 100) + " | Scholay 学术情报"
+	desc := truncate(meta.Summary, 300)
+	canonical := base + path
+	html = replaceSSRTitleDescCanon(html, seoTitle, desc, canonical)
+	if jsonLD := buildNewsJSONLD(meta, canonical); jsonLD != "" {
+		html = strings.Replace(html, "</head>", jsonLD+"\n</head>", 1)
+	}
+	html = injectOG(html, seoTitle, canonical, desc)
+	html = insertNoscriptBlock(html, buildNewsNoscript(meta))
+	return html
+}
+
+// replaceSSRTitleDescCanon 统一替换 <title>/<meta description>/<link canonical>(缺失则按既有约定处理)。
+func replaceSSRTitleDescCanon(html, title, desc, canonical string) string {
+	if ssrTitleRe.MatchString(html) {
+		html = ssrTitleRe.ReplaceAllString(html, "<title>"+htmlEscape(title)+"</title>")
+	}
+	if ssrDescRe.MatchString(html) {
+		html = ssrDescRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="description" content="%s">`, htmlEscape(desc)))
+	}
+	canonTag := fmt.Sprintf(`<link rel="canonical" href="%s">`, htmlEscape(canonical))
+	if ssrCanonRe.MatchString(html) {
+		html = ssrCanonRe.ReplaceAllString(html, canonTag)
+	} else {
+		html = strings.Replace(html, "</head>", canonTag+"\n</head>", 1)
+	}
+	return html
+}
+
+// buildNewsJSONLD —— NewsArticle(标题/导语/发布与更新时间/版块/封面/来源引用)。
+func buildNewsJSONLD(meta *seo.NewsSSRMeta, canonical string) string {
+	if meta.Title == "" {
+		return ""
+	}
+	base := appconfig.CanonicalBaseURL()
+	publisher := map[string]any{"@type": "Organization", "name": "Scholay学术", "url": base}
+	obj := map[string]any{
+		"@context":         "https://schema.org",
+		"@type":            "NewsArticle",
+		"headline":         truncate(meta.Title, 110),
+		"name":             meta.Title,
+		"url":              canonical,
+		"mainEntityOfPage": canonical,
+		"inLanguage":       "zh-CN",
+		"publisher":        publisher,
+		"author":           publisher,
+	}
+	if meta.Summary != "" {
+		obj["description"] = truncate(meta.Summary, 300)
+	}
+	if meta.PublishedAt != "" {
+		obj["datePublished"] = meta.PublishedAt
+	}
+	if meta.UpdatedAt != "" {
+		obj["dateModified"] = meta.UpdatedAt
+	}
+	if meta.SectionLabel != "" {
+		obj["articleSection"] = meta.SectionLabel
+	}
+	if meta.CoverImage != "" {
+		obj["image"] = meta.CoverImage
+	}
+	// GEO 强信号:来源作为 citation(可信 attribution)。
+	if len(meta.Sources) > 0 {
+		cites := make([]map[string]string, 0, len(meta.Sources))
+		for _, s := range meta.Sources {
+			if s.URL != "" {
+				cites = append(cites, map[string]string{"@type": "CreativeWork", "url": s.URL, "name": s.Label})
+			}
+		}
+		if len(cites) > 0 {
+			obj["citation"] = cites
+		}
+	}
+	return jsonLDScript(obj)
+}
+
+// buildNewsNoscript 渲染情报详情全文进 noscript(answer-first:标题→时间→导语→正文→来源→可信度)。
+// meta.BodyHTML 已 sanitize(news.sanitizeBodyHTML)。
+func buildNewsNoscript(meta *seo.NewsSSRMeta) string {
+	baseStyle := `style="max-width:1000px;margin:20px auto;padding:20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e0e0e0;"`
+	var b strings.Builder
+	b.WriteString(`<section ` + baseStyle + `>`)
+	b.WriteString(`<h1>` + htmlEscape(meta.Title) + `</h1>`)
+	var metaParts []string
+	if meta.SectionLabel != "" {
+		metaParts = append(metaParts, htmlEscape(meta.SectionLabel))
+	}
+	if meta.PublishedAt != "" {
+		metaParts = append(metaParts, "发布 "+htmlEscape(meta.PublishedAt))
+	}
+	if meta.UpdatedAt != "" && meta.UpdatedAt != meta.PublishedAt {
+		metaParts = append(metaParts, "更新 "+htmlEscape(meta.UpdatedAt))
+	}
+	if len(metaParts) > 0 {
+		b.WriteString(`<p>` + strings.Join(metaParts, " · ") + `</p>`)
+	}
+	if meta.Summary != "" {
+		b.WriteString(`<p><strong>` + htmlEscape(meta.Summary) + `</strong></p>`)
+	}
+	if meta.BodyHTML != "" {
+		b.WriteString(meta.BodyHTML) // 已 sanitize
+	}
+	if len(meta.Sources) > 0 {
+		b.WriteString(`<h2>信息来源</h2><ul>`)
+		for _, s := range meta.Sources {
+			if s.URL == "" {
+				continue
+			}
+			label := s.Label
+			if label == "" {
+				label = s.URL
+			}
+			b.WriteString(`<li><a href="` + htmlEscape(s.URL) + `" rel="nofollow noopener">` + htmlEscape(label) + `</a></li>`)
+		}
+		b.WriteString(`</ul>`)
+	}
+	if meta.CredibilityNote != "" {
+		b.WriteString(`<h2>可信度说明</h2><p>` + htmlEscape(meta.CredibilityNote) + `</p>`)
+	}
+	b.WriteString(`</section>`)
+	return b.String()
+}
+
+// buildNewsListNoscript 渲染情报列表页的链接列表(让爬虫从 /news 发现各详情页)。
+func buildNewsListNoscript(metas []*seo.NewsSSRMeta) string {
+	baseStyle := `style="max-width:1000px;margin:20px auto;padding:20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e0e0e0;"`
+	var b strings.Builder
+	b.WriteString(`<section ` + baseStyle + `>`)
+	b.WriteString(`<h1>学术情报</h1>`)
+	b.WriteString(`<p>顶刊速递 · 重大事件 · 国内政策 —— 实时汇集学术界动态。</p><ul>`)
+	for _, m := range metas {
+		if m == nil || m.Slug == "" {
+			continue
+		}
+		b.WriteString(`<li><a href="/news/` + htmlEscape(m.Slug) + `">` + htmlEscape(m.Title) + `</a></li>`)
+	}
+	b.WriteString(`</ul></section>`)
+	return b.String()
+}
+
+// injectStaticPageSEOMeta 为静态/入口页注入专属 title/description/自指 canonical。
+func injectStaticPageSEOMeta(html string, path string) string {
+	meta, ok := staticPageSEO[path]
+	if !ok {
+		return html
+	}
+	if ssrTitleRe.MatchString(html) {
+		html = ssrTitleRe.ReplaceAllString(html, "<title>"+htmlEscape(meta.title)+"</title>")
+	}
+	if ssrDescRe.MatchString(html) {
+		html = ssrDescRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="description" content="%s">`, htmlEscape(meta.desc)))
+	}
+	// 自指 canonical(否则吃首页 canonical,被判重复页)
+	canonical := appconfig.CanonicalBaseURL() + path
+	canonTag := fmt.Sprintf(`<link rel="canonical" href="%s">`, htmlEscape(canonical))
+	if ssrCanonRe.MatchString(html) {
+		html = ssrCanonRe.ReplaceAllString(html, canonTag)
+	} else {
+		html = strings.Replace(html, "</head>", canonTag+"\n</head>", 1)
+	}
+	return html
+}
+
 // getRouteNoscriptContent returns route-specific HTML for noscript injection
 func getRouteNoscriptContent(path string) string {
 	baseStyle := `style="max-width: 1000px; margin: 20px auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #e0e0e0;"`
@@ -1232,48 +1559,39 @@ func getRouteNoscriptContent(path string) string {
 		return fmt.Sprintf(`<section %s>
 <h2 %s>学术资源中心</h2>
 <p %s>Scholay 学术资源中心提供原创学术指南，涵盖文献检索技巧、论文写作方法、引用格式规范、研究方法论和 AI 学术工具使用教程，助力科研工作者提升效率。</p>
-<ul style="color: #bdbdbd; line-height: 2; padding-left: 24px;">
-<li><a href="/resources/how-to-search" style="color: #64b5f6;">如何高效检索学术文献：从入门到精通</a> - 掌握布尔运算符、关键词策略和数据库筛选技巧</li>
-<li><a href="/resources/literature-review-guide" style="color: #64b5f6;">文献综述撰写全攻略</a> - 结构、方法与常见误区</li>
-<li><a href="/resources/paper-writing-tips" style="color: #64b5f6;">学术论文写作技巧</a> - 从标题构思到结论撰写的实用指南</li>
-<li><a href="/resources/citation-guide" style="color: #64b5f6;">学术引用格式完全指南</a> - APA、MLA、Chicago 与 IEEE 格式对比</li>
-<li><a href="/resources/research-methodology" style="color: #64b5f6;">研究方法论入门</a> - 定量、定性与混合方法的选择</li>
-<li><a href="/resources/ai-in-research" style="color: #64b5f6;">AI 在学术研究中的应用</a> - 机遇、实践与伦理思考</li>
-<li><a href="/resources/peer-review-guide" style="color: #64b5f6;">同行评审完全指南</a> - 如何写出高质量的审稿意见</li>
-<li><a href="/resources/latex-tutorial" style="color: #64b5f6;">LaTeX 入门教程</a> - 学术排版的必备技能</li>
-</ul>
-</section>`, baseStyle, headingStyle, textStyle)
+%s
+</section>`, baseStyle, headingStyle, textStyle, articleListNoscript("resources", "/resources/"))
 
 	case strings.HasPrefix(path, "/resources/"):
 		slug := strings.TrimPrefix(path, "/resources/")
+		// content 包是正文单一真源:渲染完整正文给爬虫(GEO)。缺失才回退旧 teaser。
+		if a, ok := content.Get("resources", slug); ok {
+			return content.RenderNoscriptHTML(a, baseStyle, headingStyle, textStyle)
+		}
 		return getArticleNoscript(slug, baseStyle, headingStyle, textStyle)
 
 	case strings.HasPrefix(path, "/blog/"):
 		slug := strings.TrimPrefix(path, "/blog/")
+		if a, ok := content.Get("blog", slug); ok {
+			return content.RenderNoscriptHTML(a, baseStyle, headingStyle, textStyle)
+		}
 		return renderArticleNoscript(blogArticleMeta, slug, "/blog", "返回博客", baseStyle, headingStyle, textStyle)
 
+	case strings.HasPrefix(path, "/qa/"):
+		slug := strings.TrimPrefix(path, "/qa/")
+		if a, ok := content.Get("qa", slug); ok {
+			return content.RenderNoscriptHTML(a, baseStyle, headingStyle, textStyle)
+		}
+		return ""
+
 	case path == "/help":
+		// 帮助中心 = 学术问答(QA 列表)。爬虫读到的就是 QA 全文索引,
+		// 详情链接指向 canonical /qa/{slug}(详情 URL 不变,SEO 不动)。
 		return fmt.Sprintf(`<section %s>
-<h2 %s>帮助中心</h2>
-<p %s>了解 Scholay 的核心功能和使用方法。Scholay 是一个 AI 驱动的学术搜索平台，整合了 Semantic Scholar 超过 2 亿篇学术论文资源。</p>
-<h3 style="color: #ffffff;">核心功能</h3>
-<ul style="color: #bdbdbd; line-height: 2; padding-left: 24px;">
-<li><strong>学术文献检索</strong> - 直接检索和智能检索两种模式，支持布尔运算符和自然语言查询</li>
-<li><strong>AI 论文分析</strong> - 利用大语言模型提供论文的深度分析报告，包含核心贡献、方法论和创新点</li>
-<li><strong>AI 学术聊天</strong> - 与 AI 助手进行学术对话，获取研究灵感和论文写作辅助</li>
-<li><strong>AI 智能审稿</strong> - 上传论文获取 AI 生成的专业审稿意见和改进建议</li>
-<li><strong>ScholayPrism LaTeX 编辑器</strong> - 在线 LaTeX 学术写作工作空间，集成 AI 辅助写作</li>
-</ul>
-<h3 style="color: #ffffff;">常见问题</h3>
-<dl style="color: #bdbdbd; line-height: 1.8;">
-<dt style="color: #ffffff; font-weight: bold; margin-top: 12px;">Scholay 是免费的吗？</dt>
-<dd>Scholay 提供免费基础版，包含学术检索和有限次数的 AI 分析功能。高级功能需要订阅付费方案。</dd>
-<dt style="color: #ffffff; font-weight: bold; margin-top: 12px;">如何注册和登录？</dt>
-<dd>支持邮箱注册、GitHub 账号登录和微信登录三种方式。</dd>
-<dt style="color: #ffffff; font-weight: bold; margin-top: 12px;">AI 分析结果准确吗？</dt>
-<dd>AI 分析基于先进的大语言模型，能较好地理解学术论文，但仅供参考，建议结合原文进行人工验证。</dd>
-</dl>
-</section>`, baseStyle, headingStyle, textStyle)
+<h2 %s>帮助中心 · 学术问答 — 科研常见问题深度解答</h2>
+<p %s>Scholay 帮助中心即学术问答,收录科研全流程的真实问题与深度解答,涵盖学术开题、研究方法、数据集、AI 辅助写作、模拟审稿、论文查重、AI 写作幻觉与文献核对等主题,每个问题都给出一篇完整回答。</p>
+%s
+</section>`, baseStyle, headingStyle, textStyle, articleListNoscript("qa", "/qa/"))
 
 	case path == "/search":
 		return fmt.Sprintf(`<section %s>
@@ -1281,6 +1599,12 @@ func getRouteNoscriptContent(path string) string {
 <p %s>Scholay 学术搜索覆盖超过 2 亿篇学术论文，支持直接检索和 AI 智能检索两种模式。使用布尔运算符（AND、OR、NOT）和精确短语检索提升搜索精度。结果可按相关度、被引次数和发表时间排序，并支持按年份、领域、论文类型等条件筛选。</p>
 <p %s>热门研究领域包括：深度学习、量子计算、CRISPR 基因编辑、气候变化、大语言模型、新能源技术、计算机视觉、自然语言处理、生物信息学等。</p>
 </section>`, baseStyle, headingStyle, textStyle, textStyle)
+
+	case path == "/journals/search":
+		return fmt.Sprintf(`<section %s>
+<h2 %s>期刊检索 — 影响因子 / 分区 / 收录查询</h2>
+<p %s>Scholay 期刊检索帮助科研工作者按刊名、ISSN、学科、出版商及影响因子分区查找学术期刊，查看每本期刊的影响因子（JCR Impact Factor）、CiteScore、中科院分区与 JCR 分区、是否开放获取（OA）及收录范围，辅助选刊投稿与文献质量评估。</p>
+</section>`, baseStyle, headingStyle, textStyle)
 
 	case path == "/claw":
 		return fmt.Sprintf(`<section %s>
@@ -1319,7 +1643,14 @@ func getRouteNoscriptContent(path string) string {
 <h2 %s>Scholay 学术博客</h2>
 <p %s>Scholay 学术博客分享文献检索技巧、学术工具评测、论文写作与同行评审经验、AI 科研应用等原创长文,帮助研究者提升科研效率。精选文章:</p>
 %s
-</section>`, baseStyle, headingStyle, textStyle, blogArticleListNoscript())
+</section>`, baseStyle, headingStyle, textStyle, articleListNoscript("blog", "/blog/"))
+
+	case path == "/qa":
+		return fmt.Sprintf(`<section %s>
+<h2 %s>学术问答 — 科研常见问题深度解答</h2>
+<p %s>Scholay 学术问答收录科研全流程的真实问题与深度解答,涵盖学术开题、研究方法、数据集、AI 辅助写作、模拟审稿、论文查重、AI 写作幻觉与文献核对等主题,每个问题都给出一篇完整回答。</p>
+%s
+</section>`, baseStyle, headingStyle, textStyle, articleListNoscript("qa", "/qa/"))
 
 	case path == "/tools":
 		return fmt.Sprintf(`<section %s>
@@ -1339,30 +1670,42 @@ func getRouteNoscriptContent(path string) string {
 <p %s>Scholay 提供灵活的订阅方案，从 Free 到 Pro 和 Max，满足不同层次的学术研究需求。Free 用户可使用基础检索和有限次数的 AI 分析功能，付费订阅解锁高级 AI 模型、更多使用配额和专属功能。支持支付宝和微信支付。</p>
 </section>`, baseStyle, headingStyle, textStyle)
 
+	case path == "/privacy":
+		return fmt.Sprintf(`<section %s>
+<h2 %s>隐私政策</h2>
+<p %s>本页说明 Scholay（成都恩特罐罐文化科技有限公司）如何收集、使用、存储与保护用户个人信息，包括账号信息与检索/使用记录的处理方式、Cookie 使用、第三方服务、数据安全措施，以及用户对自身数据的访问、更正与删除权利。完整条款以页面正文为准。</p>
+</section>`, baseStyle, headingStyle, textStyle)
+
+	case path == "/terms":
+		return fmt.Sprintf(`<section %s>
+<h2 %s>服务条款</h2>
+<p %s>本页为 Scholay 学术平台的服务条款，说明用户在使用检索、AI 论文分析、智能写作与智能审稿等服务时的权利与义务、账号与订阅规则、知识产权与内容使用规范、免责声明及条款变更方式。使用本平台即视为同意本条款。</p>
+</section>`, baseStyle, headingStyle, textStyle)
+
+	case path == "/disclaimer":
+		return fmt.Sprintf(`<section %s>
+<h2 %s>免责声明</h2>
+<p %s>本页为 Scholay 免责声明。平台提供的检索结果、AI 生成的论文分析、审稿意见与写作建议仅供学术参考，不构成专业意见或决策依据；论文版权归原作者及出版方所有，用户应遵守相关版权规定并自行核验信息准确性。</p>
+</section>`, baseStyle, headingStyle, textStyle)
+
 	default:
 		return ""
 	}
 }
 
-// blogArticleListNoscript 从 seo.BlogArticles 注册表生成博客文章链接列表(供爬虫发现 16 篇文章)。
-// anchor 优先用 blogArticleMeta 里的真实中文标题(摘要也带上),缺失时回落 slug 派生文本。
-func blogArticleListNoscript() string {
+// articleListNoscript 从 content 包(正文单一真源)渲染某类文章的链接列表,供爬虫在
+// /blog、/resources 索引页发现并跟随到各篇详情。标题/摘要随 content 实时,不再镜像旧注册表。
+func articleListNoscript(kind, pathPrefix string) string {
 	var b strings.Builder
 	b.WriteString(`<ul style="color: #bdbdbd; line-height: 2; padding-left: 24px;">`)
-	for _, e := range seo.BlogArticles {
-		if e.Slug == "" {
+	for _, a := range content.List(kind) {
+		if a.Slug == "" {
 			continue
 		}
-		title := strings.ReplaceAll(e.Slug, "-", " ")
-		excerpt := ""
-		if m, ok := blogArticleMeta[e.Slug]; ok {
-			title = m[0]
-			excerpt = m[1]
-		}
-		if excerpt != "" {
-			fmt.Fprintf(&b, `<li><a href="/blog/%s" style="color: #64b5f6;">%s</a> — %s</li>`, e.Slug, htmlEscape(title), htmlEscape(excerpt))
+		if a.Excerpt != "" {
+			fmt.Fprintf(&b, `<li><a href="%s%s" style="color: #64b5f6;">%s</a> — %s</li>`, pathPrefix, a.Slug, htmlEscape(a.Title), htmlEscape(a.Excerpt))
 		} else {
-			fmt.Fprintf(&b, `<li><a href="/blog/%s" style="color: #64b5f6;">%s</a></li>`, e.Slug, htmlEscape(title))
+			fmt.Fprintf(&b, `<li><a href="%s%s" style="color: #64b5f6;">%s</a></li>`, pathPrefix, a.Slug, htmlEscape(a.Title))
 		}
 	}
 	b.WriteString(`</ul>`)

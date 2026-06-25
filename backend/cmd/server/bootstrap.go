@@ -36,6 +36,7 @@ import (
 	"scholar-backend/internal/emaillog"
 	"scholar-backend/internal/featuretool"
 	"scholar-backend/internal/library"
+	"scholar-backend/internal/news"
 	"scholar-backend/internal/peerreview"
 	"scholar-backend/internal/prism"
 	"scholar-backend/internal/promptregistry"
@@ -317,6 +318,16 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// ---- 限时领取会员推广(开关 / 微信客服二维码 / 文案)----
 	promoHandler := promo.NewHandler(promo.NewService(promo.NewRepository(db)))
 
+	// ---- 情报(学术新闻):上游 webhook 接收/落库 + 公开读 + admin 配置 ----
+	newsService := news.NewService(news.NewRepository(db))
+	newsHandler := news.NewHandler(newsService)
+	// 情报详情/列表页 /news SSR 元数据(NewsArticle JSON-LD + 全文 noscript;功能关闭时 provider 返回 nil)
+	core.configHandler.SetNewsSEOProvider(newsService)
+	// 情报内容首发/更新 → 主动推送该 URL 入收录队列(freshness 闭环;队列未启用时 no-op)
+	newsService.SetPushSubmitter(plat.seoSubmitService)
+	// sitemap 索引里 /sitemap-news.xml 的 <lastmod> 反映最新情报(否则静态常量,新情报不及时重抓)
+	plat.seoHandler.SetNewsLastModProvider(newsService.SitemapMaxLastMod)
+
 	// message + email → vip（充值/订阅/续期/升级/兑换 成功后发站内信 + 邮件;统一品牌邮件模板）
 	plat.vipService.SetNotifier(plat.message.GetAdapter(), core.configService)
 
@@ -429,6 +440,7 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 			)),
 			supportCenter: supportCenterHandler,
 			promo:         promoHandler,
+			news:          newsHandler,
 		},
 		userService:          core.userService,
 		cleanupService:       cleanupService,

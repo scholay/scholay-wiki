@@ -29,6 +29,7 @@ import (
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/utils"
+	"scholar-backend/internal/content"
 
 	"github.com/gin-gonic/gin"
 )
@@ -52,11 +53,20 @@ func baseURL() string {
 // Handler HTTP 处理器
 type Handler struct {
 	service *Service
+	// newsLastModFn 由 bootstrap 注入(news.Service.SitemapMaxLastMod):
+	// 让 sitemap 索引里 /sitemap-news.xml 的 <lastmod> 反映最新情报(否则用静态常量,
+	// 情报频繁更新但索引 lastmod 不变 → 爬虫不及时重抓 news sitemap)。seo 不 import news。
+	newsLastModFn func() string
 }
 
 // NewHandler 构造
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
+}
+
+// SetNewsLastModProvider 注入情报最新 lastmod 提供者(bootstrap 调一次)。
+func (h *Handler) SetNewsLastModProvider(fn func() string) {
+	h.newsLastModFn = fn
 }
 
 // ExposeRequest 搜索曝光请求体 (papers + authors + journals 同一通道, 节流)
@@ -202,13 +212,17 @@ func (h *Handler) ServeSitemapIndex(c *gin.Context) {
 	// 各子 sitemap 的真实 lastmod ——
 	// 用真实数据而非 now,避免误导爬虫每分钟都来抓
 	staticLastMod := StaticPagesLastMod                    // 静态页面常量(代码维护)
-	blogLastMod := MaxArticleLastMod(BlogArticles)         // 博客文章里最新的
-	resourceLastMod := MaxArticleLastMod(ResourceArticles) // 资源文章里最新的
+	blogLastMod := content.MaxLastMod("blog")          // 博客文章里最新的(content 单一真源)
+	resourceLastMod := content.MaxLastMod("resources") // 资源文章里最新的
+	qaLastMod := content.MaxLastMod("qa")              // 学术问答里最新的
 	if blogLastMod == "" {
 		blogLastMod = staticLastMod
 	}
 	if resourceLastMod == "" {
 		resourceLastMod = staticLastMod
+	}
+	if qaLastMod == "" {
+		qaLastMod = staticLastMod
 	}
 
 	// 论文 sitemap 各页的 lastmod (单次 GROUP BY 查询)
@@ -271,6 +285,26 @@ func (h *Handler) ServeSitemapIndex(c *gin.Context) {
 	fmt.Fprintf(&b, "  <sitemap>\n    <loc>%s/sitemap-resources.xml</loc>\n    <lastmod>%s</lastmod>\n  </sitemap>\n",
 		base, resourceLastMod)
 
+	// 学术问答
+	fmt.Fprintf(&b, "  <sitemap>\n    <loc>%s/sitemap-qa.xml</loc>\n    <lastmod>%s</lastmod>\n  </sitemap>\n",
+		base, qaLastMod)
+
+	// 工具广场(由 featuretool 生成 /sitemap-tools.xml;纳入索引,避免与 robots 声明割裂。
+	// featuretool → seo 单向依赖,seo 不能 import featuretool,故此处只引用 URL,lastmod 用静态页常量近似)
+	fmt.Fprintf(&b, "  <sitemap>\n    <loc>%s/sitemap-tools.xml</loc>\n    <lastmod>%s</lastmod>\n  </sitemap>\n",
+		base, staticLastMod)
+
+	// 情报(由 news 生成 /sitemap-news.xml;seo 只引用 URL)。lastmod 取「全量情报最新 upstream_updated_at」
+	// (news 注入的 provider),反映新内容;无 provider/无数据时回落静态常量。索引页 10min TTL 兜住及时性。
+	newsLastMod := staticLastMod
+	if h.newsLastModFn != nil {
+		if lm := h.newsLastModFn(); lm != "" {
+			newsLastMod = lm
+		}
+	}
+	fmt.Fprintf(&b, "  <sitemap>\n    <loc>%s/sitemap-news.xml</loc>\n    <lastmod>%s</lastmod>\n  </sitemap>\n",
+		base, newsLastMod)
+
 	// 动态论文 sitemap（按分页,各页用自身真实 lastmod）
 	// 统一 YYYY-MM-DD 粒度 — 爬虫按天判断变化,跟其它子 sitemap 一致
 	for i := 1; i <= summary.TotalPages; i++ {
@@ -330,14 +364,30 @@ func (h *Handler) ServeStaticSitemap(c *gin.Context) {
 	h.writeXML(c, b.String(), sitemapBrowserCache)
 }
 
-// ServeBlogSitemap 博客文章 sitemap（/sitemap-blogs.xml）
+// ServeBlogSitemap 博客文章 sitemap（/sitemap-blogs.xml）—— 文章源自 content 包(正文单一真源)
 func (h *Handler) ServeBlogSitemap(c *gin.Context) {
-	h.writeArticleSitemap(c, BlogArticles, "/blog/", "weekly", "0.7")
+	h.writeArticleSitemap(c, articleEntriesFromContent("blog"), "/blog/", "weekly", "0.7")
 }
 
 // ServeResourceSitemap 资源中心文章 sitemap（/sitemap-resources.xml）
 func (h *Handler) ServeResourceSitemap(c *gin.Context) {
-	h.writeArticleSitemap(c, ResourceArticles, "/resources/", "monthly", "0.7")
+	h.writeArticleSitemap(c, articleEntriesFromContent("resources"), "/resources/", "monthly", "0.7")
+}
+
+// ServeQASitemap 学术问答 sitemap（/sitemap-qa.xml）—— 问答长答案,来自 content 包
+func (h *Handler) ServeQASitemap(c *gin.Context) {
+	h.writeArticleSitemap(c, articleEntriesFromContent("qa"), "/qa/", "monthly", "0.7")
+}
+
+// articleEntriesFromContent 把 content 包的文章(单一真源)映射成 sitemap 用的 (slug, lastmod)。
+// lastmod 取文章 UpdatedDate,故重写文章后 sitemap 自动反映新日期,促爬虫重抓。
+func articleEntriesFromContent(kind string) []ArticleEntry {
+	arts := content.List(kind)
+	out := make([]ArticleEntry, 0, len(arts))
+	for _, a := range arts {
+		out = append(out, ArticleEntry{Slug: a.Slug, LastMod: a.LastMod()})
+	}
+	return out
 }
 
 // writeArticleSitemap 共用的博客/资源文章 sitemap 生成
@@ -561,6 +611,13 @@ Disallow: /microsoft/callback
 Disallow: /discourse/callback
 Disallow: /api/`
 
+	// GEO: AI 生成式引擎爬虫显式放行(它们本就继承 * 组的 Allow, 这里具名是为了
+	// ① 表明"我们主动欢迎被 AI 检索/引用"的意图(robots 组不继承, 每组各自带 Disallow);
+	// ② 给"训练类"重爬虫加 Crawl-delay 护栏, 减轻 SSR 后端压力。
+	// 两类区分(依据 OpenAI/Anthropic/Perplexity 官方文档):
+	//   - 检索/实时取页类(被引前提, 不限速): OAI-SearchBot / *-User / *-SearchBot / PerplexityBot
+	//   - 训练/批量类(放行但限速): GPTBot / ClaudeBot / Google-Extended / Amazonbot / Meta-ExternalAgent / CCBot
+	// 注: 不输出 llms.txt —— Google 官方已否定, 实测几乎无引擎读取, 不投入。
 	body := fmt.Sprintf(`User-agent: *
 %s
 
@@ -572,9 +629,25 @@ User-agent: Sogou web spider
 %s
 Crawl-delay: 2
 
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+%s
+
+User-agent: GPTBot
+User-agent: ClaudeBot
+User-agent: Google-Extended
+User-agent: Amazonbot
+User-agent: Meta-ExternalAgent
+User-agent: CCBot
+%s
+Crawl-delay: 5
+
 Sitemap: %s/sitemap.xml
-Sitemap: %s/sitemap-tools.xml
-`, rules, rules, rules, baseURL(), baseURL())
+`, rules, rules, rules, rules, rules, baseURL())
 	c.Header("Content-Type", "text/plain; charset=utf-8")
 	c.Header("Cache-Control", "public, max-age=86400")
 	c.String(http.StatusOK, body)

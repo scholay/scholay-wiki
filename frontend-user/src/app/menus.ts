@@ -7,6 +7,7 @@ import {
   FileCheck,
   PenTool,
   Sparkles,
+  GraduationCap,
 } from 'lucide-react';
 import { PRISM_COMING_SOON } from '@/shared/lib/feature-flags';
 
@@ -50,7 +51,7 @@ export const MENUS: Menu[] = [
   {
     id: 'search',
     label: '文献搜索',
-    englishName: 'Scholar Search',
+    englishName: 'Paper Search',
     description: '全网 / 库内 检索文献、学者',
     icon: Search,
     // 文献搜索独立成菜单 —— 首页(/)是品牌首页,这里只负责检索工作区。
@@ -124,6 +125,17 @@ export const MENUS: Menu[] = [
     href: '/tools',
     category: 'resource',
     match: startsWith('/tools'),
+  },
+  {
+    id: 'resources',
+    label: '学术资源',
+    englishName: 'Resources',
+    description: '博客 · 学术指南 · 工具教程',
+    icon: GraduationCap,
+    href: '/resources',
+    category: 'resource',
+    // /resources 与 /blog 都属于「学术资源中心」(博客+资源合并),两者都高亮本项
+    match: (p) => startsWith('/resources')(p) || startsWith('/blog')(p),
   },
 ];
 

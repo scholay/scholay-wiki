@@ -1,0 +1,210 @@
+{
+  "slug": "spss-mediation-moderation-reliability-validity",
+  "kind": "qa",
+  "title": "SPSS 中介/调节效应(PROCESS 模型 4/7/14)与信效度(α/KMO/CFA)怎么做、结果怎么报告?",
+  "category": "统计方法",
+  "tags": [
+    "PROCESS宏",
+    "中介效应",
+    "调节效应",
+    "信度效度",
+    "因子分析"
+  ],
+  "excerpt": "面向社科问卷研究,梳理 Hayes PROCESS 模型 4(中介)、模型 7/14(被调节中介)的 SPSS 操作要点、Bootstrap 区间怎么读,以及 Cronbach α、KMO/Bartlett、EFA/CFA 的做法与论文规范报告写法。",
+  "readTime": "12 分钟",
+  "date": "2026-06-25",
+  "updatedDate": "2026-06-25",
+  "author": {
+    "name": "张薇",
+    "role": "首席研究员",
+    "bio": "信息科学博士,专注于学术信息检索和知识图谱研究,主持多项国家级科研项目。"
+  },
+  "sections": [
+    {
+      "type": "paragraph",
+      "text": "问卷研究的标准链路是:先做信度(Cronbach α)与效度(KMO/Bartlett 检验 + 探索性因子分析 EFA,正式量表再做验证性因子分析 CFA),确认测量质量后,再用 Hayes PROCESS 宏跑假设。中介走模型 4,看 Bootstrap 95% 区间是否含 0(不含 0 即间接效应显著);被调节中介——调节在前段 a 路径走模型 7,调节在后段 b 路径走模型 14,关键看『被调节中介指数』(index of moderated mediation)的 Bootstrap 区间是否含 0。PROCESS 的中介推断不看 p 值,看 Bootstrap 置信区间;这是它区别于传统 Sobel 法的核心。"
+    },
+    {
+      "type": "heading",
+      "text": "第一步:信度——Cronbach α 怎么做与怎么报"
+    },
+    {
+      "type": "paragraph",
+      "text": "信度衡量同一构念下各题项的内部一致性。SPSS 路径:Analyze → Scale → Reliability Analysis,把同一维度的题项选入,Model 选 Alpha,在 Statistics 里勾选『Scale if item deleted』(看删题后 α 的变化)。一般以 α ≥ 0.7 为可接受,0.8 以上较好。务必『分维度分别算』,不要把不同构念的题混在一起算一个总 α。"
+    },
+    {
+      "type": "list",
+      "items": [
+        "按构念/维度分组,每个维度单独跑一次 Reliability Analysis。",
+        "看总体 α 是否 ≥ 0.7;若偏低,查『若删除此项的 α』,删除会明显抬升 α 且理论上可舍的题项。",
+        "同时看 CITC(校正后项总相关),习惯上 CITC < 0.3 的题项考虑删除。",
+        "论文报告:列出各维度的题项数与 Cronbach α,例如『自我效能感分量表(5 题)的 Cronbach α = 0.86』。"
+      ],
+      "ordered": true
+    },
+    {
+      "type": "heading",
+      "text": "第二步:效度——KMO/Bartlett 与 EFA、CFA"
+    },
+    {
+      "type": "paragraph",
+      "text": "做因子分析前先看两项前提:KMO 检验衡量取样适当性,KMO ≥ 0.6 可接受、> 0.7 较好、> 0.8 良好;Bartlett 球形检验要显著(p < 0.05),说明题项间存在足够相关、值得做因子分析。SPSS 路径:Analyze → Dimension Reduction → Factor,在 Descriptives 里勾选 KMO and Bartlett's test。"
+    },
+    {
+      "type": "paragraph",
+      "text": "探索性因子分析(EFA)用于量表开发或本土化、结构尚未确定时:抽取方法常用主成分或主轴因子,旋转用方差最大化(Varimax,正交)或斜交(Promax,允许因子相关)。因子保留通常看特征值 > 1 与碎石图,题项的因子载荷一般要求 ≥ 0.4(严格者用 0.5),并关注是否存在跨因子双重载荷。验证性因子分析(CFA)用于已有成熟量表、结构已知时,需在 AMOS、Mplus、R(lavaan)等工具里跑(SPSS 本体不直接做 CFA),用拟合指标和聚合/区分效度判断。"
+    },
+    {
+      "type": "table",
+      "headers": [
+        "指标",
+        "用途",
+        "常用判断标准"
+      ],
+      "rows": [
+        [
+          "KMO",
+          "取样适当性",
+          "≥ 0.6 可接受,> 0.8 良好"
+        ],
+        [
+          "Bartlett 球形检验",
+          "是否适合做因子分析",
+          "p < 0.05 显著"
+        ],
+        [
+          "因子载荷(EFA)",
+          "题项归属强度",
+          "≥ 0.4(严格 ≥ 0.5),无明显双载荷"
+        ],
+        [
+          "CFI / TLI",
+          "模型整体拟合(CFA)",
+          "≥ 0.90 可接受,≥ 0.95 优"
+        ],
+        [
+          "RMSEA",
+          "近似误差(CFA)",
+          "< 0.08 可接受,< 0.05 优"
+        ],
+        [
+          "SRMR",
+          "标准化残差(CFA)",
+          "< 0.08 可接受"
+        ],
+        [
+          "AVE(平均提取方差)",
+          "聚合效度",
+          "≥ 0.5"
+        ],
+        [
+          "CR(组合信度)",
+          "构念信度",
+          "≥ 0.7"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "区分效度的经典判据(Fornell-Larcker):每个构念 AVE 的平方根应大于它与其它构念的相关系数。论文里通常给一张相关矩阵,对角线放 √AVE,下三角放构念间相关。"
+    },
+    {
+      "type": "heading",
+      "text": "第三步:中介效应——PROCESS 模型 4"
+    },
+    {
+      "type": "paragraph",
+      "text": "模型 4 是最基础的简单中介:X→M→Y。安装 PROCESS 宏(processmacro.org)后,SPSS 路径:Analyze → Regression → PROCESS。设置:Y(因变量)、X(自变量)、M(中介变量),Model number 选 4,Bootstrap samples 设 5000(或 10000),置信区间选 95%。建议勾选标准化效应,便于报告 β。"
+    },
+    {
+      "type": "paragraph",
+      "text": "怎么读结果:输出会给三段——X→M(a 路径)、M→Y(b 路径,控制 X 后)、以及总效应、直接效应(c′)、间接效应(a×b)。判断中介是否成立的核心是间接效应那一行的 Bootstrap 95% 置信区间(BootLLCI 与 BootULCI):区间不含 0 即间接效应显著。注意 PROCESS 对间接效应只给 Bootstrap 区间、不给 p 值,因为间接效应抽样分布通常不对称,Bootstrap 比 Sobel 检验更稳健。若直接效应仍显著为部分中介,直接效应不显著而间接显著则趋向完全中介(现代写法更强调间接效应本身的显著性而非纠结『完全/部分』标签)。"
+    },
+    {
+      "type": "heading",
+      "text": "第四步:被调节的中介——模型 7 与模型 14"
+    },
+    {
+      "type": "paragraph",
+      "text": "当中介路径会随某个调节变量 W 变化时,用被调节中介(moderated mediation)。两者区别只在调节作用在哪一段路径上。"
+    },
+    {
+      "type": "table",
+      "headers": [
+        "模型",
+        "调节作用位置",
+        "典型问题"
+      ],
+      "rows": [
+        [
+          "模型 7",
+          "前段 a 路径(X→M 受 W 调节)",
+          "X 对 M 的影响是否因 W 不同而不同,进而改变间接效应"
+        ],
+        [
+          "模型 14",
+          "后段 b 路径(M→Y 受 W 调节)",
+          "M 对 Y 的影响是否因 W 不同而不同,进而改变间接效应"
+        ],
+        [
+          "模型 4",
+          "无调节",
+          "纯中介 X→M→Y"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "操作同样在 PROCESS 对话框:多指定一个 Moderator W,Model number 选 7 或 14,Bootstrap 5000、95% CI。建议勾选连续调节变量的均值中心化(mean centering)以便解释交互项,并让 PROCESS 输出 W 取低/中/高(±1 SD)时的『条件间接效应』。"
+    },
+    {
+      "type": "paragraph",
+      "text": "怎么读:第一看交互项(如 X×W 或 M×W)的系数是否显著;第二、也是最关键的,看『Index of moderated mediation(被调节中介指数)』那一行的 Bootstrap 95% 区间——区间不含 0,说明间接效应确实随 W 显著变化,被调节中介成立。再结合条件间接效应表,报告调节变量在低/中/高水平时的间接效应值及各自 Bootstrap 区间(看哪些水平区间含 0、哪些不含)。注意:当连续调节变量与间接效应是非线性关系或涉及多个调节变量时,PROCESS 可能不输出该指数。"
+    },
+    {
+      "type": "heading",
+      "text": "论文里怎么规范报告"
+    },
+    {
+      "type": "list",
+      "items": [
+        "测量部分:报告各维度题项数 + Cronbach α;报告 KMO 值与 Bartlett 检验显著性;EFA 报抽取方法、旋转方法、因子数与累计解释方差、关键载荷;CFA 报 CFI/TLI/RMSEA/SRMR 及 AVE、CR、区分效度。",
+        "共同方法偏差:问卷常做 Harman 单因素检验或控制未测潜因子法,并说明结果。",
+        "中介:报告 a、b 路径系数与显著性、直接效应、间接效应点估计及 Bootstrap 95% CI(写明 Bootstrap 次数,如 5000)。",
+        "被调节中介:报告交互项系数、被调节中介指数及其 95% CI、以及调节变量低/中/高水平下的条件间接效应。",
+        "全文统一:区间统计写成 95% CI [LL, UL],并明确所有推断基于偏差校正 Bootstrap。"
+      ],
+      "ordered": true
+    },
+    {
+      "type": "tip",
+      "title": "先把方法和指标查对再动手",
+      "text": "PROCESS 的模型编号、是否输出被调节中介指数、各拟合指标的阈值在不同教材里略有出入。动笔前可用 Scholay 的智能检索按『moderated mediation index』『CFA fit indices cutoff』等定位方法学原文与高被引综述,用 AI 分析快速提炼各指标的判定标准与争议;写作阶段可在智能写作 Prism 里规范排版结果表与 95% CI 报告句式,减少格式返工。"
+    },
+    {
+      "type": "faq",
+      "faq": [
+        {
+          "q": "Bootstrap 次数设 5000 还是 10000?",
+          "a": "两者都可接受,5000 是常见下限,10000 结果更稳定、区间更平滑。报告时务必写明实际使用的次数,并说明使用了偏差校正(bias-corrected)Bootstrap 置信区间。"
+        },
+        {
+          "q": "间接效应的 Bootstrap 区间含 0 但 p 值显著,以哪个为准?",
+          "a": "以 Bootstrap 置信区间为准。PROCESS 对间接效应不提供 p 值,因为间接效应(a×b)的抽样分布通常偏态,传统正态假设的 p 值不可靠;区间含 0 即判定间接效应不显著。"
+        },
+        {
+          "q": "EFA 和 CFA 都要做吗?",
+          "a": "看研究阶段。量表是自编或本土化、结构未定时做 EFA 探索结构;若使用成熟量表、结构已知,直接做 CFA 验证。开发型研究常先 EFA 后 CFA,且最好用两个独立样本分别做,避免在同一样本上既探索又验证。"
+        },
+        {
+          "q": "模型 7 和模型 14 能不能同时调节前后两段?",
+          "a": "那是另一个模型。同时调节 a 和 b 路径常用模型 58(同一调节变量调两段)或更复杂的设定。模型 7 只调前段 a,模型 14 只调后段 b;选错模型会导致路径设定与假设不符。"
+        },
+        {
+          "q": "Cronbach α 偏低一定要删题吗?",
+          "a": "不一定。先看是否有反向计分题未正确转码、是否维度划分有误。若某题删除后 α 明显上升且该题理论上可舍,可考虑删除并说明理由;但不应仅为提高 α 而盲目删题,牺牲内容效度得不偿失。"
+        }
+      ]
+    }
+  ]
+}

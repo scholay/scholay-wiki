@@ -41,9 +41,10 @@ const SOLUTION_LINKS: { label: string; to: string; desc: string }[] = [
 /** 法律 / 关于类链接 —— 路径与旧 frontend-user 保持一致(SEO 不丢) */
 const BRAND_LINKS: { label: string; to: string }[] = [
   { label: '关于我们', to: '/about' },
+  { label: '学术资源', to: '/resources' },
+  { label: '帮助中心', to: '/help' },
   { label: '隐私政策', to: '/privacy' },
   { label: '服务条款', to: '/terms' },
-  { label: '帮助中心', to: '/help' },
 ];
 
 export function Footer() {

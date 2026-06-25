@@ -171,6 +171,11 @@ export const adminRoutes: RouteObject[] = [
         lazy: lazyPage(() => import('./pages/WechatOfficialPage'))('WechatOfficialPage'),
       },
       {
+        path: 'news-webhook',
+        handle: { title: '情报 Webhook' },
+        lazy: lazyPage(() => import('./pages/NewsWebhookConfigPage'))('NewsWebhookConfigPage'),
+      },
+      {
         path: 'system',
         handle: { title: '系统配置' },
         lazy: lazyPage(() => import('./pages/SystemConfigPage'))('SystemConfigPage'),

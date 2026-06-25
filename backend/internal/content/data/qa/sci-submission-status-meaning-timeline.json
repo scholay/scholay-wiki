@@ -1,0 +1,180 @@
+{
+  "slug": "sci-submission-status-meaning-timeline",
+  "kind": "qa",
+  "title": "SCI/SSCI 投稿状态全解读:Under Review、Required Reviews Completed、With Editor 各是什么意思、要等多久?",
+  "category": "投稿发表",
+  "tags": [
+    "投稿状态",
+    "SCI投稿",
+    "同行评审",
+    "Editorial Manager",
+    "ScholarOne"
+  ],
+  "excerpt": "逐个拆解 Editorial Manager 与 ScholarOne 两大投稿系统的核心状态:从 Submitted、With Editor、Under Review,到 Required Reviews Completed、Decision in Process,各自含义、典型等待时长,以及哪些状态属正常、哪些可以礼貌催稿。",
+  "readTime": "12 分钟",
+  "date": "2026-06-25",
+  "updatedDate": "2026-06-25",
+  "author": {
+    "name": "陈晓",
+    "role": "内容编辑",
+    "bio": "学术出版行业从业 10 年,熟悉同行评审、期刊投稿和开放获取出版流程。"
+  },
+  "sections": [
+    {
+      "type": "paragraph",
+      "text": "投稿状态本质是稿件在期刊流水线中的位置。大多数 SCI/SSCI 期刊用 Editorial Manager(爱思唯尔等)或 ScholarOne(Wiley、SAGE、T&F 等)两套系统。核心链路是:Submitted(系统收稿)→ With Editor(主编/编委分配并物色审稿人)→ Under Review(审稿人正在评审)→ Required Reviews Completed(所需审稿意见已齐)→ Decision in Process(编辑正在拍板)。多数环节往返波动都属正常,只有某一状态长期停滞、明显超出该刊平均时长时,才需要礼貌催稿。"
+    },
+    {
+      "type": "heading",
+      "text": "两大投稿系统:状态名字不同,流程是一样的"
+    },
+    {
+      "type": "paragraph",
+      "text": "先建立一个心智模型:无论你看到的是哪套界面,稿件都要经过「收稿 → 分配编辑 → 物色并邀请审稿人 → 审稿人评审 → 汇总意见 → 做决定」这条流水线。Editorial Manager 用一组偏「状态」的措辞,ScholarOne 则用一组以 Awaiting(等待某人做某事)开头的措辞。看懂任意一套,另一套就能对应上。"
+    },
+    {
+      "type": "table",
+      "headers": [
+        "流程阶段",
+        "Editorial Manager 常见状态",
+        "ScholarOne 常见状态"
+      ],
+      "rows": [
+        [
+          "收稿/查重待处理",
+          "Submitted to Journal",
+          "Submitted / Awaiting Admin Processing"
+        ],
+        [
+          "分配编辑、物色审稿人",
+          "With Editor",
+          "Awaiting Reviewer Selection / Awaiting Reviewer Assignment"
+        ],
+        [
+          "审稿人评审中",
+          "Under Review",
+          "Awaiting Reviewer Scores"
+        ],
+        [
+          "意见已齐,待编辑汇总",
+          "Required Reviews Completed",
+          "Awaiting AE/SE Recommendation"
+        ],
+        [
+          "编辑做最终决定",
+          "Decision in Process",
+          "Awaiting Editor Decision / Decision in Process"
+        ]
+      ]
+    },
+    {
+      "type": "heading",
+      "text": "逐个状态拆解:含义与典型等待"
+    },
+    {
+      "type": "paragraph",
+      "text": "下面按时间顺序解释每个状态实际发生了什么。请记住:状态可以跳过某一阶段,也可能回退到更早阶段(例如审稿人临时退审,稿件就从 Under Review 退回 With Editor),这都是编辑操作导致的正常现象。"
+    },
+    {
+      "type": "list",
+      "items": [
+        "Submitted / Submitted to Journal —— 系统已收到稿件,编辑部在做格式、查重、利益冲突等初步行政检查。一般几天内流转;若长期不动,多半是格式或文件问题被退回作者修改,留意邮箱。",
+        "With Editor —— 主编已把稿件分给某位处理编辑(AE),该编辑正在阅读并物色、邀请审稿人。被邀审稿人可能拒绝,编辑需要再找下一位,所以这一步可能反复。此状态停留三四周乃至一个多月都属正常。",
+        "Under Review / Awaiting Reviewer Scores —— 至少一位审稿人已接受邀请并在评审。表面看「没动静」,实际审稿人正在读稿、写意见。审稿人通常被要求在接受邀请后约 3 周内交回意见,但延期很常见,等 1-2 个月不稀奇。",
+        "Required Reviews Completed / Awaiting AE Recommendation —— 该刊所需的审稿意见(常为 2-3 份)已全部回收,处理编辑正基于这些意见撰写给主编的推荐。通常几天到两周。偶尔编辑觉得意见分歧大,会再加邀一位审稿人,状态可能短暂回退。",
+        "Decision in Process / Awaiting Editor Decision —— 推荐已上交,主编正在复核并撰写决定信(接收/小修/大修/拒稿)。多数情况停留 1-3 周。看到这个状态意味着评审阶段已结束,很快会收到决定邮件。"
+      ],
+      "ordered": true
+    },
+    {
+      "type": "heading",
+      "text": "哪些正常、哪些该催稿、怎么催"
+    },
+    {
+      "type": "paragraph",
+      "text": "总体参考值:跨期刊的平均「投稿到首次决定」约 30 天、到最终决定约 54 天,但学科、刊物、是否大修差异极大。判断是否该催稿,关键不是「等了多久」,而是「相对该刊平均时长是否异常停滞」。可以在该刊官网、往届作者经验或投稿数据库里查它的平均审稿周期作基线。"
+    },
+    {
+      "type": "table",
+      "headers": [
+        "情形",
+        "是否正常",
+        "建议动作"
+      ],
+      "rows": [
+        [
+          "With Editor 停留 3-5 周",
+          "正常",
+          "继续等待,编辑可能仍在找审稿人"
+        ],
+        [
+          "Under Review 停留 1-2 个月",
+          "通常正常",
+          "对照该刊平均周期,未超出则耐心等待"
+        ],
+        [
+          "Under Review 超过该刊均值且 3 个月无变化",
+          "偏慢",
+          "可发一封礼貌的状态询问邮件"
+        ],
+        [
+          "Required Reviews Completed 停留超 3-4 周",
+          "偏慢",
+          "礼貌询问处理编辑/编辑部进度"
+        ],
+        [
+          "Decision in Process 超过 3-4 周",
+          "偏慢",
+          "可询问预计何时收到决定"
+        ],
+        [
+          "状态突然退回更早阶段",
+          "正常",
+          "多为换审稿人,无需催"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "催稿礼仪:写给期刊的 managing editor 或 editorial office(ScholarOne 可在系统内联系),邮件简短客气——注明稿件编号与标题、当前状态与已等待时长、礼貌询问是否有预计时间表。一稿只催一次、间隔给足(通常超出该刊均值后再发),切勿频繁追问或表现出施压,以免给编辑留下负面印象。"
+    },
+    {
+      "type": "heading",
+      "text": "比催稿更重要的是:别在评审里栽硬伤"
+    },
+    {
+      "type": "paragraph",
+      "text": "状态等得再焦虑,也无法改变审稿人手里那份稿子的质量。被拒的常见原因往往不是创新性不够,而是方法描述含糊、统计用法存疑、图表与正文对不上、引用不规范、英语表达影响理解这类「硬伤」——这些恰恰是审稿人最先抓、也最容易让你卡在 Under Review 后吃到大修或拒稿的点。把这些问题在投稿前就清掉,既能提高接收率,也能减少一轮轮返修带来的漫长等待。"
+    },
+    {
+      "type": "tip",
+      "title": "投稿前先做一轮 AI 预审",
+      "text": "在点「提交」之前,可以用 Scholay 的 AI 审稿对全文跑一遍模拟同行评审,提前暴露方法、统计、图表、逻辑与表述层面的硬伤;配合智能写作 Prism 打磨语言与结构、用文献检索补齐引用证据链。把审稿人会挑的毛病自己先挑出来,比稿件卡在 Under Review 后再被动大修要省时得多。"
+    },
+    {
+      "type": "faq",
+      "faq": [
+        {
+          "q": "Under Review 一直不变,是稿件被遗忘了吗?",
+          "a": "通常不是。Under Review 涵盖审稿人接受邀请、阅读、撰写意见等多个步骤,表面「不动」期间其实在进行。审稿人常会延期,等 1-2 个月很常见。只有当明显超出该刊平均审稿周期、且持续数月无变化时,才考虑发一封礼貌的状态询问邮件。"
+        },
+        {
+          "q": "Required Reviews Completed 之后多久会有决定?",
+          "a": "意见齐了之后,先由处理编辑写推荐(几天到两周),再进入 Decision in Process 由主编复核并撰写决定信(多为 1-3 周)。所以从该状态到收到决定邮件,一般是数周内。偶尔编辑想加审一位,状态会短暂回退,属正常。"
+        },
+        {
+          "q": "Editorial Manager 和 ScholarOne 的状态能一一对应吗?",
+          "a": "措辞不同但流程一致。粗略对应:With Editor ≈ Awaiting Reviewer Selection/Assignment;Under Review ≈ Awaiting Reviewer Scores;Required Reviews Completed ≈ Awaiting AE/SE Recommendation;Decision in Process ≈ Awaiting Editor Decision。看懂任意一套即可推断另一套。"
+        },
+        {
+          "q": "催稿会不会惹恼编辑、影响录用?",
+          "a": "只要把握分寸就不会。原则是:超出该刊平均时长再催、一稿只催一次、邮件简短客气并附稿件编号。频繁追问或语气施压才可能留下负面印象。在合理时间点的一次礼貌询问,是作者的正当权利。"
+        },
+        {
+          "q": "状态从 Under Review 退回 With Editor,是坏消息吗?",
+          "a": "一般不是。最常见的原因是某位审稿人临时退审或未按时交稿,编辑需要重新物色、邀请新审稿人,系统因此把状态回退。这是流程的正常波动,不代表稿件被否,耐心等待新审稿人到位即可。"
+        }
+      ]
+    }
+  ]
+}

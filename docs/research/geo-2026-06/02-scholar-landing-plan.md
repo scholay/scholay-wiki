@@ -14,6 +14,27 @@ Scholar 已有**生产级的传统 SEO 三层注入 + 主动推送**基建,但**
 
 ---
 
+## 1.5 实施进度(2026-06-24,P0 代码部分已落地)
+
+> 本轮已把 P0 中"可代码化"的四项落地并通过编译/配置校验。GA4 channel group 属后台配置(非代码),待人工在 GA4 后台配。**所有改动需经一次部署(后端镜像 + nginx)才生效。**
+
+| P0 动作 | 状态 | 实际改动 | 校验 |
+|---|---|---|---|
+| nginx `$is_crawler` 补 AI 爬虫 | ✅ 已落地 | `nginx/nginx.conf` map 新增一行 AI UA(含 `chatgpt-user`/`claude-user`/`perplexity-user` 等**实时取页类**)+ 注释 | `nginx -t` 通过,已 `restart nginx` 生效 |
+| robots.txt 显式放行 AI 爬虫 | ✅ 已落地 | `backend/internal/seo/handler.go` `ServeRobotsTxt`:新增"检索/取页类"(不限速)与"训练类"(`Crawl-delay: 5`)两组 | `docker compose build backend` 通过 |
+| ScholarlyArticle 补证据字段 | ✅ 已落地 | `seo/ssr_meta.go` `PaperSSRMeta` 新增 `CitationCount`/`FieldsOfStudy`;`config/handler_ssr.go` 把被引数 + 学科注入 noscript 卡片、keywords、description fallback,JSON-LD 加 `about` | 编译通过 |
+| AI 爬虫日志监测脚本 | ✅ 已落地 | 新增 `scripts/ai-crawler-stats.sh`(分"实时取页=被引信号"与"训练/批量"两桶计数 + paths/明细模式) | 本地 smoke 通过 |
+| GA4 AI referral channel group | ⬜ 待人工 | GA4 后台正则 channel(`chatgpt.com\|perplexity.ai\|claude.ai\|gemini.google.com\|copilot.microsoft.com\|deepseek.com`),非代码 | — |
+
+**两条对原方案的校准(实读代码后修正,重要):**
+1. **nginx map 的缺口比方案设想的小。** map 首行已有 `~*(bot\|crawler\|spider...)` 通配,`GPTBot`/`OAI-SearchBot`/`ClaudeBot`/`PerplexityBot`(都含 "bot")**本就命中走 SSR**。真正漏掉的只是 `*-User` 实时取页类(`ChatGPT-User`/`Claude-User`/`Perplexity-User`,不含 "bot")——本轮补的就是它们;`*Bot` 也一并显式列出使意图清晰。
+2. **robots.txt 里 AI 爬虫本就被 `*` 组 `Allow: /` 放行**(robots 取最具体匹配组,无具名组则归 `*`)。本轮加具名组的价值是:① 明示"主动欢迎被 AI 引用"的意图;② 给训练类重爬虫挂 `Crawl-delay: 5` 护栏。**不是**从"被封"变"放行"。
+3. JSON-LD 的 `isPartOf` **卷期/ISSN 无法补**——`seo_papers` 表没有 volume/issue/issn 列(需 P1 加列 + 回填);`citationCount` 没有干净的 schema.org 数值属性,故**以"被引用 N 次"文本注入 noscript/description**(GEO 研究本就强调正文里的可引用统计数字),JSON-LD 只补语义干净的 `about`(学科)。
+
+> ⚠️ Docker Desktop 本地踩坑记录:bind-mount 在文件被快速多次改写后,容器内可能短暂读到**截断的旧文件**(`nginx -t` 报 `unexpected end of file`),`docker compose restart nginx` 后即恢复。非配置错误。
+
+---
+
 ## 2. 落地动作清单(按优先级)
 
 ### P0 — 本周可做(低成本、高 ROI、不改架构)

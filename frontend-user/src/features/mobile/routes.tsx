@@ -27,6 +27,11 @@ export const mobileRoutes: RouteObject[] = [
       })),
   },
   {
+    path: 'feed/news',
+    lazy: () =>
+      import('./pages/NewsPage').then((m) => ({ Component: m.NewsPage })),
+  },
+  {
     // 旧的独立搜索页已被「悬浮搜索浮层」(MobileSearchOverlay)取代;保留路径做重定向,
     // 兼容历史书签 /m/search,避免 404。
     path: 'search',

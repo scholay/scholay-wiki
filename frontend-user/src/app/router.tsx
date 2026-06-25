@@ -2,9 +2,9 @@ import { createBrowserRouter, redirect } from 'react-router-dom';
 import { AppShell } from './layouts/AppShell';
 import { HomePage } from '@/features/home/HomePage';
 import {
-  markAutoRedirected,
+  desktopEquivalentPath,
+  isPhoneDevice,
   mobileEquivalentPath,
-  shouldAutoRedirectToMobile,
 } from '@/shared/lib/device';
 import { NotFoundPage } from '@/features/home/NotFoundPage';
 import { RouteErrorBoundary } from '@/shared/components/RouteErrorBoundary';
@@ -17,6 +17,7 @@ import { toolsRoutes, toolsMobileRoutes } from '@/features/tools/routes';
 import { peerReviewRoutes } from '@/features/peer-review/routes';
 import { prismRoutes } from '@/features/prism/routes';
 import { clawRoutes, clawMobileRoutes } from '@/features/claw/routes';
+import { newsRoutes } from '@/features/news/routes';
 import { landingRoutes } from '@/features/landing/routes';
 import { helpRoutes } from '@/features/help/routes';
 import { mobileRoutes } from '@/features/mobile/routes';
@@ -90,6 +91,12 @@ export const router = createBrowserRouter([
         Component: m.MobileShell,
       })),
     errorElement: <RouteErrorBoundary />,
+    // 反向闸:桌面 UA(含手机浏览器开「请求桌面版」把 UA 改成桌面)落在 /m/* → 自动回 PC 对等页。
+    // 与 '/' 的正向闸对称,二者都被 isPhoneDevice() 门控:到了正确的壳就 return null,不会来回弹。
+    loader: ({ request }) => {
+      if (isPhoneDevice()) return null;
+      return redirect(desktopEquivalentPath(new URL(request.url).pathname));
+    },
     children: [
       ...mobileRoutes,
       ...toolsMobileRoutes,
@@ -103,17 +110,16 @@ export const router = createBrowserRouter([
     path: '/',
     element: <AppShell />,
     errorElement: <RouteErrorBoundary />,
-    // 手机访问桌面路由 → 自动进移动**对等页**(映射表 MOBILE_EQUIVALENTS,
-    // 有对等页才跳:/settings/membership→/m/me、/tools/*→/m/tools/* 等;
-    // 论文详情/文献集这类没有移动版的深链留在桌面,不丢用户意图)。
-    // pad / 爬虫 / 点过「使用电脑版」的不跳 —— 裁决逻辑收口在 shared/lib/device.ts。
+    // 正向闸:手机 UA 落在 PC 路由 → 进移动对等页(映射表 MOBILE_EQUIVALENTS)。
+    //   - 有 /m 对等页才跳(/settings/*→/m/me、/tools/*→/m/tools/*、/library/*→/m/library/* 等)
+    //   - 同 URL 响应式页(论文/期刊/学者/PDF 详情、landing、help/blog、分享页)无对等 → null = 留在原地(保 SEO + 分享深链)
+    //   - 暂无移动版的纯 PC 页(/search · /prism · /peer-review)→ 先送 /m/feed
+    // pad / 爬虫 / 桌面 UA 不跳。裁决逻辑收口在 shared/lib/device.ts;与 '/m' 的反向闸对称。
     // 挂在 AppShell 父级,所有桌面子路由(含客户端内部导航)都过这道闸。
     loader: ({ request }) => {
-      if (!shouldAutoRedirectToMobile()) return null;
+      if (!isPhoneDevice()) return null;
       const target = mobileEquivalentPath(new URL(request.url).pathname);
-      if (!target) return null;
-      markAutoRedirected();
-      return redirect(target);
+      return target ? redirect(target) : null;
     },
     children: [
       { index: true, element: <HomePage /> },
@@ -125,6 +131,7 @@ export const router = createBrowserRouter([
       ...peerReviewRoutes,
       ...prismRoutes,
       ...clawRoutes,
+      ...newsRoutes,
       ...authRoutes,
       ...settingsRoutes,
       { path: '*', element: <NotFoundPage /> },

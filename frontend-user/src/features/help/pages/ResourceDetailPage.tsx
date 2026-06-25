@@ -5,31 +5,38 @@ import { RouteSEO } from '@/shared/components/RouteSEO';
 import { TableOfContents } from '@/shared/components/TableOfContents';
 import { HelpLayout, MetaChip } from '../components/HelpLayout';
 import { ArticleRenderer } from '../components/ArticleRenderer';
-import { FeatureJumpCTA } from '../components/FeatureJumpCTA';
-import {
-  getResourceArticleBySlug,
-  getRelatedResourceArticles,
-} from '../data/resource-articles';
+import { FeatureJumpCTA, shortcutsForCategory } from '../components/FeatureJumpCTA';
+import { useArticle, useArticleList, relatedArticles } from '../api/content';
 
 /**
  * 学术资源详情页 —— /resources/:slug
- * 找不到 slug 时直接 redirect 到列表页。
+ * 正文走后端内容 API(单一真源);找不到 slug 时 redirect 到列表页。
  */
 export function ResourceDetailPage() {
   const { slug = '' } = useParams<{ slug: string }>();
-  const article = getResourceArticleBySlug(slug);
+  const { data: article, isLoading, isError } = useArticle('resources', slug);
+  const { data: list } = useArticleList('resources');
+  const contentRef = useRef<HTMLDivElement>(null);
 
-  if (!article) {
+  if (isLoading) {
+    return (
+      <HelpLayout
+        breadcrumbs={[{ label: '学术资源', to: '/resources' }, { label: '学术指南' }]}
+        title="加载中…"
+      >
+        <div className="py-16 text-center text-sm text-muted-foreground">正在加载文章…</div>
+      </HelpLayout>
+    );
+  }
+  if (isError || !article) {
     return <Navigate to="/resources" replace />;
   }
 
-  const related = getRelatedResourceArticles(slug, 3);
-  const contentRef = useRef<HTMLDivElement>(null);
+  const related = relatedArticles(list, article, 3);
 
   return (
     <HelpLayout
       breadcrumbs={[
-        { label: '帮助中心', to: '/help' },
         { label: '学术资源', to: '/resources' },
         { label: article.category },
       ]}
@@ -54,12 +61,12 @@ export function ResourceDetailPage() {
         canonical={`/resources/${article.slug}`}
       />
       <div ref={contentRef}>
-        <ArticleRenderer sections={article.content} />
+        <ArticleRenderer sections={article.sections} />
       </div>
 
       {/* 文章读完 → 引导回产品 */}
       <div className="mt-12">
-        <FeatureJumpCTA />
+        <FeatureJumpCTA shortcuts={shortcutsForCategory(article.category)} />
       </div>
 
       {related.length > 0 && (

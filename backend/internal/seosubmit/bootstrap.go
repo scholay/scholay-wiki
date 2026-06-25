@@ -26,6 +26,7 @@ type SeedSource interface {
 	StaticPaths() []string   // 像 ["/", "/pricing", "/about", ...]
 	BlogPaths() []string     // 像 ["/blog", "/blog/foo-slug", ...]
 	ResourcePaths() []string // 像 ["/resources", "/resources/foo-slug", ...]
+	QAPaths() []string       // 像 ["/qa", "/qa/foo-slug", ...]
 	// paper/author 返回**完整 canonical 路径**(/paper/{source}/{id}、/author/{source}/{id}),
 	// 不是 slug —— 避免推送 legacy /xxx/{slug} 被 canonicalRedirectFor 301(rank 12)。限量 + tier=1 优先。
 	BootstrapPaperPaths(ctx context.Context, limit int) []string
@@ -49,6 +50,7 @@ func (s *Service) BootstrapEnqueue(parent context.Context, src SeedSource, limit
 		all = append(all, src.StaticPaths()...)
 		all = append(all, src.BlogPaths()...)
 		all = append(all, src.ResourcePaths()...)
+		all = append(all, src.QAPaths()...)
 
 		// 已是完整 canonical 路径,直接入队(不再前缀拼 slug)。
 		paperPaths := src.BootstrapPaperPaths(ctx, limit)
@@ -61,6 +63,7 @@ func (s *Service) BootstrapEnqueue(parent context.Context, src SeedSource, limit
 			"static", len(src.StaticPaths()),
 			"blogs", len(src.BlogPaths()),
 			"resources", len(src.ResourcePaths()),
+			"qa", len(src.QAPaths()),
 			"papers", len(paperPaths),
 			"authors", len(authorPaths),
 		)

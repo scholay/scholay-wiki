@@ -1,0 +1,240 @@
+{
+  "slug": "latex-tutorial",
+  "kind": "resources",
+  "title": "LaTeX 入门怎么学？从环境搭建到公式、文献、协作的完整学术排版指南",
+  "category": "工具教程",
+  "tags": [
+    "LaTeX",
+    "学术排版",
+    "数学公式",
+    "BibTeX",
+    "参考文献",
+    "ScholayPrism",
+    "论文写作"
+  ],
+  "excerpt": "LaTeX 是学术界标准的排版系统：用三行代码搭起文档骨架，靠标记语言分离内容与格式，从数学公式、三线表到 BibTeX 文献管理一气呵成。初学者用 Overleaf 或 Scholay 的 ScholayPrism 在线编辑器即可零安装上手。",
+  "readTime": "16 分钟",
+  "date": "2026-02-01",
+  "updatedDate": "2026-06-25",
+  "author": {
+    "name": "王明",
+    "role": "产品经理",
+    "bio": "计算机科学硕士,全栈开发者,热衷于用技术提升科研效率。"
+  },
+  "sections": [
+    {
+      "type": "paragraph",
+      "text": "LaTeX 入门的核心只有三步:先准备编辑环境(初学者直接用 Overleaf 或 Scholay 的 ScholayPrism 在线编辑器,零安装),再用 \\documentclass、\\begin{document}、\\end{document} 三行命令搭起文档骨架,最后逐块掌握章节命令、数学公式、图表和 BibTeX 文献管理。LaTeX 是数学、物理、计算机等领域的论文写作标准工具,它通过标记语言把内容和格式分离,生成排版精美、格式一致的学术文档。"
+    },
+    {
+      "type": "heading",
+      "text": "什么是 LaTeX?为什么学术界都用它?"
+    },
+    {
+      "type": "paragraph",
+      "text": "LaTeX 是一套基于标记语言的排版系统,文档由命令和文本组成,命令以反斜杠开头(如 \\documentclass、\\begin、\\end)来控制结构和格式。和 Word 等所见即所得编辑器不同,LaTeX 把内容与格式分离:作者专注写内容,排版规则由文档类和宏包统一处理,因此整篇论文的标题、公式、图表编号能保持高度一致。在数学、物理、计算机科学等公式密集的领域,LaTeX 几乎是论文写作的事实标准。"
+    },
+    {
+      "type": "paragraph",
+      "text": "LaTeX 与 Word 的根本区别在于工作方式:Word 是所见即所得,排版与内容混在一起;LaTeX 是标记驱动,内容是纯文本、格式由代码声明。下面这张对比表能帮你快速判断该用哪一个。"
+    },
+    {
+      "type": "table",
+      "headers": [
+        "对比维度",
+        "LaTeX",
+        "Word"
+      ],
+      "rows": [
+        [
+          "排版方式",
+          "标记语言,内容与格式分离",
+          "所见即所得,内容格式混合"
+        ],
+        [
+          "数学公式",
+          "原生强大,复杂公式表达自如",
+          "公式编辑器,复杂公式繁琐"
+        ],
+        [
+          "格式一致性",
+          "自动编号、引用,全文统一",
+          "依赖手动维护,易出错"
+        ],
+        [
+          "参考文献",
+          "BibTeX 自动生成与排序",
+          "需手动或插件管理"
+        ],
+        [
+          "版本控制",
+          "纯文本,天然适配 Git",
+          "二进制,难做精细 diff"
+        ],
+        [
+          "学习曲线",
+          "较陡,需记命令",
+          "平缓,上手即用"
+        ],
+        [
+          "适用场景",
+          "公式多的理工科论文、长文档",
+          "短文档、轻量排版"
+        ]
+      ]
+    },
+    {
+      "type": "heading",
+      "text": "如何搭建 LaTeX 环境?在线还是本地?"
+    },
+    {
+      "type": "paragraph",
+      "text": "搭建 LaTeX 环境有两条路。第一条是安装本地发行版(如 TeX Live 或 MiKTeX)配合编辑器(如 VS Code + LaTeX Workshop 或 TeXstudio),适合需要离线写作、深度定制的进阶用户。第二条是使用在线编辑器(如 Overleaf 或 Scholay 的 ScholayPrism LaTeX 编辑器),无需安装任何软件,打开浏览器就能写作。对初学者而言,在线编辑器是最便捷的起点,省去了发行版安装和环境配置的麻烦。"
+    },
+    {
+      "type": "paragraph",
+      "text": "一个最简单的 LaTeX 文档只需要三行:\\documentclass{article} 定义文档类型,\\begin{document} 标记内容开始,\\end{document} 标记结束。所有要在 PDF 中显示的内容都写在这两个标记之间。掌握这三行,你就拥有了一个可编译的最小文档,后续所有功能都是在它的基础上叠加。"
+    },
+    {
+      "type": "heading",
+      "text": "LaTeX 文档结构怎么组织章节?"
+    },
+    {
+      "type": "paragraph",
+      "text": "LaTeX 用一组层次命令组织论文:\\section{} 创建一级标题,\\subsection{} 创建二级标题,\\subsubsection{} 创建三级标题,LaTeX 会自动为章节编号,作者只需关注内容。如果使用 book 或 report 文档类,还可以用 \\chapter{} 创建章级标题。这种结构化命令让长文档的目录、编号和交叉引用全程自动维护。"
+    },
+    {
+      "type": "paragraph",
+      "text": "序言部分(Preamble)是 \\documentclass 和 \\begin{document} 之间的区域,用于设置全局参数:加载宏包(\\usepackage{...})、定义标题信息(\\title{...}、\\author{...}、\\date{...})和自定义命令。常用宏包包括 geometry(页面设置)、babel(多语言支持)、graphicx(图片插入)、amsmath(数学公式增强)等。序言写好后,正文部分就能直接调用这些功能。"
+    },
+    {
+      "type": "heading",
+      "text": "LaTeX 数学公式怎么写?"
+    },
+    {
+      "type": "paragraph",
+      "text": "数学公式排版是 LaTeX 最强大的功能之一。行内公式用 $ ... $ 或 \\( ... \\) 包裹,例如 $E = mc^2$ 会在正文中显示为 E = mc²。行间公式(独占一行、居中显示)用 \\[ ... \\] 或 equation 环境;需要对公式编号时用 equation 环境,不需要编号时用 equation* 或 \\[ \\]。区分行内与行间是写好公式的第一步。"
+    },
+    {
+      "type": "paragraph",
+      "text": "复杂数学表达依赖特定命令:\\frac{a}{b} 创建分数,\\sum_{i=1}^{n} 创建求和符号,\\int_{0}^{\\infty} 创建积分符号,\\begin{pmatrix} ... \\end{pmatrix} 创建矩阵。align 环境允许创建多行对齐的公式组,在推导过程中特别有用。建议加载 amsmath 和 amssymb 宏包以获取完整的数学符号支持,它们补全了基础 LaTeX 缺少的大量符号和对齐环境。"
+    },
+    {
+      "type": "list",
+      "items": [
+        "行内公式:$ ... $ 或 \\( ... \\),嵌在正文中",
+        "行间编号公式:equation 环境,自动编号便于引用",
+        "行间不编号公式:\\[ ... \\] 或 equation*",
+        "分数 \\frac{a}{b}、求和 \\sum、积分 \\int、矩阵 pmatrix",
+        "多行对齐推导:align 环境配合 & 对齐点",
+        "必备宏包:amsmath(增强环境)+ amssymb(符号集)"
+      ]
+    },
+    {
+      "type": "heading",
+      "text": "如何插入图片和制作三线表?"
+    },
+    {
+      "type": "paragraph",
+      "text": "在 LaTeX 中插入图片使用 figure 环境和 \\includegraphics 命令。figure 是一个浮动体(Float),LaTeX 会自动决定图片的最佳位置;你可以用位置参数([h] 当前位置、[t] 页面顶部、[b] 页面底部、[p] 独立页面)建议放置位置,但 LaTeX 不一定完全遵从。需要多图并排时,可使用 subfigure 或 minipage 环境把若干子图组织在一起。"
+    },
+    {
+      "type": "paragraph",
+      "text": "创建表格使用 table 环境(浮动体)和 tabular 环境(表格内容)。tabular 的列格式参数控制对齐:l 左对齐、c 居中、r 右对齐、| 竖线分隔;\\hline 创建水平线,& 分隔列,\\\\ 换行。要做更美观的表格,建议使用 booktabs 宏包,它提供 \\toprule、\\midrule、\\bottomrule 三个命令,生成无竖线的三线表——这是学术期刊中最常见、最规范的表格样式。"
+    },
+    {
+      "type": "heading",
+      "text": "BibTeX 参考文献怎么管理?编译要几次?"
+    },
+    {
+      "type": "paragraph",
+      "text": "LaTeX 使用 BibTeX 或 BibLaTeX 管理参考文献。你需要创建一个 .bib 文件,以标准化格式存储所有引用文献的信息;在正文中用 \\cite{key} 引用,LaTeX 和 BibTeX 会自动生成格式化的引用标记和参考文献列表。不同的 .bst 样式文件(如 plain、IEEE、apalike)控制引用与列表的显示格式,切换期刊只需换样式文件,无需手动改每一条引用。"
+    },
+    {
+      "type": "paragraph",
+      "text": "获取文献的 BibTeX 条目非常方便:从 Scholay 或 Google Scholar 等学术数据库大多支持一键导出 BibTeX。把导出的条目粘贴进 .bib 文件,再在正文用 \\cite 命令引用即可。使用 BibTeX 时,编译需要按顺序运行 pdflatex、bibtex、pdflatex、pdflatex(共四次),才能自动处理交叉引用和参考文献链接——只编译一次会出现引用显示为问号的情况。"
+    },
+    {
+      "type": "list",
+      "items": [
+        "建立 .bib 文件,粘入从 Scholay / Google Scholar 导出的 BibTeX 条目",
+        "在正文需要引用处写 \\cite{条目key}",
+        "在文末用 \\bibliography{} 与 \\bibliographystyle{} 指定 .bib 文件和样式",
+        "第一次运行 pdflatex 生成 .aux 引用记录",
+        "运行 bibtex 读取 .aux 并生成 .bbl 参考文献",
+        "再连续运行两次 pdflatex,让引用编号与文献列表对齐"
+      ],
+      "ordered": true
+    },
+    {
+      "type": "heading",
+      "text": "中文论文和常见编译错误怎么处理?"
+    },
+    {
+      "type": "paragraph",
+      "text": "中文论文可以使用 ctexart 文档类或加载 ctex 宏包,它们自动处理中文字体、标点和排版规则,省去手动配置中文支持的麻烦。超链接使用 hyperref 宏包(建议作为最后一个加载的宏包),它能为引用、URL 和目录生成可点击的链接。遇到编译错误时,要仔细阅读日志文件中的错误信息:通常第一个错误是关键,后续错误往往是它引发的连锁反应,修好第一个问题常常能消除一大片报错。"
+    },
+    {
+      "type": "heading",
+      "text": "有哪些必装的 LaTeX 宏包?"
+    },
+    {
+      "type": "paragraph",
+      "text": "hyperref 是几乎每篇论文都应加载的宏包,它为文档中的引用、URL 和目录生成可点击的超链接,并可自定义链接颜色和 PDF 元数据。cleveref 进一步简化交叉引用:用 \\cref{} 替代 \\ref{},它会自动在编号前添加\"图\"\"表\"\"式\"等前缀,并在引用多个对象时自动合并编号(如\"图1-3\"),减少手动输入、确保全文引用风格一致。两者配合时注意 hyperref 应在 cleveref 之前加载。"
+    },
+    {
+      "type": "paragraph",
+      "text": "siunitx 是处理物理量和单位的利器,确保数值与单位之间的间距、对齐和格式符合国际标准,例如 \\SI{9.8}{m/s^2} 会自动排版为规范的物理量表示。algorithm2e 和 algorithmic 是排版伪代码算法的两大选择,前者样式定制更灵活,后者语法更简洁直观。listings 宏包用于在文档中插入代码片段,支持语法高亮和行号显示,适合计算机科学论文展示源代码。"
+    },
+    {
+      "type": "paragraph",
+      "text": "tikz 和 pgfplots 是 LaTeX 生态中最强大的绘图工具。tikz 可以直接在文档中绘制流程图、神经网络结构图、示意图等矢量图形,输出与正文字体完美融合,比插入外部图片更美观;pgfplots 基于 tikz 构建,专注数据可视化,支持折线图、柱状图、散点图和三维曲面图。它们学习曲线较陡,但一旦掌握就能用纯代码生成出版级图表,且方便版本控制和复用。ScholayPrism 编辑器内置了常用 tikz 图形的模板和代码片段,帮助你快速上手。"
+    },
+    {
+      "type": "heading",
+      "text": "LaTeX 如何配合 Git 做版本控制和多人协作?"
+    },
+    {
+      "type": "paragraph",
+      "text": "LaTeX 源文件是纯文本,天然适合与 Git 等版本控制系统配合。把论文项目纳入 Git 管理后,你可以追踪每一次修改、随时回溯到任意历史版本、在不同分支上尝试不同写作方案而不怕丢稿。建议在 .gitignore 中排除编译产生的临时文件(如 .aux、.log、.synctex.gz、.bbl),只把源文件(.tex、.bib、图片)和 Makefile 纳入版本控制,保持仓库整洁。"
+    },
+    {
+      "type": "paragraph",
+      "text": "latexdiff 是论文修回过程中的必备工具,它能自动对比两个版本的 .tex 文件,生成带红色删除线和蓝色新增标记的差异文档,直观展示所有修改——这正是许多期刊要求提交的\"修订标注版\"。基本用法是 latexdiff old.tex new.tex > diff.tex,再编译 diff.tex 即可。配合 Git 时,用 latexdiff-vc 可直接对比任意两个 commit 之间的差异,无需手动保存旧版本文件。"
+    },
+    {
+      "type": "paragraph",
+      "text": "多人协作撰写论文时,版本控制的价值更加凸显。推荐的工作流是:每位作者在独立分支上工作,完成各自章节后通过 Pull Request 合并到主分支,由通讯作者审核。为避免合并冲突,建议每位作者负责不同的 .tex 文件(如按章节拆分),并约定每天推送一次更新。如果团队更偏好可视化操作,Overleaf 和 ScholayPrism 等在线编辑器也提供内置的版本历史与协作功能,降低了 Git 的学习门槛。"
+    },
+    {
+      "type": "tip",
+      "title": "Scholay 小技巧:从模板开始最省力",
+      "text": "学习 LaTeX 最高效的方式是从模板开始,而不是从空白文档手写。几乎所有期刊和会议都提供官方 LaTeX 模板——下载后逐步把里面的内容替换成你自己的文字和公式即可。Scholay 的 ScholayPrism 内置了多种学术模板和 tikz 代码片段,支持实时编译预览、AI 辅助写作和一键导出 PDF,一键创建就能开始写作,适合 LaTeX 新手快速跑通第一篇论文。"
+    },
+    {
+      "type": "faq",
+      "faq": [
+        {
+          "q": "LaTeX 适合初学者吗?要不要先装软件?",
+          "a": "适合,而且不必先装软件。初学者推荐用 Overleaf 或 Scholay 的 ScholayPrism 在线编辑器,打开浏览器就能写,省去 TeX Live、MiKTeX 等本地发行版的安装配置。先从三行最小文档和官方模板入手,再逐步学公式和文献。"
+        },
+        {
+          "q": "BibTeX 文献为什么要编译四次?",
+          "a": "使用 BibTeX 时需按 pdflatex、bibtex、pdflatex、pdflatex 的顺序运行四次。第一次生成引用记录,bibtex 据此生成参考文献,后两次让正文引用编号与文献列表正确对齐。只编译一次,引用常会显示成问号或空白。"
+        },
+        {
+          "q": "LaTeX 写中文论文怎么配置?",
+          "a": "写中文论文可使用 ctexart 文档类或加载 ctex 宏包,它会自动处理中文字体、标点和排版规则,无需手动逐项配置。配合 ScholayPrism 等在线编辑器,可直接套用现成的中文模板开始写作,避免字体缺失等常见报错。"
+        },
+        {
+          "q": "学术表格用什么宏包最规范?",
+          "a": "学术期刊最常见的是无竖线的三线表,推荐使用 booktabs 宏包。它提供 \\toprule、\\midrule、\\bottomrule 三个命令,生成顶线、中线、底线的规范表格,比手动画竖线的 tabular 更清爽、更符合期刊排版习惯。"
+        },
+        {
+          "q": "LaTeX 怎么和 Git 配合做版本控制?",
+          "a": "LaTeX 源文件是纯文本,天然适合 Git。把 .tex、.bib 和图片纳入版本控制,在 .gitignore 中排除 .aux、.log、.bbl 等临时文件。修回时用 latexdiff 生成带删改标记的修订版,多人协作则按章节拆文件、用分支和 Pull Request 合并。"
+        }
+      ]
+    }
+  ]
+}

@@ -101,6 +101,10 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.GET("/promo/config", h.promo.GetConfig)
 		adminProtected.PUT("/promo/config", h.promo.UpdateConfig)
 
+		// 情报(学术新闻)webhook 配置:前端展示开关 + 接收 URL(展示)+ HMAC 密钥(脱敏)
+		adminProtected.GET("/news-webhook/config", h.news.GetConfig)
+		adminProtected.PUT("/news-webhook/config", h.news.UpdateConfig)
+
 		// 公告管理
 		adminProtected.GET("/announcements", h.announcement.ListAdmin)
 		adminProtected.POST("/announcements", h.announcement.Create)

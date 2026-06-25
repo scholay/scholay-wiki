@@ -397,7 +397,7 @@ const search: LandingFeature = {
   faqHeader: {
     eyebrow: '常见问题',
     title: '在你按下「开始检索」之前。',
-    sub: '没找到答案?写信 support@scholay.app 或查看完整帮助文档。',
+    sub: '没找到答案?到「联系我们」给我们写信,或查看完整帮助文档。',
   },
   faqs: [
     {
@@ -423,7 +423,7 @@ const search: LandingFeature = {
     titleLines: [{ text: '让下一次文献调研,从一句中文开始。', italic: true }],
     sub: '免费创建账号,即刻使用 Scholay 文献搜索;教育邮箱享 50% 折扣,机构席位可联系销售。',
     primaryCTA: { label: '立即免费开始', href: '/search' },
-    secondaryCTA: { label: '预约 30 分钟产品演示', href: 'mailto:hello@scholay.app' },
+    secondaryCTA: { label: '预约 30 分钟产品演示', href: '/contact' },
     metaChips: ['无需信用卡', '支持中英文', '学生免费'],
   },
 };
@@ -613,7 +613,7 @@ const library: LandingFeature = {
   faqHeader: {
     eyebrow: '常见问题',
     title: '关于文献集,你可能想知道。',
-    sub: '更多问题?写信 support@scholay.app,我们 48 小时内回复。',
+    sub: '更多问题?到「联系我们」给我们写信,我们 48 小时内回复。',
   },
   faqs: [
     {
@@ -639,7 +639,7 @@ const library: LandingFeature = {
     titleLines: [{ text: '让下一篇论文,先有个家。', italic: true }],
     sub: '免费创建文献集,享受 1,000 篇免费容量;教育邮箱享 50% 折扣,机构可申请团队席位试点。',
     primaryCTA: { label: '立即免费创建', href: '/library' },
-    secondaryCTA: { label: '预约 30 分钟演示', href: 'mailto:hello@scholay.app' },
+    secondaryCTA: { label: '预约 30 分钟演示', href: '/contact' },
     metaChips: ['1000 篇免费', '教育 5 折', '中英双语'],
   },
 };
@@ -864,7 +864,7 @@ const prism: LandingFeature = {
     titleLines: [{ text: '让下一篇论文,在浏览器里写完。', italic: true }],
     sub: '免费开始写作,享 100 页 PDF 月度额度;教育邮箱 5 折,机构席位可联系销售。',
     primaryCTA: { label: '立即开始写作', href: '/prism' },
-    secondaryCTA: { label: '预约团队演示', href: 'mailto:hello@scholay.app' },
+    secondaryCTA: { label: '预约团队演示', href: '/contact' },
     metaChips: ['无需信用卡', '兼容 Overleaf', '中英双语'],
   },
 };
@@ -1077,7 +1077,7 @@ const claw: LandingFeature = {
     titleLines: [{ text: '让下一篇论文,从一次对话开始。', italic: true }],
     sub: '加入 32,000+ 研究者,把你的文献集变成会思考、可对话、有引用的学术伙伴。',
     primaryCTA: { label: '免费开始与 Claw 对话', href: '/claw' },
-    secondaryCTA: { label: '预约 30 分钟产品演示', href: 'mailto:hello@scholay.app' },
+    secondaryCTA: { label: '预约 30 分钟产品演示', href: '/contact' },
     metaChips: ['前 50 篇文献免费索引', '中英双语', '端到端加密'],
   },
 };
@@ -1265,7 +1265,7 @@ const submit: LandingFeature = {
     titleLines: [{ text: '让下一篇论文,少花 5 小时。', italic: true }],
     sub: '免费试用 3 次完整投稿流程,无需绑卡。学校与机构用户可申请团队版试点。',
     primaryCTA: { label: '立即免费开始', href: '/peer-review' },
-    secondaryCTA: { label: '预约团队演示', href: 'mailto:hello@scholay.app' },
+    secondaryCTA: { label: '预约团队演示', href: '/contact' },
     metaChips: ['无需绑卡', '3 次完整流程', '中英双语支持'],
   },
 };
@@ -1429,7 +1429,7 @@ const peerReview: LandingFeature = {
   faqHeader: {
     eyebrow: '常见问题',
     title: '在你按下「申请加入」之前。',
-    sub: '还有更多疑问?给我们写信 review@scholay.app,或查看完整文档。',
+    sub: '还有更多疑问?到「联系我们」给我们写信,或查看完整文档。',
   },
   faqs: [
     {

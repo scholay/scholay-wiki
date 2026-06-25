@@ -27,6 +27,9 @@ func registerPaymentCallbackRoutes(api *gin.RouterGroup, h *allHandlers) {
 		wechatOfficialWebhook.GET("/webhook", h.wechatOfficial.HandleVerification)
 		wechatOfficialWebhook.POST("/webhook", h.wechatOfficial.HandleMessage)
 	}
+
+	// 情报(Minicod news webhook):上游 server-to-server 推送,验签即闸,禁挂认证中间件。
+	api.POST("/webhook/minicod-news", h.news.ReceiveWebhook)
 }
 
 // registerAnalysisRoutes 注册 Matrix 多维分析路由 (需登录, 用户维度 + 论文批量分析)

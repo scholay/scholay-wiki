@@ -14,9 +14,9 @@ import { LANDINGS, LANDING_ORDER } from '../data/landings';
 // 等)直接从列表里删,避免点了 404 或停在原地。"联系我们"也改成 /feedback —— 这
 // 是用户与团队最常的实际触点,避免再做一个空联系页
 const RESOURCES = [
-  { label: '帮助中心', href: '/help' },
-  { label: '博客', href: '/blog' },
   { label: '学术资源', href: '/resources' },
+  { label: '产品博客', href: '/blog' },
+  { label: '帮助中心', href: '/help' },
 ];
 
 const COMPANY = [

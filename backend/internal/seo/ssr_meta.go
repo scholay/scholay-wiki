@@ -40,6 +40,10 @@ type PaperSSRMeta struct {
 	Venue    string
 	DOI      string
 	Authors  []string
+	// GEO: 被引数 / 学科 是"证据型"信号(统计数字 + 实体), 注入 noscript 卡片与 JSON-LD,
+	// 让 AI 生成式引擎能引用可量化的论文权威度与领域。CitationCount 为 0 时不渲染。
+	CitationCount int
+	FieldsOfStudy []string
 }
 
 // AuthorSSRMeta 作者 SSR 注入所需的最小元数据集
@@ -88,6 +92,30 @@ type ToolSSRMeta struct {
 	Tags          []string
 	AccessType    string
 	PriceType     string
+}
+
+// NewsSourceMeta 情报来源(SSR / JSON-LD 用)。
+type NewsSourceMeta struct {
+	URL   string
+	Label string
+}
+
+// NewsSSRMeta 情报详情页 (/news/{slug}) 的 SSR 元数据。
+// 由 internal/news 的 Service 实现 ResolveNewsBySlug 后回填(news → seo 单向, 无 cycle),
+// config 包注入到 index.html(title/description/canonical/NewsArticle JSON-LD/noscript 全文)。
+// BodyHTML 是已 sanitize 的正文 HTML(上游 body_html 经白名单清洗)。
+type NewsSSRMeta struct {
+	Slug            string
+	Title           string
+	Summary         string
+	BodyHTML        string
+	SectionLabel    string
+	ReportType      string
+	CoverImage      string
+	PublishedAt     string // RFC3339
+	UpdatedAt       string // RFC3339(dateModified)
+	CredibilityNote string
+	Sources         []NewsSourceMeta
 }
 
 // ResolveSlug 老 /paper/{slug} 直接根据 slug 反查, 返回 SSR meta (legacy 301 流量)。
@@ -161,16 +189,30 @@ func (s *Service) ResolveByJournalID(journalID int64) (*JournalSSRMeta, error) {
 // paperSSRMetaFromRow 把 seo_papers 行映射成 SSR 注入需要的子集
 func paperSSRMetaFromRow(p *SEOPaper) *PaperSSRMeta {
 	meta := &PaperSSRMeta{
-		PaperID:  p.PaperID,
-		Source:   p.Source,
-		Title:    p.Title,
-		Abstract: p.Abstract,
-		Venue:    p.Venue,
-		DOI:      p.DOI,
+		PaperID:       p.PaperID,
+		Source:        p.Source,
+		Title:         p.Title,
+		Abstract:      p.Abstract,
+		Venue:         p.Venue,
+		DOI:           p.DOI,
+		CitationCount: p.CitationCount,
 	}
 	if p.Year != nil {
 		y := *p.Year
 		meta.Year = &y
+	}
+	// fields_of_study 是字符串数组 JSON (["Computer Science", ...]); 解析失败降级为空
+	if p.FieldsOfStudy != "" {
+		var fos []string
+		if err := json.Unmarshal([]byte(p.FieldsOfStudy), &fos); err != nil {
+			slog.Debug("seo: paper fields_of_study unmarshal failed", "paper_id", p.PaperID, "err", err)
+		} else {
+			for _, f := range fos {
+				if f != "" {
+					meta.FieldsOfStudy = append(meta.FieldsOfStudy, f)
+				}
+			}
+		}
 	}
 	// 作者解析 authors_json 失败不致命, 降级为空列表
 	if p.AuthorsJSON != "" {
@@ -225,6 +267,9 @@ func (s *Service) BlogPaths() []string { return AllBlogPaths() }
 
 // ResourcePaths 暴露资源页 URL 列表
 func (s *Service) ResourcePaths() []string { return AllResourcePaths() }
+
+// QAPaths 暴露学术问答 URL 列表
+func (s *Service) QAPaths() []string { return AllQAPaths() }
 
 // BootstrapPaperPaths 给 seosubmit 启动期 seed 用 —— 热门论文 canonical 路径 /paper/{source}/{id}。
 // ctx 当前不参与 (实现是同步 in-memory), 保留以匹配接口签名。

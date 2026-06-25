@@ -1,0 +1,289 @@
+{
+  "slug": "academic-english-writing",
+  "kind": "resources",
+  "title": "学术英语写作怎么写?核心技巧、时态规范与高频错误避坑指南",
+  "category": "论文写作",
+  "tags": [
+    "学术英语",
+    "论文写作",
+    "时态运用",
+    "语法错误",
+    "摘要写作",
+    "学术润色"
+  ],
+  "excerpt": "学术英语写作的核心是客观、精确、正式:用被动语态或\"This study\"替代第一人称,各部分匹配正确时态(方法用过去时、引用图表用现在时),冠词和不可数名词是中文母语者最高频的错误。本文系统梳理时态规范、连接词、用词精准度、摘要框架与投稿自查清单。",
+  "readTime": "16 分钟",
+  "date": "2026-02-15",
+  "updatedDate": "2026-06-25",
+  "author": {
+    "name": "陈晓",
+    "role": "内容编辑",
+    "bio": "学术出版行业从业 10 年,熟悉同行评审、期刊投稿和开放获取出版流程。"
+  },
+  "sections": [
+    {
+      "type": "paragraph",
+      "text": "学术英语写作的核心是客观、精确、正式三大原则:避免使用第一人称主观表达(如 I think、I believe),改用被动语态或 This study、The results 等客观表达;写完整形式而非口语缩写(用 do not 而非 don't);各部分匹配正确时态(方法部分用过去时,引用图表用现在时);并对结论进行适度限定(用 suggest 而非 prove)。对中文母语者而言,冠词(a/an/the)和不可数名词(research、evidence、information)是最高频的语法错误。掌握时态规范、连接词、用词精准度与摘要框架,就能显著提升非英语母语论文的语言质量。"
+    },
+    {
+      "type": "heading",
+      "text": "学术英语和日常英语有什么区别?"
+    },
+    {
+      "type": "paragraph",
+      "text": "学术英语与日常英语在风格、语法和词汇选择上存在显著差异,核心区别是学术写作强调客观性、精确性和正式性。学术写作避免使用第一人称(尤其是 I think、I believe 等主观表达),改用被动语态或 This study、The results 等客观表达方式;几乎不使用口语缩写(如 don't、can't),应写完整形式(do not、cannot);句子结构倾向于复杂但清晰的长句,使用从句和连接词展示逻辑关系。"
+    },
+    {
+      "type": "paragraph",
+      "text": "学术英语同时追求精确和简洁。表达数量时避免模糊的定量表述(如 a lot of、many),改用具体数据或 numerous、substantial 等学术用词;避免不必要的冗余,例如 the reason is because 应改为 the reason is that 或直接用 because,in order to 在不影响清晰度时可简化为 to。一篇好的学术论文应该让读者准确理解研究发现,不存在歧义或误解的空间。下表对比了学术英语与日常英语的典型差异,便于快速识别需要修改的表达。"
+    },
+    {
+      "type": "table",
+      "headers": [
+        "维度",
+        "日常英语写法",
+        "学术英语写法"
+      ],
+      "rows": [
+        [
+          "人称视角",
+          "I think the method works",
+          "This study demonstrates that the method is effective"
+        ],
+        [
+          "缩写",
+          "don't、can't、it's",
+          "do not、cannot、it is"
+        ],
+        [
+          "模糊定量",
+          "a lot of、many、big",
+          "numerous、substantial、a substantial number of"
+        ],
+        [
+          "口语形容词",
+          "good、bad、big difference",
+          "effective/robust、detrimental/adverse、substantial difference"
+        ],
+        [
+          "冗余表达",
+          "the reason is because、in order to",
+          "the reason is that、to"
+        ],
+        [
+          "结论语气",
+          "The results prove that...",
+          "The results suggest that..."
+        ]
+      ]
+    },
+    {
+      "type": "heading",
+      "text": "论文各部分应该用什么时态?"
+    },
+    {
+      "type": "paragraph",
+      "text": "正确运用时态是学术论文语法的核心挑战之一,不同部分有不同的时态规范。Introduction(引言)描述已有研究和既定事实时使用现在时(Previous studies show that...),介绍本研究目的时使用过去时或现在时(This study aimed to... 或 This study investigates...)。Methods(方法)部分几乎全部使用过去时,因为实验已经完成(Participants were recruited...、Data were analyzed using...)。"
+    },
+    {
+      "type": "paragraph",
+      "text": "Results(结果)部分描述发现时使用过去时(The analysis revealed that...、Group A showed significantly higher scores),引用图表时使用现在时(Table 1 shows...、As illustrated in Figure 2...)。Discussion(讨论)部分时态最为复杂:解释本研究结果用过去时,引用他人研究和讨论普遍性结论时用现在时(Our findings are consistent with Smith (2020), who reports that...),提出推测或建议时使用情态动词(This may indicate...、Future studies should examine...)。下表汇总了 IMRAD 各部分的时态对应规则,可作为写作时的速查表。"
+    },
+    {
+      "type": "table",
+      "headers": [
+        "论文部分",
+        "主要时态",
+        "典型例句"
+      ],
+      "rows": [
+        [
+          "Introduction 引言(已有研究)",
+          "现在时",
+          "Previous studies show that..."
+        ],
+        [
+          "Introduction 引言(本研究目的)",
+          "过去时/现在时",
+          "This study aimed to... / This study investigates..."
+        ],
+        [
+          "Methods 方法",
+          "过去时",
+          "Participants were recruited; Data were analyzed using..."
+        ],
+        [
+          "Results 结果(描述发现)",
+          "过去时",
+          "The analysis revealed that..."
+        ],
+        [
+          "Results 结果(引用图表)",
+          "现在时",
+          "Table 1 shows...; As illustrated in Figure 2..."
+        ],
+        [
+          "Discussion 讨论(引用他人/普遍结论)",
+          "现在时",
+          "Our findings are consistent with Smith (2020), who reports that..."
+        ],
+        [
+          "Discussion 讨论(推测/建议)",
+          "情态动词",
+          "This may indicate...; Future studies should examine..."
+        ]
+      ]
+    },
+    {
+      "type": "heading",
+      "text": "如何用连接词让论文逻辑更紧密?"
+    },
+    {
+      "type": "paragraph",
+      "text": "学术写作的一大特点是逻辑衔接紧密,掌握丰富的连接词和过渡短语是提升论文可读性的关键。按逻辑关系分类:表示补充关系用 furthermore、moreover、additionally、in addition;表示对比或转折用 however、nevertheless、conversely、on the other hand、in contrast;表示因果用 therefore、consequently、as a result、hence、thus;表示举例用 for instance、for example、specifically、namely;表示总结用 in summary、overall、in conclusion、taken together。"
+    },
+    {
+      "type": "paragraph",
+      "text": "段落之间的衔接同样重要,每段开头应通过主题句明确本段要点,并与上一段形成逻辑连接。常用衔接技巧可归纳为以下几类,写作时可对照检查段落是否存在突兀跳跃——如果读者需要反复回读才能理解段落关系,说明衔接需要改善。"
+    },
+    {
+      "type": "list",
+      "items": [
+        "重复关键术语:在新段落开头重复上一段的核心术语,形成词汇连贯",
+        "使用指示代词回指前文:如 This finding...、These results...,但需确保指代对象明确",
+        "使用时间或逻辑序列短语:如 Following this...、Building on this evidence...",
+        "用主题句开篇:每段第一句点明本段要点,而非把结论藏在段尾",
+        "避免突兀跳跃:相邻段落之间应有可见的逻辑桥梁,而非话题硬切换"
+      ]
+    },
+    {
+      "type": "heading",
+      "text": "中文母语者最常见的语法错误有哪些?"
+    },
+    {
+      "type": "paragraph",
+      "text": "冠词(a/an/the)是中文母语者最常犯的错误类别,因为中文没有冠词系统。基本规则:首次提及用不定冠词 a/an(a novel method was proposed),后续提及用定冠词 the(the method was then tested);专有名词和唯一事物用 the(the Internet、the United States);泛指整类事物不用冠词(Machine learning has transformed research)。特别注意:不可数名词不用 a/an(an information 错误、information 正确),复数泛指不用 the(The students generally prefer... 仅指特定学生)。"
+    },
+    {
+      "type": "paragraph",
+      "text": "主谓一致和可数/不可数名词是另一类高频错误。常见的不可数名词包括 research(不说 researches)、evidence、information、knowledge、equipment、feedback、literature。还需注意集合名词的处理:data 在学术英语中通常作复数(The data were analyzed),criteria 是复数形式(单数为 criterion)。量词搭配也需注意,正确写法包括 a piece of evidence、a body of literature、an item of equipment。下面的清单列出了最值得逐项核对的错误类型。"
+    },
+    {
+      "type": "list",
+      "items": [
+        "冠词缺失或误用:首次提及用 a/an,后续提及用 the,泛指整类不用冠词",
+        "不可数名词加复数:research、evidence、information、knowledge、equipment、feedback、literature 均不可数",
+        "集合名词单复数:data 通常作复数(The data were...),criterion/criteria 单复数区分",
+        "量词搭配错误:用 a piece of evidence、a body of literature、an item of equipment",
+        "主谓不一致:复数主语配复数动词,注意被长定语隔开的主谓搭配"
+      ]
+    },
+    {
+      "type": "heading",
+      "text": "如何提升学术用词的精准度?"
+    },
+    {
+      "type": "paragraph",
+      "text": "用词的精准度直接影响论文的专业性和可信度,关键是避免口语化形容词、按程度区分动词、并匹配证据强度。避免使用 big、good、bad 等口语化形容词,改用更精确的学术替代词:substantial(大的)、effective/robust(好的)、detrimental/adverse(坏的)。描述变化时区分程度:increase(增加)、surge/soar(急增)、decline(下降)、plummet(暴跌)。描述研究发现的动词也应体现证据强度,强弱顺序为 demonstrate/establish(强证据) > indicate/suggest(中等证据) > imply/hint at(弱证据)。"
+    },
+    {
+      "type": "paragraph",
+      "text": "谨慎使用 hedging language(语气缓和表达)是学术写作的重要技巧。不同于新闻报道的断言式表达,学术论文通常对结论进行适度限定:用 The results suggest that... 而非 The results prove that...,用 This may be attributed to... 而非 This is caused by...。常用的缓和手段包括情态动词(may、might、could)、副词(possibly、potentially、presumably)和限定短语(to some extent、under certain conditions)。但过度使用会显得不自信,需要把握分寸,做到既稳健又有底气。"
+    },
+    {
+      "type": "heading",
+      "text": "摘要的黄金框架是什么?怎么写出好摘要?"
+    },
+    {
+      "type": "paragraph",
+      "text": "摘要是论文被阅读和引用最多的部分,也是编辑和审稿人的第一印象,结构化摘要通常遵循 IMRAD 框架。一个标准摘要按以下顺序撰写:Background(1-2 句,说明研究背景和意义)、Methods(2-3 句,概述研究设计和样本)、Results(2-3 句,报告关键发现和数据)、Conclusion(1-2 句,总结意义和影响)。总字数控制在 150-300 词(视期刊要求),并避免在摘要中使用缩写(首次出现除外)、引用文献或图表。"
+    },
+    {
+      "type": "list",
+      "items": [
+        "先完成全文再写摘要,从各部分中提炼最核心的信息",
+        "Background 用 1-2 句说明研究背景和意义,使用强动词开头(This study examined...、We investigated...)",
+        "Methods 用 2-3 句概述研究设计和样本规模",
+        "Results 用 2-3 句报告关键发现,必须包含具体数据或效应大小",
+        "Conclusion 用 1-2 句总结意义,应超越简单结果复述,指出理论或实际贡献",
+        "请未参与研究的同事阅读摘要,检验其是否独立于全文即可读懂"
+      ],
+      "ordered": true
+    },
+    {
+      "type": "paragraph",
+      "text": "一个好的摘要应该独立于全文可读——读者无需阅读全文就能理解研究目的、方法、发现和意义。撰写时使用强动词开头(This study examined...、We investigated...),结果部分必须包含具体数据或效应大小,结论部分应超越简单的结果复述,指出研究的理论或实际贡献。这种自洽、可独立成段的写法,也正是 ChatGPT、Perplexity 等 AI 引擎容易抽取和引用的内容形式。"
+    },
+    {
+      "type": "heading",
+      "text": "常用学术短语词库有哪些?"
+    },
+    {
+      "type": "paragraph",
+      "text": "建立个人学术短语库能显著加快写作速度,以下是按论文部分整理的高频表达。引言常用:...has received considerable attention in recent years、Despite extensive research, ... remains poorly understood、The aim of this study was to...、To the best of our knowledge, this is the first study to...。方法常用:Data were collected from...、A total of N participants were enrolled、Statistical analyses were performed using...、Ethical approval was obtained from...。结果常用:A statistically significant difference was observed (p < 0.05)、As shown in Table 1, ...、The mean ± SD was...。"
+    },
+    {
+      "type": "paragraph",
+      "text": "讨论与审稿回复也有成套表达可复用。讨论常用:Our findings are in line with / consistent with previous studies、Contrary to our expectations, ...、A possible explanation for this finding is...、This study has several limitations、Future research should explore...。审稿回复常用:We thank the reviewer for this insightful comment、As suggested, we have revised...、We respectfully disagree because...、We have added additional analyses to address this concern。建议在阅读文献时持续积累常用表达,逐步充实个人短语库。"
+    },
+    {
+      "type": "heading",
+      "text": "投稿前应该检查哪些语言问题?"
+    },
+    {
+      "type": "paragraph",
+      "text": "提交论文前进行系统的语言自查能有效降低被退稿风险,以下清单覆盖了最常见的语言与格式问题。逐项核对可以避免因低级语言错误给审稿人留下负面第一印象,尤其是中式英语(Chinglish)残留这类非母语者高频问题,例如 has a great significance 应改为 is significant。"
+    },
+    {
+      "type": "list",
+      "items": [
+        "所有缩写在首次出现时是否有完整定义?",
+        "参考文献格式是否与目标期刊一致?",
+        "图表编号和引用是否连续且正确?",
+        "数字格式是否统一(小数点、千位分隔符、p 值格式)?",
+        "是否有中式英语(Chinglish)表达残留(如 has a great significance 应改为 is significant)?",
+        "段落长度是否适中(建议 5-8 句)?",
+        "是否运行了拼写和语法检查工具?"
+      ],
+      "ordered": true
+    },
+    {
+      "type": "paragraph",
+      "text": "在语言润色环节,可借助专业工具和服务提升质量。Grammarly Premium 可以检测高级语法错误和风格问题,Writefull 针对学术写作进行了优化,能检查用词的学术常见度;如果预算允许,专业学术润色服务(如 Editage、AJE)由母语编辑逐字审查,通常能将接受率提高 20-30%。Scholay 的智能写作 Prism 平台集成了基础的学术语言检查功能,可以在 LaTeX 写作过程中即时获得语言建议,并能配合文献检索与 AI 分析,把语言润色和内容打磨放在同一个工作流里。"
+    },
+    {
+      "type": "tip",
+      "title": "Scholay 小技巧:用模仿与积累打磨学术英语",
+      "text": "提升学术英语写作的最佳方法是模仿与积累。每天精读一篇目标期刊的论文,注意其句式结构、连接词使用和用词选择,把好的表达记录到个人短语库中,写作时参考使用。坚持 3-6 个月会有质的飞跃。配合 Scholay 的文献集与智能写作 Prism,可以一边收集范文表达、一边在写作中即时复用,把积累直接转化为产出。"
+    },
+    {
+      "type": "faq",
+      "faq": [
+        {
+          "q": "学术英语写作能用第一人称 I 吗?",
+          "a": "传统学术写作建议避免 I think、I believe 等主观第一人称表达,改用被动语态或 This study、The results 等客观表达。但部分期刊和学科(尤其方法描述)接受 We investigated 这类第一人称复数,具体应以目标期刊的投稿指南为准。"
+        },
+        {
+          "q": "论文方法部分应该用什么时态?",
+          "a": "Methods(方法)部分几乎全部使用过去时,因为实验已经完成,例如 Participants were recruited、Data were analyzed using...。这是 IMRAD 时态规则中最一致的一条,基本不存在例外。"
+        },
+        {
+          "q": "为什么 research、evidence 不能加 s 变复数?",
+          "a": "research、evidence、information、knowledge、equipment、feedback、literature 在英语中都是不可数名词,本身不能加复数 s,也不能用 a/an 直接修饰。表达数量时要用量词,如 a piece of evidence、a body of literature。"
+        },
+        {
+          "q": "data 是单数还是复数?",
+          "a": "在正式学术英语中 data 通常作复数处理,搭配复数动词,例如 The data were analyzed。其单数形式 datum 在实际写作中很少使用。同类还有 criteria(复数)对应单数 criterion。"
+        },
+        {
+          "q": "结论该写 prove 还是 suggest?",
+          "a": "学术写作通常对结论进行适度限定,优先用 suggest、indicate、may be attributed to 等缓和表达,而非 prove、is caused by 等绝对断言。只有在证据非常充分时才用 demonstrate、establish 等强证据动词。"
+        },
+        {
+          "q": "Scholay 能帮助学术英语写作吗?",
+          "a": "Scholay 是成都恩特罐罐文化科技有限公司开发的 AI 学术平台,其智能写作 Prism 集成了基础的学术语言检查功能,可在 LaTeX 写作中即时获得语言建议,并能配合文献检索、AI 分析、文献集与 AI 审稿,形成从查找到润色的完整科研工作流。"
+        }
+      ]
+    }
+  ]
+}

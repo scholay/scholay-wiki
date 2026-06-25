@@ -18,6 +18,7 @@ import (
 	"scholar-backend/internal/ai"
 	"scholar-backend/internal/announcement"
 	"scholar-backend/internal/common/cache"
+	"scholar-backend/internal/content"
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/database"
 	"scholar-backend/internal/common/middleware"
@@ -31,6 +32,7 @@ import (
 	"scholar-backend/internal/library"
 	"scholar-backend/internal/message"
 	"scholar-backend/internal/minicod"
+	"scholar-backend/internal/news"
 	"scholar-backend/internal/payment"
 	"scholar-backend/internal/prism"
 	"scholar-backend/internal/promo"
@@ -92,6 +94,7 @@ type allHandlers struct {
 	agentBridge     *agentbridge.Bridge  // agent 内网回调端点 (带外 token 用量上报: title-gen 等)
 	supportCenter   *supportcenter.Handler // 客服与联系中心 (联系方式配置/IMAP 收件箱/飞书通知/写信)
 	promo           *promo.Handler         // 限时领取会员推广 (开关/二维码/文案 + 公开下发)
+	news            *news.Handler          // 情报 (学术新闻): webhook 接收/落库 + 公开读 + admin 配置
 	memory          *usermemory.Handler  // per-user 长期记忆 (查看/编辑/删除; agent 注入由 Bridge 负责)
 }
 
@@ -121,6 +124,18 @@ func registerRoutes(router *gin.Engine, h *allHandlers, cfg *appconfig.Config) {
 		api.GET("/config/support-contact", h.supportCenter.GetPublicContact)
 		// 限时领取会员推广配置(免登录;关闭时只回 enabled=false,不泄漏二维码/文案)
 		api.GET("/config/promo", h.promo.GetPublic)
+
+		// 内容中心(博客 / 学术资源)公开 API —— 正文单一真源 internal/content(go:embed),
+		// 前端文章列表 / 详情页取数;SSR 也读同一份 content 包渲染 noscript 全文。无鉴权、无状态。
+		contentHandler := content.NewHandler()
+		api.GET("/content/:kind", contentHandler.ListArticles)
+		api.GET("/content/:kind/:slug", contentHandler.GetArticle)
+
+		// 情报(学术新闻)公开 API —— 列表 / 热榜 / 详情(免登录;enabled 关闭时返空/404)。
+		// 静态段 trending / detail 与 /news 同层,避免 :param 同层冲突(故详情走 /news/detail/:slug)。
+		api.GET("/news", h.news.ListPublic)
+		api.GET("/news/trending", h.news.TrendingPublic)
+		api.GET("/news/detail/:slug", h.news.GetDetailPublic)
 
 		// 注:遗留的 POST /api/v1/admin/login 已下线 —— 它绕过了用户登录入口的全部
 		// 防爆破加固(Turnstile / 专属限流 / dummy-bcrypt 防枚举),且前端早已统一走
@@ -193,12 +208,15 @@ func registerRoutes(router *gin.Engine, h *allHandlers, cfg *appconfig.Config) {
 	router.GET("/sitemap-static.xml", h.seo.ServeStaticSitemap)
 	router.GET("/sitemap-blogs.xml", h.seo.ServeBlogSitemap)
 	router.GET("/sitemap-resources.xml", h.seo.ServeResourceSitemap)
+	router.GET("/sitemap-qa.xml", h.seo.ServeQASitemap)
 	router.GET("/sitemap-papers-:page.xml", h.seo.ServePaperSitemap)
 	router.GET("/sitemap-authors-:page.xml", h.seo.ServeAuthorSitemap)
 	router.GET("/sitemap-journals-:page.xml", h.seo.ServeJournalSitemap)
 	// 功能大全工具 sitemap(匿名收录)—— 索引 + 分页, robots.txt 里独立列出。
 	router.GET("/sitemap-tools.xml", h.featureTool.ServeToolSitemapIndex)
 	router.GET("/sitemap-tools-:page.xml", h.featureTool.ServeToolSitemap)
+	// 情报 sitemap(由 news 提供;seo 索引引用其 URL)
+	router.GET("/sitemap-news.xml", h.news.ServeNewsSitemap)
 	router.GET("/robots.txt", h.seo.ServeRobotsTxt)
 
 	// SPA 兜底路由（SSR 代码片段注入）

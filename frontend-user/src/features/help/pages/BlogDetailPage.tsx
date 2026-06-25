@@ -5,38 +5,44 @@ import { RouteSEO } from '@/shared/components/RouteSEO';
 import { TableOfContents } from '@/shared/components/TableOfContents';
 import { HelpLayout, MetaChip } from '../components/HelpLayout';
 import { ArticleRenderer } from '../components/ArticleRenderer';
-import { FeatureJumpCTA } from '../components/FeatureJumpCTA';
-import {
-  getBlogArticleBySlug,
-  getBlogAuthor,
-  getRelatedBlogArticles,
-} from '../data/blog-articles';
+import { FeatureJumpCTA, shortcutsForCategory } from '../components/FeatureJumpCTA';
+import { useArticle, useArticleList, relatedArticles } from '../api/content';
 
 /**
  * 博客详情页 —— /blog/:slug
  *
- * 重设计:
+ * 正文走后端内容 API(单一真源 internal/content);爬虫由后端 SSR 注入全文 + JSON-LD。
  *   - 加右侧 TOC(自动从 ArticleRenderer 渲染的 h2/h3 提取)
  *   - 作者卡 / 标签 / 相关文章卡片统一新设计语言
- *   - 相关文章卡加 CTA 箭头
  */
 export function BlogDetailPage() {
   const { slug = '' } = useParams<{ slug: string }>();
-  const article = getBlogArticleBySlug(slug);
+  const { data: article, isLoading, isError } = useArticle('blog', slug);
+  const { data: list } = useArticleList('blog');
+  const contentRef = useRef<HTMLDivElement>(null);
 
-  if (!article) {
+  if (isLoading) {
+    return (
+      <HelpLayout
+        breadcrumbs={[{ label: '学术资源', to: '/resources' }, { label: '产品博客', to: '/blog' }]}
+        title="加载中…"
+      >
+        <div className="py-16 text-center text-sm text-muted-foreground">正在加载文章…</div>
+      </HelpLayout>
+    );
+  }
+  if (isError || !article) {
     return <Navigate to="/blog" replace />;
   }
 
-  const author = getBlogAuthor(article.author);
-  const related = getRelatedBlogArticles(slug, 4);
-  const contentRef = useRef<HTMLDivElement>(null);
+  const author = article.author;
+  const related = relatedArticles(list, article, 4);
 
   return (
     <HelpLayout
       breadcrumbs={[
-        { label: '帮助中心', to: '/help' },
-        { label: '博客', to: '/blog' },
+        { label: '学术资源', to: '/resources' },
+        { label: '产品博客', to: '/blog' },
         { label: article.category },
       ]}
       eyebrow={article.category}
@@ -68,7 +74,7 @@ export function BlogDetailPage() {
         canonical={`/blog/${article.slug}`}
       />
       <div ref={contentRef}>
-        <ArticleRenderer sections={article.content} />
+        <ArticleRenderer sections={article.sections} />
       </div>
 
       {/* 标签 */}
@@ -112,7 +118,7 @@ export function BlogDetailPage() {
 
       {/* 文章读完 → 引导回产品 */}
       <div className="mt-12">
-        <FeatureJumpCTA />
+        <FeatureJumpCTA shortcuts={shortcutsForCategory(article.category)} />
       </div>
 
       {related.length > 0 && (

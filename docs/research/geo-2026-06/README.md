@@ -15,6 +15,16 @@
 | [verification.md](verification.md) | 27 条核心论断的对抗式核实逐条结果 | 想知道哪些"业界说法"不可信 |
 | [sources.md](sources.md) | 90 条去重来源清单 | 溯源 |
 
+### 第二轮(2026-06-24):页面体检 + 内容/品牌计划
+
+| 文件 | 内容 | 给谁看 |
+|---|---|---|
+| [04-page-audit-Q1.md](04-page-audit-Q1.md) | **页面体检报告(Q1)**:逐页型实抓(Googlebot/GPTBot/真人 UA)+ sitemap/SSR 交叉核对。结论=实体页健康,但 **11 个路径进了 sitemap 却对爬虫只返回空壳**(`/search`/`/journals/search`/`/privacy`/`/terms`/`/disclaimer`/`/contact`/`/feedback`/`/claw`/`/prism`/`/peer-review`),`/features/*` 六子页重复内容,博客/资源只给爬虫 teaser,普遍缺专属 title/OG/公司主体 | 工程 + 运营 |
+| [05-content-enrichment-plan-Q2.md](05-content-enrichment-plan-Q2.md) | **内容丰富计划(Q2)**:四块定位重切(介绍/文档/资源/博客)+ 目标站点地图 + P0/P1/P2 新增/加厚页清单(对比页/术语表/FAQ 中心/功能深度页,带真实中文标题)+ 介绍页可引用性模板 + 「白名单+inject+sitemap 三件套」落地映射 | 内容 + 工程 |
+| [06-product-story-plan-Q3.md](06-product-story-plan-Q3.md) | **产品故事/品牌叙事计划(Q3)**:品牌内核与一句话定位、vs 五大竞品差异化文案、首页/about/features 文案草稿、E-E-A-T 信任信号、Organization 实体建设(Wikidata/百科 sameAs)、30/60/90 天节奏。⚠️ 顶部有「数据规模」数字订正 | 品牌 + 运营 |
+
+> **第二轮三条要点**:① 体检的高危是「sitemap 提交了、爬虫却抓不到」——根因是 nginx SSR 白名单(`user.conf:238`)漏了那些路径,已实测确认;② 丰富内容的铁律=每个可索引新页必做「nginx 白名单 + SSR inject + sitemap」三件套,缺一即空壳;③ GEO 时代「讲产品故事」=建立 AI 对品牌实体的标准认知(全渠道首句一字一致),不是情怀。
+
 ## 三条最关键结论(TL;DR)
 
 1. **现在是窗口期。** GEO 论文(KDD 2024)实测:加权威引文 / 统计数据 / 标注来源是被引提升最强三法(各约 +30–40%),且存在"民主化"效应——排名靠后的小站靠证据质量可与头部同台被引。Scholar 品牌权重尚未压倒谷歌学术,正该趁早做。
