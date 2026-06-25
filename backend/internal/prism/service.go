@@ -24,7 +24,6 @@ import (
 
 	"scholar-backend/internal/agent"
 	"scholar-backend/internal/agentbridge"
-	"scholar-backend/internal/ai"
 	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/storage"
 
@@ -40,12 +39,12 @@ type Service struct {
 	bucket    string
 	feature   *agentbridge.FeatureBridge // 提供 ServerSideChatStreaming
 	agent     *agent.Client              // 直接建/管「每项目」agent 会话(存 prism_projects.agent_session_id)
-	ai        *ai.Service                // 轻量模型(ModelLow)给项目自动起名;nil = 不自动命名
 	sessionMu sync.Map                   // map[projectID]*sync.Mutex —— 串行化「每项目会话」的取/建,防并发双建(review F2)
 }
 
-func NewService(repo *Repository, tex *TexClient, bucket string, feature *agentbridge.FeatureBridge, agentClient *agent.Client, aiSvc *ai.Service) *Service {
-	return &Service{repo: repo, tex: tex, bucket: bucket, feature: feature, agent: agentClient, ai: aiSvc}
+// 注:项目自动起名已移到 agent 容器(见 autoname.go / handleAgentTitle),prism 不再依赖 ai.Service。
+func NewService(repo *Repository, tex *TexClient, bucket string, feature *agentbridge.FeatureBridge, agentClient *agent.Client) *Service {
+	return &Service{repo: repo, tex: tex, bucket: bucket, feature: feature, agent: agentClient}
 }
 
 // 新项目脚手架(对齐 OpenAI Prism 的 article 起始模板)。

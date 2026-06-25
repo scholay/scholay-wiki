@@ -250,9 +250,10 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 
 	// per-user 长期记忆 (C4): 所有 feature 共享同一份用户记忆。
 	//   - 读(注入): Bridge 在 WS 首条消息前缀 (smart_search/claw/prism) + peerreview 方法论 prompt 注入;
-	//   - 写(后台抽取): 每轮对话后异步用便宜模型 (ai.Service ModelLow) 从对话抽取用户持久信息, 限流控成本;
+	//   - 写(抽取): 每轮对话后由 **agent 容器** 跑廉价模型抽取(backend 不再用 ai.Service)——
+	//     agentbridge 经 WS extract_memory 帧把 prompt 推给 agent, 回传 memory_update 帧后 backend 落库, 限流控成本;
 	//   - 用户编辑: /api/v1/user/memory (handler 见下)。
-	userMemoryService := usermemory.NewService(usermemory.NewRepository(db), aiB.aiService.SimpleCompletion)
+	userMemoryService := usermemory.NewService(usermemory.NewRepository(db))
 	agentBridge.SetMemoryService(userMemoryService)
 
 	// 会员(VIP)按等级日限额 + token 计费:**所有付费 AI 功能必须在此注入**。
@@ -382,14 +383,17 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	core.configHandler.SetToolSEOProvider(featureToolSvc)
 
 	// 智能写作 (Prism) handler —— 提前构造以注入功能使用统计录入器(同 peerReview/claw)。
-	prismHandler := prism.NewHandler(prism.NewService(
+	// 项目自动起名已移到 agent 容器(agent 用前端带的 titleSeed 生成标题经 session_title_updated 帧回传,
+	// backend 经 prismFeature.OnTitleResult→handleAgentTitle 落库),故 NewService 不再要 ai.Service。
+	prismService := prism.NewService(
 		prism.NewRepository(db),
 		prism.NewTexClient(os.Getenv("PRISM_WORK_DIR")),
 		storage.PrismBucket(),
 		prismFeature,
-		agentClient,   // 每项目独立 agent 会话:prism 直接建/管 session,存 prism_projects.agent_session_id
-		aiB.aiService, // 轻量模型(ModelLow)给项目按首条指令自动起名
-	))
+		agentClient, // 每项目独立 agent 会话:prism 直接建/管 session,存 prism_projects.agent_session_id
+	)
+	prism.SetTitleSink(prismService) // agent 回传标题落库的反查入口(见 handleAgentTitle)
+	prismHandler := prism.NewHandler(prismService)
 	prismHandler.SetUsageStatRecorder(plat.usageStatService)
 
 	// ---- 聚合 handlers ----

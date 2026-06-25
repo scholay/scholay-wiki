@@ -4,7 +4,9 @@
  */
 
 export type PrismClientMessage =
-  | { type: 'user_message'; content: string }
+  // titleSeed:本轮「干净的原始指令」(不含聚焦选区提示),供 agent 用它给项目自动起名,
+  // 而非拿巨型 system 前缀起名。仅首轮(项目仍是默认名)实际生效,后端落库幂等。
+  | { type: 'user_message'; content: string; titleSeed?: string }
   | { type: 'stop_generation' }
   | { type: 'ping' };
 

@@ -1599,6 +1599,19 @@ func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 
 	_ = s.repo.MarkCompleted(submissionID)
 	_ = s.repo.SetComputeState(submissionID, StateIdle, "")
+
+	// 审稿完成后,把投稿人的长期记忆「抽取」任务推给 agent 执行(server-side 路径:新开一条到该会话的
+	// WS 发 extract_memory 帧,无前端连接 → 不 displacement)。best-effort、独立 goroutine + 自带 ctx,
+	// 不阻塞审稿返回;限流(per-user 90s)+ prompt 组装 + 写库校验全在 backend。抽取提示词已指明「忽略
+	// 一次性任务/具体论文细节」,故只学到投稿人稳定画像(领域/水平),不会把被审论文内容写进记忆。
+	if uid := uint(sub.UserID); uid != 0 {
+		sid := sessionID
+		safego.Go("peerreview-memory-extract", func() {
+			mctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+			s.feature.Bridge().ExtractMemoryServerSide(mctx, sid, uid)
+		})
+	}
 }
 
 // peerReviewJSONRetries 评分轮 JSON 解析失败时的最大重发次数(带强约束提示重发)。

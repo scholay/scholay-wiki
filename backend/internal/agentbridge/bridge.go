@@ -58,7 +58,9 @@ type Bridge struct {
 	llmRec llmusage.Recorder
 
 	// memSvc per-user 长期记忆服务 (允许 nil = 不启用记忆)。所有 feature 共享同一份用户记忆:
-	// 读(注入)经 MemoryBlocks;写(后台抽取)经 triggerMemoryExtract(WS message_complete 触发)。
+	// 读(注入)经 MemoryBlocks;写(抽取)由 agent 容器跑 LLM —— backend 经 buildMemoryExtractFrame
+	// 组装 prompt + WS extract_memory 帧推给 agent(WS message_complete / server-side 触发),
+	// agent 回传 memory_update 帧后经 IngestMemory 落库。backend 自身不跑抽取 LLM。
 	memSvc *usermemory.Service
 
 	// tokenWatermarks: 每个 agent session 已记账的「会话累计 token 水位」(4 元组
@@ -187,34 +189,51 @@ func (b *Bridge) MemoryBlocks(userID uint) string {
 	return b.memSvc.RenderBlocks(userID)
 }
 
-// triggerMemoryExtract 在一轮对话结束后异步从最近对话抽取用户持久信息更新记忆。
-// 绝不内联热路径 (safego 异步);限流闸 ShouldExtract 控成本。仅 WS 对话 feature 调用
-// (peerreview 是审稿不学用户画像, 只读注入不写)。
-func (b *Bridge) triggerMemoryExtract(userID uint, sessionID string) {
+// buildMemoryExtractFrame 一轮对话结束后,限流通过则组装要推给 agent 的 extract_memory 控制帧。
+// 返回 nil = 这轮不抽(未启用 / 冷却中 / 拉不到 transcript / 太短)。
+//
+// 记忆抽取的「LLM 调用」由 agent 容器跑(backend 不跑 LLM):此处只做 backend 侧的非 LLM 工作 ——
+// 限流(ShouldExtract,per-user Redis)、拉最近对话(GetSessionMessages,纯 HTTP 取数)、组装抽取
+// prompt(BuildExtractionPrompt,单一真源)。frame 由调用方经同一条**已鉴权 WS** 用 writeAgent 发给
+// agent(不新开连接,避免 displacement);agent 跑完把原始输出经 memory_update 帧回传,再走 IngestMemory。
+func (b *Bridge) buildMemoryExtractFrame(ctx context.Context, userID uint, sessionID string) []byte {
 	if b.memSvc == nil || userID == 0 || sessionID == "" {
+		return nil
+	}
+	if !b.memSvc.ShouldExtract(ctx, userID) {
+		return nil // 冷却中, 跳过
+	}
+	resp, err := b.client.GetSessionMessages(ctx, sessionID, 3) // 最近 3 个用户轮足够抽画像
+	if err != nil || resp == nil {
+		return nil
+	}
+	transcript := flattenTranscript(resp.Messages)
+	system, user, ok := b.memSvc.BuildExtractionPrompt(userID, transcript)
+	if !ok {
+		return nil
+	}
+	frame, err := buildExtractMemoryFrame(system, user)
+	if err != nil {
+		return nil
+	}
+	return frame
+}
+
+// IngestMemory 把 agent 回传的原始抽取输出落库(写记忆的唯一可信入口;allow-list / 截断 / Upsert
+// 全在 usermemory.IngestFromAgent,agent 永远只是建议者)。memSvc 未启用 = no-op。
+func (b *Bridge) IngestMemory(userID uint, raw string) {
+	if b.memSvc == nil {
 		return
 	}
-	safego.Go("usermemory-extract", func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-		defer cancel()
-		if !b.memSvc.ShouldExtract(ctx, userID) {
-			return // 冷却中, 跳过
-		}
-		resp, err := b.client.GetSessionMessages(ctx, sessionID, 3) // 最近 3 个用户轮足够抽画像
-		if err != nil || resp == nil {
-			return
-		}
-		transcript := flattenTranscript(resp.Messages)
-		// 归属:记忆抽取此前用裸 context.Background() → 账本记成 feature='unknown'、无用户归属、不计费。
-		// 现在打 Feature=memory + 发起用户,落账本可见、可按用户核成本;SkipQuota=true → 不扣用户每日额度
-		// (这是系统后台开销,不是用户主动发起的生成)。uid 取局部副本传指针。
-		uid := userID
-		ctx = llmusage.WithCall(ctx, llmusage.Call{
-			Feature:   llmusage.FeatureMemory,
-			UserID:    &uid,
-			SkipQuota: true,
-		})
-		b.memSvc.Extract(ctx, userID, transcript)
+	b.memSvc.IngestFromAgent(userID, raw)
+}
+
+// buildExtractMemoryFrame 组装 backend→agent 的 extract_memory 控制帧(agent 据此跑一次廉价模型补全)。
+func buildExtractMemoryFrame(system, user string) ([]byte, error) {
+	return json.Marshal(map[string]string{
+		"type":   "extract_memory",
+		"system": system,
+		"user":   user,
 	})
 }
 

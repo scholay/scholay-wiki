@@ -227,15 +227,15 @@ func (b *Bridge) ServerSideChatStreaming(
 			// 按「附加」记一行,归属取 ctx 的 llmusage.Call。镜像 ws.go 的交互路径 —— 补回 server-side
 			// (peerreview)此前因 switch 缺该 case 而**静默丢弃** title_gen token 帧的系统性漏计。
 			if b.llmRec != nil {
-				if u, ok := extractTokenUsageFrame(raw); ok {
+				if u, kind, ok := extractTokenUsageFrame(raw); ok {
 					call := llmusage.CallFromCtx(ctx)
 					feature := call.Feature
 					if feature == "" {
 						feature = llmusage.FeaturePeerReview
 					}
-					uid, feat, sid, rec := call.UserID, feature, sessionID, b.llmRec
+					uid, feat, knd, sid, rec := call.UserID, feature, kind, sessionID, b.llmRec
 					safego.Go("agentbridge-serverside-token-usage-record:"+feat, func() {
-						recordAgentTokens(rec, uid, feat, sid, u)
+						recordOutOfBandTokens(rec, uid, feat, knd, sid, u)
 					})
 				}
 			}
@@ -342,4 +342,73 @@ func truncateBytes(b []byte, n int) string {
 		return string(b)
 	}
 	return string(b[:n]) + "..."
+}
+
+// ExtractMemoryServerSide 在 server-side feature(peerreview)一轮结束后,把「记忆抽取」推给 agent 执行。
+//
+// 与 WS pipe 路(ws.go)不同:server-side 没有常驻 pipe,这里**新开一条**到该 agent 会话的 WS
+// (此类会话无前端连接 → 不会 displacement live pipe),发 extract_memory 控制帧,读到 memory_update
+// 即落库后返回。限流(per-user 90s)+ 拉 transcript + 组装抽取 prompt + 写库校验全在 backend
+// (复用 buildMemoryExtractFrame / IngestMemory,与 pipe 路同一套);backend 不跑抽取 LLM。
+// best-effort:任何失败仅记 debug,绝不影响审稿结果。
+func (b *Bridge) ExtractMemoryServerSide(ctx context.Context, sessionID string, userID uint) {
+	if b.memSvc == nil || userID == 0 || sessionID == "" {
+		return
+	}
+	// 含 ShouldExtract 冷却闸 + GetSessionMessages + BuildExtractionPrompt;返回 nil = 这轮不抽。
+	frame := b.buildMemoryExtractFrame(ctx, userID, sessionID)
+	if frame == nil {
+		return
+	}
+
+	wsURL, err := buildAgentWSURL(b.client.BaseURL(), sessionID)
+	if err != nil {
+		return
+	}
+	header := http.Header{}
+	if tok := b.client.AuthToken(); tok != "" {
+		header.Set("Authorization", "Bearer "+tok)
+	}
+	conn, _, err := agentDialer.DialContext(ctx, wsURL, header)
+	if err != nil {
+		slog.Debug("agentbridge: server-side extract_memory dial failed", "session_id", sessionID, "err", err)
+		return
+	}
+	defer func() {
+		_ = conn.WriteControl(gorillaws.CloseMessage,
+			gorillaws.FormatCloseMessage(gorillaws.CloseNormalClosure, ""),
+			time.Now().Add(closeMessageWriteTimeout))
+		_ = conn.Close()
+	}()
+
+	if err := conn.WriteMessage(gorillaws.TextMessage, frame); err != nil {
+		slog.Debug("agentbridge: server-side extract_memory write failed", "session_id", sessionID, "err", err)
+		return
+	}
+
+	// 读到 memory_update 即落库后返回;沿途 token_usage(kind=memory_extract)记账。整体 30s 超时兜底。
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		if err := conn.SetReadDeadline(deadline); err != nil {
+			return
+		}
+		_, raw, err := conn.ReadMessage()
+		if err != nil {
+			return
+		}
+		switch frameType(raw) {
+		case "token_usage":
+			if u, kind, ok := extractTokenUsageFrame(raw); ok {
+				uid := userID
+				recordOutOfBandTokens(b.llmRec, &uid, llmusage.FeaturePeerReview, kind, sessionID, u)
+			}
+		case "memory_update":
+			if rawText, ok := extractMemoryUpdateFrame(raw); ok {
+				b.memSvc.IngestFromAgent(userID, rawText)
+			}
+			return
+		case "error":
+			return
+		}
+	}
 }

@@ -242,7 +242,8 @@ export function PrismWorkspace({ projectId, onBack }: { projectId: number; onBac
       ? `${instruction}\n\n【请聚焦修改这段内容(必要的关联改动也做)】\n${selection}`
       : instruction;
     setQuote('');
-    chat.send(content, { relPath: af.rel_path, baseline: buffer });
+    // titleSeed = 干净的原始指令(不含聚焦选区提示),供 agent 给项目自动起名(就跟智能助手会话起名一样)。
+    chat.send(content, { relPath: af.rel_path, baseline: buffer }, instruction);
   };
 
   // 选区内联编辑(Cmd+K)。

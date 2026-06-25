@@ -220,8 +220,9 @@ export function usePrismChat(
   }, [socket.messages, scheduleRefetch, finalizeRound, qc, projectId]);
 
   // send:铺源 → 截 baseline → WS 发指令。active = 当前编辑文件(relPath + DB 正文)。
+  // titleSeed(可选)= 本轮「干净原始指令」(不含聚焦选区提示),透传给 agent 用于项目自动起名。
   const send = useCallback(
-    async (instruction: string, active: { relPath: string; baseline: string }) => {
+    async (instruction: string, active: { relPath: string; baseline: string }, titleSeed?: string) => {
       const ins = instruction.trim();
       if (!ins || roundState !== 'idle' || socket.state !== 'open') return;
       try {
@@ -236,7 +237,8 @@ export function usePrismChat(
       setPendingTurns((prev) => [...prev, { id: nextId(), userText: ins }]);
       setRoundState('streaming');
       setLive({ relPath: active.relPath, baseline: active.baseline, content: active.baseline });
-      socket.send({ type: 'user_message', content: ins });
+      const seed = titleSeed?.trim();
+      socket.send({ type: 'user_message', content: ins, ...(seed ? { titleSeed: seed } : {}) });
     },
     [projectId, roundState, socket],
   );

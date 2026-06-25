@@ -27,6 +27,7 @@ import (
 	"scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/utils"
+	"scholar-backend/internal/llmusage"
 )
 
 // agentSessionWorkdirRoot 是 agent 容器内每会话隔离 cwd 的根 (跟 agent 端
@@ -488,21 +489,63 @@ func (f *FeatureBridge) pipe(
 								}
 							})
 						}
-						// 一轮结束后异步从最近对话抽取用户长期记忆 (限流 + 不阻塞 pipe);
-						// 仅对会真正产生用户画像的 WS 对话 feature 生效 (peerreview 走 server-side, 不在此路径)。
-						f.bridge.triggerMemoryExtract(userID, sessionID)
+						// 一轮结束后,把「记忆抽取」任务异步推给 agent 执行(backend 不跑 LLM):限流 +
+						// 组装 prompt 后,经**同一条已鉴权 WS**(writeAgent,不新开连接避免 displacement)发
+						// extract_memory 控制帧;agent 跑完廉价模型把原始输出经 memory_update 帧回传,由下方
+						// agent→front 的 memory_update case 落库。仅 WS 对话 feature(smart_search/claw/prism)。
+						if f.bridge.memSvc != nil && userID != 0 {
+							uid, sid := userID, sessionID
+							safego.Go("usermemory-extract-dispatch:"+f.spec.Key, func() {
+								ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+								defer cancel()
+								if frame := f.bridge.buildMemoryExtractFrame(ctx, uid, sid); frame != nil {
+									if err := writeAgent(gorillaws.TextMessage, frame); err != nil {
+										slog.Debug("agentbridge ws: extract_memory frame write failed",
+											"feature", f.spec.Key, "session_id", sid, "err", err)
+									}
+								}
+							})
+						}
 					}
 				case "token_usage":
-					// 带外模型调用(会话标题生成等不产生 message_complete 帧的调用)的 token 用量:
-					// 不进会话累计水位,按「附加」记一行(归属来自已鉴权会话)。这是纯后端记账信号,
-					// 前端无用 → 记完即 continue, 不 writeFront 转发(避免给前端塞不渲染的杂帧)。
-					if u, ok := extractTokenUsageFrame(data); ok {
-						uid, feat, sid, rec := userID, f.spec.Key, sessionID, f.bridge.llmRec
+					// 带外模型调用(会话标题生成 / 记忆抽取等不产生 message_complete 帧的调用)的 token:
+					// 不进会话累计水位,按「附加」记一行。kind 决定归属:memory_extract → Feature=memory
+					// + SkipQuota(系统开销不扣用户日额度);其它(title_gen)→ 本 feature 正常计费。
+					// 纯后端记账信号,前端无用 → 记完即 continue, 不 writeFront 转发。
+					if u, kind, ok := extractTokenUsageFrame(data); ok {
+						uid, feat, knd, sid, rec := userID, f.spec.Key, kind, sessionID, f.bridge.llmRec
 						safego.Go("agentbridge-token-usage-record:"+feat, func() {
-							recordAgentTokens(rec, &uid, feat, sid, u)
+							recordOutOfBandTokens(rec, &uid, feat, knd, sid, u)
 						})
 					}
 					continue
+				case "memory_update":
+					// agent 跑完「记忆抽取」廉价模型调用后回传的原始输出。backend 据已鉴权会话的 userID
+					// 落库(IngestMemory 内做 allow-list / 截断 / Upsert,agent 永远只是建议者)。
+					// 纯后端信号 → 记完即 continue, 不 writeFront 转发。
+					if userID != 0 {
+						if raw, ok := extractMemoryUpdateFrame(data); ok {
+							uid := userID
+							safego.Go("agentbridge-memory-ingest:"+f.spec.Key, func() {
+								f.bridge.IngestMemory(uid, raw)
+							})
+						}
+					}
+					continue
+				case "session_title_updated":
+					// 标题真源在 agent jsonl 的 feature(claw/smart_search)自管;但 backend-owned 标题
+					// (prism:真源在 prism_projects.title)需 backend 落库:spec.OnTitleResult 非空即 tap,
+					// 仅 aiGenerated 的最终标题落库(忽略 deriveTitle 占位,避免占位把项目名锁死)。
+					// 不 continue —— 仍 writeFront 把标题帧转发前端。
+					if f.spec.OnTitleResult != nil {
+						if title, aiGen, ok := extractTitleUpdateFrame(data); ok && aiGen && title != "" {
+							hook := f.spec.OnTitleResult
+							uid, sid := userID, sessionID
+							safego.Go("agentbridge-title-result:"+f.spec.Key, func() {
+								hook(hookCtx, uid, sid, title)
+							})
+						}
+					}
 				}
 			}
 			if err := writeFront(mt, data); err != nil {
@@ -806,18 +849,81 @@ func extractMessageComplete(raw []byte) (usage AgentUsage, calls []AgentUsage, s
 
 // extractTokenUsageFrame 浅 parse 一帧 token_usage(带外模型调用,如会话标题生成):
 // 不进会话累计水位,按「附加」记一行。返回 (usage, true) 仅当本帧确为 token_usage。
-func extractTokenUsageFrame(raw []byte) (AgentUsage, bool) {
+// extractTokenUsageFrame 解 agent→backend 的 token_usage 帧, 返回 (用量, kind, ok)。
+// kind 标识这次带外调用的种类(title_gen / memory_extract / ...), 决定记账归到哪个 feature
+// 及是否计入用户日额度(memory_extract → Feature=memory + SkipQuota,不扣用户额度)。
+func extractTokenUsageFrame(raw []byte) (AgentUsage, string, bool) {
 	if len(raw) == 0 || raw[0] != '{' {
-		return AgentUsage{}, false
+		return AgentUsage{}, "", false
 	}
 	var probe struct {
 		Type  string     `json:"type"`
+		Kind  string     `json:"kind"`
 		Usage AgentUsage `json:"usage"`
 	}
 	if err := json.Unmarshal(raw, &probe); err != nil || probe.Type != "token_usage" {
-		return AgentUsage{}, false
+		return AgentUsage{}, "", false
 	}
-	return probe.Usage, true
+	return probe.Usage, probe.Kind, true
+}
+
+// recordOutOfBandTokens 记一行「带外」token 用量(标题/记忆抽取等不产生 message_complete 的调用)。
+// kind=="memory_extract" → 归 Feature=memory 且 SkipQuota=true(系统后台开销, 不扣用户日额度);
+// 其它(title_gen 等)→ 归本 feature, 正常计费。requestID 传 agent sessionID。
+func recordOutOfBandTokens(rec llmusage.Recorder, userID *uint, feature, kind, sessionID string, u AgentUsage) {
+	if rec == nil {
+		return
+	}
+	if kind == "memory_extract" {
+		rec.Record(llmusage.Usage{
+			UserID:              userID,
+			Feature:             llmusage.FeatureMemory,
+			Source:              llmusage.SourceAgent,
+			Provider:            "scholay-managed",
+			Model:               u.Model,
+			InputTokens:         u.InputTokens,
+			OutputTokens:        u.OutputTokens,
+			CacheReadTokens:     u.CacheReadTokens,
+			CacheCreationTokens: u.CacheCreationTokens,
+			RequestID:           sessionID,
+			SkipQuota:           true,
+		})
+		return
+	}
+	recordAgentTokens(rec, userID, feature, sessionID, u)
+}
+
+// extractMemoryUpdateFrame 解 agent→backend 的 memory_update 帧, 取出 agent 跑完抽取的原始模型输出。
+// backend 拿去 IngestMemory(parseUpdates + allow-list + 截断 + Upsert), 解析全在 backend(零 TS 漂移)。
+func extractMemoryUpdateFrame(raw []byte) (string, bool) {
+	if len(raw) == 0 || raw[0] != '{' {
+		return "", false
+	}
+	var probe struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	}
+	if err := json.Unmarshal(raw, &probe); err != nil || probe.Type != "memory_update" {
+		return "", false
+	}
+	return probe.Text, true
+}
+
+// extractTitleUpdateFrame 解 agent→backend 的 session_title_updated 帧, 取标题 + aiGenerated 标志。
+// aiGenerated=false 是 deriveTitle 即时占位(backend-owned 标题不落占位, 避免把项目名锁死)。
+func extractTitleUpdateFrame(raw []byte) (string, bool, bool) {
+	if len(raw) == 0 || raw[0] != '{' {
+		return "", false, false
+	}
+	var probe struct {
+		Type        string `json:"type"`
+		Title       string `json:"title"`
+		AIGenerated bool   `json:"aiGenerated"`
+	}
+	if err := json.Unmarshal(raw, &probe); err != nil || probe.Type != "session_title_updated" {
+		return "", false, false
+	}
+	return probe.Title, probe.AIGenerated, true
 }
 
 // callPreUserMessage 包一层 recover, 防止业务侧的 hook panic 把 WS 读循环炸掉。

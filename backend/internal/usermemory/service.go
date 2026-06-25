@@ -17,10 +17,6 @@ import (
 	"scholar-backend/internal/common/cache"
 )
 
-// CompleteFn 是一次非流式 LLM 补全(system + user → text)。由 bootstrap 用 ai.Service
-// (ModelLevelLow 便宜模型)适配进来,usermemory 不直接依赖 ai 包(解耦)。
-type CompleteFn func(ctx context.Context, system, user string) (string, error)
-
 // extractCooldown 是同一用户两次后台抽取之间的最小间隔(限流控成本)。
 const extractCooldown = 90 * time.Second
 
@@ -28,13 +24,18 @@ const extractCooldown = 90 * time.Second
 const minTranscriptForExtract = 40
 
 // Service per-user 长期记忆服务:渲染注入 + 后台抽取 + 用户编辑。
+//
+// 抽取的 LLM 调用本身不在这里跑 —— 改由 agent 容器执行(每轮对话后 agentbridge 把
+// BuildExtractionPrompt 产出的 system/user prompt 经 WS 控制帧 extract_memory 推给 agent,
+// agent 用便宜模型跑完把原始文本经 memory_update 帧回传,backend 再 IngestFromAgent 落库)。
+// 「策略大脑」(抽取提示词 / StandardBlocks 规格 / 冷却 / 当前记忆合并 / 写库校验)全留 backend,
+// 单一真源、零 TS 漂移;agent 只当无状态的廉价模型执行器。
 type Service struct {
-	repo     *Repository
-	complete CompleteFn
+	repo *Repository
 }
 
-func NewService(repo *Repository, complete CompleteFn) *Service {
-	return &Service{repo: repo, complete: complete}
+func NewService(repo *Repository) *Service {
+	return &Service{repo: repo}
 }
 
 // ── 读路径:渲染注入 ──────────────────────────────────────────────
@@ -98,26 +99,30 @@ func (s *Service) ShouldExtract(ctx context.Context, userID uint) bool {
 	return ok
 }
 
-// Extract 用便宜模型从最近对话抽取用户持久信息,合并更新记忆块。同步执行 ——
-// 调用方(bridge)用 safego.Go 异步包起来,绝不内联热路径(Mem0:async 默认)。
-func (s *Service) Extract(ctx context.Context, userID uint, transcript string) {
-	if s == nil || s.complete == nil {
-		return
+// BuildExtractionPrompt 组装一次抽取调用的 (system, user) prompt:给模型看现有记忆 + 最近对话,
+// 要求输出「更新后的全文」(Letta core_memory_replace 语义),无新增则该 key 省略 / 返回空对象。
+// ok=false 表示对话太短不值得抽(省成本)。由 agentbridge 拿去推给 agent 执行(backend 不跑 LLM)。
+func (s *Service) BuildExtractionPrompt(userID uint, transcript string) (system, user string, ok bool) {
+	if s == nil {
+		return "", "", false
 	}
 	transcript = strings.TrimSpace(transcript)
 	if len([]rune(transcript)) < minTranscriptForExtract {
-		return
+		return "", "", false
 	}
-	// 给模型看现有记忆 + 最近对话,要求输出「更新后的全文」(Letta core_memory_replace 语义),
-	// 无新增则该 key 省略 / 返回空对象。
 	blocks, _ := s.repo.ListByUser(userID)
 	current := s.renderBlocksForPrompt(blocks)
-	out, err := s.complete(ctx, extractionSystemPrompt(), buildExtractionUserPrompt(current, transcript))
-	if err != nil {
-		slog.Warn("usermemory: extraction LLM call failed", "user_id", userID, "err", err)
+	return extractionSystemPrompt(), buildExtractionUserPrompt(current, transcript), true
+}
+
+// IngestFromAgent 把 agent 跑完抽取后回传的「原始模型输出」解析、按 StandardBlocks 白名单过滤、
+// 截断,合并落库。这是写记忆的**唯一可信入口** —— agent 永远只是建议者,allow-list / 截断 / Upsert
+// 全在 backend(agent 不知 userID、跨用户寻址的安全模型完全依赖 backend 持有写)。
+func (s *Service) IngestFromAgent(userID uint, raw string) {
+	if s == nil || userID == 0 {
 		return
 	}
-	updates := parseUpdates(out)
+	updates := parseUpdates(raw)
 	if len(updates) == 0 {
 		return
 	}
@@ -139,7 +144,7 @@ func (s *Service) Extract(ctx context.Context, userID uint, transcript string) {
 		changed++
 	}
 	if changed > 0 {
-		slog.Info("usermemory: extracted & updated blocks", "user_id", userID, "blocks", changed)
+		slog.Info("usermemory: extracted & updated blocks (agent-side)", "user_id", userID, "blocks", changed)
 	}
 }
 

@@ -19,6 +19,7 @@ import { SettingsService } from '../services/settingsService.js'
 import { ProviderService } from '../services/providerService.js'
 import { diagnosticsService } from '../services/diagnosticsService.js'
 import { deriveTitle, generateTitle, saveAiTitle } from '../services/titleService.js'
+import { runCheapCall } from '../services/memoryService.js'
 import { parseSlashCommand } from '../../utils/slashCommandParsing.js'
 import {
   LOCAL_COMMAND_STDERR_TAG,
@@ -73,6 +74,10 @@ const sessionTitleState = new Map<string, {
   firstUserMessage: string
   allUserMessages: string[]
   startedGenerationCounts: Set<number>
+  // titleSeed: backend-owned 标题的 feature(prism)随 user_message 带来的「干净指令」,优先用它生成
+  // 标题(而非 buildEditPrompt 巨型 prompt)。存在即:① 用 seed 作生成输入;② 标题经 session_title_updated
+  // 帧回传由 backend 落库(claw/smart_search 无 seed → 走 agent 自存 jsonl 的原行为)。
+  titleSeed?: string
 }>()
 
 const runtimeOverrides = new Map<string, {
@@ -272,6 +277,10 @@ export const handleWebSocket = {
           handleStopGeneration(ws)
           break
 
+        case 'extract_memory':
+          handleExtractMemory(ws, message)
+          break
+
         case 'ping':
           ws.send(JSON.stringify({ type: 'pong' } satisfies ServerMessage))
           break
@@ -388,6 +397,11 @@ async function handleUserMessage(
   }
   if (titleState.userMessageCount === 1) {
     titleState.firstUserMessage = message.content
+  }
+  // backend-owned 标题(prism)随帧带「干净指令」titleSeed → 用它作标题生成输入(取代巨型 edit prompt)。
+  // 最新一条非空 seed 生效;无 seed(claw/smart_search)保持原行为。
+  if (message.titleSeed && message.titleSeed.trim()) {
+    titleState.titleSeed = message.titleSeed.trim()
   }
   triggerTitleGeneration(sessionId)
 
@@ -757,9 +771,12 @@ function triggerTitleGeneration(sessionId: string): void {
   if (state.startedGenerationCounts.has(count)) return
   state.startedGenerationCounts.add(count)
 
-  const text = count === 1
-    ? state.firstUserMessage
-    : state.allUserMessages.join('\n')
+  // titleSeed 存在(prism 等 backend-owned 标题)→ 优先用干净指令,避免拿巨型 edit prompt 起名得到雷同废标题。
+  const text = state.titleSeed
+    ? state.titleSeed
+    : count === 1
+      ? state.firstUserMessage
+      : state.allUserMessages.join('\n')
   const runtimeProviderId = runtimeOverrides.get(sessionId)?.providerId
 
   // Fire-and-forget: derive quick title, then upgrade with AI
@@ -774,7 +791,9 @@ function triggerTitleGeneration(sessionId: string): void {
             state.hasCustomTitle = true
             return
           }
-          sendToSession(sessionId, { type: 'session_title_updated', sessionId, title: placeholder })
+          // aiGenerated: false —— deriveTitle 即时占位。backend-owned 标题(prism)忽略占位,
+          // 仅落 AI 生成的最终标题,避免占位把项目名锁死。
+          sendToSession(sessionId, { type: 'session_title_updated', sessionId, title: placeholder, aiGenerated: false })
         }
       }
 
@@ -801,10 +820,49 @@ function triggerTitleGeneration(sessionId: string): void {
           state.hasCustomTitle = true
           return
         }
-        sendToSession(sessionId, { type: 'session_title_updated', sessionId, title: aiTitle })
+        // aiGenerated: true —— AI 生成的最终标题。backend-owned 标题(prism)据此落库(见 backend tap)。
+        sendToSession(sessionId, { type: 'session_title_updated', sessionId, title: aiTitle, aiGenerated: true })
       }
     } catch (err) {
       console.error(`[Title] Failed to generate title for ${sessionId}:`, err)
+    }
+  })()
+}
+
+/**
+ * handleExtractMemory —— 执行 backend 推来的「记忆抽取」廉价模型调用(backend 编排,agent 执行)。
+ *
+ * backend 已组装好 system/user prompt(含当前记忆 + 最近对话 + 抽取规则),这里用会话便宜模型跑一次,
+ * 把**原始输出文本**经 memory_update 帧回传给 backend(解析/白名单/截断/落库全在 backend);顺带把本次
+ * 带外调用的 token 用量经 token_usage(kind:'memory_extract')帧带内回 backend 账本。fire-and-forget,
+ * 任何失败仅记日志,绝不影响会话。沿用 triggerTitleGeneration 的 sendToSession(动态查当前 ws)手法。
+ */
+function handleExtractMemory(
+  ws: ServerWebSocket<WebSocketData>,
+  message: Extract<ClientMessage, { type: 'extract_memory' }>,
+): void {
+  const { sessionId } = ws.data
+  const runtimeProviderId = runtimeOverrides.get(sessionId)?.providerId
+  void (async () => {
+    try {
+      const raw = await runCheapCall(message.system, message.user, runtimeProviderId, ({ model, usage }) => {
+        sendToSession(sessionId, {
+          type: 'token_usage',
+          kind: 'memory_extract',
+          usage: {
+            model,
+            input_tokens: usage.input_tokens ?? 0,
+            output_tokens: usage.output_tokens ?? 0,
+            cache_read_tokens: usage.cache_read_tokens ?? 0,
+            cache_creation_tokens: usage.cache_creation_tokens ?? 0,
+          },
+        })
+      })
+      if (raw) {
+        sendToSession(sessionId, { type: 'memory_update', sessionId, text: raw })
+      }
+    } catch (err) {
+      console.error(`[Memory] Failed to extract memory for ${sessionId}:`, err)
     }
   })()
 }

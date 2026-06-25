@@ -54,6 +54,11 @@ type AgentUsage struct {
 // content 是 user_message.content 的原始字符串 (注入 prefix 之前); userID 已经过 JWT 校验。
 type PreUserMessageFn func(ctx context.Context, userID uint, content string) error
 
+// OnTitleResultFn 在 agent 生成会话标题(session_title_updated, aiGenerated)后异步调用。
+// 供标题真源在 backend DB 的 feature(prism)落库;title 已是 agent 解析好的纯标题文本,
+// 实现方仍应做一道清洗(clamp/junk)+ 幂等落库(仅默认占位时写)。
+type OnTitleResultFn func(ctx context.Context, userID uint, sessionID, title string)
+
 // OnMessageCompleteFn 在 agent 返回 message_complete 后异步调用 (safego 包起来不会阻塞 pipe)。
 // 典型用途: 把 usage 写到日志或账单表, 做事后审计。失败仅打 warn, 不影响业务。
 type OnMessageCompleteFn func(ctx context.Context, userID uint, usage AgentUsage)
@@ -155,6 +160,12 @@ type FeatureSpec struct {
 	// OnMessageComplete 在每轮 agent 回答完 (拿到 message_complete) 后异步调用。
 	// nil → 不记账 (usage 仅在 agent 端 transcript 留底)。
 	OnMessageComplete OnMessageCompleteFn
+
+	// OnTitleResult 在 agent 回 session_title_updated 帧(且 aiGenerated=true)时异步调用,
+	// 供「标题真源在 backend DB」的 feature 落库。claw/smart_search 的标题存 agent jsonl 自管 →
+	// 留 nil;仅 prism(真源 prism_projects.title)设它 → 解析+清洗后 UpdateProjectTitleIfDefault。
+	// sessionID 是 agent 会话 id;实现方据此反查归属对象(prism: project)。详见 OnTitleResultFn。
+	OnTitleResult OnTitleResultFn
 
 	// AllowBash 是「该 feature 是否允许 agent 跑 Bash/BashOutput/KillShell」的**单一真源**。
 	// 默认零值 false = 禁 Bash(默认安全:新 feature 不显式置 true 就没有 shell)。

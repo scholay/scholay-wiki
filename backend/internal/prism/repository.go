@@ -140,6 +140,23 @@ func (r *Repository) GetProjectSession(id uint) (string, error) {
 	return *p.AgentSessionID, nil
 }
 
+// GetProjectBySession 按 agent 会话 id 反查项目(agent 生成标题回传时据 sessionID 定位 project +
+// 校验归属)。不存在 → (nil, nil)。
+func (r *Repository) GetProjectBySession(sessionID string) (*Project, error) {
+	if sessionID == "" {
+		return nil, nil
+	}
+	var p Project
+	err := r.db.Where("agent_session_id = ?", sessionID).First(&p).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
 // ─── 文件 ────────────────────────────────────────────────────────────────
 
 func (r *Repository) CreateFile(f *File) error { return r.db.Create(f).Error }

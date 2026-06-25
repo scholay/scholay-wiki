@@ -66,23 +66,8 @@ func (s *Service) ChatCompletionWithTools(ctx context.Context, messages []ChatMe
 	return result.(*ChatCompletionResponse), nil
 }
 
-// SimpleCompletion 是「system + user → text」的一次便宜模型补全(ModelLevelLow),
-// 给 usermemory 后台抽取等轻量内部用途用 —— 签名即 usermemory.CompleteFn,可直接当方法值传。
-// 无 choices 时返回空串(caller 自行视作"无更新")。
-func (s *Service) SimpleCompletion(ctx context.Context, system, user string) (string, error) {
-	messages := []ChatMessage{
-		{Role: "system", Content: system},
-		{Role: "user", Content: user},
-	}
-	resp, err := s.ChatCompletionWithTools(ctx, messages, nil, "", thirdparty.ModelLevelLow)
-	if err != nil {
-		return "", err
-	}
-	if resp == nil || len(resp.Choices) == 0 {
-		return "", nil
-	}
-	return resp.Choices[0].Message.Content, nil
-}
+// (SimpleCompletion 已移除:唯一消费者是 usermemory 后台抽取,现该抽取的 LLM 调用改由 agent 容器
+//  执行 —— backend 经 agentbridge 把 prompt 经 WS extract_memory 帧推给 agent,backend 自身不再跑此调用。)
 
 // StreamChatCompletionWithLevel SSE 流式 LLM 调用。
 // 走 executeWithRetry 账户轮换 + AIServiceStreamBreaker 断路器。

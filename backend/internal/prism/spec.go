@@ -117,6 +117,9 @@ func BuildSpec() agentbridge.FeatureSpec {
 		PermissionMode: agentbridge.PermissionAuto,
 		PreUserMessage:         pre,
 		OnMessageComplete:      onComplete,
+		// 项目名真源在 prism_projects.title(非 agent jsonl):agent 用前端带的 titleSeed 生成标题后,
+		// backend 经此回调落库(见 handleAgentTitle / autoname.go)。
+		OnTitleResult: handleAgentTitle,
 		// 与 edit.go createProjectSession 共用同一构造器(单一真源,见 prismSessionOptions)。
 		SessionOptions: prismSessionOptions(),
 	}

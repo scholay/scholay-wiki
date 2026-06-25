@@ -10,7 +10,9 @@
 
 export type ClientMessage =
   | { type: 'prewarm_session' }
-  | { type: 'user_message'; content: string; attachments?: AttachmentRef[] }
+  // titleSeed(可选,backend-owned 标题的 feature 用,如 prism):一段「干净的」原始指令,替代
+  // buildEditPrompt 这种巨型 prompt 作为标题生成输入;triggerTitleGeneration 存在时优先用它(见 handler)。
+  | { type: 'user_message'; content: string; attachments?: AttachmentRef[]; titleSeed?: string }
   | {
       type: 'permission_response'
       requestId: string
@@ -26,6 +28,9 @@ export type ClientMessage =
   | { type: 'set_permission_mode'; mode: string }
   | { type: 'set_runtime_config'; providerId: string | null; modelId: string }
   | { type: 'stop_generation' }
+  // extract_memory(backend → agent):backend 组装好 system/user prompt(含当前记忆 + 最近对话),
+  // agent 用便宜模型跑一次补全,把原始输出经 memory_update 帧回传给 backend 落库。backend 编排、agent 执行。
+  | { type: 'extract_memory'; system: string; user: string }
   | { type: 'ping' }
 
 export type AttachmentRef = {
@@ -80,7 +85,12 @@ export type ServerMessage =
   | { type: 'team_created'; teamName: string }
   | { type: 'team_deleted'; teamName: string }
   | { type: 'task_update'; taskId: string; status: string; progress?: string }
-  | { type: 'session_title_updated'; sessionId: string; title: string }
+  // aiGenerated: true = AI 模型生成的最终标题;false/缺省 = deriveTitle 即时占位。backend-owned 标题
+  // (prism)只在 aiGenerated 时落库,忽略占位以免把项目名锁死(见 backend ws.go session_title_updated tap)。
+  | { type: 'session_title_updated'; sessionId: string; title: string; aiGenerated?: boolean }
+  // memory_update(agent → backend):agent 跑完 extract_memory 后回传的原始模型输出(JSON 文本)。
+  // backend 解析(parseUpdates)+ 按 StandardBlocks 白名单过滤 + 截断 + Upsert 落库。
+  | { type: 'memory_update'; sessionId: string; text: string }
   // ─── 断线续流 (resync) ────────────────────────────────────────────────
   // 用户在生成途中断开 WS 又重连时, 服务端把"当前这一轮已产生的事件"整段回放。
   // 协议: resync_start → (可选)resync_user → 缓冲的本轮 ServerMessage 序列 → resync_end。

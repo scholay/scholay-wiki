@@ -10,12 +10,9 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"strings"
-	"time"
 
 	"scholar-backend/internal/agent"
 	"scholar-backend/internal/agentbridge"
-	"scholar-backend/internal/common/safego"
 )
 
 // WSFeature 暴露 agentbridge FeatureBridge,供 handler 直接挂 HandleWS(WS pipe)。
@@ -178,15 +175,10 @@ func (s *Service) ApplyRound(ctx context.Context, userID, projectID uint, instru
 	}
 	appliedCount := len(existing) + len(created)
 	_ = s.repo.TouchProject(projectID)
-	// 首次成功固化 → 自动给项目起名(幂等:仅标题仍是默认占位时落库)。独立 goroutine + background ctx
-	// (请求结束就 cancel 会打断 LLM 调用),不阻塞 apply 返回;失败全在 maybeAutoNameProject 内部吞掉。
-	if strings.TrimSpace(instruction) != "" {
-		safego.Go("prism-autoname", func() {
-			actx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			defer cancel()
-			s.maybeAutoNameProject(actx, projectID, userID, instruction)
-		})
-	}
+	// 项目自动起名已移到 agent 容器:前端发编辑指令时随 user_message 帧带干净 titleSeed,agent 跑
+	// 廉价标题模型生成项目名经 session_title_updated 帧回传,backend 在 agentbridge pipe 里 tap →
+	// handleAgentTitle 落库(见 autoname.go)。此处不再触发后端起名 LLM(instruction 留作他用 / 审计)。
+	_ = instruction
 	return appliedCount, nil
 }
 
