@@ -71,3 +71,23 @@ export function useSetVipCodeStatus() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'vip-codes'] }),
   });
 }
+
+/** 续期:把兑换码有效期顺延 days 天(已过期的从现在起算)。返回更新后的码。 */
+export function useExtendVipCode() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, days }: { id: number; days: number }) =>
+      (await http.put<{ data: VipCode }>(`/admin/vip-codes/${id}/extend`, { days })).data.data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'vip-codes'] }),
+  });
+}
+
+/** 加次数:把兑换码可兑换总次数 max_uses 增加 add(已用完的码加完即可再兑)。返回更新后的码。 */
+export function useIncreaseVipCodeUses() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, add }: { id: number; add: number }) =>
+      (await http.put<{ data: VipCode }>(`/admin/vip-codes/${id}/max-uses`, { add })).data.data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'vip-codes'] }),
+  });
+}

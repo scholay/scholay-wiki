@@ -123,6 +123,18 @@ func (r *Repository) GetCodeByCode(code string) (*RedemptionCode, error) {
 	return &rc, nil
 }
 
+// GetCodeByID 按主键读一行(续期/加次数后回读最新值返给前端)。未命中回 ErrCodeNotFound。
+func (r *Repository) GetCodeByID(id uint64) (*RedemptionCode, error) {
+	var rc RedemptionCode
+	if err := r.db.Where("id = ?", id).First(&rc).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrCodeNotFound
+		}
+		return nil, err
+	}
+	return &rc, nil
+}
+
 // HasUserRedeemed 该用户是否已兑换过此码(每用户每码一次的判据)。
 func (r *Repository) HasUserRedeemed(codeID uint64, userID uint) (bool, error) {
 	return r.hasUserRedeemedTx(r.db, codeID, userID)
@@ -143,6 +155,35 @@ func (r *Repository) SetCodeRevoked(id uint64, revoked bool, now time.Time) erro
 		revokedAt = &now
 	}
 	res := r.db.Model(&RedemptionCode{}).Where("id = ?", id).Update("revoked_at", revokedAt)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrCodeNotFound
+	}
+	return nil
+}
+
+// ExtendValidUntil 续期:把 valid_until 顺延 days 天。已过期 / 无到期(NULL)的从现在起算
+// (GREATEST(COALESCE(valid_until, NOW()), NOW())),仍在期的从原 valid_until 顺延。
+// 原子 SQL,时区随 MySQL 服务器(=容器北京时间,与 time.Now() 一致)。影响 0 行回 ErrCodeNotFound。
+func (r *Repository) ExtendValidUntil(id uint64, days int) error {
+	res := r.db.Model(&RedemptionCode{}).Where("id = ?", id).
+		UpdateColumn("valid_until", gorm.Expr("DATE_ADD(GREATEST(COALESCE(valid_until, NOW()), NOW()), INTERVAL ? DAY)", days))
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrCodeNotFound
+	}
+	return nil
+}
+
+// AddMaxUses 加次数:max_uses += delta(封顶 capValue)。原子 SQL,影响 0 行回 ErrCodeNotFound。
+// 对已用完(used_count>=max_uses)的码加次数即可让其重新可兑,正是该操作的用途。
+func (r *Repository) AddMaxUses(id uint64, delta, capValue int) error {
+	res := r.db.Model(&RedemptionCode{}).Where("id = ?", id).
+		UpdateColumn("max_uses", gorm.Expr("LEAST(max_uses + ?, ?)", delta, capValue))
 	if res.Error != nil {
 		return res.Error
 	}

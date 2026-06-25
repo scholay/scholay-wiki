@@ -191,10 +191,12 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.GET("/llm-token-usage/export", h.llmUsageAdmin.ExportCSV)
 		adminProtected.POST("/llm-token-usage/cleanup", h.llmUsageAdmin.TriggerCleanup)
 
-		// 会员兑换码: 批量生成 + 列表 + 停用/恢复
+		// 会员兑换码: 批量生成 + 列表 + 停用/恢复 + 续期 + 加次数
 		adminProtected.POST("/vip-codes", h.vip.GenerateCodes)
 		adminProtected.GET("/vip-codes", h.vip.ListCodes)
 		adminProtected.PUT("/vip-codes/:id/status", h.vip.SetCodeStatus)
+		adminProtected.PUT("/vip-codes/:id/extend", h.vip.ExtendCode)         // 续期(顺延有效期)
+		adminProtected.PUT("/vip-codes/:id/max-uses", h.vip.IncreaseCodeUses) // 加可兑换次数
 
 		// 功能大全 (学术工具黄页) —— 导入/任务/CRUD/webhook。
 		// 路径结构刻意避免 gin "static vs :param" 同层冲突:

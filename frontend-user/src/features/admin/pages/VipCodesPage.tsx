@@ -1,10 +1,18 @@
 import { useState } from 'react';
-import { Copy, Gift, Loader2, Ban, RotateCcw } from 'lucide-react';
+import { Copy, Gift, Loader2, Ban, RotateCcw, CalendarPlus, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
 import { Badge } from '@/shared/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/shared/ui/dialog';
 import { cn } from '@/shared/lib/utils';
 import { useConfirm } from '@/shared/components';
 import { useUrlState, useDebounce } from '@/shared/hooks';
@@ -12,7 +20,14 @@ import { AdminPageLayout } from '../components/AdminPageLayout';
 import { DataTable, type Column } from '../components/DataTable';
 import { Pagination } from '../components/Pagination';
 import { useApiToast } from '../hooks/useApiToast';
-import { useVipCodes, useGenerateVipCodes, useSetVipCodeStatus, type VipCode } from '../api/vip-codes';
+import {
+  useVipCodes,
+  useGenerateVipCodes,
+  useSetVipCodeStatus,
+  useExtendVipCode,
+  useIncreaseVipCodeUses,
+  type VipCode,
+} from '../api/vip-codes';
 
 const SELECT_CLS = 'h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground';
 
@@ -42,7 +57,13 @@ export function VipCodesPage() {
   const [generated, setGenerated] = useState<string[]>([]);
   const gen = useGenerateVipCodes();
   const setStatusMut = useSetVipCodeStatus();
+  const extendMut = useExtendVipCode();
+  const addUsesMut = useIncreaseVipCodeUses();
   const confirm = useConfirm();
+
+  // 续期 / 加次数 弹窗:选中行 + 操作类型 + 输入值
+  const [action, setAction] = useState<{ code: VipCode; op: 'extend' | 'uses' } | null>(null);
+  const [actionVal, setActionVal] = useState(30);
 
   const params = {
     page,
@@ -95,6 +116,23 @@ export function VipCodesPage() {
       success: revoked ? '已停用' : '已恢复',
       failure: '操作失败',
     }).catch(() => null);
+  };
+
+  const openAction = (code: VipCode, op: 'extend' | 'uses') => {
+    setActionVal(op === 'extend' ? 30 : 10); // 默认:续期 30 天 / 加 10 次
+    setAction({ code, op });
+  };
+  const submitAction = async () => {
+    if (!action) return;
+    const { code, op } = action;
+    const n = Math.max(1, Number(actionVal) || 1);
+    const res = await apiToast(
+      op === 'extend'
+        ? extendMut.mutateAsync({ id: code.id, days: n })
+        : addUsesMut.mutateAsync({ id: code.id, add: n }),
+      { success: op === 'extend' ? '已续期' : '已加次数', failure: '操作失败' },
+    ).catch(() => null);
+    if (res) setAction(null);
   };
 
   const copyCodes = () => {
@@ -153,17 +191,26 @@ export function VipCodesPage() {
     },
     {
       header: '操作',
-      width: 80,
-      cell: (r) =>
-        r.revoked_at ? (
-          <Button size="sm" variant="outline" className="h-7 px-2 text-2xs" onClick={() => toggleStatus(r)}>
-            <RotateCcw className="size-3" /> 恢复
+      width: 220,
+      cell: (r) => (
+        <div className="flex items-center gap-1">
+          <Button size="sm" variant="outline" className="h-7 px-2 text-2xs" onClick={() => openAction(r, 'extend')}>
+            <CalendarPlus className="size-3" /> 续期
           </Button>
-        ) : (
-          <Button size="sm" variant="outline" className="h-7 px-2 text-2xs text-brand-red" onClick={() => toggleStatus(r)}>
-            <Ban className="size-3" /> 停用
+          <Button size="sm" variant="outline" className="h-7 px-2 text-2xs" onClick={() => openAction(r, 'uses')}>
+            <Plus className="size-3" /> 次数
           </Button>
-        ),
+          {r.revoked_at ? (
+            <Button size="sm" variant="outline" className="h-7 px-2 text-2xs" onClick={() => toggleStatus(r)}>
+              <RotateCcw className="size-3" /> 恢复
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" className="h-7 px-2 text-2xs text-brand-red" onClick={() => toggleStatus(r)}>
+              <Ban className="size-3" /> 停用
+            </Button>
+          )}
+        </div>
+      ),
     },
   ];
 
@@ -284,6 +331,44 @@ export function VipCodesPage() {
 
       <DataTable columns={columns} rows={data?.codes} loading={isLoading} emptyMessage="还没有兑换码" />
       <Pagination total={data?.total ?? 0} page={page} pageSize={30} onPageChange={setPage} />
+
+      {/* 续期 / 加次数 弹窗 —— 对已生成的码顺延有效期 / 增加可兑换次数 */}
+      <Dialog open={!!action} onOpenChange={(o) => { if (!o) setAction(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{action?.op === 'extend' ? '续期 · 延长有效期' : '增加可兑换次数'}</DialogTitle>
+            {action && (
+              <DialogDescription className="break-all">
+                兑换码 <span className="font-mono text-foreground">{action.code.code}</span>
+                {action.op === 'extend'
+                  ? ` · 当前有效期至 ${action.code.valid_until ? action.code.valid_until.slice(0, 10) : '永久'}(已过期则从今天起算)`
+                  : ` · 当前 ${action.code.used_count}/${action.code.max_uses} 次`}
+              </DialogDescription>
+            )}
+          </DialogHeader>
+          <div className="py-1">
+            <Field label={action?.op === 'extend' ? '延长天数' : '增加次数'}>
+              <Input
+                type="number"
+                min={1}
+                value={actionVal}
+                onChange={(e) => setActionVal(Math.max(1, Number(e.target.value) || 1))}
+                className="h-8 w-32"
+                autoFocus
+              />
+            </Field>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAction(null)}>
+              取消
+            </Button>
+            <Button onClick={submitAction} disabled={extendMut.isPending || addUsesMut.isPending}>
+              {(extendMut.isPending || addUsesMut.isPending) && <Loader2 className="size-3.5 animate-spin" />}
+              确定
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminPageLayout>
   );
 }

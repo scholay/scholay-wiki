@@ -220,6 +220,56 @@ func (h *Handler) SetCodeStatus(c *gin.Context) {
 	utils.SuccessWithMessage(c, msg, nil)
 }
 
+// ExtendCode PUT /admin/vip-codes/:id/extend {days} —— 给已生成的兑换码续期(有效期顺延 days 天)。
+func (h *Handler) ExtendCode(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		utils.BadRequest(c, "无效的兑换码 id")
+		return
+	}
+	var req struct {
+		Days int `json:"days"`
+	}
+	if !utils.BindJSON(c, &req) {
+		return
+	}
+	code, err := h.svc.ExtendCode(id, req.Days)
+	if err != nil {
+		if errors.Is(err, ErrCodeNotFound) {
+			utils.BadRequest(c, "兑换码不存在")
+			return
+		}
+		utils.InternalError(c, 500, "续期失败", err)
+		return
+	}
+	utils.SuccessWithMessage(c, "已续期", code)
+}
+
+// IncreaseCodeUses PUT /admin/vip-codes/:id/max-uses {add} —— 给已生成的兑换码加可兑换次数。
+func (h *Handler) IncreaseCodeUses(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		utils.BadRequest(c, "无效的兑换码 id")
+		return
+	}
+	var req struct {
+		Add int `json:"add"`
+	}
+	if !utils.BindJSON(c, &req) {
+		return
+	}
+	code, err := h.svc.IncreaseCodeUses(id, req.Add)
+	if err != nil {
+		if errors.Is(err, ErrCodeNotFound) {
+			utils.BadRequest(c, "兑换码不存在")
+			return
+		}
+		utils.InternalError(c, 500, "加次数失败", err)
+		return
+	}
+	utils.SuccessWithMessage(c, "已加次数", code)
+}
+
 // ListCodes GET /admin/vip-codes?status=&tier=&page=&page_size= —— 分页列表。
 func (h *Handler) ListCodes(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))

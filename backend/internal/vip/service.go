@@ -345,6 +345,40 @@ func (s *Service) SetCodeStatus(id uint64, revoked bool) error {
 	return nil
 }
 
+// maxCodeMaxUses 加次数操作的 max_uses 封顶。发码时默认上限是 100,admin 后期加次数放宽到 10 万
+// (大批量分发场景),仍设硬顶防误填天文数字。
+const maxCodeMaxUses = 100000
+
+// ExtendCode 管理员给已生成的兑换码续期:有效期顺延 days 天(已过期的从现在起算)。返回最新行。
+func (s *Service) ExtendCode(id uint64, days int) (*RedemptionCode, error) {
+	if days < 1 {
+		days = 1
+	}
+	if days > 3650 { // 单次续期最长 10 年,防误填
+		days = 3650
+	}
+	if err := s.repo.ExtendValidUntil(id, days); err != nil {
+		return nil, err
+	}
+	slog.Info("vip: extended redemption code validity", "code_id", id, "days", days)
+	return s.repo.GetCodeByID(id)
+}
+
+// IncreaseCodeUses 管理员给已生成的兑换码加可兑换次数:max_uses += add(封顶 maxCodeMaxUses)。返回最新行。
+func (s *Service) IncreaseCodeUses(id uint64, add int) (*RedemptionCode, error) {
+	if add < 1 {
+		add = 1
+	}
+	if add > maxCodeMaxUses { // 单次增量也设上限
+		add = maxCodeMaxUses
+	}
+	if err := s.repo.AddMaxUses(id, add, maxCodeMaxUses); err != nil {
+		return nil, err
+	}
+	slog.Info("vip: increased redemption code max_uses", "code_id", id, "add", add)
+	return s.repo.GetCodeByID(id)
+}
+
 // ListCodes 管理员分页查看兑换码。
 func (s *Service) ListCodes(f CodeFilter, page, pageSize int) ([]RedemptionCode, int64, error) {
 	if page < 1 {
