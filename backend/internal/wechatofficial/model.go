@@ -10,6 +10,8 @@ package wechatofficial
 import (
 	"encoding/xml"
 	"time"
+
+	"scholar-backend/internal/common/utils"
 )
 
 // WeChatOfficialConfig represents WeChat Official Account auto-reply configuration
@@ -80,18 +82,11 @@ func (c *WeChatOfficialConfig) MaskSensitiveData() *WeChatOfficialConfig {
 	return &masked
 }
 
-// maskString masks a string by showing first 4 and last 4 characters
+// maskString 全遮罩(对齐全站 utils.MaskedSecretValue 单一真源),不再回吐密钥首尾 4 位明文。
+// 配套:handler UpdateConfig 的「遮罩=保留旧值」判定仍 Contains("****"),全遮罩同样命中,自洽。
 func maskString(s string) string {
 	if s == "" {
 		return ""
 	}
-
-	length := len(s)
-	if length <= 8 {
-		// For short strings, show only asterisks
-		return "****"
-	}
-
-	// Show first 4 and last 4 characters, mask the middle
-	return s[:4] + "****" + s[length-4:]
+	return utils.MaskedSecretValue
 }

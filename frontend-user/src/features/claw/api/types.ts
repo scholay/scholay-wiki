@@ -4,7 +4,16 @@
  * 复用了 agent /api/docs 中描述的 WS 消息协议子集。跟 smart-search 的差异:
  *   - ClientMessage 多了 attachments 字段 (Anthropic vision 走 base64 image; 文件走 textContent)
  *   - 不假设强格式约束 (smart-search 是结构化论文搜索, Claw 是通用对话)
+ *
+ * error / displaced / resync_user 三个「控制/元帧」直接复用 shared/lib/agent-stream 的共享 arm,
+ * 不再各 feature 抄一份(架构报告 M4 —— 这三处此前已漂移)。
  */
+
+import type {
+  AgentErrorFrame,
+  AgentDisplacedFrame,
+  AgentResyncUserFrame,
+} from '@/shared/lib/agent-stream';
 
 // ─── 附件 ────────────────────────────────────────────────────────────────
 
@@ -81,7 +90,7 @@ export type ServerMessage =
   | { type: 'tool_use_complete'; toolName: string; toolUseId: string; input: unknown }
   | { type: 'tool_result'; toolUseId: string; content: unknown; isError: boolean }
   | { type: 'message_complete' }
-  | { type: 'error'; message: string }
+  | AgentErrorFrame
   | { type: 'thinking'; text: string }
   | {
       type: 'status';
@@ -91,27 +100,16 @@ export type ServerMessage =
       tokens?: number;
     }
   | { type: 'pong' }
-  // 多窗口接管: 后端 displacement 路径下发, 表示当前 WS 被另一 tab 顶掉了。
-  // socket 不再自动重连; UI 弹 banner 提示用户手动 "切回这里" (takeOver)。
-  //
-  // reason 字段是结构化原因码 (跟后端 agentbridge.DisplacedReason 对齐):
-  //   - 'session_taken_over' (默认): 同账号别处打开
-  //   - 'token_revoked' (预留): 管理员强制下线
-  //   - 'quota_exhausted' (预留): 配额耗尽中断
-  //   - 'server_shutdown' (预留): 服务端 graceful shutdown
-  // message 是后端给的兜底中文 (前端不识别 reason 时直接显示)。
-  | {
-      type: 'displaced';
-      reason?: 'session_taken_over' | 'token_revoked' | 'quota_exhausted' | 'server_shutdown';
-      message: string;
-    }
+  // 多窗口接管: 后端 displacement 路径下发, 当前 WS 被另一 tab 顶掉。socket 不再自动重连;
+  // UI 弹 banner 提示手动 "切回这里" (takeOver)。形态(含 reason 4 值枚举)见 AgentDisplacedFrame。
+  | AgentDisplacedFrame
   // agent 在首轮回答后会异步起 title gen, 完成后 push 这个事件。
   // ClawPage 收到 → invalidate ['claw', 'sessions'] 让 sidebar 拿到新 title。
   | { type: 'session_title_updated'; sessionId: string; title: string }
   // 断线续流: 重连后 agent 整段回放当前 in-flight 轮 (见 agent ws/events.ts)。
   //   resync_start → (可选)resync_user → 缓冲事件 → resync_end。
   | { type: 'resync_start' }
-  | { type: 'resync_user'; content: string }
+  | AgentResyncUserFrame
   | { type: 'resync_end' };
 
 export type ClawWSState =

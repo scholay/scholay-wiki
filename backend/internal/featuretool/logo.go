@@ -15,12 +15,19 @@ import (
 	"io"
 	"log/slog"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/sync/errgroup"
 
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/storage"
 )
+
+// logoUploadConcurrency 并发上传 logo 的 worker 数。MinIO 本地能轻松吃下;
+// 顺序上传 5000 张会让 HTTP 请求超时(已改异步, 这里再并发把墙钟从 ~60s 压到几秒)。
+const logoUploadConcurrency = 12
 
 const logoKeyPrefix = "logos/"
 
@@ -61,27 +68,48 @@ type imageEntry struct {
 	contentType string
 }
 
-// uploadLogos 把 slug→图片 上传到 MinIO, 返回 slug→对外 URL。
-// storage 不可用 / 上传失败 → 该条降级跳过(logo 留空, 前端用首字母 SVG 兜底)。
-func uploadLogos(ctx context.Context, images map[string]imageEntry) map[string]string {
-	out := map[string]string{}
-	if !storage.IsEnabled() || len(images) == 0 {
+// logosEnabled 报告是否真的会上传 logo(storage 可用且有图)。
+// 调用方据此决定要不要进入「上传 logo」进度阶段。
+func logosEnabled(images map[string]imageEntry) bool {
+	return storage.IsEnabled() && len(images) > 0
+}
+
+// uploadLogosConcurrent 并发把 slug→图片 上传到 MinIO, 返回 slug→对外 URL。
+// done(可空)每上传完一张 +1, 供任务页实时进度;单条失败降级跳过(logo 留空,
+// 前端用首字母 SVG 兜底), 不让整批失败。**必须**用非请求 ctx 调用(已移到异步任务里),
+// 否则 30s 请求超时会把上传掐断成半成品。
+func uploadLogosConcurrent(ctx context.Context, images map[string]imageEntry, done *atomic.Int64) map[string]string {
+	out := make(map[string]string, len(images))
+	if !logosEnabled(images) {
 		return out
 	}
 	bucket := storage.FeatureToolsBucket()
+	var mu sync.Mutex
+	var g errgroup.Group
+	g.SetLimit(logoUploadConcurrency)
 	for slug, img := range images {
 		if slug == "" {
 			continue
 		}
-		_, err := storage.PutObject(ctx, bucket, logoKeyPrefix+slug,
-			bytes.NewReader(img.data), int64(len(img.data)),
-			storage.PutOptions{ContentType: img.contentType})
-		if err != nil {
-			slog.Warn("featuretool: upload logo failed", "slug", slug, "err", err)
-			continue
-		}
-		out[slug] = logoURLForSlug(slug)
+		slug, img := slug, img
+		g.Go(func() error {
+			_, err := storage.PutObject(ctx, bucket, logoKeyPrefix+slug,
+				bytes.NewReader(img.data), int64(len(img.data)),
+				storage.PutOptions{ContentType: img.contentType})
+			if done != nil {
+				done.Add(1)
+			}
+			if err != nil {
+				slog.Warn("featuretool: upload logo failed", "slug", slug, "err", err)
+				return nil // 单条降级, 不污染整组
+			}
+			mu.Lock()
+			out[slug] = logoURLForSlug(slug)
+			mu.Unlock()
+			return nil
+		})
 	}
+	_ = g.Wait()
 	return out
 }
 

@@ -1,5 +1,4 @@
 import { type ReactNode, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { useSidebar } from '@/stores/sidebar.store';
 import { cn } from '@/shared/lib/utils';
 
@@ -15,7 +14,9 @@ interface SidebarLayoutProps {
 
 /**
  * Feature 页面专用布局壳 — 把"侧栏 + 主区"拼装在一起,
- * 受 useSidebar 全局开合控制 + framer-motion 平滑滑入滑出。
+ * 受 useSidebar 全局开合控制 + 纯 CSS width 过渡平滑滑入滑出。
+ * (不用 framer-motion:这是首屏 eager 组件,引 framer 会把 ~42KB gz 钉进首屏关键路径;
+ *  width 0↔240 的过渡本就触发 layout,CSS transition 与 motion 行为等价、零额外 JS。)
  *
  * 设计点:
  *   - sidebar 始终挂载,只动 width 0 ↔ 240,所以内部状态(选中项 / 展开文件夹)能跨折叠保留
@@ -40,17 +41,17 @@ export function SidebarLayout({
 
   return (
     <div className={cn('flex h-full min-h-0', className)}>
-      <motion.aside
-        initial={false}
-        animate={{ width: expanded ? width : 0 }}
-        transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-        className="shrink-0 h-full min-h-0 overflow-hidden"
+      <aside
+        // 动态计算尺寸(token 表无对应值)→ 内联 style 合规;CSS transition 不在初次渲染触发,
+        // 等价于 framer 的 initial={false}(挂载即定型,只在 expanded 翻转时过渡)。
+        style={{ width: expanded ? width : 0 }}
+        className="shrink-0 h-full min-h-0 overflow-hidden transition-[width] duration-200 ease-in-out"
         aria-hidden={!expanded}
       >
         <div style={{ width, minWidth: width }} className="h-full">
           {sidebar}
         </div>
-      </motion.aside>
+      </aside>
       <main className="flex-1 min-w-0 min-h-0 overflow-auto">{children}</main>
     </div>
   );

@@ -27,7 +27,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"gorm.io/gorm"
 )
 
 var appleUpstream = newOAuthUpstream("apple_oauth")
@@ -438,18 +437,18 @@ func (h *Handler) handleAppleBindCallback(c *gin.Context, nonce, code, idTokenSt
 
 	providerUserID := claims.Subject
 
-	// 检查这个 Apple ID 是不是已经被绑到别人(或自己)身上
-	existing, err := h.service.FindAuthProvider("apple", providerUserID)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		h.redirectAppleBindResult(c, false, "failed to check binding")
+	// 跨用户冲突校验收口到 oauthBindConflict(redirect 结果保留原英文文案,前端 toast 展示)。
+	boundToSelf, err := h.oauthBindConflict(userID, "apple", providerUserID)
+	if err != nil {
+		if errors.Is(err, ErrOAuthBoundToOther) {
+			h.redirectAppleBindResult(c, false, "this apple account is bound to another user")
+		} else {
+			h.redirectAppleBindResult(c, false, "failed to check binding")
+		}
 		return
 	}
-	if existing != nil {
-		if existing.UserID == userID {
-			h.redirectAppleBindResult(c, false, "already bound to your account")
-		} else {
-			h.redirectAppleBindResult(c, false, "this apple account is bound to another user")
-		}
+	if boundToSelf {
+		h.redirectAppleBindResult(c, false, "already bound to your account")
 		return
 	}
 
@@ -547,17 +546,18 @@ func (h *Handler) BindAppleAccount(c *gin.Context) {
 
 	providerUserID := claims.Subject
 
-	existing, err := h.service.FindAuthProvider("apple", providerUserID)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to check binding")
+	// 跨用户冲突校验收口到 oauthBindConflict;Apple JSON 绑定策略:不允许重绑(本人也提示已绑定)。
+	boundToSelf, err := h.oauthBindConflict(userID, "apple", providerUserID)
+	if err != nil {
+		if errors.Is(err, ErrOAuthBoundToOther) {
+			utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		} else {
+			utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to check binding")
+		}
 		return
 	}
-	if existing != nil {
-		if existing.UserID == userID {
-			utils.ErrorResponse(c, http.StatusBadRequest, "This Apple account is already bound to your account")
-		} else {
-			utils.ErrorResponse(c, http.StatusBadRequest, "This Apple account is already bound to another user")
-		}
+	if boundToSelf {
+		utils.ErrorResponse(c, http.StatusBadRequest, "该 Apple 账号已绑定到你的账号")
 		return
 	}
 

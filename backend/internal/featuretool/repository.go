@@ -219,6 +219,12 @@ func (r *Repository) SlugExists(slug string, exceptID uint64) (bool, error) {
 func (r *Repository) CreateJob(j *ImportJob) error { return r.db.Create(j).Error }
 func (r *Repository) SaveJob(j *ImportJob) error    { return r.db.Save(j).Error }
 
+// UpdateJobLogoDone 只更新 logo_done 单列 —— 上传阶段由独立 ticker goroutine 调用,
+// 不碰 job 结构体其余字段, 避免和主流程并发写同一行/同一对象造成竞态。
+func (r *Repository) UpdateJobLogoDone(id uint64, done int) error {
+	return r.db.Model(&ImportJob{}).Where("id = ?", id).Update("logo_done", done).Error
+}
+
 func (r *Repository) GetJob(id uint64) (*ImportJob, error) {
 	var j ImportJob
 	if err := r.db.First(&j, id).Error; err != nil {

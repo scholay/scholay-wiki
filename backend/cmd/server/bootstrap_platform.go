@@ -89,7 +89,7 @@ func initPlatform(db *gorm.DB, cfg *appconfig.Config) *platformBundle {
 	messageHandler := message.NewHandler(db)
 
 	wsHub := websocket.NewHub()
-	wsHandler := websocket.NewHandler(wsHub, cfg.JWT.Secret)
+	wsHandler := websocket.NewHandler(wsHub)
 
 	return &platformBundle{
 		usageLogService:   usageLogService,

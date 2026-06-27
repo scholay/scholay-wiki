@@ -1,7 +1,14 @@
 /**
  * Prism (智能写作) — agent-native 用户 WS 消息协议类型。
- * 复用 agent WS 协议子集(同 claw/smart-search,各 feature 一份)。prism 不带附件。
+ * 复用 agent WS 协议子集(同 claw/smart-search)。prism 不带附件。
+ * error / displaced / resync_user 三个控制/元帧复用 shared/lib/agent-stream 的共享 arm(架构报告 M4)。
  */
+
+import type {
+  AgentErrorFrame,
+  AgentDisplacedFrame,
+  AgentResyncUserFrame,
+} from '@/shared/lib/agent-stream';
 
 export type PrismClientMessage =
   // titleSeed:本轮「干净的原始指令」(不含聚焦选区提示),供 agent 用它给项目自动起名,
@@ -17,14 +24,14 @@ export type PrismServerMessage =
   | { type: 'tool_use_complete'; toolName: string; toolUseId: string; input: unknown }
   | { type: 'tool_result'; toolUseId: string; content: unknown; isError: boolean }
   | { type: 'message_complete' }
-  | { type: 'error'; message: string; code?: string }
+  | AgentErrorFrame
   | { type: 'thinking'; text: string }
   | { type: 'status'; state: 'idle' | 'thinking' | 'tool_executing' | 'streaming' | 'permission_pending'; verb?: string }
   | { type: 'pong' }
-  | { type: 'displaced'; reason?: string; message: string }
+  | AgentDisplacedFrame
   | { type: 'session_title_updated'; sessionId: string; title: string }
   | { type: 'resync_start' }
-  | { type: 'resync_user'; content: string }
+  | AgentResyncUserFrame
   | { type: 'resync_end' };
 
 export type PrismWSState = 'idle' | 'connecting' | 'open' | 'reconnecting' | 'closed' | 'error' | 'displaced';

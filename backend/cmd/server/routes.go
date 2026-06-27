@@ -33,6 +33,7 @@ import (
 	"scholar-backend/internal/message"
 	"scholar-backend/internal/minicod"
 	"scholar-backend/internal/news"
+	"scholar-backend/internal/openaccess"
 	"scholar-backend/internal/payment"
 	"scholar-backend/internal/prism"
 	"scholar-backend/internal/promo"
@@ -96,6 +97,7 @@ type allHandlers struct {
 	promo           *promo.Handler         // 限时领取会员推广 (开关/二维码/文案 + 公开下发)
 	news            *news.Handler          // 情报 (学术新闻): webhook 接收/落库 + 公开读 + admin 配置
 	memory          *usermemory.Handler  // per-user 长期记忆 (查看/编辑/删除; agent 注入由 Bridge 负责)
+	openAccess      *openaccess.Handler  // 合法 OA 全文查找 (DOI → Unpaywall 免费链接; 论文详情页兜底)
 }
 
 // registerRoutes 注册所有 API 路由

@@ -1,0 +1,6 @@
+{
+  "type": "error",
+  "code": "quota_exceeded",
+  "message": "今日 AI 额度已用完",
+  "retryable": false
+}

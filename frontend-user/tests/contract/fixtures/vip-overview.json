@@ -1,0 +1,25 @@
+{
+  "code": 0,
+  "message": "ok",
+  "request_id": "seed-fixture-not-recorded",
+  "data": {
+    "tier": "pro",
+    "expires_at": "2026-12-31T23:59:59+08:00",
+    "token": {
+      "used": 123456,
+      "ceiling": 1000000,
+      "percent": 12,
+      "unlimited": false,
+      "consumed_today": 123456
+    },
+    "credit": {
+      "temp": 0,
+      "perm": 500,
+      "total": 500,
+      "lots": [],
+      "auto_reset": false
+    },
+    "auto_reset": false,
+    "reset_cost": 100
+  }
+}

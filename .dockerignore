@@ -1,0 +1,26 @@
+.git
+.DS_Store
+.env
+*.log
+
+# Dependency/build outputs
+**/node_modules
+frontend-admin/build
+frontend-user/build
+frontend-user/dist
+backend/tmp
+backend/bin
+backend/.go-cache
+.go-cache
+
+# Runtime/generated data
+/data/
+/backups/
+/logs/
+
+# Generated feature-tool import packs and crawl cache
+/feature-tools-academic-1000/
+/feature-tools-academic-1000-batch-*/
+/feature-tools-academic-5000/
+/feature-tools-academic-audit/
+/.feature-tools-academic-10k-cache/

@@ -2,10 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
 
 /**
- * TODO: 后端 swagger.json 落地后,本文件 4 个 interface(UsageLog /
- *       UsageLogParams / UsageLogSummary / UsageLogConfig)替换为
- *       `import type { components } from '@/shared/api/schema'` 自动生成的类型,
- *       消除手写镜像。当前 backend 未导出 swagger,`npm run gen:api` 暂时无法跑通。
+ * 本文件 4 个 interface(UsageLog / UsageLogParams / UsageLogSummary / UsageLogConfig)
+ * 手写镜像 backend/internal/usagelog/model.go,改字段时两侧一起改。
+ * (swagger 代码生成链路已于 2026-06 移除,见 CLAUDE.md §3.6。)
  */
 
 /** 字段对齐 backend/internal/usagelog/model.go UsageLog */

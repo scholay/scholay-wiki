@@ -37,7 +37,10 @@ export function useAdminSessions(params: AdminSessionListParams) {
   return useQuery({
     queryKey: ['admin', 'agent-sessions', params],
     queryFn: async () => {
-      const r = await http.get<{ data: AdminSessionListResponse }>('/admin/agent-sessions', { params });
+      // 分页参数统一 page_size(架构报告 M3);本地 TS 字段保留 pageSize,只在出网处映射。
+      const { pageSize, ...rest } = params;
+      const wire = { ...rest, ...(pageSize !== undefined ? { page_size: pageSize } : {}) };
+      const r = await http.get<{ data: AdminSessionListResponse }>('/admin/agent-sessions', { params: wire });
       return r.data.data;
     },
   });

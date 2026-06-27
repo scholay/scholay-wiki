@@ -105,8 +105,14 @@ export interface PRListParams {
 export function usePRSubmissions(params: PRListParams) {
   return useQuery({
     queryKey: ['admin', 'pr-monitor', 'list', params],
-    queryFn: async () =>
-      (await http.get<{ data: PRListResponse }>('/admin/peer-review/submissions', { params })).data.data,
+    queryFn: async () => {
+      // 线上分页参数统一 page_size(与其余 ~16 个列表端点一致,架构报告 M3)。本地 TS 字段保留
+      // pageSize 不动组件,只在出网这一处映射。后端已同时认 page_size / pageSize,过渡零中断。
+      const { pageSize, ...rest } = params;
+      const wire = { ...rest, ...(pageSize !== undefined ? { page_size: pageSize } : {}) };
+      return (await http.get<{ data: PRListResponse }>('/admin/peer-review/submissions', { params: wire }))
+        .data.data;
+    },
   });
 }
 

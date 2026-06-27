@@ -116,7 +116,8 @@ func (d *Dispatcher) deliver(h *Webhook, event string, tool *Tool, body []byte) 
 		req.Header.Set("X-Scholay-Signature", "sha256="+hex.EncodeToString(mac.Sum(nil)))
 	}
 
-	resp, err := httpclient.WithTimeout(15 * time.Second).Do(req)
+	// Restricted: 拨号层拦截内网/环回/metadata 段(URL 由 admin 配置,防 SSRF)。
+	resp, err := httpclient.Restricted(15 * time.Second).Do(req)
 	if err != nil {
 		d.record(h, del, "failed", 0, "", err.Error())
 		return
@@ -164,7 +165,7 @@ func (d *Dispatcher) TestDeliver(h *Webhook) (int, string, error) {
 		mac.Write(body)
 		req.Header.Set("X-Scholay-Signature", "sha256="+hex.EncodeToString(mac.Sum(nil)))
 	}
-	resp, err := httpclient.WithTimeout(15 * time.Second).Do(req)
+	resp, err := httpclient.Restricted(15 * time.Second).Do(req)
 	if err != nil {
 		_ = d.repo.UpdateWebhookStatus(h.ID, "failed", err.Error(), time.Now())
 		return 0, "", err

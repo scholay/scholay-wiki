@@ -7,11 +7,13 @@
 package featuretool
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"gorm.io/gorm"
@@ -161,6 +163,7 @@ func (s *Service) Delete(id uint64) error {
 
 type ImportInput struct {
 	Items    []json.RawMessage
+	Images   map[string]imageEntry // zip 导入: slug→logo, 在后台任务里并发上传(避免请求超时)
 	Notify   bool
 	Source   string
 	Filename string
@@ -168,6 +171,7 @@ type ImportInput struct {
 }
 
 // StartImport 创建导入任务并在后台处理, 立即返回 job (status=pending/running)。
+// logo 上传(zip 场景最多 5000 张 MinIO 写)也在后台进行, handler 不再同步阻塞 → 不超时。
 func (s *Service) StartImport(in ImportInput) (*ImportJob, error) {
 	source := in.Source
 	if source == "" {
@@ -186,19 +190,52 @@ func (s *Service) StartImport(in ImportInput) (*ImportJob, error) {
 		return nil, err
 	}
 	items := in.Items
+	images := in.Images
 	notify := in.Notify
 	adminID := in.AdminID
 	jobID := job.ID
-	safego.Go("featuretool.import", func() { s.processImport(jobID, items, notify, adminID) })
+	safego.Go("featuretool.import", func() { s.processImport(jobID, items, images, notify, adminID) })
 	return job, nil
 }
 
-func (s *Service) processImport(jobID uint64, items []json.RawMessage, notify bool, adminID *uint) {
+func (s *Service) processImport(jobID uint64, items []json.RawMessage, images map[string]imageEntry, notify bool, adminID *uint) {
 	job, err := s.repo.GetJob(jobID)
 	if err != nil {
 		return
 	}
 	job.Status = "running"
+	_ = s.repo.SaveJob(job)
+
+	// ── 阶段一: 并发上传 logo 到 MinIO(仅 zip 导入且 storage 可用)──
+	// 这是原来卡在 HTTP 请求里导致超时的活, 现在移到后台并发做, 带实时进度。
+	if logosEnabled(images) {
+		job.Phase = "uploading_logos"
+		job.LogoTotal = len(images)
+		job.LogoDone = 0
+		_ = s.repo.SaveJob(job)
+
+		var done atomic.Int64
+		stop := make(chan struct{})
+		go func() { // 独立 ticker: 周期把 logo_done 落库, 任务页 1.5s 轮询即可看到爬动
+			t := time.NewTicker(800 * time.Millisecond)
+			defer t.Stop()
+			for {
+				select {
+				case <-stop:
+					return
+				case <-t.C:
+					_ = s.repo.UpdateJobLogoDone(jobID, int(done.Load()))
+				}
+			}
+		}()
+		logoBySlug := uploadLogosConcurrent(context.Background(), images, &done)
+		close(stop)
+		items = rewriteLogos(items, logoBySlug)
+		job.LogoDone = len(images)
+	}
+
+	// ── 阶段二: 逐条 upsert ──
+	job.Phase = "importing"
 	_ = s.repo.SaveJob(job)
 
 	results := make([]ImportItemResult, 0, len(items))
@@ -241,6 +278,7 @@ func (s *Service) processImport(jobID uint64, items []json.RawMessage, notify bo
 	}
 
 	job.Detail = results
+	job.Phase = "done"
 	if job.FailedCnt == 0 {
 		job.Status = "succeeded"
 	} else if job.FailedCnt < job.Total {

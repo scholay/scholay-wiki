@@ -104,8 +104,10 @@ export function SmartSearchPanel() {
       避免重复触发。terminal 事件到达 → busy 自动翻 false → 这里下面 useEffect 重置回 false。 */
   const [stopping, setStopping] = useState(false);
 
-  const { state, messages, send, reconnectAttempt, displacedReason, takeOver, resyncUserText } =
-    useSmartSearchSocket(sessionId);
+  const {
+    state, messages, send, reconnectAttempt, displacedReason, takeOver, resyncUserText,
+    peerMessage, busyRejected,
+  } = useSmartSearchSocket(sessionId);
 
   // 历史 turns: 只在 history 数据变化时重建一次。
   const historyTurns = useMemo<Turn[]>(
@@ -132,6 +134,24 @@ export function SmartSearchPanel() {
       setSeededResync(true);
     }
   }, [resyncUserText, pendingTurns.length, seededResync]);
+
+  // 多端实时同步:别的端在同一会话发了一句话(user_echo)→ 本端追加一条用户气泡,随后回答经
+  // messages 自然 fold 进这一轮。content 是原文(后端回声不含注入前缀)。
+  const lastPeerSeqRef = useRef(0);
+  useEffect(() => {
+    if (!peerMessage || peerMessage.seq === lastPeerSeqRef.current) return;
+    lastPeerSeqRef.current = peerMessage.seq;
+    setPendingTurns((prev) => [...prev, { id: `peer-${peerMessage.seq}`, userText: peerMessage.text }]);
+  }, [peerMessage]);
+
+  // 回答中锁住竞态兜底:本端发送被 Hub 以 busy 拒(正常输入框已置灰,极少触发)→ 回滚 + 提示。
+  const lastBusyRef = useRef(0);
+  useEffect(() => {
+    if (busyRejected === 0 || busyRejected === lastBusyRef.current) return;
+    lastBusyRef.current = busyRejected;
+    setPendingTurns((prev) => (prev.length > 0 ? prev.slice(0, -1) : prev));
+    toast.error('正在回答中,请稍候再发');
+  }, [busyRejected]);
 
   // pendingTurns 增多 (用户发了新一轮 / 续流补轮) → 立刻滚到底, 让新一轮进入视野。
   // effect 在 DOM 提交后跑, 新 turn 已在 DOM 里, scrollToBottom 落到真实新底部。

@@ -2,9 +2,13 @@ import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/stores/auth.store';
+import { http } from '@/shared/lib/http';
 
 /**
- * 通知 WebSocket —— 对接后端 `internal/websocket` (路由 `/api/v1/ws?token=...`)。
+ * 通知 WebSocket —— 对接后端 `internal/websocket` (路由 `/api/v1/ws?ws_token=...`)。
+ *
+ * 鉴权:升级 WS 前先 POST `/user/ws-ticket` 拿一张 30s 一次性 ticket,再用 `?ws_token=` 升级。
+ * 不再把裸 JWT 放进 URL query(长 TTL token 会落进 nginx access log 被重放)。每次(重)连都取新 ticket。
  *
  * 服务端推送 4 种 message(见 backend `internal/websocket/message.go`):
  *   - `notification` : 新站内信 → invalidate 列表 + 未读数 + toast 标题
@@ -56,11 +60,22 @@ interface ToastData {
   category?: string;
 }
 
-function buildWsUrl(token: string): string {
+function buildWsUrl(wsToken: string): string {
   // 走与 axios 同源 —— Nginx 已经把 /api/v1/* 转发到 backend
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const host = window.location.host;
-  return `${proto}//${host}/api/v1/ws?token=${encodeURIComponent(token)}`;
+  return `${proto}//${host}/api/v1/ws?ws_token=${encodeURIComponent(wsToken)}`;
+}
+
+// fetchWsTicket 取一张 30s 一次性 ws ticket(后端响应壳 { data: { wsToken } })。
+async function fetchWsTicket(): Promise<string> {
+  const { data } = await http.post<{ data?: { wsToken?: string }; wsToken?: string }>(
+    '/user/ws-ticket',
+    {},
+  );
+  const wsToken = data?.data?.wsToken ?? data?.wsToken;
+  if (!wsToken) throw new Error('未拿到 wsToken');
+  return wsToken;
 }
 
 export function useNotificationSocket() {
@@ -77,6 +92,8 @@ export function useNotificationSocket() {
     reconnectAttemptsRef.current = 0;
 
     function cleanup() {
+      // 无条件置位:in-flight 的 ticket 取还没建 WS 时也要让 connect 在 await 后自行放弃。
+      closedByUserRef.current = true;
       if (pingTimerRef.current) {
         clearInterval(pingTimerRef.current);
         pingTimerRef.current = null;
@@ -86,7 +103,6 @@ export function useNotificationSocket() {
         reconnectTimerRef.current = null;
       }
       if (wsRef.current) {
-        closedByUserRef.current = true;
         wsRef.current.close();
         wsRef.current = null;
       }
@@ -97,9 +113,26 @@ export function useNotificationSocket() {
       return;
     }
 
-    function connect() {
+    // scheduleReconnect 指数退避 + 抖动 + 次数上限重连(ticket 取失败 / WS 异常断开共用)。
+    function scheduleReconnect() {
+      if (closedByUserRef.current || reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) return;
+      const delay = reconnectDelay(reconnectAttemptsRef.current);
+      reconnectAttemptsRef.current += 1;
+      reconnectTimerRef.current = setTimeout(connect, delay);
+    }
+
+    async function connect() {
       if (closedByUserRef.current) return;
-      const ws = new WebSocket(buildWsUrl(token!));
+      // 每次(重)连先取一张新的一次性 ticket;取失败按退避重试。
+      let wsToken: string;
+      try {
+        wsToken = await fetchWsTicket();
+      } catch {
+        scheduleReconnect();
+        return;
+      }
+      if (closedByUserRef.current) return; // await 期间登出/换号 → 放弃本次连接
+      const ws = new WebSocket(buildWsUrl(wsToken));
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -155,12 +188,10 @@ export function useNotificationSocket() {
           pingTimerRef.current = null;
         }
         wsRef.current = null;
-        if (!closedByUserRef.current && reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
-          // 异常断开 → 指数退避 + 抖动后重连; 超过上限放弃, 不再无限握手(死会话/长时间宕机)。
-          // 用户重新聚焦页面 / 下次 token 变化(登录态刷新)会重建连接。
-          const delay = reconnectDelay(reconnectAttemptsRef.current);
-          reconnectAttemptsRef.current += 1;
-          reconnectTimerRef.current = setTimeout(connect, delay);
+        // 异常断开 → 指数退避 + 抖动后重连; 超过上限放弃, 不再无限握手(死会话/长时间宕机)。
+        // 用户重新聚焦页面 / 下次 token 变化(登录态刷新)会重建连接。
+        if (!closedByUserRef.current) {
+          scheduleReconnect();
         }
       };
 

@@ -156,11 +156,14 @@ type DataQuality struct {
 type ImportJob struct {
 	ID         uint64             `gorm:"primaryKey" json:"id"`
 	Status     string             `gorm:"column:status" json:"status"`
+	Phase      string             `gorm:"column:phase" json:"phase,omitempty"` // uploading_logos | importing | done
 	Source     string             `gorm:"column:source" json:"source"`
 	Filename   string             `gorm:"column:filename" json:"filename,omitempty"`
 	Notify     bool               `gorm:"column:notify" json:"notify"`
 	Total      int                `gorm:"column:total" json:"total"`
 	Processed  int                `gorm:"column:processed" json:"processed"`
+	LogoTotal  int                `gorm:"column:logo_total" json:"logo_total"` // zip 内待上传 logo 总数
+	LogoDone   int                `gorm:"column:logo_done" json:"logo_done"`   // 已上传 logo 数(并发进度)
 	CreatedCnt int                `gorm:"column:created_cnt" json:"created_cnt"`
 	UpdatedCnt int                `gorm:"column:updated_cnt" json:"updated_cnt"`
 	SkippedCnt int                `gorm:"column:skipped_cnt" json:"skipped_cnt"`

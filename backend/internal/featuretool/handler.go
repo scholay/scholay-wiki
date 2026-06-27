@@ -11,6 +11,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"path"
 	"strconv"
@@ -18,7 +19,17 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"scholar-backend/internal/common/httpclient"
 	"scholar-backend/internal/common/utils"
+)
+
+// zip 内单个文件的解压上限。一个 5000 条工具的分片 JSON 约 28MB,给到 64MB 留足余量;
+// 图片(logo)给 5MB。**必须**先用 UncompressedSize64 预判再配合 LimitReader ——
+// 否则超限文件会被悄悄截断成非法 JSON / 损坏图片:整片工具会因 json.Unmarshal 失败而丢失
+// (前端只看到「没有可导入的数据」),logo 则上传成截断的坏图。
+const (
+	maxImportJSONBytes  = 64 << 20
+	maxImportImageBytes = 5 << 20
 )
 
 type Handler struct {
@@ -259,6 +270,7 @@ func (h *Handler) AdminImportZip(c *gin.Context) {
 	}
 
 	var items []json.RawMessage
+	var jsonErrs []string             // JSON 文件级错误, items 为空时回显给 admin 定位
 	images := map[string]imageEntry{} // 文件名(去扩展名)= slug → 图片
 	for _, ze := range zr.File {
 		if ze.FileInfo().IsDir() {
@@ -273,12 +285,23 @@ func (h *Handler) AdminImportZip(c *gin.Context) {
 			if base == "index.json" || strings.HasPrefix(base, "_") {
 				continue
 			}
-			rc, err := ze.Open()
-			if err != nil {
+			// 先按中央目录里声明的解压大小预判, 超限直接报错而不是悄悄截断成非法 JSON
+			if ze.UncompressedSize64 > maxImportJSONBytes {
+				jsonErrs = append(jsonErrs, fmt.Sprintf("%s 过大(约 %dMB,上限 %dMB)",
+					ze.Name, ze.UncompressedSize64>>20, maxImportJSONBytes>>20))
 				continue
 			}
-			content, _ := io.ReadAll(io.LimitReader(rc, 8<<20))
+			rc, err := ze.Open()
+			if err != nil {
+				jsonErrs = append(jsonErrs, ze.Name+": 解压失败")
+				continue
+			}
+			content, err := io.ReadAll(io.LimitReader(rc, maxImportJSONBytes))
 			rc.Close()
+			if err != nil {
+				jsonErrs = append(jsonErrs, ze.Name+": 读取失败")
+				continue
+			}
 			content = bytes.TrimSpace(content)
 			if len(content) == 0 {
 				continue
@@ -286,18 +309,25 @@ func (h *Handler) AdminImportZip(c *gin.Context) {
 			switch content[0] {
 			case '[':
 				var arr []json.RawMessage
-				if json.Unmarshal(content, &arr) == nil {
-					items = append(items, arr...)
+				if err := json.Unmarshal(content, &arr); err != nil {
+					jsonErrs = append(jsonErrs, ze.Name+": JSON 解析失败: "+err.Error())
+					continue
 				}
+				items = append(items, arr...)
 			case '{':
 				items = append(items, json.RawMessage(content))
+			default:
+				jsonErrs = append(jsonErrs, ze.Name+": 不是 JSON 数组或对象")
 			}
 		case isImageExt(ext):
+			if ze.UncompressedSize64 > maxImportImageBytes {
+				continue // 图片超限直接跳过(留空 → 前端首字母 SVG 兜底), 不上传截断坏图
+			}
 			rc, err := ze.Open()
 			if err != nil {
 				continue
 			}
-			data, _ := io.ReadAll(io.LimitReader(rc, 2<<20))
+			data, _ := io.ReadAll(io.LimitReader(rc, maxImportImageBytes))
 			rc.Close()
 			if len(data) > 0 {
 				images[stem] = imageEntry{data: data, contentType: contentTypeForExt(ext)}
@@ -306,7 +336,11 @@ func (h *Handler) AdminImportZip(c *gin.Context) {
 	}
 
 	if len(items) == 0 {
-		utils.BadRequest(c, "zip 里没有可导入的 JSON 工具数据")
+		msg := "zip 里没有可导入的 JSON 工具数据"
+		if len(jsonErrs) > 0 {
+			msg += ":" + strings.Join(jsonErrs, "; ")
+		}
+		utils.BadRequest(c, msg)
 		return
 	}
 	if len(items) > 5000 {
@@ -314,13 +348,12 @@ func (h *Handler) AdminImportZip(c *gin.Context) {
 		return
 	}
 
-	// 把 zip 里的图片上传到 MinIO, 并把每条工具的 logo 改成稳定 URL
-	// (storage 不可用时 logoBySlug 为空 → logo 留空 → 前端首字母 SVG 兜底)。
-	logoBySlug := uploadLogos(c.Request.Context(), images)
-	items = rewriteLogos(items, logoBySlug)
+	// logo 上传(最多 5000 张 MinIO 写)挪到后台异步任务里并发做 —— 不再在请求线程同步上传,
+	// 否则会撞上 30s 写超时。这里只把内存里的图片连同 items 交给 StartImport。
 	notify := c.PostForm("notify") == "1" || c.PostForm("notify") == "true"
 	job, err := h.svc.StartImport(ImportInput{
 		Items:    items,
+		Images:   images,
 		Notify:   notify,
 		Source:   "zip",
 		Filename: fh.Filename,
@@ -387,6 +420,10 @@ func (h *Handler) AdminCreateWebhook(c *gin.Context) {
 		utils.BadRequest(c, "名称和 URL 必填")
 		return
 	}
+	if err := httpclient.ValidateOutboundURL(req.URL); err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
 	enabled := true
 	if req.Enabled != nil {
 		enabled = *req.Enabled
@@ -424,6 +461,10 @@ func (h *Handler) AdminUpdateWebhook(c *gin.Context) {
 		w.Name = req.Name
 	}
 	if req.URL != "" {
+		if err := httpclient.ValidateOutboundURL(req.URL); err != nil {
+			utils.BadRequest(c, err.Error())
+			return
+		}
 		w.URL = req.URL
 	}
 	w.Secret = req.Secret

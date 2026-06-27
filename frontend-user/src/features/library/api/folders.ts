@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
+import { invalidateLibrary } from '@/shared/lib/library-invalidation';
 import { STALE_FRESH } from '@/shared/lib/query-config';
 import { useAuthStore } from '@/stores/auth.store';
 import type { UserLibraryFolderItem } from '@/shared/api/types';
@@ -42,10 +43,6 @@ export function useLibraryFolders() {
       }
     },
   });
-}
-
-function invalidateLibrary(qc: ReturnType<typeof useQueryClient>) {
-  qc.invalidateQueries({ queryKey: ['library'] });
 }
 
 export function useCreateFolder() {

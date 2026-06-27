@@ -67,6 +67,14 @@ func registerPublicAPIRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL gin.
 		publicAPI.GET("/papers/:paperId/references", h.scholar.GetPaperReferences)
 		publicAPI.GET("/search/suggestions", h.scholar.GetSearchSuggestions)
 
+		// 合法 OA 全文查找(DOI → Unpaywall 免费链接)。论文详情页在 Minicod 未给
+		// openAccessPdf 时兜底探测;只链接合法 OA 副本,绝不代理盗版。
+		// 限流:每 IP 每分钟 30 次(外部上游 + 已有 Redis 缓存,够用)。
+		publicAPI.GET("/oa/resolve",
+			middleware.RateLimitMiddleware(30, time.Minute),
+			h.openAccess.Resolve,
+		)
+
 		// Matrix 多维分析: 公开拿系统默认维度 (登录用户的自定义维度走 /analysis/dimensions)
 		publicAPI.GET("/analysis/dimensions", h.ai.GetSystemDimensions)
 

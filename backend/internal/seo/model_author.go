@@ -20,6 +20,9 @@ type SEOAuthor struct {
 	CitationCount    int    `gorm:"column:citation_count;not null;default:0" json:"citation_count"`
 	HIndex           *int   `gorm:"column:h_index" json:"h_index,omitempty"`
 	Source           string `gorm:"size:32" json:"source,omitempty"`
+	// ORCID 裸 iD(形如 0000-0002-1825-0097)。来自 Minicod 作者,详情点击时持久化。
+	// 供 SSR ProfilePage 的 sameAs 结构化数据 + 作者页「已验证 ORCID」链接。
+	ORCID string `gorm:"column:orcid;size:32" json:"orcid,omitempty"`
 
 	SitemapPage int     `gorm:"column:sitemap_page;not null;default:0" json:"sitemap_page"`
 	Status      int     `gorm:"not null;default:1" json:"status"`
@@ -49,4 +52,6 @@ type AuthorSeed struct {
 	CitationCount int      `json:"citation_count,omitempty"`
 	HIndex        *int     `json:"h_index,omitempty"`
 	Source        string   `json:"source,omitempty"`
+	// ORCID 裸 iD;有则在详情点击时旁路写入 seo_authors.orcid(不进 affiliations 长度保护逻辑)。
+	ORCID string `json:"orcid,omitempty"`
 }

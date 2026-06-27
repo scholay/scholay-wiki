@@ -257,18 +257,18 @@ func (h *Handler) BindOrcidAccount(c *gin.Context) {
 
 	providerUserID := tokenResp.ORCID
 
-	// Check conflicts
-	existing, err := h.service.FindAuthProvider("orcid", providerUserID)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to check binding")
+	// 跨用户冲突校验收口到 oauthBindConflict;ORCID 策略:不允许重绑(本人也提示已绑定)。
+	boundToSelf, err := h.oauthBindConflict(userID, "orcid", providerUserID)
+	if err != nil {
+		if errors.Is(err, ErrOAuthBoundToOther) {
+			utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		} else {
+			utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to check binding")
+		}
 		return
 	}
-	if existing != nil {
-		if existing.UserID == userID {
-			utils.ErrorResponse(c, http.StatusBadRequest, "This ORCID is already bound to your account")
-		} else {
-			utils.ErrorResponse(c, http.StatusBadRequest, "This ORCID is already bound to another user")
-		}
+	if boundToSelf {
+		utils.ErrorResponse(c, http.StatusBadRequest, "该 ORCID 已绑定到你的账号")
 		return
 	}
 

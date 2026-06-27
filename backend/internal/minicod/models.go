@@ -9,6 +9,7 @@ package minicod
 
 import (
 	"encoding/json"
+	"regexp"
 	"strings"
 )
 
@@ -144,7 +145,11 @@ type Author struct {
 	PaperCount    int      `json:"paperCount,omitempty"`
 	CitationCount int      `json:"citationCount,omitempty"`
 	HIndex        int      `json:"hIndex,omitempty"`
-	Source        string   `json:"source,omitempty"`
+	// ORCID 学者唯一标识(裸 iD, 形如 0000-0002-1825-0097)。Minicod 部分作者带,
+	// 历史上在 ConvertAuthor 被丢弃,现保留 —— 前端展示「已验证 ORCID」链接 +
+	// SSR sameAs 结构化数据(权威信号, 利于 SEO/GEO)。
+	ORCID  string `json:"orcid,omitempty"`
+	Source string `json:"source,omitempty"`
 }
 
 // Citation matches the existing frontend Citation contract
@@ -440,8 +445,29 @@ func ConvertAuthor(raw RawAuthor) Author {
 		PaperCount:    raw.PaperCount,
 		CitationCount: raw.CitationCount,
 		HIndex:        raw.HIndex,
+		ORCID:         NormalizeORCID(raw.ORCID),
 		Source:        raw.Source,
 	}
+}
+
+// orcidPattern 校验裸 ORCID iD(末位校验位可能是 X)。
+var orcidPattern = regexp.MustCompile(`^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$`)
+
+// NormalizeORCID 把 URL / 前缀写法归一成裸 iD;非法则返回空串(不展示)。
+func NormalizeORCID(raw string) string {
+	s := strings.TrimSpace(raw)
+	if s == "" {
+		return ""
+	}
+	s = strings.TrimPrefix(s, "https://")
+	s = strings.TrimPrefix(s, "http://")
+	s = strings.TrimPrefix(s, "orcid.org/")
+	s = strings.TrimSpace(s)
+	s = strings.ToUpper(s) // 末位校验位 X 统一大写
+	if !orcidPattern.MatchString(s) {
+		return ""
+	}
+	return s
 }
 
 // ConvertPaperToCitation converts a Minicod raw paper to a Citation

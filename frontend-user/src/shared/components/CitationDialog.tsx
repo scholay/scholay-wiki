@@ -10,7 +10,11 @@ import {
 } from '@/shared/ui/dialog';
 import {
   CITATION_FORMAT_LABELS,
+  CITATION_FORMATS,
   generateCitation,
+  isMonoCitation,
+  readDefaultCitationFormat,
+  setDefaultCitationFormat,
   stripItalic,
   type CitationFormat,
   type CitationPaper,
@@ -21,7 +25,7 @@ import { copyToClipboard } from '@/shared/lib/clipboard';
 
 /**
  * 引用格式弹窗 —— 列表 / 卡片 / 详情页等任何位置点"引用"按钮都用同一个弹窗:
- *   - 顶部 tabs:BibTeX / APA / MLA / Chicago
+ *   - 顶部 tabs:GB/T 7714 / BibTeX / APA / MLA / Chicago(集合见 [[CITATION_FORMATS]])
  *   - 主体:当前格式的全文(BibTeX 走 mono pre,其他走 prose + `<i>`)
  *   - 右上"复制"按钮 → navigator.clipboard
  *   - 双击 tab 设为默认 —— localStorage 持久化(与详情页 Footer 同 key,行为一致)
@@ -29,23 +33,6 @@ import { copyToClipboard } from '@/shared/lib/clipboard';
  * 与 PaperDetailPane 内联的"引用本文"片段共享 [[generateCitation]] 与
  * [[CITATION_FORMAT_LABELS]],逻辑零分叉。
  */
-
-const CITE_FORMAT_STORAGE_KEY = 'scholay.cite-format';
-const ALL_FORMATS: CitationFormat[] = ['bibtex', 'apa', 'mla', 'chicago'];
-
-function readDefaultFormat(): CitationFormat {
-  if (typeof localStorage === 'undefined') return 'apa';
-  const saved = localStorage.getItem(CITE_FORMAT_STORAGE_KEY);
-  if (
-    saved === 'bibtex' ||
-    saved === 'mla' ||
-    saved === 'apa' ||
-    saved === 'chicago'
-  ) {
-    return saved;
-  }
-  return 'apa';
-}
 
 export interface CitationDialogProps {
   open: boolean;
@@ -61,12 +48,14 @@ export function CitationDialog({
   paper,
   title = '引用本文',
 }: CitationDialogProps) {
-  const [format, setFormat] = useState<CitationFormat>(readDefaultFormat);
+  const [format, setFormat] = useState<CitationFormat>(() =>
+    readDefaultCitationFormat('apa')
+  );
   const citation = useMemo(
     () => (paper ? generateCitation(paper, format) : ''),
     [paper, format]
   );
-  const isMono = format === 'bibtex';
+  const isMono = isMonoCitation(format);
 
   const handleCopy = async () => {
     if (!citation) return;
@@ -76,7 +65,7 @@ export function CitationDialog({
   };
 
   const setAsDefault = (f: CitationFormat) => {
-    localStorage.setItem(CITE_FORMAT_STORAGE_KEY, f);
+    setDefaultCitationFormat(f);
     toast.success(`已设为默认: ${CITATION_FORMAT_LABELS[f]}`);
   };
 
@@ -96,7 +85,7 @@ export function CitationDialog({
             不换行的 flex 行 → 小屏溢出错位)。 */}
         <div className="flex min-w-0 items-center gap-2">
           <div className="-mx-1 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {ALL_FORMATS.map((f) => (
+            {CITATION_FORMATS.map((f) => (
               <button
                 key={f}
                 type="button"

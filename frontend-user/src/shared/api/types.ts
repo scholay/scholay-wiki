@@ -1,7 +1,10 @@
 /**
- * 后端模型的**单一类型源** —— 暂时手写,待 `npm run gen:api` 接通 swagger.json
- * 后整体替换成 `openapi-typescript` 生成的 schema.d.ts(无需改任何 import,因
- * import 路径已经收敛到这里)。
+ * 后端模型的**单一类型源** —— 手写 interface,配对的后端 Go struct 真源见各分节注释
+ * (如 minicod.Paper / user_library_papers)。改后端字段时**两侧一起改**。
+ *
+ * 注:历史上计划用 `openapi-typescript` 从 swagger.json 生成 schema.d.ts,但 swagger.json
+ * 随 Semantic Scholar 下线已不存在,生成链路于 2026-06 移除。行为关键契约(error code /
+ * 额度信号 / 分页信封)的漂移由 `tests/contract/` 兜底(见 CLAUDE.md §3.6)。
  *
  * 不可以在 features 子目录的 api 里再写同名 interface 镜像后端字段 —— 都来这里取。
  * 类型只在这里定义,行为(hook)留在 features 各 api 文件。
@@ -214,6 +217,8 @@ export interface Author {
   paperCount?: number;
   citationCount?: number;
   hIndex?: number;
+  /** ORCID 裸 iD(形如 0000-0002-1825-0097),后端从 Minicod 透出;展示「已验证 ORCID」链接 */
+  orcid?: string;
   source?: UpstreamSource;
 }
 

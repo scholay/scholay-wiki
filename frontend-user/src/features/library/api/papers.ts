@@ -5,6 +5,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
+import { invalidateLibrary } from '@/shared/lib/library-invalidation';
 import { STALE_FRESH } from '@/shared/lib/query-config';
 import { useAuthStore } from '@/stores/auth.store';
 import type {
@@ -138,10 +139,6 @@ export function flattenLibraryPages(
   return pages.flatMap((p) => p.items);
 }
 
-function invalidateLibrary(qc: ReturnType<typeof useQueryClient>) {
-  qc.invalidateQueries({ queryKey: ['library'] });
-}
-
 /**
  * 按 (source, source_paper_id) 找当前用户的文献集行。
  *
@@ -207,7 +204,7 @@ export function useUpdatePaper() {
       }
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['library'] });
+      invalidateLibrary(qc);
     },
   });
 }

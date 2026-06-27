@@ -49,6 +49,9 @@ func (h *Handler) SetVIPChecker(v *vip.Service) {
 	h.vip = v
 }
 
+// VIPCheckerWired 报告配额校验器是否已注入(bootstrap 启动断言付费功能已接线)。
+func (h *Handler) VIPCheckerWired() bool { return h.vip != nil }
+
 // 注:单篇 AnalyzePaperRequest/Response + AnalyzePaper handler 已下线 ——
 // 新前端只用 /analysis/papers/batch(矩阵多维分析),不调单篇 /analysis/paper。
 // 底层 service.AnalyzePaperAbstract 仍在(batch 共用)。

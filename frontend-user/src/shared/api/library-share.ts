@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
+import { invalidateLibrary } from '@/shared/lib/library-invalidation';
 import { useAuthStore } from '@/stores/auth.store';
 import type { Paper, PaperAuthor } from '@/shared/api/types';
 
@@ -247,7 +248,7 @@ export function useSaveShare() {
         throw toApiError(err);
       }
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['library'] }),
+    onSuccess: () => invalidateLibrary(qc),
   });
 }
 

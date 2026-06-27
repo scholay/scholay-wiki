@@ -256,7 +256,13 @@ func (h *Handler) AdminListSubmissions(c *gin.Context) {
 	if page < 1 {
 		page = 1
 	}
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
+	// 分页参数统一 page_size(与其余 ~16 个列表端点一致,架构报告 M3);兼容旧前端仍传
+	// pageSize,过渡期两者都认,先 page_size 后回落 pageSize。
+	pageSizeStr := c.Query("page_size")
+	if pageSizeStr == "" {
+		pageSizeStr = c.DefaultQuery("pageSize", "20")
+	}
+	pageSize, _ := strconv.Atoi(pageSizeStr)
 	if pageSize < 1 || pageSize > 100 {
 		pageSize = 20
 	}

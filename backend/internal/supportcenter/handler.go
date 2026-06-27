@@ -9,7 +9,9 @@ package supportcenter
 import (
 	"log/slog"
 	"strconv"
+	"strings"
 
+	"scholar-backend/internal/common/httpclient"
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
@@ -58,6 +60,13 @@ func (h *Handler) UpdateConfig(c *gin.Context) {
 	if len(in.WecomQR) > qrMaxBytes || len(in.FeishuQR) > qrMaxBytes {
 		utils.BadRequest(c, "二维码图片过大(请压缩到 300KB 以内)")
 		return
+	}
+	// 飞书 webhook 地址早筛(防 SSRF;空/遮罩 = 保留旧值由 service 处理,不在此校验)。
+	if raw := strings.TrimSpace(in.FeishuWebhookURL); raw != "" && raw != utils.MaskedSecretValue {
+		if err := httpclient.ValidateOutboundURL(raw); err != nil {
+			utils.BadRequest(c, "飞书 webhook 地址无效:"+err.Error())
+			return
+		}
 	}
 	if err := h.svc.UpdateConfig(&in); err != nil {
 		slog.Error("supportcenter: update config failed", "err", err)

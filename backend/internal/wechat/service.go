@@ -10,6 +10,7 @@ package wechat
 import (
 	"context"
 	"crypto/sha1"
+	"crypto/subtle"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -199,7 +200,8 @@ func (s *Service) VerifySignature(signature, timestamp, nonce string) (bool, err
 	hash.Write([]byte(str))
 	calculatedSignature := hex.EncodeToString(hash.Sum(nil))
 
-	return calculatedSignature == signature, nil
+	// 常量时间比较,消除时序侧信道(与 internal/news.VerifySignature 口径一致)。
+	return subtle.ConstantTimeCompare([]byte(calculatedSignature), []byte(signature)) == 1, nil
 }
 
 // GetActiveConfig retrieves the active WeChat configuration

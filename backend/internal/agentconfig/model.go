@@ -7,7 +7,11 @@
 
 package agentconfig
 
-import "time"
+import (
+	"time"
+
+	"scholar-backend/internal/common/utils"
+)
 
 // PushStatus 枚举: pending (刚保存, 推送中或未推) / success (上一次推成功) / failed (上一次推失败)。
 // 主要给 admin 后台显示用; backend 读它没有分支判断, 只 SET。
@@ -51,14 +55,11 @@ func (c *AgentConfig) MaskSensitiveData() *AgentConfig {
 	return &masked
 }
 
-// maskString 按 wechatofficial 同款规则: 8 字符以内全打码,否则保留首尾各 4 位。
+// maskString 全遮罩(对齐全站 utils.MaskedSecretValue 单一真源),不再回吐密钥首尾 4 位明文。
+// 配套:UpdateConfig 的「遮罩=保留旧值」判定比对 MaskSensitiveData() 的输出,自洽不受格式影响。
 func maskString(s string) string {
 	if s == "" {
 		return ""
 	}
-	length := len(s)
-	if length <= 8 {
-		return "****"
-	}
-	return s[:4] + "****" + s[length-4:]
+	return utils.MaskedSecretValue
 }

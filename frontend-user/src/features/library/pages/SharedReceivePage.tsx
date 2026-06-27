@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { isPhoneDevice } from '@/shared/lib/device';
@@ -9,10 +9,17 @@ import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { Button } from '@/shared/ui/button';
 import { JournalBadges } from '@/shared/components/JournalBadges';
 import { JournalCover } from '@/shared/components/JournalCover';
-import { JournalTrendChart } from '@/shared/components/JournalTrendChart';
 import { useJournalEnrichments } from '@/shared/api/journal-enrichment';
 import { useJournalDetail } from '@/shared/api/journals';
 import { usePublicShare, useSaveShare, type SharePaperSnapshot } from '@/shared/api/library-share';
+
+// recharts(~84KB gz)懒加载 —— 分享接收页是公开免登录的落地页,首屏不该背趋势图代码;
+// 仅当分享内容是期刊且真正渲染趋势图时才拉该 chunk(同 JournalDetailPane / 移动端写法)。
+const JournalTrendChart = lazy(() =>
+  import('@/shared/components/JournalTrendChart').then((m) => ({
+    default: m.JournalTrendChart,
+  }))
+);
 
 /**
  * 分享接收页(/s/:token)—— 公开、免登录、PC/移动端通用(独立顶层路由,不挂任何 shell)。
@@ -276,9 +283,11 @@ export function SharedReceivePage() {
                     ) : null;
                   })()}
                 </div>
-                {/* 近年趋势(影响因子/发文量/被引量) */}
+                {/* 近年趋势(影响因子/发文量/被引量)—— recharts 懒加载,fallback 留空 */}
                 <div className="mt-3">
-                  <JournalTrendChart journalId={sharedJournal.id} active />
+                  <Suspense fallback={null}>
+                    <JournalTrendChart journalId={sharedJournal.id} active />
+                  </Suspense>
                 </div>
                 </>
               ) : (

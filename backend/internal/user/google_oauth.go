@@ -265,16 +265,13 @@ func (h *Handler) BindGoogleAccount(c *gin.Context) {
 func (h *Handler) bindGoogleToUser(userID uint, tokenInfo *GoogleTokenInfo) error {
 	providerUserID := tokenInfo.Sub
 
-	// Check if this Google account is already bound to another user
-	existing, err := h.service.FindAuthProvider("google", providerUserID)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return fmt.Errorf("failed to check existing binding: %w", err)
+	// 跨用户冲突校验收口到 oauthBindConflict;Google 策略:不允许重绑(连本人也提示已绑定)。
+	boundToSelf, err := h.oauthBindConflict(userID, "google", providerUserID)
+	if err != nil {
+		return err
 	}
-	if existing != nil {
-		if existing.UserID == userID {
-			return fmt.Errorf("this Google account is already bound to your account")
-		}
-		return fmt.Errorf("this Google account is already bound to another user")
+	if boundToSelf {
+		return fmt.Errorf("该 Google 账号已绑定到你的账号")
 	}
 
 	// Check if user already has a Google account bound

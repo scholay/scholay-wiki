@@ -1,19 +1,28 @@
-import { useEffect, useMemo } from 'react';
+import { lazy, Suspense, useEffect, useMemo } from 'react';
 import { useMatch } from 'react-router-dom';
 import { AlertCircle, ExternalLink, Loader2, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { copyToClipboard } from '@/shared/lib/clipboard';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { JournalCover } from '@/shared/components/JournalCover';
-import { JournalTrendChart } from '@/shared/components/JournalTrendChart';
 import { JournalSubmissionCard } from '@/shared/components/JournalSubmissionCard';
 import { JournalMetricsGroups } from '@/shared/components/JournalMetricsGroups';
+import { JournalDecisionCard } from '@/shared/components/JournalDecisionCard';
 import { cn } from '@/shared/lib/utils';
 import {
   journalTabKey,
   useBrowserTabs,
 } from '@/stores/browser-tabs.store';
 import { useJournalDetail, useJournalFullDetail } from '@/shared/api/journals';
+
+// recharts(~84KB gz)懒加载:只有期刊详情才渲染年度趋势图,而 /paper、/author、/pdf 与本面板
+// 共用同一个 BrowserPage chunk —— 不该让它们的首开背上 recharts。仅当本面板真正渲染趋势图时
+// 才拉取该 chunk(与移动端 JournalFeedCard 同款写法)。
+const JournalTrendChart = lazy(() =>
+  import('@/shared/components/JournalTrendChart').then((m) => ({
+    default: m.JournalTrendChart,
+  }))
+);
 
 /**
  * 期刊详情面板 —— 文献集右侧 pane 的内容(kind='journal' tab 命中时渲染),
@@ -231,6 +240,9 @@ export function JournalDetailPane() {
           )}
         </section>
 
+        {/* ───── 投稿决策 TL;DR —— 把关键选刊信号一句话综合(零新增请求) ───── */}
+        <JournalDecisionCard journal={journal} unified={unified} />
+
         {/* ───── 分区与影响因子 —— .pen `lVZBz` / `pBYQd` ───── */}
         <h2 className="font-display font-bold text-lg leading-none text-foreground">
           分区与影响因子
@@ -271,8 +283,12 @@ export function JournalDetailPane() {
         </div>
 
         {/* 年度趋势(IF / 发文量 / 被引量)—— 复用 feed 同款图;无足够年份数据时自隐。
-            与上方详情同缓存键,不额外打上游。 */}
-        {validId && <JournalTrendChart journalId={id} active />}
+            与上方详情同缓存键,不额外打上游。recharts 懒加载,fallback 留空(图本就可缺)。 */}
+        {validId && (
+          <Suspense fallback={null}>
+            <JournalTrendChart journalId={id} active />
+          </Suspense>
+        )}
 
         {/* 全部指标 —— full=1 返回但主区没铺开的几十个字段,按数据源分组;无数据自隐。 */}
         {unified && <JournalMetricsGroups unified={unified} />}

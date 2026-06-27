@@ -15,8 +15,8 @@ import { useAuthStore } from '@/stores/auth.store';
  */
 
 /**
- * 对照 backend/internal/user/model.go。
- * TODO: 切到 openapi-typescript 生成的类型 — `npm run gen:api` 后从 schema.d.ts 导入。
+ * mirrors backend/internal/user/model.go User —— 手写 interface,改字段时两侧一起改。
+ * (swagger 代码生成链路已于 2026-06 移除,见 CLAUDE.md §3.6。)
  */
 export interface User {
   id: number;

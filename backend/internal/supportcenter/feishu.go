@@ -18,12 +18,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"strings"
 	"time"
+
+	"scholar-backend/internal/common/httpclient"
 )
 
-var feishuHTTPClient = &http.Client{Timeout: 5 * time.Second}
+// feishuHTTPClient 走 Restricted:URL 由 admin 配置,拨号层拦截内网/环回/metadata 段(防 SSRF)。
+var feishuHTTPClient = httpclient.Restricted(5 * time.Second)
 
 // feishuSign 计算飞书机器人签名。
 func feishuSign(secret string, timestamp int64) (string, error) {

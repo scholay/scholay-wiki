@@ -17,7 +17,6 @@ import (
 	"os"
 	"path"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -25,7 +24,6 @@ import (
 	gorillaws "github.com/gorilla/websocket"
 
 	"scholar-backend/internal/common/config"
-	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/llmusage"
 )
@@ -127,14 +125,6 @@ func (f *FeatureBridge) HandleWS(c *gin.Context) {
 		return
 	}
 
-	agentWSURL, err := buildAgentWSURL(f.bridge.client.BaseURL(), sessionID)
-	if err != nil {
-		slog.Error("agentbridge ws: bad agent base url",
-			"base_url", f.bridge.client.BaseURL(), "err", err)
-		utils.ServerError(c, "agent base url misconfigured")
-		return
-	}
-
 	frontConn, err := frontUpgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		slog.Warn("agentbridge ws: upgrade failed", "feature", f.spec.Key, "err", err)
@@ -142,423 +132,31 @@ func (f *FeatureBridge) HandleWS(c *gin.Context) {
 	}
 	defer frontConn.Close()
 
-	header := http.Header{}
-	if tok := f.bridge.client.AuthToken(); tok != "" {
-		header.Set("Authorization", "Bearer "+tok)
-	}
-	agentConn, _, err := agentDialer.Dial(agentWSURL, header)
-	if err != nil {
-		slog.Error("agentbridge ws: dial agent failed",
-			"feature", f.spec.Key, "agent_url", agentWSURL,
-			"user_id", userID, "session_id", sessionID, "err", err)
-		_ = frontConn.WriteJSON(gin.H{
-			"type":    "error",
-			"message": "agent 不可达,请重试",
-		})
-		return
-	}
-	defer agentConn.Close()
-
-	// 判定 session 是否已注入过 system prompt prefix (仅 spec.InjectPromptOnFirstMsg=true):
-	//
-	//   1. 快路径: 读 agent_sessions.prompt_injected 标记 (uk 点查, migration 0024)。
-	//      =true → 直接跳过, 不再为读一个 bool 把整段 transcript 从 agent 拉回来
-	//      (原探测无 limit, 长会话每次开页/刷新/重连都付随会话长度线性增长的传输+解析成本)。
-	//   2. 标记缺失/读失败 → 回落原 transcript 探测:
-	//        - 没有 user entry (空会话 / 刚 reset) → 这次 WS 的第一条 user_message 注入 prefix
-	//        - 有 (存量会话标记未回填)             → 跳过注入, 并回填标记让下次走快路径
-	//      探测失败 → 按 "未注入" 兜底 (代价: 多注入一次, 远小于完全不注入)。
-	alreadyInjected := true
-	if f.spec.InjectPromptOnFirstMsg {
-		flagKnown := false
-		if row, derr := f.bridge.repo.FindByAgentSessionID(sessionID); derr == nil && row.PromptInjected {
-			flagKnown = true
-		}
-		if !flagKnown {
-			probeCtx, probeCancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
-			hasUser, probeErr := f.SessionAlreadyHasUserMessage(probeCtx, sessionID)
-			probeCancel()
-			if probeErr != nil {
-				slog.Warn("agentbridge ws: probe injected state failed, falling back to inject",
-					"feature", f.spec.Key, "user_id", userID, "session_id", sessionID, "err", probeErr)
-				alreadyInjected = false
-			} else {
-				alreadyInjected = hasUser
-				if hasUser {
-					// 探测到 transcript 已有 user entry (= prefix 已注入) → 回填标记
-					f.markPromptInjected(sessionID)
-				}
-			}
-		}
-	}
-
-	slog.Info("agentbridge ws: bridge established",
-		"feature", f.spec.Key, "user_id", userID, "session_id", sessionID,
-		"already_injected", alreadyInjected)
-
-	// hookCtx 用于 PreUserMessage / OnMessageComplete; WS 关闭时 cancel, 让钩子里
-	// 阻塞中的 Redis 调用能及时退出。不用 c.Request.Context() (gin handler 一返回就 cancel)。
-	hookCtx, cancelHooks := context.WithCancel(context.Background())
-	defer cancelHooks()
-
-	// "多窗口接管" 注册: 把这条 WS 写进 activeWSConns, 同 (user, feature) 的老 WS
-	// (如有) 收到 displaced 帧后 Close(1000)。frontWriteMu 跟 pipe 共用同一把锁,
-	// 让 displacer 写 front 不会跟 pipe 内的 "agent→front 转发" 并发冲突
-	// (gorilla websocket WriteMessage 非线程安全)。
-	frontWriteMu := &sync.Mutex{}
-	registered := &displacedConn{
-		conn:       frontConn,
-		writeMu:    frontWriteMu,
-		featureKey: f.spec.Key,
-		userID:     userID,
-		agentSID:   sessionID,
-	}
-	// 接管判定按 (feature, **agent session**) 寻址 —— 只有同一个 session 被两条 WS 同时驱动才算
-	// 冲突;同一用户开不同会话/项目(claw 多会话、prism 多项目)不再互相误踢(见 displacementKey)。
-	cleanupRegistry := f.bridge.registerAndDisplaceOldWS(f.spec.Key, sessionID, registered)
-	defer cleanupRegistry()
-
-	f.pipe(hookCtx, userID, sessionID, frontConn, agentConn, frontWriteMu, alreadyInjected)
-
-	slog.Info("agentbridge ws: bridge closed",
-		"feature", f.spec.Key, "user_id", userID, "session_id", sessionID)
-}
-
-// pipe 在前端 WS ↔ agent WS 之间双向转发, 并定时向 agent 发应用层 ping 保活。
-// 任一侧 close/error → 一并收口。
-//
-// hookCtx: 给 PreUserMessage / OnMessageComplete 钩子用的 ctx (WS 关闭时一并 cancel)。
-// userID: 已通过 JWT 校验的用户 ID, 注入给钩子做配额/账单识别。
-// frontWriteMu: 从 HandleWS 传入的 front 写锁 (跟 displacement 共用); pipe 内所有
-//
-//	front.Write* 都走这把锁, 防止与 displacer "踢老 WS" 时并发写违反 gorilla 契约。
-//
-// alreadyInjected: 当此 session 之前已注入过 system prompt prefix 时传 true,
-//
-//	pipe 会跳过本次的首条 user_message 改写。
-func (f *FeatureBridge) pipe(
-	hookCtx context.Context, userID uint, sessionID string,
-	front, agentSide *gorillaws.Conn,
-	frontWriteMu *sync.Mutex,
-	alreadyInjected bool,
-) {
-	var (
-		closeOnce      sync.Once
-		writeMu        sync.Mutex // agentSide 的写要互斥 (pipe 转发 + 心跳两路写)
-		promptInjected atomic.Bool
-		// pendingMark: 本连接做了 prefix 注入、但还没确认 agent 落盘。等首个 message_complete
-		// 到达(agent 已处理并持久化首轮)才把 prompt_injected 落库 —— 见 agent→front 分支。
-		pendingMark atomic.Bool
-	)
-	if alreadyInjected || !f.spec.InjectPromptOnFirstMsg {
-		promptInjected.Store(true)
-	}
-
-	closeBoth := func() {
-		closeOnce.Do(func() {
-			// 先 best-effort 写 CloseMessage, 让对端看到 orderly shutdown
-			// (前端 reconnect 逻辑能据 CloseNormalClosure 判断要不要重试)。
-			// front 那边走 frontWriteMu 保护 (与 displacer 互斥); WriteControl 实际
-			// 跟 WriteMessage 不互锁但 gorilla 文档要求高级场景手动互斥, 拿一下安全。
-			deadline := time.Now().Add(closeMessageWriteTimeout)
-			closeFrame := gorillaws.FormatCloseMessage(gorillaws.CloseNormalClosure, "")
-			frontWriteMu.Lock()
-			_ = front.WriteControl(gorillaws.CloseMessage, closeFrame, deadline)
-			frontWriteMu.Unlock()
-			_ = agentSide.WriteControl(gorillaws.CloseMessage, closeFrame, deadline)
-			_ = front.Close()
-			_ = agentSide.Close()
-		})
-	}
-
-	// ReadDeadline 在每个 read 循环里 refresh; 超时返回 net.Error.Timeout()=true,
-	// 不命中 IsCloseError → 走 debug 日志 + 收口。
-
-	writeAgent := func(mt int, data []byte) error {
-		writeMu.Lock()
-		defer writeMu.Unlock()
-		return agentSide.WriteMessage(mt, data)
-	}
-
-	// writeFront 走 frontWriteMu, 保证 pipe 的 agent→front 转发 / writeFrontJSON
-	// 错误帧 / displacer 踢人 之间互斥, 不违反 gorilla 写线程契约。
-	writeFront := func(mt int, data []byte) error {
-		frontWriteMu.Lock()
-		defer frontWriteMu.Unlock()
-		// 写超时收口: 防慢客户端把转发 goroutine 永久阻塞在 WriteMessage 上(详见 frontWriteDeadline)。
-		_ = front.SetWriteDeadline(time.Now().Add(frontWriteDeadline))
-		return front.WriteMessage(mt, data)
-	}
-
-	stopPing := make(chan struct{})
-	pingInterval := f.spec.PingIntervalOrDefault()
-	safego.Go("agentbridge-ws-ping:"+f.spec.Key, func() {
-		ticker := time.NewTicker(pingInterval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-stopPing:
-				return
-			case <-ticker.C:
-				if err := writeAgent(gorillaws.TextMessage, agentPingPayload); err != nil {
-					slog.Debug("agentbridge ws: keepalive ping write failed",
-						"feature", f.spec.Key, "err", err)
-					return
-				}
-			}
-		}
-	})
-
-	done := make(chan struct{}, 2)
-
-	// writeFrontJSON 在 quota/usage 错误时给前端回 error 帧。失败只打 debug,
-	// 因为 WS 多半已经在断开过程中。走 frontWriteMu (与 displacer 互斥)。
-	writeFrontJSON := func(payload any) {
-		raw, err := json.Marshal(payload)
-		if err != nil {
-			slog.Debug("agentbridge ws: front payload marshal failed",
-				"feature", f.spec.Key, "err", err)
+	// 多端实时同步:同一 (feature, session) 的多个浏览器都作为「订阅者」接入同一条上游 agent WS
+	// (扇出 Hub, 见 hub.go),不再互相抢占。首个订阅者触发建 hub(dial 上游 + 起读循环/ping),
+	// prompt 注入判定、配额/账单/记忆等钩子都收在 hub 里每 session 跑一次。
+	var sub *subscriber
+	for attempt := 0; attempt < 3; attempt++ {
+		hub, herr := f.bridge.getOrCreateHub(f, userID, sessionID)
+		if herr != nil {
+			_ = frontConn.WriteJSON(gin.H{"type": "error", "message": "agent 不可达,请重试"})
 			return
 		}
-		if err := writeFront(gorillaws.TextMessage, raw); err != nil {
-			slog.Debug("agentbridge ws: front write json failed",
-				"feature", f.spec.Key, "err", err)
+		if sub = hub.addSubscriber(frontConn); sub != nil {
+			break
 		}
+		// addSubscriber 返回 nil = 该 hub 恰好在关闭中(最后一个订阅者刚离开)→ 重试建新 hub。
+	}
+	if sub == nil {
+		_ = frontConn.WriteJSON(gin.H{"type": "error", "message": "会话繁忙,请重试"})
+		return
 	}
 
-	// front → agent: 配额检查 → 首条 user_message 注入 prefix → 转发
-	safego.Go("agentbridge-ws-front2agent:"+f.spec.Key, func() {
-		defer func() { done <- struct{}{} }()
-		for {
-			_ = front.SetReadDeadline(time.Now().Add(frontReadDeadline))
-			mt, data, err := front.ReadMessage()
-			if err != nil {
-				if !gorillaws.IsCloseError(err, gorillaws.CloseNormalClosure, gorillaws.CloseGoingAway) {
-					slog.Debug("agentbridge ws: front read end",
-						"feature", f.spec.Key, "err", err)
-				}
-				return
-			}
-			// didInjectThisFrame: 本帧真的做了 prefix 注入 → 转发成功后把 prompt_injected
-			// 标记落库。放在 writeAgent 成功之后才标, 避免"注入了但没送达 agent"时标脏。
-			didInjectThisFrame := false
-			if mt == gorillaws.TextMessage {
-				// "继续对话" = 发出 user_message 才算会话活跃 → Touch last_accessed_at, 让它在
-				// 侧边栏列表置顶。单纯点选历史会话 (ActivateSession) 不再 Touch, 所以查看历史
-				// 不会打乱排序; 只有真的说了话才上浮。其它控制帧 (ping / stop / set_runtime_config /
-				// permission_response) 不算活跃, 不 Touch。
-				if _, isUserMsg := extractUserMessageContent(data); isUserMsg {
-					if err := f.bridge.repo.Touch(sessionID); err != nil {
-						slog.Debug("agentbridge ws: touch last_accessed_at failed",
-							"feature", f.spec.Key, "session_id", sessionID, "err", err)
-					}
-				}
-				// 配额检查: 只对 user_message 帧生效, 其它控制帧 (ping / permission_response /
-				// set_runtime_config / stop_generation) 不消耗额度。
-				if f.spec.PreUserMessage != nil {
-					if content, isUserMsg := extractUserMessageContent(data); isUserMsg {
-						if err := callPreUserMessage(f.spec.PreUserMessage, hookCtx, userID, content); err != nil {
-							slog.Info("agentbridge ws: user_message rejected by PreUserMessage",
-								"feature", f.spec.Key, "user_id", userID, "err", err)
-							writeFrontJSON(gin.H{
-								"type":      "error",
-								"code":      classifyPreUserMessageError(err),
-								"message":   err.Error(),
-								"retryable": !errors.Is(err, ErrQuotaExceeded),
-							})
-							// 不转发, 但保持 WS 打开 — 用户可以下一轮再试 (或第二天等额度回滚)
-							continue
-						}
-					}
-				}
-				if f.spec.InjectPromptOnFirstMsg {
-					// 拉 prompt 从 picker 而不是 spec.SystemPrompt const:
-					//   - 只在"本次 WS 连接还没注入过"时才会 Pick (atomic CAS 保护)
-					//   - Pick 失败 (DB/Redis 故障 + 缓存空) → 视为 critical, 不强约束放进去
-					//     反而让 agent 跑飞, 不如失败一帧让用户看到 error
-					if !promptInjected.Load() && f.spec.Picker != nil {
-						choice, perr := f.spec.Picker.Pick(hookCtx, PickInput{UserID: userID})
-						if perr != nil {
-							slog.Error("agentbridge ws: picker.Pick failed, dropping user_message",
-								"feature", f.spec.Key, "err", perr)
-							writeFrontJSON(gin.H{
-								"type":      "error",
-								"code":      "prompt_unavailable",
-								"message":   "系统提示词暂不可用, 请稍后再试 (admin 请检查 feature_prompts 表)",
-								"retryable": true,
-							})
-							continue
-						}
-						// 首条消息一并注入该用户的长期记忆 (跨所有 feature 共享同一份)。
-						memCtx := f.bridge.MemoryBlocks(userID)
-						if rewritten, ok := injectSystemPromptIntoFirstUserMessage(
-							&promptInjected, data, choice.SystemPrompt, memCtx); ok {
-							data = rewritten
-							didInjectThisFrame = true
-							slog.Info("agentbridge ws: injected system prompt prefix into first user_message",
-								"feature", f.spec.Key,
-								"prompt_id", choice.PromptID,
-								"slug", choice.Slug,
-								"version", choice.Version)
-						}
-					} else if !promptInjected.Load() && f.spec.Picker == nil {
-						// 配置错误: 开了 InjectPromptOnFirstMsg 但忘配 Picker。
-						// 这是开发期 bug, fail-fast 比 silent 跑飞掉强。
-						slog.Error("agentbridge ws: InjectPromptOnFirstMsg=true but Picker is nil",
-							"feature", f.spec.Key)
-						writeFrontJSON(gin.H{
-							"type":      "error",
-							"code":      "spec_misconfigured",
-							"message":   "feature spec 配置缺失 picker, 请联系管理员",
-							"retryable": false,
-						})
-						continue
-					}
-				}
-			}
-			if err := writeAgent(mt, data); err != nil {
-				slog.Debug("agentbridge ws: agent write end", "feature", f.spec.Key, "err", err)
-				return
-			}
-			if didInjectThisFrame {
-				// 仅记「待标记」—— 真正落库推迟到 agent 回首个 message_complete(确认已处理+落盘)。
-				// 旧实现在 writeAgent 成功(= 帧已送达,≠ jsonl 已持久化)即标,agent 落盘前崩溃会 stale-true。
-				pendingMark.Store(true)
-			}
-		}
-	})
-
-	// agent → front: 拦截 permission_request 自动 approve / 解析 message_complete usage
-	safego.Go("agentbridge-ws-agent2front:"+f.spec.Key, func() {
-		defer func() { done <- struct{}{} }()
-		for {
-			// 每收一帧重置 deadline; agent 周期性回 {type:"pong"} 给 backend 的 ping,
-			// 60s 内一帧都没收到 (含 pong) → 视为 agent 卡死, 让 read 超时收口。
-			_ = agentSide.SetReadDeadline(time.Now().Add(agentReadDeadline))
-			mt, data, err := agentSide.ReadMessage()
-			if err != nil {
-				if !gorillaws.IsCloseError(err, gorillaws.CloseNormalClosure, gorillaws.CloseGoingAway) {
-					slog.Debug("agentbridge ws: agent read end", "feature", f.spec.Key, "err", err)
-				}
-				return
-			}
-			if mt == gorillaws.TextMessage {
-				// 先做一次极轻量 type 探测(只解 `{type}`)。agent 的 WS 协议每个流式 token 发一帧
-				// content_delta —— 一次回答就是成百上千帧, 而它既不是 permission_request 也不是
-				// message_complete。旧实现对每一帧都跑 decidePermission + extractMessageCompleteUsage
-				// 两次完整 json.Unmarshal; 这里改成先探 type, 只有命中的帧才做重解析。
-				// content_delta(绝大多数)只付一次微型 unmarshal。
-				switch frameType(data) {
-				case "permission_request":
-					// C14 审批轴: auto = backend 自动裁决 (decidePermission, 不透传前端);
-					// passthrough = 不裁决, 让 permission_request 落到下方统一 writeFront 原样转发给前端,
-					// 前端回的 permission_response 经 front2agent 循环原样写回 agent (无特殊处理)。
-					if f.spec.EffectivePermissionMode() == PermissionAuto {
-						sessionWorkDir := path.Join(agentSessionWorkdirRoot(), sessionID)
-						if reply, ok := decidePermission(data, sessionWorkDir, specDeny(f.spec)); ok {
-							if err := writeAgent(gorillaws.TextMessage, reply); err != nil {
-								slog.Debug("agentbridge ws: permission decision write failed",
-									"feature", f.spec.Key, "err", err)
-								return
-							}
-						}
-					}
-				case "message_complete":
-					if usage, calls, sessionTotal, isComplete := extractMessageComplete(data); isComplete {
-						// 首个 message_complete = agent 已处理并落盘首轮(含注入了 prefix 的首条 user_message)。
-						// 此刻才把 prompt_injected 落库,杜绝「帧送达但落盘前崩溃」的 stale-true。
-						if pendingMark.CompareAndSwap(true, false) {
-							f.markPromptInjected(sessionID)
-						}
-						if f.spec.OnMessageComplete != nil {
-							// 非阻塞 — 钩子做 slog / 审计, 不能拖累 pipe 转发
-							hook := f.spec.OnMessageComplete
-							featureKey := f.spec.Key
-							safego.Go("agentbridge-on-message-complete:"+featureKey, func() {
-								hook(hookCtx, userID, usage)
-							})
-						}
-						// 带内 token 账本:按会话累计水位算出本轮要落库的行(per-call 明细 + 必要时一行对账补差)。
-						// 水位读改写在 pipe 读循环内串行完成(保证幂等);真正落库(含 Redis 日配额)异步,
-						// 归属(user/feature)直接来自已鉴权会话, 不反查。
-						if rows := f.bridge.accrueTurnUsage(sessionID, usage, calls, sessionTotal); len(rows) > 0 {
-							uid, feat, sid, rec := userID, f.spec.Key, sessionID, f.bridge.llmRec
-							safego.Go("agentbridge-usage-record:"+feat, func() {
-								for i := range rows {
-									recordAgentTokens(rec, &uid, feat, sid, rows[i])
-								}
-							})
-						}
-						// 一轮结束后,把「记忆抽取」任务异步推给 agent 执行(backend 不跑 LLM):限流 +
-						// 组装 prompt 后,经**同一条已鉴权 WS**(writeAgent,不新开连接避免 displacement)发
-						// extract_memory 控制帧;agent 跑完廉价模型把原始输出经 memory_update 帧回传,由下方
-						// agent→front 的 memory_update case 落库。仅 WS 对话 feature(smart_search/claw/prism)。
-						if f.bridge.memSvc != nil && userID != 0 {
-							uid, sid := userID, sessionID
-							safego.Go("usermemory-extract-dispatch:"+f.spec.Key, func() {
-								ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-								defer cancel()
-								if frame := f.bridge.buildMemoryExtractFrame(ctx, uid, sid); frame != nil {
-									if err := writeAgent(gorillaws.TextMessage, frame); err != nil {
-										slog.Debug("agentbridge ws: extract_memory frame write failed",
-											"feature", f.spec.Key, "session_id", sid, "err", err)
-									}
-								}
-							})
-						}
-					}
-				case "token_usage":
-					// 带外模型调用(会话标题生成 / 记忆抽取等不产生 message_complete 帧的调用)的 token:
-					// 不进会话累计水位,按「附加」记一行。kind 决定归属:memory_extract → Feature=memory
-					// + SkipQuota(系统开销不扣用户日额度);其它(title_gen)→ 本 feature 正常计费。
-					// 纯后端记账信号,前端无用 → 记完即 continue, 不 writeFront 转发。
-					if u, kind, ok := extractTokenUsageFrame(data); ok {
-						uid, feat, knd, sid, rec := userID, f.spec.Key, kind, sessionID, f.bridge.llmRec
-						safego.Go("agentbridge-token-usage-record:"+feat, func() {
-							recordOutOfBandTokens(rec, &uid, feat, knd, sid, u)
-						})
-					}
-					continue
-				case "memory_update":
-					// agent 跑完「记忆抽取」廉价模型调用后回传的原始输出。backend 据已鉴权会话的 userID
-					// 落库(IngestMemory 内做 allow-list / 截断 / Upsert,agent 永远只是建议者)。
-					// 纯后端信号 → 记完即 continue, 不 writeFront 转发。
-					if userID != 0 {
-						if raw, ok := extractMemoryUpdateFrame(data); ok {
-							uid := userID
-							safego.Go("agentbridge-memory-ingest:"+f.spec.Key, func() {
-								f.bridge.IngestMemory(uid, raw)
-							})
-						}
-					}
-					continue
-				case "session_title_updated":
-					// 标题真源在 agent jsonl 的 feature(claw/smart_search)自管;但 backend-owned 标题
-					// (prism:真源在 prism_projects.title)需 backend 落库:spec.OnTitleResult 非空即 tap,
-					// 仅 aiGenerated 的最终标题落库(忽略 deriveTitle 占位,避免占位把项目名锁死)。
-					// 不 continue —— 仍 writeFront 把标题帧转发前端。
-					if f.spec.OnTitleResult != nil {
-						if title, aiGen, ok := extractTitleUpdateFrame(data); ok && aiGen && title != "" {
-							hook := f.spec.OnTitleResult
-							uid, sid := userID, sessionID
-							safego.Go("agentbridge-title-result:"+f.spec.Key, func() {
-								hook(hookCtx, uid, sid, title)
-							})
-						}
-					}
-				}
-			}
-			if err := writeFront(mt, data); err != nil {
-				slog.Debug("agentbridge ws: front write end", "feature", f.spec.Key, "err", err)
-				return
-			}
-		}
-	})
-
-	<-done
-	close(stopPing)
-	closeBoth()
-	<-done
+	slog.Info("agentbridge ws: subscriber attached",
+		"feature", f.spec.Key, "user_id", userID, "session_id", sessionID)
+	sub.readLoop() // 阻塞直到前端断开;退出时 removeSubscriber(订阅者归零则关 hub + 上游)
+	slog.Info("agentbridge ws: subscriber detached",
+		"feature", f.spec.Key, "user_id", userID, "session_id", sessionID)
 }
 
 // injectSystemPromptIntoFirstUserMessage 把 systemPrompt 作为 prefix 拼到首条

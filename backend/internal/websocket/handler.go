@@ -8,10 +8,7 @@
 package websocket
 
 import (
-	"context"
-	"errors"
 	"log/slog"
-	"strings"
 
 	"scholar-backend/internal/common/utils"
 
@@ -21,85 +18,69 @@ import (
 // Handler WebSocket HTTP 处理器
 type Handler struct {
 	hub *Hub
-	// jwtSecret 已不再使用:token 校验改走 utils.ParseToken(统一密钥源 + 吊销检查)。
-	// 保留字段仅为兼容 NewHandler 签名,后续接入 ws-ticket 后连同 ?token= 一起下线。
-	jwtSecret string
 }
 
 // NewHandler 创建 Handler
-func NewHandler(hub *Hub, jwtSecret string) *Handler {
-	return &Handler{
-		hub:       hub,
-		jwtSecret: jwtSecret,
-	}
+func NewHandler(hub *Hub) *Handler {
+	return &Handler{hub: hub}
 }
 
-// HandleWebSocket 处理 WebSocket 连接请求
-// 认证方式：URL 查询参数 ?token=xxx（可选，无 token 则视为访客）
+// IssueWSTicket — POST /api/v1/user/ws-ticket(UserAuthMiddleware 之后)。
+// 为当前登录用户签发一张 30s 一次性 ws ticket,前端拿它升级站内信 WS。
+// 替代把裸 JWT 放进 URL query(JWT 长 TTL、会落 nginx access log)。
+func (h *Handler) IssueWSTicket(c *gin.Context) {
+	userID := c.GetUint("user_id")
+	if userID == 0 {
+		utils.Unauthorized(c, "未登录")
+		return
+	}
+	token, err := IssueInboxTicket(c.Request.Context(), userID)
+	if err != nil {
+		slog.Error("failed to issue inbox ws ticket", "user_id", userID, "err", err)
+		utils.ServerError(c, "签发 ws ticket 失败")
+		return
+	}
+	utils.Success(c, gin.H{"wsToken": token})
+}
+
+// HandleWebSocket 处理 WebSocket 连接请求。
+// 认证方式:URL 查询参数 ?ws_token=<一次性 ticket>(可选,无/无效 ws_token 则视为访客)。
+// 不再接受裸 JWT(?token=)—— 避免长 TTL token 落进 nginx access log 被重放。
 func (h *Handler) HandleWebSocket(c *gin.Context) {
-	// 从查询参数获取 token
-	token := c.Query("token")
-
-	// 获取客户端 IP
+	wsToken := c.Query("ws_token")
 	clientIP := c.ClientIP()
-
-	// 获取 melody 实例
 	m := h.hub.GetMelody()
 
-	// 如果没有 token，视为访客连接
-	if token == "" {
-		err := m.HandleRequestWithKeys(c.Writer, c.Request, map[string]any{
+	connectGuest := func() {
+		if err := m.HandleRequestWithKeys(c.Writer, c.Request, map[string]any{
 			"is_guest":  true,
 			"client_ip": clientIP,
-		})
-		if err != nil {
+		}); err != nil {
 			slog.Error("failed to upgrade guest WebSocket connection", "err", err)
 		}
+	}
+
+	// 无 ws_token → 访客连接(站内信 WS 允许匿名,用于公告等公共推送)。
+	if wsToken == "" {
+		connectGuest()
 		return
 	}
 
-	// 验证 token(含吊销检查)
-	userID, username, err := h.validateToken(c.Request.Context(), token)
+	// 消费一次性 ticket(GETDEL):无效/过期 → 退化为访客连接(不硬失败,保留 UX)。
+	userID, err := ConsumeInboxTicket(c.Request.Context(), wsToken)
 	if err != nil {
-		// Token 无效，也可以作为访客连接
-		slog.Warn("invalid token, connecting as guest", "err", err)
-		err = m.HandleRequestWithKeys(c.Writer, c.Request, map[string]any{
-			"is_guest":  true,
-			"client_ip": clientIP,
-		})
-		if err != nil {
-			slog.Error("failed to upgrade guest WebSocket connection", "err", err)
-		}
+		slog.Warn("invalid ws ticket, connecting as guest", "err", err)
+		connectGuest()
 		return
 	}
 
-	// 在升级前设置用户信息到请求上下文
-	// melody 会在 HandleConnect 中通过 session.Get 获取
-	err = m.HandleRequestWithKeys(c.Writer, c.Request, map[string]any{
+	if err := m.HandleRequestWithKeys(c.Writer, c.Request, map[string]any{
 		"user_id":   userID,
-		"username":  username,
 		"client_ip": clientIP,
 		"is_guest":  false,
-	})
-
-	if err != nil {
+	}); err != nil {
 		slog.Error("failed to upgrade WebSocket connection", "user_id", userID, "err", err)
 	}
-}
-
-// validateToken 验证 JWT token(统一走 utils.ParseToken:签名+过期+alg 锁定),
-// 并查吊销黑名单 —— 改密/封号/单端登出后的 token 虽未自然过期,也不得再升级 WS 收推送。
-// 这是 ws-ticket 迁移前的最低限度加固(原实现裸 jwt.Parse、不查吊销)。
-func (h *Handler) validateToken(ctx context.Context, tokenString string) (uint, string, error) {
-	tokenString = strings.TrimPrefix(tokenString, "Bearer ")
-	claims, err := utils.ParseToken(tokenString)
-	if err != nil {
-		return 0, "", err
-	}
-	if utils.IsTokenRevoked(ctx, claims) {
-		return 0, "", errors.New("token revoked")
-	}
-	return claims.UserID, claims.Username, nil
 }
 
 // GetHub 获取 Hub 实例

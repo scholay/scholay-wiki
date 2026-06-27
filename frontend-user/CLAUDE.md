@@ -45,7 +45,7 @@ src/
 │   ├── components/           业务无关的 composite(Sidebar 全家桶 / EmptyState / ...)
 │   ├── hooks/                通用 hooks(useDebounce / useHotkey / ...)
 │   ├── lib/                  工具函数 + http 实例
-│   └── api/                  openapi-typescript 生成的 schema.d.ts
+│   └── api/                  手写 interface(文件头注释配对的后端 Go struct 路径)
 ├── stores/                   跨域客户端状态(zustand slice 一个文件一个)
 ├── styles/                   globals.css + 主题 token
 └── types/                    跨域共享的纯类型
@@ -84,7 +84,7 @@ shared/lib       → 无依赖(纯 TS)
 | 客户端状态 | `zustand` v5 | Redux、Jotai、Context-based store |
 | 表单 | `react-hook-form` + `zod` + `@hookform/resolvers` | Formik、自研 useForm |
 | HTTP | `axios`(经 `shared/lib/http.ts`)| fetch 裸调、自创 client、各组件自己创实例 |
-| API 类型 | `openapi-typescript` 从 swagger.json 生成 | 手写 interface 镜像后端 |
+| API 类型 | 手写 interface + 文件头注释配对后端 Go struct 路径;行为关键契约进 `tests/contract/` | 凭记忆瞎写、不标真源(swagger 生成链路已废,见 §3.6) |
 | UI 原子 | `@radix-ui/*` + `class-variance-authority` + `tailwind-merge` | MUI、Antd、Chakra、自研 |
 | 样式 | `tailwindcss` v4 + CSS 变量(globals.css) | styled-components、emotion、CSS modules、内联 style |
 | 动画(复杂/手势/出入场) | `framer-motion` v12 | 自研 keyframe / GSAP / react-spring |
@@ -158,7 +158,10 @@ shared/lib       → 无依赖(纯 TS)
 
 5. **错误用 `toApiError(err)` 提取**,Toast 由调用方决定要不要弹(避免到处 setError state)。
 
-6. **类型从 `shared/api/schema.d.ts` 取**(`npm run gen:api` 生成),不手写镜像后端的 interface。
+6. **API 类型手写,但必须单一真源化(代码生成链路已废)**。历史上本项目计划用 `openapi-typescript` 从 `swagger.json` 生成 `schema.d.ts`,但 `swagger.json` 随 Semantic Scholar 集成下线后已不存在,`gen:api` 形同虚设 —— 已于 2026-06 移除该脚本与 `openapi-typescript`/`openapi-fetch` 依赖。现行约定:
+   - 每个 `api/*.ts` 在**文件头注释**标注它镜像的后端 Go struct 真源,例如 `// mirrors backend/internal/vip/quota.go Overview`;改字段时**两侧一起改**。
+   - **行为关键的契约**(error code 表 / 额度信号 / 分页信封等驱动 UI 分支的)由 `tests/contract/` 下的 zod 用例对**真实录制的后端响应**做校验,漂移在 CI `npm run test:contract` 直接 fail —— 把「后端改了字段、前端静默 undefined」挡在构建期而不是用户屏幕上。
+   - 新增此类契约时,既在 TS 写 interface,也在 `tests/contract/` 加/更新对应 zod schema + fixture。
 
 7. **SSE 流式接口用原生 EventSource**,不要装 SSE 库;封装放 `features/<feature>/api/streams.ts`。
 
@@ -350,7 +353,7 @@ features/<x>/components/  业务组件(只本 feature 用)
 | 自己手写树渲染 | `react-arborist` |
 | 自己渲染 markdown | `react-markdown` |
 | 自己拼 toast 系统 | `toast()` from sonner |
-| `interface Paper { ... }` 手写镜像后端字段 | 从 `@/shared/api/schema` 引入 |
+| `interface Paper { ... }` 凭记忆瞎写、不标后端真源 | 手写 interface + 文件头注释配对 Go struct 路径;关键契约进 `tests/contract/`(§3.6) |
 | 多个 `axios.create(...)` 实例 | 只用 `shared/lib/http.ts` 的 `http` |
 | 组件文件 > 500 行 | 拆成 sub-component / 提 hook |
 

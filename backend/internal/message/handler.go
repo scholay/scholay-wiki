@@ -200,18 +200,20 @@ func (h *Handler) DeleteMessage(c *gin.Context) {
 // @Success 200 {object} utils.Response{data=MessageResponse}
 // @Router /api/v1/admin/messages [post]
 func (h *Handler) AdminCreateMessage(c *gin.Context) {
-	adminID, _ := c.Get("adminID")
-	adminName, _ := c.Get("adminUsername")
-
 	var req CreateMessageRequest
 	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	senderID := adminID.(uint)
+	// AuthMiddleware 写入的 context key 是 user_id / username(不是 adminID / adminUsername)——
+	// 旧代码读不存在的 key 再对 nil 做 senderID := adminID.(uint) 类型断言会 panic,
+	// 使该接口整功能不可用(被 Recovery 兜成 500)。改用中间件实际写入的 key。
+	senderID := c.GetUint("user_id")
 	senderName := ""
-	if name, ok := adminName.(string); ok {
-		senderName = name
+	if name, ok := c.Get("username"); ok {
+		if s, ok := name.(string); ok {
+			senderName = s
+		}
 	}
 
 	resp, err := h.service.CreateMessage(&req, senderID, senderName)

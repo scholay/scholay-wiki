@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { toast } from 'sonner';
 import { ArrowUpRight, Copy } from 'lucide-react';
 import { copyToClipboard } from '@/shared/lib/clipboard';
+import { useOpenAccess } from '../../api/open-access';
 import type { Paper } from '@/shared/api/types';
 
 /**
@@ -29,6 +30,12 @@ export function PaperMetadataBlock({ paper }: { paper: Paper }) {
   // 学科 chip
   const fields = paper.fieldsOfStudy ?? [];
 
+  // 合法 OA 兜底:Minicod 没给 openAccessPdf 时,按 DOI 问后端(Unpaywall)。
+  // 有 DOI 且本就没 PDF 直链才查,避免无谓请求。hook 必须在任何 return 之前调。
+  const hasMinicodPdf = !!paper.openAccessPdf?.url;
+  const oaQ = useOpenAccess(doi, !!doi && !hasMinicodPdf);
+  const foundOA = oaQ.data?.is_oa ? oaQ.data : null;
+
   // 至少一项有值才渲染整块,避免空块占位
   // 注:`paper.url`(原始页)入口已合并到 ActionRow 的"原始链接",这里不再重复展示
   const hasAny =
@@ -37,7 +44,8 @@ export function PaperMetadataBlock({ paper }: { paper: Paper }) {
     !!paper.citationCount ||
     !!paper.referenceCount ||
     !!paper.isOpenAccess ||
-    !!paper.openAccessPdf?.url ||
+    hasMinicodPdf ||
+    !!foundOA ||
     fields.length > 0;
   if (!hasAny) return null;
 
@@ -89,13 +97,13 @@ export function PaperMetadataBlock({ paper }: { paper: Paper }) {
         </MetadataRow>
       )}
 
-      {(paper.isOpenAccess || paper.openAccessPdf?.url) && (
+      {(paper.isOpenAccess || hasMinicodPdf || foundOA) && (
         <MetadataRow label="开放">
           <span className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1 h-5 px-1.5 rounded-sm bg-brand-green/12 text-2xs font-bold text-brand-green">
               OA
             </span>
-            {paper.openAccessPdf?.url && (
+            {paper.openAccessPdf?.url ? (
               <a
                 href={paper.openAccessPdf.url}
                 target="_blank"
@@ -106,6 +114,20 @@ export function PaperMetadataBlock({ paper }: { paper: Paper }) {
                 PDF 直链
                 <ArrowUpRight className="size-3" />
               </a>
+            ) : (
+              foundOA && (
+                <a
+                  href={foundOA.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-brand-blue hover:text-brand-red hover:underline"
+                  title="经 Unpaywall 找到的合法开放获取版本"
+                >
+                  {foundOA.is_pdf ? '免费全文 PDF' : '免费全文'}
+                  <ArrowUpRight className="size-3" />
+                  <span className="text-faint">via Unpaywall</span>
+                </a>
+              )
             )}
           </span>
         </MetadataRow>

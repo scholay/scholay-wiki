@@ -14,11 +14,15 @@ export interface ImportItemResult {
 export interface ImportJob {
   id: number;
   status: 'pending' | 'running' | 'succeeded' | 'partial' | 'failed';
+  /** 子阶段:zip 导入先并发上传 logo 再逐条 upsert。空=未分阶段(纯 JSON 导入)。 */
+  phase?: '' | 'uploading_logos' | 'importing' | 'done';
   source: string;
   filename?: string;
   notify: boolean;
   total: number;
   processed: number;
+  logo_total: number;
+  logo_done: number;
   created_cnt: number;
   updated_cnt: number;
   skipped_cnt: number;

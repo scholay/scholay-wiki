@@ -79,6 +79,10 @@ var vipChecker *vip.Service
 // SetVIPChecker 注入会员限额服务。允许 nil(不限额)。
 func SetVIPChecker(v *vip.Service) { vipChecker = v }
 
+// VIPCheckerWired 报告配额校验器是否已注入。bootstrap 启动末尾据此断言付费功能已接线,
+// 防「新增付费 feature 忘记调 SetVIPChecker → 静默免费(收入泄漏)」的回归。
+func VIPCheckerWired() bool { return vipChecker != nil }
+
 // checkQuota / recordQuestion 是给 agentbridge.StandardHooks 的适配闭包:
 //  1. checkQuota: 先查 vip 配额, 超额转 quota_exceeded(干净文案)直接 error 出去。
 //  2. recordQuestion: 配额过了 → 记一条 usage_events (claw/message)。

@@ -22,7 +22,6 @@ import (
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 var microsoftUpstream = newOAuthUpstream("microsoft_oauth")
@@ -241,18 +240,18 @@ func (h *Handler) BindMicrosoftAccount(c *gin.Context) {
 		return
 	}
 
-	// Check conflicts
-	existing, err := h.service.FindAuthProvider("microsoft", msUser.ID)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to check binding")
+	// 跨用户冲突校验收口到 oauthBindConflict;Microsoft 策略:不允许重绑(本人也提示已绑定)。
+	boundToSelf, err := h.oauthBindConflict(userID, "microsoft", msUser.ID)
+	if err != nil {
+		if errors.Is(err, ErrOAuthBoundToOther) {
+			utils.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		} else {
+			utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to check binding")
+		}
 		return
 	}
-	if existing != nil {
-		if existing.UserID == userID {
-			utils.ErrorResponse(c, http.StatusBadRequest, "This Microsoft account is already bound to your account")
-		} else {
-			utils.ErrorResponse(c, http.StatusBadRequest, "This Microsoft account is already bound to another user")
-		}
+	if boundToSelf {
+		utils.ErrorResponse(c, http.StatusBadRequest, "该 Microsoft 账号已绑定到你的账号")
 		return
 	}
 

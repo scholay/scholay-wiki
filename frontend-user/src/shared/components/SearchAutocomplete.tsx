@@ -1,5 +1,4 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
 import { Search, X } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import {
@@ -238,37 +237,29 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
         </div>
       </form>
 
-      <AnimatePresence>
+      {/* 进出场用 tw-animate-css(零额外 JS)——本组件是首屏 eager 组件,
+          不引 framer-motion 以免把 ~42KB gz 钉进首屏关键路径。dropdown 出场直接卸载、无需退场过渡。 */}
+      <>
         {showPicker && (
-          <motion.div
-            key="picker"
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
+          <div
             onMouseEnter={openPickerNow}
             onMouseLeave={schedulePickerClose}
             // 与主框留 8px 间距(top-full + mt-2),不挤压主框下边线;
             // 主框边框不会因为 picker 打开而改变(mergeBorders 只看 suggestions)
-            className="absolute top-full left-0 right-0 mt-2 z-50"
+            className="absolute top-full left-0 right-0 mt-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150"
           >
             <JournalSearchAlternateRow
               query={trimmed}
               onClick={() => submitJournals(trimmed)}
             />
-          </motion.div>
+          </div>
         )}
 
         {showSuggestions && (
-          <motion.div
-            key="suggestions"
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
+          <div
             // .pen `t3sGV`:1px #E5E5E5 边 + 下圆角 4 + 阴影 (0,8) blur 24
             // 高度封顶由上面 ResizeObserver 算出 --dropdownMaxHeight
-            className="absolute top-full left-0 right-0 z-50 flex flex-col bg-background border border-border-strong border-t-0 rounded-b-sm shadow-[0_8px_24px_rgba(0,0,0,0.08)] overflow-y-auto"
+            className="absolute top-full left-0 right-0 z-50 flex flex-col bg-background border border-border-strong border-t-0 rounded-b-sm shadow-[0_8px_24px_rgba(0,0,0,0.08)] overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150"
             style={{ maxHeight: dropdownMaxHeight }}
           >
             {papers.length > 0 && (
@@ -312,9 +303,9 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
                 }}
               />
             )}
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
+      </>
     </div>
   );
   }

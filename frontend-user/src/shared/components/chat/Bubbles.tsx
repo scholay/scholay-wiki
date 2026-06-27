@@ -1,4 +1,5 @@
 import { memo, type ReactNode } from 'react';
+import { useThrottledValue } from '@/shared/hooks/useThrottledValue';
 import { MarkdownRenderer } from './MarkdownRenderer';
 
 /**
@@ -64,6 +65,11 @@ export interface AssistantBubbleProps {
 
 // memo: 同上 —— text/streaming/variant 都是标量, 非活跃气泡在流式期间不再重渲染。
 export const AssistantBubble = memo(function AssistantBubble({ text, streaming, variant = 'card' }: AssistantBubbleProps) {
+  // 流式期间节流 markdown 重解析:上游每帧累积新字符,但整段重跑 gfm+math+highlight+katex 很贵。
+  // 节流到 ~10/s 显著降低主线程负担、消除打字卡顿;流式结束(streaming=false)立即用完整文本零延迟定稿。
+  // 非流式(历史消息 / admin transcript)始终走原始 text,throttle 不参与。
+  const throttled = useThrottledValue(text, 100);
+  const display = streaming ? throttled : text;
   return (
     <div
       className={
@@ -72,7 +78,7 @@ export const AssistantBubble = memo(function AssistantBubble({ text, streaming, 
           : 'rounded-2xl rounded-tl-md border border-border bg-background px-4 py-3 shadow-sm min-w-0 overflow-hidden'
       }
     >
-      <MarkdownRenderer text={text} />
+      <MarkdownRenderer text={display} />
       {streaming && (
         <span
           aria-hidden

@@ -24,6 +24,7 @@ const KNOWN_FIRST_SEGMENTS: ReadonlySet<string> = new Set([
   'tools',
   'prism',
   'claw',
+  'citation-generator',
   'peer-review',
   'peer-review-v2',
   'latex-writer',

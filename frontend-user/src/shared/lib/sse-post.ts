@@ -20,7 +20,7 @@
  */
 
 import { getAuthToken, notifyAuthLost } from '@/shared/lib/auth-token';
-import { notifyQuotaExceeded } from '@/shared/lib/quota-events';
+import { notifyQuotaExceeded, isQuotaSignal } from '@/shared/lib/quota-events';
 
 export interface ParsedSseEvent {
   /** SSE `event:` 行的值;无 `event:` 行时为空串(标准 SSE 行为) */
@@ -83,7 +83,8 @@ export async function streamSsePost({
       if (j && typeof j === 'object' && 'message' in j && j.message) {
         msg = String(j.message);
       }
-      if (j && typeof j === 'object' && (j as { code?: number }).code === 6010) {
+      // 额度耗尽 → 统一谓词(与 http/WS 同一判断,不再硬编码 6010,Theme 2)。
+      if (j && typeof j === 'object' && isQuotaSignal(j as { code?: number | string })) {
         notifyQuotaExceeded({ message: msg });
       }
     } catch {

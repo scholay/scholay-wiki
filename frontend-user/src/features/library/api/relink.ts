@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
+import { invalidateLibrary } from '@/shared/lib/library-invalidation';
 import { STALE_WARM } from '@/shared/lib/query-config';
 import type { UserLibraryPaper } from '@/shared/api/types';
 import type { ConfirmLink, SearchHit } from './upload-resolve';
@@ -80,7 +81,7 @@ export function useRelinkPaper() {
       }
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['library'] });
+      invalidateLibrary(qc);
     },
   });
 }
@@ -109,7 +110,7 @@ export function useUnlinkPaper() {
       }
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['library'] });
+      invalidateLibrary(qc);
     },
   });
 }

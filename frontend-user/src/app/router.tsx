@@ -14,6 +14,7 @@ import { journalsRoutes } from '@/features/journals/routes';
 import { libraryRoutes, libraryMobileRoutes, shareReceiveRoutes } from '@/features/library/routes';
 import { browserRoutes } from '@/features/browser/routes';
 import { toolsRoutes, toolsMobileRoutes } from '@/features/tools/routes';
+import { citationRoutes } from '@/features/citation/routes';
 import { peerReviewRoutes } from '@/features/peer-review/routes';
 import { prismRoutes } from '@/features/prism/routes';
 import { clawRoutes, clawMobileRoutes } from '@/features/claw/routes';
@@ -128,6 +129,7 @@ export const router = createBrowserRouter([
       ...libraryRoutes,
       ...browserRoutes,
       ...toolsRoutes,
+      ...citationRoutes,
       ...peerReviewRoutes,
       ...prismRoutes,
       ...clawRoutes,

@@ -453,6 +453,7 @@ func (h *Handler) GetAuthor(c *gin.Context) {
 			PaperCount:    result.PaperCount,
 			CitationCount: result.CitationCount,
 			Source:        result.Source,
+			ORCID:         result.ORCID,
 		}
 		if result.HIndex > 0 {
 			hi := result.HIndex

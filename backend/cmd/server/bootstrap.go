@@ -37,6 +37,7 @@ import (
 	"scholar-backend/internal/featuretool"
 	"scholar-backend/internal/library"
 	"scholar-backend/internal/news"
+	"scholar-backend/internal/openaccess"
 	"scholar-backend/internal/peerreview"
 	"scholar-backend/internal/prism"
 	"scholar-backend/internal/promptregistry"
@@ -269,6 +270,22 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	aiB.aiHandler.SetVIPChecker(plat.vipService)
 	peerReviewService.SetVIPChecker(plat.vipService) // 注入到 service(在 Submit 内扣额度), 不在 handler
 
+	// 接线完整性自检:遍历所有付费 feature,断言配额校验器确已注入。
+	// 漏接 = 该功能静默无配额无计费(收入泄漏)且无人察觉 —— 这里 fail-fast 拒绝启动,
+	// 把「忘了上面加一行 SetVIPChecker」从生产事故降级为起服即崩的显式错误。
+	// 新增付费 feature 时,上面加一行 SetVIPChecker,这里同步加一行 wired 探针。
+	for feature, wired := range map[string]bool{
+		"smart_search": smartsearch.VIPCheckerWired(),
+		"claw":         claw.VIPCheckerWired(),
+		"prism":        prism.VIPCheckerWired(),
+		"ai":           aiB.aiHandler.VIPCheckerWired(),
+		"peerreview":   peerReviewService.VIPCheckerWired(),
+	} {
+		if !wired {
+			panic("bootstrap: 付费功能 \"" + feature + "\" 未注入 VIPChecker — 将静默无配额/无计费,拒绝启动")
+		}
+	}
+
 	// 统一 token 额度计数:llmusage 每记一行账本 → 同步累加进用户当日 token 预算(billing/vip)。
 	// 这是「按 token 限制」的唯一扣减点;预检(CheckDailyQuota)只读闸门, 真实消耗在此累加。
 	plat.llmUsageService.SetObserver(func(userID uint, tokens int) {
@@ -428,6 +445,7 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 			smartSearch:    smartsearch.NewHandler(smartSearchFeature),
 			peerReview:     peerReviewHandler,
 			memory:         usermemory.NewHandler(userMemoryService),
+			openAccess:     openaccess.NewHandler(),
 			claw:           claw.NewHandler(clawFeature, agentartifact.NewRepository(db), library.NewReader(db)),
 			featureTool:    featureToolHandler,
 			agentBridge:    agentBridge, // 内网回调端点: agent 上报带外 token 用量 (title-gen 等)

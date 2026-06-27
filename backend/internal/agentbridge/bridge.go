@@ -37,17 +37,15 @@ type Bridge struct {
 	client *agent.Client
 	repo   *Repository
 
-	// activeWSConns 跟踪每个 (user, feature) 当前活跃的 WS 连接, 用于"多窗口接管"
-	// 体验: 新窗口建 WS 时, 先把老 WS 发一帧 displaced 通知再 Close, 让前端 banner
-	// 提示用户"此会话已在其他窗口打开"。
+	// hubs 跟踪每个 (feature, agent session) 的扇出 Hub(多端实时同步,见 hub.go)。
+	// key 形如 "claw:<agentSessionId>"; value 是 *sessionHub。同一 session 的多个浏览器都作为
+	// 订阅者接入同一条上游 agent WS —— 既满足 jsonl 单写者,又让多端实时同步(取代旧的「抢占」)。
 	//
-	// key 形如 "claw:<agentSessionId>"; value 是 *displacedConn。同 (feature, **session**)
-	// 永远只保留一条 active 记录 —— 按 session 而非 user,故不同会话/项目可并存(见 displacementKey)。
-	//
-	// 注意: 这是 process-local 状态, 多实例部署时只在同一实例命中。这是 by design —
-	// 方案 A 是 "best-effort 提示, 不是强互斥"; 跨实例真互斥需 Redis 锁 (方案 B,
-	// 暂不实施)。生产用单实例 backend 时此实现等效真互斥。
-	activeWSConns sync.Map
+	// ⚠️ process-local:当前 backend 单容器部署即正确。多实例横向扩容时同一 session 的订阅者可能
+	// 落到不同实例 → 各自一条上游 → jsonl 双写。届时需「上游单实例 owner + Redis 中继扇出」或
+	// sticky 路由(见 hub.go 顶部注释)。
+	hubs   sync.Map
+	hubsMu sync.Mutex // 串行化「首个订阅者建 hub」,避免两个首连各 dial 一条上游
 
 	// llmRec 统一 LLM token 账本录入器 (允许 nil = 不记账)。
 	// **带内**落账本路径(ws.go pipe):agent 把 per-call 明细 + 会话累计随 message_complete /
@@ -361,44 +359,6 @@ func stripInjectionInContent(raw json.RawMessage) (json.RawMessage, bool) {
 		}
 	}
 	return raw, false
-}
-
-// displacementKey 拼 activeWSConns 的 key, 按 (feature, **agent session**) 寻址。
-//
-// ⚠️ 关键:按 session 而非 user。displacement 要防的是"**同一个 agent session 被两条 WS
-// 同时驱动**"(jsonl 双写损坏)。但 claw 多会话、prism 多项目下,同一用户在两个 tab 打开
-// **不同**会话/项目本就该并存 —— 按 user 寻址会把它们也误判成"接管",弹出 displaced banner
-// (用户反馈的"不是并发也会出现")。session_id 全局唯一,feature 前缀仅作命名空间清晰。
-// smart-search 是用户级单会话,两个 tab 拿到同一 session_id,按 session 仍正确互斥。
-func displacementKey(featureKey, sessionID string) string {
-	return featureKey + ":" + sessionID
-}
-
-// registerAndDisplaceOldWS 把新 WS 注册进 activeWSConns, 并把同 key (= 同一 agent session)
-// 的旧 WS (如有) 发 displaced 帧后 Close。返回一个 cleanup 函数, caller 必须 defer 调用
-// (在 WS pipe 退出后) 把自己从 map 摘掉。
-//
-// 注意: 摘掉只会摘"还是我"的情况; 如果中途又有更新的 WS 把我替换了, 不会误删。
-func (b *Bridge) registerAndDisplaceOldWS(featureKey, sessionID string, newConn *displacedConn) func() {
-	key := displacementKey(featureKey, sessionID)
-	if prev, loaded := b.activeWSConns.Swap(key, newConn); loaded {
-		if old, ok := prev.(*displacedConn); ok {
-			// 异步 displace, 不阻塞新 WS 建联流程。失败也只是老 WS 没收到通知,
-			// 不影响新 WS 工作 — 老 WS 下一次 read deadline 到了会自然超时退出。
-			safego.Go("agentbridge-ws-displace:"+featureKey, old.displace)
-		}
-	}
-	// 跨实例接管 (C2): 本地 Swap 之后广播给其它副本 —— 若别的实例也持有同一 session 的活跃 WS,
-	// 它的订阅 goroutine 会把那条旧 WS displace 掉, 避免两实例同时驱动一个 agent session (jsonl 双写)。
-	// best-effort: Redis 挂只是退化到纯本地 displacement; 异步发, 不阻塞建连。
-	safego.Go("agentbridge-ws-displace-publish:"+featureKey, func() {
-		pubCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-		b.publishDisplace(pubCtx, key)
-	})
-	return func() {
-		b.activeWSConns.CompareAndDelete(key, newConn)
-	}
 }
 
 // For 返回一个绑定到指定 FeatureSpec 的视图。

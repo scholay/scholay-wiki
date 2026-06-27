@@ -238,10 +238,13 @@ func (h *Handler) ReplyFeedback(c *gin.Context) {
 		return
 	}
 
-	// 获取管理员用户名
+	// 获取管理员用户名 —— AuthMiddleware 写入的 key 是 username(不是 adminUsername),
+	// 旧代码读错 key 导致署名永远回退成硬编码 "admin"。改读真实 key,回信落到真实管理员账号。
 	adminUsername := "admin"
-	if username, exists := c.Get("adminUsername"); exists {
-		adminUsername = username.(string)
+	if username, exists := c.Get("username"); exists {
+		if s, ok := username.(string); ok && s != "" {
+			adminUsername = s
+		}
 	}
 
 	if err := h.service.ReplyFeedback(id, req.ReplyContent, adminUsername); err != nil {

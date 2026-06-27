@@ -367,16 +367,10 @@ func (h *Handler) BindGitHubAccount(c *gin.Context) {
 
 // bindGitHubToUser binds a GitHub account to an existing user
 func (h *Handler) bindGitHubToUser(userID uint, githubUser *GithubUser) error {
-	// Check if GitHub is already bound to another user
+	// 跨用户冲突校验收口到 oauthBindConflict(已绑到本人 → 走下面 create-or-update 幂等更新)。
 	providerUserID := fmt.Sprintf("%d", githubUser.ID)
-	existing, err := h.service.FindAuthProvider("github", providerUserID)
-
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return fmt.Errorf("find auth provider: %w", err)
-	}
-
-	if existing != nil && existing.UserID != userID {
-		return errors.New("该 GitHub 账号已被其他账号绑定")
+	if _, err := h.oauthBindConflict(userID, "github", providerUserID); err != nil {
+		return err
 	}
 
 	// Get current user

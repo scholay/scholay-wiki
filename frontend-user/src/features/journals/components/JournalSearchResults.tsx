@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   AlertCircle,
@@ -36,6 +36,12 @@ const PAGE_SIZE = 8;
 
 interface JournalSearchResultsProps {
   filters: JournalFilters;
+  /**
+   * 可选 header 槽 —— 传入则**替换**默认 Hero(自带 h1 + KPI + 搜索条)。
+   * 聚合 SEO 落地页用它换上针对性的 h1 + 文案,既避免双 h1,又复用结果网格/分页。
+   * /journals/search 不传 → 用默认 Hero。
+   */
+  header?: ReactNode;
 }
 
 type SortKey = 'relevance' | 'if' | 'recent';
@@ -52,7 +58,10 @@ const SORT_TO_BACKEND: Record<SortKey, { sortBy?: string; sortDir?: 'asc' | 'des
   recent: { sortBy: 'openalex_works_count', sortDir: 'desc' },
 };
 
-export function JournalSearchResults({ filters }: JournalSearchResultsProps) {
+export function JournalSearchResults({
+  filters,
+  header,
+}: JournalSearchResultsProps) {
   const [params, setParams] = useSearchParams();
   const openJournal = useOpenJournalInBrowser();
   const statsQ = useJournalStats();
@@ -132,7 +141,8 @@ export function JournalSearchResults({ filters }: JournalSearchResultsProps) {
   return (
     <div className="h-full overflow-auto bg-background">
       <div className="max-w-6xl mx-auto px-10 py-7 space-y-6">
-        {/* ───── Hero —— .pen `Ojg8N`(rounded-12 bg-FAFAFA border) ───── */}
+        {/* 落地页传 header 槽则替换默认 Hero(避免双 h1);搜索页不传 → 默认 Hero。 */}
+        {header ?? (
         <section className="rounded-lg bg-surface-1 border border-border-soft p-6 space-y-[18px]">
           {/* 标题 + 右侧 KPI */}
           <div className="flex items-end justify-between gap-6">
@@ -191,6 +201,7 @@ export function JournalSearchResults({ filters }: JournalSearchResultsProps) {
           </form>
 
         </section>
+        )}
 
         {/* ───── 结果头 —— .pen `HsUQD`(不展示总数,上游不给) ───── */}
         <header className="flex items-end justify-between gap-4">

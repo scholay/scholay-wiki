@@ -128,6 +128,20 @@ func (r *Repository) UpsertAuthorSeed(seed *AuthorSeed, slug, affiliationsJSON s
 	).Error
 }
 
+// SetAuthorORCID 旁路写入 ORCID —— 独立于主 upsert 的幂等小更新,避免改动那段
+// 手工对齐参数的原始 SQL。仅在当前 orcid 为空时写(首次拿到即固化,不反复覆盖),
+// 且不 bump updated_at(ORCID 不改变 sitemap 新鲜度语义)。
+func (r *Repository) SetAuthorORCID(authorID, orcid string) error {
+	if authorID == "" || orcid == "" {
+		return nil
+	}
+	return r.db.Exec(`
+		UPDATE seo_authors
+		SET orcid = ?
+		WHERE author_id = ? AND (orcid IS NULL OR orcid = '')
+	`, orcid, authorID).Error
+}
+
 // BackfillAuthorSitemapPage 扫描 sitemap_page=0 的新行，填入正确的分页号
 func (r *Repository) BackfillAuthorSitemapPage() (int64, error) {
 	res := r.db.Exec(`

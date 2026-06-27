@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { stripAgentBridgePrefix } from '@/shared/lib/agent-prefix';
 import type { Turn } from '@/shared/types/chat';
@@ -336,6 +337,35 @@ export function usePrismChat(
     setRoundState('streaming');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket.resyncUserText]);
+
+  // 多端实时同步:别的端在同一项目发了一句话(user_echo)→ 本端追加用户气泡 + 标在途轮,后续
+  // 回答经 socket.messages 自然重折进这一轮;message_complete 时 finalize 会刷新工作区/diff,
+  // 让本端也看到这轮产生的文件改动(对话流同步;编辑器实时共编不在本次范围)。
+  // 不重置 processedRef(那是 resync 回放才需要):live 帧只增长,增量循环自然处理。
+  const lastPeerSeqRef = useRef(0);
+  useEffect(() => {
+    const pm = socket.peerMessage;
+    if (!pm || pm.seq === lastPeerSeqRef.current) return;
+    lastPeerSeqRef.current = pm.seq;
+    if (!roundActiveRef.current) {
+      roundActiveRef.current = true;
+      setRoundState('streaming');
+    }
+    setPendingTurns((prev) => [...prev, { id: nextId(), userText: pm.text }]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socket.peerMessage]);
+
+  // 回答中锁住竞态兜底:本端发送被 Hub 以 busy 拒(正常输入已置灰,极少触发)→ 回滚刚追加的轮。
+  const lastBusyRef = useRef(0);
+  useEffect(() => {
+    if (socket.busyRejected === 0 || socket.busyRejected === lastBusyRef.current) return;
+    lastBusyRef.current = socket.busyRejected;
+    setPendingTurns((prev) => (prev.length > 0 ? prev.slice(0, -1) : prev));
+    roundActiveRef.current = false;
+    setRoundState('idle');
+    toast.error('正在回答中,请稍候再发');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socket.busyRejected]);
 
   const newChat = useCallback(() => {
     socket.clearMessages();

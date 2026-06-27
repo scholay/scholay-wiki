@@ -1,4 +1,4 @@
-import { ExternalLink } from 'lucide-react';
+import { BadgeCheck, ExternalLink } from 'lucide-react';
 import type { Author } from '@/shared/api/types';
 import { pickAvatarColor } from './pick-avatar-color';
 
@@ -46,6 +46,20 @@ export function AuthorHero({ author }: { author: Author }) {
               </span>
             )}
           </div>
+        )}
+
+        {/* 已验证 ORCID —— 权威身份链接(SSR 也写进 ProfilePage 的 sameAs) */}
+        {author.orcid && (
+          <a
+            href={`https://orcid.org/${author.orcid}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex w-fit items-center gap-1.5 h-6 px-2 rounded-pill bg-brand-green/10 text-brand-green text-2xs font-bold hover:bg-brand-green/15 transition-colors"
+            title="在 ORCID 查看该学者已验证档案"
+          >
+            <BadgeCheck className="size-3.5" strokeWidth={2.4} />
+            ORCID {author.orcid}
+          </a>
         )}
 
         {/* 4 个核心指标 —— .pen `jZJya` */}

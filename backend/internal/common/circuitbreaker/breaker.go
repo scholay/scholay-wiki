@@ -67,6 +67,20 @@ var (
 		OnStateChange: onStateChangeWithStats,
 	})
 
+	// UnpaywallBreaker protects Unpaywall(合法 OA 查找)API calls。
+	// 外部公共 API、单 host,故障时快速熔断避免拖慢论文详情页的「免费全文」探测。
+	UnpaywallBreaker = gobreaker.NewCircuitBreaker(gobreaker.Settings{
+		Name:        "Unpaywall",
+		MaxRequests: 3,
+		Interval:    time.Minute,
+		Timeout:     30 * time.Second,
+		ReadyToTrip: func(counts gobreaker.Counts) bool {
+			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
+			return counts.Requests >= 3 && failureRatio >= 0.6
+		},
+		OnStateChange: onStateChangeWithStats,
+	})
+
 	// ProxyServiceBreaker protects proxy API calls
 	ProxyServiceBreaker = gobreaker.NewCircuitBreaker(gobreaker.Settings{
 		Name:        "ProxyService",
@@ -144,6 +158,7 @@ func init() {
 		"Minicod:stc",
 		"Minicod:olx",
 		"Minicod:pmd",
+		"Unpaywall",
 		"ProxyService",
 		"Agent",
 		"PeerReview",

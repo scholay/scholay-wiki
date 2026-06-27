@@ -128,6 +128,9 @@ type Service struct {
 // SetVIPChecker 注入会员限额服务(每次真正投递审稿扣 1)。允许 nil 禁用。
 func (s *Service) SetVIPChecker(v *vip.Service) { s.vip = v }
 
+// VIPCheckerWired 报告配额校验器是否已注入(bootstrap 启动断言付费功能已接线)。
+func (s *Service) VIPCheckerWired() bool { return s.vip != nil }
+
 // NewService — bootstrap 阶段构造。
 func NewService(
 	repo *Repository,

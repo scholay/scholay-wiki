@@ -64,6 +64,12 @@ var StaticPages = []StaticPage{
 	{"/search", "weekly", "0.8"},          // 文献搜索入口
 	{"/journals/search", "weekly", "0.7"}, // 期刊搜索入口
 
+	// ── 期刊聚合榜单(程序化 SEO 落地页,预设筛选 + 实结果,非 thin content)──
+	{"/journals/sci-q1", "weekly", "0.6"},              // SCI 一区(JCR Q1)
+	{"/journals/cas-zone1", "weekly", "0.6"},           // 中科院一区
+	{"/journals/ccf-a", "weekly", "0.6"},               // CCF A 类
+	{"/journals/high-impact-factor", "weekly", "0.6"},  // 高影响因子 IF≥10
+
 	// ── 营销 / 品牌页(7 个 feature 落地页 + 概览 + 价格) ─────
 	{"/features", "monthly", "0.7"},
 	{"/features/search", "monthly", "0.6"},

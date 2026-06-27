@@ -1,7 +1,10 @@
 /**
  * 论文引用格式生成 —— 移植自 frontend-user/src/utils/citationGenerator.ts。
  *
- * 4 个格式:BibTeX / MLA / APA / Chicago。
+ * 5 个格式:GB/T 7714 / BibTeX / APA / MLA / Chicago。
+ * - GB/T 7714:中国国标(numeric)。`作者. 题名[J]. 刊名, 年, 卷: 页码.`
+ *   作者「姓 + 名首字母」,>3 人取前 3 + 「等」;会议/论文集用 [C] 否则 [J];无斜体。
+ *   面向中文用户写学位论文/中文期刊的本土刚需,国际样式库不覆盖。
  * - BibTeX:smart key(`{lastname}{year}{firstTitleWord}{secondWordInitials}`,
  *   跳过 of/the/in 等停用词)
  * - MLA:首作者 last-name-first,>2 个作者用 et al.,期刊名 `<i>`
@@ -9,7 +12,10 @@
  * - Chicago:首作者 last-name-first 其余正向,`and` 连接末位
  *
  * 期刊名 / 卷号用 `<i>...</i>` 包裹 —— 渲染时通过 [[citationItalicParts]]
- * 切成 React 节点,复制时调 [[stripItalic]] 转纯文本。
+ * 切成 React 节点,复制时调 [[stripItalic]] 转纯文本。(GB/T 7714 无斜体)
+ *
+ * 新增/调整格式集合时只改本文件:[[CITATION_FORMATS]] 是消费方(PaperFooter /
+ * CitationDialog / 引用生成器工具页)共享的单一真源,别再各自维护一份数组。
  */
 
 export interface CitationAuthor {
@@ -34,14 +40,54 @@ export interface CitationPaper {
   journal?: CitationJournal;
 }
 
-export type CitationFormat = 'bibtex' | 'mla' | 'apa' | 'chicago';
+export type CitationFormat = 'gbt7714' | 'bibtex' | 'mla' | 'apa' | 'chicago';
 
 export const CITATION_FORMAT_LABELS: Record<CitationFormat, string> = {
+  gbt7714: 'GB/T 7714',
   bibtex: 'BibTeX',
   mla: 'MLA',
   apa: 'APA',
   chicago: 'Chicago',
 };
+
+/**
+ * 展示顺序的单一真源 —— GB/T 7714 排首位(中文用户最常用)。
+ * PaperFooter / CitationDialog / 引用生成器工具页都 import 它,新增格式只改这里。
+ */
+export const CITATION_FORMATS: readonly CitationFormat[] = [
+  'gbt7714',
+  'bibtex',
+  'apa',
+  'mla',
+  'chicago',
+];
+
+/** BibTeX 用等宽 pre 渲染,其余走 prose 段落。 */
+export function isMonoCitation(format: CitationFormat): boolean {
+  return format === 'bibtex';
+}
+
+/** 默认引用格式的 localStorage key —— 详情页 Footer / 弹窗 / 工具页共用一个,行为一致。 */
+export const CITE_FORMAT_STORAGE_KEY = 'scholay.cite-format';
+
+function isCitationFormat(v: string | null): v is CitationFormat {
+  return v != null && (CITATION_FORMATS as readonly string[]).includes(v);
+}
+
+/** 读默认格式(读不到/非法时回退到调用方给的 fallback,保留各处历史默认)。 */
+export function readDefaultCitationFormat(
+  fallback: CitationFormat
+): CitationFormat {
+  if (typeof localStorage === 'undefined') return fallback;
+  const saved = localStorage.getItem(CITE_FORMAT_STORAGE_KEY);
+  return isCitationFormat(saved) ? saved : fallback;
+}
+
+/** 写默认格式。 */
+export function setDefaultCitationFormat(f: CitationFormat): void {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(CITE_FORMAT_STORAGE_KEY, f);
+}
 
 const STOP_WORDS = new Set([
   'of', 'the', 'in', 'for', 'and', 'a', 'an', 'to', 'on',
@@ -204,13 +250,79 @@ function generateChicago(paper: CitationPaper): string {
   return out;
 }
 
-/** 主入口 —— 任意格式 → 字符串(含 `<i>` 标记) */
+/**
+ * GB/T 7714-2015(顺序编码制,期刊文章)。
+ *
+ * 形如:`作者. 题名[J]. 刊名, 年, 卷: 页码.`
+ * - 作者:`姓 名首字母`(末位 token 当姓,其余取首字母大写,与本文件其它格式同口径
+ *   的朴素拆名);>3 人取前 3 + 「等」。
+ * - 文献类型标志:刊名含 conference/proceedings/workshop/symposium/congress → [C],
+ *   否则默认 [J]。
+ * - 无斜体(国标不用斜体)。卷/页缺失则省略对应片段,不留悬空标点。
+ */
+function gbtAuthor(a: CitationAuthor | undefined): string {
+  const name = authorName(a);
+  if (!name) return '';
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0];
+  const surname = parts[parts.length - 1];
+  const initials = parts
+    .slice(0, -1)
+    .map((p) => p[0]?.toUpperCase())
+    .filter(Boolean)
+    .join(' ');
+  return initials ? `${surname} ${initials}` : surname;
+}
+
+function generateGBT7714(paper: CitationPaper): string {
+  const authors = (paper.authors ?? []).map(gbtAuthor).filter(Boolean);
+  const title = paper.title || 'Untitled';
+  const year = paper.year ?? '';
+  const venue = paper.venue || '';
+  const volume = paper.journal?.volume || '';
+  // 页码:en/em dash 归一成连字符,去空格
+  const pages = (paper.journal?.pages || '').replace(/[–—]/g, '-').trim();
+
+  let authorStr = '';
+  if (authors.length > 0 && authors.length <= 3) {
+    authorStr = authors.join(', ');
+  } else if (authors.length > 3) {
+    authorStr = `${authors.slice(0, 3).join(', ')}, 等`;
+  }
+
+  const typeMark = /conference|proceedings|workshop|symposium|congress/i.test(
+    venue
+  )
+    ? '[C]'
+    : '[J]';
+
+  // 源信息段:刊名,后接「, 年, 卷」;无刊名时年/卷单独成段;再接「: 页码」。
+  const segs: string[] = [];
+  if (venue) segs.push(venue);
+  const yv: string[] = [];
+  if (year) yv.push(String(year));
+  if (volume) yv.push(volume);
+  const yvStr = yv.join(', ');
+  if (yvStr) {
+    if (segs.length) segs[segs.length - 1] = `${segs[segs.length - 1]}, ${yvStr}`;
+    else segs.push(yvStr);
+  }
+  let tail = segs.join(', ');
+  if (pages) tail += `${tail ? ': ' : ''}${pages}`;
+
+  const head = authorStr ? `${authorStr}. ` : '';
+  return `${head}${title}${typeMark}.${tail ? ` ${tail}.` : ''}`;
+}
+
+/** 主入口 —— 任意格式 → 字符串(含 `<i>` 标记;GB/T 7714 无标记) */
 export function generateCitation(
   paper: CitationPaper | null | undefined,
   format: CitationFormat
 ): string {
   if (!paper) return '';
   switch (format) {
+    case 'gbt7714':
+      return generateGBT7714(paper);
     case 'bibtex':
       return generateBibtex(paper);
     case 'mla':

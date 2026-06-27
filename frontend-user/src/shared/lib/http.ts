@@ -1,7 +1,7 @@
 import axios, { AxiosError, type AxiosInstance } from 'axios';
 import { getAuthToken, notifyAuthLost } from '@/shared/lib/auth-token';
 import { getAnonId } from '@/shared/lib/anon-id';
-import { notifyQuotaExceeded } from '@/shared/lib/quota-events';
+import { notifyQuotaExceeded, isQuotaSignal, AGENT_QUOTA_HTTP_CODE } from '@/shared/lib/quota-events';
 
 /**
  * HTTP 客户端 — 走 nginx 反代,生产同源相对路径,开发走 vite proxy。
@@ -34,8 +34,8 @@ http.interceptors.response.use(
     if (isAuthError(apiErr)) {
       notifyAuthLost({ code: apiErr.code, message: apiErr.message });
     }
-    // AI 额度耗尽(6010)→ 汇入全局额度通知器(弹重置弹窗)。
-    if (apiErr.code === BizCode.AgentQuotaExceeded) {
+    // AI 额度耗尽 → 汇入全局额度通知器(弹重置弹窗)。统一谓词,与 SSE/WS 同一判断(Theme 2)。
+    if (isQuotaSignal(apiErr)) {
       notifyQuotaExceeded({ message: apiErr.message });
     }
     return Promise.reject(err);
@@ -43,15 +43,17 @@ http.interceptors.response.use(
 );
 
 /**
- * 业务错误码 —— 跟 backend `internal/common/errcode/codes.go` 对齐.
+ * 业务错误码 —— 手写镜像 backend `internal/common/errcode/codes.go`(本项目无代码生成,见
+ * CLAUDE.md §3.6;数值一致性由 `tests/contract/` 的 CANONICAL_BIZ_CODES 守卫)。
+ * 加/改码时**三处同步**:codes.go / 这里 / tests/contract/schemas.ts。
  *
- * 前端用这套常量做"不同 code 走不同 UI"的判断:
- *   - TokenRevoked / TokenExpired → 清 localStorage + 跳登录页
- *   - SessionTakenByOtherLogin → banner 提示"已在别处登录"
- *   - AgentUnreachable → 错误页提示"AI 服务暂时不可用"
- *   - PaymentRequired → 弹付费引导
+ * **已接线(真正驱动 UI 分支)**:
+ *   - TokenRevoked / TokenExpired / 裸 401(且本地有 token)→ notifyAuthLost(清 token + 弹登录)
+ *   - AgentQuotaExceeded(含 WS 字符串 'quota_exceeded')→ notifyQuotaExceeded(弹额度重置弹窗)
  *
- * 加新码时同步更新 backend 端。
+ * **保留位(已定义但前端尚未据其分支,后端也未必下发)**:SessionTakenByOtherLogin /
+ *   TurnstileFailed / PaymentRequired / AgentUnreachable / AgentSessionExpired / Upload* ——
+ *   当前只作 message 透传,**勿假设它们已有专属 UI**。要用先接线,再从这里挪进「已接线」。
  */
 export const BizCode = {
   // ---- 鉴权 (HTTP 协议级) ----
@@ -75,7 +77,8 @@ export const BizCode = {
 
   // ---- Agent / AI ----
   AgentUnreachable: 6001,
-  AgentQuotaExceeded: 6010,
+  // 单一真源:与 quota-events.AGENT_QUOTA_HTTP_CODE 同值(额度信号 HTTP 形态)。
+  AgentQuotaExceeded: AGENT_QUOTA_HTTP_CODE,
   AgentSessionExpired: 6020,
 
   // ---- 上传 / 存储 ----
@@ -167,9 +170,4 @@ export function isAuthError(err: ApiError): boolean {
     return true;
   }
   return err.status === BizCode.Unauthorized && getAuthToken() != null;
-}
-
-/** 便捷判断: 这个错是"被另一端登录顶掉了", 应该走 banner 而不是直接跳转。 */
-export function isSessionTakenError(err: ApiError): boolean {
-  return err.code === BizCode.SessionTakenByOtherLogin;
 }

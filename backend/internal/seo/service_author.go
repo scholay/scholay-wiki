@@ -29,6 +29,12 @@ func (s *Service) RecordAuthorDetailClick(seed *AuthorSeed) error {
 	if err := s.repo.UpsertAuthorDetail(seed, slug, affJSON); err != nil {
 		return err
 	}
+	// ORCID 旁路写入(首次拿到即固化);失败不致命,不影响主记录。
+	if seed.ORCID != "" {
+		if err := s.repo.SetAuthorORCID(seed.AuthorID, seed.ORCID); err != nil {
+			slog.Warn("seo author orcid set failed", "author_id", seed.AuthorID, "err", err)
+		}
+	}
 	s.invalidateAuthorsCache()
 	s.enqueueAuthorPaths(authorCanonicalPath(seed.Source, seed.AuthorID))
 	return nil

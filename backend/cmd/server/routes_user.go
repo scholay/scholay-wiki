@@ -91,6 +91,9 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		userProtected.POST("/logout-all", h.user.LogoutAll) // 一键退出所有设备(user-level revoke)
 		userProtected.POST("/change-password", h.user.ChangePassword)
 
+		// 站内信 WS 一次性 ticket:前端拿它升级 /api/v1/ws(替代裸 JWT in query)。
+		userProtected.POST("/ws-ticket", h.ws.IssueWSTicket)
+
 		// OAuth 合并「确认并入已有账号」—— 受保护:JWT 证明你就是目标账号本人,
 		// FinalizePendingMerge 再校验 userID == merge 目标。详见 handler_oauth_merge.go。
 		userProtected.POST("/oauth/confirm-merge", h.user.ConfirmPendingOAuthMerge)

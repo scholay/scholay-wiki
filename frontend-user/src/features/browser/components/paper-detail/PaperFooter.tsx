@@ -1,10 +1,15 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Copy, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { CitationProse } from '@/shared/components/CitationProse';
 import {
   CITATION_FORMAT_LABELS,
+  CITATION_FORMATS,
   generateCitation,
+  isMonoCitation,
+  readDefaultCitationFormat,
+  setDefaultCitationFormat,
   stripItalic,
   type CitationFormat,
 } from '@/shared/lib/citation';
@@ -12,34 +17,22 @@ import { cn } from '@/shared/lib/utils';
 import { copyToClipboard } from '@/shared/lib/clipboard';
 import type { Paper } from '@/shared/api/types';
 
-const CITE_FORMAT_STORAGE_KEY = 'scholay.cite-format';
-const ALL_FORMATS: CitationFormat[] = ['bibtex', 'apa', 'mla', 'chicago'];
-
 /**
- * Footer —— 引用本文 + BibTeX/APA/MLA/Chicago + 复制 + 讨论占位 + meta 行。
+ * Footer —— 引用本文 + GB/T 7714/BibTeX/APA/MLA/Chicago + 复制 + 讨论占位 + meta 行。
  *
- * 默认格式持久化:与旧前端 CiteModal 同 key 心智(localStorage scholay.cite-format,
- * 双击 = 设为默认)。
+ * 格式集合与默认格式持久化都走 [[CITATION_FORMATS]] / [[readDefaultCitationFormat]]
+ * 单一真源(localStorage scholay.cite-format,双击 = 设为默认)。
  */
 export function PaperFooter({ paper }: { paper: Paper }) {
-  const [format, setFormat] = useState<CitationFormat>(() => {
-    const saved = localStorage.getItem(CITE_FORMAT_STORAGE_KEY);
-    if (
-      saved === 'bibtex' ||
-      saved === 'mla' ||
-      saved === 'apa' ||
-      saved === 'chicago'
-    ) {
-      return saved;
-    }
-    return 'bibtex';
-  });
+  const [format, setFormat] = useState<CitationFormat>(() =>
+    readDefaultCitationFormat('bibtex')
+  );
 
   const citation = useMemo(
     () => generateCitation(paper, format),
     [paper, format]
   );
-  const isMono = format === 'bibtex';
+  const isMono = isMonoCitation(format);
 
   const copyCurrent = async () => {
     const ok = await copyToClipboard(stripItalic(citation));
@@ -48,7 +41,7 @@ export function PaperFooter({ paper }: { paper: Paper }) {
   };
 
   const setAsDefault = (f: CitationFormat) => {
-    localStorage.setItem(CITE_FORMAT_STORAGE_KEY, f);
+    setDefaultCitationFormat(f);
     toast.success(`已设为默认: ${CITATION_FORMAT_LABELS[f]}`);
   };
 
@@ -65,8 +58,8 @@ export function PaperFooter({ paper }: { paper: Paper }) {
         </div>
 
         {/* 格式 tab —— 单击切换,双击设为默认 */}
-        <div className="flex items-center gap-1">
-          {ALL_FORMATS.map((f) => (
+        <div className="flex items-center gap-1 flex-wrap">
+          {CITATION_FORMATS.map((f) => (
             <button
               key={f}
               type="button"
@@ -110,7 +103,13 @@ export function PaperFooter({ paper }: { paper: Paper }) {
       </div>
 
       <p className="text-2xs text-faint">
-        单击切换格式 · 双击格式名设为默认
+        单击切换格式 · 双击格式名设为默认 ·{' '}
+        <Link
+          to="/citation-generator"
+          className="text-muted-foreground hover:text-foreground underline underline-offset-2"
+        >
+          引用生成器(支持 DOI / 手动录入)
+        </Link>
       </p>
 
       <div className="h-px bg-border mt-6" />

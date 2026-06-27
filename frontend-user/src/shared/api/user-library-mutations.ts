@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
+import { invalidateLibrary } from '@/shared/lib/library-invalidation';
 import { useAuthStore } from '@/stores/auth.store';
 import { useFavoriteBurst } from '@/stores/favorite-burst.store';
 import { trackFavorite } from './usage-stat';
@@ -123,7 +124,7 @@ export function useUnfavoritePaper() {
       }
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['library'] });
+      invalidateLibrary(qc);
     },
   });
 }
@@ -164,7 +165,7 @@ export function useFavoritePaper() {
       }
     },
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: ['library'] });
+      invalidateLibrary(qc);
       trackFavorite(); // 功能使用统计: 收藏一次(传统/智能搜索等所有入口都走此 mutation)
       // 默认反馈:burst store 内部决定 → 有可见 sink 飞 "+1",无可见 sink toast。
       // 调用方传 silentSuccess=true 时跳过,完全自定义提示。

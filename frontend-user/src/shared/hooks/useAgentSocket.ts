@@ -16,9 +16,13 @@ import { useAuthStore } from '@/stores/auth.store';
 import {
   appendStreamMessage,
   truncateToLastComplete,
+  asAgentErrorFrame,
+  asAgentDisplacedFrame,
+  asAgentResyncUserFrame,
+  asAgentUserEchoFrame,
   type AgentStreamMessage,
 } from '@/shared/lib/agent-stream';
-import { notifyQuotaExceeded, notifyBillingChanged } from '@/shared/lib/quota-events';
+import { notifyQuotaExceeded, notifyBillingChanged, isQuotaSignal } from '@/shared/lib/quota-events';
 
 /** 后端 ws-ticket 端点响应:sessionId 一并返回方便兜底,wsToken 是 30s 一次性 ticket。 */
 export interface AgentWSTicket {
@@ -66,6 +70,18 @@ export interface UseAgentSocket<TServer, TClient> {
   takeOver: () => void;
   /** 断线续流:重连命中"上一连接的生成仍在进行"时 agent 通过 resync_user 下发本轮用户文本。无续流时 null。 */
   resyncUserText: string | null;
+  /**
+   * 多端实时同步:**别的浏览器/标签**在同一 session 发了一句话时,后端(扇出 Hub)合成 user_echo
+   * 帧广播过来(本端自己发的不回声)。该帧不进 `messages`,消费方据 `seq` 自增,往 pendingTurns
+   * 追加一条「用户气泡」—— 这样另一端发的消息 + 随后的回答都能在本端实时出现。无则 null。
+   */
+  peerMessage: { seq: number; text: string } | null;
+  /**
+   * 「回答中锁住」竞态兜底的单调计数 —— 一轮进行中再发被 Hub 拒(error/code=busy)时自增。
+   * 该帧不进 `messages`,消费方据此回滚刚乐观追加的那条 pendingTurn + toast(正常情况下输入框
+   * 因 busy 已置灰,极少触发)。
+   */
+  busyRejected: number;
   /**
    * 命中每日额度的单调计数 —— 每收到一帧 `error/quota_exceeded` 自增(从不归零)。
    * 该帧不进 `messages`(见下方拦截),所以末帧不会是 terminal、本轮 turn 永远 complete=false →
@@ -115,6 +131,11 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
   // 单调递增,不随 connectionKey/token 重连归零 —— 保持单调让消费方的 effect 只在「真发生新一次
   // 额度拦截」时触发(若归零, 1→0 的变化会误触发回滚一个并未超额的会话)。
   const [quotaExceeded, setQuotaExceeded] = useState(0);
+  // 多端同步:别的端发的话(user_echo)。seq 单调自增,消费方据 seq 变化追加一条用户气泡。
+  const [peerMessage, setPeerMessage] = useState<{ seq: number; text: string } | null>(null);
+  const peerSeqRef = useRef(0);
+  // 回答中锁住竞态兜底:被 Hub 以 error/busy 拒的单调计数。
+  const [busyRejected, setBusyRejected] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
   const cancelledRef = useRef(false);
   const reconnectTimerRef = useRef<number | null>(null);
@@ -250,13 +271,15 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
           evt.type === 'displaced' ||
           evt.type === 'resync_start' ||
           evt.type === 'resync_user' ||
-          evt.type === 'resync_end'
+          evt.type === 'resync_end' ||
+          evt.type === 'user_echo'
         ) {
           flushNow();
           if (evt.type === 'displaced') {
+            // 注:抢占模型已下线(后端扇出 Hub 不再发 displaced),此分支当前为死路,保留兜底。
             displacedRef.current = true;
             setDisplacedReason(
-              (evt as { message?: string }).message ??
+              asAgentDisplacedFrame(evt)?.message ??
                 optsRef.current.displacedDefaultText ??
                 '此会话已在其他窗口打开',
             );
@@ -264,20 +287,30 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
           } else if (evt.type === 'resync_start') {
             setMessages((prev) => truncateToLastComplete(prev));
           } else if (evt.type === 'resync_user') {
-            setResyncUserText((evt as { content?: string }).content ?? '');
+            setResyncUserText(asAgentResyncUserFrame(evt)?.content ?? '');
+          } else if (evt.type === 'user_echo') {
+            // 多端同步:别的端发的话 → 抛给消费方追加一条用户气泡(不进 messages,本端不渲染成 assistant)。
+            const text = asAgentUserEchoFrame(evt)?.content ?? '';
+            peerSeqRef.current += 1;
+            setPeerMessage({ seq: peerSeqRef.current, text });
           }
           // resync_end: 无操作
           return;
         }
         // 额度耗尽帧:agent 桥接以 error/quota_exceeded 下发 → 弹全局重置弹窗(不进 messages)。
-        if (
-          evt.type === 'error' &&
-          (evt as { code?: string }).code === 'quota_exceeded'
-        ) {
-          notifyQuotaExceeded({ message: (evt as { message?: string }).message });
+        // 带类型读 error 帧(asAgentErrorFrame),额度判定走统一谓词 isQuotaSignal(与 http/SSE 同一处)。
+        const errFrame = asAgentErrorFrame(evt);
+        if (errFrame && isQuotaSignal(errFrame)) {
+          notifyQuotaExceeded({ message: errFrame.message });
           // 信号上抛:本轮被 backend 在转发前拒绝, 不会有 message_complete 收尾 →
           // 消费方据此回滚卡住的本轮, 否则 busy 永久 disable composer。
           setQuotaExceeded((n) => n + 1);
+          return;
+        }
+        // 回答中锁住竞态:一轮进行中再发被 Hub 拒(error/code=busy)。不进 messages,抛信号让消费方
+        // 回滚刚乐观追加的那条 pendingTurn(正常输入框已因 busy 置灰,极少触发)。
+        if (errFrame && errFrame.code === 'busy') {
+          setBusyRejected((n) => n + 1);
           return;
         }
         // 一轮 AI 结束 → 用量已落账,广播刷新额度(触发过半/将尽阈值 toastr)。
@@ -429,6 +462,8 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
     clearMessages: () => setMessages([]),
     takeOver: () => reconnectNowRef.current?.(),
     resyncUserText,
+    peerMessage,
+    busyRejected,
     quotaExceeded,
   };
 }

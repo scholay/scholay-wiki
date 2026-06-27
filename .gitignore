@@ -58,3 +58,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 backups/
+
+# Generated feature-tool import packs and crawl cache
+/feature-tools-academic-1000/
+/feature-tools-academic-1000-batch-*/
+/feature-tools-academic-5000/
+/feature-tools-academic-audit/
+/.feature-tools-academic-10k-cache/

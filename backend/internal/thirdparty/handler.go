@@ -89,6 +89,9 @@ func (h *Handler) CreateAccount(c *gin.Context) {
 		return
 	}
 
+	// 响应按遮罩规则回显 api_key 等 secret(跟 List/Update 一致)——
+	// 避免新建时把明文密钥原样回写进响应体(浏览器内存 / 前端日志 / 反代日志)。
+	maskAccountConfig(account.Config, utils.IsShowSensitive(c, "show_sensitive"))
 	utils.Success(c, account)
 }
 

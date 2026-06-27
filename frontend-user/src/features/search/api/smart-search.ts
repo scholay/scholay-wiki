@@ -1,5 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { useAgentSocket, type UseAgentSocket } from '@/shared/hooks/useAgentSocket';
+import type { AgentErrorFrame, AgentDisplacedFrame } from '@/shared/lib/agent-stream';
 import { http, toApiError } from '@/shared/lib/http';
 import { STALE_FRESH } from '@/shared/lib/query-config';
 import { useAuthStore } from '@/stores/auth.store';
@@ -65,7 +66,7 @@ export type ServerMessage =
       isError: boolean;
     }
   | { type: 'message_complete' }
-  | { type: 'error'; message: string }
+  | AgentErrorFrame
   // ─── 中间态事件 ─────────────────────────────────────────────────────────
   // agent 在思考/调用工具前后会持续 emit 这些事件,用来驱动占位文案,避免
   // "提交 → 思考中 → 白屏 → 突然出结果" 的体验断层。
@@ -90,9 +91,9 @@ export type ServerMessage =
     }
   | { type: 'session_title_updated'; sessionId: string; title: string }
   | { type: 'pong' }
-  // ── 多窗口接管: 后端 displacement 路径下发, 表示当前 WS 被另一个 tab 顶掉了。
-  // 收到这帧时, useSmartSearchSocket 不应重连; 应 set displaced=true 让 UI 弹 banner。
-  | { type: 'displaced'; message: string }
+  // ── 多窗口接管: 后端 displacement 路径下发, 当前 WS 被另一个 tab 顶掉。收到这帧时不重连,
+  // set displaced=true 让 UI 弹 banner。形态见共享 AgentDisplacedFrame(含 reason 结构化原因)。
+  | AgentDisplacedFrame
   // ── 断线续流: 重连后 agent 整段回放当前 in-flight 轮 (见 agent ws/events.ts)。
   //    resync_start → (可选)resync_user → 缓冲事件 → resync_end。
   | { type: 'resync_start' }

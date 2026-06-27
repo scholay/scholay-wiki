@@ -405,8 +405,17 @@ func buildAuthorJSONLD(meta *seo.AuthorSSRMeta, canonical string) string {
 			person["affiliation"] = affs
 		}
 	}
+	// sameAs:权威外链(主页 + ORCID)。ORCID 是学者身份的强权威信号,利于 SEO / 被 AI 引用。
+	var sameAs []string
 	if meta.Homepage != "" {
-		person["sameAs"] = []string{meta.Homepage}
+		sameAs = append(sameAs, meta.Homepage)
+	}
+	if meta.ORCID != "" {
+		person["identifier"] = "https://orcid.org/" + meta.ORCID
+		sameAs = append(sameAs, "https://orcid.org/"+meta.ORCID)
+	}
+	if len(sameAs) > 0 {
+		person["sameAs"] = sameAs
 	}
 	return jsonLDScript(map[string]any{
 		"@context":   "https://schema.org",

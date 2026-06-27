@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
+import { invalidateLibrary } from '@/shared/lib/library-invalidation';
 import { streamSsePost } from '@/shared/lib/sse-post';
 import type { PaperSource, UserLibraryPaper } from '@/shared/api/types';
 
@@ -190,7 +191,7 @@ export function useConfirmUploadJob() {
       }
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['library'] });
+      invalidateLibrary(qc);
     },
   });
 }

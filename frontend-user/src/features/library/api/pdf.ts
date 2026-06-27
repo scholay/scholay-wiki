@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { AxiosProgressEvent } from 'axios';
 import { http, toApiError } from '@/shared/lib/http';
+import { invalidateLibrary } from '@/shared/lib/library-invalidation';
 import type { UserLibraryPaper } from '@/shared/api/types';
 
 /**
@@ -87,7 +88,7 @@ export function useUploadPaperPdf() {
       }
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['library'] });
+      invalidateLibrary(qc);
     },
   });
 }
@@ -103,7 +104,7 @@ export function useDeletePaperPdf() {
       }
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['library'] });
+      invalidateLibrary(qc);
     },
   });
 }

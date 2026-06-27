@@ -10,6 +10,7 @@ package wechatofficial
 import (
 	"context"
 	"crypto/sha1"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
@@ -98,7 +99,8 @@ func (s *Service) VerifySignature(signature, timestamp, nonce, token string) boo
 	hash.Write([]byte(str))
 	hashStr := hex.EncodeToString(hash.Sum(nil))
 
-	return hashStr == signature
+	// 常量时间比较,消除时序侧信道(与 internal/news.VerifySignature 口径一致)。
+	return subtle.ConstantTimeCompare([]byte(hashStr), []byte(signature)) == 1
 }
 
 // GetAccessToken gets WeChat access token (cached).

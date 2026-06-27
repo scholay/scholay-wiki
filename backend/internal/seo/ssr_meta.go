@@ -56,6 +56,7 @@ type AuthorSSRMeta struct {
 	PaperCount    int
 	CitationCount int
 	HIndex        *int
+	ORCID         string // 裸 iD;非空则进 ProfilePage 的 sameAs(权威身份信号)
 }
 
 // JournalSSRMeta 期刊 SSR 注入所需的最小元数据集
@@ -244,6 +245,7 @@ func authorSSRMetaFromRow(au *SEOAuthor) *AuthorSSRMeta {
 		h := *au.HIndex
 		meta.HIndex = &h
 	}
+	meta.ORCID = au.ORCID
 	if au.AffiliationsJSON != "" {
 		var affs []string
 		if err := json.Unmarshal([]byte(au.AffiliationsJSON), &affs); err == nil {

@@ -207,6 +207,27 @@ export function useClawConversation() {
     }
   }, [socket.resyncUserText, pendingTurns.length, seededResync]);
 
+  // 多端实时同步:别的端在同一会话发了一句话(user_echo)→ 本端追加一条用户气泡,随后的回答
+  // 经 socket.messages 自然 fold 进这一轮。content 是原文(后端回声不含注入前缀)。
+  const lastPeerSeqRef = useRef(0);
+  useEffect(() => {
+    const pm = socket.peerMessage;
+    if (!pm || pm.seq === lastPeerSeqRef.current) return;
+    lastPeerSeqRef.current = pm.seq;
+    setPendingTurns((prev) => [...prev, { id: `peer-${pm.seq}`, userText: pm.text }]);
+  }, [socket.peerMessage]);
+
+  // 回答中锁住竞态兜底:本端发送被 Hub 以 busy 拒(正常输入框已置灰,极少触发)→ 回滚刚乐观
+  // 追加的那条 + 提示。
+  const lastBusyRef = useRef(0);
+  useEffect(() => {
+    if (socket.busyRejected === 0 || socket.busyRejected === lastBusyRef.current) return;
+    lastBusyRef.current = socket.busyRejected;
+    setPendingTurns((prev) => (prev.length > 0 ? prev.slice(0, -1) : prev));
+    pendingSendRef.current = null;
+    toast.error('正在回答中,请稍候再发');
+  }, [socket.busyRejected]);
+
   const liveTurns = useMemo(
     () => foldMessagesIntoTurns(socket.messages, pendingTurns),
     [socket.messages, pendingTurns],

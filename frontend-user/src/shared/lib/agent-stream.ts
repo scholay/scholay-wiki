@@ -10,6 +10,72 @@ export interface AgentStreamMessage {
   text?: string;
 }
 
+// ── 共享「控制/元帧」契约(架构报告 M4 / Theme 3)──────────────────────────
+// agent WS 协议真源在 agent/src/server/ws/events.ts;三个 feature(claw/smart-search/prism)
+// 此前各自把 error / displaced / resync_user 这几个 arm 又抄了一份,且已漂移:claw 与
+// smart-search 的 error 漏了 code+retryable、smart-search 的 displaced 漏了 reason、prism 的
+// displaced.reason 退化成 string。这些 arm 收口到此一处,各 feature union 直接复用,从此「一处改、
+// 三处一致」;useAgentSocket 也据此**带类型**读字段,取代散落的 (evt as {..}) 裸 cast。
+
+/** 被另一窗口接管的结构化原因 —— 与后端 agentbridge.DisplacedReason 对齐。
+ *  当前后端只下发 'session_taken_over',其余为预留(forward-compat),前端不据其分支。 */
+export type AgentDisplacedReason =
+  | 'session_taken_over'
+  | 'token_revoked'
+  | 'quota_exhausted'
+  | 'server_shutdown';
+
+/** error 帧(events.ts 真源形态)。code 驱动额度判定(isQuotaSignal),retryable 当前未消费但保留以对齐真源。 */
+export interface AgentErrorFrame {
+  type: 'error';
+  message: string;
+  code?: string;
+  retryable?: boolean;
+}
+
+/** displaced 帧:message 是兜底中文,reason 是结构化原因。 */
+export interface AgentDisplacedFrame {
+  type: 'displaced';
+  message: string;
+  reason?: AgentDisplacedReason;
+}
+
+/** 断线续流:agent 回放当前 in-flight 轮的用户文本。 */
+export interface AgentResyncUserFrame {
+  type: 'resync_user';
+  content: string;
+}
+
+/**
+ * 多端实时同步:**别的端**在同一 session 发了一句话时,后端扇出 Hub 合成此帧广播给本端
+ * (agent 不回吐用户消息,本端自己发的也不回声)。消费方据此往会话追加一条用户气泡。
+ * 这是 backend Hub 合成的帧,不在 agent WS 协议(events.ts)里。
+ */
+export interface AgentUserEchoFrame {
+  type: 'user_echo';
+  content: string;
+}
+
+/** 把任意流帧窄化成 error 帧(非 error 返回 null)。单点、带类型,取代散落的 `(evt as {code?})`。 */
+export function asAgentErrorFrame(e: AgentStreamMessage): AgentErrorFrame | null {
+  return e.type === 'error' ? (e as AgentErrorFrame) : null;
+}
+
+/** 把任意流帧窄化成 displaced 帧(非 displaced 返回 null)。 */
+export function asAgentDisplacedFrame(e: AgentStreamMessage): AgentDisplacedFrame | null {
+  return e.type === 'displaced' ? (e as AgentDisplacedFrame) : null;
+}
+
+/** 把任意流帧窄化成 resync_user 帧(非 resync_user 返回 null)。 */
+export function asAgentResyncUserFrame(e: AgentStreamMessage): AgentResyncUserFrame | null {
+  return e.type === 'resync_user' ? (e as AgentResyncUserFrame) : null;
+}
+
+/** 把任意流帧窄化成 user_echo 帧(非 user_echo 返回 null)。 */
+export function asAgentUserEchoFrame(e: AgentStreamMessage): AgentUserEchoFrame | null {
+  return e.type === 'user_echo' ? (e as AgentUserEchoFrame) : null;
+}
+
 /**
  * 合并相邻文本 content_delta —— 流式逐 token 推送会把 messages[] 撑到 O(token 数),
  * 而上层每帧对整个数组全量重折叠 ⇒ O(N²)(外加每帧 [...prev, evt] 的 O(N) 拷贝)。

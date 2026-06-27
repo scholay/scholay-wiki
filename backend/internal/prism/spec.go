@@ -69,6 +69,10 @@ var vipChecker *vip.Service
 // SetVIPChecker 注入会员配额校验器。允许 nil(不限额)。
 func SetVIPChecker(v *vip.Service) { vipChecker = v }
 
+// VIPCheckerWired 报告配额校验器是否已注入。bootstrap 启动末尾据此断言付费功能已接线,
+// 防「新增付费 feature 忘记调 SetVIPChecker → 静默免费(收入泄漏)」的回归。
+func VIPCheckerWired() bool { return vipChecker != nil }
+
 // usageRecorder 由 SetUsageStatRecorder 注入(功能使用统计);preUserMessageChain 懒读。
 var usageRecorder usagestat.Recorder
 

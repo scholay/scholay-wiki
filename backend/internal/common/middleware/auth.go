@@ -39,16 +39,17 @@ const SessionCookieName = "scholay_token"
 //   - 全量失效 → 切 JWT secret (config)
 // extractToken 统一从请求里取 JWT —— 全站鉴权(AuthMiddleware / OptionalUserAuthMiddleware 等)
 // 都走这一处, 保证取 token 的口径一致(历史上两处各写一份, OptionalAuth 还漏了 cookie 分支)。
-// 优先级: Authorization: Bearer header  >  ?token= query(SSE/EventSource 不能带 header)
-//        >  scholay_token cookie(iframe / 跨页签共享会话)。
+// 优先级: Authorization: Bearer header  >  scholay_token cookie(iframe / 跨页签共享会话)。
+//
+// 不再接受 `?token=<jwt>` query —— 历史上为 SSE/EventSource 留的回落, 但前端 SSE 早已改走
+// fetch+ReadableStream 带 Bearer header(见 shared/lib/sse-post.ts), WS 走一次性 ws_token ticket,
+// 没有任何调用方走裸 JWT in query。留着只会让全 TTL 的 JWT 落进 nginx access log 长期暴露
+// —— 这正是当初引入 ws-ticket 要消除的风险, 故移除以求口径一致。
 func extractToken(c *gin.Context) string {
 	if authHeader := c.GetHeader("Authorization"); authHeader != "" {
 		if parts := strings.SplitN(authHeader, " ", 2); len(parts) == 2 && parts[0] == "Bearer" {
 			return parts[1]
 		}
-	}
-	if q := c.Query("token"); q != "" {
-		return q
 	}
 	if cookie, err := c.Cookie(SessionCookieName); err == nil && cookie != "" {
 		return cookie

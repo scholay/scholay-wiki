@@ -266,14 +266,9 @@ func (h *Handler) BindDiscourseAccount(c *gin.Context) {
 
 // bindDiscourseToUser binds a Discourse account to an existing user
 func (h *Handler) bindDiscourseToUser(userID uint, externalID, username, name, avatarURL string) error {
-	// Check if Discourse account is already bound to another user
-	existing, err := h.service.FindAuthProvider("discourse", externalID)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return fmt.Errorf("find auth provider: %w", err)
-	}
-
-	if existing != nil && existing.UserID != userID {
-		return errors.New("该 Discourse 账号已被其他账号绑定")
+	// 跨用户冲突校验收口到 oauthBindConflict(已绑到本人 → 走下面 create-or-update 幂等更新)。
+	if _, err := h.oauthBindConflict(userID, "discourse", externalID); err != nil {
+		return err
 	}
 
 	// Get current user

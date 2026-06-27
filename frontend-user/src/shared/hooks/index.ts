@@ -1,6 +1,7 @@
 export { useApiToast, type ApiToast } from './useApiToast';
 export { useDebounce } from './useDebounce';
 export { useSettled } from './useSettled';
+export { useThrottledValue } from './useThrottledValue';
 export { useHotkey } from './useHotkey';
 export { useLocalStorage } from './useLocalStorage';
 export { useMediaQuery } from './useMediaQuery';

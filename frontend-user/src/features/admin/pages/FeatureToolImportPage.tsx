@@ -131,25 +131,41 @@ export function FeatureToolImportPage() {
         </div>
 
         {/* 任务进度 */}
-        {job && (
-          <div className="rounded-md border border-border bg-background p-4">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-sm font-bold text-foreground">
-                任务 #{job.id} · {running ? '处理中…' : job.status === 'succeeded' ? '完成' : job.status === 'partial' ? '部分完成' : job.status}
-              </p>
-              <Link to="/admin/tools-jobs" className="text-xs text-brand-red hover:underline">全部任务 →</Link>
+        {job && (() => {
+          const uploadingLogos = job.phase === 'uploading_logos';
+          const pct = uploadingLogos
+            ? (job.logo_total ? Math.round((job.logo_done / job.logo_total) * 100) : 0)
+            : (job.total ? Math.round((job.processed / job.total) * 100) : 0);
+          const statusLabel = !running
+            ? (job.status === 'succeeded' ? '完成' : job.status === 'partial' ? '部分完成' : job.status)
+            : uploadingLogos ? '上传图标中…' : '导入中…';
+          return (
+            <div className="rounded-md border border-border bg-background p-4">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-sm font-bold text-foreground">任务 #{job.id} · {statusLabel}</p>
+                <Link to="/admin/tools-jobs" className="text-xs text-brand-red hover:underline">全部任务 →</Link>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-pill bg-surface-2">
+                <div
+                  className={`h-full transition-all ${uploadingLogos ? 'bg-brand-amber' : 'bg-brand-green'}`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                {uploadingLogos ? (
+                  <span className="text-brand-amber">上传图标 {job.logo_done}/{job.logo_total}</span>
+                ) : (
+                  <>
+                    <span>进度 {job.processed}/{job.total}</span>
+                    <span className="text-brand-green">新增 {job.created_cnt}</span>
+                    <span className="text-brand-amber">更新 {job.updated_cnt}</span>
+                    {job.failed_cnt > 0 && <span className="text-brand-red">失败 {job.failed_cnt}</span>}
+                  </>
+                )}
+              </div>
             </div>
-            <div className="h-1.5 overflow-hidden rounded-pill bg-surface-2">
-              <div className="h-full bg-brand-green transition-all" style={{ width: `${job.total ? Math.round((job.processed / job.total) * 100) : 0}%` }} />
-            </div>
-            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              <span>进度 {job.processed}/{job.total}</span>
-              <span className="text-brand-green">新增 {job.created_cnt}</span>
-              <span className="text-brand-amber">更新 {job.updated_cnt}</span>
-              {job.failed_cnt > 0 && <span className="text-brand-red">失败 {job.failed_cnt}</span>}
-            </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
     </AdminPageLayout>
   );
