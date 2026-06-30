@@ -26,18 +26,21 @@ import (
 
 // harvestSession 收割会话 ./out 顶层 → MinIO + 元数据 + 对账。非致命错误(单文件读失败/too_large)
 // 跳过不中断;返回的 error 仅为「列目录」本身的错(调用方据 4xx/missing 决定空列表 or 回退)。
+// 收割是 **upsert-only**:只把 ./out 当前条目加/更新进 MinIO+DB,**绝不**按 live 工作区删已持久化的产物。
+// 原因:executor 会话工作区是临时的(/home/bun/sessions,容器重启/重部署即清空),而产物的耐久真源是
+// MinIO+DB。早先的「on-list 对账删除」会在重启后工作区为空时把已交付产物全清掉 → 重进会话产物消失。
+// 产物的真正生命周期边界 = 会话 reset/delete(cleanupArtifacts 全清);agent 中途删 ./out 里的文件
+// 只造成列表里多留一条仍可下载的旧产物(可接受,远好于「重进即丢」)。
 func (h *Handler) harvestSession(ctx context.Context, ownerID uint, sessionID string) error {
 	tree, err := h.feature.AgentClient().ListWorkspaceFiles(ctx, sessionID, artifactDir)
 	if err != nil {
 		return err
 	}
 	if tree == nil || tree.State != "ok" {
-		// ./out 不存在 → 没有交付物,清掉本会话所有旧行 + MinIO 对象。
-		h.reconcileArtifacts(ctx, sessionID, nil)
+		// ./out 不存在(没产出 / 临时工作区已清):**保留**已持久化产物,什么都不删。
 		return nil
 	}
 	meta := h.readArtifactManifest(ctx, sessionID) // 可能为 nil, 取值时安全
-	keep := make([]string, 0, len(tree.Entries))
 	for _, e := range tree.Entries {
 		if strings.HasPrefix(e.Name, ".") {
 			continue // 隐藏项一律跳过
@@ -48,17 +51,14 @@ func (h *Handler) harvestSession(ctx context.Context, ownerID uint, sessionID st
 			title, desc = m.Title, m.Description
 		}
 		if e.IsDirectory {
-			keep = append(keep, relPath)
 			h.harvestDir(ctx, ownerID, sessionID, relPath, e.Name, title, desc)
 			continue
 		}
 		if !shouldListArtifact(e.Name, false) {
 			continue // manifest.json / 空名
 		}
-		keep = append(keep, relPath)
 		h.harvestFile(ctx, ownerID, sessionID, relPath, e.Name, title, desc, fileSig(e.Size, e.MTimeMs))
 	}
-	h.reconcileArtifacts(ctx, sessionID, keep)
 	return nil
 }
 
@@ -145,16 +145,6 @@ func (h *Handler) upsertArtifact(ctx context.Context, ownerID uint, sessionID, r
 	}); err != nil {
 		slog.Error("claw harvest: upsert row failed", "session", sessionID, "path", relPath, "err", err)
 	}
-}
-
-// reconcileArtifacts 删掉 ./out 已不存在的旧交付物行 + 对应 MinIO 对象(keepRelPaths=当前 ./out 顶层)。
-func (h *Handler) reconcileArtifacts(ctx context.Context, sessionID string, keepRelPaths []string) {
-	keys, err := h.artifactRepo.DeleteStaleBySession(sessionID, keepRelPaths)
-	if err != nil {
-		slog.Error("claw harvest: reconcile delete rows failed", "session", sessionID, "err", err)
-		return
-	}
-	h.deleteObjects(ctx, keys)
 }
 
 // cleanupArtifacts 删某会话全部交付物(行 + MinIO)。会话 reset/delete 用。

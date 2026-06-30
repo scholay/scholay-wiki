@@ -7,7 +7,6 @@ import {
   FileCheck,
   PenTool,
   Sparkles,
-  GraduationCap,
 } from 'lucide-react';
 import { PRISM_COMING_SOON } from '@/shared/lib/feature-flags';
 
@@ -126,17 +125,8 @@ export const MENUS: Menu[] = [
     category: 'resource',
     match: startsWith('/tools'),
   },
-  {
-    id: 'resources',
-    label: '学术资源',
-    englishName: 'Resources',
-    description: '博客 · 学术指南 · 工具教程',
-    icon: GraduationCap,
-    href: '/resources',
-    category: 'resource',
-    // /resources 与 /blog 都属于「学术资源中心」(博客+资源合并),两者都高亮本项
-    match: (p) => startsWith('/resources')(p) || startsWith('/blog')(p),
-  },
+  // 「学术资源」(/resources + /blog 学术资源中心)不进顶栏功能菜单 —— 它是内容/资源页,
+  // 不是核心功能,入口放页脚(shared/components/Footer.tsx 的 BRAND_LINKS 已有「学术资源」)。
 ];
 
 export const CATEGORY_LABELS: Record<MenuCategory, string> = {

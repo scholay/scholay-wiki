@@ -1,27 +1,16 @@
 {
   "compilerOptions": {
+    "lib": ["ESNext"],
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "allowJs": true,
-    "jsx": "react-jsx",
-    "baseUrl": ".",
-    "paths": {
-      "@ant/claude-for-chrome-mcp": [
-        "./stubs/ant-claude-for-chrome-mcp.ts"
-      ],
-      "color-diff-napi": [
-        "./stubs/color-diff-napi.ts"
-      ],
-      "bundle-feature": [
-        "./stubs/bun-bundle.ts"
-      ],
-      "src/*": [
-        "./src/*"
-      ]
-    },
-    "types": [
-      "bun-types"
-    ]
-  }
+    "types": ["bun-types"],
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": false,
+    "esModuleInterop": true
+  },
+  "include": ["src/**/*.ts"]
 }

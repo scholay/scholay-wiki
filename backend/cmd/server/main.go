@@ -176,5 +176,8 @@ func main() {
 		slog.Error("Error closing WebSocket hub", "err", err)
 	}
 
+	// M5:drain agent 事件日志写通道(把未落盘事件写完再退,防重启丢历史)。
+	svc.agentBridge.ShutdownJournal(shutdownCtx)
+
 	slog.Info("Server stopped")
 }

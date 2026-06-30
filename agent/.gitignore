@@ -1,76 +1,11 @@
+# clean-room executor(Bun)。源码 + bun.lock(文本锁文件,保留提交以复现安装)入库;
+# 依赖与运行时产物不入库。镜像构建自己 bun install(见 Dockerfile),.dockerignore 另管构建上下文。
+node_modules
 .env
 .env.*
 !.env.example
-node_modules
-openspec
+*.log
 .DS_Store
-
-# Computer Use runtime (auto-generated)
-.runtime/
-extracted-natives/
-
-# Adapter attachment cache (created at runtime by AttachmentStore when
-# running adapter tests or the feishu/telegram adapters locally)
-.lark-attachments/
-.tg-attachments/
-
-# Playwright MCP snapshots & logs
-.playwright-mcp/
-
-# OMX state/logs
-.omx/
-
-# E2E screenshots
-e2e-*.png
-
-# Quality gate reports
-artifacts/quality-runs/
-artifacts/coverage/
-
-# Desktop build output
-desktop/dist/
-desktop/build-artifacts/
-desktop/src-tauri/binaries/
-desktop/src-tauri/target/
-desktop/src-tauri/gen/
-desktop/package-lock.json
-
-# Desktop brand asset candidates (keep only selected ones in public/)
-desktop/brand-assets/
-
-# Claude local config & auto-generated
-.claude/
-
-# Superpowers plans & specs (local only)
-docs/superpowers/
-.superpowers/
-
-# Temp server/web logs
-.tmp-*.log
-
-# Debug / temp screenshots (root dir only)
-/*.png
-bug_attachments/
-
-# Private keys & credentials
-*.pem
-*.key
-*.p12
-credentials*.json
-
-# TS build cache
-*.tsbuildinfo
-
-# Temp markdown snapshots
-sidebar-snapshot.md
-
-# VitePress
-docs/.vitepress/dist
-docs/.vitepress/cache
-runtime/__pycache__
-
-# IDE
-.idea
-
-# Codex logs
-.codex-logs/
+bun.lockb
+# providerStore 本地持久化(EXECUTOR_STATE_DIR,容器内 /home/bun/.executor;本机裸跑兜底)
+.executor/

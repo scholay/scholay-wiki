@@ -453,7 +453,14 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
     send: (m) => {
       const ws = wsRef.current;
       if (!ws || ws.readyState !== ws.OPEN) return;
-      ws.send(JSON.stringify(m));
+      // P1(web-native 重构):给 user_message 帧附一个 clientTurnId 幂等键,让后端 turn 日志
+      // 对「重发 / 双击」去重(后端缺失会自行 mint UUID,故这是增强而非必需)。
+      const probe = m as { type?: string; clientTurnId?: string };
+      const payload =
+        probe?.type === 'user_message' && !probe.clientTurnId
+          ? { ...(m as object), clientTurnId: crypto.randomUUID() }
+          : m;
+      ws.send(JSON.stringify(payload));
     },
     close: () => {
       cancelledRef.current = true;

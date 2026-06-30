@@ -116,6 +116,8 @@ func BuildSpec() agentbridge.FeatureSpec {
 		Picker:                 agentbridge.NewStaticPicker(FeatureKey, PromptSlug, PromptName, agentNativeProtocol),
 		Color:                  "amber",
 		InjectPromptOnFirstMsg: true, // agent 默认带全工具,首条注入 agent-native 系统提示强约束
+		DefaultTier:            "main", // LaTeX 推理/定点编辑:主档(pro)
+
 		// C14: 审批轴 = auto。经 decidePermission 路径感知裁决:cwd 内文件操作放行,越界/Bash 等拒。
 		// ⚠️ prism 的越界文件防护只在 decidePermission 里,绝不能改 passthrough(会让前端能批越界)。
 		PermissionMode: agentbridge.PermissionAuto,

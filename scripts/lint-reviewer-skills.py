@@ -18,7 +18,7 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SKILLS = os.path.join(ROOT, "agent", "data", "claude", "reviewer-skills")
+SKILLS = os.path.join(ROOT, "agent-skills", "reviewer-skills")
 START = "<<<SCORING_PERSONA>>>"
 END = "<<<END_SCORING_PERSONA>>>"
 

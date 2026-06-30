@@ -1,66 +1,42 @@
-# Scholay 科研助手 · Agent Daemon
+# agent-executor
 
-Scholay 平台的 AI agent 服务端,作为 scholar 项目的一个内部容器服务,对外通过 HTTP + WebSocket 提供接口,服务于智能搜索 / 智能助手 / 智能审稿三大场景。
+Scholay 自有的 **clean-room、web-native、provider-agnostic** agent 执行器。基于 raw
+`@anthropic-ai/sdk` 的 tool-runner + 手写 turn loop + `@modelcontextprotocol/sdk` 从零实现。
 
----
+设计真源:[../docs/research/agent-service-analysis-2026-06/DETAILED-DESIGN-P3-EXECUTOR.md](../docs/research/agent-service-analysis-2026-06/DETAILED-DESIGN-P3-EXECUTOR.md)
 
-## 快速开始 (Docker)
+## 它是什么 / 不是什么
+
+- **是**:替换 fork(`agent/`,cc-haha)的下一代执行后端。后端(Go)拥有会话 state(事件溯源
+  journal,migrations 0046+);执行器**按轮无状态** —— history 由后端喂入,执行器不自管 jsonl。
+- **不是**:不是 Claude Code CLI / cc-haha / Codex 的衍生。无 jsonl 真源、无 REPL、无 Ink/vim、
+  无 bundled CLI 子进程、无桌面单用户记忆设施。
+- **provider-agnostic**:绑 Anthropic Messages API **协议**(非 Anthropic 厂商)。上游经
+  `PushConfig` 注入 `base_url + token + 4 model 槽位`,运行时可切(当前实例 = DeepSeek)。
+
+## 增量落地状态(详见设计 §9)
+
+- [x] step 1 — `executor.go` 接缝(Go interface,fork `*agent.Client` 满足)
+- [x] step 2 — journal 中性化 + validator tool 维度(HIGH-1/2/3)
+- [x] step 3 — scaffold:`/health` + `/api/providers*` + `/api/models`(provider 管道)
+- [x] step 4 — `anthropic/client` + `turn/turnLoop` + `mcp/minicodClient` + built-in tools(conformance PASS)
+- [x] step 5 — `server/ws` 全 frame map + `runTools` permission(WS 集成测试 PASS)
+- [x] step 6 — offline reconcile harness on smart_search(parity=YES)
+- [x] step 7 — workspace op + model override + 标题 + 记忆抽取 + seam(messages/patch/list)(全测过)
+- [x] step 8 — `sandbox/bwrap` + `egress`(argv 审查 + none 直跑测过;**bwrap 仅生产真内核**,本机 LinuxKit 跑不了)
+- [x] H1 history-on-reload — `seed_history`(journal 喂入)+ Go per-feature 路由 + 配置 push/resync。重连历史不丢 PASS。
+- [x] H2 claw artifact — 走 executor workspace op + 后端 harvest;修 mtimeMs float→int。PASS。
+- [x] H6 skill 加载 — `src/skills/loader.ts` 读 addDirs 的 CLAUDE.md + SKILL.md 进 system;compose 挂 /claw-add 等。
+- [x] **P4a 切流:smart_search + claw 已切到 executor 当主**(`AGENT_EXECUTOR_FEATURES=smart_search,claw`)。实测全过。fork 保留可秒回退(清空 flag)。
+- [ ] **prism / peerreview:暂留 fork(deferred)** — peerreview `ServerSideChatStreaming` 未按 feature 路由 + 全流程需 soak;prism 持久 cwd 语义需端到端验。见 [CUTOVER-RUNBOOK](../docs/research/agent-service-analysis-2026-06/CUTOVER-RUNBOOK.md)。
+- [ ] P4b bwrap(仅生产真内核)/ P6 删 fork(不可逆,需 4 feature 全切 + owner 点头)
+
+## 本地
 
 ```bash
-cp .env.example .env
-# 编辑 .env,至少填上 ANTHROPIC_AUTH_TOKEN 和模型槽位
-docker compose up -d --build
+bun install
+bun run src/index.ts          # :3456
+bun run typecheck
 ```
 
-服务监听 `0.0.0.0:3456`,健康检查端点 `/health`。
-
-## 配置
-
-agent 内部使用 **Anthropic Messages 协议** (`/v1/messages`) 与上游模型通信。目标供应商可以是 **DeepSeek 的原生 Anthropic 端点**(`https://api.deepseek.com/anthropic`)或其他兼容上游,无需协议转换。
-
-`.env` 必填:
-
-| 变量 | 说明 |
-|---|---|
-| `ANTHROPIC_BASE_URL` | 上游地址,如 `https://api.deepseek.com/anthropic` |
-| `ANTHROPIC_AUTH_TOKEN` | 上游 token |
-| `ANTHROPIC_MODEL` | 主模型 ID |
-| `ANTHROPIC_DEFAULT_HAIKU_MODEL` / `_SONNET_MODEL` / `_OPUS_MODEL` | 三档别名映射 |
-| `ANTHROPIC_API_KEY` | 服务端 Bearer token(`SERVER_HOST=0.0.0.0` 时强制启用) |
-| `MINICOD_API_KEY` | 学术检索 MCP server 的 API key(管理员后续从 DB 注入) |
-
-## 接口
-
-- HTTP REST: `http://<host>:3456/api/*` (conversations / models / providers / agents / sessions ...)
-- WebSocket: `ws://<host>:3456/ws` (流式消息推送)
-- 健康检查: `http://<host>:3456/health`
-
-> 部署在 scholar 内网,3456 端口仅容器内可访问;对外由上层 nginx + 业务网关负责鉴权。
-
-## 数据持久化
-
-- 容器内 `~/.claude/` 映射到宿主机 `./data/claude/`
-- 会话 jsonl、provider 配置、agent 定义都存在这里
-- 备份只需复制 `./data/claude/` 目录
-
-## 目录结构
-
-```
-agent/
-├── src/
-│   ├── server/         # HTTP + WebSocket 服务端 (主入口)
-│   ├── tools/          # Agent 工具池 (Read/Bash/AgentTool/...)
-│   ├── services/api/   # 上游 API 客户端 (Anthropic 协议)
-│   ├── commands/       # 斜杠命令
-│   └── skills/         # Skills 系统
-├── adapters/
-├── runtime/
-├── stubs/
-├── Dockerfile
-├── docker-compose.yml
-└── .env.example
-```
-
-## License
-
-Scholay 平台内部组件,仅供本项目研发使用。
+容器经 docker-compose 的 `agent-executor` 服务运行(与 fork `agent` 并存,直到 P6)。

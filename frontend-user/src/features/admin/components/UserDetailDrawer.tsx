@@ -65,9 +65,8 @@ export function UserDetailDrawer({
   const detail = useUserDetail(open ? id : undefined);
   const vip = useUserVipStatus(open ? id : undefined);
 
-  if (!user) return null;
-
-  const displayName = user.username || user.email?.split('@')[0] || user.phone || `User #${user.id}`;
+  const displayName =
+    user?.username || user?.email?.split('@')[0] || user?.phone || `User #${user?.id}`;
   const tier = vip.data?.tier ?? 'free';
   const isPro = tier === 'pro' || tier === 'max'; // 是否付费会员
 
@@ -78,6 +77,7 @@ export function UserDetailDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
+      {user && (
       <SheetContent>
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
@@ -209,6 +209,7 @@ export function UserDetailDrawer({
           <UserGrantPanel user={user} vip={vip.data} displayName={displayName} />
         </SheetFooter>
       </SheetContent>
+      )}
     </Sheet>
   );
 }

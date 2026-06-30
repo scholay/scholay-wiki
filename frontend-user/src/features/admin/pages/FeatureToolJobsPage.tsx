@@ -60,11 +60,11 @@ export function FeatureToolJobsPage() {
 
 function JobDetailDialog({ id, onClose }: { id: number | null; onClose: () => void }) {
   const { data: job } = useImportJob(id ?? undefined, !!id);
-  if (!id) return null;
   const running = job?.status === 'pending' || job?.status === 'running';
   const failures = (job?.detail ?? []).filter((d) => d.action === 'failed');
   return (
     <Dialog open={!!id} onOpenChange={(o) => !o && onClose()}>
+      {id && (
       <DialogContent className="max-w-2xl">
         <DialogHeader><DialogTitle>导入任务 #{id} {running ? '· 处理中…' : ''}</DialogTitle></DialogHeader>
         {job && (
@@ -95,6 +95,7 @@ function JobDetailDialog({ id, onClose }: { id: number | null; onClose: () => vo
           </div>
         )}
       </DialogContent>
+      )}
     </Dialog>
   );
 }

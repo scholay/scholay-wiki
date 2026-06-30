@@ -349,6 +349,7 @@ features/<x>/components/  业务组件(只本 feature 用)
 | `text-[#2A7A2A]` 硬编码品牌色 | `text-brand-green` |
 | 手写 .css 文件 | Tailwind 工具类 |
 | 自己写 portal + Fade 动画 | Radix Dialog + `tw-animate-css` |
+| `if (!x) return null` 写在 `<Dialog open=...>` / Radix modal 之上;`{cond && <Dialog open=.../>}`(挂载条件 == open) | **绝不在 open 时卸载**:`<Dialog open={open && cond}>` 常驻 + 内容 `{cond && <DialogContent/>}`(全站点击失灵根因,见 `BodyPointerLockGuard` + `RouteModalReset`) |
 | `useContext` 传 user / theme | `useAuthStore` / `useThemeStore` |
 | 自己手写树渲染 | `react-arborist` |
 | 自己渲染 markdown | `react-markdown` |
@@ -374,5 +375,6 @@ features/<x>/components/  业务组件(只本 feature 用)
 - [ ] 新增的可复用组件位置合理(ui / components / feature)
 - [ ] forwardRef + displayName 已加(可被外部 ref 的组件)
 - [ ] 强制 lazy(页面级)
+- [ ] **没有「Radix modal 还 `open` 就被 unmount」**:组件内别 `if(!x) return null` 在 `<Dialog open>` 之上,也别 `{cond && <Dialog open=.../>}`(挂载条件==open)。要么 `open={open && cond}` 常驻+内容守卫,要么先关再卸(分帧)。否则 Radix 的 body `pointer-events:none` 锁泄漏→**全站点击失灵、需刷新**。兜底有 `BodyPointerLockGuard`(症状网,带回归测试)+ `RouteModalReset`(导航关全局浮层),但**别依赖它们**,根因层照样要修。
 
 不确定时调用 `/v2-audit` skill 让 Claude 自动审一遍。

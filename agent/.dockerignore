@@ -1,15 +1,5 @@
-.git
-.gitignore
 node_modules
-.env
-.env.local
+bun.lockb
 *.log
-artifacts/
-.omx/
+.git
 .DS_Store
-**/.DS_Store
-Dockerfile
-docker-compose.yml
-litellm_config.yaml
-README*.md
-LICENSE

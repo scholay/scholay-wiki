@@ -407,6 +407,22 @@ func extractUserMessageContent(raw []byte) (string, bool) {
 	return probe.Content, true
 }
 
+// extractClientTurnID 取 user_message 帧里的 clientTurnId(P0 影子日志的幂等键,前端每次
+// send-click 生成一个 UUID,跨 reconnect-resend/双击稳定)。旧客户端不带 → 返回 "",由
+// handleUserMessage mint 一个,故唯一键永不撞(代价是旧客户端无跨重连去重 = 今天行为)。
+func extractClientTurnID(raw []byte) string {
+	if len(raw) == 0 || raw[0] != '{' {
+		return ""
+	}
+	var probe struct {
+		ClientTurnID string `json:"clientTurnId"`
+	}
+	if err := json.Unmarshal(raw, &probe); err != nil {
+		return ""
+	}
+	return probe.ClientTurnID
+}
+
 // frameType 只解析一帧消息的 `type` 字段, 用于在转发循环里先做廉价分流, 避免对每个
 // content_delta 帧都跑完整的 decidePermission / extractMessageCompleteUsage 解析。
 // 非 JSON 帧返回 ""。

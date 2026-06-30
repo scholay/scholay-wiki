@@ -43,7 +43,9 @@ export function SessionMonitorPage() {
       {tab === 'peerreview' ? (
         <PeerReviewMonitor />
       ) : (
-        <ChatSessionMonitor key={tab} feature={tab} />
+        // 不用 `key={tab}` 强制重挂 —— 重挂会把还 open 的 transcript Dialog 撕掉致 body 锁泄漏。
+        // ChatSessionMonitor 自己在 feature 变化时 effect 复位状态(见其内注释)。
+        <ChatSessionMonitor feature={tab} />
       )}
     </AdminPageLayout>
   );

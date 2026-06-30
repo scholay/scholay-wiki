@@ -126,6 +126,88 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// 拿到自己的 *FeatureBridge, 在 handler 里只调几个 thin 方法。
 	agentSessionRepo := agentbridge.NewRepository(db)
 	agentBridge := agentbridge.New(agentClient, agentSessionRepo)
+	// Web-native 重构 P0:影子事件日志 + TurnCoordinator(影子写 agent_turns/agent_turn_events/
+	// agent_billing_ledger,迁移 0046-0047)。**opt-in**:仅当 AGENT_TURN_JOURNAL=shadow 才接线;
+	// 默认(unset/其它)= 不构造 → bridge.turns nil → 每处新代码 nil-guard no-op → 零行为变更、
+	// 零 MySQL 写、重启即回退(设计 §7.5)。jsonl + 内存 hub 全程仍权威。
+	if os.Getenv("AGENT_TURN_JOURNAL") == "shadow" {
+		eventLog := agentbridge.NewEventLog(db)
+		agentBridge.SetTurnCoordinator(agentbridge.NewTurnCoordinator(eventLog))
+		// M5:启动清理上次崩溃残留的僵尸 running turn(防续流复活死轮)。
+		rctx, rcancel := context.WithTimeout(context.Background(), 15*time.Second)
+		agentBridge.ReconcileJournalOnBoot(rctx)
+		rcancel()
+		slog.Info("agentbridge: turn journal shadow-write enabled (AGENT_TURN_JOURNAL=shadow)")
+		// P1 校验 harness:journal==daemon 持续比对(只读、只 slog,不改 live)。AGENT_JOURNAL_VALIDATE=on 才启。
+		if os.Getenv("AGENT_JOURNAL_VALIDATE") == "on" {
+			validator := agentbridge.NewJournalValidator(db, eventLog, agentClient)
+			safego.Go("agentbridge-journal-validate", func() { validator.Run(context.Background()) })
+			slog.Info("agentbridge: journal==daemon validator enabled (AGENT_JOURNAL_VALIDATE=on)")
+		}
+	}
+	// Web-native 重构 P4a:切流到 clean-room executor。**opt-in**:配 AGENT_EXECUTOR_BASE_URL +
+	// AGENT_EXECUTOR_FEATURES(csv,如 "smart_search")才生效;默认空 = 全走 fork(零行为变更,清空即秒回退)。
+	// 命中的 feature:WS dial executor + 连接喂 journal history(seed_history)+ 历史读走 journal。
+	// 要求同时 AGENT_TURN_JOURNAL=shadow(否则历史无源)。
+	if execBase := os.Getenv("AGENT_EXECUTOR_BASE_URL"); execBase != "" {
+		execClient := agent.NewClient(execBase, os.Getenv("AGENT_AUTH_TOKEN"))
+		execFeatures := os.Getenv("AGENT_EXECUTOR_FEATURES")
+		// C6 fail-fast:切流到 executor 的 feature 历史读走 journal;若漏配/打错 AGENT_TURN_JOURNAL,
+		// 这些 feature 历史全空 + 新 turn 不再 journal 写 → 永久不可恢复。拒绝带病启动。
+		if execFeatures != "" && os.Getenv("AGENT_TURN_JOURNAL") != "shadow" {
+			slog.Error("FATAL agentbridge: AGENT_EXECUTOR_FEATURES 已配但 AGENT_TURN_JOURNAL != shadow — "+
+				"executor 路由的 feature 历史无源、新 turn 不落库,会全量永久丢历史。拒绝启动。",
+				"features", execFeatures, "AGENT_TURN_JOURNAL", os.Getenv("AGENT_TURN_JOURNAL"))
+			os.Exit(1)
+		}
+		agentBridge.SetExecutorRouting(execClient, execFeatures)
+		// executor 也要拿到 provider/model 配置(否则切流后无 active provider)→ 加为次级推送目标。
+		agentConfigService.AddExtraAgentClient(execClient)
+		// 配置自愈:executor 内存配置在 recreate/crash 后会丢,后端只在自身启动推一次 → 周期重推,
+		// 使 executor 单独重建后自动恢复 active provider(无需重启 backend)。立即推一次(覆盖 co-recreate
+		// 竞态:backend SyncOnce 可能早于 executor ready)+ 每 60s 重推(60s 内自愈)。
+		safego.Go("executor-config-resync", func() {
+			push := func() {
+				cfg, err := agentConfigService.GetConfig()
+				if err != nil || cfg == nil || !cfg.Enabled {
+					return
+				}
+				rctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+				defer cancel()
+				_ = execClient.PushConfig(rctx, cfg)
+			}
+			time.Sleep(8 * time.Second) // 给 executor 留 ready 时间,再补一发(SyncOnce 已在更早推过一次)
+			push()
+			ticker := time.NewTicker(60 * time.Second)
+			defer ticker.Stop()
+			for range ticker.C {
+				push()
+			}
+		})
+		slog.Info("agentbridge: executor routing enabled", "base_url", execBase, "features", execFeatures)
+	}
+
+	// P6 fork 退役一次性归档:AGENT_ARCHIVE_FROM_FORK=1 时,把 fork 仍持有的老 transcript 归档进
+	// agent_session_archive(此刻 agentClient 仍指向 fork)。幂等;归档完即可删 fork。仅在带 fork 的
+	// 迁移那一次部署设此 env,之后清掉。
+	if os.Getenv("AGENT_ARCHIVE_FROM_FORK") == "1" {
+		safego.Go("agentbridge-archive-from-fork", func() {
+			actx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+			defer cancel()
+			agentBridge.ArchiveFromFork(actx, agentClient)
+		})
+	}
+
+	// P6 fork 退役一次性归档(**无需 fork 在场**):AGENT_ARCHIVE_FROM_JSONL=<dir> 时,开机从磁盘的
+	// cc-haha jsonl(<dir>/projects/<slug>/<sid>.jsonl)折叠老会话进 agent_session_archive。幂等(已归档/
+	// 已有 journal turn 跳过)。生产删 fork 后,把老 ./data/agent 只读挂进来设此 env,deploy 即自动迁移历史。
+	if jsonlRoot := os.Getenv("AGENT_ARCHIVE_FROM_JSONL"); jsonlRoot != "" {
+		safego.Go("agentbridge-archive-from-jsonl", func() {
+			actx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+			defer cancel()
+			agentBridge.ArchiveFromJsonl(actx, jsonlRoot)
+		})
+	}
 
 	// 各 feature Spec —— smartsearch / claw 的 prompt 已迁回代码静态管理 (internal/prompts),
 	// BuildSpec 内部用 agentbridge.StaticPicker, 不再依赖 promptSvc;
@@ -407,7 +489,9 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 		prism.NewTexClient(os.Getenv("PRISM_WORK_DIR")),
 		storage.PrismBucket(),
 		prismFeature,
-		agentClient, // 每项目独立 agent 会话:prism 直接建/管 session,存 prism_projects.agent_session_id
+		// C3 修复:必须传 feature-routed client(prismFeature.AgentClient()→clientForFeature("prism")),
+		// 否则 prism 切到 executor 后,会话创建/稿件物化/回读走 fork、聊天走 executor → 文件系统脑裂、零改动落库。
+		prismFeature.AgentClient(),
 	)
 	prism.SetTitleSink(prismService) // agent 回传标题落库的反查入口(见 handleAgentTitle)
 	prismHandler := prism.NewHandler(prismService)

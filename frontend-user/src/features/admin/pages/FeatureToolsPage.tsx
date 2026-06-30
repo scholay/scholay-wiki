@@ -150,9 +150,9 @@ function EditDialog({
   onClose: () => void;
   onSubmit: (merged: FeatureTool) => void;
 }) {
-  if (!tool) return null;
   return (
     <Dialog open={!!tool} onOpenChange={(o) => !o && onClose()}>
+      {tool && (
       <DialogContent className="max-w-2xl">
         <DialogHeader><DialogTitle>编辑工具 · {tool.name}</DialogTitle></DialogHeader>
         <form
@@ -220,6 +220,7 @@ function EditDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+      )}
     </Dialog>
   );
 }

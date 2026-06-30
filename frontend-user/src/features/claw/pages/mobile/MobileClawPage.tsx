@@ -11,7 +11,6 @@ import { MessageTurn } from '../../components/chat/MessageTurn';
 import { type ClawArtifact } from '../../api/artifacts';
 import { ClawArtifactPreview } from '../../components/preview/ClawArtifactPreview';
 import { ScrollController } from '../../components/chat/ScrollController';
-import { ConnectionBadge } from '../../components/chat/ConnectionBadge';
 import { ClawEmptyState } from '../../components/chat/ClawEmptyState';
 import { MobileClawDrawer } from '../../components/chat/MobileClawDrawer';
 import { useClawConversation } from '../../hooks/useClawConversation';
@@ -84,10 +83,7 @@ export function MobileClawPage() {
           >
             <PanelLeft className="size-5" />
           </button>
-          <ConnectionBadge
-            state={socket.state}
-            reconnectAttempt={socket.reconnectAttempt}
-          />
+          {/* 连接状态徽章已移除:连接/重连过程对用户无意义,不展示。 */}
           <button
             type="button"
             aria-label="新对话"

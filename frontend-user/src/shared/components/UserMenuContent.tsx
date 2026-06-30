@@ -74,14 +74,15 @@ export function UserMenuContent() {
     const token = getAuthToken(); // 先捕获, 再立刻清本地 —— 退出"即时"且不被任何 401 弹框打断
     clearAuth(); // 原子清 token + user + cookie
     qc.clear(); // 清掉所有带登录态的缓存数据
-    navigate('/'); // 主动退出 → 回首页(不弹登录框;弹框只留给"被动失效"的 auth-evicted 路径)
-    // 后台吊销服务端 token:显式带上刚捕获的 token(此刻 getAuthToken 已空)。失败无所谓,本地已清;
-    // 即便它返回 401 也不会触发 auth-evicted —— isAuthError 见本地已无 token 即判 false。
+    // 后台吊销服务端 token:显式带上刚捕获的 token(此刻 getAuthToken 已空)。失败无所谓,本地已清。
     if (token) {
       void http
         .post('/user/logout', null, { headers: { Authorization: `Bearer ${token}` } })
         .catch(() => {});
     }
+    // 硬跳转回首页(整页刷新):qc.clear 清不掉组件内存态 —— 智能助手/写作等会话的 WS 连接 + 流式
+    // 消息存在组件 useState/zustand 里,软导航(navigate)切走旧内容可能残留。整页刷新确保彻底清除。
+    window.location.href = '/';
   };
 
   return (

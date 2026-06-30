@@ -3,7 +3,21 @@ import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu';
 import { Check, ChevronRight, Circle } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 
-const DropdownMenu = DropdownMenuPrimitive.Root;
+/**
+ * 默认 `modal={false}` —— 不让 Radix 在 `<body>` 挂 `pointer-events:none`。
+ *
+ * 下拉菜单本就不需要模态滚动锁;modal 锁带来的**唯一**实质后果是:菜单还 `open` 就被卸载时
+ * (列表 refetch 撕掉所在行 / `key` 重挂 / 路由切换 / 父级条件渲染),Radix 的模块级单例还原
+ * desync,body 永久卡 `pointer-events:none` → **全站点击失灵、需刷新**(详见 BodyPointerLockGuard)。
+ * 非模态从根上消除这条 strand 向量:非模态层根本不锁 body,无论怎么卸载都不会泄漏。
+ * 个别确需模态(强制聚焦陷阱 / 锁背景滚动)的场景可显式传 `modal` 覆盖。matrix ExportMenu 早已这么做。
+ */
+function DropdownMenu({
+  modal = false,
+  ...props
+}: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
+  return <DropdownMenuPrimitive.Root modal={modal} {...props} />;
+}
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
 const DropdownMenuGroup = DropdownMenuPrimitive.Group;
 const DropdownMenuPortal = DropdownMenuPrimitive.Portal;

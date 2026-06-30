@@ -41,7 +41,7 @@ NC='\033[0m'
 BACKEND_IMAGE="${REGISTRY}/${NAMESPACE}/backend:${VERSION}"
 AGENT_IMAGE="${REGISTRY}/${NAMESPACE}/agent:${VERSION}"
 FRONTEND_USER_IMAGE="${REGISTRY}/${NAMESPACE}/frontend-user:${VERSION}"
-EGRESS_IMAGE="${REGISTRY}/${NAMESPACE}/egress:${VERSION}"
+# (egress 已合并入 agent,不再单独拉取)
 PRISM_TEX_IMAGE="${REGISTRY}/${NAMESPACE}/prism_tex:${VERSION}"
 
 echo -e "${GREEN}========================================${NC}"
@@ -82,10 +82,6 @@ pull_images() {
 
     echo "拉取 frontend-user..."
     docker pull ${FRONTEND_USER_IMAGE}
-    echo ""
-
-    echo "拉取 egress (agent 出网代理)..."
-    docker pull ${EGRESS_IMAGE}
     echo ""
 
     echo "拉取 prism_tex (Prism LaTeX 编译沙箱)..."

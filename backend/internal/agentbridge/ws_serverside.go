@@ -21,6 +21,7 @@ import (
 
 	gorillaws "github.com/gorilla/websocket"
 
+	"scholar-backend/internal/agent"
 	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/llmusage"
 )
@@ -59,8 +60,36 @@ import (
 // user_message 不会有竞态 (agent 内部串行)。
 // denyTools(可变参)是本会话(feature)显式禁用的工具,作后端二道防线传给 permission 裁决:
 // 命中即拒(无视路径)。现有调用方(peerreview)不传 → nil → 行为不变;Prism 传 prismDisallowedTools。
+// ServerSideChatStreaming(Bridge 级):默认用 fork client(b.client)。保留给无 feature 上下文的调用方。
 func (b *Bridge) ServerSideChatStreaming(
 	ctx context.Context,
+	sessionID string,
+	prompt string,
+	onDelta func(string),
+	onStatus func(string),
+	modelID string,
+	denyTools ...string,
+) (string, *ChatUsage, error) {
+	return b.serverSideChatStreamingVia(ctx, b.client, sessionID, prompt, onDelta, onStatus, modelID, denyTools...)
+}
+
+// ServerSideChatStreaming(FeatureBridge 级):按 feature 路由(executor 命中走 executor,否则 fork)。
+// peerreview server-side 切流靠它(P4a)。
+func (f *FeatureBridge) ServerSideChatStreaming(
+	ctx context.Context,
+	sessionID string,
+	prompt string,
+	onDelta func(string),
+	onStatus func(string),
+	modelID string,
+	denyTools ...string,
+) (string, *ChatUsage, error) {
+	return f.bridge.serverSideChatStreamingVia(ctx, f.client(), sessionID, prompt, onDelta, onStatus, modelID, denyTools...)
+}
+
+func (b *Bridge) serverSideChatStreamingVia(
+	ctx context.Context,
+	cl agent.Executor,
 	sessionID string,
 	prompt string,
 	onDelta func(string),
@@ -75,7 +104,7 @@ func (b *Bridge) ServerSideChatStreaming(
 		return "", nil, errors.New("agentbridge: empty prompt")
 	}
 
-	wsURL, err := buildAgentWSURL(b.client.BaseURL(), sessionID)
+	wsURL, err := buildAgentWSURL(cl.BaseURL(), sessionID)
 	if err != nil {
 		return "", nil, fmt.Errorf("build agent ws url: %w", err)
 	}
@@ -83,7 +112,7 @@ func (b *Bridge) ServerSideChatStreaming(
 	sessionWorkDir := path.Join(agentSessionWorkdirRoot(), sessionID)
 
 	header := http.Header{}
-	if tok := b.client.AuthToken(); tok != "" {
+	if tok := cl.AuthToken(); tok != "" {
 		header.Set("Authorization", "Bearer "+tok)
 	}
 
@@ -351,22 +380,24 @@ func truncateBytes(b []byte, n int) string {
 // 即落库后返回。限流(per-user 90s)+ 拉 transcript + 组装抽取 prompt + 写库校验全在 backend
 // (复用 buildMemoryExtractFrame / IngestMemory,与 pipe 路同一套);backend 不跑抽取 LLM。
 // best-effort:任何失败仅记 debug,绝不影响审稿结果。
-func (b *Bridge) ExtractMemoryServerSide(ctx context.Context, sessionID string, userID uint) {
+func (b *Bridge) ExtractMemoryServerSide(ctx context.Context, sessionID string, userID uint, featureKey string) {
 	if b.memSvc == nil || userID == 0 || sessionID == "" {
 		return
 	}
-	// 含 ShouldExtract 冷却闸 + GetSessionMessages + BuildExtractionPrompt;返回 nil = 这轮不抽。
-	frame := b.buildMemoryExtractFrame(ctx, userID, sessionID)
+	// M2:transcript 从 journal 取(executor feature),frame 组装一致。
+	frame := b.buildMemoryExtractFrame(ctx, userID, sessionID, featureKey)
 	if frame == nil {
 		return
 	}
 
-	wsURL, err := buildAgentWSURL(b.client.BaseURL(), sessionID)
+	// M2:dial 走 feature-routed client(peerreview 已切 executor)→ 命中正确上游;否则连到 fork 抽个空。
+	cl := b.clientForFeature(featureKey)
+	wsURL, err := buildAgentWSURL(cl.BaseURL(), sessionID)
 	if err != nil {
 		return
 	}
 	header := http.Header{}
-	if tok := b.client.AuthToken(); tok != "" {
+	if tok := cl.AuthToken(); tok != "" {
 		header.Set("Authorization", "Bearer "+tok)
 	}
 	conn, _, err := agentDialer.DialContext(ctx, wsURL, header)

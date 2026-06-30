@@ -9,6 +9,7 @@ export type ArtifactCategory =
   | 'image'
   | 'svg' // 内联 SVG → DOMPurify 清洗后渲染(不归 image:img 不渲染 svg 脚本但我们要内联展示矢量图)
   | 'pdf'
+  | 'html' // 完整 HTML 文档 → 沙箱 iframe 渲染(可切源码)
   | 'markdown'
   | 'spreadsheet' // xlsx / xls / csv / tsv → SheetJS 表格
   | 'docx'
@@ -103,6 +104,8 @@ export function artifactCategory(a: {
   }
   if (e === 'docx' || m.includes('wordprocessingml')) return 'docx';
   if (e === 'json' || e === 'jsonl' || m === 'application/json') return 'json';
+  // HTML 完整文档:渲染成网页(沙箱 iframe),不当代码原文。必须在 CODE_LANG 之前(html 在 CODE_LANG 里)。
+  if (e === 'html' || e === 'htm' || m === 'text/html') return 'html';
   if (CODE_LANG[e]) return 'code';
   if (e === 'txt' || m.startsWith('text/')) return 'text';
   return 'unpreviewable';
@@ -117,6 +120,7 @@ export function categoryNeedsBytes(c: ArtifactCategory): boolean {
     c === 'json' ||
     c === 'spreadsheet' ||
     c === 'docx' ||
-    c === 'svg' // 需取字节解码出 SVG 源文本 → DOMPurify 清洗后渲染
+    c === 'svg' || // 需取字节解码出 SVG 源文本 → DOMPurify 清洗后渲染
+    c === 'html' // 需取字节解码出 HTML 文本 → 沙箱 iframe srcDoc 渲染
   );
 }

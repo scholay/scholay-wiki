@@ -36,45 +36,46 @@ export function HtmlRender({ html }: { html: string }) {
   const ref = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(240);
 
-  if (!settled) return <RenderLoader text="正在生成页面…" />;
-
-  if (showSource) {
-    return (
-      <div className="group relative">
-        <CodeBlock>
-          <code>{doc}</code>
-        </CodeBlock>
-        <ToolButton className="absolute right-2 top-2" label="预览" onClick={() => setShowSource(false)}>
-          <Eye className="size-3" /> 预览
-        </ToolButton>
-      </div>
-    );
-  }
-
   return (
-    <div className="group relative mb-2.5 last:mb-0 overflow-hidden rounded-md border border-border bg-white">
-      <iframe
-        ref={ref}
-        srcDoc={doc}
-        sandbox={SANDBOX}
-        referrerPolicy="no-referrer"
-        title="HTML 预览"
-        onLoad={() => {
-          const h = measureHeight(ref.current, 560);
-          if (h) setHeight(h);
-        }}
-        style={{ height }}
-        className="block w-full transition-[height] duration-200"
-      />
-      <div className="absolute right-2 top-2 flex gap-1">
-        <ToolButton label="查看源码" onClick={() => setShowSource(true)}>
-          <Code2 className="size-3" /> 源码
-        </ToolButton>
-        <ToolButton label="放大查看" onClick={() => setOpen(true)}>
-          <Maximize2 className="size-3" /> 放大
-        </ToolButton>
-      </div>
+    <>
+      {!settled ? (
+        <RenderLoader text="正在生成页面…" />
+      ) : showSource ? (
+        <div className="group relative">
+          <CodeBlock>
+            <code>{doc}</code>
+          </CodeBlock>
+          <ToolButton className="absolute right-2 top-2" label="预览" onClick={() => setShowSource(false)}>
+            <Eye className="size-3" /> 预览
+          </ToolButton>
+        </div>
+      ) : (
+        <div className="group relative mb-2.5 last:mb-0 overflow-hidden rounded-md border border-border bg-white">
+          <iframe
+            ref={ref}
+            srcDoc={doc}
+            sandbox={SANDBOX}
+            referrerPolicy="no-referrer"
+            title="HTML 预览"
+            onLoad={() => {
+              const h = measureHeight(ref.current, 560);
+              if (h) setHeight(h);
+            }}
+            style={{ height }}
+            className="block w-full transition-[height] duration-200"
+          />
+          <div className="absolute right-2 top-2 flex gap-1">
+            <ToolButton label="查看源码" onClick={() => setShowSource(true)}>
+              <Code2 className="size-3" /> 源码
+            </ToolButton>
+            <ToolButton label="放大查看" onClick={() => setOpen(true)}>
+              <Maximize2 className="size-3" /> 放大
+            </ToolButton>
+          </div>
+        </div>
+      )}
 
+      {/* Radix Root 常驻,绝不随视图切换/流式重渲卸载(否则 open 时卸载会泄漏 body pointer-events 锁) */}
       <Dialog open={open} onOpenChange={setOpen}>
         {/* 视口尺寸 arbitrary value(lightbox 本就按视口比例,无对应 token) */}
         <DialogContent dismissable className="h-[90vh] w-[95vw] max-w-[95vw] gap-0 overflow-hidden p-0">
@@ -88,7 +89,7 @@ export function HtmlRender({ html }: { html: string }) {
           />
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
 

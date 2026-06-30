@@ -135,10 +135,9 @@ function DimensionEditDialog({
     setIsActive(dimension.isActive);
   }, [dimension?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!dimension) return null;
-
   return (
     <Dialog open={!!dimension} onOpenChange={(o) => !o && onClose()}>
+      {dimension && (
       <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>编辑维度</DialogTitle>
@@ -214,6 +213,7 @@ function DimensionEditDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+      )}
     </Dialog>
   );
 }

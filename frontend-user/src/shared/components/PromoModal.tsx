@@ -72,13 +72,15 @@ export function PromoModal() {
     return () => window.removeEventListener(QUOTA_EXCEEDED_EVENT, onQuota);
   }, [visible, openPromo]);
 
-  // 未启用 / 付费会员 / 配置未到 → 不渲染(付费会员即便被 store.open 也不展示,双保险)。
-  if (!cfg || !visible) return null;
+  // 未启用 / 付费会员 / 配置未到 → 关闭弹窗(付费会员即便被 store.open 也不展示,双保险)。
+  // ⚠️ 绝不 `return null`:open===true 时卸载 Dialog 会让 Radix body 锁泄漏(全站点击失灵,
+  // 见 BodyPointerLockGuard)。改为把闸门折进 open prop + 内容用 ready 守卫,让 Radix 正常收尾。
+  const ready = !!cfg && visible;
 
-  const title = cfg.title?.trim() || DEFAULTS.title;
-  const subtitle = cfg.subtitle?.trim() || DEFAULTS.subtitle;
-  const buttonText = cfg.button_text?.trim() || DEFAULTS.buttonText;
-  const benefits = cfg.benefits?.trim()
+  const title = cfg?.title?.trim() || DEFAULTS.title;
+  const subtitle = cfg?.subtitle?.trim() || DEFAULTS.subtitle;
+  const buttonText = cfg?.button_text?.trim() || DEFAULTS.buttonText;
+  const benefits = cfg?.benefits?.trim()
     ? cfg.benefits.split('\n').map((s) => s.trim()).filter(Boolean)
     : DEFAULTS.benefits;
 
@@ -88,7 +90,8 @@ export function PromoModal() {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => (o ? openPromo('manual') : closePromo())}>
+    <Dialog open={open && ready} onOpenChange={(o) => (o ? openPromo('manual') : closePromo())}>
+      {ready && (
       <DialogContent
         dismissable
         // 全幅渐变头:覆盖默认 p-6/gap-4,内部各段自管内边距;把内置关闭 X 调成白色(在渐变头上)。
@@ -120,9 +123,9 @@ export function PromoModal() {
 
         {/* 二维码 */}
         <div className="flex flex-col items-center gap-2.5 px-6 pt-5">
-          {cfg.wechat_qr ? (
+          {cfg?.wechat_qr ? (
             <img
-              src={cfg.wechat_qr}
+              src={cfg?.wechat_qr}
               alt="微信客服二维码"
               className="size-44 rounded-md border border-border object-contain p-1"
             />
@@ -149,6 +152,7 @@ export function PromoModal() {
           </DialogClose>
         </DialogFooter>
       </DialogContent>
+      )}
     </Dialog>
   );
 }

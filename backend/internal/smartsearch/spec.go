@@ -108,6 +108,8 @@ func BuildSpec() agentbridge.FeatureSpec {
 		Picker:                 agentbridge.NewStaticPicker(FeatureKey, PromptSlug, PromptName, prompts.SmartSearchSystemPrompt),
 		Color:                  "green",
 		InjectPromptOnFirstMsg: true, // 主 agent 默认带 Bash/Read, 必须强约束
+		// A1:检索综合主要是 MCP 工具编排,默认走便宜档(haiku=flash)省成本;质量不够可在 agent_config 改槽位或上调。
+		DefaultTier: "haiku",
 		// C14: 审批轴 = auto (backend 自动裁决, 不透传前端)。只暴露 mcp__minicod__* 只读检索, 无破坏性操作。
 		PermissionMode: agentbridge.PermissionAuto,
 		// PingInterval: 0 → 走 agentbridge 默认 25s (< agent idleTimeout 60s)

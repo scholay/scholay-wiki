@@ -27,6 +27,7 @@ const COLLECTED_AT = new Date().toISOString();
 const TOPIC_BASE = 944000000;
 const USER_AGENT = 'ScholayAcademicToolCollector/1.0 (+https://scholay.app)';
 const WIKIDATA_PAGE_SIZE = Number(process.env.ACADEMIC_WIKIDATA_PAGE_SIZE || 1000);
+const DOAJ_MAX_PAGES = Number(process.env.ACADEMIC_DOAJ_MAX_PAGES || 10);
 
 const ROOT = process.cwd();
 
@@ -559,6 +560,15 @@ function toolKind(access, source) {
   return '科研工具';
 }
 
+function sourceResourceLabel(source, sourceUrl) {
+  const host = hostOf(sourceUrl);
+  if (source === 're3data' || host === 're3data.org') return 're3data 条目';
+  if (source === 'bio.tools' || host === 'bio.tools') return 'bio.tools 条目';
+  if (source === 'doaj' || host === 'doaj.org') return 'DOAJ 条目';
+  if (source === 'wikidata' || host === 'wikidata.org') return 'Wikidata 条目';
+  return '来源条目';
+}
+
 function shouldRejectBiotools(item) {
   const name = cleanName(item.name);
   const homepage = cleanURL(item.homepage);
@@ -678,12 +688,18 @@ async function mapLimit(items, limit, fn) {
 }
 
 function existingAcademicDirs() {
-  return fs.readdirSync(ROOT)
+  const rootDirs = fs.readdirSync(ROOT)
     .filter((name) => {
       if (name === 'feature-tools-academic-1000') return true;
       return /^feature-tools-academic-1000-batch-\d+$/.test(name);
-    })
-    .sort((a, b) => batchNumberFromDir(a) - batchNumberFromDir(b));
+    });
+  const consolidatedRoot = path.resolve('feature-tools-academic-5000');
+  const consolidatedDirs = fs.existsSync(consolidatedRoot)
+    ? fs.readdirSync(consolidatedRoot)
+      .filter((name) => /^feature-tools-academic-5000-batch-\d+$/.test(name))
+      .map((name) => path.join('feature-tools-academic-5000', name))
+    : [];
+  return [...rootDirs, ...consolidatedDirs].sort((a, b) => batchNumberFromDir(a) - batchNumberFromDir(b));
 }
 
 function batchNumberFromDir(dir) {
@@ -908,7 +924,7 @@ async function collectDoaj(maxNeeded) {
     if (out.length >= maxNeeded) break;
     let page = 1;
     let totalPages = 10;
-    while (out.length < maxNeeded && page <= totalPages && page <= 10) {
+    while (out.length < maxNeeded && page <= totalPages && page <= DOAJ_MAX_PAGES) {
       let json;
       try {
         json = await cachedJSON(`doaj-${slugify(query)}-${page}.json`, `https://doaj.org/api/search/journals/${encodeURIComponent(query)}?pageSize=${pageSize}&page=${page}`, { timeout: 25000 });
@@ -917,7 +933,7 @@ async function collectDoaj(maxNeeded) {
         break;
       }
       const total = Number(json.total || 0);
-      if (total > 0) totalPages = Math.min(10, Math.ceil(total / pageSize));
+      if (total > 0) totalPages = Math.min(DOAJ_MAX_PAGES, Math.ceil(total / pageSize));
       for (const row of json.results || []) {
         const bib = row.bibjson || {};
         const name = cleanName(bib.title || '');
@@ -1022,7 +1038,7 @@ function makeTool(candidate, id, batchNumber) {
       official_url: candidate.homepage,
       resources: [
         { label: '官网/工具入口', url: candidate.homepage },
-        ...(candidate.sourceUrl ? [{ label: candidate.source === 're3data' ? 're3data 条目' : 'bio.tools 条目', url: candidate.sourceUrl }] : []),
+        ...(candidate.sourceUrl ? [{ label: sourceResourceLabel(candidate.source, candidate.sourceUrl), url: candidate.sourceUrl }] : []),
       ],
       download: {
         provider: accessType === 'website' ? 'website' : 'official',

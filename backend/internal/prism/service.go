@@ -38,12 +38,12 @@ type Service struct {
 	tex       *TexClient
 	bucket    string
 	feature   *agentbridge.FeatureBridge // 提供 ServerSideChatStreaming
-	agent     *agent.Client              // 直接建/管「每项目」agent 会话(存 prism_projects.agent_session_id)
+	agent     agent.Executor             // 直接建/管「每项目」agent 会话(存 prism_projects.agent_session_id)
 	sessionMu sync.Map                   // map[projectID]*sync.Mutex —— 串行化「每项目会话」的取/建,防并发双建(review F2)
 }
 
 // 注:项目自动起名已移到 agent 容器(见 autoname.go / handleAgentTitle),prism 不再依赖 ai.Service。
-func NewService(repo *Repository, tex *TexClient, bucket string, feature *agentbridge.FeatureBridge, agentClient *agent.Client) *Service {
+func NewService(repo *Repository, tex *TexClient, bucket string, feature *agentbridge.FeatureBridge, agentClient agent.Executor) *Service {
 	return &Service{repo: repo, tex: tex, bucket: bucket, feature: feature, agent: agentClient}
 }
 

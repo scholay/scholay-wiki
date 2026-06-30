@@ -110,11 +110,11 @@ export function FeatureToolWebhooksPage() {
 }
 
 function WebhookDialog({ mode, onClose, onSubmit }: { mode: EditMode; onClose: () => void; onSubmit: (form: Partial<Webhook>) => void }) {
-  if (!mode) return null;
-  const isEdit = mode.kind === 'edit';
-  const init = isEdit ? mode.row : undefined;
+  const isEdit = mode?.kind === 'edit';
+  const init = mode?.kind === 'edit' ? mode.row : undefined;
   return (
     <Dialog open={!!mode} onOpenChange={(o) => !o && onClose()}>
+      {mode && (
       <DialogContent className="max-w-lg">
         <DialogHeader><DialogTitle>{isEdit ? '编辑 webhook' : '新建 webhook'}</DialogTitle></DialogHeader>
         <form
@@ -155,15 +155,16 @@ function WebhookDialog({ mode, onClose, onSubmit }: { mode: EditMode; onClose: (
           </DialogFooter>
         </form>
       </DialogContent>
+      )}
     </Dialog>
   );
 }
 
 function DeliveriesDialog({ id, onClose }: { id: number | null; onClose: () => void }) {
   const { data } = useWebhookDeliveries(id ?? undefined);
-  if (!id) return null;
   return (
     <Dialog open={!!id} onOpenChange={(o) => !o && onClose()}>
+      {id != null && (
       <DialogContent className="max-w-2xl">
         <DialogHeader><DialogTitle>投递记录</DialogTitle></DialogHeader>
         <div className="max-h-[70vh] space-y-1.5 overflow-y-auto">
@@ -180,6 +181,7 @@ function DeliveriesDialog({ id, onClose }: { id: number | null; onClose: () => v
           ))}
         </div>
       </DialogContent>
+      )}
     </Dialog>
   );
 }

@@ -26,10 +26,12 @@ export function DeleteConfirmDialog({ target, onClose }: Props) {
   const apiToast = useApiToast();
   const busy = reset.isPending || remove.isPending;
 
-  if (!target) return null;
-  const isReset = target.isSystem;
+  // 绝不在 open 时 `return null`(会卸载 open 的 Dialog → body pointer-events 锁泄漏、全站点击
+  // 失灵,见 BodyPointerLockGuard)。open 由 target 驱动,内容用 {target && ...} 守卫,Radix 正常收尾。
+  const isReset = !!target?.isSystem;
 
   const confirm = () => {
+    if (!target) return;
     const onSuccess = () => {
       toast.success(isReset ? '已重置为系统默认' : '已删除');
       onClose();
@@ -44,7 +46,8 @@ export function DeleteConfirmDialog({ target, onClose }: Props) {
   };
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
+    <Dialog open={!!target} onOpenChange={(o) => !o && onClose()}>
+      {target && (
       <DialogContent className="p-0 gap-0 max-w-[360px] w-[360px]">
         <header className="flex items-center gap-2 h-13 px-5 pr-12 border-b border-border-soft">
           <AlertTriangle className="size-4 text-brand-red shrink-0" />
@@ -78,6 +81,7 @@ export function DeleteConfirmDialog({ target, onClose }: Props) {
           </button>
         </footer>
       </DialogContent>
+      )}
     </Dialog>
   );
 }

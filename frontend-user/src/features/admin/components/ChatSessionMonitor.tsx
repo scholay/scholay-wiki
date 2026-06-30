@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Eye } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import {
@@ -27,6 +27,16 @@ export function ChatSessionMonitor({ feature }: { feature: MonitorFeature }) {
   const [kwInput, setKwInput] = useState('');
   const keyword = useDebounce(kwInput, 300);
   const [viewing, setViewing] = useState<AdminSession | null>(null);
+
+  // feature 切换时**就地复位**(页码/关键字/正在看的会话),不再靠父级 `key={tab}` 重挂。
+  // 父级重挂会把还 open 的 transcript Dialog 连根撕掉(浏览器前进/后退切 ?tab= 时尤其会),
+  // → Radix body pointer-events 锁泄漏、全站点击失灵(见 BodyPointerLockGuard)。
+  // 用 effect 复位让 viewing→null,Dialog 走正常 open→closed 收尾,锁被有序还原。
+  useEffect(() => {
+    setPage(1);
+    setKwInput('');
+    setViewing(null);
+  }, [feature]);
 
   const { data, isLoading } = useAdminSessions({
     feature,

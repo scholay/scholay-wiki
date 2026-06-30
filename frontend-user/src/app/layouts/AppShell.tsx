@@ -2,6 +2,7 @@ import { Outlet, useMatch } from 'react-router-dom';
 import { TopNav } from './TopNav';
 import { cn } from '@/shared/lib/utils';
 import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
+import { RouteCommitWatchdog } from '@/shared/components/RouteCommitWatchdog';
 import { useReplayPendingAction } from '@/shared/hooks';
 import { useNotificationSocket } from '@/shared/hooks/useNotificationSocket';
 import { useStagingSync } from '@/features/search/hooks/useStagingSync';
@@ -45,6 +46,8 @@ export function AppShell() {
 
   return (
     <div className="flex h-full min-h-screen flex-col bg-background text-foreground">
+      {/* 诊断:抓「地址栏变了但页面卡旧路由」的偶发 bug(定位后可删) */}
+      <RouteCommitWatchdog />
       <div className={cn('contents', isBrowserDetail && 'max-sm:hidden')}>
         <TopNav />
       </div>

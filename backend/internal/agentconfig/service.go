@@ -27,8 +27,17 @@ type AgentPusher interface {
 // Service agent_config 的业务封装。除了 CRUD 还负责在写入后异步把配置推到
 // scholar_agent /api/providers(通过注入的 AgentPusher)。
 type Service struct {
-	repo        *Repository
-	agentClient AgentPusher
+	repo         *Repository
+	agentClient  AgentPusher
+	extraClients []AgentPusher // P4a:executor 等次级推送目标(best-effort,不写回 push_status)
+}
+
+// AddExtraAgentClient 追加次级推送目标(如 clean-room executor)。SyncOnce / 配置变更时一并推,
+// best-effort、不写回 push_status(状态留给主 fork)。bootstrap 在配置 executor 时调用。
+func (s *Service) AddExtraAgentClient(client AgentPusher) {
+	if client != nil {
+		s.extraClients = append(s.extraClients, client)
+	}
 }
 
 func NewService(db *gorm.DB) *Service {
@@ -93,6 +102,12 @@ func (s *Service) pushAsync(cfg *AgentConfig) {
 // 在 status 写回失败时打 warn)。返回 err 只是为了让 SyncOnce 的签名保持兼容。
 func (s *Service) pushAndRecord(ctx context.Context, cfg *AgentConfig) error {
 	err := s.agentClient.PushConfig(ctx, cfg)
+	// P4a:同步把同一份 config 推给次级目标(executor),best-effort,不影响 fork 的 push_status。
+	for _, ec := range s.extraClients {
+		if perr := ec.PushConfig(ctx, cfg); perr != nil {
+			slog.Warn("agent config: extra push (executor) failed", "err", perr)
+		}
+	}
 	if err != nil {
 		if markErr := s.repo.MarkPushFailed(err.Error()); markErr != nil {
 			slog.Warn("agent config: mark push failed status write failed",

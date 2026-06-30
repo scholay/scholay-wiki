@@ -55,6 +55,14 @@ type SessionRow struct {
 	// =false/缺失则回落探测并回填。换新 agent_session_id (reset/churn) 时必须清零。
 	PromptInjected bool `gorm:"column:prompt_injected;not null;default:false"`
 
+	// Title (migration 0050): 会话标题,后端拥有(取代「只存 agent jsonl」)。agent 回
+	// session_title_updated 时 hub first-wins 写入;ListSessions / 续流以此为准。
+	Title string `gorm:"column:title;type:varchar(255);not null;default:''"`
+
+	// PinnedTier (migration 0052): 会话锁定的模型档位(模型路由 方案A·A3 用户显式选的 快/深)。
+	// 空 = 用 feature 默认 tier(A1)。hub 建连据「PinnedTier || spec.DefaultTier」发 set_runtime_config。
+	PinnedTier string `gorm:"column:pinned_tier;type:varchar(16);not null;default:''"`
+
 	// 归属归一 (migration 0014): 实体级会话用 owner_kind/owner_id 锚定到业务实体,
 	// 一实体一会话 (uk_owner)。用户级会话 (smart_search / claw 多会话) 两列留 NULL,
 	// 多行 (NULL,NULL) 在 uk_owner 下互不冲突。指针类型让 NULL 与 0/'' 区分开。
@@ -65,6 +73,21 @@ type SessionRow struct {
 func (SessionRow) TableName() string {
 	return "agent_sessions"
 }
+
+// ArchiveRow (migration 0051): fork 退役前一次性归档的老会话 transcript(daemon-flat
+// SessionMessage[] 的 JSON)。fork 删除后,所有「journal 空 → 回退」的读路径改读本表。
+type ArchiveRow struct {
+	AgentSessionID string    `gorm:"column:agent_session_id;primaryKey;type:varchar(64)"`
+	FeatureKey     string    `gorm:"column:feature_key;type:varchar(64);not null;default:''"`
+	Title          string    `gorm:"column:title;type:varchar(255);not null;default:''"`
+	TotalTurns     int       `gorm:"column:total_turns;not null;default:0"`
+	MessageCount   int       `gorm:"column:message_count;not null;default:0"`
+	MessagesJSON   string    `gorm:"column:messages_json;type:longtext"`
+	Source         string    `gorm:"column:source;type:varchar(32);not null;default:'fork_jsonl'"`
+	ArchivedAt     time.Time `gorm:"column:archived_at;autoCreateTime"`
+}
+
+func (ArchiveRow) TableName() string { return "agent_session_archive" }
 
 // Repository agent_sessions 表访问层。
 type Repository struct {
@@ -117,6 +140,37 @@ func (r *Repository) ListByUserFeature(userID uint, featureKey string) ([]Sessio
 		Order("last_accessed_at DESC, id DESC").
 		Find(&rows).Error
 	return rows, err
+}
+
+// SetTitleIfEmpty — first-wins 写会话标题(仅当当前为空时)。agent 回 session_title_updated
+// 时调;切到 executor 后 executor 每次重连可能重发,first-wins 保证不覆盖既有标题、不闪烁。
+func (r *Repository) SetTitleIfEmpty(agentSessionID, title string) error {
+	if agentSessionID == "" || title == "" {
+		return nil
+	}
+	return r.db.Model(&SessionRow{}).
+		Where("agent_session_id = ? AND (title IS NULL OR title = '')", agentSessionID).
+		Update("title", title).Error
+}
+
+// SetTitle — **无条件**写会话标题(用户手动改名用,区别于 first-wins 的 SetTitleIfEmpty)。
+func (r *Repository) SetTitle(agentSessionID, title string) error {
+	if agentSessionID == "" {
+		return nil
+	}
+	return r.db.Model(&SessionRow{}).
+		Where("agent_session_id = ?", agentSessionID).
+		Update("title", title).Error
+}
+
+// SetPinnedTier — 写会话锁定 tier(模型路由 A3 用户选 快/深;空字符串=回到 feature 默认 A1)。
+func (r *Repository) SetPinnedTier(agentSessionID, tier string) error {
+	if agentSessionID == "" {
+		return nil
+	}
+	return r.db.Model(&SessionRow{}).
+		Where("agent_session_id = ?", agentSessionID).
+		Update("pinned_tier", tier).Error
 }
 
 // GetByAgentSessionID — 按 agent session UUID 取行 + ownership check。
@@ -314,4 +368,43 @@ func (r *Repository) UpsertByOwnerEntity(userID uint, featureKey, ownerKind stri
 			"prompt_injected": false,
 		}),
 	}).Create(&row).Error
+}
+
+// ─── fork 退役归档(migration 0051)──────────────────────────────────────────
+
+// AllSessionRows 返回全部 agent_sessions 行(归档迁移用,一次性遍历)。
+func (r *Repository) AllSessionRows() ([]SessionRow, error) {
+	var rows []SessionRow
+	err := r.db.Find(&rows).Error
+	return rows, err
+}
+
+// HasArchive 该会话是否已归档(归档幂等用)。
+func (r *Repository) HasArchive(agentSessionID string) bool {
+	var n int64
+	r.db.Model(&ArchiveRow{}).Where("agent_session_id = ?", agentSessionID).Count(&n)
+	return n > 0
+}
+
+// UpsertArchive 写/覆盖一条归档(主键 agent_session_id)。
+func (r *Repository) UpsertArchive(row *ArchiveRow) error {
+	return r.db.Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "agent_session_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{
+			"feature_key", "title", "total_turns", "message_count", "messages_json", "source", "archived_at",
+		}),
+	}).Create(row).Error
+}
+
+// GetArchive 取一条归档(读回退用)。无 → (nil,nil)。
+func (r *Repository) GetArchive(agentSessionID string) (*ArchiveRow, error) {
+	var row ArchiveRow
+	err := r.db.Where("agent_session_id = ?", agentSessionID).First(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &row, nil
 }

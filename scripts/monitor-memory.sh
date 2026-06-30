@@ -28,7 +28,7 @@ WARN_THRESHOLD=70
 CRITICAL_THRESHOLD=85
 
 # 容器名称(与当前 compose 对齐:frontend_admin 已下线;补上最易 OOM 的 agent / prism_tex 及 minio/umami/egress)。
-CONTAINERS=("scholar_mysql" "scholar_redis" "scholar_minio" "scholar_backend" "scholar_agent" "scholar_prism_tex" "scholar_egress_proxy" "scholar_nginx" "scholar_frontend_user" "scholar_umami")
+CONTAINERS=("scholar_mysql" "scholar_redis" "scholar_minio" "scholar_backend" "scholar_agent" "scholar_prism_tex" "scholar_nginx" "scholar_frontend_user" "scholar_umami")
 
 # 打印带颜色的消息
 print_header() {

@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -34,7 +35,7 @@ const ghostCleanupDelay = 250 * time.Millisecond
 // 实例由 bootstrap 构造一份, 跨 feature 共享; feature 通过 Bridge.For(spec) 拿到
 // 与自己 feature 绑定的 FeatureBridge。
 type Bridge struct {
-	client *agent.Client
+	client agent.Executor // 接缝:fork *agent.Client 满足;P3 clean-room executor 同样满足(一行 bootstrap 切换)
 	repo   *Repository
 
 	// hubs 跟踪每个 (feature, agent session) 的扇出 Hub(多端实时同步,见 hub.go)。
@@ -74,6 +75,47 @@ type Bridge struct {
 	// reviewer 可能共享同一会话并发记账 → 全局粗锁兜底。accrueTurnUsage 纯内存、微秒级、低频,
 	// 全局锁争用可忽略。
 	watermarkMu sync.Mutex
+
+	// turns: Web-native 重构 P0 影子日志的 TurnCoordinator(允许 nil = 未 wired → 所有
+	// shadow 写都是 no-op,绝不影响 live)。bootstrap 经 SetTurnCoordinator 注入(此处有 *gorm.DB)。
+	// P0: 仅 shadow 写 agent_turns/agent_turn_events/agent_billing_ledger;jsonl + 内存 hub 仍权威。
+	turns *TurnCoordinator
+	// log: P1 读路径(GetSessionMessages / 迟到续流)从事件日志读的入口(= turns 底层 EventLog)。
+	// 由 SetTurnCoordinator 一并设置;nil = 未接线 → readFromJournal 恒 false → 全走 daemon。
+	log EventLog
+
+	// executorClient: P4a 切流到 clean-room executor 的客户端(nil = 未配置 AGENT_EXECUTOR_BASE_URL = 全走 fork)。
+	// executorFeatures: 路由到 executor 的 feature 集合(AGENT_EXECUTOR_FEATURES csv);命中 → WS dial executor
+	// + 连接时从 journal 喂 history(seed_history)+ 历史读走 journal。默认空 = 全 fork,可秒回退。
+	// 要求:启用任一 executor feature 必须同时 AGENT_TURN_JOURNAL=shadow(否则历史无源)。
+	executorClient   agent.Executor
+	executorFeatures map[string]bool
+}
+
+// SetExecutorRouting 接线 P4a 切流:executor 客户端 + 路由到 executor 的 feature 集合(csv)。
+// 默认空 csv = 全走 fork(零行为变更,可秒回退)。bootstrap 调用一次。
+func (b *Bridge) SetExecutorRouting(client agent.Executor, csv string) {
+	b.executorClient = client
+	feats := map[string]bool{}
+	for _, k := range strings.Split(csv, ",") {
+		if s := strings.TrimSpace(k); s != "" {
+			feats[s] = true
+		}
+	}
+	b.executorFeatures = feats
+}
+
+// isExecutorFeature: 该 feature 是否已切到 executor。
+func (b *Bridge) isExecutorFeature(featureKey string) bool {
+	return b.executorClient != nil && b.executorFeatures[featureKey]
+}
+
+// clientForFeature: 按 feature 选 executor 或 fork 客户端(WS dial + HTTP op 都用它)。
+func (b *Bridge) clientForFeature(featureKey string) agent.Executor {
+	if b.isExecutorFeature(featureKey) {
+		return b.executorClient
+	}
+	return b.client
 }
 
 // loadTokenWatermark 取某 agent session 的已记账累计水位(缺省全 0)。
@@ -163,7 +205,7 @@ func nonNegInt64(x int64) int64 {
 }
 
 // New 装配 Bridge。client 由 agent.LoadFromEnv() 构造, repo 由 NewRepository(db) 构造。
-func New(client *agent.Client, repo *Repository) *Bridge {
+func New(client agent.Executor, repo *Repository) *Bridge {
 	return &Bridge{client: client, repo: repo}
 }
 
@@ -176,6 +218,55 @@ func (b *Bridge) SetLLMUsageRecorder(r llmusage.Recorder) {
 // SetMemoryService 注入 per-user 长期记忆服务 (bootstrap 调用一次; nil = 不启用记忆)。
 func (b *Bridge) SetMemoryService(s *usermemory.Service) {
 	b.memSvc = s
+}
+
+// SetTurnCoordinator 注入 Web-native 重构 P0 影子日志的 TurnCoordinator (bootstrap 调用一次;
+// nil = 不写影子,所有 shadow 写 no-op、live 不受影响)。同时缓存底层 EventLog 供 P1 读路径用。
+func (b *Bridge) SetTurnCoordinator(tc *TurnCoordinator) {
+	b.turns = tc
+	b.log = tc.readLog()
+}
+
+// ShutdownJournal 优雅停机:drain 事件日志写通道(M5,防重启丢未落盘事件)。main 在 srv.Shutdown 后调。
+func (b *Bridge) ShutdownJournal(ctx context.Context) {
+	if b.log != nil {
+		if n := b.log.WriteFailures(); n > 0 {
+			slog.Warn("agentbridge: journal had write failures this run", "failures", n)
+		}
+		b.log.Shutdown(ctx)
+	}
+}
+
+// ReconcileJournalOnBoot 启动时清理僵尸 running turn(M5)。bootstrap 调用一次。
+func (b *Bridge) ReconcileJournalOnBoot(ctx context.Context) {
+	if b.log != nil {
+		if err := b.log.ReconcileStaleRunning(ctx); err != nil {
+			slog.Warn("agentbridge: reconcile stale running turns failed", "err", err)
+		}
+	}
+}
+
+// readFromJournal 判断某 feature 是否启用「历史/续流读走事件日志」(P1)。
+// AGENT_JOURNAL_READ 是逗号分隔的 feature key 列表(如 "smart_search,claw");空/未接线 = 全走 daemon。
+// jsonl 仍权威 —— 清空该 env 即一键回 daemon 读路径(P1 回滚)。
+func (b *Bridge) readFromJournal(featureKey string) bool {
+	if b.log == nil {
+		return false
+	}
+	// 切到 executor 的 feature:历史必须从 journal 读(executor 内存非耐久、重连即丢)。
+	if b.isExecutorFeature(featureKey) {
+		return true
+	}
+	csv := os.Getenv("AGENT_JOURNAL_READ")
+	if csv == "" {
+		return false
+	}
+	for _, k := range strings.Split(csv, ",") {
+		if strings.TrimSpace(k) == featureKey {
+			return true
+		}
+	}
+	return false
 }
 
 // MemoryBlocks 返回某用户的记忆块渲染文本 (bullet 列表, 无记忆/未启用返回 "")。
@@ -194,18 +285,34 @@ func (b *Bridge) MemoryBlocks(userID uint) string {
 // 限流(ShouldExtract,per-user Redis)、拉最近对话(GetSessionMessages,纯 HTTP 取数)、组装抽取
 // prompt(BuildExtractionPrompt,单一真源)。frame 由调用方经同一条**已鉴权 WS** 用 writeAgent 发给
 // agent(不新开连接,避免 displacement);agent 跑完把原始输出经 memory_update 帧回传,再走 IngestMemory。
-func (b *Bridge) buildMemoryExtractFrame(ctx context.Context, userID uint, sessionID string) []byte {
+func (b *Bridge) buildMemoryExtractFrame(ctx context.Context, userID uint, sessionID, featureKey string) []byte {
 	if b.memSvc == nil || userID == 0 || sessionID == "" {
 		return nil
 	}
 	if !b.memSvc.ShouldExtract(ctx, userID) {
 		return nil // 冷却中, 跳过
 	}
-	resp, err := b.client.GetSessionMessages(ctx, sessionID, 3) // 最近 3 个用户轮足够抽画像
-	if err != nil || resp == nil {
-		return nil
+	// M2 修复:executor-routed feature 的 transcript 在 journal(fork 见不到)→ 从 journal 折叠;
+	// 空(切流前老会话)再回退 fork。否则记忆抽取对所有 executor feature 静默死亡(user_memory_blocks 冻结)。
+	var msgs []agent.SessionMessage
+	if b.isExecutorFeature(featureKey) && b.log != nil {
+		if evs, _, _, jerr := b.log.ReadRecentTurns(ctx, sessionID, 3); jerr == nil {
+			msgs = b.log.FoldToMessages(evs)
+		}
 	}
-	transcript := flattenTranscript(resp.Messages)
+	if len(msgs) == 0 {
+		// journal 空(切流前老会话)→ 归档表;再兜底 client(过渡 fork / collapse 后 executor)。
+		if ar, ok := b.readArchive(sessionID); ok {
+			msgs = ar.Messages
+		} else {
+			resp, err := b.client.GetSessionMessages(ctx, sessionID, 3) // 最近 3 个用户轮足够抽画像
+			if err != nil || resp == nil {
+				return nil
+			}
+			msgs = resp.Messages
+		}
+	}
+	transcript := flattenTranscript(msgs)
 	system, user, ok := b.memSvc.BuildExtractionPrompt(userID, transcript)
 	if !ok {
 		return nil
@@ -369,7 +476,7 @@ func (b *Bridge) For(spec FeatureSpec) *FeatureBridge {
 
 // Client 暴露底层 agent.Client, 适用于 bootstrap 阶段需要直接对接的极少数场景
 // (例如 UpsertSkill / Health)。业务侧不应直接持有它, 走 FeatureBridge 即可。
-func (b *Bridge) Client() *agent.Client { return b.client }
+func (b *Bridge) Client() agent.Executor { return b.client }
 
 // FeatureBridge 是绑定某个 FeatureSpec 后的 bridge 视图。所有方法都自动用 spec.Key
 // 做 (user, feature) 寻址, feature 模块零样板。
@@ -391,7 +498,17 @@ func (f *FeatureBridge) Spec() FeatureSpec { return f.spec }
 // 是 claw(internal/claw/artifact*.go);未来 feature 想要交付物时, 复用 agentartifact.Repository
 // + 抄 claw 的 harvest/serve 端点即可, 无需在 bridge 加新方法(避免把 claw-specific 的 ./out
 // 约定为单一消费者上升为一等公民, 见 agentartifact/delivery.go 的诚实评估)。
-func (f *FeatureBridge) AgentClient() *agent.Client { return f.bridge.client }
+func (f *FeatureBridge) AgentClient() agent.Executor { return f.bridge.clientForFeature(f.spec.Key) }
+
+// ExtractMemoryServerSide(FeatureBridge):server-side feature(peerreview)一轮结束后抽记忆,
+// 自动带本 feature key → transcript 从 journal 取、dial 命中正确上游(M2)。
+func (f *FeatureBridge) ExtractMemoryServerSide(ctx context.Context, sessionID string, userID uint) {
+	f.bridge.ExtractMemoryServerSide(ctx, sessionID, userID, f.spec.Key)
+}
+
+// client 返回本 feature 应使用的 agent 客户端(P4a:executor 命中则 executor,否则 fork)。
+// FeatureBridge 内所有 HTTP op 走它,使切流的 feature 的 session/workspace/context op 落到 executor。
+func (f *FeatureBridge) client() agent.Executor { return f.bridge.clientForFeature(f.spec.Key) }
 
 // Bridge 暴露父 Bridge, 让 feature 可以调用 ServerSideChat 等 backend-driven 方法。
 func (f *FeatureBridge) Bridge() *Bridge { return f.bridge }
@@ -506,7 +623,7 @@ func (f *FeatureBridge) ResetSession(ctx context.Context, userID uint) (string, 
 	oldSessionID := row.AgentSessionID
 
 	opts, delivered := f.buildCreateOptions(ctx, userID)
-	created, err := f.bridge.client.CreateSession(ctx, opts)
+	created, err := f.client().CreateSession(ctx, opts)
 	if err != nil {
 		return "", fmt.Errorf("create new agent session: %w", err)
 	}
@@ -516,7 +633,7 @@ func (f *FeatureBridge) ResetSession(ctx context.Context, userID uint) (string, 
 		slog.Error("agentbridge reset: DB update failed, cleaning up new session",
 			"feature", f.spec.Key, "user_id", userID,
 			"new_session_id", newSessionID, "err", err)
-		if delErr := f.bridge.client.DeleteSession(ctx, newSessionID); delErr != nil {
+		if delErr := f.client().DeleteSession(ctx, newSessionID); delErr != nil {
 			slog.Warn("agentbridge reset: cleanup new session also failed",
 				"session_id", newSessionID, "err", delErr)
 		}
@@ -531,7 +648,7 @@ func (f *FeatureBridge) ResetSession(ctx context.Context, userID uint) (string, 
 		f.bridge.deleteTokenWatermark(oldSessionID) // 旧会话的 token 水位作废(新会话从 0 起算)
 		slog.Info("agentbridge reset: deleting old session",
 			"feature", f.spec.Key, "user_id", userID, "old_session_id", oldSessionID)
-		delErr := f.bridge.client.DeleteSession(ctx, oldSessionID)
+		delErr := f.client().DeleteSession(ctx, oldSessionID)
 		switch {
 		case delErr == nil:
 			slog.Info("agentbridge reset: old session deleted",
@@ -554,6 +671,42 @@ func (f *FeatureBridge) ResetSession(ctx context.Context, userID uint) (string, 
 	return newSessionID, nil
 }
 
+// readHistoryFromJournal — P1 历史读:启用了 AGENT_JOURNAL_READ 的 feature 从事件日志折叠历史,
+// 取代 daemon 往返。ok=false → caller 走既有 daemon 路径(jsonl 仍权威,读错自动落回)。
+// 轮计数依赖 FoldToMessages 的轮边界硬约束(只有 user_message 生成 type==user),与 daemon 路分页 parity 一致。
+func (f *FeatureBridge) readHistoryFromJournal(ctx context.Context, sessionID string, limitTurns int) (*SessionMessagesResult, bool) {
+	if !f.bridge.readFromJournal(f.spec.Key) {
+		return nil, false
+	}
+	evs, total, hasMore, jerr := f.bridge.log.ReadRecentTurns(ctx, sessionID, limitTurns)
+	if jerr != nil {
+		slog.Warn("agentbridge: journal history read failed, fallback daemon",
+			"feature", f.spec.Key, "session_id", sessionID, "err", jerr)
+		return nil, false
+	}
+	folded := f.bridge.log.FoldToMessages(evs)
+	// 老会话(切流前创建)没进事件日志 → 历史只在归档表(P6:fork 退役前从 fork jsonl 一次性归档进
+	// agent_session_archive)。journal 空 → 先读归档;再兜底 client(过渡期=fork;collapse 后=executor,
+	// 老会话返空无害,归档已覆盖)。
+	if len(folded) == 0 {
+		if ar, ok := f.bridge.readArchive(sessionID); ok {
+			stripInjectionFromMessages(ar.Messages)
+			return ar, true
+		}
+		if resp, derr := f.bridge.client.GetSessionMessages(ctx, sessionID, limitTurns); derr == nil && resp != nil && len(resp.Messages) > 0 {
+			tt := total
+			if resp.TotalTurns != nil {
+				tt = *resp.TotalTurns
+			}
+			slog.Info("agentbridge: journal empty, served history from client fallback",
+				"feature", f.spec.Key, "session_id", sessionID, "messages", len(resp.Messages))
+			return &SessionMessagesResult{SessionID: sessionID, Messages: resp.Messages, TotalTurns: tt, HasMore: false}, true
+		}
+	}
+	stripInjectionFromMessages(folded)
+	return &SessionMessagesResult{SessionID: sessionID, Messages: folded, TotalTurns: total, HasMore: hasMore}, true
+}
+
 // GetSessionMessages 拉历史消息; agent 端 404 时清旧 mapping + 重建空 session。
 // limitTurns>0 时只返回最近 limitTurns 个用户轮 (分页, 见 sliceRecentTurns)。
 func (f *FeatureBridge) GetSessionMessages(ctx context.Context, userID uint, limitTurns int) (*SessionMessagesResult, error) {
@@ -561,7 +714,10 @@ func (f *FeatureBridge) GetSessionMessages(ctx context.Context, userID uint, lim
 	if err != nil {
 		return nil, err
 	}
-	msgs, err := f.bridge.client.GetSessionMessages(ctx, sessionID, limitTurns)
+	if res, ok := f.readHistoryFromJournal(ctx, sessionID, limitTurns); ok {
+		return res, nil
+	}
+	msgs, err := f.client().GetSessionMessages(ctx, sessionID, limitTurns)
 	if err != nil {
 		if errors.Is(err, agent.ErrSessionNotFound) {
 			newID, createErr := f.recreate(ctx, userID, sessionID)
@@ -590,7 +746,10 @@ func (f *FeatureBridge) GetSessionMessagesByID(ctx context.Context, userID uint,
 	if !owns {
 		return nil, ErrNotFound
 	}
-	msgs, err := f.bridge.client.GetSessionMessages(ctx, sessionID, limitTurns)
+	if res, ok := f.readHistoryFromJournal(ctx, sessionID, limitTurns); ok {
+		return res, nil
+	}
+	msgs, err := f.client().GetSessionMessages(ctx, sessionID, limitTurns)
 	if err != nil {
 		if errors.Is(err, agent.ErrSessionNotFound) {
 			// 历史教训(数据丢失 bug): 这里**曾**顺手 DeleteByAgentSessionID "清孤儿"。
@@ -618,7 +777,10 @@ func (f *FeatureBridge) PaginateSessionMessages(ctx context.Context, sessionID s
 	if sessionID == "" {
 		return &SessionMessagesResult{Messages: nil}, nil
 	}
-	msgs, err := f.bridge.client.GetSessionMessages(ctx, sessionID, limitTurns)
+	if res, ok := f.readHistoryFromJournal(ctx, sessionID, limitTurns); ok {
+		return res, nil
+	}
+	msgs, err := f.client().GetSessionMessages(ctx, sessionID, limitTurns)
 	if err != nil {
 		if errors.Is(err, agent.ErrSessionNotFound) {
 			return &SessionMessagesResult{SessionID: sessionID, Messages: nil}, nil
@@ -637,7 +799,7 @@ func (f *FeatureBridge) GetContextEstimate(ctx context.Context, userID uint) (*a
 	if err != nil {
 		return nil, "", err
 	}
-	est, err := f.bridge.client.GetSessionContextEstimate(ctx, sessionID)
+	est, err := f.client().GetSessionContextEstimate(ctx, sessionID)
 	if err != nil {
 		if errors.Is(err, agent.ErrSessionNotFound) {
 			newID, createErr := f.recreate(ctx, userID, sessionID)
@@ -660,7 +822,7 @@ func (f *FeatureBridge) GetContextEstimateByID(ctx context.Context, userID uint,
 	if !owns {
 		return nil, ErrNotFound
 	}
-	est, err := f.bridge.client.GetSessionContextEstimate(ctx, sessionID)
+	est, err := f.client().GetSessionContextEstimate(ctx, sessionID)
 	if err != nil {
 		if errors.Is(err, agent.ErrSessionNotFound) {
 			return nil, ErrNotFound
@@ -683,7 +845,7 @@ func (f *FeatureBridge) SessionAlreadyHasUserMessage(ctx context.Context, sessio
 	}
 	// limitTurns=1: 新版 agent 只返最近一轮 + totalTurns 元数据, 探测从"拉整段 transcript"
 	// 降为一轮的传输量; 旧版 agent 忽略参数返回全量, 下面的逐条扫描兜底。
-	msgs, err := f.bridge.client.GetSessionMessages(ctx, sessionID, 1)
+	msgs, err := f.client().GetSessionMessages(ctx, sessionID, 1)
 	if err != nil {
 		if errors.Is(err, agent.ErrSessionNotFound) {
 			return false, nil
@@ -849,7 +1011,7 @@ func (f *FeatureBridge) ListSessions(ctx context.Context, userID uint) ([]Sessio
 			ids = append(ids, r.AgentSessionID)
 		}
 	}
-	agentList, agentErr := f.bridge.client.ListSessions(ctx, ids)
+	agentList, agentErr := f.client().ListSessions(ctx, ids)
 	// agent 拉失败不致命: 仍返 DB 行, title/messageCount 留空
 	agentByID := make(map[string]agent.SessionSummary)
 	if agentErr == nil && agentList != nil {
@@ -861,20 +1023,51 @@ func (f *FeatureBridge) ListSessions(ctx context.Context, userID uint) ([]Sessio
 			"feature", f.spec.Key, "user_id", userID, "err", agentErr)
 	}
 
+	// 标题后端拥有(migration 0050):DB title 为准。executor 内存态无历史标题,故对切流 feature
+	// 用 DB;DB 空再 backfill —— 优先 agentByID(fork 路径=jsonl 标题),仍空则查 fork(b.client)
+	// 把历史 jsonl 标题迁进 DB(executor-routed 的历史会话标题不丢)。
 	out := make([]SessionListItem, 0, len(rows))
+	var forkBackfill []string
 	for _, r := range rows {
 		item := SessionListItem{
 			SessionID:      r.AgentSessionID,
 			LastAccessedAt: r.LastAccessedAt,
 			CreatedAt:      r.CreatedAt,
+			Title:          r.Title, // DB 优先
 		}
 		if meta, ok := agentByID[r.AgentSessionID]; ok {
-			item.Title = meta.Title
 			item.MessageCount = meta.MessageCount
 			item.AgentCreatedAt = meta.CreatedAt
 			item.AgentModifiedAt = meta.ModifiedAt
+			if item.Title == "" && meta.Title != "" {
+				item.Title = meta.Title
+				_ = f.bridge.repo.SetTitleIfEmpty(r.AgentSessionID, meta.Title) // 迁进 DB
+			}
+		}
+		if item.Title == "" && r.AgentSessionID != "" && f.bridge.isExecutorFeature(f.spec.Key) {
+			forkBackfill = append(forkBackfill, r.AgentSessionID)
 		}
 		out = append(out, item)
+	}
+
+	// 历史 backfill:切流 feature 仍缺标题的会话,从 fork(原 jsonl)取标题迁进 DB。
+	if len(forkBackfill) > 0 {
+		if forkList, ferr := f.bridge.client.ListSessions(ctx, forkBackfill); ferr == nil && forkList != nil {
+			forkByID := make(map[string]string, len(forkList.Sessions))
+			for _, s := range forkList.Sessions {
+				if s.Title != "" {
+					forkByID[s.ID] = s.Title
+				}
+			}
+			for i := range out {
+				if out[i].Title == "" {
+					if t, ok := forkByID[out[i].SessionID]; ok {
+						out[i].Title = t
+						_ = f.bridge.repo.SetTitleIfEmpty(out[i].SessionID, t)
+					}
+				}
+			}
+		}
 	}
 	return out, nil
 }
@@ -890,7 +1083,7 @@ func (f *FeatureBridge) ListSessions(ctx context.Context, userID uint) ([]Sessio
 // session 自动成为"当前活跃"。
 func (f *FeatureBridge) CreateNewSession(ctx context.Context, userID uint) (string, error) {
 	opts, delivered := f.buildCreateOptions(ctx, userID)
-	created, err := f.bridge.client.CreateSession(ctx, opts)
+	created, err := f.client().CreateSession(ctx, opts)
 	if err != nil {
 		return "", fmt.Errorf("create agent session: %w", err)
 	}
@@ -904,7 +1097,7 @@ func (f *FeatureBridge) CreateNewSession(ctx context.Context, userID uint) (stri
 		// 写 DB 失败 → 回滚 agent 端 session, 避免孤儿
 		slog.Error("agentbridge CreateNewSession: DB insert failed, rolling back agent session",
 			"feature", f.spec.Key, "user_id", userID, "session_id", created.SessionID, "err", err)
-		if delErr := f.bridge.client.DeleteSession(ctx, created.SessionID); delErr != nil {
+		if delErr := f.client().DeleteSession(ctx, created.SessionID); delErr != nil {
 			slog.Warn("agentbridge CreateNewSession: agent rollback failed", "err", delErr)
 		}
 		return "", fmt.Errorf("persist session mapping: %w", err)
@@ -928,8 +1121,15 @@ func (f *FeatureBridge) RenameSession(ctx context.Context, userID uint, sessionI
 	if !owns {
 		return ErrNotFound
 	}
-	if err := f.bridge.client.PatchSession(ctx, sessionID, title); err != nil {
-		return fmt.Errorf("agent rename: %w", err)
+	// H2 修复:标题后端拥有(migration 0050,ListSessions 用 r.Title 为准)。改名必须**无条件**写 DB,
+	// 否则已有标题的会话(常态:session_title_updated 已 SetTitleIfEmpty 落过)改名静默 no-op。
+	if err := f.bridge.repo.SetTitle(sessionID, title); err != nil {
+		return fmt.Errorf("rename (db title): %w", err)
+	}
+	// agent 端 meta 也尽量同步(失败不致命:DB 已权威)。
+	if err := f.client().PatchSession(ctx, sessionID, title); err != nil {
+		slog.Warn("agentbridge RenameSession: agent PatchSession failed (db title already set)",
+			"feature", f.spec.Key, "session_id", sessionID, "err", err)
 	}
 	// 改标题也算"活跃" 一次, 让它在列表里前置
 	_ = f.bridge.repo.Touch(sessionID)
@@ -949,7 +1149,7 @@ func (f *FeatureBridge) DeleteSessionByID(ctx context.Context, userID uint, sess
 	if !owns {
 		return ErrNotFound
 	}
-	if err := f.bridge.client.DeleteSession(ctx, sessionID); err != nil &&
+	if err := f.client().DeleteSession(ctx, sessionID); err != nil &&
 		!errors.Is(err, agent.ErrSessionNotFound) {
 		return fmt.Errorf("agent delete: %w", err)
 	}
@@ -981,7 +1181,7 @@ func (f *FeatureBridge) ActivateSession(userID uint, sessionID string) error {
 
 func (f *FeatureBridge) createAndPersist(ctx context.Context, userID uint) (string, error) {
 	opts, delivered := f.buildCreateOptions(ctx, userID)
-	created, err := f.bridge.client.CreateSession(ctx, opts)
+	created, err := f.client().CreateSession(ctx, opts)
 	if err != nil {
 		return "", fmt.Errorf("create agent session: %w", err)
 	}
@@ -998,7 +1198,7 @@ func (f *FeatureBridge) createAndPersist(ctx context.Context, userID uint) (stri
 		if !IsDuplicateKey(err) {
 			slog.Error("agentbridge create: DB insert failed (non-duplicate), rolling back agent session",
 				"feature", f.spec.Key, "user_id", userID, "session_id", created.SessionID, "err", err)
-			if delErr := f.bridge.client.DeleteSession(ctx, created.SessionID); delErr != nil {
+			if delErr := f.client().DeleteSession(ctx, created.SessionID); delErr != nil {
 				slog.Warn("agentbridge create: rollback agent session failed",
 					"session_id", created.SessionID, "err", delErr)
 			}
@@ -1007,7 +1207,7 @@ func (f *FeatureBridge) createAndPersist(ctx context.Context, userID uint) (stri
 		// 并发竞态: 另一个请求已经写了一行, 把刚建的 agent session 回收, 复用对方写的 id。
 		slog.Warn("agentbridge create: mapping race (duplicate key), retrying with read",
 			"feature", f.spec.Key, "user_id", userID, "err", err)
-		if delErr := f.bridge.client.DeleteSession(ctx, created.SessionID); delErr != nil {
+		if delErr := f.client().DeleteSession(ctx, created.SessionID); delErr != nil {
 			slog.Warn("agentbridge create: cleanup orphaned session failed",
 				"session_id", created.SessionID, "err", delErr)
 		}
@@ -1029,13 +1229,13 @@ func (f *FeatureBridge) createAndPersist(ctx context.Context, userID uint) (stri
 // recreate 自愈路径: agent 端 404 时把 oldSessionID 那一行换成新建的会话 (行级,不动其它会话)。
 func (f *FeatureBridge) recreate(ctx context.Context, userID uint, oldSessionID string) (string, error) {
 	opts, delivered := f.buildCreateOptions(ctx, userID)
-	created, err := f.bridge.client.CreateSession(ctx, opts)
+	created, err := f.client().CreateSession(ctx, opts)
 	if err != nil {
 		return "", fmt.Errorf("recreate agent session: %w", err)
 	}
 	if err := f.bridge.repo.UpdateSessionID(userID, f.spec.Key, oldSessionID, created.SessionID); err != nil {
 		// 回收刚建的 agent 会话,避免重试一次漏一个孤儿(audit rank 16)。
-		if delErr := f.bridge.client.DeleteSession(ctx, created.SessionID); delErr != nil {
+		if delErr := f.client().DeleteSession(ctx, created.SessionID); delErr != nil {
 			slog.Warn("agentbridge recreate: cleanup new session after DB fail also failed",
 				"feature", f.spec.Key, "session_id", created.SessionID, "err", delErr)
 		}
@@ -1056,7 +1256,7 @@ func (f *FeatureBridge) cleanupGhostCache(sessionID string, userID uint) {
 	time.Sleep(ghostCleanupDelay)
 	bgCtx, cancel := ctxutil.With(ctxutil.QuickIO)
 	defer cancel()
-	err := f.bridge.client.DeleteSession(bgCtx, sessionID)
+	err := f.client().DeleteSession(bgCtx, sessionID)
 	switch {
 	case err == nil:
 		slog.Info("agentbridge: ghost cache swept",

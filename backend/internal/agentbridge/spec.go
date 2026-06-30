@@ -167,6 +167,13 @@ type FeatureSpec struct {
 	// sessionID 是 agent 会话 id;实现方据此反查归属对象(prism: project)。详见 OnTitleResultFn。
 	OnTitleResult OnTitleResultFn
 
+	// DefaultTier 是该 feature 交互会话默认用的模型档位(模型路由 方案A·A1)。值域 main|haiku|sonnet|opus
+	// (映射 agent_config 槽位;haiku=便宜档/flash,main=主档/pro)。空 = 不由 hub 下发 tier(peerreview
+	// 走 serverside per-round modelId,自管)。hub 建连时据「会话 pinned_tier(A3 用户显式选)|| DefaultTier」
+	// 给 executor 发一次 set_runtime_config{tier},整连接锁定(铁律:绝不会话中途自动换模型)。
+	// 现默认:smart_search=haiku(检索综合,便宜档,可 A/B);claw/prism=main(对话/写作,主档)。
+	DefaultTier string
+
 	// AllowBash 是「该 feature 是否允许 agent 跑 Bash/BashOutput/KillShell」的**单一真源**。
 	// 默认零值 false = 禁 Bash(默认安全:新 feature 不显式置 true 就没有 shell)。
 	// 目前仅 claw 置 true —— 它要 Bash 跑 pandoc/python 把 docx/xlsx 转成可读文本。

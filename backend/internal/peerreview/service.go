@@ -583,7 +583,7 @@ func (s *Service) runMethodologyPhase(ctx context.Context, submissionID uint64, 
 			"submission_id", submissionID, "err", perr)
 		return "", builtinReviewerChoices()
 	}
-	reply, _, cerr := s.feature.Bridge().ServerSideChatStreaming(ctx, methSessID,
+	reply, _, cerr := s.feature.ServerSideChatStreaming(ctx, methSessID,
 		buildMethodologyPrompt(mfiles, availableReviewers(), memCtx),
 		func(delta string) { s.broker.Append(submissionID, SlotMethodology, delta) },
 		func(note string) { s.broker.Status(submissionID, SlotMethodology, note) },
@@ -1392,7 +1392,7 @@ func (s *Service) runLetterDraft(ctx context.Context, submissionID uint64, sessi
 
 直接输出信件正文, 不要任何前后缀 / 元注释 / markdown 代码块。`, kind, target)
 
-	reply, _, err := s.feature.Bridge().ServerSideChatStreaming(ctx, sessionID, prompt, func(delta string) {
+	reply, _, err := s.feature.ServerSideChatStreaming(ctx, sessionID, prompt, func(delta string) {
 		s.broker.Append(submissionID, SlotLetter, delta)
 	}, func(note string) {
 		s.broker.Status(submissionID, SlotLetter, note)
@@ -1500,6 +1500,35 @@ func (s *Service) Submit(ctx context.Context, userID, id uint64) (*Submission, e
 //
 // 任何一轮失败 → MarkFailed 整份 submission, 前面成功的报告保留 (用户能在详情页看到)。
 // JSON 解析失败 → 不致命: 报告里 content_md 存原文, 结构化字段留 NULL, 前端优雅降级。
+// loadPersistedReviewer — P0 廉价止血(债#4):某 reviewer 已有持久化报告 → 返回 (从 ContentMd
+// rehydrate 的 ReviewerOutput, done=true),本次跳过重跑。persisted=nil 表示已存的是 degraded 行
+// (解析不出结构化输出)→ 仍跳轮,chief 该槽自然降级(与原始首跑行为一致)。GetReportByRole 报错
+// (含 ErrNotFound)→ done=false → 正常跑该 reviewer(重跑经 UpsertReport 的 (submission_id, role)
+// OnConflict 覆盖,安全)。
+//
+// 必须 rehydrate reviewerOutputs:否则 crash 重入后 chief 静默丢已完成 reviewer 的真实意见。
+func (s *Service) loadPersistedReviewer(submissionID uint64, role string) (out *ReviewerOutput, done bool) {
+	rep, err := s.repo.GetReportByRole(submissionID, role)
+	if err != nil {
+		return nil, false
+	}
+	if parsed, ok := parseReviewerJSON(rep.ContentMd); ok {
+		return parsed, true
+	}
+	return nil, true
+}
+
+// allReviewersPersisted — alpha/beta/gamma 三份报告是否都已持久化(用于跳过整段 methodology 会话,
+// 即债#4 的最大单笔浪费)。
+func (s *Service) allReviewersPersisted(submissionID uint64) bool {
+	for _, role := range []string{"alpha", "beta", "gamma"} {
+		if _, err := s.repo.GetReportByRole(submissionID, role); err != nil {
+			return false
+		}
+	}
+	return true
+}
+
 func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 	// panic 兜底: 否则 status 永远卡在 reviewing —— 工单详情永久"审稿进行中", 且 Submit 幂等
 	// 无法重触发。复位 failed 让用户看到失败终态 (markFailedAndLog 同时置 status + compute_state)。
@@ -1548,7 +1577,15 @@ func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 	// 领域/作者水平)。注意:只注入方法论会话,**不进入审稿人盲评打分**——methodology 产出的是
 	// 分析文本而非原始记忆,commonContext 据此不含用户画像,保持评分客观(融合进智能审稿,但不偏审)。
 	memCtx := s.feature.Bridge().MemoryBlocks(uint(sub.UserID))
-	methodology, choices := s.runMethodologyPhase(ctx, submissionID, files, memCtx)
+	// P0 止血(债#4):全部 reviewer 已持久化(crash 在 chief 前重入)→ 跳过整段 methodology 会话
+	// (最大单笔浪费),用内置三人格占位;下方 reviewer 循环会逐个 gap-fill 跳过,choices[i] 不被索引。
+	var methodology string
+	var choices []ReviewerChoice
+	if s.allReviewersPersisted(submissionID) {
+		choices = builtinReviewerChoices()
+	} else {
+		methodology, choices = s.runMethodologyPhase(ctx, submissionID, files, memCtx)
+	}
 	_ = s.repo.SetComputeState(submissionID, StateReviewing, "")
 
 	commonContext := buildCommonContext(sub, files, methodology)
@@ -1558,6 +1595,15 @@ func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 	reviewerOutputs := make(map[string]*ReviewerOutput, 3)
 	for i, role := range []string{"alpha", "beta", "gamma"} {
 		slot := ReviewerSlot(role)
+		// P0 止血(债#4):已持久化的 reviewer 跳过重跑(只补缺口,不重烧整篇)。从 ContentMd
+		// rehydrate reviewerOutputs,否则 chief 静默丢该 reviewer 真实意见(buildChiefPrompt 缺则降级)。
+		if persisted, done := s.loadPersistedReviewer(submissionID, role); done {
+			if persisted != nil {
+				reviewerOutputs[role] = persisted
+			}
+			s.broker.Done(submissionID, slot)
+			continue
+		}
 		choice := choices[i] // 第 i 位 agent 选中的审稿人 → 固定槽 alpha/beta/gamma(前端仍匿名显示 A/B/C)
 		prompt := buildReviewerPrompt(choice, commonContext, role)
 
@@ -1584,6 +1630,13 @@ func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 
 	// chief — 把 3 份 reviewer JSON 拼成上下文, 让主审能逐位回应。chief 人格固定(内置 const)。
 	chiefSlot := ReviewerSlot("chief")
+	// P0 止血(债#4):chief 已持久化(crash 在 chief upsert 与 MarkCompleted 之间)→ 直接收尾,不重跑。
+	if _, err := s.repo.GetReportByRole(submissionID, "chief"); err == nil {
+		s.broker.Done(submissionID, chiefSlot)
+		_ = s.repo.MarkCompleted(submissionID)
+		_ = s.repo.SetComputeState(submissionID, StateIdle, "")
+		return
+	}
 	chiefPrompt := buildChiefPrompt(commonContext, reviewerOutputs)
 
 	chiefReply, chiefUsage, _, err := s.chatWithRetry(ctx, sessionID, submissionID, chiefSlot, chiefPrompt, s.mainModel(),
@@ -1612,7 +1665,7 @@ func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 		safego.Go("peerreview-memory-extract", func() {
 			mctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 			defer cancel()
-			s.feature.Bridge().ExtractMemoryServerSide(mctx, sid, uid)
+			s.feature.ExtractMemoryServerSide(mctx, sid, uid)
 		})
 	}
 }
@@ -1649,7 +1702,7 @@ func (s *Service) chatWithRetry(
 	var lastUsage *agentbridge.ChatUsage
 	for attempt := 0; ; attempt++ {
 		s.broker.Begin(submissionID, slot)
-		reply, usage, err := s.feature.Bridge().ServerSideChatStreaming(ctx, sessionID, cur,
+		reply, usage, err := s.feature.ServerSideChatStreaming(ctx, sessionID, cur,
 			func(delta string) { s.broker.Append(submissionID, slot, delta) },
 			func(note string) { s.broker.Status(submissionID, slot, note) },
 			model)

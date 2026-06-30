@@ -1,5 +1,5 @@
-import { lazy, Suspense, useMemo, type ReactNode } from 'react';
-import { Download, FileQuestion, Loader2, X } from 'lucide-react';
+import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react';
+import { Code2, Download, Eye, FileQuestion, Loader2, X } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { MarkdownRenderer, ChatStyles, SafeSvg } from '@/shared/components/chat';
@@ -173,6 +173,10 @@ function BytesPreview({
     );
   }
 
+  if (category === 'html') {
+    return <HtmlPreview html={text} name={name} />;
+  }
+
   if (category === 'markdown') {
     return (
       <div className="h-full overflow-auto px-4 py-3">
@@ -195,6 +199,63 @@ function BytesPreview({
     <pre className="h-full overflow-auto whitespace-pre-wrap break-words px-4 py-3 text-xs leading-relaxed text-subtle">
       {text}
     </pre>
+  );
+}
+
+/**
+ * HTML 文档预览:默认渲染成网页(沙箱 iframe),可切「源码」。
+ * 沙箱 sandbox="allow-scripts allow-popups" 但**不含 allow-same-origin** → iframe 为独立源,
+ * 脚本能跑(图表/交互文档)但碰不到父页 cookie/DOM/凭证;安全渲染用户自己生成的 HTML。
+ */
+function HtmlPreview({ html, name }: { html: string; name: string }): ReactNode {
+  const [showSource, setShowSource] = useState(false);
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex shrink-0 items-center gap-1 border-b border-border bg-surface-1 px-2 py-1.5">
+        <ToggleBtn active={!showSource} onClick={() => setShowSource(false)} Icon={Eye} label="渲染" />
+        <ToggleBtn active={showSource} onClick={() => setShowSource(true)} Icon={Code2} label="源码" />
+      </div>
+      <div className="min-h-0 flex-1 overflow-hidden">
+        {showSource ? (
+          <div className="h-full overflow-auto px-4 py-3">
+            <MarkdownRenderer text={'```html\n' + html + '\n```'} />
+          </div>
+        ) : (
+          <iframe
+            title={name}
+            sandbox="allow-scripts allow-popups"
+            srcDoc={html}
+            className="h-full w-full border-0 bg-white"
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ToggleBtn({
+  active,
+  onClick,
+  Icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  Icon: typeof Eye;
+  label: string;
+}): ReactNode {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'inline-flex h-7 items-center gap-1 rounded-md px-2.5 text-xs transition-colors',
+        active ? 'bg-surface-2 font-semibold text-foreground' : 'text-muted-foreground hover:text-foreground',
+      )}
+    >
+      <Icon className="size-3.5" />
+      {label}
+    </button>
   );
 }
 

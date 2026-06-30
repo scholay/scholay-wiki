@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type Ref } from 'react';
-import { Cpu, History, Loader2, MessageSquarePlus, Sparkles } from 'lucide-react';
+import { Cpu, History, Loader2, MessageSquarePlus, PanelRightOpen, Sparkles } from 'lucide-react';
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'framer-motion';
 import { StickToBottom } from 'use-stick-to-bottom';
 import { Button } from '@/shared/ui/button';
@@ -15,9 +15,9 @@ import { ChatComposer, type ChatComposerHandle } from '../components/chat/ChatCo
 import { MessageTurn } from '../components/chat/MessageTurn';
 import { type ClawArtifact } from '../api/artifacts';
 import { ClawArtifactPreview } from '../components/preview/ClawArtifactPreview';
+import { ClawArtifactPanel } from '../components/preview/ClawArtifactPanel';
 import { ClawSidebar } from '../components/sidebar/ClawSidebar';
 import { ScrollController } from '../components/chat/ScrollController';
-import { ConnectionBadge } from '../components/chat/ConnectionBadge';
 import { ClawHero } from '../components/chat/ClawHero';
 import { useClawConversation } from '../hooks/useClawConversation';
 
@@ -65,11 +65,20 @@ export function ClawPage() {
     composerDisabled,
   } = conv;
 
-  // 成果预览:点卡片「预览」→ 选中该交付物。桌面(≥1024px)右侧分栏,窄屏走 Sheet 抽屉。
+  // 成果文件:统一在右侧分栏展示(不再挂对话底部)。桌面(≥1024px)右侧分栏,窄屏走 Sheet 抽屉。
   const [previewArtifact, setPreviewArtifact] = useState<ClawArtifact | null>(null);
   const isNarrow = useMediaQuery('(max-width: 1024px)');
-  const showSidePreview = !!previewArtifact && !isNarrow;
+  // 右侧成果栏「收起」开关(用户可手动收起,中间对话区随之占满)。切换会话时重置为展开,
+  // 让「本会话产出了文件 → 默认展示成果栏」可发现;收起是当前会话视图内的临时操作。
+  const [rightCollapsed, setRightCollapsed] = useState(false);
+  useEffect(() => { setRightCollapsed(false); }, [sessionId]);
   const closePreview = useCallback(() => setPreviewArtifact(null), []);
+  const collapseRight = useCallback(() => { setRightCollapsed(true); setPreviewArtifact(null); }, []);
+  // 桌面:本会话一旦有产物(或点了预览)且未收起 → 出右侧成果栏;中间对话区保持居中、可拖拽分隔。
+  const hasArtifacts = (sessionArtifacts?.length ?? 0) > 0 || !!previewArtifact;
+  const showRightPanel = !isNarrow && !rightCollapsed && hasArtifacts;
+  // 收起后若仍有产物 → 在对话区右缘留一个「展开成果」浮标,便于重新展开。
+  const showReexpandTab = !isNarrow && rightCollapsed && hasArtifacts;
 
   // 量出"对话框可视区"像素高 → 写进 --chat-area-h, 供底部留白按比例计算 (见 StickToBottom.Content)。
   const chatAreaRef = useHeightVar<HTMLDivElement>('chat-area-h');
@@ -129,7 +138,7 @@ export function ClawPage() {
           </div>
           <h1 className="text-base font-bold text-foreground">智能助手</h1>
         </div>
-        <ConnectionBadge state={socket.state} reconnectAttempt={socket.reconnectAttempt} />
+        {/* 连接状态徽章已移除:连接/重连过程对用户无意义,不展示(其余 feature 同)。 */}
         {/* 上下文水位从 header 移到了输入框 footer (ChatComposer), 参考 Claude/Cursor 的位置。 */}
         <div className="ml-auto flex items-center gap-2">
           <Button
@@ -163,6 +172,19 @@ export function ClawPage() {
       {/* hero(居中)与对话视图是两层叠层,互不挤压;对话框借同一 layoutId 在两层间平滑停靠。 */}
       <LayoutGroup>
       <div className="relative h-full min-h-0">
+        {/* 成果栏已收起但仍有产物 → 右缘浮标(图标 + 数量),点开重新展开成果栏。 */}
+        {showReexpandTab && (
+          <button
+            type="button"
+            onClick={() => setRightCollapsed(false)}
+            title="展开成果栏"
+            aria-label="展开成果栏"
+            className="absolute right-0 top-1/2 z-30 flex -translate-y-1/2 flex-col items-center gap-1 rounded-l-md border border-r-0 border-border bg-surface-1 px-1.5 py-2.5 text-2xs text-muted-foreground shadow-sm transition-colors hover:bg-surface-2 hover:text-foreground"
+          >
+            <PanelRightOpen className="h-4 w-4 text-brand-green" />
+            {(sessionArtifacts?.length ?? 0) > 0 && <span className="font-semibold">{sessionArtifacts?.length}</span>}
+          </button>
+        )}
         {/* 对话视图(底层)—— 仅有对话时渲染;输入框悬浮停靠在底部中央(参考智能搜索)。 */}
         {turns.length > 0 && (
           // 量高 div: useHeightVar 把"对话框可视区"像素高写进 --chat-area-h, 供留白按比例算。
@@ -187,7 +209,8 @@ export function ClawPage() {
                   <MessageTurn
                     key={t.id}
                     turn={t}
-                    artifacts={sessionArtifacts}
+                    // 桌面成果走右侧栏(不挂底部);仅窄屏(无侧栏空间)保留行内卡片。
+                    artifacts={isNarrow ? sessionArtifacts : undefined}
                     sessionId={sessionId}
                     onPreview={setPreviewArtifact}
                     onResendBlocked={conv.resendBlocked}
@@ -265,11 +288,20 @@ export function ClawPage() {
       </div>
       </LayoutGroup>
       </ResizablePanel>
-      {showSidePreview && previewArtifact && (
+      {showRightPanel && (
         <>
           <ResizableHandle withHandle />
-          <ResizablePanel id="claw-preview" order={2} defaultSize={42} minSize={26} className="min-w-0">
-            <ClawArtifactPreview artifact={previewArtifact} onClose={closePreview} />
+          {/* 成果文件栏:有产物自动出现;中间对话区保持居中(max-w-3xl mx-auto),分隔可拖拽。
+              defaultSize 偏小,尽量少挤压对话列。 */}
+          <ResizablePanel id="claw-artifacts" order={2} defaultSize={34} minSize={24} className="min-w-0">
+            <ClawArtifactPanel
+              sessionId={sessionId ?? ''}
+              artifacts={sessionArtifacts ?? []}
+              previewArtifact={previewArtifact}
+              onPreview={setPreviewArtifact}
+              onClosePreview={closePreview}
+              onCollapse={collapseRight}
+            />
           </ResizablePanel>
         </>
       )}

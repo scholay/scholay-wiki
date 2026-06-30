@@ -103,11 +103,13 @@ export function QuotaNotifier() {
     onError: (err) => toast.error(toApiError(err).message || '兑换失败,请检查兑换码'),
   });
 
-  if (!data) return null;
-  const enough = data.credit.total >= data.reset_cost;
+  // ⚠️ 绝不 `return null`:resetOpen===true 时卸载 Dialog 会让 Radix body 锁泄漏(全站点击失灵,
+  // 见 BodyPointerLockGuard)。改为把 data 闸折进 open prop + 内容用 data 守卫,让 Radix 正常收尾。
+  const enough = !!data && data.credit.total >= data.reset_cost;
 
   return (
-    <Dialog open={resetOpen} onOpenChange={(o) => (o ? openReset() : closeReset())}>
+    <Dialog open={resetOpen && !!data} onOpenChange={(o) => (o ? openReset() : closeReset())}>
+      {data && (
       <DialogContent>
         <DialogHeader>
           <DialogTitle>今日 AI 额度已用完</DialogTitle>
@@ -175,6 +177,7 @@ export function QuotaNotifier() {
           )}
         </DialogFooter>
       </DialogContent>
+      )}
     </Dialog>
   );
 }

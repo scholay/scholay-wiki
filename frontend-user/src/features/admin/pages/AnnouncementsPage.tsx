@@ -135,12 +135,12 @@ function AnnouncementDialog({
   onClose: () => void;
   onSubmit: (form: Omit<Announcement, 'id' | 'created_at' | 'updated_at' | 'created_by'>) => void;
 }) {
-  if (!mode) return null;
-  const isEdit = mode.kind === 'edit';
-  const initial = isEdit ? mode.row : undefined;
+  const isEdit = mode?.kind === 'edit';
+  const initial = mode?.kind === 'edit' ? mode.row : undefined;
 
   return (
     <Dialog open={!!mode} onOpenChange={(o) => !o && onClose()}>
+      {mode && (
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{isEdit ? '编辑公告' : '新建公告'}</DialogTitle>
@@ -269,6 +269,7 @@ function AnnouncementDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+      )}
     </Dialog>
   );
 }

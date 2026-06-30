@@ -9,16 +9,14 @@
 #   ./scripts/build-and-push.sh major     # 递增主版本 (0.0.1 -> 1.0.0)
 #   ./scripts/build-and-push.sh v1.2.3    # 使用指定版本号
 #   ./scripts/build-and-push.sh patch backend  # 只构建 backend
-#   ./scripts/build-and-push.sh patch agent    # 只构建 agent (scholar_agent / cc-haha Bun 容器)
-#   ./scripts/build-and-push.sh patch egress   # 只构建 egress (agent 出网代理 / tinyproxy)
+#   ./scripts/build-and-push.sh patch agent    # 只构建 agent (scholar_agent / clean-room executor Bun 容器)
 #
-# 构建目标: backend | agent | frontend-user | egress | prism_tex | all (默认 all)
+# 构建目标: backend | agent | frontend-user | prism_tex | all (默认 all)
 #
 # 注意:
 #   - frontend-admin 已合并到 frontend-user(/admin 路由), 不再单独构建。
 #   - frontend-user 是 Vite + React 19 (源在 frontend-user/);容器 / ACR 镜像名仍叫 frontend-user。
-#   - agent 是 AI Agent 容器 (源在 agent/), 跟 backend 同一套 buildx linux/amd64 构建, 无 build-arg。
-#   - egress 是 agent 出公网的唯一代理 (tinyproxy, 源在 egress/), 无 build-arg, 同 buildx amd64。
+#   - agent 是 clean-room executor 容器 (Bun, 源在 agent/), 跟 backend 同一套 buildx linux/amd64 构建, 无 build-arg。
 # ============================================================
 
 set -e
@@ -131,13 +129,11 @@ fi
 BACKEND_IMAGE="${REGISTRY}/${NAMESPACE}/backend:${NEW_VERSION}"
 AGENT_IMAGE="${REGISTRY}/${NAMESPACE}/agent:${NEW_VERSION}"
 FRONTEND_USER_IMAGE="${REGISTRY}/${NAMESPACE}/frontend-user:${NEW_VERSION}"
-EGRESS_IMAGE="${REGISTRY}/${NAMESPACE}/egress:${NEW_VERSION}"
 PRISM_TEX_IMAGE="${REGISTRY}/${NAMESPACE}/prism_tex:${NEW_VERSION}"
 
 BACKEND_LATEST="${REGISTRY}/${NAMESPACE}/backend:latest"
 AGENT_LATEST="${REGISTRY}/${NAMESPACE}/agent:latest"
 FRONTEND_USER_LATEST="${REGISTRY}/${NAMESPACE}/frontend-user:latest"
-EGRESS_LATEST="${REGISTRY}/${NAMESPACE}/egress:latest"
 PRISM_TEX_LATEST="${REGISTRY}/${NAMESPACE}/prism_tex:latest"
 
 echo -e "${GREEN}========================================${NC}"
@@ -243,9 +239,6 @@ case ${BUILD_TARGET} in
     "frontend-user"|"frontend")
         build_frontend "frontend-user" "${FRONTEND_USER_IMAGE}" "${FRONTEND_USER_LATEST}" "./frontend-user"
         ;;
-    "egress")
-        build_server_image "egress" "${EGRESS_IMAGE}" "${EGRESS_LATEST}" "./egress"
-        ;;
     "prism_tex"|"prism-tex")
         build_server_image "prism_tex" "${PRISM_TEX_IMAGE}" "${PRISM_TEX_LATEST}" "./prism_tex"
         ;;
@@ -253,12 +246,11 @@ case ${BUILD_TARGET} in
         build_server_image "backend" "${BACKEND_IMAGE}" "${BACKEND_LATEST}" "./backend"
         build_server_image "agent" "${AGENT_IMAGE}" "${AGENT_LATEST}" "./agent"
         build_frontend "frontend-user" "${FRONTEND_USER_IMAGE}" "${FRONTEND_USER_LATEST}" "./frontend-user"
-        build_server_image "egress" "${EGRESS_IMAGE}" "${EGRESS_LATEST}" "./egress"
         build_server_image "prism_tex" "${PRISM_TEX_IMAGE}" "${PRISM_TEX_LATEST}" "./prism_tex"
         ;;
     *)
         echo -e "${RED}错误: 未知的构建目标 '${BUILD_TARGET}'${NC}"
-        echo "可用选项: backend, agent, frontend-user, egress, prism_tex, all"
+        echo "可用选项: backend, agent, frontend-user, prism_tex, all"
         exit 1
         ;;
 esac
@@ -285,10 +277,6 @@ fi
 if [ "${BUILD_TARGET}" = "all" ] || [ "${BUILD_TARGET}" = "frontend-user" ] || [ "${BUILD_TARGET}" = "frontend" ]; then
     echo "  - ${FRONTEND_USER_IMAGE}"
     echo "  - ${FRONTEND_USER_LATEST}"
-fi
-if [ "${BUILD_TARGET}" = "all" ] || [ "${BUILD_TARGET}" = "egress" ]; then
-    echo "  - ${EGRESS_IMAGE} (linux/amd64)"
-    echo "  - ${EGRESS_LATEST}"
 fi
 echo ""
 echo "服务器部署: ./scripts/deploy.sh"

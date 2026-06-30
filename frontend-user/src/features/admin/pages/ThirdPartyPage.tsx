@@ -276,8 +276,6 @@ function ThirdPartyDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [secretSig]);
 
-  if (!mode) return null;
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // 只挑当前 type 声明的 key 落到提交里 —— 其它残留字段保留在 state 但不写库
@@ -299,6 +297,7 @@ function ThirdPartyDialog({
 
   return (
     <Dialog open={!!mode} onOpenChange={(o) => !o && onClose()}>
+      {mode && (
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? '编辑账号' : '添加三方账号'}</DialogTitle>
@@ -372,6 +371,7 @@ function ThirdPartyDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+      )}
     </Dialog>
   );
 }

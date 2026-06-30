@@ -41,14 +41,14 @@ export function AuthDialog() {
 
   // 移动端(/m/*)的登录走 /m/auth 整页(MobileShell 的桥接 effect 会立刻转跳),
   // 这里不渲染弹窗本体,避免转跳前闪一帧 PC 弹窗。扫码视图例外(移动端就用弹窗)。
-  if (
-    open &&
+  // ⚠️ 绝不能在 open===true 时 `return null` 卸载 Dialog —— 那会让 Radix 的 body
+  // pointer-events 锁泄漏,导致切到 /m 后全站点击失灵(见 BodyPointerLockGuard)。
+  // 改为把该抑制折进 open prop:open 为 false 时 Radix 同样不渲染弹窗(不闪 PC 弹窗),
+  // 且会正常走 open→closed 过渡还原 body 锁。
+  const suppressOnMobile =
     !isWeChatQR &&
     typeof window !== 'undefined' &&
-    (window.location.pathname === '/m' || window.location.pathname.startsWith('/m/'))
-  ) {
-    return null;
-  }
+    (window.location.pathname === '/m' || window.location.pathname.startsWith('/m/'));
 
   // 用户**主动关弹窗且仍未登录**(Esc / 点外面 / ×)→ 顺手丢掉 pending-action,
   // 否则之后从别处(topnav / OAuth)登录会被莫名重放(如未登录点首页「智能搜索」排了个
@@ -61,7 +61,7 @@ export function AuthDialog() {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => (v ? null : handleClose())}>
+    <Dialog open={open && !suppressOnMobile} onOpenChange={(v) => (v ? null : handleClose())}>
       <DialogContent className="max-w-md p-0 gap-0 border-border">
         <div className="relative flex flex-col items-center gap-1 pt-7 pb-4 px-6 border-b border-border-soft">
           {/* 微信扫码模式:左上角返回箭头,回到 login;其他模式无返回(可关弹窗) */}

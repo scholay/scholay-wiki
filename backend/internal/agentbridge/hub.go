@@ -32,10 +32,12 @@ import (
 	"log/slog"
 	"net/http"
 	"path"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/google/uuid"
 	gorillaws "github.com/gorilla/websocket"
 
 	"scholar-backend/internal/common/safego"
@@ -65,11 +67,21 @@ type sessionHub struct {
 	inFlight         bool                  // 一轮回答进行中 → 回答中锁住
 	closed           bool
 
+	// Web-native 重构 P0 影子日志(h.mu 守护):当前进行中轮的持久 turn id(0=无)+ 是否已
+	// 经 message_complete 正常完成。仅用于把 live 帧 tee 进事件日志 + 终态时 Complete/Fail/Abort。
+	// jsonl + 内存 hub 仍权威;这两字段失效不影响 live。
+	currentTurnID     uint64
+	completedThisTurn bool
+
 	promptInjected atomic.Bool // 首条 user_message 注入 system prompt prefix,每 session 一次
 	pendingMark    atomic.Bool // 注入了但等 agent 首个 message_complete 才落库 prompt_injected
 
 	stopPing  chan struct{}
 	closeOnce sync.Once
+
+	// graceTimer(h.mu 守护):最后一个订阅者离开时不立即 shutdown,而是 arm 这个 grace 计时器,
+	// 让在途回答继续(上游 pump 不停、帧继续落 journal),用户切走再切回能续看;到点仍无订阅者才 shutdown。
+	graceTimer *time.Timer
 }
 
 // subscriber 是一条下游浏览器 WS。out 由独立 writeLoop 抽干 → 解耦慢客户端。
@@ -131,14 +143,16 @@ func hubKey(featureKey, sessionID string) string {
 
 // newHub dial 上游 agent WS + 判定 prompt 注入状态 + 起上游读循环与 ping。失败(dial 不通)返回 error。
 func (f *FeatureBridge) newHub(key string, userID uint, sessionID string) (*sessionHub, error) {
-	agentWSURL, err := buildAgentWSURL(f.bridge.client.BaseURL(), sessionID)
+	// P4a:按 feature 选 executor 或 fork 客户端拨 WS(默认 fork;executorFeatures 命中走 executor)。
+	cl := f.bridge.clientForFeature(f.spec.Key)
+	agentWSURL, err := buildAgentWSURL(cl.BaseURL(), sessionID)
 	if err != nil {
 		slog.Error("agentbridge hub: bad agent base url",
-			"base_url", f.bridge.client.BaseURL(), "err", err)
+			"base_url", cl.BaseURL(), "err", err)
 		return nil, err
 	}
 	header := http.Header{}
-	if tok := f.bridge.client.AuthToken(); tok != "" {
+	if tok := cl.AuthToken(); tok != "" {
 		header.Set("Authorization", "Bearer "+tok)
 	}
 	agentConn, _, derr := agentDialer.Dial(agentWSURL, header)
@@ -169,6 +183,15 @@ func (f *FeatureBridge) newHub(key string, userID uint, sessionID string) (*sess
 		h.promptInjected.Store(true)
 	}
 
+	// H1:切到 executor 的 feature,连接后先从 journal 喂 history(executor 无状态、内存重连即丢)。
+	// 在 upstreamLoop/user_message 之前发,WS 有序 → executor 先 seed 再收首条 user_message。
+	if f.bridge.isExecutorFeature(f.spec.Key) {
+		h.seedHistoryFromJournal()
+	}
+	// 模型路由 方案A:建连即给 executor 发一次「会话锁定 tier」(A1 feature 默认 / A3 用户显式选),
+	// 整连接锁定。在 user_message 之前发,WS 有序 → executor 先设 tier 再收首条消息。
+	h.sendInitialTier()
+
 	safego.Go("agentbridge-hub-upstream:"+f.spec.Key, h.upstreamLoop)
 	safego.Go("agentbridge-hub-ping:"+f.spec.Key, h.pingLoop)
 	slog.Info("agentbridge hub: created",
@@ -197,6 +220,95 @@ func (h *sessionHub) resolveAlreadyInjected() bool {
 	return hasUser
 }
 
+// validTier 校验模型档位(对应 agent_config 槽位 + executor resolveTier)。
+func validTier(t string) bool {
+	return t == "main" || t == "haiku" || t == "sonnet" || t == "opus"
+}
+
+// tierFromFrame 从 set_runtime_config 帧取 tier(仅返回合法档位,否则空)。
+func tierFromFrame(data []byte) string {
+	var f struct {
+		Tier string `json:"tier"`
+	}
+	if json.Unmarshal(data, &f) != nil {
+		return ""
+	}
+	t := strings.TrimSpace(f.Tier)
+	if validTier(t) {
+		return t
+	}
+	return ""
+}
+
+// sendInitialTier 建连后给 executor 发一次 set_runtime_config{tier}(模型路由 方案A:A1 默认 + A3 锁定)。
+// effectiveTier = 会话 pinned_tier(用户显式选) || feature.DefaultTier。空(如 peerreview serverside,
+// 自管 per-round modelId)→ 不发。整连接锁定:executor 据此设 ws.data.tier 用于本连接所有轮。
+func (h *sessionHub) sendInitialTier() {
+	tier := h.f.spec.DefaultTier
+	if h.f.bridge.repo != nil {
+		if row, err := h.f.bridge.repo.FindByAgentSessionID(h.sessionID); err == nil && row != nil && validTier(row.PinnedTier) {
+			tier = row.PinnedTier // A3 用户显式选优先于 feature 默认
+		}
+	}
+	if !validTier(tier) {
+		return // 空 / 非法 → 不下发(executor 用它自己的默认 tier=main)
+	}
+	frame, err := json.Marshal(map[string]any{"type": "set_runtime_config", "tier": tier})
+	if err != nil {
+		return
+	}
+	if werr := h.writeAgent(gorillaws.TextMessage, frame); werr != nil {
+		slog.Debug("agentbridge hub: initial set_runtime_config write failed", "session_id", h.sessionID, "err", werr)
+	} else {
+		slog.Debug("agentbridge hub: sent session tier", "feature", h.f.spec.Key, "session_id", h.sessionID, "tier", tier)
+	}
+}
+
+// seedHistoryFromJournal 在(切到 executor 的)hub 建连后,把 journal 折叠的会话历史作为 seed_history
+// 控制帧喂给 executor —— executor 无状态、不自持久化历史(H1)。fork 路径不调用(fork 有 jsonl)。
+func (h *sessionHub) seedHistoryFromJournal() {
+	if h.f.bridge.log == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	evs, _, _, err := h.f.bridge.log.ReadRecentTurns(ctx, h.sessionID, 30)
+	if err != nil {
+		return
+	}
+	msgs := h.f.bridge.log.FoldToMessages(evs)
+	// 老会话(切流前)无事件日志 → 历史在归档表(P6:fork 退役前归档)。journal 空 → 先读归档,
+	// 让 executor 续聊老会话仍有上下文;再兜底 client(过渡 fork / collapse 后 executor 返空无害)。
+	if len(msgs) == 0 {
+		if ar, ok := h.f.bridge.readArchive(h.sessionID); ok {
+			msgs = ar.Messages
+		} else if resp, derr := h.f.bridge.client.GetSessionMessages(ctx, h.sessionID, 30); derr == nil && resp != nil && len(resp.Messages) > 0 {
+			msgs = resp.Messages
+		}
+	}
+	// 一并喂已有标题(后端拥有),executor 据此跳过重复生成标题(避免重连后又生成、与 DB 不一致)。
+	title := ""
+	if row, derr := h.f.bridge.repo.FindByAgentSessionID(h.sessionID); derr == nil && row != nil {
+		title = row.Title
+	}
+	if len(msgs) == 0 && title == "" {
+		return // 全新会话:无历史无标题,executor 从空起(并会生成标题)
+	}
+	payload := map[string]any{"type": "seed_history", "messages": msgs}
+	if title != "" {
+		payload["title"] = title
+	}
+	frame, ferr := json.Marshal(payload)
+	if ferr != nil {
+		return
+	}
+	if werr := h.writeAgent(gorillaws.TextMessage, frame); werr != nil {
+		slog.Debug("agentbridge hub: seed_history write failed", "session_id", h.sessionID, "err", werr)
+	} else {
+		slog.Info("agentbridge hub: seeded executor history", "feature", h.f.spec.Key, "session_id", h.sessionID, "messages", len(msgs))
+	}
+}
+
 // ── 订阅者生命周期 ───────────────────────────────────────────────────────────
 
 // addSubscriber 注册一条下游 WS。若有进行中的轮,先在锁内补「用户气泡 + 已产出助手帧」再注册,
@@ -208,34 +320,88 @@ func (h *sessionHub) addSubscriber(conn *gorillaws.Conn) *subscriber {
 		out:  make(chan []byte, subOutBuffer),
 		quit: make(chan struct{}),
 	}
+
+	// P1 第一段(锁外):若在途 + 本 feature 启用日志读 → 从事件日志读在途轮(MySQL 往返**绝不**
+	// 持 h.mu,否则阻塞同 hub 的 broadcastAgent/beginTurn)。读错 → useJournal=false 落回 replayBuf。
+	var jTurn *Turn
+	var jEvs []Event
+	useJournal := false
+	if h.inFlightSnapshot() && h.f.bridge.readFromJournal(h.f.spec.Key) && h.f.bridge.log != nil {
+		if t, evs, jerr := h.f.bridge.log.ReadInFlightEvents(context.Background(), h.sessionID); jerr == nil && t != nil {
+			jTurn, jEvs, useJournal = t, evs, true
+		}
+	}
+
+	// 第二段(进锁):注册 sub + 据 useJournal 选回放源。锁内只内存操作,无 DB。
 	h.mu.Lock()
 	if h.closed {
 		h.mu.Unlock()
 		return nil
 	}
 	if h.inFlight {
-		// 迟到续流:用户气泡 + 已产出助手帧(content_delta 在 replayBuf 里已合并,有界)。
-		if h.inFlightUserText != "" {
-			trySend(sub.out, userEchoFrame(h.inFlightUserText))
-		}
-		for _, fr := range h.replayBuf {
-			trySend(sub.out, fr)
+		if useJournal && jTurn != nil {
+			// 迟到续流(P1 持久源):从事件日志合成 user_echo + 回放已产出助手帧。data-loss 修复点:
+			// 即便所有 sub 离开 / hub 中途 shutdown,partial 内容已 durable 在 agent_turn_events,
+			// 重连 tab 仍能回放 —— replayBuf(RAM,shutdown 即弃)永远做不到。
+			if jTurn.RoleUserText != "" {
+				trySend(sub.out, userEchoFrame(jTurn.RoleUserText))
+			}
+			for _, ev := range jEvs {
+				trySend(sub.out, ev.Payload)
+			}
+		} else {
+			// 既有内存路径(flag off / 日志读错的 fallback):用户气泡 + replayBuf(已合并,有界)。
+			if h.inFlightUserText != "" {
+				trySend(sub.out, userEchoFrame(h.inFlightUserText))
+			}
+			for _, fr := range h.replayBuf {
+				trySend(sub.out, fr)
+			}
 		}
 	}
 	h.subs[sub] = struct{}{}
+	// tab 切回:取消 grace 关闭计时器,hub 继续存活。
+	if h.graceTimer != nil {
+		h.graceTimer.Stop()
+		h.graceTimer = nil
+	}
 	h.mu.Unlock()
 	safego.Go("agentbridge-hub-sub-write:"+h.f.spec.Key, sub.writeLoop)
 	return sub
 }
 
-// removeSubscriber 摘除一条订阅者;摘到 0 个 → 关 hub(连带关上游 agent WS)。
+// inFlightSnapshot 短临持 h.mu 读 inFlight(给 addSubscriber 锁外预判用,非长持)。
+func (h *sessionHub) inFlightSnapshot() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.inFlight
+}
+
+// hubGracePeriod:最后一个订阅者离开后,hub 保活窗口。让「回答中切走再切回」不中断、不丢中间过程
+// (上游 pump 持续、帧继续落 journal);窗口内无人回来才真正 shutdown。
+const hubGracePeriod = 3 * time.Minute
+
+// removeSubscriber 摘除一条订阅者;摘到 0 个 → **不立即关**,arm grace 计时器(到点仍空才关),
+// 避免单 tab 切走时杀掉正在进行的回答(bug:回答中跳页面再回来被打断 + 中间过程消失)。
 func (h *sessionHub) removeSubscriber(sub *subscriber) {
 	sub.close()
 	h.mu.Lock()
 	delete(h.subs, sub)
-	empty := len(h.subs) == 0
+	if len(h.subs) == 0 && !h.closed {
+		if h.graceTimer != nil {
+			h.graceTimer.Stop()
+		}
+		h.graceTimer = time.AfterFunc(hubGracePeriod, h.graceShutdown)
+	}
 	h.mu.Unlock()
-	if empty {
+}
+
+// graceShutdown:grace 到点。仍无订阅者才 shutdown(其间有 tab 切回则 addSubscriber 已取消计时器)。
+func (h *sessionHub) graceShutdown() {
+	h.mu.Lock()
+	stillEmpty := len(h.subs) == 0 && !h.closed
+	h.mu.Unlock()
+	if stillEmpty {
 		h.shutdown()
 	}
 }
@@ -245,10 +411,19 @@ func (h *sessionHub) shutdown() {
 	h.closeOnce.Do(func() {
 		h.mu.Lock()
 		h.closed = true
+		if h.graceTimer != nil {
+			h.graceTimer.Stop()
+			h.graceTimer = nil
+		}
 		subs := make([]*subscriber, 0, len(h.subs))
 		for s := range h.subs {
 			subs = append(subs, s)
 		}
+		// P0 影子:hub 关闭时仍有未完成在途轮(订阅者全断 / 进程收尾)→ 标 aborted。
+		// 上游读错路径已先 endTurn(置 currentTurnID=0),故那条路径走到这里 abortTID==0,不重复。
+		abortTID := h.currentTurnID
+		abortDone := h.completedThisTurn
+		h.currentTurnID = 0
 		h.mu.Unlock()
 
 		h.cancelHook()
@@ -259,6 +434,10 @@ func (h *sessionHub) shutdown() {
 		}
 		h.f.bridge.removeHub(h.key, h)
 		h.f.bridge.deleteTokenWatermark(h.sessionID)
+		if abortTID != 0 && !abortDone && h.f.bridge.turns != nil {
+			turns := h.f.bridge.turns
+			safego.Go("agentbridge-turn-abort:"+h.f.spec.Key, func() { _ = turns.AbortTurn(context.Background(), abortTID) })
+		}
 		slog.Info("agentbridge hub: closed",
 			"feature", h.f.spec.Key, "session_id", h.sessionID)
 	})
@@ -336,7 +515,17 @@ func (h *sessionHub) endTurn() {
 	h.inFlight = false
 	h.replayBuf = nil
 	h.inFlightUserText = ""
+	tid := h.currentTurnID
+	done := h.completedThisTurn
+	h.currentTurnID = 0
 	h.mu.Unlock()
+	// P0 影子:非正常完成(轮内 error / 上游 drop / 注入失败 / writeAgent 失败)→ 标 failed。
+	// message_complete 路径已在上游把 currentTurnID 置 0 + completedThisTurn=true,故此处 tid==0 跳过。
+	// 用 context.Background()(hookCtx 可能在收尾路径被 cancel,而这是 best-effort 终态写)。
+	if tid != 0 && !done && h.f.bridge.turns != nil {
+		turns := h.f.bridge.turns
+		safego.Go("agentbridge-turn-fail:"+h.f.spec.Key, func() { _ = turns.FailTurn(context.Background(), tid) })
+	}
 }
 
 // ── 上游读循环(agent → 订阅者),保留 pipe 原有全部钩子 ─────────────────────────
@@ -370,6 +559,27 @@ func (h *sessionHub) upstreamLoop() {
 				}
 			case "message_complete":
 				if usage, calls, sessionTotal, isComplete := extractMessageComplete(data); isComplete {
+					// P0 影子:终结符入日志 + CompleteTurn(影子计费);live 计费仍走下方 accrueTurnUsage,完全不动。
+					// 在此同步置 currentTurnID=0 + completedThisTurn=true:使下方 endTurn 不重复 finalize、
+					// 且 broadcastAgent 后的通用 Append tee 不重复 append message_complete。
+					if f.bridge.turns != nil {
+						h.mu.Lock()
+						tid := h.currentTurnID
+						h.currentTurnID = 0
+						h.completedThisTurn = true
+						h.mu.Unlock()
+						if tid != 0 {
+							f.bridge.turns.Append(tid, h.sessionID, EvMessageComplete, data)
+							ledger := buildLedgerRow(h.userID, h.sessionID, f.spec.Key, usage)
+							model := usage.Model
+							safego.Go("agentbridge-turn-complete:"+f.spec.Key, func() {
+								if err := f.bridge.turns.CompleteTurn(context.Background(), tid, model, ledger); err != nil {
+									slog.Warn("agentbridge hub: shadow CompleteTurn failed (billing unaffected)",
+										"feature", f.spec.Key, "turn_id", tid, "err", err)
+								}
+							})
+						}
+					}
 					if h.pendingMark.CompareAndSwap(true, false) {
 						f.markPromptInjected(h.sessionID)
 					}
@@ -393,7 +603,7 @@ func (h *sessionHub) upstreamLoop() {
 						safego.Go("usermemory-extract-dispatch:"+f.spec.Key, func() {
 							ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 							defer cancel()
-							if frame := f.bridge.buildMemoryExtractFrame(ctx, uid, sid); frame != nil {
+							if frame := f.bridge.buildMemoryExtractFrame(ctx, uid, sid, f.spec.Key); frame != nil {
 								if werr := h.writeAgent(gorillaws.TextMessage, frame); werr != nil {
 									slog.Debug("agentbridge hub: extract_memory frame write failed",
 										"feature", f.spec.Key, "session_id", sid, "err", werr)
@@ -403,6 +613,10 @@ func (h *sessionHub) upstreamLoop() {
 					}
 				}
 				// 轮结束:先解锁忙态,再广播完成帧(让所有端解除置灰)。
+				h.endTurn()
+			case "error":
+				// C2:executor 的 error 终帧(round-cap / 上游失败 / abort 等)也必须清 inFlight,
+				// 否则该会话永远卡 busy(ping/pong 保活使读 deadline 永不触发)。仍向下广播 error 给前端解锁。
 				h.endTurn()
 			case "token_usage":
 				if u, kind, ok := extractTokenUsageFrame(data); ok {
@@ -423,8 +637,13 @@ func (h *sessionHub) upstreamLoop() {
 				}
 				continue // 纯后端信号,不广播
 			case "session_title_updated":
-				if f.spec.OnTitleResult != nil {
-					if title, aiGen, ok := extractTitleUpdateFrame(data); ok && aiGen && title != "" {
+				if title, aiGen, ok := extractTitleUpdateFrame(data); ok && aiGen && title != "" {
+					// 标题后端拥有(migration 0050):first-wins 持久化到 agent_sessions.title,
+					// 使 ListSessions / 续流读 DB 为准(executor 内存态不持久;切流后标题不丢)。
+					if perr := f.bridge.repo.SetTitleIfEmpty(h.sessionID, title); perr != nil {
+						slog.Warn("agentbridge hub: persist title failed", "session_id", h.sessionID, "err", perr)
+					}
+					if f.spec.OnTitleResult != nil {
 						hook := f.spec.OnTitleResult
 						uid, sid := h.userID, h.sessionID
 						safego.Go("agentbridge-title-result:"+f.spec.Key, func() {
@@ -435,6 +654,19 @@ func (h *sessionHub) upstreamLoop() {
 			}
 		}
 		h.broadcastAgent(data)
+
+		// P0 影子:把 live 帧 tee 进事件日志(在扇出之后;content_delta 仅入 batcher 内存,无 MySQL)。
+		// message_complete 已在上面 case 里处理(置 currentTurnID=0),故此处自然跳过、不重复。
+		if f.bridge.turns != nil {
+			h.mu.Lock()
+			tid := h.currentTurnID
+			h.mu.Unlock()
+			if tid != 0 {
+				if ev, ok := classifyJournalEv(data); ok {
+					f.bridge.turns.Append(tid, h.sessionID, ev, data)
+				}
+			}
+		}
 	}
 }
 
@@ -500,8 +732,20 @@ func (s *subscriber) readLoop() {
 			continue
 		case "user_message":
 			h.handleUserMessage(s, data)
+		case "set_runtime_config":
+			// 模型路由 A3:浏览器显式选 快/深(tier)→ 持久化为会话 pinned_tier(stickiness:重连后
+			// sendInitialTier 据此重发,锁定);再转发上游立即生效。无效 tier 不持久化。
+			if tier := tierFromFrame(data); tier != "" {
+				if perr := h.f.bridge.repo.SetPinnedTier(h.sessionID, tier); perr != nil {
+					slog.Debug("agentbridge hub: persist pinned_tier failed", "session_id", h.sessionID, "err", perr)
+				}
+			}
+			if err := h.writeAgent(mt, data); err != nil {
+				slog.Debug("agentbridge hub: agent write end", "feature", h.f.spec.Key, "err", err)
+				return
+			}
 		default:
-			// stop_generation / set_runtime_config / permission_response 等控制帧 → 转发到唯一上游。
+			// stop_generation / permission_response 等控制帧 → 转发到唯一上游。
 			if err := h.writeAgent(mt, data); err != nil {
 				slog.Debug("agentbridge hub: agent write end", "feature", h.f.spec.Key, "err", err)
 				return
@@ -550,6 +794,31 @@ func (h *sessionHub) handleUserMessage(s *subscriber, data []byte) {
 	if !h.beginTurn(content) {
 		s.sendSelf(busyFrame())
 		return
+	}
+
+	// P0 影子日志:turn 账本 + user_message 事件落库(幂等于 clientTurnId)。同步一行 INSERT,
+	// 失败只 warn、绝不影响 live(jsonl + 内存 hub 仍权威)。用原文 content(注入前)。
+	if f.bridge.turns != nil {
+		clientTurnID := extractClientTurnID(data)
+		if clientTurnID == "" {
+			clientTurnID = uuid.NewString() // 旧客户端不带 → mint,唯一键永不撞(= 今天无跨重连去重的行为)
+		}
+		res, terr := f.bridge.turns.BeginTurn(h.hookCtx, TurnInput{
+			AgentSessionID: h.sessionID, FeatureKey: f.spec.Key, UserID: h.userID,
+			ClientTurnID: clientTurnID, RoleUserText: content,
+		})
+		if terr != nil {
+			slog.Warn("agentbridge hub: shadow BeginTurn failed (live unaffected)",
+				"feature", f.spec.Key, "session_id", h.sessionID, "err", terr)
+		} else if res.AlreadySeen {
+			h.endTurn() // 浏览器重发同 clientTurnId → 释放刚开的内存轮、丢帧、不转 agent
+			return
+		} else {
+			h.mu.Lock()
+			h.currentTurnID = res.TurnID
+			h.completedThisTurn = false
+			h.mu.Unlock()
+		}
 	}
 
 	// 首条 user_message 注入 system prompt prefix(每 session 一次)。
@@ -652,4 +921,48 @@ func contentDeltaText(frame []byte) (string, bool) {
 		return "", false
 	}
 	return *p.Text, true
+}
+
+// ── P0 影子日志辅助 ───────────────────────────────────────────────────────────
+
+// buildLedgerRow 从一轮 message_complete 的 usage 组装 P0 shadow 计费行(turn_id 由 CompleteTurn 填)。
+// 这只是审计影子;真权威计费仍是 accrueTurnUsage→recordAgentTokens(本轮完全不动)。
+func buildLedgerRow(userID uint, sid, featureKey string, usage AgentUsage) *BillingLedgerRow {
+	return &BillingLedgerRow{
+		AgentSessionID: sid,
+		UserID:         userID,
+		FeatureKey:     featureKey,
+		Kind:           "interactive",
+		InputTokens:    int64(usage.InputTokens),
+		OutputTokens:   int64(usage.OutputTokens),
+		CacheRead:      int64(usage.CacheReadTokens),
+		CacheCreation:  int64(usage.CacheCreationTokens),
+	}
+}
+
+// classifyJournalEv 把一帧广播帧映射成要入事件日志的 EvType(白名单)。
+// message_complete 在上游 case 单独处理(tee B),不在此;纯后端信号(token_usage/memory_update/
+// session_title_updated/ping/pong)与合成帧(user_echo/busy)不入(返回 false)。
+func classifyJournalEv(frame []byte) (EvType, bool) {
+	switch frameType(frame) {
+	case "content_start":
+		// 块边界标记(修 HIGH-2):落库供 in-flight replay 还原块边界;fold 不据此产 message。
+		return EvContentStart, true
+	case "content_delta":
+		return EvContentDelta, true
+	case "thinking":
+		// 思考过程入日志(修「历史会话思考过程丢失」)。batcher 用独立 buffer 合并(~百帧/轮 → 一行)。
+		return EvThinking, true
+	case "tool_use", "tool_use_complete":
+		// 实测 agent 发的工具调用帧类型是 tool_use_complete(非裸 tool_use);两者都收以保完整。
+		return EvToolUse, true
+	case "tool_result":
+		return EvToolResult, true
+	case "permission_request":
+		return EvPermissionRequest, true
+	case "error":
+		return EvError, true
+	default:
+		return "", false
+	}
 }

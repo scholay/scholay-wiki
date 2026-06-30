@@ -134,6 +134,7 @@ func BuildSpec() agentbridge.FeatureSpec {
 		Picker:                 agentbridge.NewStaticPicker(FeatureKey, PromptSlug, PromptName, prompts.ClawSystemPrompt),
 		Color:                  "purple",
 		InjectPromptOnFirstMsg: true,
+		DefaultTier:            "main", // 通用助手对话(可能 Bash/多工具):默认主档(pro)
 		// C14: 审批轴。默认 auto;CLAW_PERMISSION_PASSTHROUGH=1 时 passthrough(测试/HITL 验证)。
 		PermissionMode: clawPermissionMode(),
 		// C1 (2026-06): claw 是唯一允许 Bash 的 feature —— 要跑 pandoc/python 把 docx/xlsx

@@ -1,9 +1,0 @@
-{"type":"file-history-snapshot","messageId":"feda678c-649a-4d0b-9ac7-cda101e0688c","snapshot":{"messageId":"c65c058d-465d-4def-9cd5-51b195dafe59","trackedFileBackups":{},"timestamp":"2026-05-11T07:51:04.785Z"},"isSnapshotUpdate":false}
-{"type":"session-meta","isMeta":true,"workDir":"/home/bun","timestamp":"2026-05-11T07:51:04.785Z"}
-{"type":"session-meta","isMeta":true,"workDir":"/home/bun","timestamp":"2026-05-11T07:51:07.791Z"}
-{"type":"ai-title","aiTitle":"帮我审稿","timestamp":"2026-05-11T07:53:11.472Z"}
-{"type":"session-meta","isMeta":true,"workDir":"/home/bun","timestamp":"2026-05-11T07:53:11.667Z"}
-{"type":"queue-operation","operation":"enqueue","timestamp":"2026-05-11T07:53:11.485Z","sessionId":"a7395b9b-4991-4793-b379-1941e65cc4ec"}
-{"type":"queue-operation","operation":"dequeue","timestamp":"2026-05-11T07:53:11.492Z","sessionId":"a7395b9b-4991-4793-b379-1941e65cc4ec"}
-{"parentUuid":null,"isSidechain":false,"promptId":"08d2f993-0342-4bda-922b-83419c0f2832","type":"user","message":{"role":"user","content":[{"type":"text","text":"@\"/home/bun/.claude/uploads/a7395b9b-4991-4793-b379-1941e65cc4ec/2974e68d-fba8-4e04-9c66-a53e424cb1ba-s41599-025-06151-6.pdf\" 帮我审稿"}]},"uuid":"d7478712-68ba-477e-9fa1-03c5b3035e7b","timestamp":"2026-05-11T07:53:11.650Z","permissionMode":"default","userType":"external","entrypoint":"claude-desktop","cwd":"/home/bun","sessionId":"a7395b9b-4991-4793-b379-1941e65cc4ec","version":"999.0.0-local","gitBranch":"HEAD"}
-{"type":"file-history-snapshot","messageId":"d7478712-68ba-477e-9fa1-03c5b3035e7b","snapshot":{"messageId":"d7478712-68ba-477e-9fa1-03c5b3035e7b","trackedFileBackups":{},"timestamp":"2026-05-11T07:53:11.660Z"},"isSnapshotUpdate":false}

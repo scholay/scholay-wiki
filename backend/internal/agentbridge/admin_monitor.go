@@ -110,7 +110,22 @@ func (b *Bridge) AdminGetSessionMessages(c *gin.Context) {
 		utils.BadRequest(c, "sessionId 必填")
 		return
 	}
-	resp, err := b.client.GetSessionMessages(c.Request.Context(), sessionID, 0) // admin 看完整 transcript, 不分页
+	// H1 修复:切到 executor 的 feature,transcript 在后端 journal,fork(b.client)见不到 → 会全空。
+	// 按归属 feature 判定:executor-routed 则从 journal 折叠(空再回退 fork,救切流前老会话)。
+	if row, derr := b.repo.FindByAgentSessionID(sessionID); derr == nil && row != nil && b.isExecutorFeature(row.FeatureKey) && b.log != nil {
+		if evs, _, _, jerr := b.log.ReadRecentTurns(c.Request.Context(), sessionID, 500); jerr == nil {
+			if msgs := b.log.FoldToMessages(evs); len(msgs) > 0 {
+				utils.Success(c, gin.H{"messages": msgs})
+				return
+			}
+		}
+		// journal 空(切流前老会话)→ 读归档表(P6:fork 退役前归档)。
+		if ar, ok := b.readArchive(sessionID); ok {
+			utils.Success(c, gin.H{"messages": ar.Messages})
+			return
+		}
+	}
+	resp, err := b.client.GetSessionMessages(c.Request.Context(), sessionID, 0) // 兜底(过渡 fork / collapse 后 executor)
 	if err != nil {
 		if errors.Is(err, agent.ErrSessionNotFound) {
 			utils.Success(c, gin.H{"messages": []any{}})

@@ -75,5 +75,12 @@ const CHAT_STYLES = `
  *   </>;
  */
 export const ChatStyles = memo(function ChatStyles() {
-  return <style>{CHAT_STYLES}</style>;
+  // React 19 样式提升:带 `href` + `precedence` 的 <style> 会被 React **去重并提升到 <head>** ——
+  // 即便长会话里 60 个 MessageTurn 各渲染一次 ChatStyles,DOM 里也只保留**一份** <style>。
+  // 否则 60 份相同样式表会成倍放大滚动 / hover 时的 style 重算成本(本次滚动卡顿主因之一)。
+  return (
+    <style href="scholay-chat-styles" precedence="default">
+      {CHAT_STYLES}
+    </style>
+  );
 });

@@ -214,6 +214,12 @@ services:
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       REDIS_DB: 0
+      # Web-native 重构 P2:correctness 键(验证码/吊销/配额 + 未来 agent 事件流)走专用 noeviction
+      # 实例(scholar_redis_persist),不被主池 512MB allkeys-LRU 静默逐出(复盘点出的真风险)。
+      REDIS_PERSIST_HOST: ${REDIS_PERSIST_HOST:-redis-persist}
+      REDIS_PERSIST_PORT: ${REDIS_PERSIST_PORT:-6379}
+      REDIS_PERSIST_PASSWORD: ${REDIS_PERSIST_PASSWORD:-}
+      REDIS_PERSIST_DB: ${REDIS_PERSIST_DB:-0}
       JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
       SERVER_PORT: 8080
       # gin 运行模式: 默认 release(去掉 debug 路由噪声 + 每请求 debug 开销)。本机调试路由时
@@ -252,8 +258,24 @@ services:
       UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-}
       # AI Agent 桥接 —— backend POST agent /api/providers 必须带这个 Bearer
       # 与 agent 容器的 ANTHROPIC_API_KEY 同源 (AGENT_INTERNAL_TOKEN)。
+      # P6:fork 已退役,后端唯一 agent 后端 = clean-room executor。默认即指向 executor,
+      # docker compose up -d --build 开箱即用,无需手动设 cutover env。
       AGENT_BASE_URL: ${AGENT_BASE_URL:-http://scholar_agent:3456}
       AGENT_AUTH_TOKEN: ${AGENT_INTERNAL_TOKEN:-}
+      # Web-native 重构(事件溯源脊柱)。P6 后 executor 是唯一后端,journal 是历史唯一真源 → 默认 shadow。
+      #   AGENT_TURN_JOURNAL=shadow   → turn 账本/事件日志/计费(executor 历史读它;老会话回退 agent_session_archive)
+      #   AGENT_JOURNAL_VALIDATE=on   → 后台持续校验(只读、只 slog)
+      AGENT_TURN_JOURNAL: ${AGENT_TURN_JOURNAL:-shadow}
+      AGENT_JOURNAL_VALIDATE: ${AGENT_JOURNAL_VALIDATE:-}
+      AGENT_JOURNAL_READ: ${AGENT_JOURNAL_READ:-}
+      # executor 路由:P6 后所有 feature 都走 executor(fork 已删)。默认即指向 executor + 全 feature,
+      # 与 AGENT_BASE_URL 同一 executor;开箱即用,无需手动 env。
+      AGENT_EXECUTOR_BASE_URL: ${AGENT_EXECUTOR_BASE_URL:-http://scholar_agent:3456}
+      AGENT_EXECUTOR_FEATURES: ${AGENT_EXECUTOR_FEATURES:-smart_search,claw,prism,peerreview}
+      # P6 一次性归档(已执行完毕):仅在带 fork 的迁移那次部署设为 1。fork 已删,保持空。
+      AGENT_ARCHIVE_FROM_FORK: ${AGENT_ARCHIVE_FROM_FORK:-}
+      # P6 历史迁移:开机从老 fork jsonl(/fork-data,只读挂载)折叠归档老会话(幂等,迁完自动 no-op)。
+      AGENT_ARCHIVE_FROM_JSONL: ${AGENT_ARCHIVE_FROM_JSONL:-/fork-data}
       # C14 审批轴 **dev/测试** 开关: =1 时 claw 切 passthrough(permission_request 透传前端人审,
       # 绕过后端自动裁决)。默认空 = auto,行为与改造前一致。
       # ⚠️ docker-compose.prod.yml **故意不含此项**(生产恒 auto);仅本地保留以便测 passthrough/未来 HITL。
@@ -270,10 +292,12 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
       # 审稿人 skill 库 (reviewer-roster + rv-*): backend 只读, 按 slug 读 SCORING_PERSONA 段。
-      # 这些 skill 已从共享的 skills/ 移到 reviewer-skills/ (claw 看不到, 仅 peerreview 方法论会话经 --add-dir 装)。
-      - ./agent/data/claude/reviewer-skills:/app/reviewer-skills:ro
+      # P6:fork 退役后 skill 源移到 ./agent-skills/(与 executor 的 --add-dir 挂载同源)。
+      - ./agent-skills/reviewer-skills:/app/reviewer-skills:ro
       # Prism 编译任务共享卷:后端写「任务目录+.request」,scholar_prism_tex watcher 轮询编译回写 PDF/log。
       - ./data/prism-work:/data/prism-work
+      # P6 历史迁移:老 fork jsonl 只读挂入,开机自动折叠归档进 agent_session_archive(幂等,迁完即 no-op)。
+      - ./data/agent:/fork-data:ro
     # Backend不暴露端口,通过Nginx访问
     expose:
       - "8080"
@@ -299,122 +323,60 @@ services:
       # 看不到 mysql/redis/minio —— 即便 agent 被攻陷也够不到数据面。
       - scholar-agent-net
 
-  # AI agent 服务 (Bun + TypeScript,源在 agent/)
-  # 通用 Anthropic-format agent,作为内网服务被 backend 调用。
-  # 模型/端点配置最终走 DB,backend 启动后 POST 到 /api/providers 热更新;
-  # 这里 env_file 仅作 bootstrap (容器冷启动到 backend 推送之间的兜底)。
+  # ── Web-native clean-room agent(源在 agent/)。唯一 agent 后端 ──
+  # 原 cc-haha fork 已退役;这是从零自建的 provider-agnostic 执行器,沿用 agent 命名(镜像/容器/主机名),
+  # 与 build-and-push.sh / deploy.sh 的 `agent` 镜像一致。后端拥有 state(journal + agent_session_archive);
+  # 执行器按轮无状态。4 个 feature(smart_search/claw/prism/peerreview)全部走它。
   agent:
     build:
       context: ./agent
       dockerfile: Dockerfile
     container_name: scholar_agent
     restart: unless-stopped
-    depends_on:
-      - egress-proxy
     logging: *default-logging
-    env_file:
-      - ./agent/.env
     environment:
       <<: *tz-env
-      # 强制覆盖 agent/.env 里的 ANTHROPIC_API_KEY (内网 Bearer 鉴权 token)
-      # 必须与 backend 的 AGENT_AUTH_TOKEN 同值,否则 backend push 配置会 401。
-      ANTHROPIC_API_KEY: ${AGENT_INTERNAL_TOKEN:-}
-      # (已移除 BACKEND_BASE_URL:agent→backend 的 token 用量 HTTP 回调旁路早已下线,
-      #  agent 侧 token 改走会话 WS 的带内 token_usage 帧上报,backend 在已鉴权会话上记账;
-      #  该 env 后端/agent 均无人读取,留着只会误导以为存在 live HTTP 回调。)
-      # 可选: 自定义 CA 证书路径 (代理 / 内网 mTLS / 自签 CDN 场景)。
-      # Bun / Node fetch 会把这个文件合并进 trust store, 解决 Clash / mihomo
-      # fake-ip 模式或企业代理签证书时的 "unknown certificate verification error"。
-      # 用法: 在 .env 设置 EXTRA_CA_CERTS=/path/to/proxy-ca.pem,
-      # 然后取消注释下方 volumes 里的 EXTRA_CA_CERTS 挂载行。
-      NODE_EXTRA_CA_CERTS: ${EXTRA_CA_CERTS_TARGET:-}
-      # 出网经 egress-proxy —— scholar-agent-net 是 internal(无 NAT),agent 只能经代理出公网。
-      # 默认 open 放行一切外部 HTTPS;agent 自带 proxy 支持(src/utils/proxy.ts,Anthropic SDK + undici 都吃)。
-      HTTPS_PROXY: ${AGENT_HTTPS_PROXY:-http://scholar_egress_proxy:3128}
-      HTTP_PROXY: ${AGENT_HTTP_PROXY:-http://scholar_egress_proxy:3128}
-      NO_PROXY: ${AGENT_NO_PROXY:-localhost,127.0.0.1,scholar_backend,backend,scholar_agent}
-      # 让 --add-dir 目录里的 CLAUDE.md 也作为始终生效的 Project 记忆加载 (默认关)。
-      # 仅 /claw-add/CLAUDE.md 存在 → 只影响 claw (prism/peerreview 的 add-dir 无 CLAUDE.md, 不受影响)。
-      # 用途: 把"聊天界面渲染 mermaid/svg/表格, 禁 ASCII 画图 / 禁为渲染生成 HTML"的约束放在
-      # claw 专属 CLAUDE.md, 不占用宝贵的系统提示词。
-      CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD: "1"
+      PORT: 3456
+      # M3:会话 cwd 根必须与 backend 权限判定的 agentSessionWorkdirRoot() 默认(/home/bun/sessions)一致,
+      # 否则 agent 提出的**绝对路径**文件操作会被后端权限判定按错根 confine → 误 DENY(相对路径不受影响,
+      # 故是 latent 间歇)。统一到 /home/bun/sessions(fork agent 容器也是这个根)。
+      SESSIONS_ROOT: /home/bun/sessions
+      # 内网 Bearer:与 backend 的 AGENT_AUTH_TOKEN / agent 的 ANTHROPIC_API_KEY 同源,否则 PushConfig 401。
+      EXECUTOR_AUTH_TOKEN: ${AGENT_INTERNAL_TOKEN:-}
+      # Minicod MCP 凭证(执行器 spawn @minicod/mcp-server stdio 时透传)。
+      MINICOD_API_KEY: ${MINICOD_API_KEY:-}
+      MINICOD_API_BASE_URL: ${MINICOD_API_BASE_URL:-https://www.minicod.com/v1}
+      # 沙箱:none(本地/默认) | bwrap(仅生产真内核,P4b)。
+      SANDBOX_MODE: ${EXECUTOR_SANDBOX_MODE:-none}
+      # 出网:egress 容器已合并 —— agent 直接经 egress-net(NAT)访问公网,不再走独立代理。
+      # 数据面隔离仍在:agent 只在 scholar-agent-net(backend)+ egress-net(外网),**不**接 scholar-network
+      # → 碰不到 mysql/redis/minio。bash 工具的网络由 bwrap 沙箱(生产)管控。
     expose:
       - "3456"
+    # H5:不再向 host 映射端口。executor 只走 docker 内网(backend 经 scholar-agent-net 访问);
+    # 避免整个 executor API(provider 密钥 / 全 workspace 文件 op / 路径穿越面)从 host/LAN 可达。
+    # 临时本机调试可临时加回 `ports: ["3460:3456"]`,但**绝不进生产**。
     volumes:
-      # 会话/记忆持久化 (~/.claude 在容器内是 /home/bun/.claude)
-      - ./data/agent:/home/bun/.claude
-      # committed 的**共享** skill 库 (paper-review/journal-fit/citation-audit) 叠挂到 .claude/skills,
-      # 所有会话(含 claw)可见。否则 agent 只挂 gitignored 的 data/agent, 这些 skill 永远加载不到。
-      - ./agent/data/claude/skills:/home/bun/.claude/skills:ro
-      # 审稿人 skill (reviewer-roster + rv-*) 放在独立目录, **不进**全局 .claude/skills;
-      # 只有 peerreview 方法论会话经 --add-dir /peerreview-add 加载 <此处>/.claude/skills → claw 看不到。
-      - ./agent/data/claude/reviewer-skills:/peerreview-add/.claude/skills:ro
-      # 智能写作 skill (prism-latex-format / prism-academic-writing / prism-discipline-conventions):
-      # 同样独立目录, 仅 prism 会话经 --add-dir /prism-add 加载 → claw/审稿看不到。
-      - ./agent/data/claude/prism-skills:/prism-add/.claude/skills:ro
-      # 智能助手 add-dir (/claw-add): 整目录挂载 —— 含 .claude/skills (library-reference)
-      # + CLAUDE.md (始终生效的渲染约束: 聊天界面渲染 mermaid/svg/表格, 禁止 ASCII 画图 / 禁止
-      # 为渲染生成 HTML)。CLAUDE.md 经 --add-dir 加载需 CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1
-      # (见 environment)。仅 claw 会话经 --add-dir /claw-add 加载 → smart_search/prism/审稿看不到。
-      - ./agent/data/claude/claw-add:/claw-add:ro
-      # 会话工作目录 (cwd + 上传文件) 持久化 —— 与 docker-compose.prod.yml 对齐(prod 早已挂)。
-      # 否则重建容器会清空 /home/bun/sessions/<id>,旧会话续聊报 "Working directory does not exist";
-      # Prism agent-native 模式下该目录是「每项目工作副本」,更须持久。属主由镜像 entrypoint chown 自愈。
-      - ./data/agent-sessions:/home/bun/sessions
-      - /etc/localtime:/etc/localtime:ro
-      # 可选: 把 host 上的代理 CA pem 挂进容器, 配合上面的 NODE_EXTRA_CA_CERTS env
-      # - ${EXTRA_CA_CERTS_HOST:-./agent/extra-ca.pem.placeholder}:/certs/extra-ca.pem:ro
+      # H6:per-feature skill / CLAUDE.md(--add-dir),镜像 fork agent 的挂载,使 claw/prism/peerreview
+      # 切到 executor 后仍加载各自 skill(claw 渲染约束 / prism 写作格式 / peerreview 评审人格)。
+      - ./agent-skills/claw-add:/claw-add:ro
+      - ./agent-skills/prism-skills:/prism-add/.claude/skills:ro
+      - ./agent-skills/reviewer-skills:/peerreview-add/.claude/skills:ro
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3456/health || exit 1"]
+      test: ["CMD-SHELL", "bun -e \"fetch('http://127.0.0.1:3456/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\" || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 20s
-    # 安全加固 (Scholay): agent 会跑模型生成的任务, 即便 P0 已禁所有内建工具,
-    # 仍做纵深防御 —— 万一某条路径绕过, 容器层也碰不到提权 / 起不了 fork 炸弹。
-    cap_drop:
-      - ALL                          # agent 不需要任何 Linux capability (非 root, 端口 >1024)
-    security_opt:
-      - no-new-privileges:true       # 禁止 setuid 提权
-    deploy:
-      resources:
-        limits:
-          memory: 1.5G               # agent 是资源大头: LLM 流式 + Bash 转换 (pandoc/python) + PDF 解析; 单会话实测峰值 ~765MiB, 提到 1.5G 给并发会话留头
-          cpus: "2.0"                # CPU 上限, 防单个重任务 (大 PDF 解析 / 死循环) 拖垮整机
-          pids: 512                  # 进程数上限, 挡 fork 炸弹 (Bash 转换会起 pandoc/python 子进程, 512 仍宽裕)
-        reservations:
-          memory: 256M
-    networks:
-      # 安全隔离: agent 只在 scholar-agent-net(internal,无 NAT)上,够不到 mysql/redis/minio/umami;
-      # 出公网只能经 egress-proxy(下方),统一记日志、可随 EGRESS_FILTER_MODE 收紧。
-      - scholar-agent-net
-
-  # agent 出公网的唯一出口:tinyproxy 代理(源在 egress/)。
-  # 默认 open(放行一切外部 HTTPS,经代理记日志);设 EGRESS_FILTER_MODE=allowlist 收紧到 egress/filter 域名。
-  # 内网由网络拓扑(proxy 不在 scholar-network)+ ConnectPort 443 挡住。
-  egress-proxy:
-    build:
-      context: ./egress
-      dockerfile: Dockerfile
-    container_name: scholar_egress_proxy
-    restart: unless-stopped
-    logging: *default-logging
-    environment:
-      <<: *tz-env
-      EGRESS_FILTER_MODE: ${EGRESS_FILTER_MODE:-open}
-    volumes:
-      - /etc/localtime:/etc/localtime:ro
-    networks:
-      - scholar-agent-net
-      - egress-net
+      start_period: 15s
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    deploy:
-      resources:
-        limits:
-          memory: 128M
+    networks:
+      - scholar-agent-net # backend ↔ agent(internal,无 NAT)
+      - egress-net        # agent → 公网(NAT;此网无数据面,故 agent 仍碰不到 mysql/redis)
+
+  # (已删除)原 egress-proxy(tinyproxy)容器:agent 现直连公网(经 egress-net NAT),出口逻辑已并入 agent。
 
   # Scholay Prism LaTeX 编译沙箱 (源在 prism_tex/)。
   # 与后端只经共享卷 ./data/prism-work 通信(watcher 轮询任务),故 network_mode: none 彻底断网。
@@ -574,6 +536,7 @@ networks:
   scholar-agent-net:
     driver: bridge
     internal: true
-  # 只有 egress-proxy 在这张网上,它是唯一能 NAT 出公网的容器。
+  # agent 经这张网 NAT 出公网(原 egress-proxy 已删,出口并入 agent)。此网无数据面容器,
+  # 故 agent 接入它也碰不到 mysql/redis/minio(那些在 scholar-network)。
   egress-net:
     driver: bridge
