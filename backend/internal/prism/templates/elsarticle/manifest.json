@@ -1,0 +1,9 @@
+{
+  "key": "elsarticle",
+  "name": "Elsevier (elsarticle)",
+  "doc_class": "elsarticle",
+  "class_opts": "preprint,12pt",
+  "bib_style": "elsarticle-num",
+  "packages": ["amsmath", "amssymb", "graphicx", "lineno"],
+  "page_limit": 0
+}

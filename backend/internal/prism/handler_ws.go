@@ -29,9 +29,33 @@ func (h *Handler) wsProject(c *gin.Context) (uint, uint, bool) {
 	return uid, id, true
 }
 
+// wsWritableProject = wsProject + 取项目校验归属 + 挡只读(旧版 cutover 后冻结 / struct 走专用端点)。
+// 旧版编辑/轮次端点(ws-ticket / round prepare·apply·reject)用它,杜绝对冻结项目发起编辑会话。
+func (h *Handler) wsWritableProject(c *gin.Context) (uint, uint, bool) {
+	uid, pid, ok := h.wsProject(c)
+	if !ok {
+		return 0, 0, false
+	}
+	p, err := h.svc.GetProject(pid, uid)
+	if err != nil {
+		utils.InternalError(c, 500, "加载项目失败,请稍后重试", err)
+		return 0, 0, false
+	}
+	if p == nil {
+		utils.NotFound(c, "项目不存在")
+		return 0, 0, false
+	}
+	// 只挡「冻结的旧版项目」;struct 项目经 WS 编辑 document.md,必须放行。
+	if p.EditFrozen() {
+		utils.SafeBadRequest(c, ErrReadOnlyProject)
+		return 0, 0, false
+	}
+	return uid, pid, true
+}
+
 // IssueWSTicket POST /user/prism/projects/:id/ws-ticket → 颁发 30s 一次性 ws ticket。
 func (h *Handler) IssueWSTicket(c *gin.Context) {
-	uid, pid, ok := h.wsProject(c)
+	uid, pid, ok := h.wsWritableProject(c)
 	if !ok {
 		return
 	}
@@ -55,7 +79,7 @@ func (h *Handler) HandleWS(c *gin.Context) {
 
 // PrepareRound POST /user/prism/projects/:id/round/prepare → 每轮 AI 前铺源(DB→cwd)。
 func (h *Handler) PrepareRound(c *gin.Context) {
-	uid, pid, ok := h.wsProject(c)
+	uid, pid, ok := h.wsWritableProject(c)
 	if !ok {
 		return
 	}
@@ -90,7 +114,7 @@ func (h *Handler) PendingRound(c *gin.Context) {
 
 // ApplyRound POST /user/prism/projects/:id/round/apply → 固化 cwd 改动进 DB。
 func (h *Handler) ApplyRound(c *gin.Context) {
-	uid, pid, ok := h.wsProject(c)
+	uid, pid, ok := h.wsWritableProject(c)
 	if !ok {
 		return
 	}
@@ -117,7 +141,7 @@ func (h *Handler) ApplyRound(c *gin.Context) {
 
 // RejectRound POST /user/prism/projects/:id/round/reject → 丢弃 cwd 改动(重铺源还原)。
 func (h *Handler) RejectRound(c *gin.Context) {
-	uid, pid, ok := h.wsProject(c)
+	uid, pid, ok := h.wsWritableProject(c)
 	if !ok {
 		return
 	}

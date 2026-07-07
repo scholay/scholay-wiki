@@ -1,0 +1,9 @@
+{
+  "key": "ieee-conf",
+  "name": "IEEE 会议 (IEEEtran)",
+  "doc_class": "IEEEtran",
+  "class_opts": "conference",
+  "bib_style": "IEEEtran",
+  "packages": ["amsmath", "amssymb", "graphicx", "cite"],
+  "page_limit": 8
+}

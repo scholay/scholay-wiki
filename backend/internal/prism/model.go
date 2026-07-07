@@ -62,13 +62,35 @@ type Project struct {
 	Title            string     `gorm:"column:title" json:"title"`
 	MainFile         string     `gorm:"column:main_file" json:"main_file"`
 	VenueTemplateKey *string    `gorm:"column:venue_template_key" json:"venue_template_key,omitempty"`
+	SchemaVersion    string     `gorm:"column:schema_version" json:"schema_version"`
+	DocStruct        *string    `gorm:"column:doc_struct" json:"-"`
+	StructVersionID  *uint      `gorm:"column:struct_version_id" json:"-"`
 	AgentSessionID   *string    `gorm:"column:agent_session_id" json:"-"`
+	ReadOnlyFlag     bool       `gorm:"-" json:"read_only"` // 计算字段(AfterFind 填),前端据此决定旧版工作台是否只读
 	Status           string     `gorm:"column:status" json:"status"`
 	CreatedAt        time.Time  `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt        time.Time  `gorm:"column:updated_at" json:"updated_at"`
 }
 
 func (Project) TableName() string { return "prism_projects" }
+
+// 文档轨道(双轨:旧裸 LaTeX 只读 vs 新结构体)。已全量 cutover:新项目一律 struct,旧 legacy 项目冻结只读。
+const (
+	SchemaLegacy = "legacy" // 旧裸 LaTeX 项目;只读(仅查看/编译/导出/克隆升级)
+	SchemaStruct = "struct" // 新结构体项目;经 struct 专用端点编辑
+)
+
+// ReadOnly 报告该项目是否禁用「旧版编辑面」端点(手动改/AI 轮次/文件 CRUD/cite)。
+// 全量 cutover 后对所有项目恒 true:struct 项目改走 struct 专用端点,legacy 项目已冻结。
+// 编译 / 导出 / 读取(GetProject/GetFile/Compile/GetPDF/ListVersions…)永不受此影响。
+func (p *Project) ReadOnly() bool { return true }
+
+// EditFrozen 报告「编辑(含 WS 轮次)」是否被冻结 —— 只有 legacy 项目冻结。
+// struct 项目【不】冻结(它经 WS 编辑 document.md / 经 struct 端点编辑),只是不能用旧版文件端点。
+// WS 轮次端点(ws-ticket/round)用 EditFrozen();旧版文件端点用 ReadOnly()。
+func (p *Project) EditFrozen() bool {
+	return p.SchemaVersion == SchemaLegacy
+}
 
 // File 项目内文件清单 + current 版本指针。
 type File struct {
@@ -113,9 +135,11 @@ type Compile struct {
 	LogObjectKey *string    `gorm:"column:log_object_key" json:"-"`
 	LogExcerpt   string     `gorm:"column:log_excerpt" json:"log_excerpt,omitempty"`
 	ErrorSummary string     `gorm:"column:error_summary" json:"error_summary,omitempty"`
-	DurationMs   int        `gorm:"column:duration_ms" json:"duration_ms"`
-	ExpiresAt    *time.Time `gorm:"column:expires_at" json:"-"`
-	CreatedAt    time.Time  `gorm:"column:created_at" json:"created_at"`
+	DurationMs    int        `gorm:"column:duration_ms" json:"duration_ms"`
+	PageCount     int        `gorm:"column:page_count" json:"page_count"`
+	OverfullCount int        `gorm:"column:overfull_count" json:"overfull_count"`
+	ExpiresAt     *time.Time `gorm:"column:expires_at" json:"-"`
+	CreatedAt     time.Time  `gorm:"column:created_at" json:"created_at"`
 }
 
 func (Compile) TableName() string { return "prism_compiles" }

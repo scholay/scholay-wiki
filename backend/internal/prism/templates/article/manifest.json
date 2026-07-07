@@ -1,0 +1,9 @@
+{
+  "key": "article",
+  "name": "通用 Article",
+  "doc_class": "article",
+  "class_opts": "11pt",
+  "bib_style": "plain",
+  "packages": ["amsmath", "amssymb", "graphicx", "hyperref"],
+  "page_limit": 0
+}

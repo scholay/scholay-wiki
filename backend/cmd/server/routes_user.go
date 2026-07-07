@@ -143,6 +143,17 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 			// \cite 文献库 RAG(检索真实库行 + 写 references.bib)
 			prismG.GET("/projects/:id/cite/search", h.prism.CiteSearch)
 			prismG.POST("/projects/:id/cite/apply", h.prism.CiteApply)
+			// struct 轨(新版结构体工作台)—— 见 docs/research/prism-render-surface-2026-06 Part III。
+			prismG.GET("/templates", h.prism.ListTemplates)
+			prismG.GET("/projects/:id/struct", h.prism.GetStruct)
+			prismG.PUT("/projects/:id/struct", h.prism.SaveStruct)
+			prismG.GET("/projects/:id/struct/versions", h.prism.ListStructVersions)                       // 结构体版本历史
+			prismG.POST("/projects/:id/struct/versions/:versionId/restore", h.prism.RestoreStructVersion) // 恢复某历史版本
+			prismG.POST("/projects/:id/template", h.prism.SetJournalTemplate) // 确定性换刊
+			prismG.GET("/projects/:id/conformance", h.prism.GetConformance)
+			prismG.POST("/projects/:id/clone-to-struct", h.prism.CloneToStruct) // 逃生口:旧项目→新版
+			prismG.GET("/projects/:id/export/docx", h.prism.ExportDocx)        // struct→Pandoc→Word
+			prismG.POST("/projects/:id/assets", h.prism.UploadAsset)           // 上传图片 → figure 块
 			// agent-native 用户 WS 编辑(实时流式 + diff + 应用门 + 重入续流)。
 			// AI 对话走下面独立挂的 /prism/ws/:sessionId;这里是轮次边界 HTTP 端点。
 			prismG.POST("/projects/:id/ws-ticket", h.prism.IssueWSTicket)

@@ -833,6 +833,12 @@ func (h *Handler) Advance(c *gin.Context) {
 			utils.NotFound(c, "submission not found")
 			return
 		}
+		// 向导 step1→2 / step2→3 是真实 LLM 消耗,service 侧过 CheckDailyQuota;
+		// 与 Submit 一致映射成 6010/429 + 友好文案,触发前端「额度用尽」弹窗。
+		if errors.Is(err, vip.ErrQuotaExceeded) {
+			utils.SafeError(c, errcode.AgentQuotaExceeded, err)
+			return
+		}
 		// advance 失败基本是业务校验(文件已变更 / 未生成稿件信息 / 缺院校等),作为 400 回给用户。
 		// 这类是用户侧 4xx 而非系统故障,记 Warn 不记 Error,避免污染 ERROR 日志。
 		slog.Warn("peerreview advance rejected", "err", err, "submission_id", id, "from", req.From)

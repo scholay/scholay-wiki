@@ -9,7 +9,7 @@ allowed-tools: Read, Glob, Grep, Edit, Write, MultiEdit
 
 # 学术写作质量(Prism)
 
-改的是给同行读的论文正文。**保持 LaTeX 结构与所有 `\cite{}` 位置不变**,只动语言。
+改的是给同行读的论文正文(你在 document.md 里改)。**保持章节结构与所有 `[@引用键]` 位置不变**,只动语言。
 
 ## 句段层
 - **主题句先行**:每段第一句直接给论点(claim-first),后续句子支撑它;段落只讲一个论点。
@@ -34,4 +34,4 @@ allowed-tools: Read, Glob, Grep, Edit, Write, MultiEdit
 - 删低信息量的"承上启下"句;每句都要承载新信息。
 - 框架/定位**跨章节稳定**,不要中途换提法(framing drift 是被拒稿的相关因素)。
 
-> 注意:本 skill 只改语言质量,**不改学科规范/排版**——那分别走 [prism-discipline-conventions] 与 [prism-latex-format]。
+> 注意:本 skill 只改语言质量,**不改学科规范/格式**——那分别走 [prism-discipline-conventions] 与 [prism-latex-format(document.md 格式细则)]。

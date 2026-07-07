@@ -62,7 +62,9 @@ func reviewerSkillsDir() string {
 }
 
 // reviewerSkillAddDir —— 传给 agent --add-dir 的目录(agent 加载 <dir>/.claude/skills)。
-// 只有 peerreview 方法论会话传它 → 加载审稿人 skill(reviewer-roster + rv-*);claw 不传 → 看不到。
+// 2026-07 起**当前无调用**:方法论会话已不再 AddDirs 加载 reviewer-skills(in-band 花名册自足,
+// 且全文常驻撞 loader 40KB 帽,见 runMethodologyPhase 注释)。保留此 helper 以备将来若要给方法论
+// 会话单独挂「只含 reviewer-roster 编排指南」的精简目录时复用。
 // 这是 agent 容器内的路径(docker-compose 把 reviewer-skills 挂到 <dir>/.claude/skills),与
 // reviewerSkillsDir(backend 自己读 persona 的路径)是两个容器的两份只读挂载、同一份源文件。
 func reviewerSkillAddDir() string {

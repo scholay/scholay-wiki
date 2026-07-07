@@ -16,7 +16,9 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -80,15 +82,12 @@ func (s *Service) CreateProject(userID uint, title string) (*Project, []File, er
 	if strings.TrimSpace(title) == "" {
 		title = defaultProjectTitle
 	}
-	p := &Project{UserID: userID, Title: title, MainFile: "main.tex", Status: "active"}
+	// 已全量 cutover:新项目一律新版结构体轨(种默认结构体 + 首投影成 main.tex,用户感知不到文件)。
+	p := &Project{UserID: userID, Title: title, MainFile: "main.tex", Status: "active", SchemaVersion: SchemaStruct}
 	if err := s.repo.CreateProject(p); err != nil {
 		return nil, nil, err
 	}
-	f := &File{ProjectID: p.ID, RelPath: "main.tex", FileKind: KindTex, Mime: "text/x-tex"}
-	if err := s.repo.CreateFile(f); err != nil {
-		return nil, nil, err
-	}
-	if _, err := s.repo.AppendCurrentVersion(f.ID, scaffoldMainTex, sha256Hex(scaffoldMainTex), AuthorUser, nil); err != nil {
+	if err := s.initStructProject(p.ID); err != nil {
 		return nil, nil, err
 	}
 	files, err := s.repo.ListFiles(p.ID)
@@ -242,6 +241,36 @@ func (s *Service) gatherCurrent(projectID uint) (map[string]string, string, erro
 	return out, sha256Hex(sb.String()), nil
 }
 
+// gatherAssets 取项目全部二进制资产(KindAsset,图片等)字节 —— 从 MinIO 拉,连同 relPath 给沙箱 stage。
+// 返回 (relPath→字节, 资产内容哈希);哈希折进编译缓存键,图片换了不吃旧缓存。取不到的资产 best-effort 跳过。
+func (s *Service) gatherAssets(ctx context.Context, projectID uint) (map[string][]byte, string, error) {
+	files, err := s.repo.ListFiles(projectID)
+	if err != nil {
+		return nil, "", err
+	}
+	out := make(map[string][]byte)
+	shas := make([]string, 0)
+	for _, f := range files {
+		if f.FileKind != KindAsset || f.MinioObjectKey == nil || *f.MinioObjectKey == "" {
+			continue
+		}
+		rc, _, err := storage.GetObject(ctx, s.bucket, *f.MinioObjectKey)
+		if err != nil {
+			slog.Warn("prism: asset fetch failed, skipping", "rel", f.RelPath, "err", err)
+			continue
+		}
+		data, rerr := io.ReadAll(rc)
+		rc.Close()
+		if rerr != nil {
+			continue
+		}
+		out[f.RelPath] = data
+		shas = append(shas, f.RelPath+":"+f.ContentSHA256)
+	}
+	sort.Strings(shas)
+	return out, sha256Hex(strings.Join(shas, "\n")), nil
+}
+
 // StartCompile 立即建 queued 记录并起后台编译,返回该记录(前端轮询 GetCompile)。
 func (s *Service) StartCompile(projectID uint, mainFile, engine string) (*Compile, error) {
 	if engine != EngineXeLaTeX {
@@ -271,7 +300,11 @@ func (s *Service) runCompile(compileID, projectID uint, mainFile, engine string)
 	if engine != EngineXeLaTeX && needsXeLaTeX(files) {
 		engine = EngineXeLaTeX
 	}
-	cacheKey := sha256Hex(hash + "|" + engine)
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+	defer cancel()
+	// 二进制资产(struct figure 引用的图片 / 手工上传)—— 从 MinIO 取字节,连同文本一起喂沙箱。
+	assets, assetHash, _ := s.gatherAssets(ctx, projectID)
+	cacheKey := sha256Hex(hash + "|" + engine + "|" + assetHash)
 
 	// 缓存命中(同内容+同引擎 1h 内编过且成功)→ 复用 PDF,免起沙箱。
 	if cached, _ := s.repo.FindCachedCompile(projectID, cacheKey, time.Now()); cached != nil && cached.PdfObjectKey != nil {
@@ -279,15 +312,14 @@ func (s *Service) runCompile(compileID, projectID uint, mainFile, engine string)
 			"status": CompileSuccess, "content_hash": cacheKey, "engine": engine,
 			"pdf_object_key": *cached.PdfObjectKey, "log_object_key": cached.LogObjectKey,
 			"duration_ms": 0, "expires_at": time.Now().Add(time.Hour),
+			"page_count": cached.PageCount, "overfull_count": cached.OverfullCount,
 		})
 		return
 	}
 
 	_ = s.repo.UpdateCompile(compileID, map[string]any{"status": CompileRunning, "content_hash": cacheKey, "engine": engine})
 
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
-	defer cancel()
-	res, err := s.tex.Compile(ctx, files, mainFile, engine)
+	res, err := s.tex.Compile(ctx, files, assets, mainFile, engine)
 	if err != nil {
 		s.failCompile(compileID, "编译服务异常,请稍后重试", err)
 		return
@@ -304,9 +336,11 @@ func (s *Service) runCompile(compileID, projectID uint, mainFile, engine string)
 			s.failCompile(compileID, "保存编译产物失败,请稍后重试", err)
 			return
 		}
+		pages, overfull := parseCompileStats(res.Log)
 		_ = s.repo.UpdateCompile(compileID, map[string]any{
 			"status": CompileSuccess, "pdf_object_key": pdfKey, "log_object_key": logKey,
 			"duration_ms": res.DurationMs, "expires_at": time.Now().Add(time.Hour),
+			"page_count": pages, "overfull_count": overfull,
 		})
 		return
 	}
@@ -344,6 +378,18 @@ func (s *Service) putObject(ctx context.Context, key string, body []byte, conten
 	_, err := storage.PutObject(ctx, s.bucket, key, bytes.NewReader(body), int64(len(body)),
 		storage.PutOptions{ContentType: contentType})
 	return err
+}
+
+// reOutputPages 从 TeX 日志抠页数:"Output written on main.pdf (12 pages, 34567 bytes)."
+var reOutputPages = regexp.MustCompile(`Output written on [^ ]+ \((\d+) page`)
+
+// parseCompileStats 从成功编译日志解析页数 + Overfull hbox 数(投稿合规:页限/溢出)。
+func parseCompileStats(log string) (pages, overfull int) {
+	if m := reOutputPages.FindStringSubmatch(log); len(m) > 1 {
+		pages, _ = strconv.Atoi(m[1])
+	}
+	overfull = strings.Count(log, "Overfull \\hbox")
+	return
 }
 
 func (s *Service) GetCompile(projectID, id uint) (*Compile, error) {

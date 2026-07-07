@@ -291,12 +291,31 @@ func (h *sessionHub) seedHistoryFromJournal() {
 	if row, derr := h.f.bridge.repo.FindByAgentSessionID(h.sessionID); derr == nil && row != nil {
 		title = row.Title
 	}
-	if len(msgs) == 0 && title == "" {
-		return // 全新会话:无历史无标题,executor 从空起(并会生成标题)
+	// H3(2026-07):executor 无状态 —— 重启后 ephemeral meta 的 system prompt / 该用户记忆 /
+	// skills(addDirs)/ denylist 全空,只 seed messages 会让存量会话丢规则/记忆/skills(能力面由
+	// backend decidePermission 兜住未破,但行为静默漂移:如 prism 丢 document.md 编辑协议后可能直接
+	// 写 .tex)。故一并把「建会话时的注入面」带进 seed_history,executor 仅在对应字段为空时回填(不覆盖
+	// 活会话)。opts 由 buildCreateOptions 现算 → 每次重连都用最新 MemoryBlocks 渲染,重启后记忆更新
+	// 对存量会话即时生效(顺带修记忆读环断裂)。仅 executor feature 走到这里,均 InjectPromptOnFirstMsg。
+	opts, _ := h.f.buildCreateOptions(ctx, h.userID)
+	hasOpts := opts != nil && (opts.AppendSystemPrompt != "" || len(opts.AddDirs) > 0 || len(opts.DisallowedTools) > 0)
+	if len(msgs) == 0 && title == "" && !hasOpts {
+		return // 全新会话:无历史/标题/注入面,executor 从空起(并会生成标题)
 	}
 	payload := map[string]any{"type": "seed_history", "messages": msgs}
 	if title != "" {
 		payload["title"] = title
+	}
+	if opts != nil {
+		if opts.AppendSystemPrompt != "" {
+			payload["appendSystemPrompt"] = opts.AppendSystemPrompt
+		}
+		if len(opts.AddDirs) > 0 {
+			payload["addDirs"] = opts.AddDirs
+		}
+		if len(opts.DisallowedTools) > 0 {
+			payload["disallowedTools"] = opts.DisallowedTools
+		}
 	}
 	frame, ferr := json.Marshal(payload)
 	if ferr != nil {

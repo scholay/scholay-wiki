@@ -46,6 +46,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         texlive-xetex \
         texlive-lang-chinese \
         texlive-bibtex-extra \
+        texlive-publishers \
         biber \
         coreutils \
     && mktexlsr

@@ -1,0 +1,9 @@
+{
+  "key": "llncs",
+  "name": "Springer LNCS (llncs)",
+  "doc_class": "llncs",
+  "class_opts": "",
+  "bib_style": "splncs04",
+  "packages": ["amsmath", "amssymb", "graphicx"],
+  "page_limit": 0
+}

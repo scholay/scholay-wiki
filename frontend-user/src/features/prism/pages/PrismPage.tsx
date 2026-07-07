@@ -4,6 +4,7 @@ import { LoadingState, ResourceError } from '@/shared/components';
 import { PRISM_COMING_SOON } from '@/shared/lib/feature-flags';
 import { PrismHome } from '../components/PrismHome';
 import { PrismWorkspace } from '../components/PrismWorkspace';
+import { PrismWorkspaceV2 } from '../components/PrismWorkspaceV2';
 import { PrismPreview } from '../components/PrismPreview';
 import { useProject } from '../api/prism';
 
@@ -44,7 +45,13 @@ export function PrismPage() {
         />
       );
     }
-    return <PrismWorkspace projectId={pid} onBack={() => setPid(0)} />;
+    // 新旧分轨:struct → 新版结构体工作台;legacy → 旧版工作台(read_only 时只读,仅看/编译/导出)。
+    const proj = project.data.project;
+    return proj.schema_version === 'struct' ? (
+      <PrismWorkspaceV2 projectId={pid} onBack={() => setPid(0)} />
+    ) : (
+      <PrismWorkspace projectId={pid} onBack={() => setPid(0)} readOnly={!!proj.read_only} onOpen={(id) => setPid(id)} />
+    );
   }
   return <PrismHome onOpen={(id) => setPid(id)} />;
 }

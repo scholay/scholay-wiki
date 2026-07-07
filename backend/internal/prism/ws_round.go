@@ -8,6 +8,7 @@ package prism
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 
@@ -88,6 +89,9 @@ type PendingFile struct {
 	OldBody string `json:"old_body"`
 	NewBody string `json:"new_body"`
 	IsNew   bool   `json:"is_new,omitempty"`
+	// struct 轨:agent 改动前后的结构体(供前端渲染 Word 式痕迹 diff,而非 markdown 代码 diff)。
+	OldStruct json.RawMessage `json:"old_struct,omitempty"`
+	NewStruct json.RawMessage `json:"new_struct,omitempty"`
 }
 
 // PendingRound 检出当前 cwd 相对 DB 的改动(= 待应用集合)。重入时前端拉它渲染「待应用 diff」。
@@ -102,6 +106,9 @@ func (s *Service) PendingRound(ctx context.Context, userID, projectID uint) ([]P
 	sessionID, err := s.repo.GetProjectSession(projectID)
 	if err != nil || sessionID == "" {
 		return nil, nil // 无会话 = 无待应用
+	}
+	if proj.SchemaVersion == SchemaStruct {
+		return s.pendingStructRound(ctx, projectID, sessionID)
 	}
 	changes, err := s.collectWorkspaceChanges(ctx, projectID, sessionID)
 	if err != nil {
@@ -129,6 +136,10 @@ func (s *Service) ApplyRound(ctx context.Context, userID, projectID uint, instru
 	sessionID, err := s.repo.GetProjectSession(projectID)
 	if err != nil || sessionID == "" {
 		return 0, nil
+	}
+	// struct 轨:读回 cwd document.md → parse → 合并进结构体(不走文件版本固化)。
+	if proj.SchemaVersion == SchemaStruct {
+		return s.applyStructRound(ctx, projectID, sessionID)
 	}
 	changes, err := s.collectWorkspaceChanges(ctx, projectID, sessionID)
 	if err != nil {

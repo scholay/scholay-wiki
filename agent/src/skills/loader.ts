@@ -9,6 +9,7 @@
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { log } from "../obs/log.ts";
 
 const PER_SKILL_CAP = 8000; // 单个 SKILL.md 截断上限(防超长)
 const TOTAL_CAP = 40000; // 总后缀上限
@@ -25,7 +26,8 @@ function listSkillDirs(skillsRoot: string): string[] {
   try {
     return readdirSync(skillsRoot, { withFileTypes: true })
       .filter((e) => e.isDirectory())
-      .map((e) => join(skillsRoot, e.name));
+      .map((e) => join(skillsRoot, e.name))
+      .sort(); // 确定性顺序:readdir 目录序随文件系统而变,触帽时「丢哪一半」不能是不确定的
   } catch {
     return [];
   }
@@ -36,9 +38,22 @@ export function loadAddDirContext(addDirs: string[]): string {
   if (!addDirs || addDirs.length === 0) return "";
   const parts: string[] = [];
   let total = 0;
+  let cappedWarned = false;
   const push = (label: string, body: string) => {
-    if (!body.trim() || total >= TOTAL_CAP) return;
-    const chunk = `## ${label}\n${body.trim().slice(0, PER_SKILL_CAP)}`;
+    const trimmed = body.trim();
+    if (!trimmed) return;
+    if (total >= TOTAL_CAP) {
+      // 触总量帽 → 静默丢弃会让「system 里少了半份指南」无从察觉;至少 warn 一次点名被丢的段。
+      if (!cappedWarned) {
+        log.warn("addDir context hit total cap; dropping remaining skills/rules", { total_cap: TOTAL_CAP, dropped_from: label });
+        cappedWarned = true;
+      }
+      return;
+    }
+    if (trimmed.length > PER_SKILL_CAP) {
+      log.warn("addDir skill truncated to per-skill cap", { per_skill_cap: PER_SKILL_CAP, label, orig_len: trimmed.length });
+    }
+    const chunk = `## ${label}\n${trimmed.slice(0, PER_SKILL_CAP)}`;
     parts.push(chunk);
     total += chunk.length;
   };

@@ -43,9 +43,11 @@ func (s *Service) SearchCite(userID uint, query string, limit int) ([]CiteCandid
 	return out, nil
 }
 
-// ApplyCite 把某条库论文的 BibTeX 写入项目 references.bib(幂等:已存在该 key 则不重复),
-// 返回可供前端插入的 \cite{key}。references.bib 不存在则创建。
-func (s *Service) ApplyCite(projectID, userID, libraryPaperID uint) (string, error) {
+// ApplyStructCite(struct 轨)把某条库论文的 BibTeX 写进**结构体的 Bibliography map**(citeKey→entry),
+// 再 SaveStructVersion + materializeStruct —— projector 据 Bibliography 生成 references.bib + \bibliography,
+// 使正文里的 [@key] 真正编译出参考文献(旧版把 bib 写成独立文件,会被 materializeStruct 重生覆盖,是死 sink)。
+// 幂等:key 已在 map 里则不重复写、直接返回。返回 cite key 供前端在光标处插入 [@key] 节点。
+func (s *Service) ApplyStructCite(projectID, userID, libraryPaperID uint) (string, error) {
 	row, err := s.repo.GetLibraryPaper(userID, libraryPaperID)
 	if err != nil {
 		return "", err
@@ -58,38 +60,51 @@ func (s *Service) ApplyCite(projectID, userID, libraryPaperID uint) (string, err
 	if row.Year != nil {
 		yr = int(*row.Year)
 	}
-	key := citeKey(first, yr, row.ID)
-	entry := bibtexEntry(key, row.Title, authors, yr, row.Venue, row.DOI)
+	baseKey := citeKey(first, yr, row.ID)
+	newBody := bibBody(bibtexEntry(baseKey, row.Title, authors, yr, row.Venue, row.DOI))
 
-	bib, err := s.repo.GetFileByPath(projectID, "references.bib")
+	js, err := s.GetStruct(projectID)
 	if err != nil {
 		return "", err
 	}
-	if bib == nil {
-		// 新建 references.bib + 首个版本
-		nf := &File{ProjectID: projectID, RelPath: "references.bib", FileKind: KindBib, Mime: "text/x-bibtex"}
-		if err := s.repo.CreateFile(nf); err != nil {
-			return "", err
-		}
-		if _, err := s.repo.AppendCurrentVersion(nf.ID, entry+"\n", sha256Hex(entry+"\n"), AuthorUser, nil); err != nil {
-			return "", err
-		}
-		_ = s.repo.TouchProject(projectID)
-		return key, nil
-	}
-	// 已有 references.bib:幂等追加(key 已存在则跳过)。
-	_, body, err := s.GetFileBody(projectID, bib.ID)
+	d, err := ParseDocStruct(js)
 	if err != nil {
 		return "", err
 	}
-	if strings.Contains(body, "{"+key+",") {
-		return key, nil // 已引用过
+	if d.Bibliography == nil {
+		d.Bibliography = map[string]string{}
 	}
-	newBody := strings.TrimRight(body, "\n") + "\n\n" + entry + "\n"
-	if _, err := s.repo.AppendCurrentVersion(bib.ID, newBody, sha256Hex(newBody), AuthorUser, nil); err != nil {
+	// 幂等:同一篇(去掉键行后 body 相同)已在任意键下引用过 → 返回那个键,不重复写。
+	for k, e := range d.Bibliography {
+		if bibBody(e) == newBody {
+			return k, nil
+		}
+	}
+	// 键碰撞消歧:baseKey 已被**别的**论文占用(同姓同年)→ 追加字母后缀 a/b/c…(pandoc 惯例)。
+	key := baseKey
+	if _, taken := d.Bibliography[key]; taken {
+		key = ""
+		for _, suf := range "abcdefghijklmnopqrstuvwxyz" {
+			if cand := baseKey + string(suf); d.Bibliography[cand] == "" {
+				key = cand
+				break
+			}
+		}
+		if key == "" {
+			key = fmt.Sprintf("%s%d", baseKey, row.ID) // 极端兜底:26 篇同姓同年
+		}
+	}
+	d.Bibliography[key] = bibtexEntry(key, row.Title, authors, yr, row.Venue, row.DOI)
+	canonical, err := d.Marshal()
+	if err != nil {
 		return "", err
 	}
-	_ = s.repo.TouchProject(projectID)
+	if _, err := s.repo.SaveStructVersion(projectID, canonical, sha256Hex(canonical), AuthorUser); err != nil {
+		return "", err
+	}
+	if err := s.materializeStruct(projectID, d); err != nil {
+		return "", err
+	}
 	return key, nil
 }
 
@@ -173,4 +188,63 @@ func bibtexEntry(key, title, authors string, year int, venue, doi string) string
 // bibEscape 去掉会破坏 .bib 的花括号(简单防御,够 MVP)。
 func bibEscape(s string) string {
 	return strings.NewReplacer("{", "", "}", "").Replace(s)
+}
+
+// bibBody 去掉 "@article{key," 首行,只留字段部分 —— 用于判「是不是同一篇」(键不同不影响,消歧用)。
+func bibBody(entry string) string {
+	if i := strings.IndexByte(entry, '\n'); i >= 0 {
+		return entry[i:]
+	}
+	return entry
+}
+
+// mergeBibInto 把 agent 编辑回的 references.bib 解析成 citeKey→entry 合并进 d.Bibliography(agent 权威:替换)。
+// 守卫:解析出**非空**才替换 —— agent 清空/删文件(读到空)时不误清真源;它要删某条就删该条,而非清空整份。
+func mergeBibInto(d *DocStruct, bibText string) {
+	m := parseBib(bibText)
+	if len(m) > 0 {
+		d.Bibliography = m
+	}
+}
+
+// parseBib 宽松解析 BibTeX:按 @ 记录切,花括号配平取整条,键 = "@type{" 与第一个 "," 之间。
+// 容忍 agent 手写的各种排版(值里的嵌套花括号靠配平处理;非条目文本跳过)。互逆于 projector.renderBib。
+func parseBib(s string) map[string]string {
+	out := map[string]string{}
+	for i := 0; i < len(s); {
+		if s[i] != '@' {
+			i++
+			continue
+		}
+		br := strings.IndexByte(s[i:], '{')
+		if br < 0 {
+			break
+		}
+		open := i + br // '{' 的字节位置
+		depth, k := 0, open
+		for k < len(s) {
+			if s[k] == '{' {
+				depth++
+			} else if s[k] == '}' {
+				depth--
+			}
+			k++
+			if depth == 0 {
+				break
+			}
+		}
+		if depth != 0 {
+			break // 花括号没配平(截断)→ 停
+		}
+		entry := strings.TrimSpace(s[i:k])
+		key := strings.TrimSpace(s[open+1 : k-1])
+		if c := strings.IndexByte(key, ','); c >= 0 {
+			key = strings.TrimSpace(key[:c]) // 键在 '{' 与第一个 ',' 之间
+		}
+		if key != "" {
+			out[key] = entry
+		}
+		i = k
+	}
+	return out
 }

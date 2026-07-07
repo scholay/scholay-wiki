@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from 'react';
 import { pdfjs } from 'react-pdf';
 import { cn } from '@/shared/lib/utils';
@@ -57,10 +58,12 @@ interface PdfViewerProps {
   initialPage?: number;
   /** 初始模式(默认 single) */
   initialMode?: PdfMode;
+  /** 工具条最右侧附加动作(如「下载 / 隐藏」);透传给 PdfViewerToolbar。 */
+  trailingActions?: ReactNode;
 }
 
 export const PdfViewer = forwardRef<HTMLDivElement, PdfViewerProps>(function PdfViewer(
-  { file, className, initialPage = 1, initialMode = 'single' },
+  { file, className, initialPage = 1, initialMode = 'single', trailingActions },
   ref
 ) {
   const [numPages, setNumPages] = useState(0);
@@ -165,6 +168,7 @@ export const PdfViewer = forwardRef<HTMLDivElement, PdfViewerProps>(function Pdf
         onZoomIn={zoomIn}
         onZoomOut={zoomOut}
         onFitWidth={toFitWidth}
+        trailingActions={trailingActions}
       />
 
       <div

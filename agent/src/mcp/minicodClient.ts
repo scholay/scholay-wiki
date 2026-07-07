@@ -18,14 +18,34 @@ const MINICOD_SERVER_JS =
   process.env.MINICOD_MCP_ENTRY || "/app/node_modules/@minicod/mcp-server/dist/index.js";
 
 let client: Client | null = null;
+let transport: StdioClientTransport | null = null;
 let toolsCache: McpToolDef[] | null = null;
 let connecting: Promise<void> | null = null;
+
+// 单次 MCP callTool 超时(默认 60s)。stdio 子进程 hang 时,若不设 deadline,runOne 会永久 await →
+// turn 终帧永不发出 → hub inFlight 永不释放 → 会话对用户彻底 busy 死锁。
+const CALL_TIMEOUT_MS = Number(process.env.MINICOD_MCP_CALL_TIMEOUT_MS || 60_000);
+
+// 断开并清空 client:任何 callTool 异常(含超时)后调,使下次 ensureConnected 重建连接。
+// 否则子进程死掉后 client 引用仍在,此执行器上所有后续检索永久失败,直到重启容器。
+function resetClient(): void {
+  const t = transport;
+  client = null;
+  transport = null;
+  if (t) {
+    try {
+      void t.close();
+    } catch {
+      /* noop */
+    }
+  }
+}
 
 async function ensureConnected(): Promise<void> {
   if (client) return;
   if (connecting) return connecting;
   connecting = (async () => {
-    const transport = new StdioClientTransport({
+    const tp = new StdioClientTransport({
       command: process.env.MINICOD_MCP_COMMAND || "bun",
       args: [MINICOD_SERVER_JS],
       env: {
@@ -40,8 +60,9 @@ async function ensureConnected(): Promise<void> {
       },
     });
     const c = new Client({ name: "scholay-agent-executor", version: "0.1.0" }, { capabilities: {} });
-    await c.connect(transport);
+    await c.connect(tp);
     client = c;
+    transport = tp;
     log.info("minicod mcp connected", { entry: MINICOD_SERVER_JS });
   })();
   try {
@@ -79,9 +100,25 @@ export async function callTool(
   args: Record<string, unknown>,
 ): Promise<{ content: unknown; isError: boolean }> {
   await ensureConnected();
-  const res = (await client!.callTool({ name, arguments: args })) as {
-    content?: unknown;
-    isError?: boolean;
-  };
-  return { content: res.content ?? [], isError: res.isError === true };
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const call = client!.callTool({ name, arguments: args }) as Promise<{
+      content?: unknown;
+      isError?: boolean;
+    }>;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`minicod mcp call timed out after ${CALL_TIMEOUT_MS}ms: ${name}`)),
+        CALL_TIMEOUT_MS,
+      );
+    });
+    const res = await Promise.race([call, timeout]);
+    return { content: res.content ?? [], isError: res.isError === true };
+  } catch (e) {
+    // 超时或子进程异常 → 置空 client,下次 ensureConnected 重建;错误上抛由 runOne 回填 is_error。
+    resetClient();
+    throw e;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }

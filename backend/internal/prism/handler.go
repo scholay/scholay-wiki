@@ -50,6 +50,20 @@ func (h *Handler) ownedProject(c *gin.Context) (*Project, uint, bool) {
 	return p, uid, true
 }
 
+// ownedWritableProject 在 ownedProject 基础上再挡只读项目(旧版 cutover 后冻结 / struct 走专用端点)。
+// 旧版编辑面端点(改标题/文件 CRUD/手动保存/AI 轮次/cite)都用它;编译/导出/读取仍用 ownedProject。
+func (h *Handler) ownedWritableProject(c *gin.Context) (*Project, uint, bool) {
+	p, uid, ok := h.ownedProject(c)
+	if !ok {
+		return nil, 0, false
+	}
+	if p.ReadOnly() {
+		utils.SafeBadRequest(c, ErrReadOnlyProject)
+		return nil, 0, false
+	}
+	return p, uid, true
+}
+
 // CreateProject POST /user/prism/projects {title}
 func (h *Handler) CreateProject(c *gin.Context) {
 	uid, ok := utils.GetUserID(c)
@@ -84,7 +98,7 @@ func (h *Handler) ListProjects(c *gin.Context) {
 
 // UpdateProject PATCH /user/prism/projects/:id {title}  → 改项目标题
 func (h *Handler) UpdateProject(c *gin.Context) {
-	p, _, ok := h.ownedProject(c)
+	p, _, ok := h.ownedWritableProject(c)
 	if !ok {
 		return
 	}
@@ -168,7 +182,7 @@ func (h *Handler) mapFileErr(c *gin.Context, err error) bool {
 
 // CreateFile POST /user/prism/projects/:id/files {rel_path}
 func (h *Handler) CreateFile(c *gin.Context) {
-	p, _, ok := h.ownedProject(c)
+	p, _, ok := h.ownedWritableProject(c)
 	if !ok {
 		return
 	}
@@ -187,7 +201,7 @@ func (h *Handler) CreateFile(c *gin.Context) {
 
 // RenameFile POST /user/prism/projects/:id/files/:fileId/rename {rel_path}
 func (h *Handler) RenameFile(c *gin.Context) {
-	p, _, ok := h.ownedProject(c)
+	p, _, ok := h.ownedWritableProject(c)
 	if !ok {
 		return
 	}
@@ -210,7 +224,7 @@ func (h *Handler) RenameFile(c *gin.Context) {
 
 // DeleteFile DELETE /user/prism/projects/:id/files/:fileId
 func (h *Handler) DeleteFile(c *gin.Context) {
-	p, _, ok := h.ownedProject(c)
+	p, _, ok := h.ownedWritableProject(c)
 	if !ok {
 		return
 	}
@@ -226,7 +240,7 @@ func (h *Handler) DeleteFile(c *gin.Context) {
 
 // SaveFile PUT /user/prism/projects/:id/files/:fileId {body}
 func (h *Handler) SaveFile(c *gin.Context) {
-	p, _, ok := h.ownedProject(c)
+	p, _, ok := h.ownedWritableProject(c)
 	if !ok {
 		return
 	}
@@ -358,7 +372,7 @@ func (h *Handler) ListVersions(c *gin.Context) {
 
 // RestoreVersion POST /user/prism/projects/:id/files/:fileId/versions/:versionId/restore
 func (h *Handler) RestoreVersion(c *gin.Context) {
-	p, _, ok := h.ownedProject(c)
+	p, _, ok := h.ownedWritableProject(c)
 	if !ok {
 		return
 	}
@@ -396,10 +410,16 @@ func (h *Handler) CiteSearch(c *gin.Context) {
 	utils.Success(c, gin.H{"candidates": cands})
 }
 
-// CiteApply POST /user/prism/projects/:id/cite/apply {library_paper_id}  → 写 references.bib,返 cite key
+// CiteApply POST /user/prism/projects/:id/cite/apply {library_paper_id}
+//   → 把库论文 BibTeX 写进结构体 Bibliography map(projector 据它生成参考文献表),返 cite key 供前端插 [@key]。
+// 用 ownedProject(不走 ownedWritableProject 的 ReadOnly 闸 —— struct 项目本就该能引用);legacy 项目冻结不支持。
 func (h *Handler) CiteApply(c *gin.Context) {
 	p, uid, ok := h.ownedProject(c)
 	if !ok {
+		return
+	}
+	if p.SchemaVersion != SchemaStruct {
+		utils.SafeBadRequest(c, ErrReadOnlyProject)
 		return
 	}
 	var req struct {
@@ -408,7 +428,7 @@ func (h *Handler) CiteApply(c *gin.Context) {
 	if !utils.BindJSON(c, &req) {
 		return
 	}
-	key, err := h.svc.ApplyCite(p.ID, uid, req.LibraryPaperID)
+	key, err := h.svc.ApplyStructCite(p.ID, uid, req.LibraryPaperID)
 	if h.mapEditErr(c, err) {
 		return
 	}

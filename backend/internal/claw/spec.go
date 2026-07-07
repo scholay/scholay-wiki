@@ -137,9 +137,14 @@ func BuildSpec() agentbridge.FeatureSpec {
 		DefaultTier:            "main", // 通用助手对话(可能 Bash/多工具):默认主档(pro)
 		// C14: 审批轴。默认 auto;CLAW_PERMISSION_PASSTHROUGH=1 时 passthrough(测试/HITL 验证)。
 		PermissionMode: clawPermissionMode(),
-		// C1 (2026-06): claw 是唯一允许 Bash 的 feature —— 要跑 pandoc/python 把 docx/xlsx
-		// 转成可读文本。AllowBash=true 让 backend 权限门放行 Bash;agent 端全局 denylist 本就
-		// 不含 Bash, claw 又不追加禁用, 故 agent 侧天然有 Bash, 无需 SessionOptions。
+		// C1 (2026-06): claw 是唯一允许 Bash 的 feature —— 要跑 pdftotext/python 把 PDF / docx/xlsx
+		// 等任意格式转成可读文本(能力交给 agent 自己控 tool 调用,不在 backend 预处理)。AllowBash=true
+		// 让 backend 权限门放行 Bash;agent 端全局 denylist 本就不含 Bash, claw 又不追加禁用, 故 agent
+		// 侧天然有 Bash, 无需 SessionOptions。
+		// ⚠️ 多租户隔离:Bash 是 shell,backend 权限门无法做路径限制,跨会话文件隔离**依赖 agent 容器
+		// 的 bwrap 沙箱**(--unshare-all + 唯一可写=本会话 cwd → 其它会话 cwd 物理不在命名空间里)。
+		// bwrap 需生产内核放开 unprivileged userns;设 EXECUTOR_SANDBOX_MODE=bwrap 启用。在 bwrap 生效
+		// 之前,SANDBOX_MODE=none 下 Bash 裸跑,claw 用户可跨会话读他人文件 —— 隔离靠 bwrap 兜,不靠关 Bash。
 		AllowBash:         true,
 		PreUserMessage:    pre,
 		OnMessageComplete: onComplete,

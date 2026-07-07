@@ -18,6 +18,12 @@ const MAX_TOOL_ROUNDS = Number(process.env.EXECUTOR_MAX_TOOL_ROUNDS || 24);
 // 调到 64000:turnLoop 用 messages.stream(流式),DeepSeek 在流式下接受大 max_tokens(实测)。
 const MAX_TOKENS = Number(process.env.EXECUTOR_MAX_TOKENS || 64000);
 
+// 单轮(一次 runTurn)累计 token 硬闸(input+output,逐 LLM call 累加)。第二层失控保护:
+// 轮数上限只挡「工具循环次数」,挡不住「每轮全量重发超长 history」造成的 token 爆炸
+// (历史事故:审稿向导单轮 10-17M token)。默认 5M —— 只兜真正失控,正常多轮读稿不受影响。
+// 业务每日额度是 user_message 前的前置闸,进入 turn 后无内层闸;此为该缺口的兜底。0 = 关闭。
+const MAX_TURN_TOKENS = Number(process.env.EXECUTOR_MAX_TURN_TOKENS || 5_000_000);
+
 // runTurn 返回本轮结束后的完整 messages[](含 assistant + tool_result),供 WS 层做会话续接。
 // 注:这是「会话内 history」的内存承载;耐久真源在后端事件溯源 journal(执行器跨重启无状态)。
 export async function runTurn(
@@ -53,10 +59,19 @@ export async function runTurn(
   try {
     for (let round = 0; ; round++) {
       if (signal?.aborted) break; // 用户 stop → 跳出,finally 补终帧
-      if (round > MAX_TOOL_ROUNDS) {
+      if (round >= MAX_TOOL_ROUNDS) {
         sink.error("tool round cap exceeded", "busy");
         terminalSent = true; // error 即终帧(hub 也会在 error case 清 inFlight)
         break;
+      }
+      if (MAX_TURN_TOKENS > 0) {
+        const spent = calls.reduce((n, c) => n + (c.input_tokens || 0) + (c.output_tokens || 0), 0);
+        if (spent > MAX_TURN_TOKENS) {
+          log.warn("turn token budget exceeded", { session_id: input.sessionId, spent, budget: MAX_TURN_TOKENS });
+          sink.error("本轮处理量已达上限,已自动停止。请精简需求后重试。", "budget");
+          terminalSent = true; // error 即终帧
+          break;
+        }
       }
       sink.frame({ type: "status", state: "thinking" });
 
@@ -123,7 +138,7 @@ export async function runTurn(
         .map((b) => ({ id: b.id, name: b.name, input: b.input }));
 
       sink.frame({ type: "status", state: "tool_executing" });
-      const results = await runTools(toolUses, input, sink);
+      const results = await runTools(toolUses, input, sink, signal);
       // 所有 tool_result 在一个 user 消息里(SDK 规则;拆开会把模型训离 parallel call)
       messages.push({ role: "user", content: results });
     }

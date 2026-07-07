@@ -14,6 +14,13 @@ type Repository struct {
 
 func NewRepository(db *gorm.DB) *Repository { return &Repository{db: db} }
 
+// AfterFind 给查出的 Project 填充计算字段 read_only —— 前端据此决定旧版工作台是否只读。
+// GORM 在 First/Find 后自动回调,GetProject / ListProjects / GetProjectBySession 都覆盖到。
+func (p *Project) AfterFind(*gorm.DB) error {
+	p.ReadOnlyFlag = p.ReadOnly()
+	return nil
+}
+
 // ─── 项目 ────────────────────────────────────────────────────────────────
 
 func (r *Repository) CreateProject(p *Project) error { return r.db.Create(p).Error }
@@ -35,6 +42,18 @@ func (r *Repository) ListProjects(userID uint) ([]Project, error) {
 	var ps []Project
 	err := r.db.Where("user_id = ?", userID).Order("updated_at DESC").Find(&ps).Error
 	return ps, err
+}
+
+// GetProjectByID 按 id 取项目(内部用,不校验归属;调用方须已鉴权)。用于轮次流里判 schema_version。
+func (r *Repository) GetProjectByID(id uint) (*Project, error) {
+	var p Project
+	if err := r.db.Where("id = ?", id).First(&p).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &p, nil
 }
 
 // UpdateProjectTitle 改项目标题(调用方已校验归属 + 非空)。

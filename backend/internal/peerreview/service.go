@@ -557,11 +557,12 @@ func (s *Service) runMethodologyPhase(ctx context.Context, submissionID uint64, 
 	s.broker.Begin(submissionID, SlotMethodology)
 	defer s.broker.Done(submissionID, SlotMethodology)
 
-	// AddDirs: 只给方法论会话加载审稿人 skill(reviewer-roster + rv-*, 经 --add-dir);
-	// Skill 工具保持开(不传 DisallowedTools)→ agent 可 invoke。claw 等其它会话不传 → 看不到这些 skill。
-	created, err := s.feature.AgentClient().CreateSession(ctx, &agent.CreateSessionOptions{
-		AddDirs: []string{reviewerSkillAddDir()},
-	})
+	// 2026-07:不再 AddDirs 加载 reviewer-skills。原因:① buildMethodologyPrompt 已 in-band 注入
+	// 完整确定性花名册(availableReviewers,含 slug/name/domain/fit/desc + 选择规则),选人自足;
+	// ② 评分轮按 slug 后端读 SKILL.md 注入 SCORING_PERSONA,不经这条路;③ clean-room 执行器无
+	// fork 的「Skill 工具」,skills 是全文常驻 system 后缀,reviewer-skills ~74KB 撞 loader 40KB
+	// 总量帽 → 静默、非确定性截断,且每个 tool round 重发白烧数十万 input token。故整段移除。
+	created, err := s.feature.AgentClient().CreateSession(ctx, nil)
 	if err != nil {
 		slog.Warn("peerreview methodology session create failed; builtin reviewers",
 			"submission_id", submissionID, "err", err)
@@ -1037,6 +1038,15 @@ func (s *Service) AdvanceStep(ctx context.Context, userID, submissionID uint64, 
 	if fromStep < 1 || fromStep > 3 {
 		return nil, ErrInvalidStep
 	}
+	// 向导 step1→2(抽 meta)/ step2→3(起草信)都是真实 LLM 编排, 与 Submit 一样理应过每日额度 ——
+	// 否则已超额用户可反复点"下一步"烧平台成本(改一次文件即 cache miss 强制重跑, 更易反复触发;
+	// 历史事故: 向导单轮 10-17M token)。step3→4 无 agent, 不扣。放在 status/computeState/step
+	// 守门之后, 保证非法 id / 重复点击不白扣额度。
+	if (fromStep == 1 || fromStep == 2) && s.vip != nil {
+		if err := s.vip.CheckDailyQuota(ctx, uint(userID)); err != nil {
+			return nil, err // vip.ErrQuotaExceeded → handler 映射成 6010/429
+		}
+	}
 	switch fromStep {
 	case 1:
 		return s.advanceTo2(ctx, sub)
@@ -1242,7 +1252,9 @@ func (s *Service) runMetaExtract(ctx context.Context, submissionID uint64, sessi
 	ctx = s.reviewCallCtx(ctx, submissionID) // LLM 账本归属 (feature=peer_review + 投稿人)
 	s.broker.Begin(submissionID, SlotMeta)
 
-	// 方案 B: 把稿件 + 附件推到 agent 会话 cwd, 让它用 Read 读全文 (不再 backend 抽文本)。
+	// 方案 B:把稿件推到 agent 会话 cwd,让它用【自己的命令行工具】抽文本(后端不预处理 —— 格式太多
+	// 无法预判)。meta 只需开头,故 prompt 强约束:用 pdftotext -l 2 / pandoc 取前 2 页,**绝不 Read 原始 PDF**
+	// (二进制乱码、读整本会 10-17M token 撞轮数上限 → meta 失败 → step2Cache 空 → 下一步 400)。
 	files, perr := s.pushAssetsToSession(ctx, submissionID, sessionID)
 	if perr != nil {
 		if errors.Is(perr, ErrManuscriptMissing) {
@@ -1254,16 +1266,14 @@ func (s *Service) runMetaExtract(ctx context.Context, submissionID uint64, sessi
 		return
 	}
 
-	// 元数据抽取**只需论文开头** (标题/摘要/关键词/学科/类型都在首页+摘要区)。
-	// 不要求通读全文 —— 全文留给后面的审稿轮 (runReviewBackground 会重读)。这样大幅减少
-	// Read 进上下文的体量, meta 抽取从"读整本 PDF"提速到"读前 1-2 页"。
 	prompt := fmt.Sprintf(
 `请从这篇论文里抽取投稿元数据。论文文件已放在你的当前工作目录:
 %s
 
-**只需读论文开头部分** (标题/摘要/关键词/学科通常都在首页与摘要区), **不必通读全文**, 以加快速度:
-- PDF: 优先用 `+"`pdftotext -l 2 \"<文件>\" -`"+` 只取前 2 页 (容器已装 poppler-utils); 不行再 Read。
-- docx/其它: 用 pandoc/python 转换后取开头即可。
+**只需论文开头 1-2 页**(标题/摘要/关键词/学科都在首页与摘要区)。**绝不要通读全文,也绝不要用 Read 直接读原始 PDF**——PDF 是二进制,Read 会得到乱码且极慢。请用命令行工具把开头转成文本:
+- PDF:`+"`pdftotext -l 2 \"<文件>\" -`"+`(只取前 2 页文本)。
+- docx:`+"`pandoc \"<文件>\" -t plain`"+` 或 python-docx(`+"`python3 -c \"import docx,sys;print('\\n'.join(p.text for p in docx.Document(sys.argv[1]).paragraphs))\" \"<文件>\"`"+`)。
+- 其它格式:选合适的命令行工具转成文本,同样只取开头。
 
 抽取结构化元数据, **严格 JSON 输出**(不要任何前后缀文本 / 不要 markdown 代码块):
 

@@ -34,6 +34,16 @@ function fail(text: string): ToolResult {
   return { content: [{ type: "text", text }], isError: true };
 }
 
+// Read 返回文本上限:超出截断,避免单次 Read 把整个大文件塞进上下文烧 token。
+const MAX_READ_BYTES = Number(process.env.EXECUTOR_MAX_READ_BYTES || 256_000);
+
+// 二进制探测:前 8KB 内出现 NUL(0x00)即判定二进制。清一色文本文件不含 NUL。
+function looksBinary(buf: Buffer): boolean {
+  const n = Math.min(buf.length, 8192);
+  for (let i = 0; i < n; i++) if (buf[i] === 0) return true;
+  return false;
+}
+
 // 路径限制走 sandbox/confine.ts 的 realpath 版(C5:防符号链接逃逸)。
 
 // bashEnv:bash 子进程只继承白名单 env —— **绝不** {...process.env}(C4:否则模型 echo $MINICOD_API_KEY /
@@ -53,13 +63,31 @@ function bashEnv(): Record<string, string> {
 // ② 前端 claw 认领产物卡片靠 tool.input.file_path(MessageTurn.extractTurnArtifacts)。
 const readTool: BuiltinTool = {
   name: "Read",
-  description: "Read a UTF-8 text file within the session working directory.",
+  description:
+    "Read a UTF-8 text file within the session working directory. Binary files (PDF, Office docs, etc.) are NOT supported directly — convert them to text first via Bash (e.g. `pdftotext`, or python-docx/openpyxl), then Read the output.",
   input_schema: { type: "object", properties: { file_path: { type: "string" } }, required: ["file_path"] },
   parallelSafe: true,
   async run(input, ctx) {
     try {
       const p = await confinePath(ctx.workDir, String(input.file_path));
-      const text = await readFile(p, "utf8");
+      // 先读为字节,判二进制 → 立即回可操作错误,绝不把 PDF/图片强解码成 mojibake 全量入上下文
+      // (这是历史上审稿向导单轮 10-17M token 的元凶之一)。
+      const buf = await readFile(p);
+      if (looksBinary(buf)) {
+        const lower = String(input.file_path).toLowerCase();
+        const hint = lower.endsWith(".pdf")
+          ? " This is a PDF — extract its text with `pdftotext '<file>' -` via Bash, then Read the output (or redirect to a .txt)."
+          : /\.(docx|pptx|xlsx|odt|rtf)$/.test(lower)
+            ? " This is an Office document — convert it to text via Bash (python-docx / python-pptx / openpyxl), then Read the output."
+            : " This is a binary file; Read only supports UTF-8 text. Convert it to text via Bash first.";
+        return fail("read failed: binary file not supported." + hint);
+      }
+      let text = buf.toString("utf8");
+      if (buf.length > MAX_READ_BYTES) {
+        text =
+          text.slice(0, MAX_READ_BYTES) +
+          `\n\n[... truncated: file is ${buf.length} bytes, showing first ${MAX_READ_BYTES}. Use Grep or read a narrower section.]`;
+      }
       return ok(text);
     } catch (e) {
       return fail("read failed: " + String((e as Error)?.message ?? e));

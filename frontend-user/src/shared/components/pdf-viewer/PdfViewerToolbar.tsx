@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -31,6 +32,8 @@ interface PdfViewerToolbarProps {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onFitWidth: () => void;
+  /** 工具条最右侧的附加动作(如「下载 / 隐藏」);调用方按需传,不传则无。 */
+  trailingActions?: ReactNode;
 }
 
 /**
@@ -48,6 +51,7 @@ export function PdfViewerToolbar({
   onZoomIn,
   onZoomOut,
   onFitWidth,
+  trailingActions,
 }: PdfViewerToolbarProps) {
   return (
     <div className="flex items-center justify-between gap-3 h-12 px-4 bg-background border-b border-border-soft shrink-0">
@@ -132,6 +136,12 @@ export function PdfViewerToolbar({
         >
           <Maximize2 className="size-3.5" />
         </button>
+        {trailingActions && (
+          <>
+            <span className="mx-0.5 h-4 w-px bg-border-separator" />
+            {trailingActions}
+          </>
+        )}
       </div>
     </div>
   );

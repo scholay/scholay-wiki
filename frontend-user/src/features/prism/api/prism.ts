@@ -11,6 +11,10 @@ export interface PrismProject {
   title: string;
   main_file: string;
   status: string;
+  /** 文档轨道:'legacy'(旧裸 LaTeX,cutover 后只读)/ 'struct'(新结构体)。见后端 prism.Project。 */
+  schema_version: string;
+  /** 后端计算:旧版编辑面是否禁用(legacy 冻结 / struct 走专用端点)。编译/导出不受影响。 */
+  read_only?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -256,6 +260,9 @@ export function useRestoreVersion(projectId: number) {
   });
 }
 
+// 注:struct 轨「历史版本」前端入口已下线(改动改用编辑器内原地 diff 标注,不再有版本回滚对话框)。
+// 后端 /struct/versions 快照端点仍在(每次保存自动快照,作服务端恢复兜底),前端暂不消费。
+
 // ─── 对话历史(重入恢复)────────────────────────────────────────────────────
 
 export interface ServerChatMessage {
@@ -273,7 +280,8 @@ export async function fetchChatHistory(projectId: number): Promise<ServerChatMes
   return (await http.get<{ data: { messages: ServerChatMessage[] } }>(`/user/prism/projects/${projectId}/chat`)).data.data.messages;
 }
 
-/** 应用引用:写 references.bib,返回可插入的 cite key。 */
+/** 应用引用:把库论文 BibTeX 写进结构体 Bibliography(projector 据它出参考文献表),返回可插入的 cite key。
+ *  mirrors backend/internal/prism/cite.go ApplyStructCite */
 export function useApplyCite(projectId: number) {
   const qc = useQueryClient();
   return useMutation({
@@ -292,6 +300,164 @@ export function prismPdfSource(projectId: number, version?: number): PdfSource {
   return token ? { url, httpHeaders: { Authorization: `Bearer ${token}` } } : { url };
 }
 
+// ─── struct 轨(新版结构体文档)────────────────────────────────────────────
+// mirrors backend/internal/prism/struct_model.go DocStruct
+export interface DocInline {
+  t: string; // text|bold|italic|cite|math
+  v?: string;
+  key?: string;
+  latex?: string;
+}
+export interface DocBlock {
+  id?: string;
+  type: string; // heading|paragraph|displayMath|figure|list|opaque
+  level?: number;
+  text?: string;
+  label?: string;
+  inlines?: DocInline[];
+  latex?: string;
+  asset?: string;
+  caption?: string;
+  width?: string;
+  ordered?: boolean;
+  items?: DocInline[][];
+  rows?: string[][]; // table 行(rows[0]=表头)
+  rawLatex?: string;
+}
+export interface DocAuthor {
+  id?: string;
+  given?: string;
+  family?: string;
+  email?: string;
+  orcid?: string;
+  corresponding?: boolean;
+  affRefs?: string[];
+}
+export interface DocAffiliation {
+  id?: string;
+  organization?: string;
+  department?: string;
+  city?: string;
+  country?: string;
+}
+export interface DocFrontMatter {
+  title: string;
+  shortTitle?: string;
+  authors?: DocAuthor[];
+  affiliations?: DocAffiliation[];
+  abstract?: string;
+  keywords?: string[];
+}
+export interface DocStruct {
+  structVersion: number;
+  targetTemplate: string;
+  frontMatter: DocFrontMatter;
+  body: DocBlock[];
+  bibliography?: Record<string, string>;
+  assets?: Record<string, unknown>;
+}
+export interface PrismTemplate {
+  key: string;
+  name: string;
+  doc_class: string;
+}
+
+/** 取 struct 项目的结构体真源。staleTime:0(切走再回来取最新,沿用 agent 历史重入铁律)。 */
+export function useStruct(projectId?: number) {
+  return useQuery({
+    queryKey: ['prism', 'struct', projectId],
+    enabled: !!projectId,
+    staleTime: 0,
+    queryFn: async () =>
+      (await http.get<{ data: { struct: DocStruct } }>(`/user/prism/projects/${projectId}/struct`)).data.data.struct,
+  });
+}
+
+/** 保存结构体(投影 + 落版本);成功后把返回的规范结构体写回缓存。 */
+export function useSaveStruct(projectId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (struct: DocStruct) =>
+      (await http.put<{ data: { struct: DocStruct } }>(`/user/prism/projects/${projectId}/struct`, { struct })).data.data.struct,
+    onSuccess: (s) => qc.setQueryData(['prism', 'struct', projectId], s),
+  });
+}
+
+/** 模板选择器元数据(「投到哪个期刊」)。 */
+export function useTemplates() {
+  return useQuery({
+    queryKey: ['prism', 'templates'],
+    queryFn: async () =>
+      (await http.get<{ data: { templates: PrismTemplate[] } }>('/user/prism/templates')).data.data.templates,
+  });
+}
+
+/** 目标模板合规:必填前置信息缺失(前端红点提示)。mirrors prism.ConformanceReport。 */
+export interface Conformance {
+  template: string;
+  page_limit?: number;
+  missing: string[];
+}
+
+export function useConformance(projectId?: number) {
+  return useQuery({
+    queryKey: ['prism', 'conformance', projectId],
+    enabled: !!projectId,
+    staleTime: 0,
+    queryFn: async () =>
+      (await http.get<{ data: { conformance: Conformance } }>(`/user/prism/projects/${projectId}/conformance`)).data.data.conformance,
+  });
+}
+
+/** 确定性换刊(POST /template)—— 非 LLM 重写;返回新结构体 + 合规报告。 */
+export function useSetTemplate(projectId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (template: string) =>
+      (await http.post<{ data: { struct: DocStruct; conformance: Conformance } }>(`/user/prism/projects/${projectId}/template`, { template })).data.data,
+    onSuccess: (d) => {
+      qc.setQueryData(['prism', 'struct', projectId], d.struct);
+      qc.setQueryData(['prism', 'conformance', projectId], d.conformance);
+    },
+  });
+}
+
+/** 上传图片(multipart)→ 末尾插一个 figure 块;返回新结构体。 */
+export function useUploadAsset(projectId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const fd = new FormData();
+      fd.append('file', file);
+      return (await http.post<{ data: { struct: DocStruct } }>(`/user/prism/projects/${projectId}/assets`, fd)).data.data.struct;
+    },
+    onSuccess: (s) => qc.setQueryData(['prism', 'struct', projectId], s),
+  });
+}
+
+/** 导出 Word(.docx)—— struct→Pandoc。走 blob(端点需 Bearer)。 */
+export async function exportPrismDocx(projectId: number, filename: string): Promise<void> {
+  const res = await http.get(`/user/prism/projects/${projectId}/export/docx`, { responseType: 'blob' });
+  const url = URL.createObjectURL(res.data as Blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/** 逃生口:从旧项目克隆一个新版(struct)项目。 */
+export function useCloneToStruct() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (projectId: number) =>
+      (await http.post<{ data: { project: PrismProject } }>(`/user/prism/projects/${projectId}/clone-to-struct`, {})).data.data.project,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['prism', 'projects'] }),
+  });
+}
+
 // ─── agent-native 用户 WS 轮次(实时编辑 + 应用门 + 重入)──────────────────────
 
 /** 待应用的一个文件改动:DB 旧正文 + cwd 新正文(前端据此渲染 diff)。
@@ -302,6 +468,9 @@ export interface PrismPendingFile {
   old_body: string;
   new_body: string;
   is_new?: boolean;
+  // struct 轨:改动前后的结构体(渲染 Word 式痕迹 diff 用,替代 markdown 代码 diff)。
+  old_struct?: DocStruct;
+  new_struct?: DocStruct;
 }
 
 /** 每轮 AI 前铺源(DB current → 会话 cwd)。 */

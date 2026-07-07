@@ -18,14 +18,26 @@ export async function runTools(
   toolUses: ToolUse[],
   input: TurnInput,
   sink: EventSink,
+  signal?: AbortSignal,
 ): Promise<Anthropic.ToolResultBlockParam[]> {
+  // 用户 stop 后,进行中的工具批直接短路成 aborted(否则串行工具会一路跑完,stop 形同虚设)。
+  if (signal?.aborted) {
+    return toolUses.map((tu) => errResult(tu.id, "aborted", sink));
+  }
   // MCP / parallelSafe built-in 可并发;非 parallelSafe(write/edit/bash)串行,保顺序与互斥。
   const allParallel = toolUses.every((tu) => isMcpTool(tu.name) || builtinRegistry.get(tu.name)?.parallelSafe);
   if (allParallel) {
     return Promise.all(toolUses.map((tu) => runOne(tu, input, sink)));
   }
   const out: Anthropic.ToolResultBlockParam[] = [];
-  for (const tu of toolUses) out.push(await runOne(tu, input, sink));
+  for (const tu of toolUses) {
+    // 每个串行工具前重查 abort:一旦用户中止,剩余工具不再执行,直接回填 aborted。
+    if (signal?.aborted) {
+      out.push(errResult(tu.id, "aborted", sink));
+      continue;
+    }
+    out.push(await runOne(tu, input, sink));
+  }
   return out;
 }
 

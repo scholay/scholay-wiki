@@ -28,6 +28,22 @@ const wsConcurrency = 8
 // 全量覆盖(幂等):DB current 是权威,cwd 是可丢弃副本,每轮同步成 == DB 即可。
 // 有界并发写(errgroup,各文件独立 PUT;任一失败即 Wait 返回该错并取消其余)。
 func (s *Service) materializeProject(ctx context.Context, projectID uint, sessionID string) error {
+	// struct 轨:agent 编辑面是 markdown —— 铺 document.md(struct→markdown,正文)+ references.bib
+	// (参考文献;agent 把 minicod 查到的真实论文写成 BibTeX 放这里,轮末解析回 Bibliography),不铺 .tex。
+	if p, perr := s.repo.GetProjectByID(projectID); perr == nil && p != nil && p.SchemaVersion == SchemaStruct {
+		js, err := s.GetStruct(projectID)
+		if err != nil {
+			return err
+		}
+		d, err := ParseDocStruct(js)
+		if err != nil {
+			return err
+		}
+		if err := s.agent.PutWorkspaceFile(ctx, sessionID, EditorDocFile, []byte(structToEditorMarkdown(d))); err != nil {
+			return err
+		}
+		return s.agent.PutWorkspaceFile(ctx, sessionID, BibFile, []byte(renderBib(d.Bibliography)))
+	}
 	files, _, err := s.gatherCurrent(projectID) // map[relPath]body,已过滤为文本文件
 	if err != nil {
 		return err

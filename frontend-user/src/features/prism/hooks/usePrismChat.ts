@@ -97,7 +97,7 @@ function fileMatchesActive(filePath: string | undefined, relPath: string): boole
  */
 export function usePrismChat(
   projectId: number,
-  opts: { onApplied?: () => void; onReverted?: () => void } = {},
+  opts: { onApplied?: () => void; onReverted?: () => void; autoApply?: boolean } = {},
 ) {
   const socket = usePrismSocket(projectId);
   const qc = useQueryClient();
@@ -112,6 +112,8 @@ export function usePrismChat(
   // awaiting_apply 阶段的多文件待应用集合 + 当前选中文件 + 用户逐块取舍后的最终正文(relPath→body)。
   const [pendingFiles, setPendingFiles] = useState<PrismPendingFile[]>([]);
   const [selectedPending, setSelectedPending] = useState<string | null>(null);
+  // autoApply 轨(struct/V2):本轮已自动固化的改动,留作只读「本次改动」标识(非确认门)。
+  const [appliedChange, setAppliedChange] = useState<PrismPendingFile[] | null>(null);
   const mergedRef = useRef<Record<string, string>>({});
   const [hasMoreHistory, setHasMoreHistory] = useState(false);
   const [loadingEarlier, setLoadingEarlier] = useState(false);
@@ -121,6 +123,8 @@ export function usePrismChat(
   onAppliedRef.current = opts.onApplied;
   const onRevertedRef = useRef(opts.onReverted);
   onRevertedRef.current = opts.onReverted;
+  const autoApplyRef = useRef(opts.autoApply);
+  autoApplyRef.current = opts.autoApply;
 
   const processedRef = useRef(0); // 已消费 socket.messages 数(只用于副作用)
   const roundActiveRef = useRef(false); // 当前是否有在途轮(gate finalize,避免重复收尾)
@@ -150,7 +154,45 @@ export function usePrismChat(
     }, 250);
   }, [projectId]);
 
-  // 轮末:确定本轮改动文件数 → 若有改动进 awaiting_apply,否则 idle。
+  // autoApply 轨:去掉确认门 —— 直接固化 cwd→DB,把本次改动留作只读标识,不等用户点应用。
+  const commitAndIndicate = useCallback(
+    (files: PrismPendingFile[]) => {
+      setLive(null);
+      setPendingFiles([]);
+      setSelectedPending(null);
+      activeRef.current = null;
+      setAppliedChange(files); // 「本次改动」只读标识
+      setChangeset({ applied: files.length, state: 'applied' }); // 聊天里显示「已应用」而非待应用门
+      // 固化期间保持非 idle:挡住用户抢发(否则 prepareRound 重铺源会和本次固化竞争,丢改动)。完成/失败再回 idle。
+      setRoundState('streaming');
+      // 只在「没有新轮接管」时才回 idle:期间若来了对端轮/续流(它们只 gate roundActiveRef,会把
+      // roundState 重新置 streaming),这里无条件回 idle 会误把 composer 解锁在别人回答中(评审 F1)。
+      const settleIdle = () => {
+        if (!roundActiveRef.current) setRoundState('idle');
+      };
+      // 固化带少量重试:多为瞬时网络/后端抖动,重试可救回,避免改动只留在 cwd 被下一轮 prepareRound 冲掉(F3)。
+      const attempt = (retries: number): Promise<void> =>
+        applyRound(projectId, lastInstructionRef.current, {}) // 空 overrides = 固化 cwd 全部改动
+          .then(() => {
+            settleIdle();
+            onAppliedRef.current?.();
+          })
+          .catch(() => {
+            if (retries > 0) {
+              return new Promise<void>((r) => setTimeout(r, 400)).then(() => attempt(retries - 1));
+            }
+            // 终态失败:改动其实只在 cwd 没落库 —— 别谎报「已应用」;提示刷新(重入会重新固化,勿直接重发)。
+            settleIdle();
+            setAppliedChange(null);
+            setChangeset(null);
+            toast.error('改动暂未保存,请刷新页面后重试');
+          });
+      void attempt(2);
+    },
+    [projectId],
+  );
+
+  // 轮末:确定本轮改动文件数 → autoApply 自动固化并标识;否则进 awaiting_apply 确认门(legacy)。
   const finalizeRound = useCallback(
     (ok: boolean) => {
       if (!roundActiveRef.current) return;
@@ -172,6 +214,10 @@ export function usePrismChat(
             setChangeset(null);
             return;
           }
+          if (autoApplyRef.current) {
+            commitAndIndicate(files);
+            return;
+          }
           setRoundState('awaiting_apply');
           setChangeset({ applied: files.length, state: 'awaiting_apply' });
           setPendingFiles(files);
@@ -187,7 +233,7 @@ export function usePrismChat(
           setLive(null);
         });
     },
-    [projectId],
+    [projectId, commitAndIndicate],
   );
 
   // 副作用消费:只处理离散帧(tool_use_complete→乐观预览 / tool_result→refetch /
@@ -235,6 +281,7 @@ export function usePrismChat(
       lastInstructionRef.current = ins;
       roundActiveRef.current = true;
       setChangeset(null);
+      setAppliedChange(null); // 开新一轮 → 清掉上一轮的「本次改动」标识
       setPendingTurns((prev) => [...prev, { id: nextId(), userText: ins }]);
       setRoundState('streaming');
       setLive({ relPath: active.relPath, baseline: active.baseline, content: active.baseline });
@@ -272,6 +319,9 @@ export function usePrismChat(
     onRevertedRef.current?.();
   }, [projectId]);
 
+  // autoApply 轨:关掉「本次改动」标识(改动已固化,只是收起对照视图,继续编辑)。
+  const dismissChange = useCallback(() => setAppliedChange(null), []);
+
   const selectPending = useCallback((relPath: string) => setSelectedPending(relPath), []);
   const setMergedBody = useCallback((relPath: string, body: string) => {
     mergedRef.current[relPath] = body;
@@ -298,6 +348,11 @@ export function usePrismChat(
       setHasMoreHistory(res?.hasMore ?? false);
       const files = await fetchPendingRound(projectId).catch(() => []);
       if (cancelled || files.length === 0) return;
+      if (autoApplyRef.current) {
+        // 上次会话遗留的未固化改动(断线等)→ 自动固化并标识,不再弹确认门。
+        commitAndIndicate(files);
+        return;
+      }
       setRoundState('awaiting_apply');
       setChangeset({ applied: files.length, state: 'awaiting_apply' });
       setPendingFiles(files);
@@ -308,7 +363,7 @@ export function usePrismChat(
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [projectId, commitAndIndicate]);
 
   // 「加载更早」:把 limit +100 重新拉历史并重折(只在 idle 时由 UI 触发)。
   const loadEarlier = useCallback(async () => {
@@ -367,6 +422,22 @@ export function usePrismChat(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket.busyRejected]);
 
+  // 命中每日额度:backend 在转发给 agent 之前就拒了这条 user_message(quota_exceeded 帧不进
+  // socket.messages),agent 永不对这轮发 message_complete → roundState 卡在 'streaming'、composer
+  // 永久禁用、stop 也救不了(评审 F2)。socket.quotaExceeded 单调自增 → 解卡:回 idle + 标记本轮暂停。
+  // 用户已由全局额度弹窗(QuotaNotifier)知道原因;此处只负责把本地状态机解锁。
+  const lastQuotaRef = useRef(0);
+  useEffect(() => {
+    if (socket.quotaExceeded === 0 || socket.quotaExceeded === lastQuotaRef.current) return;
+    lastQuotaRef.current = socket.quotaExceeded;
+    setPendingTurns((prev) =>
+      prev.length ? [...prev.slice(0, -1), { ...prev[prev.length - 1], paused: true }] : prev,
+    );
+    roundActiveRef.current = false;
+    setRoundState('idle');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socket.quotaExceeded]);
+
   const newChat = useCallback(() => {
     socket.clearMessages();
     processedRef.current = 0;
@@ -375,6 +446,7 @@ export function usePrismChat(
     setPendingTurns([]);
     setHistoryTurns([]);
     setChangeset(null);
+    setAppliedChange(null);
     setRoundState('idle');
     setLive(null);
     clearPending();
@@ -386,6 +458,8 @@ export function usePrismChat(
     roundState,
     live,
     pendingFiles,
+    appliedChange,
+    dismissChange,
     selectedPending,
     selectPending,
     getMergedBody,

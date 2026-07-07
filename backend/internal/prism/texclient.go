@@ -68,7 +68,8 @@ func safeRel(rel string) (string, bool) {
 }
 
 // Compile 同步执行一次编译(由调用方放在后台 goroutine + 自带超时 ctx 里跑)。
-func (t *TexClient) Compile(ctx context.Context, files map[string]string, mainFile, engine string) (*CompileResult, error) {
+// assets 是二进制资产(图片等,relPath→字节),与文本 files 一起写进任务目录供 \includegraphics 引用。
+func (t *TexClient) Compile(ctx context.Context, files map[string]string, assets map[string][]byte, mainFile, engine string) (*CompileResult, error) {
 	if engine != EngineXeLaTeX {
 		engine = EnginePDFLaTeX
 	}
@@ -99,6 +100,21 @@ func (t *TexClient) Compile(ctx context.Context, files map[string]string, mainFi
 		}
 		if err := os.WriteFile(full, []byte(body), 0o644); err != nil {
 			return nil, fmt.Errorf("prism: write %q: %w", clean, err)
+		}
+	}
+
+	// 写二进制资产(图片等)—— 与文本文件同规则做 safeRel 校验。
+	for rel, data := range assets {
+		clean, ok := safeRel(rel)
+		if !ok {
+			return nil, fmt.Errorf("prism: invalid asset path %q", rel)
+		}
+		full := filepath.Join(jobDir, clean)
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			return nil, fmt.Errorf("prism: mkdir for asset %q: %w", clean, err)
+		}
+		if err := os.WriteFile(full, data, 0o644); err != nil {
+			return nil, fmt.Errorf("prism: write asset %q: %w", clean, err)
 		}
 	}
 

@@ -18,7 +18,7 @@ import { PrismSelectionToolbar } from './PrismSelectionToolbar';
 import { PrismFileSidebar } from './sidebar/PrismFileSidebar';
 import { PrismVersionsDialog } from './PrismVersionsDialog';
 import { usePrismChat } from '../hooks/usePrismChat';
-import { useProject, useFileBody, useSaveFile, useStartCompile, useCompile, prismPdfSource } from '../api/prism';
+import { useProject, useFileBody, useSaveFile, useStartCompile, useCompile, prismPdfSource, useCloneToStruct } from '../api/prism';
 
 // 中文支持(\usepackage{ctex})等 LaTeX 格式约束由 agent 的 skills 负责,前端不再做字符识别/自动插包。
 
@@ -79,7 +79,7 @@ function parseOutline(body: string) {
   return out;
 }
 
-export function PrismWorkspace({ projectId, onBack }: { projectId: number; onBack: () => void }) {
+export function PrismWorkspace({ projectId, onBack, readOnly = false, onOpen }: { projectId: number; onBack: () => void; readOnly?: boolean; onOpen?: (id: number) => void }) {
   const project = useProject(projectId);
   const files = project.data?.files ?? [];
 
@@ -100,6 +100,19 @@ export function PrismWorkspace({ projectId, onBack }: { projectId: number; onBac
   const start = useStartCompile(projectId);
   const editorRef = useRef<LatexEditorHandle>(null);
   const qc = useQueryClient();
+
+  // 旧项目「升级到新版」:克隆成 struct 项目(旧正文进 OpaqueBlock),打开新项目。
+  const clone = useCloneToStruct();
+  const doClone = async () => {
+    try {
+      const np = await clone.mutateAsync(projectId);
+      toast.success('已创建新版项目');
+      if (onOpen) onOpen(np.id);
+      else onBack();
+    } catch (err) {
+      toast.error(toApiError(err).message || '创建新版失败,请重试');
+    }
+  };
 
   // 恢复版本 / AI 固化后,强制重载编辑器 buffer(currentLoadedId 置空让回灌 effect 重跑)。
   const reloadActiveFile = () => {
@@ -154,7 +167,7 @@ export function PrismWorkspace({ projectId, onBack }: { projectId: number; onBac
 
   const selectFile = (newId: number) => {
     if (busy || newId === fileId) return; // 轮次中禁切文件
-    if (fileId && buffer !== loadedRef.current) {
+    if (!readOnly && fileId && buffer !== loadedRef.current) {
       save.mutate({ fileId, body: buffer });
       loadedRef.current = buffer;
     }
@@ -166,7 +179,7 @@ export function PrismWorkspace({ projectId, onBack }: { projectId: number; onBac
   // 防抖自动保存(轮次中暂停:cwd 是 agent 工作面,此时不该推 DB)。
   const debounced = useDebounce(buffer, 800);
   useEffect(() => {
-    if (!fileId || busy || debounced === loadedRef.current) return;
+    if (readOnly || !fileId || busy || debounced === loadedRef.current) return;
     save.mutate({ fileId, body: debounced });
     loadedRef.current = debounced;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -307,8 +320,14 @@ export function PrismWorkspace({ projectId, onBack }: { projectId: number; onBac
             </span>
             {showDiff && <span className="rounded-pill bg-brand-green/10 px-2 py-0.5 text-2xs text-brand-green">AI 改动 · 审阅中</span>}
             {save.isPending && <span className="ml-1 text-2xs text-faint">保存中…</span>}
+            {readOnly && <span className="rounded-pill bg-surface-2 px-2 py-0.5 text-2xs text-muted-foreground">只读 · 旧版</span>}
           </div>
           <div className="flex items-center gap-2">
+            {readOnly && (
+              <Button size="sm" variant="outline" onClick={doClone} disabled={clone.isPending}>
+                <Sparkles className="size-3" /> 升级到新版
+              </Button>
+            )}
             <Button size="sm" variant="outline" onClick={openHistory} disabled={!fileId || busy}>
               <History className="size-3" /> 历史
             </Button>
@@ -341,26 +360,35 @@ export function PrismWorkspace({ projectId, onBack }: { projectId: number; onBac
                       key="prism-editor"
                       ref={editorRef}
                       value={buffer}
-                      onChange={setBuffer}
-                      onInlineEdit={(t) => {
-                        if (!busy) setInlineTarget(t);
-                      }}
-                      onSelectionChange={onSelectionChange}
+                      readOnly={readOnly}
+                      onChange={readOnly ? undefined : setBuffer}
+                      onInlineEdit={
+                        readOnly
+                          ? undefined
+                          : (t) => {
+                              if (!busy) setInlineTarget(t);
+                            }
+                      }
+                      onSelectionChange={readOnly ? undefined : onSelectionChange}
                     />
                   )}
                 </div>
               </ResizablePanel>
-              <ResizableHandle withHandle />
-              {/* 下:AI 对话面板 */}
-              <ResizablePanel defaultSize={42} minSize={18} className="flex min-h-0 flex-col">
-                <PrismChatPanel
-                  chat={chat}
-                  fileId={fileId}
-                  quote={quote}
-                  onClearQuote={() => setQuote('')}
-                  onSend={(instr) => runEdit(instr)}
-                />
-              </ResizablePanel>
+              {/* 下:AI 对话面板(只读旧版项目不挂对话) */}
+              {!readOnly && (
+                <>
+                  <ResizableHandle withHandle />
+                  <ResizablePanel defaultSize={42} minSize={18} className="flex min-h-0 flex-col">
+                    <PrismChatPanel
+                      chat={chat}
+                      fileId={fileId}
+                      quote={quote}
+                      onClearQuote={() => setQuote('')}
+                      onSend={(instr) => runEdit(instr)}
+                    />
+                  </ResizablePanel>
+                </>
+              )}
             </ResizablePanelGroup>
           </ResizablePanel>
 
@@ -391,11 +419,13 @@ export function PrismWorkspace({ projectId, onBack }: { projectId: number; onBac
                     <p className="mt-1 break-words text-subtle">{compileError}</p>
                   </div>
                 </div>
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  <Button size="sm" variant="outline" onClick={fixCompile} disabled={busy}>
-                    <Sparkles className="size-3.5" /> 让 AI 修复
-                  </Button>
-                </div>
+                {!readOnly && (
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <Button size="sm" variant="outline" onClick={fixCompile} disabled={busy}>
+                      <Sparkles className="size-3.5" /> 让 AI 修复
+                    </Button>
+                  </div>
+                )}
               </div>
             ) : null}
             <div className="min-h-0 flex-1">

@@ -15,7 +15,14 @@ import type { EventSink, TurnInput } from "../turn/types.ts";
 import type { Tier } from "../config/models.ts";
 import { generateTitle } from "../turn/title.ts";
 import { fastCompletion } from "../turn/completion.ts";
+import { windowMessages } from "../turn/window.ts";
 import { log } from "../obs/log.ts";
+
+// H5:长会话上下文只增不减的滑窗参数。CONTEXT_WINDOW=上游 context 窗口;近 TRIGGER_PCT% 才裁老回合,
+// 保留最近 KEEP_TURNS 个回合。KEEP_TURNS/TRIGGER 设 0 关闭。默认保守:仅濒临上限时触发,正常会话零影响。
+const CONTEXT_WINDOW = Number(process.env.EXECUTOR_CONTEXT_WINDOW || 128000);
+const WINDOW_TRIGGER_PCT = Number(process.env.EXECUTOR_WINDOW_TRIGGER_PCT || 75);
+const WINDOW_KEEP_TURNS = Number(process.env.EXECUTOR_WINDOW_KEEP_TURNS || 25);
 
 export interface WSData {
   sessionId: string;
@@ -81,6 +88,18 @@ export async function onMessage(ws: ServerWebSocket<WSData>, raw: string | Buffe
       // 后端拥有的已有标题一并喂入 → 已命名会话重连不再重复生成标题(与 DB 一致)。
       if (typeof frame.title === "string" && frame.title && !meta.title) {
         setTitle(meta.sessionId, frame.title);
+      }
+      // H3:回填注入面(system prompt 规则+记忆 / skills addDirs / denylist)。executor 重启后
+      // ephemeral meta 这些字段全空,只 seed messages 会让存量会话丢规则/记忆/skills。仅在 meta
+      // 当前为空时回填 —— 不覆盖本进程还活着的活会话(其字段已由 CreateSession 设好)。
+      if (typeof frame.appendSystemPrompt === "string" && frame.appendSystemPrompt && !meta.appendSystemPrompt) {
+        meta.appendSystemPrompt = frame.appendSystemPrompt;
+      }
+      if (Array.isArray(frame.addDirs) && frame.addDirs.length > 0 && meta.addDirs.length === 0) {
+        meta.addDirs = (frame.addDirs as unknown[]).map(String);
+      }
+      if (Array.isArray(frame.disallowedTools) && frame.disallowedTools.length > 0 && meta.disallowedTools.length === 0) {
+        meta.disallowedTools = (frame.disallowedTools as unknown[]).map(String);
       }
       safeSend(ws, { type: "history_seeded", count: meta.messages.length });
       return;
@@ -177,6 +196,21 @@ async function handleUserMessage(ws: ServerWebSocket<WSData>, frame: Record<stri
 
   // 把 user 消息加入会话内 history(runTurn 复制后再 append assistant/tool_result)
   meta.messages.push({ role: "user", content });
+
+  // H5:近上限时滑窗裁最老回合,避免上下文只增不减撞上游 context 墙(报笼统 upstream failed 卡死)。
+  // 触发信号 = 上一轮上下文(input+output ≈ 当前 history 大小)超 TRIGGER_PCT%。硬截断非摘要,但远好于崩溃;
+  // windowMessages 在回合边界切,结构安全(单测覆盖)。新加入的本轮 user 恒是最后一个回合起点,必被保留。
+  const lastCtx = meta.lastUsage ? meta.lastUsage.input_tokens + meta.lastUsage.output_tokens : 0;
+  if (CONTEXT_WINDOW > 0 && WINDOW_KEEP_TURNS > 0 && WINDOW_TRIGGER_PCT > 0 && lastCtx > (CONTEXT_WINDOW * WINDOW_TRIGGER_PCT) / 100) {
+    const before = meta.messages.length;
+    meta.messages = windowMessages(meta.messages, WINDOW_KEEP_TURNS);
+    if (meta.messages.length < before) {
+      log.warn("windowed long-session history (near context limit)", {
+        session_id: meta.sessionId, last_ctx: lastCtx, ctx_window: CONTEXT_WINDOW,
+        dropped_msgs: before - meta.messages.length, kept_msgs: meta.messages.length,
+      });
+    }
+  }
 
   const input: TurnInput = {
     sessionId: meta.sessionId,
