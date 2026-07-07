@@ -384,6 +384,23 @@ func (s *Service) IncreaseCodeUses(id uint64, add int) (*RedemptionCode, error) 
 	return s.repo.GetCodeByID(id)
 }
 
+// SetCodeGrantDays 管理员修改会员码授予的会员天数(grant_days)。只对**之后的兑换**生效:
+// 兑换时实时读本行 grant_days,已兑换用户的会员到期已落定、不受影响。仅限 tier 码。
+// days 夹到 [1, 3650](与续期同口径,防误填天文数字)。返回最新行。
+func (s *Service) SetCodeGrantDays(id uint64, days int) (*RedemptionCode, error) {
+	if days < 1 {
+		days = 1
+	}
+	if days > 3650 {
+		days = 3650
+	}
+	if err := s.repo.SetGrantDays(id, days); err != nil {
+		return nil, err
+	}
+	slog.Info("vip: set redemption code grant_days", "code_id", id, "days", days)
+	return s.repo.GetCodeByID(id)
+}
+
 // ListCodes 管理员分页查看兑换码。
 func (s *Service) ListCodes(f CodeFilter, page, pageSize int) ([]RedemptionCode, int64, error) {
 	if page < 1 {

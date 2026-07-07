@@ -228,6 +228,26 @@ func (r *Repository) AddMaxUses(id uint64, delta, capValue int) error {
 	return nil
 }
 
+// SetGrantDays 覆盖会员码授予的会员天数(grant_days)。仅限 tier 码(WHERE grant_kind='tier')。
+// 兑换在 Redeem 时【实时读取本行 grant_days】(applyMembershipGrant),故改完只影响之后的兑换,
+// 已兑换的用户 vip_expires_at 早已落定、不受影响。RowsAffected==0 时区分「不存在」与「非 tier 码」。
+func (r *Repository) SetGrantDays(id uint64, days int) error {
+	res := r.db.Model(&RedemptionCode{}).
+		Where("id = ? AND grant_kind = ?", id, GrantKindTier).
+		UpdateColumn("grant_days", days)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		// 没更到:要么 id 不存在,要么该码不是 tier 码。查一次给出精确错误。
+		if _, err := r.GetCodeByID(id); err != nil {
+			return err // ErrCodeNotFound
+		}
+		return ErrCodeNotTier
+	}
+	return nil
+}
+
 // CodeFilter 列表过滤。Status: ""(全部)/ "unredeemed"(仍可兑) / "redeemed"(已用完)。
 // Redeemer: 兑换人关键词(ID/用户名/邮箱/手机号)—— 只看被该用户兑换过的码。
 type CodeFilter struct {

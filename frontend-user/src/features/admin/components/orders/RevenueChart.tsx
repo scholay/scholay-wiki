@@ -10,6 +10,7 @@ import {
   YAxis,
 } from 'recharts';
 import { isTodayBucket } from '@/shared/lib/daily-trend';
+import { compactYuanAxis } from '@/shared/lib/chart-format';
 import type { AdminRevenueDay } from '../../api/orders';
 
 /**
@@ -63,7 +64,7 @@ export function RevenueChart({ daily }: { daily: AdminRevenueDay[] }) {
           <div className="flex h-full items-center justify-center text-xs text-faint">窗口内还没有已支付订单</div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={daily} margin={{ top: 8, right: 8, left: -4, bottom: 0 }}>
+            <BarChart data={daily} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
               <XAxis
                 dataKey="date"
@@ -77,8 +78,8 @@ export function RevenueChart({ daily }: { daily: AdminRevenueDay[] }) {
                 tick={{ fontSize: 11, fill: 'var(--color-faint)' }}
                 axisLine={false}
                 tickLine={false}
-                width={56}
-                tickFormatter={(v: number) => `¥${v.toLocaleString()}`}
+                width={52}
+                tickFormatter={compactYuanAxis}
               />
               <Tooltip content={<RevenueTooltip />} cursor={{ fill: 'var(--color-surface-2)', fillOpacity: 0.6 }} />
               <Legend wrapperStyle={{ fontSize: 11 }} iconType="square" iconSize={8} />

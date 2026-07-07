@@ -270,6 +270,36 @@ func (h *Handler) IncreaseCodeUses(c *gin.Context) {
 	utils.SuccessWithMessage(c, "已加次数", code)
 }
 
+// SetCodeGrantDays PUT /admin/vip-codes/:id/grant-days {days} —— 修改会员码授予的会员天数。
+// 只影响之后的兑换(兑换时实时读 grant_days),已兑换用户不受影响。仅限 tier(会员)码。
+func (h *Handler) SetCodeGrantDays(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		utils.BadRequest(c, "无效的兑换码 id")
+		return
+	}
+	var req struct {
+		Days int `json:"days"`
+	}
+	if !utils.BindJSON(c, &req) {
+		return
+	}
+	code, err := h.svc.SetCodeGrantDays(id, req.Days)
+	if err != nil {
+		if errors.Is(err, ErrCodeNotFound) {
+			utils.BadRequest(c, "兑换码不存在")
+			return
+		}
+		if errors.Is(err, ErrCodeNotTier) {
+			utils.BadRequest(c, "该兑换码不是会员码,无会员天数可改")
+			return
+		}
+		utils.InternalError(c, 500, "修改会员天数失败", err)
+		return
+	}
+	utils.SuccessWithMessage(c, "已修改会员天数", code)
+}
+
 // ListCodes GET /admin/vip-codes?status=&tier=&page=&page_size= —— 分页列表。
 func (h *Handler) ListCodes(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))

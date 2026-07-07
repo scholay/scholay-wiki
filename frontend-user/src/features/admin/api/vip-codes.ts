@@ -91,3 +91,16 @@ export function useIncreaseVipCodeUses() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'vip-codes'] }),
   });
 }
+
+/**
+ * 改会员天数:覆盖会员(tier)码授予的 grant_days。只影响【之后的兑换】——
+ * 兑换时后端实时读该码的 grant_days,已兑换用户的会员到期已落定、不受影响。返回更新后的码。
+ */
+export function useSetVipCodeGrantDays() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, days }: { id: number; days: number }) =>
+      (await http.put<{ data: VipCode }>(`/admin/vip-codes/${id}/grant-days`, { days })).data.data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'vip-codes'] }),
+  });
+}

@@ -145,7 +145,7 @@ export function TokenDailyChart({
       </div>
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={rows} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+          <BarChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
             <XAxis
               dataKey="date"
@@ -160,7 +160,7 @@ export function TokenDailyChart({
               axisLine={false}
               tickLine={false}
               allowDecimals={false}
-              width={44}
+              width={48}
               tickFormatter={(v: number) => compactTokens(v)}
             />
             <Tooltip content={<ChartTooltip />} cursor={{ fill: 'var(--color-surface-2)', fillOpacity: 0.6 }} />

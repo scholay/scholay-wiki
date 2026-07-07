@@ -4,16 +4,15 @@ import {
   CalendarRange,
   Clock,
   UserPlus,
-  Users,
   type LucideIcon,
 } from 'lucide-react';
 import {
   Area,
-  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
+  ComposedChart,
   Legend,
   Line,
   LineChart,
@@ -26,18 +25,20 @@ import {
 } from 'recharts';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { buildDailyTrend, localDateKey } from '@/shared/lib/daily-trend';
+import { compactAxis } from '@/shared/lib/chart-format';
 import { useUserMetrics } from '../api/user-metrics';
 
 /**
  * UserMetricsPanel —— admin /users 顶部 4 张图。
  *
  * 图表全部走 recharts(声明式,自带坐标轴 / Tooltip / Legend / 响应式)。
- *   注册量   → AreaChart   面积折线
- *   渠道占比 → PieChart    圆环 + 右侧 Legend
- *   24h 活跃 → BarChart    柱状,X 轴格式化为 "h:00"
- *   MAU 趋势 → LineChart   折线,带点
+ *   注册量+活跃 → ComposedChart 面积(注册,左轴)+ 折线(engaged-DAU,右轴)合并同一横轴
+ *   渠道占比    → PieChart      圆环 + 右侧 Legend
+ *   24h 活跃    → BarChart      柱状,X 轴格式化为 "h:00"
+ *   MAU 趋势    → LineChart     折线,带点
  *
  * 数据从 GET /admin/users/metrics 一次拉,客户端不再二次聚合。
+ * Y 轴刻度统一 compactAxis(1.2k/3.4M)+ margin.left=0,避免长数字被裁("展示不全")。
  */
 export function UserMetricsPanel() {
   const [days, setDays] = useState<7 | 30 | 90>(30);
@@ -51,11 +52,16 @@ export function UserMetricsPanel() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <ChartCard icon={UserPlus} title={`注册量 · 最近 ${days} 天`} loading={isLoading}>
-          {data && data.registrations.length > 0 ? (
-            <RegistrationsArea data={data.registrations} />
+        <ChartCard
+          icon={UserPlus}
+          title={`注册量 · 活跃用户 · 最近 ${days} 天`}
+          loading={isLoading}
+          hint="面积=当日新注册(左轴);折线=当日有功能使用动作的去重活跃用户 engaged-DAU(右轴)"
+        >
+          {data && (data.registrations.length > 0 || data.daily_active.length > 0) ? (
+            <RegistrationsAndActive reg={data.registrations} dau={data.daily_active} />
           ) : (
-            <Empty hint="窗口内没有新注册" />
+            <Empty hint="窗口内暂无注册 / 活跃记录" />
           )}
         </ChartCard>
 
@@ -80,14 +86,6 @@ export function UserMetricsPanel() {
             <MAULine data={data.mau_trend} />
           ) : (
             <Empty hint="历史月份还没有数据" />
-          )}
-        </ChartCard>
-
-        <ChartCard icon={Users} title={`每日活跃用户 · 最近 ${days} 天`} loading={isLoading} hint="当天有功能使用动作的去重用户(engaged-DAU)">
-          {data && data.daily_active.length > 0 ? (
-            <DailyActiveLine data={data.daily_active} />
-          ) : (
-            <Empty hint="该窗口内暂无活跃记录" />
           )}
         </ChartCard>
       </div>
@@ -182,14 +180,28 @@ const tooltipLabelStyle: React.CSSProperties = {
   marginBottom: 2,
 };
 
-// ----------------- 注册量(Area)-----------------
+// ----------------- 注册量 + 每日活跃(合并 · 双轴 ComposedChart)-----------------
 
-function RegistrationsArea({ data }: { data: Array<{ date: string; value: number }> }) {
-  // 最后一桶=今天(进行中)→ 实线到昨天 + 虚线段连今天。
-  const { data: rows, isLive } = buildDailyTrend(data, { valueKeys: ['value'] });
+type MetricsPoint = { date: string; value: number };
+
+/**
+ * 注册量(面积,左轴,绿)与 engaged-DAU(折线,右轴,琥珀)合并到同一横轴。
+ * 双 Y 轴:两者量级通常差很多(DAU ≫ 单日新注册),共用一轴会把注册压成贴地直线,
+ * 故各用一轴保证两条都可读。两条日序列后端各自补 0、窗口一致,这里按日期 union 合行。
+ */
+function RegistrationsAndActive({ reg, dau }: { reg: MetricsPoint[]; dau: MetricsPoint[] }) {
+  const byDate = new Map<string, { date: string; reg: number; dau: number }>();
+  for (const p of reg) byDate.set(p.date, { date: p.date, reg: p.value, dau: 0 });
+  for (const p of dau) {
+    const row = byDate.get(p.date) ?? { date: p.date, reg: 0, dau: 0 };
+    row.dau = p.value;
+    byDate.set(p.date, row);
+  }
+  const merged = Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
+  const { data: rows, isLive } = buildDailyTrend(merged, { valueKeys: ['reg', 'dau'] });
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={rows} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+      <ComposedChart data={rows} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
         <defs>
           <linearGradient id="regGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={COLOR_GREEN} stopOpacity={0.35} />
@@ -206,34 +218,101 @@ function RegistrationsArea({ data }: { data: Array<{ date: string; value: number
           minTickGap={20}
         />
         <YAxis
+          yAxisId="reg"
           allowDecimals={false}
+          tickFormatter={compactAxis}
           tick={{ fontSize: 11, fill: AXIS_COLOR }}
           tickLine={false}
           axisLine={false}
           width={40}
         />
-        <Tooltip content={<MetricTooltip name="新注册" />} />
+        <YAxis
+          yAxisId="dau"
+          orientation="right"
+          allowDecimals={false}
+          tickFormatter={compactAxis}
+          tick={{ fontSize: 11, fill: AXIS_COLOR }}
+          tickLine={false}
+          axisLine={false}
+          width={40}
+        />
+        <Tooltip content={<DualMetricTooltip />} />
+        <Legend
+          wrapperStyle={{ fontSize: 11, color: 'var(--color-subtle)' }}
+          iconType="square"
+          iconSize={8}
+        />
         <Area
+          yAxisId="reg"
           type="monotone"
-          dataKey="value__main"
+          dataKey="reg__main"
+          name="注册量"
           stroke={COLOR_GREEN}
           strokeWidth={2}
           fill="url(#regGrad)"
           connectNulls={false}
         />
+        <Line
+          yAxisId="dau"
+          type="monotone"
+          dataKey="dau__main"
+          name="活跃用户"
+          stroke={COLOR_AMBER}
+          strokeWidth={2}
+          dot={false}
+          activeDot={{ r: 5 }}
+          connectNulls={false}
+        />
         {isLive && (
-          <Area
-            type="monotone"
-            dataKey="value__live"
-            stroke={COLOR_GREEN}
-            strokeWidth={2}
-            strokeDasharray="5 4"
-            fill="none"
-            connectNulls={false}
-          />
+          <>
+            <Area
+              yAxisId="reg"
+              type="monotone"
+              dataKey="reg__live"
+              stroke={COLOR_GREEN}
+              strokeWidth={2}
+              strokeDasharray="5 4"
+              fill="none"
+              connectNulls={false}
+              legendType="none"
+            />
+            <Line
+              yAxisId="dau"
+              type="monotone"
+              dataKey="dau__live"
+              stroke={COLOR_AMBER}
+              strokeWidth={2}
+              strokeDasharray="5 4"
+              dot={false}
+              connectNulls={false}
+              legendType="none"
+            />
+          </>
         )}
-      </AreaChart>
+      </ComposedChart>
     </ResponsiveContainer>
+  );
+}
+
+/** 合并图 Tooltip —— 一行同时显示注册量(绿)与活跃用户(琥珀)真值。 */
+function DualMetricTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload?: { date: string; reg: number; dau: number } }>;
+  label?: string | number;
+}) {
+  if (!active || !payload?.length) return null;
+  const row = payload[0]?.payload;
+  if (!row) return null;
+  return (
+    <div style={tooltipStyle}>
+      <div style={tooltipLabelStyle}>{String(label ?? row.date)}</div>
+      <div style={{ color: COLOR_GREEN }}>注册 {Number(row.reg ?? 0).toLocaleString()}</div>
+      <div style={{ color: COLOR_AMBER }}>活跃 {Number(row.dau ?? 0).toLocaleString()}</div>
+    </div>
   );
 }
 
@@ -341,7 +420,7 @@ function SourcesDonut({ data }: { data: Array<{ name: string; value: number }> }
 function HourlyBarChart({ data }: { data: Array<{ hour: number; value: number }> }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+      <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
         <XAxis
           dataKey="hour"
@@ -353,10 +432,11 @@ function HourlyBarChart({ data }: { data: Array<{ hour: number; value: number }>
         />
         <YAxis
           allowDecimals={false}
+          tickFormatter={compactAxis}
           tick={{ fontSize: 11, fill: AXIS_COLOR }}
           tickLine={false}
           axisLine={false}
-          width={40}
+          width={44}
         />
         <Tooltip
           contentStyle={tooltipStyle}
@@ -381,7 +461,7 @@ function MAULine({ data }: { data: Array<{ date: string; value: number }> }) {
   });
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={rows} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+      <LineChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
         <XAxis
           dataKey="date"
@@ -391,10 +471,11 @@ function MAULine({ data }: { data: Array<{ date: string; value: number }> }) {
         />
         <YAxis
           allowDecimals={false}
+          tickFormatter={compactAxis}
           tick={{ fontSize: 11, fill: AXIS_COLOR }}
           tickLine={false}
           axisLine={false}
-          width={40}
+          width={44}
         />
         <Tooltip content={<MetricTooltip name="MAU" />} />
         <Line
@@ -414,53 +495,6 @@ function MAULine({ data }: { data: Array<{ date: string; value: number }> }) {
             strokeWidth={2}
             strokeDasharray="5 4"
             dot={{ r: 3, fill: COLOR_RED, strokeWidth: 0 }}
-            connectNulls={false}
-          />
-        )}
-      </LineChart>
-    </ResponsiveContainer>
-  );
-}
-
-// 每日活跃用户(engaged-DAU)折线 —— 日粒度,最后一桶=今天(进行中)画虚线段(buildDailyTrend 默认 today=今天)。
-function DailyActiveLine({ data }: { data: Array<{ date: string; value: number }> }) {
-  const { data: rows, isLive } = buildDailyTrend(data, { valueKeys: ['value'] });
-  return (
-    <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={rows} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
-        <XAxis
-          dataKey="date"
-          tick={{ fontSize: 11, fill: AXIS_COLOR }}
-          tickLine={false}
-          axisLine={{ stroke: GRID_COLOR }}
-          tickFormatter={(d: string) => (d.length >= 10 ? d.slice(5) : d)}
-        />
-        <YAxis
-          allowDecimals={false}
-          tick={{ fontSize: 11, fill: AXIS_COLOR }}
-          tickLine={false}
-          axisLine={false}
-          width={40}
-        />
-        <Tooltip content={<MetricTooltip name="活跃用户" />} />
-        <Line
-          type="monotone"
-          dataKey="value__main"
-          stroke={COLOR_AMBER}
-          strokeWidth={2}
-          dot={false}
-          activeDot={{ r: 5 }}
-          connectNulls={false}
-        />
-        {isLive && (
-          <Line
-            type="monotone"
-            dataKey="value__live"
-            stroke={COLOR_AMBER}
-            strokeWidth={2}
-            strokeDasharray="5 4"
-            dot={false}
             connectNulls={false}
           />
         )}

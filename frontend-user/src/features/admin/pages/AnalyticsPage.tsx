@@ -21,6 +21,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { compactAxis } from '@/shared/lib/chart-format';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { Badge } from '@/shared/ui/badge';
 import { buildDailyTrend, localDateKey } from '@/shared/lib/daily-trend';
@@ -315,7 +316,7 @@ function Sparkline({
     {isLive && <div className="mb-1 text-right text-2xs text-faint">— — 今日(进行中,非最终值)</div>}
     <div className="h-56">
     <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+      <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
         <defs>
           <linearGradient id="pvGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="var(--color-brand-green)" stopOpacity={0.3} />
@@ -333,10 +334,11 @@ function Sparkline({
         />
         <YAxis
           allowDecimals={false}
+          tickFormatter={compactAxis}
           tick={{ fontSize: 11, fill: 'var(--color-faint)' }}
           tickLine={false}
           axisLine={false}
-          width={40}
+          width={44}
         />
         <Tooltip content={<PvTooltip />} />
         <Legend

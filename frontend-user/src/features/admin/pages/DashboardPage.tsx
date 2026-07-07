@@ -16,6 +16,7 @@ import { TodayPanel } from '../components/TodayPanel';
 import { useDashboardStats, type ChartDataPoint } from '../api/dashboard';
 import { compactTokens } from '../api/token-usage';
 import { buildDailyTrend, localDateKey } from '@/shared/lib/daily-trend';
+import { compactAxis, compactYuanAxis } from '@/shared/lib/chart-format';
 import { Skeleton } from '@/shared/ui/skeleton';
 
 export function DashboardPage() {
@@ -151,6 +152,8 @@ function TrendCard({
     yLabel === '¥'
       ? `¥${Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
       : `${Number(v).toLocaleString()}${yLabel ? ` ${yLabel}` : ''}`;
+  // Y 轴刻度紧凑化(¥1.2k / 3.4M),配合 margin.left=0 防长数字裁切;完整值仍在 Tooltip。
+  const yTickFmt = yLabel === '¥' ? compactYuanAxis : compactAxis;
   return (
     <div className="rounded-md border border-border bg-background p-4">
       <div className="flex items-center justify-between mb-3">
@@ -171,7 +174,7 @@ function TrendCard({
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             {area ? (
-              <AreaChart data={rows} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
+              <AreaChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor={color} stopOpacity={0.3} />
@@ -189,10 +192,11 @@ function TrendCard({
                 />
                 <YAxis
                   allowDecimals={false}
+                  tickFormatter={yTickFmt}
                   tick={{ fontSize: 11, fill: 'var(--color-faint)' }}
                   tickLine={false}
                   axisLine={false}
-                  width={48}
+                  width={52}
                 />
                 <Tooltip content={<TrendTooltip fmt={fmt} />} />
                 <Area
@@ -216,7 +220,7 @@ function TrendCard({
                 )}
               </AreaChart>
             ) : (
-              <LineChart data={rows} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
+              <LineChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
                 <XAxis
                   dataKey="date"
@@ -228,10 +232,11 @@ function TrendCard({
                 />
                 <YAxis
                   allowDecimals={false}
+                  tickFormatter={yTickFmt}
                   tick={{ fontSize: 11, fill: 'var(--color-faint)' }}
                   tickLine={false}
                   axisLine={false}
-                  width={40}
+                  width={44}
                 />
                 <Tooltip content={<TrendTooltip fmt={fmt} />} />
                 <Line

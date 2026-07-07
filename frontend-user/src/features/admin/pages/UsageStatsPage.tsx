@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { compactAxis } from '@/shared/lib/chart-format';
 import { AdminPageLayout } from '../components/AdminPageLayout';
 import { StatCard } from '../components/StatCard';
 import { DateRangeControl, type DateWindow } from '../components/DateRangeControl';
@@ -74,7 +75,7 @@ export function UsageStatsPage() {
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={usageTrend.data}
-              margin={{ top: 8, right: 8, left: -20, bottom: 0 }}
+              margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
             >
               <defs>
                 <linearGradient id="usageGrad" x1="0" y1="0" x2="0" y2="1">
@@ -95,7 +96,8 @@ export function UsageStatsPage() {
                 axisLine={false}
                 tickLine={false}
                 allowDecimals={false}
-                width={32}
+                tickFormatter={compactAxis}
+                width={44}
               />
               <Tooltip
                 contentStyle={{

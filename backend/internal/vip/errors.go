@@ -27,6 +27,8 @@ var (
 	ErrCodeAlreadyRedeemed = errors.New("vip: redemption code already redeemed by this user")
 	// ErrCodeRevoked 管理员已停用此码。
 	ErrCodeRevoked = errors.New("vip: redemption code revoked")
+	// ErrCodeNotTier 该码不是会员(tier)码,没有会员天数可改(经费码用 credit_validity_days)。
+	ErrCodeNotTier = errors.New("vip: redemption code is not a tier code")
 )
 
 // ErrUserNotFound —— admin 直授/取消会员时目标用户不存在(UPDATE 影响 0 行)。
