@@ -17,6 +17,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -321,7 +322,7 @@ func toCard(it NewsItem) CardDTO {
 		Section:      it.Section,
 		SectionLabel: it.SectionLabel,
 		ReportType:   it.ReportType,
-		CoverImage:   it.CoverImage,
+		CoverImage:   proxifyImageURL(it.CoverImage),
 		Sources:      parseSources(it.Sources),
 		IsFeatured:   it.IsFeatured,
 		Score:        it.Score,
@@ -344,7 +345,7 @@ func toDetail(it *NewsItem) *DetailDTO {
 	return &DetailDTO{
 		CardDTO:         toCard(*it),
 		URL:             it.URL,
-		BodyMD:          it.BodyMD,
+		BodyMD:          stripInlineFigures(it.BodyMD),
 		BodyHTML:        it.BodyHTML,
 		CredibilityNote: it.CredibilityNote,
 		OriginalDate:    it.OriginalDate,
@@ -384,4 +385,59 @@ func firstImageURL(html string) string {
 		return ""
 	}
 	return strings.TrimSpace(m[1])
+}
+
+// proxifyImageURL 把 minicod 图床的绝对 URL 改写成本站同源代理路径(/img-remote/minicod/…)。
+//
+// 为什么必须代理:minicod 图床(Caddy)对 /uploads/* 响应带
+//   Cross-Origin-Resource-Policy: same-site
+// 头。本站是 www.scholay.com,与 www.minicod.com 非 same-site → 浏览器直接【拦掉】跨站
+// <img> 加载 → 封面裂图。CORP 是浏览器强制、图片属性(crossorigin 等)无解,唯一出路是让
+// 图片走本站同源:nginx 有一条 `location ^~ /img-remote/minicod/` 把它反代到
+//   https://www.minicod.com/uploads/…
+// 并 proxy_hide_header 掉那个 CORP 头(server↔server 取图不受 CORP 约束)。
+//
+// 只改写 host == www.minicod.com 且 path 以 /uploads/ 开头的 URL(与 nginx 硬编码上游严格对齐);
+// 其它 URL 原样返回(空串、已是相对路径、或非 minicod 图都不动)。改写在【下发时】做,
+// DB 里仍存上游 canonical URL,故换代理方案/回滚都不需要回填历史行。
+func proxifyImageURL(raw string) string {
+	if raw == "" {
+		return raw
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+	if strings.ToLower(u.Hostname()) != "www.minicod.com" || !strings.HasPrefix(u.Path, "/uploads/") {
+		return raw
+	}
+	out := "/img-remote/minicod/" + strings.TrimPrefix(u.Path, "/uploads/")
+	if u.RawQuery != "" {
+		out += "?" + u.RawQuery
+	}
+	return out
+}
+
+var (
+	// 上游 body_md 里内嵌了原始 HTML <figure><img><figcaption> 块(首图=封面)。react-markdown
+	// 未挂 rehype-raw(共享渲染器,故意不放开 raw HTML 以防 XSS),这些标签会被【转义成字面文本】
+	// (&lt;figure&gt;…)显示成一坨乱码。封面图已在详情页顶部作为 hero 展示,正文里的这张是重复,
+	// 故下发时把内嵌 figure/img/figcaption 整段剥掉,正文只保留干净的 markdown 文字。
+	reFigureBlock = regexp.MustCompile(`(?is)<figure\b[^>]*>.*?</figure>`)
+	reFigcaption  = regexp.MustCompile(`(?is)<figcaption\b[^>]*>.*?</figcaption>`)
+	reImgTag      = regexp.MustCompile(`(?is)<img\b[^>]*/?>`)
+	reBlankLines  = regexp.MustCompile(`\n{3,}`)
+)
+
+// stripInlineFigures 从 body_md 剥掉内嵌的原始 <figure>/<figcaption>/<img> 标签,并把因此
+// 留下的连续空行折叠。见 reFigureBlock 注释。
+func stripInlineFigures(md string) string {
+	if md == "" {
+		return md
+	}
+	md = reFigureBlock.ReplaceAllString(md, "")
+	md = reFigcaption.ReplaceAllString(md, "")
+	md = reImgTag.ReplaceAllString(md, "")
+	md = reBlankLines.ReplaceAllString(md, "\n\n")
+	return strings.TrimSpace(md)
 }
