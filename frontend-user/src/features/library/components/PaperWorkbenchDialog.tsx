@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { FileText, Link2, Paperclip, Plus, Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { PaperSource, UserLibraryPaper } from '@/shared/api/types';
-import { pickEffectiveFields } from '../lib/pick-field';
+import { pickEffectiveFields } from '@/shared/lib/pick-field';
 import { useLibraryPaperByUpstream, type LibraryFolderFilter } from '../api/papers';
 import {
   DialogTabBar,
@@ -35,8 +35,12 @@ import { RelinkPanel } from './manage/RelinkPanel';
  * 管理语境的 paper 用 by-upstream 订阅保活:面板内 PATCH / 上传 PDF 后
  * invalidate ['library'] 会自动刷新本订阅,弹窗内数据不与列表脱节。
  *
- * ⚠️ 调用方必须条件挂载(open 时才 mount),内部用 useState(initial) 取初始
- * 视图,关闭 unmount 自然清理(SSE / 上传进度等)。
+ * ⚠️ 内部用 useState(initial) 取初始视图,靠 unmount 清理(SSE / 上传进度等)。
+ * 但 unmount 必须发生在 open 已为 false 之后 —— 调用方用「先关再卸」:open 由独立
+ * 状态控制,关闭先置 false 让 Radix 跑完 body 锁清理,延一拍再卸载本组件,并用递增
+ * key 保证延迟窗口内重开也能 remount 拿到新 initial(见 LibraryPage / LibraryPaperRow)。
+ * 绝不能 `{open && <Dialog open/>}`(挂载条件==open)——那会在 open 时 unmount,泄漏
+ * body pointer-events 锁 → 全站点击失灵。
  */
 
 export type ManageTab = 'metadata' | 'pdf' | 'relink';

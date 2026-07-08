@@ -31,8 +31,11 @@ export function MobileFolderPage() {
   const navigate = useNavigate();
   const { folderId } = useParams<{ folderId: string }>();
   const fid = Number(folderId);
+  // 非法 folderId(/m/library/abc 等)→ 直接回文件夹列表,不再静默降级成 'root'
+  // 空列表(与项目「详情路由不存在/非法统一回退,不留误导空态」约定一致)。
+  const validFid = Number.isFinite(fid) && fid > 0;
   const foldersQ = useLibraryFolders();
-  const papersQ = useInfiniteLibraryPapers(Number.isFinite(fid) ? fid : 'root', {
+  const papersQ = useInfiniteLibraryPapers(validFid ? fid : 'root', {
     pageSize: 20,
   });
   const openShare = useShareSheet((s) => s.openShare);
@@ -90,6 +93,8 @@ export function MobileFolderPage() {
 
   // 未登录:/m/auth 整页已下线,回「我的」(其 LoggedOutView 会就地弹登录)。
   if (!authenticated) return <Navigate to="/m/me" replace />;
+  // 非法 folderId → 回文件夹列表(防枚举 + 不给误导空态)。
+  if (!validFid) return <Navigate to="/m/library" replace />;
 
   const folder = foldersQ.data?.folders.find((f) => f.id === fid);
 
@@ -161,8 +166,11 @@ export function MobileFolderPage() {
                 >
                   <MobilePaperRow
                     paper={papers[vi.index]}
-                    // 文献集里的论文必然已收藏 —— 收藏按钮显「已收藏」,点击可二次确认移出文库
+                    // 文献集里的论文必然已收藏 —— 收藏按钮显「已收藏」,点击二次确认。
+                    // 这里「取消收藏」= 删除整行(含上传的 PDF 与编辑),警示对齐 PC 行级删除。
                     isFavorited
+                    unfavoriteTitle="从文献集移除这篇论文?"
+                    unfavoriteDescription="会一并删除你为它上传的 PDF 和编辑过的信息,此操作不可撤销。"
                     enrichment={
                       papers[vi.index].venue ? enrichments[papers[vi.index].venue!] : null
                     }

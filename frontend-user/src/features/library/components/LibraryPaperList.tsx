@@ -50,15 +50,15 @@ export function LibraryPaperList({
   sortOrder,
   onToggleSortOrder,
 }: Props) {
-  // 头部 PDF 计数 —— 一并暴露给父级 toolbar 之外的 inner header
+  // 头部「已上传 PDF」计数 —— 口径必须与行内 PdfChip 一致(看 pdf_uploaded_at,
+  // 即用户上传到 MinIO 的文件),不能用 pdf_url(那是收藏时带来的在线 OA 直链,
+  // 有直链但未上传 PDF 的行会被误计,与同页 chip 显示"缺失"自相矛盾)。
   const pdfStats = useMemo(() => {
     let uploaded = 0;
-    let pending = 0;
     for (const p of papers) {
-      if (p.pdf_url && p.pdf_url.trim().length > 0) uploaded += 1;
-      else pending += 1;
+      if (p.pdf_uploaded_at) uploaded += 1;
     }
-    return { uploaded, pending };
+    return { uploaded };
   }, [papers]);
 
   // 当前页所有 venue —— 批量查 journal enrichment(JCR/IF/CCF 等)
@@ -93,7 +93,7 @@ export function LibraryPaperList({
         description={
           filter === 'root'
             ? '在搜索结果里点「收藏」就能把论文加进来'
-            : '从其他文件夹拖动或选中后批量移动论文到这里'
+            : '选中其它文件夹的论文后,用批量「转移」移动到这里'
         }
       />
     );

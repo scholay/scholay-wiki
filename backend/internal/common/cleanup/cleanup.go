@@ -119,6 +119,9 @@ func (s *CleanupService) Start() {
 		})
 	}
 
+	// 文献集:MinIO 孤儿 PDF 对账 reaper(05:00)+ 过期/撤销分享的子表清理(05:15)。
+	s.startLibraryCleanupTasks()
+
 	slog.Info("Cleanup service started")
 }
 

@@ -85,7 +85,9 @@ const MOBILE_EQUIVALENTS: RouteMap[] = [
   { exact: '/journals/search', target: '/m/feed/journals' },
   { exact: '/claw', target: '/m/claw' },
   { prefix: '/tools', target: '/m/tools' }, // /tools/:idOrSlug → /m/tools/:idOrSlug
-  { prefix: '/library', target: '/m/library' }, // /library → /m/library, /library/:id → /m/library/:id
+  // 桌面只有 /library 一条路由(文件夹是 ?folder= query,没有 /library/:id 路径段),
+  // 文件夹深链的 query→路径段改写在 mobileEquivalentPath 里特判,这里只兜底裸 /library。
+  { prefix: '/library', target: '/m/library' },
   { exact: '/settings', target: '/m/me' },
   { exact: '/settings/membership', target: '/m/me' },
   { exact: '/settings/profile', target: '/m/me/profile' },
@@ -97,9 +99,24 @@ const MOBILE_EQUIVALENTS: RouteMap[] = [
   { prefix: '/peer-review', target: '/m/feed', collapse: true },
 ];
 
-/** 给定 PC 路径,返回移动对等路径;无对等(响应式页)返回 null = 留在原地 */
-export function mobileEquivalentPath(pathname: string): string | null {
-  return resolve(MOBILE_EQUIVALENTS, pathname);
+/**
+ * 给定 PC 路径,返回移动对等路径;无对等(响应式页)返回 null = 留在原地。
+ *
+ * search(如 "?folder=5")必须一并传入:
+ *   - /library?folder=N → /m/library/N(桌面文件夹是 query、移动是路径段,与
+ *     desktopEquivalentPath 的反向改写对称;不特判的话手机打开桌面深链会丢 folder
+ *     落在文件夹列表页);
+ *   - 其余命中项把 query 原样拼回 target(保住 /tools 等带参深链;目标页不认识的
+ *     参数自行忽略,好过静默丢失)。
+ */
+export function mobileEquivalentPath(pathname: string, search = ''): string | null {
+  if (pathname === '/library' || pathname === '/library/') {
+    const folder = new URLSearchParams(search).get('folder');
+    if (folder && /^\d+$/.test(folder)) return `/m/library/${folder}`;
+  }
+  const target = resolve(MOBILE_EQUIVALENTS, pathname);
+  if (target === null) return null;
+  return search && search !== '?' ? target + search : target;
 }
 
 /**
@@ -120,11 +137,16 @@ const DESKTOP_EQUIVALENTS: RouteMap[] = [
   { exact: '/m/auth', target: '/' }, // PC 无独立登录页(走弹窗),回首页
 ];
 
-/** 给定移动路径,返回 PC 对等路径(桌面 UA 落 /m/* 时纠正);无对等回 '/' */
-export function desktopEquivalentPath(pathname: string): string {
+/** 给定移动路径,返回 PC 对等路径(桌面 UA 落 /m/* 时纠正);无对等回 '/'。search 原样保留。 */
+export function desktopEquivalentPath(pathname: string, search = ''): string {
   // 文献集文件夹深链:移动是路径段 /m/library/:id,桌面文件夹是 query ?folder=:id
-  // (桌面只有 /library 一条路由,文件夹靠 query state),需单独改写。
+  // (桌面只有 /library 一条路由,文件夹靠 query state),需单独改写;其余 query 合并保留。
   const folder = /^\/m\/library\/([^/]+)\/?$/.exec(pathname);
-  if (folder) return `/library?folder=${folder[1]}`;
-  return resolve(DESKTOP_EQUIVALENTS, pathname) ?? '/';
+  if (folder) {
+    const params = new URLSearchParams(search);
+    params.set('folder', folder[1]);
+    return `/library?${params.toString()}`;
+  }
+  const target = resolve(DESKTOP_EQUIVALENTS, pathname) ?? '/';
+  return search && search !== '?' ? target + search : target;
 }

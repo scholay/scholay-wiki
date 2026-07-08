@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { formatSize, MAX_PDF_SIZE } from '../../api/pdf';
-import { pickEffectiveFields } from '../../lib/pick-field';
+import { pickEffectiveFields } from '@/shared/lib/pick-field';
 import type { UserLibraryPaper } from '@/shared/api/types';
 
 /** PdfPanel 的展示子件 —— 当前文献信息卡 / 文件 tab / URL·DOI tab。拆出来让 PdfPanel ≤300 行。 */

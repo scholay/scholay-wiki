@@ -8,21 +8,17 @@ import { http, toApiError } from '@/shared/lib/http';
 import { invalidateLibrary } from '@/shared/lib/library-invalidation';
 import { STALE_FRESH } from '@/shared/lib/query-config';
 import { useAuthStore } from '@/stores/auth.store';
-import type {
-  Paper,
-  PaperSource,
-  UpstreamSource,
-  UserLibraryPaper,
-} from '@/shared/api/types';
-import { pickEffectiveFields } from '../lib/pick-field';
+import type { UserLibraryPaper } from '@/shared/api/types';
 
 /**
  * 我的文献集论文 —— 按文件夹分类查询。
  *
- * filter 含义(没有"全部"概念 —— 用户口径:根目录就是文献集本身,
- * 文件夹是子分类,不存在跨文件夹的聚合视图):
- *   - 'root'          根目录 = 默认入口(folder_id IS NULL)
- *   - number(>0)     某个文件夹内
+ * filter 含义:
+ *   - number(>0)     某个文件夹内(正常态,论文必属某文件夹)
+ *   - 'root'          **仅 loading 兜底态**:folders 未加载完时的占位值。后端新模型
+ *                     已无"根目录放论文"概念(archive/0033 迁移删光了 folder_id IS NULL 行),
+ *                     folder=root 查询恒返空。页面 folders 就绪后回落默认文件夹 id,
+ *                     不把 'root' 当真实入口。
  *
  * 任何 mutation 都失效 ['library'] 前缀,确保 folders 计数 + papers 列表都刷。
  */
@@ -139,38 +135,12 @@ export function flattenLibraryPages(
   return pages.flatMap((p) => p.items);
 }
 
-/**
- * 按 (source, source_paper_id) 找当前用户的文献集行。
- *
- * 用途:
- *   - 上游 (stc/olx/pmd) 详情页:查"我有没有收藏 + 有没有上传 PDF"
- *   - 自由文件(source='local')详情页:全部内容都来自这一查
- *
- * 404(未收藏) 不算错误,返回 null;真错误仍会 throw。
- * source='local' 时 paperId 是 PDF 内容 SHA-256。
- */
-export function useLibraryPaperByUpstream(
-  source: PaperSource | undefined,
-  paperId: string | undefined
-) {
-  const token = useAuthStore((s) => s.token);
-  return useQuery({
-    queryKey: ['library', 'by-upstream', source, paperId] as const,
-    enabled: !!token && !!source && !!paperId,
-    staleTime: STALE_FRESH,
-    queryFn: async (): Promise<UserLibraryPaper | null> => {
-      try {
-        const { data } = await http.get<{ data: UserLibraryPaper | null }>(
-          `/user/library/by-upstream/${source}/${encodeURIComponent(paperId!)}`
-        );
-        // 后端语义:未收藏 → 200 + data:null(不是 404)。这里无需再 catch 404。
-        return data.data ?? null;
-      } catch (err) {
-        throw toApiError(err);
-      }
-    },
-  });
-}
+// 单行读取 + 转换已提升到 shared/api/user-library-papers(browser 详情 pane 也用,
+// features 之间不互 import)。这里 re-export 保持 library 内既有调用面稳定。
+export {
+  useLibraryPaperByUpstream,
+  libraryRowToPaper,
+} from '@/shared/api/user-library-papers';
 
 /**
  * PATCH /user/library/papers/:id —— 用户在编辑弹窗改 og_* 字段。
@@ -209,32 +179,11 @@ export function useUpdatePaper() {
   });
 }
 
-/**
- * UserLibraryPaper → Paper(详情页渲染层用的统一形状)。
- * 走 pickEffectiveFields: og 优先 → 元数据 → 空, 与列表卡 / 详情 pane 行为一致。
- */
-export function libraryRowToPaper(row: UserLibraryPaper): Paper {
-  const eff = pickEffectiveFields(row);
-  return {
-    paperId: row.source_paper_id,
-    title: eff.title,
-    abstract: eff.abstract,
-    year: eff.year,
-    venue: eff.venue,
-    authors: eff.authors,
-    // 自由文件没有 OA PDF / 上游 URL —— openAccessPdf/url 留空,
-    // ActionRow 那些按钮自然 hide
-    citationCount: row.citation_count,
-    // Paper.source 是 UpstreamSource 类型;'local' 在类型层不允许,但运行时
-    // 用 cast 透传,detail pane 用 source==='local' 判断分支。
-    source: row.source as UpstreamSource,
-  };
-}
-
 export function useMovePaperToFolder() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (vars: { id: number; folderId: number | null }) => {
+    // folderId 收窄为 number:论文必属某文件夹,不再暴露已废弃的 null(根目录)语义。
+    mutationFn: async (vars: { id: number; folderId: number }) => {
       try {
         const { data } = await http.patch<{ data: UserLibraryPaper }>(
           `/user/library/papers/${vars.id}/folder`,
@@ -260,7 +209,8 @@ interface BatchResult {
 export function useBatchMovePapers() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (vars: { ids: number[]; folderId: number | null }) => {
+    // folderId 收窄为 number(见 useMovePaperToFolder)。
+    mutationFn: async (vars: { ids: number[]; folderId: number }) => {
       if (vars.ids.length === 0) return { affected: 0 };
       try {
         const { data } = await http.post<{ data: BatchResult }>(

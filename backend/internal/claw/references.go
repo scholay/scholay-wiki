@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -105,6 +106,7 @@ func (rf *Referencer) HandleReference(c *gin.Context, userID uint) (*ReferenceRe
 	defer cancel()
 
 	// ── 单篇引用 ──────────────────────────────────────────────
+	singles := make([]library.UserLibraryPaper, 0, len(req.PaperIDs)) // 实际物化的单篇(INDEX 用)
 	if len(req.PaperIDs) > 0 && budget > 0 {
 		ids := req.PaperIDs
 		if len(ids) > budget {
@@ -120,8 +122,11 @@ func (rf *Referencer) HandleReference(c *gin.Context, userID uint) (*ReferenceRe
 			if !ok {
 				continue // 越权 / 不存在 → 静默跳过
 			}
-			hasPDF := rf.materializePaper(ctx, sessionID, p, materialized)
-			budget--
+			hasPDF, fresh := rf.materializePaper(ctx, sessionID, p, materialized)
+			if fresh { // 重复勾选同一篇只物化一次:预算/清单都只算一次
+				budget--
+				singles = append(singles, p)
+			}
 			items = append(items, ReferenceItemDTO{
 				Kind: "paper", RefID: p.ID, Title: effectiveTitle(p), HasPDF: hasPDF,
 			})
@@ -147,8 +152,9 @@ func (rf *Referencer) HandleReference(c *gin.Context, userID uint) (*ReferenceRe
 			return nil, fmt.Errorf("读取文件夹失败: %w", lerr)
 		}
 		for i := range papers {
-			rf.materializePaper(ctx, sessionID, papers[i], materialized)
-			budget--
+			if _, fresh := rf.materializePaper(ctx, sessionID, papers[i], materialized); fresh {
+				budget-- // 已被单篇/前面文件夹物化过的不重复扣预算
+			}
 		}
 		idxFolders = append(idxFolders, indexFolder{name: folder.Name, papers: papers, total: total})
 		items = append(items, ReferenceItemDTO{
@@ -165,11 +171,8 @@ func (rf *Referencer) HandleReference(c *gin.Context, userID uint) (*ReferenceRe
 	}
 
 	// ── 写 INDEX.md(单篇 + 文件夹分组)─────────────────────────
-	singles := make([]library.UserLibraryPaper, 0)
-	if len(req.PaperIDs) > 0 {
-		ps, _ := rf.lib.PapersByIDs(uid, req.PaperIDs)
-		singles = ps
-	}
+	// 单篇只列物化循环里实际处理过的行(而非重查完整 req.PaperIDs):超预算被
+	// 截断的篇目没有对应 paper-<id>.md,列进清单会让 agent 按清单 Read 扑空。
 	index := renderIndex(singles, idxFolders)
 	if werr := rf.feature.AgentClient().PutWorkspaceFile(ctx, sessionID, "references/INDEX.md", []byte(index)); werr != nil {
 		return nil, fmt.Errorf("写引用清单失败: %w", werr)
@@ -183,11 +186,12 @@ func (rf *Referencer) HandleReference(c *gin.Context, userID uint) (*ReferenceRe
 }
 
 // materializePaper 物化一篇:写 references/paper-<id>.md;有用户 PDF 则 push 进 cwd 并在 meta 里记路径。
-// 去重(同一篇被单篇 + 文件夹同时引用时只写一次)。返回是否带用户 PDF。
-func (rf *Referencer) materializePaper(ctx context.Context, sessionID string, p library.UserLibraryPaper, done map[uint64]bool) bool {
-	hasPDF := p.PdfObjectKey != "" && p.PdfUploadedAt != nil
+// 去重(同一篇被单篇 + 文件夹同时引用时只写一次)。返回 (是否带用户 PDF, 是否本次新物化);
+// fresh=false 表示此前已物化过,调用方不应重复扣预算 / 重复列清单。
+func (rf *Referencer) materializePaper(ctx context.Context, sessionID string, p library.UserLibraryPaper, done map[uint64]bool) (hasPDF bool, fresh bool) {
+	hasPDF = p.PdfObjectKey != "" && p.PdfUploadedAt != nil
 	if done[p.ID] {
-		return hasPDF
+		return hasPDF, false
 	}
 	done[p.ID] = true
 
@@ -204,10 +208,11 @@ func (rf *Referencer) materializePaper(ctx context.Context, sessionID string, p 
 	rel := fmt.Sprintf("references/paper-%d.md", p.ID)
 	if err := rf.feature.AgentClient().PutWorkspaceFile(ctx, sessionID, rel, []byte(meta)); err != nil {
 		// 单篇写失败不阻断整批(INDEX 仍会引到它,Read 时缺失而已);记一下即可。
-		// 这里返回但已标记 done,避免重复尝试。
-		return hasPDF
+		// 这里返回但已标记 done,避免重复尝试;仍算 fresh(占用了一次物化尝试)。
+		slog.Warn("claw reference: 写论文 metadata 失败", "session_id", sessionID, "paper_id", p.ID, "error", err)
+		return hasPDF, true
 	}
-	return hasPDF
+	return hasPDF, true
 }
 
 // ─── 渲染 helpers ─────────────────────────────────────────────────────────

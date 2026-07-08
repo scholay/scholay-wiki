@@ -33,6 +33,15 @@ export function useLibrarySelection(
     setAnchorIdx(null);
   }, [filter]);
 
+  // 翻页 / 搜索 → 当前页论文整体换了一批,shift 锚点必须重置:否则残留的旧页
+  // index 会以新页行序套用,范围选与用户预期不符(选择本身是「仅当前页」语义,
+  // liveSelected 已按新页过滤,这里只补齐 anchor)。用首行 id + 页长作页身份指纹,
+  // 同页 refetch(enrichment 等)指纹不变,不误重置。
+  const pageKey = papers.length ? `${papers[0].id}:${papers.length}` : '';
+  useEffect(() => {
+    setAnchorIdx(null);
+  }, [pageKey]);
+
   // 过滤 stale id(论文已被删等)
   const liveSelected = useMemo(() => {
     if (selected.size === 0) return selected;

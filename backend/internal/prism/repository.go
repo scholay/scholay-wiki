@@ -2,10 +2,11 @@ package prism
 
 import (
 	"errors"
-	"strings"
 	"time"
 
 	"gorm.io/gorm"
+
+	"scholar-backend/internal/library"
 )
 
 type Repository struct {
@@ -134,7 +135,7 @@ func (r *Repository) SetProjectSession(id uint, sessionID string) error {
 	return r.db.Model(&Project{}).Where("id = ?", id).Update("agent_session_id", v).Error
 }
 
-// ClaimProjectSession 原子认领项目会话:仅当当前为空(NULL/'')时写入。
+// ClaimProjectSession 原子认领项目会话:仅当当前为空(NULL/”)时写入。
 // 返回 true=认领成功;false=已被并发请求抢先(调用方应删掉本次多建的会话,改用既存的)。
 // 这是跨进程也成立的并发兜底;同进程的并发由 Service 的 per-project 锁先行串行化。
 func (r *Repository) ClaimProjectSession(id uint, sessionID string) (bool, error) {
@@ -480,51 +481,24 @@ func (r *Repository) UpdateEdit(id uint, fields map[string]any) error {
 }
 
 // ─── 文献库检索(\cite RAG 源)───────────────────────────────────────────────
-
-// libRow 只取生成 BibTeX 所需列(读 user_library_papers,不依赖 library 包)。
-type libRow struct {
-	ID          uint
-	Title       string
-	AuthorsJSON []byte `gorm:"column:authors_json"`
-	Year        *uint16
-	Venue       string
-	DOI         string
-}
+//
+// 收口到 library.Reader 只读 facade,不再裸查 user_library_papers ——
+// library 改列(og_* 合并 / 类型变更等)时由 CitePaper 的 SELECT 常量集中约束,
+// 避免 prism 手抄裸字符串成为 schema 演进的静默盲区。查询语义(SELECT 列 /
+// user_id 归属 / LIKE ESCAPE / ORDER year DESC / limit 钳制)与历史裸查完全一致。
+//
+// libRow 是 library.CitePaper 的别名,保留原类型名不动 cite.go 调用方
+// (字段 ID/Title/AuthorsJSON/Year/Venue/DOI 逐字段一致,citeKey 生成的确定性不变)。
+type libRow = library.CitePaper
 
 // SearchLibrary 在用户文献库里按关键词 LIKE 检索(title/venue/doi),只返真实库行 —— \cite 反幻觉的根。
 func (r *Repository) SearchLibrary(userID uint, query string, limit int) ([]libRow, error) {
-	if limit <= 0 || limit > 50 {
-		limit = 20
-	}
-	q := r.db.Table("user_library_papers").
-		Select("id, title, authors_json, year, venue, doi").
-		Where("user_id = ?", userID)
-	if s := strings.TrimSpace(query); s != "" {
-		esc := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(s)
-		if len(esc) > 100 {
-			esc = esc[:100]
-		}
-		like := "%" + esc + "%"
-		q = q.Where("title LIKE ? ESCAPE '\\\\' OR venue LIKE ? ESCAPE '\\\\' OR doi LIKE ? ESCAPE '\\\\'", like, like, like)
-	}
-	var rows []libRow
-	err := q.Order("year DESC").Limit(limit).Find(&rows).Error
-	return rows, err
+	return library.NewReader(r.db).SearchCitePapers(uint64(userID), query, limit)
 }
 
-// GetLibraryPaper 取某条库论文(cite apply 用,校验归属)。
+// GetLibraryPaper 取某条库论文(cite apply 用,校验归属)。不存在 / 越权 → (nil, nil)。
 func (r *Repository) GetLibraryPaper(userID, paperID uint) (*libRow, error) {
-	var row libRow
-	err := r.db.Table("user_library_papers").
-		Select("id, title, authors_json, year, venue, doi").
-		Where("id = ? AND user_id = ?", paperID, userID).First(&row).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return &row, nil
+	return library.NewReader(r.db).CitePaperByID(uint64(userID), uint64(paperID))
 }
 
 // LatestSuccessCompile 项目最近一次成功编译(取 PDF 用)。

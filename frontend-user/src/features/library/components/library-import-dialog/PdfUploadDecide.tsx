@@ -33,9 +33,45 @@ import { PdfPreviewCard } from './PdfPreviewCard';
  *      - "其他候选项 (N)" 可折叠列表,每行 [标题 + 元数据 + 采用按钮]
  *
  * 选定(接受/采用/拒绝)后由父级立即 confirm 入库,然后工作台切到该行的
- * 管理语境继续完善。(旧版的"匹配度 X%"是前端 mock 数字,已移除 —— 后端
- * 返回真实 score 后再恢复展示。)
+ * 管理语境继续完善。置信度徽章(match_type + match_score)由后端 resolveUploadCandidates
+ * 返回:DOI 精确 / 标题精确 = 高置信;低相似度的搜索候选会提醒用户核对,不再盲信第一条。
  */
+
+/** 候选置信度分档 —— 由 match_type + match_score 推导,驱动徽章文案/配色 + 是否提醒核对。 */
+type Confidence = { label: string; tone: 'exact' | 'likely' | 'weak' };
+
+function matchConfidence(hit: SearchHit): Confidence {
+  const score = hit.match_score ?? 0;
+  if (hit.match_type === 'doi') return { label: 'DOI 精确匹配', tone: 'exact' };
+  if (hit.match_type === 'title_match') {
+    return score >= 0.7
+      ? { label: '标题精确匹配', tone: 'exact' }
+      : { label: '标题匹配 · 建议核对', tone: 'likely' };
+  }
+  // search 兜底候选:按相似度分「相近」/「低相似 · 请核对」
+  if (score >= 0.6) return { label: '搜索相近', tone: 'likely' };
+  return { label: '低相似度 · 请核对', tone: 'weak' };
+}
+
+const CONFIDENCE_CLS: Record<Confidence['tone'], string> = {
+  exact: 'bg-brand-green/10 text-brand-green',
+  likely: 'bg-surface-2 text-muted-foreground',
+  weak: 'bg-warning-soft text-brand-amber',
+};
+
+function MatchConfidenceBadge({ hit }: { hit: SearchHit }) {
+  const { label, tone } = matchConfidence(hit);
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center px-1.5 py-0.5 rounded-sm text-[10px] font-bold leading-none',
+        CONFIDENCE_CLS[tone]
+      )}
+    >
+      {label}
+    </span>
+  );
+}
 
 interface PdfUploadDecideProps {
   file: File;
@@ -165,12 +201,13 @@ function BestMatchCard({
     <div className="rounded-md border border-border bg-background overflow-hidden">
       {/* 头部:✨ 最佳建议 + 来源 badge + 外链 */}
       <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-border-soft bg-surface-1">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Sparkles className="size-3.5 text-brand-amber" strokeWidth={2.25} />
           <span className="text-xs font-bold text-foreground">最佳建议</span>
           <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-surface-2 text-subtle text-[10px] font-bold leading-none uppercase tracking-wide">
             {sourceBrandLabel(hit.source)}
           </span>
+          <MatchConfidenceBadge hit={hit} />
         </div>
         {externalUrl && (
           <a

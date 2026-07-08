@@ -16,11 +16,11 @@ import type {
 // 跨 feature import —— 详情面板天然需要 library 的"是否已收藏 / 是否上传过 PDF"
 // 上下文,是 browser ⇄ library 设计上的交叉点,违反"feature 互不 import"约束
 // 是有意识的折衷;以后若 PaperDetailPane 进一步抽离再考虑提到 shared/api
-import { useFetchPaperDetail } from '@/features/library/api/paper-detail';
+import { useFetchPaperDetail } from '@/shared/api/paper-detail';
 import {
   libraryRowToPaper,
   useLibraryPaperByUpstream,
-} from '@/features/library/api/papers';
+} from '@/shared/api/user-library-papers';
 import { PaperHeader } from './paper-detail/PaperHeader';
 import { PaperAbstract } from './paper-detail/PaperAbstract';
 import { PaperReferences } from './paper-detail/PaperReferences';

@@ -3,9 +3,11 @@ import { Bookmark, BookmarkCheck, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
 import { haptic } from '@/shared/lib/haptics';
+import { isPhoneDevice } from '@/shared/lib/device';
 import {
   useFavoritePaper,
   useUnfavoritePaper,
+  type FavoritePaperResult,
 } from '@/shared/api/user-library-mutations';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
@@ -13,7 +15,7 @@ import { usePendingAction } from '@/stores/pending-action.store';
 import { useFavoriteBurst } from '@/stores/favorite-burst.store';
 import { useCollectPicker } from '@/stores/collect-picker.store';
 import { ConfirmPopover } from '@/shared/components/ConfirmPopover';
-import type { Paper, UpstreamSource, UserLibraryPaper } from '@/shared/api/types';
+import type { Paper, UpstreamSource } from '@/shared/api/types';
 
 /**
  * 收藏按钮 —— 全局唯一实现,跨搜索 / 矩阵 / Quick Add / 详情页等所有场景。
@@ -64,12 +66,18 @@ export interface FavoritePaperButtonProps {
    */
   silentSuccess?: boolean;
   /**
-   * 收藏成功回调,带后端创建的文献集行。
+   * 收藏成功回调,带后端创建的文献集行(幂等命中已有行时 row.already_existed=true)。
    * 取消收藏成功不触发(行已删除,无值可传)。
    */
-  onSuccess?: (row: UserLibraryPaper) => void;
+  onSuccess?: (row: FavoritePaperResult) => void;
   /** 取消收藏成功后回调(父级本地"已收藏"状态需要回退时用) */
   onUnfavorited?: () => void;
+  /**
+   * 取消收藏确认气泡的标题/描述覆盖 —— 文献集语境下「取消收藏」= 删除整行
+   * (含上传的 PDF 与编辑过的信息),数据损失警示必须比通用文案重。
+   */
+  unfavoriteTitle?: string;
+  unfavoriteDescription?: string;
   onError?: (err: Error) => void;
   /** 额外的容器 className,通常只用来加 hover-show 控制 */
   className?: string;
@@ -112,6 +120,8 @@ export function FavoritePaperButton({
   onSuccess,
   onUnfavorited,
   onError,
+  unfavoriteTitle,
+  unfavoriteDescription,
   className,
   collapseLabel = false,
 }: FavoritePaperButtonProps) {
@@ -161,22 +171,32 @@ export function FavoritePaperButton({
             onSuccess?.(row);
             return;
           }
+          // 幂等命中已有行:什么都没新增 → 不飞 "+1"、不谎报「已加入」,
+          // 如实提示已在文献集中(后端不再隐式搬动文件夹归属)。
+          if (row.already_existed) {
+            if (showToast) toast.info('这篇论文已在你的文献集中');
+            onSuccess?.(row);
+            return;
+          }
           const burst = useFavoriteBurst.getState();
           if (showToast === false || burst.sinkCount > 0) {
             // 嵌入场景照旧走 burst store(行为与改造前一致);
             // 有可见 sink 时飞 "+1" 动画(sidebar 文献集段就是管理入口)
             burst.pushBurst();
           } else {
-            // 无 sink 的独立场景(详情页 / 移动端 feed)→ 成功 toast 带
-            // 「完善信息」深链,LibraryPage 解析 ?manage= 后打开管理弹窗
+            // 无 sink 的独立场景(详情页 / 移动端 feed)→ 成功 toast。
+            // 「完善信息」深链只在桌面提供:移动端没有工作台消费 ?manage=,
+            // 且深链会被设备分流闸改写,action 点了等于白点。
             toast.success('已加入文献集', {
-              action: {
-                label: '完善信息',
-                onClick: () =>
-                  navigate(
-                    `/library?manage=${row.source}:${encodeURIComponent(row.source_paper_id)}`
-                  ),
-              },
+              action: isPhoneDevice()
+                ? undefined
+                : {
+                    label: '完善信息',
+                    onClick: () =>
+                      navigate(
+                        `/library?manage=${row.source}:${encodeURIComponent(row.source_paper_id)}`
+                      ),
+                  },
             });
           }
           onSuccess?.(row);
@@ -314,8 +334,8 @@ export function FavoritePaperButton({
   if (isFavorited) {
     return (
       <ConfirmPopover
-        title="取消收藏这篇论文?"
-        description="可以稍后从搜索/详情页重新收藏。"
+        title={unfavoriteTitle ?? '取消收藏这篇论文?'}
+        description={unfavoriteDescription ?? '可以稍后从搜索/详情页重新收藏。'}
         confirmText="取消收藏"
         cancelText="保留"
         danger

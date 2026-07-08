@@ -3,7 +3,6 @@ import {
   AlertTriangle,
   ArrowRightLeft,
   Folder,
-  Inbox,
   Loader2,
   Search,
   Trash2,
@@ -62,16 +61,12 @@ export function LibraryBulkToolbar({
   const [moveOpen, setMoveOpen] = useState(false);
   const [folderQuery, setFolderQuery] = useState('');
 
-  const handleMove = (folderId: number | null) => {
+  const handleMove = (folderId: number) => {
     moveMut.mutate(
       { ids, folderId },
       {
         onSuccess: (res) => {
-          toast.success(
-            folderId === null
-              ? `已把 ${res.affected} 篇移到根目录`
-              : `已移动 ${res.affected} 篇`
-          );
+          toast.success(`已移动 ${res.affected} 篇`);
           setMoveOpen(false);
           setFolderQuery('');
           onClear();
@@ -100,12 +95,6 @@ export function LibraryBulkToolbar({
     if (!q) return otherFolders;
     return otherFolders.filter((f) => f.name.toLowerCase().includes(q));
   }, [otherFolders, folderQuery]);
-  // 根目录候选 —— 仅当当前不在根 + 搜索词为空 / 命中"根" 时显示
-  const showRootRow =
-    currentFilter !== 'root' &&
-    (!folderQuery.trim() ||
-      '根目录'.includes(folderQuery.trim()) ||
-      'root'.includes(folderQuery.trim().toLowerCase()));
 
   return (
     <>
@@ -172,20 +161,6 @@ export function LibraryBulkToolbar({
 
             {/* 列表 —— 滚动:max-h + overflow-y-auto */}
             <div className="max-h-[260px] overflow-y-auto">
-              {showRootRow && (
-                <button
-                  type="button"
-                  onClick={() => handleMove(null)}
-                  disabled={moveMut.isPending}
-                  className="flex items-center gap-2 w-full h-8 px-2 rounded-sm text-xs text-subtle hover:bg-surface-1 hover:text-foreground disabled:opacity-50 transition-colors text-left"
-                >
-                  <Inbox className="size-3.5 shrink-0 text-faint" />
-                  <span className="flex-1 truncate">根目录</span>
-                </button>
-              )}
-              {showRootRow && filteredFolders.length > 0 && (
-                <div aria-hidden className="my-1 h-px bg-border-soft" />
-              )}
               {filteredFolders.map((f) => (
                 <button
                   key={f.id}
@@ -198,7 +173,7 @@ export function LibraryBulkToolbar({
                   <span className="flex-1 truncate">{f.name}</span>
                 </button>
               ))}
-              {!showRootRow && filteredFolders.length === 0 && (
+              {filteredFolders.length === 0 && (
                 <div className="px-2 py-3 text-2xs text-faint text-center">
                   {folderQuery.trim()
                     ? `没有匹配「${folderQuery.trim()}」的文件夹`

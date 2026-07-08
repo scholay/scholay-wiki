@@ -96,7 +96,9 @@ export const router = createBrowserRouter([
     // 与 '/' 的正向闸对称,二者都被 isPhoneDevice() 门控:到了正确的壳就 return null,不会来回弹。
     loader: ({ request }) => {
       if (isPhoneDevice()) return null;
-      return redirect(desktopEquivalentPath(new URL(request.url).pathname));
+      const url = new URL(request.url);
+      // search 一并传入:query 深链(?folder= 等)在两个方向都不能丢
+      return redirect(desktopEquivalentPath(url.pathname, url.search));
     },
     children: [
       ...mobileRoutes,
@@ -119,7 +121,9 @@ export const router = createBrowserRouter([
     // 挂在 AppShell 父级,所有桌面子路由(含客户端内部导航)都过这道闸。
     loader: ({ request }) => {
       if (!isPhoneDevice()) return null;
-      const target = mobileEquivalentPath(new URL(request.url).pathname);
+      const url = new URL(request.url);
+      // search 一并传入:/library?folder=N → /m/library/N 特判 + 其余 query 原样保留
+      const target = mobileEquivalentPath(url.pathname, url.search);
       return target ? redirect(target) : null;
     },
     children: [

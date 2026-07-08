@@ -10,7 +10,7 @@
  */
 
 import type { UserLibraryPaper } from '@/shared/api/types';
-import { pickAuthors, pickNumber, pickString } from './pick-field';
+import { pickAuthors, pickNumber, pickString } from '@/shared/lib/pick-field';
 
 // ─── 通用 ────────────────────────────────────────────────────────────────────
 

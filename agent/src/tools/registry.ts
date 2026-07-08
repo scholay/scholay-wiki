@@ -7,6 +7,7 @@ import { readFile, writeFile, mkdir, readdir, stat } from "node:fs/promises";
 import { wrapBash } from "../sandbox/bwrap.ts";
 import { profileFor } from "../sandbox/profile.ts";
 import { confinePath } from "../sandbox/confine.ts";
+import { beijingNow } from "./clock.ts";
 
 export interface ToolCtx {
   workDir: string;
@@ -256,7 +257,24 @@ const bashTool: BuiltinTool = {
   },
 };
 
-const all: BuiltinTool[] = [readTool, writeTool, editTool, globTool, grepTool, bashTool];
+// TodayDate:查当前日期/时间(Asia/Shanghai)。零参数、只读、parallelSafe,对所有 feature 开放
+// (不进任何 denylist)。system 里已有天粒度 dateLine 锚点;此工具补精确时刻 + 给模型一个
+// 「主动核实时间」的确定性通道(治时间线幻觉:模型对"今年是哪年"拿不准时可自查,而非按训练截止猜)。
+const todayDateTool: BuiltinTool = {
+  name: "TodayDate",
+  description:
+    "Get today's date and the current time (Asia/Shanghai, UTC+8). The returned value is the authoritative current date — trust it over your training knowledge, e.g. when judging whether a publication year is plausible, converting \"recent N years\" into an absolute year range, or dating a document.",
+  input_schema: { type: "object", properties: {} },
+  parallelSafe: true,
+  async run() {
+    const d = beijingNow();
+    return ok(
+      `今天是 ${d.dateCN}(${d.weekday}),当前时间 ${d.time}(Asia/Shanghai,UTC+8)\nISO 日期: ${d.isoDate}`,
+    );
+  },
+};
+
+const all: BuiltinTool[] = [readTool, writeTool, editTool, globTool, grepTool, bashTool, todayDateTool];
 
 export const builtinRegistry: Map<string, BuiltinTool> = new Map(all.map((t) => [t.name, t]));
 

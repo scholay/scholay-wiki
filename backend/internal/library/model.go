@@ -74,16 +74,17 @@ func (UserLibraryFolder) TableName() string { return "user_library_folders" }
 
 // UserLibraryPaper 是 user_library_papers 表对应的 GORM 模型。
 // 论文元数据冗余落库:外部源短暂不可用时本地仍能完整展示用户的收藏。
-// FolderID 是 NULL = 根目录;非 NULL = 归属某个文件夹。
+// FolderID:现行模型下所有写路径都落具体文件夹(缺省回落默认文件夹),不再有
+// "根目录放论文";列仍允许 NULL 但无代码会写它(历史遗留,archive/0033 已清 NULL 行)。
 //
-// PDF 上传字段(0036 迁移加):用户可以为单篇论文上传一份 PDF,文件本体走
-// MinIO,这里只存元数据。重新上传会覆盖旧 object_key(并删旧对象)。
+// PDF 上传字段:用户可以为单篇论文上传一份 PDF,文件本体走 MinIO,这里只存元数据。
+// 重新上传会覆盖旧 object_key(并删旧对象)。
 //
 //	PdfUploadedAt IS NULL → 还没上传过;前端按这个判 "上传 PDF" / "重新上传" 文案。
 type UserLibraryPaper struct {
 	ID                   uint64          `json:"id" gorm:"primaryKey"`
 	UserID               uint64          `json:"user_id" gorm:"not null;index"`
-	FolderID             *uint64         `json:"folder_id,omitempty" gorm:"index"` // NULL = 根目录
+	FolderID             *uint64         `json:"folder_id,omitempty" gorm:"index"` // 现行:必属某文件夹;NULL 为历史遗留
 	Source               string          `json:"source" gorm:"size:16;not null"`
 	SourcePaperID        string          `json:"source_paper_id" gorm:"size:128;not null"`
 	Title                string          `json:"title" gorm:"size:1024;not null;default:''"`
@@ -118,8 +119,9 @@ type UserLibraryPaper struct {
 	OGDOI         string          `json:"og_doi,omitempty" gorm:"column:og_doi;size:255;not null;default:''"`
 	// ---- 关联状态 —— 'linked' (常规上游收藏) / 'free' (本地自由文件) ----
 	LinkState string `json:"link_state" gorm:"column:link_state;size:16;not null;default:'linked'"`
-	// ---- 来源动作 —— 'search' (用户在搜索/详情/QuickAdd 点收藏) / 'upload' (PDF 上传走出来的) ----
+	// ---- 来源动作 —— 'search' (搜索/详情/QuickAdd 点收藏) / 'upload' (PDF 上传) / 'share' (从他人分享转存) ----
 	// 与 LinkState 正交:linked+search 是搜索来的、linked+upload 是上传后关联的、free+upload 是上传未关联;
+	// share 行是转存来的(见 OriginShare / share_handler.savedRowFromSnapshot,内容落 og_*)。
 	// 文献集行用它区分主操作:search 行管理 PDF,upload 行管理关联。
 	Origin    string    `json:"origin" gorm:"column:origin;size:16;not null;default:'search'"`
 	CreatedAt time.Time `json:"created_at"`
@@ -129,6 +131,7 @@ type UserLibraryPaper struct {
 const (
 	OriginSearch = "search"
 	OriginUpload = "upload"
+	// OriginShare 定义在 share_model.go(与分享逻辑同处),此处不重复声明,只在注释登记枚举全集。
 )
 
 // TableName 显式给出表名(避免被 GORM 复数化)
@@ -141,7 +144,8 @@ func (UserLibraryPaper) TableName() string {
 // AddPaperRequest 前端 POST /api/v1/user/library 的请求体
 //
 // source + source_paper_id 是唯一定位键;其余字段是冗余的展示元数据。
-// folder_id 可选(null/缺省 = 放到根目录)。
+// folder_id 可选(null/缺省 = 落默认文件夹;不再有"根目录放论文"概念)。
+// PublicationTypes 前端已不再发送(恒空),字段保留仅为向后兼容,勿新增依赖。
 type AddPaperRequest struct {
 	Source           string          `json:"source" binding:"required"`
 	SourcePaperID    string          `json:"source_paper_id" binding:"required"`
@@ -165,9 +169,10 @@ type ListResponse struct {
 }
 
 // CheckRequest 批量查询某一组 (source, paperId) 是否在我的文献集
+// paper_ids 上限 500(与批量操作对齐,防超大 IN 列表滥用)
 type CheckRequest struct {
 	Source   string   `json:"source" binding:"required"`
-	PaperIDs []string `json:"paper_ids" binding:"required"`
+	PaperIDs []string `json:"paper_ids" binding:"required,max=500"`
 }
 
 // CheckResponse 返回每个 paperId 是否已收藏(true/false)

@@ -8,7 +8,7 @@ import type { Paper } from '@/shared/api/types';
 import {
   useFetchPaperReferences,
   type PaperReference,
-} from '@/features/library/api/paper-detail';
+} from '@/shared/api/paper-detail';
 
 /**
  * References 段 —— 真实拉 `/public/papers/:paperId/references`,

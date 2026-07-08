@@ -1,4 +1,4 @@
-import { lazy, memo, Suspense, useState } from 'react';
+import { lazy, memo, Suspense, useEffect, useRef, useState } from 'react';
 import { Check, Quote } from 'lucide-react';
 import { toast } from 'sonner';
 import { CitationDialog } from '@/shared/components/CitationDialog';
@@ -23,7 +23,7 @@ import type {
   UserLibraryPaper,
 } from '@/shared/api/types';
 import { cn } from '@/shared/lib/utils';
-import { pickEffectiveFields } from '../../lib/pick-field';
+import { pickEffectiveFields } from '@/shared/lib/pick-field';
 import { useUnlinkPaper } from '../../api/relink';
 
 // 统一工作台弹窗的「管理」语境(元数据 / PDF / 在线关联三 tab)—— lazy + 条件
@@ -37,7 +37,7 @@ import { MetaRow } from './MetaRow';
 import { RowActionsMenu } from './RowActionsMenu';
 import { BasicInfoChip } from './chips/BasicInfoChip';
 import { PdfChip } from './chips/PdfChip';
-import { formatAddedDate } from './format-added-date';
+import { formatAddedDate, formatAddedDateFull } from './format-added-date';
 
 interface RowProps {
   paper: UserLibraryPaper;
@@ -123,14 +123,40 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
   };
 
   const addedDate = formatAddedDate(paper.created_at);
+  const addedDateFull = formatAddedDateFull(paper.created_at);
 
   // 统一管理弹窗:chip 上的"在线关联 / 编辑 / 换 PDF"都开它,只是 initialTab 不同。
+  //
+  // ⚠️ Radix 铁律(见 frontend CLAUDE.md):Dialog 绝不能在 open 仍为 true 时被
+  // unmount(body pointer-events 锁泄漏 → 全站点击失灵)。这里「先关再卸」:manageOpen
+  // 只控 open;关闭先置 false 让 Radix 跑清理,延一拍再卸 lazy 组件(manageMounted);
+  // manageSeq 作 key 保证延迟窗口内重开也 remount 拿到新 initialTab。
   const [manageOpen, setManageOpen] = useState(false);
+  const [manageMounted, setManageMounted] = useState(false);
+  const [manageSeq, setManageSeq] = useState(0);
   const [manageTab, setManageTab] = useState<ManageTab>('metadata');
+  const manageCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const openManage = (tab: ManageTab) => {
+    if (manageCloseTimer.current) {
+      clearTimeout(manageCloseTimer.current);
+      manageCloseTimer.current = null;
+    }
     setManageTab(tab);
+    setManageSeq((n) => n + 1);
+    setManageMounted(true);
     setManageOpen(true);
   };
+  const closeManage = () => {
+    setManageOpen(false);
+    if (manageCloseTimer.current) clearTimeout(manageCloseTimer.current);
+    manageCloseTimer.current = setTimeout(() => setManageMounted(false), 250);
+  };
+  useEffect(
+    () => () => {
+      if (manageCloseTimer.current) clearTimeout(manageCloseTimer.current);
+    },
+    []
+  );
 
   // 取消关联:后端快照式 unlink —— og 空字段自动固化当前展示值再清上游元数据,
   // 显示内容不变,行退回 free。是直接动作(非弹窗),先确认再调。
@@ -291,20 +317,26 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
           />
 
           {addedDate && (
-            <span className="ml-auto text-2xs text-faint">加入于 {addedDate}</span>
+            <span
+              className="ml-auto text-2xs text-faint"
+              title={`加入于 ${addedDateFull}`}
+            >
+              加入于 {addedDate}
+            </span>
           )}
         </div>
       </div>
 
-      {/* 统一工作台弹窗 ·「管理」语境 —— lazy + 条件 mount:
-          open=false 时 chunk 不下载,open=true 才走 Suspense。各入口 chip 通过 manageTab 指定初始 tab。
+      {/* 统一工作台弹窗 ·「管理」语境 —— lazy + 延迟卸载(先关再卸,见上):
+          首次打开才下载 chunk;open 由 manageOpen 控制,manageMounted 控挂载。
           弹窗内部用 by-upstream 订阅行数据保活,PATCH 后不会读到这里的陈旧 paper。
           (linked 行的"取消关联"是 chip 菜单的 onUnlink 直接动作,不走本弹窗。) */}
-      {manageOpen && (
+      {manageMounted && (
         <Suspense fallback={null}>
           <PaperWorkbenchDialog
-            open
-            onOpenChange={setManageOpen}
+            key={manageSeq}
+            open={manageOpen}
+            onOpenChange={(v) => !v && closeManage()}
             initial={{ mode: 'manage', paper, tab: manageTab }}
           />
         </Suspense>

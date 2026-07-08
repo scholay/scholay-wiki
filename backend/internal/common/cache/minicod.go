@@ -28,6 +28,8 @@ const (
 	minicodRecForPaperPrefix  = "minicod:recforpaper"
 	minicodRecPrefix          = "minicod:rec"
 	minicodSuggestionsPrefix  = "minicod:suggestions"
+	minicodPaperByDOIPrefix   = "minicod:paperdoi"
+	minicodPaperMatchPrefix   = "minicod:papermatch"
 )
 
 // ======================== Minicod TTL Settings ========================
@@ -37,14 +39,14 @@ const (
 	MinicodSearchTTL         = 30 * time.Minute // 搜索结果：用户行为敏感，半小时
 	MinicodPaperTTL          = 24 * time.Hour   // 论文详情：变化极慢，1 天
 	MinicodPaperBatchTTL     = 24 * time.Hour
-	MinicodCitationsTTL      = 1 * time.Hour    // 引用列表：会增长但不频繁
-	MinicodReferencesTTL     = 1 * time.Hour    // 参考文献：论文发布后几乎不变
+	MinicodCitationsTTL      = 1 * time.Hour // 引用列表：会增长但不频繁
+	MinicodReferencesTTL     = 1 * time.Hour // 参考文献：论文发布后几乎不变
 	MinicodPaperAuthorsTTL   = 24 * time.Hour
-	MinicodAutocompleteTTL   = 1 * time.Hour    // 前缀自动补全：query 热点集中，命中率高
+	MinicodAutocompleteTTL   = 1 * time.Hour // 前缀自动补全：query 热点集中，命中率高
 	MinicodAuthorSearchTTL   = 1 * time.Hour
 	MinicodAuthorTTL         = 24 * time.Hour
 	MinicodAuthorPapersTTL   = 6 * time.Hour
-	MinicodRecommendationTTL = 6 * time.Hour    // 推荐：相对稳定但有一定更新
+	MinicodRecommendationTTL = 6 * time.Hour // 推荐：相对稳定但有一定更新
 	MinicodSuggestionsTTL    = 1 * time.Hour
 )
 
@@ -82,6 +84,19 @@ func GetOrSetMinicodPaper(ctx context.Context, paperID string, fields []string, 
 func GetOrSetMinicodPaperBatch(ctx context.Context, paperIDs []string, fields []string, fetchFn func() (any, error), result any) error {
 	params := map[string]any{"paperIds": paperIDs, "fields": fields}
 	return getOrSetMinicod(ctx, minicodPaperBatchPrefix, MinicodPaperBatchTTL, params, fetchFn, result)
+}
+
+// GetOrSetMinicodPaperByDOI 缓存按 DOI 精确解析的单篇论文,按 source + doi 区分。
+// DOI→论文是稳定映射,复用 24h 论文详情 TTL。
+func GetOrSetMinicodPaperByDOI(ctx context.Context, source, doi string, fetchFn func() (any, error), result any) error {
+	params := map[string]any{"source": source, "doi": doi}
+	return getOrSetMinicod(ctx, minicodPaperByDOIPrefix, MinicodPaperTTL, params, fetchFn, result)
+}
+
+// GetOrSetMinicodPaperMatch 缓存按标题精确匹配的单篇论文,按 title 区分。
+func GetOrSetMinicodPaperMatch(ctx context.Context, title string, fetchFn func() (any, error), result any) error {
+	params := map[string]any{"title": title}
+	return getOrSetMinicod(ctx, minicodPaperMatchPrefix, MinicodPaperTTL, params, fetchFn, result)
 }
 
 // GetOrSetMinicodCitations 缓存论文引用列表。

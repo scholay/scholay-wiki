@@ -23,7 +23,9 @@ const JournalTrendChart = lazy(() =>
 
 /**
  * 分享接收页(/s/:token)—— 公开、免登录、PC/移动端通用(独立顶层路由,不挂任何 shell)。
- * 对应设计稿 YQ5sk「接收/预览·转存」:展示分享人 + 标题 + 篇目预览,选目标文件夹后一键转存。
+ * 对应设计稿 YQ5sk「接收/预览·转存」:展示分享人 + 标题 + 篇目预览,一键转存到默认文件夹
+ * (成功 toast 会带出落地文件夹名;后端 SaveShare 支持指定 folder_id,此公开落地页从简走默认夹,
+ * 用户可转存后在文献集里再整理)。
  * 转存需登录:未登录点转存 → 弹全局 AuthDialog,登录后本页自动重渲为已登录态。
  */
 export function SharedReceivePage() {

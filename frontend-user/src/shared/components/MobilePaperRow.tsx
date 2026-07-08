@@ -32,6 +32,10 @@ export interface MobilePaperRowProps {
   onCite: (p: Paper) => void;
   /** 收藏/取消收藏成功回调 —— 调用方用它就地翻转「已收藏」态(无需重拉 /library/check) */
   onFavoriteToggle?: (paperId: string, favorited: boolean) => void;
+  /** 取消收藏二次确认文案覆盖 —— 文献集语境下「取消收藏」= 删除整行(含上传 PDF/编辑),
+   *  警示要比搜索结果里的「取消收藏」重(那只是移出收藏)。 */
+  unfavoriteTitle?: string;
+  unfavoriteDescription?: string;
 }
 
 /**
@@ -49,6 +53,8 @@ export const MobilePaperRow = memo(function MobilePaperRow({
   onShare,
   onCite,
   onFavoriteToggle,
+  unfavoriteTitle,
+  unfavoriteDescription,
 }: MobilePaperRowProps) {
   const initial = paper.authors?.[0]?.name?.trim().charAt(0).toUpperCase() || '·';
   const meta =
@@ -100,6 +106,8 @@ export const MobilePaperRow = memo(function MobilePaperRow({
             isFavorited={isFavorited}
             variant="link"
             size="md"
+            unfavoriteTitle={unfavoriteTitle}
+            unfavoriteDescription={unfavoriteDescription}
             onSuccess={onFavoriteToggle ? () => onFavoriteToggle(paper.paperId, true) : undefined}
             onUnfavorited={onFavoriteToggle ? () => onFavoriteToggle(paper.paperId, false) : undefined}
           />

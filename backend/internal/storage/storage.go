@@ -512,6 +512,61 @@ func DeleteObjects(
 	return nil
 }
 
+// ListObjectKeys 按前缀列举对象 key(递归)。
+// 消费方:账号注销清理(papers/<uid>/ 前缀)。只要 LastModified 等元数据请用 ListObjectInfos。
+// maxKeys > 0 时最多返回 maxKeys 个(防止误传空前缀拉全桶);0 = 不限。
+func ListObjectKeys(ctx context.Context, bucket, prefix string, maxKeys int) ([]string, error) {
+	if !IsEnabled() {
+		return nil, ErrDisabled
+	}
+	mu.RLock()
+	c := client
+	mu.RUnlock()
+
+	var keys []string
+	for obj := range c.ListObjects(ctx, bucket, minio.ListObjectsOptions{
+		Prefix:    prefix,
+		Recursive: true,
+	}) {
+		if obj.Err != nil {
+			return keys, obj.Err
+		}
+		keys = append(keys, obj.Key)
+		if maxKeys > 0 && len(keys) >= maxKeys {
+			break
+		}
+	}
+	return keys, nil
+}
+
+// ListObjectInfos 按前缀列举对象完整元数据(递归),与 ListObjectKeys 同款,但保留
+// LastModified 等字段。消费方:MinIO 孤儿对象对账 reaper(common/cleanup)——
+// 拿 LastModified 做删除安全线,防止把正在进行的上传/迁移误判成孤儿。
+// maxKeys > 0 时最多返回 maxKeys 个(防止误传空前缀拉全桶);0 = 不限。
+func ListObjectInfos(ctx context.Context, bucket, prefix string, maxKeys int) ([]minio.ObjectInfo, error) {
+	if !IsEnabled() {
+		return nil, ErrDisabled
+	}
+	mu.RLock()
+	c := client
+	mu.RUnlock()
+
+	var infos []minio.ObjectInfo
+	for obj := range c.ListObjects(ctx, bucket, minio.ListObjectsOptions{
+		Prefix:    prefix,
+		Recursive: true,
+	}) {
+		if obj.Err != nil {
+			return infos, obj.Err
+		}
+		infos = append(infos, obj)
+		if maxKeys > 0 && len(infos) >= maxKeys {
+			break
+		}
+	}
+	return infos, nil
+}
+
 // PresignedGetURL 给前端直接下载用 —— 不暴露 backend 流量。
 // ⚠️ 当前**未使用**,所有下载走 backend stream 转发(ServeObject,带鉴权 + 私有 bucket + Range)。
 // 不能直接把本函数的返回值发给浏览器:MINIO_ENDPOINT 是 `minio:9000`(容器内网名,且 expose-only

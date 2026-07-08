@@ -35,7 +35,10 @@ export interface RelinkSearchResponse {
  */
 export function useRelinkSearch(paperId: number | null, titleOverride?: string) {
   return useQuery({
-    queryKey: ['library', 'relink-search', paperId, titleOverride] as const,
+    // 顶级独立 key(不挂 ['library'] 前缀):relink-search 是一次昂贵的三源
+    // fan-out 检索,若挂在 library 前缀下,任何库写操作(收藏/删除等)的
+    // invalidateLibrary 都会连带重拉它。它的结果不随库内容变,无需被库写失效。
+    queryKey: ['relink-search', paperId, titleOverride] as const,
     enabled: paperId != null,
     staleTime: STALE_WARM,
     queryFn: async (): Promise<RelinkSearchResponse> => {

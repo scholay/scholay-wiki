@@ -176,13 +176,42 @@ function LibraryFolderView() {
 
   // 统一工作台弹窗 —— 4 个工具栏按钮(在线搜索 / PDF / Zotero / EndNote)开同一个
   // PaperWorkbenchDialog 的「添加」语境,只是 initialTab 不同;行级 chip 入口在
-  // LibraryPaperRow 内部各自挂「管理」语境。null = 关闭(unmount 清理内部状态)。
+  // LibraryPaperRow 内部各自挂「管理」语境。
+  //
+  // ⚠️ Radix 铁律(见 frontend CLAUDE.md):Dialog 绝不能在 open 仍为 true 时被
+  // unmount(否则 body pointer-events:none 锁泄漏 → 全站点击失灵)。这里用「先关再卸」:
+  //   - open 由独立 workbenchOpen 控制;关闭先把它置 false 让 Radix 跑完清理,
+  //   - 延一拍再清 workbench 数据(卸载 lazy 组件)。
+  //   - openSeq 作 key:即便在延迟窗口内重开,也强制 remount 拿到新 initial。
   const [workbench, setWorkbench] = useState<WorkbenchView | null>(null);
+  const [workbenchOpen, setWorkbenchOpen] = useState(false);
+  const [workbenchSeq, setWorkbenchSeq] = useState(0);
+  const workbenchCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const openWorkbench = useCallback((view: WorkbenchView) => {
+    if (workbenchCloseTimer.current) {
+      clearTimeout(workbenchCloseTimer.current);
+      workbenchCloseTimer.current = null;
+    }
+    setWorkbench(view);
+    setWorkbenchSeq((n) => n + 1);
+    setWorkbenchOpen(true);
+  }, []);
+  const closeImport = useCallback(() => {
+    setWorkbenchOpen(false); // 先关:让 Radix 跑 open→false 的清理(还原 body 锁)
+    if (workbenchCloseTimer.current) clearTimeout(workbenchCloseTimer.current);
+    workbenchCloseTimer.current = setTimeout(() => setWorkbench(null), 250); // 再卸
+  }, []);
   const openImport = useCallback(
-    (t: ImportTab) => setWorkbench({ mode: 'add', tab: t }),
+    (t: ImportTab) => openWorkbench({ mode: 'add', tab: t }),
+    [openWorkbench]
+  );
+  useEffect(
+    () => () => {
+      if (workbenchCloseTimer.current) clearTimeout(workbenchCloseTimer.current);
+    },
     []
   );
-  const closeImport = useCallback(() => setWorkbench(null), []);
 
   // 深链 ?manage=<source>:<sourcePaperId> —— 库外收藏成功 toast 的「完善信息」
   // action 跳转到这里:等 by-upstream 查到行后打开管理语境,并清掉 param
@@ -213,7 +242,7 @@ function LibraryFolderView() {
     if (!manageKey) return;
     if (deepRowQ.isSuccess) {
       if (deepRowQ.data) {
-        setWorkbench({ mode: 'manage', paper: deepRowQ.data, tab: 'metadata' });
+        openWorkbench({ mode: 'manage', paper: deepRowQ.data, tab: 'metadata' });
       } else {
         // 行真不存在(已被删除/取消收藏)→ 给出明确反馈,不再完全静默
         toast.error('该论文已不在文献集中');
@@ -229,6 +258,7 @@ function LibraryFolderView() {
     deepRowQ.isError,
     deepRowQ.data,
     clearManageParam,
+    openWorkbench,
   ]);
 
   // 列表滚动位置恢复 —— 点击论文进详情页 → 浏览器后退,自动滚回原位
@@ -262,6 +292,27 @@ function LibraryFolderView() {
   const papers = papersQ.data?.items ?? [];
   const total = papersQ.data?.total ?? 0;
   const selection = useLibrarySelection(papers, filter);
+
+  // 页码钳制:批量删除/移动使 total 缩小后,当前 page 可能超界(落在空页,且
+  // 分页器因 total<=pageSize 被隐藏 → 用户无 UI 途径回第 1 页)。数据落定后若
+  // page 超过最后一页就自动回退。只在真超界时 set,避免与 URL 还原/翻页打架成循环。
+  useEffect(() => {
+    if (papersQ.isFetching || papersQ.isPlaceholderData) return;
+    // 查询失败且无缓存数据时 total=0 代表「加载失败」而非「真超界」——此时别把
+    // 深链的 page 静默改写成 1(否则网络抖动后用户丢了原本请求的页码)。
+    if (papersQ.isError && !papersQ.data) return;
+    const lastPage = total > 0 ? Math.ceil(total / pageSize) : 1;
+    if (page > lastPage) setPageRaw(lastPage);
+  }, [
+    papersQ.isFetching,
+    papersQ.isPlaceholderData,
+    papersQ.isError,
+    papersQ.data,
+    total,
+    pageSize,
+    page,
+    setPageRaw,
+  ]);
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-background">
@@ -429,12 +480,13 @@ function LibraryFolderView() {
       </header>
 
       {/* 统一工作台弹窗 —— 「添加」语境(在线搜索 / 本地上传 / Zotero / EndNote)
-          + 深链打开的「管理」语境共用。挂载条件 `workbench != null`,
-          关闭后 unmount 让内部状态(SSE / 上传进度等)自然清理。 */}
+          + 深链打开的「管理」语境共用。open 由 workbenchOpen 控制(先关再卸,见上),
+          workbenchSeq 作 key 保证重开拿到新 initial。 */}
       {workbench && (
         <Suspense fallback={null}>
           <PaperWorkbenchDialog
-            open
+            key={workbenchSeq}
+            open={workbenchOpen}
             onOpenChange={(v) => !v && closeImport()}
             initial={workbench}
             currentFilter={filter}

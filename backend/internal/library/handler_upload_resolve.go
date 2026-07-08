@@ -47,7 +47,8 @@ import (
 )
 
 // JobTTL Redis 中 job 上下文的存活时间 —— 用户从看到结果到点确认通常 < 30s,
-// 给 30 分钟兜底足够;超时后 tmp PDF 由后台清理 worker 删(暂未实现,留 TODO)
+// 给 30 分钟兜底足够;超时未 confirm 的 tmp PDF 由 storage 的 tmp/ 24h lifecycle
+// (Tier 2)自动回收,主区(papers/)另有 common/cleanup 的 orphan reaper 兜底。
 const jobTTL = 30 * time.Minute
 
 // JobState Redis 里存的 job 上下文 —— 用户 confirm 时拿这个落库
@@ -145,7 +146,8 @@ func (h *Handler) UploadAndResolve(c *gin.Context) {
 	defer src.Close()
 	buf := make([]byte, fileHeader.Size)
 	if _, err := io.ReadFull(src, buf); err != nil {
-		utils.Error(c, http.StatusBadRequest, "读取上传内容失败: "+err.Error())
+		slog.Warn("library: 读取上传内容失败", "err", err)
+		utils.Error(c, http.StatusBadRequest, "读取上传内容失败,请重试")
 		return
 	}
 	if len(buf) < len(pdfMagicPrefix) || string(buf[:len(pdfMagicPrefix)]) != pdfMagicPrefix {
@@ -195,7 +197,9 @@ func (h *Handler) UploadAndResolve(c *gin.Context) {
 			},
 		}); err != nil {
 		putCancel()
-		emitError("上传到对象存储失败: " + err.Error())
+		// 不回显 err.Error()(会带出 MinIO endpoint/key 等内部细节),详情进日志
+		slog.Error("library: 上传到对象存储失败", "err", err, "job_id", jobID)
+		emitError("上传到对象存储失败,请稍后重试")
 		return
 	}
 	putCancel()
@@ -240,22 +244,13 @@ func (h *Handler) UploadAndResolve(c *gin.Context) {
 		"venue":         parsed.Venue,
 	})
 
-	// Step 3: 有 DOI / arXiv / 标题 任一就搜 —— DOI 是最强信号优先,但**两路都搜**再合并去重,
-	// 给用户最大覆盖。Zotero 同款思路:DOI 拿到的元数据最权威,但 OpenAlex/PubMed 上能搜到的
-	// 候选项有时缺少 DOI 索引,要用标题/作者补全。
-	queries := []string{}
-	if parsed.DOI != "" {
-		queries = append(queries, parsed.DOI)
-	}
-	if parsed.ArXivID != "" {
-		queries = append(queries, "arXiv:"+parsed.ArXivID)
-	}
-	if strings.TrimSpace(parsed.Title) != "" {
-		queries = append(queries, parsed.Title)
-	}
-	if len(queries) > 0 {
+	// Step 3: 在线查询候选(part 2)—— 分置信度:
+	//   DOI 三源精确解析 → 标题 stc 精确匹配 → 模糊全文检索兜底;
+	//   按匹配类型 + 标题相似度排序,已收藏只标注不重排(见 resolveUploadCandidates)。
+	// DOI/标题/arXiv 全空时(纯扫描件无文本)跳过,confirmFree 仍能靠 pdfparse 落 og。
+	if parsed.DOI != "" || parsed.ArXivID != "" || strings.TrimSpace(parsed.Title) != "" {
 		searchCtx, searchCancel := context.WithTimeout(ctx, 45*time.Second)
-		hits := h.searchMultiQueriesMerged(searchCtx, uid, queries, 5)
+		hits := h.resolveUploadCandidates(searchCtx, uid, parsed.DOI, parsed.ArXivID, parsed.Title)
 		searchCancel()
 		job.SearchResults = hits
 		writeEvent("searched", map[string]any{"papers": hits})
@@ -266,7 +261,9 @@ func (h *Handler) UploadAndResolve(c *gin.Context) {
 
 	// Step 4: 持久化 job state,推 ready 事件
 	if err := saveJob(ctx, jobID, job); err != nil {
-		emitError("保存任务上下文失败: " + err.Error())
+		// 不回显 err.Error()(Redis 内部错误),详情进日志
+		slog.Error("library: 保存上传任务上下文失败", "err", err, "job_id", jobID)
+		emitError("保存任务上下文失败,请稍后重试")
 		// 回收 tmp 对象
 		go cleanupTmpObject(bucket, tmpKey)
 		return
@@ -382,14 +379,16 @@ func (h *Handler) ConfirmUploadJob(c *gin.Context) {
 
 // writeConfirmError 把 confirmLinked / confirmFree 抛出的错误统一回前端:
 //   - 撞文献集 1000 条上限 → 409 + 原文(让用户看到具体上限和操作指引)
-//   - 其余 → 500 + "落库失败:" 前缀(保留原行为,便于日志定位)
+//   - 其余 → 500 + 友好文案。**不回显 err.Error()** —— %w 链会带出 GORM/SQL/MinIO
+//     原始错误(如并发双 confirm 撞唯一键的 Error 1062 全文),违反项目 friendly-error
+//     铁律;详情走 utils.InternalError 进日志(带 RequestID 可定位)。
 func writeConfirmError(c *gin.Context, err error) {
 	msg := err.Error()
 	if strings.Contains(msg, "文献集已达上限") {
 		utils.ErrorResponse(c, http.StatusConflict, msg)
 		return
 	}
-	utils.Error(c, http.StatusInternalServerError, "落库失败: "+msg)
+	utils.InternalError(c, http.StatusInternalServerError, "保存失败,请稍后重试", err)
 }
 
 // resolveFolderID —— 用户没传 folder_id 时,lazy 取默认文件夹(没有就建)
@@ -426,7 +425,10 @@ func (h *Handler) confirmLinked(
 	merging := q.Error == nil
 
 	if !merging {
-		// 新建一行
+		// 新建一行:
+		//   - metadata 列 ← 在线候选(choice):被引/OA直链/venue 等「在线增补」层
+		//   - og_* ← pdfparse「识别」结果(见下 applyParsedToNewOG):文件自己的题录,
+		//     pickField 优先展示。两层分开:在线匹配错/缺不影响已识别的题录。
 		newPaper := &UserLibraryPaper{
 			UserID:        uid,
 			FolderID:      folderID,
@@ -443,8 +445,9 @@ func (h *Handler) confirmLinked(
 			RawJSON:       choice.Raw,
 			LinkState:     LinkStateLinked,
 			Origin:        OriginUpload, // 用户上传 PDF 关联到上游的行,后续展示走 upload 主操作
-			// og_* 留空 —— linked 行展示走上游元数据,og 只承接用户后续手动编辑
 		}
+		// 识别产物落 og_*(新行 og 本为空,直接填非空 parsed 值)
+		applyParsedToNewOG(newPaper, job)
 		// 风控 + 插入原子化:锁用户区间 → 计数 → 插入,撞 1000 上限直接退回
 		if err := insertPaperAtomic(db, newPaper); err != nil {
 			if errors.Is(err, errPaperLimit) {
@@ -480,7 +483,9 @@ func (h *Handler) confirmLinked(
 		return &refreshed, false, nil
 	}
 
-	// 合并:把 tmp 移到既有行的 key,更新 PDF 元数据(og_* 不动 —— 用户侧真值)
+	// 合并:把 tmp 移到既有行的 key,更新 PDF 元数据。
+	// 识别产物 fill-empty 补进 og_*(只填该行仍为空的 og 字段,绝不覆盖用户已编辑的 og)——
+	// 给这篇论文补传 PDF 时,把 PDF 里抽到的题录也补上,与既有在线 metadata 分开共存。
 	newKey := fmt.Sprintf("papers/%d/%d/%s.pdf", uid, existing.ID, job.SHA256)
 	if err := movePdfTmpToFinal(ctx, bucket, job.TmpObjectKey, newKey); err != nil {
 		return nil, false, fmt.Errorf("move pdf to final: %w", err)
@@ -499,6 +504,7 @@ func (h *Handler) confirmLinked(
 		"pdf_uploaded_at":       now,
 		"link_state":            LinkStateLinked,
 	}
+	applyParsedFillEmptyOG(updates, &existing, job)
 	if err := db.Model(&UserLibraryPaper{}).Where("id = ?", existing.ID).Updates(updates).Error; err != nil {
 		return nil, false, fmt.Errorf("update existing: %w", err)
 	}
@@ -565,19 +571,8 @@ func (h *Handler) confirmFree(
 		LinkState: LinkStateFree,
 		Origin:    OriginUpload, // 自由文件一律是上传上来的
 	}
-	// 用 pdfparse heuristic 抽到的全部字段填 og_*(新行,og 本就为空,不存在覆盖)。
-	// 任一字段为空时不写,保持 GORM default。
-	newPaper.OGTitle = job.ParsedTitle
-	newPaper.OGAbstract = job.ParsedAbstract
-	newPaper.OGVenue = job.ParsedVenue
-	newPaper.OGDOI = job.ParsedDOI
-	if job.ParsedYear > 0 {
-		y := job.ParsedYear
-		newPaper.OGYear = &y
-	}
-	if b, ok := marshalAuthorNames(job.ParsedAuthors); ok {
-		newPaper.OGAuthorsJSON = b
-	}
+	// 识别产物落 og_*(新行 og 本为空,直接填非空 parsed 值)——与 confirmLinked 同一助手。
+	applyParsedToNewOG(newPaper, job)
 	// 风控 + 插入原子化:锁用户区间 → 计数 → 插入,撞 1000 上限直接退回
 	if err := insertPaperAtomic(db, newPaper); err != nil {
 		if errors.Is(err, errPaperLimit) {
@@ -652,7 +647,27 @@ func jsonFieldEmpty(raw json.RawMessage) bool {
 	return s == "" || s == "null" || s == "[]"
 }
 
-// applyParsedFillEmptyOG 秒传(同 sha 重复上传)路径把 heuristic 抽到的字段补进 og_*。
+// applyParsedToNewOG 把 pdfparse「识别」抽到的字段写进一个**新行**的 og_*(新行 og 本为空,
+// 直接填非空值)。
+//
+// 架构约定:「识别」这一步的产物统一落 og_*(文件自己的题录),与「在线查询」落 metadata 列
+// 分开——两条路互相独立。即使在线匹配错了 / 没匹配上,已识别出的题录也始终保留在 og_*,
+// 且经 pickField(og 优先)默认展示,不被在线增补层污染。
+func applyParsedToNewOG(paper *UserLibraryPaper, job *JobState) {
+	paper.OGTitle = job.ParsedTitle
+	paper.OGAbstract = job.ParsedAbstract
+	paper.OGVenue = job.ParsedVenue
+	paper.OGDOI = job.ParsedDOI
+	if job.ParsedYear > 0 {
+		y := job.ParsedYear
+		paper.OGYear = &y
+	}
+	if b, ok := marshalAuthorNames(job.ParsedAuthors); ok {
+		paper.OGAuthorsJSON = b
+	}
+}
+
+// applyParsedFillEmptyOG 秒传(同 sha 重复上传)/ 合并到既有行路径把 heuristic 抽到的字段补进 og_*。
 // **只填空**:og 是用户侧真值,自动化路径绝不覆盖非空 og —— 仅当既有行 og 字段为空
 // 且本次 parsed 值非空时才写入。
 func applyParsedFillEmptyOG(updates map[string]interface{}, existing *UserLibraryPaper, job *JobState) {

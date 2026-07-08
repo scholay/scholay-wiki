@@ -32,7 +32,6 @@ interface AddPaperPayload {
   venue?: string;
   doi?: string;
   pdf_url?: string;
-  publication_types?: unknown;
   citation_count?: number;
   /** 完整原始数据备份 —— 后端 raw_json 列存储,字段缺失时可回查 */
   raw?: unknown;
@@ -129,6 +128,15 @@ export function useUnfavoritePaper() {
   });
 }
 
+/**
+ * 收藏结果 —— 幂等命中已有行时后端在行字段之外多带 already_existed=true
+ * (mirrors backend/internal/library/handler.go respondAddExisting),
+ * 调用方据此把成功提示从「已加入」改成「已在文献集中」。
+ */
+export type FavoritePaperResult = UserLibraryPaper & {
+  already_existed?: boolean;
+};
+
 export function useFavoritePaper() {
   const qc = useQueryClient();
   return useMutation({
@@ -155,7 +163,7 @@ export function useFavoritePaper() {
         raw: paper,
       };
       try {
-        const { data } = await http.post<{ data: UserLibraryPaper }>(
+        const { data } = await http.post<{ data: FavoritePaperResult }>(
           '/user/library',
           payload
         );

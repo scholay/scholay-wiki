@@ -304,6 +304,11 @@ func permissionAllowed(toolName string, input json.RawMessage, sessionWorkDir st
 	if toolName == "Bash" || toolName == "BashOutput" || toolName == "KillShell" {
 		return true
 	}
+	// TodayDate (2026-07): agent 内建的只读时钟工具 (查当前日期/时间, 治时间线幻觉)。
+	// 无参数、无路径、不碰文件系统与网络, 对全部 feature 放行。
+	if toolName == "TodayDate" {
+		return true
+	}
 	// 文件工具: 校验路径在会话目录内
 	switch toolName {
 	case "Read", "Write", "Edit", "MultiEdit", "NotebookEdit", "Glob", "Grep", "LS", "Ls":

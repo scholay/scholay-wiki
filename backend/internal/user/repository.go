@@ -8,11 +8,16 @@
 package user
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
+	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/utils"
+	"scholar-backend/internal/storage"
+
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -120,6 +125,7 @@ func (r *Repository) Create(user *User) error {
 // UpdatePartial(id, fields), 走 Model+Where+Updates(map) 只写指定列, 避免:
 //   - 18+ 列的 UPDATE 语句网络/binlog 开销
 //   - 把内存里偶然为零值的字段误覆写 (race 时尤其危险)
+//
 // 现存 admin 全字段编辑场景仍用 Update 保持语义稳定。
 func (r *Repository) Update(user *User) error {
 	normalizeUserEmail(user)
@@ -448,26 +454,53 @@ func (r *Repository) FindAuthProviderByUnionID(provider, unionID string) (*UserA
 	return &authProvider, err
 }
 
-// DeleteUser 硬删用户 + 一致地清理「无外键级联」的资金相关孤儿表。
+// DeleteUser 硬删用户 + 一致地清理「无外键级联」的孤儿表。
 //
 // FK ON DELETE CASCADE 只会带走:user_auth_providers、orders→payment_transactions、
 // user_coupons、user_messages、user_invitations、usage_logs 等(见 0001_baseline FK)。
-// 而 0015 的计费表(user_wallets / credit_temp_lots / credit_transactions / vip_code_redemptions)
-// **没有 FK**,旧实现不清理 → 订单审计轨迹被级联删除、但同一笔钱的钱包/账本/兑换流水滞留,
-// 形成「两套资金记录互相矛盾」的孤儿(本次修复点)。这里在同一事务里显式清掉,保持一致。
+// 以下均**没有 FK**,必须在同一事务里显式清:
+//   - 0015 计费表(user_wallets / credit_temp_lots / credit_transactions / vip_code_redemptions)
+//     不清则订单审计轨迹被级联删除、但同一笔钱的钱包/账本/兑换流水滞留,两套资金记录互相矛盾;
+//   - 文献集(user_library_papers / user_library_folders)与分享三表(library_shares /
+//     library_share_papers / library_share_access)—— 不清则「死人分享」永续公开可访问且
+//     无人可撤销(owner 已无 RevokeShare 通道),快照表还存着论文全量元数据,属隐私/合规缺口
+//     (删除权要求删号连带撤销对外分享)。
 //
-// ⚠️ 仍未清理(需 storage 客户端,跨模块;属隐私/留存而非资金一致性,留作后续决策):
-//    user_library_* / peer_review_* / prism_* / user_staging_* 及其 MinIO 对象键、
-//    agent_sessions 映射与 agent 容器内 jsonl。
-//    彻底方案应改「软删 / 匿名化」以保留资金审计轨迹,并由 storage-aware 级联清对象 —— 属产品决策。
+// MinIO 对象(papers/<uid>/ 前缀的用户上传 PDF)在事务提交后异步 best-effort 清理
+// (失败只 warn,残余对象由孤儿对账 reaper 兜底)。
+//
+// ⚠️ 仍未清理(留作后续决策):peer_review_* / prism_* / user_staging_* 及其对象键、
+//
+//	agent_sessions 映射与 agent 容器内 jsonl。
 func (r *Repository) DeleteUser(userID uint) error {
-	return r.db.Transaction(func(tx *gorm.DB) error {
+	err := r.db.Transaction(func(tx *gorm.DB) error {
 		// 先清无 FK 的计费孤儿表(顺序无关,均无相互 FK)。用表名直删,避免跨包导入 vip 模型。
 		for _, table := range []string{
 			"credit_transactions",
 			"credit_temp_lots",
 			"user_wallets",
 			"vip_code_redemptions",
+		} {
+			if err := tx.Exec("DELETE FROM "+table+" WHERE user_id = ?", userID).Error; err != nil {
+				return fmt.Errorf("failed to delete %s: %w", table, err)
+			}
+		}
+
+		// 分享三表:share_papers/share_access 以 share_id 关联,先按子表删,再删 shares 主行。
+		if err := tx.Exec(
+			"DELETE sp FROM library_share_papers sp JOIN library_shares s ON sp.share_id = s.id WHERE s.user_id = ?",
+			userID).Error; err != nil {
+			return fmt.Errorf("failed to delete library_share_papers: %w", err)
+		}
+		if err := tx.Exec(
+			"DELETE sa FROM library_share_access sa JOIN library_shares s ON sa.share_id = s.id WHERE s.user_id = ?",
+			userID).Error; err != nil {
+			return fmt.Errorf("failed to delete library_share_access: %w", err)
+		}
+		for _, table := range []string{
+			"library_shares",
+			"user_library_papers",
+			"user_library_folders",
 		} {
 			if err := tx.Exec("DELETE FROM "+table+" WHERE user_id = ?", userID).Error; err != nil {
 				return fmt.Errorf("failed to delete %s: %w", table, err)
@@ -481,6 +514,33 @@ func (r *Repository) DeleteUser(userID uint) error {
 
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	// 事务提交成功后,异步清该用户的 MinIO PDF 对象(papers/<uid>/ 前缀,lifecycle 只盖 tmp/)。
+	// best-effort:失败只 warn,不影响删号结果;残余由孤儿 reaper 下一轮兜底。
+	safego.Go("user-delete-minio-cleanup", func() {
+		if !storage.IsEnabled() {
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		bucket := storage.PaperPDFBucket()
+		prefix := fmt.Sprintf("papers/%d/", userID)
+		keys, err := storage.ListObjectKeys(ctx, bucket, prefix, 0)
+		if err != nil {
+			slog.Warn("user: 删号清理 MinIO 列举失败", "user_id", userID, "err", err)
+		}
+		if len(keys) == 0 {
+			return
+		}
+		_ = storage.DeleteObjects(ctx, bucket, keys, func(key string, err error) {
+			slog.Warn("user: 删号清理 MinIO 对象失败", "user_id", userID, "key", key, "err", err)
+		})
+	})
+
+	return nil
 }
 
 // ==================== Transaction helper ====================

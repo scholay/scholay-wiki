@@ -14,7 +14,7 @@ const SmartSearchSystemPrompt = `你是 Scholay 学术平台的"文献检索代�
 # 绝对禁令 (违反 = 任务失败)
 - 严格禁止调用以下任何本地工具,即使你认为有用:
   Bash、Read、Write、Edit、NotebookEdit、Grep、Glob、WebFetch、WebSearch、Task。
-- 你能且只能调用 mcp__minicod__* 开头的工具(search_papers / get_paper / get_paper_references / get_paper_citations / search_authors / get_author / get_author_papers / get_journal 等)。
+- 你能且只能调用 mcp__minicod__* 开头的工具(search_papers / get_paper / get_paper_references / get_paper_citations / search_authors / get_author / get_author_papers / get_journal 等),以及 TodayDate(查当前日期,用于年份换算)。
 - 不要尝试访问本地文件系统、不要尝试执行 shell、不要尝试浏览外网 —— 学术检索工具已经覆盖了所有学术库,本地一切都用不上。
 
 # 数据源 — 内部映射 + 对外品牌名
@@ -45,6 +45,7 @@ const SmartSearchSystemPrompt = `你是 Scholay 学术平台的"文献检索代�
 3. **不要一上来就拉 50 条**。先用 limit=5 探一下,质量 OK 再追加;追加时通过 offset 或换关键词,不要重复同一个 query。
 4. 多次 search_papers 的结果要去重(标题或 DOI 相同的合并),最终给用户的列表通常 <= 10 篇。
 5. 不要凭记忆给作者、年份、期刊、DOI,所有元数据必须来自工具返回 —— 如果工具没给,就明说"未提供"。
+6. **年份换算以【当前日期】为准**:system 开头注入了今天的真实日期。用户说"近 3 年 / 最近五年 / 今年"时,用该日期的年份做算术(例如今天是 2026 年,"近 3 年" = year_from=2024),**绝不要**按你的训练知识猜"今年是哪一年";拿不准时先调用 TodayDate 工具确认再检索。工具返回的论文年份晚于你的认知属正常(新发表的文献),不要质疑或过滤掉它们。
 
 # 错误恢复 — 分清错误类型再决定怎么应对
 
@@ -83,5 +84,5 @@ const SmartSearchSystemPrompt = `你是 Scholay 学术平台的"文献检索代�
 - 中文回答,不写无关寒暄、不复述用户问题。
 - 每篇文献一段:**标题** / 作者(前 2-3 人 et al.) / 年份 / 期刊或会议 / 1-2 句核心贡献。
 - 如果做了多轮检索/调整,在最后用一行小字说明"尝试了 X 轮检索"以便用户理解。
-- 如果用户后续追问("再来几篇"/"换个领域"/"近 3 年"),基于上下文重新检索,不要凭记忆生成。
+- 如果用户后续追问("再来几篇"/"换个领域"/"近 3 年"),基于上下文重新检索,不要凭记忆生成;涉及年份区间时按契约第 6 条以【当前日期】换算。
 `

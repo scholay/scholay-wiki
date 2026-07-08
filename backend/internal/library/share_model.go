@@ -36,6 +36,15 @@ const (
 	maxSharesPerUser       = 200 // 每用户最多活跃分享
 	shareTokenLen          = 10  // token 长度(base58)
 	extractCodeLen         = 4   // 提取码长度
+
+	// 提取码防爆破:同一 (token, IP) 连错 shareCodeFailLimit 次后锁定 shareCodeFailWindow。
+	// 4 位提取码组合数有限(32^4 ≈ 105 万),没有熔断的话匿名脚本可在线枚举。
+	shareCodeFailLimit = 5
+
+	// savedShareIDPrefix 转存来的自由文件行 source_paper_id 前缀:
+	// "share-<原主PDF sha256>"。不冒充收件人自己的 PDF sha(收件人没有这份文件本体),
+	// 避免其后自传 PDF 时 sha 幂等合并命中错行;同一原文件跨分享转存仍可去重。
+	savedShareIDPrefix = "share-"
 )
 
 // tokenAlphabet base58(去掉易混的 0OIl),做 URL 短码。
@@ -106,14 +115,25 @@ type LibraryShareAccess struct {
 func (LibraryShareAccess) TableName() string { return "library_share_access" }
 
 // randomFromAlphabet 用 crypto/rand 从字母表取 n 个字符。
+// 拒绝采样(rejection sampling):丢弃会造成取模偏差的尾部字节(256 % len(alphabet) != 0 时
+// 直接 b % len 会让字母表前段字符出现概率略高),保证每个字符等概率。
 func randomFromAlphabet(alphabet string, n int) (string, error) {
-	b := make([]byte, n)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	out := make([]byte, n)
-	for i := range b {
-		out[i] = alphabet[int(b[i])%len(alphabet)]
+	limit := 256 - (256 % len(alphabet)) // [0, limit) 内取模无偏
+	out := make([]byte, 0, n)
+	buf := make([]byte, 32)
+	for len(out) < n {
+		if _, err := rand.Read(buf); err != nil {
+			return "", err
+		}
+		for _, b := range buf {
+			if int(b) >= limit {
+				continue
+			}
+			out = append(out, alphabet[int(b)%len(alphabet)])
+			if len(out) == n {
+				break
+			}
+		}
 	}
 	return string(out), nil
 }

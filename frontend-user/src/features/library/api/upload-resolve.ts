@@ -43,6 +43,12 @@ export interface ParsedEvent {
   venue?: string;
 }
 
+/**
+ * 候选匹配类型(置信度由强到弱)——mirrors backend/internal/library/import_helpers.go
+ * MatchType* 常量。前端据此展示置信度,不再盲信第一条。
+ */
+export type MatchType = 'doi' | 'title_match' | 'search';
+
 export interface SearchHit {
   source: PaperSource;
   source_paper_id: string;
@@ -53,6 +59,10 @@ export interface SearchHit {
   doi?: string;
   citation_count?: number;
   pdf_url?: string;
+  /** 候选怎么来的:doi 精确 / 标题精确 / 模糊搜索 */
+  match_type?: MatchType;
+  /** 与 PDF 抽取标题的相似度 [0,1](DOI 精确命中固定 1.0) */
+  match_score?: number;
   already_saved?: boolean;
   already_paper_id?: number;
   authors?: unknown;

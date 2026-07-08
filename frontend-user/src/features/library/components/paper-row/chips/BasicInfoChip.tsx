@@ -16,7 +16,7 @@
 
 import { FileText, Link2, Pencil, Unlink } from 'lucide-react';
 import { getBasicInfoStatus } from '../../../lib/paper-status';
-import { hasOwnSubstance } from '../../../lib/pick-field';
+import { hasOwnSubstance } from '@/shared/lib/pick-field';
 import type { UserLibraryPaper } from '@/shared/api/types';
 import {
   ChipChecklistRow,

@@ -85,7 +85,7 @@ export function RowActionsMenu({
     setTimeout(() => setView('main'), 200);
   };
 
-  const handleMove = async (folderId: number | null, folderName: string) => {
+  const handleMove = async (folderId: number, folderName: string) => {
     if (moveMut.isPending) return;
     try {
       await moveMut.mutateAsync({ id: paperId, folderId });
@@ -113,13 +113,11 @@ export function RowActionsMenu({
     close();
   };
 
-  // 转移候选 = 全部文件夹 + 根目录,排除"当前文件夹"避免自移动
-  // currentFilter 是 number 时是文件夹 id;'root' 表示根目录
+  // 转移候选 = 全部文件夹,排除"当前文件夹"避免自移动。
+  // 不再有"根目录"候选:后端已无根目录概念(null 落默认文件夹),默认文件夹本身
+  // 就在 folders 列表里,想"移回默认夹"直接选它即可,无需 null 语义。
   const allMoveTargets = useMemo(() => {
-    const list: Array<{ id: number | null; name: string }> = [];
-    if (currentFilter !== 'root') {
-      list.push({ id: null, name: '根目录' });
-    }
+    const list: Array<{ id: number; name: string }> = [];
     for (const f of folders) {
       if (f.id !== currentFilter) {
         list.push({ id: f.id, name: f.name });
@@ -251,7 +249,7 @@ export function RowActionsMenu({
               ) : (
                 moveTargets.map((t) => (
                   <button
-                    key={t.id ?? 'root'}
+                    key={t.id}
                     type="button"
                     onClick={() => handleMove(t.id, t.name)}
                     disabled={moveMut.isPending}

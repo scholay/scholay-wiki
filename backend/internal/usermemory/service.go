@@ -167,7 +167,10 @@ func (s *Service) renderBlocksForPrompt(blocks []MemoryBlock) string {
 func extractionSystemPrompt() string {
 	var sb strings.Builder
 	sb.WriteString("你是一个为学术平台维护「用户长期画像」的后台助手。任务:从用户与 AI 的最近对话里,")
-	sb.WriteString("抽取关于**用户本人**的、长期稳定有用的信息,合并进已有记忆,输出更新后的记忆。\n\n")
+	sb.WriteString("抽取关于**用户本人**的、长期稳定有用的信息,合并进已有记忆,输出更新后的记忆。\n")
+	// 时间锚点(2026-07):记忆是「合并后全文」永续滚动,正文里的"最近/上周"会无限期陈旧;
+	// 注入当前日期 + 规则 5 强制相对时间绝对化。天粒度、每次抽取现算。
+	sb.WriteString("今天是 " + time.Now().Format("2006-01-02") + "。\n\n")
 	sb.WriteString("记忆块(只允许这些 key):\n")
 	for _, spec := range StandardBlocks {
 		sb.WriteString(fmt.Sprintf("- %s(%s,≤%d 字):%s\n", spec.Label, spec.Title, spec.CharLimit, spec.Purpose))
@@ -177,7 +180,8 @@ func extractionSystemPrompt() string {
 	sb.WriteString("2. 输出是**合并后的全文**(把新信息融进旧记忆,去重、精炼),不是增量。\n")
 	sb.WriteString("3. 某块若没有任何可记的稳定信息(或与旧记忆无变化),**省略该 key**。\n")
 	sb.WriteString("4. 不要编造;拿不准就不记。每块控制在字数上限内。\n")
-	sb.WriteString("5. **只输出一个 JSON 对象**,形如 {\"profile\":\"...\",\"preferences\":\"...\"};无任何可更新则输出 {}。不要解释、不要代码块标记。\n")
+	sb.WriteString("5. 记忆正文里**不要用相对时间**(最近/上周/今年/去年):记忆会长期保存,相对说法随时间失真。涉及时间一律换算成绝对年月(如「2026-07 起研究 X」);旧记忆里已有的相对时间也趁合并改写成绝对时间。\n")
+	sb.WriteString("6. **只输出一个 JSON 对象**,形如 {\"profile\":\"...\",\"preferences\":\"...\"};无任何可更新则输出 {}。不要解释、不要代码块标记。\n")
 	return sb.String()
 }
 

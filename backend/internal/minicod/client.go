@@ -12,6 +12,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -110,8 +111,8 @@ func getSharedHTTPClient() *http.Client {
 // upstream.Client 按 baseURL 缓存 — 不同 third_party_accounts 可以配不同 host,
 // 同一个 host 共享同一份 breaker / 池子。
 var (
-	upstreamMu      sync.RWMutex
-	upstreamByBase  = make(map[string]*upstream.Client)
+	upstreamMu     sync.RWMutex
+	upstreamByBase = make(map[string]*upstream.Client)
 )
 
 func getUpstream(baseURL string) *upstream.Client {
@@ -199,9 +200,25 @@ func (c *Client) doPost(ctx context.Context, path string, body any) (json.RawMes
 		return nil, fmt.Errorf("failed to parse minicod response: %w (body: %s)", err, string(resp.Body))
 	}
 	if apiResp.Code != 0 {
-		return nil, fmt.Errorf("minicod API error (code %d): %s", apiResp.Code, apiResp.Message)
+		// typed error（Error() 串保持与旧 fmt.Errorf 一致），调用方可 errors.As 拿 Code
+		// 区分「资源未找到」等正常业务态与真故障。
+		return nil, &APIStatusError{Code: apiResp.Code, Message: apiResp.Message}
 	}
 	return apiResp.Data, nil
+}
+
+// isNotFoundErr 判断是否「资源未找到」——HTTP 404(upstream.ErrNotFound)或上游业务码
+// 40401/40400。DOI/标题精确查询在某源未命中是**正常结果**,不能当上游故障计入熔断
+// (否则一个 DOI 只在 1 源命中、另 2 源"未找到"就会把与主搜索共享的源级熔断器打开)。
+func isNotFoundErr(err error) bool {
+	if errors.Is(err, upstream.ErrNotFound) {
+		return true
+	}
+	var se *APIStatusError
+	if errors.As(err, &se) {
+		return se.Code == 40401 || se.Code == 40400 || se.Code == 404
+	}
+	return false
 }
 
 // ======================== STC Paper Endpoints ========================
@@ -314,6 +331,67 @@ func (c *Client) GetPaper(ctx context.Context, paperID string, opts PaperDetails
 	}
 
 	paper := ConvertPaper(raw)
+	return &paper, nil
+}
+
+// GetPaperByDOI 通过 DOI **精确解析**单篇论文(POST /v1/{src}/papers/doi,olx 是 /works/doi)。
+//
+// 与 SearchPapers(把 DOI 当模糊查询词)不同:这是按 DOI 精确取,DOI 是唯一标识,命中即权威。
+// 上传 PDF 识别时优先走它 —— 抽到 DOI 就直接锁定论文,不靠全文检索碰运气。
+// 未命中(该源无此 DOI)上游一般返 code!=0 或空 data,统一当"未找到"返回 (nil, nil)。
+func (c *Client) GetPaperByDOI(ctx context.Context, source, doi string) (*Paper, error) {
+	doi = strings.TrimSpace(doi)
+	if doi == "" {
+		return nil, nil
+	}
+	// 不限制 fields —— 识别要拿完整元数据做在线增补层(被引/OA/venue 等)
+	data, err := c.doPost(ctx, paperPath(source, "doi"), map[string]any{"doi": doi})
+	if err != nil {
+		if isNotFoundErr(err) {
+			return nil, nil // 该源没有这个 DOI:正常未命中,不算失败(不污染熔断)
+		}
+		return nil, err // 真故障(auth/5xx/网络)照常上抛,交给重试/熔断
+	}
+	return convertSinglePaperOrNil(data, source)
+}
+
+// MatchPaperByTitle 按标题**精确匹配**单篇论文(POST /v1/stc/papers/search/match,仅 stc)。
+//
+// Semantic Scholar 的 title-match 端点:返回与标题最匹配的单篇(比 /papers/search 的模糊
+// 关键词检索精准得多)。上传 PDF 无 DOI 时用它按抽到的标题锁定论文。未命中返 (nil, nil)。
+func (c *Client) MatchPaperByTitle(ctx context.Context, title string) (*Paper, error) {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return nil, nil
+	}
+	data, err := c.doPost(ctx, "/v1/stc/papers/search/match", map[string]any{"query": title})
+	if err != nil {
+		if isNotFoundErr(err) {
+			return nil, nil // 标题无精确匹配:正常未命中,不算失败
+		}
+		return nil, err
+	}
+	return convertSinglePaperOrNil(data, SourceSTC)
+}
+
+// convertSinglePaperOrNil 把 doPost 返回的单篇 data 转成 Paper;空 data / 空 id 视为"未找到"。
+// source 强制回填:doi/match 端点响应里可能不带 source,而 normalizeID 要靠它给 olx/pmd
+// 的 id 加前缀(如 "olx:W123"),否则 source_paper_id 少前缀会导致后续 GetPaper 路由错。
+func convertSinglePaperOrNil(data json.RawMessage, source string) (*Paper, error) {
+	if len(data) == 0 || string(data) == "null" {
+		return nil, nil
+	}
+	var raw RawPaper
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("failed to parse paper: %w", err)
+	}
+	if strings.TrimSpace(raw.Source) == "" {
+		raw.Source = source
+	}
+	paper := ConvertPaper(raw)
+	if strings.TrimSpace(paper.PaperID) == "" && strings.TrimSpace(paper.Title) == "" {
+		return nil, nil // 空壳,当未命中
+	}
 	return &paper, nil
 }
 
@@ -548,9 +626,10 @@ func (c *Client) GetPaperAuthors(ctx context.Context, paperID string, fields []s
 // PaperAutocomplete returns paper title suggestions.
 //
 // 支持矩阵:
-//   STC → /v1/stc/papers/autocomplete  ✓  data 是裸数组 [SemanticAutocompleteItem]
-//   OLX → /v1/olx/works/autocomplete   ✓  data 是对象 {items:[AutocompleteItem], total}
-//   PMD → ✗ 无此端点, 调用方 (suggestPapersForSource) 不会传 PMD 进来
+//
+//	STC → /v1/stc/papers/autocomplete  ✓  data 是裸数组 [SemanticAutocompleteItem]
+//	OLX → /v1/olx/works/autocomplete   ✓  data 是对象 {items:[AutocompleteItem], total}
+//	PMD → ✗ 无此端点, 调用方 (suggestPapersForSource) 不会传 PMD 进来
 //
 // 两家上游的 autocomplete 返回结构不同:STC 直接给数组,OLX 包了一层 {items,total}。
 // 早期统一按数组解析 → OLX 必报 "cannot unmarshal object into []RawAutocompleteItem"。
@@ -814,8 +893,10 @@ func (c *Client) CompareJournals(ctx context.Context, ids string) (json.RawMessa
 // SuggestJournals returns journal-name prefix autocomplete suggestions.
 //
 // Upstream contract (POST /v1/jnl/suggest):
-//   q: required prefix
-//   limit / min_sources / has_sources: optional shaping
+//
+//	q: required prefix
+//	limit / min_sources / has_sources: optional shaping
+//
 // Lightweight fields: id / canonical_name / issn_l / source_count / openalex_works_count
 func (c *Client) SuggestJournals(ctx context.Context, q string, limit int) (json.RawMessage, error) {
 	body := map[string]any{"q": q}
@@ -828,9 +909,10 @@ func (c *Client) SuggestJournals(ctx context.Context, q string, limit int) (json
 // JournalsByNames batches journal lookups by canonical_name.
 //
 // Upstream contract (POST /v1/jnl/byNames):
-//   names: required, comma-separated canonical names (e.g. "Nature,Cell")
-//   full:  optional, "0" | "1" | "true"
-//   fields: optional, comma-separated whitelist (mutually exclusive with full)
+//
+//	names: required, comma-separated canonical names (e.g. "Nature,Cell")
+//	full:  optional, "0" | "1" | "true"
+//	fields: optional, comma-separated whitelist (mutually exclusive with full)
 //
 // 用于"一页搜索结果一次性补 Q 分区/IF"的场景，避免逐篇请求。
 func (c *Client) JournalsByNames(ctx context.Context, names, fields string) (json.RawMessage, error) {

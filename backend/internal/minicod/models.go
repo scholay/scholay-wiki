@@ -9,6 +9,7 @@ package minicod
 
 import (
 	"encoding/json"
+	"fmt"
 	"regexp"
 	"strings"
 )
@@ -21,6 +22,18 @@ type APIResponse struct {
 	Code    int             `json:"code"`
 	Message string          `json:"message"`
 	Data    json.RawMessage `json:"data"`
+}
+
+// APIStatusError 上游业务信封 code != 0 的错误(HTTP 200 但业务失败,区别于 HTTP 层的
+// upstream.Error)。doPost 返回它,调用方可 errors.As 拿 Code 区分「资源未找到」(40401)
+// 等正常业务态与真故障 —— 例:DOI/标题精确查询未命中不应计入熔断。
+type APIStatusError struct {
+	Code    int
+	Message string
+}
+
+func (e *APIStatusError) Error() string {
+	return fmt.Sprintf("minicod API error (code %d): %s", e.Code, e.Message)
 }
 
 // RawPaper matches Minicod's paper JSON format

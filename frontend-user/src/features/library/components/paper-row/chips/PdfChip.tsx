@@ -5,17 +5,17 @@
  * hover: 弹 PDF 信息 (.pen `q7c1x7` 6.3)
  * click: 弹操作菜单, 按 status 切换:
  *   - complete (已上传): 查看 PDF / 更换 PDF / 社区求助(敬请期待 disabled)
- *   - missing  (未上传): 本地上传 / 在线查找(敬请期待 disabled) / 社区求助(敬请期待 disabled)
+ *   - missing  (未上传): 本地上传 / 打开在线全文(有 OA 直链时可点)/ 社区求助(敬请期待 disabled)
  *
  * 菜单项点击 → 对应 callback:
  *   - 查看 PDF  → onViewPdf  (useOpenPdfInBrowser)
  *   - 更换 PDF  → onUploadPdf (PdfUploadDialog)
  *   - 本地上传  → onUploadPdf (同上, 文案不同)
- *   - 在线查找  → 暂未支持
+ *   - 打开在线全文 → 收藏时带来的 OA 直链(pdf_url)非空时新标签打开;否则 disabled 占位
  *   - 社区求助  → 暂未支持
  */
 
-import { Eye, File as FileIcon, Search, Upload, Users } from 'lucide-react';
+import { ExternalLink, Eye, File as FileIcon, Search, Upload, Users } from 'lucide-react';
 import { getPdfStatus } from '../../../lib/paper-status';
 import type { UserLibraryPaper } from '@/shared/api/types';
 import {
@@ -44,10 +44,18 @@ export function PdfChip({ paper, onViewPdf, onUploadPdf }: PdfChipProps) {
         { icon: Users, label: '社区求助', hint: '敬请期待', disabled: true },
       ];
     }
-    // missing
+    // missing —— 有收藏时带来的 OA 直链就让用户能直接打开在线全文,
+    // 否则保持 disabled 占位(pdf_url 是在线直链,不是已上传文件,故仍属 missing 态)。
+    const onlineUrl = paper.pdf_url?.trim();
     return [
       { icon: Upload, label: '本地上传', onClick: onUploadPdf },
-      { icon: Search, label: '在线查找', hint: '敬请期待', disabled: true },
+      onlineUrl
+        ? {
+            icon: ExternalLink,
+            label: '打开在线全文',
+            onClick: () => window.open(onlineUrl, '_blank', 'noopener,noreferrer'),
+          }
+        : { icon: Search, label: '在线查找', hint: '敬请期待', disabled: true },
       { icon: Users, label: '社区求助', hint: '敬请期待', disabled: true },
     ];
   })();

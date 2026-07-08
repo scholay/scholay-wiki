@@ -10,6 +10,7 @@ import { ToolUseAssembler } from "./assembleToolUse.ts";
 import { runTools } from "./runTools.ts";
 import type { EventSink, TurnInput } from "./types.ts";
 import { loadAddDirContext } from "../skills/loader.ts";
+import { buildDateLine } from "../tools/clock.ts";
 import { log } from "../obs/log.ts";
 
 const MAX_TOOL_ROUNDS = Number(process.env.EXECUTOR_MAX_TOOL_ROUNDS || 24);
@@ -40,9 +41,13 @@ export async function runTurn(
   const client = anthropicClientFromProvider();
   const tools = await buildTools(input);
   const messages: Anthropic.MessageParam[] = [...input.messages];
-  // system = 控制面 appendSystemPrompt(规则+记忆)+ per-feature skill/CLAUDE.md(H6,从 addDirs 加载)
+  // system = 当前日期锚点 + 控制面 appendSystemPrompt(规则+记忆)+ per-feature skill/CLAUDE.md(H6)。
+  // dateLine 放这里(而非 backend)是刻意的:此处是四个 feature 每轮必经的唯一 system 组装点
+  // (peerreview 不走 appendSystemPrompt、prism 建会话绕过 buildCreateOptions,backend 注入必漏),
+  // 且每轮现算 → 长寿会话跨天自动更新;天粒度 → prompt cache 每天最多 miss 一次(clock.ts 铁律)。
   const skillCtx = loadAddDirContext(input.addDirs ?? []);
-  const system = [input.appendSystemPrompt, skillCtx].filter((s) => s && s.trim()).join("\n\n") || undefined;
+  const system =
+    [buildDateLine(), input.appendSystemPrompt, skillCtx].filter((s) => s && s.trim()).join("\n\n") || undefined;
 
   // 计费(C1):逐轮累加每个 LLM call 的 usage → calls[];message_complete 带 usage(本轮合计)+ calls。
   // session_total(会话累计)由 WS 层(server/ws.ts)据会话内存累计补上,executor 无状态不自持有。

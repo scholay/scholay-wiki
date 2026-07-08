@@ -117,7 +117,13 @@ func registerPublicAPIRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL gin.
 		)
 		// 文献集分享:收件人公开获取(免登录;OptionalUserAuth 让登录访客记到名下)。
 		// 带提取码的分享缺/错 code 时只回最小信息让前端弹输入框。转存仍需登录(在 /user 下)。
-		publicAPI.GET("/share/:token", middleware.OptionalUserAuthMiddleware(), h.library.PublicGetShare)
+		// 限流:每 IP 每分钟 60 次 —— 4 位提取码组合有限,配合 handler 内的
+		// per-(token,IP) 错码熔断(错 5 次锁 10 分钟)双层防在线爆破;也防匿名刷 view 流水。
+		publicAPI.GET("/share/:token",
+			middleware.OptionalUserAuthMiddleware(),
+			middleware.RateLimitMiddleware(60, time.Minute),
+			h.library.PublicGetShare,
+		)
 
 		// SEO slug 解析 (前端 /paper/:slug、/author/:slug 首屏用)
 		publicAPI.GET("/seo/paper/:slug", h.seo.ResolveBySlug)

@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -67,6 +68,66 @@ func (r *Reader) FolderPapers(userID, folderID uint64, limit int) (papers []User
 	}
 	err = q.Order("created_at DESC").Limit(limit).Find(&papers).Error
 	return papers, total, err
+}
+
+// CitePaper 精简论文行 —— 只含生成 BibTeX / cite key 所需列(prism \cite 消费)。
+// ⚠️ 字段形状(含 ID 用 uint)逐字段对齐 prism 历史 libRow:prism 的 citeKey 由
+// (第一作者姓氏, 年份, ID) 确定性生成,形状/语义变了会破坏已生成的 references.bib。
+type CitePaper struct {
+	ID          uint
+	Title       string
+	AuthorsJSON []byte `gorm:"column:authors_json"`
+	Year        *uint16
+	Venue       string
+	DOI         string
+}
+
+// citePaperColumns 与 CitePaper 字段一一对应的 SELECT 列(集中一处,防止漂移)。
+const citePaperColumns = "id, title, authors_json, year, venue, doi"
+
+// SearchCitePapers 在用户文献集里按关键词 LIKE 检索(title/venue/doi 三列,通配符转义),
+// 只返属于该用户的真实库行 —— prism \cite 反幻觉的根。query 为空 → 直接返回该用户
+// 按年份新→旧的前 limit 篇;limit 越界(<=0 或 >50)钳到 20。
+func (r *Reader) SearchCitePapers(userID uint64, query string, limit int) ([]CitePaper, error) {
+	if r == nil || r.db == nil {
+		return nil, nil
+	}
+	if limit <= 0 || limit > 50 {
+		limit = 20
+	}
+	q := r.db.Model(&UserLibraryPaper{}).
+		Select(citePaperColumns).
+		Where("user_id = ?", userID)
+	if s := strings.TrimSpace(query); s != "" {
+		esc := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(s)
+		if len(esc) > 100 {
+			esc = esc[:100]
+		}
+		like := "%" + esc + "%"
+		q = q.Where("title LIKE ? ESCAPE '\\\\' OR venue LIKE ? ESCAPE '\\\\' OR doi LIKE ? ESCAPE '\\\\'", like, like, like)
+	}
+	var rows []CitePaper
+	err := q.Order("year DESC").Limit(limit).Find(&rows).Error
+	return rows, err
+}
+
+// CitePaperByID 取某条属于该用户的库论文(prism cite apply 用,user_id 归属校验)。
+// 不存在 / 越权 → (nil, nil),约定同 FolderByID。
+func (r *Reader) CitePaperByID(userID, paperID uint64) (*CitePaper, error) {
+	if r == nil || r.db == nil {
+		return nil, nil
+	}
+	var row CitePaper
+	err := r.db.Model(&UserLibraryPaper{}).
+		Select(citePaperColumns).
+		Where("id = ? AND user_id = ?", paperID, userID).First(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &row, nil
 }
 
 // OpenPDF 取用户为该论文上传的 PDF 流(MinIO)。没有用户 PDF / 存储未启用 → (nil, nil)。

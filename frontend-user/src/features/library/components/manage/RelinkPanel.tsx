@@ -5,7 +5,7 @@ import { cn } from '@/shared/lib/utils';
 import { useApiToast, useDebounce } from '@/shared/hooks';
 import { ConfirmPopover } from '@/shared/components/ConfirmPopover';
 import { useRelinkPaper, useRelinkSearch } from '../../api/relink';
-import { hasLocalOverride } from '../../lib/pick-field';
+import { hasLocalOverride } from '@/shared/lib/pick-field';
 import { hitToConfirmLink, keyOfHit, sourceBrandLabel } from '../../lib/resolve-paper';
 import {
   DialogFooterBar,

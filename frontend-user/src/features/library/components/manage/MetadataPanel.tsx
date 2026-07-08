@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
 import { useApiToast } from '@/shared/hooks';
 import { useUpdatePaper } from '../../api/papers';
-import { pickEffectiveFields } from '../../lib/pick-field';
+import { pickEffectiveFields } from '@/shared/lib/pick-field';
 import { authorsToInputText } from '../../lib/resolve-paper';
 import { useMetadataForm, type MetadataFormValues } from '../../hooks/useMetadataForm';
 import { MetadataFields } from '../shared/MetadataFields';

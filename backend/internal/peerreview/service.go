@@ -490,6 +490,9 @@ func buildAssetsBlock(files *sessionAssets) string {
 // 自由文本方法论注入后续评分轮; 选择 JSON 由后端 parseSelection 解析 → 按 slug 读各审稿人 SKILL.md。
 func buildMethodologyPrompt(files *sessionAssets, menu []reviewerMenuEntry, memCtx string) string {
 	var b strings.Builder
+	// 时间锚点(2026-07):方法论自由文本会拼进评分轮 commonContext,这里若按训练截止推错年份
+	// 会二次污染全部评分轮,故与 buildCommonContext 一样注入当前日期(天粒度)。
+	b.WriteString("【当前日期】今天是 " + time.Now().Format("2006年01月02日") + ";判断文献与方法的时效性时以此为准 —— 晚于你训练知识截止的文献可能真实存在,不要仅凭年份晚于你的认知就判其可疑。\n\n")
 	b.WriteString("你是审稿流程的「方法论编排」。请先读完稿件原文, 判断这篇论文的领域 / 类型 / 方法学。\n\n")
 	if strings.TrimSpace(memCtx) != "" {
 		b.WriteString("[投稿人背景 — 长期记忆, 仅帮助你理解论文所属领域/作者水平; 绝不可影响你对论文本身的客观判断]\n")
@@ -1918,6 +1921,15 @@ func journalMetaLine(raw json.RawMessage) string {
 
 func buildCommonContext(sub *Submission, files *sessionAssets, methodology string) string {
 	var b strings.Builder
+	// 时间锚点 + 引用核查行为准则(2026-07):模型上下文若无当前日期,只能按训练截止(≈2025 初)
+	// 推断"今年",曾把 2026 年合法引用判成「年份不可能,2026 年尚未到来」。光给日期不够(训练年代
+	// 锚定仍在),必须配套「存在性只能检索裁决」的行为准则;同时保留对真·未来年份的造假警惕。
+	// 按项目铁律直接 time.Now()(backend 容器时区 Asia/Shanghai),只到天粒度。
+	b.WriteString("【当前日期】今天是 " + time.Now().Format("2006年01月02日") + "。这是权威日期,核查参考文献年份时以此为准:\n")
+	b.WriteString("- 年份 ≤ 当前年份+1 的引用(含 in press / online first / 预印本)属正常,不构成造假信号;\n")
+	b.WriteString("- 引用年份晚于你的训练知识截止 ≠ 该文献不存在;文献存在性只能用 mcp__minicod__get_paper / search_papers 检索裁决;\n")
+	b.WriteString("- 检索不到时结论写「无法核实」,而非「伪造 / 不存在」;\n")
+	b.WriteString("- 年份超过当前年份+1(即晚两年及以上)仍是可疑信号,应当指出。\n\n")
 	b.WriteString("【稿件元信息】\n")
 	if sub.Title.Valid {
 		b.WriteString("标题:" + sub.Title.String + "\n")

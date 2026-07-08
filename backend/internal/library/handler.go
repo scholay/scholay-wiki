@@ -9,6 +9,7 @@
 package library
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -18,6 +19,7 @@ import (
 
 	"scholar-backend/internal/common/ctxutil"
 	"scholar-backend/internal/common/database"
+	"scholar-backend/internal/common/middleware"
 	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/minicod"
@@ -80,13 +82,17 @@ func (h *Handler) RegisterRoutes(g *gin.RouterGroup) {
 		// 单篇论文编辑 og_* 字段 (用户手动修改 / 补充元数据, 不会污染上游 metadata)
 		lib.PATCH("/papers/:id", h.UpdatePaper)
 
-		// 用户上传 PDF —— 文件本体存 MinIO,这里 backend 转发 + 鉴权
-		lib.POST("/papers/:id/pdf", h.UploadPDF)
+		// 用户上传 PDF —— 文件本体存 MinIO,这里 backend 转发 + 鉴权。
+		// UploadLimitMiddleware:chunked 请求 ContentLength=-1 会绕过 handler 内的
+		// 预检,由 MaxBytesReader 在读取层硬限 + 统一 7001 业务码(与 claw/feedback 一致)。
+		lib.POST("/papers/:id/pdf",
+			middleware.UploadLimitMiddleware(middleware.UploadMaxBodySize), h.UploadPDF)
 		lib.GET("/papers/:id/pdf", h.DownloadPDF)
 		lib.DELETE("/papers/:id/pdf", h.DeletePDF)
 
 		// 上传 PDF 智能识别 —— SSE 解析 + 确认两段式
-		lib.POST("/papers/upload-and-resolve", h.UploadAndResolve)
+		lib.POST("/papers/upload-and-resolve",
+			middleware.UploadLimitMiddleware(middleware.UploadMaxBodySize), h.UploadAndResolve)
 		lib.POST("/papers/confirm-upload-job", h.ConfirmUploadJob)
 
 		// 关联(后期关联) —— 自由文件 / 任何已收藏行 → 切到上游论文(含合并)
@@ -288,21 +294,15 @@ func (h *Handler) Add(c *gin.Context) {
 		req.FolderID = &fid
 	}
 
-	// 先查是否已存在(幂等);命中时如果 folder_id 不同则随手更新归属
+	// 先查是否已存在(幂等)。命中时**不改动已有归属** —— 旧实现会把行静默搬到
+	// 新文件夹(用户在别处再点一次收藏,已归档的论文就被挪走且 toast 谎报"已加入");
+	// 移动归属是显式操作(MovePaperFolder / 批量移动),收藏端点不做隐式搬家。
 	var existing UserLibraryPaper
 	err := db.Where("user_id = ? AND source = ? AND source_paper_id = ?",
 		uid, req.Source, req.SourcePaperID).
 		First(&existing).Error
 	if err == nil {
-		if req.FolderID != nil &&
-			(existing.FolderID == nil || *existing.FolderID != *req.FolderID) {
-			existing.FolderID = req.FolderID
-			if err := db.Save(&existing).Error; err != nil {
-				utils.Error(c, http.StatusInternalServerError, "更新失败")
-				return
-			}
-		}
-		utils.Success(c, existing)
+		respondAddExisting(c, &existing)
 		return
 	}
 	if err != gorm.ErrRecordNotFound {
@@ -333,11 +333,39 @@ func (h *Handler) Add(c *gin.Context) {
 				fmt.Sprintf("文献集已达上限(%d 条),请删除一些不用的论文再试", MaxPapersPerUser))
 			return
 		}
-		utils.Error(c, http.StatusInternalServerError, "保存失败")
+		// 并发双击/双端同时收藏:两个请求都过了"先查",后者撞唯一键 —— 幂等回落到
+		// 已有行(旧实现回 500"保存失败",用户视角是收藏失败,实际已收藏)。
+		if isDuplicateKey(err) {
+			var again UserLibraryPaper
+			if err2 := db.Where("user_id = ? AND source = ? AND source_paper_id = ?",
+				uid, req.Source, req.SourcePaperID).First(&again).Error; err2 == nil {
+				respondAddExisting(c, &again)
+				return
+			}
+		}
+		utils.InternalError(c, http.StatusInternalServerError, "保存失败", err)
 		return
 	}
 
 	utils.Success(c, row)
+}
+
+// respondAddExisting 幂等命中已有收藏行时的统一响应:返回已有行原样字段 +
+// already_existed 标志,前端据此把 toast 从"已加入"改成"已在文献集中"。
+// (字段平铺在 data 顶层,与新建分支返回 UserLibraryPaper 的形状兼容。)
+func respondAddExisting(c *gin.Context, row *UserLibraryPaper) {
+	b, err := json.Marshal(row)
+	if err != nil {
+		utils.Success(c, row)
+		return
+	}
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		utils.Success(c, row)
+		return
+	}
+	m["already_existed"] = true
+	utils.Success(c, m)
 }
 
 // Remove DELETE /api/v1/user/library/:source/:paperId
@@ -580,18 +608,6 @@ func (h *Handler) CreateFolder(c *gin.Context) {
 	var req CreateFolderRequest
 	_ = c.ShouldBindJSON(&req)
 
-	db := database.GetDB()
-	var count int64
-	if err := db.Model(&UserLibraryFolder{}).Where("user_id = ?", uid).Count(&count).Error; err != nil {
-		utils.Error(c, http.StatusInternalServerError, "查询失败")
-		return
-	}
-	if count >= MaxFoldersPerUser {
-		utils.ErrorResponse(c, http.StatusConflict,
-			fmt.Sprintf("文件夹最多创建 %d 个,请删除一些不用的再试", MaxFoldersPerUser))
-		return
-	}
-
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
 		name = "新建文件夹"
@@ -605,30 +621,57 @@ func (h *Handler) CreateFolder(c *gin.Context) {
 		return
 	}
 
-	// 用户级重名校验 —— 同一用户名下不能有同名文件夹
-	var dup int64
-	if err := db.Model(&UserLibraryFolder{}).
-		Where("user_id = ? AND name = ?", uid, name).
-		Count(&dup).Error; err != nil {
-		utils.Error(c, http.StatusInternalServerError, "查询失败")
-		return
-	}
-	if dup > 0 {
-		utils.ErrorResponse(c, http.StatusConflict, "已存在同名文件夹,请换一个名称")
-		return
-	}
-
-	row := UserLibraryFolder{
-		UserID:   uid,
-		Name:     name,
-		Position: int(count),
-	}
-	if err := db.Create(&row).Error; err != nil {
-		utils.Error(c, http.StatusInternalServerError, "创建失败")
+	// 上限 + 重名校验 + 插入放同一事务,FOR UPDATE 锁该用户的文件夹区间 ——
+	// 与 insertPaperAtomic 同款写法。旧实现 Count→Create 两步非原子,并发双击
+	// "新建文件夹"可产生同名文件夹/小幅越限(user_library_folders 无 (user_id,name)
+	// 唯一索引,应用层是唯一防线,必须原子)。
+	var row UserLibraryFolder
+	err := database.GetDB().Transaction(func(tx *gorm.DB) error {
+		var count int64
+		if err := tx.Raw(
+			"SELECT COUNT(*) FROM user_library_folders WHERE user_id = ? FOR UPDATE", uid,
+		).Row().Scan(&count); err != nil {
+			return err
+		}
+		if count >= MaxFoldersPerUser {
+			return errFolderLimit
+		}
+		var dup int64
+		if err := tx.Model(&UserLibraryFolder{}).
+			Where("user_id = ? AND name = ?", uid, name).
+			Count(&dup).Error; err != nil {
+			return err
+		}
+		if dup > 0 {
+			return errFolderDupName
+		}
+		row = UserLibraryFolder{
+			UserID:   uid,
+			Name:     name,
+			Position: int(count),
+		}
+		return tx.Create(&row).Error
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, errFolderLimit):
+			utils.ErrorResponse(c, http.StatusConflict,
+				fmt.Sprintf("文件夹最多创建 %d 个,请删除一些不用的再试", MaxFoldersPerUser))
+		case errors.Is(err, errFolderDupName):
+			utils.ErrorResponse(c, http.StatusConflict, "已存在同名文件夹,请换一个名称")
+		default:
+			utils.InternalError(c, http.StatusInternalServerError, "创建失败", err)
+		}
 		return
 	}
 	utils.Success(c, FolderListItem{UserLibraryFolder: row, PaperCount: 0})
 }
+
+// 文件夹创建的哨兵错误(事务内识别,handler 层映射 HTTP 状态)
+var (
+	errFolderLimit   = errors.New("library: folder limit reached")
+	errFolderDupName = errors.New("library: duplicate folder name")
+)
 
 // UpdateFolder PATCH /api/v1/user/library/folders/:id
 //
@@ -892,8 +935,8 @@ func (h *Handler) BatchDeletePapers(c *gin.Context) {
 
 	// 3) DB 成功后异步删 MinIO 对象 —— 用户体感是"立刻删了",
 	//    实际 MinIO 清理在后台 1-2s 内完成。失败的 key warn 出来,
-	//    Tier 2 lifecycle 不覆盖主区,这里失败的对象会持续占用直到
-	//    将来 Tier 3 reaper 上线扫到。
+	//    Tier 2 lifecycle 不覆盖主区(papers/),这里失败的对象由
+	//    common/cleanup 的 orphan pdf reaper(每天 05:00 扫 DB 已无引用者)兜底回收。
 	if len(keys) > 0 {
 		bucket := storage.PaperPDFBucket()
 		ks := keys

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, FileText, Loader2, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -6,7 +6,13 @@ import { FavoritePaperButton } from '@/shared/components/FavoritePaperButton';
 import { SourceBadge } from '@/shared/components/SourceBadge';
 import { cn } from '@/shared/lib/utils';
 import { useArrivalOrderedPapers, useQuickPaperSearch } from '@/shared/api/quick-search';
-import type { Paper, PaperSource, UserLibraryPaper } from '@/shared/api/types';
+import { useFavoriteCheck } from '@/shared/api/user-library-mutations';
+import type {
+  Paper,
+  PaperSource,
+  UpstreamSource,
+  UserLibraryPaper,
+} from '@/shared/api/types';
 import type { LibraryFolderFilter } from '../../api/papers';
 import { formatAuthorsDisplay } from '../../lib/resolve-paper';
 import { DialogFooterBar, footerOutlineCn } from '../shared/dialog-chrome';
@@ -47,6 +53,25 @@ export function OnlineSearchTab({
 
   const sourceResults = useQuickPaperSearch(query);
   const orderedPapers = useArrivalOrderedPapers(sourceResults, query);
+
+  // 已收藏初始态:按结果实际源分桶,三源各一次 check(与智能搜索同款「用结果实际源」
+  // 约定)。让库里已有的论文一进列表就显示已收藏,而非等本会话收藏后才亮。
+  const idsBySource = useMemo(() => {
+    const b: Record<UpstreamSource, string[]> = { stc: [], olx: [], pmd: [] };
+    for (const p of orderedPapers) {
+      const s = (p.source ?? 'stc') as UpstreamSource;
+      if (s === 'stc' || s === 'olx' || s === 'pmd') b[s].push(p.paperId);
+    }
+    return b;
+  }, [orderedPapers]);
+  const stcSaved = useFavoriteCheck('stc', idsBySource.stc);
+  const olxSaved = useFavoriteCheck('olx', idsBySource.olx);
+  const pmdSaved = useFavoriteCheck('pmd', idsBySource.pmd);
+  const serverSaved = (paper: Paper): boolean => {
+    const s = paper.source ?? 'stc';
+    const set = s === 'olx' ? olxSaved.data : s === 'pmd' ? pmdSaved.data : stcSaved.data;
+    return set?.has(paper.paperId) ?? false;
+  };
 
   const totalCount = orderedPapers.length;
   const allDone = sourceResults.every((r) => !r.isLoading);
@@ -128,6 +153,7 @@ export function OnlineSearchTab({
                   key={key}
                   paper={p}
                   favoritedRow={favoritedRows.get(key)}
+                  serverSaved={serverSaved(p)}
                   folderId={folderId}
                   onFavoriteSuccess={handleFavoriteSuccess}
                   onUnfavorited={handleUnfavorited}
@@ -171,14 +197,17 @@ export function OnlineSearchTab({
 function PaperRow({
   paper,
   favoritedRow,
+  serverSaved,
   folderId,
   onFavoriteSuccess,
   onUnfavorited,
   onManagePaper,
 }: {
   paper: Paper;
-  /** 已收藏时为创建的文献集行(收藏成功回调带回),未收藏为 undefined */
+  /** 本会话收藏时为创建的文献集行(收藏成功回调带回),未在本会话收藏为 undefined */
   favoritedRow: UserLibraryPaper | undefined;
+  /** 库里早已收藏(来自 useFavoriteCheck 初始态);此时不一定有 favoritedRow */
+  serverSaved: boolean;
   folderId: number | null;
   onFavoriteSuccess: (paper: Paper, row: UserLibraryPaper) => void;
   onUnfavorited: (paper: Paper) => void;
@@ -233,7 +262,7 @@ function PaperRow({
       )}
       <FavoritePaperButton
         paper={paper}
-        isFavorited={favoritedRow != null}
+        isFavorited={favoritedRow != null || serverSaved}
         folderId={folderId}
         variant="icon"
         size="lg"

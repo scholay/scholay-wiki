@@ -362,6 +362,10 @@ services:
       - ./agent-skills/claw-add:/claw-add:ro
       - ./agent-skills/prism-skills:/prism-add/.claude/skills:ro
       - ./agent-skills/reviewer-skills:/peerreview-add/.claude/skills:ro
+      # 时区跟随宿主(2026-07 补):oven/bun:1-slim 无 tzdata,TZ=":/etc/localtime" 此前指向
+      # 不存在的文件 → 容器实际跑 UTC(北京时间每天 0:00-8:00 日期差一天,claw 跑 `date` 也是 UTC)。
+      # JS 侧 src/tools/clock.ts 另有固定 +8 实现,不依赖此挂载;这里是给 Bash `date` / 日志对齐。
+      - /etc/localtime:/etc/localtime:ro
     healthcheck:
       test: ["CMD-SHELL", "bun -e \"fetch('http://127.0.0.1:3456/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\" || exit 1"]
       interval: 30s

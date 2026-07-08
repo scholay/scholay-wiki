@@ -267,6 +267,37 @@ func (m *Manager) GetPaperBatch(ctx context.Context, paperIDs []string, fields [
 	return resp, nil
 }
 
+// GetPaperByDOI 按 DOI 精确解析单篇论文(源级熔断 + 缓存)。未命中返回 (nil, nil)。
+// 上传 PDF 识别优先用它——抽到 DOI 直接锁定论文,不靠模糊全文检索。
+func (m *Manager) GetPaperByDOI(ctx context.Context, source, doi string) (*Paper, error) {
+	var resp Paper
+	err := cache.GetOrSetMinicodPaperByDOI(ctx, source, doi, func() (any, error) {
+		return fetchSrc(m, source, func(c *Client) (*Paper, error) { return c.GetPaperByDOI(ctx, source, doi) })
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(resp.PaperID) == "" && strings.TrimSpace(resp.Title) == "" {
+		return nil, nil // 缓存的 null 哨兵 / 未命中
+	}
+	return &resp, nil
+}
+
+// MatchPaperByTitle 按标题精确匹配单篇论文(仅 stc,源级熔断 + 缓存)。未命中返回 (nil, nil)。
+func (m *Manager) MatchPaperByTitle(ctx context.Context, title string) (*Paper, error) {
+	var resp Paper
+	err := cache.GetOrSetMinicodPaperMatch(ctx, title, func() (any, error) {
+		return fetchSrc(m, SourceSTC, func(c *Client) (*Paper, error) { return c.MatchPaperByTitle(ctx, title) })
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(resp.PaperID) == "" && strings.TrimSpace(resp.Title) == "" {
+		return nil, nil
+	}
+	return &resp, nil
+}
+
 func (m *Manager) GetPaperCitations(ctx context.Context, paperID string, opts CitationsOptions) (*CitationsResponse, error) {
 	params := map[string]any{"fields": opts.Fields, "offset": opts.Offset, "limit": opts.Limit}
 	var resp CitationsResponse

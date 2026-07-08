@@ -15,7 +15,7 @@ import { cn } from '@/shared/lib/utils';
 import { ConfirmPopover } from '@/shared/components/ConfirmPopover';
 import type { UserLibraryPaper } from '@/shared/api/types';
 import { UPLOAD_CANCELLED, useDeletePaperPdf, useUploadPaperPdf } from '../../api/pdf';
-import { hasLocalOverride } from '../../lib/pick-field';
+import { hasLocalOverride } from '@/shared/lib/pick-field';
 import {
   DialogFooterBar,
   DialogTabBar,
