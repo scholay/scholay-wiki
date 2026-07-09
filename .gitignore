@@ -1,5 +1,5 @@
 # Environment variables
-# .env
+.env
 
 # Data directories —— 仅忽略仓库根的运行时数据卷 (mysql/redis/minio/agent/... 等容器持久化)。
 # 必须带前导 `/` 锚定到根: 不带 `/` 的 `data/` 会匹配【任意层级】的 data 目录, 会误伤
