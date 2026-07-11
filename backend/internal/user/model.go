@@ -28,6 +28,10 @@ type User struct {
 	AdminNotes    string     `gorm:"column:admin_notes;type:text" json:"admin_notes,omitempty"`
 	EmailVerified bool       `gorm:"not null;default:false" json:"email_verified"`
 	PhoneVerified bool       `gorm:"not null;default:false" json:"phone_verified"`
+	// RegisterSource 注册来源(与 auth_providers.provider 正交,迁移 0060):
+	// 'wechat'=微信网页扫码 / 'wechat_miniprogram'=微信小程序 / ''=未标注(按 provider 推断)。
+	// 小程序与网页扫码都写 provider='wechat'(靠 unionid 同号),靠本列在后台区分注册渠道。
+	RegisterSource string `gorm:"column:register_source;size:32;not null;default:''" json:"register_source"`
 	LastLoginAt   *time.Time `json:"last_login_at"`                // 最后一次「登录动作」时间(+IP);不反映持续使用
 	LastLoginIP   *string    `gorm:"size:45" json:"last_login_ip"` // 最后登录IP
 	// LastActiveAt 最后活跃(真实使用)时间: 每次通过鉴权的 user 请求异步节流更新(0036),

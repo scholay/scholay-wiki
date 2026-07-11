@@ -398,7 +398,9 @@ func (s *Service) UnbindDiscourse(userID uint) error {
 // 同一 WeChat 账号同一时间只允许一个回调进入下面的查/建逻辑。
 //
 // 锁拿不到 (5s 等不到 → 极少见,通常 < 200ms) 直接返错,前端引导用户重试。
-func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL, ip, invitationCode string) (*User, string, bool, error) {
+// source 为注册来源(仅新建号时写入 register_source):'wechat'=网页扫码 / 'wechat_miniprogram'=小程序。
+// 老用户登录不改动 register_source(注册渠道是历史事实,不随后续登录方式变)。
+func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL, ip, invitationCode, source string) (*User, string, bool, error) {
 	_ = invitationCode // 邀请业务已移除，参数保留以兼容前端传参
 
 	// 锁 key 用 unionID(若有,跨 app 同一人)否则 openID。
@@ -483,10 +485,11 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 
 	// Create user with WeChat info
 	user := &User{
-		Username:  &uname,
-		AvatarURL: &avatarURL,
-		Role:      "user",
-		Status:    1,
+		Username:       &uname,
+		AvatarURL:      &avatarURL,
+		Role:           "user",
+		Status:         1,
+		RegisterSource: source, // 注册渠道:小程序 vs 网页扫码(仅建号时记一次)
 	}
 
 	if err := s.repo.Create(user); err != nil {

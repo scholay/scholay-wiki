@@ -71,6 +71,7 @@ func (h *Handler) WeChatCallback(c *gin.Context) {
 		headImgURL,
 		ip,
 		req.InvitationCode, // 传递邀请码
+		"wechat",           // 注册来源:微信网页扫码
 	)
 	if err != nil {
 		utils.InternalError(c, 5003, "微信登录失败", err)
@@ -120,7 +121,8 @@ func (h *Handler) MiniProgramLogin(c *gin.Context) {
 		"", // nickname —— 小程序 jscode2session 不返回,占位
 		"", // avatarURL —— 同上
 		ip,
-		"", // invitationCode —— 邀请业务已移除
+		"",                   // invitationCode —— 邀请业务已移除
+		"wechat_miniprogram", // 注册来源:微信小程序(区别于网页扫码)
 	)
 	if err != nil {
 		utils.InternalError(c, 5003, "微信登录失败", err)

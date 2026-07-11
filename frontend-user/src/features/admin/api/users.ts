@@ -24,6 +24,8 @@ export interface AdminUser {
    *  **必须含 'max'** —— 漏了它,列表把 max 用户当 free 显示(与详情页 /vip 不一致)。 */
   vip_tier?: 'free' | 'pro' | 'max' | null;
   vip_expires_at?: string | null;
+  /** 注册来源:'wechat'=网页扫码 / 'wechat_miniprogram'=小程序 / ''=其它渠道按 provider 推断。 */
+  register_source?: string;
   created_at: string;
   updated_at: string;
 }
@@ -57,6 +59,9 @@ export interface UserLoginMethods {
   phone: string;
   phone_verified: boolean;
   auth_providers: UserAuthProviderView[];
+  /** 注册来源(迁移 0060):'wechat'=网页扫码 / 'wechat_miniprogram'=小程序 / ''=按 provider 推断。
+   *  微信小程序与网页扫码都记 provider='wechat'(unionid 同号),靠本字段区分渠道。 */
+  register_source?: string;
 }
 
 export interface UserTokenStatus {

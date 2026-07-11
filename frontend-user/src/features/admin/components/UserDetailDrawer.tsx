@@ -44,6 +44,13 @@ const PROVIDER_LABEL: Record<string, string> = {
   discourse: 'Discourse',
 };
 
+// 微信徽章按注册来源细分(小程序 vs 网页扫码;两者都记 provider='wechat')。
+function wechatChannelLabel(registerSource?: string): string {
+  if (registerSource === 'wechat_miniprogram') return '微信小程序';
+  if (registerSource === 'wechat') return '微信扫码';
+  return '微信';
+}
+
 /**
  * 用户详情抽屉 —— 管理 / 运营视角:
  *   - 基础资料(行数据,免再拉)
@@ -144,7 +151,9 @@ export function UserDetailDrawer({
                     className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-1 px-2 py-1 text-xs text-subtle"
                   >
                     <ProviderIcon provider={p.provider} />
-                    {PROVIDER_LABEL[p.provider.toLowerCase()] || p.provider}
+                    {p.provider.toLowerCase() === 'wechat'
+                      ? wechatChannelLabel(detail.data?.register_source)
+                      : (PROVIDER_LABEL[p.provider.toLowerCase()] || p.provider)}
                     <span className="text-2xs text-faint">{p.created_at?.slice(0, 10)}</span>
                   </span>
                 ))}

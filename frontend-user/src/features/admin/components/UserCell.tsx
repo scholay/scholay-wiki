@@ -19,6 +19,13 @@ const PROVIDER_LABEL: Record<string, string> = {
   discourse: '论坛',
 };
 
+// 微信徽章按注册来源细分:小程序与网页扫码都记 provider='wechat',靠 register_source 区分。
+function wechatChannelLabel(registerSource?: string): string {
+  if (registerSource === 'wechat_miniprogram') return '微信小程序';
+  if (registerSource === 'wechat') return '微信扫码';
+  return '微信';
+}
+
 // 会员等级展示名全站统一:Free / Pro / Max。
 const TIER_LABEL: Record<string, string> = { free: 'Free', pro: 'Pro', max: 'Max' };
 
@@ -158,7 +165,9 @@ function LoginMethods({ d }: { d: UserLoginMethods }) {
           <Link2 className="size-3 shrink-0" />
           {providers.map((p) => (
             <span key={p.provider} className="rounded-pill bg-surface-2 px-1.5 py-0.5 text-subtle">
-              {PROVIDER_LABEL[p.provider.toLowerCase()] ?? p.provider}
+              {p.provider.toLowerCase() === 'wechat'
+                ? wechatChannelLabel(d.register_source)
+                : (PROVIDER_LABEL[p.provider.toLowerCase()] ?? p.provider)}
             </span>
           ))}
         </span>

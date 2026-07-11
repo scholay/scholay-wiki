@@ -48,10 +48,11 @@ func (h *Handler) GetUserDetail(c *gin.Context) {
 		"id":             u.ID,
 		"username":       deref(u.Username),
 		"email":          deref(u.Email),
-		"email_verified": u.EmailVerified,
-		"phone":          deref(u.Phone),
-		"phone_verified": u.PhoneVerified,
-		"auth_providers": views,
+		"email_verified":  u.EmailVerified,
+		"phone":           deref(u.Phone),
+		"phone_verified":  u.PhoneVerified,
+		"auth_providers":  views,
+		"register_source": u.RegisterSource, // 注册来源:微信小程序 vs 网页扫码(前端据此区分微信徽章)
 	})
 }
 
