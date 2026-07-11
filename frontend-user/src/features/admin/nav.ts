@@ -26,6 +26,7 @@ import {
   Headset,
   Sparkles,
   Newspaper,
+  Smartphone,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -113,6 +114,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { id: 'agent-config', label: 'AI Agent 服务', icon: Cpu, href: '/admin/agent-config' },
       { id: 'dimensions', label: '分析维度', icon: Compass, href: '/admin/dimensions' },
       { id: 'wechat-official', label: '公众号', icon: Send, href: '/admin/wechat-official' },
+      { id: 'wechat-miniprogram', label: '小程序登录', icon: Smartphone, href: '/admin/wechat-miniprogram' },
       { id: 'news-webhook', label: '情报 Webhook', icon: Newspaper, href: '/admin/news-webhook' },
     ],
   },
