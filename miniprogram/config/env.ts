@@ -9,9 +9,9 @@ const envVersion = accountInfo.miniProgram.envVersion // 'develop' | 'trial' | '
 // 本地联调指向整站入口(nginx,HTTP_PORT=5411)。开发者工具需勾选「不校验合法域名」。
 const DEV_BASE_URL = 'http://localhost:5411'
 
-// TODO(上线前必改):换成你的生产 API 域名。建议开纯 API 子域 api.scholay.com,
-// 只把这一条加进 request 合法域名白名单(见 README 的「域名白名单清单」)。
-const PROD_BASE_URL = 'https://api.scholay.com'
+// 生产:整站入口(nginx),/api/* 走后端、/ 走前端;小程序 API = https://www.scholay.com/api/v1/*,
+// WS 自动 wss://www.scholay.com。四类白名单(request/socket/uploadFile/downloadFile)都填这个域名。
+const PROD_BASE_URL = 'https://www.scholay.com'
 
 export const BASE_URL: string = envVersion === 'develop' ? DEV_BASE_URL : PROD_BASE_URL
 
