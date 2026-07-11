@@ -1,20 +1,24 @@
 import { useEffect } from 'react';
-import { Outlet, useMatches } from 'react-router-dom';
+import { Link, Outlet, useMatches } from 'react-router-dom';
 import { PanelLeft } from 'lucide-react';
 import { SidebarLayout } from '@/shared/components/sidebar';
 import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
+import { IconButton } from '@/shared/components/IconButton';
+import { BrandLogo } from '@/shared/components/BrandLogo';
 import { useSidebar } from '@/stores/sidebar.store';
 import { useIsAuthenticated } from '@/stores/auth.store';
 import { AdminSidebar } from '../components/AdminSidebar';
 
 /**
- * Admin 专用 shell —— 不复用 AppShell:
- *   - 无顶部 menu carousel(admin 与 user-facing 心智完全不同)
- *   - 左侧 AdminSidebar 常驻
+ * Admin 专用 shell —— 结构对齐用户端 AppShell:
+ *   - 顶部一条 h-16 占位导航条(TopBar):**不放菜单**,只承载「展开/收起侧栏」☰ 按钮,
+ *     让后台侧栏开合与用户端 TopNav 的 ☰ 交互完全一致(按钮恒在左上角同一位置/样式)。
+ *   - 左侧 AdminSidebar 在 TopBar 之下常驻(受 useSidebar 全局开合)。
  *
- * 之前挂了 ⌘B 切栏 / ⌘K 命令面板的快捷键,目前快捷键交互设计未完成,
- * 整体下线 —— 包含 AdminCommandPalette 入口(没有其他唤起方式所以不再挂载),
- * 文件本身保留,后续要恢复直接重新引入 + 挂回 hotkey 即可。
+ * 历史:之前无顶栏,侧栏折叠后整条被 width=0 隐藏、连内部展开按钮一起锁死,只能在左边缘
+ * 挂一个悬浮 fixed 按钮兜底 —— 与用户端不一致、也遮挡内容。现改为顶栏常驻 ☰,悬浮按钮下线。
+ *
+ * ⌘B / ⌘K 快捷键(含 AdminCommandPalette)此前已下线,后续要恢复重新挂 hotkey 即可。
  */
 /** 取当前匹配路由的 `handle.title`(在 routes.tsx 集中维护) */
 function useRouteTitle(): string | null {
@@ -34,11 +38,8 @@ export function AdminShell() {
     ? `${routeTitle} · Scholay Admin`
     : 'Scholay Admin';
 
-  // Sidebar 折叠态独立"展开"按钮 —— AppShell 有 TopNav 自带 ☰,而 Admin 不挂
-  // TopNav,折叠后 AdminSidebar 整个被 width=0 + overflow-hidden 隐藏,
-  // 连内部的"展开"按钮一起锁住,用户无法把它点回来。这里在 AdminShell 层
-  // 挂一个常驻的"折叠态展开"按钮:fixed 在左边缘,只有 !expanded 时显示。
-  const expanded = useSidebar((s) => s.expanded);
+  // 顶栏 ☰ —— 与用户端一致:hasPanel 决定可否切换(后台恒有侧栏面板 → 恒可用)。
+  const hasPanel = useSidebar((s) => s.hasPanel);
   const toggleSidebar = useSidebar((s) => s.toggle);
 
   // 反应式兜底:token 一旦消失(本 tab 退出 / 跨 tab 登出 / 失效)立刻离开后台回首页。
@@ -52,23 +53,29 @@ export function AdminShell() {
   return (
     <div className="flex h-screen min-h-0 flex-col bg-background text-foreground">
       <title>{docTitle}</title>
-      <SidebarLayout sidebar={<AdminSidebar />}>
-        <ErrorBoundary>
-          <Outlet />
-        </ErrorBoundary>
-      </SidebarLayout>
 
-      {!expanded && (
-        <button
-          type="button"
+      {/* 顶部占位导航条 —— 对齐用户端 TopNav 的左上角 [☰][Logo];右侧刻意留白(后台不挂菜单/用户区)。 */}
+      <header className="h-16 shrink-0 flex items-center gap-2 px-6 border-b border-border bg-background sticky top-0 z-30">
+        <IconButton
+          aria-label="展开/收起侧栏"
+          tooltip="展开/收起侧栏"
+          disabled={!hasPanel}
           onClick={toggleSidebar}
-          aria-label="展开侧栏"
-          title="展开侧栏"
-          className="fixed left-2 top-3 z-30 inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-subtle shadow-sm hover:bg-surface-1 hover:text-foreground transition-colors"
         >
-          <PanelLeft className="size-4" strokeWidth={2} />
-        </button>
-      )}
+          <PanelLeft />
+        </IconButton>
+        <Link to="/admin" className="inline-flex items-center" aria-label="返回后台首页">
+          <BrandLogo size="sm" />
+        </Link>
+      </header>
+
+      <div className="flex-1 min-h-0">
+        <SidebarLayout sidebar={<AdminSidebar />}>
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
+        </SidebarLayout>
+      </div>
       {/* ConfirmDialogRoot 已上移到 app/providers,全应用全局可用 */}
     </div>
   );

@@ -599,11 +599,11 @@ func (r *Repository) getDailyTrendDataFilledWithFilter(days int, featureCode str
 
 // getCustomDateRangeTrendDataWithFilter 获取自定义日期范围的趋势数据（支持按功能筛选）
 func (r *Repository) getCustomDateRangeTrendDataWithFilter(startDateStr, endDateStr string, featureCode string) []TrendPoint {
-	startDateVal, err := time.Parse("2006-01-02", startDateStr)
+	startDateVal, err := time.ParseInLocation("2006-01-02", startDateStr, time.Local)
 	if err != nil {
 		return nil
 	}
-	endDateVal, err := time.Parse("2006-01-02", endDateStr)
+	endDateVal, err := time.ParseInLocation("2006-01-02", endDateStr, time.Local)
 	if err != nil {
 		return nil
 	}
@@ -652,11 +652,11 @@ func (r *Repository) getCustomDateRangeTrendDataWithFilter(startDateStr, endDate
 // getCustomDateRangeTrendData 获取自定义日期范围的趋势数据（填充所有日期）
 func (r *Repository) getCustomDateRangeTrendData(startDateStr, endDateStr string) []TrendPoint {
 	// 解析日期
-	startDateVal, err := time.Parse("2006-01-02", startDateStr)
+	startDateVal, err := time.ParseInLocation("2006-01-02", startDateStr, time.Local)
 	if err != nil {
 		return nil
 	}
-	endDateVal, err := time.Parse("2006-01-02", endDateStr)
+	endDateVal, err := time.ParseInLocation("2006-01-02", endDateStr, time.Local)
 	if err != nil {
 		return nil
 	}

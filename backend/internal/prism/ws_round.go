@@ -65,20 +65,53 @@ func (s *Service) IssueWSTicket(ctx context.Context, userID, projectID uint) (st
 	return "", "", err
 }
 
+// computeRoundEpoch(V3-4.4-1)当前基线世代号 = struct 真源 canonical 的 sha。legacy 项目(编辑面已冻结)
+// 返回 ""(不参与 epoch 门)。读失败返回 ""(fail-open,apply 侧对空 epoch 只 warn 不拒)。
+func (s *Service) computeRoundEpoch(projectID uint) string {
+	js, err := s.repo.GetStructJSON(projectID)
+	if err != nil || js == "" {
+		return ""
+	}
+	return sha256Hex(js)
+}
+
+// refreshRoundEpoch 现算并存储该项目的当前世代号,返回之。
+func (s *Service) refreshRoundEpoch(projectID uint) string {
+	e := s.computeRoundEpoch(projectID)
+	if e != "" {
+		s.roundEpochs.Store(projectID, e)
+	}
+	return e
+}
+
 // PrepareRound 每轮 AI 前调:校验归属 → 铺源(DB current → 会话 cwd),保证 agent 基于最新真源改。
-func (s *Service) PrepareRound(ctx context.Context, userID, projectID uint) error {
+// V3-4.4-1:①AI 回答进行中拒绝(重铺 cwd 会抽换 agent 脚下的文件)→ ErrRoundBusy(409);
+// ②返回轮次世代号(基线 sha),前端 apply 时带回校验,防「另一窗口 prepare 后旧 pending 盲固化」。
+func (s *Service) PrepareRound(ctx context.Context, userID, projectID uint) (string, error) {
 	proj, err := s.repo.GetProject(projectID, userID)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if proj == nil {
-		return ErrProjectNotFound
+		return "", ErrProjectNotFound
 	}
 	sessionID, err := s.ensureProjectSession(ctx, projectID, userID)
 	if err != nil {
-		return err
+		return "", err
 	}
-	return s.materializeProject(ctx, projectID, sessionID)
+	if s.feature != nil && s.feature.SessionBusy(sessionID) {
+		return "", ErrRoundBusy
+	}
+	if err := s.materializeProject(ctx, projectID, sessionID); err != nil {
+		return "", err
+	}
+	epoch := s.refreshRoundEpoch(projectID)
+	// 打点第 0 步(V3-4.0):每轮铺源记文档规模 → docker logs grep prism_round_prepared 聚合
+	// 文档字符分布/每项目轮数分布,校准上下文经济的量化口径。
+	if js, jerr := s.repo.GetStructJSON(projectID); jerr == nil {
+		slog.Info("prism_round_prepared", "project_id", projectID, "doc_chars", len(js))
+	}
+	return epoch, nil
 }
 
 // PendingFile 一个待应用(或已检出)的文件改动:DB 旧正文 + cwd 新正文,前端据此渲染 diff。
@@ -95,37 +128,49 @@ type PendingFile struct {
 }
 
 // PendingRound 检出当前 cwd 相对 DB 的改动(= 待应用集合)。重入时前端拉它渲染「待应用 diff」。
-func (s *Service) PendingRound(ctx context.Context, userID, projectID uint) ([]PendingFile, error) {
+// V3-4.4-1:第二个返回值 = 服务端当前轮次世代号 —— 重入 tab 从未调过 prepare 拿不到 epoch,
+// pending 响应携带之,重入 commit 才不会必 409。
+func (s *Service) PendingRound(ctx context.Context, userID, projectID uint) ([]PendingFile, string, error) {
 	proj, err := s.repo.GetProject(projectID, userID)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if proj == nil {
-		return nil, ErrProjectNotFound
+		return nil, "", ErrProjectNotFound
+	}
+	epoch := ""
+	if v, ok := s.roundEpochs.Load(projectID); ok {
+		epoch, _ = v.(string)
+	} else {
+		epoch = s.refreshRoundEpoch(projectID) // 重启后内存态为空 → 以当前真源现算(fail-open 基线)
 	}
 	sessionID, err := s.repo.GetProjectSession(projectID)
 	if err != nil || sessionID == "" {
-		return nil, nil // 无会话 = 无待应用
+		return nil, epoch, nil // 无会话 = 无待应用
 	}
 	if proj.SchemaVersion == SchemaStruct {
-		return s.pendingStructRound(ctx, projectID, sessionID)
+		files, perr := s.pendingStructRound(ctx, projectID, sessionID)
+		return files, epoch, perr
 	}
 	changes, err := s.collectWorkspaceChanges(ctx, projectID, sessionID)
 	if err != nil {
-		return nil, err
+		return nil, epoch, err
 	}
 	out := make([]PendingFile, 0, len(changes))
 	for _, c := range changes {
 		out = append(out, PendingFile{FileID: c.fileID, RelPath: c.relPath, OldBody: c.oldBody, NewBody: c.newBody, IsNew: c.isNew})
 	}
-	return out, nil
+	return out, epoch, nil
 }
 
 // ApplyRound 应用:读回 cwd 变更 → 单事务固化进 DB(author=agent)。返回固化的文件数。
 // instruction 为本轮干净指令(前端透传):首次成功固化后用它异步给项目自动起名(best-effort+幂等)。
 // overrides(可选,per-file/per-hunk):relPath→最终正文(前端在 diff 编辑器里可能删掉了部分 hunk)。
 //   非空 → 只固化 overrides 列出的文件、用其正文(用户选择性接受);为空 → 固化 cwd 全部改动(整轮应用)。
-func (s *Service) ApplyRound(ctx context.Context, userID, projectID uint, instruction string, overrides map[string]string) (int, error) {
+//   ⚠️ V3-4.2-4:**overrides 仅 legacy 轨生效**。struct 轨 apply = 整篇 parse 合并,per-hunk 取舍
+//   不进入合并(此前 API 声明与实现漂移 = 假门);struct 轨的选择性接受在 Block ID 落地前只能整轮全收/全弃。
+// epoch(V3-4.4-1,可选):prepare/pending 拿到的轮次世代号;非空且与服务端当前不符 → ErrRoundEpochMismatch(409)。
+func (s *Service) ApplyRound(ctx context.Context, userID, projectID uint, instruction string, overrides map[string]string, epoch string) (int, error) {
 	proj, err := s.repo.GetProject(projectID, userID)
 	if err != nil {
 		return 0, err
@@ -133,13 +178,33 @@ func (s *Service) ApplyRound(ctx context.Context, userID, projectID uint, instru
 	if proj == nil {
 		return 0, ErrProjectNotFound
 	}
+	// epoch 门:携带了世代号且服务端有当前值 → 必须一致。空 epoch(老客户端)/服务端无值(刚重启)→
+	// fail-open 放行 + warn(兼容与可用性优先;硬化到强制在服务端 pending 固化落地后,见开放问题 #4)。
+	if epoch != "" {
+		if v, ok := s.roundEpochs.Load(projectID); ok {
+			if cur, _ := v.(string); cur != "" && cur != epoch {
+				slog.Warn("prism: apply rejected by round epoch mismatch",
+					"project_id", projectID, "got", epoch[:min(8, len(epoch))], "want", cur[:min(8, len(cur))])
+				return 0, ErrRoundEpochMismatch
+			}
+		}
+	} else {
+		slog.Warn("prism: apply without round epoch (old client or reentry before pending fetch)", "project_id", projectID)
+	}
 	sessionID, err := s.repo.GetProjectSession(projectID)
 	if err != nil || sessionID == "" {
 		return 0, nil
 	}
 	// struct 轨:读回 cwd document.md → parse → 合并进结构体(不走文件版本固化)。
 	if proj.SchemaVersion == SchemaStruct {
-		return s.applyStructRound(ctx, projectID, sessionID)
+		if len(overrides) > 0 {
+			slog.Warn("prism: overrides ignored on struct track (whole-round apply only)", "project_id", projectID)
+		}
+		n, aerr := s.applyStructRound(ctx, projectID, sessionID)
+		if aerr == nil {
+			s.refreshRoundEpoch(projectID) // 固化成功 → 基线前进,后续 apply 以新世代校验
+		}
+		return n, aerr
 	}
 	changes, err := s.collectWorkspaceChanges(ctx, projectID, sessionID)
 	if err != nil {
@@ -185,6 +250,7 @@ func (s *Service) ApplyRound(ctx context.Context, userID, projectID uint, instru
 		return 0, err
 	}
 	appliedCount := len(existing) + len(created)
+	s.refreshRoundEpoch(projectID) // 固化成功 → 基线前进(V3-4.4-1)
 	_ = s.repo.TouchProject(projectID)
 	// 项目自动起名已移到 agent 容器:前端发编辑指令时随 user_message 帧带干净 titleSeed,agent 跑
 	// 廉价标题模型生成项目名经 session_title_updated 帧回传,backend 在 agentbridge pipe 里 tap →
@@ -194,6 +260,7 @@ func (s *Service) ApplyRound(ctx context.Context, userID, projectID uint, instru
 }
 
 // RejectRound 丢弃:重铺源(DB current 覆盖回 cwd)→ 抹掉 agent 本轮未应用的改动。
+// V3-4.4-1:AI 回答进行中拒绝(流式中重铺会抽换 agent 脚下的文件)→ ErrRoundBusy(409)。
 func (s *Service) RejectRound(ctx context.Context, userID, projectID uint) error {
 	proj, err := s.repo.GetProject(projectID, userID)
 	if err != nil {
@@ -206,7 +273,14 @@ func (s *Service) RejectRound(ctx context.Context, userID, projectID uint) error
 	if err != nil || sessionID == "" {
 		return nil
 	}
-	return s.materializeProject(ctx, projectID, sessionID)
+	if s.feature != nil && s.feature.SessionBusy(sessionID) {
+		return ErrRoundBusy
+	}
+	if err := s.materializeProject(ctx, projectID, sessionID); err != nil {
+		return err
+	}
+	s.refreshRoundEpoch(projectID)
+	return nil
 }
 
 // GetWSHistory 取项目 agent 会话的历史消息(重入恢复用,= agent jsonl 真源,同 claw)。

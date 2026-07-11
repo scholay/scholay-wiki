@@ -17,6 +17,8 @@
 package config
 
 import (
+	"context"
+
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/seo"
 
@@ -73,6 +75,18 @@ type NewsSEOProvider interface {
 	RecentNewsForSEO(limit int) ([]*seo.NewsSSRMeta, error)
 }
 
+// PaperEnricher 由 seoenrich.Enricher 实现(可选,bootstrap 仅在 SEO_ENRICH_ENABLED 时注入)。
+// M2 方案 A:canonical /paper/{source}/{id} 命中但 seo 无行(冷门 URL)时,SSR 现场拉一次 minicod
+// 落库并返回 meta;拉不到返回 (nil,nil),调用方回落 noindex。未注入(默认)时不改变行为。
+type PaperEnricher interface {
+	EnrichPaperOnMiss(ctx context.Context, source, paperID string) (*seo.PaperSSRMeta, error)
+}
+
+// AuthorEnricher 同 PaperEnricher,作者维度(冷门作者 URL 现拉机构/指标/代表作落库)。
+type AuthorEnricher interface {
+	EnrichAuthorOnMiss(ctx context.Context, source, authorID string) (*seo.AuthorSSRMeta, error)
+}
+
 // Handler handles HTTP requests for configuration operations
 type Handler struct {
 	service *Service
@@ -98,6 +112,10 @@ type Handler struct {
 
 	// 情报详情/列表页 SSR 元数据提供者 (/news/{slug} / /news)
 	newsSEOProvider NewsSEOProvider
+
+	// 论文 / 作者 SSR 冷门 URL 现拉回填(M2,可选;仅 SEO_ENRICH_ENABLED 时注入)
+	paperEnricher  PaperEnricher
+	authorEnricher AuthorEnricher
 
 	// WeChat OAuth 启用探针 —— bootstrap 注入,handler_system.GetSystemConfig 用它
 	// 决定 public 响应里 `wechat_enabled` 的值。这里用 probe 是为了避免 config 包
@@ -151,6 +169,16 @@ func (h *Handler) SetJournalSEOProvider(p JournalSEOProvider) {
 // SetToolSEOProvider 设置功能广场工具 SSR 元数据提供者
 func (h *Handler) SetToolSEOProvider(p ToolSEOProvider) {
 	h.toolSEOProvider = p
+}
+
+// SetPaperEnricher 注入论文冷门 URL 现拉回填器(M2;bootstrap 仅在启用时调用)。
+func (h *Handler) SetPaperEnricher(e PaperEnricher) {
+	h.paperEnricher = e
+}
+
+// SetAuthorEnricher 注入作者冷门 URL 现拉回填器(M2;bootstrap 仅在启用时调用)。
+func (h *Handler) SetAuthorEnricher(e AuthorEnricher) {
+	h.authorEnricher = e
 }
 
 // SetNewsSEOProvider 设置情报 SSR 元数据提供者

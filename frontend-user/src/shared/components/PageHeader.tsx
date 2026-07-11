@@ -31,7 +31,8 @@ export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(
           className
         )}
       >
-        <div className="flex items-start justify-between gap-4">
+        {/* 窄屏纵向堆叠(标题在上、动作在下并可换行),sm+ 恢复左右两端对齐 */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div className="min-w-0 flex-1">
             <h1
               className={cn(
@@ -45,7 +46,7 @@ export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(
               <p className="mt-1 text-sm text-muted-foreground">{description}</p>
             )}
           </div>
-          {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
+          {actions && <div className="flex flex-wrap items-center gap-2 sm:shrink-0">{actions}</div>}
         </div>
         {tabs && <div className="mt-3">{tabs}</div>}
       </header>

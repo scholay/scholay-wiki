@@ -244,6 +244,8 @@ services:
       BAIDU_PUSH_DAILY_QUOTA: ${BAIDU_PUSH_DAILY_QUOTA:-1000}
       SEO_PUSH_WORKER_INTERVAL_SECONDS: ${SEO_PUSH_WORKER_INTERVAL_SECONDS:-300}
       SEO_PUSH_BATCH_SIZE: ${SEO_PUSH_BATCH_SIZE:-100}
+      # SEO 完整性回填(H1 论文摘要 + M2 冷门 URL 现拉):默认关,置 true 才消耗 minicod 配额
+      SEO_ENRICH_ENABLED: ${SEO_ENRICH_ENABLED:-false}
       # MinIO 对象存储(用户上传 PDF) —— endpoint 用容器名 minio:9000
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-scholarminio}
@@ -283,8 +285,14 @@ services:
       # 智能审稿: backend 按 slug 读审稿人 skill 的「评分人格」段注入评分轮 (见 peerreview)。
       # 只读挂载与 agent 同一份 committed skills 目录 (单一真相源)。
       PEERREVIEW_SKILLS_DIR: ${PEERREVIEW_SKILLS_DIR:-/app/reviewer-skills}
+      # 审查视角(lens)库:多技能组合 —— 每位审稿人可叠加 0-2 个 lens。backend 按 slug 读 <<<LENS>>> 段。
+      PEERREVIEW_LENSES_DIR: ${PEERREVIEW_LENSES_DIR:-/app/reviewer-lenses}
       # Prism 会话经 --add-dir 加载写作 skill 的目录(agent 容器内 <此处>/.claude/skills)。
       PRISM_SKILL_ADDDIR: ${PRISM_SKILL_ADDDIR:-/prism-add}
+      # Prism base 写作人格库(pw-*):backend 只读,按 slug 读 <<<WRITING_PERSONA>>> 段 in-band 注入(Phase 2)。
+      PRISM_PERSONAS_DIR: ${PRISM_PERSONAS_DIR:-/app/prism-personas}
+      # smart_search 会话经 --add-dir 加载检索策略 skill 的目录(agent 容器内 <此处>/.claude/skills)。
+      SMART_SEARCH_SKILL_ADDDIR: ${SMART_SEARCH_SKILL_ADDDIR:-/smart-search-add}
       # Prism 编译任务共享目录(与 scholar_prism_tex 同卷;后端写任务、watcher 编译回写)
       PRISM_WORK_DIR: ${PRISM_WORK_DIR:-/data/prism-work}
       # Go memory limit (75% of container memory limit)
@@ -294,6 +302,10 @@ services:
       # 审稿人 skill 库 (reviewer-roster + rv-*): backend 只读, 按 slug 读 SCORING_PERSONA 段。
       # P6:fork 退役后 skill 源移到 ./agent-skills/(与 executor 的 --add-dir 挂载同源)。
       - ./agent-skills/reviewer-skills:/app/reviewer-skills:ro
+      # 审查视角(lens)库 —— 多技能组合,backend 只读读 <<<LENS>>> 段拼进审稿人 prompt。
+      - ./agent-skills/reviewer-lenses:/app/reviewer-lenses:ro
+      # Prism base 写作人格库(pw-*):backend 只读读 <<<WRITING_PERSONA>>> 段 in-band 注入(Phase 2)。
+      - ./agent-skills/prism-personas:/app/prism-personas:ro
       # Prism 编译任务共享卷:后端写「任务目录+.request」,scholar_prism_tex watcher 轮询编译回写 PDF/log。
       - ./data/prism-work:/data/prism-work
       # P6 历史迁移:老 fork jsonl 只读挂入,开机自动折叠归档进 agent_session_archive(幂等,迁完即 no-op)。
@@ -361,7 +373,11 @@ services:
       # 切到 executor 后仍加载各自 skill(claw 渲染约束 / prism 写作格式 / peerreview 评审人格)。
       - ./agent-skills/claw-add:/claw-add:ro
       - ./agent-skills/prism-skills:/prism-add/.claude/skills:ro
+      # Prism 写作 lens(craft/rigor):按需加载(guides/ → 菜单行常驻 + Skill 工具懒加载正文)。
+      - ./agent-skills/prism-lenses:/prism-add/guides:ro
       - ./agent-skills/reviewer-skills:/peerreview-add/.claude/skills:ro
+      # smart_search 检索策略 skill(minicod-search-strategy):查询拆解 / 引文滚雪球 / 覆盖度自检。
+      - ./agent-skills/smart-search-skills:/smart-search-add/.claude/skills:ro
       # 时区跟随宿主(2026-07 补):oven/bun:1-slim 无 tzdata,TZ=":/etc/localtime" 此前指向
       # 不存在的文件 → 容器实际跑 UTC(北京时间每天 0:00-8:00 日期差一天,claw 跑 `date` 也是 UTC)。
       # JS 侧 src/tools/clock.ts 另有固定 +8 实现,不依赖此挂载;这里是给 Bash `date` / 日志对齐。
@@ -397,6 +413,8 @@ services:
     environment:
       <<: *tz-env
       COMPILE_TIMEOUT: ${PRISM_COMPILE_TIMEOUT:-60}
+      # 并发编译上限(评审 #11):默认 3,按宿主算力经 .env 调。必须与下面 CPU/内存配额同步。
+      COMPILE_MAX_PARALLEL: ${PRISM_COMPILE_MAX_PARALLEL:-3}
     network_mode: none
     read_only: true
     tmpfs:
@@ -409,10 +427,11 @@ services:
       - no-new-privileges:true
     deploy:
       resources:
+        # 配额随 MAXPAR 同步(评审 #11):每个 latexmk ~0.5CPU + 250-400MB;MAXPAR=3 → 2CPU/1.5G 才不 OOM(137)/不拖慢到超时。
         limits:
-          memory: 1G
-          cpus: "1.5"
-          pids: 256
+          memory: 1536M
+          cpus: "2.0"
+          pids: 384
         reservations:
           memory: 128M
     healthcheck:
@@ -536,7 +555,7 @@ services:
 networks:
   scholar-network:
     driver: bridge
-  # 安全隔离: backend↔agent↔egress-proxy 内部网,internal=无 NAT —— agent 出公网只能经 egress-proxy。
+  # 安全隔离: backend↔agent 内部网,internal=无 NAT —— 此网无出口,agent 出公网走下面的 egress-net。
   scholar-agent-net:
     driver: bridge
     internal: true

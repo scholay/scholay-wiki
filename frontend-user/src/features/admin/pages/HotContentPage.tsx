@@ -71,7 +71,7 @@ function CleanupConfigCard() {
 
   return (
     <section className="mb-6 rounded-lg border border-border bg-background p-4">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="text-sm font-bold text-foreground">清理策略</h3>
         <span className="text-2xs text-faint">
           每天 04:30 自动清理 · 改完下次清理按新值生效

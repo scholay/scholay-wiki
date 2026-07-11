@@ -65,6 +65,7 @@ type sessionHub struct {
 	replayBuf        [][]byte              // 当前进行中轮的 agent 帧(content_delta 已合并,有界),供迟到续流
 	inFlightUserText string                // 当前进行中轮的用户原文(供迟到者合成 user_echo)
 	inFlight         bool                  // 一轮回答进行中 → 回答中锁住
+	abortedTurn      bool                  // V3-4.4-2:本轮转发过 stop_generation → message_complete 广播时盖 aborted:true
 	closed           bool
 
 	// Web-native 重构 P0 影子日志(h.mu 守护):当前进行中轮的持久 turn id(0=无)+ 是否已
@@ -75,6 +76,9 @@ type sessionHub struct {
 
 	promptInjected atomic.Bool // 首条 user_message 注入 system prompt prefix,每 session 一次
 	pendingMark    atomic.Bool // 注入了但等 agent 首个 message_complete 才落库 prompt_injected
+	// V3-4.6-2 seed fail-closed:seed_history 写失败(重试后)置位 → 首条 user_message 先重 seed,
+	// 仍失败则拒绝放行(executor 重启后无协议/记忆/skills 裸跑是本层最重的雷,绝不静默)。
+	seedFailed atomic.Bool
 
 	stopPing  chan struct{}
 	closeOnce sync.Once
@@ -100,6 +104,21 @@ type subscriber struct {
 func userEchoFrame(content string) []byte {
 	b, _ := json.Marshal(map[string]string{"type": "user_echo", "content": content})
 	return b
+}
+
+// stampAbortedFrame:把 aborted:true 盖进 message_complete 帧(V3-4.4-2)。解析失败返回 nil(原帧照发,
+// 前端退化为旧行为 —— 宁可少个标记也不丢完成帧)。
+func stampAbortedFrame(data []byte) []byte {
+	var m map[string]any
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil
+	}
+	m["aborted"] = true
+	out, err := json.Marshal(m)
+	if err != nil {
+		return nil
+	}
+	return out
 }
 
 // busyFrame:回答中再发被拒时回给该订阅者(其它端的输入框本就因忙态置灰,这是竞态兜底)。
@@ -139,6 +158,21 @@ func (b *Bridge) removeHub(key string, h *sessionHub) {
 // hubKey 按 (feature, agent session) 寻址 —— session_id 全局唯一,feature 前缀仅命名空间。
 func hubKey(featureKey, sessionID string) string {
 	return featureKey + ":" + sessionID
+}
+
+// SessionBusy(V3-4.4-1)报告该 agent 会话是否有进行中的一轮(hub inFlight)。
+// prism 用它把「流式中 prepare/reject 抽换 agent 脚下的 cwd」拒为 409。无 hub(无人连接)= 不忙。
+// 单实例假设(hub 铁律)下内存判定即权威。
+func (f *FeatureBridge) SessionBusy(sessionID string) bool {
+	if sessionID == "" {
+		return false
+	}
+	if v, ok := f.bridge.hubs.Load(hubKey(f.spec.Key, sessionID)); ok {
+		if h, ok2 := v.(*sessionHub); ok2 {
+			return h.inFlightSnapshot()
+		}
+	}
+	return false
 }
 
 // newHub dial 上游 agent WS + 判定 prompt 注入状态 + 起上游读循环与 ping。失败(dial 不通)返回 error。
@@ -297,7 +331,10 @@ func (h *sessionHub) seedHistoryFromJournal() {
 	// 写 .tex)。故一并把「建会话时的注入面」带进 seed_history,executor 仅在对应字段为空时回填(不覆盖
 	// 活会话)。opts 由 buildCreateOptions 现算 → 每次重连都用最新 MemoryBlocks 渲染,重启后记忆更新
 	// 对存量会话即时生效(顺带修记忆读环断裂)。仅 executor feature 走到这里,均 InjectPromptOnFirstMsg。
-	opts, _ := h.f.buildCreateOptions(ctx, h.userID)
+	opts, delivered := h.f.buildCreateOptions(ctx, h.userID)
+	// Phase 2:项目级写作画像(prism)拼进 AppendSystemPrompt —— 以 sessionID 为身份,置于 buildCreateOptions
+	// (user 级系统提示 + MemoryBlocks)之后。放在 hasOpts 判定之前,使「仅画像」也能触发 seed 下发。
+	opts = h.f.applySessionProfile(ctx, h.sessionID, opts)
 	hasOpts := opts != nil && (opts.AppendSystemPrompt != "" || len(opts.AddDirs) > 0 || len(opts.DisallowedTools) > 0)
 	if len(msgs) == 0 && title == "" && !hasOpts {
 		return // 全新会话:无历史/标题/注入面,executor 从空起(并会生成标题)
@@ -321,9 +358,35 @@ func (h *sessionHub) seedHistoryFromJournal() {
 	if ferr != nil {
 		return
 	}
-	if werr := h.writeAgent(gorillaws.TextMessage, frame); werr != nil {
-		slog.Debug("agentbridge hub: seed_history write failed", "session_id", h.sessionID, "err", werr)
+	// V3-4.6-2 seed fail-closed:此前写失败仅 slog.Debug → executor 重启后存量会话可能在
+	// 「无协议/无记忆/无 skills」状态静默裸跑(行为漂移,如 prism 直接写 .tex)。改为:有限重试 +
+	// 终败 slog.Error + 置 seedFailed,handleUserMessage 先重 seed、仍失败则拒绝放行首条消息。
+	var werr error
+	for attempt := 0; attempt < 3; attempt++ {
+		if attempt > 0 {
+			time.Sleep(100 * time.Millisecond)
+		}
+		if werr = h.writeAgent(gorillaws.TextMessage, frame); werr == nil {
+			break
+		}
+	}
+	if werr != nil {
+		slog.Error("agentbridge hub: seed_history write failed after retries (fail-closed: first message will be gated)",
+			"feature", h.f.spec.Key, "session_id", h.sessionID, "err", werr)
+		h.seedFailed.Store(true)
 	} else {
+		h.seedFailed.Store(false)
+		// V4 token 去重:seed 已把「系统提示+记忆」经 appendSystemPrompt 系统级下发(delivered=true)→
+		// 标记已注入,抑制首条 user_message 的 in-band 前缀回落。否则(prism 建会话不走 CreateNewSession、
+		// 从不 markPromptInjectedSync)协议+记忆会**双份下发**,且 in-band 那份永远留在 history、
+		// 此后每轮每次调用都重复计费(~2K tok × N call)。同步落库:executor 重启后 hub 重连会再 seed,
+		// DB 标记只负责抑制 in-band,不影响 seed 补发。
+		if delivered && !h.promptInjected.Load() {
+			h.promptInjected.Store(true)
+			if perr := h.f.bridge.repo.MarkPromptInjected(h.sessionID); perr != nil {
+				slog.Debug("agentbridge hub: mark prompt injected after seed failed", "session_id", h.sessionID, "err", perr)
+			}
+		}
 		slog.Info("agentbridge hub: seeded executor history", "feature", h.f.spec.Key, "session_id", h.sessionID, "messages", len(msgs))
 	}
 }
@@ -525,6 +588,7 @@ func (h *sessionHub) beginTurn(content string) bool {
 	h.inFlight = true
 	h.replayBuf = nil
 	h.inFlightUserText = content
+	h.abortedTurn = false // 新一轮:清上一轮的 stop 标记
 	return true
 }
 
@@ -631,12 +695,26 @@ func (h *sessionHub) upstreamLoop() {
 						})
 					}
 				}
+				// V3-4.4-2:本轮被 stop 过 → 给完成帧盖 aborted:true,前端据此走确认门而非 autoApply
+				// (中断的半截稿静默固化是信任级故障)。必须在 endTurn 前读标记(endTurn 不清它,beginTurn 清)。
+				h.mu.Lock()
+				wasAborted := h.abortedTurn
+				h.mu.Unlock()
+				if wasAborted {
+					if stamped := stampAbortedFrame(data); stamped != nil {
+						data = stamped
+					}
+				}
 				// 轮结束:先解锁忙态,再广播完成帧(让所有端解除置灰)。
 				h.endTurn()
 			case "error":
 				// C2:executor 的 error 终帧(round-cap / 上游失败 / abort 等)也必须清 inFlight,
 				// 否则该会话永远卡 busy(ping/pong 保活使读 deadline 永不触发)。仍向下广播 error 给前端解锁。
 				h.endTurn()
+				// 评审 #4:执行器 error 帧可能带原始英文 / 内部机制名(如 "awaiting PushConfig")。
+				// 用户面绝不回显内部标识 —— 按 code 换成友好中文再广播;原文留 slog 便于排查。
+				slog.Debug("agentbridge hub: agent error frame", "feature", f.spec.Key, "raw", string(data))
+				data = sanitizeAgentErrorFrame(data)
 			case "token_usage":
 				if u, kind, ok := extractTokenUsageFrame(data); ok {
 					uid, feat, knd, sid, rec := h.userID, f.spec.Key, kind, h.sessionID, f.bridge.llmRec
@@ -765,6 +843,15 @@ func (s *subscriber) readLoop() {
 			}
 		default:
 			// stop_generation / permission_response 等控制帧 → 转发到唯一上游。
+			// V3-4.4-2:executor 的 turnLoop 在 abort 后 finally 照发 message_complete(终帧守卫),
+			// 帧层与成功轮不可区分 → hub 是唯一知道「这轮被 stop 过」的地方,记下来供完成帧盖章。
+			if frameType(data) == "stop_generation" {
+				h.mu.Lock()
+				if h.inFlight {
+					h.abortedTurn = true
+				}
+				h.mu.Unlock()
+			}
 			if err := h.writeAgent(mt, data); err != nil {
 				slog.Debug("agentbridge hub: agent write end", "feature", h.f.spec.Key, "err", err)
 				return
@@ -782,10 +869,24 @@ func (s *subscriber) sendSelf(frame []byte) {
 	}
 }
 
-// handleUserMessage 处理一条 user_message:Touch → 配额 → 回答中锁 → 首条注入 prefix → 转发上游 → 回声其他端。
+// handleUserMessage 处理一条 user_message:Touch → seed 守卫 → 配额 → 回答中锁 → 首条注入 prefix → 转发上游 → 回声其他端。
 func (h *sessionHub) handleUserMessage(s *subscriber, data []byte) {
 	f := h.f
 	content, _ := extractUserMessageContent(data)
+
+	// V3-4.6-2 seed fail-closed:seed 曾写失败 → 先重试一次;仍失败则拒绝本条(绝不让会话在
+	// 无协议/无记忆/无 skills 状态下静默作答)。重 seed 成功会清 seedFailed,正常放行。
+	if h.seedFailed.Load() {
+		h.seedHistoryFromJournal()
+		if h.seedFailed.Load() {
+			frame, _ := json.Marshal(map[string]any{
+				"type": "error", "code": "seed_failed",
+				"message": "会话上下文尚未就绪,请稍后重试(如持续出现请刷新页面)", "retryable": true,
+			})
+			s.sendSelf(frame)
+			return
+		}
+	}
 
 	// 发了话才算会话活跃 → Touch last_accessed_at(侧边栏置顶)。
 	if err := f.bridge.repo.Touch(h.sessionID); err != nil {
@@ -801,7 +902,7 @@ func (h *sessionHub) handleUserMessage(s *subscriber, data []byte) {
 			frame, _ := json.Marshal(map[string]any{
 				"type":      "error",
 				"code":      classifyPreUserMessageError(err),
-				"message":   err.Error(),
+				"message":   preUserMessageUserText(err),
 				"retryable": !errors.Is(err, ErrQuotaExceeded),
 			})
 			s.sendSelf(frame)
@@ -873,6 +974,15 @@ func (h *sessionHub) handleUserMessage(s *subscriber, data []byte) {
 			s.sendSelf(frame)
 			h.endTurn()
 			return
+		}
+	}
+
+	// SS#2:给 3 个 chat feature 的 user_message 盖上有界透支预算(执行器据此让 agent 自我配速 + 到界优雅
+	// 收尾)。每轮现算(read-only,不预扣)→ 在途一轮至多超支一轮。unlimited(不限额/收费关)不盖 →
+	// 执行器无预算。peerreview BudgetProvider=nil → 不盖 → 任务型不受影响。
+	if f.spec.BudgetProvider != nil {
+		if soft, hard, unlimited := f.spec.BudgetProvider(h.hookCtx, h.userID); !unlimited {
+			data = stampBudget(data, soft, hard)
 		}
 	}
 

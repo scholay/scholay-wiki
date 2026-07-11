@@ -66,6 +66,8 @@ type Project struct {
 	DocStruct        *string    `gorm:"column:doc_struct" json:"-"`
 	StructVersionID  *uint      `gorm:"column:struct_version_id" json:"-"`
 	AgentSessionID   *string    `gorm:"column:agent_session_id" json:"-"`
+	WritingProfile   *string    `gorm:"column:writing_profile" json:"-"` // 写作画像 JSON(Phase 2):base 文体/学科人格 + genre + source + needs_refine
+	Terminology      *string    `gorm:"column:terminology" json:"-"`    // 术语表真源 markdown(V4-④:轮前物化 cwd terminology.md、轮末回收)
 	ReadOnlyFlag     bool       `gorm:"-" json:"read_only"` // 计算字段(AfterFind 填),前端据此决定旧版工作台是否只读
 	Status           string     `gorm:"column:status" json:"status"`
 	CreatedAt        time.Time  `gorm:"column:created_at" json:"created_at"`

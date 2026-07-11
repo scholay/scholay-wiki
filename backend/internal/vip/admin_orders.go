@@ -71,16 +71,31 @@ func (o *OrderService) AdminList(f AdminOrderFilter, limit, offset int) ([]Admin
 	return rows, total, err
 }
 
-// AdminOrderTotals 窗口内 KPI。
+// AdminOrderTotals KPI —— 每个指标都给「今日 / 窗口 / 全部」三口径(前端卡片三行展示)。
 type AdminOrderTotals struct {
-	Revenue             float64 `json:"revenue"`              // 窗口内已支付总额
-	RechargeRevenue     float64 `json:"recharge_revenue"`     // 其中:充值
-	SubscriptionRevenue float64 `json:"subscription_revenue"` // 其中:订阅
-	RevenueToday        float64 `json:"revenue_today"`
-	PaidCount           int64   `json:"paid_count"`
-	PendingCount        int64   `json:"pending_count"`
-	ExpiredCount        int64   `json:"expired_count"`
-	RedeemedCodes       int64   `json:"redeemed_codes"` // 窗口内兑换码核销数
+	// 营收(已支付 final_amount 之和)
+	RevenueToday float64 `json:"revenue_today"`
+	Revenue      float64 `json:"revenue"` // 窗口
+	RevenueAll   float64 `json:"revenue_all"`
+	// 营收构成 · 充值
+	RechargeToday   float64 `json:"recharge_today"`
+	RechargeRevenue float64 `json:"recharge_revenue"` // 窗口
+	RechargeAll     float64 `json:"recharge_all"`
+	// 营收构成 · 订阅
+	SubscriptionToday   float64 `json:"subscription_today"`
+	SubscriptionRevenue float64 `json:"subscription_revenue"` // 窗口
+	SubscriptionAll     float64 `json:"subscription_all"`
+	// 已支付订单数
+	PaidToday int64 `json:"paid_today"`
+	PaidCount int64 `json:"paid_count"` // 窗口
+	PaidAll   int64 `json:"paid_all"`
+	// 兑换码核销数
+	RedeemedToday int64 `json:"redeemed_today"`
+	RedeemedCodes int64 `json:"redeemed_codes"` // 窗口
+	RedeemedAll   int64 `json:"redeemed_all"`
+	// 订单状态(窗口内,次要信息)
+	PendingCount int64 `json:"pending_count"`
+	ExpiredCount int64 `json:"expired_count"`
 }
 
 // AdminRevenueDay 每日营收一格(充值/订阅 两段,前端堆叠柱)。
@@ -110,32 +125,39 @@ func (o *OrderService) AdminStats(days int) (*AdminOrderStatsResult, error) {
 	res := &AdminOrderStatsResult{Days: days, Daily: []AdminRevenueDay{}}
 	t := &res.Totals
 
-	// 营收(已支付,按支付时间落窗口;一次查出 总额/充值/订阅/单数)
+	// 营收(已支付,按支付时间;一次查出 总额/充值/订阅/单数)。今日 / 窗口 / 全部 各跑一次。
 	type revRow struct {
 		Revenue      float64
 		Recharge     float64
 		Subscription float64
 		Paid         int64
 	}
-	var rv revRow
-	if err := o.db.Table("orders").
-		Select("COALESCE(SUM(final_amount),0) AS revenue, "+
-			"COALESCE(SUM(CASE WHEN order_type='recharge' THEN final_amount END),0) AS recharge, "+
-			"COALESCE(SUM(CASE WHEN order_type='subscription' THEN final_amount END),0) AS subscription, "+
-			"COUNT(*) AS paid").
-		Where("status = 'paid' AND payment_time >= ?", cutoff).
-		Scan(&rv).Error; err != nil {
-		return nil, err
+	const revSelect = "COALESCE(SUM(final_amount),0) AS revenue, " +
+		"COALESCE(SUM(CASE WHEN order_type='recharge' THEN final_amount END),0) AS recharge, " +
+		"COALESCE(SUM(CASE WHEN order_type='subscription' THEN final_amount END),0) AS subscription, " +
+		"COUNT(*) AS paid"
+	// since=nil → 全部(不限支付时间;paid 订单 payment_time 恒有值,全部口径取所有已支付)。
+	queryRev := func(since *time.Time) revRow {
+		var rv revRow
+		q := o.db.Table("orders").Select(revSelect).Where("status = 'paid'")
+		if since != nil {
+			q = q.Where("payment_time >= ?", *since)
+		}
+		q.Scan(&rv)
+		return rv
 	}
-	t.Revenue, t.RechargeRevenue, t.SubscriptionRevenue, t.PaidCount = rv.Revenue, rv.Recharge, rv.Subscription, rv.Paid
+	win, td, all := queryRev(&cutoff), queryRev(&todayStart), queryRev(nil)
+	t.Revenue, t.RechargeRevenue, t.SubscriptionRevenue, t.PaidCount = win.Revenue, win.Recharge, win.Subscription, win.Paid
+	t.RevenueToday, t.RechargeToday, t.SubscriptionToday, t.PaidToday = td.Revenue, td.Recharge, td.Subscription, td.Paid
+	t.RevenueAll, t.RechargeAll, t.SubscriptionAll, t.PaidAll = all.Revenue, all.Recharge, all.Subscription, all.Paid
 
-	o.db.Table("orders").
-		Select("COALESCE(SUM(final_amount),0)").
-		Where("status = 'paid' AND payment_time >= ?", todayStart).
-		Scan(&t.RevenueToday)
+	// 订单状态(窗口内,次要)
 	o.db.Table("orders").Where("status = 'pending' AND created_at >= ?", cutoff).Count(&t.PendingCount)
 	o.db.Table("orders").Where("status = 'expired' AND created_at >= ?", cutoff).Count(&t.ExpiredCount)
+	// 兑换码核销:今日 / 窗口 / 全部
+	o.db.Table("vip_code_redemptions").Where("created_at >= ?", todayStart).Count(&t.RedeemedToday)
 	o.db.Table("vip_code_redemptions").Where("created_at >= ?", cutoff).Count(&t.RedeemedCodes)
+	o.db.Table("vip_code_redemptions").Count(&t.RedeemedAll)
 
 	// 每日营收(充值/订阅 拆段)。DATE_FORMAT 而非 DATE():DSN parseTime 坑(同 llmusage)。
 	var sparse []AdminRevenueDay

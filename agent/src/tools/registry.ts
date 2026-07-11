@@ -2,17 +2,21 @@
 // 这些是 Scholay 自有实现,**非** cc-haha 工具移植。smart_search 不用(MCP-only);
 // claw(+bash)/prism(file-edit)在 step 7 全面启用 + sandbox 加固(step 8 bwrap)。
 
-import { resolve, relative, dirname } from "node:path";
+import { resolve, relative, dirname, join } from "node:path";
 import { readFile, writeFile, mkdir, readdir, stat } from "node:fs/promises";
 import { wrapBash } from "../sandbox/bwrap.ts";
-import { profileFor } from "../sandbox/profile.ts";
+import { profileFor, unsandboxedBashGate } from "../sandbox/profile.ts";
 import { confinePath } from "../sandbox/confine.ts";
 import { beijingNow } from "./clock.ts";
+import { log } from "../obs/log.ts";
 
 export interface ToolCtx {
   workDir: string;
   allowBash: boolean;
   net: "open" | "none";
+  // --add-dir 目录:Skill 工具据此定位 <dir>/guides/<name>/SKILL.md(按需技能正文)。
+  // 其它工具不用;可空(无按需技能的会话)。
+  addDirs?: string[];
 }
 
 export interface ToolResult {
@@ -65,8 +69,16 @@ function bashEnv(): Record<string, string> {
 const readTool: BuiltinTool = {
   name: "Read",
   description:
-    "Read a UTF-8 text file within the session working directory. Binary files (PDF, Office docs, etc.) are NOT supported directly — convert them to text first via Bash (e.g. `pdftotext`, or python-docx/openpyxl), then Read the output.",
-  input_schema: { type: "object", properties: { file_path: { type: "string" } }, required: ["file_path"] },
+    "Read a UTF-8 text file within the session working directory. Binary files (PDF, Office docs, etc.) are NOT supported directly — convert them to text first via Bash (e.g. `pdftotext`, or python-docx/openpyxl), then Read the output. For large files, pass offset/limit (1-based line number + line count) to read a narrower section.",
+  input_schema: {
+    type: "object",
+    properties: {
+      file_path: { type: "string" },
+      offset: { type: "number", description: "1-based line number to start reading from (optional)" },
+      limit: { type: "number", description: "max lines to read (optional)" },
+    },
+    required: ["file_path"],
+  },
   parallelSafe: true,
   async run(input, ctx) {
     try {
@@ -84,10 +96,28 @@ const readTool: BuiltinTool = {
         return fail("read failed: binary file not supported." + hint);
       }
       let text = buf.toString("utf8");
+      // V3-4.1-2 前置:offset/limit 局部读(1-based 行号),供 microcompaction 存根「重读窄段」与大文档定点读。
+      const offset = Number(input.offset) > 0 ? Math.floor(Number(input.offset)) : 0;
+      const limit = Number(input.limit) > 0 ? Math.floor(Number(input.limit)) : 0;
+      if (offset > 0 || limit > 0) {
+        const lines = text.split("\n");
+        const start = offset > 0 ? offset - 1 : 0;
+        if (start >= lines.length) {
+          return fail(`read failed: offset ${offset} is beyond end of file (${lines.length} lines).`);
+        }
+        const end = limit > 0 ? Math.min(start + limit, lines.length) : lines.length;
+        const slice = lines.slice(start, end).join("\n");
+        const head = `[lines ${start + 1}-${end} of ${lines.length}]\n`;
+        text = head + slice;
+        if (text.length > MAX_READ_BYTES) {
+          text = text.slice(0, MAX_READ_BYTES) + `\n\n[... truncated at ${MAX_READ_BYTES} bytes. Use a smaller limit.]`;
+        }
+        return ok(text);
+      }
       if (buf.length > MAX_READ_BYTES) {
         text =
           text.slice(0, MAX_READ_BYTES) +
-          `\n\n[... truncated: file is ${buf.length} bytes, showing first ${MAX_READ_BYTES}. Use Grep or read a narrower section.]`;
+          `\n\n[... truncated: file is ${buf.length} bytes, showing first ${MAX_READ_BYTES}. Use Grep or Read with offset/limit to read a narrower section.]`;
       }
       return ok(text);
     } catch (e) {
@@ -225,6 +255,10 @@ const bashTool: BuiltinTool = {
   parallelSafe: false,
   async run(input, ctx) {
     if (!ctx.allowBash) return fail("bash not permitted for this feature");
+    // 生产 secure-by-default:未沙箱化的 Bash 在多租户下会跨会话读文件 / 经 /proc 偷密钥,拒绝执行。
+    // 能力本身保留 —— 开 bwrap(EXECUTOR_SANDBOX_MODE=bwrap)或显式放行(EXECUTOR_ALLOW_UNSANDBOXED_BASH=1)即恢复。
+    const gate = unsandboxedBashGate();
+    if (!gate.ok) return fail("bash disabled: " + gate.reason);
     try {
       // SANDBOX_MODE=bwrap(仅生产真内核)→ 包进 bubblewrap jail;none(本机/默认)→ 直跑。
       const profile = profileFor({ workDir: ctx.workDir, net: ctx.net, allowBash: ctx.allowBash });
@@ -274,7 +308,66 @@ const todayDateTool: BuiltinTool = {
   },
 };
 
-const all: BuiltinTool[] = [readTool, writeTool, editTool, globTool, grepTool, bashTool, todayDateTool];
+// ── Skill:按需加载一份深度技能指南(guides/<name>/SKILL.md)────────────────────
+// 与文件工具不同,它读的是**挂载的只读技能目录**(addDirs 下的 guides/),刻意不走 cwd confine ——
+// 这是可信的平台内容(随镜像/挂载分发,非用户可控路径);name 按 slug 白名单校验防路径穿越。
+// 可选技能名 + 何时用,已由 loader 注入 system 的「技能菜单」里,模型据此按名字加载。
+// 后端 permissionAllowed 早已放行 Skill(inline 执行,skill 正文里再调的工具仍逐个回后端裁决)。
+const SKILL_NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
+// guides 通常 2-4KB;设帽防有人提交超大 guide 时 Skill 静默把整份灌进上下文烧 token(评审 low)。
+const MAX_SKILL_BODY = 16000;
+
+function stripFrontmatter(md: string): string {
+  const m = md.match(/^﻿?\s*---\r?\n[\s\S]*?\r?\n---\r?\n?/);
+  return (m ? md.slice(m[0].length) : md).trim();
+}
+
+function capSkillBody(s: string): string {
+  return s.length > MAX_SKILL_BODY ? s.slice(0, MAX_SKILL_BODY) + "\n\n[... 指南过长,已截断]" : s;
+}
+
+async function listGuideNames(addDirs: string[]): Promise<string[]> {
+  const names: string[] = [];
+  for (const dir of addDirs) {
+    try {
+      for (const e of await readdir(join(dir, "guides"), { withFileTypes: true })) {
+        if (e.isDirectory()) names.push(e.name);
+      }
+    } catch {
+      /* 该 addDir 无 guides/ */
+    }
+  }
+  return names.sort();
+}
+
+const skillTool: BuiltinTool = {
+  name: "Skill",
+  description:
+    "Load the full step-by-step guide for a named skill BEFORE doing that kind of task. The available skill names and when to use each are listed in the \"技能菜单 / Skill menu\" section of your system context. Call this first for topic-selection / rebuttal writing / data analysis & figures / methodology & statistics requests, then follow the returned guide. Input: { name }.",
+  input_schema: { type: "object", properties: { name: { type: "string" } }, required: ["name"] },
+  parallelSafe: true,
+  async run(input, ctx) {
+    const name = String(input.name ?? "").trim();
+    if (!SKILL_NAME_RE.test(name)) {
+      return fail("skill load failed: invalid skill name. Pick one exactly from the skill menu in your system context.");
+    }
+    for (const dir of ctx.addDirs ?? []) {
+      try {
+        const body = await readFile(join(dir, "guides", name, "SKILL.md"), "utf8");
+        // C1 命中率计量:每次按需加载记一行(docker logs 可 grep skill_loaded 聚合命中率;
+        // 零命中的 lens = 纯 token 负债,归档候选)。workDir 尾段即 sessionID。
+        log.info("skill_loaded", { skill: name, session: ctx.workDir.split("/").pop() ?? "" });
+        return ok(capSkillBody(stripFrontmatter(body)));
+      } catch {
+        /* 换下一个 addDir 试 */
+      }
+    }
+    const avail = await listGuideNames(ctx.addDirs ?? []);
+    return fail(`skill "${name}" not found. Available skills: ${avail.length ? avail.join(", ") : "(none for this session)"}.`);
+  },
+};
+
+const all: BuiltinTool[] = [readTool, writeTool, editTool, globTool, grepTool, bashTool, todayDateTool, skillTool];
 
 export const builtinRegistry: Map<string, BuiltinTool> = new Map(all.map((t) => [t.name, t]));
 

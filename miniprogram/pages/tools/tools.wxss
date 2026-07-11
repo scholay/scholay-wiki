@@ -1,0 +1,134 @@
+.tools-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  background: #fff;
+  border-bottom: 1rpx solid var(--border);
+  padding: 16rpx 24rpx 12rpx;
+}
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+.search-input {
+  flex: 1;
+  height: 68rpx;
+  background: var(--bg);
+  border-radius: 34rpx;
+  padding: 0 28rpx;
+  font-size: 28rpx;
+}
+.search-go {
+  color: #cc2222;
+  font-size: 30rpx;
+  padding: 0 8rpx;
+}
+.chips {
+  white-space: nowrap;
+  margin-top: 16rpx;
+}
+.chip {
+  display: inline-block;
+  padding: 8rpx 24rpx;
+  margin-right: 16rpx;
+  background: var(--bg);
+  color: var(--text-weak);
+  border-radius: 28rpx;
+  font-size: 26rpx;
+}
+.chip.on {
+  background: #cc2222;
+  color: #fff;
+}
+
+.tools-body {
+  padding: 200rpx 24rpx calc(120rpx + env(safe-area-inset-bottom));
+}
+.state {
+  padding: 120rpx 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24rpx;
+  color: var(--text-weak);
+  font-size: 28rpx;
+}
+.state.error {
+  color: var(--red);
+}
+.count {
+  color: var(--text-weak);
+  font-size: 24rpx;
+  margin: 8rpx 0 16rpx;
+}
+.tool-row {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid var(--border);
+}
+.logo-box {
+  position: relative;
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 16rpx;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.logo-initial {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 40rpx;
+  font-weight: 700;
+}
+.logo-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: #fff;
+}
+.tool-main {
+  flex: 1;
+  min-width: 0;
+}
+.tool-name-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+.tool-name {
+  font-size: 32rpx;
+  font-weight: 600;
+}
+.price {
+  font-size: 22rpx;
+  color: var(--text-weak);
+  background: var(--bg);
+  padding: 2rpx 12rpx;
+  border-radius: 6rpx;
+}
+.tool-tagline {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  margin-top: 6rpx;
+  font-size: 26rpx;
+  color: var(--text-weak);
+  line-height: 1.5;
+}
+.more {
+  text-align: center;
+  color: var(--text-weak);
+  font-size: 24rpx;
+  padding: 32rpx 0;
+}

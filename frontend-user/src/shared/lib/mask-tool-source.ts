@@ -54,10 +54,24 @@ export function maskToolSource(value: unknown): unknown {
   return value;
 }
 
-/** 把字符串(常见于 JSON 文本结果)里的 "source":"<内部 enum>" 替换成品牌名,命中不到的原样留。 */
+/**
+ * 无歧义的内部源 token —— 只有这些「一看就是内部实现」的写法才在自由文本里全局替换成品牌名。
+ * 刻意不含 semantic / graph / medicine / journal / discovery 这类与普通英文或品牌名撞词的 token,
+ * 避免把正文里合法的 "semantic web" / "medicine" 误伤。
+ */
+const UNAMBIGUOUS_INTERNAL_SOURCE =
+  /\b(open_?alex|semantic_?scholar|pub_?med|stc|olx|pmd|jnl)\b/gi;
+
+/**
+ * 把字符串里裸露的内部数据源替换成品牌名(评审 #7)。两道:
+ *   1. `"source":"<enum>"` 这种 JSON 键值(含命中不到的真实 venue 原样留);
+ *   2. 自由文本 / 非 `source` 键 / 错误串里裸露的无歧义内部 token(如 tool_result 报错文本里的 "openalex")。
+ */
 function maskSourceInString(s: string): string {
-  return s.replace(/("source"\s*:\s*")([A-Za-z_]+)(")/g, (whole, pre, val, post) => {
+  let out = s.replace(/("source"\s*:\s*")([A-Za-z_]+)(")/g, (whole, pre, val, post) => {
     const brand = SOURCE_BRAND[val.trim().toLowerCase()];
     return brand ? pre + brand + post : whole;
   });
+  out = out.replace(UNAMBIGUOUS_INTERNAL_SOURCE, (tok) => SOURCE_BRAND[tok.toLowerCase()] ?? tok);
+  return out;
 }

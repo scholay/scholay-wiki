@@ -29,9 +29,13 @@ export interface ChiefVerdictPanelProps {
 
 export function ChiefVerdictPanel({ submissionId, chief: chiefProp, reviewers, status }: ChiefVerdictPanelProps) {
   // 主审 chief slot 流 — 主审正在写决议时实时显示。同 ReviewerDetailPanel 重入逻辑。
+  // 评审 top#3:必须等 3 位审稿人都出报告(chief slot 才在后端 active)再订阅,否则在 computing_methodology
+  // 期就订阅拿到空流、且 deps 不变永不重订阅 → 主审直播被整段错过(只能靠轮询蹦出来)。reviewersAllDone
+  // 由 false→true 触发 useStreamingPartial 重订阅,SubscribePending 从头回放主审决议流。
+  const reviewersAllDone = !!reviewers.alpha && !!reviewers.beta && !!reviewers.gamma;
   const stream = useStreamingPartial({
     submissionId,
-    enabled: !!submissionId && !chiefProp,
+    enabled: !!submissionId && !chiefProp && reviewersAllDone,
     slot: 'reviewer:chief',
   });
 

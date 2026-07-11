@@ -54,6 +54,17 @@ type AgentUsage struct {
 // content 是 user_message.content 的原始字符串 (注入 prefix 之前); userID 已经过 JWT 校验。
 type PreUserMessageFn func(ctx context.Context, userID uint, content string) error
 
+// BudgetProviderFn(SS#2)返回该用户此刻的有界透支预算(raw token 口径):
+// soft = 到日上限还剩,hard = 到「上限+透支带」还剩(均可为负)。unlimited=true(不限额/收费关)
+// 时 hub 不盖章 → 执行器无预算 → 行为不变。只读、不预扣;计费仍走后置 AddUsage 精确累加。
+type BudgetProviderFn func(ctx context.Context, userID uint) (soft, hard int64, unlimited bool)
+
+// SessionProfileFn(Phase 2, prism)返回该**会话**的项目级 in-band 注入块(如 prism 的写作画像)。
+// 与 MemoryBlocks(user 级)不同:身份是 sessionID(项目级),故单开一条 provider——hub seed 时它有
+// sessionID 而 buildCreateOptions 只有 userID。返回空串 = 不注入(该会话无项目/未定画像)。
+// hub 在 seed_history 组装 opts 后、把它拼在 AppendSystemPrompt 之后(clone-before-mutate)。
+type SessionProfileFn func(ctx context.Context, sessionID string) string
+
 // OnTitleResultFn 在 agent 生成会话标题(session_title_updated, aiGenerated)后异步调用。
 // 供标题真源在 backend DB 的 feature(prism)落库;title 已是 agent 解析好的纯标题文本,
 // 实现方仍应做一道清洗(clamp/junk)+ 幂等落库(仅默认占位时写)。
@@ -157,6 +168,10 @@ type FeatureSpec struct {
 	// nil → 不做检查直接放行。详见 PreUserMessageFn 定义。
 	PreUserMessage PreUserMessageFn
 
+	// BudgetProvider(SS#2)非 nil 时,hub 每条 user_message 现算「有界透支预算」并盖到帧上,
+	// 执行器据此让 agent 自我配速 + 到界优雅收尾。nil = 不盖(peerreview 任务型,必须跑完)。
+	BudgetProvider BudgetProviderFn
+
 	// OnMessageComplete 在每轮 agent 回答完 (拿到 message_complete) 后异步调用。
 	// nil → 不记账 (usage 仅在 agent 端 transcript 留底)。
 	OnMessageComplete OnMessageCompleteFn
@@ -166,6 +181,10 @@ type FeatureSpec struct {
 	// 留 nil;仅 prism(真源 prism_projects.title)设它 → 解析+清洗后 UpdateProjectTitleIfDefault。
 	// sessionID 是 agent 会话 id;实现方据此反查归属对象(prism: project)。详见 OnTitleResultFn。
 	OnTitleResult OnTitleResultFn
+
+	// SessionProfile(Phase 2, prism)非 nil 时,hub seed_history 会用 sessionID 现算「项目级 in-band 注入块」
+	// (prism 写作画像:base 文体/学科人格),拼在 AppendSystemPrompt 之后。nil = 不注入。详见 SessionProfileFn。
+	SessionProfile SessionProfileFn
 
 	// DefaultTier 是该 feature 交互会话默认用的模型档位(模型路由 方案A·A1)。值域 main|haiku|sonnet|opus
 	// (映射 agent_config 槽位;haiku=便宜档/flash,main=主档/pro)。空 = 不由 hub 下发 tier(peerreview

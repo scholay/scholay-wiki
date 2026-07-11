@@ -481,6 +481,22 @@ func (s *Service) ResolveToolBySlug(slug string) (*seo.ToolSSRMeta, error) {
 // SitemapCount 已上线工具总数 + 最近更新时间(给 sitemap 索引算页数 + lastmod)。
 func (s *Service) SitemapCount() (int64, time.Time, error) { return s.repo.SitemapCount() }
 
+// SitemapPages 返回工具 sitemap 的分片总数 + 最新 lastmod(YYYY-MM-DD 粒度)。
+// 供 seo 主 sitemap 索引「直接列出各叶子分片 /sitemap-tools-N.xml」用 —— 避免主索引引用
+// /sitemap-tools.xml(索引套索引,协议/Google 不递归)。分片数用与 sitemap.go 同一个
+// toolSitemapPageSize 计算,单一真源。无数据 / 出错时返回 (0, ""),索引层据此不列任何分片。
+func (s *Service) SitemapPages() (int, string) {
+	count, lastMod, err := s.repo.SitemapCount()
+	if err != nil || count <= 0 {
+		return 0, ""
+	}
+	pages := int((count + toolSitemapPageSize - 1) / toolSitemapPageSize)
+	if pages < 1 {
+		pages = 1
+	}
+	return pages, lastMod.Format("2006-01-02")
+}
+
 // SitemapPage 第 page 页(1-based)已上线工具的 slug + updated_at,按 id 升序稳定分页。
 func (s *Service) SitemapPage(page, size int) ([]SitemapRow, error) {
 	return s.repo.SitemapPage(page, size)

@@ -95,19 +95,19 @@ export function FeatureToolsPage() {
       title="功能广场"
       description={`学术工具黄页 · 共 ${total} 个`}
       actions={
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline" size="sm"><Link to="/admin/tools-webhooks"><WebhookIcon className="size-3.5" />Webhook</Link></Button>
           <Button asChild size="sm"><Link to="/admin/tools-import"><Upload className="size-3.5" />导入工具</Link></Button>
         </div>
       }
     >
       <div className="mb-4 flex flex-wrap gap-2">
-        <Input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder="搜索名称…" className="max-w-xs" />
-        <select className={`${selectCls} max-w-[12rem]`} value={category} onChange={(e) => { setCategory(e.target.value); setPage(1); }}>
+        <Input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder="搜索名称…" className="w-full sm:max-w-xs" />
+        <select className={`${selectCls} sm:max-w-[12rem]`} value={category} onChange={(e) => { setCategory(e.target.value); setPage(1); }}>
           <option value="">全部分类</option>
           {(catData?.categories ?? []).map((c) => <option key={c.slug} value={c.slug}>{c.label} ({c.count})</option>)}
         </select>
-        <select className={`${selectCls} max-w-[8rem]`} value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
+        <select className={`${selectCls} sm:max-w-[8rem]`} value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
           <option value="">全部状态</option>
           <option value="published">已上线</option>
           <option value="draft">草稿</option>
@@ -179,12 +179,12 @@ function EditDialog({
           className="max-h-[70vh] space-y-3 overflow-y-auto pr-1"
         >
           <Field label="名称"><Input name="name" defaultValue={tool.name} required /></Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="英文名"><Input name="name_en" defaultValue={tool.name_en} /></Field>
             <Field label="Logo URL"><Input name="logo" defaultValue={tool.logo} placeholder="https://" /></Field>
           </div>
           <Field label="一句话简介"><Input name="tagline" defaultValue={tool.tagline} /></Field>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Field label="分类">
               <select name="category" defaultValue={tool.category} className={selectCls}>
                 {categories.map((c) => <option key={c.slug} value={c.slug}>{c.label}</option>)}

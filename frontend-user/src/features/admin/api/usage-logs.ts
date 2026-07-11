@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
+import { localDateKey } from '@/shared/lib/daily-trend';
 
 /**
  * 本文件 4 个 interface(UsageLog / UsageLogParams / UsageLogSummary / UsageLogConfig)
@@ -114,7 +115,7 @@ export async function exportUsageLogsCSV(params: UsageLogParams) {
   );
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
-  link.download = `usage-logs-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.download = `usage-logs-${localDateKey()}.csv`;
   link.click();
   URL.revokeObjectURL(link.href);
 }

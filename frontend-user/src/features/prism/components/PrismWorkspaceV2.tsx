@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
-import { Play, Loader2, Download, AlertTriangle, ListTree, Image as ImageIcon, FileText, X } from 'lucide-react';
+import { Play, Loader2, Download, AlertTriangle, ListTree, Image as ImageIcon, FileText, X, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/shared/ui/button';
 import { PdfViewer } from '@/shared/components/PdfViewer';
@@ -14,6 +14,14 @@ import { PrismLivePreview } from './PrismLivePreview';
 import { PrismStructSidebar } from './sidebar/PrismStructSidebar';
 import { PrismChatPanel } from './PrismChatPanel';
 import { MathEditorDialog } from './MathEditorDialog';
+import { PrismCitationDialog } from './PrismCitationDialog';
+import { PrismWritingProfileDialog } from './PrismWritingProfileDialog';
+import { PrismQualityDialog } from './PrismQualityDialog';
+import { PrismReviewDialog } from './PrismReviewDialog';
+import { PrismAuthorsDialog } from './PrismAuthorsDialog';
+import { PrismRevisionDialog } from './PrismRevisionDialog';
+import { PrismTranslateDialog } from './PrismTranslateDialog';
+import { PrismNumbersDialog } from './PrismNumbersDialog';
 import { usePrismChat } from '../hooks/usePrismChat';
 import { diffStructs } from '../lib/struct-diff';
 import {
@@ -24,9 +32,17 @@ import {
   useStartCompile,
   useCompile,
   useUploadAsset,
+  useApplyCite,
+  useWritingProfile,
+  usePlanWritingProfile,
+  useQualityCheck,
   prismPdfSource,
   exportPrismDocx,
+  resetProjectSession,
   type DocStruct,
+  type DocAuthor,
+  type DocAffiliation,
+  type CiteCandidate,
 } from '../api/prism';
 
 /**
@@ -38,6 +54,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
   const save = useSaveStruct(projectId);
   const templates = useTemplates();
   const conf = useConformance(projectId);
+  const qualityQ = useQualityCheck(projectId); // Phase 4:确定性质量回执(header chip + 检查弹层)
   const start = useStartCompile(projectId);
 
   useRegisterSidebarRail([
@@ -52,7 +69,12 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
 
   // 所见即所得编辑器:改动防抖回写结构体(自动保存);编译走「编译」按钮。
   const editorRef = useRef<StructEditorHandle>(null);
-  const persist = (next: DocStruct) => save.mutate(next);
+  // 自动保存失败必须让用户看见(否则 header 一直显示「已自动保存」= 谎报已存,静默丢内容,评审 #3)。
+  // 稳定 id 让 sonner 复用同一条(连续失败不刷屏);header 状态另用 save.isError 常驻红字提示。
+  const persist = (next: DocStruct) =>
+    save.mutate(next, {
+      onError: () => toast.error('自动保存失败,请检查网络后重试', { id: 'prism-autosave-error' }),
+    });
 
   useEffect(() => {
     const d = structQ.data;
@@ -82,16 +104,47 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
   };
 
   // AI 对话:agent 改 document.md → 轮末「自动应用」(无确认门)→ 刷新结构体 + 重编译 + 编辑器里原地标出本次改动。
+  // 例外(V3-4.4-2):被 stop 的轮 / 重入遗留 pending 走确认门,不静默固化。
+  const [resetNonce, setResetNonce] = useState(0); // 重开会话(V3-4.6-1):+1 → 断开重连到新会话
   const chat = usePrismChat(projectId, {
     autoApply: true,
+    resetNonce,
     onApplied: () => {
       structQ.refetch();
       conf.refetch();
+      qualityQ.refetch(); // 每轮 apply 后刷新质量回执(悬空引用/交叉引用可能变化)
       triggerCompile();
     },
     onReverted: () => structQ.refetch(),
   });
-  const sendChat = (instr: string) => chat.send(instr, { relPath: 'document.md', baseline: '' }, instr);
+  // 手动重开会话:上下文/额度撞墙时的当日止血。真源在 DB —— 只丢对话记忆,文稿/画像/文献库不丢。
+  const resetSession = async () => {
+    if (chat.roundState !== 'idle') return;
+    if (!window.confirm('重开 AI 会话?\n\n对话记忆会重置(文稿、写作画像、参考文献都不会丢)。适合对话很长、AI 变慢或额度消耗过快时使用。')) return;
+    try {
+      await resetProjectSession(projectId);
+      chat.newChat();
+      setResetNonce((n) => n + 1);
+      toast.success('已重开会话');
+    } catch (err) {
+      toast.error(toApiError(err).message || '重开失败,请稍后重试');
+    }
+  };
+  // 发给 AI 前,先把编辑器里未保存的改动落库:否则 chat.send→prepareRound 会用旧的 DB 正文铺到 agent
+  // 工作区,AI 在旧稿上改、轮末合并回来 → 用户刚打的字被悄悄覆盖(评审 #2)。落库失败则不发,保留输入。
+  const sendChat = async (instr: string) => {
+    if (chat.roundState !== 'idle') return;
+    const flushed = editorRef.current?.flush();
+    if (flushed) {
+      try {
+        await save.mutateAsync(flushed);
+      } catch {
+        toast.error('内容未能保存,请稍后重试');
+        return;
+      }
+    }
+    chat.send(instr, { relPath: 'document.md', baseline: '' }, instr);
+  };
 
   // 编译-修复回流:把编译报错回喂 agent 走一轮 → autoApply → 重编译(对齐 V1 fixCompile)。
   // struct 轨差异:agent 改的是 document.md,报错行号 l.NNN 指向它看不到的投影 .tex,故让它按
@@ -145,8 +198,88 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
     }
   };
 
-  // 引用来源:现阶段由 **agent 经 minicod MCP 查真实论文 → 写 references.bib**(轮末解析回 Bibliography)。
-  // 个人文献库的「插入引用」选择器(PrismCitationDialog / useApplyCite)暂搁置(库逻辑待理清),入口先不挂。
+  // 引用来源(两条并存):① agent 经 minicod MCP 查真实论文 → 写 references.bib(轮末解析回 Bibliography);
+  // ② 用户手动从**个人文献库**插入引用(下面这套):选一条 → 后端 ApplyStructCite 把 BibTeX 写进结构体
+  //    Bibliography(新版本)→ 前端取回带新 bib 的结构体后,在光标处插 [@key]。评审 #12。
+  const [citeOpen, setCiteOpen] = useState(false);
+  const applyCite = useApplyCite(projectId);
+  // 写作画像(Phase 3 → V4 UI 重做):默认 AI 自动识别,控制移进输入框区(不在 header)。
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileQ = useWritingProfile(projectId);
+  const planProfile = usePlanWritingProfile(projectId);
+  const profileName =
+    profileQ.data?.personas.find((p) => p.slug === profileQ.data?.profile.base_slug)?.name ?? '';
+  // 自动识别一次:项目打开、画像仍是确定性默认(source=default)、稿件已有可判内容、且尚无对话
+  //   (planner 会 invalidate 会话;无会话时 invalidate 是 no-op → 安全)。ref 保证每次挂载只跑一次。
+  const autoDetectedRef = useRef(false);
+  useEffect(() => {
+    if (autoDetectedRef.current) return;
+    const prof = profileQ.data?.profile;
+    const doc = structQ.data;
+    if (!prof || !doc || prof.source !== 'default') return;
+    const bodyChars = (doc.body ?? []).reduce(
+      (n, b) => n + (b.inlines ?? []).reduce((m, i) => m + (i.v?.length ?? 0), 0),
+      0,
+    );
+    const hasContent = (doc.frontMatter?.abstract?.trim().length ?? 0) > 20 || bodyChars > 200;
+    if (!hasContent || chat.turns.length > 0 || chat.streaming) return;
+    autoDetectedRef.current = true;
+    planProfile.mutate(undefined, {
+      onSuccess: (p) => {
+        const nm = profileQ.data?.personas.find((x) => x.slug === p.base_slug)?.name ?? p.base_slug;
+        toast.success(`已自动识别写作画像:${nm}`, { duration: 2500 });
+      },
+      onError: () => {
+        /* 静默:识别失败保留确定性默认,用户可从 ✨ 菜单手动选 */
+      },
+    });
+  }, [profileQ.data, structQ.data, chat.turns.length, chat.streaming, planProfile]);
+  const detectProfile = () =>
+    planProfile.mutate(undefined, {
+      onSuccess: (p) => {
+        const nm = profileQ.data?.personas.find((x) => x.slug === p.base_slug)?.name ?? p.base_slug;
+        toast.success(`AI 识别为「${nm}」· 下一轮生效`);
+      },
+      onError: (e) => toast.error(toApiError(e).message || '识别失败,请手动选择'),
+    });
+  const [qualityOpen, setQualityOpen] = useState(false); // Phase 4:质量检查弹层
+  const qualityCount = qualityQ.data?.issue_count ?? 0;
+  // 快通道评议(V3-4.5-1):选区级只读点评
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewSel, setReviewSel] = useState('');
+  // 作者/机构编辑(V4-G8):前端直改 frontMatter,解「AI 改不了、UI 也没处填」双重死端。
+  const [authorsOpen, setAuthorsOpen] = useState(false);
+  // 快捷动作条(V4-R1):预填指令进 composer,用户补空后再发。
+  const [prefill, setPrefill] = useState('');
+  // V4-R2 三工作流向导弹层。
+  const [revisionOpen, setRevisionOpen] = useState(false);
+  const [translateOpen, setTranslateOpen] = useState(false);
+  const [numbersOpen, setNumbersOpen] = useState(false);
+  const saveAuthors = async (authors: DocAuthor[], affiliations: DocAffiliation[]) => {
+    // 先 flush 未保存的正文编辑,再在其上合并作者/机构(否则覆盖用户刚打的字,同 sendChat 纪律)。
+    const base = editorRef.current?.flush() ?? structQ.data;
+    if (!base) throw new Error('文档未就绪');
+    const next: DocStruct = { ...base, frontMatter: { ...base.frontMatter, authors, affiliations } };
+    await save.mutateAsync(next);
+    conf.refetch();
+    qualityQ.refetch();
+  };
+  const onPickCite = async (c: CiteCandidate) => {
+    try {
+      // 1) 先落未保存编辑:否则 ApplyStructCite 基于旧正文加 bib 后,下面 insert 的 autosave 会用旧正文覆盖、丢 bib。
+      const flushed = editorRef.current?.flush();
+      if (flushed) await save.mutateAsync(flushed);
+      // 2) 服务端把库论文 BibTeX 写进 Bibliography(新版本),返回可插入的 cite key。
+      const key = await applyCite.mutateAsync(c.library_paper_id);
+      // 3) 取回带新 bib 的结构体 → 让编辑器 docRef 更新(正文未变、不触发重置/光标跳);
+      //    再在光标处插 [@key]。此时防抖 autosave 落库时 doc 已含新 bib,不会把它覆盖掉。
+      await structQ.refetch();
+      editorRef.current?.insertCitation(key);
+      setCiteOpen(false);
+    } catch (err) {
+      toast.error(toApiError(err).message || '插入引用失败,请重试');
+    }
+  };
 
   // 编译:正文改动已自动保存(编辑器防抖回写),这里只需落库尚未 flush 的即时改动 → 编译成 PDF。
   // 「编译」= 生成/更新 PDF 预览(编译成功后 PDF 面自动展开);不再有独立「保存」「PDF」按钮。
@@ -248,6 +381,11 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
           onChange={persist}
           onInsertImage={() => fileRef.current?.click()}
           onInsertMath={() => setMathOpen(true)}
+          onInsertCitation={() => setCiteOpen(true)}
+          onReview={(sel) => {
+            setReviewSel(sel);
+            setReviewOpen(true);
+          }}
           diffBaseline={diffBaseline}
           onDiffDismiss={chat.dismissChange}
         />
@@ -340,6 +478,16 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
             <FileText className="size-4 text-brand-red" strokeWidth={2.5} />
             <span className="truncate text-md font-bold text-foreground">{title || '新版写作'}</span>
             <span className="rounded-pill bg-prism-badge-bg px-2 py-0.5 text-2xs text-prism-badge-fg">结构体</span>
+            {/* 写作画像已移进输入框区的 ✨ 菜单(默认 AI 自动识别,V4 UI 重做)—— header 不再放 chip */}
+            {/* 作者/机构入口(V4-G8):conformance 缺作者类问题在这里填,AI 不代填 */}
+            <button
+              type="button"
+              onClick={() => setAuthorsOpen(true)}
+              className="shrink-0 rounded-pill border border-border bg-surface-1 px-2 py-0.5 text-2xs text-subtle transition-colors hover:bg-surface-2 hover:text-foreground"
+              title="编辑作者与机构(署名、通讯作者、单位上标)"
+            >
+              作者/机构
+            </button>
             {/* 本次 AI 改动条数(编辑器里以绿标原地呈现);用户一开始编辑即消失 */}
             {diffCount > 0 && (
               <span className="shrink-0 rounded-pill bg-brand-green/10 px-2 py-0.5 text-2xs text-brand-green">
@@ -354,9 +502,48 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
                 投稿检查 {conf.data.missing.length} 项
               </span>
             )}
-            {/* 状态指示:流式期间提示 AI 正在写作;否则自动保存态(让「没有保存按钮」不至于让人担心丢内容) */}
-            <span className={cn('shrink-0 text-2xs', streaming ? 'text-brand-green' : 'text-faint')}>
-              {streaming ? 'AI 正在写作…' : save.isPending ? '保存中…' : '已自动保存'}
+            {/* 字数/页数(V4-A3):与后端 conformance 同口径;有 limit 且超限标红 */}
+            {(conf.data?.word_count ?? 0) > 0 && (
+              <span
+                className={cn(
+                  'shrink-0 text-2xs',
+                  conf.data?.word_limit && (conf.data?.word_count ?? 0) > conf.data.word_limit ? 'text-brand-red' : 'text-faint',
+                )}
+                title={conf.data?.word_limit ? `词数上限 ${conf.data.word_limit}` : '正文词数(中文每字计 1)'}
+              >
+                {conf.data?.word_count} 词{conf.data?.word_limit ? `/${conf.data.word_limit}` : ''}
+                {compile.data?.page_count ? ` · ${compile.data.page_count} 页${conf.data?.page_limit ? `/${conf.data.page_limit}` : ''}` : ''}
+              </span>
+            )}
+            {/* 质量检查 chip(Phase 4):确定性问题数(悬空引用/未定义交叉引用/前置);点开可一键让 AI 修 */}
+            <button
+              type="button"
+              onClick={() => setQualityOpen(true)}
+              className={cn(
+                'shrink-0 rounded-pill px-2 py-0.5 text-2xs transition-colors',
+                qualityCount > 0
+                  ? 'bg-brand-red/10 text-brand-red hover:bg-brand-red/20'
+                  : 'bg-surface-1 text-faint hover:bg-surface-2',
+              )}
+              title="质量检查 · 悬空引用/未定义交叉引用/前置(确定性)"
+            >
+              {qualityCount > 0 ? `质量 ${qualityCount}` : '质量检查'}
+            </button>
+            {/* 状态指示:流式期间提示 AI 正在写作;否则自动保存态(让「没有保存按钮」不至于让人担心丢内容)。
+                保存失败必须显式标红,不能仍显示「已自动保存」谎报已存(评审 #3)。 */}
+            <span
+              className={cn(
+                'shrink-0 text-2xs',
+                streaming ? 'text-brand-green' : save.isError ? 'text-brand-red' : 'text-faint',
+              )}
+            >
+              {streaming
+                ? 'AI 正在写作…'
+                : save.isPending
+                  ? '保存中…'
+                  : save.isError
+                    ? '保存失败,请重试'
+                    : '已自动保存'}
             </span>
           </div>
           {/* 文档级动作:换模板(自动保存)· 编译成 PDF · 导出 Word。
@@ -381,13 +568,67 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
             <Button size="sm" variant="outline" onClick={exportDocx} disabled={compiling}>
               <Download className="size-3.5" /> 导出 Word
             </Button>
+            {/* 重开会话(V3-4.6-1):长会话上下文/额度止血。文稿零损失,只丢对话记忆。 */}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={resetSession}
+              disabled={chat.roundState !== 'idle'}
+              title="重开 AI 会话(对话记忆重置;文稿/画像/文献不丢)"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <RotateCcw className="size-3.5" /> 重开会话
+            </Button>
           </div>
         </header>
 
+        {/* 编译失败常驻横幅(V3-4.3-1):此前只在默认隐藏的 PDF 面里,首编译即失败时错误与修复入口双双不可见。
+            解耦到 header 下方常驻,一眼可见 + 一键让 AI 修。 */}
+        {compileError && (
+          <div className="flex shrink-0 items-center gap-2 border-b border-brand-red/30 bg-danger-soft px-4 py-1.5 text-2xs text-brand-red">
+            <AlertTriangle className="size-3.5 shrink-0" />
+            <span className="min-w-0 flex-1 truncate" title={compileError}>
+              编译失败:{compileError}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-6 shrink-0 px-2 text-2xs"
+              onClick={fixCompile}
+              disabled={chat.roundState !== 'idle'}
+            >
+              让 AI 修复
+            </Button>
+          </div>
+        )}
+
         <ResizablePanelGroup direction="horizontal" autoSaveId="prism-v2-h" className="min-h-0 flex-1">
-          {/* 左:AI 对话 */}
+          {/* 左:AI 对话。写作能力引导两段式(V4-R1 UI 重做):空态卡片住进留白,开聊后收进 composer ✨ 菜单。 */}
           <ResizablePanel defaultSize={42} minSize={26} className="flex min-h-0 flex-col">
-            <PrismChatPanel chat={chat} fileId={1} onSend={sendChat} />
+            <PrismChatPanel
+              chat={chat}
+              fileId={1}
+              onSend={sendChat}
+              prefill={prefill}
+              onPrefillConsumed={() => setPrefill('')}
+              menu={{
+                onPrefill: setPrefill,
+                onWorkflow: (key) => {
+                  if (key === 'revision') setRevisionOpen(true);
+                  else if (key === 'translate') setTranslateOpen(true);
+                  else setNumbersOpen(true);
+                },
+                stubSection: qualityQ.data?.stub_sections?.[0],
+                profile: {
+                  name: profileName,
+                  source: profileQ.data?.profile.source ?? 'default',
+                  detecting: planProfile.isPending,
+                  onDetect: detectProfile,
+                  onPick: () => setProfileOpen(true),
+                },
+                disabled: chat.roundState !== 'idle',
+              }}
+            />
           </ResizablePanel>
           <ResizableHandle withHandle />
           {/* 右:预览(渲染文档);PDF 默认隐藏,打开时上下叠 */}
@@ -399,6 +640,39 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
         {/* 「插入图片」隐藏文件选择器 —— 由编辑区顶部工具条的按钮经 fileRef 触发 */}
         <input ref={fileRef} type="file" accept="image/png,image/jpeg,application/pdf" className="hidden" onChange={onPickImage} />
         <MathEditorDialog open={mathOpen} onInsert={insertMath} onOpenChange={setMathOpen} />
+        <PrismCitationDialog
+          projectId={projectId}
+          open={citeOpen}
+          onOpenChange={setCiteOpen}
+          onPick={onPickCite}
+          applying={applyCite.isPending}
+        />
+        <PrismWritingProfileDialog projectId={projectId} open={profileOpen} onOpenChange={setProfileOpen} />
+        <PrismReviewDialog projectId={projectId} open={reviewOpen} onOpenChange={setReviewOpen} selection={reviewSel} />
+        <PrismAuthorsDialog open={authorsOpen} onOpenChange={setAuthorsOpen} doc={structQ.data} onSave={saveAuthors} saving={save.isPending} />
+        <PrismRevisionDialog
+          projectId={projectId}
+          open={revisionOpen}
+          onOpenChange={setRevisionOpen}
+          onPrefill={setPrefill}
+          chatIdle={chat.roundState === 'idle'}
+        />
+        <PrismTranslateDialog
+          projectId={projectId}
+          open={translateOpen}
+          onOpenChange={setTranslateOpen}
+          onPrefill={setPrefill}
+          onResetSession={resetSession}
+          chatIdle={chat.roundState === 'idle'}
+        />
+        <PrismNumbersDialog projectId={projectId} open={numbersOpen} onOpenChange={setNumbersOpen} />
+        <PrismQualityDialog
+          projectId={projectId}
+          open={qualityOpen}
+          onOpenChange={setQualityOpen}
+          onFix={(instr) => sendChat(instr)}
+          disabled={chat.roundState !== 'idle'}
+        />
       </div>
     </SidebarLayout>
   );

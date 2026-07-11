@@ -97,11 +97,14 @@ function fileMatchesActive(filePath: string | undefined, relPath: string): boole
  */
 export function usePrismChat(
   projectId: number,
-  opts: { onApplied?: () => void; onReverted?: () => void; autoApply?: boolean } = {},
+  opts: { onApplied?: () => void; onReverted?: () => void; autoApply?: boolean; enabled?: boolean; resetNonce?: number } = {},
 ) {
-  const socket = usePrismSocket(projectId);
+  // enabled=false(旧版 legacy 项目恒只读、不挂 AI 对话)→ 不连 WS、不拉 history/pending/context,
+  // 免得每次打开旧项目都白连一条 WS + 打一串 400(agent 会话端点对冻结项目不可用)。评审 #15。
+  const enabled = opts.enabled !== false;
+  const socket = usePrismSocket(enabled ? projectId : null, opts.resetNonce ?? 0);
   const qc = useQueryClient();
-  const contextQuery = usePrismContext(projectId); // footer 上下文水位;每轮结束失效刷新
+  const contextQuery = usePrismContext(enabled ? projectId : undefined); // footer 上下文水位;每轮结束失效刷新
   const [historyTurns, setHistoryTurns] = useState<Turn[]>([]);
   const [pendingTurns, setPendingTurns] = useState<
     { id: string; userText: string; paused?: boolean }[]
@@ -131,6 +134,7 @@ export function usePrismChat(
   const activeRef = useRef<{ relPath: string; baseline: string } | null>(null);
   const lastInstructionRef = useRef('');
   const refetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const epochRef = useRef(''); // V3-4.4-1:轮次世代号(prepare/pending 取得,apply 带回;409=基线被别处推进)
 
   // 实时轮 = socket.messages + pendingTurns 折叠;叠在历史轮之后。
   const liveTurns = useMemo(
@@ -172,7 +176,7 @@ export function usePrismChat(
       };
       // 固化带少量重试:多为瞬时网络/后端抖动,重试可救回,避免改动只留在 cwd 被下一轮 prepareRound 冲掉(F3)。
       const attempt = (retries: number): Promise<void> =>
-        applyRound(projectId, lastInstructionRef.current, {}) // 空 overrides = 固化 cwd 全部改动
+        applyRound(projectId, lastInstructionRef.current, {}, epochRef.current) // 空 overrides = 固化 cwd 全部改动
           .then(() => {
             settleIdle();
             onAppliedRef.current?.();
@@ -193,8 +197,10 @@ export function usePrismChat(
   );
 
   // 轮末:确定本轮改动文件数 → autoApply 自动固化并标识;否则进 awaiting_apply 确认门(legacy)。
+  // aborted=true(V3-4.4-2,hub 盖章「本轮被 stop 过」):半截稿**绝不 autoApply**,强制走确认门
+  // (用户看 diff 后自行 保留/丢弃)—— 中断轮静默固化是信任级故障。
   const finalizeRound = useCallback(
-    (ok: boolean) => {
+    (ok: boolean, aborted = false) => {
       if (!roundActiveRef.current) return;
       roundActiveRef.current = false;
       if (!ok) {
@@ -204,7 +210,8 @@ export function usePrismChat(
         return;
       }
       fetchPendingRound(projectId)
-        .then((files) => {
+        .then(({ files, epoch }) => {
+          if (epoch) epochRef.current = epoch;
           if (files.length === 0) {
             setRoundState('idle');
             setLive(null);
@@ -214,7 +221,7 @@ export function usePrismChat(
             setChangeset(null);
             return;
           }
-          if (autoApplyRef.current) {
+          if (autoApplyRef.current && !aborted) {
             commitAndIndicate(files);
             return;
           }
@@ -259,7 +266,7 @@ export function usePrismChat(
       } else if (evt.type === 'error') {
         finalizeRound(false);
       } else if (evt.type === 'message_complete') {
-        finalizeRound(true);
+        finalizeRound(true, evt.aborted === true); // aborted 轮 → 确认门,不 autoApply(V3-4.4-2)
         qc.invalidateQueries({ queryKey: ['prism', 'context', projectId] }); // 轮结束 → 刷新上下文水位
       }
     }
@@ -273,9 +280,9 @@ export function usePrismChat(
       const ins = instruction.trim();
       if (!ins || roundState !== 'idle' || socket.state !== 'open') return;
       try {
-        await prepareRound(projectId);
+        epochRef.current = await prepareRound(projectId); // V3-4.4-1:记本轮世代号,apply 带回校验
       } catch {
-        return; // 铺源失败不发(保留输入)
+        return; // 铺源失败不发(保留输入;409=AI 回答进行中,由忙态 UI 兜着)
       }
       activeRef.current = active;
       lastInstructionRef.current = ins;
@@ -298,9 +305,9 @@ export function usePrismChat(
   };
 
   const apply = useCallback(async () => {
-    // overrides = 用户逐块取舍后的各文件最终正文(per-file/per-hunk);后端按此固化(空改动自动跳过)。
+    // overrides = 用户逐块取舍后的各文件最终正文(⚠️ 仅 legacy 轨生效;struct 轨整轮合并,V3-4.2-4)。
     const overrides = { ...mergedRef.current };
-    const n = await applyRound(projectId, lastInstructionRef.current, overrides).catch(() => -1);
+    const n = await applyRound(projectId, lastInstructionRef.current, overrides, epochRef.current).catch(() => -1);
     setRoundState('idle');
     setLive(null);
     clearPending();
@@ -338,6 +345,7 @@ export function usePrismChat(
 
   // 进项目(重入):① 拉 agent 历史(最近 N 轮)折成 turns ② 拉 /round/pending,有未应用改动直接进 awaiting_apply。
   useEffect(() => {
+    if (!enabled) return; // 只读 legacy:不拉历史/待应用(端点不可用),免 400。评审 #15。
     let cancelled = false;
     historyLimitRef.current = DEFAULT_HISTORY_TURNS;
     setHasMoreHistory(false);
@@ -346,13 +354,12 @@ export function usePrismChat(
       if (cancelled) return;
       setHistoryTurns(foldHistoryToTurns(res?.messages ?? []));
       setHasMoreHistory(res?.hasMore ?? false);
-      const files = await fetchPendingRound(projectId).catch(() => []);
-      if (cancelled || files.length === 0) return;
-      if (autoApplyRef.current) {
-        // 上次会话遗留的未固化改动(断线等)→ 自动固化并标识,不再弹确认门。
-        commitAndIndicate(files);
-        return;
-      }
+      const pending = await fetchPendingRound(projectId).catch(() => ({ files: [] as PrismPendingFile[], epoch: '' }));
+      if (cancelled || pending.files.length === 0) return;
+      if (pending.epoch) epochRef.current = pending.epoch; // 重入拿服务端 epoch,commit 才不必 409
+      // V3-4.4-2:重入遗留的 pending **无法证明来自成功轮**(可能是失败/中断/stop 的半截稿)——
+      // 一律走确认门(展示 diff + 保留/丢弃),不再静默 commitAndIndicate(信任级止血)。
+      const files = pending.files;
       setRoundState('awaiting_apply');
       setChangeset({ applied: files.length, state: 'awaiting_apply' });
       setPendingFiles(files);
@@ -363,7 +370,7 @@ export function usePrismChat(
     return () => {
       cancelled = true;
     };
-  }, [projectId, commitAndIndicate]);
+  }, [projectId, enabled]);
 
   // 「加载更早」:把 limit +100 重新拉历史并重折(只在 idle 时由 UI 触发)。
   const loadEarlier = useCallback(async () => {

@@ -7,7 +7,7 @@ import { Button } from '@/shared/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { ResourceError } from '@/shared/components';
 import { LoadingState } from '@/shared/components/LoadingState';
-import { useSubmission, useDownloadSubmissionAssets } from '../api/submissions';
+import { useSubmission, useDownloadSubmissionAssets, useRetrySubmission } from '../api/submissions';
 import { useSubmissionReports } from '../api/reports';
 import { recBadgeClasses, recFillBg, recShortLabel, recTextColor } from '../lib/recommendation';
 import { effectiveResult } from '../lib/partial-parse';
@@ -134,6 +134,8 @@ export function RecordDetailPage() {
           {/* 3) contentRow */}
           <div className="flex gap-3.5">
             <div className="min-w-0 flex-1">
+              {/* 失败态:醒目横幅 + 重试(评审 top#2:失败原本渲染成「永远等主审」)。下方面板仍展示已完成的部分意见。 */}
+              {sub.status === 'failed' && <FailedBanner id={sub.id} reason={sub.computeError} />}
               {sub.status === 'reviewing' ? (
                 // 审稿中(含方法论编排阶段)布局**全程稳定**:tab 内容一直在,不做"整卡消失→loading→表单"的重构。
                 // 方法论编排阶段(computing_methodology)只在顶部加一条**匿名进度条**(不 dump 原始推理、不暴露
@@ -376,5 +378,37 @@ function liveFrontTab(status: string, reports: Map<ReviewerRole, ReviewReport>):
 function statusLabel(s: string) {
   return (
     { draft: '草稿', queued: '排队中', reviewing: '审稿进行中', completed: '已结案', failed: '失败' }[s] ?? s
+  );
+}
+
+// FailedBanner —— 失败审稿的醒目失败态 + 一键重试(评审 top#2)。后端复用已完成轮、只补跑失败部分。
+function FailedBanner({ id, reason }: { id: number; reason?: string }) {
+  const retry = useRetrySubmission(id);
+  return (
+    <div className="mb-3.5 rounded-md border border-brand-red/30 bg-danger-soft px-4 py-3">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="text-sm font-bold text-brand-red">审稿未完成</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {reason?.trim() ||
+              '审稿过程中出现异常。已生成的部分意见仍会保留,重试只补齐未完成的部分。'}
+          </div>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={retry.isPending}
+          className="shrink-0"
+          onClick={() =>
+            retry.mutate(undefined, {
+              onSuccess: () => toast.success('已重新开始审稿'),
+              onError: (e) => toast.error((e as Error)?.message || '重试失败,请稍后再试'),
+            })
+          }
+        >
+          {retry.isPending ? '重新提交中…' : '重新审稿'}
+        </Button>
+      </div>
+    </div>
   );
 }

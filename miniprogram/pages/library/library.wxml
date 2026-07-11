@@ -1,0 +1,32 @@
+<view class="page lib">
+  <view wx:if="{{!loggedIn}}" class="state">请先登录后查看文献集</view>
+  <view wx:elif="{{loading}}" class="sk-list"><view class="sk-item" wx:for="{{[0,1,2,3,4]}}" wx:key="*this"><view class="skeleton sk-bar sk-w90"></view><view class="skeleton sk-bar sk-w70"></view><view class="skeleton sk-bar sk-w45"></view></view></view>
+  <view wx:elif="{{error}}" class="state err">
+    <text>{{error}}</text>
+    <button class="btn" size="mini" bindtap="reload">重试</button>
+  </view>
+  <view wx:elif="{{items.length===0}}" class="state">
+    <image class="empty-emoji" src="{{ic.bookFaint}}" />
+    <text>还没有收藏文献</text>
+    <text class="empty-tip">在浏览页点收藏图标收藏论文</text>
+  </view>
+
+  <block wx:else>
+    <view class="count">共 {{total}} 篇 · 长按可移出</view>
+    <view
+      wx:for="{{items}}"
+      wx:key="id"
+      class="row"
+      data-id="{{item.paperId}}"
+      data-index="{{index}}"
+      bindtap="goPaper"
+      bindlongpress="onRemove"
+    >
+      <text class="row-title">{{item.title}}</text>
+      <text wx:if="{{item.sub}}" class="row-sub">{{item.sub}}</text>
+      <text wx:if="{{item.cite}}" class="row-cite">{{item.cite}}</text>
+    </view>
+    <view wx:if="{{loadingMore}}" class="more">加载中…</view>
+    <view wx:elif="{{!hasMore}}" class="more">没有更多了</view>
+  </block>
+</view>

@@ -57,6 +57,11 @@ type Handler struct {
 	// 让 sitemap 索引里 /sitemap-news.xml 的 <lastmod> 反映最新情报(否则用静态常量,
 	// 情报频繁更新但索引 lastmod 不变 → 爬虫不及时重抓 news sitemap)。seo 不 import news。
 	newsLastModFn func() string
+	// toolSitemapFn 由 bootstrap 注入(featuretool.Service.SitemapPages):返回工具 sitemap
+	// 的分片总数 + 最新 lastmod。主 sitemap 索引据此直接列出各叶子 /sitemap-tools-N.xml,
+	// 而不是嵌套引用 /sitemap-tools.xml(索引套索引 → Google 不递归解析,约 6 万工具页发现性受损)。
+	// seo 不 import featuretool(反向依赖),故用注入函数解耦。
+	toolSitemapFn func() (pages int, lastmod string)
 }
 
 // NewHandler 构造
@@ -67,6 +72,11 @@ func NewHandler(service *Service) *Handler {
 // SetNewsLastModProvider 注入情报最新 lastmod 提供者(bootstrap 调一次)。
 func (h *Handler) SetNewsLastModProvider(fn func() string) {
 	h.newsLastModFn = fn
+}
+
+// SetToolSitemapProvider 注入工具 sitemap 分片信息提供者(bootstrap 调一次)。
+func (h *Handler) SetToolSitemapProvider(fn func() (int, string)) {
+	h.toolSitemapFn = fn
 }
 
 // ExposeRequest 搜索曝光请求体 (papers + authors + journals 同一通道, 节流)
@@ -289,10 +299,23 @@ func (h *Handler) ServeSitemapIndex(c *gin.Context) {
 	fmt.Fprintf(&b, "  <sitemap>\n    <loc>%s/sitemap-qa.xml</loc>\n    <lastmod>%s</lastmod>\n  </sitemap>\n",
 		base, qaLastMod)
 
-	// 工具广场(由 featuretool 生成 /sitemap-tools.xml;纳入索引,避免与 robots 声明割裂。
-	// featuretool → seo 单向依赖,seo 不能 import featuretool,故此处只引用 URL,lastmod 用静态页常量近似)
-	fmt.Fprintf(&b, "  <sitemap>\n    <loc>%s/sitemap-tools.xml</loc>\n    <lastmod>%s</lastmod>\n  </sitemap>\n",
-		base, staticLastMod)
+	// 工具广场:直接列出各叶子分片 /sitemap-tools-N.xml,不再引用中间的 /sitemap-tools.xml 索引
+	// —— sitemap 协议与 Google 都不支持「索引套索引」,嵌套引用会让约 6 万 /tools/* 页只靠未文档化
+	// 行为被发现。分片数 + lastmod 由 featuretool 经注入函数提供(seo 不 import featuretool)。
+	// 注入缺失(理论不会)时兜底回退到旧的单条 /sitemap-tools.xml 引用,保证工具垂类不至于零发现。
+	if h.toolSitemapFn != nil {
+		toolPages, toolLastMod := h.toolSitemapFn()
+		if toolLastMod == "" {
+			toolLastMod = staticLastMod
+		}
+		for i := 1; i <= toolPages; i++ {
+			fmt.Fprintf(&b, "  <sitemap>\n    <loc>%s/sitemap-tools-%d.xml</loc>\n    <lastmod>%s</lastmod>\n  </sitemap>\n",
+				base, i, toolLastMod)
+		}
+	} else {
+		fmt.Fprintf(&b, "  <sitemap>\n    <loc>%s/sitemap-tools.xml</loc>\n    <lastmod>%s</lastmod>\n  </sitemap>\n",
+			base, staticLastMod)
+	}
 
 	// 情报(由 news 生成 /sitemap-news.xml;seo 只引用 URL)。lastmod 取「全量情报最新 upstream_updated_at」
 	// (news 注入的 provider),反映新内容;无 provider/无数据时回落静态常量。索引页 10min TTL 兜住及时性。
@@ -602,6 +625,7 @@ func (h *Handler) ServeRobotsTxt(c *gin.Context) {
 	rules := `Allow: /
 Disallow: /admin
 Disallow: /settings
+Disallow: /m/
 Disallow: /alipay-return
 Disallow: /wechat/callback
 Disallow: /github/callback

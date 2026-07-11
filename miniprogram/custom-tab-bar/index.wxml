@@ -1,0 +1,13 @@
+<view class="tabbar">
+  <view
+    wx:for="{{list}}"
+    wx:key="key"
+    class="tab {{selected === index ? 'on' : ''}}"
+    data-index="{{index}}"
+    bindtap="onTap"
+  >
+    <view wx:if="{{selected === index}}" class="indicator"></view>
+    <image class="icon" src="{{selected === index ? item.iconOn : item.iconOff}}"></image>
+    <text class="label" style="color: {{selected === index ? active : inactive}}">{{item.text}}</text>
+  </view>
+</view>

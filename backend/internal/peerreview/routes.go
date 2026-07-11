@@ -24,6 +24,8 @@ func RegisterRoutes(rg *gin.RouterGroup, h *Handler) {
 		subs.PATCH("/:id", h.PatchSubmission)
 		subs.DELETE("/:id", h.DeleteSubmission)
 		subs.POST("/:id/submit", h.Submit)
+		// 重试失败的审稿(复用已完成轮,只补跑失败部分)。
+		subs.POST("/:id/retry", h.Retry)
 
 		subs.GET("/:id/assets", h.ListAssets)
 		// 上传走通用 UploadLimitMiddleware(稿件上限 50MB, 业务码 7001), 跟 claw/feedback/library 一致;

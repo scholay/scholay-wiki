@@ -117,7 +117,41 @@ func warnQuotaDegraded(reason string, attrs ...any) {
 	}
 	quotaDegradedAt = now
 	quotaDegradedMu.Unlock()
-	slog.Warn("billing: 每日额度计数器 Redis 不可用,配额暂时 fail-open(不强制)— "+reason, attrs...)
+	slog.Warn("billing: 每日额度计数器 Redis 不可用,退回进程内兜底计数(有界 fail-open)— "+reason, attrs...)
+}
+
+// ── 有界 fail-open:Redis 挂了时的进程内兜底日额度计数器(评审 SS#3)─────────────────
+// 原设计 Redis 挂 → 完全不计不闸 = 停摆期「无限免费 AI」(claw 是 pro+Bash,敞口最大)。改为:
+// Redis 不可用时退回**进程内**当日累计,仍按同一 tier 上限做闸门 —— 把敞口从「无限」收敛到
+// 「每实例 · 每用户 · 当日上限」量级。局限(有意接受、非替代 Redis):进程重启即清零、多实例各算各的、
+// Redis 恢复后不回填这段窗口。MySQL 账本照记,可事后核账。仅在 rdb==nil 时启用,Redis 正常时零参与。
+type fallbackCounter struct {
+	mu   sync.Mutex
+	day  string         // "20060102";跨天自动清零
+	used map[uint]int64 // userID → 当日进程内累计 token
+}
+
+var quotaFallback = &fallbackCounter{used: map[uint]int64{}}
+
+func (f *fallbackCounter) rollover(now time.Time) {
+	if d := now.Format("20060102"); f.day != d {
+		f.day = d
+		f.used = map[uint]int64{}
+	}
+}
+
+func (f *fallbackCounter) get(userID uint) int64 {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.rollover(time.Now())
+	return f.used[userID]
+}
+
+func (f *fallbackCounter) add(userID uint, tokens int64) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.rollover(time.Now())
+	f.used[userID] += tokens
 }
 
 // tokenBaseKey —— 当日额度「窗口起点」key。重置/升级时置为当时的 used,使窗口内消耗归零
@@ -131,7 +165,7 @@ func (s *Service) tokenUsed(ctx context.Context, userID uint) int64 {
 	rdb := cache.GetRedisPersist()
 	if rdb == nil {
 		warnQuotaDegraded("counter read")
-		return 0
+		return quotaFallback.get(userID) // 有界 fail-open:退回进程内当日累计(而非 0),让闸门仍有效
 	}
 	v, err := rdb.Get(ctx, tokenDayKey(userID, time.Now())).Int64()
 	if err != nil {
@@ -189,6 +223,50 @@ func (s *Service) CheckDailyQuota(ctx context.Context, userID uint) error {
 	return NewQuotaError(quotaExceededMessage(tier, cfg))
 }
 
+// RemainingBudget —— 有界透支预算(SS#2),给 agentbridge 每条 user_message 盖章用。
+// soft = 到「日上限」还剩;hard = 到「上限 + 透支带」还剩(均可为负 = 已在透支带内)。
+// unlimited=true(收费关 / 上限<0 / 未登录)时无预算概念 → 调用方不盖章 → 执行器无预算 → 无收尾。
+// 只读(与 CheckDailyQuota 同口径 tokenWindowUsed),不预扣;计费仍走 AddUsage 后置精确累加。
+func (s *Service) RemainingBudget(ctx context.Context, userID uint) (soft, hard int64, unlimited bool) {
+	if userID == 0 {
+		return 0, 0, true
+	}
+	cfg := s.cfg.Get()
+	if !cfg.Enabled {
+		return 0, 0, true
+	}
+	tier := s.EffectiveTier(userID)
+	ceiling := cfg.DailyCeiling(tier)
+	if ceiling < 0 {
+		return 0, 0, true
+	}
+	used := s.tokenWindowUsed(ctx, userID)
+	return ceiling - used, ceiling + cfg.OverdraftTokens(tier) - used, false
+}
+
+// CheckDailyQuotaOverdraft —— 有界透支版起点闸(SS#2,给 smart_search/claw/prism 用)。
+// 与 CheckDailyQuota 唯一区别:上限放宽到 ceiling + 透支带 —— 跨过 ceiling 那一轮**总能起跑**(不卡死),
+// 只有把透支带也用完,下一轮起点才回 ErrQuotaExceeded(同一套友好文案 / 重置 UX)。
+// peerreview(任务型)保持用严格的 CheckDailyQuota,起点从严。
+func (s *Service) CheckDailyQuotaOverdraft(ctx context.Context, userID uint) error {
+	if userID == 0 {
+		return nil
+	}
+	cfg := s.cfg.Get()
+	if !cfg.Enabled {
+		return nil
+	}
+	tier := s.EffectiveTier(userID)
+	ceiling := cfg.DailyCeiling(tier)
+	if ceiling < 0 {
+		return nil
+	}
+	if s.tokenWindowUsed(ctx, userID) < ceiling+cfg.OverdraftTokens(tier) {
+		return nil
+	}
+	return NewQuotaError(quotaExceededMessage(tier, cfg))
+}
+
 // AddUsage —— 把一次 LLM 调用的真实 token 计入当日额度(由 llmusage.Record 观察者调用)。
 // 唯一的额度「扣减」点。userID==0 / tokens<=0 / Redis 挂 → 跳过(best-effort, 绝不阻塞)。
 func (s *Service) AddUsage(ctx context.Context, userID uint, tokens int) {
@@ -200,6 +278,8 @@ func (s *Service) AddUsage(ctx context.Context, userID uint, tokens int) {
 	}
 	rdb := cache.GetRedisPersist()
 	if rdb == nil {
+		// 有界 fail-open:Redis 挂了期间也累加进程内兜底计数,使 tokenUsed 读得到、闸门仍能收敛敞口。
+		quotaFallback.add(userID, int64(tokens))
 		warnQuotaDegraded("usage incr", "user_id", userID)
 		return
 	}

@@ -1,0 +1,98 @@
+<view class="search-header">
+  <view class="search-box">
+    <input class="search-input" placeholder="{{mode==='journals' ? '搜索期刊名 / 出版社' : '搜索论文 / 关键词 / 作者'}}" value="{{q}}" focus confirm-type="search" bindinput="onInput" bindconfirm="onSearch" />
+    <view class="search-go" bindtap="onSearch">搜索</view>
+  </view>
+  <view wx:if="{{mode==='papers'}}" class="filter-bar">
+    <view class="filter-btn" bindtap="openFilter">筛选<text wx:if="{{filterCount}}" class="fbadge">{{filterCount}}</text></view>
+  </view>
+</view>
+
+<view wx:if="{{showFilter}}" class="mask mask-anim {{closingFilter?'closing':''}}" bindtap="closeFilter">
+  <view class="fsheet sheet-anim {{closingFilter?'closing':''}}" catchtap="noop">
+    <scroll-view scroll-y class="fsheet-body">
+      <view class="fgroup">
+        <text class="fglabel">数据源</text>
+        <view class="fchips">
+          <text wx:for="{{sourceOptions}}" wx:for-item="o" wx:key="value" class="fchip {{filters.source===o.value?'on':''}}" data-v="{{o.value}}" bindtap="pickSource">{{o.label}}</text>
+        </view>
+      </view>
+      <view class="fgroup">
+        <text class="fglabel">时间</text>
+        <view class="fchips">
+          <text wx:for="{{timeOptions}}" wx:for-item="o" wx:key="value" class="fchip {{filters.timeRange===o.value?'on':''}}" data-v="{{o.value}}" bindtap="pickTime">{{o.label}}</text>
+        </view>
+      </view>
+      <view class="fgroup">
+        <text class="fglabel">排序</text>
+        <view class="fchips">
+          <text wx:for="{{sortOptions}}" wx:for-item="o" wx:key="value" class="fchip {{filters.sort===o.value?'on':''}}" data-v="{{o.value}}" bindtap="pickSort">{{o.label}}</text>
+        </view>
+      </view>
+      <block wx:if="{{advanced}}">
+        <view class="fgroup row">
+          <text class="fglabel">仅开放获取</text>
+          <switch checked="{{filters.openAccess}}" bindchange="toggleOA" color="#cc2222" />
+        </view>
+        <view class="fgroup">
+          <text class="fglabel">最少引用</text>
+          <view class="fchips">
+            <text wx:for="{{minCiteOptions}}" wx:for-item="o" wx:key="value" class="fchip {{filters.minCitations===o.value?'on':''}}" data-v="{{o.value}}" bindtap="pickMinCite">{{o.label}}</text>
+          </view>
+        </view>
+        <view class="fgroup">
+          <text class="fglabel">学科</text>
+          <view class="fchips">
+            <text wx:for="{{subjectOptions}}" wx:for-item="o" wx:key="value" class="fchip {{o.sel?'on':''}}" data-v="{{o.value}}" bindtap="toggleSubject">{{o.label}}</text>
+          </view>
+        </view>
+        <view class="fgroup">
+          <text class="fglabel">文献类型</text>
+          <view class="fchips">
+            <text wx:for="{{typeOptions}}" wx:for-item="o" wx:key="value" class="fchip {{o.sel?'on':''}}" data-v="{{o.value}}" bindtap="toggleType">{{o.label}}</text>
+          </view>
+        </view>
+      </block>
+      <view wx:else class="fnote">该数据源仅支持关键词与时间筛选</view>
+    </scroll-view>
+    <view class="fsheet-foot">
+      <view class="freset" bindtap="resetFilters">重置</view>
+      <button class="fapply" bindtap="applyFilter">应用</button>
+    </view>
+  </view>
+</view>
+
+<view class="search-body">
+  <view wx:if="{{!submitted}}" class="state">输入关键词开始搜索</view>
+  <view wx:elif="{{loading}}" class="sk-list"><view class="sk-item" wx:for="{{[0,1,2,3,4]}}" wx:key="*this"><view class="skeleton sk-bar sk-w90"></view><view class="skeleton sk-bar sk-w70"></view><view class="skeleton sk-bar sk-w45"></view></view></view>
+  <view wx:elif="{{error}}" class="state error">{{error}}</view>
+  <view wx:elif="{{empty}}" class="state">没有找到相关结果</view>
+
+  <block wx:elif="{{mode==='papers'}}">
+    <view wx:for="{{papers}}" wx:key="paperId" class="row" data-id="{{item.paperId}}" bindtap="goPaper">
+      <text class="row-title">{{item.title}}</text>
+      <text class="row-sub">{{item.sub}}</text>
+      <view class="row-meta">
+        <text wx:if="{{item.oa}}" class="badge oa">开放获取</text>
+        <text class="row-cite">{{item.cite}}</text>
+      </view>
+    </view>
+    <view wx:if="{{loadingMore}}" class="more">加载中…</view>
+    <view wx:elif="{{!hasMore}}" class="more">没有更多了</view>
+  </block>
+
+  <block wx:else>
+    <view wx:for="{{journals}}" wx:key="id" class="row jrow" data-id="{{item.id}}" bindtap="goJournal">
+      <view class="cover" style="background:{{item.coverBg}}">{{item.cover}}</view>
+      <view class="jmain">
+        <text class="row-title">{{item.name}}</text>
+        <text class="row-sub">{{item.sub}}</text>
+        <view class="row-meta">
+          <text wx:for="{{item.badges}}" wx:for-item="b" wx:key="*this" class="badge">{{b}}</text>
+        </view>
+      </view>
+    </view>
+    <view wx:if="{{loadingMore}}" class="more">加载中…</view>
+    <view wx:elif="{{!hasMore}}" class="more">没有更多了</view>
+  </block>
+</view>

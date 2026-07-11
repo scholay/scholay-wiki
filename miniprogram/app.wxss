@@ -1,0 +1,195 @@
+/* 全局样式。色板/圆角对齐 mobile 端设计(frontend-user/src/styles/globals.css)。
+   语义色:红=CTA/danger/论文 · 绿=AI/primary/成功 · 蓝=期刊检索 · 琥珀=会员/警告。 */
+page {
+  /* 灰阶(对齐设计 token) */
+  --bg: #f5f5f5;             /* surface-2 页面 chrome */
+  --surface-1: #fafafa;     /* 弱卡片 */
+  --card: #ffffff;          /* 容器/卡片 */
+  --text: #111111;          /* foreground 主标题/正文 */
+  --text-weak: #666666;     /* muted-foreground 描述/次要 */
+  --text-faint: #999999;    /* faint 更弱/占位 */
+  --border: #e8e8e8;        /* 标准边框(最常见) */
+  --border-strong: #d8d8d8; /* 强调描边 */
+  /* 语义品牌色 */
+  --red: #cc2222;
+  --green: #2a7a2a;
+  --blue: #1a56db;
+  --amber: #d4a017;
+  --blue-soft: #f8faff;     /* 期刊行软底 */
+  --journal-soft: #faf8f2;
+  --brand: #cc2222;         /* 旧 --brand 引用统一 → 红(主 CTA);别再用错的蓝 */
+  /* 圆角(对齐设计 4/6/8px,偏锐) */
+  --r-sm: 8rpx;
+  --r: 12rpx;
+  --r-lg: 16rpx;
+  --r-pill: 9999rpx;
+  /* ══ 全站字号标尺(2026-07 对齐主流阅读类 App 比例;新写样式一律引 token)══
+     hero 40 / 页面主标题 36 / 区块·卡片标题 32 / 正文 30 / 次要 26 / meta 22-24 */
+  --fs-hero: 40rpx;
+  --fs-title: 36rpx;
+  --fs-card: 32rpx;
+  --fs-body: 30rpx;
+  --fs-sub: 26rpx;
+  --fs-meta: 24rpx;
+  --fs-tag: 22rpx;
+  --lh-body: 1.6;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 30rpx;
+  line-height: 1.6;
+  font-family: -apple-system, "PingFang SC", "Helvetica Neue", "Segoe UI", sans-serif;
+}
+
+.page {
+  padding: 32rpx;
+  box-sizing: border-box;
+  min-height: 100vh;
+}
+
+.btn {
+  margin-top: 24rpx;
+  background: var(--card);
+  color: var(--text);
+  border: 1rpx solid var(--border);
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  line-height: 88rpx;
+}
+.btn.primary {
+  background: var(--brand);
+  color: #fff;
+  border: none;
+}
+.btn.danger {
+  color: var(--red);
+}
+.btn[loading] {
+  opacity: 0.7;
+}
+
+/* 线性图标(lib/icons.ts 生成的 data URI)基础样式;各页按容器再定尺寸 */
+.svg-ic {
+  display: block;
+  width: 40rpx;
+  height: 40rpx;
+}
+
+/* ══ 动效系统(克制·苹果风)══════════════════════════════════════
+   token + 全局按压反馈 + 弹层/气泡/列表入场 + 骨架屏。纯 transform/opacity(GPU 合成)。 */
+page {
+  --dur-fast: 120ms;
+  --dur: 220ms;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* 按压反馈:配 hover-class 用(原生、可控)。base 类给"松手回弹"的过渡。
+   .tap+hover-scale=按钮/卡片缩放;.tap-bg+hover-bg=列表行压深;.tap-op+hover-op=图标/文字按钮变淡。 */
+.tap {
+  transition: transform var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease);
+}
+.tap-bg {
+  transition: background-color var(--dur-fast) var(--ease);
+}
+.tap-op {
+  transition: opacity var(--dur-fast) var(--ease);
+}
+.hover-scale {
+  transform: scale(0.97);
+  opacity: 0.9;
+}
+.hover-bg {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+.hover-op {
+  opacity: 0.5;
+}
+
+/* 弹层:遮罩淡入 + 底部 sheet 上滑 + 抽屉左滑;加 .closing 反向播放做关闭(配 anim.closeAnimated 延迟卸载)。 */
+@keyframes maskIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes drawerIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+.mask-anim { animation: maskIn var(--dur) var(--ease); }
+.mask-anim.closing { animation: maskIn var(--dur) var(--ease) reverse forwards; }
+.sheet-anim { animation: sheetUp var(--dur) var(--ease); }
+.sheet-anim.closing { animation: sheetUp var(--dur) var(--ease) reverse forwards; }
+.drawer-anim { animation: drawerIn var(--dur) var(--ease); }
+.drawer-anim.closing { animation: drawerIn var(--dur) var(--ease) reverse forwards; }
+
+/* 内容入场:对话气泡 / 列表卡片(挂载即播一次;keyed 列表下不重播)。 */
+@keyframes bubbleIn { from { opacity: 0; transform: translateY(12rpx); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(16rpx); } to { opacity: 1; transform: translateY(0); } }
+.turn-anim { animation: bubbleIn var(--dur) var(--ease) both; }
+.fade-up { animation: fadeUp var(--dur) var(--ease) both; }
+
+/* 加载骨架屏:灰块 + 流光。替换干巴巴的"加载中…"。 */
+@keyframes shimmer { from { background-position: -240rpx 0; } to { background-position: 240rpx 0; } }
+.skeleton {
+  background: linear-gradient(90deg, #ececef 25%, #f6f6f8 37%, #ececef 63%);
+  background-size: 480rpx 100%;
+  animation: shimmer 1.3s ease-in-out infinite;
+  border-radius: 8rpx;
+}
+
+/* 全局按钮按压(.btn 常是 view/button;:active 兜一层,配合上面 hover-class 更稳)。 */
+.btn {
+  transition: transform var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease);
+}
+.btn:active {
+  transform: scale(0.98);
+  opacity: 0.9;
+}
+
+/* ══ 全局按压反馈 + 列表入场(针对各页现有类名,:active 无需改 WXML)══════════
+   claw / custom-tab-bar 已各自用 hover-class 处理;这里覆盖其余页面的公共类。 */
+/* 卡片/资产按钮:缩放 */
+.card, .asset-btn {
+  transition: transform var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease);
+}
+.card:active, .asset-btn:active { transform: scale(0.98); opacity: 0.9; }
+/* 列表行:压深底色 */
+.row, .jrow, .ref, .tool-row, .menu-item, .link-row {
+  transition: background-color var(--dur-fast) var(--ease);
+}
+.row:active, .jrow:active, .ref:active, .tool-row:active, .menu-item:active, .link-row:active {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+/* 图标/文字按钮/筛选 chip/tab:变淡 */
+.chip, .fchip, .fmt-tab, .tab, .search-btn, .search-go, .filter-btn, .freset {
+  transition: opacity var(--dur-fast) var(--ease);
+}
+.chip:active, .fchip:active, .fmt-tab:active, .tab:active,
+.search-btn:active, .search-go:active, .filter-btn:active, .freset:active { opacity: 0.55; }
+/* 列表内容入场(挂载即播一次;keyed 列表下只新项播)。不含 feed swiper。 */
+.row, .jrow, .ref, .tool-row, .menu-item {
+  animation: fadeUp var(--dur) var(--ease) both;
+}
+
+/* 加载骨架屏(替换"加载中…"文字):列表卡片形状的灰块 + 流光(.skeleton 已带 shimmer)。 */
+.sk-list { padding: 8rpx 0; }
+.sk-item {
+  padding: 28rpx 24rpx;
+  margin-bottom: 16rpx;
+  background: var(--card);
+  border-radius: 16rpx;
+}
+.sk-bar { height: 26rpx; margin-bottom: 18rpx; }
+.sk-bar:last-child { margin-bottom: 0; }
+.sk-w90 { width: 90%; }
+.sk-w70 { width: 70%; }
+.sk-w45 { width: 45%; }
+
+/* 详情页骨架屏:大标题条 + 一排 chip + 若干正文行。 */
+.sk-detail { padding: 24rpx 8rpx; }
+.sk-title-lg { height: 46rpx; width: 78%; margin-bottom: 26rpx; }
+.sk-chips { margin-bottom: 30rpx; }
+.sk-chip { display: inline-block; height: 40rpx; width: 110rpx; margin-right: 14rpx; border-radius: 20rpx; }
+.sk-body-line { height: 26rpx; margin-bottom: 22rpx; }
+
+/* 登录页/游客态的「其他方式登录」次入口。 */
+.alt-login {
+  display: inline-block;
+  margin-top: 28rpx;
+  color: var(--text-weak);
+  font-size: 26rpx;
+  text-decoration: underline;
+}

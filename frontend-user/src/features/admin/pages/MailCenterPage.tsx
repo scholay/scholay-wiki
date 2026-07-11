@@ -105,7 +105,7 @@ export function MailCenterPage() {
           ))}
         </div>
         <form
-          className="ml-auto"
+          className="w-full sm:ml-auto sm:w-auto"
           onSubmit={(e) => {
             e.preventDefault();
             setKeyword(kwInput.trim());
@@ -116,7 +116,7 @@ export function MailCenterPage() {
             onChange={(e) => setKwInput(e.target.value)}
             onBlur={() => setKeyword(kwInput.trim())}
             placeholder="发件人 / 主题"
-            className="h-8 w-56"
+            className="h-8 w-full sm:w-56"
           />
         </form>
       </section>

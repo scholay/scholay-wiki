@@ -1,5 +1,5 @@
 // 账户资产汇总卡 —— 严格对齐设计稿 scholay-money.pen「账户资产长条组件」:
-// 当前档一行(铭牌 + ? + 用量条 + 剩余% + 方形重置 | 竖分隔 | 经费内联含失效日),
+// 当前档一行(铭牌 + ? + 剩余额度条 + 剩余% + 方形重置 | 竖分隔 | 经费内联含失效日),
 // 横分隔后是 Pro/Max 升级诱导行(套餐徽标图标 + 灰轨 + 🔒升级解锁),底部说明轮播。
 import { useState } from 'react';
 import { RefreshCw, Lock, Loader2, ChevronLeft, ChevronRight, Coins, Gem, Crown, Sparkles, Gauge, type LucideIcon } from 'lucide-react';
@@ -40,9 +40,9 @@ const ALL_TIERS: Tier[] = ['free', 'pro', 'max'];
 // 倍率口径:Pro 相对 Free,Max 相对 Pro。倍率从后端 plans 取(动态),兜底 5/5。
 function buildSlides(proMult: number, maxMult: number) {
   return [
-    { title: '用量额度区别', body: `Free 为每日基础额度,Pro 是 Free 的 ${proMult} 倍,Max 是 Pro 的 ${maxMult} 倍。额度越高,可连续使用越多。` },
+    { title: '额度区别', body: `Free 为每日基础额度,Pro 是 Free 的 ${proMult} 倍,Max 是 Pro 的 ${maxMult} 倍。额度越高,可连续使用越多。` },
     { title: '会员特权', body: 'Pro / Max 优先使用更强 AI 模型、新功能优先体验;Max 享顶级优先级与最强模型。' },
-    { title: '用量重置机制', body: '每日凌晨 00:00 用量自动重置至 100%。额度耗尽后,也可消耗经费立即重置。' },
+    { title: '额度重置机制', body: '每日凌晨 00:00 额度自动重置,剩余恢复至 100%。额度耗尽后,也可消耗经费立即重置。' },
     { title: '经费说明', body: '临时经费有失效日期(订阅赠送、整月有效),永久经费长期有效(充值)。' },
   ];
 }
@@ -124,8 +124,8 @@ function ActiveRow({ data, onGoRecharge }: { data: Overview; onGoRecharge: () =>
         <span className={cn('inline-flex h-6 shrink-0 items-center rounded-sm px-2 text-2xs font-bold tracking-wider', NAMEPLATE[data.tier])}>
           {data.tier.toUpperCase()}
         </span>
-        <span className="flex size-4 shrink-0 items-center justify-center rounded-pill border border-border text-2xs text-faint" title="用量为每日 AI 额度,每日 00:00 自动重置">?</span>
-        <span className="shrink-0 text-2xs font-medium text-subtle">{PLAN_LABEL[data.tier]} 用量</span>
+        <span className="flex size-4 shrink-0 items-center justify-center rounded-pill border border-border text-2xs text-faint" title="进度条与百分比为每日 AI 额度的剩余量,每日 00:00 自动恢复至 100%">?</span>
+        <span className="shrink-0 text-2xs font-medium text-subtle">{PLAN_LABEL[data.tier]} 剩余额度</span>
         <div className="h-2 flex-1 overflow-hidden rounded-pill bg-surface-2">
           {!t.unlimited && (
             <div
@@ -163,7 +163,7 @@ function LockedRow({ tier, onUpgrade }: { tier: Tier; onUpgrade: () => void }) {
       <span className={cn('flex size-5 shrink-0 items-center justify-center rounded-sm', TIER_BADGE[tier])}>
         <VIcon className="size-3" />
       </span>
-      <span className="shrink-0 text-2xs font-medium text-faint">{PLAN_LABEL[tier]} 用量</span>
+      <span className="shrink-0 text-2xs font-medium text-faint">{PLAN_LABEL[tier]} 额度</span>
       <div className="h-2 flex-1 rounded-pill bg-surface-2" />
       <button
         onClick={() => tier !== 'free' && onUpgrade()}

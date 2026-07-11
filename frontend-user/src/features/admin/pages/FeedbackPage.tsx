@@ -126,7 +126,7 @@ export function FeedbackPage() {
       title="用户反馈"
       description={`共 ${data?.total ?? 0} 条反馈 · 可分配、回复、关闭`}
       tabs={
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           {STATUS_FILTERS.map((f) => (
             <Button
               key={f.label}
@@ -160,14 +160,14 @@ export function FeedbackPage() {
       <Pagination total={data?.total ?? 0} page={page} pageSize={20} onPageChange={setPage} />
 
       <Dialog open={!!replying} onOpenChange={(o) => !o && setReplying(null)}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>反馈详情 · {replying?.username || replying?.email}</DialogTitle>
           </DialogHeader>
           {replying && (
             <div className="space-y-4">
               {/* 元信息 —— 分类/状态/时间/提交者/邮箱/IP归属地/负责人 */}
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-md border border-border bg-surface-1 p-3">
+              <div className="grid grid-cols-1 gap-x-4 gap-y-2 rounded-md border border-border bg-surface-1 p-3 sm:grid-cols-2">
                 {([
                   ['分类', replying.category || '其他'],
                   ['状态', STATUS_LABEL[replying.status].text],

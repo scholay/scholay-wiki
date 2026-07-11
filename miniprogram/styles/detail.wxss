@@ -1,0 +1,205 @@
+/* 详情页共享样式(paper/journal/author/news @import 本文件)。 */
+.detail {
+  box-sizing: border-box;
+  height: 100vh;
+  padding: 32rpx 32rpx 60rpx;
+}
+.state {
+  height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-weak);
+  font-size: 26rpx;
+}
+.state.error {
+  color: var(--red);
+}
+.meta {
+  color: var(--text-weak);
+  font-size: 24rpx;
+}
+.h1 {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 44rpx;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.authors {
+  display: block;
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  color: var(--text-subtle, #444);
+}
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 20rpx;
+}
+.badge {
+  font-size: 22rpx;
+  padding: 4rpx 14rpx;
+  border-radius: 8rpx;
+  background: #fff;
+  color: var(--text-weak);
+}
+.badge.oa,
+.badge.jcr,
+.badge.if {
+  background: #eaf7ee;
+  color: #2a7a2a;
+}
+.badge.warn {
+  background: #fff5f5;
+  color: #cc2222;
+}
+.stat-row {
+  margin-top: 20rpx;
+  font-size: 28rpx;
+  color: var(--text);
+}
+.cta-row {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 24rpx;
+}
+.section {
+  margin-top: 40rpx;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 28rpx;
+}
+.sec-title {
+  display: block;
+  font-size: 34rpx;
+  font-weight: 700;
+  margin-bottom: 16rpx;
+}
+.body {
+  font-size: 30rpx;
+  line-height: 1.7;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  margin-top: 24rpx;
+}
+.metric {
+  flex: 1;
+  min-width: 30%;
+  background: #fff;
+  border-radius: 12rpx;
+  padding: 20rpx 8rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6rpx;
+}
+.mv {
+  font-size: 34rpx;
+  font-weight: 700;
+}
+.ml {
+  font-size: 22rpx;
+  color: var(--text-weak);
+}
+.ref {
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid var(--border);
+}
+.ref:last-child {
+  border-bottom: none;
+}
+.ref-line {
+  font-size: 26rpx;
+  line-height: 1.6;
+  color: var(--text);
+}
+.ref-line.link {
+  color: #1a56db;
+}
+
+/* 底部 sheet(引用格式等) */
+.mask {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.sheet {
+  background: #fff;
+  border-radius: 24rpx 24rpx 0 0;
+  padding: 24rpx 24rpx calc(32rpx + env(safe-area-inset-bottom));
+  max-height: 76vh;
+  display: flex;
+  flex-direction: column;
+}
+.sheet-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  text-align: center;
+  padding: 8rpx 0 20rpx;
+}
+.fmt-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-bottom: 16rpx;
+}
+.fmt-tab {
+  padding: 8rpx 22rpx;
+  background: var(--bg);
+  border-radius: 24rpx;
+  font-size: 26rpx;
+  color: var(--text-weak);
+}
+.fmt-tab.on {
+  background: #cc2222;
+  color: #fff;
+}
+.cite-text {
+  font-size: 26rpx;
+  line-height: 1.7;
+  color: var(--text);
+  background: var(--bg);
+  border-radius: 12rpx;
+  padding: 20rpx;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+.sheet-confirm {
+  margin-top: 20rpx;
+  background: #cc2222;
+  color: #fff;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  line-height: 84rpx;
+}
+
+/* AI 译文 */
+.section.trans {
+  border-left: 6rpx solid #2a7a2a;
+}
+.trans-h {
+  display: block;
+  font-size: 32rpx;
+  font-weight: 700;
+  margin-bottom: 12rpx;
+}
+.trans-tldr {
+  display: block;
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  color: var(--text-weak);
+}

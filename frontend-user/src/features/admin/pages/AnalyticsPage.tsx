@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { formatISO } from 'date-fns';
 import {
   Activity,
   BarChart3,
@@ -24,7 +25,7 @@ import {
 import { compactAxis } from '@/shared/lib/chart-format';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { Badge } from '@/shared/ui/badge';
-import { buildDailyTrend, localDateKey } from '@/shared/lib/daily-trend';
+import { buildDailyTrend, localDateKey, withWeekday } from '@/shared/lib/daily-trend';
 import { DateRangeControl, type DateWindow } from '../components/DateRangeControl';
 import { AdminPageLayout } from '../components/AdminPageLayout';
 import { EmptyState } from '@/shared/components/EmptyState';
@@ -55,12 +56,14 @@ export function AnalyticsPage() {
       ? Math.round((new Date(win.end).getTime() - new Date(win.start).getTime()) / 86400000) + 1
       : win.days ?? 30;
 
-  // ⚠️ 必须 useMemo:toISOString() 每次 render 返回新毫秒时间戳,直接传 `{start,end}` 会让
+  // ⚠️ 必须 useMemo:formatISO(new Date()) 每次 render 返回新时间戳,直接传 `{start,end}` 会让
   // useQuery 的 queryKey 每次都不一样 → 无限重拉。依赖窗口的原始值,稳定。
+  // 用 formatISO(本地偏移 +08:00)而非 toISOString()(UTC Z):不落 UTC,跟随主机本地时区;
+  // 后端 parseRange 走 ParseInLocation(RFC3339, time.Local),识别串里的 +08:00,解析成同一时刻。
   const params = useMemo(
     () =>
       win.start && win.end
-        ? { start: new Date(win.start + 'T00:00:00').toISOString(), end: new Date(win.end + 'T23:59:59').toISOString() }
+        ? { start: formatISO(new Date(win.start + 'T00:00:00')), end: formatISO(new Date(win.end + 'T23:59:59')) }
         : { start: daysAgoISO(win.days ?? 30), end: nowISO() },
     [win.start, win.end, win.days],
   );
@@ -281,11 +284,11 @@ function Panel({
 }) {
   return (
     <div className="rounded-md border border-border bg-background p-4">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-bold text-foreground">{title}</h3>
         <Icon className="size-3.5 text-faint" />
       </div>
-      {/* min-h-32 兜底;chart 子组件自己用 h-56 包,TopCard 的 ul 按内容撑开 */}
+      {/* min-h-32 兜底;chart 子组件自己用 h-48 包,TopCard 的 ul 按内容撑开 */}
       <div className="min-h-32">{loading ? <Skeleton className="h-32 w-full" /> : children}</div>
     </div>
   );
@@ -314,9 +317,9 @@ function Sparkline({
   return (
     <>
     {isLive && <div className="mb-1 text-right text-2xs text-faint">— — 今日(进行中,非最终值)</div>}
-    <div className="h-56">
+    <div className="h-48">
     <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+      <AreaChart data={data} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
         <defs>
           <linearGradient id="pvGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="var(--color-brand-green)" stopOpacity={0.3} />
@@ -338,7 +341,7 @@ function Sparkline({
           tick={{ fontSize: 11, fill: 'var(--color-faint)' }}
           tickLine={false}
           axisLine={false}
-          width={44}
+          width={38}
         />
         <Tooltip content={<PvTooltip />} />
         <Legend
@@ -384,7 +387,7 @@ function PvTooltip({
   return (
     <div style={{ backgroundColor: 'var(--color-background)', border: '1px solid var(--color-border)', borderRadius: 6, fontSize: 12, padding: '6px 10px' }}>
       <div style={{ color: 'var(--color-muted-foreground)', fontSize: 11, marginBottom: 2 }}>
-        {shortDate(row.x)}
+        {withWeekday(shortDate(row.x), row.x)}
         {isToday && <span style={{ color: 'var(--color-brand-amber)', marginLeft: 4 }}>· 进行中</span>}
       </div>
       <div style={{ color: 'var(--color-foreground)' }}>访问页 {row.pv.toLocaleString()}</div>
@@ -471,13 +474,14 @@ function durationText(totalSec?: number, visits?: number): string {
   return `${m}:${String(s % 60).padStart(2, '0')}`;
 }
 
+// 本地时区 RFC3339(带 +08:00 偏移),不用 toISOString() 的 UTC「Z」——跟随主机本地时区。
 function nowISO(): string {
-  return new Date().toISOString();
+  return formatISO(new Date());
 }
 function daysAgoISO(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() - days);
-  return d.toISOString();
+  return formatISO(d);
 }
 function shortDate(s: string): string {
   if (!s) return '';

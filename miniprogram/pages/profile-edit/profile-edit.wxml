@@ -1,0 +1,15 @@
+<view class="page pe">
+  <view wx:if="{{loading}}" class="sk-detail"><view class="skeleton sk-title-lg"></view><view class="sk-chips"><view class="skeleton sk-chip"></view><view class="skeleton sk-chip"></view><view class="skeleton sk-chip"></view></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w70"></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w45"></view></view>
+  <block wx:else>
+    <view class="field">
+      <text class="label">昵称</text>
+      <input class="input" value="{{username}}" bindinput="onName" placeholder="输入昵称" maxlength="32" />
+    </view>
+    <view class="field">
+      <text class="label">简介</text>
+      <textarea class="textarea" value="{{bio}}" bindinput="onBio" placeholder="一句话介绍自己" maxlength="200" auto-height />
+    </view>
+    <button class="save" loading="{{saving}}" bindtap="onSave">保存</button>
+    <view class="link-row" bindtap="goChangePassword"><text>修改密码</text><text class="arrow">›</text></view>
+  </block>
+</view>

@@ -39,6 +39,16 @@ export const AssistantTurn = memo(function AssistantTurn({ turn }: { turn: Turn 
   const showTrailingIndicator =
     !turn.complete && !turn.errorMessage && visible && !isStreamingText;
 
+  // 命中每日额度、未发送的那轮:agent 永不对它回事件(complete 永远 false),不能走下面的
+  // 流式占位分支(否则一直转圈)。渲染一条「未发送」提示,原文已回填输入框可直接重发。
+  if (turn.blocked) {
+    return (
+      <div className="text-xs text-muted-foreground bg-surface-2 border border-border rounded-sm px-2.5 py-1.5">
+        本条未发送 —— 已达今日检索额度。开通会员或明日再来,重新发送即可。
+      </div>
+    );
+  }
+
   // turn 未完成且没产生可视内容 —— 单独占位行 (含 thinking 折叠)
   if (!turn.complete && !turn.errorMessage && !visible) {
     return (

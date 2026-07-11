@@ -11,6 +11,9 @@ package agentbridge
 
 import (
 	"errors"
+	"net/http"
+	"net/url"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -135,4 +138,62 @@ func (b *Bridge) AdminGetSessionMessages(c *gin.Context) {
 		return
 	}
 	utils.Success(c, gin.H{"messages": resp.Messages})
+}
+
+// AdminGetSessionFile GET /admin/agent-sessions/:sessionId/file?path=<relPath>&download=1
+// 从 agent 会话隔离 cwd 取一个文件的原始字节(claw/prism 用户上传的文件、引用文献、产物等),
+// 供管理端会话监控**内联预览 / 下载**。只读;agent 侧 resolveWorkspacePath 已做 cwd 越界校验。
+// 默认 inline(前端 react-pdf / <img> / 文本直接预览),download=1 强制下载。一律 nosniff + no-store。
+func (b *Bridge) AdminGetSessionFile(c *gin.Context) {
+	sessionID := strings.TrimSpace(c.Param("sessionId"))
+	relPath := strings.TrimSpace(c.Query("path"))
+	if sessionID == "" || relPath == "" {
+		utils.BadRequest(c, "sessionId 与 path 必填")
+		return
+	}
+	raw, err := b.client.ReadWorkspaceFileRaw(c.Request.Context(), sessionID, relPath)
+	if err != nil {
+		if errors.Is(err, agent.ErrSessionNotFound) {
+			utils.NotFound(c, "会话不存在或已清理")
+			return
+		}
+		utils.InternalError(c, 500, "读取会话文件失败", err)
+		return
+	}
+	switch raw.State {
+	case "ok":
+		// 继续流式回传
+	case "missing":
+		utils.NotFound(c, "文件不存在(可能已被清理)")
+		return
+	case "too_large":
+		utils.BadRequest(c, "文件过大,无法预览/下载")
+		return
+	default:
+		utils.BadRequest(c, "文件无法读取")
+		return
+	}
+
+	filename := path.Base(relPath)
+	disposition := "inline"
+	if c.Query("download") == "1" {
+		disposition = "attachment"
+	}
+	ctype := raw.MimeType
+	if ctype == "" {
+		ctype = "application/octet-stream"
+	}
+	// 安全:内联展示用户上传文件时,把可在浏览器执行脚本的类型(html/xhtml/svg)降级为纯文本,防存储型 XSS
+	// (用户传带 <script> 的 html/svg,管理员在后台源里打开会执行、可窃取管理员 token)。下载不执行,保留原类型。
+	if disposition == "inline" {
+		switch strings.ToLower(strings.TrimSpace(strings.SplitN(ctype, ";", 2)[0])) {
+		case "text/html", "application/xhtml+xml", "image/svg+xml":
+			ctype = "text/plain; charset=utf-8"
+		}
+	}
+	// filename* 用 PathEscape(空格→%20);QueryEscape 会把空格编成 '+' 破坏文件名。
+	c.Header("Content-Disposition", disposition+`; filename*=UTF-8''`+url.PathEscape(filename))
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Header("Cache-Control", "no-store")
+	c.Data(http.StatusOK, ctype, raw.Bytes)
 }

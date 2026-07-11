@@ -15,6 +15,7 @@
 package user
 
 import (
+	"context"
 	"time"
 
 	"scholar-backend/internal/common/middleware"
@@ -27,6 +28,12 @@ import (
 type WeChatService interface {
 	GetAccessToken(code string) (accessToken, openID, unionID string, err error)
 	GetUserInfo(accessToken, openID string) (nickname, headImgURL, unionID string, err error)
+	// Code2Session 小程序 wx.login code → openid/unionid/session_key(/sns/jscode2session)
+	Code2Session(jsCode string) (openID, unionID, sessionKey string, err error)
+	// CheckText 小程序内容安全(msgSecCheck v2)。fail-open:出错返回 pass=true。
+	CheckText(ctx context.Context, openid, content string) (pass bool, suggest string, err error)
+	// GetPhoneByCode 小程序 getPhoneNumber code → 手机号(微信已验证)。
+	GetPhoneByCode(phoneCode string) (phone string, err error)
 }
 
 // Handler handles HTTP requests for user operations

@@ -1,0 +1,53 @@
+{
+  "lazyCodeLoading": "requiredComponents",
+  "pages": [
+    "pages/feed/feed",
+    "pages/claw/claw",
+    "pages/tools/tools",
+    "pages/me/me",
+    "pages/login/login",
+    "pages/search/search",
+    "pages/paper/paper",
+    "pages/journal/journal",
+    "pages/author/author",
+    "pages/news/news",
+    "pages/tool-detail/tool-detail",
+    "pages/library/library",
+    "pages/billing/billing",
+    "pages/profile-edit/profile-edit",
+    "pages/change-password/change-password"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "Scholay 学术",
+    "backgroundColor": "#f5f5f7",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "custom": true,
+    "color": "#999999",
+    "selectedColor": "#111111",
+    "backgroundColor": "#ffffff",
+    "list": [
+      {
+        "pagePath": "pages/feed/feed",
+        "text": "浏览"
+      },
+      {
+        "pagePath": "pages/claw/claw",
+        "text": "AI Claw"
+      },
+      {
+        "pagePath": "pages/tools/tools",
+        "text": "功能"
+      },
+      {
+        "pagePath": "pages/me/me",
+        "text": "我的"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

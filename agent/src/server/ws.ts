@@ -35,6 +35,15 @@ export interface WSData {
 
 const PERMISSION_TIMEOUT_MS = Number(process.env.EXECUTOR_PERMISSION_TIMEOUT_MS || 120_000);
 
+// parseTaskBudget —— 从 user_message 帧的 budget 对象解析有界透支预算(SS#2)。
+// backend 只给 3 个 chat feature 盖章;缺失/非法 → undefined(peerreview 及老前端天然走无预算路径)。
+export function parseTaskBudget(raw: unknown): { softRemaining: number; hardRemaining: number } | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const b = raw as { softRemaining?: unknown; hardRemaining?: unknown };
+  if (typeof b.softRemaining !== "number" || typeof b.hardRemaining !== "number") return undefined;
+  return { softRemaining: b.softRemaining, hardRemaining: b.hardRemaining };
+}
+
 function safeSend(ws: ServerWebSocket<WSData>, obj: unknown): void {
   try {
     ws.send(JSON.stringify(obj));
@@ -224,6 +233,8 @@ async function handleUserMessage(ws: ServerWebSocket<WSData>, frame: Record<stri
     workDir: meta.workDir,
     allowBash: allowBashFor(meta),
     net: "open",
+    // 有界透支预算(SS#2):backend 在 user_message 上盖 budget 对象;peerreview 不盖 → undefined。
+    taskBudget: parseTaskBudget((frame as Record<string, unknown>).budget),
   };
 
   try {

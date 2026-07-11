@@ -15,7 +15,7 @@ import { StatCard } from '../components/StatCard';
 import { TodayPanel } from '../components/TodayPanel';
 import { useDashboardStats, type ChartDataPoint } from '../api/dashboard';
 import { compactTokens } from '../api/token-usage';
-import { buildDailyTrend, localDateKey } from '@/shared/lib/daily-trend';
+import { buildDailyTrend, localDateKey, withWeekday } from '@/shared/lib/daily-trend';
 import { compactAxis, compactYuanAxis } from '@/shared/lib/chart-format';
 import { Skeleton } from '@/shared/ui/skeleton';
 
@@ -156,14 +156,14 @@ function TrendCard({
   const yTickFmt = yLabel === '¥' ? compactYuanAxis : compactAxis;
   return (
     <div className="rounded-md border border-border bg-background p-4">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-bold text-foreground">{title}</h3>
         <div className="flex items-center gap-2">
           {isLive && <span className="text-2xs text-faint">— — 今日(进行中)</span>}
           <Icon className="size-3.5 text-faint" />
         </div>
       </div>
-      <div className="h-56">
+      <div className="h-48">
         {loading ? (
           <Skeleton className="h-full w-full" />
         ) : !data || data.length === 0 ? (
@@ -174,7 +174,7 @@ function TrendCard({
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             {area ? (
-              <AreaChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <AreaChart data={rows} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor={color} stopOpacity={0.3} />
@@ -196,7 +196,7 @@ function TrendCard({
                   tick={{ fontSize: 11, fill: 'var(--color-faint)' }}
                   tickLine={false}
                   axisLine={false}
-                  width={52}
+                  width={44}
                 />
                 <Tooltip content={<TrendTooltip fmt={fmt} />} />
                 <Area
@@ -220,7 +220,7 @@ function TrendCard({
                 )}
               </AreaChart>
             ) : (
-              <LineChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <LineChart data={rows} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
                 <XAxis
                   dataKey="date"
@@ -236,7 +236,7 @@ function TrendCard({
                   tick={{ fontSize: 11, fill: 'var(--color-faint)' }}
                   tickLine={false}
                   axisLine={false}
-                  width={44}
+                  width={38}
                 />
                 <Tooltip content={<TrendTooltip fmt={fmt} />} />
                 <Line
@@ -287,7 +287,7 @@ function TrendTooltip({
   return (
     <div style={tooltipStyle}>
       <div style={tooltipLabelStyle}>
-        {String(label ?? row.date)}
+        {withWeekday(String(label ?? row.date), row.date)}
         {isToday && <span className="ml-1 text-brand-amber">· 进行中</span>}
       </div>
       <div style={{ color: 'var(--color-foreground)' }}>{fmt(Number(row.value ?? 0))}</div>

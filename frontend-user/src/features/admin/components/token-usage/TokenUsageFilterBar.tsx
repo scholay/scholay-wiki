@@ -109,21 +109,21 @@ export function TokenUsageFilterBar({ onChange }: { onChange: (f: TokenUsageFilt
       </div>
 
       {/* 自定义区间 */}
-      <div className="space-y-1">
+      <div className="w-full space-y-1 sm:w-auto">
         <Label className="text-2xs text-faint tracking-[0.12em]">自定义起止</Label>
         <div className="flex items-center gap-1">
           <Input
             type="date"
             value={start}
             onChange={(e) => patch({ start: e.target.value || null })}
-            className="h-8 w-36"
+            className="h-8 min-w-0 flex-1 sm:w-36 sm:flex-none"
           />
           <span className="text-faint text-xs">→</span>
           <Input
             type="date"
             value={end}
             onChange={(e) => patch({ end: e.target.value || null })}
-            className="h-8 w-36"
+            className="h-8 min-w-0 flex-1 sm:w-36 sm:flex-none"
           />
         </div>
       </div>

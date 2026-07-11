@@ -1,0 +1,241 @@
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type ClipboardEvent,
+  type HTMLAttributes,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
+import { ArrowUp, Loader2, LogIn, Square } from 'lucide-react';
+import { cn } from '@/shared/lib/utils';
+import { ContextMeter } from './ContextMeter';
+
+/**
+ * 统一对话输入框核心(智能搜索 / 智能助手 / 智能写作三处共用;主流 Claude/GPT 形态)。
+ * 只管业务无关的壳:圆角容器 + 柔和聚焦、自增高 textarea、Enter 发送(组字守卫)、
+ * 底部工具栏(左插槽 | 水位 | 发送/停止/登录)、顶部 chips 插槽、拖拽蒙层插槽。
+ * 附件上传 / 引用文献 / 快捷菜单等业务件由各 feature 包一层经插槽塞入(shared 不感知业务)。
+ */
+
+export interface ComposerContextInfo {
+  totalTokens: number;
+  maxTokens: number;
+  percentage: number;
+  model: string;
+}
+
+export interface ComposerHandle {
+  /** 把文案填进输入框并聚焦(光标置末尾),不发送 —— 快捷按钮/示例提问用。 */
+  prefill: (text: string) => void;
+  focus: () => void;
+}
+
+export interface ComposerProps {
+  /** 受控模式(智能搜索 hero↔底栏切换需父级持文本);不传则内部自管。 */
+  value?: string;
+  onChange?: (v: string) => void;
+  /** 发送(core 已 trim;非受控模式发送后自动清空)。 */
+  onSend: (text: string) => void;
+  placeholder?: string;
+  /** 覆盖在 textarea 上的自定义 placeholder 层(如轮播示例);存在且输入为空时原生 placeholder 置空。 */
+  placeholderOverlay?: ReactNode;
+  /** 输入框整体禁用(等待回答/连接中)。 */
+  disabled?: boolean;
+  /** 发送闸(默认 true):false 时发送键置灰但输入框可打字(如 WS 未就绪)。 */
+  sendReady?: boolean;
+  /** 空文本也允许发送(如已有附件)。 */
+  canSendEmpty?: boolean;
+  /** 生成中 → 发送键切停止键。 */
+  busy?: boolean;
+  stopping?: boolean;
+  onStop?: () => void;
+  /** 未登录:发送键换登录图标,点击走 onRequireAuth 而非 onSend(输入框保持可打字)。 */
+  requireAuth?: boolean;
+  onRequireAuth?: () => void;
+  /** 上下文水位(footer 右侧,紧贴发送键;无数据不显示)。 */
+  context?: ComposerContextInfo | null;
+  /** 顶部 chips 区(附件预览/引用文献/引用选区)。 */
+  topSlot?: ReactNode;
+  /** 底部工具栏左侧(上传/引用文献/新对话/能力菜单等 feature 按钮)。 */
+  leftActions?: ReactNode;
+  /** 拖拽蒙层等覆盖层(绝对定位,feature 自管显隐)。 */
+  overlay?: ReactNode;
+  /** 容器级事件(拖拽上传的 onDragEnter、onDrop 等)。 */
+  containerProps?: HTMLAttributes<HTMLDivElement>;
+  onPaste?: (e: ClipboardEvent<HTMLTextAreaElement>) => void;
+  /** 空态初始行数(hero=3);内容超出后自动增高到 maxHeightPx。 */
+  minRows?: number;
+  maxHeightPx?: number;
+  autoFocus?: boolean;
+  className?: string;
+}
+
+export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer(
+  {
+    value,
+    onChange,
+    onSend,
+    placeholder = '',
+    placeholderOverlay,
+    disabled = false,
+    sendReady = true,
+    canSendEmpty = false,
+    busy = false,
+    stopping = false,
+    onStop,
+    requireAuth = false,
+    onRequireAuth,
+    context,
+    topSlot,
+    leftActions,
+    overlay,
+    containerProps,
+    onPaste,
+    minRows = 1,
+    maxHeightPx = 160,
+    autoFocus = false,
+    className,
+  },
+  ref,
+) {
+  const controlled = value !== undefined;
+  const [inner, setInner] = useState('');
+  const text = controlled ? value! : inner;
+  const setText = (v: string) => {
+    if (!controlled) setInner(v);
+    onChange?.(v);
+  };
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // 自增高:单行起、随内容到上限;effect 驱动(打字/prefill/清空都正确收放)。
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, maxHeightPx)}px`;
+  }, [text, maxHeightPx]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      prefill: (t: string) => {
+        setText(t);
+        textareaRef.current?.focus();
+        requestAnimationFrame(() => {
+          const el = textareaRef.current;
+          if (el) el.setSelectionRange(el.value.length, el.value.length);
+        });
+      },
+      focus: () => textareaRef.current?.focus(),
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [controlled, onChange],
+  );
+
+  const submit = () => {
+    if (busy) return;
+    if (requireAuth) {
+      onRequireAuth?.();
+      return;
+    }
+    const t = text.trim();
+    if ((!t && !canSendEmpty) || disabled || !sendReady) return;
+    onSend(t);
+    if (!controlled) setInner('');
+  };
+
+  const handleKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // CJK 组字中的回车是选词不是发送;Shift+Enter 换行。
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+      e.preventDefault();
+      submit();
+    }
+  };
+
+  const canSend = requireAuth ? !!text.trim() || canSendEmpty : !disabled && sendReady && (!!text.trim() || canSendEmpty);
+
+  return (
+    <div
+      {...containerProps}
+      className={cn(
+        'relative flex flex-col gap-2 rounded-2xl border border-border-strong bg-background p-2.5 shadow-sm transition',
+        'focus-within:border-foreground/25 focus-within:ring-4 focus-within:ring-foreground/5',
+        disabled && 'opacity-70',
+        className,
+        containerProps?.className,
+      )}
+    >
+      {overlay}
+      {topSlot}
+
+      <div className="relative min-w-0">
+        {placeholderOverlay && text.length === 0 && placeholderOverlay}
+        <textarea
+          ref={textareaRef}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={handleKey}
+          onPaste={onPaste}
+          placeholder={placeholderOverlay ? '' : placeholder}
+          rows={minRows}
+          disabled={disabled}
+          autoFocus={autoFocus}
+          className="block w-full resize-none overflow-y-auto border-0 bg-transparent px-1 py-1 text-base leading-relaxed text-foreground outline-none placeholder:text-faint focus:outline-none focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+        />
+      </div>
+
+      {/* 底部工具栏:左 feature 按钮 | 撑开 | 水位 | 发送/停止/登录 */}
+      <div className="flex items-center gap-1">
+        {leftActions}
+        <span className="flex-1" />
+        {context && context.totalTokens > 0 && (
+          <ContextMeter
+            totalTokens={context.totalTokens}
+            maxTokens={context.maxTokens}
+            percentage={context.percentage}
+            model={context.model}
+            className="mr-1"
+          />
+        )}
+        {busy && !requireAuth ? (
+          <button
+            type="button"
+            onClick={onStop}
+            disabled={stopping || !onStop}
+            aria-label={stopping ? '正在停止' : '停止生成'}
+            title={stopping ? '正在停止…' : '停止当前回答'}
+            className={cn(
+              'inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-background transition-colors',
+              stopping ? 'cursor-wait bg-foreground/60' : 'bg-foreground hover:bg-foreground/85',
+            )}
+          >
+            {stopping ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Square className="size-3 fill-current" strokeWidth={0} aria-hidden="true" />
+            )}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!canSend}
+            aria-label={requireAuth ? '登录后开始' : '发送 (Enter)'}
+            title={requireAuth ? '登录后开始' : '发送 (Enter)'}
+            className={cn(
+              'inline-flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors',
+              canSend ? 'bg-foreground text-background hover:bg-foreground/90' : 'bg-surface-2 text-faint',
+              !canSend && 'cursor-not-allowed',
+            )}
+          >
+            {requireAuth ? <LogIn className="size-4" strokeWidth={2.2} /> : <ArrowUp className="size-4" strokeWidth={2.5} />}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+});
+Composer.displayName = 'Composer';

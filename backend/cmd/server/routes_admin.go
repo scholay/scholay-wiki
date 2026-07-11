@@ -151,6 +151,10 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.GET("/wechat-official/config", h.wechatOfficial.GetConfig)
 		adminProtected.PUT("/wechat-official/config", h.wechatOfficial.UpdateConfig)
 
+		// 微信小程序配置(单行;GET ?show_sensitive=true 返回明文 AppSecret,PUT 遮罩=保留旧值)
+		adminProtected.GET("/wechat-miniprogram/config", h.wechat.GetMiniProgramConfig)
+		adminProtected.PUT("/wechat-miniprogram/config", h.wechat.UpdateMiniProgramConfig)
+
 		// 通用 Agent 服务 (scholar_agent 容器) 的模型 / 端点配置
 		// 单行 (id=1), GET ?show_sensitive=true 返回明文 token, 默认返回打码
 		adminProtected.GET("/agent/config", h.agentConfig.GetConfig)
@@ -169,9 +173,13 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		// 覆盖 smart_search/claw/prism;审稿走 peer_review 报告另算。
 		adminProtected.GET("/agent-sessions", h.agentBridge.AdminListSessions)
 		adminProtected.GET("/agent-sessions/:sessionId/messages", h.agentBridge.AdminGetSessionMessages)
+		// 会话内用户上传文件 / 引用文档:从 agent 会话 cwd 取原始字节,内联预览 / 下载(只读)。
+		adminProtected.GET("/agent-sessions/:sessionId/file", h.agentBridge.AdminGetSessionFile)
 		// 审稿监控:投稿列表 + 一份投稿的完整数据(草稿过程 + 审稿报告 + 附件)。
 		adminProtected.GET("/peer-review/submissions", h.peerReview.AdminListSubmissions)
 		adminProtected.GET("/peer-review/submissions/:id", h.peerReview.AdminGetSubmission)
+		// 投稿附件原文件:从 MinIO 流式取,内联预览(react-pdf 等) / 下载。
+		adminProtected.GET("/peer-review/submissions/:id/assets/:assetId", h.peerReview.AdminGetSubmissionAsset)
 
 		// 使用日志管理 (前端用 list/summary/config GET+PUT/cleanup/export;
 		// features/filter-options/all 已下线)

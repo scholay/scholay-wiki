@@ -1,0 +1,25 @@
+<view wx:if="{{loading}}" class="sk-detail"><view class="skeleton sk-title-lg"></view><view class="sk-chips"><view class="skeleton sk-chip"></view><view class="skeleton sk-chip"></view><view class="skeleton sk-chip"></view></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w70"></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w45"></view></view>
+<view wx:elif="{{error}}" class="state error">{{error}}</view>
+
+<scroll-view wx:else scroll-y class="page detail">
+  <text class="meta">{{scope}}</text>
+  <text class="h1">{{name}}</text>
+  <text wx:if="{{publisherLine}}" class="authors">{{publisherLine}}</text>
+  <text wx:if="{{issn}}" class="meta">ISSN {{issn}}</text>
+
+  <view class="badges">
+    <text wx:for="{{badges}}" wx:for-item="b" wx:key="text" class="badge {{b.kind}}">{{b.text}}</text>
+  </view>
+
+  <view class="metrics">
+    <view wx:for="{{metrics}}" wx:for-item="mm" wx:key="label" class="metric">
+      <text class="mv">{{mm.value}}</text>
+      <text class="ml">{{mm.label}}</text>
+    </view>
+  </view>
+
+  <view wx:if="{{submission}}" class="section">
+    <text class="sec-title">投稿资源</text>
+    <text class="body">该刊提供:{{submission}}。投稿模板/须知下载为 Max 会员专享,请到网页端 scholay.com 完成下载。</text>
+  </view>
+</scroll-view>

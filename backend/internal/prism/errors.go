@@ -14,6 +14,13 @@ var (
 	// ErrStaleBase —— 应用 AI 提案时文件已被改动(current ≠ 提案 base),需重新生成(乐观并发)。
 	ErrStaleBase = errors.New("文件已变更,请放弃后重新生成 AI 修改")
 
+	// ErrRoundBusy(V3-4.4-1)—— AI 回答进行中,prepare/reject/重开会话会抽换 agent 脚下的 cwd,拒绝(409)。
+	ErrRoundBusy = errors.New("AI 正在回答中,请等本轮结束后再操作")
+
+	// ErrRoundEpochMismatch(V3-4.4-1)—— apply 携带的轮次世代号与服务端当前不符:期间发生过新的
+	// prepare(其它窗口/新一轮),这份 pending 基于过期基线,拒绝固化(409)。
+	ErrRoundEpochMismatch = errors.New("文档基线已更新(可能在其它窗口发起了新一轮),请刷新后重试")
+
 	// ErrReadOnlyProject —— 旧版(legacy)项目冻结只读 / struct 项目误用旧端点:仅查看/编译/导出。
 	ErrReadOnlyProject = errors.New("该项目为旧版项目,仅支持查看 / 编译 / 导出")
 

@@ -77,8 +77,17 @@ export function ZoomableSvg({ svgHtml, className }: { svgHtml: string; className
         (className ?? '')
       }
     >
+      {/* 图块本体即全屏入口:触屏(小程序 web-view / 手机浏览器)没有 hover,
+          仅靠 hover 显形的「放大」按钮永远不可达 —— 点图直接开全屏是唯一可靠路径。 */}
       <div
-        className="[&_svg]:mx-auto [&_svg]:h-auto [&_svg]:max-w-full"
+        role="button"
+        tabIndex={0}
+        aria-label="放大查看图表"
+        onClick={() => setOpen(true)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') setOpen(true);
+        }}
+        className="cursor-zoom-in [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:max-w-full"
         dangerouslySetInnerHTML={{ __html: svgHtml }}
       />
       <button

@@ -432,6 +432,30 @@ func (h *Handler) Submit(c *gin.Context) {
 	utils.Success(c, toSubmissionDTO(s))
 }
 
+// Retry 重试一份失败的审稿(评审 top#2)。复用已完成轮,只补跑失败部分;仍过每日额度闸。
+func (h *Handler) Retry(c *gin.Context) {
+	id, ok := parseUintParam(c, "id")
+	if !ok {
+		return
+	}
+	s, err := h.svc.RetryReview(c.Request.Context(), uidOf(c), id)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			utils.NotFound(c, "submission not found")
+			return
+		}
+		if errors.Is(err, vip.ErrQuotaExceeded) {
+			utils.SafeError(c, errcode.AgentQuotaExceeded, err)
+			return
+		}
+		slog.Error("peerreview retry", "err", err, "submission_id", id)
+		utils.SafeError(c, http.StatusBadRequest, err)
+		return
+	}
+	h.recordPR(c, "retry", id, nil)
+	utils.Success(c, toSubmissionDTO(s))
+}
+
 // DeleteSubmission 整条删除 — 任务记录页 "删除" / wizard "取消草稿" 都走这里。
 // 会顺带清掉 agent session + MinIO 对象;DB 行通过 FK CASCADE 触发 assets/reports/step_cache 的清理。
 func (h *Handler) DeleteSubmission(c *gin.Context) {

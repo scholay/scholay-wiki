@@ -17,7 +17,7 @@ import { toolsRoutes, toolsMobileRoutes } from '@/features/tools/routes';
 import { citationRoutes } from '@/features/citation/routes';
 import { peerReviewRoutes } from '@/features/peer-review/routes';
 import { prismRoutes } from '@/features/prism/routes';
-import { clawRoutes, clawMobileRoutes } from '@/features/claw/routes';
+import { clawRoutes, clawMobileRoutes, clawEmbedRoutes } from '@/features/claw/routes';
 import { newsRoutes } from '@/features/news/routes';
 import { landingRoutes } from '@/features/landing/routes';
 import { helpRoutes } from '@/features/help/routes';
@@ -77,6 +77,12 @@ export const router = createBrowserRouter([
   })),
   // 分享接收页 /s/:token —— 公开、免登录、PC/移动通用,不挂 AppShell/MobileShell。
   ...shareReceiveRoutes.map((r) => ({
+    ...r,
+    path: `/${r.path}`,
+    errorElement: <RouteErrorBoundary />,
+  })),
+  // 小程序 web-view 内嵌页 /mp/* —— 公开、免登录、不挂 Shell(小程序导航栏承担壳)。
+  ...clawEmbedRoutes.map((r) => ({
     ...r,
     path: `/${r.path}`,
     errorElement: <RouteErrorBoundary />,

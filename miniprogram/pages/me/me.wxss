@@ -1,0 +1,179 @@
+.me {
+  padding: 32rpx 32rpx calc(140rpx + env(safe-area-inset-bottom));
+}
+
+/* 未登录 */
+.guest {
+  padding-top: 160rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20rpx;
+}
+.logo {
+  font-size: 64rpx;
+  font-weight: 800;
+  color: var(--brand);
+}
+.guest-tip {
+  color: var(--text-weak);
+  font-size: 28rpx;
+  margin-bottom: 40rpx;
+}
+.btn.big {
+  width: 560rpx;
+  line-height: 96rpx;
+  font-size: 32rpx;
+}
+
+/* 用户卡 */
+.user-card {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 32rpx;
+}
+.avatar {
+  width: 112rpx;
+  height: 112rpx;
+  border-radius: 56rpx;
+  background: var(--bg);
+}
+.avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 48rpx;
+  font-weight: 700;
+  background: var(--brand);
+}
+.uname {
+  font-size: 36rpx;
+  font-weight: 700;
+}
+.uemail {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--text-weak);
+  font-size: 26rpx;
+}
+
+.bind-phone {
+  margin-top: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  height: 80rpx;
+  background: #fff;
+  color: #cc2222;
+  border: 1rpx solid #cc2222;
+  border-radius: 16rpx;
+  font-size: 28rpx;
+}
+.bind-phone .svg-ic {
+  width: 30rpx;
+  height: 30rpx;
+}
+
+/* 会员资产 */
+.asset-card {
+  margin-top: 24rpx;
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 32rpx;
+}
+.asset-head {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+.tier {
+  font-size: 32rpx;
+  font-weight: 700;
+  padding: 4rpx 20rpx;
+  border-radius: 8rpx;
+}
+.tier-free {
+  background: var(--bg);
+  color: var(--text-weak);
+}
+.tier-pro {
+  background: #eaf7ee;
+  color: #2a7a2a;
+}
+.tier-max {
+  background: #fbf3e0;
+  color: #d4a017;
+}
+.expire {
+  margin-left: auto;
+  color: var(--text-weak);
+  font-size: 24rpx;
+}
+.quota {
+  margin-top: 24rpx;
+}
+.quota-bar {
+  height: 12rpx;
+  border-radius: 6rpx;
+  background: var(--bg);
+  overflow: hidden;
+}
+.quota-fill {
+  height: 100%;
+  background: #2a7a2a;
+}
+.quota-text {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: var(--text-weak);
+}
+.credit {
+  margin-top: 20rpx;
+  font-size: 28rpx;
+}
+.asset-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 24rpx;
+}
+.asset-btn {
+  flex: 1;
+  text-align: center;
+  line-height: 68rpx;
+  border: 1rpx solid #cc2222;
+  color: #cc2222;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+}
+
+/* 菜单 */
+.menu {
+  margin-top: 24rpx;
+  background: #fff;
+  border-radius: 24rpx;
+  overflow: hidden;
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32rpx;
+  border-bottom: 1rpx solid var(--border);
+  font-size: 32rpx;
+}
+.menu-item:last-child {
+  border-bottom: none;
+}
+.arrow {
+  color: var(--text-weak);
+  font-size: 34rpx;
+}
+.logout {
+  margin-top: 40rpx;
+}

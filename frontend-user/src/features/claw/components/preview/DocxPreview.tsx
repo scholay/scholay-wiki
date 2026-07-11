@@ -48,7 +48,9 @@ export function DocxPreview({ bytes }: { bytes: ArrayBuffer }) {
   return (
     <div
       // docx 转出的 HTML 已 DOMPurify 消毒;space-y 给段落/标题基础行距(无 prose 插件)。
-      className="space-y-2.5 px-5 py-4 text-sm leading-relaxed text-foreground [&_h1]:text-lg [&_h1]:font-bold [&_h2]:text-base [&_h2]:font-bold [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1"
+      // h-full overflow-auto:多页 Word 在父级 overflow-hidden 下需自带滚动容器(其余预览分支都有,docx 曾漏)。
+      // 内嵌图 / 宽表加约束防窄屏横向溢出。
+      className="h-full space-y-2.5 overflow-auto px-5 py-4 text-sm leading-relaxed text-foreground [&_h1]:text-lg [&_h1]:font-bold [&_h2]:text-base [&_h2]:font-bold [&_img]:h-auto [&_img]:max-w-full [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1"
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

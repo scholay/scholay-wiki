@@ -43,7 +43,7 @@ export function UserTokenUsagePanel({ userId }: { userId: number }) {
         <p className="py-2 text-xs text-faint">该时段无 AI 用量</p>
       ) : (
         <>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             <Stat label="合计" value={totals.total_tokens} strong />
             <Stat label="输入" value={totals.input_tokens} />
             <Stat label="输出" value={totals.output_tokens} />

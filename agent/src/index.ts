@@ -7,6 +7,7 @@ import { onOpen, onMessage, onClose, type WSData } from "./server/ws.ts";
 import { authOK, tokenConfigured } from "./auth.ts";
 import { validSessionId } from "./sandbox/confine.ts";
 import { prewarm } from "./mcp/minicodClient.ts";
+import { unsandboxedBashGate } from "./sandbox/profile.ts";
 import { log } from "./obs/log.ts";
 
 const PORT = Number(process.env.PORT || 3456);
@@ -54,10 +55,16 @@ log.info("agent started (clean-room executor · provider-agnostic · WS+HTTP)", 
   sandbox_mode: process.env.SANDBOX_MODE ?? "none",
 });
 
-// C4:none 模式下 Bash 未进 bwrap 隔离(进程/网络)。凭据泄漏已由 bash env 白名单挡住、路径逃逸已由
-// realpath confine 挡住,但生产仍应设 EXECUTOR_SANDBOX_MODE=bwrap 拿进程/网络隔离。本机 LinuxKit 无 bwrap → none。
-if ((process.env.SANDBOX_MODE ?? "none") === "none") {
-  log.warn("SANDBOX_MODE=none:Bash 未进 bwrap 隔离。生产请设 EXECUTOR_SANDBOX_MODE=bwrap(本机无 bwrap 可忽略)。");
+// C4/secure-by-default:none 模式下 Bash 未进 bwrap 隔离(进程/网络)。生产 + 无沙箱 + 未显式放行时,
+// Bash 已被 unsandboxedBashGate 关闭(见 registry.bashTool);此处把该状态大声打出来,避免像旧的单条
+// warn 那样被忽略(评审:旧 warn 被无视导致裸 Bash 一直带病上生产)。
+{
+  const gate = unsandboxedBashGate();
+  if (!gate.ok) {
+    log.error("FATAL(secure-by-default):" + gate.reason + " —— Bash 工具将拒绝执行,claw 的文件转换能力不可用,直至启用 bwrap 或显式放行。");
+  } else if ((process.env.SANDBOX_MODE ?? "none") === "none") {
+    log.warn(`SANDBOX_MODE=none:Bash 未进 bwrap 隔离(放行原因:${gate.reason})。生产请设 EXECUTOR_SANDBOX_MODE=bwrap 拿进程/网络隔离。`);
+  }
 }
 if (process.env.NODE_ENV === "production" && !tokenConfigured()) {
   log.error("FATAL: NODE_ENV=production 但未配 EXECUTOR_AUTH_TOKEN/AGENT_INTERNAL_TOKEN — 鉴权 fail-closed,所有请求将被拒。请配置 token。");

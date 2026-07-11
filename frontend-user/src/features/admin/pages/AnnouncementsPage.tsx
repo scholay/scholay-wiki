@@ -171,7 +171,7 @@ function AnnouncementDialog({
             <Input id="title" name="title" defaultValue={initial?.title} required />
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="space-y-1.5">
               <Label htmlFor="severity">严重程度</Label>
               <select
@@ -214,7 +214,7 @@ function AnnouncementDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="starts_at">开始</Label>
               <Input id="starts_at" name="starts_at" type="date" defaultValue={initial?.starts_at?.slice(0, 10)} />
@@ -237,7 +237,7 @@ function AnnouncementDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="link_url">链接 URL(可选)</Label>
               <Input id="link_url" name="link_url" defaultValue={initial?.link_url} placeholder="/announcements/123" />
@@ -248,7 +248,7 @@ function AnnouncementDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="flex items-center gap-2 h-9">
               <input id="is_active" name="is_active" type="checkbox" defaultChecked={(initial?.is_active ?? 1) === 1} className="size-4" />
               <Label htmlFor="is_active" className="text-sm">立即发布</Label>

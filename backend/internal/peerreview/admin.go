@@ -10,11 +10,15 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"io"
+	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
 	"scholar-backend/internal/common/utils"
+	"scholar-backend/internal/storage"
 
 	"github.com/gin-gonic/gin"
 )
@@ -291,4 +295,77 @@ func (h *Handler) AdminGetSubmission(c *gin.Context) {
 		return
 	}
 	utils.Success(c, d)
+}
+
+// AdminGetAsset 管理端按 (submissionID, assetID) 取附件元数据(含 ObjectKey,供流式下载)。免用户归属校验。
+func (s *Service) AdminGetAsset(submissionID, assetID uint64) (*Asset, error) {
+	return s.repo.GetAsset(assetID, submissionID)
+}
+
+// AdminGetSubmissionAsset GET /admin/peer-review/submissions/:id/assets/:assetId?download=1
+// 从 MinIO 流式取一个投稿附件原文件(稿件 PDF/docx 等),供管理端会话监控**内联预览 / 下载**。
+// 默认 inline(浏览器/前端 react-pdf 直接预览),download=1 强制下载。一律 nosniff + no-store。
+func (h *Handler) AdminGetSubmissionAsset(c *gin.Context) {
+	subID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || subID == 0 {
+		utils.BadRequest(c, "投稿号无效")
+		return
+	}
+	assetID, err := strconv.ParseUint(c.Param("assetId"), 10, 64)
+	if err != nil || assetID == 0 {
+		utils.BadRequest(c, "附件号无效")
+		return
+	}
+	a, err := h.svc.AdminGetAsset(subID, assetID)
+	if errors.Is(err, ErrNotFound) || a == nil {
+		utils.NotFound(c, "附件不存在")
+		return
+	}
+	if err != nil {
+		utils.InternalError(c, 500, "查询附件失败", err)
+		return
+	}
+	rc, info, gerr := storage.GetObject(c.Request.Context(), h.svc.BucketName(), a.ObjectKey)
+	if gerr != nil {
+		if errors.Is(gerr, storage.ErrNotFound) {
+			utils.NotFound(c, "附件文件不存在(可能已被清理)")
+			return
+		}
+		utils.InternalError(c, 500, "读取附件失败", gerr)
+		return
+	}
+	defer rc.Close()
+
+	disposition := "inline"
+	if c.Query("download") == "1" {
+		disposition = "attachment"
+	}
+	c.Header("Content-Type", safeServeContentType(a.Mime, disposition))
+	// filename* 用 PathEscape(空格→%20);QueryEscape 会把空格编成 '+' 破坏文件名。
+	c.Header("Content-Disposition", disposition+`; filename*=UTF-8''`+url.PathEscape(a.Filename))
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Header("Cache-Control", "no-store")
+	if info != nil && info.Size > 0 {
+		c.Header("Content-Length", strconv.FormatInt(info.Size, 10))
+	}
+	c.Status(http.StatusOK)
+	_, _ = io.Copy(c.Writer, rc)
+}
+
+// safeServeContentType 决定回给浏览器的 Content-Type。
+// 安全:**内联**展示用户上传的文件时,把可在浏览器执行脚本的类型(html/xhtml/svg)降级为纯文本,
+// 防存储型 XSS —— 否则用户传个带 <script> 的 html/svg,管理员在后台源里打开就会执行、可窃取管理员 token。
+// 下载(attachment)不执行,保留原类型。空 mime → 二进制流。
+func safeServeContentType(mime, disposition string) string {
+	ct := strings.TrimSpace(mime)
+	if ct == "" {
+		return "application/octet-stream"
+	}
+	if disposition == "inline" {
+		switch strings.ToLower(strings.TrimSpace(strings.SplitN(ct, ";", 2)[0])) {
+		case "text/html", "application/xhtml+xml", "image/svg+xml":
+			return "text/plain; charset=utf-8"
+		}
+	}
+	return ct
 }

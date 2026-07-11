@@ -33,6 +33,7 @@ import (
 	"io"
 	"log/slog"
 	"mime/multipart"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -488,7 +489,7 @@ func buildAssetsBlock(files *sessionAssets) string {
 // buildMethodologyPrompt 方法论 + 审稿人选择会话的提示 —— Skill-开 的临时会话里跑。
 // agent 读论文 + invoke reviewer-roster 编排 skill, 选 3 位审稿人, 末尾输出选择 JSON。
 // 自由文本方法论注入后续评分轮; 选择 JSON 由后端 parseSelection 解析 → 按 slug 读各审稿人 SKILL.md。
-func buildMethodologyPrompt(files *sessionAssets, menu []reviewerMenuEntry, memCtx string) string {
+func buildMethodologyPrompt(files *sessionAssets, menu []reviewerMenuEntry, lenses []lensMenuEntry, memCtx string) string {
 	var b strings.Builder
 	// 时间锚点(2026-07):方法论自由文本会拼进评分轮 commonContext,这里若按训练截止推错年份
 	// 会二次污染全部评分轮,故与 buildCommonContext 一样注入当前日期(天粒度)。
@@ -541,11 +542,25 @@ func buildMethodologyPrompt(files *sessionAssets, menu []reviewerMenuEntry, memC
 		}
 		b.WriteString("\n【选择规则】先判断本文学科;若有领域专家的学科与之相交, **优先选 1-2 位最匹配的领域专家**, 再用通用审稿人按视角互补补满到恰好 3 位;若无任何领域专家匹配, 则选 3 位最相关的通用审稿人。不要选 3 个同质审稿人(典型组合:1 位领域专家 + 方法学 + 创新性/可复现性)。\n")
 	}
+	// 多技能组合:可叠加视角 lens —— 给每位审稿人锐化额外审查角度而不改其身份。
+	if len(lenses) > 0 {
+		b.WriteString("\n【可叠加审查视角 lens —— 可选,由你按需判断】\n每位审稿人**可选**叠加下列视角, 用于额外聚焦某类审查(如统计严谨/因果/伦理/图表诚信), **不改变其审稿身份**。叠几个、叠哪些由你按稿件实际情况判断:只在该视角确实与本文相关、且不是该审稿人 base 已充分覆盖的方面时才叠。**宁缺毋滥——多数情况 0-2 个就够, 叠太多会稀释审稿焦点**;单人最多 5 个(系统硬上限)。\n")
+		for _, l := range lenses {
+			line := "- " + l.Slug
+			if l.Name != "" {
+				line += " — " + l.Name
+			}
+			if l.Desc != "" {
+				line += ":" + l.Desc
+			}
+			b.WriteString(line + "\n")
+		}
+	}
 	b.WriteString("\n【输出要求】\n")
-	b.WriteString("先用简洁中文条列你的方法论(不要 JSON):1) 论文领域/类型/方法学判断;2) 为何选这 3 位审稿人;3) 三位应分别重点关注什么。\n")
+	b.WriteString("先用简洁中文条列你的方法论(不要 JSON):1) 论文领域/类型/方法学判断;2) 为何选这 3 位审稿人(及各自叠了哪些视角);3) 三位应分别重点关注什么。\n")
 	b.WriteString("**然后在回复的最末尾**输出一个 ```json 代码块(本次回复的最后一个 json 块),格式严格如下:\n")
-	b.WriteString("```json\n{\"reviewers\":[{\"slug\":\"rv-xxx\",\"why_chosen\":\"一句理由\"},{\"slug\":\"rv-yyy\",\"why_chosen\":\"...\"},{\"slug\":\"rv-zzz\",\"why_chosen\":\"...\"}]}\n```\n")
-	b.WriteString("约束:slug **必须照抄上面【可选审稿人花名册】里的某一项**(原样复制, 不要改写/翻译/自创);恰好 3 个互不相同;不要选 chief;不要把审稿人画像正文塞进 JSON。\n")
+	b.WriteString("```json\n{\"reviewers\":[{\"slug\":\"rv-xxx\",\"lenses\":[\"lens-aaa\"],\"why_chosen\":\"一句理由\"},{\"slug\":\"rv-yyy\",\"lenses\":[],\"why_chosen\":\"...\"},{\"slug\":\"rv-zzz\",\"lenses\":[\"lens-bbb\",\"lens-ccc\"],\"why_chosen\":\"...\"}]}\n```\n")
+	b.WriteString("约束:slug **必须照抄上面【可选审稿人花名册】里的某一项**(原样复制, 不要改写/翻译/自创);恰好 3 个互不相同;不要选 chief;`lenses` 是**可选**的 0-2 个视角 slug(照抄【可叠加审查视角】里的项,不叠就写 []);不要把审稿人画像/视角正文塞进 JSON。\n")
 	return b.String()
 }
 
@@ -553,7 +568,8 @@ func buildMethodologyPrompt(files *sessionAssets, menu []reviewerMenuEntry, memC
 // 让 agent 读论文 + invoke reviewer-roster 选 3 位审稿人, 产出自由文本方法论 + 末尾选择 JSON。
 // 返回 (注入评分轮的方法论自由文本, 恰好 3 位 ReviewerChoice)。任何失败都降级:
 // 方法论返回空串、审稿人退化到内置三人格 —— 评分照常进行, 永不 hard-fail。会话用完即删。
-func (s *Service) runMethodologyPhase(ctx context.Context, submissionID uint64, files *sessionAssets, memCtx string) (string, []ReviewerChoice) {
+// 返回 (方法论自由文本, 选中的 3 位审稿人, 本阶段累计 token)。token 供单场成本兜底累加。
+func (s *Service) runMethodologyPhase(ctx context.Context, submissionID uint64, files *sessionAssets, memCtx string) (string, []ReviewerChoice, int64) {
 	// 把这一轮的 agent 输出推到 SlotMethodology, 让前端在"通读全文·制定审稿标准"阶段看到实时进度,
 	// 而不是干等一个空转圈。Begin/Done 包住整段: 任何提前 return(降级)也会让前端的 SSE 收尾,
 	// 不会卡在 pending。defer 顺序 LIFO → 先 DeleteSession 再 broker.Done, 符合预期。
@@ -569,7 +585,7 @@ func (s *Service) runMethodologyPhase(ctx context.Context, submissionID uint64, 
 	if err != nil {
 		slog.Warn("peerreview methodology session create failed; builtin reviewers",
 			"submission_id", submissionID, "err", err)
-		return "", builtinReviewerChoices()
+		return "", builtinReviewerChoices(), 0
 	}
 	methSessID := created.SessionID
 	defer func() {
@@ -585,21 +601,21 @@ func (s *Service) runMethodologyPhase(ctx context.Context, submissionID uint64, 
 	if perr != nil {
 		slog.Warn("peerreview push assets to methodology session failed; builtin reviewers",
 			"submission_id", submissionID, "err", perr)
-		return "", builtinReviewerChoices()
+		return "", builtinReviewerChoices(), 0
 	}
-	reply, _, cerr := s.feature.ServerSideChatStreaming(ctx, methSessID,
-		buildMethodologyPrompt(mfiles, availableReviewers(), memCtx),
+	reply, methUsage, cerr := s.feature.ServerSideChatStreaming(ctx, methSessID,
+		buildMethodologyPrompt(mfiles, availableReviewers(), availableLenses(), memCtx),
 		func(delta string) { s.broker.Append(submissionID, SlotMethodology, delta) },
 		func(note string) { s.broker.Status(submissionID, SlotMethodology, note) },
 		s.mainModel())
 	if cerr != nil {
 		slog.Warn("peerreview methodology round failed; builtin reviewers",
 			"submission_id", submissionID, "err", cerr)
-		return "", builtinReviewerChoices()
+		return "", builtinReviewerChoices(), usageTotal(methUsage)
 	}
 	// 选择轮成功: 自由文本方法论(去掉末尾选择 JSON 块)注入评分轮; 选择 JSON → 3 位审稿人(失败自退化)。
 	choices := s.resolveReviewerChoices(submissionID, reply)
-	return stripTrailingFencedJSON(reply), choices
+	return stripTrailingFencedJSON(reply), choices, usageTotal(methUsage)
 }
 
 func (s *Service) GetSubmission(userID, id uint64) (*Submission, error) {
@@ -1501,6 +1517,41 @@ func (s *Service) Submit(ctx context.Context, userID, id uint64) (*Submission, e
 	return s.repo.GetByID(id, userID)
 }
 
+// RetryReview —— 重试一份**失败**的审稿(评审 top#2:失败原本是终局死胡同,只能删了重传;这里给出
+// 可重试路径)。复用 submission 已建的会话与已完成的报告:runReviewBackground 的 loadPersistedReviewer /
+// allReviewersPersisted / chief-persisted 短路会跳过已完成轮,只补跑失败/未跑的部分 —— 已完成轮的 token
+// 不会重烧。仍过每日额度闸(重试会消耗 token,和首跑一样从严)。非 failed 状态 → 原样返回(幂等)。
+func (s *Service) RetryReview(ctx context.Context, userID, id uint64) (*Submission, error) {
+	sub, err := s.repo.GetByID(id, userID)
+	if err != nil {
+		return nil, err
+	}
+	if sub.Status != StateFailed { // StateFailed=="failed";markFailedAndLog 同时置 status+compute_state=failed
+		return sub, nil // 只重试失败的;其它状态原样返回,前端据 status 决定是否显示「重试」
+	}
+	if !sub.ManuscriptAssetID.Valid {
+		return nil, ErrManuscriptMissing
+	}
+	if s.vip != nil {
+		if err := s.vip.CheckDailyQuota(ctx, uint(userID)); err != nil {
+			return nil, err // vip.ErrQuotaExceeded → handler 映射 6010/429
+		}
+	}
+	sessionID, err := s.ensureAgentSession(ctx, sub)
+	if err != nil {
+		return nil, fmt.Errorf("agent session: %w", err)
+	}
+	// 先回 reviewing + 清 compute_error,让前端立刻从「失败」态切走;runReviewBackground 首步也会 MarkReviewing。
+	if err := s.repo.MarkReviewing(id); err != nil {
+		return nil, err
+	}
+	_ = s.repo.SetComputeState(id, StateReviewing, "")
+	safego.Go(fmt.Sprintf("peerreview-retry-%d", id), func() {
+		s.runReviewBackground(id, sessionID)
+	})
+	return s.repo.GetByID(id, userID)
+}
+
 // runReviewBackground 后台 agent 编排 — 4 轮 skill-driven 串行。
 //
 // 流程:
@@ -1594,10 +1645,13 @@ func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 	// (最大单笔浪费),用内置三人格占位;下方 reviewer 循环会逐个 gap-fill 跳过,choices[i] 不被索引。
 	var methodology string
 	var choices []ReviewerChoice
+	var reviewTokens int64 // 单场累计 token(方法论 + 各审稿人),用于成本兜底上限判定
 	if s.allReviewersPersisted(submissionID) {
 		choices = builtinReviewerChoices()
 	} else {
-		methodology, choices = s.runMethodologyPhase(ctx, submissionID, files, memCtx)
+		var methTokens int64
+		methodology, choices, methTokens = s.runMethodologyPhase(ctx, submissionID, files, memCtx)
+		reviewTokens += methTokens
 	}
 	_ = s.repo.SetComputeState(submissionID, StateReviewing, "")
 
@@ -1606,7 +1660,9 @@ func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 	// 3 位审稿人串行 — 每位独立 slot, 同时推 broker 让前端实时看到 agent 输出。
 	// 保留各自 ReviewerOutput 用于 chief 上下文。
 	reviewerOutputs := make(map[string]*ReviewerOutput, 3)
-	for i, role := range []string{"alpha", "beta", "gamma"} {
+	roles := []string{"alpha", "beta", "gamma"}
+	tokenCap := s.reviewTokenCap()
+	for i, role := range roles {
 		slot := ReviewerSlot(role)
 		// P0 止血(债#4):已持久化的 reviewer 跳过重跑(只补缺口,不重烧整篇)。从 ContentMd
 		// rehydrate reviewerOutputs,否则 chief 静默丢该 reviewer 真实意见(buildChiefPrompt 缺则降级)。
@@ -1616,6 +1672,14 @@ func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 			}
 			s.broker.Done(submissionID, slot)
 			continue
+		}
+		// 成本兜底(评审 top#1):单场累计 token 已达上限 → 跳过剩余审稿人(出降级占位),仍进主审裁决。
+		// 上限刻意很高,只在真失控(如 JSON 重试叠加)时触发,正常审稿绝不会到这里。
+		if tokenCap > 0 && reviewTokens >= tokenCap {
+			slog.Warn("peerreview per-review token cap hit; skipping remaining reviewers, going to chief",
+				"submission_id", submissionID, "review_tokens", reviewTokens, "cap", tokenCap, "from_role", role)
+			s.skipRemainingReviewers(submissionID, roles[i:])
+			break
 		}
 		choice := choices[i] // 第 i 位 agent 选中的审稿人 → 固定槽 alpha/beta/gamma(前端仍匿名显示 A/B/C)
 		prompt := buildReviewerPrompt(choice, commonContext, role)
@@ -1627,6 +1691,7 @@ func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 				fmt.Errorf("reviewer chat role=%s reviewer=%s: %w", role, choice.Slug, err))
 			return
 		}
+		reviewTokens += usageTotal(usage) // 累计本轮(含重试)token,供下一位的成本兜底判定
 
 		out, ok := parseReviewerJSON(reply)
 		rep := s.buildReportFromReviewer(submissionID, role, out, ok, reply, usage)
@@ -1712,7 +1777,17 @@ func (s *Service) chatWithRetry(
 		"从 { 开始到 } 结束, 不要任何解释、前后缀或 markdown 代码围栏。"
 	cur := prompt
 	var lastReply string
-	var lastUsage *agentbridge.ChatUsage
+	// 跨 attempt **累计** usage:① 供调用方写 report 的 agent_tokens_*(修「重试轮显示欠计」),
+	// ② 供 runReviewBackground 的单场 token 兜底按真实累计(含重试)判上限。统一 token 账本仍由
+	// ServerSideChatStreaming 内部按轮独立落库,与此展示累计无关(不会双计)。
+	var total agentbridge.ChatUsage
+	var haveUsage bool
+	acc := func() *agentbridge.ChatUsage {
+		if haveUsage {
+			return &total
+		}
+		return nil
+	}
 	for attempt := 0; ; attempt++ {
 		s.broker.Begin(submissionID, slot)
 		reply, usage, err := s.feature.ServerSideChatStreaming(ctx, sessionID, cur,
@@ -1723,15 +1798,61 @@ func (s *Service) chatWithRetry(
 			return "", nil, false, err
 		}
 		lastReply = reply
-		lastUsage = usage
+		if usage != nil {
+			total.InputTokens += usage.InputTokens
+			total.OutputTokens += usage.OutputTokens
+			total.CacheReadTokens += usage.CacheReadTokens
+			total.CacheCreationTokens += usage.CacheCreationTokens
+			haveUsage = true
+		}
 		if validate(reply) {
-			return reply, usage, true, nil
+			return reply, acc(), true, nil
 		}
 		if attempt >= maxRetry {
-			return lastReply, lastUsage, false, nil
+			return lastReply, acc(), false, nil
 		}
 		s.broker.Status(submissionID, slot, "输出格式异常, 正在重新生成…")
 		cur = prompt + retryHint
+	}
+}
+
+// usageTotal —— 一轮(含重试累计)的四类 token 之和(raw 口径),给单场 token 兜底累加。
+func usageTotal(u *agentbridge.ChatUsage) int64 {
+	if u == nil {
+		return 0
+	}
+	return int64(u.InputTokens + u.OutputTokens + u.CacheReadTokens + u.CacheCreationTokens)
+}
+
+// reviewTokenCap —— 单场审稿(方法论 + 3 审稿人累计)token 的**失控上限**(评审 top#1 成本兜底)。
+// 每轮已由执行器 MAX_TURN_TOKENS=5M 单独兜底;此处再兜「整场累计」,主要挡 JSON 重试叠加把一场
+// 审稿推到几十 M 的失控路径。**刻意设很高**(默认 30M ≫ 正常一场 5-10M),只在真失控时才触发,
+// 绝不影响正常审稿质量;可经 env PEERREVIEW_REVIEW_TOKEN_CAP 调。0 = 关闭。触发时优雅降级:
+// 跳过剩余审稿人(出降级占位报告)、仍照常出主审裁决(chief 单独 5M 兜底),用户拿到一份结果而非失败。
+func (s *Service) reviewTokenCap() int64 {
+	if v := strings.TrimSpace(os.Getenv("PEERREVIEW_REVIEW_TOKEN_CAP")); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil && n >= 0 {
+			return n
+		}
+	}
+	return 30_000_000
+}
+
+// skipRemainingReviewers —— 单场 token 超上限时,给尚未评审的审稿人各落一份降级占位报告
+// (content_md 说明 + 结构化字段 NULL,前端降级 markdown 展示),并收尾其 SSE。保证 4 份报告齐全
+// (前端「等 4 份」轮询不会永转),chief 据已有意见 + 稿件本身裁决。
+func (s *Service) skipRemainingReviewers(submissionID uint64, roles []string) {
+	const note = "> ⚠️ 本次审稿的资源已达上限,此位审稿人未及给出完整意见。主审将据其余审稿意见与稿件本身作出裁决。"
+	for _, role := range roles {
+		slot := ReviewerSlot(role)
+		s.broker.Begin(submissionID, slot)
+		s.broker.Append(submissionID, slot, note)
+		rep := s.buildReportFromReviewer(submissionID, role, nil, false, note, nil)
+		if err := s.repo.UpsertReport(rep); err != nil {
+			slog.Warn("peerreview skip-reviewer placeholder save failed",
+				"submission_id", submissionID, "role", role, "err", err)
+		}
+		s.broker.Done(submissionID, slot)
 	}
 }
 
@@ -2014,6 +2135,16 @@ func buildReviewerPrompt(choice ReviewerChoice, commonContext, role string) stri
 	b.WriteString("【审稿身份】" + roleLabel + "\n\n")
 	b.WriteString(choice.Persona)
 	b.WriteString("\n\n")
+	// 多技能组合:在 base 人格之后、输出 schema 之前,拼上叠加的审查视角(lens 已按 slug 升序,确定性)。
+	// lens 是**附加清单**(只加"额外查什么"),不含身份/输出格式 —— schema 仍是唯一输出契约(放最后),
+	// 故不会与之竞争、不冲碎 JSON。顺序 = 身份 → 附加视角 → 输出契约 → 稿件数据。
+	if len(choice.Lenses) > 0 {
+		b.WriteString("【附加审查视角(在你原有评审基础上,额外重点核查以下方面)】\n")
+		for _, l := range choice.Lenses {
+			b.WriteString(l.Body)
+			b.WriteString("\n\n")
+		}
+	}
 	b.WriteString(reviewerJSONSchemaSpec)
 	b.WriteString("\n\n")
 	b.WriteString(commonContext)

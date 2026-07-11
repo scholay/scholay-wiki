@@ -19,8 +19,10 @@ HEARTBEAT=/tmp/heartbeat
 # 把与 mysql/minio 共享的宿主分区写爆(磁盘耗尽 DoS)。legit PDF/log 远小于此。
 MAXFILEKB="${COMPILE_MAX_FILE_KB:-102400}"   # 100MB
 # 并发编译上限:认领走原子 mv(.request→.processing),天然单认领,可安全并行。
-# 串行 watcher 下 2+ 并发用户会触发后端 95s 轮询超时(伪「编译服务异常」)。
-MAXPAR="${COMPILE_MAX_PARALLEL:-2}"
+# 串行 watcher 下 2+ 并发用户会触发后端 95s 轮询超时(伪「编译服务异常」)。默认 3(评审 #11:2 仍是瓶颈,
+# 3 并发用户会排队到超时)。**必须与容器 CPU/内存配额同步**:每个 latexmk ~0.5CPU + 250-400MB,
+# compose 已把 prism-tex 提到 2CPU/1.5G 以匹配 MAXPAR=3。经 COMPILE_MAX_PARALLEL 按宿主实际算力调。
+MAXPAR="${COMPILE_MAX_PARALLEL:-3}"
 
 mkdir -p "${TEXMFVAR:-/tmp/texmf-var}" "${TEXMFCACHE:-/tmp/texmf-cache}" 2>/dev/null || true
 echo "[prism_tex] watcher up · work=$WORK · timeout=${TIMEOUT}s"

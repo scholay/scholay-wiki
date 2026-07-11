@@ -18,6 +18,7 @@ import {
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
 import { getAuthToken } from '@/shared/lib/auth-token';
+import { localDateKey } from '@/shared/lib/daily-trend';
 import { QUOTA_EXCEEDED_EVENT, BILLING_CHANGED_EVENT } from '@/shared/lib/quota-events';
 import { useQuotaStore } from '@/stores/quota.store';
 import { showQuotaToast } from './quota-toast';
@@ -66,7 +67,8 @@ export function QuotaNotifier() {
   // 阈值 toastr:过半(>=50%)/ 将尽(>=80%),每级每天只弹一次
   useEffect(() => {
     if (!data || data.token.unlimited || data.token.ceiling <= 0) return;
-    const day = new Date().toISOString().slice(0, 10);
+    // 本地日历日(与后端本地零点额度重置对齐);toISOString() 是 UTC,北京 00:00–08:00 会错算成昨天。
+    const day = localDateKey();
     const s = useQuotaStore.getState();
     const level = s.warnDay === day ? s.warnLevel : 0;
     const pct = data.token.percent;

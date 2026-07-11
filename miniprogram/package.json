@@ -1,0 +1,10 @@
+{
+  "name": "scholay-miniprogram",
+  "version": "0.1.0",
+  "description": "Scholay 学术 微信小程序端(原生 TypeScript,复用现有 Go 后端)",
+  "private": true,
+  "devDependencies": {
+    "miniprogram-api-typings": "^3.12.2",
+    "typescript": "^5.4.0"
+  }
+}

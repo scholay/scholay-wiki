@@ -304,7 +304,7 @@ function ThirdPartyDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* 基础字段 —— 所有 type 共用 */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="name">名称</Label>
               <Input
@@ -338,7 +338,7 @@ function ThirdPartyDialog({
                 onChange={(e) => setPriority(Number(e.target.value) || 0)}
               />
             </div>
-            <div className="flex items-center gap-2 h-9 mt-5">
+            <div className="flex items-center gap-2 h-9 sm:mt-5">
               <input
                 id="active"
                 type="checkbox"
@@ -432,7 +432,7 @@ function DynamicFields({
   return (
     <div className="space-y-3">
       {rows.map((row, idx) => (
-        <div key={idx} className={row.length === 2 ? 'grid grid-cols-2 gap-3' : ''}>
+        <div key={idx} className={row.length === 2 ? 'grid grid-cols-1 gap-3 sm:grid-cols-2' : ''}>
           {row.map((f) => (
             <div key={f.key} className="space-y-1.5">
               <Label htmlFor={`cfg-${f.key}`}>{f.label}</Label>

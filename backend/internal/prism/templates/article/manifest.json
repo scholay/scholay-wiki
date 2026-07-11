@@ -4,6 +4,12 @@
   "doc_class": "article",
   "class_opts": "11pt",
   "bib_style": "plain",
-  "packages": ["amsmath", "amssymb", "graphicx", "hyperref"],
-  "page_limit": 0
+  "packages": [
+    "amsmath",
+    "amssymb",
+    "graphicx",
+    "hyperref"
+  ],
+  "page_limit": 0,
+  "word_limit": 0
 }

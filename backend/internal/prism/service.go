@@ -42,6 +42,9 @@ type Service struct {
 	feature   *agentbridge.FeatureBridge // 提供 ServerSideChatStreaming
 	agent     agent.Executor             // 直接建/管「每项目」agent 会话(存 prism_projects.agent_session_id)
 	sessionMu sync.Map                   // map[projectID]*sync.Mutex —— 串行化「每项目会话」的取/建,防并发双建(review F2)
+	// roundEpochs(V3-4.4-1)map[projectID uint]string —— 每项目当前轮次世代号(基线 sha):
+	// prepare/reject/apply-成功 时刷新;apply 校验不符即拒。内存态(单实例铁律),重启后 fail-open。
+	roundEpochs sync.Map
 }
 
 // 注:项目自动起名已移到 agent 容器(见 autoname.go / handleAgentTitle),prism 不再依赖 ai.Service。
@@ -86,6 +89,13 @@ func (s *Service) CreateProject(userID uint, title string) (*Project, []File, er
 	p := &Project{UserID: userID, Title: title, MainFile: "main.tex", Status: "active", SchemaVersion: SchemaStruct}
 	if err := s.repo.CreateProject(p); err != nil {
 		return nil, nil, err
+	}
+	// Phase 2:种默认写作画像(venue 弱信号 → 多落 builtin+needs_refine,交 planner/用户后续精修)。
+	// 失败不阻断建项目:注入侧 SessionProfileBlock 对 NULL 也会回落确定性默认。
+	if wp := marshalProfile(deterministicWritingProfile(p.VenueTemplateKey)); wp != "" {
+		if err := s.repo.SetWritingProfile(p.ID, wp); err != nil {
+			slog.Warn("prism: set default writing profile failed", "project_id", p.ID, "err", err)
+		}
 	}
 	if err := s.initStructProject(p.ID); err != nil {
 		return nil, nil, err
@@ -378,6 +388,79 @@ func (s *Service) putObject(ctx context.Context, key string, body []byte, conten
 	_, err := storage.PutObject(ctx, s.bucket, key, bytes.NewReader(body), int64(len(body)),
 		storage.PutOptions{ContentType: contentType})
 	return err
+}
+
+// ── 编译产物 GC(评审 #7)─────────────────────────────────────────────────
+// prism_compiles 行与 pdf/log MinIO 对象此前永不回收 → 无界膨胀。这里定期回收「早于 retention 且非各项目
+// 最新一条」的编译:每项目最新一条永久保留(/pdf 恒可取),其余历史堆积按 batch 删对象 + 删行。
+const (
+	compileGCRetention = 48 * time.Hour // 保留窗口:更早的历史编译可回收
+	compileGCBatch     = 500            // 单批处理条数
+	compileGCMaxBatch  = 40             // 单轮最多批数(2 万条封顶),防启动时一次扫太久
+)
+
+// StartBackgroundGC 启动编译产物 GC 后台任务:启动先回收一次历史积压,之后每 24h 一次。
+// 由 bootstrap 在 NewService 之后调用(prism 自持后台任务,和既有 prism-compile safego 一致)。
+func (s *Service) StartBackgroundGC() {
+	safego.Go("prism-compile-gc", func() {
+		gc := func() {
+			if n, err := s.gcCompiles(time.Now()); err != nil {
+				slog.Warn("prism compile gc failed", "err", err)
+			} else if n > 0 {
+				slog.Info("prism compile gc done", "deleted", n)
+			}
+		}
+		gc()
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			gc()
+		}
+	})
+}
+
+// gcCompiles 回收早于 retention 且非各项目最新的编译行 + 其 MinIO 产物;返回删除的行数。
+func (s *Service) gcCompiles(now time.Time) (int, error) {
+	cutoff := now.Add(-compileGCRetention)
+	total := 0
+	for batch := 0; batch < compileGCMaxBatch; batch++ {
+		rows, err := s.repo.ListStaleCompiles(cutoff, compileGCBatch)
+		if err != nil {
+			return total, err
+		}
+		if len(rows) == 0 {
+			break
+		}
+		// 先删 MinIO 产物(best-effort;DeleteObjects 对不存在的键不报错),再删行。产物是可再生的编译输出,
+		// 偶发删失败最多留下小体积孤儿(无 prism 专用 reaper),不影响正确性。
+		keys := make([]string, 0, len(rows)*2)
+		ids := make([]uint, 0, len(rows))
+		for _, c := range rows {
+			ids = append(ids, c.ID)
+			if c.PdfObjectKey != nil && *c.PdfObjectKey != "" {
+				keys = append(keys, *c.PdfObjectKey)
+			}
+			if c.LogObjectKey != nil && *c.LogObjectKey != "" {
+				keys = append(keys, *c.LogObjectKey)
+			}
+		}
+		if len(keys) > 0 {
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			_ = storage.DeleteObjects(ctx, s.bucket, keys, func(k string, e error) {
+				slog.Warn("prism gc: object delete failed", "key", k, "err", e)
+			})
+			cancel()
+		}
+		n, err := s.repo.DeleteCompilesByIDs(ids)
+		if err != nil {
+			return total, err
+		}
+		total += int(n)
+		if len(rows) < compileGCBatch {
+			break
+		}
+	}
+	return total, nil
 }
 
 // reOutputPages 从 TeX 日志抠页数:"Output written on main.pdf (12 pages, 34567 bytes)."

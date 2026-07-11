@@ -21,6 +21,11 @@ export interface TurnInput {
   workDir: string;
   allowBash: boolean;
   net: SandboxNet;
+  // 有界透支预算(SS#2):softRemaining=到日上限还剩多少 token,hardRemaining=到「上限+透支带」还剩多少
+  // (均为 raw token 口径,4 类全 1x)。backend 每条 user_message 现算并盖章;模型据 soft 自我配速,
+  // 越过 hard 时执行器去工具 + 注入收尾指令让 agent 自己优雅收尾。仅 smart_search/claw/prism 有;
+  // peerreview(任务型,必须跑完)不盖 → undefined → 无披露无收尾。
+  taskBudget?: { softRemaining: number; hardRemaining: number };
 }
 
 // EventSink:执行器发出的中性 wire frame(由 Go hub 转发/journal)。

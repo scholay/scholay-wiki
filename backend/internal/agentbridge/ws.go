@@ -444,6 +444,50 @@ func frameType(raw []byte) string {
 	return probe.Type
 }
 
+// agentErrorFriendly —— 执行器 error 终帧的 code → 用户友好中文文案(评审 #4)。
+// 执行器某些 error 的 message 是原始英文、甚至泄露内部机制名(如 "no active provider/model
+// (awaiting PushConfig)")。用户面绝不回显内部标识,故在广播前按 code 换成友好中文。
+var agentErrorFriendly = map[string]string{
+	"config":   "AI 服务正在准备中,请稍后再试。",
+	"upstream": "AI 服务连接中断,请重试。",
+	"internal": "服务处理出错,请稍后重试。",
+	"busy":     "系统正忙,请稍候再试。",
+}
+
+// agentErrorFriendlyPassthrough —— 这些 code 的 message 执行器已友好化(中文、无内部标识),原样保留。
+var agentErrorFriendlyPassthrough = map[string]bool{
+	"budget":         true, // "本轮处理量已达上限…请精简需求后重试。"
+	"quota_exceeded": true,
+}
+
+const genericAgentErrorFrame = `{"type":"error","code":"internal","message":"服务处理出错,请稍后重试。","retryable":true}`
+
+// sanitizeAgentErrorFrame —— 把执行器上行的 error 终帧净化成不泄露内部实现的友好帧再广播。
+//   - 已友好化的 code(budget/quota_exceeded)原样保留;
+//   - 已知英文/泄露型 code(config/upstream/internal/busy)按 agentErrorFriendly 换文案;
+//   - 未知 code:绝不回显原 message(可能是英文/内部标识)→ 通用文案。
+// 其余字段(code/retryable 等)保留,便于前端 fold 按 code 分支。解析失败 → 通用兜底帧。
+func sanitizeAgentErrorFrame(raw []byte) []byte {
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return []byte(genericAgentErrorFrame)
+	}
+	code, _ := m["code"].(string)
+	if agentErrorFriendlyPassthrough[code] {
+		return raw
+	}
+	if friendly, ok := agentErrorFriendly[code]; ok {
+		m["message"] = friendly
+	} else {
+		m["message"] = "服务处理出错,请稍后重试。"
+	}
+	out, err := json.Marshal(m)
+	if err != nil {
+		return []byte(genericAgentErrorFrame)
+	}
+	return out
+}
+
 // extractMessageComplete 浅 parse 一帧 message_complete:
 //   - usage:本轮整轮用量(agent 侧算的相邻轮增量),给 slog 钩子用。
 //   - calls:本轮每次真实模型调用的 per-call 明细(带内账本据此按模型逐行记账)。
@@ -567,6 +611,33 @@ func classifyPreUserMessageError(err error) string {
 	default:
 		return "hook_error"
 	}
+}
+
+// preUserMessageUserText —— PreUserMessage 拒绝帧给用户看的文案(评审 SS#4 残留)。
+// quota_exceeded 的 err 文案本就是友好中文(NewQuotaError 构造),原样透出;其余(hook_error /
+// panic 的 "internal hook error")**绝不**回显 err.Error()(可能是英文/内部标识,违反"用户面绝不回显
+// err.Error()"约定)→ 通用中文。
+func preUserMessageUserText(err error) string {
+	if errors.Is(err, ErrQuotaExceeded) {
+		return err.Error()
+	}
+	return "暂时无法处理这条消息,请稍后重试。"
+}
+
+// stampBudget —— SS#2:把 {"budget":{"softRemaining":..,"hardRemaining":..}} 合并进 user_message 帧,
+// 执行器据此让 agent 自我配速 + 到界优雅收尾。解析失败 → 原样返回(执行器收不到 budget = 走无预算路径,
+// 安全降级)。仅 3 个 chat feature 调用;peerreview BudgetProvider=nil,永不到这里。
+func stampBudget(raw []byte, soft, hard int64) []byte {
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return raw
+	}
+	m["budget"] = map[string]any{"softRemaining": soft, "hardRemaining": hard}
+	out, err := json.Marshal(m)
+	if err != nil {
+		return raw
+	}
+	return out
 }
 
 // buildAgentWSURL: http(s)://host:port → ws(s)://host:port/ws/<sessionId>

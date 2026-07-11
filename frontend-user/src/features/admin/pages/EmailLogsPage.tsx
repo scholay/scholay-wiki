@@ -136,7 +136,7 @@ export function EmailLogsPage() {
       </div>
 
       {/* 概览(当前 tab) */}
-      <section className="mb-4 grid grid-cols-3 gap-3">
+      <section className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <StatCard icon={isSms ? Smartphone : Mail} label="累计发送" value={stats.total} tone="ink" />
         <StatCard icon={CheckCircle2} label="成功" value={stats.success} tone="green" />
         <StatCard icon={XCircle} label="失败" value={stats.failed} tone="red" />
@@ -175,9 +175,9 @@ export function EmailLogsPage() {
             <option value="other">其他</option>
           </select>
         </Field>
-        <Field label={isSms ? '搜索(手机号 / 模板)' : '搜索(收件人 / 主题)'}>
-          <div className="flex h-8 items-center gap-1.5 rounded-md border border-input bg-background px-2">
-            <Search className="size-3.5 text-faint" />
+        <Field label={isSms ? '搜索(手机号 / 模板)' : '搜索(收件人 / 主题)'} className="w-full sm:w-auto">
+          <div className="flex h-8 w-full items-center gap-1.5 rounded-md border border-input bg-background px-2 sm:w-auto">
+            <Search className="size-3.5 shrink-0 text-faint" />
             <Input
               value={searchInput}
               onChange={(e) => {
@@ -185,7 +185,7 @@ export function EmailLogsPage() {
                 setPage(1);
               }}
               placeholder={isSms ? '手机号或模板关键词' : '邮箱地址或主题关键词'}
-              className="h-7 w-56 border-0 bg-transparent px-0 text-xs shadow-none focus-visible:ring-0"
+              className="h-7 w-full min-w-0 border-0 bg-transparent px-0 text-xs shadow-none focus-visible:ring-0 sm:w-56"
             />
           </div>
         </Field>
@@ -202,9 +202,9 @@ export function EmailLogsPage() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className="space-y-1">
+    <div className={cn('space-y-1', className)}>
       <Label className="text-2xs tracking-[0.12em] text-faint">{label}</Label>
       {children}
     </div>

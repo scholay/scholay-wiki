@@ -1,0 +1,23 @@
+@import '../../styles/detail.wxss';
+
+.news-head {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 8rpx;
+}
+.news-section {
+  color: #cc2222;
+  font-size: 26rpx;
+  font-weight: 600;
+}
+.news-time {
+  color: var(--text-weak);
+  font-size: 24rpx;
+}
+.cover {
+  width: 100%;
+  border-radius: 16rpx;
+  margin: 24rpx 0;
+  background: #fff;
+}

@@ -1,0 +1,34 @@
+<view class="page bill">
+  <view class="tabs">
+    <view class="tab {{tab==='txn' ? 'on' : ''}}" data-tab="txn" bindtap="switchTab">经费流水</view>
+    <view class="tab {{tab==='orders' ? 'on' : ''}}" data-tab="orders" bindtap="switchTab">订单记录</view>
+  </view>
+
+  <view wx:if="{{loading}}" class="sk-list"><view class="sk-item" wx:for="{{[0,1,2,3,4]}}" wx:key="*this"><view class="skeleton sk-bar sk-w90"></view><view class="skeleton sk-bar sk-w70"></view><view class="skeleton sk-bar sk-w45"></view></view></view>
+  <view wx:elif="{{error}}" class="state err">{{error}}</view>
+
+  <block wx:elif="{{tab==='txn'}}">
+    <view wx:if="{{txns.length===0}}" class="state">暂无经费流水</view>
+    <view wx:for="{{txns}}" wx:key="id" class="row">
+      <view class="row-main">
+        <text class="row-title">{{item.label}}</text>
+        <text class="row-time">{{item.time}}</text>
+      </view>
+      <text class="amount {{item.positive ? 'pos' : 'neg'}}">{{item.amount}}</text>
+    </view>
+  </block>
+
+  <block wx:else>
+    <view wx:if="{{orders.length===0}}" class="state">暂无订单</view>
+    <view wx:for="{{orders}}" wx:key="orderNo" class="row">
+      <view class="row-main">
+        <text class="row-title">{{item.name}}</text>
+        <text class="row-time">{{item.orderNo}} · {{item.time}}</text>
+      </view>
+      <view class="order-right">
+        <text class="amount">{{item.amount}}</text>
+        <text class="ostatus">{{item.status}}</text>
+      </view>
+    </view>
+  </block>
+</view>

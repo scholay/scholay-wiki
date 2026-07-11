@@ -30,9 +30,11 @@ function buildWsUrl(sessionId: string, wsToken: string): string {
 
 export type UsePrismSocket = UseAgentSocket<PrismServerMessage, PrismClientMessage>;
 
-export function usePrismSocket(projectId: number | null): UsePrismSocket {
+// nonce:重开会话(V3-4.6-1)后 +1 → connectionKey 变 → 重新取 ticket(ensureProjectSession 建新会话)
+// 并重连;新会话的 seed 即含最新画像/记忆,旧对话史不再占上下文。
+export function usePrismSocket(projectId: number | null, nonce = 0): UsePrismSocket {
   return useAgentSocket<PrismServerMessage, PrismClientMessage>({
-    connectionKey: projectId,
+    connectionKey: projectId ? `${projectId}:${nonce}` : null,
     fetchTicket: () => fetchWSTicket(projectId as number),
     buildWsUrl,
     displacedDefaultText: '此项目已在其他窗口打开',

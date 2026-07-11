@@ -73,3 +73,28 @@ export function buildDailyTrend<T>(
 export function isTodayBucket(dateValue: string, today: string = localDateKey()): boolean {
   return dateValue === today;
 }
+
+const WEEKDAY_CN = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'] as const;
+
+/**
+ * 从桶字符串取「周几」中文。
+ * 仅**日粒度**桶有值:`YYYY-MM-DD` 或 `YYYY-MM-DD HH:mm:ss`(umami 小时桶,仍取当天周几)。
+ * 月度桶 `YYYY-MM` / 小时数字 / 异常值 → 返回 ''(调用方据此自动降级,不显示周几)。
+ * 不能用 `new Date('YYYY-MM-DD')`(那按 UTC 解析,跨时区会错一天),逐段拆成本地日期。
+ */
+export function weekdayCN(bucket: string | number | null | undefined): string {
+  if (bucket == null) return '';
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(bucket));
+  if (!m) return '';
+  const dt = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return Number.isNaN(dt.getTime()) ? '' : WEEKDAY_CN[dt.getDay()];
+}
+
+/**
+ * 给已格式化的日期展示串补上「 周X」,方便在时序图 Tooltip 里快速定位是星期几。
+ * 月度 / 小时 / 非日期桶(weekdayCN 返 '')原样返回,不硬塞周几。
+ */
+export function withWeekday(display: string, bucket: string | number | null | undefined): string {
+  const wd = weekdayCN(bucket);
+  return wd ? `${display} ${wd}` : display;
+}

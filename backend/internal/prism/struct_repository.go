@@ -24,16 +24,32 @@ func (r *Repository) GetStructJSON(projectID uint) (string, error) {
 	return *p.DocStruct, nil
 }
 
+// structHistoryLimit 结构体历史面板一次最多回多少条(评审 #14:防版本链无界膨胀拖垮列表查询)。
+const structHistoryLimit = 200
+
 // SaveStructVersion 追加一条结构体版本 + 翻 current + 回写 prism_projects.doc_struct/struct_version_id(单事务)。
+// 评审 #14:① sha 去重 —— 内容与当前 current 一致时不追加空版本(autosave 空存 / 同模板重存 / 空操作 AI 轮都会命中),
+// 仅刷新项目缓存列并原样返回当前 version_no;② base_version_id 记录本版所基于的旧 current(可检测性 + 未来 CAS 基线)。
 func (r *Repository) SaveStructVersion(projectID uint, docJSON, sha, author string) (int, error) {
 	var versionNo int
 	err := r.db.Transaction(func(tx *gorm.DB) error {
-		var maxNo int
-		if err := tx.Model(&StructVersion{}).Where("project_id = ?", projectID).
-			Select("COALESCE(MAX(version_no),0)").Scan(&maxNo).Error; err != nil {
-			return err
+		// 取当前 current 版本(version_no 单调,current 恒为最大号):用于 sha 去重 + base_version_id 基线。
+		var cur StructVersion
+		hasCur := false
+		if e := tx.Where("project_id = ? AND status = ?", projectID, VerCurrent).
+			Order("version_no DESC").First(&cur).Error; e == nil {
+			hasCur = true
+		} else if !errors.Is(e, gorm.ErrRecordNotFound) {
+			return e
 		}
-		versionNo = maxNo + 1
+		// sha 去重:内容无变化 → 不追加新版本,只保证项目缓存列指向当前 current。
+		if hasCur && cur.StructSHA256 == sha {
+			versionNo = cur.VersionNo
+			return tx.Model(&Project{}).Where("id = ?", projectID).Updates(map[string]any{
+				"doc_struct": docJSON, "struct_version_id": cur.ID, "updated_at": time.Now(),
+			}).Error
+		}
+		versionNo = cur.VersionNo + 1 // hasCur=false → cur.VersionNo=0 → 版本号从 1 起
 		if err := tx.Model(&StructVersion{}).
 			Where("project_id = ? AND status = ?", projectID, VerCurrent).
 			Update("status", VerSuperseded).Error; err != nil {
@@ -42,6 +58,10 @@ func (r *Repository) SaveStructVersion(projectID uint, docJSON, sha, author stri
 		sv := &StructVersion{
 			ProjectID: projectID, VersionNo: versionNo, DocStruct: docJSON,
 			StructSHA256: sha, Author: author, Status: VerCurrent,
+		}
+		if hasCur {
+			base := cur.ID
+			sv.BaseVersionID = &base
 		}
 		if err := tx.Create(sv).Error; err != nil {
 			return err
@@ -53,11 +73,11 @@ func (r *Repository) SaveStructVersion(projectID uint, docJSON, sha, author stri
 	return versionNo, err
 }
 
-// ListStructVersions 结构体版本列表(不含正文 JSON,历史面板用)。
+// ListStructVersions 结构体版本列表(不含正文 JSON,历史面板用;取最近 structHistoryLimit 条)。
 func (r *Repository) ListStructVersions(projectID uint) ([]StructVersion, error) {
 	var vs []StructVersion
 	err := r.db.Select("id, project_id, version_no, struct_sha256, author, status, base_version_id, created_at").
-		Where("project_id = ?", projectID).Order("version_no DESC").Find(&vs).Error
+		Where("project_id = ?", projectID).Order("version_no DESC").Limit(structHistoryLimit).Find(&vs).Error
 	return vs, err
 }
 

@@ -339,6 +339,8 @@ func toolStatusNote(tool string) string {
 		return "正在解析文件…"
 	case tool == "Glob" || tool == "Grep" || tool == "LS":
 		return "正在查阅材料…"
+	case tool == "Skill":
+		return "正在调用技能…"
 	default:
 		return "正在处理…"
 	}

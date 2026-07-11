@@ -46,6 +46,16 @@ type PaperSSRMeta struct {
 	FieldsOfStudy []string
 }
 
+// AuthorWork 作者代表作(一篇论文的精简信息),供 SSR noscript 内链 + JSON-LD。
+type AuthorWork struct {
+	Title         string `json:"title"`
+	Year          int    `json:"year,omitempty"`
+	Venue         string `json:"venue,omitempty"`
+	PaperID       string `json:"paperId,omitempty"`
+	Source        string `json:"source,omitempty"`
+	CitationCount int    `json:"citationCount,omitempty"`
+}
+
 // AuthorSSRMeta 作者 SSR 注入所需的最小元数据集
 type AuthorSSRMeta struct {
 	AuthorID      string
@@ -56,7 +66,8 @@ type AuthorSSRMeta struct {
 	PaperCount    int
 	CitationCount int
 	HIndex        *int
-	ORCID         string // 裸 iD;非空则进 ProfilePage 的 sameAs(权威身份信号)
+	ORCID         string       // 裸 iD;非空则进 ProfilePage 的 sameAs(权威身份信号)
+	Works         []AuthorWork // 代表作(seoenrich 回填);noscript 列表 + 内链论文页
 }
 
 // JournalSSRMeta 期刊 SSR 注入所需的最小元数据集
@@ -250,6 +261,14 @@ func authorSSRMetaFromRow(au *SEOAuthor) *AuthorSSRMeta {
 		var affs []string
 		if err := json.Unmarshal([]byte(au.AffiliationsJSON), &affs); err == nil {
 			meta.Affiliations = affs
+		}
+	}
+	if au.TopWorksJSON != "" {
+		var works []AuthorWork
+		if err := json.Unmarshal([]byte(au.TopWorksJSON), &works); err == nil {
+			meta.Works = works
+		} else {
+			slog.Debug("seo: author top_works unmarshal failed", "author_id", au.AuthorID, "err", err)
 		}
 	}
 	return meta

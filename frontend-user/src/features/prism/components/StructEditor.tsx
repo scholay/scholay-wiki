@@ -110,13 +110,15 @@ export const StructEditor = forwardRef<
     onInsertImage?: () => void;
     onInsertMath?: () => void;
     onInsertCitation?: () => void;
+    /** 快通道评议(V3-4.5-1):把当前选区文字交父层做只读点评(结果进 popover,不碰正文)。 */
+    onReview?: (selection: string) => void;
     /** 本次 AI 改动的「改动前」结构体:据它在编辑器里原地标出增删痕迹(无则不标)。 */
     diffBaseline?: DocStruct | null;
     /** 用户一开始编辑就通知父层清掉本次改动标识(diff 只是标记,不设确认门)。 */
     onDiffDismiss?: () => void;
   }
 >(
-  function StructEditor({ doc, editable, onChange, onInsertImage, onInsertMath, onInsertCitation, diffBaseline, onDiffDismiss }, ref) {
+  function StructEditor({ doc, editable, onChange, onInsertImage, onInsertMath, onInsertCitation, onReview, diffBaseline, onDiffDismiss }, ref) {
     const fm = doc.frontMatter ?? { title: '' };
     const [title, setTitle] = useState(fm.title ?? '');
     const [abstract, setAbstract] = useState(fm.abstract ?? '');
@@ -139,7 +141,10 @@ export const StructEditor = forwardRef<
     onDiffDismissRef.current = onDiffDismiss;
 
     const timerRef = useRef<number | null>(null);
-    const pendingRef = useRef(0); // 自身保存回声计数:>0 时下一次 doc 变更不重置编辑器
+    // 自身保存回声:记最近一次 emit 的内容签名。save 往返后经 setQueryData 回灌的规范结构体会与它一致
+    // → 跳过重置(防光标跳、也防覆盖用户在往返之间新打的字)。签名判回声比旧的自增计数器更稳:
+    // 计数器在 save 失败/回声合并时会泄漏(残留 >0 → 之后真·外部改动被误吞)或误吞正当外部改动(评审 #4)。
+    const lastEmittedSigRef = useRef<string | null>(null);
 
     // 用户一开始编辑(正文或前置字段)→ 通知父层清掉本次改动标识;diff 是纯标记,不是确认门。
     const maybeDismissDiff = () => {
@@ -194,10 +199,21 @@ export const StructEditor = forwardRef<
       };
     };
 
+    // 结构体「内容签名」:正文 + 前置字段(标题/摘要/关键词)。用于把自身保存的回声与真·外部改动区分开。
+    const emitSig = (d: DocStruct): string =>
+      bodySignature(d.body ?? []) +
+      ' ' +
+      JSON.stringify([
+        d.frontMatter?.title ?? '',
+        d.frontMatter?.abstract ?? '',
+        (d.frontMatter?.keywords ?? []).join(''),
+      ]);
+
     const doEmit = () => {
       const next = buildDoc();
       if (!next) return;
-      pendingRef.current += 1;
+      // 记下本次 emit 的内容签名:回声(save 往返后回灌的规范结构体)与它一致 → doc 变更时跳过重置。
+      lastEmittedSigRef.current = emitSig(next);
       onChangeRef.current(next);
     };
 
@@ -244,10 +260,9 @@ export const StructEditor = forwardRef<
     // doc 外部变更(agent 应用 / 换模板 / 插入)→ 重置编辑器与前置字段;自身保存回声跳过(防光标跳)。
     useEffect(() => {
       if (!editor) return;
-      if (pendingRef.current > 0) {
-        pendingRef.current -= 1;
-        return;
-      }
+      // 自身保存回声:本次进来的 doc 与最近一次 emit 内容一致 → 整体跳过重置(正文 + 前置字段一起),
+      // 既防光标跳,也防覆盖用户在 save 往返之间新打的字(评审 #4)。
+      if (emitSig(doc) === lastEmittedSigRef.current) return;
       const bodyIncoming = bodySignature(doc.body ?? []);
       const bodyCurrent = bodySignature(tiptapToBody(editor.getJSON() as PMNode));
       if (bodyIncoming !== bodyCurrent) {
@@ -295,6 +310,7 @@ export const StructEditor = forwardRef<
             onInsertImage={onInsertImage}
             onInsertMath={onInsertMath}
             onInsertCitation={onInsertCitation}
+            onReview={onReview}
           />
         )}
 

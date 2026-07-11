@@ -79,7 +79,7 @@ export function FeatureToolImportPage() {
     <AdminPageLayout title="导入工具" description="粘贴 / 上传结构化 JSON, 批量 upsert 到功能广场 (按 source_topic_id / slug 幂等)">
       <div className="mx-auto max-w-3xl space-y-5">
         {/* 上传 */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <input
             ref={fileRef}
             type="file"
@@ -119,8 +119,8 @@ export function FeatureToolImportPage() {
         </div>
 
         {/* 选项 + 提交 */}
-        <div className="flex items-center justify-between rounded-md border border-border bg-surface-1 p-3">
-          <label className="flex items-center gap-2 text-sm text-subtle">
+        <div className="flex flex-col gap-3 rounded-md border border-border bg-surface-1 p-3 sm:flex-row sm:items-center sm:justify-between">
+          <label className="flex flex-wrap items-center gap-2 text-sm text-subtle">
             <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} className="size-4" />
             导入时通知下游 webhook 同步
             <span className="text-2xs text-faint">(冷数据首次导入建议关闭)</span>

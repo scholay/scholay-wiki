@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, FileText, Image as ImageIcon } from 'lucide-react';
 import {
   replayHistoryAsTurns,
   parseUserEntryWithAttachments,
 } from '@/shared/lib/agent-history';
 import {
   AssistantBubble,
-  AttachmentChipList,
   ChatStyles,
   PausedNotice,
   PaperListReadonly,
@@ -20,8 +19,82 @@ import {
 } from '@/shared/components/chat';
 import { MINICOD_TOOL_PREFIX } from '@/shared/lib/minicod-papers';
 import { Button } from '@/shared/ui/button';
-import type { Turn } from '@/shared/types/chat';
+import type { Turn, TurnAttachment } from '@/shared/types/chat';
 import type { TranscriptEntry } from '../api/session-monitor';
+import type { AdminPreviewFile } from './AdminFilePreviewDialog';
+
+/**
+ * 管理端附件 chips —— 用户上传的文件在会话里点开即预览/下载(经 /admin/agent-sessions/:id/file)。
+ * 有 path(claw @"path" 前缀还原)→ 可点击调 onPreview;老内联图片(仅 previewUrl)→ 直接显缩略图;
+ * 都没有 → 纯文件名 chip。mime 未知,预览器用 blob.type / 文件名后缀兜底。
+ */
+function AdminAttachmentChips({
+  attachments,
+  sessionId,
+  onPreview,
+}: {
+  attachments: TurnAttachment[];
+  sessionId?: string;
+  onPreview?: (f: AdminPreviewFile) => void;
+}) {
+  if (attachments.length === 0) return null;
+  return (
+    <div className="flex max-w-full flex-wrap justify-end gap-1.5">
+      {attachments.map((a, i) => {
+        const canOpen = !!sessionId && !!a.path && !!onPreview;
+        const inner = (
+          <>
+            {a.type === 'image' ? (
+              <ImageIcon className="size-3 shrink-0" strokeWidth={2.2} />
+            ) : (
+              <FileText className="size-3 shrink-0" strokeWidth={2.2} />
+            )}
+            <span className="min-w-0 truncate">{a.name}</span>
+          </>
+        );
+        if (canOpen) {
+          return (
+            <button
+              key={i}
+              type="button"
+              title={`${a.name} · 点击预览`}
+              onClick={() =>
+                onPreview!({
+                  src: `/admin/agent-sessions/${sessionId}/file?path=${encodeURIComponent(a.path!)}`,
+                  mime: '',
+                  filename: a.name,
+                })
+              }
+              className="inline-flex max-w-[220px] items-center gap-1 rounded-sm bg-foreground/85 px-2 py-0.5 text-2xs text-background/90 transition-colors hover:bg-foreground"
+            >
+              {inner}
+            </button>
+          );
+        }
+        if (a.type === 'image' && a.previewUrl) {
+          return (
+            <img
+              key={i}
+              src={a.previewUrl}
+              alt={a.name}
+              loading="lazy"
+              className="size-14 shrink-0 rounded-md border border-border-strong object-cover"
+            />
+          );
+        }
+        return (
+          <span
+            key={i}
+            className="inline-flex max-w-[220px] items-center gap-1 rounded-sm bg-foreground/85 px-2 py-0.5 text-2xs text-background/90"
+            title={a.name}
+          >
+            {inner}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
 
 /**
  * 管理端只读 transcript 渲染 —— 按 featureKey 分流,逐 feature **镜像用户端的真实渲染**
@@ -56,15 +129,23 @@ function TurnTail({ turn }: { turn: Turn }) {
   );
 }
 
-/** claw 镜像(MessageTurn 只读版):附件 chips + 顺序块 + 错误/暂停。 */
-function ClawTurn({ turn }: { turn: Turn }) {
+/** claw 镜像(MessageTurn 只读版):附件 chips(可点开预览)+ 顺序块 + 错误/暂停。 */
+function ClawTurn({
+  turn,
+  sessionId,
+  onPreview,
+}: {
+  turn: Turn;
+  sessionId?: string;
+  onPreview?: (f: AdminPreviewFile) => void;
+}) {
   return (
     <article className="flex flex-col gap-2.5 min-w-0">
       <UserBubble
         text={turn.userText}
         attachments={
           turn.userAttachments && turn.userAttachments.length > 0 ? (
-            <AttachmentChipList attachments={turn.userAttachments} />
+            <AdminAttachmentChips attachments={turn.userAttachments} sessionId={sessionId} onPreview={onPreview} />
           ) : undefined
         }
       />
@@ -154,10 +235,16 @@ function PrismTurn({ turn }: { turn: Turn }) {
 export function AdminTranscriptView({
   messages,
   featureKey,
+  sessionId,
+  onPreview,
 }: {
   messages: TranscriptEntry[];
   /** 会话归属 feature(smart_search | claw | prism)—— 决定折叠选项与轮渲染镜像。 */
   featureKey?: string;
+  /** agent 会话 ID —— claw 附件构造 /admin/agent-sessions/:id/file 预览 URL 用。 */
+  sessionId?: string;
+  /** 点击附件 → 打开文件预览(由 ChatSessionMonitor 承接为叠层弹窗)。 */
+  onPreview?: (f: AdminPreviewFile) => void;
 }) {
   const turns = useMemo(
     () =>
@@ -181,9 +268,6 @@ export function AdminTranscriptView({
     );
   }
 
-  const TurnRenderer =
-    featureKey === 'claw' ? ClawTurn : featureKey === 'prism' ? PrismTurn : SearchTurn;
-
   return (
     <div className="space-y-5">
       <ChatStyles />
@@ -194,9 +278,15 @@ export function AdminTranscriptView({
           </Button>
         </div>
       )}
-      {visible.map((t) => (
-        <TurnRenderer key={t.id} turn={t} />
-      ))}
+      {visible.map((t) =>
+        featureKey === 'claw' ? (
+          <ClawTurn key={t.id} turn={t} sessionId={sessionId} onPreview={onPreview} />
+        ) : featureKey === 'prism' ? (
+          <PrismTurn key={t.id} turn={t} />
+        ) : (
+          <SearchTurn key={t.id} turn={t} />
+        ),
+      )}
     </div>
   );
 }

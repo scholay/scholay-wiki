@@ -372,6 +372,55 @@ func (s *Service) autoRegisterPhone(ctx context.Context, phone, ip string) (*Use
 //       2. 旧手机的 change_phone code,证明用户掌控旧号码(防 session 被偷夺号)
 //
 // oldPhoneCode 在首次绑定场景下可以为空;换绑时必填。
+// BindVerifiedPhone 绑定一个「已被外部验证过」的手机号(小程序 getPhoneNumber:微信已验证,
+// 无需短信码)。做唯一性校验 + 事务内 set phone/phone_verified + upsert phone provider。
+// 幂等:已绑同号直接成功。
+func (s *Service) BindVerifiedPhone(userID uint, phone string) error {
+	if phone == "" {
+		return errors.New("手机号为空")
+	}
+	existing, err := s.repo.FindByPhone(phone)
+	if err != nil {
+		return err
+	}
+	if existing != nil && existing.ID != userID {
+		return errors.New("该手机号已被其他账号绑定")
+	}
+	cur, err := s.repo.FindByID(userID)
+	if err != nil {
+		return err
+	}
+	if cur == nil {
+		return errors.New("用户不存在")
+	}
+	if cur.Phone != nil && *cur.Phone == phone {
+		return nil
+	}
+	return s.repo.ExecuteInTransaction(func(txRepo *Repository) error {
+		user, err := txRepo.FindByID(userID)
+		if err != nil {
+			return err
+		}
+		if user == nil {
+			return errors.New("用户不存在")
+		}
+		user.Phone = &phone
+		user.PhoneVerified = true
+		if err := txRepo.Update(user); err != nil {
+			return err
+		}
+		ap, err := txRepo.FindAuthProviderByUserAndProvider(userID, "phone")
+		if err != nil {
+			return err
+		}
+		if ap == nil {
+			return txRepo.CreateAuthProvider(&UserAuthProvider{UserID: userID, Provider: "phone", ProviderUserID: phone})
+		}
+		ap.ProviderUserID = phone
+		return txRepo.UpdateAuthProvider(ap)
+	})
+}
+
 func (s *Service) BindPhone(ctx context.Context, userID uint, phone, code, oldPhoneCode string) error {
 	// Verify the phone code on new phone (always required)
 	valid, err := cache.VerifyCode(ctx, phone, code, "bind")

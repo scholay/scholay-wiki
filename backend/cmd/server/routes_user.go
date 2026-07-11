@@ -23,6 +23,9 @@ func registerPublicUserRoutes(api *gin.RouterGroup, h *allHandlers) {
 		wechatPublic.GET("/login-url", h.wechat.GetLoginURL)
 		wechatPublic.GET("/qrcode-config", h.wechat.GetQRCodeConfig)
 		wechatPublic.POST("/callback", h.user.WeChatCallback)
+		// 小程序 wx.login 一键登录(jscode2session → 复用 LoginOrRegisterWithWeChat)。
+		// 免登录;账号自动建号,IP 限流已在 api 组顶层挂。
+		wechatPublic.POST("/miniprogram/login", h.user.MiniProgramLogin)
 	}
 
 	githubPublic := api.Group("/user/github")
@@ -151,12 +154,31 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 			prismG.POST("/projects/:id/struct/versions/:versionId/restore", h.prism.RestoreStructVersion) // 恢复某历史版本
 			prismG.POST("/projects/:id/template", h.prism.SetJournalTemplate) // 确定性换刊
 			prismG.GET("/projects/:id/conformance", h.prism.GetConformance)
+			// 写作画像(Phase 3):base 文体/学科人格。查看 + 用户覆盖 + planner 自动识别。
+			prismG.GET("/projects/:id/writing-profile", h.prism.GetWritingProfile)
+			prismG.PUT("/projects/:id/writing-profile", h.prism.SetWritingProfile)
+			prismG.POST("/projects/:id/writing-profile/plan", h.prism.PlanWritingProfile)
+			// 质量回执(Phase 4):确定性双轨检查(悬空引用/未定义交叉引用/前置缺失/超长句)。
+			prismG.GET("/projects/:id/quality-check", h.prism.GetQualityCheck)
+			// 快通道评议(V3-4.5-1):选区级只读点评(解释/找漏洞/审稿人视角),结果进 popover 不碰正文。
+			prismG.POST("/projects/:id/inline-review", h.prism.InlineReview)
+			// 修改意见回应工作流(V4-③):粘贴任何修改意见 → 拆条 → 逐条改稿 → response letter。
+			prismG.POST("/projects/:id/revision/parse", h.prism.ParseRevision)
+			prismG.GET("/projects/:id/revision", h.prism.ListRevision)
+			prismG.PATCH("/projects/:id/revision/:itemId", h.prism.UpdateRevision)
+			prismG.GET("/projects/:id/revision/letter", h.prism.RevisionLetter)
+			// 数字成员校验(V4-⑤ 轻版):生成段数字 ⊆ 源表数字(纯函数零存储)。
+			prismG.POST("/projects/:id/verify-numbers", h.prism.VerifyNumbers)
+			// 项目术语表(V4-④):真源 DB,轮前物化 cwd terminology.md。
+			prismG.GET("/projects/:id/terminology", h.prism.GetTerminology)
+			prismG.PUT("/projects/:id/terminology", h.prism.PutTerminology)
 			prismG.POST("/projects/:id/clone-to-struct", h.prism.CloneToStruct) // 逃生口:旧项目→新版
 			prismG.GET("/projects/:id/export/docx", h.prism.ExportDocx)        // struct→Pandoc→Word
 			prismG.POST("/projects/:id/assets", h.prism.UploadAsset)           // 上传图片 → figure 块
 			// agent-native 用户 WS 编辑(实时流式 + diff + 应用门 + 重入续流)。
 			// AI 对话走下面独立挂的 /prism/ws/:sessionId;这里是轮次边界 HTTP 端点。
 			prismG.POST("/projects/:id/ws-ticket", h.prism.IssueWSTicket)
+			prismG.POST("/projects/:id/session/reset", h.prism.ResetSession) // 手动重开会话(V3-4.6-1:文稿零损失)
 			prismG.GET("/projects/:id/session/messages", h.prism.GetWSMessages)
 			prismG.GET("/projects/:id/session/context", h.prism.GetContext)       // 上下文水位(token 占用)
 			prismG.POST("/projects/:id/round/prepare", h.prism.PrepareRound)      // 铺源 DB→cwd
@@ -198,6 +220,12 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 
 		// 反馈
 		userProtected.POST("/feedback", h.feedback.CreateFeedbackWithUser)
+
+		// 小程序内容安全预检(UGC 发送前调用;违规拦在发送前,过审硬前置)
+		userProtected.POST("/wechat/msg-check", h.user.CheckContent)
+
+		// 小程序手机号绑定(wx.getPhoneNumber code → 换手机号 → 绑到当前账号)
+		userProtected.POST("/wechat/miniprogram/bind-phone", h.user.BindMiniProgramPhone)
 
 		// 站内信 (前端只用 list + unread-count + read + read-all + delete; 单条 GET 已下线)
 		userProtected.GET("/messages", h.message.GetMessages)
@@ -254,12 +282,19 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		userProtected.GET("/claw/sessions", h.claw.ListSessions)
 		userProtected.POST("/claw/sessions", h.claw.CreateNewSession)
 		userProtected.PATCH("/claw/sessions/:id", h.claw.RenameSession)
+		// POST 别名:微信小程序 wx.request 不支持 PATCH,给它一条 POST 通道(同 handler)。
+		userProtected.POST("/claw/sessions/:id/rename", h.claw.RenameSession)
 		userProtected.DELETE("/claw/sessions/:id", h.claw.DeleteSession)
 		userProtected.POST("/claw/sessions/:id/activate", h.claw.ActivateSession)
 
 		// 模型切换 — sidebar ModelSelector 下拉用。GET 列出可用 model tier,
 		// 切换不走 HTTP, 直接在 WS 上发 set_runtime_config (agent 协议规定)。
 		userProtected.GET("/claw/models", h.claw.ListModels)
+
+		// 数学公式渲染:TeX → PNG(agent MathJax 渲染 + Redis 缓存)。小程序 rich-text
+		// 跑不了 KaTeX,前端把 $$…$$ 送这里换成图内联。挂 claw handler 仅为复用 AgentClient。
+		userProtected.POST("/render/math", h.claw.RenderMath)
+		userProtected.POST("/render/mermaid", h.claw.RenderMermaid) // 图表 → PNG(agent Chromium,Redis 长缓存)
 
 		// per-user 长期记忆 (C4): 查看/编辑/删除自己的记忆块 (隐私/GDPR)。
 		// agent 侧注入(读)由 agentbridge.Bridge 负责, 不在此暴露; 这里只给用户管理面。

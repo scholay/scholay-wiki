@@ -1,0 +1,32 @@
+<view wx:if="{{loading}}" class="sk-detail"><view class="skeleton sk-title-lg"></view><view class="sk-chips"><view class="skeleton sk-chip"></view><view class="skeleton sk-chip"></view><view class="skeleton sk-chip"></view></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w70"></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w45"></view></view>
+<view wx:elif="{{error}}" class="state error">{{error}}</view>
+
+<scroll-view wx:else scroll-y class="page detail">
+  <text class="h1">{{name}}</text>
+  <text wx:if="{{affiliation}}" class="authors">{{affiliation}}</text>
+  <view wx:if="{{orcid}}" class="badges">
+    <text class="badge oa" bindtap="copyOrcid">ORCID {{orcid}} · 复制</text>
+  </view>
+
+  <view class="metrics">
+    <view wx:for="{{stats}}" wx:for-item="s" wx:key="label" class="metric">
+      <text class="mv">{{s.value}}</text>
+      <text class="ml">{{s.label}}</text>
+    </view>
+  </view>
+
+  <view wx:if="{{fields.length}}" class="section">
+    <text class="sec-title">研究方向</text>
+    <view class="badges">
+      <text wx:for="{{fields}}" wx:for-item="f" wx:key="*this" class="badge">{{f}}</text>
+    </view>
+  </view>
+
+  <view wx:if="{{topPapers.length}}" class="section">
+    <text class="sec-title">代表作</text>
+    <view wx:for="{{topPapers}}" wx:for-item="p" wx:key="paperId" class="ref" data-id="{{p.paperId}}" bindtap="goPaper">
+      <text class="ref-line link">{{p.title}}</text>
+      <text class="meta">{{p.sub}} · {{p.cite}}</text>
+    </view>
+  </view>
+</scroll-view>

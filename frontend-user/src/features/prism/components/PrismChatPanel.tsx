@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
-import { Loader2, ArrowUp, Square, Check, FileText, RotateCcw, Quote, X, WifiOff } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { Loader2, Check, FileText, RotateCcw, Quote, X, WifiOff } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { trackEvent } from '@/shared/lib/track';
-import { ContextMeter } from '@/shared/components/chat';
+import { Composer, type ComposerHandle } from '@/shared/components/chat';
 import type { usePrismChat, PrismChangeset } from '../hooks/usePrismChat';
 import { PrismMessageTurn } from './chat/PrismMessageTurn';
+import { PrismChatEmptyState, PrismWritingMenuButton, type WritingMenuProps } from './PrismWritingMenu';
 
 /**
  * Prism agent-native 对话面板(用户 WS):与 claw/smart-search 共用 shared/components/chat 渲染
@@ -17,17 +18,24 @@ export function PrismChatPanel({
   quote,
   onClearQuote,
   onSend,
+  prefill,
+  onPrefillConsumed,
+  menu,
 }: {
   chat: ReturnType<typeof usePrismChat>;
   fileId: number | null;
   quote?: string;
   onClearQuote?: () => void;
   onSend: (instruction: string) => void;
+  /** 快捷按钮预填(V4-R1):把模板指令填进输入框,用户补空/确认后再发,不直接发送。 */
+  prefill?: string;
+  onPrefillConsumed?: () => void;
+  /** 写作能力菜单(V4-R1 UI 重做):空态引导卡 + composer ✨ 弹出菜单;不传则两者都不渲染。 */
+  menu?: WritingMenuProps;
 }) {
-  const [instruction, setInstruction] = useState('');
   const threadEnd = useRef<HTMLDivElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const composerRef = useRef<ComposerHandle>(null);
   const atBottomRef = useRef(true);
 
   const hasThread = chat.turns.length > 0;
@@ -41,20 +49,20 @@ export function PrismChatPanel({
   }, [chat.turns, chat.streaming]);
 
   useEffect(() => {
-    if (quote) inputRef.current?.focus();
+    if (quote) composerRef.current?.focus();
   }, [quote]);
+
+  // 快捷按钮预填 → 填入输入框 + 聚焦(覆盖旧草稿是刻意的:点按钮=明确意图)。
+  useEffect(() => {
+    if (!prefill) return;
+    composerRef.current?.prefill(prefill);
+    onPrefillConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill]);
 
   // 不能发的情形:无文件 / 流式中 / 有待应用改动(先决定 应用/丢弃)/ WS 未连上。
   const blocked = !fileId || chat.streaming || chat.awaitingApply;
   const wsReady = chat.wsState === 'open';
-
-  const send = () => {
-    const ins = instruction.trim();
-    if (!ins || blocked || !wsReady) return;
-    trackEvent('prism_edit', { len: ins.length });
-    setInstruction('');
-    onSend(ins);
-  };
 
   const placeholder = !fileId
     ? '先选一个文件'
@@ -109,91 +117,55 @@ export function PrismChatPanel({
           )}
           <div ref={threadEnd} />
         </div>
+      ) : menu ? (
+        // 空对话:引导住进留白(问候 + 智能起草卡 + 精选能力卡);开聊即让位(V4-R1 UI 重做)。
+        <PrismChatEmptyState {...menu} disabled={menu.disabled || blocked} />
       ) : (
         <div className="flex-1" />
       )}
 
-      {/* 输入框 —— 与智能助手(claw)同款视觉:rounded-lg / border-strong / 右下发送停止按钮 */}
+      {/* 输入框 —— 三 agent 统一 Composer(shared/components/chat;主流形态单一真源) */}
       <div className="shrink-0 p-3">
-        <div
-          className={cn(
-            'flex flex-col gap-2 rounded-lg border border-border-strong bg-background p-2.5 shadow-sm transition-colors',
-            'focus-within:border-foreground',
-            blocked && 'opacity-60',
-          )}
-        >
-          {quote && (
-            <div className="flex items-start gap-1.5 rounded-md border-l-2 border-brand-green bg-surface-1 px-2 py-1.5">
-              <Quote className="mt-0.5 size-3 shrink-0 text-brand-green" />
-              <span className="line-clamp-2 flex-1 whitespace-pre-wrap text-2xs leading-snug text-subtle">{quote}</span>
-              <button type="button" onClick={onClearQuote} title="移除引用" className="shrink-0 text-faint transition-colors hover:text-foreground">
-                <X className="size-3" />
-              </button>
-            </div>
-          )}
-
-          <textarea
-            ref={inputRef}
-            value={instruction}
-            onChange={(e) => setInstruction(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                e.preventDefault();
-                send();
-              }
-            }}
-            placeholder={placeholder}
-            rows={2}
-            disabled={blocked}
-            className="max-h-[180px] min-h-[44px] w-full resize-none border-0 bg-transparent px-1 py-1 text-base leading-relaxed text-foreground placeholder:text-faint focus:outline-none focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-          />
-
-          {/* 底部工具栏:新对话(左) + 占位 + 发送/停止(右) */}
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={chat.newChat}
-              title="新对话"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
-            >
-              <RotateCcw className="h-4 w-4" />
-            </button>
-            {chat.context && chat.context.totalTokens > 0 && (
-              <ContextMeter
-                totalTokens={chat.context.totalTokens}
-                maxTokens={chat.context.maxTokens}
-                percentage={chat.context.percentage}
-                model={chat.context.model}
-                className="ml-1"
-              />
-            )}
-            <span className="flex-1" />
-            {chat.streaming ? (
+        <Composer
+          ref={composerRef}
+          onSend={(t) => {
+            if (blocked || !wsReady) return;
+            trackEvent('prism_edit', { len: t.length });
+            onSend(t);
+          }}
+          placeholder={placeholder}
+          disabled={blocked}
+          sendReady={wsReady}
+          busy={chat.streaming}
+          onStop={chat.stop}
+          context={chat.context}
+          maxHeightPx={180}
+          topSlot={
+            quote ? (
+              <div className="flex items-start gap-1.5 rounded-md border-l-2 border-brand-green bg-surface-1 px-2 py-1.5">
+                <Quote className="mt-0.5 size-3 shrink-0 text-brand-green" />
+                <span className="line-clamp-2 flex-1 whitespace-pre-wrap text-2xs leading-snug text-subtle">{quote}</span>
+                <button type="button" onClick={onClearQuote} title="移除引用" className="shrink-0 text-faint transition-colors hover:text-foreground">
+                  <X className="size-3" />
+                </button>
+              </div>
+            ) : undefined
+          }
+          leftActions={
+            <>
               <button
                 type="button"
-                onClick={chat.stop}
-                title="停止当前回答"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-foreground text-background transition-colors hover:bg-foreground/85"
+                onClick={chat.newChat}
+                title="新对话"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
               >
-                <Square className="h-3 w-3 fill-current" strokeWidth={0} />
+                <RotateCcw className="h-4 w-4" />
               </button>
-            ) : (
-              <button
-                type="button"
-                onClick={send}
-                disabled={!instruction.trim() || blocked || !wsReady}
-                title="发送 (Enter)"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-foreground text-background transition-colors hover:bg-foreground/90 disabled:bg-surface-2 disabled:text-faint"
-              >
-                {blocked && wsReady && chat.streaming ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <ArrowUp className="h-4 w-4" strokeWidth={2.5} />
-                )}
-              </button>
-            )}
-          </div>
-        </div>
+              {/* ✨ 写作能力菜单:有对话后引导的常驻收纳处(空态卡片的全集) */}
+              {menu && <PrismWritingMenuButton {...menu} disabled={menu.disabled || blocked} />}
+            </>
+          }
+        />
       </div>
     </div>
   );

@@ -1,0 +1,18 @@
+@import '../../styles/detail.wxss';
+
+/* 全站阅读字号放大 · author 页面级覆盖(detail.wxss 为 5 页共享,故只在本页覆盖) */
+.state {
+  font-size: 28rpx;
+}
+.authors {
+  font-size: 28rpx;
+}
+.sec-title {
+  font-size: 34rpx;
+}
+.ml {
+  font-size: 24rpx;
+}
+.ref-line {
+  font-size: 28rpx;
+}

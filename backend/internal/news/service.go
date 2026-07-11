@@ -360,8 +360,10 @@ func parseTime(s string) *time.Time {
 	if s == "" {
 		return nil
 	}
+	// ParseInLocation + time.Local:带偏移的 RFC3339 仍按串内偏移解析;裸时间串(无 Z/offset)
+	// 按主机本地时区(容器=北京)解释,而非默认的 UTC —— 避免上游裸时间被当 UTC 后显示偏 8 小时。
 	for _, layout := range []string{time.RFC3339, "2006-01-02T15:04:05", "2006-01-02 15:04:05", "2006-01-02"} {
-		if t, err := time.Parse(layout, s); err == nil {
+		if t, err := time.ParseInLocation(layout, s, time.Local); err == nil {
 			return &t
 		}
 	}

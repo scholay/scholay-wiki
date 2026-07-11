@@ -237,9 +237,16 @@ func (r *Repository) ListSitemapPage(page int) ([]SitemapEntry, error) {
 		Priority    float64   `gorm:"column:priority"`
 		QualityTier int       `gorm:"column:quality_tier"`
 	}
+	// 只把「有实质内容」的论文写进 sitemap,不再主动向爬虫提交仅标题的薄页。
+	//   - 有 abstract → 一定收(noscript / JSON-LD 能给出真实正文,可排名 / 可被 AI 引用)
+	//   - quality_tier=1(详情点击,真实用户到访过)→ 即使暂无 abstract 也保留(数量小、非批量长尾)
+	// 过滤掉的是 tier=2 搜索种子里无 abstract 的部分 —— 正是「规模化 thin content」降权风险来源。
+	// 注:分页仍按预计算的 sitemap_page 列,过滤后单页 URL 数变少(合法),不额外重排。
+	// OR 条件用显式括号写进同一个 Where，不依赖 GORM 对多段 Where 的括号化(不同版本行为不一,
+	// 漏括号会让 `AND ... OR ...` 优先级错乱)。
 	err := r.db.Table("seo_papers").
 		Select("slug, source, paper_id, updated_at, priority, quality_tier").
-		Where("status = ? AND sitemap_page = ?", StatusActive, page).
+		Where("status = ? AND sitemap_page = ? AND (COALESCE(abstract, '') <> '' OR quality_tier = 1)", StatusActive, page).
 		Order("id").
 		Find(&rows).Error
 	if err != nil {

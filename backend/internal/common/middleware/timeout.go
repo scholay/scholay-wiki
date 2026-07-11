@@ -43,10 +43,12 @@ func isStreamingPath(path string) bool {
 // 弱网移动端 / 多文件 zip 会在 15s 处被 ctx 掐断, 流到一半截成坏文件(性能审计 file-download)。
 // 给它们更长的传输预算, 但不并入 SSE 的 15min。
 func isObjectServePath(path string) bool {
-	if strings.HasSuffix(path, "/pdf") || strings.HasSuffix(path, "/download") {
+	if strings.HasSuffix(path, "/pdf") || strings.HasSuffix(path, "/download") || strings.HasSuffix(path, "/file") {
 		return true
 	}
-	for _, p := range []string{"/feedback/attachment/", "/claw/artifact/", "/tools/logo/", "/submission/"} {
+	// /agent-sessions/:id/file(会话内上传文件) · /peer-review/submissions/:id/assets/:aid(投稿附件):
+	// 都是从对象存储/agent 容器往客户端 stream 原文件,传输时长随文件大小,别被 15s GET 超时截断成坏文件。
+	for _, p := range []string{"/feedback/attachment/", "/claw/artifact/", "/tools/logo/", "/submission/", "/assets/"} {
 		if strings.Contains(path, p) {
 			return true
 		}

@@ -168,7 +168,7 @@ function AlipayPanel() {
                   required
                 />
               </Field>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field label="Notify URL">
                   <Input name="notify_url" defaultValue={mode.kind === 'edit' ? mode.row.notify_url : ''} required />
                 </Field>
@@ -332,7 +332,7 @@ function WechatPanel() {
               }}
               className="space-y-3"
             >
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field label="商户号(MchID)">
                   <Input name="mch_id" defaultValue={mode.kind === 'edit' ? mode.row.mch_id : ''} required />
                 </Field>

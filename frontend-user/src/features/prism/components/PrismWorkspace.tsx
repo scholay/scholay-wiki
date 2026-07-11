@@ -123,7 +123,10 @@ export function PrismWorkspace({ projectId, onBack, readOnly = false, onOpen }: 
 
   // agent-native 用户 WS:apply 固化进 DB / reject 还原 cwd → 都重载编辑器看最新真源。
   // 应用后自动编译一次(带 loading)—— 用户审完改动点「应用」即可直接看到新 PDF,无需再手点编译。
+  // 只读旧版项目恒不挂 AI 对话(下方 !readOnly 才渲染对话面板)→ enabled=false 让 usePrismChat
+  // 不连 WS、不拉 history/pending/context,消除打开旧项目时的白连 WS + 一串 400(评审 #15)。
   const chat = usePrismChat(projectId, {
+    enabled: !readOnly,
     onApplied: () => {
       reloadActiveFile();
       triggerCompile();

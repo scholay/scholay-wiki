@@ -325,6 +325,14 @@ export function useClawConversation() {
         {
           id: `blocked-${sessionId}`,
           userText: blocked.text,
+          // 重建引用 chip:重发时 handleSubmit 会用 blocked.references 重附引用块,这里让恢复的
+          // blocked 轮也把绿 chip 显示回来(与实时提交的气泡一致)。
+          userReferences: (blocked.references ?? []).map((r) => ({
+            kind: r.kind,
+            title: r.title,
+            paperCount: r.paperCount,
+            hasPdf: r.hasPdf,
+          })),
           userAttachments: blocked.attachments.map((a) => ({
             type: a.type,
             name: a.name,

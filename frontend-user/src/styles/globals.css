@@ -466,3 +466,16 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* KaTeX 块级/行内公式的横向溢出兜底 —— vendored katex.min.css 的 .katex-display 只有
+   display:block+text-align:center,没有 overflow-x。窄屏上长公式(推导/矩阵)会溢出:
+   claw 气泡 overflow-hidden 下被裁掉、情报详情页无 overflow 边界则撑破整页横滚,学术核心
+   内容不可读。一处补规则,claw / 情报 / 审稿报告 / prism 全站生效。 */
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}
+.katex {
+  max-width: 100%;
+}

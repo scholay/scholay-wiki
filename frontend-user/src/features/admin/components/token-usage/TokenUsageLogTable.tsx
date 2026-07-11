@@ -105,7 +105,7 @@ export function TokenUsageLogTable({ filters }: { filters: TokenUsageFilters }) 
 
   return (
     <section className="mt-6">
-      <div className="mb-3 flex items-center justify-between gap-2">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-bold text-foreground">
           调用明细
           <span className="ml-2 text-xs font-normal text-faint">共 {(data?.total ?? 0).toLocaleString()} 条</span>

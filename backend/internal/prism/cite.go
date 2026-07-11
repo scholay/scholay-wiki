@@ -63,6 +63,9 @@ func (s *Service) ApplyStructCite(projectID, userID, libraryPaperID uint) (strin
 	baseKey := citeKey(first, yr, row.ID)
 	newBody := bibBody(bibtexEntry(baseKey, row.Title, authors, yr, row.Venue, row.DOI))
 
+	// 取每项目写锁:加引用的 GetStruct→改 Bibliography→存 与 autosave/AI 轮串行(评审 #1)。
+	unlock := structWriteMu.lock(projectID)
+	defer unlock()
 	js, err := s.GetStruct(projectID)
 	if err != nil {
 		return "", err

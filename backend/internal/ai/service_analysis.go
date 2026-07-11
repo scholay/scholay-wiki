@@ -376,6 +376,15 @@ func (s *Service) convertMapToResult(dataMap map[string]string, dimensions []Ana
 }
 
 // ChatCompletionWithLevel calls AI model without streaming and returns the complete response
+// ReviewText —— 一次性廉价点评补全(prism 快通道 V3-4.5-1):system + user 两条消息、ModelLow。
+// 作为 prism.InlineReviewFn 的实现被 SetInlineReviewFn 注入(方法值,免 bootstrap 重新耦合 ai 类型)。
+func (s *Service) ReviewText(ctx context.Context, system, user string) (string, error) {
+	return s.ChatCompletionWithLevel(ctx, []ChatMessage{
+		{Role: "system", Content: system},
+		{Role: "user", Content: user},
+	}, thirdparty.ModelLevelLow)
+}
+
 func (s *Service) ChatCompletionWithLevel(ctx context.Context, messages []ChatMessage, modelLevel thirdparty.ModelLevel) (string, error) {
 	result, err := s.executeWithRetry(ctx, modelLevel, func(config *thirdparty.AIModelConfig, _ uint) (any, *aiUsage, error) {
 		modelCode := config.ModelLow

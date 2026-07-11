@@ -1,0 +1,71 @@
+.bill {
+  padding: 0 32rpx 60rpx;
+}
+.tabs {
+  display: flex;
+  gap: 40rpx;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid var(--border);
+}
+.tab {
+  font-size: 32rpx;
+  color: var(--text-weak);
+  padding-bottom: 8rpx;
+}
+.tab.on {
+  color: var(--text);
+  font-weight: 700;
+  border-bottom: 4rpx solid #cc2222;
+}
+.state {
+  padding: 140rpx 0;
+  text-align: center;
+  color: var(--text-weak);
+  font-size: 28rpx;
+}
+.state.err {
+  color: var(--red);
+}
+.row {
+  display: flex;
+  align-items: center;
+  padding: 26rpx 0;
+  border-bottom: 1rpx solid var(--border);
+}
+.row-main {
+  flex: 1;
+  min-width: 0;
+}
+.row-title {
+  display: block;
+  font-size: 32rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.row-time {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 24rpx;
+  color: var(--text-weak);
+}
+.amount {
+  font-size: 34rpx;
+  font-weight: 600;
+}
+.amount.pos {
+  color: #2a7a2a;
+}
+.amount.neg {
+  color: #cc2222;
+}
+.order-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6rpx;
+}
+.ostatus {
+  font-size: 24rpx;
+  color: var(--text-weak);
+}

@@ -169,6 +169,8 @@ export function DataTable<T>({
         </div>
       )}
 
+      {/* 窄屏:表格在卡片内横向滚动,不让整页横滚(移动端后台适配的核心) */}
+      <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="bg-surface-1 border-b border-border">
           <tr>
@@ -259,6 +261,7 @@ export function DataTable<T>({
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

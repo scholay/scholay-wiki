@@ -936,6 +936,29 @@ func (f *FeatureBridge) buildCreateOptions(ctx context.Context, userID uint) (*a
 	return opts, true
 }
 
+// applySessionProfile(Phase 2)把 feature 的项目级 in-band 注入块(prism 写作画像)拼在 opts.AppendSystemPrompt
+// 之后。SessionProfile 以 sessionID 为身份(项目级,区别于 user 级 MemoryBlocks)。**clone-before-mutate**:
+// buildCreateOptions 在无 Picker 时返回共享静态 base,直接改会污染所有用户,故先拷贝再改。空块 → 原样返回。
+func (f *FeatureBridge) applySessionProfile(ctx context.Context, sessionID string, opts *agent.CreateSessionOptions) *agent.CreateSessionOptions {
+	if f.spec.SessionProfile == nil {
+		return opts
+	}
+	block := strings.TrimSpace(f.spec.SessionProfile(ctx, sessionID))
+	if block == "" {
+		return opts
+	}
+	var o agent.CreateSessionOptions
+	if opts != nil {
+		o = *opts
+	}
+	if o.AppendSystemPrompt != "" {
+		o.AppendSystemPrompt += "\n\n" + block
+	} else {
+		o.AppendSystemPrompt = block
+	}
+	return &o
+}
+
 // markPromptInjectedSync 同步把 prompt_injected 置 1 —— 用在「建会话时已系统级下发 systemPrompt」
 // 之后, 必须在用户可能发起 WS 之前生效, 故不能像 markPromptInjected 那样异步 (异步存在
 // create→WS 之间的竞态窗口, 会导致 in-band 兜底误触发、规则双注入)。写失败只退化为可能多一次

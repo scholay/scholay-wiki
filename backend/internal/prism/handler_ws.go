@@ -77,30 +77,45 @@ func (h *Handler) HandleWS(c *gin.Context) {
 	h.svc.WSFeature().HandleWS(c)
 }
 
+// roundConflict 把 V3-4.4-1 的轮次冲突错误写成 409(前端据 status 提示重试,不算内部错误)。
+func roundConflict(c *gin.Context, err error) bool {
+	if err == ErrRoundBusy || err == ErrRoundEpochMismatch {
+		c.JSON(http.StatusConflict, gin.H{"code": http.StatusConflict, "message": err.Error()})
+		return true
+	}
+	return false
+}
+
 // PrepareRound POST /user/prism/projects/:id/round/prepare → 每轮 AI 前铺源(DB→cwd)。
+// 返回轮次世代号 epoch(V3-4.4-1);AI 回答进行中返回 409。
 func (h *Handler) PrepareRound(c *gin.Context) {
 	uid, pid, ok := h.wsWritableProject(c)
 	if !ok {
 		return
 	}
-	if err := h.svc.PrepareRound(c.Request.Context(), uid, pid); err != nil {
+	epoch, err := h.svc.PrepareRound(c.Request.Context(), uid, pid)
+	if err != nil {
 		if err == ErrProjectNotFound {
 			utils.NotFound(c, "项目不存在")
+			return
+		}
+		if roundConflict(c, err) {
 			return
 		}
 		utils.InternalError(c, 500, "准备工作区失败,请稍后重试", err)
 		return
 	}
-	utils.Success(c, gin.H{"ok": true})
+	utils.Success(c, gin.H{"ok": true, "epoch": epoch})
 }
 
 // PendingRound GET /user/prism/projects/:id/round/pending → 检出 cwd 相对 DB 的待应用改动。
+// 响应携带服务端当前 epoch(V3-4.4-1):重入 tab 未调过 prepare,据此才能 commit 而不必 409。
 func (h *Handler) PendingRound(c *gin.Context) {
 	uid, pid, ok := h.wsProject(c)
 	if !ok {
 		return
 	}
-	files, err := h.svc.PendingRound(c.Request.Context(), uid, pid)
+	files, epoch, err := h.svc.PendingRound(c.Request.Context(), uid, pid)
 	if err != nil {
 		if err == ErrProjectNotFound {
 			utils.NotFound(c, "项目不存在")
@@ -109,7 +124,7 @@ func (h *Handler) PendingRound(c *gin.Context) {
 		utils.InternalError(c, 500, "读取改动失败,请稍后重试", err)
 		return
 	}
-	utils.Success(c, gin.H{"files": files})
+	utils.Success(c, gin.H{"files": files, "epoch": epoch})
 }
 
 // ApplyRound POST /user/prism/projects/:id/round/apply → 固化 cwd 改动进 DB。
@@ -120,17 +135,22 @@ func (h *Handler) ApplyRound(c *gin.Context) {
 	}
 	// 可选 body:
 	//   instruction —— 本轮干净指令,用于首次固化后自动给项目起名(缺省也行)。
-	//   files       —— per-file / per-hunk 固化:relPath→最终正文(前端在 diff 编辑器里可能已删掉部分 hunk)。
-	//                  非空时只固化列出的文件、用其正文;为空则固化 cwd 全部改动(整轮应用)。
+	//   files       —— per-file / per-hunk 固化:relPath→最终正文(⚠️ 仅 legacy 轨生效;struct 轨
+	//                  整轮 parse 合并,per-hunk 取舍不进入合并 —— V3-4.2-4,别再当它是门)。
+	//   epoch       —— prepare/pending 拿到的轮次世代号(V3-4.4-1);不符返回 409。
 	var body struct {
 		Instruction string            `json:"instruction"`
 		Files       map[string]string `json:"files"`
+		Epoch       string            `json:"epoch"`
 	}
 	_ = c.ShouldBindJSON(&body)
-	applied, err := h.svc.ApplyRound(c.Request.Context(), uid, pid, body.Instruction, body.Files)
+	applied, err := h.svc.ApplyRound(c.Request.Context(), uid, pid, body.Instruction, body.Files, body.Epoch)
 	if err != nil {
 		if err == ErrProjectNotFound {
 			utils.NotFound(c, "项目不存在")
+			return
+		}
+		if roundConflict(c, err) {
 			return
 		}
 		utils.InternalError(c, 500, "应用改动失败,请稍后重试", err)
@@ -140,6 +160,7 @@ func (h *Handler) ApplyRound(c *gin.Context) {
 }
 
 // RejectRound POST /user/prism/projects/:id/round/reject → 丢弃 cwd 改动(重铺源还原)。
+// AI 回答进行中返回 409(流式中重铺会抽换 agent 脚下的文件)。
 func (h *Handler) RejectRound(c *gin.Context) {
 	uid, pid, ok := h.wsWritableProject(c)
 	if !ok {
@@ -150,7 +171,32 @@ func (h *Handler) RejectRound(c *gin.Context) {
 			utils.NotFound(c, "项目不存在")
 			return
 		}
+		if roundConflict(c, err) {
+			return
+		}
 		utils.InternalError(c, 500, "丢弃改动失败,请稍后重试", err)
+		return
+	}
+	utils.Success(c, gin.H{"ok": true})
+}
+
+// ResetSession POST /user/prism/projects/:id/session/reset → 手动重开会话(V3-4.6-1)。
+// 真源在 DB,重开只丢对话连续性:文稿/画像/文献库全不丢。AI 回答进行中返回 409。
+func (h *Handler) ResetSession(c *gin.Context) {
+	uid, pid, ok := h.wsWritableProject(c)
+	if !ok {
+		return
+	}
+	p, err := h.svc.GetProject(pid, uid)
+	if err != nil || p == nil {
+		utils.NotFound(c, "项目不存在")
+		return
+	}
+	if err := h.svc.ResetProjectSession(c.Request.Context(), p); err != nil {
+		if roundConflict(c, err) {
+			return
+		}
+		utils.InternalError(c, 500, "重开会话失败,请稍后重试", err)
 		return
 	}
 	utils.Success(c, gin.H{"ok": true})

@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { isTodayBucket } from '@/shared/lib/daily-trend';
+import { isTodayBucket, withWeekday } from '@/shared/lib/daily-trend';
 import { compactYuanAxis } from '@/shared/lib/chart-format';
 import type { AdminRevenueDay } from '../../api/orders';
 
@@ -31,7 +31,7 @@ function RevenueTooltip(props: {
   const total = payload.reduce((s, p) => s + (Number(p.value) || 0), 0);
   return (
     <div className="rounded-md border border-border bg-background px-3 py-2 text-xs shadow-sm">
-      <div className="mb-1 text-faint">{label}</div>
+      <div className="mb-1 text-faint">{withWeekday(String(label ?? ''), label)}</div>
       {[...items].reverse().map((p, i) => (
         <div key={i} className="flex items-center justify-between gap-4">
           <span className="flex items-center gap-1.5 text-subtle">
@@ -55,16 +55,16 @@ export function RevenueChart({ daily }: { daily: AdminRevenueDay[] }) {
   const hasToday = daily.length > 0 && isTodayBucket(daily[daily.length - 1].date);
   return (
     <section className="mb-6 rounded-md border border-border bg-background p-4">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-2 flex items-center justify-between">
         <h3 className="text-sm font-bold text-foreground">每日营收</h3>
         {hasToday && <span className="text-2xs text-faint">今日为进行中(半透明)</span>}
       </div>
-      <div className="h-56">
+      <div className="h-52">
         {daily.length === 0 ? (
           <div className="flex h-full items-center justify-center text-xs text-faint">窗口内还没有已支付订单</div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={daily} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <BarChart data={daily} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
               <XAxis
                 dataKey="date"
@@ -78,7 +78,7 @@ export function RevenueChart({ daily }: { daily: AdminRevenueDay[] }) {
                 tick={{ fontSize: 11, fill: 'var(--color-faint)' }}
                 axisLine={false}
                 tickLine={false}
-                width={52}
+                width={44}
                 tickFormatter={compactYuanAxis}
               />
               <Tooltip content={<RevenueTooltip />} cursor={{ fill: 'var(--color-surface-2)', fillOpacity: 0.6 }} />

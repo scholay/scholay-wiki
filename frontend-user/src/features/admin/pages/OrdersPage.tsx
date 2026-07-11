@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
-import { Wallet, ShoppingCart, Gift, PieChart } from 'lucide-react';
+import { Fragment, useEffect, useState, type ReactNode } from 'react';
+import { Wallet, ShoppingCart, Gift, PieChart, type LucideIcon } from 'lucide-react';
 import { AdminPageLayout } from '../components/AdminPageLayout';
-import { StatCard } from '../components/StatCard';
 import { DataTable, type Column } from '../components/DataTable';
 import { Pagination } from '../components/Pagination';
 import { UserCell } from '../components/UserCell';
@@ -32,6 +31,7 @@ const PAGE_SIZE = 20;
 
 const yuan = (n?: number) =>
   typeof n === 'number' ? `¥${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '—';
+const num = (n?: number) => (n ?? 0).toLocaleString();
 
 export function OrdersPage() {
   const [days, setDays] = useState(30);
@@ -57,6 +57,7 @@ export function OrdersPage() {
   });
 
   const t = stats?.totals;
+  const dayLabel = `近${days}天`;
 
   const columns: Column<AdminOrder>[] = [
     {
@@ -136,35 +137,49 @@ export function OrdersPage() {
       title="订单与营收"
       description="充值 / 订阅订单与营收统计 · 同组:会员兑换码 · 计费配置"
     >
-      {/* KPI */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      {/* KPI —— 每张卡展示 今日 / 近N天 / 全部 三口径 */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {statsLoading ? (
-          [...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-md" />)
+          [...Array(4)].map((_, i) => <Skeleton key={i} className="h-36 rounded-md" />)
         ) : (
           <>
-            <StatCard
-              icon={<Wallet />}
-              label={`${days} 日营收`}
-              value={yuan(t?.revenue)}
-              hint={`今日 ${yuan(t?.revenue_today)}`}
+            <PeriodStatCard
+              icon={Wallet}
+              label="营收"
+              rows={[
+                { period: '今日', values: [yuan(t?.revenue_today)] },
+                { period: dayLabel, values: [yuan(t?.revenue)] },
+                { period: '全部', values: [yuan(t?.revenue_all)] },
+              ]}
             />
-            <StatCard
-              icon={<PieChart />}
+            <PeriodStatCard
+              icon={PieChart}
               label="营收构成"
-              value={yuan(t?.recharge_revenue)}
-              hint={`充值 ↑ · 订阅 ${yuan(t?.subscription_revenue)}`}
+              cols={['充值', '订阅']}
+              rows={[
+                { period: '今日', values: [yuan(t?.recharge_today), yuan(t?.subscription_today)] },
+                { period: dayLabel, values: [yuan(t?.recharge_revenue), yuan(t?.subscription_revenue)] },
+                { period: '全部', values: [yuan(t?.recharge_all), yuan(t?.subscription_all)] },
+              ]}
             />
-            <StatCard
-              icon={<ShoppingCart />}
+            <PeriodStatCard
+              icon={ShoppingCart}
               label="已支付订单"
-              value={(t?.paid_count ?? 0).toLocaleString()}
-              hint={`待支付 ${(t?.pending_count ?? 0).toLocaleString()} · 已过期 ${(t?.expired_count ?? 0).toLocaleString()}`}
+              rows={[
+                { period: '今日', values: [num(t?.paid_today)] },
+                { period: dayLabel, values: [num(t?.paid_count)] },
+                { period: '全部', values: [num(t?.paid_all)] },
+              ]}
+              footer={`窗口内 待支付 ${num(t?.pending_count)} · 已过期 ${num(t?.expired_count)}`}
             />
-            <StatCard
-              icon={<Gift />}
+            <PeriodStatCard
+              icon={Gift}
               label="兑换码核销"
-              value={(t?.redeemed_codes ?? 0).toLocaleString()}
-              hint="窗口内核销次数"
+              rows={[
+                { period: '今日', values: [num(t?.redeemed_today)] },
+                { period: dayLabel, values: [num(t?.redeemed_codes)] },
+                { period: '全部', values: [num(t?.redeemed_all)] },
+              ]}
             />
           </>
         )}
@@ -202,7 +217,7 @@ export function OrdersPage() {
           ]}
         />
         <form
-          className="ml-auto"
+          className="w-full sm:ml-auto sm:w-auto"
           onSubmit={(e) => {
             e.preventDefault();
             setKeyword(kwInput.trim());
@@ -213,7 +228,7 @@ export function OrdersPage() {
             onChange={(e) => setKwInput(e.target.value)}
             onBlur={() => setKeyword(kwInput.trim())}
             placeholder="用户 ID / 用户名 / 邮箱 / 手机号"
-            className="h-8 w-60"
+            className="h-8 w-full sm:w-60"
           />
         </form>
       </section>
@@ -228,6 +243,68 @@ export function OrdersPage() {
       />
       <Pagination total={list?.total ?? 0} page={page} pageSize={PAGE_SIZE} onPageChange={setPage} />
     </AdminPageLayout>
+  );
+}
+
+/**
+ * 三口径 KPI 卡 —— 今日 / 近N天 / 全部 三行。
+ * 单指标(营收/订单/核销)传 rows 每行 1 个 value;构成卡传 cols=['充值','订阅'] 每行 2 个 value。
+ */
+function PeriodStatCard({
+  icon: Icon,
+  label,
+  cols,
+  rows,
+  footer,
+}: {
+  icon: LucideIcon;
+  label: string;
+  cols?: string[];
+  rows: Array<{ period: string; values: ReactNode[] }>;
+  footer?: ReactNode;
+}) {
+  const multi = !!cols && cols.length > 1;
+  return (
+    <div className="rounded-md border border-border bg-background p-4 flex flex-col gap-2">
+      <div className="flex items-center justify-between text-faint">
+        <span className="text-sm">{label}</span>
+        <Icon className="size-4" />
+      </div>
+      <div
+        className={cn(
+          'grid items-center gap-x-3 gap-y-1',
+          multi ? 'grid-cols-[auto_1fr_1fr]' : 'grid-cols-[auto_1fr]'
+        )}
+      >
+        {multi && (
+          <>
+            <span />
+            {cols!.map((c) => (
+              <span key={c} className="text-2xs text-faint text-right">
+                {c}
+              </span>
+            ))}
+          </>
+        )}
+        {rows.map((r) => (
+          <Fragment key={r.period}>
+            <span className="text-2xs text-faint">{r.period}</span>
+            {r.values.map((v, i) => (
+              <span
+                key={i}
+                className={cn(
+                  'tabular-nums text-right font-semibold text-foreground truncate',
+                  multi ? 'text-xs' : 'text-sm'
+                )}
+              >
+                {v}
+              </span>
+            ))}
+          </Fragment>
+        ))}
+      </div>
+      {footer && <div className="text-2xs text-faint">{footer}</div>}
+    </div>
   );
 }
 

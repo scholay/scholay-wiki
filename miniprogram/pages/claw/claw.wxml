@@ -1,0 +1,335 @@
+<view class="claw">
+  <!-- 未登录:对齐空白态 hero 视觉 -->
+  <view wx:if="{{ready && !loggedIn}}" class="guest">
+    <view class="hero">
+      <view class="hero-glow"></view>
+      <view class="hero-core"><image class="svg-ic hero-ic" src="{{ic.sparkGreen}}" /></view>
+    </view>
+    <text class="empty-title">智能助手 · Claw</text>
+    <text class="guest-tip">登录后开始对话</text>
+    <button class="btn-login tap" hover-class="hover-scale" bindtap="onLogin">微信一键登录</button>
+    <text class="alt-login" bindtap="goLogin">邮箱 / 验证码登录</text>
+  </view>
+
+  <view wx:elif="{{!ready}}" class="fullstate">加载中…</view>
+  <view wx:elif="{{error}}" class="fullstate err">{{error}}</view>
+
+  <block wx:else>
+    <!-- 控制条(对标 Web 悬浮条:左历史 / 中模型或连接徽章 / 右产物+新对话) -->
+    <view class="topbar">
+      <view class="tb-btn tap-bg" hover-class="hover-bg" bindtap="openDrawer"><image class="svg-ic tb-ic" src="{{ic.panelLeftText}}" /></view>
+      <view class="tb-mid">
+        <view wx:if="{{connPill}}" class="conn-pill {{connKind}}">{{connPill}}</view>
+      </view>
+      <view wx:if="{{artifactCount}}" class="tb-btn art-btn tap-bg" hover-class="hover-bg" bindtap="openArtifacts">
+        <image class="svg-ic tb-ic" src="{{ic.folderGreen}}" />
+        <text class="art-badge">{{artifactCount}}</text>
+      </view>
+      <view class="tb-btn tap-bg" hover-class="hover-bg" bindtap="onNewSession"><image class="svg-ic tb-ic" src="{{ic.squarePenText}}" /></view>
+    </view>
+
+    <!-- 空白态禁滚动:提示内容一屏内完整展示,不出现滚动条 -->
+    <scroll-view scroll-y="{{turns.length > 0}}" class="msgs" scroll-top="{{scrollTop}}" scroll-with-animation>
+      <!-- 空白态:hero + 衬线标题 + 示例建议卡(点卡片预填输入框,对标 Web ClawEmptyState) -->
+      <view wx:if="{{turns.length===0}}" class="empty">
+        <view class="hero">
+          <view class="hero-glow"></view>
+          <view class="hero-core"><image class="svg-ic hero-ic" src="{{ic.sparkGreen}}" /></view>
+        </view>
+        <text class="empty-title">智能助手 · Claw</text>
+        <text class="empty-sub">找文献 · 读论文 · 查期刊 · 改摘要{{"\n"}}也能上传 PDF / 图片帮你分析</text>
+        <view class="sug-list">
+          <view wx:for="{{suggestions}}" wx:key="label" class="sug-card tap-bg" hover-class="hover-bg" data-prompt="{{item.prompt}}" bindtap="onPickSuggestion">
+            <view class="sug-ic-box"><image class="svg-ic sug-ic" src="{{ic[item.icon]}}" /></view>
+            <view class="sug-texts">
+              <text class="sug-label">{{item.label}}</text>
+              <text class="sug-prompt">{{item.prompt}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view wx:for="{{turns}}" wx:key="id" class="turn turn-anim">
+        <view wx:if="{{item.userText}}" class="urow"><view class="bubble-user">{{item.userText}}</view></view>
+        <view class="assistant">
+          <view wx:if="{{item.blockedOutput}}" class="blocked-output">
+            <image class="te-ic" src="{{ic.alertCircleRed}}" />
+            <text>该回复含敏感内容,已隐藏</text>
+          </view>
+          <block wx:else>
+            <!-- 思考过程折叠(对标 Web ThinkingFold:流式默认展开,完成收起留一行预览) -->
+            <view wx:if="{{item.thinkText}}" class="think">
+              <view class="think-head tap-op" hover-class="hover-op" bindtap="toggleFold" data-key="{{item.thinkFoldKey}}" data-open="{{item.thinkOpen}}">
+                <image class="fold-caret {{item.thinkOpen?'open':''}}" src="{{ic.chevronWeak}}" />
+                <image class="think-spark {{item.thinking?'pulse':''}}" src="{{item.thinking?ic.sparkGreen:ic.sparkFaint}}" />
+                <text class="think-title">思考过程</text>
+                <text wx:if="{{item.thinking}}" class="think-dots">…</text>
+                <text wx:elif="{{!item.thinkOpen}}" class="think-preview">{{item.thinkPreview}}</text>
+              </view>
+              <scroll-view wx:if="{{item.thinkOpen}}" scroll-y class="think-body">
+                <text class="think-text">{{item.thinkText}}</text>
+              </scroll-view>
+            </view>
+
+            <block wx:for="{{item.blocks}}" wx:for-item="b" wx:key="id">
+              <!-- text 块分段:正文 rich-text / 表格原生横滚 / 图表折叠卡(点开看源码) -->
+              <block wx:if="{{b.kind==='text'}}">
+                <block wx:for="{{b.segs}}" wx:for-item="sg" wx:key="i">
+                  <rich-text wx:if="{{sg.k==='h'}}" class="atext" nodes="{{sg.html}}"></rich-text>
+
+                  <!-- 表格:原生 display:table 网格(rich-text 画 table 会渲染成空),超宽横滚 -->
+                  <scroll-view wx:elif="{{sg.k==='t'}}" scroll-x class="tbl-scroll">
+                    <view class="tbl">
+                      <view class="tbl-tr">
+                        <view wx:for="{{sg.head}}" wx:for-item="c" wx:key="i" class="tbl-th {{c.a==='c'?'ta-c':c.a==='r'?'ta-r':''}}">
+                          <view class="tbl-cell">
+                            <rich-text wx:if="{{c.h}}" nodes="{{c.h}}"></rich-text>
+                            <block wx:else>{{c.t}}</block>
+                          </view>
+                        </view>
+                      </view>
+                      <view wx:for="{{sg.rows}}" wx:for-item="r" wx:key="i" class="tbl-tr">
+                        <view wx:for="{{r.c}}" wx:for-item="c" wx:key="i" class="tbl-td {{c.a==='c'?'ta-c':c.a==='r'?'ta-r':''}}">
+                          <view class="tbl-cell">
+                            <rich-text wx:if="{{c.h}}" nodes="{{c.h}}"></rich-text>
+                            <block wx:else>{{c.t}}</block>
+                          </view>
+                        </view>
+                      </view>
+                    </view>
+                  </scroll-view>
+
+                  <!-- 图表:服务端渲成 PNG 内嵌展示(点图原生大图预览);渲染中/失败回退卡片 -->
+                  <block wx:elif="{{sg.k==='d'}}">
+                    <view wx:if="{{sg.imgState==='ok'}}" class="diag-img-box tap" hover-class="hover-scale" bindtap="previewDiagram" data-path="{{sg.imgPath}}">
+                      <image class="diag-img" src="{{sg.imgPath}}" style="width:{{sg.imgW}}rpx" mode="widthFix" />
+                    </view>
+                    <view wx:else class="diag">
+                      <view class="diag-head">
+                        <view class="diag-main">
+                          <image wx:if="{{sg.imgState==='loading'}}" class="diag-ic spin" src="{{ic.loaderGreen}}" />
+                          <image wx:else class="diag-ic" src="{{ic.sparkGreen}}" />
+                          <text class="diag-title">{{sg.label}}</text>
+                          <text class="diag-note">{{sg.imgState==='loading' ? '图表渲染中…' : '渲染失败,可看源码'}}</text>
+                        </view>
+                        <view class="diag-src tap-op" hover-class="hover-op" hover-stop-propagation catchtap="toggleFold" data-key="{{sg.foldKey}}" data-open="{{sg.open}}">
+                          <text>源码</text>
+                          <image class="fold-caret {{sg.open?'open':''}}" src="{{ic.chevronWeak}}" />
+                        </view>
+                      </view>
+                      <scroll-view wx:if="{{sg.open}}" scroll-x class="diag-body">
+                        <!-- text + user-select:长按可复制源码(view 文本不可选) -->
+                        <text class="diag-code" user-select>{{sg.code}}</text>
+                      </scroll-view>
+                    </view>
+                  </block>
+                </block>
+              </block>
+
+              <!-- 处理过程折叠组(≥2 连续工具,对标 Web ProcessFold) -->
+              <view wx:elif="{{b.kind==='toolgroup'}}" class="proc">
+                <view class="proc-head tap-op" hover-class="hover-op" bindtap="toggleFold" data-key="{{b.foldKey}}" data-open="{{b.open}}">
+                  <image class="proc-ic {{b.groupStatus==='running'?'spin':''}}" src="{{b.groupStatus==='running'?ic.loaderGreen:ic.sparkGreen}}" />
+                  <text class="proc-title">{{b.groupTitle}}</text>
+                  <image class="fold-caret {{b.open?'open':''}}" src="{{ic.chevronWeak}}" />
+                </view>
+                <view wx:if="{{b.open}}" class="proc-body">
+                  <view wx:for="{{b.tools}}" wx:for-item="tb" wx:key="id" class="tool">
+                    <image class="tool-lead" src="{{tb.toolIcon==='search'?ic.searchWeak:tb.toolIcon==='terminal'?ic.terminalWeak:ic.wrenchWeak}}" />
+                    <text class="tool-name">{{tb.toolLabel}}</text>
+                    <text wx:if="{{tb.toolQuery}}" class="tool-query">「{{tb.toolQuery}}」</text>
+                    <view class="tool-st">
+                      <image wx:if="{{tb.toolStatus==='running'}}" class="st-ic spin" src="{{ic.loaderWeak}}" />
+                      <image wx:elif="{{tb.toolStatus==='done'}}" class="st-ic" src="{{ic.checkCircleGreen}}" />
+                      <block wx:elif="{{tb.toolStatus==='error'}}"><image class="st-ic" src="{{ic.alertCircleRed}}" /><text class="st-err">失败</text></block>
+                      <block wx:else><image class="st-ic" src="{{ic.circleSlashFaint}}" /><text class="st-stop">已暂停</text></block>
+                    </view>
+                  </view>
+                </view>
+              </view>
+
+              <!-- 单个工具调用块(对标 Web ToolCallBlock) -->
+              <view wx:elif="{{b.kind==='tool'}}" class="tool solo">
+                <image class="tool-lead" src="{{b.toolIcon==='search'?ic.searchWeak:b.toolIcon==='terminal'?ic.terminalWeak:ic.wrenchWeak}}" />
+                <text class="tool-name">{{b.toolLabel}}</text>
+                <text wx:if="{{b.toolQuery}}" class="tool-query">「{{b.toolQuery}}」</text>
+                <view class="tool-st">
+                  <image wx:if="{{b.toolStatus==='running'}}" class="st-ic spin" src="{{ic.loaderWeak}}" />
+                  <image wx:elif="{{b.toolStatus==='done'}}" class="st-ic" src="{{ic.checkCircleGreen}}" />
+                  <block wx:elif="{{b.toolStatus==='error'}}"><image class="st-ic" src="{{ic.alertCircleRed}}" /><text class="st-err">失败</text></block>
+                  <block wx:else><image class="st-ic" src="{{ic.circleSlashFaint}}" /><text class="st-stop">已暂停</text></block>
+                </view>
+              </view>
+            </block>
+
+            <!-- 本轮产出的文件(对标 Web TurnArtifacts:品牌绿强调卡,挂产出它的回答下方) -->
+            <view wx:if="{{item.turnArtifacts.length}}" class="tarts">
+              <view class="tarts-head"><image class="svg-ic tarts-spark" src="{{ic.sparkGreen}}" /><text>生成的文件</text></view>
+              <view wx:for="{{item.turnArtifacts}}" wx:for-item="f" wx:key="index" class="tart-row tap-bg" hover-class="hover-bg" data-index="{{f.index}}" bindtap="openArtifact">
+                <view class="tart-icbox"><image class="svg-ic tart-ic" src="{{f.isDir?ic.folderGreen:ic.fileTextGreen}}" /></view>
+                <view class="tart-main">
+                  <text class="tart-name">{{f.name}}</text>
+                  <text wx:if="{{f.sizeText}}" class="tart-size">{{f.sizeText}}</text>
+                </view>
+                <view class="tart-open">打开</view>
+              </view>
+            </view>
+
+            <!-- 流式占位胶囊(对标 Web StreamingIndicator) -->
+            <view wx:if="{{item.placeholder}}" class="stream-pill">
+              <image class="sp-ic pulse" src="{{ic.sparkGreen}}" />
+              <text class="sp-text">{{item.placeholder}}</text>
+              <view class="sp-dots"><text class="d d1">·</text><text class="d d2">·</text><text class="d d3">·</text></view>
+            </view>
+
+            <!-- 回答失败卡片 -->
+            <view wx:if="{{item.error}}" class="turn-error">
+              <image class="te-ic" src="{{ic.alertCircleRed}}" />
+              <view class="te-main">
+                <text class="te-title">回答失败</text>
+                <text class="te-msg">{{item.error}}</text>
+              </view>
+            </view>
+
+            <!-- 已暂停 chip(对标 Web PausedNotice) -->
+            <view wx:if="{{item.paused}}" class="paused">
+              <image class="pa-ic" src="{{ic.circleSlashFaint}}" />
+              <text>已暂停</text>
+            </view>
+          </block>
+        </view>
+      </view>
+      <view class="tail"></view>
+    </scroll-view>
+
+    <!-- 输入区:盒式 composer(对标 Web 柔焦 rounded-2xl) -->
+    <view class="composer-wrap">
+        <scroll-view wx:if="{{pendingAttachments.length}}" class="chips" scroll-x>
+          <view wx:for="{{pendingAttachments}}" wx:key="name" class="att-chip">
+            <image wx:if="{{item.isImage}}" class="att-img" src="{{item.preview}}" mode="aspectFill" />
+            <view wx:else class="att-file">
+              <view class="af-icbox"><image class="svg-ic af-ic" src="{{ic.fileTextRed}}" /></view>
+              <text class="af-name">{{item.name}}</text>
+            </view>
+            <view class="chip-x" catchtap="removeAttachment" data-index="{{index}}">×</view>
+          </view>
+        </scroll-view>
+        <scroll-view wx:if="{{pendingRefs.length}}" class="chips" scroll-x>
+          <view wx:for="{{pendingRefs}}" wx:key="refId" class="ref-chip">
+            <view class="ref-chip-t">
+              <image class="svg-ic chip-ic" src="{{item.kind==='folder'?ic.folderGreen:ic.bookGreen}}" />
+              <text>{{item.title}}</text>
+            </view>
+            <view class="chip-x" catchtap="removeRef" data-index="{{index}}">×</view>
+          </view>
+        </scroll-view>
+
+        <!-- 微信式输入栏:[⊕](图片/文件/引用) [白底输入框] [模型 chip | 发送/停止]
+             键盘回车 = 发送(confirm-type);有内容时模型 chip 让位给「发送」(同微信 + → 发送) -->
+        <view class="wxbar">
+          <view class="wb-plus tap-op {{uploading?'disabled':''}}" hover-class="hover-op" bindtap="onPlus">
+            <image class="svg-ic wb-plus-ic" src="{{ic.plusText}}" />
+          </view>
+          <view class="wb-input-wrap">
+            <!-- auto-height 与 CSS max-height 真机不相容:超行数切固定高度(taMaxed),原生内滚 -->
+            <textarea
+              class="wb-input"
+              value="{{input}}"
+              bindinput="onInput"
+              bindblur="onInputBlur"
+              bindlinechange="onLineChange"
+              bindconfirm="onSend"
+              confirm-type="send"
+              focus="{{inputFocus}}"
+              placeholder="{{uploading ? '上传中…' : '问问智能助手'}}"
+              placeholder-class="input-ph"
+              auto-height="{{!taMaxed}}"
+              style="{{taMaxed ? 'height:260rpx' : ''}}"
+              maxlength="{{-1}}"
+              cursor-spacing="20"
+            />
+          </view>
+          <view wx:if="{{!canSend && !busy}}" class="wb-model tap-op" hover-class="hover-op" bindtap="openModelSheet">
+            <text class="wb-model-t">{{modelLabel}}</text>
+            <image class="svg-ic wb-model-caret" src="{{ic.chevronWeak}}" />
+          </view>
+          <button wx:if="{{busy && stopping}}" class="wb-send stopping"><image class="svg-ic wb-send-ic spin" src="{{ic.loaderWhite}}" /></button>
+          <button wx:elif="{{busy}}" class="wb-send stop tap" hover-class="hover-scale" bindtap="onStop">停止</button>
+          <button wx:elif="{{canSend}}" class="wb-send tap" hover-class="hover-scale" bindtap="onSend">发送</button>
+        </view>
+    </view>
+
+    <!-- 会话抽屉:按日期分组的历史(对标 Web MobileClawDrawer) -->
+    <view wx:if="{{showDrawer}}" class="mask mask-anim {{closingDrawer?'closing':''}}" bindtap="closeDrawer">
+      <view class="drawer drawer-anim {{closingDrawer?'closing':''}}" catchtap="noop">
+        <view class="drawer-head"><text class="drawer-title">历史对话</text></view>
+        <scroll-view scroll-y class="drawer-list">
+          <view wx:if="{{sessionGroups.length===0}}" class="drawer-empty">还没有会话,发出第一条消息试试</view>
+          <block wx:for="{{sessionGroups}}" wx:for-item="grp" wx:key="label">
+            <text class="sess-group">{{grp.label}}</text>
+            <view wx:for="{{grp.items}}" wx:key="sessionId" class="sess-row tap-bg {{item.active?'on':''}}" hover-class="hover-bg" data-id="{{item.sessionId}}" bindtap="onPickSession">
+              <text class="sess-title {{item.generating?'gen':''}}">{{item.title}}</text>
+              <!-- hover-stop-propagation:catchtap 只拦事件冒泡,按压态传播是另一套机制,不加会整行闪灰 -->
+              <view class="sess-more tap-bg" hover-class="hover-bg" hover-stop-propagation catchtap="onSessionMenu" data-id="{{item.sessionId}}"><image class="svg-ic sess-more-ic" src="{{ic.moreVerticalFaint}}" /></view>
+            </view>
+          </block>
+        </scroll-view>
+      </view>
+    </view>
+
+    <!-- 模型选择 -->
+    <view wx:if="{{showModelSheet}}" class="mask bottom mask-anim {{closingModelSheet?'closing':''}}" bindtap="closeModelSheet">
+      <view class="sheet sheet-anim {{closingModelSheet?'closing':''}}" catchtap="noop">
+        <view class="sheet-title">对话模型</view>
+        <view wx:for="{{modelRows}}" wx:key="id" class="model-row tap-bg {{item.selected?'on':''}}" hover-class="hover-bg" data-id="{{item.id}}" bindtap="pickModel">
+          <view class="model-info">
+            <text class="model-name">{{item.name}}</text>
+            <text class="model-desc">{{item.desc}}</text>
+          </view>
+          <image wx:if="{{item.selected}}" class="svg-ic model-check" src="{{ic.checkGreen}}" />
+        </view>
+      </view>
+    </view>
+
+    <!-- 产出文件列表 -->
+    <view wx:if="{{showArtifacts}}" class="mask bottom mask-anim {{closingArtifacts?'closing':''}}" bindtap="closeArtifacts">
+      <view class="sheet tall sheet-anim {{closingArtifacts?'closing':''}}" catchtap="noop">
+        <view class="sheet-title">生成的文件</view>
+        <scroll-view scroll-y class="art-list">
+          <view wx:if="{{artifacts.length===0}}" class="drawer-empty">暂无产出文件</view>
+          <view wx:for="{{artifacts}}" wx:key="index" class="art-row tap-bg" hover-class="hover-bg" data-index="{{item.index}}" bindtap="openArtifact">
+            <view class="art-icbox"><image class="svg-ic art-icon" src="{{item.isDir ? ic.folderGreen : ic.fileTextGreen}}" /></view>
+            <view class="art-main">
+              <text class="art-name">{{item.name}}</text>
+              <text wx:if="{{item.sizeText}}" class="art-size">{{item.sizeText}}</text>
+            </view>
+            <view class="art-open">打开</view>
+          </view>
+        </scroll-view>
+      </view>
+    </view>
+
+    <!-- 产出文件文本预览 -->
+    <view wx:if="{{showArtText}}" class="mask bottom mask-anim {{closingArtText?'closing':''}}" bindtap="closeArtText">
+      <view class="sheet tall sheet-anim {{closingArtText?'closing':''}}" catchtap="noop">
+        <view class="sheet-title">{{artTextTitle}}</view>
+        <scroll-view scroll-y class="art-text"><rich-text nodes="{{artTextHtml}}"></rich-text></scroll-view>
+      </view>
+    </view>
+
+    <!-- 文献引用选择 -->
+    <view wx:if="{{showRefSheet}}" class="mask bottom mask-anim {{closingRefSheet?'closing':''}}" bindtap="closeRefSheet">
+      <view class="sheet tall sheet-anim {{closingRefSheet?'closing':''}}" catchtap="noop">
+        <view class="sheet-title">引用文献集论文</view>
+        <scroll-view scroll-y class="ref-list">
+          <view wx:if="{{refRows.length===0}}" class="drawer-empty">文献集为空,先去收藏论文</view>
+          <view wx:for="{{refRows}}" wx:key="id" class="ref-row tap-bg" hover-class="hover-bg" data-id="{{item.id}}" bindtap="toggleRef">
+            <view class="ref-box {{item.selected?'on':''}}"><image wx:if="{{item.selected}}" class="svg-ic ref-box-ic" src="{{ic.checkGreen}}" /></view>
+            <text class="ref-title">{{item.title}}</text>
+          </view>
+        </scroll-view>
+        <button class="sheet-confirm tap" hover-class="hover-scale" bindtap="confirmRefs">引用选中</button>
+      </view>
+    </view>
+  </block>
+</view>

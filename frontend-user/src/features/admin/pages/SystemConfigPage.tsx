@@ -48,7 +48,7 @@ function Panel({ title, hint, children, onSubmit }: { title: string; hint?: stri
   return (
     <form
       onSubmit={onSubmit}
-      className="mt-4 rounded-md border border-border bg-background p-6 space-y-4 max-w-3xl"
+      className="mt-4 rounded-md border border-border bg-background p-4 sm:p-6 space-y-4 max-w-3xl"
     >
       <div className="pb-3 border-b border-border-soft">
         <h2 className="text-base font-bold text-foreground">{title}</h2>
@@ -205,7 +205,7 @@ function EmailForm() {
         );
       }}
     >
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="SMTP Host"><Input name="smtp_host" defaultValue={data?.smtp_host} required /></Field>
         <Field label="SMTP Port"><Input name="smtp_port" type="number" defaultValue={data?.smtp_port || 587} required /></Field>
         <Field label="SMTP User"><Input name="smtp_user" defaultValue={data?.smtp_user} required /></Field>
@@ -290,7 +290,7 @@ function SMSForm() {
         );
       }}
     >
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Access Key ID"><Input name="access_key_id" defaultValue={data?.access_key_id} required /></Field>
         <Field label="Access Secret">
           <SecretInput

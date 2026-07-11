@@ -23,6 +23,9 @@ type SEOAuthor struct {
 	// ORCID 裸 iD(形如 0000-0002-1825-0097)。来自 Minicod 作者,详情点击时持久化。
 	// 供 SSR ProfilePage 的 sameAs 结构化数据 + 作者页「已验证 ORCID」链接。
 	ORCID string `gorm:"column:orcid;size:32" json:"orcid,omitempty"`
+	// TopWorksJSON 代表作 JSON 数组(seoenrich 从 minicod 作者论文回填)。SSR 作者页 noscript
+	// 列代表作(标题+年份+期刊,带内链到论文页)+ Person JSON-LD,把「只有人名」的薄页补成实质内容。
+	TopWorksJSON string `gorm:"column:top_works;type:json" json:"-"`
 
 	SitemapPage int     `gorm:"column:sitemap_page;not null;default:0" json:"sitemap_page"`
 	Status      int     `gorm:"not null;default:1" json:"status"`

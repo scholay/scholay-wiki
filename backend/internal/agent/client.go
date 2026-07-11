@@ -593,6 +593,67 @@ func (c *Client) ListModels(ctx context.Context) (*ListModelsResponse, error) {
 	return &out, nil
 }
 
+// MathRenderResult 对应 agent POST /render/math 的响应(MathJax → SVG → PNG)。
+type MathRenderResult struct {
+	PNG    string `json:"png"`    // base64(无 data: 前缀)
+	Width  int    `json:"width"`  // 显示 px(1x)
+	Height int    `json:"height"` // 显示 px(1x)
+	Depth  int    `json:"depth"`  // 基线下沉 px(行内公式 vertical-align:-depth 贴基线;块级忽略)
+}
+
+// RenderMath 让 agent 把一段 TeX 渲染成 PNG —— 小程序 rich-text 跑不了 KaTeX,后端代理到这。
+// display=true 走块级公式,false 走行内。TeX 解析失败时 agent 返 422 → 这里回 *HTTPError,
+// 调用方可据此回退到"原样展示 LaTeX 文本"。
+func (c *Client) RenderMath(ctx context.Context, tex string, display bool) (*MathRenderResult, error) {
+	if c.baseURL == "" {
+		return nil, errors.New("agent: empty base url")
+	}
+	if strings.TrimSpace(tex) == "" {
+		return nil, errors.New("agent: empty tex")
+	}
+	ctx, cancel := context.WithTimeout(ctx, roundTripTimeout)
+	defer cancel()
+	var out MathRenderResult
+	if err := c.doJSON(ctx, http.MethodPost, "/render/math",
+		map[string]any{"tex": tex, "display": display}, &out); err != nil {
+		return nil, err
+	}
+	if out.PNG == "" {
+		return nil, errors.New("agent: empty png in render response")
+	}
+	return &out, nil
+}
+
+// MermaidRenderResult 对应 agent POST /render/mermaid 的响应(headless Chromium → PNG)。
+type MermaidRenderResult struct {
+	PNG    string `json:"png"`    // base64(无 data: 前缀),2x 高清位图
+	Width  int    `json:"width"`  // 逻辑 px(1x)
+	Height int    `json:"height"` // 逻辑 px(1x)
+}
+
+// RenderMermaid 让 agent 把一段 mermaid 源码渲染成 PNG —— 小程序无 DOM 跑不了 mermaid。
+// 源码解析失败时 agent 返 422 → 回 *HTTPError,调用方据此回退成「源码卡」。
+// 渲染较重(两次 headless Chromium),caller 必须配缓存;超时给足 45s。
+func (c *Client) RenderMermaid(ctx context.Context, code string) (*MermaidRenderResult, error) {
+	if c.baseURL == "" {
+		return nil, errors.New("agent: empty base url")
+	}
+	if strings.TrimSpace(code) == "" {
+		return nil, errors.New("agent: empty mermaid code")
+	}
+	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
+	defer cancel()
+	var out MermaidRenderResult
+	if err := c.doJSON(ctx, http.MethodPost, "/render/mermaid",
+		map[string]any{"code": code}, &out); err != nil {
+		return nil, err
+	}
+	if out.PNG == "" {
+		return nil, errors.New("agent: empty png in mermaid render response")
+	}
+	return &out, nil
+}
+
 // PatchSession 改 session 元数据 (目前仅 title)。
 // 404 时返 ErrSessionNotFound — 这个 session 在 agent 端不存在 (可能被运维清掉),
 // caller 应当清掉 DB 里的孤儿映射。

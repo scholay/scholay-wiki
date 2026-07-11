@@ -34,8 +34,9 @@ const PromptSlug = "scholay-prism-v1"
 const PromptName = "Scholay 智能写作 · 默认 prompt"
 
 // prism 会话禁用的工具:起子 agent(Task/Agent 旁路裁决)/ NotebookEdit。
-// 放开 Read/Glob/Grep + Write/Edit/MultiEdit —— agent 在会话 cwd 里原生读写,写被 decidePermission
+// 放开 Read/Glob/Grep + Write/Edit —— agent 在会话 cwd 里原生读写,写被 decidePermission
 // 限定在 cwd 内(越界拒)。仍可用 mcp__minicod__*。Skill 未禁用 → 可加载下方写作 skill。
+// (V3 勘误:执行器 builtin 无 MultiEdit,此前注释与实现漂移;Read 已支持 offset/limit 局部读。)
 // C1 (2026-06): Bash 三件套(Bash/BashOutput/KillShell)由 prismSessionOptions 经
 // agentbridge.SessionDisallowedTools(allowBash=false) 统一补齐,这里只列「非 Bash」的额外禁用项。
 var prismDisallowedTools = []string{"NotebookEdit", "Task", "Agent"}
@@ -63,6 +64,25 @@ func prismSessionOptions() *agent.CreateSessionOptions {
 	}
 }
 
+// profileSink 由 SetProfileSink 注入(= *Service):BuildSpec 早于 NewService 构造,故写作画像 provider
+// 走包级 sink 后绑(同 OnTitleResult/titleSink 模式)。sessionProfileBlock 在**调用时**懒读,顺序无关。
+type profileProvider interface {
+	SessionProfileBlock(ctx context.Context, sessionID string) string
+}
+
+var profileSink profileProvider
+
+// SetProfileSink 注入写作画像 provider(bootstrap 在 NewService 后调)。允许 nil(不注入画像)。
+func SetProfileSink(p profileProvider) { profileSink = p }
+
+// sessionProfileBlock —— FeatureSpec.SessionProfile 的包级适配:hub seed 时按 sessionID 现算画像 in-band 块。
+func sessionProfileBlock(ctx context.Context, sessionID string) string {
+	if profileSink == nil {
+		return ""
+	}
+	return profileSink.SessionProfileBlock(ctx, sessionID)
+}
+
 // vipChecker 由 SetVIPChecker 注入;PreUserMessage 在每轮前查会员配额。
 var vipChecker *vip.Service
 
@@ -86,13 +106,22 @@ func checkQuota(ctx context.Context, userID uint) error {
 	if vipChecker == nil {
 		return nil
 	}
-	if err := vipChecker.CheckDailyQuota(ctx, userID); err != nil {
+	// SS#2:有界透支版起点闸 —— 跨过日上限那轮总能起跑,只有透支带也用完才拦。
+	if err := vipChecker.CheckDailyQuotaOverdraft(ctx, userID); err != nil {
 		if errors.Is(err, vip.ErrQuotaExceeded) {
 			return agentbridge.NewQuotaError(err.Error())
 		}
 		return err
 	}
 	return nil
+}
+
+// budgetProvider(SS#2)给 hub 每轮盖「有界透支预算」用;懒读包级 vipChecker(可后于 BuildSpec 注入)。
+func budgetProvider(ctx context.Context, userID uint) (soft, hard int64, unlimited bool) {
+	if vipChecker == nil {
+		return 0, 0, true
+	}
+	return vipChecker.RemainingBudget(ctx, userID)
 }
 
 func recordQuestion(uid *uint) {
@@ -123,9 +152,13 @@ func BuildSpec() agentbridge.FeatureSpec {
 		PermissionMode: agentbridge.PermissionAuto,
 		PreUserMessage:         pre,
 		OnMessageComplete:      onComplete,
+		// SS#2:有界透支预算 —— hub 每轮盖章,执行器让 agent 自我配速 + 到界优雅收尾。
+		BudgetProvider: budgetProvider,
 		// 项目名真源在 prism_projects.title(非 agent jsonl):agent 用前端带的 titleSeed 生成标题后,
 		// backend 经此回调落库(见 handleAgentTitle / autoname.go)。
 		OnTitleResult: handleAgentTitle,
+		// Phase 2:项目级写作画像(base 文体/学科人格)—— hub seed 时按 sessionID 现算 in-band 块。
+		SessionProfile: sessionProfileBlock,
 		// 与 edit.go createProjectSession 共用同一构造器(单一真源,见 prismSessionOptions)。
 		SessionOptions: prismSessionOptions(),
 	}

@@ -20,3 +20,18 @@ export const clawMobileRoutes: RouteObject[] = [
       })),
   },
 ];
+
+/**
+ * 小程序 web-view 内嵌页(/mp/*)—— 公开、免登录、不挂任何 Shell(小程序导航栏承担壳),
+ * 与 /s/:token 分享接收页同模式,由 app/router.tsx 顶层组装。
+ * 用途:小程序聊天里的 mermaid 图表卡 → web-view 打开本页渲染真图。
+ */
+export const clawEmbedRoutes: RouteObject[] = [
+  {
+    path: 'mp/diagram',
+    lazy: () =>
+      import('./pages/mobile/MpDiagramPage').then((m) => ({
+        Component: m.MpDiagramPage,
+      })),
+  },
+];

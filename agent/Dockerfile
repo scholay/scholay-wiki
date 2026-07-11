@@ -12,10 +12,18 @@ WORKDIR /app
 # ⚠️ pandoc ~150MB+Haskell,在 clash fake-ip 网络下 apt fetch 可能超时;生产构建网络能连阿里云镜像即可。
 # 用阿里云 Debian 镜像,规避生产 clash fake-ip 导致 deb.debian.org 解析成假 IP 的构建超时
 # (见 memory prod-apt-mirror-clash-fakeip)。
+# chromium + fonts-noto-cjk:mermaid 图表服务端渲染(/render/mermaid,mermaid 必须真浏览器;
+# CJK 字体缺失会渲成豆腐块)。~450MB,owner 已拍板要小程序内嵌真图。
 RUN { sed -i 's|deb.debian.org|mirrors.aliyun.com|g; s|security.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || true; } \
     && apt-get update && apt-get install -y --no-install-recommends \
         bubblewrap ca-certificates poppler-utils pandoc python3 python3-docx python3-openpyxl \
+        chromium fonts-noto-cjk \
     && rm -rf /var/lib/apt/lists/*
+# emoji 字体单独一层:上面的大层(~1.1GB)已缓存,10MB 小层低内存增量构建
+# (Docker Desktop 内存紧张时整层重装会 OOM Killed,别合并回去)。
+RUN apt-get update && apt-get install -y --no-install-recommends fonts-noto-color-emoji \
+    && rm -rf /var/lib/apt/lists/*
+ENV CHROMIUM_PATH=/usr/bin/chromium
 
 # deps(独立缓存层)
 COPY package.json ./

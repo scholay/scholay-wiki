@@ -176,9 +176,9 @@ function CrudForm<T>({
       }}
       className="space-y-3"
     >
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {fields.map((f) => (
-          <div key={f.name} className={f.span === 2 ? 'col-span-2 space-y-1.5' : 'space-y-1.5'}>
+          <div key={f.name} className={f.span === 2 ? 'space-y-1.5 sm:col-span-2' : 'space-y-1.5'}>
             <Label htmlFor={f.name}>{f.label}</Label>
             {f.type === 'textarea' ? (
               <textarea

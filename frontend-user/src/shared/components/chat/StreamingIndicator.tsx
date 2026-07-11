@@ -73,5 +73,6 @@ function toolVerb(toolName: string): string {
   if (toolName === 'Read') return '正在阅读资料';
   if (toolName === 'Bash') return '正在执行命令';
   if (toolName === 'WebFetch' || toolName === 'WebSearch') return '正在查询网页';
+  if (toolName === 'Skill') return '正在调用技能';
   return '调用工具中';
 }

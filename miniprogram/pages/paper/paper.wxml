@@ -1,0 +1,59 @@
+<view wx:if="{{loading}}" class="sk-detail"><view class="skeleton sk-title-lg"></view><view class="sk-chips"><view class="skeleton sk-chip"></view><view class="skeleton sk-chip"></view><view class="skeleton sk-chip"></view></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w70"></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w45"></view></view>
+<view wx:elif="{{error}}" class="state error">{{error}}</view>
+
+<scroll-view wx:else scroll-y class="page detail">
+  <text class="meta">{{metaLine}}</text>
+  <text class="h1">{{paper.title}}</text>
+  <text class="authors">{{authorsLine}}</text>
+
+  <view class="badges">
+    <text wx:if="{{paper.isOpenAccess}}" class="badge oa">开放获取</text>
+    <text wx:for="{{fields}}" wx:for-item="f" wx:key="*this" class="badge">{{f}}</text>
+  </view>
+
+  <view class="stat-row">{{citeText}}</view>
+
+  <view class="cta-row">
+    <button wx:if="{{doi}}" class="btn" size="mini" bindtap="copyDoi">复制 DOI</button>
+    <button wx:if="{{pdfUrl}}" class="btn primary" size="mini" bindtap="openPdf">全文链接</button>
+    <button class="btn" size="mini" bindtap="openCite">引用</button>
+    <button class="btn" size="mini" open-type="share">分享</button>
+    <button class="btn" size="mini" bindtap="onTranslate">{{translating ? '翻译中…' : translated ? (showTranslated ? '隐藏译文' : '显示译文') : 'AI 翻译'}}</button>
+  </view>
+
+  <view wx:if="{{translating || (showTranslated && translated)}}" class="section trans">
+    <text class="sec-title">译文{{translating ? '(翻译中…)' : ''}}</text>
+    <block wx:if="{{translating}}">
+      <text class="body">{{translatePreview || '正在调用 AI…'}}</text>
+    </block>
+    <block wx:else>
+      <text wx:if="{{translated.title}}" class="trans-h">{{translated.title}}</text>
+      <text class="body">{{translated.abstract}}</text>
+      <text wx:if="{{translated.tldr}}" class="trans-tldr">TL;DR:{{translated.tldr}}</text>
+    </block>
+  </view>
+
+  <view class="section">
+    <text class="sec-title">摘要</text>
+    <text class="body">{{paper.abstract || '该论文未提供摘要'}}</text>
+  </view>
+
+  <view wx:if="{{refs.length}}" class="section">
+    <text class="sec-title">参考文献</text>
+    <view wx:for="{{refs}}" wx:for-item="r" wx:key="line" class="ref" data-id="{{r.paperId}}" bindtap="goRef">
+      <text class="ref-line {{r.paperId ? 'link' : ''}}">{{r.line}}</text>
+    </view>
+  </view>
+  <view wx:elif="{{refsLoading}}" class="section"><text class="body">参考文献加载中…</text></view>
+</scroll-view>
+
+<view wx:if="{{showCite}}" class="mask bottom mask-anim {{closingCite?'closing':''}}" bindtap="closeCite">
+  <view class="sheet sheet-anim {{closingCite?'closing':''}}" catchtap="stopProp">
+    <view class="sheet-title">引用格式</view>
+    <view class="fmt-tabs">
+      <text wx:for="{{citeFormats}}" wx:for-item="f" wx:key="id" class="fmt-tab {{citeFormat===f.id ? 'on' : ''}}" data-f="{{f.id}}" bindtap="pickFormat">{{f.label}}</text>
+    </view>
+    <text class="cite-text" user-select>{{citation}}</text>
+    <button class="sheet-confirm" bindtap="copyCite">复制引用</button>
+  </view>
+</view>

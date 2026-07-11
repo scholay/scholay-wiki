@@ -14,7 +14,7 @@ import { AdminPageLayout } from '../components/AdminPageLayout';
 import { StatCard } from '../components/StatCard';
 import { DateRangeControl, type DateWindow } from '../components/DateRangeControl';
 import { useUsageStatsSummary, useUsageStatsFunnel } from '../api/usage-stats';
-import { buildDailyTrend } from '@/shared/lib/daily-trend';
+import { buildDailyTrend, withWeekday } from '@/shared/lib/daily-trend';
 
 /**
  * 使用统计 (功能使用统计 v2) —— 取代旧"使用日志"页的统计部分。
@@ -67,15 +67,15 @@ export function UsageStatsPage() {
 
       {/* 每日趋势 */}
       <section className="rounded-md border border-border bg-background p-4 mb-6">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-2 flex items-center justify-between">
           <h3 className="text-sm font-bold text-foreground">每日使用趋势</h3>
           {usageTrend.isLive && <span className="text-2xs text-faint">— — 今日(进行中)</span>}
         </div>
-        <div className="h-56">
+        <div className="h-48">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={usageTrend.data}
-              margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+              margin={{ top: 5, right: 8, left: 0, bottom: 0 }}
             >
               <defs>
                 <linearGradient id="usageGrad" x1="0" y1="0" x2="0" y2="1">
@@ -97,7 +97,7 @@ export function UsageStatsPage() {
                 tickLine={false}
                 allowDecimals={false}
                 tickFormatter={compactAxis}
-                width={44}
+                width={38}
               />
               <Tooltip
                 contentStyle={{
@@ -107,6 +107,7 @@ export function UsageStatsPage() {
                   fontSize: 12,
                 }}
                 labelStyle={{ color: 'var(--color-muted-foreground)', fontSize: 11 }}
+                labelFormatter={(l) => withWeekday(String(l).slice(5), l as string)}
                 formatter={(v) => [Number(v ?? 0).toLocaleString(), '使用次数']}
               />
               <Area

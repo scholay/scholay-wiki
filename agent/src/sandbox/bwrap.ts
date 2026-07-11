@@ -45,7 +45,8 @@ export function buildBwrapArgv(profile: SandboxProfile, inner: string[]): string
     if (ro) args.push("--ro-bind-try", ro, ro);
   }
 
-  // 网络:net:open → 重新共享 net + 注入 egress 代理 env(仍只能经 tinyproxy allowlist 出网);
+  // 网络:net:open → 重新共享 net + 注入 egress 代理 env(egress-proxy 已删:默认无 HTTPS_PROXY →
+  //       经 egress-net NAT 直连公网;设了 HTTPS_PROXY 才收口到代理,见 egress.ts);
   //       net:none → 不共享(--unshare-all 已断网,prism compile)。
   if (profile.net === "open") {
     args.push("--share-net");

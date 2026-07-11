@@ -30,7 +30,41 @@ func (s *Service) ExportDocx(ctx context.Context, projectID uint) ([]byte, error
 	// 图片二进制(与编译同源:MinIO,key=RelPath)→ 铺进 pandoc 临时目录,让 figure 内联成真图。
 	// 失败则空 map → figure 回落文字占位(导出永不因取图失败而报错)。
 	staged, _, _ := s.gatherAssets(ctx, projectID)
-	return runPandocMDToDocx(ctx, structToMarkdown(d, staged), d.Bibliography, staged)
+	// opaque 块(多为从旧 .tex 克隆来的整段正文)先尽力转成 Markdown:否则整段在 Word 里丢成占位符(评审 #5)。
+	// 按块序号索引(ID 可能为空/重复,index 唯一);转失败的块不入表,bodyToMarkdown 回落占位符。
+	opaque := map[int]string{}
+	for i, blk := range d.Body {
+		if blk.Type == BlockOpaque {
+			if md, ok := latexFragmentToMarkdown(ctx, blk.RawLatex); ok {
+				opaque[i] = md
+			}
+		}
+	}
+	return runPandocMDToDocx(ctx, structToMarkdown(d, staged, opaque), d.Bibliography, staged)
+}
+
+// latexFragmentToMarkdown 尽力把一段 opaque LaTeX 片段转成 Markdown(供 docx 主转换吸收)。仅用于 opaque
+// 块 —— 它多是从旧 .tex 克隆来的**整段正文**,若不还原则 Word 导出会把整篇丢成一个「(AI 管理的区域)」占位符。
+// pandoc 的 latex reader 会跳过不认识的宏、可能损坏自定义公式(见本文件顶部注释),但对 opaque 而言
+// 「部分还原」远胜「整篇丢失」;失败 / 空 → ("", false),调用方回落占位符。走 stdin/stdout,不落临时文件。
+func latexFragmentToMarkdown(ctx context.Context, raw string) (string, bool) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", false
+	}
+	cctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(cctx, "pandoc", "-f", "latex", "-t", "markdown", "-o", "-")
+	cmd.Stdin = strings.NewReader(raw)
+	out, err := cmd.Output()
+	if err != nil {
+		return "", false
+	}
+	md := strings.TrimSpace(string(out))
+	if md == "" {
+		return "", false
+	}
+	return md, true
 }
 
 func runPandocMDToDocx(ctx context.Context, md string, bib map[string]string, staged map[string][]byte) ([]byte, error) {
@@ -75,32 +109,63 @@ func runPandocMDToDocx(ctx context.Context, md string, bib map[string]string, st
 
 // structToMarkdown 结构体 → 干净 Markdown(pandoc 源)。前置信息走 YAML 元数据块,
 // 数学 $...$ 由 pandoc 转成 Word 原生 OMML 公式。staged=已铺进临时目录的图片(key=RelPath)。
-func structToMarkdown(d *DocStruct, staged map[string][]byte) string {
+// opaque=按块序号索引的、已尽力转好的 opaque 块 Markdown(评审 #5)。
+func structToMarkdown(d *DocStruct, staged map[string][]byte, opaque map[int]string) string {
 	var b strings.Builder
 	fm := d.FrontMatter
+	// 单位机构编号(评审 #10):affiliation.ID → 1-based 序号,用于作者名上标 + 文末单位列表。
+	affNum := map[string]int{}
+	for i, af := range fm.Affiliations {
+		if strings.TrimSpace(af.ID) != "" {
+			affNum[af.ID] = i + 1
+		}
+	}
 	b.WriteString("---\n")
 	fmt.Fprintf(&b, "title: %s\n", yamlEscape(fm.Title))
 	if len(fm.Authors) > 0 {
 		b.WriteString("author:\n")
 		for _, a := range fm.Authors {
-			fmt.Fprintf(&b, "  - %s\n", yamlEscape(authorName(a)))
+			name := authorName(a)
+			// 作者名带单位上标(pandoc 把 author 元数据按 markdown inline 渲染,^1,2^ = 上标)。
+			var marks []string
+			for _, ref := range a.AffRefs {
+				if n, ok := affNum[ref]; ok {
+					marks = append(marks, fmt.Sprintf("%d", n))
+				}
+			}
+			if len(marks) > 0 {
+				name += "^" + strings.Join(marks, ",") + "^"
+			}
+			fmt.Fprintf(&b, "  - %s\n", yamlEscape(name))
 		}
 	}
 	if strings.TrimSpace(fm.Abstract) != "" {
 		fmt.Fprintf(&b, "abstract: %s\n", yamlEscape(fm.Abstract))
 	}
 	b.WriteString("---\n\n")
+	// 单位机构:pandoc 默认 docx 模板不渲染结构化 affiliation → 显式渲一段可见的带上标编号单位列表(评审 #10)。
+	for i, af := range fm.Affiliations {
+		var seg []string
+		for _, s := range []string{af.Department, af.Organization, af.City, af.Country} {
+			if strings.TrimSpace(s) != "" {
+				seg = append(seg, strings.TrimSpace(s))
+			}
+		}
+		if len(seg) > 0 {
+			fmt.Fprintf(&b, "^%d^ %s\n\n", i+1, strings.Join(seg, ", "))
+		}
+	}
 	// 关键词:pandoc 不把 YAML keywords 渲进正文(只落 docx 属性,不可见)→ 显式渲一段可见的关键词。
 	if len(fm.Keywords) > 0 {
 		fmt.Fprintf(&b, "**关键词:** %s\n\n", strings.Join(fm.Keywords, ", "))
 	}
-	b.WriteString(bodyToMarkdown(d.Body, d.Assets, staged))
+	b.WriteString(bodyToMarkdown(d.Body, d.Assets, staged, opaque))
 	return b.String()
 }
 
-func bodyToMarkdown(blocks []Block, assets map[string]DocAsset, staged map[string][]byte) string {
+func bodyToMarkdown(blocks []Block, assets map[string]DocAsset, staged map[string][]byte, opaque map[int]string) string {
 	var parts []string
-	for _, blk := range blocks {
+	for i, blk := range blocks {
 		switch blk.Type {
 		case BlockHeading:
 			lvl := blk.Level
@@ -144,7 +209,12 @@ func bodyToMarkdown(blocks []Block, assets map[string]DocAsset, staged map[strin
 				parts = append(parts, "*[图:"+cap+"]*")
 			}
 		case BlockOpaque:
-			parts = append(parts, "*(AI 管理的区域)*")
+			// 尽力还原的 opaque Markdown(评审 #5);转失败/空则回落占位符(旧行为)。
+			if md, ok := opaque[i]; ok && strings.TrimSpace(md) != "" {
+				parts = append(parts, md)
+			} else {
+				parts = append(parts, "*(AI 管理的区域)*")
+			}
 		}
 	}
 	return strings.Join(parts, "\n\n") + "\n"
@@ -160,8 +230,14 @@ func inlinesToMarkdown(inls []Inline) string {
 		case InlineItalic:
 			fmt.Fprintf(&b, "_%s_", in.V)
 		case InlineCite:
+			// 交叉引用锚(fig:/tbl:/eq:… → 编译期是 \ref)在 docx 走 citeproc 会被当成找不到的文献、渲成破损红字。
+			// 镜像内没有 pandoc-crossref 做自动编号,故降级成纯文本标记(如「fig:pipeline」),不喂 citeproc(评审 #6)。
+			if isCrossRefKey(in.Key) {
+				b.WriteString(in.Key)
+				break
+			}
 			keys := []string{"@" + in.Key}
-			for i+1 < len(inls) && inls[i+1].T == InlineCite { // 合并相邻引用 → pandoc 多引用 [@a; @b]
+			for i+1 < len(inls) && inls[i+1].T == InlineCite && !isCrossRefKey(inls[i+1].Key) { // 只合并相邻**文献**引用 → [@a; @b]
 				i++
 				keys = append(keys, "@"+inls[i].Key)
 			}

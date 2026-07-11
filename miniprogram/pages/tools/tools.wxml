@@ -1,0 +1,37 @@
+<view class="tools-header">
+  <view class="search-box">
+    <input class="search-input" placeholder="搜索工具 / 网站" value="{{q}}" bindinput="onInput" confirm-type="search" bindconfirm="onSearch" />
+    <view class="search-go" bindtap="onSearch">搜索</view>
+  </view>
+  <scroll-view class="chips" scroll-x enable-flex>
+    <view class="chip {{category==='' ? 'on' : ''}}" data-slug="" bindtap="pickCategory">全部</view>
+    <view wx:for="{{categories}}" wx:for-item="c" wx:key="slug" class="chip {{category===c.slug ? 'on' : ''}}" data-slug="{{c.slug}}" bindtap="pickCategory">{{c.label}} {{c.count}}</view>
+  </scroll-view>
+</view>
+
+<view class="tools-body">
+  <view wx:if="{{loading}}" class="sk-list"><view class="sk-item" wx:for="{{[0,1,2,3,4]}}" wx:key="*this"><view class="skeleton sk-bar sk-w90"></view><view class="skeleton sk-bar sk-w70"></view><view class="skeleton sk-bar sk-w45"></view></view></view>
+  <view wx:elif="{{error}}" class="state error">
+    <text>{{error}}</text>
+    <button class="btn" size="mini" bindtap="reload">重试</button>
+  </view>
+  <view wx:elif="{{tools.length===0}}" class="state">没有找到相关工具</view>
+  <block wx:else>
+    <view class="count">共 {{total}} 个工具</view>
+    <view wx:for="{{tools}}" wx:key="id" class="tool-row" data-slug="{{item.slug}}" bindtap="goDetail">
+      <view class="logo-box" style="background:{{item.coverBg}}">
+        <text class="logo-initial">{{item.cover}}</text>
+        <image wx:if="{{item.logo}}" class="logo-img" src="{{item.logo}}" mode="aspectFit" data-index="{{index}}" binderror="onLogoError" />
+      </view>
+      <view class="tool-main">
+        <view class="tool-name-row">
+          <text class="tool-name">{{item.name}}</text>
+          <text wx:if="{{item.priceLabel}}" class="price">{{item.priceLabel}}</text>
+        </view>
+        <text class="tool-tagline">{{item.tagline}}</text>
+      </view>
+    </view>
+    <view wx:if="{{loadingMore}}" class="more">加载中…</view>
+    <view wx:elif="{{!hasMore}}" class="more">没有更多了</view>
+  </block>
+</view>

@@ -28,6 +28,7 @@ type texTemplate struct {
 	BibStyle    string
 	Packages    []string
 	PageLimit   int // 0 = 不限
+	WordLimit   int // 0 = 不限(V4-A3:正文词数上限,conformance 对照 + 前端字数统计着色)
 	assemble    func(t texTemplate, d *DocStruct, bodyTeX string, hasBib bool) string
 	conformance func(d *DocStruct) []string
 }
@@ -82,13 +83,14 @@ func loadTemplates() map[string]texTemplate {
 			BibStyle  string   `json:"bib_style"`
 			Packages  []string `json:"packages"`
 			PageLimit int      `json:"page_limit"`
+			WordLimit int      `json:"word_limit"`
 		}
 		if json.Unmarshal(data, &m) != nil {
 			continue
 		}
 		out[key] = texTemplate{
 			Key: m.Key, Name: m.Name, DocClass: m.DocClass, ClassOpts: m.ClassOpts,
-			BibStyle: m.BibStyle, Packages: m.Packages, PageLimit: m.PageLimit,
+			BibStyle: m.BibStyle, Packages: m.Packages, PageLimit: m.PageLimit, WordLimit: m.WordLimit,
 			assemble: fns.assemble, conformance: fns.conformance,
 		}
 	}
@@ -105,12 +107,13 @@ type TemplateMeta struct {
 	Name      string `json:"name"`
 	DocClass  string `json:"doc_class"`
 	PageLimit int    `json:"page_limit,omitempty"`
+	WordLimit int    `json:"word_limit,omitempty"`
 }
 
 func ListTemplateMeta() []TemplateMeta {
 	out := make([]TemplateMeta, 0, len(texTemplates))
 	for _, t := range texTemplates {
-		out = append(out, TemplateMeta{Key: t.Key, Name: t.Name, DocClass: t.DocClass, PageLimit: t.PageLimit})
+		out = append(out, TemplateMeta{Key: t.Key, Name: t.Name, DocClass: t.DocClass, PageLimit: t.PageLimit, WordLimit: t.WordLimit})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Key < out[j].Key })
 	return out
@@ -142,7 +145,9 @@ type ConformanceReport struct {
 	PageLimit int      `json:"page_limit,omitempty"`
 	PageCount int      `json:"page_count,omitempty"` // 最近一次成功编译页数(compile_check)
 	Overfull  int      `json:"overfull,omitempty"`   // Overfull hbox 数(内容溢出)
-	Missing   []string `json:"missing"`              // 未满足的必填项 / 超页限 / 溢出(前端红点提示)
+	WordLimit int      `json:"word_limit,omitempty"` // 模板正文词数上限(V4-A3;0=不限)
+	WordCount int      `json:"word_count,omitempty"` // 当前正文词数(确定性统计,前端字数展示同源)
+	Missing   []string `json:"missing"`              // 未满足的必填项 / 超页限 / 超字数 / 溢出(前端红点提示)
 }
 
 // Conformance 报告结构体相对目标模板的必填缺失(确定性,不需要编译)。
@@ -155,7 +160,52 @@ func Conformance(d *DocStruct) ConformanceReport {
 	if missing == nil {
 		missing = []string{}
 	}
-	return ConformanceReport{Template: t.Key, PageLimit: t.PageLimit, Missing: missing}
+	wc := countBodyWords(d)
+	if t.WordLimit > 0 && wc > t.WordLimit {
+		missing = append(missing, fmt.Sprintf("超过字数上限(%d/%d 词)", wc, t.WordLimit))
+	}
+	return ConformanceReport{Template: t.Key, PageLimit: t.PageLimit, WordLimit: t.WordLimit, WordCount: wc, Missing: missing}
+}
+
+// countBodyWords 正文词数(确定性口径:英文按空白分词,CJK 每字计 1 词;摘要计入,标题/题注/表格不计)。
+// 服务 V4-A3 字数对照 + 前端字数统计(与后端同源,避免两套口径)。
+func countBodyWords(d *DocStruct) int {
+	n := countTextWords(d.FrontMatter.Abstract)
+	for _, blk := range d.Body {
+		switch blk.Type {
+		case BlockParagraph:
+			for _, in := range blk.Inlines {
+				n += countTextWords(in.V)
+			}
+		case BlockList:
+			for _, it := range blk.Items {
+				for _, in := range it {
+					n += countTextWords(in.V)
+				}
+			}
+		}
+	}
+	return n
+}
+
+func countTextWords(s string) int {
+	n := 0
+	inWord := false
+	for _, r := range s {
+		switch {
+		case r >= 0x4E00 && r <= 0x9FFF: // CJK 统一表意文字:每字 1 词
+			n++
+			inWord = false
+		case r == ' ' || r == '\t' || r == '\n' || r == '\r':
+			inWord = false
+		default:
+			if !inWord {
+				n++
+				inWord = true
+			}
+		}
+	}
+	return n
 }
 
 func conformIEEE(d *DocStruct) []string {
@@ -732,9 +782,16 @@ func isCJKRune(r rune) bool {
 	}
 }
 
-// isCrossRefKey [@key] 是交叉引用锚(fig:/tbl:/sec: 前缀 → \ref)而非文献引用(→ \cite)。
+// isCrossRefKey [@key] 是交叉引用锚(fig:/tbl:/sec:/eq:/lst:/alg:/app: 前缀 → \ref)而非文献引用(→ \cite)。
+// 评审 #13:补齐 eq:(公式)/lst:(代码清单)/alg:(算法)/app:(附录);否则 [@eq:1] 会被错当文献引用
+// 投成 \cite{eq:1}(编译期 undefined citation),docx 侧同样会被 citeproc 渲成破损红字。
 func isCrossRefKey(key string) bool {
-	return strings.HasPrefix(key, "fig:") || strings.HasPrefix(key, "tbl:") || strings.HasPrefix(key, "sec:")
+	for _, p := range []string{"fig:", "tbl:", "sec:", "eq:", "lst:", "alg:", "app:"} {
+		if strings.HasPrefix(key, p) {
+			return true
+		}
+	}
+	return false
 }
 
 // tableToLatex 行×单元格 → 居中 tabular(单元格文本转义;math-in-cell 是边界,v1 按文本处理)。

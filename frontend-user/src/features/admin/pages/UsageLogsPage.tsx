@@ -118,7 +118,7 @@ export function UsageLogsPage() {
       title="使用日志"
       description={`共 ${data?.total ?? 0} 条 · 功能 / API 用量审计 · 可导出 CSV`}
       actions={
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="outline" disabled={exporting} onClick={handleExport}>
             {exporting ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
             导出 CSV
@@ -161,7 +161,7 @@ export function UsageLogsPage() {
       </section>
 
       <section className="mb-4 flex flex-wrap items-end gap-2 rounded-md border border-border-soft bg-surface-1 p-3">
-        <div className="space-y-1">
+        <div className="space-y-1 w-full sm:w-auto">
           <Label className="text-2xs text-faint tracking-[0.12em]">用户 / 关键词</Label>
           <Input
             placeholder="ID / 用户名 / 邮箱 / 手机号 / 路径"
@@ -170,10 +170,10 @@ export function UsageLogsPage() {
               setSearchInput(e.target.value);
               setPage(1);
             }}
-            className="h-8 w-56"
+            className="h-8 w-full sm:w-56"
           />
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1 w-full sm:w-auto">
           <Label className="text-2xs text-faint tracking-[0.12em]">功能代码</Label>
           <Input
             placeholder="search / chat / analysis"
@@ -182,10 +182,10 @@ export function UsageLogsPage() {
               setFeatureCode(e.target.value);
               setPage(1);
             }}
-            className="h-8 w-44"
+            className="h-8 w-full sm:w-44"
           />
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1 w-full sm:w-auto">
           <Label className="text-2xs text-faint tracking-[0.12em]">日期</Label>
           <DateRangeControl value={win} onChange={setWin} />
         </div>

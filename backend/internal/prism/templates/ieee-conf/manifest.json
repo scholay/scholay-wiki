@@ -4,6 +4,12 @@
   "doc_class": "IEEEtran",
   "class_opts": "conference",
   "bib_style": "IEEEtran",
-  "packages": ["amsmath", "amssymb", "graphicx", "cite"],
-  "page_limit": 8
+  "packages": [
+    "amsmath",
+    "amssymb",
+    "graphicx",
+    "cite"
+  ],
+  "page_limit": 8,
+  "word_limit": 0
 }

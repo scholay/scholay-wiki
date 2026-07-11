@@ -1,0 +1,58 @@
+<view class="me">
+  <!-- 未登录 -->
+  <view wx:if="{{!loggedIn}}" class="guest">
+    <text class="logo">Scholay</text>
+    <text class="guest-tip">登录后同步你的文献集、会员与助手</text>
+    <button class="btn primary big" bindtap="onTapLogin">微信一键登录</button>
+    <text class="alt-login" bindtap="goLogin">邮箱 / 验证码登录</text>
+  </view>
+
+  <!-- 首次加载(无缓存)骨架,避免空壳闪 -->
+  <view wx:elif="{{loading && !profile}}" class="sk-detail">
+    <view class="skeleton sk-title-lg"></view>
+    <view class="sk-chips"><view class="skeleton sk-chip"></view><view class="skeleton sk-chip"></view></view>
+    <view class="skeleton sk-body-line sk-w90"></view>
+    <view class="skeleton sk-body-line sk-w70"></view>
+    <view class="skeleton sk-body-line sk-w90"></view>
+    <view class="skeleton sk-body-line sk-w45"></view>
+  </view>
+
+  <!-- 已登录 -->
+  <block wx:else>
+    <view class="user-card">
+      <image wx:if="{{profile.avatar_url}}" class="avatar" src="{{profile.avatar_url}}" mode="aspectFill" />
+      <view wx:else class="avatar avatar-fallback">{{profile.username ? profile.username[0] : 'U'}}</view>
+      <view class="user-main">
+        <text class="uname">{{profile.username || '未命名用户'}}</text>
+        <text class="uemail">{{profile.email || profile.phone || '微信登录'}}</text>
+      </view>
+    </view>
+
+    <button wx:if="{{!profile.phone}}" class="bind-phone" open-type="getPhoneNumber" bindgetphonenumber="onGetPhone"><image class="svg-ic" src="{{ic.plusRed}}" /><text>绑定手机号</text></button>
+
+    <!-- 会员资产 -->
+    <view wx:if="{{overview}}" class="asset-card">
+      <view class="asset-head">
+        <text class="tier tier-{{overview.tier}}">{{tierLabel}}</text>
+        <text wx:if="{{overview.expires_at}}" class="expire">{{overview.expires_at}} 到期</text>
+      </view>
+      <view class="quota">
+        <view class="quota-bar"><view class="quota-fill" style="width:{{remaining}}%"></view></view>
+        <text class="quota-text">{{overview.token.unlimited ? '今日额度不限' : '今日剩余额度 ' + remaining + '%'}}</text>
+      </view>
+      <view class="credit">经费 {{overview.credit.total}}(临时 {{overview.credit.temp}} · 永久 {{overview.credit.perm}})</view>
+      <view class="asset-actions">
+        <view class="asset-btn" bindtap="onRedeem">兑换码</view>
+        <view class="asset-btn" bindtap="onReset">重置额度</view>
+      </view>
+    </view>
+
+    <view class="menu">
+      <view class="menu-item" bindtap="goLibrary"><text>我的文献集</text><text class="arrow">›</text></view>
+      <view class="menu-item" bindtap="goBilling"><text>资产明细</text><text class="arrow">›</text></view>
+      <view class="menu-item" bindtap="goProfileEdit"><text>账号设置</text><text class="arrow">›</text></view>
+    </view>
+
+    <button class="btn danger logout" bindtap="onLogout">退出登录</button>
+  </block>
+</view>

@@ -11,7 +11,7 @@ import {
   YAxis,
 } from 'recharts';
 import { cn } from '@/shared/lib/utils';
-import { isTodayBucket } from '@/shared/lib/daily-trend';
+import { isTodayBucket, withWeekday } from '@/shared/lib/daily-trend';
 import { compactTokens, type TokenDayPoint, type TokenDayDimPoint } from '../../api/token-usage';
 import { COMPOSITION_SEGMENTS, OTHER_FILL, categoryFill, fillColor, type SegmentColor } from './palette';
 
@@ -75,7 +75,7 @@ function ChartTooltip(props: {
   const total = payload.reduce((s, p) => s + (Number(p.value) || 0), 0);
   return (
     <div className="rounded-md border border-border bg-background px-3 py-2 text-xs shadow-sm">
-      <div className="mb-1 text-faint">{label}</div>
+      <div className="mb-1 text-faint">{withWeekday(String(label ?? ''), label)}</div>
       {[...items].reverse().map((p, i) => (
         <div key={i} className="flex items-center justify-between gap-4">
           <span className="flex items-center gap-1.5 text-subtle">
@@ -123,9 +123,9 @@ export function TokenDailyChart({
 
   return (
     <section className="mb-6 rounded-md border border-border bg-background p-4">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-bold text-foreground">每日用量</h3>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           {MODES.map((m) => (
             <button
               key={m.key}
@@ -143,9 +143,9 @@ export function TokenDailyChart({
           ))}
         </div>
       </div>
-      <div className="h-64">
+      <div className="h-56">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+          <BarChart data={rows} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
             <XAxis
               dataKey="date"
@@ -160,7 +160,7 @@ export function TokenDailyChart({
               axisLine={false}
               tickLine={false}
               allowDecimals={false}
-              width={48}
+              width={44}
               tickFormatter={(v: number) => compactTokens(v)}
             />
             <Tooltip content={<ChartTooltip />} cursor={{ fill: 'var(--color-surface-2)', fillOpacity: 0.6 }} />

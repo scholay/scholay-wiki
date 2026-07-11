@@ -233,8 +233,10 @@ export function UsersPage() {
     },
     {
       header: '注册时间',
-      cell: (u) => <span className="text-xs text-muted-foreground">{u.created_at?.slice(0, 10)}</span>,
-      width: 110,
+      cell: (u) => (
+        <span className="text-xs text-muted-foreground">{u.created_at?.slice(0, 16).replace('T', ' ') || '—'}</span>
+      ),
+      width: 150,
       serverSortKey: 'created_at',
     },
     {
@@ -324,13 +326,13 @@ export function UsersPage() {
       title="用户管理"
       description={`共 ${data?.total ?? 0} 个账号 · 含管理员 · 可筛选 / 管会员 / 冻结 / 删除`}
       actions={
-        <div className="relative">
+        <div className="relative w-full sm:w-auto">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-faint" />
           <Input
             placeholder="搜索 ID / 用户名 / 邮箱 / 手机号"
             value={keyword}
             onChange={(e) => patch({ q: e.target.value || null, page: null })}
-            className="pl-8 h-8 w-64"
+            className="pl-8 h-8 w-full sm:w-64"
           />
         </div>
       }

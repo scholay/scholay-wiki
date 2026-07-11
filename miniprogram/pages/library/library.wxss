@@ -1,0 +1,60 @@
+.lib {
+  padding: 24rpx 32rpx 60rpx;
+}
+.state {
+  padding: 140rpx 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16rpx;
+  color: var(--text-weak);
+  font-size: 28rpx;
+}
+.state.err {
+  color: var(--red);
+}
+.empty-emoji {
+  width: 88rpx;
+  height: 88rpx;
+  opacity: 0.6;
+}
+.empty-tip {
+  font-size: 24rpx;
+}
+.count {
+  color: var(--text-weak);
+  font-size: 26rpx;
+  margin-bottom: 12rpx;
+}
+.row {
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid var(--border);
+}
+.row-title {
+  display: block;
+  font-size: 32rpx;
+  font-weight: 600;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.row-sub {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 26rpx;
+  color: var(--text-weak);
+}
+.row-cite {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: var(--text-weak);
+}
+.more {
+  text-align: center;
+  color: var(--text-weak);
+  font-size: 26rpx;
+  padding: 32rpx 0;
+}

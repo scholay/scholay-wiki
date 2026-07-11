@@ -171,7 +171,7 @@ export function MessagesPage() {
               <Input id="title" name="title" required />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="category">分类</Label>
                 <select
@@ -192,7 +192,7 @@ export function MessagesPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="send_type">发送类型</Label>
                 <select
@@ -228,7 +228,7 @@ export function MessagesPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="link_url">链接 URL(可选)</Label>
                 <Input id="link_url" name="link_url" placeholder="/announcements/123" />

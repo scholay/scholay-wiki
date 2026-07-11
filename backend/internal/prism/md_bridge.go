@@ -27,6 +27,10 @@ const EditorDocFile = "document.md"
 // 真实论文写成 BibTeX 条目放这里,正文用 [@key] 引用;轮末解析回 DocStruct.Bibliography(反幻觉:数据真实)。
 const BibFile = "references.bib"
 
+// TerminologyFile —— 项目级术语表(V4-④ 双语工作流):DB 真源(prism_projects.terminology)轮前物化到
+// cwd,agent 翻译时作 soft constraint 并把首译写回;轮末 applyStructRound 回收进 DB。
+const TerminologyFile = "terminology.md"
+
 // structToEditorMarkdown 结构体 → agent 可编辑 markdown。
 func structToEditorMarkdown(d *DocStruct) string {
 	var b strings.Builder
@@ -64,7 +68,12 @@ func bodyToEditorMarkdown(blocks []Block) string {
 		case BlockParagraph:
 			parts = append(parts, inlinesToEditorMd(blk.Inlines))
 		case BlockDisplayMath:
-			parts = append(parts, "$$\n"+strings.TrimSpace(blk.Latex)+"\n$$")
+			// V3-4.2-3:公式打锚 → 闭合 $$ 后带 {#eq:x},正文用 [@eq:x] 交叉引用(projector 出 \label/\ref)。
+			closing := "$$"
+			if blk.Label != "" {
+				closing = "$$ {#" + blk.Label + "}"
+			}
+			parts = append(parts, "$$\n"+strings.TrimSpace(blk.Latex)+"\n"+closing)
 		case BlockList:
 			var ls []string
 			for i, it := range blk.Items {
@@ -102,6 +111,17 @@ func bodyToEditorMarkdown(blocks []Block) string {
 	return strings.Join(parts, "\n\n") + "\n"
 }
 
+// editorTextEscaper 转义纯文本里会被 parseInlines 误当行内标记的字符(评审 #8):
+// \ * _ $ [ —— 否则正文里字面的 a_b_c / $x$ / **粗** / [@ 往返时被解析成斜体/公式/粗体/引用,破坏内容。
+// parseInlines 侧以反斜杠转义还原(见 isMdEscapable)。strings.NewReplacer 单趟替换、不回扫,不会重复转义。
+var editorTextEscaper = strings.NewReplacer(
+	`\`, `\\`,
+	"*", `\*`,
+	"_", `\_`,
+	"$", `\$`,
+	"[", `\[`,
+)
+
 func inlinesToEditorMd(inls []Inline) string {
 	var b strings.Builder
 	for _, in := range inls {
@@ -115,10 +135,20 @@ func inlinesToEditorMd(inls []Inline) string {
 		case InlineMath:
 			fmt.Fprintf(&b, "$%s$", in.Latex)
 		default:
-			b.WriteString(in.V)
+			b.WriteString(editorTextEscaper.Replace(in.V))
 		}
 	}
 	return b.String()
+}
+
+// isMdEscapable 反斜杠后跟这些标点时按转义还原成字面字符(与 editorTextEscaper 对称,并兼容 agent 手写的
+// 标准 markdown 转义)。对 \alpha 这类「反斜杠后非标点」保留反斜杠(符合 CommonMark),不吞 LaTeX 命令。
+func isMdEscapable(c rune) bool {
+	switch c {
+	case '\\', '*', '_', '$', '[', ']', '`', '(', ')', '#', '~':
+		return true
+	}
+	return false
 }
 
 // parseEditorMarkdown 受限 markdown → (title, abstract, keywords, body)。互逆于 structToEditorMarkdown。
@@ -175,15 +205,21 @@ func parseEditorMarkdown(md string) (title, abstract string, keywords []string, 
 		case t == "$$":
 			i++
 			var mb []string
-			for i < len(lines) && strings.TrimSpace(lines[i]) != "$$" {
+			label := ""
+			for i < len(lines) {
+				lt := strings.TrimSpace(lines[i])
+				// V3-4.2-3:闭合行 $$ 可带 {#eq:x} 锚。
+				if lt == "$$" || strings.HasPrefix(lt, "$$ ") || strings.HasPrefix(lt, "$${") {
+					_, label = splitLabelSuffix(lt)
+					i++
+					break
+				}
 				mb = append(mb, lines[i])
 				i++
 			}
-			if i < len(lines) {
-				i++
-			}
-			body = append(body, Block{ID: nextID(), Type: BlockDisplayMath, Latex: strings.TrimSpace(strings.Join(mb, "\n"))})
+			body = append(body, Block{ID: nextID(), Type: BlockDisplayMath, Latex: strings.TrimSpace(strings.Join(mb, "\n")), Label: label})
 		case strings.HasPrefix(t, "```"):
+			lang := strings.ToLower(strings.TrimSpace(t[3:])) // 围栏 info string(语言标)
 			i++
 			var cb []string
 			for i < len(lines) && !strings.HasPrefix(strings.TrimSpace(lines[i]), "```") {
@@ -193,7 +229,13 @@ func parseEditorMarkdown(md string) (title, abstract string, keywords []string, 
 			if i < len(lines) {
 				i++
 			}
-			body = append(body, Block{ID: nextID(), Type: BlockOpaque, RawLatex: strings.Join(cb, "\n")})
+			raw := strings.Join(cb, "\n")
+			// V3-4.2-3:非 LaTeX 围栏(如 ```python)原样当 LaTeX 注入必炸 → 包 verbatim 安全渲成代码块。
+			//   idempotent:序列化时 opaque 仍以 ```latex 包出,再解析 lang=latex 原样保留 verbatim 包裹。
+			if lang != "" && lang != "latex" && lang != "tex" {
+				raw = "\\begin{verbatim}\n" + raw + "\n\\end{verbatim}"
+			}
+			body = append(body, Block{ID: nextID(), Type: BlockOpaque, RawLatex: raw})
 		case looksLikeFigureLine(t):
 			// figure 行 ![alt](asset "caption"){#fig:x}。必须回收成 BlockFigure —— 否则落入 default 变段落文本,
 			// 图连同 Asset/Caption/Width/Label 全丢(往返不可逆的核心坑)。Width 不在 md 里,由 restoreBlockMeta
@@ -255,6 +297,12 @@ func parseInlines(s string) []Inline {
 	i := 0
 	for i < len(r) {
 		switch {
+		case r[i] == '\\' && i+1 < len(r) && isMdEscapable(r[i+1]):
+			// 反斜杠转义还原(评审 #8):\_ \* \$ \[ … → 字面字符,且必须先于下面的标记判断,
+			// 否则被转义的 * _ $ [ 又会被当成行内标记。
+			text.WriteRune(r[i+1])
+			i += 2
+			continue
 		case r[i] == '$':
 			if j := findRune(r, '$', i+1); j > 0 {
 				flush()
@@ -452,12 +500,13 @@ func restoreBlockMeta(oldBlocks, newBlocks []Block) []Block {
 				}
 			}
 		case BlockHeading:
-			k := fmt.Sprintf("%d|%s", b.Level, strings.TrimSpace(b.Text))
+			// V3-4.2-2:键做空白归一化 —— agent 改了缩进/空格但文字实质未变时,{#sec:x} 锚仍能回填。
+			k := fmt.Sprintf("%d|%s", b.Level, normWS(b.Text))
 			if _, dup := headByKey[k]; !dup {
 				headByKey[k] = b.Label
 			}
 		case BlockDisplayMath:
-			k := strings.TrimSpace(b.Latex)
+			k := normWS(b.Latex)
 			if _, dup := mathByLatex[k]; !dup {
 				mathByLatex[k] = b.Label
 			}
@@ -482,13 +531,13 @@ func restoreBlockMeta(oldBlocks, newBlocks []Block) []Block {
 			}
 		case BlockHeading:
 			if nb.Label == "" {
-				if lbl := headByKey[fmt.Sprintf("%d|%s", nb.Level, strings.TrimSpace(nb.Text))]; lbl != "" {
+				if lbl := headByKey[fmt.Sprintf("%d|%s", nb.Level, normWS(nb.Text))]; lbl != "" {
 					nb.Label = lbl
 				}
 			}
 		case BlockDisplayMath:
 			if nb.Label == "" {
-				if lbl := mathByLatex[strings.TrimSpace(nb.Latex)]; lbl != "" {
+				if lbl := mathByLatex[normWS(nb.Latex)]; lbl != "" {
 					nb.Label = lbl
 				}
 			}
@@ -502,6 +551,11 @@ func restoreBlockMeta(oldBlocks, newBlocks []Block) []Block {
 		}
 	}
 	return newBlocks
+}
+
+// normWS 把连续空白归一为单空格并去首尾(restoreBlockMeta 模糊匹配用,V3-4.2-2)。
+func normWS(s string) string {
+	return strings.Join(strings.Fields(s), " ")
 }
 
 // rowsKey 把表格行×列压成稳定串(回填时判「同一张表」);用不可见分隔符避免与单元格文本冲突。

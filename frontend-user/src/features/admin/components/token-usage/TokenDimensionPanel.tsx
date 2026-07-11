@@ -32,13 +32,15 @@ export function TokenDimensionPanel({ tabs, loading }: { tabs: DimTab[]; loading
     <section className="mb-6 rounded-md border border-border bg-background p-4">
       <Tabs defaultValue={tabs[0]?.value}>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <TabsList>
-            {tabs.map((t) => (
-              <TabsTrigger key={t.value} value={t.value}>
-                {t.title}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+          <div className="min-w-0 max-w-full overflow-x-auto">
+            <TabsList>
+              {tabs.map((t) => (
+                <TabsTrigger key={t.value} value={t.value}>
+                  {t.title}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
           {/* 分段颜色图例(与主图「构成」同色) */}
           <div className="flex items-center gap-3 text-2xs text-faint">
             {COMPOSITION_SEGMENTS.map((s) => (

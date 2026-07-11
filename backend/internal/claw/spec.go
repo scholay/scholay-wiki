@@ -93,13 +93,22 @@ func checkQuota(ctx context.Context, userID uint) error {
 	if vipChecker == nil {
 		return nil
 	}
-	if err := vipChecker.CheckDailyQuota(ctx, userID); err != nil {
+	// SS#2:有界透支版起点闸 —— 跨过日上限那轮总能起跑,只有透支带也用完才拦。
+	if err := vipChecker.CheckDailyQuotaOverdraft(ctx, userID); err != nil {
 		if errors.Is(err, vip.ErrQuotaExceeded) {
 			return agentbridge.NewQuotaError(err.Error())
 		}
 		return err
 	}
 	return nil
+}
+
+// budgetProvider(SS#2)给 hub 每轮盖「有界透支预算」用;懒读包级 vipChecker(可后于 BuildSpec 注入)。
+func budgetProvider(ctx context.Context, userID uint) (soft, hard int64, unlimited bool) {
+	if vipChecker == nil {
+		return 0, 0, true
+	}
+	return vipChecker.RemainingBudget(ctx, userID)
 }
 
 func recordQuestion(uid *uint) {
@@ -148,6 +157,8 @@ func BuildSpec() agentbridge.FeatureSpec {
 		AllowBash:         true,
 		PreUserMessage:    pre,
 		OnMessageComplete: onComplete,
+		// SS#2:有界透支预算 —— hub 每轮盖章,执行器让 agent 自我配速 + 到界优雅收尾。
+		BudgetProvider: budgetProvider,
 		// claw 会话加载 library-reference skill(--add-dir /claw-add)。DisallowedTools 留空
 		// (claw 不裁工具,Bash 由 AllowBash 单独管),仅借 SessionOptions 挂 AddDirs。
 		SessionOptions: &agent.CreateSessionOptions{

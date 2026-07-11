@@ -69,7 +69,7 @@ function JobDetailDialog({ id, onClose }: { id: number | null; onClose: () => vo
         <DialogHeader><DialogTitle>导入任务 #{id} {running ? '· 处理中…' : ''}</DialogTitle></DialogHeader>
         {job && (
           <div className="max-h-[70vh] space-y-4 overflow-y-auto">
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <Stat label="总数" value={job.total} />
               <Stat label="新增" value={job.created_cnt} tone="text-brand-green" />
               <Stat label="更新" value={job.updated_cnt} tone="text-brand-amber" />

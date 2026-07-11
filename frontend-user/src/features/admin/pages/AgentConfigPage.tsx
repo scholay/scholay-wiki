@@ -47,7 +47,7 @@ export function AgentConfigPage() {
       description="通用 Claude Code-style agent 的模型与端点配置 — 保存后自动推送到 scholar_agent 容器"
     >
       <form
-        className="rounded-md border border-border bg-background p-6 space-y-6 max-w-3xl"
+        className="rounded-md border border-border bg-background p-4 sm:p-6 space-y-6 max-w-3xl"
         onSubmit={async (e) => {
           e.preventDefault();
           const fd = new FormData(e.currentTarget);
@@ -81,7 +81,7 @@ export function AgentConfigPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="base_url">Base URL</Label>
               <Input
@@ -117,7 +117,7 @@ export function AgentConfigPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="haiku_model">快档 · haiku 槽</Label>
               <Input

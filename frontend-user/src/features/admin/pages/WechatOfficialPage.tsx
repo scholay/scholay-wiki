@@ -59,7 +59,7 @@ export function WechatOfficialPage() {
   return (
     <AdminPageLayout title="公众号" description="微信公众号自动回复 + AI 模型档位">
       <form
-        className="rounded-md border border-border bg-background p-6 space-y-4 max-w-3xl"
+        className="rounded-md border border-border bg-background p-4 sm:p-6 space-y-4 max-w-3xl"
         onSubmit={async (e) => {
           e.preventDefault();
           const fd = new FormData(e.currentTarget);
@@ -83,7 +83,7 @@ export function WechatOfficialPage() {
           <p className="text-xs text-muted-foreground mt-1">App Secret / AES Key 留空表示不修改</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="app_id">App ID</Label>
             <Input id="app_id" name="app_id" defaultValue={data?.app_id} required />

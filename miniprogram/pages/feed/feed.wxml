@@ -1,0 +1,94 @@
+<view class="feed">
+  <!-- 顶栏(对标 Web FeedTopTabs):筛选 | 论文/期刊/情报 | 搜索 -->
+  <view class="topbar">
+    <view class="top-ic left" bindtap="onFilterSoon"><image class="svg-ic" src="{{ic.slidersWeak}}" /></view>
+    <view class="tabs">
+      <view class="tab {{mode==='papers'?'on':''}}" data-mode="papers" bindtap="switchMode">论文</view>
+      <view class="tab {{mode==='journals'?'on':''}}" data-mode="journals" bindtap="switchMode">期刊</view>
+      <view class="tab {{mode==='news'?'on':''}}" data-mode="news" bindtap="switchMode">情报</view>
+    </view>
+    <view class="top-ic right" bindtap="goSearch"><image class="svg-ic" src="{{ic.searchWeak}}" /></view>
+  </view>
+
+  <block wx:if="{{loading}}">
+    <view class="sk-list"><view class="sk-item" wx:for="{{[0,1,2,3,4]}}" wx:key="*this"><view class="skeleton sk-bar sk-w90"></view><view class="skeleton sk-bar sk-w70"></view><view class="skeleton sk-bar sk-w45"></view></view></view>
+  </block>
+  <block wx:elif="{{error}}">
+    <view class="state error">
+      <text>{{error}}</text>
+      <button class="btn" size="mini" bindtap="retry">重试</button>
+    </view>
+  </block>
+  <block wx:else>
+    <!-- 论文 -->
+    <view wx:if="{{mode==='papers' && papers.length===0}}" class="state">暂无内容,下拉刷新试试</view>
+    <swiper wx:elif="{{mode==='papers'}}" class="swiper" vertical circular="{{false}}" duration="240" current="{{index}}" bindchange="onSwiperChange">
+      <swiper-item wx:for="{{papers}}" wx:key="paperId">
+        <view wx:if="{{index >= winLo && index <= winHi}}" class="card" data-id="{{item.paperId}}" bindtap="goPaper">
+          <view class="ident">
+            <view class="cover" style="background:{{item.coverBg}}">{{item.cover}}</view>
+            <text class="meta">{{item.metaLine}}</text>
+            <view class="fav" catchtap="toggleFav" data-id="{{item.paperId}}" data-index="{{index}}"><image class="svg-ic" src="{{item.fav ? ic.heartOn : ic.heartOff}}" /></view>
+          </view>
+          <text class="title">{{item.title}}</text>
+          <view class="badges">
+            <text wx:for="{{item.badges}}" wx:for-item="b" wx:key="text" class="badge {{b.kind}}">{{b.text}}</text>
+          </view>
+          <view class="metrics">
+            <view wx:for="{{item.metrics}}" wx:for-item="mm" wx:key="label" class="metric">
+              <text class="mv">{{mm.value}}</text>
+              <text class="ml">{{mm.label}}</text>
+            </view>
+          </view>
+          <text class="abstract">{{item.abstract}}</text>
+          <text class="authors">{{item.authorsLine}}</text>
+        </view>
+      </swiper-item>
+    </swiper>
+
+    <!-- 期刊 -->
+    <view wx:elif="{{mode==='journals' && journals.length===0}}" class="state">暂无内容</view>
+    <swiper wx:elif="{{mode==='journals'}}" class="swiper" vertical circular="{{false}}" duration="240" current="{{index}}" bindchange="onSwiperChange">
+      <swiper-item wx:for="{{journals}}" wx:key="id">
+        <view wx:if="{{index >= winLo && index <= winHi}}" class="card" data-id="{{item.id}}" bindtap="goJournal">
+          <view class="ident">
+            <view class="cover" style="background:{{item.coverBg}}">{{item.cover}}</view>
+            <text class="meta">{{item.scope}}</text>
+          </view>
+          <text class="title">{{item.name}}</text>
+          <view class="badges">
+            <text wx:for="{{item.badges}}" wx:for-item="b" wx:key="text" class="badge {{b.kind}}">{{b.text}}</text>
+          </view>
+          <view class="metrics">
+            <view wx:for="{{item.metrics}}" wx:for-item="mm" wx:key="label" class="metric">
+              <text class="mv">{{mm.value}}</text>
+              <text class="ml">{{mm.label}}</text>
+            </view>
+          </view>
+        </view>
+      </swiper-item>
+    </swiper>
+
+    <!-- 情报 -->
+    <view wx:elif="{{mode==='news' && news.length===0}}" class="state">暂无内容</view>
+    <swiper wx:else class="swiper" vertical circular="{{false}}" duration="240" current="{{index}}" bindchange="onSwiperChange">
+      <swiper-item wx:for="{{news}}" wx:key="slug">
+        <view wx:if="{{index >= winLo && index <= winHi}}" class="card news-card" data-slug="{{item.slug}}" bindtap="goNews">
+          <view class="news-head">
+            <text class="news-section">{{item.sectionLabel}}</text>
+            <text wx:if="{{item.featured}}" class="news-featured">头条</text>
+            <text class="news-time">{{item.timeText}}</text>
+          </view>
+          <image wx:if="{{item.cover}}" class="news-cover" src="{{item.cover}}" mode="aspectFill" lazy-load />
+          <text class="title">{{item.title}}</text>
+          <text class="news-summary {{item.cover ? 'tight' : ''}}">{{item.summary}}</text>
+          <view class="news-meta">
+            <text wx:if="{{item.sourceLabel}}">{{item.sourceLabel}}</text>
+            <text wx:if="{{item.heat}}" class="news-heat">🔥 {{item.heat}}</text>
+            <text wx:if="{{item.surge}}" class="news-surge">飙升</text>
+          </view>
+        </view>
+      </swiper-item>
+    </swiper>
+  </block>
+</view>

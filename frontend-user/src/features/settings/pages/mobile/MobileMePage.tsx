@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   BookMarked,
   ChevronRight,
+  LayoutDashboard,
   Link2,
   LogOut,
   ReceiptText,
@@ -14,7 +15,7 @@ import { Button } from '@/shared/ui/button';
 import { BrandLogo } from '@/shared/components/BrandLogo';
 import { http } from '@/shared/lib/http';
 import { getAuthToken } from '@/shared/lib/auth-token';
-import { useAuthStore, useAuthStatus } from '@/stores/auth.store';
+import { useAuthStore, useAuthStatus, isAdminRole } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useProfile } from '@/shared/api/profile';
 import { MobileAssetsCard } from '../../components/mobile/MobileAssetsCard';
@@ -101,6 +102,18 @@ function LoggedInView() {
         </div>
         <ChevronRight className="size-4 shrink-0 text-faint" />
       </Link>
+
+      {/* 管理后台入口 —— 仅 admin / super_admin 可见(身份判断走 isAdminRole);/admin 是同 URL 响应式后台,不跳 /m。 */}
+      {isAdminRole(storedUser?.role) && (
+        <nav className="overflow-hidden rounded-lg border border-brand-red/30 bg-background">
+          <MenuRow
+            to="/admin"
+            icon={<LayoutDashboard className="size-4.5 text-brand-red" />}
+            label="进入管理后台"
+            last
+          />
+        </nav>
+      )}
 
       {/* 我的文献集 —— 独立入口卡(收藏/分享/转存) */}
       <nav className="overflow-hidden rounded-lg border border-border bg-background">

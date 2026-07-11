@@ -21,6 +21,8 @@ package smartsearch
 import (
 	"context"
 	"errors"
+	"os"
+	"strings"
 
 	"scholar-backend/internal/agent"
 	"scholar-backend/internal/agentbridge"
@@ -74,13 +76,22 @@ func checkQuota(ctx context.Context, userID uint) error {
 	}
 	// tier-aware 会员限额。vip.ErrQuotaExceeded → 转成 agentbridge 的 quota_exceeded(干净文案),
 	// 让 WS pipe 回前端 code=quota_exceeded + retryable=false。
-	if err := vipChecker.CheckDailyQuota(ctx, userID); err != nil {
+	// SS#2:有界透支版起点闸 —— 跨过日上限那轮总能起跑,只有透支带也用完才拦。
+	if err := vipChecker.CheckDailyQuotaOverdraft(ctx, userID); err != nil {
 		if errors.Is(err, vip.ErrQuotaExceeded) {
 			return agentbridge.NewQuotaError(err.Error())
 		}
 		return err
 	}
 	return nil
+}
+
+// budgetProvider(SS#2)给 hub 每轮盖「有界透支预算」用;懒读包级 vipChecker(可后于 BuildSpec 注入)。
+func budgetProvider(ctx context.Context, userID uint) (soft, hard int64, unlimited bool) {
+	if vipChecker == nil {
+		return 0, 0, true
+	}
+	return vipChecker.RemainingBudget(ctx, userID)
 }
 
 func recordQuestion(uid *uint) {
@@ -92,6 +103,28 @@ func recordQuestion(uid *uint) {
 		Feature: usagestat.FeatureSmartSearch,
 		Action:  "question",
 	})
+}
+
+// smartSearchSkillAddDir —— 传给 agent --add-dir 的目录(agent 加载 <dir>/.claude/skills:检索策略 skill)。
+// 同 prism 的 prismSkillAddDir / claw 的 clawSkillAddDir:独立目录,只有 smart_search 会话装,
+// 其它 feature 看不到。compose 把 ./agent-skills/smart-search-skills 挂到 <dir>/.claude/skills。
+func smartSearchSkillAddDir() string {
+	if d := strings.TrimSpace(os.Getenv("SMART_SEARCH_SKILL_ADDDIR")); d != "" {
+		return d
+	}
+	return "/smart-search-add"
+}
+
+// smartSearchDisallowedTools —— smart_search 是纯只读检索,只该用 mcp__minicod__*(+ TodayDate 做
+// 年份换算)。显式禁掉执行器 registry 里的文件工具(Read/Write/Edit/Glob/Grep)与潜在的联网/笔记本/
+// 子任务工具,把「MCP-only」从**提示词软约束**升级成 backend + 执行器**双向硬约束**(评审 #5:
+// 此前 DisallowedTools=nil 只并入 Bash 三件套,Read/Write/Edit/Glob/Grep 实际放行且被 PermissionAuto
+// 自动批准,提示词里的「绝对禁令」形同虚设)。Bash 三件套由 SessionDisallowedTools(allowBash=false)
+// 另行并入。MultiEdit/NotebookEdit/LS/WebFetch/WebSearch/Task/Agent 当前不在 registry,列出是防御性
+// 兜底:一旦将来 registry 新增,smart_search 仍默认锁死,不必回来补。
+var smartSearchDisallowedTools = []string{
+	"Read", "Write", "Edit", "MultiEdit", "NotebookEdit", "Glob", "Grep", "LS",
+	"WebFetch", "WebSearch", "Task", "Agent", "Skill",
 }
 
 // BuildSpec 构造 smart_search 的 FeatureSpec。
@@ -110,17 +143,23 @@ func BuildSpec() agentbridge.FeatureSpec {
 		InjectPromptOnFirstMsg: true, // 主 agent 默认带 Bash/Read, 必须强约束
 		// A1:检索综合主要是 MCP 工具编排,默认走便宜档(haiku=flash)省成本;质量不够可在 agent_config 改槽位或上调。
 		DefaultTier: "haiku",
-		// C14: 审批轴 = auto (backend 自动裁决, 不透传前端)。只暴露 mcp__minicod__* 只读检索, 无破坏性操作。
+		// C14: 审批轴 = auto (backend 自动裁决, 不透传前端)。仅暴露 mcp__minicod__*(+ TodayDate)只读检索,
+		// 文件/联网工具已在 SessionOptions.DisallowedTools 显式禁掉(见 smartSearchDisallowedTools),无破坏性操作。
 		PermissionMode: agentbridge.PermissionAuto,
 		// PingInterval: 0 → 走 agentbridge 默认 25s (< agent idleTimeout 60s)
 		// C1 (2026-06): smart_search 是只读检索, 不需要 Bash。AllowBash 保持零值 false。
-		// 显式把 Bash 三件套塞进 agent --disallowed-tools(纵深防御:agent 端工具池硬移除);
-		// backend 门由 specDeny 据 AllowBash=false 另行补禁。
+		// DisallowedTools = 文件/联网工具(smartSearchDisallowedTools)+ Bash 三件套(SessionDisallowedTools
+		// 据 allowBash=false 并入)—— 执行器端工具池硬移除;backend 门由 specDeny 同源二道防线补禁。
 		SessionOptions: &agent.CreateSessionOptions{
-			DisallowedTools: agentbridge.SessionDisallowedTools(nil, false),
+			DisallowedTools: agentbridge.SessionDisallowedTools(smartSearchDisallowedTools, false),
+			// 每个 smart_search 会话加载检索策略 skill(--add-dir /smart-search-add):查询拆解 / 引文滚雪球 /
+			// 作者枢纽 / 覆盖度自检。系统提示管纪律边界,skill 补检索手艺。独立目录,只有本 feature 会话装。
+			AddDirs: []string{smartSearchSkillAddDir()},
 		},
 		// 配额检查 + 提问统计 + slog 用量 收口到 agentbridge.StandardHooks(三 feature 共用)。
 		PreUserMessage:    pre,
 		OnMessageComplete: onComplete,
+		// SS#2:有界透支预算 —— hub 每轮盖章,执行器让 agent 自我配速 + 到界优雅收尾。
+		BudgetProvider: budgetProvider,
 	}
 }

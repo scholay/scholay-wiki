@@ -23,7 +23,8 @@ export type PrismServerMessage =
   | { type: 'content_delta'; text?: string; toolInput?: string }
   | { type: 'tool_use_complete'; toolName: string; toolUseId: string; input: unknown }
   | { type: 'tool_result'; toolUseId: string; content: unknown; isError: boolean }
-  | { type: 'message_complete' }
+  // aborted=true(V3-4.4-2,hub 盖章):本轮转发过 stop —— 半截稿不 autoApply,走确认门。
+  | { type: 'message_complete'; aborted?: boolean }
   | AgentErrorFrame
   | { type: 'thinking'; text: string }
   | { type: 'status'; state: 'idle' | 'thinking' | 'tool_executing' | 'streaming' | 'permission_pending'; verb?: string }

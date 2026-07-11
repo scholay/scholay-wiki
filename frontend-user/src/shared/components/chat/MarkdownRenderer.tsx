@@ -154,6 +154,16 @@ const components = {
     </blockquote>
   ),
   hr: () => <hr className="my-3 border-border-soft" />,
+  // 未覆写时 react-markdown 出裸 <img> 按原始像素宽渲染,窄屏横向溢出破版。
+  // 强制 max-w-full h-auto 收口(claw 回答 / 审稿报告 / news body_md 内嵌图共用)。
+  img: (props: { src?: string; alt?: string }) => (
+    <img
+      src={props.src}
+      alt={props.alt ?? ''}
+      loading="lazy"
+      className="my-2 h-auto max-w-full rounded-md"
+    />
+  ),
   table: (props: { children?: ReactNode }) => (
     <div className="mb-2.5 last:mb-0 overflow-x-auto">
       <table className="w-full text-xs border-collapse">{props.children}</table>

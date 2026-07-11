@@ -54,10 +54,19 @@ func (h *Handler) ServeToolSitemapIndex(c *gin.Context) {
 
 // ServeToolSitemap GET /sitemap-tools-{N}.xml
 func (h *Handler) ServeToolSitemap(c *gin.Context) {
-	raw := strings.TrimSuffix(c.Param("page"), ".xml")
-	page, _ := strconv.Atoi(raw)
-	if page < 1 {
-		page = 1
+	// ⚠️ 路由 `/sitemap-tools-:page.xml` 是 gin/httprouter 不支持的 mid-segment placeholder:
+	// c.Param("page") 实际拿不到值(为空),必须从原始 URL 路径救回页码。
+	// (seo 包的 ServePaperSitemap 早有此救回,tools 处漏了 → 每个分片号都退化成 page=1、
+	//  OFFSET 恒为 0、所有分片返回同一批前 2 万条,超页也不 404。这里补齐。)
+	pageStr := strings.TrimSuffix(c.Param("page"), ".xml")
+	if pageStr == "" {
+		p := strings.TrimPrefix(c.Request.URL.Path, "/sitemap-tools-")
+		pageStr = strings.TrimSuffix(p, ".xml")
+	}
+	page, perr := strconv.Atoi(pageStr)
+	if perr != nil || page < 1 {
+		c.String(http.StatusNotFound, "not found")
+		return
 	}
 	rows, err := h.svc.SitemapPage(page, toolSitemapPageSize)
 	if err != nil {

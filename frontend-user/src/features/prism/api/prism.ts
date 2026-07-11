@@ -41,6 +41,8 @@ export interface PrismCompile {
   log_excerpt?: string;
   error_summary?: string;
   duration_ms: number;
+  page_count?: number; // 编译产物页数(mirrors prism.Compile.PageCount;V4-A3 页数对照)
+  overfull_count?: number;
   created_at: string;
 }
 
@@ -396,6 +398,9 @@ export function useTemplates() {
 export interface Conformance {
   template: string;
   page_limit?: number;
+  page_count?: number;
+  word_limit?: number; // V4-A3:模板正文词数上限(0/缺省=不限)
+  word_count?: number; // 当前正文词数(与后端同一口径,header 字数展示同源)
   missing: string[];
 }
 
@@ -406,6 +411,83 @@ export function useConformance(projectId?: number) {
     staleTime: 0,
     queryFn: async () =>
       (await http.get<{ data: { conformance: Conformance } }>(`/user/prism/projects/${projectId}/conformance`)).data.data.conformance,
+  });
+}
+
+// ── 写作画像(Phase 3)—— base 文体/学科人格。mirrors backend/internal/prism/writing_persona.go WritingProfile ──
+export interface WritingProfile {
+  base_slug: string;
+  genre: string;
+  source: string; // default | planner | user
+  needs_refine: boolean;
+}
+export interface PersonaEntry {
+  slug: string;
+  name: string;
+  kind: string; // genre | discipline
+  description: string;
+  scene?: string; // 适用场景一句(V4 UI:右栏图形化详情)
+  traits?: string[]; // 特质短 chip
+  skeleton?: string[]; // 写作骨架流程(阶段序列 → 流程图)
+  sample?: string; // 成稿味道示例句
+}
+
+/** 当前写作画像 + 可选人格花名册(picker 用)。staleTime:0(改后即取最新)。 */
+export function useWritingProfile(projectId?: number) {
+  return useQuery({
+    queryKey: ['prism', 'writing-profile', projectId],
+    enabled: !!projectId,
+    staleTime: 0,
+    queryFn: async () =>
+      (await http.get<{ data: { profile: WritingProfile; personas: PersonaEntry[] } }>(`/user/prism/projects/${projectId}/writing-profile`)).data.data,
+  });
+}
+
+/** 用户覆盖 base 人格(+可选 genre)。 */
+export function useSetWritingProfile(projectId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: { base_slug: string; genre?: string }) =>
+      (await http.put<{ data: { profile: WritingProfile } }>(`/user/prism/projects/${projectId}/writing-profile`, body)).data.data.profile,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['prism', 'writing-profile', projectId] }),
+  });
+}
+
+/** planner 一次性轮:自动识别文体/学科并落库。 */
+export function usePlanWritingProfile(projectId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () =>
+      (await http.post<{ data: { profile: WritingProfile } }>(`/user/prism/projects/${projectId}/writing-profile/plan`, {})).data.data.profile,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['prism', 'writing-profile', projectId] }),
+  });
+}
+
+// ── 质量回执(Phase 4)—— 当前结构体的确定性双轨检查。mirrors backend/internal/prism/quality.go QualityReceipt ──
+export interface QualityReceipt {
+  dangling_cites: string[]; // [@key] 无对应 references.bib 条目
+  undefined_xrefs: string[]; // [@fig:x] 等无对应打锚
+  missing_front: string[]; // 前置信息缺失
+  long_sentences: number; // 超长句数(craft 软提示)
+  // V2-A4 生成侧确定性信号(零 schema):
+  stub_sections: string[]; // 骨架节(heading 下无实质正文)
+  todo_count: number; // %TODO / [TODO 哨兵数
+  abbrev_issues: string[]; // 缩写一致性(未定义/定义前使用)
+  // V4-R1(数字地基 + 一致性扫描):
+  abstract_num_issues?: string[]; // 摘要数字在正文无出处(对账)
+  term_variants?: string[]; // 术语变体并用(dataset/data set)
+  style_issues?: string[]; // 数字/统计风格不一致(千分位/p 大小写/百分号空格)
+  issue_count: number; // A 轨硬问题总数
+}
+
+/** 当前结构体质量回执。staleTime:0(每次 apply 后失效重取)。 */
+export function useQualityCheck(projectId?: number) {
+  return useQuery({
+    queryKey: ['prism', 'quality', projectId],
+    enabled: !!projectId,
+    staleTime: 0,
+    queryFn: async () =>
+      (await http.get<{ data: { quality: QualityReceipt } }>(`/user/prism/projects/${projectId}/quality-check`)).data.data.quality,
   });
 }
 
@@ -473,36 +555,129 @@ export interface PrismPendingFile {
   new_struct?: DocStruct;
 }
 
-/** 每轮 AI 前铺源(DB current → 会话 cwd)。 */
-export async function prepareRound(projectId: number): Promise<void> {
-  await http.post(`/user/prism/projects/${projectId}/round/prepare`, {});
+/** 每轮 AI 前铺源(DB current → 会话 cwd)。返回轮次世代号 epoch(V3-4.4-1;apply 时带回校验)。
+ *  AI 回答进行中后端返回 409(ErrRoundBusy)。 */
+export async function prepareRound(projectId: number): Promise<string> {
+  const { data } = await http.post<{ data: { ok: boolean; epoch?: string } }>(
+    `/user/prism/projects/${projectId}/round/prepare`,
+    {},
+  );
+  return data.data?.epoch ?? '';
 }
 
-/** 检出 cwd 相对 DB 的待应用改动(重入时拉它渲染待应用 diff)。 */
-export async function fetchPendingRound(projectId: number): Promise<PrismPendingFile[]> {
-  const { data } = await http.get<{ data: { files: PrismPendingFile[] } }>(
+/** 检出 cwd 相对 DB 的待应用改动(重入时拉它渲染待应用 diff)。
+ *  响应携带服务端当前 epoch:重入 tab 没调过 prepare,据此才能 commit 而不必 409。 */
+export async function fetchPendingRound(
+  projectId: number,
+): Promise<{ files: PrismPendingFile[]; epoch: string }> {
+  const { data } = await http.get<{ data: { files: PrismPendingFile[]; epoch?: string } }>(
     `/user/prism/projects/${projectId}/round/pending`,
   );
-  return data.data?.files ?? [];
+  return { files: data.data?.files ?? [], epoch: data.data?.epoch ?? '' };
 }
 
 /** 应用:固化 cwd 改动进 DB,返回固化文件数。
  * instruction:本轮干净指令,透传给后端 → 首次成功固化后用它自动给项目起名(best-effort)。
- * overrides(可选,per-file/per-hunk):relPath→最终正文(用户在 diff 编辑器里逐块取舍后的结果)。
- *   非空时后端只固化列出的文件、用其正文(用户选择性接受);为空则固化 cwd 全部改动。 */
+ * overrides(可选,per-file/per-hunk):relPath→最终正文。⚠️ 仅 legacy 轨生效;struct 轨整轮 parse
+ *   合并、per-hunk 取舍不进入合并(V3-4.2-4 勘误,别再当它是门)。
+ * epoch:prepare/pending 拿到的轮次世代号;与服务端当前不符后端返回 409(基线已被其它窗口推进)。 */
 export async function applyRound(
   projectId: number,
   instruction?: string,
   overrides?: Record<string, string>,
+  epoch?: string,
 ): Promise<number> {
   const body: Record<string, unknown> = {};
   if (instruction) body.instruction = instruction;
   if (overrides && Object.keys(overrides).length > 0) body.files = overrides;
+  if (epoch) body.epoch = epoch;
   const { data } = await http.post<{ data: { applied: number } }>(
     `/user/prism/projects/${projectId}/round/apply`,
     body,
   );
   return data.data?.applied ?? 0;
+}
+
+/** 手动重开会话(V3-4.6-1):真源在 DB,只丢对话连续性(文稿/画像/文献库不丢)。回答中返回 409。 */
+export async function resetProjectSession(projectId: number): Promise<void> {
+  await http.post(`/user/prism/projects/${projectId}/session/reset`, {});
+}
+
+/** 快通道评议(V3-4.5-1):对选中文字做只读点评(explain/critique/reviewer),结果只进 popover,不碰正文。 */
+export async function inlineReview(projectId: number, mode: string, selection: string): Promise<string> {
+  const { data } = await http.post<{ data: { text: string } }>(
+    `/user/prism/projects/${projectId}/inline-review`,
+    { mode, selection },
+  );
+  return data.data?.text ?? '';
+}
+
+// ── 修改意见回应工作流(V4-③)。mirrors backend/internal/prism/revision.go RevisionItem ──
+export interface RevisionItem {
+  id: number;
+  project_id: number;
+  seq: number;
+  reviewer: string;
+  quote: string;
+  interpretation: string;
+  severity: string; // major | minor
+  action: string; // concede_revise | clarify | refute | partial | needs_author_input
+  anchor: string;
+  status: string; // pending | applied | rejected | needs_author_input
+  response: string;
+}
+
+export async function parseRevision(projectId: number, text: string): Promise<RevisionItem[]> {
+  const { data } = await http.post<{ data: { items: RevisionItem[] } }>(
+    `/user/prism/projects/${projectId}/revision/parse`,
+    { text },
+  );
+  return data.data?.items ?? [];
+}
+
+export async function listRevision(projectId: number): Promise<RevisionItem[]> {
+  const { data } = await http.get<{ data: { items: RevisionItem[] } }>(`/user/prism/projects/${projectId}/revision`);
+  return data.data?.items ?? [];
+}
+
+export async function updateRevisionItem(
+  projectId: number,
+  itemId: number,
+  patch: Partial<Pick<RevisionItem, 'action' | 'status' | 'response' | 'interpretation' | 'severity' | 'reviewer' | 'anchor'>>,
+): Promise<RevisionItem | undefined> {
+  const { data } = await http.patch<{ data: { item: RevisionItem } }>(
+    `/user/prism/projects/${projectId}/revision/${itemId}`,
+    patch,
+  );
+  return data.data?.item;
+}
+
+export async function fetchRevisionLetter(projectId: number): Promise<string> {
+  const { data } = await http.get<{ data: { letter: string } }>(`/user/prism/projects/${projectId}/revision/letter`);
+  return data.data?.letter ?? '';
+}
+
+// ── 数字成员校验(V4-⑤ 轻版)+ 术语表(V4-④)──
+export interface NumberCheck {
+  number: string;
+  found: boolean;
+}
+
+export async function verifyNumbers(projectId: number, source: string, text: string): Promise<NumberCheck[]> {
+  const { data } = await http.post<{ data: { checks: NumberCheck[] } }>(
+    `/user/prism/projects/${projectId}/verify-numbers`,
+    { source, text },
+  );
+  return data.data?.checks ?? [];
+}
+
+export async function getTerminology(projectId: number): Promise<string> {
+  const { data } = await http.get<{ data: { terminology: string } }>(`/user/prism/projects/${projectId}/terminology`);
+  return data.data?.terminology ?? '';
+}
+
+export async function putTerminology(projectId: number, terminology: string): Promise<void> {
+  await http.put(`/user/prism/projects/${projectId}/terminology`, { terminology });
 }
 
 /** 丢弃:重铺源还原 cwd(抹掉 agent 本轮未应用改动)。 */

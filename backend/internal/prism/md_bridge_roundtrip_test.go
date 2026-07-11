@@ -167,6 +167,106 @@ func TestRoundTrip_LabelsAndTableCaption(t *testing.T) {
 	}
 }
 
+// #8:纯文本里的 markdown 元字符(_ $ ** [@)必须转义往返,不被误解析成斜体/公式/粗体/引用。
+func TestRoundTrip_TextMetacharsEscaped(t *testing.T) {
+	raw := "见 a_b_c 与 $x=1$ 以及 **注意** 还有 [@ref] 字面"
+	body := []Block{{Type: BlockParagraph, Inlines: []Inline{{T: InlineText, V: raw}}}}
+	md := bodyToEditorMarkdown(body)
+	_, _, _, got := parseEditorMarkdown("---\ntitle: t\n---\n\n" + md)
+	if len(got) != 1 || got[0].Type != BlockParagraph {
+		t.Fatalf("want 1 paragraph, got %+v", got)
+	}
+	// 元字符被转义 → 还原成单一 text inline(没有被拆成 italic/math/bold/cite)。
+	if len(got[0].Inlines) != 1 || got[0].Inlines[0].T != InlineText {
+		t.Fatalf("元字符被误解析成行内标记: %+v", got[0].Inlines)
+	}
+	if got[0].Inlines[0].V != raw {
+		t.Fatalf("文本往返不一致:\n want %q\n got  %q", raw, got[0].Inlines[0].V)
+	}
+}
+
+// #8:真正的行内标记(与被转义的字面字符共存)仍要正确解析。
+func TestRoundTrip_RealInlineMarksStillParse(t *testing.T) {
+	body := []Block{{Type: BlockParagraph, Inlines: []Inline{
+		{T: InlineText, V: "字面 a_b 后接 "},
+		{T: InlineBold, V: "粗体"},
+		{T: InlineText, V: " 与 "},
+		{T: InlineMath, Latex: "y^2"},
+		{T: InlineText, V: " 见 "},
+		{T: InlineCite, Key: "smith2020"},
+	}}}
+	md := bodyToEditorMarkdown(body)
+	_, _, _, got := parseEditorMarkdown("---\ntitle: t\n---\n\n" + md)
+	if len(got) != 1 {
+		t.Fatalf("want 1 block, got %d", len(got))
+	}
+	var hasBold, hasMath, hasCite bool
+	var text strings.Builder
+	for _, in := range got[0].Inlines {
+		switch in.T {
+		case InlineBold:
+			hasBold = in.V == "粗体"
+		case InlineMath:
+			hasMath = in.Latex == "y^2"
+		case InlineCite:
+			hasCite = in.Key == "smith2020"
+		case InlineText:
+			text.WriteString(in.V)
+		}
+	}
+	if !hasBold || !hasMath || !hasCite {
+		t.Fatalf("真行内标记解析丢失: %+v", got[0].Inlines)
+	}
+	if !strings.Contains(text.String(), "a_b") {
+		t.Fatalf("字面下划线被吞: %q", text.String())
+	}
+}
+
+// V3-4.2-3:公式锚 $$..$$ {#eq:x} 往返 + [@eq:x] 交叉引用不丢。
+func TestRoundTrip_DisplayMathAnchor(t *testing.T) {
+	body := []Block{
+		{Type: BlockDisplayMath, Latex: "E = mc^2", Label: "eq:emc"},
+		{Type: BlockParagraph, Inlines: []Inline{{T: InlineText, V: "由式 "}, {T: InlineCite, Key: "eq:emc"}, {T: InlineText, V: " 可得。"}}},
+		{Type: BlockDisplayMath, Latex: "F = ma"}, // 无锚
+	}
+	md := bodyToEditorMarkdown(body)
+	_, _, _, got := parseEditorMarkdown("---\ntitle: t\n---\n\n" + md)
+	var withLabel, without *Block
+	for i := range got {
+		if got[i].Type == BlockDisplayMath {
+			if got[i].Label == "eq:emc" {
+				withLabel = &got[i]
+			} else if got[i].Label == "" && got[i].Latex == "F = ma" {
+				without = &got[i]
+			}
+		}
+	}
+	if withLabel == nil || withLabel.Latex != "E = mc^2" {
+		t.Fatalf("display math anchor 往返丢: %+v", got)
+	}
+	if without == nil {
+		t.Fatalf("无锚公式被误加 label 或丢失: %+v", got)
+	}
+}
+
+// V3-4.2-3:非 LaTeX 围栏(```python)包 verbatim 安全化,不原样注入(否则编译必炸);且往返幂等。
+func TestRoundTrip_NonLatexFenceVerbatim(t *testing.T) {
+	md := "---\ntitle: t\n---\n\n```python\nprint('hi')\n```\n"
+	_, _, _, got := parseEditorMarkdown(md)
+	if len(got) != 1 || got[0].Type != BlockOpaque {
+		t.Fatalf("want 1 opaque block, got %+v", got)
+	}
+	if !strings.Contains(got[0].RawLatex, "\\begin{verbatim}") || !strings.Contains(got[0].RawLatex, "print('hi')") {
+		t.Fatalf("non-latex fence 未被 verbatim 包裹: %q", got[0].RawLatex)
+	}
+	// 幂等:序列化再解析,verbatim 包裹保持不变(不再二次包裹)。
+	md2 := bodyToEditorMarkdown(got)
+	_, _, _, got2 := parseEditorMarkdown("---\ntitle: t\n---\n\n" + md2)
+	if got2[0].RawLatex != got[0].RawLatex {
+		t.Fatalf("非幂等:\n 1st %q\n 2nd %q", got[0].RawLatex, got2[0].RawLatex)
+	}
+}
+
 // figureLine 解析单点
 func TestFigureLine(t *testing.T) {
 	cases := []struct{ in, asset, cap string; ok bool }{

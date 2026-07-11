@@ -1,0 +1,173 @@
+import { syncTabBar } from '../../services/tabbar'
+import { toastError } from '../../lib/feedback'
+import { isLoggedIn, clearToken, getUser } from '../../store/auth'
+import { getProfile, UserProfile, bindMiniProgramPhone } from '../../services/api/user'
+import { getBillingOverview, BillingOverview, previewRedeemCode, redeemCode, resetQuota } from '../../services/api/membership'
+import { ensureLogin } from '../../services/auth'
+import { ICONS } from '../../lib/icons'
+
+const TIER_LABEL: Record<string, string> = { free: 'Free', pro: 'Pro', max: 'Max' }
+
+Page({
+  data: {
+    ic: ICONS,
+    loggedIn: false,
+    loading: false,
+    error: '',
+    profile: null as UserProfile | null,
+    overview: null as BillingOverview | null,
+    tierLabel: '',
+    remaining: 0,
+  },
+
+  onShow() {
+    syncTabBar(3)
+    this.refresh()
+  },
+
+  refresh() {
+    const loggedIn = isLoggedIn()
+    this.setData({ loggedIn })
+    if (!loggedIn) {
+      this.setData({ profile: null, overview: null })
+      return
+    }
+    this.loadProfile()
+  },
+
+  async loadProfile() {
+    // 秒开:先用本地缓存的登录用户画头部(SWR);有缓存就不显骨架、无缓存才显。
+    const cached = getUser<UserProfile>()
+    if (cached) this.setData({ profile: cached })
+    this.setData({ loading: !cached, error: '' })
+    // 资料 + 会员资产互不依赖 → 并行;会员资产失败不影响资料展示。
+    const [profileR, overviewR] = await Promise.allSettled([getProfile(), getBillingOverview()])
+    if (profileR.status === 'rejected') {
+      if (cached) this.setData({ loading: false }) // 有缓存则保留旧内容不落错误态
+      else this.setData({ error: (profileR.reason as Error)?.message || '加载失败', loading: false })
+      return
+    }
+    const patch: WechatMiniprogram.IAnyObject = { profile: profileR.value, loading: false }
+    if (overviewR.status === 'fulfilled') {
+      const o = overviewR.value
+      patch.overview = o
+      patch.tierLabel = TIER_LABEL[o.tier] || o.tier
+      patch.remaining = o.token.unlimited ? 100 : Math.max(0, 100 - (o.token.percent || 0))
+    }
+    this.setData(patch)
+  },
+
+  async onTapLogin() {
+    try {
+      await ensureLogin()
+      this.refresh()
+    } catch (e) {
+      wx.showModal({ title: '登录失败', content: (e as Error).message || '登录失败', showCancel: false })
+    }
+  },
+  goLogin() {
+    wx.navigateTo({ url: '/pages/login/login' }) // 返回后 onShow refresh 会拿到登录态
+  },
+
+  onLogout() {
+    wx.showModal({
+      title: '退出登录',
+      content: '确定退出当前账号?',
+      success: (res) => {
+        if (res.confirm) {
+          clearToken()
+          this.setData({ loggedIn: false, profile: null, overview: null })
+        }
+      },
+    })
+  },
+
+  goLibrary() {
+    wx.navigateTo({ url: '/pages/library/library' })
+  },
+  goBilling() {
+    wx.navigateTo({ url: '/pages/billing/billing' })
+  },
+  goProfileEdit() {
+    wx.navigateTo({ url: '/pages/profile-edit/profile-edit' })
+  },
+
+  async onGetPhone(e: WechatMiniprogram.ButtonGetPhoneNumber) {
+    const code = e.detail.code
+    if (!code) return // 用户取消授权
+    wx.showLoading({ title: '绑定中' })
+    try {
+      await bindMiniProgramPhone(code)
+      wx.hideLoading()
+      wx.showToast({ title: '已绑定', icon: 'success' })
+      this.loadProfile()
+    } catch (err) {
+      wx.hideLoading()
+      wx.showToast({ title: (err as Error).message || '绑定失败', icon: 'none' })
+    }
+  },
+
+  onRedeem() {
+    wx.showModal({
+      title: '兑换码',
+      editable: true,
+      placeholderText: '输入兑换码',
+      success: async (res) => {
+        if (!res.confirm) return
+        const code = (res.content || '').trim()
+        if (!code) return
+        wx.showLoading({ title: '校验中' })
+        let preview
+        try {
+          preview = await previewRedeemCode(code)
+        } catch (e) {
+          wx.hideLoading()
+          toastError(e, '兑换码无效')
+          return
+        }
+        wx.hideLoading()
+        const desc =
+          preview.grant_kind === 'tier'
+            ? '会员 ' + (preview.grant_tier || '') + ' ' + (preview.grant_days || 0) + ' 天'
+            : '经费 ' + (preview.grant_credits || 0) + (preview.credit_kind === 'perm' ? '(永久)' : '(临时)')
+        wx.showModal({
+          title: '确认兑换',
+          content: '将获得:' + desc,
+          success: async (r2) => {
+            if (!r2.confirm) return
+            try {
+              await redeemCode(code)
+              wx.showToast({ title: '兑换成功', icon: 'success' })
+              this.loadProfile()
+            } catch (e) {
+              toastError(e, '兑换失败')
+            }
+          },
+        })
+      },
+    })
+  },
+
+  onReset() {
+    const ov = this.data.overview
+    if (!ov) return
+    wx.showModal({
+      title: '重置今日额度',
+      content: '将消耗经费 ' + ov.reset_cost + ' 立即恢复今日额度,确定?',
+      success: async (r) => {
+        if (!r.confirm) return
+        try {
+          await resetQuota()
+          wx.showToast({ title: '已重置', icon: 'success' })
+          this.loadProfile()
+        } catch (e) {
+          toastError(e, '重置失败')
+        }
+      },
+    })
+  },
+
+  soon() {
+    wx.showToast({ title: '即将上线', icon: 'none' })
+  },
+})

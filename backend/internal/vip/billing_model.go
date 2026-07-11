@@ -92,6 +92,26 @@ func (c *BillingConfig) DailyCeiling(tier string) int64 {
 	}
 }
 
+// 有界透支带(SS#2):允许当日消耗越过 DailyCeiling 一个有界的量,越过后下一轮起点才硬拦。
+// = max(上限 × 15%, 20万 token) —— 地板 20万保证连 Free 也够 agent 完整收尾一轮。上限不限额(-1)时
+// 无透支概念,返回 0。00:00 日窗口重置时透支自然归零(不结转,与现有日重置一致)。
+const (
+	overdraftPct         = 0.15
+	overdraftFloorTokens = 200_000
+)
+
+// OverdraftTokens 返回某等级的每日透支带大小(token)。上限不限额 → 0。
+func (c *BillingConfig) OverdraftTokens(tier string) int64 {
+	ceiling := c.DailyCeiling(tier)
+	if ceiling <= 0 {
+		return 0
+	}
+	if pct := int64(float64(ceiling) * overdraftPct); pct > overdraftFloorTokens {
+		return pct
+	}
+	return overdraftFloorTokens
+}
+
 // GrantCreditsFor 返回某付费等级开通/续费时一次性赠送的(临时)经费数。
 func (c *BillingConfig) GrantCreditsFor(tier string) int {
 	switch tier {

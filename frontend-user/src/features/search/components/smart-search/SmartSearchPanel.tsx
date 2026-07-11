@@ -98,15 +98,17 @@ export function SmartSearchPanel() {
   const [input, setInput] = useState(() => searchParams.get('q')?.trim() ?? '');
   /** 按发送顺序排列的用户提问骨架; 长度 = 本会话生命周期内已发起的轮数 */
   const [pendingTurns, setPendingTurns] = useState<
-    { id: string; userText: string; paused?: boolean }[]
+    { id: string; userText: string; paused?: boolean; blocked?: boolean }[]
   >([]);
   /** 用户已点过 stop 但 agent 还没 emit terminal 事件 (busy 仍 true) → 锁住 stop 按钮
       避免重复触发。terminal 事件到达 → busy 自动翻 false → 这里下面 useEffect 重置回 false。 */
   const [stopping, setStopping] = useState(false);
+  /** 最近一次成功提交的问题原文 —— 命中额度被拦时用于回填输入框, 便于一键重发。 */
+  const lastSubmitTextRef = useRef<string>('');
 
   const {
     state, messages, send, reconnectAttempt, displacedReason, takeOver, resyncUserText,
-    peerMessage, busyRejected,
+    peerMessage, busyRejected, quotaExceeded,
   } = useSmartSearchSocket(sessionId);
 
   // 历史 turns: 只在 history 数据变化时重建一次。
@@ -153,6 +155,26 @@ export function SmartSearchPanel() {
     toast.error('正在回答中,请稍候再发');
   }, [busyRejected]);
 
+  // 命中每日额度:backend 在转发给 agent **之前**就拒了这条 user_message(quota_exceeded 帧不进
+  // messages),agent 永不对这轮 emit message_complete → 这条 pendingTurn 永远 complete=false →
+  // busy 永久为 true、composer 永久禁用、连 stop/reset 都救不了(评审 #1;claw/prism 早已修)。
+  // quotaExceeded 单调自增 → 把卡住的本轮标 blocked(busy 排除 blocked → composer 解锁),
+  // 并把原文回填输入框便于一键重发(不覆盖用户已敲的新内容)。用户已由全局额度弹窗知道原因。
+  const lastQuotaRef = useRef(0);
+  useEffect(() => {
+    if (quotaExceeded === 0 || quotaExceeded === lastQuotaRef.current) return;
+    lastQuotaRef.current = quotaExceeded;
+    setPendingTurns((prev) =>
+      prev.length > 0
+        ? prev.map((t, i) => (i === prev.length - 1 ? { ...t, blocked: true } : t))
+        : prev,
+    );
+    setStopping(false);
+    const text = lastSubmitTextRef.current;
+    if (text) setInput((cur) => (cur.trim() ? cur : text));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quotaExceeded]);
+
   // pendingTurns 增多 (用户发了新一轮 / 续流补轮) → 立刻滚到底, 让新一轮进入视野。
   // effect 在 DOM 提交后跑, 新 turn 已在 DOM 里, scrollToBottom 落到真实新底部。
   const prevPendingLenRef = useRef(pendingTurns.length);
@@ -197,7 +219,9 @@ export function SmartSearchPanel() {
   );
 
   const lastTurn = turns[turns.length - 1];
-  const busy = !!lastTurn && !lastTurn.complete;
+  // blocked 轮(命中额度、未发送)停在末尾 complete=false, 但 agent 永不对它 emit terminal
+  // 事件 —— 不排除会把 composer 永久禁用(评审 #1)。故 busy 判定必须排除 blocked 轮。
+  const busy = !!lastTurn && !lastTurn.complete && !lastTurn.blocked;
 
   const ready = state === 'open';
 
@@ -235,9 +259,11 @@ export function SmartSearchPanel() {
     const text = input.trim();
     if (!text) return;
     trackEvent('search_submit', { len: text.length });
+    lastSubmitTextRef.current = text;
     setInput('');
     setPendingTurns((prev) => [
-      ...prev,
+      // 重发时先清掉上一条「命中额度未发送」的 blocked 轮, 避免它和新一轮并存显得杂乱。
+      ...prev.filter((t) => !t.blocked),
       // crypto.randomUUID 防同毫秒连发撞 id (Date.now 兜底虽有 prev.length, 但 UUID 更稳)
       { id: `turn-${crypto.randomUUID()}`, userText: text },
     ]);

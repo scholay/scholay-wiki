@@ -1,0 +1,54 @@
+.pe {
+  padding: 32rpx;
+}
+.state {
+  padding: 140rpx 0;
+  text-align: center;
+  color: var(--text-weak);
+  font-size: 28rpx;
+}
+.field {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx 28rpx;
+  margin-bottom: 24rpx;
+}
+.label {
+  display: block;
+  font-size: 26rpx;
+  color: var(--text-weak);
+  margin-bottom: 12rpx;
+}
+.input {
+  font-size: 30rpx;
+  height: 56rpx;
+}
+.textarea {
+  width: 100%;
+  min-height: 120rpx;
+  font-size: 30rpx;
+  line-height: 1.6;
+  box-sizing: border-box;
+}
+.save {
+  margin-top: 20rpx;
+  background: #cc2222;
+  color: #fff;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  line-height: 88rpx;
+}
+.link-row {
+  margin-top: 32rpx;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 30rpx 28rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 32rpx;
+}
+.link-row .arrow {
+  color: var(--text-weak);
+  font-size: 34rpx;
+}

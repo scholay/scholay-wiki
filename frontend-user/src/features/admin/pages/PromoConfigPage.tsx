@@ -125,7 +125,7 @@ export function PromoConfigPage() {
         {/* 实时预览 */}
         <div className="lg:sticky lg:top-4 lg:self-start">
           <Label className="mb-2 block text-2xs tracking-[0.08em] text-faint">实时预览</Label>
-          <div className="w-80 overflow-hidden rounded-lg border border-border shadow-sm">
+          <div className="w-full max-w-80 overflow-hidden rounded-lg border border-border shadow-sm lg:w-80">
             <div className="relative bg-gradient-to-br from-brand-red via-brand-red to-brand-amber px-6 pb-6 pt-8 text-center text-white">
               <span className="absolute left-4 top-4 inline-flex items-center gap-1 rounded-pill bg-white/20 px-2 py-0.5 text-2xs font-medium backdrop-blur-sm">
                 <Sparkles className="size-3" /> 限时

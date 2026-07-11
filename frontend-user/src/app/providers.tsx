@@ -62,21 +62,25 @@ function CollectFolderPickerGate() {
   );
 }
 
+// 小程序 web-view 内嵌页(/mp/*):纯展示上下文(图表查看等),营销弹窗/额度通知/
+// feed 预取全部豁免 —— 匿名 webview 里弹「限时领会员」会直接盖住内容。
+const isEmbedPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/mp/');
+
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider delayDuration={150}>
         {/* 全局兜底:清除 Radix 遗留在 body 上的 pointer-events:none(全站点击失灵元凶,见组件注释) */}
         <BodyPointerLockGuard />
-        <FeedPrefetcher />
+        {!isEmbedPage && <FeedPrefetcher />}
         {children}
         <Toaster position="top-right" richColors closeButton />
         {/* 全局命令式确认 dialog 渲染槽 —— 任意位置 useConfirm() 都能弹 */}
         <ConfirmDialogRoot />
         {/* 全局额度通知器:6010 → 重置弹窗;用量过半/将尽 → toastr */}
-        <QuotaNotifier />
+        {!isEmbedPage && <QuotaNotifier />}
         {/* 限时领取会员推广弹窗:首屏自动 / 额度用尽 / 导航按钮触发(开关关闭时不渲染) */}
-        <PromoModal />
+        {!isEmbedPage && <PromoModal />}
         {/* 全局「收藏到文献集」选择器(任意收藏按钮 openCollect 触发)——
             懒加载:仅在 store 有 collect request 时才拉取该 chunk(连带 framer 移出首屏)。 */}
         <CollectFolderPickerGate />

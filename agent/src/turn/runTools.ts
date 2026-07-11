@@ -72,6 +72,7 @@ async function runOne(tu: ToolUse, input: TurnInput, sink: EventSink): Promise<A
         workDir: input.workDir,
         allowBash: input.allowBash,
         net: input.net,
+        addDirs: input.addDirs ?? [], // Skill 工具据此定位 guides/<name>/SKILL.md
       });
       content = r.content;
       isError = r.isError;

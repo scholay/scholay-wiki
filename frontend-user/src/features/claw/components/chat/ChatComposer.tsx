@@ -1,20 +1,16 @@
 import {
   forwardRef,
-  useEffect,
   useImperativeHandle,
   useRef,
   useState,
   type ClipboardEvent,
   type DragEvent,
-  type FormEvent,
-  type KeyboardEvent,
 } from 'react';
-import { ArrowUp, FileText, Library, Loader2, Paperclip, Square, Upload, X } from 'lucide-react';
+import { FileText, Library, Loader2, Paperclip, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/shared/lib/utils';
 import { trackEvent } from '@/shared/lib/track';
 import { AttachmentLightbox } from '@/shared/components/chat/AttachmentLightbox';
-import { ContextMeter, ReferenceChipList } from '@/shared/components/chat';
+import { Composer, ReferenceChipList, type ComposerHandle } from '@/shared/components/chat';
 import type { TurnReference } from '@/shared/types/chat';
 import { useUploadClawAttachment, useReferenceClawLibrary } from '../../api/session';
 import type { AttachmentDTO, ReferenceItemDTO } from '../../api/types';
@@ -90,7 +86,6 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
   requireAuth,
   onRequireAuth,
 }, ref) {
-  const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<AttachmentDTO[]>([]);
   // 「引用文献」选中的论文/文件夹(后端已物化进会话 cwd,这里持 chip 元数据)。
   const [references, setReferences] = useState<ReferenceItemDTO[]>([]);
@@ -104,50 +99,16 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
   const dragDepth = useRef(0);
   const upload = useUploadClawAttachment();
   const fileRef = useRef<HTMLInputElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const composerRef = useRef<ComposerHandle>(null);
 
-  // 自适应高度:单行起、随内容增高到上限(现代 AI 输入框观感)。input 变化(打字 / prefill /
-  // 提交后清空)后统一重算 —— 用 effect 而非 onChange,prefill 这类程序化改值也能正确收/放高。
-  useEffect(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
-  }, [input]);
+  // 暴露给 hero: 点示例提问 → 填入输入框并聚焦(转发统一 Composer 的句柄)。
+  useImperativeHandle(ref, () => ({ prefill: (text: string) => composerRef.current?.prefill(text) }), []);
 
-  // 暴露给 hero: 点示例提问 → 填入输入框并聚焦(光标置末尾)。
-  useImperativeHandle(
-    ref,
-    () => ({
-      prefill: (text: string) => {
-        setInput(text);
-        // 同步 focus(仍在点示例卡片的手势调用栈里)→ 移动端软键盘随之弹出;
-        // 选区移到末尾等下一帧 value 渲染后再设(此刻 el.value 才是新文本)。
-        textareaRef.current?.focus();
-        requestAnimationFrame(() => {
-          const el = textareaRef.current;
-          if (!el) return;
-          el.setSelectionRange(el.value.length, el.value.length);
-        });
-      },
-    }),
-    [],
-  );
-
-  const submit = (e?: FormEvent) => {
-    e?.preventDefault();
-    if (busy) return; // busy 时表单提交走 stop 按钮路径, 这里不走 submit
-    // 未登录:不发送, 直接弹登录注册 (符合"输入内容就跳出登录")。
-    if (requireAuth) {
-      onRequireAuth?.();
-      return;
-    }
-    const text = input.trim();
+  // 统一 Composer 的 onSend(requireAuth 分支由 core 处理成 onRequireAuth,这里只管真发送)。
+  const handleSend = (text: string) => {
     if (!text && attachments.length === 0 && references.length === 0) return;
-    if (disabled || upload.isPending) return;
     trackEvent('claw_query', { len: text.length, files: attachments.length, refs: references.length });
     onSubmit(text, attachments, references);
-    setInput('');
     // 提交后释放 compose 预览的 object URL —— 已发送气泡的缩略图改用后端代理 URL
     // (ClawPage 用 clawSessionFileUrl 拼, 与历史回放一致), 不留 blob 泄漏。
     attachments.forEach((a) => a.previewUrl && URL.revokeObjectURL(a.previewUrl));
@@ -187,13 +148,6 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
     paperCount: r.paperCount,
     hasPdf: r.hasPdf,
   });
-
-  const handleKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-      e.preventDefault();
-      submit();
-    }
-  };
 
   // 统一的文件入口 — 文件选择器 / 拖拽 / 粘贴 三条路都汇到这里。
   const addFiles = async (files: File[]) => {
@@ -278,72 +232,10 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
   };
 
   return (
-    <form
-      onSubmit={submit}
-      onDragEnter={handleDragEnter}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-      className="relative flex flex-col gap-2 rounded-2xl border border-border-strong bg-background p-2.5 shadow-sm focus-within:border-foreground"
-    >
-      {/* 拖拽蒙层 — 拖文件悬停在输入框上时显示 */}
-      {dragOver && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-brand-green bg-background/90 text-sm font-medium text-brand-green">
-          <Upload className="size-4" />
-          松开上传图片 / 文件
-        </div>
-      )}
-
-      {/* 附件预览行 — 图片缩略图 + 文件卡片 (参考 GPT / Claude) */}
-      {(attachments.length > 0 || upload.isPending) && (
-        <div className="flex flex-wrap gap-2">
-          {attachments.map((a, i) => (
-            <AttachmentPreview
-              key={i}
-              attachment={a}
-              onRemove={() => {
-                if (a.previewUrl) URL.revokeObjectURL(a.previewUrl);
-                setAttachments((prev) => prev.filter((_, idx) => idx !== i));
-              }}
-              onEnlarge={
-                a.type === 'image' && a.previewUrl
-                  ? () => setLightbox({ src: a.previewUrl!, alt: a.name })
-                  : undefined
-              }
-            />
-          ))}
-          {upload.isPending && (
-            <div className="inline-flex h-14 items-center gap-1.5 rounded-md border border-dashed border-border bg-surface-1 px-3 text-xs text-faint">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              上传中…
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 引用文献 chip 行 —— 区别于附件的特有「引用」样式 */}
-      {(references.length > 0 || reference.isPending) && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <ReferenceChipList
-            references={references.map(refToTurn)}
-            onRemove={(i) => setReferences((prev) => prev.filter((_, idx) => idx !== i))}
-          />
-          {reference.isPending && (
-            <span className="inline-flex items-center gap-1 text-2xs text-faint">
-              <Loader2 className="size-3 animate-spin" />
-              引用中…
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* 文本框 */}
-      <textarea
-        ref={textareaRef}
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        onKeyDown={handleKey}
-        onPaste={handlePaste}
+    <>
+      <Composer
+        ref={composerRef}
+        onSend={handleSend}
         placeholder={
           requireAuth
             ? '登录后即可开始对话 · 在此输入会弹出登录注册'
@@ -351,114 +243,116 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
               ? '正在等待 AI 回答…'
               : '问问智能助手 · Enter 发送 / Shift+Enter 换行 · 可直接粘贴/拖入图片文件'
         }
-        rows={1}
         disabled={disabled}
-        className="max-h-[140px] w-full resize-none overflow-y-auto border-0 bg-transparent px-1 py-1 text-base leading-relaxed text-foreground placeholder:text-faint focus:outline-none focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+        sendReady={!upload.isPending}
+        canSendEmpty={attachments.length > 0 || references.length > 0}
+        busy={busy}
+        stopping={stopping}
+        onStop={onStop}
+        requireAuth={requireAuth}
+        onRequireAuth={onRequireAuth}
+        context={context}
+        maxHeightPx={140}
+        onPaste={handlePaste}
+        containerProps={{
+          onDragEnter: handleDragEnter,
+          onDragOver: handleDragOver,
+          onDragLeave: handleDragLeave,
+          onDrop: handleDrop,
+        }}
+        overlay={
+          dragOver ? (
+            <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-brand-green bg-background/90 text-sm font-medium text-brand-green">
+              <Upload className="size-4" />
+              松开上传图片 / 文件
+            </div>
+          ) : undefined
+        }
+        topSlot={
+          <>
+            {/* 附件预览行 — 图片缩略图 + 文件卡片 (参考 GPT / Claude) */}
+            {(attachments.length > 0 || upload.isPending) && (
+              <div className="flex flex-wrap gap-2">
+                {attachments.map((a, i) => (
+                  <AttachmentPreview
+                    key={i}
+                    attachment={a}
+                    onRemove={() => {
+                      if (a.previewUrl) URL.revokeObjectURL(a.previewUrl);
+                      setAttachments((prev) => prev.filter((_, idx) => idx !== i));
+                    }}
+                    onEnlarge={
+                      a.type === 'image' && a.previewUrl
+                        ? () => setLightbox({ src: a.previewUrl!, alt: a.name })
+                        : undefined
+                    }
+                  />
+                ))}
+                {upload.isPending && (
+                  <div className="inline-flex h-14 items-center gap-1.5 rounded-md border border-dashed border-border bg-surface-1 px-3 text-xs text-faint">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    上传中…
+                  </div>
+                )}
+              </div>
+            )}
+            {/* 引用文献 chip 行 —— 区别于附件的特有「引用」样式 */}
+            {(references.length > 0 || reference.isPending) && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <ReferenceChipList
+                  references={references.map(refToTurn)}
+                  onRemove={(i) => setReferences((prev) => prev.filter((_, idx) => idx !== i))}
+                />
+                {reference.isPending && (
+                  <span className="inline-flex items-center gap-1 text-2xs text-faint">
+                    <Loader2 className="size-3 animate-spin" />
+                    引用中…
+                  </span>
+                )}
+              </div>
+            )}
+          </>
+        }
+        leftActions={
+          <>
+            <input
+              ref={fileRef}
+              type="file"
+              hidden
+              multiple
+              accept="image/*,.pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.odt,.ods,.rtf,.md,.markdown,.txt,.json,.csv,.tsv,.tex,.bib,.py,.js,.ts,.go"
+              onChange={(e) => {
+                void addFiles(Array.from(e.target.files ?? []));
+                e.target.value = ''; // 允许重复选同一个文件
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={disabled || upload.isPending}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-40"
+              title="上传图片 / PDF / 文本文件"
+            >
+              <Paperclip className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (requireAuth) {
+                  onRequireAuth?.();
+                  return;
+                }
+                setPickerOpen(true);
+              }}
+              disabled={disabled}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-40"
+              title="引用文献集里的文献"
+            >
+              <Library className="h-4 w-4" />
+            </button>
+          </>
+        }
       />
-
-      {/* 底部工具栏 */}
-      <div className="flex items-center gap-1">
-        <input
-          ref={fileRef}
-          type="file"
-          hidden
-          multiple
-          accept="image/*,.pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.odt,.ods,.rtf,.md,.markdown,.txt,.json,.csv,.tsv,.tex,.bib,.py,.js,.ts,.go"
-          onChange={(e) => {
-            void addFiles(Array.from(e.target.files ?? []));
-            e.target.value = ''; // 允许重复选同一个文件
-          }}
-        />
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          disabled={disabled || upload.isPending}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-40"
-          title="上传图片 / PDF / 文本文件"
-        >
-          <Paperclip className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            if (requireAuth) {
-              onRequireAuth?.();
-              return;
-            }
-            setPickerOpen(true);
-          }}
-          disabled={disabled}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-40"
-          title="引用文献集里的文献"
-        >
-          <Library className="h-4 w-4" />
-        </button>
-
-        {/* 占位撑开, 让上下文水位 + 发送按钮靠右。不再常驻文件大小提示 ——
-            大小限制只在用户真的上传超限文件时 toast (见 handleFiles)。 */}
-        <span className="flex-1" />
-
-        {/* 上下文水位 — footer 右侧, 紧贴发送按钮 (Claude / Cursor 同位)。
-            没有数据 (新会话还没问过话) 不显示, 避免空 0%。 */}
-        {context && context.totalTokens > 0 && (
-          <ContextMeter
-            totalTokens={context.totalTokens}
-            maxTokens={context.maxTokens}
-            percentage={context.percentage}
-            model={context.model}
-          />
-        )}
-
-        {/* 发送/停止 切换 — busy 时按钮换成方块停止图标, 直调 onStop 走 stop_generation 协议。
-            type=button 必要 — 留在 type=submit 会先触发 form onSubmit,
-            而 submit handler 看到 busy=true 又会直接 return 把停止动作吞掉。
-            stopping 中 spinner+disabled, 避免重复发 stop_generation。 */}
-        {busy ? (
-          <button
-            type="button"
-            onClick={onStop}
-            disabled={stopping || !onStop}
-            aria-label={stopping ? '正在停止' : '停止生成'}
-            title={stopping ? '正在停止…' : '停止当前回答'}
-            className={cn(
-              'inline-flex h-9 w-9 items-center justify-center rounded-md text-background transition-colors',
-              stopping
-                ? 'bg-foreground/60 cursor-wait'
-                : 'bg-foreground hover:bg-foreground/85',
-            )}
-          >
-            {stopping ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Square className="h-3 w-3 fill-current" strokeWidth={0} aria-hidden="true" />
-            )}
-          </button>
-        ) : (
-          <button
-            type="submit"
-            disabled={
-              // 未登录:只按"有没有输入"决定能否点 (无视 WS/disabled 态, 那是登录后才有的概念);
-              // 点了会走 submit → requireAuth → onRequireAuth 弹登录。
-              requireAuth
-                ? !input.trim() && attachments.length === 0
-                : disabled || upload.isPending || (!input.trim() && attachments.length === 0)
-            }
-            className={cn(
-              'inline-flex h-9 w-9 items-center justify-center rounded-md transition-colors',
-              'bg-foreground text-background hover:bg-foreground/90',
-              'disabled:bg-surface-2 disabled:text-faint',
-            )}
-            title="发送 (Enter)"
-          >
-            {/* 未登录不该转圈 (没有 WS 在连接) —— 显示普通发送箭头 */}
-            {disabled && !upload.isPending && !requireAuth ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <ArrowUp className="h-4 w-4" strokeWidth={2.5} />
-            )}
-          </button>
-        )}
-      </div>
 
       {/* 附件放大预览 */}
       <AttachmentLightbox
@@ -474,7 +368,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
         onConfirm={handleReferenceConfirm}
         busy={reference.isPending}
       />
-    </form>
+    </>
   );
 });
 

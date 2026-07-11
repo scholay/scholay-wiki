@@ -84,7 +84,7 @@ export function FeatureToolWebhooksPage() {
       title="Webhook 同步"
       description="工具 增/改/删 时推送给下游 (discourse 等) 同步 · HMAC-SHA256 签名"
       actions={
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline" size="sm"><Link to="/admin/tools"><ArrowLeft className="size-3.5" />返回列表</Link></Button>
           <Button size="sm" onClick={() => setMode({ kind: 'create' })}><Plus className="size-3.5" />新建 webhook</Button>
         </div>
@@ -171,12 +171,12 @@ function DeliveriesDialog({ id, onClose }: { id: number | null; onClose: () => v
           {(data ?? []).length === 0 && <p className="text-sm text-faint">还没有投递记录</p>}
           {(data ?? []).map((d) => (
             <div key={d.id} className="flex items-center justify-between gap-2 rounded-md border border-border-soft px-2.5 py-1.5 text-xs">
-              <span className="flex items-center gap-2">
+              <span className="flex min-w-0 items-center gap-2">
                 <Badge variant={d.status === 'success' ? 'success' : 'destructive'}>{d.status === 'success' ? '成功' : '失败'}</Badge>
-                <span className="text-subtle">{d.event}</span>
-                {d.http_status ? <span className="text-faint">HTTP {d.http_status}</span> : null}
+                <span className="truncate text-subtle">{d.event}</span>
+                {d.http_status ? <span className="shrink-0 text-faint">HTTP {d.http_status}</span> : null}
               </span>
-              <span className="text-2xs text-faint">{d.created_at?.slice(0, 19).replace('T', ' ')}</span>
+              <span className="shrink-0 text-2xs text-faint">{d.created_at?.slice(0, 19).replace('T', ' ')}</span>
             </div>
           ))}
         </div>

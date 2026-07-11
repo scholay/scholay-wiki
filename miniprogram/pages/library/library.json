@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "我的文献集",
+  "enablePullDownRefresh": true,
+  "onReachBottomDistance": 100,
+  "usingComponents": {}
+}

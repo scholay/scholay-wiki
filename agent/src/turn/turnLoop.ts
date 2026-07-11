@@ -25,6 +25,28 @@ const MAX_TOKENS = Number(process.env.EXECUTOR_MAX_TOKENS || 64000);
 // 业务每日额度是 user_message 前的前置闸,进入 turn 后无内层闸;此为该缺口的兜底。0 = 关闭。
 const MAX_TURN_TOKENS = Number(process.env.EXECUTOR_MAX_TURN_TOKENS || 5_000_000);
 
+// budgetDisclosure —— 有界透支预算(SS#2)的「软自控」披露:turn 开始时告诉模型本次大致预算,
+// 让它自我配速、接近用尽时主动交付最完整答案(Anthropic Task-Budgets 式)。
+// V3-4.1-1:披露含逐轮变化的数字,若放 system 会让**跨轮** system 前缀每轮变 → 打断上游隐式前缀缓存;
+// 故改为 append 到本轮 user 消息尾部(历史里冻结不回改,前缀跨轮 byte 稳定)。轮内仍只算一次。
+export function budgetDisclosure(tb?: { softRemaining: number; hardRemaining: number }): string {
+  if (!tb) return "";
+  if (tb.softRemaining <= 0) {
+    return "【预算提示】本次配额已接近用尽:请用尽量少的步骤、基于已有信息给出最完整的回答并尽快结束,不要再展开细枝末节。";
+  }
+  return `【预算提示】本次任务大约有 ${tb.softRemaining} token 的预算。请据此把握节奏:接近用尽时,基于已掌握的信息给出最完整的回答并结束,不要为细枝末节继续消耗。`;
+}
+// wind-down「硬但优雅」的收尾指令:到 hardRemaining 时去掉全部工具 + 注入本指令,
+// 模型只能出文本 → 自己写完最终答案后自然 end_turn → 正常 message_complete(非硬杀 socket)。
+const budgetWindDownDirective =
+  "【预算已用尽】现在起停止调用任何工具,基于目前已掌握的全部信息,直接给出最完整、可交付的最终回答,然后结束。";
+
+// langLine —— 语言纪律(静态串,保 prompt cache):中文平台默认中文;**思考过程(thinking)同样受约束**
+// (owner 反馈:thinking 时中时英观感割裂)。跟随用户语言与用户记忆里的语言偏好;代码/术语/文献题目保持原文。
+const langLine =
+  "语言:默认使用中文 —— 你的思考过程与最终回复都用中文书写。例外:用户以其它语言提问、明确要求其它语言、" +
+  "或其长期偏好(见上下文中的用户记忆)指明了语言时,跟随之。代码、命令、专业术语、文献标题与直接引语保持原文,不翻译。";
+
 // runTurn 返回本轮结束后的完整 messages[](含 assistant + tool_result),供 WS 层做会话续接。
 // 注:这是「会话内 history」的内存承载;耐久真源在后端事件溯源 journal(执行器跨重启无状态)。
 export async function runTurn(
@@ -41,13 +63,36 @@ export async function runTurn(
   const client = anthropicClientFromProvider();
   const tools = await buildTools(input);
   const messages: Anthropic.MessageParam[] = [...input.messages];
-  // system = 当前日期锚点 + 控制面 appendSystemPrompt(规则+记忆)+ per-feature skill/CLAUDE.md(H6)。
+  // system = 当前日期锚点 + 语言纪律 + 控制面 appendSystemPrompt(规则+记忆)+ per-feature skill/CLAUDE.md(H6)。
   // dateLine 放这里(而非 backend)是刻意的:此处是四个 feature 每轮必经的唯一 system 组装点
   // (peerreview 不走 appendSystemPrompt、prism 建会话绕过 buildCreateOptions,backend 注入必漏),
   // 且每轮现算 → 长寿会话跨天自动更新;天粒度 → prompt cache 每天最多 miss 一次(clock.ts 铁律)。
+  // langLine 同理放这里(owner 反馈:思考过程时中时英):静态串不破缓存,四个 feature 全覆盖。
   const skillCtx = loadAddDirContext(input.addDirs ?? []);
-  const system =
-    [buildDateLine(), input.appendSystemPrompt, skillCtx].filter((s) => s && s.trim()).join("\n\n") || undefined;
+  const baseSystem =
+    [buildDateLine(), langLine, input.appendSystemPrompt, skillCtx].filter((s) => s && s.trim()).join("\n\n");
+  // 有界透支预算(SS#2):披露一次(turn 开始)让模型据 soft 自我配速;越过 hard 时翻 windingDown →
+  // 去工具 + 收尾指令,让 agent 自己给最完整答案并 end_turn 结束(非硬杀)。system/tools 只在翻转时变一次,
+  // 不逐轮改 → 不破坏 prompt cache。peerreview 无 taskBudget → 全程 baseSystem + 全量 tools,行为完全不变。
+  const tb = input.taskBudget;
+  let windingDown = false;
+  let activeTools = tools;
+  // system 不含披露(跨轮 byte 稳定保前缀缓存);披露 append 到本轮 user 消息尾部(见 budgetDisclosure 注释)。
+  let system: string | undefined = baseSystem || undefined;
+  const disclosure = budgetDisclosure(tb);
+  if (disclosure && messages.length > 0) {
+    const last = messages[messages.length - 1];
+    if (last.role === "user") {
+      if (typeof last.content === "string") {
+        messages[messages.length - 1] = { role: "user", content: last.content + "\n\n" + disclosure };
+      } else if (Array.isArray(last.content)) {
+        messages[messages.length - 1] = {
+          role: "user",
+          content: [...last.content, { type: "text", text: disclosure }],
+        };
+      }
+    }
+  }
 
   // 计费(C1):逐轮累加每个 LLM call 的 usage → calls[];message_complete 带 usage(本轮合计)+ calls。
   // session_total(会话累计)由 WS 层(server/ws.ts)据会话内存累计补上,executor 无状态不自持有。
@@ -70,7 +115,11 @@ export async function runTurn(
         break;
       }
       if (MAX_TURN_TOKENS > 0) {
-        const spent = calls.reduce((n, c) => n + (c.input_tokens || 0) + (c.output_tokens || 0), 0);
+        // V3-4.1-5:与 wind-down 统一为 raw 口径(4 类全 1x),两闸不再各说各话。
+        const spent = calls.reduce(
+          (n, c) => n + (c.input_tokens || 0) + (c.output_tokens || 0) + (c.cache_read_tokens || 0) + (c.cache_creation_tokens || 0),
+          0,
+        );
         if (spent > MAX_TURN_TOKENS) {
           log.warn("turn token budget exceeded", { session_id: input.sessionId, spent, budget: MAX_TURN_TOKENS });
           sink.error("本轮处理量已达上限,已自动停止。请精简需求后重试。", "budget");
@@ -78,10 +127,26 @@ export async function runTurn(
           break;
         }
       }
+      // 有界透支自动收尾(SS#2):raw 口径(4 类全 1x)已花 >= hardRemaining → 翻 windingDown。
+      // 只翻一次:去掉全部工具 + 换成收尾指令,后续轮模型只能出文本 → 写完 end_turn 自然结束。
+      if (tb && !windingDown) {
+        const rawSpent = calls.reduce(
+          (n, c) => n + (c.input_tokens || 0) + (c.output_tokens || 0) + (c.cache_read_tokens || 0) + (c.cache_creation_tokens || 0),
+          0,
+        );
+        if (rawSpent >= tb.hardRemaining) {
+          windingDown = true;
+          activeTools = [];
+          system = [baseSystem, budgetWindDownDirective].filter((s) => s && s.trim()).join("\n\n") || undefined;
+          log.info("turn budget wind-down: agent-driven finalize", {
+            session_id: input.sessionId, raw_spent: rawSpent, hard_remaining: tb.hardRemaining,
+          });
+        }
+      }
       sink.frame({ type: "status", state: "thinking" });
 
       const stream = client.messages.stream(
-        { model, max_tokens: MAX_TOKENS, system, messages, tools: tools as unknown as Anthropic.ToolUnion[] },
+        { model, max_tokens: MAX_TOKENS, system, messages, tools: activeTools as unknown as Anthropic.ToolUnion[] },
         signal ? { signal } : undefined,
       );
       const assembler = new ToolUseAssembler();

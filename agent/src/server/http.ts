@@ -61,6 +61,42 @@ export async function handleHTTP(req: Request): Promise<Response> {
     return err(401, "unauthorized", "invalid or missing bearer token");
   }
 
+  // ── 数学公式渲染(TeX → PNG;小程序 rich-text 跑不了 KaTeX,后端代理到这)──
+  // 懒加载 MathJax/resvg-wasm:只在首次渲染时载入,不拖慢 agent 冷启动,也隔离加载失败。
+  if (path === "/render/math" && method === "POST") {
+    const body = (await req.json().catch(() => null)) as { tex?: string; display?: boolean } | null;
+    if (!body || typeof body.tex !== "string" || !body.tex.trim()) {
+      return err(400, "bad_request", "tex required");
+    }
+    try {
+      const { renderMath } = await import("../render/math.ts");
+      const out = await renderMath(body.tex, body.display !== false);
+      return json(out);
+    } catch (e) {
+      log.error("math render failed", { err: String((e as Error)?.message ?? e) });
+      return err(422, "render_failed", "failed to render formula");
+    }
+  }
+
+  // ── mermaid 图表渲染(headless Chromium → PNG;小程序无 DOM 跑不了 mermaid)──
+  // 解析失败回 422(前端回退成源码卡);渲染纯函数,后端 Redis 长缓存。
+  if (path === "/render/mermaid" && method === "POST") {
+    const body = (await req.json().catch(() => null)) as { code?: string } | null;
+    if (!body || typeof body.code !== "string" || !body.code.trim()) {
+      return err(400, "bad_request", "code required");
+    }
+    try {
+      const { renderMermaid } = await import("../render/mermaid.ts");
+      const out = await renderMermaid(body.code);
+      return json(out);
+    } catch (e) {
+      const status = (e as Error & { status?: number })?.status;
+      log.error("mermaid render failed", { err: String((e as Error)?.message ?? e) });
+      if (status === 422) return err(422, "render_failed", "invalid mermaid code");
+      return err(500, "render_failed", "failed to render diagram");
+    }
+  }
+
   // ── provider 管道(PushConfig 注入点)──
   if (path === "/api/providers" && method === "GET") {
     const { providers, activeId } = listProviders();

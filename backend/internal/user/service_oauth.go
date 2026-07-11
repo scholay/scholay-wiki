@@ -471,9 +471,19 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 	// New user - register
 	isNewUser = true
 
+	// username 有 uk_username 唯一键。小程序 jscode2session 不返回昵称 → nickname 为空,
+	// 直接拿空串当 username 会让第二个小程序用户撞唯一键、注册失败。空则生成随机用户名
+	// 占位(与手机号 / 其他 OAuth 自动注册口径一致:generateRandomUsername)。
+	uname := nickname
+	if uname == "" {
+		if generated, gerr := s.generateRandomUsername(); gerr == nil {
+			uname = generated
+		}
+	}
+
 	// Create user with WeChat info
 	user := &User{
-		Username:  &nickname,
+		Username:  &uname,
 		AvatarURL: &avatarURL,
 		Role:      "user",
 		Status:    1,

@@ -1,0 +1,55 @@
+<view wx:if="{{loading}}" class="sk-detail"><view class="skeleton sk-title-lg"></view><view class="sk-chips"><view class="skeleton sk-chip"></view><view class="skeleton sk-chip"></view><view class="skeleton sk-chip"></view></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w70"></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w45"></view></view>
+<view wx:elif="{{error}}" class="state error">{{error}}</view>
+
+<scroll-view wx:else scroll-y class="page detail">
+  <view class="ident-card">
+    <view class="logo-box" style="background:{{coverBg}}">
+      <text class="logo-initial">{{cover}}</text>
+      <image wx:if="{{tool.logo}}" class="logo-img" src="{{tool.logo}}" mode="aspectFit" />
+    </view>
+    <view class="ident-main">
+      <text class="tname">{{tool.name}}</text>
+      <text wx:if="{{tool.name_en}}" class="tname-en">{{tool.name_en}}</text>
+    </view>
+  </view>
+
+  <view class="badges">
+    <text wx:for="{{tags}}" wx:for-item="tg" wx:key="*this" class="badge">{{tg}}</text>
+  </view>
+  <text wx:if="{{tool.tagline}}" class="tagline">{{tool.tagline}}</text>
+
+  <view class="cta-row">
+    <button wx:if="{{officialUrl}}" class="btn primary" size="mini" bindtap="copyOfficial">复制官网链接</button>
+    <button wx:if="{{downloadUrl}}" class="btn" size="mini" bindtap="copyDownload">复制下载链接{{extractCode ? '(含提取码)' : ''}}</button>
+  </view>
+
+  <view wx:if="{{tool.description_md}}" class="section">
+    <text class="sec-title">介绍</text>
+    <text class="body">{{tool.description_md}}</text>
+  </view>
+
+  <view wx:if="{{tool.use_cases.length}}" class="section">
+    <text class="sec-title">使用场景</text>
+    <view wx:for="{{tool.use_cases}}" wx:for-item="uc" wx:key="title" class="uc">
+      <text class="uc-title">{{uc.title}}</text>
+      <text wx:if="{{uc.desc}}" class="body">{{uc.desc}}</text>
+    </view>
+  </view>
+
+  <view wx:if="{{tool.tutorials.length}}" class="section">
+    <text class="sec-title">教程与资源</text>
+    <view wx:for="{{tool.tutorials}}" wx:for-item="tu" wx:key="url" class="ref" data-url="{{tu.url}}" bindtap="copyTutorial">
+      <text class="ref-line link">{{tu.title}} · 复制链接</text>
+    </view>
+  </view>
+
+  <view wx:if="{{tool.faq.length}}" class="section">
+    <text class="sec-title">常见问题</text>
+    <view wx:for="{{tool.faq}}" wx:for-item="f" wx:key="q" class="uc">
+      <text class="uc-title">{{f.q}}</text>
+      <text class="body">{{f.a}}</text>
+    </view>
+  </view>
+
+  <text wx:if="{{tool.disclaimer}}" class="disclaimer">{{tool.disclaimer}}</text>
+</scroll-view>

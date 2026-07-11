@@ -6,6 +6,7 @@
 package config
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -28,6 +29,8 @@ import (
 const (
 	// indexHTMLCacheTTL is how long to cache the original index.html
 	indexHTMLCacheTTL = 5 * time.Minute
+	// paperOnMissTimeout 冷门论文 URL 现拉 minicod 的超时(M2)。爬虫请求可接受几秒,但必须有界。
+	paperOnMissTimeout = 3 * time.Second
 )
 
 // knownRoutePrefixes lists legitimate frontend route prefixes that should NOT be blocked,
@@ -167,20 +170,32 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 		rest := strings.TrimPrefix(requestPath, "/paper/")
 		if rest != "" {
 			parts := strings.Split(rest, "/")
+			var meta *seo.PaperSSRMeta
+			var err error
 			switch len(parts) {
 			case 1:
 				// legacy /paper/{slug}
-				if meta, err := h.paperSEOProvider.ResolveSlug(parts[0]); err == nil && meta != nil {
-					modifiedHTML = injectPaperSEOMeta(modifiedHTML, meta, requestPath)
-				}
+				meta, err = h.paperSEOProvider.ResolveSlug(parts[0])
 			case 2:
 				// canonical /paper/{source}/{paperId}
-				source, paperID := parts[0], parts[1]
-				if source != "" && paperID != "" {
-					if meta, err := h.paperSEOProvider.ResolveByPaperID(source, paperID); err == nil && meta != nil {
-						modifiedHTML = injectPaperSEOMeta(modifiedHTML, meta, requestPath)
+				if source, paperID := parts[0], parts[1]; source != "" && paperID != "" {
+					meta, err = h.paperSEOProvider.ResolveByPaperID(source, paperID)
+					// M2:seo 无行(冷门 URL)且注入了 enricher → 现拉一次 minicod 落库并渲染,
+					// 让首个爬虫命中即建索引(带超时;拉不到/超时回落下面的 noindex)。
+					if err == nil && meta == nil && h.paperEnricher != nil {
+						ctx, cancel := context.WithTimeout(c.Request.Context(), paperOnMissTimeout)
+						if m2, e2 := h.paperEnricher.EnrichPaperOnMiss(ctx, source, paperID); e2 == nil && m2 != nil {
+							meta = m2
+						}
+						cancel()
 					}
 				}
+			}
+			if meta != nil {
+				modifiedHTML = injectPaperSEOMeta(modifiedHTML, meta, requestPath)
+			} else if err == nil {
+				// 论文不存在(非 DB 错误)—— 失效/伪造 paperId 空间无界,打 noindex 阻止软 404 被收录
+				modifiedHTML = injectNoindex(modifiedHTML)
 			}
 		}
 	}
@@ -190,18 +205,29 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 		rest := strings.TrimPrefix(requestPath, "/author/")
 		if rest != "" {
 			parts := strings.Split(rest, "/")
+			var meta *seo.AuthorSSRMeta
+			var err error
 			switch len(parts) {
 			case 1:
-				if meta, err := h.authorSEOProvider.ResolveAuthorSlug(parts[0]); err == nil && meta != nil {
-					modifiedHTML = injectAuthorSEOMeta(modifiedHTML, meta, requestPath)
-				}
+				meta, err = h.authorSEOProvider.ResolveAuthorSlug(parts[0])
 			case 2:
-				source, authorID := parts[0], parts[1]
-				if source != "" && authorID != "" {
-					if meta, err := h.authorSEOProvider.ResolveByAuthorID(source, authorID); err == nil && meta != nil {
-						modifiedHTML = injectAuthorSEOMeta(modifiedHTML, meta, requestPath)
+				if source, authorID := parts[0], parts[1]; source != "" && authorID != "" {
+					meta, err = h.authorSEOProvider.ResolveByAuthorID(source, authorID)
+					// M2:seo 无行(冷门作者 URL)→ 现拉一次 minicod 落库并渲染。
+					if err == nil && meta == nil && h.authorEnricher != nil {
+						ctx, cancel := context.WithTimeout(c.Request.Context(), paperOnMissTimeout)
+						if m2, e2 := h.authorEnricher.EnrichAuthorOnMiss(ctx, source, authorID); e2 == nil && m2 != nil {
+							meta = m2
+						}
+						cancel()
 					}
 				}
+			}
+			if meta != nil {
+				modifiedHTML = injectAuthorSEOMeta(modifiedHTML, meta, requestPath)
+			} else if err == nil {
+				// 作者不存在(非 DB 错误)—— 失效/伪造 authorId 空间无界,打 noindex
+				modifiedHTML = injectNoindex(modifiedHTML)
 			}
 		}
 	}
@@ -212,10 +238,16 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 		rest := strings.TrimPrefix(requestPath, "/journal/")
 		if rest != "" {
 			idStr, _ := splitJournalPath(rest)
-			if id, err := strconv.ParseInt(idStr, 10, 64); err == nil && id > 0 {
+			if id, perr := strconv.ParseInt(idStr, 10, 64); perr == nil && id > 0 {
 				if meta, err := h.journalSEOProvider.ResolveByJournalID(id); err == nil && meta != nil {
 					modifiedHTML = injectJournalSEOMeta(modifiedHTML, meta, requestPath)
+				} else if err == nil {
+					// 期刊不存在(非 DB 错误)→ noindex
+					modifiedHTML = injectNoindex(modifiedHTML)
 				}
+			} else {
+				// journal id 非数字 / <=0 —— 非法期刊路径,软 404
+				modifiedHTML = injectNoindex(modifiedHTML)
 			}
 		}
 	}
@@ -226,6 +258,9 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 		if rest != "" && !strings.Contains(rest, "/") {
 			if meta, err := h.toolSEOProvider.ResolveToolBySlug(rest); err == nil && meta != nil {
 				modifiedHTML = injectToolSEOMeta(modifiedHTML, meta, requestPath)
+			} else if err == nil {
+				// 工具不存在(非 DB 错误)→ noindex,避免 /tools/<乱写> 成软 404
+				modifiedHTML = injectNoindex(modifiedHTML)
 			}
 		}
 	}
@@ -369,6 +404,14 @@ func buildPaperJSONLD(meta *seo.PaperSSRMeta, canonical string) string {
 		obj["identifier"] = map[string]any{"@type": "PropertyValue", "propertyID": "DOI", "value": meta.DOI}
 		obj["sameAs"] = "https://doi.org/" + meta.DOI
 	}
+	// GEO: 被引数作为 interactionStatistic(可量化权威度),供 AI 引擎引用。
+	if meta.CitationCount > 0 {
+		obj["interactionStatistic"] = map[string]any{
+			"@type":                "InteractionCounter",
+			"interactionType":      "https://schema.org/CiteAction",
+			"userInteractionCount": meta.CitationCount,
+		}
+	}
 	// GEO: 学科领域作为 about(主题实体),帮 AI 引擎把论文关联到正确学科。
 	if len(meta.FieldsOfStudy) > 0 {
 		about := make([]map[string]string, 0, len(meta.FieldsOfStudy))
@@ -417,12 +460,49 @@ func buildAuthorJSONLD(meta *seo.AuthorSSRMeta, canonical string) string {
 	if len(sameAs) > 0 {
 		person["sameAs"] = sameAs
 	}
-	return jsonLDScript(map[string]any{
+	// 学术指标作为机器可读 additionalProperty(论文数 / 总被引 / h-index)。schema.org 无标准
+	// 学者指标字段,用 PropertyValue 兜住 —— 主要给 AI 生成式引擎可引用的量化权威度(GEO)。
+	var props []map[string]any
+	if meta.PaperCount > 0 {
+		props = append(props, map[string]any{"@type": "PropertyValue", "name": "论文数", "value": meta.PaperCount})
+	}
+	if meta.CitationCount > 0 {
+		props = append(props, map[string]any{"@type": "PropertyValue", "name": "总被引", "value": meta.CitationCount})
+	}
+	if meta.HIndex != nil && *meta.HIndex > 0 {
+		props = append(props, map[string]any{"@type": "PropertyValue", "name": "h-index", "value": *meta.HIndex})
+	}
+	if len(props) > 0 {
+		person["additionalProperty"] = props
+	}
+	page := map[string]any{
 		"@context":   "https://schema.org",
 		"@type":      "ProfilePage",
 		"url":        canonical,
 		"mainEntity": person,
-	})
+	}
+	// 代表作作为 hasPart(ScholarlyArticle 列表),给 AI 引擎可引用的作者产出清单(GEO)。
+	if len(meta.Works) > 0 {
+		base := appconfig.CanonicalBaseURL()
+		parts := make([]map[string]any, 0, len(meta.Works))
+		for _, w := range meta.Works {
+			if w.Title == "" {
+				continue
+			}
+			art := map[string]any{"@type": "ScholarlyArticle", "name": w.Title}
+			if w.Source != "" && w.PaperID != "" {
+				art["url"] = base + "/paper/" + w.Source + "/" + w.PaperID
+			}
+			if w.Year > 0 {
+				art["datePublished"] = fmt.Sprintf("%d", w.Year)
+			}
+			parts = append(parts, art)
+		}
+		if len(parts) > 0 {
+			page["hasPart"] = parts
+		}
+	}
+	return jsonLDScript(page)
 }
 
 // buildJournalJSONLD —— Periodical(刊名/出版商/ISSN)
@@ -459,34 +539,57 @@ var (
 	ssrOgTitleRe = regexp.MustCompile(`(?is)<meta\s+property=["']og:title["'][^>]*>`)
 	ssrOgURLRe   = regexp.MustCompile(`(?is)<meta\s+property=["']og:url["'][^>]*>`)
 	ssrOgDescRe  = regexp.MustCompile(`(?is)<meta\s+property=["']og:description["'][^>]*>`)
+	ssrOgTypeRe  = regexp.MustCompile(`(?is)<meta\s+property=["']og:type["'][^>]*>`)
+	ssrOgImageRe = regexp.MustCompile(`(?is)<meta\s+property=["']og:image["'][^>]*>`)
+	// Twitter Card 壳里同样硬编码首页值,与 og:* 一并按页改写(否则 X / 偏好 twitter:* 的 AI 爬虫
+	// 对每个不同详情页都显示同一张首页卡)。
+	ssrTwTitleRe = regexp.MustCompile(`(?is)<meta\s+name=["']twitter:title["'][^>]*>`)
+	ssrTwDescRe  = regexp.MustCompile(`(?is)<meta\s+name=["']twitter:description["'][^>]*>`)
+	ssrTwImageRe = regexp.MustCompile(`(?is)<meta\s+name=["']twitter:image["'][^>]*>`)
+	// robots meta —— 实体路径解析不到实体时打 noindex,阻止无界失效/伪造 ID 形成软 404 重复面。
+	ssrRobotsRe = regexp.MustCompile(`(?is)<meta\s+name=["']robots["'][^>]*>`)
 )
 
-// injectOG 改写 og:title / og:url / og:description 为本页值(标签存在则替换,缺失则插在 </head> 前)。
-// title/desc 走 htmlAttrEscape 防属性注入;canonical 已是安全 URL。空值不动对应标签。
-func injectOG(html, ogTitle, ogURL, ogDesc string) string {
+// upsertHeadTag 若 re 命中则整段替换为 tag,否则把 tag 插在 </head> 前。
+// SSR 注入统一走它,消除各处「MatchString ? Replace : 插 </head>」重复。
+func upsertHeadTag(html string, re *regexp.Regexp, tag string) string {
+	if re.MatchString(html) {
+		return re.ReplaceAllString(html, tag)
+	}
+	return strings.Replace(html, "</head>", tag+"\n</head>", 1)
+}
+
+// injectNoindex 给「实体路径但实体不存在」的软 404 打 noindex,阻止无界的失效/伪造 ID
+// (来自外部 OpenAlex/Semantic Scholar 语料)被 Baidu / 无 JS 的 AI 爬虫当有效重复首页收录、
+// 浪费抓取预算。follow 保留让爬虫顺内链爬到真实页。
+// ⚠️ 只在 resolver 明确「未找到」(err==nil && meta==nil)时调用 —— DB 出错不打,避免误伤真实页;
+// 也不对真实但从未被访问过(seo 行未建)的冷门实体造成永久 de-index:一旦有人访问建行,
+// 下次爬取即拿到真实 meta 且无 noindex,恢复可收录。
+func injectNoindex(html string) string {
+	return upsertHeadTag(html, ssrRobotsRe, `<meta name="robots" content="noindex,follow">`)
+}
+
+// injectOG 改写 og:title / og:url / og:description / og:type 为本页值,并让 twitter:title /
+// twitter:description 镜像同值(标签存在则替换,缺失则插在 </head> 前)。
+// title/desc 走 htmlEscape 防属性注入;url 已是安全 URL。空值不动对应标签。
+// ogType: 详情/文章类页传 "article"(带 og:type 后 OG 消费方才知是文章而非落地页);
+//         列表/落地/枢纽页传 "website";空串则不写 og:type。
+func injectOG(html, ogTitle, ogURL, ogDesc, ogType string) string {
 	if ogTitle != "" {
-		tag := fmt.Sprintf(`<meta property="og:title" content="%s" />`, htmlEscape(ogTitle))
-		if ssrOgTitleRe.MatchString(html) {
-			html = ssrOgTitleRe.ReplaceAllString(html, tag)
-		} else {
-			html = strings.Replace(html, "</head>", tag+"\n</head>", 1)
-		}
+		esc := htmlEscape(ogTitle)
+		html = upsertHeadTag(html, ssrOgTitleRe, fmt.Sprintf(`<meta property="og:title" content="%s" />`, esc))
+		html = upsertHeadTag(html, ssrTwTitleRe, fmt.Sprintf(`<meta name="twitter:title" content="%s" />`, esc))
 	}
 	if ogURL != "" {
-		tag := fmt.Sprintf(`<meta property="og:url" content="%s" />`, htmlEscape(ogURL))
-		if ssrOgURLRe.MatchString(html) {
-			html = ssrOgURLRe.ReplaceAllString(html, tag)
-		} else {
-			html = strings.Replace(html, "</head>", tag+"\n</head>", 1)
-		}
+		html = upsertHeadTag(html, ssrOgURLRe, fmt.Sprintf(`<meta property="og:url" content="%s" />`, htmlEscape(ogURL)))
 	}
 	if ogDesc != "" {
-		tag := fmt.Sprintf(`<meta property="og:description" content="%s" />`, htmlEscape(ogDesc))
-		if ssrOgDescRe.MatchString(html) {
-			html = ssrOgDescRe.ReplaceAllString(html, tag)
-		} else {
-			html = strings.Replace(html, "</head>", tag+"\n</head>", 1)
-		}
+		esc := htmlEscape(ogDesc)
+		html = upsertHeadTag(html, ssrOgDescRe, fmt.Sprintf(`<meta property="og:description" content="%s" />`, esc))
+		html = upsertHeadTag(html, ssrTwDescRe, fmt.Sprintf(`<meta name="twitter:description" content="%s" />`, esc))
+	}
+	if ogType != "" {
+		html = upsertHeadTag(html, ssrOgTypeRe, fmt.Sprintf(`<meta property="og:type" content="%s" />`, htmlEscape(ogType)))
 	}
 	return html
 }
@@ -525,12 +628,17 @@ func injectPaperSEOMeta(html string, meta *seo.PaperSSRMeta, path string) string
 	}
 	seoTitle := fmt.Sprintf("%s - 论文详情%s | Scholay 学术搜索", truncate(title, 100), venueYear)
 
-	// 描述：摘要优先，其次 venue/year/DOI/作者
+	// 描述：摘要优先，其次 venue/year/DOI/作者(作者截前 3 + 等,避免多作者时描述溢出被 SERP 截断)
 	desc := meta.Abstract
 	if desc == "" {
 		var parts []string
 		if len(meta.Authors) > 0 {
-			parts = append(parts, "作者: "+strings.Join(meta.Authors[:minInt(len(meta.Authors), 5)], ", "))
+			n := minInt(len(meta.Authors), 3)
+			authorsSeg := strings.Join(meta.Authors[:n], ", ")
+			if len(meta.Authors) > n {
+				authorsSeg += " 等"
+			}
+			parts = append(parts, "作者: "+authorsSeg)
 		}
 		if meta.Venue != "" {
 			parts = append(parts, meta.Venue)
@@ -549,7 +657,8 @@ func injectPaperSEOMeta(html string, meta *seo.PaperSSRMeta, path string) string
 			desc = "在 Scholay 阅读这篇论文 — " + desc + "。AI 摘要、引文图谱、PDF 全文一键获取。"
 		}
 	}
-	desc = truncate(desc, 300)
+	// SERP 大约展示 ~155-160 字,统一收敛到 160,避免过长被截或多作者时忽长忽短。
+	desc = truncate(desc, 160)
 
 	// 1) 替换 <title>
 	titleRe := ssrTitleRe
@@ -585,8 +694,8 @@ func injectPaperSEOMeta(html string, meta *seo.PaperSSRMeta, path string) string
 		html = strings.Replace(html, "</head>", jsonLD+"\n</head>", 1)
 	}
 
-	// 3.6) 改写 Open Graph 为本页值(否则社媒分享塌缩到首页)
-	html = injectOG(html, seoTitle, canonical, desc)
+	// 3.6) 改写 Open Graph / Twitter 为本页值(否则社媒分享塌缩到首页),og:type=article
+	html = injectOG(html, seoTitle, canonical, desc, "article")
 
 	// 4) 注入 noscript 论文卡片（爬虫友好）
 	html = insertNoscriptBlock(html, buildPaperNoscriptCard(meta))
@@ -764,7 +873,7 @@ func injectAuthorSEOMeta(html string, meta *seo.AuthorSSRMeta, path string) stri
 		html = strings.Replace(html, "</head>", jsonLD+"\n</head>", 1)
 	}
 
-	html = injectOG(html, seoTitle, canonical, desc)
+	html = injectOG(html, seoTitle, canonical, desc, "profile")
 	html = insertNoscriptBlock(html, buildAuthorNoscriptCard(meta))
 
 	return html
@@ -830,11 +939,54 @@ func buildAuthorNoscriptCard(meta *seo.AuthorSSRMeta) string {
 		statHTML = fmt.Sprintf("<p %s>%s</p>", statStyle, strings.Join(statLines, " · "))
 	}
 
+	// 代表作:实质内容 + 内链到论文页(给论文页导权重,让爬虫顺爬),把「只有人名」的薄页补厚。
+	worksHTML := buildAuthorWorksHTML(meta.Works)
+
 	return fmt.Sprintf(`<article %s>
 <h1 %s>%s</h1>
 %s
 %s
-</article>`, baseStyle, headingStyle, name, metaHTML, statHTML)
+%s
+</article>`, baseStyle, headingStyle, name, metaHTML, statHTML, worksHTML)
+}
+
+// buildAuthorWorksHTML 渲染作者代表作列表(noscript);标题带内链到 canonical 论文页。
+func buildAuthorWorksHTML(works []seo.AuthorWork) string {
+	if len(works) == 0 {
+		return ""
+	}
+	subHeadStyle := `style="color: #ffffff; font-size: 1.1rem; margin: 16px 0 8px;"`
+	listStyle := `style="color: #bdbdbd; line-height: 1.8; padding-left: 20px;"`
+	var b strings.Builder
+	fmt.Fprintf(&b, "<h2 %s>代表论文</h2><ul %s>", subHeadStyle, listStyle)
+	for _, w := range works {
+		if w.Title == "" {
+			continue
+		}
+		label := htmlEscape(w.Title)
+		var suffix []string
+		if w.Year > 0 {
+			suffix = append(suffix, fmt.Sprintf("%d", w.Year))
+		}
+		if w.Venue != "" {
+			suffix = append(suffix, htmlEscape(w.Venue))
+		}
+		if w.CitationCount > 0 {
+			suffix = append(suffix, fmt.Sprintf("被引 %d", w.CitationCount))
+		}
+		if len(suffix) > 0 {
+			label += " (" + strings.Join(suffix, " · ") + ")"
+		}
+		// paperId 内部可能含 ':'(如 olx:W...),在 URL path 段里合法;htmlEscape 只处理属性注入字符。
+		if w.Source != "" && w.PaperID != "" {
+			href := "/paper/" + htmlEscape(w.Source) + "/" + htmlEscape(w.PaperID)
+			fmt.Fprintf(&b, `<li><a href="%s">%s</a></li>`, href, label)
+		} else {
+			fmt.Fprintf(&b, "<li>%s</li>", label)
+		}
+	}
+	b.WriteString("</ul>")
+	return b.String()
 }
 
 // injectJournalSEOMeta 期刊详情页 SEO 注入 (与 paper / author 同构)
@@ -915,7 +1067,7 @@ func injectJournalSEOMeta(html string, meta *seo.JournalSSRMeta, path string) st
 		html = strings.Replace(html, "</head>", jsonLD+"\n</head>", 1)
 	}
 
-	html = injectOG(html, seoTitle, canonical, desc)
+	html = injectOG(html, seoTitle, canonical, desc, "website")
 	html = insertNoscriptBlock(html, buildJournalNoscriptCard(meta))
 
 	return html
@@ -1054,7 +1206,7 @@ func injectToolSEOMeta(html string, meta *seo.ToolSSRMeta, path string) string {
 		html = strings.Replace(html, "</head>", jsonLD+"\n</head>", 1)
 	}
 
-	html = injectOG(html, seoTitle, canonical, desc)
+	html = injectOG(html, seoTitle, canonical, desc, "website")
 	html = insertNoscriptBlock(html, buildToolNoscriptCard(meta))
 	return html
 }
@@ -1293,6 +1445,37 @@ func injectRouteNoscript(html string, path string) string {
 // 前端 SPA 对所有路由回落同一份 index.html(首页通用 title),不注入则这些页全用首页标题,
 // 削弱 SERP 主题相关性。仅覆盖 map 内路径,实体页等不在内即 no-op。
 var staticPageSEO = map[string]struct{ title, desc string }{
+	// 首页:壳里已有 title/desc,但**无自指 canonical** → 变体(尾斜杠/参数/大小写)未归一。
+	// 纳入白名单补 canonical(=https://www.scholay.com/),title 与线上一致避免回归。
+	"/": {
+		"Scholay学术 - AI 驱动的学术搜索与研究平台 | 论文搜索 · AI 审稿 · 文献管理",
+		"Scholay 学术是 AI 驱动的一站式科研平台:覆盖 2 亿+ 论文的智能检索、AI 论文分析与审稿、期刊查询、文献集管理与 LaTeX 在线写作。",
+	},
+	// 落地 / 枢纽页:各自有独特 noscript 正文,但 title/desc/OG 仍是首页值、无 canonical(M4)。
+	"/about": {
+		"关于 Scholay — AI 驱动的学术搜索与科研工具平台 | Scholay 学术",
+		"了解 Scholay 学术:用 AI 让论文检索、分析、审稿与写作更高效的一站式科研平台,以及我们的使命与团队。",
+	},
+	"/features": {
+		"全部功能 — 智能搜索 · AI 审稿 · 智能写作 · 文献集 | Scholay 学术",
+		"Scholay 学术全部功能一览:智能论文搜索、AI 论文分析、AI 智能审稿、文献集管理、期刊查询与 LaTeX 在线写作。",
+	},
+	"/tools": {
+		"学术工具广场 — 科研软件与在线工具大全 | Scholay 学术",
+		"Scholay 学术工具广场:汇集编程语言、数据分析、文献管理、写作排版等科研常用软件与在线工具,按分类检索与对比。",
+	},
+	"/pricing": {
+		"会员与定价 — 免费额度 · Pro · Max | Scholay 学术",
+		"Scholay 学术会员方案与定价:免费额度、Pro 与 Max 各档 AI 用量与功能权益,按需选择,支持经费钱包。",
+	},
+	"/blog": {
+		"学术博客 — 科研方法 · AI 写作 · 检索技巧 | Scholay 学术",
+		"Scholay 学术博客:选题开题、文献检索、AI 辅助写作与学术伦理等科研方法长文,持续更新。",
+	},
+	"/resources": {
+		"学术资源中心 — 科研指南与工具合集 | Scholay 学术",
+		"Scholay 学术资源中心:学术写作、会议投稿、研究方法与 AI 科研工具等系统性指南与资源合集。",
+	},
 	"/search": {
 		"学术文献搜索 — 2 亿+ 论文检索 | Scholay 学术",
 		"Scholay 学术搜索覆盖 2 亿+ 学术论文,支持直接检索与 AI 智能检索、布尔运算符与精确短语,结果可按相关度、被引次数与发表时间排序。",
@@ -1360,7 +1543,7 @@ func injectArticleSEOMeta(html, kind, slug, path string) string {
 	if faqLD := a.BuildFAQJSONLD(); faqLD != "" {
 		html = strings.Replace(html, "</head>", faqLD+"\n</head>", 1)
 	}
-	html = injectOG(html, seoTitle, canonical, desc)
+	html = injectOG(html, seoTitle, canonical, desc, "article")
 	return html
 }
 
@@ -1380,7 +1563,7 @@ func (h *Handler) injectNewsSSR(html, path string) string {
 		if metas, err := h.newsSEOProvider.RecentNewsForSEO(50); err == nil && len(metas) > 0 {
 			html = insertNoscriptBlock(html, buildNewsListNoscript(metas))
 		}
-		html = injectOG(html, seoTitle, canonical, desc)
+		html = injectOG(html, seoTitle, canonical, desc, "website")
 		return html
 	}
 
@@ -1390,8 +1573,11 @@ func (h *Handler) injectNewsSSR(html, path string) string {
 		return html
 	}
 	meta, err := h.newsSEOProvider.ResolveNewsBySlug(slug)
-	if err != nil || meta == nil || meta.Title == "" {
-		return html
+	if err != nil {
+		return html // DB 错误,保守不动(不误伤)
+	}
+	if meta == nil || meta.Title == "" {
+		return injectNoindex(html) // 情报不存在 → 软 404 打 noindex
 	}
 	seoTitle := truncate(meta.Title, 100) + " | Scholay 学术情报"
 	desc := truncate(meta.Summary, 300)
@@ -1400,7 +1586,23 @@ func (h *Handler) injectNewsSSR(html, path string) string {
 	if jsonLD := buildNewsJSONLD(meta, canonical); jsonLD != "" {
 		html = strings.Replace(html, "</head>", jsonLD+"\n</head>", 1)
 	}
-	html = injectOG(html, seoTitle, canonical, desc)
+	html = injectOG(html, seoTitle, canonical, desc, "article")
+	// M6:情报是新闻,分发信号补齐 —— og:image/twitter:image 用文章真封面(否则塌成通用 logo),
+	// 加 article:published_time / modified_time 供 Discover / 社媒卡片。封面为空则保留壳默认图。
+	if meta.CoverImage != "" {
+		imgTag := fmt.Sprintf(`<meta property="og:image" content="%s" />`, htmlEscape(meta.CoverImage))
+		html = upsertHeadTag(html, ssrOgImageRe, imgTag)
+		twImgTag := fmt.Sprintf(`<meta name="twitter:image" content="%s" />`, htmlEscape(meta.CoverImage))
+		html = upsertHeadTag(html, ssrTwImageRe, twImgTag)
+	}
+	if meta.PublishedAt != "" {
+		tag := fmt.Sprintf(`<meta property="article:published_time" content="%s" />`, htmlEscape(meta.PublishedAt))
+		html = strings.Replace(html, "</head>", tag+"\n</head>", 1)
+	}
+	if meta.UpdatedAt != "" {
+		tag := fmt.Sprintf(`<meta property="article:modified_time" content="%s" />`, htmlEscape(meta.UpdatedAt))
+		html = strings.Replace(html, "</head>", tag+"\n</head>", 1)
+	}
 	html = insertNoscriptBlock(html, buildNewsNoscript(meta))
 	return html
 }
@@ -1546,14 +1748,11 @@ func injectStaticPageSEOMeta(html string, path string) string {
 	if ssrDescRe.MatchString(html) {
 		html = ssrDescRe.ReplaceAllString(html, fmt.Sprintf(`<meta name="description" content="%s">`, htmlEscape(meta.desc)))
 	}
-	// 自指 canonical(否则吃首页 canonical,被判重复页)
+	// 自指 canonical(否则吃首页 canonical,被判重复页)。首页 path="/" → canonical 带尾斜杠。
 	canonical := appconfig.CanonicalBaseURL() + path
-	canonTag := fmt.Sprintf(`<link rel="canonical" href="%s">`, htmlEscape(canonical))
-	if ssrCanonRe.MatchString(html) {
-		html = ssrCanonRe.ReplaceAllString(html, canonTag)
-	} else {
-		html = strings.Replace(html, "</head>", canonTag+"\n</head>", 1)
-	}
+	html = upsertHeadTag(html, ssrCanonRe, fmt.Sprintf(`<link rel="canonical" href="%s">`, htmlEscape(canonical)))
+	// OG / Twitter 也改成本页值(否则落地页社媒卡片全是首页);枢纽/落地页非文章,og:type=website。
+	html = injectOG(html, meta.title, canonical, meta.desc, "website")
 	return html
 }
 

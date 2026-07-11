@@ -26,7 +26,7 @@ export function SessionMonitorPage() {
       title="用户会话监控"
       description="内测期定位用户问题 —— 各功能下用户的 AI 会话 / 审稿数据(只读;对话渲染与用户端一致)"
       tabs={
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           {TABS.map((t) => (
             <Button
               key={t.value}

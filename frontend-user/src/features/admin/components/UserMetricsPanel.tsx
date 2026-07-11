@@ -24,7 +24,7 @@ import {
   YAxis,
 } from 'recharts';
 import { Skeleton } from '@/shared/ui/skeleton';
-import { buildDailyTrend, localDateKey } from '@/shared/lib/daily-trend';
+import { buildDailyTrend, localDateKey, withWeekday } from '@/shared/lib/daily-trend';
 import { compactAxis } from '@/shared/lib/chart-format';
 import { useUserMetrics } from '../api/user-metrics';
 
@@ -142,14 +142,14 @@ function ChartCard({
 }) {
   return (
     <div className="rounded-md border border-border bg-background p-4">
-      <div className="mb-3 flex items-start justify-between gap-2">
+      <div className="mb-2 flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="text-sm font-bold text-foreground">{title}</h3>
           {hint && <p className="mt-0.5 text-2xs text-faint">{hint}</p>}
         </div>
         <Icon className="size-3.5 shrink-0 text-faint" />
       </div>
-      <div className="h-56">{loading ? <Skeleton className="h-full w-full" /> : children}</div>
+      <div className="h-52">{loading ? <Skeleton className="h-full w-full" /> : children}</div>
     </div>
   );
 }
@@ -201,7 +201,7 @@ function RegistrationsAndActive({ reg, dau }: { reg: MetricsPoint[]; dau: Metric
   const { data: rows, isLive } = buildDailyTrend(merged, { valueKeys: ['reg', 'dau'] });
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <ComposedChart data={rows} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+      <ComposedChart data={rows} margin={{ top: 5, right: 4, left: 0, bottom: 0 }}>
         <defs>
           <linearGradient id="regGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={COLOR_GREEN} stopOpacity={0.35} />
@@ -224,7 +224,7 @@ function RegistrationsAndActive({ reg, dau }: { reg: MetricsPoint[]; dau: Metric
           tick={{ fontSize: 11, fill: AXIS_COLOR }}
           tickLine={false}
           axisLine={false}
-          width={40}
+          width={38}
         />
         <YAxis
           yAxisId="dau"
@@ -234,7 +234,7 @@ function RegistrationsAndActive({ reg, dau }: { reg: MetricsPoint[]; dau: Metric
           tick={{ fontSize: 11, fill: AXIS_COLOR }}
           tickLine={false}
           axisLine={false}
-          width={40}
+          width={38}
         />
         <Tooltip content={<DualMetricTooltip />} />
         <Legend
@@ -309,7 +309,7 @@ function DualMetricTooltip({
   if (!row) return null;
   return (
     <div style={tooltipStyle}>
-      <div style={tooltipLabelStyle}>{String(label ?? row.date)}</div>
+      <div style={tooltipLabelStyle}>{withWeekday(String(label ?? row.date), row.date)}</div>
       <div style={{ color: COLOR_GREEN }}>注册 {Number(row.reg ?? 0).toLocaleString()}</div>
       <div style={{ color: COLOR_AMBER }}>活跃 {Number(row.dau ?? 0).toLocaleString()}</div>
     </div>
@@ -420,7 +420,7 @@ function SourcesDonut({ data }: { data: Array<{ name: string; value: number }> }
 function HourlyBarChart({ data }: { data: Array<{ hour: number; value: number }> }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+      <BarChart data={data} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
         <XAxis
           dataKey="hour"
@@ -436,7 +436,7 @@ function HourlyBarChart({ data }: { data: Array<{ hour: number; value: number }>
           tick={{ fontSize: 11, fill: AXIS_COLOR }}
           tickLine={false}
           axisLine={false}
-          width={44}
+          width={38}
         />
         <Tooltip
           contentStyle={tooltipStyle}
@@ -461,7 +461,7 @@ function MAULine({ data }: { data: Array<{ date: string; value: number }> }) {
   });
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+      <LineChart data={rows} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
         <XAxis
           dataKey="date"
@@ -475,7 +475,7 @@ function MAULine({ data }: { data: Array<{ date: string; value: number }> }) {
           tick={{ fontSize: 11, fill: AXIS_COLOR }}
           tickLine={false}
           axisLine={false}
-          width={44}
+          width={38}
         />
         <Tooltip content={<MetricTooltip name="MAU" />} />
         <Line

@@ -29,10 +29,18 @@ import (
 // ReviewerChoice — 后端实际用于评分轮的一位审稿人 (slug + 从 SKILL.md 读出的人格)。
 type ReviewerChoice struct {
 	Slug      string
-	Name      string // SKILL.md frontmatter name (默认 = slug)
-	Domain    string // SKILL.md frontmatter domain (可空)
-	Persona   string // <<<SCORING_PERSONA>>> 段, 注入评分轮
-	WhyChosen string // 选择轮给的理由 (仅日志/审计)
+	Name      string       // SKILL.md frontmatter name (默认 = slug)
+	Domain    string       // SKILL.md frontmatter domain (可空)
+	Persona   string       // <<<SCORING_PERSONA>>> 段, 注入评分轮
+	Lenses    []LensModule // 叠加的审查视角(多技能组合):buildReviewerPrompt 拼在 Persona 之后、schema 之前
+	WhyChosen string       // 选择轮给的理由 (仅日志/审计)
+}
+
+// LensModule — 一个可叠加的「审查视角」(reviewer-lenses/lens-*/SKILL.md 的 <<<LENS>>> 段)。
+// 与 SCORING_PERSONA 不同:它是**附加、无身份、无输出格式**的聚焦清单,可复用于多个 base 人格。
+type LensModule struct {
+	Slug string
+	Body string // <<<LENS>>> 段正文
 }
 
 // SelectionOutput / SelectedReviewer — 选择轮 (reviewer-roster) 返回的 JSON 解析目标。
@@ -41,17 +49,35 @@ type SelectionOutput struct {
 }
 
 type SelectedReviewer struct {
-	Slug      string `json:"slug"`
-	WhyChosen string `json:"why_chosen"`
+	Slug      string   `json:"slug"`
+	Lenses    []string `json:"lenses,omitempty"` // 0-2 个 lens slug(可选,叠加审查视角)
+	WhyChosen string   `json:"why_chosen"`
 }
 
 const (
 	scoringPersonaStart = "<<<SCORING_PERSONA>>>"
 	scoringPersonaEnd   = "<<<END_SCORING_PERSONA>>>"
+	lensStart           = "<<<LENS>>>"
+	lensEnd             = "<<<END_LENS>>>"
 )
+
+// maxLensesPerReviewer —— 单个审稿人叠加 lens 数的**硬上限兜底**。实际叠几个由 agent(方法论编排)按需
+// 判断;这里只在 agent 失控多叠时兜底裁到此数,防人格稀释 / JSON 退化(见多技能组合设计护栏)。
+const maxLensesPerReviewer = 5
 
 // validReviewerSlug —— 防路径穿越 + 限定只读 rv-* 审稿人 skill。
 var validReviewerSlug = regexp.MustCompile(`^rv-[a-z0-9-]+$`).MatchString
+
+// validLensSlug —— 防路径穿越 + 限定只读 lens-* 视角 skill。
+var validLensSlug = regexp.MustCompile(`^lens-[a-z0-9-]+$`).MatchString
+
+// lensesDir —— backend 只读挂载的审查视角(lens)目录(docker-compose PEERREVIEW_LENSES_DIR)。
+func lensesDir() string {
+	if d := strings.TrimSpace(os.Getenv("PEERREVIEW_LENSES_DIR")); d != "" {
+		return d
+	}
+	return "/app/reviewer-lenses"
+}
 
 // reviewerSkillsDir —— backend 只读挂载的审稿人 skill 目录 (docker-compose PEERREVIEW_SKILLS_DIR)。
 func reviewerSkillsDir() string {
@@ -165,6 +191,92 @@ func loadReviewerPersona(slug string) (name, domain, persona string, ok bool) {
 	return name, domain, persona, true
 }
 
+// lensMenuEntry — 注入选择轮 prompt 的「可叠加视角」菜单项(从 frontmatter 读)。
+type lensMenuEntry struct {
+	Slug string
+	Name string
+	Desc string
+}
+
+// availableLenses —— 扫 PEERREVIEW_LENSES_DIR 下所有 lens-*/SKILL.md(含 <<<LENS>>> 段的才算),
+// 读 frontmatter(name/description)组成「可叠加视角菜单」注入选择轮。读不到目录 → nil(无 lens 可选)。
+func availableLenses() []lensMenuEntry {
+	dir := lensesDir()
+	ents, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var out []lensMenuEntry
+	for _, e := range ents {
+		if !e.IsDir() {
+			continue
+		}
+		slug := e.Name()
+		if !validLensSlug(slug) {
+			continue
+		}
+		data, rerr := os.ReadFile(filepath.Join(dir, slug, "SKILL.md")) // #nosec G304 — slug 白名单校验
+		if rerr != nil {
+			continue
+		}
+		text := string(data)
+		if !strings.Contains(text, lensStart) { // 只收真 lens skill
+			continue
+		}
+		name := frontmatterField(text, "name")
+		if name == "" {
+			name = slug
+		}
+		out = append(out, lensMenuEntry{Slug: slug, Name: name, Desc: frontmatterField(text, "description")})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Slug < out[j].Slug })
+	return out
+}
+
+// loadLensModule —— 按 slug 读 <lensesDir>/<slug>/SKILL.md, 抽 <<<LENS>>> 段。找不到/非法/空段 → ok=false。
+func loadLensModule(slug string) (LensModule, bool) {
+	if !validLensSlug(slug) {
+		return LensModule{}, false
+	}
+	data, err := os.ReadFile(filepath.Join(lensesDir(), slug, "SKILL.md")) // #nosec G304 — slug 经 validLensSlug 白名单
+	if err != nil {
+		return LensModule{}, false
+	}
+	body := strings.TrimSpace(sliceBetween(string(data), lensStart, lensEnd))
+	if body == "" {
+		return LensModule{}, false
+	}
+	return LensModule{Slug: slug, Body: body}, true
+}
+
+// resolveLenses —— 把选择轮给的 lens slug 列表解析成 LensModule:校验 + 去重 + 裁到 maxLensesPerReviewer +
+// 按 slug 升序(prompt-cache 友好的确定性顺序)。坏/缺的 lens 直接跳过(base 人格照常打分,永不 hard-fail)。
+func resolveLenses(slugs []string) []LensModule {
+	if len(slugs) == 0 {
+		return nil
+	}
+	out := make([]LensModule, 0, maxLensesPerReviewer)
+	seen := map[string]bool{}
+	for _, ls := range slugs {
+		ls = strings.TrimSpace(ls)
+		if ls == "" || seen[ls] {
+			continue
+		}
+		lm, ok := loadLensModule(ls)
+		if !ok {
+			slog.Warn("peerreview selected lens missing/invalid; skipping", "lens", ls)
+			continue
+		}
+		seen[ls] = true
+		out = append(out, lm)
+		if len(out) >= maxLensesPerReviewer {
+			break
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Slug < out[j].Slug })
+	return out
+}
+
 // sliceBetween — 取 a 与 b 之间的内容 (不含标记)。找不到返回空串。
 func sliceBetween(s, a, b string) string {
 	i := strings.Index(s, a)
@@ -231,7 +343,11 @@ func (s *Service) resolveReviewerChoices(submissionID uint64, reply string) []Re
 			continue
 		}
 		seen[slug] = true
-		out = append(out, ReviewerChoice{Slug: slug, Name: name, Domain: domain, Persona: persona, WhyChosen: r.WhyChosen})
+		// 多技能组合:选择轮为该审稿人挑的 0-2 个 lens → 校验+去重+裁≤2,拼在 Persona 之后(base + lens)。
+		out = append(out, ReviewerChoice{
+			Slug: slug, Name: name, Domain: domain, Persona: persona,
+			Lenses: resolveLenses(r.Lenses), WhyChosen: r.WhyChosen,
+		})
 		if len(out) == 3 {
 			break
 		}

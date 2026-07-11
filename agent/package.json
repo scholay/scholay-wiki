@@ -11,7 +11,10 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@minicod/mcp-server": "^0.3.0"
+    "@minicod/mcp-server": "^0.3.0",
+    "@resvg/resvg-wasm": "^2.6.2",
+    "mathjax-full": "^3.2.2",
+    "mermaid": "^11.4.1"
   },
   "devDependencies": {
     "@types/bun": "latest",

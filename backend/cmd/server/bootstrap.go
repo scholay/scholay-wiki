@@ -42,6 +42,7 @@ import (
 	"scholar-backend/internal/prism"
 	"scholar-backend/internal/promptregistry"
 	"scholar-backend/internal/seo"
+	"scholar-backend/internal/seoenrich"
 	"scholar-backend/internal/seosubmit"
 	"scholar-backend/internal/promo"
 	"scholar-backend/internal/smartsearch"
@@ -480,6 +481,17 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	featureToolHandler := featuretool.NewHandler(featureToolSvc, featureToolDisp)
 	// 功能大全工具详情页 /tools/{slug} SSR 元数据(匿名 SEO)
 	core.configHandler.SetToolSEOProvider(featureToolSvc)
+	// 主 sitemap 索引直接列出各工具分片 /sitemap-tools-N.xml(扁平化,避免索引套索引)
+	plat.seoHandler.SetToolSitemapProvider(featureToolSvc.SitemapPages)
+
+	// SEO 完整性回填(H1 论文摘要批量回填 + M2 冷门 URL 现拉落库)。
+	// 默认关闭 —— 设 SEO_ENRICH_ENABLED=true 才消耗 minicod 配额;关闭时冷门 URL 仍由 M1 打 noindex 兜底。
+	if os.Getenv("SEO_ENRICH_ENABLED") == "true" {
+		seoEnricher := seoenrich.New(aiB.minicodManager, plat.seoService, seoenrich.Config{Enabled: true})
+		core.configHandler.SetPaperEnricher(seoEnricher)  // M2 论文 on-miss
+		core.configHandler.SetAuthorEnricher(seoEnricher) // M2 作者 on-miss
+		safego.Go("seo-enrich-backfill", func() { seoEnricher.Start(context.Background()) })
+	}
 
 	// 智能写作 (Prism) handler —— 提前构造以注入功能使用统计录入器(同 peerReview/claw)。
 	// 项目自动起名已移到 agent 容器(agent 用前端带的 titleSeed 生成标题经 session_title_updated 帧回传,
@@ -494,6 +506,9 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 		prismFeature.AgentClient(),
 	)
 	prism.SetTitleSink(prismService) // agent 回传标题落库的反查入口(见 handleAgentTitle)
+	prism.SetProfileSink(prismService) // 写作画像 provider(Phase 2):hub seed 按 sessionID 注入 base 人格
+	prism.SetInlineReviewFn(aiB.aiService.ReviewText) // 快通道评议(V3-4.5-1):选区级只读点评走 ai ModelLow
+	prismService.StartBackgroundGC()  // 编译产物 GC(评审 #7):回收旧 prism_compiles 行 + pdf/log MinIO 对象
 	prismHandler := prism.NewHandler(prismService)
 	prismHandler.SetUsageStatRecorder(plat.usageStatService)
 

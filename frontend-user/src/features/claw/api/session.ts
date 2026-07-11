@@ -574,6 +574,9 @@ export function setBlockedMessage(sessionId: string, msg: BlockedMessage) {
   map[sessionId] = {
     text: msg.text,
     attachments: msg.attachments.map((a) => ({ ...a, previewUrl: undefined })),
+    // 引用文献必须一并持久化:否则重发时引用块为空,agent 不再看 references/、当没引用过一样回答,
+    // 绿 chip 也消失(评审 claw-HIGH)。ReferenceItemDTO 是纯元数据、无本地 blob,可直接持久化。
+    references: msg.references,
   };
   writeBlockedMap(map);
 }

@@ -9,11 +9,40 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 var allowedImageExt = map[string]bool{".png": true, ".jpg": true, ".jpeg": true, ".pdf": true}
+
+// structWriteMu —— 每项目 struct 写**串行化**(评审 #1/#14)。所有对某项目结构体的 read-modify-write
+// (SaveStruct / UploadAsset / AddCite / SetJournalTemplate / RestoreStructVersion / applyStructRound)
+// 在同一 projectID 上串行,消除「用户整档 autosave 撞 AI 轮/传图/加引用」的静默 last-writer-wins 丢更新,
+// 以及 SaveStructVersion 读 MAX(version_no)→INSERT 的重复版本号竞态。单实例假设(与 agent hub 一致);
+// 多实例需 DB 级 CAS(base_version_id 已具备记录基线的位置)。
+var structWriteMu = newKeyedMutex()
+
+type keyedMutex struct {
+	mu sync.Mutex
+	m  map[uint]*sync.Mutex
+}
+
+func newKeyedMutex() *keyedMutex { return &keyedMutex{m: map[uint]*sync.Mutex{}} }
+
+// lock 取某 key 的锁,返回解锁函数(defer 调用)。每项目一把,一把 *sync.Mutex 极小,长驻不清理。
+func (k *keyedMutex) lock(id uint) func() {
+	k.mu.Lock()
+	mu, ok := k.m[id]
+	if !ok {
+		mu = &sync.Mutex{}
+		k.m[id] = mu
+	}
+	k.mu.Unlock()
+	mu.Lock()
+	return mu.Unlock
+}
 
 // CloneToStruct 逃生口:从旧(legacy)项目新建一个 struct 项目,旧正文**整块**塞进一个 OpaqueBlock
 // (非有损自动解析 —— 见 REPORT.md Part III §3.6/§3.8:任意 LaTeX→结构体 2–54% 成功率,绝不自动拆)。
@@ -93,6 +122,9 @@ func (s *Service) UploadAsset(ctx context.Context, projectID uint, filename stri
 		}
 	}
 	// 更新结构体:登记资产 + 末尾插 figure 块(用户可再让 agent 移动位置)。
+	// 取每项目写锁:整段 GetStruct→改→SaveStructVersion 串行,防与 autosave/AI 轮丢更新(评审 #1)。
+	unlock := structWriteMu.lock(projectID)
+	defer unlock()
 	js, err := s.GetStruct(projectID)
 	if err != nil {
 		return nil, err
@@ -136,8 +168,17 @@ func (s *Service) GetStruct(projectID uint) (string, error) {
 	return js, nil
 }
 
-// SaveStruct 保存结构体:解析 → 规范化 → 追加版本 → projector 投影落文件版本(供 StartCompile 复用)。
+// SaveStruct 保存结构体(公开入口,取每项目写锁)。SetJournalTemplate/RestoreStructVersion 等
+// 「先 GetStruct 再存」的组合改动**已自行持锁**,内部走 saveStructLocked,避免重入死锁。
 func (s *Service) SaveStruct(projectID uint, docJSON, author string) (*DocStruct, error) {
+	unlock := structWriteMu.lock(projectID)
+	defer unlock()
+	return s.saveStructLocked(projectID, docJSON, author)
+}
+
+// saveStructLocked —— SaveStruct 的实体,**不取锁**;调用方须已持有该项目的 structWriteMu。
+// 解析 → 规范化 → 追加版本 → projector 投影落文件版本(供 StartCompile 复用)。
+func (s *Service) saveStructLocked(projectID uint, docJSON, author string) (*DocStruct, error) {
 	d, err := ParseDocStruct(docJSON)
 	if err != nil {
 		return nil, err
@@ -163,11 +204,13 @@ func (s *Service) ListStructVersions(projectID uint) ([]StructVersion, error) {
 // RestoreStructVersion 把某历史结构体版本恢复为当前:读回该版本 doc_struct → 经 SaveStruct
 // **追加成新 current 版本**(非破坏性,历史链不改)→ 重投影 main.tex,可立即重编译。
 func (s *Service) RestoreStructVersion(projectID, versionID uint) (*DocStruct, error) {
+	unlock := structWriteMu.lock(projectID) // 读旧版本→追加成新 current 串行(评审 #1)
+	defer unlock()
 	v, err := s.repo.GetStructVersion(projectID, versionID)
 	if err != nil {
 		return nil, err
 	}
-	return s.SaveStruct(projectID, v.DocStruct, AuthorUser)
+	return s.saveStructLocked(projectID, v.DocStruct, AuthorUser)
 }
 
 // materializeStruct projector:结构体 → main.tex (+ references.bib) 写入文件版本。
@@ -202,6 +245,8 @@ func (s *Service) initStructProject(projectID uint) error {
 // SetJournalTemplate 确定性换刊:只改 targetTemplate → 重投影(projector 把同一份结构体投成目标期刊
 // 的作者/机构宏 + 文档结构)。绝不 LLM 重写。见 REPORT.md Part II「swap-not-rewrite」。
 func (s *Service) SetJournalTemplate(projectID uint, template string) (*DocStruct, error) {
+	unlock := structWriteMu.lock(projectID) // 整段 GetStruct→改→存 串行(评审 #1)
+	defer unlock()
 	js, err := s.GetStruct(projectID)
 	if err != nil {
 		return nil, err
@@ -215,7 +260,7 @@ func (s *Service) SetJournalTemplate(projectID uint, template string) (*DocStruc
 	if err != nil {
 		return nil, err
 	}
-	return s.SaveStruct(projectID, canonical, AuthorUser)
+	return s.saveStructLocked(projectID, canonical, AuthorUser)
 }
 
 // applyStructRound struct 轨轮末固化:读回 cwd document.md → parseEditorMarkdown → 合并进结构体
@@ -229,6 +274,9 @@ func (s *Service) applyStructRound(ctx context.Context, projectID uint, sessionI
 	if wf == nil || wf.State != "ok" || wf.PreviewType != "text" {
 		return 0, nil
 	}
+	// 取每项目写锁:AI 轮末的 GetStruct→合并→存 与用户 autosave 串行(评审 #1/#2)。
+	unlock := structWriteMu.lock(projectID)
+	defer unlock()
 	js, err := s.GetStruct(projectID)
 	if err != nil {
 		return 0, err
@@ -242,6 +290,21 @@ func (s *Service) applyStructRound(ctx context.Context, projectID uint, sessionI
 	// 读失败/文件缺:忽略,保留既有 Bibliography(不因偶发读失败清空真源)。
 	if bf, berr := s.agent.ReadWorkspaceFileFull(ctx, sessionID, BibFile); berr == nil && bf != nil && bf.State == "ok" && bf.PreviewType == "text" {
 		mergeBibInto(d, bf.Content)
+	}
+	// V4-④ 术语表回收:agent 翻译轮把首译写进 cwd terminology.md → 轮末回收进 DB 真源(骨架级约束 2:
+	// cwd 工件不持久)。空/读失败忽略(不清空真源);内容未变不写库。
+	if tf, terr := s.agent.ReadWorkspaceFileFull(ctx, sessionID, TerminologyFile); terr == nil && tf != nil && tf.State == "ok" && tf.PreviewType == "text" && strings.TrimSpace(tf.Content) != "" {
+		if p, perr := s.repo.GetProjectByID(projectID); perr == nil && p != nil {
+			cur := ""
+			if p.Terminology != nil {
+				cur = *p.Terminology
+			}
+			if tf.Content != cur {
+				if serr := s.repo.SetTerminology(projectID, tf.Content); serr != nil {
+					slog.Warn("prism: harvest terminology failed", "project_id", projectID, "err", serr)
+				}
+			}
+		}
 	}
 	canonical, err := d.Marshal()
 	if err != nil {

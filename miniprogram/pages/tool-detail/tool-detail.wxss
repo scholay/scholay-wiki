@@ -1,0 +1,68 @@
+@import '../../styles/detail.wxss';
+
+.ident-card {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+.logo-box {
+  position: relative;
+  width: 112rpx;
+  height: 112rpx;
+  border-radius: 20rpx;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.logo-initial {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 52rpx;
+  font-weight: 700;
+}
+.logo-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: #fff;
+}
+.tname {
+  font-size: 38rpx;
+  font-weight: 700;
+}
+.tname-en {
+  display: block;
+  margin-top: 4rpx;
+  color: var(--text-weak);
+  font-size: 26rpx;
+}
+.tagline {
+  display: block;
+  margin-top: 16rpx;
+  font-size: 29rpx;
+  color: var(--text-subtle, #444);
+  line-height: 1.6;
+}
+.uc {
+  margin-bottom: 24rpx;
+}
+.uc:last-child {
+  margin-bottom: 0;
+}
+.uc-title {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 600;
+  margin-bottom: 8rpx;
+}
+.disclaimer {
+  display: block;
+  margin-top: 32rpx;
+  color: var(--text-weak);
+  font-size: 24rpx;
+  line-height: 1.6;
+}

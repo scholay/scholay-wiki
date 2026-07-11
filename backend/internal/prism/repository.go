@@ -124,6 +124,16 @@ func (r *Repository) TouchProject(id uint) error {
 	return r.db.Model(&Project{}).Where("id = ?", id).Update("updated_at", time.Now()).Error
 }
 
+// SetWritingProfile 写项目写作画像 JSON(Phase 2:base 文体/学科人格 + genre + source + needs_refine)。
+func (r *Repository) SetWritingProfile(id uint, profileJSON string) error {
+	return r.db.Model(&Project{}).Where("id = ?", id).Update("writing_profile", profileJSON).Error
+}
+
+// SetTerminology 写项目术语表真源(V4-④:markdown 文本;轮末从 cwd terminology.md 回收)。
+func (r *Repository) SetTerminology(id uint, md string) error {
+	return r.db.Model(&Project{}).Where("id = ?", id).Update("terminology", md).Error
+}
+
 // SetProjectSession 写项目的 agent 会话 id(每项目独立会话;""=清空让下次重建)。
 func (r *Repository) SetProjectSession(id uint, sessionID string) error {
 	var v any
@@ -445,6 +455,30 @@ func (r *Repository) FindCachedCompile(projectID uint, contentHash string, now t
 		return nil, err
 	}
 	return &c, nil
+}
+
+// ListStaleCompiles 取可回收的旧编译(评审 #7):早于 cutoff 且**不是所属项目的最新一条**
+// —— 每项目最新一条永久保留,保证 /pdf 始终能取到最近产物,只回收历史堆积。返回带对象键的行,
+// 供调用方先删 MinIO(pdf/log)再删行。limit 分批,防一次扫太多。
+func (r *Repository) ListStaleCompiles(cutoff time.Time, limit int) ([]Compile, error) {
+	var cs []Compile
+	err := r.db.
+		Select("id, pdf_object_key, log_object_key").
+		Where("created_at < ?", cutoff).
+		Where("id NOT IN (?)", r.db.Model(&Compile{}).Select("MAX(id)").Group("project_id")).
+		Order("id ASC").
+		Limit(limit).
+		Find(&cs).Error
+	return cs, err
+}
+
+// DeleteCompilesByIDs 批量删编译行。返回删除条数。
+func (r *Repository) DeleteCompilesByIDs(ids []uint) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	res := r.db.Where("id IN ?", ids).Delete(&Compile{})
+	return res.RowsAffected, res.Error
 }
 
 // GetFileByPath 按相对路径取项目内文件;不存在 → (nil, nil)。

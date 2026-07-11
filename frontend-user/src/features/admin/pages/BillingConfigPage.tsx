@@ -80,16 +80,16 @@ export function BillingConfigPage() {
         <div className="flex flex-col gap-5">
           {/* 总开关 + 最受欢迎 */}
           <section className="flex flex-col gap-4 rounded-md border border-border bg-background p-5">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <div className="flex flex-col">
                 <span className="text-sm font-bold text-foreground">收费体系总开关</span>
                 <span className="text-2xs text-faint">关闭后所有 AI 功能不限额(用于灰度/应急)</span>
               </div>
               <Switch checked={form.enabled} onCheckedChange={(v) => setForm({ ...form, enabled: v })} />
             </div>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <span className="text-sm font-medium text-subtle">「最受欢迎」标在</span>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {(['pro', 'max', 'none'] as const).map((p) => (
                   <button
                     key={p}

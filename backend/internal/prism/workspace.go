@@ -42,7 +42,15 @@ func (s *Service) materializeProject(ctx context.Context, projectID uint, sessio
 		if err := s.agent.PutWorkspaceFile(ctx, sessionID, EditorDocFile, []byte(structToEditorMarkdown(d))); err != nil {
 			return err
 		}
-		return s.agent.PutWorkspaceFile(ctx, sessionID, BibFile, []byte(renderBib(d.Bibliography)))
+		if err := s.agent.PutWorkspaceFile(ctx, sessionID, BibFile, []byte(renderBib(d.Bibliography))); err != nil {
+			return err
+		}
+		// V4-④ 术语表物化:DB 真源 → cwd terminology.md(agent 只读 + 首译回填,轮末 applyStructRound 回收)。
+		// 骨架级约束 1:逐轮结构化上下文的唯一载体 = cwd 文件。空术语表也铺一份带说明的骨架(翻译轮才知道往哪写)。
+		if p.Terminology != nil && strings.TrimSpace(*p.Terminology) != "" {
+			return s.agent.PutWorkspaceFile(ctx, sessionID, TerminologyFile, []byte(*p.Terminology))
+		}
+		return nil
 	}
 	files, _, err := s.gatherCurrent(projectID) // map[relPath]body,已过滤为文本文件
 	if err != nil {

@@ -508,7 +508,7 @@ The backend integrates Semantic Scholar Academic Graph API with two access metho
 - 成本控制: 通过 `FeatureSpec.PreUserMessage` 钩子接配额。smart_search/claw/prism 经 `agentbridge.StandardHooks` 接 `internal/vip` 的 tier-aware 日额度(`vip.Service.CheckDailyQuota`,超额转 `agentbridge.NewQuotaError`→前端 `code=quota_exceeded`);peerreview server-side 在 `Submit` 内手放同一配额。(历史文档曾写 `NewRedisDailyCap` —— 该实现从未存在,以 vip 链路为准。)
 - 用量审计: `FeatureSpec.OnMessageComplete` 拿 agent 返回的 token usage; 默认 `NewSlogUsageRecorder` 打到日志, `docker logs scholar_backend | grep agent_usage` 直接看
 - agent 容器的 model / provider 配置在 `agent_config` 表, admin 后台可改, 改完后台异步 push 到 agent;`push_status` / `last_pushed_at` / `push_error` 字段反映推送结果
-- **per-user 长期记忆 (migration 0035)**: 真源是 backend DB `user_memory_blocks`(label=profile/preferences, 跨 feature 共享), 由 `agentbridge.Bridge.MemoryBlocks` 在「首条 user_message 前缀」(smart_search/claw/prism) + peerreview 方法论 prompt 注入;后台每轮异步抽取更新(`internal/usermemory` + `ai.Service.SimpleCompletion` ModelLow, Redis 90s 冷却);用户经 `/api/v1/user/memory` 查看/编辑/删除。
+- **per-user 长期记忆 (migration 0035)**: 真源是 backend DB `user_memory_blocks`(label=profile/preferences, 跨 feature 共享), 由 `agentbridge.Bridge.MemoryBlocks` 在「首条 user_message 前缀」(smart_search/claw/prism) + peerreview 方法论 prompt 注入;后台每轮异步抽取更新(`internal/usermemory` 编排;**抽取 LLM 已移到 agent 容器**经 `extract_memory` 帧执行, 旧 `ai.Service.SimpleCompletion` 已删除;Redis 90s 冷却);用户经 `/api/v1/user/memory` 查看/编辑/删除。
   ⚠️ **agent 容器自带的桌面记忆设施(`src/memdir/` / `context.ts:getUserContext` / 注入 `CLAUDE.md`)在 Web 流里读到的是空** —— 它是机主单用户的设施, 多租户 Web 未对接, 别误以为它在生效。per-user 记忆真源 = `user_memory_blocks` + 首条 in-band 前缀。
 
 **详细文档**: [agent/docs/api.md](agent/docs/api.md) (REST + WS 协议) · [agent/README.md](agent/README.md) (容器部署)

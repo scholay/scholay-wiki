@@ -11,6 +11,7 @@ import { useDebounce } from '@/shared/hooks';
 import { DataTable, type Column } from './DataTable';
 import { Pagination } from './Pagination';
 import { AdminTranscriptView } from './AdminTranscriptView';
+import { AdminFilePreviewDialog, type AdminPreviewFile } from './AdminFilePreviewDialog';
 import { UserCell } from './UserCell';
 import {
   useAdminSessions,
@@ -27,6 +28,7 @@ export function ChatSessionMonitor({ feature }: { feature: MonitorFeature }) {
   const [kwInput, setKwInput] = useState('');
   const keyword = useDebounce(kwInput, 300);
   const [viewing, setViewing] = useState<AdminSession | null>(null);
+  const [preview, setPreview] = useState<AdminPreviewFile | null>(null);
 
   // feature 切换时**就地复位**(页码/关键字/正在看的会话),不再靠父级 `key={tab}` 重挂。
   // 父级重挂会把还 open 的 transcript Dialog 连根撕掉(浏览器前进/后退切 ?tab= 时尤其会),
@@ -36,6 +38,7 @@ export function ChatSessionMonitor({ feature }: { feature: MonitorFeature }) {
     setPage(1);
     setKwInput('');
     setViewing(null);
+    setPreview(null);
   }, [feature]);
 
   const { data, isLoading } = useAdminSessions({
@@ -91,7 +94,7 @@ export function ChatSessionMonitor({ feature }: { feature: MonitorFeature }) {
             setPage(1);
           }}
           placeholder="ID / 用户名 / 邮箱 / 手机号"
-          className="h-9 w-64 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          className="h-9 w-full sm:w-64 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         />
       </div>
 
@@ -109,10 +112,15 @@ export function ChatSessionMonitor({ feature }: { feature: MonitorFeature }) {
             <AdminTranscriptView
               messages={transcript ?? []}
               featureKey={viewing?.featureKey ?? feature}
+              sessionId={viewing?.agentSessionId}
+              onPreview={setPreview}
             />
           )}
         </DialogContent>
       </Dialog>
+
+      {/* 会话内文件预览(叠在 transcript 弹窗之上;常驻挂载 + 内容守卫,遵守 Radix 铁律) */}
+      <AdminFilePreviewDialog file={preview} onClose={() => setPreview(null)} />
     </>
   );
 }

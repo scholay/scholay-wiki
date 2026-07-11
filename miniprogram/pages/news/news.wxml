@@ -1,0 +1,19 @@
+<view wx:if="{{loading}}" class="sk-detail"><view class="skeleton sk-title-lg"></view><view class="sk-chips"><view class="skeleton sk-chip"></view><view class="skeleton sk-chip"></view><view class="skeleton sk-chip"></view></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w70"></view><view class="skeleton sk-body-line sk-w90"></view><view class="skeleton sk-body-line sk-w45"></view></view>
+<view wx:elif="{{error}}" class="state error">{{error}}</view>
+
+<scroll-view wx:else scroll-y class="page detail">
+  <view class="news-head">
+    <text class="news-section">{{sectionLabel}}</text>
+    <text class="news-time">{{timeText}}</text>
+  </view>
+  <text class="h1">{{title}}</text>
+  <image wx:if="{{cover}}" class="cover" src="{{cover}}" mode="widthFix" lazy-load />
+  <text class="body">{{body}}</text>
+
+  <view wx:if="{{sources.length}}" class="section">
+    <text class="sec-title">来源</text>
+    <view wx:for="{{sources}}" wx:for-item="s" wx:key="url" class="ref" data-url="{{s.url}}" bindtap="copySource">
+      <text class="ref-line link">{{s.label || s.url}} · 复制链接</text>
+    </view>
+  </view>
+</scroll-view>

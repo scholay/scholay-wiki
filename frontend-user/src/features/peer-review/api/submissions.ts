@@ -231,6 +231,27 @@ export function useSubmitSubmission(id?: number) {
   });
 }
 
+// 重试一份失败的审稿:后端复用已完成轮、只补跑失败部分,仍过额度闸。成功后 detail/list 失效重查。
+export function useRetrySubmission(id?: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      try {
+        const r = await http.post<{ data?: Submission } & Partial<Submission>>(
+          `/user/peer-review/submissions/${id}/retry`
+        );
+        return unwrap<Submission>(r.data);
+      } catch (err) {
+        throw toApiError(err);
+      }
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(KEY('detail', id ?? 0), data);
+      qc.invalidateQueries({ queryKey: KEY('list') });
+    },
+  });
+}
+
 // ─── 文件上传 / 删除 ───────────────────────────────────────────────────────
 
 export interface UploadAssetParams {

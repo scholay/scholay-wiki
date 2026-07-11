@@ -7,6 +7,7 @@
 import { useEffect, useRef } from 'react';
 import { Check, Gift, Sparkles } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
+import { localDateKey } from '@/shared/lib/daily-trend';
 import {
   Dialog,
   DialogClose,
@@ -32,8 +33,9 @@ const DEFAULTS = {
 let quotaTriggeredThisSession = false;
 
 function todayStr(): string {
-  // 与 QuotaNotifier 一致:用 ISO 日期切片做「按天」key。
-  return new Date().toISOString().slice(0, 10);
+  // 「按天」key 走本地日历日(容器/后端本地零点重置对齐)。不能用 toISOString()——
+  // 那是 UTC,北京 00:00–08:00 会算成昨天,导致每日抑制在 08:00 而非本地 00:00 翻天。
+  return localDateKey();
 }
 
 export function PromoModal() {

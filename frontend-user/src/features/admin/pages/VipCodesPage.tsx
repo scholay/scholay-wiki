@@ -330,12 +330,12 @@ export function VipCodesPage() {
             <option value="free">free</option>
           </select>
         </Field>
-        <Field label="兑换人">
+        <Field label="兑换人" className="w-full sm:w-auto">
           <Input
             value={redeemerInput}
             onChange={(e) => { setRedeemerInput(e.target.value); setPage(1); }}
             placeholder="ID / 用户名 / 邮箱 / 手机号"
-            className="h-8 w-52"
+            className="h-8 w-full sm:w-52"
           />
         </Field>
       </section>
@@ -392,9 +392,9 @@ export function VipCodesPage() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className="space-y-1">
+    <div className={cn('space-y-1', className)}>
       <Label className="text-2xs text-faint tracking-[0.12em]">{label}</Label>
       {children}
     </div>

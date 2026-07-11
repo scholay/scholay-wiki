@@ -43,6 +43,11 @@ type Executor interface {
 	GetSessionMessages(ctx context.Context, sessionID string, limitTurns int) (*SessionMessagesResponse, error)
 	GetSessionContextEstimate(ctx context.Context, sessionID string) (*SessionContextEstimate, error)
 
+	// 公式渲染(TeX → PNG;小程序 rich-text 跑不了 KaTeX)。无会话,纯函数。
+	RenderMath(ctx context.Context, tex string, display bool) (*MathRenderResult, error)
+	// mermaid 图表渲染(源码 → PNG;小程序无 DOM)。无会话,纯函数,caller 配缓存。
+	RenderMermaid(ctx context.Context, code string) (*MermaidRenderResult, error)
+
 	// server-side drive(无 WS client 在线时,peerreview 用)
 	EnqueueChatMessage(ctx context.Context, sessionID, content string) error
 	GetChatStatus(ctx context.Context, sessionID string) (*ChatStatus, error)

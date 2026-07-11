@@ -36,14 +36,29 @@ export interface AdminOrderListParams extends AdminOrderFilters {
 }
 
 export interface AdminOrderTotals {
-  revenue: number;
-  recharge_revenue: number;
-  subscription_revenue: number;
+  // 营收:今日 / 窗口 / 全部
   revenue_today: number;
+  revenue: number;
+  revenue_all: number;
+  // 营收构成 · 充值
+  recharge_today: number;
+  recharge_revenue: number;
+  recharge_all: number;
+  // 营收构成 · 订阅
+  subscription_today: number;
+  subscription_revenue: number;
+  subscription_all: number;
+  // 已支付订单数
+  paid_today: number;
   paid_count: number;
+  paid_all: number;
+  // 兑换码核销
+  redeemed_today: number;
+  redeemed_codes: number;
+  redeemed_all: number;
+  // 订单状态(窗口内)
   pending_count: number;
   expired_count: number;
-  redeemed_codes: number;
 }
 
 export interface AdminRevenueDay {
