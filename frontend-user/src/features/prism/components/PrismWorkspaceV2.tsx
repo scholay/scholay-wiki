@@ -22,7 +22,7 @@ import { PrismAuthorsDialog } from './PrismAuthorsDialog';
 import { PrismRevisionDialog } from './PrismRevisionDialog';
 import { PrismTranslateDialog } from './PrismTranslateDialog';
 import { PrismNumbersDialog } from './PrismNumbersDialog';
-import { usePrismChat } from '../hooks/usePrismChat';
+import { usePrismChat, type PrismSendExtras } from '../hooks/usePrismChat';
 import { diffStructs } from '../lib/struct-diff';
 import {
   useStruct,
@@ -132,7 +132,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
   };
   // 发给 AI 前,先把编辑器里未保存的改动落库:否则 chat.send→prepareRound 会用旧的 DB 正文铺到 agent
   // 工作区,AI 在旧稿上改、轮末合并回来 → 用户刚打的字被悄悄覆盖(评审 #2)。落库失败则不发,保留输入。
-  const sendChat = async (instr: string) => {
+  const sendChat = async (instr: string, extras?: PrismSendExtras) => {
     if (chat.roundState !== 'idle') return;
     const flushed = editorRef.current?.flush();
     if (flushed) {
@@ -143,7 +143,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
         return;
       }
     }
-    chat.send(instr, { relPath: 'document.md', baseline: '' }, instr);
+    chat.send(instr, { relPath: 'document.md', baseline: '' }, instr, extras);
   };
 
   // 编译-修复回流:把编译报错回喂 agent 走一轮 → autoApply → 重编译(对齐 V1 fixCompile)。

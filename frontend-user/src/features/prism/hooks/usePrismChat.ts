@@ -2,7 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { stripAgentBridgePrefix } from '@/shared/lib/agent-prefix';
-import type { Turn } from '@/shared/types/chat';
+import type {
+  AttachmentDTO,
+  ReferenceItemDTO,
+  Turn,
+  TurnAttachment,
+  TurnReference,
+} from '@/shared/types/chat';
+import { buildReferenceBlock } from '@/shared/lib/agent-references';
 import type { ToolFileInput } from '../api/ws-types';
 import { usePrismSocket } from '../api/socket';
 import {
@@ -95,6 +102,12 @@ function fileMatchesActive(filePath: string | undefined, relPath: string): boole
  * 副作用(refetch 实时 diff / message_complete 收尾)仍走一条 processedRef 增量循环 —— 它只认
  * 离散帧(tool_result/message_complete/error,这些会增长数组,processedRef 不会漏),不碰文本。
  */
+/** send 的附件/引用扩展(2026-07 输入框统一;PrismChatPanel 组装,经父组件透传)。 */
+export interface PrismSendExtras {
+  attachments?: AttachmentDTO[];
+  references?: ReferenceItemDTO[];
+}
+
 export function usePrismChat(
   projectId: number,
   opts: { onApplied?: () => void; onReverted?: () => void; autoApply?: boolean; enabled?: boolean; resetNonce?: number } = {},
@@ -107,7 +120,13 @@ export function usePrismChat(
   const contextQuery = usePrismContext(enabled ? projectId : undefined); // footer 上下文水位;每轮结束失效刷新
   const [historyTurns, setHistoryTurns] = useState<Turn[]>([]);
   const [pendingTurns, setPendingTurns] = useState<
-    { id: string; userText: string; paused?: boolean }[]
+    {
+      id: string;
+      userText: string;
+      paused?: boolean;
+      userAttachments?: TurnAttachment[];
+      userReferences?: TurnReference[];
+    }[]
   >([]);
   const [roundState, setRoundState] = useState<RoundState>('idle');
   const [live, setLive] = useState<LiveDiff | null>(null);
@@ -276,7 +295,12 @@ export function usePrismChat(
   // send:铺源 → 截 baseline → WS 发指令。active = 当前编辑文件(relPath + DB 正文)。
   // titleSeed(可选)= 本轮「干净原始指令」(不含聚焦选区提示),透传给 agent 用于项目自动起名。
   const send = useCallback(
-    async (instruction: string, active: { relPath: string; baseline: string }, titleSeed?: string) => {
+    async (
+      instruction: string,
+      active: { relPath: string; baseline: string },
+      titleSeed?: string,
+      extras?: PrismSendExtras,
+    ) => {
       const ins = instruction.trim();
       if (!ins || roundState !== 'idle' || socket.state !== 'open') return;
       try {
@@ -289,11 +313,33 @@ export function usePrismChat(
       roundActiveRef.current = true;
       setChangeset(null);
       setAppliedChange(null); // 开新一轮 → 清掉上一轮的「本次改动」标识
-      setPendingTurns((prev) => [...prev, { id: nextId(), userText: ins }]);
+      // 2026-07 输入框统一:附件走方案 B(path 透传,hub 折 @"path");引用块追加到 content 末尾
+      // (与 claw/smart-search 同构,历史回放解析回 chip)。
+      const atts = extras?.attachments ?? [];
+      const refs = extras?.references ?? [];
+      const turnRefs: TurnReference[] = refs.map((r) => ({
+        kind: r.kind, title: r.title, paperCount: r.paperCount, hasPdf: r.hasPdf,
+      }));
+      const turnAtts: TurnAttachment[] = atts.map((a) => ({
+        type: a.type, name: a.name, mimeType: a.mimeType, size: a.size, path: a.path,
+      }));
+      setPendingTurns((prev) => [...prev, {
+        id: nextId(),
+        userText: ins,
+        userAttachments: turnAtts.length > 0 ? turnAtts : undefined,
+        userReferences: turnRefs.length > 0 ? turnRefs : undefined,
+      }]);
       setRoundState('streaming');
       setLive({ relPath: active.relPath, baseline: active.baseline, content: active.baseline });
       const seed = titleSeed?.trim();
-      socket.send({ type: 'user_message', content: ins, ...(seed ? { titleSeed: seed } : {}) });
+      socket.send({
+        type: 'user_message',
+        content: ins + buildReferenceBlock(turnRefs),
+        ...(seed ? { titleSeed: seed } : {}),
+        ...(atts.length > 0
+          ? { attachments: atts.map((a) => ({ type: a.type, name: a.name, mimeType: a.mimeType, path: a.path })) }
+          : {}),
+      });
     },
     [projectId, roundState, socket],
   );
@@ -460,6 +506,7 @@ export function usePrismChat(
   }, [socket]);
 
   return {
+    projectId, // 2026-07 输入框统一:panel 拼 /prism/projects/:id/{upload,reference} 端点用
     turns,
     changeset,
     roundState,

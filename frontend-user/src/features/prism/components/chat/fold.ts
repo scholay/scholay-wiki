@@ -13,7 +13,7 @@ import {
   type ToolBlock,
   type Turn,
 } from '@/shared/types/chat';
-import { replayHistoryAsTurns } from '@/shared/lib/agent-history';
+import { parseUserEntryWithAttachments, replayHistoryAsTurns } from '@/shared/lib/agent-history';
 import type { PrismServerMessage } from '../../api/ws-types';
 import type { PrismHistoryMsg } from '../../api/prism';
 
@@ -109,8 +109,9 @@ export function foldPrismMessages(
  * 渲染结构与实时一致(中间过程同样折进「处理过程」,末尾文本当最终气泡,不再平铺)。
  *
  * 旧实现把一轮所有 assistant 文本用 `\n\n` 拼成一段、且丢弃 tool/thinking 块,导致重入后
- * 中间诊断文本失去折叠锚点被平铺 —— 已废弃。prism 无附件,用默认 parseUserEntry(抽文本 + 剥前缀)。
+ * 中间诊断文本失去折叠锚点被平铺 —— 已废弃。2026-07 输入框统一起 prism 支持上传:用带附件解析
+ * 的 parseUserEntryWithAttachments(剥 @"path" 前缀 → 附件 chip;引用块由 shared 回放通用解析)。
  */
 export function foldHistoryToTurns(raw: PrismHistoryMsg[]): Turn[] {
-  return replayHistoryAsTurns(raw);
+  return replayHistoryAsTurns(raw, { parseUserEntry: parseUserEntryWithAttachments });
 }

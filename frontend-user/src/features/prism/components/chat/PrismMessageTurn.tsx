@@ -2,9 +2,11 @@ import { memo } from 'react';
 import { AlertCircle } from 'lucide-react';
 import {
   AssistantBubble,
+  AttachmentChipList,
   ChatStyles,
   PausedNotice,
   ProcessFold,
+  ReferenceChipList,
   StreamingIndicator,
   ThinkingFold,
   ToolCallBlock,
@@ -32,7 +34,22 @@ export const PrismMessageTurn = memo(function PrismMessageTurn({ turn }: { turn:
   return (
     <article className="flex flex-col gap-2 min-w-0">
       <ChatStyles />
-      <UserBubble text={turn.userText} />
+      <UserBubble
+        text={turn.userText}
+        attachments={
+          (turn.userAttachments && turn.userAttachments.length > 0) ||
+          (turn.userReferences && turn.userReferences.length > 0) ? (
+            <>
+              {turn.userAttachments && turn.userAttachments.length > 0 && (
+                <AttachmentChipList attachments={turn.userAttachments} />
+              )}
+              {turn.userReferences && turn.userReferences.length > 0 && (
+                <ReferenceChipList references={turn.userReferences} />
+              )}
+            </>
+          ) : undefined
+        }
+      />
 
       {!turn.complete && !turn.errorMessage && !visible && <StreamingIndicator turn={turn} />}
 

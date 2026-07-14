@@ -17,7 +17,7 @@ import { PrismInlineEditPrompt } from './PrismInlineEditPrompt';
 import { PrismSelectionToolbar } from './PrismSelectionToolbar';
 import { PrismFileSidebar } from './sidebar/PrismFileSidebar';
 import { PrismVersionsDialog } from './PrismVersionsDialog';
-import { usePrismChat } from '../hooks/usePrismChat';
+import { usePrismChat, type PrismSendExtras } from '../hooks/usePrismChat';
 import { useProject, useFileBody, useSaveFile, useStartCompile, useCompile, prismPdfSource, useCloneToStruct } from '../api/prism';
 
 // 中文支持(\usepackage{ctex})等 LaTeX 格式约束由 agent 的 skills 负责,前端不再做字符识别/自动插包。
@@ -246,7 +246,7 @@ export function PrismWorkspace({ projectId, onBack, readOnly = false, onOpen }: 
   const [versionsOpen, setVersionsOpen] = useState(false);
 
   // ── 统一发起一轮 AI 编辑:flush 正文 → chat.send(铺源 + WS 发指令)。selection 作聚焦提示拼进指令。
-  const runEdit = async (instruction: string, selection?: string) => {
+  const runEdit = async (instruction: string, selection?: string, extras?: PrismSendExtras) => {
     if (busy) return;
     const af = files.find((f) => f.id === fileId);
     if (!fileId || !af) {
@@ -259,7 +259,7 @@ export function PrismWorkspace({ projectId, onBack, readOnly = false, onOpen }: 
       : instruction;
     setQuote('');
     // titleSeed = 干净的原始指令(不含聚焦选区提示),供 agent 给项目自动起名(就跟智能助手会话起名一样)。
-    chat.send(content, { relPath: af.rel_path, baseline: buffer }, instruction);
+    chat.send(content, { relPath: af.rel_path, baseline: buffer }, instruction, extras);
   };
 
   // 选区内联编辑(Cmd+K)。
@@ -387,7 +387,7 @@ export function PrismWorkspace({ projectId, onBack, readOnly = false, onOpen }: 
                       fileId={fileId}
                       quote={quote}
                       onClearQuote={() => setQuote('')}
-                      onSend={(instr) => runEdit(instr)}
+                      onSend={(instr, extras) => runEdit(instr, undefined, extras)}
                     />
                   </ResizablePanel>
                 </>

@@ -13,7 +13,13 @@ import type {
 export type PrismClientMessage =
   // titleSeed:本轮「干净的原始指令」(不含聚焦选区提示),供 agent 用它给项目自动起名,
   // 而非拿巨型 system 前缀起名。仅首轮(项目仍是默认名)实际生效,后端落库幂等。
-  | { type: 'user_message'; content: string; titleSeed?: string }
+  | {
+      type: 'user_message';
+      content: string;
+      titleSeed?: string;
+      /** 方案 B 附件:文件已由 backend 推进会话 cwd,只透传 path(backend hub 折 @"path" 标记)。 */
+      attachments?: { type: 'image' | 'file'; name?: string; mimeType?: string; path: string }[];
+    }
   | { type: 'stop_generation' }
   | { type: 'ping' }
   // 切换会话模型(P2 模型目录化:backend hub 权威校验 → pinned_model → 重组转发)。
