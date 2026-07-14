@@ -18,6 +18,7 @@ import { citationRoutes } from '@/features/citation/routes';
 import { peerReviewRoutes } from '@/features/peer-review/routes';
 import { prismRoutes } from '@/features/prism/routes';
 import { clawRoutes, clawMobileRoutes, clawEmbedRoutes } from '@/features/claw/routes';
+import { skillsRoutes } from '@/features/skills/routes';
 import { newsRoutes } from '@/features/news/routes';
 import { landingRoutes } from '@/features/landing/routes';
 import { helpRoutes } from '@/features/help/routes';
@@ -143,6 +144,7 @@ export const router = createBrowserRouter([
       ...peerReviewRoutes,
       ...prismRoutes,
       ...clawRoutes,
+      ...skillsRoutes,
       ...newsRoutes,
       ...authRoutes,
       ...settingsRoutes,

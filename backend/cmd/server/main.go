@@ -73,6 +73,7 @@ func main() {
 		BucketPrism:               cfg.MinIO.BucketPrism,
 		BucketFeatureTools:        cfg.MinIO.BucketFeatureTools,
 		BucketAgentArtifacts:      cfg.MinIO.BucketAgentArtifacts,
+		BucketSkillBundles:        cfg.MinIO.BucketSkillBundles,
 		UseSSL:                    cfg.MinIO.UseSSL,
 	}); err != nil {
 		log.Fatalf("Failed to initialize object storage: %v", err)

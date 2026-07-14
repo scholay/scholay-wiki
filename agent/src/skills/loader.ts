@@ -126,6 +126,13 @@ function buildSkillMenu(addDirs: string[]): string {
 
 // addDirs 挂载是 :ro、容器内永不变 → 首轮读一次后按 addDirs 组合缓存,省掉每轮 ~8 次阻塞 readFileSync(评审 low)。
 // 容器重启即清空,天然拿到重新部署后的新内容。
+//
+// ⚠️ 有界 LRU(不是无界 Map):per-user skill 市场引入后,claw 会话的 addDirs 里含 per-session 目录
+// (路径含 sid,如 <SESSIONS_ROOT>/<sid>.skills)→ 每会话唯一 cacheKey。若无界缓存,dead session 的
+// 条目永不回收 → 进程生命期内存泄漏。用插入序 Map 做 LRU:命中即刷新到队尾,超帽淘汰队首。
+// per-session 目录内容在建会话时物化后不再变、sid 不复用,故缓存仍有效(同会话多轮命中),过期会话被自然挤出;
+// 静态一方目录(/claw-add 等)因反复命中常驻队尾不被淘汰。
+const ADDDIR_CACHE_CAP = Number(process.env.EXECUTOR_ADDDIR_CACHE_CAP || 256);
 const addDirContextCache = new Map<string, string>();
 
 // loadAddDirContext:读取 addDirs 的 CLAUDE.md + .claude/skills/*/SKILL.md(常驻)+ guides/ 技能菜单,拼成 system 后缀。
@@ -133,7 +140,12 @@ export function loadAddDirContext(addDirs: string[]): string {
   if (!addDirs || addDirs.length === 0) return "";
   const cacheKey = addDirs.join("|");
   const cached = addDirContextCache.get(cacheKey);
-  if (cached !== undefined) return cached;
+  if (cached !== undefined) {
+    // LRU 命中:删后重插到队尾,使热键(静态一方目录)不被淘汰。
+    addDirContextCache.delete(cacheKey);
+    addDirContextCache.set(cacheKey, cached);
+    return cached;
+  }
   const parts: string[] = [];
   let total = 0;
   let cappedWarned = false;
@@ -176,6 +188,12 @@ export function loadAddDirContext(addDirs: string[]): string {
 
   const result = parts.length === 0 ? "" : "# 加载的项目规则与 Skills\n\n" + parts.join("\n\n");
   addDirContextCache.set(cacheKey, result);
+  // LRU 淘汰:超帽时删队首(最久未命中)。Map 迭代序 = 插入序,命中已 delete+re-set 到队尾。
+  while (addDirContextCache.size > ADDDIR_CACHE_CAP) {
+    const oldest = addDirContextCache.keys().next().value;
+    if (oldest === undefined) break;
+    addDirContextCache.delete(oldest);
+  }
   return result;
 }
 

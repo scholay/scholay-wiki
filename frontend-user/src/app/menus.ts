@@ -117,13 +117,14 @@ export const MENUS: Menu[] = [
   },
   {
     id: 'tools',
-    label: '功能广场',
+    label: '科研能力广场',
     englishName: 'Playground',
-    description: '科研工具黄页 · 统计/绘图/文献/写作',
+    description: '全网工具 · 社区技能',
     icon: Compass,
     href: '/tools',
     category: 'resource',
-    match: startsWith('/tools'),
+    // 社区技能不单独设菜单,统一并入本广场;故 /tools/*(含技能分段)与 /skills* 短链都高亮此项。
+    match: (p) => startsWith('/tools')(p) || startsWith('/skills')(p),
   },
   // 「学术资源」(/resources + /blog 学术资源中心)不进顶栏功能菜单 —— 它是内容/资源页,
   // 不是核心功能,入口放页脚(shared/components/Footer.tsx 的 BRAND_LINKS 已有「学术资源」)。

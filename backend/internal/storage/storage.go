@@ -55,6 +55,7 @@ type Config struct {
 	BucketPrism               string
 	BucketFeatureTools        string
 	BucketAgentArtifacts      string
+	BucketSkillBundles        string
 	UseSSL                    bool
 }
 
@@ -146,6 +147,13 @@ func Init(cfg Config) error {
 	if cfg.BucketAgentArtifacts != "" {
 		if err := ensureBucket(ctx, c, cfg.BucketAgentArtifacts); err != nil {
 			return fmt.Errorf("storage: 创建 bucket %q 失败: %w", cfg.BucketAgentArtifacts, err)
+		}
+	}
+	// skill bundle 桶:永久资源(不挂 tmp/ ILM)。存用户上传的 skill 原始 tarball(审计/归档);
+	// 物化热路径读 DB skill_versions.skill_md,不回 MinIO。
+	if cfg.BucketSkillBundles != "" {
+		if err := ensureBucket(ctx, c, cfg.BucketSkillBundles); err != nil {
+			return fmt.Errorf("storage: 创建 bucket %q 失败: %w", cfg.BucketSkillBundles, err)
 		}
 	}
 
@@ -246,6 +254,13 @@ func AgentArtifactsBucket() string {
 	mu.RLock()
 	defer mu.RUnlock()
 	return config.BucketAgentArtifacts
+}
+
+// SkillBundlesBucket 暴露 skill 市场 bundle bucket 名。
+func SkillBundlesBucket() string {
+	mu.RLock()
+	defer mu.RUnlock()
+	return config.BucketSkillBundles
 }
 
 // PutOptions Put 时的可选参数

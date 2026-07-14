@@ -62,6 +62,7 @@ type MinIOConfig struct {
 	BucketPrism               string // 存 Prism 智能写作编译产物 (PDF/log) + 二进制 asset 的 bucket
 	BucketFeatureTools        string // 存功能广场工具 logo (真 logo + 生成的 SVG) 的 bucket
 	BucketAgentArtifacts      string // 存 agent (claw 等) 成果交付物字节的 bucket
+	BucketSkillBundles        string // 存 skill 市场用户上传的 skill 原始 bundle (tarball) 的 bucket
 	UseSSL                    bool
 }
 
@@ -235,6 +236,7 @@ func Load() *Config {
 		BucketPrism:               getEnv("MINIO_BUCKET_PRISM", "scholar-prism"),
 		BucketFeatureTools:        getEnv("MINIO_BUCKET_FEATURE_TOOLS", "scholar-feature-tools"),
 		BucketAgentArtifacts:      getEnv("MINIO_BUCKET_AGENT_ARTIFACTS", "scholar-agent-artifacts"),
+		BucketSkillBundles:        getEnv("MINIO_BUCKET_SKILL_BUNDLES", "scholar-skill-bundles"),
 		UseSSL:                    getEnvAsBool("MINIO_USE_SSL", false),
 	}
 
