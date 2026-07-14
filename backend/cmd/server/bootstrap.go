@@ -565,7 +565,7 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// 输入框附件(上传 / 引用文献)—— prism 会话 per-project, handler 自己解析会话后走
 	// agentattach 的 *ToSession 直通入口, 故 resolveEmpty 传 nil(不会被用到)。
 	prismHandler.SetAttach(
-		agentattach.NewUploader(prismFeature, nil),
+		agentattach.NewUploader(prismFeature, nil).WithSubdir("uploads"),
 		agentattach.NewReferencer(prismFeature, libReader, nil),
 	)
 

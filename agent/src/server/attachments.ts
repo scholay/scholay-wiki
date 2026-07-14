@@ -71,6 +71,47 @@ export async function buildUserContentWithImages(
 }
 
 /**
+ * limitLiveImages:控制随请求外发的历史图块数量 —— base64 图每轮全量重发,长会话里
+ * token/payload 成本线性膨胀(5MB 图 ≈ 6.7MB base64;实测还会加剧不稳中转掐大请求)。
+ * 从最新消息往回数,保留最近 max 张,更早的换占位文本(history 本体不动,仅请求侧变换;
+ * 与 H5 滑窗「裁最老」的精神一致)。max<=0 = 不限制。
+ */
+export function limitLiveImages(messages: Anthropic.MessageParam[], max: number): Anthropic.MessageParam[] {
+  if (max <= 0) return messages;
+  let seen = 0;
+  let touched = false;
+  // 先从后往前数配额,再一次 map 输出(保持原顺序、未触碰消息零拷贝)。
+  const overflowIdx = new Set<string>(); // `${msgIdx}:${blockIdx}`
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role !== "user" || !Array.isArray(m.content)) continue;
+    const blocks = m.content as Anthropic.ContentBlockParam[];
+    for (let j = blocks.length - 1; j >= 0; j--) {
+      if ((blocks[j] as { type?: string }).type !== "image") continue;
+      seen += 1;
+      if (seen > max) {
+        overflowIdx.add(`${i}:${j}`);
+        touched = true;
+      }
+    }
+  }
+  if (!touched) return messages;
+  return messages.map((m, i) => {
+    if (m.role !== "user" || !Array.isArray(m.content)) return m;
+    const blocks = m.content as Anthropic.ContentBlockParam[];
+    if (!blocks.some((_, j) => overflowIdx.has(`${i}:${j}`))) return m;
+    return {
+      role: "user" as const,
+      content: blocks.map((b, j) =>
+        overflowIdx.has(`${i}:${j}`)
+          ? ({ type: "text", text: "[历史图片已省略(仅保留最近几张随请求发送),如需分析请重新上传]" } as Anthropic.ContentBlockParam)
+          : b,
+      ),
+    };
+  });
+}
+
+/**
  * stripImageBlocks:当前模型不支持视觉时,把请求里 user 消息的 image 块换成文本占位
  * (不动会话内存 history —— 之后切回视觉模型仍能「看见」历史图)。
  * 无图消息原样引用(零拷贝),只有含图消息才浅拷贝改写。

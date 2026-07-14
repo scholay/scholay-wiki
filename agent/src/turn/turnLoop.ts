@@ -10,7 +10,7 @@ import { ToolUseAssembler } from "./assembleToolUse.ts";
 import { runTools } from "./runTools.ts";
 import type { EventSink, TurnInput } from "./types.ts";
 import { loadAddDirContext } from "../skills/loader.ts";
-import { stripImageBlocks } from "../server/attachments.ts";
+import { limitLiveImages, stripImageBlocks } from "../server/attachments.ts";
 import { buildDateLine } from "../tools/clock.ts";
 import { log } from "../obs/log.ts";
 
@@ -25,6 +25,10 @@ const MAX_TOKENS = Number(process.env.EXECUTOR_MAX_TOKENS || 64000);
 // (历史事故:审稿向导单轮 10-17M token)。默认 5M —— 只兜真正失控,正常多轮读稿不受影响。
 // 业务每日额度是 user_message 前的前置闸,进入 turn 后无内层闸;此为该缺口的兜底。0 = 关闭。
 const MAX_TURN_TOKENS = Number(process.env.EXECUTOR_MAX_TURN_TOKENS || 5_000_000);
+
+// 随请求外发的历史图块上限(P3 遗留补齐):base64 图每轮全量重发,长会话成本线性涨且
+// 加剧不稳中转掐大请求。保最近 N 张,更早换占位(history 不动)。0 = 不限制。
+const MAX_LIVE_IMAGES = Number(process.env.EXECUTOR_MAX_LIVE_IMAGES || 3);
 
 // budgetDisclosure —— 有界透支预算(SS#2)的「软自控」披露:turn 开始时告诉模型本次大致预算,
 // 让它自我配速、接近用尽时主动交付最完整答案(Anthropic Task-Budgets 式)。
@@ -168,8 +172,10 @@ export async function runTurn(
       sink.frame({ type: "status", state: "thinking" });
 
       // P2 图片通道:无视觉模型 → 请求里的历史 image 块换文本占位(history 本体不动,
-      // 切回视觉模型仍能看见);vision 模型原样透传(anthropic 直发 / openai 由 adapter 翻译)。
-      const wireMessages = input.vision ? messages : stripImageBlocks(messages);
+      // 切回视觉模型仍能看见);vision 模型限量外发(保最近 N 张,控 token/payload)。
+      const wireMessages = input.vision
+        ? limitLiveImages(messages, MAX_LIVE_IMAGES)
+        : stripImageBlocks(messages);
       const stream = client.messages.stream(
         { model, max_tokens: maxTokens, system, messages: wireMessages, tools: activeTools as unknown as Anthropic.ToolUnion[] },
         signal ? { signal } : undefined,

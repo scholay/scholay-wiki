@@ -38,6 +38,7 @@ import (
 	"io"
 	"mime/multipart"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -78,6 +79,10 @@ type SessionResolver func(ctx context.Context, userID uint) (string, error)
 type Uploader struct {
 	feature      *agentbridge.FeatureBridge
 	resolveEmpty SessionResolver
+	// subdir 落盘子目录(单段,字母数字-_;空 = 会话 cwd 根)。prism 传 "uploads":
+	// 其 cwd 是 LaTeX 文档工作区,附件混进根目录会污染编译面(评审遗留,2026-07-14 补)。
+	// executor pushSessionFile 白名单解析文件名里的一层子目录,其余照旧 basename 防穿越。
+	subdir string
 }
 
 // NewUploader — resolveEmpty 为 nil 时默认 CreateNewSession (即 claw 原语义, 保持行为不变)。
@@ -88,6 +93,16 @@ func NewUploader(feature *agentbridge.FeatureBridge, resolveEmpty SessionResolve
 	}
 	return u
 }
+
+// WithSubdir 设置落盘子目录(链式;非法段被忽略并回落根目录)。
+func (u *Uploader) WithSubdir(dir string) *Uploader {
+	if subdirRe.MatchString(dir) {
+		u.subdir = dir
+	}
+	return u
+}
+
+var subdirRe = regexp.MustCompile(`^[A-Za-z0-9_-]{1,32}$`)
 
 // HandleUpload 是 gin handler 的"业务体", 不负责 HTTP 状态码 (留给各 feature Handler 包装)。
 // 返回 error 由调用方转 4xx; 返回 nil + DTO 由调用方包成 200。
@@ -191,6 +206,10 @@ func (u *Uploader) pushToSession(parent context.Context, sessionID string, fh *m
 	// 落盘名 = <uuid>-<原名>:①前端历史回放剥离器(agent-history STORED_UUID_PREFIX)只认带
 	// UUID 前缀的 @"path" 为附件标记;②防同名文件互相覆盖。展示名(DTO.Name)仍用原名。
 	storedName := uuid.NewString() + "-" + filepath.Base(fh.Filename)
+	if u.subdir != "" {
+		// 子目录经文件名携带(executor 白名单解析一层安全段),免动 multipart 协议。
+		storedName = u.subdir + "/" + storedName
+	}
 	pushed, err := u.feature.AgentClient().PushSessionFile(ctx, sessionID, storedName, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("文件推送失败: %w", err)

@@ -2,7 +2,7 @@
 // WorkspaceFile/WorkspaceTree/PushedFile 契约。**字节级一致是硬要求**:prism 固化经
 // ReadWorkspaceFileFull(?full=1)回读全文,截断会静默腐蚀 DB。全部限 cwd 内。
 
-import { resolve, relative, basename, extname } from "node:path";
+import { resolve, relative, basename, extname, join } from "node:path";
 import { readFile, writeFile, mkdir, readdir, stat, rm } from "node:fs/promises";
 import { confinePath } from "../sandbox/confine.ts";
 
@@ -153,10 +153,16 @@ export async function deleteWorkspaceFile(workDir: string, relPath: string): Pro
 }
 
 // pushSessionFile:multipart 上传(字段名 "file")→ 落 cwd → {path,name,size}。
+// 文件名允许携带**至多一层**安全子目录段(如 "uploads/<uuid>-a.pdf",prism 用它把附件与
+// LaTeX 工作区隔开;2026-07-14 输入框统一遗留补齐):段名白名单 [A-Za-z0-9_-]{1,32},
+// 其余形态一律取 basename(防 ../ 穿越;confinePath 再兜一层符号链接逃逸)。
 export async function pushSessionFile(workDir: string, file: File): Promise<{ path: string; name: string; size: number }> {
-  const name = basename(file.name || "upload.bin");
-  await mkdir(workDir, { recursive: true });
-  const abs = await confinePath(workDir, name, true);
+  const rawName = file.name || "upload.bin";
+  const m = rawName.match(/^([A-Za-z0-9_-]{1,32})\/([^/]+)$/);
+  const sub = m ? m[1] : "";
+  const name = basename(m ? m[2] : rawName);
+  await mkdir(sub ? join(workDir, sub) : workDir, { recursive: true });
+  const abs = await confinePath(workDir, sub ? `${sub}/${name}` : name, true);
   const buf = Buffer.from(await file.arrayBuffer());
   await writeFile(abs, buf);
   return { path: abs, name, size: buf.length };
