@@ -38,6 +38,10 @@ func (r *Repository) GetConfig() (*AgentConfig, error) {
 //
 // 注意: 这里只写 admin 提交的业务字段 + push_status='pending' (本次保存触发新一轮推送),
 // 不动 last_pushed_at / push_error — 它们由 MarkPushSuccess / MarkPushFailed 异步写回。
+//
+// 模型目录化 P1:4 个模型槽位列**冻结不再写**(admin 表单已移除输入框,若仍写会被空值洗掉;
+// main_model 兼任 modelcatalog.Resolve 的终极回退,必须保留迁移时的值)。推送口径的槽位
+// 由绑定表经 Service.effectiveConfig 覆盖,与这几列无关。
 func (r *Repository) UpdateConfig(config *AgentConfig) error {
 	var existing AgentConfig
 	err := r.db.First(&existing).Error
@@ -49,15 +53,11 @@ func (r *Repository) UpdateConfig(config *AgentConfig) error {
 		return err
 	}
 	return r.db.Model(&existing).Updates(map[string]any{
-		"base_url":     config.BaseURL,
-		"api_key":      config.APIKey,
-		"main_model":   config.MainModel,
-		"haiku_model":  config.HaikuModel,
-		"sonnet_model": config.SonnetModel,
-		"opus_model":   config.OpusModel,
-		"enabled":      config.Enabled,
-		"push_status":  PushStatusPending,
-		"push_error":   "",
+		"base_url":    config.BaseURL,
+		"api_key":     config.APIKey,
+		"enabled":     config.Enabled,
+		"push_status": PushStatusPending,
+		"push_error":  "",
 	}).Error
 }
 

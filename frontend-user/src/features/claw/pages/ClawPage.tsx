@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type Ref } from 'react';
-import { Cpu, History, Loader2, MessageSquarePlus, PanelRightOpen, Sparkles } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { History, Loader2, MessageSquarePlus, PanelRightOpen, Sparkles } from 'lucide-react';
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'framer-motion';
 import { StickToBottom } from 'use-stick-to-bottom';
 import { Button } from '@/shared/ui/button';
@@ -11,7 +12,10 @@ import { Sheet, SheetContent } from '@/shared/ui/sheet';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useRegisterSidebarRail } from '@/stores/sidebar.store';
 import { useHeightVar, useMediaQuery } from '@/shared/hooks';
+import { useUserModels } from '@/shared/api/models';
+import { ModelSelector } from '@/shared/components/chat/ModelSelector';
 import { ChatComposer, type ChatComposerHandle } from '../components/chat/ChatComposer';
+import { getNewConversationModel, setNewConversationModel } from '../api/session';
 import { MessageTurn } from '../components/chat/MessageTurn';
 import { type ClawArtifact } from '../api/artifacts';
 import { ClawArtifactPreview } from '../components/preview/ClawArtifactPreview';
@@ -38,8 +42,8 @@ export function ClawPage() {
   const openAuth = useAuthDialog((s) => s.openDialog);
 
   // 侧边栏收起态的冗余入口(顶栏 rail chip):点击 = 展开 sidebar + 对应 section 闪一下定位。
+  // (模型选择器已移到 composer,rail 只剩会话历史。)
   useRegisterSidebarRail([
-    { id: 'claw-model', label: '对话模型', icon: Cpu, sectionId: 'claw-model' },
     { id: 'claw-sessions', label: '会话历史', icon: History, sectionId: 'claw-sessions' },
   ]);
 
@@ -98,6 +102,31 @@ export function ClawPage() {
   // composer 在「空态 hero(居中)」与「对话中底部停靠」两处复用同一套 props。hero 传 ref 以支持
   // 点示例提问 prefill;停靠位不需要 ref。两处各是一份实例 + 同一个 layoutId → 发首条消息时
   // framer 把框从居中平滑滑到底部(切换发生在 submit 后,内部文本已清空,无内容丢失)。
+  // P2 模型目录:composer 左下角选择器(服务端权威;新对话时展示用户级偏好)。
+  const navigate = useNavigate();
+  const { data: userModels } = useUserModels('claw');
+  const [newConvPref, setNewConvPref] = useState<string | null>(() => getNewConversationModel() ?? null);
+  const selectorCurrent =
+    socket.sessionModel ?? (!sessionId && newConvPref ? { modelId: newConvPref, isDefault: false } : null);
+  const modelSlot =
+    userModels && userModels.length > 0 ? (
+      <ModelSelector
+        models={userModels}
+        current={selectorCurrent}
+        onUpgrade={() => navigate('/pricing')}
+        onSelect={(id) => {
+          if (sessionId) {
+            // 已有会话:发帧 → hub 校验落 pinned_model → runtime_config_updated 广播回来更新 UI。
+            socket.send({ type: 'set_runtime_config', providerId: null, modelId: id ?? '', useDefault: id === null });
+          } else {
+            // 新对话(未建会话):记用户级偏好,建会话后一次性下发(useClawConversation)。
+            setNewConversationModel(id);
+            setNewConvPref(id);
+          }
+        }}
+      />
+    ) : null;
+
   const composerRef = useRef<ChatComposerHandle>(null);
   const renderComposer = (ref?: Ref<ChatComposerHandle>) => (
     <ChatComposer
@@ -110,6 +139,7 @@ export function ClawPage() {
       onSubmit={conv.handleSubmit}
       sessionId={sessionId}
       onSessionEnsured={conv.adoptSession}
+      modelSlot={modelSlot}
       // 未登录:发送/上传 → 弹登录注册, 不真的发请求
       requireAuth={!token}
       onRequireAuth={() => openAuth('login')}
@@ -124,9 +154,6 @@ export function ClawPage() {
           onActivate={conv.handleActivateSession}
           // "新对话" 走 lazy 语义: 不创建后端 session, 只把本地切到空白态。
           onNewConversation={conv.handleNewConversation}
-          // 模型切换: ClawModelSelector 直接通过 socket.send 把 set_runtime_config
-          // 推给 agent (per-session, 不写盘); 同时 localStorage 记忆下次重连自动 re-apply。
-          onSendToSocket={socket.send}
         />
       }
     >

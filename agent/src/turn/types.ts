@@ -15,6 +15,7 @@ export interface TurnInput {
   messages: Anthropic.MessageParam[]; // 后端喂的 history + 本轮 user
   tier: Tier;
   modelOverride?: string; // 具体 model id(peerreview set_runtime_config{modelId} 切模型);优先于 tier
+  providerName?: string; // F0 多 provider:额外 provider 的 executor 键;缺省 = 默认 active provider
   disallowedTools: string[]; // 控制面 denylist(天花板);执行器只会更严
   appendSystemPrompt?: string; // 规则 + per-user memory,控制面给
   addDirs?: string[]; // --add-dir skill/CLAUDE.md 目录(H6;claw/prism/peerreview 的 per-feature skill)

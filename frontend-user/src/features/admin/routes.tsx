@@ -91,6 +91,11 @@ export const adminRoutes: RouteObject[] = [
         lazy: lazyPage(() => import('./pages/FeedbackPage'))('FeedbackPage'),
       },
       {
+        path: 'skills-review',
+        handle: { title: 'Skill 审核' },
+        lazy: lazyPage(() => import('./pages/SkillReviewPage'))('SkillReviewPage'),
+      },
+      {
         path: 'messages',
         handle: { title: '消息中心' },
         lazy: lazyPage(() => import('./pages/MessagesPage'))('MessagesPage'),
@@ -156,9 +161,14 @@ export const adminRoutes: RouteObject[] = [
         lazy: lazyPage(() => import('./pages/ThirdPartyPage'))('ThirdPartyPage'),
       },
       {
+        // 「AI Agent 服务」页已并入模型目录(默认端点=Provider 列表第一行);老书签重定向。
         path: 'agent-config',
-        handle: { title: 'AI Agent 服务' },
-        lazy: lazyPage(() => import('./pages/AgentConfigPage'))('AgentConfigPage'),
+        loader: () => redirect('/admin/model-catalog'),
+      },
+      {
+        path: 'model-catalog',
+        handle: { title: '模型目录' },
+        lazy: lazyPage(() => import('./pages/ModelCatalogPage'))('ModelCatalogPage'),
       },
       {
         path: 'dimensions',

@@ -65,6 +65,11 @@ type BudgetProviderFn func(ctx context.Context, userID uint) (soft, hard int64, 
 // hub 在 seed_history 组装 opts 后、把它拼在 AppendSystemPrompt 之后(clone-before-mutate)。
 type SessionProfileFn func(ctx context.Context, sessionID string) string
 
+// SessionSkillsProviderFn(skill 市场)按 userID 返回该用户建会话时要物化的市场 skill(≤5 份内联内容)。
+// 只有 userID(与 buildCreateOptions 同源);sid 由 executor 建会话时生成,物化在 executor 侧完成。
+// 返回内容是不可信用户内容,只走 executor 的 guides 按需层。fail-open:err/空 = 无用户 skill。
+type SessionSkillsProviderFn func(ctx context.Context, userID uint) ([]agent.SessionSkill, error)
+
 // OnTitleResultFn 在 agent 生成会话标题(session_title_updated, aiGenerated)后异步调用。
 // 供标题真源在 backend DB 的 feature(prism)落库;title 已是 agent 解析好的纯标题文本,
 // 实现方仍应做一道清洗(clamp/junk)+ 幂等落库(仅默认占位时写)。
@@ -186,12 +191,16 @@ type FeatureSpec struct {
 	// (prism 写作画像:base 文体/学科人格),拼在 AppendSystemPrompt 之后。nil = 不注入。详见 SessionProfileFn。
 	SessionProfile SessionProfileFn
 
-	// DefaultTier 是该 feature 交互会话默认用的模型档位(模型路由 方案A·A1)。值域 main|haiku|sonnet|opus
-	// (映射 agent_config 槽位;haiku=便宜档/flash,main=主档/pro)。空 = 不由 hub 下发 tier(peerreview
-	// 走 serverside per-round modelId,自管)。hub 建连时据「会话 pinned_tier(A3 用户显式选)|| DefaultTier」
-	// 给 executor 发一次 set_runtime_config{tier},整连接锁定(铁律:绝不会话中途自动换模型)。
-	// 现默认:smart_search=haiku(检索综合,便宜档,可 A/B);claw/prism=main(对话/写作,主档)。
-	DefaultTier string
+	// SessionSkillsProvider(skill 市场)非 nil 时,buildCreateOptions 在建会话 / seed 时按 userID 现算
+	// 「该用户启用的市场 skill」,作为**内联内容**塞进 CreateSessionOptions.Skills → executor 物化到
+	// <workDir>.skills/guides/(guides 按需层,不进常驻 system)。仅 claw 设它。内容是**不可信用户内容**,
+	// 只走 guides 按需菜单;返回值已被 service 收窄为「自建 或 public+approved」的 skill,且 ≤5 份。
+	// 失败 fail-open(返回空 / err)= 无用户 skill,不阻断建会话(skill 是增强非必需)。
+	SessionSkillsProvider SessionSkillsProviderFn
+
+	// (旧 DefaultTier 字段已删除 —— P2 模型目录化后,feature 默认模型由 chat_default.<key>
+	//  能力绑定驱动(admin 可配,Bridge.SetModelCatalog 注入),hub sendInitialModel 下发具体
+	//  modelId。铁律不变:绝不会话中途**自动**换模型,用户显式换经 handleRuntimeConfigFrame 校验。)
 
 	// AllowBash 是「该 feature 是否允许 agent 跑 Bash/BashOutput/KillShell」的**单一真源**。
 	// 默认零值 false = 禁 Bash(默认安全:新 feature 不显式置 true 就没有 shell)。

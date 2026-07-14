@@ -59,9 +59,19 @@ type SessionRow struct {
 	// session_title_updated 时 hub first-wins 写入;ListSessions / 续流以此为准。
 	Title string `gorm:"column:title;type:varchar(255);not null;default:''"`
 
-	// PinnedTier (migration 0052): 会话锁定的模型档位(模型路由 方案A·A3 用户显式选的 快/深)。
-	// 空 = 用 feature 默认 tier(A1)。hub 建连据「PinnedTier || spec.DefaultTier」发 set_runtime_config。
+	// PinnedTier (migration 0052): 旧 tier 档位锁定,已被 PinnedModel 取代(P2 模型目录化)。
+	// 列保留仅作回滚兜底,读写路径已全部下线。
 	PinnedTier string `gorm:"column:pinned_tier;type:varchar(16);not null;default:''"`
+
+	// PinnedModel (migration 0063): 会话锁定的具体模型 id(用户在选择器显式选)。
+	// 空 = 跟随 feature 默认(chat_default.* 绑定,admin 可改)。hub 建连据
+	// 「ValidateUserModel(PinnedModel) || chat_default 绑定」发 set_runtime_config{modelId}。
+	PinnedModel string `gorm:"column:pinned_model;type:varchar(200);not null;default:''"`
+
+	// UsageWatermark (migration 0063, P3 接线): 计费水位持久化("in,out,cacheRead,cacheWrite")。
+	// agent 侧 session_total 跨 backend 重启存活,进程内水位 map 重启即丢 → 重启后首帧会把
+	// 整段历史累计当增量重复扣额度;每轮记账后异步写回此列,重启时回源。
+	UsageWatermark string `gorm:"column:usage_watermark;type:varchar(120);not null;default:''"`
 
 	// 归属归一 (migration 0014): 实体级会话用 owner_kind/owner_id 锚定到业务实体,
 	// 一实体一会话 (uk_owner)。用户级会话 (smart_search / claw 多会话) 两列留 NULL,
@@ -163,14 +173,37 @@ func (r *Repository) SetTitle(agentSessionID, title string) error {
 		Update("title", title).Error
 }
 
-// SetPinnedTier — 写会话锁定 tier(模型路由 A3 用户选 快/深;空字符串=回到 feature 默认 A1)。
-func (r *Repository) SetPinnedTier(agentSessionID, tier string) error {
+// GetUsageWatermark — 读会话计费水位(P3;缺行/空 → 空串,调用方按无水位处理)。
+func (r *Repository) GetUsageWatermark(agentSessionID string) string {
+	if agentSessionID == "" {
+		return ""
+	}
+	var row SessionRow
+	if err := r.db.Select("usage_watermark").
+		Where("agent_session_id = ?", agentSessionID).First(&row).Error; err != nil {
+		return ""
+	}
+	return row.UsageWatermark
+}
+
+// SetUsageWatermark — 写会话计费水位(P3,每轮记账后异步 best-effort)。
+func (r *Repository) SetUsageWatermark(agentSessionID, wm string) error {
 	if agentSessionID == "" {
 		return nil
 	}
 	return r.db.Model(&SessionRow{}).
 		Where("agent_session_id = ?", agentSessionID).
-		Update("pinned_tier", tier).Error
+		Update("usage_watermark", wm).Error
+}
+
+// SetPinnedModel — 写会话锁定模型 id(P2 用户选模型;空字符串 = unpin,回到 feature 默认绑定)。
+func (r *Repository) SetPinnedModel(agentSessionID, modelID string) error {
+	if agentSessionID == "" {
+		return nil
+	}
+	return r.db.Model(&SessionRow{}).
+		Where("agent_session_id = ?", agentSessionID).
+		Update("pinned_model", modelID).Error
 }
 
 // GetByAgentSessionID — 按 agent session UUID 取行 + ownership check。

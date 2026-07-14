@@ -74,6 +74,11 @@ type sessionHub struct {
 	currentTurnID     uint64
 	completedThisTurn bool
 
+	// currentModel / currentModelDefault(h.mu):会话当前生效模型(P2 hub 权威内存态)。
+	// sendInitialModel / handleRuntimeConfigFrame 写;迟到补帧、消息前重校验、预算盖章(P3)读。
+	currentModel        string
+	currentModelDefault bool
+
 	promptInjected atomic.Bool // 首条 user_message 注入 system prompt prefix,每 session 一次
 	pendingMark    atomic.Bool // 注入了但等 agent 首个 message_complete 才落库 prompt_injected
 	// V3-4.6-2 seed fail-closed:seed_history 写失败(重试后)置位 → 首条 user_message 先重 seed,
@@ -222,9 +227,9 @@ func (f *FeatureBridge) newHub(key string, userID uint, sessionID string) (*sess
 	if f.bridge.isExecutorFeature(f.spec.Key) {
 		h.seedHistoryFromJournal()
 	}
-	// 模型路由 方案A:建连即给 executor 发一次「会话锁定 tier」(A1 feature 默认 / A3 用户显式选),
-	// 整连接锁定。在 user_message 之前发,WS 有序 → executor 先设 tier 再收首条消息。
-	h.sendInitialTier()
+	// P2 模型目录:建连即下发一次会话模型(pinned_model 校验 || chat_default 绑定),
+	// 在 user_message 之前发,WS 有序 → executor 先设 modelOverride 再收首条消息。
+	h.sendInitialModel()
 
 	safego.Go("agentbridge-hub-upstream:"+f.spec.Key, h.upstreamLoop)
 	safego.Go("agentbridge-hub-ping:"+f.spec.Key, h.pingLoop)
@@ -254,47 +259,197 @@ func (h *sessionHub) resolveAlreadyInjected() bool {
 	return hasUser
 }
 
-// validTier 校验模型档位(对应 agent_config 槽位 + executor resolveTier)。
-func validTier(t string) bool {
-	return t == "main" || t == "haiku" || t == "sonnet" || t == "opus"
+// ─── 会话模型(P2 模型目录化:用户选模型 + 权威校验)────────────────────────────
+//
+// 真源 = agent_sessions.pinned_model(用户显式选)|| chat_default.<feature> 绑定(admin 可改)。
+// hub 是唯一咽喉:建连下发一次、浏览器换模型帧经校验后重组转发(绝不裸转)、每条消息前重校验。
+// executor 侧 modelOverride 是 per-connection 内存态,恒由 hub 下发的具体 modelId 驱动。
+
+// chatDefaultPurpose 该 feature 的默认对话模型绑定 key(与 modelcatalog.PurposeChatDefault* 对齐)。
+func (h *sessionHub) chatDefaultPurpose() string { return "chat_default." + h.f.spec.Key }
+
+// setCurrentModel / currentModelSnapshot —— hub 内存态(h.mu),供预算盖章(P3)/迟到补帧/重校验读。
+func (h *sessionHub) setCurrentModel(modelID string, isDefault bool) {
+	h.mu.Lock()
+	h.currentModel, h.currentModelDefault = modelID, isDefault
+	h.mu.Unlock()
 }
 
-// tierFromFrame 从 set_runtime_config 帧取 tier(仅返回合法档位,否则空)。
-func tierFromFrame(data []byte) string {
-	var f struct {
-		Tier string `json:"tier"`
-	}
-	if json.Unmarshal(data, &f) != nil {
-		return ""
-	}
-	t := strings.TrimSpace(f.Tier)
-	if validTier(t) {
-		return t
-	}
-	return ""
+func (h *sessionHub) currentModelSnapshot() (string, bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.currentModel, h.currentModelDefault
 }
 
-// sendInitialTier 建连后给 executor 发一次 set_runtime_config{tier}(模型路由 方案A:A1 默认 + A3 锁定)。
-// effectiveTier = 会话 pinned_tier(用户显式选) || feature.DefaultTier。空(如 peerreview serverside,
-// 自管 per-round modelId)→ 不发。整连接锁定:executor 据此设 ws.data.tier 用于本连接所有轮。
-func (h *sessionHub) sendInitialTier() {
-	tier := h.f.spec.DefaultTier
-	if h.f.bridge.repo != nil {
-		if row, err := h.f.bridge.repo.FindByAgentSessionID(h.sessionID); err == nil && row != nil && validTier(row.PinnedTier) {
-			tier = row.PinnedTier // A3 用户显式选优先于 feature 默认
-		}
+// runtimeConfigFrame 组下发 executor 的模型帧(附 contextWindow 供 H5 滑窗裁剪按模型定界;
+// F0 起附 canonical providerId:"" 显式下发 = 回默认 provider,executor 据此清 providerOverride)。
+func runtimeConfigFrame(cat ModelCatalog, modelID string, contextWindow int) []byte {
+	payload := map[string]any{"type": "set_runtime_config", "modelId": modelID}
+	if contextWindow > 0 {
+		payload["contextWindow"] = contextWindow
 	}
-	if !validTier(tier) {
-		return // 空 / 非法 → 不下发(executor 用它自己的默认 tier=main)
+	if cat != nil {
+		payload["providerId"] = cat.ProviderKey(modelID) // ""=默认(清 override)
 	}
-	frame, err := json.Marshal(map[string]any{"type": "set_runtime_config", "tier": tier})
-	if err != nil {
+	frame, _ := json.Marshal(payload)
+	return frame
+}
+
+// runtimeConfigUpdatedFrame 组广播给所有订阅者的「会话模型已变更」帧(多端选择器实时同步)。
+func runtimeConfigUpdatedFrame(modelID string, isDefault bool) []byte {
+	frame, _ := json.Marshal(map[string]any{
+		"type": "runtime_config_updated", "modelId": modelID, "isDefault": isDefault,
+	})
+	return frame
+}
+
+// sendInitialModel 建连后给 executor 下发一次会话模型(取代旧 sendInitialTier 的 tier 通道)。
+// effective = pinned_model(过 ValidateUserModel:会员到期/下架 → 清 pinned 回默认)|| chat_default 绑定。
+// catalog 未接线(单测)→ 不下发,executor 用自身默认。写失败重试 3 次(P3 后盖章 weight 依赖
+// hub 内存态与 executor 实跑一致,不能像旧 tier 那样丢帧只 Debug)。
+func (h *sessionHub) sendInitialModel() {
+	cat := h.f.bridge.catalog
+	if cat == nil {
 		return
 	}
-	if werr := h.writeAgent(gorillaws.TextMessage, frame); werr != nil {
-		slog.Debug("agentbridge hub: initial set_runtime_config write failed", "session_id", h.sessionID, "err", werr)
-	} else {
-		slog.Debug("agentbridge hub: sent session tier", "feature", h.f.spec.Key, "session_id", h.sessionID, "tier", tier)
+	effective, isDefault := "", true
+	if h.f.bridge.repo != nil {
+		if row, err := h.f.bridge.repo.FindByAgentSessionID(h.sessionID); err == nil && row != nil && row.PinnedModel != "" {
+			if verr := cat.ValidateUserModel(h.userID, row.PinnedModel); verr == nil {
+				effective, isDefault = row.PinnedModel, false
+			} else {
+				// 锁定模型已不可用(下架/会员到期)→ 清 pinned 落库,回默认(懒回收)。
+				slog.Info("agentbridge hub: pinned_model 已失效,回收为默认",
+					"feature", h.f.spec.Key, "session_id", h.sessionID, "model", row.PinnedModel, "reason", verr)
+				_ = h.f.bridge.repo.SetPinnedModel(h.sessionID, "")
+			}
+		}
+	}
+	if effective == "" {
+		effective = cat.Resolve(h.chatDefaultPurpose())
+	}
+	if effective == "" {
+		return // 目录未配置(fresh install)→ executor 自身默认
+	}
+	h.setCurrentModel(effective, isDefault)
+	frame := runtimeConfigFrame(cat, effective, cat.ContextWindow(effective))
+	for attempt := 1; ; attempt++ {
+		if werr := h.writeAgent(gorillaws.TextMessage, frame); werr == nil {
+			slog.Debug("agentbridge hub: sent session model",
+				"feature", h.f.spec.Key, "session_id", h.sessionID, "model", effective, "default", isDefault)
+			return
+		} else if attempt >= 3 {
+			slog.Warn("agentbridge hub: initial model frame failed after retries",
+				"feature", h.f.spec.Key, "session_id", h.sessionID, "model", effective, "err", werr)
+			return
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+}
+
+// handleRuntimeConfigFrame 浏览器 set_runtime_config 帧的权威闸(P2 堵注入洞的核心):
+//   - 绝不转发浏览器原始字节(混合帧 {tier, modelId:任意串} 曾可绕过校验直达上游)——
+//     校验通过后由 backend 重新组帧,只含白名单字段与目录 canonical model id;
+//   - modelId → ValidateUserModel;合法先落 pinned_model(落库失败拒帧,保证 DB 与 executor 一致);
+//   - 非法 → **兼容期静默降级为默认模型**(老 web bundle / 小程序会在每次重连自动重发
+//     localStorage 里的旧 modelId,回 error 帧会让存量用户凭空弹错;新前端 UI 已按 locked
+//     预过滤,error 帧并不承载 UX)。兼容期(≥1 个小程序强更周期)后可转严格拒绝;
+//   - useDefault / 全空 → unpin(清 pinned_model,回 chat_default 绑定)——没有此语义则
+//     pinned 一旦写入永不解除,admin 换默认绑定对老会话永不生效;
+//   - 老 tier 帧兼容:haiku→system.fast,其余→chat_default;只转发不落 pinned(落库会把
+//     user_selectable=false 的系统模型 pin 进会话,成为绕过目录过滤的旁路);
+//   - 成功后广播 runtime_config_updated 给所有订阅者(多端选择器实时同步)。
+func (h *sessionHub) handleRuntimeConfigFrame(data []byte) {
+	cat := h.f.bridge.catalog
+	if cat == nil {
+		slog.Warn("agentbridge hub: set_runtime_config dropped (model catalog not wired)",
+			"feature", h.f.spec.Key, "session_id", h.sessionID)
+		return
+	}
+	var f struct {
+		ModelID    string `json:"modelId"`
+		UseDefault bool   `json:"useDefault"`
+		Tier       string `json:"tier"`
+	}
+	_ = json.Unmarshal(data, &f)
+	modelID := strings.TrimSpace(f.ModelID)
+	tier := strings.TrimSpace(f.Tier)
+
+	effective, isDefault := "", false
+	switch {
+	case f.UseDefault || (modelID == "" && tier == ""):
+		// unpin:清锁定,回 feature 默认绑定。
+		if h.f.bridge.repo != nil {
+			if perr := h.f.bridge.repo.SetPinnedModel(h.sessionID, ""); perr != nil {
+				slog.Warn("agentbridge hub: unpin model persist failed", "session_id", h.sessionID, "err", perr)
+				return
+			}
+		}
+		effective, isDefault = cat.Resolve(h.chatDefaultPurpose()), true
+	case modelID == "":
+		// 老 tier 帧兼容(当前无前端发 tier,防御性保留一个发版周期):映射后只转发不落 pinned。
+		if tier == "haiku" {
+			effective = cat.Resolve("system.fast")
+		} else {
+			effective = cat.Resolve(h.chatDefaultPurpose())
+		}
+		isDefault = true
+	default:
+		if verr := cat.ValidateUserModel(h.userID, modelID); verr != nil {
+			slog.Warn("agentbridge hub: 非法 modelId,兼容期静默降级为默认",
+				"feature", h.f.spec.Key, "session_id", h.sessionID, "user_id", h.userID,
+				"model", modelID, "reason", verr)
+			effective, isDefault = cat.Resolve(h.chatDefaultPurpose()), true
+		} else {
+			// 先落库后转发:落库失败拒帧(否则 3min grace 后 hub 重建按旧值重发,用户被静默切回)。
+			if h.f.bridge.repo != nil {
+				if perr := h.f.bridge.repo.SetPinnedModel(h.sessionID, modelID); perr != nil {
+					slog.Warn("agentbridge hub: persist pinned_model failed, frame rejected",
+						"session_id", h.sessionID, "err", perr)
+					return
+				}
+			}
+			effective, isDefault = modelID, false
+		}
+	}
+	if effective == "" {
+		return // 目录未配置 → 不下发
+	}
+	h.setCurrentModel(effective, isDefault)
+	if werr := h.writeAgent(gorillaws.TextMessage, runtimeConfigFrame(cat, effective, cat.ContextWindow(effective))); werr != nil {
+		slog.Debug("agentbridge hub: runtime config write failed", "session_id", h.sessionID, "err", werr)
+		return
+	}
+	h.broadcastAgent(runtimeConfigUpdatedFrame(effective, isDefault))
+}
+
+// revalidateModelBeforeMessage 每条 user_message 前重校验会话锁定模型(30s 目录缓存 + 一次
+// EffectiveTier 主键查,量级与配额闸相同)。覆盖「常开 tab 永不重连」的活连接:会员到期 /
+// 模型下架时主动切回默认并广播,而不是等 hub 重建才懒回收。
+func (h *sessionHub) revalidateModelBeforeMessage() {
+	cat := h.f.bridge.catalog
+	if cat == nil {
+		return
+	}
+	cur, isDefault := h.currentModelSnapshot()
+	if cur == "" || isDefault {
+		return // 默认模型无档位门槛语义(绑定由 admin 管),只校验用户显式锁定的
+	}
+	if cat.ValidateUserModel(h.userID, cur) == nil {
+		return
+	}
+	slog.Info("agentbridge hub: 会话模型失效,消息前切回默认",
+		"feature", h.f.spec.Key, "session_id", h.sessionID, "model", cur)
+	if h.f.bridge.repo != nil {
+		_ = h.f.bridge.repo.SetPinnedModel(h.sessionID, "")
+	}
+	def := cat.Resolve(h.chatDefaultPurpose())
+	if def == "" {
+		return
+	}
+	h.setCurrentModel(def, true)
+	if werr := h.writeAgent(gorillaws.TextMessage, runtimeConfigFrame(cat, def, cat.ContextWindow(def))); werr == nil {
+		h.broadcastAgent(runtimeConfigUpdatedFrame(def, true))
 	}
 }
 
@@ -335,7 +490,7 @@ func (h *sessionHub) seedHistoryFromJournal() {
 	// Phase 2:项目级写作画像(prism)拼进 AppendSystemPrompt —— 以 sessionID 为身份,置于 buildCreateOptions
 	// (user 级系统提示 + MemoryBlocks)之后。放在 hasOpts 判定之前,使「仅画像」也能触发 seed 下发。
 	opts = h.f.applySessionProfile(ctx, h.sessionID, opts)
-	hasOpts := opts != nil && (opts.AppendSystemPrompt != "" || len(opts.AddDirs) > 0 || len(opts.DisallowedTools) > 0)
+	hasOpts := opts != nil && (opts.AppendSystemPrompt != "" || len(opts.AddDirs) > 0 || len(opts.DisallowedTools) > 0 || len(opts.Skills) > 0)
 	if len(msgs) == 0 && title == "" && !hasOpts {
 		return // 全新会话:无历史/标题/注入面,executor 从空起(并会生成标题)
 	}
@@ -352,6 +507,10 @@ func (h *sessionHub) seedHistoryFromJournal() {
 		}
 		if len(opts.DisallowedTools) > 0 {
 			payload["disallowedTools"] = opts.DisallowedTools
+		}
+		// 用户市场 skill 内联内容:重连/重启后 executor 据此重物化(与 CreateSession 同路径)。
+		if len(opts.Skills) > 0 {
+			payload["skills"] = opts.Skills
 		}
 	}
 	frame, ferr := json.Marshal(payload)
@@ -442,6 +601,11 @@ func (h *sessionHub) addSubscriber(conn *gorillaws.Conn) *subscriber {
 		}
 	}
 	h.subs[sub] = struct{}{}
+	// P2 迟到补帧:把会话当前生效模型告知新订阅者(多 tab 下 B tab 选择器与 A tab 实时一致;
+	// hub 重建后 sendInitialModel 的结果对晚到前端同样可见)。锁内读内存态,零 DB。
+	if h.currentModel != "" {
+		trySend(sub.out, runtimeConfigUpdatedFrame(h.currentModel, h.currentModelDefault))
+	}
 	// tab 切回:取消 grace 关闭计时器,hub 继续存活。
 	if h.graceTimer != nil {
 		h.graceTimer.Stop()
@@ -673,11 +837,12 @@ func (h *sessionHub) upstreamLoop() {
 							hook(h.hookCtx, uid, usage)
 						})
 					}
-					if rows := f.bridge.accrueTurnUsage(h.sessionID, usage, calls, sessionTotal); len(rows) > 0 {
+					sessModel, _ := h.currentModelSnapshot() // P3:补差行按会话当前模型计价
+					if rows := f.bridge.accrueTurnUsage(h.sessionID, sessModel, usage, calls, sessionTotal); len(rows) > 0 {
 						uid, feat, sid, rec := h.userID, f.spec.Key, h.sessionID, f.bridge.llmRec
 						safego.Go("agentbridge-usage-record:"+feat, func() {
 							for i := range rows {
-								recordAgentTokens(rec, &uid, feat, sid, rows[i])
+								recordAgentTokens(rec, f.bridge.catalog, &uid, feat, sid, rows[i])
 							}
 						})
 					}
@@ -830,19 +995,18 @@ func (s *subscriber) readLoop() {
 		case "user_message":
 			h.handleUserMessage(s, data)
 		case "set_runtime_config":
-			// 模型路由 A3:浏览器显式选 快/深(tier)→ 持久化为会话 pinned_tier(stickiness:重连后
-			// sendInitialTier 据此重发,锁定);再转发上游立即生效。无效 tier 不持久化。
-			if tier := tierFromFrame(data); tier != "" {
-				if perr := h.f.bridge.repo.SetPinnedTier(h.sessionID, tier); perr != nil {
-					slog.Debug("agentbridge hub: persist pinned_tier failed", "session_id", h.sessionID, "err", perr)
-				}
-			}
-			if err := h.writeAgent(mt, data); err != nil {
-				slog.Debug("agentbridge hub: agent write end", "feature", h.f.spec.Key, "err", err)
-				return
-			}
+			// P2 权威闸:校验 + 重组转发(绝不裸转浏览器字节),详见 handleRuntimeConfigFrame。
+			h.handleRuntimeConfigFrame(data)
 		default:
 			// stop_generation / permission_response 等控制帧 → 转发到唯一上游。
+			// P0.4(skill 市场前置):安全闸 —— 拒绝浏览器发的 backend-only 帧(seed_history/extract_memory)
+			// 与任何携带注入面字段(addDirs/disallowedTools/appendSystemPrompt/skills)的帧,否则用户可自带
+			// 任意 addDirs 绕过审核让 executor 加载宿主任意目录(读文件 + 提示注入)。合法控制帧不带这些字段,不受影响。
+			if !browserFrameForwardable(data) {
+				slog.Warn("agentbridge hub: dropped disallowed browser frame (injection-surface / backend-only)",
+					"feature", h.f.spec.Key, "session_id", h.sessionID, "frame_type", frameType(data))
+				continue
+			}
 			// V3-4.4-2:executor 的 turnLoop 在 abort 后 finally 照发 message_complete(终帧守卫),
 			// 帧层与成功轮不可区分 → hub 是唯一知道「这轮被 stop 过」的地方,记下来供完成帧盖章。
 			if frameType(data) == "stop_generation" {
@@ -873,6 +1037,9 @@ func (s *subscriber) sendSelf(frame []byte) {
 func (h *sessionHub) handleUserMessage(s *subscriber, data []byte) {
 	f := h.f
 	content, _ := extractUserMessageContent(data)
+
+	// P2:消息前重校验会话锁定模型(会员到期/模型下架对常开连接生效,不等 hub 重建)。
+	h.revalidateModelBeforeMessage()
 
 	// V3-4.6-2 seed fail-closed:seed 曾写失败 → 先重试一次;仍失败则拒绝本条(绝不让会话在
 	// 无协议/无记忆/无 skills 状态下静默作答)。重 seed 成功会清 seedFailed,正常放行。
@@ -982,6 +1149,18 @@ func (h *sessionHub) handleUserMessage(s *subscriber, data []byte) {
 	// 执行器无预算。peerreview BudgetProvider=nil → 不盖 → 任务型不受影响。
 	if f.spec.BudgetProvider != nil {
 		if soft, hard, unlimited := f.spec.BudgetProvider(h.hookCtx, h.userID); !unlimited {
+			// P3 反折算:额度余量是加权口径,执行器按 raw 4 类合计自配速 —— 除以会话模型的
+			// billing_weight 换回 raw 口径,两侧才闭合(weight 已在目录侧 clamp 下限防除零)。
+			// 每条消息现读 hub 内存态(随 set_runtime_config 同步更新),多端并发换模型至多错一轮,
+			// 透支带兜底。
+			if cat := f.bridge.catalog; cat != nil {
+				if cur, _ := h.currentModelSnapshot(); cur != "" {
+					if w := cat.BillingWeight(cur); w > 0 && w != 1 {
+						soft = int64(float64(soft) / w)
+						hard = int64(float64(hard) / w)
+					}
+				}
+			}
 			data = stampBudget(data, soft, hard)
 		}
 	}

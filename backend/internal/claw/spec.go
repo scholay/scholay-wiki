@@ -72,6 +72,22 @@ func SetUsageRecorder(r usagestat.Recorder) {
 	usageRecorder = r
 }
 
+// skillsProvider 由 SetSkillsProvider 注入(bootstrap)—— skill 市场:按 userID 现算该用户启用的
+// 市场 skill(≤5 份内联内容)。lazy 包级 var,BuildSpec 拿到的是闭包 sessionSkills 指向它,故注入顺序无关。
+// nil = 无用户 skill(市场未接线)。
+var skillsProvider agentbridge.SessionSkillsProviderFn
+
+// SetSkillsProvider 注入 skill 市场的 per-session 物化器。允许 nil(不加载用户 skill)。
+func SetSkillsProvider(fn agentbridge.SessionSkillsProviderFn) { skillsProvider = fn }
+
+// sessionSkills 是给 FeatureSpec.SessionSkillsProvider 的适配闭包(懒读包级 skillsProvider)。
+func sessionSkills(ctx context.Context, userID uint) ([]agent.SessionSkill, error) {
+	if skillsProvider == nil {
+		return nil, nil
+	}
+	return skillsProvider(ctx, userID)
+}
+
 // vipChecker 由 SetVIPChecker 注入(bootstrap)—— 按用户等级(free/pro)做 tier-aware 日额度。
 // vip.Service 自带「未配额→不限额 + Redis 挂→fail-open」,故无需再保留旧的 env 日额度回落。
 var vipChecker *vip.Service
@@ -143,7 +159,7 @@ func BuildSpec() agentbridge.FeatureSpec {
 		Picker:                 agentbridge.NewStaticPicker(FeatureKey, PromptSlug, PromptName, prompts.ClawSystemPrompt),
 		Color:                  "purple",
 		InjectPromptOnFirstMsg: true,
-		DefaultTier:            "main", // 通用助手对话(可能 Bash/多工具):默认主档(pro)
+		// 默认模型走 chat_default.claw 能力绑定(admin 模型目录页可改;迁移初值=主档)。
 		// C14: 审批轴。默认 auto;CLAW_PERMISSION_PASSTHROUGH=1 时 passthrough(测试/HITL 验证)。
 		PermissionMode: clawPermissionMode(),
 		// C1 (2026-06): claw 是唯一允许 Bash 的 feature —— 要跑 pdftotext/python 把 PDF / docx/xlsx
@@ -164,5 +180,8 @@ func BuildSpec() agentbridge.FeatureSpec {
 		SessionOptions: &agent.CreateSessionOptions{
 			AddDirs: []string{clawSkillAddDir()},
 		},
+		// skill 市场:按 userID 现算该用户启用的市场 skill,内联下发给 executor 物化到 guides 按需层。
+		// tier-1 安全:内容只走 guides(不进常驻 system)、Bash 仍由 AllowBash 上方管、无出网工具。
+		SessionSkillsProvider: sessionSkills,
 	}
 }

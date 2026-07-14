@@ -93,6 +93,14 @@ func SetVIPChecker(v *vip.Service) { vipChecker = v }
 // 防「新增付费 feature 忘记调 SetVIPChecker → 静默免费(收入泄漏)」的回归。
 func VIPCheckerWired() bool { return vipChecker != nil }
 
+// modelResolver 由 SetModelResolver 注入(模型目录化 P1,与 vipChecker 同款手法)。
+// planner 一次性选择轮按 prism.planner 绑定取便宜模型 —— 此前 modelID 传空串,serverside
+// 不发 set_runtime_config → 跑 executor 默认主模型,纯选择任务白烧主档。允许 nil(不切模型)。
+var modelResolver interface{ Resolve(purpose string) string }
+
+// SetModelResolver 注入模型目录解析器(bootstrap 接 modelcatalog.Service)。
+func SetModelResolver(r interface{ Resolve(purpose string) string }) { modelResolver = r }
+
 // usageRecorder 由 SetUsageStatRecorder 注入(功能使用统计);preUserMessageChain 懒读。
 var usageRecorder usagestat.Recorder
 
@@ -145,7 +153,7 @@ func BuildSpec() agentbridge.FeatureSpec {
 		Picker:                 agentbridge.NewStaticPicker(FeatureKey, PromptSlug, PromptName, agentNativeProtocol),
 		Color:                  "amber",
 		InjectPromptOnFirstMsg: true, // agent 默认带全工具,首条注入 agent-native 系统提示强约束
-		DefaultTier:            "main", // LaTeX 推理/定点编辑:主档(pro)
+		// 默认模型走 chat_default.prism 能力绑定(admin 模型目录页可改;迁移初值=主档)。
 
 		// C14: 审批轴 = auto。经 decidePermission 路径感知裁决:cwd 内文件操作放行,越界/Bash 等拒。
 		// ⚠️ prism 的越界文件防护只在 decidePermission 里,绝不能改 passthrough(会让前端能批越界)。

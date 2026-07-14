@@ -9,7 +9,7 @@
 
 import { http } from '@/shared/lib/http';
 import { useAgentSocket, type AgentWSTicket, type UseAgentSocket } from '@/shared/hooks/useAgentSocket';
-import { getClawSessionModel } from './session';
+import { takePendingInitialModel } from './session';
 import type { ClientMessage, ServerMessage } from './types';
 
 // fetchWSTicket — 多会话场景下 sessionId 是必填:前端已从 useClawSession 拿到 activeSessionId,
@@ -40,17 +40,16 @@ export function useClawSocket(sessionId: string | null): UseClawSocket {
     buildWsUrl,
     displacedDefaultText: '此会话已在其他窗口打开',
     onOpen: (ws) => {
-      // 用户为这个 session 选过 model(localStorage)→ WS 打开后立刻 push 给 agent。
-      // 必须:agent 的 set_runtime_config 不写盘,每次新 WS(含重连)都得重发,
-      // 重连后"模型偏好不丢"也靠这一步。
-      if (!sessionId) return;
-      const preferredModel = getClawSessionModel(sessionId);
-      if (preferredModel) {
+      // P2:per-session 模型真源在服务端(pinned_model,hub 建连自动下发),不再每次重发。
+      // 唯一例外 = 新对话偏好的**一次性**下发:会话刚建成、服务端还没有 pin,把用户在
+      // 新对话里选的模型发一帧(hub 校验落库),之后由服务端接管(取走即弃,不会重复)。
+      const initialModel = takePendingInitialModel(sessionId);
+      if (initialModel) {
         ws.send(
           JSON.stringify({
             type: 'set_runtime_config',
             providerId: null,
-            modelId: preferredModel,
+            modelId: initialModel,
           } satisfies ClientMessage),
         );
       }

@@ -36,7 +36,9 @@ import { useAuthStore } from '@/stores/auth.store';
 export type ClientMessage =
   | { type: 'user_message'; content: string }
   | { type: 'stop_generation' }
-  | { type: 'ping' };
+  | { type: 'ping' }
+  // 切换会话模型(P2 模型目录化:backend hub 权威校验 → pinned_model → 重组转发)。
+  | { type: 'set_runtime_config'; providerId: string | null; modelId: string; useDefault?: boolean };
 
 /**
  * Agent 端实际发的事件类型来源:agent/src/server/ws/events.ts。

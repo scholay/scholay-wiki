@@ -9,7 +9,7 @@
 
 import type { ServerWebSocket } from "bun";
 import { runTurn, addUsage, type CallUsage } from "../turn/turnLoop.ts";
-import { getOrCreateEphemeral, setTitle, allowBashFor } from "./sessions.ts";
+import { getOrCreateEphemeral, setTitle, allowBashFor, materializeSessionSkills } from "./sessions.ts";
 import { convertFlatToAnthropic, type FlatMessage } from "./shadowTurn.ts";
 import type { EventSink, TurnInput } from "../turn/types.ts";
 import type { Tier } from "../config/models.ts";
@@ -31,6 +31,13 @@ export interface WSData {
   pending: Map<string, (allowed: boolean) => void>;
   tier: Tier;
   modelOverride: string | null; // set_runtime_config{modelId};peerreview 按轮切具体模型
+  // set_runtime_config{providerId}(F0 多 provider):额外 provider 的 executor 键(scholay-p<id>);
+  // null = 默认 active provider。backend hub 是 canonical 来源,随模型帧成对下发(""=显式回默认)。
+  providerOverride: string | null;
+  // set_runtime_config{contextWindow}:当前会话模型的上下文窗口(模型目录化 P2,backend 随
+  // 模型帧下发)。null = 未知 → 回落全局 EXECUTOR_CONTEXT_WINDOW。异构上下文模型(64k/200k)
+  // 的 H5 滑窗裁剪据此按模型定界,否则小上下文模型先撞上游墙、大上下文模型被提前裁剪。
+  contextWindow: number | null;
 }
 
 const PERMISSION_TIMEOUT_MS = Number(process.env.EXECUTOR_PERMISSION_TIMEOUT_MS || 120_000);
@@ -81,10 +88,19 @@ export async function onMessage(ws: ServerWebSocket<WSData>, raw: string | Buffe
       return;
     }
     case "set_runtime_config": {
-      // peerreview 发具体 modelId(cfg.MainModel/HaikuModel);浏览器可能发 tier。两者都认。
-      if (typeof frame.modelId === "string" && frame.modelId.trim()) ws.data.modelOverride = frame.modelId.trim();
+      // backend hub(P2 经权威校验后重组的帧)与 peerreview serverside 发具体 modelId;tier 是老通道兼容。
+      if (typeof frame.modelId === "string" && frame.modelId.trim()) {
+        ws.data.modelOverride = frame.modelId.trim();
+        // providerId 随模型帧成对解释:非空 → 指定额外 provider;空串/缺失 → 回默认(清 override)。
+        ws.data.providerOverride =
+          typeof frame.providerId === "string" && frame.providerId.trim() ? frame.providerId.trim() : null;
+      }
       const t = frame.tier as Tier | undefined;
       if (t && ["main", "haiku", "sonnet", "opus"].includes(t)) ws.data.tier = t;
+      // 模型目录化 P2:随模型帧带上该模型的上下文窗口(H5 滑窗按模型定界)。
+      if (typeof frame.contextWindow === "number" && frame.contextWindow > 0) {
+        ws.data.contextWindow = frame.contextWindow;
+      }
       return;
     }
     case "seed_history": {
@@ -106,6 +122,12 @@ export async function onMessage(ws: ServerWebSocket<WSData>, raw: string | Buffe
       }
       if (Array.isArray(frame.addDirs) && frame.addDirs.length > 0 && meta.addDirs.length === 0) {
         meta.addDirs = (frame.addDirs as unknown[]).map(String);
+      }
+      // 用户市场 skill:重连/重启后 backend 经 seed_history 带内联内容回填(meta.addDirs 为空时物化)。
+      // 与 CreateSession 同一物化路径;物化目录并入 addDirs 供 loader 的 guides 菜单识别。
+      if (Array.isArray(frame.skills) && frame.skills.length > 0 && !meta.addDirs.some((d) => d.endsWith(".skills"))) {
+        const skillsDir = await materializeSessionSkills(meta.workDir, frame.skills as { name: string; skillMd: string }[]);
+        if (skillsDir && !meta.addDirs.includes(skillsDir)) meta.addDirs.push(skillsDir);
       }
       if (Array.isArray(frame.disallowedTools) && frame.disallowedTools.length > 0 && meta.disallowedTools.length === 0) {
         meta.disallowedTools = (frame.disallowedTools as unknown[]).map(String);
@@ -210,12 +232,14 @@ async function handleUserMessage(ws: ServerWebSocket<WSData>, frame: Record<stri
   // 触发信号 = 上一轮上下文(input+output ≈ 当前 history 大小)超 TRIGGER_PCT%。硬截断非摘要,但远好于崩溃;
   // windowMessages 在回合边界切,结构安全(单测覆盖)。新加入的本轮 user 恒是最后一个回合起点,必被保留。
   const lastCtx = meta.lastUsage ? meta.lastUsage.input_tokens + meta.lastUsage.output_tokens : 0;
-  if (CONTEXT_WINDOW > 0 && WINDOW_KEEP_TURNS > 0 && WINDOW_TRIGGER_PCT > 0 && lastCtx > (CONTEXT_WINDOW * WINDOW_TRIGGER_PCT) / 100) {
+  // 模型目录化 P2:上下文墙按会话模型定界(backend 随模型帧下发),未知回落全局 env。
+  const ctxWindow = ws.data.contextWindow ?? CONTEXT_WINDOW;
+  if (ctxWindow > 0 && WINDOW_KEEP_TURNS > 0 && WINDOW_TRIGGER_PCT > 0 && lastCtx > (ctxWindow * WINDOW_TRIGGER_PCT) / 100) {
     const before = meta.messages.length;
     meta.messages = windowMessages(meta.messages, WINDOW_KEEP_TURNS);
     if (meta.messages.length < before) {
       log.warn("windowed long-session history (near context limit)", {
-        session_id: meta.sessionId, last_ctx: lastCtx, ctx_window: CONTEXT_WINDOW,
+        session_id: meta.sessionId, last_ctx: lastCtx, ctx_window: ctxWindow,
         dropped_msgs: before - meta.messages.length, kept_msgs: meta.messages.length,
       });
     }
@@ -227,6 +251,7 @@ async function handleUserMessage(ws: ServerWebSocket<WSData>, frame: Record<stri
     messages: meta.messages,
     tier: ws.data.tier,
     modelOverride: ws.data.modelOverride ?? undefined,
+    providerName: ws.data.providerOverride ?? undefined,
     disallowedTools: meta.disallowedTools,
     appendSystemPrompt: meta.appendSystemPrompt,
     addDirs: meta.addDirs,

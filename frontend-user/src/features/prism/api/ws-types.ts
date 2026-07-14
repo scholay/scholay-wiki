@@ -15,7 +15,9 @@ export type PrismClientMessage =
   // 而非拿巨型 system 前缀起名。仅首轮(项目仍是默认名)实际生效,后端落库幂等。
   | { type: 'user_message'; content: string; titleSeed?: string }
   | { type: 'stop_generation' }
-  | { type: 'ping' };
+  | { type: 'ping' }
+  // 切换会话模型(P2 模型目录化:backend hub 权威校验 → pinned_model → 重组转发)。
+  | { type: 'set_runtime_config'; providerId: string | null; modelId: string; useDefault?: boolean };
 
 export type PrismServerMessage =
   | { type: 'connected'; sessionId: string }

@@ -72,6 +72,8 @@ type SavedProvider struct {
 	AuthStrategy string       `json:"authStrategy,omitempty"`
 	Models       ModelMapping `json:"models"`
 	Notes        string       `json:"notes,omitempty"`
+	// ReasoningReplay 方言(0067):openai 工具轮回传 reasoning(Kimi 系)。
+	ReasoningReplay bool `json:"reasoningReplay"`
 }
 
 // CreateProviderRequest 对应 agent CreateProviderSchema。
@@ -84,6 +86,8 @@ type CreateProviderRequest struct {
 	AuthStrategy string       `json:"authStrategy,omitempty"`
 	Models       ModelMapping `json:"models"`
 	Notes        string       `json:"notes,omitempty"`
+	// ReasoningReplay 方言(0067):openai 工具轮回传 reasoning(Kimi 系)。
+	ReasoningReplay bool `json:"reasoningReplay"`
 }
 
 // UpdateProviderRequest 对应 agent UpdateProviderSchema(部分更新)。
@@ -95,6 +99,7 @@ type UpdateProviderRequest struct {
 	AuthStrategy string        `json:"authStrategy,omitempty"`
 	Models       *ModelMapping `json:"models,omitempty"`
 	Notes        string        `json:"notes,omitempty"`
+	ReasoningReplay *bool `json:"reasoningReplay,omitempty"`
 }
 
 type providersListResponse struct {
@@ -131,6 +136,17 @@ type CreateSessionOptions struct {
 	// 注入到模型 system prompt —— 不写进用户消息、不进 transcript, 用户永远看不到。
 	// 取代旧的「注入到首条 user_message 前缀」(in-band) 方案;旧会话仍走 in-band 兜底。
 	AppendSystemPrompt string `json:"appendSystemPrompt,omitempty"`
+	// Skills: 要物化进本会话的**按需**用户 skill(skill 市场)。executor 收到后把每份写到
+	// <sid>.skills/guides/<Name>/SKILL.md(cwd 之外、只读)并 push 进 addDirs → loader 的 guides
+	// 菜单识别、模型按名 Skill() 加载。内容是**不可信用户内容**,只走 guides 按需层,绝不进常驻 system。
+	Skills []SessionSkill `json:"skills,omitempty"`
+}
+
+// SessionSkill 一份要物化进会话的用户市场 skill。Name 已命名空间化(u<authorId>-<slug>,匹配
+// executor SKILL_NAME_RE);SkillMD 是后端规范化后的正文(剥离危险 frontmatter、截断)。
+type SessionSkill struct {
+	Name    string `json:"name"`
+	SkillMD string `json:"skillMd"`
 }
 
 // CreateSession 让 scholar_agent 创建一个新会话。opts==nil 时发空 body(旧行为),
@@ -156,6 +172,9 @@ func (c *Client) CreateSession(ctx context.Context, opts *CreateSessionOptions) 
 		}
 		if opts.AppendSystemPrompt != "" {
 			body["appendSystemPrompt"] = opts.AppendSystemPrompt
+		}
+		if len(opts.Skills) > 0 {
+			body["skills"] = opts.Skills
 		}
 	}
 	var out CreatedSession
@@ -922,6 +941,49 @@ func (c *Client) PushConfig(ctx context.Context, cfg *agentconfig.AgentConfig) e
 	}
 	slog.Info("agent push config succeeded", "base_url", c.baseURL, "name", managedProviderName)
 	return nil
+}
+
+// PushExtraProvider(双协议 F0)把一条**额外** provider upsert 到 agent(键=name,如 "scholay-p2"),
+// **绝不 activate** —— activate 语义保留给默认 provider(scholay-managed);额外 provider 的模型
+// 走 per-turn set_runtime_config{providerId} 指定。Models 槽位传空(resolveTier 只查活跃 provider,
+// 额外 provider 恒经 modelOverride 路径,不吃槽位)。
+func (c *Client) PushExtraProvider(ctx context.Context, name, baseURL, apiKey, apiFormat string, reasoningReplay bool) error {
+	if c.baseURL == "" {
+		return errors.New("agent: empty base url")
+	}
+	if apiFormat == "" {
+		apiFormat = "anthropic"
+	}
+	ctx, cancel := context.WithTimeout(ctx, pushOverallTimeout)
+	defer cancel()
+	_, err := circuitbreaker.AgentBreaker.Execute(func() (any, error) {
+		list, lerr := c.listProviders(ctx)
+		if lerr != nil {
+			return nil, fmt.Errorf("list providers: %w", lerr)
+		}
+		if existing := findByName(list.Providers, name); existing != nil {
+			return nil, c.updateProvider(ctx, existing.ID, &UpdateProviderRequest{
+				APIKey:          ptr(apiKey),
+				BaseURL:         baseURL,
+				APIFormat:       apiFormat,
+				AuthStrategy:    "auth_token",
+				Models:          &ModelMapping{},
+				ReasoningReplay: &reasoningReplay,
+			})
+		}
+		_, cerr := c.createProvider(ctx, &CreateProviderRequest{
+			PresetID:        "custom",
+			Name:            name,
+			APIKey:          apiKey,
+			BaseURL:         baseURL,
+			APIFormat:       apiFormat,
+			AuthStrategy:    "auth_token",
+			Models:          ModelMapping{},
+			ReasoningReplay: reasoningReplay,
+		})
+		return nil, cerr
+	})
+	return err
 }
 
 func (c *Client) pushConfigOnce(ctx context.Context, cfg *agentconfig.AgentConfig) error {

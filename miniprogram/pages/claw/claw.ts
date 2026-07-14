@@ -922,7 +922,7 @@ Page({
   },
   openModelSheet() {
     const cur = getSessionModel(S.sessionId)
-    const main = S.models[0]
+    const main = S.models.find((m) => m.is_default) || S.models[0]
     const rows = [
       {
         id: '',
@@ -930,7 +930,7 @@ Page({
         desc: main ? '跟随平台默认 · ' + main.name : '跟随平台默认模型',
         selected: !cur,
       },
-      ...S.models.map((m) => ({ id: m.id, name: m.name, desc: friendlyDesc(m), selected: m.id === cur })),
+      ...S.models.map((m) => ({ id: m.id, name: m.name, desc: (m.locked ? '会员解锁 · ' : '') + friendlyDesc(m), selected: m.id === cur })),
     ]
     this.setData({ modelRows: rows, showModelSheet: true })
   },
@@ -939,12 +939,17 @@ Page({
   },
   pickModel(e: WechatMiniprogram.TouchEvent) {
     const id = (e.currentTarget.dataset.id as string) || ''
-    const main = S.models[0]
+    const picked = S.models.find((x) => x.id === id)
+    if (picked && picked.locked) {
+      wx.showToast({ title: '该模型需更高会员档位', icon: 'none' })
+      return
+    }
     if (!id) {
       // 切回默认:清 per-session,若连接中且曾固定过,发 main 切回。
       setSessionModel(S.sessionId, null)
-      if (main && this.data.connState === 'open') {
-        S.socket?.send({ type: 'set_runtime_config', providerId: null, modelId: main.id })
+      if (this.data.connState === 'open') {
+        // P2 服务端权威:useDefault=true → hub 清 pinned 回 chat_default 绑定(不再前端猜默认 id)。
+        S.socket?.send({ type: 'set_runtime_config', providerId: null, modelId: '', useDefault: true })
       }
       wx.showToast({ title: '已切到默认模型', icon: 'none' })
     } else {

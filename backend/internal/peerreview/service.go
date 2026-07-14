@@ -44,10 +44,10 @@ import (
 
 	"scholar-backend/internal/agent"
 	"scholar-backend/internal/agentbridge"
-	"scholar-backend/internal/agentconfig"
 	"scholar-backend/internal/common/ctxutil"
 	"scholar-backend/internal/common/safego"
 	"scholar-backend/internal/llmusage"
+	"scholar-backend/internal/modelcatalog"
 	"scholar-backend/internal/promptregistry"
 	"scholar-backend/internal/storage"
 	"scholar-backend/internal/vip"
@@ -117,9 +117,10 @@ type Service struct {
 	bucket    func() string // 解耦:bucket name 从 storage 包动态取(测试可注入)
 	broker    *StreamBroker // agent goroutine 把 deltas 推给它, SSE handler 订阅
 
-	// agentCfg 读 agent 模型配置: meta/letter 用快模型 (haiku_model), review 用主模型 (main_model)。
-	// 可空 — 空 / 配置缺失时不切模型, 全用会话默认 (主模型), 功能不受影响只是没成本优化。
-	agentCfg *agentconfig.Service
+	// models 模型目录解析器(modelcatalog.Service):各阶段模型按能力绑定取
+	// (peerreview.meta/letter/methodology/scoring/chief,admin 后台可改绑)。
+	// 可空 — 空 / 解析为空时不切模型, 全用会话默认 (主模型), 功能不受影响只是没成本优化。
+	models ModelResolver
 
 	// vip 会员每日额度。可空(不限)。**在 Submit 内、确认要真正跑一轮审稿时**才扣,
 	// 不放 handler —— 否则非法/非自己的/重复点击/无稿件 的 Submit 会白白烧掉额度(审稿 free=1/天)。
@@ -132,12 +133,17 @@ func (s *Service) SetVIPChecker(v *vip.Service) { s.vip = v }
 // VIPCheckerWired 报告配额校验器是否已注入(bootstrap 启动断言付费功能已接线)。
 func (s *Service) VIPCheckerWired() bool { return s.vip != nil }
 
+// ModelResolver 模型目录解析(modelcatalog.Service 实现);小接口便于测试注入。
+type ModelResolver interface {
+	Resolve(purpose string) string
+}
+
 // NewService — bootstrap 阶段构造。
 func NewService(
 	repo *Repository,
 	promptSvc *promptregistry.Service,
 	feature *agentbridge.FeatureBridge,
-	agentCfg *agentconfig.Service,
+	models ModelResolver,
 ) *Service {
 	return &Service{
 		repo:      repo,
@@ -145,33 +151,19 @@ func NewService(
 		feature:   feature,
 		bucket:    storage.PeerReviewAssetBucket,
 		broker:    NewStreamBroker(),
-		agentCfg:  agentCfg,
+		models:    models,
 	}
 }
 
-// fastModel — meta/letter 用的快模型 (haiku_model)。空 = 不切, 用会话默认 (主模型)。
-func (s *Service) fastModel() string {
-	if s.agentCfg == nil {
+// modelFor — 按能力绑定取模型(modelcatalog.Purpose* 常量)。空 = 不切, 用会话默认。
+// 注意 serverside 的语义:空 modelID 不发 set_runtime_config 帧 → executor 跑默认主模型
+// (modelOverride 是 per-WS-connection 状态, 不是「沿用会话上次」)。同一会话按轮切换的场景
+// (meta 切快模型后 review 必须显式切回) 依赖这里恒有值; Resolve 的回退链保证了这一点。
+func (s *Service) modelFor(purpose string) string {
+	if s.models == nil {
 		return ""
 	}
-	cfg, err := s.agentCfg.GetConfig()
-	if err != nil || cfg == nil {
-		return ""
-	}
-	return cfg.HaikuModel
-}
-
-// mainModel — review 用的主模型 (main_model)。review 与 meta 共用会话, meta 把会话切到了
-// haiku, 所以 review 必须**显式切回** main; 空则退化为不切 (可能残留 haiku, 仅在 main 未配置时)。
-func (s *Service) mainModel() string {
-	if s.agentCfg == nil {
-		return ""
-	}
-	cfg, err := s.agentCfg.GetConfig()
-	if err != nil || cfg == nil {
-		return ""
-	}
-	return cfg.MainModel
+	return s.models.Resolve(purpose)
 }
 
 // Broker 暴露给 handler — 单例 broker 由 service 持有,SSE 端点订阅它。
@@ -607,7 +599,7 @@ func (s *Service) runMethodologyPhase(ctx context.Context, submissionID uint64, 
 		buildMethodologyPrompt(mfiles, availableReviewers(), availableLenses(), memCtx),
 		func(delta string) { s.broker.Append(submissionID, SlotMethodology, delta) },
 		func(note string) { s.broker.Status(submissionID, SlotMethodology, note) },
-		s.mainModel())
+		s.modelFor(modelcatalog.PurposePeerreviewMethodology))
 	if cerr != nil {
 		slog.Warn("peerreview methodology round failed; builtin reviewers",
 			"submission_id", submissionID, "err", cerr)
@@ -1100,7 +1092,7 @@ func (s *Service) advanceTo2(ctx context.Context, sub *Submission) (*Submission,
 		return nil, ErrManuscriptMissing
 	}
 
-	fingerprint := fingerprintStep2(sub.AssetsRevision)
+	fingerprint := fingerprintStep2(sub.AssetsRevision, s.modelFor(modelcatalog.PurposePeerreviewMeta))
 
 	cache, err := s.repo.GetStepCache(sub.ID, 2)
 	if err != nil && !errors.Is(err, ErrNotFound) {
@@ -1180,7 +1172,7 @@ func (s *Service) advanceTo3(ctx context.Context, sub *Submission) (*Submission,
 	if step2Cache == nil {
 		return nil, errors.New("请先在第 2 步生成稿件信息后再继续")
 	}
-	if step2Cache.InputFingerprint != fingerprintStep2(sub.AssetsRevision) {
+	if step2Cache.InputFingerprint != fingerprintStep2(sub.AssetsRevision, s.modelFor(modelcatalog.PurposePeerreviewMeta)) {
 		return nil, errors.New("文件已变更, 请回到第 2 步重新生成稿件信息后再继续")
 	}
 
@@ -1323,7 +1315,7 @@ func (s *Service) runMetaExtract(ctx context.Context, submissionID uint64, sessi
 		return m, false
 	}
 
-	reply, _, _, err := s.chatWithRetry(ctx, sessionID, submissionID, SlotMeta, prompt, s.fastModel(),
+	reply, _, _, err := s.chatWithRetry(ctx, sessionID, submissionID, SlotMeta, prompt, s.modelFor(modelcatalog.PurposePeerreviewMeta),
 		func(r string) bool { _, valid := parseMeta(r); return valid }, 2)
 	if err != nil {
 		slog.Error("peerreview meta agent chat failed", "submission_id", submissionID, "err", err)
@@ -1425,7 +1417,7 @@ func (s *Service) runLetterDraft(ctx context.Context, submissionID uint64, sessi
 		s.broker.Append(submissionID, SlotLetter, delta)
 	}, func(note string) {
 		s.broker.Status(submissionID, SlotLetter, note)
-	}, s.fastModel())
+	}, s.modelFor(modelcatalog.PurposePeerreviewLetter))
 	if err != nil {
 		slog.Error("peerreview letter agent chat failed", "submission_id", submissionID, "err", err)
 		failure("推荐信生成失败,请稍后重试")
@@ -1452,9 +1444,10 @@ func (s *Service) runLetterDraft(ctx context.Context, submissionID uint64, sessi
 
 // ─── fingerprint helpers ─────────────────────────────────────────────
 
-// fingerprintStep2 — meta extraction 只依赖 manuscript 文本, 而 manuscript 跟着 assets_revision 走。
-func fingerprintStep2(assetsRevision uint32) string {
-	return fmt.Sprintf("a%d", assetsRevision)
+// fingerprintStep2 — meta extraction 依赖 manuscript 文本(跟 assets_revision 走)+ 抽取模型
+// (admin 换绑 peerreview.meta 后强制重抽, 避免旧模型的缓存结果穿透)。
+func fingerprintStep2(assetsRevision uint32, modelID string) string {
+	return fmt.Sprintf("a%d:%s", assetsRevision, modelID)
 }
 
 // fingerprintStep3 — letter 依赖 manuscript + meta + 目标 (期刊或院校)。
@@ -1684,7 +1677,7 @@ func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 		choice := choices[i] // 第 i 位 agent 选中的审稿人 → 固定槽 alpha/beta/gamma(前端仍匿名显示 A/B/C)
 		prompt := buildReviewerPrompt(choice, commonContext, role)
 
-		reply, usage, _, err := s.chatWithRetry(ctx, sessionID, submissionID, slot, prompt, s.mainModel(),
+		reply, usage, _, err := s.chatWithRetry(ctx, sessionID, submissionID, slot, prompt, s.modelFor(modelcatalog.PurposePeerreviewScoring),
 			func(r string) bool { _, ok := parseReviewerJSON(r); return ok }, peerReviewJSONRetries)
 		if err != nil {
 			s.failUser(submissionID, slot, "审稿生成失败,请稍后重试",
@@ -1717,7 +1710,7 @@ func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 	}
 	chiefPrompt := buildChiefPrompt(commonContext, reviewerOutputs)
 
-	chiefReply, chiefUsage, _, err := s.chatWithRetry(ctx, sessionID, submissionID, chiefSlot, chiefPrompt, s.mainModel(),
+	chiefReply, chiefUsage, _, err := s.chatWithRetry(ctx, sessionID, submissionID, chiefSlot, chiefPrompt, s.modelFor(modelcatalog.PurposePeerreviewChief),
 		func(r string) bool { _, ok := parseChiefJSON(r); return ok }, peerReviewJSONRetries)
 	if err != nil {
 		s.failUser(submissionID, chiefSlot, "主审决议生成失败,请稍后重试", fmt.Errorf("chief chat: %w", err))

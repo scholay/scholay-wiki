@@ -79,6 +79,16 @@ func registerPublicUserRoutes(api *gin.RouterGroup, h *allHandlers) {
 
 	// 计费套餐(公开):价格/倍率/赠送/起充等非敏感配置, 给落地价格页 + 套餐卡用。
 	api.GET("/billing/plans", h.vip.PublicPlans)
+
+	// ── Skills 市场公开端点(免登录;只服务 public+approved+active)——
+	// 跨 agent 分发:install.md 安装说明 / marketplace.json 目录 / :slug/download tar.gz /
+	// :slug 匿名详情(分享落地页)/ :slug/SKILL.md 原始文本。静态段(install.md/marketplace.json)
+	// 与 :slug param 在 gin 1.9 同层共存(静态优先)。
+	api.GET("/skills/install.md", h.skillMarket.InstallMd)
+	api.GET("/skills/marketplace.json", h.skillMarket.MarketplaceJSON)
+	api.GET("/skills/:slug/download", h.skillMarket.DownloadBundle)
+	api.GET("/skills/:slug/SKILL.md", h.skillMarket.PublicSkillMd)
+	api.GET("/skills/:slug", h.skillMarket.PublicDetail)
 }
 
 // registerProtectedUserRoutes 注册用户受保护路由
@@ -103,6 +113,8 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 
 		// 会员(VIP): 状态(等级/到期/今日 token 额度/经费余额) + 兑换码兑换
 		userProtected.GET("/membership", h.vip.GetMembership)
+		// 模型目录(P2 用户选模型):对话选择器的可选模型列表(?feature=smart_search|claw|prism)
+		userProtected.GET("/models", h.modelCatalog.ListUserModels)
 		userProtected.POST("/redeem-code/preview", h.vip.PreviewCode) // 兑换前预览(确认弹窗)
 		userProtected.POST("/redeem-code", h.vip.RedeemCode)
 
@@ -302,6 +314,26 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		userProtected.PUT("/memory/:label", h.memory.SetBlock)
 		userProtected.DELETE("/memory/:label", h.memory.DeleteBlock)
 		userProtected.DELETE("/memory", h.memory.Clear)
+
+		// ── Skills 市场(用户上传/分享 skill + claw 动态加载)──
+		// 注:userProtected 组前缀已是 /api/v1/user,故此处路径不再带 /user(否则会变成 /user/user/…)。
+		// 浏览 / 详情 / 举报
+		userProtected.GET("/skills/market", h.skillMarket.ListMarket)
+		userProtected.GET("/skills/market/:idOrSlug", h.skillMarket.GetDetail)
+		userProtected.POST("/skills/report/:id", h.skillMarket.Report)
+		// 我的 skills(上传走通用 UploadLimitMiddleware,与 feedback/claw 一致;bundle ≤2MB)
+		userProtected.GET("/skills", h.skillMarket.ListMySkills)
+		userProtected.POST("/skills", middleware.UploadLimitMiddleware(middleware.UploadMaxBodySize), h.skillMarket.CreateSkill)
+		userProtected.PATCH("/skills/:id", h.skillMarket.UpdateMeta)
+		userProtected.PUT("/skills/:id/content", middleware.UploadLimitMiddleware(middleware.UploadMaxBodySize), h.skillMarket.UpdateContent)
+		userProtected.POST("/skills/:id/publish", h.skillMarket.Publish)
+		userProtected.POST("/skills/:id/unpublish", h.skillMarket.Unpublish)
+		userProtected.DELETE("/skills/:id", h.skillMarket.DeleteSkill)
+		// 安装 / 启用(claw 启用面板)—— 独立 path 段避免与 /skills/:id 的 param 混淆
+		userProtected.GET("/skill-installs", h.skillMarket.ListInstalled)
+		userProtected.POST("/skill-installs", h.skillMarket.Install)
+		userProtected.PATCH("/skill-installs/:id", h.skillMarket.SetEnabled)
+		userProtected.DELETE("/skill-installs/:id", h.skillMarket.Uninstall)
 	}
 
 	// 智能搜索 · WS 桥接 (单独挂在 /user 下,不走 UserAuthMiddleware)

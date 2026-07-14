@@ -56,11 +56,21 @@ func NewSlogUsageRecorder(featureKey string) OnMessageCompleteFn {
 // requestID 用作 session/turn 关联键:WS pipe 与 server-side 都传 agent sessionID。
 // WS OnMessageComplete 现只 slog 不落库(见 NewSlogUsageRecorder),故不在此列。
 // (历史的 agent per-call HTTP 内网回调 /internal_handler.go 旁路已删除。)
-// Source 固定 agent、Provider 固定 "scholay-managed"(agent 上游 provider/model 由 agent_config
-// 托管,backend 黑盒,不细分);rec==nil 跳过;userID==nil = 无归属(落 user_id=NULL)。
+// Source 固定 agent;Provider(F0 多 provider)按行内 model 经目录解析真实归属:
+// 额外 provider = "scholay-p<id>"(与 executor upsert 键一致),默认/目录 miss = "scholay-managed"。
+// rec==nil 跳过;userID==nil = 无归属(落 user_id=NULL)。
 //
 // 未来 per-user token 总额预算的「实际扣减」就接在这里(唯一 decrement 点),见设计 seam。
-func recordAgentTokens(rec llmusage.Recorder, userID *uint, feature, requestID string, u AgentUsage) {
+func providerLabelFor(cat ModelCatalog, model string) string {
+	if cat != nil && model != "" {
+		if k := cat.ProviderKey(model); k != "" {
+			return k
+		}
+	}
+	return "scholay-managed"
+}
+
+func recordAgentTokens(rec llmusage.Recorder, cat ModelCatalog, userID *uint, feature, requestID string, u AgentUsage) {
 	if rec == nil {
 		return
 	}
@@ -68,7 +78,7 @@ func recordAgentTokens(rec llmusage.Recorder, userID *uint, feature, requestID s
 		UserID:              userID,
 		Feature:             feature,
 		Source:              llmusage.SourceAgent,
-		Provider:            "scholay-managed",
+		Provider:            providerLabelFor(cat, u.Model),
 		Model:               u.Model,
 		InputTokens:         u.InputTokens,
 		OutputTokens:        u.OutputTokens,

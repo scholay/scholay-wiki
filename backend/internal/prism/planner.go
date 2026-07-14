@@ -20,6 +20,7 @@ import (
 	"scholar-backend/internal/agent"
 	"scholar-backend/internal/agentbridge"
 	"scholar-backend/internal/llmusage"
+	"scholar-backend/internal/modelcatalog"
 )
 
 // ErrInvalidPersona —— 用户/planner 给的 base 人格 slug 未知或非法。
@@ -114,8 +115,13 @@ func (s *Service) PlanWritingProfile(ctx context.Context, proj *Project) (Writin
 	sessID := created.SessionID
 	defer s.deleteSessionBestEffort(sessID)
 
+	// 模型目录化 P1:planner 是纯选择任务,按 prism.planner 绑定取便宜模型(空=不切,跑默认主模型)。
+	plannerModel := ""
+	if modelResolver != nil {
+		plannerModel = modelResolver.Resolve(modelcatalog.PurposePrismPlanner)
+	}
 	reply, _, cerr := s.feature.ServerSideChatStreaming(ctx, sessID,
-		buildPlannerPrompt(brief, roster), func(string) {}, func(string) {}, "")
+		buildPlannerPrompt(brief, roster), func(string) {}, func(string) {}, plannerModel)
 	if cerr != nil {
 		return WritingProfile{}, cerr
 	}

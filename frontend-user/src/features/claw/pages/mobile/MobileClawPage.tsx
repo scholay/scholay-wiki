@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Loader2, PanelLeft, SquarePen } from 'lucide-react';
 import { StickToBottom } from 'use-stick-to-bottom';
 import { AgentDisplacedBanner } from '@/shared/components/AgentDisplacedBanner';
@@ -6,6 +7,9 @@ import { ResourceError } from '@/shared/components/ResourceError';
 import { Sheet, SheetContent } from '@/shared/ui/sheet';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useHeightVar } from '@/shared/hooks';
+import { useUserModels } from '@/shared/api/models';
+import { ModelSelector } from '@/shared/components/chat/ModelSelector';
+import { getNewConversationModel, setNewConversationModel } from '../../api/session';
 import { ChatComposer, type ChatComposerHandle } from '../../components/chat/ChatComposer';
 import { MessageTurn } from '../../components/chat/MessageTurn';
 import { type ClawArtifact } from '../../api/artifacts';
@@ -47,6 +51,28 @@ export function MobileClawPage() {
   } = conv;
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // P2 模型目录:移动端选择器(与桌面 ClawPage 同一套服务端权威语义,trigger 在移动端只显图标)。
+  const navigate = useNavigate();
+  const { data: userModels } = useUserModels('claw');
+  const [newConvPref, setNewConvPref] = useState<string | null>(() => getNewConversationModel() ?? null);
+  const selectorCurrent =
+    conv.socket.sessionModel ?? (!conv.sessionId && newConvPref ? { modelId: newConvPref, isDefault: false } : null);
+  const modelSlot =
+    userModels && userModels.length > 0 ? (
+      <ModelSelector
+        models={userModels}
+        current={selectorCurrent}
+        onUpgrade={() => navigate('/pricing')}
+        onSelect={(id) => {
+          if (conv.sessionId) {
+            conv.socket.send({ type: 'set_runtime_config', providerId: null, modelId: id ?? '', useDefault: id === null });
+          } else {
+            setNewConversationModel(id);
+            setNewConvPref(id);
+          }
+        }}
+      />
+    ) : null;
   const [previewArtifact, setPreviewArtifact] = useState<ClawArtifact | null>(null);
   // 空白态点示例卡片 → 调 composer.prefill 把提示词填进底部输入框(可改后再发)。
   const composerRef = useRef<ChatComposerHandle>(null);
@@ -159,6 +185,7 @@ export function MobileClawPage() {
           onSubmit={conv.handleSubmit}
           sessionId={sessionId}
           onSessionEnsured={conv.adoptSession}
+          modelSlot={modelSlot}
           requireAuth={!token}
           onRequireAuth={() => openAuth('login')}
         />

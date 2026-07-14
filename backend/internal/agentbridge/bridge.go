@@ -90,7 +90,33 @@ type Bridge struct {
 	// 要求:启用任一 executor feature 必须同时 AGENT_TURN_JOURNAL=shadow(否则历史无源)。
 	executorClient   agent.Executor
 	executorFeatures map[string]bool
+
+	// catalog: 模型目录接缝(P2 用户选模型;internal/modelcatalog 实现,允许 nil = 未接线 →
+	// hub 不下发模型帧、拒收浏览器 set_runtime_config)。hub 用它做:建连下发会话模型、
+	// 浏览器换模型帧的权威校验(堵「devtools 发任意 modelId 直达上游」注入洞)、每条消息前
+	// 重校验(会员到期/模型下架对活连接生效)。
+	catalog ModelCatalog
 }
+
+// ModelCatalog 模型目录最小接缝(避免反向依赖 internal/modelcatalog;purpose 字符串与
+// modelcatalog.Purpose* 常量对齐:system.fast / chat_default.<featureKey>)。
+type ModelCatalog interface {
+	// Resolve 按能力绑定取模型 id(含回退链;空 = 目录未配置)。
+	Resolve(purpose string) string
+	// ValidateUserModel 校验该用户此刻可用该模型(存在 ∧ enabled ∧ user_selectable ∧ 档位门槛)。
+	ValidateUserModel(userID uint, modelID string) error
+	// ContextWindow 返回模型上下文窗口 token 数(0 = 未知,executor 回落全局默认)。
+	ContextWindow(modelID string) int
+	// BillingWeight 返回模型计费倍率(P3 盖章反折算用;目录 miss → 1,下限已 clamp 防除零)。
+	BillingWeight(modelID string) float64
+	// ProviderKey 返回模型所属 provider 在 executor 侧的 upsert 键(F0 多 provider):
+	// "" = 默认 provider(scholay-managed,executor 走 active);"scholay-p<id>" = 额外 provider。
+	// hub 组 set_runtime_config 帧与计费 Provider 归属共用此口径。
+	ProviderKey(modelID string) string
+}
+
+// SetModelCatalog 注入模型目录(bootstrap 调用一次)。
+func (b *Bridge) SetModelCatalog(c ModelCatalog) { b.catalog = c }
 
 // SetExecutorRouting 接线 P4a 切流:executor 客户端 + 路由到 executor 的 feature 集合(csv)。
 // 默认空 csv = 全走 fork(零行为变更,可秒回退)。bootstrap 调用一次。
@@ -118,14 +144,38 @@ func (b *Bridge) clientForFeature(featureKey string) agent.Executor {
 	return b.client
 }
 
-// loadTokenWatermark 取某 agent session 的已记账累计水位(缺省全 0)。
+// loadTokenWatermark 取某 agent session 的已记账累计水位。进程内 map 缺失(backend 刚重启)
+// → 回源 agent_sessions.usage_watermark(P3:水位持久化 —— 修「发版重启后活跃会话整段历史
+// 累计被当增量重复扣额度」的存量 bug;agent 侧 session_total 跨 backend 重启存活)。
 func (b *Bridge) loadTokenWatermark(sessionID string) [4]int64 {
 	if v, ok := b.tokenWatermarks.Load(sessionID); ok {
 		if wm, ok2 := v.([4]int64); ok2 {
 			return wm
 		}
 	}
+	if b.repo != nil {
+		if wm, ok := parseWatermark(b.repo.GetUsageWatermark(sessionID)); ok {
+			b.tokenWatermarks.Store(sessionID, wm)
+			return wm
+		}
+	}
 	return [4]int64{}
+}
+
+// formatWatermark / parseWatermark —— usage_watermark 列的编解码("in,out,cacheRead,cacheWrite")。
+func formatWatermark(wm [4]int64) string {
+	return fmt.Sprintf("%d,%d,%d,%d", wm[0], wm[1], wm[2], wm[3])
+}
+
+func parseWatermark(s string) ([4]int64, bool) {
+	var wm [4]int64
+	if s == "" {
+		return wm, false
+	}
+	if n, err := fmt.Sscanf(s, "%d,%d,%d,%d", &wm[0], &wm[1], &wm[2], &wm[3]); n != 4 || err != nil {
+		return [4]int64{}, false
+	}
+	return wm, true
 }
 
 // storeTokenWatermark 推进某 agent session 的累计水位。
@@ -147,7 +197,10 @@ func (b *Bridge) deleteTokenWatermark(sessionID string) {
 //   - 累计无进展(重连重发旧帧 / 空轮)→ 返回 nil:幂等跳过,不双计。
 //   - per-call 明细之和 < 累计增量(此前丢过帧)→ 追加一行差额(model="(reconciled)"),
 //     保证账本总额 == 会话累计、日配额不少算(自愈)。
-func (b *Bridge) accrueTurnUsage(sessionID string, turnUsage AgentUsage, calls []AgentUsage, sessionTotal *AgentUsage) []AgentUsage {
+// sessionModel(P3)= 会话当前生效模型:交互路传 hub 内存态、serverside 传本轮注入的 modelID。
+// 补差行按它计价 —— 否则「贵模型出答案期间断线丢 message_complete → 残差落 (reconciled) 按
+// 基准价计」成为可重复操作的降价通道。
+func (b *Bridge) accrueTurnUsage(sessionID, sessionModel string, turnUsage AgentUsage, calls []AgentUsage, sessionTotal *AgentUsage) []AgentUsage {
 	if sessionTotal == nil {
 		return nil
 	}
@@ -182,9 +235,12 @@ func (b *Bridge) accrueTurnUsage(sessionID string, turnUsage AgentUsage, calls [
 	}
 	rd := [4]int64{nonNegInt64(delta[0] - sum[0]), nonNegInt64(delta[1] - sum[1]), nonNegInt64(delta[2] - sum[2]), nonNegInt64(delta[3] - sum[3])}
 	if rd[0] > 0 || rd[1] > 0 || rd[2] > 0 || rd[3] > 0 {
+		// P3 计价优先级:无明细时的本轮模型(最准)> 会话当前模型 > "(reconciled)" 哨兵(按基准价)。
 		model := "(reconciled)"
 		if len(rows) == 0 && turnUsage.Model != "" {
 			model = turnUsage.Model // 无 per-call 明细(老 agent / 空 calls)→ 用本轮模型标注差额行
+		} else if sessionModel != "" {
+			model = sessionModel
 		}
 		rows = append(rows, AgentUsage{
 			Model:               model,
@@ -192,6 +248,17 @@ func (b *Bridge) accrueTurnUsage(sessionID string, turnUsage AgentUsage, calls [
 			OutputTokens:        int(rd[1]),
 			CacheReadTokens:     int(rd[2]),
 			CacheCreationTokens: int(rd[3]),
+		})
+	}
+	// P3 水位持久化:异步落 agent_sessions.usage_watermark(best-effort,失败=至多回到
+	// 「重启后按全量重记一次」的旧行为)。不在 watermarkMu 内做 SQL —— 拷贝后 goroutine 写。
+	if b.repo != nil {
+		wmStr := formatWatermark(cur)
+		sid := sessionID
+		safego.Go("agentbridge-watermark-persist", func() {
+			if err := b.repo.SetUsageWatermark(sid, wmStr); err != nil {
+				slog.Debug("agentbridge: persist usage watermark failed", "session_id", sid, "err", err)
+			}
 		})
 	}
 	return rows
@@ -916,24 +983,46 @@ func buildSystemPromptPayload(systemPrompt, memoryContext string) string {
 // Pick 失败时**不阻塞建会话**: 退回 deliveredSystemPrompt=false, WS 首条消息仍走 in-band 兜底。
 func (f *FeatureBridge) buildCreateOptions(ctx context.Context, userID uint) (*agent.CreateSessionOptions, bool) {
 	base := f.spec.SessionOptions
-	if !f.spec.InjectPromptOnFirstMsg || f.spec.Picker == nil {
-		return base, false
+	wantPrompt := f.spec.InjectPromptOnFirstMsg && f.spec.Picker != nil
+	wantSkills := f.spec.SessionSkillsProvider != nil
+	if !wantPrompt && !wantSkills {
+		return base, false // 无 per-user 变更 → 原样返回共享静态 base(零分配)
 	}
-	choice, err := f.spec.Picker.Pick(ctx, PickInput{UserID: userID})
-	if err != nil || choice == nil || choice.SystemPrompt == "" {
-		slog.Warn("agentbridge: pick system prompt at create failed, falling back to in-band",
-			"feature", f.spec.Key, "user_id", userID, "err", err)
-		return base, false
-	}
-	payload := buildSystemPromptPayload(choice.SystemPrompt, f.bridge.MemoryBlocks(userID))
-	// 浅拷贝静态 spec.SessionOptions (它被所有用户复用), 避免把 per-user payload 写进共享对象。
+
+	// clone-before-mutate:base 被所有用户复用,任何 per-user 写入都必须先拷贝。
+	// ⚠️ AddDirs slice 必须**新分配**:浅拷贝 clone := *base 与 base 共享底层数组,
+	//    后续若 append(opts.AddDirs, …) 会就地污染全体用户的静态 spec(跨租户污染)。
 	opts := &agent.CreateSessionOptions{}
 	if base != nil {
 		clone := *base
+		clone.AddDirs = append([]string(nil), base.AddDirs...)
 		opts = &clone
 	}
-	opts.AppendSystemPrompt = payload
-	return opts, true
+
+	delivered := false
+	if wantPrompt {
+		choice, err := f.spec.Picker.Pick(ctx, PickInput{UserID: userID})
+		if err != nil || choice == nil || choice.SystemPrompt == "" {
+			slog.Warn("agentbridge: pick system prompt at create failed, falling back to in-band",
+				"feature", f.spec.Key, "user_id", userID, "err", err)
+		} else {
+			opts.AppendSystemPrompt = buildSystemPromptPayload(choice.SystemPrompt, f.bridge.MemoryBlocks(userID))
+			delivered = true
+		}
+	}
+
+	if wantSkills {
+		// fail-open:provider 报错 / 空 → 无用户 skill,不阻断建会话(skill 是增强非必需)。
+		skills, err := f.spec.SessionSkillsProvider(ctx, userID)
+		if err != nil {
+			slog.Warn("agentbridge: session skills provider failed, continuing without user skills",
+				"feature", f.spec.Key, "user_id", userID, "err", err)
+		} else if len(skills) > 0 {
+			opts.Skills = skills
+		}
+	}
+
+	return opts, delivered
 }
 
 // applySessionProfile(Phase 2)把 feature 的项目级 in-band 注入块(prism 写作画像)拼在 opts.AppendSystemPrompt

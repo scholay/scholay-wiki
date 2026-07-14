@@ -444,6 +444,45 @@ func frameType(raw []byte) string {
 	return probe.Type
 }
 
+// backendOnlyFrameTypes —— 这些帧类型是 backend 控制面**专属**下发给 executor 的,浏览器绝不该发。
+// seed_history 携带 addDirs/disallowedTools/appendSystemPrompt(注入面),必须只由 hub 自建下发
+// (seedHistoryFromJournal);extract_memory 的 system/user 是 Go-authored 记忆抽取 spec。
+// P0.4(skill 市场前置):hub 的 front→agent default 转发路径若逐字转发浏览器帧,用户即可自带任意
+// addDirs 绕过审核让 executor 加载宿主任意 CLAUDE.md/SKILL.md(读文件 + 提示注入)。故在转发前拦截。
+var backendOnlyFrameTypes = map[string]bool{
+	"seed_history":   true,
+	"extract_memory": true,
+}
+
+// frameCarriesInjectionSurface —— 帧是否携带「会话注入面」字段。即便帧类型被伪装,只要带这些 key
+// 就拒转发(纵深防御:执行器只有 seed_history 消费它们,但不赌未来新增消费点)。
+func frameCarriesInjectionSurface(raw []byte) bool {
+	if len(raw) == 0 || raw[0] != '{' {
+		return false
+	}
+	var probe struct {
+		AddDirs            json.RawMessage `json:"addDirs"`
+		DisallowedTools    json.RawMessage `json:"disallowedTools"`
+		AppendSystemPrompt json.RawMessage `json:"appendSystemPrompt"`
+		Skills             json.RawMessage `json:"skills"`
+	}
+	if err := json.Unmarshal(raw, &probe); err != nil {
+		return false
+	}
+	return len(probe.AddDirs) > 0 || len(probe.DisallowedTools) > 0 ||
+		len(probe.AppendSystemPrompt) > 0 || len(probe.Skills) > 0
+}
+
+// browserFrameForwardable —— front→agent default 转发前的安全闸:拒绝 backend-only 帧类型与任何
+// 携带注入面字段的浏览器帧。合法控制帧(stop_generation / permission_response / resync_* /
+// prewarm_session 等,均不带注入面)照常放行。
+func browserFrameForwardable(raw []byte) bool {
+	if backendOnlyFrameTypes[frameType(raw)] {
+		return false
+	}
+	return !frameCarriesInjectionSurface(raw)
+}
+
 // agentErrorFriendly —— 执行器 error 终帧的 code → 用户友好中文文案(评审 #4)。
 // 执行器某些 error 的 message 是原始英文、甚至泄露内部机制名(如 "no active provider/model
 // (awaiting PushConfig)")。用户面绝不回显内部标识,故在广播前按 code 换成友好中文。
@@ -553,7 +592,7 @@ func recordOutOfBandTokens(rec llmusage.Recorder, userID *uint, feature, kind, s
 		})
 		return
 	}
-	recordAgentTokens(rec, userID, feature, sessionID, u)
+	recordAgentTokens(rec, nil, userID, feature, sessionID, u) // 带外(标题/记忆)恒走默认 provider
 }
 
 // extractMemoryUpdateFrame 解 agent→backend 的 memory_update 帧, 取出 agent 跑完抽取的原始模型输出。

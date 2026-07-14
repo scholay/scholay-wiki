@@ -155,10 +155,25 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.GET("/wechat-miniprogram/config", h.wechat.GetMiniProgramConfig)
 		adminProtected.PUT("/wechat-miniprogram/config", h.wechat.UpdateMiniProgramConfig)
 
-		// 通用 Agent 服务 (scholar_agent 容器) 的模型 / 端点配置
+		// 通用 Agent 服务 (scholar_agent 容器) 的连接配置(base_url/api_key/enabled/push_status)
 		// 单行 (id=1), GET ?show_sensitive=true 返回明文 token, 默认返回打码
+		// 注:4 个模型槽位已由「模型目录 + 能力绑定」接管(P1),此表单不再编辑模型
 		adminProtected.GET("/agent/config", h.agentConfig.GetConfig)
 		adminProtected.PUT("/agent/config", h.agentConfig.UpdateConfig)
+
+		// 模型目录 + 能力绑定(取代 agent_config 4 槽位;方案 docs/research/model-catalog-2026-07)
+		// 目录:model_id/展示名/上下文/四类单价/计费倍率/可选性/档位门槛;绑定:11 个 purpose 闭集
+		adminProtected.GET("/models", h.modelCatalog.ListModels)
+		adminProtected.POST("/models", h.modelCatalog.CreateModel)
+		adminProtected.PUT("/models/:id", h.modelCatalog.UpdateModel)
+		adminProtected.DELETE("/models/:id", h.modelCatalog.DeleteModel)
+		adminProtected.GET("/model-bindings", h.modelCatalog.ListBindings)
+		adminProtected.PUT("/model-bindings/:purpose", h.modelCatalog.SetBinding)
+		// 上游 Provider(双协议 F0):额外 provider CRUD(默认 provider 仍在 /agent/config)
+		adminProtected.GET("/model-providers", h.modelCatalog.ListProviders)
+		adminProtected.POST("/model-providers", h.modelCatalog.CreateProvider)
+		adminProtected.PUT("/model-providers/:id", h.modelCatalog.UpdateProvider)
+		adminProtected.DELETE("/model-providers/:id", h.modelCatalog.DeleteProvider)
 
 		// 反馈管理 (list / stats / 改 status / reply / 详情 / 删除; category/assignee/
 		// internal-notes 仍未接前端)
@@ -168,6 +183,14 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.PUT("/feedbacks/:id/status", h.feedback.UpdateStatus)
 		adminProtected.POST("/feedbacks/:id/reply", h.feedback.ReplyFeedback)
 		adminProtected.DELETE("/feedbacks/:id", h.feedback.DeleteFeedback)
+
+		// ── Skills 市场审核(内容运营)—— 审核队列 / 通过·驳回·下架(kill-switch)/ 举报处理 ──
+		adminProtected.GET("/skills", h.skillMarket.AdminList)
+		adminProtected.GET("/skills/reports", h.skillMarket.AdminListReports)
+		adminProtected.POST("/skills/reports/:id/resolve", h.skillMarket.AdminResolveReport)
+		adminProtected.POST("/skills/:id/approve", h.skillMarket.AdminApprove)
+		adminProtected.POST("/skills/:id/reject", h.skillMarket.AdminReject)
+		adminProtected.POST("/skills/:id/takedown", h.skillMarket.AdminTakedown)
 
 		// 用户会话监控(内测期定位用户问题)—— 列某 feature 下用户的 agent 会话 + 拉 transcript(只读)。
 		// 覆盖 smart_search/claw/prism;审稿走 peer_review 报告另算。

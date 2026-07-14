@@ -280,7 +280,8 @@ func (b *Bridge) serverSideChatStreamingVia(
 	// reviewCallCtxWith 注入(此前是「记账死代码」,现接上)。用 accrueTurnUsage 按会话累计水位算增量、
 	// 自愈丢帧、防重连双计,与 WS pipe 路同一套。不再依赖已删除的 HTTP per-call 旁路。
 	if b.llmRec != nil {
-		if rows := b.accrueTurnUsage(sessionID, chatUsageToAgentUsage(usage), calls, sessionTotal); len(rows) > 0 {
+		// P3:补差行按本轮注入的 modelID 计价(peerreview 绑主模型最贵,残差不能落基准价)。
+		if rows := b.accrueTurnUsage(sessionID, modelID, chatUsageToAgentUsage(usage), calls, sessionTotal); len(rows) > 0 {
 			call := llmusage.CallFromCtx(ctx)
 			feature := call.Feature
 			if feature == "" {
@@ -289,7 +290,7 @@ func (b *Bridge) serverSideChatStreamingVia(
 			uid, feat, sid, rec := call.UserID, feature, sessionID, b.llmRec
 			safego.Go("agentbridge-serverside-usage-record:"+feat, func() {
 				for i := range rows {
-					recordAgentTokens(rec, uid, feat, sid, rows[i])
+					recordAgentTokens(rec, b.catalog, uid, feat, sid, rows[i])
 				}
 			})
 		}

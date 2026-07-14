@@ -5,6 +5,7 @@ import {
   useState,
   type ClipboardEvent,
   type DragEvent,
+  type ReactNode,
 } from 'react';
 import { FileText, Library, Loader2, Paperclip, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -67,6 +68,9 @@ export interface ChatComposerProps {
   requireAuth?: boolean;
   /** requireAuth=true 时, 用户尝试发送/上传 → 调这个弹登录注册。 */
   onRequireAuth?: () => void;
+  /** 会话模型选择器(P2 模型目录化):ClawPage 组装 shared ModelSelector 后经此插槽注入
+   *  leftActions 最左(Cursor 同位)。不传 = 不渲染(目录未配置时优雅缺席)。 */
+  modelSlot?: ReactNode;
 }
 
 /** 命令式句柄 —— 新对话 hero 点「示例提问」chip 时, 把文案填进输入框并聚焦(不直接发送, 允许用户编辑)。 */
@@ -85,6 +89,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
   onSessionEnsured,
   requireAuth,
   onRequireAuth,
+  modelSlot,
 }, ref) {
   const [attachments, setAttachments] = useState<AttachmentDTO[]>([]);
   // 「引用文献」选中的论文/文件夹(后端已物化进会话 cwd,这里持 chip 元数据)。
@@ -315,6 +320,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
         }
         leftActions={
           <>
+            {modelSlot}
             <input
               ref={fileRef}
               type="file"

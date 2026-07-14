@@ -88,6 +88,12 @@ export interface UseAgentSocket<TServer, TClient> {
    * 上层 busy 会卡死 composer。消费方据此「自增信号」回滚卡住的本轮(见 claw useClawConversation)。
    */
   quotaExceeded: number;
+  /**
+   * 会话当前生效模型(P2 模型目录化,服务端权威)。来源 = backend hub 的 runtime_config_updated
+   * 广播帧:建连/hub 重建迟到补帧、本端或**其他端**换模型都会更新 —— 多 tab 选择器实时一致。
+   * isDefault=true 表示跟随 feature 默认绑定(用户未显式锁定)。null = 尚未收到(目录未配置/旧后端)。
+   */
+  sessionModel: { modelId: string; isDefault: boolean } | null;
 }
 
 /** 弱网友好的指数退避:1s, 2s, 4s, 8s, 16s, 32s, 60s, 60s ... 上限 8 次 ≈ 3-4 分钟。 */
@@ -136,6 +142,8 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
   const peerSeqRef = useRef(0);
   // 回答中锁住竞态兜底:被 Hub 以 error/busy 拒的单调计数。
   const [busyRejected, setBusyRejected] = useState(0);
+  // 会话当前生效模型(runtime_config_updated 帧驱动;换会话清空,重连由 hub 迟到补帧恢复)。
+  const [sessionModel, setSessionModel] = useState<{ modelId: string; isDefault: boolean } | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const cancelledRef = useRef(false);
   const reconnectTimerRef = useRef<number | null>(null);
@@ -168,6 +176,7 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
     setDisplacedReason(null);
     setResyncUserText(null);
     setMessages([]);
+    setSessionModel(null); // 换会话清空;新连接由 hub 迟到补帧(runtime_config_updated)恢复
 
     // ── 流式批处理 (rAF coalesce) ──────────────────────────────────────────
     // 高频内容帧在同一动画帧内合并成一次 setMessages,避免每 token 全量重折叠+重渲染
@@ -264,6 +273,14 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
           evt = JSON.parse(ev.data) as TServer;
         } catch {
           return; // 忽略非 JSON 帧(理论上不会发生)
+        }
+        // 会话模型变更帧(P2):hub 校验通过后广播 / 迟到补帧。不进 messages(fold 不消费)。
+        if ((evt as { type?: string }).type === 'runtime_config_updated') {
+          const f = evt as unknown as { modelId?: string; isDefault?: boolean };
+          if (typeof f.modelId === 'string' && f.modelId) {
+            setSessionModel({ modelId: f.modelId, isDefault: f.isDefault === true });
+          }
+          return;
         }
         // 控制帧即时按序处理:先 flushNow 把已缓冲内容打出去,保证 resync_start 的 truncate /
         // displaced 不被高频内容帧错位或盖过。控制帧不进 messages 列表(fold 不消费)。
@@ -472,5 +489,6 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
     peerMessage,
     busyRejected,
     quotaExceeded,
+    sessionModel,
   };
 }

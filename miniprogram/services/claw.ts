@@ -95,16 +95,32 @@ export interface ClawModelInfo {
   id: string
   name: string
   description: string
+  is_default?: boolean // 该 feature 的默认模型(chat_default 绑定)
+  locked?: boolean // 会员档位门槛未达(置灰 + 升级提示)
 }
 interface ListModelsResp {
   models: ClawModelInfo[]
   total: number
 }
 
-// GET /user/claw/models —— 可选模型 tier 列表。
+// GET /user/models?feature=claw —— 模型目录(P2 服务端权威;旧 /user/claw/models 为兼容 shim)。
+interface UserModelRow {
+  model_id: string
+  display_name: string
+  description: string
+  is_default: boolean
+  locked: boolean
+  min_tier: string
+}
 export async function listClawModels(): Promise<ClawModelInfo[]> {
-  const r = await request<ListModelsResp>({ url: '/user/claw/models', method: 'GET' })
-  return r.models || []
+  const rows = await request<UserModelRow[]>({ url: '/user/models?feature=claw', method: 'GET' })
+  return (rows || []).map((r) => ({
+    id: r.model_id,
+    name: r.display_name || r.model_id,
+    description: r.description || '',
+    is_default: r.is_default,
+    locked: r.locked,
+  }))
 }
 
 // ── 附件上传(方案 B:后端推文件进会话 cwd,返回落盘 path)──────────────────

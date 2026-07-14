@@ -15,7 +15,7 @@ import {
   KeyRound,
   CreditCard,
   Plug,
-  Cpu,
+  Layers,
   Send,
   Compass,
   Boxes,
@@ -82,6 +82,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { id: 'announcements', label: '公告', icon: Megaphone, href: '/admin/announcements' },
       { id: 'hot-content', label: '热门内容', icon: Flame, href: '/admin/hot-content' },
       { id: 'tools', label: '功能广场', icon: Boxes, href: '/admin/tools' },
+      { id: 'skills-review', label: 'Skill 审核', icon: Sparkles, href: '/admin/skills-review' },
     ],
   },
   {
@@ -111,7 +112,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     label: '集成与 AI',
     items: [
       { id: 'third-party', label: '三方账号', icon: Plug, href: '/admin/third-party' },
-      { id: 'agent-config', label: 'AI Agent 服务', icon: Cpu, href: '/admin/agent-config' },
+      { id: 'model-catalog', label: '模型目录', icon: Layers, href: '/admin/model-catalog' },
       { id: 'dimensions', label: '分析维度', icon: Compass, href: '/admin/dimensions' },
       { id: 'wechat-official', label: '公众号', icon: Send, href: '/admin/wechat-official' },
       { id: 'wechat-miniprogram', label: '小程序登录', icon: Smartphone, href: '/admin/wechat-miniprogram' },

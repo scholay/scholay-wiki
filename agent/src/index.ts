@@ -12,6 +12,20 @@ import { log } from "./obs/log.ts";
 
 const PORT = Number(process.env.PORT || 3456);
 
+// P0.3 生产硬锁(skill 市场前置):EXECUTOR_ALLOW_UNSANDBOXED_BASH=1 是「内核开不了 userns 时显式放行裸 Bash」
+// 的逃生舱。在生产它是灾难性坍缩模式的开关——一旦被误设(工期压力/复制粘贴),多租户下任意用户即可拿共享
+// 容器 shell:跨会话读他人上传文件、经 /proc 偷 MINICOD_API_KEY/EXECUTOR_AUTH_TOKEN。skill 市场把 SKILL.md
+// 变成不可信输入后风险更大。故生产**拒绝以该 override 启动**(退回 secure-by-default:Bash 关闭)。
+// 非生产(本机单租户)不受影响,裸 Bash 仍可放行。
+if (process.env.NODE_ENV === "production" && process.env.EXECUTOR_ALLOW_UNSANDBOXED_BASH === "1") {
+  log.error(
+    "FATAL(prod hard-lock): 生产环境禁止设 EXECUTOR_ALLOW_UNSANDBOXED_BASH=1 —— 该 override 会让未沙箱化的 Bash " +
+      "在多租户下跨租户读文件/偷密钥,是坍缩模式的总开关。请改用 EXECUTOR_SANDBOX_MODE=bwrap(内核放开 unprivileged " +
+      "userns)获取隔离,或保持默认(Bash 由 secure-by-default 关闭)。拒绝启动。",
+  );
+  process.exit(1);
+}
+
 const server = Bun.serve<WSData>({
   port: PORT,
   idleTimeout: 255, // 秒(Bun 上限);流式长连由 ping/pong + Go hub 维持
@@ -24,7 +38,7 @@ const server = Bun.serve<WSData>({
       const sessionId = decodeURIComponent(m[1]);
       if (!validSessionId(sessionId)) return new Response("bad session id", { status: 400 }); // H4:挡 ..%2f 穿越
       const upgraded = srv.upgrade(req, {
-        data: { sessionId, inFlight: false, abort: null, pending: new Map(), tier: "main", modelOverride: null } as WSData,
+        data: { sessionId, inFlight: false, abort: null, pending: new Map(), tier: "main", modelOverride: null, providerOverride: null, contextWindow: null } as WSData,
       });
       if (upgraded) return undefined;
       return new Response("ws upgrade failed", { status: 400 });

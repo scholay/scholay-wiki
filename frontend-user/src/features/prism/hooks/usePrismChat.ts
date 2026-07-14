@@ -485,5 +485,9 @@ export function usePrismChat(
     reject,
     stop,
     newChat,
+    // P2 模型目录:会话当前模型(服务端 runtime_config_updated 广播)+ 切换动作(hub 校验落 pinned_model)。
+    sessionModel: socket.sessionModel,
+    setModel: (id: string | null) =>
+      socket.send({ type: 'set_runtime_config', providerId: null, modelId: id ?? '', useDefault: id === null }),
   };
 }

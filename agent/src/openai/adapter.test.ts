@@ -1,0 +1,119 @@
+// OpenAI 出口适配器单测(F3):请求翻译 + SSE 流式状态机 + finalMessage 组装。
+// 跑法:cd agent && bun test src/openai/
+import { describe, expect, test, afterEach } from "bun:test";
+import { toOpenAIMessages, openAIAdapterClient } from "./adapter.ts";
+import type { ProviderConfig } from "../config/providerStore.ts";
+
+const P: ProviderConfig = {
+  id: "prov_t", presetId: "custom", name: "t", apiKey: "sk-t",
+  baseUrl: "https://up.example.com", apiFormat: "openai", authStrategy: "auth_token",
+  models: { main: "", haiku: "", sonnet: "", opus: "" },
+};
+
+describe("toOpenAIMessages", () => {
+  test("system/thinking 剥离/tool_use→tool_calls/tool_result→role:tool", () => {
+    const out = toOpenAIMessages("SYS", [
+      { role: "user", content: "hi" },
+      {
+        role: "assistant",
+        content: [
+          { type: "thinking", thinking: "内心戏", signature: "sig" },
+          { type: "text", text: "我来查" },
+          { type: "tool_use", id: "tu1", name: "search", input: { q: "llm" } },
+        ] as never,
+      },
+      {
+        role: "user",
+        content: [
+          { type: "tool_result", tool_use_id: "tu1", content: [{ type: "text", text: "结果A" }], is_error: false },
+          { type: "text", text: "继续" },
+        ] as never,
+      },
+    ]);
+    expect(out[0]).toEqual({ role: "system", content: "SYS" });
+    expect(out[1]).toEqual({ role: "user", content: "hi" });
+    const asst = out[2] as any;
+    expect(asst.content).toBe("我来查");
+    expect(asst.tool_calls[0].function).toEqual({ name: "search", arguments: '{"q":"llm"}' });
+    expect(JSON.stringify(asst)).not.toContain("内心戏"); // thinking 剥离
+    expect(out[3]).toEqual({ role: "tool", tool_call_id: "tu1", content: "结果A" });
+    expect(out[4]).toEqual({ role: "user", content: "继续" });
+  });
+
+  test("is_error 前缀", () => {
+    const out = toOpenAIMessages(undefined, [
+      { role: "user", content: [{ type: "tool_result", tool_use_id: "x", content: "boom", is_error: true }] as never },
+    ]);
+    expect((out[0] as any).content).toBe("[error] boom");
+  });
+});
+
+function sse(lines: unknown[]): Response {
+  const body = lines.map((l) => `data: ${typeof l === "string" ? l : JSON.stringify(l)}\n\n`).join("");
+  return new Response(body, { status: 200, headers: { "content-type": "text/event-stream" } });
+}
+
+const realFetch = globalThis.fetch;
+afterEach(() => { globalThis.fetch = realFetch; });
+
+describe("stream 状态机", () => {
+  test("文本+reasoning+并行 tool_calls 分片+usage → 事件与 finalMessage", async () => {
+    globalThis.fetch = (async () =>
+      sse([
+        { choices: [{ delta: { reasoning_content: "想一下" } }] },
+        { choices: [{ delta: { content: "好的" } }] },
+        { choices: [{ delta: { tool_calls: [{ index: 0, id: "c0", function: { name: "a", arguments: '{"x"' } }] } }] },
+        { choices: [{ delta: { tool_calls: [{ index: 1, id: "c1", function: { name: "b", arguments: '{"y":2}' } }] } }] },
+        { choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: ":1}" } }] } }] },
+        { choices: [{ delta: {}, finish_reason: "tool_calls" }] },
+        { choices: [], usage: { prompt_tokens: 100, completion_tokens: 7, prompt_tokens_details: { cached_tokens: 60 } } },
+        "[DONE]",
+      ])) as never;
+
+    const client = openAIAdapterClient(P) as any;
+    const stream = client.messages.stream({ model: "m", max_tokens: 10, messages: [{ role: "user", content: "q" }] });
+    const evs: any[] = [];
+    for await (const ev of stream) evs.push(ev);
+
+    // thinking / text / 两个 tool 块都开了;tool 分片按块 index 归位;结束有 stop。
+    expect(evs.find((e) => e.content_block?.type === "thinking")).toBeTruthy();
+    expect(evs.filter((e) => e.content_block?.type === "tool_use").length).toBe(2);
+    const stops = evs.filter((e) => e.type === "content_block_stop").length;
+    expect(stops).toBe(2);
+
+    const msg = await stream.finalMessage();
+    expect(msg.stop_reason).toBe("tool_use");
+    const tools = (msg.content as any[]).filter((b) => b.type === "tool_use");
+    expect(tools[0].input).toEqual({ x: 1 }); // 交错分片正确聚合
+    expect(tools[1].input).toEqual({ y: 2 });
+    expect((msg.content as any[])[0]).toEqual({ type: "text", text: "好的" });
+    expect(JSON.stringify(msg.content)).not.toContain("想一下"); // final 不含 thinking
+    // usage 归一:input = prompt−cached
+    expect(msg.usage.input_tokens).toBe(40);
+    expect((msg.usage as any).cache_read_input_tokens).toBe(60);
+    expect((msg.usage as any).cache_creation_input_tokens).toBe(0);
+  });
+
+  test("上游无 usage → 全 0 不炸;纯文本 stop→end_turn", async () => {
+    globalThis.fetch = (async () =>
+      sse([{ choices: [{ delta: { content: "hi" } }] }, { choices: [{ delta: {}, finish_reason: "stop" }] }, "[DONE]"])) as never;
+    const client = openAIAdapterClient(P) as any;
+    const stream = client.messages.stream({ model: "m", max_tokens: 10, messages: [{ role: "user", content: "q" }] });
+    for await (const _ of stream) { /* drain */ }
+    const msg = await stream.finalMessage();
+    expect(msg.stop_reason).toBe("end_turn");
+    expect(msg.usage.input_tokens).toBe(0);
+  });
+
+  test("非流式 create:内容与 usage 归一", async () => {
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({
+        id: "x", choices: [{ message: { content: "标题" }, finish_reason: "stop" }],
+        usage: { prompt_tokens: 10, completion_tokens: 3 },
+      }), { status: 200 })) as never;
+    const client = openAIAdapterClient(P) as any;
+    const msg = await client.messages.create({ model: "m", max_tokens: 10, messages: [{ role: "user", content: "q" }] });
+    expect((msg.content as any[])[0].text).toBe("标题");
+    expect(msg.usage.output_tokens).toBe(3);
+  });
+});

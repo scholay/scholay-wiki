@@ -24,12 +24,20 @@ type AgentPusher interface {
 	PushConfig(ctx context.Context, cfg *AgentConfig) error
 }
 
+// SlotProvider 模型槽位提供者(模型目录化 P1:internal/modelcatalog 实现)。
+// 推送 agent 前用它把 4 个槽位换成绑定表解析值(main/sonnet/opus=system.main,haiku=system.fast);
+// nil 或返回空 = 沿用 agent_config 列(P1 起列被冻结为迁移时值,行为=现状)。
+type SlotProvider interface {
+	ResolveSlots() (main string, fast string)
+}
+
 // Service agent_config 的业务封装。除了 CRUD 还负责在写入后异步把配置推到
 // scholar_agent /api/providers(通过注入的 AgentPusher)。
 type Service struct {
 	repo         *Repository
 	agentClient  AgentPusher
 	extraClients []AgentPusher // P4a:executor 等次级推送目标(best-effort,不写回 push_status)
+	slots        SlotProvider  // 模型目录化 P1:槽位值来源(nil=用列值)
 }
 
 // AddExtraAgentClient 追加次级推送目标(如 clean-room executor)。SyncOnce / 配置变更时一并推,
@@ -49,8 +57,54 @@ func (s *Service) SetAgentClient(client AgentPusher) {
 	s.agentClient = client
 }
 
+// SetSlotProvider 注入模型槽位提供者(bootstrap 接 modelcatalog.Service)。
+func (s *Service) SetSlotProvider(p SlotProvider) { s.slots = p }
+
 func (s *Service) GetConfig() (*AgentConfig, error) {
 	return s.repo.GetConfig()
+}
+
+// GetEffectiveConfig 返回「推送口径」的配置:连接字段照抄,4 个槽位按 SlotProvider(绑定表)覆盖。
+// bootstrap 的 executor-config-resync 周期重推必须用它(否则 executor 拿到的是冻结的旧列值)。
+func (s *Service) GetEffectiveConfig() (*AgentConfig, error) {
+	cfg, err := s.repo.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+	return s.effectiveConfig(cfg), nil
+}
+
+// effectiveConfig 用绑定表解析值覆盖槽位(拷贝,不动原对象)。SlotProvider 为 nil 或解析全空
+// 时沿用列值 —— fresh install 未配置目录时行为与现状一致。
+func (s *Service) effectiveConfig(cfg *AgentConfig) *AgentConfig {
+	if s.slots == nil {
+		return cfg
+	}
+	main, fast := s.slots.ResolveSlots()
+	if main == "" && fast == "" {
+		return cfg
+	}
+	out := *cfg
+	if main != "" {
+		out.MainModel, out.SonnetModel, out.OpusModel = main, main, main
+		if fast == "" {
+			fast = main
+		}
+	}
+	if fast != "" {
+		out.HaikuModel = fast
+	}
+	return &out
+}
+
+// RepushAsync 用当前落库配置触发一次异步推送(模型目录/绑定变更后由 modelcatalog 调用)。
+func (s *Service) RepushAsync() {
+	cfg, err := s.repo.GetConfig()
+	if err != nil {
+		slog.Warn("agent config repush: load config failed", "err", err)
+		return
+	}
+	s.pushAsync(cfg)
 }
 
 // UpdateConfig 先落库,成功后异步推送 agent;HTTP 响应不等推送结果。
@@ -101,10 +155,12 @@ func (s *Service) pushAsync(cfg *AgentConfig) {
 // 不抛错: 内部用 slog 记两侧失败 (推送本身的失败已被 PushConfig 打过日志, 这里仅
 // 在 status 写回失败时打 warn)。返回 err 只是为了让 SyncOnce 的签名保持兼容。
 func (s *Service) pushAndRecord(ctx context.Context, cfg *AgentConfig) error {
-	err := s.agentClient.PushConfig(ctx, cfg)
+	// 模型目录化 P1:推送口径的槽位由绑定表解析(effectiveConfig),连接字段照抄。
+	eff := s.effectiveConfig(cfg)
+	err := s.agentClient.PushConfig(ctx, eff)
 	// P4a:同步把同一份 config 推给次级目标(executor),best-effort,不影响 fork 的 push_status。
 	for _, ec := range s.extraClients {
-		if perr := ec.PushConfig(ctx, cfg); perr != nil {
+		if perr := ec.PushConfig(ctx, eff); perr != nil {
 			slog.Warn("agent config: extra push (executor) failed", "err", perr)
 		}
 	}

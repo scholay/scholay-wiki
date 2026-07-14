@@ -60,7 +60,7 @@ export async function runTurn(
     sink.error("no active provider/model (awaiting PushConfig)", "config");
     return input.messages;
   }
-  const client = anthropicClientFromProvider();
+  const client = anthropicClientFromProvider(input.providerName);
   const tools = await buildTools(input);
   const messages: Anthropic.MessageParam[] = [...input.messages];
   // system = 当前日期锚点 + 语言纪律 + 控制面 appendSystemPrompt(规则+记忆)+ per-feature skill/CLAUDE.md(H6)。

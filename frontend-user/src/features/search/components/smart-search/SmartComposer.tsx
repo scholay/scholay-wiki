@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Loader2, RotateCcw } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Composer } from '@/shared/components/chat';
@@ -44,6 +44,8 @@ export interface SmartComposerProps {
   prominent?: boolean;
   /** 挂载时自动聚焦 —— 空态 hero 需要,底部栏不需要(避免抢焦/滚动跳)。 */
   autoFocus?: boolean;
+  /** 会话模型选择器插槽(P2 模型目录化,页面组装 shared ModelSelector 注入)。 */
+  modelSlot?: ReactNode;
 }
 
 export function SmartComposer({
@@ -63,6 +65,7 @@ export function SmartComposer({
   resetPending = false,
   prominent = false,
   autoFocus = false,
+  modelSlot,
 }: SmartComposerProps) {
   const rotating = !!rotatingPlaceholders && rotatingPlaceholders.length > 0;
   const hasUsage = !!contextSnapshot && contextSnapshot.maxTokens > 0;
@@ -93,17 +96,22 @@ export function SmartComposer({
       minRows={prominent ? 3 : 1}
       autoFocus={autoFocus}
       leftActions={
-        onResetClick ? (
-          <button
-            type="button"
-            onClick={onResetClick}
-            disabled={resetDisabled}
-            aria-label="重置当前会话"
-            title={resetDisabled ? '当前不可重置' : '重置当前会话, 开始新的对话'}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {resetPending ? <Loader2 className="size-3.5 animate-spin" /> : <RotateCcw className="size-3.5" strokeWidth={2} />}
-          </button>
+        onResetClick || modelSlot ? (
+          <>
+            {modelSlot}
+            {onResetClick && (
+              <button
+                type="button"
+                onClick={onResetClick}
+                disabled={resetDisabled}
+                aria-label="重置当前会话"
+                title={resetDisabled ? '当前不可重置' : '重置当前会话, 开始新的对话'}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {resetPending ? <Loader2 className="size-3.5 animate-spin" /> : <RotateCcw className="size-3.5" strokeWidth={2} />}
+              </button>
+            )}
+          </>
         ) : undefined
       }
     />

@@ -11,7 +11,7 @@ import {
   clearBlockedMessage,
   getBlockedMessage,
   setBlockedMessage,
-  transferNewConversationModel,
+  markPendingInitialModel,
   useClawContext,
   useClawHistory,
   useClawSessions,
@@ -371,7 +371,8 @@ export function useClawConversation() {
   const adoptSession = useCallback(
     (ensuredId: string) => {
       if (ensuredId === activeSessionId) return;
-      transferNewConversationModel(ensuredId);
+      // 新对话偏好 → 登记一次性初始模型,socket open 后发一帧交给服务端 pin(P2)。
+      markPendingInitialModel(ensuredId);
       setActiveSessionId(ensuredId);
       notifySessionChanged('claw', ensuredId);
     },
@@ -433,9 +434,8 @@ export function useClawConversation() {
         pendingSendRef.current = msg;
         try {
           const created = await createSession.mutateAsync();
-          // 把"新对话模型偏好"转写到这个新 session 的 per-session 记忆,
-          // 这样 socket open 时的 auto-apply (读 getClawSessionModel) 会把模型 push 给 agent。
-          transferNewConversationModel(created.sessionId);
+          // 新对话偏好 → 登记一次性初始模型,socket open 后发一帧交给服务端 pin(P2)。
+          markPendingInitialModel(created.sessionId);
           setActiveSessionId(created.sessionId);
           // 通知同源其它 tab 列表刷新 (但不切它们的 activeSessionId)
           notifySessionChanged('claw', created.sessionId);

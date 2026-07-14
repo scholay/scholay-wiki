@@ -32,6 +32,7 @@ import (
 	"scholar-backend/internal/library"
 	"scholar-backend/internal/message"
 	"scholar-backend/internal/minicod"
+	"scholar-backend/internal/modelcatalog"
 	"scholar-backend/internal/news"
 	"scholar-backend/internal/openaccess"
 	"scholar-backend/internal/payment"
@@ -39,6 +40,7 @@ import (
 	"scholar-backend/internal/promo"
 	"scholar-backend/internal/seo"
 	"scholar-backend/internal/claw"
+	"scholar-backend/internal/skillmarket"
 	"scholar-backend/internal/smartsearch"
 	"scholar-backend/internal/stagingarea"
 	"scholar-backend/internal/supportcenter"
@@ -87,9 +89,11 @@ type allHandlers struct {
 	clientLog       *clientlog.Handler // 前端错误上报 → docker logs
 	umami           *umami.Handler     // admin /analytics 查询 umami HTTP API 渲染自有图表
 	agentConfig     *agentconfig.Handler // 通用 agent 服务 (scholar_agent) 的模型/端点配置
+	modelCatalog    *modelcatalog.Handler // 模型目录 + 能力绑定 (取代 4 槽位, P1)
 	smartSearch     *smartsearch.Handler // 智能搜索 backend 桥接 (HTTP 创会话 + WS 双向 pipe)
 	peerReview      *peerreview.Handler  // 智能审稿 v3 (我要投稿 + 审稿记录,服务端 4 轮编排)
 	claw            *claw.Handler        // 智能助手 (通用对话 + 上传附件 + Minicod MCP)
+	skillMarket     *skillmarket.Handler // Skills 市场 (用户上传/分享 skill + claw 动态加载)
 	prism           *prism.Handler       // 智能写作 (LaTeX IDE: 项目/文件/编译沙箱; Phase 1 接 agent)
 	featureTool     *featuretool.Handler // 功能大全 (学术工具黄页: 导入/CRUD/webhook 同步/公开浏览)
 	agentBridge     *agentbridge.Bridge  // agent 内网回调端点 (带外 token 用量上报: title-gen 等)

@@ -74,9 +74,9 @@ export type ClientMessage =
     }
   | { type: 'stop_generation' }
   | { type: 'ping' }
-  // 切换当前 WS 连接的 model (per-session, 不写盘)。
-  // providerId=null = 用 admin 当前激活的 provider; modelId = agent 的 model id。
-  | { type: 'set_runtime_config'; providerId: string | null; modelId: string };
+  // 切换会话模型(P2:backend hub 权威校验 → 落 agent_sessions.pinned_model → 重组帧转发)。
+  // modelId = 目录 model id;useDefault=true(或 modelId 空)= unpin 回 feature 默认绑定。
+  | { type: 'set_runtime_config'; providerId: string | null; modelId: string; useDefault?: boolean };
 
 export type ServerMessage =
   | { type: 'connected'; sessionId: string }

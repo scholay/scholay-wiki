@@ -17,6 +17,8 @@ import {
 import { stripAgentBridgePrefix } from '@/shared/lib/agent-prefix';
 import { trackEvent } from '@/shared/lib/track';
 import { useHeightVar } from '@/shared/hooks';
+import { useUserModels } from '@/shared/api/models';
+import { ModelSelector } from '@/shared/components/chat/ModelSelector';
 import {
   useResetSmartSearchSession,
   useSmartSearchContext,
@@ -108,8 +110,22 @@ export function SmartSearchPanel() {
 
   const {
     state, messages, send, reconnectAttempt, displacedReason, takeOver, resyncUserText,
-    peerMessage, busyRejected, quotaExceeded,
+    peerMessage, busyRejected, quotaExceeded, sessionModel,
   } = useSmartSearchSocket(sessionId);
+
+  // P2 模型目录:composer 左下角选择器(服务端权威;hub 校验落 pinned_model 后广播回显)。
+  const { data: userModels } = useUserModels('smart_search');
+  const modelSlot =
+    userModels && userModels.length > 0 && sessionId ? (
+      <ModelSelector
+        models={userModels}
+        current={sessionModel}
+        onUpgrade={() => { window.location.href = '/pricing'; }}
+        onSelect={(id) =>
+          send({ type: 'set_runtime_config', providerId: null, modelId: id ?? '', useDefault: id === null })
+        }
+      />
+    ) : null;
 
   // 历史 turns: 只在 history 数据变化时重建一次。
   const historyTurns = useMemo<Turn[]>(
@@ -477,6 +493,7 @@ export function SmartSearchPanel() {
                   onResetClick={() => setResetOpen(true)}
                   resetDisabled={!sessionId || reset.isPending || busy}
                   resetPending={reset.isPending}
+                  modelSlot={modelSlot}
                 />
               </motion.div>
             </div>

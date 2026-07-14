@@ -20,7 +20,9 @@ export interface ProviderConfig {
   name: string;
   apiKey: string;
   baseUrl: string;
-  apiFormat: string; // "anthropic"
+  apiFormat: string; // "anthropic" | "openai"(F3:openai 走出口翻译适配器)
+  // 方言(F3 遗留项):工具轮把 reasoning 回传给上游(Kimi 系要求;DeepSeek 回传反而 400,默认关)。
+  reasoningReplay?: boolean;
   authStrategy: string; // "auth_token"
   models: ModelSlots;
   notes?: string;
@@ -90,6 +92,7 @@ export function updateProvider(id: string, patch: Partial<Omit<ProviderConfig, "
   if (patch.apiKey !== undefined) p.apiKey = patch.apiKey;
   if (patch.baseUrl !== undefined) p.baseUrl = patch.baseUrl;
   if (patch.apiFormat !== undefined) p.apiFormat = patch.apiFormat;
+  if (patch.reasoningReplay !== undefined) p.reasoningReplay = patch.reasoningReplay;
   if (patch.authStrategy !== undefined) p.authStrategy = patch.authStrategy;
   if (patch.models !== undefined) p.models = patch.models;
   if (patch.notes !== undefined) p.notes = patch.notes;

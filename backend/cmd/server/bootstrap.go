@@ -26,6 +26,7 @@ import (
 	"scholar-backend/internal/agentconfig"
 	"scholar-backend/internal/announcement"
 	"scholar-backend/internal/claw"
+	"scholar-backend/internal/skillmarket"
 	"scholar-backend/internal/clientlog"
 	"scholar-backend/internal/common/cleanup"
 	appconfig "scholar-backend/internal/common/config"
@@ -36,6 +37,7 @@ import (
 	"scholar-backend/internal/emaillog"
 	"scholar-backend/internal/featuretool"
 	"scholar-backend/internal/library"
+	"scholar-backend/internal/modelcatalog"
 	"scholar-backend/internal/news"
 	"scholar-backend/internal/openaccess"
 	"scholar-backend/internal/peerreview"
@@ -110,6 +112,25 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	agentConfigService := agentconfig.NewService(db)
 	agentClient := agent.LoadFromEnv()
 	agentConfigService.SetAgentClient(agentClient)
+	// 模型目录 + 能力绑定(模型目录化 P1,方案 docs/research/model-catalog-2026-07/REPORT.md):
+	// PushConfig 的 4 槽位改由绑定表解析(main/sonnet/opus=system.main,haiku=system.fast);
+	// 终极回退读 agent_config.main_model 冻结列(fresh install 行为=现状);绑定变更触发重推。
+	// 必须在 startup-sync goroutine 之前接线,否则首推可能拿不到 SlotProvider。
+	modelCatalogService := modelcatalog.NewService(modelcatalog.NewRepository(db))
+	modelCatalogService.SetTerminalFallback(func() string {
+		cfg, err := agentConfigService.GetConfig()
+		if err != nil || cfg == nil {
+			return ""
+		}
+		return cfg.MainModel
+	})
+	modelCatalogService.SetPushTrigger(agentConfigService.RepushAsync)
+	agentConfigService.SetSlotProvider(modelCatalogService)
+	// F0 双协议:额外 provider 推送器(fork + executor 两目标 best-effort;executor 目标在下方
+	// 配置后经 PushAllProviders 周期自愈补推)。
+	modelCatalogService.SetProviderPusher(func(ctx context.Context, p *modelcatalog.AgentProvider) error {
+		return agentClient.PushExtraProvider(ctx, p.ExecutorKey(), p.BaseURL, p.APIKey, p.APIFormat, p.ReasoningReplay)
+	})
 	safego.Go("agent-config-startup-sync", func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
@@ -127,6 +148,8 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// 拿到自己的 *FeatureBridge, 在 handler 里只调几个 thin 方法。
 	agentSessionRepo := agentbridge.NewRepository(db)
 	agentBridge := agentbridge.New(agentClient, agentSessionRepo)
+	// P2 模型目录接缝:hub 建连下发会话模型 + 浏览器换模型帧权威校验(堵 modelId 注入洞)。
+	agentBridge.SetModelCatalog(modelCatalogService)
 	// Web-native 重构 P0:影子事件日志 + TurnCoordinator(影子写 agent_turns/agent_turn_events/
 	// agent_billing_ledger,迁移 0046-0047)。**opt-in**:仅当 AGENT_TURN_JOURNAL=shadow 才接线;
 	// 默认(unset/其它)= 不构造 → bridge.turns nil → 每处新代码 nil-guard no-op → 零行为变更、
@@ -169,13 +192,16 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 		// 竞态:backend SyncOnce 可能早于 executor ready)+ 每 60s 重推(60s 内自愈)。
 		safego.Go("executor-config-resync", func() {
 			push := func() {
-				cfg, err := agentConfigService.GetConfig()
+				// 推送口径:槽位经绑定表解析(GetEffectiveConfig),否则 executor 拿到的是冻结旧列值。
+				cfg, err := agentConfigService.GetEffectiveConfig()
 				if err != nil || cfg == nil || !cfg.Enabled {
 					return
 				}
 				rctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 				defer cancel()
 				_ = execClient.PushConfig(rctx, cfg)
+				// F0:额外 provider 也随同一自愈节奏补推到 executor(upsert 幂等,不 activate)。
+				modelCatalogService.PushAllProviders(rctx)
 			}
 			time.Sleep(8 * time.Second) // 给 executor 留 ready 时间,再补一发(SyncOnce 已在更早推过一次)
 			push()
@@ -222,6 +248,13 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// 智能写作 (Prism): AI 定点编辑走 ServerSideChatStreaming;会话禁写盘工具(见 prism.BuildSpec)。
 	prismFeature := agentBridge.For(prism.BuildSpec())
 
+	// Skills 市场:用户上传/分享 skill + claw 动态加载(tier-1 纯指令,内联物化到 executor guides 层)。
+	// 持有上限的会员档解析器(需 plat.vipService)在下方 SetVIPChecker 附近注入(那时 plat 已就绪)。
+	skillMarketService := skillmarket.NewService(skillmarket.NewRepository(db))
+	// claw 建会话时经此物化用户启用的市场 skill(SessionSkillsProvider 钩子)。
+	claw.SetSkillsProvider(skillMarketService.MaterializeForUser)
+	skillMarketHandler := skillmarket.NewHandler(skillMarketService)
+
 	// 启动时 upsert 全部 feature 的 subagent 定义到 scholar_agent /api/agents。
 	// Picker=nil 的 spec (peerreview) 自动跳过推送, 见 agentbridge/skill.go。
 	// 失败不阻塞起服, 下次重启再推。
@@ -242,7 +275,7 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 		peerreview.NewRepository(db),
 		promptSvc,
 		peerReviewFeature,
-		agentConfigService, // meta/letter 走 haiku_model, review 走 main_model
+		modelCatalogService, // 各阶段模型按能力绑定取(peerreview.meta/letter/methodology/scoring/chief)
 	)
 	peerReviewHandler := peerreview.NewHandler(peerReviewService)
 	// 复位上次进程残留的卡死 computing / 审稿行 + 起后台周期兜底 (stuck-draft 防线)。
@@ -350,8 +383,17 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	smartsearch.SetVIPChecker(plat.vipService)
 	prism.SetVIPChecker(plat.vipService)
 	claw.SetVIPChecker(plat.vipService)
+	// Skills 市场持有上限按会员档:免费 10 / 付费 50(闭包运行时读 plat.vipService)。
+	skillMarketService.SetSkillCapResolver(func(userID uint) int {
+		if plat.vipService != nil && plat.vipService.EffectiveTier(userID) != "free" {
+			return skillmarket.MaxSkillsPro
+		}
+		return skillmarket.MaxSkillsFree
+	})
 	aiB.aiHandler.SetVIPChecker(plat.vipService)
 	peerReviewService.SetVIPChecker(plat.vipService) // 注入到 service(在 Submit 内扣额度), 不在 handler
+	// P2 模型目录:min_tier 档位门槛按用户生效会员档判定(ValidateUserModel / 选择器 locked)。
+	modelCatalogService.SetTierResolver(plat.vipService.EffectiveTier)
 
 	// 接线完整性自检:遍历所有付费 feature,断言配额校验器确已注入。
 	// 漏接 = 该功能静默无配额无计费(收入泄漏)且无人察觉 —— 这里 fail-fast 拒绝启动,
@@ -369,8 +411,11 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 		}
 	}
 
-	// 统一 token 额度计数:llmusage 每记一行账本 → 同步累加进用户当日 token 预算(billing/vip)。
+	// 统一 token 额度计数:llmusage 每记一行账本 → 同步累加进用户周期 token 预算(billing/vip)。
 	// 这是「按 token 限制」的唯一扣减点;预检(CheckDailyQuota)只读闸门, 真实消耗在此累加。
+	// P3:Pricer 在 Record 内(observer 门之前)按模型目录算加权+成本快照;observer 拿到的
+	// tokens 已是**加权口径**(= raw × billing_weight),直接进额度计数。
+	plat.llmUsageService.SetPricer(modelCatalogService)
 	plat.llmUsageService.SetObserver(func(userID uint, tokens int) {
 		plat.vipService.AddUsage(context.Background(), userID, tokens)
 	})
@@ -507,6 +552,7 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	)
 	prism.SetTitleSink(prismService) // agent 回传标题落库的反查入口(见 handleAgentTitle)
 	prism.SetProfileSink(prismService) // 写作画像 provider(Phase 2):hub seed 按 sessionID 注入 base 人格
+	prism.SetModelResolver(modelCatalogService) // planner 选择轮按 prism.planner 绑定取便宜模型(P1)
 	prism.SetInlineReviewFn(aiB.aiService.ReviewText) // 快通道评议(V3-4.5-1):选区级只读点评走 ai ModelLow
 	prismService.StartBackgroundGC()  // 编译产物 GC(评审 #7):回收旧 prism_compiles 行 + pdf/log MinIO 对象
 	prismHandler := prism.NewHandler(prismService)
@@ -541,11 +587,13 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 			stagingArea:    stagingarea.NewHandler(),
 			clientLog:      clientlog.NewHandler(),
 			agentConfig:    agentconfig.NewHandler(agentConfigService),
+			modelCatalog:   modelcatalog.NewHandler(modelCatalogService),
 			smartSearch:    smartsearch.NewHandler(smartSearchFeature),
 			peerReview:     peerReviewHandler,
 			memory:         usermemory.NewHandler(userMemoryService),
 			openAccess:     openaccess.NewHandler(),
 			claw:           claw.NewHandler(clawFeature, agentartifact.NewRepository(db), library.NewReader(db)),
+			skillMarket:    skillMarketHandler,
 			featureTool:    featureToolHandler,
 			agentBridge:    agentBridge, // 内网回调端点: agent 上报带外 token 用量 (title-gen 等)
 			// 智能写作 (Prism): DB 真源 + 编译沙箱(共享卷 watcher)+ AI 定点编辑(prismFeature/agent)。

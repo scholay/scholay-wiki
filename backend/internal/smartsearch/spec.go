@@ -141,8 +141,7 @@ func BuildSpec() agentbridge.FeatureSpec {
 		Picker:                 agentbridge.NewStaticPicker(FeatureKey, PromptSlug, PromptName, prompts.SmartSearchSystemPrompt),
 		Color:                  "green",
 		InjectPromptOnFirstMsg: true, // 主 agent 默认带 Bash/Read, 必须强约束
-		// A1:检索综合主要是 MCP 工具编排,默认走便宜档(haiku=flash)省成本;质量不够可在 agent_config 改槽位或上调。
-		DefaultTier: "haiku",
+		// 默认模型走 chat_default.smart_search 能力绑定(admin 模型目录页可改;迁移初值=便宜档)。
 		// C14: 审批轴 = auto (backend 自动裁决, 不透传前端)。仅暴露 mcp__minicod__*(+ TodayDate)只读检索,
 		// 文件/联网工具已在 SessionOptions.DisallowedTools 显式禁掉(见 smartSearchDisallowedTools),无破坏性操作。
 		PermissionMode: agentbridge.PermissionAuto,

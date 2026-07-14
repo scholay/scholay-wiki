@@ -6,7 +6,8 @@
   "description": "Scholay clean-room web-native agent executor — raw @anthropic-ai/sdk tool-runner, provider-agnostic (Anthropic Messages API protocol). Backend owns state (event-sourced journal); executor is a stateless per-turn runner. NO Claude Code CLI / cc-haha / Codex lineage.",
   "scripts": {
     "start": "bun run src/index.ts",
-    "typecheck": "bunx tsc --noEmit"
+    "typecheck": "bunx tsc --noEmit",
+    "test": "bun test src"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",

@@ -114,6 +114,7 @@ export async function handleHTTP(req: Request): Promise<Response> {
       apiKey: String(body.apiKey ?? ""),
       baseUrl: String(body.baseUrl ?? ""),
       apiFormat: String(body.apiFormat ?? "anthropic"),
+      reasoningReplay: body.reasoningReplay === true,
       authStrategy: String(body.authStrategy ?? "auth_token"),
       models: normalizeModels(body.models),
       notes: body.notes ? String(body.notes) : undefined,
@@ -133,6 +134,7 @@ export async function handleHTTP(req: Request): Promise<Response> {
     if (body.apiKey !== undefined) patch.apiKey = String(body.apiKey);
     if (body.baseUrl !== undefined) patch.baseUrl = String(body.baseUrl);
     if (body.apiFormat !== undefined) patch.apiFormat = String(body.apiFormat);
+    if (body.reasoningReplay !== undefined) patch.reasoningReplay = body.reasoningReplay === true;
     if (body.authStrategy !== undefined) patch.authStrategy = String(body.authStrategy);
     if (body.models !== undefined) patch.models = normalizeModels(body.models);
     if (body.notes !== undefined) patch.notes = String(body.notes);
@@ -165,6 +167,8 @@ export async function handleHTTP(req: Request): Promise<Response> {
       disallowedTools: Array.isArray(body.disallowedTools) ? (body.disallowedTools as string[]) : undefined,
       addDirs: Array.isArray(body.addDirs) ? (body.addDirs as string[]) : undefined,
       appendSystemPrompt: body.appendSystemPrompt ? String(body.appendSystemPrompt) : undefined,
+      // 用户市场 skill(内联内容),executor 物化到 <workDir>.skills/guides/ 并并入 addDirs。
+      skills: Array.isArray(body.skills) ? (body.skills as { name: string; skillMd: string }[]) : undefined,
     });
     log.info("session created", { session_id: meta.sessionId, work_dir: meta.workDir, deny: meta.disallowedTools.length });
     return json({ sessionId: meta.sessionId, workDir: meta.workDir });

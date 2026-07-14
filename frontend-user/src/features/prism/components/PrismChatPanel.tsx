@@ -4,6 +4,8 @@ import { Button } from '@/shared/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { trackEvent } from '@/shared/lib/track';
 import { Composer, type ComposerHandle } from '@/shared/components/chat';
+import { ModelSelector } from '@/shared/components/chat/ModelSelector';
+import { useUserModels } from '@/shared/api/models';
 import type { usePrismChat, PrismChangeset } from '../hooks/usePrismChat';
 import { PrismMessageTurn } from './chat/PrismMessageTurn';
 import { PrismChatEmptyState, PrismWritingMenuButton, type WritingMenuProps } from './PrismWritingMenu';
@@ -37,6 +39,9 @@ export function PrismChatPanel({
   const threadRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<ComposerHandle>(null);
   const atBottomRef = useRef(true);
+
+  // P2 模型目录:选择器数据(目录未配置时优雅缺席)。
+  const { data: userModels } = useUserModels('prism');
 
   const hasThread = chat.turns.length > 0;
 
@@ -153,6 +158,16 @@ export function PrismChatPanel({
           }
           leftActions={
             <>
+              {/* P2 模型目录:会话模型选择器(服务端权威,hub 广播回显) */}
+              {userModels && userModels.length > 0 && (
+                <ModelSelector
+                  models={userModels}
+                  current={chat.sessionModel}
+                  onSelect={chat.setModel}
+                  onUpgrade={() => { window.location.href = '/pricing'; }}
+                  disabled={blocked}
+                />
+              )}
               <button
                 type="button"
                 onClick={chat.newChat}

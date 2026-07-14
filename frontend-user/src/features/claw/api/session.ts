@@ -413,63 +413,36 @@ export function useClawModels(): UseQueryResult<ClawModelInfo[]> {
   });
 }
 
-/**
- * 用户的"每会话首选模型"记忆 — 写在 localStorage,跨刷新保留, 不跨设备。
- *
- * 为什么不放 backend: agent 端 set_runtime_config 本身是 WS 连接级别 (不写盘),
- * 我们也只在前端"重连时 auto-send" 即可, 没必要在 backend 加 schema 字段。
- * 选择的持久性 = "我这台浏览器记得这个 sessionId 用过 gpt-5"。
- */
-const MODEL_STORAGE_KEY = 'scholay:claw:session-model';
-
-interface SessionModelMap {
-  [sessionId: string]: string;
-}
-
-function readModelMap(): SessionModelMap {
-  if (typeof localStorage === 'undefined') return {};
-  try {
-    const raw = localStorage.getItem(MODEL_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as SessionModelMap) : {};
-  } catch {
-    return {};
-  }
-}
-
-function writeModelMap(map: SessionModelMap) {
-  if (typeof localStorage === 'undefined') return;
-  try {
-    localStorage.setItem(MODEL_STORAGE_KEY, JSON.stringify(map));
-  } catch {
-    // localStorage 满了 / 隐私模式禁用 → silently skip
-  }
-}
-
-/** 读某 session 的首选模型; 没记过返回 undefined 表示用 agent 默认。 */
-export function getClawSessionModel(sessionId: string | null): string | undefined {
-  if (!sessionId) return undefined;
-  return readModelMap()[sessionId];
-}
-
-/** 写某 session 的首选模型; modelId 为空字符串 / null 表示清掉用户偏好。 */
-export function setClawSessionModel(sessionId: string, modelId: string | null) {
-  const map = readModelMap();
-  if (!modelId) {
-    delete map[sessionId];
-  } else {
-    map[sessionId] = modelId;
-  }
-  writeModelMap(map);
-}
-
-// ─── 新对话的模型偏好 (独立于 per-session) ──────────────────────────────
+// ─── 会话模型(P2 模型目录化)────────────────────────────────────────────
 //
-// 语义区分 (按产品要求):
-//   - **新对话** (还没有 sessionId): 用户选的模型记在这里, 跨刷新保留。下次开新对话默认带上。
-//   - **历史对话**: 各自用 per-session 记忆 (getClawSessionModel), 不受新对话偏好影响 ——
-//     即"历史对话默认还是它会话里用的模型"。
-// 新对话首条消息真正创建 session 时, ClawPage 会把这个偏好 transferNewConversationModel 到
-// 新 sessionId 的 per-session 记忆, 这样 socket open 的 auto-apply 能拿到。
+// per-session 模型真源已**服务端化**(agent_sessions.pinned_model):选择即发 WS
+// set_runtime_config,backend hub 校验后落库;重连/多端由 hub 的 runtime_config_updated
+// 迟到补帧恢复(useAgentSocket.sessionModel)。旧的 localStorage per-session map +
+// 每次 onOpen 重发的旁路已删除 —— 双真源会脑裂,且服务端要做 entitlement/计费必须权威。
+//
+// 前端仅存两样:
+//   1. NEW_CONV_MODEL_KEY:用户级「新对话默认模型」偏好(产品要求跨刷新粘性);
+//   2. pendingInitialModel:新会话建成 → socket open 的**一次性**传递(内存,一发即弃)。
+
+// 新对话真正建成 session 后,登记一次性初始模型;socket onOpen 取走并下发(服务端从此接管)。
+const pendingInitialModel = new Map<string, string>();
+
+/** 会话创建/adopt 时调用:若存在「新对话默认模型」偏好,登记为该会话的一次性初始模型。 */
+export function markPendingInitialModel(sessionId: string) {
+  const pref = getNewConversationModel();
+  if (pref) pendingInitialModel.set(sessionId, pref);
+}
+
+/** socket onOpen 取走一次性初始模型(取后即删,服务端 pinned_model 从此是唯一真源)。 */
+export function takePendingInitialModel(sessionId: string | null): string | undefined {
+  if (!sessionId) return undefined;
+  const pref = pendingInitialModel.get(sessionId);
+  pendingInitialModel.delete(sessionId);
+  return pref;
+}
+
+// 用户级「新对话默认模型」偏好:新对话(尚无 sessionId)时选的模型记在这里,下次开新对话默认带上。
+// 历史对话不受影响(各自的服务端 pinned_model)。若偏好模型已下架/降档,hub 会静默降级为默认。
 const NEW_CONV_MODEL_KEY = 'scholay:claw:new-conversation-model';
 
 export function getNewConversationModel(): string | undefined {
@@ -491,12 +464,6 @@ export function setNewConversationModel(modelId: string | null) {
   }
 }
 
-/** 新对话真正建成 session 后, 把"新对话模型偏好"转写到该 session 的 per-session 记忆。
- *  这样 socket open 的 auto-apply (读 getClawSessionModel) 能把模型 push 给 agent。 */
-export function transferNewConversationModel(newSessionId: string) {
-  const pref = getNewConversationModel();
-  if (pref) setClawSessionModel(newSessionId, pref);
-}
 
 /**
  * "切换到这个会话" — POST /claw/sessions/:id/activate.
