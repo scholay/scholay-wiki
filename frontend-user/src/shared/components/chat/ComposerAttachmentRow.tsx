@@ -1,61 +1,61 @@
-import { FileText, Loader2, X } from 'lucide-react';
-import type { AttachmentDTO } from '@/shared/types/chat';
+import { AlertCircle, FileText, Loader2, RotateCcw, X } from 'lucide-react';
+import { cn } from '@/shared/lib/utils';
+import type { ComposerAttachmentItem } from '@/shared/hooks/useComposerAttachments';
 
 /**
  * ComposerAttachmentRow —— 输入框 topSlot 的「待发送附件」chips 行(三 agent feature 共用)。
- * 2026-07 输入框统一:从 claw ChatComposer 抽出。业界形态(GPT/Claude):
- *   - 图片:56×56 缩略图,点击放大(onEnlarge → 调用方开 AttachmentLightbox)
- *   - 文件:横向卡片 = 类型图标块 + 文件名 + 副信息(扩展名 · 大小)
- *   - 右上角常驻移除 X(不依赖 hover 才出现 —— 移动端没 hover)
- *   - 上传中:尾部虚线 pending 卡
+ * P3 打磨:per-chip 状态机(业界 GPT/Claude 形态)——
+ *   - 选中即出缩略图/文件卡,上传中盖半透明 spinner;
+ *   - 失败:红边 + 错误提示 + 重试/移除两个动作(不再只有 toast 一闪而过);
+ *   - 图片(已完成)点击放大(onEnlarge → AttachmentLightbox);
+ *   - 右上角常驻移除 X(移动端没 hover,不用 group-hover)。
  */
 export function ComposerAttachmentRow({
-  attachments,
-  uploading,
+  items,
   onRemove,
+  onRetry,
   onEnlarge,
 }: {
-  attachments: AttachmentDTO[];
-  uploading?: boolean;
-  onRemove: (index: number) => void;
+  items: ComposerAttachmentItem[];
+  onRemove: (id: string) => void;
+  onRetry?: (id: string) => void;
   /** 图片缩略图点击放大(src=previewUrl)。 */
   onEnlarge?: (src: string, alt: string) => void;
 }) {
-  if (attachments.length === 0 && !uploading) return null;
+  if (items.length === 0) return null;
   return (
     <div className="flex flex-wrap gap-2">
-      {attachments.map((a, i) => (
-        <AttachmentPreview
-          key={`${a.path}-${i}`}
-          attachment={a}
-          onRemove={() => onRemove(i)}
+      {items.map((it) => (
+        <AttachmentChip
+          key={it.id}
+          item={it}
+          onRemove={() => onRemove(it.id)}
+          onRetry={onRetry ? () => onRetry(it.id) : undefined}
           onEnlarge={
-            a.type === 'image' && a.previewUrl && onEnlarge
-              ? () => onEnlarge(a.previewUrl!, a.name)
+            it.kind === 'image' && it.previewUrl && it.status === 'done' && onEnlarge
+              ? () => onEnlarge(it.previewUrl!, it.name)
               : undefined
           }
         />
       ))}
-      {uploading && (
-        <div className="inline-flex h-14 items-center gap-1.5 rounded-md border border-dashed border-border bg-surface-1 px-3 text-xs text-faint">
-          <Loader2 className="h-3 w-3 animate-spin" />
-          上传中…
-        </div>
-      )}
     </div>
   );
 }
 
-function AttachmentPreview({
-  attachment,
+function AttachmentChip({
+  item,
   onRemove,
+  onRetry,
   onEnlarge,
 }: {
-  attachment: AttachmentDTO;
+  item: ComposerAttachmentItem;
   onRemove: () => void;
-  /** 图片缩略图点击放大(仅图片附件传);文件卡片不传。 */
+  onRetry?: () => void;
   onEnlarge?: () => void;
 }) {
+  const failed = item.status === 'error';
+  const uploading = item.status === 'uploading';
+
   const removeBtn = (
     <button
       type="button"
@@ -67,17 +67,41 @@ function AttachmentPreview({
     </button>
   );
 
-  if (attachment.type === 'image' && attachment.previewUrl) {
+  // 上传中 / 失败的覆盖层(缩略图与文件卡共用)。
+  const stateOverlay = uploading ? (
+    <span className="absolute inset-0 z-[5] flex items-center justify-center rounded-md bg-background/60">
+      <Loader2 className="size-4 animate-spin text-muted-foreground" />
+    </span>
+  ) : failed && onRetry ? (
+    <span className="absolute inset-0 z-[5] flex items-center justify-center gap-1 rounded-md bg-background/75">
+      <button
+        type="button"
+        onClick={onRetry}
+        title={item.error || '上传失败,点击重试'}
+        className="inline-flex h-6 items-center gap-1 rounded-md bg-foreground px-2 text-2xs text-background hover:opacity-90"
+      >
+        <RotateCcw className="size-3" />
+        重试
+      </button>
+    </span>
+  ) : null;
+
+  if (item.kind === 'image' && item.previewUrl) {
     return (
       <div className="relative size-14 shrink-0">
         {removeBtn}
+        {stateOverlay}
         <button
           type="button"
           onClick={onEnlarge}
-          title="点击放大"
-          className="size-14 overflow-hidden rounded-md border border-border focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+          disabled={!onEnlarge}
+          title={failed ? item.error || '上传失败' : '点击放大'}
+          className={cn(
+            'size-14 overflow-hidden rounded-md border focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
+            failed ? 'border-brand-red' : 'border-border',
+          )}
         >
-          <img src={attachment.previewUrl} alt={attachment.name} className="size-14 object-cover" />
+          <img src={item.previewUrl} alt={item.name} className="size-14 object-cover" />
         </button>
       </div>
     );
@@ -85,17 +109,33 @@ function AttachmentPreview({
 
   // 文件卡片
   return (
-    <div className="relative flex h-14 w-48 shrink-0 items-center gap-2 rounded-md border border-border bg-surface-1 px-2.5">
+    <div
+      className={cn(
+        'relative flex h-14 w-48 shrink-0 items-center gap-2 rounded-md border bg-surface-1 px-2.5',
+        failed ? 'border-brand-red' : 'border-border',
+      )}
+      title={failed ? item.error || '上传失败' : undefined}
+    >
       {removeBtn}
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-danger-soft">
-        <FileText className="size-4 text-brand-red" />
+      {stateOverlay}
+      <span
+        className={cn(
+          'flex size-8 shrink-0 items-center justify-center rounded-md',
+          failed ? 'bg-danger-soft' : 'bg-danger-soft',
+        )}
+      >
+        {failed ? (
+          <AlertCircle className="size-4 text-brand-red" />
+        ) : (
+          <FileText className="size-4 text-brand-red" />
+        )}
       </span>
       <span className="flex min-w-0 flex-col">
-        <span className="truncate text-xs font-medium text-foreground" title={attachment.name}>
-          {attachment.name}
+        <span className="truncate text-xs font-medium text-foreground" title={item.name}>
+          {item.name}
         </span>
-        <span className="truncate text-2xs text-faint">
-          {fileExt(attachment.name)} · {formatSize(attachment.size)}
+        <span className={cn('truncate text-2xs', failed ? 'text-brand-red' : 'text-faint')}>
+          {failed ? item.error || '上传失败' : `${fileExt(item.name)} · ${formatSize(item.size)}`}
         </span>
       </span>
     </div>

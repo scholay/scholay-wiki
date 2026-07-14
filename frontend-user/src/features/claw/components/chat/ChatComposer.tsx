@@ -185,9 +185,9 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
           <>
             {/* 附件预览行 — 图片缩略图 + 文件卡片 (参考 GPT / Claude) */}
             <ComposerAttachmentRow
-              attachments={att.attachments}
-              uploading={att.uploading}
-              onRemove={att.removeAttachment}
+              items={att.items}
+              onRemove={att.removeItem}
+              onRetry={att.retryItem}
               onEnlarge={(src, alt) => att.setLightbox({ src, alt })}
             />
             {/* 引用文献 chip 行 —— 区别于附件的特有「引用」样式 */}

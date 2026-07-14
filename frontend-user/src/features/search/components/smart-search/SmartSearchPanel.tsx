@@ -196,9 +196,9 @@ export function SmartSearchPanel() {
     topExtras: (
       <>
         <ComposerAttachmentRow
-          attachments={att.attachments}
-          uploading={att.uploading}
-          onRemove={att.removeAttachment}
+          items={att.items}
+          onRemove={att.removeItem}
+          onRetry={att.retryItem}
           onEnlarge={(src, alt) => att.setLightbox({ src, alt })}
         />
         {(references.length > 0 || referenceMutation.isPending) && (

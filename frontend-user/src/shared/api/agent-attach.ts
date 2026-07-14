@@ -14,7 +14,8 @@ function unwrap<T>(data: ({ data?: T } & Partial<T>) | undefined): T | undefined
 /**
  * POST multipart <uploadPath>,返回 AttachmentDTO(方案 B:backend 把原始文件推进会话隔离 cwd)。
  * sessionId 为空(新对话首次上传)→ backend 新建会话并回传,调用方必须 adopt。
- * 图片本地造 object URL 作预览(后端不回 base64);提交后由调用方 revoke。
+ * 注:图片预览 object URL 的创建/回收归 useComposerAttachments(选中即建,P3);
+ * 这里不再自建,避免双 URL 泄漏。
  */
 export function useUploadAgentAttachment(uploadPath: string) {
   return useMutation<AttachmentDTO, Error, { file: File; sessionId?: string | null }>({
@@ -28,7 +29,7 @@ export function useUploadAgentAttachment(uploadPath: string) {
         });
         const payload = unwrap<AttachmentDTO>(data);
         if (!payload?.type || !payload?.path) throw new Error('后端未返回附件');
-        return payload.type === 'image' ? { ...payload, previewUrl: URL.createObjectURL(file) } : payload;
+        return payload;
       } catch (err) {
         throw toApiError(err);
       }
