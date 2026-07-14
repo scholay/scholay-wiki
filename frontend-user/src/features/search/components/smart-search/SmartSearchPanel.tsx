@@ -17,7 +17,7 @@ import {
 import { stripAgentBridgePrefix } from '@/shared/lib/agent-prefix';
 import { trackEvent } from '@/shared/lib/track';
 import { useHeightVar } from '@/shared/hooks';
-import { useUserModels } from '@/shared/api/models';
+import { modelSupportsVision, useUserModels } from '@/shared/api/models';
 import { ModelSelector } from '@/shared/components/chat/ModelSelector';
 import { Upload } from 'lucide-react';
 import {
@@ -134,6 +134,9 @@ export function SmartSearchPanel() {
     peerMessage, busyRejected, quotaExceeded, sessionModel,
   } = useSmartSearchSocket(sessionId);
 
+  // P2 模型目录:目录数据前置声明(附件块的图片入口按当前模型 vision 启停要用)。
+  const { data: userModels } = useUserModels('smart_search');
+
   // ── 附件 / 引用文献(2026-07 输入框统一;shared 装配层 + smart-search 端点)──────────
   const uploadMutation = useUploadAgentAttachment('/user/smart-search/upload');
   const referenceMutation = useReferenceAgentLibrary('/user/smart-search/reference');
@@ -142,6 +145,8 @@ export function SmartSearchPanel() {
   const att = useComposerAttachments({
     upload: (file, sid) => uploadMutation.mutateAsync({ file, sessionId: sid }),
     sessionId: sessionId ?? null,
+    // P2 图片通道:图片入口跟随当前会话模型的视觉能力(诚实 UI)。
+    acceptImages: modelSupportsVision(userModels, sessionModel),
   });
   const handleReferenceConfirm = useCallback(
     async (sel: ReferenceSelection) => {
@@ -166,7 +171,6 @@ export function SmartSearchPanel() {
   );
 
   // P2 模型目录:composer 左下角选择器(服务端权威;hub 校验落 pinned_model 后广播回显)。
-  const { data: userModels } = useUserModels('smart_search');
   const modelSlot =
     userModels && userModels.length > 0 && sessionId ? (
       <ModelSelector

@@ -19,6 +19,7 @@ export interface AgentModel {
   price_cache_w: number;
   billing_weight: number; // 计费倍率(P3 生效;[0.05, 100])
   speed_class: 'fast' | 'balanced' | 'powerful';
+  vision: boolean; // 视觉能力(P2 图片通道)
   user_selectable: boolean;
   min_tier: '' | 'pro' | 'max';
   enabled: boolean;

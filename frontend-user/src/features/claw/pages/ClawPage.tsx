@@ -12,7 +12,7 @@ import { Sheet, SheetContent } from '@/shared/ui/sheet';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useRegisterSidebarRail } from '@/stores/sidebar.store';
 import { useHeightVar, useMediaQuery } from '@/shared/hooks';
-import { useUserModels } from '@/shared/api/models';
+import { modelSupportsVision, useUserModels } from '@/shared/api/models';
 import { ModelSelector } from '@/shared/components/chat/ModelSelector';
 import { ChatComposer, type ChatComposerHandle } from '../components/chat/ChatComposer';
 import { getNewConversationModel, setNewConversationModel } from '../api/session';
@@ -127,6 +127,9 @@ export function ClawPage() {
       />
     ) : null;
 
+  // P2 图片通道:图片入口跟随当前会话模型的视觉能力(诚实 UI:模型看不见就不收)。
+  const acceptImages = modelSupportsVision(userModels, selectorCurrent);
+
   const composerRef = useRef<ChatComposerHandle>(null);
   const renderComposer = (ref?: Ref<ChatComposerHandle>) => (
     <ChatComposer
@@ -140,6 +143,7 @@ export function ClawPage() {
       sessionId={sessionId}
       onSessionEnsured={conv.adoptSession}
       modelSlot={modelSlot}
+      acceptImages={acceptImages}
       // 未登录:发送/上传 → 弹登录注册, 不真的发请求
       requireAuth={!token}
       onRequireAuth={() => openAuth('login')}

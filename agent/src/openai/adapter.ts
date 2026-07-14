@@ -22,7 +22,16 @@ import type { ProviderConfig } from "../config/providerStore.ts";
 import { log } from "../obs/log.ts";
 
 type AnyBlock = { type: string; [k: string]: unknown };
-type OAMessage = { role: string; content: string | null; tool_call_id?: string; tool_calls?: unknown[]; reasoning_content?: string };
+type OAContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+type OAMessage = {
+  role: string;
+  content: string | null | OAContentPart[];
+  tool_call_id?: string;
+  tool_calls?: unknown[];
+  reasoning_content?: string;
+};
 
 function chatCompletionsURL(baseUrl: string): string {
   const b = baseUrl.replace(/\/+$/, "");
@@ -79,8 +88,11 @@ export function toOpenAIMessages(
         ...(toolCalls.length ? { tool_calls: toolCalls } : {}),
       });
     } else {
-      // user:tool_result 块逐条转 role:tool(必须紧跟上一条 assistant.tool_calls);其余文本单独成 user 消息。
+      // user:tool_result 块逐条转 role:tool(必须紧跟上一条 assistant.tool_calls);文本与图片
+      // 合成一条 user 消息 —— 图片(P2 通道)转 OpenAI 多模态形 image_url data URI;
+      // 纯文本时保持 string content(部分严格方言对数组形挑剔,不无谓升级)。
       const texts: string[] = [];
+      const images: OAContentPart[] = [];
       for (const b of blocks) {
         if (b.type === "tool_result") {
           const body = stringifyResultContent(b.content);
@@ -91,9 +103,24 @@ export function toOpenAIMessages(
           });
         } else if (b.type === "text") {
           texts.push(String(b.text ?? ""));
+        } else if (b.type === "image") {
+          const src = b.source as { type?: string; media_type?: string; data?: string } | undefined;
+          if (src?.type === "base64" && src.data) {
+            images.push({
+              type: "image_url",
+              image_url: { url: `data:${src.media_type ?? "image/png"};base64,${src.data}` },
+            });
+          }
         }
       }
-      if (texts.length) out.push({ role: "user", content: texts.join("\n") });
+      if (images.length) {
+        const parts: OAContentPart[] = [];
+        if (texts.length) parts.push({ type: "text", text: texts.join("\n") });
+        parts.push(...images);
+        out.push({ role: "user", content: parts });
+      } else if (texts.length) {
+        out.push({ role: "user", content: texts.join("\n") });
+      }
     }
   }
   return out;

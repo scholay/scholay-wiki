@@ -38,7 +38,7 @@ const server = Bun.serve<WSData>({
       const sessionId = decodeURIComponent(m[1]);
       if (!validSessionId(sessionId)) return new Response("bad session id", { status: 400 }); // H4:挡 ..%2f 穿越
       const upgraded = srv.upgrade(req, {
-        data: { sessionId, inFlight: false, abort: null, pending: new Map(), tier: "main", modelOverride: null, providerOverride: null, contextWindow: null, maxOutput: null } as WSData,
+        data: { sessionId, inFlight: false, abort: null, pending: new Map(), tier: "main", modelOverride: null, providerOverride: null, contextWindow: null, maxOutput: null, vision: false } as WSData,
       });
       if (upgraded) return undefined;
       return new Response("ws upgrade failed", { status: 400 });

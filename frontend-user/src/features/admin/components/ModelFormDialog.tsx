@@ -234,6 +234,13 @@ export function ModelFormDialog({
                 </div>
                 <Switch id="m-enabled" checked={form.enabled} onCheckedChange={(v) => set('enabled', v)} />
               </div>
+              <div className="flex items-center justify-between gap-3 rounded-md border border-border-soft p-3">
+                <div>
+                  <Label htmlFor="m-vision" className="text-sm font-medium">视觉能力(识图)</Label>
+                  <p className="text-2xs text-faint mt-0.5">支持图片输入的模型才勾;决定对话里能否上传图片</p>
+                </div>
+                <Switch id="m-vision" checked={form.vision} onCheckedChange={(v) => set('vision', v)} />
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -276,6 +283,7 @@ function emptyForm(): AgentModelPayload {
     price_cache_w: 0,
     billing_weight: 1,
     speed_class: 'balanced',
+    vision: false,
     user_selectable: true,
     min_tier: '',
     enabled: true,

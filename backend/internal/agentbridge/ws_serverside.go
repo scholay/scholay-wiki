@@ -157,10 +157,12 @@ func (b *Bridge) serverSideChatStreamingVia(
 	if modelID != "" {
 		providerKey := ""
 		maxOutput, ctxWindow := 0, 0
+		vision := false
 		if b.catalog != nil {
 			providerKey = b.catalog.ProviderKey(modelID)
 			maxOutput = b.catalog.MaxOutput(modelID)
 			ctxWindow = b.catalog.ContextWindow(modelID)
+			vision = b.catalog.Vision(modelID)
 		}
 		// 与 hub runtimeConfigFrame 同一组字段(providerId/contextWindow/maxOutput)成套下发,
 		// 缺 contextWindow 会让 serverside 会话(审稿向导多轮)的 H5 滑窗按全局 128k 定界:
@@ -171,7 +173,8 @@ func (b *Bridge) serverSideChatStreamingVia(
 			ModelID       string `json:"modelId"`
 			ContextWindow int    `json:"contextWindow,omitempty"`
 			MaxOutput     int    `json:"maxOutput,omitempty"`
-		}{Type: "set_runtime_config", ProviderID: providerKey, ModelID: modelID, ContextWindow: ctxWindow, MaxOutput: maxOutput}
+			Vision        bool   `json:"vision"`
+		}{Type: "set_runtime_config", ProviderID: providerKey, ModelID: modelID, ContextWindow: ctxWindow, MaxOutput: maxOutput, Vision: vision}
 		if err := writeJSON(rc); err != nil {
 			return "", nil, fmt.Errorf("write set_runtime_config: %w", err)
 		}

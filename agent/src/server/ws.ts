@@ -10,6 +10,7 @@
 import type { ServerWebSocket } from "bun";
 import { runTurn, addUsage, type CallUsage } from "../turn/turnLoop.ts";
 import { getOrCreateEphemeral, setTitle, allowBashFor, materializeSessionSkills } from "./sessions.ts";
+import { buildUserContentWithImages } from "./attachments.ts";
 import { convertFlatToAnthropic, type FlatMessage } from "./shadowTurn.ts";
 import type { EventSink, TurnInput } from "../turn/types.ts";
 import type { Tier } from "../config/models.ts";
@@ -42,6 +43,9 @@ export interface WSData {
   // 模型帧下发)。null = 未知 → 回落全局 EXECUTOR_MAX_TOKENS;turnLoop 取二者较小值定 max_tokens,
   // 避免小完成窗模型(gpt-4o-mini 16384)被全局 64000 顶爆 400(2026-07-14 事故)。
   maxOutput: number | null;
+  // set_runtime_config{vision}:当前会话模型是否支持图片输入(P2 图片通道,backend 按目录下发)。
+  // false → turnLoop 发请求前把历史 image 块换成文本占位(防无视觉模型对图块 400)。
+  vision: boolean;
 }
 
 const PERMISSION_TIMEOUT_MS = Number(process.env.EXECUTOR_PERMISSION_TIMEOUT_MS || 120_000);
@@ -104,6 +108,16 @@ export async function onMessage(ws: ServerWebSocket<WSData>, raw: string | Buffe
           typeof frame.contextWindow === "number" && frame.contextWindow > 0 ? frame.contextWindow : null;
         ws.data.maxOutput =
           typeof frame.maxOutput === "number" && frame.maxOutput > 0 ? frame.maxOutput : null;
+        ws.data.vision = frame.vision === true;
+        // 运维可观测:模型帧是会话行为(模型/端点/窗口/视觉)的开关,值错查无可查 → 常驻 INFO。
+        log.info("runtime config applied", {
+          session_id: ws.data.sessionId,
+          model: ws.data.modelOverride,
+          provider: ws.data.providerOverride ?? "(default)",
+          context_window: ws.data.contextWindow ?? 0,
+          max_output: ws.data.maxOutput ?? 0,
+          vision: ws.data.vision,
+        });
       } else if (typeof frame.contextWindow === "number" && frame.contextWindow > 0) {
         // 无 modelId 的帧(老 tier 通道)只做增量更新,维持原语义。
         ws.data.contextWindow = frame.contextWindow;
@@ -183,6 +197,10 @@ async function handleUserMessage(ws: ServerWebSocket<WSData>, frame: Record<stri
   if (!content) return;
 
   const meta = await getOrCreateEphemeral(ws.data.sessionId);
+  // P2 图片通道:attachments 里的 image 从会话 cwd 读出并 base64 内嵌为 Anthropic image 块
+  // (与 @"path" 文本标记并存:标记服务历史回放 chips 与文件语义,图块给模型「看见」)。
+  // 无图 / 读取失败 → 纯文本(与旧行为一致)。是否真发给上游由 turnLoop 按 vision 能力过滤。
+  const userContent = await buildUserContentWithImages(meta.workDir, content, frame.attachments);
   const isFirstTurn = !meta.title && meta.messages.length === 0; // 首轮 → 之后生成标题
   ws.data.inFlight = true;
   const abort = new AbortController();
@@ -238,7 +256,7 @@ async function handleUserMessage(ws: ServerWebSocket<WSData>, frame: Record<stri
   };
 
   // 把 user 消息加入会话内 history(runTurn 复制后再 append assistant/tool_result)
-  meta.messages.push({ role: "user", content });
+  meta.messages.push({ role: "user", content: userContent });
 
   // H5:近上限时滑窗裁最老回合,避免上下文只增不减撞上游 context 墙(报笼统 upstream failed 卡死)。
   // 触发信号 = 上一轮上下文(input+output ≈ 当前 history 大小)超 TRIGGER_PCT%。硬截断非摘要,但远好于崩溃;
@@ -265,6 +283,7 @@ async function handleUserMessage(ws: ServerWebSocket<WSData>, frame: Record<stri
     modelOverride: ws.data.modelOverride ?? undefined,
     providerName: ws.data.providerOverride ?? undefined,
     maxOutput: ws.data.maxOutput ?? undefined,
+    vision: ws.data.vision,
     disallowedTools: meta.disallowedTools,
     appendSystemPrompt: meta.appendSystemPrompt,
     addDirs: meta.addDirs,

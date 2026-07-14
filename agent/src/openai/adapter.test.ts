@@ -56,6 +56,31 @@ function sse(lines: unknown[]): Response {
 const realFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = realFetch; });
 
+describe("image 块翻译(P2 图片通道)", () => {
+  test("user 消息含 image 块 → OpenAI 多模态 content 数组(text + image_url data URI)", () => {
+    const msgs = toOpenAIMessages(undefined, [
+      {
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: "image/png", data: "AAAA" } },
+          { type: "text", text: '@"/x/a.png" 看看这张图' },
+        ] as never,
+      },
+    ]);
+    expect(msgs).toHaveLength(1);
+    const parts = msgs[0].content as { type: string; text?: string; image_url?: { url: string } }[];
+    expect(Array.isArray(parts)).toBe(true);
+    expect(parts[0]).toEqual({ type: "text", text: '@"/x/a.png" 看看这张图' });
+    expect(parts[1].type).toBe("image_url");
+    expect(parts[1].image_url!.url).toBe("data:image/png;base64,AAAA");
+  });
+
+  test("纯文本 user 消息保持 string content(不无谓升级数组形)", () => {
+    const msgs = toOpenAIMessages(undefined, [{ role: "user", content: [{ type: "text", text: "hi" }] as never }]);
+    expect(msgs[0].content).toBe("hi");
+  });
+});
+
 describe("stream 状态机", () => {
   test("文本+reasoning+并行 tool_calls 分片+usage → 事件与 finalMessage", async () => {
     globalThis.fetch = (async () =>

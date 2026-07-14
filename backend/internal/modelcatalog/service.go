@@ -220,6 +220,15 @@ func (s *Service) MaxOutput(modelID string) int {
 	return 0
 }
 
+// Vision 返回模型是否支持图片输入(实现 agentbridge.ModelCatalog;P2 图片通道)。
+// hub 随模型帧下发给 executor:发请求时按当前模型能力过滤历史 image 块(防切回无视觉模型 400)。
+func (s *Service) Vision(modelID string) bool {
+	if m := s.Get(modelID); m != nil {
+		return m.Vision
+	}
+	return false
+}
+
 // ProviderKey 实现 agentbridge.ModelCatalog(F0):"" = 默认 provider;"scholay-p<id>" = 额外。
 func (s *Service) ProviderKey(modelID string) string {
 	if p := s.ProviderFor(modelID); p != nil {
@@ -318,6 +327,7 @@ type UserModelView struct {
 	Locked        bool    `json:"locked"`   // min_tier 门槛未达 → 选择器置灰 + 升级引导
 	MinTier       string  `json:"min_tier"` // 锁定时的引导文案用(pro/max)
 	IsDefault     bool    `json:"is_default"`
+	Vision        bool    `json:"vision"` // 视觉能力(P2 图片通道):前端按此启停图片上传入口
 }
 
 // ListForUser 用户可见目录(enabled ∧ user_selectable,按 sort_order),default 按 feature 的
@@ -341,6 +351,7 @@ func (s *Service) ListForUser(userID uint, featureKey string) []UserModelView {
 			Locked:        m.MinTier != "" && tierRank(tier) < tierRank(m.MinTier),
 			MinTier:       m.MinTier,
 			IsDefault:     m.ModelID == def,
+			Vision:        m.Vision,
 		})
 	}
 	return out

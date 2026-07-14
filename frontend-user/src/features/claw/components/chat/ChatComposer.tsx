@@ -62,6 +62,8 @@ export interface ChatComposerProps {
   onRequireAuth?: () => void;
   /** 会话模型选择器(P2 模型目录化):ClawPage 组装 shared ModelSelector 后经此插槽注入。 */
   modelSlot?: ReactNode;
+  /** 当前会话模型是否支持图片输入(P2 图片通道;false → 图片被拦下并提示)。 */
+  acceptImages?: boolean;
 }
 
 /** 命令式句柄 —— 新对话 hero 点「示例提问」chip 时, 把文案填进输入框并聚焦(不直接发送)。 */
@@ -81,6 +83,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
   requireAuth,
   onRequireAuth,
   modelSlot,
+  acceptImages,
 }, ref) {
   // 「引用文献」选中的论文/文件夹(后端已物化进会话 cwd,这里持 chip 元数据)。
   const [references, setReferences] = useState<ReferenceItemDTO[]>([]);
@@ -97,6 +100,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
     disabled,
     requireAuth,
     onRequireAuth,
+    acceptImages,
   });
 
   // 暴露给 hero: 点示例提问 → 填入输入框并聚焦(转发统一 Composer 的句柄)。

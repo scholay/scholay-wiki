@@ -10,6 +10,7 @@ import { ToolUseAssembler } from "./assembleToolUse.ts";
 import { runTools } from "./runTools.ts";
 import type { EventSink, TurnInput } from "./types.ts";
 import { loadAddDirContext } from "../skills/loader.ts";
+import { stripImageBlocks } from "../server/attachments.ts";
 import { buildDateLine } from "../tools/clock.ts";
 import { log } from "../obs/log.ts";
 
@@ -52,8 +53,10 @@ const langLine =
 // 会 Glob 自救,但依赖用户口头提示)。回复中不要复读该标记(前端已把它渲染成附件卡片)。
 const attachLine =
   '附件约定:用户消息开头形如 @"/绝对路径" 的标记表示该轮上传到会话工作目录的附件文件,标记后紧跟用户正文。' +
-  "收到标记时按需用 Read 读取文本类附件;PDF/Office 等二进制文件先用 Bash 转成文本再读(若本会话无 Bash 工具," +
-  "直接告知用户该格式暂不支持解析,不要凭空编造内容)。回复中引用附件用其文件名,不要复读整段路径标记。";
+  "**图片附件(png/jpg 等)已直接随消息呈现给你**:直接观察图片作答,绝不要对图片路径调用 Read" +
+  "(消息里没有随附图像时,说明当前模型不支持识图,如实告知用户并建议切换支持视觉的模型)。" +
+  "文本类附件按需用 Read 读取;PDF/Office 等二进制先用 Bash 转成文本再读(无 Bash 工具时," +
+  "直接告知该格式暂不支持解析,不要凭空编造内容)。回复中引用附件用其文件名,不要复读整段路径标记。";
 
 // runTurn 返回本轮结束后的完整 messages[](含 assistant + tool_result),供 WS 层做会话续接。
 // 注:这是「会话内 history」的内存承载;耐久真源在后端事件溯源 journal(执行器跨重启无状态)。
@@ -164,8 +167,11 @@ export async function runTurn(
       }
       sink.frame({ type: "status", state: "thinking" });
 
+      // P2 图片通道:无视觉模型 → 请求里的历史 image 块换文本占位(history 本体不动,
+      // 切回视觉模型仍能看见);vision 模型原样透传(anthropic 直发 / openai 由 adapter 翻译)。
+      const wireMessages = input.vision ? messages : stripImageBlocks(messages);
       const stream = client.messages.stream(
-        { model, max_tokens: maxTokens, system, messages, tools: activeTools as unknown as Anthropic.ToolUnion[] },
+        { model, max_tokens: maxTokens, system, messages: wireMessages, tools: activeTools as unknown as Anthropic.ToolUnion[] },
         signal ? { signal } : undefined,
       );
       const assembler = new ToolUseAssembler();

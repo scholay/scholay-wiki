@@ -293,6 +293,7 @@ func runtimeConfigFrame(cat ModelCatalog, modelID string, contextWindow int) []b
 		if mo := cat.MaxOutput(modelID); mo > 0 {
 			payload["maxOutput"] = mo // 模型完成 token 上限(0 不下发,executor 用全局默认)
 		}
+		payload["vision"] = cat.Vision(modelID) // P2 图片通道:executor 按此过滤历史 image 块
 	}
 	frame, _ := json.Marshal(payload)
 	return frame

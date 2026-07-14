@@ -69,6 +69,7 @@ type AgentModel struct {
 	Channel        string    `json:"channel" gorm:"column:channel;type:varchar(16);not null;default:'agent'"`
 	ContextWindow  int       `json:"context_window" gorm:"column:context_window;not null;default:128000"`
 	MaxOutput      int       `json:"max_output" gorm:"column:max_output;not null;default:0"`
+	Vision         bool      `json:"vision" gorm:"column:vision;not null;default:false"` // 视觉能力(P2 图片通道):支持图片输入
 	PriceIn        float64   `json:"price_in" gorm:"column:price_in;type:decimal(12,4);not null;default:0"`
 	PriceOut       float64   `json:"price_out" gorm:"column:price_out;type:decimal(12,4);not null;default:0"`
 	PriceCacheR    float64   `json:"price_cache_r" gorm:"column:price_cache_r;type:decimal(12,4);not null;default:0"`

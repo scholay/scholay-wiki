@@ -20,7 +20,7 @@ import { useUploadAgentAttachment, useReferenceAgentLibrary } from '@/shared/api
 import type { ReferenceItemDTO } from '@/shared/types/chat';
 import type { PrismSendExtras } from '../hooks/usePrismChat';
 import { ModelSelector } from '@/shared/components/chat/ModelSelector';
-import { useUserModels } from '@/shared/api/models';
+import { modelSupportsVision, useUserModels } from '@/shared/api/models';
 import type { usePrismChat, PrismChangeset } from '../hooks/usePrismChat';
 import { PrismMessageTurn } from './chat/PrismMessageTurn';
 import { PrismChatEmptyState, PrismWritingMenuButton, type WritingMenuProps } from './PrismWritingMenu';
@@ -65,6 +65,8 @@ export function PrismChatPanel({
   const [pickerOpen, setPickerOpen] = useState(false);
   const att = useComposerAttachments({
     upload: (file) => uploadMutation.mutateAsync({ file, sessionId: null }),
+    // P2 图片通道:图片入口跟随当前会话模型的视觉能力(诚实 UI)。
+    acceptImages: modelSupportsVision(userModels, chat.sessionModel),
   });
   const handleReferenceConfirm = async (sel: ReferenceSelection) => {
     try {
