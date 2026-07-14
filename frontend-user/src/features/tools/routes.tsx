@@ -11,6 +11,11 @@ export const toolsRoutes: RouteObject[] = [
         lazy: () => import('./pages/ToolsCatalogPage').then((m) => ({ Component: m.ToolsCatalogPage })),
       },
       {
+        // 社区技能分段 —— 静态段,排在 :idOrSlug 之前避免被 param 吃(功能广场融合)。
+        path: 'skills',
+        lazy: () => import('./pages/ToolsSkillsPage').then((m) => ({ Component: m.ToolsSkillsPage })),
+      },
+      {
         path: ':idOrSlug',
         lazy: () => import('./pages/ToolDetailPage').then((m) => ({ Component: m.ToolDetailPage })),
       },
