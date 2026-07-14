@@ -47,6 +47,14 @@ const langLine =
   "语言:默认使用中文 —— 你的思考过程与最终回复都用中文书写。例外:用户以其它语言提问、明确要求其它语言、" +
   "或其长期偏好(见上下文中的用户记忆)指明了语言时,跟随之。代码、命令、专业术语、文献标题与直接引语保持原文,不翻译。";
 
+// attachLine —— 附件约定(静态串,保 prompt cache):backend hub 把用户上传的附件折成 user 消息
+// 开头的 @"绝对路径" 标记(2026-07-14 断链修复)。没有这行,模型对着标记只能靠猜(实测 deepseek
+// 会 Glob 自救,但依赖用户口头提示)。回复中不要复读该标记(前端已把它渲染成附件卡片)。
+const attachLine =
+  '附件约定:用户消息开头形如 @"/绝对路径" 的标记表示该轮上传到会话工作目录的附件文件,标记后紧跟用户正文。' +
+  "收到标记时按需用 Read 读取文本类附件;PDF/Office 等二进制文件先用 Bash 转成文本再读(若本会话无 Bash 工具," +
+  "直接告知用户该格式暂不支持解析,不要凭空编造内容)。回复中引用附件用其文件名,不要复读整段路径标记。";
+
 // runTurn 返回本轮结束后的完整 messages[](含 assistant + tool_result),供 WS 层做会话续接。
 // 注:这是「会话内 history」的内存承载;耐久真源在后端事件溯源 journal(执行器跨重启无状态)。
 export async function runTurn(
@@ -74,7 +82,7 @@ export async function runTurn(
   // langLine 同理放这里(owner 反馈:思考过程时中时英):静态串不破缓存,四个 feature 全覆盖。
   const skillCtx = loadAddDirContext(input.addDirs ?? []);
   const baseSystem =
-    [buildDateLine(), langLine, input.appendSystemPrompt, skillCtx].filter((s) => s && s.trim()).join("\n\n");
+    [buildDateLine(), langLine, attachLine, input.appendSystemPrompt, skillCtx].filter((s) => s && s.trim()).join("\n\n");
   // 有界透支预算(SS#2):披露一次(turn 开始)让模型据 soft 自我配速;越过 hard 时翻 windingDown →
   // 去工具 + 收尾指令,让 agent 自己给最完整答案并 end_turn 结束(非硬杀)。system/tools 只在翻转时变一次,
   // 不逐轮改 → 不破坏 prompt cache。peerreview 无 taskBudget → 全程 baseSystem + 全量 tools,行为完全不变。

@@ -1063,6 +1063,13 @@ func (h *sessionHub) handleUserMessage(s *subscriber, data []byte) {
 	f := h.f
 	content, _ := extractUserMessageContent(data)
 
+	// 附件断链修复(2026-07-14):attachments[].path 折进 content 首部 @"path" 标记(journal/seed/
+	// 转发同源携带);echoText 保留注入前原文 —— 其它端的 user_echo 气泡不显示容器绝对路径。
+	echoText := content
+	if newData, newContent, folded := foldUserAttachments(data); folded {
+		data, content = newData, newContent
+	}
+
 	// P2:消息前重校验会话锁定模型(会员到期/模型下架对常开连接生效,不等 hub 重建)。
 	h.revalidateModelBeforeMessage()
 
@@ -1103,7 +1110,8 @@ func (h *sessionHub) handleUserMessage(s *subscriber, data []byte) {
 	}
 
 	// 回答中锁住:一轮进行中 → 拒绝再发(竞态兜底,前端忙态本已置灰)。
-	if !h.beginTurn(content) {
+	// beginTurn 记 echoText(注入前原文):它只喂 user_echo/迟到补帧,别把 @"path" 泄进其它端气泡。
+	if !h.beginTurn(echoText) {
 		s.sendSelf(busyFrame())
 		return
 	}

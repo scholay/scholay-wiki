@@ -392,6 +392,57 @@ func (f *FeatureBridge) authenticateWSRequest(c *gin.Context, pathSessionID stri
 	return uid, sid, nil
 }
 
+// foldUserAttachments 把 user_message 帧上的 attachments[].path 折进 content 首部的 @"path" 标记。
+// 2026-07-14 附件断链修复:老 executor 的 materializeAttachments(@"path" 注入)在 web-native 重写中
+// 丢失,attachments 字段一度全链路无消费 —— 模型只能靠列目录自救,历史回放的附件 chips 消失。
+// 放 hub 侧(而非前端/executor)的理由:
+//   - journal 的 RoleUserText 同源携带前缀 → 前端回放剥离器(agent-history splitAttachmentPrefix)
+//     与 executor seed_history 天然一致;
+//   - 新老 web bundle / 小程序一并生效,无需多端发版;
+//   - user_echo 用注入前原文(调用方保留),不把容器绝对路径泄进其它端的气泡。
+// 格式与前端剥离器严格同构:`@"<绝对路径>" `×N + 正文;空正文补英文占位句(剥离器同样识别并隐藏)。
+// 路径须为绝对路径且不含引号/换行(防标记断裂);全部无效 → 不改帧。
+func foldUserAttachments(raw []byte) (rewritten []byte, newContent string, ok bool) {
+	if len(raw) == 0 || raw[0] != '{' {
+		return nil, "", false
+	}
+	var frame map[string]any
+	if err := json.Unmarshal(raw, &frame); err != nil || frame["type"] != "user_message" {
+		return nil, "", false
+	}
+	atts, _ := frame["attachments"].([]any)
+	if len(atts) == 0 {
+		return nil, "", false
+	}
+	var b strings.Builder
+	for _, a := range atts {
+		m, _ := a.(map[string]any)
+		p, _ := m["path"].(string)
+		if p == "" || !strings.HasPrefix(p, "/") || strings.ContainsAny(p, "\"\n") {
+			continue
+		}
+		b.WriteString(`@"`)
+		b.WriteString(p)
+		b.WriteString(`" `)
+	}
+	if b.Len() == 0 {
+		return nil, "", false
+	}
+	content, _ := frame["content"].(string)
+	if strings.TrimSpace(content) == "" {
+		// 只发附件没打字:补前端剥离器认识的占位句(agent-history.ts EMPTY_ATTACHMENT_PLACEHOLDER),
+		// 同时避开 executor 的空 content 丢弃守卫。
+		content = "Please analyze the attached files."
+	}
+	newContent = b.String() + content
+	frame["content"] = newContent
+	out, err := json.Marshal(frame)
+	if err != nil {
+		return nil, "", false
+	}
+	return out, newContent, true
+}
+
 // extractUserMessageContent 浅 parse 一帧 front→agent 消息, 仅识别 user_message 类型。
 // 返回 (content, true) 仅当本帧是 user_message; 其它情况 (ping / permission_response /
 // stop_generation / set_runtime_config / 非 JSON) 都返回 ("", false), 不计配额。
