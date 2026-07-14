@@ -549,6 +549,29 @@ func extractMessageComplete(raw []byte) (usage AgentUsage, calls []AgentUsage, s
 	return probe.Usage, probe.Calls, probe.SessionTotal, true
 }
 
+// extractErrorUsage 浅 parse error 终帧上可选携带的 usage/calls/session_total。
+// 2026-07-14 计费回归修复:轮中途上游失败时,executor 把失败前已完成 LLM call 的真实消耗
+// 随 error 终帧带回(此前只有 message_complete 携带 → 失败轮整轮漏记)。
+// 无 usage 的 error 帧(配置错误 / 转发拒绝等,未产生上游消耗)返回 ok=false,不入账。
+func extractErrorUsage(raw []byte) (usage AgentUsage, calls []AgentUsage, sessionTotal *AgentUsage, ok bool) {
+	if len(raw) == 0 || raw[0] != '{' {
+		return AgentUsage{}, nil, nil, false
+	}
+	var probe struct {
+		Type         string       `json:"type"`
+		Usage        *AgentUsage  `json:"usage"`
+		Calls        []AgentUsage `json:"calls"`
+		SessionTotal *AgentUsage  `json:"session_total"`
+	}
+	if err := json.Unmarshal(raw, &probe); err != nil || probe.Type != "error" || probe.Usage == nil {
+		return AgentUsage{}, nil, nil, false
+	}
+	if *probe.Usage == (AgentUsage{}) && len(probe.Calls) == 0 {
+		return AgentUsage{}, nil, nil, false
+	}
+	return *probe.Usage, probe.Calls, probe.SessionTotal, true
+}
+
 // extractTokenUsageFrame 浅 parse 一帧 token_usage(带外模型调用,如会话标题生成):
 // 不进会话累计水位,按「附加」记一行。返回 (usage, true) 仅当本帧确为 token_usage。
 // extractTokenUsageFrame 解 agent→backend 的 token_usage 帧, 返回 (用量, kind, ok)。

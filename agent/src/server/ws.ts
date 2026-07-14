@@ -38,6 +38,10 @@ export interface WSData {
   // 模型帧下发)。null = 未知 → 回落全局 EXECUTOR_CONTEXT_WINDOW。异构上下文模型(64k/200k)
   // 的 H5 滑窗裁剪据此按模型定界,否则小上下文模型先撞上游墙、大上下文模型被提前裁剪。
   contextWindow: number | null;
+  // set_runtime_config{maxOutput}:当前会话模型的最大完成 token 数(目录 max_output,backend 随
+  // 模型帧下发)。null = 未知 → 回落全局 EXECUTOR_MAX_TOKENS;turnLoop 取二者较小值定 max_tokens,
+  // 避免小完成窗模型(gpt-4o-mini 16384)被全局 64000 顶爆 400(2026-07-14 事故)。
+  maxOutput: number | null;
 }
 
 const PERMISSION_TIMEOUT_MS = Number(process.env.EXECUTOR_PERMISSION_TIMEOUT_MS || 120_000);
@@ -94,13 +98,18 @@ export async function onMessage(ws: ServerWebSocket<WSData>, raw: string | Buffe
         // providerId 随模型帧成对解释:非空 → 指定额外 provider;空串/缺失 → 回默认(清 override)。
         ws.data.providerOverride =
           typeof frame.providerId === "string" && frame.providerId.trim() ? frame.providerId.trim() : null;
+        // 窗口/输出上限随模型帧**成对重置**:未携带即回 null(回落全局默认)。若只在 >0 时更新,
+        // 从小窗模型切回未配置的模型会把旧值粘住(粘滞 bug)。
+        ws.data.contextWindow =
+          typeof frame.contextWindow === "number" && frame.contextWindow > 0 ? frame.contextWindow : null;
+        ws.data.maxOutput =
+          typeof frame.maxOutput === "number" && frame.maxOutput > 0 ? frame.maxOutput : null;
+      } else if (typeof frame.contextWindow === "number" && frame.contextWindow > 0) {
+        // 无 modelId 的帧(老 tier 通道)只做增量更新,维持原语义。
+        ws.data.contextWindow = frame.contextWindow;
       }
       const t = frame.tier as Tier | undefined;
       if (t && ["main", "haiku", "sonnet", "opus"].includes(t)) ws.data.tier = t;
-      // 模型目录化 P2:随模型帧带上该模型的上下文窗口(H5 滑窗按模型定界)。
-      if (typeof frame.contextWindow === "number" && frame.contextWindow > 0) {
-        ws.data.contextWindow = frame.contextWindow;
-      }
       return;
     }
     case "seed_history": {
@@ -185,9 +194,12 @@ async function handleUserMessage(ws: ServerWebSocket<WSData>, frame: Record<stri
     frame(f) {
       if (f.type === "content_delta" && typeof f.text === "string") assistantText += f.text;
       if (f.type === "session_title_updated" && typeof f.title === "string") setTitle(meta.sessionId, f.title);
-      if (f.type === "message_complete") {
-        turnCompleted = true;
-        const u = (f.usage ?? {}) as Record<string, unknown>;
+      // 终帧统一入水位:message_complete 必带 usage;error 终帧在轮内已有 LLM 消耗时也携带
+      // (turnLoop sendError)—— 两种终帧同口径累计 cumUsage + 补 session_total,否则失败轮
+      // 的真实上游消耗漏出会话水位,Go 侧计费/配额跟着漏记(2026-07-14 评审 #4 回归修复)。
+      if (f.type === "message_complete" || (f.type === "error" && (f as Record<string, unknown>).usage)) {
+        if (f.type === "message_complete") turnCompleted = true;
+        const u = ((f as Record<string, unknown>).usage ?? {}) as Record<string, unknown>;
         const turnUsage: CallUsage = {
           input_tokens: Number(u.input_tokens ?? 0),
           output_tokens: Number(u.output_tokens ?? 0),
@@ -252,6 +264,7 @@ async function handleUserMessage(ws: ServerWebSocket<WSData>, frame: Record<stri
     tier: ws.data.tier,
     modelOverride: ws.data.modelOverride ?? undefined,
     providerName: ws.data.providerOverride ?? undefined,
+    maxOutput: ws.data.maxOutput ?? undefined,
     disallowedTools: meta.disallowedTools,
     appendSystemPrompt: meta.appendSystemPrompt,
     addDirs: meta.addDirs,
@@ -265,7 +278,9 @@ async function handleUserMessage(ws: ServerWebSocket<WSData>, frame: Record<stri
   try {
     meta.messages = await runTurn(input, sink, abort.signal);
   } catch (e) {
-    safeSend(ws, { type: "error", message: String((e as Error)?.message ?? e), code: "internal" });
+    // 兜底:runTurn 内部已接住上游/流式失败(带日志+error 帧),走到这说明是意外异常 —— 必须留痕。
+    log.error("runTurn threw (unexpected)", { err: String((e as Error)?.message ?? e), session_id: meta.sessionId });
+    safeSend(ws, { type: "error", message: "服务开小差了,请稍后重试。", code: "internal" });
   } finally {
     ws.data.inFlight = false;
     ws.data.abort = null;

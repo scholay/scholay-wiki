@@ -290,6 +290,9 @@ func runtimeConfigFrame(cat ModelCatalog, modelID string, contextWindow int) []b
 	}
 	if cat != nil {
 		payload["providerId"] = cat.ProviderKey(modelID) // ""=默认(清 override)
+		if mo := cat.MaxOutput(modelID); mo > 0 {
+			payload["maxOutput"] = mo // 模型完成 token 上限(0 不下发,executor 用全局默认)
+		}
 	}
 	frame, _ := json.Marshal(payload)
 	return frame
@@ -873,6 +876,28 @@ func (h *sessionHub) upstreamLoop() {
 				// 轮结束:先解锁忙态,再广播完成帧(让所有端解除置灰)。
 				h.endTurn()
 			case "error":
+				// 计费回归修复(2026-07-14):error 终帧可携带失败前已完成 LLM call 的 usage/calls
+				// (executor turnLoop 失败路径随帧带回)。按 message_complete 同一链路入账(用量钩子 +
+				// 水位补差 + 台账),否则「多轮工具循环最后一轮流被掐」整轮上游消耗漏记、配额不扣。
+				// 刻意不做:记忆抽取(轮失败不抽取)、prompt_injected 标记(维持失败轮原语义)。
+				if usage, calls, sessionTotal, hasUsage := extractErrorUsage(data); hasUsage {
+					if f.spec.OnMessageComplete != nil {
+						hook, featureKey := f.spec.OnMessageComplete, f.spec.Key
+						uid := h.userID
+						safego.Go("agentbridge-on-message-complete:"+featureKey, func() {
+							hook(h.hookCtx, uid, usage)
+						})
+					}
+					sessModel, _ := h.currentModelSnapshot()
+					if rows := f.bridge.accrueTurnUsage(h.sessionID, sessModel, usage, calls, sessionTotal); len(rows) > 0 {
+						uid, feat, sid, rec := h.userID, f.spec.Key, h.sessionID, f.bridge.llmRec
+						safego.Go("agentbridge-usage-record:"+feat, func() {
+							for i := range rows {
+								recordAgentTokens(rec, f.bridge.catalog, &uid, feat, sid, rows[i])
+							}
+						})
+					}
+				}
 				// C2:executor 的 error 终帧(round-cap / 上游失败 / abort 等)也必须清 inFlight,
 				// 否则该会话永远卡 busy(ping/pong 保活使读 deadline 永不触发)。仍向下广播 error 给前端解锁。
 				h.endTurn()

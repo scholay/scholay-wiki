@@ -162,13 +162,34 @@ func (s *Service) Resolve(purpose string) string {
 
 // ResolveSlots 实现 agentconfig.SlotProvider:PushConfig 推给 agent 容器的槽位值由绑定生成
 // (main/sonnet/opus = system.main,haiku = system.fast),agent 侧 resolveTier/带外调用零改动。
+//
+// 护栏(2026-07-14 事故修复):槽位只对**默认端点**生效 —— 若 system.* 绑定指向了额外端点
+// 的模型,直接填槽会让带外调用(标题/记忆)拿着别家的 model code 打默认上游 → 400。
+// 此处跳过跨端点值(回退 agent_config 冻结列)并 WARN;SetBinding 侧已同步拒绝新增此类绑定。
 func (s *Service) ResolveSlots() (main string, fast string) {
-	main = s.Resolve(PurposeSystemMain)
-	fast = s.Resolve(PurposeSystemFast)
+	main = s.slotSafe(PurposeSystemMain)
+	fast = s.slotSafe(PurposeSystemFast)
 	if fast == "" {
 		fast = main
 	}
 	return main, fast
+}
+
+// slotSafe Resolve + 默认端点校验:解析值属于额外端点 → 视为无效,退回终极回退(冻结列)。
+func (s *Service) slotSafe(purpose string) string {
+	id := s.Resolve(purpose)
+	if id == "" {
+		return ""
+	}
+	if m := s.Get(id); m != nil && m.ProviderID != 0 {
+		slog.Warn("modelcatalog: system 槽位绑定指向额外端点模型,跳过(带外调用只走默认端点)",
+			"purpose", purpose, "model", id)
+		if s.terminalFallback != nil {
+			return strings.TrimSpace(s.terminalFallback())
+		}
+		return ""
+	}
+	return id
 }
 
 // Get 按 model_id 查目录行,**含停用行**——计价(P3)与展示映射必须查得到已下架模型,
@@ -185,6 +206,16 @@ func (s *Service) Get(modelID string) *AgentModel {
 func (s *Service) ContextWindow(modelID string) int {
 	if m := s.Get(modelID); m != nil {
 		return m.ContextWindow
+	}
+	return 0
+}
+
+// MaxOutput 返回模型最大完成 token 数(0 = 未知;实现 agentbridge.ModelCatalog)。
+// executor 用 min(全局上限, maxOutput) 定 max_tokens,避免小完成窗模型(如 gpt-4o-mini 16384)
+// 被全局 64000 顶爆 400(2026-07-14 智能搜索空返回事故的确定性修复;零配置兜底在 openai adapter 钳制重试)。
+func (s *Service) MaxOutput(modelID string) int {
+	if m := s.Get(modelID); m != nil {
+		return m.MaxOutput
 	}
 	return 0
 }
@@ -327,6 +358,11 @@ func (s *Service) BindingViews() []BindingView {
 	for _, p := range AllPurposes {
 		bound := snap.bindings[p]
 		effective := s.Resolve(p)
+		// system.* 与推送口径(slotSafe)一致:存量跨端点绑定实际推的是冻结列回退值,
+		// 若此处仍按 Resolve 显示「生效」,管理面与 executor 实跑互相矛盾(评审 #3/#5)。
+		if p == PurposeSystemMain || p == PurposeSystemFast {
+			effective = s.slotSafe(p)
+		}
 		views = append(views, BindingView{
 			Purpose:   p,
 			ModelID:   bound,
@@ -423,6 +459,16 @@ func (s *Service) UpdateModel(id uint64, m *AgentModel) error {
 			return errors.New("该模型 code 已存在:code 是计费/会话锁定的全局标识,跨端点需保持唯一(同一模型走多渠道请用可区分的 code)")
 		}
 	}
+	// 堵 SetBinding 护栏的绕行:模型改挂额外端点时,若已被 system.* 绑定引用则拒绝
+	// (先绑默认端点模型再改 provider 会静默进入「界面绿、推送走冻结列」的不一致态,评审 #5)。
+	if m.ProviderID != 0 && existing.ProviderID == 0 {
+		snap := s.load()
+		for _, p := range []string{PurposeSystemMain, PurposeSystemFast} {
+			if snap.bindings[p] == existing.ModelID || snap.bindings[p] == m.ModelID {
+				return errors.New("该模型被「系统主模型/系统快模型」绑定引用,系统槽位只走默认端点 —— 请先解绑再改挂额外端点")
+			}
+		}
+	}
 	if err := s.repo.UpdateModel(id, m); err != nil {
 		return err
 	}
@@ -467,8 +513,13 @@ func (s *Service) SetBinding(purpose, modelID string) error {
 		return errors.New("未知的能力绑定项")
 	}
 	modelID = strings.TrimSpace(modelID)
-	if modelID == "" || s.Get(modelID) == nil {
+	m := s.Get(modelID)
+	if modelID == "" || m == nil {
 		return errors.New("绑定的模型不在目录中")
+	}
+	// system.* 槽位随 PushConfig 灌进默认端点,只能绑默认端点下的模型(2026-07-14 事故修复)。
+	if (purpose == PurposeSystemMain || purpose == PurposeSystemFast) && m.ProviderID != 0 {
+		return errors.New("「系统主模型/系统快模型」走默认端点的槽位,只能绑定默认端点下的模型")
 	}
 	if err := s.repo.UpsertBinding(purpose, modelID); err != nil {
 		return err

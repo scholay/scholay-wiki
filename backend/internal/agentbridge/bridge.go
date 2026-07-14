@@ -107,6 +107,8 @@ type ModelCatalog interface {
 	ValidateUserModel(userID uint, modelID string) error
 	// ContextWindow 返回模型上下文窗口 token 数(0 = 未知,executor 回落全局默认)。
 	ContextWindow(modelID string) int
+	// MaxOutput 返回模型最大完成 token 数(0 = 未知,executor 回落全局默认并靠 adapter 400 钳制自愈)。
+	MaxOutput(modelID string) int
 	// BillingWeight 返回模型计费倍率(P3 盖章反折算用;目录 miss → 1,下限已 clamp 防除零)。
 	BillingWeight(modelID string) float64
 	// ProviderKey 返回模型所属 provider 在 executor 侧的 upsert 键(F0 多 provider):

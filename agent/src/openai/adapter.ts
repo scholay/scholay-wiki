@@ -124,22 +124,77 @@ function normOAUsage(u: { prompt_tokens?: number; completion_tokens?: number; pr
   };
 }
 
-/** POST chat/completions:部分推理模型(OpenAI o 系等)拒收 max_tokens、只认 max_completion_tokens。
- *  零配置自动回退:400 且报文点名 max_tokens → 换参重试一次(每请求至多一次,不进入循环)。 */
+/** 首字节前的网络级重试:部分中转(实测 cometapi)对 ~100KB+ 请求**随机掐断连接**(非 4xx/5xx,
+ *  fetch 直接 throw)。响应头都没回 → 流必然未开始,重试安全。至多 3 发,退避 400ms×n;用户 abort 不重试。 */
+async function fetchWithNetRetry(url: string, makeInit: () => RequestInit, signal?: AbortSignal): Promise<Response> {
+  const TRIES = 3;
+  let lastErr: unknown;
+  for (let i = 0; i < TRIES; i++) {
+    try {
+      return await fetch(url, makeInit());
+    } catch (e) {
+      lastErr = e;
+      // 末次失败直接抛(不再打「retrying」误导日志、不空睡退避);用户 abort 同样立即抛。
+      if (signal?.aborted || i === TRIES - 1) throw lastErr;
+      log.warn("openai adapter: network error before first byte, retrying", {
+        attempt: i + 1, err: String((e as Error)?.message ?? e),
+      });
+      await abortableSleep(400 * (i + 1), signal);
+      if (signal?.aborted) throw lastErr; // 退避期间被 stop → 不再发起下一次
+    }
+  }
+  throw lastErr;
+}
+
+// 可中断退避:abort 时立即醒来(否则 stop 响应最长再拖一个退避周期)。
+function abortableSleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const t = setTimeout(done, ms);
+    function done() {
+      signal?.removeEventListener("abort", done);
+      clearTimeout(t);
+      resolve();
+    }
+    signal?.addEventListener("abort", done, { once: true });
+  });
+}
+
+/** POST chat/completions:400 的零配置自愈(有界修复循环,每种修复至多一次,共至多 3 发):
+ *  ① 参数名方言 —— 部分推理模型(OpenAI o 系等)拒收 max_tokens、只认 max_completion_tokens → 换参;
+ *  ② 上限值钳制 —— executor 全局 max_tokens(64000,为大输出模型调的)可能超过小模型的完成上限
+ *    (如 gpt-4o-mini 16384,报「supports at most N completion tokens」)→ 解析 N 后钳制重试。
+ *    2026-07-14 智能搜索空返回事故:两种 400 先后出现,旧逻辑只换名不降值 → 重试仍 400。 */
 async function postChat(p: ProviderConfig, body: Record<string, unknown>, signal?: AbortSignal): Promise<Response> {
   const url = chatCompletionsURL(p.baseUrl);
   const headers = { "content-type": "application/json", authorization: `Bearer ${p.apiKey}` };
-  const resp = await fetch(url, { method: "POST", headers, body: JSON.stringify(body), signal });
-  if (resp.status === 400 && body.max_tokens !== undefined) {
+  let cur = body;
+  for (let attempt = 0; ; attempt++) {
+    const resp = await fetchWithNetRetry(url, () => ({ method: "POST", headers, body: JSON.stringify(cur), signal }), signal);
+    if (resp.status !== 400 || attempt >= 2) return resp;
     const detail = await resp.clone().text().catch(() => "");
-    if (/max_completion_tokens|max_tokens/.test(detail)) {
-      const retry = { ...body, max_completion_tokens: body.max_tokens } as Record<string, unknown>;
-      delete retry.max_tokens;
-      log.warn("openai adapter: retrying with max_completion_tokens (upstream dialect)", { model: body.model });
-      return fetch(url, { method: "POST", headers, body: JSON.stringify(retry), signal });
+    if (!/max_completion_tokens|max_tokens/.test(detail)) return resp;
+    // 一次到位:换名 + 钳制在同一个重试里做 —— 分两步会多打一发,且部分中转(实测 cometapi)
+    // 对带 max_tokens 的请求不回 400 而是直接掐断连接,分步修复会死在中间态。
+    const next = { ...cur } as Record<string, unknown>;
+    let changed = false;
+    if (next.max_tokens !== undefined) {
+      next.max_completion_tokens = next.max_tokens; // 现代方言:o 系/新模型只认 max_completion_tokens
+      delete next.max_tokens;
+      changed = true;
     }
+    const limit = Number(next.max_completion_tokens);
+    const capMatch = detail.match(/at most (\d+)/i) ?? detail.match(/maximum(?:\s+\w+){0,3}\s+(?:is|of)?\s*(\d{3,})/i);
+    const cap = capMatch ? Number(capMatch[1]) : 0;
+    if (cap > 0 && Number.isFinite(limit) && cap < limit) {
+      next.max_completion_tokens = cap;
+      changed = true;
+    }
+    if (!changed) return resp; // 无可修复项(已是换名+钳制后的形态)→ 把 400 交还上层
+    cur = next;
+    log.warn("openai adapter: retrying after max-tokens dialect repair", {
+      model: cur.model, max_completion_tokens: cur.max_completion_tokens, attempt: attempt + 1,
+    });
   }
-  return resp;
 }
 
 type StreamParams = {

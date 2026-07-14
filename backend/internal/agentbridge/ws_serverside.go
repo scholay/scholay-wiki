@@ -151,13 +151,27 @@ func (b *Bridge) serverSideChatStreamingVia(
 		_ = conn.Close()
 	}()
 
-	// 先切模型 (可选) — agent 按 sessionId 记住 override 并在下条 user_message 前完成重启。
+	// 先切模型 (可选) — override 是 per-WS-connection 状态,serverside 每次调用新开连接,
+	// 故每轮都要发。providerId 经目录解析(2026-07-14 修复:审稿/planner 绑到额外端点的模型时,
+	// 不带 providerId 会拿着别家 model code 打默认上游 → 400)。
 	if modelID != "" {
+		providerKey := ""
+		maxOutput, ctxWindow := 0, 0
+		if b.catalog != nil {
+			providerKey = b.catalog.ProviderKey(modelID)
+			maxOutput = b.catalog.MaxOutput(modelID)
+			ctxWindow = b.catalog.ContextWindow(modelID)
+		}
+		// 与 hub runtimeConfigFrame 同一组字段(providerId/contextWindow/maxOutput)成套下发,
+		// 缺 contextWindow 会让 serverside 会话(审稿向导多轮)的 H5 滑窗按全局 128k 定界:
+		// 小窗额外端点模型历史越过真实窗口时裁剪不触发 → 上游 context 超限 400。
 		rc := struct {
-			Type       string  `json:"type"`
-			ProviderID *string `json:"providerId"`
-			ModelID    string  `json:"modelId"`
-		}{Type: "set_runtime_config", ProviderID: nil, ModelID: modelID}
+			Type          string `json:"type"`
+			ProviderID    string `json:"providerId"`
+			ModelID       string `json:"modelId"`
+			ContextWindow int    `json:"contextWindow,omitempty"`
+			MaxOutput     int    `json:"maxOutput,omitempty"`
+		}{Type: "set_runtime_config", ProviderID: providerKey, ModelID: modelID, ContextWindow: ctxWindow, MaxOutput: maxOutput}
 		if err := writeJSON(rc); err != nil {
 			return "", nil, fmt.Errorf("write set_runtime_config: %w", err)
 		}

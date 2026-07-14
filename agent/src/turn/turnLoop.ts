@@ -61,6 +61,10 @@ export async function runTurn(
     return input.messages;
   }
   const client = anthropicClientFromProvider(input.providerName);
+  // max_tokens = min(全局上限, 模型完成窗):目录 max_output 未配置(0/缺失)时用全局值;
+  // 上游仍拒绝时 openai adapter 会按 400 报文钳制重试(零配置兜底),anthropic 系暂无该自愈。
+  const maxTokens =
+    input.maxOutput && input.maxOutput > 0 ? Math.min(MAX_TOKENS, input.maxOutput) : MAX_TOKENS;
   const tools = await buildTools(input);
   const messages: Anthropic.MessageParam[] = [...input.messages];
   // system = 当前日期锚点 + 语言纪律 + 控制面 appendSystemPrompt(规则+记忆)+ per-feature skill/CLAUDE.md(H6)。
@@ -105,13 +109,21 @@ export async function runTurn(
     terminalSent = true;
     sink.frame({ type: "message_complete", usage: sumUsage(calls), calls });
   };
+  // error 终帧同样携带本轮已完成 LLM call 的 usage/calls:多轮工具循环里最后一轮失败时,
+  // 前几轮的上游消耗是真实发生的 —— 只发裸 error 会让 Go 侧整轮漏记(计费/配额)。
+  // Go hub 的 error case 按 message_complete 同一链路入账;WS 层(server/ws.ts)会像完成帧
+  // 一样补 session_total(水位口径跨帧型一致)。
+  const sendError = (message: string, code: string) => {
+    terminalSent = true;
+    const carry = calls.length > 0 ? { usage: sumUsage(calls), calls } : {};
+    sink.frame({ type: "error", message, code, ...carry });
+  };
 
   try {
     for (let round = 0; ; round++) {
       if (signal?.aborted) break; // 用户 stop → 跳出,finally 补终帧
       if (round >= MAX_TOOL_ROUNDS) {
-        sink.error("tool round cap exceeded", "busy");
-        terminalSent = true; // error 即终帧(hub 也会在 error case 清 inFlight)
+        sendError("tool round cap exceeded", "busy"); // error 即终帧(hub 在 error case 清 inFlight)
         break;
       }
       if (MAX_TURN_TOKENS > 0) {
@@ -122,8 +134,7 @@ export async function runTurn(
         );
         if (spent > MAX_TURN_TOKENS) {
           log.warn("turn token budget exceeded", { session_id: input.sessionId, spent, budget: MAX_TURN_TOKENS });
-          sink.error("本轮处理量已达上限,已自动停止。请精简需求后重试。", "budget");
-          terminalSent = true; // error 即终帧
+          sendError("本轮处理量已达上限,已自动停止。请精简需求后重试。", "budget");
           break;
         }
       }
@@ -146,43 +157,51 @@ export async function runTurn(
       sink.frame({ type: "status", state: "thinking" });
 
       const stream = client.messages.stream(
-        { model, max_tokens: MAX_TOKENS, system, messages, tools: activeTools as unknown as Anthropic.ToolUnion[] },
+        { model, max_tokens: maxTokens, system, messages, tools: activeTools as unknown as Anthropic.ToolUnion[] },
         signal ? { signal } : undefined,
       );
       const assembler = new ToolUseAssembler();
 
-      for await (const ev of stream) {
-        if (ev.type === "content_block_start") {
-          const cb = ev.content_block;
-          if (cb.type === "text") {
-            sink.frame({ type: "content_start", blockType: "text" });
-          } else if (cb.type === "tool_use") {
-            assembler.open(ev.index, { id: cb.id, name: cb.name });
-            sink.frame({ type: "content_start", blockType: "tool_use", toolName: cb.name, toolUseId: cb.id });
-          } else if (cb.type === "thinking") {
-            sink.frame({ type: "content_start", blockType: "thinking" });
-          }
-        } else if (ev.type === "content_block_delta") {
-          const d = ev.delta as { type: string; text?: string; thinking?: string; partial_json?: string };
-          if (d.type === "text_delta" && d.text) sink.frame({ type: "content_delta", text: d.text });
-          else if (d.type === "thinking_delta" && d.thinking) sink.frame({ type: "thinking", text: d.thinking });
-          else if (d.type === "input_json_delta" && d.partial_json !== undefined) assembler.push(ev.index, d.partial_json);
-        } else if (ev.type === "content_block_stop") {
-          if (assembler.isTool(ev.index)) {
-            const tu = assembler.close(ev.index);
-            if (tu) sink.frame({ type: "tool_use_complete", toolName: tu.name, toolUseId: tu.id, input: tu.input });
-          }
-        }
-      }
-
+      // 流式迭代与 finalMessage 必须同一个 try:OpenAI 适配层(及 SDK 网络层)的失败可能从
+      // 迭代器本身 throw —— 若不接住,会越过本函数直接进 finally 的终帧守卫,先发出一个
+      // 空 usage 的 message_complete,error 帧反而落在完成帧之后(前端已收轮 → 用户看到
+      // 「无任何返回」且两侧都无日志)。2026-07-14 智能搜索空返回事故根因。
       let msg: Anthropic.Message;
       try {
+        for await (const ev of stream) {
+          if (ev.type === "content_block_start") {
+            const cb = ev.content_block;
+            if (cb.type === "text") {
+              sink.frame({ type: "content_start", blockType: "text" });
+            } else if (cb.type === "tool_use") {
+              assembler.open(ev.index, { id: cb.id, name: cb.name });
+              sink.frame({ type: "content_start", blockType: "tool_use", toolName: cb.name, toolUseId: cb.id });
+            } else if (cb.type === "thinking") {
+              sink.frame({ type: "content_start", blockType: "thinking" });
+            }
+          } else if (ev.type === "content_block_delta") {
+            const d = ev.delta as { type: string; text?: string; thinking?: string; partial_json?: string };
+            if (d.type === "text_delta" && d.text) sink.frame({ type: "content_delta", text: d.text });
+            else if (d.type === "thinking_delta" && d.thinking) sink.frame({ type: "thinking", text: d.thinking });
+            else if (d.type === "input_json_delta" && d.partial_json !== undefined) assembler.push(ev.index, d.partial_json);
+          } else if (ev.type === "content_block_stop") {
+            if (assembler.isTool(ev.index)) {
+              const tu = assembler.close(ev.index);
+              if (tu) sink.frame({ type: "tool_use_complete", toolName: tu.name, toolUseId: tu.id, input: tu.input });
+            }
+          }
+        }
+
         msg = await stream.finalMessage();
       } catch (e) {
         if (signal?.aborted) break; // abort 触发的流中断:走 finally 补终帧,不报 error
-        log.error("stream finalMessage failed", { err: String((e as Error)?.message ?? e), session_id: input.sessionId });
-        sink.error("upstream stream failed", "upstream");
-        terminalSent = true;
+        log.error("upstream stream failed", {
+          err: String((e as Error)?.message ?? e),
+          session_id: input.sessionId,
+          model,
+          round,
+        });
+        sendError("模型服务响应异常,请稍后重试或更换模型。", "upstream");
         break;
       }
 
@@ -196,7 +215,7 @@ export async function runTurn(
           log.warn("turn hit max_tokens (output truncated)", {
             session_id: input.sessionId,
             output_tokens: msg.usage?.output_tokens,
-            max_tokens: MAX_TOKENS,
+            max_tokens: maxTokens,
           });
         }
         sendComplete();
