@@ -10,7 +10,10 @@
       "ceiling": 1000000,
       "percent": 12,
       "unlimited": false,
-      "consumed_today": 123456
+      "consumed_today": 123456,
+      "window_days": 7,
+      "window_started_at": "2026-07-10T15:30:00+08:00",
+      "window_reset_at": "2026-07-17T15:30:00+08:00"
     },
     "credit": {
       "temp": 0,

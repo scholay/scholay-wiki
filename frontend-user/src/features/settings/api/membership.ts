@@ -6,11 +6,16 @@ import { type SubQuote } from '@/shared/components';
 
 export type Tier = 'free' | 'pro' | 'max';
 
+// P4:额度 = 首次使用开锚的 7 天周期(mirrors vip/quota.go TokenStatus)。
 export interface TokenStatus {
-  used: number;
+  used: number; // 窗口口径(额度条)
   ceiling: number; // -1 = 不限
   percent: number;
   unlimited: boolean;
+  consumed_today: number; // 当日真实消耗(统计,重置不清零)
+  window_days: number; // 周期长度(天,默认 7)
+  window_started_at: string | null; // null = 未开窗(满血,下次使用开始计时)
+  window_reset_at: string | null; // 窗口自动重置时刻
 }
 export interface CreditLot {
   amount: number;
@@ -78,7 +83,9 @@ export interface PlanCard {
   grant_credits: number;
 }
 export interface Plans {
-  free_daily_tokens: number;
+  free_daily_tokens: number; // 兼容字段:后端回窗口÷天数的日均口径(P4)
+  free_window_tokens: number; // 7 天周期基准额度
+  window_days: number;
   reset_cost_credits: number;
   recharge_rate: number;
   min_recharge_cents: number;

@@ -25,7 +25,7 @@ import { QUOTA_EXCEEDED_EVENT } from '@/shared/lib/quota-events';
 const DEFAULTS = {
   title: '限时领取会员',
   subtitle: '扫码添加客服,免费领取会员权益',
-  benefits: ['解锁 Pro 全部高级功能', '更高每日 AI 额度,畅快使用', '论文检索 · 智能助手 · 智能写作全开'],
+  benefits: ['解锁 Pro 全部高级功能', '更高 AI 额度,畅快使用', '论文检索 · 智能助手 · 智能写作全开'],
   buttonText: '扫码加客服 · 免费领取',
 };
 

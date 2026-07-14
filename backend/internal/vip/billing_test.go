@@ -1,6 +1,7 @@
 package vip
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
@@ -130,27 +131,36 @@ func TestPlanConsume(t *testing.T) {
 
 // ─── 配置派生 ────────────────────────────────────────────────────────────────
 
-func TestDailyCeiling(t *testing.T) {
-	// 语义见 migration 0021:Pro = base × pro倍率;Max = base × pro倍率 × max倍率(Max 是 Pro 的几倍)。
-	c := &BillingConfig{FreeDailyTokens: 200000, ProMultiplier: 3, MaxMultiplier: 5}
-	if c.DailyCeiling(TierFree) != 200000 {
-		t.Errorf("free ceiling=%d", c.DailyCeiling(TierFree))
+func TestWindowCeiling(t *testing.T) {
+	// P4:7 天周期窗口基准(FreeWindowTokens);倍率语义不变:Pro = base × pro倍率;Max = Pro × max倍率。
+	c := &BillingConfig{FreeWindowTokens: 1400000, ProMultiplier: 3, MaxMultiplier: 5}
+	if c.WindowCeiling(TierFree) != 1400000 {
+		t.Errorf("free ceiling=%d", c.WindowCeiling(TierFree))
 	}
-	if c.DailyCeiling(TierPro) != 600000 { // 200000 × 3
-		t.Errorf("pro ceiling=%d", c.DailyCeiling(TierPro))
+	if c.WindowCeiling(TierPro) != 4200000 { // 1400000 × 3
+		t.Errorf("pro ceiling=%d", c.WindowCeiling(TierPro))
 	}
-	if c.DailyCeiling(TierMax) != 3000000 { // 200000 × 3 × 5(Max = base × pro × max)
-		t.Errorf("max ceiling=%d", c.DailyCeiling(TierMax))
+	if c.WindowCeiling(TierMax) != 21000000 { // 1400000 × 3 × 5(Max = base × pro × max)
+		t.Errorf("max ceiling=%d", c.WindowCeiling(TierMax))
 	}
 	// 倍率<=0 = 不限。
-	cu := &BillingConfig{FreeDailyTokens: 200000, ProMultiplier: 0, MaxMultiplier: -1}
-	if cu.DailyCeiling(TierPro) != -1 || cu.DailyCeiling(TierMax) != -1 {
-		t.Errorf("unlimited mult: pro=%d max=%d", cu.DailyCeiling(TierPro), cu.DailyCeiling(TierMax))
+	cu := &BillingConfig{FreeWindowTokens: 1400000, ProMultiplier: 0, MaxMultiplier: -1}
+	if cu.WindowCeiling(TierPro) != -1 || cu.WindowCeiling(TierMax) != -1 {
+		t.Errorf("unlimited mult: pro=%d max=%d", cu.WindowCeiling(TierPro), cu.WindowCeiling(TierMax))
 	}
 	// 基准<=0 = 不限。
-	cz := &BillingConfig{FreeDailyTokens: 0}
-	if cz.DailyCeiling(TierFree) != -1 {
+	cz := &BillingConfig{FreeWindowTokens: 0}
+	if cz.WindowCeiling(TierFree) != -1 {
 		t.Errorf("zero base should be unlimited")
+	}
+	// 透支带:按日均(ceiling/窗口天数)的 15%,地板 20 万(保持「单轮收尾」量级)。
+	co := &BillingConfig{FreeWindowTokens: 14_000_000, WindowDays: 7} // 日均 200 万 → 15% = 30 万 > 地板
+	if co.OverdraftTokens(TierFree) != 300_000 {
+		t.Errorf("overdraft=%d want 300000", co.OverdraftTokens(TierFree))
+	}
+	cf := &BillingConfig{FreeWindowTokens: 1_400_000, WindowDays: 7} // 日均 20 万 → 15%=3 万 < 地板 20 万
+	if cf.OverdraftTokens(TierFree) != 200_000 {
+		t.Errorf("overdraft floor=%d want 200000", cf.OverdraftTokens(TierFree))
 	}
 }
 
@@ -172,17 +182,33 @@ func TestRechargeAndGrant(t *testing.T) {
 	}
 }
 
-// ─── 过 0 点:日 key 滚动 ─────────────────────────────────────────────────────
+// ─── 窗口 key 与到期语义(P4 锚定周期)────────────────────────────────────────
 
-func TestTokenDayKeyRollover(t *testing.T) {
-	before := tm("2026-06-08 23:59:30")
-	after := tm("2026-06-09 00:00:30")
-	k1 := tokenDayKey(42, before)
-	k2 := tokenDayKey(42, after)
-	if k1 == k2 {
-		t.Fatalf("过0点 key 应不同: %s == %s", k1, k2)
+func TestAnchoredWindowKeys(t *testing.T) {
+	anchor := tm("2026-06-08 15:30:00").Unix()
+	if k := tokenUsedKey(42, anchor); k != fmt.Sprintf("quota:tokens:42:%d", anchor) {
+		t.Fatalf("used key 格式: %s", k)
 	}
-	if k1 != "quota:tokens:42:20260608" || k2 != "quota:tokens:42:20260609" {
-		t.Fatalf("key 格式: %s / %s", k1, k2)
+	if k := tokenBaseKey(42, anchor); k != fmt.Sprintf("quota:base:42:%d", anchor) {
+		t.Fatalf("base key 格式: %s", k)
+	}
+	// 换锚 = 换 key(到期满血的物理根)。
+	if tokenUsedKey(42, anchor) == tokenUsedKey(42, anchor+7*86400) {
+		t.Fatalf("不同 anchor 应产生不同 key")
+	}
+	// windowUsed:used-base clamp≥0;resetAt = anchor+窗口。
+	w := quotaWindow{anchor: anchor, used: 100, base: 130}
+	if w.windowUsed() != 0 {
+		t.Fatalf("windowUsed clamp: %d", w.windowUsed())
+	}
+	w2 := quotaWindow{anchor: anchor, used: 500, base: 130}
+	if w2.windowUsed() != 370 {
+		t.Fatalf("windowUsed=%d want 370", w2.windowUsed())
+	}
+	if got := w2.resetAt(7 * 86400).Unix(); got != anchor+7*86400 {
+		t.Fatalf("resetAt=%d", got)
+	}
+	if !(quotaWindow{}).resetAt(7 * 86400).IsZero() {
+		t.Fatalf("无窗口 resetAt 应为零值")
 	}
 }

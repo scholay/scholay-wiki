@@ -54,7 +54,7 @@ export function PricingPage() {
     <LandingLayout>
       <RouteSEO
         title="学者订阅计划 - Scholay"
-        description="Scholay 学者订阅:统一每日 AI 额度 + 科研经费。Pro / Max 获更高额度并赠送经费,经费可随时重置额度。"
+        description="Scholay 学者订阅:统一 7 天周期 AI 额度 + 科研经费。Pro / Max 获更高额度并赠送经费,经费可随时重置额度。"
         keywords="Scholay 会员,学术 AI 订阅,科研经费,Scholay 价格"
       />
       <section className="mx-auto max-w-6xl px-6 py-12 md:py-16">
@@ -62,7 +62,7 @@ export function PricingPage() {
           <p className="text-xs font-bold text-brand-red">SCHOLAY 学者订阅</p>
           <h1 className="mt-1 text-2xl font-bold text-foreground">学者订阅计划</h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            会员订阅提供更高的每日 AI 额度与每月赠送的科研经费。额度每日 00:00 自动重置满额,耗尽后可消耗经费
+            会员订阅提供更高的 AI 额度(按 7 天周期计算,首次使用开始计时、到期自动重置满额)与每月赠送的科研经费。额度耗尽后可消耗经费
             {resetCost ? `(每次 ${resetCost} 经费)` : ''}立即重置。
           </p>
 

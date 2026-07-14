@@ -47,6 +47,11 @@ export const tokenStatusSchema = z
     ceiling: z.number(), // -1 = 不限
     percent: z.number(),
     unlimited: z.boolean(),
+    consumed_today: z.number(), // 当日统计(P4 起前端消费)
+    // P4:7 天锚定周期(null = 未开窗,首次使用开始计时)。
+    window_days: z.number(),
+    window_started_at: z.string().nullable(),
+    window_reset_at: z.string().nullable(),
   })
   .passthrough();
 

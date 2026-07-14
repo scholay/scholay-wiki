@@ -35,6 +35,8 @@ type Totals struct {
 	UniqueUsers         int64 `json:"unique_users"`  // 去重 user_id(不含 NULL)
 	AnonCalls           int64 `json:"anon_calls"`    // user_id IS NULL 的调用次数(公众号/匿名)
 	AnonTokens          int64 `json:"anon_tokens"`   // user_id IS NULL 的 token 总量
+	WeightedTokens      int64 `json:"weighted_tokens"` // P3:加权额度扣减总量(0 行=旧数据)
+	CostMicroYuan       int64 `json:"cost_micro_yuan"` // P3:精算成本快照总和(微元)
 }
 
 // DayPoint 是每日趋势的一个点(已按日分桶)。
@@ -72,6 +74,8 @@ type BreakdownItem struct {
 	CacheReadTokens     int64  `json:"cache_read_tokens"`
 	CacheCreationTokens int64  `json:"cache_creation_tokens"`
 	Calls               int64  `json:"calls"`
+	WeightedTokens      int64  `json:"weighted_tokens"` // P3:加权扣减(weighted/cost 比值 = 失真监控)
+	CostMicroYuan       int64  `json:"cost_micro_yuan"` // P3:精算成本(微元)
 }
 
 // UserUsageItem 是 top 用户榜的一行(LEFT JOIN users)。

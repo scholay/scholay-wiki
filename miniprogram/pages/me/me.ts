@@ -152,8 +152,8 @@ Page({
     const ov = this.data.overview
     if (!ov) return
     wx.showModal({
-      title: '重置今日额度',
-      content: '将消耗经费 ' + ov.reset_cost + ' 立即恢复今日额度,确定?',
+      title: '重置本周期额度',
+      content: '将消耗经费 ' + ov.reset_cost + ' 立即恢复本周期额度,确定?',
       success: async (r) => {
         if (!r.confirm) return
         try {

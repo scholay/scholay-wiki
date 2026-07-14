@@ -71,7 +71,9 @@ func (h *Handler) ListOrders(c *gin.Context) {
 	utils.Success(c, gin.H{"items": orders})
 }
 
-// UsageCalendar GET /user/billing/usage-calendar —— 当月每日 token 用量(绿格热力图)+ 每日上限。
+// UsageCalendar GET /user/billing/usage-calendar —— 当月每日 token 用量(绿格热力图)+ 日均参考线。
+// P4:额度是 7 天周期,无「每日上限」;daily_ceiling 字段名保留(老 bundle 兼容),
+// 语义改为 **窗口上限 ÷ 周期天数** 的日均参考线(前端分档基准/标签同步改)。
 func (h *Handler) UsageCalendar(c *gin.Context) {
 	uid, ok := utils.GetUserID(c)
 	if !ok {
@@ -82,8 +84,17 @@ func (h *Handler) UsageCalendar(c *gin.Context) {
 		utils.ServerError(c, "获取用量失败")
 		return
 	}
-	ceiling := h.svc.Config().Get().DailyCeiling(h.svc.EffectiveTier(uid))
-	utils.Success(c, gin.H{"days": rows, "daily_ceiling": ceiling})
+	cfg := h.svc.Config().Get()
+	ceiling := cfg.WindowCeiling(h.svc.EffectiveTier(uid))
+	daily := ceiling // -1 不限原样透传
+	if ceiling > 0 {
+		days := cfg.WindowDays
+		if days <= 0 {
+			days = 7
+		}
+		daily = ceiling / int64(days)
+	}
+	utils.Success(c, gin.H{"days": rows, "daily_ceiling": daily})
 }
 
 // ListTransactions GET /user/billing/transactions?type=&page=&page_size= —— 经费流水。
@@ -205,12 +216,27 @@ func (h *Handler) TestPay(c *gin.Context) {
 	utils.SuccessWithMessage(c, "测试支付成功", ov)
 }
 
+// dayEquivalent 老 bundle 兼容:窗口额度换算成日均口径(free_daily_tokens 字段的过渡值)。
+func dayEquivalent(cfg *BillingConfig) int64 {
+	if cfg.FreeWindowTokens <= 0 {
+		return cfg.FreeWindowTokens
+	}
+	days := cfg.WindowDays
+	if days <= 0 {
+		days = 7
+	}
+	return cfg.FreeWindowTokens / int64(days)
+}
+
 // PublicPlans GET /billing/plans(公开)—— 套餐价格/倍率/赠送 + 充值/重置参数(非敏感)。
 func (h *Handler) PublicPlans(c *gin.Context) {
 	cfg := h.svc.Config().Get()
 	alipay, wechat := h.svc.PaymentMethods()
 	utils.Success(c, gin.H{
-		"free_daily_tokens":  cfg.FreeDailyTokens,
+		// P4:额度是 7 天周期。free_daily_tokens 保留给老 bundle(值=窗口÷天数的日均口径)。
+		"free_window_tokens": cfg.FreeWindowTokens,
+		"window_days":        cfg.WindowDays,
+		"free_daily_tokens":  dayEquivalent(cfg),
 		"reset_cost_credits": cfg.ResetCostCredits,
 		"recharge_rate":      cfg.RechargeRate,
 		"min_recharge_cents": cfg.MinRechargeCents,

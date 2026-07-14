@@ -4,7 +4,10 @@ import { http } from '@/shared/lib/http';
 
 export interface BillingConfig {
   id: number;
-  free_daily_tokens: number;
+  free_daily_tokens: number; // 旧日额度基准(P4 起判定不读,回滚兜底,表单已移除)
+  free_window_tokens: number; // 7 天周期基准额度(判定真源)
+  window_days: number;
+  base_price_per_m: number; // P3 加权计费换算锚点(先落库)
   pro_multiplier: number;
   max_multiplier: number;
   pro_price_cents: number;

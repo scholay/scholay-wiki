@@ -81,9 +81,9 @@ func TestIntegrationBilling(t *testing.T) {
 	cfg := svc.Config().Get()
 	ctx := context.Background()
 
-	freeCeil := cfg.DailyCeiling(TierFree)
-	proCeil := cfg.DailyCeiling(TierPro)
-	maxCeil := cfg.DailyCeiling(TierMax)
+	freeCeil := cfg.WindowCeiling(TierFree)
+	proCeil := cfg.WindowCeiling(TierPro)
+	maxCeil := cfg.WindowCeiling(TierMax)
 	proGrant := cfg.GrantCreditsFor(TierPro)
 	resetCost := cfg.ResetCostCredits
 	t.Logf("config: freeCeil=%d proCeil=%d maxCeil=%d proGrant=%d resetCost=%d",
@@ -136,8 +136,10 @@ func TestIntegrationBilling(t *testing.T) {
 		if ov.ExpiresAt == nil || exp1 == nil || !ov.ExpiresAt.After(*exp1) {
 			t.Fatalf("续费应顺延: exp1=%v exp2=%v", exp1, ov.ExpiresAt)
 		}
-		if ov.Credit.Temp != proGrant*2 {
-			t.Fatalf("续费再赠经费: temp=%d want %d", ov.Credit.Temp, proGrant*2)
+		// 续费赠费走 GrantStartsAt 预发放(下一周期才生效,order.go):可用余额仍是本期的一笔,
+		// 第二笔在库但 StartsAt 未到不计入(Balance 只算 active lots)。
+		if ov.Credit.Temp != proGrant {
+			t.Fatalf("续费赠费为预发放, 可用 temp=%d want %d(下一周期批次未生效)", ov.Credit.Temp, proGrant)
 		}
 
 		// 升级 max
@@ -207,29 +209,38 @@ func TestIntegrationBilling(t *testing.T) {
 		}
 	})
 
-	// ── 额度重置 / 经费不足 / 过 0 点 ──────────────────────────────────────────
+	// ── 额度重置 / 经费不足 / 锚定窗口(P4)────────────────────────────────────
 	t.Run("QuotaReset", func(t *testing.T) {
 		id := mkUser(t, db)
 		defer cleanup(db, id)
-		now := time.Now()
-		_ = cache.GetRedis().Del(ctx, tokenDayKey(id, now)).Err()
+		_ = cache.GetRedisPersist().Del(ctx, anchorKey(id)).Err()
 
-		// 累加 token 用量
+		// 未超限时重置 = 无需操作直接成功(resetNotNeeded 护栏,防升级瞬间白扣),不扣费。
 		svc.AddUsage(ctx, id, 1234)
-		if used := svc.tokenUsed(ctx, id); used != 1234 {
-			t.Fatalf("AddUsage 后 used=%d want 1234", used)
+		w := svc.loadWindow(ctx, id)
+		if w.anchor <= 0 {
+			t.Fatalf("首次 AddUsage 应开锚")
+		}
+		if w.used != 1234 {
+			t.Fatalf("AddUsage 后 used=%d want 1234", w.used)
+		}
+		if _, err := svc.ResetQuota(ctx, id); err != nil {
+			t.Fatalf("未超限重置应为无害 no-op: %v", err)
 		}
 
-		// 经费不足时重置失败
+		// 烧到超过 Free 窗口上限 → 重置才「需要」;此时无经费 → ErrInsufficientCredit。
+		overCeil := int(freeCeil) + 1000
+		svc.AddUsage(ctx, id, overCeil)
 		if _, err := svc.ResetQuota(ctx, id); err == nil {
-			t.Fatalf("无经费应无法重置")
+			t.Fatalf("超限且无经费应无法重置")
 		}
+		wantUsed := int64(1234 + overCeil)
 		// 用量未变(失败不清计数)
-		if used := svc.tokenUsed(ctx, id); used != 1234 {
-			t.Fatalf("重置失败后 used 不应变: %d", used)
+		if w = svc.loadWindow(ctx, id); w.used != wantUsed {
+			t.Fatalf("重置失败后 used 不应变: %d want %d", w.used, wantUsed)
 		}
 
-		// 给够经费 → 重置成功:扣经费 + 用量清零
+		// 给够经费 → 重置成功:扣经费 + 窗口清零
 		if err := svc.Wallet().GrantPerm(id, resetCost+10, SourceRecharge, "t", TxRecharge); err != nil {
 			t.Fatal(err)
 		}
@@ -240,29 +251,34 @@ func TestIntegrationBilling(t *testing.T) {
 		if res.Used != 0 {
 			t.Fatalf("重置后窗口 used=%d want 0", res.Used)
 		}
-		// 关键:重置只抬窗口起点 base,**不清零真实统计 used**(统计与限额分离)。
-		if used := svc.tokenUsed(ctx, id); used != 1234 {
-			t.Fatalf("重置不应清零真实统计: used=%d want 1234", used)
+		// 关键:重置只抬窗口基线 base,**不清零真实统计 used**(统计与限额分离);anchor 不变。
+		anchorBefore := w.anchor
+		if w = svc.loadWindow(ctx, id); w.used != wantUsed || w.anchor != anchorBefore {
+			t.Fatalf("重置不应清零统计/换锚: used=%d want %d anchor=%d", w.used, wantUsed, w.anchor)
 		}
 		if bal, _ := svc.Wallet().Balance(id); bal.Total != 10 {
 			t.Fatalf("重置应扣 %d 经费, 余 %d want 10", resetCost, bal.Total)
 		}
 
-		// 重置后再消耗:真实统计单调累加(1234+500),窗口 used 从 0 起算(=500)。
+		// 重置后再消耗:真实统计单调累加,窗口口径从 0 起算(=500)。
 		svc.AddUsage(ctx, id, 500)
-		if used := svc.tokenUsed(ctx, id); used != 1734 {
-			t.Fatalf("重置后统计应继续累加: used=%d want 1734", used)
+		if w = svc.loadWindow(ctx, id); w.used != wantUsed+500 {
+			t.Fatalf("重置后统计应继续累加: used=%d want %d", w.used, wantUsed+500)
 		}
-		if win := svc.tokenWindowUsed(ctx, id); win != 500 {
+		if win := w.windowUsed(); win != 500 {
 			t.Fatalf("重置后窗口应从 0 起算: window=%d want 500", win)
 		}
-		tomorrow := now.AddDate(0, 0, 1)
-		v, _ := cache.GetRedis().Get(ctx, tokenDayKey(id, tomorrow)).Int64()
-		if v != 0 {
-			t.Fatalf("次日额度应为全新 0, got %d", v)
+		// 到期语义:把 anchor 改成 8 天前 → 读路径视为无窗口(满血),不写 anchor。
+		_ = cache.GetRedisPersist().Set(ctx, anchorKey(id), time.Now().Add(-8*24*time.Hour).Unix(), time.Hour).Err()
+		if w = svc.loadWindow(ctx, id); w.anchor != 0 || w.windowUsed() != 0 {
+			t.Fatalf("过期窗口应满血: anchor=%d used=%d", w.anchor, w.windowUsed())
 		}
-		if tokenDayKey(id, now) == tokenDayKey(id, tomorrow) {
-			t.Fatalf("过0点 day key 应不同")
+		// 再消耗 → 重新开锚,新窗口从 0 起算。
+		// sleep 1.1s:anchor 是 unix 秒,测试内首锚与换锚同秒会撞同一 used key(真实世界锚差 7 天,无此问题)。
+		time.Sleep(1100 * time.Millisecond)
+		svc.AddUsage(ctx, id, 300)
+		if w = svc.loadWindow(ctx, id); w.anchor == anchorBefore || w.used != 300 {
+			t.Fatalf("到期后应换锚重新累计: anchor=%d used=%d", w.anchor, w.used)
 		}
 	})
 

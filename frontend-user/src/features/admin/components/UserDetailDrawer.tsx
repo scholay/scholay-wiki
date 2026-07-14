@@ -245,14 +245,14 @@ function InfoRow({ icon, label, children }: { icon: React.ReactNode; label: stri
   );
 }
 
-/** 今日统一 token 额度条(已不分功能)。ceiling<0 视为不限。 */
+/** 本周期(7 天)统一 token 额度条(已不分功能)。ceiling<0 视为不限。 */
 function TokenQuotaBar({ vip }: { vip: UserVipStatus }) {
   const t = vip.token;
   const exhausted = !t.unlimited && t.used >= t.ceiling;
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between text-xs">
-        <span className="text-subtle">今日 AI 额度(token)</span>
+        <span className="text-subtle">本周期 AI 额度(token)</span>
         <span className={cn('tabular-nums', exhausted ? 'text-brand-red' : 'text-faint')}>
           {t.unlimited ? '不限' : `${t.used.toLocaleString()} / ${t.ceiling.toLocaleString()}`}
         </span>

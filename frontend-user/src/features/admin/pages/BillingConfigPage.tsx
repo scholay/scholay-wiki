@@ -14,11 +14,12 @@ type Group = { title: string; fields: NumField[] };
 
 const GROUPS: Group[] = [
   {
-    title: '每日额度(token)',
+    title: '周期额度(token · 7 天)',
     fields: [
-      { key: 'free_daily_tokens', label: 'Free 每日基准 Q', hint: 'Free 用户每日 token;Pro/Max 按倍率派生' },
-      { key: 'pro_multiplier', label: 'Pro 倍率(× Free)', hint: 'Pro 每日额度 = Free × 此值;<=0 = 不限', step: 0.5 },
-      { key: 'max_multiplier', label: 'Max 倍率(× Pro)', hint: 'Max 每日额度 = Pro × 此值;<=0 = 不限', step: 0.5 },
+      { key: 'free_window_tokens', label: 'Free 周期基准(7 天)', hint: 'Free 用户每周期 token(首次使用开表,到期满血);Pro/Max 按倍率派生' },
+      { key: 'window_days', label: '周期天数', hint: '额度窗口长度(默认 7);改动只影响新开的窗口' },
+      { key: 'pro_multiplier', label: 'Pro 倍率(× Free)', hint: 'Pro 周期额度 = Free × 此值;<=0 = 不限', step: 0.5 },
+      { key: 'max_multiplier', label: 'Max 倍率(× Pro)', hint: 'Max 周期额度 = Pro × 此值;<=0 = 不限', step: 0.5 },
     ],
   },
   {
@@ -69,7 +70,7 @@ export function BillingConfigPage() {
   return (
     <AdminPageLayout
       title="计费体系配置"
-      description="统一 token 每日额度 + 经费钱包的全部动态旋钮。保存后最多 30 秒全量生效。"
+      description="统一 token 周期额度(7 天,首次使用开表)+ 经费钱包的全部动态旋钮。保存后最多 30 秒全量生效。"
     >
       {isLoading || !form ? (
         <div className="flex items-center justify-center gap-2 rounded-md border border-border p-6 text-muted-foreground">

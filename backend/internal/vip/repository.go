@@ -39,6 +39,9 @@ func (r *Repository) UpdateBillingConfig(c *BillingConfig) error {
 	}
 	return r.db.Model(&existing).Updates(map[string]any{
 		"free_daily_tokens":        c.FreeDailyTokens,
+		"free_window_tokens":       c.FreeWindowTokens,
+		"window_days":              c.WindowDays,
+		"base_price_per_m":         c.BasePricePerM,
 		"pro_multiplier":           c.ProMultiplier,
 		"max_multiplier":           c.MaxMultiplier,
 		"pro_price_cents":          c.ProPriceCents,

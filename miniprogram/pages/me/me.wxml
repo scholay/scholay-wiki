@@ -38,7 +38,7 @@
       </view>
       <view class="quota">
         <view class="quota-bar"><view class="quota-fill" style="width:{{remaining}}%"></view></view>
-        <text class="quota-text">{{overview.token.unlimited ? '今日额度不限' : '今日剩余额度 ' + remaining + '%'}}</text>
+        <text class="quota-text">{{overview.token.unlimited ? '额度不限' : '本周期剩余额度 ' + remaining + '%'}}</text>
       </view>
       <view class="credit">经费 {{overview.credit.total}}(临时 {{overview.credit.temp}} · 永久 {{overview.credit.perm}})</view>
       <view class="asset-actions">

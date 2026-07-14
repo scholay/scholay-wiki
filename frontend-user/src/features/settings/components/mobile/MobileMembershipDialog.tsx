@@ -83,7 +83,7 @@ export function MobileMembershipDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{renew ? '续期会员' : '开通会员'}</DialogTitle>
-          <DialogDescription>会员享更高每日 AI 额度与全部高级功能。</DialogDescription>
+          <DialogDescription>会员享更高 AI 额度与全部高级功能。</DialogDescription>
         </DialogHeader>
 
         {/* 兑换码开通(就地,不跳转)*/}

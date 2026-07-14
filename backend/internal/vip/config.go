@@ -17,7 +17,9 @@ import (
 func DefaultBillingConfig() *BillingConfig {
 	return &BillingConfig{
 		ID:                     1,
-		FreeDailyTokens:        200000,
+		FreeDailyTokens:        200000,    // 旧日额度基准(P4 起判定不读,回滚兜底)
+		FreeWindowTokens:       1_400_000, // 7 天周期基准(=旧日额度×7,与迁移 0064 回填一致)
+		WindowDays:             7,
 		ProMultiplier:          5, // Pro = 5× Free
 		MaxMultiplier:          5, // Max = 5× Pro(= 25× Free)
 		ProPriceCents:          5900,

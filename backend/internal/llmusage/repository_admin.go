@@ -82,7 +82,9 @@ func (r *Repository) StatsTotals(f StatsFilter) (*Totals, error) {
 			"COUNT(*) AS total_calls, " +
 			"COUNT(DISTINCT llm_token_usage.user_id) AS unique_users, " +
 			"COALESCE(SUM(CASE WHEN llm_token_usage.user_id IS NULL THEN 1 ELSE 0 END),0) AS anon_calls, " +
-			"COALESCE(SUM(CASE WHEN llm_token_usage.user_id IS NULL THEN llm_token_usage.total_tokens ELSE 0 END),0) AS anon_tokens",
+			"COALESCE(SUM(CASE WHEN llm_token_usage.user_id IS NULL THEN llm_token_usage.total_tokens ELSE 0 END),0) AS anon_tokens, " +
+			"COALESCE(SUM(llm_token_usage.weighted_tokens),0) AS weighted_tokens, " +
+			"COALESCE(SUM(llm_token_usage.cost_micro_yuan),0) AS cost_micro_yuan",
 	).Scan(&out).Error
 	return &out, err
 }
@@ -129,6 +131,8 @@ func (r *Repository) StatsByDimension(f StatsFilter, col string) ([]BreakdownIte
 			"COALESCE(SUM(llm_token_usage.output_tokens),0) AS output_tokens, "+
 			"COALESCE(SUM(llm_token_usage.cache_read_tokens),0) AS cache_read_tokens, "+
 			"COALESCE(SUM(llm_token_usage.cache_creation_tokens),0) AS cache_creation_tokens, "+
+			"COALESCE(SUM(llm_token_usage.weighted_tokens),0) AS weighted_tokens, "+
+			"COALESCE(SUM(llm_token_usage.cost_micro_yuan),0) AS cost_micro_yuan, "+
 			"COUNT(*) AS calls", col),
 	).Group(fmt.Sprintf("llm_token_usage.%s", col)).
 		Order("total_tokens DESC").

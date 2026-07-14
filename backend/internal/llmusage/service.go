@@ -44,20 +44,32 @@ type Recorder interface {
 	Record(u Usage)
 }
 
-// UsageObserver —— 每记一行账本时同步回调(userID 已登录 + total>0 才触发)。
-// 用于把真实 token 累加进「每日 token 额度」计数(billing/vip.AddUsage)。
-// 必须轻量(一次 Redis INCRBY 级别), 不可阻塞。
-type UsageObserver func(userID uint, totalTokens int)
+// UsageObserver —— 每记一行账本时同步回调(userID 已登录 + total>0 + 非 SkipQuota 才触发)。
+// P3 起传**加权 token**(= raw × 模型 billing_weight,Pricer 计算;未接 Pricer 时 = raw),
+// 用于把消耗累加进周期额度计数(vip.AddUsage)。必须轻量(一次 Redis INCRBY 级别), 不可阻塞。
+type UsageObserver func(userID uint, weightedTokens int)
+
+// Pricer —— 模型定价接缝(internal/modelcatalog 实现;P3 加权计费)。
+// 在 Record 内、observer 门**之前**统一计算 —— SkipQuota(记忆抽取)与匿名(公众号)行也要
+// 有成本快照(挂在 observer 上会让最需要核账的系统开销行恒为 0)。实现必须只走内存缓存。
+type Pricer interface {
+	// PriceUsage 返回 (weightedTokens, costMicroYuan)。目录查不到 → weight=1 兜底(raw 口径)。
+	PriceUsage(model string, input, output, cacheRead, cacheWrite int) (weighted int64, costMicroYuan int64)
+}
 
 type Service struct {
 	repo     *Repository
 	observer UsageObserver
+	pricer   Pricer
 }
 
 func NewService(repo *Repository) *Service { return &Service{repo: repo} }
 
-// SetObserver 注入用量观察者(bootstrap 接到 vip.AddUsage)。
+// SetObserver 注入用量观察者(bootstrap 接到 vip.AddUsage,P3 起口径=加权 token)。
 func (s *Service) SetObserver(o UsageObserver) { s.observer = o }
+
+// SetPricer 注入模型定价(bootstrap 接 modelcatalog;nil = 加权退化为 raw、成本恒 0)。
+func (s *Service) SetPricer(p Pricer) { s.pricer = p }
 
 // ResolveUserIDs 把「用户关键词」解析成 user_id 集合(给按用户筛选 token 用量用)。
 func (s *Service) ResolveUserIDs(keyword string, limit int) []uint {
@@ -86,10 +98,18 @@ func (s *Service) Record(u Usage) {
 	if u.TotalTokens == 0 {
 		return
 	}
-	// 同步喂「每日 token 额度」计数(轻量 Redis INCRBY);只对已登录用户的非零用量。
+	// P3 定价(observer 门之前统一算):weighted 参与额度扣减,cost 是账本快照(SkipQuota/匿名
+	// 行同样落快照,admin 成本看板才不对系统开销失明)。Pricer 未接线 → 加权退化为 raw。
+	weighted := int64(u.TotalTokens)
+	var costMicro int64
+	if s.pricer != nil {
+		weighted, costMicro = s.pricer.PriceUsage(u.Model,
+			u.InputTokens, u.OutputTokens, u.CacheReadTokens, u.CacheCreationTokens)
+	}
+	// 同步喂周期额度计数(轻量 Redis INCRBY);只对已登录用户的非零用量。
 	// SkipQuota 的系统开销调用(如记忆抽取)记账本但不扣额度,故跳过 observer。
-	if s.observer != nil && u.UserID != nil && u.TotalTokens > 0 && !u.SkipQuota {
-		s.observer(*u.UserID, u.TotalTokens)
+	if s.observer != nil && u.UserID != nil && weighted > 0 && !u.SkipQuota {
+		s.observer(*u.UserID, int(weighted))
 	}
 	// 走独立 ledger 池:账本喂计费,不与匿名 beacon 抢同一 drop-on-full 队列。
 	safego.RecordLedger("llmusage:"+u.Feature, func() {
@@ -105,6 +125,8 @@ func (s *Service) Record(u Usage) {
 			TotalTokens:         u.TotalTokens,
 			CacheReadTokens:     u.CacheReadTokens,
 			CacheCreationTokens: u.CacheCreationTokens,
+			WeightedTokens:      weighted,
+			CostMicroYuan:       costMicro,
 			RequestID:           u.RequestID,
 		}
 		ctx, cancel := ctxutil.With(ctxutil.QuickIO)

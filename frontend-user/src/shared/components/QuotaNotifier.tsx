@@ -25,9 +25,26 @@ import { showQuotaToast } from './quota-toast';
 
 interface Overview {
   tier: string;
-  token: { used: number; ceiling: number; percent: number; unlimited: boolean };
+  token: {
+    used: number;
+    ceiling: number;
+    percent: number;
+    unlimited: boolean;
+    window_days: number; // P4:7 天周期
+    window_started_at: string | null; // null = 未开窗
+    window_reset_at: string | null; // 窗口自动重置时刻
+  };
   credit: { temp: number; perm: number; total: number };
   reset_cost: number;
+}
+
+/** 「X月X日 HH:MM」—— 周期重置时刻的短格式(展示用)。 */
+export function formatResetAt(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getMonth() + 1}月${d.getDate()}日 ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 const KEY = ['settings', 'billing'];
 
@@ -64,11 +81,11 @@ export function QuotaNotifier() {
     };
   }, [openReset, qc]);
 
-  // 阈值 toastr:过半(>=50%)/ 将尽(>=80%),每级每天只弹一次
+  // 阈值 toastr:过半(>=50%)/ 将尽(>=80%),每级每**周期**只弹一次(P4:锚定 7 天窗口,
+  // 去重 key 用 window_started_at —— 换窗即重置;未开窗兜底当日 key)。
   useEffect(() => {
     if (!data || data.token.unlimited || data.token.ceiling <= 0) return;
-    // 本地日历日(与后端本地零点额度重置对齐);toISOString() 是 UTC,北京 00:00–08:00 会错算成昨天。
-    const day = localDateKey();
+    const day = data.token.window_started_at ?? localDateKey();
     const s = useQuotaStore.getState();
     const level = s.warnDay === day ? s.warnLevel : 0;
     const pct = data.token.percent;
@@ -114,11 +131,15 @@ export function QuotaNotifier() {
       {data && (
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>今日 AI 额度已用完</DialogTitle>
+          <DialogTitle>本周期 AI 额度已用完</DialogTitle>
           <DialogDescription>
             {enough ? (
               <>
-                额度每日 00:00 自动重置满额。可消耗 <b className="text-foreground">{data.reset_cost}</b> 经费立即重置(当前 {data.credit.total} 经费),或升级会员获更高额度。
+                额度按 {data.token.window_days || 7} 天周期计算
+                {formatResetAt(data.token.window_reset_at) && (
+                  <>,将于 <b className="text-foreground">{formatResetAt(data.token.window_reset_at)}</b> 自动重置满额</>
+                )}
+                。可消耗 <b className="text-foreground">{data.reset_cost}</b> 经费立即重置(当前 {data.credit.total} 经费),或升级会员获更高额度。
               </>
             ) : (
               <>升级会员可获更高额度,或购入科研经费后重置;有兑换码也可在下方立即开通。</>

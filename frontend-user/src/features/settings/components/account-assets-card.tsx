@@ -40,9 +40,9 @@ const ALL_TIERS: Tier[] = ['free', 'pro', 'max'];
 // 倍率口径:Pro 相对 Free,Max 相对 Pro。倍率从后端 plans 取(动态),兜底 5/5。
 function buildSlides(proMult: number, maxMult: number) {
   return [
-    { title: '额度区别', body: `Free 为每日基础额度,Pro 是 Free 的 ${proMult} 倍,Max 是 Pro 的 ${maxMult} 倍。额度越高,可连续使用越多。` },
+    { title: '额度区别', body: `Free 为基础周期额度(7 天),Pro 是 Free 的 ${proMult} 倍,Max 是 Pro 的 ${maxMult} 倍。额度越高,可连续使用越多。` },
     { title: '会员特权', body: 'Pro / Max 优先使用更强 AI 模型、新功能优先体验;Max 享顶级优先级与最强模型。' },
-    { title: '额度重置机制', body: '每日凌晨 00:00 额度自动重置,剩余恢复至 100%。额度耗尽后,也可消耗经费立即重置。' },
+    { title: '额度重置机制', body: '额度按 7 天周期计算:首次使用开始计时,周期到期自动恢复 100%。耗尽后也可消耗经费立即重置。' },
     { title: '经费说明', body: '临时经费有失效日期(订阅赠送、整月有效),永久经费长期有效(充值)。' },
   ];
 }
@@ -124,7 +124,7 @@ function ActiveRow({ data, onGoRecharge }: { data: Overview; onGoRecharge: () =>
         <span className={cn('inline-flex h-6 shrink-0 items-center rounded-sm px-2 text-2xs font-bold tracking-wider', NAMEPLATE[data.tier])}>
           {data.tier.toUpperCase()}
         </span>
-        <span className="flex size-4 shrink-0 items-center justify-center rounded-pill border border-border text-2xs text-faint" title="进度条与百分比为每日 AI 额度的剩余量,每日 00:00 自动恢复至 100%">?</span>
+        <span className="flex size-4 shrink-0 items-center justify-center rounded-pill border border-border text-2xs text-faint" title="进度条与百分比为本周期(7 天)AI 额度的用量;周期自首次使用起算,到期自动恢复至 100%">?</span>
         <span className="shrink-0 text-2xs font-medium text-subtle">{PLAN_LABEL[data.tier]} 剩余额度</span>
         <div className="h-2 flex-1 overflow-hidden rounded-pill bg-surface-2">
           {!t.unlimited && (
@@ -167,7 +167,7 @@ function LockedRow({ tier, onUpgrade }: { tier: Tier; onUpgrade: () => void }) {
       <div className="h-2 flex-1 rounded-pill bg-surface-2" />
       <button
         onClick={() => tier !== 'free' && onUpgrade()}
-        title="升级解锁更高每日额度"
+        title="升级解锁更高额度"
         className="flex shrink-0 items-center gap-1 rounded-pill border border-brand-red/40 px-2 py-0.5 text-2xs font-bold text-brand-red transition-colors hover:bg-brand-red hover:text-background"
       >
         <Lock className="size-3" /> 升级解锁
@@ -210,7 +210,7 @@ function ResetDialog({ data, exhausted, onGoRecharge }: { data: Overview; exhaus
   const onReset = async () => {
     try {
       await reset.mutateAsync();
-      toast.success('今日额度已重置为 100%');
+      toast.success('本周期额度已重置为 100%');
       setOpen(false);
     } catch (err) {
       toast.error(toApiError(err).message || '重置失败');
@@ -233,9 +233,9 @@ function ResetDialog({ data, exhausted, onGoRecharge }: { data: Overview; exhaus
         {enough ? (
           <>
             <DialogHeader>
-              <DialogTitle>{exhausted ? '今日额度已耗尽' : '重置今日额度'}</DialogTitle>
+              <DialogTitle>{exhausted ? '本周期额度已耗尽' : '重置本周期额度'}</DialogTitle>
               <DialogDescription>
-                消耗 <b className="text-foreground">{data.reset_cost}</b> 经费立即把今日 AI 额度重置为 100%(当前 {data.credit.total} 经费),或静候今日 00:00 自动重置。
+                消耗 <b className="text-foreground">{data.reset_cost}</b> 经费立即把本周期 AI 额度重置为 100%(当前 {data.credit.total} 经费),或等待周期到期自动重置。
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>

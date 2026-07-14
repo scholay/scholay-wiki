@@ -75,10 +75,10 @@ export function MobileAssetsCard() {
         </button>
       </div>
 
-      {/* 今日额度 */}
+      {/* 本周期额度 */}
       <div className="space-y-2 px-4 py-3">
         <div className="flex items-baseline justify-between">
-          <span className="text-sm font-medium text-foreground">今日额度</span>
+          <span className="text-sm font-medium text-foreground">本周期额度</span>
           <span className="text-xs text-muted-foreground">
             {token.unlimited
               ? '不限'
@@ -157,10 +157,10 @@ export function MobileAssetsCard() {
       <ConfirmDialog
         open={resetOpen}
         onOpenChange={setResetOpen}
-        title="重置今日额度"
+        title="重置本周期额度"
         description={
           credit.total >= data.reset_cost
-            ? `将消耗 ${data.reset_cost.toLocaleString('en-US')} 经费立即恢复今日额度,确认重置?`
+            ? `将消耗 ${data.reset_cost.toLocaleString('en-US')} 经费立即恢复本周期额度,确认重置?`
             : `重置需要 ${data.reset_cost.toLocaleString('en-US')} 经费,当前余额不足(${credit.total.toLocaleString('en-US')}),请先兑换或在电脑端充值`
         }
         confirmText="确认重置"
@@ -171,7 +171,7 @@ export function MobileAssetsCard() {
           }
           try {
             await resetMut.mutateAsync();
-            toast.success('今日额度已重置');
+            toast.success('本周期额度已重置');
           } catch (e) {
             toast.error((e as Error).message || '重置失败');
           }

@@ -45,8 +45,16 @@ const (
 
 // BillingConfig 单行计费配置(表 billing_config, id=1)。所有动态旋钮集中于此, admin 可调。
 type BillingConfig struct {
-	ID                     uint      `gorm:"primaryKey" json:"id"`
-	FreeDailyTokens        int64     `gorm:"column:free_daily_tokens" json:"free_daily_tokens"`
+	ID uint `gorm:"primaryKey" json:"id"`
+	// FreeDailyTokens 旧「每日额度」基准 —— P4 起判定不再读它(改 FreeWindowTokens),
+	// 列与字段保留仅作回滚兜底;admin 表单已移除。
+	FreeDailyTokens int64 `gorm:"column:free_daily_tokens" json:"free_daily_tokens"`
+	// FreeWindowTokens 7 天周期窗口的 Free 档基准额度(P4;迁移 0064 按 日×7 回填)。
+	FreeWindowTokens int64 `gorm:"column:free_window_tokens" json:"free_window_tokens"`
+	// WindowDays 周期长度(天),默认 7。改动只影响新开的窗口(anchor 判定读当时配置)。
+	WindowDays int `gorm:"column:window_days" json:"window_days"`
+	// BasePricePerM P3 加权计费的倍率换算锚点(元/1M token);P4 先落列不消费。
+	BasePricePerM float64 `gorm:"column:base_price_per_m;type:decimal(12,4)" json:"base_price_per_m"`
 	ProMultiplier          float64   `gorm:"column:pro_multiplier" json:"pro_multiplier"`
 	MaxMultiplier          float64   `gorm:"column:max_multiplier" json:"max_multiplier"`
 	ProPriceCents          int       `gorm:"column:pro_price_cents" json:"pro_price_cents"`
@@ -67,11 +75,11 @@ type BillingConfig struct {
 
 func (BillingConfig) TableName() string { return "billing_config" }
 
-// DailyCeiling 返回某等级的每日 token 上限。返回 -1 表示**不限额**(倍率<=0 或基准<=0)。
-// 纯函数, 便于单测。倍率口径:Pro = Free × pro倍率;Max = Pro × max倍率(即 Free × pro倍率 × max倍率)。
-// 故 max倍率含义是「Max 是 Pro 的几倍」,不是相对 Free。Free 倍率恒为 1(不入配置)。
-func (c *BillingConfig) DailyCeiling(tier string) int64 {
-	base := c.FreeDailyTokens
+// WindowCeiling 返回某等级的 7 天周期 token 上限(P4,取代 DailyCeiling)。
+// 返回 -1 表示**不限额**(倍率<=0 或基准<=0)。纯函数, 便于单测。
+// 倍率口径不变:Pro = Free × pro倍率;Max = Pro × max倍率(即 Free × pro倍率 × max倍率)。
+func (c *BillingConfig) WindowCeiling(tier string) int64 {
+	base := c.FreeWindowTokens
 	if base <= 0 {
 		return -1 // 基准未设 = 不限
 	}
@@ -92,21 +100,34 @@ func (c *BillingConfig) DailyCeiling(tier string) int64 {
 	}
 }
 
-// 有界透支带(SS#2):允许当日消耗越过 DailyCeiling 一个有界的量,越过后下一轮起点才硬拦。
-// = max(上限 × 15%, 20万 token) —— 地板 20万保证连 Free 也够 agent 完整收尾一轮。上限不限额(-1)时
-// 无透支概念,返回 0。00:00 日窗口重置时透支自然归零(不结转,与现有日重置一致)。
+// WindowDuration 周期时长(WindowDays 天;<=0 时兜底 7 天)。
+func (c *BillingConfig) WindowDuration() time.Duration {
+	days := c.WindowDays
+	if days <= 0 {
+		days = 7
+	}
+	return time.Duration(days) * 24 * time.Hour
+}
+
+// 有界透支带(SS#2):允许窗口消耗越过 WindowCeiling 一个有界的量,越过后下一轮起点才硬拦。
+// 原意是「保证 agent 单轮能优雅收尾」→ 量级必须保持**单轮**而非整窗:按日均(ceiling/窗口天数)
+// 的 15% 计,地板 20 万保证连 Free 也够收尾一轮。窗口到期满血时透支自然归零(不结转,同旧日语义)。
 const (
 	overdraftPct         = 0.15
 	overdraftFloorTokens = 200_000
 )
 
-// OverdraftTokens 返回某等级的每日透支带大小(token)。上限不限额 → 0。
+// OverdraftTokens 返回某等级的透支带大小(token)。上限不限额 → 0。
 func (c *BillingConfig) OverdraftTokens(tier string) int64 {
-	ceiling := c.DailyCeiling(tier)
+	ceiling := c.WindowCeiling(tier)
 	if ceiling <= 0 {
 		return 0
 	}
-	if pct := int64(float64(ceiling) * overdraftPct); pct > overdraftFloorTokens {
+	days := c.WindowDays
+	if days <= 0 {
+		days = 7
+	}
+	if pct := int64(float64(ceiling) * overdraftPct / float64(days)); pct > overdraftFloorTokens {
 		return pct
 	}
 	return overdraftFloorTokens

@@ -6,9 +6,9 @@ import { cn } from '@/shared/lib/utils';
 type Kind = 'half' | 'almost' | 'reset' | 'recharge';
 
 const PRESETS: Record<Kind, { color: keyof typeof COLOR; title: string; body: string }> = {
-  half: { color: 'amber', title: '今日额度已消耗过半', body: '建议优先处理关键科研任务,必要时准备经费重置。' },
-  almost: { color: 'red', title: '今日额度即将耗尽', body: '剩余额度较少,额度耗尽后可消耗经费立即重置。' },
-  reset: { color: 'green', title: '今日额度已重置', body: '科研额度已重置为 100%,可继续使用。' },
+  half: { color: 'amber', title: '本周期额度已消耗过半', body: '建议优先处理关键科研任务,必要时准备经费重置。' },
+  almost: { color: 'red', title: '本周期额度即将耗尽', body: '剩余额度较少,额度耗尽后可消耗经费立即重置。' },
+  reset: { color: 'green', title: '额度已重置', body: '本周期科研额度已重置为 100%,可继续使用。' },
   recharge: { color: 'blue', title: '经费购入成功', body: '经费已到账,可用于立即重置额度或自动重置。' },
 };
 

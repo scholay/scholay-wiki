@@ -49,7 +49,11 @@ type LLMTokenUsage struct {
 	TotalTokens         int       `json:"total_tokens"`
 	CacheReadTokens     int       `json:"cache_read_tokens"`
 	CacheCreationTokens int       `json:"cache_creation_tokens"`
-	RequestID           string    `json:"request_id"`
+	// WeightedTokens/CostMicroYuan (migration 0065, P3):加权额度扣减量 + 四类单价精算成本快照
+	// (微元;快照落行,目录调价不漂历史账)。0 = 旧数据 / Pricer 未接线。
+	WeightedTokens int64  `json:"weighted_tokens"`
+	CostMicroYuan  int64  `json:"cost_micro_yuan"`
+	RequestID      string `json:"request_id"`
 	CreatedAt           time.Time `gorm:"autoCreateTime" json:"created_at"`
 }
 

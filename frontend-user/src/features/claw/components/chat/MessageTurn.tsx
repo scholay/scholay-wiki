@@ -206,7 +206,7 @@ export const MessageTurn = memo(function MessageTurn({
           <div className="flex items-start gap-2">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-brand-amber" />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-foreground">今日 AI 额度已用完,这条消息尚未发送</p>
+              <p className="text-sm font-semibold text-foreground">本周期 AI 额度已用完,这条消息尚未发送</p>
               <p className="text-xs text-muted-foreground">
                 开通会员或重置额度后,点「重新发送」即可继续(无需重新输入)。
               </p>

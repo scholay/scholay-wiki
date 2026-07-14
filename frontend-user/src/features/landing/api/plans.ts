@@ -19,7 +19,9 @@ export interface PlanCard {
   grant_credits: number;
 }
 export interface Plans {
-  free_daily_tokens: number;
+  free_daily_tokens: number; // 兼容字段:窗口÷天数的日均口径(P4)
+  free_window_tokens: number; // 7 天周期基准额度
+  window_days: number;
   reset_cost_credits: number;
   recharge_rate: number;
   min_recharge_cents: number;

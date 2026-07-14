@@ -1,6 +1,6 @@
 {
   "type": "error",
   "code": "quota_exceeded",
-  "message": "今日 AI 额度已用完",
+  "message": "本周期 AI 额度已用完,将于 7月17日 15:30 自动重置;也可消耗 60 经费立即重置。",
   "retryable": false
 }

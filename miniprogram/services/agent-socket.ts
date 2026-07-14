@@ -179,7 +179,7 @@ export class AgentSocket {
       const code = evt.code || ''
       const isQuota = code === 'quota_exceeded' || code === 'quota' || /额度|quota/i.test(evt.message || '')
       if (isQuota) {
-        this.opts.onQuota?.(evt.message || '今日额度已用完')
+        this.opts.onQuota?.(evt.message || '本周期额度已用完')
         return
       }
       if (code === 'busy') {

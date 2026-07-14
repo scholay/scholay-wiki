@@ -44,7 +44,7 @@ export const AssistantTurn = memo(function AssistantTurn({ turn }: { turn: Turn 
   if (turn.blocked) {
     return (
       <div className="text-xs text-muted-foreground bg-surface-2 border border-border rounded-sm px-2.5 py-1.5">
-        本条未发送 —— 已达今日检索额度。开通会员或明日再来,重新发送即可。
+        本条未发送 —— 本周期额度已用完。可消耗经费重置、开通会员,或等周期到期后重新发送。
       </div>
     );
   }
