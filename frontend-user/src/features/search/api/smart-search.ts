@@ -34,7 +34,12 @@ import { useAuthStore } from '@/stores/auth.store';
 // 不从外部项目 import, 避免跨项目构建耦合。
 
 export type ClientMessage =
-  | { type: 'user_message'; content: string }
+  | {
+      type: 'user_message';
+      content: string;
+      /** 方案 B 附件:文件已由 backend 推进会话 cwd,这里只透传 path(backend hub 折成 @"path" 标记)。 */
+      attachments?: { type: 'image' | 'file'; name?: string; mimeType?: string; path: string }[];
+    }
   | { type: 'stop_generation' }
   | { type: 'ping' }
   // 切换会话模型(P2 模型目录化:backend hub 权威校验 → pinned_model → 重组转发)。

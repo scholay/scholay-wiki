@@ -1,5 +1,9 @@
 // ============================================================================
-// Scholay 智能助手 — 引用用户文献集 (与上传文件同走"方案 B": 把资料落进会话 cwd)
+// agentattach — 引用用户文献集 (与上传文件同走"方案 B": 把资料落进会话 cwd)
+//
+// 泛化动机 (2026-07-14 三 feature 输入框统一): 原 claw 专属实现 (internal/claw/
+// references.go), 只依赖 FeatureBridge(开会话 + push 文件)+ library.Reader(读文献集),
+// feature 无关 → 抽到本包供 claw / smart_search / prism 共用, 行为对 claw 100% 不变。
 //
 // 用户在输入框「引用文献」选择文献集里的论文 / 整个文件夹后:
 //   1. 解析 paper_ids + folder_ids → 属于该用户的论文行(文件夹展开,每个 ≤30 篇,总 ≤60)
@@ -10,10 +14,11 @@
 //   3. 返回 chip 展示元数据(标题 / 文件夹名+篇数)给前端,前端在下一条 user_message
 //      末尾附「引用文献」块指向 ./references/,配套 library-reference skill 教 agent 怎么用。
 //
-// 与上传一致:session_id 为空 = 新建会话并返回(前端 adopt);非空则校验归属。
+// 与上传一致:session_id 为空 = 走 feature 的空会话策略并返回(前端 adopt);非空则校验归属。
+// prism 走 ReferenceToSession(会话由 handler 按 project 解析)。
 // ============================================================================
 
-package claw
+package agentattach
 
 import (
 	"context"
@@ -37,15 +42,21 @@ const (
 
 // Referencer 持有 FeatureBridge(开会话 + push 文件)+ library.Reader(读文献集)。
 type Referencer struct {
-	feature *agentbridge.FeatureBridge
-	lib     *library.Reader
+	feature      *agentbridge.FeatureBridge
+	lib          *library.Reader
+	resolveEmpty SessionResolver
 }
 
-func NewReferencer(feature *agentbridge.FeatureBridge, lib *library.Reader) *Referencer {
-	return &Referencer{feature: feature, lib: lib}
+// NewReferencer — resolveEmpty 为 nil 时默认 CreateNewSession (即 claw 原语义)。
+func NewReferencer(feature *agentbridge.FeatureBridge, lib *library.Reader, resolveEmpty SessionResolver) *Referencer {
+	rf := &Referencer{feature: feature, lib: lib, resolveEmpty: resolveEmpty}
+	if rf.resolveEmpty == nil && feature != nil {
+		rf.resolveEmpty = feature.CreateNewSession
+	}
+	return rf
 }
 
-// ReferenceRequest — 前端 POST /claw/reference 请求体。
+// ReferenceRequest — 前端 POST /<feature>/reference 请求体。
 type ReferenceRequest struct {
 	SessionID string   `json:"session_id"`
 	PaperIDs  []uint64 `json:"paper_ids"`  // 文献集行 ID(单篇引用)
@@ -62,26 +73,22 @@ type ReferenceItemDTO struct {
 	HasPDF     bool   `json:"hasPdf,omitempty"`     // 单篇:是否带用户 PDF 全文
 }
 
-// ReferenceResultDTO — 返给前端。
+// ReferenceResultDTO — 返给前端(字段名是前端契约,三 feature 共用,不可改)。
 type ReferenceResultDTO struct {
 	SessionID  string             `json:"sessionId"`
 	Items      []ReferenceItemDTO `json:"items"`
 	PaperTotal int                `json:"paperTotal"` // 实际物化的论文数(去重)
 }
 
-// HandleReference 是 gin handler 业务体(不管 HTTP 码,留给 Handler 包装)。
+// HandleReference 是 gin handler 业务体(不管 HTTP 码,留给各 feature Handler 包装)。
 func (rf *Referencer) HandleReference(c *gin.Context, userID uint) (*ReferenceResultDTO, error) {
-	var req ReferenceRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		return nil, fmt.Errorf("请求格式错误")
-	}
-	if len(req.PaperIDs) == 0 && len(req.FolderIDs) == 0 {
-		return nil, fmt.Errorf("未选择任何文献或文件夹")
+	req, err := bindReferenceRequest(c)
+	if err != nil {
+		return nil, err
 	}
 
-	// 会话解析:同 upload —— 有则校验归属,无则新建并返回让前端 adopt。
+	// 会话解析:同 upload —— 有则校验归属,无则走 feature 空会话策略并返回(前端 adopt)。
 	sessionID := strings.TrimSpace(req.SessionID)
-	var err error
 	if sessionID != "" {
 		owns, oerr := rf.feature.OwnsSession(userID, sessionID)
 		if oerr != nil {
@@ -91,18 +98,43 @@ func (rf *Referencer) HandleReference(c *gin.Context, userID uint) (*ReferenceRe
 			return nil, fmt.Errorf("无权访问该会话")
 		}
 	} else {
-		sessionID, err = rf.feature.CreateNewSession(c.Request.Context(), userID)
+		sessionID, err = rf.resolveEmpty(c.Request.Context(), userID)
 		if err != nil {
 			return nil, fmt.Errorf("会话不可用: %w", err)
 		}
 	}
+	return rf.materializeAll(c.Request.Context(), userID, sessionID, req)
+}
 
+// ReferenceToSession — 会话由调用方解析/鉴权好的直通入口 (prism: per-project 会话)。
+// 只读 paper_ids / folder_ids,忽略请求体里的 session_id 字段。
+func (rf *Referencer) ReferenceToSession(c *gin.Context, userID uint, sessionID string) (*ReferenceResultDTO, error) {
+	req, err := bindReferenceRequest(c)
+	if err != nil {
+		return nil, err
+	}
+	return rf.materializeAll(c.Request.Context(), userID, sessionID, req)
+}
+
+func bindReferenceRequest(c *gin.Context) (*ReferenceRequest, error) {
+	var req ReferenceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		return nil, fmt.Errorf("请求格式错误")
+	}
+	if len(req.PaperIDs) == 0 && len(req.FolderIDs) == 0 {
+		return nil, fmt.Errorf("未选择任何文献或文件夹")
+	}
+	return &req, nil
+}
+
+// materializeAll — 单篇 + 文件夹展开、预算/去重、写 metadata + INDEX(核心物化流程)。
+func (rf *Referencer) materializeAll(parent context.Context, userID uint, sessionID string, req *ReferenceRequest) (*ReferenceResultDTO, error) {
 	uid := uint64(userID)
 	items := make([]ReferenceItemDTO, 0, len(req.PaperIDs)+len(req.FolderIDs))
 	materialized := map[uint64]bool{} // 跨单篇/文件夹去重物化
 	budget := maxTotalRefPapers
 
-	ctx, cancel := context.WithTimeout(c.Request.Context(), referenceTimeout)
+	ctx, cancel := context.WithTimeout(parent, referenceTimeout)
 	defer cancel()
 
 	// ── 单篇引用 ──────────────────────────────────────────────
@@ -209,7 +241,8 @@ func (rf *Referencer) materializePaper(ctx context.Context, sessionID string, p 
 	if err := rf.feature.AgentClient().PutWorkspaceFile(ctx, sessionID, rel, []byte(meta)); err != nil {
 		// 单篇写失败不阻断整批(INDEX 仍会引到它,Read 时缺失而已);记一下即可。
 		// 这里返回但已标记 done,避免重复尝试;仍算 fresh(占用了一次物化尝试)。
-		slog.Warn("claw reference: 写论文 metadata 失败", "session_id", sessionID, "paper_id", p.ID, "error", err)
+		slog.Warn("agentattach reference: 写论文 metadata 失败",
+			"feature", rf.feature.Spec().Key, "session_id", sessionID, "paper_id", p.ID, "error", err)
 		return hasPDF, true
 	}
 	return hasPDF, true

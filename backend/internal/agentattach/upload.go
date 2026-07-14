@@ -1,27 +1,34 @@
 // ============================================================================
-// Scholay 智能助手 — 文件上传 (方案 B: 推送原始文件给 agent, 由大模型原生分析)
+// agentattach — agent 会话「附件」通用实现:文件上传(方案 B: 推原始文件给 agent)
+//
+// 泛化动机 (2026-07-14 三 feature 输入框统一): 上传 / 引用文献原先是 claw 专属实现
+// (internal/claw/upload.go + references.go), 但它只依赖 agentbridge.FeatureBridge
+// (get-or-create 会话 + AgentClient 推文件) 与 library.Reader, 本质 feature 无关。
+// 抽到本包后 claw / smart_search / prism 共用同一份校验、限额、落盘、物化逻辑,
+// 各 feature handler 只剩薄委托 (路由 + 响应包装), 行为与 DTO 形状对 claw 100% 不变。
 //
 // 不在 backend 做任何文本抽取 / OCR / base64 inline。流程:
 //
 //   1. multipart 收文件 → 校验类型 + 大小
-//   2. GetOrCreateSession 拿到当前用户在 claw 的 agent 会话 (没有则创建 →
-//      "添加文件 = 开始会话", 这是方案 B 的必然: 文件要落到会话隔离 cwd)
+//   2. 解析目标会话: 请求带 session_id → 校验归属; 为空 → 走 feature 各自的
+//      空会话策略 (claw: 新建会话 = "添加文件即开会话"; smart_search: 复用唯一会话;
+//      prism: 不走这条路, 由 handler 按 project 解析后调 UploadToSession)
 //   3. PushSessionFile 把原始字节 POST 给 agent /api/sessions/:id/files,
 //      agent 写进 ~/sessions/<sessionId>/ 并回落盘绝对路径
 //   4. 返回 { sessionId, path, type, name, mimeType, size } 给前端;
 //      前端把它放进下一条 user_message.attachments[].path, agent 用 Read 原生读
 //
-// 为什么不再抽文本:
+// 为什么不抽文本:
 //   - PDF / 图片 / 文本类 Claude Code 的 Read 工具都能原生消费 (图片走 vision,
 //     PDF 走文档理解), 让大模型自己看比 backend 抽文本信息损失小、能力强。
 //   - backend 不碰文件内容 → 无 pdfparse 依赖、无 80K 截断、无 base64 撑爆 context。
 //
-// 限制 (仍然要前端预校验, 改这里同步 ChatComposer):
+// 限制 (仍然要前端预校验, 改这里同步各 feature 的 Composer):
 //   - 图片 ≤ 5MB  (Anthropic vision 单图硬上限, 超了 agent 调模型时会 400)
 //   - 文件 ≤ 30MB (扫描版大 PDF 留余量; 真正瓶颈是模型 context, 由 agent 侧把控)
 // ============================================================================
 
-package claw
+package agentattach
 
 import (
 	"bytes"
@@ -36,6 +43,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/google/uuid"
+
 	"scholar-backend/internal/agentbridge"
 )
 
@@ -48,6 +57,7 @@ const (
 // AttachmentDTO — 返给前端的统一附件结构 (方案 B)。
 // 前端只需把 path 放进 user_message.attachments[].path; sessionId 用于"添加文件即开会话"
 // 场景下前端 adopt 这个新会话 (历史会话上传时 sessionId 不变)。
+// ⚠️ 字段名是前端契约 (sessionId/type/name/mimeType/size/path), 三 feature 共用, 不可改。
 type AttachmentDTO struct {
 	SessionID string `json:"sessionId"`
 	Type      string `json:"type"` // "image" | "file"
@@ -57,27 +67,82 @@ type AttachmentDTO struct {
 	Path      string `json:"path"` // agent 容器内绝对路径 (会话隔离 cwd 下)
 }
 
-// Uploader 持有 FeatureBridge, 以便 get-or-create 会话并通过底层 agent.Client 推送文件。
+// SessionResolver — 请求未带 session_id 时的会话解析策略, feature 语义差异所在:
+//   - claw:         FeatureBridge.CreateNewSession ("添加文件 = 开始新会话", 前端 adopt)
+//   - smart_search: FeatureBridge.GetOrCreateSession (单会话语义, 复用当前会话)
+//
+// 签名与 FeatureBridge 的两个方法一致, 装配时直接传方法值即可。
+type SessionResolver func(ctx context.Context, userID uint) (string, error)
+
+// Uploader 持有 FeatureBridge, 以便解析会话并通过底层 agent.Client 推送文件。
 type Uploader struct {
-	feature *agentbridge.FeatureBridge
+	feature      *agentbridge.FeatureBridge
+	resolveEmpty SessionResolver
 }
 
-func NewUploader(feature *agentbridge.FeatureBridge) *Uploader {
-	return &Uploader{feature: feature}
-}
-
-// HandleUpload 是 gin handler 的"业务体", 不负责 HTTP 状态码 (留给 Handler 包装)。
-// 返回 error 由调用方转 4xx; 返回 nil + DTO 由调用方包成 200。
-func (u *Uploader) HandleUpload(c *gin.Context, userID uint) (*AttachmentDTO, error) {
-	if err := c.Request.ParseMultipartForm(MaxFileBytes); err != nil {
-		return nil, fmt.Errorf("文件过大或格式错误 (≤ %d MB)", MaxFileBytes/1024/1024)
+// NewUploader — resolveEmpty 为 nil 时默认 CreateNewSession (即 claw 原语义, 保持行为不变)。
+func NewUploader(feature *agentbridge.FeatureBridge, resolveEmpty SessionResolver) *Uploader {
+	u := &Uploader{feature: feature, resolveEmpty: resolveEmpty}
+	if u.resolveEmpty == nil && feature != nil {
+		u.resolveEmpty = feature.CreateNewSession
 	}
-	fh, err := c.FormFile("file")
+	return u
+}
+
+// HandleUpload 是 gin handler 的"业务体", 不负责 HTTP 状态码 (留给各 feature Handler 包装)。
+// 返回 error 由调用方转 4xx; 返回 nil + DTO 由调用方包成 200。
+//
+// 目标会话: 多会话 feature (claw) 里文件必须落到用户当前正在看的那个会话 cwd, 而不是
+// "最近活跃"。前端把 activeSessionId 透传过来:
+//   - session_id 非空 → 校验归属 (防越权写别人会话), push 到它;
+//   - session_id 为空 → 走 resolveEmpty 策略 (新建 / 复用), 返回 sessionId 让前端 adopt。
+//
+// 校验先行: 类型 / 大小不合格时**不建会话** (与 claw 原实现顺序一致)。
+func (u *Uploader) HandleUpload(c *gin.Context, userID uint) (*AttachmentDTO, error) {
+	fh, attType, outMime, body, err := parseAndValidateUpload(c)
 	if err != nil {
-		return nil, errors.New("缺少 file 字段")
+		return nil, err
+	}
+	sessionID := strings.TrimSpace(c.PostForm("session_id"))
+	if sessionID != "" {
+		owns, oerr := u.feature.OwnsSession(userID, sessionID)
+		if oerr != nil {
+			return nil, fmt.Errorf("会话校验失败: %w", oerr)
+		}
+		if !owns {
+			return nil, errors.New("无权访问该会话")
+		}
+	} else {
+		sessionID, err = u.resolveEmpty(c.Request.Context(), userID)
+		if err != nil {
+			return nil, fmt.Errorf("会话不可用: %w", err)
+		}
+	}
+	return u.pushToSession(c.Request.Context(), sessionID, fh, attType, outMime, body)
+}
+
+// UploadToSession — 会话由调用方解析/鉴权好的直通入口 (prism: per-project 会话,
+// handler 先按 projectID 校验归属 + ensureProjectSession 拿 sessionID 再调这里)。
+// 只做 multipart 校验 + 推送, 不看 session_id 表单字段。
+func (u *Uploader) UploadToSession(c *gin.Context, sessionID string) (*AttachmentDTO, error) {
+	fh, attType, outMime, body, err := parseAndValidateUpload(c)
+	if err != nil {
+		return nil, err
+	}
+	return u.pushToSession(c.Request.Context(), sessionID, fh, attType, outMime, body)
+}
+
+// parseAndValidateUpload — multipart 解析 + 类型白名单 + 大小限额 (纯校验, 不碰会话)。
+func parseAndValidateUpload(c *gin.Context) (fh *multipart.FileHeader, attType, outMime string, body []byte, err error) {
+	if perr := c.Request.ParseMultipartForm(MaxFileBytes); perr != nil {
+		return nil, "", "", nil, fmt.Errorf("文件过大或格式错误 (≤ %d MB)", MaxFileBytes/1024/1024)
+	}
+	fh, err = c.FormFile("file")
+	if err != nil {
+		return nil, "", "", nil, errors.New("缺少 file 字段")
 	}
 	if fh.Size > MaxFileBytes {
-		return nil, fmt.Errorf("文件大小 %.1fMB 超出上限 %dMB", float64(fh.Size)/1024/1024, MaxFileBytes/1024/1024)
+		return nil, "", "", nil, fmt.Errorf("文件大小 %.1fMB 超出上限 %dMB", float64(fh.Size)/1024/1024, MaxFileBytes/1024/1024)
 	}
 
 	mime := strings.ToLower(fh.Header.Get("Content-Type"))
@@ -86,14 +151,13 @@ func (u *Uploader) HandleUpload(c *gin.Context, userID uint) (*AttachmentDTO, er
 	// SVG 安全限制: SVG 可含 <script>, 历史回放代理若按 image/svg+xml 内联会变同源 XSS。
 	// 入口直接拒 —— 不论它被嗅探成图片还是当成 XML 文本分类 (proxy 侧白名单是最终兜底)。
 	if ext == ".svg" || mime == "image/svg+xml" {
-		return nil, errors.New("暂不支持 SVG 文件 (安全限制)")
+		return nil, "", "", nil, errors.New("暂不支持 SVG 文件 (安全限制)")
 	}
 
-	var attType, outMime string
 	switch {
 	case isImage(mime, ext):
 		if fh.Size > MaxImageBytes {
-			return nil, fmt.Errorf("图片 %.1fMB 超出上限 %dMB", float64(fh.Size)/1024/1024, MaxImageBytes/1024/1024)
+			return nil, "", "", nil, fmt.Errorf("图片 %.1fMB 超出上限 %dMB", float64(fh.Size)/1024/1024, MaxImageBytes/1024/1024)
 		}
 		attType = "image"
 		outMime = normalizeImageMime(mime, ext)
@@ -109,39 +173,25 @@ func (u *Uploader) HandleUpload(c *gin.Context, userID uint) (*AttachmentDTO, er
 		attType = "file"
 		outMime = mimeOrFallback(mime, "application/octet-stream")
 	default:
-		return nil, fmt.Errorf("暂不支持的文件类型 (%s / %s); 可上传图片、PDF、Office 文档 (docx/xlsx/pptx)、Markdown / 纯文本", ext, mime)
+		return nil, "", "", nil, fmt.Errorf("暂不支持的文件类型 (%s / %s); 可上传图片、PDF、Office 文档 (docx/xlsx/pptx)、Markdown / 纯文本", ext, mime)
 	}
 
-	body, err := readMultipart(fh)
+	body, err = readMultipart(fh)
 	if err != nil {
-		return nil, fmt.Errorf("读取文件失败: %w", err)
+		return nil, "", "", nil, fmt.Errorf("读取文件失败: %w", err)
 	}
+	return fh, attType, outMime, body, nil
+}
 
-	// 目标会话: claw 是多会话, 文件必须落到用户当前正在看的那个会话 cwd, 而不是
-	// "最近活跃"。前端把 activeSessionId 透传过来:
-	//   - session_id 非空 → 校验归属 (防越权写别人会话), push 到它;
-	//   - session_id 为空 (新对话首次添加文件) → 新建会话 ("添加文件 = 开始会话"),
-	//     返回新 sessionId 让前端 adopt。
-	sessionID := strings.TrimSpace(c.PostForm("session_id"))
-	if sessionID != "" {
-		owns, err := u.feature.OwnsSession(userID, sessionID)
-		if err != nil {
-			return nil, fmt.Errorf("会话校验失败: %w", err)
-		}
-		if !owns {
-			return nil, errors.New("无权访问该会话")
-		}
-	} else {
-		sessionID, err = u.feature.CreateNewSession(c.Request.Context(), userID)
-		if err != nil {
-			return nil, fmt.Errorf("会话不可用: %w", err)
-		}
-	}
-
-	ctx, cancel := context.WithTimeout(c.Request.Context(), pushFileTimeout)
+// pushToSession — 把校验完的字节推给 agent 会话 cwd, 组装 DTO。
+func (u *Uploader) pushToSession(parent context.Context, sessionID string, fh *multipart.FileHeader, attType, outMime string, body []byte) (*AttachmentDTO, error) {
+	ctx, cancel := context.WithTimeout(parent, pushFileTimeout)
 	defer cancel()
 	// body 已在内存(gin multipart 读出),包成 reader 流给 agent —— 至少省掉 client 端的 multipart 整份缓冲。
-	pushed, err := u.feature.AgentClient().PushSessionFile(ctx, sessionID, fh.Filename, bytes.NewReader(body))
+	// 落盘名 = <uuid>-<原名>:①前端历史回放剥离器(agent-history STORED_UUID_PREFIX)只认带
+	// UUID 前缀的 @"path" 为附件标记;②防同名文件互相覆盖。展示名(DTO.Name)仍用原名。
+	storedName := uuid.NewString() + "-" + filepath.Base(fh.Filename)
+	pushed, err := u.feature.AgentClient().PushSessionFile(ctx, sessionID, storedName, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("文件推送失败: %w", err)
 	}

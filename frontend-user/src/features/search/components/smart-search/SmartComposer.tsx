@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ClipboardEvent, type HTMLAttributes, type ReactNode } from 'react';
 import { Loader2, RotateCcw } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Composer } from '@/shared/components/chat';
@@ -46,6 +46,18 @@ export interface SmartComposerProps {
   autoFocus?: boolean;
   /** 会话模型选择器插槽(P2 模型目录化,页面组装 shared ModelSelector 注入)。 */
   modelSlot?: ReactNode;
+  // ── 附件/引用装配插槽(2026-07 输入框统一;页面组装 shared 件注入,本组件不感知业务)──
+  /** 「+」号菜单(leftActions 最左,Cursor/GPT 同位)。 */
+  plusSlot?: ReactNode;
+  /** chips 区(附件预览行 + 引用文献行),渲染在 textarea 上方。 */
+  topExtras?: ReactNode;
+  /** 有附件/引用时允许空文本发送。 */
+  canSendEmpty?: boolean;
+  onPaste?: (e: ClipboardEvent<HTMLTextAreaElement>) => void;
+  /** 拖拽事件挂容器(dragenter/over/leave/drop)。 */
+  containerProps?: HTMLAttributes<HTMLDivElement>;
+  /** 拖拽蒙层等覆盖层。 */
+  overlay?: ReactNode;
 }
 
 export function SmartComposer({
@@ -66,6 +78,12 @@ export function SmartComposer({
   prominent = false,
   autoFocus = false,
   modelSlot,
+  plusSlot,
+  topExtras,
+  canSendEmpty = false,
+  onPaste,
+  containerProps,
+  overlay,
 }: SmartComposerProps) {
   const rotating = !!rotatingPlaceholders && rotatingPlaceholders.length > 0;
   const hasUsage = !!contextSnapshot && contextSnapshot.maxTokens > 0;
@@ -78,6 +96,7 @@ export function SmartComposer({
       placeholder={rotating ? '' : placeholder}
       placeholderOverlay={rotating ? <RotatingPlaceholder items={rotatingPlaceholders!} /> : undefined}
       sendReady={ready && !busy}
+      canSendEmpty={canSendEmpty}
       busy={busy}
       stopping={stopping}
       onStop={onStop}
@@ -95,9 +114,14 @@ export function SmartComposer({
       }
       minRows={prominent ? 3 : 1}
       autoFocus={autoFocus}
+      onPaste={onPaste}
+      containerProps={containerProps}
+      overlay={overlay}
+      topSlot={topExtras}
       leftActions={
-        onResetClick || modelSlot ? (
+        onResetClick || modelSlot || plusSlot ? (
           <>
+            {plusSlot}
             {modelSlot}
             {onResetClick && (
               <button

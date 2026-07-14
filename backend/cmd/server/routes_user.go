@@ -188,6 +188,10 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 			prismG.GET("/projects/:id/export/docx", h.prism.ExportDocx)        // struct→Pandoc→Word
 			prismG.POST("/projects/:id/assets", h.prism.UploadAsset)           // 上传图片 → figure 块
 			// agent-native 用户 WS 编辑(实时流式 + diff + 应用门 + 重入续流)。
+			// 输入框附件:上传 / 引用文献集 —— agentattach 通用实现(2026-07-14 三 feature
+			// 输入框统一);会话 per-project,handler 内解析。上传走通用 UploadLimitMiddleware。
+			prismG.POST("/projects/:id/upload", middleware.UploadLimitMiddleware(middleware.UploadMaxBodySize), h.prism.UploadAttachment)
+			prismG.POST("/projects/:id/reference", h.prism.ReferenceLibrary)
 			// AI 对话走下面独立挂的 /prism/ws/:sessionId;这里是轮次边界 HTTP 端点。
 			prismG.POST("/projects/:id/ws-ticket", h.prism.IssueWSTicket)
 			prismG.POST("/projects/:id/session/reset", h.prism.ResetSession) // 手动重开会话(V3-4.6-1:文稿零损失)
@@ -266,6 +270,10 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		// 一次性短命 ws ticket 颁发 —— 前端打开 WS 前调一次,30s TTL, 用即销毁。
 		// 替代直接把 JWT 放到 WS URL query (会被 nginx access log 落盘长期暴露)。
 		userProtected.POST("/smart-search/session/ws-ticket", h.smartSearch.IssueWSTicket)
+		// 输入框附件:上传 / 引用文献集 —— 与 claw 同一套 agentattach 实现
+		// (2026-07-14 三 feature 输入框统一)。上传同样走通用 UploadLimitMiddleware。
+		userProtected.POST("/smart-search/upload", middleware.UploadLimitMiddleware(middleware.UploadMaxBodySize), h.smartSearch.UploadAttachment)
+		userProtected.POST("/smart-search/reference", h.smartSearch.ReferenceLibrary)
 
 		// 智能审稿 v3 —— 投稿 wizard + 审稿记录 + agent 编排的 4 份报告。
 		// 路由表见 internal/peerreview/routes.go, 全部需要登录。

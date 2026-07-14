@@ -1,29 +1,29 @@
 /**
- * claw「引用文献」选择器用的只读浏览 hooks —— 文件夹列表 + 文件夹内论文。
+ * 「引用文献」选择器用的只读浏览 hooks —— 文件夹列表 + 文件夹内论文。
  *
  * 直接打文献集后端接口(/user/library/folders、/user/library?folder=),但**不 import
- * features/library**(跨 feature 禁止):claw 自有 queryKey,类型走 @/shared/api/types。
- * 与 library 各自的缓存独立,互不影响。
+ * features/library**(跨 feature 禁止):自有 queryKey,类型走 @/shared/api/types。
+ * 2026-07 输入框统一:从 features/claw/api 上提 shared(三 agent feature 的引用选择器共用)。
  */
 
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
 import type { PaperAuthor, UserLibraryFolderItem, UserLibraryPaper } from '@/shared/api/types';
 
-export interface ClawLibraryFoldersResponse {
+export interface LibraryBrowseFoldersResponse {
   folders: UserLibraryFolderItem[];
   total_count: number;
   root_count: number;
 }
 
 /** 文件夹列表(含 paper_count)。enabled 控制选择器打开时才拉。 */
-export function useClawLibraryFolders(enabled: boolean) {
+export function useLibraryBrowseFolders(enabled: boolean) {
   return useQuery({
-    queryKey: ['claw', 'library-browse', 'folders'],
+    queryKey: ['shared', 'library-browse', 'folders'],
     enabled,
     staleTime: 30_000,
     queryFn: async () => {
-      const { data } = await http.get<{ data?: ClawLibraryFoldersResponse }>(
+      const { data } = await http.get<{ data?: LibraryBrowseFoldersResponse }>(
         '/user/library/folders',
       );
       return data.data ?? { folders: [], total_count: 0, root_count: 0 };
@@ -31,13 +31,13 @@ export function useClawLibraryFolders(enabled: boolean) {
   });
 }
 
-export interface ClawLibraryPapersResponse {
+export interface LibraryBrowsePapersResponse {
   items: UserLibraryPaper[];
   total: number;
 }
 
 /** 某文件夹内的论文(分页,给多选)。folderId=null 时不拉。 */
-export function useClawLibraryPapers(
+export function useLibraryBrowsePapers(
   folderId: number | null,
   opts?: { q?: string; page?: number; pageSize?: number },
 ) {
@@ -45,12 +45,12 @@ export function useClawLibraryPapers(
   const pageSize = opts?.pageSize ?? 50;
   const q = (opts?.q ?? '').trim();
   return useQuery({
-    queryKey: ['claw', 'library-browse', 'papers', folderId, page, pageSize, q],
+    queryKey: ['shared', 'library-browse', 'papers', folderId, page, pageSize, q],
     enabled: folderId != null,
     placeholderData: keepPreviousData,
     staleTime: 30_000,
     queryFn: async () => {
-      const { data } = await http.get<{ data?: ClawLibraryPapersResponse }>('/user/library', {
+      const { data } = await http.get<{ data?: LibraryBrowsePapersResponse }>('/user/library', {
         params: { folder: folderId, page, page_size: pageSize, ...(q ? { q } : {}) },
       });
       return data.data ?? { items: [], total: 0 };

@@ -59,6 +59,9 @@ export { SafeSvg } from './SafeSvg';
 export { PausedNotice } from './PausedNotice';
 export { ContextMeter, type ContextMeterProps } from './ContextMeter';
 export { Composer, type ComposerProps, type ComposerHandle, type ComposerContextInfo } from './Composer';
+export { ComposerAttachmentRow } from './ComposerAttachmentRow';
+export { ComposerPlusMenu } from './ComposerPlusMenu';
+export { LibraryReferencePicker, type ReferenceSelection } from './LibraryReferencePicker';
 export { ProcessFold } from './ProcessFold';
 export {
   ToolHeaderExtras,

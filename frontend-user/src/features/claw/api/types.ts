@@ -17,47 +17,9 @@ import type {
 
 // ─── 附件 ────────────────────────────────────────────────────────────────
 
-/**
- * Backend /claw/upload 返回的附件 DTO (方案 B)。
- *
- * backend 已把原始文件推到 agent 的会话隔离 cwd, 这里只拿到落盘路径 path 和会话 id。
- * 发送时把 path 放进 user_message.attachments[].path, agent 用 Read 工具原生分析
- * (图片走 vision, PDF 走文档理解, 文本直接读) —— backend 不再抽文本 / 不再回传 base64。
- */
-export interface AttachmentDTO {
-  /** 文件落点所属的 agent 会话 (新对话首次上传会创建并回传, 前端需 adopt) */
-  sessionId: string;
-  type: 'image' | 'file';
-  name: string;
-  mimeType: string;
-  size: number;
-  /** agent 容器内绝对路径 (会话隔离 cwd 下), 发送时透传到 attachments[].path */
-  path: string;
-  /** 仅前端本地: 图片预览用的 object URL (不来自后端, 提交后释放) */
-  previewUrl?: string;
-}
-
-// ─── 引用文献(文献集 → 物化进会话 cwd 的 references/)────────────────────
-
-/** Backend /claw/reference 返回的单个引用项(chip 展示元数据)。对齐 ReferenceItemDTO。 */
-export interface ReferenceItemDTO {
-  kind: 'paper' | 'folder';
-  refId: number;
-  title: string;
-  /** 文件夹:实际纳入篇数 */
-  paperCount?: number;
-  /** 文件夹:实际超过上限被截断 */
-  truncated?: boolean;
-  /** 单篇:是否带用户上传的 PDF 全文 */
-  hasPdf?: boolean;
-}
-
-/** Backend /claw/reference 响应。sessionId 可能是新建并回传的(前端需 adopt,同上传)。 */
-export interface ReferenceResultDTO {
-  sessionId: string;
-  items: ReferenceItemDTO[];
-  paperTotal: number;
-}
+// 附件/引用 DTO 已上提 @/shared/types/chat(2026-07 三 feature 输入框统一;后端泛化为
+// internal/agentattach)。此处 re-export 保持 claw 内既有 import 路径不动。
+export type { AttachmentDTO, ReferenceItemDTO, ReferenceResultDTO } from '@/shared/types/chat';
 
 // ─── WS 消息协议 ─────────────────────────────────────────────────────────
 

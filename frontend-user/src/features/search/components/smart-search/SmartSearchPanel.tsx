@@ -19,6 +19,20 @@ import { trackEvent } from '@/shared/lib/track';
 import { useHeightVar } from '@/shared/hooks';
 import { useUserModels } from '@/shared/api/models';
 import { ModelSelector } from '@/shared/components/chat/ModelSelector';
+import { Upload } from 'lucide-react';
+import {
+  AttachmentChipList,
+  ComposerAttachmentRow,
+  ComposerPlusMenu,
+  LibraryReferencePicker,
+  ReferenceChipList,
+  type ReferenceSelection,
+} from '@/shared/components/chat';
+import { AttachmentLightbox } from '@/shared/components/chat/AttachmentLightbox';
+import { useComposerAttachments, ATTACHMENT_ACCEPT } from '@/shared/hooks/useComposerAttachments';
+import { useUploadAgentAttachment, useReferenceAgentLibrary } from '@/shared/api/agent-attach';
+import { buildReferenceBlock } from '@/shared/lib/agent-references';
+import type { ReferenceItemDTO, TurnAttachment, TurnReference } from '@/shared/types/chat';
 import {
   useResetSmartSearchSession,
   useSmartSearchContext,
@@ -100,7 +114,14 @@ export function SmartSearchPanel() {
   const [input, setInput] = useState(() => searchParams.get('q')?.trim() ?? '');
   /** 按发送顺序排列的用户提问骨架; 长度 = 本会话生命周期内已发起的轮数 */
   const [pendingTurns, setPendingTurns] = useState<
-    { id: string; userText: string; paused?: boolean; blocked?: boolean }[]
+    {
+      id: string;
+      userText: string;
+      paused?: boolean;
+      blocked?: boolean;
+      userAttachments?: TurnAttachment[];
+      userReferences?: TurnReference[];
+    }[]
   >([]);
   /** 用户已点过 stop 但 agent 还没 emit terminal 事件 (busy 仍 true) → 锁住 stop 按钮
       避免重复触发。terminal 事件到达 → busy 自动翻 false → 这里下面 useEffect 重置回 false。 */
@@ -112,6 +133,37 @@ export function SmartSearchPanel() {
     state, messages, send, reconnectAttempt, displacedReason, takeOver, resyncUserText,
     peerMessage, busyRejected, quotaExceeded, sessionModel,
   } = useSmartSearchSocket(sessionId);
+
+  // ── 附件 / 引用文献(2026-07 输入框统一;shared 装配层 + smart-search 端点)──────────
+  const uploadMutation = useUploadAgentAttachment('/user/smart-search/upload');
+  const referenceMutation = useReferenceAgentLibrary('/user/smart-search/reference');
+  const [references, setReferences] = useState<ReferenceItemDTO[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const att = useComposerAttachments({
+    upload: (file, sid) => uploadMutation.mutateAsync({ file, sessionId: sid }),
+    sessionId: sessionId ?? null,
+  });
+  const handleReferenceConfirm = useCallback(
+    async (sel: ReferenceSelection) => {
+      try {
+        const res = await referenceMutation.mutateAsync({
+          sessionId: sessionId ?? null,
+          paperIds: sel.paperIds,
+          folderIds: sel.folderIds,
+        });
+        setReferences((prev) => {
+          const seen = new Set(prev.map((r) => `${r.kind}:${r.refId}`));
+          const add = res.items.filter((r) => !seen.has(`${r.kind}:${r.refId}`));
+          return [...prev, ...add];
+        });
+        setPickerOpen(false);
+        if (res.items.length === 0) toast.info('所选文献为空或不可用');
+      } catch (err) {
+        toast.error((err as Error).message || '引用失败');
+      }
+    },
+    [referenceMutation, sessionId],
+  );
 
   // P2 模型目录:composer 左下角选择器(服务端权威;hub 校验落 pinned_model 后广播回显)。
   const { data: userModels } = useUserModels('smart_search');
@@ -126,6 +178,56 @@ export function SmartSearchPanel() {
         }
       />
     ) : null;
+
+  // ── 附件/引用装配插槽(hero 与底栏两个 SmartComposer 共用同一份)────────────────
+  const composerExtras = {
+    plusSlot: (
+      <ComposerPlusMenu
+        disabled={att.uploading}
+        accept={ATTACHMENT_ACCEPT}
+        onFiles={(files) => void att.addFiles(files)}
+        onPickLibrary={() => setPickerOpen(true)}
+      />
+    ),
+    topExtras: (
+      <>
+        <ComposerAttachmentRow
+          attachments={att.attachments}
+          uploading={att.uploading}
+          onRemove={att.removeAttachment}
+          onEnlarge={(src, alt) => att.setLightbox({ src, alt })}
+        />
+        {(references.length > 0 || referenceMutation.isPending) && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <ReferenceChipList
+              references={references.map((r) => ({
+                kind: r.kind,
+                title: r.title,
+                paperCount: r.paperCount,
+                hasPdf: r.hasPdf,
+              }))}
+              onRemove={(i) => setReferences((prev) => prev.filter((_, idx) => idx !== i))}
+            />
+            {referenceMutation.isPending && (
+              <span className="inline-flex items-center gap-1 text-2xs text-faint">
+                <Loader2 className="size-3 animate-spin" />
+                引用中…
+              </span>
+            )}
+          </div>
+        )}
+      </>
+    ),
+    canSendEmpty: att.attachments.length > 0 || references.length > 0,
+    onPaste: att.handlePaste,
+    containerProps: att.dragHandlers,
+    overlay: att.dragOver ? (
+      <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-brand-green bg-background/90 text-sm font-medium text-brand-green">
+        <Upload className="size-4" />
+        松开上传图片 / 文件
+      </div>
+    ) : undefined,
+  };
 
   // 历史 turns: 只在 history 数据变化时重建一次。
   const historyTurns = useMemo<Turn[]>(
@@ -243,10 +345,12 @@ export function SmartSearchPanel() {
 
   // 本次 mount 起的 sessionId 一旦确认, pendingSendRef 里如果还有未发的 user_message
   // 就在 WS open 后立刻发出去。
-  const pendingSendRef = useRef<string | null>(null);
+  const pendingSendRef = useRef<
+    { content: string; attachments?: { type: 'image' | 'file'; name?: string; mimeType?: string; path: string }[] } | null
+  >(null);
   useEffect(() => {
     if (state === 'open' && pendingSendRef.current) {
-      send({ type: 'user_message', content: pendingSendRef.current });
+      send({ type: 'user_message', ...pendingSendRef.current });
       pendingSendRef.current = null;
     }
   }, [state, send]);
@@ -271,24 +375,57 @@ export function SmartSearchPanel() {
   }, [busy, sessionId, queryClient]);
 
   // 提交一次提问。session 已就绪时立即推 WS, 没就绪时丢进 pendingSendRef 等 open。
+  // 2026-07 输入框统一:附件走方案 B(文件已在会话 cwd,只透传 path,backend hub 折 @"path"
+  // 标记);引用块追加到 content 末尾(与 claw 同构,历史回放解析回 chip)。
   const handleSubmit = useCallback(() => {
     const text = input.trim();
-    if (!text) return;
-    trackEvent('search_submit', { len: text.length });
+    if (!text && att.attachments.length === 0 && references.length === 0) return;
+    trackEvent('search_submit', { len: text.length, files: att.attachments.length, refs: references.length });
     lastSubmitTextRef.current = text;
     setInput('');
+    const turnRefs: TurnReference[] = references.map((r) => ({
+      kind: r.kind,
+      title: r.title,
+      paperCount: r.paperCount,
+      hasPdf: r.hasPdf,
+    }));
+    const turnAtts: TurnAttachment[] = att.attachments.map((a) => ({
+      type: a.type,
+      name: a.name,
+      mimeType: a.mimeType,
+      size: a.size,
+      path: a.path,
+    }));
+    const wsAttachments = att.attachments.map((a) => ({
+      type: a.type,
+      name: a.name,
+      mimeType: a.mimeType,
+      path: a.path,
+    }));
+    const content = text + buildReferenceBlock(turnRefs);
     setPendingTurns((prev) => [
       // 重发时先清掉上一条「命中额度未发送」的 blocked 轮, 避免它和新一轮并存显得杂乱。
       ...prev.filter((t) => !t.blocked),
       // crypto.randomUUID 防同毫秒连发撞 id (Date.now 兜底虽有 prev.length, 但 UUID 更稳)
-      { id: `turn-${crypto.randomUUID()}`, userText: text },
+      {
+        id: `turn-${crypto.randomUUID()}`,
+        userText: text,
+        userAttachments: turnAtts.length > 0 ? turnAtts : undefined,
+        userReferences: turnRefs.length > 0 ? turnRefs : undefined,
+      },
     ]);
+    const payload = {
+      content,
+      ...(wsAttachments.length > 0 ? { attachments: wsAttachments } : {}),
+    };
     if (state === 'open') {
-      send({ type: 'user_message', content: text });
+      send({ type: 'user_message', ...payload });
     } else {
-      pendingSendRef.current = text;
+      pendingSendRef.current = payload;
     }
-  }, [input, state, send]);
+    att.clearAttachments();
+    setReferences([]);
+  }, [input, state, send, att, references]);
 
   // 未登录态 hero 的提交 —— 不真正发送,而是弹登录;把刚输入的关键词排进
   // pending navigate(/search?mode=smart&q=…),登录成功后由 useReplayPendingAction
@@ -337,6 +474,8 @@ export function SmartSearchPanel() {
       const result = await reset.mutateAsync();
       setPendingTurns([]);
       pendingSendRef.current = null;
+      att.clearAttachments();
+      setReferences([]);
       setStopping(false); // 新 session, 任何遗留 stop 锁都清零
       await queryClient.invalidateQueries({ queryKey: ['smart-search'] });
       // 通知同源其它 tab 也 invalidate, 否则它们还拿着旧 sessionId 缓存,
@@ -441,7 +580,11 @@ export function SmartSearchPanel() {
                 )}
                 {visibleTurns.map((turn) => (
                   <div key={turn.id} className="space-y-3.5 min-w-0">
-                    <UserBubble text={turn.userText} />
+                    <UserBubble
+                      text={turn.userText}
+                      attachments={turn.userAttachments}
+                      references={turn.userReferences}
+                    />
                     <AssistantTurn turn={turn} />
                   </div>
                 ))}
@@ -494,6 +637,7 @@ export function SmartSearchPanel() {
                   resetDisabled={!sessionId || reset.isPending || busy}
                   resetPending={reset.isPending}
                   modelSlot={modelSlot}
+                  {...composerExtras}
                 />
               </motion.div>
             </div>
@@ -523,6 +667,7 @@ export function SmartSearchPanel() {
                 onChange={setInput}
                 onSubmit={handleSubmit}
                 ready={ready && !reset.isPending}
+                composerExtras={composerExtras}
               />
             </motion.div>
           )}
@@ -534,6 +679,19 @@ export function SmartSearchPanel() {
         onOpenChange={setResetOpen}
         onConfirm={handleResetConfirmed}
         pending={reset.isPending}
+      />
+
+      {/* 附件放大预览 + 引用文献选择器(2026-07 输入框统一) */}
+      <AttachmentLightbox
+        src={att.lightbox?.src ?? null}
+        alt={att.lightbox?.alt}
+        onClose={() => att.setLightbox(null)}
+      />
+      <LibraryReferencePicker
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        onConfirm={handleReferenceConfirm}
+        busy={referenceMutation.isPending}
       />
     </div>
     </LayoutGroup>
@@ -669,12 +827,24 @@ function ScrollToBottomFab() {
   );
 }
 
-function UserBubble({ text }: { text: string }) {
+function UserBubble({
+  text,
+  attachments,
+  references,
+}: {
+  text: string;
+  attachments?: TurnAttachment[];
+  references?: TurnReference[];
+}) {
   return (
-    <div className="flex justify-end">
-      <div className="max-w-[80%] inline-flex items-center py-2.5 px-3.5 rounded-xl bg-foreground text-background text-sm leading-relaxed">
-        {text}
-      </div>
+    <div className="flex flex-col items-end gap-1.5">
+      {attachments && attachments.length > 0 && <AttachmentChipList attachments={attachments} />}
+      {references && references.length > 0 && <ReferenceChipList references={references} />}
+      {text && (
+        <div className="max-w-[80%] inline-flex items-center py-2.5 px-3.5 rounded-xl bg-foreground text-background text-sm leading-relaxed">
+          {text}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,10 +1,11 @@
 // ============================================================================
-// Claw — upload.go 类型嗅探纯逻辑测试。覆盖 HandleUpload 分类用到的谓词:
+// agentattach — upload.go 类型嗅探纯逻辑测试(随实现从 internal/claw 迁入)。
+// 覆盖 HandleUpload 分类用到的谓词:
 // isImage/isPDF/isPlainText/isOffice/normalizeImageMime + SVG 拒绝的优先级语义。
 // (大小限制 / OwnsSession 分支依赖 FeatureBridge, 留给 E2E harness。)
 // ============================================================================
 
-package claw
+package agentattach
 
 import "testing"
 
@@ -55,8 +56,8 @@ func TestUploadTypeSniffing(t *testing.T) {
 		t.Error(".exe 不应命中任何类别 (应被默认拒绝)")
 	}
 
-	// SVG 优先级语义: isImage 因 mime 前缀对 svg 返回 true; 真正拦截 svg 的是 HandleUpload
-	// 顶部那条专门 guard (ext==.svg || mime==image/svg+xml), 在 isImage 之前执行。
+	// SVG 优先级语义: isImage 因 mime 前缀对 svg 返回 true; 真正拦截 svg 的是
+	// parseAndValidateUpload 顶部那条专门 guard (ext==.svg || mime==image/svg+xml), 在 isImage 之前执行。
 	if !isImage("image/svg+xml", ".svg") {
 		t.Error("isImage 对 svg 返回 true —— 记录: SVG 由专门 guard 拦截, 不是靠 isImage")
 	}

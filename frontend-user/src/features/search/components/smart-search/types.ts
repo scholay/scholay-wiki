@@ -1,4 +1,7 @@
-import { replayHistoryAsTurns as sharedReplayHistoryAsTurns } from '@/shared/lib/agent-history';
+import {
+  parseUserEntryWithAttachments,
+  replayHistoryAsTurns as sharedReplayHistoryAsTurns,
+} from '@/shared/lib/agent-history';
 import type {
   ServerMessage,
   SmartSearchHistoryEntry,
@@ -191,11 +194,12 @@ export { parsePapersFromToolResult, MINICOD_TOOL_PREFIX } from '@/shared/lib/min
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
- * 把 agent transcript 折成 Turn[] —— 走 shared 的唯一实现。智能搜索不支持上传, 用默认
- * parseUserEntry (抽 text 块拼接 + 剥 agentbridge 注入前缀, 无附件)。
+ * 把 agent transcript 折成 Turn[] —— 走 shared 的唯一实现。2026-07 输入框统一起智能搜索
+ * 支持上传:用带附件解析的 parseUserEntryWithAttachments(剥 @"path" 前缀 → 附件 chip;
+ * 引用块由 shared 回放通用解析)。
  */
 export function replayHistoryAsTurns(
   entries: SmartSearchHistoryEntry[] | null | undefined,
 ): Turn[] {
-  return sharedReplayHistoryAsTurns(entries);
+  return sharedReplayHistoryAsTurns(entries, { parseUserEntry: parseUserEntryWithAttachments });
 }

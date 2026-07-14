@@ -10,7 +10,9 @@ package smartsearch
 import (
 	"github.com/gin-gonic/gin"
 
+	"scholar-backend/internal/agentattach"
 	"scholar-backend/internal/agentbridge"
+	"scholar-backend/internal/library"
 )
 
 // Handler 是智能搜索的 thin HTTP wrapper.
@@ -19,12 +21,17 @@ import (
 //   - bootstrap 调 NewHandler 拿到 Handler
 //   - routes_user 调 Handler.MountRoutes(group) 把 5 个 HTTP 端点一次性挂上
 //   - WS 路由跟 HTTP 不在同一鉴权组下 (browser WS 无法带 Authorization), 单独挂 Handler.HandleWS
+//
+// 上传 / 引用文献 (attach.go) 走 internal/agentattach 通用实现 (2026-07-14 三 feature 输入框统一)。
 type Handler struct {
-	inner *agentbridge.SessionHandler
+	inner      *agentbridge.SessionHandler
+	uploader   *agentattach.Uploader
+	referencer *agentattach.Referencer
 }
 
-// NewHandler 由 bootstrap 调用; feature 由 agentbridge.Bridge.For(smartsearch.Spec) 构造。
-func NewHandler(feature *agentbridge.FeatureBridge) *Handler {
+// NewHandler 由 bootstrap 调用; feature 由 agentbridge.Bridge.For(smartsearch.Spec) 构造;
+// libReader 与 claw / prism 共用同一个文献集只读 Reader (引用文献用)。
+func NewHandler(feature *agentbridge.FeatureBridge, libReader *library.Reader) *Handler {
 	labels := agentbridge.DefaultLabels()
 	// 用户可见文案: smart-search 偏"检索"语境
 	labels.AgentUnreachableOnGetSession = "智能搜索服务暂时不可用,请稍后重试"
@@ -33,8 +40,13 @@ func NewHandler(feature *agentbridge.FeatureBridge) *Handler {
 	labels.ContextEstimateFailed = "无法读取上下文用量"
 	labels.WSTicketFailed = "无法签发会话凭证,请稍后重试"
 
+	// smart_search 是单会话 feature (1 用户 1 行, get-or-create 复用): 请求缺 session_id
+	// 时**复用当前会话** (GetOrCreateSession), 而不是像 claw 那样新建 —— 否则每次上传都会
+	// 把用户唯一会话映射顶掉。
 	return &Handler{
-		inner: agentbridge.NewSessionHandler(feature, labels),
+		inner:      agentbridge.NewSessionHandler(feature, labels),
+		uploader:   agentattach.NewUploader(feature, feature.GetOrCreateSession),
+		referencer: agentattach.NewReferencer(feature, libReader, feature.GetOrCreateSession),
 	}
 }
 

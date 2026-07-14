@@ -21,15 +21,15 @@ import { isPhoneDevice } from '@/shared/lib/device';
 import { useJournalEnrichments } from '@/shared/api/journal-enrichment';
 import type { PaperAuthor, PaperSource, UpstreamSource } from '@/shared/api/types';
 import {
-  useClawLibraryFolders,
-  useClawLibraryPapers,
+  useLibraryBrowseFolders,
+  useLibraryBrowsePapers,
   effectivePaperAbstract,
   effectivePaperAuthorList,
   effectivePaperAuthors,
   effectivePaperTitle,
   effectivePaperVenue,
   effectivePaperYear,
-} from '../../api/library-browse';
+} from '@/shared/api/library-browse';
 
 export interface ReferenceSelection {
   paperIds: number[];
@@ -37,7 +37,7 @@ export interface ReferenceSelection {
 }
 
 /**
- * 「引用文献」选择器 —— 从用户文献集挑论文 / 整个文件夹引用进 claw 对话。
+ * 「引用文献」选择器 —— 从用户文献集挑论文 / 整个文件夹引用进 agent 对话(三 feature 共用,2026-07 从 claw 上提)。
  *   - 文件夹列表(每个带「引用整夹」勾选 + 点名字切换查看其论文)+ 该夹内论文(搜索 + 多选)
  *   - PC:居中 Dialog 两栏(文件夹左 / 论文右);移动端:底部抽屉,上下堆叠(文件夹上 / 论文下)
  *
@@ -56,7 +56,7 @@ export function LibraryReferencePicker({
   onConfirm: (sel: ReferenceSelection) => void;
   busy?: boolean;
 }) {
-  const foldersQ = useClawLibraryFolders(open);
+  const foldersQ = useLibraryBrowseFolders(open);
   const folders = foldersQ.data?.folders ?? [];
 
   const [activeFolder, setActiveFolder] = useState<number | null>(null);
@@ -78,7 +78,7 @@ export function LibraryReferencePicker({
     }
   }, [open, folders, activeFolder]);
 
-  const papersQ = useClawLibraryPapers(open ? activeFolder : null, { q });
+  const papersQ = useLibraryBrowsePapers(open ? activeFolder : null, { q });
   const papers = papersQ.data?.items ?? [];
 
   // 期刊分区/IF 增强 —— 按本页 venue 批量拉(同文献集 LibraryPaperList 的做法,缓存共享)。

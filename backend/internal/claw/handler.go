@@ -16,6 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"scholar-backend/internal/agentartifact"
+	"scholar-backend/internal/agentattach"
 	"scholar-backend/internal/agentbridge"
 	"scholar-backend/internal/common/errcode"
 	"scholar-backend/internal/common/utils"
@@ -32,16 +33,19 @@ const (
 
 type Handler struct {
 	feature      *agentbridge.FeatureBridge
-	uploader     *Uploader
-	referencer   *Referencer               // 引用用户文献集 → 物化进会话 cwd;libReader 为 nil 时不挂引用路由
+	uploader     *agentattach.Uploader
+	referencer   *agentattach.Referencer   // 引用用户文献集 → 物化进会话 cwd;libReader 为 nil 时不挂引用路由
 	artifactRepo *agentartifact.Repository // 成果交付物(MinIO)元数据访问;nil 时退化为实时回读
 }
 
 func NewHandler(feature *agentbridge.FeatureBridge, artifactRepo *agentartifact.Repository, libReader *library.Reader) *Handler {
+	// 上传 / 引用实现已泛化到 internal/agentattach (2026-07-14 三 feature 输入框统一),
+	// claw 这里只剩薄委托。resolveEmpty 传 nil = CreateNewSession,即 claw 原语义
+	// ("添加文件 = 开始新会话",前端 adopt 返回的 sessionId),行为不变。
 	return &Handler{
 		feature:      feature,
-		uploader:     NewUploader(feature),
-		referencer:   NewReferencer(feature, libReader),
+		uploader:     agentattach.NewUploader(feature, nil),
+		referencer:   agentattach.NewReferencer(feature, libReader, nil),
 		artifactRepo: artifactRepo,
 	}
 }

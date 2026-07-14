@@ -32,6 +32,11 @@ export interface SmartSearchHeroProps {
   loggedOut?: boolean;
   /** 已登录态:WS 是否就绪(未就绪禁用发送)。 */
   ready?: boolean;
+  /** 附件/引用装配插槽(2026-07 输入框统一)—— 原样转发 SmartComposer,起手即可带附件。 */
+  composerExtras?: Pick<
+    import('./SmartComposer').SmartComposerProps,
+    'plusSlot' | 'topExtras' | 'canSendEmpty' | 'onPaste' | 'containerProps' | 'overlay'
+  >;
 }
 
 export function SmartSearchHero({
@@ -40,6 +45,7 @@ export function SmartSearchHero({
   onSubmit,
   loggedOut = false,
   ready = true,
+  composerExtras,
 }: SmartSearchHeroProps) {
   const reduce = useReducedMotion();
   return (
@@ -74,6 +80,7 @@ export function SmartSearchHero({
             loggedOut={loggedOut}
             ready={ready}
             rotatingPlaceholders={SUGGESTIONS}
+            {...composerExtras}
           />
         </motion.div>
       </div>

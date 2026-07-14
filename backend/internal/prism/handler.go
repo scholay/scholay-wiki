@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"scholar-backend/internal/agentattach"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/usagestat"
 	"scholar-backend/internal/vip"
@@ -20,13 +21,21 @@ import (
 
 type Handler struct {
 	svc          *Service
-	statRecorder usagestat.Recorder // 功能使用统计录入器(bootstrap 注入;同 peerReview)
+	statRecorder usagestat.Recorder      // 功能使用统计录入器(bootstrap 注入;同 peerReview)
+	uploader     *agentattach.Uploader   // 输入框附件:上传(bootstrap SetAttach 注入;见 attach.go)
+	referencer   *agentattach.Referencer // 输入框附件:引用文献集
 }
 
 func NewHandler(svc *Service) *Handler { return &Handler{svc: svc} }
 
 // SetUsageStatRecorder 注入使用统计录入器。仅在 AI 编辑/修复成功产出提案时记一条(prism feature)。
 func (h *Handler) SetUsageStatRecorder(r usagestat.Recorder) { h.statRecorder = r }
+
+// SetAttach 注入输入框附件能力(2026-07-14 三 feature 输入框统一;实现在 internal/agentattach)。
+// 未注入时对应路由返回 503(见 attach.go)。
+func (h *Handler) SetAttach(up *agentattach.Uploader, rf *agentattach.Referencer) {
+	h.uploader, h.referencer = up, rf
+}
 
 // ownedProject 取 :id 项目并校验归属;失败已写响应,返回 (nil,false)。
 func (h *Handler) ownedProject(c *gin.Context) (*Project, uint, bool) {

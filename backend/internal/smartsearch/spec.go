@@ -122,8 +122,12 @@ func smartSearchSkillAddDir() string {
 // 自动批准,提示词里的「绝对禁令」形同虚设)。Bash 三件套由 SessionDisallowedTools(allowBash=false)
 // 另行并入。MultiEdit/NotebookEdit/LS/WebFetch/WebSearch/Task/Agent 当前不在 registry,列出是防御性
 // 兜底:一旦将来 registry 新增,smart_search 仍默认锁死,不必回来补。
+// 2026-07 输入框统一:接入文件上传与文献集引用(附件落会话隔离 cwd、引用物化 references/)
+// → **最小放开 Read**(否则模型对 @"path" 附件与 references/INDEX.md 全读不了,上传/引用是
+// 空头支票)。安全面不变:Read 在 backend permissionAllowed 按会话 cwd 做路径校验(越界一律拒),
+// 写类/检索类文件工具与联网/子任务仍全禁,MCP-only 检索纪律靠提示词 + 其余 denylist 维持。
 var smartSearchDisallowedTools = []string{
-	"Read", "Write", "Edit", "MultiEdit", "NotebookEdit", "Glob", "Grep", "LS",
+	"Write", "Edit", "MultiEdit", "NotebookEdit", "Glob", "Grep", "LS",
 	"WebFetch", "WebSearch", "Task", "Agent", "Skill",
 }
 

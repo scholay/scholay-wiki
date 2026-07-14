@@ -9,6 +9,7 @@
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
+import { useUploadAgentAttachment, useReferenceAgentLibrary } from '@/shared/api/agent-attach';
 import { STALE_FRESH } from '@/shared/lib/query-config';
 import { useAuthStore } from '@/stores/auth.store';
 import type {
@@ -16,7 +17,6 @@ import type {
   ClawContextSnapshot,
   ClawHistoryEntry,
   ReferenceItemDTO,
-  ReferenceResultDTO,
 } from './types';
 // TODO: 30s 没对应 STALE_* preset, 保留硬编码 (claw context 水位 + sessions list)。
 
@@ -168,71 +168,16 @@ export function useClawContext(
   });
 }
 
-// ─── 附件上传 ───────────────────────────────────────────────────────────
+// ─── 附件上传 / 引用文献 ────────────────────────────────────────────────
+// 2026-07 输入框统一:实现上提 @/shared/api/agent-attach(端点参数化,三 feature 共用),
+// 此处保留 claw 命名的薄封装(端点 = /user/claw/*),调用方零改动。
 
-/**
- * POST multipart /claw/upload, 返回 AttachmentDTO (方案 B)。
- *
- * 用法:
- *   const upload = useUploadClawAttachment();
- *   upload.mutateAsync({ file, sessionId }).then(att => { adopt(att.sessionId); add(att); });
- *
- * backend 把原始文件推到 agent 会话隔离 cwd, 返回落盘 path + sessionId:
- *   - sessionId 非空时透传 → 文件落到用户当前正在看的那个会话 (claw 多会话);
- *   - sessionId 为空 (新对话首次上传) → backend 新建会话并回传, 前端必须 adopt 它。
- * 图片额外在本地造一个 object URL 作预览 (后端不回 base64)。
- */
 export function useUploadClawAttachment() {
-  return useMutation<AttachmentDTO, Error, { file: File; sessionId?: string | null }>({
-    mutationFn: async ({ file, sessionId }) => {
-      const fd = new FormData();
-      fd.append('file', file);
-      if (sessionId) fd.append('session_id', sessionId);
-      try {
-        const { data } = await http.post<
-          { data?: AttachmentDTO } & Partial<AttachmentDTO>
-        >('/user/claw/upload', fd, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        const payload = unwrap<AttachmentDTO>(data);
-        if (!payload?.type || !payload?.path) throw new Error('后端未返回附件');
-        return payload.type === 'image'
-          ? { ...payload, previewUrl: URL.createObjectURL(file) }
-          : payload;
-      } catch (err) {
-        throw toApiError(err);
-      }
-    },
-  });
+  return useUploadAgentAttachment('/user/claw/upload');
 }
 
-/**
- * 引用文献集论文 / 文件夹 → 后端把资料物化进会话隔离 cwd 的 references/,返回 chip 元数据。
- * 同上传:sessionId 为空(新对话首次引用)→ 后端新建会话并回传,前端必须 adopt(onSessionEnsured)。
- */
 export function useReferenceClawLibrary() {
-  return useMutation<
-    ReferenceResultDTO,
-    Error,
-    { sessionId?: string | null; paperIds?: number[]; folderIds?: number[] }
-  >({
-    mutationFn: async ({ sessionId, paperIds, folderIds }) => {
-      try {
-        const { data } = await http.post<
-          { data?: ReferenceResultDTO } & Partial<ReferenceResultDTO>
-        >('/user/claw/reference', {
-          session_id: sessionId ?? '',
-          paper_ids: paperIds ?? [],
-          folder_ids: folderIds ?? [],
-        });
-        const payload = unwrap<ReferenceResultDTO>(data);
-        if (!payload?.items) throw new Error('后端未返回引用结果');
-        return payload;
-      } catch (err) {
-        throw toApiError(err);
-      }
-    },
-  });
+  return useReferenceAgentLibrary('/user/claw/reference');
 }
 
 // ─── 多会话 API (P5+: 侧边栏会话列表) ────────────────────────────────────

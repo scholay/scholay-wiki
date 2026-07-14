@@ -22,6 +22,7 @@ import (
 
 	"scholar-backend/internal/agent"
 	"scholar-backend/internal/agentartifact"
+	"scholar-backend/internal/agentattach"
 	"scholar-backend/internal/agentbridge"
 	"scholar-backend/internal/agentconfig"
 	"scholar-backend/internal/announcement"
@@ -538,6 +539,10 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 		safego.Go("seo-enrich-backfill", func() { seoEnricher.Start(context.Background()) })
 	}
 
+	// 文献集只读 Reader —— claw / smart-search / prism 的「引用文献」共用同一个
+	// (2026-07-14 三 feature 输入框统一, 实现见 internal/agentattach)。
+	libReader := library.NewReader(db)
+
 	// 智能写作 (Prism) handler —— 提前构造以注入功能使用统计录入器(同 peerReview/claw)。
 	// 项目自动起名已移到 agent 容器(agent 用前端带的 titleSeed 生成标题经 session_title_updated 帧回传,
 	// backend 经 prismFeature.OnTitleResult→handleAgentTitle 落库),故 NewService 不再要 ai.Service。
@@ -557,6 +562,12 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	prismService.StartBackgroundGC()  // 编译产物 GC(评审 #7):回收旧 prism_compiles 行 + pdf/log MinIO 对象
 	prismHandler := prism.NewHandler(prismService)
 	prismHandler.SetUsageStatRecorder(plat.usageStatService)
+	// 输入框附件(上传 / 引用文献)—— prism 会话 per-project, handler 自己解析会话后走
+	// agentattach 的 *ToSession 直通入口, 故 resolveEmpty 传 nil(不会被用到)。
+	prismHandler.SetAttach(
+		agentattach.NewUploader(prismFeature, nil),
+		agentattach.NewReferencer(prismFeature, libReader, nil),
+	)
 
 	// ---- 聚合 handlers ----
 	return &services{
@@ -588,11 +599,11 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 			clientLog:      clientlog.NewHandler(),
 			agentConfig:    agentconfig.NewHandler(agentConfigService),
 			modelCatalog:   modelcatalog.NewHandler(modelCatalogService),
-			smartSearch:    smartsearch.NewHandler(smartSearchFeature),
+			smartSearch:    smartsearch.NewHandler(smartSearchFeature, libReader),
 			peerReview:     peerReviewHandler,
 			memory:         usermemory.NewHandler(userMemoryService),
 			openAccess:     openaccess.NewHandler(),
-			claw:           claw.NewHandler(clawFeature, agentartifact.NewRepository(db), library.NewReader(db)),
+			claw:           claw.NewHandler(clawFeature, agentartifact.NewRepository(db), libReader),
 			skillMarket:    skillMarketHandler,
 			featureTool:    featureToolHandler,
 			agentBridge:    agentBridge, // 内网回调端点: agent 上报带外 token 用量 (title-gen 等)
