@@ -1,6 +1,6 @@
 // 路径限制(C5 修复):纯词法 resolve()+relative() 会被符号链接绕过(workDir 内 `ln -s /etc x`
 // 后读/写穿透宿主)。这里用 realpath 把「最深的已存在祖先」canonicalize 后断言落在 canonical workDir 内;
-// 写操作再对末段 lstat 拒符号链接(等价 O_NOFOLLOW)。SANDBOX_MODE=none(默认/本机)下这是唯一防线。
+// 写操作再对末段 lstat 拒符号链接(等价 O_NOFOLLOW)。沙箱自探失败(非生产裸跑)时这是唯一防线。
 
 import { resolve, relative, isAbsolute, dirname, basename } from "node:path";
 import { realpath, lstat } from "node:fs/promises";

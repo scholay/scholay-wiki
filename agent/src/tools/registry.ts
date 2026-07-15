@@ -256,11 +256,11 @@ const bashTool: BuiltinTool = {
   async run(input, ctx) {
     if (!ctx.allowBash) return fail("bash not permitted for this feature");
     // 生产 secure-by-default:未沙箱化的 Bash 在多租户下会跨会话读文件 / 经 /proc 偷密钥,拒绝执行。
-    // 能力本身保留 —— 开 bwrap(EXECUTOR_SANDBOX_MODE=bwrap)或显式放行(EXECUTOR_ALLOW_UNSANDBOXED_BASH=1)即恢复。
+    // 能力本身保留 —— 沙箱自探成功即自动恢复(修容器 seccomp);或显式放行(EXECUTOR_ALLOW_UNSANDBOXED_BASH=1,生产被硬锁)。
     const gate = unsandboxedBashGate();
     if (!gate.ok) return fail("bash disabled: " + gate.reason);
     try {
-      // SANDBOX_MODE=bwrap(仅生产真内核)→ 包进 bubblewrap jail;none(本机/默认)→ 直跑。
+      // 沙箱自探成功 → 包进 bubblewrap jail(强制,无开关);自探失败 → 直跑(此时已过 gate:仅非生产)。
       const profile = profileFor({ workDir: ctx.workDir, net: ctx.net, allowBash: ctx.allowBash });
       const argv = wrapBash(profile, String(input.command));
       const proc = Bun.spawn(argv, {

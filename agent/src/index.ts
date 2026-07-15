@@ -5,6 +5,7 @@
 import { handleHTTP } from "./server/http.ts";
 import { onOpen, onMessage, onClose, type WSData } from "./server/ws.ts";
 import { authOK, tokenConfigured } from "./auth.ts";
+import { sandboxMode } from "./sandbox/bwrap.ts";
 import { validSessionId } from "./sandbox/confine.ts";
 import { prewarm } from "./mcp/minicodClient.ts";
 import { unsandboxedBashGate } from "./sandbox/profile.ts";
@@ -20,8 +21,8 @@ const PORT = Number(process.env.PORT || 3456);
 if (process.env.NODE_ENV === "production" && process.env.EXECUTOR_ALLOW_UNSANDBOXED_BASH === "1") {
   log.error(
     "FATAL(prod hard-lock): 生产环境禁止设 EXECUTOR_ALLOW_UNSANDBOXED_BASH=1 —— 该 override 会让未沙箱化的 Bash " +
-      "在多租户下跨租户读文件/偷密钥,是坍缩模式的总开关。请改用 EXECUTOR_SANDBOX_MODE=bwrap(内核放开 unprivileged " +
-      "userns)获取隔离,或保持默认(Bash 由 secure-by-default 关闭)。拒绝启动。",
+      "在多租户下跨租户读文件/偷密钥,是坍缩模式的总开关。沙箱已无开关、启动自探即强制启用 —— 若自探失败,请修容器的 " +
+      "seccomp(挂 docker/seccomp/agent-bwrap.json)而不是放行裸 Bash。拒绝启动。",
   );
   process.exit(1);
 }
@@ -66,7 +67,7 @@ prewarm().catch(() => {});
 log.info("agent started (clean-room executor · provider-agnostic · WS+HTTP)", {
   port: server.port,
   auth: tokenConfigured() ? "bearer" : "open(dev)",
-  sandbox_mode: process.env.SANDBOX_MODE ?? "none",
+  sandbox_mode: sandboxMode(), // 自探结果(无开关)
 });
 
 // C4/secure-by-default:none 模式下 Bash 未进 bwrap 隔离(进程/网络)。生产 + 无沙箱 + 未显式放行时,
@@ -76,8 +77,8 @@ log.info("agent started (clean-room executor · provider-agnostic · WS+HTTP)", 
   const gate = unsandboxedBashGate();
   if (!gate.ok) {
     log.error("FATAL(secure-by-default):" + gate.reason + " —— Bash 工具将拒绝执行,claw 的文件转换能力不可用,直至启用 bwrap 或显式放行。");
-  } else if ((process.env.SANDBOX_MODE ?? "none") === "none") {
-    log.warn(`SANDBOX_MODE=none:Bash 未进 bwrap 隔离(放行原因:${gate.reason})。生产请设 EXECUTOR_SANDBOX_MODE=bwrap 拿进程/网络隔离。`);
+  } else if (sandboxMode() === "none") {
+    log.warn(`bwrap 自探失败:Bash 未进隔离(放行原因:${gate.reason})。请确认容器挂了 docker/seccomp/agent-bwrap.json。`);
   }
 }
 if (process.env.NODE_ENV === "production" && !tokenConfigured()) {

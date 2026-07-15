@@ -12,12 +12,46 @@
 // 跨租户文件遍历物理不可能(其它会话 cwd 根本不在 mount 命名空间里)。
 
 import { egressEnv } from "./egress.ts";
+import { log } from "../obs/log.ts";
 import type { SandboxProfile } from "./profile.ts";
 
 export type SandboxMode = "none" | "bwrap";
 
+// 沙箱**无开关**(2026-07-15):安全控制不该能被配置关掉 —— 旧的 SANDBOX_MODE=none 一旦误设,
+// 多租户下 Bash 立刻裸跑(跨会话读文件 / 偷密钥),而且没人会注意到。改为**启动自探**:
+//   探到 bwrap 真能建沙箱 → 所有 Bash 强制进 jail,无法绕过;
+//   探不到(缺二进制 / 裸机跑 bun / 别的发行版限制)→ 交给 unsandboxedBashGate:
+//     生产 fail-closed 关 Bash;非生产(单租户开发)裸跑 + 大声 warn。
+// 探测只在首次调用跑一次(spawnSync ~ms 级)并缓存。
+let sandboxProbe: SandboxMode | null = null;
+
 export function sandboxMode(): SandboxMode {
-  return process.env.SANDBOX_MODE === "bwrap" ? "bwrap" : "none";
+  if (sandboxProbe !== null) return sandboxProbe;
+  sandboxProbe = probeBwrap() ? "bwrap" : "none";
+  return sandboxProbe;
+}
+
+// probeBwrap:真跑一次最小 jail,确认本环境能建 user/mount 命名空间(而不是猜)。
+// 失败原因通常是 Docker 默认 seccomp 未放行 userns —— 见 docker/seccomp/agent-bwrap.json。
+function probeBwrap(): boolean {
+  try {
+    const r = Bun.spawnSync(["bwrap", "--unshare-all", "--ro-bind", "/", "/", "/bin/true"], {
+      stdout: "ignore",
+      stderr: "pipe",
+    });
+    if (r.exitCode === 0) return true;
+    log.error(
+      "FATAL(sandbox):bwrap 自探失败 —— 本环境建不了 user namespace,Bash 将按 secure-by-default 处理" +
+        "(生产=拒绝执行)。多半是容器 seccomp 未放行 clone/unshare(见 docker/seccomp/agent-bwrap.json 与 compose 的 security_opt)。",
+      { stderr: new TextDecoder().decode(r.stderr ?? new Uint8Array()).trim().slice(0, 200) },
+    );
+    return false;
+  } catch (e) {
+    log.error("FATAL(sandbox):bwrap 不可执行(二进制缺失?)—— Bash 按 secure-by-default 处理。", {
+      err: String((e as Error)?.message ?? e),
+    });
+    return false;
+  }
 }
 
 // buildBwrapArgv:把 inner argv 包进 bubblewrap。返回完整 spawn argv(以 "bwrap" 开头)。
@@ -67,7 +101,8 @@ export function buildBwrapArgv(profile: SandboxProfile, inner: string[]): string
   return args;
 }
 
-// wrapBash:据 SANDBOX_MODE 决定是否包 jail。none(本机/默认)= 直跑 bash(与 fork 一致)。
+// wrapBash:据**自探结果**决定是否包 jail(沙箱无开关)。探到即强制进 jail;探不到时 Bash
+// 是否还能跑由 unsandboxedBashGate 决定(生产 fail-closed)。
 export function wrapBash(profile: SandboxProfile, command: string): string[] {
   const inner = ["bash", "-lc", command];
   if (sandboxMode() === "bwrap") {
