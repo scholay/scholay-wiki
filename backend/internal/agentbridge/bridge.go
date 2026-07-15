@@ -863,6 +863,46 @@ func (f *FeatureBridge) PaginateSessionMessages(ctx context.Context, sessionID s
 	return &SessionMessagesResult{SessionID: sessionID, Messages: sliced, TotalTurns: total, HasMore: hasMore}, nil
 }
 
+// effectiveContextWindow 解析该会话「当前生效模型」的上下文窗口(pinned_model 优先且需过校验,
+// 否则退 chat_default 绑定)。0 = 目录未接线 / 模型未配窗口 → 调用方保留 executor 的全局兜底。
+// 与 hub.sendInitialModel 的解析口径一致,保证「水位表显示的窗口」== 「实际下发给 executor 的窗口」。
+func (f *FeatureBridge) effectiveContextWindow(userID uint, sessionID string) int {
+	cat := f.bridge.catalog
+	if cat == nil || f.bridge.repo == nil {
+		return 0
+	}
+	model := ""
+	if row, err := f.bridge.repo.FindByAgentSessionID(sessionID); err == nil && row != nil && row.PinnedModel != "" {
+		if cat.ValidateUserModel(userID, row.PinnedModel) == nil {
+			model = row.PinnedModel
+		}
+	}
+	if model == "" {
+		model = cat.Resolve("chat_default." + f.spec.Key)
+	}
+	if model == "" {
+		return 0
+	}
+	return cat.ContextWindow(model)
+}
+
+// applyModelContextWindow 用「当前生效模型的窗口」覆盖 est.MaxTokens 并重算百分比。
+// 事故修复(2026-07-15):executor 的 context 端点回的 maxTokens 是全局常量 EXECUTOR_CONTEXT_WINDOW
+// (128k),不随模型变 → 1M/256k 等异构窗口模型水位表全错、切模型不更新。这里按目录窗口纠偏。
+func (f *FeatureBridge) applyModelContextWindow(est *agent.SessionContextEstimate, userID uint, sessionID string) {
+	if est == nil {
+		return
+	}
+	if w := f.effectiveContextWindow(userID, sessionID); w > 0 {
+		est.MaxTokens = w
+		if est.TotalTokens > 0 {
+			est.Percentage = est.TotalTokens * 100 / w
+		} else {
+			est.Percentage = 0
+		}
+	}
+}
+
 // GetContextEstimate 透传上下文水位; 会话还没说过话时 agent 返回空 contextEstimate,
 // 这里以 (nil, sessionID, nil) 返回, 上层渲染成 0/maxTokens。agent 404 时同样自愈。
 func (f *FeatureBridge) GetContextEstimate(ctx context.Context, userID uint) (*agent.SessionContextEstimate, string, error) {
@@ -881,6 +921,7 @@ func (f *FeatureBridge) GetContextEstimate(ctx context.Context, userID uint) (*a
 		}
 		return nil, sessionID, fmt.Errorf("agent get context estimate: %w", err)
 	}
+	f.applyModelContextWindow(est, userID, sessionID)
 	return est, sessionID, nil
 }
 
@@ -900,6 +941,7 @@ func (f *FeatureBridge) GetContextEstimateByID(ctx context.Context, userID uint,
 		}
 		return nil, fmt.Errorf("agent get context estimate: %w", err)
 	}
+	f.applyModelContextWindow(est, userID, sessionID)
 	return est, nil
 }
 

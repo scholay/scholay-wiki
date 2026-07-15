@@ -766,11 +766,9 @@ type SessionContextEstimate struct {
 	Categories  json.RawMessage `json:"categories,omitempty"`
 }
 
-// agentInspectionResponse 对应 agent GET /api/sessions/:id/inspection,
-// 我们只关心 contextEstimate 这一段。
-type agentInspectionResponse struct {
-	ContextEstimate *SessionContextEstimate `json:"contextEstimate,omitempty"`
-}
+// 注:执行器 GET /api/sessions/:id/inspection 现返回**扁平** {totalTokens,maxTokens,percentage,model}
+// (旧版曾包在 {contextEstimate:{...}} 里)。此处直接反序列化进 SessionContextEstimate;历史上因
+// 契约漂移(执行器改扁平、后端仍解嵌套)导致水位一直解析成 nil、chip 从不显示(2026-07-15 修)。
 
 // GetSessionContextEstimate 取当前会话的上下文水位 (基于 transcript 中最新一条
 // assistant message 的 usage 字段计算)。会话还没产生过 assistant 回复时,
@@ -784,15 +782,20 @@ func (c *Client) GetSessionContextEstimate(ctx context.Context, sessionID string
 	}
 	ctx, cancel := context.WithTimeout(ctx, roundTripTimeout)
 	defer cancel()
-	var out agentInspectionResponse
+	var out SessionContextEstimate
 	if err := c.doJSON(ctx, http.MethodGet,
-		"/api/sessions/"+sessionID+"/inspection?contextOnly=1", nil, &out); err != nil {
+		"/api/sessions/"+sessionID+"/inspection", nil, &out); err != nil {
 		if isNotFoundErr(err) {
 			return nil, ErrSessionNotFound
 		}
 		return nil, err
 	}
-	return out.ContextEstimate, nil
+	// 执行器无 lastUsage(全新 / 重启后)时 totalTokens=0 → 视为"还没有用量",返回 nil
+	// 让前端按"无水位"处理(chip 不显示);有用量时才回估算。
+	if out.TotalTokens == 0 {
+		return nil, nil
+	}
+	return &out, nil
 }
 
 // EnqueueChatMessage 通过 REST 给 agent session 入队一条用户消息,
