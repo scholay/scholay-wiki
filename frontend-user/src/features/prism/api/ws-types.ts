@@ -28,7 +28,7 @@ export type PrismClientMessage =
 export type PrismServerMessage =
   | { type: 'connected'; sessionId: string }
   | { type: 'content_start'; blockType: 'text' | 'tool_use'; toolName?: string; toolUseId?: string }
-  | { type: 'content_delta'; text?: string; toolInput?: string }
+  | { type: 'content_delta'; text?: string; toolInput?: string; toolPath?: string }
   | { type: 'tool_use_complete'; toolName: string; toolUseId: string; input: unknown }
   | { type: 'tool_result'; toolUseId: string; content: unknown; isError: boolean }
   // aborted=true(V3-4.4-2,hub 盖章):本轮转发过 stop —— 半截稿不 autoApply,走确认门。

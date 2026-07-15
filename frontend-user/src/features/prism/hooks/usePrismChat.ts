@@ -10,7 +10,7 @@ import type {
   TurnReference,
 } from '@/shared/types/chat';
 import { buildReferenceBlock } from '@/shared/lib/agent-references';
-import type { ToolFileInput } from '../api/ws-types';
+import type { ToolFileInput, PrismServerMessage } from '../api/ws-types';
 import { usePrismSocket } from '../api/socket';
 import {
   applyRound,
@@ -84,6 +84,31 @@ function applyToolEditPreview(current: string, toolName: string, input: ToolFile
     return changed ? out : null;
   }
   return null;
+}
+
+// P1-1 逐 token 流式:从 socket.messages 推出「当前正在流式写入的 Write 的已到达明文 + 目标文件」。
+// 未在流式写 Write(或已 tool_use_complete)→ null。toolInput 已在 socket 层合并,故通常只碰到一条增长中的
+// content_delta。前向扫描记住「最后一个未闭合的 tool_use 块是否 Write + 其后累计的 toolInput + toolPath」。
+// 带上 path 让调用方校验写的是不是活动文件(references.bib/terminology.md 等非活动 Write 不污染活动预览)。
+function currentStreamingWrite(messages: PrismServerMessage[]): { content: string; path?: string } | null {
+  let openWrite = false;
+  let accum = '';
+  let path: string | undefined;
+  for (const m of messages) {
+    if (m.type === 'content_start' && m.blockType === 'tool_use') {
+      openWrite = m.toolName === 'Write';
+      accum = '';
+      path = undefined;
+    } else if (m.type === 'content_delta' && typeof m.toolInput === 'string' && openWrite) {
+      accum += m.toolInput;
+      if (typeof m.toolPath === 'string' && m.toolPath) path = m.toolPath;
+    } else if (m.type === 'tool_use_complete') {
+      openWrite = false;
+      accum = '';
+      path = undefined;
+    }
+  }
+  return openWrite && accum ? { content: accum, path } : null;
 }
 
 /** tool 入参 file_path 是否指向当前活动文件(agent 多为容器绝对路径,按 relPath 后缀 / basename 匹配)。 */
@@ -307,6 +332,22 @@ export function usePrismChat(
     }
     processedRef.current = msgs.length;
   }, [socket.messages, scheduleRefetch, finalizeRound, qc, projectId]);
+
+  // P1-1 逐 token 流式:流式期把当前 Write 的明文实时灌进 live.content → 右侧 PrismLivePreview 覆盖层
+  // 逐字长出(拔「工具调用→一直等→一次性出现」病灶)。**非增量**处理(toolInput 已被 socket 层合并成一条
+  // 增长中的 content_delta,增量循环 processedRef 不会重扫它)→ 每次 socket.messages 变就重新推导。
+  // 乐观假定写的是当前活动文件(prism agent 主写 document.md);轮末 tool_use_complete(带 fileMatchesActive
+  // 校验)+ tool_result refetch 会校正。live 为 null(未铺源)则不动。
+  useEffect(() => {
+    const streaming = currentStreamingWrite(socket.messages);
+    if (!streaming) return;
+    // 只在写的是**活动文件**时灌预览:path 已知且不匹配活动文件 → 不动(避免 references.bib/terminology.md
+    // 等非活动 Write 把活动文件预览污染成错内容数秒,review #2);path 未知(极少,file_path 晚于 content)
+    // → 回落乐观(prism 主写 document.md)。
+    const active = activeRef.current?.relPath ?? 'document.md';
+    if (streaming.path && !fileMatchesActive(streaming.path, active)) return;
+    setLive((prev) => (prev ? { ...prev, content: streaming.content } : prev));
+  }, [socket.messages]);
 
   // send:铺源 → 截 baseline → WS 发指令。active = 当前编辑文件(relPath + DB 正文)。
   // titleSeed(可选)= 本轮「干净原始指令」(不含聚焦选区提示),透传给 agent 用于项目自动起名。

@@ -7,6 +7,7 @@ import { anthropicClientFromProvider } from "../anthropic/client.ts";
 import { resolveTier } from "../config/models.ts";
 import { buildTools } from "../tools/toAnthropicTools.ts";
 import { ToolUseAssembler } from "./assembleToolUse.ts";
+import { extractStreamingFieldValue, FieldStreamer, streamFieldFor } from "./streamText.ts";
 import { runTools } from "./runTools.ts";
 import type { EventSink, TurnInput } from "./types.ts";
 import { loadAddDirContext } from "../skills/loader.ts";
@@ -196,6 +197,11 @@ export async function runTurn(
         signal ? { signal } : undefined,
       );
       const assembler = new ToolUseAssembler();
+      // P1-1:per-block(content_block index)的流式明文抽取器 + 目标文件缓存。每轮新流 index 从 0 起,
+      // 故随 assembler 一起每轮新建。FieldStreamer 有状态、O(N) 只发增量;toolPath 让前端能校验写的是不是
+      // 活动文件(references.bib/terminology.md 等非活动文件不污染活动文件预览,review #2)。
+      const streamers = new Map<number, FieldStreamer>();
+      const toolPaths = new Map<number, string>();
 
       // 流式迭代与 finalMessage 必须同一个 try:OpenAI 适配层(及 SDK 网络层)的失败可能从
       // 迭代器本身 throw —— 若不接住,会越过本函数直接进 finally 的终帧守卫,先发出一个
@@ -218,7 +224,34 @@ export async function runTurn(
             const d = ev.delta as { type: string; text?: string; thinking?: string; partial_json?: string };
             if (d.type === "text_delta" && d.text) sink.frame({ type: "content_delta", text: d.text });
             else if (d.type === "thinking_delta" && d.thinking) sink.frame({ type: "thinking", text: d.thinking });
-            else if (d.type === "input_json_delta" && d.partial_json !== undefined) assembler.push(ev.index, d.partial_json);
+            else if (d.type === "input_json_delta" && d.partial_json !== undefined) {
+              assembler.push(ev.index, d.partial_json);
+              // P1-1 逐 token 流式:若这是 Write,把 content 已解出的**明文增量**作为 content_delta.toolInput
+              // 发出 → 前端右侧文档面逐字长出。有状态抽取器只解新字节(O(N));顺带带上目标文件 toolPath
+              // 供前端校验(非活动文件不污染活动预览)。后端已就绪(不 journal 无 text 的 content_delta、
+              // 也不当文本合并);前端 socket 合并相邻 toolInput、prism 消费喂预览。
+              const meta = assembler.peek(ev.index);
+              const field = meta && streamFieldFor(meta.name);
+              if (meta && field) {
+                let streamer = streamers.get(ev.index);
+                if (!streamer) {
+                  streamer = new FieldStreamer(field);
+                  streamers.set(ev.index, streamer);
+                }
+                const inc = streamer.push(meta.json);
+                if (inc) {
+                  let path = toolPaths.get(ev.index);
+                  if (!path) {
+                    const p = extractStreamingFieldValue(meta.json, "file_path"); // 短、早于 content 完成
+                    if (p) {
+                      path = p;
+                      toolPaths.set(ev.index, p);
+                    }
+                  }
+                  sink.frame({ type: "content_delta", toolInput: inc, toolPath: path });
+                }
+              }
+            }
           } else if (ev.type === "content_block_stop") {
             if (assembler.isTool(ev.index)) {
               const tu = assembler.close(ev.index);

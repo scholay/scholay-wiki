@@ -23,6 +23,12 @@ export class ToolUseAssembler {
     return this.blocks.has(index);
   }
 
+  /** peek:不关闭地读当前累积状态(工具名 + 已累积的 partial JSON),供流式明文预览抽取。 */
+  peek(index: number): { name: string; json: string } | null {
+    const b = this.blocks.get(index);
+    return b ? { name: b.name, json: b.json } : null;
+  }
+
   close(index: number): AssembledTool | null {
     const b = this.blocks.get(index);
     if (!b) return null;

@@ -8,6 +8,10 @@
 export interface AgentStreamMessage {
   type: string;
   text?: string;
+  /** content_delta 上的工具入参流(P1-1 逐 token 流式:Write.content 的明文增量)。 */
+  toolInput?: string;
+  /** 该 toolInput 流所写的目标文件(供前端校验是不是活动文件,避免非活动文件污染活动预览)。 */
+  toolPath?: string;
 }
 
 // ── 共享「控制/元帧」契约(架构报告 M4 / Theme 3)──────────────────────────
@@ -88,6 +92,24 @@ export function appendStreamMessage<T extends AgentStreamMessage>(prev: T[], evt
     const last = prev[prev.length - 1];
     if (last && last.type === 'content_delta' && typeof last.text === 'string') {
       return [...prev.slice(0, -1), { ...last, text: last.text + evt.text } as T];
+    }
+  }
+  // P1-1:同样合并相邻的 toolInput content_delta(Write.content 流式逐 token 会推成百上千帧,
+  //   不合并则 socket.messages 撑成 O(token)、上层每帧全量重折叠 ⇒ O(N²))。只并「都带 toolInput、
+  //   不带 text」的相邻 delta,不与文本流互相误并。
+  if (evt.type === 'content_delta' && typeof evt.toolInput === 'string' && typeof evt.text !== 'string') {
+    const last = prev[prev.length - 1];
+    if (
+      last &&
+      last.type === 'content_delta' &&
+      typeof last.toolInput === 'string' &&
+      typeof last.text !== 'string'
+    ) {
+      // 保留 toolPath(增量帧后续才带到,或首帧带、后续省;取任一非空)。
+      return [
+        ...prev.slice(0, -1),
+        { ...last, toolInput: last.toolInput + evt.toolInput, toolPath: last.toolPath ?? evt.toolPath } as T,
+      ];
     }
   }
   return [...prev, evt];
