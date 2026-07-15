@@ -468,6 +468,10 @@ export function useClawConversation() {
             name: a.name,
             mimeType: a.mimeType,
             size: a.size,
+            path: a.path,
+            // 已发送气泡里图片显示缩略图 + 点击放大(与 lazy 新建 / blocked 恢复 / 历史回放一致)。
+            // 此前已有 session 的正常发送路径漏了 path/previewUrl → 图片掉成文件名胶囊(用户反馈)。
+            previewUrl: a.type === 'image' && a.path ? clawSessionFileUrl(a.sessionId, a.path) : undefined,
           })),
         },
       ]);

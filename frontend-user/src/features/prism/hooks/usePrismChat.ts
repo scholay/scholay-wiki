@@ -322,6 +322,8 @@ export function usePrismChat(
       }));
       const turnAtts: TurnAttachment[] = atts.map((a) => ({
         type: a.type, name: a.name, mimeType: a.mimeType, size: a.size, path: a.path,
+        // 已发送气泡里图片缩略图 —— 接 composer 本地 blob URL(刷新前有效;回放缩略图待端点 follow-up)。
+        previewUrl: a.previewUrl,
       }));
       setPendingTurns((prev) => [...prev, {
         id: nextId(),
