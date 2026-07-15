@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Cpu, Lock } from 'lucide-react';
+import { Check, ChevronDown, Lock, Sparkles } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import {
   DropdownMenu,
@@ -50,7 +50,7 @@ export function ModelSelector({
           className="h-8 gap-1 px-2 text-xs text-muted-foreground max-w-36"
           title="选择模型"
         >
-          <Cpu className="size-3.5 shrink-0" />
+          <Sparkles className="size-3.5 shrink-0 text-brand-green" />
           <span className="truncate hidden sm:inline">{triggerLabel}</span>
           <ChevronDown className="size-3 shrink-0 opacity-60" />
         </Button>

@@ -35,7 +35,7 @@ export interface SmartSearchHeroProps {
   /** 附件/引用装配插槽(2026-07 输入框统一)—— 原样转发 SmartComposer,起手即可带附件。 */
   composerExtras?: Pick<
     import('./SmartComposer').SmartComposerProps,
-    'plusSlot' | 'topExtras' | 'canSendEmpty' | 'onPaste' | 'containerProps' | 'overlay'
+    'plusSlot' | 'topExtras' | 'canSendEmpty' | 'onPaste' | 'containerProps' | 'overlay' | 'modelSlot'
   >;
 }
 

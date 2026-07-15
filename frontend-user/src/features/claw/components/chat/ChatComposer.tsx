@@ -208,22 +208,20 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
           </>
         }
         leftActions={
-          <>
-            {modelSlot}
-            <ComposerPlusMenu
-              disabled={disabled || att.uploading}
-              accept={ATTACHMENT_ACCEPT}
-              onFiles={(files) => void att.addFiles(files)}
-              onPickLibrary={() => {
-                if (requireAuth) {
-                  onRequireAuth?.();
-                  return;
-                }
-                setPickerOpen(true);
-              }}
-            />
-          </>
+          <ComposerPlusMenu
+            disabled={disabled || att.uploading}
+            accept={ATTACHMENT_ACCEPT}
+            onFiles={(files) => void att.addFiles(files)}
+            onPickLibrary={() => {
+              if (requireAuth) {
+                onRequireAuth?.();
+                return;
+              }
+              setPickerOpen(true);
+            }}
+          />
         }
+        rightActions={modelSlot}
       />
 
       {/* 附件放大预览 */}

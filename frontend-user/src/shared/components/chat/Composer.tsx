@@ -59,8 +59,10 @@ export interface ComposerProps {
   context?: ComposerContextInfo | null;
   /** 顶部 chips 区(附件预览/引用文献/引用选区)。 */
   topSlot?: ReactNode;
-  /** 底部工具栏左侧(上传/引用文献/新对话/能力菜单等 feature 按钮)。 */
+  /** 底部工具栏左侧(上传/引用文献/新对话/能力菜单等 feature 按钮)。「+」号一类留左边。 */
   leftActions?: ReactNode;
+  /** 底部工具栏右侧(发送键左邻,右对齐组):模型选择器一类放这里 —— 与主流 AI 对话框一致。 */
+  rightActions?: ReactNode;
   /** 拖拽蒙层等覆盖层(绝对定位,feature 自管显隐)。 */
   overlay?: ReactNode;
   /** 容器级事件(拖拽上传的 onDragEnter、onDrop 等)。 */
@@ -91,6 +93,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     context,
     topSlot,
     leftActions,
+    rightActions,
     overlay,
     containerProps,
     onPaste,
@@ -187,10 +190,11 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
         />
       </div>
 
-      {/* 底部工具栏:左 feature 按钮 | 撑开 | 水位 | 发送/停止/登录 */}
+      {/* 底部工具栏:左 feature 按钮(+号等)| 撑开 | 右侧控件(模型选择器)| 水位 | 发送/停止/登录 */}
       <div className="flex items-center gap-1">
         {leftActions}
         <span className="flex-1" />
+        {rightActions}
         {context && context.totalTokens > 0 && (
           <ContextMeter
             totalTokens={context.totalTokens}

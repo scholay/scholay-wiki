@@ -203,6 +203,7 @@ export function SmartSearchPanel() {
 
   // ── 附件/引用装配插槽(hero 与底栏两个 SmartComposer 共用同一份)────────────────
   const composerExtras = {
+    modelSlot,
     plusSlot: (
       <ComposerPlusMenu
         disabled={att.uploading}
@@ -660,7 +661,6 @@ export function SmartSearchPanel() {
                   onResetClick={() => setResetOpen(true)}
                   resetDisabled={!sessionId || reset.isPending || busy}
                   resetPending={reset.isPending}
-                  modelSlot={modelSlot}
                   {...composerExtras}
                 />
               </motion.div>

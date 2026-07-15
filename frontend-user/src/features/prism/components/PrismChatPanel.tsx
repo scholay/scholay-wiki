@@ -241,16 +241,6 @@ export function PrismChatPanel({
                 onFiles={(files) => void att.addFiles(files)}
                 onPickLibrary={() => setPickerOpen(true)}
               />
-              {/* P2 模型目录:会话模型选择器(服务端权威,hub 广播回显) */}
-              {userModels && userModels.length > 0 && (
-                <ModelSelector
-                  models={userModels}
-                  current={chat.sessionModel}
-                  onSelect={chat.setModel}
-                  onUpgrade={() => { window.location.href = '/pricing'; }}
-                  disabled={blocked}
-                />
-              )}
               <button
                 type="button"
                 onClick={chat.newChat}
@@ -262,6 +252,18 @@ export function PrismChatPanel({
               {/* ✨ 写作能力菜单:有对话后引导的常驻收纳处(空态卡片的全集) */}
               {menu && <PrismWritingMenuButton {...menu} disabled={menu.disabled || blocked} />}
             </>
+          }
+          rightActions={
+            /* P2 模型目录:会话模型选择器(服务端权威,hub 广播回显)—— 右侧,与主流 AI 对话框一致 */
+            userModels && userModels.length > 0 ? (
+              <ModelSelector
+                models={userModels}
+                current={chat.sessionModel}
+                onSelect={chat.setModel}
+                onUpgrade={() => { window.location.href = '/pricing'; }}
+                disabled={blocked}
+              />
+            ) : undefined
           }
         />
       </div>

@@ -119,10 +119,9 @@ export function SmartComposer({
       overlay={overlay}
       topSlot={topExtras}
       leftActions={
-        onResetClick || modelSlot || plusSlot ? (
+        onResetClick || plusSlot ? (
           <>
             {plusSlot}
-            {modelSlot}
             {onResetClick && (
               <button
                 type="button"
@@ -138,6 +137,7 @@ export function SmartComposer({
           </>
         ) : undefined
       }
+      rightActions={modelSlot}
     />
   );
 }
