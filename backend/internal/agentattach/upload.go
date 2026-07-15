@@ -94,6 +94,14 @@ func NewUploader(feature *agentbridge.FeatureBridge, resolveEmpty SessionResolve
 	return u
 }
 
+// Feature 暴露底层 FeatureBridge(prism 的取图端点复用它调 GetWorkspaceFile;nil 时表示未注入)。
+func (u *Uploader) Feature() *agentbridge.FeatureBridge {
+	if u == nil {
+		return nil
+	}
+	return u.feature
+}
+
 // WithSubdir 设置落盘子目录(链式;非法段被忽略并回落根目录)。
 func (u *Uploader) WithSubdir(dir string) *Uploader {
 	if subdirRe.MatchString(dir) {

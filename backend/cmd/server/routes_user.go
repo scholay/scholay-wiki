@@ -192,6 +192,7 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 			// 输入框统一);会话 per-project,handler 内解析。上传走通用 UploadLimitMiddleware。
 			prismG.POST("/projects/:id/upload", middleware.UploadLimitMiddleware(middleware.UploadMaxBodySize), h.prism.UploadAttachment)
 			prismG.POST("/projects/:id/reference", h.prism.ReferenceLibrary)
+			prismG.GET("/projects/:id/session/file", h.prism.GetSessionImage) // 历史回放图片缩略图/放大(cookie 鉴权)
 			// AI 对话走下面独立挂的 /prism/ws/:sessionId;这里是轮次边界 HTTP 端点。
 			prismG.POST("/projects/:id/ws-ticket", h.prism.IssueWSTicket)
 			prismG.POST("/projects/:id/session/reset", h.prism.ResetSession) // 手动重开会话(V3-4.6-1:文稿零损失)
@@ -274,6 +275,7 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		// (2026-07-14 三 feature 输入框统一)。上传同样走通用 UploadLimitMiddleware。
 		userProtected.POST("/smart-search/upload", middleware.UploadLimitMiddleware(middleware.UploadMaxBodySize), h.smartSearch.UploadAttachment)
 		userProtected.POST("/smart-search/reference", h.smartSearch.ReferenceLibrary)
+		userProtected.GET("/smart-search/session/file", h.smartSearch.GetSessionFile) // 历史回放图片缩略图/放大(cookie 鉴权)
 
 		// 智能审稿 v3 —— 投稿 wizard + 审稿记录 + agent 编排的 4 份报告。
 		// 路由表见 internal/peerreview/routes.go, 全部需要登录。

@@ -21,6 +21,7 @@ import {
   rejectRound,
   usePrismContext,
   type PrismPendingFile,
+  prismSessionFileUrl,
 } from '../api/prism';
 import { foldHistoryToTurns, foldPrismMessages } from '../components/chat/fold';
 
@@ -106,6 +107,21 @@ function fileMatchesActive(filePath: string | undefined, relPath: string): boole
 export interface PrismSendExtras {
   attachments?: AttachmentDTO[];
   references?: ReferenceItemDTO[];
+}
+
+/** 历史回放:给图片附件补 previewUrl(指向 /prism/projects/:id/session/file 取图代理,cookie 鉴权)。 */
+function withPrismImagePreviews(turns: Turn[], projectId: number): Turn[] {
+  return turns.map((turn) => {
+    if (!turn.userAttachments?.length) return turn;
+    return {
+      ...turn,
+      userAttachments: turn.userAttachments.map((a) =>
+        a.type === 'image' && a.path && !a.previewUrl
+          ? { ...a, previewUrl: prismSessionFileUrl(projectId, a.path) }
+          : a,
+      ),
+    };
+  });
 }
 
 export function usePrismChat(
@@ -322,8 +338,8 @@ export function usePrismChat(
       }));
       const turnAtts: TurnAttachment[] = atts.map((a) => ({
         type: a.type, name: a.name, mimeType: a.mimeType, size: a.size, path: a.path,
-        // 已发送气泡里图片缩略图 —— 接 composer 本地 blob URL(刷新前有效;回放缩略图待端点 follow-up)。
-        previewUrl: a.previewUrl,
+        // 已发送气泡里图片缩略图 —— 用后端取图代理 URL(与历史回放一致,刷新后仍有效)。
+        previewUrl: a.type === 'image' && a.path ? prismSessionFileUrl(projectId, a.path) : undefined,
       }));
       setPendingTurns((prev) => [...prev, {
         id: nextId(),
@@ -400,7 +416,7 @@ export function usePrismChat(
     (async () => {
       const res = await fetchWSHistory(projectId, DEFAULT_HISTORY_TURNS).catch(() => null);
       if (cancelled) return;
-      setHistoryTurns(foldHistoryToTurns(res?.messages ?? []));
+      setHistoryTurns(withPrismImagePreviews(foldHistoryToTurns(res?.messages ?? []), projectId));
       setHasMoreHistory(res?.hasMore ?? false);
       const pending = await fetchPendingRound(projectId).catch(() => ({ files: [] as PrismPendingFile[], epoch: '' }));
       if (cancelled || pending.files.length === 0) return;

@@ -39,6 +39,7 @@ import {
   useSmartSearchHistory,
   useSmartSearchSession,
   useSmartSearchSocket,
+  smartSearchSessionFileUrl,
 } from '../../api/smart-search';
 import { AssistantTurn } from './AssistantTurn';
 import { SmartComposer, COMPOSER_LAYOUT_ID, composerDockTransition } from './SmartComposer';
@@ -70,6 +71,23 @@ const RENDER_STEP = 60;
  *  避免上万轮 transcript 一次性 JSON.parse + 折叠。后端 sliceRecentTurns 按 ?limit= 切。 */
 const HISTORY_WINDOW = 100;
 const HISTORY_STEP = 100;
+
+/** 历史回放:给图片附件补 previewUrl(指向 /smart-search/session/file 取图代理,cookie 鉴权)。
+ *  transcript 里图片只剩 @path,刷新后靠这个显示缩略图 + 点击放大。只处理 type=image 且有 path 未补的。 */
+function withHistoryImagePreviews(turns: Turn[], sessionId: string | null): Turn[] {
+  if (!sessionId) return turns;
+  return turns.map((turn) => {
+    if (!turn.userAttachments?.length) return turn;
+    return {
+      ...turn,
+      userAttachments: turn.userAttachments.map((a) =>
+        a.type === 'image' && a.path && !a.previewUrl
+          ? { ...a, previewUrl: smartSearchSessionFileUrl(sessionId, a.path) }
+          : a,
+      ),
+    };
+  });
+}
 
 export function SmartSearchPanel() {
   const token = useAuthStore((s) => s.token);
@@ -235,8 +253,8 @@ export function SmartSearchPanel() {
 
   // 历史 turns: 只在 history 数据变化时重建一次。
   const historyTurns = useMemo<Turn[]>(
-    () => replayHistoryAsTurns(historyQuery.data?.messages),
-    [historyQuery.data]
+    () => withHistoryImagePreviews(replayHistoryAsTurns(historyQuery.data?.messages), sessionId),
+    [historyQuery.data, sessionId]
   );
 
   // 断线续流: 重连命中 in-flight 轮时, agent 回放本轮事件并下发 resync_user(本轮用户文本)。
@@ -399,9 +417,8 @@ export function SmartSearchPanel() {
       mimeType: a.mimeType,
       size: a.size,
       path: a.path,
-      // 已发送气泡里图片显示缩略图 —— 接 composer 本地 blob URL(刷新前有效;smart-search 无后端
-      // 取图端点,回放缩略图待各自端点 follow-up)。
-      previewUrl: a.previewUrl,
+      // 已发送气泡里图片缩略图 —— 用后端取图代理 URL(与历史回放一致,刷新后仍有效)。
+      previewUrl: a.type === 'image' && a.path ? smartSearchSessionFileUrl(a.sessionId, a.path) : undefined,
     }));
     const wsAttachments = att.attachments.map((a) => ({
       type: a.type,

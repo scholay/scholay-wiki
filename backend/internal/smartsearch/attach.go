@@ -16,8 +16,11 @@
 package smartsearch
 
 import (
+	"strings"
+
 	"github.com/gin-gonic/gin"
 
+	"scholar-backend/internal/agentattach"
 	"scholar-backend/internal/common/errcode"
 	"scholar-backend/internal/common/utils"
 )
@@ -54,4 +57,31 @@ func (h *Handler) ReferenceLibrary(c *gin.Context) {
 		return
 	}
 	utils.Success(c, res)
+}
+
+// GetSessionFile — GET /smart-search/session/file?session_id=<id>&path=<rel>
+// 历史回放里图片缩略图/放大的取图代理(cookie 鉴权,<img src> 直接用)。校验会话归属后
+// 交 agentattach.ServeSessionImage 回写图片字节。非图片/不属于你 → 404。
+func (h *Handler) GetSessionFile(c *gin.Context) {
+	userID := c.GetUint("user_id")
+	sessionID := strings.TrimSpace(c.Query("session_id"))
+	if sessionID == "" {
+		utils.BadRequest(c, "missing session_id")
+		return
+	}
+	feature := h.uploader.Feature()
+	if feature == nil {
+		utils.Error(c, 503, "附件能力未启用")
+		return
+	}
+	owns, err := feature.OwnsSession(userID, sessionID)
+	if err != nil {
+		utils.InternalError(c, errcode.AgentUnreachable, "会话校验失败,请稍后重试", err)
+		return
+	}
+	if !owns {
+		utils.Error(c, 4404, "会话不存在或不属于你")
+		return
+	}
+	agentattach.ServeSessionImage(c, feature, sessionID, c.Query("path"))
 }

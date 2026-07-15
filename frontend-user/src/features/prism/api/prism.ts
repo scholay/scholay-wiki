@@ -728,3 +728,16 @@ export async function fetchWSHistory(projectId: number, limitTurns?: number): Pr
     hasMore: d?.hasMore ?? false,
   };
 }
+
+/** prism 历史回放/已发送气泡里图片取图代理 URL(cookie 鉴权,<img src> 直接用)。
+ *  端点 per-project(会话由 :id 解析);path 取 basename。 */
+export function prismSessionFileUrl(projectId: number, absPath: string): string {
+  const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+  // prism 附件落会话 cwd 的 uploads/ 子目录 —— 取「相对会话 cwd」的路径(而非 basename),
+  // 否则后端按根目录找不到。绝对路径形如 /home/bun/sessions/<uuid>/uploads/<file>。
+  const parts = absPath.split('/');
+  const i = parts.indexOf('sessions');
+  const rel = i >= 0 && parts.length > i + 2 ? parts.slice(i + 2).join('/') : parts.pop() || absPath;
+  const qs = new URLSearchParams({ path: rel });
+  return `${apiBase}/user/prism/projects/${projectId}/session/file?${qs.toString()}`;
+}

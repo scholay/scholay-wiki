@@ -364,3 +364,12 @@ export function useSmartSearchSocket(sessionId: string | null): UseSmartSearchSo
     displacedDefaultText: '此会话已在其他窗口打开',
   });
 }
+
+/** 历史回放/已发送气泡里图片取图代理 URL(cookie 鉴权,<img src> 直接用,标签发不了 Bearer)。
+ *  path 取 basename(上传文件落会话 cwd 根,agent 侧再校验越界)。同 claw 的 clawSessionFileUrl。 */
+export function smartSearchSessionFileUrl(sessionId: string, absPath: string): string {
+  const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+  const base = absPath.split('/').pop() || absPath;
+  const qs = new URLSearchParams({ session_id: sessionId, path: base });
+  return `${apiBase}/user/smart-search/session/file?${qs.toString()}`;
+}

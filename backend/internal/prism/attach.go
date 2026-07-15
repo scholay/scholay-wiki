@@ -24,9 +24,11 @@ package prism
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
+	"scholar-backend/internal/agentattach"
 	"scholar-backend/internal/common/errcode"
 	"scholar-backend/internal/common/utils"
 )
@@ -93,4 +95,27 @@ func (h *Handler) ReferenceLibrary(c *gin.Context) {
 		return
 	}
 	utils.Success(c, res)
+}
+
+// GetSessionImage — GET /prism/projects/:id/session/file?path=<rel>
+// 历史回放里图片缩略图/放大的取图代理。只读归属校验(不挡冻结项目 —— 旧项目的对话图片也该能看),
+// 解析该项目已有 agent 会话(无会话=无图片 → 404),交 agentattach.ServeSessionImage 回写。
+func (h *Handler) GetSessionImage(c *gin.Context) {
+	if h.uploader == nil {
+		utils.Error(c, http.StatusServiceUnavailable, "附件能力未启用")
+		return
+	}
+	p, _, ok := h.ownedProject(c)
+	if !ok {
+		return // ownedProject 已写响应
+	}
+	sessionID := ""
+	if p.AgentSessionID != nil {
+		sessionID = strings.TrimSpace(*p.AgentSessionID)
+	}
+	if sessionID == "" {
+		utils.NotFound(c, "文件不存在")
+		return
+	}
+	agentattach.ServeSessionImage(c, h.uploader.Feature(), sessionID, c.Query("path"))
 }
