@@ -414,11 +414,12 @@ export function PrismWorkspace({ projectId, onBack, readOnly = false, onOpen }: 
               </div>
             )}
             {compileError ? (
-              <div className="m-3 rounded-md border border-brand-red/30 bg-danger-soft p-3 text-xs text-brand-red">
+              // 可恢复状态 → 琥珀软提示(与 V2 一致,对齐全站 amber 约定)。
+              <div className="m-3 rounded-md border border-brand-amber/30 bg-warning-soft p-3 text-xs text-brand-amber">
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
                   <div className="min-w-0">
-                    <p className="font-bold">编译失败</p>
+                    <p className="font-bold">本次编译未通过</p>
                     <p className="mt-1 break-words text-subtle">{compileError}</p>
                   </div>
                 </div>

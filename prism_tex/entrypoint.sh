@@ -72,9 +72,14 @@ compile_one() {
     if [ "$code" -eq 124 ] || [ "$code" -eq 137 ]; then
       echo "编译超时或资源超限(>${TIMEOUT}s,可尝试精简图表 / 减少 pgfplots 数据点)" > "$dir/error.txt"
     else
-      # 取第一条有意义的报错行(latexmk/tex 后续多为级联,首条最有用)。
-      grep -m1 -E '^! |^!|Error|Undefined|Emergency stop|Fatal' "$dir/$log" 2>/dev/null \
-        | head -1 | cut -c1-480 > "$dir/error.txt" || true
+      # 取第一条有意义的报错行,**按优先级**(修裸 "Latexmk: Errors":旧 grep 的 `Error` 无锚点,
+      # 会命中 latexmk 自己那句无信息量的总结行)。优先级:
+      #   ① TeX 引擎 `! ` 行(最有用)→ ② bibtex/package/runaway 阶段错(无 `! ` 的窄类别)
+      #   → ③ 最后才 latexmk/其它 Error 总结兜底。
+      err=$(grep -m1 -E '^! ' "$dir/$log" 2>/dev/null | head -1)
+      [ -z "$err" ] && err=$(grep -m1 -E "I was expecting|Package [^ ]+ Error|Runaway argument|Emergency stop|Fatal error|Undefined control sequence|not found" "$dir/$log" 2>/dev/null | head -1)
+      [ -z "$err" ] && err=$(grep -m1 -E 'Error|Errors' "$dir/$log" 2>/dev/null | head -1)
+      printf '%s' "$err" | cut -c1-480 > "$dir/error.txt" || true
       [ -s "$dir/error.txt" ] || echo "编译失败(exit=$code)" > "$dir/error.txt"
     fi
   fi

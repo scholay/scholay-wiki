@@ -33,13 +33,17 @@ const agentName = "scholay-prism"
 const PromptSlug = "scholay-prism-v1"
 const PromptName = "Scholay 智能写作 · 默认 prompt"
 
-// prism 会话禁用的工具:起子 agent(Task/Agent 旁路裁决)/ NotebookEdit。
+// prism 会话禁用的工具:起子 agent(Task/Agent 旁路裁决)/ NotebookEdit / ExportDocument。
 // 放开 Read/Glob/Grep + Write/Edit —— agent 在会话 cwd 里原生读写,写被 decidePermission
 // 限定在 cwd 内(越界拒)。仍可用 mcp__minicod__*。Skill 未禁用 → 可加载下方写作 skill。
 // (V3 勘误:执行器 builtin 无 MultiEdit,此前注释与实现漂移;Read 已支持 offset/limit 局部读。)
 // C1 (2026-06): Bash 三件套(Bash/BashOutput/KillShell)由 prismSessionOptions 经
 // agentbridge.SessionDisallowedTools(allowBash=false) 统一补齐,这里只列「非 Bash」的额外禁用项。
-var prismDisallowedTools = []string{"NotebookEdit", "Task", "Agent"}
+// P0-4 (2026-07): 禁 ExportDocument —— 它强制写 ./out/ 并对用户宣告「已交付下载区」,但 prism
+// 无产物收割/渲染(交付走工具栏「导出 Word/PDF」按钮 + 后端 DB 真源),agent 调它=产物永久拿不到
+// 且绕过 struct 真源出劣质 docx(见 docs/research/prism-streaming-2026-07)。ReadDocument 保留
+// (agent 要能读用户上传的 PDF/docx)。
+var prismDisallowedTools = []string{"NotebookEdit", "Task", "Agent", "ExportDocument"}
 
 // prismSkillAddDir —— 传给 agent --add-dir 的目录(agent 加载 <dir>/.claude/skills:写作/学科/LaTeX 格式 skill)。
 // 同 peerreview 的 reviewerSkillAddDir:独立目录,只有 prism 会话装,claw/审稿看不到。

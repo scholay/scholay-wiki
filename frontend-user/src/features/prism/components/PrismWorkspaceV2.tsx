@@ -419,11 +419,13 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
     <div className="h-full min-h-0 bg-surface-2 p-2">
       <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border-strong bg-background shadow-md">
         {compileError ? (
-          <div className="m-3 rounded-md border border-brand-red/30 bg-danger-soft p-3 text-xs text-brand-red">
+          // 编译未通过是**可恢复**状态(有「让 AI 修复」回路)→ 用琥珀软提示而非红墙,降低焦虑感
+          // (对齐全站 amber 约定:TurnErrorNotice / 工具失败)。
+          <div className="m-3 rounded-md border border-brand-amber/30 bg-warning-soft p-3 text-xs text-brand-amber">
             <div className="flex items-start gap-2">
               <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
               <div className="min-w-0">
-                <p className="font-bold">编译失败</p>
+                <p className="font-bold">本次编译未通过</p>
                 <p className="mt-1 break-words text-subtle">{compileError}</p>
                 <Button
                   size="sm"
@@ -585,10 +587,10 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
         {/* 编译失败常驻横幅(V3-4.3-1):此前只在默认隐藏的 PDF 面里,首编译即失败时错误与修复入口双双不可见。
             解耦到 header 下方常驻,一眼可见 + 一键让 AI 修。 */}
         {compileError && (
-          <div className="flex shrink-0 items-center gap-2 border-b border-brand-red/30 bg-danger-soft px-4 py-1.5 text-2xs text-brand-red">
+          <div className="flex shrink-0 items-center gap-2 border-b border-brand-amber/30 bg-warning-soft px-4 py-1.5 text-2xs text-brand-amber">
             <AlertTriangle className="size-3.5 shrink-0" />
             <span className="min-w-0 flex-1 truncate" title={compileError}>
-              编译失败:{compileError}
+              本次编译未通过:{compileError}
             </span>
             <Button
               size="sm"

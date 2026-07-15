@@ -359,11 +359,14 @@ func (s *Service) runCompile(compileID, projectID uint, mainFile, engine string)
 	//   summary(带「第 N 行」)给 UI 红条;excerpt(! 错误 + l.NNN + 源码)给 AI 精准定位修复。
 	//   log 里没有 "! " 块 → 回落容器友好摘要 → 再回落通用文案。
 	summary, excerpt := extractCompileError(res.Log)
+	// 容器 error.txt 兜底:容器里 `cut -c` 按字节截断可能切坏 UTF-8(半个中文)→ ToValidUTF8 丢弃非法尾字节,
+	// 避免乱码流到红条/AI(extractCompileError 的输出本身按 rune 截断,是 rune 安全的;这里只兜容器兜底)。
+	containerSummary := strings.ToValidUTF8(strings.TrimSpace(res.ErrorSummary), "")
 	if summary == "" {
-		summary = strings.TrimSpace(res.ErrorSummary)
+		summary = containerSummary
 	}
 	if excerpt == "" {
-		excerpt = strings.TrimSpace(res.ErrorSummary)
+		excerpt = containerSummary
 	}
 	if summary == "" {
 		summary = "编译失败,请检查 LaTeX 语法"

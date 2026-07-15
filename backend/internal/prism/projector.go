@@ -239,7 +239,7 @@ func conformElsarticle(d *DocStruct) []string {
 
 // ─── 各模板装配 ──────────────────────────────────────────────────────────
 
-func preamble(t texTemplate) string {
+func preamble(t texTemplate, body string) string {
 	var b strings.Builder
 	if t.ClassOpts != "" {
 		fmt.Fprintf(&b, "\\documentclass[%s]{%s}\n", t.ClassOpts, t.DocClass)
@@ -249,12 +249,73 @@ func preamble(t texTemplate) string {
 	for _, p := range t.Packages {
 		fmt.Fprintf(&b, "\\usepackage{%s}\n", p)
 	}
+	// 「厚安全宏包集」(P0-3):AI 生成的正文极易用到 \toprule / \SI / \bm / pgfplots 等而模板未声明,
+	// 一写即 `Undefined control sequence`。这些包在沙箱 texlive-latex-extra/science/pictures 里都已装,
+	// 只是没 \usepackage。此处按**已声明去重 + per-class 白名单**统一补装(避免与期刊类自带宏 option clash)。
+	// tikz/pgfplots 重(拉起整个 pgf 栈),仅当正文真用到才注入(避免给零图表文档凭空加重量、逼近沙箱超时)。
+	b.WriteString(safePackages(t, body))
 	// Unicode + CJK 支持(见 REPORT.md Part VI)。类无关:xeCJK 是纯字体覆盖层,不动期刊类排版,
 	// 与 article/IEEEtran/elsarticle/llncs 都兼容(ctex 会与期刊类冲突,故不用)。CJK 字体按**文件名**
 	// 设(沙箱无 fontconfig,家族名找不到)。注入 \usepackage{xeCJK} 也让 needsXeLaTeX 自动选 xelatex。
 	// 拉丁重音/希腊/符号由 xelatex 默认 Latin Modern 覆盖,无需额外设置。
 	b.WriteString(unicodeCJKPreamble)
 	return b.String()
+}
+
+// safePackages 按「已声明去重 + per-class 白名单」补装常用宏包,消除 AI 正文最高频的
+// `Undefined control sequence`(缺包类)。刻意**不含** hyperref / caption / subcaption / cleveref
+// —— 它们的加载顺序 / 与期刊类 caption 系统的冲突面大,留给 P1「命令→包自动注入」按需精准处理。
+func safePackages(t texTemplate, body string) string {
+	// 模板已声明的包(小写)→ 去重,避免 option clash / 重复加载。
+	declared := make(map[string]bool, len(t.Packages))
+	for _, p := range t.Packages {
+		declared[strings.ToLower(strings.TrimSpace(p))] = true
+	}
+	class := strings.ToLower(strings.TrimSpace(t.DocClass))
+	// 轻量候选(全类无条件补装,加载成本可忽略)。
+	candidates := []string{
+		"booktabs", "multirow", "array", "xcolor",
+		"mathtools", "bm", "siunitx", "enumitem",
+		"amsthm",
+		"algorithm2e",
+	}
+	var b strings.Builder
+	b.WriteString("% --- 厚安全宏包集(P0-3:补装 AI 正文高频缺包,已按模板声明去重)---\n")
+	for _, p := range candidates {
+		if declared[p] {
+			continue
+		}
+		// llncs(Springer LNCS)自带 \spnewtheorem 定理系统,amsthm 会与其冲突 → 跳过。
+		if p == "amsthm" && class == "llncs" {
+			continue
+		}
+		fmt.Fprintf(&b, "\\usepackage{%s}\n", p)
+	}
+	// tikz/pgfplots 重(拉起整个 pgf 栈,preamble 解析 + 内存成本高)—— 仅当正文真用到才注入
+	// (P0 对抗审查 finding #4:无条件常驻会给零图表文档凭空加重量、把接近沙箱超时上限的长稿顶爆)。
+	if usesGraphics := bodyUsesGraphics(body); usesGraphics || declared["pgfplots"] || declared["tikz"] {
+		if !declared["tikz"] {
+			b.WriteString("\\usepackage{tikz}\n")
+		}
+		if !declared["pgfplots"] {
+			b.WriteString("\\usepackage{pgfplots}\n")
+		}
+		// pgfplots 强制要求设 compat,否则每次编译刷 warning、且新语法在旧默认下报错。
+		b.WriteString("\\pgfplotsset{compat=1.18}\n")
+	}
+	return b.String()
+}
+
+// bodyUsesGraphics 扫正文是否用到 tikz/pgfplots(决定是否注入这两个重量级包)。
+func bodyUsesGraphics(body string) bool {
+	for _, marker := range []string{
+		"tikzpicture", "pgfplots", "\\begin{axis}", "\\addplot", "\\tikz", "\\pgfplotsset", "\\pgfplotstable",
+	} {
+		if strings.Contains(body, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 const unicodeCJKPreamble = `% --- Unicode + CJK(struct 轨,xelatex)---
@@ -279,7 +340,7 @@ func bibTail(t texTemplate, hasBib bool) string {
 func assembleArticle(t texTemplate, d *DocStruct, body string, hasBib bool) string {
 	fm := d.FrontMatter
 	var b strings.Builder
-	b.WriteString(preamble(t))
+	b.WriteString(preamble(t, body))
 	fmt.Fprintf(&b, "\n\\title{%s}\n", escapeLaTeX(fm.Title))
 	if len(fm.Authors) > 0 {
 		names := make([]string, 0, len(fm.Authors))
@@ -305,7 +366,7 @@ func assembleArticle(t texTemplate, d *DocStruct, body string, hasBib bool) stri
 func assembleIEEE(t texTemplate, d *DocStruct, body string, hasBib bool) string {
 	fm := d.FrontMatter
 	var b strings.Builder
-	b.WriteString(preamble(t))
+	b.WriteString(preamble(t, body))
 	fmt.Fprintf(&b, "\n\\title{%s}\n", escapeLaTeX(fm.Title))
 	if len(fm.Authors) > 0 {
 		affByID := affIndex(fm.Affiliations)
@@ -346,7 +407,7 @@ func assembleIEEE(t texTemplate, d *DocStruct, body string, hasBib bool) string 
 func assembleElsarticle(t texTemplate, d *DocStruct, body string, hasBib bool) string {
 	fm := d.FrontMatter
 	var b strings.Builder
-	b.WriteString(preamble(t))
+	b.WriteString(preamble(t, body))
 	b.WriteString("\n\\begin{document}\n\\begin{frontmatter}\n")
 	fmt.Fprintf(&b, "\\title{%s}\n", escapeLaTeX(fm.Title))
 	affByID := affIndex(fm.Affiliations)
@@ -434,7 +495,7 @@ func sortedAffs(m map[string]affEntry) []affEntry {
 func assembleSNJnl(t texTemplate, d *DocStruct, body string, hasBib bool) string {
 	fm := d.FrontMatter
 	var b strings.Builder
-	b.WriteString(preamble(t))
+	b.WriteString(preamble(t, body))
 	b.WriteString("\n\\begin{document}\n")
 	fmt.Fprintf(&b, "\\title{%s}\n", escapeLaTeX(fm.Title))
 	affByID := affIndex(fm.Affiliations)
@@ -496,7 +557,7 @@ func assembleSNJnl(t texTemplate, d *DocStruct, body string, hasBib bool) string
 func assembleLLNCS(t texTemplate, d *DocStruct, body string, hasBib bool) string {
 	fm := d.FrontMatter
 	var b strings.Builder
-	b.WriteString(preamble(t))
+	b.WriteString(preamble(t, body))
 	b.WriteString("\n\\begin{document}\n")
 	fmt.Fprintf(&b, "\\title{%s}\n", escapeLaTeX(fm.Title))
 	affByID := affIndex(fm.Affiliations)
