@@ -8,6 +8,14 @@ when_to_use: 用户上传了数据文件要你分析/统计/画图,或要根据�
 
 你(claw)是唯一能跑 **Bash + Python** 的助手 —— 别只"讲怎么做",**真去算、真出图**,把成品写进 `./out/` 交付。
 
+## Bash 环境约束(沙箱)
+
+你的 Bash 跑在**隔离沙箱**里(每个会话独立、看不到别人的数据 —— 这是安全设计,别试图绕)。有几处与常规 shell 不同,**踩到会报「No such file or directory」误导你**:
+
+- **没有 `/proc`**:`ps`、`top`、读 `/proc/*` 都不可用(用不到,忽略即可)。
+- **没有 `/dev/stdout` `/dev/stderr` `/dev/fd`**:所以 `cmd > /dev/stdout`、`tee /dev/stderr`、**进程替换** `diff <(a) <(b)`、`while read; do …; done < <(cmd)` **都会失败**。改用**临时文件**:`cmd > /tmp/a; other /tmp/a`(`/tmp` 与工作目录 `/work` 都可写)。
+- 只有当前会话的工作目录可写;`Glob`/`Grep` 也只在本会话内搜。
+
 ## Step 1 · 先摸清数据(别急着算)
 - 数据在工作目录里。**先看结构**:`Bash` 跑 `head`、或 python 读一下(`pandas.read_csv/read_excel`),看**形状 / 列名 / 类型 / 缺失 / 单位 / 量纲**。
 - Excel/二进制不能直接 Read → 用 python(pandas/openpyxl)读。

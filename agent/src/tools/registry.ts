@@ -3,7 +3,7 @@
 // claw(+bash)/prism(file-edit)在 step 7 全面启用 + sandbox 加固(step 8 bwrap)。
 
 import { resolve, relative, dirname, join, basename } from "node:path";
-import { readFile, writeFile, mkdir, readdir, stat } from "node:fs/promises";
+import { readFile, writeFile, mkdir, readdir, stat, realpath } from "node:fs/promises";
 import { wrapBash } from "../sandbox/bwrap.ts";
 import { profileFor, unsandboxedBashGate } from "../sandbox/profile.ts";
 import { confinePath } from "../sandbox/confine.ts";
@@ -183,9 +183,25 @@ const globTool: BuiltinTool = {
   parallelSafe: true,
   async run(input, ctx) {
     try {
-      const glob = new Bun.Glob(String(input.pattern));
+      const pattern = String(input.pattern);
+      // 安全评审 2026-07-15(HIGH):Bun.Glob 的 cwd **不做 confine** —— honor 绝对路径与 `..`,
+      // 且 Glob 跑在执行器里(不进 bwrap jail),故裸用可跨会话枚举他人 cwd/out/ 里的稿件文件名 +
+      // 泄活跃 sessionId。双层防线:① 拒绝绝对/含 .. 的 pattern;② 逐命中 realpath 落在会话 cwd 内
+      //(挡 cwd 内符号链接逃逸,与 Grep 的 skip-symlink 同源)。
+      if (pattern.startsWith("/") || /(^|\/)\.\.(\/|$)/.test(pattern)) {
+        return fail("glob failed: pattern must be relative and stay within the session directory (no absolute paths or '..').");
+      }
+      const glob = new Bun.Glob(pattern);
+      const realRoot = await realpath(ctx.workDir);
       const out: string[] = [];
       for await (const f of glob.scan({ cwd: ctx.workDir, onlyFiles: true, dot: false })) {
+        let real: string;
+        try {
+          real = await realpath(resolve(ctx.workDir, f));
+        } catch {
+          continue;
+        }
+        if (real !== realRoot && !real.startsWith(realRoot + "/")) continue;
         out.push(f);
         if (out.length >= 1000) break;
       }

@@ -65,6 +65,9 @@ export function buildBwrapArgv(profile: SandboxProfile, inner: string[]): string
     "--setenv", "HOME", "/work",
     "--setenv", "PATH", "/usr/local/bin:/usr/bin:/bin",
     "--setenv", "TMPDIR", "/tmp",
+    // TZ:--clearenv 丢了它、jail 也没 bind /etc/localtime → jail 内 `date` 会跑 UTC(北京 0-8 点
+    // 日期差一天,重蹈 2026-07-15 时区事故)。透传容器 TZ;/usr/share/zoneinfo 已在 ro-bind 的 /usr 里。
+    "--setenv", "TZ", process.env.TZ || "Asia/Shanghai",
     // 刻意**不挂 /proc**:Docker 对容器 /proc 做了 masked paths(锁定挂载),userns 内无法在其上
     // 挂新 procfs → bwrap 报 "Can't mount proc: Operation not permitted"。解开需 systempaths=unconfined,
     // 那会削弱**外层**容器的加固;实测 claw 真实负载(pandoc / python-docx / openpyxl / pdftotext /
