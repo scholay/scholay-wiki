@@ -73,6 +73,8 @@ export interface SessionMeta {
   // 后端水位检测到回退会 re-base,不会双计。
   cumUsage: { input_tokens: number; output_tokens: number; cache_read_tokens: number; cache_creation_tokens: number; model: string };
   createdAt: string;
+  // 压缩缓存(P2 memoize):同一被压缩边界不重复摘要 + 不破坏上游前缀缓存。
+  compactCache?: import("../turn/compact.ts").CompactCache;
 }
 
 export interface CreateOpts {

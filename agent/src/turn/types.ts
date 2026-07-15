@@ -16,6 +16,7 @@ export interface TurnInput {
   tier: Tier;
   modelOverride?: string; // 具体 model id(peerreview set_runtime_config{modelId} 切模型);优先于 tier
   maxOutput?: number; // 模型最大完成 token(目录 max_output 随模型帧下发);>0 时与全局上限取小
+  contextWindow?: number; // 模型上下文窗口(P0 反应式压缩:上游 context 溢出时按此有界重试压缩)
   vision?: boolean; // 当前模型是否支持图片输入(目录 vision 随模型帧下发);false → 请求前过滤 image 块
   providerName?: string; // F0 多 provider:额外 provider 的 executor 键;缺省 = 默认 active provider
   disallowedTools: string[]; // 控制面 denylist(天花板);执行器只会更严

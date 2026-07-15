@@ -17,7 +17,8 @@ import type { Tier } from "../config/models.ts";
 import { generateTitle } from "../turn/title.ts";
 import { fastCompletion } from "../turn/completion.ts";
 import { windowMessages } from "../turn/window.ts";
-import { compactMessages } from "../turn/compact.ts";
+import { reduceForWindow, type CompactCache } from "../turn/compact.ts";
+import { estimateTokens } from "../turn/context-budget.ts";
 import { log } from "../obs/log.ts";
 
 // H5:长会话上下文只增不减的滑窗参数。CONTEXT_WINDOW=上游 context 窗口;近 TRIGGER_PCT% 才裁老回合,
@@ -259,34 +260,48 @@ async function handleUserMessage(ws: ServerWebSocket<WSData>, frame: Record<stri
   // 把 user 消息加入会话内 history(runTurn 复制后再 append assistant/tool_result)
   meta.messages.push({ role: "user", content: userContent });
 
-  // 近上限时压缩上下文,避免只增不减撞上游 context 墙(报笼统 upstream failed 卡死)。
-  // 触发信号 = 上一轮上下文(input+output ≈ 当前 history 大小)超 TRIGGER_PCT%。
-  // 优雅降级层:先试**滚动摘要压缩**(compact.ts:摘要最老回合 + 保留最近 + 保留关键产物),
-  // 失败(摘要调用挂/超时/无可压)→ 回落**硬截断** windowMessages(宁丢不崩)。
-  // compactMessages / windowMessages 都在回合边界切,结构安全(Anthropic 约束)。本轮新 user 恒被保留。
-  const lastCtx = meta.lastUsage ? meta.lastUsage.input_tokens + meta.lastUsage.output_tokens : 0;
+  // 近上限时**分层降级**上下文,避免只增不减撞上游 context 墙(报笼统 upstream failed 卡死)。
+  // P0 触发修复:触发信号取 max(上一轮 usage, 当前 history 估算)—— 只信 lastUsage 时,重连 seed
+  // 大历史 / 首轮 lastUsage 为空 → 恒不触发,恰好漏掉「切小模型溢出」立项场景。estimateTokens 补上。
+  // 分层(reduceForWindow):① 裁老 tool_result(不动 LLM)② 滚动摘要 ③ 按 token 预算硬裁。摘要 memoize。
   // 模型目录化 P2:上下文墙按会话模型定界(backend 随模型帧下发),未知回落全局 env。
   const ctxWindow = ws.data.contextWindow ?? CONTEXT_WINDOW;
-  if (ctxWindow > 0 && WINDOW_KEEP_TURNS > 0 && WINDOW_TRIGGER_PCT > 0 && lastCtx > (ctxWindow * WINDOW_TRIGGER_PCT) / 100) {
-    const before = meta.messages.length;
+  const lastCtx = meta.lastUsage ? meta.lastUsage.input_tokens + meta.lastUsage.output_tokens : 0;
+  const estCtx = Math.max(lastCtx, estimateTokens(meta.messages));
+  if (ctxWindow > 0 && WINDOW_KEEP_TURNS > 0 && WINDOW_TRIGGER_PCT > 0 && estCtx > (ctxWindow * WINDOW_TRIGGER_PCT) / 100) {
+    const beforeTok = estimateTokens(meta.messages);
     try {
-      const r = await compactMessages(meta.messages, WINDOW_KEEP_TURNS);
-      meta.messages = r.messages;
-      // 摘要调用计费(便宜档;后端 recordOutOfBandTokens 按 kind=context_compact 归系统开销)。
-      safeSend(ws, { type: "token_usage", usage: r.usage, kind: "context_compact" });
-      // 透明层:告知用户较早对话已被压缩(前端渲染低调 inline 提示)。
-      safeSend(ws, {
-        type: "system_notification",
-        kind: "context_compacted",
-        level: "info",
-        message: `为适配当前模型的上下文窗口,已将较早的 ${r.droppedTurns} 轮对话压缩为摘要 —— 精确细节可能有损,需要完整上下文可开新对话。`,
+      const r = await reduceForWindow(meta.messages, ctxWindow, {
+        keepTurns: WINDOW_KEEP_TURNS,
+        targetPct: WINDOW_TRIGGER_PCT,
+        cache: meta.compactCache,
       });
+      if (r.actions.length > 0) {
+        meta.messages = r.messages;
+        meta.compactCache = r.cache;
+        log.info("context reduced", {
+          session_id: meta.sessionId, ctx_window: ctxWindow,
+          before_tok: beforeTok, after_tok: estimateTokens(meta.messages), actions: r.actions.join(","),
+        });
+        if (r.usage) {
+          // 摘要调用计费(便宜档;后端 recordOutOfBandTokens 按 kind=context_compact 归系统开销)。
+          safeSend(ws, { type: "token_usage", usage: r.usage, kind: "context_compact" });
+        }
+        // 透明层:发生过摘要压缩(非纯裁剪)时才提示用户(裁 tool_result 无损,不打扰)。
+        if (r.actions.some((a) => a.startsWith("compact"))) {
+          safeSend(ws, {
+            type: "system_notification",
+            kind: "context_compacted",
+            level: "info",
+            message: "为适配当前模型的上下文窗口,已将较早的对话压缩为摘要 —— 精确细节可能有损,需要完整上下文可开新对话。",
+          });
+        }
+      }
     } catch (e) {
+      // reduceForWindow 内部已含兜底,走到这是意外异常 → 最后一道硬截断保命。
       meta.messages = windowMessages(meta.messages, WINDOW_KEEP_TURNS);
-      log.warn("compaction failed, fell back to hard truncation", {
-        session_id: meta.sessionId, last_ctx: lastCtx, ctx_window: ctxWindow,
-        dropped_msgs: before - meta.messages.length, kept_msgs: meta.messages.length,
-        err: String((e as Error)?.message ?? e),
+      log.warn("context reduce threw, hard-truncated", {
+        session_id: meta.sessionId, err: String((e as Error)?.message ?? e),
       });
     }
   }
@@ -299,6 +314,7 @@ async function handleUserMessage(ws: ServerWebSocket<WSData>, frame: Record<stri
     modelOverride: ws.data.modelOverride ?? undefined,
     providerName: ws.data.providerOverride ?? undefined,
     maxOutput: ws.data.maxOutput ?? undefined,
+    contextWindow: ctxWindow,
     vision: ws.data.vision,
     disallowedTools: meta.disallowedTools,
     appendSystemPrompt: meta.appendSystemPrompt,

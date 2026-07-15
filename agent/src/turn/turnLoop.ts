@@ -12,6 +12,7 @@ import type { EventSink, TurnInput } from "./types.ts";
 import { loadAddDirContext } from "../skills/loader.ts";
 import { limitLiveImages, stripImageBlocks } from "../server/attachments.ts";
 import { buildDateLine } from "../tools/clock.ts";
+import { reduceForWindow } from "./compact.ts";
 import { log } from "../obs/log.ts";
 
 const MAX_TOOL_ROUNDS = Number(process.env.EXECUTOR_MAX_TOOL_ROUNDS || 24);
@@ -119,6 +120,10 @@ export async function runTurn(
   // 终帧守卫(C2):无论正常完成 / abort / error / round-cap,turn 退出时**必有**一个终帧
   // (message_complete 或 error),Go hub 据此清 inFlight,否则整个会话卡 busy 锁死。
   let terminalSent = false;
+  // P0 反应式压缩:上游 context 溢出时有界次数「收紧压缩 + 重试本轮」(对齐 Claude Code prompt_too_long)。
+  let reactiveReduces = 0;
+  const MAX_REACTIVE_REDUCES = Number(process.env.EXECUTOR_MAX_REACTIVE_REDUCES || 2);
+  const REACTIVE_KEEP_TURNS = Number(process.env.EXECUTOR_WINDOW_KEEP_TURNS || 25);
   const sendComplete = () => {
     if (terminalSent) return;
     terminalSent = true;
@@ -215,12 +220,26 @@ export async function runTurn(
         msg = await stream.finalMessage();
       } catch (e) {
         if (signal?.aborted) break; // abort 触发的流中断:走 finally 补终帧,不报 error
-        log.error("upstream stream failed", {
-          err: String((e as Error)?.message ?? e),
-          session_id: input.sessionId,
-          model,
-          round,
-        });
+        const errMsg = String((e as Error)?.message ?? e);
+        // P0 反应式压缩:上游报 context 溢出(声明窗口 < 实际 / 首轮 seed 大历史 / 切小模型)时,
+        // 收紧目标再压一次并重试本轮 —— 而非直接报错。有界次数,防死循环。
+        if (isContextOverflow(errMsg) && input.contextWindow && input.contextWindow > 0 && reactiveReduces < MAX_REACTIVE_REDUCES) {
+          try {
+            const r = await reduceForWindow(messages, input.contextWindow, { keepTurns: REACTIVE_KEEP_TURNS, targetPct: 55 });
+            if (r.actions.length > 0) {
+              messages.splice(0, messages.length, ...r.messages); // 原地替换工作数组
+              if (r.usage) calls.push(r.usage); // 摘要用量计入本轮
+              reactiveReduces++;
+              log.warn("reactive context reduce on overflow, retrying round", {
+                session_id: input.sessionId, model, round, actions: r.actions.join(","), attempt: reactiveReduces,
+              });
+              continue; // 用压缩后的 messages 重发本轮
+            }
+          } catch (re) {
+            log.warn("reactive reduce failed", { err: String((re as Error)?.message ?? re) });
+          }
+        }
+        log.error("upstream stream failed", { err: errMsg, session_id: input.sessionId, model, round });
         sendError("模型服务响应异常,请稍后重试或更换模型。", "upstream");
         break;
       }
@@ -299,4 +318,11 @@ export function addUsage(acc: CallUsage, d: CallUsage): CallUsage {
     cache_creation_tokens: acc.cache_creation_tokens + (d.cache_creation_tokens || 0),
     model: d.model || acc.model,
   };
+}
+
+// 导出供单测。isContextOverflow:上游 context 窗口溢出的错误形态识别(跨 Anthropic / OpenAI 兼容 / 国产端点)。
+export function isContextOverflow(msg: string): boolean {
+  return /prompt is too long|too many tokens|maximum context|context[_ ]?length|context length exceeded|exceeds?.{0,20}context|reduce.{0,12}length|context window/i.test(
+    msg,
+  );
 }
