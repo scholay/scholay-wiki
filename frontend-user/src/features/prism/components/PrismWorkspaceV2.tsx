@@ -106,6 +106,18 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
   // AI 对话:agent 改 document.md → 轮末「自动应用」(无确认门)→ 刷新结构体 + 重编译 + 编辑器里原地标出本次改动。
   // 例外(V3-4.4-2):被 stop 的轮 / 重入遗留 pending 走确认门,不静默固化。
   const [resetNonce, setResetNonce] = useState(0); // 重开会话(V3-4.6-1):+1 → 断开重连到新会话
+  // ── 编译自修复回路(P1-2,诉求②「让 agent 过一遍编译,不通过就改」)状态 ──────────────────
+  //   AI 轮改完文档 → autoApply → 编译;**若失败且这次编译由 AI 轮触发**(armed),自动把报错回喂
+  //   agent 走一轮修复(= 自动点「让 AI 修复」),有界 ≤ MAX_AUTO_FIX 轮防失控烧 token/振荡。修复轮
+  //   同样 autoApply→重编译,经 onApplied 再武装,循环自然续上。编译通过 → 归零;预算耗尽仍失败 →
+  //   停,留琥珀 banner 给用户手动介入。用户手动编译(非 AI 轮)失败不自动修(armed 只由 onApplied 置真)。
+  //   架构说明:agent 容器无 LaTeX、且是 backend 黑盒(minicod 是唯一 MCP、builtin 工具本地跑),
+  //   故不给 agent 加「编译工具」,改在前端编排复用既有 fixCompile 轮 —— 同样实现「agent 自修复」UX。
+  const MAX_AUTO_FIX = 2;
+  const autoFixCountRef = useRef(0); // 本次连续自动修复已用轮数
+  const autoFixArmedRef = useRef(false); // 当前 compile 是否由 AI 轮触发(只有 AI 轮失败才自动修)
+  const handledCompileRef = useRef<number | null>(null); // 每个 compile 结果只处理一次
+  const [autoFixing, setAutoFixing] = useState(false); // UI:AI 正在自动修复编译
   const chat = usePrismChat(projectId, {
     autoApply: true,
     resetNonce,
@@ -113,6 +125,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
       structQ.refetch();
       conf.refetch();
       qualityQ.refetch(); // 每轮 apply 后刷新质量回执(悬空引用/交叉引用可能变化)
+      autoFixArmedRef.current = true; // 这次 apply 来自 AI 轮 → 武装:其编译若失败则自动修复
       triggerCompile();
     },
     onReverted: () => structQ.refetch(),
@@ -161,6 +174,34 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
         `<编译报错>\n${detail}\n</编译报错>`,
     );
   };
+
+  // 编译自修复回路的 effect(状态 ref 在 usePrismChat 前声明,见上)。
+  const fixCompileRef = useRef(fixCompile);
+  fixCompileRef.current = fixCompile; // 存最新闭包,供 effect 调用(避免过期)
+  useEffect(() => {
+    const c = compile.data;
+    if (!c || (c.status !== 'success' && c.status !== 'error')) return;
+    if (handledCompileRef.current === c.id) return; // 该 compile 已处理
+    handledCompileRef.current = c.id;
+    if (c.status === 'success') {
+      autoFixCountRef.current = 0;
+      autoFixArmedRef.current = false;
+      setAutoFixing(false);
+      return;
+    }
+    // status === 'error'
+    if (autoFixArmedRef.current && autoFixCountRef.current < MAX_AUTO_FIX && chat.roundState === 'idle') {
+      autoFixCountRef.current += 1;
+      autoFixArmedRef.current = false; // 下一轮 onApplied 会重新武装
+      setAutoFixing(true);
+      fixCompileRef.current();
+    } else {
+      autoFixArmedRef.current = false;
+      setAutoFixing(false);
+    }
+  }, [compile.data?.status, compile.data?.id, chat.roundState]);
+  // 当前自动修复进度文案(供 banner)。
+  const autoFixLabel = autoFixing ? `AI 正在自动修复编译问题…(${autoFixCountRef.current}/${MAX_AUTO_FIX})` : '';
 
   // 插入图片:上传 → 后端登记资产 + 末尾插 figure 块 → 刷新结构体 + 重编译。
   const upload = useUploadAsset(projectId);
@@ -584,9 +625,14 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
           </div>
         </header>
 
-        {/* 编译失败常驻横幅(V3-4.3-1):此前只在默认隐藏的 PDF 面里,首编译即失败时错误与修复入口双双不可见。
-            解耦到 header 下方常驻,一眼可见 + 一键让 AI 修。 */}
-        {compileError && (
+        {/* 编译状态常驻横幅(V3-4.3-1):header 下方常驻,一眼可见。
+            P1-2:自动修复进行中 → 绿色「AI 正在自动修复」(无手动按钮);否则失败 → 琥珀 + 一键让 AI 修。 */}
+        {autoFixing ? (
+          <div className="flex shrink-0 items-center gap-2 border-b border-brand-green/30 bg-brand-green/5 px-4 py-1.5 text-2xs text-brand-green">
+            <Loader2 className="size-3.5 shrink-0 animate-spin" />
+            <span className="min-w-0 flex-1 truncate">{autoFixLabel}</span>
+          </div>
+        ) : compileError ? (
           <div className="flex shrink-0 items-center gap-2 border-b border-brand-amber/30 bg-warning-soft px-4 py-1.5 text-2xs text-brand-amber">
             <AlertTriangle className="size-3.5 shrink-0" />
             <span className="min-w-0 flex-1 truncate" title={compileError}>
@@ -602,7 +648,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
               让 AI 修复
             </Button>
           </div>
-        )}
+        ) : null}
 
         <ResizablePanelGroup direction="horizontal" autoSaveId="prism-v2-h" className="min-h-0 flex-1">
           {/* 左:AI 对话。写作能力引导两段式(V4-R1 UI 重做):空态卡片住进留白,开聊后收进 composer ✨ 菜单。 */}
