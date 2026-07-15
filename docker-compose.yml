@@ -369,7 +369,10 @@ services:
       MINICOD_API_KEY: ${MINICOD_API_KEY:-}
       MINICOD_API_BASE_URL: ${MINICOD_API_BASE_URL:-https://www.minicod.com/v1}
       # 沙箱:none(本地/默认) | bwrap(仅生产真内核,P4b)。
-      SANDBOX_MODE: ${EXECUTOR_SANDBOX_MODE:-none}
+      # 默认 bwrap(2026-07-15 起可用:仓库自带 docker/seccomp/agent-bwrap.json 放行 userns/mount)。
+      # 实测隔离生效:jail 内只见本会话 cwd(/work),其它会话目录/宿主 /proc 物理不可达 → claw 的 Bash
+      # 可安全开放。某主机确实跑不了 bwrap 时显式设 none —— 生产下 secure-by-default 会自动关掉 Bash。
+      SANDBOX_MODE: ${EXECUTOR_SANDBOX_MODE:-bwrap}
       # 出网:egress 容器已合并 —— agent 直接经 egress-net(NAT)访问公网,不再走独立代理。
       # 数据面隔离仍在:agent 只在 scholar-agent-net(backend)+ egress-net(外网),**不**接 scholar-network
       # → 碰不到 mysql/redis/minio。bash 工具的网络由 bwrap 沙箱(生产)管控。
@@ -402,6 +405,11 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+      # bwrap 内层沙箱(2026-07-15):Docker 默认 seccomp 把 userns/mount 系统调用门禁在
+      # CAP_SYS_ADMIN 之后,cap_drop=ALL 时 bwrap 建不了命名空间。本 profile = Docker 默认
+      # + 仅放行 clone/unshare/setns/mount/umount2/pivot_root(不放 bpf/perf_event_open 等),
+      # 使 EXECUTOR_SANDBOX_MODE=bwrap 可用,同时 cap_drop ALL + no-new-privileges 全保留。
+      - seccomp=./docker/seccomp/agent-bwrap.json
     networks:
       - scholar-agent-net # backend ↔ agent(internal,无 NAT)
       - egress-net        # agent → 公网(NAT;此网无数据面,故 agent 仍碰不到 mysql/redis)

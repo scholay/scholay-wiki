@@ -1,7 +1,11 @@
 // bubblewrap jail 启动器(详细设计 §2.6,P4b)。
 //
-// ⚠️ 仅**生产真 Linux 内核**可用:bwrap 需 user namespaces + seccomp,本机 docker(LinuxKit)
-// 无法运行 → 本机一律 SANDBOX_MODE=none(直跑,与 fork 当前行为一致)。生产设 SANDBOX_MODE=bwrap。
+// 运行前提(2026-07-15 实测更正):bwrap 需要 **Docker 放行 userns/mount 系统调用** ——
+// Docker 默认 seccomp 把 clone/unshare/setns/mount/pivot_root 全部门禁在 CAP_SYS_ADMIN 之后,
+// 而本容器 cap_drop=ALL,故默认必失败并报 "kernel does not allow non-privileged user namespaces"
+// (**这是 bwrap 的猜测话术,不是真因** —— 内核其实支持,拦截来自 seccomp)。
+// 解法:挂 docker/seccomp/agent-bwrap.json(Docker 默认 profile + 仅放行 userns/mount 家族),
+// 加固(cap_drop ALL + no-new-privileges)可全部保留。本机 Docker Desktop 与生产 Linux 同理。
 //
 // jail 不变式:--unshare-all(新 user/pid/ipc/uts/cgroup/net ns)+ tmpfs 根 + 唯一可写=cwd
 // + skill 目录只读 + --die-with-parent + --new-session(防 TIOCSTI)+ no-new-privs + clearenv。
@@ -27,7 +31,12 @@ export function buildBwrapArgv(profile: SandboxProfile, inner: string[]): string
     "--setenv", "HOME", "/work",
     "--setenv", "PATH", "/usr/local/bin:/usr/bin:/bin",
     "--setenv", "TMPDIR", "/tmp",
-    "--proc", "/proc",
+    // 刻意**不挂 /proc**:Docker 对容器 /proc 做了 masked paths(锁定挂载),userns 内无法在其上
+    // 挂新 procfs → bwrap 报 "Can't mount proc: Operation not permitted"。解开需 systempaths=unconfined,
+    // 那会削弱**外层**容器的加固;实测 claw 真实负载(pandoc / python-docx / openpyxl / pdftotext /
+    // 管道)全部不需要 /proc,故直接不挂 —— jail 里 /proc 不存在 = 偷 /proc/*/environ 的向量物理消失
+    // (--unshare-pid 本已使 jail 只见自身进程,这是第二层)。代价:jail 内 `ps` 不可用(无碍转换负载)。
+    // 若将来某工具确需 /proc:compose 给 agent 加 security_opt: systempaths=unconfined 并在此恢复 --proc。
     "--dev", "/dev",
     "--tmpfs", "/tmp", // 临时可写(jail 内,随退出销毁)
     "--ro-bind", "/usr", "/usr",
