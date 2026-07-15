@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from 'react';
 import {
-  AlertCircle,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -8,6 +7,7 @@ import {
   Loader2,
   Search,
   Terminal,
+  TriangleAlert,
   Wrench,
 } from 'lucide-react';
 import type { ToolBlock } from '@/shared/types/chat';
@@ -25,7 +25,8 @@ import { maskToolSource } from '@/shared/lib/mask-tool-source';
  * 视觉契约:
  *   - 折叠态 = 单行 chip (鼠标 hover 高亮; 点击展开/折叠), 不强制全宽避免视觉噪声
  *   - 展开态 = 在 chip 下方 border-t + 两段 (入参 + 结果) 用 monospace 折叠展示
- *   - 颜色: 成功用 brand-green 系, 失败用 brand-red 系, 中性 surface-2
+ *   - 颜色(2026-07-15 重设计):成功=低调 brand-green,失败=amber(不用红,红色让用户焦虑;
+ *     工具/mcp 单步失败 agent 通常会自恢复,属提示非告警),等待/中止=中性 surface-2
  *
  * 特化扩展点:
  *   - `renderHeaderExtras` — 调用方可在 chip 标题区追加自定义信息 (e.g. smart-search 的源品牌
@@ -106,7 +107,7 @@ export function ToolCallBlock({
 
   // 颜色变体: 失败红, 成功 brand-green, 中止/等待 中性灰
   const iconCls = failed
-    ? 'text-brand-red'
+    ? 'text-brand-amber'
     : succeeded
       ? 'text-brand-green'
       : aborted
@@ -152,8 +153,8 @@ export function ToolCallBlock({
           )}
           {failed && (
             <>
-              <AlertCircle className="size-3 text-brand-red" strokeWidth={2.2} />
-              <span className="font-semibold text-brand-red">失败</span>
+              <TriangleAlert className="size-3 text-brand-amber" strokeWidth={2.2} />
+              <span className="font-medium text-brand-amber">未成功</span>
             </>
           )}
         </span>
@@ -214,7 +215,7 @@ function ToolPayloadFold({ label, value, kind }: PayloadFoldProps) {
         className={
           'rounded-sm px-2 py-1.5 text-[11px] font-mono leading-relaxed whitespace-pre-wrap break-words max-h-72 overflow-y-auto ' +
           (kind === 'error'
-            ? 'bg-danger-soft text-brand-red border border-brand-red/20'
+            ? 'bg-warning-soft text-subtle border border-brand-amber/20'
             : 'bg-surface-2 text-foreground/80')
         }
       >

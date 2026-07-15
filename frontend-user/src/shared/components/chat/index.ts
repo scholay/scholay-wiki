@@ -57,6 +57,7 @@ export {
 } from './ReferenceChipList';
 export { SafeSvg } from './SafeSvg';
 export { PausedNotice } from './PausedNotice';
+export { TurnErrorNotice } from './TurnErrorNotice';
 export { ContextMeter, type ContextMeterProps } from './ContextMeter';
 export { Composer, type ComposerProps, type ComposerHandle, type ComposerContextInfo } from './Composer';
 export { ComposerAttachmentRow } from './ComposerAttachmentRow';

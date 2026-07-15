@@ -4,6 +4,7 @@ import {
   ChatStyles,
   PausedNotice,
   StreamingIndicator,
+  TurnErrorNotice,
   ThinkingFold,
   ToolCallBlock,
   ToolHeaderExtras,
@@ -125,11 +126,7 @@ export const AssistantTurn = memo(function AssistantTurn({ turn }: { turn: Turn 
 
       {showTrailingIndicator && <StreamingIndicator turn={turn} />}
 
-      {turn.errorMessage && (
-        <div className="text-xs text-brand-red bg-danger-soft border border-brand-red/20 rounded-sm px-2.5 py-1.5">
-          {turn.errorMessage}
-        </div>
-      )}
+      {turn.errorMessage && <TurnErrorNotice message={turn.errorMessage} />}
 
       {/* 整轮被用户暂停 —— 末尾收尾标识 (实时 + 重入回放都走这里) */}
       {turn.complete && turn.paused && !turn.errorMessage && <PausedNotice />}

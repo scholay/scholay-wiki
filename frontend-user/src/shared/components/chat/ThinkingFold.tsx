@@ -57,7 +57,9 @@ export function ThinkingFold({ text, isActive, className }: ThinkingFoldProps) {
   return (
     <div
       className={
-        'rounded-md bg-surface-2/40 border border-border-soft/40 ' +
+        // 更轻的容器(2026-07-15 重设计):去边框、更淡的底 —— 思考过程是次要信息,视觉退到最后,
+        // 与 Claude/ChatGPT 把推理呈现为低调可折叠区块的做法一致。
+        'rounded-md bg-surface-1/60 ' +
         (className ?? '')
       }
     >

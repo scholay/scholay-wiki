@@ -1,5 +1,4 @@
 import { memo } from 'react';
-import { AlertCircle } from 'lucide-react';
 import {
   AssistantBubble,
   AttachmentChipList,
@@ -8,6 +7,7 @@ import {
   ProcessFold,
   ReferenceChipList,
   StreamingIndicator,
+  TurnErrorNotice,
   ThinkingFold,
   ToolCallBlock,
   UserBubble,
@@ -75,12 +75,7 @@ export const PrismMessageTurn = memo(function PrismMessageTurn({ turn }: { turn:
 
       {finalText && <AssistantBubble text={finalText.text} />}
 
-      {turn.errorMessage && (
-        <div className="flex items-start gap-2 rounded-md border border-brand-red/30 bg-danger-soft px-3 py-2">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-brand-red" />
-          <p className="flex-1 min-w-0 text-xs text-brand-red break-words">{turn.errorMessage}</p>
-        </div>
-      )}
+      {turn.errorMessage && <TurnErrorNotice message={turn.errorMessage} />}
 
       {/* 整轮被用户暂停 —— 末尾收尾标识(与 claw / smart-search 同款,历史回放也走这里) */}
       {turn.complete && turn.paused && !turn.errorMessage && <PausedNotice />}
