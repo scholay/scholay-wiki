@@ -69,7 +69,7 @@ function bashEnv(): Record<string, string> {
 const readTool: BuiltinTool = {
   name: "Read",
   description:
-    "Read a UTF-8 text file within the session working directory. Binary files (PDF, Office docs, etc.) are NOT supported directly — convert them to text first via Bash (e.g. `pdftotext`, or python-docx/openpyxl), then Read the output. For large files, pass offset/limit (1-based line number + line count) to read a narrower section.",
+    "Read a UTF-8 text file within the session working directory. Binary documents (PDF, .docx, .odt, etc.) are NOT supported here — use the ReadDocument tool for those. For large files, pass offset/limit (1-based line number + line count) to read a narrower section.",
   input_schema: {
     type: "object",
     properties: {
@@ -89,10 +89,10 @@ const readTool: BuiltinTool = {
       if (looksBinary(buf)) {
         const lower = String(input.file_path).toLowerCase();
         const hint = lower.endsWith(".pdf")
-          ? " This is a PDF — extract its text with `pdftotext '<file>' -` via Bash, then Read the output (or redirect to a .txt)."
-          : /\.(docx|pptx|xlsx|odt|rtf)$/.test(lower)
-            ? " This is an Office document — convert it to text via Bash (python-docx / python-pptx / openpyxl), then Read the output."
-            : " This is a binary file; Read only supports UTF-8 text. Convert it to text via Bash first.";
+          ? " This is a PDF — use the ReadDocument tool (pass first_pages to limit scope for long PDFs)."
+          : /\.(docx|odt|rtf|epub)$/.test(lower)
+            ? " This is an Office/rich document — use the ReadDocument tool to extract its text."
+            : " This is a binary file; Read only supports UTF-8 text. If it is a document, try ReadDocument.";
         return fail("read failed: binary file not supported." + hint);
       }
       let text = buf.toString("utf8");
@@ -291,6 +291,90 @@ const bashTool: BuiltinTool = {
   },
 };
 
+// runConverter:跑一个**固定 argv** 的文档转换器(无 shell)。与 Bash 的本质区别 —— argv 由工具
+// 代码构造,模型只提供已 confine 的 file_path,无命令注入面。白名单 env(不泄密钥)、超时、无网络需求。
+async function runConverter(argv: string[]): Promise<{ ok: boolean; text: string; err: string }> {
+  const proc = Bun.spawn(argv, { stdout: "pipe", stderr: "pipe", env: bashEnv() });
+  const killer = setTimeout(() => {
+    try {
+      proc.kill();
+    } catch {
+      /* noop */
+    }
+  }, 60_000);
+  const [out, errOut, code] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  clearTimeout(killer);
+  if (code === 0) return { ok: true, text: out, err: "" };
+  return { ok: false, text: "", err: (errOut || `exit ${code}`).slice(0, 2000) };
+}
+
+const MAX_DOC_CHARS = Number(process.env.EXECUTOR_MAX_DOC_CHARS || 400_000);
+
+// ReadDocument:从二进制文档(PDF / .docx / .odt / .rtf / .epub / .html …)抽取纯文本。
+// 用**已装好的顶级开源转换器**(pandoc = 文档转换标杆;poppler pdftotext = PDF 抽取事实标准),
+// 但把它们关进一个安全受限的门:路径 confine 在会话 cwd、固定 argv、无 shell —— 取代过去"让模型
+// 用 Bash 调 pandoc"的路径。因安全性由构造保证(模型控不了命令、读不到跨租户文件 / proc),
+// **不需要 allowBash / 沙箱闸**,对所有 feature 开放(claw/prism/smart_search/peerreview 上传的稿件都能读)。
+const readDocumentTool: BuiltinTool = {
+  name: "ReadDocument",
+  description:
+    "Extract plain text from a binary document (PDF, .docx, .odt, .rtf, .epub, .html) in the session working directory. " +
+    "Use this INSTEAD of Read for non-plain-text documents — Read only handles UTF-8 text and will fail on binaries. " +
+    "For long PDFs, pass first_pages to extract only the opening pages (e.g. first_pages=2 for title/abstract). Returns UTF-8 text.",
+  input_schema: {
+    type: "object",
+    properties: {
+      file_path: { type: "string" },
+      first_pages: {
+        type: "number",
+        description: "PDF only: extract just the first N pages (optional; omit to extract the whole document).",
+      },
+    },
+    required: ["file_path"],
+  },
+  parallelSafe: true,
+  async run(input, ctx) {
+    try {
+      const p = await confinePath(ctx.workDir, String(input.file_path));
+      const lower = p.toLowerCase();
+      const firstPages = Number(input.first_pages) > 0 ? Math.floor(Number(input.first_pages)) : 0;
+      let argv: string[];
+      if (lower.endsWith(".pdf")) {
+        // poppler pdftotext:-layout 保留版式;-l N 限制到前 N 页;结尾 "-" = 输出到 stdout。
+        argv = ["pdftotext", "-layout", ...(firstPages ? ["-l", String(firstPages)] : []), p, "-"];
+      } else if (/\.(docx|odt|rtf|epub|html?|md|markdown|tex|latex)$/.test(lower)) {
+        // pandoc:-t plain 纯文本;--wrap=none 不硬折行(便于后续摘要 / 检索)。
+        argv = ["pandoc", p, "-t", "plain", "--wrap=none"];
+      } else {
+        return fail(
+          "ReadDocument: unsupported extension. Supported: .pdf, .docx, .odt, .rtf, .epub, .html. " +
+            "For plain-text files (.txt/.md/.csv/code) use Read instead.",
+        );
+      }
+      const res = await runConverter(argv);
+      if (!res.ok) return fail("ReadDocument: extraction failed (" + argv[0] + "): " + res.err);
+      let text = res.text.trim();
+      if (!text) {
+        return fail(
+          "ReadDocument: extractor produced no text — the document may be scanned images with no embedded text layer (OCR is not available).",
+        );
+      }
+      if (text.length > MAX_DOC_CHARS) {
+        text =
+          text.slice(0, MAX_DOC_CHARS) +
+          `\n\n[... truncated at ${MAX_DOC_CHARS} chars. For PDFs pass first_pages to narrow the range.]`;
+      }
+      return ok(text);
+    } catch (e) {
+      return fail("ReadDocument failed: " + String((e as Error)?.message ?? e));
+    }
+  },
+};
+
 // TodayDate:查当前日期/时间(Asia/Shanghai)。零参数、只读、parallelSafe,对所有 feature 开放
 // (不进任何 denylist)。system 里已有天粒度 dateLine 锚点;此工具补精确时刻 + 给模型一个
 // 「主动核实时间」的确定性通道(治时间线幻觉:模型对"今年是哪年"拿不准时可自查,而非按训练截止猜)。
@@ -367,7 +451,7 @@ const skillTool: BuiltinTool = {
   },
 };
 
-const all: BuiltinTool[] = [readTool, writeTool, editTool, globTool, grepTool, bashTool, todayDateTool, skillTool];
+const all: BuiltinTool[] = [readTool, readDocumentTool, writeTool, editTool, globTool, grepTool, bashTool, todayDateTool, skillTool];
 
 export const builtinRegistry: Map<string, BuiltinTool> = new Map(all.map((t) => [t.name, t]));
 

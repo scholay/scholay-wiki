@@ -461,7 +461,7 @@ func (s *Service) pushAssetsToSession(ctx context.Context, submissionID uint64, 
 // buildAssetsBlock 生成"文件已在工作目录, 请 Read"提示块, 供 meta / 审稿 prompt 共用。
 func buildAssetsBlock(files *sessionAssets) string {
 	var b strings.Builder
-	b.WriteString("【稿件文件 — 已放在你的当前工作目录, 用 Read 工具读取它们的真实内容】\n")
+	b.WriteString("【稿件文件 — 已放在你的当前工作目录】\n")
 	b.WriteString("- 论文正文: " + files.manuscriptPath + "\n")
 	for _, att := range files.attachments {
 		line := "- 补充材料: " + att.path
@@ -470,9 +470,9 @@ func buildAssetsBlock(files *sessionAssets) string {
 		}
 		b.WriteString(line + "\n")
 	}
-	b.WriteString("\n请先用 Read 工具读取论文正文全文")
+	b.WriteString("\n稿件是 PDF/docx 二进制 —— 请用 **ReadDocument 工具**读取论文正文全文")
 	if len(files.attachments) > 0 {
-		b.WriteString(" (需要时一并读取补充材料)")
+		b.WriteString(" (需要时一并读取补充材料;文本类附件用 Read,文档类用 ReadDocument)")
 	}
 	b.WriteString(", 不要凭文件名臆测内容。\n")
 	return b.String()
@@ -1281,10 +1281,9 @@ func (s *Service) runMetaExtract(ctx context.Context, submissionID uint64, sessi
 `请从这篇论文里抽取投稿元数据。论文文件已放在你的当前工作目录:
 %s
 
-**只需论文开头 1-2 页**(标题/摘要/关键词/学科都在首页与摘要区)。**绝不要通读全文,也绝不要用 Read 直接读原始 PDF**——PDF 是二进制,Read 会得到乱码且极慢。请用命令行工具把开头转成文本:
-- PDF:`+"`pdftotext -l 2 \"<文件>\" -`"+`(只取前 2 页文本)。
-- docx:`+"`pandoc \"<文件>\" -t plain`"+` 或 python-docx(`+"`python3 -c \"import docx,sys;print('\\n'.join(p.text for p in docx.Document(sys.argv[1]).paragraphs))\" \"<文件>\"`"+`)。
-- 其它格式:选合适的命令行工具转成文本,同样只取开头。
+**只需论文开头 1-2 页**(标题/摘要/关键词/学科都在首页与摘要区)。**绝不要通读全文,也绝不要用 Read 直接读原始 PDF/docx**——它们是二进制,Read 会得到乱码。请用 **ReadDocument 工具**抽取文本:
+- PDF:ReadDocument 传参数 first_pages=2,只取前 2 页。
+- docx / 其它文档:直接 ReadDocument(它内部用 pandoc/pdftotext 抽全文,你只看开头即可)。
 
 抽取结构化元数据, **严格 JSON 输出**(不要任何前后缀文本 / 不要 markdown 代码块):
 
