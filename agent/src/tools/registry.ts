@@ -2,7 +2,7 @@
 // 这些是 Scholay 自有实现,**非** cc-haha 工具移植。smart_search 不用(MCP-only);
 // claw(+bash)/prism(file-edit)在 step 7 全面启用 + sandbox 加固(step 8 bwrap)。
 
-import { resolve, relative, dirname, join } from "node:path";
+import { resolve, relative, dirname, join, basename } from "node:path";
 import { readFile, writeFile, mkdir, readdir, stat } from "node:fs/promises";
 import { wrapBash } from "../sandbox/bwrap.ts";
 import { profileFor, unsandboxedBashGate } from "../sandbox/profile.ts";
@@ -293,6 +293,41 @@ const bashTool: BuiltinTool = {
 
 // runConverter:跑一个**固定 argv** 的文档转换器(无 shell)。与 Bash 的本质区别 —— argv 由工具
 // 代码构造,模型只提供已 confine 的 file_path,无命令注入面。白名单 env(不泄密钥)、超时、无网络需求。
+// 转换器 stdout 硬上限(评审 2026-07-15):`new Response(stream).text()` 会把整个 stdout 全量
+// 拉进内存 —— 大 PDF(pdftotext 无 first_pages)可吐几百 MB,在多租户共享容器里 OOM 拖垮所有会话。
+// 有界流式读到 8MB 即停并 kill 子进程(远高于 MAX_DOC_CHARS,正常文档不受影响,只兜病态大文件)。
+const CONVERTER_MAX_BYTES = Number(process.env.EXECUTOR_CONVERTER_MAX_BYTES || 8 * 1024 * 1024);
+
+// readCapped:有界读一个 ReadableStream,到 maxBytes 即停(标记 truncated),不把无上限的流灌进内存。
+async function readCapped(stream: ReadableStream<Uint8Array>, maxBytes: number): Promise<{ text: string; truncated: boolean }> {
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  let truncated = false;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      if (total + value.byteLength > maxBytes) {
+        const keep = maxBytes - total;
+        if (keep > 0) chunks.push(value.subarray(0, keep));
+        truncated = true;
+        break;
+      }
+      total += value.byteLength;
+      chunks.push(value);
+    }
+  } finally {
+    try {
+      await reader.cancel();
+    } catch {
+      /* noop */
+    }
+  }
+  return { text: Buffer.concat(chunks).toString("utf8"), truncated };
+}
+
 async function runConverter(argv: string[]): Promise<{ ok: boolean; text: string; err: string }> {
   const proc = Bun.spawn(argv, { stdout: "pipe", stderr: "pipe", env: bashEnv() });
   const killer = setTimeout(() => {
@@ -302,13 +337,32 @@ async function runConverter(argv: string[]): Promise<{ ok: boolean; text: string
       /* noop */
     }
   }, 60_000);
-  const [out, errOut, code] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
+  // stdout 有界读(超上限即 kill,让 proc.exited 解析);stderr 小上限即可。
+  const outP = readCapped(proc.stdout, CONVERTER_MAX_BYTES).then((r) => {
+    if (r.truncated) {
+      try {
+        proc.kill();
+      } catch {
+        /* noop */
+      }
+    }
+    return r;
+  });
+  const errP = new Response(proc.stderr)
+    .text()
+    .then((t) => t.slice(0, 4000))
+    .catch(() => "");
+  const [outRes, errOut] = await Promise.all([outP, errP]);
+  const code = await proc.exited;
   clearTimeout(killer);
-  if (code === 0) return { ok: true, text: out, err: "" };
+  if (outRes.truncated) {
+    return {
+      ok: true,
+      text: outRes.text + `\n\n[... truncated at ${CONVERTER_MAX_BYTES} bytes — document is very large; extract a narrower range (PDF: first_pages).]`,
+      err: "",
+    };
+  }
+  if (code === 0) return { ok: true, text: outRes.text, err: "" };
   return { ok: false, text: "", err: (errOut || `exit ${code}`).slice(0, 2000) };
 }
 
@@ -347,8 +401,9 @@ const readDocumentTool: BuiltinTool = {
         // poppler pdftotext:-layout 保留版式;-l N 限制到前 N 页;结尾 "-" = 输出到 stdout。
         argv = ["pdftotext", "-layout", ...(firstPages ? ["-l", String(firstPages)] : []), p, "-"];
       } else if (/\.(docx|odt|rtf|epub|html?|md|markdown|tex|latex)$/.test(lower)) {
-        // pandoc:-t plain 纯文本;--wrap=none 不硬折行(便于后续摘要 / 检索)。
-        argv = ["pandoc", p, "-t", "plain", "--wrap=none"];
+        // pandoc:-t plain 纯文本;--wrap=none 不硬折行;--sandbox 禁止 pandoc 处理时读输入里引用的
+        // 任意本地文件(crafted docx/html 的 XXE 式外泄防护,confinePath 之外的第二层)。
+        argv = ["pandoc", "--sandbox", p, "-t", "plain", "--wrap=none"];
       } else {
         return fail(
           "ReadDocument: unsupported extension. Supported: .pdf, .docx, .odt, .rtf, .epub, .html. " +
@@ -371,6 +426,78 @@ const readDocumentTool: BuiltinTool = {
       return ok(text);
     } catch (e) {
       return fail("ReadDocument failed: " + String((e as Error)?.message ?? e));
+    }
+  },
+};
+
+// ExportDocument:与 ReadDocument 对称的**产出**方向 —— 把会话里的 Markdown/HTML/文本源文件
+// 导出成交付文档(docx/pptx/odt/rtf/epub/html/pdf)。固定 argv 的 pandoc、路径 confine 在会话 cwd、
+// 输出强制落 ./out/(claw 交付目录约定,后端据此出下载卡片)。无 shell → 无注入面、不需要沙箱闸,
+// 取代 claw"用 Bash 调 pandoc 生成 docx"的路径。
+// PDF 需外部引擎(pandoc 默认 pdflatex);容器未装引擎时对 .pdf 优雅降级,由 EXECUTOR_PDF_ENGINE
+// 指定已装引擎(如 weasyprint)后启用。
+const PDF_ENGINE = (process.env.EXECUTOR_PDF_ENGINE || "").trim();
+const EXPORT_FORMATS: Record<string, { pandocTo: string; needsEngine?: boolean }> = {
+  docx: { pandocTo: "docx" },
+  pptx: { pandocTo: "pptx" },
+  odt: { pandocTo: "odt" },
+  rtf: { pandocTo: "rtf" },
+  epub: { pandocTo: "epub" },
+  html: { pandocTo: "html" },
+  pdf: { pandocTo: "pdf", needsEngine: true },
+};
+const exportDocumentTool: BuiltinTool = {
+  name: "ExportDocument",
+  description:
+    "Convert a source file (Markdown, HTML, or plain text) in the session working directory into a deliverable document. " +
+    "target_format: docx | pptx | odt | rtf | epub | html (pdf requires a PDF engine; falls back with a message if unavailable). " +
+    "The output is written under ./out/ (the user-delivery directory) and its relative path is returned. " +
+    "Use this to produce downloadable files for the user — do NOT shell out to pandoc.",
+  input_schema: {
+    type: "object",
+    properties: {
+      source_path: { type: "string", description: "source file in the session cwd (.md / .markdown / .html / .txt)" },
+      target_format: { type: "string", enum: ["docx", "pptx", "odt", "rtf", "epub", "html", "pdf"] },
+      output_name: { type: "string", description: "optional base name for the output file (no extension); defaults to the source name" },
+    },
+    required: ["source_path", "target_format"],
+  },
+  parallelSafe: false,
+  async run(input, ctx) {
+    try {
+      const fmtKey = String(input.target_format || "").toLowerCase();
+      const fmt = EXPORT_FORMATS[fmtKey];
+      if (!fmt) {
+        return fail("ExportDocument: unsupported target_format. Use one of: " + Object.keys(EXPORT_FORMATS).join(", "));
+      }
+      const src = await confinePath(ctx.workDir, String(input.source_path));
+      // 输出名:output_name 或源文件名(去扩展名)。清洗成安全 basename(保中英文数字 . _ -),防路径/注入。
+      const rawBase = String(input.output_name || "").trim() || basename(String(input.source_path)).replace(/\.[^.]+$/, "");
+      const base = rawBase.replace(/[^A-Za-z0-9._一-龥-]/g, "_").replace(/^\.+/, "").slice(0, 120) || "document";
+      const outRel = `out/${base}.${fmtKey}`;
+      // confinePath(create=true):产物只能落会话 cwd 内的 out/(与 claw artifactRelPath 白名单一致)。
+      const outAbs = await confinePath(ctx.workDir, outRel, true);
+      await mkdir(dirname(outAbs), { recursive: true });
+      // 注:写方向不能用 --sandbox(它会连 pandoc 自己的 docx/pptx 模板数据一起挡掉 → 无法生成)。
+      // 文本外泄向量已实测关闭(pandoc 只嵌合法图片,不把 /etc/passwd 之类文本文件读进产物);
+      // 残余的窄向量(恶意模型嵌入已知绝对路径的**图片**跨会话读)与 Bash 同根,靠执行器级沙箱兜(决策 B)。
+      const argv = ["pandoc", src, "-o", outAbs, "-t", fmt.pandocTo];
+      if (fmt.needsEngine && PDF_ENGINE) argv.push(`--pdf-engine=${PDF_ENGINE}`);
+      const res = await runConverter(argv);
+      if (!res.ok) {
+        if (fmt.needsEngine) {
+          return fail(
+            "ExportDocument: PDF export is unavailable (no PDF engine installed). " +
+              "Export to docx / odt / html instead, or ask the operator to enable a PDF engine. Detail: " + res.err,
+          );
+        }
+        return fail("ExportDocument: conversion failed (pandoc): " + res.err);
+      }
+      const st = await stat(outAbs).catch(() => null);
+      if (!st || st.size === 0) return fail("ExportDocument: pandoc produced an empty file.");
+      return ok(`exported ${outRel} (${st.size} bytes) — delivered to the user's download area.`);
+    } catch (e) {
+      return fail("ExportDocument failed: " + String((e as Error)?.message ?? e));
     }
   },
 };
@@ -451,7 +578,7 @@ const skillTool: BuiltinTool = {
   },
 };
 
-const all: BuiltinTool[] = [readTool, readDocumentTool, writeTool, editTool, globTool, grepTool, bashTool, todayDateTool, skillTool];
+const all: BuiltinTool[] = [readTool, readDocumentTool, exportDocumentTool, writeTool, editTool, globTool, grepTool, bashTool, todayDateTool, skillTool];
 
 export const builtinRegistry: Map<string, BuiltinTool> = new Map(all.map((t) => [t.name, t]));
 

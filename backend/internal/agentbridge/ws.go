@@ -268,7 +268,7 @@ func decidePermission(raw []byte, sessionWorkDir string, denyTools []string) ([]
 }
 
 // fileToolPathKeys 是各文件工具 input 里存"路径"的字段名 (Claude Code 约定)。
-var fileToolPathKeys = []string{"file_path", "path", "notebook_path", "filePath", "notebookPath"}
+var fileToolPathKeys = []string{"file_path", "source_path", "path", "notebook_path", "filePath", "notebookPath"}
 
 // permissionAllowed 判定一次工具调用是否放行。
 // denyTools: 该会话(feature)显式禁用的工具 —— 后端二道防线,即便 agent 端 --disallowed-tools
@@ -309,9 +309,14 @@ func permissionAllowed(toolName string, input json.RawMessage, sessionWorkDir st
 	if toolName == "TodayDate" {
 		return true
 	}
+	// ReadDocument/ExportDocument(2026-07-15):安全受限的文档抽取/导出工具(内部固定 argv 调
+	// pandoc/pdftotext,路径 confine 在会话 cwd)。二道防线仍校验 input 路径在会话目录内 —— 否则
+	// 命中下面 default: return false 被拒(评审确认:漏加这两个 case → 两工具在生产被权限墙一律
+	// 拒绝、DOA;审稿 ReadDocument 读稿件、claw ExportDocument 导出 docx 全部失败)。
+	// ExportDocument 的 source_path 已并入 fileToolPathKeys;输出被工具强制落 ./out/ 无需在此校验。
 	// 文件工具: 校验路径在会话目录内
 	switch toolName {
-	case "Read", "Write", "Edit", "MultiEdit", "NotebookEdit", "Glob", "Grep", "LS", "Ls":
+	case "Read", "ReadDocument", "ExportDocument", "Write", "Edit", "MultiEdit", "NotebookEdit", "Glob", "Grep", "LS", "Ls":
 		p := extractPathFromInput(input)
 		if p == "" {
 			// Glob/Grep 不带 path 默认搜 cwd → 安全放行; 其它没路径视为异常 → 拒。

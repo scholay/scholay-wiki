@@ -127,7 +127,8 @@ func smartSearchSkillAddDir() string {
 // 空头支票)。安全面不变:Read 在 backend permissionAllowed 按会话 cwd 做路径校验(越界一律拒),
 // 写类/检索类文件工具与联网/子任务仍全禁,MCP-only 检索纪律靠提示词 + 其余 denylist 维持。
 var smartSearchDisallowedTools = []string{
-	"Write", "Edit", "MultiEdit", "NotebookEdit", "Glob", "Grep", "LS",
+	// ExportDocument 写交付物到 ./out/ 不属只读检索职责,禁用(ReadDocument 保留:读用户上传的稿件)。
+	"Write", "Edit", "MultiEdit", "NotebookEdit", "Glob", "Grep", "LS", "ExportDocument",
 	"WebFetch", "WebSearch", "Task", "Agent", "Skill",
 }
 
