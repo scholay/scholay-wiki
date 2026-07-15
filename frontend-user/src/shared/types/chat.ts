@@ -113,12 +113,34 @@ export interface Turn {
   paused?: boolean;
 
   /**
+   * 该轮产出的成果文件(claw「产物即带外声明」)—— 执行器每轮 diff `./out/` 后发 `artifact` 帧,
+   * fold 绑到当前轮;渲染时按 `path` 关联耐久 DTO(useClawArtifacts)拿下载 id/标题。
+   * 不再靠「扫目录 + 匹配 Write 工具名」的启发式(见 docs/research/artifact-delivery-2026-07)。
+   * 实时轮由 `artifact` 帧填,历史回放由后端 EvArtifact → `artifact` entry 恢复,两路同构。
+   */
+  artifacts?: TurnArtifact[];
+
+  /**
    * 该轮因命中每日 token 额度被后端**在转发给 agent 之前**拒绝、**尚未发送**(claw 用)。
    * UI 保留用户气泡并渲染「未发送 · 重新发送 / 开通会员」页脚,不显示流式指示;
    * busy 判定必须排除 blocked 轮(否则它停在末尾会把 composer 永久禁用)。
    * 一键重发后该 blocked 轮被移除、替换为正常发送轮。
    */
   blocked?: boolean;
+}
+
+/**
+ * 一个成果文件的带外声明(执行器 `artifact` 帧 / 历史 EvArtifact 恢复的最小形状)。
+ * 只承载「这是哪个产物、绑哪一轮」;下载 id / 标题 / 说明由渲染层按 `path` 关联耐久 DTO 补齐。
+ */
+export interface TurnArtifact {
+  /** 顶层名(文件名 或 一级目录名) */
+  name: string;
+  /** 相对会话 cwd:文件 out/xxx.md,目录 out/proj(与 DTO.path 同键,用于关联) */
+  path: string;
+  kind: 'file' | 'dir';
+  mime: string;
+  size: number;
 }
 
 export interface TurnAttachment {

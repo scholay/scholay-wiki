@@ -13,6 +13,7 @@ import { loadAddDirContext } from "../skills/loader.ts";
 import { limitLiveImages, stripImageBlocks } from "../server/attachments.ts";
 import { buildDateLine } from "../tools/clock.ts";
 import { reduceForWindow } from "./compact.ts";
+import { snapshotOut, emitArtifacts, type OutSnapshot } from "./artifacts.ts";
 import { log } from "../obs/log.ts";
 
 const MAX_TOOL_ROUNDS = Number(process.env.EXECUTOR_MAX_TOOL_ROUNDS || 24);
@@ -83,6 +84,15 @@ export async function runTurn(
     input.maxOutput && input.maxOutput > 0 ? Math.min(MAX_TOKENS, input.maxOutput) : MAX_TOKENS;
   const tools = await buildTools(input);
   const messages: Anthropic.MessageParam[] = [...input.messages];
+  // 成果交付(产物即带外声明):turn 开头 snapshot ./out/ 作基线,finally diff 出本 turn 新增/变更
+  // 的产物 → 发 artifact 帧(工具无关,覆盖 Write/Edit/ExportDocument/Bash/Python)。./out/ 不存在
+  // 时为空快照,零帧(smart_search 等无产物 feature 自然无影响)。
+  let outBaseline: OutSnapshot | null = null;
+  try {
+    outBaseline = await snapshotOut(input.workDir);
+  } catch {
+    outBaseline = null;
+  }
   // system = 当前日期锚点 + 语言纪律 + 控制面 appendSystemPrompt(规则+记忆)+ per-feature skill/CLAUDE.md(H6)。
   // dateLine 放这里(而非 backend)是刻意的:此处是四个 feature 每轮必经的唯一 system 组装点
   // (peerreview 不走 appendSystemPrompt、prism 建会话绕过 buildCreateOptions,backend 注入必漏),
@@ -257,8 +267,7 @@ export async function runTurn(
             max_tokens: maxTokens,
           });
         }
-        sendComplete();
-        break;
+        break; // 正常完成:不在此发终帧,交 finally 统一「先 artifact 帧、后 message_complete」
       }
 
       const toolUses = msg.content
@@ -271,6 +280,15 @@ export async function runTurn(
       messages.push({ role: "user", content: results });
     }
   } finally {
+    // 正常完成(未走 error/round-cap 的 sendError)→ 先把本 turn 的 ./out/ 产物作为 artifact 帧发出,
+    // **必须在 message_complete 之前**(前端 fold 据此把产物绑到当前轮;完成帧一到就切下一轮)。
+    if (!terminalSent && outBaseline) {
+      try {
+        await emitArtifacts(input.workDir, outBaseline, sink);
+      } catch (e) {
+        log.warn("emit artifacts failed", { session_id: input.sessionId, err: String((e as Error)?.message ?? e) });
+      }
+    }
     sendComplete(); // C2:兜底终帧(abort/未捕获退出)。已发 error 的路径置了 terminalSent,不重复。
   }
   return messages;

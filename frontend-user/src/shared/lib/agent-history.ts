@@ -58,6 +58,15 @@ interface AnthropicBlock {
   is_error?: boolean;
 }
 
+/** artifact 合成 entry 的 content block(后端 EvArtifact 折出;字段镜像 TurnArtifact)。 */
+interface ArtifactEntryBlock {
+  name?: unknown;
+  path?: unknown;
+  kind?: unknown;
+  mime?: unknown;
+  size?: unknown;
+}
+
 /** user entry 的解析结果:用户气泡正文 + 可选附件 chip。 */
 export interface ParsedUserEntry {
   text: string;
@@ -224,6 +233,26 @@ export function replayHistoryAsTurns(
       const blocks = Array.isArray(entry.content) ? (entry.content as AnthropicBlock[]) : [];
       for (const b of blocks) {
         if (b && typeof b === 'object' && b.type === 'tool_result') attachToolResult(b);
+      }
+      continue;
+    }
+
+    if (entry.type === 'artifact') {
+      // 产物带外声明(后端 EvArtifact 折出的合成 entry)→ 绑回当前轮的 .artifacts。
+      // 与实时 fold 的 case 'artifact' 同构;同轮同 path 去重。content = [{name,path,kind,mime,size}]。
+      const turn = ensureCurrentTurn();
+      const arts = (turn.artifacts ??= []);
+      const blocks = Array.isArray(entry.content) ? (entry.content as ArtifactEntryBlock[]) : [];
+      for (const a of blocks) {
+        if (!a || typeof a !== 'object' || typeof a.path !== 'string' || typeof a.name !== 'string') continue;
+        if (arts.some((x) => x.path === a.path)) continue;
+        arts.push({
+          name: a.name,
+          path: a.path,
+          kind: a.kind === 'dir' ? 'dir' : 'file',
+          mime: typeof a.mime === 'string' ? a.mime : 'application/octet-stream',
+          size: typeof a.size === 'number' ? a.size : 0,
+        });
       }
       continue;
     }

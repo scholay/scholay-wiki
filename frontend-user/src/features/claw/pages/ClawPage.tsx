@@ -240,8 +240,9 @@ export function ClawPage() {
                   <MessageTurn
                     key={t.id}
                     turn={t}
-                    // 桌面成果走右侧栏(不挂底部);仅窄屏(无侧栏空间)保留行内卡片。
-                    artifacts={isNarrow ? sessionArtifacts : undefined}
+                    // 产物卡「就近」挂在每条回答正下方(桌面 + 窄屏一致)—— 帧驱动 turn.artifacts,
+                    // 传 DTO 列表按 path 关联拿下载 id/标题/预览。右侧 ClawArtifactPanel 降为「全部产物」汇总。
+                    artifacts={sessionArtifacts}
                     sessionId={sessionId}
                     onPreview={setPreviewArtifact}
                     onResendBlocked={conv.resendBlocked}

@@ -51,6 +51,8 @@ export type ServerMessage =
   | { type: 'content_delta'; text?: string; toolInput?: string }
   | { type: 'tool_use_complete'; toolName: string; toolUseId: string; input: unknown }
   | { type: 'tool_result'; toolUseId: string; content: unknown; isError: boolean }
+  // 产物带外声明:执行器每轮 diff ./out/ 后发,fold 绑到当前轮 → 就近产物卡(见 shared TurnArtifact)。
+  | { type: 'artifact'; name: string; path: string; kind: 'file' | 'dir'; mime: string; size: number }
   | { type: 'message_complete' }
   | AgentErrorFrame
   | { type: 'thinking'; text: string }
@@ -88,7 +90,9 @@ export type ClawWSState =
 
 export interface ClawHistoryEntry {
   id: string;
-  type: 'user' | 'assistant' | 'system' | 'tool_use' | 'tool_result';
+  // 'artifact' 是后端 FoldToMessages 把 EvArtifact 折出的合成 entry(content = 产物字段);
+  // 回放时 shared replayHistoryAsTurns 据此把产物绑回对应轮(见 TurnArtifact)。
+  type: 'user' | 'assistant' | 'system' | 'tool_use' | 'tool_result' | 'artifact';
   /** Anthropic content array; UI 自己做 narrow 解释 */
   content: unknown;
   timestamp: string;

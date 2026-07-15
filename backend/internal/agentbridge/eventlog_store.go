@@ -304,6 +304,23 @@ func (s *eventlogStore) FoldToMessages(evs []Event) []agent.SessionMessage {
 			block, _ := json.Marshal(blk)
 			content, _ := json.Marshal([]json.RawMessage{block})
 			out = append(out, agent.SessionMessage{Type: "tool_result", Content: content})
+		case EvArtifact:
+			// 产物带外声明 → 合成一条 artifact entry(content = 产物字段数组)。前端 replay 据此
+			// 把产物绑回「当前轮」,与实时 fold 的 case 'artifact' 同构(见 shared TurnArtifact)。
+			flushAsst()
+			var f struct {
+				Name string `json:"name"`
+				Path string `json:"path"`
+				Kind string `json:"kind"`
+				Mime string `json:"mime"`
+				Size int64  `json:"size"`
+			}
+			_ = json.Unmarshal(e.Payload, &f)
+			block, _ := json.Marshal(map[string]any{
+				"name": f.Name, "path": f.Path, "kind": f.Kind, "mime": f.Mime, "size": f.Size,
+			})
+			content, _ := json.Marshal([]json.RawMessage{block})
+			out = append(out, agent.SessionMessage{Type: "artifact", Content: content})
 		}
 	}
 	flushAsst()

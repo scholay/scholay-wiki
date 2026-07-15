@@ -37,6 +37,7 @@ const (
 	EvPermissionRequest EvType = "permission_request"
 	EvMessageComplete   EvType = "message_complete"
 	EvError             EvType = "error"
+	EvArtifact          EvType = "artifact" // 产物带外声明(执行器 diff ./out/ 后发);fold 产 turn.artifacts,replay 随轮重建
 )
 
 // Event 是读路径返回的一个事件(对应 TurnEventRow 的轻量读侧视图)。

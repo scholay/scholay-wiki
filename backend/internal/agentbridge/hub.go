@@ -1302,6 +1302,9 @@ func classifyJournalEv(frame []byte) (EvType, bool) {
 		return EvToolResult, true
 	case "permission_request":
 		return EvPermissionRequest, true
+	case "artifact":
+		// 产物带外声明:入 journal → 重连/刷新回放时产物随轮重建(payload 即原帧,replay 原样重发)。
+		return EvArtifact, true
 	case "error":
 		return EvError, true
 	default:

@@ -111,6 +111,15 @@ export function foldMessagesIntoTurns(
         }
         break;
       }
+      case 'artifact': {
+        // 产物带外声明 → 绑到当前轮(帧在 message_complete 之前到,故 current 就是本轮)。
+        // 同轮同 path 去重(同一文件本轮多次写只算一件成果)。
+        const arts = (current.artifacts ??= []);
+        if (!arts.some((a) => a.path === msg.path)) {
+          arts.push({ name: msg.name, path: msg.path, kind: msg.kind, mime: msg.mime, size: msg.size });
+        }
+        break;
+      }
       case 'status':
         current.placeholder = {
           ...(current.placeholder ?? {}),

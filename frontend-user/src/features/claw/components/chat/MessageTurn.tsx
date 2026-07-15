@@ -16,6 +16,7 @@ import {
   UserBubble,
 } from '@/shared/components/chat';
 import { MINICOD_TOOL_PREFIX } from '@/shared/lib/minicod-papers';
+import { stripContainerPaths } from '@/shared/lib/strip-container-paths';
 import { ClawPaperList } from './ClawPaperList';
 import {
   hasVisibleAssistantContent,
@@ -27,35 +28,22 @@ import { useQuotaStore } from '@/stores/quota.store';
 import type { ClawArtifact } from '../../api/artifacts';
 import { TurnArtifacts } from './TurnArtifacts';
 
-// 写文件类工具 —— 这一轮调用了它们且 file_path 落到当前 ./out 产物里, 即视为该轮产出的可下载文件。
-const WRITE_TOOLS = new Set(['Write', 'Edit', 'MultiEdit']);
-
-// outTopChild: 从写入路径取它在 out/ 下的"顶层子项"名(文件名 或 一级子目录名)。
-// out/report.md → "report.md";out/proj/a.md → "proj"。绝/相对路径都行(定位 out 段)。
-function outTopChild(filePath: string): string | null {
-  const parts = filePath.split('/').filter(Boolean);
-  const i = parts.indexOf('out');
-  if (i < 0 || i + 1 >= parts.length) return null;
-  return parts[i + 1];
-}
-
-// extractTurnArtifacts: 从本轮 blocks 的写文件工具调用里, 取出它在 out/ 下触达的顶层产物
-// (单文件 或 一级子目录), 与当前 ./out 实时列表(含 file/dir)按名匹配 → 存在才挂卡;同一产物去重。
-function extractTurnArtifacts(turn: Turn, artifacts: ClawArtifact[]): ClawArtifact[] {
-  const byName = new Map(artifacts.map((a) => [a.name, a]));
+// mergeTurnArtifacts:本轮产物 = 执行器带外声明的 turn.artifacts(权威、工具无关),按 `path`
+// 关联耐久 DTO(useClawArtifacts,含 id/标题/说明)→ 有 DTO 用 DTO(可预览、二进制可下载),
+// DTO 尚未落库(harvest 有延迟)则用帧字段合成一张卡(id 缺省 → 走 path 直读回退),卡片即时可见。
+// 彻底取代旧的「扫目录 + 匹配 Write 工具名 + 按名对齐」启发式(漏 ExportDocument/Bash 产物)。
+function mergeTurnArtifacts(turn: Turn, dtos: ClawArtifact[]): ClawArtifact[] {
+  if (!turn.artifacts || turn.artifacts.length === 0) return [];
+  const byPath = new Map(dtos.map((d) => [d.path, d]));
   const seen = new Set<string>();
   const out: ClawArtifact[] = [];
-  for (const b of turn.blocks) {
-    if (b.kind !== 'tool' || !WRITE_TOOLS.has(b.toolName)) continue;
-    const fp = (b.input as { file_path?: unknown } | undefined)?.file_path;
-    if (typeof fp !== 'string') continue;
-    const top = outTopChild(fp); // 文件名 或 一级子目录名
-    if (!top || seen.has(top)) continue;
-    const art = byName.get(top); // artifacts 顶层既含文件也含目录, 按名匹配
-    if (art) {
-      seen.add(top);
-      out.push(art);
-    }
+  for (const ta of turn.artifacts) {
+    if (seen.has(ta.path)) continue;
+    seen.add(ta.path);
+    const dto = byPath.get(ta.path);
+    out.push(
+      dto ?? { path: ta.path, name: ta.name, kind: ta.kind, mime: ta.mime, size: ta.size },
+    );
   }
   return out;
 }
@@ -99,7 +87,7 @@ export const MessageTurn = memo(function MessageTurn({
   const openReset = useQuotaStore((s) => s.openReset);
   const visible = hasVisibleAssistantContent(turn);
   const turnFiles = useMemo(
-    () => (artifacts && artifacts.length ? extractTurnArtifacts(turn, artifacts) : []),
+    () => mergeTurnArtifacts(turn, artifacts ?? []),
     [turn, artifacts],
   );
   const isThinkingActive =
@@ -148,7 +136,8 @@ export const MessageTurn = memo(function MessageTurn({
               return (
                 <AssistantBubble
                   key={b.id}
-                  text={b.text}
+                  // 出口清洗:兜住偶发泄漏的容器内部路径(主机制是提示词铁律 + 下方产物卡)。
+                  text={stripContainerPaths(b.text)}
                   streaming={isLastTextStreaming}
                   // 智能助手用「无气泡·全宽正文」现代风(智能搜索仍是默认 card)。
                   variant="plain"
