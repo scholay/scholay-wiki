@@ -25,7 +25,11 @@ func cutoff(days int) time.Time {
 	if days <= 0 {
 		days = 30
 	}
-	return time.Now().AddDate(0, 0, -(days - 1))
+	// 对齐当日 0 点(2026-07-15 时区彻查):不对齐时最旧一个自然日被「当时钟点」拦腰截断 ——
+	// 折线首柱系统性偏低且同日内反复刷新持续缩水,并与 admin_orders 的 0 点对齐口径对不上账。
+	now := time.Now()
+	day0 := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+	return day0.AddDate(0, 0, -(days - 1))
 }
 
 // applyStatsFilter 把 StatsFilter 翻成 WHERE 链(时间窗口 + 维度过滤)。

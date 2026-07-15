@@ -10,12 +10,17 @@
  * 柱状图不能虚线 → 用 todayFadeOpacity + isLiveBar 给"今天那根柱"降透明度(见各 Bar 图)。
  */
 
-/** 本地(容器=北京)日期 YYYY-MM-DD。不能用 toISOString()(那是 UTC,跨日会错一天)。 */
+/**
+ * **北京**日期 YYYY-MM-DD(2026-07-15 时区彻查修订)。
+ * 后端日桶按容器北京时区切,这里的 key 只用来与后端桶名比对(判「进行中的今天」)——
+ * 旧实现用浏览器本地时区,海外管理员打开图表会错位一天(进行中的半天被画成断崖终值)。
+ * 不能用 toISOString()(那是 UTC,跨日会错一天);Intl timeZone 全现代浏览器可用。
+ */
+const BEIJING_DATE_FMT = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
+});
 export function localDateKey(d: Date = new Date()): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  return BEIJING_DATE_FMT.format(d); // en-CA locale → YYYY-MM-DD
 }
 
 export interface BuildDailyTrendOptions {

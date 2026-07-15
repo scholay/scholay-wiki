@@ -73,7 +73,10 @@ func (s *Service) GetUserMetrics(days int, granularity string) (*UserMetrics, er
 
 	db := database.GetDB()
 	now := time.Now()
-	since := now.AddDate(0, 0, -days)
+	// 对齐当日 0 点(2026-07-15 时区彻查):不对齐时最旧一个自然日桶只含「当时钟点」之后的行,
+	// 折线首柱假低且同日反复查看数值漂移,与 dashboard_service 的同名图表对不上。
+	day0 := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+	since := day0.AddDate(0, 0, -(days - 1))
 
 	// --- 1. registrations 折线 ---
 	var fmtExpr string

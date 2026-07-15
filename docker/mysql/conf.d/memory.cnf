@@ -63,3 +63,9 @@ interactive_timeout = 28800
 # 表, 无磁盘无限增长问题), 不要在这里用 FILE 模式。
 long_query_time = 2
 log_queries_not_using_indexes = 0
+
+# ── 时区(2026-07-15 事故修复)────────────────────────────────────────────────
+# 业务口径 = 北京时间。显式钉死,不再依赖 SYSTEM(跟随容器 /etc/localtime,宿主 UTC 时
+# 全线漂到 UTC → 每日额度 0 点不重置事故)。影响 NOW()/CURDATE()/CURRENT_TIMESTAMP 默认值
+# 与 DATE_FORMAT 日聚合。dev/prod compose 都挂本目录,一处配置两侧生效。
+default-time-zone = '+08:00'

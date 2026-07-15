@@ -6,14 +6,19 @@ x-logging: &default-logging
     max-size: "10m"
     max-file: "7"
 
-# 时区统一为北京时间 —— 所有容器跟随宿主机,不做任何 timezone 转换。
+# 时区统一为北京时间 —— 由仓库自带的时区文件钉死,不依赖宿主机配置。
+#
+# 2026-07-15 事故修复:旧策略是「跟随宿主」(挂宿主 /etc/localtime)。本地宿主是北京时间
+# 一切正常,但生产云主机系统时区是 UTC 时,全部容器整体跑 UTC —— 每日额度按 UTC 日期
+# 滚动,北京 0 点不重置、8 点才重置(用户实际反馈的事故)。业务口径就是北京时间,
+# 故改为挂**仓库内置**的 docker/tz/Asia-Shanghai(IANA TZif,公有领域),主机时区任意
+# 均不影响;主机只需保证 NTP 对时(绝对时间)。
 #
 # TZ 值用冒号前缀 `:/etc/localtime` 是 POSIX libc 标准语法:
 # 告诉 libc 不要去查 /usr/share/zoneinfo,直接读这个文件作为 tz 数据。
-# 这样无论镜像有没有装 tzdata(alpine 默认就没,如 umami/minio),
-# 全部都直接吃宿主挂进来的 /etc/localtime,行为完全一致。
+# 这样无论镜像有没有装 tzdata(alpine 默认就没,如 umami/minio),行为完全一致。
 #
-# 配合 volumes 里挂 `- /etc/localtime:/etc/localtime:ro`,实现真正的"跟随宿主"。
+# 配合 volumes 里挂 `- ./docker/tz/Asia-Shanghai:/etc/localtime:ro`。
 # YAML 不能合并列表,所以 volumes 那行每个服务都手写。
 x-tz-env: &tz-env
   TZ: ":/etc/localtime"
@@ -36,11 +41,11 @@ services:
     volumes:
       - ./data/mysql:/var/lib/mysql
       - ./docker/mysql/conf.d:/etc/mysql/conf.d:ro
-      - /etc/localtime:/etc/localtime:ro
+      - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
     # --slow-query-log=0: 关掉慢查询日志, 之前默认 ON 时写 /var/lib/mysql/slow.log,
     # 该文件挂到 host 的 data/mysql/ 下, 无 rotation, 长期会无限增长。没有 admin
     # 工具消费它, 需要排查慢查询时临时打开即可 (`SET GLOBAL slow_query_log='ON'`)。
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --slow-query-log=0
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --slow-query-log=0 --default-time-zone='+08:00'
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
       interval: 30s
@@ -74,7 +79,7 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-scholarminiopass}
     volumes:
       - ./data/minio:/data
-      - /etc/localtime:/etc/localtime:ro
+      - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
     command: server /data --console-address ":9001"
     healthcheck:
       # MinIO 自带的就绪探针 —— 等服务起来 + 至少一块盘就绪
@@ -105,7 +110,7 @@ services:
       - "6379"
     volumes:
       - ./data/redis:/data
-      - /etc/localtime:/etc/localtime:ro
+      - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
     # AOF: appendfsync everysec 显式声明（每秒 fsync，性能/持久化平衡的常规选择）
     # slowlog: 记录 >10ms 的命令，最多保留 256 条，用于排查热点 key 与慢命令
     command: >-
@@ -148,7 +153,7 @@ services:
       - "6379"
     volumes:
       - ./data/redis-persist:/data
-      - /etc/localtime:/etc/localtime:ro
+      - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
     command: >-
       redis-server
       --appendonly yes
@@ -187,7 +192,7 @@ services:
     volumes:
       - ./docker/mysql/migrations:/docker-entrypoint-initdb.d/migrations:ro
       - ./scripts:/app/scripts:ro
-      - /etc/localtime:/etc/localtime:ro
+      - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
     depends_on:
       mysql:
         condition: service_healthy
@@ -298,7 +303,7 @@ services:
       # Go memory limit (75% of container memory limit)
       GOMEMLIMIT: 768MiB
     volumes:
-      - /etc/localtime:/etc/localtime:ro
+      - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
       # 审稿人 skill 库 (reviewer-roster + rv-*): backend 只读, 按 slug 读 SCORING_PERSONA 段。
       # P6:fork 退役后 skill 源移到 ./agent-skills/(与 executor 的 --add-dir 挂载同源)。
       - ./agent-skills/reviewer-skills:/app/reviewer-skills:ro
@@ -348,6 +353,11 @@ services:
     logging: *default-logging
     environment:
       <<: *tz-env
+      # 2026-07-15 时区彻查:Bun/JavaScriptCore(ICU)不认 ":/etc/localtime" 的 libc 文件写法,
+      # JS 层 new Date() 仍是 UTC(日志时间戳/会话 createdAt 错位;业务日期由 clock.ts 固定 +8
+      # 兜底不受影响)。IANA 名字形式两层(libc date + JS ICU)实测都认 —— 本服务覆写为名字形式;
+      # 其余 alpine 系服务无 tzdata 只认文件挂载,保持 ":/etc/localtime" 不动。
+      TZ: "Asia/Shanghai"
       PORT: 3456
       # M3:会话 cwd 根必须与 backend 权限判定的 agentSessionWorkdirRoot() 默认(/home/bun/sessions)一致,
       # 否则 agent 提出的**绝对路径**文件操作会被后端权限判定按错根 confine → 误 DENY(相对路径不受影响,
@@ -381,7 +391,7 @@ services:
       # 时区跟随宿主(2026-07 补):oven/bun:1-slim 无 tzdata,TZ=":/etc/localtime" 此前指向
       # 不存在的文件 → 容器实际跑 UTC(北京时间每天 0:00-8:00 日期差一天,claw 跑 `date` 也是 UTC)。
       # JS 侧 src/tools/clock.ts 另有固定 +8 实现,不依赖此挂载;这里是给 Bash `date` / 日志对齐。
-      - /etc/localtime:/etc/localtime:ro
+      - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
     healthcheck:
       test: ["CMD-SHELL", "bun -e \"fetch('http://127.0.0.1:3456/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\" || exit 1"]
       interval: 30s
@@ -420,6 +430,9 @@ services:
     tmpfs:
       - /tmp
     volumes:
+      # 2026-07-15 时区彻查补挂:此前唯独本服务漏挂 → TZ=":/etc/localtime" 指向不存在的
+      # 文件,LaTeX 编译沙箱实跑 UTC(\today 在北京 0-8 点差一天、编译日志时间错位)。
+      - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
       - ./data/prism-work:/work
     cap_drop:
       - ALL
@@ -461,7 +474,7 @@ services:
     environment:
       <<: *tz-env
     volumes:
-      - /etc/localtime:/etc/localtime:ro
+      - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
       # 发版灰度:持久化 hash 分包目录,旧版本 chunk 跨重建保留(默认 7 天,见
       # docker-entrypoint.d/40-sync-site.sh)→ 老标签页发版后跳转不再「页面加载失败」。
       - ./data/frontend-assets:/usr/share/nginx/html/assets
@@ -501,7 +514,7 @@ services:
       DISABLE_TELEMETRY: "1"
       TRACKER_SCRIPT_NAME: script
     volumes:
-      - /etc/localtime:/etc/localtime:ro
+      - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
     expose:
       - "3000"
     depends_on:
@@ -538,7 +551,7 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      - /etc/localtime:/etc/localtime:ro
+      - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
     depends_on:
       - backend
       - frontend-user

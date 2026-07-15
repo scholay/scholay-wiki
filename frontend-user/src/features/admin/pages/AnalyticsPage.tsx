@@ -58,12 +58,14 @@ export function AnalyticsPage() {
 
   // ⚠️ 必须 useMemo:formatISO(new Date()) 每次 render 返回新时间戳,直接传 `{start,end}` 会让
   // useQuery 的 queryKey 每次都不一样 → 无限重拉。依赖窗口的原始值,稳定。
-  // 用 formatISO(本地偏移 +08:00)而非 toISOString()(UTC Z):不落 UTC,跟随主机本地时区;
-  // 后端 parseRange 走 ParseInLocation(RFC3339, time.Local),识别串里的 +08:00,解析成同一时刻。
+  // 自定义区间边界**钉死北京日**(2026-07-15 时区彻查):旧写法 new Date(start+'T00:00:00')
+  // 是浏览器本地零点 —— 海外管理员选「7-14」实际发出自己时区的零点,后端按北京日切桶
+  // 会返回两个残缺日桶(图上冒出没选的日期)。RFC3339 带显式 +08:00,后端 ParseInLocation
+  // 识别偏移解析为同一时刻,与浏览器时区无关。
   const params = useMemo(
     () =>
       win.start && win.end
-        ? { start: formatISO(new Date(win.start + 'T00:00:00')), end: formatISO(new Date(win.end + 'T23:59:59')) }
+        ? { start: `${win.start}T00:00:00+08:00`, end: `${win.end}T23:59:59+08:00` }
         : { start: daysAgoISO(win.days ?? 30), end: nowISO() },
     [win.start, win.end, win.days],
   );

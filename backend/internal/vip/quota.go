@@ -39,9 +39,20 @@ import (
 	"scholar-backend/internal/common/cache"
 )
 
-// quotaKeyTTL 窗口相关 key(anchor/used/base)的 TTL:窗口 7 天 + 1 天余量。
+// quotaKeyTTLFloor 窗口 key(anchor/used/base)TTL 下限:默认窗口 7 天 + 1 天余量。
 // 有效性判定看 anchor **值**(now < anchor+窗口),TTL 只管垃圾回收,宁长勿短。
-const quotaKeyTTL = 8 * 24 * time.Hour
+const quotaKeyTTLFloor = 8 * 24 * time.Hour
+
+// quotaKeyTTL 随配置伸缩:window_days 是 admin 可调旋钮(评审 2026-07-15:原 8 天常量在
+// 窗口调到 >7 天时,anchor/used/base 会在窗口中途被 Redis 过期 → 额度静默满血、
+// 手动重置抬起的基线蒸发)。取 max(下限, 窗口+1 天)。
+func (s *Service) quotaKeyTTL() time.Duration {
+	ttl := time.Duration(quotaKeyTTLFloor)
+	if d := s.cfg.Get().WindowDuration() + 24*time.Hour; d > ttl {
+		ttl = d
+	}
+	return ttl
+}
 
 // resetLockShards 把「配额重置」按 user 分片串行化(进程内快路径)。
 // 防 CheckDailyQuota 的 check-then-act 并发双扣:钱包行锁只防透支、不防「两个并发耗尽请求
@@ -337,7 +348,7 @@ func (s *Service) AddUsage(ctx context.Context, userID uint, tokens int) {
 	}
 	now := time.Now()
 	anchorStr, err := rdb.Eval(ctx, anchorRollLua, []string{anchorKey(userID)},
-		now.Unix(), windowSec, int64(quotaKeyTTL/time.Second)).Text()
+		now.Unix(), windowSec, int64(s.quotaKeyTTL()/time.Second)).Text()
 	if err != nil {
 		quotaFallback.add(userID, int64(tokens), windowSec)
 		warnQuotaDegraded("anchor roll failed", "user_id", userID, "err", err)
@@ -356,7 +367,7 @@ func (s *Service) AddUsage(ctx context.Context, userID uint, tokens int) {
 		return
 	}
 	if n == int64(tokens) { // 本窗口首次累加 → 设 TTL
-		if e := rdb.Expire(ctx, key, quotaKeyTTL).Err(); e != nil {
+		if e := rdb.Expire(ctx, key, s.quotaKeyTTL()).Err(); e != nil {
 			slog.Debug("billing: token usage expire set failed (fail-open)", "user_id", userID, "err", e)
 		}
 	}
@@ -479,7 +490,7 @@ func (s *Service) resetInternal(ctx context.Context, userID uint, cfg *BillingCo
 
 	// 3) 先抬基线 base=当前 used(Redis 写)→ 窗口内消耗归零 = 满血,used 统计完整保留。
 	//    失败即返回错误、不扣费,杜绝「扣了钱但额度没满血 → 每条消息再扣一次」的循环扣费。
-	if err := rdb.Set(ctx, tokenBaseKey(userID, w.anchor), w.used, quotaKeyTTL).Err(); err != nil {
+	if err := rdb.Set(ctx, tokenBaseKey(userID, w.anchor), w.used, s.quotaKeyTTL()).Err(); err != nil {
 		slog.Warn("billing: reset set baseline failed, not charging", "user_id", userID, "err", err)
 		return err
 	}
@@ -512,7 +523,7 @@ func (s *Service) ResetBaselineOnUpgrade(ctx context.Context, userID uint) {
 	if w.anchor <= 0 || w.windowUsed() <= 0 {
 		return // 无窗口 / 窗口本就满血, 无需抬基线
 	}
-	if err := rdb.Set(ctx, tokenBaseKey(userID, w.anchor), w.used, quotaKeyTTL).Err(); err != nil {
+	if err := rdb.Set(ctx, tokenBaseKey(userID, w.anchor), w.used, s.quotaKeyTTL()).Err(); err != nil {
 		slog.Warn("billing: upgrade baseline reset failed (falls back to higher ceiling)", "user_id", userID, "err", err)
 		return
 	}

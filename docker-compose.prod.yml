@@ -27,7 +27,7 @@ x-logging: &default-logging
 # 这样无论镜像有没有装 tzdata(alpine 默认就没,如 umami/minio),
 # 全部都直接吃宿主挂进来的 /etc/localtime,行为完全一致。
 #
-# 配合 volumes 里挂 `- /etc/localtime:/etc/localtime:ro`,实现真正的"跟随宿主"。
+# 配合 volumes 里挂 `- ./docker/tz/Asia-Shanghai:/etc/localtime:ro`,实现真正的"跟随宿主"。
 # YAML 不能合并列表,所以 volumes 那行每个服务都手写。
 x-tz-env: &tz-env
   TZ: ":/etc/localtime"
@@ -49,7 +49,7 @@ services:
     volumes:
       - ./data/mysql:/var/lib/mysql
       - ./docker/mysql/conf.d:/etc/mysql/conf.d:ro
-      - /etc/localtime:/etc/localtime:ro
+      - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
     # --slow-query-log=0: 同 dev compose, 关闭无 rotation 的 /var/lib/mysql/slow.log
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --slow-query-log=0
     healthcheck:
@@ -82,7 +82,7 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required in prod}
     volumes:
       - ./data/minio:/data
-      - /etc/localtime:/etc/localtime:ro
+      - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
     command: server /data --console-address ":9001"
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
@@ -110,7 +110,7 @@ services:
       - "6379"
     volumes:
       - ./data/redis:/data
-      - /etc/localtime:/etc/localtime:ro
+      - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
     # AOF: appendfsync everysec (每秒 fsync,性能/持久化平衡)
     # slowlog: 记录 >10ms 命令,最多 256 条,排查热点 key
     command: >-
@@ -150,7 +150,7 @@ services:
       - "6379"
     volumes:
       - ./data/redis-persist:/data
-      - /etc/localtime:/etc/localtime:ro
+      - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
     command: >-
       redis-server
       --appendonly yes
@@ -189,7 +189,7 @@ services:
     volumes:
       - ./docker/mysql/migrations:/docker-entrypoint-initdb.d/migrations:ro
       - ./scripts:/app/scripts:ro
-      - /etc/localtime:/etc/localtime:ro
+      - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
     depends_on:
       mysql:
         condition: service_healthy
@@ -276,7 +276,7 @@ services:
       # Go memory limit (75% of container memory limit)
       GOMEMLIMIT: 768MiB
     volumes:
-      - /etc/localtime:/etc/localtime:ro
+      - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
       # 审稿人 skill 库 (reviewer-roster + rv-*): backend 只读读 SCORING_PERSONA。源已移到 ./agent-skills(fork 退役)。
       - ./agent-skills/reviewer-skills:/app/reviewer-skills:ro
       # 审查视角(lens)库 —— 多技能组合,backend 只读读 <<<LENS>>> 段拼进审稿人 prompt。
@@ -328,6 +328,8 @@ services:
     logging: *default-logging
     environment:
       <<: *tz-env
+      # Bun/ICU 不认 ":/etc/localtime" 文件形式,JS 层需 IANA 名(与 dev 同步,2026-07-15)。
+      TZ: "Asia/Shanghai"
       PORT: 3456
       # 生产标记:执行器据此做 secure-by-default(未沙箱 Bash 拒绝执行 + 未配 token 时 fail-closed 告警)。
       # dev compose 刻意不设 → 本机单租户可裸跑 Bash。
@@ -355,7 +357,7 @@ services:
       - ./agent-skills/smart-search-skills:/smart-search-add/.claude/skills:ro
       # 会话工作目录持久化(跨重部署不丢 cwd / 上传文件;产物耐久真源已在 MinIO+DB)。
       - ./data/agent-sessions:/home/bun/sessions
-      - /etc/localtime:/etc/localtime:ro
+      - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
     healthcheck:
       test: ["CMD-SHELL", "bun -e \"fetch('http://127.0.0.1:3456/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\" || exit 1"]
       interval: 30s
@@ -401,6 +403,8 @@ services:
     tmpfs:
       - /tmp
     volumes:
+      # 2026-07-15 时区彻查补挂:此前唯独本服务漏挂 → LaTeX 沙箱实跑 UTC(\today 差一天)。
+      - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
       - ./data/prism-work:/work
     cap_drop:
       - ALL
@@ -430,7 +434,7 @@ services:
     environment:
       <<: *tz-env
     volumes:
-      - /etc/localtime:/etc/localtime:ro
+      - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
       # 发版灰度:持久化 hash 分包目录,旧版本 chunk 跨发版保留(默认 7 天,见
       # frontend-user/docker-entrypoint.d/40-sync-site.sh)→ 老标签页发版后跳转不再「页面加载失败」。
       - ./data/frontend-assets:/usr/share/nginx/html/assets
@@ -467,7 +471,7 @@ services:
       DISABLE_TELEMETRY: "1"
       TRACKER_SCRIPT_NAME: script
     volumes:
-      - /etc/localtime:/etc/localtime:ro
+      - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
     expose:
       - "3000"
     depends_on:
@@ -503,7 +507,7 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      - /etc/localtime:/etc/localtime:ro
+      - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
     depends_on:
       - backend
       - frontend-user

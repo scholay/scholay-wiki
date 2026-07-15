@@ -25,7 +25,8 @@ export function PrivacyPage() {
         <>
           <MetaChip>版本 {LEGAL_CONTENT_VERSION}</MetaChip>
           <MetaChip>
-            更新于 {new Date(LEGAL_CONTENT_UPDATED_AT).toLocaleDateString('zh-CN')}
+            {/* 直接字符串变换展示(2026-07-15 时区彻查):new Date('YYYY-MM-DD') 按 UTC 午夜解析,美洲时区显示会倒退一天 */}
+            更新于 {LEGAL_CONTENT_UPDATED_AT.replace(/-0?/g, '/')}
           </MetaChip>
         </>
       }
