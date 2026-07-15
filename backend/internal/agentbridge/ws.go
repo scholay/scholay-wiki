@@ -655,10 +655,15 @@ func recordOutOfBandTokens(rec llmusage.Recorder, userID *uint, feature, kind, s
 	if rec == nil {
 		return
 	}
-	if kind == "memory_extract" {
+	if kind == "memory_extract" || kind == "context_compact" {
+		// 系统内部开销(记忆抽取 / 上下文压缩摘要):记账但不扣用户日额度(SkipQuota)。
+		feat := llmusage.FeatureMemory
+		if kind == "context_compact" && feature != "" {
+			feat = feature // 归属原 feature 便于对账,但仍 SkipQuota
+		}
 		rec.Record(llmusage.Usage{
 			UserID:              userID,
-			Feature:             llmusage.FeatureMemory,
+			Feature:             feat,
 			Source:              llmusage.SourceAgent,
 			Provider:            "scholay-managed",
 			Model:               u.Model,

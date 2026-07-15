@@ -12,6 +12,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { useAuthStore } from '@/stores/auth.store';
 import {
   appendStreamMessage,
@@ -328,6 +329,13 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
         // 回滚刚乐观追加的那条 pendingTurn(正常输入框已因 busy 置灰,极少触发)。
         if (errFrame && errFrame.code === 'busy') {
           setBusyRejected((n) => n + 1);
+          return;
+        }
+        // 上下文压缩通知(执行器滚动摘要压缩时下发):弹一条低调提示,不进 messages。
+        // 压缩是执行器内存态、不写 journal → 是「实时警告」性质,toast 是合适的通道。
+        if (evt.type === 'system_notification' && (evt as { kind?: string }).kind === 'context_compacted') {
+          const msg = (evt as { message?: string }).message;
+          if (msg) toast.message(msg, { duration: 6000 });
           return;
         }
         // 一轮 AI 结束 → 用量已落账,广播刷新额度(触发过半/将尽阈值 toastr)。

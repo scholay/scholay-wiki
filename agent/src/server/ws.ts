@@ -17,6 +17,7 @@ import type { Tier } from "../config/models.ts";
 import { generateTitle } from "../turn/title.ts";
 import { fastCompletion } from "../turn/completion.ts";
 import { windowMessages } from "../turn/window.ts";
+import { compactMessages } from "../turn/compact.ts";
 import { log } from "../obs/log.ts";
 
 // H5:长会话上下文只增不减的滑窗参数。CONTEXT_WINDOW=上游 context 窗口;近 TRIGGER_PCT% 才裁老回合,
@@ -258,19 +259,34 @@ async function handleUserMessage(ws: ServerWebSocket<WSData>, frame: Record<stri
   // 把 user 消息加入会话内 history(runTurn 复制后再 append assistant/tool_result)
   meta.messages.push({ role: "user", content: userContent });
 
-  // H5:近上限时滑窗裁最老回合,避免上下文只增不减撞上游 context 墙(报笼统 upstream failed 卡死)。
-  // 触发信号 = 上一轮上下文(input+output ≈ 当前 history 大小)超 TRIGGER_PCT%。硬截断非摘要,但远好于崩溃;
-  // windowMessages 在回合边界切,结构安全(单测覆盖)。新加入的本轮 user 恒是最后一个回合起点,必被保留。
+  // 近上限时压缩上下文,避免只增不减撞上游 context 墙(报笼统 upstream failed 卡死)。
+  // 触发信号 = 上一轮上下文(input+output ≈ 当前 history 大小)超 TRIGGER_PCT%。
+  // 优雅降级层:先试**滚动摘要压缩**(compact.ts:摘要最老回合 + 保留最近 + 保留关键产物),
+  // 失败(摘要调用挂/超时/无可压)→ 回落**硬截断** windowMessages(宁丢不崩)。
+  // compactMessages / windowMessages 都在回合边界切,结构安全(Anthropic 约束)。本轮新 user 恒被保留。
   const lastCtx = meta.lastUsage ? meta.lastUsage.input_tokens + meta.lastUsage.output_tokens : 0;
   // 模型目录化 P2:上下文墙按会话模型定界(backend 随模型帧下发),未知回落全局 env。
   const ctxWindow = ws.data.contextWindow ?? CONTEXT_WINDOW;
   if (ctxWindow > 0 && WINDOW_KEEP_TURNS > 0 && WINDOW_TRIGGER_PCT > 0 && lastCtx > (ctxWindow * WINDOW_TRIGGER_PCT) / 100) {
     const before = meta.messages.length;
-    meta.messages = windowMessages(meta.messages, WINDOW_KEEP_TURNS);
-    if (meta.messages.length < before) {
-      log.warn("windowed long-session history (near context limit)", {
+    try {
+      const r = await compactMessages(meta.messages, WINDOW_KEEP_TURNS);
+      meta.messages = r.messages;
+      // 摘要调用计费(便宜档;后端 recordOutOfBandTokens 按 kind=context_compact 归系统开销)。
+      safeSend(ws, { type: "token_usage", usage: r.usage, kind: "context_compact" });
+      // 透明层:告知用户较早对话已被压缩(前端渲染低调 inline 提示)。
+      safeSend(ws, {
+        type: "system_notification",
+        kind: "context_compacted",
+        level: "info",
+        message: `为适配当前模型的上下文窗口,已将较早的 ${r.droppedTurns} 轮对话压缩为摘要 —— 精确细节可能有损,需要完整上下文可开新对话。`,
+      });
+    } catch (e) {
+      meta.messages = windowMessages(meta.messages, WINDOW_KEEP_TURNS);
+      log.warn("compaction failed, fell back to hard truncation", {
         session_id: meta.sessionId, last_ctx: lastCtx, ctx_window: ctxWindow,
         dropped_msgs: before - meta.messages.length, kept_msgs: meta.messages.length,
+        err: String((e as Error)?.message ?? e),
       });
     }
   }
