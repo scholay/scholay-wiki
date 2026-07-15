@@ -115,7 +115,7 @@ export function ToolCallBlock({
         : 'text-muted-foreground';
 
   return (
-    <div className="min-w-0 rounded-md border border-border bg-surface-1 overflow-hidden">
+    <div className="min-w-0 overflow-hidden rounded-md border border-border-soft bg-surface-1/70">
       {/* Header chip — 永远单行, max-w-full + min-w-0 防溢出 */}
       <button
         type="button"

@@ -43,6 +43,19 @@ export function ThinkingFold({ text, isActive, className }: ThinkingFoldProps) {
     }
   }, [text, expanded, isActive]);
 
+  // 「已思考 N 秒」摘要(2026-07-15 重设计,业界规范):组件内本地计时 —— isActive 首次 true 记开始,
+  // 转 false 时算耗时并定住。历史回放(isActive 一直 false)无开始时间 → 不显示秒数,退回「思考过程」。
+  const startRef = useRef<number | null>(null);
+  const [durationSec, setDurationSec] = useState<number | null>(null);
+  useEffect(() => {
+    if (isActive && startRef.current === null) {
+      startRef.current = Date.now();
+    } else if (!isActive && startRef.current !== null) {
+      setDurationSec(Math.max(1, Math.round((Date.now() - startRef.current) / 1000)));
+      startRef.current = null;
+    }
+  }, [isActive]);
+
   // 第一行非空 + 截断 60 字符
   const firstLine =
     text
@@ -82,8 +95,16 @@ export function ThinkingFold({ text, isActive, className }: ThinkingFoldProps) {
           strokeWidth={2.2}
         />
         <span className="shrink-0 font-medium">
-          思考过程
-          {isActive && <span className="chat-thinking-dots ml-0.5" />}
+          {isActive ? (
+            <>
+              思考中
+              <span className="chat-thinking-dots ml-0.5" />
+            </>
+          ) : durationSec != null ? (
+            formatThinkDuration(durationSec)
+          ) : (
+            '思考过程'
+          )}
         </span>
         {!expanded && preview && (
           <span className="min-w-0 flex-1 truncate font-mono text-2xs text-faint">
@@ -107,4 +128,12 @@ export function ThinkingFold({ text, isActive, className }: ThinkingFoldProps) {
       )}
     </div>
   );
+}
+
+/** 「已思考 N 秒」摘要文案 —— 与 ChatGPT「Thought for Ns」同款,给完成后的思考块一个收尾摘要。 */
+function formatThinkDuration(sec: number): string {
+  if (sec < 60) return `已思考 ${sec} 秒`;
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return s > 0 ? `已思考 ${m} 分 ${s} 秒` : `已思考 ${m} 分`;
 }
