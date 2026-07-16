@@ -267,11 +267,13 @@ func (s *Service) SetJournalTemplate(projectID uint, template string) (*DocStruc
 // → SaveStruct(重投影 main.tex,可重编译)。agent 只改 title/abstract/keywords/body;
 // authors/affiliations/bibliography/targetTemplate 从既有结构体保留(不因 agent 编辑而丢)。
 // applyStructRound 固化本轮:把 document.md 正文合并进结构体真源。
-// overrideDoc(P2 per-hunk):非空 = 前端「逐块审阅」取舍后的合并正文,用它替代 cwd document.md
-// (选择性接受);空 = 读 cwd 全部改动(整轮应用,原行为)。bib/术语表回收两轨一致(它们不参与逐块取舍)。
-func (s *Service) applyStructRound(ctx context.Context, projectID uint, sessionID, overrideDoc string) (int, error) {
+// hasOverride(P2 per-hunk):true = 前端「逐块审阅」取舍后的合并正文(overrideDoc,可能为空=用户全删),
+// **显式提供就一律用它**、绝不回落 cwd —— 用「是否提供」而非「是否非空」区分,消除空串哨兵歧义
+// (对抗审查:overrides[key] 存在但为空 与 key 缺失 都返回 ""、旧逻辑会把「用户全删」误当「整轮应用」)。
+// hasOverride=false(自动轨,overrides 无此 key)= 读 cwd 全部改动(整轮应用)。bib/术语表回收两轨一致。
+func (s *Service) applyStructRound(ctx context.Context, projectID uint, sessionID, overrideDoc string, hasOverride bool) (int, error) {
 	docContent := overrideDoc
-	if strings.TrimSpace(docContent) == "" {
+	if !hasOverride {
 		wf, err := s.agent.ReadWorkspaceFileFull(ctx, sessionID, EditorDocFile)
 		if err != nil {
 			return 0, err

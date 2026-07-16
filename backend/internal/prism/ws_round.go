@@ -199,8 +199,8 @@ func (s *Service) ApplyRound(ctx context.Context, userID, projectID uint, instru
 	// P2:overrides[document.md] = 前端「逐块审阅」取舍后的合并正文;空 = 整轮应用(读 cwd)。旧的「假门」
 	//（struct 轨忽略 overrides、只能整轮全收/全弃)已拆除 —— 现在 struct 轨同样支持选择性接受。
 	if proj.SchemaVersion == SchemaStruct {
-		override := overrides[EditorDocFile] // "document.md";空 = 整轮
-		n, aerr := s.applyStructRound(ctx, projectID, sessionID, override)
+		override, hasOverride := overrides[EditorDocFile] // "document.md";**是否提供**(非是否非空)决定用 override 还是读 cwd
+		n, aerr := s.applyStructRound(ctx, projectID, sessionID, override, hasOverride)
 		if aerr == nil {
 			s.refreshRoundEpoch(projectID) // 固化成功 → 基线前进,后续 apply 以新世代校验
 		}

@@ -578,8 +578,8 @@ export async function fetchPendingRound(
 
 /** 应用:固化 cwd 改动进 DB,返回固化文件数。
  * instruction:本轮干净指令,透传给后端 → 首次成功固化后用它自动给项目起名(best-effort)。
- * overrides(可选,per-file/per-hunk):relPath→最终正文。⚠️ 仅 legacy 轨生效;struct 轨整轮 parse
- *   合并、per-hunk 取舍不进入合并(V3-4.2-4 勘误,别再当它是门)。
+ * overrides(可选,per-file/per-hunk):relPath→最终正文(以 files 字段发)。legacy 轨逐文件固化;
+ *   struct 轨(P2)= overrides[document.md] 作「逐块审阅」合并正文替代 cwd(旧「假门」已拆)。
  * epoch:prepare/pending 拿到的轮次世代号;与服务端当前不符后端返回 409(基线已被其它窗口推进)。 */
 export async function applyRound(
   projectId: number,

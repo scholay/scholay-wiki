@@ -135,8 +135,8 @@ func (h *Handler) ApplyRound(c *gin.Context) {
 	}
 	// 可选 body:
 	//   instruction —— 本轮干净指令,用于首次固化后自动给项目起名(缺省也行)。
-	//   files       —— per-file / per-hunk 固化:relPath→最终正文(⚠️ 仅 legacy 轨生效;struct 轨
-	//                  整轮 parse 合并,per-hunk 取舍不进入合并 —— V3-4.2-4,别再当它是门)。
+	//   files       —— per-file / per-hunk 固化:relPath→最终正文。legacy 轨 = 逐文件固化;struct 轨
+	//                  (P2)= files[document.md] 作前端「逐块审阅」合并后的正文,替代 cwd(旧「假门」已拆)。
 	//   epoch       —— prepare/pending 拿到的轮次世代号(V3-4.4-1);不符返回 409。
 	var body struct {
 		Instruction string            `json:"instruction"`
