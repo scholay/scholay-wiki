@@ -259,6 +259,35 @@ func preamble(t texTemplate, body string) string {
 	// 设(沙箱无 fontconfig,家族名找不到)。注入 \usepackage{xeCJK} 也让 needsXeLaTeX 自动选 xelatex。
 	// 拉丁重音/希腊/符号由 xelatex 默认 Latin Modern 覆盖,无需额外设置。
 	b.WriteString(unicodeCJKPreamble)
+	// 「后加载」宏包(P1-2c):hyperref/cleveref 必须**最后**加载(hyperref 要 patch 别的宏包、cleveref 要在
+	// hyperref 之后)。仅当正文真用到才注入。**关键**:agent 只能改正文 document.md、**改不了 preamble**,
+	// 故它用了 \href/\cref 而包没加载时,编译自修复回路也救不了(agent 无法自己 \usepackage)→ 必须这里自动补。
+	b.WriteString(latePackages(t, body))
+	return b.String()
+}
+
+// latePackages:按正文用到的命令,在 preamble 末尾(hyperref 之前一切之后)补 hyperref/cleveref。
+func latePackages(t texTemplate, body string) string {
+	declared := make(map[string]bool, len(t.Packages))
+	for _, p := range t.Packages {
+		declared[strings.ToLower(strings.TrimSpace(p))] = true
+	}
+	needHyperref := !declared["hyperref"] &&
+		(strings.Contains(body, "\\href") || strings.Contains(body, "\\autoref") || strings.Contains(body, "\\hyperref") || strings.Contains(body, "\\nameref"))
+	needCleveref := !declared["cleveref"] &&
+		(strings.Contains(body, "\\cref") || strings.Contains(body, "\\Cref") || strings.Contains(body, "\\cpageref"))
+	if !needHyperref && !needCleveref {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("% --- 后加载宏包(P1-2c:命令→包自动注入;hyperref/cleveref 必须最后加载)---\n")
+	// cleveref 依赖 hyperref → 用到 cleveref 时即便正文没直接 \href 也先装 hyperref。
+	if needHyperref || needCleveref {
+		b.WriteString("\\usepackage{hyperref}\n")
+	}
+	if needCleveref {
+		b.WriteString("\\usepackage{cleveref}\n")
+	}
 	return b.String()
 }
 
@@ -302,6 +331,30 @@ func safePackages(t texTemplate, body string) string {
 		}
 		// pgfplots 强制要求设 compat,否则每次编译刷 warning、且新语法在旧默认下报错。
 		b.WriteString("\\pgfplotsset{compat=1.18}\n")
+	}
+	// 命令→包自动注入(P1-2c,mid 加载):正文用到、模板未声明、又不在上面厚集里的常见包。
+	// agent 改不了 preamble,故它用了这些命令而包没加载时编译自修复救不了 → 必须自动补。
+	for _, cp := range []struct{ pkg string; markers []string }{
+		{"graphicx", []string{"\\includegraphics"}}, // 通常在 manifest,兜底
+		{"listings", []string{"\\lstinline", "\\begin{lstlisting}", "\\lstset"}},
+		{"mhchem", []string{"\\ce{", "\\cee{"}},        // 化学式
+		{"adjustbox", []string{"\\adjustbox", "\\begin{adjustbox}"}},
+		{"tabularx", []string{"\\begin{tabularx}"}},
+	} {
+		if declared[cp.pkg] {
+			continue
+		}
+		used := false
+		for _, m := range cp.markers {
+			if strings.Contains(body, m) {
+				used = true
+				break
+			}
+		}
+		if used {
+			fmt.Fprintf(&b, "\\usepackage{%s}\n", cp.pkg)
+			declared[cp.pkg] = true // 防同一包重复(理论上不会,保险)
+		}
 	}
 	return b.String()
 }
