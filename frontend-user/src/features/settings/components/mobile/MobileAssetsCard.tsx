@@ -10,6 +10,7 @@ import {
   useResetQuota,
   type Tier,
 } from '../../api/membership';
+import { resetInfo } from '../../lib/quota-display';
 
 const TIER_LABEL: Record<Tier, string> = { free: 'Free', pro: 'Pro', max: 'Max' };
 const TIER_BADGE_CLS: Record<Tier, string> = {
@@ -44,9 +45,10 @@ export function MobileAssetsCard() {
   const tier = data.tier;
   const TierIcon = tier === 'max' ? Crown : tier === 'pro' ? Gem : null;
   const { token, credit } = data;
-  // 与 PC AccountAssetsCard 同口径:展示**剩余**百分比,进度条宽度 = 剩余
-  const remaining = token.unlimited ? 100 : Math.max(0, 100 - token.percent);
+  // 与 PC AccountAssetsCard 同口径:展示**剩余**百分比,进度条宽度 = 剩余(未开窗=满额)
+  const remaining = token.unlimited || !token.window_started_at ? 100 : Math.max(0, 100 - token.percent);
   const exhausted = !token.unlimited && remaining <= 0;
+  const ri = resetInfo(token); // 7 天窗口重置信息(相对 + 绝对)
 
   return (
     <section className="overflow-hidden rounded-lg border border-border bg-background">
@@ -100,13 +102,21 @@ export function MobileAssetsCard() {
             style={{ width: `${remaining}%` }}
           />
         </div>
-        <div className="flex items-center justify-end">
+        <div className="flex items-center justify-between gap-2">
+          {/* 重置时间(业界做法:周期额度必露出重置时刻)—— 未开窗=满额·用后计时,窗口内=N 天后重置(日期) */}
+          <span className={cn('min-w-0 flex-1 truncate text-2xs', exhausted ? 'text-brand-red' : 'text-faint')}>
+            {token.unlimited
+              ? '会员不限本项额度'
+              : ri.notStarted
+                ? `满额 · 首次使用起算 ${token.window_days} 天`
+                : `${ri.rel} · ${ri.hint}`}
+          </span>
           <button
             type="button"
             onClick={() => setResetOpen(true)}
             disabled={resetMut.isPending}
             className={cn(
-              'flex items-center gap-1 rounded-pill border px-2.5 py-1 text-xs',
+              'flex shrink-0 items-center gap-1 rounded-pill border px-2.5 py-1 text-xs',
               exhausted
                 ? 'border-brand-red text-brand-red'
                 : 'border-border-button text-muted-foreground'

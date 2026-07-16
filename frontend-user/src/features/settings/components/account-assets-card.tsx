@@ -19,6 +19,7 @@ import { SubscribeDialog, subscribePayMethods } from '@/shared/components';
 import { cn } from '@/shared/lib/utils';
 import { toApiError } from '@/shared/lib/http';
 import { useResetQuota, usePlans, quoteSubscription, type Overview, type Tier } from '../api/membership';
+import { monthDay, resetInfo } from '../lib/quota-display';
 import { useSubscribeFlow } from './billing-panels';
 
 const PLAN_LABEL: Record<Tier, string> = { free: 'Free', pro: 'Pro', max: 'Max' };
@@ -45,11 +46,6 @@ function buildSlides(proMult: number, maxMult: number) {
     { title: '额度重置机制', body: '额度按 7 天周期计算:首次使用开始计时,周期到期自动恢复 100%。耗尽后也可消耗经费立即重置。' },
     { title: '经费说明', body: '临时经费有失效日期(订阅赠送、整月有效),永久经费长期有效(充值)。' },
   ];
-}
-
-function monthDay(iso: string) {
-  const [, m, d] = iso.slice(0, 10).split('-');
-  return `${Number(m)}月${Number(d)}日`;
 }
 
 export function AccountAssetsCard({ data, onGoRecharge }: { data: Overview; onGoRecharge: () => void }) {
@@ -115,16 +111,17 @@ export function AccountAssetsCard({ data, onGoRecharge }: { data: Overview; onGo
 
 function ActiveRow({ data, onGoRecharge }: { data: Overview; onGoRecharge: () => void }) {
   const t = data.token;
-  const remaining = t.unlimited ? 100 : Math.max(0, 100 - t.percent); // 剩余百分比
+  const remaining = t.unlimited || !t.window_started_at ? 100 : Math.max(0, 100 - t.percent); // 剩余百分比(未开窗=满额)
   const exhausted = !t.unlimited && remaining <= 0;
   const lot = data.credit.lots[0];
+  const ri = resetInfo(t);
   return (
     <div className="flex items-center gap-3">
       <div className="flex flex-1 items-center gap-2">
         <span className={cn('inline-flex h-6 shrink-0 items-center rounded-sm px-2 text-2xs font-bold tracking-wider', NAMEPLATE[data.tier])}>
           {data.tier.toUpperCase()}
         </span>
-        <span className="flex size-4 shrink-0 items-center justify-center rounded-pill border border-border text-2xs text-faint" title="进度条与百分比为本周期(7 天)AI 额度的用量;周期自首次使用起算,到期自动恢复至 100%">?</span>
+        <span className="flex size-4 shrink-0 items-center justify-center rounded-pill border border-border text-2xs text-faint" title={`进度条与百分比为本周期(${t.window_days} 天)AI 额度的剩余;周期自首次使用起算,到期自动恢复满额,耗尽也可消耗经费立即重置`}>?</span>
         <span className="shrink-0 text-2xs font-medium text-subtle">{PLAN_LABEL[data.tier]} 剩余额度</span>
         <div className="h-2 flex-1 overflow-hidden rounded-pill bg-surface-2">
           {!t.unlimited && (
@@ -137,6 +134,16 @@ function ActiveRow({ data, onGoRecharge }: { data: Overview; onGoRecharge: () =>
         <span className={cn('w-9 shrink-0 text-right text-2xs tabular-nums', exhausted ? 'text-brand-red' : 'text-faint')}>
           {t.unlimited ? '不限' : `${remaining}%`}
         </span>
+        {/* 重置时间(业界做法:相对为主、绝对做 tooltip)—— 未开窗=「满额·用后计时」,窗口内=「N 天后重置」 */}
+        {!t.unlimited && (
+          <span
+            className={cn('flex shrink-0 items-center gap-1 whitespace-nowrap text-2xs', exhausted ? 'text-brand-red' : 'text-faint')}
+            title={ri.hint}
+          >
+            <RefreshCw className="size-3 shrink-0" />
+            {ri.notStarted ? '满额 · 用后计时' : ri.rel}
+          </span>
+        )}
         <ResetDialog data={data} exhausted={exhausted} onGoRecharge={onGoRecharge} />
       </div>
 
