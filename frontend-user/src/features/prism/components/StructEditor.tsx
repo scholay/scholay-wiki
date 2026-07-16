@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
+import type { Node as ProseNode } from '@tiptap/pm/model';
 import { StarterKit } from '@tiptap/starter-kit';
 import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
@@ -11,8 +12,9 @@ import { cn } from '@/shared/lib/utils';
 import { InlineMath, BlockMath, Citation, Figure, OpaqueBlock, StructBlockMeta } from './tiptap-extensions';
 import { StructEditorToolbar } from './StructEditorToolbar';
 import { DiffMarks, diffMarksKey } from './tiptap-diff-marks';
+import { buildDiffDecorations } from '../lib/struct-diff-decorations';
 import { bodyToTiptap, tiptapToBody, bodySignature, type PMNode } from '../lib/struct-tiptap';
-import type { DocStruct } from '../api/prism';
+import type { DocBlock, DocStruct } from '../api/prism';
 
 /**
  * 所见即所得结构体编辑器(Scholay Prism)。真源永远是结构体 JSON;Tiptap 只是编辑层。
@@ -25,6 +27,10 @@ export interface StructEditorHandle {
   flush: () => DocStruct | null;
   /** 在光标处插入一个引用节点 [@key](插入引用选择器用);随后防抖回写把 InlineCite 落进结构体。 */
   insertCitation: (key: string) => void;
+  /** 本次 AI 改动的处数(0 = 无改动痕迹);供工具栏显示「改动 N 处 · 上/下一处」导航。 */
+  changeCount: () => number;
+  /** 跳到相对光标的下一处(dir=1)/上一处(dir=-1)AI 改动并滚动到视口。无改动则 no-op。 */
+  goToChange: (dir: 1 | -1) => void;
 }
 
 function parseKeywords(s: string): string[] {
@@ -32,6 +38,55 @@ function parseKeywords(s: string): string[] {
     .split(/[,，]/)
     .map((x) => x.trim())
     .filter(Boolean);
+}
+
+// P1-3:把外部新正文**增量**同步进编辑器 —— 只替换「变化的中间那段」顶层块,保留公共前缀/后缀节点不动
+// (免整棵 PM 树重建 → 不 remount 不变的 KaTeX/图/表、不丢滚动位置、diff 装饰更平滑)。**带安全网**:
+// 算出的事务先在内存里核对结果 body 签名 == 目标签名,不一致(或任何异常)一律回落到整档 setContent
+// (旧的已验证行为)→ 增量只是纯优化,永不可能改坏文档。返回是否走了增量路径(仅供调试)。
+function applyBodyToEditor(
+  editor: NonNullable<ReturnType<typeof useEditor>>,
+  newBody: DocBlock[],
+): void {
+  const fallback = () => editor.commands.setContent(bodyToTiptap(newBody), { emitUpdate: false });
+  try {
+    const schema = editor.schema;
+    // 目标 doc:经 schema.nodeFromJSON 走完整 PM 归一(相邻同 marks 的 text 会被合并),与 editor 活节点同规格。
+    const targetDoc = schema.nodeFromJSON(bodyToTiptap(newBody) as object);
+    const newNodes: ProseNode[] = [];
+    targetDoc.forEach((n) => newNodes.push(n));
+    const oldNodes: ProseNode[] = [];
+    editor.state.doc.forEach((n) => oldNodes.push(n));
+    // 公共前缀
+    let p = 0;
+    while (p < oldNodes.length && p < newNodes.length && oldNodes[p].eq(newNodes[p])) p++;
+    // 公共后缀(不与前缀重叠)
+    let s = 0;
+    while (
+      s < oldNodes.length - p &&
+      s < newNodes.length - p &&
+      oldNodes[oldNodes.length - 1 - s].eq(newNodes[newNodes.length - 1 - s])
+    ) {
+      s++;
+    }
+    // 顶层块起点位置 = 前 p 个块的 nodeSize 之和(PM 顶层子节点边界位置)。
+    let from = 0;
+    for (let i = 0; i < p; i++) from += oldNodes[i].nodeSize;
+    let to = from;
+    for (let i = p; i < oldNodes.length - s; i++) to += oldNodes[i].nodeSize;
+    const middle = newNodes.slice(p, newNodes.length - s);
+    const tr = editor.state.tr.replaceWith(from, to, middle);
+    tr.setMeta('addToHistory', false); // 外部同步不进撤销栈
+    // 安全网:替换后的 doc 与目标 doc **PM 级 eq** 比较(两侧都已 PM 归一,消除「相邻同 marks text 合并」
+    // 导致的签名往返 false-negative —— review #1;否则 **a****b** 这类会永远回落 setContent、增量白做)。
+    if (!tr.doc.eq(targetDoc)) {
+      fallback();
+      return;
+    }
+    editor.view.dispatch(tr);
+  } catch {
+    fallback();
+  }
 }
 
 // 前置信息用的无边框自增高文本域(看起来是文章文字,不是表单框)。
@@ -116,9 +171,16 @@ export const StructEditor = forwardRef<
     diffBaseline?: DocStruct | null;
     /** 用户一开始编辑就通知父层清掉本次改动标识(diff 只是标记,不设确认门)。 */
     onDiffDismiss?: () => void;
+    /** 本次 AI 改动的**可导航锚点数**(与「上/下一处」跳转同源)。父层用它显示「改动 N 处」并决定是否显示导航,
+     *  避免用另一条 diff 管道(块级 + 前置字段)算出的数与实际可跳站点对不上(review #2:纯前置字段改动会
+     *  显示 N 处却按钮全哑)。0 = 正文无可跳改动。 */
+    onDiffChangeCount?: (count: number) => void;
   }
 >(
-  function StructEditor({ doc, editable, onChange, onInsertImage, onInsertMath, onInsertCitation, onReview, diffBaseline, onDiffDismiss }, ref) {
+  function StructEditor(
+    { doc, editable, onChange, onInsertImage, onInsertMath, onInsertCitation, onReview, diffBaseline, onDiffDismiss, onDiffChangeCount },
+    ref,
+  ) {
     const fm = doc.frontMatter ?? { title: '' };
     const [title, setTitle] = useState(fm.title ?? '');
     const [abstract, setAbstract] = useState(fm.abstract ?? '');
@@ -139,8 +201,13 @@ export const StructEditor = forwardRef<
     diffBaselineRef.current = diffBaseline;
     const onDiffDismissRef = useRef(onDiffDismiss);
     onDiffDismissRef.current = onDiffDismiss;
+    const onDiffChangeCountRef = useRef(onDiffChangeCount);
+    onDiffChangeCountRef.current = onDiffChangeCount;
 
     const timerRef = useRef<number | null>(null);
+    // P1-3:外部改动**增量应用中**标志 —— 增量 replace 是真事务(会触发 onUpdate),但语义上是外部同步、
+    // 不该当成用户编辑(否则 scheduleEmit 回存 + maybeDismissDiff 清掉刚要展示的 diff)。故 onUpdate 里跳过。
+    const applyingExternalRef = useRef(false);
     // 自身保存回声:记最近一次 emit 的内容签名。save 往返后经 setQueryData 回灌的规范结构体会与它一致
     // → 跳过重置(防光标跳、也防覆盖用户在往返之间新打的字)。签名判回声比旧的自增计数器更稳:
     // 计数器在 save 失败/回声合并时会泄漏(残留 >0 → 之后真·外部改动被误吞)或误吞正当外部改动(评审 #4)。
@@ -177,6 +244,7 @@ export const StructEditor = forwardRef<
       content: bodyToTiptap(doc.body ?? []),
       // onUpdate 只在用户/程序真正改文档时触发(setContent emitUpdate:false 不触发)→ 用户一编辑就清本次改动标识。
       onUpdate: () => {
+        if (applyingExternalRef.current) return; // 外部改动增量应用中 → 不当用户编辑(不回存、不清 diff)
         scheduleEmit();
         maybeDismissDiff();
       },
@@ -244,7 +312,31 @@ export const StructEditor = forwardRef<
       insertCitation: (key: string) => {
         editor?.chain().focus().insertContent({ type: 'citation', attrs: { citeKey: key } }).run();
       },
+      changeCount: () => changeAnchors().length,
+      goToChange: (dir: 1 | -1) => {
+        const anchors = changeAnchors();
+        if (!editor || !anchors.length) return;
+        const cur = editor.state.selection.from;
+        const target =
+          dir > 0
+            ? (anchors.find((a) => a > cur) ?? anchors[0]) // 环绕:过末尾回到第一处
+            : ([...anchors].reverse().find((a) => a < cur) ?? anchors[anchors.length - 1]);
+        const pos = Math.min(Math.max(1, target), editor.state.doc.content.size);
+        editor.chain().focus().setTextSelection(pos).scrollIntoView().run();
+      },
     }));
+
+    // P1-3 变更导航:本次 AI 改动的锚点位置(去重升序)。从 diff 装饰的 from 位置取(与就地绿加/红删同源)。
+    function changeAnchors(): number[] {
+      const baseline = diffBaselineRef.current?.body;
+      if (!editor || !baseline) return [];
+      try {
+        const froms = buildDiffDecorations(editor.state.doc, baseline).map((d) => d.from);
+        return [...new Set(froms)].sort((a, b) => a - b);
+      } catch {
+        return [];
+      }
+    }
 
     useEffect(() => {
       return () => {
@@ -266,7 +358,13 @@ export const StructEditor = forwardRef<
       const bodyIncoming = bodySignature(doc.body ?? []);
       const bodyCurrent = bodySignature(tiptapToBody(editor.getJSON() as PMNode));
       if (bodyIncoming !== bodyCurrent) {
-        editor.commands.setContent(bodyToTiptap(doc.body ?? []), { emitUpdate: false });
+        // P1-3:增量替换变化块(非整档重建);applying 标志让其真事务不被 onUpdate 当成用户编辑。
+        applyingExternalRef.current = true;
+        try {
+          applyBodyToEditor(editor, doc.body ?? []);
+        } finally {
+          applyingExternalRef.current = false;
+        }
       }
       const t = doc.frontMatter?.title ?? '';
       const a = doc.frontMatter?.abstract ?? '';
@@ -284,6 +382,14 @@ export const StructEditor = forwardRef<
       if (!editor) return;
       editor.view.dispatch(editor.state.tr.setMeta(diffMarksKey, diffBaseline?.body ?? null));
     }, [editor, diffBaseline]);
+
+    // 向父层汇报**可导航锚点数**(与「上/下一处」同源)—— 放在同步/baseline effect 之后,读到的是已同步的
+    // 编辑器 doc。父层据此显示「改动 N 处」并决定是否显示导航,保证「显示的数 == 能跳到的处数」。
+    useEffect(() => {
+      if (!editor) return;
+      onDiffChangeCountRef.current?.(changeAnchors().length);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [editor, doc, diffBaseline]);
 
     const onFm = (setter: (v: string) => void) => (v: string) => {
       setter(v);

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
-import { Play, Loader2, Download, AlertTriangle, ListTree, Image as ImageIcon, FileText, X, RotateCcw } from 'lucide-react';
+import { Play, Loader2, Download, AlertTriangle, ListTree, Image as ImageIcon, FileText, X, RotateCcw, Sparkles, ChevronUp, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/shared/ui/button';
 import { PdfViewer } from '@/shared/components/PdfViewer';
@@ -69,6 +69,9 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
 
   // 所见即所得编辑器:改动防抖回写结构体(自动保存);编译走「编译」按钮。
   const editorRef = useRef<StructEditorHandle>(null);
+  // P1-3 变更导航:StructEditor 汇报的**可导航锚点数**(与「上/下一处」同源)。浮标用它显示/门控,
+  // 而非另一条 diff 管道算的 diffCount(review #2:后者含前置字段/粒度不同,会显示数与可跳站点对不上)。
+  const [navChangeCount, setNavChangeCount] = useState(0);
   // 自动保存失败必须让用户看见(否则 header 一直显示「已自动保存」= 谎报已存,静默丢内容,评审 #3)。
   // 稳定 id 让 sonner 复用同一条(连续失败不刷屏);header 状态另用 save.isError 常驻红字提示。
   const persist = (next: DocStruct) =>
@@ -429,7 +432,38 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
           }}
           diffBaseline={diffBaseline}
           onDiffDismiss={chat.dismissChange}
+          onDiffChangeCount={setNavChangeCount}
         />
+      )}
+      {/* P1-3 变更导航:有本次 AI 改动痕迹时,右上角浮出「AI 改动 N 处 · 上/下一处」,像审 PR 一样逐处跳看。
+          流式期不显示(此时覆盖层在上、编辑器只读)。 */}
+      {/* 只在**有可导航的正文改动**时显示(navChangeCount 与跳转同源;纯前置字段改动 → 0 → 不显示,
+          避免 review #2 的「显示 N 处却按钮全哑」)。计数由 header 的 badge 承载,这里只做导航,不重复报数。 */}
+      {!streaming && diffBaseline && navChangeCount > 0 && (
+        <div className="pointer-events-none absolute right-4 top-3 z-20">
+          <div className="pointer-events-auto flex items-center gap-0.5 rounded-pill border border-brand-green/30 bg-background/95 px-1.5 py-1 text-2xs text-brand-green shadow-sm backdrop-blur">
+            <Sparkles className="size-3 shrink-0" />
+            <span className="px-1 font-medium">AI 改动</span>
+            <button
+              type="button"
+              onClick={() => editorRef.current?.goToChange(-1)}
+              className="rounded p-0.5 transition-colors hover:bg-brand-green/10"
+              aria-label="上一处改动"
+              title="上一处改动"
+            >
+              <ChevronUp className="size-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => editorRef.current?.goToChange(1)}
+              className="rounded p-0.5 transition-colors hover:bg-brand-green/10"
+              aria-label="下一处改动"
+              title="下一处改动"
+            >
+              <ChevronDown className="size-3.5" />
+            </button>
+          </div>
+        </div>
       )}
       {liveOverlay && (
         <div className="absolute inset-0 overflow-y-auto bg-background">
