@@ -24,11 +24,14 @@ import { ClawRenameDialog, ClawDeleteDialog } from '../sidebar/ClawSessionDialog
  * (保持与原有 conv.handleActivateSession / handleNewConversation 行为一致)。
  */
 const PLACEHOLDER_TITLES = new Set(['', 'Untitled Session', '新会话']);
+const TITLE_GEN_WINDOW_MS = 90_000; // 标题生成截止边界:超窗口占位仍未变真 = 已失败,不再 spinner(同桌面侧栏)
 
 function displayTitle(s: ClawSessionItem, active: boolean): { text: string; loading: boolean } {
   const raw = s.title?.trim() ?? '';
-  const loading = PLACEHOLDER_TITLES.has(raw) && (s.messageCount > 0 || active);
-  return { text: loading ? '生成标题中…' : raw || '新对话', loading };
+  const createdMs = s.createdAt ? Date.parse(s.createdAt) : NaN;
+  const withinWindow = Number.isNaN(createdMs) || Date.now() - createdMs < TITLE_GEN_WINDOW_MS;
+  const loading = PLACEHOLDER_TITLES.has(raw) && withinWindow && (s.messageCount > 0 || active);
+  return { text: loading ? '生成标题中…' : raw || '未命名对话', loading };
 }
 
 const GROUP_ORDER = ['今天', '昨天', '近 7 天', '更早'] as const;

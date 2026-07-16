@@ -107,6 +107,8 @@ export function ClawSessionList({
 // agent 通常在用户首条 user_message 之后异步起 title gen, 几秒内会通过 WS
 // session_title_updated 事件推回真实 title; 我们再 invalidate sessions list 拉新。
 const PLACEHOLDER_TITLES = new Set(['', 'Untitled Session', '新会话']);
+// 标题生成窗口:超过它占位标题还没变真 = 生成已失败,不再显示 spinner(见下 loading 判定)。
+const TITLE_GEN_WINDOW_MS = 90_000;
 
 function isTitleStillLoading(title: string): boolean {
   return PLACEHOLDER_TITLES.has(title.trim());
@@ -133,9 +135,14 @@ function SessionRow({
   //     · 有消息: 兜底任何"有内容但 title 没回来"的会话
   // lazy 创建后不会再有"空壳 session", 所以不必担心 loading 永久卡住。
   const rawTitle = session.title?.trim() ?? '';
+  // 标题生成有**确定性截止边界**:agent 首轮后几秒内异步产标题;超过窗口还没来 = 生成必然已失败
+  // (agent 静默失败历史行 / 极端超时),别再无限「生成标题中…」(业界铁律:永久 spinner 是反模式)。
+  // 窗口外的占位行落到稳定标签「未命名对话」——所有历史卡死行下次渲染即自愈。窗口内仍显 spinner(新会话体验不变)。
+  const createdMs = session.createdAt ? Date.parse(session.createdAt) : NaN;
+  const withinWindow = Number.isNaN(createdMs) || Date.now() - createdMs < TITLE_GEN_WINDOW_MS;
   const loading =
-    isTitleStillLoading(rawTitle) && (session.messageCount > 0 || active);
-  const displayTitle = loading ? '生成标题中…' : rawTitle || '新对话';
+    isTitleStillLoading(rawTitle) && withinWindow && (session.messageCount > 0 || active);
+  const displayTitle = loading ? '生成标题中…' : rawTitle || '未命名对话';
 
   return (
     <div

@@ -14,7 +14,7 @@ import { buildUserContentWithImages } from "./attachments.ts";
 import { convertFlatToAnthropic, type FlatMessage } from "./shadowTurn.ts";
 import type { EventSink, TurnInput } from "../turn/types.ts";
 import type { Tier } from "../config/models.ts";
-import { generateTitle } from "../turn/title.ts";
+import { fallbackTitle, generateTitle } from "../turn/title.ts";
 import { fastCompletion } from "../turn/completion.ts";
 import { windowMessages } from "../turn/window.ts";
 import { reduceForWindow, type CompactCache } from "../turn/compact.ts";
@@ -339,18 +339,25 @@ async function handleUserMessage(ws: ServerWebSocket<WSData>, frame: Record<stri
     ws.data.pending.clear();
   }
 
-  // 首轮完成后异步生成标题(不阻塞;连接保持以发帧)。Go 侧 OnTitleResult 落库。
-  if (isFirstTurn && turnCompleted && !meta.title && assistantText) {
-    generateTitle(content, assistantText)
-      .then(({ title, usage }) => {
-        // C1:标题生成是 billable 调用 → 发 token_usage{kind:title_gen}(Go 端正常计费/扣额度)。
-        if (usage) safeSend(ws, { type: "token_usage", usage, kind: "title_gen" });
-        if (title) {
+  // 首轮生成标题 —— **必落一个非空标题**,杜绝前端永久「生成标题中…」(根因:旧逻辑单次机会 + 4 条静默
+  // 失败出口 + 无兜底)。setTitle 写 agent jsonl(即便 WS 已关/帧丢,ListSessions 的 agentByID 回填也能自愈)。
+  if (isFirstTurn && !meta.title) {
+    if (turnCompleted && assistantText) {
+      // 正常路径:有正文 → 异步用 LLM 起标题(generateTitle 内部失败即回落首条消息截断,永不返回空)。
+      generateTitle(content, assistantText)
+        .then(({ title, usage }) => {
+          if (usage) safeSend(ws, { type: "token_usage", usage, kind: "title_gen" }); // C1 计费
           setTitle(meta.sessionId, title);
           safeSend(ws, { type: "session_title_updated", sessionId: meta.sessionId, title, aiGenerated: true });
-        }
-      })
-      .catch((e) => log.warn("title-gen failed", { err: String((e as Error)?.message ?? e) }));
+        })
+        .catch((e) => log.warn("title-gen failed", { err: String((e as Error)?.message ?? e) }));
+    } else {
+      // 首轮上游报错 / 被 abort / 纯工具轮无正文(turnCompleted 或 assistantText 缺)→ 不调 LLM,
+      // **同步**用首条消息截断兜底,立刻 setTitle(jsonl)+ 发帧 → 该会话立即有可读标题、绝不卡 spinner。
+      const title = fallbackTitle(content);
+      setTitle(meta.sessionId, title);
+      safeSend(ws, { type: "session_title_updated", sessionId: meta.sessionId, title, aiGenerated: false });
+    }
   }
 }
 
