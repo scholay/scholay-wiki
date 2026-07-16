@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertCircle, AlertTriangle, ArrowDown, Loader2 } from 'lucide-react';
+import { AlertCircle, ArrowDown, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom';
-import { Dialog, DialogContent, DialogTitle } from '@/shared/ui/dialog';
 import { AgentDisplacedBanner } from '@/shared/components/AgentDisplacedBanner';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { usePendingAction } from '@/stores/pending-action.store';
+import { useSmartSearchSessionStore } from '@/stores/smart-search-session.store';
 import {
   notifySessionChanged,
   useSessionBroadcast,
@@ -34,10 +34,10 @@ import { useUploadAgentAttachment, useReferenceAgentLibrary } from '@/shared/api
 import { buildReferenceBlock } from '@/shared/lib/agent-references';
 import type { ReferenceItemDTO, TurnAttachment, TurnReference } from '@/shared/types/chat';
 import {
-  useResetSmartSearchSession,
+  useCreateSmartSearchSession,
   useSmartSearchContext,
   useSmartSearchHistory,
-  useSmartSearchSession,
+  useSmartSearchSessions,
   useSmartSearchSocket,
   smartSearchSessionFileUrl,
 } from '../../api/smart-search';
@@ -51,16 +51,18 @@ import {
 } from './types';
 
 /**
- * 智能搜索面板 —— 用户切到 smart tab 时进入,自管 session 与 WS 生命周期。
+ * 智能搜索面板 —— 用户切到 smart tab 时进入,自管 WS 生命周期。
  *
- * 设计要点 (v2 持久化版):
- *   - mount 时立即 get-or-create sessionId(每用户唯一会话);
- *     用户回来时拉历史回放, 继续上次的对话。
- *   - 顶部有"重置会话"按钮 + 上下文水位 chip;
- *     重置走二次确认 dialog, 成功后清空本地 turns、invalidate 全部 query。
- *   - foldMessagesIntoTurns 把 WS 事件流归并成 turns;
- *     historyTurns(从 transcript 回放出来) 拼在前面, liveTurns 接续在后。
- *   - 流式自动跟随滚动: use-stick-to-bottom 实现 chat 三态滚动 (贴底/手动/恢复)。
+ * 设计要点 (v3 多会话版, 2026-07):
+ *   - 从「单会话 + 重置上下文」改为「多会话」(与智能助手 claw 同型):可新开会话、侧边栏会话列表、
+ *     每会话独立上下文。activeSessionId 收在 useSmartSearchSessionStore(跨子树:侧边栏在 SearchSidebar、
+ *     聊天在本组件、新对话按钮在 SearcherColumn header)。
+ *   - 进页面 didInitialSelect 采用 sessions[0](最近活跃);列表空 = 空白新对话态(不预建会话)。
+ *   - 「新对话」= setActiveSessionId(null);首条消息时懒建后端会话(createSession)再 adopt。
+ *   - 切会话 / 新对话 → activeSessionId 变 → 本组件 effect 清本地 turns + clearMessages,socket 按新 id 重连,
+ *     history/context 按新 id 重取(全部带 ?session_id= 防 race)。
+ *   - foldMessagesIntoTurns 把 WS 事件流归并成 turns;historyTurns(transcript 回放)拼在前, liveTurns 接后。
+ *   - 上下文水位 chip + 自动总结上下文均为 agent 侧 feature 无关能力,沿用。
  *   - 未登录直接显示登录提示。
  */
 /** 长会话渲染窗口: 默认只把最近 RENDER_WINDOW 轮渲染进 DOM, "加载更早"每次再多放 RENDER_STEP 轮。
@@ -94,30 +96,55 @@ export function SmartSearchPanel() {
   const queryClient = useQueryClient();
   const reduce = useReducedMotion();
 
-  // 跨 tab 同步: 另一个 tab reset 会通过 BroadcastChannel 推一帧, 本 tab 收到
-  // 后 invalidate ['smart-search'] 全部 query → 本 tab 自动拿到新 sessionId。
-  // 没有这步, 本 tab 仍持有旧 sessionId 的 cache → 走的 WS dial 到已删除的 agent
-  // session, 收一堆 error 才会恢复, UX 很差。
+  // 跨 tab 同步: 另一个 tab 新建/切换会话会通过 BroadcastChannel 推一帧, 本 tab 收到
+  // 后 invalidate ['smart-search'] 全部 query。
   useSessionBroadcast('smart-search');
 
-  // 1. get-or-create sessionId。enabled 取决于 token, 未登录直接 skip。
-  const sessionQuery = useSmartSearchSession();
-  const sessionId = sessionQuery.data?.sessionId ?? null;
+  // ── 多会话:activeSessionId 收在 store(跨 SearchSidebar / SearcherColumn / 本组件三处子树)──
+  const activeSessionId = useSmartSearchSessionStore((s) => s.activeSessionId);
+  const setActiveSessionId = useSmartSearchSessionStore((s) => s.setActiveSessionId);
+  const setStoreBusy = useSmartSearchSessionStore((s) => s.setBusy);
+  const resetStore = useSmartSearchSessionStore((s) => s.reset);
+  const sessionId = activeSessionId;
 
-  // 2. 历史回放: sessionId 出现后立即拉一次, 之后 invalidate 才会 refetch。
-  //    historyLimit = 当前从后端拉取的"最近 N 轮"分页窗口; "加载更早"增大它。切 session 复位。
+  const sessionsQuery = useSmartSearchSessions();
+  const createSession = useCreateSmartSearchSession();
+
+  // 首次采用:sessions 列表首次落定且当前无活跃会话 → 采用最近一条(list[0], 后端已按
+  // last_accessed_at DESC 排)。只跑一次(didInitialSelectRef),故点「新对话」置 null 后不会被弹回 list[0]。
+  const didInitialSelectRef = useRef(false);
+  useEffect(() => {
+    if (didInitialSelectRef.current) return;
+    const list = sessionsQuery.data;
+    if (!list) return; // 还没加载完
+    didInitialSelectRef.current = true;
+    if (activeSessionId === null && list.length > 0) {
+      setActiveSessionId(list[0].sessionId);
+    }
+  }, [sessionsQuery.data, activeSessionId, setActiveSessionId]);
+
+  // 离开 /search(本组件卸载)时复位 store —— 下次进来重新采用最近会话, 不残留陈旧 id。
+  useEffect(() => () => resetStore(), [resetStore]);
+
+  // adoptingSessionIdRef: 懒建 / upload-adopt / 引用-adopt 这类「程序化切到刚建好的会话」时,
+  // 记下**要采用的那个具体 sessionId**, 让下面的 activeSessionId-change 清理 effect 只在切到
+  // **正是这个 id** 时跳过清理(pending turn / 待发消息 / 附件属于它)。
+  // 用具体 id 而非单 bool:否则 await 建会话期间用户点了侧边栏别的会话 B, 单 bool 会被那次切换
+  // 误消费 → 首条消息丢失或串进 B(评审 #1)。用 id 后, 切到 B(≠ 采用 id)会正常清理丢弃在途消息。
+  const adoptingSessionIdRef = useRef<string | null>(null);
+
+  // 历史回放: activeSessionId 落定后拉一次, invalidate 才 refetch。切 session 复位分页窗口。
   const [historyLimit, setHistoryLimit] = useState(HISTORY_WINDOW);
   useEffect(() => {
     setHistoryLimit(HISTORY_WINDOW);
   }, [sessionId]);
   const historyQuery = useSmartSearchHistory(sessionId, historyLimit);
-  const historyHasMore = historyQuery.data?.hasMore ?? false;
+  // 切会话时 keepPreviousData 会短暂返上一个会话的 data(sessionId 不匹配)→ 只在匹配当前会话时才认。
+  const historyDataMatches = historyQuery.data?.sessionId === sessionId;
+  const historyHasMore = (historyDataMatches && historyQuery.data?.hasMore) ?? false;
 
-  // 3. 上下文水位: panel 顶部小 chip 用; reset 后 invalidate 强制刷。
+  // 上下文水位: panel 底部 chip 用; 每轮结束 invalidate 强制刷。
   const contextQuery = useSmartSearchContext(sessionId);
-
-  const reset = useResetSmartSearchSession();
-  const [resetOpen, setResetOpen] = useState(false);
 
   // 量出"对话框可视区"像素高 → 写进 --chat-area-h, 供底部留白按比例计算 (见 StickToBottom.Content)。
   const chatAreaRef = useHeightVar<HTMLDivElement>('chat-area-h');
@@ -148,12 +175,24 @@ export function SmartSearchPanel() {
   const lastSubmitTextRef = useRef<string>('');
 
   const {
-    state, messages, send, reconnectAttempt, displacedReason, takeOver, resyncUserText,
+    state, messages, send, clearMessages, reconnectAttempt, displacedReason, takeOver, resyncUserText,
     peerMessage, busyRejected, quotaExceeded, sessionModel,
   } = useSmartSearchSocket(sessionId);
 
   // P2 模型目录:目录数据前置声明(附件块的图片入口按当前模型 vision 启停要用)。
   const { data: userModels } = useUserModels('smart_search');
+
+  // adoptSession:「空白新对话直接上传文件 / 引用文献」时,后端建/取会话并回传 → 采用它,
+  // 让随后的消息落到同一会话。记下具体 id 让 change effect 跳过清理(附件/引用已在该会话 cwd)。
+  const adoptSession = useCallback(
+    (ensuredId: string) => {
+      if (ensuredId === activeSessionId) return;
+      adoptingSessionIdRef.current = ensuredId;
+      setActiveSessionId(ensuredId);
+      notifySessionChanged('smart-search', ensuredId);
+    },
+    [activeSessionId, setActiveSessionId],
+  );
 
   // ── 附件 / 引用文献(2026-07 输入框统一;shared 装配层 + smart-search 端点)──────────
   const uploadMutation = useUploadAgentAttachment('/user/smart-search/upload');
@@ -163,6 +202,7 @@ export function SmartSearchPanel() {
   const att = useComposerAttachments({
     upload: (file, sid) => uploadMutation.mutateAsync({ file, sessionId: sid }),
     sessionId: sessionId ?? null,
+    onSessionEnsured: adoptSession,
     // P2 图片通道:图片入口跟随当前会话模型的视觉能力(诚实 UI)。
     acceptImages: modelSupportsVision(userModels, sessionModel),
   });
@@ -174,6 +214,9 @@ export function SmartSearchPanel() {
           paperIds: sel.paperIds,
           folderIds: sel.folderIds,
         });
+        // 空白新对话下引用文献:后端把资料物化进它 get/建 出的会话并回传 res.sessionId → **必须 adopt**,
+        // 否则随后的消息会懒建成另一个新会话、看不到这些 references/(评审 #2/#3;同 claw ChatComposer)。
+        if (res.sessionId && res.sessionId !== sessionId) adoptSession(res.sessionId);
         setReferences((prev) => {
           const seen = new Set(prev.map((r) => `${r.kind}:${r.refId}`));
           const add = res.items.filter((r) => !seen.has(`${r.kind}:${r.refId}`));
@@ -185,7 +228,7 @@ export function SmartSearchPanel() {
         toast.error((err as Error).message || '引用失败');
       }
     },
-    [referenceMutation, sessionId],
+    [referenceMutation, sessionId, adoptSession],
   );
 
   // P2 模型目录:composer 左下角选择器(服务端权威;hub 校验落 pinned_model 后广播回显)。
@@ -252,10 +295,16 @@ export function SmartSearchPanel() {
     ) : undefined,
   };
 
-  // 历史 turns: 只在 history 数据变化时重建一次。
+  // 历史 turns: 只在 history 数据变化时重建一次。切会话时 keepPreviousData 会短暂返上一个会话的
+  // data(sessionId 不匹配)→ historyDataMatches 守卫, 不匹配时按空处理, 避免渲染串会话(A 的历史
+  // 出现在 B 的窗口)。同 claw useClawConversation 的 historyData.sessionId===sessionId 守卫。
   const historyTurns = useMemo<Turn[]>(
-    () => withHistoryImagePreviews(replayHistoryAsTurns(historyQuery.data?.messages), sessionId),
-    [historyQuery.data, sessionId]
+    () =>
+      withHistoryImagePreviews(
+        replayHistoryAsTurns(historyDataMatches ? historyQuery.data?.messages : null),
+        sessionId,
+      ),
+    [historyDataMatches, historyQuery.data, sessionId],
   );
 
   // 断线续流: 重连命中 in-flight 轮时, agent 回放本轮事件并下发 resync_user(本轮用户文本)。
@@ -364,7 +413,10 @@ export function SmartSearchPanel() {
   // 事件 —— 不排除会把 composer 永久禁用(评审 #1)。故 busy 判定必须排除 blocked 轮。
   const busy = !!lastTurn && !lastTurn.complete && !lastTurn.blocked;
 
-  const ready = state === 'open';
+  // ready 门控发送:
+  //   - 已有会话:要求 WS open。
+  //   - 空白新对话(sessionId=null):允许发送 —— 首条消息触发懒建会话(否则 socket 未连 = 永远发不出第一句)。
+  const ready = sessionId ? state === 'open' : true;
 
   // 本次 mount 起的 sessionId 一旦确认, pendingSendRef 里如果还有未发的 user_message
   // 就在 WS open 后立刻发出去。
@@ -385,22 +437,59 @@ export function SmartSearchPanel() {
   //   - WS 消息流被 useSmartSearchSocket 内化了, panel 这层只看到归并后的 turns;
   //   - 用 busy 的 false→true 转沿做触发, 解耦于具体 WS 事件名, 更稳。
   //
-  // staleTime=30s 不挡 invalidate, 每轮都能拿到最新水位;
-  // 同时 reset 流程已经在 handleResetConfirmed 里手动 invalidate, 不重复。
+  // staleTime=30s 不挡 invalidate, 每轮都能拿到最新水位。每轮结束还 invalidate sessions 列表 →
+  // 侧边栏 messageCount / 标题 / 排序刷新(多会话)。
   const prevBusyRef = useRef(busy);
   useEffect(() => {
     if (prevBusyRef.current && !busy && sessionId) {
-      void queryClient.invalidateQueries({
-        queryKey: ['smart-search', 'context', sessionId],
-      });
+      void queryClient.invalidateQueries({ queryKey: ['smart-search', 'context', sessionId] });
+      void queryClient.invalidateQueries({ queryKey: ['smart-search', 'sessions'] });
     }
     prevBusyRef.current = busy;
   }, [busy, sessionId, queryClient]);
 
-  // 提交一次提问。session 已就绪时立即推 WS, 没就绪时丢进 pendingSendRef 等 open。
+  // busy 同步进 store —— 供 SearcherColumn header 的「新对话」按钮做 disabled(回答中不给切)。
+  useEffect(() => {
+    setStoreBusy(busy);
+  }, [busy, setStoreBusy]);
+
+  // 切会话 / 新对话 清理:activeSessionId 变化 → 清本地 turns + clearMessages,让新会话从干净态
+  // 开始(history 会按新 id 重取,socket 也按新 id 重连)。**仅当切到的正是我们程序化采用的那个
+  // 会话**(adoptingSessionIdRef===sessionId,懒建/upload-adopt/引用-adopt)才跳过清理 —— pending
+  // turn / 待发消息 / 附件属于它;若期间用户点了侧边栏别的会话 B(≠ 采用 id),照常清理丢弃在途消息,
+  // 绝不把它串进 B(评审 #1)。
+  const prevSessionIdRef = useRef(sessionId);
+  useEffect(() => {
+    if (prevSessionIdRef.current === sessionId) return;
+    prevSessionIdRef.current = sessionId;
+    if (adoptingSessionIdRef.current === sessionId) {
+      adoptingSessionIdRef.current = null;
+      return;
+    }
+    setPendingTurns([]);
+    setStopping(false);
+    pendingSendRef.current = null;
+    clearMessages();
+  }, [sessionId, clearMessages]);
+
+  // 标题生成:agent 首轮后异步产标题并推 session_title_updated 帧 → invalidate sessions,
+  // 让侧边栏「生成标题中…」spinner 换成真标题(该帧晚于 message_complete,故单独盯一手)。
+  // 直接看「最后一帧是不是 title」(同 claw):messages 会话内 append-only、切会话 clearMessages 归零,
+  // 故 title 帧作为末帧到达即触发一次;不做绝对下标去重(下标会在切会话归零后与陈旧值碰撞漏刷,评审 #5)。
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    if (last?.type === 'session_title_updated') {
+      void queryClient.invalidateQueries({ queryKey: ['smart-search', 'sessions'] });
+    }
+  }, [messages, queryClient]);
+
+  // 提交一次提问。
+  //   - 已有会话:session open 立即推 WS, 没就绪丢进 pendingSendRef 等 open。
+  //   - 空白新对话(!sessionId):懒建后端会话 → setActiveSessionId(newId)(socket 随之连) →
+  //     pendingSendRef 待 open 后自动发。建会话失败则回滚乐观 turn。同 claw handleSubmit。
   // 2026-07 输入框统一:附件走方案 B(文件已在会话 cwd,只透传 path,backend hub 折 @"path"
   // 标记);引用块追加到 content 末尾(与 claw 同构,历史回放解析回 chip)。
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     const text = input.trim();
     if (!text && att.attachments.length === 0 && references.length === 0) return;
     trackEvent('search_submit', { len: text.length, files: att.attachments.length, refs: references.length });
@@ -428,12 +517,12 @@ export function SmartSearchPanel() {
       path: a.path,
     }));
     const content = text + buildReferenceBlock(turnRefs);
+    const turnId = `turn-${crypto.randomUUID()}`;
     setPendingTurns((prev) => [
       // 重发时先清掉上一条「命中额度未发送」的 blocked 轮, 避免它和新一轮并存显得杂乱。
       ...prev.filter((t) => !t.blocked),
-      // crypto.randomUUID 防同毫秒连发撞 id (Date.now 兜底虽有 prev.length, 但 UUID 更稳)
       {
-        id: `turn-${crypto.randomUUID()}`,
+        id: turnId,
         userText: text,
         userAttachments: turnAtts.length > 0 ? turnAtts : undefined,
         userReferences: turnRefs.length > 0 ? turnRefs : undefined,
@@ -443,14 +532,36 @@ export function SmartSearchPanel() {
       content,
       ...(wsAttachments.length > 0 ? { attachments: wsAttachments } : {}),
     };
+    att.clearAttachments();
+    setReferences([]);
+
+    if (!sessionId) {
+      // 空白新对话:先懒建会话,再切过去。payload 存 pendingSendRef,WS open 后自动发。
+      // 关键:adoptingSessionIdRef 在**拿到 newId 之后**才置为该具体 id(不能 await 前置 bool)——
+      // 否则 await 期间用户切到别的会话 B,那次 null→B 切换会误跳过清理、把 payload 串进 B(评审 #1)。
+      pendingSendRef.current = payload;
+      try {
+        const { sessionId: newId } = await createSession.mutateAsync();
+        adoptingSessionIdRef.current = newId; // 只让 null→newId 这次切换跳过清理
+        setActiveSessionId(newId);
+        notifySessionChanged('smart-search', newId);
+      } catch (err) {
+        // 建会话失败:回滚乐观 turn + 待发消息 + 恢复输入,便于重试。
+        adoptingSessionIdRef.current = null;
+        pendingSendRef.current = null;
+        setPendingTurns((prev) => prev.filter((t) => t.id !== turnId));
+        setInput((cur) => (cur.trim() ? cur : text));
+        toast.error((err as Error).message || '新建会话失败,请重试');
+      }
+      return;
+    }
+
     if (state === 'open') {
       send({ type: 'user_message', ...payload });
     } else {
       pendingSendRef.current = payload;
     }
-    att.clearAttachments();
-    setReferences([]);
-  }, [input, state, send, att, references]);
+  }, [input, state, send, att, references, sessionId, createSession, setActiveSessionId]);
 
   // 未登录态 hero 的提交 —— 不真正发送,而是弹登录;把刚输入的关键词排进
   // pending navigate(/search?mode=smart&q=…),登录成功后由 useReplayPendingAction
@@ -491,32 +602,6 @@ export function SmartSearchPanel() {
     if (!busy && stopping) setStopping(false);
   }, [busy, stopping]);
 
-  // 重置: 调后端 → 拿到新 sessionId → invalidate 全部 query → 清本地 pending turns。
-  // historyQuery 自动 refetch 后会拿到空 messages, historyTurns 变成 [];
-  // sessionQuery 自动拿到新 id, useSmartSearchSocket(newId) 自动重连。
-  const handleResetConfirmed = useCallback(async () => {
-    try {
-      const result = await reset.mutateAsync();
-      setPendingTurns([]);
-      pendingSendRef.current = null;
-      att.clearAttachments();
-      setReferences([]);
-      setStopping(false); // 新 session, 任何遗留 stop 锁都清零
-      await queryClient.invalidateQueries({ queryKey: ['smart-search'] });
-      // 通知同源其它 tab 也 invalidate, 否则它们还拿着旧 sessionId 缓存,
-      // 接下来一切 (WS dial / history fetch) 都会打到已删的 agent session 上。
-      notifySessionChanged('smart-search', result.sessionId);
-      toast.success('会话已重置');
-      setResetOpen(false);
-    } catch (err) {
-      const message =
-        err && typeof err === 'object' && 'message' in err
-          ? String((err as { message: unknown }).message)
-          : '重置失败';
-      toast.error(message);
-    }
-  }, [reset, queryClient]);
-
   if (!token) {
     // 未登录:居中 hero 对话框(同已登录起始态),输入框提示登录,回车/发送弹登录。
     return (
@@ -531,10 +616,13 @@ export function SmartSearchPanel() {
     );
   }
 
-  // history 后台 refetch 期间(refetchOnMount:'always' 下重入页面:isLoading=false 但
-  // isFetching=true)先显示加载态,避免 hero 闪一下又突然冒出对话。
+  // 加载态:
+  //   - sessions 列表还没落定 → 加载(马上会 adopt 最近会话或落到空白新对话)。
+  //   - 有活跃会话且其历史在拉(含 refetchOnMount:'always' 重入的 isFetching)→ 加载,避免 hero 闪。
+  //   - 无活跃会话(空白新对话 / 新用户空列表)→ 不加载 → 显示 hero。
   const loadingHistory =
-    historyQuery.isLoading || historyQuery.isFetching || sessionQuery.isLoading;
+    sessionsQuery.isLoading ||
+    (!!sessionId && (historyQuery.isLoading || historyQuery.isFetching));
 
   return (
     <LayoutGroup>
@@ -653,14 +741,14 @@ export function SmartSearchPanel() {
                   onChange={setInput}
                   onSubmit={handleSubmit}
                   placeholder="继续与智能搜索对话…"
-                  ready={ready && !reset.isPending}
+                  ready={ready}
                   busy={busy}
                   onStop={handleStop}
                   stopping={stopping}
-                  contextSnapshot={contextQuery.data}
-                  onResetClick={() => setResetOpen(true)}
-                  resetDisabled={!sessionId || reset.isPending || busy}
-                  resetPending={reset.isPending}
+                  // 切会话瞬间 context 可能是上个会话的残影(无 keepPreviousData 但 disable→refetch 有窗口)→ 只认当前会话的。
+                  contextSnapshot={
+                    contextQuery.data?.sessionId === sessionId ? contextQuery.data : undefined
+                  }
                   {...composerExtras}
                 />
               </motion.div>
@@ -690,20 +778,13 @@ export function SmartSearchPanel() {
                 value={input}
                 onChange={setInput}
                 onSubmit={handleSubmit}
-                ready={ready && !reset.isPending}
+                ready={ready}
                 composerExtras={composerExtras}
               />
             </motion.div>
           )}
         </AnimatePresence>
       </div>
-
-      <ResetConfirmDialog
-        open={resetOpen}
-        onOpenChange={setResetOpen}
-        onConfirm={handleResetConfirmed}
-        pending={reset.isPending}
-      />
 
       {/* 附件放大预览 + 引用文献选择器(2026-07 输入框统一) */}
       <AttachmentLightbox
@@ -719,63 +800,6 @@ export function SmartSearchPanel() {
       />
     </div>
     </LayoutGroup>
-  );
-}
-
-/**
- * 二次确认 dialog —— 抄 DeleteConfirmDialog 的形态保持一致。
- * 重置是破坏性操作 (旧 jsonl 会被物理删除), 必须显式同意。
- */
-function ResetConfirmDialog({
-  open,
-  onOpenChange,
-  onConfirm,
-  pending,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onConfirm: () => void;
-  pending: boolean;
-}) {
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => {
-        if (!pending) onOpenChange(o);
-      }}
-    >
-      <DialogContent className="p-0 gap-0 max-w-[360px] w-[360px]">
-        <header className="flex items-center gap-2 h-13 px-5 pr-12 border-b border-border-soft">
-          <AlertTriangle className="size-4 text-brand-red shrink-0" />
-          <DialogTitle className="text-sm font-bold text-foreground">
-            重置当前会话?
-          </DialogTitle>
-        </header>
-        <div className="px-5 py-4 text-xs text-subtle leading-relaxed">
-          将永久删除你与 AI 在本会话中的所有对话历史, 然后建立一个全新的空会话。
-          已经看到过的论文不会被删除, 但智能搜索将忘记之前讨论过的内容。
-        </div>
-        <footer className="flex items-center justify-end gap-2 h-13 px-5 border-t border-border-soft">
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            disabled={pending}
-            className="h-7 px-3 rounded-sm border border-border text-xs text-subtle hover:bg-surface-1 disabled:opacity-50"
-          >
-            取消
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={pending}
-            className="inline-flex items-center gap-1 h-7 px-3 rounded-sm bg-brand-red text-white text-xs font-bold hover:bg-brand-red/90 disabled:opacity-50"
-          >
-            {pending && <Loader2 className="size-3 animate-spin" />}
-            确认重置
-          </button>
-        </footer>
-      </DialogContent>
-    </Dialog>
   );
 }
 

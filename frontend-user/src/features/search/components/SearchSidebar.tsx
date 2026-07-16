@@ -12,8 +12,11 @@ import {
 import { Checkbox } from '@/shared/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/shared/ui/tooltip';
 import { useSidebar } from '@/stores/sidebar.store';
+import { useSmartSearchSessionStore } from '@/stores/smart-search-session.store';
+import { AgentSessionList } from '@/shared/components/agent-session/AgentSessionList';
 import { SOURCE_META } from '@/shared/lib/source';
 import { cn } from '@/shared/lib/utils';
+import { smartSearchSessions } from '../api/smart-search';
 import {
   SOURCE_OPTIONS,
   isSubjectsSingleSelect,
@@ -63,6 +66,9 @@ export function SearchSidebar({
   mode,
 }: SearchSidebarProps) {
   const toggleSidebar = useSidebar((s) => s.toggle);
+  // 智能模式:会话历史列表(与聊天在 SearcherColumn 是兄弟子树,activeSessionId 收在 store 协调)。
+  const activeSessionId = useSmartSearchSessionStore((s) => s.activeSessionId);
+  const setActiveSessionId = useSmartSearchSessionStore((s) => s.setActiveSessionId);
   const [chipsRef] = useAutoAnimate<HTMLDivElement>({
     duration: 160,
     easing: 'ease-out',
@@ -129,6 +135,24 @@ export function SearchSidebar({
       <SidebarHeaderNav />
 
       <SidebarContent>
+        {/* 智能模式:会话历史(ChatGPT 风格,置顶)—— 点选切换、hover ⋮ 重命名/删除;
+            新对话按钮在搜索器 header(不在这里)。
+            ⚠️ 不用 `{mode==='smart' && <.../>}` 条件挂载:AgentSessionList 内含**常开态** Radix 重命名/删除
+            弹窗,若在弹窗 open 时 mode 翻出 smart(浏览器后退等)会连同 open 的 Dialog 一起卸载 → Radix 的
+            body pointer-lock 清理不跑 → 全站点击失灵(见 frontend-user/CLAUDE.md §十一)。改用 display 隐藏
+            (同 SearcherColumn 对 SmartSearchPanel 的 contents/hidden 手法),常驻挂载不卸载。传统模式下
+            useSessions(enabled:!!token, staleTime 30s)有一次廉价预取,可接受。 */}
+        <div className={mode === 'smart' ? 'contents' : 'hidden'}>
+          <AgentSessionList
+            api={smartSearchSessions}
+            activeSessionId={activeSessionId}
+            onActivate={(id) => setActiveSessionId(id)}
+            onNewConversation={() => setActiveSessionId(null)}
+            sectionId="smart-search-sessions"
+            emptyHint="还没有会话, 在右侧输入第一句话即可开始"
+          />
+        </div>
+
         {/* 1. 文献集 — 真实数据 / 登录引导 */}
         <LibrarySection />
 

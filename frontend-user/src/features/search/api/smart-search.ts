@@ -1,10 +1,27 @@
-import { keepPreviousData, useMutation, useQuery, type UseQueryResult } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { useAgentSocket, type UseAgentSocket } from '@/shared/hooks/useAgentSocket';
 import type { AgentErrorFrame, AgentDisplacedFrame } from '@/shared/lib/agent-stream';
 import { http, toApiError } from '@/shared/lib/http';
-import { STALE_FRESH } from '@/shared/lib/query-config';
 import { useAuthStore } from '@/stores/auth.store';
+import {
+  makeAgentSessionApi,
+  type AgentSessionItem,
+} from '@/shared/api/agent-sessions';
 // TODO: 30s 没对应 STALE_* preset, 保留硬编码 (smart-search context 水位)。
+
+// ─── 多会话 API (2026-07: 与 claw 同型) ──────────────────────────────────
+// 会话 CRUD(list/create/rename/delete/activate)走 shared 工厂,只差端点前缀 + queryKey 根;
+// history/context/ws-ticket 各带 feature 专属类型与 ?session_id= 拼装,仍在本文件下方维护。
+const smartSearchSessionApi = makeAgentSessionApi({
+  feature: 'smart-search',
+  basePath: '/user/smart-search',
+});
+
+export type SmartSearchSessionItem = AgentSessionItem;
+/** 供 SearchSidebar / SmartSearchPanel 组装 shared AgentSessionList 用。 */
+export const smartSearchSessions = smartSearchSessionApi;
+export const useSmartSearchSessions = smartSearchSessionApi.useSessions;
+export const useCreateSmartSearchSession = smartSearchSessionApi.useCreateSession;
 
 /**
  * 智能搜索 —— 通过后端桥接到 scholar_agent 容器的对话式论文检索。
@@ -125,68 +142,11 @@ export type SmartSearchWSState =
    */
   | 'displaced';
 
-interface SessionEnvelope {
-  sessionId: string;
-}
-
 /** 后端响应统一包了一层 `{ code, data }`,但有些接口可能直接裸出。两个都兼容。 */
 function unwrap<T>(raw: { data?: T } & Partial<T>): T {
   // axios 拿到的 response.data 就是这个;后端 utils.Response 包 `{code,data}`;
   // 若上游真的裸出 sessionId 等字段,fallback 到 raw 本身。
   return (raw.data as T) ?? (raw as unknown as T);
-}
-
-/**
- * Get-or-create 当前用户的智能搜索 sessionId。
- * 进入页面立即调,拿到 sessionId 后 (1) 用来建 WS,(2) 用来拉历史回放。
- *
- * staleTime: 5 分钟 —— sessionId 在 reset 之前是稳定的,完全不用频繁 refetch。
- * 注意: reset 流程会显式调用 refetch + invalidate,不依赖 staleness 失效。
- */
-export function useSmartSearchSession(): UseQueryResult<SessionEnvelope> {
-  const token = useAuthStore((s) => s.token);
-  return useQuery<SessionEnvelope>({
-    queryKey: ['smart-search', 'session'],
-    enabled: !!token,
-    staleTime: STALE_FRESH,
-    queryFn: async () => {
-      try {
-        const { data } = await http.get<
-          { data?: SessionEnvelope } & Partial<SessionEnvelope>
-        >('/user/smart-search/session');
-        const payload = unwrap<SessionEnvelope>(data);
-        if (!payload?.sessionId) {
-          throw new Error('后端未返回 sessionId');
-        }
-        return payload;
-      } catch (err) {
-        throw toApiError(err);
-      }
-    },
-  });
-}
-
-/**
- * 重置当前用户的会话: 删旧 + 新建。响应里的 sessionId 是新的。
- * 后续应该 invalidate session/history/context 三个 query 让 UI 自动刷新。
- */
-export function useResetSmartSearchSession() {
-  return useMutation<SessionEnvelope>({
-    mutationFn: async () => {
-      try {
-        const { data } = await http.post<
-          { data?: SessionEnvelope } & Partial<SessionEnvelope>
-        >('/user/smart-search/session/reset', {});
-        const payload = unwrap<SessionEnvelope>(data);
-        if (!payload?.sessionId) {
-          throw new Error('后端未返回 sessionId');
-        }
-        return payload;
-      } catch (err) {
-        throw toApiError(err);
-      }
-    },
-  });
 }
 
 /**
@@ -242,10 +202,14 @@ export function useSmartSearchHistory(
     placeholderData: keepPreviousData,
     queryFn: async () => {
       try {
-        const url =
-          limitTurns && limitTurns > 0
-            ? `/user/smart-search/session/messages?limit=${limitTurns}`
-            : '/user/smart-search/session/messages';
+        // 显式带 ?session_id=xxx 让后端走 GetSessionMessagesByID 而不是 latest active,
+        // 否则多会话切换时会 race(前端已切到 B 但后端 latest 还是 A → 返 A 的 messages 却缓存在
+        // [history, B] 下,渲染串了)。同 claw useClawHistory。
+        const params = new URLSearchParams();
+        if (sessionId) params.set('session_id', sessionId);
+        if (limitTurns && limitTurns > 0) params.set('limit', String(limitTurns));
+        const qs = params.toString();
+        const url = `/user/smart-search/session/messages${qs ? `?${qs}` : ''}`;
         const { data } = await http.get<
           { data?: HistoryResponse } & Partial<HistoryResponse>
         >(url);
@@ -289,9 +253,13 @@ export function useSmartSearchContext(
     staleTime: 30 * 1000, // 30s 内不重复请求
     queryFn: async () => {
       try {
+        // 同 useSmartSearchHistory: 显式 sessionId 走 by-id 路径, 防多会话切换 race。
+        const url = sessionId
+          ? `/user/smart-search/session/context?session_id=${encodeURIComponent(sessionId)}`
+          : '/user/smart-search/session/context';
         const { data } = await http.get<
           { data?: SmartSearchContextSnapshot } & Partial<SmartSearchContextSnapshot>
-        >('/user/smart-search/session/context');
+        >(url);
         const payload = unwrap<SmartSearchContextSnapshot>(data);
         return {
           sessionId: payload?.sessionId ?? sessionId ?? '',
@@ -335,14 +303,17 @@ interface WSTicket {
  * 取一张一次性 ws ticket。每次 connect/reconnect 都要重新申请 —— ticket 30s TTL,
  * 且 backend GETDEL 一次消费就失效, 重连必须拿新的。
  *
+ * 多会话: sessionId 显式带上,让后端把 ticket 签给指定 session(而非 latest active);
+ * 不传时退化为给 latest 签(兼容)。
+ *
  * 不做成 react-query mutation: 这里是 imperative 的鉴权交换, 不参与 cache 失效图。
  * 调用方 (useSmartSearchSocket connect 闭包) 直接 await 就够了。
  */
-async function fetchWSTicket(): Promise<WSTicket> {
-  const { data } = await http.post<{ data?: WSTicket } & Partial<WSTicket>>(
-    '/user/smart-search/session/ws-ticket',
-    {}
-  );
+async function fetchWSTicket(sessionId?: string | null): Promise<WSTicket> {
+  const url = sessionId
+    ? `/user/smart-search/session/ws-ticket?session_id=${encodeURIComponent(sessionId)}`
+    : '/user/smart-search/session/ws-ticket';
+  const { data } = await http.post<{ data?: WSTicket } & Partial<WSTicket>>(url, {});
   const payload = unwrap<WSTicket>(data);
   if (!payload?.wsToken || !payload?.sessionId) {
     throw new Error('后端未返回 wsToken');
@@ -359,7 +330,8 @@ type UseSmartSearchSocket = UseAgentSocket<ServerMessage, ClientMessage>;
 export function useSmartSearchSocket(sessionId: string | null): UseSmartSearchSocket {
   return useAgentSocket<ServerMessage, ClientMessage>({
     connectionKey: sessionId,
-    fetchTicket: fetchWSTicket,
+    // 多会话: ticket 显式绑当前 sessionId(闭包捕获,每次 connect/reconnect 用最新 key)。
+    fetchTicket: () => fetchWSTicket(sessionId),
     buildWsUrl,
     displacedDefaultText: '此会话已在其他窗口打开',
   });

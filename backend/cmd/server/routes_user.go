@@ -277,6 +277,15 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		userProtected.POST("/smart-search/reference", h.smartSearch.ReferenceLibrary)
 		userProtected.GET("/smart-search/session/file", h.smartSearch.GetSessionFile) // 历史回放图片缩略图/放大(cookie 鉴权)
 
+		// 多会话 (2026-07: 与 claw 同型 ChatGPT 风格会话列表)。前端侧边栏会话历史 + "新对话" 用。
+		// messages/context/ws-ticket 上面几行已支持 ?session_id= 指定会话。
+		userProtected.GET("/smart-search/sessions", h.smartSearch.ListSessions)
+		userProtected.POST("/smart-search/sessions", h.smartSearch.CreateNewSession)
+		userProtected.PATCH("/smart-search/sessions/:id", h.smartSearch.RenameSession)
+		userProtected.POST("/smart-search/sessions/:id/rename", h.smartSearch.RenameSession) // 别名: 兼容不支持 PATCH 的客户端
+		userProtected.DELETE("/smart-search/sessions/:id", h.smartSearch.DeleteSession)
+		userProtected.POST("/smart-search/sessions/:id/activate", h.smartSearch.ActivateSession)
+
 		// 智能审稿 v3 —— 投稿 wizard + 审稿记录 + agent 编排的 4 份报告。
 		// 路由表见 internal/peerreview/routes.go, 全部需要登录。
 		peerreview.RegisterRoutes(userProtected.Group("/peer-review"), h.peerReview)

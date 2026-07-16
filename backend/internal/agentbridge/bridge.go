@@ -1127,7 +1127,7 @@ func (f *FeatureBridge) OwnsSession(userID uint, sessionID string) (bool, error)
 	return row != nil && row.AgentSessionID == sessionID, nil
 }
 
-// ─── 多会话 API (claw 用; smart_search 不调这些, 沿用 GetOrCreateSession / ResetSession) ────
+// ─── 多会话 API (claw / smart_search 用; 单会话 feature 仍走 GetOrCreateSession / ResetSession) ────
 
 // SessionListItem 是 ListSessions 返回的一项 — DB mapping + agent transcript 元数据合并。
 //

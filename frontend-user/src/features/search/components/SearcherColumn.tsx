@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, Search } from 'lucide-react';
+import { Loader2, Search, SquarePen } from 'lucide-react';
 import { EmptyState } from '@/shared/components/EmptyState';
+import { useSmartSearchSessionStore } from '@/stores/smart-search-session.store';
 import { extractPapers, useSearchPapers, type Paper, type UpstreamSource } from '../api/papers';
 import { useFavoriteCheck } from '../api/library';
 import { useJournalEnrichments } from '@/shared/api/journal-enrichment';
@@ -69,6 +70,12 @@ export function SearcherColumn({
     useSearcherUrlState(filters);
   const queryFromUrl = params.get('q') ?? '';
   const [input, setInput] = useState(queryFromUrl);
+
+  // 智能模式「新对话」按钮 —— activeSessionId 收在 store(SmartSearchPanel / SearchSidebar 消费),
+  // 这里只发起「置空 = 空白新对话」;busy(回答中)时禁用避免打断当前生成。
+  const activeSessionId = useSmartSearchSessionStore((s) => s.activeSessionId);
+  const smartBusy = useSmartSearchSessionStore((s) => s.busy);
+  const setActiveSessionId = useSmartSearchSessionStore((s) => s.setActiveSessionId);
 
   // 智能 panel 是否曾经被打开过 —— 一旦 true 就保持 mount, 模式切换只用 display:none
   // 隐藏。这样:
@@ -213,6 +220,27 @@ export function SearcherColumn({
             </button>
           </div>
         </div>
+
+        {/* 智能模式:顶部右侧「新对话」按钮 —— 置空 activeSessionId 回到空白态(会话历史在左侧栏)。
+            busy(回答中)或已在空白新对话时禁用。 */}
+        {mode === 'smart' && (
+          <button
+            type="button"
+            onClick={() => setActiveSessionId(null)}
+            disabled={smartBusy || activeSessionId === null}
+            title={
+              smartBusy
+                ? '回答中,请稍候'
+                : activeSessionId === null
+                  ? '已是新对话'
+                  : '开始新对话'
+            }
+            className="ml-auto inline-flex items-center gap-1.5 h-7 px-2.5 rounded-pill border border-border-button text-xs font-medium text-subtle transition-colors hover:bg-surface-1 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <SquarePen className="size-3.5" strokeWidth={2} />
+            新对话
+          </button>
+        )}
       </header>
 
       {/* 智能模式 —— 通过 WS 桥接 scholar_agent 的对话式检索面板。

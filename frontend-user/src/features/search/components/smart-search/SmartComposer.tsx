@@ -1,13 +1,13 @@
 import { useEffect, useState, type ClipboardEvent, type HTMLAttributes, type ReactNode } from 'react';
-import { Loader2, RotateCcw } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Composer } from '@/shared/components/chat';
 import type { SmartSearchContextSnapshot } from '../../api/smart-search';
 
 /**
  * 智能搜索输入框 —— 三 agent 统一 Composer(shared/components/chat)的智能搜索包装:
- * 保留本 feature 特有件:hero↔底部栏停靠动画的 layoutId 导出、轮播示例提问、重置会话按钮(左)。
+ * 保留本 feature 特有件:hero↔底部栏停靠动画的 layoutId 导出、轮播示例提问。
  * 起始态 hero(prominent,rows=3 自动聚焦)与对话中底部栏共用同一组件,两处样式天然一致。
+ * (多会话改造后,「重置会话」已由顶部「新对话」按钮取代,本组件不再有 reset 入口。)
  */
 
 /** hero(空态)与对话中底部栏共用的 layoutId —— 发送首条消息后 framer-motion 据此把对话框
@@ -36,10 +36,6 @@ export interface SmartComposerProps {
   stopping?: boolean;
   /** 上下文水位 chip(底部栏用)。 */
   contextSnapshot?: SmartSearchContextSnapshot;
-  /** 重置按钮(底部栏用);不传则不渲染。 */
-  onResetClick?: () => void;
-  resetDisabled?: boolean;
-  resetPending?: boolean;
   /** hero 起始态尺寸:更大(rows=3)。 */
   prominent?: boolean;
   /** 挂载时自动聚焦 —— 空态 hero 需要,底部栏不需要(避免抢焦/滚动跳)。 */
@@ -72,9 +68,6 @@ export function SmartComposer({
   onStop,
   stopping = false,
   contextSnapshot,
-  onResetClick,
-  resetDisabled = false,
-  resetPending = false,
   prominent = false,
   autoFocus = false,
   modelSlot,
@@ -118,25 +111,7 @@ export function SmartComposer({
       containerProps={containerProps}
       overlay={overlay}
       topSlot={topExtras}
-      leftActions={
-        onResetClick || plusSlot ? (
-          <>
-            {plusSlot}
-            {onResetClick && (
-              <button
-                type="button"
-                onClick={onResetClick}
-                disabled={resetDisabled}
-                aria-label="重置当前会话"
-                title={resetDisabled ? '当前不可重置' : '重置当前会话, 开始新的对话'}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {resetPending ? <Loader2 className="size-3.5 animate-spin" /> : <RotateCcw className="size-3.5" strokeWidth={2} />}
-              </button>
-            )}
-          </>
-        ) : undefined
-      }
+      leftActions={plusSlot}
       rightActions={modelSlot}
     />
   );

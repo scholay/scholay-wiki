@@ -11,6 +11,7 @@ import {
 import { useAuthStore } from '@/stores/auth.store';
 import { cn } from '@/shared/lib/utils';
 import { primeMobileKeyboard } from '@/shared/lib/ios-keyboard';
+import { computeSessionTitle } from '@/shared/lib/agent-session-title';
 import { useClawSessions, type ClawSessionItem } from '../../api/session';
 import { ClawRenameDialog, ClawDeleteDialog } from '../sidebar/ClawSessionDialogs';
 
@@ -19,21 +20,10 @@ import { ClawRenameDialog, ClawDeleteDialog } from '../sidebar/ClawSessionDialog
  * 顶部一个「新对话」按钮 + 下面按日期分组(今天 / 昨天 / 近 7 天 / 更早)的会话列表,
  * 每条点开即切换、长按右侧 ⋮ 可重命名 / 删除。左侧滑入(Sheet side="left")。
  *
- * 复用桌面侧边栏同一套数据 hook(useClawSessions)与重命名 / 删除弹窗(ClawSessionDialogs),
- * 不重复造轮子;切换 / 新对话仍由页面(MobileClawPage)通过 onActivate / onNewConversation 处理
- * (保持与原有 conv.handleActivateSession / handleNewConversation 行为一致)。
+ * 复用桌面侧边栏同一套数据 hook(useClawSessions)、标题 loading 判定(computeSessionTitle)与
+ * 重命名 / 删除弹窗(ClawSessionDialogs),不重复造轮子;切换 / 新对话仍由页面(MobileClawPage)
+ * 通过 onActivate / onNewConversation 处理(保持与原有 conv.handleActivateSession 行为一致)。
  */
-const PLACEHOLDER_TITLES = new Set(['', 'Untitled Session', '新会话']);
-const TITLE_GEN_WINDOW_MS = 90_000; // 标题生成截止边界:超窗口占位仍未变真 = 已失败,不再 spinner(同桌面侧栏)
-
-function displayTitle(s: ClawSessionItem, active: boolean): { text: string; loading: boolean } {
-  const raw = s.title?.trim() ?? '';
-  const createdMs = s.createdAt ? Date.parse(s.createdAt) : NaN;
-  const withinWindow = Number.isNaN(createdMs) || Date.now() - createdMs < TITLE_GEN_WINDOW_MS;
-  const loading = PLACEHOLDER_TITLES.has(raw) && withinWindow && (s.messageCount > 0 || active);
-  return { text: loading ? '生成标题中…' : raw || '未命名对话', loading };
-}
-
 const GROUP_ORDER = ['今天', '昨天', '近 7 天', '更早'] as const;
 
 function bucketOf(s: ClawSessionItem): (typeof GROUP_ORDER)[number] {
@@ -149,7 +139,12 @@ function SessionRow({
   onRename: () => void;
   onDelete: () => void;
 }) {
-  const { text, loading } = displayTitle(session, active);
+  const { displayTitle: text, loading } = computeSessionTitle(
+    session.title,
+    session.createdAt,
+    session.messageCount,
+    active,
+  );
   return (
     <div
       className={cn(

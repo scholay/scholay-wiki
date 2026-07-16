@@ -28,6 +28,7 @@ package agentbridge
 //   - 模型切换 (claw /models) — 各 feature 暴露不一样的 tier
 
 import (
+	"errors"
 	"log/slog"
 	"strconv"
 
@@ -54,7 +55,7 @@ func ParseLimitTurns(c *gin.Context) int {
 	return n
 }
 
-// Labels 控制 5 个端点的错误响应文案 (前端用户看到的中文)。
+// Labels 控制端点的错误响应文案 (前端用户看到的中文)。
 // 业务码不需要传 — 都是 errcode.AgentUnreachable / 5001 (WS ticket); 见 sendAgentErr。
 type Labels struct {
 	// AgentUnreachableOnGetSession  e.g. "智能搜索服务暂时不可用,请稍后重试"
@@ -67,6 +68,19 @@ type Labels struct {
 	ContextEstimateFailed string
 	// WSTicketFailed                 e.g. "无法签发会话凭证,请稍后重试"
 	WSTicketFailed string
+	// ─── 多会话端点文案 (MountMultiSessionRoutes 用; 单会话 feature 不需要设置) ───
+	// SessionNotFound        e.g. "会话不存在或不属于你"
+	SessionNotFound string
+	// ListSessionsFailed     e.g. "无法加载会话列表,请稍后重试"
+	ListSessionsFailed string
+	// CreateSessionFailed    e.g. "新建会话失败,请稍后重试"
+	CreateSessionFailed string
+	// RenameSessionFailed    e.g. "重命名失败,请稍后重试"
+	RenameSessionFailed string
+	// DeleteSessionFailed    e.g. "删除失败,请稍后重试"
+	DeleteSessionFailed string
+	// ActivateSessionFailed  e.g. "切换会话失败,请稍后重试"
+	ActivateSessionFailed string
 }
 
 // DefaultLabels 给一份通用兜底文案. feature 各自可以覆盖具体字段:
@@ -80,6 +94,12 @@ func DefaultLabels() Labels {
 		LoadMessagesFailed:             "无法加载历史会话,请稍后重试",
 		ContextEstimateFailed:          "无法读取上下文用量",
 		WSTicketFailed:                 "无法签发会话凭证,请稍后重试",
+		SessionNotFound:                "会话不存在或不属于你",
+		ListSessionsFailed:             "无法加载会话列表,请稍后重试",
+		CreateSessionFailed:            "新建会话失败,请稍后重试",
+		RenameSessionFailed:            "重命名失败,请稍后重试",
+		DeleteSessionFailed:            "删除失败,请稍后重试",
+		ActivateSessionFailed:          "切换会话失败,请稍后重试",
 	}
 }
 
@@ -138,10 +158,26 @@ func (h *SessionHandler) ResetSession(c *gin.Context) {
 	utils.Success(c, gin.H{"sessionId": sessionID})
 }
 
-// GetSessionMessages — GET /session/messages: 拉历史消息 (latest active session).
+// GetSessionMessages — GET /session/messages: 拉历史消息.
+// 多会话场景下前端会显式带 ?session_id=xxx 指定要看哪个 session 的历史 (避免切换中 race);
+// 不带就走 "latest active" 路径兼容单会话调用。
 func (h *SessionHandler) GetSessionMessages(c *gin.Context) {
 	userID := c.GetUint("user_id")
-	result, err := h.Feature.GetSessionMessages(c.Request.Context(), userID, ParseLimitTurns(c))
+	limit := ParseLimitTurns(c)
+	if sid := c.Query("session_id"); sid != "" {
+		result, err := h.Feature.GetSessionMessagesByID(c.Request.Context(), userID, sid, limit)
+		if err != nil {
+			if errors.Is(err, ErrNotFound) {
+				utils.Error(c, 4404, h.Labels.SessionNotFound)
+				return
+			}
+			utils.InternalError(c, errcode.AgentUnreachable, h.Labels.LoadMessagesFailed, err)
+			return
+		}
+		utils.Success(c, gin.H{"sessionId": result.SessionID, "messages": result.Messages, "totalTurns": result.TotalTurns, "hasMore": result.HasMore})
+		return
+	}
+	result, err := h.Feature.GetSessionMessages(c.Request.Context(), userID, limit)
 	if err != nil {
 		utils.InternalError(c, errcode.AgentUnreachable, h.Labels.LoadMessagesFailed, err)
 		return
@@ -154,9 +190,35 @@ func (h *SessionHandler) GetSessionMessages(c *gin.Context) {
 	})
 }
 
-// GetContextEstimate — GET /session/context: 当前会话上下文水位.
+// GetContextEstimate — GET /session/context: 会话上下文水位.
+// 同 GetSessionMessages: 前端带 ?session_id=xxx 时读指定 session (避免切换 race)。
 func (h *SessionHandler) GetContextEstimate(c *gin.Context) {
 	userID := c.GetUint("user_id")
+	if sid := c.Query("session_id"); sid != "" {
+		est, err := h.Feature.GetContextEstimateByID(c.Request.Context(), userID, sid)
+		if err != nil {
+			if errors.Is(err, ErrNotFound) {
+				utils.Error(c, 4404, h.Labels.SessionNotFound)
+				return
+			}
+			// 上下文水位是非关键 footer 表;agent 慢/超时降级返 0(与"还没说过话"同形),不拖出 502。
+			slog.Debug("agentbridge: context estimate unavailable, degrading", "session_id", sid, "err", err)
+			utils.Success(c, gin.H{"sessionId": sid, "totalTokens": 0, "maxTokens": 0, "percentage": 0, "model": "", "degraded": true})
+			return
+		}
+		if est == nil {
+			utils.Success(c, gin.H{"sessionId": sid, "totalTokens": 0, "maxTokens": 0, "percentage": 0, "model": ""})
+			return
+		}
+		utils.Success(c, gin.H{
+			"sessionId":   sid,
+			"totalTokens": est.TotalTokens,
+			"maxTokens":   est.MaxTokens,
+			"percentage":  est.Percentage,
+			"model":       est.Model,
+		})
+		return
+	}
 	est, sessionID, err := h.Feature.GetContextEstimate(c.Request.Context(), userID)
 	if err != nil {
 		// 上下文水位是非关键 footer 表;agent 慢/超时降级返 0(与"还没说过话"同形),
@@ -193,12 +255,28 @@ func (h *SessionHandler) GetContextEstimate(c *gin.Context) {
 
 // IssueWSTicket — POST /session/ws-ticket: 签发 30s 一次性 ws ticket.
 // 业务码: ticket 签发失败用 5001 (内部错), 其它走 errcode.AgentUnreachable.
+// 多会话: 前端带 ?session_id=xxx 时给指定 session 签 (鉴权 OwnsSession), 不带就给 latest active 签。
 func (h *SessionHandler) IssueWSTicket(c *gin.Context) {
 	userID := c.GetUint("user_id")
-	sessionID, err := h.Feature.GetOrCreateSession(c.Request.Context(), userID)
-	if err != nil {
-		utils.InternalError(c, errcode.AgentUnreachable, h.Labels.AgentUnreachableOnGetSession, err)
-		return
+	var sessionID string
+	if sid := c.Query("session_id"); sid != "" {
+		owns, err := h.Feature.OwnsSession(userID, sid)
+		if err != nil {
+			utils.InternalError(c, errcode.AgentUnreachable, h.Labels.AgentUnreachableOnGetSession, err)
+			return
+		}
+		if !owns {
+			utils.Error(c, 4404, h.Labels.SessionNotFound)
+			return
+		}
+		sessionID = sid
+	} else {
+		sid, err := h.Feature.GetOrCreateSession(c.Request.Context(), userID)
+		if err != nil {
+			utils.InternalError(c, errcode.AgentUnreachable, h.Labels.AgentUnreachableOnGetSession, err)
+			return
+		}
+		sessionID = sid
 	}
 	token, err := h.Feature.IssueWSTicket(c.Request.Context(), userID, sessionID)
 	if err != nil {
@@ -220,3 +298,111 @@ func (h *SessionHandler) HandleWS(c *gin.Context) {
 // codeWSTicketInternal 仅在本文件用, 没有跨模块复用价值 — WS ticket 签发失败是
 // agentbridge 内部错 (Redis 写不进去 / token 生成失败), 跟前端处理无关。
 const codeWSTicketInternal = 5001
+
+// ─── 多会话端点 (ChatGPT 风格侧边栏会话列表; claw 原为手写, 现收口到通用模板) ──────────
+//
+// 单会话 feature (只 get-or-create + reset) 不需要这些; 多会话 feature (smart_search / claw) 用
+// MountMultiSessionRoutes 一次性挂上。全部薄委托到 FeatureBridge 已有方法, 与 claw/handler.go 同型。
+
+// MountMultiSessionRoutes 把 6 个多会话端点挂到给定路由组下 (通常与 MountSessionRoutes 同前缀):
+//
+//	GET    {prefix}/sessions            列表
+//	POST   {prefix}/sessions            新建 (不删旧)
+//	PATCH  {prefix}/sessions/:id        改名
+//	POST   {prefix}/sessions/:id/rename 改名 (别名, 兼容不支持 PATCH 的客户端)
+//	DELETE {prefix}/sessions/:id        删除
+//	POST   {prefix}/sessions/:id/activate 置为最近活跃
+func (h *SessionHandler) MountMultiSessionRoutes(g *gin.RouterGroup) {
+	g.GET("/sessions", h.ListSessions)
+	g.POST("/sessions", h.CreateNewSession)
+	g.PATCH("/sessions/:id", h.RenameSession)
+	g.POST("/sessions/:id/rename", h.RenameSession)
+	g.DELETE("/sessions/:id", h.DeleteSession)
+	g.POST("/sessions/:id/activate", h.ActivateSession)
+}
+
+// ListSessions — GET /sessions: 列出当前用户在本 feature 的全部会话 (last_accessed_at DESC)。
+func (h *SessionHandler) ListSessions(c *gin.Context) {
+	userID := c.GetUint("user_id")
+	items, err := h.Feature.ListSessions(c.Request.Context(), userID)
+	if err != nil {
+		utils.InternalError(c, errcode.AgentUnreachable, h.Labels.ListSessionsFailed, err)
+		return
+	}
+	utils.Success(c, gin.H{"items": items, "total": len(items)})
+}
+
+// CreateNewSession — POST /sessions: 新建会话, 不删任何已有会话 (与 reset 的"删旧+建新"不同)。
+func (h *SessionHandler) CreateNewSession(c *gin.Context) {
+	userID := c.GetUint("user_id")
+	sessionID, err := h.Feature.CreateNewSession(c.Request.Context(), userID)
+	if err != nil {
+		utils.InternalError(c, errcode.AgentUnreachable, h.Labels.CreateSessionFailed, err)
+		return
+	}
+	utils.Success(c, gin.H{"sessionId": sessionID})
+}
+
+// RenameSession — PATCH /sessions/:id  body: { "title": "新标题" }。鉴权: 必须是本人 session。
+func (h *SessionHandler) RenameSession(c *gin.Context) {
+	userID := c.GetUint("user_id")
+	sessionID := c.Param("id")
+	if sessionID == "" {
+		utils.BadRequest(c, "missing session id")
+		return
+	}
+	var req struct {
+		Title string `json:"title" binding:"required,min=1,max=120"`
+	}
+	if !utils.BindJSON(c, &req) {
+		return
+	}
+	if err := h.Feature.RenameSession(c.Request.Context(), userID, sessionID, req.Title); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			utils.Error(c, 4404, h.Labels.SessionNotFound)
+			return
+		}
+		utils.InternalError(c, errcode.AgentUnreachable, h.Labels.RenameSessionFailed, err)
+		return
+	}
+	utils.SuccessWithMessage(c, "已重命名", gin.H{"sessionId": sessionID, "title": req.Title})
+}
+
+// DeleteSession — DELETE /sessions/:id: 删除某具体 session (agent jsonl + DB mapping)。
+// 鉴权: 必须是本人 session。若删的是当前活跃 session, 前端应主动切到另一条 (或新建)。
+func (h *SessionHandler) DeleteSession(c *gin.Context) {
+	userID := c.GetUint("user_id")
+	sessionID := c.Param("id")
+	if sessionID == "" {
+		utils.BadRequest(c, "missing session id")
+		return
+	}
+	if err := h.Feature.DeleteSessionByID(c.Request.Context(), userID, sessionID); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			utils.Error(c, 4404, h.Labels.SessionNotFound)
+			return
+		}
+		utils.InternalError(c, errcode.AgentUnreachable, h.Labels.DeleteSessionFailed, err)
+		return
+	}
+	utils.SuccessWithMessage(c, "已删除", nil)
+}
+
+// ActivateSession — POST /sessions/:id/activate: 把 last_accessed_at 设为 NOW。鉴权: 必须是本人 session。
+func (h *SessionHandler) ActivateSession(c *gin.Context) {
+	userID := c.GetUint("user_id")
+	sessionID := c.Param("id")
+	if sessionID == "" {
+		utils.BadRequest(c, "missing session id")
+		return
+	}
+	if err := h.Feature.ActivateSession(userID, sessionID); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			utils.Error(c, 4404, h.Labels.SessionNotFound)
+			return
+		}
+		utils.InternalError(c, errcode.AgentUnreachable, h.Labels.ActivateSessionFailed, err)
+		return
+	}
+	utils.Success(c, gin.H{"sessionId": sessionID})
+}

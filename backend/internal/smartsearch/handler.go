@@ -17,10 +17,14 @@ import (
 
 // Handler 是智能搜索的 thin HTTP wrapper.
 //
-// 5 个 session 端点 + WS 全部走 agentbridge.SessionHandler 通用模板, 这里只剩"挂路由 + 文案定制":
+// session 端点 + WS 全部走 agentbridge.SessionHandler 通用模板, 这里只剩"挂路由 + 文案定制":
 //   - bootstrap 调 NewHandler 拿到 Handler
-//   - routes_user 调 Handler.MountRoutes(group) 把 5 个 HTTP 端点一次性挂上
+//   - routes_user 逐个挂 HTTP 端点 (session/messages/context/ws-ticket + 多会话 sessions/*)
 //   - WS 路由跟 HTTP 不在同一鉴权组下 (browser WS 无法带 Authorization), 单独挂 Handler.HandleWS
+//
+// 多会话 (2026-07): smart_search 从"单会话 + 重置上下文"改为"多会话"(与 claw 同型):可新开会话、
+// 侧边栏会话列表、每会话独立上下文。messages/context/ws-ticket 认 ?session_id=;新增 sessions/* 增删改切。
+// reset 端点保留 (向后兼容, 前端已不再调用)。
 //
 // 上传 / 引用文献 (attach.go) 走 internal/agentattach 通用实现 (2026-07-14 三 feature 输入框统一)。
 type Handler struct {
@@ -40,24 +44,26 @@ func NewHandler(feature *agentbridge.FeatureBridge, libReader *library.Reader) *
 	labels.ContextEstimateFailed = "无法读取上下文用量"
 	labels.WSTicketFailed = "无法签发会话凭证,请稍后重试"
 
-	// smart_search 是单会话 feature (1 用户 1 行, get-or-create 复用): 请求缺 session_id
-	// 时**复用当前会话** (GetOrCreateSession), 而不是像 claw 那样新建 —— 否则每次上传都会
-	// 把用户唯一会话映射顶掉。
+	// 多会话: 上传 / 引用缺 session_id 时**新建一个会话** (resolveEmpty=nil → agentattach 默认
+	// CreateNewSession, 与 claw 同语义「添加文件 = 开始新会话」), 前端 onSessionEnsured 收下 adopt。
+	// 注意:「新对话」按钮**不预建**会话(懒建于首次发送), 故空白态直接传文件正是 resolveEmpty 的热路径 ——
+	// 必须新建而非落到 GetOrCreateSession 的「最近活跃旧会话」, 否则文件被静默塞进不相关的旧会话(评审 #4)。
+	// 已激活会话内上传自带 session_id, 走 OwnsSession 分支, 不碰 resolveEmpty。
 	return &Handler{
 		inner:      agentbridge.NewSessionHandler(feature, labels),
-		uploader:   agentattach.NewUploader(feature, feature.GetOrCreateSession),
-		referencer: agentattach.NewReferencer(feature, libReader, feature.GetOrCreateSession),
+		uploader:   agentattach.NewUploader(feature, nil),
+		referencer: agentattach.NewReferencer(feature, libReader, nil),
 	}
 }
 
-// MountRoutes 把 5 个标准 session 端点挂在给定路由组下.
-// 由 cmd/server/routes_user.go 调用。
+// MountRoutes 把标准 session 端点 + 多会话端点挂在给定路由组下 (routes_user 目前逐个手挂, 本方法保留备用)。
 func (h *Handler) MountRoutes(g *gin.RouterGroup) {
 	g.GET("/session", h.inner.GetSession)
 	g.POST("/session/reset", h.inner.ResetSession)
 	g.GET("/session/messages", h.inner.GetSessionMessages)
 	g.GET("/session/context", h.inner.GetContextEstimate)
 	g.POST("/session/ws-ticket", h.inner.IssueWSTicket)
+	h.inner.MountMultiSessionRoutes(g)
 }
 
 // HandleWS 让 routes_user 直接挂在公共路由 (无 user middleware) 上。
@@ -72,3 +78,10 @@ func (h *Handler) ResetSession(c *gin.Context)       { h.inner.ResetSession(c) }
 func (h *Handler) GetSessionMessages(c *gin.Context) { h.inner.GetSessionMessages(c) }
 func (h *Handler) GetContextEstimate(c *gin.Context) { h.inner.GetContextEstimate(c) }
 func (h *Handler) IssueWSTicket(c *gin.Context)      { h.inner.IssueWSTicket(c) }
+
+// ─── 多会话委托 (routes_user 手挂; 全部薄委托到通用 SessionHandler) ──────────────
+func (h *Handler) ListSessions(c *gin.Context)     { h.inner.ListSessions(c) }
+func (h *Handler) CreateNewSession(c *gin.Context) { h.inner.CreateNewSession(c) }
+func (h *Handler) RenameSession(c *gin.Context)    { h.inner.RenameSession(c) }
+func (h *Handler) DeleteSession(c *gin.Context)    { h.inner.DeleteSession(c) }
+func (h *Handler) ActivateSession(c *gin.Context)  { h.inner.ActivateSession(c) }

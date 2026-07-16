@@ -1,9 +1,15 @@
 -- ============================================================================
 -- 0034 · agent_sessions「单会话 feature」补回唯一约束(代理键改造后丢失的硬守卫)。C6。
 --
+-- ⚠️ 2026-07 更新:smart_search 也改为多会话(与 claw 同型),故本迁移的 CASE 与去重 WHERE
+--   已把 smart_search 一并排除(feature_key NOT IN ('claw','smart_search'))——否则:
+--     · 生成列 anchor 仍取 "user:smart_search" → 唯一索引把它锁成单会话, CreateNewSession 撞 1062;
+--     · 去重 DELETE 每次重放会把 smart_search 的多行删到只剩一行(多会话数据每次重启被清)。
+--   既有库的 anchor 生成列定义由 0070_agent_sessions_smart_search_multi.sql 就地 MODIFY 修正。
+--
 -- 背景:
 --   archive/0070 把 PK 从复合 (user_id, feature_key) 改成代理键 id 自增, 以支持
---   claw 多会话(同 user+feature 挂多行)。副作用: 单会话 feature(smart_search,
+--   claw 多会话(同 user+feature 挂多行)。副作用: 单会话 feature(旧 smart_search,
 --   owner_kind/owner_id 均 NULL 的用户级行)从此丢了 DB 唯一约束, 改由应用层
 --   GetLatestByUserFeature「取最近一行」维护「只一行」。并发首次 get-or-create
 --   (createAndPersist)无硬守卫 → 两个请求各 INSERT 一行 → 同 (user_id, feature_key)
@@ -43,21 +49,21 @@ JOIN (
     ) AS UNSIGNED) AS keep_id
   FROM agent_sessions
   WHERE owner_kind IS NULL AND owner_id IS NULL
-    AND feature_key <> 'claw'
+    AND feature_key NOT IN ('claw', 'smart_search')
   GROUP BY user_id, feature_key
   HAVING COUNT(*) > 1
 ) k
   ON dup.user_id = k.user_id
  AND dup.feature_key = k.feature_key
 WHERE dup.owner_kind IS NULL AND dup.owner_id IS NULL
-  AND dup.feature_key <> 'claw'
+  AND dup.feature_key NOT IN ('claw', 'smart_search')
   AND dup.id <> k.keep_id;
 
 -- ② 生成列(STORED, 与 0013/0017 既有手法一致):用户级单会话取锚点, 其余 NULL。
 CALL add_column_if_not_exists(
   'agent_sessions',
   'user_feature_anchor',
-  "VARCHAR(96) GENERATED ALWAYS AS (CASE WHEN owner_kind IS NULL AND owner_id IS NULL AND feature_key <> 'claw' THEN CONCAT(user_id, ':', feature_key) ELSE NULL END) STORED"
+  "VARCHAR(96) GENERATED ALWAYS AS (CASE WHEN owner_kind IS NULL AND owner_id IS NULL AND feature_key NOT IN ('claw', 'smart_search') THEN CONCAT(user_id, ':', feature_key) ELSE NULL END) STORED"
 );
 
 -- ③ 唯一索引:每 (user_id, feature_key) 用户级单会话至多一行。

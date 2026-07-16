@@ -7,9 +7,10 @@
  * 行为含义已升级为 "取当前活跃 session" / "删当前 + 建新" (历史行不删)。
  */
 
-import { keepPreviousData, useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { http, toApiError } from '@/shared/lib/http';
 import { useUploadAgentAttachment, useReferenceAgentLibrary } from '@/shared/api/agent-attach';
+import { makeAgentSessionApi, type AgentSessionItem } from '@/shared/api/agent-sessions';
 import { STALE_FRESH } from '@/shared/lib/query-config';
 import { useAuthStore } from '@/stores/auth.store';
 import type {
@@ -181,137 +182,27 @@ export function useReferenceClawLibrary() {
 }
 
 // ─── 多会话 API (P5+: 侧边栏会话列表) ────────────────────────────────────
+//
+// 会话 CRUD(list/create/rename/delete/activate)已收口到 shared/api/agent-sessions 工厂
+// (与 smart-search 共用,只差端点前缀 + queryKey 根)。此处按 claw 命名 re-export,调用方零改动。
+// 语义 / 失效范围 / staleTime / refetchOnMount:'always' 全部由工厂保持一致(见工厂内注释)。
 
-/**
- * 单条 session 元数据 — 跟 backend agentbridge.SessionListItem 对齐。
- *
- * 字段意义:
- *   - sessionId: agent 端 UUID, 跟 WS path /claw/ws/:sessionId 对应
- *   - title: agent 端自管的标题 (首条消息后自动生成, 或 admin/用户改名)
- *   - messageCount: 该会话总消息数 (含 user/assistant/tool_use/tool_result, 给列表展示)
- *   - lastAccessedAt: backend DB 的 last_accessed_at, 列表按此 DESC 排
- */
-export interface ClawSessionItem {
-  sessionId: string;
-  title: string;
-  messageCount: number;
-  lastAccessedAt: string;
-  createdAt: string;
-  agentCreatedAt?: string;
-  agentModifiedAt?: string;
-}
+/** 单条 session 元数据 — 跟 backend agentbridge.SessionListItem 对齐(shared AgentSessionItem)。 */
+export type ClawSessionItem = AgentSessionItem;
 
-interface ListSessionsResponse {
-  items: ClawSessionItem[];
-  total: number;
-}
+const clawSessionApi = makeAgentSessionApi({ feature: 'claw', basePath: '/user/claw' });
 
-/**
- * 列出当前用户的所有 claw 会话, 给侧边栏 ChatGPT 式会话列表用。
- *
- * 排序: 后端按 last_accessed_at DESC 排 (最近用过的在前)。
- * staleTime: 30s — 用户切会话 / 收到新消息后会主动 invalidate, 这里只保 30s
- * 兜底防止短时间内重复 fetch。
- */
-export function useClawSessions(): UseQueryResult<ClawSessionItem[]> {
-  const token = useAuthStore((s) => s.token);
-  return useQuery<ClawSessionItem[]>({
-    queryKey: ['claw', 'sessions'],
-    enabled: !!token,
-    staleTime: 30 * 1000,
-    // 每次重挂载无条件重拉(对齐 useClawHistory 的 refetchOnMount:'always')。
-    // 修「最新会话从侧边栏列表消失、要退出重登才出现」: 列表缓存可能被定格成
-    // 「创建该会话之前的旧快照」并在 30s staleTime 窗内标记为 fresh —— 此时
-    // 仅靠 staleTime 的重挂载不会重拉(refetchOnMount 默认只在 stale 时刷),
-    // 站内来回切页 / 切 tab / 移动端重开抽屉全部无法自愈, 唯一出口是退登 qc.clear()。
-    // 触发器: 进页面首屏 sessions 请求 in-flight 时懒新建会话, create 的 invalidate
-    // 被并进那条更早发出、只带回旧列表的 in-flight 请求(query-core 在 data===undefined
-    // 时复用 in-flight 而非取消重发), 旧响应无版本守卫地覆盖成 fresh-but-stale;
-    // 命中额度那一轮又因 quota_exceeded 帧不进 socket.messages、丢了 message_complete
-    // 的兜底刷新(见 useClawConversation WS effect)。加这一行让任意重挂载强制核对, 根除「卡到退登才好」。
-    refetchOnMount: 'always',
-    queryFn: async () => {
-      try {
-        const { data } = await http.get<{
-          data?: ListSessionsResponse;
-        } & Partial<ListSessionsResponse>>('/user/claw/sessions');
-        const payload = unwrap<ListSessionsResponse>(data);
-        return payload?.items ?? [];
-      } catch (err) {
-        throw toApiError(err);
-      }
-    },
-  });
-}
-
-/**
- * "新对话" — POST /claw/sessions. 不删任何已有会话, 只是新建一条。
- * 跟 useResetClawSession 的"删旧+建新"语义对比, 这是多会话语义下的正确做法。
- *
- * 成功后调用方应当:
- *   1. 把当前活跃 sessionId 切到新返回的 id (前端 state)
- *   2. invalidate ['claw'] 让 session list + history + context 全部刷新
- */
-export function useCreateClawSession() {
-  const qc = useQueryClient();
-  return useMutation<SessionEnvelope>({
-    mutationFn: async () => {
-      try {
-        const { data } = await http.post<{
-          data?: SessionEnvelope;
-        } & Partial<SessionEnvelope>>('/user/claw/sessions', {});
-        const payload = unwrap<SessionEnvelope>(data);
-        if (!payload?.sessionId) throw new Error('后端未返回 sessionId');
-        return payload;
-      } catch (err) {
-        throw toApiError(err);
-      }
-    },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['claw'] });
-    },
-  });
-}
-
-/**
- * 重命名某 session — PATCH /claw/sessions/:id with { title }.
- * 后端透传给 agent, 同时 touch last_accessed_at 让此条上浮到列表顶端。
- */
-export function useRenameClawSession() {
-  const qc = useQueryClient();
-  return useMutation<void, Error, { sessionId: string; title: string }>({
-    mutationFn: async ({ sessionId, title }) => {
-      try {
-        await http.patch(`/user/claw/sessions/${sessionId}`, { title });
-      } catch (err) {
-        throw toApiError(err);
-      }
-    },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['claw', 'sessions'] });
-    },
-  });
-}
-
-/**
- * 删除某 session — DELETE /claw/sessions/:id.
- * 删的是当前活跃 session 时, 调用方应当把活跃 sessionId 切到 list[0] (或新建)。
- */
-export function useDeleteClawSession() {
-  const qc = useQueryClient();
-  return useMutation<void, Error, string>({
-    mutationFn: async (sessionId) => {
-      try {
-        await http.delete(`/user/claw/sessions/${sessionId}`);
-      } catch (err) {
-        throw toApiError(err);
-      }
-    },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['claw'] });
-    },
-  });
-}
+/** 供 sidebar / 抽屉组装 shared AgentSessionList 用。 */
+export const clawSessions = clawSessionApi;
+export const useClawSessions = clawSessionApi.useSessions;
+/** "新对话":不删任何已有会话,只新建一条(与 useResetClawSession 的"删旧+建新"对比)。 */
+export const useCreateClawSession = clawSessionApi.useCreateSession;
+/** 重命名某 session(透传 agent + touch last_accessed_at 上浮)。 */
+export const useRenameClawSession = clawSessionApi.useRenameSession;
+/** 删除某 session;删的是当前活跃时调用方应切到 list[0](或新建)。 */
+export const useDeleteClawSession = clawSessionApi.useDeleteSession;
+/** "切换到这个会话":后端把 last_accessed_at 设 NOW();前端切 sessionId → socket 自动重连。 */
+export const useActivateClawSession = clawSessionApi.useActivateSession;
 
 // ─── 模型选择 (sidebar ModelSelector) ──────────────────────────────────
 
@@ -407,32 +298,6 @@ export function setNewConversationModel(modelId: string | null) {
   } catch {
     // 隐私模式 / 满了 → 忽略
   }
-}
-
-
-/**
- * "切换到这个会话" — POST /claw/sessions/:id/activate.
- *
- * 后端做的事是把 last_accessed_at 设成 NOW(), 这样 GetOrCreateSession 取最近活跃时
- * 命中这条。前端调完后:
- *   - 把本地选中 sessionId state 切过去
- *   - invalidate ['claw'] 让 session/history/context 重新 fetch
- *   - useClawSocket 因 sessionId 变化自动重连
- */
-export function useActivateClawSession() {
-  const qc = useQueryClient();
-  return useMutation<void, Error, string>({
-    mutationFn: async (sessionId) => {
-      try {
-        await http.post(`/user/claw/sessions/${sessionId}/activate`, {});
-      } catch (err) {
-        throw toApiError(err);
-      }
-    },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['claw'] });
-    },
-  });
 }
 
 // ─── 未发送(命中额度被拦)消息的持久化 ─────────────────────────────────────
