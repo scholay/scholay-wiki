@@ -195,12 +195,12 @@ func (s *Service) ApplyRound(ctx context.Context, userID, projectID uint, instru
 	if err != nil || sessionID == "" {
 		return 0, nil
 	}
-	// struct 轨:读回 cwd document.md → parse → 合并进结构体(不走文件版本固化)。
+	// struct 轨:读回 cwd document.md(或前端逐块审阅后的合并正文)→ parse → 合并进结构体真源。
+	// P2:overrides[document.md] = 前端「逐块审阅」取舍后的合并正文;空 = 整轮应用(读 cwd)。旧的「假门」
+	//（struct 轨忽略 overrides、只能整轮全收/全弃)已拆除 —— 现在 struct 轨同样支持选择性接受。
 	if proj.SchemaVersion == SchemaStruct {
-		if len(overrides) > 0 {
-			slog.Warn("prism: overrides ignored on struct track (whole-round apply only)", "project_id", projectID)
-		}
-		n, aerr := s.applyStructRound(ctx, projectID, sessionID)
+		override := overrides[EditorDocFile] // "document.md";空 = 整轮
+		n, aerr := s.applyStructRound(ctx, projectID, sessionID, override)
 		if aerr == nil {
 			s.refreshRoundEpoch(projectID) // 固化成功 → 基线前进,后续 apply 以新世代校验
 		}

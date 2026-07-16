@@ -266,13 +266,20 @@ func (s *Service) SetJournalTemplate(projectID uint, template string) (*DocStruc
 // applyStructRound struct 轨轮末固化:读回 cwd document.md → parseEditorMarkdown → 合并进结构体
 // → SaveStruct(重投影 main.tex,可重编译)。agent 只改 title/abstract/keywords/body;
 // authors/affiliations/bibliography/targetTemplate 从既有结构体保留(不因 agent 编辑而丢)。
-func (s *Service) applyStructRound(ctx context.Context, projectID uint, sessionID string) (int, error) {
-	wf, err := s.agent.ReadWorkspaceFileFull(ctx, sessionID, EditorDocFile)
-	if err != nil {
-		return 0, err
-	}
-	if wf == nil || wf.State != "ok" || wf.PreviewType != "text" {
-		return 0, nil
+// applyStructRound 固化本轮:把 document.md 正文合并进结构体真源。
+// overrideDoc(P2 per-hunk):非空 = 前端「逐块审阅」取舍后的合并正文,用它替代 cwd document.md
+// (选择性接受);空 = 读 cwd 全部改动(整轮应用,原行为)。bib/术语表回收两轨一致(它们不参与逐块取舍)。
+func (s *Service) applyStructRound(ctx context.Context, projectID uint, sessionID, overrideDoc string) (int, error) {
+	docContent := overrideDoc
+	if strings.TrimSpace(docContent) == "" {
+		wf, err := s.agent.ReadWorkspaceFileFull(ctx, sessionID, EditorDocFile)
+		if err != nil {
+			return 0, err
+		}
+		if wf == nil || wf.State != "ok" || wf.PreviewType != "text" {
+			return 0, nil
+		}
+		docContent = wf.Content
 	}
 	// 取每项目写锁:AI 轮末的 GetStruct→合并→存 与用户 autosave 串行(评审 #1/#2)。
 	unlock := structWriteMu.lock(projectID)
@@ -285,7 +292,7 @@ func (s *Service) applyStructRound(ctx context.Context, projectID uint, sessionI
 	if err != nil {
 		return 0, err
 	}
-	applyEditorMarkdown(d, wf.Content) // 解析 + 带守卫/元数据回填的合并(见 md_bridge.mergeEditorInto)
+	applyEditorMarkdown(d, docContent) // 解析 + 带守卫/元数据回填的合并(见 md_bridge.mergeEditorInto)
 	// 读回 agent 编辑的 references.bib(它把 minicod 查到的论文写成 BibTeX 放这里)→ 解析 → 合并进 Bibliography。
 	// 读失败/文件缺:忽略,保留既有 Bibliography(不因偶发读失败清空真源)。
 	if bf, berr := s.agent.ReadWorkspaceFileFull(ctx, sessionID, BibFile); berr == nil && bf != nil && bf.State == "ok" && bf.PreviewType == "text" {
