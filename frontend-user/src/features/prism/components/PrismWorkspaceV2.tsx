@@ -72,6 +72,30 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
   // P1-3 变更导航:StructEditor 汇报的**可导航锚点数**(与「上/下一处」同源)。浮标用它显示/门控,
   // 而非另一条 diff 管道算的 diffCount(review #2:后者含前置字段/粒度不同,会显示数与可跳站点对不上)。
   const [navChangeCount, setNavChangeCount] = useState(0);
+  // P2「逐块审阅」模式(owner 选定:默认自动应用 + 可切逐块审阅)。开启后 AI 轮**不自动固化**,进 awaiting_apply
+  // 确认门:在**所见即所得**编辑器里(非原始 markdown)看本轮块级绿红痕迹,可就地增删改取舍,再「应用本轮」把
+  // 合并后的**完整 struct** 经后端 override 固化,或「放弃本轮」还原。默认关(保持改完直接应用的顺滑)。持久化。
+  const [reviewMode, setReviewMode] = useState(() => {
+    try {
+      return localStorage.getItem('prism.reviewMode') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleReviewMode = () => {
+    setReviewMode((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem('prism.reviewMode', next ? '1' : '0');
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  };
+  // 审阅门里那个独立的 WYSIWYG diff 编辑器 + 用户逐块取舍后的合并 struct(不落 DB,应用时才经 override 固化)。
+  const reviewEditorRef = useRef<StructEditorHandle>(null);
+  const reviewMergedRef = useRef<DocStruct | null>(null);
   // 自动保存失败必须让用户看见(否则 header 一直显示「已自动保存」= 谎报已存,静默丢内容,评审 #3)。
   // 稳定 id 让 sonner 复用同一条(连续失败不刷屏);header 状态另用 save.isError 常驻红字提示。
   const persist = (next: DocStruct) =>
@@ -122,7 +146,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
   const handledCompileRef = useRef<number | null>(null); // 每个 compile 结果只处理一次
   const [autoFixing, setAutoFixing] = useState(false); // UI:AI 正在自动修复编译
   const chat = usePrismChat(projectId, {
-    autoApply: true,
+    autoApply: !reviewMode, // P2:审阅模式关 → 自动固化(现有顺滑流);开 → 进 awaiting_apply 逐块取舍门
     resetNonce,
     onApplied: () => {
       structQ.refetch();
@@ -383,6 +407,16 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
   // 「轮末 struct 已刷新到新内容」(!streaming && !isFetching)才撤 —— StructEditor 始终挂载、底下 setContent
   // 无缝换成新内容+diff,撤覆盖层时不闪回旧内容。(Level 1:逐工具调用整份刷新,非逐字;见调研。)
   const streaming = chat.streaming;
+  const awaitingApply = chat.roundState === 'awaiting_apply';
+  // 审阅门的 pending(struct 轨只有 document.md 一条,带 old_struct/new_struct)。
+  const reviewPending = chat.pendingFiles.find((f) => f.rel_path === 'document.md') ?? chat.pendingFiles[0];
+  // 「应用本轮」:取审阅编辑器里用户取舍/编辑后的**完整 struct**,序列化成 override 经加固 apply 固化。
+  const applyReview = async () => {
+    const merged = reviewEditorRef.current?.flush() ?? reviewMergedRef.current ?? reviewPending?.new_struct;
+    if (!merged) return;
+    chat.setMergedBody('document.md', JSON.stringify(merged)); // struct 轨 override = 合并 struct JSON
+    await chat.apply(); // 已加固:失败不谎报/不丢取舍,停在门里可重试
+  };
   const [liveOverlay, setLiveOverlay] = useState<string | null>(null);
   useEffect(() => {
     const md = chat.live?.content;
@@ -421,7 +455,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
         <StructEditor
           ref={editorRef}
           doc={doc}
-          editable={!streaming}
+          editable={!streaming && !awaitingApply}
           onChange={persist}
           onInsertImage={() => fileRef.current?.click()}
           onInsertMath={() => setMathOpen(true)}
@@ -468,6 +502,36 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
       {liveOverlay && (
         <div className="absolute inset-0 overflow-y-auto bg-background">
           <PrismLivePreview markdown={liveOverlay} />
+        </div>
+      )}
+      {/* P2 逐块审阅门:审阅模式下 AI 轮末进 awaiting_apply,盖上**所见即所得** diff 编辑器(struct 级块痕迹,
+          非原始 markdown)。用户就地保留/删改本轮改动,「应用本轮」把合并 struct 经 override 固化 / 「放弃本轮」还原。 */}
+      {awaitingApply && reviewPending?.new_struct && (
+        <div className="absolute inset-0 z-30 flex flex-col bg-background">
+          <div className="flex shrink-0 items-center gap-2 border-b border-brand-green/30 bg-brand-green/5 px-4 py-1.5 text-2xs text-brand-green">
+            <Sparkles className="size-3 shrink-0" />
+            <span className="flex-1">逐块审阅本轮改动 —— 直接在文中保留/删改,满意后应用</span>
+            <Button size="sm" className="h-6 px-2 text-2xs" onClick={applyReview} disabled={chat.roundState !== 'awaiting_apply'}>
+              应用本轮
+            </Button>
+            <Button size="sm" variant="outline" className="h-6 px-2 text-2xs" onClick={chat.reject} disabled={chat.roundState !== 'awaiting_apply'}>
+              放弃本轮
+            </Button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <StructEditor
+              key={`prism-review-${reviewPending.rel_path}`}
+              ref={reviewEditorRef}
+              doc={reviewPending.new_struct}
+              editable
+              onChange={(d) => {
+                reviewMergedRef.current = d;
+                // 同步进 mergedRef(struct JSON)→ 聊天面板 ChangesetCard 的「应用」与右侧「应用本轮」发同款 override。
+                chat.setMergedBody('document.md', JSON.stringify(d));
+              }}
+              diffBaseline={reviewPending.old_struct ?? null}
+            />
+          </div>
         </div>
       )}
     </div>
@@ -564,6 +628,21 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
               title="编辑作者与机构(署名、通讯作者、单位上标)"
             >
               作者/机构
+            </button>
+            {/* P2 逐块审阅开关(默认关=改完直接应用;开=AI 轮末进所见即所得逐块 diff 确认门再应用,像改代码) */}
+            <button
+              type="button"
+              onClick={toggleReviewMode}
+              disabled={chat.roundState !== 'idle'}
+              className={cn(
+                'shrink-0 rounded-pill border px-2 py-0.5 text-2xs transition-colors disabled:opacity-50',
+                reviewMode
+                  ? 'border-brand-green/40 bg-brand-green/10 text-brand-green'
+                  : 'border-border bg-surface-1 text-subtle hover:bg-surface-2 hover:text-foreground',
+              )}
+              title="开启后 AI 改完文档先停在所见即所得逐块 diff,你保留/删改后再应用(像改代码);关闭则改完直接应用"
+            >
+              逐块审阅{reviewMode ? ' · 开' : ''}
             </button>
             {/* 本次 AI 改动条数(编辑器里以绿标原地呈现);用户一开始编辑即消失 */}
             {diffCount > 0 && (

@@ -271,30 +271,46 @@ func (s *Service) SetJournalTemplate(projectID uint, template string) (*DocStruc
 // **显式提供就一律用它**、绝不回落 cwd —— 用「是否提供」而非「是否非空」区分,消除空串哨兵歧义
 // (对抗审查:overrides[key] 存在但为空 与 key 缺失 都返回 ""、旧逻辑会把「用户全删」误当「整轮应用」)。
 // hasOverride=false(自动轨,overrides 无此 key)= 读 cwd 全部改动(整轮应用)。bib/术语表回收两轨一致。
-func (s *Service) applyStructRound(ctx context.Context, projectID uint, sessionID, overrideDoc string, hasOverride bool) (int, error) {
-	docContent := overrideDoc
-	if !hasOverride {
-		wf, err := s.agent.ReadWorkspaceFileFull(ctx, sessionID, EditorDocFile)
-		if err != nil {
-			return 0, err
+func (s *Service) applyStructRound(ctx context.Context, projectID uint, sessionID, overrideStruct string, hasOverride bool) (int, error) {
+	// 取每项目写锁:AI 轮末的合并→存 与用户 autosave 串行(评审 #1/#2)。
+	unlock := structWriteMu.lock(projectID)
+	defer unlock()
+	var d *DocStruct
+	if hasOverride {
+		// P2 逐块审阅:override = 前端块级取舍后的**完整 struct JSON**(最终态,已含 label/图宽,来自 pending 的
+		// new_struct/old_struct 合并)→ 直接作真源。不读 cwd document.md、不走 markdown 合并 —— 用户已在 WYSIWYG
+		// 块级 diff 里选择性接受,结果就是这份 struct(彻底避开「原始 markdown 摊给用户 + 逐行 hunk 劈坏 $$/围栏」)。
+		dd, perr := ParseDocStruct(overrideStruct)
+		if perr != nil {
+			return 0, fmt.Errorf("parse override struct: %w", perr)
+		}
+		// 安全网:override body 为空但 DB 现有正文 → 拒绝(防前端偶发送空把稿件清掉);正文非空正常放行。
+		if cur, cerr := s.GetStruct(projectID); cerr == nil {
+			if cd, derr := ParseDocStruct(cur); derr == nil && len(cd.Body) > 0 && len(dd.Body) == 0 {
+				return 0, fmt.Errorf("override struct has empty body while document is non-empty; refusing to clear")
+			}
+		}
+		d = dd
+	} else {
+		// 自动轨:读 cwd document.md → 合并进当前 DB struct 真源。
+		wf, werr := s.agent.ReadWorkspaceFileFull(ctx, sessionID, EditorDocFile)
+		if werr != nil {
+			return 0, werr
 		}
 		if wf == nil || wf.State != "ok" || wf.PreviewType != "text" {
 			return 0, nil
 		}
-		docContent = wf.Content
+		js, gerr := s.GetStruct(projectID)
+		if gerr != nil {
+			return 0, gerr
+		}
+		dd, derr := ParseDocStruct(js)
+		if derr != nil {
+			return 0, derr
+		}
+		applyEditorMarkdown(dd, wf.Content) // 解析 + 带守卫/元数据回填的合并(见 md_bridge.mergeEditorInto)
+		d = dd
 	}
-	// 取每项目写锁:AI 轮末的 GetStruct→合并→存 与用户 autosave 串行(评审 #1/#2)。
-	unlock := structWriteMu.lock(projectID)
-	defer unlock()
-	js, err := s.GetStruct(projectID)
-	if err != nil {
-		return 0, err
-	}
-	d, err := ParseDocStruct(js)
-	if err != nil {
-		return 0, err
-	}
-	applyEditorMarkdown(d, docContent) // 解析 + 带守卫/元数据回填的合并(见 md_bridge.mergeEditorInto)
 	// 读回 agent 编辑的 references.bib(它把 minicod 查到的论文写成 BibTeX 放这里)→ 解析 → 合并进 Bibliography。
 	// 读失败/文件缺:忽略,保留既有 Bibliography(不因偶发读失败清空真源)。
 	if bf, berr := s.agent.ReadWorkspaceFileFull(ctx, sessionID, BibFile); berr == nil && bf != nil && bf.State == "ok" && bf.PreviewType == "text" {

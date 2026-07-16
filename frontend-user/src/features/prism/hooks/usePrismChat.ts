@@ -289,7 +289,10 @@ export function usePrismChat(
           setChangeset({ applied: files.length, state: 'awaiting_apply' });
           setPendingFiles(files);
           mergedRef.current = {};
-          for (const f of files) mergedRef.current[f.rel_path] = f.new_body;
+          // struct 轨(P2):override 契约 = 完整 struct JSON,故用 new_struct 播种(非 markdown new_body);
+          // legacy 轨无 new_struct → 仍用 new_body(文件正文)。两个「应用」按钮(聊天面板 ChangesetCard /
+          // 右侧审阅门)据此发同款 override,不再出现「左键发 markdown → 后端 ParseDocStruct 必败」的回归。
+          for (const f of files) mergedRef.current[f.rel_path] = f.new_struct ? JSON.stringify(f.new_struct) : f.new_body;
           const act = activeRef.current;
           const pick = (act && files.find((f) => f.rel_path === act.relPath)) || files[0];
           setSelectedPending(pick.rel_path);
@@ -410,15 +413,28 @@ export function usePrismChat(
   };
 
   const apply = useCallback(async () => {
-    // overrides = 用户逐块取舍后的各文件最终正文(⚠️ 仅 legacy 轨生效;struct 轨整轮合并,V3-4.2-4)。
+    // overrides = 用户逐块取舍后的各文件最终正文:legacy 轨=文件正文;struct 轨(P2)=合并后的完整 struct JSON。
     const overrides = { ...mergedRef.current };
-    const n = await applyRound(projectId, lastInstructionRef.current, overrides, epochRef.current).catch(() => -1);
-    setRoundState('idle');
-    setLive(null);
-    clearPending();
-    activeRef.current = null;
-    setChangeset((c) => (c ? { applied: n < 0 ? c.applied : n, state: 'applied' } : null));
-    onAppliedRef.current?.();
+    // 加固(对抗审查 #1):带重试;终态失败**绝不谎报「已应用」、绝不清 pending/mergedRef**(保住用户逐块取舍),
+    // 停在 awaiting_apply 门 + 提示刷新重试 —— 否则失败(多 tab 409 / 网络抖动)会静默丢取舍 + 假成功 + 下一轮
+    // prepareRound 冲掉 agent 成果(与 commitAndIndicate 的 F3 加固对齐)。
+    const attempt = (retries: number): Promise<void> =>
+      applyRound(projectId, lastInstructionRef.current, overrides, epochRef.current)
+        .then((n) => {
+          setRoundState('idle');
+          setLive(null);
+          clearPending();
+          activeRef.current = null;
+          setChangeset((c) => (c ? { applied: n, state: 'applied' } : null));
+          onAppliedRef.current?.();
+        })
+        .catch(() => {
+          if (retries > 0) {
+            return new Promise<void>((r) => setTimeout(r, 400)).then(() => attempt(retries - 1));
+          }
+          toast.error('改动暂未保存,请刷新页面后重试'); // 停在门里,pending/mergedRef 保留,用户可重试
+        });
+    await attempt(2);
   }, [projectId]);
 
   const reject = useCallback(async () => {
