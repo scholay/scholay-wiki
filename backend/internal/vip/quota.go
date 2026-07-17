@@ -10,15 +10,21 @@
 //   - 展示:无有效 anchor = 满血 + 「额度将在下次使用时开始计时」;窗口内 = 「将于 X 月 X 日
 //     HH:MM 自动重置」(window_reset_at 精确到分钟,比旧「明日 00:00」承诺更诚实)。
 //
-// **统计与限额分离**(沿袭旧设计,机制同构平移):
-//   - used = quota:tokens:<uid>:<anchor>,单调累加(AddUsage),永不被重置删减;
-//   - base = quota:base:<uid>:<anchor>,重置/升级满血时抬到当前 used;
-//   - 限额判定 = used - base < WindowCeiling(tier)。
-//   - consumed_today 展示走独立日统计 key quota:day:<uid>:<日>(AddUsage 顺手双写,25h TTL)。
+// **统计与限额分离**:
+//   - used = quota:tokens:<uid>:<anchor>,单调累加(AddUsage),永不被删减;换锚=换 key=天然归零。
+//   - base = quota:base:<uid>:<anchor>:**已退役**。旧设计(重置/升级保留 anchor)靠抬 base 归零窗口消耗;
+//     现三条满血路径都改「换锚」(手动重置 anchor=now / 升级 DEL anchor / 到期自然换锚),新 key 下 base
+//     天然缺失=0,无需再写。loadWindow 仍读 base 仅为**兼容存量**:发版前用旧逻辑抬过 base 的在飞窗口
+//     仍按 used-base 正确计算,老 key 随 TTL 自然沉降。限额判定 = used - base < WindowCeiling(tier)。
+//   - consumed_today 展示走独立日统计 key quota:day:<uid>:<日>(AddUsage 顺手双写,25h TTL,不随换锚清零)。
 //
-// 满血三条路径:手动重置(消耗经费,base=used)/ 升级满血(免费,base=used)/ 窗口到期换锚。
-// 计数走 Redis(persist 池),窗口 key TTL 8 天;Redis 挂 → 进程内锚定兜底(有界 fail-open),
-// 但**重置操作直接拒绝不扣费**(修旧「降级期扣钱不解锁」bug —— 7 天周期下会卡整周期,必须拒)。
+// 满血三条路径(均「换锚」语义,窗口时钟随之重启,兑现规格):
+//   - 手动重置(消耗经费):anchor=now → 7 天从当前时刻重新计(R5);
+//   - 升级满血(免费):DEL anchor → 付款后首次使用重新开锚 = 完整新周期(R6);
+//   - 窗口到期:读路径判满血,下次消耗自然换锚。
+// 计数走 Redis(persist 池),窗口 key TTL ≥ 窗口+1 天;Redis 挂 → 进程内锚定兜底(有界 fail-open),
+// 但**手动重置直接拒绝不扣费**(修旧「降级期扣钱不解锁」bug);升级满血落 DB「待满血」标记 + reconciler
+// 补偿(修「续费遇 Redis 抖动付了钱不满血」bug,best-effort 不阻塞履约)。
 // 北京时区直接 time.Now()(项目铁律:不做 UTC 转换)。
 // ============================================================================
 
@@ -64,10 +70,16 @@ const resetUnlockLua = `if redis.call("get", KEYS[1]) == ARGV[1] then return red
 
 // anchorRollLua 「读锚 → 过期/缺失则换新锚」的原子脚本(AddUsage 唯一开窗点)。
 // 两个并发消耗同时发现过期:Lua 串行执行,先到者 SET now,后到者读到新锚 —— 不会双开窗。
+// 未过期分支也**续期 anchor TTL**(评审 R4:TTL 在开窗时按当时配置定值,admin 把 window_days
+// 调大后,在飞 anchor 仍是旧短 TTL → 会在被延长的窗口到期前先被 Redis 蒸发 → 静默满血/限额绕过。
+// 每次消耗把 TTL 续到当前 quotaKeyTTL,使 TTL 始终 ≥ 当前窗口+1 天)。
 const anchorRollLua = `
 local a = redis.call('GET', KEYS[1])
 local now = tonumber(ARGV[1])
-if a and now < tonumber(a) + tonumber(ARGV[2]) then return a end
+if a and now < tonumber(a) + tonumber(ARGV[2]) then
+  redis.call('EXPIRE', KEYS[1], tonumber(ARGV[3]))
+  return a
+end
 redis.call('SET', KEYS[1], ARGV[1], 'EX', tonumber(ARGV[3]))
 return ARGV[1]`
 
@@ -334,19 +346,26 @@ func (s *Service) AddUsage(ctx context.Context, userID uint, tokens int) {
 	if userID == 0 || tokens <= 0 {
 		return
 	}
+	rdb := cache.GetRedisPersist()
+	now := time.Now()
+	// 当日消耗统计(纯展示,25h TTL,best-effort)——**在收费开关之前**落:Enabled=false 时账本仍记账
+	// (llmusage.Record 不看 Enabled),展示口径须与之一致,否则账户页「月度热力图有数、今日消耗=0」自相矛盾。
+	if rdb != nil {
+		if dn, derr := rdb.IncrBy(ctx, dayStatKey(userID, now), int64(tokens)).Result(); derr == nil && dn == int64(tokens) {
+			_ = rdb.Expire(ctx, dayStatKey(userID, now), 25*time.Hour).Err()
+		}
+	}
 	cfg := s.cfg.Get()
 	if !cfg.Enabled {
 		return
 	}
 	windowSec := int64(cfg.WindowDuration() / time.Second)
-	rdb := cache.GetRedisPersist()
 	if rdb == nil {
 		// 有界 fail-open:进程内锚定兜底,使闸门仍能收敛敞口。
 		quotaFallback.add(userID, int64(tokens), windowSec)
 		warnQuotaDegraded("usage incr", "user_id", userID)
 		return
 	}
-	now := time.Now()
 	anchorStr, err := rdb.Eval(ctx, anchorRollLua, []string{anchorKey(userID)},
 		now.Unix(), windowSec, int64(s.quotaKeyTTL()/time.Second)).Text()
 	if err != nil {
@@ -366,14 +385,10 @@ func (s *Service) AddUsage(ctx context.Context, userID uint, tokens int) {
 		warnQuotaDegraded("usage incr failed", "user_id", userID, "err", err)
 		return
 	}
-	if n == int64(tokens) { // 本窗口首次累加 → 设 TTL
-		if e := rdb.Expire(ctx, key, s.quotaKeyTTL()).Err(); e != nil {
-			slog.Debug("billing: token usage expire set failed (fail-open)", "user_id", userID, "err", e)
-		}
-	}
-	// 当日消耗统计(纯展示,25h TTL,best-effort)。
-	if dn, derr := rdb.IncrBy(ctx, dayStatKey(userID, now), int64(tokens)).Result(); derr == nil && dn == int64(tokens) {
-		_ = rdb.Expire(ctx, dayStatKey(userID, now), 25*time.Hour).Err()
+	// used key TTL 每次续期(评审 R4:仅首次设 TTL,会在 admin 把 window_days 调大后被旧短 TTL 在
+	// 新窗口到期前先蒸发 → 静默满血/限额绕过;每次续到当前 quotaKeyTTL,使 TTL 恒 ≥ 当前窗口+1 天)。
+	if e := rdb.Expire(ctx, key, s.quotaKeyTTL()).Err(); e != nil {
+		slog.Debug("billing: token usage expire renew failed (fail-open)", "user_id", userID, "err", e)
 	}
 	// R8 可观测:入口只读 gate、无单轮帽 → 一次操作可在后置扣减时冲过窗口上限。这里在「本次累加
 	// 恰好把用户从上限内推到上限外」时记一笔。窗口口径(n-base)判越线,与闸门一致。
@@ -435,12 +450,12 @@ func (s *Service) ResetQuota(ctx context.Context, userID uint) (*ResetResult, er
 	}, nil
 }
 
-// resetInternal 消耗经费 → 窗口基线抬到当前 used(满血)。经费不足 → ErrInsufficientCredit(不动计数)。
+// resetInternal 消耗经费 → 换锚到 now(满血 + 7 天从当前重开)。经费不足 → ErrInsufficientCredit(不动计数)。
 //
 // 并发与失败安全(per-user 锁内):
 //   1. Redis 不可用 → 直接 ErrQuotaServiceDown,不扣费(见常量注释);
 //   2. 锁内重读窗口:已被并发重置 / 窗口已到期换锚 → 直接成功,绝不重复扣费;
-//   3. 先校验余额,再【先写基线(Redis)、后扣费】:Redis 写失败直接返回错误、不扣费。
+//   3. 先校验余额,再【先换锚(Redis)、后扣费】:Redis 写失败直接返回错误、不扣费。
 func (s *Service) resetInternal(ctx context.Context, userID uint, cfg *BillingConfig) error {
 	rdb := cache.GetRedisPersist()
 	if rdb == nil {
@@ -488,12 +503,18 @@ func (s *Service) resetInternal(ctx context.Context, userID uint, cfg *BillingCo
 		return nil // 窗口恰好到期(读后临界)→ 已满血,不扣费
 	}
 
-	// 3) 先抬基线 base=当前 used(Redis 写)→ 窗口内消耗归零 = 满血,used 统计完整保留。
-	//    失败即返回错误、不扣费,杜绝「扣了钱但额度没满血 → 每条消息再扣一次」的循环扣费。
-	if err := rdb.Set(ctx, tokenBaseKey(userID, w.anchor), w.used, s.quotaKeyTTL()).Err(); err != nil {
-		slog.Warn("billing: reset set baseline failed, not charging", "user_id", userID, "err", err)
+	// 3) 换锚到 now(R5 规格:7 天周期从当前时间重新计算)。新 anchor 对应的 used/base key 天然缺失
+	//    → windowUsed=0 = 满血;window_reset_at 随之变成 now+窗口。旧 anchor 三 key 靠 TTL 回收。
+	//    used 真实消耗仍完整落在 llm_token_usage 账本 + consumed_today 日 key(均不随换锚清零)。
+	//    失败即返回错误、不扣费,杜绝「扣了钱但没换锚 → 每条消息再扣一次」的循环扣费。
+	now := time.Now().Unix()
+	if err := rdb.Set(ctx, anchorKey(userID), now, s.quotaKeyTTL()).Err(); err != nil {
+		slog.Warn("billing: reset re-anchor failed, not charging", "user_id", userID, "err", err)
 		return err
 	}
+	// 同秒换锚(now == 旧 anchor,仅极端/测试可现;真实世界耗尽需秒级以上)会与旧窗共用 used key →
+	// 显式清零新锚下 used/base,保证满血确定不受旧窗残值影响。
+	_ = rdb.Del(ctx, tokenUsedKey(userID, now), tokenBaseKey(userID, now)).Err()
 
 	// 4) 基线已抬,扣费(余额已校验足够,Consume 行锁兜底)。
 	if cost > 0 {
@@ -507,27 +528,77 @@ func (s *Service) resetInternal(ctx context.Context, userID uint, cfg *BillingCo
 	return nil
 }
 
-// ResetBaselineOnUpgrade —— 升级/续费到付费档后**免费满血**:把窗口基线抬到当前 used,
-// 用户立刻获得新档全额窗口预算,不动真实消耗统计,anchor 不变(窗口期不因升级顺延)。
-// 跳过条件按**窗口口径**(评审修订:旧「今天 used<=0 跳过」会让「前几天烧满、今天没用」的
-// 付费用户拿不到满血)。best-effort:Redis 挂 / 写失败仅告警(新档更高上限本身给出余量兜底)。
+// ResetBaselineOnUpgrade —— 升级/续费到付费档后**免费满血 + 7 天周期从付款后首次使用重开**(R6 规格)。
+// 语义:DEL 当前窗口锚点 → 读路径立刻判「无窗口=满血」;付款后下一次真实消耗经 AddUsage 重新开锚,
+// 得到从「首次使用」起算的完整新周期。不动真实消耗统计(账本 + consumed_today 独立保留)。
+//
+// **持久化补偿**(评审 R6-medium:同档续费 ceiling 不变,一旦删锚遇 Redis 抖动失败,已耗尽用户付了钱
+// 却不满血,要卡到旧窗口自然到期):先在 DB 落「待满血」标记(user_wallets.refill_pending_at),删锚成功
+// 即清标记;失败(Redis 抖动/不可用/进程崩溃)则留给 ReconcilePendingRefills(cleanup 周期)在 Redis
+// 恢复后补删锚。全程 best-effort,不阻塞履约(post-commit 调用)。
 func (s *Service) ResetBaselineOnUpgrade(ctx context.Context, userID uint) {
 	if userID == 0 {
 		return
 	}
 	rdb := cache.GetRedisPersist()
 	if rdb == nil {
+		// Redis 不可用:无法判断/删除窗口锚点(loadWindow 会回落 anchor=0 掩盖真实窗口)。保守落
+		// 「待兑现」标记,交 reconciler 在 Redis 恢复后补删锚(DEL 幂等:恢复后确无窗口则 no-op)。
+		if err := s.wallet.MarkRefillPending(userID, time.Now()); err != nil {
+			slog.Warn("billing: mark refill pending failed (redis down at upgrade)", "user_id", userID, "err", err)
+		}
 		return
 	}
 	w := s.loadWindow(ctx, userID)
-	if w.anchor <= 0 || w.windowUsed() <= 0 {
-		return // 无窗口 / 窗口本就满血, 无需抬基线
+	if w.anchor <= 0 {
+		return // 无活跃窗口:已满血,付款后首次使用自然开锚 = 已符合 R6,无需动作
 	}
-	if err := rdb.Set(ctx, tokenBaseKey(userID, w.anchor), w.used, s.quotaKeyTTL()).Err(); err != nil {
-		slog.Warn("billing: upgrade baseline reset failed (falls back to higher ceiling)", "user_id", userID, "err", err)
-		return
+	// 先持久化「待满血」意图(survive Redis 抖动 / 进程崩溃),再尝试立即应用。标记失败不阻断立即路径。
+	if err := s.wallet.MarkRefillPending(userID, time.Now()); err != nil {
+		slog.Warn("billing: mark refill pending failed", "user_id", userID, "err", err)
 	}
-	slog.Info("billing: 升级满血 — 窗口额度已重置", "user_id", userID, "baseline", w.used)
+	if s.applyUpgradeRefill(ctx, userID) {
+		if err := s.wallet.ClearRefillPending(userID); err != nil {
+			slog.Warn("billing: clear refill pending failed (reconciler will retry no-op)", "user_id", userID, "err", err)
+		}
+		slog.Info("billing: 升级满血 — 窗口已重置(换锚)", "user_id", userID)
+	}
+	// 未成功 → 标记保留,ReconcilePendingRefills 后续补偿。
+}
+
+// applyUpgradeRefill 删窗口锚点(满血 + 下次使用重开窗)。Redis 不可用/写失败 → false(交 reconciler)。
+// DEL 幂等:锚点已被 AddUsage 换新/已到期删除也返回成功。
+func (s *Service) applyUpgradeRefill(ctx context.Context, userID uint) bool {
+	rdb := cache.GetRedisPersist()
+	if rdb == nil {
+		return false
+	}
+	if err := rdb.Del(ctx, anchorKey(userID)).Err(); err != nil {
+		slog.Warn("billing: upgrade refill del anchor failed (pending marker kept)", "user_id", userID, "err", err)
+		return false
+	}
+	return true
+}
+
+// ReconcilePendingRefills 由 cleanup 周期调用:对有「待满血」标记的用户补删锚(Redis 恢复后),
+// 成功即清标记。返回本轮成功补偿条数。Redis 仍不可用时全部保留标记、下轮再试。
+func (s *Service) ReconcilePendingRefills(ctx context.Context) (int, error) {
+	ids, err := s.wallet.ListRefillPending()
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, uid := range ids {
+		if !s.applyUpgradeRefill(ctx, uid) {
+			continue // Redis 仍不可用 → 保留标记下轮再试
+		}
+		if err := s.wallet.ClearRefillPending(uid); err != nil {
+			slog.Warn("billing: reconcile clear refill pending failed", "user_id", uid, "err", err)
+			continue
+		}
+		n++
+	}
+	return n, nil
 }
 
 // quotaExceededMessage 超限友好文案(含自动重置时刻 + 重置花费 + 升级引导)。

@@ -124,14 +124,29 @@ var editorTextEscaper = strings.NewReplacer(
 
 func inlinesToEditorMd(inls []Inline) string {
 	var b strings.Builder
-	for _, in := range inls {
+	for i := 0; i < len(inls); i++ {
+		in := inls[i]
 		switch in.T {
 		case InlineBold:
 			fmt.Fprintf(&b, "**%s**", in.V)
 		case InlineItalic:
 			fmt.Fprintf(&b, "_%s_", in.V)
 		case InlineCite:
-			fmt.Fprintf(&b, "[@%s]", in.Key)
+			// 交叉引用锚(fig:/tbl:/sec:…)各自成 [@key],不与文献引用合并。
+			if isCrossRefKey(in.Key) {
+				fmt.Fprintf(&b, "[@%s]", in.Key)
+				break
+			}
+			// 相邻文献引用合并成 pandoc 多引用 [@a; @b];顺带经 splitCiteKeys 把历史复合键拆干净
+			// (存量结构体材质化成 document.md 时自愈,agent 看到的永远是规范形式)。
+			keys := splitCiteKeys(in.Key)
+			for i+1 < len(inls) && inls[i+1].T == InlineCite && !isCrossRefKey(inls[i+1].Key) {
+				i++
+				keys = append(keys, splitCiteKeys(inls[i].Key)...)
+			}
+			if len(keys) > 0 {
+				fmt.Fprintf(&b, "[@%s]", strings.Join(keys, "; @"))
+			}
 		case InlineMath:
 			fmt.Fprintf(&b, "$%s$", in.Latex)
 		default:
@@ -283,6 +298,26 @@ func parseEditorMarkdown(md string) (title, abstract string, keywords []string, 
 	return
 }
 
+// splitCiteKeys 把 [@...] 括号里的内容拆成多个**干净**的 citekey。
+//   - pandoc 多引用 "a; @b; @c" → ["a","b","c"]
+//   - 历史结构体里被误当单键存下的复合键 "ayano2020; @brown2012" → ["ayano2020","brown2012"](自愈)
+//   - 普通单键 "a" → ["a"];纯空 / "[@]" → nil
+// 规则:按 ; , 及空白切分,去掉每段前导 @,过滤空段。citekey 本身不含这些字符,故对正常键无副作用。
+// 投影(projector \cite / docx 引用)与解析(parseInlines)共用它,保证「一个 InlineCite = 一个键」不变量。
+func splitCiteKeys(raw string) []string {
+	parts := strings.FieldsFunc(raw, func(r rune) bool {
+		return r == ';' || r == ',' || r == ' ' || r == '\t' || r == '\n'
+	})
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimPrefix(p, "@")
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
 // parseInlines 左→右扫描行内标记($..$ / [@key] / **粗** / _斜_),其余归 text。
 func parseInlines(s string) []Inline {
 	var out []Inline
@@ -313,7 +348,12 @@ func parseInlines(s string) []Inline {
 		case r[i] == '[' && i+1 < len(r) && r[i+1] == '@':
 			if j := findRune(r, ']', i+2); j > 0 {
 				flush()
-				out = append(out, Inline{T: InlineCite, Key: string(r[i+2 : j])})
+				// pandoc 多引用 [@a; @b; @c] 必须拆成多个 InlineCite —— 否则整段会被当**单个**
+				// cite key 存进结构体(如 "a; @b"),投影出 \cite{a; @b},bibtex 报「White space in
+				// argument」直接失败,永远编不过(见 splitCiteKeys 注释 + P0 编译死循环根因)。
+				for _, k := range splitCiteKeys(string(r[i+2 : j])) {
+					out = append(out, Inline{T: InlineCite, Key: k})
+				}
 				i = j + 1
 				continue
 			}

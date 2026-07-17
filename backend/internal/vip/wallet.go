@@ -144,6 +144,35 @@ func (w *WalletService) Balance(userID uint) (*BalanceView, error) {
 // (AutoResetEnabled / SetAutoReset 已下线 —— 自动消耗经费重置功能移除,只保留手动重置。
 //  user_wallets.auto_reset_enabled 列保留不删(项目约定不做 DROP),仅不再被读写驱动行为。)
 
+// ─── 升级满血「待兑现」标记(R6 持久化补偿)──────────────────────────────────
+// ResetBaselineOnUpgrade 删锚遇 Redis 抖动失败时落此标记,vip.ReconcilePendingRefills(cleanup 周期)
+// 在 Redis 恢复后补删锚并清标记 —— 防「续费付了钱却不满血、卡到旧窗口自然到期」。
+
+// MarkRefillPending 落「升级满血待兑现」标记(保证钱包行存在后写 refill_pending_at=at)。
+func (w *WalletService) MarkRefillPending(userID uint, at time.Time) error {
+	return w.db.Transaction(func(tx *gorm.DB) error {
+		if err := ensureWallet(tx, userID); err != nil {
+			return err
+		}
+		return tx.Model(&UserWallet{}).Where("user_id = ?", userID).
+			Update("refill_pending_at", at).Error
+	})
+}
+
+// ClearRefillPending 清「待兑现」标记(补偿已应用 / 已由删锚成功兑现)。
+func (w *WalletService) ClearRefillPending(userID uint) error {
+	return w.db.Model(&UserWallet{}).Where("user_id = ?", userID).
+		Update("refill_pending_at", nil).Error
+}
+
+// ListRefillPending 列出所有仍待兑现的用户 id(reconciler 扫描;正常量极小,标记随即被清)。
+func (w *WalletService) ListRefillPending() ([]uint, error) {
+	var ids []uint
+	err := w.db.Model(&UserWallet{}).Where("refill_pending_at IS NOT NULL").
+		Pluck("user_id", &ids).Error
+	return ids, err
+}
+
 // GrantTemp 发放临时经费(订阅赠送/礼品/任务)。即时生效(starts_at=now)。新建批次 + 写流水。
 func (w *WalletService) GrantTemp(userID uint, amount int, source, ref string, expiresAt time.Time, txType string) error {
 	if amount <= 0 {

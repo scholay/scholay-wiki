@@ -13,11 +13,8 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"strings"
 	"sync"
 	"time"
-
-	"scholar-backend/internal/agent"
 )
 
 // projectSessionMu 取某项目的会话锁(同进程内串行化取/建,避免并发编辑双建会话 + 丢写 review F2)。
@@ -26,8 +23,88 @@ func (s *Service) projectSessionMu(projectID uint) *sync.Mutex {
 	return m.(*sync.Mutex)
 }
 
+// resolveConversation 解析「本次请求要操作的对话会话」并【校验归属】(多对话核心接缝,鉴权敏感)。
+//   - sessionID 非空:必须确属 (project=projectID, user=userID),否则拒(ErrConversationNotFound)——
+//     铁律:绝不信前端裸传的 sessionId 直接用,否则跨项目/越权。
+//   - sessionID 空:回落「当前对话」= 该项目 last_accessed_at 最新的一条。
+//   - owner 查空但项目指针有会话(存量单会话项目 owner 绑定缺失/迟写)→ 补绑 owner 并用指针会话,
+//     绝不另建空会话(防「真会话被顶成孤儿、历史失联」的数据事故)。
+//   - create=true(写路径 ticket/prepare)且【连指针都没有】时才新建首条(持项目锁防并发重复建);
+//     create=false(读路径 pending/history/context)无对话时返回 ""(不产生副作用)。
+//   - s.feature 缺失(未接 agentbridge)→ 回落旧的单会话逻辑。
+// 调用方须已 GetProject 校验项目属本人(本方法不重复校项目归属,只校会话↔项目↔人)。
+func (s *Service) resolveConversation(ctx context.Context, projectID, userID uint, sessionID string, create bool) (string, error) {
+	if s.feature == nil {
+		if create {
+			return s.ensureProjectSession(ctx, projectID, userID)
+		}
+		sid, _ := s.repo.GetProjectSession(projectID)
+		return sid, nil
+	}
+	if sessionID != "" {
+		ok, err := s.feature.VerifyOwnerSession(userID, "project", uint64(projectID), sessionID)
+		if err != nil {
+			return "", err
+		}
+		if !ok {
+			return "", ErrConversationNotFound
+		}
+		return sessionID, nil
+	}
+	cur, err := s.feature.CurrentOwnerSession("project", uint64(projectID))
+	if err != nil {
+		return "", err
+	}
+	if cur != "" {
+		return cur, nil
+	}
+	// 存量兜底(防孤儿,proj105 类事故根因):CurrentOwnerSession 空,但项目指针
+	// (prism_projects.agent_session_id)仍指着一条会话 —— 旧单会话项目的 owner 绑定缺失/迟写时会走到这。
+	// 补绑 owner 后【用这条指针会话】,绝不另建空会话把带历史的真会话顶成孤儿(它的历史仍在 journal,
+	// 补绑后重开即恢复)。上线前普查过存量 39 个项目指针都已 owner-bound,这里是防边角 / 未来回归的安全网。
+	if ptr, _ := s.repo.GetProjectSession(projectID); ptr != "" {
+		s.bindOwnerSession(projectID, userID, ptr) // 幂等:撞 uk_agent_session_id → UPDATE owner
+		return ptr, nil
+	}
+	if !create {
+		return "", nil
+	}
+	// 建首条对话:持项目锁 + 锁后重查(对齐 ensureProjectSession),防两个并发 open(多 tab / ws-ticket
+	// 与 prepare 同时)各建一条重复对话。
+	mu := s.projectSessionMu(projectID)
+	mu.Lock()
+	defer mu.Unlock()
+	if cur, _ := s.feature.CurrentOwnerSession("project", uint64(projectID)); cur != "" {
+		return cur, nil
+	}
+	if ptr, _ := s.repo.GetProjectSession(projectID); ptr != "" {
+		s.bindOwnerSession(projectID, userID, ptr)
+		return ptr, nil
+	}
+	return s.newConversation(ctx, projectID, userID)
+}
+
+// newConversation 新建一条对话(agent 会话 + 绑定 owner=project;多对话下 owner 唯一约束已放开 → INSERT 新行)。
+// 与单会话 createProjectSession 的区别:不做「仅当空才认领」的 ClaimProjectSession(那是单会话去重),而是无条件
+// 新建 + 把它设为「当前对话」指针(prism_projects.agent_session_id 兼容留存;真源已是 agent_sessions 行)。
+func (s *Service) newConversation(ctx context.Context, projectID, userID uint) (string, error) {
+	if s.agent == nil {
+		return "", errors.New("AI 编辑暂不可用")
+	}
+	// 必须用 prismSessionOptions()(含 DisallowedTools + 写作 skill 的 AddDirs),与单会话同一构造器。
+	created, err := s.agent.CreateSession(ctx, prismSessionOptions())
+	if err != nil {
+		return "", err
+	}
+	// 绑定归属 owner_kind=project:UpsertByOwnerEntity 在 owner 唯一放开后,新 session_id 无冲突 → INSERT 新对话行。
+	s.bindOwnerSession(projectID, userID, created.SessionID)
+	_ = s.repo.SetProjectSession(projectID, created.SessionID) // 当前对话指针(兼容)
+	return created.SessionID, nil
+}
+
 // ensureProjectSession 取/建该项目的**独立** agent 会话(每项目隔离,存 prism_projects.agent_session_id),
 // 消除跨项目上下文串味(review 高危项)。无会话时持项目锁创建,持锁后重读避免双建。
+// 注(多对话):新代码走 resolveConversation;本方法保留作 s.feature 缺失时的单会话兜底 + 存量兼容。
 func (s *Service) ensureProjectSession(ctx context.Context, projectID, userID uint) (string, error) {
 	p, err := s.repo.GetProject(projectID, userID)
 	if err != nil {
@@ -97,23 +174,10 @@ func (s *Service) bindOwnerSession(projectID, userID uint, sessionID string) {
 	}
 }
 
-// recreateProjectSession 会话被 agent 端清掉(404/重启)后重建。持项目锁 + 先校验当前仍是那个 gone 会话,
-// 避免并发重试各自重建导致泄漏(review F2 同源)。
-func (s *Service) recreateProjectSession(ctx context.Context, projectID, userID uint, goneID string) (string, error) {
-	if s.agent == nil {
-		return "", errors.New("AI 编辑暂不可用")
-	}
-	mu := s.projectSessionMu(projectID)
-	mu.Lock()
-	defer mu.Unlock()
-	if cur, _ := s.repo.GetProjectSession(projectID); cur != "" && cur != goneID {
-		return cur, nil // 已被并发请求重建
-	}
-	if err := s.repo.SetProjectSession(projectID, ""); err != nil { // 清空让 claim 能写入
-		return "", err
-	}
-	return s.createProjectSession(ctx, projectID, userID)
-}
+// 注(2026-07-18):原 recreateProjectSession(agent 404/重启 → 另建新会话 + 移动项目指针)已删除。
+// 它是「真会话被顶成孤儿、历史失联」事故的根因(见 proj105:一次 agent 重启把带 5 轮历史的会话甩成孤儿,
+// 换上空会话)。当前架构 = executor 无状态 + 历史真源在 backend journal:agent 404 时应【重连同一 session_id】,
+// 由 hub.seedHistoryFromJournal 回灌历史,绝不换新会话。resolveConversation 的指针兜底也只补绑、不新建。
 
 // deleteSessionBestEffort 删 agent 会话(清理多建/孤儿),失败仅告警。
 func (s *Service) deleteSessionBestEffort(sessionID string) {
@@ -125,18 +189,6 @@ func (s *Service) deleteSessionBestEffort(sessionID string) {
 	if err := s.agent.DeleteSession(ctx, sessionID); err != nil {
 		slog.Warn("prism: delete orphan agent session failed", "session_id", sessionID, "err", err)
 	}
-}
-
-// isSessionGone 判断 agent 会话是否已不存在(404/重启),用于重建重试。
-func isSessionGone(err error) bool {
-	if errors.Is(err, agent.ErrSessionNotFound) {
-		return true
-	}
-	var he *agent.HTTPError
-	if errors.As(err, &he) {
-		return he.StatusCode == 404
-	}
-	return strings.Contains(err.Error(), "404")
 }
 
 // agentNativeProtocol —— prism 会话的系统级编辑契约(经 Picker→AppendSystemPrompt/seed 下发,每轮在场)。

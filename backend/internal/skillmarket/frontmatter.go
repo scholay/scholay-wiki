@@ -25,10 +25,34 @@ var skillNameRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
 // reservedSlugs 禁保留词(冒充一方 skill / 品牌)。一方 skill slug 见 agent-skills/。
 var reservedSlugs = map[string]bool{
 	"anthropic": true, "claude": true, "scholay": true, "system": true, "admin": true,
-	// 一方 skill / lens 名(防冒充做诱导)
+	"prism": true, // 自家品牌裸名(Scholay Prism);"reviewer" 太通用不纳入,避免误伤合法审稿类 skill
+	// 一方 skill / lens 名(防冒充做诱导)—— claw 常驻/按需层
 	"minicod-search-strategy": true, "library-reference": true,
 	"paper-explain": true, "citation-audit": true, "topic-selection": true,
 	"data-figures": true, "methods-stats": true, "rebuttal": true,
+	// prism / 审稿常驻 skill 精确名(其余成组的 wl-*/rv-*/pw-*/lens-* 走前缀匹配)
+	"prism-writing-core": true, "prism-edit-discipline": true, "prism-citation-grounding": true,
+	"reviewer-roster": true,
+}
+
+// reservedSlugPrefixes 一方 skill / lens / persona 的命名空间前缀(成组约 90 个,逐个枚举不现实):
+// wl-*(prism 写作 lens)/ rv-*(审稿人格)/ pw-*(prism 学科 persona)/ lens-*(审稿 lens)/
+// prism-* / reviewer-*(prism/审稿常驻 skill)。用户 slug 命中任一前缀即拒 —— 防在分享页 URL
+// /skills/<slug>、下载 tar.gz 根目录名、跨 agent 安装命令里冒充一方能力。代价:极少数以这些前缀开头的
+// 合法用户 slug 会被挡下(换名即可),对反冒充是可接受取舍。
+var reservedSlugPrefixes = []string{"wl-", "rv-", "pw-", "lens-", "prism-", "reviewer-"}
+
+// isReservedSlug —— slug 是否命中保留词(精确名 + 一方命名空间前缀)。
+func isReservedSlug(slug string) bool {
+	if reservedSlugs[slug] {
+		return true
+	}
+	for _, p := range reservedSlugPrefixes {
+		if strings.HasPrefix(slug, p) {
+			return true
+		}
+	}
+	return false
 }
 
 // xmlTagRe 粗检 XML/HTML 标签(name/description 禁含,防注入 system 结构)。
@@ -81,6 +105,12 @@ func ParseAndNormalize(raw string, rawName string) (*ParsedSkill, error) {
 	if name == "" {
 		return nil, ErrBadName
 	}
+	// 显示名也禁与一方 skill / 品牌**精确**同名(cosmetic 冒充:市场卡 / claw 启用面板以系统 skill 之名示人)。
+	// 用精确表(非 isReservedSlug 的前缀匹配):挡 "prism-writing-core"/"prism" 这类精确同名,但不误伤
+	// "prism-based notes"/"pw-tool" 这类以一方前缀开头的正常显示名(前缀反冒充留给下方 slug 层)。
+	if reservedSlugs[strings.ToLower(strings.TrimSpace(name))] {
+		return nil, ErrBadName
+	}
 
 	description := truncateRunes(sanitizeText(fmField(fm, "description")), MaxDescriptionChars)
 	menu := truncateRunes(sanitizeText(firstNonEmpty(fmField(fm, "menu"), fmField(fm, "when_to_use"), description)), MaxMenuChars)
@@ -97,7 +127,7 @@ func ParseAndNormalize(raw string, rawName string) (*ParsedSkill, error) {
 	// (通常是干净英文 slug,如 citation-guard)——保留作者原意 + 让下载文件夹名/跨 agent 安装名友好;
 	// 退回 display name 的 slug;中文名会被剥空 → 再退回通用词根 "skill"(service 加唯一后缀)。
 	slugBase := Slugify(fmName)
-	if slugBase == "" || reservedSlugs[slugBase] {
+	if slugBase == "" || isReservedSlug(slugBase) {
 		slugBase = Slugify(name)
 	}
 	if slugBase == "" {
@@ -108,7 +138,7 @@ func ParseAndNormalize(raw string, rawName string) (*ParsedSkill, error) {
 	if !skillNameRe.MatchString(slugBase) {
 		return nil, ErrBadName
 	}
-	if reservedSlugs[slugBase] {
+	if isReservedSlug(slugBase) {
 		return nil, ErrBadName
 	}
 

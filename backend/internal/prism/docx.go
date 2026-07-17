@@ -236,12 +236,19 @@ func inlinesToMarkdown(inls []Inline) string {
 				b.WriteString(in.Key)
 				break
 			}
-			keys := []string{"@" + in.Key}
+			keys := make([]string, 0, 2)
+			for _, k := range splitCiteKeys(in.Key) { // 复合键拆开(自愈存量),否则 citeproc 渲成破损引用
+				keys = append(keys, "@"+k)
+			}
 			for i+1 < len(inls) && inls[i+1].T == InlineCite && !isCrossRefKey(inls[i+1].Key) { // 只合并相邻**文献**引用 → [@a; @b]
 				i++
-				keys = append(keys, "@"+inls[i].Key)
+				for _, k := range splitCiteKeys(inls[i].Key) {
+					keys = append(keys, "@"+k)
+				}
 			}
-			fmt.Fprintf(&b, "[%s]", strings.Join(keys, "; ")) // pandoc citeproc 格式
+			if len(keys) > 0 {
+				fmt.Fprintf(&b, "[%s]", strings.Join(keys, "; ")) // pandoc citeproc 格式
+			}
 		case InlineMath:
 			fmt.Fprintf(&b, "$%s$", wrapCJKInMath(in.Latex))
 		default:

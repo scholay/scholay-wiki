@@ -75,6 +75,9 @@ const S = {
   diagScannedTurns: new Set<string>(),
   diagQueue: [] as string[],
   diagRunning: false,
+  diagSwept: false, // 一 app 生命周期只清一次 USER_DATA_PATH 的 mmd-*.png(性能审计:永不清理→无界累积)
+  histLimit: 30, // 历史窗口(性能审计 #2:首屏只拉最近 30 轮,「加载更早」翻倍)
+  loadingEarlier: false,
   // 渲染记忆化:每轮 decorate 结果按 turn.id 缓存,未变的轮复用同一 VM 引用;
   // lastVMs 为上次 setData 的 VM 数组,用引用比较 diff 出真正变化的轮 → 只 path-set 那几个,
   // 避免把所有已完成轮(含 base64)每帧整包重发过桥(见复核 #9/#10)。
@@ -401,6 +404,8 @@ Page({
     suggestions: SUGGESTIONS,
     busy: false,
     stopping: false, // 已发停止指令、等 agent 收尾(停止键变 loader,防重复点)
+    hasMoreHistory: false, // 有更早历史(性能审计 #2:首屏只拉最近 30 轮)
+    loadingEarlier: false,
     scrollTop: 0,
     modelLabel: '默认',
     uploading: false,
@@ -454,6 +459,12 @@ Page({
 
   async init() {
     S.inited = true
+    // 一次性清空历史 mermaid PNG(性能审计 #3):diagram-cache 是纯内存态、重启即清 → 这些持久文件对跨启动
+    // 复用零价值,却永不清理无界累积(顶到 200MB 后 writeFile 静默失败、图表永久哑火)。启动即清,寿命压到单次运行。
+    if (!S.diagSwept) {
+      S.diagSwept = true
+      this.sweepDiagramFiles()
+    }
     S.loggedInAtInit = isLoggedIn()
     if (!S.loggedInAtInit) {
       this.setData({ loggedIn: false, ready: true })
@@ -488,10 +499,12 @@ Page({
     S.pendingRefs = []
     S.artifacts = []
     S.artifactsSig = ''
-    this.setData({ turns: [], busy: false, stopping: false, pendingAttachments: [], pendingRefs: [], canSend: this.computeCanSend(this.data.input), error: '', artifactCount: 0, artifacts: [] })
+    S.histLimit = 30
+    this.setData({ turns: [], busy: false, stopping: false, pendingAttachments: [], pendingRefs: [], canSend: this.computeCanSend(this.data.input), error: '', artifactCount: 0, artifacts: [], hasMoreHistory: false })
     try {
-      const hist = await getClawHistory(sid)
+      const hist = await getClawHistory(sid, S.histLimit) // 首屏只拉最近 30 轮(性能审计 #2)
       S.historyTurns = replayHistoryAsTurns(hist.messages)
+      this.setData({ hasMoreHistory: !!hist.hasMore })
       this.rebuild()
     } catch (e) {
       this.setData({ error: errMsg(e, '加载失败') })
@@ -499,6 +512,29 @@ Page({
     this.connect()
     this.refreshModelLabel()
     this.refreshArtifacts()
+  },
+
+  // 加载更早历史(性能审计 #2):把窗口翻倍重拉。replayHistoryAsTurns 每次从返回窗口整体重放,更大 limit
+  // 会在最前补入更早的轮 → turn id('h-1'…)整体平移,故须清 vmCache + openFolds 让新窗口干净重 decorate
+  // (接受折叠记忆重置——用户主动操作、整体重渲本就预期)。rebuild(true) 不跳底,保住阅读位。
+  async loadEarlierHistory() {
+    if (S.loadingEarlier || !S.sessionId) return
+    S.loadingEarlier = true
+    this.setData({ loadingEarlier: true })
+    try {
+      S.histLimit *= 2
+      const hist = await getClawHistory(S.sessionId, S.histLimit)
+      S.vmCache = new Map()
+      S.openFolds = {}
+      S.historyTurns = replayHistoryAsTurns(hist.messages)
+      this.setData({ hasMoreHistory: !!hist.hasMore })
+      this.rebuild(true)
+    } catch (e) {
+      this.setData({ error: errMsg(e, '加载失败') })
+    } finally {
+      S.loadingEarlier = false
+      this.setData({ loadingEarlier: false })
+    }
   },
 
   connect() {
@@ -581,14 +617,38 @@ Page({
     S.diagRunning = true
     S.diagInFlight.add(code)
     renderMermaid(code)
-      .then((res) => this.saveDiagramFile(code, res.png).then((path) => setDiagram(code, { path, width: res.width, height: res.height })))
-      .catch(() => setDiagram(code, null)) // 语法无法渲染/服务不可用 → 回退源码卡,不重试
+      .then((res) =>
+        // 磁盘写失败(如满)与渲染失败分开处理(性能审计 #3):写失败不当作语法错,腾空间 + 本次回退源码卡
+        // (内存 null 本次运行有效,重启即清,非真永久失败)。
+        this.saveDiagramFile(code, res.png)
+          .then((path) => setDiagram(code, { path, width: res.width, height: res.height }))
+          .catch(() => {
+            this.sweepDiagramFiles()
+            setDiagram(code, null)
+          }),
+      )
+      .catch(() => setDiagram(code, null)) // 渲染失败:语法无法渲染/服务不可用 → 回退源码卡,不重试
       .then(() => {
         S.diagInFlight.delete(code)
         S.diagRunning = false
         this.scheduleMathRebuild() // 复用 150ms debounce 重绘
         this.pumpDiagramQueue()
       })
+  },
+  // 清空历史 mermaid PNG(mmd-*.png):双重过滤前缀+后缀避免误删;全异步 best-effort,失败静默不阻塞。
+  sweepDiagramFiles() {
+    const fs = wx.getFileSystemManager()
+    fs.readdir({
+      dirPath: wx.env.USER_DATA_PATH,
+      success: (r) => {
+        for (const name of r.files) {
+          if (name.indexOf('mmd-') === 0 && name.slice(-4) === '.png') {
+            fs.unlink({ filePath: wx.env.USER_DATA_PATH + '/' + name, fail() {} })
+          }
+        }
+      },
+      fail() {},
+    })
   },
   // PNG 落本地临时文件:<image src> 用短路径,几百 KB 的 base64 不进 setData。
   saveDiagramFile(code: string, base64: string): Promise<string> {

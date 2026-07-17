@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { Wrench } from 'lucide-react';
 import {
   AssistantBubble,
   AttachmentChipList,
@@ -14,6 +15,7 @@ import {
 } from '@/shared/components/chat';
 import { stripContainerPaths } from '@/shared/lib/strip-container-paths';
 import { hasVisibleAssistantContent, isLastBlockStreamingText, type Turn } from '@/shared/types/chat';
+import { isCompileCheckText } from '../../lib/compile-check';
 
 /**
  * Prism 单轮对话渲染 —— 与 claw/smart-search 共用 shared/components/chat 原子,视觉对齐 claw 现代风:
@@ -40,25 +42,34 @@ export const PrismMessageTurn = memo(function PrismMessageTurn({ turn }: { turn:
   );
   const isThinkingActive = !turn.complete && turn.placeholder?.state === 'thinking';
 
+  // 系统自动编译检查轮:用户侧不显示成提问气泡,折成一条低调「系统 · 自动编译检查」小条(诉求:自动修但不显示成提问)。
+  const isCompileCheck = isCompileCheckText(turn.userText);
+
   return (
     <article className="flex flex-col gap-2 min-w-0">
       <ChatStyles />
-      <UserBubble
-        text={turn.userText}
-        attachments={
-          (turn.userAttachments && turn.userAttachments.length > 0) ||
-          (turn.userReferences && turn.userReferences.length > 0) ? (
-            <>
-              {turn.userAttachments && turn.userAttachments.length > 0 && (
-                <AttachmentChipList attachments={turn.userAttachments} />
-              )}
-              {turn.userReferences && turn.userReferences.length > 0 && (
-                <ReferenceChipList references={turn.userReferences} />
-              )}
-            </>
-          ) : undefined
-        }
-      />
+      {isCompileCheck ? (
+        <div className="flex items-center gap-1.5 self-start rounded-pill border border-border bg-surface-1 px-2.5 py-1 text-2xs text-muted-foreground">
+          <Wrench className="size-3 shrink-0" /> 系统 · 自动编译检查
+        </div>
+      ) : (
+        <UserBubble
+          text={turn.userText}
+          attachments={
+            (turn.userAttachments && turn.userAttachments.length > 0) ||
+            (turn.userReferences && turn.userReferences.length > 0) ? (
+              <>
+                {turn.userAttachments && turn.userAttachments.length > 0 && (
+                  <AttachmentChipList attachments={turn.userAttachments} />
+                )}
+                {turn.userReferences && turn.userReferences.length > 0 && (
+                  <ReferenceChipList references={turn.userReferences} />
+                )}
+              </>
+            ) : undefined
+          }
+        />
+      )}
 
       {/* thinking 提到顶层(对齐 claw),不再嵌进 ProcessFold */}
       {turn.thinkingText && <ThinkingFold text={turn.thinkingText} isActive={isThinkingActive} />}

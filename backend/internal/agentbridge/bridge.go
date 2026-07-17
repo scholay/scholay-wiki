@@ -39,14 +39,15 @@ type Bridge struct {
 	repo   *Repository
 
 	// hubs 跟踪每个 (feature, agent session) 的扇出 Hub(多端实时同步,见 hub.go)。
-	// key 形如 "claw:<agentSessionId>"; value 是 *sessionHub。同一 session 的多个浏览器都作为
-	// 订阅者接入同一条上游 agent WS —— 既满足 jsonl 单写者,又让多端实时同步(取代旧的「抢占」)。
+	// key 形如 "claw:<agentSessionId>"; value 是 *hubSlot(承载 *sessionHub + ready 信号,per-key
+	// singleflight,见 getOrCreateHub)。同一 session 的多个浏览器都作为订阅者接入同一条上游 agent WS
+	// —— 既满足 jsonl 单写者,又让多端实时同步(取代旧的「抢占」)。首连建 hub 经 sync.Map.LoadOrStore
+	// 做 per-key 原子裁决,创建者锁外 dial(不再有全局 hubsMu 串行化全站建连)。
 	//
 	// ⚠️ process-local:当前 backend 单容器部署即正确。多实例横向扩容时同一 session 的订阅者可能
 	// 落到不同实例 → 各自一条上游 → jsonl 双写。届时需「上游单实例 owner + Redis 中继扇出」或
 	// sticky 路由(见 hub.go 顶部注释)。
-	hubs   sync.Map
-	hubsMu sync.Mutex // 串行化「首个订阅者建 hub」,避免两个首连各 dial 一条上游
+	hubs sync.Map
 
 	// llmRec 统一 LLM token 账本录入器 (允许 nil = 不记账)。
 	// **带内**落账本路径(ws.go pipe):agent 把 per-call 明细 + 会话累计随 message_complete /
@@ -1156,8 +1157,57 @@ func (f *FeatureBridge) ListSessions(ctx context.Context, userID uint) ([]Sessio
 	if err != nil {
 		return nil, fmt.Errorf("list sessions: %w", err)
 	}
+	return f.enrichSessionRows(ctx, rows), nil
+}
+
+// ListOwnerSessions 列某实体(owner_kind, owner_id)下的全部对话(会话),含 agent transcript 元数据。
+// 用于「一实体多对话」——prism 一项目多条对话:owner 唯一约束已放开(migration 0074)。归属校验由调用方
+// (prism 侧已 GetProject 确认项目属本人)负责,这里只按 owner 列。
+func (f *FeatureBridge) ListOwnerSessions(ctx context.Context, ownerKind string, ownerID uint64) ([]SessionListItem, error) {
+	rows, err := f.bridge.repo.ListByOwner(ownerKind, ownerID)
+	if err != nil {
+		return nil, fmt.Errorf("list owner sessions: %w", err)
+	}
+	return f.enrichSessionRows(ctx, rows), nil
+}
+
+// CurrentOwnerSession 返回某实体最近活跃的一条会话 id(last_accessed_at 最大);无会话返回 ""(不查 agent,纯 DB)。
+// 多对话下端点未指定 sessionId 时的「当前对话」回落。
+func (f *FeatureBridge) CurrentOwnerSession(ownerKind string, ownerID uint64) (string, error) {
+	rows, err := f.bridge.repo.ListByOwner(ownerKind, ownerID)
+	if err != nil {
+		return "", err
+	}
 	if len(rows) == 0 {
-		return []SessionListItem{}, nil
+		return "", nil
+	}
+	return rows[0].AgentSessionID, nil // ListByOwner 已按 last_accessed_at DESC
+}
+
+// VerifyOwnerSession 校验 sessionID 确属 (userID, ownerKind, ownerID) —— 多对话端点收前端传的 sessionId 时
+// 必须过这道(铁律:绝不信前端裸传的 sessionId 直接用,否则跨实体/越权)。三者全对才 true。
+func (f *FeatureBridge) VerifyOwnerSession(userID uint, ownerKind string, ownerID uint64, sessionID string) (bool, error) {
+	if sessionID == "" {
+		return false, nil
+	}
+	row, err := f.bridge.repo.FindByAgentSessionID(sessionID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	if row == nil || row.UserID != userID || row.OwnerKind == nil || *row.OwnerKind != ownerKind || row.OwnerID == nil || *row.OwnerID != ownerID {
+		return false, nil
+	}
+	return true, nil
+}
+
+// enrichSessionRows 把 DB 会话行合并 agent transcript 元数据(title/messageCount/时间)。ListSessions /
+// ListOwnerSessions 共用(单一真源)。agent 拉失败非致命:仍返 DB 行,元数据留空。
+func (f *FeatureBridge) enrichSessionRows(ctx context.Context, rows []SessionRow) []SessionListItem {
+	if len(rows) == 0 {
+		return []SessionListItem{}
 	}
 
 	// 把用户名下的 sessionId 集合传给 agent 做服务端过滤: agent 只 stat/读这些会话的
@@ -1177,8 +1227,8 @@ func (f *FeatureBridge) ListSessions(ctx context.Context, userID uint) ([]Sessio
 			agentByID[s.ID] = s
 		}
 	} else if agentErr != nil {
-		slog.Warn("agentbridge ListSessions: agent list failed, returning DB-only view",
-			"feature", f.spec.Key, "user_id", userID, "err", agentErr)
+		slog.Warn("agentbridge enrichSessionRows: agent list failed, returning DB-only view",
+			"feature", f.spec.Key, "err", agentErr)
 	}
 
 	// 标题后端拥有(migration 0050):DB title 为准。executor 内存态无历史标题,故对切流 feature
@@ -1227,7 +1277,7 @@ func (f *FeatureBridge) ListSessions(ctx context.Context, userID uint) ([]Sessio
 			}
 		}
 	}
-	return out, nil
+	return out
 }
 
 // CreateNewSession 给 (user, feature) **新建** 一条 session, 不删任何已有 session。

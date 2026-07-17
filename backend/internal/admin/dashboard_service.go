@@ -129,16 +129,20 @@ func (s *dashboardService) computeStatistics() *DashboardStatistics {
 	start7d := todayStart.AddDate(0, 0, -7)
 	start30d := todayStart.AddDate(0, 0, -30)
 
-	// 用户统计
-	s.db.Table("users").Count(&stats.TotalUsers)
+	// 用户统计 —— 一律排除 admin/super_admin(与 internal/user/metrics.go 注册量同口径)。
+	// 历史 bug:此处不排除管理员 → 看板「今日新增/总用户」比用户管理页多算种子超管等管理员账号,
+	// 两处数字对不上(2026-07 用户反馈);统一加 role 过滤后彻底对齐。
+	const notAdmin = "role NOT IN ('admin','super_admin')"
+	s.db.Table("users").Where(notAdmin).Count(&stats.TotalUsers)
 	// 全部半开区间 [start, tomorrowStart):缺上界时,异常的未来时间戳会把窗口统计虚增。
-	s.db.Table("users").Where("created_at >= ? AND created_at < ?", todayStart, tomorrowStart).Count(&stats.NewUsersToday)
-	s.db.Table("users").Where("created_at >= ? AND created_at < ?", start7d, tomorrowStart).Count(&stats.NewUsers7d)
-	s.db.Table("users").Where("created_at >= ? AND created_at < ?", start30d, tomorrowStart).Count(&stats.NewUsers30d)
+	s.db.Table("users").Where(notAdmin).Where("created_at >= ? AND created_at < ?", todayStart, tomorrowStart).Count(&stats.NewUsersToday)
+	s.db.Table("users").Where(notAdmin).Where("created_at >= ? AND created_at < ?", start7d, tomorrowStart).Count(&stats.NewUsers7d)
+	s.db.Table("users").Where(notAdmin).Where("created_at >= ? AND created_at < ?", start30d, tomorrowStart).Count(&stats.NewUsers30d)
 
 	// 付费用户 —— 真值在 users.vip_tier / vip_expires_at(与 vip.effectiveTier 同口径:
-	// 付费档 + 未过期;expires NULL = 永久)。
+	// 付费档 + 未过期;expires NULL = 永久)。加 role 过滤,防管理员被算进付费用户。
 	s.db.Table("users").
+		Where(notAdmin).
 		Where("vip_tier IN ('pro','max') AND (vip_expires_at IS NULL OR vip_expires_at > ?)", now).
 		Count(&stats.PaidUsers)
 	stats.FreeUsers = stats.TotalUsers - stats.PaidUsers
@@ -194,16 +198,22 @@ func (s *dashboardService) computeStatistics() *DashboardStatistics {
 	return stats
 }
 
-// getUserGrowthChart 获取用户增长趋势图表数据
+// getUserGrowthChart 获取用户增长趋势图表数据。
+// 排除 admin/super_admin + 零点对齐窗口(since = 今天往前 days-1 天的零点),与
+// internal/user/metrics.go 注册量图完全同口径,保证看板与用户管理页首桶/今日值都对得上。
 func (s *dashboardService) getUserGrowthChart(days int) []ChartDataPoint {
 	var results []struct {
 		Date  string
 		Count int64
 	}
 
+	now := time.Now()
+	day0 := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	since := day0.AddDate(0, 0, -(days - 1))
 	s.db.Table("users").
 		Select("DATE_FORMAT(created_at, '%Y-%m-%d') as date, COUNT(*) as count").
-		Where("created_at >= ?", time.Now().AddDate(0, 0, -days)).
+		Where("role NOT IN ('admin','super_admin')").
+		Where("created_at >= ?", since).
 		Group("DATE_FORMAT(created_at, '%Y-%m-%d')").
 		Order("date ASC").
 		Scan(&results)

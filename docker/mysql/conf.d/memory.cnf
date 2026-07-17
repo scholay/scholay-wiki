@@ -64,8 +64,12 @@ interactive_timeout = 28800
 long_query_time = 2
 log_queries_not_using_indexes = 0
 
-# ── 时区(2026-07-15 事故修复)────────────────────────────────────────────────
-# 业务口径 = 北京时间。显式钉死,不再依赖 SYSTEM(跟随容器 /etc/localtime,宿主 UTC 时
-# 全线漂到 UTC → 每日额度 0 点不重置事故)。影响 NOW()/CURDATE()/CURRENT_TIMESTAMP 默认值
-# 与 DATE_FORMAT 日聚合。dev/prod compose 都挂本目录,一处配置两侧生效。
-default-time-zone = '+08:00'
+# ── 时区 ─────────────────────────────────────────────────────────────────────
+# 跟随容器系统时区,不自定义偏移。SYSTEM = 容器的 /etc/localtime,由 docker 层挂仓库自带的
+# docker/tz/Asia-Shanghai(IANA TZif)钉死为北京,故宿主时区任意都解析成 +08:00
+# (实测 system_time_zone=CST → SET time_zone=SYSTEM 后 NOW() 与 +08:00 完全一致)。
+# 影响 NOW()/CURDATE()/CURRENT_TIMESTAMP 默认值与 DATE_FORMAT 日聚合,与 app 侧 time.Local 同区。
+# 注:2026-07-15 曾有「宿主 UTC 时全线漂 UTC、北京 0 点不重置」事故 —— 根因是当时未挂仓库
+# tzfile,SYSTEM 跟到了裸宿主;现所有容器都挂 /etc/localtime=北京,SYSTEM 即北京。
+# dev/prod compose 都挂本目录,一处配置两侧生效。
+default-time-zone = SYSTEM

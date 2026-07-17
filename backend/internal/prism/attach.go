@@ -39,15 +39,23 @@ const codeAttachFailed = errcode.TurnstileFailed
 
 // attachSession — 上传/引用共用的前置: 归属 + 可写校验 → 解析/建项目会话。
 // 失败已写响应, 返回 ok=false。
+//
+// 多对话:附件必须落**当前活动对话**的隔离 cwd —— 前端带 ?session_id=<活动对话>,据此
+// resolveConversation(校验 owner=project 归属;省略则回落当前/新建,兼容单会话)。否则用户切到
+// 另一条对话后上传,文件会落进 ensureProjectSession 解析出的「指针对话」cwd(可能不是当前看的这条)。
 func (h *Handler) attachSession(c *gin.Context) (string, uint, bool) {
 	uid, pid, ok := h.wsWritableProject(c)
 	if !ok {
 		return "", 0, false
 	}
-	sessionID, err := h.svc.ensureProjectSession(c.Request.Context(), pid, uid)
+	sessionID, err := h.svc.resolveConversation(c.Request.Context(), pid, uid, c.Query("session_id"), true)
 	if err != nil {
 		if err == ErrProjectNotFound {
 			utils.NotFound(c, "项目不存在")
+			return "", 0, false
+		}
+		if err == ErrConversationNotFound {
+			utils.NotFound(c, "会话不存在")
 			return "", 0, false
 		}
 		utils.InternalError(c, 500, "会话不可用,请稍后重试", err)

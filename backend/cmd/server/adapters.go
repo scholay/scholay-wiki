@@ -5,7 +5,7 @@
 // 这里定义的 adapter 都是 producer ↔ consumer 的 DTO 转换桥，
 // 放在 main 包而不是任一被适配包，是为了避免 import 循环：
 //
-//   producer(user/usagelog/peerreview) 暴露自身领域模型；
+//   producer(user/peerreview) 暴露自身领域模型；
 //   consumer(feedback/config/user) 用接口声明自己需要的 DTO；
 //   adapter 由组装者（main）实现，把 producer 的值映射到 consumer 的 DTO。
 //
@@ -16,9 +16,7 @@
 package main
 
 import (
-	"scholar-backend/internal/config"
 	"scholar-backend/internal/feedback"
-	"scholar-backend/internal/usagelog"
 	"scholar-backend/internal/user"
 )
 
@@ -64,23 +62,6 @@ func (a *feedbackUserRepoAdapter) FindByIDs(ids []uint) (map[uint]*feedback.User
 // seoSeedSourceAdapter — 已下线: SEO meta + seed 类型搬到 seo 包, seo.Service
 // 直接实现各消费方接口, 不再需要 main 包做翻译桥。详见 backend/internal/seo/ssr_meta.go)
 
-// usageLogServiceAdapter 将 usagelog.Service 适配为 config.UsageLogService 接口
-type usageLogServiceAdapter struct {
-	service *usagelog.Service
-}
-
-func (a *usageLogServiceAdapter) GetPopularPaperIDs(days int, limit int) ([]config.PopularPaper, error) {
-	papers, err := a.service.GetPopularPaperIDs(days, limit)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]config.PopularPaper, len(papers))
-	for i, p := range papers {
-		result[i] = config.PopularPaper{
-			PaperID: p.PaperID,
-			Count:   p.Count,
-		}
-	}
-	return result, nil
-}
+// (usageLogServiceAdapter — 已下线: 旧 usagelog(usage_logs v1) 整体删除, 它唯一的消费方
+// config.ServeDynamicSitemap 本就未注册路由、且热门论文查询恒为空。详见 bootstrap.go 注释)
 

@@ -56,7 +56,10 @@ export function DefaultCard({
   const oaPdfUrl = paper.openAccessPdf?.url?.trim();
 
   return (
-    <article className="group border-b border-border px-3.5 py-3.5">
+    <article
+      data-paper-id={paper.paperId}
+      className="group border-b border-border px-3.5 py-3.5"
+    >
       {/* 标题行:标题撑空间,右上 OA PDF 按钮(若上游有 openAccessPdf.url) */}
       <div className="flex items-start gap-2">
         <h3

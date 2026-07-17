@@ -43,7 +43,8 @@ export function RecordDetailPage() {
   const id = idStr ? Number(idStr) : undefined;
 
   const { data: sub, isLoading: subLoading, isError: subError, error: subErr } = useSubmission(id);
-  const { data: reports, isLoading: reportsLoading } = useSubmissionReports(id);
+  // failed 终态不会再产出报告 → 停止轮询(性能审计:失败但没凑齐 4 份时旧逻辑每 5s 永久空打后端)。
+  const { data: reports, isLoading: reportsLoading } = useSubmissionReports(id, sub?.status === 'failed');
 
   const reportMap = useMemo(() => {
     const m = new Map<ReviewerRole, ReviewReport>();

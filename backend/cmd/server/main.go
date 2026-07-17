@@ -145,7 +145,10 @@ func main() {
 		ReadTimeout:       60 * time.Second,
 		// SSE/streaming endpoints rely on per-handler ctx timeouts (APITimeoutMiddleware)
 		// so the server-level WriteTimeout is generous enough to cover the longest stream.
-		WriteTimeout:   10 * time.Minute,
+		// 三层超时对齐(性能审计 P0):nginx 900s ⊇ 本 WriteTimeout 16min ⊇ APITimeoutMiddleware ctx 15min。
+		// 旧值 10min < ctx 15min,长 SSE 流被本层(最弱一环)在 10 分钟处掐断;抬到 16min 让 ctx 成为硬顶、
+		// 本层只做 backbone backstop。(nginx user.conf 长流 location=900s;timeout.go SSE ctx=15min。)
+		WriteTimeout:   16 * time.Minute,
 		IdleTimeout:    120 * time.Second,
 		MaxHeaderBytes: 1 << 20, // 1MB
 	}

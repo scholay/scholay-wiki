@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import type { Node as ProseNode } from '@tiptap/pm/model';
 import { StarterKit } from '@tiptap/starter-kit';
@@ -14,6 +14,8 @@ import { StructEditorToolbar } from './StructEditorToolbar';
 import { DiffMarks, diffMarksKey } from './tiptap-diff-marks';
 import { buildDiffDecorations } from '../lib/struct-diff-decorations';
 import { bodyToTiptap, tiptapToBody, bodySignature, type PMNode } from '../lib/struct-tiptap';
+import { buildNumberingFromBody } from '../lib/cite-render';
+import { PrismReferencesList } from './PrismReferencesList';
 import type { DocBlock, DocStruct } from '../api/prism';
 
 /**
@@ -182,6 +184,8 @@ export const StructEditor = forwardRef<
     ref,
   ) {
     const fm = doc.frontMatter ?? { title: '' };
+    // 参考文献编号(与正文行内 [N] 同源 buildNumberingFromBody);只读展示,不进编辑器可编辑区。
+    const refNumbering = useMemo(() => buildNumberingFromBody(doc.body ?? []), [doc.body]);
     const [title, setTitle] = useState(fm.title ?? '');
     const [abstract, setAbstract] = useState(fm.abstract ?? '');
     const [keywords, setKeywords] = useState((fm.keywords ?? []).join(', '));
@@ -218,10 +222,8 @@ export const StructEditor = forwardRef<
       if (diffBaselineRef.current) onDiffDismissRef.current?.();
     };
 
-    const authors = (fm.authors ?? [])
-      .map((a) => [a.given, a.family].filter(Boolean).join(' '))
-      .filter(Boolean)
-      .join(', ');
+    // 作者固定匿名(不再有作者/机构编辑逻辑)—— 与后端 projector 的 \author{Anonymous} 一致。
+    const authors = 'Anonymous';
 
     const editor = useEditor({
       editable,
@@ -461,6 +463,9 @@ export const StructEditor = forwardRef<
             <EditorContent editor={editor} />
           </div>
         </div>
+
+        {/* 参考文献编号列表(只读,像真实 LaTeX 文末 References)—— 在可编辑正文之外,据 bibliography 生成 */}
+        <PrismReferencesList numbering={refNumbering} bibliography={doc.bibliography} />
       </div>
     );
   },

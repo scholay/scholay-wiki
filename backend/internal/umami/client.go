@@ -316,6 +316,17 @@ type PageviewsSeries struct {
 	Sessions  []SeriesPoint `json:"sessions"`
 }
 
+// platformTZName 返回平台当前的 IANA 时区名,跟随容器 TZ —— 不硬编码、不做 UTC 转换。
+// umami 服务端按此参数切日桶,契约要求 IANA 名。容器用 TZ=Asia/Shanghai 名字形式时
+// time.Local.String() 直接给出该名并自动跟随;若容器用 TZ=:/etc/localtime 文件形式,
+// Go 无法反解 IANA 名(只报 "Local"),此时回落平台默认(单区部署 = 北京)。
+func platformTZName() string {
+	if n := time.Local.String(); n != "" && n != "Local" && n != "UTC" {
+		return n
+	}
+	return "Asia/Shanghai"
+}
+
 func (c *Client) Pageviews(ctx context.Context, startAt, endAt time.Time, unit string) (*PageviewsSeries, error) {
 	id, err := c.EnsureWebsiteID(ctx)
 	if err != nil {
@@ -328,7 +339,7 @@ func (c *Client) Pageviews(ctx context.Context, startAt, endAt time.Time, unit s
 		"startAt":  {msStr(startAt)},
 		"endAt":    {msStr(endAt)},
 		"unit":     {unit},
-		"timezone": {"Asia/Shanghai"},
+		"timezone": {platformTZName()},
 	}, nil)
 	if err != nil {
 		return nil, err

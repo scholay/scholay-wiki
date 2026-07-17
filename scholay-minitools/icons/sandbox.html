@@ -1,0 +1,39 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+  *{margin:0;box-sizing:border-box}
+  .icon{
+    width:1024px;height:1024px;position:relative;overflow:hidden;
+    background:
+      radial-gradient(78% 58% at 70% 8%, rgba(90,110,200,.30), transparent 60%),
+      radial-gradient(70% 50% at 24% 20%, rgba(42,122,42,.16), transparent 60%),
+      linear-gradient(158deg,#18203a 0%,#0b0e18 78%);
+  }
+  /* 星点 */
+  .stars{position:absolute;inset:0;opacity:.6;
+    background-image:radial-gradient(rgba(255,255,255,.6) 2px,transparent 2.6px),radial-gradient(rgba(255,255,255,.3) 1.6px,transparent 2.2px);
+    background-size:150px 128px,72px 92px;background-position:40px 30px,90px 70px;}
+  .px{position:absolute;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.35);}
+  /* 落下的彩色元素方块 */
+  .fall{filter:saturate(1.05)}
+</style></head>
+<body>
+  <div class="icon">
+    <div class="stars"></div>
+
+    <!-- 空中下落的元素(带轻微旋转,营造"落沙") -->
+    <div class="px fall" style="width:128px;height:128px;left:250px;top:150px;background:linear-gradient(135deg,#e9c66a,#d4a017);transform:rotate(-8deg)"></div>
+    <div class="px fall" style="width:112px;height:112px;left:470px;top:110px;background:linear-gradient(135deg,#f0776a,#cc2222);transform:rotate(10deg)"></div>
+    <div class="px fall" style="width:120px;height:120px;left:640px;top:220px;background:linear-gradient(135deg,#5aa0f0,#2f6fd0);transform:rotate(-5deg)"></div>
+    <div class="px fall" style="width:96px;height:96px;left:410px;top:300px;background:linear-gradient(135deg,#5fc07e,#2a7a2a);transform:rotate(14deg)"></div>
+
+    <!-- 底部堆成的小丘(错落像素) -->
+    <div class="px" style="width:150px;height:150px;left:150px;top:700px;background:linear-gradient(135deg,#e6c26a,#c99a17)"></div>
+    <div class="px" style="width:150px;height:150px;left:305px;top:700px;background:linear-gradient(135deg,#5fc07e,#2a7a2a)"></div>
+    <div class="px" style="width:150px;height:150px;left:460px;top:700px;background:linear-gradient(135deg,#f0776a,#cc2222)"></div>
+    <div class="px" style="width:150px;height:150px;left:615px;top:700px;background:linear-gradient(135deg,#5aa0f0,#2f6fd0)"></div>
+    <div class="px" style="width:150px;height:150px;left:770px;top:700px;background:linear-gradient(135deg,#e6c26a,#c99a17)"></div>
+    <div class="px" style="width:150px;height:150px;left:230px;top:552px;background:linear-gradient(135deg,#f0776a,#cc2222)"></div>
+    <div class="px" style="width:150px;height:150px;left:540px;top:552px;background:linear-gradient(135deg,#5fc07e,#2a7a2a)"></div>
+    <div class="px" style="width:150px;height:150px;left:690px;top:552px;background:linear-gradient(135deg,#e6c26a,#c99a17)"></div>
+    <div class="px" style="width:150px;height:150px;left:388px;top:552px;background:linear-gradient(135deg,#5aa0f0,#2f6fd0)"></div>
+  </div>
+</body></html>

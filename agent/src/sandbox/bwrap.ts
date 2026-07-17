@@ -65,6 +65,9 @@ export function buildBwrapArgv(profile: SandboxProfile, inner: string[]): string
     "--setenv", "HOME", "/work",
     "--setenv", "PATH", "/usr/local/bin:/usr/bin:/bin",
     "--setenv", "TMPDIR", "/tmp",
+    // LANG:--clearenv 会丢它 → jail 内 UTF-8 locale 缺失(中文文件名/内容处理、未来 weasyprint 等
+    // Python PDF 引擎会乱码/失败)。透传容器 LANG,缺省给 C.UTF-8;对 bash/pandoc 无害。
+    "--setenv", "LANG", process.env.LANG || "C.UTF-8",
     // TZ:--clearenv 丢了它、jail 也没 bind /etc/localtime → jail 内 `date` 会跑 UTC(北京 0-8 点
     // 日期差一天,重蹈 2026-07-15 时区事故)。透传容器 TZ;/usr/share/zoneinfo 已在 ro-bind 的 /usr 里。
     "--setenv", "TZ", process.env.TZ || "Asia/Shanghai",

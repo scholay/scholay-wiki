@@ -10,6 +10,7 @@ import {
 } from '@/shared/ui/sheet';
 import { Badge } from '@/shared/ui/badge';
 import { cn } from '@/shared/lib/utils';
+import { resetInfo } from '@/shared/lib/quota-display';
 import { UserTokenUsagePanel } from './UserTokenUsagePanel';
 import { UserGrantPanel } from './UserGrantPanel';
 import { UserBillingSections } from './UserBillingPanels';
@@ -55,7 +56,7 @@ function wechatChannelLabel(registerSource?: string): string {
  * 用户详情抽屉 —— 管理 / 运营视角:
  *   - 基础资料(行数据,免再拉)
  *   - 登录方式(账号 / 第三方绑定)
- *   - 会员状态 + 今日各 AI 功能额度
+ *   - 会员状态 + 本周期(7 天)统一 token 额度(窗口起止 / 当日消耗)
  *   - 直接授予 / 续期 / 取消会员
  * 账号操作(冻结 / 角色 / 删除)仍在列表行的下拉,这里聚焦「看清这个人 + 管会员」。
  */
@@ -204,7 +205,7 @@ export function UserDetailDrawer({
             )}
           </Section>
 
-          {/* Token 用量(历史天/模型拆分)—— 今日额度条之外的明细视角 */}
+          {/* Token 用量(历史天/模型拆分)—— 本周期额度条之外的历史明细视角 */}
           <Section title="Token 用量">
             <UserTokenUsagePanel userId={user.id} />
           </Section>
@@ -245,10 +246,12 @@ function InfoRow({ icon, label, children }: { icon: React.ReactNode; label: stri
   );
 }
 
-/** 本周期(7 天)统一 token 额度条(已不分功能)。ceiling<0 视为不限。 */
+/** 本周期(7 天锚定窗口)统一 token 额度条(已不分功能)。ceiling<0 视为不限。
+ *  与用户端「账户资产」同口径:露出窗口重置时刻(首次使用开锚,重置/升级换锚)+ 当日真实消耗。 */
 function TokenQuotaBar({ vip }: { vip: UserVipStatus }) {
   const t = vip.token;
   const exhausted = !t.unlimited && t.used >= t.ceiling;
+  const ri = resetInfo(t);
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between text-xs">
@@ -263,6 +266,12 @@ function TokenQuotaBar({ vip }: { vip: UserVipStatus }) {
             className={cn('h-full rounded-pill transition-all', exhausted ? 'bg-brand-red' : 'bg-brand-green')}
             style={{ width: `${t.percent}%` }}
           />
+        </div>
+      )}
+      {!t.unlimited && (
+        <div className="flex items-center justify-between text-2xs text-faint" title={ri.hint}>
+          <span>{ri.notStarted ? '满额 · 用后计时' : ri.rel}</span>
+          <span className="tabular-nums">当日消耗 {t.consumed_today.toLocaleString()}</span>
         </div>
       )}
     </div>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useDebounce } from '@/shared/hooks/useDebounce';
 import { LazyMotion, domMax } from 'framer-motion';
 import { FolderOpen, Loader2, Search } from 'lucide-react';
 import {
@@ -57,7 +58,11 @@ export function LibraryReferencePicker({
   busy?: boolean;
 }) {
   const foldersQ = useLibraryBrowseFolders(open);
-  const folders = foldersQ.data?.folders ?? [];
+  // ⚠️ useMemo 稳定引用:`data?.folders ?? []` 每次 render 都 new 一个 [],而下面的 effect 依赖 folders
+  //   → 关闭态(open=false)effect 每帧重跑 + setSelPapers(new Set())… → 重渲 → folders 又 new →
+  //   触发 React「Maximum update depth」的**静默**重渲风暴(prod 剥 warning,只见 CPU 打满)。
+  //   这个 Picker 在三 agent 输入框里常驻挂载(open 由 state 控),故智能对话页一进就打满 CPU。
+  const folders = useMemo(() => foldersQ.data?.folders ?? [], [foldersQ.data]);
 
   const [activeFolder, setActiveFolder] = useState<number | null>(null);
   const [q, setQ] = useState('');
@@ -78,8 +83,12 @@ export function LibraryReferencePicker({
     }
   }, [open, folders, activeFolder]);
 
-  const papersQ = useLibraryBrowsePapers(open ? activeFolder : null, { q });
-  const papers = papersQ.data?.items ?? [];
+  // 搜索防抖(性能审计):输入框仍绑 q 保持即时反馈,发给后端的用 300ms 防抖的 dq —— 每敲一字符一次请求
+  // 会打爆后端(library-browse 已 keepPreviousData,防抖后中间前缀不再各占缓存)。300ms 与 PrismCitationDialog 对齐。
+  const dq = useDebounce(q, 300);
+  const papersQ = useLibraryBrowsePapers(open ? activeFolder : null, { q: dq });
+  // 同 folders:稳定引用,避免每帧 new [] 让 pageVenues / enrich 反复重算。
+  const papers = useMemo(() => papersQ.data?.items ?? [], [papersQ.data]);
 
   // 期刊分区/IF 增强 —— 按本页 venue 批量拉(同文献集 LibraryPaperList 的做法,缓存共享)。
   const pageVenues = useMemo(

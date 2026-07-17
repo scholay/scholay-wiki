@@ -235,7 +235,13 @@ func (s *Service) AdminSubmissionDetail(id uint64) (*AdminPRDetail, error) {
 	if err != nil {
 		return nil, err
 	}
-	d := &AdminPRDetail{Submission: toAdminSubmission(sub)}
+	// 初始化为非 nil 空切片 —— Go nil slice 会被 encoding/json 序列化成 `null`(而非 `[]`),
+	// 前端 `detail.reports.length` 就会 null.length 抛错;draft / 尚未出报告的投稿必踩(见会话监控 draft 崩溃)。
+	d := &AdminPRDetail{
+		Submission: toAdminSubmission(sub),
+		Reports:    []AdminPRReport{},
+		Assets:     []AdminPRAsset{},
+	}
 	for _, rep := range reports {
 		d.Reports = append(d.Reports, toAdminReport(rep))
 	}

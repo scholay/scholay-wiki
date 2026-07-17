@@ -176,6 +176,17 @@ func (r *Repository) UpdateLastActive(id uint) error {
 	return r.db.Model(&User{}).Where("id = ?", id).Update("last_active_at", time.Now()).Error
 }
 
+// RecordDailyActive 每日活跃台账落行(0069):每(用户,本地日)至多一行,INSERT IGNORE 幂等。
+// 由 service.RecordActivity 在每日节流后异步调用 —— 台账 append-only,可重建历史每日活跃序列
+// (last_active_at 是单列覆盖做不到)。date 为本地(北京)日 'YYYY-MM-DD',由调用方用 Go 侧
+// time.Now() 计算,不用 MySQL CURDATE() 以免会话时区歧义(见 time-handling-no-utc 约定)。
+func (r *Repository) RecordDailyActive(id uint, date string) error {
+	return r.db.Exec(
+		"INSERT IGNORE INTO user_daily_active (user_id, active_date) VALUES (?, ?)",
+		id, date,
+	).Error
+}
+
 // UpdatePassword updates the user's password
 func (r *Repository) UpdatePassword(id uint, passwordHash string) error {
 	return r.db.Model(&User{}).Where("id = ?", id).Update("password_hash", passwordHash).Error

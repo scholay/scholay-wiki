@@ -24,12 +24,15 @@ export interface HistoryResponse {
   totalTurns?: number
 }
 
-// GET /user/claw/session/messages?session_id=X —— 历史 transcript。
-export function getClawHistory(sessionId: string): Promise<HistoryResponse> {
-  return request<HistoryResponse>({
-    url: '/user/claw/session/messages?session_id=' + encodeURIComponent(sessionId),
-    method: 'GET',
-  })
+// GET /user/claw/session/messages?session_id=X[&limit=N] —— 历史 transcript。
+// limitTurns>0 时只取最近 N 轮(性能审计 #2:整包拉全量 transcript 一次 setData 随会话长度恶化)。
+// 后端 ParseLimitTurns 支持 ?limit,响应带 hasMore 供「加载更早」判定。
+export function getClawHistory(sessionId: string, limitTurns?: number): Promise<HistoryResponse> {
+  const q =
+    '/user/claw/session/messages?session_id=' +
+    encodeURIComponent(sessionId) +
+    (limitTurns && limitTurns > 0 ? '&limit=' + limitTurns : '')
+  return request<HistoryResponse>({ url: q, method: 'GET' })
 }
 
 export interface WsTicket {

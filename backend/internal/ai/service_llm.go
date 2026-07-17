@@ -58,7 +58,15 @@ func (s *Service) ChatCompletionWithTools(ctx context.Context, messages []ChatMe
 		if err != nil {
 			return nil, nil, err
 		}
-		return resp, usageFromStats(resp.Usage), nil
+		u := usageFromStats(resp.Usage)
+		// 对称流式路的漏计告警(评审 R1):同步响应有产出(choices 非空)却零 usage(上游省略 usage
+		// 对象/字段)时,recordLLMUsage→Record 会因 total==0 静默跳过 → 不进账本、不扣额度。可见化
+		// 便于定位违约上游 —— 否则这类真实消耗悄悄漏气、还绕过周期额度。
+		if u.InputTokens+u.OutputTokens+u.TotalTokens+u.CacheReadTokens == 0 && len(resp.Choices) > 0 {
+			slog.Warn("ai: sync completion returned output but zero usage — token NOT metered (upstream omitted usage?)",
+				"model", modelCode, "level", string(modelLevel))
+		}
+		return resp, u, nil
 	})
 	if err != nil {
 		return nil, err

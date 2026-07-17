@@ -194,6 +194,7 @@ type InstalledSkillDTO struct {
 	Slug      string `json:"slug"`
 	Name      string `json:"name"`
 	Tagline   string `json:"tagline"`
+	GuideName string `json:"guideName"` // = u<作者uid>-<slug>,会话内 Skill 帧的加载 key;前端据此精确匹配"这轮用的是我的哪个技能"(去掉脆弱的 ^u\d+- 前缀解析)
 	Source    string `json:"source"`
 	Enabled   bool   `json:"enabled"`
 	Available bool   `json:"available"` // 作者是否已下架/失效(false = 建会话时会被跳过)

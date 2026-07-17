@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"scholar-backend/internal/common/database"
+	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -79,9 +80,11 @@ func MaintenanceModeMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// 已登录的管理员放行
-		if role, ok := c.Get("user_role"); ok {
-			if r, _ := role.(string); r == "admin" || r == "super_admin" {
+		// 已登录的管理员放行。本中间件挂在【认证之前】,c.Get("user_role") 恒为空(旧逻辑是死代码,管理员在
+		// 维护期永远进不来开关)。维护开启是极低频态,这里就地解一次 token 拿 role(复用同包 extractToken +
+		// utils.ParseToken),日常(维护关闭)路径在上面 line 70 已 return,零开销。
+		if tok := extractToken(c); tok != "" {
+			if claims, err := utils.ParseToken(tok); err == nil && (claims.Role == "admin" || claims.Role == "super_admin") {
 				c.Next()
 				return
 			}

@@ -5,18 +5,14 @@ import type { SmartSearchContextSnapshot } from '../../api/smart-search';
 
 /**
  * 智能搜索输入框 —— 三 agent 统一 Composer(shared/components/chat)的智能搜索包装:
- * 保留本 feature 特有件:hero↔底部栏停靠动画的 layoutId 导出、轮播示例提问。
+ * 保留本 feature 特有件:轮播示例提问。
  * 起始态 hero(prominent,rows=3 自动聚焦)与对话中底部栏共用同一组件,两处样式天然一致。
  * (多会话改造后,「重置会话」已由顶部「新对话」按钮取代,本组件不再有 reset 入口。)
+ *
+ * 注:原 hero↔底栏「共用 layoutId 从居中滑到底部」的停靠动画已移除 —— 那个 framer 共享 layout 会在
+ *     返回页面时用 scaleY morph 高度、被路由过渡打断即卡住 → 输入框拉高变形(反复偶现)。现改为
+ *     hero 淡出 + 底栏 composer 直接就位(SmartSearchHero / SmartSearchPanel 各渲一份,无共享 layout)。
  */
-
-/** hero(空态)与对话中底部栏共用的 layoutId —— 发送首条消息后 framer-motion 据此把对话框
- *  从居中平滑地滑动/停靠到底部(见 SmartSearchHero / SmartSearchPanel,二者同 layoutId)。 */
-export const COMPOSER_LAYOUT_ID = 'smart-search-composer';
-
-/** 对话框「居中 → 底部」停靠动画的过渡;reduced-motion 下直接瞬切(去掉位移,避免前庭不适)。 */
-export const composerDockTransition = (reduce: boolean | null) =>
-  reduce ? { duration: 0 } : ({ type: 'spring', bounce: 0.18, duration: 0.55 } as const);
 
 export interface SmartComposerProps {
   value: string;

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 import {
   BookmarkPlus,
   ChevronDown,
@@ -59,6 +60,8 @@ export function PaperListScroller({
   const papers = useMemo(() => parsePapersFromToolResult(content), [content]);
 
   const enriched = useEnrichedPapers(papers);
+  // 与传统列表一致:暂存/折叠导致卡片高度突变,auto-animate 平滑收合过渡。
+  const [listRef] = useAutoAnimate<HTMLDivElement>();
 
   // 热门内容「曝光量」上报 —— 智能搜索的论文走 agent 容器, 后端搜索接口看不到,
   // 必须前端在这里补点。按 toolUseId 去重: 同一组结果(含 PMD 补 abstract 触发的
@@ -277,6 +280,7 @@ export function PaperListScroller({
 
       {!groupCollapsed && (
         <div
+          ref={listRef}
           className={overflow ? 'overflow-y-auto' : ''}
           style={overflow ? { maxHeight: MAX_HEIGHT_PX } : undefined}
         >

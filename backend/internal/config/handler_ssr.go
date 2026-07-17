@@ -2064,34 +2064,10 @@ func (h *Handler) ServeDynamicSitemap(c *gin.Context) {
   </url>`, baseURL, page.Path, today, page.ChangeFreq, page.Priority))
 	}
 
-	// 动态论文页面（基于访问统计）
-	if h.usageLogService != nil {
-		papers, err := h.usageLogService.GetPopularPaperIDs(30, 200) // 最近30天，最多200篇
-		if err != nil {
-			slog.Error("failed to get popular papers for sitemap", "err", err)
-		} else {
-			sitemapBuilder.WriteString(`
-
-  <!-- Popular Paper Pages (dynamically generated based on access statistics) -->`)
-			for i, paper := range papers {
-				// 根据访问量设置优先级
-				priority := "0.6"
-				if i < 10 {
-					priority = "0.8"
-				} else if i < 50 {
-					priority = "0.7"
-				}
-
-				sitemapBuilder.WriteString(fmt.Sprintf(`
-  <url>
-    <loc>%s/paper/%s</loc>
-    <lastmod>%s</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>%s</priority>
-  </url>`, baseURL, paper.PaperID, today, priority))
-			}
-		}
-	}
+	// 注:原「动态论文页面(基于 usage_logs 访问统计的热门论文)」已随 usagelog v1 下线移除。
+	// 它本就是死代码:① 本 handler(ServeDynamicSitemap)未注册任何路由;② 查询窗口是 usage_logs
+	// 最近 30 天,而该表 2026-06 起零写入 → 恒返回 0 条。线上论文 sitemap 走 seo.ServePaperSitemap
+	// (基于 seo_papers 永久索引库),与此无关。
 
 	sitemapBuilder.WriteString(`
 </urlset>

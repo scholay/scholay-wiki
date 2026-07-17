@@ -10,7 +10,8 @@ import { getTerminology, putTerminology } from '../api/prism';
 /**
  * 中英双语工作流向导(V4-④,降级版)—— 两遍纪律的用户在环编排:
  *   第一步:逐节忠实直译(每轮一节;terminology.md 为 soft constraint,agent 首译回填);
- *   第二步:全部直译 apply 后【重开会话】—— 单语润色必须在“只见译文”的干净上下文里做(去翻译腔的前提);
+ *   第二步:全部直译 apply 后【开新对话】—— 单语润色必须在“只见译文”的干净上下文里做(去翻译腔的前提);
+ *          多对话:开新对话即得干净上下文,同一篇论文继续(每轮 prepare 铺源注入当前译文);
  *   第三步:逐批单语润色。
  * 术语表:DB 真源,轮前物化 cwd;这里可直接编辑(下一轮生效)。
  */
@@ -92,9 +93,9 @@ export function PrismTranslateDialog({
           </div>
 
           <div className="rounded-md border border-border p-2.5">
-            <p className="font-bold text-foreground">第二步 · 重开会话(关键)</p>
+            <p className="font-bold text-foreground">第二步 · 开新对话(关键)</p>
             <p className="mt-0.5 text-2xs text-muted-foreground">
-              全部直译并应用后重开会话:润色必须在「只见译文」的干净上下文里做,否则中文原文一直在历史里,翻译腔磨不掉。文稿/术语表不丢。
+              全部直译并应用后开一条新对话:润色必须在「只见译文」的干净上下文里做,否则中文原文一直在历史里,翻译腔磨不掉。同一篇论文继续写,文稿/术语表不丢。
             </p>
             <Button
               size="sm"
@@ -103,10 +104,10 @@ export function PrismTranslateDialog({
               disabled={!chatIdle}
               onClick={async () => {
                 await onResetSession();
-                toast.success('已重开会话 —— 现在开始第三步单语润色');
+                toast.success('已开新对话 —— 现在开始第三步单语润色');
               }}
             >
-              <RotateCcw className="size-3" /> 重开会话
+              <RotateCcw className="size-3" /> 开新对话
             </Button>
           </div>
 

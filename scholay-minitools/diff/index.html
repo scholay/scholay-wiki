@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>文本痕迹对比 · 一眼看清改了哪</title>
+  <link rel="stylesheet" href="./shared/brand.css" />
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div class="aurora"><i></i><i></i><i></i></div>
+  <div class="grain"></div>
+
+  <div class="app">
+    <div class="brandbar">
+      <span class="wordmark"><span class="dot">S</span><b>Scholay</b></span>
+      <span class="tag">文本痕迹对比</span>
+    </div>
+
+    <div class="hero">
+      <span class="eyebrow">返修 · AI 改稿 · 导师批注</span>
+      <h1>两版文本<span class="hl">改了哪</span>,一眼看清</h1>
+      <p>词级高亮增 / 删 / 改 · 纯本地对比,内容不上传</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="num">1</span>粘贴两版文本</div>
+      <label class="fld"><span>原稿 / 修改前</span><textarea id="a" class="ta" rows="5" placeholder="粘贴原始版本…">量子计算利用量子叠加与纠缠进行并行运算。它在特定问题上远超经典计算机。</textarea></label>
+      <label class="fld"><span>改稿 / 修改后</span><textarea id="b" class="ta" rows="5" placeholder="粘贴修改后的版本…">量子计算利用量子叠加与量子纠缠实现大规模并行运算,在密码破解等特定问题上的速度远超传统经典计算机。</textarea></label>
+      <button class="btn" id="diffBtn"><span class="shine"></span>对比痕迹</button>
+    </div>
+
+    <div id="result" class="result"></div>
+
+    <div class="card"><div class="card-title"><span class="num">✎</span>怎么用</div>
+      <div class="facts" id="facts"></div>
+    </div>
+
+    <div class="disclaimer" id="disclaimer"></div>
+    <div data-cta="改稿反复看不清?<span class=&quot;hl&quot;>Scholay 智能写作</span>帮你盯全程"></div>
+    <div data-foot></div>
+  </div>
+
+  <script src="./shared/convert.js"></script>
+  <script src="./data.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>

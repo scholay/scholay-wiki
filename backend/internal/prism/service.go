@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -128,11 +129,16 @@ func (s *Service) DeleteProject(ctx context.Context, proj *Project) error {
 			slog.Warn("prism: delete project object failed", "key", k, "err", e)
 		})
 	}
-	if proj.AgentSessionID != nil && *proj.AgentSessionID != "" {
-		s.deleteSessionBestEffort(*proj.AgentSessionID) // 释放 agent 端会话,不留孤儿
-		if s.feature != nil {
-			_ = s.feature.UnbindOwnerSession("project", uint64(proj.ID)) // 清统一归属表映射
+	// 多对话:删该项目【所有对话】的 agent 会话(一项目 N 条)+ 统一归属表映射(全部 owner=project 行)。
+	if s.feature != nil {
+		if items, lerr := s.feature.ListOwnerSessions(ctx, "project", uint64(proj.ID)); lerr == nil {
+			for _, it := range items {
+				s.deleteSessionBestEffort(it.SessionID) // 逐条释放 agent 端 workspace,不留孤儿
+			}
 		}
+		_ = s.feature.UnbindOwnerSession("project", uint64(proj.ID)) // 清所有 owner=project 映射行
+	} else if proj.AgentSessionID != nil && *proj.AgentSessionID != "" {
+		s.deleteSessionBestEffort(*proj.AgentSessionID) // s.feature 缺失兜底(单会话)
 	}
 	return s.repo.DeleteProjectCascade(proj.ID)
 }
@@ -251,8 +257,87 @@ func (s *Service) gatherCurrent(projectID uint) (map[string]string, string, erro
 	return out, sha256Hex(sb.String()), nil
 }
 
+// ── 编译并发准入 + 失败分类(性能审计:防伪「编译服务异常」+ auto-fix AI 轮风暴)──
+//
+// 问题:每个 StartCompile 无条件起后台 goroutine,全部一起抢沙箱槽(COMPILE_MAX_PARALLEL=3),排队者的
+// 100s 编译预算从【入队】起算 → 排到时预算已耗尽 → 伪 timeout「编译服务异常」→ 前端 auto-fix 回喂 AI 放大成轮风暴。
+// 解法:进程级信号量把「排队等待」与「编译执行」两个时钟分开;失败分类(latex/infra/timeout)让前端只对真
+// LaTeX 错误 auto-fix。
+const (
+	compileErrLatex   = "latex"   // 真 LaTeX 语法错(前端 arm auto-fix)
+	compileErrInfra   = "infra"   // 内部/素材/沙箱错(停琥珀 banner,不回喂 AI)
+	compileErrTimeout = "timeout" // 排队超时(停琥珀 banner)
+
+	prismQueueTimeout   = 120 * time.Second // 排队等 slot 的独立时钟(与编译预算分开)
+	prismCompileTimeout = 100 * time.Second // 拿到 slot 后的实际编译预算
+)
+
+// compileSem 进程级编译并发闸(容量 = PRISM_MAX_PARALLEL,默认 3,须与沙箱 COMPILE_MAX_PARALLEL 同步)。
+// 懒初始化:.env 由 main 里 godotenv 加载晚于包 init,读 env 必须推迟到首次编译时。
+var (
+	prismSemOnce sync.Once
+	prismSem     chan struct{}
+)
+
+func compileSem() chan struct{} {
+	prismSemOnce.Do(func() {
+		n, _ := strconv.Atoi(os.Getenv("PRISM_MAX_PARALLEL"))
+		if n <= 0 {
+			n = 3
+		}
+		prismSem = make(chan struct{}, n)
+	})
+	return prismSem
+}
+
+// assetRef 一个二进制资产的引用(纯 DB 元数据,不含字节)。
+type assetRef struct {
+	relPath   string
+	objectKey string
+}
+
+// assetDigest 纯 DB 出资产内容哈希 + 引用列表(零 MinIO 调用)。哈希只依赖 relPath:ContentSHA256(与是否取到
+// 字节无关)→ 缓存键稳定,不再随取图成败漂移。让 runCompile 能在【下载字节前】先算缓存键、命中直接复用。
+func (s *Service) assetDigest(projectID uint) ([]assetRef, string, error) {
+	files, err := s.repo.ListFiles(projectID)
+	if err != nil {
+		return nil, "", err
+	}
+	refs := make([]assetRef, 0)
+	shas := make([]string, 0)
+	for _, f := range files {
+		if f.FileKind != KindAsset || f.MinioObjectKey == nil || *f.MinioObjectKey == "" {
+			continue
+		}
+		refs = append(refs, assetRef{relPath: f.RelPath, objectKey: *f.MinioObjectKey})
+		shas = append(shas, f.RelPath+":"+f.ContentSHA256)
+	}
+	sort.Strings(shas)
+	return refs, sha256Hex(strings.Join(shas, "\n")), nil
+}
+
+// fetchAssetBytes 缓存 miss 时才下载资产字节;任一资产失败即 return err(不再 best-effort 跳过 —— 瞬时抖动
+// 静默缺图会把「缺图 PDF」当成功缓存,且改变 assetHash 污染缓存键。失败改由 runCompile 记为可重试的 infra 错误)。
+func (s *Service) fetchAssetBytes(ctx context.Context, refs []assetRef) (map[string][]byte, error) {
+	out := make(map[string][]byte, len(refs))
+	for _, r := range refs {
+		rc, _, err := storage.GetObject(ctx, s.bucket, r.objectKey)
+		if err != nil {
+			return nil, fmt.Errorf("asset %s: %w", r.relPath, err)
+		}
+		data, rerr := io.ReadAll(rc)
+		rc.Close()
+		if rerr != nil {
+			return nil, fmt.Errorf("asset %s read: %w", r.relPath, rerr)
+		}
+		out[r.relPath] = data
+	}
+	return out, nil
+}
+
 // gatherAssets 取项目全部二进制资产(KindAsset,图片等)字节 —— 从 MinIO 拉,连同 relPath 给沙箱 stage。
 // 返回 (relPath→字节, 资产内容哈希);哈希折进编译缓存键,图片换了不吃旧缓存。取不到的资产 best-effort 跳过。
+// 注:runCompile 已改用 assetDigest+fetchAssetBytes(缓存前置 + 失败即失败);本函数仅 docx 导出仍用。
 func (s *Service) gatherAssets(ctx context.Context, projectID uint) (map[string][]byte, string, error) {
 	files, err := s.repo.ListFiles(projectID)
 	if err != nil {
@@ -297,7 +382,7 @@ func (s *Service) StartCompile(projectID uint, mainFile, engine string) (*Compil
 	return c, nil
 }
 
-// runCompile 后台执行:缓存命中→直接复用;否则物化→沙箱编译→PDF/log 传 MinIO→更新记录。
+// runCompile 后台执行:纯 DB 算缓存键 → 命中直接复用(零 MinIO);miss 才排队拿并发闸、下载资产、沙箱编译。
 func (s *Service) runCompile(compileID, projectID uint, mainFile, engine string) {
 	files, hash, err := s.gatherCurrent(projectID)
 	if err != nil {
@@ -310,13 +395,17 @@ func (s *Service) runCompile(compileID, projectID uint, mainFile, engine string)
 	if engine != EngineXeLaTeX && needsXeLaTeX(files) {
 		engine = EngineXeLaTeX
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
-	defer cancel()
-	// 二进制资产(struct figure 引用的图片 / 手工上传)—— 从 MinIO 取字节,连同文本一起喂沙箱。
-	assets, assetHash, _ := s.gatherAssets(ctx, projectID)
+
+	// 资产内容哈希【纯 DB 算】(不下载字节)→ 缓存键先算先查。命中直接复用,全程零 MinIO 读(修:旧逻辑缓存命中
+	// 也先白下载全部资产字节)。
+	assetRefs, assetHash, err := s.assetDigest(projectID)
+	if err != nil {
+		s.failCompile(compileID, "内部错误,无法读取项目文件", err)
+		return
+	}
 	cacheKey := sha256Hex(hash + "|" + engine + "|" + assetHash)
 
-	// 缓存命中(同内容+同引擎 1h 内编过且成功)→ 复用 PDF,免起沙箱。
+	// 缓存命中(同内容+同引擎 1h 内编过且成功)→ 复用 PDF,免起沙箱、免下载资产。
 	if cached, _ := s.repo.FindCachedCompile(projectID, cacheKey, time.Now()); cached != nil && cached.PdfObjectKey != nil {
 		_ = s.repo.UpdateCompile(compileID, map[string]any{
 			"status": CompileSuccess, "content_hash": cacheKey, "engine": engine,
@@ -327,7 +416,32 @@ func (s *Service) runCompile(compileID, projectID uint, mainFile, engine string)
 		return
 	}
 
+	// 并发闸:排队等 slot 用【独立 queueCtx 时钟】,拿到 slot 后才起【编译预算时钟】—— 两个时钟分开,
+	// 排队久不再吃编译预算、不再伪 timeout 触发 auto-fix 风暴。排队超时记为可重试的 timeout(非 latex → 前端不 auto-fix)。
+	sem := compileSem()
+	queueCtx, queueCancel := context.WithTimeout(context.Background(), prismQueueTimeout)
+	select {
+	case sem <- struct{}{}:
+		queueCancel()
+		defer func() { <-sem }()
+	case <-queueCtx.Done():
+		queueCancel()
+		s.failCompileKind(compileID, compileErrTimeout, "编译排队超时,请稍后重试", queueCtx.Err())
+		return
+	}
+
+	// 拿到 slot 才置 running(排队期间保持 queued;前端 queued/running 都显示编译中,UX 无回退)。
 	_ = s.repo.UpdateCompile(compileID, map[string]any{"status": CompileRunning, "content_hash": cacheKey, "engine": engine})
+
+	ctx, cancel := context.WithTimeout(context.Background(), prismCompileTimeout)
+	defer cancel()
+
+	// 缓存 miss 才下载资产字节;取失败=可重试的 infra 错误(不再静默缺图污染缓存)。
+	assets, ferr := s.fetchAssetBytes(ctx, assetRefs)
+	if ferr != nil {
+		s.failCompileKind(compileID, compileErrInfra, "素材读取失败,请稍后重试", ferr)
+		return
+	}
 
 	res, err := s.tex.Compile(ctx, files, assets, mainFile, engine)
 	if err != nil {
@@ -374,17 +488,24 @@ func (s *Service) runCompile(compileID, projectID uint, mainFile, engine string)
 	if excerpt == "" {
 		excerpt = summary
 	}
+	// 真 LaTeX 语法错(res.Status==error 的正常分支)→ error_kind='latex',前端据此才 arm auto-fix 回喂 AI。
 	_ = s.repo.UpdateCompile(compileID, map[string]any{
-		"status": CompileError, "log_object_key": logKey,
+		"status": CompileError, "error_kind": compileErrLatex, "log_object_key": logKey,
 		"log_excerpt": excerpt, "error_summary": summary, "duration_ms": res.DurationMs,
 	})
 }
 
-func (s *Service) failCompile(compileID uint, friendly string, err error) {
-	slog.Error("prism compile failed", "compile_id", compileID, "err", err)
+// failCompileKind 记一次失败并【分类】(latex/infra/timeout)。前端只对 latex arm auto-fix,infra/timeout 停琥珀 banner。
+func (s *Service) failCompileKind(compileID uint, kind, friendly string, err error) {
+	slog.Error("prism compile failed", "compile_id", compileID, "kind", kind, "err", err)
 	_ = s.repo.UpdateCompile(compileID, map[string]any{
-		"status": CompileError, "error_summary": friendly, "log_excerpt": friendly,
+		"status": CompileError, "error_kind": kind, "error_summary": friendly, "log_excerpt": friendly,
 	})
+}
+
+// failCompile 是 infra 类失败的便捷包装(内部/沙箱/保存错;非用户可修的 LaTeX 语法错)。
+func (s *Service) failCompile(compileID uint, friendly string, err error) {
+	s.failCompileKind(compileID, compileErrInfra, friendly, err)
 }
 
 func (s *Service) putObject(ctx context.Context, key string, body []byte, contentType string) error {
@@ -405,6 +526,13 @@ const (
 // StartBackgroundGC 启动编译产物 GC 后台任务:启动先回收一次历史积压,之后每 24h 一次。
 // 由 bootstrap 在 NewService 之后调用(prism 自持后台任务,和既有 prism-compile safego 一致)。
 func (s *Service) StartBackgroundGC() {
+	// 启动即重排「重启遗留」的死编译:上次进程的 queued/running 行的 goroutine 已随进程消失,
+	// 不重排会让前端对这些行无限轮询(性能审计 #3b)。cutoff=now-5min > 100s 最大编译时长,不误伤在跑的。
+	if n, err := s.repo.RequeueStaleCompiles(time.Now().Add(-5 * time.Minute)); err != nil {
+		slog.Warn("prism: requeue stale compiles failed", "err", err)
+	} else if n > 0 {
+		slog.Info("prism: requeued stale compiles on startup", "count", n)
+	}
 	safego.Go("prism-compile-gc", func() {
 		gc := func() {
 			if n, err := s.gcCompiles(time.Now()); err != nil {

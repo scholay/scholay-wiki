@@ -5,6 +5,7 @@
 // 铁律:必须可逆 —— structToTiptap → tiptapToStruct 回到等价结构体,否则用户一编辑就丢内容。
 // 自定义节点(inlineMath/blockMath/citation/figure/opaqueBlock)见 tiptap-nodes.tsx。
 import type { DocBlock, DocInline } from '../api/prism';
+import { buildNumberingFromBody, citeDisplay, type CiteNumbering } from './cite-render';
 
 // ── 最小 ProseMirror JSON 结构(只覆盖本编辑器用到的节点)──────────────
 export interface PMMark {
@@ -31,16 +32,20 @@ function pushText(out: PMNode[], text: string, marks?: PMMark[]): void {
   });
 }
 
-function inlinesToPM(inls?: DocInline[]): PMNode[] {
+function inlinesToPM(inls?: DocInline[], numbering?: CiteNumbering): PMNode[] {
   const out: PMNode[] = [];
   for (const i of inls ?? []) {
     switch (i.t) {
       case 'math':
         out.push({ type: 'inlineMath', attrs: { latex: i.latex ?? '' } });
         break;
-      case 'cite':
-        out.push({ type: 'citation', attrs: { citeKey: i.key ?? '' } });
+      case 'cite': {
+        const key = i.key ?? '';
+        // citeText = 真实 LaTeX 样式的展示文本([1, 2] / 图 1);派生自 numbering,不进结构体(tiptapToStruct 只读 citeKey)。
+        const citeText = numbering ? citeDisplay(key, numbering) : '';
+        out.push({ type: 'citation', attrs: { citeKey: key, citeText } });
         break;
+      }
       case 'bold':
         pushText(out, i.v ?? '', [{ type: 'bold' }]);
         break;
@@ -63,7 +68,7 @@ function cell(text: string, header: boolean): PMNode {
   return { type: header ? 'tableHeader' : 'tableCell', content: [p] };
 }
 
-function blockToPM(b: DocBlock): PMNode | null {
+function blockToPM(b: DocBlock, numbering?: CiteNumbering): PMNode | null {
   switch (b.type) {
     case 'heading': {
       const level = Math.min(Math.max(b.level ?? 1, 1), 6);
@@ -71,13 +76,13 @@ function blockToPM(b: DocBlock): PMNode | null {
       return { type: 'heading', attrs: { level, label: b.label ?? '' }, content: text ? [{ type: 'text', text }] : [] };
     }
     case 'paragraph':
-      return paragraph(inlinesToPM(b.inlines));
+      return paragraph(inlinesToPM(b.inlines, numbering));
     case 'displayMath':
       return { type: 'blockMath', attrs: { latex: b.latex ?? '', label: b.label ?? '' } };
     case 'list': {
       const items = (b.items ?? []).map((it) => ({
         type: 'listItem',
-        content: [paragraph(inlinesToPM(it))],
+        content: [paragraph(inlinesToPM(it, numbering))],
       }));
       return { type: b.ordered ? 'orderedList' : 'bulletList', content: items.length ? items : [{ type: 'listItem', content: [paragraph([])] }] };
     }
@@ -101,9 +106,11 @@ function blockToPM(b: DocBlock): PMNode | null {
   }
 }
 
-/** 正文块数组 → Tiptap doc JSON(供 useEditor content / setContent)。 */
+/** 正文块数组 → Tiptap doc JSON(供 useEditor content / setContent)。行内 cite 附带真实 LaTeX 样式展示文本。 */
 export function bodyToTiptap(body: DocBlock[]): PMNode {
-  const content = (body ?? []).map(blockToPM).filter((n): n is PMNode => n !== null);
+  // 先据整篇 body 建编号(出现顺序),再逐块转换,让每个 cite 拿到 [N] / 图 N 展示文本。
+  const numbering = buildNumberingFromBody(body ?? []);
+  const content = (body ?? []).map((b) => blockToPM(b, numbering)).filter((n): n is PMNode => n !== null);
   // 空文档给一个空段落,否则 ProseMirror 报「doc 至少要一个 block」。
   return { type: 'doc', content: content.length ? content : [{ type: 'paragraph' }] };
 }

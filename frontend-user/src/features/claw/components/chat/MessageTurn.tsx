@@ -4,10 +4,12 @@ import {
   AssistantBubble,
   AttachmentChipList,
   ChatStyles,
+  extractSkillGuideName,
   extractToolQuery,
   extractToolSourceBrand,
   PausedNotice,
   ReferenceChipList,
+  SkillHeaderBadge,
   StreamingIndicator,
   TurnErrorNotice,
   ThinkingFold,
@@ -15,6 +17,7 @@ import {
   ToolHeaderExtras,
   UserBubble,
 } from '@/shared/components/chat';
+import type { InstalledSkill } from '@/shared/api/skills';
 import { MINICOD_TOOL_PREFIX } from '@/shared/lib/minicod-papers';
 import { stripContainerPaths } from '@/shared/lib/strip-container-paths';
 import { ClawPaperList } from './ClawPaperList';
@@ -27,6 +30,22 @@ import { Button } from '@/shared/ui/button';
 import { useQuotaStore } from '@/stores/quota.store';
 import type { ClawArtifact } from '../../api/artifacts';
 import { TurnArtifacts } from './TurnArtifacts';
+
+// 系统预置(claw guides)技能名 → 人类可读中文标签。用户市场技能不走这里(用其显示名)。
+// 未登记的一方 skill 回退成「连字符转空格」。
+const SYSTEM_SKILL_LABELS: Record<string, string> = {
+  'paper-explain': '论文精读',
+  'citation-audit': '引用核查',
+  'topic-selection': '选题',
+  'data-figures': '数据图表',
+  'methods-stats': '方法与统计',
+  rebuttal: '审稿回复',
+  'library-reference': '文献引用',
+};
+
+function humanizeSystemSkill(guideName: string): string {
+  return SYSTEM_SKILL_LABELS[guideName] ?? guideName.replace(/-/g, ' ');
+}
 
 // mergeTurnArtifacts:本轮产物 = 执行器带外声明的 turn.artifacts(权威、工具无关),按 `path`
 // 关联耐久 DTO(useClawArtifacts,含 id/标题/说明)→ 有 DTO 用 DTO(可预览、二进制可下载),
@@ -69,6 +88,7 @@ export const MessageTurn = memo(function MessageTurn({
   turn,
   artifacts,
   sessionId,
+  userSkillsByGuide,
   onPreview,
   onResendBlocked,
   onDismissBlocked,
@@ -77,6 +97,9 @@ export const MessageTurn = memo(function MessageTurn({
   /** 当前会话 ./out 的产物列表(含 manifest 标题);用来认领"本轮产出的可下载文件"。 */
   artifacts?: ClawArtifact[];
   sessionId?: string | null;
+  /** guideName → 我启用的市场技能。用来在会话流里认出「本轮用的是你的技能 X」并与系统能力区分。
+   *  父组件用 useMemo 缓存(引用稳定不破 memo);不传则所有 Skill 帧按系统能力渲染。 */
+  userSkillsByGuide?: Map<string, InstalledSkill>;
   /** 点「预览」→ 打开 ClawPage 右侧预览面板(传 ClawPage 的 setPreviewArtifact,引用稳定不破 memo)。 */
   onPreview?: (a: ClawArtifact) => void;
   /** blocked(命中额度未发送)轮:点「重新发送」。引用稳定不破 memo。 */
@@ -165,6 +188,42 @@ export const MessageTurn = memo(function MessageTurn({
                   )}
                 </div>
               );
+            }
+            // 技能加载:模型经内建 Skill 工具打开一份 SKILL.md → 在 chip 上标注加载了哪个技能,
+            // 并区分「你的技能」(市场自装,brand-green)与系统预置能力(中性灰)。失败加载(isError)
+            // 不算"用了" → 落通用渲染,不打徽标。用户/系统靠 guideName 对照启用列表(精确匹配,非前缀猜)。
+            if (b.toolName === 'Skill') {
+              const guideName = extractSkillGuideName(b.input);
+              if (guideName && !b.isError) {
+                const mine = userSkillsByGuide?.get(guideName);
+                // u<uid>-<slug> 前缀 = 用户市场技能命名空间。命中启用列表 → 你的技能;未命中但仍是
+                // 用户命名空间(已卸载/停用/列表未就绪)→ **不能**当系统能力展示(否则把内部 key「u12-foo」
+                // 当能力名泄给用户),落通用渲染;只有非用户命名空间才是真·系统预置能力,打灰徽标。
+                const isUserNs = /^u\d+-/.test(guideName);
+                if (mine) {
+                  return (
+                    <ToolCallBlock
+                      key={b.id}
+                      tool={b}
+                      renderHeaderExtras={() => (
+                        <SkillHeaderBadge kind="user" label={mine.name} />
+                      )}
+                    />
+                  );
+                }
+                if (!isUserNs) {
+                  return (
+                    <ToolCallBlock
+                      key={b.id}
+                      tool={b}
+                      renderHeaderExtras={() => (
+                        <SkillHeaderBadge kind="system" label={humanizeSystemSkill(guideName)} />
+                      )}
+                    />
+                  );
+                }
+                // 未解析的用户技能 → 落末尾通用 <ToolCallBlock>(显示「技能」,不暴露 u<uid>- 内部 key)。
+              }
             }
             return <ToolCallBlock key={b.id} tool={b} />;
           })}

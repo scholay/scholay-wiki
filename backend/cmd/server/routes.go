@@ -46,7 +46,6 @@ import (
 	"scholar-backend/internal/supportcenter"
 	"scholar-backend/internal/thirdparty"
 	"scholar-backend/internal/umami"
-	"scholar-backend/internal/usagelog"
 	"scholar-backend/internal/llmusage"
 	"scholar-backend/internal/usagestat"
 	"scholar-backend/internal/usermemory"
@@ -72,7 +71,6 @@ type allHandlers struct {
 	wechatPay       *payment.WeChatPayHandler
 	wechat          *wechat.Handler
 	wechatOfficial  *wechatofficial.Handler
-	usageLogAdmin   *usagelog.AdminHandler
 	usageStats      *usagestat.Handler
 	llmUsageAdmin   *llmusage.AdminHandler // 后台 token 用量看板 (llm_token_usage 聚合/明细/导出)
 	vip             *vip.Handler           // 会员: 用户兑换/状态 + 管理端生码/列表
@@ -107,14 +105,13 @@ type allHandlers struct {
 // registerRoutes 注册所有 API 路由
 func registerRoutes(router *gin.Engine, h *allHandlers, cfg *appconfig.Config) {
 	// 第二道限流：按 user_id（认证用户）/ IP（匿名）分级限流，挂在认证路由组内层，
-	// 以便 UserAuthMiddleware 已经把 user_id/is_vip 写入 ctx 后立刻生效。
+	// 以便 UserAuthMiddleware 已经把 user_id 写入 ctx 后立刻生效。
 	// 使用 Redis 后端，多实例部署下计数共享；Redis 不可用时自动降级到内存版。
 	tieredRL := middleware.TieredRedisRateLimitMiddleware(middleware.TieredRateLimitOptions{
-		IPRPS:         cfg.RateLimit.IPRPS,
-		IPBurst:       cfg.RateLimit.IPBurst,
-		UserRPS:       cfg.RateLimit.UserRPS,
-		UserBurst:     cfg.RateLimit.UserBurst,
-		VIPMultiplier: cfg.RateLimit.VIPMultiplier,
+		IPRPS:     cfg.RateLimit.IPRPS,
+		IPBurst:   cfg.RateLimit.IPBurst,
+		UserRPS:   cfg.RateLimit.UserRPS,
+		UserBurst: cfg.RateLimit.UserBurst,
 	})
 
 	api := router.Group("/api/v1")

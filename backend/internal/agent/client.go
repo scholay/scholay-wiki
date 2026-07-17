@@ -673,6 +673,48 @@ func (c *Client) RenderMermaid(ctx context.Context, code string) (*MermaidRender
 	return &out, nil
 }
 
+// DocHeadResult 对应 agent POST /api/sessions/:id/extract-head 的响应(有界文档头文本)。
+type DocHeadResult struct {
+	Text      string `json:"text"`
+	Truncated bool   `json:"truncated"` // 是否因超 maxChars 被截断(仅供调用方判断,不影响正确性)
+}
+
+// ExtractDocHead 让 agent 从会话 cwd 里的稿件抽取「开头一小段」纯文本,输出对所有格式硬性有界
+// (PDF 只抽前 pdfPages 页;其它 pandoc 抽后硬截 maxChars)。用于审稿「预识别」—— 把有界头文本
+// 内联进 prompt,agent 那轮不再自己 ReadDocument 读全文,token 由构造钳死。
+// pdfPages:>0 = 前 N 页(预识别);0 = 全部页(审稿全文,仍受 maxChars 上界)。maxChars<=0 → agent 用默认 8000。
+// relPath 是稿件在会话 cwd 的路径
+// (PushSessionFile 返回的绝对路径即可,agent 侧再 confinePath 限制)。
+// 抽取失败(扫描件无文本层 / 转换失败 / 不支持的扩展名)时 agent 返 422 → 回 *HTTPError,调用方据此降级。
+// pandoc 抽大 docx 可能较慢,超时给 60s(与转换器内部 kill 对齐)。
+func (c *Client) ExtractDocHead(ctx context.Context, sessionID, relPath string, pdfPages, maxChars int) (*DocHeadResult, error) {
+	if c.baseURL == "" {
+		return nil, errors.New("agent: empty base url")
+	}
+	if sessionID == "" {
+		return nil, errors.New("agent: empty sessionId")
+	}
+	if strings.TrimSpace(relPath) == "" {
+		return nil, errors.New("agent: empty doc path")
+	}
+	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+	// pdfPages 恒发送:>0 = 前 N 页(预识别);0 = 全部页(审稿全文,仍受 maxChars 上界)。
+	// 必须显式发 0 —— agent 侧「字段缺省」会退回默认 3 页,而审稿需要全文。maxChars<=0 才让 agent 用默认。
+	body := map[string]any{"path": relPath, "pdfPages": pdfPages}
+	if maxChars > 0 {
+		body["maxChars"] = maxChars
+	}
+	var out DocHeadResult
+	if err := c.doJSON(ctx, http.MethodPost, "/api/sessions/"+sessionID+"/extract-head", body, &out); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(out.Text) == "" {
+		return nil, errors.New("agent: empty text in extract-head response")
+	}
+	return &out, nil
+}
+
 // PatchSession 改 session 元数据 (目前仅 title)。
 // 404 时返 ErrSessionNotFound — 这个 session 在 agent 端不存在 (可能被运维清掉),
 // caller 应当清掉 DB 里的孤儿映射。

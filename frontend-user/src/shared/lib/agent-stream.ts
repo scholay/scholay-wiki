@@ -94,6 +94,15 @@ export function appendStreamMessage<T extends AgentStreamMessage>(prev: T[], evt
       return [...prev.slice(0, -1), { ...last, text: last.text + evt.text } as T];
     }
   }
+  // 合并相邻 thinking 帧(性能审计 发现1):一轮思考逐 token 推送可达上百帧,不合并则 socket.messages 撑成
+  // O(帧数)、上层每帧对整个数组全量重折叠 ⇒ 会话内 O(N²)(越想越卡)。与 fold 的 `thinkingText += msg.text`
+  // 完全等价(fold 本就把连续 thinking 拼成一段),提前合并无损。claw/smart-search/prism/admin 监控四处共用,一处修全受益。
+  if (evt.type === 'thinking' && typeof evt.text === 'string') {
+    const last = prev[prev.length - 1];
+    if (last && last.type === 'thinking' && typeof last.text === 'string') {
+      return [...prev.slice(0, -1), { ...last, text: last.text + evt.text } as T];
+    }
+  }
   // P1-1:同样合并相邻的 toolInput content_delta(Write.content 流式逐 token 会推成百上千帧,
   //   不合并则 socket.messages 撑成 O(token)、上层每帧全量重折叠 ⇒ O(N²))。只并「都带 toolInput、
   //   不带 text」的相邻 delta,不与文本流互相误并。

@@ -46,7 +46,7 @@ export function MySkillsPage() {
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             上传纯文本 SKILL.md;公开需通过审核。
-            <Link to="/skills" className="ml-2 text-brand-green hover:underline">
+            <Link to="/tools/skills" className="ml-2 text-brand-green hover:underline">
               浏览市场 →
             </Link>
           </p>

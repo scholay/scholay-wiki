@@ -271,7 +271,10 @@ export async function runTurn(
             const r = await reduceForWindow(messages, input.contextWindow, { keepTurns: REACTIVE_KEEP_TURNS, targetPct: 55 });
             if (r.actions.length > 0) {
               messages.splice(0, messages.length, ...r.messages); // 原地替换工作数组
-              if (r.usage) calls.push(r.usage); // 摘要用量计入本轮
+              // 压缩摘要 = 系统内部开销:与主动压缩(server/ws.ts)同口径,走带外 token_usage{context_compact}
+              // 帧(Go recordOutOfBandTokens 置 SkipQuota,记账本但不扣用户额度)。**不能** push 进 calls
+              // —— 否则并入 message_complete.usage/session_total 被当正常轮内消耗扣用户额度(两路口径相反)。
+              if (r.usage) sink.frame({ type: "token_usage", usage: r.usage, kind: "context_compact" });
               reactiveReduces++;
               log.warn("reactive context reduce on overflow, retrying round", {
                 session_id: input.sessionId, model, round, actions: r.actions.join(","), attempt: reactiveReduces,

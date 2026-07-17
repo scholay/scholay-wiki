@@ -478,6 +478,39 @@ func buildAssetsBlock(files *sessionAssets) string {
 	return b.String()
 }
 
+// buildInlinedAssetsBlock —— 正文已作为 preamble 注入会话上文时用(审稿路径):不再指示读正文文件,
+// 避免共享 session 里每位审稿人 + 主审各读一遍全文 → O(N²) input 计费。只保留"补充材料按需读"。
+// 与 buildAssetsBlock(指示读全文)互斥二选一,由 buildCommonContext 的 manuscriptInlined 决定。
+func buildInlinedAssetsBlock(files *sessionAssets) string {
+	var b strings.Builder
+	b.WriteString("【稿件正文 — 已在本会话上文完整给出】\n")
+	b.WriteString("论文正文全文已作为上文消息提供,请**直接基于上文正文**评审,**不要**再用 Read/ReadDocument 重新读取正文文件(重复读取纯属浪费)。\n")
+	if len(files.attachments) > 0 {
+		b.WriteString("\n补充材料(仅确有必要时才读;文本类用 Read,文档类用 ReadDocument):\n")
+		for _, att := range files.attachments {
+			line := "- " + att.path
+			if att.category != "" {
+				line += " (" + att.category + ")"
+			}
+			b.WriteString(line + "\n")
+		}
+	}
+	return b.String()
+}
+
+// buildManuscriptPreamble —— 审稿开始前向共享 session **一次性**注入正文全文的 preamble。
+// 随后审稿人/主审都把它当作已在上文的稳定前缀(prompt-cache 命中走 cache-read 折扣),不再各自重读。
+func buildManuscriptPreamble(manuscript string) string {
+	var b strings.Builder
+	b.WriteString("【待审论文正文全文 — 只此一次给出,请通读并记住】\n")
+	b.WriteString("下面是本场审稿的论文正文全文。随后几位审稿人与主审都将**基于这份正文**评审,你无需、也不要再用 Read/ReadDocument 重新读取正文文件。\n\n")
+	b.WriteString("===== 论文正文开始 =====\n")
+	b.WriteString(manuscript)
+	b.WriteString("\n===== 论文正文结束 =====\n\n")
+	b.WriteString("现在只需回复「已阅」两个字,不要分析、不要调用任何工具。")
+	return b.String()
+}
+
 // buildMethodologyPrompt 方法论 + 审稿人选择会话的提示 —— Skill-开 的临时会话里跑。
 // agent 读论文 + invoke reviewer-roster 编排 skill, 选 3 位审稿人, 末尾输出选择 JSON。
 // 自由文本方法论注入后续评分轮; 选择 JSON 由后端 parseSelection 解析 → 按 slug 读各审稿人 SKILL.md。
@@ -1247,6 +1280,16 @@ func (s *Service) reviewCallCtx(ctx context.Context, submissionID uint64) contex
 	return reviewCallCtxWith(ctx, submissionID, userID)
 }
 
+// meta「预识别」的文档头有界抽取参数:前 metaHeadPages 页 且 ≤ metaHeadChars 字符(标题/摘要/
+// 关键词/学科都落在这个范围内)。把「只看开头」从提示词软约束升级成构造性硬约束的关键(见 runMetaExtract)。
+const (
+	metaHeadPages = 3
+	metaHeadChars = 8000
+	// 审稿正文「只读一次」的抽取字符上界:pdfPages=0=全部页,上界与 agent ReadDocument 的 MAX_DOC_CHARS
+	// (默认 400k)对齐 —— 审稿人本就需要通读全文,不缩量以免降低审稿质量,故不构成相对旧 ReadDocument 路径的回归。
+	reviewManuscriptChars = 400000
+)
+
 func (s *Service) runMetaExtract(ctx context.Context, submissionID uint64, sessionID, fingerprint string) {
 	failure := func(reason string) {
 		_ = s.repo.SetComputeState(submissionID, StateFailed, reason)
@@ -1263,9 +1306,8 @@ func (s *Service) runMetaExtract(ctx context.Context, submissionID uint64, sessi
 	ctx = s.reviewCallCtx(ctx, submissionID) // LLM 账本归属 (feature=peer_review + 投稿人)
 	s.broker.Begin(submissionID, SlotMeta)
 
-	// 方案 B:把稿件推到 agent 会话 cwd,让它用【自己的命令行工具】抽文本(后端不预处理 —— 格式太多
-	// 无法预判)。meta 只需开头,故 prompt 强约束:用 pdftotext -l 2 / pandoc 取前 2 页,**绝不 Read 原始 PDF**
-	// (二进制乱码、读整本会 10-17M token 撞轮数上限 → meta 失败 → step2Cache 空 → 下一步 400)。
+	// 稿件推到 agent 会话 cwd —— 供下方**确定性有界抽取**(ExtractDocHead)读取,同时为后续 letter /
+	// 审稿轮保证文件在 cwd(pushAssetsToSession 幂等,各入口各推一次)。meta 本身不再让 agent 自己读全文。
 	files, perr := s.pushAssetsToSession(ctx, submissionID, sessionID)
 	if perr != nil {
 		if errors.Is(perr, ErrManuscriptMissing) {
@@ -1277,13 +1319,26 @@ func (s *Service) runMetaExtract(ctx context.Context, submissionID uint64, sessi
 		return
 	}
 
-	prompt := fmt.Sprintf(
-`请从这篇论文里抽取投稿元数据。论文文件已放在你的当前工作目录:
-%s
+	// 【核心止血】确定性有界抽取「文档头」:对所有格式硬性钳到 前 metaHeadPages 页 且 ≤ metaHeadChars 字符
+	// (PDF 走 pdftotext -l N;docx/其它走 pandoc 后硬截)。取代过去「让 agent 自己 ReadDocument」——那条路
+	// 对 docx 靠提示词永远抽全文(pandoc 无页限)、PDF 的 first_pages 是模型可无视的软约束,叠加共享 session +
+	// JSON 重试,一次便宜的 meta 会把整篇稿件反复灌进上下文烧掉大量 token。现在 meta 那轮 agent 只拿到一小段
+	// 头文本、不进任何文件读取工具,token 由构造钳死。
+	head, herr := s.feature.AgentClient().ExtractDocHead(ctx, sessionID, files.manuscriptPath, metaHeadPages, metaHeadChars)
+	if herr != nil {
+		// 扫描件无文本层 / 转换失败 → agent 返 422。不再退回全文乱读,直接引导用户重试(记 Warn,非系统故障)。
+		slog.Warn("peerreview meta extract doc head failed", "submission_id", submissionID, "err", herr)
+		failure("稿件信息抽取失败,请确认稿件包含可选中文字(非扫描图片),或稍后重试")
+		return
+	}
 
-**只需论文开头 1-2 页**(标题/摘要/关键词/学科都在首页与摘要区)。**绝不要通读全文,也绝不要用 Read 直接读原始 PDF/docx**——它们是二进制,Read 会得到乱码。请用 **ReadDocument 工具**抽取文本:
-- PDF:ReadDocument 传参数 first_pages=2,只取前 2 页。
-- docx / 其它文档:直接 ReadDocument(它内部用 pandoc/pdftotext 抽全文,你只看开头即可)。
+	prompt := fmt.Sprintf(
+`下面是一篇论文的**开头部分**(标题、摘要、关键词、学科通常都在这里)。请据此抽取投稿元数据。
+只依据给出的文本,不要臆测;文本可能在中途截断,忽略不完整的尾句即可。
+
+===== 论文开头 =====
+%s
+===== 结束 =====
 
 抽取结构化元数据, **严格 JSON 输出**(不要任何前后缀文本 / 不要 markdown 代码块):
 
@@ -1293,7 +1348,7 @@ func (s *Service) runMetaExtract(ctx context.Context, submissionID uint64, sessi
   "keywords": ["<3-7 个关键词, 简短 1-3 词>"],
   "subjects": ["<1-3 个学科领域, 例如 '计算机科学' / 'Computational Linguistics'>"],
   "manuscriptType": "<research / review / short_communication 三选一, 不确定填 research>"
-}`, files.manuscriptPath)
+}`, head.Text)
 
 	// 元数据 JSON 解析:模型偶发吐非法 JSON —— 尤其含非 ASCII 的论文(法语/带变音符),
 	// 会在结构位置漏出游离字符(如 'ç')冲碎 JSON。与审稿打分链一致,走 chatWithRetry 有界
@@ -1360,10 +1415,11 @@ func (s *Service) runMetaExtract(ctx context.Context, submissionID uint64, sessi
 	s.broker.Done(submissionID, SlotMeta)
 }
 
-// runLetterDraft: agent session 里已经有 manuscript —— step1→2 的 meta-extract 已用
-// Read 工具把稿件读进了会话上下文 (方案 B)。这里只发简短 prompt 告诉它 "起草 letter,
-// 目标 X, 风格 Y", 不重传也不重读稿件。这是 single-session 的核心 token 节省点。
-// (前置依赖: advanceTo3 的 safety check 保证 assets 没变, 会话里的稿件仍是当前版本。)
+// runLetterDraft: agent session 里已经有稿件「文档头」—— step1→2 的 meta-extract 已把 ExtractDocHead
+// 抽出的开头文本(标题/摘要/前 metaHeadPages 页)内联进了会话上下文。这里只发简短 prompt 告诉它
+// "起草 letter, 目标 X, 风格 Y", 不重传也不重读稿件(cover letter 只需标题/摘要/贡献,头文本够用)。
+// 这是 single-session 的核心 token 节省点。
+// (前置依赖: advanceTo3 的 safety check 保证 assets 没变, 会话里的稿件头仍是当前版本。)
 func (s *Service) runLetterDraft(ctx context.Context, submissionID uint64, sessionID, fingerprint string) {
 	failure := func(reason string) {
 		_ = s.repo.SetComputeState(submissionID, StateFailed, reason)
@@ -1610,8 +1666,8 @@ func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 	// ServerSideChatStreaming 内部据此各落一行 (feature=peer_review + 投稿人)。
 	ctx = reviewCallCtxWith(ctx, submissionID, sub.UserID)
 
-	// 方案 B: 把稿件 + 附件推到 agent 会话 cwd (审稿可能在 meta 之后很久才触发,
-	// 此处再推一次保证 session 重建后文件仍在), 让审稿人用 Read 读原文。
+	// 把稿件 + 附件推到 agent 会话 cwd (审稿可能在 meta 之后很久才触发,此处再推一次保证 session
+	// 重建后文件仍在)。正文供下方**一次性有界抽取**读取;附件仍可按需 Read。
 	files, perr := s.pushAssetsToSession(ctx, submissionID, sessionID)
 	if perr != nil {
 		if errors.Is(perr, ErrManuscriptMissing) {
@@ -1620,6 +1676,19 @@ func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 			s.markFailedAndLog(submissionID, "推送稿件到 agent 失败: "+perr.Error())
 		}
 		return
+	}
+
+	// 【R2 止血】审稿正文「只读一次」:过去 commonContext 让**每位**审稿人 + 主审各用 ReadDocument 通读全文,
+	// 在共享 session 里叠成 O(N²) input 计费(alpha 读一份;beta 轮既带上 alpha 那份、又自己再读一份…到 chief
+	// 已累积多份全文)。改为后端**确定性抽全文一次**(pdfPages=0=全部页,仍受 reviewManuscriptChars 上界),
+	// 下方作为**一条 preamble** 注入共享 session,审稿人直接引用上文、不再各读一遍。抽取失败(扫描件无文本层)
+	// 则清空 → 回退到旧的「各自 ReadDocument」路径,不 hard-fail。
+	var manuscriptInline string
+	if ft, ferr := s.feature.AgentClient().ExtractDocHead(ctx, sessionID, files.manuscriptPath, 0, reviewManuscriptChars); ferr != nil {
+		slog.Warn("peerreview review manuscript extract failed; reviewers fall back to per-turn ReadDocument",
+			"submission_id", submissionID, "err", ferr)
+	} else {
+		manuscriptInline = ft.Text
 	}
 
 	// 选择 + 方法论会话(临时, Skill 开): agent 读论文 + invoke reviewer-roster 选 3 位审稿人, 产出方法论。
@@ -1647,7 +1716,21 @@ func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 	}
 	_ = s.repo.SetComputeState(submissionID, StateReviewing, "")
 
-	commonContext := buildCommonContext(sub, files, methodology)
+	// 把抽好的正文作为**一条** preamble 注入共享 session(只此一次);随后审稿人/主审的每轮都只把它当作
+	// 已在上文的稳定前缀(prompt-cache 命中走 cache-read 折扣),不再各自重读。注入失败 → 清空回退到 ReadDocument。
+	if manuscriptInline != "" {
+		_, pUsage, serr := s.feature.ServerSideChatStreaming(ctx, sessionID, buildManuscriptPreamble(manuscriptInline),
+			func(string) {}, func(string) {}, s.modelFor(modelcatalog.PurposePeerreviewScoring))
+		if serr != nil {
+			slog.Warn("peerreview seat manuscript preamble failed; reviewers fall back to per-turn ReadDocument",
+				"submission_id", submissionID, "err", serr)
+			manuscriptInline = ""
+		} else {
+			reviewTokens += usageTotal(pUsage) // preamble 的 token 计入单场成本兜底累计
+		}
+	}
+
+	commonContext := buildCommonContext(sub, files, methodology, manuscriptInline != "")
 
 	// 3 位审稿人串行 — 每位独立 slot, 同时推 broker 让前端实时看到 agent 输出。
 	// 保留各自 ReviewerOutput 用于 chief 上下文。
@@ -2032,7 +2115,9 @@ func journalMetaLine(raw json.RawMessage) string {
 	return "期刊定位:" + strings.Join(parts, " · ")
 }
 
-func buildCommonContext(sub *Submission, files *sessionAssets, methodology string) string {
+// manuscriptInlined=true 表示正文已作为 preamble 注入共享 session 上文(审稿路径) → 用 buildInlinedAssetsBlock
+// (勿重读正文)并去掉"可 Read 正文"的邀请;false 走旧路径(指示各自 ReadDocument 全文,如抽取失败时的回退)。
+func buildCommonContext(sub *Submission, files *sessionAssets, methodology string, manuscriptInlined bool) string {
 	var b strings.Builder
 	// 时间锚点 + 引用核查行为准则(2026-07):模型上下文若无当前日期,只能按训练截止(≈2025 初)
 	// 推断"今年",曾把 2026 年合法引用判成「年份不可能,2026 年尚未到来」。光给日期不够(训练年代
@@ -2076,7 +2161,11 @@ func buildCommonContext(sub *Submission, files *sessionAssets, methodology strin
 		b.WriteString("\n")
 	}
 	b.WriteString("\n")
-	b.WriteString(buildAssetsBlock(files))
+	if manuscriptInlined {
+		b.WriteString(buildInlinedAssetsBlock(files))
+	} else {
+		b.WriteString(buildAssetsBlock(files))
+	}
 
 	// 提示审稿人有学术检索工具可用 — 用来核查引用 / 找同类对比文献 / 确认期刊定位。
 	// 比写在每个 skill system_prompt 里更省: 改一次全员生效, 也不会让 prompt 重复。
@@ -2108,9 +2197,12 @@ func buildCommonContext(sub *Submission, files *sessionAssets, methodology strin
 - 仅在确实有助于你下判断时调用; 不要为调而调
 - 调用结果只用于支撑你的意见, 不要把检索过程写进最终 JSON 输出
 - 单次 limit ≤ 5, 空结果别死磕 (最多重试 1 次), 没数据就跳过
-- 你可以用 Read 工具读取上面列出的稿件 / 补充材料文件 (它们就在你的工作目录里);
-  但严禁 Write / Edit 这些文件, 也严禁 Bash / WebSearch 等本地或外网工具
 `)
+	if manuscriptInlined {
+		b.WriteString("- 论文正文已在会话上文完整给出,**直接据此评审**,不要再用 Read / ReadDocument 重读正文;补充材料(如有,见上)仅确有必要时才读。严禁 Write / Edit / Bash / WebSearch 等工具。\n")
+	} else {
+		b.WriteString("- 你可以用 Read 工具读取上面列出的稿件 / 补充材料文件 (它们就在你的工作目录里);\n  但严禁 Write / Edit 这些文件, 也严禁 Bash / WebSearch 等本地或外网工具\n")
+	}
 	return b.String()
 }
 

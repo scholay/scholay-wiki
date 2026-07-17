@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AlertCircle, ArrowDown, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom';
 import { AgentDisplacedBanner } from '@/shared/components/AgentDisplacedBanner';
@@ -42,7 +42,7 @@ import {
   smartSearchSessionFileUrl,
 } from '../../api/smart-search';
 import { AssistantTurn } from './AssistantTurn';
-import { SmartComposer, COMPOSER_LAYOUT_ID, composerDockTransition } from './SmartComposer';
+import { SmartComposer } from './SmartComposer';
 import { SmartSearchHero } from './SmartSearchHero';
 import {
   foldMessagesIntoTurns,
@@ -625,7 +625,6 @@ export function SmartSearchPanel() {
     (!!sessionId && (historyQuery.isLoading || historyQuery.isFetching));
 
   return (
-    <LayoutGroup>
     <div className="flex flex-col h-full min-h-0 bg-background">
       {/* 多窗口接管 banner: 后端 displacement 路径下发 {type:displaced} 后,
           这个 banner 占顶部一行, 用户点 "切回这里" 调 takeOver() 抢回活跃权。
@@ -636,8 +635,7 @@ export function SmartSearchPanel() {
 
       {/* 内容区:hero(空态)与对话视图是两层 absolute 叠层,互不挤压布局。
           - 对话视图常驻底层;悬浮对话框 + 底部渐隐都在这层。
-          - hero 在最上层,发送首条消息后整体淡出(大标题 + 流动背景渐隐),
-            而对话框借同一个 layoutId 从居中平滑滑到底部停靠。 */}
+          - hero 在最上层,发送首条消息后整体淡出(大标题 + 流动背景渐隐),底栏 composer 同时就位。 */}
       <div className="relative flex-1 min-h-0">
         {/* 对话视图(底层) */}
         {turns.length > 0 && (
@@ -725,16 +723,11 @@ export function SmartSearchPanel() {
             {/* 底部渐隐:内容贴近底部时淡入 surface-1,让悬浮对话框"浮"在对话之上(不被文字顶到边)。 */}
             <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28 bg-gradient-to-t from-surface-1 via-surface-1/85 to-transparent" />
 
-            {/* 悬浮对话框 —— 与空态 hero 完全相同的 SmartComposer(prominent + 居中 max-w-2xl
-                + 同一个 layoutId),绝对定位悬浮在对话区底部中央。发送首条消息后由 framer-motion
-                据 layoutId 从居中平滑滑到这里(同尺寸 → 纯位移,就是"同一个框浮下来")。
-                外层 pointer-events-none 让框两侧的空白不挡滚动,框本体 pointer-events-auto 可交互。 */}
+            {/* 悬浮对话框 —— 普通 div。原「与 hero 共用 layoutId 从居中滑到底部」的共享 layout 动画已移除:
+                那个 framer 共享 layout 会用 scaleY morph 高度,返回页面时被路由过渡打断即卡住 → 输入框拉高变形。
+                改为 hero 淡出 + 底栏 composer 直接就位。外层 pointer-events-none 不挡滚动,框本体可交互。 */}
             <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-4 pb-4">
-              <motion.div
-                layoutId={COMPOSER_LAYOUT_ID}
-                transition={composerDockTransition(reduce)}
-                className="pointer-events-auto mx-auto w-full max-w-2xl"
-              >
+              <div className="pointer-events-auto mx-auto w-full max-w-2xl">
                 <SmartComposer
                   prominent
                   value={input}
@@ -751,7 +744,7 @@ export function SmartSearchPanel() {
                   }
                   {...composerExtras}
                 />
-              </motion.div>
+              </div>
             </div>
           </div>
         )}
@@ -764,8 +757,7 @@ export function SmartSearchPanel() {
           </div>
         )}
 
-        {/* 起始态 hero(顶层):发送首条消息后整体淡出(大标题 + 流动背景),
-            对话框则借 layoutId 从这里平滑滑到底部停靠。 */}
+        {/* 起始态 hero(顶层):发送首条消息后整体淡出(大标题 + 流动背景);底栏 composer 同时就位。 */}
         <AnimatePresence initial={false}>
           {turns.length === 0 && !loadingHistory && (
             <motion.div
@@ -799,7 +791,6 @@ export function SmartSearchPanel() {
         busy={referenceMutation.isPending}
       />
     </div>
-    </LayoutGroup>
   );
 }
 

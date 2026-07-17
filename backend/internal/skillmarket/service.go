@@ -507,7 +507,8 @@ func (s *Service) ListInstalled(userID uint) ([]InstalledSkillDTO, error) {
 		}
 		out = append(out, InstalledSkillDTO{
 			SkillID: skill.ID, Slug: skill.Slug, Name: skill.Name, Tagline: skill.Tagline,
-			Source: e.Source, Enabled: e.Enabled, Available: s.materializable(userID, skill),
+			GuideName: GuideName(skill.UserID, skill.Slug), // u<作者uid>-<slug>,与会话内 Skill 帧的 input.name 对齐
+			Source:    e.Source, Enabled: e.Enabled, Available: s.materializable(userID, skill),
 		})
 	}
 	return out, nil

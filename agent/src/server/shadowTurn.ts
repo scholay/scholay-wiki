@@ -5,6 +5,12 @@
 // 用途:① shadow 对账(Go hub 把 live 轮的 history 喂进来比 executor 与 fork 的 tool 序列/完成度);
 //       ② 未来 cutover 后「后端喂 history」的执行入口。
 // 安全:shadow 是只读对账,控制面不在环 → 自动批权限;smart_search 画像 MCP-only 读,无副作用。
+//
+// ⚠️ 计费门禁(评审 R1-info):runTurn 会**真实命中上游模型消耗 token**,但本函数的 usage 只随 HTTP
+//    响应返回、**不发 token_usage 帧、不进 session_total 水位**,故后端账本对它零感知(当前 dormant:
+//    Go 侧无任何 /api/turn 调用方,不产生真实消耗)。**在把 /api/turn 接进任何 live/cutover 路径之前**,
+//    必须把 result.usage 经旁路(后端 recordOutOfBandTokens,如 kind=shadow_turn / SkipQuota)接入
+//    llm_token_usage,否则每个 shadow 轮翻倍消耗上游 token 且不落账本 = 成本看板系统性低估。
 
 import type Anthropic from "@anthropic-ai/sdk";
 import { runTurn } from "../turn/turnLoop.ts";

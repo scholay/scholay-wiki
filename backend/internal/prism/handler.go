@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"scholar-backend/internal/agentattach"
 	"scholar-backend/internal/common/utils"
@@ -332,8 +333,20 @@ func (h *Handler) GetPDF(c *gin.Context) {
 	}
 	defer rc.Close()
 	c.Header("Content-Type", "application/pdf")
-	// 编译产物会随每次重编译变化,但 URL(除前端 ?v= 外)不变 → 禁浏览器缓存,避免回放旧 PDF(中文空白等)。
-	c.Header("Cache-Control", "no-store")
+	// 条件请求(性能审计):同一 URL 的 PDF 字节稳定(前端每次成功编译换 ?v=<version> → 换 URL),用 ETag 做
+	// 二次拉取的 304 免重传 —— pdf.js 重渲 / 下载按钮不再整份重拉两遍。保守用 no-cache(每次校验、不 immutable),
+	// 避免快速连编时旧字节被浏览器长缓存回放(旧 no-store 的顾虑);MinIO ObjectInfo.ETag 直接复用。
+	if info != nil && info.ETag != "" {
+		etag := `"` + strings.Trim(info.ETag, `"`) + `"`
+		if c.GetHeader("If-None-Match") == etag {
+			c.Status(http.StatusNotModified)
+			return
+		}
+		c.Header("ETag", etag)
+		c.Header("Cache-Control", "private, no-cache")
+	} else {
+		c.Header("Cache-Control", "no-store")
+	}
 	if info != nil && info.Size > 0 {
 		c.Header("Content-Length", strconv.FormatInt(info.Size, 10))
 	}

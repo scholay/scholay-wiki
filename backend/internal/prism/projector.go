@@ -401,6 +401,9 @@ func assembleArticle(t texTemplate, d *DocStruct, body string, hasBib bool) stri
 			names = append(names, escapeLaTeX(authorName(a)))
 		}
 		fmt.Fprintf(&b, "\\author{%s}\n", strings.Join(names, " \\and "))
+	} else {
+		// 前端已移除作者/机构编辑,统一固定匿名署名。
+		fmt.Fprintf(&b, "\\author{%s}\n", anonymousAuthor)
 	}
 	b.WriteString("\\date{\\today}\n\\begin{document}\n\\maketitle\n")
 	if strings.TrimSpace(fm.Abstract) != "" {
@@ -442,6 +445,8 @@ func assembleIEEE(t texTemplate, d *DocStruct, body string, hasBib bool) string 
 			blocks = append(blocks, ab.String())
 		}
 		fmt.Fprintf(&b, "\\author{%s}\n", strings.Join(blocks, "\n\\and\n"))
+	} else {
+		fmt.Fprintf(&b, "\\author{\\IEEEauthorblockN{%s}}\n", anonymousAuthor)
 	}
 	b.WriteString("\\begin{document}\n\\maketitle\n")
 	if strings.TrimSpace(fm.Abstract) != "" {
@@ -464,6 +469,9 @@ func assembleElsarticle(t texTemplate, d *DocStruct, body string, hasBib bool) s
 	b.WriteString("\n\\begin{document}\n\\begin{frontmatter}\n")
 	fmt.Fprintf(&b, "\\title{%s}\n", escapeLaTeX(fm.Title))
 	affByID := affIndex(fm.Affiliations)
+	if len(fm.Authors) == 0 {
+		fmt.Fprintf(&b, "\\author{%s}\n", anonymousAuthor)
+	}
 	for _, a := range fm.Authors {
 		labels := []string{}
 		for _, rid := range a.AffRefs {
@@ -552,6 +560,9 @@ func assembleSNJnl(t texTemplate, d *DocStruct, body string, hasBib bool) string
 	b.WriteString("\n\\begin{document}\n")
 	fmt.Fprintf(&b, "\\title{%s}\n", escapeLaTeX(fm.Title))
 	affByID := affIndex(fm.Affiliations)
+	if len(fm.Authors) == 0 {
+		fmt.Fprintf(&b, "\\author{\\fnm{}\\sur{%s}}\n", anonymousAuthor)
+	}
 	for ai, a := range fm.Authors {
 		star := ""
 		if a.Corresponding || ai == 0 { // 第一/通讯作者标 *
@@ -630,6 +641,8 @@ func assembleLLNCS(t texTemplate, d *DocStruct, body string, hasBib bool) string
 			parts = append(parts, nm)
 		}
 		fmt.Fprintf(&b, "\\author{%s}\n", strings.Join(parts, " \\and "))
+	} else {
+		fmt.Fprintf(&b, "\\author{%s}\n\\institute{}\n", anonymousAuthor)
 	}
 	if len(fm.Affiliations) > 0 {
 		insts := make([]string, 0, len(fm.Affiliations))
@@ -678,6 +691,9 @@ func conformSNJnl(d *DocStruct) []string {
 	}
 	return m
 }
+
+// anonymousAuthor:前端已移除作者/机构编辑,论文统一固定匿名署名(各模板 \author 空时回落到它)。
+const anonymousAuthor = "Anonymous"
 
 func authorName(a Author) string {
 	n := strings.TrimSpace(strings.TrimSpace(a.Given) + " " + strings.TrimSpace(a.Family))
@@ -779,12 +795,16 @@ func renderInlines(inls []Inline) string {
 			if isCrossRefKey(in.Key) {
 				fmt.Fprintf(&b, "\\ref{%s}", in.Key)
 			} else {
-				keys := []string{in.Key}
+				// splitCiteKeys:把历史结构体里被误当单键存下的复合键(如 "a; @b")拆开,否则投影出
+				// \cite{a; @b} 会让 bibtex 报「White space in argument」直接编不过(存量文档自愈)。
+				keys := splitCiteKeys(in.Key)
 				for i+1 < len(inls) && inls[i+1].T == InlineCite && !isCrossRefKey(inls[i+1].Key) { // 合并相邻文献引用 → \cite{a,b}
 					i++
-					keys = append(keys, inls[i].Key)
+					keys = append(keys, splitCiteKeys(inls[i].Key)...)
 				}
-				fmt.Fprintf(&b, "\\cite{%s}", strings.Join(keys, ",")) // cite key 不转义
+				if len(keys) > 0 {
+					fmt.Fprintf(&b, "\\cite{%s}", strings.Join(keys, ",")) // cite key 不转义
+				}
 			}
 		case InlineMath:
 			fmt.Fprintf(&b, "$%s$", wrapCJKInMath(in.Latex)) // 数学源不转义;CJK 包 \text 防 xelatex 丢字

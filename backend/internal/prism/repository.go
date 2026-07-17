@@ -440,6 +440,19 @@ func (r *Repository) UpdateCompile(id uint, fields map[string]any) error {
 	return r.db.Model(&Compile{}).Where("id = ?", id).Updates(fields).Error
 }
 
+// RequeueStaleCompiles 把早于 cutoff 仍处 queued/running 的编译标记为失败(error_kind='infra')。
+// 用途:backend 重启后,原编译 goroutine 随进程消失,这些行永远停在 queued/running → 前端无限轮询(性能审计)。
+// cutoff 取 now-5min(> 100s 最大编译时长),保证不误伤真正在跑的编译。返回改动行数。
+func (r *Repository) RequeueStaleCompiles(cutoff time.Time) (int64, error) {
+	res := r.db.Model(&Compile{}).
+		Where("status IN ? AND created_at < ?", []string{CompileQueued, CompileRunning}, cutoff).
+		Updates(map[string]any{
+			"status": CompileError, "error_kind": "infra",
+			"error_summary": "服务重启,请重试", "log_excerpt": "服务重启,请重试",
+		})
+	return res.RowsAffected, res.Error
+}
+
 // FindCachedCompile 命中未过期的成功编译(内容哈希一致)→ 复用其 PDF,免起容器。
 func (r *Repository) FindCachedCompile(projectID uint, contentHash string, now time.Time) (*Compile, error) {
 	if contentHash == "" {

@@ -406,6 +406,25 @@ func ServeObject(w http.ResponseWriter, r *http.Request, bucket, key, contentTyp
 		// 解析失败 / 不可满足 / 多区间 → 跌落到整份(无回归)
 	}
 
+	// 条件请求(性能审计:PDF/附件切页签重下载)。先 Stat 拿 ETag/LastModified,若 If-None-Match 命中回 304 空体,
+	// 免整份重传(鉴权已在 handler 层完成,304 不泄内容)。仅整份 GET 走此路径;Range 分支(pdf.js 大量用)在上面
+	// 已 return,不引入 304 以免与 If-Range 交互出错。多一次 StatObject 往返可忽略。
+	if info, serr := StatObject(ctx, bucket, key); serr == nil && info.ETag != "" {
+		etag := `"` + strings.Trim(info.ETag, `"`) + `"`
+		h := w.Header()
+		h.Set("ETag", etag)
+		if !info.LastModified.IsZero() {
+			h.Set("Last-Modified", info.LastModified.UTC().Format(http.TimeFormat))
+		}
+		if h.Get("Cache-Control") == "" {
+			h.Set("Cache-Control", "private, no-cache") // 调用方未设时给个重校验默认(有 ETag → 未变回 304,不 no-store)
+		}
+		if r.Header.Get("If-None-Match") == etag {
+			w.WriteHeader(http.StatusNotModified)
+			return nil
+		}
+	}
+
 	reader, info, err := GetObject(ctx, bucket, key)
 	if err != nil {
 		return err

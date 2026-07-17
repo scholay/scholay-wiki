@@ -45,7 +45,7 @@ services:
     # --slow-query-log=0: 关掉慢查询日志, 之前默认 ON 时写 /var/lib/mysql/slow.log,
     # 该文件挂到 host 的 data/mysql/ 下, 无 rotation, 长期会无限增长。没有 admin
     # 工具消费它, 需要排查慢查询时临时打开即可 (`SET GLOBAL slow_query_log='ON'`)。
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --slow-query-log=0 --default-time-zone='+08:00'
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --slow-query-log=0
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
       interval: 30s
@@ -366,7 +366,8 @@ services:
       # 内网 Bearer:与 backend 的 AGENT_AUTH_TOKEN / agent 的 ANTHROPIC_API_KEY 同源,否则 PushConfig 401。
       EXECUTOR_AUTH_TOKEN: ${AGENT_INTERNAL_TOKEN:-}
       # Minicod MCP 凭证(执行器 spawn @minicod/mcp-server stdio 时透传)。
-      MINICOD_API_KEY: ${MINICOD_API_KEY:-}
+      # 与 docker-compose.prod.yml 一致:agent 的 minicod key 统一取 .env 的 AGENT_MINICOD_API_KEY。
+      MINICOD_API_KEY: ${AGENT_MINICOD_API_KEY:-}
       MINICOD_API_BASE_URL: ${MINICOD_API_BASE_URL:-https://www.minicod.com/v1}
       # 沙箱:none(本地/默认) | bwrap(仅生产真内核,P4b)。
       # 出网:egress 容器已合并 —— agent 直接经 egress-net(NAT)访问公网,不再走独立代理。
@@ -464,9 +465,6 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_BASE_URL: ""
-        # 站点配置 build-time 注入到 Vite bundle (运行期不能变)
-        VITE_SITE_URL: ${SITE_URL:-https://www.scholay.com}
-        VITE_SITE_NAME: ${SITE_NAME:-Scholay}
         # 临时:智能写作「即将推出」门(读 .env 的 PRISM_COMING_SOON,默认 true)。true=盖蒙层。
         VITE_PRISM_COMING_SOON: ${PRISM_COMING_SOON:-true}
         # umami tracker 已改为运行时 fetch /api/v1/public/umami-config 拿 website_id,

@@ -40,6 +40,8 @@ export interface PrismCompile {
   engine: string;
   log_excerpt?: string;
   error_summary?: string;
+  // 失败分类(mirrors prism.Compile.ErrorKind):latex=真 LaTeX 语法错(才 arm auto-fix)/ infra / timeout / 空=旧行未分类。
+  error_kind?: string;
   duration_ms: number;
   page_count?: number; // 编译产物页数(mirrors prism.Compile.PageCount;V4-A3 页数对照)
   overfull_count?: number;
@@ -105,15 +107,16 @@ export interface PrismContextSnapshot {
   model: string;
 }
 
-/** 取项目会话上下文水位。30s staleTime;每轮结束(message_complete)由 usePrismChat 主动失效刷新。 */
-export function usePrismContext(projectId?: number) {
+/** 取项目会话上下文水位。30s staleTime;每轮结束(message_complete)由 usePrismChat 主动失效刷新。
+ *  多对话:sessionId 进 queryKey + ?session_id= —— 切对话后取的是该对话的上下文水位(省略回落当前)。 */
+export function usePrismContext(projectId?: number, sessionId?: string) {
   return useQuery<PrismContextSnapshot>({
-    queryKey: ['prism', 'context', projectId],
+    queryKey: ['prism', 'context', projectId, sessionId ?? ''],
     enabled: !!projectId,
     staleTime: 30 * 1000,
     queryFn: async () => {
       const { data } = await http.get<{ data?: Partial<PrismContextSnapshot> }>(
-        `/user/prism/projects/${projectId}/session/context`,
+        `/user/prism/projects/${projectId}/session/context${convQuery(sessionId)}`,
       );
       const p = data.data ?? {};
       return {
@@ -555,11 +558,17 @@ export interface PrismPendingFile {
   new_struct?: DocStruct;
 }
 
+// 多对话:round/session 端点带 ?session_id=<当前对话> —— 一项目多条对话共享同一份论文,后端按此把
+// 本对话的 cwd 铺源/回读。省略(空)时后端回落「当前/最近活跃对话」(兼容存量单会话项目)。
+function convQuery(sessionId?: string): string {
+  return sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : '';
+}
+
 /** 每轮 AI 前铺源(DB current → 会话 cwd)。返回轮次世代号 epoch(V3-4.4-1;apply 时带回校验)。
  *  AI 回答进行中后端返回 409(ErrRoundBusy)。 */
-export async function prepareRound(projectId: number): Promise<string> {
+export async function prepareRound(projectId: number, sessionId?: string): Promise<string> {
   const { data } = await http.post<{ data: { ok: boolean; epoch?: string } }>(
-    `/user/prism/projects/${projectId}/round/prepare`,
+    `/user/prism/projects/${projectId}/round/prepare${convQuery(sessionId)}`,
     {},
   );
   return data.data?.epoch ?? '';
@@ -569,9 +578,10 @@ export async function prepareRound(projectId: number): Promise<string> {
  *  响应携带服务端当前 epoch:重入 tab 没调过 prepare,据此才能 commit 而不必 409。 */
 export async function fetchPendingRound(
   projectId: number,
+  sessionId?: string,
 ): Promise<{ files: PrismPendingFile[]; epoch: string }> {
   const { data } = await http.get<{ data: { files: PrismPendingFile[]; epoch?: string } }>(
-    `/user/prism/projects/${projectId}/round/pending`,
+    `/user/prism/projects/${projectId}/round/pending${convQuery(sessionId)}`,
   );
   return { files: data.data?.files ?? [], epoch: data.data?.epoch ?? '' };
 }
@@ -586,21 +596,64 @@ export async function applyRound(
   instruction?: string,
   overrides?: Record<string, string>,
   epoch?: string,
+  sessionId?: string,
 ): Promise<number> {
   const body: Record<string, unknown> = {};
   if (instruction) body.instruction = instruction;
   if (overrides && Object.keys(overrides).length > 0) body.files = overrides;
   if (epoch) body.epoch = epoch;
   const { data } = await http.post<{ data: { applied: number } }>(
-    `/user/prism/projects/${projectId}/round/apply`,
+    `/user/prism/projects/${projectId}/round/apply${convQuery(sessionId)}`,
     body,
   );
   return data.data?.applied ?? 0;
 }
 
-/** 手动重开会话(V3-4.6-1):真源在 DB,只丢对话连续性(文稿/画像/文献库不丢)。回答中返回 409。 */
-export async function resetProjectSession(projectId: number): Promise<void> {
-  await http.post(`/user/prism/projects/${projectId}/session/reset`, {});
+// ── 多对话:一项目多条对话,共享同一份论文(每轮 prepare 铺源把当前文档注入该对话 cwd)──
+// mirrors backend agentbridge.SessionListItem
+export interface PrismConversation {
+  sessionId: string;
+  title: string;
+  messageCount: number;
+  lastAccessedAt: string;
+  createdAt: string;
+}
+
+/** 列本项目的对话列表(侧栏)。按最近活跃排序。 */
+export async function listPrismConversations(projectId: number): Promise<PrismConversation[]> {
+  const { data } = await http.get<{ data: { sessions: PrismConversation[] } }>(
+    `/user/prism/projects/${projectId}/conversations`,
+  );
+  return data.data?.sessions ?? [];
+}
+
+/** 新建一条对话(「新对话」按钮)。返回新对话 sessionId(切过去后 WS 重连即用它)。 */
+export async function createPrismConversation(projectId: number): Promise<string> {
+  const { data } = await http.post<{ data: { sessionId: string } }>(
+    `/user/prism/projects/${projectId}/conversations`,
+    {},
+  );
+  return data.data?.sessionId ?? '';
+}
+
+/** 本项目对话列表(侧栏「会话历史」)。refetchOnMount:'always' 修「新建对话后列表不刷」同 makeAgentSessionApi。 */
+export function useProjectConversations(projectId?: number) {
+  return useQuery({
+    queryKey: ['prism', 'conversations', projectId],
+    enabled: !!projectId,
+    staleTime: 30 * 1000,
+    refetchOnMount: 'always',
+    queryFn: () => listPrismConversations(projectId as number),
+  });
+}
+
+/** 「新对话」mutation:建一条对话(不删任何已有对话),成功后失效对话列表。返回新 sessionId。 */
+export function useCreateConversation(projectId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => createPrismConversation(projectId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['prism', 'conversations', projectId] }),
+  });
 }
 
 /** 快通道评议(V3-4.5-1):对选中文字做只读点评(explain/critique/reviewer),结果只进 popover,不碰正文。 */
@@ -680,16 +733,20 @@ export async function putTerminology(projectId: number, terminology: string): Pr
   await http.put(`/user/prism/projects/${projectId}/terminology`, { terminology });
 }
 
-/** 丢弃:重铺源还原 cwd(抹掉 agent 本轮未应用改动)。 */
-export async function rejectRound(projectId: number): Promise<void> {
-  await http.post(`/user/prism/projects/${projectId}/round/reject`, {});
+/** 丢弃:重铺源还原 cwd(抹掉 agent 本轮未应用改动)。多对话:带 ?session_id= 只还原该对话 cwd。 */
+export async function rejectRound(projectId: number, sessionId?: string): Promise<void> {
+  await http.post(`/user/prism/projects/${projectId}/round/reject${convQuery(sessionId)}`, {});
 }
 
-/** 读会话 cwd 里某文件的当前正文(流式中按 tool_result 逐个 refetch 做实时 diff)。 */
-export async function readWorkspaceFile(projectId: number, relPath: string): Promise<{ found: boolean; content: string }> {
+/** 读会话 cwd 里某文件的当前正文(流式中按 tool_result 逐个 refetch 做实时 diff)。多对话:按 session_id 定位该对话 cwd。 */
+export async function readWorkspaceFile(
+  projectId: number,
+  relPath: string,
+  sessionId?: string,
+): Promise<{ found: boolean; content: string }> {
   const { data } = await http.get<{ data: { found: boolean; content: string } }>(
     `/user/prism/projects/${projectId}/workspace/file`,
-    { params: { path: relPath } },
+    { params: { path: relPath, ...(sessionId ? { session_id: sessionId } : {}) } },
   );
   return data.data ?? { found: false, content: '' };
 }
@@ -713,11 +770,16 @@ export interface PrismHistoryResult {
  * 取项目 agent 会话历史(重入恢复过往对话文本)。
  * limitTurns>0 时只取最近 N 个用户轮(超长会话分页,后端 sliceRecentTurns),带回 hasMore 供「加载更早」。
  */
-export async function fetchWSHistory(projectId: number, limitTurns?: number): Promise<PrismHistoryResult> {
-  const url =
-    limitTurns && limitTurns > 0
-      ? `/user/prism/projects/${projectId}/session/messages?limit=${limitTurns}`
-      : `/user/prism/projects/${projectId}/session/messages`;
+export async function fetchWSHistory(
+  projectId: number,
+  limitTurns?: number,
+  sessionId?: string,
+): Promise<PrismHistoryResult> {
+  const params = new URLSearchParams();
+  if (limitTurns && limitTurns > 0) params.set('limit', String(limitTurns));
+  if (sessionId) params.set('session_id', sessionId);
+  const qs = params.toString();
+  const url = `/user/prism/projects/${projectId}/session/messages${qs ? `?${qs}` : ''}`;
   const { data } = await http.get<{
     data: { messages?: PrismHistoryMsg[] | null; totalTurns?: number; hasMore?: boolean };
   }>(url);

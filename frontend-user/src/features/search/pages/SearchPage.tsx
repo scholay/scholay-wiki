@@ -7,6 +7,7 @@ import { useLocalStorage } from '@/shared/hooks';
 import { useRegisterSidebarRail } from '@/stores/sidebar.store';
 import { SearchSidebar } from '../components/SearchSidebar';
 import { SearcherColumn, type SearchMode } from '../components/SearcherColumn';
+import { StageFlyLayer } from '../components/StageFlyLayer';
 import type { Paper } from '../api/papers';
 
 /**
@@ -340,6 +341,9 @@ export function SearchPage() {
           </div>
         </div>
       </div>
+
+      {/* 暂存飞入覆盖层 —— portal 到 body,传统/智能两种暂存共用(同一 stagePaper choke point) */}
+      <StageFlyLayer />
     </SidebarLayout>
   );
 }

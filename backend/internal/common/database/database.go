@@ -26,10 +26,11 @@ var DB *gorm.DB
 
 // Initialize initializes the database connection
 func Initialize(cfg *config.Config) error {
-	// loc=Asia%2FShanghai —— 显式锁死上海时区,而非依赖 time.Local。
-	// time.Local 跟容器 TZ env 走,如果将来 TZ 被意外改了,这里的 DATETIME 解析也会跟着漂。
-	// 写死 Asia/Shanghai 是 defensive,DB 字段语义始终绑死北京时间。
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&collation=utf8mb4_unicode_ci&parseTime=True&loc=Asia%%2FShanghai",
+	// loc=Local —— 跟随容器 TZ(time.Local),不自定义时区、不做 UTC 转换。
+	// 容器由 docker 层把本地时区钉死为北京(挂 docker/tz/Asia-Shanghai 到 /etc/localtime + TZ),
+	// 故 time.Local=北京,与 MySQL 会话时区(default-time-zone=SYSTEM,同样跟随容器)一致,
+	// DATETIME 的读写解析两侧对齐。
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&collation=utf8mb4_unicode_ci&parseTime=True&loc=Local",
 		cfg.Database.User,
 		cfg.Database.Password,
 		cfg.Database.Host,

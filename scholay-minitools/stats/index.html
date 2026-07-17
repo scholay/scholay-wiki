@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>科研统计工具箱 · h指数 / t检验 / 样本量</title>
+  <link rel="stylesheet" href="./shared/brand.css" />
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div class="aurora"><i></i><i></i><i></i></div>
+  <div class="grain"></div>
+
+  <div class="app">
+    <div class="brandbar">
+      <span class="wordmark"><span class="dot">S</span><b>Scholay</b></span>
+      <span class="tag">科研统计工具箱</span>
+    </div>
+
+    <div class="hero">
+      <span class="eyebrow">开题 · 投稿 · 答辩速算</span>
+      <h1>五合一<span class="hl">科研统计</span>计算器</h1>
+      <p>h 指数 · t 检验 · 相关 · 样本量 · 描述统计 — 纯本地算,数据不外传</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="num">1</span>选择工具</div>
+      <div class="seg" id="modSeg"></div>
+    </div>
+
+    <div class="card" id="inputCard">
+      <div class="card-title"><span class="num">2</span><span id="modName"></span></div>
+      <div class="sec-sub" id="modDesc"></div>
+      <div id="inputs"></div>
+      <button class="btn" id="calcBtn" style="margin-top:16px"><span class="shine"></span>开始计算</button>
+    </div>
+
+    <div id="result" class="result"></div>
+
+    <div class="card"><div class="card-title"><span class="num">📖</span>公式 · 解读 · 算例</div>
+      <div id="explain"></div>
+    </div>
+
+    <div class="disclaimer" id="disclaimer"></div>
+    <div data-cta="统计只是第一步,<span class=&quot;hl&quot;>完整科研力</span>在 Scholay"></div>
+    <div data-foot></div>
+  </div>
+
+  <script src="./shared/convert.js"></script>
+  <script src="./data.js"></script>
+  <script src="./core.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>

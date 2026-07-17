@@ -128,17 +128,32 @@ type CreateFeedbackRequestWithKey struct {
 	Category string `json:"category" binding:"omitempty,oneof=bug feature complaint praise other"`
 }
 
-// CreateFeedback 创建反馈（公共接口）
-// POST /api/v1/public/feedback
+// CreateFeedback 创建反馈 —— **登录 / 匿名统一入口**。
+// POST /api/v1/public/feedback (挂 OptionalUserAuthMiddleware) · POST /api/v1/user/feedback
+//
+// 归属口径:带 token → 记到具体用户(user_id + username);无 token → 匿名。
+// 前端 http 拦截器对**所有**请求(含 /public/*)都注入 Authorization,故公开入口挂 OptionalUserAuth
+// 即可自动归属,前端无需分流。
+//
+// 历史 bug(2026-07 修):本函数原先硬写「公共接口不获取用户信息,匿名反馈」,且 /public/feedback
+// 没挂 OptionalUserAuth;而前端不论登没登录都只调 /public/feedback → **所有反馈全记成匿名**
+// (连带飞书通知里永远显示「匿名用户」,因为它读的就是这条记录的 username)。
+// 与 papers/search 等公开路由同款修法(见 usagestat 也踩过同一个坑)。
 func (h *Handler) CreateFeedback(c *gin.Context) {
 	var req CreateFeedbackRequestWithKey
 	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	// 公共接口不获取用户信息，匿名反馈
+	// 登录则关联用户(鉴权中间件已把 claims 放进 ctx);匿名则 userID=nil / username=""。
 	var userID *uint
+	if uid, ok := utils.GetOptionalUserID(c); ok {
+		userID = &uid
+	}
 	var username string
+	if uname, exists := c.Get("username"); exists {
+		username, _ = uname.(string) // 双值断言:类型不符时退化成空串,不 panic
+	}
 
 	// 获取IP
 	ip := c.ClientIP()
@@ -153,35 +168,11 @@ func (h *Handler) CreateFeedback(c *gin.Context) {
 	utils.Success(c, feedback)
 }
 
-// CreateFeedbackWithUser 创建反馈（已登录用户，会关联用户信息）
-// POST /api/v1/user/feedback
+// CreateFeedbackWithUser 创建反馈(已登录路由 /api/v1/user/feedback)。
+// 与 CreateFeedback 同一套逻辑(都从 ctx 取可选用户)→ 直接委托,**不再维护第二份实现**:
+// 历史上正是这两份分叉(公开那份硬写匿名)导致公开入口永远匿名。保留独立入口仅为兼容既有路由。
 func (h *Handler) CreateFeedbackWithUser(c *gin.Context) {
-	var req CreateFeedbackRequestWithKey
-	if !utils.BindJSON(c, &req) {
-		return
-	}
-
-	// 从认证中间件获取用户信息
-	var userID *uint
-	if uid, ok := utils.GetOptionalUserID(c); ok {
-		userID = &uid
-	}
-	var username string
-	if uname, exists := c.Get("username"); exists {
-		username = uname.(string)
-	}
-
-	// 获取IP
-	ip := c.ClientIP()
-
-	// 使用attachmentsKey从数据库获取附件
-	feedback, err := h.service.CreateFeedbackWithAttachments(&req.Email, &req.Content, req.Category, userID, username, ip, req.AttachmentsKey)
-	if err != nil {
-		utils.InternalError(c, 5001, "创建反馈失败", err)
-		return
-	}
-
-	utils.Success(c, feedback)
+	h.CreateFeedback(c)
 }
 
 // ========== 管理端接口 ==========

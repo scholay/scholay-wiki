@@ -16,20 +16,20 @@ export function PlazaSegmentTabs() {
   const suffix = q ? `?q=${encodeURIComponent(q)}` : '';
 
   return (
-    <div className="inline-flex rounded-lg border border-border bg-surface-1 p-0.5">
+    <div className="inline-flex rounded-lg border border-border bg-surface-1 p-1">
       {SEGMENTS.map((s) => (
         <NavLink
           key={s.to}
           to={s.to + suffix}
           end={s.end}
           className={({ isActive }) =>
-            'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors ' +
+            'flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-sm transition-colors ' +
             (isActive
-              ? 'bg-background text-foreground shadow-sm'
+              ? 'bg-background font-medium text-foreground shadow-sm'
               : 'text-muted-foreground hover:text-foreground')
           }
         >
-          <s.icon className="h-4 w-4" />
+          <s.icon className="h-4 w-4" strokeWidth={2} />
           {s.label}
         </NavLink>
       ))}

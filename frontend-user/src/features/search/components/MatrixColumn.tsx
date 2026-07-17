@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 import {
   AlertCircle,
   Grid3x3,
@@ -28,6 +29,7 @@ import type { Paper } from '../api/papers';
 import { useStagingActions } from '../hooks/useStagingActions';
 import { useStagingView } from '../hooks/useStagingView';
 import { useStagedFavorites } from '../hooks/useStagedFavorites';
+import { useStageFly } from '@/stores/stage-fly.store';
 import { DimensionSettingsDialog } from './DimensionSettingsDialog';
 import { StagingTabs } from './StagingTabs';
 import { DimensionCell } from './matrix/DimensionCell';
@@ -63,6 +65,59 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
   const { activeArea } = useStagingView();
   const { removePaper, clearArea } = useStagingActions();
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // ---- 暂存飞入:滚动容器 ref + 落点注册 + 新行自动过渡 ----
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [tbodyRef] = useAutoAnimate<HTMLTableSectionElement>();
+  const setGetTarget = useStageFly((s) => s.setGetTarget);
+
+  // 落点 getter:即时滚到底(非 smooth,便于同步量),再算「新行将出现处」的 top。
+  // 落点 = 当前最后一行的下沿,但不超出容器可视底(overflow 时新行滚到底部对齐):
+  //   - 可滚动(overflow):最后一行贴容器底 → top ≈ 容器底 - 行高(新行滚到底后的位置)
+  //   - 不可滚动(行少):最后一行在容器中部 → top = 最后一行下沿(新行紧接其下)
+  // 空矩阵(active 区无论文,首篇)→ 落在顶部。芯片抵达即淡出,精度不敏感。
+  useEffect(() => {
+    const fn = () => {
+      const c = scrollRef.current;
+      if (!c) return null;
+      c.scrollTop = c.scrollHeight;
+      const cr = c.getBoundingClientRect();
+      const rows = c.querySelectorAll('tbody tr');
+      const lastCell = rows[rows.length - 1]?.querySelector('td');
+      if (lastCell) {
+        const rr = lastCell.getBoundingClientRect();
+        const H = rr.height || 76;
+        return {
+          top: Math.min(rr.bottom, cr.bottom - H),
+          left: rr.left,
+          width: rr.width,
+          height: H,
+        };
+      }
+      return {
+        top: cr.top,
+        left: cr.left,
+        width: Math.min(PAPER_COL_WIDTH, cr.width),
+        height: 76,
+      };
+    };
+    setGetTarget(fn);
+    return () => setGetTarget(null);
+  }, [setGetTarget]);
+
+  // 新行落定后再滚一次到底(getTarget 那次滚的是「加行前」的底,新行需要二次对齐)。
+  const prevLenRef = useRef(staged.length);
+  useEffect(() => {
+    if (staged.length > prevLenRef.current) {
+      const c = scrollRef.current;
+      if (c) {
+        requestAnimationFrame(() =>
+          c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' })
+        );
+      }
+    }
+    prevLenRef.current = staged.length;
+  }, [staged.length]);
 
   const dimensions = dimensionsQ.data ?? [];
   const results = matrixQ.data ?? [];
@@ -176,7 +231,7 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
       {/* 空态(用户刚建新区 / 切到空 active 区)—— **保留 thead**
           (StagingTabs + 维度列头),只是 tbody 没有行。"假表 + 一键导入"
            CTA 仅在 WelcomeBoard(还没有任何区的首次发现场景)展示。 */}
-      <div className="flex-1 min-h-0 overflow-auto">
+      <div ref={scrollRef} className="flex-1 min-h-0 overflow-auto">
         {/* text-xs(11px)= 设计稿 dim cell / footer 通用文字基准 */}
         <table className="w-full border-separate border-spacing-0 text-xs">
           {/* sub-header 行(h-9):左区 = StagingTabs,右区 = dimension 名字
@@ -227,7 +282,7 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
             </tr>
           </thead>
 
-          <tbody>
+          <tbody ref={tbodyRef}>
             {matrixQ.error ? (
               <tr>
                 <td

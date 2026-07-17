@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import {
   useMutation,
   useQuery,
@@ -92,9 +93,22 @@ export interface InstalledSkill {
   slug: string;
   name: string;
   tagline: string;
+  /** 会话内 Skill 帧的加载 key(= u<作者uid>-<slug>);与 tool_use_complete.input.name 精确匹配,
+   *  用来在会话流里认出"这轮加载的是我的哪个技能"(免去脆弱的 ^u\d+- 前缀解析)。后端 InstalledSkillDTO.guideName。 */
+  guideName: string;
   source: 'self' | 'market';
   enabled: boolean;
   available: boolean;
+}
+
+/** 单会话最多启用几个技能的**前端兜底值**(与后端 MaxEnabledPerSession 一致)。
+ *  真值优先取后端下发的 maxEnabled(见 useInstalledSkills),后端没给时用这个,不再各处硬编码 5(B4)。 */
+export const DEFAULT_MAX_ENABLED = 5;
+
+/** 已安装技能列表 + 本会话启用上限(后端 /user/skill-installs 一并下发)。 */
+export interface InstalledSkillsData {
+  list: InstalledSkill[];
+  maxEnabled: number;
 }
 
 export interface MarketQuery {
@@ -165,13 +179,32 @@ export function useInstalledSkills() {
     queryKey: ['skills', 'installed'],
     // 列表类 query:切走再回来须重取,避免启用态陈旧(见 claw-history-list-loading 教训)。
     refetchOnMount: 'always',
-    queryFn: async (): Promise<InstalledSkill[]> => {
-      const { data } = await http.get<{ data: { list: InstalledSkill[] } }>(
-        '/user/skill-installs'
-      );
-      return data.data.list ?? [];
+    queryFn: async (): Promise<InstalledSkillsData> => {
+      const { data } = await http.get<{
+        data: { list?: InstalledSkill[]; maxEnabled?: number };
+      }>('/user/skill-installs');
+      return {
+        list: data.data.list ?? [],
+        // 上限从后端下发;旧后端不带该字段时兜底 DEFAULT_MAX_ENABLED(不再前端硬编码 5)。
+        maxEnabled: data.data.maxEnabled ?? DEFAULT_MAX_ENABLED,
+      };
     },
   });
+}
+
+/**
+ * guideName → 我启用的市场技能。给会话流认领「本轮用了你的技能 X」用(见 claw MessageTurn)。
+ * data 引用由 react-query 稳定持有,useMemo 保持返回 Map 引用稳定 → 不破 MessageTurn 的 memo。
+ */
+export function useUserSkillsByGuide(): Map<string, InstalledSkill> {
+  const { data } = useInstalledSkills();
+  return useMemo(() => {
+    const m = new Map<string, InstalledSkill>();
+    for (const s of data?.list ?? []) {
+      if (s.guideName) m.set(s.guideName, s);
+    }
+    return m;
+  }, [data]);
 }
 
 // ── 创建 / 编辑 / 发布 / 删除(作者)──────────────────────────────────────────

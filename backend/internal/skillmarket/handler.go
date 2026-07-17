@@ -241,7 +241,8 @@ func (h *Handler) ListInstalled(c *gin.Context) {
 		utils.ServerError(c, "获取失败")
 		return
 	}
-	utils.Success(c, gin.H{"list": list})
+	// maxEnabled 单一真源:前端启用面板/输入框 chip 显示「N/上限」不再前端硬编码 5(B4),后端改配额自动跟随。
+	utils.Success(c, gin.H{"list": list, "maxEnabled": MaxEnabledPerSession})
 }
 
 // SetEnabled PATCH /user/skills/installed/:id

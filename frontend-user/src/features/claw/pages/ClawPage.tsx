@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type Ref } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { History, Loader2, MessageSquarePlus, PanelRightOpen, Sparkles } from 'lucide-react';
-import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { StickToBottom } from 'use-stick-to-bottom';
 import { Button } from '@/shared/ui/button';
 import { AgentDisplacedBanner } from '@/shared/components/AgentDisplacedBanner';
@@ -16,6 +16,7 @@ import { modelSupportsVision, useUserModels } from '@/shared/api/models';
 import { ModelSelector } from '@/shared/components/chat/ModelSelector';
 import { ChatComposer, type ChatComposerHandle } from '../components/chat/ChatComposer';
 import { getNewConversationModel, setNewConversationModel } from '../api/session';
+import { useUserSkillsByGuide } from '@/shared/api/skills';
 import { MessageTurn } from '../components/chat/MessageTurn';
 import { type ClawArtifact } from '../api/artifacts';
 import { ClawArtifactPreview } from '../components/preview/ClawArtifactPreview';
@@ -25,11 +26,6 @@ import { ScrollController } from '../components/chat/ScrollController';
 import { ClawHero } from '../components/chat/ClawHero';
 import { useClawConversation } from '../hooks/useClawConversation';
 
-/** 居中 hero ↔ 底部停靠 共用的 layoutId:发首条消息后 framer 据此把对话框从居中平滑滑到底部。 */
-const CLAW_COMPOSER_LAYOUT_ID = 'claw-composer';
-/** 停靠过渡(与智能搜索同款 spring);reduced-motion 下瞬切(去位移,避免前庭不适)。 */
-const composerDock = (reduce: boolean | null) =>
-  reduce ? { duration: 0 } : ({ type: 'spring', bounce: 0.18, duration: 0.55 } as const);
 
 /**
  * 智能助手主页(桌面) —— standalone 路由 `/claw`。
@@ -79,6 +75,8 @@ export function ClawPage() {
   const closePreview = useCallback(() => setPreviewArtifact(null), []);
   const collapseRight = useCallback(() => { setRightCollapsed(true); setPreviewArtifact(null); }, []);
   // 桌面:本会话一旦有产物(或点了预览)且未收起 → 出右侧成果栏;中间对话区保持居中、可拖拽分隔。
+  // 会话流里认领「本轮用了你的技能 X」用(guideName → 我启用的市场技能);引用稳定不破 MessageTurn memo。
+  const userSkillsByGuide = useUserSkillsByGuide();
   const hasArtifacts = (sessionArtifacts?.length ?? 0) > 0 || !!previewArtifact;
   const showRightPanel = !isNarrow && !rightCollapsed && hasArtifacts;
   // 收起后若仍有产物 → 在对话区右缘留一个「展开成果」浮标,便于重新展开。
@@ -144,6 +142,7 @@ export function ClawPage() {
       onSessionEnsured={conv.adoptSession}
       modelSlot={modelSlot}
       acceptImages={acceptImages}
+      onNewConversation={conv.handleNewConversation}
       // 未登录:发送/上传 → 弹登录注册, 不真的发请求
       requireAuth={!token}
       onRequireAuth={() => openAuth('login')}
@@ -200,8 +199,7 @@ export function ClawPage() {
           左栏给稳定 id/order,开关预览时不重挂 → StickToBottom 滚动位置不丢。 */}
       <ResizablePanelGroup direction="horizontal" autoSaveId="claw-preview-h" className="flex min-h-0 flex-1">
       <ResizablePanel id="claw-chat" order={1} minSize={36} className="min-w-0">
-      {/* hero(居中)与对话视图是两层叠层,互不挤压;对话框借同一 layoutId 在两层间平滑停靠。 */}
-      <LayoutGroup>
+      {/* hero(居中)与对话视图是两层叠层,互不挤压;对话框在两层各渲一份(hero 淡出 + 底栏就位)。 */}
       <div className="relative h-full min-h-0">
         {/* 成果栏已收起但仍有产物 → 右缘浮标(图标 + 数量),点开重新展开成果栏。 */}
         {showReexpandTab && (
@@ -244,6 +242,7 @@ export function ClawPage() {
                     // 传 DTO 列表按 path 关联拿下载 id/标题/预览。右侧 ClawArtifactPanel 降为「全部产物」汇总。
                     artifacts={sessionArtifacts}
                     sessionId={sessionId}
+                    userSkillsByGuide={userSkillsByGuide}
                     onPreview={setPreviewArtifact}
                     onResendBlocked={conv.resendBlocked}
                     onDismissBlocked={conv.dismissBlocked}
@@ -256,16 +255,15 @@ export function ClawPage() {
             {/* 底部渐隐:让悬浮对话框"浮"在对话之上,文字不顶到框边。 */}
             <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28 bg-gradient-to-t from-background via-background/85 to-transparent" />
 
-            {/* 悬浮 / 停靠的对话框 —— 与 hero 同一个 layoutId, 发首条消息后从居中滑到这里(同尺寸=纯位移)。
+            {/* 悬浮 / 停靠的对话框 —— 普通 div(不用 framer layoutId)。
+                历史上用 hero↔底栏共用 layoutId 做「从居中滑到底部」的过渡,但那个共享 layout 动画会在
+                返回页面时用 scaleY morph 高度、过渡被路由打断即卡住 → 输入框被拉高(反复偶现变形)。
+                已彻底移除共享 layout:hero 淡出 + 底栏 composer 直接就位(交叉淡入),输入框永不变形。
                 外层 pointer-events-none 让框两侧空白不挡滚动,框本体 pointer-events-auto 可交互。 */}
             <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-6 pb-4">
-              <motion.div
-                layoutId={CLAW_COMPOSER_LAYOUT_ID}
-                transition={composerDock(reduce)}
-                className="pointer-events-auto mx-auto w-full max-w-2xl"
-              >
+              <div className="pointer-events-auto mx-auto w-full max-w-2xl">
                 {renderComposer()}
-              </motion.div>
+              </div>
             </div>
           </div>
         )}
@@ -292,8 +290,7 @@ export function ClawPage() {
           </div>
         )}
 
-        {/* 新对话 hero(顶层):发首条消息后整体淡出(图标 + 标题 + chip),
-            对话框则借 layoutId 从居中平滑滑到底部停靠。 */}
+        {/* 新对话 hero(顶层):发首条消息后整体淡出(图标 + 标题 + chip);底栏 composer 同时就位。 */}
         <AnimatePresence initial={false}>
           {!loading && turns.length === 0 && !historyError && (
             <motion.div
@@ -304,13 +301,9 @@ export function ClawPage() {
             >
               <ClawHero
                 composer={
-                  <motion.div
-                    layoutId={CLAW_COMPOSER_LAYOUT_ID}
-                    transition={composerDock(reduce)}
-                    className="w-full"
-                  >
+                  <div className="w-full">
                     {renderComposer(composerRef)}
-                  </motion.div>
+                  </div>
                 }
                 onPickSuggestion={(t) => composerRef.current?.prefill(t)}
               />
@@ -318,7 +311,6 @@ export function ClawPage() {
           )}
         </AnimatePresence>
       </div>
-      </LayoutGroup>
       </ResizablePanel>
       {showRightPanel && (
         <>

@@ -266,6 +266,10 @@ func (h *Handler) AdminUpdateBillingConfig(c *gin.Context) {
 		return
 	}
 	if err := h.svc.Config().Update(&req); err != nil {
+		if bce, ok := AsBillingConfigError(err); ok {
+			utils.BadRequest(c, bce.Error()) // 校验失败(承重旋钮零化)→ 400 友好文案,非 500
+			return
+		}
 		utils.InternalError(c, 500, "保存配置失败", err)
 		return
 	}

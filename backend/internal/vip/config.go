@@ -8,10 +8,42 @@
 package vip
 
 import (
+	"errors"
 	"log/slog"
 	"sync"
 	"time"
 )
+
+// BillingConfigError 计费配置校验失败(承重旋钮被零化会让全档静默不限额 = 收入泄漏)。
+// handler 据此回 400 + 友好文案,而非 500。
+type BillingConfigError struct{ msg string }
+
+func (e *BillingConfigError) Error() string { return e.msg }
+
+// AsBillingConfigError 便于 handler 用 errors.As 识别。
+func AsBillingConfigError(err error) (*BillingConfigError, bool) {
+	var e *BillingConfigError
+	if errors.As(err, &e) {
+		return e, true
+	}
+	return nil, false
+}
+
+// validateBillingConfig 校验承重旋钮(评审 R3):启用收费时 FreeWindowTokens / WindowDays 必须 > 0
+// —— base<=0 会让 WindowCeiling 对**全档(含 Pro/Max)**返回 -1=不限,admin 误设 0 即全站免费无限。
+// 倍率 <=0 = 该付费档不限 是既定 fail-open 语义(admin 表单 hint 已注明),不在此拦。
+func validateBillingConfig(c *BillingConfig) error {
+	if !c.Enabled {
+		return nil // 收费总开关关闭:本就全档不限,无需校验
+	}
+	if c.FreeWindowTokens <= 0 {
+		return &BillingConfigError{msg: "Free 周期基准额度必须大于 0(设为 0 会让所有会员档变成不限额度)"}
+	}
+	if c.WindowDays <= 0 {
+		return &BillingConfigError{msg: "周期天数必须大于 0"}
+	}
+	return nil
+}
 
 // DefaultBillingConfig 与迁移 0015 的列默认值一致, 作为 DB 读不到时的兜底。
 func DefaultBillingConfig() *BillingConfig {
@@ -72,8 +104,11 @@ func (s *ConfigService) Get() *BillingConfig {
 	return cfg
 }
 
-// Update 写入 admin 提交的配置并立即失效缓存。
+// Update 写入 admin 提交的配置并立即失效缓存。承重旋钮先过服务端校验(挡「全档静默不限额」误配)。
 func (s *ConfigService) Update(in *BillingConfig) error {
+	if err := validateBillingConfig(in); err != nil {
+		return err
+	}
 	if err := s.repo.UpdateBillingConfig(in); err != nil {
 		return err
 	}

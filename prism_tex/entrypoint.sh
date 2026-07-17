@@ -77,7 +77,7 @@ compile_one() {
       #   ① TeX 引擎 `! ` 行(最有用)→ ② bibtex/package/runaway 阶段错(无 `! ` 的窄类别)
       #   → ③ 最后才 latexmk/其它 Error 总结兜底。
       err=$(grep -m1 -E '^! ' "$dir/$log" 2>/dev/null | head -1)
-      [ -z "$err" ] && err=$(grep -m1 -E "I was expecting|Package [^ ]+ Error|Runaway argument|Emergency stop|Fatal error|Undefined control sequence|not found" "$dir/$log" 2>/dev/null | head -1)
+      [ -z "$err" ] && err=$(grep -m1 -E "I was expecting|White space in argument|Package [^ ]+ Error|Runaway argument|Emergency stop|Fatal error|Undefined control sequence|not found" "$dir/$log" 2>/dev/null | head -1)
       [ -z "$err" ] && err=$(grep -m1 -E 'Error|Errors' "$dir/$log" 2>/dev/null | head -1)
       printf '%s' "$err" | cut -c1-480 > "$dir/error.txt" || true
       [ -s "$dir/error.txt" ] || echo "编译失败(exit=$code)" > "$dir/error.txt"

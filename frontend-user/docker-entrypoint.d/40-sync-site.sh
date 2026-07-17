@@ -20,7 +20,15 @@ RETAIN_DAYS="${ASSET_RETAIN_DAYS:-7}"
 mkdir -p "$DST/assets"
 # index.html 等覆盖为最新;assets 增量并入持久目录(同名 hash 内容相同,旧文件保留)
 cp -a "$SRC"/. "$DST"/
-# 回收旧版本残留 chunk(仅 assets;本次构建文件 mtime 新,不会被删)
+# 关键:cp -a 保留的是【镜像构建时】的 mtime(= npm run build 时刻),不是部署时刻。若镜像龄
+# 超过 RETAIN_DAYS(prod 用固定 tag,镜像可能躺很久),下面的 find -mtime 会把本次【仍在服役】的
+# 整代 hash chunk 判为超龄删光 → 宿主 bind-mount 被清空 → 全站 JS/CSS 404 白屏(性能审计 P0)。
+# 故 cp 后把【本次构建产物】的 mtime 刷成部署时刻(now),令保留窗口锚定「部署时间」而非「构建时间」。
+# 只 touch 本次 SRC 内的文件 → 历史遗留、本次不含的旧 chunk 保持旧 mtime,仍按 RETAIN_DAYS 正常回收。
+( cd "$SRC" && find . -type f -print ) | while IFS= read -r rel; do
+    touch "$DST/$rel" 2>/dev/null || true
+done
+# 回收旧版本残留 chunk(仅 assets;本次构建文件 mtime 已刷新为 now,不会被删)
 find "$DST/assets" -type f -mtime "+$RETAIN_DAYS" -delete 2>/dev/null || true
 
 echo "[40-sync-site] web root synced; /assets retained for ${RETAIN_DAYS}d (stale-chunk grace)"

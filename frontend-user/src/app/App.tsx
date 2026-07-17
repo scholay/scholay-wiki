@@ -1,10 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, lazy, Suspense } from 'react';
 import { RouterProvider } from 'react-router-dom';
 import { Providers } from './providers';
 import { router } from './router';
 import { AuthBootstrap } from './AuthBootstrap';
 import { useApplyTheme } from '@/stores/theme.store';
-import { AuthDialog } from '@/features/auth';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { usePromoStore } from '@/stores/promo.store';
 import { useQuotaStore } from '@/stores/quota.store';
@@ -74,9 +73,25 @@ function ShellRoot() {
         故关掉过渡无副作用。RouteCommitWatchdog 保留作安全网 + 回归探针(理论上此后永不触发)。
       */}
       <RouterProvider router={router} useTransitions={false} />
-      {/* 全局鉴权弹窗 — 任何位置通过 useAuthDialog.openDialog 触发 */}
-      <AuthDialog />
+      {/* 全局鉴权弹窗 — 任何位置通过 useAuthDialog.openDialog 触发。懒加载(性能审计 #2):AuthDialog 全家桶
+          (zod+react-hook-form+turnstile+微信扫码 ~105KB)此前 eager 常驻入口 chunk。改成首次打开才拉,
+          之后保持挂载(内部本靠 store.open 控制 Radix Dialog 开合,常驻无副作用)。 */}
+      <AuthDialogGate />
     </>
+  );
+}
+
+const AuthDialog = lazy(() => import('@/features/auth').then((m) => ({ default: m.AuthDialog })));
+
+function AuthDialogGate() {
+  const open = useAuthDialog((s) => s.open);
+  const everOpened = useRef(false);
+  if (open) everOpened.current = true;
+  if (!everOpened.current) return null; // 从未打开过 → 不加载 AuthDialog chunk
+  return (
+    <Suspense fallback={null}>
+      <AuthDialog />
+    </Suspense>
   );
 }
 

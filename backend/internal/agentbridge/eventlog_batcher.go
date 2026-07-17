@@ -32,7 +32,9 @@ import (
 const (
 	batchFlushBytes    = 4096                   // 累计文本达 4KB → 立即 flush
 	batchFlushInterval = 200 * time.Millisecond // 否则 200ms 后 flush
-	batchWriteChanSize = 2048                   // 异步写通道缓冲(满则同步落库兜底,不丢)
+	batchWriteChanSize = 2048                   // 异步写通道缓冲(满则挂 overflow,由 drainLoop 锁外落库)
+	overflowCap        = 50000                  // overflow 缓冲封顶:超界退回同步落库背压(防 MySQL 长挂时内存无界)
+	overflowDrainEvery = 50 * time.Millisecond  // drainLoop 排空周期
 )
 
 // deltaAccum 是某 turn 的内存累加器。受 deltaBatcher.mu 守护。
@@ -50,23 +52,27 @@ type deltaAccum struct {
 }
 
 type deltaBatcher struct {
-	mu      sync.Mutex
-	db      *gorm.DB
-	accums  map[uint64]*deltaAccum
-	writeCh chan *TurnEventRow
-	closed  bool           // 受 mu 守护:Shutdown 后 enqueue 改同步落库,不再 send 已关通道
-	wg      sync.WaitGroup // writeLoop 生命周期(优雅 drain)
-	failCnt atomic.Int64   // M4:落库最终失败计数(journal 已是历史唯一真源 → 失败必须可观测)
+	mu        sync.Mutex
+	db        *gorm.DB
+	accums    map[uint64]*deltaAccum
+	writeCh   chan *TurnEventRow
+	overflow  []*TurnEventRow // 受 mu 守护:writeCh 满时的溢出行,由 drainLoop 锁外落库(不在扇出热路径持锁写 MySQL)
+	stopDrain chan struct{}   // Shutdown 时关闭,通知 drainLoop 做最终排空后退出
+	closed    bool            // 受 mu 守护:Shutdown 后 enqueue 改同步落库,不再 send 已关通道
+	wg        sync.WaitGroup  // writeLoop + drainLoop 生命周期(优雅 drain)
+	failCnt   atomic.Int64    // M4:落库最终失败计数(journal 已是历史唯一真源 → 失败必须可观测)
 }
 
 func newDeltaBatcher(db *gorm.DB) *deltaBatcher {
 	b := &deltaBatcher{
-		db:      db,
-		accums:  make(map[uint64]*deltaAccum),
-		writeCh: make(chan *TurnEventRow, batchWriteChanSize),
+		db:        db,
+		accums:    make(map[uint64]*deltaAccum),
+		writeCh:   make(chan *TurnEventRow, batchWriteChanSize),
+		stopDrain: make(chan struct{}),
 	}
-	b.wg.Add(1)
+	b.wg.Add(2)
 	go b.writeLoop()
+	go b.drainLoop()
 	return b
 }
 
@@ -75,6 +81,37 @@ func (b *deltaBatcher) writeLoop() {
 	defer b.wg.Done()
 	for row := range b.writeCh {
 		_ = b.createWithRetry(row)
+	}
+}
+
+// drainLoop 周期性把 overflow 缓冲(writeCh 满时积压)在【锁外】落库(评审 2026-07 性能审计 P0)。
+// 旧逻辑:writeCh 满时在 enqueue 里【持全局 b.mu】同步 createWithRetry(含最长 3×重试 sleep)——
+// MySQL 一抖动就把所有会话的 append(流式扇出热路径)全卡在 b.mu 上,级联冻结全平台流式。
+// 现在满则挂 overflow(锁内仅 append 切片,O(1)),真正的 DB IO 移到此后台 goroutine,不再持热路径锁。
+func (b *deltaBatcher) drainLoop() {
+	defer b.wg.Done()
+	ticker := time.NewTicker(overflowDrainEvery)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			b.drainOverflow()
+		case <-b.stopDrain:
+			b.drainOverflow() // 最终排空:保证 Shutdown 前挂在 overflow 的行都落库
+			return
+		}
+	}
+}
+
+// drainOverflow 锁内换出 overflow 切片,锁外逐行落库。ev_seq 已在入队前分配(payload 自带),
+// 读侧按 ev_seq 排序重放,故落库顺序无关正确性——writeLoop 与 drainLoop 并发 INSERT 安全。
+func (b *deltaBatcher) drainOverflow() {
+	b.mu.Lock()
+	rows := b.overflow
+	b.overflow = nil
+	b.mu.Unlock()
+	for _, r := range rows {
+		_ = b.createWithRetry(r)
 	}
 }
 
@@ -112,6 +149,7 @@ func (b *deltaBatcher) Shutdown(ctx context.Context) {
 	}
 	b.closed = true
 	close(b.writeCh)
+	close(b.stopDrain) // 通知 drainLoop 最终排空 overflow 后退出
 	b.mu.Unlock()
 
 	done := make(chan struct{})
@@ -172,7 +210,11 @@ func (b *deltaBatcher) flushThinkLocked(a *deltaAccum) {
 	}
 }
 
-// enqueue 异步入队;通道满 / 已 Shutdown 则同步落库(带重试)兜底,绝不丢事件。caller 持 b.mu。
+// enqueue 异步入队。caller 持 b.mu。绝不丢事件:
+//   - 稳态通道满 → 挂 overflow(锁内仅 append 切片,O(1)),真正的 DB IO 由 drainLoop 锁外做,
+//     不再在扇出热路径持全局锁同步写 MySQL(性能审计 P0:根除 MySQL 抖动冻结全平台流式)。
+//   - overflow 超封顶(MySQL 长时间不可用)→ 退回同步落库做背压(宁可慢不 OOM,journal 是唯一真源)。
+//   - 已 Shutdown → 同步落库(非稳态热路径,可接受)。
 func (b *deltaBatcher) enqueue(row *TurnEventRow) {
 	if b.closed {
 		_ = b.createWithRetry(row)
@@ -181,7 +223,11 @@ func (b *deltaBatcher) enqueue(row *TurnEventRow) {
 	select {
 	case b.writeCh <- row:
 	default:
-		_ = b.createWithRetry(row)
+		if len(b.overflow) < overflowCap {
+			b.overflow = append(b.overflow, row)
+		} else {
+			_ = b.createWithRetry(row)
+		}
 	}
 }
 

@@ -21,7 +21,9 @@ const KEY = (...rest: (string | number)[]) =>
  * 不依赖 submission.status / computeState 来判停 — 一旦本地拿到 4 份就停,
  * 自然兼容"agent 还在跑 / 已经完成 / 历史回看"三种状态。
  */
-export function useSubmissionReports(id?: number) {
+// terminal:投稿已进终态(如 failed)= 不会再产出报告 → 停止轮询,别再每 5s 空打后端(性能审计)。
+// 正常完成路径仍靠 length>=4 停;terminal 覆盖「审稿失败但没凑齐 4 份」这种永不收敛的情况。
+export function useSubmissionReports(id?: number, terminal?: boolean) {
   return useQuery({
     queryKey: KEY(id ?? 0),
     enabled: !!id,
@@ -33,7 +35,7 @@ export function useSubmissionReports(id?: number) {
     },
     refetchInterval: (q) => {
       const items = q.state.data ?? [];
-      return items.length < 4 ? 5000 : false;
+      return items.length < 4 && !terminal ? 5000 : false;
     },
   });
 }

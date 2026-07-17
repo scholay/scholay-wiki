@@ -177,26 +177,54 @@ func (s *Service) UpdateLastLoginWithIP(id uint, ip string) error {
 	return s.repo.UpdateLastLoginWithIP(id, ip)
 }
 
-// RecordActivity 记一次「最后活跃时间」(真实使用)。每次通过鉴权的 user 请求都会调到,
-// 故**全异步 + Redis 节流**(每用户每 5min 至多一次 DB 写),零请求路径开销。
-// 由 middleware.SetActivityHook 注入。反映用户最后实际使用(而非仅登录动作 last_login_at)。
+// RecordActivity 记一次用户活跃 —— 每次通过鉴权的 user 请求都会调到,故**全异步 + Redis 节流**,
+// 零请求路径开销。由 middleware.SetActivityHook 注入。两件事并列(各自独立节流):
+//  1. last_active_at:单列覆盖「最后一次真实使用」时间(5min 节流,近似即可)。
+//  2. user_daily_active 台账(0069):每人每本地日一行,append-only,重建历史每日活跃序列
+//     (last_active_at 单列覆盖做不到)。用 date-scoped key 独立节流 → 跨零点安全,不会因 5min
+//     last_active 节流恰好跨午夜而漏记第二天。语义 = 「打开即活跃」(登录后有任意真实请求)。
+// Redis 不可用则不节流直接写(降级 best-effort;台账 INSERT IGNORE 依 PK 幂等,至多多几次空写)。
 func (s *Service) RecordActivity(userID uint) {
 	if userID == 0 {
 		return
 	}
-	safego.Go("user-last-active", func() {
+	safego.Go("user-activity", func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		// Redis 节流:SETNX 抢到(5min 内首次)才写 DB;抢不到 = 近期已记,跳过。
-		// Redis 不可用 → 不节流直接写(降级 best-effort,Redis 故障罕见)。
-		if rdb := cache.GetRedis(); rdb != nil {
-			ok, err := rdb.SetNX(ctx, fmt.Sprintf("user:lastactive:%d", userID), "1", 5*time.Minute).Result()
-			if err == nil && !ok {
-				return
+		rdb := cache.GetRedis()
+
+		// 1) last_active_at —— 5min 节流:SETNX 抢到(5min 内首次)才写。
+		writeLast := true
+		if rdb != nil {
+			if ok, err := rdb.SetNX(ctx, fmt.Sprintf("user:lastactive:%d", userID), "1", 5*time.Minute).Result(); err == nil && !ok {
+				writeLast = false
 			}
 		}
-		if err := s.repo.UpdateLastActive(userID); err != nil {
-			slog.Debug("user: update last_active failed", "user_id", userID, "err", err)
+		if writeLast {
+			if err := s.repo.UpdateLastActive(userID); err != nil {
+				slog.Debug("user: update last_active failed", "user_id", userID, "err", err)
+			}
+		}
+
+		// 2) 每日活跃台账 —— 每人每本地日至多一次 DB 写(date-scoped key,TTL 26h 覆盖跨零点)。
+		//    SETNX 抢到才写;**写失败则 DEL 掉节流键**放行本日后续请求重试 —— 否则首写恰好撞上
+		//    DB 抖动(部署窗口/死锁/连接抖动)就会被 26h 键压住、整天丢记该用户(该用户当天若只有
+		//    非埋点请求,不产生 usage_events,回填也救不回,永久丢一天)。
+		today := time.Now().Format("2006-01-02")
+		dauKey := fmt.Sprintf("user:dau:%d:%s", userID, today)
+		writeDaily := true
+		if rdb != nil {
+			if ok, err := rdb.SetNX(ctx, dauKey, "1", 26*time.Hour).Result(); err == nil && !ok {
+				writeDaily = false
+			}
+		}
+		if writeDaily {
+			if err := s.repo.RecordDailyActive(userID, today); err != nil {
+				slog.Debug("user: record daily active failed", "user_id", userID, "err", err)
+				if rdb != nil {
+					rdb.Del(ctx, dauKey) // 首写失败别让节流键压住整天,放行下一请求重试
+				}
+			}
 		}
 	})
 }

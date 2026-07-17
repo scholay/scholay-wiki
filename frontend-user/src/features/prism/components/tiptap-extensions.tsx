@@ -108,17 +108,22 @@ export const Citation = Node.create({
   atom: true,
   selectable: true,
   addAttributes() {
-    return { citeKey: { default: '' } };
+    // citeKey = 真源(往返持久);citeText = 真实 LaTeX 样式展示文本([1, 2] / 图 1),派生自全文编号,
+    // 不进结构体(tiptapToStruct 只读 citeKey)。缺 citeText(新插入未重算)时退化成裸 key。
+    return { citeKey: { default: '' }, citeText: { default: '' } };
   },
   parseHTML() {
     return [{ tag: 'span[data-cite-key]', getAttrs: (el) => ({ citeKey: (el as HTMLElement).getAttribute('data-cite-key') ?? '' }) }];
   },
   renderHTML({ node }) {
     const key = String(node.attrs.citeKey ?? '');
+    const label = String(node.attrs.citeText ?? '') || `[${key}]`;
+    // 真实 LaTeX(projector 的 hyperref 无 colorlinks)里引用是**黑色**正文;这里同色以求「像真实 latex」,
+    // 且与 PrismLivePreview 的黑色 [N] 一致。hover title 露出 cite key 便于识别是哪篇/哪个锚(编辑可用性)。
     return [
       'span',
-      { 'data-cite-key': key, class: 'mx-0.5 rounded bg-surface-2 px-1 text-brand-green' },
-      `[${key}]`,
+      { 'data-cite-key': key, title: key, class: 'mx-0.5 cursor-default' },
+      label,
     ];
   },
 });

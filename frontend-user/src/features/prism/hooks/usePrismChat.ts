@@ -134,6 +134,14 @@ export interface PrismSendExtras {
   references?: ReferenceItemDTO[];
 }
 
+/** 409 判定:apply 携带的 epoch 与服务端不符(另一条对话已推进共享文档基线)→ 本轮判负、刷新。 */
+function isConflict(err: unknown): boolean {
+  const status =
+    (err as { response?: { status?: number } })?.response?.status ??
+    (err as { status?: number })?.status;
+  return status === 409;
+}
+
 /** 历史回放:给图片附件补 previewUrl(指向 /prism/projects/:id/session/file 取图代理,cookie 鉴权)。 */
 function withPrismImagePreviews(turns: Turn[], projectId: number): Turn[] {
   return turns.map((turn) => {
@@ -151,14 +159,27 @@ function withPrismImagePreviews(turns: Turn[], projectId: number): Turn[] {
 
 export function usePrismChat(
   projectId: number,
-  opts: { onApplied?: () => void; onReverted?: () => void; autoApply?: boolean; enabled?: boolean; resetNonce?: number } = {},
+  opts: {
+    onApplied?: () => void;
+    onReverted?: () => void;
+    autoApply?: boolean;
+    enabled?: boolean;
+    resetNonce?: number;
+    /** 多对话:当前活动对话 id(null/空 = 回落后端「当前/最近活跃」对话,兼容存量单会话)。切换它 → WS 重连 + 重载该对话历史。 */
+    sessionId?: string | null;
+  } = {},
 ) {
   // enabled=false(旧版 legacy 项目恒只读、不挂 AI 对话)→ 不连 WS、不拉 history/pending/context,
   // 免得每次打开旧项目都白连一条 WS + 打一串 400(agent 会话端点对冻结项目不可用)。评审 #15。
   const enabled = opts.enabled !== false;
-  const socket = usePrismSocket(enabled ? projectId : null, opts.resetNonce ?? 0);
+  const wantSession = opts.sessionId || undefined; // 空串归一成 undefined(URL 省略 session_id)
+  const socket = usePrismSocket(enabled ? projectId : null, wantSession, opts.resetNonce ?? 0);
   const qc = useQueryClient();
-  const contextQuery = usePrismContext(enabled ? projectId : undefined); // footer 上下文水位;每轮结束失效刷新
+  const contextQuery = usePrismContext(enabled ? projectId : undefined, wantSession); // footer 上下文水位;每轮结束失效刷新
+  // 活动对话 id 放 ref:round 回调(send/apply/finalize/...)读它拼 ?session_id=,不必把 sessionId 塞进每个 useCallback 依赖。
+  const sessionIdRef = useRef(wantSession);
+  sessionIdRef.current = wantSession;
+  const sid = () => sessionIdRef.current;
   const [historyTurns, setHistoryTurns] = useState<Turn[]>([]);
   const [pendingTurns, setPendingTurns] = useState<
     {
@@ -210,7 +231,7 @@ export function usePrismChat(
       const act = activeRef.current;
       if (!act) return;
       try {
-        const { found, content } = await readWorkspaceFile(projectId, act.relPath);
+        const { found, content } = await readWorkspaceFile(projectId, act.relPath, sid());
         if (found) setLive({ relPath: act.relPath, baseline: act.baseline, content });
       } catch {
         /* 忽略瞬时读失败,下个 tool_result 会再 refetch */
@@ -236,12 +257,23 @@ export function usePrismChat(
       };
       // 固化带少量重试:多为瞬时网络/后端抖动,重试可救回,避免改动只留在 cwd 被下一轮 prepareRound 冲掉(F3)。
       const attempt = (retries: number): Promise<void> =>
-        applyRound(projectId, lastInstructionRef.current, {}, epochRef.current) // 空 overrides = 固化 cwd 全部改动
+        applyRound(projectId, lastInstructionRef.current, {}, epochRef.current, sid()) // 空 overrides = 固化 cwd 全部改动
           .then(() => {
             settleIdle();
             onAppliedRef.current?.();
           })
-          .catch(() => {
+          .catch((err) => {
+            // 多对话并发:409=另一条对话已推进共享文档基线,本轮基于过期基线判负 → 丢弃 + 刷新到最新文档(不重试)。
+            if (isConflict(err)) {
+              settleIdle();
+              setAppliedChange(null);
+              setChangeset(null);
+              setLive(null);
+              activeRef.current = null;
+              onRevertedRef.current?.(); // 刷新 struct 到最新(别 arm 编译自修复)
+              toast.error('文档已被另一对话更新,已刷新');
+              return;
+            }
             if (retries > 0) {
               return new Promise<void>((r) => setTimeout(r, 400)).then(() => attempt(retries - 1));
             }
@@ -269,7 +301,7 @@ export function usePrismChat(
         activeRef.current = null;
         return;
       }
-      fetchPendingRound(projectId)
+      fetchPendingRound(projectId, sid())
         .then(({ files, epoch }) => {
           if (epoch) epochRef.current = epoch;
           if (files.length === 0) {
@@ -364,9 +396,9 @@ export function usePrismChat(
       const ins = instruction.trim();
       if (!ins || roundState !== 'idle' || socket.state !== 'open') return;
       try {
-        epochRef.current = await prepareRound(projectId); // V3-4.4-1:记本轮世代号,apply 带回校验
+        epochRef.current = await prepareRound(projectId, sid()); // V3-4.4-1:记本轮世代号,apply 带回校验
       } catch {
-        return; // 铺源失败不发(保留输入;409=AI 回答进行中,由忙态 UI 兜着)
+        return; // 铺源失败不发(保留输入;409=本对话 AI 回答进行中,由忙态 UI 兜着)
       }
       activeRef.current = active;
       lastInstructionRef.current = ins;
@@ -419,7 +451,7 @@ export function usePrismChat(
     // 停在 awaiting_apply 门 + 提示刷新重试 —— 否则失败(多 tab 409 / 网络抖动)会静默丢取舍 + 假成功 + 下一轮
     // prepareRound 冲掉 agent 成果(与 commitAndIndicate 的 F3 加固对齐)。
     const attempt = (retries: number): Promise<void> =>
-      applyRound(projectId, lastInstructionRef.current, overrides, epochRef.current)
+      applyRound(projectId, lastInstructionRef.current, overrides, epochRef.current, sid())
         .then((n) => {
           setRoundState('idle');
           setLive(null);
@@ -428,7 +460,18 @@ export function usePrismChat(
           setChangeset((c) => (c ? { applied: n, state: 'applied' } : null));
           onAppliedRef.current?.();
         })
-        .catch(() => {
+        .catch((err) => {
+          // 多对话并发:409=另一条对话已推进共享文档基线 → 本轮逐块取舍作废、刷新到最新文档(不重试、不谎报)。
+          if (isConflict(err)) {
+            setRoundState('idle');
+            setLive(null);
+            clearPending();
+            activeRef.current = null;
+            setChangeset(null);
+            onRevertedRef.current?.();
+            toast.error('文档已被另一对话更新,已刷新');
+            return;
+          }
           if (retries > 0) {
             return new Promise<void>((r) => setTimeout(r, 400)).then(() => attempt(retries - 1));
           }
@@ -438,7 +481,7 @@ export function usePrismChat(
   }, [projectId]);
 
   const reject = useCallback(async () => {
-    await rejectRound(projectId).catch(() => {});
+    await rejectRound(projectId, sid()).catch(() => {});
     setRoundState('idle');
     setLive(null);
     clearPending();
@@ -464,18 +507,34 @@ export function usePrismChat(
     socket.send({ type: 'stop_generation' });
   }, [socket]);
 
-  // 进项目(重入):① 拉 agent 历史(最近 N 轮)折成 turns ② 拉 /round/pending,有未应用改动直接进 awaiting_apply。
+  // 进项目 / 切对话(重入):① 拉该对话 agent 历史(最近 N 轮)折成 turns ② 拉 /round/pending,有未应用改动直接进 awaiting_apply。
+  // 多对话:deps 含 wantSession —— 切对话(sessionId 变)时先把本地状态清成空白(旧对话的历史/待应用/在途轮不残留到新对话),
+  // 再按新对话重载。socket 那侧 connectionKey 变会另清 messages(实时轮),两边合起来 = 干净切换。
   useEffect(() => {
     if (!enabled) return; // 只读 legacy:不拉历史/待应用(端点不可用),免 400。评审 #15。
     let cancelled = false;
     historyLimitRef.current = DEFAULT_HISTORY_TURNS;
     setHasMoreHistory(false);
+    // 切对话即刻清空(不等异步返回),避免旧对话 UI 闪现:历史/在途轮/改动门/实时 diff + 各 round ref。
+    setHistoryTurns([]);
+    setPendingTurns([]);
+    setChangeset(null);
+    setAppliedChange(null);
+    setRoundState('idle');
+    setLive(null);
+    setPendingFiles([]);
+    setSelectedPending(null);
+    mergedRef.current = {};
+    processedRef.current = 0;
+    roundActiveRef.current = false;
+    activeRef.current = null;
+    epochRef.current = '';
     (async () => {
-      const res = await fetchWSHistory(projectId, DEFAULT_HISTORY_TURNS).catch(() => null);
+      const res = await fetchWSHistory(projectId, DEFAULT_HISTORY_TURNS, sid()).catch(() => null);
       if (cancelled) return;
       setHistoryTurns(withPrismImagePreviews(foldHistoryToTurns(res?.messages ?? []), projectId));
       setHasMoreHistory(res?.hasMore ?? false);
-      const pending = await fetchPendingRound(projectId).catch(() => ({ files: [] as PrismPendingFile[], epoch: '' }));
+      const pending = await fetchPendingRound(projectId, sid()).catch(() => ({ files: [] as PrismPendingFile[], epoch: '' }));
       if (cancelled || pending.files.length === 0) return;
       if (pending.epoch) epochRef.current = pending.epoch; // 重入拿服务端 epoch,commit 才不必 409
       // V3-4.4-2:重入遗留的 pending **无法证明来自成功轮**(可能是失败/中断/stop 的半截稿)——
@@ -491,7 +550,8 @@ export function usePrismChat(
     return () => {
       cancelled = true;
     };
-  }, [projectId, enabled]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, wantSession, enabled]);
 
   // 「加载更早」:把 limit +100 重新拉历史并重折(只在 idle 时由 UI 触发)。
   const loadEarlier = useCallback(async () => {
@@ -499,7 +559,7 @@ export function usePrismChat(
     setLoadingEarlier(true);
     const next = historyLimitRef.current + HISTORY_STEP;
     try {
-      const res = await fetchWSHistory(projectId, next);
+      const res = await fetchWSHistory(projectId, next, sid());
       historyLimitRef.current = next;
       setHistoryTurns(foldHistoryToTurns(res.messages));
       setHasMoreHistory(res.hasMore);
@@ -582,6 +642,7 @@ export function usePrismChat(
 
   return {
     projectId, // 2026-07 输入框统一:panel 拼 /prism/projects/:id/{upload,reference} 端点用
+    sessionId: wantSession ?? null, // 多对话:活动对话 id(null=跟随后端最近活跃);panel 据它给附件端点拼 ?session_id=
     turns,
     changeset,
     roundState,

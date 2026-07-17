@@ -109,6 +109,71 @@
       })();
     </script>
 
+    <!--
+      后台「代码片段库」(/admin/code-snippets)—— 运行时拉取并注入,达到「配置即生效、无需重新构建/重启」。
+
+      为什么必须有这段(2026-07 修):
+        后端早已备齐 CRUD + 公开接口 + SSR 注入,但**只有爬虫**能看到片段 —— nginx 按 UA 分流,
+        爬虫走 backend SSR(ServeIndexHTML → injectCodeSnippets 注入原始 HTML),普通用户走前端静态
+        SPA,压根不经过 backend。而前端这一半从没实现(公开接口零消费方),导致管理员配的片段对真实
+        用户全是哑的。SSR 特地埋了 window.__SSR_SNIPPETS_INJECTED__ 防重复标记,正是留给这里用的。
+
+      时序坑:SSR 把「flag + 片段」注入在 head 结束标签**之前**,即排在本脚本**之后**才执行。所以
+      __SSR_SNIPPETS_INJECTED__ 的判断**必须放在 fetch 的 .then 里**(那时 head 已解析完、flag 已就位);
+      放在脚本开头会永远读到 undefined → 爬虫(会跑 JS 的 Googlebot)会被重复注入两遍。
+
+      ⚠️ 本注释里**绝不能出现字面量的 head/body 结束标签** —— Vite 构建时是按字符串找**第一个**
+      head 结束标签插入 <script type="module"> 的,会命中注释里那个假的,把主 bundle 塞进注释里
+      → 整站白屏、且控制台**没有任何报错**(浏览器只当它是注释文本,压根不请求 bundle)。踩过一次。
+
+      安全:片段是**管理员**(adminProtected)配置的任意 HTML/JS,注入到所有用户页面 —— 这正是本功能的
+      用途(等同 GTM 容器),但也意味着后台账号即全站 JS 权限,勿把该菜单开放给非可信管理员。
+    -->
+    <script>
+      (function () {
+        // 把一组片段拼成一个 fragment(保持 priority 顺序,一次性插入)。
+        // 注:innerHTML 解析出的 <script> 带「已停止」标记、永不执行 → 必须逐个重建成新 script 才会跑。
+        function build(list) {
+          var frag = document.createDocumentFragment();
+          for (var i = 0; i < list.length; i++) {
+            var html = list[i] && list[i].code_content;
+            if (!html) continue;
+            var tpl = document.createElement('template');
+            tpl.innerHTML = html;
+            var scripts = tpl.content.querySelectorAll('script');
+            for (var j = 0; j < scripts.length; j++) {
+              var old = scripts[j];
+              var s = document.createElement('script');
+              for (var k = 0; k < old.attributes.length; k++) {
+                s.setAttribute(old.attributes[k].name, old.attributes[k].value);
+              }
+              s.text = old.textContent || '';
+              old.parentNode.replaceChild(s, old);
+            }
+            frag.appendChild(tpl.content);
+          }
+          return frag;
+        }
+        fetch('/api/v1/config/code-snippets')
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (resp) {
+            var d = resp && resp.data;
+            if (!d) return;
+            // 见上「时序坑」:此刻 head 已解析完,爬虫的 SSR flag 若在就说明原始 HTML 已注入过。
+            if (window.__SSR_SNIPPETS_INJECTED__) return;
+            window.__SSR_SNIPPETS_INJECTED__ = true;
+            document.head.appendChild(build(d.head || []));
+            var doBody = function () {
+              document.body.insertBefore(build(d.body_start || []), document.body.firstChild);
+              document.body.appendChild(build(d.body_end || []));
+            };
+            if (document.body) doBody();
+            else document.addEventListener('DOMContentLoaded', doBody);
+          })
+          .catch(function () { /* 静默 —— 片段拉不到不应影响主站 */ });
+      })();
+    </script>
+
     <!-- ───────── SEO 基础 meta(静态兜底)─────────
          非 JS 爬虫 / 百度首屏即可见;详情页由后端 SSR(handler_ssr.go)用正则替换 title/description/keywords。
          首页 RouteSEO(React 注入)与此处保持品牌词一致即可。 -->

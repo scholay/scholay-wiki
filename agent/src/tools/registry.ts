@@ -4,10 +4,10 @@
 
 import { resolve, relative, dirname, join, basename } from "node:path";
 import { readFile, writeFile, mkdir, readdir, stat, realpath } from "node:fs/promises";
-import { wrapBash } from "../sandbox/bwrap.ts";
+import { wrapBash, buildBwrapArgv, sandboxMode } from "../sandbox/bwrap.ts";
 import { profileFor, unsandboxedBashGate } from "../sandbox/profile.ts";
 import { confinePath } from "../sandbox/confine.ts";
-import { beijingNow } from "./clock.ts";
+import { localNow } from "./clock.ts";
 import { log } from "../obs/log.ts";
 
 export interface ToolCtx {
@@ -293,12 +293,24 @@ const bashTool: BuiltinTool = {
           /* noop */
         }
       }, timeoutMs);
-      const [out, errOut, code] = await Promise.all([
-        new Response(proc.stdout).text(),
-        new Response(proc.stderr).text(),
-        proc.exited,
-      ]);
+      // stdout/stderr 有界读(评审 2026-07 性能审计 P0):`new Response(stream).text()` 会把无上限的
+      // 输出全量灌进 JS 堆 —— 一条 `yes` / `cat 大文件` 就能在多租户共享容器里 OOM 拖垮所有会话。
+      // 到帽即 kill 子进程(让 proc.exited 解析),复用同文件已投产的 readCapped(与 runConverter 同款)。
+      const outP = readCapped(proc.stdout, BASH_STDOUT_MAX_BYTES).then((r) => {
+        if (r.truncated) {
+          try {
+            proc.kill();
+          } catch {
+            /* noop */
+          }
+        }
+        return r;
+      });
+      const errP = readCapped(proc.stderr, BASH_STDERR_MAX_BYTES);
+      const [outR, errR, code] = await Promise.all([outP, errP, proc.exited]);
       clearTimeout(killer);
+      const out = outR.text + (outR.truncated ? "\n[stdout 已达上限截断]" : "");
+      const errOut = errR.text + (errR.truncated ? "\n[stderr 已达上限截断]" : "");
       const body = (out + (errOut ? "\n[stderr]\n" + errOut : "")).slice(0, 60_000);
       return code === 0 ? ok(body || "(no output)") : fail("exit " + code + "\n" + body);
     } catch (e) {
@@ -313,6 +325,11 @@ const bashTool: BuiltinTool = {
 // 拉进内存 —— 大 PDF(pdftotext 无 first_pages)可吐几百 MB,在多租户共享容器里 OOM 拖垮所有会话。
 // 有界流式读到 8MB 即停并 kill 子进程(远高于 MAX_DOC_CHARS,正常文档不受影响,只兜病态大文件)。
 const CONVERTER_MAX_BYTES = Number(process.env.EXECUTOR_CONVERTER_MAX_BYTES || 8 * 1024 * 1024);
+
+// Bash 工具输出内存上限(评审 2026-07 性能审计 P0):stdout 默认 4MB、stderr 64KB。远高于给模型的
+// 60_000 字符可读上限(两者正交:这是内存帽,防病态大输出 OOM 多租户容器;那是可读截断)。
+const BASH_STDOUT_MAX_BYTES = Number(process.env.EXECUTOR_BASH_STDOUT_MAX_BYTES || 4 * 1024 * 1024);
+const BASH_STDERR_MAX_BYTES = Number(process.env.EXECUTOR_BASH_STDERR_MAX_BYTES || 64 * 1024);
 
 // readCapped:有界读一个 ReadableStream,到 maxBytes 即停(标记 truncated),不把无上限的流灌进内存。
 async function readCapped(stream: ReadableStream<Uint8Array>, maxBytes: number): Promise<{ text: string; truncated: boolean }> {
@@ -344,8 +361,8 @@ async function readCapped(stream: ReadableStream<Uint8Array>, maxBytes: number):
   return { text: Buffer.concat(chunks).toString("utf8"), truncated };
 }
 
-async function runConverter(argv: string[]): Promise<{ ok: boolean; text: string; err: string }> {
-  const proc = Bun.spawn(argv, { stdout: "pipe", stderr: "pipe", env: bashEnv() });
+async function runConverter(argv: string[], cwd?: string): Promise<{ ok: boolean; text: string; err: string }> {
+  const proc = Bun.spawn(argv, { cwd, stdout: "pipe", stderr: "pipe", env: bashEnv() });
   const killer = setTimeout(() => {
     try {
       proc.kill();
@@ -378,8 +395,42 @@ async function runConverter(argv: string[]): Promise<{ ok: boolean; text: string
       err: "",
     };
   }
-  if (code === 0) return { ok: true, text: outRes.text, err: "" };
+  // 成功也带回 stderr(err):pandoc 对断网丢弃的远程图片只发 [WARNING] 到 stderr 且 exit 0,
+  // 调用方(ExportDocument)据此提示用户「远程图片未内嵌」。ReadDocument 成功时忽略 err,不受影响。
+  if (code === 0) return { ok: true, text: outRes.text, err: errOut };
   return { ok: false, text: "", err: (errOut || `exit ${code}`).slice(0, 2000) };
+}
+
+// runConverterConfined:在 bwrap jail 内跑转换器(ExportDocument 导出方向用)。
+// 关掉「模型在源文件里嵌入已知绝对路径的图片 → pandoc 解引用 → 把跨会话/宿主文件嵌进交付产物」这条
+// 窄向量(registry 注释里承认、但此前无执行器级沙箱兜底):jail 只把本会话 cwd bind 到 /work,别的会话
+// 目录 / /etc 等物理不在 mount 命名空间里,pandoc 读不到 → 缺图即不嵌,不外泄。argv 里落在 cwd 内的
+// 绝对路径(源 src / 产物 out)须翻译成 /work 视图(jail --chdir /work + cwd→/work)。net:none:导出不
+// 需出网,顺带挡掉 `![](https://…)` 远程图片 SSRF。
+// 沙箱自探失败时**与 Bash 同款生产 fail-closed**(unsandboxedBashGate):生产未放行沙箱则拒绝导出,
+// 不裸跑 pandoc —— 否则跨会话图片嵌入向量在最该防的时候敞开;仅非生产/显式放行才退化直跑。
+// 代价:源里用**绝对 cwd 路径**引用的本地图片在 jail 内解析不到(模型应改用相对路径);合法相对图片不受影响。
+async function runConverterConfined(
+  workDir: string,
+  argv: string[],
+): Promise<{ ok: boolean; text: string; err: string }> {
+  if (sandboxMode() !== "bwrap") {
+    const gate = unsandboxedBashGate();
+    if (!gate.ok) {
+      return { ok: false, text: "", err: "导出沙箱不可用,已按 secure-by-default 拒绝(" + gate.reason + ")" };
+    }
+    // 退化直跑也让转换器以会话 cwd 运行,与 jail 的 --chdir /work 对齐,相对资源(./figures/x.png)解析基准一致。
+    return runConverter(argv, workDir);
+  }
+  // confinePath 返回的 src/outAbs 已 canonicalize(realpath,解符号链接),故翻译前缀 + bind 源都必须用
+  // realpath(workDir):否则 SESSIONS_ROOT 含符号链接时 src 不以裸 workDir 开头 → toJail 不翻译 → 导出全失败。
+  const root = await realpath(workDir).catch(() => workDir);
+  const prefix = root.endsWith("/") ? root : root + "/";
+  const toJail = (a: string): string =>
+    a === root ? "/work" : a.startsWith(prefix) ? "/work/" + a.slice(prefix.length) : a;
+  const inner = argv.map(toJail);
+  const profile = profileFor({ workDir: root, net: "none", allowBash: false });
+  return runConverter(buildBwrapArgv(profile, inner));
 }
 
 const MAX_DOC_CHARS = Number(process.env.EXECUTOR_MAX_DOC_CHARS || 400_000);
@@ -446,6 +497,59 @@ const readDocumentTool: BuiltinTool = {
   },
 };
 
+// DOC_HEAD_*:「文档头」有界抽取的上界(预识别 / 元数据抽取用)。与 ReadDocument(读全文)正交 ——
+// 这里对**所有格式**强制小上界,让「只看开头 N 页」由**构造**保证,而不是靠提示词请求模型传 first_pages
+// (pandoc 根本没有页参数,docx 靠提示词永远抽全文)。可经 env 覆盖。
+const DOC_HEAD_MAX_CHARS = Number(process.env.EXECUTOR_DOC_HEAD_MAX_CHARS || 8_000);
+const DOC_HEAD_PDF_PAGES = Number(process.env.EXECUTOR_DOC_HEAD_PDF_PAGES || 3);
+
+// extractDocHead:从二进制文档抽取「开头一小段」纯文本,输出对所有格式硬性有界。
+// - PDF:pdftotext -l N 只抽前 N 页,再硬截到 maxChars(单页也可能很大)。
+// - 其它(docx/odt/rtf/epub/html…):pandoc 抽全文(无页限)后**硬截**到 maxChars。
+// absPath 必须由调用方 confinePath 过(本函数不做路径校验,单一职责)。复用 runConverter 的安全外壳
+// (固定 argv、无 shell、白名单 env、8MB OOM 闸、60s 超时);读方向无需 bwrap(与 ReadDocument 同)。
+export async function extractDocHead(
+  absPath: string,
+  opts?: { pdfPages?: number; maxChars?: number },
+): Promise<{ ok: boolean; text: string; truncated: boolean; err: string }> {
+  const maxChars = opts?.maxChars && opts.maxChars > 0 ? Math.floor(opts.maxChars) : DOC_HEAD_MAX_CHARS;
+  // pdfPages:省略 → 默认前 DOC_HEAD_PDF_PAGES 页(预识别);>0 → 前 N 页;<=0(如 0)→ 全部页
+  // (审稿"只读一次全文"用,仍受 maxChars 上界)。用 typeof 判定以便 0 也生效(0 是 falsy,不能用 && 短路)。
+  const rawPages = opts?.pdfPages;
+  const pdfPages = typeof rawPages === "number" ? Math.floor(rawPages) : DOC_HEAD_PDF_PAGES;
+  const lower = absPath.toLowerCase();
+  let argv: string[];
+  if (lower.endsWith(".pdf")) {
+    argv = ["pdftotext", "-layout", ...(pdfPages > 0 ? ["-l", String(pdfPages)] : []), absPath, "-"];
+  } else if (/\.(docx|odt|rtf|epub|html?|md|markdown|tex|latex)$/.test(lower)) {
+    argv = ["pandoc", "--sandbox", absPath, "-t", "plain", "--wrap=none"];
+  } else {
+    return {
+      ok: false,
+      text: "",
+      truncated: false,
+      err: "unsupported extension (supported: .pdf, .docx, .odt, .rtf, .epub, .html)",
+    };
+  }
+  const res = await runConverter(argv);
+  if (!res.ok) return { ok: false, text: "", truncated: false, err: res.err };
+  let text = res.text.trim();
+  if (!text) {
+    return {
+      ok: false,
+      text: "",
+      truncated: false,
+      err: "extractor produced no text — the document may be scanned images with no embedded text layer (OCR not available)",
+    };
+  }
+  let truncated = false;
+  if (text.length > maxChars) {
+    text = text.slice(0, maxChars);
+    truncated = true;
+  }
+  return { ok: true, text, truncated, err: "" };
+}
+
 // ExportDocument:与 ReadDocument 对称的**产出**方向 —— 把会话里的 Markdown/HTML/文本源文件
 // 导出成交付文档(docx/pptx/odt/rtf/epub/html/pdf)。固定 argv 的 pandoc、路径 confine 在会话 cwd、
 // 输出强制落 ./out/(claw 交付目录约定,后端据此出下载卡片)。无 shell → 无注入面、不需要沙箱闸,
@@ -495,11 +599,13 @@ const exportDocumentTool: BuiltinTool = {
       const outAbs = await confinePath(ctx.workDir, outRel, true);
       await mkdir(dirname(outAbs), { recursive: true });
       // 注:写方向不能用 --sandbox(它会连 pandoc 自己的 docx/pptx 模板数据一起挡掉 → 无法生成)。
-      // 文本外泄向量已实测关闭(pandoc 只嵌合法图片,不把 /etc/passwd 之类文本文件读进产物);
-      // 残余的窄向量(恶意模型嵌入已知绝对路径的**图片**跨会话读)与 Bash 同根,靠执行器级沙箱兜(决策 B)。
+      // 文本外泄向量已实测关闭(pandoc 只嵌合法图片,不把 /etc/passwd 之类文本文件读进产物);残余的窄
+      // 向量(恶意模型嵌入已知绝对路径的**图片**跨会话读)此前只在注释里说"靠执行器级沙箱兜"、实则没有 ——
+      // 现经 runConverterConfined 把 pandoc 关进 bwrap jail(只 bind 本会话 cwd),该向量物理关闭。生产环境
+      // 若 bwrap 自探失败则 fail-closed 拒绝导出(与 Bash 对称),故生产恒为「jail 或拒绝」,不会未 jail 裸跑。
       const argv = ["pandoc", src, "-o", outAbs, "-t", fmt.pandocTo];
       if (fmt.needsEngine && PDF_ENGINE) argv.push(`--pdf-engine=${PDF_ENGINE}`);
-      const res = await runConverter(argv);
+      const res = await runConverterConfined(ctx.workDir, argv);
       if (!res.ok) {
         if (fmt.needsEngine) {
           return fail(
@@ -511,26 +617,33 @@ const exportDocumentTool: BuiltinTool = {
       }
       const st = await stat(outAbs).catch(() => null);
       if (!st || st.size === 0) return fail("ExportDocument: pandoc produced an empty file.");
-      return ok(`exported ${outRel} (${st.size} bytes) — delivered to the user's download area.`);
+      // 导出 jail 断网(net:none)→ 源里的远程图片 `![](https://…)` 被 pandoc 跳过(仅 stderr WARNING、仍 exit 0)。
+      // 静默丢图会让用户以为图片都在,故命中时明确提示改用会话内本地图片。
+      const droppedRemote = /Could not fetch resource/i.test(res.err || "");
+      const note = droppedRemote
+        ? " 注意:部分远程图片(网址引用)因导出沙箱断网未内嵌,请先把图片下载到会话目录再以相对路径引用。"
+        : "";
+      return ok(`exported ${outRel} (${st.size} bytes) — delivered to the user's download area.${note}`);
     } catch (e) {
       return fail("ExportDocument failed: " + String((e as Error)?.message ?? e));
     }
   },
 };
 
-// TodayDate:查当前日期/时间(Asia/Shanghai)。零参数、只读、parallelSafe,对所有 feature 开放
+// TodayDate:查当前日期/时间(跟随容器本地时区)。零参数、只读、parallelSafe,对所有 feature 开放
 // (不进任何 denylist)。system 里已有天粒度 dateLine 锚点;此工具补精确时刻 + 给模型一个
 // 「主动核实时间」的确定性通道(治时间线幻觉:模型对"今年是哪年"拿不准时可自查,而非按训练截止猜)。
 const todayDateTool: BuiltinTool = {
   name: "TodayDate",
   description:
-    "Get today's date and the current time (Asia/Shanghai, UTC+8). The returned value is the authoritative current date — trust it over your training knowledge, e.g. when judging whether a publication year is plausible, converting \"recent N years\" into an absolute year range, or dating a document.",
+    "Get today's date and the current time in the platform's local timezone. The returned value is the authoritative current date — trust it over your training knowledge, e.g. when judging whether a publication year is plausible, converting \"recent N years\" into an absolute year range, or dating a document.",
   input_schema: { type: "object", properties: {} },
   parallelSafe: true,
   async run() {
-    const d = beijingNow();
+    const d = localNow();
+    const tzHint = d.tz ? `(${d.tz})` : "";
     return ok(
-      `今天是 ${d.dateCN}(${d.weekday}),当前时间 ${d.time}(Asia/Shanghai,UTC+8)\nISO 日期: ${d.isoDate}`,
+      `今天是 ${d.dateCN}(${d.weekday}),当前时间 ${d.time}${tzHint}\nISO 日期: ${d.isoDate}`,
     );
   },
 };

@@ -72,14 +72,39 @@ export function translatePaper(body: TranslateBody, onProgress: (preview: string
     let finished = false
     let errored = false
 
+    // 预览合帧节流(性能审计 #4):旧逻辑每个 SSE token 都对累计全文跑 stripTags(两个全局正则)+ 整串 setData,
+    // ~30/s 低配机明显卡顿。改成 ~140ms(与 agent-socket FLUSH_MS 同款)攒一次:仍逐 token 累加,但 stripTags+
+    // 派发降到 ~7/s。最终 parseResult 用完整 content,与预览无关。
+    const PREVIEW_MS = 140
+    let previewTimer: ReturnType<typeof setTimeout> | null = null
+    let previewDirty = false
+    const emitPreview = () => {
+      previewTimer = null
+      if (!previewDirty) return
+      previewDirty = false
+      onProgress(stripTags(content))
+    }
+    const schedulePreview = () => {
+      previewDirty = true
+      if (previewTimer === null) previewTimer = setTimeout(emitPreview, PREVIEW_MS)
+    }
+    const clearPreview = () => {
+      if (previewTimer !== null) {
+        clearTimeout(previewTimer)
+        previewTimer = null
+      }
+    }
+
     const finish = () => {
       if (finished) return
       finished = true
+      clearPreview() // 防定时器泄漏;最终 translated 会取代预览,无需补尾帧
       resolve(parseResult(content))
     }
     const fail = (e: ApiError) => {
       if (finished || errored) return
       errored = true
+      clearPreview()
       reject(e)
     }
 
@@ -143,7 +168,7 @@ export function translatePaper(body: TranslateBody, onProgress: (preview: string
         const delta = j.choices && j.choices[0] && j.choices[0].delta && j.choices[0].delta.content
         if (typeof delta === 'string') {
           content += delta
-          onProgress(stripTags(content))
+          schedulePreview() // 合帧节流(见上),不再每 token stripTags+setData
         }
       } catch {
         /* 非 JSON 帧忽略 */

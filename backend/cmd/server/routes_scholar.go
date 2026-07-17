@@ -83,7 +83,10 @@ func registerPublicAPIRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL gin.
 		publicAPI.GET("/author-detail/:authorId/papers", h.scholar.GetAuthorPapers)
 
 		// 反馈 (提交 + 附件上传/下载, 附件本体走 MinIO)
-		publicAPI.POST("/feedback", h.feedback.CreateFeedback)
+		// OptionalUserAuthMiddleware:带 token → 反馈记到具体用户(飞书通知也才显示真实用户名),
+		// 匿名仍可提交。**必须挂** —— 前端不论登没登录都只调这个公开入口(http 拦截器对 /public/*
+		// 也注入 Authorization),不挂就永远取不到 user_id,所有反馈全成匿名(2026-07 实测 4/4 匿名)。
+		publicAPI.POST("/feedback", middleware.OptionalUserAuthMiddleware(), h.feedback.CreateFeedback)
 		publicAPI.POST("/feedback/upload", middleware.UploadLimitMiddleware(middleware.UploadMaxBodySize), h.feedback.UploadAttachments)
 		publicAPI.GET("/feedback/attachment/:id", h.feedback.GetAttachment)
 

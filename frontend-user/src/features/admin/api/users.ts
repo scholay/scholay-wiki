@@ -64,11 +64,17 @@ export interface UserLoginMethods {
   register_source?: string;
 }
 
+// 对齐 backend vip.TokenStatus(quota.go)——7 天锚定窗口口径:used/percent 是窗口内(重置/升级换锚后归零),
+// consumed_today 是当日真实消耗(换锚不清零),window_* 是当前窗口起止(null=未开窗=满额·用后计时)。
 export interface UserTokenStatus {
   used: number;
   ceiling: number; // -1 = 不限
   percent: number;
   unlimited: boolean;
+  consumed_today: number;
+  window_days: number;
+  window_started_at: string | null;
+  window_reset_at: string | null;
 }
 export interface UserCreditBalance {
   temp: number;
@@ -167,7 +173,7 @@ export function useUserDetail(id?: number) {
   });
 }
 
-/** 该用户会员状态 + 今日各功能额度。 */
+/** 该用户会员状态 + 本周期(7 天)统一 token 额度(含窗口起止 / 当日消耗)。 */
 export function useUserVipStatus(id?: number) {
   return useQuery({
     queryKey: ['admin', 'users', 'vip', id],

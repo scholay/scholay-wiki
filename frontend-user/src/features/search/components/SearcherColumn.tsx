@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, lazy, Suspense } from 'react';
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { Loader2, Search, SquarePen } from 'lucide-react';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { useSmartSearchSessionStore } from '@/stores/smart-search-session.store';
@@ -14,7 +15,12 @@ import { useSearchVisiblePapers } from '@/stores/search-visible-papers.store';
 import { PaperResultCard } from '@/shared/components/PaperResultCard';
 import { resolveYearRange, type SearchFilters } from '../types';
 import { cn } from '@/shared/lib/utils';
-import { SmartSearchPanel } from './smart-search/SmartSearchPanel';
+// 懒加载(性能审计 fe-bundle #1):智能面板整条闭包(chat barrel → MarkdownRenderer → katex/hljs/motion/
+// agent-attach 等)此前被静态 import 连坐进 /search 首屏。渲染本就由 smartPanelOpened 门控(首次开智能模式才挂),
+// 改 lazy 后其代码块也仅在首次进智能模式时下载;纯关键词搜索用户永不加载。挂载后保持(display 切换,不 unmount)。
+const SmartSearchPanel = lazy(() =>
+  import('./smart-search/SmartSearchPanel').then((m) => ({ default: m.SmartSearchPanel })),
+);
 import { SearcherPagination } from './SearcherPagination';
 import { useSearcherUrlState } from '../hooks/useSearcherUrlState';
 
@@ -149,6 +155,9 @@ export function SearcherColumn({
   // 当前页所有 paperId,批量查"哪些已收藏",卡片用稳定的 Set 判断
   // 引用稳定化:papers 变化才重算,memo 后避免每次父级 re-render 都重建 Set
   const pageIds = useMemo(() => papers.map((p) => p.paperId), [papers]);
+  // 论文卡列表容器:暂存/折叠时卡片在「完整卡 ↔ 折叠行」间高度突变,
+  // auto-animate 让高度收合 + 下方卡片上移平滑过渡,不生硬。
+  const [listRef] = useAutoAnimate<HTMLDivElement>();
   // 收藏批查按「结果实际所属源」(综合/auto 会落到某个具体源,结果同源);
   // filters.source 可能是 'auto',不能直接用。
   const effectiveSource = (papers[0]?.source ?? 'stc') as UpstreamSource;
@@ -250,7 +259,9 @@ export function SearcherColumn({
           不影响 flex 布局; hidden (display:none) 隐藏时不参与布局也不渲染。 */}
       {smartPanelOpened && (
         <div className={mode === 'smart' ? 'contents' : 'hidden'}>
-          <SmartSearchPanel />
+          <Suspense fallback={null}>
+            <SmartSearchPanel />
+          </Suspense>
         </div>
       )}
       {mode === 'classic' && (
@@ -307,7 +318,7 @@ export function SearcherColumn({
               />
             )}
             {papers.length > 0 && (
-              <div>
+              <div ref={listRef}>
                 {papers.map((p) => (
                   <PaperResultCard
                     key={p.paperId}

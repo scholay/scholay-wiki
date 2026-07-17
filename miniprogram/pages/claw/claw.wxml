@@ -49,6 +49,11 @@
         </view>
       </view>
 
+      <!-- 加载更早历史(性能审计 #2):首屏只拉最近 30 轮,有更早则显示此条 -->
+      <view wx:if="{{hasMoreHistory}}" class="load-earlier tap-bg" hover-class="hover-bg" bindtap="loadEarlierHistory">
+        <text>{{loadingEarlier ? '加载中…' : '加载更早的对话'}}</text>
+      </view>
+
       <view wx:for="{{turns}}" wx:key="id" class="turn turn-anim">
         <view wx:if="{{item.userText}}" class="urow"><view class="bubble-user">{{item.userText}}</view></view>
         <view class="assistant">

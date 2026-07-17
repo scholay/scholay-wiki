@@ -136,28 +136,52 @@ func busyFrame() []byte {
 
 // ── Bridge 侧的 hub 注册表 ───────────────────────────────────────────────────
 
-// getOrCreateHub 取或建某 (feature, sessionID) 的 hub。首个订阅者触发建 hub(dial agent + 起上游/ping)。
-// 用 hubsMu 串行化「建」,避免两个首连各 dial 一条上游。
+// hubSlot 承载一个 (feature,session) hub 的创建结果 + ready 信号(性能审计:per-key singleflight)。
+// b.hubs 存 *hubSlot 而非 *sessionHub:用 sync.Map.LoadOrStore 做 per-key 原子裁决,只有创建者在【锁外】
+// 跑 newHub 的全部 IO(dial + seedHistory + DB + 重试 sleep),其余等待者 <-ready 读结果。去掉了旧的全局
+// hubsMu ——那把锁把整个 newHub(含 10s dial + 多次 DB + sleep)串行化,拖慢全站所有新会话建连。
+type hubSlot struct {
+	hub   *sessionHub
+	err   error
+	ready chan struct{}
+}
+
+// getOrCreateHub 取或建某 (feature, sessionID) 的 hub。同 key 只有一个创建者真正 dial(保住 jsonl 单写者不变式);
+// 不同 session 的建连完全并行。
 func (b *Bridge) getOrCreateHub(f *FeatureBridge, userID uint, sessionID string) (*sessionHub, error) {
 	key := hubKey(f.spec.Key, sessionID)
-	if v, ok := b.hubs.Load(key); ok {
-		return v.(*sessionHub), nil
+	slot := &hubSlot{ready: make(chan struct{})}
+	actual, loaded := b.hubs.LoadOrStore(key, slot)
+	s := actual.(*hubSlot)
+	if loaded {
+		// 已有创建者(或已就绪 slot)→ 等它完成,读同一结果。
+		<-s.ready
+		return s.hub, s.err
 	}
-	b.hubsMu.Lock()
-	defer b.hubsMu.Unlock()
-	if v, ok := b.hubs.Load(key); ok {
-		return v.(*sessionHub), nil
-	}
-	hub, err := f.newHub(key, userID, sessionID)
-	if err != nil {
-		return nil, err
-	}
-	b.hubs.Store(key, hub)
-	return hub, nil
+	// 本 goroutine 是唯一创建者(loaded==false 是原子裁决点):锁外跑 newHub 全部 IO。
+	// 用 defer 确保无论成功/失败/panic,ready 都会关闭、失败 slot 都会清理 —— 否则 newHub 若 panic,
+	// 等待者会永久阻塞在 <-ready、且该 session 永久卡在 pending slot(比旧全局锁更糟)。panic 仍向上传播由 recovery 兜。
+	defer func() {
+		if s.hub == nil && s.err == nil {
+			s.err = errors.New("agentbridge: hub creation failed unexpectedly") // newHub panic 未赋值 → 给等待者一个错误而非 nil,nil
+		}
+		close(s.ready)
+		if s.err != nil {
+			// 创建失败 → 删除该 slot,让后续请求重试(否则该 session 永久卡在失败 slot)。
+			b.hubs.CompareAndDelete(key, s)
+		}
+	}()
+	s.hub, s.err = f.newHub(key, userID, sessionID)
+	return s.hub, s.err
 }
 
 func (b *Bridge) removeHub(key string, h *sessionHub) {
-	b.hubs.CompareAndDelete(key, h)
+	// 只有当注册表里的 slot 正是 h 所属的那个才删(CompareAndDelete 保证不误删已被新 hub 替换的 slot)。
+	if v, ok := b.hubs.Load(key); ok {
+		if slot, ok2 := v.(*hubSlot); ok2 && slot.hub == h {
+			b.hubs.CompareAndDelete(key, slot)
+		}
+	}
 }
 
 // hubKey 按 (feature, agent session) 寻址 —— session_id 全局唯一,feature 前缀仅命名空间。
@@ -173,8 +197,15 @@ func (f *FeatureBridge) SessionBusy(sessionID string) bool {
 		return false
 	}
 	if v, ok := f.bridge.hubs.Load(hubKey(f.spec.Key, sessionID)); ok {
-		if h, ok2 := v.(*sessionHub); ok2 {
-			return h.inFlightSnapshot()
+		if slot, ok2 := v.(*hubSlot); ok2 {
+			// 非阻塞:仅已就绪且成功的 hub 才判忙态;建连中(pending)/失败 slot 视为不忙。
+			select {
+			case <-slot.ready:
+				if slot.hub != nil {
+					return slot.hub.inFlightSnapshot()
+				}
+			default:
+			}
 		}
 	}
 	return false
@@ -741,6 +772,9 @@ func (h *sessionHub) enqueue(sub *subscriber, frame []byte) {
 func (h *sessionHub) writeAgent(mt int, data []byte) error {
 	h.agentWriteMu.Lock()
 	defer h.agentWriteMu.Unlock()
+	// 有界写超时(性能审计 P0):agent TCP 假死时避免 WriteMessage 永久阻塞并持锁拖死该会话所有写方。
+	// agentWriteMu 已串行化写,SetWriteDeadline 对本 conn 的作用不会相互干扰。
+	_ = h.agentConn.SetWriteDeadline(time.Now().Add(agentWriteDeadline))
 	return h.agentConn.WriteMessage(mt, data)
 }
 
@@ -1062,6 +1096,14 @@ func (s *subscriber) sendSelf(frame []byte) {
 // handleUserMessage 处理一条 user_message:Touch → seed 守卫 → 配额 → 回答中锁 → 首条注入 prefix → 转发上游 → 回声其他端。
 func (h *sessionHub) handleUserMessage(s *subscriber, data []byte) {
 	f := h.f
+	// 安全闸(与 default 路径 browserFrameForwardable 对齐):user_message 走本专属分支、不过那道闸,
+	// 故在此剥离浏览器可能夹带的注入面字段(addDirs/disallowedTools/appendSystemPrompt/skills),
+	// 防用户经 user_message 绕过审核向 executor 注入任意目录 / skill。合法 user_message 不带这些键,剥离是 no-op。
+	if frameCarriesInjectionSurface(data) {
+		slog.Warn("agentbridge hub: stripped injection surface from user_message",
+			"feature", f.spec.Key, "session_id", h.sessionID)
+		data = stripInjectionSurface(data)
+	}
 	content, _ := extractUserMessageContent(data)
 
 	// 附件断链修复(2026-07-14):attachments[].path 折进 content 首部 @"path" 标记(journal/seed/
@@ -1188,7 +1230,14 @@ func (h *sessionHub) handleUserMessage(s *subscriber, data []byte) {
 			// 每条消息现读 hub 内存态(随 set_runtime_config 同步更新),多端并发换模型至多错一轮,
 			// 透支带兜底。
 			if cat := f.bridge.catalog; cat != nil {
-				if cur, _ := h.currentModelSnapshot(); cur != "" {
+				cur, _ := h.currentModelSnapshot()
+				if cur == "" {
+					// currentModel 未定(sendInitialModel 与首条消息竞态 / chat_default 未绑定)→ 回落
+					// 本 feature 默认模型的权重,而非跳过折算(评审 R2-info:跳过会把加权口径当 raw 下发,
+					// 若默认模型 weight≠1 则预算高估/低估、执行器配速失准)。
+					cur = cat.Resolve(h.chatDefaultPurpose())
+				}
+				if cur != "" {
 					if w := cat.BillingWeight(cur); w > 0 && w != 1 {
 						soft = int64(float64(soft) / w)
 						hard = int64(float64(hard) / w)
@@ -1207,8 +1256,11 @@ func (h *sessionHub) handleUserMessage(s *subscriber, data []byte) {
 	if didInject {
 		h.pendingMark.Store(true)
 	}
-	// 回声:让其他端也渲染这句用户消息(agent 不回吐用户消息)。用原文 content(非注入了 prefix 的)。
-	h.echoToOthers(userEchoFrame(content), s)
+	// 回声:让其他端也渲染这句用户消息(agent 不回吐用户消息)。用 echoText(fold 前的干净原文)——
+	// content 已被 foldUserAttachments 折进 @"/绝对路径" 前缀,直接回声会把容器路径泄进他端气泡;且前端
+	// user_echo 处理(useClawConversation)按「不含前缀」直接当正文渲染,不解析。与 beginTurn(echoText) 的
+	// 迟到补帧路径对齐,两条回声都用干净原文(附件 chip 由刷新后的历史回放 parseUserEntryWithAttachments 补出)。
+	h.echoToOthers(userEchoFrame(echoText), s)
 }
 
 func (s *subscriber) close() {

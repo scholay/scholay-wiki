@@ -5,6 +5,7 @@ import {
   ChevronRight,
   CircleSlash,
   Loader2,
+  Puzzle,
   Search,
   Terminal,
   TriangleAlert,
@@ -63,6 +64,7 @@ export interface ToolCallBlockProps {
 
 /** 默认工具图标映射. 不在表里的工具用通用 Wrench. */
 function toolIcon(name: string) {
+  if (name === 'Skill') return Puzzle; // 技能加载(用户市场 skill / 系统 guide)—— 拼图=可插拔能力
   if (name.startsWith('mcp__minicod__') || name.toLowerCase().includes('search')) {
     return Search;
   }
@@ -73,6 +75,7 @@ function toolIcon(name: string) {
 /** 把 mcp__minicod__search_papers → "search papers" 这种内部约定外化. */
 function prettyToolName(name: string): string {
   if (!name) return '工具调用';
+  if (name === 'Skill') return '技能'; // 具体是哪个技能由调用方经 renderHeaderExtras 打徽标(SkillHeaderBadge)
   if (name.startsWith('mcp__minicod__')) {
     return name.slice('mcp__minicod__'.length).replace(/_/g, ' ');
   }

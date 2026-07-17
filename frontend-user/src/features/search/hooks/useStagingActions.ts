@@ -9,6 +9,7 @@ import {
   useStagingAreas,
 } from '@/stores/staging-areas.store';
 import { useStagingUi } from '@/stores/staging-ui.store';
+import { useStageFly } from '@/stores/stage-fly.store';
 import {
   stagingAreasKey,
   useAddRemotePaper,
@@ -253,6 +254,17 @@ export function useStagingActions(): StagingActions {
 
   const stagePaper = useCallback(
     (paper: Paper, source?: 'traditional' | 'smart') => {
+      // 飞入动画:点暂存的瞬间(卡片折叠前)抓源卡 rect,请求一枚芯片飞向右侧矩阵落点。
+      // 抓不到卡(非交互式暂存)或矩阵未挂载(首次暂存)时 requestFly 内部会自动跳过。
+      const cardEl = document.querySelector<HTMLElement>(
+        `[data-paper-id="${CSS.escape(paper.paperId)}"]`
+      );
+      const r = cardEl?.getBoundingClientRect();
+      useStageFly.getState().requestFly(
+        r ? { top: r.top, left: r.left, width: r.width, height: r.height } : null,
+        paper.title ?? ''
+      );
+
       if (isAuthed) {
         ensureAuthedArea().then((area) => {
           if (!area || area.remoteId == null) return;

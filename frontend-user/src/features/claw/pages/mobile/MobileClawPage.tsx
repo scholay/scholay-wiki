@@ -11,6 +11,7 @@ import { useUserModels } from '@/shared/api/models';
 import { ModelSelector } from '@/shared/components/chat/ModelSelector';
 import { getNewConversationModel, setNewConversationModel } from '../../api/session';
 import { ChatComposer, type ChatComposerHandle } from '../../components/chat/ChatComposer';
+import { useUserSkillsByGuide } from '@/shared/api/skills';
 import { MessageTurn } from '../../components/chat/MessageTurn';
 import { type ClawArtifact } from '../../api/artifacts';
 import { ClawArtifactPreview } from '../../components/preview/ClawArtifactPreview';
@@ -51,6 +52,8 @@ export function MobileClawPage() {
   } = conv;
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // 会话流里认领「本轮用了你的技能 X」用(guideName → 我启用的市场技能);引用稳定不破 MessageTurn memo。
+  const userSkillsByGuide = useUserSkillsByGuide();
   // P2 模型目录:移动端选择器(与桌面 ClawPage 同一套服务端权威语义,trigger 在移动端只显图标)。
   const navigate = useNavigate();
   const { data: userModels } = useUserModels('claw');
@@ -163,6 +166,7 @@ export function MobileClawPage() {
                   turn={t}
                   artifacts={sessionArtifacts}
                   sessionId={sessionId}
+                  userSkillsByGuide={userSkillsByGuide}
                   onPreview={setPreviewArtifact}
                   onResendBlocked={conv.resendBlocked}
                   onDismissBlocked={conv.dismissBlocked}
@@ -186,6 +190,7 @@ export function MobileClawPage() {
           sessionId={sessionId}
           onSessionEnsured={conv.adoptSession}
           modelSlot={modelSlot}
+          onNewConversation={conv.handleNewConversation}
           requireAuth={!token}
           onRequireAuth={() => openAuth('login')}
         />

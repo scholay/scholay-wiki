@@ -204,14 +204,8 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		// 投稿附件原文件:从 MinIO 流式取,内联预览(react-pdf 等) / 下载。
 		adminProtected.GET("/peer-review/submissions/:id/assets/:assetId", h.peerReview.AdminGetSubmissionAsset)
 
-		// 使用日志管理 (前端用 list/summary/config GET+PUT/cleanup/export;
-		// features/filter-options/all 已下线)
-		adminProtected.GET("/usage-logs", h.usageLogAdmin.List)
-		adminProtected.GET("/usage-logs/summary", h.usageLogAdmin.GetStatsSummary)
-		adminProtected.GET("/usage-logs/config", h.usageLogAdmin.GetConfig)
-		adminProtected.PUT("/usage-logs/config", h.usageLogAdmin.UpdateConfig)
-		adminProtected.POST("/usage-logs/cleanup", h.usageLogAdmin.TriggerCleanup)
-		adminProtected.GET("/usage-logs/export", h.usageLogAdmin.ExportCSV)
+		// 注:旧「使用日志」(usagelog / usage_logs v1)整组端点已随模块下线(2026-07)——
+		// 数据不健康 + 2026-06 起零写入,由下面的 v2 取代。表保留为 stranded 历史数据,无代码读写。
 
 		// 功能使用统计 v2 (usage_events) —— 取代旧 usage-logs 统计, 新菜单"使用统计"用。
 		adminProtected.GET("/usage-stats/summary", h.usageStats.GetSummary)

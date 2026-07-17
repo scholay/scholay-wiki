@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1080, initial-scale=1.0">
+  <title>Scholay 查重红线速查</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 1080px;
+      height: 1440px;
+      margin: 0;
+      overflow: hidden;
+      background: #0b1020;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      color: #eef2ff;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .poster {
+      position: relative;
+      width: 1080px;
+      height: 1440px;
+      overflow: hidden;
+      isolation: isolate;
+      background:
+        radial-gradient(circle at 48% 27%, rgba(124, 108, 255, .07), transparent 35%),
+        linear-gradient(154deg, #0b1020 0%, #0b1020 48%, #0e1429 100%);
+    }
+
+    .aurora {
+      position: absolute;
+      z-index: -3;
+      border-radius: 999px;
+      filter: blur(70px);
+      mix-blend-mode: screen;
+      pointer-events: none;
+    }
+
+    .aurora-a {
+      width: 560px;
+      height: 390px;
+      left: -200px;
+      top: -90px;
+      opacity: .48;
+      transform: rotate(-18deg);
+      background: radial-gradient(ellipse at center, rgba(34, 211, 238, .52) 0%, rgba(34, 211, 238, .15) 45%, transparent 72%);
+    }
+
+    .aurora-b {
+      width: 620px;
+      height: 470px;
+      right: -250px;
+      top: 160px;
+      opacity: .52;
+      transform: rotate(24deg);
+      background: radial-gradient(ellipse at center, rgba(124, 108, 255, .55) 0%, rgba(124, 108, 255, .14) 48%, transparent 74%);
+    }
+
+    .aurora-c {
+      width: 520px;
+      height: 400px;
+      left: -180px;
+      top: 760px;
+      opacity: .30;
+      transform: rotate(14deg);
+      background: radial-gradient(ellipse at center, rgba(244, 114, 182, .42) 0%, rgba(244, 114, 182, .10) 48%, transparent 75%);
+    }
+
+    .aurora-d {
+      width: 610px;
+      height: 400px;
+      right: -250px;
+      bottom: -110px;
+      opacity: .35;
+      transform: rotate(-22deg);
+      background: radial-gradient(ellipse at center, rgba(34, 211, 238, .45) 0%, rgba(124, 108, 255, .13) 47%, transparent 73%);
+    }
+
+    .noise {
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      opacity: .13;
+      background-image: radial-gradient(circle, rgba(255, 255, 255, .42) .55px, transparent .75px);
+      background-size: 3px 3px;
+      mask-image: linear-gradient(to bottom, rgba(0,0,0,.9), rgba(0,0,0,.48));
+      -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,.9), rgba(0,0,0,.48));
+    }
+
+    .content {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      height: 100%;
+      padding: 48px 62px 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      height: 48px;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      border: 1px solid rgba(255, 255, 255, .26);
+      border-radius: 13px;
+      background: linear-gradient(135deg, #7c6cff 4%, #22d3ee 96%);
+      box-shadow: 0 10px 28px rgba(34, 211, 238, .18), inset 0 1px 0 rgba(255,255,255,.35);
+      color: #fff;
+      font-size: 26px;
+      font-weight: 850;
+      line-height: 1;
+    }
+
+    .brand-name {
+      margin-left: 16px;
+      font-size: 25px;
+      font-weight: 720;
+      letter-spacing: .4px;
+      color: rgba(238, 242, 255, .94);
+    }
+
+    .eyebrow {
+      margin-top: 31px;
+      color: #22d3ee;
+      font-size: 28px;
+      font-weight: 760;
+      letter-spacing: 7px;
+      line-height: 1;
+      text-shadow: 0 0 24px rgba(34, 211, 238, .28);
+    }
+
+    h1 {
+      margin: 22px 0 0;
+      width: 920px;
+      font-size: 90px;
+      font-weight: 850;
+      letter-spacing: -4.8px;
+      line-height: 1.04;
+      background: linear-gradient(100deg, #22d3ee 0%, #7c6cff 60%, #f0abfc 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      color: transparent;
+    }
+
+    .subtitle {
+      margin: 18px 0 0;
+      color: #aab3d6;
+      font-size: 30px;
+      font-weight: 520;
+      letter-spacing: .2px;
+      line-height: 1.42;
+      white-space: nowrap;
+    }
+
+    .glass {
+      border: 1px solid rgba(255, 255, 255, .10);
+      background: linear-gradient(145deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .045));
+      box-shadow: 0 30px 90px rgba(0, 0, 0, .34), inset 0 1px 0 rgba(255, 255, 255, .06);
+      -webkit-backdrop-filter: blur(14px);
+      backdrop-filter: blur(14px);
+    }
+
+    .gauge-card {
+      position: relative;
+      height: 458px;
+      margin-top: 28px;
+      overflow: hidden;
+      border-radius: 28px;
+    }
+
+    .gauge-card::before {
+      content: "";
+      position: absolute;
+      width: 360px;
+      height: 360px;
+      left: 298px;
+      top: 38px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(251, 191, 36, .12), rgba(124, 108, 255, .04) 48%, transparent 70%);
+      filter: blur(10px);
+    }
+
+    .status-tag {
+      position: absolute;
+      top: 24px;
+      left: 28px;
+      display: flex;
+      align-items: center;
+      height: 38px;
+      padding: 0 16px;
+      border: 1px solid rgba(251, 113, 133, .22);
+      border-radius: 999px;
+      background: rgba(251, 113, 133, .08);
+      color: #ffd5dc;
+      font-size: 18px;
+      font-weight: 680;
+      letter-spacing: 1px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      margin-right: 10px;
+      border-radius: 50%;
+      background: #fb7185;
+      box-shadow: 0 0 16px rgba(251, 113, 133, .95);
+    }
+
+    .gauge {
+      position: absolute;
+      left: 50%;
+      top: 48px;
+      width: 330px;
+      height: 330px;
+      transform: translateX(-50%);
+      filter: drop-shadow(0 18px 32px rgba(0, 0, 0, .24));
+    }
+
+    .gauge-copy {
+      position: absolute;
+      left: 50%;
+      top: 161px;
+      width: 260px;
+      transform: translateX(-50%);
+      text-align: center;
+    }
+
+    .gauge-value {
+      font-size: 72px;
+      font-weight: 850;
+      letter-spacing: -3px;
+      line-height: .98;
+      color: #fff;
+      text-shadow: 0 8px 32px rgba(251, 191, 36, .17);
+    }
+
+    .gauge-label {
+      margin-top: 12px;
+      color: #aab3d6;
+      font-size: 21px;
+      font-weight: 570;
+      letter-spacing: 2px;
+    }
+
+    .legend {
+      position: absolute;
+      left: 50%;
+      bottom: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      transform: translateX(-50%);
+    }
+
+    .legend-item {
+      min-width: 112px;
+      height: 42px;
+      padding: 0 18px;
+      border: 1px solid rgba(255, 255, 255, .08);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .025);
+      color: rgba(170, 179, 214, .72);
+      font-size: 18px;
+      font-weight: 600;
+      line-height: 40px;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .legend-item.active {
+      border-color: rgba(251, 191, 36, .38);
+      background: linear-gradient(135deg, rgba(251, 191, 36, .18), rgba(251, 113, 133, .09));
+      box-shadow: 0 8px 24px rgba(251, 191, 36, .08), inset 0 1px 0 rgba(255,255,255,.10);
+      color: #fff1bd;
+    }
+
+    .legend-item.active::before {
+      content: "";
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      margin-right: 8px;
+      border-radius: 50%;
+      background: #fbbf24;
+      box-shadow: 0 0 12px rgba(251, 191, 36, .85);
+      vertical-align: 2px;
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px 14px;
+      margin-top: 18px;
+    }
+
+    .feature {
+      display: flex;
+      align-items: center;
+      height: 57px;
+      padding: 0 22px;
+      border: 1px solid rgba(255, 255, 255, .10);
+      border-radius: 999px;
+      background: linear-gradient(135deg, rgba(255, 255, 255, .065), rgba(255, 255, 255, .032));
+      color: #e7eaff;
+      font-size: 20px;
+      font-weight: 640;
+      letter-spacing: .2px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+    }
+
+    .check {
+      display: grid;
+      place-items: center;
+      flex: 0 0 26px;
+      width: 26px;
+      height: 26px;
+      margin-right: 12px;
+      border: 1px solid rgba(52, 211, 153, .28);
+      border-radius: 50%;
+      background: rgba(52, 211, 153, .11);
+      color: #67e8b7;
+      font-size: 15px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .cta {
+      display: flex;
+      align-items: center;
+      height: 236px;
+      margin-top: 18px;
+      padding: 18px 30px 18px 18px;
+      border-radius: 28px;
+    }
+
+    .qr-card {
+      display: grid;
+      place-items: center;
+      flex: 0 0 200px;
+      width: 200px;
+      height: 200px;
+      padding: 17px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, .9);
+      border-radius: 22px;
+      background: #fff;
+      box-shadow: 0 18px 44px rgba(0, 0, 0, .24), inset 0 0 0 1px rgba(11, 18, 32, .04);
+    }
+
+    .qr-card svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .cta-copy {
+      min-width: 0;
+      margin-left: 34px;
+    }
+
+    .cta-title {
+      color: #f5f7ff;
+      font-size: 37px;
+      font-weight: 820;
+      letter-spacing: -.8px;
+      line-height: 1.15;
+    }
+
+    .cta-subtitle {
+      margin-top: 10px;
+      color: #aab3d6;
+      font-size: 22px;
+      font-weight: 510;
+      line-height: 1.35;
+      white-space: nowrap;
+    }
+
+    .url-pill {
+      display: inline-flex;
+      align-items: center;
+      height: 40px;
+      margin-top: 17px;
+      padding: 0 17px;
+      border: 1px solid rgba(34, 211, 238, .22);
+      border-radius: 999px;
+      background: rgba(34, 211, 238, .075);
+      color: #b9f6ff;
+      font-size: 18px;
+      font-weight: 650;
+      letter-spacing: .3px;
+    }
+
+    .disclaimer {
+      margin-top: 13px;
+      color: rgba(170, 179, 214, .62);
+      font-size: 15px;
+      font-weight: 470;
+      letter-spacing: .7px;
+      line-height: 1.4;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <main class="poster">
+    <div class="aurora aurora-a"></div>
+    <div class="aurora aurora-b"></div>
+    <div class="aurora aurora-c"></div>
+    <div class="aurora aurora-d"></div>
+    <div class="noise"></div>
+
+    <div class="content">
+      <header class="brand">
+        <div class="brand-mark">S</div>
+        <div class="brand-name">Scholay 学术工具箱</div>
+      </header>
+
+      <div class="eyebrow">毕业季 · 投稿季必备</div>
+      <h1>你的论文<br>查重红线是多少?</h1>
+      <p class="subtitle">本硕博 / 期刊 / SCI + AIGC 率 · 30+ 场景一键查</p>
+
+      <section class="gauge-card glass" aria-label="查重合格线上限 15%">
+        <div class="status-tag"><span class="status-dot"></span>RED LINE ALERT</div>
+
+        <svg class="gauge" viewBox="0 0 330 330" aria-hidden="true">
+          <defs>
+            <filter id="amberGlow" x="-40%" y="-40%" width="180%" height="180%">
+              <feGaussianBlur stdDeviation="5" result="blur"></feGaussianBlur>
+              <feMerge>
+                <feMergeNode in="blur"></feMergeNode>
+                <feMergeNode in="SourceGraphic"></feMergeNode>
+              </feMerge>
+            </filter>
+          </defs>
+          <circle cx="165" cy="165" r="128" fill="rgba(9,14,29,.34)" stroke="rgba(238,242,255,.105)" stroke-width="22"></circle>
+          <circle cx="165" cy="165" r="128" fill="none" stroke="rgba(251,191,36,.15)" stroke-width="30" stroke-linecap="round" stroke-dasharray="603 804" transform="rotate(-90 165 165)" filter="url(#amberGlow)"></circle>
+          <circle cx="165" cy="165" r="128" fill="none" stroke="#fbbf24" stroke-width="20" stroke-linecap="round" stroke-dasharray="603 804" transform="rotate(-90 165 165)"></circle>
+          <circle cx="37" cy="165" r="7" fill="#fb7185" stroke="rgba(255,255,255,.75)" stroke-width="2" filter="url(#amberGlow)"></circle>
+          <circle cx="165" cy="165" r="100" fill="none" stroke="rgba(255,255,255,.045)" stroke-width="1"></circle>
+        </svg>
+
+        <div class="gauge-copy">
+          <div class="gauge-value">15%</div>
+          <div class="gauge-label">合格线上限</div>
+        </div>
+
+        <div class="legend" aria-label="标准宽严程度">
+          <div class="legend-item active">偏严</div>
+          <div class="legend-item">中等</div>
+          <div class="legend-item">较宽</div>
+        </div>
+      </section>
+
+      <section class="features" aria-label="工具卖点">
+        <div class="feature"><span class="check">✓</span>30+ 真实场景</div>
+        <div class="feature"><span class="check">✓</span>AIGC 率新标准</div>
+        <div class="feature"><span class="check">✓</span>检测系统对比</div>
+        <div class="feature"><span class="check">✓</span>降重全攻略</div>
+      </section>
+
+      <section class="cta glass">
+        <div class="qr-card">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 25 25" shape-rendering="crispEdges"><path stroke="#0B1220" d="M0 0.5h7m2 0h2m5 0h1m1 0h7M0 1.5h1m5 0h1m8 0h1m2 0h1m5 0h1M0 2.5h1m1 0h3m1 0h1m1 0h4m2 0h3m1 0h1m1 0h3m1 0h1M0 3.5h1m1 0h3m1 0h1m1 0h4m1 0h2m3 0h1m1 0h3m1 0h1M0 4.5h1m1 0h3m1 0h1m1 0h1m1 0h5m1 0h1m1 0h1m1 0h3m1 0h1M0 5.5h1m5 0h1m1 0h2m1 0h1m3 0h2m1 0h1m5 0h1M0 6.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M8 7.5h1m1 0h1m3 0h1m1 0h1M0 8.5h1m1 0h5m2 0h1m1 0h3m4 0h5M1 9.5h1m2 0h2m4 0h1m2 0h1m2 0h2m1 0h1m3 0h1M0 10.5h1m2 0h1m1 0h3m4 0h4m1 0h5m1 0h2M0 11.5h5m2 0h3m1 0h2m2 0h1m1 0h1m1 0h1m4 0h1M0 12.5h1m5 0h1m1 0h1m2 0h4m2 0h4m1 0h3M0 13.5h5m2 0h1m1 0h2m5 0h2m1 0h1m1 0h1m1 0h1M0 14.5h1m2 0h1m2 0h3m1 0h4m1 0h7m1 0h2M0 15.5h1m1 0h4m1 0h2m2 0h1m2 0h1m2 0h1m1 0h2m3 0h1M0 16.5h1m1 0h2m1 0h7m1 0h8m1 0h1M8 17.5h1m3 0h2m1 0h2m3 0h2M0 18.5h7m3 0h1m2 0h2m1 0h1m1 0h1m1 0h1m1 0h3M0 19.5h1m5 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m3 0h2m1 0h1M0 20.5h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h9m1 0h3M0 21.5h1m1 0h3m1 0h1m1 0h1m1 0h1m2 0h1m2 0h1m1 0h1m1 0h5M0 22.5h1m1 0h3m1 0h1m1 0h1m2 0h2m1 0h2m5 0h2m1 0h1M0 23.5h1m5 0h1m2 0h1m1 0h1m2 0h1m1 0h2m1 0h3m2 0h1M0 24.5h7m1 0h5m6 0h6"/></svg>
+        </div>
+
+        <div class="cta-copy">
+          <div class="cta-title">扫码用完整版</div>
+          <div class="cta-subtitle">上 Scholay 解锁完整科研力</div>
+          <div class="url-pill">🌐&nbsp; www.scholay.com</div>
+        </div>
+      </section>
+
+      <footer class="disclaimer">数值为常见区间，以本校 / 目标期刊最新规定为准。</footer>
+    </div>
+  </main>
+</body>
+</html>

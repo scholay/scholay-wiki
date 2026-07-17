@@ -1,6 +1,7 @@
 import { memo, useMemo } from 'react';
-import { Sparkles } from 'lucide-react';
 import { MarkdownRenderer } from '@/shared/components/chat/MarkdownRenderer';
+import { buildNumberingFromMarkdown, citeDisplay, type CiteNumbering } from '../lib/cite-render';
+import { PrismReferencesList } from './PrismReferencesList';
 
 /**
  * 流式写作预览(Scholay Prism v2)。AI 一轮里每写完一次 document.md(Write/Edit 完成),usePrismChat 的
@@ -41,24 +42,37 @@ function sanitizePartialMarkdown(md: string): string {
   return s;
 }
 
-// 配图行 ![图](asset "caption") → 占位(asset 是资产 id,直接渲染会破图);其余 markdown 交给 MarkdownRenderer。
-function cleanBody(body: string): string {
-  return body.replace(/!\[[^\]]*\]\(([^)]+)\)/g, (_all, inner) => {
-    const cap = String(inner).match(/"([^"]*)"/);
-    return `*[配图${cap && cap[1] ? ':' + cap[1] : ''}]*`;
-  });
+// 把受限 markdown 清成「像真实 LaTeX 输出」的可读预览:
+//   ① [@key]/[@a; @b] → [1]/[1, 2] 编号,[@fig:x] → 图 N(与文末参考文献表同源编号)
+//   ② 交叉引用锚 {#fig:x} 是 LaTeX 锚、非可见文本 → 去掉(否则标题/公式后拖着 {#sec:x} 很难看)
+//   ③ 配图行 ![图](asset "caption") → 占位(asset 是资产 id,直接渲染会破图)
+function cleanBody(body: string, numbering: CiteNumbering): string {
+  return body
+    .replace(/\[@([^\]]+)\]/g, (_all, inner) => citeDisplay(String(inner), numbering))
+    .replace(/!\[[^\]]*\]\(([^)]+)\)/g, (_all, inner) => {
+      const cap = String(inner).match(/"([^"]*)"/);
+      return `*[配图${cap && cap[1] ? ':' + cap[1] : ''}]*`;
+    })
+    .replace(/[ \t]*\{#[a-zA-Z]+:[^}]+\}/g, '');
 }
 
-export const PrismLivePreview = memo(function PrismLivePreview({ markdown }: { markdown: string }) {
+export const PrismLivePreview = memo(function PrismLivePreview({
+  markdown,
+  bibliography,
+}: {
+  markdown: string;
+  bibliography?: Record<string, string>;
+}) {
   const { title, abstract, keywords, body } = useMemo(() => splitFrontMatter(markdown), [markdown]);
-  // 先砍掉流式半截的未闭合公式/围栏(防 KaTeX 闪烁),再做配图占位。
-  const cleanedBody = useMemo(() => cleanBody(sanitizePartialMarkdown(body)), [body]);
+  // 编号据**原始** body 建(含 {#锚} 与 [@key]),供行内替换 + 文末参考文献表同源。
+  const numbering = useMemo(() => buildNumberingFromMarkdown(body), [body]);
+  // 先砍掉流式半截的未闭合公式/围栏(防 KaTeX 闪烁),再做引用编号/锚清理/配图占位。
+  const cleanedBody = useMemo(
+    () => cleanBody(sanitizePartialMarkdown(body), numbering),
+    [body, numbering]
+  );
   return (
     <div className="relative">
-      {/* 实时预览标识:提示这是 AI 正在写的临时预览,轮末会切回精排编辑器 */}
-      <div className="sticky top-0 z-10 flex items-center gap-1.5 border-b border-border bg-brand-green/5 px-4 py-1.5 text-2xs text-brand-green backdrop-blur">
-        <Sparkles className="size-3 animate-pulse" /> 实时预览 · AI 正在写作
-      </div>
       <div className="mx-auto max-w-[720px] px-12 py-10 font-serif text-md text-foreground">
         {title && <p className="text-center text-2xl font-bold leading-snug">{title}</p>}
         {abstract && (
@@ -76,6 +90,8 @@ export const PrismLivePreview = memo(function PrismLivePreview({ markdown }: { m
           <MarkdownRenderer text={cleanedBody} className="!text-md" />
         </div>
       </div>
+      {/* 参考文献编号列表(像真实 LaTeX 文末 References)—— 与正文行内 [N] 同源编号 */}
+      <PrismReferencesList numbering={numbering} bibliography={bibliography} />
     </div>
   );
 });

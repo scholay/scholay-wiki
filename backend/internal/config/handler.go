@@ -25,17 +25,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// UsageLogService 定义 usagelog service 接口（避免循环依赖）
-type UsageLogService interface {
-	GetPopularPaperIDs(days int, limit int) ([]PopularPaper, error)
-}
-
-// PopularPaper 热门论文记录（从 usagelog 包复制，避免循环依赖）
-type PopularPaper struct {
-	PaperID string `json:"paper_id"`
-	Count   int64  `json:"count"`
-}
-
 // PaperSEOProvider 由 seo.Service 直接实现, 用于论文详情页 SSR 元数据注入。
 //
 // 类型从 config 包搬到了 seo 包 (seo.PaperSSRMeta), 因为 seo 才是数据所有者;
@@ -95,9 +84,6 @@ type Handler struct {
 	ssrCache    *ssrCache
 	frontendURL string
 
-	// 动态 sitemap 依赖（保留以维持 Setter 契约）
-	usageLogService UsageLogService
-
 	// 论文详情页 SSR 元数据提供者（/paper/{slug}）
 	paperSEOProvider PaperSEOProvider
 
@@ -144,11 +130,6 @@ func NewHandler(service *Service) *Handler {
 		frontendURL: frontendURL,
 		ssrCache:    newSSRCache(indexHTMLCacheTTL),
 	}
-}
-
-// SetUsageLogService 设置 usagelog service（用于动态 sitemap 生成）
-func (h *Handler) SetUsageLogService(service UsageLogService) {
-	h.usageLogService = service
 }
 
 // SetPaperSEOProvider 设置论文 SSR 元数据提供者

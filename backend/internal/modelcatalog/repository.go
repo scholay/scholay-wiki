@@ -71,6 +71,32 @@ func (r *Repository) DeleteModel(id uint64) error {
 	return r.db.Delete(&AgentModel{}, id).Error
 }
 
+// UpsertPlaceholderModel 首见某未计价上游 model code(项目侧翻译/矩阵/公众号等不在目录的模型)时,
+// 插入一条**停用占位行**(enabled/user_selectable=false、weight=1、单价 0),让它出现在 admin 目录里
+// 可被补上下文窗口/四类单价/计费倍率后启用统计。已存在则完全不动(DoNothing),绝不覆盖 admin 已填值。
+func (r *Repository) UpsertPlaceholderModel(modelID, channel string) error {
+	return r.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "model_id"}},
+		DoNothing: true,
+	}).Create(&AgentModel{
+		ModelID:        modelID,
+		DisplayName:    modelID,
+		Channel:        channel,
+		BillingWeight:  1,
+		Enabled:        false,
+		UserSelectable: false,
+		Notes:          "自动登记:计价目录未命中的上游模型。补上下文窗口/四类单价/计费倍率后即纳入成本看板与加权。",
+	}).Error
+}
+
+// CountPinnedSessions 统计仍把该 model 设为 pinned_model 的会话数(DeleteModel 前置守卫)。
+// 直接查 agent_sessions 表(不 import agentbridge,避免环)。
+func (r *Repository) CountPinnedSessions(modelID string) (int64, error) {
+	var n int64
+	err := r.db.Table("agent_sessions").Where("pinned_model = ?", modelID).Count(&n).Error
+	return n, err
+}
+
 // ListBindings 全量绑定。
 func (r *Repository) ListBindings() ([]ModelBinding, error) {
 	var rows []ModelBinding

@@ -56,7 +56,16 @@ export function UserMetricsPanel() {
           icon={UserPlus}
           title={`注册量 · 活跃用户 · 最近 ${days} 天`}
           loading={isLoading}
-          hint="面积=当日新注册(左轴);折线=当日有功能使用动作的去重活跃用户 engaged-DAU(右轴)"
+          hint="面积=当日新注册(左轴);折线=当日有真实使用的去重活跃用户(右轴,打开即活跃,不含注册当天)"
+          stat={
+            data ? (
+              <WindowTotals
+                reg={data.registrations_total}
+                active={data.active_total}
+                days={days}
+              />
+            ) : undefined
+          }
         >
           {data && (data.registrations.length > 0 || data.daily_active.length > 0) ? (
             <RegistrationsAndActive reg={data.registrations} dau={data.daily_active} />
@@ -131,12 +140,15 @@ function ChartCard({
   icon: Icon,
   title,
   hint,
+  stat,
   loading,
   children,
 }: {
   icon: LucideIcon;
   title: string;
   hint?: string;
+  /** 标题右侧的「本区间总量」等小统计(可选)。 */
+  stat?: React.ReactNode;
   loading?: boolean;
   children?: React.ReactNode;
 }) {
@@ -147,9 +159,26 @@ function ChartCard({
           <h3 className="text-sm font-bold text-foreground">{title}</h3>
           {hint && <p className="mt-0.5 text-2xs text-faint">{hint}</p>}
         </div>
-        <Icon className="size-3.5 shrink-0 text-faint" />
+        {stat ?? <Icon className="size-3.5 shrink-0 text-faint" />}
       </div>
       <div className="h-52">{loading ? <Skeleton className="h-full w-full" /> : children}</div>
+    </div>
+  );
+}
+
+/** 「本区间总量」—— 注册总数(绿)+ 去重活跃总数(琥珀)。放注册/活跃图标题右侧。 */
+function WindowTotals({ reg, active, days }: { reg: number; active: number; days: number }) {
+  return (
+    <div className="shrink-0 text-right">
+      <div className="text-2xs text-faint">近 {days} 天总计</div>
+      <div className="mt-0.5 flex items-baseline justify-end gap-2 tabular-nums">
+        <span className="text-sm font-bold" style={{ color: COLOR_GREEN }}>
+          注册 {reg.toLocaleString()}
+        </span>
+        <span className="text-sm font-bold" style={{ color: COLOR_AMBER }}>
+          活跃 {active.toLocaleString()}
+        </span>
+      </div>
     </div>
   );
 }

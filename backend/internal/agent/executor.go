@@ -47,6 +47,9 @@ type Executor interface {
 	RenderMath(ctx context.Context, tex string, display bool) (*MathRenderResult, error)
 	// mermaid 图表渲染(源码 → PNG;小程序无 DOM)。无会话,纯函数,caller 配缓存。
 	RenderMermaid(ctx context.Context, code string) (*MermaidRenderResult, error)
+	// 文档头有界抽取(审稿「预识别」用):对会话 cwd 里的稿件做 pdftotext -l N / pandoc+硬截,
+	// 返回小段头文本。让"只看开头 N 页"由构造保证(而非靠提示词请求模型传 first_pages)。无 LLM。
+	ExtractDocHead(ctx context.Context, sessionID, relPath string, pdfPages, maxChars int) (*DocHeadResult, error)
 
 	// server-side drive(无 WS client 在线时,peerreview 用)
 	EnqueueChatMessage(ctx context.Context, sessionID, content string) error

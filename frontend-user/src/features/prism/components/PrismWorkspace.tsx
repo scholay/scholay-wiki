@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { FileText, FolderTree, Play, Loader2, AlertTriangle, Sparkles, History, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/shared/ui/button';
-import { PdfViewer } from '@/shared/components/PdfViewer';
+// 懒加载(性能审计 #4):pdfjs(react-pdf,~412KB)推迟到首次编译成功(pdfKey>0)真正要看 PDF 时才拉,不进 workspace 首屏。
+const PdfViewer = lazy(() => import('@/shared/components/PdfViewer').then((m) => ({ default: m.PdfViewer })));
 import { SidebarLayout } from '@/shared/components/sidebar';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/shared/ui/resizable';
 import { useRegisterSidebarRail } from '@/stores/sidebar.store';
@@ -434,7 +435,9 @@ export function PrismWorkspace({ projectId, onBack, readOnly = false, onOpen }: 
             ) : null}
             <div className="min-h-0 flex-1">
               {pdfKey > 0 ? (
-                <PdfViewer key={pdfKey} file={pdfSource} className="h-full" />
+                <Suspense fallback={null}>
+                  <PdfViewer key={pdfKey} file={pdfSource} className="h-full" />
+                </Suspense>
               ) : (
                 <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-xs text-faint">
                   <FileText className="size-6" />

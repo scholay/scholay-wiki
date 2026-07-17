@@ -26,7 +26,6 @@ import {
  * 同组导航:会员兑换码(/admin/vip-codes)· 计费配置(/admin/billing-config)。
  */
 
-const DAY_PRESETS = [7, 30, 90];
 const PAGE_SIZE = 20;
 
 const yuan = (n?: number) =>
@@ -185,17 +184,20 @@ export function OrdersPage() {
         )}
       </section>
 
-      {/* 每日营收(充值/订阅堆叠) */}
-      <RevenueChart daily={stats?.daily ?? []} />
+      {/* 每日营收趋势(充值/订阅堆叠面积)—— 时间筛选 7/30/90 + 区间总计都在图头部,
+          days 是整页统一状态,同时驱动上方 KPI 与下方订单表。 */}
+      <RevenueChart
+        daily={stats?.daily ?? []}
+        days={days}
+        onDaysChange={setDays}
+        totalRevenue={t?.revenue}
+        totalRecharge={t?.recharge_revenue}
+        totalSubscription={t?.subscription_revenue}
+        totalOrders={t?.paid_count}
+      />
 
-      {/* 筛选 */}
+      {/* 筛选(时间筛选已移到营收图头部,这里只留状态/类型/搜索) */}
       <section className="mb-4 flex flex-wrap items-center gap-2">
-        <FilterChips
-          value={String(days)}
-          onChange={(v) => setDays(Number(v))}
-          options={DAY_PRESETS.map((d) => ({ value: String(d), label: `近${d}天` }))}
-        />
-        <span className="h-4 w-px bg-border-separator" />
         <FilterChips
           value={status}
           onChange={setStatus}

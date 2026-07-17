@@ -47,11 +47,20 @@ export function FavoriteBurst({ anchorRef }: FavoriteBurstProps) {
     const recompute = () => {
       const el = anchorRef.current;
       if (!el) {
-        setPos(null);
+        setPos((prev) => (prev === null ? prev : null)); // 值未变则复用旧引用,不触发重渲
         return;
       }
       const r = el.getBoundingClientRect();
-      setPos({ top: r.top, left: r.left, width: r.width });
+      // ⚠️ 幂等 setState:坐标没变就返回旧引用,**绝不**每次都 new 一个对象。
+      //   否则:本 effect 依赖 bursts.length,配合 scroll(capture)监听在页面有持续滚动/重排源
+      //   (如聊天贴底动画、矩阵分析加载重排)时会 setPos→重渲→effect 再跑→setPos… 触发 React
+      //   「Maximum update depth exceeded」的**静默**重渲风暴(prod 剥了该 warning,只见 CPU 打满,
+      //   dev 下 2000+次/进页;智能模式 + 有暂存论文的重型工作区把每次重渲放大到 ~75% CPU)。
+      setPos((prev) =>
+        prev && prev.top === r.top && prev.left === r.left && prev.width === r.width
+          ? prev
+          : { top: r.top, left: r.left, width: r.width },
+      );
     };
     recompute();
     // capture: true 让滚动事件包括内层 ScrollArea 的滚动也能触发

@@ -137,6 +137,9 @@ type Compile struct {
 	LogObjectKey *string    `gorm:"column:log_object_key" json:"-"`
 	LogExcerpt   string     `gorm:"column:log_excerpt" json:"log_excerpt,omitempty"`
 	ErrorSummary string     `gorm:"column:error_summary" json:"error_summary,omitempty"`
+	// ErrorKind 区分失败类型:latex=真 LaTeX 语法错(前端才 arm auto-fix)/ infra=内部/素材/沙箱错 / timeout=排队超时。
+	// 只对 latex 回喂 AI 自动修复,infra/timeout 停在琥珀 banner,杜绝把基础设施抖动放大成 AI 轮风暴(性能审计)。
+	ErrorKind    string     `gorm:"column:error_kind" json:"error_kind,omitempty"`
 	DurationMs    int        `gorm:"column:duration_ms" json:"duration_ms"`
 	PageCount     int        `gorm:"column:page_count" json:"page_count"`
 	OverfullCount int        `gorm:"column:overfull_count" json:"overfull_count"`

@@ -170,8 +170,11 @@ type UserWallet struct {
 	UserID           uint      `gorm:"column:user_id;primaryKey" json:"user_id"`
 	PermBalance      int       `gorm:"column:perm_balance" json:"perm_balance"`
 	AutoResetEnabled bool      `gorm:"column:auto_reset_enabled" json:"auto_reset_enabled"`
-	CreatedAt        time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
-	UpdatedAt        time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+	// RefillPendingAt 「升级满血待兑现」标记(R6 持久化补偿):ResetBaselineOnUpgrade 删锚遇 Redis
+	// 抖动/不可用时落此时刻;ReconcilePendingRefills(cleanup)在 Redis 恢复后补删锚并清此列。NULL=无待办。
+	RefillPendingAt  *time.Time `gorm:"column:refill_pending_at" json:"-"`
+	CreatedAt        time.Time  `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt        time.Time  `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
 }
 
 func (UserWallet) TableName() string { return "user_wallets" }

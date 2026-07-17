@@ -38,6 +38,12 @@ const (
 func BodyLimitMiddleware(maxBytes int64) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if strings.HasPrefix(c.GetHeader("Content-Type"), "multipart/form-data") {
+			// multipart 不套 maxBytes(否则 10MB 内层会架空路由级 UploadLimit 的 50MB),但也不能无上限放行
+			// —— 否则任意 JSON 端点谎报 multipart 即可推无上限 body 吃满内存(性能审计 P0)。加 50MB 硬顶
+			// (= UploadMaxBodySize,与路由级 UploadLimit 相等,既不架空上传、又挡住伪造 multipart 的滥用)。
+			if c.Request.Body != nil {
+				c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, UploadMaxBodySize)
+			}
 			c.Next()
 			return
 		}

@@ -34,7 +34,9 @@ func extractNonBangError(lines []string) string {
 		switch {
 		case strings.Contains(t, "I was expecting"), // bibtex:.bib 语法错
 			strings.Contains(t, "Something's wrong---perhaps a missing"), // bibtex
-			strings.Contains(t, "Runaway argument"),                      // 参数未闭合
+			strings.Contains(t, "White space in argument"),              // bibtex:\citation 键里有空格/分号(多引用没拆)
+			strings.Contains(t, "I'm skipping whatever remains"),        // bibtex:承接上句,命令被跳过
+			strings.Contains(t, "Runaway argument"),                     // 参数未闭合
 			strings.HasPrefix(t, "Package ") && strings.Contains(t, " Error"), // 宏包错
 			strings.Contains(t, "Fatal error"),
 			strings.Contains(t, "not found"): // 缺 .sty/.cls/图片
@@ -63,6 +65,8 @@ func friendlyHint(msg, context string) string {
 		return "(数学公式或括号未配对:检查 $...$ 与 {} 是否闭合)"
 	case strings.Contains(lm, "runaway argument"):
 		return "(某命令参数未闭合:常见缺 } 或缺 \\end{...})"
+	case strings.Contains(msg, "White space in argument"), strings.Contains(msg, "skipping whatever remains"):
+		return "(引用键里混进了空格/分号:多引用应是 [@a; @b] 而非把它当一个键)"
 	case strings.Contains(msg, "I was expecting"), strings.Contains(msg, "Something's wrong"):
 		return "(参考文献 .bib 语法有误:某条目缺逗号或括号)"
 	case strings.Contains(lm, "not found"):

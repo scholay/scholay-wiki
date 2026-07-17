@@ -315,6 +315,18 @@ func (r *Repository) DeleteByOwner(ownerKind string, ownerID uint64) error {
 		Delete(&SessionRow{}).Error
 }
 
+// ListByOwner — 列某实体(owner_kind, owner_id)下的全部会话行,按 last_accessed_at DESC(最近活跃在前)。
+// 用于「一实体多对话」(prism 一项目多对话):owner 级唯一约束已放开(migration 0074 生成列 owner_uniq),
+// 同一 owner 可有 N 行。单会话实体(submission)返回至多一行。
+func (r *Repository) ListByOwner(ownerKind string, ownerID uint64) ([]SessionRow, error) {
+	var rows []SessionRow
+	err := r.db.
+		Where("owner_kind = ? AND owner_id = ?", ownerKind, ownerID).
+		Order("last_accessed_at DESC").
+		Find(&rows).Error
+	return rows, err
+}
+
 // ─── 归属对账(self-heal,给定时 reconcile 用)──────────────────────────────
 
 // OwnerReconcileTarget 描述一个「实体级会话」业务表 → agent_sessions 归属表的对账目标。

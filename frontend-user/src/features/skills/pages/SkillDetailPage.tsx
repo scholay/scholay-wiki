@@ -81,7 +81,7 @@ export function SkillDetailPage() {
       <RouteSEO title={`${skill.name} · Skill`} description={skill.tagline} />
 
       <Link
-        to="/skills"
+        to="/tools/skills"
         className="mb-4 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-3.5 w-3.5" />

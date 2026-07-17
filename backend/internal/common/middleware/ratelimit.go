@@ -124,24 +124,20 @@ func RateLimitMiddleware(maxRequests int, windowSize time.Duration) gin.HandlerF
 
 // TieredRateLimitOptions 分级限流配置。
 type TieredRateLimitOptions struct {
-	IPRPS         int     // 匿名/未认证按 IP 限的每秒请求数
-	IPBurst       int     // IP 令牌桶突发
-	UserRPS       int     // 普通认证用户每秒请求数
-	UserBurst     int     // 用户令牌桶突发
-	VIPMultiplier float64 // VIP/付费用户的速率倍数（>=1）
+	IPRPS     int // 匿名/未认证按 IP 限的每秒请求数
+	IPBurst   int // IP 令牌桶突发
+	UserRPS   int // 普通认证用户每秒请求数
+	UserBurst int // 用户令牌桶突发
 }
 
 // TieredRateLimitMiddleware 分级限流：
-//   - 已认证用户按 user_id 限流；context 中有 is_vip=true 时限额按 VIPMultiplier 放大
-//   - 未认证请求 fallback 为 IP 限流
+//   - 已认证用户按 user_id 限流；未认证请求 fallback 为 IP 限流。
 //
-// 需要在 UserAuthMiddleware / OptionalUserAuthMiddleware 之后挂载，
-// 否则 user_id / is_vip 尚未写入 context，会全部走 IP 路径。
+// 需要在 UserAuthMiddleware / OptionalUserAuthMiddleware 之后挂载，否则 user_id 尚未写入 context，会全部走 IP 路径。
+//
+// 注:曾有 is_vip=true→VIPMultiplier 放大的第三档,但 is_vip 全代码库从无人写入(死代码/配置假象),
+// 已随本项(性能审计 #4)删除;若日后要做 VIP 放大,应在 auth 之后挂 hook 从 vip.EffectiveTier 写 is_vip 再恢复该档。
 func TieredRateLimitMiddleware(opts TieredRateLimitOptions) gin.HandlerFunc {
-	if opts.VIPMultiplier < 1 {
-		opts.VIPMultiplier = 1
-	}
-
 	ipLimiter := NewRateLimiter(opts.IPRPS, time.Second)
 	ipLimiter.burst = opts.IPBurst
 	ipLimiter.StartCleanup(5 * time.Minute)
@@ -150,25 +146,10 @@ func TieredRateLimitMiddleware(opts TieredRateLimitOptions) gin.HandlerFunc {
 	userLimiter.burst = opts.UserBurst
 	userLimiter.StartCleanup(5 * time.Minute)
 
-	vipRate := rate.Every(time.Second / time.Duration(float64(opts.UserRPS)*opts.VIPMultiplier))
-	vipBurst := int(float64(opts.UserBurst) * opts.VIPMultiplier)
-	vipLimiter := &RateLimiter{
-		limiters:    make(map[string]*rateLimiterEntry),
-		rateLimit:   vipRate,
-		burst:       vipBurst,
-		stopCleanup: make(chan struct{}),
-	}
-	vipLimiter.StartCleanup(5 * time.Minute)
-
 	return func(c *gin.Context) {
 		var allowed bool
 		if uidRaw, ok := c.Get("user_id"); ok {
-			key := fmt.Sprintf("uid:%v", uidRaw)
-			if vip, _ := c.Get("is_vip"); vip == true {
-				allowed = vipLimiter.Allow(key)
-			} else {
-				allowed = userLimiter.Allow(key)
-			}
+			allowed = userLimiter.Allow(fmt.Sprintf("uid:%v", uidRaw))
 		} else {
 			allowed = ipLimiter.Allow("ip:" + c.ClientIP())
 		}
@@ -247,17 +228,11 @@ func redisRateCheck(rdb *redis.Client, c *gin.Context, key string, maxRequests, 
 }
 
 // TieredRedisRateLimitMiddleware 分级限流的分布式版本，多实例部署下计数共享。
-// 行为与 TieredRateLimitMiddleware 一致（user/vip/ip 三档），但计数走 Redis。
+// 行为与 TieredRateLimitMiddleware 一致（user/ip 两档），但计数走 Redis。
 // Redis 不可用时降级到 in-memory 版本（保留限流语义而非 fail-open）。
+// 注:曾有 vip 档,但 is_vip 从无人写入(死代码),已随性能审计 #4 删除。
 func TieredRedisRateLimitMiddleware(opts TieredRateLimitOptions) gin.HandlerFunc {
-	if opts.VIPMultiplier < 1 {
-		opts.VIPMultiplier = 1
-	}
 	memFallback := TieredRateLimitMiddleware(opts)
-	vipLimit := int(float64(opts.UserRPS) * opts.VIPMultiplier)
-	if vipLimit < opts.UserRPS {
-		vipLimit = opts.UserRPS
-	}
 
 	return func(c *gin.Context) {
 		rdb := cache.GetRedis()
@@ -269,13 +244,8 @@ func TieredRedisRateLimitMiddleware(opts TieredRateLimitOptions) gin.HandlerFunc
 		var key string
 		var limit int
 		if uidRaw, ok := c.Get("user_id"); ok {
-			if vip, _ := c.Get("is_vip"); vip == true {
-				key = fmt.Sprintf("rl:vip:%v", uidRaw)
-				limit = vipLimit
-			} else {
-				key = fmt.Sprintf("rl:uid:%v", uidRaw)
-				limit = opts.UserRPS
-			}
+			key = fmt.Sprintf("rl:uid:%v", uidRaw)
+			limit = opts.UserRPS
 		} else {
 			key = "rl:ip:" + c.ClientIP()
 			limit = opts.IPRPS

@@ -17,6 +17,8 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+
+	"scholar-backend/internal/common/safego"
 )
 
 // cacheTTL —— 目录/绑定的内存缓存(照抄 vip.ConfigService 手法):Resolve 在 WS/审稿热路径上
@@ -255,6 +257,25 @@ var (
 	pricerMissAt time.Time
 )
 
+// pricingMissSeen 已自动登记过的未命中 model(防重复 upsert 打 DB;进程级,重启后重登一次幂等无害)。
+var pricingMissSeen sync.Map
+
+// notePricingMiss 首见某未计价上游 model 时,异步登记一条停用占位目录行(见 repo.UpsertPlaceholderModel),
+// 使项目侧 AI 未纳入目录的上游模型在 admin 可见、可补单价+倍率。同步开销仅一次 map LoadOrStore。
+func (s *Service) notePricingMiss(model string) {
+	if _, loaded := pricingMissSeen.LoadOrStore(model, struct{}{}); loaded {
+		return
+	}
+	safego.Go("modelcatalog-register-unpriced-model", func() {
+		if err := s.repo.UpsertPlaceholderModel(model, "project"); err != nil {
+			slog.Warn("modelcatalog: register placeholder for un-priced model failed", "model", model, "err", err)
+			pricingMissSeen.Delete(model) // 失败让下次重试
+			return
+		}
+		s.invalidate() // 令后续 Get/PriceUsage 查到新占位行(admin 补价后即生效)
+	})
+}
+
 // PriceUsage 实现 llmusage.Pricer:weighted = raw总量 × billing_weight;
 // cost = Σ(各类 tokens × 对应单价) —— 单价是 元/1M token,tokens × 单价恰好就是**微元**。
 // 只走内存缓存(Record 在同步请求路径上,绝不回源 DB)。目录 miss → weight=1 + 限流 WARN。
@@ -269,6 +290,9 @@ func (s *Service) PriceUsage(model string, input, output, cacheRead, cacheWrite 
 				slog.Warn("modelcatalog: 计价目录 miss,按 weight=1 兜底", "model", model)
 			}
 			pricerMissMu.Unlock()
+			// 首见即异步登记一条停用占位目录行(项目侧翻译/矩阵/公众号等未纳入目录的上游模型),
+			// 使其在 admin 目录可见、可补单价+倍率 → 从「cost 恒 0、看板失明」变为可治理(R2)。
+			s.notePricingMiss(model)
 		}
 		return total, 0
 	}
@@ -501,6 +525,13 @@ func (s *Service) DeleteModel(id uint64) error {
 		if v.ModelID == existing.ModelID {
 			return fmt.Errorf("模型仍被能力绑定「%s」引用,请先改绑其他模型", v.Purpose)
 		}
+	}
+	// 评审 R2-info:删掉仍被会话 pin 的模型后,其在跑轮次的用量会 Pricer miss → weight=1 少扣
+	// (停用行仍在目录保权重,删除行丢权重)。拒删被 pin 的模型;运营应「停用(disable)」而非删除来淘汰。
+	if n, err := s.repo.CountPinnedSessions(existing.ModelID); err != nil {
+		slog.Warn("modelcatalog: count pinned sessions failed (allowing delete)", "model_id", existing.ModelID, "err", err)
+	} else if n > 0 {
+		return fmt.Errorf("模型仍被 %d 个会话锁定选用,请改为「停用」以保留其计价倍率(删除会使在跑会话按 1× 少扣)", n)
 	}
 	if err := s.repo.DeleteModel(id); err != nil {
 		return err

@@ -8,7 +8,8 @@
 
 import { authOK } from "../auth.ts";
 import { log } from "../obs/log.ts";
-import { validSessionId } from "../sandbox/confine.ts";
+import { localISO } from "../tools/clock.ts";
+import { validSessionId, confinePath } from "../sandbox/confine.ts";
 import {
   listProviders,
   findByName,
@@ -54,7 +55,7 @@ export async function handleHTTP(req: Request): Promise<Response> {
 
   // 健康检查不鉴权(与 fork 一致,供 docker healthcheck 用)
   if (path === "/health" && method === "GET") {
-    return json({ status: "ok", timestamp: new Date().toISOString() });
+    return json({ status: "ok", timestamp: localISO() });
   }
 
   if (!authOK(req)) {
@@ -219,7 +220,7 @@ export async function handleHTTP(req: Request): Promise<Response> {
   }
 
   // ── 会话作用域:workspace 文件 op + inspection(step 7a)──
-  const wsMatch = path.match(/^\/api\/sessions\/([^/]+)\/(files|workspace\/file|workspace\/tree|inspection)$/);
+  const wsMatch = path.match(/^\/api\/sessions\/([^/]+)\/(files|workspace\/file|workspace\/tree|inspection|extract-head)$/);
   if (wsMatch) {
     const sid = decodeURIComponent(wsMatch[1]);
     if (!validSessionId(sid)) return err(404, "not_found", "session not found"); // H4:挡 ..%2f 穿越
@@ -271,6 +272,30 @@ export async function handleHTTP(req: Request): Promise<Response> {
         percentage: max > 0 ? Math.round((total / max) * 100) : 0,
         model: u?.model || "",
       });
+    }
+    // 文档头有界抽取(审稿「预识别」用):对已推进 cwd 的稿件做 pdftotext -l N / pandoc+硬截,
+    // 返回小段头文本。后端把它内联进 meta prompt,agent 那轮不再自己 ReadDocument 读全文 → token 由构造钳死。
+    // 无状态、无 LLM,纯转换器;auth 已由上方 authOK 守卫,路径经 confinePath 限制在会话 cwd。
+    if (sub === "extract-head" && method === "POST") {
+      const body = (await req.json().catch(() => null)) as
+        | { path?: string; pdfPages?: number; maxChars?: number }
+        | null;
+      if (!body || typeof body.path !== "string" || !body.path.trim()) {
+        return err(400, "bad_request", "path required");
+      }
+      let abs: string;
+      try {
+        abs = await confinePath(meta.workDir, body.path);
+      } catch (e) {
+        return err(400, "bad_request", "invalid path: " + String((e as Error)?.message ?? e));
+      }
+      const { extractDocHead } = await import("../tools/registry.ts");
+      const r = await extractDocHead(abs, {
+        pdfPages: typeof body.pdfPages === "number" ? body.pdfPages : undefined,
+        maxChars: typeof body.maxChars === "number" ? body.maxChars : undefined,
+      });
+      if (!r.ok) return err(422, "extract_failed", r.err);
+      return json({ text: r.text, truncated: r.truncated });
     }
     return err(405, "method_not_allowed", method + " " + path);
   }

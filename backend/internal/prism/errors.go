@@ -4,7 +4,9 @@ import "errors"
 
 var (
 	ErrProjectNotFound = errors.New("prism: project not found")
-	ErrFileNotFound    = errors.New("prism: file not found")
+	// ErrConversationNotFound —— 多对话:传入的 sessionId 不属于本项目本人(不存在或越权),按 404 处理不泄露存在性。
+	ErrConversationNotFound = errors.New("prism: conversation not found")
+	ErrFileNotFound         = errors.New("prism: file not found")
 	ErrCompileNotFound = errors.New("prism: compile not found")
 	ErrEditNotFound    = errors.New("prism: edit not found")
 

@@ -9,20 +9,31 @@ import {
   SidebarSection,
 } from '@/shared/components/sidebar';
 import { useSidebar } from '@/stores/sidebar.store';
-import type { DocStruct } from '../../api/prism';
+import type { DocStruct, PrismConversation } from '../../api/prism';
+import { PrismConversationList } from './PrismConversationList';
 
 /**
  * 新版结构体工作台侧边栏 —— 通用 Sidebar 框架(同 PrismFileSidebar / ClawSidebar)。
- * struct 轨不暴露文件系统,侧栏改展示:返回项目列表 + 大纲(正文标题)+ 配图(已插入的图片资产)。
+ * struct 轨不暴露文件系统,侧栏改展示:返回项目列表 + 大纲(正文标题)+ 配图(已插入的图片资产)
+ * + 会话历史(多对话切换,置底)。上=大纲、下=会话历史,一栏内滚动。
  */
 export function PrismStructSidebar({
   doc,
   title,
   onBack,
+  conversations,
+  activeSessionId,
+  onSwitchConversation,
 }: {
   doc?: DocStruct;
   title: string;
   onBack: () => void;
+  /** 多对话:本项目的对话列表(按最近活跃排序)。 */
+  conversations: PrismConversation[];
+  /** 当前活动对话 id(高亮用;null=跟随后端最近活跃)。 */
+  activeSessionId: string | null;
+  /** 切到某条对话。 */
+  onSwitchConversation: (sessionId: string) => void;
 }) {
   const toggleSidebar = useSidebar((s) => s.toggle);
   const outline = (doc?.body ?? [])
@@ -67,6 +78,13 @@ export function PrismStructSidebar({
             ))}
           </SidebarSection>
         )}
+
+        {/* 会话历史(多对话,置底):上面是大纲/配图,这里切换本项目的多条对话(共享同一份论文)。 */}
+        <PrismConversationList
+          conversations={conversations}
+          activeSessionId={activeSessionId}
+          onSwitch={onSwitchConversation}
+        />
       </SidebarContent>
       <SidebarAuthFooter />
       <SidebarCollapseButton onClick={toggleSidebar} />

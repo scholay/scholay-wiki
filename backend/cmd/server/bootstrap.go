@@ -307,8 +307,9 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// wechat → user（微信登录入口）
 	core.userHandler.SetWeChatService(wechat.NewServiceAdapter(wechatService))
 
-	// platform → config（动态 sitemap 需要热门论文 id）
-	core.configHandler.SetUsageLogService(&usageLogServiceAdapter{plat.usageLogService})
+	// 注:原「platform → config(动态 sitemap 热门论文 id)」接线已随 usagelog 下线移除 ——
+	// 该 sitemap handler(config.ServeDynamicSitemap)本就未注册任何路由,且热门论文查的是
+	// usage_logs 最近 30 天(2026-06 起零写入)恒为空。线上 sitemap 全走 h.seo.*(seo_papers/authors)。
 
 	// platform → config（/paper/{slug} SSR 元数据提供）
 	core.configHandler.SetPaperSEOProvider(plat.seoService)
@@ -424,8 +425,8 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// seo → seosubmit (paper/author 写入后入队主动推送)
 	plat.seoService.SetPushSubmitter(plat.seoSubmitService)
 
-	// platform 内部：usageLog → hotContent（记录热门内容）
-	plat.usageLogService.SetHotContentService(plat.hotContentService)
+	// 注:原「usageLog → hotContent(记录热门内容)」接线已随 usagelog 下线移除(该钩子自 v2 起从不触发)。
+	// 热度统计现走 hotcontent 自己的服务端 + 前端 sendBeacon 双路径。
 
 	// cleanup → hotContent（定期清理过期热门统计）
 	cleanupService.SetHotContentService(plat.hotContentService)
@@ -442,6 +443,9 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 
 	// cleanup → 超时 pending 订单作废(网关已关单,清掉防堆积)。
 	cleanupService.SetPendingOrderCanceller(plat.vipService.Order().CancelStalePending)
+
+	// cleanup → 升级满血待兑现补偿(R6:删锚遇 Redis 抖动失败后,Redis 恢复时补删锚)。
+	cleanupService.SetPendingRefillReconciler(plat.vipService.ReconcilePendingRefills)
 
 	// 依赖全部注入完成,启动后台清理 + 对账任务。
 	cleanupService.Start()
@@ -582,7 +586,6 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 			wechatPay:      wechatPayHandler,
 			wechat:         wechatHandler,
 			wechatOfficial: wechatOfficialHandler,
-			usageLogAdmin:  plat.usageLogAdmin,
 			usageStats:     plat.usageStat,
 			llmUsageAdmin:  plat.llmUsageAdmin,
 			vip:            plat.vipHandler,

@@ -9,7 +9,8 @@
 
 import type { ServerWebSocket } from "bun";
 import { runTurn, addUsage, type CallUsage } from "../turn/turnLoop.ts";
-import { getOrCreateEphemeral, setTitle, allowBashFor, materializeSessionSkills } from "./sessions.ts";
+import { getOrCreateEphemeral, setTitle, allowBashFor, materializeSessionSkills, sessionWsOpened, sessionWsClosed, markSessionActive } from "./sessions.ts";
+import { tryAcquireTurn } from "./admission.ts";
 import { buildUserContentWithImages } from "./attachments.ts";
 import { convertFlatToAnthropic, type FlatMessage } from "./shadowTurn.ts";
 import type { EventSink, TurnInput } from "../turn/types.ts";
@@ -70,6 +71,7 @@ function safeSend(ws: ServerWebSocket<WSData>, obj: unknown): void {
 }
 
 export function onOpen(ws: ServerWebSocket<WSData>): void {
+  sessionWsOpened(ws.data.sessionId); // 活跃计数 +1:有连接的会话不被内存淘汰
   safeSend(ws, { type: "connected", sessionId: ws.data.sessionId });
   log.info("ws open", { session_id: ws.data.sessionId });
 }
@@ -148,10 +150,15 @@ export async function onMessage(ws: ServerWebSocket<WSData>, raw: string | Buffe
       if (Array.isArray(frame.addDirs) && frame.addDirs.length > 0 && meta.addDirs.length === 0) {
         meta.addDirs = (frame.addDirs as unknown[]).map(String);
       }
-      // 用户市场 skill:重连/重启后 backend 经 seed_history 带内联内容回填(meta.addDirs 为空时物化)。
-      // 与 CreateSession 同一物化路径;物化目录并入 addDirs 供 loader 的 guides 菜单识别。
-      if (Array.isArray(frame.skills) && frame.skills.length > 0 && !meta.addDirs.some((d) => d.endsWith(".skills"))) {
-        const skillsDir = await materializeSessionSkills(meta.workDir, frame.skills as { name: string; skillMd: string }[]);
+      // 用户市场 skill:重连/重启后 backend 经 seed_history 带内联内容回填(与 CreateSession 同一物化路径)。
+      // **本进程尚未物化过(meta 无 .skills)即无条件走一次物化(清后写)**:即便本次启用集为空(用户禁用了
+      // 全部 skill → backend 不下发 skills 字段,frame.skills 缺省),也要清掉上个进程在可写层残留的旧 / 已停用
+      // guides —— 否则残留副本占盘、极端下被 loader 扫到。非空则清后重写当前集,物化目录并入 addDirs 供 guides 菜单识别。
+      if (!meta.addDirs.some((d) => d.endsWith(".skills"))) {
+        const skills = Array.isArray(frame.skills)
+          ? (frame.skills as { name: string; skillMd: string }[])
+          : undefined;
+        const skillsDir = await materializeSessionSkills(meta.workDir, skills);
         if (skillsDir && !meta.addDirs.includes(skillsDir)) meta.addDirs.push(skillsDir);
       }
       if (Array.isArray(frame.disallowedTools) && frame.disallowedTools.length > 0 && meta.disallowedTools.length === 0) {
@@ -198,12 +205,22 @@ async function handleUserMessage(ws: ServerWebSocket<WSData>, frame: Record<stri
   const content = String(frame.content ?? "");
   if (!content) return;
 
+  markSessionActive(ws.data.sessionId); // 刷新活动时刻:长连接内持续对话不被误淘汰
   const meta = await getOrCreateEphemeral(ws.data.sessionId);
   // P2 图片通道:attachments 里的 image 从会话 cwd 读出并 base64 内嵌为 Anthropic image 块
   // (与 @"path" 文本标记并存:标记服务历史回放 chips 与文件语义,图块给模型「看见」)。
   // 无图 / 读取失败 → 纯文本(与旧行为一致)。是否真发给上游由 turnLoop 按 vision 能力过滤。
   const userContent = await buildUserContentWithImages(meta.workDir, content, frame.attachments);
   const isFirstTurn = !meta.title && meta.messages.length === 0; // 首轮 → 之后生成标题
+
+  // 进程级并发准入(性能审计 P0):inFlight 只挡「同一连接」的并发,这里挡「跨连接」的并发 turn 总数,
+  // 防 N 个不同会话各跑一轮 runTurn 打爆 1.5G 容器。满则即刻回 busy(可重试)不排队。放在 inFlight=true
+  // 之前,拒绝时无需回滚状态;下方 finally 释放,覆盖 reduceForWindow(自带 catch)+ runTurn 全程。
+  const releaseSlot = tryAcquireTurn();
+  if (!releaseSlot) {
+    safeSend(ws, { type: "error", code: "busy", message: "服务繁忙,请稍候重试。", retryable: true });
+    return;
+  }
   ws.data.inFlight = true;
   const abort = new AbortController();
   ws.data.abort = abort;
@@ -337,6 +354,7 @@ async function handleUserMessage(ws: ServerWebSocket<WSData>, frame: Record<stri
     ws.data.abort = null;
     for (const [, resolve] of ws.data.pending) resolve(false);
     ws.data.pending.clear();
+    releaseSlot(); // 释放进程级并发槽(幂等)
   }
 
   // 首轮生成标题 —— **必落一个非空标题**,杜绝前端永久「生成标题中…」(根因:旧逻辑单次机会 + 4 条静默
@@ -365,5 +383,6 @@ export function onClose(ws: ServerWebSocket<WSData>): void {
   ws.data.abort?.abort();
   for (const [, resolve] of ws.data.pending) resolve(false);
   ws.data.pending.clear();
+  sessionWsClosed(ws.data.sessionId); // 活跃计数 -1:归零后该会话满足空闲条件即可被内存淘汰
   log.info("ws close", { session_id: ws.data.sessionId });
 }

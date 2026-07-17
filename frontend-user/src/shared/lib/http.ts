@@ -20,6 +20,14 @@ http.interceptors.request.use((config) => {
   if (token) config.headers.Authorization = `Bearer ${token}`;
   // 匿名访客标识 —— 让后端"使用统计"对未登录用户也能按 anon_id 去重计人。
   config.headers['X-Anon-Id'] = getAnonId();
+  // 文件下载(blob/arraybuffer)豁免 30s API 超时(性能审计):30s 是「API 语义超时」,套到大文件/慢网下载
+  // (zip/docx/pdf/导出)会把传输中途掐成坏文件。这里一处收口,覆盖全部现存+未来下载站点(此前需每站点手补)。
+  // timeout=0=不限时,传输预算由后端 object-serve(APITimeoutMiddleware 10min)+ nginx 长流 location 兜底;
+  // 调用方仍可显式传 timeout 覆盖。
+  if (config.responseType === 'blob' || config.responseType === 'arraybuffer') {
+    // 仅当未显式指定超时(默认 30s 或 undefined,取决于 axios 何时合并实例默认)才豁免;显式传的超时尊重不动。
+    if (config.timeout === undefined || config.timeout === 30_000) config.timeout = 0;
+  }
   return config;
 });
 

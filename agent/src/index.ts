@@ -4,6 +4,7 @@
 
 import { handleHTTP } from "./server/http.ts";
 import { onOpen, onMessage, onClose, type WSData } from "./server/ws.ts";
+import { startSessionSweeper } from "./server/sessions.ts";
 import { authOK, tokenConfigured } from "./auth.ts";
 import { sandboxMode } from "./sandbox/bwrap.ts";
 import { validSessionId } from "./sandbox/confine.ts";
@@ -63,6 +64,9 @@ const server = Bun.serve<WSData>({
 
 // 预热 Minicod MCP(避开首轮 cold-start 连接超时)
 prewarm().catch(() => {});
+
+// 会话内存淘汰周期扫描(性能审计 P0):驱逐空闲且无活跃 WS 的内存 meta,防进程内存只涨不跌。
+startSessionSweeper();
 
 log.info("agent started (clean-room executor · provider-agnostic · WS+HTTP)", {
   port: server.port,

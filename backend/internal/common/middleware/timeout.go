@@ -29,6 +29,9 @@ func isStreamingPath(path string) bool {
 		"/continue",
 		"/analysis",
 		"/translate/stream",
+		// upload-and-resolve 是 SSE 但路径不以 /stream 结尾(library 秒传解析流),补进白名单让它由【路径】
+		// 而非仅靠请求 Accept 头拿到长超时(性能审计 P0:更稳,不依赖客户端是否发 Accept)。
+		"/upload-and-resolve",
 	}
 	for _, pattern := range streamingPatterns {
 		if strings.Contains(path, pattern) {
@@ -48,7 +51,10 @@ func isObjectServePath(path string) bool {
 	}
 	// /agent-sessions/:id/file(会话内上传文件) · /peer-review/submissions/:id/assets/:aid(投稿附件):
 	// 都是从对象存储/agent 容器往客户端 stream 原文件,传输时长随文件大小,别被 15s GET 超时截断成坏文件。
-	for _, p := range []string{"/feedback/attachment/", "/claw/artifact/", "/tools/logo/", "/submission/", "/assets/"} {
+	// 注:补 /claw/session/artifact —— 覆盖实时回退下载 /claw/session/artifact 与打包 /claw/session/artifact.zip
+	// (路由 routes_user.go:304-305)。旧列表只有 /claw/artifact/(按 id 取),这两个子串匹配不到 → 落 GET 15s
+	// 被掐成坏 zip(性能审计 P0)。
+	for _, p := range []string{"/feedback/attachment/", "/claw/artifact/", "/claw/session/artifact", "/tools/logo/", "/submission/", "/assets/"} {
 		if strings.Contains(path, p) {
 			return true
 		}
@@ -72,7 +78,9 @@ func APITimeoutMiddleware() gin.HandlerFunc {
 			// 大文件下载: 传输时长随文件大小/客户端带宽变化, 给足预算防中途截断。
 			// (各 handler 自己仍可在此预算内用更短的 ctx, 如 claw artifact 的 10s。)
 			timeout = 10 * time.Minute
-		} else if c.Request.Method == "POST" || c.Request.Method == "PUT" {
+		} else if c.Request.Method == "POST" || c.Request.Method == "PUT" || c.Request.Method == "PATCH" || c.Request.Method == "DELETE" {
+			// 写操作(含 PATCH/DELETE):30s。旧逻辑只判 POST/PUT → PATCH/DELETE 落到 else 的 15s 读档,
+			// 偶发的稍慢写(如批量删除)会被误掐(性能审计)。
 			timeout = 30 * time.Second
 		} else {
 			timeout = 15 * time.Second

@@ -74,7 +74,7 @@ type RateLimitConfig struct {
 	IPBurst       int     // IP 令牌桶突发值（默认 200）
 	UserRPS       int     // 每秒单用户请求数（默认 50）
 	UserBurst     int     // 单用户令牌桶突发值（默认 100）
-	VIPMultiplier float64 // VIP/付费用户速率倍数（默认 3.0）
+	// 注:曾有 VIPMultiplier（RATE_LIMIT_VIP_MULTIPLIER），但 is_vip 从无人写入 → 配了不生效的假象,已删(性能审计 #4)。
 }
 
 // AppConfig_ 通用应用配置（避免与全局变量 AppConfig 冲突）
@@ -219,9 +219,8 @@ func Load() *Config {
 		RateLimit: RateLimitConfig{
 			IPRPS:         getEnvAsInt("RATE_LIMIT_IP_RPS", 100),
 			IPBurst:       getEnvAsInt("RATE_LIMIT_IP_BURST", 200),
-			UserRPS:       getEnvAsInt("RATE_LIMIT_USER_RPS", 50),
-			UserBurst:     getEnvAsInt("RATE_LIMIT_USER_BURST", 100),
-			VIPMultiplier: getEnvAsFloat("RATE_LIMIT_VIP_MULTIPLIER", 3.0),
+			UserRPS:   getEnvAsInt("RATE_LIMIT_USER_RPS", 50),
+			UserBurst: getEnvAsInt("RATE_LIMIT_USER_BURST", 100),
 		},
 	}
 
@@ -322,9 +321,6 @@ func (c *Config) Validate() error {
 	}
 	if c.RateLimit.UserRPS <= 0 {
 		errs = append(errs, fmt.Sprintf("RATE_LIMIT_USER_RPS 必须 > 0，当前 %d", c.RateLimit.UserRPS))
-	}
-	if c.RateLimit.VIPMultiplier < 1 {
-		errs = append(errs, fmt.Sprintf("RATE_LIMIT_VIP_MULTIPLIER 必须 >= 1，当前 %v", c.RateLimit.VIPMultiplier))
 	}
 
 	// ---- release 模式下的安全校验 ----

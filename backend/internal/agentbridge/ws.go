@@ -100,6 +100,12 @@ const frontReadDeadline = 10 * time.Minute
 // 给个有界写超时, 超时即报错, 让 pipe 收口踢掉慢客户端(性能审计 ws-backpressure)。
 const frontWriteDeadline = 30 * time.Second
 
+// agentWriteDeadline 是 backend→agent 方向每帧写的最大阻塞时长(性能审计 P0)。agent 容器 TCP 假死时,
+// 无 deadline 的 WriteMessage 会永久阻塞并持 agentWriteMu → 该会话所有写方(user_message / pingLoop /
+// permission 回写 / 模型帧)全卡死,最坏拖到 60s 读超时才被间接解救。给个有界写超时,超时即报错走收尾。
+// 内网帧至多几十 KB,10s 对正常写绰绰有余,不会误伤慢但活的连接。
+const agentWriteDeadline = 10 * time.Second
+
 // closeMessageWriteTimeout 是写 CloseMessage 控制帧时给对端的最大等待时间。
 // 短到不阻塞清理流程, 长到允许网卡 flush。500ms 足够内网 + 公网常规延迟。
 const closeMessageWriteTimeout = 500 * time.Millisecond
@@ -537,6 +543,35 @@ func browserFrameForwardable(raw []byte) bool {
 		return false
 	}
 	return !frameCarriesInjectionSurface(raw)
+}
+
+// stripInjectionSurface —— 从帧里删除会话注入面顶层字段(addDirs/disallowedTools/appendSystemPrompt/skills)。
+// 专用于 user_message 路径:该帧走 handleUserMessage 专属分支、**不过** browserFrameForwardable 闸
+// (default 分支才过),故浏览器若在 user_message 里夹带这些键会被原样透传到 executor。此处在转发上游前
+// 剥掉它们,把「闸只覆盖 default 路径」补成「全路径覆盖」——不再依赖「executor 只在 seed_history 消费
+// 注入面」这一容器侧口头约定。返回剥离后的字节;无注入面字段或解析失败则原样返回。
+func stripInjectionSurface(raw []byte) []byte {
+	if len(raw) == 0 || raw[0] != '{' {
+		return raw
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return raw
+	}
+	changed := false
+	for _, k := range []string{"addDirs", "disallowedTools", "appendSystemPrompt", "skills"} {
+		if _, ok := m[k]; ok {
+			delete(m, k)
+			changed = true
+		}
+	}
+	if !changed {
+		return raw
+	}
+	if out, err := json.Marshal(m); err == nil {
+		return out
+	}
+	return raw
 }
 
 // agentErrorFriendly —— 执行器 error 终帧的 code → 用户友好中文文案(评审 #4)。

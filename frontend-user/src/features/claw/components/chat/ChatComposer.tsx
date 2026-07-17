@@ -16,6 +16,7 @@ import { useComposerAttachments, ATTACHMENT_ACCEPT } from '@/shared/hooks/useCom
 import type { TurnReference } from '@/shared/types/chat';
 import { useUploadClawAttachment, useReferenceClawLibrary } from '../../api/session';
 import type { AttachmentDTO, ReferenceItemDTO } from '../../api/types';
+import { ComposerSkillsButton } from './ComposerSkillsButton';
 
 /**
  * claw 输入框 = 统一 Composer + 共享附件/引用装配(2026-07 输入框统一:交互逻辑上提
@@ -64,6 +65,8 @@ export interface ChatComposerProps {
   modelSlot?: ReactNode;
   /** 当前会话模型是否支持图片输入(P2 图片通道;false → 图片被拦下并提示)。 */
   acceptImages?: boolean;
+  /** 「新对话」回调 —— 输入框技能面板「在新对话中应用」用(启用变更建会话时冻结)。 */
+  onNewConversation?: () => void;
 }
 
 /** 命令式句柄 —— 新对话 hero 点「示例提问」chip 时, 把文案填进输入框并聚焦(不直接发送)。 */
@@ -84,6 +87,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
   onRequireAuth,
   modelSlot,
   acceptImages,
+  onNewConversation,
 }, ref) {
   // 「引用文献」选中的论文/文件夹(后端已物化进会话 cwd,这里持 chip 元数据)。
   const [references, setReferences] = useState<ReferenceItemDTO[]>([]);
@@ -208,18 +212,24 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
           </>
         }
         leftActions={
-          <ComposerPlusMenu
-            disabled={disabled || att.uploading}
-            accept={ATTACHMENT_ACCEPT}
-            onFiles={(files) => void att.addFiles(files)}
-            onPickLibrary={() => {
-              if (requireAuth) {
-                onRequireAuth?.();
-                return;
-              }
-              setPickerOpen(true);
-            }}
-          />
+          <div className="flex items-center gap-0.5">
+            <ComposerPlusMenu
+              disabled={disabled || att.uploading}
+              accept={ATTACHMENT_ACCEPT}
+              onFiles={(files) => void att.addFiles(files)}
+              onPickLibrary={() => {
+                if (requireAuth) {
+                  onRequireAuth?.();
+                  return;
+                }
+                setPickerOpen(true);
+              }}
+            />
+            {/* 技能入口(登录后可见):事前声明本会话将启用的能力 + 内嵌启用列表(桌面/移动通用)。 */}
+            {!requireAuth && onNewConversation && (
+              <ComposerSkillsButton onNewConversation={onNewConversation} />
+            )}
+          </div>
         }
         rightActions={modelSlot}
       />

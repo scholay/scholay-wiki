@@ -11,9 +11,11 @@ import { http } from '@/shared/lib/http';
 import { useAgentSocket, type AgentWSTicket, type UseAgentSocket } from '@/shared/hooks/useAgentSocket';
 import type { PrismClientMessage, PrismServerMessage } from './ws-types';
 
-async function fetchWSTicket(projectId: number): Promise<AgentWSTicket> {
+// 多对话:带 ?session_id=<当前对话> 签发该对话的 ticket;省略则后端回落当前/新建首条(兼容单会话)。
+async function fetchWSTicket(projectId: number, sessionId?: string): Promise<AgentWSTicket> {
+  const q = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : '';
   const { data } = await http.post<{ data?: AgentWSTicket } & Partial<AgentWSTicket>>(
-    `/user/prism/projects/${projectId}/ws-ticket`,
+    `/user/prism/projects/${projectId}/ws-ticket${q}`,
     {},
   );
   const payload = (data.data as AgentWSTicket | undefined) ?? (data as unknown as AgentWSTicket);
@@ -30,12 +32,13 @@ function buildWsUrl(sessionId: string, wsToken: string): string {
 
 export type UsePrismSocket = UseAgentSocket<PrismServerMessage, PrismClientMessage>;
 
-// nonce:重开会话(V3-4.6-1)后 +1 → connectionKey 变 → 重新取 ticket(ensureProjectSession 建新会话)
-// 并重连;新会话的 seed 即含最新画像/记忆,旧对话史不再占上下文。
-export function usePrismSocket(projectId: number | null, nonce = 0): UsePrismSocket {
+// 多对话:connectionKey 含 sessionId —— 切对话(sessionId 变)→ 重新取该对话的 ticket 并重连,
+// useAgentSocket 在 connectionKey 变时会清空 messages(旧对话流不残留)。sessionId 为空(存量单会话/
+// 全新项目未选定对话)→ 后端 ws-ticket 回落「当前/新建」对话。nonce 保留:强制重连兜底(极少用)。
+export function usePrismSocket(projectId: number | null, sessionId?: string, nonce = 0): UsePrismSocket {
   return useAgentSocket<PrismServerMessage, PrismClientMessage>({
-    connectionKey: projectId ? `${projectId}:${nonce}` : null,
-    fetchTicket: () => fetchWSTicket(projectId as number),
+    connectionKey: projectId ? `${projectId}:${sessionId ?? ''}:${nonce}` : null,
+    fetchTicket: () => fetchWSTicket(projectId as number, sessionId || undefined),
     buildWsUrl,
     displacedDefaultText: '此项目已在其他窗口打开',
   });

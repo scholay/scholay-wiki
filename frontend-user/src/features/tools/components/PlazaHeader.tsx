@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Search, X } from 'lucide-react';
+import { Search, X, ChevronDown } from 'lucide-react';
 import { useUrlState, usePatchUrlState } from '@/shared/hooks';
 import { PlazaSegmentTabs } from './PlazaSegmentTabs';
 
@@ -39,23 +39,28 @@ export function PlazaHeader() {
   return (
     <header className="shrink-0 border-b border-border bg-background px-6 py-4">
       <div className="mx-auto max-w-3xl">
-        <div className="mb-3">
+        <div className="mb-3 flex justify-center">
           <PlazaSegmentTabs />
         </div>
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
+          {/* 搜索框:左侧内嵌放大镜(与全站搜索一致)+ 有内容时右侧清空;回车提交。去掉了旧的红色提交按钮。 */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
               setQuery(draft.trim());
             }}
-            className="flex h-12 flex-1 items-center gap-3 rounded-sm border border-border-strong bg-background pl-5 pr-2 transition-colors focus-within:border-foreground"
+            className="group flex h-11 flex-1 items-center gap-2.5 rounded-lg border border-border bg-surface-1 px-3.5 transition-colors focus-within:border-foreground focus-within:bg-background"
           >
+            <Search
+              className="size-4 shrink-0 text-faint transition-colors group-focus-within:text-muted-foreground"
+              strokeWidth={2.2}
+            />
             <input
               type="text"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder={isSkills ? '搜索社区技能 —— 名称 / 用途' : '搜索科研工具 —— 名称 / 关键词 / 用途'}
-              className="h-auto flex-1 bg-transparent text-base outline-none placeholder:text-faint"
+              className="h-full flex-1 bg-transparent text-sm outline-none placeholder:text-faint"
             />
             {draft && (
               <button
@@ -66,30 +71,28 @@ export function PlazaHeader() {
                   setDraft('');
                   setQuery('');
                 }}
-                className="inline-flex size-7 items-center justify-center rounded-sm text-faint transition-colors hover:bg-surface-2 hover:text-foreground"
+                className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-faint transition-colors hover:bg-surface-2 hover:text-foreground"
               >
                 <X className="size-3.5" strokeWidth={2.5} />
               </button>
             )}
-            <button
-              type="submit"
-              aria-label="搜索"
-              className="inline-flex size-9 items-center justify-center rounded-sm bg-destructive text-destructive-foreground transition-colors hover:bg-destructive/90"
-            >
-              <Search className="size-4" strokeWidth={2.5} />
-            </button>
           </form>
-          <select
-            value={sortValue}
-            onChange={(e) => setSort(e.target.value)}
-            className="h-12 shrink-0 rounded-sm border border-border-strong bg-background px-3 text-xs font-bold text-subtle outline-none"
-          >
-            {sortOpts.map(([v, l]) => (
-              <option key={v} value={v}>
-                {l}
-              </option>
-            ))}
-          </select>
+          {/* 排序:原生 select + 自绘 chevron,与搜索框同款圆角/边框/底色。 */}
+          <div className="relative shrink-0">
+            <select
+              value={sortValue}
+              onChange={(e) => setSort(e.target.value)}
+              aria-label="排序"
+              className="h-11 appearance-none rounded-lg border border-border bg-surface-1 pl-3.5 pr-8 text-xs font-medium text-subtle outline-none transition-colors hover:border-border-strong focus:border-foreground"
+            >
+              {sortOpts.map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
+          </div>
         </div>
       </div>
     </header>

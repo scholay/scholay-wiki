@@ -21,7 +21,7 @@ const TIER_BADGE_CLS: Record<Tier, string> = {
 
 /**
  * 移动端会员/账户资产卡 —— PC AccountAssetsCard 的纵向重排:
- * 等级铭牌+到期 / 今日额度进度条 / 经费余额(临时+永久) / 重置+自动重置 / 兑换码。
+ * 等级铭牌+到期 / 本周期额度进度条 / 经费余额(临时+永久) / 重置 / 兑换码。
  * 数据与 mutation 全部复用 settings 的 membership hooks。
  * 升级/充值走支付网关,移动端暂不开,提示去电脑端操作。
  */

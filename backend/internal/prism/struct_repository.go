@@ -93,6 +93,7 @@ func (r *Repository) GetStructVersion(projectID, versionID uint) (*StructVersion
 // UpsertFileBody get-or-create 文件 + 追加 current 版本(author=agent)。projector 产物落库用。
 func (r *Repository) UpsertFileBody(projectID uint, relPath, kind, body string) error {
 	var f File
+	sha := sha256Hex(body)
 	err := r.db.Where("project_id = ? AND rel_path = ?", projectID, relPath).First(&f).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		f = File{ProjectID: projectID, RelPath: relPath, FileKind: kind, Mime: mimeForKind(kind)}
@@ -101,8 +102,13 @@ func (r *Repository) UpsertFileBody(projectID uint, relPath, kind, body string) 
 		}
 	} else if err != nil {
 		return err
+	} else if f.ContentSHA256 == sha {
+		// 投影内容未变则短路(性能审计):materializeStruct 每次【全量】投影,但 800ms 防抖多数停顿只改单块,
+		// references.bib 几乎从不变 → 旧逻辑仍无条件 AppendCurrentVersion 追加「空版本」,与 SaveStructVersion 既有
+		// sha 去重不一致(投影侧写放大)。File.content_sha256 由 AppendCurrentVersion 维护为当前内容哈希(同 workspace 变更检测),相等即跳过。
+		return nil
 	}
-	_, err = r.AppendCurrentVersion(f.ID, body, sha256Hex(body), AuthorAgent, nil)
+	_, err = r.AppendCurrentVersion(f.ID, body, sha, AuthorAgent, nil)
 	return err
 }
 

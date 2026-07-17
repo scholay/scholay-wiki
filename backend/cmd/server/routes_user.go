@@ -195,6 +195,8 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 			prismG.GET("/projects/:id/session/file", h.prism.GetSessionImage) // 历史回放图片缩略图/放大(cookie 鉴权)
 			// AI 对话走下面独立挂的 /prism/ws/:sessionId;这里是轮次边界 HTTP 端点。
 			prismG.POST("/projects/:id/ws-ticket", h.prism.IssueWSTicket)
+			prismG.GET("/projects/:id/conversations", h.prism.ListConversations) // 多对话:本项目对话列表(共享同一份论文)
+			prismG.POST("/projects/:id/conversations", h.prism.NewConversation)  // 多对话:新建一条对话
 			prismG.POST("/projects/:id/session/reset", h.prism.ResetSession) // 手动重开会话(V3-4.6-1:文稿零损失)
 			prismG.GET("/projects/:id/session/messages", h.prism.GetWSMessages)
 			prismG.GET("/projects/:id/session/context", h.prism.GetContext)       // 上下文水位(token 占用)

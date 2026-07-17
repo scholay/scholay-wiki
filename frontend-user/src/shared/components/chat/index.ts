@@ -69,4 +69,8 @@ export {
   extractToolQuery,
   extractToolSourceBrand,
 } from './MinicodToolMeta';
+export {
+  SkillHeaderBadge,
+  extractSkillGuideName,
+} from './SkillHeaderBadge';
 export { PaperListReadonly } from './PaperListReadonly';

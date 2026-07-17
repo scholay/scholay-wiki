@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>可视化公式编辑器 · 一键导出 LaTeX</title>
+  <link rel="stylesheet" href="./shared/brand.css" />
+  <link rel="stylesheet" href="./mathlive-fonts.css" />
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div class="aurora"><i></i><i></i><i></i></div>
+  <div class="grain"></div>
+
+  <div class="app">
+    <div class="brandbar">
+      <span class="wordmark"><span class="dot">S</span><b>Scholay</b></span>
+      <span class="tag">公式编辑器</span>
+    </div>
+
+    <div class="hero">
+      <span class="eyebrow">告别背 LaTeX 语法</span>
+      <h1>点一点,<span class="hl">公式变 LaTeX</span></h1>
+      <p>所见即所得编辑数学公式 · 实时导出可粘贴的 LaTeX 代码</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="num">1</span>可视化编辑</div>
+      <div id="mfhost"></div>
+      <div class="mf-tip">点下方符号插入 · 直接在框内点选修改</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="num">2</span>快捷符号</div>
+      <div id="palette"></div>
+      <div class="sec-h" style="margin-top:14px">📐 常用公式模板</div>
+      <div class="examples" id="examples"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="num">3</span>LaTeX 代码(长按选中复制)</div>
+      <textarea class="latex-out selectable" id="latex" readonly></textarea>
+    </div>
+
+    <div class="card"><div class="card-title"><span class="num">✎</span>关于</div>
+      <div class="facts" id="facts"></div>
+    </div>
+
+    <div class="disclaimer" id="disclaimer"></div>
+    <div data-cta="写论文公式多?<span class=&quot;hl&quot;>Scholay 智能写作</span> LaTeX 全流程"></div>
+    <div data-foot></div>
+  </div>
+
+  <script src="./shared/convert.js"></script>
+  <script src="./data.js"></script>
+  <script src="./guard.js"></script>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

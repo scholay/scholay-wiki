@@ -251,23 +251,28 @@ func TestIntegrationBilling(t *testing.T) {
 		if res.Used != 0 {
 			t.Fatalf("重置后窗口 used=%d want 0", res.Used)
 		}
-		// 关键:重置只抬窗口基线 base,**不清零真实统计 used**(统计与限额分离);anchor 不变。
+		_ = wantUsed // R5 新语义下不再断言旧 used 保留(真实统计走 consumed_today + 账本)
+		// R5 关键:手动重置 = **换锚到 now**(7 天从当前重开),新窗口 used/base 天然归零 = 满血。
 		anchorBefore := w.anchor
-		if w = svc.loadWindow(ctx, id); w.used != wantUsed || w.anchor != anchorBefore {
-			t.Fatalf("重置不应清零统计/换锚: used=%d want %d anchor=%d", w.used, wantUsed, w.anchor)
+		if w = svc.loadWindow(ctx, id); w.anchor == anchorBefore {
+			t.Fatalf("R5 手动重置应换锚: anchor 未变仍为 %d", w.anchor)
+		}
+		if w.used != 0 || w.windowUsed() != 0 {
+			t.Fatalf("重置后新窗口应满血归零: used=%d windowUsed=%d", w.used, w.windowUsed())
 		}
 		if bal, _ := svc.Wallet().Balance(id); bal.Total != 10 {
 			t.Fatalf("重置应扣 %d 经费, 余 %d want 10", resetCost, bal.Total)
 		}
 
-		// 重置后再消耗:真实统计单调累加,窗口口径从 0 起算(=500)。
+		// 重置后再消耗:新窗口从 0 起算累加。
 		svc.AddUsage(ctx, id, 500)
-		if w = svc.loadWindow(ctx, id); w.used != wantUsed+500 {
-			t.Fatalf("重置后统计应继续累加: used=%d want %d", w.used, wantUsed+500)
+		if w = svc.loadWindow(ctx, id); w.used != 500 {
+			t.Fatalf("重置后新窗口应从 0 累加: used=%d want 500", w.used)
 		}
 		if win := w.windowUsed(); win != 500 {
 			t.Fatalf("重置后窗口应从 0 起算: window=%d want 500", win)
 		}
+		anchorAfterReset := w.anchor
 		// 到期语义:把 anchor 改成 8 天前 → 读路径视为无窗口(满血),不写 anchor。
 		_ = cache.GetRedisPersist().Set(ctx, anchorKey(id), time.Now().Add(-8*24*time.Hour).Unix(), time.Hour).Err()
 		if w = svc.loadWindow(ctx, id); w.anchor != 0 || w.windowUsed() != 0 {
@@ -277,7 +282,7 @@ func TestIntegrationBilling(t *testing.T) {
 		// sleep 1.1s:anchor 是 unix 秒,测试内首锚与换锚同秒会撞同一 used key(真实世界锚差 7 天,无此问题)。
 		time.Sleep(1100 * time.Millisecond)
 		svc.AddUsage(ctx, id, 300)
-		if w = svc.loadWindow(ctx, id); w.anchor == anchorBefore || w.used != 300 {
+		if w = svc.loadWindow(ctx, id); w.anchor == anchorAfterReset || w.used != 300 {
 			t.Fatalf("到期后应换锚重新累计: anchor=%d used=%d", w.anchor, w.used)
 		}
 	})

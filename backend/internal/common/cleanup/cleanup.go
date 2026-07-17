@@ -36,6 +36,10 @@ type CleanupService struct {
 
 	// 超时 pending 订单作废(注入 vip.OrderService.CancelStalePending)。
 	pendingOrderCanceller PendingOrderCanceller
+
+	// 升级满血「待兑现」补偿(注入 vip.Service.ReconcilePendingRefills):删锚遇 Redis 抖动失败后,
+	// Redis 恢复时补删锚。用函数型避免 import vip。
+	pendingRefillReconciler PendingRefillReconciler
 }
 
 // CreditExpireSweeper 把已过期临时经费批次清零并写 expire 流水,返回清理批次数。
@@ -43,6 +47,9 @@ type CreditExpireSweeper func(now time.Time) (int, error)
 
 // PendingOrderCanceller 把超过 ttl 仍 pending 的订单作废,返回作废数。
 type PendingOrderCanceller func(ttl time.Duration) (int64, error)
+
+// PendingRefillReconciler 补偿未兑现的升级满血(删锚),返回本轮成功条数。
+type PendingRefillReconciler func(ctx context.Context) (int, error)
 
 // NewCleanupService creates a new cleanup service
 func NewCleanupService(db *gorm.DB) *CleanupService {
@@ -76,13 +83,15 @@ func (s *CleanupService) SetPendingOrderCanceller(cancel PendingOrderCanceller) 
 	s.pendingOrderCanceller = cancel
 }
 
+// SetPendingRefillReconciler 注入升级满血待兑现补偿(vip.Service.ReconcilePendingRefills)。
+func (s *CleanupService) SetPendingRefillReconciler(fn PendingRefillReconciler) {
+	s.pendingRefillReconciler = fn
+}
+
 // Start starts all cleanup tasks as background goroutines
 func (s *CleanupService) Start() {
 	slog.Info("Starting cleanup service")
 
-	safego.Go("cleanup-old-usage-logs", func() {
-		s.runDaily("old_usage_logs", 4, 0, s.cleanOldUsageLogs)
-	})
 	safego.Go("cleanup-hot-content", func() {
 		s.runDaily("hot_content", 4, 30, s.cleanHotContent)
 	})
@@ -109,6 +118,14 @@ func (s *CleanupService) Start() {
 		})
 	}
 
+	// 升级满血待兑现补偿:删锚遇 Redis 抖动失败后落 DB 标记,这里每 2 分钟扫一次在 Redis 恢复后补删锚。
+	// 高频短周期(而非每日)以缩短「续费付了钱却不满血」的窗口;正常无标记时一次轻量 SELECT,几乎零开销。
+	if s.pendingRefillReconciler != nil {
+		safego.Go("cleanup-pending-quota-refills", func() {
+			s.runPeriodic("pending_quota_refill", 2*time.Minute, s.reconcilePendingRefills)
+		})
+	}
+
 	// 归属表对账(self-heal):启动先跑一次(补上部署间隙/历史漂移),之后每天 04:35 兜底。
 	if s.agentReconciler != nil && len(s.reconcileTargets) > 0 {
 		safego.Go("reconcile-agent-session-owners", func() {
@@ -122,7 +139,28 @@ func (s *CleanupService) Start() {
 	// 文献集:MinIO 孤儿 PDF 对账 reaper(05:00)+ 过期/撤销分享的子表清理(05:15)。
 	s.startLibraryCleanupTasks()
 
+	// agent 事件日志分区延展(性能审计 P0):把 agent_turn_events 的月度 RANGE 分区持续向后延展,
+	// 防数据堆进 p_future(见迁移 0071)。迁移只在部署时延展一次;这里每天维持领先,即使长期不重部署
+	// 也不会耗尽。启动先跑一次(补上部署间隙),之后每天 05:40。幂等(按分区名跳过已存在)。
+	safego.Go("cleanup-agent-event-partitions", func() {
+		if err := s.ensureAgentEventPartitions(); err != nil {
+			slog.Warn("Cleanup task failed", "task", "agent_event_partitions(boot)", "err", err)
+		}
+		s.runDaily("agent_event_partitions", 5, 40, s.ensureAgentEventPartitions)
+	})
+
 	slog.Info("Cleanup service started")
+}
+
+// ensureAgentEventPartitions 延展 agent_turn_events 的未来月份分区(见 0000_utils.ensure_month_range_partitions)。
+// 会话历史【永久保留、绝不删除】(产品要求):本任务只【延展】未来分区、【永不 DROP】分区,让永久增长的
+// journal 始终按月分好区、保持可查与写入性能。零数据删除。
+func (s *CleanupService) ensureAgentEventPartitions() error {
+	// #nosec G202 -- 全为代码内常量,非用户输入。
+	if err := s.db.Exec("CALL ensure_month_range_partitions('agent_turn_events', 15)").Error; err != nil {
+		return err
+	}
+	return nil
 }
 
 // reconcileAgentSessionOwners 把实体级 feature(prism/peerreview)业务表里有 agent 会话、
@@ -160,7 +198,7 @@ func (s *CleanupService) Stop() {
 // batchDeleteByCreatedAt 按 created_at 分批删除过期行 (LIMIT 1000 + 100ms 间隔)。
 // 取代单条 `DELETE ... WHERE created_at < ?`：稳态每天只删一天量无所谓，但首次跨过保留期
 // 边界或长时间停机恢复时，单语句可能删数百万行，生成巨大 undo/purge 积压、阻塞同表并发 INSERT。
-// 分批 + created_at 索引对在线写入友好。范式同 cleanOldUsageLogs。
+// 分批 + created_at 索引对在线写入友好。
 func (s *CleanupService) batchDeleteByCreatedAt(table string, cutoff time.Time) (int64, error) {
 	const batchSize = 1000                    // 每批删除 1000 条
 	const batchDelay = 100 * time.Millisecond // 批次间隔 100ms
@@ -250,6 +288,21 @@ func (s *CleanupService) cleanStalePendingOrders() error {
 	return nil
 }
 
+// reconcilePendingRefills 补偿升级满血待兑现(删锚遇 Redis 抖动失败后,Redis 恢复时补删锚)。
+func (s *CleanupService) reconcilePendingRefills() error {
+	if s.pendingRefillReconciler == nil {
+		return nil
+	}
+	n, err := s.pendingRefillReconciler(s.ctx)
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		slog.Info("Reconciled pending quota refills", "count", n)
+	}
+	return nil
+}
+
 // runPeriodic runs a cleanup task at regular intervals
 func (s *CleanupService) runPeriodic(name string, interval time.Duration, task func() error) {
 	ticker := time.NewTicker(interval)
@@ -301,67 +354,6 @@ func (s *CleanupService) runDaily(name string, hour, minute int, task func() err
 	}
 }
 
-// cleanOldUsageLogs removes old usage logs based on configured retention period
-// Uses batch deletion to avoid performance impact
-func (s *CleanupService) cleanOldUsageLogs() error {
-	// 获取配置的保留天数
-	var retentionDays int
-	err := s.db.Table("usage_log_config").
-		Select("retention_days").
-		Where("id = 1").
-		Scan(&retentionDays).Error
-	if err != nil || retentionDays == 0 {
-		retentionDays = 180 // 默认180天
-	}
-
-	cutoffTime := time.Now().AddDate(0, 0, -retentionDays)
-	slog.Info("Starting cleanup of usage logs", "retentionDays", retentionDays, "before", cutoffTime.Format("2006-01-02"))
-
-	// 分批删除参数
-	const batchSize = 1000                    // 每批删除1000条
-	const batchDelay = 100 * time.Millisecond // 批次间隔100ms
-
-	var totalDeleted int64
-
-	for {
-		// 检查是否需要停止
-		select {
-		case <-s.ctx.Done():
-			slog.Info("Usage logs cleanup interrupted", "deletedSoFar", totalDeleted)
-			return nil
-		default:
-		}
-
-		// 分批删除
-		result := s.db.Exec(`
-			DELETE FROM usage_logs 
-			WHERE created_at < ? 
-			ORDER BY created_at ASC 
-			LIMIT ?
-		`, cutoffTime, batchSize)
-
-		if result.Error != nil {
-			return fmt.Errorf("failed to clean old usage logs: %w", result.Error)
-		}
-
-		totalDeleted += result.RowsAffected
-
-		// 如果删除的数量小于 batchSize，说明没有更多数据需要删除
-		if result.RowsAffected < int64(batchSize) {
-			break
-		}
-
-		// 批次间休眠，避免对数据库造成压力
-		time.Sleep(batchDelay)
-	}
-
-	if totalDeleted > 0 {
-		slog.Info("Cleaned old usage logs", "count", totalDeleted, "retentionDays", retentionDays)
-	}
-
-	return nil
-}
-
 // cleanHotContent removes old hot content data based on retention period and max records limit
 func (s *CleanupService) cleanHotContent() error {
 	if s.hotContentService == nil {
@@ -383,49 +375,6 @@ func (s *CleanupService) cleanHotContent() error {
 	return nil
 }
 
-// CleanOldUsageLogsNow runs the old usage logs cleanup immediately
-func (s *CleanupService) CleanOldUsageLogsNow() error {
-	slog.Info("Running manual cleanup: old usage logs")
-	return s.cleanOldUsageLogs()
-}
-
-// GetCleanupStats returns statistics about data to be cleaned
-func (s *CleanupService) GetCleanupStats() (map[string]any, error) {
-	stats := make(map[string]any)
-
-	// Count old usage logs
-	var retentionDays int
-	s.db.Table("usage_log_config").
-		Select("retention_days").
-		Where("id = 1").
-		Scan(&retentionDays)
-	if retentionDays == 0 {
-		retentionDays = 180
-	}
-
-	var oldUsageLogsCount int64
-	usageLogsCutoff := time.Now().AddDate(0, 0, -retentionDays)
-	if err := s.db.Model(&struct {
-		TableName string `gorm:"-" json:"-"`
-	}{}).
-		Table("usage_logs").
-		Where("created_at < ?", usageLogsCutoff).
-		Count(&oldUsageLogsCount).Error; err != nil {
-		return nil, err
-	}
-	stats["old_usage_logs_count"] = oldUsageLogsCount
-	stats["usage_logs_retention_days"] = retentionDays
-
-	// Total usage logs count
-	var totalUsageLogsCount int64
-	if err := s.db.Model(&struct {
-		TableName string `gorm:"-" json:"-"`
-	}{}).
-		Table("usage_logs").
-		Count(&totalUsageLogsCount).Error; err != nil {
-		return nil, err
-	}
-	stats["total_usage_logs_count"] = totalUsageLogsCount
-
-	return stats, nil
-}
+// 注:原 CleanOldUsageLogsNow / GetCleanupStats 已随旧 usagelog(usage_logs v1)下线一并删除 ——
+// 二者都零调用方,且 GetCleanupStats 只统计 usage_logs。usage_logs / usage_log_config 两张表
+// 作为 stranded 历史数据保留(无代码读写,故也不再需要定期清理)。

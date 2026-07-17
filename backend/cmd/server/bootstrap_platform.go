@@ -1,6 +1,6 @@
 // ============================================================================
 // Scholay学术 V1.0
-// Platform 域初始化：usagelog / hotcontent / seo / message / websocket
+// Platform 域初始化：usagestat / hotcontent / seo / message / websocket
 //
 // 这里的模块之间耦合较弱，集中在一个文件是因为都是"平台基础设施"类：
 // 日志、热门统计、SEO 索引、站内信、实时推送、文件代理 —— 对其它业务域的依赖基本只有 DB。
@@ -18,7 +18,6 @@ import (
 	"scholar-backend/internal/message"
 	"scholar-backend/internal/seo"
 	"scholar-backend/internal/seosubmit"
-	"scholar-backend/internal/usagelog"
 	"scholar-backend/internal/usagestat"
 	"scholar-backend/internal/vip"
 	"scholar-backend/internal/websocket"
@@ -26,8 +25,6 @@ import (
 
 // platformBundle 聚合平台域构造产物。
 type platformBundle struct {
-	usageLogService *usagelog.Service
-	usageLogAdmin   *usagelog.AdminHandler
 
 	usageStat        *usagestat.Handler
 	usageStatService *usagestat.Service
@@ -58,11 +55,8 @@ type platformBundle struct {
 
 // initPlatform 构造平台层所有基础设施模块。
 func initPlatform(db *gorm.DB, cfg *appconfig.Config) *platformBundle {
-	usageLogRepo := usagelog.NewRepository(db)
-	usageLogService := usagelog.NewService(usageLogRepo)
-	usageLogAdminHandler := usagelog.NewAdminHandler(usageLogService)
-
-	// 功能使用统计 v2 (usage_events) —— 取代旧 usagelog 埋点; 旧表/旧页保留为历史只读。
+	// 功能使用统计 v2 (usage_events) —— 旧 usagelog(v1)已于 2026-07 整体下线,
+	// 仅 usage_logs / usage_log_config 两张表作为 stranded 历史数据保留(无代码读写)。
 	usageStatService := usagestat.NewService(usagestat.NewRepository(db))
 	usageStatHandler := usagestat.NewHandler(usageStatService)
 
@@ -92,8 +86,6 @@ func initPlatform(db *gorm.DB, cfg *appconfig.Config) *platformBundle {
 	wsHandler := websocket.NewHandler(wsHub)
 
 	return &platformBundle{
-		usageLogService:   usageLogService,
-		usageLogAdmin:     usageLogAdminHandler,
 		usageStat:         usageStatHandler,
 		usageStatService:  usageStatService,
 		llmUsageService:   llmUsageService,

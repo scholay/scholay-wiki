@@ -59,10 +59,10 @@ func (h *Handler) IssueWSTicket(c *gin.Context) {
 	if !ok {
 		return
 	}
-	sessionID, token, err := h.svc.IssueWSTicket(c.Request.Context(), uid, pid)
+	sessionID, token, err := h.svc.IssueWSTicket(c.Request.Context(), uid, pid, c.Query("session_id"))
 	if err != nil {
-		if err == ErrProjectNotFound {
-			utils.NotFound(c, "项目不存在")
+		if err == ErrProjectNotFound || err == ErrConversationNotFound {
+			utils.NotFound(c, "会话不存在")
 			return
 		}
 		utils.InternalError(c, 500, "无法签发会话凭证,请稍后重试", err)
@@ -86,6 +86,42 @@ func roundConflict(c *gin.Context, err error) bool {
 	return false
 }
 
+// ListConversations GET /user/prism/projects/:id/conversations → 本项目的对话列表(多对话侧栏)。
+func (h *Handler) ListConversations(c *gin.Context) {
+	uid, pid, ok := h.wsProject(c)
+	if !ok {
+		return
+	}
+	items, err := h.svc.ListConversations(c.Request.Context(), uid, pid)
+	if err != nil {
+		if err == ErrProjectNotFound {
+			utils.NotFound(c, "项目不存在")
+			return
+		}
+		utils.InternalError(c, 500, "加载对话列表失败,请稍后重试", err)
+		return
+	}
+	utils.Success(c, gin.H{"sessions": items})
+}
+
+// NewConversation POST /user/prism/projects/:id/conversations → 新建一条对话(同项目共享同一份论文)。
+func (h *Handler) NewConversation(c *gin.Context) {
+	uid, pid, ok := h.wsWritableProject(c)
+	if !ok {
+		return
+	}
+	sessionID, err := h.svc.NewConversation(c.Request.Context(), uid, pid)
+	if err != nil {
+		if err == ErrProjectNotFound {
+			utils.NotFound(c, "项目不存在")
+			return
+		}
+		utils.InternalError(c, 500, "新建对话失败,请稍后重试", err)
+		return
+	}
+	utils.Success(c, gin.H{"sessionId": sessionID})
+}
+
 // PrepareRound POST /user/prism/projects/:id/round/prepare → 每轮 AI 前铺源(DB→cwd)。
 // 返回轮次世代号 epoch(V3-4.4-1);AI 回答进行中返回 409。
 func (h *Handler) PrepareRound(c *gin.Context) {
@@ -93,10 +129,10 @@ func (h *Handler) PrepareRound(c *gin.Context) {
 	if !ok {
 		return
 	}
-	epoch, err := h.svc.PrepareRound(c.Request.Context(), uid, pid)
+	epoch, err := h.svc.PrepareRound(c.Request.Context(), uid, pid, c.Query("session_id"))
 	if err != nil {
-		if err == ErrProjectNotFound {
-			utils.NotFound(c, "项目不存在")
+		if err == ErrProjectNotFound || err == ErrConversationNotFound {
+			utils.NotFound(c, "会话不存在")
 			return
 		}
 		if roundConflict(c, err) {
@@ -115,10 +151,10 @@ func (h *Handler) PendingRound(c *gin.Context) {
 	if !ok {
 		return
 	}
-	files, epoch, err := h.svc.PendingRound(c.Request.Context(), uid, pid)
+	files, epoch, err := h.svc.PendingRound(c.Request.Context(), uid, pid, c.Query("session_id"))
 	if err != nil {
-		if err == ErrProjectNotFound {
-			utils.NotFound(c, "项目不存在")
+		if err == ErrProjectNotFound || err == ErrConversationNotFound {
+			utils.NotFound(c, "会话不存在")
 			return
 		}
 		utils.InternalError(c, 500, "读取改动失败,请稍后重试", err)
@@ -144,10 +180,10 @@ func (h *Handler) ApplyRound(c *gin.Context) {
 		Epoch       string            `json:"epoch"`
 	}
 	_ = c.ShouldBindJSON(&body)
-	applied, err := h.svc.ApplyRound(c.Request.Context(), uid, pid, body.Instruction, body.Files, body.Epoch)
+	applied, err := h.svc.ApplyRound(c.Request.Context(), uid, pid, body.Instruction, body.Files, body.Epoch, c.Query("session_id"))
 	if err != nil {
-		if err == ErrProjectNotFound {
-			utils.NotFound(c, "项目不存在")
+		if err == ErrProjectNotFound || err == ErrConversationNotFound {
+			utils.NotFound(c, "会话不存在")
 			return
 		}
 		if roundConflict(c, err) {
@@ -166,9 +202,9 @@ func (h *Handler) RejectRound(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if err := h.svc.RejectRound(c.Request.Context(), uid, pid); err != nil {
-		if err == ErrProjectNotFound {
-			utils.NotFound(c, "项目不存在")
+	if err := h.svc.RejectRound(c.Request.Context(), uid, pid, c.Query("session_id")); err != nil {
+		if err == ErrProjectNotFound || err == ErrConversationNotFound {
+			utils.NotFound(c, "会话不存在")
 			return
 		}
 		if roundConflict(c, err) {
@@ -214,10 +250,10 @@ func (h *Handler) ReadWorkspaceFile(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少 path"})
 		return
 	}
-	content, found, err := h.svc.ReadWorkspaceFile(c.Request.Context(), uid, pid, relPath)
+	content, found, err := h.svc.ReadWorkspaceFile(c.Request.Context(), uid, pid, relPath, c.Query("session_id"))
 	if err != nil {
-		if err == ErrProjectNotFound {
-			utils.NotFound(c, "项目不存在")
+		if err == ErrProjectNotFound || err == ErrConversationNotFound {
+			utils.NotFound(c, "会话不存在")
 			return
 		}
 		utils.InternalError(c, 500, "读取工作区文件失败,请稍后重试", err)
@@ -233,10 +269,10 @@ func (h *Handler) GetWSMessages(c *gin.Context) {
 	if !ok {
 		return
 	}
-	res, err := h.svc.GetWSHistory(c.Request.Context(), uid, pid, agentbridge.ParseLimitTurns(c))
+	res, err := h.svc.GetWSHistory(c.Request.Context(), uid, pid, agentbridge.ParseLimitTurns(c), c.Query("session_id"))
 	if err != nil {
-		if err == ErrProjectNotFound {
-			utils.NotFound(c, "项目不存在")
+		if err == ErrProjectNotFound || err == ErrConversationNotFound {
+			utils.NotFound(c, "会话不存在")
 			return
 		}
 		utils.InternalError(c, 500, "加载历史失败,请稍后重试", err)
@@ -252,10 +288,10 @@ func (h *Handler) GetContext(c *gin.Context) {
 	if !ok {
 		return
 	}
-	est, err := h.svc.ContextEstimate(c.Request.Context(), uid, pid)
+	est, err := h.svc.ContextEstimate(c.Request.Context(), uid, pid, c.Query("session_id"))
 	if err != nil {
-		if err == ErrProjectNotFound {
-			utils.NotFound(c, "项目不存在")
+		if err == ErrProjectNotFound || err == ErrConversationNotFound {
+			utils.NotFound(c, "会话不存在")
 			return
 		}
 		// 非关键水位表:agent 慢/超时降级返 0(注释已声明"会话已失效都按 0 返回,自愈"),

@@ -51,7 +51,17 @@ function resolveWasmPath(): string {
   }
 }
 
-export async function renderMath(tex: string, display: boolean): Promise<MathPng> {
+// 渲染串行化(评审 2026-07 性能审计):mjDoc.convert + resvg.render 是同步 CPU 段,在 Bun 单线程里
+// 并发多个 /render/math 请求会背靠背霸占事件循环,卡住所有用户的流式输出。照 mermaid.ts 同款队列跑,
+// 让每次渲染之间有微任务让位,后端 30 天 Redis 缓存摊薄冷启动成本。
+let queue: Promise<unknown> = Promise.resolve()
+export function renderMath(tex: string, display: boolean): Promise<MathPng> {
+  const run = queue.then(() => doRenderMath(tex, display))
+  queue = run.catch(() => {}) // 失败不断链
+  return run
+}
+
+async function doRenderMath(tex: string, display: boolean): Promise<MathPng> {
   const src = (tex || '').trim()
   if (!src || src.length > MAX_TEX_LEN) throw new Error('invalid tex length')
   await ensureWasm()

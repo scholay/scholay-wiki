@@ -7,7 +7,7 @@ import { useTokenUsageSummary, compactTokens } from '../api/token-usage';
 const DAY_PRESETS = [7, 30, 90, 365];
 
 /**
- * 单用户 Token 用量面板(后台用户详情抽屉内)——「今日额度条」之外的历史用量视角。
+ * 单用户 Token 用量面板(后台用户详情抽屉内)——「本周期额度条」之外的历史用量视角。
  * 复用后台 token 看板的 summary 端点(按 user_id 过滤),展示:
  *   - 时段合计(输入 / 输出 / 缓存命中 / 缓存创建 / 调用次数)
  *   - 按模型拆分(每模型 输入 / 输出 / 缓存 / 合计)

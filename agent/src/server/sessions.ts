@@ -6,6 +6,7 @@ import { join } from "node:path";
 import type Anthropic from "@anthropic-ai/sdk";
 import { safeSessionDir, validSessionId } from "../sandbox/confine.ts";
 import { log } from "../obs/log.ts";
+import { localISO } from "../tools/clock.ts";
 
 const SESSIONS_ROOT = process.env.SESSIONS_ROOT || "/tmp/executor-sessions";
 
@@ -32,8 +33,14 @@ export async function materializeSessionSkills(
   workDir: string,
   skills: SessionSkillInput[] | undefined,
 ): Promise<string | null> {
-  if (!skills || skills.length === 0) return null;
   const dir = skillsDirFor(workDir);
+  const guidesDir = join(dir, "guides");
+  // 清后写:每次物化 = 当前启用集的**全量替换**。executor 重启后 backend 用「当前」启用集重 seed,
+  // 若只增不清,旧集 / 已 disable / 已 takedown 的 skill 副本会在磁盘 guides/ 累积、仍被 Skill 工具加载
+  // (5 份上限名存实亡)。先清空 guides/ 再逐份写,杜绝跨重启残留。SESSIONS_ROOT 无 volume,
+  // restart: unless-stopped 会保留可写层,故这一步必须在物化前无条件执行(含 skills 为空时清尽旧集)。
+  await rm(guidesDir, { recursive: true, force: true });
+  if (!skills || skills.length === 0) return null;
   let written = 0;
   for (const sk of skills) {
     if (written >= MAX_SESSION_SKILLS) break;
@@ -73,6 +80,8 @@ export interface SessionMeta {
   // 后端水位检测到回退会 re-base,不会双计。
   cumUsage: { input_tokens: number; output_tokens: number; cache_read_tokens: number; cache_creation_tokens: number; model: string };
   createdAt: string;
+  lastActiveAt: number; // 最近活动时刻(ms;建会话/收 user_message/WS 连接时刷新)——内存淘汰用
+
   // 压缩缓存(P2 memoize):同一被压缩边界不重复摘要 + 不破坏上游前缀缓存。
   compactCache?: import("../turn/compact.ts").CompactCache;
 }
@@ -112,7 +121,8 @@ export async function createSession(opts: CreateOpts): Promise<SessionMeta> {
     appendSystemPrompt: opts.appendSystemPrompt,
     messages: [],
     cumUsage: { input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_creation_tokens: 0, model: "" },
-    createdAt: new Date().toISOString(),
+    createdAt: localISO(),
+    lastActiveAt: Date.now(),
   };
   sessions.set(sid, meta);
   return meta;
@@ -130,13 +140,17 @@ export async function getOrCreateEphemeral(sid: string): Promise<SessionMeta> {
 }
 
 export async function deleteSession(sid: string): Promise<boolean> {
+  if (!validSessionId(sid)) return false; // H4:挡 ../ 等穿越(下面按约定路径删磁盘目录)
   const m = sessions.get(sid);
-  if (!m) return false;
-  sessions.delete(sid);
+  if (m) sessions.delete(sid);
+  // 兜底(评审 2026-07 性能审计 P0):executor 重启后内存 Map 清空,但 workspace 目录仍在宿主 bind-mount 上。
+  // 旧逻辑 Map miss 直接 return false → backend 收 404 后照删 DB 行 → workspace 成永久孤儿(且卡死 backend GC)。
+  // 改为 Map miss 时回退按约定路径 safeSessionDir(SESSIONS_ROOT, sid) 删目录,让删除对重启幂等。
+  const workDir = m?.workDir || safeSessionDir(SESSIONS_ROOT, sid);
   try {
-    await rm(m.workDir, { recursive: true, force: true });
+    await rm(workDir, { recursive: true, force: true });
     // 一并清理 per-session skill 物化目录(<workDir>.skills)。
-    await rm(skillsDirFor(m.workDir), { recursive: true, force: true });
+    await rm(skillsDirFor(workDir), { recursive: true, force: true });
   } catch {
     /* best-effort */
   }
@@ -147,6 +161,81 @@ export function listSessions(ids?: string[]): SessionMeta[] {
   const all = [...sessions.values()];
   if (ids && ids.length) return all.filter((s) => ids.includes(s.sessionId));
   return all;
+}
+
+// ── 会话内存生命周期(性能审计 P0)────────────────────────────────────────────────
+// 问题:sessions Map 只增不减 —— 每个连过的会话连同完整内存 history(含 base64 图)常驻,进程内存只涨不跌。
+// 淘汰策略(纯内存,不碰磁盘):
+//   ① 空闲 TTL:lastActiveAt 超过 IDLE_TTL 且【无活跃 WS 订阅者】的会话 → 驱逐内存 meta。
+//   ② MAX_SESSIONS 硬帽:超帽按 lastActiveAt 升序 LRU 挤出最久未用(同样要求无活跃 WS)。
+// 安全性:耐久真源在 backend journal;被驱逐会话重连时,backend 在首条 user_message 前经 seed_history
+// 把 journal 折叠的 history 回灌到(重新创建的空)meta(见 ws.ts seed_history + hub.go seedHistoryFromJournal),
+// 故驱逐纯内存无损。驱逐【绝不删 workDir】—— 磁盘回收归 backend 侧 GC。
+
+const IDLE_TTL_MS = Math.max(60_000, Number(process.env.EXECUTOR_SESSION_IDLE_TTL_MS || 30 * 60_000));
+const MAX_SESSIONS = Math.max(16, Number(process.env.EXECUTOR_MAX_SESSIONS || 200));
+const SWEEP_EVERY_MS = 5 * 60_000;
+
+const activeWs = new Map<string, number>(); // sid → 活跃 WS 订阅者数(>0 = 有连接在用,不淘汰)
+
+/** WS 连接打开:活跃计数 +1 并刷新活动时刻。 */
+export function sessionWsOpened(sid: string): void {
+  activeWs.set(sid, (activeWs.get(sid) ?? 0) + 1);
+  markSessionActive(sid);
+}
+
+/** WS 连接关闭:活跃计数 -1(归零即删)。 */
+export function sessionWsClosed(sid: string): void {
+  const n = (activeWs.get(sid) ?? 0) - 1;
+  if (n > 0) activeWs.set(sid, n);
+  else activeWs.delete(sid);
+}
+
+function hasActiveWs(sid: string): boolean {
+  return (activeWs.get(sid) ?? 0) > 0;
+}
+
+/** 刷新会话最近活动时刻(收到 user_message / WS 连接时调)。 */
+export function markSessionActive(sid: string): void {
+  const m = sessions.get(sid);
+  if (m) m.lastActiveAt = Date.now();
+}
+
+function sweepIdleSessions(): void {
+  const now = Date.now();
+  let evicted = 0;
+  // ① 空闲 TTL
+  for (const [sid, m] of sessions) {
+    if (hasActiveWs(sid)) continue;
+    if (now - m.lastActiveAt > IDLE_TTL_MS) {
+      sessions.delete(sid);
+      evicted++;
+    }
+  }
+  // ② 硬帽 LRU:仍超帽则按 lastActiveAt 升序挤出最久未用(无活跃 WS 者)
+  if (sessions.size > MAX_SESSIONS) {
+    const evictable = [...sessions.entries()]
+      .filter(([sid]) => !hasActiveWs(sid))
+      .sort((a, b) => a[1].lastActiveAt - b[1].lastActiveAt);
+    let over = sessions.size - MAX_SESSIONS;
+    for (const [sid] of evictable) {
+      if (over <= 0) break;
+      sessions.delete(sid);
+      evicted++;
+      over--;
+    }
+  }
+  if (evicted > 0) {
+    log.info("session sweep: evicted idle in-memory metas", { evicted, remaining: sessions.size });
+  }
+}
+
+let sweepTimer: ReturnType<typeof setInterval> | null = null;
+
+/** 启动会话内存淘汰的周期扫描(进程启动时调一次)。 */
+export function startSessionSweeper(): void {
+  if (sweepTimer) return;
+  sweepTimer = setInterval(sweepIdleSessions, SWEEP_EVERY_MS);
 }
 
 export function setTitle(sid: string, title: string): boolean {

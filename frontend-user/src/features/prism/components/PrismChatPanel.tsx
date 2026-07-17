@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, Check, FileText, RotateCcw, Quote, X, WifiOff } from 'lucide-react';
+import { Loader2, Check, FileText, Quote, X, WifiOff, ListChecks } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { trackEvent } from '@/shared/lib/track';
@@ -38,6 +38,8 @@ export function PrismChatPanel({
   prefill,
   onPrefillConsumed,
   menu,
+  reviewMode,
+  onToggleReviewMode,
 }: {
   chat: ReturnType<typeof usePrismChat>;
   fileId: number | null;
@@ -49,6 +51,9 @@ export function PrismChatPanel({
   onPrefillConsumed?: () => void;
   /** 写作能力菜单(V4-R1 UI 重做):空态引导卡 + composer ✨ 弹出菜单;不传则两者都不渲染。 */
   menu?: WritingMenuProps;
+  /** 逐块审阅模式开关(从头栏迁进对话框,像切模型那样跟着对话走):AI 改完是否先停在逐块 diff 确认门。 */
+  reviewMode?: boolean;
+  onToggleReviewMode?: () => void;
 }) {
   const threadEnd = useRef<HTMLDivElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
@@ -58,9 +63,13 @@ export function PrismChatPanel({
   // P2 模型目录:选择器数据(目录未配置时优雅缺席)。
   const { data: userModels } = useUserModels('prism');
 
-  // ── 附件/引用(2026-07 输入框统一;端点 per-project,会话由 backend 按 :id 解析)────────
-  const uploadMutation = useUploadAgentAttachment(`/user/prism/projects/${chat.projectId}/upload`);
-  const referenceMutation = useReferenceAgentLibrary(`/user/prism/projects/${chat.projectId}/reference`);
+  // ── 附件/引用(2026-07 输入框统一;端点 per-project)────────
+  // 多对话:附件必须落**当前活动对话**的 cwd —— 端点带 ?session_id=<活动对话>(后端 attachSession 据此
+  // resolveConversation);省略(chat.sessionId=null,跟随后端最近活跃)则后端回落当前对话。切对话后 chat.sessionId
+  // 变 → 这里 URL 重算 → 新上传落到切后的对话。
+  const convQ = chat.sessionId ? `?session_id=${encodeURIComponent(chat.sessionId)}` : '';
+  const uploadMutation = useUploadAgentAttachment(`/user/prism/projects/${chat.projectId}/upload${convQ}`);
+  const referenceMutation = useReferenceAgentLibrary(`/user/prism/projects/${chat.projectId}/reference${convQ}`);
   const [references, setReferences] = useState<ReferenceItemDTO[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const att = useComposerAttachments({
@@ -241,16 +250,27 @@ export function PrismChatPanel({
                 onFiles={(files) => void att.addFiles(files)}
                 onPickLibrary={() => setPickerOpen(true)}
               />
-              <button
-                type="button"
-                onClick={chat.newChat}
-                title="新对话"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
-              >
-                <RotateCcw className="h-4 w-4" />
-              </button>
+              {/* 「新对话」已上移到顶栏(醒目);历史对话在左侧栏底部切换 —— 输入框不再放刷新/新对话按钮。 */}
               {/* ✨ 写作能力菜单:有对话后引导的常驻收纳处(空态卡片的全集) */}
               {menu && <PrismWritingMenuButton {...menu} disabled={menu.disabled || blocked} />}
+              {/* 逐块审阅开关(从头栏迁来,跟着对话走,像切模型):开=AI 改完先停逐块 diff 确认门再应用 */}
+              {onToggleReviewMode && (
+                <button
+                  type="button"
+                  onClick={onToggleReviewMode}
+                  disabled={blocked}
+                  title="开启后 AI 改完文档先停在逐块 diff,你保留/删改后再应用(像改代码);关闭则改完直接应用"
+                  className={cn(
+                    'inline-flex h-8 items-center gap-1 rounded-md px-2 text-2xs transition-colors disabled:opacity-50',
+                    reviewMode
+                      ? 'bg-brand-green/10 text-brand-green hover:bg-brand-green/15'
+                      : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground',
+                  )}
+                >
+                  <ListChecks className="size-3.5 shrink-0" />
+                  逐块审阅{reviewMode ? ' · 开' : ''}
+                </button>
+              )}
             </>
           }
           rightActions={
