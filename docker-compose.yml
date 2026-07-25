@@ -278,7 +278,7 @@ services:
       # executor 路由:P6 后所有 feature 都走 executor(fork 已删)。默认即指向 executor + 全 feature,
       # 与 AGENT_BASE_URL 同一 executor;开箱即用,无需手动 env。
       AGENT_EXECUTOR_BASE_URL: ${AGENT_EXECUTOR_BASE_URL:-http://scholar_agent:3456}
-      AGENT_EXECUTOR_FEATURES: ${AGENT_EXECUTOR_FEATURES:-smart_search,claw,prism,peerreview,boltslides}
+      AGENT_EXECUTOR_FEATURES: ${AGENT_EXECUTOR_FEATURES:-smart_search,claw,prism,peerreview,boltslides,sci_draw}
       # P6 一次性归档(已执行完毕):仅在带 fork 的迁移那次部署设为 1。fork 已删,保持空。
       AGENT_ARCHIVE_FROM_FORK: ${AGENT_ARCHIVE_FROM_FORK:-}
       # P6 历史迁移:开机从老 fork jsonl(/fork-data,只读挂载)折叠归档老会话(幂等,迁完自动 no-op)。

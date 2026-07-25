@@ -217,6 +217,13 @@ services:
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       REDIS_DB: 0
+      # correctness 键(验证码/吊销/配额)专用 noeviction 实例(scholar_redis_persist)。
+      # ⚠️ 与 dev 不同,生产默认**空 = 不启用**(沿用主 Redis,与历史线上行为一致):启用属存储切换,
+      # 相关键会在新实例从零开始 —— 要开就在 .env 显式设 REDIS_PERSIST_HOST=redis-persist 并选低峰窗口。
+      REDIS_PERSIST_HOST: ${REDIS_PERSIST_HOST:-}
+      REDIS_PERSIST_PORT: ${REDIS_PERSIST_PORT:-6379}
+      REDIS_PERSIST_PASSWORD: ${REDIS_PERSIST_PASSWORD:-}
+      REDIS_PERSIST_DB: ${REDIS_PERSIST_DB:-0}
       # 生产硬要求自带 JWT_SECRET —— 不允许走默认占位符
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required in prod (>=32 chars random)}
       SERVER_PORT: 8080
@@ -258,7 +265,7 @@ services:
       # journal 是历史唯一真源(老会话回退 agent_session_archive),必须 shadow。
       AGENT_TURN_JOURNAL: ${AGENT_TURN_JOURNAL:-shadow}
       AGENT_EXECUTOR_BASE_URL: ${AGENT_EXECUTOR_BASE_URL:-http://scholar_agent:3456}
-      AGENT_EXECUTOR_FEATURES: ${AGENT_EXECUTOR_FEATURES:-smart_search,claw,prism,peerreview,boltslides}
+      AGENT_EXECUTOR_FEATURES: ${AGENT_EXECUTOR_FEATURES:-smart_search,claw,prism,peerreview,boltslides,sci_draw}
       # P6 历史迁移:开机从老 fork jsonl(/fork-data,只读挂载)折叠归档老会话(幂等,迁完自动 no-op)。
       AGENT_ARCHIVE_FROM_JSONL: ${AGENT_ARCHIVE_FROM_JSONL:-/fork-data}
       # 智能审稿: backend 按 slug 读审稿人 skill 的「评分人格」段注入评分轮 (见 peerreview)。
@@ -273,6 +280,8 @@ services:
       SMART_SEARCH_SKILL_ADDDIR: ${SMART_SEARCH_SKILL_ADDDIR:-/smart-search-add}
       # 制作PPT(boltslides)bolt-slides skill 经 --add-dir 加载的目录(agent 容器内 <此处>/.claude/skills)。
       BOLT_SLIDES_SKILL_ADDDIR: ${BOLT_SLIDES_SKILL_ADDDIR:-/bolt-slides-add}
+      # 科研绘图(sci_draw)会话经 --add-dir 加载绘图 skill 的目录(agent 容器内 <此处>/.claude/skills)。
+      SCI_DRAW_SKILL_ADDDIR: ${SCI_DRAW_SKILL_ADDDIR:-/sci-draw-add}
       # Prism 编译任务共享目录(与 scholar_prism_tex 同卷)
       PRISM_WORK_DIR: ${PRISM_WORK_DIR:-/data/prism-work}
       # Go memory limit (75% of container memory limit)
@@ -360,6 +369,8 @@ services:
       - ./agent-skills/smart-search-skills:/smart-search-add/.claude/skills:ro
       # 制作PPT(boltslides)bolt-slides 演示稿创作 skill。
       - ./agent-skills/bolt-slides-add:/bolt-slides-add/.claude/skills:ro
+      # 科研绘图(sci_draw)绘图 skill(charts / figures / molecules / slides)。
+      - ./agent-skills/sci-draw-skills:/sci-draw-add/.claude/skills:ro
       # 会话工作目录持久化(跨重部署不丢 cwd / 上传文件;产物耐久真源已在 MinIO+DB)。
       - ./data/agent-sessions:/home/bun/sessions
       - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
