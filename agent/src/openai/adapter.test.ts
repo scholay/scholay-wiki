@@ -1,7 +1,7 @@
 // OpenAI 出口适配器单测(F3):请求翻译 + SSE 流式状态机 + finalMessage 组装。
 // 跑法:cd agent && bun test src/openai/
 import { describe, expect, test, afterEach } from "bun:test";
-import { toOpenAIMessages, openAIAdapterClient } from "./adapter.ts";
+import { toOpenAIMessages, openAIAdapterClient, chatCompletionsURL } from "./adapter.ts";
 import type { ProviderConfig } from "../config/providerStore.ts";
 
 const P: ProviderConfig = {
@@ -9,6 +9,28 @@ const P: ProviderConfig = {
   baseUrl: "https://up.example.com", apiFormat: "openai", authStrategy: "auth_token",
   models: { main: "", haiku: "", sonnet: "", opus: "" },
 };
+
+describe("chatCompletionsURL", () => {
+  test("各厂商版本段:/v1 与 /v4 都只补 /chat/completions,裸 host 补 /v1", () => {
+    // DashScope(qwen):以 /v1 结尾
+    expect(chatCompletionsURL("https://dashscope.aliyuncs.com/compatible-mode/v1")).toBe(
+      "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+    );
+    // 智谱 GLM:以 /v4 结尾 —— 不能被拼成 /v4/v1/chat/completions(2026-07 线上 404 事故)
+    expect(chatCompletionsURL("https://open.bigmodel.cn/api/paas/v4")).toBe(
+      "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+    );
+    // MiniMax / Kimi:以 /v1 结尾
+    expect(chatCompletionsURL("https://api.minimaxi.com/v1")).toBe("https://api.minimaxi.com/v1/chat/completions");
+    // 裸 host(无版本段)→ 补 /v1/chat/completions
+    expect(chatCompletionsURL("https://api.example.com")).toBe("https://api.example.com/v1/chat/completions");
+    // 已是完整路径 → 原样;尾部多余斜杠先清
+    expect(chatCompletionsURL("https://x.com/api/paas/v4/chat/completions")).toBe(
+      "https://x.com/api/paas/v4/chat/completions",
+    );
+    expect(chatCompletionsURL("https://api.minimaxi.com/v1/")).toBe("https://api.minimaxi.com/v1/chat/completions");
+  });
+});
 
 describe("toOpenAIMessages", () => {
   test("system/thinking 剥离/tool_use→tool_calls/tool_result→role:tool", () => {

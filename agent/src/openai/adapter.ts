@@ -33,9 +33,16 @@ type OAMessage = {
   reasoning_content?: string;
 };
 
-function chatCompletionsURL(baseUrl: string): string {
+// base_url → chat/completions 完整地址。厂商端点的版本段不统一(DashScope=/compatible-mode/v1、
+// 智谱 GLM=/api/paas/v4、MiniMax/Kimi=/v1),不能只特判 /v1 —— 否则 GLM 的 /v4 会被拼成
+// /v4/v1/chat/completions → 404(2026-07 线上事故)。规则:
+//   ① base_url 已是完整 chat/completions 路径 → 原样用;
+//   ② base_url 以任意版本段 /vN 结尾(/v1 /v4 …)→ 只补 /chat/completions;
+//   ③ 裸 host(无版本段)→ 补 /v1/chat/completions(OpenAI 标准默认)。
+export function chatCompletionsURL(baseUrl: string): string {
   const b = baseUrl.replace(/\/+$/, "");
-  return b.endsWith("/v1") ? `${b}/chat/completions` : `${b}/v1/chat/completions`;
+  if (b.endsWith("/chat/completions")) return b;
+  return /\/v\d+$/.test(b) ? `${b}/chat/completions` : `${b}/v1/chat/completions`;
 }
 
 /** tool_result 内容字符串化(MCP 富内容块数组 → 文本拼接;OpenAI tool 消息只有字符串)。 */
