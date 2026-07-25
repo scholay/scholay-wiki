@@ -26,7 +26,23 @@ CALL add_column_if_not_exists('agent_sessions', 'owner_id',
   "bigint unsigned NULL COMMENT '实体级会话归属主键(prism_projects.id / peer_review_submissions.id);用户级会话留 NULL'");
 
 -- 2) 唯一索引:一实体一会话。(NULL,NULL) 视为互不相等 → 不影响用户级多会话。
-CALL add_index_if_not_exists('agent_sessions', 'uk_owner', '`owner_kind`,`owner_id`', TRUE);
+--    【2026-07-26 重放修正】0074 已把 uk_owner 摘掉、换成生成列 uk_owner_uniq(prism 一项目多对话)。
+--    此后每次重放 0014 都会试图重建平面唯一索引,一旦线上已有同项目多会话数据就撞
+--    Duplicate entry(线上事故:project-162)。故仅在后继索引 uk_owner_uniq 尚不存在
+--    (= 全新库首次重放,尚未走到 0074)时才创建;老库直接跳过,唯一性由 0074 的生成列承载。
+SET @uk_owner_needed := (
+  (SELECT COUNT(*) FROM information_schema.statistics
+     WHERE table_schema = DATABASE() AND table_name = 'agent_sessions' AND index_name = 'uk_owner_uniq') = 0
+  AND
+  (SELECT COUNT(*) FROM information_schema.statistics
+     WHERE table_schema = DATABASE() AND table_name = 'agent_sessions' AND index_name = 'uk_owner') = 0
+);
+SET @uk_owner_sql := IF(@uk_owner_needed,
+  'ALTER TABLE `agent_sessions` ADD UNIQUE INDEX `uk_owner` (`owner_kind`,`owner_id`)',
+  'SELECT 1');
+PREPARE uk_owner_stmt FROM @uk_owner_sql;
+EXECUTE uk_owner_stmt;
+DEALLOCATE PREPARE uk_owner_stmt;
 
 -- 3) 回填:把 prism / peerreview 既有的实体级会话灌进 agent_sessions。
 --    INSERT IGNORE:重复执行时撞 uk_agent_session_id / uk_owner 自动跳过(一次性快照,幂等)。
