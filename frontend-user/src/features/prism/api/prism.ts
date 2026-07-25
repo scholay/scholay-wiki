@@ -656,15 +656,6 @@ export function useCreateConversation(projectId: number) {
   });
 }
 
-/** 快通道评议(V3-4.5-1):对选中文字做只读点评(explain/critique/reviewer),结果只进 popover,不碰正文。 */
-export async function inlineReview(projectId: number, mode: string, selection: string): Promise<string> {
-  const { data } = await http.post<{ data: { text: string } }>(
-    `/user/prism/projects/${projectId}/inline-review`,
-    { mode, selection },
-  );
-  return data.data?.text ?? '';
-}
-
 // ── 修改意见回应工作流(V4-③)。mirrors backend/internal/prism/revision.go RevisionItem ──
 export interface RevisionItem {
   id: number;
@@ -754,7 +745,10 @@ export async function readWorkspaceFile(
 /** agent 会话历史一条(重入渲染过往对话用;content 是 Anthropic content[] 或字符串)。 */
 export interface PrismHistoryMsg {
   id: string;
-  type: string; // user | assistant | tool_use | tool_result | system
+  // user | assistant | tool_use | tool_result | system | artifact | error
+  // (宽类型刻意保留;'error' 是失败轮终态合成 entry,content = {code, message},
+  //  由 shared replayHistoryAsTurns 回放成与实时同构的失败轮收口;未知 type 安全跳过)
+  type: string;
   content: unknown;
   timestamp?: string;
 }

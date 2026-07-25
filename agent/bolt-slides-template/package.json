@@ -1,0 +1,32 @@
+{
+  "name": "bolt-slides",
+  "description": "Presentation decks that are working web apps — a responsive React deck engine + Bolt skill",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stackblitz/bolt-slides.git"
+  },
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:deck": "vite build --config vite.config.singlefile.ts",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "framer-motion": "^11.3.0",
+    "katex": "^0.16.11",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/katex": "^0.16.7",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "typescript": "^5.5.3",
+    "vite": "^5.4.0",
+    "vite-plugin-singlefile": "^2.3.3"
+  }
+}

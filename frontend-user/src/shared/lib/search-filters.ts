@@ -80,10 +80,10 @@ export function resolveYearRange(
 }
 
 /**
- * 三个上游源 —— UI 用单字母 + 单词的"完整"形态(G — Graph 等),
+ * 三个上游源 —— UI 直接展示**真实名称**(W6 P1-8 真名化;旧假名 Graph/Discovery/Medicine 已废),
  * 后端的 source code(stc/olx/pmd)仅用于 API 透传。
  *
- * 品牌名对齐后端真实来源(minicod/client.go):
+ * 品牌名对齐后端真实来源(minicod/client.go);铁律:上游真名只出现在注释,用户可见处一律品牌名:
  *   stc = Semantic Scholar → Graph(引文图谱)
  *   olx = OpenAlex         → Discovery(全域发现)
  *   pmd = PubMed           → Medicine(医学专门)

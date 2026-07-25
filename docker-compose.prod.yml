@@ -258,7 +258,7 @@ services:
       # journal 是历史唯一真源(老会话回退 agent_session_archive),必须 shadow。
       AGENT_TURN_JOURNAL: ${AGENT_TURN_JOURNAL:-shadow}
       AGENT_EXECUTOR_BASE_URL: ${AGENT_EXECUTOR_BASE_URL:-http://scholar_agent:3456}
-      AGENT_EXECUTOR_FEATURES: ${AGENT_EXECUTOR_FEATURES:-smart_search,claw,prism,peerreview}
+      AGENT_EXECUTOR_FEATURES: ${AGENT_EXECUTOR_FEATURES:-smart_search,claw,prism,peerreview,boltslides}
       # P6 历史迁移:开机从老 fork jsonl(/fork-data,只读挂载)折叠归档老会话(幂等,迁完自动 no-op)。
       AGENT_ARCHIVE_FROM_JSONL: ${AGENT_ARCHIVE_FROM_JSONL:-/fork-data}
       # 智能审稿: backend 按 slug 读审稿人 skill 的「评分人格」段注入评分轮 (见 peerreview)。
@@ -271,6 +271,8 @@ services:
       PRISM_PERSONAS_DIR: ${PRISM_PERSONAS_DIR:-/app/prism-personas}
       # smart_search 检索策略 skill 经 --add-dir 加载的目录(agent 容器内 <此处>/.claude/skills)。
       SMART_SEARCH_SKILL_ADDDIR: ${SMART_SEARCH_SKILL_ADDDIR:-/smart-search-add}
+      # 制作PPT(boltslides)bolt-slides skill 经 --add-dir 加载的目录(agent 容器内 <此处>/.claude/skills)。
+      BOLT_SLIDES_SKILL_ADDDIR: ${BOLT_SLIDES_SKILL_ADDDIR:-/bolt-slides-add}
       # Prism 编译任务共享目录(与 scholar_prism_tex 同卷)
       PRISM_WORK_DIR: ${PRISM_WORK_DIR:-/data/prism-work}
       # Go memory limit (75% of container memory limit)
@@ -341,6 +343,9 @@ services:
       # Minicod MCP 凭证(执行器 spawn @minicod/mcp-server stdio 透传)。
       MINICOD_API_KEY: ${AGENT_MINICOD_API_KEY:-}
       MINICOD_API_BASE_URL: ${MINICOD_API_BASE_URL:-https://www.minicod.com/v1}
+      # ExportDocument 的 PDF 引擎(镜像已装 weasyprint;registry.ts 读此 env 启用 pdf 目标,
+      # 缺省=pdf 优雅降级。2026-07 审计:此 env 从未配置是「半月 0 个 pdf」的另一半根因)。
+      EXECUTOR_PDF_ENGINE: weasyprint
       # 沙箱:none(默认) | bwrap(生产真内核,需放开 userns)。bash 凭据安全已由 env 白名单兜底,
     expose:
       - "3456"
@@ -353,6 +358,8 @@ services:
       - ./agent-skills/reviewer-skills:/peerreview-add/.claude/skills:ro
       # smart_search 检索策略 skill(minicod-search-strategy):查询拆解 / 引文滚雪球 / 覆盖度自检。
       - ./agent-skills/smart-search-skills:/smart-search-add/.claude/skills:ro
+      # 制作PPT(boltslides)bolt-slides 演示稿创作 skill。
+      - ./agent-skills/bolt-slides-add:/bolt-slides-add/.claude/skills:ro
       # 会话工作目录持久化(跨重部署不丢 cwd / 上传文件;产物耐久真源已在 MinIO+DB)。
       - ./data/agent-sessions:/home/bun/sessions
       - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
@@ -370,6 +377,16 @@ services:
       # CAP_SYS_ADMIN 之后,cap_drop=ALL 时 bwrap 建不了命名空间。本 profile = Docker 默认
       # + 仅放行 clone/unshare/setns/mount/umount2/pivot_root(不放 bpf/perf_event_open 等),
       - seccomp=./docker/seccomp/agent-bwrap.json
+      # AppArmor(2026-07-23 线上实测,修复审计 P0-4「Bash 47/65 失败 / 导出 4/4 失败」):
+      # Ubuntu 24.04 宿主上有**两层独立拦截**,seccomp 放行了也不够:
+      # ① docker-default profile 无 mount 规则 → jail 内 mount --make-slave / 被拒("Failed to make / slave");
+      # ② 宿主 sysctl apparmor_restrict_unprivileged_userns=1 把 unconfined 进程建 userns 转入
+      #    unprivileged_userns 桩 profile(拒 capability)→ "setting up uid map: Permission denied"。
+      # 两层同时解:本行摘 docker-default + 宿主跑 scripts/enable-bwrap-host.sh(sysctl=0),缺一 bwrap 起不来。
+      # 实测矩阵(2026-07-23,一次性容器):unconfined 单独✗ / sysctl=0 单独✗ / 两者同时✓(jail 内 pandoc 跑通)。
+      # 摘 AppArmor 后防线仍有:cap_drop ALL + no-new-privileges + 上面的自定义 seccomp + bwrap 内层 jail
+      # (tmpfs 根 + 唯一可写 cwd + clearenv + 不挂 /proc)。security_opt 变更必须 up -d 重建容器,restart 无效。
+      - apparmor=unconfined
     deploy:
       resources:
         limits:
@@ -482,7 +499,8 @@ services:
       schema-sync:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O- http://localhost:3000/login >/dev/null 2>&1 || exit 1"]
+      # 127.0.0.1 而非 localhost:busybox wget 先试 ::1(IPv6),Next.js 只绑 IPv4 → 恒拒绝 → 假 unhealthy。
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:3000/login >/dev/null 2>&1 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5

@@ -38,6 +38,7 @@ const (
 	EvMessageComplete   EvType = "message_complete"
 	EvError             EvType = "error"
 	EvArtifact          EvType = "artifact" // 产物带外声明(执行器 diff ./out/ 后发);fold 产 turn.artifacts,replay 随轮重建
+	EvRoundDiscarded    EvType = "round_discarded" // DSML 作废重打:回放时丢弃本轮在途累积的残缺前缀(审计 [10])
 )
 
 // Event 是读路径返回的一个事件(对应 TurnEventRow 的轻量读侧视图)。

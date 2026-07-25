@@ -7,6 +7,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport, getDefaultEnvironment } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { log } from "../obs/log.ts";
+import { sanitizeMinicodResult } from "./sanitizeMinicod.ts";
 
 export interface McpToolDef {
   name: string; // 原始 MCP 工具名(不带 mcp__minicod__ 前缀)
@@ -133,7 +134,9 @@ export async function callTool(
     const res = await Promise.race([call, timeout]);
     consecutiveFailures = 0; // 传输成功 → 复位熔断(工具级 is_error 不影响传输健康)
     circuitOpenUntil = 0;
-    return { content: res.content ?? [], isError: res.isError === true };
+    if (res.isError === true) return { content: res.content ?? [], isError: true };
+    // 成功结果统一过清洗(spam 剔除/字段上限/低相关标注/中文覆盖披露,见 sanitizeMinicod.ts)。
+    return { content: sanitizeMinicodResult(name, args, res.content ?? []), isError: false };
   } catch (e) {
     // 超时或子进程异常(传输级失败)→ 记一次失败;到阈值就开熔断一段时间。
     consecutiveFailures++;

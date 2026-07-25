@@ -81,32 +81,20 @@ func (s *Service) InitializeDefaultAdmin(username, password string) error {
 	return s.repo.Create(admin)
 }
 
-// PromoteToAdmin 把指定用户提升为普通管理员（admin）。
-// 仅当目标当前是 user 时允许；不允许操作 super_admin / 已是 admin 的账号。
-func (s *Service) PromoteToAdmin(targetID uint) error {
-	target, err := s.repo.FindUserByID(targetID)
-	if err != nil {
-		return err
+// SetUserRole 把指定用户的角色设为 newRole。合法目标仅 user / operations / admin
+// 三种 —— 不允许经此端点造 super_admin（防提权），也不允许改动现有 super_admin
+// （防意外失锁）。这三种角色之间可任意互相迁移（含 user↔operations↔admin）。
+//
+// role 烤进 JWT，变更后必须吊销该用户全部 token —— 降级尤其关键：不吊销的话
+// 被降级者手里的旧 token 仍带高权 role，在过期前可继续越权（见 revokeAfterRoleChange）。
+func (s *Service) SetUserRole(targetID uint, newRole string) error {
+	switch newRole {
+	case RoleUser, RoleOperations, RoleAdmin:
+		// 允许的目标角色
+	default:
+		return errors.New("invalid target role")
 	}
-	if target == nil {
-		return errors.New("user not found")
-	}
-	switch target.Role {
-	case RoleAdmin:
-		return errors.New("user is already an admin")
-	case RoleSuperAdmin:
-		return errors.New("cannot modify super admin role")
-	}
-	if err := s.repo.UpdateRole(targetID, RoleAdmin); err != nil {
-		return err
-	}
-	revokeAfterRoleChange(targetID)
-	return nil
-}
 
-// DemoteFromAdmin 把普通管理员降级为普通用户。
-// 不允许操作 super_admin。目标必须当前是 admin。
-func (s *Service) DemoteFromAdmin(targetID uint) error {
 	target, err := s.repo.FindUserByID(targetID)
 	if err != nil {
 		return err
@@ -115,12 +103,13 @@ func (s *Service) DemoteFromAdmin(targetID uint) error {
 		return errors.New("user not found")
 	}
 	if target.Role == RoleSuperAdmin {
-		return errors.New("cannot demote super admin")
+		return errors.New("cannot modify super admin role")
 	}
-	if target.Role != RoleAdmin {
-		return errors.New("user is not an admin")
+	if target.Role == newRole {
+		return errors.New("user already has this role")
 	}
-	if err := s.repo.UpdateRole(targetID, RoleUser); err != nil {
+
+	if err := s.repo.UpdateRole(targetID, newRole); err != nil {
 		return err
 	}
 	revokeAfterRoleChange(targetID)

@@ -39,3 +39,29 @@ func sharedTransport() *http.Transport {
 func GetHTTPClient(timeout time.Duration) *http.Client {
 	return &http.Client{Timeout: timeout, Transport: sharedTransport()}
 }
+
+// 慢端点(如「制作PPT 导出 pptx」:executor 同步逐张 chromium 截图,秒级到分钟级才回响应头)
+// 需要独立 Transport —— 共享 Transport 的 ResponseHeaderTimeout=10s 会把这类长请求在响应头到达前
+// 掐断("timeout awaiting response headers")。这里 ResponseHeaderTimeout=0(不限,由 client.Timeout 兜底)。
+var (
+	longTransportOnce sync.Once
+	longTransport     *http.Transport
+)
+
+func longSharedTransport() *http.Transport {
+	longTransportOnce.Do(func() {
+		longTransport = httpclient.NewTransport(httpclient.TransportOptions{
+			MaxIdleConns:          4,
+			MaxIdleConnsPerHost:   2,
+			MaxConnsPerHost:       4,
+			IdleConnTimeout:       90 * time.Second,
+			ResponseHeaderTimeout: 0, // 不限响应头等待,整体由 client.Timeout(见 GetLongHTTPClient)兜底
+		})
+	})
+	return longTransport
+}
+
+// GetLongHTTPClient 返回给慢端点用的长超时客户端(独立 Transport,无响应头超时)。
+func GetLongHTTPClient(timeout time.Duration) *http.Client {
+	return &http.Client{Timeout: timeout, Transport: longSharedTransport()}
+}

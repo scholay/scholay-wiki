@@ -49,8 +49,10 @@ type LLMTokenUsage struct {
 	TotalTokens         int       `json:"total_tokens"`
 	CacheReadTokens     int       `json:"cache_read_tokens"`
 	CacheCreationTokens int       `json:"cache_creation_tokens"`
-	// WeightedTokens/CostMicroYuan (migration 0065, P3):加权额度扣减量 + 四类单价精算成本快照
-	// (微元;快照落行,目录调价不漂历史账)。0 = 旧数据 / Pricer 未接线。
+	// CostMicroYuan (migration 0065):四类单价精算成本快照(微元;快照落行,目录调价不漂历史账),
+	// P5 成本制起 = 驱动配额扣减的真源。0 = 旧数据 / Pricer 未接线。
+	// WeightedTokens:P3 加权扣减量的历史列;P5 成本制起倍率作废,此列 = raw total(与 total_tokens 同值),
+	// 仅作账本连续性保留(不再驱动配额,也不外露到任何 admin DTO)。
 	WeightedTokens int64  `json:"weighted_tokens"`
 	CostMicroYuan  int64  `json:"cost_micro_yuan"`
 	RequestID      string `json:"request_id"`

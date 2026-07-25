@@ -15,6 +15,9 @@ import { cn } from '@/shared/lib/utils';
  *     (首页联想搜索末尾、QuickAdd 在线搜索、tabs 加入按钮的搜索弹窗等)
  *   - `full`:展示 "M — Medicine" 完整形式,仅筛选器源单选用
  *
+ * ⚠️ 对外只用别名 Graph/Discovery/Medicine(letter=G/D/M),**绝不**展示上游真名
+ * (Semantic Scholar/OpenAlex/PubMed);letter/name 一律取自已回退的 SOURCE_META(审计 [22])。
+ *
  * **Tooltip 悬浮**:无论哪种形态,hover 都弹出中文描述
  * (例如 "AI 学术文献发现库")帮用户理解每个源的定位。
  *

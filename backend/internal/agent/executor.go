@@ -63,6 +63,8 @@ type Executor interface {
 	ListWorkspaceFiles(ctx context.Context, sessionID, relDir string) (*WorkspaceTree, error)
 	PutWorkspaceFile(ctx context.Context, sessionID, relPath string, content []byte) error
 	DeleteWorkspaceFile(ctx context.Context, sessionID, relPath string) error
+	// ExportDeckPptx: 制作PPT 把已构建的单文件 HTML deck 导出成 format=pptx(图片版)/ pdf(矢量版)落 ./out/。
+	ExportDeckPptx(ctx context.Context, sessionID, htmlPath, name, format string) (*ExportDeckPptxResult, error)
 }
 
 // 编译期证明 fork client 零改动满足接缝。P3 的 agentexec.Client 也将加同款守卫。

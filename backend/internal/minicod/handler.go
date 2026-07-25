@@ -244,6 +244,10 @@ type SearchPapersResponse struct {
 	ActualQuery       string   `json:"actualQuery"`
 	HasSuggestions    bool     `json:"hasSuggestions"`
 	SearchStrategy    string   `json:"searchStrategy"`
+	// W6 P1-5 failover 透明化(纯增量,omitempty 前端零改动兼容):
+	// SourcesTried = 本次依次尝试过的源;SourcesFailed = 其中上游报错的源。
+	SourcesTried  []string `json:"sourcesTried,omitempty"`
+	SourcesFailed []string `json:"sourcesFailed,omitempty"`
 }
 
 // searchSourceOrder 决定一次搜索依次尝试哪些源:
@@ -313,17 +317,36 @@ func (h *Handler) SearchPapers(c *gin.Context) {
 
 	// 自动换源:source 为空 / "auto" 时按 stc→olx→pmd 依次尝试,某源上游报错就换下一个;
 	// 用户显式选了某个源(stc/olx/pmd)则只查该源、不换(尊重用户选择)。
+	// W6 P1-6 空集续查:auto 模式下某源 total==0 的空集不再当终点 —— 记住首个空集继续下一源,
+	// 全空/后续源失败则回落 firstEmpty(空集是合法结果,不算失败)。
+	// W6 P1-5:tried/failed 逐源留痕,随响应透出(SourcesTried/SourcesFailed)。
 	var result *SearchResponse
 	var err error
-	for _, src := range searchSourceOrder(req.Source) {
+	var firstEmpty *SearchResponse
+	var tried, failed []string
+	order := searchSourceOrder(req.Source)
+	for i, src := range order {
 		o := opts
 		o.Source = src
+		tried = append(tried, src)
 		result, err = h.manager.SearchPapers(c.Request.Context(), o)
 		if err == nil {
+			if result != nil && result.Total == 0 && len(order) > 1 && i < len(order)-1 {
+				if firstEmpty == nil {
+					firstEmpty = result
+				}
+				slog.Debug("minicod search: empty result, trying next source", "source", src)
+				continue
+			}
 			break
 		}
+		failed = append(failed, src)
 		// 换源是设计内的正常降级(stc→olx→pmd),单源失败 → DEBUG;只有全源都失败才在下面 WARN。
 		slog.Debug("minicod search: source failed, trying next", "source", src, "err", err)
+	}
+	// 全部源都是空集 / 前面出过空集而最后一源失败 → 回落首个空集(不把「已成功拿到的空集」升级成报错)。
+	if firstEmpty != nil && (err != nil || result == nil || result.Total == 0) {
+		result, err = firstEmpty, nil
 	}
 	if err != nil || result == nil {
 		// 客户端主动取消(翻页/离开)不算真失败,不打 WARN;只有上游确实全挂才记一条聚合 WARN。
@@ -341,12 +364,20 @@ func (h *Handler) SearchPapers(c *gin.Context) {
 		}
 	}
 
+	// W6 P1-7 零重叠沉底:上游按关键词匹配的排序噪声可能把「一个查询词都不含」的条目顶到最前
+	//(审计:文莱论文登顶)。逐请求纯重排(缓存写入之外),不删除、不改字段;中文 query / 词数<2 豁免。
+	if result != nil && len(result.Data) > 1 {
+		sinkZeroOverlap(req.Query, result.Data)
+	}
+
 	response := SearchPapersResponse{
 		Data:           result,
 		OriginalQuery:  req.Query,
 		ActualQuery:    req.Query,
 		HasSuggestions: false,
 		SearchStrategy: "original",
+		SourcesTried:   tried,
+		SourcesFailed:  failed,
 	}
 
 	// 热门内容: 记文献搜索词 + 结果集曝光量。异步, 不阻塞响应。
@@ -682,37 +713,55 @@ func (h *Handler) GetJournal(c *gin.Context) {
 	utils.Success(c, redactJournalSubmissionURLs(result))
 }
 
+// journalSeedFields 是 SEO 入库需要的期刊字段。**同时**带两套字段名以兼容上游两种响应形状:
+//   - 新形状(api-1.json:Journal):字段全在 `data` 顶层,国家/类型/OA 用 openalex_* 前缀;
+//   - 老形状:包在 { "unified": {...} } 里,国家/类型/OA 用裸 country/type/is_oa。
+// 一个 struct 带全部别名 → 无论顶层解还是 unified 解都能填满,取值时按优先级挑非空的(见 buildJournalSEOSeed)。
+type journalSeedFields struct {
+	ID                int    `json:"id"`
+	CanonicalName     string `json:"canonical_name"`
+	CrossrefPublisher string `json:"crossref_publisher"`
+	DOAJPublisher     string `json:"doaj_publisher"`
+	ISSNL             string `json:"issn_l"`
+	PrintISSN         string `json:"print_issn"`
+	ElectronicISSN    string `json:"electronic_issn"`
+	AllISSNs          string `json:"all_issns"`
+	// 国家/类型:新 flat 用 openalex_*/doaj_*,老 unified 用裸名。
+	Country         string `json:"country"`
+	OpenAlexCountry string `json:"openalex_country"`
+	DOAJCountry     string `json:"doaj_country"`
+	Type            string `json:"type"`
+	OpenAlexType    string `json:"openalex_type"`
+	// 上游字段类型不稳定 (bool / 数字 0|1 / null) —— 用 RawMessage 兜底, 后面手动解。
+	IsOA            json.RawMessage `json:"is_oa"`
+	OpenAlexIsOA    json.RawMessage `json:"openalex_is_oa"`
+	JCRImpactFactor json.RawMessage `json:"jcr_impact_factor"`
+	JCRQuartile     string          `json:"jcr_quartile"`
+	OpenAlexHIndex  json.RawMessage `json:"openalex_h_index"`
+}
+
 // buildJournalSEOSeed 从 GetJournal raw 响应里抽出 SEO 入库需要的字段。
 //
-// raw 顶层结构 { "unified": {...}, "cover": ..., "issn_details": ..., "sources": ... }。
-// unified 内字段名是多源原貌(publisher 落在 crossref_publisher / doaj_publisher,
-// issns 拆成 print_issn / electronic_issn, all_issns 是 CSV 形式)。
+// 形状兼容(对齐审计 #3):api-1.json 的 Journal 字段直接在 `data` 顶层(无 `unified` 包装);
+// 历史部署可能仍返回 { "unified": {...} }。**先按顶层 flat 解,ID/name 不足再回退 unified 包装**,
+// 两种形状都能正确 seeding(避免上游改扁平后 seo_journals 静默停更)。
 //
 // 返回 nil 表示数据不足以入库 (id<=0 / canonical_name 空 / 解码失败), 调用方应跳过。
 func buildJournalSEOSeed(raw []byte) *seo.JournalSeed {
-	var envelope struct {
-		Unified struct {
-			ID                int     `json:"id"`
-			CanonicalName     string  `json:"canonical_name"`
-			CrossrefPublisher string  `json:"crossref_publisher"`
-			DOAJPublisher     string  `json:"doaj_publisher"`
-			ISSNL             string  `json:"issn_l"`
-			PrintISSN         string  `json:"print_issn"`
-			ElectronicISSN    string  `json:"electronic_issn"`
-			AllISSNs          string  `json:"all_issns"`
-			Country           string  `json:"country"`
-			Type              string  `json:"type"`
-			// 上游字段类型不稳定 (bool / 数字 0|1 / null) —— 用 RawMessage 兜底, 后面手动解
-			IsOA            json.RawMessage `json:"is_oa"`
-			JCRImpactFactor json.RawMessage `json:"jcr_impact_factor"`
-			JCRQuartile     string          `json:"jcr_quartile"`
-			OpenAlexHIndex  json.RawMessage `json:"openalex_h_index"`
-		} `json:"unified"`
-	}
-	if err := json.Unmarshal(raw, &envelope); err != nil {
+	// 先按新 flat 形状(顶层)解。
+	var u journalSeedFields
+	if err := json.Unmarshal(raw, &u); err != nil {
 		return nil
 	}
-	u := envelope.Unified
+	// 顶层解不出有效期刊 → 回退老的 { "unified": {...} } 包装。
+	if u.ID <= 0 || u.CanonicalName == "" {
+		var wrap struct {
+			Unified journalSeedFields `json:"unified"`
+		}
+		if err := json.Unmarshal(raw, &wrap); err == nil && wrap.Unified.ID > 0 {
+			u = wrap.Unified
+		}
+	}
 	if u.ID <= 0 || u.CanonicalName == "" {
 		return nil
 	}
@@ -721,6 +770,23 @@ func buildJournalSEOSeed(raw []byte) *seo.JournalSeed {
 	publisher := u.CrossrefPublisher
 	if publisher == "" {
 		publisher = u.DOAJPublisher
+	}
+	// country / type:新 flat 无裸 country/type,回退 openalex_*/doaj_*。
+	country := u.Country
+	if country == "" {
+		country = u.OpenAlexCountry
+	}
+	if country == "" {
+		country = u.DOAJCountry
+	}
+	journalType := u.Type
+	if journalType == "" {
+		journalType = u.OpenAlexType
+	}
+	// is_oa:老裸名优先,回退 openalex_is_oa。
+	isOARaw := u.IsOA
+	if len(isOARaw) == 0 {
+		isOARaw = u.OpenAlexIsOA
 	}
 
 	// issns: 收集 print + electronic 去重, 若仍空再切 all_issns CSV
@@ -751,9 +817,9 @@ func buildJournalSEOSeed(raw []byte) *seo.JournalSeed {
 		CanonicalName:   u.CanonicalName,
 		Publisher:       publisher,
 		ISSNs:           issns,
-		Country:         u.Country,
-		Type:            u.Type,
-		IsOA:            parseFlexibleBool(u.IsOA),
+		Country:         country,
+		Type:            journalType,
+		IsOA:            parseFlexibleBool(isOARaw),
 		JCRImpactFactor: parseFlexibleFloat(u.JCRImpactFactor),
 		JCRQuartile:     u.JCRQuartile,
 	}

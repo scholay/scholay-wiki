@@ -197,6 +197,29 @@ func (b *Bridge) serverSideChatStreamingVia(
 		complete     bool
 	)
 
+	// recordTurn 把一轮 message_complete / error 终帧携带的 usage/calls/session_total 经水位对账入账。
+	// error 与正常完成走**同一入账口径**(与交互路 hub.go 对齐):否则审稿多轮工具循环里前几轮
+	// 已完成的真实上游消耗(可达数十万 token),一旦末轮报错(round-cap/上游失败)就整轮漏记 ——
+	// 且 peerreview 报错即中止整场、无后续计费轮靠水位自愈,永久漏记 + 少扣配额。
+	recordTurn := func(u *ChatUsage, cl []AgentUsage, st *AgentUsage) {
+		if b.llmRec == nil {
+			return
+		}
+		if rows := b.accrueTurnUsage(sessionID, modelID, chatUsageToAgentUsage(u), cl, st); len(rows) > 0 {
+			call := llmusage.CallFromCtx(ctx)
+			feature := call.Feature
+			if feature == "" {
+				feature = llmusage.FeaturePeerReview
+			}
+			uid, feat, sid, rec := call.UserID, feature, sessionID, b.llmRec
+			safego.Go("agentbridge-serverside-usage-record:"+feat, func() {
+				for i := range rows {
+					recordAgentTokens(rec, b.catalog, uid, feat, sid, rows[i])
+				}
+			})
+		}
+	}
+
 	// 应用层 ping 让 agent Bun.serve idleTimeout 不触发 (跟 HandleWS 同款)
 	pingTicker := time.NewTicker(25 * time.Second)
 	defer pingTicker.Stop()
@@ -288,30 +311,18 @@ func (b *Bridge) serverSideChatStreamingVia(
 		case "pong", "connected":
 			// 心跳应答 / 握手 ack — 忽略
 		case "error":
+			// 入账后再返回:error 终帧携带失败前已完成 call 的 usage/calls/session_total(turnLoop.sendError),
+			// 与交互路 hub.go 的 error case 对齐,补齐 server-side 孪生路此前的整轮漏记。
+			recordTurn(ev.Usage, ev.Calls, ev.SessionTotal)
 			return "", nil, fmt.Errorf("agent error: %s", ev.Message)
 		}
 	}
 
 	// 带内 token 账本(server-side,如 peerreview):message_complete 带回本轮 per-call 明细(calls)
-	// 与会话累计(session_total)。归属(user/feature)取 ctx 里的 llmusage.Call —— peerreview 的
-	// reviewCallCtxWith 注入(此前是「记账死代码」,现接上)。用 accrueTurnUsage 按会话累计水位算增量、
-	// 自愈丢帧、防重连双计,与 WS pipe 路同一套。不再依赖已删除的 HTTP per-call 旁路。
-	if b.llmRec != nil {
-		// P3:补差行按本轮注入的 modelID 计价(peerreview 绑主模型最贵,残差不能落基准价)。
-		if rows := b.accrueTurnUsage(sessionID, modelID, chatUsageToAgentUsage(usage), calls, sessionTotal); len(rows) > 0 {
-			call := llmusage.CallFromCtx(ctx)
-			feature := call.Feature
-			if feature == "" {
-				feature = llmusage.FeaturePeerReview // server-side 当前唯一用途;无 ctx 归属时兜底
-			}
-			uid, feat, sid, rec := call.UserID, feature, sessionID, b.llmRec
-			safego.Go("agentbridge-serverside-usage-record:"+feat, func() {
-				for i := range rows {
-					recordAgentTokens(rec, b.catalog, uid, feat, sid, rows[i])
-				}
-			})
-		}
-	}
+	// 与会话累计(session_total)。归属(user/feature)取 ctx 里的 llmusage.Call。用 accrueTurnUsage
+	// 按会话累计水位算增量、自愈丢帧、防重连双计,与 WS pipe 路同一套。P3:残差按本轮 modelID 计价
+	// (peerreview 绑主模型最贵,残差不能落基准价)。error 路已在上面 case 里同口径入账。
+	recordTurn(usage, calls, sessionTotal)
 
 	return textBuf.String(), usage, nil
 }
@@ -454,8 +465,13 @@ func (b *Bridge) ExtractMemoryServerSide(ctx context.Context, sessionID string, 
 				recordOutOfBandTokens(b.llmRec, &uid, llmusage.FeaturePeerReview, kind, sessionID, u)
 			}
 		case "memory_update":
-			if rawText, ok := extractMemoryUpdateFrame(raw); ok {
-				b.memSvc.IngestFromAgent(userID, rawText)
+			if rawText, extractFailed, ok := extractMemoryUpdateFrame(raw); ok {
+				if extractFailed {
+					slog.Warn("agentbridge serverside: agent-side memory extract failed",
+						"session_id", sessionID, "user_id", userID)
+				} else if rawText != "" {
+					b.memSvc.IngestFromAgent(userID, rawText)
+				}
 			}
 			return
 		case "error":

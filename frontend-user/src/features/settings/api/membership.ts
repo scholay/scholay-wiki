@@ -2,17 +2,20 @@
 // (quota.go Overview / wallet.go BalanceView / order.go Order / billing_handler.go)。
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
-import { type SubQuote } from '@/shared/components';
+import { type SubQuote, type BillingCycle } from '@/shared/components';
 
 export type Tier = 'free' | 'pro' | 'max';
+export type { BillingCycle };
 
 // P4:额度 = 首次使用开锚的 7 天周期(mirrors vip/quota.go TokenStatus)。
+// P5 成本制:用户端后端 StripQuotaAmounts —— used/consumed_today 恒 0、ceiling 仅 -1(不限)或 0,
+// 用户只看百分比(percent 是真值)。绝对额度(算力点)只在后台可见。
 export interface TokenStatus {
-  used: number; // 窗口口径(额度条)
-  ceiling: number; // -1 = 不限
-  percent: number;
+  used: number; // 用户端恒 0(已抹除;后台真值另走 admin 接口)
+  ceiling: number; // 用户端:-1 = 不限,否则 0(已抹除)
+  percent: number; // 真值:本周期已用百分比(0..100)
   unlimited: boolean;
-  consumed_today: number; // 当日真实消耗(统计,重置不清零)
+  consumed_today: number; // 用户端恒 0(已抹除)
   window_days: number; // 周期长度(天,默认 7)
   window_started_at: string | null; // null = 未开窗(满血,下次使用开始计时)
   window_reset_at: string | null; // 窗口自动重置时刻
@@ -30,6 +33,8 @@ export interface Balance {
 }
 export interface Overview {
   tier: Tier;
+  /** 付费档在期时的计费周期(yearly=年费会员徽标);免费/过期时后端省略(0079)。 */
+  cycle?: BillingCycle;
   expires_at: string | null;
   token: TokenStatus;
   credit: Balance;
@@ -81,6 +86,9 @@ export interface PlanCard {
   original_cents: number;
   multiplier: number;
   grant_credits: number;
+  year_price_cents: number; // 年度实付价(分);<=0 = 该档年付未开放(0079)
+  year_original_cents: number; // 年度划线原价(分)
+  year_grant_credits: number; // 年度赠送经费总额(按月分 12 批发放)
 }
 export interface Plans {
   free_daily_tokens: number; // 兼容字段:后端回窗口÷天数的日均口径(P4)
@@ -92,6 +100,7 @@ export interface Plans {
   popular_plan: string;
   enabled: boolean;
   test_payment: boolean; // 测试支付开关(PAYMENT_TEST_ENABLED)
+  subscription_year_days: number; // 年度订阅时长(天,默认 365)
   payment_methods: { alipay: boolean; wechat: boolean }; // admin 配置里启用的支付渠道
   plans: PlanCard[];
 }
@@ -102,6 +111,7 @@ export interface Order {
   order_type: string; // subscription | recharge
   plan_code: string;
   plan_name?: string;
+  billing_cycle?: string; // monthly | yearly | once(充值)—— 年度单显式彰显
   amount: number;
   final_amount: number;
   credits_granted: number;
@@ -144,14 +154,14 @@ export function usePlans() {
 
 export interface DayUsage {
   date: string; // YYYY-MM-DD
-  tokens: number;
+  cost: number; // P5:当日精算成本(微元;仅用于热力图相对强度分档,不显示绝对数)
 }
 export interface UsageCalendar {
   days: DayUsage[];
-  daily_ceiling: number; // -1 = 不限
+  daily_ceiling: number; // 日均参考线(微元 = 窗口上限 ÷ 周期天数);-1 = 不限
 }
 
-/** 当月每日 token 用量(绿格热力图)。 */
+/** 当月每日用量(绿格热力图,相对强度)。 */
 export function useUsageCalendar() {
   return useQuery({
     queryKey: ['settings', 'billing', 'usage-calendar'],
@@ -176,8 +186,8 @@ function useInvalidate() {
 }
 
 /** 订阅/续期/升级报价(不建单):算应付金额 + 动作。供购买弹窗显示。模块级函数=稳定引用。 */
-export async function quoteSubscription(tier: 'pro' | 'max'): Promise<SubQuote> {
-  return (await http.get<{ data: SubQuote }>('/user/billing/subscribe/quote', { params: { tier } })).data.data;
+export async function quoteSubscription(tier: 'pro' | 'max', cycle: BillingCycle): Promise<SubQuote> {
+  return (await http.get<{ data: SubQuote }>('/user/billing/subscribe/quote', { params: { tier, cycle } })).data.data;
 }
 
 /** 兑换前预览(不兑换):返回码将授予的内容;码无效/过期/用完/已兑换则 reject(走失败态)。 */
@@ -217,11 +227,12 @@ export function useCreateRecharge() {
   });
 }
 
-/** 建订阅订单(plan = pro|max)。 */
+/** 建订阅订单(plan = pro|max;cycle = monthly|yearly,缺省 monthly)。 */
 export function useCreateSubscription() {
   return useMutation({
-    mutationFn: async (plan: Tier) =>
-      (await http.post<{ data: Order }>('/user/billing/subscribe', { plan })).data.data,
+    mutationFn: async (vars: { plan: Tier; cycle?: BillingCycle }) =>
+      (await http.post<{ data: Order }>('/user/billing/subscribe', { plan: vars.plan, cycle: vars.cycle ?? 'monthly' }))
+        .data.data,
   });
 }
 

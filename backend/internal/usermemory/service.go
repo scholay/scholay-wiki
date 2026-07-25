@@ -134,6 +134,11 @@ func (s *Service) IngestFromAgent(userID uint, raw string) {
 		}
 		v = strings.TrimSpace(v)
 		if v == "" {
+			// 抽取链路刻意不做删除:空串/省略 key 一律跳过(不 DeleteBlock)。把删块权交给不稳定的
+			// 便宜模型有误删既有块的风险(审计 [24])。规则 7 靠「输出不含误记项的 preferences 全文」
+			// 走 Upsert 覆盖来剔除——当误记项**非**块内唯一内容时有效。极端情形(某块唯一内容就是被误记
+			// 的语言偏好)无法经抽取自愈,需一次性运维扫描或用户经 /api/v1/user/memory 手动删除;L1/L2
+			// 语言防线每轮中和其现场危害,故残余风险低。
 			continue
 		}
 		v = truncateRunes(v, spec.CharLimit)
@@ -182,6 +187,9 @@ func extractionSystemPrompt() string {
 	sb.WriteString("4. 不要编造;拿不准就不记。每块控制在字数上限内。\n")
 	sb.WriteString("5. 记忆正文里**不要用相对时间**(最近/上周/今年/去年):记忆会长期保存,相对说法随时间失真。涉及时间一律换算成绝对年月(如「2026-07 起研究 X」);旧记忆里已有的相对时间也趁合并改写成绝对时间。\n")
 	sb.WriteString("6. **只输出一个 JSON 对象**,形如 {\"profile\":\"...\",\"preferences\":\"...\"};无任何可更新则输出 {}。不要解释、不要代码块标记。\n")
+	// W4 P1-4(2026-07):断根语言偏好误记 —— 一次性翻译/处理某语言材料曾被当成长期交流偏好写进
+	// preferences(1dca5f82 老挝语案例),此后每轮注入把整个会话拖向错误语言。
+	sb.WriteString("7. **语言偏好只记用户明确声明过的**(如「以后都用英文回复我」)。用户某次上传/处理/翻译了某种语言的材料,不代表 ta 偏好用该语言交流——这类一律不记;已有记忆里若存在仅凭任务材料推断出的语言偏好,合并时从 preferences 全文中剔除该句(输出不含它的 preferences 全文,让其被覆盖)。\n")
 	return sb.String()
 }
 

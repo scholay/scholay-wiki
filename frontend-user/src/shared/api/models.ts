@@ -10,11 +10,12 @@ export interface UserModel {
   description: string;
   context_window: number;
   speed_class: 'fast' | 'balanced' | 'powerful';
-  billing_weight: number; // 计费倍率(×1 基准;加权计费上线后生效,先作徽标展示)
+  // P5 成本制:额度按真实成本扣,不再向用户下发计费倍率(用户端只看百分比)。
   locked: boolean; // min_tier 门槛未达
   min_tier: '' | 'pro' | 'max';
   is_default: boolean; // 该 feature 的默认模型(chat_default 绑定)
   vision: boolean; // 视觉能力(P2 图片通道):false 时前端不放行图片上传
+  flagship: boolean; // 旗舰标识(0089):选择器差异化高亮 + 旗舰标签
 }
 
 /**
@@ -34,7 +35,7 @@ export function modelSupportsVision(
   return !!target?.vision;
 }
 
-export type ModelFeatureKey = 'smart_search' | 'claw' | 'prism';
+export type ModelFeatureKey = 'smart_search' | 'claw' | 'prism' | 'boltslides' | 'sci_draw';
 
 export function useUserModels(feature: ModelFeatureKey) {
   return useQuery({

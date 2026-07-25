@@ -15,7 +15,7 @@ import { Button } from '@/shared/ui/button';
 import { BrandLogo } from '@/shared/components/BrandLogo';
 import { http } from '@/shared/lib/http';
 import { getAuthToken } from '@/shared/lib/auth-token';
-import { useAuthStore, useAuthStatus, isAdminRole } from '@/stores/auth.store';
+import { useAuthStore, useAuthStatus, canAccessAdmin } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useProfile } from '@/shared/api/profile';
 import { MobileAssetsCard } from '../../components/mobile/MobileAssetsCard';
@@ -104,7 +104,7 @@ function LoggedInView() {
       </Link>
 
       {/* 管理后台入口 —— 仅 admin / super_admin 可见(身份判断走 isAdminRole);/admin 是同 URL 响应式后台,不跳 /m。 */}
-      {isAdminRole(storedUser?.role) && (
+      {canAccessAdmin(storedUser?.role) && (
         <nav className="overflow-hidden rounded-lg border border-brand-red/30 bg-background">
           <MenuRow
             to="/admin"

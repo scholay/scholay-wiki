@@ -30,7 +30,7 @@ func (c *Client) UpsertAgent(ctx context.Context, name string, body map[string]a
 		return errors.New("agent: empty agent name")
 	}
 
-	_, err := circuitbreaker.AgentBreaker.Execute(func() (any, error) {
+	_, err := circuitbreaker.AgentSkillBreaker.Execute(func() (any, error) {
 		return nil, c.upsertAgentOnce(ctx, name, body)
 	})
 	return err

@@ -25,7 +25,10 @@ export interface User {
   phone: string | null;
   avatar_url: string | null;
   bio: string | null;
-  role: 'user' | 'admin';
+  role: 'user' | 'operations' | 'admin' | 'super_admin';
+  /** 该角色的权限点集合(后端 admin.PermissionsForRole 单一真源下发)。
+   *  普通用户为 []。后台用它过滤菜单/按钮 —— 仅 /user/profile 返回,登录响应可能没有。 */
+  permissions?: string[];
   status: number;
   email_verified: boolean;
   phone_verified: boolean;

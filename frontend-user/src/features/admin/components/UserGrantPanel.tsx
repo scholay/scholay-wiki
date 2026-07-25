@@ -39,6 +39,8 @@ export function UserGrantPanel({
 
   const [tier, setTier] = useState<'pro' | 'max'>('pro');
   const [days, setDays] = useState(30);
+  // 计费周期标识(0079):keep=不改动现值(默认,防随手补天数冲掉年费徽标)。
+  const [cycle, setCycle] = useState<'keep' | 'monthly' | 'yearly'>('keep');
   const [creditKind, setCreditKind] = useState<'perm' | 'temp'>('perm');
   const [amount, setAmount] = useState(100);
   const [creditDays, setCreditDays] = useState(30);
@@ -47,10 +49,15 @@ export function UserGrantPanel({
 
   const handleGrant = async () => {
     if (days < 1) return;
-    await apiToast(grant.mutateAsync({ id: user.id, tier, days }), {
-      success: `已为 ${displayName} 授予 / 续期 ${days} 天 ${TIER_LABEL[tier]}`,
-      failure: '授予会员失败',
-    });
+    await apiToast(
+      grant.mutateAsync({ id: user.id, tier, days, ...(cycle !== 'keep' ? { cycle } : {}) }),
+      {
+        success: `已为 ${displayName} 授予 / 续期 ${days} 天 ${TIER_LABEL[tier]}${
+          cycle === 'yearly' ? '(年费标识)' : cycle === 'monthly' ? '(月度标识)' : ''
+        }`,
+        failure: '授予会员失败',
+      }
+    );
   };
 
   const handleRevoke = async () => {
@@ -115,6 +122,28 @@ export function UserGrantPanel({
             onChange={(e) => setDays(Number(e.target.value))}
             className="h-8 w-16"
           />
+        </div>
+        {/* 周期标识(0079):年费/月度徽标口径,默认不动现值 */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-2xs text-faint">周期标识</span>
+          {(
+            [
+              { id: 'keep', label: '不变' },
+              { id: 'monthly', label: '月度' },
+              { id: 'yearly', label: '年费' },
+            ] as const
+          ).map((c) => (
+            <Button
+              key={c.id}
+              type="button"
+              size="sm"
+              variant={cycle === c.id ? 'default' : 'outline'}
+              onClick={() => setCycle(c.id)}
+            >
+              {c.label}
+            </Button>
+          ))}
+          <span className="text-2xs text-faint">决定用户端「年费会员」徽标,不影响时长</span>
         </div>
         <div className="flex items-center gap-2">
           <Button onClick={handleGrant} disabled={grant.isPending || days < 1} className="flex-1">

@@ -2,6 +2,7 @@ package vip
 
 import (
 	"fmt"
+	"math"
 	"testing"
 	"time"
 )
@@ -153,14 +154,14 @@ func TestWindowCeiling(t *testing.T) {
 	if cz.WindowCeiling(TierFree) != -1 {
 		t.Errorf("zero base should be unlimited")
 	}
-	// 透支带:按日均(ceiling/窗口天数)的 15%,地板 20 万(保持「单轮收尾」量级)。
-	co := &BillingConfig{FreeWindowTokens: 14_000_000, WindowDays: 7} // 日均 200 万 → 15% = 30 万 > 地板
-	if co.OverdraftTokens(TierFree) != 300_000 {
-		t.Errorf("overdraft=%d want 300000", co.OverdraftTokens(TierFree))
+	// 透支带(P5 成本制,单位微元):按日均(ceiling/窗口天数)的 15%,地板 ¥0.5(500000 微元)。
+	co := &BillingConfig{FreeWindowTokens: 70_000_000, WindowDays: 7} // 日均 1000 万 → 15% = 150 万 > 地板
+	if co.OverdraftTokens(TierFree) != 1_500_000 {
+		t.Errorf("overdraft=%d want 1500000", co.OverdraftTokens(TierFree))
 	}
-	cf := &BillingConfig{FreeWindowTokens: 1_400_000, WindowDays: 7} // 日均 20 万 → 15%=3 万 < 地板 20 万
-	if cf.OverdraftTokens(TierFree) != 200_000 {
-		t.Errorf("overdraft floor=%d want 200000", cf.OverdraftTokens(TierFree))
+	cf := &BillingConfig{FreeWindowTokens: 1_400_000, WindowDays: 7} // 日均 20 万 → 15%=3 万 < 地板 50 万
+	if cf.OverdraftTokens(TierFree) != 500_000 {
+		t.Errorf("overdraft floor=%d want 500000", cf.OverdraftTokens(TierFree))
 	}
 }
 
@@ -174,11 +175,186 @@ func TestRechargeAndGrant(t *testing.T) {
 	if c.RechargeCreditsFor(1000) != 25 { // ¥10 × 2.5 = 25
 		t.Errorf("recharge rate2.5: %d want 25", c.RechargeCreditsFor(1000))
 	}
-	if c.GrantCreditsFor(TierPro) != 600 || c.GrantCreditsFor(TierMax) != 3000 || c.GrantCreditsFor(TierFree) != 0 {
+	if c.GrantCreditsFor(TierPro, CycleMonthly) != 600 || c.GrantCreditsFor(TierMax, CycleMonthly) != 3000 || c.GrantCreditsFor(TierFree, CycleMonthly) != 0 {
 		t.Errorf("grant mismatch")
 	}
-	if c.PriceCentsFor(TierPro) != 5900 || c.PriceCentsFor(TierMax) != 26900 {
+	if c.PriceCentsFor(TierPro, CycleMonthly) != 5900 || c.PriceCentsFor(TierMax, CycleMonthly) != 26900 {
 		t.Errorf("price mismatch")
+	}
+	// 空串/未知 cycle 一律按月度(normCycle 归一化)。
+	if c.PriceCentsFor(TierPro, "") != 5900 || c.PriceCentsFor(TierPro, "weird") != 5900 {
+		t.Errorf("empty/unknown cycle should fall back to monthly")
+	}
+}
+
+// ─── 年度订阅(0079)───────────────────────────────────────────────────────────
+
+func TestYearlyPricingAndPeriod(t *testing.T) {
+	c := &BillingConfig{
+		ProPriceCents: 5900, MaxPriceCents: 26900,
+		ProYearPriceCents: 59000, MaxYearPriceCents: 269000,
+		ProGrantCredits: 600, MaxGrantCredits: 3000,
+		ProYearGrantCredits: 7200, MaxYearGrantCredits: 36000,
+		SubscriptionPeriodDays: 30, SubscriptionYearDays: 365,
+	}
+	if c.PriceCentsFor(TierPro, CycleYearly) != 59000 || c.PriceCentsFor(TierMax, CycleYearly) != 269000 {
+		t.Errorf("yearly price mismatch")
+	}
+	if c.GrantCreditsFor(TierPro, CycleYearly) != 7200 || c.GrantCreditsFor(TierMax, CycleYearly) != 36000 {
+		t.Errorf("yearly grant mismatch")
+	}
+	if c.PeriodDaysFor(CycleMonthly) != 30 || c.PeriodDaysFor(CycleYearly) != 365 {
+		t.Errorf("period days mismatch: m=%d y=%d", c.PeriodDaysFor(CycleMonthly), c.PeriodDaysFor(CycleYearly))
+	}
+	// 兜底:未配置(0)→ 30/365;-1 哨兵按 0(未开放/不赠送)。
+	z := &BillingConfig{ProYearPriceCents: -1, ProYearGrantCredits: -1}
+	if z.PeriodDaysFor(CycleMonthly) != 30 || z.PeriodDaysFor(CycleYearly) != 365 {
+		t.Errorf("period fallback mismatch")
+	}
+	if z.GrantCreditsFor(TierPro, CycleYearly) != 0 {
+		t.Errorf("sentinel -1 grant should read as 0")
+	}
+	if z.PriceCentsFor(TierPro, CycleYearly) >= 1 {
+		t.Errorf("sentinel -1 price should stay non-positive (yearly disabled)")
+	}
+}
+
+func TestComputeSubscriptionYearly(t *testing.T) {
+	cfg := &BillingConfig{
+		ProPriceCents: 5900, MaxPriceCents: 26900,
+		ProYearPriceCents: 59000, MaxYearPriceCents: 269000,
+		ProGrantCredits: 600, MaxGrantCredits: 3000,
+		ProYearGrantCredits: 7200, MaxYearGrantCredits: 36000,
+		SubscriptionPeriodDays: 30, SubscriptionYearDays: 365,
+	}
+	now := tm("2026-07-22 12:00:00")
+
+	// 免费用户年付新购:年价 + 365 天 + 年度总额经费。
+	sp, err := computeSubscription(UserVIP{}, TierPro, CycleYearly, cfg, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sp.Action != "new" || sp.Cycle != CycleYearly || sp.AmountCents != 59000 || sp.Credits != 7200 {
+		t.Fatalf("yearly new: %+v", sp)
+	}
+	if got := sp.NewExpires; !got.Equal(now.AddDate(0, 0, 365)) {
+		t.Fatalf("yearly new expires=%v", got)
+	}
+
+	// 月度在期同档按年续期:到期日 +365,周期转 yearly。
+	exp := now.AddDate(0, 0, 20)
+	uvMonthly := UserVIP{VIPTier: TierPro, VIPExpiresAt: &exp, VIPCycle: CycleMonthly}
+	sp, err = computeSubscription(uvMonthly, TierPro, CycleYearly, cfg, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sp.Action != "renew" || sp.Cycle != CycleYearly || sp.AmountCents != 59000 || !sp.Deferred {
+		t.Fatalf("monthly→yearly renew: %+v", sp)
+	}
+	if !sp.NewExpires.Equal(exp.AddDate(0, 0, 365)) {
+		t.Fatalf("renew expires=%v want %v", sp.NewExpires, exp.AddDate(0, 0, 365))
+	}
+
+	// 年费用户升级:按**年价口径**补差(剩余 100 天 / 365)。
+	expY := now.AddDate(0, 0, 100)
+	uvYearly := UserVIP{VIPTier: TierPro, VIPExpiresAt: &expY, VIPCycle: CycleYearly}
+	sp, err = computeSubscription(uvYearly, TierMax, CycleYearly, cfg, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantDiff := int(math.Round(float64(269000-59000) * 100.0 / 365.0))
+	if sp.Action != "upgrade" || sp.Cycle != CycleYearly || sp.AmountCents != wantDiff {
+		t.Fatalf("yearly upgrade diff=%d want %d (%+v)", sp.AmountCents, wantDiff, sp)
+	}
+	if !sp.NewExpires.Equal(expY) {
+		t.Fatalf("upgrade must not extend expiry")
+	}
+
+	// 升级忽略请求周期:月度用户请求 cycle=yearly 升 Max → 仍按月度口径补差、周期不变。
+	sp, err = computeSubscription(uvMonthly, TierMax, CycleYearly, cfg, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantDiffM := int(math.Round(float64(26900-5900) * 20.0 / 30.0))
+	if sp.Action != "upgrade" || sp.Cycle != CycleMonthly || sp.AmountCents != wantDiffM {
+		t.Fatalf("monthly upgrade should ignore requested yearly cycle: %+v want diff %d", sp, wantDiffM)
+	}
+
+	// 年价未配置(<=0)→ 年付拒单;月付不受影响。
+	off := *cfg
+	off.ProYearPriceCents = 0
+	if _, err := computeSubscription(UserVIP{}, TierPro, CycleYearly, &off, now); err == nil {
+		t.Fatalf("yearly disabled should reject yearly order")
+	}
+	if _, err := computeSubscription(UserVIP{}, TierPro, CycleMonthly, &off, now); err != nil {
+		t.Fatalf("monthly should still work: %v", err)
+	}
+
+	// 年费用户但年价被关:升级回落月度口径,不堵死。
+	sp, err = computeSubscription(uvYearly, TierMax, "", &off, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sp.Action != "upgrade" || sp.Cycle != CycleMonthly {
+		t.Fatalf("yearly user upgrade with yearly-off should fall back monthly: %+v", sp)
+	}
+}
+
+// TestUpgradeCrossPeriodNoOvercharge 跨周期叠加余期(年付后按月续,vip_cycle 翻月度但余期近整年)
+// 升级时:折算基准必须按剩余时长走年价口径,补差不得反超「直接新购目标档年费」(评审 pricing-math)。
+func TestUpgradeCrossPeriodNoOvercharge(t *testing.T) {
+	cfg := &BillingConfig{
+		ProPriceCents: 5900, MaxPriceCents: 26900,
+		ProYearPriceCents: 59000, MaxYearPriceCents: 269000,
+		ProGrantCredits: 600, MaxGrantCredits: 3000,
+		ProYearGrantCredits: 7200, MaxYearGrantCredits: 36000,
+		SubscriptionPeriodDays: 30, SubscriptionYearDays: 365,
+	}
+	now := tm("2026-07-22 12:00:00")
+
+	// vip_cycle=monthly(最近一单是月续)但余 393 天(年付底子)。旧逻辑会用月价日率外推 →
+	// round(21000×393/30)=¥2751 > 新购 Max 年费 ¥2690(倒挂)。新逻辑走年价口径。
+	expLong := now.AddDate(0, 0, 393)
+	uv := UserVIP{VIPTier: TierPro, VIPExpiresAt: &expLong, VIPCycle: CycleMonthly}
+	sp, err := computeSubscription(uv, TierMax, "", cfg, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sp.Action != "upgrade" || sp.Cycle != CycleYearly {
+		t.Fatalf("长余期升级应走年价口径: %+v", sp)
+	}
+	want := int(math.Round(float64(269000-59000) * 393 / 365)) // 226027
+	if sp.AmountCents != want {
+		t.Fatalf("补差=%d want %d(年价日率)", sp.AmountCents, want)
+	}
+	if sp.AmountCents >= cfg.MaxYearPriceCents {
+		t.Fatalf("补差 %d 反超新购 Max 年费 %d(定价倒挂未修复)", sp.AmountCents, cfg.MaxYearPriceCents)
+	}
+
+	// 年价被 admin 关(ProYear=0):回落月价口径,不堵死(基准=monthly)。
+	off := *cfg
+	off.ProYearPriceCents = 0
+	sp2, err := computeSubscription(uv, TierMax, "", &off, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sp2.Action != "upgrade" || sp2.Cycle != CycleMonthly {
+		t.Fatalf("年价关闭时升级应回落月度基准: %+v", sp2)
+	}
+}
+
+func TestPlanActionNameYearly(t *testing.T) {
+	cases := []struct{ tier, action, cycle, want string }{
+		{TierPro, "new", CycleYearly, "Pro · 年度订阅"},
+		{TierPro, "renew", CycleYearly, "Pro · 年度续期"},
+		{TierMax, "new", CycleMonthly, "Max · 订阅"},
+		{TierMax, "renew", "", "Max · 续期"},
+		{TierMax, "upgrade", CycleYearly, "Max · 升级"}, // 升级不冠周期
+	}
+	for _, c := range cases {
+		if got := planActionName(c.tier, c.action, c.cycle); got != c.want {
+			t.Errorf("planActionName(%s,%s,%s)=%s want %s", c.tier, c.action, c.cycle, got, c.want)
+		}
 	}
 }
 

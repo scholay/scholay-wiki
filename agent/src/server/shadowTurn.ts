@@ -29,6 +29,7 @@ export interface ShadowTurnRequest {
   flatMessages?: FlatMessage[]; // 或:daemon/journal 扁平形(执行器内部转 Anthropic)
   content: string; // 本轮 user 文本
   disallowedTools?: string[];
+  allowedMcpTools?: string[]; // MCP 正向白名单(去前缀原始名);缺省 = 不限制
   tier?: Tier;
   appendSystemPrompt?: string;
   workDir?: string;
@@ -104,6 +105,7 @@ export async function runShadowTurn(req: ShadowTurnRequest): Promise<ShadowTurnR
     messages,
     tier: req.tier || "main",
     disallowedTools: req.disallowedTools || [],
+    allowedMcpTools: req.allowedMcpTools,
     appendSystemPrompt: req.appendSystemPrompt,
     workDir: req.workDir || "/tmp/executor-shadow",
     allowBash: false,

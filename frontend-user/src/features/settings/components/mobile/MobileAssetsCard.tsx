@@ -63,6 +63,10 @@ export function MobileAssetsCard() {
           {TierIcon && <TierIcon className="size-3" />}
           {TIER_LABEL[tier]}
         </span>
+        {/* 年费会员徽标(0079)—— 与月度会员显式区分 */}
+        {data.cycle === 'yearly' && tier !== 'free' && (
+          <span className="rounded-pill bg-brand-amber/10 px-2 py-0.5 text-2xs font-bold text-brand-amber">年费</span>
+        )}
         {data.expires_at && (
           <span className="text-xs text-faint">
             {new Date(data.expires_at).toLocaleDateString('zh-CN')} 到期

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   CheckCircle2,
   ChevronDown,
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import type { ToolBlock } from '@/shared/types/chat';
 import { maskToolSource } from '@/shared/lib/mask-tool-source';
+import { friendlyToolError, sanitizeOpsText } from '@/shared/lib/friendly-tool-error';
 
 /**
  * 通用"AI 工具调用块"渲染器 —— 四态卡片设计 (构建中 / 执行中 / 成功 / 失败)。
@@ -30,8 +31,8 @@ import { maskToolSource } from '@/shared/lib/mask-tool-source';
  *     工具/mcp 单步失败 agent 通常会自恢复,属提示非告警),等待/中止=中性 surface-2
  *
  * 特化扩展点:
- *   - `renderHeaderExtras` — 调用方可在 chip 标题区追加自定义信息 (e.g. smart-search 的源品牌
- *     "Discovery" / 「query」预览)
+ *   - `renderHeaderExtras` — 调用方可在 chip 标题区追加自定义信息 (e.g. smart-search 的数据源真名
+ *     "OpenAlex" / 「query」预览)
  *   - `renderResultPreview` — 调用方可定制"结果区"的渲染 (e.g. smart-search 把 minicod 工具的
  *     result 渲染成 PaperListScroller, 不走默认的 JSON 折叠)
  *   - 不传 renderResultPreview 时, 默认走 <CollapsibleJSON> 把 result 折叠展示
@@ -106,6 +107,25 @@ export function ToolCallBlock({
   // 又长又吵(如 Read 超 token 限制的大段错误)。要看详情点开即可;defaultExpanded 仍可显式覆盖。
   const [expanded, setExpanded] = useState(!!defaultExpanded);
 
+  // 长工具运行计时(W5 P1-D4):pending ≥8s 才显示「已运行 Xs」,给 Bash / 导出这类长工具的
+  // 执行段一点进度感(StallNotice 之前的第一层反馈)。计时器仅 pending 期挂载;历史回放的
+  // 工具块要么有 result 要么被标 aborted → 永不 pending → 无计时、无额外开销。
+  const [pendingSec, setPendingSec] = useState(0);
+  const pendingStartRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!pending) {
+      pendingStartRef.current = null;
+      return;
+    }
+    if (pendingStartRef.current === null) pendingStartRef.current = Date.now();
+    const t = window.setInterval(() => {
+      if (pendingStartRef.current !== null) {
+        setPendingSec(Math.floor((Date.now() - pendingStartRef.current) / 1000));
+      }
+    }, 1000);
+    return () => window.clearInterval(t);
+  }, [pending]);
+
   const Icon = toolIcon(tool.toolName);
 
   // 颜色变体: 失败红, 成功 brand-green, 中止/等待 中性灰
@@ -144,7 +164,14 @@ export function ToolCallBlock({
         {renderHeaderExtras?.()}
         {/* 状态尾标 — 紧贴右侧, 不被中间内容挤掉 */}
         <span className="ml-auto shrink-0 inline-flex items-center gap-1">
-          {pending && <Loader2 className="size-3 animate-spin" />}
+          {pending && (
+            <>
+              {pendingSec >= 8 && (
+                <span className="text-2xs text-faint">已运行 {pendingSec}s</span>
+              )}
+              <Loader2 className="size-3 animate-spin" />
+            </>
+          )}
           {aborted && (
             <>
               <CircleSlash className="size-3 text-faint" strokeWidth={2.2} />
@@ -169,16 +196,47 @@ export function ToolCallBlock({
           {tool.input !== undefined && (
             <ToolPayloadFold label="入参" value={tool.input} kind="input" />
           )}
-          {tool.result !== undefined && renderResultPreview ? (
-            renderResultPreview()
-          ) : tool.result !== undefined ? (
-            <ToolPayloadFold
-              label="结果"
-              value={tool.result}
-              kind={failed ? 'error' : 'output'}
-            />
+          {tool.result !== undefined ? (
+            failed ? (
+              // 失败态双轨渲染(W5 P0-B2):默认展示 userMessage(agent 双轨)或前端分类摘要;
+              // 原文降级为「技术详情」折叠,且**必过 sanitizeOpsText** —— 旧历史事件零字段时
+              // 前端兜底照样接管,不出现运维原文裸奔。
+              <ToolErrorFold tool={tool} />
+            ) : renderResultPreview ? (
+              renderResultPreview()
+            ) : (
+              <ToolPayloadFold label="结果" value={tool.result} kind="output" />
+            )
           ) : null}
         </div>
+      )}
+    </div>
+  );
+}
+
+// ─── 失败结果双轨展示(摘要默认 + 脱敏技术详情折叠)─────────────────────
+
+function ToolErrorFold({ tool }: { tool: ToolBlock }) {
+  const raw = formatPayload(maskToolSource(tool.result));
+  // 双轨:agent 下发的 userMessage 优先;旧事件无此字段 → friendlyToolError 前端分类兜底。
+  const summary = tool.userMessage || friendlyToolError(tool.toolName, raw);
+  const [showDetail, setShowDetail] = useState(false);
+  return (
+    <div className="min-w-0">
+      <div className="rounded-sm px-2 py-1.5 text-xs bg-warning-soft border border-brand-amber/20 text-subtle">
+        {summary}
+        <button
+          type="button"
+          onClick={() => setShowDetail((v) => !v)}
+          className="ml-2 text-faint hover:text-subtle transition-colors"
+        >
+          {showDetail ? '收起详情' : '技术详情'}
+        </button>
+      </div>
+      {showDetail && (
+        <pre className="mt-1.5 rounded-sm px-2 py-1.5 text-[11px] font-mono leading-relaxed whitespace-pre-wrap break-words max-h-72 overflow-y-auto bg-warning-soft text-subtle border border-brand-amber/20">
+          {sanitizeOpsText(raw)}
+        </pre>
       )}
     </div>
   );

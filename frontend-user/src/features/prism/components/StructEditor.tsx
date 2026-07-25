@@ -167,8 +167,6 @@ export const StructEditor = forwardRef<
     onInsertImage?: () => void;
     onInsertMath?: () => void;
     onInsertCitation?: () => void;
-    /** 快通道评议(V3-4.5-1):把当前选区文字交父层做只读点评(结果进 popover,不碰正文)。 */
-    onReview?: (selection: string) => void;
     /** 本次 AI 改动的「改动前」结构体:据它在编辑器里原地标出增删痕迹(无则不标)。 */
     diffBaseline?: DocStruct | null;
     /** 用户一开始编辑就通知父层清掉本次改动标识(diff 只是标记,不设确认门)。 */
@@ -180,7 +178,7 @@ export const StructEditor = forwardRef<
   }
 >(
   function StructEditor(
-    { doc, editable, onChange, onInsertImage, onInsertMath, onInsertCitation, onReview, diffBaseline, onDiffDismiss, onDiffChangeCount },
+    { doc, editable, onChange, onInsertImage, onInsertMath, onInsertCitation, diffBaseline, onDiffDismiss, onDiffChangeCount },
     ref,
   ) {
     const fm = doc.frontMatter ?? { title: '' };
@@ -418,7 +416,6 @@ export const StructEditor = forwardRef<
             onInsertImage={onInsertImage}
             onInsertMath={onInsertMath}
             onInsertCitation={onInsertCitation}
-            onReview={onReview}
           />
         )}
 

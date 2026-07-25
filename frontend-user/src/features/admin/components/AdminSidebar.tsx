@@ -14,7 +14,7 @@ import {
 import { CountBadge, StatusDot } from './SidebarBadges';
 import { useSidebar } from '@/stores/sidebar.store';
 import { ADMIN_NAV, findActiveAdminNav, type AdminNavItem } from '../nav';
-import { useAuthStore } from '@/stores/auth.store';
+import { useAdminPermissions } from '../permissions';
 import { useAdminAlerts, type AdminAlerts } from '../hooks/useAdminAlerts';
 
 /**
@@ -27,8 +27,7 @@ export function AdminSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const toggleSidebar = useSidebar((s) => s.toggle);
-  const user = useAuthStore((s) => s.user);
-  const isSuper = user?.role === 'super_admin';
+  const perms = useAdminPermissions();
   const { alerts } = useAdminAlerts();
 
   const active = findActiveAdminNav(location.pathname);
@@ -49,7 +48,7 @@ export function AdminSidebar() {
 
       <SidebarContent>
         {ADMIN_NAV.map((group) => {
-          const items = group.items.filter((it) => !it.superOnly || isSuper);
+          const items = group.items.filter((it) => perms.has(it.requires));
           if (items.length === 0) return null;
           return (
             <SidebarSection key={group.id} label={group.label}>

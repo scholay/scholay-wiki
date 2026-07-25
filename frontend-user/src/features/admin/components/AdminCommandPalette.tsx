@@ -8,8 +8,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Dialog, DialogContent } from '@/shared/ui/dialog';
 import { http } from '@/shared/lib/http';
 import { useDebounce } from '@/shared/hooks';
-import { useAuthStore } from '@/stores/auth.store';
 import { ADMIN_NAV_FLAT } from '../nav';
+import { useAdminPermissions, PERM } from '../permissions';
 import type { AdminUser, UserListResponse } from '../api/users';
 
 /**
@@ -30,7 +30,7 @@ export function AdminCommandPalette({
   onOpenChange: (o: boolean) => void;
 }) {
   const navigate = useNavigate();
-  const isSuper = useAuthStore((s) => s.user?.role === 'super_admin');
+  const perms = useAdminPermissions();
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebounce(query, 250);
 
@@ -52,8 +52,8 @@ export function AdminCommandPalette({
     navigate(href);
   };
 
-  // 过滤掉 super-only 项
-  const navItems = ADMIN_NAV_FLAT.filter((it) => !it.superOnly || isSuper);
+  // 按当前用户权限过滤(与侧栏同一套 permissions,运营看不到无权页面)
+  const navItems = ADMIN_NAV_FLAT.filter((it) => perms.has(it.requires));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -120,18 +120,22 @@ export function AdminCommandPalette({
                 label="新建消息"
                 onSelect={() => jumpTo('/admin/messages')}
               />
-              <ActionItem
-                icon={<Flame />}
-                label="清理过期热门内容"
-                hint="跳热门内容页执行"
-                onSelect={() => jumpTo('/admin/hot-content')}
-              />
-              <ActionItem
-                icon={<Lock />}
-                label="冻结用户"
-                hint="到用户管理选择目标"
-                onSelect={() => jumpTo('/admin/users')}
-              />
+              {perms.has(PERM.configManage) && (
+                <ActionItem
+                  icon={<Flame />}
+                  label="清理过期热门内容"
+                  hint="跳热门内容页执行"
+                  onSelect={() => jumpTo('/admin/hot-content')}
+                />
+              )}
+              {perms.has(PERM.usersManage) && (
+                <ActionItem
+                  icon={<Lock />}
+                  label="冻结用户"
+                  hint="到用户管理选择目标"
+                  onSelect={() => jumpTo('/admin/users')}
+                />
+              )}
             </Command.Group>
           </Command.List>
 

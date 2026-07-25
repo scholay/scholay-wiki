@@ -56,6 +56,22 @@ export function ThinkingFold({ text, isActive, className }: ThinkingFoldProps) {
     }
   }, [isActive]);
 
+  // 思考中实时秒数(W5 P1-D3):流式思考期每秒推进,「黑盒等待」变「可见推进」——52% 轮
+  // 思考字数>正文,思考期是最长的等待段。历史回放 isActive 恒 false → 计时器不挂、无秒数。
+  const [liveSec, setLiveSec] = useState(0);
+  useEffect(() => {
+    if (!isActive) {
+      setLiveSec(0);
+      return;
+    }
+    const t = window.setInterval(() => {
+      if (startRef.current !== null) {
+        setLiveSec(Math.floor((Date.now() - startRef.current) / 1000));
+      }
+    }, 1000);
+    return () => window.clearInterval(t);
+  }, [isActive]);
+
   // 第一行非空 + 截断 60 字符
   const firstLine =
     text
@@ -98,6 +114,7 @@ export function ThinkingFold({ text, isActive, className }: ThinkingFoldProps) {
           {isActive ? (
             <>
               思考中
+              {liveSec >= 3 && <span className="tabular-nums">{` · ${liveSec} 秒`}</span>}
               <span className="chat-thinking-dots ml-0.5" />
             </>
           ) : durationSec != null ? (

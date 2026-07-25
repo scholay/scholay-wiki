@@ -12,7 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/shared/ui/dialog';
-import { AdminPageLayout } from '../components/AdminPageLayout';
 import { DataTable, type Column } from '../components/DataTable';
 import { useApiToast } from '../hooks/useApiToast';
 import { useConfirm } from '../hooks/useConfirm';
@@ -40,7 +39,12 @@ const TYPE_OPTIONS: { value: AccountType; label: string }[] = [
   { value: 'minicod', label: 'MiniCod(api_key + base_url)' },
 ];
 
-export function ThirdPartyPage() {
+/**
+ * 三方账号面板 —— 作为「模型与账号」页(AiUpstreamPage)的一个 tab 渲染。
+ * 上游 AI / MiniCod 的 API key 池 CRUD。不含 AdminPageLayout 外壳(由父页统一提供),
+ * actions 内联成顶部工具条。
+ */
+export function ThirdPartyPanel() {
   // reveal 由编辑弹窗的小眼睛控制; reveal=true 时列表用 ?show_sensitive=true 重拉明文,
   // 弹窗选中 row 的 secret 字段随之同步成明文。脱敏/明文分开缓存(queryKey 含 showSensitive)。
   const [reveal, setReveal] = useState(false);
@@ -162,16 +166,17 @@ export function ThirdPartyPage() {
   ];
 
   return (
-    <AdminPageLayout
-      title="三方账号"
-      description={`共 ${data?.length ?? 0} 个 · API key 池,按优先级和健康度轮询,5 分钟缓存`}
-      actions={
-        <Button size="sm" onClick={() => setMode({ kind: 'create' })}>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">
+          共 {data?.length ?? 0} 个 · API key 池,按优先级和健康度轮询,5 分钟缓存
+        </p>
+        <Button size="sm" className="shrink-0" onClick={() => setMode({ kind: 'create' })}>
           <Plus className="size-3.5" />
           添加账号
         </Button>
-      }
-    >
+      </div>
+
       <DataTable columns={columns} rows={data} loading={isLoading} />
 
       <ThirdPartyDialog
@@ -190,7 +195,7 @@ export function ThirdPartyPage() {
           if (ok !== null) setMode(null);
         }}
       />
-    </AdminPageLayout>
+    </div>
   );
 }
 

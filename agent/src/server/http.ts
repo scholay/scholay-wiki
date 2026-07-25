@@ -29,12 +29,14 @@ import {
   sessionFlatMessages,
 } from "./sessions.ts";
 import { runShadowTurn, type ShadowTurnRequest } from "./shadowTurn.ts";
+import { oneShotComplete, oneShotStream, type OneShotMessage } from "../turn/oneshot.ts";
 import {
   readWorkspaceFile,
   listWorkspaceTree,
   putWorkspaceFile,
   deleteWorkspaceFile,
   pushSessionFile,
+  QuotaError,
 } from "./workspace.ts";
 
 function json(data: unknown, status = 200): Response {
@@ -60,6 +62,54 @@ export async function handleHTTP(req: Request): Promise<Response> {
 
   if (!authOK(req)) {
     return err(401, "unauthorized", "invalid or missing bearer token");
+  }
+
+  // ── 单次补全(one-shot,无工具/无会话/无 journal,像裸调大模型)──────────────
+  // 项目侧功能(翻译 / 矩阵分析 / 公众号自动回复 / Prism 内联点评)复用,取代第三方账号 LLM key。
+  // model 由 backend 能力绑定解析后显式下发;缺省回落 active provider main 槽位。
+  if ((path === "/api/complete" || path === "/api/complete/stream") && method === "POST") {
+    const body = (await req.json().catch(() => null)) as {
+      model?: string;
+      providerId?: string | null;
+      system?: string;
+      messages?: OneShotMessage[];
+      max_tokens?: number;
+      temperature?: number;
+    } | null;
+    if (!body || !Array.isArray(body.messages) || body.messages.length === 0) {
+      return err(400, "bad_request", "messages required");
+    }
+    const opts = {
+      model: body.model,
+      providerName: body.providerId ?? null,
+      system: body.system,
+      messages: body.messages,
+      maxTokens: body.max_tokens,
+      temperature: body.temperature,
+    };
+    if (path === "/api/complete") {
+      try {
+        return json(await oneShotComplete(opts));
+      } catch (e) {
+        return err(502, "upstream_error", String((e as Error)?.message ?? e));
+      }
+    }
+    // /api/complete/stream —— SSE:{type:delta,text} 逐块 → {type:done,usage,stop_reason} 收尾 → {type:error} 失败
+    const sse = new ReadableStream({
+      async start(controller) {
+        const enc = new TextEncoder();
+        const send = (obj: unknown) => controller.enqueue(enc.encode(`data: ${JSON.stringify(obj)}\n\n`));
+        try {
+          const r = await oneShotStream(opts, (text) => send({ type: "delta", text }));
+          send({ type: "done", usage: r.usage, stop_reason: r.stop_reason });
+        } catch (e) {
+          send({ type: "error", message: String((e as Error)?.message ?? e) });
+        } finally {
+          controller.close();
+        }
+      },
+    });
+    return new Response(sse, { headers: { "content-type": "text/event-stream", "cache-control": "no-cache" } });
   }
 
   // ── 数学公式渲染(TeX → PNG;小程序 rich-text 跑不了 KaTeX,后端代理到这)──
@@ -166,10 +216,18 @@ export async function handleHTTP(req: Request): Promise<Response> {
       sessionId: body.sessionId ? String(body.sessionId) : undefined,
       workDir: body.workDir ? String(body.workDir) : undefined,
       disallowedTools: Array.isArray(body.disallowedTools) ? (body.disallowedTools as string[]) : undefined,
+      allowedMcpTools: Array.isArray(body.allowedMcpTools) ? (body.allowedMcpTools as string[]) : undefined,
+      honestyGuard: body.honestyGuard === true ? true : undefined,
+      honestyChecks:
+        body.honestyChecks && typeof body.honestyChecks === "object"
+          ? (body.honestyChecks as { citations?: boolean; delivery?: boolean; fullread?: boolean })
+          : undefined,
       addDirs: Array.isArray(body.addDirs) ? (body.addDirs as string[]) : undefined,
       appendSystemPrompt: body.appendSystemPrompt ? String(body.appendSystemPrompt) : undefined,
       // 用户市场 skill(内联内容),executor 物化到 <workDir>.skills/guides/ 并并入 addDirs。
       skills: Array.isArray(body.skills) ? (body.skills as { name: string; skillMd: string }[]) : undefined,
+      // 脚手架预置(制作PPT feature 传 "bolt-slides")。
+      templateKind: body.templateKind ? String(body.templateKind) : undefined,
     });
     log.info("session created", { session_id: meta.sessionId, work_dir: meta.workDir, deny: meta.disallowedTools.length });
     return json({ sessionId: meta.sessionId, workDir: meta.workDir });
@@ -219,6 +277,46 @@ export async function handleHTTP(req: Request): Promise<Response> {
     return json(sessionFlatMessages(meta));
   }
 
+  // ── 演示稿导出 PPTX(制作PPT / boltslides):把会话 cwd 里已构建的单文件 HTML deck 逐张截图
+  // 拼成图片版 .pptx 落 ./out/。前端「导出 PPT」按钮 → 后端 → 此端点。路径经 confinePath 限会话 cwd。
+  const pptMatch = path.match(/^\/api\/sessions\/([^/]+)\/export-pptx$/);
+  if (pptMatch && method === "POST") {
+    const sid = decodeURIComponent(pptMatch[1]);
+    if (!validSessionId(sid)) return err(404, "not_found", "session not found");
+    const meta = await getOrCreateEphemeral(sid);
+    const body = (await req.json().catch(() => null)) as { htmlPath?: string; name?: string; format?: string } | null;
+    if (!body || typeof body.htmlPath !== "string" || !body.htmlPath.trim()) {
+      return err(400, "bad_request", "htmlPath required");
+    }
+    // format: "pdf"(矢量图片版) | "pptx-native"(可编辑 pptx) | "pptx"(默认,图片版)
+    const fmt = body.format === "pdf" ? "pdf" : body.format === "pptx-native" ? "pptx-native" : "pptx";
+    const ext = fmt === "pdf" ? "pdf" : "pptx"; // native 也是 .pptx 文件
+    const rawBase = String(body.name || "").trim() || "deck";
+    const base = rawBase.replace(/[^A-Za-z0-9._一-龥-]/g, "_").replace(/^\.+/, "").slice(0, 120) || "deck";
+    const outRel = `out/${base}.${ext}`;
+    let htmlAbs: string;
+    let outAbs: string;
+    try {
+      htmlAbs = await confinePath(meta.workDir, body.htmlPath);
+      outAbs = await confinePath(meta.workDir, outRel, true);
+    } catch (e) {
+      return err(400, "bad_request", "invalid path: " + String((e as Error)?.message ?? e));
+    }
+    try {
+      const mod = await import("../render/deckpptx.ts");
+      const r =
+        fmt === "pdf"
+          ? await mod.exportDeckToPdf(htmlAbs, outAbs)
+          : fmt === "pptx-native"
+            ? await mod.exportDeckToEditablePptx(htmlAbs, outAbs)
+            : await mod.exportDeckToPptx(htmlAbs, outAbs);
+      return json({ ok: true, slides: r.slides, path: outRel });
+    } catch (e) {
+      log.error("export-deck failed", { session_id: sid, format: fmt, err: String((e as Error)?.message ?? e) });
+      return err(422, "export_failed", String((e as Error)?.message ?? e).slice(0, 300));
+    }
+  }
+
   // ── 会话作用域:workspace 文件 op + inspection(step 7a)──
   const wsMatch = path.match(/^\/api\/sessions\/([^/]+)\/(files|workspace\/file|workspace\/tree|inspection|extract-head)$/);
   if (wsMatch) {
@@ -232,8 +330,14 @@ export async function handleHTTP(req: Request): Promise<Response> {
       const form = await req.formData().catch(() => null);
       const file = form?.get("file");
       if (!(file instanceof File)) return err(400, "bad_request", "multipart field 'file' required");
-      const pushed = await pushSessionFile(meta.workDir, file);
-      return json(pushed);
+      try {
+        const pushed = await pushSessionFile(meta.workDir, file);
+        return json(pushed);
+      } catch (e) {
+        // 配额超限 → 413 + 稳定 error code(backend 据此译成用户可读文案);其余落盘错误 → 500。
+        if (e instanceof QuotaError) return err(413, "quota_exceeded", e.message);
+        return err(500, "push_failed", String((e as Error)?.message ?? e).slice(0, 300));
+      }
     }
     if (sub === "workspace/file" && method === "GET") {
       const out = await readWorkspaceFile(meta.workDir, rel, {
@@ -247,6 +351,7 @@ export async function handleHTTP(req: Request): Promise<Response> {
       try {
         await putWorkspaceFile(meta.workDir, rel, bytes);
       } catch (e) {
+        if (e instanceof QuotaError) return err(413, "quota_exceeded", e.message);
         return err(400, "bad_request", String((e as Error)?.message ?? e));
       }
       return json({ ok: true });
@@ -263,6 +368,9 @@ export async function handleHTTP(req: Request): Promise<Response> {
       return json(await listWorkspaceTree(meta.workDir, url.searchParams.get("path") || "."));
     }
     if (sub === "inspection" && method === "GET") {
+      // 水位分子:meta.lastUsage 现在记的是「本轮最后一次 LLM call 的真实上下文占用」——
+      // input_tokens 已在 ws.ts 累加口径中含 cache_read/cache_creation(命中缓存的历史前缀仍占窗口),
+      // 故 total = input + output 即当前真实 prompt 规模。maxTokens 由 backend 按模型目录窗口覆盖(bridge.go)。
       const u = meta.lastUsage;
       const total = u ? u.input_tokens + u.output_tokens : 0;
       const max = Number(process.env.EXECUTOR_CONTEXT_WINDOW || 128000);

@@ -4,7 +4,7 @@ description: 基于用户引用/上传的论文,做「讲清这篇论文」「�
 when_to_use: 用户要求解读某篇论文、讲讲某篇在做什么、看懂某个图/表/公式/方法、对比几篇的异同,且相关材料已在 references/ 或用户直接给了文本时
 user-invocable: false
 disable-model-invocation: false
-allowed-tools: Read, Glob, Grep, WebFetch
+allowed-tools: Read, ReadDocument, Glob, Grep
 ---
 
 # 论文解读
@@ -13,9 +13,9 @@ allowed-tools: Read, Glob, Grep, WebFetch
 
 ## 先拿到材料
 
-- 用户从文献集「引用」的论文已物化到当前工作目录 `references/` 下(见 [library-reference] 技能:先 `Read references/INDEX.md`,再按需 `Read references/paper-<id>.md`(元数据+摘要)和 `references/ref-<id>.pdf`(PDF 全文,可原生解析))。
-- 用户直接粘贴的文本/上传的 PDF,直接读。
-- 只有元数据+摘要、没有全文时,**明确说明只基于摘要**,不要假装读过全文;`pdf_url`(OA 直链)确需正文可试 `WebFetch`(可能失败)。
+- 用户从文献集「引用」的论文已物化到当前工作目录 `references/` 下(见 [library-reference] 技能:先 `Read references/INDEX.md`,再按需 `Read references/paper-<id>.md`(元数据+摘要);PDF 全文用 `ReadDocument` 读 `references/ref-<id>.pdf`(长 PDF 传 first_pages 限页))。
+- 用户直接粘贴的文本直接看;上传的 PDF/docx 用 `ReadDocument` 读。
+- 只有元数据+摘要、没有全文时,**明确说明只基于摘要**,不要假装读过全文;当前环境没有 WebFetch 工具,无法抓取 pdf_url 外链,不要尝试、更不要假装抓过。
 
 ## 解读一篇时讲清这几层
 

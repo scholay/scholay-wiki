@@ -72,7 +72,10 @@ func APITimeoutMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var timeout time.Duration
 
-		if c.GetHeader("Accept") == "text/event-stream" || isStreamingPath(c.Request.URL.Path) {
+		if strings.HasSuffix(c.Request.URL.Path, "/export-pptx") {
+			// 制作PPT 导出 pptx:executor 同步逐张 chromium 截图(每张含 chromium 冷启),秒到分钟级,给足预算。
+			timeout = 6 * time.Minute
+		} else if c.GetHeader("Accept") == "text/event-stream" || isStreamingPath(c.Request.URL.Path) {
 			timeout = 15 * time.Minute
 		} else if isObjectServePath(c.Request.URL.Path) {
 			// 大文件下载: 传输时长随文件大小/客户端带宽变化, 给足预算防中途截断。

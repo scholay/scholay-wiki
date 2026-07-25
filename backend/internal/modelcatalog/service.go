@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"math"
 	"strings"
 	"sync"
 	"time"
@@ -138,6 +137,9 @@ func (s *Service) invalidate() {
 // Resolve 见 Service 注释的回退链。返回空串 = 全链无值(fresh install 未配置),
 // 调用方语义与现状一致(serverside 不切模型 / PushConfig 推空槽位)。
 func (s *Service) Resolve(purpose string) string {
+	if primary, ok := purposeAlias[purpose]; ok {
+		purpose = primary // 合并/折叠的能力先归主 purpose(见 model.go purposeAlias),调用方零改动
+	}
 	snap := s.load()
 	if id, ok := snap.bindings[purpose]; ok {
 		if _, exists := snap.byModel[id]; exists {
@@ -160,6 +162,14 @@ func (s *Service) Resolve(purpose string) string {
 		}
 	}
 	return ""
+}
+
+// ResolveChatDefault feature 默认对话模型(实现 agentbridge.ModelCatalog):直接走主绑定
+// chat_default.<feature>(经 Resolve 的完整回退链 + purposeAlias 归并)。2026-07 起不再区分
+// 免费/付费档 —— .free 覆盖机制整套下线,所有档位一律走主绑定。第二参数保留仅为签名/接口兼容。
+// hub 的默认解析、bridge 水位窗口、ListForUser 默认徽标统一走此口径。
+func (s *Service) ResolveChatDefault(featureKey string, _ uint) string {
+	return s.Resolve("chat_default." + featureKey)
 }
 
 // ResolveSlots 实现 agentconfig.SlotProvider:PushConfig 推给 agent 容器的槽位值由绑定生成
@@ -212,6 +222,15 @@ func (s *Service) ContextWindow(modelID string) int {
 	return 0
 }
 
+// MaxInput 返回模型最大输入 token 数(0 = 未配;实现 agentbridge.ModelCatalog)。
+// agent 压缩墙的输入预算据此定(未配则回落「上下文 − 输出预留」),保证 输入+输出 ≤ 上下文不溢出。
+func (s *Service) MaxInput(modelID string) int {
+	if m := s.Get(modelID); m != nil {
+		return m.MaxInput
+	}
+	return 0
+}
+
 // MaxOutput 返回模型最大完成 token 数(0 = 未知;实现 agentbridge.ModelCatalog)。
 // executor 用 min(全局上限, maxOutput) 定 max_tokens,避免小完成窗模型(如 gpt-4o-mini 16384)
 // 被全局 64000 顶爆 400(2026-07-14 智能搜索空返回事故的确定性修复;零配置兜底在 openai adapter 钳制重试)。
@@ -239,16 +258,20 @@ func (s *Service) ProviderKey(modelID string) string {
 	return ""
 }
 
-// BillingWeight 返回模型计费倍率(clamp 下限防除零;目录 miss → 1 = raw 口径)。
-// 计价/盖章路径用它 —— **含停用行**(下架的模型在跑的会话必须照常计价,不能变便宜)。
-func (s *Service) BillingWeight(modelID string) float64 {
-	if m := s.Get(modelID); m != nil {
-		if m.BillingWeight < MinBillingWeight {
-			return MinBillingWeight
-		}
-		return m.BillingWeight
+// CostPerToken 该模型的**混合估算成本**(微元/token),用于把「微元额度余量」换算成执行器可比的 token 预算
+// (SS#2 自配速)。P5 成本制取代旧 BillingWeight:混合口径 = 80% 命中缓存 + 15% 未命中输入 + 5% 输出
+// (与成本制配额同源假设)。目录 miss / 全 0 → 回落一个保守正值(≈flash 混合)。含停用行(照常计价)。
+func (s *Service) CostPerToken(modelID string) float64 {
+	const fallback = 0.3 // 微元/token,≈flash 混合成本
+	m := s.Get(modelID)
+	if m == nil {
+		return fallback
 	}
-	return 1
+	cpt := 0.8*m.PriceCacheR + 0.15*m.PriceIn + 0.05*m.PriceOut
+	if cpt <= 0 {
+		return fallback
+	}
+	return cpt
 }
 
 // pricerMissWarn 目录 miss 告警限流(每分钟一条;上游改名/(reconciled) 哨兵会走到这)。
@@ -276,9 +299,11 @@ func (s *Service) notePricingMiss(model string) {
 	})
 }
 
-// PriceUsage 实现 llmusage.Pricer:weighted = raw总量 × billing_weight;
-// cost = Σ(各类 tokens × 对应单价) —— 单价是 元/1M token,tokens × 单价恰好就是**微元**。
-// 只走内存缓存(Record 在同步请求路径上,绝不回源 DB)。目录 miss → weight=1 + 限流 WARN。
+// PriceUsage 实现 llmusage.Pricer,返回 (total, cost):
+//   - total = 四类 token 原始总量(仅落 ledger 作历史用量,P5 起**不再** ×billing_weight);
+//   - cost  = Σ(各类 tokens × 对应单价) —— 单价是 元/1M token,tokens × 单价恰好就是**微元**;
+//             cost 才是驱动配额扣减的真源(成本制)。
+// 只走内存缓存(Record 在同步请求路径上,绝不回源 DB)。目录 miss → cost=0 + 限流 WARN。
 func (s *Service) PriceUsage(model string, input, output, cacheRead, cacheWrite int) (int64, int64) {
 	total := int64(input) + int64(output) + int64(cacheRead) + int64(cacheWrite)
 	m := s.Get(model)
@@ -296,13 +321,44 @@ func (s *Service) PriceUsage(model string, input, output, cacheRead, cacheWrite 
 		}
 		return total, 0
 	}
-	w := m.BillingWeight
-	if w < MinBillingWeight {
-		w = MinBillingWeight
+	// 输入长度分档(0084 两档 + 0087 三档):prompt = input + cacheRead + cacheWrite。超过阈值切高档**单价**。
+	// P5 成本制:billing_weight / billing_weight_hi **不再参与**(配额改按真实成本扣),分档只剩单价那一半。
+	// 档2(hi):prompt > InputTierThreshold;档3(hi2):prompt > InputTierThreshold2(> 档2 阈值)。
+	// 高档值为 0 → 回落上一档已选值(档2 回落基础,档3 回落档2);链式选择,防误配把价清零。
+	priceIn, priceOut, priceCacheR, priceCacheW := m.PriceIn, m.PriceOut, m.PriceCacheR, m.PriceCacheW
+	prompt := int64(input) + int64(cacheRead) + int64(cacheWrite)
+	if m.InputTierThreshold > 0 && prompt > int64(m.InputTierThreshold) {
+		if m.PriceInHi > 0 {
+			priceIn = m.PriceInHi
+		}
+		if m.PriceOutHi > 0 {
+			priceOut = m.PriceOutHi
+		}
+		if m.PriceCacheRHi > 0 {
+			priceCacheR = m.PriceCacheRHi
+		}
+		if m.PriceCacheWHi > 0 {
+			priceCacheW = m.PriceCacheWHi
+		}
 	}
-	cost := int64(float64(input)*m.PriceIn + float64(output)*m.PriceOut +
-		float64(cacheRead)*m.PriceCacheR + float64(cacheWrite)*m.PriceCacheW)
-	return int64(float64(total)*w + 0.5), cost
+	if m.InputTierThreshold2 > 0 && prompt > int64(m.InputTierThreshold2) {
+		if m.PriceInHi2 > 0 {
+			priceIn = m.PriceInHi2
+		}
+		if m.PriceOutHi2 > 0 {
+			priceOut = m.PriceOutHi2
+		}
+		if m.PriceCacheRHi2 > 0 {
+			priceCacheR = m.PriceCacheRHi2
+		}
+		if m.PriceCacheWHi2 > 0 {
+			priceCacheW = m.PriceCacheWHi2
+		}
+	}
+	cost := int64(float64(input)*priceIn + float64(output)*priceOut +
+		float64(cacheRead)*priceCacheR + float64(cacheWrite)*priceCacheW)
+	// 第一返回值(weighted)P5 起 = raw total(不再 ×billing_weight);仅落 ledger 作历史用量,不驱动配额。
+	return total, cost
 }
 
 // tierRank 会员档序:free(空)< pro < max。
@@ -340,25 +396,27 @@ func (s *Service) ValidateUserModel(userID uint, modelID string) error {
 }
 
 // UserModelView 用户选择器 DTO(/api/v1/user/models)。
-// 刻意不透四类单价与 notes;billing_weight 出口量化到 0.25(4 位小数会精确泄露上游价格比例)。
+// 刻意不透四类单价、notes 与计费倍率(P5 成本制:用户对额度只看百分比,绝对成本/单价不外泄)。
 type UserModelView struct {
 	ModelID       string  `json:"model_id"`
 	DisplayName   string  `json:"display_name"`
 	Description   string  `json:"description"`
 	ContextWindow int     `json:"context_window"`
 	SpeedClass    string  `json:"speed_class"`
-	BillingWeight float64 `json:"billing_weight"`
-	Locked        bool    `json:"locked"`   // min_tier 门槛未达 → 选择器置灰 + 升级引导
+	// P5 成本制:不再向用户下发计费倍率(倍率已作废,用户对额度只看百分比)。
+	Locked bool `json:"locked"` // min_tier 门槛未达 → 选择器置灰 + 升级引导
 	MinTier       string  `json:"min_tier"` // 锁定时的引导文案用(pro/max)
 	IsDefault     bool    `json:"is_default"`
-	Vision        bool    `json:"vision"` // 视觉能力(P2 图片通道):前端按此启停图片上传入口
+	Vision        bool    `json:"vision"`   // 视觉能力(P2 图片通道):前端按此启停图片上传入口
+	Flagship      bool    `json:"flagship"` // 旗舰标识(0089):选择器差异化高亮 + 旗舰标签
 }
 
 // ListForUser 用户可见目录(enabled ∧ user_selectable,按 sort_order),default 按 feature 的
 // chat_default 绑定标注。locked 的模型仍返回(置灰 + 升级引导是产品面,过滤是 hub 闸的事)。
 func (s *Service) ListForUser(userID uint, featureKey string) []UserModelView {
 	snap := s.load()
-	def := s.Resolve("chat_default." + featureKey)
+	// 默认徽标与运行时下发口径一致:走 ResolveChatDefault(主绑定 + purposeAlias 归并;不再分档)。
+	def := s.ResolveChatDefault(featureKey, userID)
 	tier := s.userTier(userID)
 	out := make([]UserModelView, 0, len(snap.models))
 	for _, m := range snap.models {
@@ -371,11 +429,11 @@ func (s *Service) ListForUser(userID uint, featureKey string) []UserModelView {
 			Description:   m.Description,
 			ContextWindow: m.ContextWindow,
 			SpeedClass:    m.SpeedClass,
-			BillingWeight: math.Round(m.BillingWeight*4) / 4,
 			Locked:        m.MinTier != "" && tierRank(tier) < tierRank(m.MinTier),
 			MinTier:       m.MinTier,
 			IsDefault:     m.ModelID == def,
 			Vision:        m.Vision,
+			Flagship:      m.Flagship,
 		})
 	}
 	return out
@@ -386,23 +444,25 @@ func (s *Service) ListModels() ([]AgentModel, error) {
 	return s.repo.ListModels()
 }
 
-// BindingViews admin 绑定页:11 个 purpose 闭集逐个给出 绑定值/生效值/是否回退态。
+// BindingViews admin 绑定页:purpose 闭集逐个给出 绑定值/生效值/是否回退态。
 func (s *Service) BindingViews() []BindingView {
 	snap := s.load()
 	views := make([]BindingView, 0, len(AllPurposes))
 	for _, p := range AllPurposes {
 		bound := snap.bindings[p]
 		effective := s.Resolve(p)
+		fallback := bound == "" || bound != effective
 		// system.* 与推送口径(slotSafe)一致:存量跨端点绑定实际推的是冻结列回退值,
 		// 若此处仍按 Resolve 显示「生效」,管理面与 executor 实跑互相矛盾(评审 #3/#5)。
 		if p == PurposeSystemMain || p == PurposeSystemFast {
 			effective = s.slotSafe(p)
+			fallback = bound == "" || bound != effective
 		}
 		views = append(views, BindingView{
 			Purpose:   p,
 			ModelID:   bound,
 			Effective: effective,
-			Fallback:  bound == "" || bound != effective,
+			Fallback:  fallback,
 		})
 	}
 	return views
@@ -418,8 +478,18 @@ func validateModel(m *AgentModel) error {
 	if m.DisplayName == "" {
 		return errors.New("对外展示名必填(与上游模型 code 分开,给用户看的人话名)")
 	}
-	if m.BillingWeight < MinBillingWeight || m.BillingWeight > MaxBillingWeight {
-		return fmt.Errorf("计费倍率必须在 %.2f ~ %.0f 之间", float64(MinBillingWeight), float64(MaxBillingWeight))
+	// P5 成本制:billing_weight / billing_weight_hi 已作废,不再校验(前端也不再下发,列保留仅作历史)。
+	// 分档字段(0084 两档 + 0087 三档):阈值/高档价不为负(高档价 = 长输入切档的真实单价,仍参与成本)。
+	if m.InputTierThreshold < 0 || m.InputTierThreshold2 < 0 {
+		return errors.New("输入分档阈值不能为负(0 = 不分档)")
+	}
+	if m.PriceInHi < 0 || m.PriceOutHi < 0 || m.PriceCacheRHi < 0 || m.PriceCacheWHi < 0 ||
+		m.PriceInHi2 < 0 || m.PriceOutHi2 < 0 || m.PriceCacheRHi2 < 0 || m.PriceCacheWHi2 < 0 {
+		return errors.New("高档价格不能为负")
+	}
+	// 第三档阈值必须 > 第二档阈值(否则档序倒置,PriceUsage 的链式切档语义会乱)。
+	if m.InputTierThreshold2 > 0 && m.InputTierThreshold2 <= m.InputTierThreshold {
+		return errors.New("第二分档阈值必须大于第一分档阈值(档3 阈值 > 档2 阈值)")
 	}
 	switch m.SpeedClass {
 	case "fast", "balanced", "powerful":
@@ -436,6 +506,13 @@ func validateModel(m *AgentModel) error {
 	}
 	if m.ContextWindow <= 0 {
 		m.ContextWindow = 128000
+	}
+	// 最大输入(0088):不为负;配了就不能超过上下文(输入是上下文的一部分,超了必溢出)。
+	if m.MaxInput < 0 {
+		return errors.New("最大输入不能为负(0 = 未配,由 agent 自动算)")
+	}
+	if m.MaxInput > 0 && m.MaxInput > m.ContextWindow {
+		return errors.New("最大输入不能大于上下文(上下文 = 输入 + 输出 的共享预算)")
 	}
 	return nil
 }

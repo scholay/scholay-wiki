@@ -1,7 +1,7 @@
 // 极小 per-session meta(详细设计 §2.1 journal/sessionMeta)。无 transcript 真源 —— 那在后端 journal。
 // 这里只承载:workDir + 工具策略 + appendSystemPrompt + 会话内 messages[](内存续接,跨重启无状态)。
 
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile, readFile, cp, symlink, stat, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import type Anthropic from "@anthropic-ai/sdk";
 import { safeSessionDir, validSessionId } from "../sandbox/confine.ts";
@@ -9,6 +9,15 @@ import { log } from "../obs/log.ts";
 import { localISO } from "../tools/clock.ts";
 
 const SESSIONS_ROOT = process.env.SESSIONS_ROOT || "/tmp/executor-sessions";
+
+// envNum:安全解析数值 env —— 非数字(如误配 "30d")回落默认值,绝不让 NaN 溜进比较逻辑
+// (审查发现:NaN 会让 GC 的三道保护比较全部恒 false → 首个 tick 删光所有未连接会话目录)。
+export function envNum(name: string, def: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") return def;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : def;
+}
 
 // 用户市场 skill 的一份物化输入(backend 规范化后经 CreateSession/seed_history 内联下发)。
 export interface SessionSkillInput {
@@ -70,6 +79,10 @@ export interface SessionMeta {
   sessionId: string;
   workDir: string;
   disallowedTools: string[];
+  // MCP 正向白名单(去前缀的原始工具名);控制面按 feature 下发,空 = 不限制。见 featurePolicy。
+  allowedMcpTools: string[];
+  honestyGuard: boolean; // 诚实性核验 guard(per-feature;claw 先开)
+  honestyChecks?: { citations?: boolean; delivery?: boolean; fullread?: boolean }; // 按位开关(prism 预备件)
   addDirs: string[];
   appendSystemPrompt?: string;
   title?: string;
@@ -90,13 +103,83 @@ export interface CreateOpts {
   sessionId?: string;
   workDir?: string;
   disallowedTools?: string[];
+  allowedMcpTools?: string[]; // MCP 正向白名单(去前缀原始名);控制面下发,空 = 不限制
+  honestyGuard?: boolean; // 诚实性核验 guard 旗标(2026-07 审计 P0-1/P0-2/P1-6;缺省 false)
+  honestyChecks?: { citations?: boolean; delivery?: boolean; fullread?: boolean }; // 核验维度按位开关
   addDirs?: string[];
   appendSystemPrompt?: string;
   // 用户市场 skill(内联内容):executor 物化到 <workDir>.skills/guides/ 并并入 addDirs。
   skills?: SessionSkillInput[];
+  // 脚手架预置(目前仅 "bolt-slides":制作PPT feature)。把镜像预装的模板铺进可写 cwd,
+  // node_modules 用 symlink 指回只读的 /opt 预装依赖。见 seedTemplate。
+  templateKind?: string;
+}
+
+// 镜像预装的脚手架根(Dockerfile: COPY bolt-slides-template /opt/bolt-slides + npm ci)。
+const BOLT_SLIDES_TEMPLATE_DIR = process.env.BOLT_SLIDES_TEMPLATE_DIR || "/opt/bolt-slides";
+// 铺设时跳过的目录/文件(node_modules 走 symlink;构建产物/缓存不铺)。
+const TEMPLATE_SKIP = new Set(["node_modules", "dist", "dist-single", ".git", ".bolt", ".vite-cache", ".npm-cache"]);
+
+// seedTemplate:把预装脚手架的**源码**铺进会话可写 cwd,并把 node_modules 软链到镜像里只读的预装依赖。
+// 幂等:重建/重连同一 workDir 再次铺设时覆盖源码、symlink 已存在则跳过。
+// 只在执行器进程内跑(非 bwrap;可访问 /opt),供 BuildDeck 工具随后 `npm run build:deck`。
+async function seedTemplate(workDir: string, kind: string): Promise<void> {
+  if (kind !== "bolt-slides") {
+    log.warn("seedTemplate: unknown templateKind, skipped", { kind });
+    return;
+  }
+  const root = BOLT_SLIDES_TEMPLATE_DIR;
+  const rootReal = root.endsWith("/") ? root.slice(0, -1) : root;
+  const src = await stat(rootReal).catch(() => null);
+  if (!src || !src.isDirectory()) {
+    log.error("seedTemplate: template dir missing", { root: rootReal });
+    return; // 缺模板不致命:BuildDeck 会因无 vite.config 明确报错
+  }
+  // 拷源码(排除 node_modules / 构建产物 / vcs)。cp 递归 + filter:目录被过滤则整棵跳过。
+  await cp(rootReal, workDir, {
+    recursive: true,
+    filter: (s) => {
+      const rel = s === rootReal ? "" : s.slice(rootReal.length + 1);
+      if (!rel) return true;
+      const top = rel.split("/")[0];
+      return !TEMPLATE_SKIP.has(top);
+    },
+  });
+  // node_modules → 只读预装依赖(省 inode;vite 构建只读它,缓存另落 .vite-cache 见 singlefile config)。
+  const nm = join(workDir, "node_modules");
+  const nmExists = await stat(nm).catch(() => null);
+  if (!nmExists) {
+    try {
+      await symlink(join(rootReal, "node_modules"), nm, "dir");
+    } catch (e) {
+      log.warn("seedTemplate: node_modules symlink failed", { err: String((e as Error)?.message ?? e) });
+    }
+  }
+  // 持久化模板种类到侧车标记(GC 保留),供 BuildDeck 在 workdir 被回收后自愈重铺。
+  await writeFile(templateMarkerPath(workDir), kind, "utf8").catch(() => {});
+  log.info("template seeded", { workDir, kind });
 }
 
 const sessions = new Map<string, SessionMeta>();
+
+// templateMarkerPath:会话模板种类的持久侧车(<workDir>.template,内容 = templateKind)。
+// 磁盘 GC 会删 workdir 但**保留**该标记 —— 它是「此会话是 PPT 工作区」的唯一跨重建信号,
+// 供 BuildDeck 自愈重铺;显式删会话时才随之删除。
+function templateMarkerPath(workDir: string): string {
+  return workDir + ".template";
+}
+
+// ensureBoltSlidesScaffold:BuildDeck 的脚手架自愈入口(审查发现):templateKind 只在
+// CreateSession 时铺设一次,workdir 被磁盘 GC 回收 / dev 容器重建后,重连会话经
+// getOrCreateEphemeral 重建的是**空目录**,BuildDeck 因缺 vite.config 永久失效且模型无法
+// 自救(boltslides 无 Bash、文件工具够不到 /opt)。BuildDeck 发现脚手架缺失时调这里:
+// 仅当侧车标记确认该会话曾是 bolt-slides 工作区才重铺(幂等),避免其它 feature 会话被误种。
+export async function ensureBoltSlidesScaffold(workDir: string): Promise<boolean> {
+  const kind = await readFile(templateMarkerPath(workDir), "utf8").then((s) => s.trim()).catch(() => "");
+  if (kind !== "bolt-slides") return false;
+  await seedTemplate(workDir, "bolt-slides");
+  return true;
+}
 
 // allowBash 由 denylist 推导:Bash 不在 denylist 即允许(claw 画像)。
 export function allowBashFor(meta: SessionMeta): boolean {
@@ -109,6 +192,14 @@ export async function createSession(opts: CreateOpts): Promise<SessionMeta> {
   // H4:默认 workDir 经 safeSessionDir 断言为 SESSIONS_ROOT 子目录(opts.workDir 来自 Go 控制面,可信)。
   const workDir = opts.workDir || safeSessionDir(SESSIONS_ROOT, sid);
   await mkdir(workDir, { recursive: true });
+  // 脚手架预置(制作PPT):把镜像预装模板铺进可写 cwd,供 BuildDeck 构建单文件演示稿。
+  if (opts.templateKind) {
+    try {
+      await seedTemplate(workDir, opts.templateKind);
+    } catch (e) {
+      log.error("seedTemplate failed", { kind: opts.templateKind, err: String((e as Error)?.message ?? e) });
+    }
+  }
   const addDirs = [...(opts.addDirs || [])];
   // 用户市场 skill:物化到 <workDir>.skills/guides/ 并并入 addDirs(guides 按需层)。
   const skillsDir = await materializeSessionSkills(workDir, opts.skills);
@@ -117,6 +208,9 @@ export async function createSession(opts: CreateOpts): Promise<SessionMeta> {
     sessionId: sid,
     workDir,
     disallowedTools: opts.disallowedTools || [],
+    allowedMcpTools: opts.allowedMcpTools || [],
+    honestyGuard: opts.honestyGuard === true,
+    honestyChecks: opts.honestyChecks,
     addDirs,
     appendSystemPrompt: opts.appendSystemPrompt,
     messages: [],
@@ -125,6 +219,7 @@ export async function createSession(opts: CreateOpts): Promise<SessionMeta> {
     lastActiveAt: Date.now(),
   };
   sessions.set(sid, meta);
+  touchWorkdirMarker(sid); // 建会话即落活跃标记,防新建即被 GC 误判(目录 mtime 兜底之外的显式信号)
   return meta;
 }
 
@@ -147,10 +242,13 @@ export async function deleteSession(sid: string): Promise<boolean> {
   // 旧逻辑 Map miss 直接 return false → backend 收 404 后照删 DB 行 → workspace 成永久孤儿(且卡死 backend GC)。
   // 改为 Map miss 时回退按约定路径 safeSessionDir(SESSIONS_ROOT, sid) 删目录,让删除对重启幂等。
   const workDir = m?.workDir || safeSessionDir(SESSIONS_ROOT, sid);
+  lastMarkerTouch.delete(sid);
   try {
     await rm(workDir, { recursive: true, force: true });
-    // 一并清理 per-session skill 物化目录(<workDir>.skills)。
+    // 一并清理 per-session skill 物化目录(<workDir>.skills)、GC 活跃标记(.active)与模板标记(.template)。
     await rm(skillsDirFor(workDir), { recursive: true, force: true });
+    await rm(workDir + ".active", { force: true });
+    await rm(templateMarkerPath(workDir), { force: true });
   } catch {
     /* best-effort */
   }
@@ -198,7 +296,103 @@ function hasActiveWs(sid: string): boolean {
 /** 刷新会话最近活动时刻(收到 user_message / WS 连接时调)。 */
 export function markSessionActive(sid: string): void {
   const m = sessions.get(sid);
-  if (m) m.lastActiveAt = Date.now();
+  if (m) {
+    m.lastActiveAt = Date.now();
+    touchWorkdirMarker(sid);
+  }
+}
+
+// ── 会话 workdir 磁盘 GC(2026-07 文件上传调研落地)────────────────────────────
+// 上面的内存淘汰「绝不删 workDir」,而 backend 侧也从来没有周期性磁盘 GC —— prod 把
+// sessions 根 bind-mount 到宿主后,上传/引用文献/产物跨请求无界累积(性能审计 P0)。
+// 这里补上唯一的磁盘回收:超过 TTL(默认 30 天,业界区间 7-30d,Anthropic code-execution
+// 容器为 30 天硬过期)不活跃的会话目录整体删除(含 .skills 兄弟目录)。
+// 安全性:对话耐久真源在 backend journal(agent_turns/turn_events),删目录不丢聊天记录;
+// 丢的是旧会话的上传文件 / 产物文件(与 dev 环境容器重建后的现状一致,前端对缺文件已有
+// 404 兜底)。活跃信号 = <workDir>.active 侧车文件 mtime(user_message/WS 活动时 touch,
+// 1h 节流)∨ 目录自身 mtime,取较新者。EXECUTOR_WORKDIR_TTL_DAYS=0 关闭。
+const WORKDIR_TTL_MS = Math.max(0, envNum("EXECUTOR_WORKDIR_TTL_DAYS", 30)) * 24 * 3600_000;
+const WORKDIR_GC_EVERY_MS = 6 * 3600_000; // GC 全盘扫描的最小间隔(挂在 5min sweeper 上节流)
+let lastWorkdirGcAt = 0;
+
+// 活跃标记放 cwd **外**的兄弟文件(与 .skills 同策略):不污染 workspace 树 / 不被成果收割 /
+// 不计入会话磁盘配额。
+function activityMarkerPath(workDir: string): string {
+  return workDir + ".active";
+}
+
+const lastMarkerTouch = new Map<string, number>();
+function touchWorkdirMarker(sid: string): void {
+  const m = sessions.get(sid);
+  if (!m) return;
+  const now = Date.now();
+  if (now - (lastMarkerTouch.get(sid) ?? 0) < 3600_000) return; // 1h 节流,防高频 IO
+  lastMarkerTouch.set(sid, now);
+  void writeFile(activityMarkerPath(m.workDir), "").catch(() => {});
+}
+
+// export 仅为单测直调(生产入口是 startSessionSweeper 的周期回调)。
+export async function sweepStaleWorkdirs(): Promise<void> {
+  if (WORKDIR_TTL_MS <= 0) return;
+  const now = Date.now();
+  if (now - lastWorkdirGcAt < WORKDIR_GC_EVERY_MS) return;
+  lastWorkdirGcAt = now;
+  let entries;
+  try {
+    entries = await readdir(SESSIONS_ROOT, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  let removed = 0;
+  for (const e of entries) {
+    if (!e.isDirectory()) {
+      // 孤儿 .active 标记(主目录已被显式删除/历史版本遗留)→ 直接清
+      if (e.name.endsWith(".active")) {
+        const dirName = e.name.slice(0, -".active".length);
+        if (!entries.some((x) => x.isDirectory() && x.name === dirName)) {
+          void rm(join(SESSIONS_ROOT, e.name), { force: true }).catch(() => {});
+        }
+      }
+      continue;
+    }
+    const name = e.name;
+    if (name.endsWith(".skills")) continue; // 随主目录一起删,不单独判
+    if (!validSessionId(name)) continue; // 非会话命名的目录(运维/挂载杂物)绝不动
+    if (hasActiveWs(name)) continue; // 有活跃 WS 连接的会话绝不动
+    const mem = sessions.get(name);
+    if (mem && now - mem.lastActiveAt <= WORKDIR_TTL_MS) continue;
+    const dir = join(SESSIONS_ROOT, name);
+    let activity = 0;
+    try {
+      activity = (await stat(activityMarkerPath(dir))).mtimeMs;
+    } catch {
+      /* 无标记(老目录)→ 退回目录 mtime */
+    }
+    try {
+      const s = await stat(dir);
+      activity = Math.max(activity, s.mtimeMs);
+    } catch {
+      continue; // racing delete
+    }
+    if (now - activity <= WORKDIR_TTL_MS) continue;
+    // rm 前复查(TOCTOU 收窄):stat 与 rm 之间该会话可能恰好重连/重建。
+    if (hasActiveWs(name)) continue;
+    const memNow = sessions.get(name);
+    if (memNow && Date.now() - memNow.lastActiveAt <= WORKDIR_TTL_MS) continue;
+    try {
+      await rm(dir, { recursive: true, force: true });
+      await rm(dir + ".skills", { recursive: true, force: true });
+      await rm(activityMarkerPath(dir), { force: true });
+      sessions.delete(name);
+      lastMarkerTouch.delete(name);
+      removed++;
+    } catch {
+      /* best-effort */
+    }
+  }
+  if (removed > 0) {
+    log.info("workdir GC: removed stale session dirs", { removed, ttlDays: WORKDIR_TTL_MS / 86_400_000 });
+  }
 }
 
 function sweepIdleSessions(): void {
@@ -232,10 +426,13 @@ function sweepIdleSessions(): void {
 
 let sweepTimer: ReturnType<typeof setInterval> | null = null;
 
-/** 启动会话内存淘汰的周期扫描(进程启动时调一次)。 */
+/** 启动会话内存淘汰 + workdir 磁盘 GC 的周期扫描(进程启动时调一次)。 */
 export function startSessionSweeper(): void {
   if (sweepTimer) return;
-  sweepTimer = setInterval(sweepIdleSessions, SWEEP_EVERY_MS);
+  sweepTimer = setInterval(() => {
+    sweepIdleSessions();
+    void sweepStaleWorkdirs(); // 内部自带 6h 节流;异步 best-effort,不阻塞内存淘汰
+  }, SWEEP_EVERY_MS);
 }
 
 export function setTitle(sid: string, title: string): boolean {

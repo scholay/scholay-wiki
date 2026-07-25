@@ -16,7 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar';
 import { DropdownMenuItem, DropdownMenuSeparator } from '@/shared/ui/dropdown-menu';
 import { http } from '@/shared/lib/http';
 import { getAuthToken } from '@/shared/lib/auth-token';
-import { useAuthStore, isAdminRole } from '@/stores/auth.store';
+import { useAuthStore, canAccessAdmin } from '@/stores/auth.store';
 import { cn } from '@/shared/lib/utils';
 
 // 会员档位展示(与账户资产卡一致):Pro=宝石/琥珀,Max=皇冠/品牌红,Free=免费/绿。
@@ -52,7 +52,7 @@ export function UserMenuContent() {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  const isAdmin = user ? isAdminRole(user.role) : false;
+  const isAdmin = user ? canAccessAdmin(user.role) : false;
   // 会员档位 —— 复用 ['settings','billing'] 缓存(与 QuotaNotifier / 会员页同源,通常已是热的)。
   // shared 不能引 feature API,这里直接打同一个 overview 端点。管理员不展示会员档,故不查。
   const { data: billing } = useQuery({

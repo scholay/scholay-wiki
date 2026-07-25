@@ -80,6 +80,10 @@ export function foldMessagesIntoTurns(
     toolBlockByUseId.get(toolUseId);
 
   for (const msg of messages) {
+    // blocked 轮(配额拦下 / 投递失败,消息从未到达服务端)不产生任何流帧 —— 对齐游标跳过它们。
+    // 不跳会让后续真实轮的帧错位折进 blocked 轮(例:命中额度被拦后不重发、直接问下一句的场景,
+    // 新一轮的回答会挂到 blocked 轮上、自己则永远 complete=false → busy 卡死)。同 claw fold。
+    while (turns[turnIdx] && turns[turnIdx].blocked) turnIdx++;
     const current = turns[turnIdx];
     if (!current) break;
 
@@ -126,6 +130,8 @@ export function foldMessagesIntoTurns(
         if (block) {
           block.result = msg.content;
           block.isError = msg.isError;
+          // 双轨制:面向用户的失败摘要(旧 agent 无此字段 → undefined,渲染层前端兜底)。
+          block.userMessage = msg.userMessage;
         }
         break;
       }
@@ -135,6 +141,9 @@ export function foldMessagesIntoTurns(
           ...(current.placeholder ?? {}),
           state: msg.state,
           verb: msg.verb,
+          // 等待可感知(W5 P1-D1):不再丢弃 status.elapsed;无新值时保留旧值(帧可能省略)。
+          elapsedSeconds:
+            typeof msg.elapsed === 'number' ? msg.elapsed : current.placeholder?.elapsedSeconds,
         };
         break;
       }
@@ -148,6 +157,8 @@ export function foldMessagesIntoTurns(
       case 'message_complete': {
         // 暂停打断时在途 tool_use 不会再有 tool_result —— 把它们标"已中止"避免永久转圈
         markPendingToolsAborted(current, !!current.paused);
+        // claim_audit 轻标注(W2 P1-b):捕获自动纠偏标记(渲染本批仅 claw;字段先同步透传)。
+        if (msg.claim_audit?.corrective_fired) current.claimAudited = true;
         current.complete = true;
         current.placeholder = undefined;
         currentTextBlock = null;
@@ -158,6 +169,8 @@ export function foldMessagesIntoTurns(
       case 'error': {
         markPendingToolsAborted(current, !!current.paused);
         current.errorMessage = msg.message;
+        // 捕获 errorCode(W5 P0-C3):供可重试错误判定 / code→文案映射(与 claw fold 同构)。
+        current.errorCode = msg.code;
         current.complete = true;
         current.placeholder = undefined;
         currentTextBlock = null;
@@ -183,7 +196,7 @@ export function foldMessagesIntoTurns(
 // 论文工具结果解析 已提升到 @/shared/lib/minicod-papers(admin 会话监控复用)。
 // 这里保留 re-export 维持既有 import 路径(PaperListScroller / AssistantTurn)。
 // ────────────────────────────────────────────────────────────────────────────
-export { parsePapersFromToolResult, MINICOD_TOOL_PREFIX } from '@/shared/lib/minicod-papers';
+export { parsePapersFromToolResult, toolResultHasPapers, MINICOD_TOOL_PREFIX } from '@/shared/lib/minicod-papers';
 
 // ────────────────────────────────────────────────────────────────────────────
 // 历史会话回放

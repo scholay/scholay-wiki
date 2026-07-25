@@ -16,12 +16,18 @@
 //   3. PushSessionFile 把原始字节 POST 给 agent /api/sessions/:id/files,
 //      agent 写进 ~/sessions/<sessionId>/ 并回落盘绝对路径
 //   4. 返回 { sessionId, path, type, name, mimeType, size } 给前端;
-//      前端把它放进下一条 user_message.attachments[].path, agent 用 Read 原生读
+//      前端把它放进下一条 user_message.attachments[].path, agent 端按类型读:
+//      图片 → base64 直嵌 vision; 纯文本 → Read; PDF/docx/xlsx/pptx/odt/rtf →
+//      ReadDocument (pdftotext/pandoc 抽文本, 全 feature 可用, 不依赖 Bash)。
 //
 // 为什么不抽文本:
-//   - PDF / 图片 / 文本类 Claude Code 的 Read 工具都能原生消费 (图片走 vision,
-//     PDF 走文档理解), 让大模型自己看比 backend 抽文本信息损失小、能力强。
+//   - agent 执行器有安全受限的 ReadDocument (固定 argv 转换器) + 图片 vision 通道,
+//     让大模型在会话内按需读比 backend 预抽取信息损失小、能力强。
 //   - backend 不碰文件内容 → 无 pdfparse 依赖、无 80K 截断、无 base64 撑爆 context。
+//
+// 白名单原则 (2026-07 文件上传调研): **收 = 能读**。凡容器内没有解析路径的格式
+// (旧版 doc/xls/ppt、ods/odp、bmp、svg) 一律在入口拒收并给出用户可执行的指引,
+// 绝不让"传上去了 AI 却打不开"的断层发生。
 //
 // 限制 (仍然要前端预校验, 改这里同步各 feature 的 Composer):
 //   - 图片 ≤ 5MB  (Anthropic vision 单图硬上限, 超了 agent 调模型时会 400)
@@ -46,6 +52,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"scholar-backend/internal/agent"
 	"scholar-backend/internal/agentbridge"
 )
 
@@ -158,7 +165,9 @@ func (u *Uploader) UploadToSession(c *gin.Context, sessionID string) (*Attachmen
 // parseAndValidateUpload — multipart 解析 + 类型白名单 + 大小限额 (纯校验, 不碰会话)。
 func parseAndValidateUpload(c *gin.Context) (fh *multipart.FileHeader, attType, outMime string, body []byte, err error) {
 	if perr := c.Request.ParseMultipartForm(MaxFileBytes); perr != nil {
-		return nil, "", "", nil, fmt.Errorf("文件过大或格式错误 (≤ %d MB)", MaxFileBytes/1024/1024)
+		// 走到这的超限是路由层 MaxBytesReader (50MB) 在读 body 时触发的, 不是 30MB —— 文案别谎报口径
+		// (2026-07 文件上传调研: 旧文案「≤30MB」误导)。
+		return nil, "", "", nil, errors.New("上传内容过大或格式错误 (单文件上限: 文件 30MB / 图片 5MB)")
 	}
 	fh, err = c.FormFile("file")
 	if err != nil {
@@ -177,6 +186,22 @@ func parseAndValidateUpload(c *gin.Context) (fh *multipart.FileHeader, attType, 
 		return nil, "", "", nil, errors.New("暂不支持 SVG 文件 (安全限制)")
 	}
 
+	// BMP: Anthropic vision 的 media_type 白名单只有 jpeg/png/gif/webp (agent attachments.ts 同款),
+	// 收了也嵌不进模型 (静默丢) —— 收口在上传层, 给用户明确指引 (2026-07 文件上传调研)。
+	if ext == ".bmp" || mime == "image/bmp" {
+		return nil, "", "", nil, errors.New("暂不支持 BMP 图片, 请转换为 PNG / JPG 后上传")
+	}
+
+	// 旧版 Office (doc/xls/ppt) 与 OpenDocument 表格/演示 (ods/odp): 容器内没有任何解析器
+	// (pandoc 只读 docx/xlsx/pptx/odt 系), 收了必然读不了 —— 上传口拒收并引导另存为新格式,
+	// 别让用户传完才发现 AI 打不开 (2026-07 文件上传调研: "收了读不了"体验断层)。
+	// ⚠️ 只按**扩展名**拒 (审查修正): mime 不可作为单独拒收依据 —— Windows 装 Excel/WPS 后
+	// 注册表把 .csv 映射成 application/vnd.ms-excel、.docx 映射成 application/msword,
+	// 按 mime 拒会把这些合法文件全杀。legacy mime 只在扩展名不认识时于 default 分支兜底。
+	if isLegacyOfficeExt(ext) {
+		return nil, "", "", nil, fmt.Errorf("暂不支持旧版 Office 格式 (%s), 请在 Office/WPS 中另存为 docx / xlsx / pptx 后再上传", ext)
+	}
+
 	switch {
 	case isImage(mime, ext):
 		if fh.Size > MaxImageBytes {
@@ -191,10 +216,18 @@ func parseAndValidateUpload(c *gin.Context) (fh *multipart.FileHeader, attType, 
 		attType = "file"
 		outMime = mimeOrFallback(mime, "text/plain")
 	case isOffice(mime, ext):
-		// office 二进制 (docx/xlsx/pptx/odt 等): agent 容器装了 pandoc/python+openpyxl,
-		// 用 Bash 转成可读文本 (大模型原生分析)。backend 不抽文本, 只放行推送。
+		// office 二进制 (docx/xlsx/pptx/odt/rtf): agent 端 ReadDocument 工具经 pandoc 抽文本
+		// (全 feature 可用, 不依赖 Bash); claw 另可用 Bash+openpyxl 对 xlsx 精读。
+		// backend 不抽文本, 只放行推送。
 		attType = "file"
 		outMime = mimeOrFallback(mime, "application/octet-stream")
+	case isUnsupportedImageMime(mime):
+		// image/* 但不在 vision 白名单 (tiff/heic/avif/heif…): 收了 agent 也嵌不进模型
+		// (attachments.ts 白名单只有 jpeg/png/gif/webp, 超白名单静默丢) —— 与 bmp 同因, 入口拒。
+		return nil, "", "", nil, fmt.Errorf("暂不支持该图片格式 (%s), 请转换为 PNG / JPG 后上传", mime)
+	case isLegacyOfficeMime(mime):
+		// 扩展名不认识 + legacy mime → 按旧版 Office 拒 (如无扩展名的 .doc 流)。
+		return nil, "", "", nil, errors.New("暂不支持旧版 Office 格式, 请在 Office/WPS 中另存为 docx / xlsx / pptx 后再上传")
 	default:
 		return nil, "", "", nil, fmt.Errorf("暂不支持的文件类型 (%s / %s); 可上传图片、PDF、Office 文档 (docx/xlsx/pptx)、Markdown / 纯文本", ext, mime)
 	}
@@ -220,6 +253,10 @@ func (u *Uploader) pushToSession(parent context.Context, sessionID string, fh *m
 	}
 	pushed, err := u.feature.AgentClient().PushSessionFile(ctx, sessionID, storedName, bytes.NewReader(body))
 	if err != nil {
+		if errors.Is(err, agent.ErrSessionQuotaExceeded) {
+			// agent 端会话累计配额帽(1GB/2000 文件):给用户可执行的指引,不走 infra 脱敏。
+			return nil, errors.New("当前会话的文件空间已满, 请删除部分历史文件、新开会话后再上传")
+		}
 		return nil, fmt.Errorf("文件推送失败: %w", err)
 	}
 
@@ -235,18 +272,31 @@ func (u *Uploader) pushToSession(parent context.Context, sessionID string, fh *m
 
 // ─── 类型嗅探 helpers ────────────────────────────────────────────────────
 
+// isImage — 仅认 vision 可嵌入的图片 (审查修正: 不再用 image/* 前缀兜底放行 ——
+// tiff/heic/avif 等收了 agent 也嵌不进模型, 静默丢成"幻影图片")。
+// mime 白名单与 agent attachments.ts IMAGE_MEDIA 对齐; .bmp 上传口已专门拒。
 func isImage(mime, ext string) bool {
-	if strings.HasPrefix(mime, "image/") {
+	switch mime {
+	case "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp":
 		return true
 	}
 	switch ext {
-	case ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp":
+	case ".png", ".jpg", ".jpeg", ".webp", ".gif":
 		return true
 	}
 	return false
 }
 
+// isUnsupportedImageMime — image/* 前缀但不在 vision 白名单 (isImage 已排除的余集)。
+// 单列谓词是为了给专属拒收文案 ("请转换为 PNG/JPG"), 而非落进含混的"暂不支持的文件类型"。
+func isUnsupportedImageMime(mime string) bool {
+	return strings.HasPrefix(mime, "image/") && !isImage(mime, "")
+}
+
 func normalizeImageMime(mime, ext string) string {
+	if mime == "image/jpg" { // 非标写法归一 (agent 白名单只认 image/jpeg)
+		return "image/jpeg"
+	}
 	if strings.HasPrefix(mime, "image/") {
 		return mime
 	}
@@ -259,8 +309,6 @@ func normalizeImageMime(mime, ext string) string {
 		return "image/webp"
 	case ".gif":
 		return "image/gif"
-	case ".bmp":
-		return "image/bmp"
 	}
 	return "image/png"
 }
@@ -288,25 +336,45 @@ func isPlainText(mime, ext string) bool {
 	return false
 }
 
-// isOffice — 二进制 office 文档系 (docx/xlsx/pptx 及 legacy doc/xls/ppt、OpenDocument、rtf)。
+// isOffice — agent 端**确实能读**的 office 文档系 (docx/xlsx/pptx/odt/rtf):
+// ReadDocument 工具经上游 pandoc ≥3.8.3 抽文本, 全 feature 可用。
 // 上传时浏览器/客户端常给 application/octet-stream, 所以主要靠扩展名白名单。
-// agent 端用 Bash + pandoc/python(openpyxl) 转成文本, 大模型再分析。
+// 旧版 doc/xls/ppt 与 ods/odp **不在此列** —— 容器无解析器, 由 isLegacyOffice 在入口拒收。
 func isOffice(mime, ext string) bool {
 	switch ext {
-	case ".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt",
-		".odt", ".ods", ".odp", ".rtf":
+	case ".docx", ".xlsx", ".pptx", ".odt", ".rtf":
 		return true
 	}
 	switch mime {
 	case "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 		"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 		"application/vnd.openxmlformats-officedocument.presentationml.presentation",
-		"application/msword",
+		"application/vnd.oasis.opendocument.text",
+		"application/rtf":
+		return true
+	}
+	return false
+}
+
+// isLegacyOfficeExt — 无解析器的旧版/冷门 Office 扩展名 (guard 拒收并引导另存为新格式)。
+// 只看扩展名: mime 不可信 (Windows 注册表会给 .csv/.docx 报 legacy mime, 见 guard 处注释)。
+func isLegacyOfficeExt(ext string) bool {
+	switch ext {
+	case ".doc", ".xls", ".ppt", ".ods", ".odp":
+		return true
+	}
+	return false
+}
+
+// isLegacyOfficeMime — legacy mime 兜底判定, 仅在扩展名不属于任何受支持类别时
+// (switch default 前) 使用, 用来给无扩展名的旧版 Office 流一个可执行的拒收文案。
+func isLegacyOfficeMime(mime string) bool {
+	switch mime {
+	case "application/msword",
 		"application/vnd.ms-excel",
 		"application/vnd.ms-powerpoint",
-		"application/vnd.oasis.opendocument.text",
 		"application/vnd.oasis.opendocument.spreadsheet",
-		"application/rtf":
+		"application/vnd.oasis.opendocument.presentation":
 		return true
 	}
 	return false

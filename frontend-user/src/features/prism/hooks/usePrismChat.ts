@@ -47,6 +47,13 @@ const nextId = () => `m${++seq}`;
 const DEFAULT_HISTORY_TURNS = 100;
 const HISTORY_STEP = 100;
 
+/** 未送达看门狗:send 后这么久既无 user_ack 也无任何流帧 → 判定未送达(半死 TCP:写进了本端
+ *  socket 缓冲但对端永远收不到),按 prism 语义解卡(标暂停 + 合成终帧走 finalizeRound)。 */
+const ACK_TIMEOUT_MS = 10_000;
+/** 停止兜底:发出 stop_generation 后这么久没等到真实终帧 → 本地合成完成帧收口本轮。
+ *  取远大于正常 abort 收尾时长;死连接场景重连后 hub 只回放在途轮,不存在「合成后真终帧才迟到」的错配。 */
+const STOP_FALLBACK_MS = 20_000;
+
 const stripPrefix = stripAgentBridgePrefix;
 
 // ── 乐观预览(用户选的「A」):agent 的 Write/Edit/MultiEdit 一拿到完整入参(tool_use_complete,
@@ -174,6 +181,9 @@ export function usePrismChat(
   const enabled = opts.enabled !== false;
   const wantSession = opts.sessionId || undefined; // 空串归一成 undefined(URL 省略 session_id)
   const socket = usePrismSocket(enabled ? projectId : null, wantSession, opts.resetNonce ?? 0);
+  // ref-latest:给 setTimeout 类回调读最新 socket(state / appendLocalFrame),闭包捕获的旧对象会过期。
+  const socketRef = useRef(socket);
+  socketRef.current = socket;
   const qc = useQueryClient();
   const contextQuery = usePrismContext(enabled ? projectId : undefined, wantSession); // footer 上下文水位;每轮结束失效刷新
   // 活动对话 id 放 ref:round 回调(send/apply/finalize/...)读它拼 ?session_id=,不必把 sessionId 塞进每个 useCallback 依赖。
@@ -216,6 +226,29 @@ export function usePrismChat(
   const lastInstructionRef = useRef('');
   const refetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const epochRef = useRef(''); // V3-4.4-1:轮次世代号(prepare/pending 取得,apply 带回;409=基线被别处推进)
+  // 未送达看门狗 timer(send 成功后挂;ack/流帧/配额/busy 任一信号撤销)+ 停止兜底 timer。
+  const ackWaitRef = useRef<number | null>(null);
+  const stopTimerRef = useRef<number | null>(null);
+  const clearAckWait = useCallback(() => {
+    if (ackWaitRef.current !== null) {
+      window.clearTimeout(ackWaitRef.current);
+      ackWaitRef.current = null;
+    }
+  }, []);
+  const clearStopFallback = useCallback(() => {
+    if (stopTimerRef.current !== null) {
+      window.clearTimeout(stopTimerRef.current);
+      stopTimerRef.current = null;
+    }
+  }, []);
+  // 卸载时清掉在途计时器(未送达看门狗 / 停止兜底),防迟到回调对已卸载组件 setState。
+  useEffect(
+    () => () => {
+      if (ackWaitRef.current !== null) window.clearTimeout(ackWaitRef.current);
+      if (stopTimerRef.current !== null) window.clearTimeout(stopTimerRef.current);
+    },
+    [],
+  );
 
   // 实时轮 = socket.messages + pendingTurns 折叠;叠在历史轮之后。
   const liveTurns = useMemo(
@@ -342,7 +375,11 @@ export function usePrismChat(
   // message_complete→finalize / error)。
   useEffect(() => {
     const msgs = socket.messages;
-    if (processedRef.current > msgs.length) processedRef.current = 0; // 续流 truncate 后重放
+    // 续流 truncate 后**钳位**而非归 0(审查修复):归 0 会把本 mount 里旧轮的 message_complete
+    // 重新喂进副作用循环 → finalizeRound 被旧终帧误触发,在途轮被提前收口、真终帧反被吞。
+    // truncate 只砍掉最后终帧之后的未完成轮残帧 —— 保留下来的帧全部早已消费过,钳到当前长度即可;
+    // 随后 hub 回放的在途轮帧从钳位点自然增量消费,不漏不重。
+    if (processedRef.current > msgs.length) processedRef.current = msgs.length;
     for (let i = processedRef.current; i < msgs.length; i++) {
       const evt = msgs[i];
       if (evt.type === 'tool_use_complete') {
@@ -400,11 +437,6 @@ export function usePrismChat(
       } catch {
         return; // 铺源失败不发(保留输入;409=本对话 AI 回答进行中,由忙态 UI 兜着)
       }
-      activeRef.current = active;
-      lastInstructionRef.current = ins;
-      roundActiveRef.current = true;
-      setChangeset(null);
-      setAppliedChange(null); // 开新一轮 → 清掉上一轮的「本次改动」标识
       // 2026-07 输入框统一:附件走方案 B(path 透传,hub 折 @"path");引用块追加到 content 末尾
       // (与 claw/smart-search 同构,历史回放解析回 chip)。
       const atts = extras?.attachments ?? [];
@@ -417,6 +449,32 @@ export function usePrismChat(
         // 已发送气泡里图片缩略图 —— 用后端取图代理 URL(与历史回放一致,刷新后仍有效)。
         previewUrl: a.type === 'image' && a.path ? prismSessionFileUrl(projectId, a.path) : undefined,
       }));
+      const seed = titleSeed?.trim();
+      // clientTurnId 预 mint:与后端 hub 的 user_ack{clientTurnId} 配对(投递确认),也是后端
+      // turn 日志的幂等键(重发/双击去重)。
+      const clientTurnId = crypto.randomUUID();
+      // send 判真(线上 busy 永久卡死修复):false = WS 已死但 React state 还没翻的陈旧窗口。
+      // 此时**不推进**本地状态机(不追加 pendingTurn / 不置 roundActive)—— 旧版 void 静默丢弃
+      // + 照常推进 = 永无终帧的幽灵轮,roundState 卡 'streaming'、composer 永久禁用。
+      // 注意 send 先于乐观状态更新,但到 setPendingTurns 之间无 await,不会有回应帧插队。
+      const sent = socket.send({
+        type: 'user_message',
+        content: ins + buildReferenceBlock(turnRefs),
+        clientTurnId,
+        ...(seed ? { titleSeed: seed } : {}),
+        ...(atts.length > 0
+          ? { attachments: atts.map((a) => ({ type: a.type, name: a.name, mimeType: a.mimeType, path: a.path })) }
+          : {}),
+      });
+      if (!sent) {
+        toast.error('连接未就绪,请稍后重试');
+        return;
+      }
+      activeRef.current = active;
+      lastInstructionRef.current = ins;
+      roundActiveRef.current = true;
+      setChangeset(null);
+      setAppliedChange(null); // 开新一轮 → 清掉上一轮的「本次改动」标识
       setPendingTurns((prev) => [...prev, {
         id: nextId(),
         userText: ins,
@@ -425,17 +483,23 @@ export function usePrismChat(
       }]);
       setRoundState('streaming');
       setLive({ relPath: active.relPath, baseline: active.baseline, content: active.baseline });
-      const seed = titleSeed?.trim();
-      socket.send({
-        type: 'user_message',
-        content: ins + buildReferenceBlock(turnRefs),
-        ...(seed ? { titleSeed: seed } : {}),
-        ...(atts.length > 0
-          ? { attachments: atts.map((a) => ({ type: a.type, name: a.name, mimeType: a.mimeType, path: a.path })) }
-          : {}),
-      });
+      // 未送达看门狗:send 返回 true 只代表写进了本端 socket 缓冲,半死 TCP 下仍可能永远到不了
+      // 后端(该轮永无终帧)。10s 内既无 user_ack 也无任何流帧 → 按 prism 语义解卡:标「已暂停」
+      // + 合成 message_complete{aborted:true} 交给 processedRef 增量循环 → finalizeRound 收口
+      // (fold 视 message_complete 为终结信号,轮位对齐不破坏;aborted=true 保证即便 cwd 有残留
+      // 改动也走确认门、绝不 autoApply)。撤销条件见下方 ackWait 撤销 effect。
+      clearAckWait();
+      ackWaitRef.current = window.setTimeout(() => {
+        ackWaitRef.current = null;
+        if (!roundActiveRef.current) return; // 轮已被其他路径收口(真终帧/配额/busy)→ 不合成
+        setPendingTurns((prev) =>
+          prev.length ? [...prev.slice(0, -1), { ...prev[prev.length - 1], paused: true }] : prev,
+        );
+        socket.appendLocalFrame({ type: 'message_complete', aborted: true });
+        toast.error('消息未能送达,请重试');
+      }, ACK_TIMEOUT_MS);
     },
-    [projectId, roundState, socket],
+    [projectId, roundState, socket, clearAckWait],
   );
 
   const clearPending = () => {
@@ -504,8 +568,29 @@ export function usePrismChat(
     setPendingTurns((prev) =>
       prev.length ? [...prev.slice(0, -1), { ...prev[prev.length - 1], paused: true }] : prev,
     );
+    // send 失败(连接死)不特殊处理 —— agent 反正收不到,直接靠下面的兜底收口。
     socket.send({ type: 'stop_generation' });
-  }, [socket]);
+    // 20s 停止兜底(线上卡死修复):正常路径 agent 对 stop 回 message_complete{aborted} →
+    // finalizeRound 收口、roundState 离开 'streaming'(下方 effect 清计时器)。等不到真实终帧
+    // (连接死 / agent 空转 no-op / 幽灵轮)→ 本地合成同款终帧交给增量循环收口 —— 停止按钮从此
+    // 是**永远有效**的逃生口,不会点一次就永久转圈。
+    clearStopFallback();
+    stopTimerRef.current = window.setTimeout(() => {
+      stopTimerRef.current = null;
+      if (!roundActiveRef.current) return; // 真终帧已到,轮已收口 → 不合成(防多余终帧错配后续轮)
+      // 断连中不合成(审查修复):该轮可能仍在服务端进行,重连回放会与本地合成终帧错配串位 ——
+      // 交给重连后的 resync 收口。只在连接健康(= agent 空转 no-op / 幽灵轮)时本地收口。
+      if (socketRef.current.state !== 'open') return;
+      socketRef.current.appendLocalFrame({ type: 'message_complete', aborted: true });
+    }, STOP_FALLBACK_MS);
+  }, [socket, clearStopFallback]);
+
+  // 轮收口(roundState 离开 'streaming':真终帧到 → awaiting_apply/idle,或各解卡 effect 置 idle)
+  // 时撤销停止兜底计时器;timer 回调里的 roundActiveRef 判空是它的兜底(autoApply 固化期间
+  // roundState 短暂回 'streaming',靠 ref 防误合成)。
+  useEffect(() => {
+    if (roundState !== 'streaming') clearStopFallback();
+  }, [roundState, clearStopFallback]);
 
   // 进项目 / 切对话(重入):① 拉该对话 agent 历史(最近 N 轮)折成 turns ② 拉 /round/pending,有未应用改动直接进 awaiting_apply。
   // 多对话:deps 含 wantSession —— 切对话(sessionId 变)时先把本地状态清成空白(旧对话的历史/待应用/在途轮不残留到新对话),
@@ -529,6 +614,8 @@ export function usePrismChat(
     roundActiveRef.current = false;
     activeRef.current = null;
     epochRef.current = '';
+    clearAckWait(); // 旧对话在途计时器不残留到新对话(否则迟到超时会误收口新对话的轮)
+    clearStopFallback();
     (async () => {
       const res = await fetchWSHistory(projectId, DEFAULT_HISTORY_TURNS, sid()).catch(() => null);
       if (cancelled) return;
@@ -575,7 +662,9 @@ export function usePrismChat(
     if (!socket.resyncUserText) return;
     if (roundActiveRef.current) return; // 本地仍有在途轮,无需补
     roundActiveRef.current = true;
-    processedRef.current = 0; // 让回放事件从头进副作用循环
+    // 审查修复:这里**不再** processedRef 归 0 —— 本 mount 已有完成轮时,归 0 同样把旧终帧重喂
+    // finalizeRound(与上面 truncate 钳位同款隐患的第二入口)。回放帧在 resync_start 截断之后才
+    // append,增量循环从当前位置自然消费即可。
     setPendingTurns((prev) => [...prev, { id: nextId(), userText: stripPrefix(socket.resyncUserText!) }]);
     setRoundState('streaming');
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -626,11 +715,48 @@ export function usePrismChat(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket.quotaExceeded]);
 
+  // 未送达看门狗撤销:ack 到达 / 任何新流帧到达(回答已开始 = 必然送达)/ 配额·busy 信号
+  // (该轮已被上面各自的 effect 处置)。保守撤销即便偶有误撤(如恰逢 pong 前后帧),也有下面的
+  // resync-idle 对账兜底。
+  useEffect(() => {
+    if (ackWaitRef.current === null) return;
+    clearAckWait();
+  }, [socket.userAck, socket.messages.length, socket.quotaExceeded, socket.busyRejected, clearAckWait]);
+
+  // ── resync-idle 对账(「终帧永久丢失」闭环,线上 busy 永久卡死事故的核心修复;模板 = 上面的
+  //    quotaExceeded 解卡 effect)────────────────────────────────────────────────────────────
+  // (重)建连时 hub 在回放段末尾发 resync_end{inFlight:false} =「服务端当前无在途轮」的权威信号
+  // (socket 层转成 resyncIdle 单调计数)。若此刻本地 roundActiveRef 仍认为有在途轮,该轮的终帧
+  // 永远不会来了(断连期间轮已结束 / agent·backend 中途死过 / 消息根本没送达)→ 当场收口:
+  // 标「已暂停」+ 合成 message_complete{aborted:true},复用 prism 自己的收轮机器(processedRef
+  // 增量循环 → finalizeRound):fetchPendingRound 会把断连期间 agent 已写进 cwd 的改动捞回确认门
+  // (与重入恢复同一 V3-4.4-2 语义 —— 无法证明来自成功轮,绝不 autoApply);幽灵轮(agent 没跑,
+  // cwd 无 diff)则 0 文件 → 直接回 idle。不走 quota 式「只标 paused + 置 idle」:那会让 fold 里
+  // 这轮永远 complete=false,下一轮的流帧会错位折进死轮(quota 场景无该轮任何帧,风险小;此处
+  // 死轮可能已有半截内容,必须按位收口)。
+  // 守卫:ackWait 在途(刚 send 尚未确认送达)不动 —— 那条消息可能正被服务端处理,归看门狗管。
+  // 除此之外 prism 不需要更多守卫:发送成功后同步置 roundActive(无 claw 懒新建那种「排队待 flush」
+  // 窗口),且 resync_end 在建连回放段入队、帧序必先于本连接 send 之后的回应帧,不会误伤刚发的轮。
+  const lastResyncIdleRef = useRef(0);
+  useEffect(() => {
+    if (socket.resyncIdle === 0 || socket.resyncIdle === lastResyncIdleRef.current) return;
+    lastResyncIdleRef.current = socket.resyncIdle;
+    if (!roundActiveRef.current) return;
+    if (ackWaitRef.current !== null) return;
+    setPendingTurns((prev) =>
+      prev.length ? [...prev.slice(0, -1), { ...prev[prev.length - 1], paused: true }] : prev,
+    );
+    socket.appendLocalFrame({ type: 'message_complete', aborted: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socket.resyncIdle]);
+
   const newChat = useCallback(() => {
     socket.clearMessages();
     processedRef.current = 0;
     roundActiveRef.current = false;
     activeRef.current = null;
+    clearAckWait();
+    clearStopFallback();
     setPendingTurns([]);
     setHistoryTurns([]);
     setChangeset(null);
@@ -638,7 +764,7 @@ export function usePrismChat(
     setRoundState('idle');
     setLive(null);
     clearPending();
-  }, [socket]);
+  }, [socket, clearAckWait, clearStopFallback]);
 
   return {
     projectId, // 2026-07 输入框统一:panel 拼 /prism/projects/:id/{upload,reference} 端点用
@@ -670,7 +796,10 @@ export function usePrismChat(
     newChat,
     // P2 模型目录:会话当前模型(服务端 runtime_config_updated 广播)+ 切换动作(hub 校验落 pinned_model)。
     sessionModel: socket.sessionModel,
-    setModel: (id: string | null) =>
-      socket.send({ type: 'set_runtime_config', providerId: null, modelId: id ?? '', useDefault: id === null }),
+    setModel: (id: string | null) => {
+      socket.send({ type: 'set_runtime_config', providerId: null, modelId: id ?? '', useDefault: id === null });
+      // 切模型即刷新水位分母(异构窗口;审计 P2-4)。
+      qc.invalidateQueries({ queryKey: ['prism', 'context', projectId] });
+    },
   };
 }

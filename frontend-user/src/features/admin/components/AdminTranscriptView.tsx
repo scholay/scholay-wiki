@@ -7,6 +7,9 @@ import {
 import {
   AssistantBubble,
   ChatStyles,
+  MinicodAuthorCards,
+  MinicodJournalCards,
+  MinicodSnippetCards,
   PausedNotice,
   PaperListReadonly,
   ProcessFold,
@@ -18,6 +21,7 @@ import {
   extractToolSourceBrand,
 } from '@/shared/components/chat';
 import { MINICOD_TOOL_PREFIX } from '@/shared/lib/minicod-papers';
+import { classifyMinicodToolResult } from '@/shared/lib/minicod-results';
 import { Button } from '@/shared/ui/button';
 import type { Turn, TurnAttachment } from '@/shared/types/chat';
 import type { TranscriptEntry } from '../api/session-monitor';
@@ -102,7 +106,8 @@ function AdminAttachmentChips({
  * 保证「管理员看到的 = 用户看到的」:
  *   - 折叠选项同款:claw 走 parseUserEntryWithAttachments(@"path" 附件前缀 → chip);
  *   - 附件 chips / 错误卡 / 「已暂停」标识 / 空文本块过滤 全部对齐;
- *   - smart-search:minicod 工具 chip 带「源品牌 + 搜索词」、结果渲染只读论文卡(expandable=false 同款);
+ *   - smart-search:minicod 工具 chip 带「源品牌 + 搜索词」、是论文列表才渲染只读论文卡并隐藏 JSON,
+ *     非论文结果回退默认可展开工具块(与用户端同款安全网);
  *   - prism:「处理过程 · N 步」折叠 + 末尾总结常驻(shared ProcessFold 同一份组件)。
  * 只读差异(刻意):无输入框 / 无流式光标 / 论文卡无收藏暂存交互 / claw 产物卡不展示
  * (artifacts 走用户态 API,管理端无对应端点)。
@@ -129,7 +134,8 @@ function TurnTail({ turn }: { turn: Turn }) {
   );
 }
 
-/** claw 镜像(MessageTurn 只读版):附件 chips(可点开预览)+ 顺序块 + 错误/暂停。 */
+/** claw 镜像(MessageTurn 只读版):附件 chips(可点开预览)+ 顺序块(minicod 工具同用户端特化成
+ *  论文/期刊/作者/片段只读卡,其余工具走默认 ToolCallBlock)+ 错误/暂停。 */
 function ClawTurn({
   turn,
   sessionId,
@@ -155,6 +161,28 @@ function ClawTurn({
           if (!b.text) return null;
           return <AssistantBubble key={b.id} text={b.text} />;
         }
+        // minicod 工具:与用户端 claw(MessageTurn)同款 —— 按 dispatcher 判定结果类型渲成对应只读卡
+        // (论文 / 期刊 / 作者 / 原文片段)并隐藏 JSON + 露出品牌/搜索词 chip;'unknown' 才回退默认可展开,
+        // 让管理员至少能看到原始 JSON。非 minicod 工具(Bash / Read / 交付物等)维持默认 ToolCallBlock。
+        if (b.toolName.startsWith(MINICOD_TOOL_PREFIX)) {
+          const kind =
+            b.result !== undefined ? classifyMinicodToolResult(b.result, b.toolName) : 'unknown';
+          return (
+            <div key={b.id} className="space-y-2 min-w-0">
+              <ToolCallBlock
+                tool={b}
+                expandable={kind === 'unknown'}
+                renderHeaderExtras={() => (
+                  <ToolHeaderExtras brand={extractToolSourceBrand(b.input)} query={extractToolQuery(b.input)} />
+                )}
+              />
+              {kind === 'papers' && <PaperListReadonly content={b.result} />}
+              {kind === 'journals' && <MinicodJournalCards content={b.result} />}
+              {kind === 'authors' && <MinicodAuthorCards content={b.result} />}
+              {kind === 'snippets' && <MinicodSnippetCards content={b.result} />}
+            </div>
+          );
+        }
         return <ToolCallBlock key={b.id} tool={b} />;
       })}
       <TurnTail turn={turn} />
@@ -177,15 +205,24 @@ function SearchTurn({ turn }: { turn: Turn }) {
         const query = extractToolQuery(b.input);
         const brand = extractToolSourceBrand(b.input);
         if (isMinicod) {
-          // 与用户端同款:结果已可视化成卡片列表,chip 不再展开 JSON(expandable=false)。
+          // 与用户端同款:按 dispatcher 判定结果类型可视化成对应只读卡(论文 / 期刊 / 作者 / 原文片段)
+          // 并隐藏 JSON;'unknown'(OpenAlex 实体/recommend 空壳等无法识别)才回退默认可展开,
+          // 让管理员至少能看到原始 JSON,不再静默隐形。
+          const kind =
+            b.result !== undefined
+              ? classifyMinicodToolResult(b.result, b.toolName)
+              : 'unknown';
           return (
             <div key={b.id} className="space-y-2 min-w-0">
               <ToolCallBlock
                 tool={b}
-                expandable={false}
+                expandable={kind === 'unknown'}
                 renderHeaderExtras={() => <ToolHeaderExtras brand={brand} query={query} />}
               />
-              {b.result !== undefined && <PaperListReadonly content={b.result} />}
+              {kind === 'papers' && <PaperListReadonly content={b.result} />}
+              {kind === 'journals' && <MinicodJournalCards content={b.result} />}
+              {kind === 'authors' && <MinicodAuthorCards content={b.result} />}
+              {kind === 'snippets' && <MinicodSnippetCards content={b.result} />}
             </div>
           );
         }

@@ -94,9 +94,9 @@ func (h *Handler) ListBindings(c *gin.Context) {
 func (h *Handler) ListUserModels(c *gin.Context) {
 	feature := c.Query("feature")
 	switch feature {
-	case "smart_search", "claw", "prism":
+	case "smart_search", "claw", "prism", "boltslides", "sci_draw":
 	default:
-		feature = "claw" // 未知/缺省按 claw(选择器目前只挂三个对话 feature)
+		feature = "claw" // 未知/缺省按 claw(选择器目前挂对话 feature)
 	}
 	userID := c.GetUint("user_id")
 	utils.SuccessResponse(c, http.StatusOK, "success", h.service.ListForUser(userID, feature))

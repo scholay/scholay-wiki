@@ -142,19 +142,19 @@ func (s *Service) analyzeWithRetry(ctx context.Context, paperTitle, abstract str
 			slog.Info("Analysis retry", "attempt", attempt, "maxRetries", AnalysisMaxRetries, "paperId", paperId)
 		}
 
-		response, err := s.ChatCompletionWithTools(ctx, messages, nil, "", thirdparty.ModelLevelLow)
+		// 论文分析(对比矩阵):走 agent 单次补全,模型由 project.analysis 能力绑定选;
+		// 未接线时 CompleteText 内部回退旧第三方路径(ModelLow)。
+		raw, err := s.CompleteText(ctx, messages, PurposeAnalysis)
 		if err != nil {
 			slog.Error("AI analysis failed", "attempt", attempt, "err", err)
 			continue
 		}
-
-		if len(response.Choices) == 0 {
+		if strings.TrimSpace(raw) == "" {
 			slog.Error("No response from AI", "attempt", attempt)
 			continue
 		}
 
-		content := strings.TrimSpace(response.Choices[0].Message.Content)
-		content = s.extractJSONFromContent(content)
+		content := s.extractJSONFromContent(strings.TrimSpace(raw))
 
 		// 容忍标签模式下 AI 直接返回数组的情况:`{"studyType": ["原创"]}` 这种
 		// 因为 map[string]string 会 Unmarshal 失败,改用 map[string]any 然后逐项
@@ -375,16 +375,7 @@ func (s *Service) convertMapToResult(dataMap map[string]string, dimensions []Ana
 	return result
 }
 
-// ChatCompletionWithLevel calls AI model without streaming and returns the complete response
-// ReviewText —— 一次性廉价点评补全(prism 快通道 V3-4.5-1):system + user 两条消息、ModelLow。
-// 作为 prism.InlineReviewFn 的实现被 SetInlineReviewFn 注入(方法值,免 bootstrap 重新耦合 ai 类型)。
-func (s *Service) ReviewText(ctx context.Context, system, user string) (string, error) {
-	return s.ChatCompletionWithLevel(ctx, []ChatMessage{
-		{Role: "system", Content: system},
-		{Role: "user", Content: user},
-	}, thirdparty.ModelLevelLow)
-}
-
+// ChatCompletionWithLevel calls AI model without streaming and returns the complete response.
 func (s *Service) ChatCompletionWithLevel(ctx context.Context, messages []ChatMessage, modelLevel thirdparty.ModelLevel) (string, error) {
 	result, err := s.executeWithRetry(ctx, modelLevel, func(config *thirdparty.AIModelConfig, _ uint) (any, *aiUsage, error) {
 		modelCode := config.ModelLow

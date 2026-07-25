@@ -1,0 +1,29 @@
+{
+  "title": "RTK–RAS–MAPK 信号通路",
+  "subtitle": "Receptor Tyrosine Kinase → MAPK Signaling",
+  "compartments": [
+    {"id":"ext","kind":"extracellular","label":"细胞外 · Extracellular"},
+    {"id":"mem","kind":"membrane","label":"细胞膜"},
+    {"id":"cyto","kind":"cytoplasm","label":"细胞质 · Cytoplasm"},
+    {"id":"nuc","kind":"nucleus","label":"细胞核 · Nucleus"}
+  ],
+  "entities": [
+    {"id":"gf","compartment":"ext","iconKey":"protein","label":"生长因子"},
+    {"id":"rtk","compartment":"mem","iconKey":"membrane_receptor","label":"RTK 受体"},
+    {"id":"grb2","compartment":"cyto","label":"GRB2/SOS","color":"blue"},
+    {"id":"ras","compartment":"cyto","label":"RAS-GTP","color":"green"},
+    {"id":"raf","compartment":"cyto","label":"RAF","color":"green"},
+    {"id":"mek","compartment":"cyto","label":"MEK","color":"green"},
+    {"id":"erk","compartment":"cyto","label":"ERK","color":"orange"},
+    {"id":"tf","compartment":"nuc","label":"转录因子","color":"purple"},
+    {"id":"dna","compartment":"nuc","iconKey":"dna","label":"靶基因"},
+    {"id":"gene","compartment":"nuc","label":"IL-2 等基因","color":"purple"}
+  ],
+  "edges": [
+    {"source":"gf","target":"rtk","label":"结合"},
+    {"source":"rtk","target":"grb2","label":"磷酸化招募","type":"activate"},
+    {"source":"grb2","target":"ras"},{"source":"ras","target":"raf"},{"source":"raf","target":"mek"},{"source":"mek","target":"erk"},
+    {"source":"erk","target":"tf","label":"入核","type":"transport"},
+    {"source":"tf","target":"gene"}
+  ]
+}

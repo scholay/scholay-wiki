@@ -14,6 +14,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"scholar-backend/internal/common/circuitbreaker"
 	"scholar-backend/internal/common/ctxutil"
 	"scholar-backend/internal/common/safego"
 )
@@ -165,6 +166,13 @@ func (s *Service) pushAndRecord(ctx context.Context, cfg *AgentConfig) error {
 		}
 	}
 	if err != nil {
+		// P5(2026-07):熔断打开导致的短路(circuit breaker is open / too many requests)是**内部 sentinel**,
+		// 不是端点本身出错——常见于「另一类调用(如 skill 501)连坐熔断」的窗口期(拆断路器后已大幅减少)。
+		// 不把它写成端点级 push_error,避免自愈后状态成为无人刷新的孤儿假报警(徽章已改读实时健康探测)。
+		if circuitbreaker.IsCircuitBreakerError(err) {
+			slog.Warn("agent config: push short-circuited by breaker (not an endpoint failure), skip MarkPushFailed", "err", err)
+			return err
+		}
 		if markErr := s.repo.MarkPushFailed(err.Error()); markErr != nil {
 			slog.Warn("agent config: mark push failed status write failed",
 				"err", markErr, "push_err", err)

@@ -20,14 +20,28 @@ import (
 )
 
 var authorEnrichFields = []string{"authorId", "name", "affiliations", "homepage", "paperCount", "citationCount", "hIndex", "orcid"}
-var authorWorksFields = []string{"paperId", "title", "year", "venue", "citationCount", "source"}
+
+// authorWorksFields —— 拉作者代表作时向 minicod 请求的字段。
+// 注意:**不要**再加 "source" —— 上游 /v1/stc/authors/papers 已不再支持选 source 字段,
+// 带上会整条请求 400("Unrecognized or unsupported fields: [source]"),代表作永远拉不到。
+// 每篇论文的来源可从作者自身 source 回填,无需逐篇向上游请求。
+var authorWorksFields = []string{"paperId", "title", "year", "venue", "citationCount"}
 
 const maxTopWorks = 6 // noscript 代表作条数上限:够体现产出、又不至于让页面无限长
 
 // RunAuthorBackfill 扫「未回填」的作者,逐个拉 minicod 补机构/指标/代表作,直到扫空或 ctx 取消。
-// 返回补到实质内容(机构或代表作)的作者数。整批统一打 enriched_at。
+// 返回补到实质内容(机构或代表作)的作者数。
+//
+// 收敛保证(为什么这么写):ListAuthorsToEnrich 取的是 enriched_at IS NULL 的行。若「拉失败就
+// 永不标记」,那些**永久性失败**的作者(404 查无此人 / 400 参数错)会 enriched_at 永远为 NULL、
+// 每轮被重选 → 外层 for{} 永不返回 → 变成每 2s 一次的热循环空转,还把共享 MinicodBreaker 顶开
+// (线上事故根因)。因此:
+//   - 成功 或 客户端侧永久错误(minicod.IsClientSideError:404/400/鉴权)→ 打 enriched_at「退休」;
+//   - 暂时性错误(限流/熔断 open/5xx/网络)→ 不退休,留给下个 RunInterval(6h)周期重试;
+//   - attempted 集合保证「同一轮」里对暂时性失败者不会被重复处理 → 单次 run 必然终止。
 func (e *Enricher) RunAuthorBackfill(ctx context.Context) (int, error) {
 	filled := 0
+	attempted := make(map[string]bool) // 本轮已尝试过的作者:防止暂时性失败者在同一轮被无限重选
 	for {
 		if ctx.Err() != nil {
 			return filled, ctx.Err()
@@ -40,26 +54,45 @@ func (e *Enricher) RunAuthorBackfill(ctx context.Context) (int, error) {
 			return filled, nil
 		}
 		done := make([]string, 0, len(refs))
+		progressed := false // 本批是否处理了「本轮还没试过」的新作者
 		for _, r := range refs {
 			if ctx.Err() != nil {
+				_ = e.svc.MarkAuthorsEnriched(done) // flush 已完成的再退出
 				return filled, ctx.Err()
 			}
+			if attempted[r.AuthorID] {
+				continue // 本轮已试过(上次暂时性失败没退休)—— 跳过,交给下个 6h 周期
+			}
+			attempted[r.AuthorID] = true
+			progressed = true
+
 			ok, fetchErr := e.enrichOneAuthor(ctx, r.AuthorID)
-			if fetchErr != nil {
-				// 拉失败(限流/熔断)—— 不标记该作者(下轮重试);sleep 后继续本批剩余。
-				slog.Warn("seoenrich: author fetch failed", "author_id", r.AuthorID, "err", fetchErr)
-			} else {
+			switch {
+			case fetchErr == nil:
 				done = append(done, r.AuthorID)
 				if ok {
 					filled++
 				}
+			case minicod.IsClientSideError(fetchErr):
+				// 404 查无此人 / 400 参数错 —— 重试也不会变,退休该作者(打 enriched_at),
+				// 否则它每轮被重选,形成热循环空转。
+				done = append(done, r.AuthorID)
+				slog.Debug("seoenrich: author permanently unresolvable, retiring", "author_id", r.AuthorID, "err", fetchErr)
+			default:
+				// 暂时性(限流/熔断 open/5xx/网络)—— 不退休,留给下个 6h 周期重试。
+				slog.Warn("seoenrich: author fetch failed (transient, retry next cycle)", "author_id", r.AuthorID, "err", fetchErr)
 			}
 			if !sleepCtx(ctx, e.cfg.BatchDelay) {
+				_ = e.svc.MarkAuthorsEnriched(done) // flush 已完成的再退出
 				return filled, ctx.Err()
 			}
 		}
 		if err := e.svc.MarkAuthorsEnriched(done); err != nil {
 			slog.Warn("seoenrich: MarkAuthorsEnriched failed", "err", err)
+		}
+		if !progressed {
+			// 本批全是「已试过的暂时性失败」残留 —— 无新进展,结束本轮,交给 RunInterval ticker。
+			return filled, nil
 		}
 		slog.Info("seoenrich: author backfill batch done", "batch", len(refs), "filled_total", filled)
 	}

@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"regexp"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -110,6 +111,14 @@ func (v *JournalValidator) compareSession(ctx context.Context, sid string) {
 		slog.Error("journal_validate_mismatch", "journal_validate", 1, "kind", "assistant_text",
 			"session_id", sid, "journal_len", len(jText), "daemon_len", len(dText))
 	}
+	// W3 P1-B DSML 事后雷达:对双侧 assistant 全文扫协议标记子串。纯审计告警(本层铁律只读,
+	// 拦截由 agent 侧 leakGuard 源头过滤负责),用于量化源头防线的漏网率。
+	scanDSMLMarkers(sid, "journal", jText)
+	scanDSMLMarkers(sid, "daemon", dText)
+	// W2 P1-a 诚实性事后雷达:assistant 全文抽 DOI,与 journal 内全部 tool_result/user 证据
+	// 文本比对 —— 未命中 = 疑似凭训练记忆编造的引用。只告警不拦截(本层铁律只读;live 纠偏由
+	// agent 侧 honesty guard 负责,此处量化其漏网率)。
+	scanUnverifiedDOIs(sid, jMsgs, jText)
 	if jt, dt := toolNameSeq(jMsgs), toolNameSeq(dResp.Messages); !equalStrSeq(jt, dt) {
 		atomic.AddInt64(&journalValidateMismatch, 1)
 		slog.Error("journal_validate_mismatch", "journal_validate", 1, "kind", "tool_sequence",
@@ -153,14 +162,134 @@ func equalStrSeq(a, b []string) bool {
 	return true
 }
 
+// correctiveUserPrefix 执行器自注入的「系统纠偏」user 消息统一前缀(冻结契约 #4,与 agent 侧
+// 常量逐字一致,两侧注释互相锚定)。诚实性核验 / 语言纠偏 / ASCII 纠偏共用此前缀。
+// 这些消息只进 executor 侧 transcript、不经 hub(不产生 EvUserMessage)→ parity 校验必须豁免,
+// 同时保证用户侧历史干净(前端历史读 journal,纠偏指令永不显示给用户)。
+const correctiveUserPrefix = "【系统纠偏】"
+
 func countUserMsgs(msgs []agent.SessionMessage) int {
 	n := 0
 	for _, m := range msgs {
-		if m.Type == "user" {
+		if m.Type == "user" && !isSyntheticUserMsg(m) {
 			n++
 		}
 	}
 	return n
+}
+
+// isSyntheticUserMsg 判定执行器自注入的合成 user 消息(冻结契约 #4 的两类,journal 无对应事件):
+//  1. 纠偏指令 —— 首个 text 块以 correctiveUserPrefix 开头;
+//  2. max_tokens 撞顶恢复 —— 仅含 tool_result 块、无任何 text 块的 user 消息。
+//
+// journal 折叠侧永远不会出现这两类(它们不经 hub),豁免逻辑对双侧调用是安全的 no-op / 收敛。
+func isSyntheticUserMsg(m agent.SessionMessage) bool {
+	var blocks []struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	}
+	if err := json.Unmarshal(m.Content, &blocks); err != nil || len(blocks) == 0 {
+		return false
+	}
+	hasText := false
+	for _, b := range blocks {
+		if b.Type == "text" {
+			hasText = true
+			if strings.HasPrefix(strings.TrimSpace(b.Text), correctiveUserPrefix) {
+				return true // 纠偏指令
+			}
+		}
+	}
+	return !hasText // 全部是 tool_result 等非 text 块(max_tokens 恢复注入)→ 豁免
+}
+
+// dsmlMarkers DSML 协议泄漏标记(W3 P1-B 事后雷达;与 agent 侧 leakGuard MARKERS 对齐)。
+// 只做子串扫描告警,不拦截 —— live 拦截由 agent 侧流式 leakGuard 负责,此处量化漏网。
+// 与 agent/src/turn/leakGuard.ts MARKERS 逐条对齐(共 10 条);缺项会让雷达低估漏网率(审计 [20])。
+var dsmlMarkers = []string{
+	"<｜DSML｜", "<｜｜DSML｜｜", "<|DSML|", "<|｜DSML｜|",
+	"<｜tool▁calls▁begin｜", "<｜tool▁call▁begin｜", "<｜tool_calls_begin｜",
+	"<|tool▁calls▁begin|", "<|tool▁call▁begin|", "<|tool_calls_begin|",
+}
+
+func scanDSMLMarkers(sid, side, text string) {
+	for _, mk := range dsmlMarkers {
+		if strings.Contains(text, mk) {
+			atomic.AddInt64(&journalValidateMismatch, 1)
+			slog.Error("journal_validate: dsml marker found in transcript",
+				"journal_validate", 1, "kind", "dsml_marker", "session_id", sid, "side", side, "marker", mk)
+			return
+		}
+	}
+}
+
+// ── W2 P1-a 诚实性事后雷达(DOI)──
+
+// doiRe 与 agent 侧 verifyClaims DOI_RE 同款(两侧注释互相锚定,改一处须同步另一处)。
+// 字符类须排反引号 ` 与星号 *(markdown 代码跨/加粗包裹的 DOI):二者都是 ASCII,不会被下方
+// IndexFunc(r>0x7E) 截断,漏排会把 `10.x/y`` / **10.x/y** 抓成"未验证"污染雷达漏报率(审计 [21])。
+var doiRe = regexp.MustCompile("\\b10\\.\\d{4,9}/[^\\s\"'`*<>()\\[\\]{},;]+")
+
+// extractDOIs 抽取文本中的 DOI:尾部标点剥离、lowercase、去重保序。
+// DOI 实务为 ASCII;regex 字符类挡不住紧贴的全角标点/CJK(中文回复常见「…03819-2。另见」),
+// 故在首个非 ASCII 字符处截断,再剥 ASCII 尾部标点()]}>,; 等已被字符类排除)。
+func extractDOIs(text string) []string {
+	seen := map[string]struct{}{}
+	var out []string
+	for _, m := range doiRe.FindAllString(text, -1) {
+		if i := strings.IndexFunc(m, func(r rune) bool { return r > 0x7E }); i >= 0 {
+			m = m[:i]
+		}
+		d := strings.ToLower(strings.TrimRight(m, ".,;:!?*`"))
+		if d == "" || !strings.Contains(d, "/") || strings.HasSuffix(d, "/") {
+			continue // 截断后退化(如「10.1038/」)的碎片不算 DOI
+		}
+		if _, dup := seen[d]; dup {
+			continue
+		}
+		seen[d] = struct{}{}
+		out = append(out, d)
+	}
+	return out
+}
+
+// journalEvidenceCorpus 证据语料 = journal 内全部 user 消息与 tool_result 的原始 content 字节
+// (lowercase)。刻意排除 assistant:旧轮编造的 DOI 不能给后续轮自洗白。
+func journalEvidenceCorpus(msgs []agent.SessionMessage) string {
+	var b strings.Builder
+	for _, m := range msgs {
+		if m.Type != "user" && m.Type != "tool_result" {
+			continue
+		}
+		b.Write(m.Content)
+		b.WriteByte('\n')
+	}
+	return strings.ToLower(b.String())
+}
+
+// unverifiedDOIs 返回 assistant 文本里未出现在证据语料中的 DOI(纯函数,单测锚点)。
+func unverifiedDOIs(asstText, corpus string) []string {
+	var out []string
+	for _, d := range extractDOIs(asstText) {
+		if !strings.Contains(corpus, d) {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+func scanUnverifiedDOIs(sid string, jMsgs []agent.SessionMessage, asstText string) {
+	unverified := unverifiedDOIs(asstText, journalEvidenceCorpus(jMsgs))
+	if len(unverified) == 0 {
+		return
+	}
+	atomic.AddInt64(&journalValidateMismatch, 1)
+	sample := unverified
+	if len(sample) > 3 {
+		sample = sample[:3]
+	}
+	slog.Warn("honesty_radar", "journal_validate", 1, "kind", "unverified_doi",
+		"session_id", sid, "unverified_count", len(unverified), "sample", strings.Join(sample, " , "))
 }
 
 // assistantText 把所有 assistant message 的 text block 拼起来(content[] 里 type==text 的 text)。

@@ -35,7 +35,11 @@ export const PrismMessageTurn = memo(function PrismMessageTurn({ turn }: { turn:
   const last = blocks[blocks.length - 1];
   // 末尾文本块 = 最终答案/总结,**仅完成后**拎到折叠外(complete-gated,避免流式中途重排抖动)。
   const answer = turn.complete && last && last.kind === 'text' && last.text ? last : null;
-  const processBlocks = answer ? blocks.slice(0, -1) : blocks;
+  // 交互提问(AskUserQuestion,方案 B):不在对话流/处理过程里渲染 —— 待作答问题由输入框上方的
+  // QuestionPrompt 分步面板承接(PrismChatPanel),历史/已答态由用户答案气泡表达。故从过程块里滤掉。
+  const processBlocks = (answer ? blocks.slice(0, -1) : blocks).filter(
+    (b) => !(b.kind === 'tool' && b.toolName === 'AskUserQuestion'),
+  );
   const toolSteps = processBlocks.filter((b) => b.kind === 'tool').length;
   const hasProcessBlocks = processBlocks.some(
     (b) => b.kind === 'tool' || (b.kind === 'text' && !!b.text),
@@ -107,7 +111,7 @@ export const PrismMessageTurn = memo(function PrismMessageTurn({ turn }: { turn:
       {/* 最终答案/总结:完成后折叠外常驻主角,plain 全宽(流式期它在上面展开的处理过程折叠里实时可见)。 */}
       {answer && <AssistantBubble variant="plain" text={stripContainerPaths(answer.text)} />}
 
-      {turn.errorMessage && <TurnErrorNotice message={turn.errorMessage} />}
+      {turn.errorMessage && <TurnErrorNotice message={turn.errorMessage} code={turn.errorCode} />}
 
       {/* 整轮被用户暂停 —— 末尾收尾标识(与 claw / smart-search 同款,历史回放也走这里) */}
       {turn.complete && turn.paused && !turn.errorMessage && <PausedNotice />}

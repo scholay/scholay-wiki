@@ -32,7 +32,7 @@ func (h *Handler) GetMembership(c *gin.Context) {
 		utils.InternalError(c, 500, "获取会员信息失败", err)
 		return
 	}
-	utils.Success(c, st)
+	utils.Success(c, st.StripQuotaAmounts()) // 用户端只看百分比,不下发额度绝对值
 }
 
 // RedeemCode POST /user/redeem-code {code} —— 兑换。
@@ -148,7 +148,8 @@ func (h *Handler) AdminUserVIPStatus(c *gin.Context) {
 	utils.Success(c, st)
 }
 
-// AdminGrantVIP POST /admin/users/:id/vip {tier, days} —— 直接授予/续期会员。
+// AdminGrantVIP POST /admin/users/:id/vip {tier, days, cycle?} —— 直接授予/续期会员。
+// cycle 可选(monthly|yearly):设置用户计费周期标识(年费会员徽标);缺省不改动现值。
 func (h *Handler) AdminGrantVIP(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -156,13 +157,17 @@ func (h *Handler) AdminGrantVIP(c *gin.Context) {
 		return
 	}
 	var req struct {
-		Tier string `json:"tier"`
-		Days int    `json:"days"`
+		Tier  string `json:"tier"`
+		Days  int    `json:"days"`
+		Cycle string `json:"cycle"` // ""=不改 | monthly | yearly
 	}
 	if !utils.BindJSON(c, &req) {
 		return
 	}
-	exp, err := h.svc.GrantToUser(uint(id), req.Tier, req.Days)
+	if req.Cycle != "" {
+		req.Cycle = normCycle(req.Cycle)
+	}
+	exp, err := h.svc.GrantToUser(uint(id), req.Tier, req.Days, req.Cycle)
 	if err != nil {
 		if errors.Is(err, ErrUserNotFound) {
 			utils.BadRequest(c, "用户不存在")

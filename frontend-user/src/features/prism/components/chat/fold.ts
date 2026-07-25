@@ -55,6 +55,14 @@ export function foldPrismMessages(
           toolByUseId.set(msg.toolUseId, tb);
         }
         break;
+      case 'round_discarded':
+        // DSML 作废重打(审计 [10]):只摘掉当前在途文本块(残缺前缀),不清整个 current.blocks。
+        if (currentTextBlock) {
+          const idx = current.blocks.lastIndexOf(currentTextBlock);
+          if (idx !== -1) current.blocks.splice(idx, 1);
+          currentTextBlock = null;
+        }
+        break;
       case 'content_delta':
         if (currentTextBlock && typeof msg.text === 'string') currentTextBlock.text += msg.text;
         break;
@@ -71,11 +79,20 @@ export function foldPrismMessages(
         if (b) {
           b.result = msg.content;
           b.isError = msg.isError;
+          // 双轨制:面向用户的失败摘要(旧 agent 无此字段 → undefined,渲染层前端兜底)。
+          b.userMessage = msg.userMessage;
         }
         break;
       }
       case 'status':
-        current.placeholder = { ...(current.placeholder ?? {}), state: msg.state, verb: msg.verb };
+        current.placeholder = {
+          ...(current.placeholder ?? {}),
+          state: msg.state,
+          verb: msg.verb,
+          // 等待可感知(W5 P1-D1):不再丢弃 status.elapsed;无新值时保留旧值(帧可能省略)。
+          elapsedSeconds:
+            typeof msg.elapsed === 'number' ? msg.elapsed : current.placeholder?.elapsedSeconds,
+        };
         break;
       case 'thinking':
         if (typeof msg.text === 'string' && msg.text.length > 0)
@@ -83,6 +100,8 @@ export function foldPrismMessages(
         break;
       case 'message_complete':
         markPendingToolsAborted(current, !!current.paused);
+        // claim_audit 轻标注(W2 P1-b):捕获自动纠偏标记(渲染本批仅 claw;字段先同步透传)。
+        if (msg.claim_audit?.corrective_fired) current.claimAudited = true;
         current.complete = true;
         current.placeholder = undefined;
         currentTextBlock = null;
@@ -91,6 +110,8 @@ export function foldPrismMessages(
       case 'error':
         markPendingToolsAborted(current, !!current.paused);
         current.errorMessage = msg.message;
+        // 捕获 errorCode(W5 P0-C3):供可重试错误判定 / code→文案映射(与 claw fold 同构)。
+        current.errorCode = msg.code;
         current.complete = true;
         current.placeholder = undefined;
         currentTextBlock = null;

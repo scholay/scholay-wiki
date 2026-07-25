@@ -10,6 +10,7 @@ package middleware
 import (
 	"strings"
 
+	"scholar-backend/internal/admin"
 	"scholar-backend/internal/common/errcode"
 	"scholar-backend/internal/common/utils"
 
@@ -138,6 +139,75 @@ func AuthMiddleware(requiredType string) gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+// RequirePermission 鉴权 + 权限校验二合一：先做与 AuthMiddleware 相同的
+// token 解析 / blacklist / 角色提取，再校验该角色的权限集是否包含 perm。
+//
+// 这是「运营(operations)」角色的后端硬闸 —— 全部 /api/v1/admin/* 曾统一挂
+// AdminAuthMiddleware(admin/super_admin 无差别放行、无按接口维度),运营无处落地。
+// 现在按权限把路由拆成子组、各挂 RequirePermission(<perm>):operations / admin /
+// super_admin 依 admin.PermissionsForRole 各自命中不同子集,越权直接 403,不靠前端藏菜单。
+//
+// 语义与 AuthMiddleware 对齐:缺/坏 token → 401(TokenExpired),被吊销 → 401(TokenRevoked),
+// 已登录但权限不足 → 403(Forbidden,不能用 401,否则前端会把有效登录用户直接登出)。
+func RequirePermission(perm string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := extractToken(c)
+		if token == "" {
+			utils.Unauthorized(c, "未登录,请先登录")
+			c.Abort()
+			return
+		}
+		claims, err := utils.ParseToken(token)
+		if err != nil {
+			utils.UnauthorizedWithCode(c, errcode.TokenExpired, "登录已过期,请重新登录")
+			c.Abort()
+			return
+		}
+		if utils.IsTokenRevoked(c.Request.Context(), claims) {
+			utils.UnauthorizedWithCode(c, errcode.TokenRevoked, "登录已失效,请重新登录")
+			c.Abort()
+			return
+		}
+
+		role := claims.Role
+		if role == "" {
+			if claims.Type == "admin" {
+				role = "admin"
+			} else {
+				role = "user"
+			}
+		}
+
+		if !roleHasPermission(role, perm) {
+			utils.ForbiddenWithCode(c, errcode.Forbidden, "无权访问该资源")
+			c.Abort()
+			return
+		}
+
+		c.Set("user_id", claims.UserID)
+		c.Set("username", claims.Username)
+		c.Set("user_type", claims.Type)
+		c.Set("user_role", role)
+		c.Set("token", token)
+
+		if activityHook != nil && claims.Type == "user" && claims.UserID != 0 {
+			activityHook(claims.UserID)
+		}
+
+		c.Next()
+	}
+}
+
+// roleHasPermission 查 admin.PermissionsForRole(单一真源)是否含 perm。
+func roleHasPermission(role, perm string) bool {
+	for _, p := range admin.PermissionsForRole(role) {
+		if p == perm {
+			return true
+		}
+	}
+	return false
 }
 
 // AdminAuthMiddleware validates admin JWT tokens (admin 或 super_admin 均可)

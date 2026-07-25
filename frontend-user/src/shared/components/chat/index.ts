@@ -44,6 +44,12 @@ export {
   type ToolCallBlockProps,
 } from './ToolCallBlock';
 export {
+  QuestionPrompt,
+  type QuestionPromptProps,
+  parseAskQuestions,
+  findPendingQuestionBlock,
+} from './QuestionPrompt';
+export {
   StreamingIndicator,
   type StreamingIndicatorProps,
 } from './StreamingIndicator';
@@ -57,6 +63,7 @@ export {
 } from './ReferenceChipList';
 export { SafeSvg } from './SafeSvg';
 export { PausedNotice } from './PausedNotice';
+export { StallNotice } from './StallNotice';
 export { TurnErrorNotice } from './TurnErrorNotice';
 export { ContextMeter, type ContextMeterProps } from './ContextMeter';
 export { Composer, type ComposerProps, type ComposerHandle, type ComposerContextInfo } from './Composer';
@@ -74,3 +81,6 @@ export {
   extractSkillGuideName,
 } from './SkillHeaderBadge';
 export { PaperListReadonly } from './PaperListReadonly';
+export { MinicodJournalCards } from './MinicodJournalCards';
+export { MinicodAuthorCards } from './MinicodAuthorCards';
+export { MinicodSnippetCards } from './MinicodSnippetCards';

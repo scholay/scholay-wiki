@@ -16,10 +16,10 @@
 
 /**
  * 论文上游来源 —— code 用 stc/olx/pmd(后端历史命名),
- * UI 展示统一走 [[SOURCE_META]]:
- *   stc → "G — Graph"   (Semantic Scholar · AI 引文图谱学术库)
- *   olx → "D — Discovery"(OpenAlex · 全学科开放学术发现库)
- *   pmd → "M — Medicine"(PubMed · 生物医学文献索引库)
+ * UI 展示统一走 [[SOURCE_META]](W6 P1-8 真名化,直接用真实名称):
+ *   stc → "S — Semantic Scholar"(AI 引文图谱学术库)
+ *   olx → "O — OpenAlex"        (全学科开放学术发现库)
+ *   pmd → "P — PubMed"          (生物医学文献索引库)
  */
 export type UpstreamSource = 'stc' | 'olx' | 'pmd';
 

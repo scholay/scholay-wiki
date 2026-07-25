@@ -169,6 +169,12 @@ type FeatureSpec struct {
 	// 0 时取默认值 (25s)。
 	PingInterval time.Duration
 
+	// TurnTimeout 轮级硬超时 (W3-2):hub beginTurn 时 arm,一轮超过该时长仍无终帧 → 向 agent 发
+	// stop_generation + FailTurn + 广播 turn_timeout error 帧,防挂死轮占死执行器并发槽(全容器仅
+	// 2 槽)+ 前端无限转圈。零值 = 默认 15 分钟(现有 feature 不改 spec 即生效);负值 = 显式禁用。
+	// 经 TurnTimeoutOrDefault() 读取。peerreview 走 server-side 路(不经 hub),天然不受影响。
+	TurnTimeout time.Duration
+
 	// PreUserMessage 在每条 user_message 转发到 agent 前同步调用, 用于做配额 / 限流。
 	// nil → 不做检查直接放行。详见 PreUserMessageFn 定义。
 	PreUserMessage PreUserMessageFn
@@ -266,6 +272,19 @@ func (s FeatureSpec) PingIntervalOrDefault() time.Duration {
 		return s.PingInterval
 	}
 	return 25 * time.Second
+}
+
+// TurnTimeoutOrDefault 解析轮级硬超时 (W3-2):零值 → 默认 15 分钟;负值 → 0(禁用,hub 不 arm)。
+// 15min 对交互三件套足够宽(审计挂死轮 848s≈14min 是事故不是正常);须小于 eventlog_store
+// ReconcileStaleRunning 的 30min 兜底阈值,保证正常轮绝不会被 reaper 误收。
+func (s FeatureSpec) TurnTimeoutOrDefault() time.Duration {
+	if s.TurnTimeout < 0 {
+		return 0
+	}
+	if s.TurnTimeout > 0 {
+		return s.TurnTimeout
+	}
+	return 15 * time.Minute
 }
 
 // EffectivePermissionMode 解析该 feature 实际生效的审批模式 (C14)。

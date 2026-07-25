@@ -64,26 +64,32 @@ func (s *Service) PaymentMethods() (alipay bool, wechat bool) {
 
 // SubQuote 订阅报价(给前端弹窗显示动作 + 应付金额 + 经费)。
 type SubQuote struct {
-	Action        string `json:"action"`       // new | renew | upgrade
-	Tier          string `json:"tier"`
-	AmountCents   int    `json:"amount_cents"` // 本次应付(分)
-	Credits       int    `json:"credits"`      // 本单赠送经费
-	Deferred      bool   `json:"deferred"`     // 经费延后生效(续期=true)
-	CurrentTier   string `json:"current_tier"` // 用户当前生效档
-	RemainingDays int    `json:"remaining_days"`
+	Action        string     `json:"action"` // new | renew | upgrade
+	Tier          string     `json:"tier"`
+	Cycle         string     `json:"cycle"`        // 实际计费周期:new/renew=请求周期;upgrade=用户当前订阅周期
+	AmountCents   int        `json:"amount_cents"` // 本次应付(分)
+	Credits       int        `json:"credits"`      // 本单赠送经费(年度=总额,按月分批发放)
+	Deferred      bool       `json:"deferred"`     // 经费延后生效(续期=true)
+	CurrentTier   string     `json:"current_tier"` // 用户当前生效档
+	CurrentCycle  string     `json:"current_cycle,omitempty"` // 用户当前订阅周期(付费在期时)
+	RemainingDays int        `json:"remaining_days"`
+	NewExpiresAt  *time.Time `json:"new_expires_at"` // 履约后会员到期日(弹窗「有效期至」)
 }
 
-// QuoteSubscription 给前端算「订阅/续期/升级」的动作与应付金额(不建单)。降级回 ErrNoDowngrade。
-func (s *Service) QuoteSubscription(userID uint, target string) (*SubQuote, error) {
+// QuoteSubscription 给前端算「订阅/续期/升级」的动作与应付金额(不建单)。
+// cycle = monthly|yearly(空按 monthly)。降级回 ErrNoDowngrade;年付未配置回 ErrInvalidOrder。
+func (s *Service) QuoteSubscription(userID uint, target, cycle string) (*SubQuote, error) {
 	now := time.Now()
 	uv, _ := s.repo.GetUserVIP(userID)
-	sp, err := computeSubscription(uv, target, s.cfg.Get(), now)
+	sp, err := computeSubscription(uv, target, cycle, s.cfg.Get(), now)
 	if err != nil {
 		return nil, err
 	}
+	ne := sp.NewExpires
 	return &SubQuote{
-		Action: sp.Action, Tier: sp.Tier, AmountCents: sp.AmountCents, Credits: sp.Credits,
-		Deferred: sp.Deferred, CurrentTier: effectiveTier(uv, now), RemainingDays: sp.RemainingDays,
+		Action: sp.Action, Tier: sp.Tier, Cycle: sp.Cycle, AmountCents: sp.AmountCents, Credits: sp.Credits,
+		Deferred: sp.Deferred, CurrentTier: effectiveTier(uv, now), CurrentCycle: effectiveCycle(uv, now),
+		RemainingDays: sp.RemainingDays, NewExpiresAt: &ne,
 	}, nil
 }
 
@@ -102,6 +108,15 @@ func effectiveTier(uv UserVIP, now time.Time) string {
 		return uv.VIPTier
 	}
 	return TierFree
+}
+
+// effectiveCycle 当前生效计费周期:付费档在期时 monthly|yearly(「年费会员」标识),否则空串。
+// 真源 = users.vip_cycle(最近一次付费订阅的周期,0079)。
+func effectiveCycle(uv UserVIP, now time.Time) string {
+	if !isPaidTier(effectiveTier(uv, now)) {
+		return ""
+	}
+	return normCycle(uv.VIPCycle)
 }
 
 // applyMembershipGrant —— 单调地把「授予 grantTier 续 days 天」叠加到当前会员状态上(纯函数)。
@@ -295,7 +310,8 @@ type GenerateCodesInput struct {
 }
 
 // GrantToUser 管理员**直接**授予/续期会员(不走兑换码)。单调:不降级 + 在期顺延。返回新到期。
-func (s *Service) GrantToUser(userID uint, tier string, days int) (time.Time, error) {
+// cycle = 计费周期标识(monthly|yearly);空串 = 不改动(默认,防随手补天数冲掉年费标识)。
+func (s *Service) GrantToUser(userID uint, tier string, days int, cycle string) (time.Time, error) {
 	if tier != TierPro && tier != TierMax {
 		tier = TierPro
 	}
@@ -303,13 +319,19 @@ func (s *Service) GrantToUser(userID uint, tier string, days int) (time.Time, er
 		days = 30
 	}
 	uv, _ := s.repo.GetUserVIP(userID)
+	// 周期标识防陈旧泄漏(0079):admin 未显式选周期时,「不改动」只对**在期付费会员**成立;
+	// 对免费/已过期用户(可能残留上一段年费的 yearly),直授重新开通须重置回 monthly,
+	// 否则会错误顶着「年费会员」徽标。
+	if cycle == "" && !isPaidTier(effectiveTier(uv, time.Now())) {
+		cycle = CycleMonthly
+	}
 	newTier, exp := applyMembershipGrant(uv, tier, days, time.Now())
-	if err := s.repo.SetUserVIP(userID, newTier, &exp); err != nil {
+	if err := s.repo.SetUserVIP(userID, newTier, &exp, cycle); err != nil {
 		return time.Time{}, err
 	}
 	// 授予/续期到付费档 → 免费满血(只抬额度窗口起点,不动 used 统计)。
 	s.ResetBaselineOnUpgrade(context.Background(), userID)
-	slog.Info("vip: admin granted membership", "user_id", userID, "tier", newTier, "days", days)
+	slog.Info("vip: admin granted membership", "user_id", userID, "tier", newTier, "days", days, "cycle", cycle)
 	return exp, nil
 }
 
@@ -317,9 +339,9 @@ func (s *Service) GrantToUser(userID uint, tier string, days int) (time.Time, er
 // + 清零订阅赠送的临时经费(随会员的那部分),其他来源临时经费 + 永久经费不动。整体一个事务。
 func (s *Service) RevokeUser(userID uint) error {
 	err := s.repo.DB().Transaction(func(tx *gorm.DB) error {
-		// 1. 会员过期:tier=free, 清到期。rows=0 时显式查存在性(free→free 是合法 no-op)。
+		// 1. 会员过期:tier=free, 清到期 + 周期标识回落月度。rows=0 时显式查存在性(free→free 是合法 no-op)。
 		res := tx.Table("users").Where("id = ?", userID).
-			Updates(map[string]any{"vip_tier": TierFree, "vip_expires_at": nil})
+			Updates(map[string]any{"vip_tier": TierFree, "vip_expires_at": nil, "vip_cycle": CycleMonthly})
 		if res.Error != nil {
 			return res.Error
 		}

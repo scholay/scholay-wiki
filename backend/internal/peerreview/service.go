@@ -304,7 +304,7 @@ func (s *Service) CreateDraft(ctx context.Context, userID uint64, mode string) (
 	// 立即给新草稿绑一个 agent session, 整个 wizard + 4 轮审稿全程复用。
 	// 失败不阻塞 draft 创建 (前端拿到 submission 后还能上传文件等),
 	// 下次 advance 调用时会按需 lazy-create。
-	if sess, err := s.feature.AgentClient().CreateSession(ctx, &agent.CreateSessionOptions{DisallowedTools: scoringSessionDeny}); err == nil {
+	if sess, err := s.feature.AgentClient().CreateSession(ctx, &agent.CreateSessionOptions{DisallowedTools: scoringSessionDeny, AllowedMcpTools: reviewerAllowedMcpTools}); err == nil {
 		_ = s.repo.SetAgentSession(sub.ID, sess.SessionID)
 		sub.AgentSessionID.String = sess.SessionID
 		sub.AgentSessionID.Valid = true
@@ -347,7 +347,7 @@ func (s *Service) ensureAgentSession(ctx context.Context, sub *Submission) (stri
 	if sub.AgentSessionID.Valid && sub.AgentSessionID.String != "" {
 		return sub.AgentSessionID.String, nil
 	}
-	sess, err := s.feature.AgentClient().CreateSession(ctx, &agent.CreateSessionOptions{DisallowedTools: scoringSessionDeny})
+	sess, err := s.feature.AgentClient().CreateSession(ctx, &agent.CreateSessionOptions{DisallowedTools: scoringSessionDeny, AllowedMcpTools: reviewerAllowedMcpTools})
 	if err != nil {
 		return "", fmt.Errorf("create agent session: %w", err)
 	}
@@ -367,7 +367,7 @@ func (s *Service) resetAgentSession(ctx context.Context, sub *Submission) (strin
 	if sub.AgentSessionID.Valid && sub.AgentSessionID.String != "" {
 		_ = s.feature.AgentClient().DeleteSession(ctx, sub.AgentSessionID.String)
 	}
-	sess, err := s.feature.AgentClient().CreateSession(ctx, &agent.CreateSessionOptions{DisallowedTools: scoringSessionDeny})
+	sess, err := s.feature.AgentClient().CreateSession(ctx, &agent.CreateSessionOptions{DisallowedTools: scoringSessionDeny, AllowedMcpTools: reviewerAllowedMcpTools})
 	if err != nil {
 		return "", fmt.Errorf("recreate agent session: %w", err)
 	}
@@ -408,7 +408,8 @@ type pushedAttachment struct {
 }
 
 // pushAssetsToSession 把稿件 + 附件从 MinIO 下载后推到 agent 会话隔离 cwd,
-// 返回落盘路径供 prompt 引用 (方案 B: 让大模型用 Read 原生分析, backend 不抽文本)。
+// 返回落盘路径供 prompt 引用 (方案 B: backend 不预抽文本 —— 正文经 ExtractDocHead 确定性
+// 有界抽取后 preamble 注入, 附件由 agent 按需 Read/ReadDocument)。
 // 稿件必须存在, 否则 ErrManuscriptMissing。
 //
 // 幂等: 多次调用会重复推送 (覆盖同名 uuid 文件), 用在 runMetaExtract / runReviewBackground
@@ -498,12 +499,20 @@ func buildInlinedAssetsBlock(files *sessionAssets) string {
 	return b.String()
 }
 
-// buildManuscriptPreamble —— 审稿开始前向共享 session **一次性**注入正文全文的 preamble。
+// buildManuscriptPreamble —— 审稿开始前向共享 session **一次性**注入正文的 preamble。
 // 随后审稿人/主审都把它当作已在上文的稳定前缀(prompt-cache 命中走 cache-read 折扣),不再各自重读。
-func buildManuscriptPreamble(manuscript string) string {
+// truncated=true(超长稿件被 400K 字符 / token 预算钳断)时**如实告知模型**读到的只是前段 ——
+// 此前对截断文本谎称「全文」且禁止再读,审稿人在不知情下半盲审(2026-07 文件上传调研 P1)。
+func buildManuscriptPreamble(manuscript string, truncated bool) string {
 	var b strings.Builder
-	b.WriteString("【待审论文正文全文 — 只此一次给出,请通读并记住】\n")
-	b.WriteString("下面是本场审稿的论文正文全文。随后几位审稿人与主审都将**基于这份正文**评审,你无需、也不要再用 Read/ReadDocument 重新读取正文文件。\n\n")
+	if truncated {
+		b.WriteString("【待审论文正文(前段抽取)— 只此一次给出,请通读并记住】\n")
+		b.WriteString("下面是本场审稿论文正文的**前段抽取**(原文超长,超出预算的后段未包含)。随后几位审稿人与主审都将基于这份文本评审,你无需、也不要再用 Read/ReadDocument 重新读取正文文件。\n")
+		b.WriteString("**诚实性要求**:你们只读到了正文前段。涉及全文覆盖性的判断(如「全文未见 XX」)必须限定为「已读部分未见」;最终报告须如实注明「本次评审基于正文前段抽取,未覆盖全文」。\n\n")
+	} else {
+		b.WriteString("【待审论文正文全文 — 只此一次给出,请通读并记住】\n")
+		b.WriteString("下面是本场审稿的论文正文全文。随后几位审稿人与主审都将**基于这份正文**评审,你无需、也不要再用 Read/ReadDocument 重新读取正文文件。\n\n")
+	}
 	b.WriteString("===== 论文正文开始 =====\n")
 	b.WriteString(manuscript)
 	b.WriteString("\n===== 论文正文结束 =====\n\n")
@@ -606,7 +615,15 @@ func (s *Service) runMethodologyPhase(ctx context.Context, submissionID uint64, 
 	// ② 评分轮按 slug 后端读 SKILL.md 注入 SCORING_PERSONA,不经这条路;③ clean-room 执行器无
 	// fork 的「Skill 工具」,skills 是全文常驻 system 后缀,reviewer-skills ~74KB 撞 loader 40KB
 	// 总量帽 → 静默、非确定性截断,且每个 tool round 重发白烧数十万 input token。故整段移除。
-	created, err := s.feature.AgentClient().CreateSession(ctx, nil)
+	// DisallowedTools 禁 AskUserQuestion:方法论会话是 server-side / 无人值守(经 ServerSideChatStreaming
+	// 自扮 WS 客户端跑),没有用户能作答 —— 模型若发问会导致本轮无方法论输出、降级到 builtin reviewers。
+	// 另禁 Bash 三件套(2026-07 文件上传调研):审稿全链路只读(正文 ExtractDocHead 注入 + 附件
+	// ReadDocument),prompt 本就严禁 Bash,denylist 对齐设计意图(此前事实上未禁,与 spec 注释漂移)。
+	// 不复用 scoringSessionDeny(那会连带禁 Skill,而方法论会话按上方设计保留 Skill 开)。
+	created, err := s.feature.AgentClient().CreateSession(ctx, &agent.CreateSessionOptions{
+		DisallowedTools: []string{"AskUserQuestion", "Bash", "BashOutput", "KillShell"},
+		AllowedMcpTools: reviewerAllowedMcpTools,
+	})
 	if err != nil {
 		slog.Warn("peerreview methodology session create failed; builtin reviewers",
 			"submission_id", submissionID, "err", err)
@@ -846,6 +863,15 @@ func (s *Service) UploadAsset(
 		return nil, errors.New("peerreview: role must be manuscript / attachment")
 	}
 
+	// 附件里的旧版 Office (doc/xls/ppt/ods/odp) 拒收 —— agent 容器无解析器, 收了审稿时也读不了
+	// (2026-07 文件上传调研「收=能读」原则, 与 agentattach 同口径)。
+	if role == "attachment" {
+		switch strings.ToLower(filepath.Ext(fh.Filename)) {
+		case ".doc", ".xls", ".ppt", ".ods", ".odp":
+			return nil, errors.New("暂不支持旧版 Office 附件格式, 请另存为 docx / xlsx / pptx 后再上传")
+		}
+	}
+
 	// 类型 / 空文件 / 大小 校验 —— 与前端一致, 防绕过前端直接打 API
 	// (前端 accept 属性只是建议, 0B / .txt / 超限文件都能伪造请求送进来)。
 	limit := int64(MaxAttachmentBytes)
@@ -931,8 +957,8 @@ func (s *Service) UploadAsset(
 	}
 
 	// 方案 B: backend 不再抽文本 / 不再 pdfparse。原始文件存 MinIO, 审稿流程跑起来时
-	// 由 pushAssetsToSession 推到 agent 会话 cwd, 让大模型用 Read 工具原生分析。
-	// 标题 / 摘要 / 关键词等元数据统一由 agent 的 meta-extract 抽 (见 runMetaExtract)。
+	// 由 pushAssetsToSession 推到 agent 会话 cwd (正文走 ExtractDocHead 有界抽取,
+	// 附件按需 Read/ReadDocument)。标题/摘要/关键词等元数据由 meta-extract 抽 (runMetaExtract)。
 	if err := s.repo.CreateAsset(a); err != nil {
 		_ = storage.DeleteObject(ctx, bucket, key)
 		return nil, err
@@ -1288,7 +1314,61 @@ const (
 	// 审稿正文「只读一次」的抽取字符上界:pdfPages=0=全部页,上界与 agent ReadDocument 的 MAX_DOC_CHARS
 	// (默认 400k)对齐 —— 审稿人本就需要通读全文,不缩量以免降低审稿质量,故不构成相对旧 ReadDocument 路径的回归。
 	reviewManuscriptChars = 400000
+	// 正文 preamble 的估算 token 预算(2026-07 文件上传调研):400K **字符**对英文稿 ≈ 100K tokens
+	// 尚可,对中文稿 ≈ 300K+ tokens,单条 preamble 直接超模型上下文(agent 默认窗 128K)。
+	// 注入前按 estimateTokens 粗估并钳到该预算内,超出部分截断并如实标注(见 capManuscriptForContext)。
+	reviewManuscriptTokenBudget = 90000
 )
+
+// estimateTokens 粗估文本 token 数:CJK ≈ 1 token/字符,其它(拉丁/数字/标点)≈ 1 token/4 字符。
+// 只用于预算钳制,不追求精确;宁可略高估(预算内留余量)。
+func estimateTokens(s string) int {
+	cjk, other := 0, 0
+	for _, r := range s {
+		if isCJKRune(r) {
+			cjk++
+		} else {
+			other++
+		}
+	}
+	return cjk + other/4
+}
+
+func isCJKRune(r rune) bool {
+	return (r >= 0x2E80 && r <= 0x9FFF) || // CJK 部首/统一表意文字区
+		(r >= 0x3400 && r <= 0x4DBF) ||
+		(r >= 0xAC00 && r <= 0xD7AF) || // Hangul 音节 (审查修正: 韩文稿件此前低估约 4 倍)
+		(r >= 0xF900 && r <= 0xFAFF) || // 兼容表意文字
+		(r >= 0xFF00 && r <= 0xFFEF) || // 全角符号
+		r >= 0x20000 // CJK 扩展 B 及以上平面 (生僻汉字)
+}
+
+// capManuscriptForContext 把抽取的正文钳到 token 预算内:预算内原样返回;超出则按 rune 逐个累计
+// 估算 token,截到预算处,返回 (截断文本, true)。截断结果由 preamble/commonContext 如实标注,
+// 绝不再对模型谎称「全文」(此前 truncated 标志被调用点忽略 = 静默半盲审)。
+func capManuscriptForContext(text string) (string, bool) {
+	if estimateTokens(text) <= reviewManuscriptTokenBudget {
+		return text, false
+	}
+	var b strings.Builder
+	b.Grow(len(text))
+	used, other := 0, 0
+	for _, r := range text {
+		if isCJKRune(r) {
+			used++
+		} else {
+			other++
+			if other%4 == 0 {
+				used++
+			}
+		}
+		if used >= reviewManuscriptTokenBudget {
+			break
+		}
+		b.WriteRune(r)
+	}
+	return b.String(), true
+}
 
 func (s *Service) runMetaExtract(ctx context.Context, submissionID uint64, sessionID, fingerprint string) {
 	failure := func(reason string) {
@@ -1684,11 +1764,19 @@ func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 	// 下方作为**一条 preamble** 注入共享 session,审稿人直接引用上文、不再各读一遍。抽取失败(扫描件无文本层)
 	// 则清空 → 回退到旧的「各自 ReadDocument」路径,不 hard-fail。
 	var manuscriptInline string
+	var manuscriptTruncated bool // 抽取被 400K 字符钳 ∨ token 预算钳 —— 必须向模型如实标注,严禁谎称全文
 	if ft, ferr := s.feature.AgentClient().ExtractDocHead(ctx, sessionID, files.manuscriptPath, 0, reviewManuscriptChars); ferr != nil {
 		slog.Warn("peerreview review manuscript extract failed; reviewers fall back to per-turn ReadDocument",
 			"submission_id", submissionID, "err", ferr)
 	} else {
-		manuscriptInline = ft.Text
+		capped, tokCapped := capManuscriptForContext(ft.Text)
+		manuscriptInline = capped
+		manuscriptTruncated = ft.Truncated || tokCapped
+		if manuscriptTruncated {
+			slog.Warn("peerreview manuscript preamble truncated; reviewers will be told honestly",
+				"submission_id", submissionID, "extract_truncated", ft.Truncated, "token_capped", tokCapped,
+				"chars", len(manuscriptInline))
+		}
 	}
 
 	// 选择 + 方法论会话(临时, Skill 开): agent 读论文 + invoke reviewer-roster 选 3 位审稿人, 产出方法论。
@@ -1719,7 +1807,7 @@ func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 	// 把抽好的正文作为**一条** preamble 注入共享 session(只此一次);随后审稿人/主审的每轮都只把它当作
 	// 已在上文的稳定前缀(prompt-cache 命中走 cache-read 折扣),不再各自重读。注入失败 → 清空回退到 ReadDocument。
 	if manuscriptInline != "" {
-		_, pUsage, serr := s.feature.ServerSideChatStreaming(ctx, sessionID, buildManuscriptPreamble(manuscriptInline),
+		_, pUsage, serr := s.feature.ServerSideChatStreaming(ctx, sessionID, buildManuscriptPreamble(manuscriptInline, manuscriptTruncated),
 			func(string) {}, func(string) {}, s.modelFor(modelcatalog.PurposePeerreviewScoring))
 		if serr != nil {
 			slog.Warn("peerreview seat manuscript preamble failed; reviewers fall back to per-turn ReadDocument",
@@ -1730,7 +1818,7 @@ func (s *Service) runReviewBackground(submissionID uint64, sessionID string) {
 		}
 	}
 
-	commonContext := buildCommonContext(sub, files, methodology, manuscriptInline != "")
+	commonContext := buildCommonContext(sub, files, methodology, manuscriptInline != "", manuscriptTruncated)
 
 	// 3 位审稿人串行 — 每位独立 slot, 同时推 broker 让前端实时看到 agent 输出。
 	// 保留各自 ReviewerOutput 用于 chief 上下文。
@@ -1829,8 +1917,22 @@ const peerReviewJSONRetries = 2
 // scoringSessionDeny: 审稿是 server 单发要 JSON 的批处理 —— 给评分会话**追加**禁用
 // Skill/Agent(子 agent), 防模型在评分轮 invoke skill / 起子 agent 产生叙述文本冲碎 JSON。
 // union 进 agent 全局禁用列表(见 conversationService.buildSessionCliArgs)。
-// 方法论会话(P3 step2)不传这个 → Skill 开, 可 invoke 审稿 skill。
-var scoringSessionDeny = []string{"Skill", "Agent", "Task"}
+// 方法论会话(P3 step2)不传这个 → Skill 开, 可 invoke 审稿 skill(但仍在 609 单独禁 AskUserQuestion)。
+// AskUserQuestion(交互提问):peerreview 全程 server-side / 无人值守,没有用户能作答 —— 一律禁,
+// 否则模型发问会导致本轮无 JSON 输出、审稿降级/失败(见 docs/research/ask-mode-2026-07)。
+// Bash 三件套(2026-07 文件上传调研):审稿只读,prompt 本就严禁 Bash;此前 denylist 漏掉它导致
+// 「spec 注释说 peerreview 无 Bash、事实上却可用」的漂移,现对齐设计意图(附件 xlsx/pptx 走 ReadDocument)。
+var scoringSessionDeny = []string{"Skill", "Agent", "Task", "AskUserQuestion", "Bash", "BashOutput", "KillShell"}
+
+// reviewerAllowedMcpTools —— peerreview 会话对 minicod MCP 的**正向白名单**(去 mcp__minicod__ 前缀原始名)。
+// 审稿只读地做「新颖性 / 先行工作 / 可复现文献」核查,不做泛检索。收敛 minicod 0.4.1 的 76 工具到论文
+// 解引用 + 近邻 + 片段接地一套,避免评分/方法论轮每次灌满 tools[](见 minicod 对齐审计 #2、#15、#28)。
+var reviewerAllowedMcpTools = []string{
+	"search_papers", "get_paper", "get_paper_by_doi", "match_paper",
+	"get_paper_citations", "get_paper_references", "get_related_works", "get_papers_batch",
+	"search_authors", "get_author_papers",
+	"search_snippets", "recommend_paper", "recommend_from_pool",
+}
 
 // chatWithRetry 发一轮 server-side chat 并用 validate 校验输出; 不通过则带「只输出合法 JSON」
 // 强约束提示重发, 最多 maxRetry 次。**每次尝试前 broker.Begin 重置该 slot** —— 否则坏输出与
@@ -2117,7 +2219,8 @@ func journalMetaLine(raw json.RawMessage) string {
 
 // manuscriptInlined=true 表示正文已作为 preamble 注入共享 session 上文(审稿路径) → 用 buildInlinedAssetsBlock
 // (勿重读正文)并去掉"可 Read 正文"的邀请;false 走旧路径(指示各自 ReadDocument 全文,如抽取失败时的回退)。
-func buildCommonContext(sub *Submission, files *sessionAssets, methodology string, manuscriptInlined bool) string {
+// manuscriptTruncated=true 表示注入的正文是前段抽取(超长稿件被钳)——评审措辞须限定覆盖范围。
+func buildCommonContext(sub *Submission, files *sessionAssets, methodology string, manuscriptInlined bool, manuscriptTruncated bool) string {
 	var b strings.Builder
 	// 时间锚点 + 引用核查行为准则(2026-07):模型上下文若无当前日期,只能按训练截止(≈2025 初)
 	// 推断"今年",曾把 2026 年合法引用判成「年份不可能,2026 年尚未到来」。光给日期不够(训练年代
@@ -2198,10 +2301,12 @@ func buildCommonContext(sub *Submission, files *sessionAssets, methodology strin
 - 调用结果只用于支撑你的意见, 不要把检索过程写进最终 JSON 输出
 - 单次 limit ≤ 5, 空结果别死磕 (最多重试 1 次), 没数据就跳过
 `)
-	if manuscriptInlined {
+	if manuscriptInlined && manuscriptTruncated {
+		b.WriteString("- 论文正文的**前段抽取**已在会话上文给出(原文超长,后段未包含),**直接据此评审**,不要再用 Read / ReadDocument 重读正文;涉及全文覆盖性的判断须限定为「已读部分」,报告如实注明未覆盖全文。补充材料(如有,见上)仅确有必要时才读。严禁 Write / Edit / Bash / WebSearch 等工具。\n")
+	} else if manuscriptInlined {
 		b.WriteString("- 论文正文已在会话上文完整给出,**直接据此评审**,不要再用 Read / ReadDocument 重读正文;补充材料(如有,见上)仅确有必要时才读。严禁 Write / Edit / Bash / WebSearch 等工具。\n")
 	} else {
-		b.WriteString("- 你可以用 Read 工具读取上面列出的稿件 / 补充材料文件 (它们就在你的工作目录里);\n  但严禁 Write / Edit 这些文件, 也严禁 Bash / WebSearch 等本地或外网工具\n")
+		b.WriteString("- 你可以用 Read 工具读取上面列出的稿件文件 (用 ReadDocument 读 PDF/docx 等文档类, Read 读纯文本; 它们就在你的工作目录里);\n  但严禁 Write / Edit 这些文件, 也严禁 Bash / WebSearch 等本地或外网工具\n")
 	}
 	return b.String()
 }

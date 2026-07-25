@@ -28,7 +28,6 @@ import (
 	"scholar-backend/internal/common/upstream"
 	"scholar-backend/internal/llmusage"
 	"scholar-backend/internal/prompts"
-	"scholar-backend/internal/thirdparty"
 )
 
 // 共享 upstream.Client for api.weixin.qq.com/cgi-bin/* — token + media 都走。
@@ -209,24 +208,9 @@ func (s *Service) GetAIReplyWithImage(ctx context.Context, userMessage string, b
 		return "", fmt.Errorf("auto-reply is disabled")
 	}
 
-	// Use configured AI model level or default to low
-	modelLevel := aiModelLevel
-	if modelLevel == "" {
-		modelLevel = config.AIModelLevel
-	}
-
-	// Convert string to thirdparty.ModelLevel
-	var level thirdparty.ModelLevel
-	switch modelLevel {
-	case "low":
-		level = thirdparty.ModelLevelLow
-	case "medium", "mid":
-		level = thirdparty.ModelLevelMid
-	case "high":
-		level = thirdparty.ModelLevelHigh
-	default:
-		level = thirdparty.ModelLevelLow
-	}
+	// 模型由 project.wechat_oa 能力绑定选(见 CompleteText),不再用 config.AIModelLevel 档位。
+	// aiModelLevel 入参保留兼容签名,现已不参与模型选择。
+	_ = aiModelLevel
 
 	// Prepare system prompt
 	systemPrompt := config.SystemPrompt
@@ -281,18 +265,11 @@ func (s *Service) GetAIReplyWithImage(ctx context.Context, userMessage string, b
 	aiCtx, cancel := context.WithTimeout(llmCtx, 60*time.Second)
 	defer cancel()
 
-	// Call AI service (non-streaming)
-	response, err := s.aiService.ChatCompletionWithTools(aiCtx, messages, nil, "", level)
+	// Call AI service(非流式)—— 走 agent 单次补全,模型由 project.wechat_oa 能力绑定选;
+	// 未接线时 CompleteText 内部回退旧第三方路径。
+	reply, err := s.aiService.CompleteText(aiCtx, messages, ai.PurposeWechatOA)
 	if err != nil {
 		return "", fmt.Errorf("failed to get AI response: %w", err)
 	}
-
-	// Extract reply from response
-	if len(response.Choices) == 0 {
-		return "", fmt.Errorf("no response from AI")
-	}
-
-	// Response content is always string in non-streaming mode
-	reply := response.Choices[0].Message.Content
 	return reply, nil
 }

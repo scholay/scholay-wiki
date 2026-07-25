@@ -18,7 +18,7 @@ when_to_use: 用户上传了数据文件要你分析/统计/画图,或要根据�
 
 ## Step 1 · 先摸清数据(别急着算)
 - 数据在工作目录里。**先看结构**:`Bash` 跑 `head`、或 python 读一下(`pandas.read_csv/read_excel`),看**形状 / 列名 / 类型 / 缺失 / 单位 / 量纲**。
-- Excel/二进制不能直接 Read → 用 python(pandas/openpyxl)读。
+- Excel/二进制不能直接 Read:快速浏览全表用 `ReadDocument`(xlsx 每个工作表一张表);要做统计/取特定 sheet/区域就用 python(pandas/openpyxl)——大表**别**用 ReadDocument 全量转,直接代码定位。
 - **别把整份大数据塞进上下文**(烧 token):用代码算,回复里只放**摘要 + 结论**。
 
 ## Step 2 · 对齐用户到底要什么

@@ -1,5 +1,5 @@
 // 功能使用统计 v2 (usage_events) —— admin 只读 hooks。
-// 字段对齐 backend/internal/usagestat。旧 usage-logs.ts 是被废弃的 v1, 保留作历史页。
+// 字段对齐 backend/internal/usagestat。旧 v1(usage-logs.ts / 使用日志(旧)页)已随 usagelog 模块整体下线删除。
 import { useQuery } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
 import { windowToDateRange, type DateWindow } from '../components/DateRangeControl';

@@ -635,9 +635,12 @@ type TokenStatus struct {
 	WindowResetAt   *time.Time `json:"window_reset_at"`   // null = 未开窗
 }
 
-// Overview 账户资产总览:等级 + 到期 + 额度 + 经费 + 重置参数。
+// Overview 账户资产总览:等级 + 周期 + 到期 + 额度 + 经费 + 重置参数。
 type Overview struct {
-	Tier      string       `json:"tier"`
+	Tier string `json:"tier"`
+	// Cycle 付费档在期时的计费周期(monthly|yearly;yearly=「年费会员」标识,前后台徽标据此),
+	// 免费/过期为空省略。真源 users.vip_cycle(最近一次付费订阅的周期,0079)。
+	Cycle     string       `json:"cycle,omitempty"`
 	ExpiresAt *time.Time   `json:"expires_at"`
 	Token     TokenStatus  `json:"token"`
 	Credit    *BalanceView `json:"credit"`
@@ -645,19 +648,38 @@ type Overview struct {
 	ResetCost int          `json:"reset_cost"`
 }
 
-// DayUsage 当月某日的 token 用量(热力图用)。
-type DayUsage struct {
-	Date   string `json:"date"`   // YYYY-MM-DD
-	Tokens int64  `json:"tokens"`
+// StripQuotaAmounts 抹掉额度绝对值 —— P5 成本制:用户端只看百分比,不下发 used/ceiling/consumed
+// 的微元真值(算力点绝对量对用户不可见)。保留 Percent / Unlimited / 窗口起止(重置提示)与
+// Credit(经费用户可见)。**仅用户端调用**;管理端(AdminUserVIPStatus)需看真值,不 strip。
+func (ov *Overview) StripQuotaAmounts() *Overview {
+	if ov == nil {
+		return ov
+	}
+	unlimited := ov.Token.Unlimited
+	ov.Token.Used = 0
+	ov.Token.ConsumedToday = 0
+	if unlimited {
+		ov.Token.Ceiling = -1 // 前端仍用 ceiling<0 / unlimited 判定不限
+	} else {
+		ov.Token.Ceiling = 0
+	}
+	return ov
 }
 
-// DailyUsageThisMonth 从 llm_token_usage 聚合「当月每日 token 用量」(给前端按日绿格热力图)。
+// DayUsage 当月某日的用量(热力图用)。P5 成本制:cost = 当日精算成本(微元),
+// 前端只做相对强度分档(cost/日均参考线),不显示绝对数。
+type DayUsage struct {
+	Date string `json:"date"` // YYYY-MM-DD
+	Cost int64  `json:"cost"` // 当日精算成本(微元;1000 微元 = 1 算力点)
+}
+
+// DailyUsageThisMonth 从 llm_token_usage 聚合「当月每日精算成本」(给前端按日绿格热力图,相对强度)。
 func (s *Service) DailyUsageThisMonth(userID uint) ([]DayUsage, error) {
 	now := time.Now()
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 	var rows []DayUsage
 	err := s.repo.DB().Table("llm_token_usage").
-		Select("DATE_FORMAT(created_at, '%Y-%m-%d') AS date, COALESCE(SUM(total_tokens),0) AS tokens").
+		Select("DATE_FORMAT(created_at, '%Y-%m-%d') AS date, COALESCE(SUM(cost_micro_yuan),0) AS cost").
 		Where("user_id = ? AND created_at >= ?", userID, monthStart).
 		Group("DATE_FORMAT(created_at, '%Y-%m-%d')").
 		Scan(&rows).Error
@@ -719,7 +741,7 @@ func (s *Service) GetOverview(ctx context.Context, userID uint) (*Overview, erro
 		return nil, err
 	}
 	ov := &Overview{
-		Tier: tier, Token: ts, Credit: bal,
+		Tier: tier, Cycle: effectiveCycle(uv, now), Token: ts, Credit: bal,
 		AutoReset: bal.AutoReset, ResetCost: cfg.ResetCostCredits, // auto_reset 已随 Balance 的钱包行读出, 省一次查询
 	}
 	if isPaidTier(tier) {

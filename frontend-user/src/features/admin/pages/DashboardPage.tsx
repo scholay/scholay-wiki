@@ -14,7 +14,6 @@ import { AdminPageLayout } from '../components/AdminPageLayout';
 import { StatCard } from '../components/StatCard';
 import { TodayPanel } from '../components/TodayPanel';
 import { useDashboardStats, type ChartDataPoint } from '../api/dashboard';
-import { compactTokens } from '../api/token-usage';
 import { buildDailyTrend, localDateKey, withWeekday } from '@/shared/lib/daily-trend';
 import { compactAxis, compactYuanAxis } from '@/shared/lib/chart-format';
 import { Skeleton } from '@/shared/ui/skeleton';
@@ -76,9 +75,9 @@ export function DashboardPage() {
             />
             <StatCard
               icon={<Coins />}
-              label="今日 AI 消耗"
-              value={`${compactTokens(stats?.tokens_today ?? 0)} tokens`}
-              hint={`30 日 ${compactTokens(stats?.tokens_30d ?? 0)} · 明细见 Token 用量`}
+              label="今日 AI 成本"
+              value={`¥${(stats?.cost_today_yuan ?? 0).toFixed(2)}`}
+              hint={`30 日 ¥${(stats?.cost_30d_yuan ?? 0).toFixed(2)} · 明细见 Token 用量`}
             />
             <StatCard
               icon={<Gift />}
@@ -90,7 +89,7 @@ export function DashboardPage() {
         )}
       </section>
 
-      {/* 趋势图 —— 近 30 天:增长(新增用户)/ 收入(营收)/ 成本(Token)并排 = 粗粒度经营视角 */}
+      {/* 趋势图 —— 近 30 天:增长(新增用户)/ 收入(营收)/ 成本(¥ 精算)并排 = 粗粒度经营视角 */}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
         <TrendCard
           icon={Users}
@@ -112,12 +111,12 @@ export function DashboardPage() {
         />
         <TrendCard
           icon={Coins}
-          title="Token 消耗 · 30 天"
-          data={stats?.token_trend_chart}
+          title="AI 成本(¥) · 30 天"
+          data={stats?.cost_trend_chart}
           loading={l1}
           color="var(--color-brand-amber)"
-          yLabel=""
-          gradientId="grad-tokens"
+          yLabel="¥"
+          gradientId="grad-cost"
           area
         />
       </section>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, MoreHorizontal, Lock, Unlock, Trash2, ShieldCheck, Crown, Eye, Copy } from 'lucide-react';
+import { Search, MoreHorizontal, Lock, Unlock, Trash2, ShieldCheck, Crown, Eye, Copy, UserCog, UserRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { Input } from '@/shared/ui/input';
 import { Button } from '@/shared/ui/button';
@@ -14,7 +14,7 @@ import {
 } from '@/shared/ui/dropdown-menu';
 import { cn } from '@/shared/lib/utils';
 import { useDebounce, useUrlState, usePatchUrlState } from '@/shared/hooks';
-import { useAuthStore } from '@/stores/auth.store';
+import { useHasPermission, PERM, roleLabel, roleBadgeVariant } from '../permissions';
 import { AdminPageLayout } from '../components/AdminPageLayout';
 import { DataTable, type Column } from '../components/DataTable';
 import { Pagination } from '../components/Pagination';
@@ -67,7 +67,10 @@ export function UsersPage() {
   const debounced = useDebounce(keyword, 300);
   const apiToast = useApiToast();
   const confirm = useConfirm();
-  const isSuper = useAuthStore((s) => s.user?.role === 'super_admin');
+  // 用户写操作(冻结/删号/批量删除)需 users.manage;角色分配需 users.role.assign(仅超管)。
+  // 运营只有 users.view → 看得到列表/详情,但下面这些写操作按钮全部隐藏(后端也会 403 兜底)。
+  const canManageUsers = useHasPermission(PERM.usersManage);
+  const canAssignRole = useHasPermission(PERM.usersRoleAssign);
 
   const { data, isLoading } = useUserList({
     page,
@@ -153,9 +156,14 @@ export function UsersPage() {
   };
 
   const handleRoleChange = async (u: AdminUser, newRole: AdminUser['role']) => {
+    const desc: Partial<Record<AdminUser['role'], string>> = {
+      admin: '该用户将拥有除「角色分配」外的全部后台权限。',
+      operations: '该用户将成为运营:可进后台处理内容/用户运营 + 只读看板,但碰不到系统/凭证/财务配置与角色分配。',
+      user: '将回收该用户的一切后台权限,降为普通用户。',
+    };
     const ok = await confirm({
-      title: `将 ${labelOf(u)} 的角色改为 ${newRole}?`,
-      description: newRole === 'admin' ? '该用户将拥有全部管理员权限。' : undefined,
+      title: `将 ${labelOf(u)} 的角色改为「${roleLabel(newRole)}」?`,
+      description: desc[newRole],
       danger: newRole === 'admin',
       confirmText: '更新角色',
     });
@@ -193,9 +201,7 @@ export function UsersPage() {
     {
       header: '角色',
       cell: (u) => (
-        <Badge variant={u.role === 'super_admin' ? 'destructive' : u.role === 'admin' ? 'default' : 'muted'}>
-          {u.role === 'super_admin' ? '超级管理员' : u.role === 'admin' ? '管理员' : '用户'}
-        </Badge>
+        <Badge variant={roleBadgeVariant(u.role)}>{roleLabel(u.role)}</Badge>
       ),
       width: 110,
     },
@@ -275,46 +281,62 @@ export function UsersPage() {
               <Copy className="size-3.5 mr-2" />
               复制用户 ID
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => handleFreeze(u)}>
-              {u.status === 2 ? (
-                <>
-                  <Unlock className="size-3.5 mr-2" />
-                  解冻账号
-                </>
-              ) : (
-                <>
-                  <Lock className="size-3.5 mr-2" />
-                  冻结账号
-                </>
-              )}
-            </DropdownMenuItem>
-            {/* super_admin 才能调角色 —— 与后端 SuperAdminAuthMiddleware 一致,UI 提前拦截避免 403 */}
-            {isSuper && (
+            {/* 冻结/解冻 —— 用户写操作,需 users.manage(运营看不到) */}
+            {canManageUsers && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => handleFreeze(u)}>
+                  {u.status === 2 ? (
+                    <>
+                      <Unlock className="size-3.5 mr-2" />
+                      解冻账号
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="size-3.5 mr-2" />
+                      冻结账号
+                    </>
+                  )}
+                </DropdownMenuItem>
+              </>
+            )}
+            {/* 角色分配 —— 仅 super_admin(users.role.assign);不能改动其他 super_admin */}
+            {canAssignRole && u.role !== 'super_admin' && (
               <>
                 <DropdownMenuSeparator />
                 {u.role !== 'admin' && (
                   <DropdownMenuItem onSelect={() => handleRoleChange(u, 'admin')}>
                     <ShieldCheck className="size-3.5 mr-2" />
-                    提升为管理员
+                    设为管理员
                   </DropdownMenuItem>
                 )}
-                {u.role === 'admin' && (
+                {u.role !== 'operations' && (
+                  <DropdownMenuItem onSelect={() => handleRoleChange(u, 'operations')}>
+                    <UserCog className="size-3.5 mr-2" />
+                    设为运营
+                  </DropdownMenuItem>
+                )}
+                {u.role !== 'user' && (
                   <DropdownMenuItem onSelect={() => handleRoleChange(u, 'user')}>
-                    <ShieldCheck className="size-3.5 mr-2" />
-                    降为普通用户
+                    <UserRound className="size-3.5 mr-2" />
+                    设为普通用户
                   </DropdownMenuItem>
                 )}
               </>
             )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onSelect={() => handleDelete(u)}
-              className="text-destructive focus:text-destructive"
-            >
-              <Trash2 className="size-3.5 mr-2" />
-              删除账号
-            </DropdownMenuItem>
+            {/* 删除账号 —— 用户写操作,需 users.manage(运营看不到) */}
+            {canManageUsers && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => handleDelete(u)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="size-3.5 mr-2" />
+                  删除账号
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -349,6 +371,7 @@ export function UsersPage() {
           >
             <option value="">全部</option>
             <option value="user">普通用户</option>
+            <option value="operations">运营</option>
             <option value="admin">管理员</option>
             <option value="super_admin">超级管理员</option>
           </select>
@@ -415,11 +438,15 @@ export function UsersPage() {
         rows={data?.users}
         loading={isLoading}
         emptyMessage="没有符合条件的用户"
-        selection={{
-          selectedKeys: selected,
-          onSelectionChange: setSelected,
-          getKey: (u) => u.id,
-        }}
+        selection={
+          canManageUsers
+            ? {
+                selectedKeys: selected,
+                onSelectionChange: setSelected,
+                getKey: (u) => u.id,
+              }
+            : undefined
+        }
         serverSort={{
           sortBy,
           sortOrder: sortOrder as 'asc' | 'desc',
@@ -430,17 +457,21 @@ export function UsersPage() {
               page: null,
             }),
         }}
-        bulkActions={(rows) => (
-          <Button
-            size="sm"
-            variant="destructive"
-            disabled={batchDel.isPending}
-            onClick={() => handleBatchDelete(rows)}
-          >
-            <Trash2 className="size-3.5" />
-            批量删除
-          </Button>
-        )}
+        bulkActions={
+          canManageUsers
+            ? (rows) => (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={batchDel.isPending}
+                  onClick={() => handleBatchDelete(rows)}
+                >
+                  <Trash2 className="size-3.5" />
+                  批量删除
+                </Button>
+              )
+            : undefined
+        }
       />
 
       <Pagination

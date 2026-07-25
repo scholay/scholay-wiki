@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"unicode"
 )
 
 // ======================== Minicod API Raw Response Types ========================
@@ -53,6 +54,10 @@ type RawPaper struct {
 	URL             string      `json:"url"`
 	FieldsOfStudy   []string    `json:"fields_of_study"`
 	Authors         []RawAuthor `json:"authors"`
+	// api-1.json 的 Paper 新增字段:tldr 是**纯字符串**摘要(非旧 Semantic Scholar 的 {model,text} 对象),
+	// bibtex 是可直接引用的条目。此前 RawPaper 不解析 → 前端 TLDR 永 nil、每篇 BibTeX 丢失(对齐审计 #17)。
+	Tldr   string `json:"tldr"`
+	Bibtex string `json:"bibtex"`
 }
 
 // RawAuthor matches Minicod's author JSON format
@@ -141,6 +146,8 @@ type Paper struct {
 	Authors          []Author           `json:"authors,omitempty"`
 	ExternalIDs      map[string]any     `json:"externalIds,omitempty"`
 	TLDR             *TLDR              `json:"tldr,omitempty"`
+	// BibTeX:api-1.json 的 Paper 直供的可引用条目(prism 引用接地 / 前端「复制引用」可直接用)。
+	BibTeX           string             `json:"bibtex,omitempty"`
 	Journal          *JournalRef        `json:"journal,omitempty"`
 	Source           string             `json:"source,omitempty"`
 	// IsFavorited 仅在「已登录」请求时由 handler 后置标注(在共享缓存命中之后,逐请求标注,
@@ -213,6 +220,11 @@ type SearchResponse struct {
 	Offset int     `json:"offset"`
 	Next   int     `json:"next,omitempty"`
 	Data   []Paper `json:"data"`
+	// W6 P1-5 检索透明化(纯增量,omitempty 前端零改动兼容;旧 Redis 缓存条目缺字段随 TTL 自愈):
+	// SourcesQueried = 上游本次实际查询的库(透传 raw sources_queried,此前解析后被丢弃);
+	// ActualSource   = 命中的 minicod 源(stc/olx/pmd),failover 后即真实供数源。
+	SourcesQueried []string `json:"sourcesQueried,omitempty"`
+	ActualSource   string   `json:"actualSource,omitempty"`
 }
 
 // AuthorSearchResponse matches the existing frontend AuthorSearchResponse contract
@@ -356,7 +368,12 @@ type JournalSearchOptions struct {
 	MinHIndex           int     `json:"min_h_index,omitempty"`
 	MaxHIndex           int     `json:"max_h_index,omitempty"`
 	MinWorksCount       int     `json:"min_works_count,omitempty"` // 最少发刊量
-	MinSources          int     `json:"min_sources,omitempty"`     // 最少数据源覆盖数
+	// api-1.json 新增:按真实投稿评价(get_journal_comments 聚合)筛选 —— 评分下限 / 评价条数下限 /
+	// 计数口径(count_mode)。omitempty:不传即不启用,老行为不变。
+	MinCommentRating float64 `json:"min_comment_rating,omitempty"`
+	MinCommentCount  int     `json:"min_comment_count,omitempty"`
+	CountMode        string  `json:"count_mode,omitempty"`
+	MinSources       int     `json:"min_sources,omitempty"` // 最少数据源覆盖数
 	HasSources          string  `json:"has_sources,omitempty"`     // 命中的数据源逗号分隔
 	GJQKWarning         string  `json:"gjqk_warning,omitempty"`
 	SortBy              string  `json:"sort_by,omitempty"`  // 排序字段(jcr_impact_factor_num / scimago_sjr_num 等)
@@ -386,6 +403,85 @@ type JournalSearchResponse struct {
 	PageSize int       `json:"page_size"`
 }
 
+// ======================== Field Sanitizing (W6 P0-3) ========================
+// 上游偶发 spam 论文(审计实例:单条 abstract 6.7 万字符 / 乱码标题 / JATS 标签残留)会先进
+// Redis 缓存被放大(manager 缓存写在 Convert 之后),再全量落 hot_papers 与 SEO/文献集。
+// 此处在 ConvertPaper —— search/batch/citations/references/recommendations 全部转换的唯一
+// 收口、且**先于缓存写入** —— 做字段清洗;列表转换(ConvertPapers/ConvertPapersToCitations)
+// 顺带整条剔除 spam。阈值与 agent 侧 sanitizeMinicod.ts 同语义(per-item 上限不同:agent 侧
+// 为省上下文取 2000,此处为不伤 SEO/详情页取 5000)。
+
+const (
+	abstractCapRunes = 5000 // 正常 abstract <3k;5000 只拦 spam,不伤 SEO/详情页
+	titleCapRunes    = 400
+	tldrCapRunes     = 1000
+	bibtexCapRunes   = 2000
+)
+
+var (
+	// 控制符 + 零宽 + bidi 覆盖字符(spam 常用);\t\n\r 保留。
+	ctrlRe = regexp.MustCompile("[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u200B-\u200F\u202A-\u202E]")
+	// JATS/HTML 标签。属性区必须是 name=value 形态,不再用 `(\s[^<>]*)?` 吞任意散文 —— 否则无空格
+	// 不等式 `n<m … r>` 会把 `<m the ratio r>` 整段当标签删掉、吃掉真实正文(审计 [16];旧注释只覆盖
+	// `<` 后有空格的情形,漏了理论/遗传学摘要里常见的无空格不等式)。仍能剥裸标签(<italic> </i>
+	// <br/>)与带引号属性标签(<xref ref-type="bibr" rid="B1">)。
+	tagRe = regexp.MustCompile(`</?[a-zA-Z][a-zA-Z0-9:_-]*(\s+[a-zA-Z][a-zA-Z0-9:_.-]*\s*=\s*("[^"]*"|'[^']*'|[^\s"'<>]+))*\s*/?>`)
+)
+
+// sanitizeText 洗掉控制符 / JATS·HTML 标签,并按 rune 上限截断(尾部 "…" 可辨识;limit<=0 不截)。
+func sanitizeText(s string, limit int) string {
+	if s == "" {
+		return s
+	}
+	s = ctrlRe.ReplaceAllString(s, "")
+	s = tagRe.ReplaceAllString(s, " ")
+	s = strings.TrimSpace(s)
+	if r := []rune(s); limit > 0 && len(r) > limit {
+		return string(r[:limit]) + "…"
+	}
+	return s
+}
+
+// sanitizeVerbatim 用于 BibTeX 这类逐字字段:只剥控制符 + 截长,不做标签剥离
+// (BibTeX 里的花括号/反斜杠/尖括号是合法语法,tagRe 会误伤)。
+func sanitizeVerbatim(s string, limit int) string {
+	if s == "" {
+		return s
+	}
+	s = strings.TrimSpace(ctrlRe.ReplaceAllString(s, ""))
+	if r := []rune(s); limit > 0 && len(r) > limit {
+		return string(r[:limit]) + "…"
+	}
+	return s
+}
+
+// isSpamPaper 判定一条上游返回是否为 spam 条目(仅列表转换整条剔除;单篇详情不走此判定)。
+// 与 agent 侧 sanitizeMinicod isSpamTitle 同语义,阈值刻意保守,宁漏勿错杀:
+// 空标题 / 标题超 400 runes / 控制·bidi·零宽字符 >5 / (标题 >40 且非字母数字非 CJK 占比 >0.5)。
+func isSpamPaper(raw RawPaper) bool {
+	title := strings.TrimSpace(raw.Title)
+	r := []rune(title)
+	if len(r) == 0 || len(r) > titleCapRunes {
+		return true
+	}
+	if len(ctrlRe.FindAllString(title, 6)) > 5 {
+		return true
+	}
+	if len(r) > 40 {
+		junk := 0
+		for _, c := range r {
+			// 字母(含 CJK)/ 数字 / 空白视为正常;其余(标点/符号/emoji 等)计 junk。
+			if !unicode.IsLetter(c) && !unicode.IsDigit(c) && !unicode.IsSpace(c) {
+				junk++
+			}
+		}
+		if float64(junk)/float64(len(r)) > 0.5 {
+			return true
+		}
+	}
+	return false
+}
+
 // ======================== Conversion Functions ========================
 
 // ConvertPaper converts a Minicod raw paper to frontend-compatible Paper
@@ -400,10 +496,11 @@ func normalizeID(id, source string) string {
 }
 
 func ConvertPaper(raw RawPaper) Paper {
+	// W6 P0-3:先于 Redis 缓存 / hot_papers / SEO 的字段清洗(控制符 + JATS 标签 + spam 长度 cap)。
 	p := Paper{
 		PaperID:         normalizeID(raw.ID, raw.Source),
-		Title:           raw.Title,
-		Abstract:        raw.Abstract,
+		Title:           sanitizeText(raw.Title, titleCapRunes),
+		Abstract:        sanitizeText(raw.Abstract, abstractCapRunes),
 		Year:            raw.Year,
 		PublicationDate: raw.PublicationDate,
 		Venue:           raw.Venue,
@@ -443,6 +540,15 @@ func ConvertPaper(raw RawPaper) Paper {
 	// Map venue to journal
 	if raw.Venue != "" {
 		p.Journal = &JournalRef{Name: raw.Venue}
+	}
+
+	// tldr(上游纯字符串)→ 前端既有的 TLDR{text} 对象契约(前端零改动即显示摘要)。
+	if t := sanitizeText(raw.Tldr, tldrCapRunes); t != "" {
+		p.TLDR = &TLDR{Text: t}
+	}
+	// bibtex 逐字透出(仅剥控制符 + 截长;花括号/尖括号是合法 BibTeX 语法,不走 tagRe)。
+	if b := sanitizeVerbatim(raw.Bibtex, bibtexCapRunes); b != "" {
+		p.BibTeX = b
 	}
 
 	return p
@@ -485,11 +591,12 @@ func NormalizeORCID(raw string) string {
 
 // ConvertPaperToCitation converts a Minicod raw paper to a Citation
 func ConvertPaperToCitation(raw RawPaper) Citation {
+	// W6 P0-3:与 ConvertPaper 同款字段清洗(citations/references 同样进缓存与前端)。
 	c := Citation{
 		PaperId:         normalizeID(raw.ID, raw.Source),
 		URL:             raw.URL,
-		Title:           raw.Title,
-		Abstract:        raw.Abstract,
+		Title:           sanitizeText(raw.Title, titleCapRunes),
+		Abstract:        sanitizeText(raw.Abstract, abstractCapRunes),
 		Venue:           raw.Venue,
 		Year:            raw.Year,
 		ReferenceCount:  raw.ReferenceCount,
@@ -514,9 +621,14 @@ func ConvertPaperToCitation(raw RawPaper) Citation {
 }
 
 // ConvertPapers converts a slice of raw papers
+// W6 P0-3:列表转换顺带整条剔除 spam 条目(空标题/超长标题/乱码占比超标)——
+// 剔除发生在 Redis 缓存写入之前,spam 不再被缓存放大、也不落 hot_papers/SEO。
 func ConvertPapers(raws []RawPaper) []Paper {
 	papers := make([]Paper, 0, len(raws))
 	for _, r := range raws {
+		if isSpamPaper(r) {
+			continue
+		}
 		papers = append(papers, ConvertPaper(r))
 	}
 	return papers
@@ -532,9 +644,13 @@ func ConvertAuthors(raws []RawAuthor) []Author {
 }
 
 // ConvertPapersToCitations converts a slice of raw papers to citations
+// W6 P0-3:与 ConvertPapers 同款 spam 剔除。
 func ConvertPapersToCitations(raws []RawPaper) []Citation {
 	citations := make([]Citation, 0, len(raws))
 	for _, r := range raws {
+		if isSpamPaper(r) {
+			continue
+		}
 		citations = append(citations, ConvertPaperToCitation(r))
 	}
 	return citations

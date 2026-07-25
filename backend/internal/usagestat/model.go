@@ -26,6 +26,8 @@ const (
 	FeatureClaw          = "claw"           // 智能助手
 	FeatureTranslate     = "translate"      // 论文翻译
 	FeaturePrism         = "prism"          // 智能写作
+	FeatureBoltSlides    = "boltslides"     // 制作PPT(bolt-slides 演示稿)
+	FeatureSciDraw       = "sci_draw"       // 科研绘图(原创矢量科研图)
 )
 
 // FeatureNames 功能中文名 —— admin 展示用。新增功能时在这里登记。
@@ -40,6 +42,8 @@ var FeatureNames = map[string]string{
 	FeatureClaw:          "智能助手",
 	FeatureTranslate:     "论文翻译",
 	FeaturePrism:         "智能写作",
+	FeatureBoltSlides:    "制作PPT",
+	FeatureSciDraw:       "科研绘图",
 }
 
 // FeatureName 取功能中文名, 未登记则回退原 code。

@@ -1139,7 +1139,9 @@ func buildJournalNoscriptCard(meta *seo.JournalSSRMeta) string {
 		statLines = append(statLines, "JCR "+htmlEscape(meta.JCRQuartile))
 	}
 	if meta.OpenAlexHIndex != nil && *meta.OpenAlexHIndex > 0 {
-		statLines = append(statLines, fmt.Sprintf("OpenAlex h-index %d", *meta.OpenAlexHIndex))
+		// 中性指标名:此处是 noscript **正文**(无 JS 用户与 AI 爬虫直接可见),
+		// 不带上游数据源名(与 1028 行 desc 分支同口径)。
+		statLines = append(statLines, fmt.Sprintf("h-index %d", *meta.OpenAlexHIndex))
 	}
 	var statHTML string
 	if len(statLines) > 0 {

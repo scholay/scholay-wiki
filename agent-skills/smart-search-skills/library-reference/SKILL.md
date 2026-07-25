@@ -23,12 +23,12 @@ references/
 ## 怎么用
 
 1. **先 `Read references/INDEX.md`** 看用户引用了哪些文献、各自的文件、哪些带 PDF 全文。
-2. 需要某篇细节时 `Read references/paper-<id>.md`(metadata + 摘要);要正文/数据/图表就 `Read` 它记录的 `ref-<id>.pdf`(PDF 你能原生解析)。
+2. 需要某篇细节时 `Read references/paper-<id>.md`(metadata + 摘要);要正文/数据/图表就用 `ReadDocument` 读它记录的 `ref-<id>.pdf`(提取 PDF 文本;长 PDF 传 first_pages 限页。Read 工具读不了 PDF 二进制,别用它)。
 3. 文件夹引用 = INDEX 里的「文件夹『名字』」分组;大文件夹后台最多纳入 30 篇(INDEX 会标「共 N 篇,纳入最近 M 篇」),需要更多就提示用户拆分或单独引用。
 
 ## 约束
 
-- **以这些被引文献为准**,不要凭标题臆测内容;要分析就 Read 对应文件 / PDF。
+- **以这些被引文献为准**,不要凭标题臆测内容;要分析就读取对应文件(纯文本用 Read,PDF 用 ReadDocument)。
 - 引用时给清晰出处(作者, 年份 + 标题),区分「用户上传 PDF 全文」与「仅元数据/摘要」——只有元数据时不要假装读过全文。
 - metadata 里的字段可能是用户编辑过的(og 覆盖上游),按文件里写的为准。
-- 没有 OA 全文、用户也没上传 PDF 时,只能基于摘要 + 元数据回答,并说明这一点;`pdf_url`(OA 直链)如确需正文可用 WebFetch 取(可能失败)。
+- 没有 OA 全文、用户也没上传 PDF 时,只能基于摘要 + 元数据回答,并说明这一点。(当前环境没有 WebFetch 工具,无法抓取 OA 外链,不要尝试。)

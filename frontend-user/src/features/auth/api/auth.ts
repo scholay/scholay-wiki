@@ -28,6 +28,8 @@ function normalizeUser(raw: User): import('@/stores/auth.store').StoredUser {
     username: raw.username ?? undefined,
     avatar: raw.avatar_url ?? undefined,
     role: raw.role,
+    // 登录响应可能不含 permissions(仅 /user/profile 返回);缺失时消费方按角色兜底。
+    permissions: raw.permissions,
   };
 }
 

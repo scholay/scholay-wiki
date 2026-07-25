@@ -1,7 +1,9 @@
 import {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useRef,
   useState,
   type ClipboardEvent,
@@ -113,13 +115,46 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   };
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // 自增高:单行起、随内容到上限;effect 驱动(打字/prefill/清空都正确收放)。
-  useEffect(() => {
+  // 自增高:单行起、随内容到上限。先归零再按 scrollHeight 收放(打字/prefill/清空都正确)。
+  const resize = useCallback(() => {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, maxHeightPx)}px`;
-  }, [text, maxHeightPx]);
+  }, [maxHeightPx]);
+
+  // 文本变化 → paint 前定高(useLayoutEffect 避免先高一帧再收的闪动)。
+  useLayoutEffect(() => {
+    resize();
+  }, [text, resize]);
+
+  // 挂载后再补量 + 只在**宽度**变化时重量。根因:hero→底栏首帧过渡里 composer 宽度尚未定(过窄),
+  // 空输入框的 scrollHeight 会偏大 → 被 maxHeight 卡住把空框撑高;而原 effect 只在 text 变才跑,
+  // 空文本永不重量 → 那条会话的输入框永久拉高。宽度稳定后重量即收回(治「第一个会话输入框被拉高」)。
+  // 只认宽度、不认高度:避免「设高 → 高变 → 再触发」的观察回环。
+  useEffect(() => {
+    const el = textareaRef.current;
+    const parent = el?.parentElement;
+    if (!el || !parent) return;
+    // rAF 补一帧;再在 hero→底栏 framer 退场(~0.3s)结束后补一次 —— 那段过渡期布局未定,
+    // 空框 scrollHeight 可能偏大被 maxHeight 卡住;退场落定后重量必收回正确行高。
+    const raf = requestAnimationFrame(resize);
+    const settle = setTimeout(resize, 400);
+    let lastW = parent.clientWidth;
+    const ro = new ResizeObserver(() => {
+      const w = parent.clientWidth;
+      if (w !== lastW) {
+        lastW = w;
+        resize();
+      }
+    });
+    ro.observe(parent);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(settle);
+      ro.disconnect();
+    };
+  }, [resize]);
 
   useImperativeHandle(
     ref,

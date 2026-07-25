@@ -12,9 +12,14 @@ export { ResourceError } from './ResourceError';
 export { TruncatedText, type TruncatedTextProps } from './TruncatedText';
 export {
   MembershipPlanCard,
+  BillingCycleToggle,
   PLAN_META,
+  planYearlyEnabled,
+  planYearlySavings,
+  maxYearlySavingsPct,
   type MembershipPlanData,
   type MembershipPlanCardProps,
+  type BillingCycle,
 } from './membership-plan-card';
 export {
   SubscribeDialog,

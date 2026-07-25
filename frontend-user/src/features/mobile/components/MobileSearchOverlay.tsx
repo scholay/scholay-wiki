@@ -94,7 +94,8 @@ export function MobileSearchOverlay() {
   const activeCount = activeFilterCount(filters);
   const sortLabel =
     sortOptionsForSource(filters.source).find((o) => o.value === filters.sort)?.label ?? '相关度';
-  const sourceLabel = SOURCE_OPTIONS.find((o) => o.value === filters.source)?.label ?? 'Graph';
+  const sourceLabel =
+    SOURCE_OPTIONS.find((o) => o.value === filters.source)?.label ?? 'Graph';
 
   // 挂载时读 resume(从详情返回的恢复态):恢复滚动条 + 不抢焦点;否则全新打开 → 聚焦弹键盘。
   // 读后即清 resume。useLayoutEffect 在 paint 前定位滚动(结果已缓存同步渲染 → 无跳动)。

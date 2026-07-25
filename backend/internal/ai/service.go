@@ -51,6 +51,12 @@ type Service struct {
 	// llmRec 统一 LLM token 账本录入器, bootstrap 注入 (允许 nil = 不记账)。
 	// executeWithRetry 在每次成功调用后落一行 (source=project), 调用方无法漏记。
 	llmRec llmusage.Recorder
+
+	// agent 单次补全后端 + 能力绑定解析(bootstrap 经 SetAgentBackend 注入,见 service_agent.go)。
+	// 注入后项目侧功能(翻译/分析/公众号/Prism 点评)走 agent 模型,取代第三方账号 key;
+	// 未注入 → 回退旧第三方路径(平滑迁移 + 回滚)。
+	agentClient agentCompleter
+	catalog     modelResolver
 }
 
 func NewService(db *gorm.DB, accountService *thirdparty.Service) *Service {

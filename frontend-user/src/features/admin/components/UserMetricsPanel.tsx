@@ -24,6 +24,7 @@ import {
   YAxis,
 } from 'recharts';
 import { Skeleton } from '@/shared/ui/skeleton';
+import { Checkbox } from '@/shared/ui/checkbox';
 import { buildDailyTrend, localDateKey, withWeekday } from '@/shared/lib/daily-trend';
 import { compactAxis } from '@/shared/lib/chart-format';
 import { useUserMetrics } from '../api/user-metrics';
@@ -56,7 +57,7 @@ export function UserMetricsPanel() {
           icon={UserPlus}
           title={`注册量 · 活跃用户 · 最近 ${days} 天`}
           loading={isLoading}
-          hint="面积=当日新注册(左轴);折线=当日有真实使用的去重活跃用户(右轴,打开即活跃,不含注册当天)"
+          hint="面积=当日新注册;折线=当日去重活跃用户(打开即活跃,不含注册当天)。两者共用同一纵轴,可勾选下方开关单看某条"
           stat={
             data ? (
               <WindowTotals
@@ -214,11 +215,15 @@ const tooltipLabelStyle: React.CSSProperties = {
 type MetricsPoint = { date: string; value: number };
 
 /**
- * 注册量(面积,左轴,绿)与 engaged-DAU(折线,右轴,琥珀)合并到同一横轴。
- * 双 Y 轴:两者量级通常差很多(DAU ≫ 单日新注册),共用一轴会把注册压成贴地直线,
- * 故各用一轴保证两条都可读。两条日序列后端各自补 0、窗口一致,这里按日期 union 合行。
+ * 注册量(面积,绿)与 engaged-DAU(折线,琥珀)合并到同一横轴 + 同一纵轴。
+ * 单 Y 轴:两者共用一轴直接对比;DAU 通常 ≫ 单日新注册会把注册压低,故下方给两条曲线
+ * 各一个复选框(默认全开),取消勾选即隐藏该条 —— 隐藏后纵轴自动重算,可单看某条的起伏。
+ * 两条日序列后端各自补 0、窗口一致,这里按日期 union 合行。
  */
 function RegistrationsAndActive({ reg, dau }: { reg: MetricsPoint[]; dau: MetricsPoint[] }) {
+  const [showReg, setShowReg] = useState(true);
+  const [showDau, setShowDau] = useState(true);
+
   const byDate = new Map<string, { date: string; reg: number; dau: number }>();
   for (const p of reg) byDate.set(p.date, { date: p.date, reg: p.value, dau: 0 });
   for (const p of dau) {
@@ -229,109 +234,128 @@ function RegistrationsAndActive({ reg, dau }: { reg: MetricsPoint[]; dau: Metric
   const merged = Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
   const { data: rows, isLive } = buildDailyTrend(merged, { valueKeys: ['reg', 'dau'] });
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <ComposedChart data={rows} margin={{ top: 5, right: 4, left: 0, bottom: 0 }}>
-        <defs>
-          <linearGradient id="regGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={COLOR_GREEN} stopOpacity={0.35} />
-            <stop offset="100%" stopColor={COLOR_GREEN} stopOpacity={0} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
-        <XAxis
-          dataKey="date"
-          tickFormatter={(v) => (typeof v === 'string' && v.length >= 10 ? v.slice(5) : v)}
-          tick={{ fontSize: 11, fill: AXIS_COLOR }}
-          tickLine={false}
-          axisLine={{ stroke: GRID_COLOR }}
-          minTickGap={20}
-        />
-        <YAxis
-          yAxisId="reg"
-          allowDecimals={false}
-          tickFormatter={compactAxis}
-          tick={{ fontSize: 11, fill: AXIS_COLOR }}
-          tickLine={false}
-          axisLine={false}
-          width={38}
-        />
-        <YAxis
-          yAxisId="dau"
-          orientation="right"
-          allowDecimals={false}
-          tickFormatter={compactAxis}
-          tick={{ fontSize: 11, fill: AXIS_COLOR }}
-          tickLine={false}
-          axisLine={false}
-          width={38}
-        />
-        <Tooltip content={<DualMetricTooltip />} />
-        <Legend
-          wrapperStyle={{ fontSize: 11, color: 'var(--color-subtle)' }}
-          iconType="square"
-          iconSize={8}
-        />
-        <Area
-          yAxisId="reg"
-          type="monotone"
-          dataKey="reg__main"
-          name="注册量"
-          stroke={COLOR_GREEN}
-          strokeWidth={2}
-          fill="url(#regGrad)"
-          connectNulls={false}
-        />
-        <Line
-          yAxisId="dau"
-          type="monotone"
-          dataKey="dau__main"
-          name="活跃用户"
-          stroke={COLOR_AMBER}
-          strokeWidth={2}
-          dot={false}
-          activeDot={{ r: 5 }}
-          connectNulls={false}
-        />
-        {isLive && (
-          <>
-            <Area
-              yAxisId="reg"
-              type="monotone"
-              dataKey="reg__live"
-              stroke={COLOR_GREEN}
-              strokeWidth={2}
-              strokeDasharray="5 4"
-              fill="none"
-              connectNulls={false}
-              legendType="none"
+    <div className="flex h-full flex-col">
+      <div className="min-h-0 flex-1">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={rows} margin={{ top: 5, right: 4, left: 0, bottom: 0 }}>
+            <defs>
+              <linearGradient id="regGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={COLOR_GREEN} stopOpacity={0.35} />
+                <stop offset="100%" stopColor={COLOR_GREEN} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
+            <XAxis
+              dataKey="date"
+              tickFormatter={(v) => (typeof v === 'string' && v.length >= 10 ? v.slice(5) : v)}
+              tick={{ fontSize: 11, fill: AXIS_COLOR }}
+              tickLine={false}
+              axisLine={{ stroke: GRID_COLOR }}
+              minTickGap={20}
             />
-            <Line
-              yAxisId="dau"
-              type="monotone"
-              dataKey="dau__live"
-              stroke={COLOR_AMBER}
-              strokeWidth={2}
-              strokeDasharray="5 4"
-              dot={false}
-              connectNulls={false}
-              legendType="none"
+            {/* 单一纵轴 —— 注册量与活跃用户共用 */}
+            <YAxis
+              allowDecimals={false}
+              tickFormatter={compactAxis}
+              tick={{ fontSize: 11, fill: AXIS_COLOR }}
+              tickLine={false}
+              axisLine={false}
+              width={38}
             />
-          </>
-        )}
-      </ComposedChart>
-    </ResponsiveContainer>
+            <Tooltip content={<DualMetricTooltip showReg={showReg} showDau={showDau} />} />
+            {showReg && (
+              <Area
+                type="monotone"
+                dataKey="reg__main"
+                name="注册量"
+                stroke={COLOR_GREEN}
+                strokeWidth={2}
+                fill="url(#regGrad)"
+                connectNulls={false}
+              />
+            )}
+            {showDau && (
+              <Line
+                type="monotone"
+                dataKey="dau__main"
+                name="活跃用户"
+                stroke={COLOR_AMBER}
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 5 }}
+                connectNulls={false}
+              />
+            )}
+            {isLive && showReg && (
+              <Area
+                type="monotone"
+                dataKey="reg__live"
+                stroke={COLOR_GREEN}
+                strokeWidth={2}
+                strokeDasharray="5 4"
+                fill="none"
+                connectNulls={false}
+                legendType="none"
+              />
+            )}
+            {isLive && showDau && (
+              <Line
+                type="monotone"
+                dataKey="dau__live"
+                stroke={COLOR_AMBER}
+                strokeWidth={2}
+                strokeDasharray="5 4"
+                dot={false}
+                connectNulls={false}
+                legendType="none"
+              />
+            )}
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+      {/* 图例复选框 —— 默认全开,可单独关掉某条曲线;纵轴随可见条自动重算 */}
+      <div className="mt-1.5 flex items-center justify-center gap-4">
+        <SeriesToggle label="注册量" color={COLOR_GREEN} checked={showReg} onChange={setShowReg} />
+        <SeriesToggle label="活跃用户" color={COLOR_AMBER} checked={showDau} onChange={setShowDau} />
+      </div>
+    </div>
   );
 }
 
-/** 合并图 Tooltip —— 一行同时显示注册量(绿)与活跃用户(琥珀)真值。 */
+/** 图例复选框 —— 色块 + 名称,勾选控制对应曲线显隐(默认全开)。 */
+function SeriesToggle({
+  label,
+  color,
+  checked,
+  onChange,
+}: {
+  label: string;
+  color: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer select-none items-center gap-1.5 text-xs text-subtle">
+      <Checkbox checked={checked} onCheckedChange={(v) => onChange(v === true)} />
+      <span className="inline-block size-2.5 rounded-sm" style={{ backgroundColor: color }} />
+      {label}
+    </label>
+  );
+}
+
+/** 合并图 Tooltip —— 显示可见曲线的真值(隐藏的那条不列)。showReg/showDau 由 recharts cloneElement 保留。 */
 function DualMetricTooltip({
   active,
   payload,
   label,
+  showReg = true,
+  showDau = true,
 }: {
   active?: boolean;
   payload?: Array<{ payload?: { date: string; reg: number; dau: number } }>;
   label?: string | number;
+  showReg?: boolean;
+  showDau?: boolean;
 }) {
   if (!active || !payload?.length) return null;
   const row = payload[0]?.payload;
@@ -339,8 +363,8 @@ function DualMetricTooltip({
   return (
     <div style={tooltipStyle}>
       <div style={tooltipLabelStyle}>{withWeekday(String(label ?? row.date), row.date)}</div>
-      <div style={{ color: COLOR_GREEN }}>注册 {Number(row.reg ?? 0).toLocaleString()}</div>
-      <div style={{ color: COLOR_AMBER }}>活跃 {Number(row.dau ?? 0).toLocaleString()}</div>
+      {showReg && <div style={{ color: COLOR_GREEN }}>注册 {Number(row.reg ?? 0).toLocaleString()}</div>}
+      {showDau && <div style={{ color: COLOR_AMBER }}>活跃 {Number(row.dau ?? 0).toLocaleString()}</div>}
     </div>
   );
 }

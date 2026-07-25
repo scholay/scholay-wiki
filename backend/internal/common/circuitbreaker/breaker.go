@@ -94,11 +94,27 @@ var (
 		OnStateChange: onStateChangeWithStats,
 	})
 
-	// AgentBreaker 保护到 scholar_agent /api/providers 的配置推送。
-	// 推送是 admin 写入触发的低频动作,阈值压到 3 次失败 / 60% 即开,
-	// 避免 agent 长时间不可达时把 admin 保存接口拖慢(虽然 push 已经在 goroutine 里)。
-	AgentBreaker = gobreaker.NewCircuitBreaker(gobreaker.Settings{
-		Name:        "Agent",
+	// AgentConfigPushBreaker 保护「配置推送」到 scholar_agent 的调用:PushConfig / PushExtraProvider。
+	// 推送是 admin 写入触发的低频动作,阈值压到 3 次失败 / 60% 即开。
+	// ⚠️ 与 AgentSkillBreaker **刻意分开**:skill upsert(feature 启动同步)与 config push 是两类调用,
+	// 共用一把会导致「某 feature skill 探测 501 → 熔断打开 → 默认端点配置推送被连坐短路记为失败」
+	// (2026-07-25 线上假报警根因)。拆开后一类的故障不污染另一类。
+	AgentConfigPushBreaker = gobreaker.NewCircuitBreaker(gobreaker.Settings{
+		Name:        "AgentConfigPush",
+		MaxRequests: 1,
+		Interval:    time.Minute,
+		Timeout:     30 * time.Second,
+		ReadyToTrip: func(counts gobreaker.Counts) bool {
+			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
+			return counts.Requests >= 3 && failureRatio >= 0.6
+		},
+		OnStateChange: onStateChangeWithStats,
+	})
+
+	// AgentSkillBreaker 保护「skill 同步」到 scholar_agent 的调用(UpsertAgent / probe)。
+	// 与 AgentConfigPushBreaker 分离,详见其注释。
+	AgentSkillBreaker = gobreaker.NewCircuitBreaker(gobreaker.Settings{
+		Name:        "AgentSkill",
 		MaxRequests: 1,
 		Interval:    time.Minute,
 		Timeout:     30 * time.Second,
@@ -160,7 +176,8 @@ func init() {
 		"Minicod:pmd",
 		"Unpaywall",
 		"ProxyService",
-		"Agent",
+		"AgentConfigPush",
+		"AgentSkill",
 		"PeerReview",
 	} {
 		registerBreaker(name)

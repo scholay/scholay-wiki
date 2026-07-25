@@ -204,6 +204,27 @@ func (c *Client) doPost(ctx context.Context, path string, body any) (json.RawMes
 		// 区分「资源未找到」等正常业务态与真故障。
 		return nil, &APIStatusError{Code: apiResp.Code, Message: apiResp.Message}
 	}
+	// 双信封兼容(对齐审计 #16):api-1.json 把 stc/olx/pmd/uni/today 记为 {success,error,meta} 信封
+	// (与本客户端假设的 {code,message,data} 不同)。成功态两者都带 data、上面已覆盖;唯一缺口是**错误态**
+	// 以 {success:false, error:{code,message}} 返回时:top-level code 恒 0、无 data key → 会被当成「空结果」
+	// 静默吞掉。仅在「code==0 且响应无 data key」这一本就会静默的分支探测该信封,命中转成可见 APIStatusError;
+	// 未命中(success!=false 且无 error)维持原「空结果」语义 —— 对成功路径(data 非空)零影响。
+	if len(apiResp.Data) == 0 {
+		var alt struct {
+			Success *bool `json:"success"`
+			Error   *struct {
+				Code    int    `json:"code"`
+				Message string `json:"message"`
+			} `json:"error"`
+		}
+		if json.Unmarshal(resp.Body, &alt) == nil && ((alt.Success != nil && !*alt.Success) || alt.Error != nil) {
+			code, msg := 0, "minicod upstream error"
+			if alt.Error != nil {
+				code, msg = alt.Error.Code, alt.Error.Message
+			}
+			return nil, &APIStatusError{Code: code, Message: msg}
+		}
+	}
 	return apiResp.Data, nil
 }
 
@@ -290,6 +311,9 @@ func (c *Client) SearchPapers(ctx context.Context, opts PaperSearchOptions) (*Se
 		Total:  raw.Total,
 		Offset: raw.Offset,
 		Data:   ConvertPapers(raw.Items),
+		// W6 P1-5:上游实际查询的库 + 本次命中的 minicod 源(此前 raw.SourcesQueried 解析后丢弃)。
+		SourcesQueried: raw.SourcesQueried,
+		ActualSource:   opts.Source,
 	}
 	if raw.Offset+raw.Limit < raw.Total {
 		result.Next = raw.Offset + raw.Limit
@@ -313,11 +337,8 @@ func (c *Client) GetPaper(ctx context.Context, paperID string, opts PaperDetails
 		path = "/v1/olx/works/get"
 		// Strip prefix — OLX API expects raw ID (e.g., "W2726369860")
 		body["id"] = strings.TrimPrefix(paperID, "olx:")
-		// OLX uses "select" instead of "fields"
-		if len(opts.Fields) > 0 {
-			delete(body, "fields")
-			body["select"] = strings.Join(opts.Fields, ",")
-		}
+		// 对齐 api-1.json:olx works get 走共享 PaperGetRequest，字段过滤参数是 `fields`(不是历史的
+		// `select`)。旧代码把 fields 换成 select 会被上游忽略(裁剪失效)甚至 400。保留上面已设的 fields 即可。
 	}
 
 	data, err := c.doPost(ctx, path, body)
@@ -403,7 +424,8 @@ func convertSinglePaperOrNil(data json.RawMessage, source string) (*Paper, error
 //   - 其他       → /v1/stc/papers/batch (原值)
 //
 // 跨源混合 ID 也 OK,三组各发一个请求,并行/串行(此处串行,样本量小)。
-// 注:OLX 用 "select" 替代 "fields" 字段名 —— 上游历史命名差异。
+// 注:三源 batch 均走各自的 PaperBatchRequest,字段过滤统一为 `fields`(olx works 的历史 `select`
+// 命名已随 api-1.json 收敛掉;仅 /v1/olx/works/related 这类新端点仍用 select,本客户端未用到)。
 func (c *Client) GetPaperBatch(ctx context.Context, paperIDs []string, fields []string) ([]Paper, error) {
 	if len(paperIDs) == 0 {
 		return nil, nil
@@ -442,7 +464,8 @@ func (c *Client) GetPaperBatch(ctx context.Context, paperIDs []string, fields []
 	if len(olxIDs) > 0 {
 		body := map[string]any{"ids": olxIDs}
 		if len(fields) > 0 {
-			body["select"] = strings.Join(fields, ",")
+			// 对齐 api-1.json:olx works batch 走共享 PaperBatchRequest,字段过滤是 `fields`(非历史 `select`)。
+			body["fields"] = strings.Join(fields, ",")
 		}
 		data, err := c.doPost(ctx, "/v1/olx/works/batch", body)
 		if err != nil {
@@ -719,10 +742,11 @@ func (c *Client) GetAuthor(ctx context.Context, authorID string, fields []string
 	if strings.HasPrefix(authorID, "olx:") {
 		path = "/v1/olx/authors/get"
 		body["id"] = strings.TrimPrefix(authorID, "olx:")
-		if len(fields) > 0 {
-			delete(body, "fields")
-			body["select"] = strings.Join(fields, ",")
-		}
+		// olx(OpenAlex 源)用 `select` 选字段,且字段名词表与 STC 不同
+		// (STC 的 paperCount/hIndex vs OpenAlex 的 works_count/summary_stats)。
+		// 旧代码把 STC 字段名原样塞进 select → OpenAlex 报 400。这里直接不发 select,
+		// 取上游默认字段;响应由 minicod 归一成 RawAuthor(snake_case),解析不受影响。
+		delete(body, "fields")
 	}
 
 	data, err := c.doPost(ctx, path, body)
@@ -758,6 +782,8 @@ func (c *Client) GetAuthorPapers(ctx context.Context, authorID string, fields []
 	if strings.HasPrefix(authorID, "olx:") {
 		path = "/v1/olx/authors/papers"
 		body["author_id"] = strings.TrimPrefix(authorID, "olx:")
+		// 同 GetAuthor:olx 源字段名词表与 STC 不同,不转发 STC 字段名(否则 400),取上游默认。
+		delete(body, "fields")
 	}
 
 	data, err := c.doPost(ctx, path, body)
@@ -774,6 +800,8 @@ func (c *Client) GetAuthorPapers(ctx context.Context, authorID string, fields []
 		Total:  raw.Total,
 		Offset: raw.Offset,
 		Data:   ConvertPapers(raw.Items),
+		// W6 P1-5:同 SearchPapers 透传上游实际查询库(作者论文按 ID 前缀路由,无 opts.Source)。
+		SourcesQueried: raw.SourcesQueried,
 	}
 	if raw.Offset+raw.Limit < raw.Total {
 		result.Next = raw.Offset + raw.Limit

@@ -25,6 +25,11 @@ export function CyclingHint({ phrases, className, typeMs = 45, holdMs = 1500 }: 
   const [idx, setIdx] = useState(0); // 当前第几条
   const [len, setLen] = useState(0); // 已打出的字数
 
+  // phrases 每次父组件重渲染都可能是新数组引用(如 StreamingIndicator 每秒 tick 传 [text, ...] 新字面量),
+  // 直接放进 effect 依赖会让打字/停顿计时器每秒被清空重排 → 永远停在第一条、不轮换(审计 [23])。
+  // 改用内容键:内容不变则引用变化不重跑 effect,1500ms 停顿计时器得以真正 fire。
+  const phrasesKey = phrases.join('\n');
+
   useEffect(() => {
     if (phrases.length === 0) return;
     const phrase = phrases[idx % phrases.length];
@@ -38,7 +43,8 @@ export function CyclingHint({ phrases, className, typeMs = 45, holdMs = 1500 }: 
       setLen(0);
     }, holdMs);
     return () => clearTimeout(t);
-  }, [idx, len, phrases, typeMs, holdMs]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 刻意用 phrasesKey 代替 phrases 引用(见上注释)
+  }, [idx, len, phrasesKey, typeMs, holdMs]);
 
   if (phrases.length === 0) return null;
   const phrase = phrases[idx % phrases.length];

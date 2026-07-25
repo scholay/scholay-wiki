@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle, RefreshCw, ShieldCheck } from 'lucide-react';
 import {
   AssistantBubble,
   AttachmentChipList,
@@ -7,6 +7,9 @@ import {
   extractSkillGuideName,
   extractToolQuery,
   extractToolSourceBrand,
+  MinicodAuthorCards,
+  MinicodJournalCards,
+  MinicodSnippetCards,
   PausedNotice,
   ReferenceChipList,
   SkillHeaderBadge,
@@ -19,7 +22,9 @@ import {
 } from '@/shared/components/chat';
 import type { InstalledSkill } from '@/shared/api/skills';
 import { MINICOD_TOOL_PREFIX } from '@/shared/lib/minicod-papers';
+import { classifyMinicodToolResult } from '@/shared/lib/minicod-results';
 import { stripContainerPaths } from '@/shared/lib/strip-container-paths';
+import { isRetryableTurnError } from '@/shared/lib/friendly-tool-error';
 import { ClawPaperList } from './ClawPaperList';
 import {
   hasVisibleAssistantContent,
@@ -30,6 +35,15 @@ import { Button } from '@/shared/ui/button';
 import { useQuotaStore } from '@/stores/quota.store';
 import type { ClawArtifact } from '../../api/artifacts';
 import { TurnArtifacts } from './TurnArtifacts';
+import { TurnFigures } from './TurnFigures';
+import { artifactCategory } from '../preview/artifact-format';
+
+/** 图片类产物(科研绘图内联出图用):细胞图配方 / SVG / 位图。 */
+function isFigureArtifact(a: ClawArtifact): boolean {
+  if (a.kind === 'dir') return false;
+  const c = artifactCategory(a);
+  return c === 'figure' || c === 'svg' || c === 'image';
+}
 
 // 系统预置(claw guides)技能名 → 人类可读中文标签。用户市场技能不走这里(用其显示名)。
 // 未登记的一方 skill 回退成「连字符转空格」。
@@ -92,11 +106,18 @@ export const MessageTurn = memo(function MessageTurn({
   onPreview,
   onResendBlocked,
   onDismissBlocked,
+  onRetryTurn,
+  artifactBasePath = '/user/claw',
+  figuresInline = false,
 }: {
   turn: Turn;
   /** 当前会话 ./out 的产物列表(含 manifest 标题);用来认领"本轮产出的可下载文件"。 */
   artifacts?: ClawArtifact[];
   sessionId?: string | null;
+  /** 产物下载/预览端点前缀:'/user/claw'(智能助手) | '/user/boltslides'(制作PPT)。默认 claw。 */
+  artifactBasePath?: import('../../api/artifacts').ArtifactBasePath;
+  /** 科研绘图:图片类产物**内联展示**在对话流里(TurnFigures),不走文件卡 + 右侧面板。 */
+  figuresInline?: boolean;
   /** guideName → 我启用的市场技能。用来在会话流里认出「本轮用的是你的技能 X」并与系统能力区分。
    *  父组件用 useMemo 缓存(引用稳定不破 memo);不传则所有 Skill 帧按系统能力渲染。 */
   userSkillsByGuide?: Map<string, InstalledSkill>;
@@ -106,6 +127,11 @@ export const MessageTurn = memo(function MessageTurn({
   onResendBlocked?: () => void;
   /** blocked 轮:点「忽略」丢弃这条未发送消息。 */
   onDismissBlocked?: () => void;
+  /**
+   * 失败轮「重试」(W5 P0-C3):父层只给**最后一轮**传(重试语义只对末轮成立;hook 内再守卫
+   * !busy)。本组件叠加「errorCode 可重试白名单」判定后才把按钮透给 TurnErrorNotice。
+   */
+  onRetryTurn?: () => void;
 }) {
   const openReset = useQuotaStore((s) => s.openReset);
   const visible = hasVisibleAssistantContent(turn);
@@ -167,15 +193,25 @@ export const MessageTurn = memo(function MessageTurn({
                 />
               );
             }
-            // minicod 论文工具:结果渲染成卡片列表(与智能搜索一致,但无暂存)。
-            // 已可视化成卡片,默认 JSON 折叠就多余 → expandable=false;非论文结果(作者/期刊)
-            // ClawPaperList 解析为空返回 null,只剩 chip,与智能搜索行为对齐。
+            // 交互提问(AskUserQuestion,方案 B + 交互修订):**不在对话流里渲染**。待作答的问题由
+            // 输入框上方的 QuestionPrompt 分步面板承接(ConversationWorkspace / MobileClawPage);
+            // 历史/已答态则由用户的答案气泡表达上下文。故这里对该工具块一律不出卡片(避免大表格塞进结果)。
+            if (b.toolName === 'AskUserQuestion') {
+              return null;
+            }
+            // minicod 工具:按 dispatcher 判定结果类型渲染对应专用卡(论文 / 期刊 / 作者 / 原文片段,
+            // 与智能搜索一致,论文卡无暂存)并隐藏 JSON;'unknown'(高校/OpenAlex 实体/recommend 空壳等
+            // 无法识别)才回退默认可展开工具块,原始 JSON 至少可见,不再静默隐形。
             if (b.toolName.startsWith(MINICOD_TOOL_PREFIX)) {
+              const kind =
+                b.result !== undefined
+                  ? classifyMinicodToolResult(b.result, b.toolName)
+                  : 'unknown';
               return (
                 <div key={b.id} className="space-y-2 min-w-0">
                   <ToolCallBlock
                     tool={b}
-                    expandable={false}
+                    expandable={kind === 'unknown'}
                     renderHeaderExtras={() => (
                       <ToolHeaderExtras
                         brand={extractToolSourceBrand(b.input)}
@@ -183,9 +219,12 @@ export const MessageTurn = memo(function MessageTurn({
                       />
                     )}
                   />
-                  {b.result !== undefined && (
+                  {kind === 'papers' && (
                     <ClawPaperList content={b.result} toolUseId={b.toolUseId} />
                   )}
+                  {kind === 'journals' && <MinicodJournalCards content={b.result} />}
+                  {kind === 'authors' && <MinicodAuthorCards content={b.result} />}
+                  {kind === 'snippets' && <MinicodSnippetCards content={b.result} />}
                 </div>
               );
             }
@@ -231,12 +270,34 @@ export const MessageTurn = memo(function MessageTurn({
         </>
       )}
 
-      {/* 本轮产出的可下载文件 —— 挂在这条回答下面(多文件/多轮各归各回答)。 */}
-      {sessionId && turnFiles.length > 0 && (
-        <TurnArtifacts sessionId={sessionId} files={turnFiles} onPreview={onPreview} />
+      {/* 本轮产出的图/文件 —— 挂在这条回答下面(多文件/多轮各归各回答)。
+          科研绘图(figuresInline):图直接内联展示(TurnFigures),不走文件卡/右侧面板;非图产物不展示。
+          其它 feature:走 TurnArtifacts 文件卡 + 右侧预览。 */}
+      {sessionId && turnFiles.length > 0 &&
+        (figuresInline ? (
+          <TurnFigures figures={turnFiles.filter(isFigureArtifact)} basePath={artifactBasePath} />
+        ) : (
+          <TurnArtifacts sessionId={sessionId} files={turnFiles} onPreview={onPreview} basePath={artifactBasePath} />
+        ))}
+
+      {/* claim_audit 轻标注(W2 P1-b):本轮触发过平台自动核验纠偏 —— 中性小标签,
+          不弹窗不阻塞;历史回放无此字段 → 不渲染(优雅降级)。 */}
+      {turn.complete && turn.claimAudited && (
+        <p className="flex items-center gap-1 text-2xs text-faint">
+          <ShieldCheck className="size-3 shrink-0" strokeWidth={2} />
+          本轮回答经过自动核验并已更正
+        </p>
       )}
 
-      {turn.errorMessage && <TurnErrorNotice message={turn.errorMessage} />}
+      {turn.errorMessage && (
+        <TurnErrorNotice
+          message={turn.errorMessage}
+          code={turn.errorCode}
+          onRetry={
+            onRetryTurn && isRetryableTurnError(turn.errorCode) ? onRetryTurn : undefined
+          }
+        />
+      )}
 
       {/* 命中额度「未发送」轮 —— 保留用户气泡 + 一键重发(无需重打)。开通会员/重置额度后点重发即可继续。
           消息已持久化(localStorage),跳支付宝充会员整页返回 / 换设备回来都能在此一键重发。 */}

@@ -9,6 +9,7 @@ package main
 
 import (
 	"scholar-backend/internal/common/middleware"
+	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/peerreview"
 
 	"github.com/gin-gonic/gin"
@@ -172,8 +173,6 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 			prismG.POST("/projects/:id/writing-profile/plan", h.prism.PlanWritingProfile)
 			// 质量回执(Phase 4):确定性双轨检查(悬空引用/未定义交叉引用/前置缺失/超长句)。
 			prismG.GET("/projects/:id/quality-check", h.prism.GetQualityCheck)
-			// 快通道评议(V3-4.5-1):选区级只读点评(解释/找漏洞/审稿人视角),结果进 popover 不碰正文。
-			prismG.POST("/projects/:id/inline-review", h.prism.InlineReview)
 			// 修改意见回应工作流(V4-③):粘贴任何修改意见 → 拆条 → 逐条改稿 → response letter。
 			prismG.POST("/projects/:id/revision/parse", h.prism.ParseRevision)
 			prismG.GET("/projects/:id/revision", h.prism.ListRevision)
@@ -324,6 +323,58 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		// 切换不走 HTTP, 直接在 WS 上发 set_runtime_config (agent 协议规定)。
 		userProtected.GET("/claw/models", h.claw.ListModels)
 
+		// 制作PPT (boltslides) — 智能助手页选项卡切入。与 claw 同型 session/ws 模式 + 产物交付
+		// (单文件 HTML deck,BuildDeck 编译)。无上传/引用(v1 纯文本描述主题)。
+		userProtected.GET("/boltslides/session", h.boltSlides.GetSession)
+		userProtected.POST("/boltslides/session/reset", h.boltSlides.ResetSession)
+		userProtected.GET("/boltslides/session/messages", h.boltSlides.GetSessionMessages)
+		userProtected.GET("/boltslides/session/context", h.boltSlides.GetContextEstimate)
+		userProtected.GET("/boltslides/session/artifacts", h.boltSlides.GetSessionArtifacts)
+		userProtected.GET("/boltslides/artifact/:id", h.boltSlides.DownloadArtifactByID)        // MinIO 交付物按 id 取(预览/下载)
+		userProtected.GET("/boltslides/session/artifact", h.boltSlides.DownloadSessionArtifact) // 实时回退(storage 未启用)
+		userProtected.POST("/boltslides/session/export-pptx", h.boltSlides.ExportPptx)          // 单文件HTML deck → 图片版 .pptx
+		userProtected.POST("/boltslides/session/ws-ticket", h.boltSlides.IssueWSTicket)
+		userProtected.GET("/boltslides/sessions", h.boltSlides.ListSessions)
+		userProtected.POST("/boltslides/sessions", h.boltSlides.CreateNewSession)
+		userProtected.PATCH("/boltslides/sessions/:id", h.boltSlides.RenameSession)
+		userProtected.POST("/boltslides/sessions/:id/rename", h.boltSlides.RenameSession)
+		userProtected.DELETE("/boltslides/sessions/:id", h.boltSlides.DeleteSession)
+		userProtected.POST("/boltslides/sessions/:id/activate", h.boltSlides.ActivateSession)
+		userProtected.GET("/boltslides/models", h.boltSlides.ListModels)
+
+		// 科研绘图 (sci_draw) — 智能助手页模板卡切入。与 claw/boltslides 同型 session/ws 模式 + 产物交付
+		// (原创矢量 SVG,agent 直接写 ./out/)。P0 无上传/引用/导出(纯文本描述 → 生成矢量图)。
+		userProtected.GET("/sci_draw/session", h.sciDraw.GetSession)
+		userProtected.POST("/sci_draw/session/reset", h.sciDraw.ResetSession)
+		userProtected.GET("/sci_draw/session/messages", h.sciDraw.GetSessionMessages)
+		userProtected.GET("/sci_draw/session/context", h.sciDraw.GetContextEstimate)
+		userProtected.GET("/sci_draw/session/artifacts", h.sciDraw.GetSessionArtifacts)
+		userProtected.GET("/sci_draw/artifact/:id", h.sciDraw.DownloadArtifactByID)        // MinIO 交付物按 id 取(预览/下载)
+		userProtected.GET("/sci_draw/session/artifact", h.sciDraw.DownloadSessionArtifact) // 实时回退(storage 未启用)
+		userProtected.POST("/sci_draw/session/ws-ticket", h.sciDraw.IssueWSTicket)
+		userProtected.GET("/sci_draw/sessions", h.sciDraw.ListSessions)
+		userProtected.POST("/sci_draw/sessions", h.sciDraw.CreateNewSession)
+		userProtected.PATCH("/sci_draw/sessions/:id", h.sciDraw.RenameSession)
+		userProtected.POST("/sci_draw/sessions/:id/rename", h.sciDraw.RenameSession)
+		userProtected.DELETE("/sci_draw/sessions/:id", h.sciDraw.DeleteSession)
+		userProtected.POST("/sci_draw/sessions/:id/activate", h.sciDraw.ActivateSession)
+		userProtected.GET("/sci_draw/models", h.sciDraw.ListModels)
+
+		// 会话解析(feature 中立)—— /claw/:sessionId 深链/刷新时用:URL 只带裸 sessionId 不带 feature,
+		// 前端据此定 feature(挂 claw/boltslides/sci_draw 哪个 workspace)+ 判「不存在/不属于我 → 回新对话」。
+		// 归属校验落在 agent_session_id 全局唯一 + user_id 比对;仅智能助手页承载的三个 feature 可见,
+		// 其它(smart_search/prism 等)一律当不可见(owned=false),避免跨页打开别处的会话。
+		userProtected.GET("/agent-session/resolve", func(c *gin.Context) {
+			userID := c.GetUint("user_id")
+			feature, owned := h.agentBridge.ResolveUserSession(userID, c.Query("session_id"))
+			switch feature { // 智能助手页只承载这三个 feature(值同各自 spec.go FeatureKey)
+			case "claw", "boltslides", "sci_draw":
+			default:
+				feature, owned = "", false
+			}
+			utils.Success(c, gin.H{"owned": owned, "feature": feature})
+		})
+
 		// 数学公式渲染:TeX → PNG(agent MathJax 渲染 + Redis 缓存)。小程序 rich-text
 		// 跑不了 KaTeX,前端把 $$…$$ 送这里换成图内联。挂 claw handler 仅为复用 AgentClient。
 		userProtected.POST("/render/math", h.claw.RenderMath)
@@ -362,6 +413,10 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 	api.GET("/user/smart-search/ws/:sessionId", h.smartSearch.HandleWS)
 	// 智能助手 · WS 桥接 (同 smart-search 模式)
 	api.GET("/user/claw/ws/:sessionId", h.claw.HandleWS)
+	// 制作PPT · WS 桥接 (同 claw 模式)
+	api.GET("/user/boltslides/ws/:sessionId", h.boltSlides.HandleWS)
+	// 科研绘图 · WS 桥接 (同 claw 模式)
+	api.GET("/user/sci_draw/ws/:sessionId", h.sciDraw.HandleWS)
 	// 智能写作 (Prism) · WS 桥接 (ticket 已校验项目归属;agent-native 实时编辑)
 	api.GET("/user/prism/ws/:sessionId", h.prism.HandleWS)
 }

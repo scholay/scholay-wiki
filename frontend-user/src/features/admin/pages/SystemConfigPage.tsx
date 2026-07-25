@@ -6,6 +6,7 @@ import { SecretInput } from '@/shared/ui/secret-input';
 import { Label } from '@/shared/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs';
 import { AdminPageLayout } from '../components/AdminPageLayout';
+import { CodeSnippetsPanel } from './CodeSnippetsPage';
 import { useApiToast } from '../hooks/useApiToast';
 import {
   useEmailConfig,
@@ -24,17 +25,19 @@ import {
  */
 export function SystemConfigPage() {
   return (
-    <AdminPageLayout title="系统设置" description="平台基础配置 · 通知通道">
+    <AdminPageLayout title="系统设置" description="平台基础配置 · 通知通道 · 注入脚本">
       <Tabs defaultValue="system">
         <TabsList>
           <TabsTrigger value="system">基础</TabsTrigger>
           <TabsTrigger value="email">邮件</TabsTrigger>
           <TabsTrigger value="sms">短信</TabsTrigger>
+          <TabsTrigger value="snippets">代码片段库</TabsTrigger>
         </TabsList>
 
         <TabsContent value="system"><SystemBasicForm /></TabsContent>
         <TabsContent value="email"><EmailForm /></TabsContent>
         <TabsContent value="sms"><SMSForm /></TabsContent>
+        <TabsContent value="snippets" className="mt-4"><CodeSnippetsPanel /></TabsContent>
       </Tabs>
     </AdminPageLayout>
   );

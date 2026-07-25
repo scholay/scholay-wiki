@@ -14,14 +14,14 @@ import { PdfPreviewCard } from './PdfPreviewCard';
  *
  * 后端 SSE 只暴露 2 个事件(parsed → searched),phase 三档
  * uploading → searching → done,映射到设计上的 5 步:
- *   1. 提取 PDF 元数据指纹                —— 'uploading' active,phase ≥ 'searching' 完成
- *   2. 检索 Graph / Discovery 学术源      —— 'searching' active,'done' 完成
- *   3. 检索 Medicine 医学源               —— 'searching' active,'done' 完成
- *   4. 归并 / 排序候选项                  —— 'done' 完成
- *   5. 返回最佳建议                       —— 'done' 完成(下一帧 step 切到 decide)
+ *   1. 提取 PDF 元数据指纹                        —— 'uploading' active,phase ≥ 'searching' 完成
+ *   2. 检索 Graph / Discovery 学术源    —— 'searching' active,'done' 完成
+ *   3. 检索 Medicine 医学源                         —— 'searching' active,'done' 完成
+ *   4. 归并 / 排序候选项                          —— 'done' 完成
+ *   5. 返回最佳建议                               —— 'done' 完成(下一帧 step 切到 decide)
  *
- * 三源品牌名(stc=Graph / olx=Discovery / pmd=Medicine)见 ../../lib/resolve-paper
- * 的 sourceBrandLabel。
+ * 三源对外品牌名 Graph/Discovery/Medicine(内部映射 stc/olx/pmd,真名不对外)
+ * 见 ../../lib/resolve-paper 的 sourceBrandLabel。
  */
 
 interface PdfUploadInspectingProps {

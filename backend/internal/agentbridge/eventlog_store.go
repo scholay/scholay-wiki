@@ -108,18 +108,20 @@ func (s *eventlogStore) CompleteTurn(ctx context.Context, turnID uint64, status,
 	return nil
 }
 
-// ReconcileStaleRunning 启动时把「卡在 running 超过 1h」的 turn 标 aborted(M5)。
-// 进程崩在 turn 进行中会留 status=running 僵尸行 → 污染 ReadInFlightEvents(续流复活死轮)。
-// 1h 阈值远大于任何正常 turn,绝不会误杀活轮。
+// ReconcileStaleRunning 把「卡在 running 超过 30min」的 turn 标 aborted(M5 boot 清理 +
+// W3-2c 运行期 reaper 共用同一写口)。进程崩在 turn 进行中会留 status=running 僵尸行 →
+// 污染 ReadInFlightEvents(续流复活死轮)。30min 阈值是轮级硬超时(默认 15min,
+// FeatureSpec.TurnTimeoutOrDefault)的 2 倍兜底 —— 正常轮绝不会活过它;若某 feature 调大
+// TurnTimeout 超过 30min,此阈值须同步上调。
 func (s *eventlogStore) ReconcileStaleRunning(ctx context.Context) error {
 	res := s.db.WithContext(ctx).Model(&Turn{}).
-		Where("status = ? AND created_at < ?", "running", time.Now().Add(-1*time.Hour)).
+		Where("status = ? AND created_at < ?", "running", time.Now().Add(-30*time.Minute)).
 		Updates(map[string]any{"status": "aborted", "completed_at": time.Now()})
 	if res.Error != nil {
 		return res.Error
 	}
 	if res.RowsAffected > 0 {
-		slog.Info("agentbridge: reconciled stale running turns on boot", "aborted", res.RowsAffected)
+		slog.Info("agentbridge: reconciled stale running turns", "aborted", res.RowsAffected)
 	}
 	return nil
 }
@@ -247,6 +249,10 @@ func (s *eventlogStore) FoldToMessages(evs []Event) []agent.SessionMessage {
 			if f.ToolInput == nil && f.Text != "" {
 				emitAsst("text", f.Text)
 			}
+		case EvRoundDiscarded:
+			// DSML 作废重打(审计 [10]):丢弃当前正在累积但尚未 flush 的 assistant 文本 —— 即被作废
+			// 那一轮的残缺前缀(该路径保证无 tool_use,故 buf 内只可能是本轮 text 前缀)。不 flush,直接清空。
+			buf, bufKind = "", ""
 		case EvThinking:
 			var f struct {
 				Text string `json:"text"`
@@ -286,6 +292,10 @@ func (s *eventlogStore) FoldToMessages(evs []Event) []agent.SessionMessage {
 				Content    json.RawMessage `json:"content"`
 				IsError    *bool           `json:"isError"`
 				IsError2   *bool           `json:"is_error"`
+				// W5 P0-A3(冻结契约 #1):工具错误双轨制 —— userMessage 是给用户的脱敏摘要
+				// (仅 isError 时出现),content 仍是给模型的全量指引。历史回放透传给前端
+				// ToolErrorFold 优先渲染;旧事件无此字段 → 零值跳过,天然向后兼容。
+				UserMessage string `json:"userMessage"`
 			}
 			_ = json.Unmarshal(e.Payload, &f)
 			id := f.ToolUseID
@@ -301,9 +311,30 @@ func (s *eventlogStore) FoldToMessages(evs []Event) []agent.SessionMessage {
 			} else if f.IsError2 != nil {
 				blk["is_error"] = *f.IsError2
 			}
+			if f.UserMessage != "" {
+				blk["user_message"] = f.UserMessage
+			}
 			block, _ := json.Marshal(blk)
 			content, _ := json.Marshal([]json.RawMessage{block})
 			out = append(out, agent.SessionMessage{Type: "tool_result", Content: content})
+		case EvError:
+			// W3 P1-A 失败轮错误持久化读侧(冻结契约):journal 里的 EvError 帧(hub 侧已净化,
+			// 形如 {"type":"error","code":...,"message":...,可能带 usage/calls})折成 Type=="error"
+			// 的 message,content 为 {"code","message"} **JSON 对象**(非块数组;缺省 code="error")。
+			// 位置按事件流原序(该轮 user 之后)→ 前端历史回放与实时 fold 的 error 终帧同构。
+			// executor seed_history 侧(convertFlatToAnthropic)只认 content 为数组的 text 块,
+			// 对象形 content 天然被跳过 —— 错误提示不会回喂模型上下文。
+			flushAsst()
+			var f struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}
+			_ = json.Unmarshal(e.Payload, &f)
+			if f.Code == "" {
+				f.Code = "error"
+			}
+			content, _ := json.Marshal(map[string]string{"code": f.Code, "message": f.Message})
+			out = append(out, agent.SessionMessage{Type: "error", Content: content})
 		case EvArtifact:
 			// 产物带外声明 → 合成一条 artifact entry(content = 产物字段数组)。前端 replay 据此
 			// 把产物绑回「当前轮」,与实时 fold 的 case 'artifact' 同构(见 shared TurnArtifact)。

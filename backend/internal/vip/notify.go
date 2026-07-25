@@ -101,34 +101,62 @@ func (s *Service) notifyOrderFulfilled(ord *Order) {
 		})
 	case "subscription":
 		name := tierDisplayName(ord.PlanCode)
+		yearly := ord.BillingCycle == CycleYearly && ord.SubAction != "upgrade"
+		// 年费单显式彰显「年度会员」身份(标题/套餐名/计费周期行都带),不与月度混同。
+		planLabel, cycleLabel := name, "月度"
+		if yearly {
+			planLabel, cycleLabel = name+" 年度会员", "年度"
+		}
 		var title, verb string
 		switch ord.SubAction {
 		case "renew":
-			title, verb = name+"续期成功", "续期"
+			if yearly {
+				title, verb = name+" 年度续期成功", "按年续期"
+			} else {
+				title, verb = name+"续期成功", "续期"
+			}
 		case "upgrade":
 			title, verb = "已升级到 "+name, "升级"
 		default:
-			title, verb = name+"开通成功", "开通"
+			if yearly {
+				title, verb = name+" 年度会员开通成功", "开通"
+			} else {
+				title, verb = name+"开通成功", "开通"
+			}
 		}
 		exp := ""
 		if ord.NewExpiresAt != nil {
 			exp = ord.NewExpiresAt.Format("2006-01-02")
 		}
-		rows := [][2]string{{"会员套餐", name}, {"有效期至", exp}}
+		rows := [][2]string{{"会员套餐", planLabel}}
+		// 升级单是「当前周期内补差」,周期与到期日均不变(可能对年费会员补差,billing_cycle 甚至
+		// 是 yearly),挂「计费周期」行只会与用户真实身份矛盾(评审 compat-display)——故仅新购/续期
+		// 显示计费周期,升级单省略该行。
+		if ord.SubAction != "upgrade" {
+			rows = append(rows, [2]string{"计费周期", cycleLabel})
+		}
+		rows = append(rows, [2]string{"有效期至", exp})
 		note := ""
 		if ord.CreditsGranted > 0 {
-			if ord.SubAction == "renew" {
+			switch {
+			case yearly && ord.SubAction == "renew":
+				rows = append(rows, [2]string{"赠送经费", fmt.Sprintf("%d 经费(下一周期起按月分 12 批发放)", ord.CreditsGranted)})
+				note = "年度续期赠送的经费将从下一计费周期开始按月分 12 批依次生效,每批当月有效;本周期额度与经费不变。"
+			case yearly:
+				rows = append(rows, [2]string{"赠送经费", fmt.Sprintf("%d 经费(按月分 12 批发放)", ord.CreditsGranted)})
+				note = "年度订阅赠送的经费按月分 12 批依次生效,每批当月有效 —— 与月度会员的每月节奏一致,细水长流。"
+			case ord.SubAction == "renew":
 				rows = append(rows, [2]string{"赠送经费", fmt.Sprintf("%d 经费(下一周期发放)", ord.CreditsGranted)})
 				note = "续期赠送的经费将在下一计费周期开始时自动发放并生效,本周期额度与经费不变。"
-			} else {
+			default:
 				rows = append(rows, [2]string{"赠送经费", fmt.Sprintf("%d 经费", ord.CreditsGranted)})
 			}
 		}
 		rows = append(rows, [2]string{"支付金额", yuanStr(ord.FinalAmount)}, [2]string{"订单号", ord.OrderNo})
-		inApp := fmt.Sprintf("您的 %s 已%s,有效期至 %s。", name, verb, exp)
+		inApp := fmt.Sprintf("您的 %s 已%s,有效期至 %s。", planLabel, verb, exp)
 		s.notify(ord.UserID, title, inApp, utils.EmailContent{
 			Title:   title,
-			Intro:   fmt.Sprintf("感谢您订阅 %s 会员!您的 %s 已%s,以下是本次订单详情:", utils.EmailBrandName, name, verb),
+			Intro:   fmt.Sprintf("感谢您订阅 %s 会员!您的 %s 已%s,以下是本次订单详情:", utils.EmailBrandName, planLabel, verb),
 			Rows:    rows,
 			CTAText: "查看会员权益", CTAURL: membershipURL(),
 			Note: note,

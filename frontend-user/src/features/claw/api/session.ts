@@ -269,6 +269,12 @@ export function markPendingInitialModel(sessionId: string) {
   if (pref) pendingInitialModel.set(sessionId, pref);
 }
 
+/** 低层写入(供其它 feature —— 如 boltslides —— 用自己的偏好登记一次性初始模型)。map 按 sessionId 键,
+ *  sessionId 全局唯一,claw/boltslides 共用此 map 不撞。 */
+export function setPendingInitialModel(sessionId: string, modelId: string) {
+  if (modelId) pendingInitialModel.set(sessionId, modelId);
+}
+
 /** socket onOpen 取走一次性初始模型(取后即删,服务端 pinned_model 从此是唯一真源)。 */
 export function takePendingInitialModel(sessionId: string | null): string | undefined {
   if (!sessionId) return undefined;

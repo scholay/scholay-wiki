@@ -2,11 +2,11 @@ import { normalizeSourceBrand } from '@/shared/lib/data-source-brand';
 
 /**
  * minicod 检索工具的 chip 头部元信息(提升自 features/search/.../AssistantTurn.tsx)——
- * 在工具名右边追加 "Discovery" / 「query」,让人一眼看到"AI 在搜什么"。
+ * 在工具名右边追加 "OpenAlex" / 「query」,让人一眼看到"AI 在搜什么"。
  * smart-search 用户端与 admin 会话监控共用,保证两边 chip 视觉一致。
  */
 
-/** chip 标题区追加的 "Discovery 「query」" 两块。 */
+/** chip 标题区追加的 "OpenAlex 「query」" 两块。 */
 export function ToolHeaderExtras({ brand, query }: { brand?: string; query?: string }) {
   return (
     <>
@@ -27,7 +27,7 @@ export function extractToolQuery(input: unknown): string | undefined {
 }
 
 /**
- * 从工具入参里提取 source enum,归一化成 Scholay 品牌名 (Graph/Discovery/Medicine)。
+ * 从工具入参里提取 source enum,归一化成数据源真名 (Semantic Scholar/OpenAlex/PubMed)。
  * Minicod search_papers 必传 source,此函数主要服务该工具的 chip 展示。
  */
 export function extractToolSourceBrand(input: unknown): string | undefined {

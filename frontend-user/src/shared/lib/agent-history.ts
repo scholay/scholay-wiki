@@ -12,10 +12,12 @@
  * 核心折叠逻辑保持 feature 无关。
  *
  * 协议形态(cc-haha agent transcript,实测):
- *   entry.type ∈ {user, assistant, tool_use, tool_result, system}
+ *   entry.type ∈ {user, assistant, tool_use, tool_result, system, artifact, error}
  *   - tool_use / tool_result 在 cc-haha 是**顶级 entry**(content[0] 是对应 block);
  *     Anthropic 原生协议把它们塞在 user / assistant 的 content[] 里 —— 两种形态都兼容。
- *   - 跳过 system entry 与 isSidechain(subagent 内部对话,跟主线无关)。
+ *   - error 是 backend FoldToMessages 把 EvError 折出的合成 entry(W3 P1-A 冻结契约:
+ *     content = {code, message}),回放成与实时 fold error 终帧同构的失败轮收口。
+ *   - 跳过 system entry 与 isSidechain(subagent 内部对话,跟主线无关);未知 type 一律跳过。
  *   - 每个 user entry 都尝试 strip backend 注入的 system prompt prefix(WS 重连会再注入一次,
  *     不能只对第一轮生效)。
  */
@@ -56,6 +58,9 @@ interface AnthropicBlock {
   tool_use_id?: string;
   content?: unknown;
   is_error?: boolean;
+  /** 面向用户的失败摘要(仅 is_error 时;backend FoldToMessages 透传 agent 双轨字段)。
+   *  旧事件无此键 → undefined,渲染层 friendlyToolError 前端兜底接管。 */
+  user_message?: string;
 }
 
 /** artifact 合成 entry 的 content block(后端 EvArtifact 折出;字段镜像 TurnArtifact)。 */
@@ -104,17 +109,34 @@ function defaultParseUserEntry(content: unknown): ParsedUserEntry {
   return { text: stripAgentBridgePrefix(extractHistoryText(content)) };
 }
 
+/**
+ * 解析 error entry 的 content(W3 P1-A 冻结契约:`{code:string, message:string}` 对象;
+ * 防御性兼容 `[{code,message}]` 数组包裹)。缺 message 视为无效 → null,调用方跳过。
+ */
+function parseErrorEntryContent(content: unknown): { code?: string; message: string } | null {
+  const obj = Array.isArray(content) ? content[0] : content;
+  if (!obj || typeof obj !== 'object') return null;
+  const { code, message } = obj as { code?: unknown; message?: unknown };
+  if (typeof message !== 'string' || message.length === 0) return null;
+  return { code: typeof code === 'string' && code.length > 0 ? code : undefined, message };
+}
+
 /** 从 content 抽所有 tool_result 条目(顶级 tool_result entry 与嵌入 user content[] 两种形态共用)。 */
 function extractToolResults(
   content: unknown,
-): { toolUseId: string; content: unknown; isError: boolean }[] {
+): { toolUseId: string; content: unknown; isError: boolean; userMessage?: string }[] {
   if (!Array.isArray(content)) return [];
-  const out: { toolUseId: string; content: unknown; isError: boolean }[] = [];
+  const out: { toolUseId: string; content: unknown; isError: boolean; userMessage?: string }[] = [];
   for (const block of content) {
     if (block && typeof block === 'object' && (block as AnthropicBlock).type === 'tool_result') {
       const b = block as AnthropicBlock;
       if (typeof b.tool_use_id === 'string') {
-        out.push({ toolUseId: b.tool_use_id, content: b.content, isError: b.is_error === true });
+        out.push({
+          toolUseId: b.tool_use_id,
+          content: b.content,
+          isError: b.is_error === true,
+          userMessage: typeof b.user_message === 'string' ? b.user_message : undefined,
+        });
       }
     }
   }
@@ -180,6 +202,9 @@ export function replayHistoryAsTurns(
     if (tb) {
       tb.result = block.content;
       tb.isError = block.is_error === true;
+      // 双轨制回放:GET history 的 tool_result content block 里的 `user_message`
+      // (backend FoldToMessages 透传)。旧事件无此键 → undefined → 前端 friendlyToolError 兜底。
+      if (typeof block.user_message === 'string') tb.userMessage = block.user_message;
     }
   };
 
@@ -198,6 +223,7 @@ export function replayHistoryAsTurns(
         if (tb) {
           tb.result = tr.content;
           tb.isError = tr.isError;
+          if (tr.userMessage !== undefined) tb.userMessage = tr.userMessage;
         }
       }
       // 2. 解析用户可见正文 + 附件(feature 可定制)。
@@ -233,6 +259,20 @@ export function replayHistoryAsTurns(
       const blocks = Array.isArray(entry.content) ? (entry.content as AnthropicBlock[]) : [];
       for (const b of blocks) {
         if (b && typeof b === 'object' && b.type === 'tool_result') attachToolResult(b);
+      }
+      continue;
+    }
+
+    if (entry.type === 'error') {
+      // 失败轮终态(backend FoldToMessages 把 EvError 折出的顶级 entry,W3 P1-A):与实时
+      // fold 的 error case 同语义 —— 置 errorMessage/errorCode 后当场收轮。渲染层 TurnErrorNotice
+      // 已有 sanitizeOpsText 兜底;末轮命中可重试白名单(isRetryableTurnError)时自动出「重试」。
+      // 旧后端历史无此 entry → 此分支不进,行为不变;无当前轮的孤儿 error(分页截断)防御性跳过。
+      const parsed = parseErrorEntryContent(entry.content);
+      if (parsed && current) {
+        current.errorMessage = parsed.message;
+        if (parsed.code) current.errorCode = parsed.code;
+        finishTurn();
       }
       continue;
     }

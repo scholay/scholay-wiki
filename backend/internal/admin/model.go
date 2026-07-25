@@ -11,44 +11,62 @@ import (
 	"time"
 )
 
-// 角色常量。三级权限：
+// 角色常量。四级权限：
 //   RoleUser       —— 普通用户
+//   RoleOperations —— 运营，介于 user 与 admin 之间：能进 /admin，只碰内容/用户运营
+//                     + 只读看板，碰不到系统/凭证/财务配置与角色分配
 //   RoleAdmin      —— 管理员，拥有除"角色分配"外的所有后台权限
-//   RoleSuperAdmin —— 超级管理员，比 admin 多一个能力：把用户提升/降级为 admin
+//   RoleSuperAdmin —— 超级管理员，比 admin 多一个能力：把用户提升/降级为 admin/operations
 const (
 	RoleUser       = "user"
+	RoleOperations = "operations"
 	RoleAdmin      = "admin"
 	RoleSuperAdmin = "super_admin"
 )
 
-// IsAdminRole 判断角色是否具备后台管理员权限（admin 或 super_admin）。
+// IsAdminRole 判断角色是否为"完全管理员"（admin 或 super_admin）。
+// ⚠️ operations 不算 —— 它只能访问被授权的运营子集。别把它塞进这里，否则
+// FindByID / adminRoles / dashboard 统计排除口径会把它当成完整 admin。
 func IsAdminRole(role string) bool {
 	return role == RoleAdmin || role == RoleSuperAdmin
 }
 
-// 前端用 permissions 数组判断 UI 元素是否显示。
-// 命名规则: <resource>.<action>，新增能力直接往这里加，不要在前端硬编码 role 字符串。
+// CanAccessAdmin 判断角色是否可以进入 /admin 后台外壳（完整管理员或运营）。
+// 具体每个菜单/接口能不能用，由 PermissionsForRole + middleware.RequirePermission 决定。
+func CanAccessAdmin(role string) bool {
+	return IsAdminRole(role) || role == RoleOperations
+}
+
+// 权限点。命名规则 <resource>.<action>。前后端共用同一份定义（单一真源）：
+//   - 后端 middleware.RequirePermission(perm) 按此对路由子组做硬闸（越权 403）
+//   - 前端读 /user/profile 下发的 permissions 数组过滤菜单/按钮（纯 UI，非安全边界）
+// 新增能力直接往这里加，不要在前端硬编码 role 字符串。
 const (
-	PermUsersView        = "users.view"
-	PermUsersDelete      = "users.delete"
-	PermUsersRoleAssign  = "users.role.assign" // 仅 super_admin
-	PermConfigManage     = "config.manage"
-	PermContentManage    = "content.manage"
-	PermAnalyticsView    = "analytics.view"
+	PermUsersView       = "users.view"        // 看用户列表/统计/详情（只读）
+	PermUsersManage     = "users.manage"      // 用户写操作：冻结/解冻/删号/发会员/调钱包
+	PermUsersRoleAssign = "users.role.assign" // 分配角色 —— 仅 super_admin
+	PermConfigManage    = "config.manage"     // 系统/凭证/支付/模型/计费等配置（仅完整管理员）
+	PermContentManage   = "content.manage"    // 内容/互动运营：公告/反馈/审核/站内信/邮件/工具/推广
+	PermAnalyticsView   = "analytics.view"    // 只读看板/统计/日志/会话监控/营收
 )
 
-// PermissionsForRole 返回该角色拥有的全部权限列表。
+// PermissionsForRole 返回该角色拥有的全部权限列表（单一真源）。
 func PermissionsForRole(role string) []string {
 	switch role {
 	case RoleSuperAdmin:
 		return []string{
-			PermUsersView, PermUsersDelete, PermUsersRoleAssign,
+			PermUsersView, PermUsersManage, PermUsersRoleAssign,
 			PermConfigManage, PermContentManage, PermAnalyticsView,
 		}
 	case RoleAdmin:
 		return []string{
-			PermUsersView, PermUsersDelete,
+			PermUsersView, PermUsersManage,
 			PermConfigManage, PermContentManage, PermAnalyticsView,
+		}
+	case RoleOperations:
+		// 运营：内容/用户运营 + 只读看板；不含 config.manage / users.manage / 角色分配。
+		return []string{
+			PermUsersView, PermContentManage, PermAnalyticsView,
 		}
 	default:
 		return []string{}

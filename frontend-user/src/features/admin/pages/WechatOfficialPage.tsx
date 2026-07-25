@@ -17,12 +17,6 @@ const ENCRYPTION_OPTIONS = [
   { value: 'secure', label: '安全模式(推荐)' },
 ];
 
-const MODEL_LEVELS = [
-  { value: 'low', label: '低 · 便宜响应快' },
-  { value: 'medium', label: '中 · 平衡' },
-  { value: 'high', label: '高 · 质量最佳' },
-];
-
 export function WechatOfficialPage() {
   // 默认脱敏; 点任一密文字段右侧小眼睛 → reveal=true → 重新拉取明文 (show_sensitive)。
   const [reveal, setReveal] = useState(false);
@@ -47,7 +41,7 @@ export function WechatOfficialPage() {
 
   if (isLoading) {
     return (
-      <AdminPageLayout title="公众号" description="微信公众号自动回复 + AI 模型档位">
+      <AdminPageLayout title="公众号" description="微信公众号自动回复(模型由后台「能力绑定 · 公众号自动回复」选)">
         <div className="rounded-md border border-border p-6 flex items-center justify-center gap-2 text-muted-foreground">
           <Loader2 className="size-4 animate-spin" />
           加载配置…
@@ -57,7 +51,7 @@ export function WechatOfficialPage() {
   }
 
   return (
-    <AdminPageLayout title="公众号" description="微信公众号自动回复 + AI 模型档位">
+    <AdminPageLayout title="公众号" description="微信公众号自动回复(模型由后台「能力绑定 · 公众号自动回复」选)">
       <form
         className="rounded-md border border-border bg-background p-4 sm:p-6 space-y-4 max-w-3xl"
         onSubmit={async (e) => {
@@ -71,7 +65,6 @@ export function WechatOfficialPage() {
               encoding_aes_key: String(fd.get('encoding_aes_key') || '') || undefined,
               encryption_mode: fd.get('encryption_mode') as 'plaintext' | 'compatible' | 'secure',
               auto_reply_enabled: fd.get('auto_reply_enabled') === 'on',
-              ai_model_level: fd.get('ai_model_level') as 'low' | 'medium' | 'high',
               system_prompt: String(fd.get('system_prompt') || '') || undefined,
             }),
             { success: '已保存', failure: '保存失败' }
@@ -133,19 +126,6 @@ export function WechatOfficialPage() {
               className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
             >
               {ENCRYPTION_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="ai_model_level">AI 模型档位</Label>
-            <select
-              id="ai_model_level"
-              name="ai_model_level"
-              defaultValue={data?.ai_model_level || 'medium'}
-              className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-            >
-              {MODEL_LEVELS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>

@@ -38,6 +38,10 @@ const (
 	maxFolderRefPapers = 30 // 单个文件夹引用最多纳入篇数(防上下文/成本爆炸)
 	maxTotalRefPapers  = 60 // 一次引用请求物化的论文总上限(单篇 + 所有文件夹合计)
 	referenceTimeout   = 90 * time.Second
+	// 单篇引用 PDF 的推送上限 (2026-07 文件上传调研): 此前该路径零大小检查, 是唯一绕过
+	// 上传限额直灌会话 cwd 的口子。与文献集上传端 50MiB 帽同口径; agent 端另有单文件 64MB
+	// + 会话累计 1GB 配额兜底。超限跳过推送 (meta 仍物化, 只是无全文)。
+	maxRefPDFBytes = 50 * 1024 * 1024
 )
 
 // Referencer 持有 FeatureBridge(开会话 + push 文件)+ library.Reader(读文献集)。
@@ -228,11 +232,18 @@ func (rf *Referencer) materializePaper(ctx context.Context, sessionID string, p 
 	done[p.ID] = true
 
 	pdfPath := ""
-	if rc, err := rf.lib.OpenPDF(ctx, &p); err == nil && rc != nil {
+	if p.PdfSize > maxRefPDFBytes {
+		slog.Warn("agentattach reference: PDF 超过推送上限, 跳过全文物化",
+			"feature", rf.feature.Spec().Key, "session_id", sessionID, "paper_id", p.ID, "pdf_size", p.PdfSize)
+	} else if rc, err := rf.lib.OpenPDF(ctx, &p); err == nil && rc != nil {
 		defer rc.Close()
 		fname := fmt.Sprintf("ref-%d.pdf", p.ID)
 		if pushed, perr := rf.feature.AgentClient().PushSessionFile(ctx, sessionID, fname, rc); perr == nil && pushed != nil {
 			pdfPath = pushed.Path
+		} else if perr != nil {
+			// 配额满等推送失败: 不阻断整批 (meta 仍物化, INDEX 标注无全文), 记日志供排查。
+			slog.Warn("agentattach reference: PDF 推送失败, 跳过全文",
+				"feature", rf.feature.Spec().Key, "session_id", sessionID, "paper_id", p.ID, "error", perr)
 		}
 	}
 

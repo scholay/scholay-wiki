@@ -67,6 +67,10 @@ export function foldMessagesIntoTurns(
     toolBlockByUseId.get(toolUseId);
 
   for (const msg of messages) {
+    // blocked 轮(配额拦下 / 投递失败,消息从未到达服务端)不产生任何流帧 —— 对齐游标跳过它们。
+    // 不跳会让后续真实轮的帧错位折进 blocked 轮(例:命中额度被拦后不重发、直接问下一句的场景,
+    // 新一轮的回答会挂到 blocked 轮上、自己则永远 complete=false → busy 卡死)。
+    while (turns[turnIdx] && turns[turnIdx].blocked) turnIdx++;
     const current = turns[turnIdx];
     if (!current) break;
     switch (msg.type) {
@@ -95,6 +99,15 @@ export function foldMessagesIntoTurns(
           currentTextBlock.text += msg.text;
         }
         break;
+      case 'round_discarded':
+        // DSML 作废重打(审计 [10]):只摘掉当前在途的文本块(残缺前缀)。该路径保证无 tool_use,
+        // 前缀就在 currentTextBlock;不清整个 current.blocks(会误删本轮更早 round 的工具/文本块)。
+        if (currentTextBlock) {
+          const idx = current.blocks.lastIndexOf(currentTextBlock);
+          if (idx !== -1) current.blocks.splice(idx, 1);
+          currentTextBlock = null;
+        }
+        break;
       case 'tool_use_complete': {
         const block = findToolBlock(msg.toolUseId);
         if (block) {
@@ -108,6 +121,8 @@ export function foldMessagesIntoTurns(
         if (block) {
           block.result = msg.content;
           block.isError = msg.isError;
+          // 双轨制:面向用户的失败摘要(旧 agent 无此字段 → undefined,渲染层前端兜底)。
+          block.userMessage = msg.userMessage;
         }
         break;
       }
@@ -125,6 +140,9 @@ export function foldMessagesIntoTurns(
           ...(current.placeholder ?? {}),
           state: msg.state,
           verb: msg.verb,
+          // 等待可感知(W5 P1-D1):不再丢弃 status.elapsed;无新值时保留旧值(帧可能省略)。
+          elapsedSeconds:
+            typeof msg.elapsed === 'number' ? msg.elapsed : current.placeholder?.elapsedSeconds,
         };
         break;
       case 'thinking':
@@ -135,6 +153,8 @@ export function foldMessagesIntoTurns(
       case 'message_complete':
         // 暂停打断时在途 tool_use 不会再有 tool_result —— 标"已中止"避免永久转圈
         markPendingToolsAborted(current, !!current.paused);
+        // claim_audit 轻标注(W2 P1-b):本轮触发过自动纠偏 → MessageTurn 轮尾渲染中性小标注。
+        if (msg.claim_audit?.corrective_fired) current.claimAudited = true;
         current.complete = true;
         current.placeholder = undefined;
         currentTextBlock = null;
@@ -143,6 +163,8 @@ export function foldMessagesIntoTurns(
       case 'error':
         markPendingToolsAborted(current, !!current.paused);
         current.errorMessage = msg.message;
+        // 捕获 errorCode(W5 P0-C3):驱动最后一轮可重试错误的「重试」按钮 + code→文案映射。
+        current.errorCode = msg.code;
         current.complete = true;
         current.placeholder = undefined;
         currentTextBlock = null;

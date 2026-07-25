@@ -230,12 +230,21 @@ function isSummaryPrefix(messages: Anthropic.MessageParam[]): boolean {
 export async function reduceForWindow(
   messages: Anthropic.MessageParam[],
   ctxWindow: number,
-  opts: { keepTurns: number; targetPct: number; cache?: CompactCache },
+  opts: { keepTurns: number; targetPct: number; cache?: CompactCache; currentTokens?: number },
 ): Promise<ReduceResult> {
   const target = Math.floor((ctxWindow * opts.targetPct) / 100);
-  if (target <= 0 || estimateTokens(messages) <= target) {
+  const estMsgs = estimateTokens(messages);
+  // 真实占用:调用方传入的「最后一次 call 的真实 prompt(含 system+tools+cache)」与消息估算取大。
+  // 触发与执行统一到同一信号 —— 修复此前「外层用 max(lastCtx,est) 触发、内层只用 estimateTokens 复核,
+  // est 偏低就立刻空转返回」的分歧(线上 0 条 context reduced 的直接成因)。currentTokens 缺省则退回纯估算。
+  const current = Math.max(opts.currentTokens ?? 0, estMsgs);
+  if (target <= 0 || current <= target) {
     return { messages, actions: [] };
   }
+  // 固定前缀(system prompt + tools schema)+ 估算误差 = 真实占用 − 消息估算。裁 messages 时要为它让出空间,
+  // 否则把 messages 压到 target 后加回这块前缀仍会溢出。msgTarget = 真正留给 messages 的预算(估算口径)。
+  const overhead = Math.max(0, current - estMsgs);
+  const msgTarget = Math.max(0, target - overhead);
   const actions: string[] = [];
   let msgs = messages;
 
@@ -244,7 +253,7 @@ export async function reduceForWindow(
   if (pruned.pruned > 0) {
     msgs = pruned.messages;
     actions.push(`prune:${pruned.pruned}`);
-    if (estimateTokens(msgs) <= target) return { messages: msgs, actions };
+    if (estimateTokens(msgs) <= msgTarget) return { messages: msgs, actions };
   }
 
   // ② 滚动摘要层:摘要最老回合。memoize:老段签名命中缓存则跳过 LLM。
@@ -269,7 +278,7 @@ export async function reduceForWindow(
         log.warn("compact layer failed, falling to hard window", { err: String((e as Error)?.message ?? e) });
       }
     }
-    if (estimateTokens(msgs) <= target) return { messages: msgs, actions, usage, cache };
+    if (estimateTokens(msgs) <= msgTarget) return { messages: msgs, actions, usage, cache };
   }
 
   // ③ 硬底层:按 token 预算保留最近回合。若前面有摘要对,固定保留它、只裁其后的最近回合。
@@ -277,11 +286,13 @@ export async function reduceForWindow(
   if (hasSummary) {
     const prefix = msgs.slice(0, 2);
     const rest = msgs.slice(2);
-    const budget = Math.max(0, target - estimateTokens(prefix) - 512);
+    const budget = Math.max(0, msgTarget - estimateTokens(prefix) - 512);
     msgs = [...prefix, ...keepRecentByTokenBudget(rest, budget)];
   } else {
-    msgs = keepRecentByTokenBudget(msgs, Math.max(0, target - 512));
+    msgs = keepRecentByTokenBudget(msgs, Math.max(0, msgTarget - 512));
   }
-  actions.push("window");
+  // 仅当 ③ 层真的削减了消息数才记 "window";没削动(如单个巨型回合、回合数 ≤ minTurns)则不谎报进展,
+  // 让 turnLoop 反应式路径能凭 actions 判断「压不动」→ 如实报错而非用同一 payload 空转重试。
+  if (msgs !== messages || actions.length > 0) actions.push("window");
   return { messages: msgs, actions, usage, cache };
 }

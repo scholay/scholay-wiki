@@ -8,7 +8,8 @@ export interface WechatOfficialConfig {
   encoding_aes_key?: string;
   encryption_mode: 'plaintext' | 'compatible' | 'secure';
   auto_reply_enabled: boolean;
-  ai_model_level: 'low' | 'medium' | 'high';
+  /** @deprecated 模型已改由后台能力绑定 project.wechat_oa 选,本档位后端忽略(0080)。保留字段仅兼容旧数据。 */
+  ai_model_level?: 'low' | 'medium' | 'high';
   system_prompt?: string;
 }
 

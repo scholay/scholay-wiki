@@ -75,6 +75,10 @@
       "description": "学术期刊元数据平台 - 搜索、筛选和对比学术期刊的影响因子、分区排名等信息。v2 起每条期刊还含「中科院新锐分区」(xr_*)与「投稿须知 / LaTeX 模板」(submission)信息"
     },
     {
+      "name": "UNI - Universities",
+      "description": "全国高校数据 - 检索全国 3167 所高校(本科/专科/成人),含院系、联系方式、校区、官网、排名、研究生指标与学位论文模板;支持按省份/城市/层次/办学性质/学科/985/211/双一流筛选。鉴权 Bearer sk-xxx,按次计费。"
+    },
+    {
       "name": "PMD - Papers",
       "description": "PubMed (NCBI E-utilities) - 生物医学文献检索与引用关联"
     },
@@ -757,12 +761,14 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/OpenAlexSearchOptions"
+                "$ref": "#/components/schemas/SearchOptions"
               },
               "example": {
                 "query": "machine learning",
-                "filter": "publication_year:2023",
-                "select": "id,title,publication_year,cited_by_count",
+                "year_from": 2023,
+                "open_access": true,
+                "min_citations": 10,
+                "venue": "Nature,Science",
                 "limit": 25
               }
             }
@@ -795,11 +801,11 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/OpenAlexEntityRequest"
+                "$ref": "#/components/schemas/PaperGetRequest"
               },
               "example": {
                 "id": "W2741809807",
-                "select": "id,title,authorships,cited_by_count"
+                "fields": "id,title,authorships,cited_by_count"
               }
             }
           }
@@ -831,14 +837,14 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/OpenAlexBatchRequest"
+                "$ref": "#/components/schemas/PaperBatchRequest"
               },
               "example": {
                 "ids": [
                   "W2741809807",
                   "W2963403868"
                 ],
-                "select": "id,title,publication_year"
+                "fields": "id,title,publication_year"
               }
             }
           }
@@ -1124,11 +1130,11 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/OpenAlexSearchOptions"
+                "$ref": "#/components/schemas/AuthorSearchRequest"
               },
               "example": {
                 "query": "Geoffrey Hinton",
-                "select": "id,display_name,works_count,cited_by_count",
+                "fields": "id,display_name,works_count,cited_by_count",
                 "limit": 10
               }
             }
@@ -1161,11 +1167,11 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/OpenAlexEntityRequest"
+                "$ref": "#/components/schemas/AuthorGetRequest"
               },
               "example": {
                 "id": "A5023888391",
-                "select": "id,display_name,affiliations,works_count"
+                "fields": "id,display_name,affiliations,works_count"
               }
             }
           }
@@ -1197,14 +1203,14 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/OpenAlexBatchRequest"
+                "$ref": "#/components/schemas/AuthorBatchRequest"
               },
               "example": {
                 "ids": [
                   "A5023888391",
                   "A5048491430"
                 ],
-                "select": "id,display_name,works_count"
+                "fields": "id,display_name,works_count"
               }
             }
           }
@@ -2344,6 +2350,74 @@
         }
       }
     },
+    "/v1/today/recent": {
+      "post": {
+        "tags": [
+          "Today - Calendar"
+        ],
+        "summary": "科研界的今天 — 15 天窗口",
+        "description": "返回服务器\"今天\"前 7 天到后 7 天范围内,历史上同一天发生的 published 科研事件。\n\n**设计约束:**\n- 单接口、不分页、不接受时间参数\n- 窗口固定为 ±7 天(共 15 个 \"MM-DD\" 日期),跨年自动回绕(例如 12-30 ±7 会包含次年 1 月初)\n- 跨年份多次发生在同一日的事件全部返回(例如 5-3 的事件可能涵盖 1925 / 1968 / 2006…)\n\n**响应顺序:**\n日期升序(`window_start → window_end`)→ 同日年份倒序 → 同年份按 score 倒序。\n\n**典型用法:**\n- 嵌入式小组件、Slack/Discord bot、邮件日报 — \"今天科研史上发生了什么\"\n",
+        "operationId": "todayRecent",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TodayRecentRequest"
+              },
+              "example": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "返回成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TodayRecentResponse"
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "window_start": "04-26",
+                    "window_end": "05-10",
+                    "reference_date": "05-03",
+                    "window_days": 7,
+                    "events": [
+                      {
+                        "id": "8a3e9b4c-9c64-4f12-a9b1-2c1e7e8fa901",
+                        "date_key": "05-03",
+                        "year": 2006,
+                        "slug": "05-03-2006-x",
+                        "title": "新视野号经过木星",
+                        "score": 7.4,
+                        "kind": "launch",
+                        "publish_kind": null,
+                        "fact_summary": "...",
+                        "historical_significance": "...",
+                        "headline_suggestion": "...",
+                        "sources": [
+                          {
+                            "url": "https://science.nasa.gov/mission/new-horizons/",
+                            "label": "NASA Science"
+                          }
+                        ],
+                        "status": "published",
+                        "is_featured": false,
+                        "topic_slugs": [
+                          "spaceflight"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/jnl/list": {
       "post": {
         "tags": [
@@ -2540,6 +2614,14 @@
                   },
                   "min_works_count": {
                     "type": "integer"
+                  },
+                  "min_comment_rating": {
+                    "type": "number",
+                    "description": "评论综合评分下限(0–5)"
+                  },
+                  "min_comment_count": {
+                    "type": "integer",
+                    "description": "评论条数下限;=1 即只看有真实评价的期刊"
                   },
                   "min_sources": {
                     "type": "integer"
@@ -3377,13 +3459,13 @@
         }
       }
     },
-    "/v1/jnl/reviews": {
+    "/v1/jnl/comments": {
       "post": {
         "tags": [
           "JNL - Journals"
         ],
-        "summary": "期刊评论",
-        "description": "某期刊的审稿/评论分页(LetPub + SciRev 合并)。",
+        "summary": "期刊真实投稿评价",
+        "description": "某期刊的真实投稿评价(comments 源,上游 v2.0.0)。返回期刊级聚合(综合评分 / 难度·速度指数 / 录用·拒稿·返修率 / 审稿时长 / 正负标签)+ 单条评论分页列表。评论按 ISSN + 归一化刊名关联到期刊; 无评论数据时返回空。可先看期刊对象的 comments.has_comments 再请求本接口。按次计费。",
         "requestBody": {
           "required": true,
           "content": {
@@ -3398,15 +3480,18 @@
                     "type": "integer",
                     "description": "期刊稳定 id"
                   },
-                  "source": {
-                    "type": "string",
-                    "description": "letpub / scirev(可选)"
-                  },
                   "page": {
-                    "type": "integer"
+                    "type": "integer",
+                    "default": 1
                   },
                   "page_size": {
-                    "type": "integer"
+                    "type": "integer",
+                    "default": 20,
+                    "description": "上限 100"
+                  },
+                  "status": {
+                    "type": "string",
+                    "description": "按稿件状态过滤(accepted/rejected/desk_rejected/under_review/revision/...)"
                   }
                 }
               }
@@ -3415,11 +3500,42 @@
         },
         "responses": {
           "200": {
-            "description": "成功",
+            "description": "成功。data 含 journal(期刊级聚合)+ comments(单条评论列表)+ 分页",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "journal": {
+                          "$ref": "#/components/schemas/CommentJournalAggregate"
+                        },
+                        "comments": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Comment"
+                          }
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "page": {
+                          "type": "integer"
+                        },
+                        "pageSize": {
+                          "type": "integer"
+                        },
+                        "totalPages": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -3998,6 +4114,158 @@
           }
         }
       }
+    },
+    "/v1/uni/search": {
+      "post": {
+        "tags": [
+          "UNI - Universities"
+        ],
+        "summary": "高校检索",
+        "description": "多条件检索全国高校。data 为高校数组,meta 含分页(total/offset/limit)。\n筛选:keyword(校名/简称/英文名模糊)、province、city、education_level、school_ownership、discipline_type、flag(985/211/double_first_class)、has_thesis(仅有论文模板)、offers_graduate。\n排序 sort_by:view_count/search_count/founded_year/name。full=1 返回子表(pageSize 上限收窄至 50)。计费:1 次调用。\n",
+        "operationId": "uniSearch",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UniversitySearchRequest"
+              },
+              "example": {
+                "province": "北京市",
+                "flag": "985",
+                "has_thesis": "1",
+                "page": 1,
+                "page_size": 20,
+                "sort_by": "view_count"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UniversityListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/uni/get": {
+      "post": {
+        "tags": [
+          "UNI - Universities"
+        ],
+        "summary": "按学校代码获取单校",
+        "description": "按教育部 10 位学校代码获取单校详情。full=1 返回全部子表(院系/联系方式/校区/排名/研究生指标/简介/学位论文资源)。计费:1 次调用。",
+        "operationId": "uniGet",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UniversityGetRequest"
+              },
+              "example": {
+                "school_code": "4111010003",
+                "full": "1"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UniversityResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/uni/batch": {
+      "post": {
+        "tags": [
+          "UNI - Universities"
+        ],
+        "summary": "批量按学校代码获取",
+        "description": "逗号分隔多个学校代码批量获取(最多 100)。",
+        "operationId": "uniBatch",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UniversityByCodesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UniversityListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/uni/filters": {
+      "post": {
+        "tags": [
+          "UNI - Universities"
+        ],
+        "summary": "可用筛选项",
+        "description": "返回筛选维度取值(省份/城市/层次/性质/学科,带计数)。无请求参数。",
+        "operationId": "uniFilters",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UniversityDataResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/uni/stats": {
+      "post": {
+        "tags": [
+          "UNI - Universities"
+        ],
+        "summary": "高校库统计",
+        "description": "返回高校库整体聚合统计。data 字段:total(总校数)、by_education_level({本科,专科,成人高等学校} 计数)、\nis_985 / is_211 / double_first_class(旗舰校数)、offers_graduate_education(有研究生)、\nwith_thesis(有学位论文模板的校数)、with_english_name(有英文名的校数)。无请求参数。计费:1 次调用。\n",
+        "operationId": "uniStats",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UniversityDataResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4010,22 +4278,742 @@
       }
     },
     "schemas": {
+      "UniversitySearchRequest": {
+        "type": "object",
+        "properties": {
+          "keyword": {
+            "type": "string",
+            "description": "校名/简称/英文名模糊匹配"
+          },
+          "province": {
+            "type": "string",
+            "description": "省份,如 北京市"
+          },
+          "city": {
+            "type": "string"
+          },
+          "education_level": {
+            "type": "string",
+            "enum": [
+              "本科",
+              "专科",
+              "成人高等学校"
+            ]
+          },
+          "school_ownership": {
+            "type": "string",
+            "description": "公办/民办/中外合作办学/独立学院等"
+          },
+          "discipline_type": {
+            "type": "string",
+            "description": "综合类/理工类/医药类等"
+          },
+          "flag": {
+            "type": "string",
+            "enum": [
+              985,
+              211,
+              "double_first_class"
+            ],
+            "description": "层次标签筛选"
+          },
+          "offers_graduate": {
+            "type": "string",
+            "description": "1/true = 仅招收研究生的高校"
+          },
+          "has_thesis": {
+            "type": "string",
+            "description": "1/true = 仅有学位论文格式/模板资源的高校"
+          },
+          "page": {
+            "type": "integer",
+            "default": 1
+          },
+          "page_size": {
+            "type": "integer",
+            "default": 20,
+            "description": "上限 100;full=1 时上限 50"
+          },
+          "sort_by": {
+            "type": "string",
+            "enum": [
+              "view_count",
+              "search_count",
+              "founded_year",
+              "name"
+            ]
+          },
+          "sort_dir": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "full": {
+            "type": "string",
+            "description": "1/true 返回子表"
+          }
+        }
+      },
+      "UniversityGetRequest": {
+        "type": "object",
+        "required": [
+          "school_code"
+        ],
+        "properties": {
+          "school_code": {
+            "type": "string",
+            "description": "教育部 10 位学校代码",
+            "example": "4111010003"
+          },
+          "full": {
+            "type": "string",
+            "description": "1/true 返回全部子表"
+          }
+        }
+      },
+      "UniversityByCodesRequest": {
+        "type": "object",
+        "required": [
+          "codes"
+        ],
+        "properties": {
+          "codes": {
+            "type": "string",
+            "description": "逗号分隔学校代码(最多 100)",
+            "example": "4111010001,4111010003"
+          },
+          "full": {
+            "type": "string"
+          }
+        }
+      },
+      "University": {
+        "type": "object",
+        "description": "高校对象。子表(urls/contacts/campuses/rankings/departments/grad_metrics/intros)仅在 full=1 时返回。",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "school_code": {
+            "type": "string",
+            "example": "4111010003"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "example": "清华大学"
+          },
+          "name_short": {
+            "type": "string",
+            "description": "管道分隔多别名"
+          },
+          "english_name": {
+            "type": "string",
+            "example": "Tsinghua University"
+          },
+          "province": {
+            "type": "string",
+            "example": "北京市"
+          },
+          "province_code": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "education_level": {
+            "type": "string",
+            "example": "本科"
+          },
+          "discipline_type": {
+            "type": "string",
+            "example": "综合类"
+          },
+          "school_ownership": {
+            "type": "string",
+            "example": "公办"
+          },
+          "supervising_authority": {
+            "type": "string"
+          },
+          "governance_level": {
+            "type": "string"
+          },
+          "founded_year": {
+            "type": "integer",
+            "nullable": true,
+            "example": 1911
+          },
+          "postcode": {
+            "type": "string"
+          },
+          "motto": {
+            "type": "string"
+          },
+          "is_985": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "三态:true=确属,null=未采(≠确定不是)"
+          },
+          "is_211": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "is_double_first_class": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "985",
+              "211",
+              "双一流"
+            ]
+          },
+          "offers_graduate_education": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "lat": {
+            "type": "number",
+            "nullable": true
+          },
+          "lng": {
+            "type": "number",
+            "nullable": true
+          },
+          "ror_id": {
+            "type": "string"
+          },
+          "wikidata_qid": {
+            "type": "string"
+          },
+          "department_count": {
+            "type": "integer"
+          },
+          "ranking_count": {
+            "type": "integer"
+          },
+          "thesis_count": {
+            "type": "integer",
+            "description": "学位论文格式/模板资源数"
+          },
+          "data_completeness": {
+            "type": "string",
+            "enum": [
+              "full",
+              "partial"
+            ]
+          },
+          "view_count": {
+            "type": "integer"
+          },
+          "urls": {
+            "type": "array",
+            "description": "官网/招生/院系等链接(full=1 返回)",
+            "items": {
+              "type": "object",
+              "properties": {
+                "role": {
+                  "type": "string",
+                  "description": "homepage/admission/graduate/department/admission_brochure/logo/third_party..."
+                },
+                "url": {
+                  "type": "string"
+                },
+                "is_official": {
+                  "type": "boolean",
+                  "nullable": true
+                },
+                "is_alive": {
+                  "type": "boolean",
+                  "nullable": true
+                },
+                "http_status": {
+                  "type": "integer",
+                  "nullable": true
+                },
+                "title": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "contacts": {
+            "type": "array",
+            "description": "联系方式(full=1)",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "description": "phone | email | fax | address | url"
+                },
+                "value": {
+                  "type": "string"
+                },
+                "owner": {
+                  "type": "string"
+                },
+                "is_official": {
+                  "type": "boolean",
+                  "nullable": true
+                }
+              }
+            }
+          },
+          "campuses": {
+            "type": "array",
+            "description": "校区/地址(full=1;经纬度暂为空,待地理编码)",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "address": {
+                  "type": "string"
+                },
+                "postcode": {
+                  "type": "string"
+                },
+                "lat": {
+                  "type": "number",
+                  "nullable": true
+                },
+                "lng": {
+                  "type": "number",
+                  "nullable": true
+                }
+              }
+            }
+          },
+          "departments": {
+            "type": "array",
+            "description": "院系与专业(full=1)",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "majors": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "major_count": {
+                  "type": "integer"
+                },
+                "url": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "rankings": {
+            "type": "array",
+            "description": "排名(full=1;provider_tier 0=人气值(非学术) 1=民间榜 2=软科 3=国际榜)",
+            "items": {
+              "type": "object",
+              "properties": {
+                "provider": {
+                  "type": "string"
+                },
+                "provider_tier": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "rank_start": {
+                  "type": "integer",
+                  "nullable": true
+                },
+                "rank_end": {
+                  "type": "integer",
+                  "nullable": true
+                },
+                "is_open_ended": {
+                  "type": "boolean"
+                },
+                "as_of_date": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "grad_metrics": {
+            "type": "array",
+            "description": "研究生学位点指标(full=1;metric_code 如 MASTER_L1/DOCTOR_L1/KEY_NAT_L1)",
+            "items": {
+              "type": "object",
+              "properties": {
+                "metric_code": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "intros": {
+            "type": "array",
+            "description": "学校简介(full=1)",
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "string"
+                },
+                "source_url": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "thesis_resources": {
+            "type": "array",
+            "description": "学位论文格式/写作指南/模板资源(full=1 或详情时返回;来源各校官方研究生院/教务处)",
+            "items": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                },
+                "resource_type": {
+                  "type": "string",
+                  "description": "template_file | guide_doc | format_page"
+                },
+                "degree_level": {
+                  "type": "string",
+                  "description": "graduate | undergraduate"
+                },
+                "file_ext": {
+                  "type": "string"
+                },
+                "is_downloadable": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      },
+      "UniversityDataResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "description": "视端点而定(筛选项聚合 / 统计对象)"
+              }
+            }
+          }
+        ]
+      },
+      "UniversityResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/University"
+              }
+            }
+          }
+        ]
+      },
+      "UniversityListResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/University"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "TodayRecentRequest": {
+        "type": "object",
+        "description": "当前没有任何请求参数 —— 接口只用 server 时区的\"今天\"作为参考点。\n保留 object schema 是为了将来扩展(如 window_days 上限可调)而不破坏向后兼容。\n",
+        "additionalProperties": false
+      },
+      "TodaySource": {
+        "type": "object",
+        "description": "事件来源,数组形式持久化在 today_events.sources。",
+        "required": [
+          "url"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "来源 URL,必填",
+            "example": "https://science.nasa.gov/mission/new-horizons/"
+          },
+          "label": {
+            "type": "string",
+            "description": "来源展示名,可选;UI 会在没 label 时回退展示域名",
+            "example": "NASA Science"
+          }
+        }
+      },
+      "TodayEvent": {
+        "type": "object",
+        "description": "一条 \"科研界的今天\" 事件。事件按 (date_key, year, title) 唯一,\ndate_key 是 \"MM-DD\" 无年份,用于按日轮转;year 是事件实际发生年份。\n",
+        "required": [
+          "id",
+          "date_key",
+          "year",
+          "slug",
+          "title",
+          "kind",
+          "fact_summary",
+          "historical_significance",
+          "sources",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "8a3e9b4c-9c64-4f12-a9b1-2c1e7e8fa901"
+          },
+          "date_key": {
+            "type": "string",
+            "pattern": "^\\d{2}-\\d{2}$",
+            "description": "\"MM-DD\" 无年份,用于\"今天历史上发生了什么\"日期对齐",
+            "example": "05-03"
+          },
+          "year": {
+            "type": "integer",
+            "description": "事件实际发生年份(可能跨度 1665–至今)",
+            "example": 1953
+          },
+          "slug": {
+            "type": "string",
+            "description": "URL 友好标识,自动生成,全局唯一",
+            "example": "05-03-1953-watson-crick-dna-paper"
+          },
+          "title": {
+            "type": "string",
+            "example": "Watson 与 Crick 发表 DNA 双螺旋结构论文于 Nature"
+          },
+          "score": {
+            "type": "number",
+            "format": "float",
+            "minimum": 0,
+            "maximum": 10,
+            "description": "历史影响力评分,0–10,默认 0",
+            "example": 9.2
+          },
+          "kind": {
+            "type": "string",
+            "description": "事件类型 slug,对应词汇表 today_kinds。常见值:\npublish / birth / death / launch / breakthrough / award / founding / policy / accident / other。\n外部用户调用方建议自己维护 slug→展示名映射;label 不随事件返回。\n",
+            "example": "publish"
+          },
+          "publish_kind": {
+            "type": "string",
+            "nullable": true,
+            "description": "发表类型细分(仅当 kind=publish 时有意义),指向同一 today_kinds 表",
+            "example": null
+          },
+          "fact_summary": {
+            "type": "string",
+            "description": "历史事实摘要(中文长文本)"
+          },
+          "historical_significance": {
+            "type": "string",
+            "description": "历史意义阐述(中文长文本)"
+          },
+          "headline_suggestion": {
+            "type": "string",
+            "description": "推荐标题,可作社交分享文案;可能为空字符串",
+            "example": "科研界的今天｜5月3日:DNA 的几何之美"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TodaySource"
+            },
+            "description": "来源数组,至少 1 条"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published",
+              "archived"
+            ],
+            "description": "公开 API 只返回 published"
+          },
+          "is_featured": {
+            "type": "boolean",
+            "description": "是否首页置顶"
+          },
+          "topic_slugs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "事件归属的主题 slug 列表,如 [\"physics\",\"astronomy\"]。\n对应 today_topics 词汇表;同样不随事件返回 label。\n",
+            "example": [
+              "life-science",
+              "medicine"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "TodayWindowResult": {
+        "type": "object",
+        "description": "/v1/today/recent 返回的 data 主体。",
+        "required": [
+          "window_start",
+          "window_end",
+          "reference_date",
+          "window_days",
+          "events"
+        ],
+        "properties": {
+          "window_start": {
+            "type": "string",
+            "pattern": "^\\d{2}-\\d{2}$",
+            "description": "窗口起始 \"MM-DD\"(reference_date 前 window_days 天)",
+            "example": "04-26"
+          },
+          "window_end": {
+            "type": "string",
+            "pattern": "^\\d{2}-\\d{2}$",
+            "description": "窗口结束 \"MM-DD\"(reference_date 后 window_days 天)",
+            "example": "05-10"
+          },
+          "reference_date": {
+            "type": "string",
+            "pattern": "^\\d{2}-\\d{2}$",
+            "description": "中心日期,通常是服务器当天的 \"MM-DD\"",
+            "example": "05-03"
+          },
+          "window_days": {
+            "type": "integer",
+            "description": "单边天数,固定为 7(共 15 天)",
+            "example": 7
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TodayEvent"
+            }
+          }
+        }
+      },
+      "TodayRecentResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/TodayWindowResult"
+              }
+            }
+          }
+        ]
+      },
       "ApiResponse": {
         "type": "object",
+        "required": [
+          "success"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "成功为 true,失败为 false",
+            "example": true
+          },
+          "data": {
+            "description": "响应数据,成功时存在;具体结构见各接口的 data 定义(对象或数组)"
+          },
+          "error": {
+            "$ref": "#/components/schemas/ApiError"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          }
+        }
+      },
+      "ApiError": {
+        "type": "object",
+        "description": "仅在 success=false 时出现",
         "properties": {
           "code": {
             "type": "integer",
-            "description": "状态码，0 表示成功",
-            "example": 0
+            "description": "等同 HTTP 状态码",
+            "example": 400
           },
           "message": {
             "type": "string",
-            "description": "状态消息",
-            "example": "success"
+            "example": "Validation failed"
           },
-          "data": {
-            "type": "object",
-            "description": "响应数据"
+          "details": {
+            "description": "可选的错误细节(校验失败时为字段错误列表等)",
+            "nullable": true
+          }
+        }
+      },
+      "ApiMeta": {
+        "type": "object",
+        "description": "仅在分页/列表接口出现",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "example": 100
+          },
+          "offset": {
+            "type": "integer",
+            "example": 0
+          },
+          "limit": {
+            "type": "integer",
+            "example": 20
           }
         }
       },
@@ -4257,6 +5245,9 @@
           "xr_top": {
             "type": "string",
             "description": "中科院新锐 Top 期刊标志。"
+          },
+          "comments": {
+            "$ref": "#/components/schemas/CommentsInfo"
           }
         }
       },
@@ -4275,6 +5266,352 @@
           "latex_class": {
             "type": "string",
             "description": "LaTeX 文档类(如 elsarticle.cls / USG.cls);无模板时为空字符串。"
+          }
+        }
+      },
+      "CommentsInfo": {
+        "type": "object",
+        "description": "期刊评论 / 真实评价的存在性与摘要(comments 源,上游 v2.0.0)。每条期刊对象(列表与详情)都带此对象;个体评论不内联,按 POST /v1/jnl/comments 单独分页请求。",
+        "properties": {
+          "has_comments": {
+            "type": "boolean",
+            "description": "是否有评论。"
+          },
+          "count": {
+            "type": "integer",
+            "description": "评论条数。"
+          },
+          "rating": {
+            "type": "number",
+            "nullable": true,
+            "description": "综合评分(0–5)。"
+          },
+          "rating_confidence": {
+            "type": "string",
+            "nullable": true,
+            "description": "评分置信度(low / medium / high)。"
+          },
+          "latest_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "最新评论时间。"
+          },
+          "difficulty_index": {
+            "type": "number",
+            "nullable": true,
+            "description": "难度指数(0–5)。"
+          },
+          "speed_index": {
+            "type": "number",
+            "nullable": true,
+            "description": "速度指数(0–5)。"
+          },
+          "list_url": {
+            "type": "string",
+            "nullable": true,
+            "description": "该刊评论列表地址;has_comments=false 时为 null。"
+          }
+        }
+      },
+      "CommentJournalAggregate": {
+        "type": "object",
+        "description": "期刊级评论聚合(POST /v1/jnl/comments 的 data.journal);无评论时为 null。",
+        "properties": {
+          "journal_name": {
+            "type": "string",
+            "nullable": true,
+            "description": "期刊名称"
+          },
+          "issn": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISSN"
+          },
+          "comment_count": {
+            "type": "integer",
+            "nullable": true,
+            "description": "评论条数"
+          },
+          "source_count": {
+            "type": "integer",
+            "nullable": true,
+            "description": "来源数"
+          },
+          "latest_comment_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "最新评论时间"
+          },
+          "journal_rating_0_5": {
+            "type": "number",
+            "nullable": true,
+            "description": "综合评分(0–5)"
+          },
+          "raw_rating_0_5": {
+            "type": "number",
+            "nullable": true,
+            "description": "原始评分(0–5)"
+          },
+          "rating_confidence": {
+            "type": "string",
+            "nullable": true,
+            "description": "评分置信度"
+          },
+          "difficulty_index_0_5": {
+            "type": "number",
+            "nullable": true,
+            "description": "难度指数(0–5)"
+          },
+          "quality_index_0_5": {
+            "type": "number",
+            "nullable": true,
+            "description": "审稿质量指数(0–5)"
+          },
+          "speed_index_0_5": {
+            "type": "number",
+            "nullable": true,
+            "description": "速度指数(0–5)"
+          },
+          "communication_index_0_5": {
+            "type": "number",
+            "nullable": true,
+            "description": "沟通指数(0–5)"
+          },
+          "cost_index_0_5": {
+            "type": "number",
+            "nullable": true,
+            "description": "费用指数(0–5)"
+          },
+          "acceptance_reported_rate": {
+            "type": "number",
+            "nullable": true,
+            "description": "报告的接收率"
+          },
+          "rejection_reported_rate": {
+            "type": "number",
+            "nullable": true,
+            "description": "报告的拒稿率"
+          },
+          "desk_reject_rate": {
+            "type": "number",
+            "nullable": true,
+            "description": "编辑直接拒稿率"
+          },
+          "revision_rate": {
+            "type": "number",
+            "nullable": true,
+            "description": "修回率"
+          },
+          "avg_first_review_days": {
+            "type": "number",
+            "nullable": true,
+            "description": "首次审稿平均天数"
+          },
+          "median_first_review_days": {
+            "type": "number",
+            "nullable": true,
+            "description": "首次审稿中位天数"
+          },
+          "avg_total_handling_days": {
+            "type": "number",
+            "nullable": true,
+            "description": "总处理平均天数"
+          },
+          "median_total_handling_days": {
+            "type": "number",
+            "nullable": true,
+            "description": "总处理中位天数"
+          },
+          "avg_review_rounds": {
+            "type": "number",
+            "nullable": true,
+            "description": "平均审稿轮次"
+          },
+          "top_positive_tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "description": "高频正面标签"
+          },
+          "top_negative_tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "description": "高频负面标签"
+          }
+        }
+      },
+      "Comment": {
+        "type": "object",
+        "description": "单条期刊真实投稿评价(POST /v1/jnl/comments 的 data.comments[]),按发布时间降序。",
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "description": "评论唯一标识。"
+          },
+          "source_name": {
+            "type": "string",
+            "nullable": true,
+            "description": "来源(如 SciRev / LetPub)"
+          },
+          "source_url": {
+            "type": "string",
+            "nullable": true,
+            "description": "来源链接"
+          },
+          "published_at_iso": {
+            "type": "string",
+            "nullable": true,
+            "description": "发布时间(ISO 8601)"
+          },
+          "published_at_precision": {
+            "type": "string",
+            "nullable": true,
+            "description": "时间精度(day/month/year)"
+          },
+          "paper_status": {
+            "type": "string",
+            "nullable": true,
+            "description": "稿件状态(可用于 status 过滤)"
+          },
+          "is_accepted": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "nullable": true,
+            "description": "是否被接收。"
+          },
+          "is_rejected": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "nullable": true,
+            "description": "是否被拒稿。"
+          },
+          "is_desk_reject": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "nullable": true,
+            "description": "是否被编辑直接拒稿。"
+          },
+          "overall_rating_0_5": {
+            "type": "number",
+            "nullable": true,
+            "description": "综合评分(0–5)"
+          },
+          "speed_rating_0_5": {
+            "type": "number",
+            "nullable": true,
+            "description": "速度评分(0–5)"
+          },
+          "communication_rating_0_5": {
+            "type": "number",
+            "nullable": true,
+            "description": "沟通评分(0–5)"
+          },
+          "review_quality_rating_0_5": {
+            "type": "number",
+            "nullable": true,
+            "description": "审稿质量评分(0–5)"
+          },
+          "cost_rating_0_5": {
+            "type": "number",
+            "nullable": true,
+            "description": "费用评分(0–5)"
+          },
+          "difficulty_index_0_5": {
+            "type": "number",
+            "nullable": true,
+            "description": "难度指数(0–5)"
+          },
+          "first_review_days": {
+            "type": "integer",
+            "nullable": true,
+            "description": "首次审稿天数"
+          },
+          "total_handling_days": {
+            "type": "integer",
+            "nullable": true,
+            "description": "总处理天数"
+          },
+          "publication_delay_days": {
+            "type": "integer",
+            "nullable": true,
+            "description": "出版延迟天数"
+          },
+          "review_rounds": {
+            "type": "integer",
+            "nullable": true,
+            "description": "审稿轮次"
+          },
+          "fee_page": {
+            "type": "number",
+            "nullable": true,
+            "description": "版面费"
+          },
+          "fee_review": {
+            "type": "number",
+            "nullable": true,
+            "description": "审稿费"
+          },
+          "fee_currency": {
+            "type": "string",
+            "nullable": true,
+            "description": "费用币种"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "description": "标签"
+          },
+          "confidence": {
+            "type": "object",
+            "nullable": true,
+            "description": "置信度信息(JSON)。"
+          },
+          "language_hint": {
+            "type": "string",
+            "nullable": true,
+            "description": "语言提示"
+          },
+          "publisher_display_name": {
+            "type": "string",
+            "nullable": true,
+            "description": "出版商显示名"
+          },
+          "comment_text": {
+            "type": "string",
+            "nullable": true,
+            "description": "评论正文"
+          },
+          "comment_text_en": {
+            "type": "string",
+            "nullable": true,
+            "description": "英文正文(原文即英文时与 comment_text 相同,否则为机器翻译)。"
+          },
+          "comment_text_zh": {
+            "type": "string",
+            "nullable": true,
+            "description": "中文正文(原文即中文时与 comment_text 相同,否则为机器翻译)。"
+          },
+          "original_language": {
+            "type": "string",
+            "nullable": true,
+            "description": "原文语种:zh | en | mixed。"
           }
         }
       },
@@ -4424,6 +5761,14 @@
               "$ref": "#/components/schemas/Author"
             },
             "description": "作者列表"
+          },
+          "tldr": {
+            "type": "string",
+            "description": "AI 一句话摘要（仅 stc / Semantic Scholar 源提供，其他源省略）"
+          },
+          "bibtex": {
+            "type": "string",
+            "description": "BibTeX 格式引用（仅 stc / Semantic Scholar 源提供，其他源省略）"
           }
         }
       },
@@ -5733,7 +7078,7 @@
           },
           "limit": {
             "type": "integer",
-            "default": 100
+            "default": 20
           },
           "offset": {
             "type": "integer",
@@ -5993,6 +7338,10 @@
           },
           "min_citation_count": {
             "type": "integer"
+          },
+          "inserted_before": {
+            "type": "string",
+            "description": "按索引日期过滤(此日期之前)"
           },
           "publication_date_or_year": {
             "type": "string"

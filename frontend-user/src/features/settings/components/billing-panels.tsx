@@ -18,6 +18,7 @@ import {
   useUsageCalendar,
   useOrders,
   usePlans,
+  type BillingCycle,
   type CreditTxn,
   type Order,
 } from '../api/membership';
@@ -284,18 +285,25 @@ export function RedeemPanel() {
 }
 
 /** 订阅下单 + 指定支付方式发起支付。供「购买会员弹窗」的 onPay 用。
+ *  cycle=yearly 走年度订阅(0079)。
  *  返回 true=已完成(关弹窗 + 刷新);false=保持弹窗(微信暂未开放 / 出错)。
  *  支付宝走收银台跳转(返回 true,页面随即离开)。 */
 export function useSubscribeFlow() {
   const sub = useCreateSubscription();
   const startAlipay = useStartAlipay();
   const testPay = useTestPay();
-  const subscribe = async (plan: 'pro' | 'max', method: string, label: string): Promise<boolean> => {
+  const subscribe = async (
+    plan: 'pro' | 'max',
+    method: string,
+    cycle: BillingCycle,
+    label: string,
+  ): Promise<boolean> => {
+    const cycleLabel = cycle === 'yearly' ? `${label} 年度会员` : label;
     try {
-      const order = await sub.mutateAsync(plan);
+      const order = await sub.mutateAsync({ plan, cycle });
       if (method === 'test') {
         await testPay.mutateAsync(order.order_no);
-        toast.success(`测试支付成功!${label}已开通`);
+        toast.success(`测试支付成功!${cycleLabel}已开通`);
         notifyBillingChanged();
         return true;
       }
@@ -303,7 +311,7 @@ export function useSubscribeFlow() {
         toast.info('微信支付即将开放,请暂用其他方式');
         return false;
       }
-      const pay = await startAlipay.mutateAsync({ order_no: order.order_no, amount: order.final_amount, subject: `${label}订阅` });
+      const pay = await startAlipay.mutateAsync({ order_no: order.order_no, amount: order.final_amount, subject: `${cycleLabel}订阅` });
       window.location.href = pay.payment_url;
       return true;
     } catch (err) {
@@ -436,21 +444,23 @@ export function OverviewContent({ onViewAll }: { onViewAll: () => void }) {
 const GREEN_LEVELS = ['bg-surface-2', 'bg-brand-green/25', 'bg-brand-green/50', 'bg-brand-green/75', 'bg-brand-green'];
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 
-function levelOf(tokens: number, ceiling: number): number {
-  if (tokens <= 0) return 0;
-  if (ceiling <= 0) return tokens >= 100000 ? 4 : tokens >= 20000 ? 3 : tokens >= 5000 ? 2 : 1;
-  const r = tokens / ceiling;
+// P5:入参 cost = 当日精算成本(微元);ceiling = 日均参考线(微元)。只做**相对强度**分档,不露绝对数。
+function levelOf(cost: number, ceiling: number): number {
+  if (cost <= 0) return 0;
+  // 不限档(ceiling<=0):按微元绝对区间兜底(¥0.2/¥0.05/¥0.01 台阶)。
+  if (ceiling <= 0) return cost >= 200_000 ? 4 : cost >= 50_000 ? 3 : cost >= 10_000 ? 2 : 1;
+  const r = cost / ceiling;
   return r >= 0.75 ? 4 : r >= 0.5 ? 3 : r >= 0.25 ? 2 : 1;
 }
 
-/** 本月每日 token 用量 —— GitHub 风格绿格热力图(只看当月)。 */
+/** 本月每日用量 —— GitHub 风格绿格热力图(只看当月,相对活跃度;不显示绝对额度)。 */
 function UsageHeatmap() {
   const { data } = useUsageCalendar();
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth(); // 0-indexed
   const ceiling = data?.daily_ceiling ?? 0;
-  const byDate = new Map((data?.days ?? []).map((d) => [d.date, d.tokens]));
+  const byDate = new Map((data?.days ?? []).map((d) => [d.date, d.cost]));
   const pad = (n: number) => String(n).padStart(2, '0');
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -463,13 +473,13 @@ function UsageHeatmap() {
   }
   if (col.length) { while (col.length < 7) col.push(null); weeks.push(col); }
 
-  const monthTotal = (data?.days ?? []).reduce((s, d) => s + d.tokens, 0);
+  const activeDays = (data?.days ?? []).filter((d) => d.cost > 0).length;
 
   return (
     <section className="rounded-md border border-border bg-background p-5">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-bold text-foreground">本月每日用量</h3>
-        <span className="text-2xs tabular-nums text-faint">{monthTotal.toLocaleString()} token</span>
+        <h3 className="text-sm font-bold text-foreground">本月每日活跃</h3>
+        <span className="text-2xs tabular-nums text-faint">{activeDays} 天有使用</span>
       </div>
       <div className="flex gap-1">
         <div className="flex flex-col gap-1 pr-1">
@@ -482,12 +492,16 @@ function UsageHeatmap() {
             {week.map((day, di) => {
               if (day === null) return <span key={di} className="size-4" />;
               const date = `${year}-${pad(month + 1)}-${pad(day)}`;
-              const tokens = byDate.get(date) ?? 0;
+              const cost = byDate.get(date) ?? 0;
+              // 相对参考:当日成本相对「日均参考线」的百分比(不露绝对额度),不限档只标有无使用。
+              const pct = ceiling > 0 ? Math.min(999, Math.round((cost / ceiling) * 100)) : 0;
+              const tip =
+                cost <= 0 ? `${date} · 无使用` : ceiling > 0 ? `${date} · 约 ${pct}% 日均参考` : `${date} · 有使用`;
               return (
                 <span
                   key={di}
-                  title={`${date} · ${tokens.toLocaleString()} token`}
-                  className={cn('size-4 rounded-sm', GREEN_LEVELS[levelOf(tokens, ceiling)])}
+                  title={tip}
+                  className={cn('size-4 rounded-sm', GREEN_LEVELS[levelOf(cost, ceiling)])}
                 />
               );
             })}

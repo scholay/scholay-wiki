@@ -29,16 +29,16 @@ export interface DashboardStatistics {
   total_orders: number;
   paid_orders: number;
   pending_orders: number;
-  // AI 成本(llm_token_usage)
-  tokens_today: number;
-  tokens_30d: number;
+  // AI 成本(P5 成本制:llm_token_usage.cost_micro_yuan 精算真实成本;单位=元)
+  cost_today_yuan: number;
+  cost_30d_yuan: number;
   // 兑换码
   total_codes: number;
   redeemed_codes: number;
   // 趋势
   user_growth_chart: ChartDataPoint[];
   revenue_trend_chart: ChartDataPoint[];
-  token_trend_chart: ChartDataPoint[];
+  cost_trend_chart: ChartDataPoint[]; // 每日精算成本(元)
 }
 
 export function useDashboardStats() {

@@ -18,7 +18,7 @@ import { RelinkResultArea } from './relink-result-area';
 import type { PaperSource, UserLibraryPaper } from '@/shared/api/types';
 
 /**
- * 统一管理弹窗 · 在线关联 tab —— 三源(Discovery/Graph/Medicine)检索 + 单选 + 落库。
+ * 统一管理弹窗 · 在线关联 tab —— 三源(Graph/Discovery/Medicine)检索 + 单选 + 落库。
  * 自动用 og_title / title 兜底查询;选 1 条 → 确认/替换关联 → relink(merged 时合并到已有行)。
  *
  * linked 行(已有关联)的特殊处理:
@@ -29,6 +29,7 @@ import type { PaperSource, UserLibraryPaper } from '@/shared/api/types';
 
 type SourceTab = 'discovery' | 'graph' | 'medicine';
 
+// label 用数据源真实名称(W6 P1-8 真名化);id 是本组件内部 tab key,保留旧值不动路由/状态。
 const TAB_DEFS: Array<{ id: SourceTab; label: string; source: PaperSource }> = [
   { id: 'graph', label: 'Graph', source: 'stc' },
   { id: 'discovery', label: 'Discovery', source: 'olx' },

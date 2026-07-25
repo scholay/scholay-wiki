@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"scholar-backend/internal/admin"
 	"scholar-backend/internal/common/database"
 	"scholar-backend/internal/common/utils"
 
@@ -84,7 +85,9 @@ func MaintenanceModeMiddleware() gin.HandlerFunc {
 		// 维护期永远进不来开关)。维护开启是极低频态,这里就地解一次 token 拿 role(复用同包 extractToken +
 		// utils.ParseToken),日常(维护关闭)路径在上面 line 70 已 return,零开销。
 		if tok := extractToken(c); tok != "" {
-			if claims, err := utils.ParseToken(tok); err == nil && (claims.Role == "admin" || claims.Role == "super_admin") {
+			// admin / super_admin / operations 都放行 —— 运营也是可信后台角色,
+			// 维护期需要能进后台处理内容/用户运营(且 /api/v1/admin/* 本就在白名单)。
+			if claims, err := utils.ParseToken(tok); err == nil && admin.CanAccessAdmin(claims.Role) {
 				c.Next()
 				return
 			}

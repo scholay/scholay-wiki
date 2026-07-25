@@ -33,7 +33,7 @@ type UpdateUserRoleRequest struct {
 	Role string `json:"role" binding:"required"`
 }
 
-// UpdateUserRole 仅 super_admin 可调用：把指定用户提升为 admin 或降级为 user。
+// UpdateUserRole 仅 super_admin 可调用：把指定用户设为 admin / operations / user。
 // 不允许操作 super_admin 自身或其他 super_admin（防止意外失锁）。
 func (h *Handler) UpdateUserRole(c *gin.Context) {
 	idStr := c.Param("id")
@@ -49,18 +49,13 @@ func (h *Handler) UpdateUserRole(c *gin.Context) {
 	}
 
 	switch req.Role {
-	case RoleAdmin:
-		if err := h.service.PromoteToAdmin(uint(id64)); err != nil {
+	case RoleAdmin, RoleOperations, RoleUser:
+		if err := h.service.SetUserRole(uint(id64), req.Role); err != nil {
 			utils.SafeError(c, 1010, err)
 			return
 		}
-	case RoleUser:
-		if err := h.service.DemoteFromAdmin(uint(id64)); err != nil {
-			utils.SafeError(c, 1011, err)
-			return
-		}
 	default:
-		utils.BadRequest(c, "role must be 'admin' or 'user'")
+		utils.BadRequest(c, "role must be 'admin', 'operations' or 'user'")
 		return
 	}
 

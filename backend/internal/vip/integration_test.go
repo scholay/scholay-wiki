@@ -84,7 +84,7 @@ func TestIntegrationBilling(t *testing.T) {
 	freeCeil := cfg.WindowCeiling(TierFree)
 	proCeil := cfg.WindowCeiling(TierPro)
 	maxCeil := cfg.WindowCeiling(TierMax)
-	proGrant := cfg.GrantCreditsFor(TierPro)
+	proGrant := cfg.GrantCreditsFor(TierPro, CycleMonthly)
 	resetCost := cfg.ResetCostCredits
 	t.Logf("config: freeCeil=%d proCeil=%d maxCeil=%d proGrant=%d resetCost=%d",
 		freeCeil, proCeil, maxCeil, proGrant, resetCost)
@@ -104,7 +104,7 @@ func TestIntegrationBilling(t *testing.T) {
 		}
 
 		// 订阅 pro → 支付回调履约:会员生效 + 赠临时经费
-		ord, err := svc.Order().CreateSubscription(id, TierPro)
+		ord, err := svc.Order().CreateSubscription(id, TierPro, CycleMonthly)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -128,7 +128,7 @@ func TestIntegrationBilling(t *testing.T) {
 		}
 
 		// 续费:再订阅 pro → 到期顺延 + 再赠一笔经费
-		ord2, _ := svc.Order().CreateSubscription(id, TierPro)
+		ord2, _ := svc.Order().CreateSubscription(id, TierPro, CycleMonthly)
 		if err := svc.Order().ProcessAlipayCallback(ord2.OrderNo, "txn-2", ord2.FinalAmount, nil); err != nil {
 			t.Fatal(err)
 		}
@@ -143,13 +143,13 @@ func TestIntegrationBilling(t *testing.T) {
 		}
 
 		// 升级 max
-		ordM, _ := svc.Order().CreateSubscription(id, TierMax)
+		ordM, _ := svc.Order().CreateSubscription(id, TierMax, CycleMonthly)
 		_ = svc.Order().ProcessAlipayCallback(ordM.OrderNo, "txn-3", ordM.FinalAmount, nil)
 		if svc.EffectiveTier(id) != TierMax {
 			t.Fatalf("应升级 max")
 		}
 		// 不降级:再给一张 pro(admin 直授)→ 仍 max
-		if _, err := svc.GrantToUser(id, TierPro, 30); err != nil {
+		if _, err := svc.GrantToUser(id, TierPro, 30, ""); err != nil {
 			t.Fatal(err)
 		}
 		if svc.EffectiveTier(id) != TierMax {
@@ -163,6 +163,74 @@ func TestIntegrationBilling(t *testing.T) {
 		ov, _ = svc.GetOverview(ctx, id)
 		if ov.Tier != TierFree || ov.Token.Ceiling != freeCeil {
 			t.Fatalf("过期应回 free: tier=%s ceil=%d", ov.Tier, ov.Token.Ceiling)
+		}
+	})
+
+	// ── 年度订阅(0079):年价开通 + 365 天 + vip_cycle 标识 + 经费按月 12 批 ────────
+	t.Run("YearlySubscription", func(t *testing.T) {
+		id := mkUser(t, db)
+		defer cleanup(db, id)
+
+		yearGrant := cfg.GrantCreditsFor(TierPro, CycleYearly)
+		if cfg.PriceCentsFor(TierPro, CycleYearly) <= 0 {
+			t.Skip("年付未配置(pro_year_price_cents<=0), 跳过")
+		}
+
+		ord, err := svc.Order().CreateSubscription(id, TierPro, CycleYearly)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ord.BillingCycle != CycleYearly || ord.PlanName != "Pro · 年度订阅" {
+			t.Fatalf("年度单标识: cycle=%s name=%s", ord.BillingCycle, ord.PlanName)
+		}
+		if err := svc.Order().ProcessAlipayCallback(ord.OrderNo, "txn-y1", ord.FinalAmount, nil); err != nil {
+			t.Fatalf("fulfill: %v", err)
+		}
+
+		ov, _ := svc.GetOverview(ctx, id)
+		if ov.Tier != TierPro || ov.Cycle != CycleYearly {
+			t.Fatalf("年费标识: tier=%s cycle=%s", ov.Tier, ov.Cycle)
+		}
+		yearDays := cfg.PeriodDaysFor(CycleYearly)
+		if ov.ExpiresAt == nil || ov.ExpiresAt.Before(time.Now().AddDate(0, 0, yearDays-1)) {
+			t.Fatalf("年度到期应约 %d 天后: %v", yearDays, ov.ExpiresAt)
+		}
+
+		// 经费分 12 批:批次总数 12、总额=年度总额;当前可用只有首批(≈总额/12+余数)。
+		var lotCount int64
+		var lotSum int64
+		db.Table("credit_temp_lots").Where("user_id = ? AND source = ?", id, SourceSubscription).Count(&lotCount)
+		db.Table("credit_temp_lots").Where("user_id = ? AND source = ?", id, SourceSubscription).
+			Select("COALESCE(SUM(amount_initial),0)").Scan(&lotSum)
+		if lotCount != 12 || lotSum != int64(yearGrant) {
+			t.Fatalf("年度经费批次: count=%d sum=%d want 12/%d", lotCount, lotSum, yearGrant)
+		}
+		firstLot := yearGrant/12 + yearGrant%12
+		if ov.Credit.Temp != firstLot {
+			t.Fatalf("首月可用=%d want %d(其余按月生效)", ov.Credit.Temp, firstLot)
+		}
+
+		// 幂等:重复回调不重复入账。
+		_ = svc.Order().ProcessAlipayCallback(ord.OrderNo, "txn-y1", ord.FinalAmount, nil)
+		db.Table("credit_temp_lots").Where("user_id = ? AND source = ?", id, SourceSubscription).Count(&lotCount)
+		if lotCount != 12 {
+			t.Fatalf("幂等失败: 重复回调后批次=%d", lotCount)
+		}
+
+		// 年费用户按月续一个月 → 到期 +30 天、周期标识转回月度(最近一单为准)。
+		ordM, err := svc.Order().CreateSubscription(id, TierPro, CycleMonthly)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := svc.Order().ProcessAlipayCallback(ordM.OrderNo, "txn-y2", ordM.FinalAmount, nil); err != nil {
+			t.Fatal(err)
+		}
+		ov2, _ := svc.GetOverview(ctx, id)
+		if ov2.Cycle != CycleMonthly {
+			t.Fatalf("按月续期后周期标识应回 monthly: %s", ov2.Cycle)
+		}
+		if ov2.ExpiresAt == nil || !ov2.ExpiresAt.After(*ov.ExpiresAt) {
+			t.Fatalf("按月续期应顺延: %v → %v", ov.ExpiresAt, ov2.ExpiresAt)
 		}
 	})
 

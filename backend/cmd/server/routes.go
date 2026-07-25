@@ -39,8 +39,10 @@ import (
 	"scholar-backend/internal/prism"
 	"scholar-backend/internal/promo"
 	"scholar-backend/internal/seo"
+	"scholar-backend/internal/boltslides"
 	"scholar-backend/internal/claw"
 	"scholar-backend/internal/skillmarket"
+	"scholar-backend/internal/scidraw"
 	"scholar-backend/internal/smartsearch"
 	"scholar-backend/internal/stagingarea"
 	"scholar-backend/internal/supportcenter"
@@ -91,6 +93,8 @@ type allHandlers struct {
 	smartSearch     *smartsearch.Handler // 智能搜索 backend 桥接 (HTTP 创会话 + WS 双向 pipe)
 	peerReview      *peerreview.Handler  // 智能审稿 v3 (我要投稿 + 审稿记录,服务端 4 轮编排)
 	claw            *claw.Handler        // 智能助手 (通用对话 + 上传附件 + Minicod MCP)
+	boltSlides      *boltslides.Handler  // 制作PPT (bolt-slides 演示稿创作;智能助手页选项卡切入)
+	sciDraw         *scidraw.Handler     // 科研绘图 (原创矢量科研图;智能助手页模板卡切入)
 	skillMarket     *skillmarket.Handler // Skills 市场 (用户上传/分享 skill + claw 动态加载)
 	prism           *prism.Handler       // 智能写作 (LaTeX IDE: 项目/文件/编译沙箱; Phase 1 接 agent)
 	featureTool     *featuretool.Handler // 功能大全 (学术工具黄页: 导入/CRUD/webhook 同步/公开浏览)

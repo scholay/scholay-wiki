@@ -44,10 +44,11 @@ type Recorder interface {
 	Record(u Usage)
 }
 
-// UsageObserver —— 每记一行账本时同步回调(userID 已登录 + total>0 + 非 SkipQuota 才触发)。
-// P3 起传**加权 token**(= raw × 模型 billing_weight,Pricer 计算;未接 Pricer 时 = raw),
-// 用于把消耗累加进周期额度计数(vip.AddUsage)。必须轻量(一次 Redis INCRBY 级别), 不可阻塞。
-type UsageObserver func(userID uint, weightedTokens int)
+// UsageObserver —— 每记一行账本时同步回调(userID 已登录 + cost>0 + 非 SkipQuota 才触发)。
+// P5(成本制计费):传**真实成本(微元)** = Σ(各类 token × 对应单价),而非加权 token ——
+// 输入/输出/缓存单价差 100 倍,按真实成本扣额度才公平(见 vip 周期配额,单位=微元;显示 ÷1000=算力点)。
+// 未接 Pricer / 模型未定价 → cost=0 → 不扣额度(须保证目录内模型都配了价格)。必须轻量, 不可阻塞。
+type UsageObserver func(userID uint, costMicroYuan int)
 
 // Pricer —— 模型定价接缝(internal/modelcatalog 实现;P3 加权计费)。
 // 在 Record 内、observer 门**之前**统一计算 —— SkipQuota(记忆抽取)与匿名(公众号)行也要
@@ -106,10 +107,12 @@ func (s *Service) Record(u Usage) {
 		weighted, costMicro = s.pricer.PriceUsage(u.Model,
 			u.InputTokens, u.OutputTokens, u.CacheReadTokens, u.CacheCreationTokens)
 	}
-	// 同步喂周期额度计数(轻量 Redis INCRBY);只对已登录用户的非零用量。
+	// 同步喂周期额度计数(轻量 Redis INCRBY);只对已登录用户的非零**成本**用量。
+	// P5 成本制:喂真实成本 costMicro(微元),而非加权 token —— 按输入/输出/缓存的真实单价扣额度才公平。
 	// SkipQuota 的系统开销调用(如记忆抽取)记账本但不扣额度,故跳过 observer。
-	if s.observer != nil && u.UserID != nil && weighted > 0 && !u.SkipQuota {
-		s.observer(*u.UserID, int(weighted))
+	// costMicro=0(模型未定价)→ 不扣(该模型须在目录补价;notePricingMiss 已登记占位行提醒 admin)。
+	if s.observer != nil && u.UserID != nil && costMicro > 0 && !u.SkipQuota {
+		s.observer(*u.UserID, int(costMicro))
 	}
 	// 走独立 ledger 池:账本喂计费,不与匿名 beacon 抢同一 drop-on-full 队列。
 	safego.RecordLedger("llmusage:"+u.Feature, func() {

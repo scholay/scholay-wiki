@@ -84,16 +84,36 @@ func (o *OrderService) CreateRecharge(userID uint, cents int) (*Order, error) {
 	return ord, nil
 }
 
-// CreateSubscription 建一个会员订阅订单(plan = pro|max)。
+// CreateSubscription 建一个会员订阅订单(plan = pro|max;cycle = monthly|yearly,空按 monthly)。
 // 按用户当前会员状态算定动作:新订阅 / 续期(预发放下一周期经费)/ 升级(按剩余天数补差价)。
-// 降级直接拒绝(ErrNoDowngrade)。计算结果落在订单上, fulfill 时照此履约。
-func (o *OrderService) CreateSubscription(userID uint, plan string) (*Order, error) {
+// 降级直接拒绝(ErrNoDowngrade);年付未配置价格时拒建年付单(ErrInvalidOrder)。
+// 计算结果(含最终计费周期)落在订单上, fulfill 时照此履约。
+func (o *OrderService) CreateSubscription(userID uint, plan, cycle string) (*Order, error) {
 	if plan != TierPro && plan != TierMax {
 		return nil, ErrInvalidOrder
 	}
 	cfg := o.svc.cfg.Get()
+	// 单活跃订阅单(反叠加漏洞):先清理该用户超时(>2h,已过网关关单窗口)的 pending 订阅单;
+	// 若仍有较新的 pending 订阅单则拒绝重复建单 —— 否则「挂一张低档年度续期单 + 升档到高档 +
+	// 再支付旧单」可借履约的不降级钳制,以低档价把高档延长一整个周期(评审 pricing-math)。
+	// 只约束订阅单;充值单不受影响(可与订阅单并存)。
+	staleCutoff := time.Now().Add(-2 * time.Hour)
+	if err := o.db.Model(&Order{}).
+		Where("user_id = ? AND order_type = 'subscription' AND status = 'pending' AND created_at < ?", userID, staleCutoff).
+		Update("status", "expired").Error; err != nil {
+		return nil, err
+	}
+	var pendingSubs int64
+	if err := o.db.Model(&Order{}).
+		Where("user_id = ? AND order_type = 'subscription' AND status = 'pending'", userID).
+		Count(&pendingSubs).Error; err != nil {
+		return nil, err
+	}
+	if pendingSubs > 0 {
+		return nil, ErrPendingOrderExists
+	}
 	uv, _ := o.svc.repo.GetUserVIP(userID)
-	sp, err := computeSubscription(uv, plan, cfg, time.Now())
+	sp, err := computeSubscription(uv, plan, cycle, cfg, time.Now())
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +121,7 @@ func (o *OrderService) CreateSubscription(userID uint, plan string) (*Order, err
 	gs, ge, ne := sp.GrantStarts, sp.GrantExpires, sp.NewExpires
 	ord := &Order{
 		UserID: userID, OrderNo: genOrderNo("S"), OrderType: "subscription", PlanCode: sp.Tier,
-		PlanName: planActionName(sp.Tier, sp.Action), BillingCycle: "monthly",
+		PlanName: planActionName(sp.Tier, sp.Action, sp.Cycle), BillingCycle: sp.Cycle,
 		Amount: yuan, FinalAmount: yuan, Status: "pending", CreditsGranted: sp.Credits,
 		SubAction: sp.Action, GrantStartsAt: &gs, GrantExpiresAt: &ge, NewExpiresAt: &ne,
 	}
@@ -115,8 +135,9 @@ func (o *OrderService) CreateSubscription(userID uint, plan string) (*Order, err
 type subPlan struct {
 	Action        string    // new | renew | upgrade
 	Tier          string    // 履约后等级
-	AmountCents   int       // 应付(分):new/renew=月价;upgrade=按剩余天数补差价
-	Credits       int       // 本单赠送经费:new/renew=整月;upgrade=按剩余天数补差额
+	Cycle         string    // 计费周期:new/renew=请求周期;upgrade=用户当前订阅周期(见下)
+	AmountCents   int       // 应付(分):new/renew=周期价;upgrade=按剩余天数补差价
+	Credits       int       // 本单赠送经费:new/renew=整周期(年度=总额,分批发放);upgrade=按剩余天数补差额
 	GrantStarts   time.Time // 经费生效日:new/upgrade=now;renew=当前到期日(预发放)
 	GrantExpires  time.Time // 经费失效日
 	NewExpires    time.Time // 履约后会员到期日
@@ -124,12 +145,15 @@ type subPlan struct {
 	RemainingDays int       // 升级用:剩余天数
 }
 
-// computeSubscription 纯函数算定订阅动作 + 金额 + 经费发放窗口。
-//   new(免费/已过期):月价,经费即时整月。
-//   renew(同档在期):月价,到期日 +1 月;经费预发放(生效日=当前到期日,延后整月)。
-//   upgrade(升高一档在期):差价 = (高价-低价)*剩余天数/周期;经费差额同法;立即升档、到期日不变。
-//   降级:ErrNoDowngrade。
-func computeSubscription(uv UserVIP, target string, cfg *BillingConfig, now time.Time) (*subPlan, error) {
+// computeSubscription 纯函数算定订阅动作 + 金额 + 经费发放窗口。cycle = monthly|yearly(空按 monthly)。
+//   new(免费/已过期):周期价,经费即时整周期(年度=总额,履约时分批)。
+//   renew(同档在期):周期价,到期日 + 一个周期;经费预发放(生效日=当前到期日)。可跨周期续
+//     (月度会员按年续 = 到期日 +365 天并转年费标识,反之亦然;vip_cycle 以最近一单为准)。
+//   upgrade(升高一档在期):差价 = (高价-低价)×剩余天数/周期,**按用户当前订阅周期的价目**折算
+//     (年费用户按年价口径,防用月价日均高估差价);立即升档、到期日不变。请求的 cycle 不参与 ——
+//     「换周期 + 升档」走两步(owner 拍板 2026-07-22):先补差升档,再按意愿续期换周期。
+//   降级:ErrNoDowngrade;年付未配置价格:ErrInvalidOrder。
+func computeSubscription(uv UserVIP, target, cycle string, cfg *BillingConfig, now time.Time) (*subPlan, error) {
 	if target != TierPro && target != TierMax {
 		return nil, ErrInvalidOrder
 	}
@@ -137,52 +161,65 @@ func computeSubscription(uv UserVIP, target string, cfg *BillingConfig, now time
 	// 否则"即时生效"的 starts_at 会落到下一秒(瞬间未生效→余额为 0),到期日进位也会把
 	// 剩余天数多算 1 天。统一向下取整到秒,保证 starts_at<=now、到期日精确。
 	now = now.Truncate(time.Second)
-	priceT := cfg.PriceCentsFor(target)
-	if priceT <= 0 {
-		return nil, ErrInvalidOrder
-	}
-	cycle := cfg.SubscriptionPeriodDays
-	if cycle <= 0 {
-		cycle = 30
-	}
+	cycle = normCycle(cycle)
 	cur := effectiveTier(uv, now)
 	if tierRank(target) < tierRank(cur) {
 		return nil, ErrNoDowngrade
 	}
-	creditsT := cfg.GrantCreditsFor(target)
+
+	// 升级(在期升高一档):按剩余天数补差、到期日不变。
+	if isPaidTier(cur) && tierRank(target) > tierRank(cur) {
+		curExpiry := now.AddDate(0, 0, cfg.PeriodDaysFor(CycleMonthly))
+		if uv.VIPExpiresAt != nil {
+			curExpiry = *uv.VIPExpiresAt
+		}
+		remainingDays := daysCeil(curExpiry.Sub(now))
+		if remainingDays < 1 {
+			remainingDays = 1
+		}
+		// 折算基准周期按**剩余时长**选,而非 uv.VIPCycle —— vip_cycle 只记「最近一单」,跨周期
+		// 叠加(年付后按月续/月付叠年续)会让余期与周期口径脱节:若用月价日率(period=30)去
+		// 外推整年余期(remainingDays≈393),proratedDiff 会得出比「直接新购目标档年费」还贵的
+		// 补差(定价倒挂,评审 pricing-math)。规则:剩余 > 月周期且两档年价均配置 → 年价日率
+		// (period=365,不再对整年余期外推);否则月价。
+		basisCycle := CycleMonthly
+		if remainingDays > cfg.PeriodDaysFor(CycleMonthly) &&
+			cfg.PriceCentsFor(target, CycleYearly) > 0 && cfg.PriceCentsFor(cur, CycleYearly) > 0 {
+			basisCycle = CycleYearly
+		}
+		period := cfg.PeriodDaysFor(basisCycle)
+		diffCents := proratedDiff(cfg.PriceCentsFor(target, basisCycle)-cfg.PriceCentsFor(cur, basisCycle), remainingDays, period)
+		if diffCents < 1 {
+			diffCents = 1 // 价差地板, 避免 0 元单
+		}
+		diffCredits := proratedDiff(cfg.GrantCreditsFor(target, basisCycle)-cfg.GrantCreditsFor(cur, basisCycle), remainingDays, period)
+		return &subPlan{Action: "upgrade", Tier: target, Cycle: basisCycle, AmountCents: diffCents, Credits: diffCredits,
+			GrantStarts: now, GrantExpires: curExpiry, NewExpires: curExpiry, RemainingDays: remainingDays}, nil
+	}
+
+	// 新订阅 / 同档续期:按请求周期定价。年付价未配置 → 拒单。
+	priceT := cfg.PriceCentsFor(target, cycle)
+	if priceT <= 0 {
+		return nil, ErrInvalidOrder
+	}
+	period := cfg.PeriodDaysFor(cycle)
+	creditsT := cfg.GrantCreditsFor(target, cycle)
 
 	// 新订阅:当前免费 / 已过期。
 	if !isPaidTier(cur) {
-		exp := now.AddDate(0, 0, cycle)
-		return &subPlan{Action: "new", Tier: target, AmountCents: priceT, Credits: creditsT,
+		exp := now.AddDate(0, 0, period)
+		return &subPlan{Action: "new", Tier: target, Cycle: cycle, AmountCents: priceT, Credits: creditsT,
 			GrantStarts: now, GrantExpires: exp, NewExpires: exp}, nil
 	}
 
-	// 在期会员。当前到期日(理论上非空,兜底 now+周期)。
-	curExpiry := now.AddDate(0, 0, cycle)
+	// 续期(同档):往后延一个周期,经费预发放到下一周期。当前到期日兜底 now+周期。
+	curExpiry := now.AddDate(0, 0, period)
 	if uv.VIPExpiresAt != nil {
 		curExpiry = *uv.VIPExpiresAt
 	}
-
-	// 续期(同档):往后延一个月,经费预发放到下一周期。
-	if tierRank(target) == tierRank(cur) {
-		exp := curExpiry.AddDate(0, 0, cycle)
-		return &subPlan{Action: "renew", Tier: target, AmountCents: priceT, Credits: creditsT,
-			GrantStarts: curExpiry, GrantExpires: exp, NewExpires: exp, Deferred: true}, nil
-	}
-
-	// 升级:按剩余天数补差价(价 + 经费),立即升档、到期日不变。
-	remainingDays := daysCeil(curExpiry.Sub(now))
-	if remainingDays < 1 {
-		remainingDays = 1
-	}
-	diffCents := proratedDiff(priceT-cfg.PriceCentsFor(cur), remainingDays, cycle)
-	if diffCents < 1 {
-		diffCents = 1 // 价差地板, 避免 0 元单
-	}
-	diffCredits := proratedDiff(creditsT-cfg.GrantCreditsFor(cur), remainingDays, cycle)
-	return &subPlan{Action: "upgrade", Tier: target, AmountCents: diffCents, Credits: diffCredits,
-		GrantStarts: now, GrantExpires: curExpiry, NewExpires: curExpiry, RemainingDays: remainingDays}, nil
+	exp := curExpiry.AddDate(0, 0, period)
+	return &subPlan{Action: "renew", Tier: target, Cycle: cycle, AmountCents: priceT, Credits: creditsT,
+		GrantStarts: curExpiry, GrantExpires: exp, NewExpires: exp, Deferred: true}, nil
 }
 
 // daysCeil 向上取整的天数(剩余时间不足一天也算一天)。
@@ -201,20 +238,26 @@ func proratedDiff(delta, remainingDays, cycle int) int {
 	return int(math.Round(float64(delta) * float64(remainingDays) / float64(cycle)))
 }
 
-// planActionName 订单展示名:「Pro · 续期」等。等级名统一 Free / Pro / Max,不带「套餐」后缀。
-func planActionName(tier, action string) string {
+// planActionName 订单展示名:「Pro · 续期」「Pro · 年度订阅」等。等级名统一 Free / Pro / Max。
+// 年度单显式带「年度」字样(彰显年费,不与月度混同);升级单是周期内补差,不冠周期。
+func planActionName(tier, action, cycle string) string {
 	label := "Pro"
 	if tier == TierMax {
 		label = "Max"
 	}
-	switch action {
-	case "renew":
-		return label + " · 续期"
-	case "upgrade":
+	if action == "upgrade" {
 		return label + " · 升级"
-	default:
-		return label + " · 订阅"
 	}
+	if normCycle(cycle) == CycleYearly {
+		if action == "renew" {
+			return label + " · 年度续期"
+		}
+		return label + " · 年度订阅"
+	}
+	if action == "renew" {
+		return label + " · 续期"
+	}
+	return label + " · 订阅"
 }
 
 // ListUserOrders 列出某用户**已支付**的订单(订阅 + 充值),供「明细查看」。orderType 可空。
@@ -367,15 +410,13 @@ func (o *OrderService) activateSubscriptionInTx(tx *gorm.DB, ord *Order, now tim
 
 	var uv UserVIP
 	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-		Table("users").Select("vip_tier, vip_expires_at").Where("id = ?", ord.UserID).Scan(&uv).Error; err != nil {
+		Table("users").Select("vip_tier, vip_expires_at, vip_cycle").Where("id = ?", ord.UserID).Scan(&uv).Error; err != nil {
 		return err
 	}
 
 	cfg := o.svc.cfg.Get()
-	cycle := cfg.SubscriptionPeriodDays
-	if cycle <= 0 {
-		cycle = 30
-	}
+	cycle := normCycle(ord.BillingCycle)
+	periodDays := cfg.PeriodDaysFor(cycle)
 
 	curEff := effectiveTier(uv, now)
 	// 锚点 = max(now, 当前到期)。
@@ -396,8 +437,9 @@ func (o *OrderService) activateSubscriptionInTx(tx *gorm.DB, ord *Order, now tim
 		grantStarts = now
 		grantExpires = base
 	} else {
-		// new | renew:从锚点 +1 周期。renew=叠加到当前到期之后(预发放);逾期则 base=now 即时。
-		newExp = base.AddDate(0, 0, cycle)
+		// new | renew:从锚点 + 一个周期(月度 30 天 / 年度 365 天,按订单 billing_cycle)。
+		// renew=叠加到当前到期之后(预发放);逾期则 base=now 即时。
+		newExp = base.AddDate(0, 0, periodDays)
 		grantStarts = base
 		grantExpires = newExp
 	}
@@ -406,12 +448,63 @@ func (o *OrderService) activateSubscriptionInTx(tx *gorm.DB, ord *Order, now tim
 		newExp = *uv.VIPExpiresAt
 	}
 
-	if err := tx.Table("users").Where("id = ?", ord.UserID).
-		Updates(map[string]any{"vip_tier": newTier, "vip_expires_at": newExp}).Error; err != nil {
+	updates := map[string]any{"vip_tier": newTier, "vip_expires_at": newExp}
+	// 周期标识:新购/续期把 vip_cycle 设为本单周期(「最近一次付费订阅的周期」为准,
+	// 年费用户按月补一个月即回月度标识,反之亦然);升级不动周期(到期日与周期均不变)。
+	if ord.SubAction != "upgrade" {
+		updates["vip_cycle"] = cycle
+	}
+	if err := tx.Table("users").Where("id = ?", ord.UserID).Updates(updates).Error; err != nil {
 		return err
 	}
 	if ord.CreditsGranted > 0 {
-		return grantTempInTx(tx, ord.UserID, ord.CreditsGranted, SourceSubscription, ord.OrderNo, grantStarts, grantExpires, TxGrantSubscription)
+		// 赠送经费按「约每 30 天一批」预发放依次生效(owner 拍板 2026-07-22):年度新购/续期拆
+		// ~12 批、月度单批;长余期升级(年费口径补差,窗口可近整年)同样分批 —— 防「一次性到账
+		// 全年经费 → 首月集中重置薅走全年额度」(评审:升级差额单批即时生效同样绕过节流)。
+		return grantBatchedMonthlyInTx(tx, ord.UserID, ord.OrderNo, ord.CreditsGranted, grantStarts, grantExpires)
+	}
+	return nil
+}
+
+// grantBatchedMonthlyInTx 把一笔临时经费按「约每 30 天一批」拆分、预发放依次生效。
+// 批数 = round(窗口天数/30) 夹到 [1,12];窗口 <~45 天(月度/短余期升级)→ 单批,与原逻辑一致。
+// 每批 starts_at=本段起点、expires_at=本段终点(末批精确对齐窗口末),只在自己那一个月内可用,
+// 单月经济模型与月度会员一致。复用续期「预发放 starts_at」(钱包读路径天然支持未来生效批次),
+// 余数并入首批。ref 带 #序号(单批时用原 ref),流水/批次可追溯到单。
+func grantBatchedMonthlyInTx(tx *gorm.DB, userID uint, orderNo string, total int, startsAt, expiresAt time.Time) error {
+	span := expiresAt.Sub(startsAt)
+	if total <= 0 || span <= 0 {
+		return nil
+	}
+	parts := int(math.Round(span.Hours() / 24 / 30))
+	if parts < 1 {
+		parts = 1
+	}
+	if parts > 12 {
+		parts = 12
+	}
+	if parts == 1 {
+		return grantTempInTx(tx, userID, total, SourceSubscription, orderNo, startsAt, expiresAt, TxGrantSubscription)
+	}
+	per := total / parts
+	rem := total - per*parts
+	for i := 0; i < parts; i++ {
+		amount := per
+		if i == 0 {
+			amount += rem // 余数并入首批
+		}
+		if amount <= 0 {
+			continue // 总额 < parts 时的空批次直接跳过
+		}
+		starts := startsAt.Add(span * time.Duration(i) / time.Duration(parts))
+		ends := startsAt.Add(span * time.Duration(i+1) / time.Duration(parts))
+		if i == parts-1 {
+			ends = expiresAt // 消除整除误差,末批精确对齐窗口末
+		}
+		if err := grantTempInTx(tx, userID, amount, SourceSubscription,
+			fmt.Sprintf("%s#%02d", orderNo, i+1), starts, ends, TxGrantSubscription); err != nil {
+			return err
+		}
 	}
 	return nil
 }

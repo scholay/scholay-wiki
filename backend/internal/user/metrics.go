@@ -105,7 +105,7 @@ func (s *Service) GetUserMetrics(days int, granularity string) (*UserMetrics, er
 		SELECT `+fmtExpr+` AS bucket, COUNT(*) AS total
 		FROM users
 		WHERE created_at >= ?
-		  AND role NOT IN ('admin','super_admin')
+		  AND role NOT IN ('admin','super_admin','operations')
 		GROUP BY bucket
 		ORDER BY bucket ASC
 	`, since).Scan(&regRows)
@@ -143,7 +143,7 @@ func (s *Service) GetUserMetrics(days int, granularity string) (*UserMetrics, er
 			GROUP BY user_id
 		) t
 		JOIN users u ON u.id = t.user_id
-		WHERE u.role NOT IN ('admin','super_admin')
+		WHERE u.role NOT IN ('admin','super_admin','operations')
 		GROUP BY first_provider
 		ORDER BY total DESC
 	`).Scan(&srcRows)
@@ -168,7 +168,7 @@ func (s *Service) GetUserMetrics(days int, granularity string) (*UserMetrics, er
 		FROM users
 		WHERE COALESCE(last_active_at, last_login_at) IS NOT NULL
 		  AND COALESCE(last_active_at, last_login_at) >= ?
-		  AND role NOT IN ('admin','super_admin')
+		  AND role NOT IN ('admin','super_admin','operations')
 		GROUP BY hour
 		ORDER BY hour ASC
 	`, since).Scan(&hourRows)
@@ -206,7 +206,7 @@ func (s *Service) GetUserMetrics(days int, granularity string) (*UserMetrics, er
 			FROM user_daily_active uda
 			JOIN users u ON u.id = uda.user_id
 			WHERE uda.active_date >= ? AND uda.active_date <= ?
-			  AND u.role NOT IN ('admin','super_admin')
+			  AND u.role NOT IN ('admin','super_admin','operations')
 			  AND uda.active_date > DATE(u.created_at)
 		`, windowStart.Format("2006-01-02"), windowEnd.Format("2006-01-02")).Scan(&count)
 		out.MAUTrend = append(out.MAUTrend, MetricsPoint{
@@ -232,7 +232,7 @@ func (s *Service) GetUserMetrics(days int, granularity string) (*UserMetrics, er
 		FROM user_daily_active uda
 		JOIN users u ON u.id = uda.user_id
 		WHERE uda.active_date >= ?
-		  AND u.role NOT IN ('admin','super_admin')
+		  AND u.role NOT IN ('admin','super_admin','operations')
 		  AND uda.active_date > DATE(u.created_at)
 		GROUP BY bucket
 		ORDER BY bucket ASC
@@ -247,7 +247,7 @@ func (s *Service) GetUserMetrics(days int, granularity string) (*UserMetrics, er
 	db.Raw(`
 		SELECT COUNT(*)
 		FROM users
-		WHERE created_at >= ? AND role NOT IN ('admin','super_admin')
+		WHERE created_at >= ? AND role NOT IN ('admin','super_admin','operations')
 	`, since).Scan(&out.RegistrationsTotal)
 	// 活跃总数:窗口内**去重**活跃用户(COUNT(DISTINCT user_id),非逐日相加的人次),
 	// 与 daily_active 折线同口径(打开即活跃 + JOIN users 排 admin + 排除注册当天)。
@@ -256,7 +256,7 @@ func (s *Service) GetUserMetrics(days int, granularity string) (*UserMetrics, er
 		FROM user_daily_active uda
 		JOIN users u ON u.id = uda.user_id
 		WHERE uda.active_date >= ?
-		  AND u.role NOT IN ('admin','super_admin')
+		  AND u.role NOT IN ('admin','super_admin','operations')
 		  AND uda.active_date > DATE(u.created_at)
 	`, sinceDate).Scan(&out.ActiveTotal)
 

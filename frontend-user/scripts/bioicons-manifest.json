@@ -1,0 +1,1640 @@
+[
+ {
+  "key": "amino_acid_backbone",
+  "name": "amino_acid_backbone",
+  "category": "Amino-Acids",
+  "path": "static/icons/cc-0/Amino-Acids/B--Gideon-Bergheim/amino_acid_backbone.svg",
+  "label": "氨基酸骨架",
+  "tags": [
+   "氨基酸",
+   "amino acid",
+   "蛋白质",
+   "protein",
+   "分子结构",
+   "biochemistry"
+  ]
+ },
+ {
+  "key": "glycine_amino_acid",
+  "name": "glycine",
+  "category": "Amino-Acids",
+  "path": "static/icons/cc-0/Amino-Acids/B--Gideon-Bergheim/glycine.svg",
+  "label": "甘氨酸",
+  "tags": [
+   "甘氨酸",
+   "glycine",
+   "Gly",
+   "氨基酸",
+   "amino acid"
+  ]
+ },
+ {
+  "key": "cysteine_amino_acid",
+  "name": "cysteine",
+  "category": "Amino-Acids",
+  "path": "static/icons/cc-0/Amino-Acids/B--Gideon-Bergheim/cysteine.svg",
+  "label": "半胱氨酸",
+  "tags": [
+   "半胱氨酸",
+   "cysteine",
+   "二硫键",
+   "disulfide",
+   "氨基酸"
+  ]
+ },
+ {
+  "key": "lab_mouse",
+  "name": "Mouse",
+  "category": "Animals",
+  "path": "static/icons/cc-0/Animals/Ben-Murrell/Mouse.svg",
+  "label": "实验小鼠",
+  "tags": [
+   "小鼠",
+   "mouse",
+   "模式动物",
+   "model organism",
+   "in vivo"
+  ]
+ },
+ {
+  "key": "fruit_fly",
+  "name": "Drosophila",
+  "category": "Animals",
+  "path": "static/icons/cc-0/Animals/Ewa-Oz/Drosophila.svg",
+  "label": "果蝇",
+  "tags": [
+   "果蝇",
+   "drosophila",
+   "fruit fly",
+   "遗传",
+   "model organism"
+  ]
+ },
+ {
+  "key": "c_elegans",
+  "name": "Celegans",
+  "category": "Animals",
+  "path": "static/icons/cc-0/Animals/Ewa-Oz/Celegans.svg",
+  "label": "线虫",
+  "tags": [
+   "线虫",
+   "C. elegans",
+   "nematode",
+   "发育",
+   "model organism"
+  ]
+ },
+ {
+  "key": "xenopus_frog",
+  "name": "Xenopus_new",
+  "category": "Animals",
+  "path": "static/icons/cc-0/Animals/ewaoz/Xenopus_new.svg",
+  "label": "非洲爪蟾",
+  "tags": [
+   "爪蟾",
+   "xenopus",
+   "frog",
+   "胚胎",
+   "发育生物学"
+  ]
+ },
+ {
+  "key": "yeast_cell",
+  "name": "Yeast_new",
+  "category": "Animals",
+  "path": "static/icons/cc-0/Animals/ewaoz/Yeast_new.svg",
+  "label": "酵母",
+  "tags": [
+   "酵母",
+   "yeast",
+   "微生物",
+   "细胞",
+   "molecular biology"
+  ]
+ },
+ {
+  "key": "macaque_monkey",
+  "name": "Macaque",
+  "category": "Animals",
+  "path": "static/icons/cc-0/Animals/Ben-Murrell/Macaque.svg",
+  "label": "猕猴",
+  "tags": [
+   "猕猴",
+   "macaque",
+   "primate",
+   "灵长类",
+   "neuroscience"
+  ]
+ },
+ {
+  "key": "antibody_2",
+  "name": "antibody_heavy_chain_vdj_recombination",
+  "category": "Blood_Immunology",
+  "path": "static/icons/cc-0/Blood_Immunology/Derek-Croote/antibody_heavy_chain_vdj_recombination.svg",
+  "label": "抗体",
+  "tags": [
+   "抗体",
+   "antibody",
+   "免疫",
+   "immunology",
+   "immunoglobulin",
+   "VDJ"
+  ]
+ },
+ {
+  "key": "blood_collection_tube",
+  "name": "blood_sample_tube",
+  "category": "Blood_Immunology",
+  "path": "static/icons/cc-0/Blood_Immunology/Marcel_Tisch/blood_sample_tube.svg",
+  "label": "采血管",
+  "tags": [
+   "采血管",
+   "blood tube",
+   "血样",
+   "实验器材",
+   "vacutainer"
+  ]
+ },
+ {
+  "key": "nlrp3_inflammasome",
+  "name": "NLRP3_Complex",
+  "category": "Blood_Immunology",
+  "path": "static/icons/cc-0/Blood_Immunology/Qara/NLRP3_Complex.svg",
+  "label": "NLRP3炎症小体",
+  "tags": [
+   "炎症小体",
+   "inflammasome",
+   "NLRP3",
+   "免疫",
+   "immunology"
+  ]
+ },
+ {
+  "key": "well_plate_96",
+  "name": "96_well_plate",
+  "category": "Cell_culture",
+  "path": "static/icons/cc-0/Cell_culture/Marcel_Tisch/96_well_plate.svg",
+  "label": "96孔板",
+  "tags": [
+   "96孔板",
+   "well plate",
+   "microplate",
+   "高通量",
+   "细胞培养"
+  ]
+ },
+ {
+  "key": "well_plate_6",
+  "name": "6_well_plate",
+  "category": "Cell_culture",
+  "path": "static/icons/cc-0/Cell_culture/KeHan/6_well_plate.svg",
+  "label": "6孔板",
+  "tags": [
+   "6孔板",
+   "well plate",
+   "culture plate",
+   "细胞培养",
+   "实验器材"
+  ]
+ },
+ {
+  "key": "culture_dish",
+  "name": "CC_dish",
+  "category": "Cell_culture",
+  "path": "static/icons/cc-0/Cell_culture/Marcel_Tisch/CC_dish.svg",
+  "label": "培养皿",
+  "tags": [
+   "培养皿",
+   "culture dish",
+   "petri dish",
+   "细胞培养",
+   "dish"
+  ]
+ },
+ {
+  "key": "bacterial_colonies",
+  "name": "Bacteria_colonies",
+  "category": "Cell_culture",
+  "path": "static/icons/cc-0/Cell_culture/B--Gideon-Bergheim/Bacteria_colonies.svg",
+  "label": "菌落",
+  "tags": [
+   "菌落",
+   "bacterial colonies",
+   "琼脂平板",
+   "microbiology",
+   "培养"
+  ]
+ },
+ {
+  "key": "ecoli_bacterium",
+  "name": "simple_e_coli",
+  "category": "Cell_culture",
+  "path": "static/icons/cc-0/Cell_culture/B--Gideon-Bergheim/simple_e_coli.svg",
+  "label": "大肠杆菌",
+  "tags": [
+   "大肠杆菌",
+   "E. coli",
+   "bacterium",
+   "细菌",
+   "微生物"
+  ]
+ },
+ {
+  "key": "inoculation_loop",
+  "name": "bacteria_culture_loop",
+  "category": "Cell_culture",
+  "path": "static/icons/cc-0/Cell_culture/B--Gideon-Bergheim/bacteria_culture_loop.svg",
+  "label": "接种环",
+  "tags": [
+   "接种环",
+   "inoculation loop",
+   "microbiology",
+   "细菌培养",
+   "实验器材"
+  ]
+ },
+ {
+  "key": "organoid",
+  "name": "organoid",
+  "category": "Cell_culture",
+  "path": "static/icons/cc-0/Cell_culture/Marcel_Tisch/organoid.svg",
+  "label": "类器官",
+  "tags": [
+   "类器官",
+   "organoid",
+   "3D培养",
+   "干细胞",
+   "组织"
+  ]
+ },
+ {
+  "key": "stem_cell_colony",
+  "name": "stem_cell_colony",
+  "category": "Cell_culture",
+  "path": "static/icons/cc-0/Cell_culture/Marcel_Tisch/stem_cell_colony.svg",
+  "label": "干细胞集落",
+  "tags": [
+   "干细胞",
+   "stem cell",
+   "colony",
+   "集落",
+   "细胞培养"
+  ]
+ },
+ {
+  "key": "phospholipid",
+  "name": "Phospholipid",
+  "category": "Cell_membrane",
+  "path": "static/icons/cc-0/Cell_membrane/Cléber-Gomes/Phospholipid.svg",
+  "label": "磷脂",
+  "tags": [
+   "磷脂",
+   "phospholipid",
+   "细胞膜",
+   "lipid bilayer",
+   "membrane",
+   "细胞"
+  ]
+ },
+ {
+  "key": "membrane_receptor",
+  "name": "receptor",
+  "category": "Cell_membrane",
+  "path": "static/icons/cc-0/Cell_membrane/Jan-Jezierski/receptor.svg",
+  "label": "膜受体",
+  "tags": [
+   "受体",
+   "receptor",
+   "细胞膜",
+   "signaling",
+   "信号转导",
+   "membrane"
+  ]
+ },
+ {
+  "key": "red_blood_cell",
+  "name": "redbloodcell",
+  "category": "Cell_types",
+  "path": "static/icons/cc-0/Cell_types/EwaOz/redbloodcell.svg",
+  "label": "红细胞",
+  "tags": [
+   "红细胞",
+   "red blood cell",
+   "erythrocyte",
+   "血液",
+   "blood"
+  ]
+ },
+ {
+  "key": "sperm_cell",
+  "name": "sperm",
+  "category": "Cell_types",
+  "path": "static/icons/cc-0/Cell_types/Xi-Chen/sperm.svg",
+  "label": "精子",
+  "tags": [
+   "精子",
+   "sperm",
+   "生殖",
+   "reproduction",
+   "fertilization"
+  ]
+ },
+ {
+  "key": "oocyte",
+  "name": "MII_Oocyte",
+  "category": "Cell_types",
+  "path": "static/icons/cc-0/Cell_types/Xi-Chen/MII_Oocyte.svg",
+  "label": "卵母细胞",
+  "tags": [
+   "卵母细胞",
+   "oocyte",
+   "卵子",
+   "egg",
+   "生殖",
+   "reproduction"
+  ]
+ },
+ {
+  "key": "cardiomyocyte",
+  "name": "simple_cardiomyocyte",
+  "category": "Cell_types",
+  "path": "static/icons/cc-0/Cell_types/Marnie-Maddock/simple_cardiomyocyte.svg",
+  "label": "心肌细胞",
+  "tags": [
+   "心肌细胞",
+   "cardiomyocyte",
+   "心脏",
+   "heart",
+   "muscle"
+  ]
+ },
+ {
+  "key": "smooth_muscle_cell",
+  "name": "smooth_muscle_cell_v1",
+  "category": "Cell_types",
+  "path": "static/icons/cc-0/Cell_types/Daniel-Marcos/smooth_muscle_cell_v1.svg",
+  "label": "平滑肌细胞",
+  "tags": [
+   "平滑肌细胞",
+   "smooth muscle",
+   "肌肉",
+   "muscle cell"
+  ]
+ },
+ {
+  "key": "generic_cell",
+  "name": "simple_cell1",
+  "category": "Cell_types",
+  "path": "static/icons/cc-0/Cell_types/Marnie-Maddock/simple_cell1.svg",
+  "label": "通用细胞",
+  "tags": [
+   "细胞",
+   "cell",
+   "通用细胞",
+   "generic cell",
+   "biology"
+  ]
+ },
+ {
+  "key": "cell_cluster",
+  "name": "cell_group",
+  "category": "Cell_types",
+  "path": "static/icons/cc-0/Cell_types/JhonnyXC/cell_group.svg",
+  "label": "细胞群",
+  "tags": [
+   "细胞群",
+   "cell group",
+   "cluster",
+   "组织",
+   "tissue"
+  ]
+ },
+ {
+  "key": "zygote",
+  "name": "1cell_pn4_zygote",
+  "category": "Cell_types",
+  "path": "static/icons/cc-0/Cell_types/Xi-Chen/1cell_pn4_zygote.svg",
+  "label": "受精卵",
+  "tags": [
+   "受精卵",
+   "zygote",
+   "胚胎",
+   "embryo",
+   "发育",
+   "development"
+  ]
+ },
+ {
+  "key": "morula",
+  "name": "morula_embryo",
+  "category": "Cell_types",
+  "path": "static/icons/cc-0/Cell_types/Xi-Chen/morula_embryo.svg",
+  "label": "桑椹胚",
+  "tags": [
+   "桑椹胚",
+   "morula",
+   "胚胎",
+   "embryo",
+   "发育",
+   "development"
+  ]
+ },
+ {
+  "key": "blastocyst",
+  "name": "early_blastocyst_embryo",
+  "category": "Cell_types",
+  "path": "static/icons/cc-0/Cell_types/Xi-Chen/early_blastocyst_embryo.svg",
+  "label": "囊胚",
+  "tags": [
+   "囊胚",
+   "blastocyst",
+   "胚胎",
+   "embryo",
+   "干细胞",
+   "stem cell"
+  ]
+ },
+ {
+  "key": "lab_beaker",
+  "name": "Beaker_water",
+  "category": "Chemistry",
+  "path": "static/icons/cc-0/Chemistry/nUll/Beaker_water.svg",
+  "label": "烧杯",
+  "tags": [
+   "烧杯",
+   "beaker",
+   "实验器材",
+   "玻璃器皿",
+   "化学"
+  ]
+ },
+ {
+  "key": "round_bottom_flask",
+  "name": "round-bottomed-flask-1-250ml",
+  "category": "Chemistry",
+  "path": "static/icons/cc-0/Chemistry/OpenClipart/round-bottomed-flask-1-250ml.svg",
+  "label": "圆底烧瓶",
+  "tags": [
+   "圆底烧瓶",
+   "flask",
+   "round bottom",
+   "实验器材",
+   "化学"
+  ]
+ },
+ {
+  "key": "u_tube",
+  "name": "u-tube",
+  "category": "Chemistry",
+  "path": "static/icons/cc-0/Chemistry/OpenClipart/u-tube.svg",
+  "label": "U型管",
+  "tags": [
+   "U型管",
+   "u-tube",
+   "电解",
+   "electrolysis",
+   "化学器材"
+  ]
+ },
+ {
+  "key": "solution_particles",
+  "name": "particles-solution",
+  "category": "Chemistry",
+  "path": "static/icons/cc-0/Chemistry/OpenClipart/particles-solution.svg",
+  "label": "溶液",
+  "tags": [
+   "溶液",
+   "solution",
+   "溶解",
+   "混合物",
+   "化学"
+  ]
+ },
+ {
+  "key": "emulsion",
+  "name": "emulsion",
+  "category": "Chemistry",
+  "path": "static/icons/cc-0/Chemistry/OpenClipart/emulsion.svg",
+  "label": "乳浊液",
+  "tags": [
+   "乳浊液",
+   "emulsion",
+   "乳液",
+   "混合物",
+   "化学"
+  ]
+ },
+ {
+  "key": "nucleosome",
+  "name": "single_nucleosome",
+  "category": "Epigenetics",
+  "path": "static/icons/cc-0/Epigenetics/Xi-Chen/single_nucleosome.svg",
+  "label": "核小体",
+  "tags": [
+   "核小体",
+   "nucleosome",
+   "histone",
+   "组蛋白",
+   "染色质",
+   "chromatin"
+  ]
+ },
+ {
+  "key": "transcription_machinery",
+  "name": "transcription_machinery",
+  "category": "Epigenetics",
+  "path": "static/icons/cc-0/Epigenetics/Xi-Chen/transcription_machinery.svg",
+  "label": "转录机器",
+  "tags": [
+   "转录",
+   "transcription",
+   "RNA polymerase",
+   "RNA聚合酶",
+   "基因表达",
+   "gene expression"
+  ]
+ },
+ {
+  "key": "proteoglycan",
+  "name": "Proteoglycan_v1",
+  "category": "Extracellular_matrix",
+  "path": "static/icons/cc-0/Extracellular_matrix/Daniel-Marcos/Proteoglycan_v1.svg",
+  "label": "蛋白聚糖",
+  "tags": [
+   "proteoglycan",
+   "蛋白聚糖",
+   "细胞外基质",
+   "ECM",
+   "glycosaminoglycan"
+  ]
+ },
+ {
+  "key": "magnifying_glass",
+  "name": "magnifying-glass",
+  "category": "General_items",
+  "path": "static/icons/cc-0/General_items/Marcel_Tisch/magnifying-glass.svg",
+  "label": "放大镜",
+  "tags": [
+   "search",
+   "放大镜",
+   "magnify",
+   "观察",
+   "detection"
+  ]
+ },
+ {
+  "key": "thermometer",
+  "name": "thermometer",
+  "category": "General_items",
+  "path": "static/icons/cc-0/General_items/kehan/thermometer.svg",
+  "label": "温度计",
+  "tags": [
+   "temperature",
+   "温度计",
+   "温度",
+   "incubation",
+   "加热"
+  ]
+ },
+ {
+  "key": "nitrile_gloves",
+  "name": "nitrile-gloves",
+  "category": "General_items",
+  "path": "static/icons/cc-0/General_items/Riccardo-Iacovelli/nitrile-gloves.svg",
+  "label": "丁腈手套",
+  "tags": [
+   "gloves",
+   "手套",
+   "实验防护",
+   "lab safety",
+   "PPE"
+  ]
+ },
+ {
+  "key": "cryo_freezer_tube",
+  "name": "freezer_tube",
+  "category": "General_items",
+  "path": "static/icons/cc-0/General_items/FGC/freezer_tube.svg",
+  "label": "冻存管",
+  "tags": [
+   "冻存管",
+   "sample tube",
+   "cryo",
+   "样本",
+   "冷冻"
+  ]
+ },
+ {
+  "key": "camera",
+  "name": "camera",
+  "category": "General_items",
+  "path": "static/icons/cc-0/General_items/OpenClipart/camera.svg",
+  "label": "相机",
+  "tags": [
+   "camera",
+   "相机",
+   "拍摄",
+   "imaging",
+   "成像"
+  ]
+ },
+ {
+  "key": "dna_double_helix",
+  "name": "DNA_symbolic_extending",
+  "category": "Genetics",
+  "path": "static/icons/cc-0/Genetics/David-Eccles--gringer-/DNA_symbolic_extending.svg",
+  "label": "DNA双螺旋",
+  "tags": [
+   "DNA",
+   "双螺旋",
+   "基因",
+   "genetics",
+   "分子生物学"
+  ]
+ },
+ {
+  "key": "crispr_cas9",
+  "name": "CRISPR_Cas9",
+  "category": "Genetics",
+  "path": "static/icons/cc-0/Genetics/Marcel_Tisch/CRISPR_Cas9.svg",
+  "label": "CRISPR基因编辑",
+  "tags": [
+   "CRISPR",
+   "Cas9",
+   "基因编辑",
+   "gene editing",
+   "遗传"
+  ]
+ },
+ {
+  "key": "six_well_culture_plate",
+  "name": "6-well_plate_cell_culture",
+  "category": "Genetics",
+  "path": "static/icons/cc-0/Genetics/umasstr/6-well_plate_cell_culture.svg",
+  "label": "六孔细胞培养板",
+  "tags": [
+   "细胞培养",
+   "六孔板",
+   "cell culture",
+   "实验器材",
+   "well plate"
+  ]
+ },
+ {
+  "key": "budding_yeast",
+  "name": "Budding_yeast",
+  "category": "Genetics",
+  "path": "static/icons/cc-0/Genetics/umasstr/Budding_yeast.svg",
+  "label": "出芽酵母",
+  "tags": [
+   "酵母",
+   "yeast",
+   "模式生物",
+   "微生物",
+   "budding"
+  ]
+ },
+ {
+  "key": "aav_viral_vector",
+  "name": "AAV_adenovirus",
+  "category": "Genetics",
+  "path": "static/icons/cc-0/Genetics/umasstr/AAV_adenovirus.svg",
+  "label": "AAV病毒载体",
+  "tags": [
+   "AAV",
+   "病毒载体",
+   "基因治疗",
+   "viral vector",
+   "腺相关病毒"
+  ]
+ },
+ {
+  "key": "plasmid_vector",
+  "name": "plasmid_library",
+  "category": "Genetics",
+  "path": "static/icons/cc-0/Genetics/umasstr/plasmid_library.svg",
+  "label": "质粒",
+  "tags": [
+   "质粒",
+   "plasmid",
+   "载体",
+   "克隆",
+   "cloning"
+  ]
+ },
+ {
+  "key": "sanger_sequencing",
+  "name": "Sanger_sequencing",
+  "category": "Genetics",
+  "path": "static/icons/cc-0/Genetics/yangzs/Sanger_sequencing.svg",
+  "label": "Sanger测序",
+  "tags": [
+   "测序",
+   "Sanger",
+   "sequencing",
+   "DNA测序",
+   "遗传"
+  ]
+ },
+ {
+  "key": "ngs_sequencing_reads",
+  "name": "Illumina_sequencing_reads",
+  "category": "Genetics",
+  "path": "static/icons/cc-0/Genetics/umasstr/Illumina_sequencing_reads.svg",
+  "label": "高通量测序reads",
+  "tags": [
+   "测序",
+   "NGS",
+   "Illumina",
+   "reads",
+   "高通量"
+  ]
+ },
+ {
+  "key": "pyramidal_neuron",
+  "name": "Pyramidal_Neuron",
+  "category": "Human_physiology",
+  "path": "static/icons/cc-0/Human_physiology/Fabian-Mikulasch/Pyramidal_Neuron.svg",
+  "label": "锥体神经元",
+  "tags": [
+   "神经元",
+   "neuron",
+   "脑",
+   "brain",
+   "神经科学"
+  ]
+ },
+ {
+  "key": "metabolites",
+  "name": "metabolites",
+  "category": "Human_physiology",
+  "path": "static/icons/cc-0/Human_physiology/Fang-fang-yang-/metabolites.svg",
+  "label": "代谢物",
+  "tags": [
+   "代谢物",
+   "metabolite",
+   "分子",
+   "molecule",
+   "代谢",
+   "metabolism"
+  ]
+ },
+ {
+  "key": "liver_2",
+  "name": "healthy_liver",
+  "category": "Human_physiology",
+  "path": "static/icons/cc-0/Human_physiology/Jan-Clusmann/healthy_liver.svg",
+  "label": "肝脏",
+  "tags": [
+   "肝脏",
+   "liver",
+   "器官",
+   "organ",
+   "解剖",
+   "anatomy"
+  ]
+ },
+ {
+  "key": "fibrotic_liver",
+  "name": "fibrotic_liver",
+  "category": "Human_physiology",
+  "path": "static/icons/cc-0/Human_physiology/Jan-Clusmann/fibrotic_liver.svg",
+  "label": "纤维化肝脏",
+  "tags": [
+   "肝纤维化",
+   "fibrosis",
+   "肝脏",
+   "liver",
+   "病理",
+   "pathology"
+  ]
+ },
+ {
+  "key": "drugs",
+  "name": "drugs",
+  "category": "Human_physiology",
+  "path": "static/icons/cc-0/Human_physiology/Marcel_Tisch/drugs.svg",
+  "label": "药物",
+  "tags": [
+   "药物",
+   "drug",
+   "药",
+   "medication",
+   "药理",
+   "pharmacology"
+  ]
+ },
+ {
+  "key": "pill",
+  "name": "pill_blue",
+  "category": "Human_physiology",
+  "path": "static/icons/cc-0/Human_physiology/Marcel_Tisch/pill_blue.svg",
+  "label": "药片",
+  "tags": [
+   "药片",
+   "pill",
+   "药丸",
+   "tablet",
+   "用药",
+   "medication"
+  ]
+ },
+ {
+  "key": "patient",
+  "name": "patient",
+  "category": "Human_physiology",
+  "path": "static/icons/cc-0/Human_physiology/Marcel_Tisch/patient.svg",
+  "label": "患者",
+  "tags": [
+   "患者",
+   "patient",
+   "病人",
+   "person",
+   "临床",
+   "clinical"
+  ]
+ },
+ {
+  "key": "patient_mutant",
+  "name": "patient_mutant",
+  "category": "Human_physiology",
+  "path": "static/icons/cc-0/Human_physiology/Marcel_Tisch/patient_mutant.svg",
+  "label": "突变型患者",
+  "tags": [
+   "突变",
+   "mutant",
+   "基因型",
+   "genotype",
+   "遗传",
+   "patient"
+  ]
+ },
+ {
+  "key": "gut_bacteria",
+  "name": "gut_bacteria",
+  "category": "Human_physiology",
+  "path": "static/icons/cc-0/Human_physiology/fang-fangyang/gut_bacteria.svg",
+  "label": "肠道菌群",
+  "tags": [
+   "肠道菌群",
+   "gut bacteria",
+   "微生物",
+   "microbiome",
+   "细菌",
+   "bacteria"
+  ]
+ },
+ {
+  "key": "syringe_blood",
+  "name": "syringe_with_blood",
+  "category": "Human_physiology",
+  "path": "static/icons/cc-0/Human_physiology/va/syringe_with_blood.svg",
+  "label": "采血针筒",
+  "tags": [
+   "注射器",
+   "syringe",
+   "采血",
+   "blood draw",
+   "血液",
+   "实验器材"
+  ]
+ },
+ {
+  "key": "fluorescent_bead",
+  "name": "Fluoresent_bead_green",
+  "category": "Imaging",
+  "path": "static/icons/cc-0/Imaging/B-Gideon-Bergheim/Fluoresent_bead_green.svg",
+  "label": "荧光微球",
+  "tags": [
+   "荧光",
+   "fluorescent bead",
+   "微球",
+   "flow cytometry",
+   "标记",
+   "imaging"
+  ]
+ },
+ {
+  "key": "in_vivo_imaging_mouse",
+  "name": "spectral_ami_one_mouse",
+  "category": "Imaging",
+  "path": "static/icons/cc-0/Imaging/Spectral-Instruments/spectral_ami_one_mouse.svg",
+  "label": "小动物活体成像",
+  "tags": [
+   "活体成像",
+   "in vivo imaging",
+   "小鼠",
+   "mouse",
+   "成像仪",
+   "IVIS"
+  ]
+ },
+ {
+  "key": "mitochondria",
+  "name": "mitochondria",
+  "category": "Intracellular_components",
+  "path": "static/icons/cc-0/Intracellular_components/jaiganesh/mitochondria.svg",
+  "label": "线粒体",
+  "tags": [
+   "线粒体",
+   "mitochondria",
+   "细胞器",
+   "organelle",
+   "ATP",
+   "能量"
+  ]
+ },
+ {
+  "key": "endoplasmic_reticulum",
+  "name": "Endoplasmic_Reticulum",
+  "category": "Intracellular_components",
+  "path": "static/icons/cc-0/Intracellular_components/jaiganesh/Endoplasmic_Reticulum.svg",
+  "label": "内质网",
+  "tags": [
+   "内质网",
+   "endoplasmic reticulum",
+   "ER",
+   "细胞器",
+   "organelle",
+   "蛋白合成"
+  ]
+ },
+ {
+  "key": "ribosome_2",
+  "name": "ribosome",
+  "category": "Intracellular_components",
+  "path": "static/icons/cc-0/Intracellular_components/jaiganesh/ribosome.svg",
+  "label": "核糖体",
+  "tags": [
+   "核糖体",
+   "ribosome",
+   "翻译",
+   "translation",
+   "蛋白合成",
+   "protein synthesis"
+  ]
+ },
+ {
+  "key": "proteasome",
+  "name": "proteasome",
+  "category": "Intracellular_components",
+  "path": "static/icons/cc-0/Intracellular_components/jaiganesh/proteasome.svg",
+  "label": "蛋白酶体",
+  "tags": [
+   "蛋白酶体",
+   "proteasome",
+   "蛋白降解",
+   "degradation",
+   "泛素",
+   "ubiquitin"
+  ]
+ },
+ {
+  "key": "prokaryote_cell",
+  "name": "Average_prokaryote_cell-_unlabled",
+  "category": "Intracellular_components",
+  "path": "static/icons/cc-0/Intracellular_components/Mariana_RuizVillareal/Average_prokaryote_cell-_unlabled.svg",
+  "label": "原核细胞",
+  "tags": [
+   "原核细胞",
+   "prokaryote",
+   "细菌",
+   "bacteria",
+   "细胞",
+   "cell"
+  ]
+ },
+ {
+  "key": "histone_complex",
+  "name": "histone_complex",
+  "category": "Intracellular_components",
+  "path": "static/icons/cc-0/Intracellular_components/ASE/histone_complex.svg",
+  "label": "组蛋白复合体",
+  "tags": [
+   "组蛋白",
+   "histone",
+   "染色质",
+   "chromatin",
+   "表观遗传",
+   "epigenetics"
+  ]
+ },
+ {
+  "key": "zinc_finger",
+  "name": "zincfinger",
+  "category": "Intracellular_components",
+  "path": "static/icons/cc-0/Intracellular_components/Simon_Dürr/zincfinger.svg",
+  "label": "锌指结构",
+  "tags": [
+   "锌指",
+   "zinc finger",
+   "DNA结合",
+   "转录因子",
+   "transcription factor",
+   "蛋白"
+  ]
+ },
+ {
+  "key": "microscope_2",
+  "name": "microscope-cartoon",
+  "category": "Lab_apparatus",
+  "path": "static/icons/cc-0/Lab_apparatus/Derek-Croote/microscope-cartoon.svg",
+  "label": "显微镜",
+  "tags": [
+   "显微镜",
+   "microscope",
+   "观察",
+   "成像",
+   "细胞",
+   "lab"
+  ]
+ },
+ {
+  "key": "pipette",
+  "name": "Pipette",
+  "category": "Lab_apparatus",
+  "path": "static/icons/cc-0/Lab_apparatus/James-Lloyd/Pipette.svg",
+  "label": "移液管",
+  "tags": [
+   "移液管",
+   "pipette",
+   "移液",
+   "取样",
+   "lab tool"
+  ]
+ },
+ {
+  "key": "beaker",
+  "name": "Beakers",
+  "category": "Lab_apparatus",
+  "path": "static/icons/cc-0/Lab_apparatus/Xavax/Beakers.svg",
+  "label": "烧杯",
+  "tags": [
+   "烧杯",
+   "beaker",
+   "glassware",
+   "玻璃器皿",
+   "化学"
+  ]
+ },
+ {
+  "key": "erlenmeyer_flask",
+  "name": "erlenmeyer_filled",
+  "category": "Lab_apparatus",
+  "path": "static/icons/cc-0/Lab_apparatus/KeHan/erlenmeyer_filled.svg",
+  "label": "锥形瓶",
+  "tags": [
+   "锥形瓶",
+   "erlenmeyer",
+   "flask",
+   "玻璃器皿",
+   "化学"
+  ]
+ },
+ {
+  "key": "round_bottom_flask_2",
+  "name": "round-bottomed-flask-cartoon",
+  "category": "Lab_apparatus",
+  "path": "static/icons/cc-0/Lab_apparatus/Derek-Croote/round-bottomed-flask-cartoon.svg",
+  "label": "圆底烧瓶",
+  "tags": [
+   "圆底烧瓶",
+   "round bottom flask",
+   "玻璃器皿",
+   "有机化学",
+   "反应"
+  ]
+ },
+ {
+  "key": "graduated_cylinder",
+  "name": "Graduated_Cylinder_tall_form_250ml",
+  "category": "Lab_apparatus",
+  "path": "static/icons/cc-0/Lab_apparatus/Xavax/Graduated_Cylinder_tall_form_250ml.svg",
+  "label": "量筒",
+  "tags": [
+   "量筒",
+   "graduated cylinder",
+   "量取",
+   "体积",
+   "glassware"
+  ]
+ },
+ {
+  "key": "syringe_2",
+  "name": "simple-syringe-cartoon",
+  "category": "Lab_apparatus",
+  "path": "static/icons/cc-0/Lab_apparatus/Derek-Croote/simple-syringe-cartoon.svg",
+  "label": "注射器",
+  "tags": [
+   "注射器",
+   "syringe",
+   "注射",
+   "给药",
+   "injection"
+  ]
+ },
+ {
+  "key": "incubator",
+  "name": "incubator",
+  "category": "Lab_apparatus",
+  "path": "static/icons/cc-0/Lab_apparatus/KeHan/incubator.svg",
+  "label": "培养箱",
+  "tags": [
+   "培养箱",
+   "incubator",
+   "细胞培养",
+   "微生物",
+   "equipment"
+  ]
+ },
+ {
+  "key": "cell_culture_flask",
+  "name": "T75_flask",
+  "category": "Lab_apparatus",
+  "path": "static/icons/cc-0/Lab_apparatus/Marcel_Tisch/T75_flask.svg",
+  "label": "细胞培养瓶",
+  "tags": [
+   "细胞培养瓶",
+   "T75",
+   "cell culture flask",
+   "组织培养",
+   "细胞"
+  ]
+ },
+ {
+  "key": "qpcr_machine",
+  "name": "qpcr_machine",
+  "category": "Lab_apparatus",
+  "path": "static/icons/cc-0/Lab_apparatus/KeHan/qpcr_machine.svg",
+  "label": "qPCR仪",
+  "tags": [
+   "qPCR",
+   "定量PCR",
+   "thermocycler",
+   "PCR仪",
+   "分子生物学"
+  ]
+ },
+ {
+  "key": "pcr_plate_96well",
+  "name": "96well_pcr_plate_sky",
+  "category": "Lab_apparatus",
+  "path": "static/icons/cc-0/Lab_apparatus/Xi-Chen/96well_pcr_plate_sky.svg",
+  "label": "96孔板",
+  "tags": [
+   "96孔板",
+   "96-well plate",
+   "microplate",
+   "高通量",
+   "PCR"
+  ]
+ },
+ {
+  "key": "mass_spectrometer",
+  "name": "mass-spectrometer-MS",
+  "category": "Lab_apparatus",
+  "path": "static/icons/cc-0/Lab_apparatus/Sasha_Sundstrom/mass-spectrometer-MS.svg",
+  "label": "质谱仪",
+  "tags": [
+   "质谱",
+   "mass spectrometer",
+   "MS",
+   "分析仪器",
+   "蛋白质组"
+  ]
+ },
+ {
+  "key": "inverted_microscope",
+  "name": "inverted_microscope",
+  "category": "Microbiology",
+  "path": "static/icons/cc-0/Microbiology/Divakar-Badal/inverted_microscope.svg",
+  "label": "倒置显微镜",
+  "tags": [
+   "显微镜",
+   "microscope",
+   "inverted microscope",
+   "细胞培养",
+   "imaging"
+  ]
+ },
+ {
+  "key": "yeast_cell_2",
+  "name": "Yeast",
+  "category": "Microbiology",
+  "path": "static/icons/cc-0/Microbiology/Ewa-Oz/Yeast.svg",
+  "label": "酵母",
+  "tags": [
+   "酵母",
+   "yeast",
+   "真菌",
+   "fungi",
+   "微生物",
+   "出芽"
+  ]
+ },
+ {
+  "key": "bacteria_swimming",
+  "name": "Bacteria_Swimming",
+  "category": "Microbiology",
+  "path": "static/icons/cc-0/Microbiology/James-Lloyd/Bacteria_Swimming.svg",
+  "label": "游动细菌",
+  "tags": [
+   "细菌",
+   "bacteria",
+   "鞭毛",
+   "flagella",
+   "motility",
+   "趋化性"
+  ]
+ },
+ {
+  "key": "bacteriophage",
+  "name": "Phage",
+  "category": "Microbiology",
+  "path": "static/icons/cc-0/Microbiology/James-Lloyd/Phage.svg",
+  "label": "噬菌体",
+  "tags": [
+   "噬菌体",
+   "phage",
+   "bacteriophage",
+   "病毒",
+   "virus",
+   "分子生物"
+  ]
+ },
+ {
+  "key": "well_plate_96_2",
+  "name": "96-well-plate-2d",
+  "category": "Microbiology",
+  "path": "static/icons/cc-0/Microbiology/OpenClipart/96-well-plate-2d.svg",
+  "label": "96孔板",
+  "tags": [
+   "96孔板",
+   "microplate",
+   "96-well",
+   "ELISA",
+   "高通量",
+   "实验"
+  ]
+ },
+ {
+  "key": "agarose_gel",
+  "name": "agarose-gel",
+  "category": "Microbiology",
+  "path": "static/icons/cc-0/Microbiology/OpenClipart/agarose-gel.svg",
+  "label": "琼脂糖凝胶",
+  "tags": [
+   "凝胶电泳",
+   "agarose gel",
+   "electrophoresis",
+   "DNA",
+   "分子生物"
+  ]
+ },
+ {
+  "key": "generic_bacterium",
+  "name": "generic-bacterium",
+  "category": "Microbiology",
+  "path": "static/icons/cc-0/Microbiology/Pauline_Franz/generic-bacterium.svg",
+  "label": "细菌",
+  "tags": [
+   "细菌",
+   "bacterium",
+   "微生物",
+   "microbe",
+   "原核",
+   "prokaryote"
+  ]
+ },
+ {
+  "key": "chemical_bond",
+  "name": "bond",
+  "category": "Molecular_modelling",
+  "path": "static/icons/cc-0/Molecular_modelling/Emmett_Leddin/bond.svg",
+  "label": "化学键",
+  "tags": [
+   "化学键",
+   "chemical bond",
+   "molecule",
+   "分子",
+   "bond"
+  ]
+ },
+ {
+  "key": "smiles_structure",
+  "name": "smiles",
+  "category": "Molecular_modelling",
+  "path": "static/icons/cc-0/Molecular_modelling/Simon_Dürr/smiles.svg",
+  "label": "SMILES分子式",
+  "tags": [
+   "SMILES",
+   "分子结构",
+   "chemical structure",
+   "化学式",
+   "cheminformatics"
+  ]
+ },
+ {
+  "key": "protein_backbone",
+  "name": "protein-backbone-schematic",
+  "category": "Molecular_modelling",
+  "path": "static/icons/cc-0/Molecular_modelling/Simon_Dürr/protein-backbone-schematic.svg",
+  "label": "蛋白质骨架",
+  "tags": [
+   "蛋白质骨架",
+   "protein backbone",
+   "主链",
+   "protein structure",
+   "分子生物学"
+  ]
+ },
+ {
+  "key": "data_database",
+  "name": "database",
+  "category": "Molecular_modelling",
+  "path": "static/icons/cc-0/Molecular_modelling/OpenClipart/database.svg",
+  "label": "数据库",
+  "tags": [
+   "数据库",
+   "database",
+   "data storage",
+   "存储",
+   "流程图"
+  ]
+ },
+ {
+  "key": "dna_double_helix_2",
+  "name": "DNA_double_helix",
+  "category": "Nucleic_acids",
+  "path": "static/icons/cc-0/Nucleic_acids/James-Lloyd/DNA_double_helix.svg",
+  "label": "DNA双螺旋",
+  "tags": [
+   "DNA",
+   "双螺旋",
+   "double helix",
+   "遗传",
+   "基因"
+  ]
+ },
+ {
+  "key": "atp_molecule",
+  "name": "atp",
+  "category": "Nucleic_acids",
+  "path": "static/icons/cc-0/Nucleic_acids/Simon_Dürr/atp.svg",
+  "label": "ATP分子",
+  "tags": [
+   "ATP",
+   "能量",
+   "energy",
+   "三磷酸腺苷",
+   "代谢"
+  ]
+ },
+ {
+  "key": "plasmid_vector_2",
+  "name": "plasmid-2",
+  "category": "Nucleic_acids",
+  "path": "static/icons/cc-0/Nucleic_acids/Simon_Dürr/plasmid-2.svg",
+  "label": "质粒载体",
+  "tags": [
+   "质粒",
+   "plasmid",
+   "载体",
+   "vector",
+   "克隆"
+  ]
+ },
+ {
+  "key": "restriction_enzyme",
+  "name": "restriction_enzyme",
+  "category": "Nucleic_acids",
+  "path": "static/icons/cc-0/Nucleic_acids/Simon_Dürr/restriction_enzyme.svg",
+  "label": "限制性内切酶",
+  "tags": [
+   "限制酶",
+   "restriction enzyme",
+   "酶切",
+   "克隆",
+   "分子生物学"
+  ]
+ },
+ {
+  "key": "crispr_cas9_vector",
+  "name": "CRISPR_Cas9_vector",
+  "category": "Nucleic_acids",
+  "path": "static/icons/cc-0/Nucleic_acids/umasstr/CRISPR_Cas9_vector.svg",
+  "label": "CRISPR/Cas9载体",
+  "tags": [
+   "CRISPR",
+   "Cas9",
+   "基因编辑",
+   "gene editing",
+   "载体"
+  ]
+ },
+ {
+  "key": "trna_structure",
+  "name": "tRNA_secondary_structure",
+  "category": "Nucleic_acids",
+  "path": "static/icons/cc-0/Nucleic_acids/James-Lloyd/tRNA_secondary_structure.svg",
+  "label": "tRNA结构",
+  "tags": [
+   "tRNA",
+   "转运RNA",
+   "翻译",
+   "translation",
+   "二级结构"
+  ]
+ },
+ {
+  "key": "chromatin_histones",
+  "name": "chromatin-histones",
+  "category": "Nucleic_acids",
+  "path": "static/icons/cc-0/Nucleic_acids/Pauline_Franz/chromatin-histones.svg",
+  "label": "染色质与组蛋白",
+  "tags": [
+   "染色质",
+   "chromatin",
+   "组蛋白",
+   "histone",
+   "表观遗传"
+  ]
+ },
+ {
+  "key": "single_stranded_dna",
+  "name": "ssDNA-single-stranded",
+  "category": "Nucleic_acids",
+  "path": "static/icons/cc-0/Nucleic_acids/Samuel-Nestor-Meckoni/ssDNA-single-stranded.svg",
+  "label": "单链DNA",
+  "tags": [
+   "单链DNA",
+   "ssDNA",
+   "single-stranded",
+   "DNA",
+   "核酸"
+  ]
+ },
+ {
+  "key": "n_terminal_signal_peptide",
+  "name": "N-terminal_signal_peptide_scheme",
+  "category": "Peptides",
+  "path": "static/icons/cc-0/Peptides/Samuel-Nestor-Meckoni/N-terminal_signal_peptide_scheme.svg",
+  "label": "N端信号肽示意",
+  "tags": [
+   "信号肽",
+   "signal peptide",
+   "N端",
+   "分泌途径",
+   "protein targeting",
+   "ER"
+  ]
+ },
+ {
+  "key": "plant_leaf",
+  "name": "Leaf",
+  "category": "Plants_Algae",
+  "path": "static/icons/cc-0/Plants_Algae/Gina-Vong/Leaf.svg",
+  "label": "叶片",
+  "tags": [
+   "叶片",
+   "leaf",
+   "植物",
+   "plant",
+   "光合作用",
+   "botany"
+  ]
+ },
+ {
+  "key": "arabidopsis_seedling",
+  "name": "ArabidopsisSeedlings",
+  "category": "Plants_Algae",
+  "path": "static/icons/cc-0/Plants_Algae/James-Lloyd/ArabidopsisSeedlings.svg",
+  "label": "拟南芥幼苗",
+  "tags": [
+   "拟南芥",
+   "arabidopsis",
+   "模式植物",
+   "model plant",
+   "幼苗",
+   "seedling"
+  ]
+ },
+ {
+  "key": "dicot_seedling",
+  "name": "DicotSeedling",
+  "category": "Plants_Algae",
+  "path": "static/icons/cc-0/Plants_Algae/Gina-Vong/DicotSeedling.svg",
+  "label": "双子叶幼苗",
+  "tags": [
+   "幼苗",
+   "seedling",
+   "双子叶",
+   "dicot",
+   "萌发",
+   "germination"
+  ]
+ },
+ {
+  "key": "tomato_fruit",
+  "name": "TomatoFruit",
+  "category": "Plants_Algae",
+  "path": "static/icons/cc-0/Plants_Algae/James-Lloyd/TomatoFruit.svg",
+  "label": "番茄果实",
+  "tags": [
+   "番茄",
+   "tomato",
+   "果实",
+   "fruit",
+   "作物",
+   "crop"
+  ]
+ },
+ {
+  "key": "calcium_channel",
+  "name": "calcium_channel",
+  "category": "Receptors_channels",
+  "path": "static/icons/cc-0/Receptors_channels/Marcel_Tisch/calcium_channel.svg",
+  "label": "钙离子通道",
+  "tags": [
+   "calcium channel",
+   "钙通道",
+   "ion channel",
+   "离子通道",
+   "细胞膜",
+   "membrane transport"
+  ]
+ },
+ {
+  "key": "human_heart",
+  "name": "Human_heart",
+  "category": "Tissues",
+  "path": "static/icons/cc-0/Tissues/Mariana_RuizVillareal/Human_heart.svg",
+  "label": "人体心脏",
+  "tags": [
+   "心脏",
+   "heart",
+   "器官",
+   "organ",
+   "解剖",
+   "cardiovascular"
+  ]
+ },
+ {
+  "key": "nephron",
+  "name": "nephron_2d",
+  "category": "Tissues",
+  "path": "static/icons/cc-0/Tissues/EmilyADaniel/nephron_2d.svg",
+  "label": "肾单位",
+  "tags": [
+   "肾单位",
+   "nephron",
+   "肾脏",
+   "kidney",
+   "生理",
+   "physiology"
+  ]
+ },
+ {
+  "key": "virus_particle",
+  "name": "virus-sketch",
+  "category": "Viruses",
+  "path": "static/icons/cc-0/Viruses/Marcel_Tisch/virus-sketch.svg",
+  "label": "病毒(示意)",
+  "tags": [
+   "病毒",
+   "virus",
+   "virion",
+   "微生物",
+   "pathogen"
+  ]
+ },
+ {
+  "key": "plaque_assay",
+  "name": "virus_titer_plaque_assay",
+  "category": "Viruses",
+  "path": "static/icons/cc-0/Viruses/kehan/virus_titer_plaque_assay.svg",
+  "label": "空斑实验(病毒滴度)",
+  "tags": [
+   "空斑实验",
+   "plaque assay",
+   "病毒滴度",
+   "virus titer",
+   "实验流程",
+   "virology"
+  ]
+ },
+ {
+  "key": "sars_cov2_spike",
+  "name": "sars-cov-2-spike-closed",
+  "category": "Viruses",
+  "path": "static/icons/cc-0/Viruses/Simon_Dürr/sars-cov-2-spike-closed.svg",
+  "label": "新冠刺突蛋白",
+  "tags": [
+   "刺突蛋白",
+   "spike protein",
+   "SARS-CoV-2",
+   "新冠",
+   "分子结构"
+  ]
+ }
+]

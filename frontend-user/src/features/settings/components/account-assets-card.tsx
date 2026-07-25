@@ -64,6 +64,10 @@ export function AccountAssetsCard({ data, onGoRecharge }: { data: Overview; onGo
       <div className="mb-4 flex items-center justify-between gap-2">
         <h3 className="text-sm font-bold text-foreground">账户资产</h3>
         <div className="flex items-center gap-2">
+          {/* 年费会员徽标(0079)—— 与月度会员显式区分 */}
+          {data.cycle === 'yearly' && data.tier !== 'free' && (
+            <span className="rounded-pill bg-brand-amber/10 px-2 py-0.5 text-2xs font-bold text-brand-amber">年费会员</span>
+          )}
           <span className="text-xs text-faint">
             {PLAN_LABEL[data.tier]}
             {data.tier !== 'free' && data.expires_at ? ` · 有效期至 ${data.expires_at.slice(0, 10)}` : ''}
@@ -103,7 +107,7 @@ export function AccountAssetsCard({ data, onGoRecharge }: { data: Overview; onGo
         quote={quoteSubscription}
         methods={methods}
         initialTier={upgrade.tier}
-        onPay={(tier, method) => subscribe(tier, method, PLAN_LABEL[tier])}
+        onPay={(tier, method, cycle) => subscribe(tier, method, cycle, PLAN_LABEL[tier])}
       />
     </section>
   );

@@ -84,7 +84,8 @@ export function QuotaNotifier() {
   // 阈值 toastr:过半(>=50%)/ 将尽(>=80%),每级每**周期**只弹一次(P4:锚定 7 天窗口,
   // 去重 key 用 window_started_at —— 换窗即重置;未开窗兜底当日 key)。
   useEffect(() => {
-    if (!data || data.token.unlimited || data.token.ceiling <= 0) return;
+    // P5:用户端不下发额度绝对值(ceiling 被抹为 0),只按 unlimited + percent 判定(百分比是真值)。
+    if (!data || data.token.unlimited) return;
     const day = data.token.window_started_at ?? localDateKey();
     const s = useQuotaStore.getState();
     const level = s.warnDay === day ? s.warnLevel : 0;

@@ -140,9 +140,22 @@ function mapStopReason(finish: string | null | undefined): string {
   return "end_turn";
 }
 
-function normOAUsage(u: { prompt_tokens?: number; completion_tokens?: number; prompt_tokens_details?: { cached_tokens?: number } } | null | undefined) {
+function normOAUsage(
+  u:
+    | {
+        prompt_tokens?: number;
+        completion_tokens?: number;
+        prompt_tokens_details?: { cached_tokens?: number };
+        cached_tokens?: number;
+        prompt_cache_hit_tokens?: number;
+      }
+    | null
+    | undefined,
+) {
   const prompt = u?.prompt_tokens ?? 0;
-  const cached = u?.prompt_tokens_details?.cached_tokens ?? 0;
+  // 缓存命中多路兜底:标准 OpenAI 放 prompt_tokens_details.cached_tokens;部分国产端点(Kimi/Moonshot、
+  // DeepSeek 兼容口)放顶层 cached_tokens / prompt_cache_hit_tokens。漏读会让成本看板高估平台成本(审计 cache-field)。
+  const cached = u?.prompt_tokens_details?.cached_tokens ?? u?.cached_tokens ?? u?.prompt_cache_hit_tokens ?? 0;
   return {
     input_tokens: Math.max(0, prompt - cached),
     output_tokens: u?.completion_tokens ?? 0,
@@ -199,21 +212,30 @@ async function postChat(p: ProviderConfig, body: Record<string, unknown>, signal
     const resp = await fetchWithNetRetry(url, () => ({ method: "POST", headers, body: JSON.stringify(cur), signal }), signal);
     if (resp.status !== 400 || attempt >= 2) return resp;
     const detail = await resp.clone().text().catch(() => "");
-    if (!/max_completion_tokens|max_tokens/.test(detail)) return resp;
+    if (!/max_completion_tokens|max_tokens|最大.{0,6}(?:token|输出|长度)|输出.{0,6}(?:超|上限|限制)/i.test(detail)) return resp;
     // 一次到位:换名 + 钳制在同一个重试里做 —— 分两步会多打一发,且部分中转(实测 cometapi)
     // 对带 max_tokens 的请求不回 400 而是直接掐断连接,分步修复会死在中间态。
     const next = { ...cur } as Record<string, unknown>;
     let changed = false;
-    if (next.max_tokens !== undefined) {
-      next.max_completion_tokens = next.max_tokens; // 现代方言:o 系/新模型只认 max_completion_tokens
+    // 仅当报文**明确要求 max_completion_tokens**(o 系新方言)才换名。国产端点(DashScope/Moonshot/
+    // Zhipu/火山/MiniMax)只认 max_tokens —— 无条件换名会让重试必再 400、该模型每轮必挂(审计 P2-3)。
+    if (/max_completion_tokens/.test(detail) && next.max_tokens !== undefined && next.max_completion_tokens === undefined) {
+      next.max_completion_tokens = next.max_tokens;
       delete next.max_tokens;
       changed = true;
     }
-    const limit = Number(next.max_completion_tokens);
-    const capMatch = detail.match(/at most (\d+)/i) ?? detail.match(/maximum(?:\s+\w+){0,3}\s+(?:is|of)?\s*(\d{3,})/i);
+    // 完成 token 上限钳制:兼容 at most N / maximum … N / <= N / less than or equal to / 中文「最大/最多/不超过 N」。
+    const capMatch =
+      detail.match(/at most (\d{2,})/i) ??
+      detail.match(/maximum(?:\s+\w+){0,3}\s+(?:is|of)?\s*(\d{2,})/i) ??
+      detail.match(/(?:<=|less than or equal to|not exceed(?:ing)?|no more than)\s*(\d{2,})/i) ??
+      detail.match(/(?:最大|最多|不超过|至多)[^\d]{0,8}(\d{2,})/);
     const cap = capMatch ? Number(capMatch[1]) : 0;
+    // 钳制作用在实际存在的字段上(未换名时仍是 max_tokens)。
+    const capField = next.max_completion_tokens !== undefined ? "max_completion_tokens" : "max_tokens";
+    const limit = Number((next as Record<string, unknown>)[capField]);
     if (cap > 0 && Number.isFinite(limit) && cap < limit) {
-      next.max_completion_tokens = cap;
+      (next as Record<string, unknown>)[capField] = cap;
       changed = true;
     }
     if (!changed) return resp; // 无可修复项(已是换名+钳制后的形态)→ 把 400 交还上层
@@ -277,10 +299,45 @@ class OpenAIFakeStream {
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
     let sseBuf = "";
+    // 流空闲超时(W3-5b):TCP 活着但字节停了(挂死轮 848s/624s 的一种形态)。长思考会持续产
+    // reasoning 字节,120s 无任何字节必是死流 —— 比 backend 轮级硬闸更早把用户放出来。0=关闭。
+    const IDLE_MS = Number(process.env.EXECUTOR_STREAM_IDLE_TIMEOUT_MS || 120_000);
+    // 首字节(TTFB)窗口独立且更宽:大上下文/重推理 provider 的排队+prefill 可能 >120s 才吐第一个
+    // 字节,用 inter-byte 的 120s 会把本可成功的请求误杀在 prefill 阶段(审计 [14])。首字节到达后
+    // 才收紧到 IDLE_MS 的 inter-byte 空闲窗;IDLE_MS<=0 时两者一并关闭。用户 stop 仍经 AbortSignal 生效。
+    const FIRST_BYTE_MS = Number(process.env.EXECUTOR_STREAM_FIRST_BYTE_TIMEOUT_MS || 300_000);
+    let firstByteSeen = false;
+    const readWithIdleTimeout = async () => {
+      const ms = IDLE_MS <= 0 ? 0 : firstByteSeen ? IDLE_MS : FIRST_BYTE_MS;
+      if (ms <= 0) return reader.read();
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        return await Promise.race([
+          reader.read(),
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(() => {
+              reader.cancel().catch(() => {
+                /* noop */
+              });
+              reject(
+                new Error(
+                  firstByteSeen
+                    ? `upstream stream idle timeout (no bytes for ${ms}ms)`
+                    : `upstream time-to-first-byte timeout (${ms}ms)`,
+                ),
+              );
+            }, ms);
+          }),
+        ]);
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    };
     try {
       while (true) {
-        const { done, value } = await reader.read();
+        const { done, value } = await readWithIdleTimeout();
         if (done) break;
+        firstByteSeen = true; // 收到首个数据块 → 后续读收紧到 IDLE_MS 的 inter-byte 空闲窗
         sseBuf += decoder.decode(value, { stream: true });
         let nl: number;
         while ((nl = sseBuf.indexOf("\n")) >= 0) {
@@ -348,25 +405,60 @@ class OpenAIFakeStream {
       yield { type: "content_block_stop", index: st.block } as any;
     }
 
+    // W3-5a 干净断流不再伪装 end_turn(2026-07 审计 P0-3 最大来源):中转对长思考轮耗尽空闲窗后
+    // FIN 关流(无错误、无 [DONE]、无 finish_reason)→ 旧行为 mapStopReason(null)="end_turn" 把
+    // 零产出轮标成 complete,前端零提示吞掉用户消息。改为如实抛错 → turnLoop 统一 error 终帧。
+    // 有正文的变体保留现状(正文已流给用户,救内容优先),仅 log 留痕。
+    if (finish === null && toolByOAIdx.size === 0 && !textBuf) {
+      this.err = new Error("upstream stream ended without finish_reason (connection cut by relay)");
+      throw this.err;
+    }
+    if (finish === null) {
+      log.warn("openai adapter: stream ended without finish_reason but content exists (keeping)", {
+        model: this.params.model, text_len: textBuf.length, tools: toolByOAIdx.size,
+      });
+    }
+
     if (!usage) log.warn("openai adapter: upstream sent no usage (billing gap this call)", { model: this.params.model });
     const content: AnyBlock[] = [];
     if (this.provider.reasoningReplay && thinkBuf) content.push({ type: "thinking", thinking: thinkBuf, signature: "" });
     if (textBuf) content.push({ type: "text", text: textBuf });
+    // W3-5a tool args 半截 JSON 不再吞成 input={}(旧行为:执行必失败且症状漂移 —— Write 缺参 →
+    // 道歉轮 → 幻影交付)。finish=length(上游明确说截断)→ 丢弃坏块并留痕,交 turnLoop 的
+    // max_tokens 分支处理;其它情形(中转掐断 mid-args)→ 如实抛错。
+    let droppedTruncatedTools = 0;
     for (const st of toolByOAIdx.values()) {
       let input: unknown = {};
-      try { input = st.args ? JSON.parse(st.args) : {}; } catch {
-        log.warn("openai adapter: tool arguments not valid JSON", { name: st.name });
+      if (st.args) {
+        try {
+          input = JSON.parse(st.args);
+        } catch {
+          if (finish === "length") {
+            // W3-5c 联动(审计 [4]):不丢弃截断的 tool_use。计入 droppedTruncatedTools 使 validTools
+            // 排除它 → stop_reason 落 max_tokens;但仍推一个 input={} 占位块进 content,让 turnLoop 的
+            // max_tokens 恢复分支看到 pending tool_use → 回 is_error tool_result(解决前端幻影工具卡)
+            // + 注入分段写指令重打。否则丢块后 pendingTools 为空,W3-5c 自恢复对整个 OpenAI 兼容道全失效。
+            droppedTruncatedTools++;
+            log.warn("openai adapter: keeping truncated tool_use as placeholder (finish=length)", { name: st.name });
+            content.push({ type: "tool_use", id: st.id, name: st.name, input: {} });
+            continue;
+          }
+          this.err = new Error(`tool arguments truncated by upstream: ${st.name}`);
+          throw this.err;
+        }
       }
       content.push({ type: "tool_use", id: st.id, name: st.name, input });
     }
+    const validTools = toolByOAIdx.size - droppedTruncatedTools;
     this.finalMsg = {
       id: "oa_" + Date.now(),
       type: "message",
       role: "assistant",
       model: this.params.model,
       content: content as never,
-      // 有 tool_calls 一律判 tool_use(个别上游 finish_reason 报 stop):turnLoop 据此进入工具轮。
-      stop_reason: (toolByOAIdx.size > 0 ? "tool_use" : mapStopReason(finish)) as never,
+      // 有**有效** tool_calls 一律判 tool_use(个别上游 finish_reason 报 stop):turnLoop 据此进入工具轮。
+      // 全部 tool args 被截断丢弃时按 finish 原义(length→max_tokens)走 turnLoop 截断分支。
+      stop_reason: (validTools > 0 ? "tool_use" : mapStopReason(finish)) as never,
       stop_sequence: null,
       usage: (usage ?? normOAUsage(null)) as never,
     } as unknown as Anthropic.Message;

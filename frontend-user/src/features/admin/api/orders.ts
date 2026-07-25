@@ -12,6 +12,7 @@ export interface AdminOrder {
   order_type: 'recharge' | 'subscription';
   plan_code: string;
   plan_name: string;
+  billing_cycle: string; // monthly | yearly | once(充值)—— 年度单显式彰显(0079)
   amount: number;
   final_amount: number;
   status: 'pending' | 'paid' | 'expired';

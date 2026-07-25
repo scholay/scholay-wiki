@@ -11,7 +11,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/shared/ui/dialog';
-import { useAdminProviders, type AgentModel, type AgentModelPayload } from '../api/model-catalog';
+import {
+  useAdminProviders,
+  MODEL_PRESETS,
+  presetPayload,
+  type AgentModel,
+  type AgentModelPayload,
+} from '../api/model-catalog';
 
 /**
  * ModelFormDialog — 模型目录的新建 / 编辑弹窗(ModelCatalogPage 专用)。
@@ -43,6 +49,19 @@ export function ModelFormDialog({
 
   const set = <K extends keyof AgentModelPayload>(key: K, value: AgentModelPayload[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
+
+  // 上下文 = 最大输入 + 最大输出 的共享预算。填了三者中的两个,自动补第三个(仅当恰有一个为 0 时;
+  // 三个都填了则视为强改,不自动改动)。任何一个都可直接手填覆盖。
+  const setCtxField = (key: 'context_window' | 'max_input' | 'max_output', v: number) =>
+    setForm((f) => {
+      const next = { ...f, [key]: v };
+      const zeros = [next.context_window, next.max_input, next.max_output].filter((x) => !x || x <= 0).length;
+      if (zeros !== 1) return next; // 只在「恰好一个空」时自动补
+      if (!next.context_window) next.context_window = next.max_input + next.max_output;
+      else if (!next.max_input) next.max_input = Math.max(0, next.context_window - next.max_output);
+      else if (!next.max_output) next.max_output = Math.max(0, next.context_window - next.max_input);
+      return next;
+    });
 
   // 上游 Provider:0 = 默认端点;openai 格式 provider 由 agent 出口自动翻译(F3)。
   const { data: providers } = useAdminProviders();
@@ -108,7 +127,16 @@ export function ModelFormDialog({
                   id="m-ctx"
                   type="number"
                   value={form.context_window}
-                  onChange={(e) => set('context_window', Number(e.target.value) || 0)}
+                  onChange={(e) => setCtxField('context_window', Number(e.target.value) || 0)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="m-maxin">最大输入</Label>
+                <Input
+                  id="m-maxin"
+                  type="number"
+                  value={form.max_input}
+                  onChange={(e) => setCtxField('max_input', Number(e.target.value) || 0)}
                 />
               </div>
               <div className="space-y-1.5">
@@ -117,19 +145,7 @@ export function ModelFormDialog({
                   id="m-maxout"
                   type="number"
                   value={form.max_output}
-                  onChange={(e) => set('max_output', Number(e.target.value) || 0)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="m-weight">计费倍率</Label>
-                <Input
-                  id="m-weight"
-                  type="number"
-                  step="0.05"
-                  min={0.05}
-                  max={100}
-                  value={form.billing_weight}
-                  onChange={(e) => set('billing_weight', Number(e.target.value) || 1)}
+                  onChange={(e) => setCtxField('max_output', Number(e.target.value) || 0)}
                 />
               </div>
               <div className="space-y-1.5">
@@ -143,8 +159,39 @@ export function ModelFormDialog({
               </div>
             </div>
             <p className="text-2xs text-faint">
-              计费倍率 = 用户额度的扣减系数(×1 为基准,加权计费上线后生效)。建议按混合价估算:0.8×输入价 + 0.2×输出价,再除以基准模型同口径价格。
+              上下文 = 最大输入 + 最大输出(共享预算)。填其中两个会自动补第三个,也可各自强改。最大输入留空(0)时
+              agent 压缩墙按「上下文 − 输出预留」自动算,保证 输入 + 输出 ≤ 上下文,不溢出。
             </p>
+            <p className="text-2xs text-faint">
+              成本制计费:用户额度按下方四类单价(输入/输出/缓存读/缓存写)的真实成本扣减,贵模型自然扣得快,无需再配倍率。
+            </p>
+
+            {/* 官方预设模型:一键填入官方参数(官方文档口径,填后仍可手改) */}
+            {MODEL_PRESETS[form.model_id] && (
+              <div className="flex items-center justify-between gap-3 rounded-md border border-border-soft bg-surface-1 p-3">
+                <p className="text-2xs text-muted-foreground">
+                  这是官方预设模型 —— 可一键填入官方参数(上下文 / 输出 / 价格 / 倍率),填后仍可手改。
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() =>
+                    setForm((f) => ({
+                      ...presetPayload(form.model_id, model, f.provider_id),
+                      user_selectable: f.user_selectable,
+                      enabled: f.enabled,
+                      min_tier: f.min_tier,
+                      sort_order: f.sort_order,
+                      notes: f.notes,
+                    }))
+                  }
+                >
+                  填入官方预设
+                </Button>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {(
@@ -167,6 +214,98 @@ export function ModelFormDialog({
                   />
                 </div>
               ))}
+            </div>
+
+            {/* 输入长度分档计价(千问等按 prompt 长度分 2~3 档;价格分档,平台不吃长上下文差价) */}
+            <div className="space-y-2 rounded-md border border-border-soft p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Label htmlFor="m-tier-threshold" className="text-sm font-medium">
+                  输入长度分档 · 档2 阈值(高档价)
+                </Label>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xs text-faint">prompt(输入+缓存)&gt;</span>
+                  <Input
+                    id="m-tier-threshold"
+                    type="number"
+                    min={0}
+                    className="h-8 w-28"
+                    value={form.input_tier_threshold}
+                    onChange={(e) => set('input_tier_threshold', Number(e.target.value) || 0)}
+                  />
+                  <span className="text-2xs text-faint">token 切档2</span>
+                </div>
+              </div>
+              <p className="text-2xs text-faint">
+                0 = 不分档(DeepSeek / 扁平模型)。千问 plus 填 256000、qwen3.7-flash 填 32000。高档价留空(0)回落基础值;成本按高档价扣。
+              </p>
+              {form.input_tier_threshold > 0 && (
+                <>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    {(
+                      [
+                        ['price_in_hi', '档2 输入 元/1M'],
+                        ['price_out_hi', '档2 输出 元/1M'],
+                        ['price_cache_r_hi', '档2 缓存读 元/1M'],
+                        ['price_cache_w_hi', '档2 缓存写 元/1M'],
+                      ] as const
+                    ).map(([key, label]) => (
+                      <div key={key} className="space-y-1.5">
+                        <Label htmlFor={`m-${key}`} className="text-2xs">{label}</Label>
+                        <Input
+                          id={`m-${key}`}
+                          type="number"
+                          step="0.0001"
+                          min={0}
+                          value={form[key]}
+                          onChange={(e) => set(key, Number(e.target.value) || 0)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  {/* 档3(可选第三档;须 > 档2 阈值)。qwen3.7-flash 填 256000。0 = 只 2 档。 */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                    <Label htmlFor="m-tier-threshold-2" className="text-sm font-medium">
+                      档3 阈值(更高档价,可选)
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xs text-faint">prompt &gt;</span>
+                      <Input
+                        id="m-tier-threshold-2"
+                        type="number"
+                        min={0}
+                        className="h-8 w-28"
+                        value={form.input_tier_threshold_2}
+                        onChange={(e) => set('input_tier_threshold_2', Number(e.target.value) || 0)}
+                      />
+                      <span className="text-2xs text-faint">token 切档3</span>
+                    </div>
+                  </div>
+                  {form.input_tier_threshold_2 > 0 && (
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      {(
+                        [
+                          ['price_in_hi2', '档3 输入 元/1M'],
+                          ['price_out_hi2', '档3 输出 元/1M'],
+                          ['price_cache_r_hi2', '档3 缓存读 元/1M'],
+                          ['price_cache_w_hi2', '档3 缓存写 元/1M'],
+                        ] as const
+                      ).map(([key, label]) => (
+                        <div key={key} className="space-y-1.5">
+                          <Label htmlFor={`m-${key}`} className="text-2xs">{label}</Label>
+                          <Input
+                            id={`m-${key}`}
+                            type="number"
+                            step="0.0001"
+                            min={0}
+                            value={form[key]}
+                            onChange={(e) => set(key, Number(e.target.value) || 0)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -241,6 +380,13 @@ export function ModelFormDialog({
                 </div>
                 <Switch id="m-vision" checked={form.vision} onCheckedChange={(v) => set('vision', v)} />
               </div>
+              <div className="flex items-center justify-between gap-3 rounded-md border border-border-soft p-3">
+                <div>
+                  <Label htmlFor="m-flagship" className="text-sm font-medium">旗舰模型</Label>
+                  <p className="text-2xs text-faint mt-0.5">标为旗舰后,用户选择器里名字彩色高亮 + 「旗舰」标签,突出主推</p>
+                </div>
+                <Switch id="m-flagship" checked={form.flagship} onCheckedChange={(v) => set('flagship', v)} />
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -276,14 +422,25 @@ function emptyForm(): AgentModelPayload {
     description: '',
     channel: 'agent',
     context_window: 128000,
+    max_input: 0,
     max_output: 0,
     price_in: 0,
     price_out: 0,
     price_cache_r: 0,
     price_cache_w: 0,
-    billing_weight: 1,
+    input_tier_threshold: 0,
+    price_in_hi: 0,
+    price_out_hi: 0,
+    price_cache_r_hi: 0,
+    price_cache_w_hi: 0,
+    input_tier_threshold_2: 0,
+    price_in_hi2: 0,
+    price_out_hi2: 0,
+    price_cache_r_hi2: 0,
+    price_cache_w_hi2: 0,
     speed_class: 'balanced',
     vision: false,
+    flagship: false,
     user_selectable: true,
     min_tier: '',
     enabled: true,

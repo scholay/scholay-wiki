@@ -34,6 +34,9 @@ type Artifact struct {
 	Title         string    `gorm:"column:title;type:varchar(255);not null;default:''"`
 	Description   string    `gorm:"column:description;type:varchar(1024);not null;default:''"`
 	Kind          string    `gorm:"column:kind;type:varchar(16);not null;default:file"`
+	// UserEdited:遗留列(见 migration 0078)。曾用于 sci_draw 无限画布编辑保护;画布已下线、改为
+	// 只读内联出图,现无代码读写此列。按迁移铁律保留 DB 列不删,GORM 字段留作回滚兜底。
+	UserEdited    bool      `gorm:"column:user_edited;not null;default:0"`
 	CreatedAt     time.Time `gorm:"column:created_at;autoCreateTime"`
 	UpdatedAt     time.Time `gorm:"column:updated_at;autoUpdateTime"`
 }

@@ -25,7 +25,9 @@ import {
   ComposerAttachmentRow,
   ComposerPlusMenu,
   LibraryReferencePicker,
+  QuestionPrompt,
   ReferenceChipList,
+  findPendingQuestionBlock,
   type ReferenceSelection,
 } from '@/shared/components/chat';
 import { AttachmentLightbox } from '@/shared/components/chat/AttachmentLightbox';
@@ -40,6 +42,9 @@ import {
   useSmartSearchSessions,
   useSmartSearchSocket,
   smartSearchSessionFileUrl,
+  getSmartSearchNewConvModel,
+  setSmartSearchNewConvModel,
+  markSmartSearchPendingModel,
 } from '../../api/smart-search';
 import { AssistantTurn } from './AssistantTurn';
 import { SmartComposer } from './SmartComposer';
@@ -73,6 +78,11 @@ const RENDER_STEP = 60;
  *  避免上万轮 transcript 一次性 JSON.parse + 折叠。后端 sliceRecentTurns 按 ?limit= 切。 */
 const HISTORY_WINDOW = 100;
 const HISTORY_STEP = 100;
+/** 未送达看门狗:send 后这么久既无 user_ack 也无任何流帧 → 判定未送达,转「未发送」+ 原文回填输入框。 */
+const ACK_TIMEOUT_MS = 10_000;
+/** 停止兜底:发出 stop_generation 后这么久没等到真实终帧 → 本地合成完成帧收口本轮(渲染「已暂停」)。
+ *  取远大于正常 abort 收尾时长;死连接场景重连后 hub 只回放在途轮,不存在「合成后真终帧才迟到」的错配。 */
+const STOP_FALLBACK_MS = 20_000;
 
 /** 历史回放:给图片附件补 previewUrl(指向 /smart-search/session/file 取图代理,cookie 鉴权)。
  *  transcript 里图片只剩 @path,刷新后靠这个显示缩略图 + 点击放大。只处理 type=image 且有 path 未补的。 */
@@ -169,18 +179,114 @@ export function SmartSearchPanel() {
     }[]
   >([]);
   /** 用户已点过 stop 但 agent 还没 emit terminal 事件 (busy 仍 true) → 锁住 stop 按钮
-      避免重复触发。terminal 事件到达 → busy 自动翻 false → 这里下面 useEffect 重置回 false。 */
+      避免重复触发。terminal 事件到达 → busy 自动翻 false → 这里下面 useEffect 重置回 false
+      (顺带撤销停止兜底计时器)。 */
   const [stopping, setStopping] = useState(false);
-  /** 最近一次成功提交的问题原文 —— 命中额度被拦时用于回填输入框, 便于一键重发。 */
+  const stopTimerRef = useRef<number | null>(null);
+  const clearStopFallback = useCallback(() => {
+    if (stopTimerRef.current !== null) {
+      window.clearTimeout(stopTimerRef.current);
+      stopTimerRef.current = null;
+    }
+  }, []);
+  /** 最近一次成功提交的问题原文 —— 命中额度 / 投递失败被拦时用于回填输入框, 便于一键重发。 */
   const lastSubmitTextRef = useRef<string>('');
+
+  // 本次 mount 起的 sessionId 一旦确认, pendingSendRef 里如果还有未发的 user_message
+  // 就在 WS open 后立刻发出去(flush effect 在下方 socket 解构后)。clientTurnId 与乐观气泡
+  // turnId(pendingSendTurnIdRef)配对:flush 成功后据此挂未送达看门狗;WS 落 error 终态时据此转 blocked。
+  const pendingSendRef = useRef<{
+    content: string;
+    clientTurnId: string;
+    attachments?: { type: 'image' | 'file'; name?: string; mimeType?: string; path: string }[];
+  } | null>(null);
+  const pendingSendTurnIdRef = useRef<string | null>(null);
+
+  // ── 未送达看门狗(幽灵轮闭环,镜像 claw useClawConversation)────────────────────
+  // send() 返回 true 只保证写进了本端 socket 缓冲;半死 TCP(合盖唤醒 / 手机切网 / NAT 静默断)
+  // 下消息永远到不了后端,该轮永无终帧 → busy 永久卡死输入框和「新对话」按钮(线上事故根因之一)。
+  // 后端 hub 现在对每条送达的 user_message 回 user_ack:发出后 10s 内既无 ack 也无任何流帧 →
+  // 判定未送达,把该轮转 blocked(复用配额拦截同款机制:busy 排除 blocked → composer 解锁),
+  // 原文回填输入框便于直接重发(smart-search 无 claw 的 localStorage 持久化,回填即「保留」)。
+  const ackWaitRef = useRef<{ clientTurnId: string; turnId: string; timer: number } | null>(null);
+  // 已确认送达的轮(user_ack / 自回声隐式 ack)—— 幽灵轮判定的「送达证明」门(审查修复)。
+  const deliveredTurnIdRef = useRef<string | null>(null);
+  // 看门狗误报后的恢复配对(审查修复):迟到 ack / 该轮流帧到达 → 解除误标的 blocked。
+  const firedAckRef = useRef<{ clientTurnId: string; turnId: string } | null>(null);
+  // ref-latest:给 setTimeout 类回调读最新连接态(闭包捕获的 state 会过期)。
+  const stateRef = useRef<string>('idle');
+  const clearAckWait = useCallback(() => {
+    if (ackWaitRef.current !== null) {
+      window.clearTimeout(ackWaitRef.current.timer);
+      ackWaitRef.current = null;
+    }
+  }, []);
+  const armAckWait = useCallback(
+    (clientTurnId: string, turnId: string) => {
+      clearAckWait();
+      firedAckRef.current = null;
+      const timer = window.setTimeout(() => {
+        ackWaitRef.current = null;
+        firedAckRef.current = { clientTurnId, turnId }; // 保留配对供迟到证据解除误标
+        setPendingTurns((prev) => prev.map((t) => (t.id === turnId ? { ...t, blocked: true } : t)));
+        const text = lastSubmitTextRef.current;
+        if (text) setInput((cur) => (cur.trim() ? cur : text));
+        toast.error('消息未能送达,已为你保留在输入框,可重新发送');
+      }, ACK_TIMEOUT_MS);
+      ackWaitRef.current = { clientTurnId, turnId, timer };
+    },
+    [clearAckWait],
+  );
+
+  // 卸载时清掉在途计时器(未送达看门狗 / 停止兜底),防迟到回调对已卸载组件 setState。
+  useEffect(
+    () => () => {
+      if (ackWaitRef.current !== null) window.clearTimeout(ackWaitRef.current.timer);
+      if (stopTimerRef.current !== null) window.clearTimeout(stopTimerRef.current);
+    },
+    [],
+  );
 
   const {
     state, messages, send, clearMessages, reconnectAttempt, displacedReason, takeOver, resyncUserText,
-    peerMessage, busyRejected, quotaExceeded, sessionModel,
+    peerMessage, busyRejected, quotaExceeded, sessionModel, userAck, resyncIdle, appendLocalFrame,
   } = useSmartSearchSocket(sessionId);
+  stateRef.current = state; // ref-latest:stop 兜底计时器读最新连接态
+
+  // 送达证据处理(pong/connected 已不进 messages,messages.length 变化 = 真实进展帧):
+  //   看门狗仍在等 → 撤销;及 user_ack 命中时记录「已送达」证明(幽灵轮判定的门)。
+  //   看门狗已误报(firedAckRef)→ 迟到的 ack / 该轮流帧到达时解除误标的 blocked。
+  // ⚠️ 依赖的是上面解构出的值 —— 该 effect 必须放在 useSmartSearchSocket 解构之后。
+  const prevMsgLenRef = useRef(0);
+  useEffect(() => {
+    const grew = messages.length > prevMsgLenRef.current;
+    prevMsgLenRef.current = messages.length;
+    if (ackWaitRef.current !== null) {
+      if (userAck && userAck.clientTurnId === ackWaitRef.current.clientTurnId) {
+        deliveredTurnIdRef.current = ackWaitRef.current.turnId;
+      }
+      clearAckWait();
+      return;
+    }
+    const fired = firedAckRef.current;
+    if (fired === null) return;
+    const lastLive = liveTurnsRef.current[liveTurnsRef.current.length - 1];
+    const ackHit = !!userAck && userAck.clientTurnId === fired.clientTurnId;
+    // 流帧恢复只在误标轮仍是末条 live 轮时生效 —— 防多端场景把别端新轮的帧误认成本轮证据。
+    if (ackHit || (grew && lastLive?.id === fired.turnId)) {
+      firedAckRef.current = null;
+      deliveredTurnIdRef.current = fired.turnId;
+      setPendingTurns((prev) => prev.map((t) => (t.id === fired.turnId ? { ...t, blocked: false } : t)));
+      toast.success('消息其实已送达,已恢复该轮显示');
+    }
+  }, [userAck, messages.length, quotaExceeded, busyRejected, clearAckWait]);
 
   // P2 模型目录:目录数据前置声明(附件块的图片入口按当前模型 vision 启停要用)。
   const { data: userModels } = useUserModels('smart_search');
+  // 会话生效模型:有会话以服务端 sessionModel 为准;空白新对话(无 sessionId)落到本地「新对话默认模型」偏好。
+  const [newConvPref, setNewConvPref] = useState<string | null>(() => getSmartSearchNewConvModel() ?? null);
+  const selectorCurrent =
+    sessionModel ?? (!sessionId && newConvPref ? { modelId: newConvPref, isDefault: false } : null);
 
   // adoptSession:「空白新对话直接上传文件 / 引用文献」时,后端建/取会话并回传 → 采用它,
   // 让随后的消息落到同一会话。记下具体 id 让 change effect 跳过清理(附件/引用已在该会话 cwd)。
@@ -188,6 +294,9 @@ export function SmartSearchPanel() {
     (ensuredId: string) => {
       if (ensuredId === activeSessionId) return;
       adoptingSessionIdRef.current = ensuredId;
+      // 先上传文件 / 引用文献(而非先打字发送)也走这条会话落地 —— 同样把「新对话默认模型」偏好
+      // 登记为该会话的一次性初始模型(必须在 setActiveSessionId 之前,让 socket onOpen 能取到)。
+      markSmartSearchPendingModel(ensuredId);
       setActiveSessionId(ensuredId);
       notifySessionChanged('smart-search', ensuredId);
     },
@@ -204,7 +313,7 @@ export function SmartSearchPanel() {
     sessionId: sessionId ?? null,
     onSessionEnsured: adoptSession,
     // P2 图片通道:图片入口跟随当前会话模型的视觉能力(诚实 UI)。
-    acceptImages: modelSupportsVision(userModels, sessionModel),
+    acceptImages: modelSupportsVision(userModels, selectorCurrent),
   });
   const handleReferenceConfirm = useCallback(
     async (sel: ReferenceSelection) => {
@@ -232,15 +341,25 @@ export function SmartSearchPanel() {
   );
 
   // P2 模型目录:composer 左下角选择器(服务端权威;hub 校验落 pinned_model 后广播回显)。
+  // **新对话(无 sessionId)也展示** —— 选择记为「新对话默认模型」偏好,首条消息建会话后经 socket
+  // onOpen 一次性下发(markSmartSearchPendingModel);不再要求先有会话才出按钮。
   const modelSlot =
-    userModels && userModels.length > 0 && sessionId ? (
+    userModels && userModels.length > 0 ? (
       <ModelSelector
         models={userModels}
-        current={sessionModel}
+        current={selectorCurrent}
+        currentTokens={contextQuery.data?.totalTokens ?? 0}
         onUpgrade={() => { window.location.href = '/pricing'; }}
-        onSelect={(id) =>
-          send({ type: 'set_runtime_config', providerId: null, modelId: id ?? '', useDefault: id === null })
-        }
+        onSelect={(id) => {
+          if (sessionId) {
+            send({ type: 'set_runtime_config', providerId: null, modelId: id ?? '', useDefault: id === null });
+            // 切模型即刷新水位分母(异构窗口;审计 P2-4)。
+            void queryClient.invalidateQueries({ queryKey: ['smart-search', 'context', sessionId] });
+          } else {
+            setSmartSearchNewConvModel(id);
+            setNewConvPref(id);
+          }
+        }}
       />
     ) : null;
 
@@ -315,15 +434,29 @@ export function SmartSearchPanel() {
   //     → 必须去掉, 否则和 live 回放的同一轮双份(用户报的"回答中切回来重复")。
   //   - 同 mount 重连: history 是挂载时旧快照, **不含** in-flight 轮 → 不能去, 否则误删旧轮。
   const [seededResync, setSeededResync] = useState(false);
+  const seededMidRef = useRef(false);
   useEffect(() => {
     setSeededResync(false);
   }, [sessionId]);
   useEffect(() => {
-    if (resyncUserText && pendingTurns.length === 0 && !seededResync) {
+    if (!resyncUserText || seededResync || seededMidRef.current) return;
+    if (pendingTurns.length === 0) {
       setPendingTurns([
         { id: 'resync-inflight', userText: stripAgentBridgePrefix(resyncUserText) },
       ]);
       setSeededResync(true);
+      return;
+    }
+    // 多端补种(审查修复):本端错过 live user_echo、重连撞上该轮回放 —— 末条 live 轮已完成/blocked
+    // = 本地没有能接住回放帧的在途轮 → 补一条,否则回放帧无宿主被丢、后续轮整体串位。
+    // 不置 seededResync(那面旗驱动「history 末尾去重」,本场景会误删真实旧轮)。
+    const lastLive = liveTurnsRef.current[liveTurnsRef.current.length - 1];
+    if (!lastLive || lastLive.complete || lastLive.blocked) {
+      seededMidRef.current = true;
+      setPendingTurns((prev) => [
+        ...prev,
+        { id: `resync-mid-${prev.length}`, userText: stripAgentBridgePrefix(resyncUserText) },
+      ]);
     }
   }, [resyncUserText, pendingTurns.length, seededResync]);
 
@@ -381,6 +514,43 @@ export function SmartSearchPanel() {
     [messages, pendingTurns]
   );
 
+  // ── resync-idle 对账(「终帧永久丢失」闭环,镜像 claw;线上 busy 永久卡死事故的核心修复之一)──
+  // (重)建连时 hub 在回放段末尾下发 resync_end{inFlight:false} =「服务端当前无在途轮」的权威信号。
+  // 若此刻本地末条 live 轮仍未完成且非 blocked,它的终帧永远不会来了(断连期间轮已结束 /
+  // agent·backend 中途死过 / 消息未送达),当场收口:
+  //   幽灵轮(无任何流帧,即消息没送达)→ 转 blocked(未发送)+ 原文回填输入框,文字不丢;
+  //   中断轮(已流出部分内容)→ 本地合成 error 终帧收口(渲染中断提示,已有内容保留)。
+  // 正在等 ack / 懒新建 flush 在途时不动 —— 那条消息可能正被服务端处理,归看门狗管
+  // (帧序保证:resync_end 在 attach 时入队,必先于本连接 send 之后的 ack 到达,不会误伤刚发的轮)。
+  const liveTurnsRef = useRef<Turn[]>([]);
+  liveTurnsRef.current = liveTurns;
+  const lastResyncIdleRef = useRef(0);
+  useEffect(() => {
+    if (resyncIdle === 0 || resyncIdle === lastResyncIdleRef.current) return;
+    lastResyncIdleRef.current = resyncIdle;
+    if (ackWaitRef.current !== null || pendingSendRef.current !== null) return;
+    const live = liveTurnsRef.current;
+    const last = live[live.length - 1];
+    if (!last || last.complete || last.blocked) return;
+    // 幽灵轮判据(审查修复加固):任何已收到的帧都算内容(status 只落 placeholder 也算);
+    // 已有送达证明的轮绝不判「未发送」,走中断收口而非诱导重发。
+    const hasContent = last.blocks.length > 0 || !!last.thinkingText || !!last.placeholder;
+    const delivered = deliveredTurnIdRef.current === last.id;
+    const text = lastSubmitTextRef.current;
+    if (!hasContent && !delivered && text && text === last.userText) {
+      setPendingTurns((prev) => prev.map((t) => (t.id === last.id ? { ...t, blocked: true } : t)));
+      setInput((cur) => (cur.trim() ? cur : text));
+      return;
+    }
+    appendLocalFrame({
+      type: 'error',
+      code: 'connection_interrupted',
+      message: '连接中断,本轮回答已中断;若内容不完整,刷新页面可查看已生成的部分',
+    });
+    // stopping / busy 由既有「busy 翻 false」effect 自动复位。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resyncIdle]);
+
   // 续流对账: 仅当我们为续流补过 in-flight 轮(seededResync)时, 去掉 history 末尾那条(= 同一轮)。
   const reconciledHistoryTurns = useMemo<Turn[]>(
     () =>
@@ -418,17 +588,35 @@ export function SmartSearchPanel() {
   //   - 空白新对话(sessionId=null):允许发送 —— 首条消息触发懒建会话(否则 socket 未连 = 永远发不出第一句)。
   const ready = sessionId ? state === 'open' : true;
 
-  // 本次 mount 起的 sessionId 一旦确认, pendingSendRef 里如果还有未发的 user_message
-  // 就在 WS open 后立刻发出去。
-  const pendingSendRef = useRef<
-    { content: string; attachments?: { type: 'image' | 'file'; name?: string; mimeType?: string; path: string }[] } | null
-  >(null);
+  // WS 一旦 open 且有 pendingSend(懒新建路径暂存的首条消息)→ 立刻发出去清掉。
+  // send 返回 false(ws 已死但 state 未翻的陈旧窗口)→ 保留 pendingSendRef,state 再翻 open 时重试;
+  // 发送成功 → 挂未送达看门狗(半死 TCP 下 flush「成功」但消息永远到不了后端)。
   useEffect(() => {
     if (state === 'open' && pendingSendRef.current) {
-      send({ type: 'user_message', ...pendingSendRef.current });
-      pendingSendRef.current = null;
+      const payload = pendingSendRef.current;
+      if (send({ type: 'user_message', ...payload })) {
+        pendingSendRef.current = null;
+        if (pendingSendTurnIdRef.current) {
+          armAckWait(payload.clientTurnId, pendingSendTurnIdRef.current);
+          pendingSendTurnIdRef.current = null;
+        }
+      }
     }
-  }, [state, send]);
+  }, [state, send, armAckWait]);
+
+  // 懒新建死路兜底:createSession 成功但 WS 一直连不上(8 次退避耗尽落 error)→ pendingSendRef
+  // 永不 flush、乐观气泡永卡 busy。把这条转 blocked(未发送)+ 原文回填输入框,文字不丢。
+  useEffect(() => {
+    if (state !== 'error' || !pendingSendRef.current) return;
+    pendingSendRef.current = null;
+    const turnId = pendingSendTurnIdRef.current;
+    pendingSendTurnIdRef.current = null;
+    if (turnId) {
+      setPendingTurns((prev) => prev.map((t) => (t.id === turnId ? { ...t, blocked: true } : t)));
+    }
+    const text = lastSubmitTextRef.current;
+    if (text) setInput((cur) => (cur.trim() ? cur : text));
+  }, [state]);
 
   // 上下文水位实时刷新: 每一轮回答从 busy=true → false (message_complete) 时
   // invalidate 一次, 让 chip 立刻反映本轮消耗。
@@ -469,8 +657,11 @@ export function SmartSearchPanel() {
     setPendingTurns([]);
     setStopping(false);
     pendingSendRef.current = null;
+    pendingSendTurnIdRef.current = null;
+    clearAckWait();
+    clearStopFallback();
     clearMessages();
-  }, [sessionId, clearMessages]);
+  }, [sessionId, clearMessages, clearAckWait, clearStopFallback]);
 
   // 标题生成:agent 首轮后异步产标题并推 session_title_updated 帧 → invalidate sessions,
   // 让侧边栏「生成标题中…」spinner 换成真标题(该帧晚于 message_complete,故单独盯一手)。
@@ -494,7 +685,6 @@ export function SmartSearchPanel() {
     if (!text && att.attachments.length === 0 && references.length === 0) return;
     trackEvent('search_submit', { len: text.length, files: att.attachments.length, refs: references.length });
     lastSubmitTextRef.current = text;
-    setInput('');
     const turnRefs: TurnReference[] = references.map((r) => ({
       kind: r.kind,
       title: r.title,
@@ -518,30 +708,36 @@ export function SmartSearchPanel() {
     }));
     const content = text + buildReferenceBlock(turnRefs);
     const turnId = `turn-${crypto.randomUUID()}`;
-    setPendingTurns((prev) => [
-      // 重发时先清掉上一条「命中额度未发送」的 blocked 轮, 避免它和新一轮并存显得杂乱。
-      ...prev.filter((t) => !t.blocked),
-      {
-        id: turnId,
-        userText: text,
-        userAttachments: turnAtts.length > 0 ? turnAtts : undefined,
-        userReferences: turnRefs.length > 0 ? turnRefs : undefined,
-      },
-    ]);
+    // clientTurnId 在这里预 mint(而非 socket.send 里兜底):与乐观气泡 turnId 配对,
+    // 撑起「user_ack 投递确认 ↔ 未送达看门狗」闭环。
+    const clientTurnId = crypto.randomUUID();
     const payload = {
       content,
+      clientTurnId,
       ...(wsAttachments.length > 0 ? { attachments: wsAttachments } : {}),
     };
-    att.clearAttachments();
-    setReferences([]);
+    const optimisticTurn = {
+      id: turnId,
+      userText: text,
+      userAttachments: turnAtts.length > 0 ? turnAtts : undefined,
+      userReferences: turnRefs.length > 0 ? turnRefs : undefined,
+    };
 
     if (!sessionId) {
-      // 空白新对话:先懒建会话,再切过去。payload 存 pendingSendRef,WS open 后自动发。
+      // 空白新对话:先懒建会话,再切过去。payload 存 pendingSendRef,WS open 后由 flush effect
+      // 自动发(flush 成功后挂未送达看门狗)。
       // 关键:adoptingSessionIdRef 在**拿到 newId 之后**才置为该具体 id(不能 await 前置 bool)——
       // 否则 await 期间用户切到别的会话 B,那次 null→B 切换会误跳过清理、把 payload 串进 B(评审 #1)。
+      setInput('');
+      // 重发时先清掉上一条「未发送」的 blocked 轮, 避免它和新一轮并存显得杂乱。
+      setPendingTurns((prev) => [...prev.filter((t) => !t.blocked), optimisticTurn]);
+      att.clearAttachments();
+      setReferences([]);
       pendingSendRef.current = payload;
+      pendingSendTurnIdRef.current = turnId;
       try {
         const { sessionId: newId } = await createSession.mutateAsync();
+        markSmartSearchPendingModel(newId); // 新对话选过模型 → 登记一次性初始模型,socket open 后下发
         adoptingSessionIdRef.current = newId; // 只让 null→newId 这次切换跳过清理
         setActiveSessionId(newId);
         notifySessionChanged('smart-search', newId);
@@ -549,6 +745,7 @@ export function SmartSearchPanel() {
         // 建会话失败:回滚乐观 turn + 待发消息 + 恢复输入,便于重试。
         adoptingSessionIdRef.current = null;
         pendingSendRef.current = null;
+        pendingSendTurnIdRef.current = null;
         setPendingTurns((prev) => prev.filter((t) => t.id !== turnId));
         setInput((cur) => (cur.trim() ? cur : text));
         toast.error((err as Error).message || '新建会话失败,请重试');
@@ -556,12 +753,20 @@ export function SmartSearchPanel() {
       return;
     }
 
-    if (state === 'open') {
-      send({ type: 'user_message', ...payload });
-    } else {
-      pendingSendRef.current = payload;
+    // 已有会话:send 判真 —— 返回 false(ws 已死但 state 还没翻的陈旧窗口)同样按未就绪处理,
+    // **不追加**乐观气泡、不清输入(旧版静默 queue + 照常追加 = 永无终帧的幽灵轮,busy 永久卡死)。
+    if (state !== 'open' || !send({ type: 'user_message', ...payload })) {
+      toast.error('连接未就绪,请稍后重试');
+      return;
     }
-  }, [input, state, send, att, references, sessionId, createSession, setActiveSessionId]);
+    setInput('');
+    // 重发时先清掉上一条「未发送」的 blocked 轮, 避免它和新一轮并存显得杂乱。
+    setPendingTurns((prev) => [...prev.filter((t) => !t.blocked), optimisticTurn]);
+    att.clearAttachments();
+    setReferences([]);
+    // 端到端投递确认:10s 内无 ack 且无任何流帧 → 该轮转「未发送」+ 回填输入框(半死 TCP 闭环)。
+    armAckWait(clientTurnId, turnId);
+  }, [input, state, send, att, references, sessionId, createSession, setActiveSessionId, armAckWait]);
 
   // 未登录态 hero 的提交 —— 不真正发送,而是弹登录;把刚输入的关键词排进
   // pending navigate(/search?mode=smart&q=…),登录成功后由 useReplayPendingAction
@@ -576,13 +781,37 @@ export function SmartSearchPanel() {
     openDialog('login');
   }, [input, openDialog]);
 
+  // 交互提问(AskUserQuestion,方案 B):待作答问题浮到输入框上方由 QuestionPrompt 分步承接,答案作为
+  // **普通 user 消息**回传。作答一定发生在已建会话里(问题来自已完成的一轮)→ 跳过懒建路径,直接走
+  // handleSubmit 的「已有 session」发送逻辑:send 判真(失败**不追加**乐观气泡)+ 成功后挂未送达看门狗。
+  const pendingQuestionBlock = findPendingQuestionBlock(turns);
+  const answerQuestion = useCallback(
+    (text: string) => {
+      const t = text.trim();
+      if (!t) return;
+      lastSubmitTextRef.current = t; // 投递失败时回填输入框用(与 handleSubmit 同款)
+      const clientTurnId = crypto.randomUUID();
+      if (state !== 'open' || !send({ type: 'user_message', content: t, clientTurnId })) {
+        toast.error('连接未就绪,请稍后重试');
+        return;
+      }
+      const turnId = `turn-${crypto.randomUUID()}`;
+      setPendingTurns((prev) => [...prev.filter((x) => !x.blocked), { id: turnId, userText: t }]);
+      armAckWait(clientTurnId, turnId);
+    },
+    [state, send, armAckWait],
+  );
+
   // 停止当前生成 —— 把 {type:'stop_generation'} 直接 push 到 WS:
   //   agent 收到后会 (1) 立即 emit {status:'idle'}, (2) 向 SDK 发 interrupt,
   //   (3) 3s 未退则强杀 subprocess, 最终 emit message_complete 让 fold 标 complete。
   //   backend agentbridge 是透明 pipe (不消耗配额, 见 ws.go:239), 不需要改后端。
   // setStopping(true) 锁住按钮防重复点, busy 翻 false 时(下个 useEffect) 自动 unlock。
+  // 加固(镜像 claw 线上卡死修复):不再因 socket 非 open 而静默 return —— 连接死了 agent 反正
+  // 收不到,直接靠本地兜底收口;20s 内没等到真实终帧(agent 空转 no-op / 连接死 / 幽灵轮)也本地
+  // 合成完成帧收口。停止按钮从此是**永远有效**的逃生口,不会点一次就永久转圈。
   const handleStop = useCallback(() => {
-    if (stopping || state !== 'open') return;
+    if (stopping) return;
     setStopping(true);
     // 当前这轮标"已暂停" —— agent 不会在事件流里回放这个信号, 前端本地记在最后一条
     // pendingTurn 上, fold 透传到 Turn, message_complete 到达后末尾渲染「已暂停」。
@@ -593,14 +822,25 @@ export function SmartSearchPanel() {
             i === prev.length - 1 ? { ...t, paused: true } : t
           )
     );
-    send({ type: 'stop_generation' });
-  }, [stopping, state, send]);
+    if (state === 'open') send({ type: 'stop_generation' });
+    clearStopFallback();
+    stopTimerRef.current = window.setTimeout(() => {
+      stopTimerRef.current = null;
+      // 断连中不合成(审查修复):该轮可能仍在服务端进行,重连回放会与本地合成终帧错配串位 ——
+      // 交给重连后的 resync 收口。只在连接健康(= agent 空转 no-op / 幽灵轮)时本地收口。
+      if (stateRef.current !== 'open') return;
+      appendLocalFrame({ type: 'message_complete' });
+    }, STOP_FALLBACK_MS);
+  }, [stopping, state, send, appendLocalFrame, clearStopFallback]);
 
-  // busy 从 true → false 时, terminal 事件已到达 → 解除 stop 锁,
+  // busy 从 true → false 时, terminal 事件已到达 → 解除 stop 锁 + 撤销停止兜底计时器,
   // 让下一轮回答(若用户立刻又问)能正常 stop。
   useEffect(() => {
-    if (!busy && stopping) setStopping(false);
-  }, [busy, stopping]);
+    if (!busy) {
+      clearStopFallback();
+      if (stopping) setStopping(false);
+    }
+  }, [busy, stopping, clearStopFallback]);
 
   if (!token) {
     // 未登录:居中 hero 对话框(同已登录起始态),输入框提示登录,回车/发送弹登录。
@@ -728,6 +968,13 @@ export function SmartSearchPanel() {
                 改为 hero 淡出 + 底栏 composer 直接就位。外层 pointer-events-none 不挡滚动,框本体可交互。 */}
             <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-4 pb-4">
               <div className="pointer-events-auto mx-auto w-full max-w-2xl">
+                {pendingQuestionBlock && (
+                  <QuestionPrompt
+                    key={pendingQuestionBlock.toolUseId}
+                    block={pendingQuestionBlock}
+                    onSubmit={answerQuestion}
+                  />
+                )}
                 <SmartComposer
                   prominent
                   value={input}

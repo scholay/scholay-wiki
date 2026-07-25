@@ -38,5 +38,9 @@ func (s *Service) StreamTranslatePaperToChinese(ctx context.Context, title, abst
 		},
 	}
 
+	// agent 单次流式接口(模型走 project.translate 能力绑定);未接线时回退旧第三方流式路径。
+	if s.agentReady() {
+		return s.streamViaAgent(ctx, PurposeTranslate, messages, writer)
+	}
 	return s.StreamChatCompletionWithLevel(ctx, messages, writer, thirdparty.ModelLevelLow)
 }

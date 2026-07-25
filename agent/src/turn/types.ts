@@ -20,6 +20,10 @@ export interface TurnInput {
   vision?: boolean; // 当前模型是否支持图片输入(目录 vision 随模型帧下发);false → 请求前过滤 image 块
   providerName?: string; // F0 多 provider:额外 provider 的 executor 键;缺省 = 默认 active provider
   disallowedTools: string[]; // 控制面 denylist(天花板);执行器只会更严
+  // MCP 正向白名单(去 mcp__minicod__ 前缀的原始工具名)。控制面按 feature 下发,收敛 minicod
+  // 0.4.1 的 76 工具到该 feature 真正需要的子集(见 featurePolicy.toolPermitted)。
+  // 非空 → 仅这些 MCP 工具可见/可调;空/缺省 → 不限制(向后兼容)。built-in 工具不受它影响。
+  allowedMcpTools?: string[];
   appendSystemPrompt?: string; // 规则 + per-user memory,控制面给
   addDirs?: string[]; // --add-dir skill/CLAUDE.md 目录(H6;claw/prism/peerreview 的 per-feature skill)
   workDir: string;
@@ -30,6 +34,13 @@ export interface TurnInput {
   // 越过 hard 时执行器去工具 + 注入收尾指令让 agent 自己优雅收尾。仅 smart_search/claw/prism 有;
   // peerreview(任务型,必须跑完)不盖 → undefined → 无披露无收尾。
   taskBudget?: { softRemaining: number; hardRemaining: number };
+  // 诚实性核验 guard(2026-07 审计 P0-1/P0-2/P1-6)per-feature 旗标:true → turnLoop 轮末跑
+  // verifyClaims 核验(引用/交付/通读宣称),不过则注入纠偏轮。控制面按 feature 下发
+  // (claw 先开;peerreview 是有界 JSON 任务路、prism 交付走项目文件,均不开防误伤)。
+  honestyGuard?: boolean;
+  // 核验维度按位开关(prism 预备件):honestyGuard=true 时生效,缺省全开。
+  // 控制面下发形态 {citations?, delivery?, fullread?};详见 verifyClaims.HonestyChecks。
+  honestyChecks?: { citations?: boolean; delivery?: boolean; fullread?: boolean };
 }
 
 // EventSink:执行器发出的中性 wire frame(由 Go hub 转发/journal)。

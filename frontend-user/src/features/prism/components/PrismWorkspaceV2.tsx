@@ -17,7 +17,6 @@ import { PrismChatPanel } from './PrismChatPanel';
 import { MathEditorDialog } from './MathEditorDialog';
 import { PrismCitationDialog } from './PrismCitationDialog';
 import { PrismWritingProfileDialog } from './PrismWritingProfileDialog';
-import { PrismReviewDialog } from './PrismReviewDialog';
 import { PrismRevisionDialog } from './PrismRevisionDialog';
 import { PrismTranslateDialog } from './PrismTranslateDialog';
 import { PrismNumbersDialog } from './PrismNumbersDialog';
@@ -366,9 +365,6 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
       },
       onError: (e) => toast.error(toApiError(e).message || '识别失败,请手动选择'),
     });
-  // 快通道评议(V3-4.5-1):选区级只读点评
-  const [reviewOpen, setReviewOpen] = useState(false);
-  const [reviewSel, setReviewSel] = useState('');
   // 快捷动作条(V4-R1):预填指令进 composer,用户补空后再发。
   const [prefill, setPrefill] = useState('');
   // V4-R2 三工作流向导弹层。
@@ -503,10 +499,6 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
           onInsertImage={() => fileRef.current?.click()}
           onInsertMath={() => setMathOpen(true)}
           onInsertCitation={() => setCiteOpen(true)}
-          onReview={(sel) => {
-            setReviewSel(sel);
-            setReviewOpen(true);
-          }}
           diffBaseline={diffBaseline}
           onDiffDismiss={chat.dismissChange}
           onDiffChangeCount={setNavChangeCount}
@@ -834,7 +826,6 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
           applying={applyCite.isPending}
         />
         <PrismWritingProfileDialog projectId={projectId} open={profileOpen} onOpenChange={setProfileOpen} />
-        <PrismReviewDialog projectId={projectId} open={reviewOpen} onOpenChange={setReviewOpen} selection={reviewSel} />
         <PrismRevisionDialog
           projectId={projectId}
           open={revisionOpen}

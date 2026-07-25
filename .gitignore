@@ -12,6 +12,12 @@ backend/tmp/
 backend/bin/
 backend/.go-cache/
 .go-cache/
+# Go 模块校验缓存(docker build 挂载出的 GOMODCACHE 副本,本机实测 2.7GB):
+# 从未跟踪但此前无规则覆盖 —— 一次手滑 `git add .` 就会把它灌进历史,显式封死。
+backend/.gomodcache-verify/
+.gomodcache-verify/
+backend/.gocache-verify/
+.gocache-verify/
 *.exe
 # 编译产物二进制 —— Docker 构建从源码重编,不该进 git(曾误提 ~48MB 进历史)。
 /backend/server
@@ -22,6 +28,10 @@ backend/.go-cache/
 *.dylib
 *.test
 *.out
+
+# TypeScript 增量编译状态(tsc --build 产物):机器相关、每次构建必变,曾被误跟踪
+# (frontend-user/tsconfig.*.tsbuildinfo)混进 diff 制造噪音 —— 全局剔除。
+*.tsbuildinfo
 
 # Frontend
 frontend-admin/node_modules/

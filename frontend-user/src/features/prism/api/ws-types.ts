@@ -5,6 +5,7 @@
  */
 
 import type {
+  AgentClaimAudit,
   AgentErrorFrame,
   AgentDisplacedFrame,
   AgentResyncUserFrame,
@@ -19,6 +20,8 @@ export type PrismClientMessage =
       titleSeed?: string;
       /** 方案 B 附件:文件已由 backend 推进会话 cwd,只透传 path(backend hub 折 @"path" 标记)。 */
       attachments?: { type: 'image' | 'file'; name?: string; mimeType?: string; path: string }[];
+      /** 幂等键 + 投递确认配对:hook 层预 mint,后端 hub 写入上游成功后回 user_ack{clientTurnId}。 */
+      clientTurnId?: string;
     }
   | { type: 'stop_generation' }
   | { type: 'ping' }
@@ -30,18 +33,26 @@ export type PrismServerMessage =
   | { type: 'content_start'; blockType: 'text' | 'tool_use'; toolName?: string; toolUseId?: string }
   | { type: 'content_delta'; text?: string; toolInput?: string; toolPath?: string }
   | { type: 'tool_use_complete'; toolName: string; toolUseId: string; input: unknown }
-  | { type: 'tool_result'; toolUseId: string; content: unknown; isError: boolean }
+  // userMessage:面向用户的失败摘要(仅 isError 时;agent 双轨制 W5 P0-A)。旧 agent 不发 → 可选。
+  | { type: 'tool_result'; toolUseId: string; content: unknown; isError: boolean; userMessage?: string }
   // aborted=true(V3-4.4-2,hub 盖章):本轮转发过 stop —— 半截稿不 autoApply,走确认门。
-  | { type: 'message_complete'; aborted?: boolean }
+  // claim_audit:诚实性核验元数据(W2 P1-b,agent 纠偏轮触发时附带)。旧 agent 不发 → 可选。
+  | { type: 'message_complete'; aborted?: boolean; claim_audit?: AgentClaimAudit }
+  // DSML 作废重打(审计 [10]):撤回本轮已流式发出的残缺前缀,重打的完整答案随后重建。
+  | { type: 'round_discarded' }
   | AgentErrorFrame
   | { type: 'thinking'; text: string }
-  | { type: 'status'; state: 'idle' | 'thinking' | 'tool_executing' | 'streaming' | 'permission_pending'; verb?: string }
+  | { type: 'status'; state: 'idle' | 'thinking' | 'tool_executing' | 'streaming' | 'permission_pending'; verb?: string; elapsed?: number }
   | { type: 'pong' }
   | AgentDisplacedFrame
   | { type: 'session_title_updated'; sessionId: string; title: string }
   | { type: 'resync_start' }
   | AgentResyncUserFrame
-  | { type: 'resync_end' };
+  // (重)建连回放段末尾(mirrors backend hub.go resyncEndFrame):inFlight=false =「服务端当前
+  // 无在途轮」的权威对账信号(useAgentSocket 转成 resyncIdle 单调计数,消费见 usePrismChat)。
+  | { type: 'resync_end'; inFlight?: boolean }
+  // 投递确认(mirrors backend hub.go userAckFrame):user_message 已写入上游 agent。
+  | { type: 'user_ack'; clientTurnId?: string };
 
 export type PrismWSState = 'idle' | 'connecting' | 'open' | 'reconnecting' | 'closed' | 'error' | 'displaced';
 

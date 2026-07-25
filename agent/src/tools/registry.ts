@@ -3,7 +3,8 @@
 // claw(+bash)/prism(file-edit)在 step 7 全面启用 + sandbox 加固(step 8 bwrap)。
 
 import { resolve, relative, dirname, join, basename } from "node:path";
-import { readFile, writeFile, mkdir, readdir, stat, realpath } from "node:fs/promises";
+import { readFile, writeFile, mkdir, readdir, stat, realpath, copyFile } from "node:fs/promises";
+import { spawn } from "node:child_process";
 import { wrapBash, buildBwrapArgv, sandboxMode } from "../sandbox/bwrap.ts";
 import { profileFor, unsandboxedBashGate } from "../sandbox/profile.ts";
 import { confinePath } from "../sandbox/confine.ts";
@@ -22,6 +23,9 @@ export interface ToolCtx {
 export interface ToolResult {
   content: Array<{ type: "text"; text: string }>;
   isError: boolean;
+  /** 面向用户的一句话摘要(中文、脱敏,不含 env/容器路径/运维指引;P1-12 双轨制)。
+   *  仅失败时有意义;缺省时 runTools 按工具名兜底。**绝不回喂模型**(runTools 消息体不含它)。 */
+  userMessage?: string;
 }
 
 export interface BuiltinTool {
@@ -35,9 +39,26 @@ export interface BuiltinTool {
 function ok(text: string): ToolResult {
   return { content: [{ type: "text", text }], isError: false };
 }
-function fail(text: string): ToolResult {
-  return { content: [{ type: "text", text }], isError: true };
+function fail(text: string, userMessage?: string): ToolResult {
+  return { content: [{ type: "text", text }], isError: true, ...(userMessage ? { userMessage } : {}) };
 }
+
+// 乱码探测(P1-6 机械支撑):NUL 探测漏网的二进制(如无 NUL 前缀的 PDF 流)按 utf8 强解后
+// 会产生大量替换符/控制符。>10% 即判乱码,前置横幅 —— 给模型现场警示(不可据此宣称已读),
+// 同时是 verifyClaims 通读核验的确定性锚点(PARTIAL_MARKERS)。正常文本控制字符占比≈0,误伤极小。
+function looksGarbled(text: string): boolean {
+  const sample = text.slice(0, 4000);
+  if (sample.length < 200) return false;
+  let bad = 0;
+  for (const ch of sample) {
+    const c = ch.codePointAt(0)!;
+    if (c === 0xfffd || (c < 32 && c !== 9 && c !== 10 && c !== 13)) bad++;
+  }
+  return bad / sample.length > 0.1;
+}
+const GARBLED_BANNER =
+  "[系统提示: 该文件内容疑似为二进制/乱码 (解析失败)。不可据此内容作答或宣称已阅读原文;" +
+  "请改用 ReadDocument 提取文本, 或如实告知用户无法解析。]\n\n";
 
 // Read 返回文本上限:超出截断,避免单次 Read 把整个大文件塞进上下文烧 token。
 const MAX_READ_BYTES = Number(process.env.EXECUTOR_MAX_READ_BYTES || 256_000);
@@ -88,14 +109,28 @@ const readTool: BuiltinTool = {
       const buf = await readFile(p);
       if (looksBinary(buf)) {
         const lower = String(input.file_path).toLowerCase();
-        const hint = lower.endsWith(".pdf")
-          ? " This is a PDF — use the ReadDocument tool (pass first_pages to limit scope for long PDFs)."
-          : /\.(docx|odt|rtf|epub)$/.test(lower)
-            ? " This is an Office/rich document — use the ReadDocument tool to extract its text."
-            : " This is a binary file; Read only supports UTF-8 text. If it is a document, try ReadDocument.";
-        return fail("read failed: binary file not supported." + hint);
+        // 按扩展名给**准确**的下一步指引(2026-07 文件上传调研:旧版通用 hint 把 xlsx/pptx 也导流到
+        // 当时不支持它们的 ReadDocument,两跳皆败 = 假引导;legacy doc/xls/ppt 则任何工具都读不了,
+        // 必须直接教模型如实告知,别再空转)。
+        let hint: string;
+        let userMsg = "该文件需要转换后阅读,AI 正在换用文档读取方式。";
+        if (lower.endsWith(".pdf")) {
+          hint = " This is a PDF — use the ReadDocument tool (pass first_pages to limit scope for long PDFs).";
+        } else if (/\.(docx|odt|rtf|epub|xlsx|pptx)$/.test(lower)) {
+          hint = " This is an Office/rich document — use the ReadDocument tool to extract its text (xlsx: one table per sheet; pptx: text per slide).";
+        } else if (/\.(doc|xls|ppt|ods|odp)$/.test(lower)) {
+          hint =
+            " This legacy/unsupported Office format cannot be parsed by any available tool. Do NOT retry with ReadDocument. " +
+            "Tell the user honestly that this format is not supported and suggest re-saving it as .docx/.xlsx/.pptx and re-uploading. Never fabricate its content.";
+          userMsg = "该文件为旧版 Office 格式,暂无法解析。";
+        } else {
+          hint = " This is a binary file; Read only supports UTF-8 text. If it is a document, try ReadDocument; otherwise tell the user honestly this file type cannot be read.";
+          userMsg = "该文件类型暂无法直接读取。"; // 审查修正:泛化分支别虚假承诺「正在换用文档读取方式」
+        }
+        return fail("read failed: binary file not supported." + hint, userMsg);
       }
       let text = buf.toString("utf8");
+      if (looksGarbled(text)) text = GARBLED_BANNER + text;
       // V3-4.1-2 前置:offset/limit 局部读(1-based 行号),供 microcompaction 存根「重读窄段」与大文档定点读。
       const offset = Number(input.offset) > 0 ? Math.floor(Number(input.offset)) : 0;
       const limit = Number(input.limit) > 0 ? Math.floor(Number(input.limit)) : 0;
@@ -226,6 +261,20 @@ const grepTool: BuiltinTool = {
       const re = new RegExp(String(input.pattern));
       const root = input.path ? await confinePath(ctx.workDir, String(input.path)) : ctx.workDir;
       const matches: string[] = [];
+      const grepFile = async (full: string) => {
+        try {
+          const st = await stat(full);
+          if (st.size > 2_000_000) return;
+          const text = await readFile(full, "utf8");
+          text.split("\n").forEach((line, i) => {
+            if (matches.length < 200 && re.test(line)) {
+              matches.push(relative(ctx.workDir, full) + ":" + (i + 1) + ": " + line.trim().slice(0, 200));
+            }
+          });
+        } catch {
+          /* skip binary/unreadable */
+        }
+      };
       const walk = async (dir: string) => {
         if (matches.length >= 200) return;
         const entries = await readdir(dir, { withFileTypes: true });
@@ -237,22 +286,14 @@ const grepTool: BuiltinTool = {
             if (ent.name === "node_modules" || ent.name === ".git") continue;
             await walk(full);
           } else if (ent.isFile()) {
-            try {
-              const st = await stat(full);
-              if (st.size > 2_000_000) continue;
-              const text = await readFile(full, "utf8");
-              text.split("\n").forEach((line, i) => {
-                if (matches.length < 200 && re.test(line)) {
-                  matches.push(relative(ctx.workDir, full) + ":" + (i + 1) + ": " + line.trim().slice(0, 200));
-                }
-              });
-            } catch {
-              /* skip binary/unreadable */
-            }
+            await grepFile(full);
           }
         }
       };
-      await walk(root);
+      // path 指向**文件**时直接搜该文件(以前无脑 readdir → ENOTDIR;模型常把单文件当 path 传)。
+      const rootStat = await stat(root).catch(() => null);
+      if (rootStat?.isFile()) await grepFile(root);
+      else await walk(root);
       return ok(matches.length ? matches.join("\n") : "(no matches)");
     } catch (e) {
       return fail("grep failed: " + String((e as Error)?.message ?? e));
@@ -270,11 +311,21 @@ const bashTool: BuiltinTool = {
   },
   parallelSafe: false,
   async run(input, ctx) {
-    if (!ctx.allowBash) return fail("bash not permitted for this feature");
+    if (!ctx.allowBash) return fail("bash not permitted for this feature", "该操作暂不可用,已跳过。");
     // 生产 secure-by-default:未沙箱化的 Bash 在多租户下会跨会话读文件 / 经 /proc 偷密钥,拒绝执行。
     // 能力本身保留 —— 沙箱自探成功即自动恢复(修容器 seccomp);或显式放行(EXECUTOR_ALLOW_UNSANDBOXED_BASH=1,生产被硬锁)。
+    // P1-12:gate.reason 含 env 名/沙箱细节等运维词,只进日志;给模型的是失败点带内指令(紧贴生成点,
+    // 比全局 prompt 可靠 —— flash 对远距离规则失效已被审计证明),给用户的是脱敏摘要。
     const gate = unsandboxedBashGate();
-    if (!gate.ok) return fail("bash disabled: " + gate.reason);
+    if (!gate.ok) {
+      log.error("bash disabled by sandbox gate", { reason: gate.reason });
+      return fail(
+        "Bash 暂不可用(执行环境维护中,运维已在处理)。对用户只能如实说明:『命令执行/文件转换功能暂时维护中』。" +
+          "禁止:编造替代操作步骤、宣称已用其它方式完成、把本条报错或任何内部报错原文转述给用户。" +
+          "你仍可用 Read/Write/Edit/ReadDocument 完成不依赖 shell 的部分,并把已完成内容写入 out/ 供用户下载。",
+        "命令执行环境暂不可用,本步骤已跳过。",
+      );
+    }
     try {
       // 沙箱自探成功 → 包进 bubblewrap jail(强制,无开关);自探失败 → 直跑(此时已过 gate:仅非生产)。
       const profile = profileFor({ workDir: ctx.workDir, net: ctx.net, allowBash: ctx.allowBash });
@@ -312,9 +363,11 @@ const bashTool: BuiltinTool = {
       const out = outR.text + (outR.truncated ? "\n[stdout 已达上限截断]" : "");
       const errOut = errR.text + (errR.truncated ? "\n[stderr 已达上限截断]" : "");
       const body = (out + (errOut ? "\n[stderr]\n" + errOut : "")).slice(0, 60_000);
-      return code === 0 ? ok(body || "(no output)") : fail("exit " + code + "\n" + body);
+      return code === 0
+        ? ok(body || "(no output)")
+        : fail("exit " + code + "\n" + body, "命令执行未成功,AI 会尝试其它方式。");
     } catch (e) {
-      return fail("bash failed: " + String((e as Error)?.message ?? e));
+      return fail("bash failed: " + String((e as Error)?.message ?? e), "命令执行未成功,AI 会尝试其它方式。");
     }
   },
 };
@@ -413,11 +466,23 @@ async function runConverter(argv: string[], cwd?: string): Promise<{ ok: boolean
 async function runConverterConfined(
   workDir: string,
   argv: string[],
-): Promise<{ ok: boolean; text: string; err: string }> {
+): Promise<{ ok: boolean; text: string; err: string; gated?: boolean }> {
   if (sandboxMode() !== "bwrap") {
     const gate = unsandboxedBashGate();
     if (!gate.ok) {
-      return { ok: false, text: "", err: "导出沙箱不可用,已按 secure-by-default 拒绝(" + gate.reason + ")" };
+      log.error("export refused by sandbox gate", { reason: gate.reason });
+      return {
+        ok: false,
+        text: "",
+        // gated:true 让 ExportDocument 区分「沙箱闸关闭(整个导出子系统不可用)」与「pandoc 跑了但缺 PDF 引擎」。
+        // 前者对**所有**格式都失败,绝不能建议用户改用 docx(docx 会撞同一道闸;审计 [17])。
+        gated: true,
+        err:
+          "导出功能暂时不可用(执行环境维护中)。请先确认完整内容已用 Write 落盘为 out/<名称>.md," +
+          "再如实告知用户:『文档导出暂时维护中,我已把完整内容保存为 Markdown 文件,可直接下载查看;" +
+          "导出恢复后可再生成 docx/pdf。』禁止:声称 Word/WPS 能直接打开 .md 并自动保留格式(不成立);" +
+          "声称文件已导出;编造其它补救步骤。",
+      };
     }
     // 退化直跑也让转换器以会话 cwd 运行,与 jail 的 --chdir /work 对齐,相对资源(./figures/x.png)解析基准一致。
     return runConverter(argv, workDir);
@@ -435,16 +500,22 @@ async function runConverterConfined(
 
 const MAX_DOC_CHARS = Number(process.env.EXECUTOR_MAX_DOC_CHARS || 400_000);
 
-// ReadDocument:从二进制文档(PDF / .docx / .odt / .rtf / .epub / .html …)抽取纯文本。
+// xlsx 转换脚本(与本文件同目录随 COPY src 进镜像):按 import.meta.url 解析绝对路径,
+// 不依赖进程 cwd。选型理由见脚本头注释(pandoc 3.10 xlsx reader 实测不可用)。
+const XLSX2TEXT_SCRIPT = new URL("./xlsx2text.py", import.meta.url).pathname;
+
+// ReadDocument:从二进制文档(PDF / .docx / .xlsx / .pptx / .odt / .rtf / .epub / .html …)抽取纯文本。
 // 用**已装好的顶级开源转换器**(pandoc = 文档转换标杆;poppler pdftotext = PDF 抽取事实标准),
 // 但把它们关进一个安全受限的门:路径 confine 在会话 cwd、固定 argv、无 shell —— 取代过去"让模型
 // 用 Bash 调 pandoc"的路径。因安全性由构造保证(模型控不了命令、读不到跨租户文件 / proc),
 // **不需要 allowBash / 沙箱闸**,对所有 feature 开放(claw/prism/smart_search/peerreview 上传的稿件都能读)。
+// xlsx/pptx 依赖镜像内 /usr/local 的上游 pandoc ≥3.8.3(Dockerfile vendor 层;apt 版 3.1 无此 reader)。
 const readDocumentTool: BuiltinTool = {
   name: "ReadDocument",
   description:
-    "Extract plain text from a binary document (PDF, .docx, .odt, .rtf, .epub, .html) in the session working directory. " +
+    "Extract plain text from a binary document (PDF, .docx, .xlsx, .pptx, .odt, .rtf, .epub, .html) in the session working directory. " +
     "Use this INSTEAD of Read for non-plain-text documents — Read only handles UTF-8 text and will fail on binaries. " +
+    "xlsx is rendered as one table per worksheet; pptx as text per slide. Legacy formats (.doc/.xls/.ppt/.ods/.odp) are NOT supported. " +
     "For long PDFs, pass first_pages to extract only the opening pages (e.g. first_pages=2 for title/abstract). Returns UTF-8 text.",
   input_schema: {
     type: "object",
@@ -467,13 +538,26 @@ const readDocumentTool: BuiltinTool = {
       if (lower.endsWith(".pdf")) {
         // poppler pdftotext:-layout 保留版式;-l N 限制到前 N 页;结尾 "-" = 输出到 stdout。
         argv = ["pdftotext", "-layout", ...(firstPages ? ["-l", String(firstPages)] : []), p, "-"];
-      } else if (/\.(docx|odt|rtf|epub|html?|md|markdown|tex|latex)$/.test(lower)) {
+      } else if (lower.endsWith(".xlsx")) {
+        // xlsx 走 python3+openpyxl(实测选型):pandoc 3.10 的 xlsx reader 读不了 openpyxl 系
+        // 文件(绝对 Target rels 报 Entry not found)且丢表头/整数变 1.0。固定脚本 + confined
+        // 路径,安全外壳同 pandoc(runConverter:无 shell、白名单 env、8MB 闸、60s 超时)。
+        argv = ["python3", XLSX2TEXT_SCRIPT, p];
+      } else if (/\.(docx|pptx|odt|rtf|epub|html?|md|markdown|tex|latex)$/.test(lower)) {
         // pandoc:-t plain 纯文本;--wrap=none 不硬折行;--sandbox 禁止 pandoc 处理时读输入里引用的
         // 任意本地文件(crafted docx/html 的 XXE 式外泄防护,confinePath 之外的第二层)。
+        // pptx(按幻灯片分节)是上游 pandoc 3.8.3+ 的 reader(镜像 /usr/local vendor 层;
+        // 2026-07 文件上传调研落地,此前 xlsx/pptx 在工具层是空洞)。
         argv = ["pandoc", "--sandbox", p, "-t", "plain", "--wrap=none"];
+      } else if (/\.(doc|xls|ppt|ods|odp)$/.test(lower)) {
+        return fail(
+          "ReadDocument: legacy format not supported (no parser available). Do NOT retry. " +
+            "Tell the user honestly and suggest re-saving as .docx/.xlsx/.pptx and re-uploading. Never fabricate its content.",
+          "该文件为旧版 Office 格式,暂无法解析。",
+        );
       } else {
         return fail(
-          "ReadDocument: unsupported extension. Supported: .pdf, .docx, .odt, .rtf, .epub, .html. " +
+          "ReadDocument: unsupported extension. Supported: .pdf, .docx, .xlsx, .pptx, .odt, .rtf, .epub, .html. " +
             "For plain-text files (.txt/.md/.csv/code) use Read instead.",
         );
       }
@@ -488,7 +572,8 @@ const readDocumentTool: BuiltinTool = {
       if (text.length > MAX_DOC_CHARS) {
         text =
           text.slice(0, MAX_DOC_CHARS) +
-          `\n\n[... truncated at ${MAX_DOC_CHARS} chars. For PDFs pass first_pages to narrow the range.]`;
+          `\n\n[... truncated at ${MAX_DOC_CHARS} chars. PDF: pass first_pages to narrow the range; ` +
+          `xlsx: use Bash+python(openpyxl) to target a sheet/range if available, otherwise work with the extracted part and tell the user coverage is partial.]`;
       }
       return ok(text);
     } catch (e) {
@@ -521,14 +606,16 @@ export async function extractDocHead(
   let argv: string[];
   if (lower.endsWith(".pdf")) {
     argv = ["pdftotext", "-layout", ...(pdfPages > 0 ? ["-l", String(pdfPages)] : []), absPath, "-"];
-  } else if (/\.(docx|odt|rtf|epub|html?|md|markdown|tex|latex)$/.test(lower)) {
+  } else if (lower.endsWith(".xlsx")) {
+    argv = ["python3", XLSX2TEXT_SCRIPT, absPath]; // 同 ReadDocument:openpyxl 兼容面 > pandoc reader
+  } else if (/\.(docx|pptx|odt|rtf|epub|html?|md|markdown|tex|latex)$/.test(lower)) {
     argv = ["pandoc", "--sandbox", absPath, "-t", "plain", "--wrap=none"];
   } else {
     return {
       ok: false,
       text: "",
       truncated: false,
-      err: "unsupported extension (supported: .pdf, .docx, .odt, .rtf, .epub, .html)",
+      err: "unsupported extension (supported: .pdf, .docx, .xlsx, .pptx, .odt, .rtf, .epub, .html)",
     };
   }
   const res = await runConverter(argv);
@@ -607,16 +694,28 @@ const exportDocumentTool: BuiltinTool = {
       if (fmt.needsEngine && PDF_ENGINE) argv.push(`--pdf-engine=${PDF_ENGINE}`);
       const res = await runConverterConfined(ctx.workDir, argv);
       if (!res.ok) {
+        // 先判沙箱闸关闭(整个导出子系统维护中):对 pdf/docx/所有格式一视同仁,给中性维护话术,
+        // 绝不建议「改用 Word」(docx 会撞同一道闸,只会再失败一轮 + 一开始就误导用户;审计 [17])。
+        // res.err 本身已是诚实的「先 Write 落 Markdown」维护指引,原样交给模型。
+        if (res.gated) {
+          return fail(res.err, "文档导出暂时维护中,已建议 AI 把内容保存为 Markdown 供下载。");
+        }
         if (fmt.needsEngine) {
           return fail(
-            "ExportDocument: PDF export is unavailable (no PDF engine installed). " +
-              "Export to docx / odt / html instead, or ask the operator to enable a PDF engine. Detail: " + res.err,
+            "ExportDocument: PDF engine unavailable. 请改为导出 docx(target_format=docx),并告知用户:" +
+              "『PDF 暂不可用,已生成 docx,可在 Word/WPS 中打开后另存为 PDF。』这是唯一允许的替代说法,禁止编造其它方法。Detail: " +
+              res.err,
+            "暂不支持导出 PDF,已建议 AI 改用 Word(docx)格式。",
           );
         }
-        return fail("ExportDocument: conversion failed (pandoc): " + res.err);
+        return fail(
+          "ExportDocument: conversion failed (pandoc): " + res.err,
+          "文档导出未成功,AI 会重试或改用其它格式。",
+        );
       }
       const st = await stat(outAbs).catch(() => null);
-      if (!st || st.size === 0) return fail("ExportDocument: pandoc produced an empty file.");
+      if (!st || st.size === 0)
+        return fail("ExportDocument: pandoc produced an empty file.", "文档导出未成功,AI 会重试或改用其它格式。");
       // 导出 jail 断网(net:none)→ 源里的远程图片 `![](https://…)` 被 pandoc 跳过(仅 stderr WARNING、仍 exit 0)。
       // 静默丢图会让用户以为图片都在,故命中时明确提示改用会话内本地图片。
       const droppedRemote = /Could not fetch resource/i.test(res.err || "");
@@ -626,6 +725,116 @@ const exportDocumentTool: BuiltinTool = {
       return ok(`exported ${outRel} (${st.size} bytes) — delivered to the user's download area.${note}`);
     } catch (e) {
       return fail("ExportDocument failed: " + String((e as Error)?.message ?? e));
+    }
+  },
+};
+
+// BuildDeck:「制作PPT」feature(boltslides)专用 —— 把会话 cwd 里预置的 bolt-slides 脚手架
+// (src/App.tsx + tokens.css + index.html 由 agent 编辑)编译成**一个自包含单文件 HTML** 落 ./out/,
+// 走 claw 产物管线(srcDoc 沙箱预览 + 下载)。
+// 关键:此工具的 run 在**执行器进程内**跑(非 Bash,不进 bwrap jail)—— 故能访问 cwd 里
+// node_modules 这个指向 /opt/bolt-slides/node_modules(镜像预装,jail 外)的 symlink;而模型自己用 Bash
+// 跑 `npm run build:deck` 会因 jail 看不见 /opt 导致 node_modules 悬空而失败,所以构建必须走这个工具。
+// 自守卫:cwd 无 vite.config.singlefile.ts(= 非演示稿工作区)直接拒,避免其它 feature 误用。
+const DECK_BUILD_TIMEOUT_MS = Math.max(30_000, Number(process.env.BOLT_SLIDES_BUILD_TIMEOUT_MS || 180_000));
+const DECK_BUILD_LOG_CAP = 8000;
+
+function runBuildDeck(workDir: string): Promise<{ code: number | null; out: string; timedOut: boolean }> {
+  return new Promise((resolve) => {
+    const child = spawn("npm", ["run", "build:deck"], {
+      cwd: workDir,
+      env: {
+        ...bashEnv(),
+        HOME: workDir, // npm 写 .npm 日志需可写 HOME;会话 cwd 归 bun 用户可写
+        npm_config_cache: join(workDir, ".npm-cache"),
+        npm_config_update_notifier: "false",
+        NO_UPDATE_NOTIFIER: "1",
+        CI: "1",
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let out = "";
+    const cap = (buf: Buffer) => {
+      if (out.length < DECK_BUILD_LOG_CAP * 4) out += buf.toString("utf8");
+    };
+    child.stdout?.on("data", cap);
+    child.stderr?.on("data", cap);
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill("SIGKILL");
+    }, DECK_BUILD_TIMEOUT_MS);
+    child.on("error", (e) => {
+      clearTimeout(timer);
+      resolve({ code: -1, out: out + "\n[spawn error] " + String(e?.message ?? e), timedOut });
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      resolve({ code, out, timedOut });
+    });
+  });
+}
+
+const buildDeckTool: BuiltinTool = {
+  name: "BuildDeck",
+  description:
+    "Build the current bolt-slides presentation into ONE self-contained HTML file delivered to the user. " +
+    "Call this AFTER you have authored the deck (edited src/App.tsx, themed src/styles/tokens.css, set index.html title/favicon). " +
+    "It compiles the Vite/React deck and writes a single inlined .html into ./out/ (the user's download/preview area) — " +
+    "you do NOT run npm/vite yourself; this tool does it. If the build fails, the compiler output is returned so you can fix the code and call BuildDeck again. " +
+    "Input: { name? } — optional base name for the output file (no extension), defaults to \"deck\".",
+  input_schema: {
+    type: "object",
+    properties: {
+      name: { type: "string", description: "optional base name for the output .html (no extension); defaults to \"deck\"" },
+    },
+  },
+  parallelSafe: false,
+  async run(input, ctx) {
+    try {
+      // 自守卫:仅演示稿工作区(有 singlefile 构建配置)可用。
+      let cfg = await stat(join(ctx.workDir, "vite.config.singlefile.ts")).catch(() => null);
+      if (!cfg) {
+        // 自愈(审查发现):workdir 被磁盘 GC 回收 / dev 容器重建后脚手架丢失,而 templateKind
+        // 只在 CreateSession 铺一次 → 老 PPT 会话重连后 BuildDeck 永久失效。凭 <workDir>.template
+        // 侧车确认这确实是 bolt-slides 工作区后按需重铺(幂等);非 PPT 会话不受影响照旧拒。
+        const { ensureBoltSlidesScaffold } = await import("../server/sessions.ts");
+        if (await ensureBoltSlidesScaffold(ctx.workDir)) {
+          cfg = await stat(join(ctx.workDir, "vite.config.singlefile.ts")).catch(() => null);
+        }
+      }
+      if (!cfg) {
+        return fail("BuildDeck is only available in a slides workspace (no bolt-slides scaffold found). This tool is for the 制作PPT feature.");
+      }
+      const rawBase = String(input.name || "").trim() || "deck";
+      const base = rawBase.replace(/[^A-Za-z0-9._一-龥-]/g, "_").replace(/^\.+/, "").slice(0, 120) || "deck";
+      const outRel = `out/${base}.html`;
+      const outAbs = await confinePath(ctx.workDir, outRel, true); // 只允许落会话 cwd 的 out/
+
+      const { code, out, timedOut } = await runBuildDeck(ctx.workDir);
+      const tail = out.length > DECK_BUILD_LOG_CAP ? out.slice(-DECK_BUILD_LOG_CAP) : out;
+      if (timedOut) {
+        return fail(`BuildDeck: build timed out after ${Math.round(DECK_BUILD_TIMEOUT_MS / 1000)}s. Simplify the deck (fewer/lighter slides) and retry.\n\n${tail}`);
+      }
+      if (code !== 0) {
+        return fail(`BuildDeck: build failed (exit ${code}). Fix the reported errors in src/App.tsx (or the file named below) and call BuildDeck again.\n\n${tail}`);
+      }
+      // vite singlefile 产物固定为 dist-single/index.html(见 vite.config.singlefile.ts)。
+      const built = join(ctx.workDir, "dist-single", "index.html");
+      const st = await stat(built).catch(() => null);
+      if (!st || st.size === 0) {
+        return fail("BuildDeck: build reported success but produced no output. Check the compiler log:\n\n" + tail);
+      }
+      // 12MB = claw maxArtifactBytes(backend/internal/claw/artifact.go);超限收割会被拒 → 提前挡。
+      const MAX = 12 * 1024 * 1024;
+      if (st.size > MAX) {
+        return fail(`BuildDeck: the built deck is ${(st.size / 1024 / 1024).toFixed(1)}MB, over the ${MAX / 1024 / 1024}MB delivery cap. Reduce inlined image sizes (use smaller/compressed images or fewer full-bleed photos) and rebuild.`);
+      }
+      await mkdir(dirname(outAbs), { recursive: true });
+      await copyFile(built, outAbs);
+      return ok(`Deck built and delivered: ${outRel} (${st.size} bytes). The user can now preview it in the panel and download it. Opening the downloaded file in a browser enables presenter mode, annotations and deep-links.`);
+    } catch (e) {
+      return fail("BuildDeck failed: " + String((e as Error)?.message ?? e));
     }
   },
 };
@@ -707,7 +916,63 @@ const skillTool: BuiltinTool = {
   },
 };
 
-const all: BuiltinTool[] = [readTool, readDocumentTool, exportDocumentTool, writeTool, editTool, globTool, grepTool, bashTool, todayDateTool, skillTool];
+// AskUserQuestion(2026-07,交互提问):当模型被「只有用户能拍板的决策」卡住时,把问题做成
+// 选项卡片让用户点选,而不是用纯文本反问。本工具是**哑的**:真正的问题卡片由前端读
+// tool_use.input.questions 渲染(见 shared/components/chat/QuestionCard);run() 只回一个占位
+// tool_result 满足 Anthropic 的 tool_use↔tool_result 配对,turnLoop 随后强制收尾结束本轮
+// (askFired wind-down),用户的选择作为下一条 user 消息开新轮。故无 I/O、parallelSafe。
+// 供给面由各 feature 的 DisallowedTools 控制(P0 仅 claw 放开;peerreview/server-side 等禁用);
+// backend permissionAllowed 亦需对本工具名放行(default-deny)。
+const askUserQuestionTool: BuiltinTool = {
+  name: "AskUserQuestion",
+  description:
+    "当你被一个只有用户能拍板的决策卡住时(需求二选一、方案偏好、风险取舍等,且无法从已有信息、上下文或合理默认值推断),用本工具把问题做成选项卡片让用户点选,而不是用纯文本反问。用户点选后,其选择会作为下一条消息发给你。使用规则:① 仅在真正需要用户定夺时用 —— 有常规默认值的选择,直接选默认并在回复中说明,不要问;② 一次尽量把相关问题问全(最多 4 题),不要挤牙膏式连问;③ 每题给 2-4 个具体、点即可用的选项,把最推荐的放第一位并在其 label 末尾标注「(推荐)」;④ 不要用它来问「计划可以吗 / 要不要继续 / 这样对吗」这类确认;⑤ 发出问题后用一句话简短收尾并停下等待,不要重复罗列选项。输入:{ questions: [ { question: 完整问题文本, header: ≤12字的短标签, multiSelect?: 是否允许多选, options: [ { label: 选项文本, description: 该选项的说明 } ] } ] }。",
+  input_schema: {
+    type: "object",
+    properties: {
+      questions: {
+        type: "array",
+        minItems: 1,
+        maxItems: 4,
+        description: "1-4 个需要用户拍板的问题",
+        items: {
+          type: "object",
+          properties: {
+            question: { type: "string", description: "完整的问题文本" },
+            header: { type: "string", description: "≤12 字的短标签(如「部署方式」),用于卡片标题" },
+            multiSelect: { type: "boolean", description: "是否允许多选(默认单选)" },
+            options: {
+              type: "array",
+              minItems: 2,
+              maxItems: 4,
+              description: "2-4 个候选答案;推荐项放第一位并在 label 末尾标注「(推荐)」",
+              items: {
+                type: "object",
+                properties: {
+                  label: { type: "string", description: "选项文本(简短、点即可用)" },
+                  description: { type: "string", description: "该选项的含义 / 代价说明" },
+                },
+                required: ["label"],
+              },
+            },
+          },
+          required: ["question", "header", "options"],
+        },
+      },
+    },
+    required: ["questions"],
+  },
+  parallelSafe: true,
+  async run() {
+    // 哑实现:问题卡片在前端渲染,答案走下一条 user 消息回来。此处只回占位,让本轮 tool_use 有配对
+    // 的 tool_result;turnLoop 检测到本工具被调用后会强制收尾(去工具 + 收尾指令),不阻塞等待。
+    return ok(
+      "已把问题以选项卡片的形式呈现给用户,正在等待其选择。请用一句话简短收尾并停下,等待用户回答后再继续 —— 不要重复罗列选项,也不要继续调用其它工具。",
+    );
+  },
+};
+
+const all: BuiltinTool[] = [readTool, readDocumentTool, exportDocumentTool, buildDeckTool, writeTool, editTool, globTool, grepTool, bashTool, todayDateTool, skillTool, askUserQuestionTool];
 
 export const builtinRegistry: Map<string, BuiltinTool> = new Map(all.map((t) => [t.name, t]));
 

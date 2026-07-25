@@ -14,21 +14,28 @@ export interface ClawSessionListProps {
   onActivate: (sessionId: string) => void;
   /** 删光全部会话时回退到"新对话空白态"用 (= ClawPage.handleNewConversation)。 */
   onNewConversation: () => void;
+  /** 会话 CRUD api(默认 claw;制作PPT 传 boltslidesSessions)。 */
+  api?: typeof clawSessions;
+  sectionId?: string;
+  emptyHint?: string;
 }
 
 export function ClawSessionList({
   activeSessionId,
   onActivate,
   onNewConversation,
+  api = clawSessions,
+  sectionId = 'claw-sessions',
+  emptyHint = '还没有会话, 在右侧输入第一句话即可开始',
 }: ClawSessionListProps) {
   return (
     <AgentSessionList
-      api={clawSessions}
+      api={api}
       activeSessionId={activeSessionId}
       onActivate={onActivate}
       onNewConversation={onNewConversation}
-      sectionId="claw-sessions"
-      emptyHint="还没有会话, 在右侧输入第一句话即可开始"
+      sectionId={sectionId}
+      emptyHint={emptyHint}
     />
   );
 }

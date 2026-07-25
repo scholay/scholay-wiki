@@ -109,6 +109,16 @@
   background: #fbf3e0;
   color: #d4a017;
 }
+/* 年费会员徽标(0079)—— 与月度会员显式区分 */
+.cycle-badge {
+  margin-left: 12rpx;
+  padding: 2rpx 14rpx;
+  border-radius: 999rpx;
+  background: #fbf3e0;
+  color: #d4a017;
+  font-size: 22rpx;
+  font-weight: 700;
+}
 .expire {
   margin-left: auto;
   color: var(--text-weak);

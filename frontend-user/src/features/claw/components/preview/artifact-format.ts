@@ -8,6 +8,7 @@
 export type ArtifactCategory =
   | 'image'
   | 'svg' // 内联 SVG → DOMPurify 清洗后渲染(不归 image:img 不渲染 svg 脚本但我们要内联展示矢量图)
+  | 'figure' // 细胞图配方 JSON(*.fig.json)→ composeFigure 渲染成静态 SVG(sci_draw A 车道产物,只读)
   | 'pdf'
   | 'html' // 完整 HTML 文档 → 沙箱 iframe 渲染(可切源码)
   | 'markdown'
@@ -86,6 +87,8 @@ export function artifactCategory(a: {
   const m = (a.mime || '').toLowerCase();
 
   if (e === 'zip' || m === 'application/zip' || m === 'application/x-zip-compressed') return 'archive';
+  // 细胞图配方:*.fig.json。必须在 json 分支之前(x.fig.json 的 ext 是 json)。
+  if (a.name.toLowerCase().endsWith('.fig.json')) return 'figure';
   if (e === 'svg' || m === 'image/svg+xml') return 'svg'; // 在 image 之前:svg 走清洗内联,不当光栅图
   if (IMAGE_EXT.includes(e) || (m.startsWith('image/') && m !== 'image/svg+xml')) return 'image';
   if (e === 'pdf' || m === 'application/pdf') return 'pdf';
@@ -121,6 +124,7 @@ export function categoryNeedsBytes(c: ArtifactCategory): boolean {
     c === 'spreadsheet' ||
     c === 'docx' ||
     c === 'svg' || // 需取字节解码出 SVG 源文本 → DOMPurify 清洗后渲染
+    c === 'figure' || // 需取字节解码出细胞图配方 JSON → composeFigure 渲染 SVG
     c === 'html' // 需取字节解码出 HTML 文本 → 沙箱 iframe srcDoc 渲染
   );
 }

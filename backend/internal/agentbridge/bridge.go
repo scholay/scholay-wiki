@@ -104,16 +104,23 @@ type Bridge struct {
 type ModelCatalog interface {
 	// Resolve 按能力绑定取模型 id(含回退链;空 = 目录未配置)。
 	Resolve(purpose string) string
+	// ResolveChatDefault feature 默认对话模型:走主绑定 chat_default.<featureKey>(经 Resolve 的回退链
+	// + purposeAlias 归并)。2026-07 起不再分免费/付费档(.free 覆盖已下线)。feature 默认模型解析
+	// **恒走此方法**(hub 默认解析 + 水位窗口 + 用户目录默认徽标同口径)。第二参数保留仅为兼容。
+	ResolveChatDefault(featureKey string, userID uint) string
 	// ValidateUserModel 校验该用户此刻可用该模型(存在 ∧ enabled ∧ user_selectable ∧ 档位门槛)。
 	ValidateUserModel(userID uint, modelID string) error
 	// ContextWindow 返回模型上下文窗口 token 数(0 = 未知,executor 回落全局默认)。
 	ContextWindow(modelID string) int
+	// MaxInput 返回模型最大输入 token 数(0 = 未配,executor 压缩墙回落「上下文 − 输出预留」自动算)。
+	MaxInput(modelID string) int
 	// MaxOutput 返回模型最大完成 token 数(0 = 未知,executor 回落全局默认并靠 adapter 400 钳制自愈)。
 	MaxOutput(modelID string) int
 	// Vision 返回模型是否支持图片输入(P2 图片通道:executor 按此过滤历史 image 块)。
 	Vision(modelID string) bool
-	// BillingWeight 返回模型计费倍率(P3 盖章反折算用;目录 miss → 1,下限已 clamp 防除零)。
-	BillingWeight(modelID string) float64
+	// CostPerToken 返回模型混合估算成本(微元/token),把「微元额度余量」换算成执行器 token 预算(SS#2 自配速)。
+	// P5 成本制取代旧 BillingWeight(配额已按真实成本扣,不再有加权倍率)。
+	CostPerToken(modelID string) float64
 	// ProviderKey 返回模型所属 provider 在 executor 侧的 upsert 键(F0 多 provider):
 	// "" = 默认 provider(scholay-managed,executor 走 active);"scholay-p<id>" = 额外 provider。
 	// hub 组 set_runtime_config 帧与计费 Provider 归属共用此口径。
@@ -186,6 +193,27 @@ func parseWatermark(s string) ([4]int64, bool) {
 // storeTokenWatermark 推进某 agent session 的累计水位。
 func (b *Bridge) storeTokenWatermark(sessionID string, wm [4]int64) {
 	b.tokenWatermarks.Store(sessionID, wm)
+}
+
+// flushTokenWatermark 同步把某 session 的内存水位落库。**在丢弃内存副本前调用**(hub 关闭 /
+// grace 拆 hub 时):每轮的落库是 safego 异步 best-effort,优雅重启(SIGTERM 抽干)时若恰有一笔
+// 在途未落、内存副本又被 deleteTokenWatermark 清掉 → 重连回源到「上一轮」的旧水位,delta 会把
+// 最后一轮多算一次(有界重复计费)。关 hub 前同步落一次,保证 DB 拿到最新水位后再删内存。
+func (b *Bridge) flushTokenWatermark(sessionID string) {
+	if b.repo == nil {
+		return
+	}
+	v, ok := b.tokenWatermarks.Load(sessionID)
+	if !ok {
+		return
+	}
+	wm, ok := v.([4]int64)
+	if !ok {
+		return
+	}
+	if err := b.repo.SetUsageWatermark(sessionID, formatWatermark(wm)); err != nil {
+		slog.Debug("agentbridge: flush usage watermark on shutdown failed", "session_id", sessionID, "err", err)
+	}
 }
 
 // deleteTokenWatermark 会话删除时清理水位条目(防 process-local map 无界增长)。
@@ -281,6 +309,23 @@ func New(client agent.Executor, repo *Repository) *Bridge {
 	return &Bridge{client: client, repo: repo}
 }
 
+// ResolveUserSession — feature 中立地把一个「全局唯一的 agent_session_id」反查成它的 feature,
+// 并校验归属当前用户。给前端 /claw/:sessionId 深链/刷新用:URL 只带裸 sessionId、不带 feature,
+// 页层据此决定挂哪个 workspace(claw/boltslides/sci_draw)+ 判「不存在/不属于我 → 回新对话」。
+//
+// agent_session_id 全局唯一(uk_agent_session_id),故一个 id → 至多一行 → 确定的 (user, feature)。
+// 不存在 与 属于别人 一律返回 ("", false)(反枚举,和 OwnsSession 同语义)。
+func (b *Bridge) ResolveUserSession(userID uint, sessionID string) (feature string, owned bool) {
+	if b.repo == nil || sessionID == "" {
+		return "", false
+	}
+	row, err := b.repo.FindByAgentSessionID(sessionID)
+	if err != nil || row == nil || row.UserID != userID {
+		return "", false
+	}
+	return row.FeatureKey, true
+}
+
 // SetLLMUsageRecorder 注入统一 LLM token 账本录入器 (server-side chat 用)。
 // bootstrap 调用一次; nil = 不记账。
 func (b *Bridge) SetLLMUsageRecorder(r llmusage.Recorder) {
@@ -318,27 +363,56 @@ func (b *Bridge) ReconcileJournalOnBoot(ctx context.Context) {
 	}
 }
 
-// readFromJournal 判断某 feature 是否启用「历史/续流读走事件日志」(P1)。
-// AGENT_JOURNAL_READ 是逗号分隔的 feature key 列表(如 "smart_search,claw");空/未接线 = 全走 daemon。
-// jsonl 仍权威 —— 清空该 env 即一键回 daemon 读路径(P1 回滚)。
+// StartJournalReaper 运行期周期回收僵尸 running turn(W3-2c):FailTurn 异步落库失败 / 进程活着
+// 但 hub 异常路径漏 finalize 时,不再等到下次发版才被 boot 回收(审计:挂死轮 848s/624s 无人收)。
+// 10min ticker 调 ReconcileStaleRunning —— SQL 幂等、只动 status=running 的僵尸行(阈值 30min,
+// 大于轮级硬超时 15min,正常轮绝不会被误收),与 boot 版同一写口。bootstrap 调用一次。
+func (b *Bridge) StartJournalReaper(ctx context.Context) {
+	if b.log == nil {
+		return
+	}
+	safego.Go("agentbridge-journal-reaper", func() {
+		t := time.NewTicker(10 * time.Minute)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				rctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+				err := b.log.ReconcileStaleRunning(rctx)
+				cancel()
+				if err != nil {
+					slog.Warn("agentbridge: journal reaper failed", "err", err)
+				}
+			}
+		}
+	})
+}
+
+// readFromJournal 判断某 feature 的历史/续流是否从 durable 事件日志读(而非 agent 内存/daemon)。
+//
+// 【根治 2026-07-21】durable journal 是**默认真源**:只要事件日志已接线(b.log != nil,即
+// AGENT_TURN_JOURNAL != off),所有 feature 的历史读都走 journal —— 能否读出历史**不再取决于** feature
+// 是否碰巧进了 AGENT_EXECUTOR_FEATURES / AGENT_JOURNAL_READ 名单。此前那套 opt-in 会因配置漏项让整个
+// feature 历史静默读空(boltslides 事故:漏进 executor 名单 → 读 agent 内存 → 容器重建后全空)。
+// 数据完整性不该由 env 名单决定,故反转极性:durable-by-default。
+// 安全性:读路径自带 archive + daemon 兜底(见 readHistoryFromJournal),journal 空的老会话自动落回,
+// 故对任何 feature 都 strictly better(不会比原 daemon 读更差)。
+// AGENT_JOURNAL_DAEMON_ONLY(逗号分隔 feature)是**紧急 opt-out** 回滚闸:某 feature 的 journal 折叠
+// 万一出问题,把它临时强制回 daemon 读(默认空 = 全部走 durable journal)。
 func (b *Bridge) readFromJournal(featureKey string) bool {
 	if b.log == nil {
-		return false
+		return false // 事件日志未接线(AGENT_TURN_JOURNAL=off)→ 无 durable 源可读
 	}
-	// 切到 executor 的 feature:历史必须从 journal 读(executor 内存非耐久、重连即丢)。
-	if b.isExecutorFeature(featureKey) {
-		return true
-	}
-	csv := os.Getenv("AGENT_JOURNAL_READ")
-	if csv == "" {
-		return false
-	}
-	for _, k := range strings.Split(csv, ",") {
-		if strings.TrimSpace(k) == featureKey {
-			return true
+	if csv := os.Getenv("AGENT_JOURNAL_DAEMON_ONLY"); csv != "" {
+		for _, k := range strings.Split(csv, ",") {
+			if strings.TrimSpace(k) == featureKey {
+				return false // 紧急回滚:该 feature 强制回 daemon 读
+			}
 		}
 	}
-	return false
+	return true // 默认:durable journal 是真源
 }
 
 // MemoryBlocks 返回某用户的记忆块渲染文本 (bullet 列表, 无记忆/未启用返回 "")。
@@ -717,7 +791,11 @@ func (f *FeatureBridge) ResetSession(ctx context.Context, userID uint) (string, 
 	}
 
 	if oldSessionID != "" {
-		f.bridge.deleteTokenWatermark(oldSessionID) // 旧会话的 token 水位作废(新会话从 0 起算)
+		// **不在此删 S_old 的内存水位**:UpdateSessionID 已把 DB 行 repoint 到 S_new(GetUsageWatermark(S_old)
+		// 从此返回空),若此刻删掉内存水位,而 S_old 的 hub 仍活着并收到「重置瞬间在途轮」的终帧,
+		// accrueTurnUsage(S_old) 内存+DB 双 miss → 水位归 0 → 把整段会话累计当增量重记(reconciled 暴量复发,
+		// 正是历史事故机制)。保留内存水位 → 在途帧按正确水位算增量;S_old 的 hub 随后被 DeleteSession 关闭时
+		// 其 shutdown 会自行 flush + deleteTokenWatermark 清理(见 hub.shutdown),不会泄漏。
 		slog.Info("agentbridge reset: deleting old session",
 			"feature", f.spec.Key, "user_id", userID, "old_session_id", oldSessionID)
 		delErr := f.client().DeleteSession(ctx, oldSessionID)
@@ -879,7 +957,7 @@ func (f *FeatureBridge) effectiveContextWindow(userID uint, sessionID string) in
 		}
 	}
 	if model == "" {
-		model = cat.Resolve("chat_default." + f.spec.Key)
+		model = cat.ResolveChatDefault(f.spec.Key, userID) // 主绑定 chat_default.<key>(+ purposeAlias 归并)
 	}
 	if model == "" {
 		return 0

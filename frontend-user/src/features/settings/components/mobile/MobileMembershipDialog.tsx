@@ -5,7 +5,7 @@
 //
 // 兑换确认复用 MobileAssetsCard 已有的 RedeemConfirmDialog(本弹层只收码 + onRedeem 交回父组件,
 // 父组件关本弹层 + 开确认弹层),避免 Dialog 套 Dialog。
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChevronRight, CreditCard, Crown, Gem, Loader2, Ticket } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/shared/ui/button';
@@ -19,12 +19,17 @@ import {
 } from '@/shared/ui/dialog';
 import { toApiError } from '@/shared/lib/http';
 import { isWeChatBrowser } from '@/shared/lib/device';
+import { BillingCycleToggle, maxYearlySavingsPct, planYearlyEnabled, type SubQuote } from '@/shared/components';
 import {
+  quoteSubscription,
   useCreateSubscription,
   usePlans,
   useStartAlipay,
+  type BillingCycle,
   type Tier,
 } from '../../api/membership';
+
+const RANK: Record<string, number> = { free: 0, pro: 1, max: 2 };
 
 export interface MobileMembershipDialogProps {
   open: boolean;
@@ -43,6 +48,9 @@ export function MobileMembershipDialog({
 }: MobileMembershipDialogProps) {
   const [code, setCode] = useState('');
   const [payingTier, setPayingTier] = useState<Tier | null>(null);
+  const [cycle, setCycle] = useState<BillingCycle>('monthly');
+  // 每个可购档在当前周期下的真实报价(action + 应付金额 + 后端锁定周期),按 tier 缓存。
+  const [quotes, setQuotes] = useState<Record<string, SubQuote>>({});
   const plansQ = usePlans();
   const createSub = useCreateSubscription();
   const startAlipay = useStartAlipay();
@@ -50,23 +58,59 @@ export function MobileMembershipDialog({
   const inWeChat = isWeChatBrowser();
 
   const alipayOn = plansQ.data?.payment_methods?.alipay ?? false;
-  const payPlans = (plansQ.data?.plans ?? []).filter((p) => p.tier !== 'free');
+  // 只展示当前档及以上(不支持降级);升级/续期/新购的真实金额与文案全部由 quote 驱动,
+  // 杜绝「按钮标全年价、实际是月度补差 + subject 谎称年度会员」的货不对板(评审 pricing-math)。
+  const payPlans = (plansQ.data?.plans ?? [])
+    .filter((p) => p.tier !== 'free')
+    .filter((p) => RANK[p.tier] >= RANK[tier]);
+  // 年付入口(0079):任一档配置了年价才显示切换;单档未开放年付时按钮回落月价。
+  const yearlyAvailable = payPlans.some(planYearlyEnabled);
+  const savingsPct = maxYearlySavingsPct(plansQ.data?.plans ?? []);
+
+  // 拉每个可购档在所选周期下的报价(单档未开放年付则按月度询价)。
+  useEffect(() => {
+    if (!open || payPlans.length === 0) {
+      setQuotes({});
+      return;
+    }
+    let alive = true;
+    const reqs = payPlans.map((p) => {
+      const c: BillingCycle = cycle === 'yearly' && planYearlyEnabled(p) ? 'yearly' : 'monthly';
+      return quoteSubscription(p.tier as 'pro' | 'max', c)
+        .then((q) => [p.tier, q] as const)
+        .catch(() => null);
+    });
+    Promise.all(reqs).then((rs) => {
+      if (alive) setQuotes(Object.fromEntries(rs.filter(Boolean) as [string, SubQuote][]));
+    });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, cycle, tier, plansQ.data]);
 
   // 选套餐 → 下单 → 发起支付宝**手机网站支付**(channel=wap)→ 跳收银台 / 唤起 App。
-  // 付完 / 退出都回 /m/me(billing 在那刷新显示;真正到账由支付宝异步通知履约)。
-  const handlePay = async (planTier: Tier) => {
+  // 金额与周期一律取 quote(后端权威):升级=当前周期补差;subject 按 action/周期如实拼,不谎称年度。
+  const handlePay = async (planTier: Tier, q: SubQuote) => {
     if (inWeChat) {
       toast.info('请在浏览器中打开本页面后再用支付宝支付');
       return;
     }
     setPayingTier(planTier);
+    const label = planTier === 'max' ? 'Max' : 'Pro';
+    const subject =
+      q.action === 'upgrade'
+        ? `Scholay ${label} 会员升级`
+        : q.cycle === 'yearly'
+          ? `Scholay ${label} 年度会员`
+          : `Scholay ${label} 会员`;
     try {
-      const order = await createSub.mutateAsync(planTier);
+      const order = await createSub.mutateAsync({ plan: planTier, cycle: q.cycle });
       const back = `${window.location.origin}/m/me`;
       const pay = await startAlipay.mutateAsync({
         order_no: order.order_no,
         amount: order.final_amount,
-        subject: `Scholay ${planTier === 'max' ? 'Max' : 'Pro'} 会员`,
+        subject,
         channel: 'wap',
         return_url: back,
         quit_url: back,
@@ -129,35 +173,66 @@ export function MobileMembershipDialog({
             </p>
           ) : (
             <div className="flex flex-col gap-2">
-              {payPlans.map((p) => (
-                <button
-                  key={p.tier}
-                  type="button"
-                  disabled={payingTier !== null}
-                  onClick={() => handlePay(p.tier)}
-                  className="flex items-center justify-between rounded-md border border-border px-3 py-2.5 text-left transition-colors active:bg-surface-2 disabled:opacity-50"
-                >
-                  <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                    {p.tier === 'max' ? (
-                      <Crown className="size-4 text-brand-red" />
-                    ) : (
-                      <Gem className="size-4 text-brand-green" />
-                    )}
-                    {p.tier === 'max' ? 'Max' : 'Pro'} 会员
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="text-sm font-bold text-foreground">
-                      ¥{(p.price_cents / 100).toFixed(2)}
+              {/* 月付 / 年付 切换(0079)—— 年付带「省 N%」徽标 */}
+              {yearlyAvailable && (
+                <div className="flex justify-center pb-1">
+                  <BillingCycleToggle value={cycle} onChange={setCycle} savingsPct={savingsPct} />
+                </div>
+              )}
+              {payPlans.map((p) => {
+                const q = quotes[p.tier]; // 报价未回来前禁用该按钮(避免猜金额)
+                const yearly = q?.cycle === 'yearly';
+                const upgrade = q?.action === 'upgrade';
+                // 档位副标题:升级=「升级 · 补差价」;续期/新购按周期显示年度/会员。
+                const kindLabel = upgrade ? '升级补差' : yearly ? '年度会员' : '会员';
+                return (
+                  <button
+                    key={p.tier}
+                    type="button"
+                    disabled={payingTier !== null || !q}
+                    onClick={() => q && handlePay(p.tier, q)}
+                    className="flex items-center justify-between rounded-md border border-border px-3 py-2.5 text-left transition-colors active:bg-surface-2 disabled:opacity-50"
+                  >
+                    <span className="flex flex-col gap-0.5">
+                      <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                        {p.tier === 'max' ? (
+                          <Crown className="size-4 text-brand-red" />
+                        ) : (
+                          <Gem className="size-4 text-brand-green" />
+                        )}
+                        {p.tier === 'max' ? 'Max' : 'Pro'} {kindLabel}
+                      </span>
+                      {upgrade && q && (
+                        <span className="text-2xs text-faint">剩余 {q.remaining_days} 天补差 · 到期日不变</span>
+                      )}
                     </span>
-                    {payingTier === p.tier ? (
-                      <Loader2 className="size-4 animate-spin text-faint" />
-                    ) : (
-                      <ChevronRight className="size-4 text-faint" />
-                    )}
-                  </span>
-                </button>
-              ))}
-              <p className="text-2xs text-faint">付款将跳转支付宝完成,开通后自动回到本页。</p>
+                    <span className="flex items-center gap-1.5">
+                      <span className="flex flex-col items-end leading-tight">
+                        {q ? (
+                          <span className="text-sm font-bold text-foreground">
+                            ¥{(q.amount_cents / 100).toFixed(2)}
+                            {!upgrade && <span className="text-2xs font-normal text-faint">{yearly ? '/年' : '/月'}</span>}
+                          </span>
+                        ) : (
+                          <Loader2 className="size-4 animate-spin text-faint" />
+                        )}
+                        {q && yearly && !upgrade && (
+                          <span className="text-2xs text-faint">折合 ¥{(Math.floor((q.amount_cents / 100 / 12) * 10) / 10).toFixed(1)}/月</span>
+                        )}
+                      </span>
+                      {payingTier === p.tier ? (
+                        <Loader2 className="size-4 animate-spin text-faint" />
+                      ) : (
+                        <ChevronRight className="size-4 text-faint" />
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+              <p className="text-2xs text-faint">
+                付款将跳转支付宝完成,开通后自动回到本页。
+                {cycle === 'yearly' ? '年度会员经费按月分批发放。' : ''}
+              </p>
             </div>
           )}
         </div>

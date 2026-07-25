@@ -5,6 +5,11 @@ export const clawRoutes: RouteObject[] = [
     path: 'claw',
     lazy: () => import('./pages/ClawPage').then((m) => ({ Component: m.ClawPage })),
   },
+  {
+    // 会话路由:/claw/:sessionId —— 深链/刷新到某会话(ClawPage 解析 feature + 判归属)。
+    path: 'claw/:sessionId',
+    lazy: () => import('./pages/ClawPage').then((m) => ({ Component: m.ClawPage })),
+  },
 ];
 
 /**
@@ -14,6 +19,14 @@ export const clawRoutes: RouteObject[] = [
 export const clawMobileRoutes: RouteObject[] = [
   {
     path: 'claw',
+    lazy: () =>
+      import('./pages/mobile/MobileClawPage').then((m) => ({
+        Component: m.MobileClawPage,
+      })),
+  },
+  {
+    // /m/claw/:sessionId —— 移动端会话路由(claw-only,同 ClawPage 语义:进入即新对话,切会话带 id)。
+    path: 'claw/:sessionId',
     lazy: () =>
       import('./pages/mobile/MobileClawPage').then((m) => ({
         Component: m.MobileClawPage,

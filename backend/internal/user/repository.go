@@ -32,11 +32,13 @@ func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
 }
 
-// nonAdminScope is a reusable GORM scope that excludes admin / super_admin
-// accounts from user-facing queries. After the admin-to-users migration every
-// row has an explicit role value.
+// nonAdminScope is a reusable GORM scope that excludes staff accounts
+// (admin / super_admin / operations) from user-facing queries & statistics.
+// After the admin-to-users migration every row has an explicit role value.
+// 注:后台「用户管理」列表刻意不套此 scope(见 GetUserListWithFilter),
+// 以便管理员仍能看到并管理 admin/operations 账号。
 func nonAdminScope(db *gorm.DB) *gorm.DB {
-	return db.Where("role NOT IN ?", []string{"admin", "super_admin"})
+	return db.Where("role NOT IN ?", []string{"admin", "super_admin", "operations"})
 }
 
 // GetDB returns the database instance
@@ -333,7 +335,7 @@ func (r *Repository) GetUserListWithFilter(offset, limit int, f UserListFilter) 
 	// role: 指定就精确匹配;**未指定(或非法)→ 显示全部(含 admin/super_admin)**。
 	// (历史默认 nonAdminScope 会让"提升为管理员后该用户从列表消失",且运营根本看不到管理员 —— 已移除该默认。)
 	switch f.Role {
-	case "user", "admin", "super_admin":
+	case "user", "operations", "admin", "super_admin":
 		query = query.Where("role = ?", f.Role)
 	}
 

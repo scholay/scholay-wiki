@@ -70,10 +70,49 @@ const RENDER_STEP = 60;
  *  避免上万轮 transcript 一次性 JSON.parse + 折叠 (后端 sliceRecentTurns 按 ?limit= 切)。 */
 const HISTORY_WINDOW = 100;
 const HISTORY_STEP = 100;
+/** 未送达看门狗:send 后这么久既无 user_ack 也无任何流帧 → 判定未送达,转「未发送·一键重发」。 */
+const ACK_TIMEOUT_MS = 10_000;
+/** 停止兜底:发出 stop_generation 后这么久没等到真实终帧 → 本地合成完成帧收口本轮(渲染「已暂停」)。
+ *  取远大于正常 abort 收尾时长;死连接场景重连后 hub 只回放在途轮,不存在「合成后真终帧才迟到」的错配。 */
+const STOP_FALLBACK_MS = 20_000;
+/** 轮内无进展看门狗(W5 P0-C1):busy 且这么久没有任何**内容帧** → stalled 软提示(StallNotice)。
+ *  只认内容帧 —— pong/connected/user_ack 等控制帧不进 socket.messages(useAgentSocket 已拦),
+ *  不会像连接级 45s 看门狗那样被心跳永远喂活。长 Bash(最长 300s)执行期本就无新帧,90s 触发是
+ *  **预期的软提示**而非误报;不做任何自动杀轮(杀轮是 backend 轮级硬超时的职责)。 */
+const STALL_WARN_MS = 90_000;
 
-export function useClawConversation() {
+/**
+ * @param opts.initialSessionId 页层(会话路由 URL)驱动的初始会话意图:
+ *   - `null` → 空白新对话态(进入 /claw 无 sessionId,或选模板卡 / 换回对话),**不自动续接**历史会话
+ *   - `string` → 以该会话为初始活跃会话(/claw/:sessionId 深链 / 点历史某条)
+ *   - `undefined` → 兜底同 `null`(老的「自动续接最近会话」已随会话路由化下线,进入即新对话)
+ *   仅在 mount 时读一次;页层通过 remount(key)让新意图生效。
+ * @param opts.onSessionCreated 懒新建把会话落地成真 sessionId 时回调一次(首条消息 / 添加文件)。
+ *   页层据此把 URL 回填成 /claw/:newId(replace、不 remount,避免打断正在流式的回答)。
+ */
+export function useClawConversation(opts?: {
+  initialSessionId?: string | null;
+  onSessionCreated?: (sessionId: string) => void;
+}) {
   const token = useAuthStore((s) => s.token);
   const qc = useQueryClient();
+  const initialSeed = opts?.initialSessionId; // string | null | undefined
+  // 懒新建落地真 id 时回调页层回填 URL。ref-latest:opts 每渲染换引用,用 ref 存最新回调,
+  // 免得写进各 useCallback 依赖里(否则一堆修过线上 bug 的回调被迫重建)。
+  const onSessionCreatedRef = useRef(opts?.onSessionCreated);
+  onSessionCreatedRef.current = opts?.onSessionCreated;
+  // 组件卸载后丢弃在途的懒新建落地(用户在 createSession 往返期间切走了)—— 否则迟到的 created 会
+  // 回填 URL / hijack 页层 ownRef,把页面卡死在 resolving(桌面)或 URL↔内容错位(移动)。
+  const mountedRef = useRef(true);
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+      // 卸载时清掉在途计时器(未送达看门狗 / 停止兜底),防迟到回调对已卸载组件 setState。
+      if (ackWaitRef.current !== null) window.clearTimeout(ackWaitRef.current.timer);
+      if (stopTimerRef.current !== null) window.clearTimeout(stopTimerRef.current);
+    },
+    [],
+  );
 
   // 多会话模型 + 懒新建:
   //   - 用 useClawSessions 拉用户全部会话作为初始种子 (不再调 useClawSession 触发隐式创建,
@@ -82,23 +121,14 @@ export function useClawConversation() {
   //   - 用户首次 send → handleSubmit 走 lazy create 路径, 真创建后再发 user_message
   //   - "+新对话" → 只是 setActiveSessionId(null), 不创建任何东西
   const sessionsQuery = useClawSessions();
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  // 页层给了显式初始会话(string=激活该会话 / null=空白新对话)则以它落地;否则 null 等自动选最近。
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(
+    initialSeed !== undefined ? initialSeed : null,
+  );
 
-  // 初始落地: **只在首次拿到 sessions 数据时执行一次**, 选最近活跃的那条作为默认视图。
-  //
-  // 关键: 不能依赖 activeSessionId 重复执行 —— 否则用户点"新对话"把 activeSessionId 设 null 后,
-  // 这个 effect 会立刻又把它选回 list[0], "新对话"按钮就形同虚设 (点了马上弹回旧会话)。
-  // 用 ref 守门保证"只跑一次": 之后 activeSessionId 完全由用户操作 (点会话 / 新对话 / 删除) 驱动。
-  const didInitialSelectRef = useRef(false);
-  useEffect(() => {
-    if (didInitialSelectRef.current) return;
-    if (!sessionsQuery.data) return; // 还没加载完, 等下一次
-    didInitialSelectRef.current = true;
-    if (sessionsQuery.data.length > 0) {
-      setActiveSessionId(sessionsQuery.data[0].sessionId);
-    }
-    // 空列表 → 保持 null = 新对话空白态 (符合"初始 / 全删后是新对话页")
-  }, [sessionsQuery.data]);
+  // 初始活跃会话完全由 seed(=URL)决定:string→该会话、null/undefined→空白新对话。
+  // 老的「首次拿到 sessions 后自动选最近一条」已随会话路由化**下线** —— 进入 /claw 即新对话,
+  // 切具体会话走 /claw/:sessionId(见 ClawPage)。故此处不再有自动选最近的 effect。
 
   const sessionId = activeSessionId;
   // historyLimit = 从后端拉取的"最近 N 轮"分页窗口; "加载更早"增大它。切 session 复位。
@@ -132,21 +162,127 @@ export function useClawConversation() {
   // setActiveSessionId 触发 socket 重连; WS 没 open 之前 user_message 发不出去,
   // 暂存到这里, useEffect 看到 socket.state 翻 'open' 就把它打出去。
   const pendingSendRef = useRef<ClientMessage | null>(null);
+  // 懒新建乐观气泡的 turn id —— flush 成功后据此挂未送达看门狗;WS 落 error 终态时据此转 blocked。
+  const pendingSendTurnIdRef = useRef<string | null>(null);
+
+  // ── 未送达看门狗(幽灵轮闭环)──────────────────────────────────────────────
+  // send() 返回 true 只保证写进了本端 socket 缓冲;半死 TCP(合盖唤醒 / 手机切网 / NAT 静默断)
+  // 下消息永远到不了后端,该轮永无终帧 → busy 永久卡死输入框和「新对话」按钮(线上事故根因之一)。
+  // 后端 hub 现在对每条送达的 user_message 回 user_ack:发出后 10s 内既无 ack 也无任何流帧 →
+  // 判定未送达,把该轮转 blocked(「未发送·一键重发」,复用配额拦截同款机制),文字不丢、busy 解锁
+  // (busy 排除 blocked;stopping 由下方 busy 翻 false 的 effect 自动复位)。
+  const ackWaitRef = useRef<{ clientTurnId: string; turnId: string; timer: number } | null>(null);
+  // 已确认送达的轮(user_ack / 自回声隐式 ack 命中)—— 幽灵轮判定的「送达证明」门:送达过的轮
+  // 绝不再被判成「未发送」诱导重复发送(审查修复)。
+  const deliveredTurnIdRef = useRef<string | null>(null);
+  // 看门狗误报后的恢复配对(审查修复):超时标 blocked 后保留配对,迟到的 ack / 该轮流帧到达
+  // → 解除误标(真实回答帧只是被 fold 的 blocked 跳过,仍在 messages 里,解除后重折叠即恢复)。
+  const firedAckRef = useRef<{ clientTurnId: string; turnId: string } | null>(null);
+  const clearAckWait = useCallback(() => {
+    if (ackWaitRef.current !== null) {
+      window.clearTimeout(ackWaitRef.current.timer);
+      ackWaitRef.current = null;
+    }
+  }, []);
+  const armAckWait = useCallback(
+    (clientTurnId: string, turnId: string) => {
+      clearAckWait();
+      firedAckRef.current = null;
+      const timer = window.setTimeout(() => {
+        ackWaitRef.current = null;
+        firedAckRef.current = { clientTurnId, turnId }; // 保留配对供迟到证据解除误标
+        const sid = activeSessionIdRef.current;
+        const payload = lastSubmitRef.current;
+        if (sid && payload) {
+          setBlockedMessage(sid, {
+            text: payload.text,
+            attachments: payload.attachments,
+            references: payload.references,
+          });
+        }
+        setPendingTurns((prev) => prev.map((t) => (t.id === turnId ? { ...t, blocked: true } : t)));
+        toast.error('消息未能送达,已为你保留,可点击重新发送');
+      }, ACK_TIMEOUT_MS);
+      ackWaitRef.current = { clientTurnId, turnId, timer };
+    },
+    [clearAckWait],
+  );
 
   // 跨 tab: 另一个 tab reset/创建/删除后这里 invalidate ['claw'], sessions list 重拉,
   // 但本地 activeSessionId 我们故意不动 — 用户的本地选择不被远端 reset 蹚平。
   useSessionBroadcast('claw');
 
   const socket = useClawSocket(sessionId);
+  // ref-latest:给 setTimeout 类回调读最新 socket(state / appendLocalFrame),闭包捕获的旧对象会过期。
+  const socketRef = useRef(socket);
+  socketRef.current = socket;
+
+  // 送达证据处理(pong/connected 已不进 messages,messages.length 变化 = 真实进展帧):
+  //   看门狗仍在等 → 撤销;及 user_ack 命中时记录「已送达」证明(幽灵轮判定的门)。
+  //   看门狗已误报(firedAckRef)→ 迟到的 ack / 该轮流帧到达时解除误标的 blocked + 清持久化。
+  const prevMsgLenRef = useRef(0);
+  useEffect(() => {
+    const grew = socket.messages.length > prevMsgLenRef.current;
+    prevMsgLenRef.current = socket.messages.length;
+    const ack = socket.userAck;
+    if (ackWaitRef.current !== null) {
+      if (ack && ack.clientTurnId === ackWaitRef.current.clientTurnId) {
+        deliveredTurnIdRef.current = ackWaitRef.current.turnId;
+      }
+      clearAckWait();
+      return;
+    }
+    const fired = firedAckRef.current;
+    if (fired === null) return;
+    const lastLive = liveTurnsRef.current[liveTurnsRef.current.length - 1];
+    const ackHit = !!ack && ack.clientTurnId === fired.clientTurnId;
+    // 流帧恢复只在误标轮仍是末条 live 轮时生效 —— 防多端场景把别端新轮的帧误认成本轮证据。
+    if (ackHit || (grew && lastLive?.id === fired.turnId)) {
+      firedAckRef.current = null;
+      deliveredTurnIdRef.current = fired.turnId;
+      clearBlockedMessage(activeSessionIdRef.current);
+      setPendingTurns((prev) => prev.map((t) => (t.id === fired.turnId ? { ...t, blocked: false } : t)));
+      toast.success('消息其实已送达,已恢复该轮显示');
+    }
+  }, [socket.userAck, socket.messages.length, socket.quotaExceeded, socket.busyRejected, clearAckWait]);
 
   // WS 一旦 open 且有 pendingSend → 立刻发出去清掉。
   // 单独 useEffect 跑这个: handleSubmit 里直接 send 在 lazy create 场景下 WS 还没 open。
+  // send 返回 false(ws 已死但 state 未翻的陈旧窗口)→ 保留 pendingSendRef,state 再翻 open 时重试;
+  // 发送成功 → 挂未送达看门狗(半死 TCP 下 flush「成功」但消息永远到不了后端)。
   useEffect(() => {
     if (socket.state === 'open' && pendingSendRef.current) {
-      socket.send(pendingSendRef.current);
-      pendingSendRef.current = null;
+      const msg = pendingSendRef.current;
+      if (socket.send(msg)) {
+        pendingSendRef.current = null;
+        if (msg.type === 'user_message' && msg.clientTurnId && pendingSendTurnIdRef.current) {
+          armAckWait(msg.clientTurnId, pendingSendTurnIdRef.current);
+          pendingSendTurnIdRef.current = null;
+        }
+      }
     }
-  }, [socket]);
+  }, [socket, armAckWait]);
+
+  // 懒新建死路兜底:createSession 成功但 WS 一直连不上(8 次退避耗尽落 error)→ pendingSendRef
+  // 永不 flush、乐观气泡永卡 busy。把这条转 blocked(未发送·一键重发)+ 持久化,文字不丢。
+  useEffect(() => {
+    if (socket.state !== 'error' || !pendingSendRef.current) return;
+    pendingSendRef.current = null;
+    const sid = activeSessionIdRef.current;
+    const payload = lastSubmitRef.current;
+    if (sid && payload) {
+      setBlockedMessage(sid, {
+        text: payload.text,
+        attachments: payload.attachments,
+        references: payload.references,
+      });
+    }
+    const turnId = pendingSendTurnIdRef.current;
+    pendingSendTurnIdRef.current = null;
+    if (turnId) {
+      setPendingTurns((prev) => prev.map((t) => (t.id === turnId ? { ...t, blocked: true } : t)));
+    }
+  }, [socket.state]);
 
   // WS 事件副作用 — 看末尾一帧, 触发对应 invalidate:
   //   - message_complete / error → **只刷 context (token 水位) + sessions (sidebar 标题/计数)**。
@@ -198,12 +334,28 @@ export function useClawConversation() {
   useEffect(() => {
     setSeededResync(false);
   }, [sessionId]);
+  const seededMidRef = useRef(false);
   useEffect(() => {
-    if (socket.resyncUserText && pendingTurns.length === 0 && !seededResync) {
+    if (!socket.resyncUserText || seededResync || seededMidRef.current) return;
+    if (pendingTurns.length === 0) {
       setPendingTurns([
         { id: 'resync-inflight', userText: stripAgentBridgePrefix(socket.resyncUserText) },
       ]);
       setSeededResync(true);
+      return;
+    }
+    // 多端补种(审查修复):本端断连时**别端**发了话(错过了 live user_echo),重连撞上该轮回放 ——
+    // pendingTurns 非空但末条 live 轮已完成/blocked = 本地没有能接住回放帧的在途轮 → 补一条。
+    // 否则回放帧无宿主被 fold 丢弃、该轮隐身,且下一轮 echo 到来后所有后续帧整体串位。
+    // 刻意**不置 seededResync**:那面旗还驱动「history 末尾去重」,本场景 history 快照早于该轮,
+    // 误置会错删一条真实旧轮。自己在途轮的回放(末条未完成)不补 —— 帧直接折回原轮。
+    const lastLive = liveTurnsRef.current[liveTurnsRef.current.length - 1];
+    if (!lastLive || lastLive.complete || lastLive.blocked) {
+      seededMidRef.current = true;
+      setPendingTurns((prev) => [
+        ...prev,
+        { id: `resync-mid-${prev.length}`, userText: stripAgentBridgePrefix(socket.resyncUserText!) },
+      ]);
     }
   }, [socket.resyncUserText, pendingTurns.length, seededResync]);
 
@@ -232,6 +384,48 @@ export function useClawConversation() {
     () => foldMessagesIntoTurns(socket.messages, pendingTurns),
     [socket.messages, pendingTurns],
   );
+
+  // ── resync-idle 对账(「终帧永久丢失」闭环,线上 busy 永久卡死事故的核心修复之一)────────
+  // (重)建连时 hub 在回放段末尾下发 resync_end{inFlight:false} =「服务端当前无在途轮」的权威信号。
+  // 若此刻本地末条 live 轮仍未完成且非 blocked,它的终帧永远不会来了(断连期间轮已结束 /
+  // agent·backend 中途死过 / 消息未送达),当场收口:
+  //   幽灵轮(无任何流帧,即消息没送达)→ 转 blocked(「未发送·一键重发」,文字不丢);
+  //   中断轮(已流出部分内容)→ 本地合成 error 终帧收口(渲染中断提示,已有内容保留)。
+  // 正在等 ack / 懒新建 flush 在途时不动 —— 那条消息可能正被服务端处理,归看门狗管
+  // (帧序保证:resync_end 在 attach 时入队,必先于本连接 send 之后的 ack 到达,不会误伤刚发的轮)。
+  const liveTurnsRef = useRef<Turn[]>([]);
+  liveTurnsRef.current = liveTurns;
+  const lastResyncIdleRef = useRef(0);
+  useEffect(() => {
+    if (socket.resyncIdle === 0 || socket.resyncIdle === lastResyncIdleRef.current) return;
+    lastResyncIdleRef.current = socket.resyncIdle;
+    if (ackWaitRef.current !== null || pendingSendRef.current !== null) return;
+    const live = liveTurnsRef.current;
+    const last = live[live.length - 1];
+    if (!last || last.complete || last.blocked) return;
+    // 幽灵轮判据(审查修复加固):任何已收到的帧都算内容(status 只落 placeholder 也算 —— 说明
+    // 消息已送达);已有送达证明(user_ack / 自回声)的轮绝不判「未发送」,走中断收口而非诱导重发。
+    const hasContent = last.blocks.length > 0 || !!last.thinkingText || !!last.placeholder;
+    const delivered = deliveredTurnIdRef.current === last.id;
+    const sid = activeSessionIdRef.current;
+    const payload = lastSubmitRef.current;
+    if (!hasContent && !delivered && sid && payload && payload.text === last.userText) {
+      setBlockedMessage(sid, {
+        text: payload.text,
+        attachments: payload.attachments,
+        references: payload.references,
+      });
+      setPendingTurns((prev) => prev.map((t) => (t.id === last.id ? { ...t, blocked: true } : t)));
+      return;
+    }
+    socket.appendLocalFrame({
+      type: 'error',
+      code: 'connection_interrupted',
+      message: '连接中断,本轮回答已中断;若内容不完整,刷新页面可查看已生成的部分',
+    });
+    // stopping / busy 由既有「busy 翻 false」effect 自动复位。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socket.resyncIdle]);
 
   // 续流对账: 仅当我们为续流补过 in-flight 轮(seededResync)时, 去掉 history 末尾那条(= 同一轮)。
   const reconciledHistoryTurns = useMemo<Turn[]>(
@@ -276,12 +470,39 @@ export function useClawConversation() {
   // blocked 轮(命中额度未发送)不算 busy —— 它停在末尾 complete=false, 不排除会把 composer 永久禁用。
   const busy = !!lastTurn && !lastTurn.complete && !lastTurn.blocked;
 
-  /** 用户已经按过 stop 但 agent 还没 emit terminal (message_complete/error) 前的过渡态。
-      busy → false 时下面 useEffect 自动重置。 */
-  const [stopping, setStopping] = useState(false);
+  // ── 轮内无进展看门狗(W5 P0-C1)────────────────────────────────────────
+  // 「消息送达后挂死」此前无任何 UI(连接级看门狗被 pong 喂活)。busy 且 STALL_WARN_MS 内没有
+  // 任何新内容帧(socket.messages.length 不增长)→ stalled=true,工作区挂 StallNotice
+  // (停止本轮 / 继续等待)。任何新内容帧 / busy 结束都会复位;「继续等待」重挂一轮计时。
+  const [stalled, setStalled] = useState(false);
+  const [stallEpoch, setStallEpoch] = useState(0);
   useEffect(() => {
-    if (!busy && stopping) setStopping(false);
-  }, [busy, stopping]);
+    setStalled(false);
+    if (!busy) return;
+    const t = window.setTimeout(() => setStalled(true), STALL_WARN_MS);
+    return () => window.clearTimeout(t);
+  }, [busy, socket.messages.length, stallEpoch]);
+  const dismissStall = useCallback(() => {
+    setStalled(false);
+    setStallEpoch((e) => e + 1); // 重挂 90s 计时:继续无进展会再次提示
+  }, []);
+
+  /** 用户已经按过 stop 但 agent 还没 emit terminal (message_complete/error) 前的过渡态。
+      busy → false 时下面 useEffect 自动重置(顺带撤销停止兜底计时器)。 */
+  const [stopping, setStopping] = useState(false);
+  const stopTimerRef = useRef<number | null>(null);
+  const clearStopFallback = useCallback(() => {
+    if (stopTimerRef.current !== null) {
+      window.clearTimeout(stopTimerRef.current);
+      stopTimerRef.current = null;
+    }
+  }, []);
+  useEffect(() => {
+    if (!busy) {
+      clearStopFallback();
+      if (stopping) setStopping(false);
+    }
+  }, [busy, stopping, clearStopFallback]);
 
   // 命中每日额度: backend 在转发给 agent **之前**就拒了这条 user_message(回 quota_exceeded 帧,
   // 该帧不进 socket.messages), agent 永不对这轮发 message_complete → 这条 pendingTurn 的
@@ -348,10 +569,13 @@ export function useClawConversation() {
     });
   }, [sessionId]);
 
-  /** 停止生成 — 直接走 stop_generation 协议; 后端透传给 agent, agent emit message_complete
-      → fold 标 turn 完成 → busy 翻 false → useEffect 自动清 stopping。 */
+  /** 停止生成 — 走 stop_generation 协议; 正常路径 agent emit message_complete → fold 标 turn 完成
+      → busy 翻 false → useEffect 自动清 stopping + 撤兜底。
+      加固(线上卡死修复):不再因 socket 非 open 而静默 return —— 连接死了 agent 反正收不到,
+      直接靠本地兜底收口;20s 内没等到真实终帧(agent 空转 no-op / 连接死 / 幽灵轮)也本地合成
+      完成帧收口。停止按钮从此是**永远有效**的逃生口,不会点一次就永久转圈。 */
   const handleStop = useCallback(() => {
-    if (stopping || socket.state !== 'open') return;
+    if (stopping) return;
     setStopping(true);
     // 当前这轮标"已暂停" —— agent 不回放此信号, 本地记在最后一条 pendingTurn 上,
     // fold 透传到 Turn, terminal 事件到达后末尾渲染「已暂停」。
@@ -362,8 +586,18 @@ export function useClawConversation() {
             i === prev.length - 1 ? { ...t, paused: true } : t
           )
     );
-    socket.send({ type: 'stop_generation' });
-  }, [stopping, socket]);
+    if (socket.state === 'open') socket.send({ type: 'stop_generation' });
+    clearStopFallback();
+    stopTimerRef.current = window.setTimeout(() => {
+      stopTimerRef.current = null;
+      // 断连中不合成(审查修复):该轮可能仍在服务端进行,重连回放会与本地合成终帧错配串位 ——
+      // 交给重连后的 resync 收口(在途 → 续流恢复;已结束 → resync-idle 对账)。只在连接
+      // 健康(= agent 空转 no-op / 幽灵轮)时本地收口。
+      if (socketRef.current.state === 'open') {
+        socketRef.current.appendLocalFrame({ type: 'message_complete' });
+      }
+    }, STOP_FALLBACK_MS);
+  }, [stopping, socket, clearStopFallback]);
 
   // 方案 B: 新对话下首次"添加文件"会让后端新建会话 (文件必须落到某个会话 cwd),
   // ChatComposer 通过这个回调把新 sessionId 交回来 → adopt 它 ("添加文件 = 开始会话")。
@@ -375,6 +609,7 @@ export function useClawConversation() {
       markPendingInitialModel(ensuredId);
       setActiveSessionId(ensuredId);
       notifySessionChanged('claw', ensuredId);
+      onSessionCreatedRef.current?.(ensuredId); // 页层回填 URL → /claw/:ensuredId
     },
     [activeSessionId],
   );
@@ -401,22 +636,28 @@ export function useClawConversation() {
         path: a.path,
       }));
 
+      // clientTurnId 在这里预 mint(而非 socket.send 里兜底):与乐观气泡 turnId 配对,
+      // 撑起「user_ack 投递确认 ↔ 未送达看门狗」闭环。
+      const clientTurnId = crypto.randomUUID();
       const msg: ClientMessage = {
         type: 'user_message',
         content,
+        clientTurnId,
         ...(wsAttachments.length > 0 ? { attachments: wsAttachments } : {}),
       };
 
       // 懒新建: 当前没有 active session 时, 先创建一个再 send。
       // 创建是同步 await (~100ms), 之后 setActiveSessionId 触发 socket 重连。
       // socket 没 open 之前 user_message 发不出, 暂存到 pendingSendRef, 上面的
-      // useEffect 看到 socket.state='open' 会自动 flush。
+      // useEffect 看到 socket.state='open' 会自动 flush(flush 成功后挂未送达看门狗)。
       if (!sessionId) {
+        const pendingId = `pending-${crypto.randomUUID()}`;
+        pendingSendTurnIdRef.current = pendingId;
         // 用户气泡先本地显示 (与已有 session 一致体验; 真发送在 WS open 后)
         setPendingTurns((prev) => [
           ...prev,
           {
-            id: `pending-${crypto.randomUUID()}`,
+            id: pendingId,
             userText: text,
             userReferences: turnRefs,
             userAttachments: attachments.map((a) => ({
@@ -434,11 +675,13 @@ export function useClawConversation() {
         pendingSendRef.current = msg;
         try {
           const created = await createSession.mutateAsync();
+          if (!mountedRef.current) return; // 已卸载(用户切走)→ 丢弃这条迟到落地,别 hijack URL/状态
           // 新对话偏好 → 登记一次性初始模型,socket open 后发一帧交给服务端 pin(P2)。
           markPendingInitialModel(created.sessionId);
           setActiveSessionId(created.sessionId);
           // 通知同源其它 tab 列表刷新 (但不切它们的 activeSessionId)
           notifySessionChanged('claw', created.sessionId);
+          onSessionCreatedRef.current?.(created.sessionId); // 页层回填 URL → /claw/:newId(replace,不 remount)
         } catch (err) {
           toast.error((err as Error).message || '创建会话失败');
           // 失败回滚 pendingTurn + pendingSend
@@ -449,18 +692,19 @@ export function useClawConversation() {
       }
 
       // 已有 session 但 WS 没就绪: 给用户提示 (不像懒新建那样自动 queue, 因为
-      // 这是 reconnect 中状态, 用户不应感受成 "正在创建")
-      if (socket.state !== 'open') {
+      // 这是 reconnect 中状态, 用户不应感受成 "正在创建")。
+      // send 返回 false = ws 已死但 state 还没翻(陈旧窗口)—— 同样按未就绪处理,**不追加**乐观
+      // 气泡(旧版静默丢弃 + 照常追加 = 永无终帧的幽灵轮,busy 永久卡死)。
+      if (socket.state !== 'open' || !socket.send(msg)) {
         toast.error('连接未就绪, 请稍后重试');
         return;
       }
 
-      socket.send(msg);
-
+      const pendingId = `pending-${crypto.randomUUID()}`;
       setPendingTurns((prev) => [
         ...prev,
         {
-          id: `pending-${crypto.randomUUID()}`,
+          id: pendingId,
           userText: text,
           userReferences: turnRefs,
           userAttachments: attachments.map((a) => ({
@@ -475,9 +719,32 @@ export function useClawConversation() {
           })),
         },
       ]);
+      // 端到端投递确认:10s 内无 ack 且无任何流帧 → 该轮转「未发送·一键重发」(半死 TCP 闭环)。
+      armAckWait(clientTurnId, pendingId);
     },
-    [sessionId, socket, createSession],
+    [sessionId, socket, createSession, armAckWait],
   );
+
+  // ── 失败轮「重试」(W5 P0-C3)──────────────────────────────────────────
+  // 复用 handleSubmit 全链路(懒新建、ack 看门狗、配额拦截自然生效)。守卫 !busy;重试语义只对
+  // **最后一轮**成立(渲染层只给末轮的 MessageTurn 传 onRetryTurn,可重试 code 白名单在渲染层判)。
+  // lastSubmitRef 命中该轮原文时带附件/引用完整重发;否则(如刷新后的历史失败轮)仅重发 userText。
+  const busyRef = useRef(false);
+  busyRef.current = busy;
+  const turnsRef = useRef<Turn[]>([]);
+  turnsRef.current = turns;
+  const handleRetryTurn = useCallback(() => {
+    if (busyRef.current) return;
+    const all = turnsRef.current;
+    const last = all[all.length - 1];
+    if (!last || !last.errorMessage) return;
+    const payload = lastSubmitRef.current;
+    if (payload && payload.text === last.userText) {
+      void handleSubmit(payload.text, payload.attachments, payload.references ?? []);
+    } else if (last.userText) {
+      void handleSubmit(last.userText, [], []);
+    }
+  }, [handleSubmit]);
 
   // "新对话" 按钮 — 懒新建语义: 不调 API, 不创建任何 DB 行,
   // 只把本地状态重置成 "空白会话准备态"。真创建发生在用户提交第一条 message 时。
@@ -487,8 +754,14 @@ export function useClawConversation() {
     setPendingTurns([]);
     setStopping(false);
     pendingSendRef.current = null;
+    pendingSendTurnIdRef.current = null;
+    clearAckWait();
+    clearStopFallback();
+    firedAckRef.current = null;
+    deliveredTurnIdRef.current = null;
+    seededMidRef.current = false;
     socket.clearMessages();
-  }, [socket]);
+  }, [socket, clearAckWait, clearStopFallback]);
 
   // 用户点已有会话 → 切换 activeSessionId, 让下游 hook 重 key + WS 重连。
   const handleActivateSession = useCallback((sid: string) => {
@@ -496,8 +769,14 @@ export function useClawConversation() {
     setPendingTurns([]);
     setStopping(false);
     pendingSendRef.current = null;
+    pendingSendTurnIdRef.current = null;
+    clearAckWait();
+    clearStopFallback();
+    firedAckRef.current = null;
+    deliveredTurnIdRef.current = null;
+    seededMidRef.current = false;
     socket.clearMessages();
-  }, [socket]);
+  }, [socket, clearAckWait, clearStopFallback]);
 
   // 一键重发「未发送」消息(命中额度被拦的那条): 清持久化 + 移除 blocked 轮 → 走正常发送。
   // 若额度仍未解(没开会员/没重置), 会再次被拦成 blocked(行为一致, 不会卡死)。
@@ -521,10 +800,10 @@ export function useClawConversation() {
   //
   // refetchOnMount:'always' 下, 重入页面时 history 走后台 refetch (isLoading=false 但
   // isFetching=true), 此时若还没 turns, 用 isFetching 一并兜住, 避免空态闪一下再冒出对话。
+  // 只有「确有 sessionId 且历史还没到」才算 loading。新对话(sessionId=null)不看会话列表是否加载完 ——
+  // 进入 /claw 立刻显示 hero/输入框,不等 sessions 列表(侧栏自己加载,主区不依赖它)。
   const loading =
-    (sessionsQuery.isLoading ||
-      (!!sessionId && (historyQuery.isLoading || historyQuery.isFetching))) &&
-    turns.length === 0;
+    !!sessionId && (historyQuery.isLoading || historyQuery.isFetching) && turns.length === 0;
 
   // 历史读失败的错误态 —— 让页面显示「加载失败 + 重试」而非静默退化成空白 hero。
   // 背景: 后端读 agent 历史的往返超时只有 10s, 会话大 / agent 忙时超时 → 502;
@@ -564,6 +843,8 @@ export function useClawConversation() {
     hiddenCount,
     pendingCount: pendingTurns.length,
     busy,
+    stalled,
+    dismissStall,
     stopping,
     loading,
     historyError,
@@ -573,6 +854,7 @@ export function useClawConversation() {
     loadEarlier,
     handleSubmit,
     handleStop,
+    handleRetryTurn,
     handleNewConversation,
     handleActivateSession,
     adoptSession,

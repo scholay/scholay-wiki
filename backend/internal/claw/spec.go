@@ -146,6 +146,24 @@ func recordQuestion(uid *uint) {
 //     Scholay 平台、不知道有 Minicod MCP 可用。
 //   - AutoApprovePermission=true: Minicod MCP 全是只读检索, 自动批准让用户体验
 //     流畅; 后续如果允许 agent 写代码 / 改文件再调整。
+// clawAllowedMcpTools —— claw(智能助手)对 minicod MCP 的**正向白名单**(去 mcp__minicod__ 前缀原始名)。
+// claw 是全能助手,除论文检索外还做「期刊推荐 / 投稿建议」,故比 smart_search 多放期刊一套(搜索/补全/
+// 对比/真实投稿评价/投稿须知)。仍收敛掉 28 个 OpenAlex 实体、高校库、bulk/export/group 等重/冷工具,
+// 避免 minicod 0.4.1 的 76 工具灌满每轮(见 minicod 对齐审计 #2、#9)。
+var clawAllowedMcpTools = []string{
+	// 论文检索与解引用
+	"search_papers", "get_paper", "get_paper_by_doi", "get_paper_authors",
+	"get_paper_citations", "get_paper_references", "get_papers_batch",
+	"match_paper", "get_related_works", "group_works",
+	// 作者
+	"search_authors", "get_author", "get_author_papers",
+	// 期刊(推荐 / 投稿建议:搜索 + 补全 + 对比 + 真实投稿评价 + 投稿须知)
+	"search_journals", "get_journal", "suggest_journals", "compare_journals",
+	"get_journal_comments", "get_journal_submission_guideline",
+	// 片段接地 + 近邻推荐(topic-selection 用 group_works 看趋势、recommend_from_pool 由种子扩展)
+	"search_snippets", "recommend_paper", "recommend_from_pool",
+}
+
 func BuildSpec() agentbridge.FeatureSpec {
 	pre, onComplete := agentbridge.StandardHooks(agentbridge.StandardHooksConfig{
 		FeatureKey:     FeatureKey,
@@ -179,6 +197,12 @@ func BuildSpec() agentbridge.FeatureSpec {
 		// (claw 不裁工具,Bash 由 AllowBash 单独管),仅借 SessionOptions 挂 AddDirs。
 		SessionOptions: &agent.CreateSessionOptions{
 			AddDirs: []string{clawSkillAddDir()},
+			// MCP 正向白名单:收敛 minicod 76 工具到 claw 需要的论文/作者/期刊/片段子集(见 clawAllowedMcpTools)。
+			AllowedMcpTools: clawAllowedMcpTools,
+			// W2 P0-C 诚实性核验:claw 是 2026-07 审计的事故重灾区(编造 DOI 55 会话 / 幻影交付 17 会话),
+			// 先行开启;prism/peerreview 交付形态不同(项目文件 / 有界 JSON)会被误伤,保持默认 false,
+			// 观测 claw 两周数据后再评估。急停阀:agent env EXECUTOR_HONESTY_GUARD=off(免 rebuild)。
+			HonestyGuard: true,
 		},
 		// skill 市场:按 userID 现算该用户启用的市场 skill,内联下发给 executor 物化到 guides 按需层。
 		// tier-1 安全:内容只走 guides(不进常驻 system)、Bash 仍由 AllowBash 上方管、无出网工具。

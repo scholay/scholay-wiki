@@ -34,6 +34,7 @@
     <view wx:if="{{overview}}" class="asset-card">
       <view class="asset-head">
         <text class="tier tier-{{overview.tier}}">{{tierLabel}}</text>
+        <text wx:if="{{overview.cycle === 'yearly' && overview.tier !== 'free'}}" class="cycle-badge">年费</text>
         <text wx:if="{{overview.expires_at}}" class="expire">{{overview.expires_at}} 到期</text>
       </view>
       <view class="quota">

@@ -147,7 +147,19 @@ export function ExtraProviderDialog({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="pv-url">Base URL</Label>
-              <Input id="pv-url" value={form.base_url} onChange={(e) => setForm({ ...form, base_url: e.target.value })} required className="font-mono" placeholder="https://api.example.com/anthropic" />
+              <Input
+                id="pv-url"
+                value={form.base_url}
+                onChange={(e) => {
+                  const base_url = e.target.value;
+                  // Kimi(moonshot)/ 豆包(volces)思考模型要求工具轮回传 reasoning → 自动勾上(可手动改)。
+                  const autoRR = /moonshot|volces\.com/i.test(base_url);
+                  setForm({ ...form, base_url, reasoning_replay: autoRR ? true : form.reasoning_replay });
+                }}
+                required
+                className="font-mono"
+                placeholder="https://api.example.com/anthropic"
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="pv-key">API Key</Label>
@@ -175,7 +187,7 @@ export function ExtraProviderDialog({
               <div className="flex items-center justify-between gap-3 rounded-md border border-border-soft p-3">
                 <div>
                   <Label htmlFor="pv-rr" className="text-sm font-medium">工具轮回传 reasoning</Label>
-                  <p className="text-2xs text-faint mt-0.5">Kimi 系推理模型要求开;DeepSeek 回传会报错,勿开</p>
+                  <p className="text-2xs text-faint mt-0.5">Kimi / 豆包 思考模型要求开(填 moonshot/volces 端点已自动勾);DeepSeek 回传会报错,勿开</p>
                 </div>
                 <Switch id="pv-rr" checked={form.reasoning_replay} onCheckedChange={(v) => setForm({ ...form, reasoning_replay: v })} />
               </div>

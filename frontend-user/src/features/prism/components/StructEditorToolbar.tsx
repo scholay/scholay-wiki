@@ -10,7 +10,6 @@ import {
   Image as ImageIcon,
   Sigma,
   AtSign,
-  MessageSquareText,
 } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 
@@ -61,14 +60,11 @@ export function StructEditorToolbar({
   onInsertImage,
   onInsertMath,
   onInsertCitation,
-  onReview,
 }: {
   editor: Editor | null;
   onInsertImage?: () => void;
   onInsertMath?: () => void;
   onInsertCitation?: () => void;
-  // 快通道评议(V3-4.5-1):把当前选区文字交给父层做只读点评(结果进 popover,不碰正文)。
-  onReview?: (selection: string) => void;
 }) {
   const st = useEditorState({
     editor,
@@ -128,22 +124,6 @@ export function StructEditorToolbar({
         <TB title="插入引用(从文献库)" onClick={onInsertCitation}>
           <AtSign className="size-3.5" />
         </TB>
-      )}
-      {onReview && (
-        <>
-          <Sep />
-          <TB
-            title={st?.hasSel ? 'AI 点评选中文字(解释/找漏洞/审稿人视角)' : '先选中一段文字,再 AI 点评'}
-            disabled={!st?.hasSel}
-            onClick={() => {
-              const { from, to } = editor.state.selection;
-              const sel = editor.state.doc.textBetween(from, to, ' ').trim();
-              if (sel) onReview(sel);
-            }}
-          >
-            <MessageSquareText className="size-3.5" />
-          </TB>
-        </>
       )}
     </div>
   );

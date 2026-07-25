@@ -9,7 +9,7 @@ export interface AdminUser {
   phone: string | null;
   avatar_url: string | null;
   bio: string | null;
-  role: 'user' | 'admin' | 'super_admin';
+  role: 'user' | 'operations' | 'admin' | 'super_admin';
   status: number; // 1 active / 0 inactive / 2 frozen
   frozen_at?: string | null;
   frozen_reason?: string;
@@ -84,6 +84,8 @@ export interface UserCreditBalance {
 // 对齐 backend vip.Overview(统一 token 额度 + 经费钱包),已不再按功能计次。
 export interface UserVipStatus {
   tier: 'free' | 'pro' | 'max';
+  /** 付费档在期时的计费周期(yearly=年费会员);免费/过期时后端省略(0079)。 */
+  cycle?: 'monthly' | 'yearly';
   expires_at: string | null;
   token: UserTokenStatus;
   credit: UserCreditBalance;
@@ -182,12 +184,16 @@ export function useUserVipStatus(id?: number) {
   });
 }
 
-/** 管理员直接授予/续期会员。 */
+/** 管理员直接授予/续期会员。cycle 可选(monthly|yearly):设置年费/月度标识;省略 = 不改动现值。 */
 export function useGrantVip() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { id: number; tier: string; days: number }) =>
-      http.post(`/admin/users/${vars.id}/vip`, { tier: vars.tier, days: vars.days }),
+    mutationFn: (vars: { id: number; tier: string; days: number; cycle?: 'monthly' | 'yearly' }) =>
+      http.post(`/admin/users/${vars.id}/vip`, {
+        tier: vars.tier,
+        days: vars.days,
+        ...(vars.cycle ? { cycle: vars.cycle } : {}),
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'users'] }),
   });
 }

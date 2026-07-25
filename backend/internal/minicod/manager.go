@@ -89,6 +89,37 @@ func isRetryableError(err error) bool {
 		strings.Contains(errStr, "Unauthorized")
 }
 
+// IsClientSideError 判断错误是否为「客户端侧、上游本身健康」的结果:
+// 404 未找到 / 400 参数错误 / 401·403 鉴权 / 调用方取消 —— 重试也不会变,上游没有降级。
+//
+// 两个用途:
+//  1. 熔断器:这类错误**不该计入失败**。否则一串「查无此人」(如 SEO 回填遍历不存在的
+//     作者 ID)会把与用户搜索/详情共享的 MinicodBreaker 顶开、误伤健康请求(线上事故根因)。
+//  2. 上层(seoenrich):可据此把条目「退休」而非无限重试(404 的作者重试也永远 404)。
+//
+// 暂时性错误(5xx / 429 / 网络 / 超时 / 熔断 open)返回 false —— 那些才值得熔断保护、值得重试。
+func IsClientSideError(err error) bool {
+	if err == nil {
+		return false
+	}
+	// HTTP 层 typed error:直接复用 upstream 的可重试判定(不可重试 = 404/400/鉴权/取消)。
+	var ue *upstream.Error
+	if errors.As(err, &ue) {
+		return !ue.Retryable()
+	}
+	// 业务 envelope(HTTP 200 但 code != 0)的客户端侧码。
+	var se *APIStatusError
+	if errors.As(err, &se) {
+		switch se.Code {
+		case 40401, 40400, 404, // not found
+			40001, 400, // bad request
+			40101, 401, 40301, 403: // auth
+			return true
+		}
+	}
+	return false
+}
+
 // executeWithRetry executes an operation with retry logic and key rotation
 func (m *Manager) executeWithRetry(operation func(client *Client) (any, error)) (any, error) {
 	var lastErr error
@@ -168,11 +199,23 @@ func fetchSrc[T any](m *Manager, source string, call func(c *Client) (T, error))
 
 func fetchVia[T any](m *Manager, breaker *gobreaker.CircuitBreaker, call func(c *Client) (T, error)) (T, error) {
 	var zero T
+	// clientErr:上游返回的「客户端侧」错误(404/400/鉴权)。上游是健康的,不能计入熔断失败
+	// (否则一串「查无此人」把共享熔断器顶开、误伤健康搜索),故对熔断器记成功(closure 返回
+	// nil),但仍把原始错误透传给调用方。参见 IsClientSideError。
+	var clientErr error
 	result, err := breaker.Execute(func() (any, error) {
-		return m.executeWithRetry(func(client *Client) (any, error) {
+		out, e := m.executeWithRetry(func(client *Client) (any, error) {
 			return call(client)
 		})
+		if e != nil && IsClientSideError(e) {
+			clientErr = e
+			return out, nil // 对熔断器记成功
+		}
+		return out, e
 	})
+	if clientErr != nil {
+		return zero, clientErr
+	}
 	if err != nil {
 		if circuitbreaker.IsCircuitBreakerError(err) {
 			return zero, fmt.Errorf("minicod service temporarily unavailable (circuit breaker open): %w", err)

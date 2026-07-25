@@ -11,6 +11,9 @@
 // + skill 目录只读 + --die-with-parent + --new-session(防 TIOCSTI)+ no-new-privs + clearenv。
 // 跨租户文件遍历物理不可能(其它会话 cwd 根本不在 mount 命名空间里)。
 
+import { mkdtemp, rm, stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { egressEnv } from "./egress.ts";
 import { log } from "../obs/log.ts";
 import type { SandboxProfile } from "./profile.ts";
@@ -83,6 +86,19 @@ export function buildBwrapArgv(profile: SandboxProfile, inner: string[]): string
     "--ro-bind-try", "/bin", "/bin",
     "--ro-bind-try", "/lib", "/lib",
     "--ro-bind-try", "/lib64", "/lib64",
+    // ── 科研绘图 B/C 车道(matplotlib/rdkit)在 jail 内渲染所需的 OS 只读配置 ──
+    // 这三条都是「镜像装了依赖、但依赖在运行时还要读某个 /etc 路径,而 jail 没 bind → 失败」的坑;
+    // 裸 `docker exec python3` 看不到(不进 jail),只有 smokeTestSciDrawDeps 用真实 jail 才暴露。
+    // /etc/alternatives:Debian update-alternatives 软链枢纽。libblas.so.3/liblapack.so.3(numpy 依赖,
+    //   matplotlib/rdkit 都要 numpy)= /usr/lib/<arch>/libblas.so.3 → /etc/alternatives/... 两跳软链;
+    //   不 bind 这一跳 → jail 内软链悬空 → `import numpy` 直接 ImportError。pandoc/weasyprint 同理受益。
+    "--ro-bind-try", "/etc/alternatives", "/etc/alternatives",
+    // /etc/matplotlibrc:Debian 把 matplotlib 的真配置放这里(matplotlib_fname() 解析到它);不 bind →
+    //   `import matplotlib.pyplot` 抛 "Could not find matplotlibrc file; your install is broken"。
+    "--ro-bind-try", "/etc/matplotlibrc", "/etc/matplotlibrc",
+    // /etc/fonts:fontconfig 主配置(fonts.conf)。不 bind → "Fontconfig error: Cannot load default config
+    //   file",cairo/matplotlib 的字体解析退化,中文(Noto Sans CJK)可能渲成豆腐块。
+    "--ro-bind-try", "/etc/fonts", "/etc/fonts",
     "--ro-bind-try", "/etc/ssl", "/etc/ssl", // TLS CA(出网验证证书)
     "--ro-bind-try", "/etc/resolv.conf", "/etc/resolv.conf",
     "--bind", profile.cwd, "/work", // 唯一可写绑定 = 本会话 cwd
@@ -115,4 +131,81 @@ export function wrapBash(profile: SandboxProfile, command: string): string[] {
     return buildBwrapArgv(profile, inner);
   }
   return inner;
+}
+
+// smokeTestSciDrawDeps:启动后自检「科研绘图 B/C 车道」的 python 渲染依赖在**真实 jail 内**能否跑通。
+// 动机(2026-07-21 事故):镜像装了 matplotlib/numpy/rdkit + libblas3,裸 `docker exec python3` 全绿,
+// 但真实链路是 Bash→wrapBash→buildBwrapArgv 进 jail;jail 的 bind 集若漏了某运行库依赖(如
+// /etc/alternatives 中转的 libblas.so.3),`import numpy` 就 ImportError,两条车道全部产不出图 ——
+// 而裸 exec 自检完全看不到。故这里用与生产**同一套 buildBwrapArgv**造 jail 跑最小 savefig +
+// MolDraw2DSVG,把「装了却在 jail 内挂不了」这类缺陷在启动日志里大声暴露(非致命,不拖垮整个 agent)。
+// 只在 bwrap 自探成功(真会进 jail)时有意义;探不到则跳过。
+export async function smokeTestSciDrawDeps(): Promise<void> {
+  if (sandboxMode() !== "bwrap") return;
+  let dir = "";
+  try {
+    dir = await mkdtemp(join(tmpdir(), "sci-smoke-"));
+    const profile: SandboxProfile = { cwd: dir, net: "none", allowBash: true, roBinds: [] };
+    // numpy→matplotlib(B 车道)+ rdkit(C 车道):import + 最小渲染,断言产出非空。
+    const code =
+      "import numpy, matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt; " +
+      "f=plt.figure(); f.savefig('smoke.svg'); " +
+      "from rdkit import Chem; from rdkit.Chem.Draw import rdMolDraw2D; " +
+      "m=Chem.MolFromSmiles('CCO'); d=rdMolDraw2D.MolDraw2DSVG(80,80); " +
+      "rdMolDraw2D.PrepareAndDrawMolecule(d,m); d.FinishDrawing(); " +
+      "assert d.GetDrawingText().strip(); print('SCI_SMOKE_OK')";
+    const argv = buildBwrapArgv(profile, ["python3", "-c", code]);
+    const proc = Bun.spawn(argv, { stdout: "pipe", stderr: "pipe" });
+    const out = await new Response(proc.stdout).text();
+    const exit = await proc.exited;
+    if (exit === 0 && out.includes("SCI_SMOKE_OK")) {
+      log.info("科研绘图 B/C 车道自检通过(matplotlib + rdkit 在真实 bwrap jail 内可渲染)");
+    } else {
+      const err = await new Response(proc.stderr).text();
+      log.error(
+        "科研绘图 B/C 车道自检失败 —— matplotlib/rdkit 在 bwrap jail 内跑不通(数据图/分子图将产不出)。" +
+          "多半是某运行库未 bind 进 jail(如 /etc/alternatives→libblas.so.3);见 buildBwrapArgv 的 ro-bind 集。",
+        { exit, stderr: err.trim().slice(0, 300) },
+      );
+    }
+  } catch (e) {
+    log.error("科研绘图 B/C 车道自检异常", { err: String((e as Error)?.message ?? e) });
+  } finally {
+    if (dir) await rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+// smokeTestExport:启动后自检 ExportDocument 链路(pandoc → docx / pdf)在**真实 jail 内**能否产出。
+// 动机(2026-07 审计 P0-4):生产 bwrap 自探失败 → 导出 4/4 全挂、半月 0 个 docx/pdf,且只有真实
+// 会话踩到才暴露。与 smokeTestSciDrawDeps 同构:用生产同一套 buildBwrapArgv 造 jail,把「镜像装了、
+// jail 内跑不通」类缺陷在启动日志里大声暴露(非致命)。pdf 目标仅在 EXECUTOR_PDF_ENGINE 配置时测。
+export async function smokeTestExport(): Promise<void> {
+  if (sandboxMode() !== "bwrap") return;
+  let dir = "";
+  try {
+    dir = await mkdtemp(join(tmpdir(), "export-smoke-"));
+    await Bun.write(join(dir, "s.md"), "# 冒烟测试\n\n中文段落与 formula $x^2$。\n\n- 列表项\n");
+    const profile: SandboxProfile = { cwd: dir, net: "none", allowBash: false, roBinds: [] };
+    const engine = (process.env.EXECUTOR_PDF_ENGINE || "").trim();
+    const targets: string[][] = [["docx"], ...(engine ? [["pdf", `--pdf-engine=${engine}`]] : [])];
+    for (const [fmt, ...extra] of targets) {
+      const argv = buildBwrapArgv(profile, ["pandoc", "/work/s.md", "-o", `/work/o.${fmt}`, ...extra]);
+      const proc = Bun.spawn(argv, { stdout: "ignore", stderr: "pipe" });
+      const exit = await proc.exited;
+      const st = exit === 0 ? await stat(join(dir, `o.${fmt}`)).catch(() => null) : null;
+      if (st && st.size > 0) {
+        log.info(`导出自检通过(${fmt} 在真实 bwrap jail 内可产出,${st.size} bytes)`);
+      } else {
+        const err = await new Response(proc.stderr).text();
+        log.error(`导出自检失败(${fmt})—— ExportDocument 生产将出不了该格式`, {
+          exit,
+          stderr: err.trim().slice(0, 300),
+        });
+      }
+    }
+  } catch (e) {
+    log.error("导出自检异常", { err: String((e as Error)?.message ?? e) });
+  } finally {
+    if (dir) await rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
 }

@@ -49,17 +49,26 @@ func validateBillingConfig(c *BillingConfig) error {
 func DefaultBillingConfig() *BillingConfig {
 	return &BillingConfig{
 		ID:                     1,
-		FreeDailyTokens:        200000,    // 旧日额度基准(P4 起判定不读,回滚兜底)
-		FreeWindowTokens:       1_400_000, // 7 天周期基准(=旧日额度×7,与迁移 0064 回填一致)
+		FreeDailyTokens:        200000, // 旧日额度基准(P4 起判定不读,回滚兜底)
+		// P5 成本制:单位=微元真实成本(显示 ÷1000=算力点)。Free 300000 微元 = ¥0.3 = 300 算力点。
+		FreeWindowTokens:       300_000, // Free 300 算力点 / 7 天
 		WindowDays:             7,
-		ProMultiplier:          5, // Pro = 5× Free
-		MaxMultiplier:          5, // Max = 5× Pro(= 25× Free)
+		ProMultiplier:          20, // Pro = 20× Free = 6000 算力点
+		MaxMultiplier:          5,  // Max = 5× Pro = 30000 算力点
 		ProPriceCents:          5900,
 		ProOriginalCents:       19900,
 		MaxPriceCents:          26900,
 		MaxOriginalCents:       99900,
 		ProGrantCredits:        600,
 		MaxGrantCredits:        3000,
+		// 年度订阅(0079 种子同口径):年价=月价×10(送 2 个月),划线=月划线×12,赠送=月赠×12。
+		ProYearPriceCents:    59000,
+		ProYearOriginalCents: 238800,
+		MaxYearPriceCents:    269000,
+		MaxYearOriginalCents: 1198800,
+		ProYearGrantCredits:  7200,
+		MaxYearGrantCredits:  36000,
+		SubscriptionYearDays: 365,
 		RechargeRate:           1,
 		MinRechargeCents:       1000,
 		ResetCostCredits:       60,
@@ -109,6 +118,19 @@ func (s *ConfigService) Update(in *BillingConfig) error {
 	if err := validateBillingConfig(in); err != nil {
 		return err
 	}
+	// 年度字段负数归一化为 0(=年付关闭):-1 是迁移 0079 的「未配置」哨兵,admin 若把负值
+	// 存回去,下次迁移重放会误判未配置而回填覆写;拦在写入口杜绝。
+	clampNeg := func(v *int) {
+		if *v < 0 {
+			*v = 0
+		}
+	}
+	clampNeg(&in.ProYearPriceCents)
+	clampNeg(&in.ProYearOriginalCents)
+	clampNeg(&in.MaxYearPriceCents)
+	clampNeg(&in.MaxYearOriginalCents)
+	clampNeg(&in.ProYearGrantCredits)
+	clampNeg(&in.MaxYearGrantCredits)
 	if err := s.repo.UpdateBillingConfig(in); err != nil {
 		return err
 	}

@@ -315,6 +315,23 @@ func permissionAllowed(toolName string, input json.RawMessage, sessionWorkDir st
 	if toolName == "TodayDate" {
 		return true
 	}
+	// AskUserQuestion (2026-07, 交互提问): agent 把「只有用户能拍板的决策」做成选项卡片让用户点选。
+	// input 仅 { questions: [...] }(问题/选项文本,无路径、不碰文件系统与网络),纯前端渲染 + 回一条
+	// 占位 tool_result,故对 feature 放行(否则命中下方 default: return false 被权限墙一律拒绝、DOA)。
+	// 供给面收敛在能力轴:server-side / 无人值守 feature(peerreview)与任务型模式(boltslides/scidraw)
+	// 及 smart_search/prism 已把本工具经 SessionOptions.DisallowedTools 注入 denyTools,在本函数顶部
+	// 命中 denylist 被直接拒 —— P0 仅 claw 放开。
+	if toolName == "AskUserQuestion" {
+		return true
+	}
+	// BuildDeck (2026-07, 制作PPT/boltslides): 把会话内预置的 bolt-slides 脚手架编译成单文件 HTML
+	// 落 ./out/。input 仅 { name? }(文件名 slug,无路径);工具内部把产物强制 confine 到 out/<name>.html,
+	// 无用户可控路径,故无需在此校验路径,直接放行(否则命中下面 default: return false 被权限墙拒、DOA,
+	// 同 ReadDocument/ExportDocument 当年漏加即失效)。工具自身对非演示稿工作区自守卫(缺脚手架即拒),
+	// 故对非 boltslides feature 放行也无害。
+	if toolName == "BuildDeck" {
+		return true
+	}
 	// ReadDocument/ExportDocument(2026-07-15):安全受限的文档抽取/导出工具(内部固定 argv 调
 	// pandoc/pdftotext,路径 confine 在会话 cwd)。二道防线仍校验 input 路径在会话目录内 —— 否则
 	// 命中下面 default: return false 被拒(评审确认:漏加这两个 case → 两工具在生产被权限墙一律
@@ -425,6 +442,12 @@ func foldUserAttachments(raw []byte) (rewritten []byte, newContent string, ok bo
 	if len(atts) == 0 {
 		return nil, "", false
 	}
+	// 服务端数量帽 (2026-07 文件上传调研): 前端 MAX_ATTACHMENTS=10 只是 UI 约束, 绕过前端
+	// 可塞任意长 attachments 数组把 @"path" 前缀灌爆。与前端同口径, 超出丢弃。
+	const maxWsAttachments = 10
+	if len(atts) > maxWsAttachments {
+		atts = atts[:maxWsAttachments]
+	}
 	var b strings.Builder
 	for _, a := range atts {
 		m, _ := a.(map[string]any)
@@ -525,13 +548,14 @@ func frameCarriesInjectionSurface(raw []byte) bool {
 	var probe struct {
 		AddDirs            json.RawMessage `json:"addDirs"`
 		DisallowedTools    json.RawMessage `json:"disallowedTools"`
+		AllowedMcpTools    json.RawMessage `json:"allowedMcpTools"`
 		AppendSystemPrompt json.RawMessage `json:"appendSystemPrompt"`
 		Skills             json.RawMessage `json:"skills"`
 	}
 	if err := json.Unmarshal(raw, &probe); err != nil {
 		return false
 	}
-	return len(probe.AddDirs) > 0 || len(probe.DisallowedTools) > 0 ||
+	return len(probe.AddDirs) > 0 || len(probe.DisallowedTools) > 0 || len(probe.AllowedMcpTools) > 0 ||
 		len(probe.AppendSystemPrompt) > 0 || len(probe.Skills) > 0
 }
 
@@ -559,7 +583,7 @@ func stripInjectionSurface(raw []byte) []byte {
 		return raw
 	}
 	changed := false
-	for _, k := range []string{"addDirs", "disallowedTools", "appendSystemPrompt", "skills"} {
+	for _, k := range []string{"addDirs", "disallowedTools", "allowedMcpTools", "appendSystemPrompt", "skills"} {
 		if _, ok := m[k]; ok {
 			delete(m, k)
 			changed = true
@@ -582,6 +606,11 @@ var agentErrorFriendly = map[string]string{
 	"upstream": "AI 服务连接中断,请重试。",
 	"internal": "服务处理出错,请稍后重试。",
 	"busy":     "系统正忙,请稍候再试。",
+	// W3 轮生命周期新 code(冻结契约 #2):agent 侧同名帧经本函数净化后保留友好中文;
+	// backend 合成帧(emptyTurnFrame/turnTimeoutFrame)不过本函数,文案在帧构造处已定稿。
+	"empty_turn":           "模型没有返回任何内容,本轮未完成,请重试。",
+	"turn_timeout":         "本轮处理时间过长已自动停止,已生成的内容保留在上方,请重试或换个问法。",
+	"model_protocol_error": "模型输出出现协议异常,本轮已终止,请重试或更换模型。",
 }
 
 // agentErrorFriendlyPassthrough —— 这些 code 的 message 执行器已友好化(中文、无内部标识),原样保留。
@@ -610,6 +639,14 @@ func sanitizeAgentErrorFrame(raw []byte) []byte {
 		m["message"] = friendly
 	} else {
 		m["message"] = "服务处理出错,请稍后重试。"
+	}
+	// 审查修复(协议 code 冲突):hub 自己的竞态拒绝帧 busyFrame()(sendSelf、不过本函数)也用
+	// code="busy",而前端把 code=busy 拦截成「回滚刚发的那轮」。执行器上行的 busy(round-cap /
+	// 并发槽满)是**终帧**语义 —— 若不换名,前端会把已流式出的整轮内容误回滚掉。改映射成
+	// "overloaded" 后:code=busy 全局唯一表示「hub 竞态拒绝、轮未消耗」,执行器过载帧按普通
+	// error 终帧进 messages 正常收口该轮。
+	if code == "busy" {
+		m["code"] = "overloaded"
 	}
 	out, err := json.Marshal(m)
 	if err != nil {
@@ -716,18 +753,21 @@ func recordOutOfBandTokens(rec llmusage.Recorder, userID *uint, feature, kind, s
 
 // extractMemoryUpdateFrame 解 agent→backend 的 memory_update 帧, 取出 agent 跑完抽取的原始模型输出。
 // backend 拿去 IngestMemory(parseUpdates + allow-list + 截断 + Upsert), 解析全在 backend(零 TS 漂移)。
-func extractMemoryUpdateFrame(raw []byte) (string, bool) {
+// 返回 (text, extractFailed, ok):extractFailed=true 表示 agent 侧抽取 LLM 失败(带 error 标记),
+// 供 hub 补后端告警(审计 P2-6:否则记忆静默冻结、后端零日志)。
+func extractMemoryUpdateFrame(raw []byte) (string, bool, bool) {
 	if len(raw) == 0 || raw[0] != '{' {
-		return "", false
+		return "", false, false
 	}
 	var probe struct {
-		Type string `json:"type"`
-		Text string `json:"text"`
+		Type  string `json:"type"`
+		Text  string `json:"text"`
+		Error bool   `json:"error"`
 	}
 	if err := json.Unmarshal(raw, &probe); err != nil || probe.Type != "memory_update" {
-		return "", false
+		return "", false, false
 	}
-	return probe.Text, true
+	return probe.Text, probe.Error, true
 }
 
 // extractTitleUpdateFrame 解 agent→backend 的 session_title_updated 帧, 取标题 + aiGenerated 标志。

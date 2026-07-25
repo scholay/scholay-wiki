@@ -70,8 +70,10 @@ type CodeRedemption struct {
 // TableName 指定表名。
 func (CodeRedemption) TableName() string { return "vip_code_redemptions" }
 
-// UserVIP 是 users 表上 VIP 相关的两列(单独查, 不动 user.User 模型, 解耦)。
+// UserVIP 是 users 表上 VIP 相关的三列(单独查, 不动 user.User 模型, 解耦)。
+// VIPCycle = 最近一次付费订阅的计费周期(monthly|yearly,0079),付费档在期时作「年费会员」标识。
 type UserVIP struct {
 	VIPTier      string     `gorm:"column:vip_tier"`
 	VIPExpiresAt *time.Time `gorm:"column:vip_expires_at"`
+	VIPCycle     string     `gorm:"column:vip_cycle"`
 }

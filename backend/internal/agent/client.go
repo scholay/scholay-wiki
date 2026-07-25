@@ -35,21 +35,28 @@ const (
 	roundTripTimeout = 10 * time.Second
 	// PushConfig 整体超时(覆盖 list → upsert → activate 的串行往返)。
 	pushOverallTimeout = 30 * time.Second
+	// PushSessionFile 专用超时:体量最大的合法推送是 50MB 审稿稿件(MinIO 流 → multipart →
+	// agent 落盘),共用 10s roundTripTimeout 在慢盘/高负载下会掐断大文件(2026-07 文件上传调研)。
+	pushFileTimeout = 120 * time.Second
 )
 
 // Client 封装到 scholar_agent /api/providers 的推送逻辑。
 type Client struct {
-	baseURL    string
-	authToken  string
-	httpClient *http.Client
+	baseURL        string
+	authToken      string
+	httpClient     *http.Client
+	httpClientLong *http.Client // 慢端点(export-pptx 等)专用,长超时 + 无响应头超时
+	pushClient     *http.Client // PushSessionFile 专用(大文件流式推送,120s)
 }
 
 // NewClient baseURL 形如 http://scholar_agent:3456;authToken 为空时不带 Authorization。
 func NewClient(baseURL, authToken string) *Client {
 	return &Client{
-		baseURL:    strings.TrimRight(baseURL, "/"),
-		authToken:  authToken,
-		httpClient: GetHTTPClient(roundTripTimeout),
+		baseURL:        strings.TrimRight(baseURL, "/"),
+		authToken:      authToken,
+		httpClient:     GetHTTPClient(roundTripTimeout),
+		httpClientLong: GetLongHTTPClient(6 * time.Minute),
+		pushClient:     GetHTTPClient(pushFileTimeout),
 	}
 }
 
@@ -128,6 +135,11 @@ type CreateSessionOptions struct {
 	// per-feature 工具策略: 该会话独有的 --disallowed-tools(如审稿评分会话关 Skill/Agent)。
 	// agent 侧落进 session-meta、resume 重读;缺省(nil)走 agent 全局 DEFAULT_DISALLOWED_TOOLS。
 	DisallowedTools []string `json:"disallowedTools,omitempty"`
+	// AllowedMcpTools: 该会话对 mcp__minicod__* 的**正向白名单**(去前缀的原始工具名,如 search_papers)。
+	// minicod MCP 0.4.1 暴露 76 个工具,不收敛会灌满每轮 tools[] 并全自动批准(见 minicod 对齐审计 #2)。
+	// executor featurePolicy 据此在「工具可见性」+「执行二道墙」两处过滤:非空 → 仅白名单内 MCP 可用;
+	// 缺省(nil)→ 不限制(向后兼容)。built-in 工具走 DisallowedTools,不受此字段影响。
+	AllowedMcpTools []string `json:"allowedMcpTools,omitempty"`
 	// per-feature skill 作用域: 该会话额外的 --add-dir 源(agent 加载 <dir>/.claude/skills)。
 	// 让不同入口装不同 skill —— peerreview 方法论会话传审稿人 skill 目录, claw 不传 → 看不到审稿人 skill。
 	AddDirs []string `json:"addDirs,omitempty"`
@@ -140,6 +152,19 @@ type CreateSessionOptions struct {
 	// <sid>.skills/guides/<Name>/SKILL.md(cwd 之外、只读)并 push 进 addDirs → loader 的 guides
 	// 菜单识别、模型按名 Skill() 加载。内容是**不可信用户内容**,只走 guides 按需层,绝不进常驻 system。
 	Skills []SessionSkill `json:"skills,omitempty"`
+	// TemplateKind: 会话建好后往可写 cwd 铺一份镜像预装脚手架(目前仅 "bolt-slides":制作PPT feature)。
+	// executor 把 /opt/<template> 的源码 cp 进 cwd、node_modules 软链到只读预装依赖,供 BuildDeck 构建。
+	// 缺省(空)= 不铺脚手架(其它 feature 行为不变)。
+	TemplateKind string `json:"templateKind,omitempty"`
+	// HonestyGuard: 诚实性核验 per-feature 旗标(W2 P0-C, 冻结契约 #5)。true → executor 在该会话
+	// 终轮跑宣称核验(DOI/交付/通读),不过则注入纠偏轮。默认 false(peerreview 的有界 JSON 报告 /
+	// prism 的项目文件交付路径会被误伤,须显式 opt-in);当前仅 claw spec 置 true。
+	// 全链路: spec.SessionOptions → CreateSession body / hub seed_history 帧 → executor session meta。
+	HonestyGuard bool `json:"honestyGuard,omitempty"`
+	// HonestyChecks: 核验维度按位开关(prism 预备件)。HonestyGuard=true 时生效, 缺省全开;
+	// 键: citations / delivery / fullread。prism 评估期可只开 citations(delivery 判据按 ./out/
+	// 会误伤其项目文件交付路径)。形态与 executor TurnInput.honestyChecks 对齐。
+	HonestyChecks map[string]bool `json:"honestyChecks,omitempty"`
 }
 
 // SessionSkill 一份要物化进会话的用户市场 skill。Name 已命名空间化(u<authorId>-<slug>,匹配
@@ -167,6 +192,9 @@ func (c *Client) CreateSession(ctx context.Context, opts *CreateSessionOptions) 
 		if len(opts.DisallowedTools) > 0 {
 			body["disallowedTools"] = opts.DisallowedTools
 		}
+		if len(opts.AllowedMcpTools) > 0 {
+			body["allowedMcpTools"] = opts.AllowedMcpTools
+		}
 		if len(opts.AddDirs) > 0 {
 			body["addDirs"] = opts.AddDirs
 		}
@@ -175,6 +203,15 @@ func (c *Client) CreateSession(ctx context.Context, opts *CreateSessionOptions) 
 		}
 		if len(opts.Skills) > 0 {
 			body["skills"] = opts.Skills
+		}
+		if opts.TemplateKind != "" {
+			body["templateKind"] = opts.TemplateKind
+		}
+		if opts.HonestyGuard {
+			body["honestyGuard"] = true
+		}
+		if len(opts.HonestyChecks) > 0 {
+			body["honestyChecks"] = opts.HonestyChecks
 		}
 	}
 	var out CreatedSession
@@ -225,7 +262,8 @@ func (c *Client) PushSessionFile(ctx context.Context, sessionID, filename string
 	if sessionID == "" {
 		return nil, errors.New("agent: empty sessionId")
 	}
-	ctx, cancel := context.WithTimeout(ctx, roundTripTimeout)
+	// 大文件推送专用超时(50MB 稿件 10s 会被掐断);client 级 Timeout 也须同口径(pushClient)。
+	ctx, cancel := context.WithTimeout(ctx, pushFileTimeout)
 	defer cancel()
 
 	pr, pw := io.Pipe()
@@ -258,7 +296,7 @@ func (c *Client) PushSessionFile(ctx context.Context, sessionID, filename string
 		req.Header.Set("Authorization", "Bearer "+c.authToken)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.pushClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -267,6 +305,10 @@ func (c *Client) PushSessionFile(ctx context.Context, sessionID, filename string
 	if resp.StatusCode >= 400 {
 		if resp.StatusCode == http.StatusNotFound {
 			return nil, ErrSessionNotFound
+		}
+		if resp.StatusCode == http.StatusRequestEntityTooLarge {
+			// agent 端会话配额帽(quota_exceeded):稳定错误,调用方译成用户文案,不当基础设施故障。
+			return nil, ErrSessionQuotaExceeded
 		}
 		return nil, &HTTPError{StatusCode: resp.StatusCode, Raw: truncate(string(raw), 200)}
 	}
@@ -457,6 +499,9 @@ func (c *Client) PutWorkspaceFile(ctx context.Context, sessionID, relPath string
 		if resp.StatusCode == 404 {
 			return ErrSessionNotFound
 		}
+		if resp.StatusCode == http.StatusRequestEntityTooLarge {
+			return ErrSessionQuotaExceeded
+		}
 		return &HTTPError{StatusCode: resp.StatusCode, Raw: truncate(string(raw), 200)}
 	}
 	return nil
@@ -480,6 +525,43 @@ func (c *Client) DeleteWorkspaceFile(ctx context.Context, sessionID, relPath str
 		return err
 	}
 	return nil
+}
+
+// ExportDeckPptxResult 是 POST /api/sessions/:id/export-pptx 的响应。
+type ExportDeckPptxResult struct {
+	OK     bool   `json:"ok"`
+	Slides int    `json:"slides"`
+	Path   string `json:"path"` // 相对会话 cwd,如 out/deck.pptx
+}
+
+// ExportDeckPptx 让 executor 把已构建的单文件 HTML deck(htmlPath,相对会话 cwd)导出成
+// format="pptx"(逐张截图图片版)或 "pdf"(逐张 print-to-pdf 矢量版)落 ./out/<name>.<fmt>。
+// 多张 chromium 渲染较慢,用较长超时(与 roundTripTimeout 无关)。
+func (c *Client) ExportDeckPptx(ctx context.Context, sessionID, htmlPath, name, format string) (*ExportDeckPptxResult, error) {
+	if c.baseURL == "" {
+		return nil, errors.New("agent: empty base url")
+	}
+	if sessionID == "" || htmlPath == "" {
+		return nil, errors.New("agent: empty sessionId or htmlPath")
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+	body := map[string]any{"htmlPath": htmlPath}
+	if name != "" {
+		body["name"] = name
+	}
+	if format != "" {
+		body["format"] = format
+	}
+	var out ExportDeckPptxResult
+	// 慢端点:走 httpClientLong(无响应头超时,client.Timeout=6min);executor 同步逐张截图秒到分钟级。
+	if err := c.doJSONWith(c.httpClientLong, ctx, http.MethodPost, "/api/sessions/"+sessionID+"/export-pptx", body, &out); err != nil {
+		if isNotFoundErr(err) {
+			return nil, ErrSessionNotFound
+		}
+		return nil, err
+	}
+	return &out, nil
 }
 
 // SessionSummary 是 agent GET /api/sessions 列表中的单行 (轻量, 不带 messages)。
@@ -906,6 +988,11 @@ func (c *Client) GetChatStatus(ctx context.Context, sessionID string) (*ChatStat
 // 然后重建一个新 session。
 var ErrSessionNotFound = errors.New("agent: session not found")
 
+// ErrSessionQuotaExceeded — agent 端会话 cwd 配额帽命中(413/quota_exceeded):
+// 单文件超 64MB、会话累计磁盘超 1GB 或文件数超 2000(EXECUTOR_* env 可调)。
+// 调用方应译成用户可读文案(如「会话文件配额已满」),不当基础设施故障脱敏。
+var ErrSessionQuotaExceeded = errors.New("agent: session file quota exceeded")
+
 // HTTPError 是 doJSON 把 agent 4xx/5xx 包成的 typed error。
 // 调用方用 errors.As(err, &agent.HTTPError{}) 或对 .StatusCode 做判断,
 // 比对错误 message 做 strings.Contains 健壮得多 (后端日志格式一变就误判)。
@@ -977,7 +1064,7 @@ func (c *Client) PushConfig(ctx context.Context, cfg *agentconfig.AgentConfig) e
 	ctx, cancel := context.WithTimeout(ctx, pushOverallTimeout)
 	defer cancel()
 
-	_, err := circuitbreaker.AgentBreaker.Execute(func() (any, error) {
+	_, err := circuitbreaker.AgentConfigPushBreaker.Execute(func() (any, error) {
 		return nil, c.pushConfigOnce(ctx, cfg)
 	})
 	if err != nil {
@@ -1001,7 +1088,7 @@ func (c *Client) PushExtraProvider(ctx context.Context, name, baseURL, apiKey, a
 	}
 	ctx, cancel := context.WithTimeout(ctx, pushOverallTimeout)
 	defer cancel()
-	_, err := circuitbreaker.AgentBreaker.Execute(func() (any, error) {
+	_, err := circuitbreaker.AgentConfigPushBreaker.Execute(func() (any, error) {
 		list, lerr := c.listProviders(ctx)
 		if lerr != nil {
 			return nil, fmt.Errorf("list providers: %w", lerr)
@@ -1113,6 +1200,11 @@ const maxAgentResponseBytes = 48 * 1024 * 1024
 
 // doJSON 是统一的 JSON 往返,把 agent 的 {error,message} 4xx/5xx 翻成 Go error。
 func (c *Client) doJSON(ctx context.Context, method, path string, in, out any) error {
+	return c.doJSONWith(c.httpClient, ctx, method, path, in, out)
+}
+
+// doJSONWith 与 doJSON 同,但用指定的 http.Client(慢端点走 httpClientLong)。
+func (c *Client) doJSONWith(client *http.Client, ctx context.Context, method, path string, in, out any) error {
 	var body io.Reader
 	if in != nil {
 		buf, err := json.Marshal(in)
@@ -1133,7 +1225,7 @@ func (c *Client) doJSON(ctx context.Context, method, path string, in, out any) e
 		req.Header.Set("Authorization", "Bearer "+c.authToken)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}

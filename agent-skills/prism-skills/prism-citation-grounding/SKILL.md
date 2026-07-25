@@ -4,7 +4,7 @@ description: 引用反幻觉硬约束 —— 绝不凭记忆编造 [@键]/BibTeX
 when_to_use: 需要引证某个说法、加/改参考文献、或润色含 [@键] 的正文时(始终生效)
 user-invocable: false
 disable-model-invocation: false
-allowed-tools: Read, Glob, Grep, Edit, Write, MultiEdit, mcp__minicod__search_papers
+allowed-tools: Read, Glob, Grep, Edit, Write, MultiEdit, mcp__minicod__search_papers, mcp__minicod__get_paper_by_doi, mcp__minicod__match_paper, mcp__minicod__search_snippets
 ---
 
 # 引用反幻觉(Prism · 常驻硬约束)
@@ -18,7 +18,11 @@ allowed-tools: Read, Glob, Grep, Edit, Write, MultiEdit, mcp__minicod__search_pa
 
 ## cite-then-write(先查后引)
 要引证某个 claim 时的顺序:
-1. 用 **minicod MCP**(`mcp__minicod__search_papers` 等 `mcp__minicod__*`)按主题/标题/作者检索真实论文;
+1. 用 **minicod MCP** 检索/定位真实论文——按手上的线索选最准的那个入口:
+   - **有 DOI**(如从参考文献字符串里拆出来的)→ `mcp__minicod__get_paper_by_doi` 直接精确定位那一篇;
+   - **有确切标题**(如要为某条参考文献字符串找真身)→ `mcp__minicod__match_paper`(传标题)精确解析成单篇,比模糊搜准;
+   - **只有主题/关键词** → `mcp__minicod__search_papers` 按主题/作者检索;
+   - **要给某一句 claim 配「有出处的原文片段」** → `mcp__minicod__search_snippets` 取可引用的原文段落,拿它落成真实引用、也便于核对措辞。
 2. 从返回结果拿**真实元数据**;
 3. 写成一条 BibTeX **追加进 `references.bib`**;
 4. 正文用 `[@键]` 引用(键 = 你在 `@article{键,...}` 里起的键)。

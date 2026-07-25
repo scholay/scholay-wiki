@@ -1,4 +1,4 @@
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Trash2, Sparkles } from 'lucide-react';
 import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/button';
 import { DataTable, type Column } from './DataTable';
@@ -30,6 +30,7 @@ export function ProviderSection({
   onDeleteModel,
   onEditProvider,
   onDeleteProvider,
+  onApplyPreset,
 }: {
   header: ProviderSectionHeader;
   models: AgentModel[];
@@ -39,13 +40,21 @@ export function ProviderSection({
   onDeleteModel: (m: AgentModel) => void;
   onEditProvider: () => void;
   onDeleteProvider?: () => void; // 默认端点不传 = 不渲染删除
+  onApplyPreset?: () => void; // 传入 = 渲染「应用官方预设」(DeepSeek 官方端点用,一键补全 flash/pro 参数)
 }) {
   const columns: Column<AgentModel>[] = [
     {
       header: '模型',
       cell: (r) => (
         <div className="flex flex-col">
-          <span className="font-bold text-foreground">{r.display_name || r.model_id}</span>
+          <span className="flex items-center gap-1.5">
+            <span className="font-bold text-foreground">{r.display_name || r.model_id}</span>
+            {r.flagship && (
+              <Badge variant="outline" className="gap-0.5 border-brand-amber text-brand-amber">
+                <Sparkles className="size-2.5" />旗舰
+              </Badge>
+            )}
+          </span>
           <span className="text-2xs text-faint font-mono">{r.model_id}</span>
         </div>
       ),
@@ -62,19 +71,21 @@ export function ProviderSection({
     },
     {
       header: '价格 入/出(元/1M)',
-      width: 130,
+      width: 150,
       align: 'right',
       cell: (r) => (
         <span className="text-xs text-muted-foreground tabular-nums">
           {r.price_in} / {r.price_out}
+          {r.input_tier_threshold > 0 && (
+            <span
+              className="ml-1 text-2xs text-brand-amber"
+              title={`输入 >${Math.round(r.input_tier_threshold / 1000)}k 切高档价:${r.price_in_hi}/${r.price_out_hi}(成本自然翻档)`}
+            >
+              分档
+            </span>
+          )}
         </span>
       ),
-    },
-    {
-      header: '倍率',
-      width: 70,
-      align: 'right',
-      cell: (r) => <span className="text-xs tabular-nums font-medium text-foreground">×{r.billing_weight}</span>,
     },
     {
       header: '速度',
@@ -148,6 +159,12 @@ export function ProviderSection({
           <p className="text-2xs text-faint truncate font-mono mt-0.5">{header.baseUrl || '未配置'}</p>
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          {onApplyPreset && (
+            <Button variant="outline" size="sm" onClick={onApplyPreset} title="用 DeepSeek 官方文档参数补全 flash / pro(上下文/输出/四类单价)">
+              <Sparkles className="size-3.5" />
+              应用官方预设
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={onAddModel}>
             <Plus className="size-3.5" />
             添加模型

@@ -278,7 +278,7 @@ services:
       # executor 路由:P6 后所有 feature 都走 executor(fork 已删)。默认即指向 executor + 全 feature,
       # 与 AGENT_BASE_URL 同一 executor;开箱即用,无需手动 env。
       AGENT_EXECUTOR_BASE_URL: ${AGENT_EXECUTOR_BASE_URL:-http://scholar_agent:3456}
-      AGENT_EXECUTOR_FEATURES: ${AGENT_EXECUTOR_FEATURES:-smart_search,claw,prism,peerreview}
+      AGENT_EXECUTOR_FEATURES: ${AGENT_EXECUTOR_FEATURES:-smart_search,claw,prism,peerreview,boltslides}
       # P6 一次性归档(已执行完毕):仅在带 fork 的迁移那次部署设为 1。fork 已删,保持空。
       AGENT_ARCHIVE_FROM_FORK: ${AGENT_ARCHIVE_FROM_FORK:-}
       # P6 历史迁移:开机从老 fork jsonl(/fork-data,只读挂载)折叠归档老会话(幂等,迁完自动 no-op)。
@@ -298,6 +298,10 @@ services:
       PRISM_PERSONAS_DIR: ${PRISM_PERSONAS_DIR:-/app/prism-personas}
       # smart_search 会话经 --add-dir 加载检索策略 skill 的目录(agent 容器内 <此处>/.claude/skills)。
       SMART_SEARCH_SKILL_ADDDIR: ${SMART_SEARCH_SKILL_ADDDIR:-/smart-search-add}
+      # 制作PPT(boltslides)会话经 --add-dir 加载 bolt-slides skill 的目录(agent 容器内 <此处>/.claude/skills)。
+      BOLT_SLIDES_SKILL_ADDDIR: ${BOLT_SLIDES_SKILL_ADDDIR:-/bolt-slides-add}
+      # 科研绘图(sci_draw)会话经 --add-dir 加载绘图 skill 的目录(agent 容器内 <此处>/.claude/skills)。
+      SCI_DRAW_SKILL_ADDDIR: ${SCI_DRAW_SKILL_ADDDIR:-/sci-draw-add}
       # Prism 编译任务共享目录(与 scholar_prism_tex 同卷;后端写任务、watcher 编译回写)
       PRISM_WORK_DIR: ${PRISM_WORK_DIR:-/data/prism-work}
       # Go memory limit (75% of container memory limit)
@@ -369,6 +373,8 @@ services:
       # 与 docker-compose.prod.yml 一致:agent 的 minicod key 统一取 .env 的 AGENT_MINICOD_API_KEY。
       MINICOD_API_KEY: ${AGENT_MINICOD_API_KEY:-}
       MINICOD_API_BASE_URL: ${MINICOD_API_BASE_URL:-https://www.minicod.com/v1}
+      # ExportDocument 的 PDF 引擎(镜像已装 weasyprint;registry.ts 读此 env 启用 pdf 目标)。
+      EXECUTOR_PDF_ENGINE: weasyprint
       # 沙箱:none(本地/默认) | bwrap(仅生产真内核,P4b)。
       # 出网:egress 容器已合并 —— agent 直接经 egress-net(NAT)访问公网,不再走独立代理。
       # 数据面隔离仍在:agent 只在 scholar-agent-net(backend)+ egress-net(外网),**不**接 scholar-network
@@ -388,6 +394,10 @@ services:
       - ./agent-skills/reviewer-skills:/peerreview-add/.claude/skills:ro
       # smart_search 检索策略 skill(minicod-search-strategy):查询拆解 / 引文滚雪球 / 覆盖度自检。
       - ./agent-skills/smart-search-skills:/smart-search-add/.claude/skills:ro
+      # 制作PPT(boltslides)bolt-slides 演示稿创作 skill。
+      - ./agent-skills/bolt-slides-add:/bolt-slides-add/.claude/skills:ro
+      # 科研绘图(sci_draw)手写 SVG 绘图 skill。
+      - ./agent-skills/sci-draw-skills:/sci-draw-add/.claude/skills:ro
       # 时区跟随宿主(2026-07 补):oven/bun:1-slim 无 tzdata,TZ=":/etc/localtime" 此前指向
       # 不存在的文件 → 容器实际跑 UTC(北京时间每天 0:00-8:00 日期差一天,claw 跑 `date` 也是 UTC)。
       # JS 侧 src/tools/clock.ts 另有固定 +8 实现,不依赖此挂载;这里是给 Bash `date` / 日志对齐。
@@ -406,6 +416,14 @@ services:
       # CAP_SYS_ADMIN 之后,cap_drop=ALL 时 bwrap 建不了命名空间。本 profile = Docker 默认
       # + 仅放行 clone/unshare/setns/mount/umount2/pivot_root(不放 bpf/perf_event_open 等),
       - seccomp=./docker/seccomp/agent-bwrap.json
+      # AppArmor(2026-07-23 线上实测):Ubuntu 24.04 宿主上有**两层独立拦截**,seccomp 放行了也不够:
+      # ① docker-default profile 无 mount 规则 → jail 内 mount --make-slave / 被拒("Failed to make / slave");
+      # ② 宿主 sysctl apparmor_restrict_unprivileged_userns=1 把 unconfined 进程建 userns 转入
+      #    unprivileged_userns 桩 profile(拒 capability)→ uid map 失败。
+      # 两层同时解:本行摘 docker-default + 宿主跑 scripts/enable-bwrap-host.sh(sysctl=0),缺一 bwrap 起不来。
+      # 摘 AppArmor 后防线仍有:cap_drop ALL + no-new-privileges + 上面的自定义 seccomp + bwrap 内层 jail。
+      # macOS Docker Desktop 无 AppArmor,本行为 no-op(与生产对齐保留)。
+      - apparmor=unconfined
     networks:
       - scholar-agent-net # backend ↔ agent(internal,无 NAT)
       - egress-net        # agent → 公网(NAT;此网无数据面,故 agent 仍碰不到 mysql/redis)
@@ -524,8 +542,10 @@ services:
       schema-sync:
         condition: service_completed_successfully
     healthcheck:
-      # 注:Umami v3 没有 /api/heartbeat,/login 永远 200,作 readiness 探针够用
-      test: ["CMD-SHELL", "wget -q -O- http://localhost:3000/login >/dev/null 2>&1 || exit 1"]
+      # 注:Umami v3 没有 /api/heartbeat,/login 永远 200,作 readiness 探针够用。
+      # 必须用 127.0.0.1 而非 localhost:busybox wget 先解析到 ::1(IPv6),而 Next.js 只绑
+      # IPv4 0.0.0.0 → 恒 Connection refused → 容器被误标 unhealthy(线上/本机均躺了一周的假警报)。
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:3000/login >/dev/null 2>&1 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5

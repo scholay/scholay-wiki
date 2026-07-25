@@ -6,7 +6,7 @@ import {
   SidebarHeaderNav,
 } from '@/shared/components/sidebar';
 import { useSidebar } from '@/stores/sidebar.store';
-import { ClawSessionList } from './ClawSessionList';
+import { ClawSessionList, type ClawSessionListProps } from './ClawSessionList';
 
 /**
  * 智能助手 Sidebar — 复用 SidebarLayout 框架, 跟 SearchSidebar 同型。
@@ -23,12 +23,19 @@ export interface ClawSidebarProps {
   onActivate: (sessionId: string) => void;
   /** 删光全部会话时回退到"新对话空白态"用 (= ClawPage.handleNewConversation)。 */
   onNewConversation: () => void;
+  /** 会话 CRUD api / 段落 id / 空态文案(默认 claw;制作PPT 传 boltslides 一套)。 */
+  sessionApi?: ClawSessionListProps['api'];
+  sectionId?: string;
+  emptyHint?: string;
 }
 
 export function ClawSidebar({
   activeSessionId,
   onActivate,
   onNewConversation,
+  sessionApi,
+  sectionId,
+  emptyHint,
 }: ClawSidebarProps) {
   const toggleSidebar = useSidebar((s) => s.toggle);
 
@@ -40,6 +47,9 @@ export function ClawSidebar({
           activeSessionId={activeSessionId}
           onActivate={onActivate}
           onNewConversation={onNewConversation}
+          api={sessionApi}
+          sectionId={sectionId}
+          emptyHint={emptyHint}
         />
       </SidebarContent>
       <SidebarAuthFooter />

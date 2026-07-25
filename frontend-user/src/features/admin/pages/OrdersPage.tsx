@@ -84,11 +84,17 @@ export function OrdersPage() {
     },
     {
       header: '类型',
-      width: 70,
+      width: 96,
       cell: (r) => (
-        <Badge variant={r.order_type === 'subscription' ? 'default' : 'outline'}>
-          {ORDER_TYPE_LABEL[r.order_type] ?? r.order_type}
-        </Badge>
+        <span className="inline-flex items-center gap-1">
+          <Badge variant={r.order_type === 'subscription' ? 'default' : 'outline'}>
+            {ORDER_TYPE_LABEL[r.order_type] ?? r.order_type}
+          </Badge>
+          {/* 年度订阅单显式彰显(0079),不与月度混同;升级单是周期内补差(不冠周期,与通知/订单名口径一致),排除 */}
+          {r.order_type === 'subscription' && r.billing_cycle === 'yearly' && r.sub_action !== 'upgrade' && (
+            <span className="rounded-pill bg-brand-amber/10 px-1.5 py-0.5 text-2xs font-bold text-brand-amber">年度</span>
+          )}
+        </span>
       ),
     },
     {

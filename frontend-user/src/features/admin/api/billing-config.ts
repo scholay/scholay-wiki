@@ -16,6 +16,14 @@ export interface BillingConfig {
   max_original_cents: number;
   pro_grant_credits: number;
   max_grant_credits: number;
+  // ── 年度订阅(0079)。年价 <=0 = 该档年付未开放(前端隐藏年付入口)。
+  pro_year_price_cents: number;
+  pro_year_original_cents: number;
+  max_year_price_cents: number;
+  max_year_original_cents: number;
+  pro_year_grant_credits: number; // 年度赠送总额(履约按月分 12 批)
+  max_year_grant_credits: number;
+  subscription_year_days: number; // 年度时长(天,默认 365)
   recharge_rate: number;
   min_recharge_cents: number;
   reset_cost_credits: number;

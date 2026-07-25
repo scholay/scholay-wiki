@@ -8,7 +8,7 @@
 //  - 会话内 history 在内存(meta.messages);耐久真源在后端 journal。
 
 import type { ServerWebSocket } from "bun";
-import { runTurn, addUsage, type CallUsage } from "../turn/turnLoop.ts";
+import { runTurn, addUsage, effectiveOutputCap, type CallUsage } from "../turn/turnLoop.ts";
 import { getOrCreateEphemeral, setTitle, allowBashFor, materializeSessionSkills, sessionWsOpened, sessionWsClosed, markSessionActive } from "./sessions.ts";
 import { tryAcquireTurn } from "./admission.ts";
 import { buildUserContentWithImages } from "./attachments.ts";
@@ -42,6 +42,9 @@ export interface WSData {
   // 模型帧下发)。null = 未知 → 回落全局 EXECUTOR_CONTEXT_WINDOW。异构上下文模型(64k/200k)
   // 的 H5 滑窗裁剪据此按模型定界,否则小上下文模型先撞上游墙、大上下文模型被提前裁剪。
   contextWindow: number | null;
+  // set_runtime_config{maxInput}:当前会话模型的最大输入 token(目录 max_input,backend 随模型帧下发)。
+  // null = 未配置 → 压缩墙回落「上下文 − 输出预留」自动算。压缩墙的输入预算据此定,保证 输入+输出 ≤ 上下文。
+  maxInput: number | null;
   // set_runtime_config{maxOutput}:当前会话模型的最大完成 token 数(目录 max_output,backend 随
   // 模型帧下发)。null = 未知 → 回落全局 EXECUTOR_MAX_TOKENS;turnLoop 取二者较小值定 max_tokens,
   // 避免小完成窗模型(gpt-4o-mini 16384)被全局 64000 顶爆 400(2026-07-14 事故)。
@@ -110,6 +113,8 @@ export async function onMessage(ws: ServerWebSocket<WSData>, raw: string | Buffe
         // 从小窗模型切回未配置的模型会把旧值粘住(粘滞 bug)。
         ws.data.contextWindow =
           typeof frame.contextWindow === "number" && frame.contextWindow > 0 ? frame.contextWindow : null;
+        ws.data.maxInput =
+          typeof frame.maxInput === "number" && frame.maxInput > 0 ? frame.maxInput : null;
         ws.data.maxOutput =
           typeof frame.maxOutput === "number" && frame.maxOutput > 0 ? frame.maxOutput : null;
         ws.data.vision = frame.vision === true;
@@ -128,6 +133,20 @@ export async function onMessage(ws: ServerWebSocket<WSData>, raw: string | Buffe
       }
       const t = frame.tier as Tier | undefined;
       if (t && ["main", "haiku", "sonnet", "opus"].includes(t)) ws.data.tier = t;
+      // 切到更小窗口即压一次(不等下条消息):当前 history 超过新窗口 75% 时立即收敛 + 即时刷水位。
+      // 借 inFlight 当锁 —— 压缩期间并发 user_message 会被 busy 挡回,防并发改 meta.messages。
+      // 无进行中回合、且会话已有内容时才做;maybeReduceContext 内部按阈值判定,不到阈值(切大窗/未满)即 no-op。
+      if (!ws.data.inFlight) {
+        ws.data.inFlight = true;
+        try {
+          const meta = await getOrCreateEphemeral(ws.data.sessionId);
+          if (meta.messages.length > 0) await maybeReduceContext(ws, meta, { updateWater: true });
+        } catch (e) {
+          log.warn("switch-time compact failed", { session_id: ws.data.sessionId, err: String((e as Error)?.message ?? e) });
+        } finally {
+          ws.data.inFlight = false;
+        }
+      }
       return;
     }
     case "seed_history": {
@@ -164,6 +183,17 @@ export async function onMessage(ws: ServerWebSocket<WSData>, raw: string | Buffe
       if (Array.isArray(frame.disallowedTools) && frame.disallowedTools.length > 0 && meta.disallowedTools.length === 0) {
         meta.disallowedTools = (frame.disallowedTools as unknown[]).map(String);
       }
+      // MCP 白名单:重连/重启后 backend 经 seed_history 回填(与 disallowedTools 同策略,仅在本进程 meta
+      // 尚空时接受,不覆盖活会话)。缺省字段 → 保持不限制,行为不变。
+      if (frame.honestyGuard === true && !meta.honestyGuard) {
+        meta.honestyGuard = true; // seed_history 回填(存量会话 restart 后重灌)
+      }
+      if (frame.honestyChecks && typeof frame.honestyChecks === "object" && !meta.honestyChecks) {
+        meta.honestyChecks = frame.honestyChecks as { citations?: boolean; delivery?: boolean; fullread?: boolean };
+      }
+      if (Array.isArray(frame.allowedMcpTools) && frame.allowedMcpTools.length > 0 && meta.allowedMcpTools.length === 0) {
+        meta.allowedMcpTools = (frame.allowedMcpTools as unknown[]).map(String);
+      }
       safeSend(ws, { type: "history_seeded", count: meta.messages.length });
       return;
     }
@@ -185,7 +215,8 @@ export async function onMessage(ws: ServerWebSocket<WSData>, raw: string | Buffe
         })
         .catch((e) => {
           log.warn("extract_memory failed", { err: String((e as Error)?.message ?? e) });
-          safeSend(ws, { type: "memory_update", text: "" });
+          // 带 error 标记回后端:否则后端只见空 text→静默 no-op、零告警,记忆静默冻结无人知(审计 P2-6)。
+          safeSend(ws, { type: "memory_update", text: "", error: true });
         });
       return;
     }
@@ -195,6 +226,81 @@ export async function onMessage(ws: ServerWebSocket<WSData>, raw: string | Buffe
     default:
       return;
   }
+}
+
+// maybeReduceContext:近上限时分层降级会话上下文。两处调用:①handleUserMessage 每轮前;
+// ②set_runtime_config 切到更小窗口时立即压一次(不等下条消息)。返回是否发生过压缩。
+// updateWater=true(切模型即压场景,没有紧接的 LLM call 刷水位)→ 用压缩后估算近似 lastUsage,
+// 让水位环立即反映新占用(下一轮真实值会校正)。
+async function maybeReduceContext(
+  ws: ServerWebSocket<WSData>,
+  meta: Awaited<ReturnType<typeof getOrCreateEphemeral>>,
+  opts?: { updateWater?: boolean },
+): Promise<boolean> {
+  const ctxWindow = ws.data.contextWindow ?? CONTEXT_WINDOW;
+  // 压缩墙的**输入预算**:保证「输入 + 本轮实际输出 ≤ 上下文」不溢出(彻底修复小窗模型溢出)。
+  //   ① 预留输出 = min(全局 MAX_TOKENS, 模型 maxOutput);② 输入预算 = 上下文 − 预留输出;
+  //   ③ 若显式配了 maxInput,取更小者(尊重厂商最大输入,但不超过「上下文 − 输出预留」这条硬底线)。
+  // 之前用整个 ctxWindow 当墙、只靠 75% 的 25% 余量留输出 —— context<256K 时 25%<64K 会撑爆(靠反应式兜)。
+  const reservedOutput = effectiveOutputCap(ws.data.maxOutput);
+  let inputBudget = ctxWindow > 0 ? Math.max(1024, ctxWindow - reservedOutput) : ctxWindow;
+  if (ws.data.maxInput && ws.data.maxInput > 0) {
+    inputBudget = Math.min(inputBudget, ws.data.maxInput);
+  }
+  const lastCtx = meta.lastUsage ? meta.lastUsage.input_tokens + meta.lastUsage.output_tokens : 0;
+  const estCtx = Math.max(lastCtx, estimateTokens(meta.messages));
+  if (!(inputBudget > 0 && WINDOW_KEEP_TURNS > 0 && WINDOW_TRIGGER_PCT > 0 && estCtx > (inputBudget * WINDOW_TRIGGER_PCT) / 100)) {
+    return false;
+  }
+  const beforeTok = estimateTokens(meta.messages);
+  let compacted = false;
+  try {
+    const r = await reduceForWindow(meta.messages, inputBudget, {
+      keepTurns: WINDOW_KEEP_TURNS,
+      targetPct: WINDOW_TRIGGER_PCT,
+      cache: meta.compactCache,
+      currentTokens: estCtx, // 统一口径:用触发时的真实占用做内层入口闸,杜绝「触发了却空转返回」
+    });
+    if (r.actions.length > 0) {
+      meta.messages = r.messages;
+      meta.compactCache = r.cache;
+      compacted = true;
+      log.info("context reduced", {
+        session_id: meta.sessionId, ctx_window: ctxWindow,
+        before_tok: beforeTok, after_tok: estimateTokens(meta.messages), actions: r.actions.join(","),
+      });
+      if (r.usage) {
+        safeSend(ws, { type: "token_usage", usage: r.usage, kind: "context_compact" });
+      }
+      if (r.actions.some((a) => a.startsWith("compact"))) {
+        safeSend(ws, {
+          type: "system_notification",
+          kind: "context_compacted",
+          level: "info",
+          message: "为适配当前模型的上下文窗口,已将较早的对话压缩为摘要 —— 精确细节可能有损,需要完整上下文可开新对话。",
+        });
+      }
+    } else {
+      log.warn("context reduce no-op (triggered but nothing cut)", {
+        session_id: meta.sessionId, ctx_window: ctxWindow, input_budget: inputBudget,
+        est_ctx: estCtx, est_msgs: estimateTokens(meta.messages), target: Math.floor((inputBudget * WINDOW_TRIGGER_PCT) / 100),
+      });
+    }
+  } catch (e) {
+    meta.messages = windowMessages(meta.messages, WINDOW_KEEP_TURNS);
+    compacted = true;
+    log.warn("context reduce threw, hard-truncated", {
+      session_id: meta.sessionId, err: String((e as Error)?.message ?? e),
+    });
+  }
+  if (compacted && opts?.updateWater) {
+    meta.lastUsage = {
+      input_tokens: estimateTokens(meta.messages),
+      output_tokens: 0,
+      model: ws.data.modelOverride ?? meta.lastUsage?.model ?? "",
+    };
+  }
+  return compacted;
 }
 
 async function handleUserMessage(ws: ServerWebSocket<WSData>, frame: Record<string, unknown>): Promise<void> {
@@ -247,7 +353,21 @@ async function handleUserMessage(ws: ServerWebSocket<WSData>, frame: Record<stri
         // C1:补会话累计 session_total(Go accrueTurnUsage 需要它做水位去重 + 计费)。
         meta.cumUsage = addUsage(meta.cumUsage, turnUsage);
         (f as Record<string, unknown>).session_total = meta.cumUsage;
-        meta.lastUsage = { input_tokens: turnUsage.input_tokens, output_tokens: turnUsage.output_tokens, model: turnUsage.model };
+        // 水位口径(≠计费):lastUsage 记「本轮**最后一次** LLM call 的真实上下文占用」,而非 sumUsage 的
+        // 跨 call 求和(turnUsage)—— 一轮 N 次工具循环里每次 prompt 都含全部历史,求和 = 把同一段上下文重复
+        // 计 N 次,水位随之虚高到 100%。且必须计入 cache_read/cache_creation:命中前缀缓存的历史仍占满上下文
+        // 窗口(只是计价便宜),OpenAI 出口的 input_tokens 已被上游扣掉 cached,不补回来水位会反向塌成 0%。
+        // turnUsage 仍走 cumUsage/session_total 做计费,两路口径彻底分家。
+        const callsArr = ((f as Record<string, unknown>).calls ?? []) as Array<Record<string, unknown>>;
+        const lastCall = callsArr.length > 0 ? callsArr[callsArr.length - 1]! : (u as Record<string, unknown>);
+        meta.lastUsage = {
+          input_tokens:
+            Number(lastCall.input_tokens ?? 0) +
+            Number(lastCall.cache_read_tokens ?? 0) +
+            Number(lastCall.cache_creation_tokens ?? 0),
+          output_tokens: Number(lastCall.output_tokens ?? 0),
+          model: String(lastCall.model ?? turnUsage.model),
+        };
       }
       safeSend(ws, f);
     },
@@ -277,51 +397,10 @@ async function handleUserMessage(ws: ServerWebSocket<WSData>, frame: Record<stri
   // 把 user 消息加入会话内 history(runTurn 复制后再 append assistant/tool_result)
   meta.messages.push({ role: "user", content: userContent });
 
-  // 近上限时**分层降级**上下文,避免只增不减撞上游 context 墙(报笼统 upstream failed 卡死)。
-  // P0 触发修复:触发信号取 max(上一轮 usage, 当前 history 估算)—— 只信 lastUsage 时,重连 seed
-  // 大历史 / 首轮 lastUsage 为空 → 恒不触发,恰好漏掉「切小模型溢出」立项场景。estimateTokens 补上。
-  // 分层(reduceForWindow):① 裁老 tool_result(不动 LLM)② 滚动摘要 ③ 按 token 预算硬裁。摘要 memoize。
-  // 模型目录化 P2:上下文墙按会话模型定界(backend 随模型帧下发),未知回落全局 env。
-  const ctxWindow = ws.data.contextWindow ?? CONTEXT_WINDOW;
-  const lastCtx = meta.lastUsage ? meta.lastUsage.input_tokens + meta.lastUsage.output_tokens : 0;
-  const estCtx = Math.max(lastCtx, estimateTokens(meta.messages));
-  if (ctxWindow > 0 && WINDOW_KEEP_TURNS > 0 && WINDOW_TRIGGER_PCT > 0 && estCtx > (ctxWindow * WINDOW_TRIGGER_PCT) / 100) {
-    const beforeTok = estimateTokens(meta.messages);
-    try {
-      const r = await reduceForWindow(meta.messages, ctxWindow, {
-        keepTurns: WINDOW_KEEP_TURNS,
-        targetPct: WINDOW_TRIGGER_PCT,
-        cache: meta.compactCache,
-      });
-      if (r.actions.length > 0) {
-        meta.messages = r.messages;
-        meta.compactCache = r.cache;
-        log.info("context reduced", {
-          session_id: meta.sessionId, ctx_window: ctxWindow,
-          before_tok: beforeTok, after_tok: estimateTokens(meta.messages), actions: r.actions.join(","),
-        });
-        if (r.usage) {
-          // 摘要调用计费(便宜档;后端 recordOutOfBandTokens 按 kind=context_compact 归系统开销)。
-          safeSend(ws, { type: "token_usage", usage: r.usage, kind: "context_compact" });
-        }
-        // 透明层:发生过摘要压缩(非纯裁剪)时才提示用户(裁 tool_result 无损,不打扰)。
-        if (r.actions.some((a) => a.startsWith("compact"))) {
-          safeSend(ws, {
-            type: "system_notification",
-            kind: "context_compacted",
-            level: "info",
-            message: "为适配当前模型的上下文窗口,已将较早的对话压缩为摘要 —— 精确细节可能有损,需要完整上下文可开新对话。",
-          });
-        }
-      }
-    } catch (e) {
-      // reduceForWindow 内部已含兜底,走到这是意外异常 → 最后一道硬截断保命。
-      meta.messages = windowMessages(meta.messages, WINDOW_KEEP_TURNS);
-      log.warn("context reduce threw, hard-truncated", {
-        session_id: meta.sessionId, err: String((e as Error)?.message ?? e),
-      });
-    }
-  }
+  // 近上限时分层降级上下文(每轮前),避免只增不减撞上游 context 墙。详见 maybeReduceContext:
+  // ① 裁老 tool_result ② 滚动摘要 ③ 硬裁;触发信号 max(上一轮真实占用, 当前估算),按会话模型窗口定界。
+  const ctxWindow = ws.data.contextWindow ?? CONTEXT_WINDOW; // 供下方 TurnInput.contextWindow(反应式压缩用)
+  await maybeReduceContext(ws, meta);
 
   const input: TurnInput = {
     sessionId: meta.sessionId,
@@ -334,6 +413,9 @@ async function handleUserMessage(ws: ServerWebSocket<WSData>, frame: Record<stri
     contextWindow: ctxWindow,
     vision: ws.data.vision,
     disallowedTools: meta.disallowedTools,
+    allowedMcpTools: meta.allowedMcpTools,
+    honestyGuard: meta.honestyGuard,
+    honestyChecks: meta.honestyChecks,
     appendSystemPrompt: meta.appendSystemPrompt,
     addDirs: meta.addDirs,
     workDir: meta.workDir,

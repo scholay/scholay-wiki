@@ -33,6 +33,7 @@ export function AuthBootstrap() {
       username: data.username ?? undefined,
       avatar: data.avatar_url ?? undefined,
       role: data.role,
+      permissions: data.permissions,
     });
   }, [data, setUser]);
 

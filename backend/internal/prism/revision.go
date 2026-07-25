@@ -2,7 +2,7 @@
 // Prism 修改意见回应工作流(V4-③,R2)—— 「粘贴任何修改意见」→ 拆条 → 逐条改稿 → response letter。
 //
 //   · 入口宽容:审稿人 decision letter / 导师批注 / 合作者意见都收;reviewer 字段可空。
-//   · 拆条 = 一次廉价 LLM 调用(复用快通道 inlineReviewFn,ModelLow)→ 末尾 JSON → 落 DB 逐条;
+//   · 拆条 = 一次廉价 LLM 调用(cheapCompletionFn,agent 单次接口 · project.revision 绑定)→ 末尾 JSON → 落 DB 逐条;
 //     解析失败退化为「整段当一条」,永不 hard-fail。
 //   · 逐条执行 = 前端把该条构造成一条普通对话轮指令(一条 canonical 意见 = 一轮,V4 轮次纪律);
 //     apply 后前端 PATCH status=applied(wizard 铁律:本地 state + 下一步 PATCH)。
@@ -88,8 +88,8 @@ func (s *Service) ParseRevisionComments(ctx context.Context, proj *Project, text
 	ctx = llmusage.WithCall(ctx, llmusage.Call{Feature: llmusage.FeaturePrism, UserID: &uid})
 
 	var items []RevisionItem
-	if inlineReviewFn != nil {
-		if reply, err := inlineReviewFn(ctx, revisionParseSystem, text); err == nil {
+	if cheapCompletionFn != nil {
+		if reply, err := cheapCompletionFn(ctx, revisionParseSystem, text); err == nil {
 			if raw := extractLastFencedJSON(reply); raw != nil {
 				var p parsedRevision
 				if json.Unmarshal(raw, &p) == nil {

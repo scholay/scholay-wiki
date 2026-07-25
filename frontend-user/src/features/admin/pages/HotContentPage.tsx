@@ -9,6 +9,7 @@ import { DataTable, type Column } from '../components/DataTable';
 import { Pagination } from '../components/Pagination';
 import { useApiToast } from '../hooks/useApiToast';
 import { useConfirm } from '../hooks/useConfirm';
+import { useHasPermission, PERM } from '../permissions';
 import {
   useHotKeywords,
   useHotPapers,
@@ -136,6 +137,8 @@ export function HotContentPage() {
   const cleanup = useCleanupHotContent();
   const apiToast = useApiToast();
   const confirm = useConfirm();
+  // 清理策略配置 + 手动清理属系统维护(config.manage);运营(analytics.view)只读排行。
+  const canManage = useHasPermission(PERM.configManage);
 
   // 切换类型筛选 → 回第 1 页(防停在不存在的页码)。
   useEffect(() => {
@@ -202,10 +205,12 @@ export function HotContentPage() {
       title="热门内容"
       description={stats?.last_updated ? `最近更新:${stats.last_updated.slice(0, 16).replace('T', ' ')}` : '搜索热词 · 热门论文'}
       actions={
-        <Button size="sm" variant="outline" disabled={cleanup.isPending} onClick={handleCleanup}>
-          {cleanup.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
-          清理过期
-        </Button>
+        canManage ? (
+          <Button size="sm" variant="outline" disabled={cleanup.isPending} onClick={handleCleanup}>
+            {cleanup.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+            清理过期
+          </Button>
+        ) : undefined
       }
     >
       <section className="grid grid-cols-2 gap-4 mb-6">
@@ -221,7 +226,7 @@ export function HotContentPage() {
         />
       </section>
 
-      <CleanupConfigCard />
+      {canManage && <CleanupConfigCard />}
 
       <Tabs defaultValue="keywords">
         <TabsList>

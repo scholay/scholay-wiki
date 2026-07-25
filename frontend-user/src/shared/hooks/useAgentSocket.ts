@@ -58,7 +58,20 @@ export interface UseAgentSocket<TServer, TClient> {
   state: AgentWSState;
   /** 累积全部 server 事件;UI 自己扫描归并 */
   messages: TServer[];
-  send: (m: TClient) => void;
+  /**
+   * 发送一帧。返回是否**真的写出去了**:WS 不在 OPEN(含「close 事件已发生但 React state 还没
+   * 翻过来」的陈旧窗口)→ false。调用方据此决定是否乐观追加用户气泡 —— 旧版 void 静默丢弃是
+   * 「幽灵轮永久卡 busy」的成因之一。注意 true 只代表已写入本端 socket 缓冲,半死 TCP 下仍可能
+   * 未送达 —— 端到端确认靠 user_ack(见 userAck)。
+   */
+  send: (m: TClient) => boolean;
+  /**
+   * 本地合成一帧追加进 messages(先冲刷 rAF 缓冲保证顺序)。用于「终帧永久丢失」的对账收口:
+   * stop 兜底 / resync-idle 对账把一条永远等不到终帧的轮就地收口(fold 视 error/message_complete
+   * 为终帧)。⚠️ 只应在「确认不会再有该轮的真实终帧」时调用(连接死 / 服务端已确认 idle),
+   * 否则迟到的真实终帧会被 fold 的按位对齐错配到下一轮。
+   */
+  appendLocalFrame: (m: TServer) => void;
   /** 主动关闭,不再触发自动重连 */
   close: () => void;
   /** 重连尝试序号;0 = 首次或刚连上 */
@@ -95,6 +108,18 @@ export interface UseAgentSocket<TServer, TClient> {
    * isDefault=true 表示跟随 feature 默认绑定(用户未显式锁定)。null = 尚未收到(目录未配置/旧后端)。
    */
   sessionModel: { modelId: string; isDefault: boolean } | null;
+  /**
+   * 投递确认:backend hub 把 user_message 成功写入上游 agent 后回 user_ack(seq 单调自增)。
+   * 消费方据此撤销「未送达看门狗」;超时等不到 → 该条转「未发送·一键重发」(幽灵轮闭环)。
+   */
+  userAck: { clientTurnId: string; seq: number } | null;
+  /**
+   * 对账信号(单调计数):每次(重)建连,hub 在回放段末尾发 resync_end{inFlight};inFlight=false
+   * =「服务端当前无在途轮」的权威信号 → 自增一次。消费方若此刻本地还挂着未完成的 live 轮,
+   * 说明其终帧永远不会来了(断连期间轮已结束 / agent·backend 中途死过 / 消息未送达),据此收口:
+   * 幽灵轮转 blocked、可重发;有内容的中断轮用 appendLocalFrame 合成 error 终帧。
+   */
+  resyncIdle: number;
 }
 
 /** 弱网友好的指数退避:1s, 2s, 4s, 8s, 16s, 32s, 60s, 60s ... 上限 8 次 ≈ 3-4 分钟。 */
@@ -124,6 +149,11 @@ const AUTO_RECOVER_BASE_MS = 4000; // 基础重试间隔
 const AUTO_RECOVER_JITTER_MS = 2500; // 随机抖动上限(错开同时可见的两 tab)
 const AUTO_RECOVER_MAX_ATTEMPTS = 4; // 连续被踢上限 → 放弃自动恢复
 const AUTO_RECOVER_STABLE_MS = 15000; // 连上稳定保持这么久 → 清零计数
+// error 终态(8 次重连耗尽)的自愈重试间隔:此前 error 是无自愈死路 —— 一次发版/agent 长挂就把
+// 该 mount 永久锁死(composer 因 socket 非 open 恒禁用、页面又无重连入口),用户被迫刷新/开新对话。
+// 现在页面可见时每 ~20s 拉起一轮完整重连(内部自带指数退避),服务端恢复后自动接回。
+// 与 displaced 不同没有两端互抢的 livelock 风险,故不设次数上限。
+const ERROR_RECOVER_BASE_MS = 20000;
 
 export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
   opts: UseAgentSocketOptions,
@@ -145,6 +175,28 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
   const [busyRejected, setBusyRejected] = useState(0);
   // 会话当前生效模型(runtime_config_updated 帧驱动;换会话清空,重连由 hub 迟到补帧恢复)。
   const [sessionModel, setSessionModel] = useState<{ modelId: string; isDefault: boolean } | null>(null);
+  // 投递确认(user_ack 帧驱动;seq 单调,消费方据变化撤销未送达看门狗)。
+  const [userAck, setUserAck] = useState<{ clientTurnId: string; seq: number } | null>(null);
+  const ackSeqRef = useRef(0);
+  // 对账信号:resync_end{inFlight:false} 单调计数(不随重连归零,与 quotaExceeded 同款语义)。
+  const [resyncIdle, setResyncIdle] = useState(0);
+  // appendLocalFrame 需要 effect 闭包里的 flushNow(先冲刷 rAF 缓冲,保证与流帧顺序)→ ref 桥接。
+  const flushNowRef = useRef<(() => void) | null>(null);
+  // 本端出站 user_message 的 clientTurnId 有界记录(审查修复):hub 的 echoToOthers 按「订阅者指针」
+  // 排除发送者,发送者**重连后的新 socket** 是别的指针 → 自己的回声会被误投回来;若不识别丢弃,
+  // 消费方会把它当别端消息追加一条永无终帧的孤儿轮(busy 永久卡死,正是本次事故形态)。
+  // 命中自回声同时视作**隐式投递确认**(回声 = hub 已收到该消息),与 user_ack 同路上抛。
+  const sentTurnIdsRef = useRef<{ set: Set<string>; order: string[] }>({ set: new Set(), order: [] });
+  const rememberSentTurnId = (id: string) => {
+    const s = sentTurnIdsRef.current;
+    if (s.set.has(id)) return;
+    s.set.add(id);
+    s.order.push(id);
+    if (s.order.length > 50) {
+      const old = s.order.shift();
+      if (old) s.set.delete(old);
+    }
+  };
   const wsRef = useRef<WebSocket | null>(null);
   const cancelledRef = useRef(false);
   const reconnectTimerRef = useRef<number | null>(null);
@@ -200,6 +252,7 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
       }
       flushPending();
     };
+    flushNowRef.current = flushNow;
 
     const scheduleReconnectOrError = () => {
       if (cancelledRef.current) {
@@ -290,7 +343,8 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
           evt.type === 'resync_start' ||
           evt.type === 'resync_user' ||
           evt.type === 'resync_end' ||
-          evt.type === 'user_echo'
+          evt.type === 'user_echo' ||
+          evt.type === 'user_ack'
         ) {
           flushNow();
           if (evt.type === 'displaced') {
@@ -306,13 +360,30 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
             setMessages((prev) => truncateToLastComplete(prev));
           } else if (evt.type === 'resync_user') {
             setResyncUserText(asAgentResyncUserFrame(evt)?.content ?? '');
+          } else if (evt.type === 'resync_end') {
+            // 对账信号:hub 在每次(重)建连的回放段末尾下发;inFlight=false = 服务端当前无在途轮
+            // → 自增单调计数,消费方据此把「终帧永久丢失」的本地卡死轮当场收口(busy 卡死闭环)。
+            const f = evt as unknown as { inFlight?: boolean };
+            if (f.inFlight === false) setResyncIdle((n) => n + 1);
           } else if (evt.type === 'user_echo') {
             // 多端同步:别的端发的话 → 抛给消费方追加一条用户气泡(不进 messages,本端不渲染成 assistant)。
+            // 自回声过滤(审查修复):带着本端刚发过的 clientTurnId 的回声 = hub 把我们自己的消息
+            // 误投回来(重连后指针变了)→ 丢弃,不追加孤儿轮;同时它证明消息已送达 → 当隐式 ack 上抛。
+            const echoTurnId = (evt as unknown as { clientTurnId?: string }).clientTurnId;
+            if (echoTurnId && sentTurnIdsRef.current.set.has(echoTurnId)) {
+              ackSeqRef.current += 1;
+              setUserAck({ clientTurnId: echoTurnId, seq: ackSeqRef.current });
+              return;
+            }
             const text = asAgentUserEchoFrame(evt)?.content ?? '';
             peerSeqRef.current += 1;
             setPeerMessage({ seq: peerSeqRef.current, text });
+          } else if (evt.type === 'user_ack') {
+            // 投递确认:hub 已把 user_message 写入上游。seq 单调自增供消费方撤未送达看门狗。
+            const f = evt as unknown as { clientTurnId?: string };
+            ackSeqRef.current += 1;
+            setUserAck({ clientTurnId: f.clientTurnId ?? '', seq: ackSeqRef.current });
           }
-          // resync_end: 无操作
           return;
         }
         // 额度耗尽帧:agent 桥接以 error/quota_exceeded 下发 → 弹全局重置弹窗(不进 messages)。
@@ -331,15 +402,26 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
           setBusyRejected((n) => n + 1);
           return;
         }
-        // 上下文压缩通知(执行器滚动摘要压缩时下发):弹一条低调提示,不进 messages。
-        // 压缩是执行器内存态、不写 journal → 是「实时警告」性质,toast 是合适的通道。
-        if (evt.type === 'system_notification' && (evt as { kind?: string }).kind === 'context_compacted') {
+        // 系统通知帧(执行器实时警告性质,不进 messages、fold 不消费):按 kind 白名单展示。
+        //   - context_compacted:上下文滚动摘要压缩 → 低调提示;
+        //   - output_truncated(W3-5c,输出撞长度上限):warning 提示「内容可能不完整,可分段继续」;
+        //   - 未识别 kind:静默忽略(冻结契约;降级为无提示,不劣于现状)。
+        if (evt.type === 'system_notification') {
+          const kind = (evt as { kind?: string }).kind;
           const msg = (evt as { message?: string }).message;
-          if (msg) toast.message(msg, { duration: 6000 });
+          if (kind === 'context_compacted') {
+            if (msg) toast.message(msg, { duration: 6000 });
+          } else if (kind === 'output_truncated') {
+            if (msg) toast.warning(msg, { duration: 8000 });
+          }
           return;
         }
         // 一轮 AI 结束 → 用量已落账,广播刷新额度(触发过半/将尽阈值 toastr)。
         if (evt.type === 'message_complete') notifyBillingChanged();
+        // pong/connected 不进 messages(审查修复):fold 本就忽略它们,而它们污染 messages.length
+        // 会让消费方把「保活/握手」误当「本轮有真实进展」(未送达看门狗被 pong 误撤 → 幽灵轮失守)。
+        // 保活语义已由上面的 lastFrameAtRef 刷新承担。
+        if (evt.type === 'pong' || evt.type === 'connected') return;
         // 内容帧:入缓冲,下一动画帧合并 flush。
         pendingEvents.push(evt);
         scheduleFlush();
@@ -383,6 +465,7 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
     return () => {
       cancelledRef.current = true;
       reconnectNowRef.current = null;
+      flushNowRef.current = null;
       if (rafId !== null) {
         window.cancelAnimationFrame(rafId);
         rafId = null;
@@ -435,6 +518,29 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
       return clearStable;
     }
 
+    if (state === 'error') {
+      // 重连预算耗尽的终态自愈:可见 tab 周期性拉起重连(reconnectNow 归零 attempts → 完整一轮
+      // 指数退避)。后台 tab 不试,回到前台立刻补一次 —— 「合盖过夜再打开」秒级恢复。
+      clearStable();
+      const scheduleErr = () => {
+        clearRecover();
+        if (document.visibilityState !== 'visible') return;
+        recoverTimerRef.current = window.setTimeout(() => {
+          recoverTimerRef.current = null;
+          if (document.visibilityState === 'visible') reconnectNowRef.current?.();
+        }, ERROR_RECOVER_BASE_MS + Math.random() * AUTO_RECOVER_JITTER_MS);
+      };
+      const onVisibilityErr = () => {
+        if (document.visibilityState === 'visible') scheduleErr();
+      };
+      document.addEventListener('visibilitychange', onVisibilityErr);
+      scheduleErr();
+      return () => {
+        document.removeEventListener('visibilitychange', onVisibilityErr);
+        clearRecover();
+      };
+    }
+
     if (state !== 'displaced') {
       clearRecover();
       return;
@@ -477,7 +583,9 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
     displacedReason,
     send: (m) => {
       const ws = wsRef.current;
-      if (!ws || ws.readyState !== ws.OPEN) return;
+      // 返回 false = 没写出去(WS 不在 OPEN,含 React state 尚未翻转的陈旧窗口)。调用方据此
+      // 决定是否乐观追加用户气泡 —— 旧版 void 静默丢弃会留下永无终帧的幽灵轮(busy 永久卡死)。
+      if (!ws || ws.readyState !== ws.OPEN) return false;
       // P1(web-native 重构):给 user_message 帧附一个 clientTurnId 幂等键,让后端 turn 日志
       // 对「重发 / 双击」去重(后端缺失会自行 mint UUID,故这是增强而非必需)。
       const probe = m as { type?: string; clientTurnId?: string };
@@ -485,7 +593,17 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
         probe?.type === 'user_message' && !probe.clientTurnId
           ? { ...(m as object), clientTurnId: crypto.randomUUID() }
           : m;
+      // 记录出站 user_message 的 clientTurnId(有界)→ 自回声识别 + 隐式 ack(见 sentTurnIdsRef 注释)。
+      const finalId = (payload as { type?: string; clientTurnId?: string });
+      if (finalId?.type === 'user_message' && finalId.clientTurnId) rememberSentTurnId(finalId.clientTurnId);
       ws.send(JSON.stringify(payload));
+      return true;
+    },
+    appendLocalFrame: (m) => {
+      // 先冲刷 rAF 缓冲再追加,保证合成帧与真实流帧的相对顺序(实际调用场景连接已死/服务端已
+      // 确认 idle,缓冲几乎必空,这里是 belt-and-suspenders)。
+      flushNowRef.current?.();
+      setMessages((prev) => [...prev, m]);
     },
     close: () => {
       cancelledRef.current = true;
@@ -498,5 +616,7 @@ export function useAgentSocket<TServer extends AgentStreamMessage, TClient>(
     busyRejected,
     quotaExceeded,
     sessionModel,
+    userAck,
+    resyncIdle,
   };
 }

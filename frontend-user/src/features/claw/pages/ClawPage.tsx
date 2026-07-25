@@ -1,350 +1,360 @@
-import { useCallback, useEffect, useRef, useState, type Ref } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { History, Loader2, MessageSquarePlus, PanelRightOpen, Sparkles } from 'lucide-react';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { StickToBottom } from 'use-stick-to-bottom';
-import { Button } from '@/shared/ui/button';
-import { AgentDisplacedBanner } from '@/shared/components/AgentDisplacedBanner';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { FileBarChart, Layout, Loader2, PenTool, Presentation, Sparkles } from 'lucide-react';
+import { resolveAgentSessionQuery } from '@/shared/api/agent-sessions';
 import { ResourceError } from '@/shared/components/ResourceError';
-import { SidebarLayout } from '@/shared/components/sidebar';
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/shared/ui/resizable';
-import { Sheet, SheetContent } from '@/shared/ui/sheet';
-import { useAuthDialog } from '@/stores/auth-dialog.store';
-import { useRegisterSidebarRail } from '@/stores/sidebar.store';
-import { useHeightVar, useMediaQuery } from '@/shared/hooks';
-import { modelSupportsVision, useUserModels } from '@/shared/api/models';
-import { ModelSelector } from '@/shared/components/chat/ModelSelector';
-import { ChatComposer, type ChatComposerHandle } from '../components/chat/ChatComposer';
-import { getNewConversationModel, setNewConversationModel } from '../api/session';
-import { useUserSkillsByGuide } from '@/shared/api/skills';
-import { MessageTurn } from '../components/chat/MessageTurn';
+import { UnifiedSidebar } from '../components/sidebar/UnifiedSidebar';
 import { type ClawArtifact } from '../api/artifacts';
-import { ClawArtifactPreview } from '../components/preview/ClawArtifactPreview';
-import { ClawArtifactPanel } from '../components/preview/ClawArtifactPanel';
-import { ClawSidebar } from '../components/sidebar/ClawSidebar';
-import { ScrollController } from '../components/chat/ScrollController';
-import { ClawHero } from '../components/chat/ClawHero';
+import { clawHeroDefaults } from '../components/chat/ClawHero';
+import {
+  ConversationWorkspace,
+  type WorkspaceConfig,
+} from '../components/chat/ConversationWorkspace';
+import { TemplateCards, type TemplateFeature } from '../components/chat/TemplateCards';
+import { FEATURE_ICON } from '../lib/feature-meta';
 import { useClawConversation } from '../hooks/useClawConversation';
-
+import { getNewConversationModel, setNewConversationModel } from '../api/session';
+import { useBoltslidesConversation } from '../hooks/useBoltslidesConversation';
+import {
+  getBoltslidesNewConversationModel,
+  setBoltslidesNewConversationModel,
+  useExportBoltslidesDeck,
+  type DeckExportFormat,
+} from '../api/boltslides-session';
+import { useSciDrawConversation } from '../hooks/useSciDrawConversation';
+import {
+  getSciDrawNewConversationModel,
+  setSciDrawNewConversationModel,
+} from '../api/sci-draw-session';
 
 /**
- * 智能助手主页(桌面) —— standalone 路由 `/claw`。
+ * 智能助手主页(桌面) —— 路由 `/claw`。
  *
- * 会话状态机(多会话/懒新建/WS 流式/断线续流/渲染窗口)全部在
- * useClawConversation(与移动端 MobileClawPage 共用);本页只管桌面布局:
- * 侧边栏 + 顶栏 + 对话/预览可拖拽分栏 + composer。
+ * 「制作PPT」不再是与「对话」并列的顶部 tab,而是**统一对话里的一个可套用模板**:
+ *   - 默认就是普通聊天(claw / useClawConversation → /user/claw)
+ *   - 新对话空态下,composer 下方铺开「模板卡扑克牌扇」;选「制作PPT」→ 切到 boltslides 模板
+ *     (useBoltslidesConversation → /user/boltslides,产出单文件 HTML 演示稿),空态提供「换回对话」
+ *   - 会话历史两 feature **合并成一份**(UnifiedSidebar,PPT 会话带小图标),点某条 → 切到它所属 feature
+ *
+ * 每个 feature 是一个自包含 workspace(各调各的 hook,满足 hooks 规则),共享 ConversationWorkspace 布局。
+ *
+ * 【会话路由化 2026-07】真源改为 **URL**:
+ *   - `/claw`(无 sessionId)→ **永远是全新对话**(不再自动续接上次会话)。用哪个 feature 由内部态
+ *     `newFeature` 决定(默认 claw,模板卡可切),因新对话尚无 sessionId、URL 编不进 feature。
+ *   - `/claw/:sessionId` → 深链/刷新到某会话:先调 `resolveAgentSessionQuery` 反查它的 feature + 归属
+ *     (后端 /user/agent-session/resolve),**不属于我/不存在 → 302 回 /claw 新对话**(鉴权 + goal 4)。
+ *   - 点侧栏某会话 = `navigate('/claw/:sid')`;新对话/切模板 = `navigate('/claw')`。remount 由 workspace 的
+ *     React key 驱动(会话态 key=`feature:sid`,新对话态 key=`new:N`)。
+ *   - **懒新建回填**:新对话发首条消息落地真 sessionId 时,hook 回调 `onSessionCreated` → 页层
+ *     `navigate('/claw/:newId', {replace})`,但用 `ownRef` 识别这是「自己刚建的 id」→ **不 remount**
+ *     (否则打断正在流式的回答)。
  */
-export function ClawPage() {
-  const openAuth = useAuthDialog((s) => s.openDialog);
 
-  // 侧边栏收起态的冗余入口(顶栏 rail chip):点击 = 展开 sidebar + 对应 section 闪一下定位。
-  // (模型选择器已移到 composer,rail 只剩会话历史。)
-  useRegisterSidebarRail([
-    { id: 'claw-sessions', label: '会话历史', icon: History, sectionId: 'claw-sessions' },
-  ]);
+const CLAW_CFG: WorkspaceConfig = {
+  title: '智能助手',
+  titleIcon: Sparkles,
+  modelFeature: 'claw',
+  newConvModel: { get: getNewConversationModel, set: setNewConversationModel },
+  artifactBasePath: '/user/claw',
+  hero: clawHeroDefaults,
+  layoutKey: 'claw',
+  // 统一历史:两 feature 共用同一段 id(收起态 rail chip 定位到它)。
+  railSectionId: 'unified-sessions',
+  railLabel: '会话历史',
+};
 
-  const conv = useClawConversation();
-  const {
-    token,
-    activeSessionId,
-    sessionId,
-    historyHasMore,
-    contextQuery,
-    sessionArtifacts,
-    socket,
-    turns,
-    visibleTurns,
-    hiddenCount,
-    pendingCount,
-    busy,
-    stopping,
-    loading,
-    historyError,
-    historyErrorObj,
-    retryHistory,
-    composerDisabled,
-  } = conv;
+const PPT_CFG: WorkspaceConfig = {
+  title: '制作PPT',
+  titleIcon: Presentation,
+  modelFeature: 'boltslides',
+  newConvModel: { get: getBoltslidesNewConversationModel, set: setBoltslidesNewConversationModel },
+  artifactBasePath: '/user/boltslides',
+  hero: {
+    title: '制作PPT · 演示稿',
+    subtitle: '描述你的主题 / 品牌,我来生成一份可交互的网页演示稿(可预览、可下载)',
+    suggestions: [
+      { icon: Presentation, label: '做个 pitch deck', prompt: '帮我做一份 8-12 页的 pitch deck,主题是「一个用 AI 辅助文献综述的科研工具」' },
+      { icon: Layout, label: '课程讲义', prompt: '帮我做一份讲「Transformer 注意力机制」的教学演示稿,面向研究生,约 10 页' },
+      { icon: FileBarChart, label: '汇报稿', prompt: '帮我做一份季度进展汇报演示稿,含目标、进度、数据、下一步,风格简洁专业' },
+    ],
+  },
+  emptyArtifactsHint: '生成的演示稿会出现在这里',
+  autoOpenLatestArtifact: true, // deck 产出后自动打开右侧预览 + 生成中轮询产物(即时露出成果)
+  enableAttachments: false, // 制作PPT 纯文本描述主题;无上传/引用端点(见 boltslides skill)
+  composerPlaceholder: '描述你要做的演示稿(主题 / 品牌 / 受众 / 页数)· Enter 发送 / Shift+Enter 换行',
+  layoutKey: 'boltslides',
+  railSectionId: 'unified-sessions',
+  railLabel: '会话历史',
+};
 
-  // 成果文件:统一在右侧分栏展示(不再挂对话底部)。桌面(≥1024px)右侧分栏,窄屏走 Sheet 抽屉。
-  const [previewArtifact, setPreviewArtifact] = useState<ClawArtifact | null>(null);
-  const isNarrow = useMediaQuery('(max-width: 1024px)');
-  // 右侧成果栏「收起」开关(用户可手动收起,中间对话区随之占满)。切换会话时重置为展开,
-  // 让「本会话产出了文件 → 默认展示成果栏」可发现;收起是当前会话视图内的临时操作。
-  const [rightCollapsed, setRightCollapsed] = useState(false);
-  useEffect(() => { setRightCollapsed(false); }, [sessionId]);
-  const closePreview = useCallback(() => setPreviewArtifact(null), []);
-  const collapseRight = useCallback(() => { setRightCollapsed(true); setPreviewArtifact(null); }, []);
-  // 桌面:本会话一旦有产物(或点了预览)且未收起 → 出右侧成果栏;中间对话区保持居中、可拖拽分隔。
-  // 会话流里认领「本轮用了你的技能 X」用(guideName → 我启用的市场技能);引用稳定不破 MessageTurn memo。
-  const userSkillsByGuide = useUserSkillsByGuide();
-  const hasArtifacts = (sessionArtifacts?.length ?? 0) > 0 || !!previewArtifact;
-  const showRightPanel = !isNarrow && !rightCollapsed && hasArtifacts;
-  // 收起后若仍有产物 → 在对话区右缘留一个「展开成果」浮标,便于重新展开。
-  const showReexpandTab = !isNarrow && rightCollapsed && hasArtifacts;
+const SCI_DRAW_CFG: WorkspaceConfig = {
+  title: '科研绘图',
+  titleIcon: FEATURE_ICON.sci_draw, // 与模板卡 / 会话历史徽标同步(单一真源,换图标只改一处)
+  modelFeature: 'sci_draw',
+  newConvModel: { get: getSciDrawNewConversationModel, set: setSciDrawNewConversationModel },
+  artifactBasePath: '/user/sci_draw',
+  hero: {
+    title: '科研绘图 · 矢量图',
+    subtitle: '用一句话描述你要的图,我生成一张论文级原创矢量图,直接在对话里展示,可下载 SVG/PNG',
+    suggestions: [
+      { icon: PenTool, label: '实验流程图', prompt: '帮我画一张论文实验流程图:数据收集 → 预处理 → 模型训练 → 评估 → 结果分析,方框加箭头,风格简洁专业' },
+      { icon: Layout, label: '模型结构图', prompt: '帮我画一张 Transformer 编码器结构示意图:输入嵌入、多头注意力、前馈网络、残差与层归一化,标注清楚' },
+      { icon: Sparkles, label: '机制示意图', prompt: '帮我画一张信号通路示意图:受体 → 激活 → 级联反应 → 转录因子 → 基因表达,用节点和带箭头的连线' },
+    ],
+  },
+  figuresInline: true, // 图直接内联展示在对话流里,不走右侧文档扩展区、不出文件卡
+  enableAttachments: false, // P0 纯文本描述 → 生成矢量图;无上传/引用端点(见 sci-draw skill)
+  composerPlaceholder: '描述你要画的图(类型 / 要素 / 关系 / 风格)· Enter 发送 / Shift+Enter 换行',
+  layoutKey: 'sci_draw',
+  railSectionId: 'unified-sessions',
+  railLabel: '会话历史',
+};
 
-  // 量出"对话框可视区"像素高 → 写进 --chat-area-h, 供底部留白按比例计算 (见 StickToBottom.Content)。
-  const chatAreaRef = useHeightVar<HTMLDivElement>('chat-area-h');
+/** 页层注入 workspace 的公共 props。 */
+interface WorkspacePageProps {
+  /** 初始会话意图:null=空白新对话 | string=激活该会话(来自 URL /claw/:sessionId)。 */
+  seed: string | null;
+  /** 懒新建落地真 sessionId 时回调 → 页层回填 URL(/claw/:newId)。 */
+  onSessionCreated: (sessionId: string) => void;
+  /** 点侧栏某会话 → 导航到它的会话路由。 */
+  onSelectSession: (sessionId: string) => void;
+  /** 新对话(回到 /claw 空白态)。 */
+  onNewConversation: () => void;
+  /** 选模板卡切 feature(仍是新对话态)。 */
+  onPickTemplate: (feature: TemplateFeature) => void;
+}
 
-  // 发送新一轮后立刻滚到底: scrollToBottom 由 StickToBottom 内的 <ScrollController> 注入到这个 ref。
-  const scrollToBottomRef = useRef<(() => void) | null>(null);
-  const prevPendingLenRef = useRef(pendingCount);
-  useEffect(() => {
-    if (pendingCount > prevPendingLenRef.current) {
-      scrollToBottomRef.current?.();
-    }
-    prevPendingLenRef.current = pendingCount;
-  }, [pendingCount]);
-
-  const reduce = useReducedMotion();
-
-  // composer 在「空态 hero(居中)」与「对话中底部停靠」两处复用同一套 props。hero 传 ref 以支持
-  // 点示例提问 prefill;停靠位不需要 ref。两处各是一份实例 + 同一个 layoutId → 发首条消息时
-  // framer 把框从居中平滑滑到底部(切换发生在 submit 后,内部文本已清空,无内容丢失)。
-  // P2 模型目录:composer 左下角选择器(服务端权威;新对话时展示用户级偏好)。
-  const navigate = useNavigate();
-  const { data: userModels } = useUserModels('claw');
-  const [newConvPref, setNewConvPref] = useState<string | null>(() => getNewConversationModel() ?? null);
-  const selectorCurrent =
-    socket.sessionModel ?? (!sessionId && newConvPref ? { modelId: newConvPref, isDefault: false } : null);
-  const modelSlot =
-    userModels && userModels.length > 0 ? (
-      <ModelSelector
-        models={userModels}
-        current={selectorCurrent}
-        onUpgrade={() => navigate('/pricing')}
-        onSelect={(id) => {
-          if (sessionId) {
-            // 已有会话:发帧 → hub 校验落 pinned_model → runtime_config_updated 广播回来更新 UI。
-            socket.send({ type: 'set_runtime_config', providerId: null, modelId: id ?? '', useDefault: id === null });
-          } else {
-            // 新对话(未建会话):记用户级偏好,建会话后一次性下发(useClawConversation)。
-            setNewConversationModel(id);
-            setNewConvPref(id);
-          }
-        }}
-      />
-    ) : null;
-
-  // P2 图片通道:图片入口跟随当前会话模型的视觉能力(诚实 UI:模型看不见就不收)。
-  const acceptImages = modelSupportsVision(userModels, selectorCurrent);
-
-  const composerRef = useRef<ChatComposerHandle>(null);
-  const renderComposer = (ref?: Ref<ChatComposerHandle>) => (
-    <ChatComposer
-      ref={ref}
-      disabled={composerDisabled}
-      busy={busy}
-      stopping={stopping}
-      context={contextQuery.data}
-      onStop={conv.handleStop}
-      onSubmit={conv.handleSubmit}
-      sessionId={sessionId}
-      onSessionEnsured={conv.adoptSession}
-      modelSlot={modelSlot}
-      acceptImages={acceptImages}
-      onNewConversation={conv.handleNewConversation}
-      // 未登录:发送/上传 → 弹登录注册, 不真的发请求
-      requireAuth={!token}
-      onRequireAuth={() => openAuth('login')}
+function ClawModeWorkspace({ seed, onSessionCreated, onSelectSession, onNewConversation, onPickTemplate }: WorkspacePageProps) {
+  const conv = useClawConversation({ initialSessionId: seed, onSessionCreated });
+  const sidebar = (
+    <UnifiedSidebar
+      activeSessionId={conv.activeSessionId}
+      onSelect={(sid) => onSelectSession(sid)}
+      onNewConversation={onNewConversation}
     />
   );
-
+  const heroExtra = <TemplateCards activeFeature="claw" onPick={onPickTemplate} />;
   return (
-    <SidebarLayout
-      sidebar={
-        <ClawSidebar
-          activeSessionId={activeSessionId}
-          onActivate={conv.handleActivateSession}
-          // "新对话" 走 lazy 语义: 不创建后端 session, 只把本地切到空白态。
-          onNewConversation={conv.handleNewConversation}
-        />
-      }
-    >
-    <div className="flex h-full flex-col bg-background">
-      <header className="flex h-14 items-center gap-3 border-b border-border px-6">
-        <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-foreground">
-            <Sparkles className="h-3.5 w-3.5 text-background" />
-          </div>
-          <h1 className="text-base font-bold text-foreground">智能助手</h1>
-        </div>
-        {/* 连接状态徽章已移除:连接/重连过程对用户无意义,不展示(其余 feature 同)。 */}
-        {/* 上下文水位从 header 移到了输入框 footer (ChatComposer), 参考 Claude/Cursor 的位置。 */}
-        <div className="ml-auto flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 gap-1.5"
-            onClick={conv.handleNewConversation}
-            disabled={busy || sessionId === null}
-            title={sessionId === null ? '已是新对话准备态' : busy ? '等当前回答完成' : ''}
-          >
-            <MessageSquarePlus className="h-3.5 w-3.5" />
-            新对话
-          </Button>
-        </div>
-      </header>
-
-      {/* 多窗口接管 banner — 后端 displacement 路径下发 displaced 帧后出现。
-          点 "切回这里" → socket.takeOver() 重新建 WS 把活跃权抢回。 */}
-      {socket.state === 'displaced' && (
-        <AgentDisplacedBanner
-          reason={socket.displacedReason}
-          onTakeOver={socket.takeOver}
-          className="px-6"
-        />
-      )}
-
-      {/* 对话 | 预览 可拖拽分栏(桌面)。预览未开时只有左栏;窄屏走下方 Sheet 不分栏。
-          左栏给稳定 id/order,开关预览时不重挂 → StickToBottom 滚动位置不丢。 */}
-      <ResizablePanelGroup direction="horizontal" autoSaveId="claw-preview-h" className="flex min-h-0 flex-1">
-      <ResizablePanel id="claw-chat" order={1} minSize={36} className="min-w-0">
-      {/* hero(居中)与对话视图是两层叠层,互不挤压;对话框在两层各渲一份(hero 淡出 + 底栏就位)。 */}
-      <div className="relative h-full min-h-0">
-        {/* 成果栏已收起但仍有产物 → 右缘浮标(图标 + 数量),点开重新展开成果栏。 */}
-        {showReexpandTab && (
-          <button
-            type="button"
-            onClick={() => setRightCollapsed(false)}
-            title="展开成果栏"
-            aria-label="展开成果栏"
-            className="absolute right-0 top-1/2 z-30 flex -translate-y-1/2 flex-col items-center gap-1 rounded-l-md border border-r-0 border-border bg-surface-1 px-1.5 py-2.5 text-2xs text-muted-foreground shadow-sm transition-colors hover:bg-surface-2 hover:text-foreground"
-          >
-            <PanelRightOpen className="h-4 w-4 text-brand-green" />
-            {(sessionArtifacts?.length ?? 0) > 0 && <span className="font-semibold">{sessionArtifacts?.length}</span>}
-          </button>
-        )}
-        {/* 对话视图(底层)—— 仅有对话时渲染;输入框悬浮停靠在底部中央(参考智能搜索)。 */}
-        {turns.length > 0 && (
-          // 量高 div: useHeightVar 把"对话框可视区"像素高写进 --chat-area-h, 供留白按比例算。
-          <div ref={chatAreaRef} className="absolute inset-0">
-            <StickToBottom className="h-full" resize="smooth" initial="smooth">
-              {/* 底部留白 = 滚动内容的 padding-bottom(算进 scrollHeight,贴底时稳定露在视口底)。
-                  对话框现在"悬浮"在底部 → 留白要 ≥ 框高, 内容才不被它盖住:max(三成框高, 140px)。 */}
-              <StickToBottom.Content className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-6 pt-6 pb-[max(calc(var(--chat-area-h,100dvh)*0.3),140px)]">
-                {(hiddenCount > 0 || historyHasMore) && (
-                  <div className="flex justify-center">
-                    <button
-                      type="button"
-                      // 两段式: 先渲染已拉到但没进 DOM 的轮 (不发请求); 都渲染完还有更早的 → 向后端多要一页。
-                      onClick={conv.loadEarlier}
-                      className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-pill bg-surface-2 text-xs text-muted-foreground hover:text-foreground hover:bg-surface-2/70 transition-colors"
-                    >
-                      {hiddenCount > 0 ? `加载更早的 ${hiddenCount} 轮对话` : '加载更早的对话'}
-                    </button>
-                  </div>
-                )}
-                {visibleTurns.map((t) => (
-                  <MessageTurn
-                    key={t.id}
-                    turn={t}
-                    // 产物卡「就近」挂在每条回答正下方(桌面 + 窄屏一致)—— 帧驱动 turn.artifacts,
-                    // 传 DTO 列表按 path 关联拿下载 id/标题/预览。右侧 ClawArtifactPanel 降为「全部产物」汇总。
-                    artifacts={sessionArtifacts}
-                    sessionId={sessionId}
-                    userSkillsByGuide={userSkillsByGuide}
-                    onPreview={setPreviewArtifact}
-                    onResendBlocked={conv.resendBlocked}
-                    onDismissBlocked={conv.dismissBlocked}
-                  />
-                ))}
-              </StickToBottom.Content>
-              <ScrollController scrollRef={scrollToBottomRef} />
-            </StickToBottom>
-
-            {/* 底部渐隐:让悬浮对话框"浮"在对话之上,文字不顶到框边。 */}
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28 bg-gradient-to-t from-background via-background/85 to-transparent" />
-
-            {/* 悬浮 / 停靠的对话框 —— 普通 div(不用 framer layoutId)。
-                历史上用 hero↔底栏共用 layoutId 做「从居中滑到底部」的过渡,但那个共享 layout 动画会在
-                返回页面时用 scaleY morph 高度、过渡被路由打断即卡住 → 输入框被拉高(反复偶现变形)。
-                已彻底移除共享 layout:hero 淡出 + 底栏 composer 直接就位(交叉淡入),输入框永不变形。
-                外层 pointer-events-none 让框两侧空白不挡滚动,框本体 pointer-events-auto 可交互。 */}
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-6 pb-4">
-              <div className="pointer-events-auto mx-auto w-full max-w-2xl">
-                {renderComposer()}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 加载历史(覆盖层) */}
-        {loading && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Loader2 className="h-5 w-5 animate-spin text-faint" />
-          </div>
-        )}
-
-        {/* 历史加载失败(覆盖层)—— 后端读 agent 历史 10s 超时 / 5xx 会 502;
-            给「加载失败 + 重试」出口,而非把瞬时失败伪装成「没有对话内容」的空 hero。 */}
-        {!loading && turns.length === 0 && historyError && (
-          <div className="absolute inset-0 z-30 flex items-center justify-center p-6">
-            <ResourceError
-              error={historyErrorObj}
-              resourceName="对话"
-              onRetry={retryHistory}
-              onBack={conv.handleNewConversation}
-              backLabel="开始新对话"
-              autoRedirect={false}
-            />
-          </div>
-        )}
-
-        {/* 新对话 hero(顶层):发首条消息后整体淡出(图标 + 标题 + chip);底栏 composer 同时就位。 */}
-        <AnimatePresence initial={false}>
-          {!loading && turns.length === 0 && !historyError && (
-            <motion.div
-              key="claw-hero"
-              className="absolute inset-0 z-30 flex"
-              exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.985 }}
-              transition={{ duration: reduce ? 0 : 0.3, ease: 'easeOut' }}
-            >
-              <ClawHero
-                composer={
-                  <div className="w-full">
-                    {renderComposer(composerRef)}
-                  </div>
-                }
-                onPickSuggestion={(t) => composerRef.current?.prefill(t)}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-      </ResizablePanel>
-      {showRightPanel && (
-        <>
-          <ResizableHandle withHandle />
-          {/* 成果文件栏:有产物自动出现;中间对话区保持居中(max-w-3xl mx-auto),分隔可拖拽。
-              defaultSize 偏小,尽量少挤压对话列。 */}
-          <ResizablePanel id="claw-artifacts" order={2} defaultSize={34} minSize={24} className="min-w-0">
-            <ClawArtifactPanel
-              sessionId={sessionId ?? ''}
-              artifacts={sessionArtifacts ?? []}
-              previewArtifact={previewArtifact}
-              onPreview={setPreviewArtifact}
-              onClosePreview={closePreview}
-              onCollapse={collapseRight}
-            />
-          </ResizablePanel>
-        </>
-      )}
-      </ResizablePanelGroup>
-
-      {/* 窄屏(<1024px):预览走右侧 Sheet 抽屉,不挤压对话。 */}
-      <Sheet
-        open={!!previewArtifact && isNarrow}
-        onOpenChange={(o) => {
-          if (!o) closePreview();
-        }}
-      >
-        <SheetContent className="w-full p-0 sm:max-w-xl">
-          {previewArtifact && (
-            <ClawArtifactPreview artifact={previewArtifact} onClose={closePreview} hideHeaderClose />
-          )}
-        </SheetContent>
-      </Sheet>
-    </div>
-    </SidebarLayout>
+    <ConversationWorkspace
+      conv={conv}
+      cfg={CLAW_CFG}
+      sidebar={sidebar}
+      heroExtra={heroExtra}
+      onNewConversation={onNewConversation}
+    />
   );
+}
+
+function PptModeWorkspace({ seed, onSessionCreated, onSelectSession, onNewConversation, onPickTemplate }: WorkspacePageProps) {
+  const conv = useBoltslidesConversation({ initialSessionId: seed, onSessionCreated });
+  const exportDeck = useExportBoltslidesDeck();
+  const handleExportDeck = useCallback(
+    (a: ClawArtifact, format: DeckExportFormat) => {
+      if (!conv.sessionId) {
+        toast.error('请先生成演示稿');
+        return;
+      }
+      const label = format === 'pdf' ? 'PDF' : format === 'pptx-native' ? '可编辑 PPT' : '图片版 PPT';
+      exportDeck.mutate(
+        { sessionId: conv.sessionId, path: a.path, format },
+        {
+          onSuccess: (r) => {
+            const note =
+              format === 'pptx-native'
+                ? '(文字/表格/图表可编辑;复杂图为图片)'
+                : format === 'pptx'
+                  ? '(图片版·不可再编辑文字)'
+                  : '';
+            toast.success(`已导出并下载 ${r.slides} 页 ${label}${note} · 见浏览器下载目录`);
+          },
+          onError: (e) => toast.error(e.message || `导出 ${label} 失败,请稍后重试`),
+        },
+      );
+    },
+    [conv.sessionId, exportDeck],
+  );
+  // 正在导出的格式(给按钮显示 spinner + 互斥禁用);mutation 空闲时为 null。
+  const exportingFormat: DeckExportFormat | null = exportDeck.isPending
+    ? exportDeck.variables?.format ?? 'pptx'
+    : null;
+  const sidebar = (
+    <UnifiedSidebar
+      activeSessionId={conv.activeSessionId}
+      onSelect={(sid) => onSelectSession(sid)}
+      onNewConversation={onNewConversation}
+    />
+  );
+  const heroExtra = <TemplateCards activeFeature="boltslides" onPick={onPickTemplate} />;
+  return (
+    <ConversationWorkspace
+      conv={conv}
+      cfg={PPT_CFG}
+      sidebar={sidebar}
+      heroExtra={heroExtra}
+      onNewConversation={onNewConversation}
+      onExportArtifactDeck={handleExportDeck}
+      exportingFormat={exportingFormat}
+    />
+  );
+}
+
+function SciDrawModeWorkspace({ seed, onSessionCreated, onSelectSession, onNewConversation, onPickTemplate }: WorkspacePageProps) {
+  const conv = useSciDrawConversation({ initialSessionId: seed, onSessionCreated });
+  const sidebar = (
+    <UnifiedSidebar
+      activeSessionId={conv.activeSessionId}
+      onSelect={(sid) => onSelectSession(sid)}
+      onNewConversation={onNewConversation}
+    />
+  );
+  const heroExtra = <TemplateCards activeFeature="sci_draw" onPick={onPickTemplate} />;
+  return (
+    <ConversationWorkspace
+      conv={conv}
+      cfg={SCI_DRAW_CFG}
+      sidebar={sidebar}
+      heroExtra={heroExtra}
+      onNewConversation={onNewConversation}
+    />
+  );
+}
+
+/** 智能助手页只承载这三个 feature;resolve 出别的(smart_search/prism…)当不可见 → 回新对话。 */
+const PAGE_FEATURES: readonly TemplateFeature[] = ['claw', 'boltslides', 'sci_draw'];
+
+type Mode =
+  | { kind: 'new' } // 新对话:feature 由 newFeature 决定
+  | { kind: 'session'; feature: TemplateFeature; sessionId: string };
+
+export function ClawPage() {
+  const { sessionId: urlSessionId } = useParams<{ sessionId?: string }>();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  // 新对话(尚无 sessionId,URL 只能是 /claw)用哪个 feature —— 内部态,模板卡可切;默认 claw。
+  const [newFeature, setNewFeature] = useState<TemplateFeature>('claw');
+  const [newKey, setNewKey] = useState(0); // 新对话 workspace 的 remount 计数(切模板/点新对话都 +1)
+  // 已「落定」的挂载态(new / session)。深链首帧尚未解析出 feature → null(整页转圈)。切会话时**不**清成
+  // null —— 保留上一个 workspace(含侧栏)直到新会话解析完再原子切换,避免每次切会话整页闪 spinner。
+  const [mode, setMode] = useState<Mode | null>(() => (urlSessionId ? null : { kind: 'new' }));
+  const [resolveError, setResolveError] = useState<unknown>(null); // 解析失败(网络/5xx)→ 可重试
+  const [resolveNonce, setResolveNonce] = useState(0); // 重试:bump 一次重跑解析 effect
+
+  // 已挂载 workspace 拥有的 sessionId(null=新对话尚未落地)。用来把「首条消息落地新 id 后回填 URL」
+  // 的 echo 与「真正切到别的会话」区分开:echo 不该 remount(否则打断流式回答)。初值 null:即便深链
+  // 带 id,本次 mount 也还没「拥有」它 → 走解析挂载;只有本页自己 onSessionCreated 落地的才算拥有。
+  const ownRef = useRef<string | null>(null);
+
+  // URL sessionId 变化 → 决定挂什么。
+  useEffect(() => {
+    const target = urlSessionId ?? null;
+    // 已经拥有这个 id(首条消息落地后回填的 URL,或本就在看它)→ 不 remount、不重解析。
+    if (target !== null && target === ownRef.current) return;
+    if (target === null) {
+      ownRef.current = null;
+      setResolveError(null);
+      setMode((m) => (m && m.kind === 'new' ? m : { kind: 'new' }));
+      return;
+    }
+    // 深链/切会话:先解析 feature + 归属,再决定挂哪个 workspace。解析期间**保留** mode(旧 workspace),
+    // 仅深链首帧(mode 尚 null)才是整页 spinner。
+    let cancelled = false;
+    setResolveError(null);
+    queryClient
+      .fetchQuery(resolveAgentSessionQuery(target))
+      .then((res) => {
+        if (cancelled) return;
+        if (!res.owned || !PAGE_FEATURES.includes(res.feature as TemplateFeature)) {
+          // 不存在 / 不属于我 / 非本页 feature → 回新对话(URL 掉 id)。
+          ownRef.current = null;
+          navigate('/claw', { replace: true });
+          return;
+        }
+        ownRef.current = target;
+        setMode({ kind: 'session', feature: res.feature as TemplateFeature, sessionId: target });
+      })
+      .catch((err) => {
+        // 解析失败(网络/5xx,非 404 —— 后端 not-found/not-owned 走 200 owned:false 上面已处理):
+        // 不静默把用户踢出合法会话,给可重试错误态(与移动端 history 404 只跳、5xx 重试对齐)。
+        if (cancelled) return;
+        setResolveError(err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [urlSessionId, navigate, queryClient, resolveNonce]);
+
+  // 首条消息把会话落地成真 id → 回填 URL(replace、不 remount:ownRef 让 effect 认出这是自己建的 id)。
+  // 注:若 createSession 在途期间用户已切走,hook 侧 mountedRef 已丢弃这条回调,不会走到这里。
+  const handleSessionCreated = useCallback(
+    (id: string) => {
+      ownRef.current = id;
+      navigate(`/claw/${id}`, { replace: true });
+    },
+    [navigate],
+  );
+
+  // 点侧栏某会话 → 导航到它的会话路由(effect 解析 feature 后挂载)。
+  const selectSession = useCallback((sid: string) => navigate(`/claw/${sid}`), [navigate]);
+
+  // 新对话 / 切模板:回到 /claw 无 id 的新对话态;feature 由内部态决定(模板卡可切)。
+  const gotoNew = useCallback(
+    (feature: TemplateFeature) => {
+      setNewFeature(feature);
+      setNewKey((k) => k + 1); // 即使已在 /claw、URL 不变,也靠 newKey 变化强制 remount 出全新对话
+      ownRef.current = null;
+      setResolveError(null);
+      setMode({ kind: 'new' });
+      if (urlSessionId) navigate('/claw'); // 从某会话切回:掉 id(effect 命中已是 'new',幂等)
+    },
+    [navigate, urlSessionId],
+  );
+
+  const resetToDefault = useCallback(() => gotoNew('claw'), [gotoNew]);
+
+  // 解析失败(网络/5xx)→ 可重试错误态(不把用户从合法会话里踢出去、也不抹掉 /claw/:id URL)。
+  if (resolveError) {
+    return (
+      <div className="flex h-full items-center justify-center p-6">
+        <ResourceError
+          error={resolveError}
+          resourceName="对话"
+          onRetry={() => {
+            setResolveError(null);
+            setResolveNonce((n) => n + 1);
+          }}
+          onBack={resetToDefault}
+          backLabel="开始新对话"
+          autoRedirect={false}
+        />
+      </div>
+    );
+  }
+
+  // 深链首帧、尚无任何 workspace 可保留 → 整页转圈(切会话时 mode 非 null,不会走这里,侧栏不闪)。
+  if (!mode) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="size-5 animate-spin text-faint" />
+      </div>
+    );
+  }
+
+  const feature = mode.kind === 'session' ? mode.feature : newFeature;
+  const seed = mode.kind === 'session' ? mode.sessionId : null;
+  // 会话态 key=feature:sid(换会话就 remount);新对话态 key=new:N(切模板/点新对话就 remount)。
+  const key = mode.kind === 'session' ? `${mode.feature}:${mode.sessionId}` : `new:${newKey}`;
+
+  const pageProps: WorkspacePageProps = {
+    seed,
+    onSessionCreated: handleSessionCreated,
+    onSelectSession: selectSession,
+    onNewConversation: resetToDefault,
+    onPickTemplate: gotoNew,
+  };
+  if (feature === 'boltslides') return <PptModeWorkspace key={key} {...pageProps} />;
+  if (feature === 'sci_draw') return <SciDrawModeWorkspace key={key} {...pageProps} />;
+  return <ClawModeWorkspace key={key} {...pageProps} />;
 }

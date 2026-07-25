@@ -1,5 +1,6 @@
 import { BadgeCheck, ExternalLink } from 'lucide-react';
-import type { Author } from '@/shared/api/types';
+import type { Author, UpstreamSource } from '@/shared/api/types';
+import { sourceFullLabel } from '@/shared/lib/source';
 import { pickAvatarColor } from './pick-avatar-color';
 
 /**
@@ -28,8 +29,10 @@ export function AuthorHero({ author }: { author: Author }) {
         <div className="flex items-center gap-2 text-2xs font-bold uppercase tracking-[0.2em]">
           <span className="text-brand-green">学者档案</span>
           <span className="text-border-strong">·</span>
+          {/* 展示对外品牌名,绝不把内部 source code(stc/olx/pmd)或上游真名露给用户
+              —— 见 shared/lib/source.ts 的口径声明。 */}
           <span className="text-faint">
-            {(author.source ?? 'STC').toUpperCase()}
+            {sourceFullLabel((author.source as UpstreamSource | undefined) ?? 'stc')}
           </span>
         </div>
 

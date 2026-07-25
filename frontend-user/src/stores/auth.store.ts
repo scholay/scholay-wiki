@@ -15,12 +15,24 @@ export interface StoredUser {
   email: string;
   username?: string;
   avatar?: string;
-  role: 'user' | 'admin' | 'super_admin';
+  role: 'user' | 'operations' | 'admin' | 'super_admin';
+  /** 后端 /user/profile 下发的权限点(admin.PermissionsForRole)。后台菜单/按钮据此过滤;
+   *  可能尚未拉到(登录响应不含)→ 消费方按角色兜底(见 features/admin/permissions.ts)。 */
+  permissions?: string[];
 }
 
-/** 是否管理员(admin / super_admin 都算)。loader/sidebar/页面共用入口。 */
+/** 是否「完全管理员」(admin / super_admin;不含运营)。用于需要区分完整管理员的场景。 */
 export function isAdminRole(role?: StoredUser['role']): boolean {
   return role === 'admin' || role === 'super_admin';
+}
+
+/**
+ * 是否可以进入 /admin 后台外壳(完整管理员 **或** 运营)。
+ * 与后端 admin.CanAccessAdmin 对齐 —— adminGuard / 后台入口按钮共用此谓词。
+ * 具体每个菜单/按钮能不能用,由后端下发的 permissions 决定(见 features/admin/permissions.ts)。
+ */
+export function canAccessAdmin(role?: StoredUser['role']): boolean {
+  return isAdminRole(role) || role === 'operations';
 }
 
 /**

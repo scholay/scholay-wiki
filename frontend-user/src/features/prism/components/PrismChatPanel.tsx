@@ -9,7 +9,9 @@ import {
   ComposerAttachmentRow,
   ComposerPlusMenu,
   LibraryReferencePicker,
+  QuestionPrompt,
   ReferenceChipList,
+  findPendingQuestionBlock,
   type ComposerHandle,
   type ReferenceSelection,
 } from '@/shared/components/chat';
@@ -121,6 +123,9 @@ export function PrismChatPanel({
   // 不能发的情形:无文件 / 流式中 / 有待应用改动(先决定 应用/丢弃)/ WS 未连上。
   const blocked = !fileId || chat.streaming || chat.awaitingApply;
   const wsReady = chat.wsState === 'open';
+  // 交互提问(AskUserQuestion,方案 B):待作答问题浮到输入框上方由 QuestionPrompt 分步承接,答案经
+  // onSend 作为普通指令回传(与 claw/smart-search 同款)。答完新一轮开启 → 翻 null 面板消失。
+  const pendingQuestionBlock = findPendingQuestionBlock(chat.turns);
 
   const placeholder = !fileId
     ? '先选一个文件'
@@ -184,6 +189,16 @@ export function PrismChatPanel({
 
       {/* 输入框 —— 三 agent 统一 Composer(shared/components/chat;主流形态单一真源) */}
       <div className="shrink-0 p-3">
+        {pendingQuestionBlock && (
+          <QuestionPrompt
+            key={pendingQuestionBlock.toolUseId}
+            block={pendingQuestionBlock}
+            onSubmit={(t) => {
+              if (blocked || !wsReady) return;
+              onSend(t);
+            }}
+          />
+        )}
         <Composer
           ref={composerRef}
           onSend={(t) => {
@@ -279,6 +294,7 @@ export function PrismChatPanel({
               <ModelSelector
                 models={userModels}
                 current={chat.sessionModel}
+                currentTokens={chat.context?.totalTokens ?? 0}
                 onSelect={chat.setModel}
                 onUpgrade={() => { window.location.href = '/pricing'; }}
                 disabled={blocked}

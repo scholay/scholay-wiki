@@ -3,10 +3,13 @@
  * 深度替换成对外品牌名(Graph / Discovery / Medicine / Journal),用于工具调用详情的展示层。
  *
  * 背景:Minicod MCP 工具调用入参用 `source: "openalex"` 这类内部枚举,直接 JSON 展开给用户看
- * 会泄漏内部实现(对照 system prompt 的硬约束:对外只用三个品牌名)。这里只动**展示**,不影响
- * 真正发给工具的入参。
+ * 会泄漏上游真实数据源(对照 system prompt 的硬约束:对外只用三个品牌名)。这里只动**展示**,
+ * 不影响真正发给工具的入参。
  *
- * 注:映射表与 `features/search/.../dataSourceBrand.ts` 的 normalizeSourceBrand 一致;那个服务于
+ * ⚠️ 本文件是**遮蔽层**,方向只能是 内部 enum → 品牌名。2026-07 的「W6 真名化」曾把它反转成
+ * 输出真名(= 把遮罩改成了曝光器),已于 2026-07-24 回退。改这里前先确认商务约束。
+ *
+ * 注:映射表与 `shared/lib/data-source-brand.ts` 的 normalizeSourceBrand 一致;那个服务于
  * 论文卡 / chip 的品牌展示,本文件服务于通用 ToolCallBlock 的入参/结果折叠,层级不同(shared 不能
  * 反向 import feature),故各持一份稳定映射。
  */

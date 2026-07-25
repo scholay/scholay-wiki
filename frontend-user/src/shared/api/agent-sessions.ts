@@ -49,6 +49,35 @@ function unwrap<T>(raw: { data?: T } & Partial<T>): T {
   return (raw.data as T) ?? (raw as unknown as T);
 }
 
+/** feature 中立地把一个裸 sessionId 解析成 {owned, feature} —— 供 /claw/:sessionId 深链/刷新时
+ *  在页层定 feature(挂 claw/boltslides/sci_draw 哪个 workspace)+ 判归属(不属于我/不存在 → owned:false)。
+ *  mirrors backend cmd/server/routes_user.go GET /user/agent-session/resolve。 */
+export interface ResolveAgentSessionResult {
+  owned: boolean;
+  /** 归属时为 'claw' | 'boltslides' | 'sci_draw';否则 ''。后端已把智能助手页外的 feature 当不可见。 */
+  feature: string;
+}
+
+/** react-query options —— 页层用 `queryClient.fetchQuery(resolveAgentSessionQuery(id))` 命令式解析。
+ *  走 http 实例 + 缓存去重;60s staleTime(会话归属基本不变)。 */
+export function resolveAgentSessionQuery(sessionId: string) {
+  return {
+    queryKey: ['agent-session', 'resolve', sessionId] as const,
+    staleTime: 60 * 1000,
+    queryFn: async (): Promise<ResolveAgentSessionResult> => {
+      try {
+        const { data } = await http.get<
+          { data?: ResolveAgentSessionResult } & Partial<ResolveAgentSessionResult>
+        >('/user/agent-session/resolve', { params: { session_id: sessionId } });
+        const payload = unwrap<ResolveAgentSessionResult>(data);
+        return { owned: !!payload?.owned, feature: payload?.feature ?? '' };
+      } catch (err) {
+        throw toApiError(err);
+      }
+    },
+  };
+}
+
 export interface AgentSessionApiConfig {
   /** queryKey 根 + 失效前缀,如 'claw' / 'smart-search'。**必须**与该 feature 的 history/context queryKey 根一致,否则 create/delete/activate 的 [feature] 顶级失效刷不到历史。 */
   feature: string;

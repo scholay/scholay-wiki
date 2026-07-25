@@ -45,9 +45,9 @@ type DashboardStatistics struct {
 	PaidOrders    int64 `json:"paid_orders"`
 	PendingOrders int64 `json:"pending_orders"`
 
-	// AI 成本(llm_token_usage 总 token,含缓存口径见 llmusage)
-	TokensToday int64 `json:"tokens_today"`
-	Tokens30d   int64 `json:"tokens_30d"`
+	// AI 成本(P5 成本制:llm_token_usage.cost_micro_yuan 精算真实成本;单位=元)
+	CostTodayYuan float64 `json:"cost_today_yuan"`
+	Cost30dYuan   float64 `json:"cost_30d_yuan"`
 
 	// 兑换码
 	TotalCodes    int64 `json:"total_codes"`
@@ -56,7 +56,7 @@ type DashboardStatistics struct {
 	// 趋势数据 (用于图表)
 	UserGrowthChart   []ChartDataPoint `json:"user_growth_chart"`
 	RevenueTrendChart []ChartDataPoint `json:"revenue_trend_chart"`
-	TokenTrendChart   []ChartDataPoint `json:"token_trend_chart"`
+	CostTrendChart    []ChartDataPoint `json:"cost_trend_chart"`
 }
 
 // ChartDataPoint represents a point in time-series chart
@@ -132,7 +132,7 @@ func (s *dashboardService) computeStatistics() *DashboardStatistics {
 	// 用户统计 —— 一律排除 admin/super_admin(与 internal/user/metrics.go 注册量同口径)。
 	// 历史 bug:此处不排除管理员 → 看板「今日新增/总用户」比用户管理页多算种子超管等管理员账号,
 	// 两处数字对不上(2026-07 用户反馈);统一加 role 过滤后彻底对齐。
-	const notAdmin = "role NOT IN ('admin','super_admin')"
+	const notAdmin = "role NOT IN ('admin','super_admin','operations')"
 	s.db.Table("users").Where(notAdmin).Count(&stats.TotalUsers)
 	// 全部半开区间 [start, tomorrowStart):缺上界时,异常的未来时间戳会把窗口统计虚增。
 	s.db.Table("users").Where(notAdmin).Where("created_at >= ? AND created_at < ?", todayStart, tomorrowStart).Count(&stats.NewUsersToday)
@@ -176,15 +176,18 @@ func (s *dashboardService) computeStatistics() *DashboardStatistics {
 	s.db.Table("orders").Where("status = ?", "paid").Count(&stats.PaidOrders)
 	s.db.Table("orders").Where("status = ?", "pending").Count(&stats.PendingOrders)
 
-	// AI 成本(token 账本;与营收并排看)
+	// AI 成本(P5 成本制:cost_micro_yuan 精算真实成本;微元 ÷ 1e6 = 元。与营收并排看毛利)
+	var costTodayMicro, cost30dMicro int64
 	s.db.Table("llm_token_usage").
-		Select("COALESCE(SUM(total_tokens), 0)").
+		Select("COALESCE(SUM(cost_micro_yuan), 0)").
 		Where("created_at >= ? AND created_at < ?", todayStart, tomorrowStart).
-		Scan(&stats.TokensToday)
+		Scan(&costTodayMicro)
 	s.db.Table("llm_token_usage").
-		Select("COALESCE(SUM(total_tokens), 0)").
+		Select("COALESCE(SUM(cost_micro_yuan), 0)").
 		Where("created_at >= ? AND created_at < ?", start30d, tomorrowStart).
-		Scan(&stats.Tokens30d)
+		Scan(&cost30dMicro)
+	stats.CostTodayYuan = float64(costTodayMicro) / 1e6
+	stats.Cost30dYuan = float64(cost30dMicro) / 1e6
 
 	// 兑换码
 	s.db.Table("vip_redemption_codes").Count(&stats.TotalCodes)
@@ -193,7 +196,7 @@ func (s *dashboardService) computeStatistics() *DashboardStatistics {
 	// 趋势图表数据
 	stats.UserGrowthChart = s.getUserGrowthChart(30)
 	stats.RevenueTrendChart = s.getRevenueTrendChart(30)
-	stats.TokenTrendChart = s.getTokenTrendChart(30)
+	stats.CostTrendChart = s.getCostTrendChart(30)
 
 	return stats
 }
@@ -212,7 +215,7 @@ func (s *dashboardService) getUserGrowthChart(days int) []ChartDataPoint {
 	since := day0.AddDate(0, 0, -(days - 1))
 	s.db.Table("users").
 		Select("DATE_FORMAT(created_at, '%Y-%m-%d') as date, COUNT(*) as count").
-		Where("role NOT IN ('admin','super_admin')").
+		Where("role NOT IN ('admin','super_admin','operations')").
 		Where("created_at >= ?", since).
 		Group("DATE_FORMAT(created_at, '%Y-%m-%d')").
 		Order("date ASC").
@@ -254,16 +257,17 @@ func (s *dashboardService) getRevenueTrendChart(days int) []ChartDataPoint {
 	return fillChartDays(chart, days)
 }
 
-// getTokenTrendChart AI token 成本趋势(每日总 token)。与营收趋势并排 = 粗粒度毛利视角。
+// getCostTrendChart AI 成本趋势(P5 成本制:每日精算真实成本 cost_micro_yuan ÷ 1e6 = 元)。
+// 与营收趋势并排 = 粗粒度毛利视角。
 // 用 DATE_FORMAT 而非 DATE():DSN 开 parseTime 时 DATE() 会被扫成带时区 time(llmusage 同款坑)。
-func (s *dashboardService) getTokenTrendChart(days int) []ChartDataPoint {
+func (s *dashboardService) getCostTrendChart(days int) []ChartDataPoint {
 	var results []struct {
-		Date   string
-		Tokens int64
+		Date       string
+		CostMicro  int64
 	}
 
 	s.db.Table("llm_token_usage").
-		Select("DATE_FORMAT(created_at, '%Y-%m-%d') as date, COALESCE(SUM(total_tokens), 0) as tokens").
+		Select("DATE_FORMAT(created_at, '%Y-%m-%d') as date, COALESCE(SUM(cost_micro_yuan), 0) as cost_micro").
 		Where("created_at >= ?", time.Now().AddDate(0, 0, -days)).
 		Group("DATE_FORMAT(created_at, '%Y-%m-%d')").
 		Order("date ASC").
@@ -273,7 +277,7 @@ func (s *dashboardService) getTokenTrendChart(days int) []ChartDataPoint {
 	for _, r := range results {
 		chart = append(chart, ChartDataPoint{
 			Date:  r.Date,
-			Value: float64(r.Tokens),
+			Value: float64(r.CostMicro) / 1e6, // 微元 → 元
 		})
 	}
 

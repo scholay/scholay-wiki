@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"scholar-backend/internal/admin"
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
@@ -55,6 +56,9 @@ type UserProfileResponse struct {
 	AvatarURL      *string    `json:"avatar_url"`
 	Bio            *string    `json:"bio"`
 	Role           string     `json:"role"`
+	// Permissions 该角色的权限点集合(admin.PermissionsForRole,单一真源)。
+	// 前端后台用它过滤菜单/按钮 —— 普通用户为空数组,不影响用户端。
+	Permissions    []string   `json:"permissions"`
 	Status         int8       `json:"status"`
 	EmailVerified  bool       `json:"email_verified"`
 	PhoneVerified  bool       `json:"phone_verified"`
@@ -214,6 +218,7 @@ func (h *Handler) GetProfile(c *gin.Context) {
 		AvatarURL:      user.AvatarURL,
 		Bio:            user.Bio,
 		Role:           user.Role,
+		Permissions:    admin.PermissionsForRole(user.Role),
 		Status:         user.Status,
 		EmailVerified:  user.EmailVerified,
 		PhoneVerified:  user.PhoneVerified,

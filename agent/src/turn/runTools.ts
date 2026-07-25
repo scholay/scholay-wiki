@@ -1,11 +1,18 @@
 // 执行本轮所有 tool_use(详细设计 §2.4)。permission 由控制面权威裁决(sink.requestPermission);
 // 执行器据 featurePolicy 二次把关 + 在 sandbox profile 内执行 + emit tool_result(也回喂 messages[])。
 // 失败 tool → tool_result{is_error:true},绝不丢(否则模型卡住)。
+//
+// 2026-07 审计接线(两处,均在本文件的唯一合流点):
+//   · capToolResult:MCP(minicod sanitizer 之后的兜底)与 builtin 统一体积上限 —— 回喂 messages、
+//     WS 帧、journal 三个下游同时受益(P0-3 spam 打崩轮)。
+//   · userMessage 双轨(P1-12):失败 tool_result 帧带面向用户的脱敏摘要;给模型的全量修复指引
+//     仍在 content 里原样回喂(自愈刚需)。userMessage **绝不回喂模型**(消息体不含它)。
 
 import type Anthropic from "@anthropic-ai/sdk";
 import { isMcpTool, callMcpTool } from "../mcp/mcpTools.ts";
 import { builtinRegistry } from "../tools/registry.ts";
 import { toolPermitted } from "../policy/featurePolicy.ts";
+import { capToolResult } from "./resultCap.ts";
 import type { EventSink, TurnInput } from "./types.ts";
 
 interface ToolUse {
@@ -22,7 +29,7 @@ export async function runTools(
 ): Promise<Anthropic.ToolResultBlockParam[]> {
   // 用户 stop 后,进行中的工具批直接短路成 aborted(否则串行工具会一路跑完,stop 形同虚设)。
   if (signal?.aborted) {
-    return toolUses.map((tu) => errResult(tu.id, "aborted", sink));
+    return toolUses.map((tu) => errResult(tu.id, "aborted", sink, "已停止"));
   }
   // MCP / parallelSafe built-in 可并发;非 parallelSafe(write/edit/bash)串行,保顺序与互斥。
   const allParallel = toolUses.every((tu) => isMcpTool(tu.name) || builtinRegistry.get(tu.name)?.parallelSafe);
@@ -33,7 +40,7 @@ export async function runTools(
   for (const tu of toolUses) {
     // 每个串行工具前重查 abort:一旦用户中止,剩余工具不再执行,直接回填 aborted。
     if (signal?.aborted) {
-      out.push(errResult(tu.id, "aborted", sink));
+      out.push(errResult(tu.id, "aborted", sink, "已停止"));
       continue;
     }
     out.push(await runOne(tu, input, sink));
@@ -44,7 +51,7 @@ export async function runTools(
 async function runOne(tu: ToolUse, input: TurnInput, sink: EventSink): Promise<Anthropic.ToolResultBlockParam> {
   // 第二道墙:执行器绝不跑控制面 denylist / 结构规则拒绝的工具
   if (!toolPermitted(tu.name, input)) {
-    return errResult(tu.id, "tool not permitted: " + tu.name, sink);
+    return errResult(tu.id, "tool not permitted: " + tu.name, sink, "该操作暂不可用,已跳过。");
   }
   // 权限裁决(控制面权威):发 permission_request,阻塞等 permission_response
   const requestId = crypto.randomUUID();
@@ -54,11 +61,12 @@ async function runOne(tu: ToolUse, input: TurnInput, sink: EventSink): Promise<A
     toolUseId: tu.id,
     input: tu.input,
   });
-  if (!allowed) return errResult(tu.id, "permission denied: " + tu.name, sink);
+  if (!allowed) return errResult(tu.id, "permission denied: " + tu.name, sink, "该操作未获授权,已跳过。");
 
   try {
     let content: unknown;
     let isError = false;
+    let userMessage: string | undefined;
     if (isMcpTool(tu.name)) {
       const r = await callMcpTool(tu.name, (tu.input ?? {}) as Record<string, unknown>);
       content = r.content;
@@ -66,7 +74,7 @@ async function runOne(tu: ToolUse, input: TurnInput, sink: EventSink): Promise<A
     } else {
       const t = builtinRegistry.get(tu.name);
       if (!t) {
-        return errResult(tu.id, "unknown tool: " + tu.name, sink);
+        return errResult(tu.id, "unknown tool: " + tu.name, sink, "该操作暂不可用。");
       }
       const r = await t.run((tu.input ?? {}) as Record<string, unknown>, {
         workDir: input.workDir,
@@ -76,16 +84,48 @@ async function runOne(tu: ToolUse, input: TurnInput, sink: EventSink): Promise<A
       });
       content = r.content;
       isError = r.isError;
+      userMessage = (r as { userMessage?: string }).userMessage;
     }
-    sink.frame({ type: "tool_result", toolUseId: tu.id, content, isError });
+    content = capToolResult(content, tu.name); // 体积上限:回喂/帧/journal 三下游统一瘦身(工具感知:Read/ReadDocument 走自身高上限)
+    if (isError && !userMessage) userMessage = genericToolUserMessage(tu.name);
+    sink.frame({
+      type: "tool_result",
+      toolUseId: tu.id,
+      content,
+      isError,
+      ...(isError && userMessage ? { userMessage } : {}),
+    });
     return { type: "tool_result", tool_use_id: tu.id, content: content as Anthropic.ToolResultBlockParam["content"], is_error: isError };
   } catch (e) {
-    return errResult(tu.id, String((e as Error)?.message ?? e), sink);
+    // 上游异常体可能巨大且含内部细节(P1-12 泄漏放大器)—— 给模型的文本截断,给用户的走兜底摘要。
+    const msg = String((e as Error)?.message ?? e).slice(0, 2000);
+    return errResult(tu.id, msg, sink, genericToolUserMessage(tu.name));
   }
 }
 
-function errResult(toolUseId: string, msg: string, sink: EventSink): Anthropic.ToolResultBlockParam {
+// 按工具名的用户侧兜底摘要(userMessage 缺省时):中文、脱敏、不含内部报错原文。
+function genericToolUserMessage(name: string): string {
+  if (name.startsWith("mcp__minicod__")) return "文献检索暂时失败,AI 会调整检索方式重试。";
+  if (name === "Bash") return "命令执行未成功。";
+  if (name === "Read" || name === "ReadDocument" || name === "Grep" || name === "Glob") return "读取内容未成功。";
+  if (name === "Write" || name === "Edit") return "写入内容未成功。";
+  if (name === "ExportDocument") return "文档导出未成功。";
+  return "该步骤未成功,AI 会尝试其它方式。";
+}
+
+function errResult(
+  toolUseId: string,
+  msg: string,
+  sink: EventSink,
+  userMessage?: string,
+): Anthropic.ToolResultBlockParam {
   const content = [{ type: "text" as const, text: msg }];
-  sink.frame({ type: "tool_result", toolUseId, content, isError: true });
+  sink.frame({
+    type: "tool_result",
+    toolUseId,
+    content,
+    isError: true,
+    ...(userMessage ? { userMessage } : {}),
+  });
   return { type: "tool_result", tool_use_id: toolUseId, content, is_error: true };
 }

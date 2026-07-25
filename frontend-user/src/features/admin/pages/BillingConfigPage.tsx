@@ -9,21 +9,22 @@ import { AdminPageLayout } from '../components/AdminPageLayout';
 import { useApiToast } from '../hooks/useApiToast';
 import { useBillingConfig, useUpdateBillingConfig, type BillingConfig } from '../api/billing-config';
 
-type NumField = { key: keyof BillingConfig; label: string; hint?: string; step?: number };
+// scale:DB 值与展示值的换算。free_window_tokens 库里存微元真实成本,展示/编辑按算力点(1 点 = 1000 微元 = ¥0.001)。
+type NumField = { key: keyof BillingConfig; label: string; hint?: string; step?: number; scale?: number };
 type Group = { title: string; fields: NumField[] };
 
 const GROUPS: Group[] = [
   {
-    title: '周期额度(token · 7 天)',
+    title: '周期额度(算力点 · 7 天)',
     fields: [
-      { key: 'free_window_tokens', label: 'Free 周期基准(7 天)', hint: 'Free 用户每周期 token(首次使用开表,到期满血);Pro/Max 按倍率派生' },
+      { key: 'free_window_tokens', label: 'Free 周期基准(算力点 · 7 天)', hint: 'P5 成本制:1 算力点 = ¥0.001 真实成本(按输入/输出/缓存实际单价扣)。Pro/Max 按倍率派生。示例 Free 300 / Pro 6000 / Max 30000', scale: 1000 },
       { key: 'window_days', label: '周期天数', hint: '额度窗口长度(默认 7);改动只影响新开的窗口' },
       { key: 'pro_multiplier', label: 'Pro 倍率(× Free)', hint: 'Pro 周期额度 = Free × 此值;<=0 = 不限', step: 0.5 },
       { key: 'max_multiplier', label: 'Max 倍率(× Pro)', hint: 'Max 周期额度 = Pro × 此值;<=0 = 不限', step: 0.5 },
     ],
   },
   {
-    title: '价格(分)',
+    title: '月度套餐 · 价格(分)',
     fields: [
       { key: 'pro_price_cents', label: 'Pro 月价' },
       { key: 'pro_original_cents', label: 'Pro 原价(划线)' },
@@ -32,11 +33,23 @@ const GROUPS: Group[] = [
     ],
   },
   {
-    title: '订阅赠送经费(临时, 整月有效)',
+    title: '年度套餐 · 价格(分)',
     fields: [
-      { key: 'pro_grant_credits', label: 'Pro 赠送经费' },
-      { key: 'max_grant_credits', label: 'Max 赠送经费' },
-      { key: 'subscription_period_days', label: '会员/赠送有效天数' },
+      { key: 'pro_year_price_cents', label: 'Pro 年价', hint: '设 0 = 关闭 Pro 年付(前端隐藏年付入口)' },
+      { key: 'pro_year_original_cents', label: 'Pro 年原价(划线)' },
+      { key: 'max_year_price_cents', label: 'Max 年价', hint: '设 0 = 关闭 Max 年付' },
+      { key: 'max_year_original_cents', label: 'Max 年原价(划线)' },
+      { key: 'subscription_year_days', label: '年度会员时长(天)', hint: '默认 365' },
+    ],
+  },
+  {
+    title: '订阅赠送经费(临时)',
+    fields: [
+      { key: 'pro_grant_credits', label: 'Pro 月度赠送经费', hint: '月度订阅:开通/续期一次性发放,整月有效' },
+      { key: 'max_grant_credits', label: 'Max 月度赠送经费' },
+      { key: 'subscription_period_days', label: '月度会员/赠送有效天数' },
+      { key: 'pro_year_grant_credits', label: 'Pro 年度赠送经费(总额)', hint: '年度订阅:按月分 12 批依次生效,每批当月有效' },
+      { key: 'max_year_grant_credits', label: 'Max 年度赠送经费(总额)' },
     ],
   },
   {
@@ -70,7 +83,7 @@ export function BillingConfigPage() {
   return (
     <AdminPageLayout
       title="计费体系配置"
-      description="统一 token 周期额度(7 天,首次使用开表)+ 经费钱包的全部动态旋钮。保存后最多 30 秒全量生效。"
+      description="统一算力点周期额度(7 天成本制,首次使用开表)+ 经费钱包的全部动态旋钮。保存后最多 30 秒全量生效。"
     >
       {isLoading || !form ? (
         <div className="flex items-center justify-center gap-2 rounded-md border border-border p-6 text-muted-foreground">
@@ -120,8 +133,10 @@ export function BillingConfigPage() {
                       id={String(f.key)}
                       type="number"
                       step={f.step ?? 1}
-                      value={String(form[f.key] ?? 0)}
-                      onChange={(e) => setNum(f.key, e.target.value)}
+                      value={String(f.scale ? Math.round((Number(form[f.key] ?? 0)) / f.scale) : (form[f.key] ?? 0))}
+                      onChange={(e) =>
+                        setNum(f.key, f.scale ? String(Number(e.target.value) * f.scale) : e.target.value)
+                      }
                       className="h-9"
                     />
                     {f.hint && <span className="text-2xs text-faint">{f.hint}</span>}

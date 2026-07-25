@@ -33,6 +33,12 @@ export interface ToolBlock {
   /** tool_result.isError; true 时 UI 用错误样式 */
   isError?: boolean;
   /**
+   * 面向用户的失败摘要(仅 isError 时;agent 工具层双轨制,W5 P0-A)。实时流来自
+   * tool_result 帧的 `userMessage`,历史回放来自 tool_result content block 的 `user_message`。
+   * 旧事件无此字段 → undefined,由渲染层 friendlyToolError 前端兜底接管。
+   */
+  userMessage?: string;
+  /**
    * 该 tool 在拿到 result 之前 turn 就结束了 (用户暂停 / agent 被打断 / 出错).
    * agent 在 tool_use 执行中被强杀时**不会**给在途 tool_use 发收尾事件 (tool_result /
    * content_block_stop), fold 在 turn 完成处补标此位; 否则 ToolCallBlock 因 result===undefined
@@ -81,6 +87,12 @@ export interface Turn {
   blocks: AssistantBlock[];
   complete: boolean;
   errorMessage?: string;
+  /**
+   * error 终帧的 code(fold 捕获;如 upstream_lost / turn_timeout / empty_turn)。
+   * 驱动「重试」按钮的可重试判定(isRetryableTurnError)与 code→文案映射(friendlyTurnError)。
+   * 历史回放当前不含 error 终帧 → undefined,纯降级(无重试按钮)不报错。
+   */
+  errorCode?: string;
   placeholder?: TurnPlaceholder;
   /** 全部 thinking 帧拼接的纯文本 (英文推理草稿); UI 用 ThinkingFold 折叠展示 */
   thinkingText?: string;
@@ -119,6 +131,13 @@ export interface Turn {
    * 实时轮由 `artifact` 帧填,历史回放由后端 EvArtifact → `artifact` entry 恢复,两路同构。
    */
   artifacts?: TurnArtifact[];
+
+  /**
+   * 本轮回答经过平台自动核验并已更正(W2 P1-b):message_complete 帧带
+   * `claim_audit.corrective_fired=true` 时由 fold 置位,MessageTurn 在轮尾渲染一枚中性小标注。
+   * 历史回放无此字段 → undefined,优雅降级不渲染。
+   */
+  claimAudited?: boolean;
 
   /**
    * 该轮因命中每日 token 额度被后端**在转发给 agent 之前**拒绝、**尚未发送**(claw 用)。

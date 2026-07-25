@@ -37,3 +37,7 @@ var ErrUserNotFound = errors.New("vip: user not found")
 
 // ErrNoDowngrade —— 不支持降级:在期会员订阅/报价更低档时拒绝。
 var ErrNoDowngrade = errors.New("vip: downgrade not supported")
+
+// ErrPendingOrderExists —— 该用户已有一笔未支付的订阅订单。拒绝重复建单:防「先挂低档单 +
+// 升档 + 再付旧单」借不降级钳制以低档价拿高档整周期(评审 pricing-math 叠加漏洞)。
+var ErrPendingOrderExists = errors.New("vip: pending subscription order exists")

@@ -20,6 +20,7 @@ import {
   type AdminUser,
   type UserVipStatus,
 } from '../api/users';
+import { useHasPermission, PERM, roleLabel, roleBadgeVariant } from '../permissions';
 
 // 会员等级展示名全站统一:Free / Pro / Max(不用「专业版 / 旗舰版」)。
 const TIER_LABEL: Record<string, string> = { free: 'Free', pro: 'Pro', max: 'Max' };
@@ -70,8 +71,11 @@ export function UserDetailDrawer({
   onOpenChange: (open: boolean) => void;
 }) {
   const id = user?.id;
+  // 会员/经费/财务下钻属 users.manage —— 运营(仅 users.view)只看基础资料 + 登录方式。
+  const canManageUsers = useHasPermission(PERM.usersManage);
   const detail = useUserDetail(open ? id : undefined);
-  const vip = useUserVipStatus(open ? id : undefined);
+  // /users/:id/vip 后端归 users.manage,运营会 403 → 直接不发请求(enabled 门槛带上权限)。
+  const vip = useUserVipStatus(open && canManageUsers ? id : undefined);
 
   const displayName =
     user?.username || user?.email?.split('@')[0] || user?.phone || `User #${user?.id}`;
@@ -90,9 +94,7 @@ export function UserDetailDrawer({
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             {displayName}
-            <Badge variant={user.role === 'super_admin' ? 'destructive' : user.role === 'admin' ? 'default' : 'muted'}>
-              {user.role === 'super_admin' ? '超级管理员' : user.role === 'admin' ? '管理员' : '用户'}
-            </Badge>
+            <Badge variant={roleBadgeVariant(user.role)}>{roleLabel(user.role)}</Badge>
             {user.status === 2 && <Badge variant="destructive">已冻结</Badge>}
           </SheetTitle>
           <SheetDescription className="flex items-center gap-2">
@@ -164,6 +166,9 @@ export function UserDetailDrawer({
             )}
           </Section>
 
+          {/* 会员 / Token / 财务下钻 —— 属 users.manage,运营(仅 users.view)看不到 */}
+          {canManageUsers && (
+          <>
           {/* 会员 */}
           <Section
             title="会员"
@@ -174,6 +179,10 @@ export function UserDetailDrawer({
                   isPro ? 'text-brand-amber' : 'text-faint'
                 )}
               >
+                {/* 年费会员徽标(0079)—— 后台同样显式区分年费 / 月度 */}
+                {isPro && vip.data?.cycle === 'yearly' && (
+                  <span className="rounded-pill bg-brand-amber/10 px-1.5 py-0.5 text-2xs font-bold text-brand-amber">年费</span>
+                )}
                 <Crown className="size-3.5" />
                 {TIER_LABEL[tier]}
               </span>
@@ -185,9 +194,9 @@ export function UserDetailDrawer({
               <>
                 <p className="text-xs text-muted-foreground">
                   {isPro
-                    ? vip.data?.expires_at
-                      ? `有效期至 ${vip.data.expires_at.slice(0, 10)}`
-                      : '永久有效'
+                    ? `${vip.data?.cycle === 'yearly' ? '年费会员 · ' : '月度会员 · '}${
+                        vip.data?.expires_at ? `有效期至 ${vip.data.expires_at.slice(0, 10)}` : '永久有效'
+                      }`
                     : 'Free'}
                 </p>
                 {vip.data && (
@@ -212,12 +221,16 @@ export function UserDetailDrawer({
 
           {/* 财务下钻:订单 / 经费流水(充值·消费) / 经费兑换 —— 与用户设置页对齐,懒加载 */}
           <UserBillingSections userId={user.id} open={open} />
+          </>
+          )}
         </div>
 
-        {/* 发放会员 / 调整经费 */}
-        <SheetFooter>
-          <UserGrantPanel user={user} vip={vip.data} displayName={displayName} />
-        </SheetFooter>
+        {/* 发放会员 / 调整经费 —— 仅 users.manage(运营看不到) */}
+        {canManageUsers && (
+          <SheetFooter>
+            <UserGrantPanel user={user} vip={vip.data} displayName={displayName} />
+          </SheetFooter>
+        )}
       </SheetContent>
       )}
     </Sheet>
@@ -255,9 +268,10 @@ function TokenQuotaBar({ vip }: { vip: UserVipStatus }) {
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between text-xs">
-        <span className="text-subtle">本周期 AI 额度(token)</span>
+        <span className="text-subtle">本周期 AI 额度(算力点)</span>
         <span className={cn('tabular-nums', exhausted ? 'text-brand-red' : 'text-faint')}>
-          {t.unlimited ? '不限' : `${t.used.toLocaleString()} / ${t.ceiling.toLocaleString()}`}
+          {/* P5 成本制:used/ceiling 单位=微元真实成本,÷1000 = 算力点(1 点 = ¥0.001 成本)。 */}
+          {t.unlimited ? '不限' : `${Math.round(t.used / 1000).toLocaleString()} / ${Math.round(t.ceiling / 1000).toLocaleString()}`}
         </span>
       </div>
       {!t.unlimited && (
@@ -271,7 +285,7 @@ function TokenQuotaBar({ vip }: { vip: UserVipStatus }) {
       {!t.unlimited && (
         <div className="flex items-center justify-between text-2xs text-faint" title={ri.hint}>
           <span>{ri.notStarted ? '满额 · 用后计时' : ri.rel}</span>
-          <span className="tabular-nums">当日消耗 {t.consumed_today.toLocaleString()}</span>
+          <span className="tabular-nums">当日消耗 {Math.round(t.consumed_today / 1000).toLocaleString()} 算力点</span>
         </div>
       )}
     </div>

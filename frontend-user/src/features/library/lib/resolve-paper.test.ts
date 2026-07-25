@@ -47,7 +47,7 @@ describe('hitToConfirmLink', () => {
 });
 
 describe('sourceBrandLabel', () => {
-  it('maps the 3 sources to search brand names, passes through unknown', () => {
+  it('maps the 3 sources to real source names (W6 P1-8), passes through unknown', () => {
     expect(sourceBrandLabel('stc')).toBe('Graph');
     expect(sourceBrandLabel('olx')).toBe('Discovery');
     expect(sourceBrandLabel('pmd')).toBe('Medicine');

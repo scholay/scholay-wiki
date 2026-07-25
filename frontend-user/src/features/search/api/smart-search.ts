@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { useAgentSocket, type UseAgentSocket } from '@/shared/hooks/useAgentSocket';
-import type { AgentErrorFrame, AgentDisplacedFrame } from '@/shared/lib/agent-stream';
+import type { AgentClaimAudit, AgentErrorFrame, AgentDisplacedFrame } from '@/shared/lib/agent-stream';
 import { http, toApiError } from '@/shared/lib/http';
 import { useAuthStore } from '@/stores/auth.store';
 import {
@@ -56,6 +56,8 @@ export type ClientMessage =
       content: string;
       /** 方案 B 附件:文件已由 backend 推进会话 cwd,这里只透传 path(backend hub 折成 @"path" 标记)。 */
       attachments?: { type: 'image' | 'file'; name?: string; mimeType?: string; path: string }[];
+      /** 幂等键 + 投递确认配对:面板预 mint,后端 hub 写入上游成功后回 user_ack{clientTurnId}。 */
+      clientTurnId?: string;
     }
   | { type: 'stop_generation' }
   | { type: 'ping' }
@@ -88,8 +90,11 @@ export type ServerMessage =
       toolUseId: string;
       content: unknown;
       isError: boolean;
+      /** 面向用户的失败摘要(仅 isError 时;agent 双轨制 W5 P0-A)。旧 agent 不发 → 可选。 */
+      userMessage?: string;
     }
-  | { type: 'message_complete' }
+  // claim_audit:诚实性核验元数据(W2 P1-b,agent 纠偏轮触发时附带)。旧 agent 不发 → 可选。
+  | { type: 'message_complete'; claim_audit?: AgentClaimAudit }
   | AgentErrorFrame
   // ─── 中间态事件 ─────────────────────────────────────────────────────────
   // agent 在思考/调用工具前后会持续 emit 这些事件,用来驱动占位文案,避免
@@ -118,11 +123,14 @@ export type ServerMessage =
   // ── 多窗口接管: 后端 displacement 路径下发, 当前 WS 被另一个 tab 顶掉。收到这帧时不重连,
   // set displaced=true 让 UI 弹 banner。形态见共享 AgentDisplacedFrame(含 reason 结构化原因)。
   | AgentDisplacedFrame
-  // ── 断线续流: 重连后 agent 整段回放当前 in-flight 轮 (见 agent ws/events.ts)。
-  //    resync_start → (可选)resync_user → 缓冲事件 → resync_end。
+  // ── 断线续流: (重)建连后 backend hub 整段回放当前 in-flight 轮 (mirrors backend hub.go resync*Frame)。
+  //    resync_start → (可选)resync_user → 缓冲事件 → resync_end{inFlight}。
+  //    inFlight=false = 服务端当前无在途轮的权威对账信号(useAgentSocket 转成 resyncIdle 单调计数)。
   | { type: 'resync_start' }
   | { type: 'resync_user'; content: string }
-  | { type: 'resync_end' };
+  | { type: 'resync_end'; inFlight?: boolean }
+  // 投递确认(mirrors backend hub.go userAckFrame):user_message 已写入上游 agent。
+  | { type: 'user_ack'; clientTurnId?: string };
 
 export type SmartSearchWSState =
   | 'idle'
@@ -158,7 +166,9 @@ function unwrap<T>(raw: { data?: T } & Partial<T>): T {
  */
 export interface SmartSearchHistoryEntry {
   id: string;
-  type: 'user' | 'assistant' | 'system' | 'tool_use' | 'tool_result';
+  // 'error' 是失败轮终态合成 entry(backend FoldToMessages 折 EvError,W3 P1-A 冻结契约:
+  // content = {code, message}),shared replayHistoryAsTurns 回放成与实时同构的失败轮收口。
+  type: 'user' | 'assistant' | 'system' | 'tool_use' | 'tool_result' | 'error';
   content: unknown;
   timestamp: string;
   model?: string;
@@ -327,6 +337,43 @@ type UseSmartSearchSocket = UseAgentSocket<ServerMessage, ClientMessage>;
  * (ws-ticket + 指数退避重连 + rAF 流式批处理 + 25s 心跳 + 断线续流 resync + 多窗口接管)。
  * 智能搜索是用户级单会话,connectionKey 即 sessionId;sessionId 变化 / 卸载即重连或断开。
  */
+// ── 「新对话默认模型」偏好 + 一次性初始模型下发 ────────────────────────────────────────────
+// 与 claw 同型(smart-search 自持一份,跨 feature 不共享)。服务端 pinned_model 是会话模型唯一真源;
+// 前端只存两样:①用户级「新对话默认模型」偏好(跨刷新粘性,新对话尚无 sessionId 时选的模型);
+// ②新会话建成 → socket open 的一次性传递(内存,一发即弃,之后服务端接管)。
+const SS_NEW_CONV_MODEL_KEY = 'scholay:smart_search:new-conversation-model';
+
+export function getSmartSearchNewConvModel(): string | undefined {
+  if (typeof localStorage === 'undefined') return undefined;
+  try {
+    return localStorage.getItem(SS_NEW_CONV_MODEL_KEY) || undefined;
+  } catch {
+    return undefined;
+  }
+}
+export function setSmartSearchNewConvModel(modelId: string | null) {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    if (!modelId) localStorage.removeItem(SS_NEW_CONV_MODEL_KEY);
+    else localStorage.setItem(SS_NEW_CONV_MODEL_KEY, modelId);
+  } catch {
+    /* ignore */
+  }
+}
+
+const ssPendingInitialModel = new Map<string, string>();
+/** 新会话建成后调用:若有「新对话默认模型」偏好,登记为该会话的一次性初始模型(socket open 下发)。 */
+export function markSmartSearchPendingModel(sessionId: string) {
+  const pref = getSmartSearchNewConvModel();
+  if (pref) ssPendingInitialModel.set(sessionId, pref);
+}
+function takeSmartSearchPendingModel(sessionId: string | null): string | undefined {
+  if (!sessionId) return undefined;
+  const pref = ssPendingInitialModel.get(sessionId);
+  ssPendingInitialModel.delete(sessionId);
+  return pref;
+}
+
 export function useSmartSearchSocket(sessionId: string | null): UseSmartSearchSocket {
   return useAgentSocket<ServerMessage, ClientMessage>({
     connectionKey: sessionId,
@@ -334,6 +381,19 @@ export function useSmartSearchSocket(sessionId: string | null): UseSmartSearchSo
     fetchTicket: () => fetchWSTicket(sessionId),
     buildWsUrl,
     displacedDefaultText: '此会话已在其他窗口打开',
+    onOpen: (ws) => {
+      // per-session 模型真源在服务端(pinned_model);唯一例外 = 新对话偏好的一次性下发(取走即弃)。
+      const initialModel = takeSmartSearchPendingModel(sessionId);
+      if (initialModel) {
+        ws.send(
+          JSON.stringify({
+            type: 'set_runtime_config',
+            providerId: null,
+            modelId: initialModel,
+          } satisfies ClientMessage),
+        );
+      }
+    },
   });
 }
 

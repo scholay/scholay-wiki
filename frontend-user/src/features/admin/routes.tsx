@@ -1,5 +1,5 @@
 import { redirect, type RouteObject } from 'react-router-dom';
-import { useAuthStore, isAdminRole } from '@/stores/auth.store';
+import { useAuthStore, canAccessAdmin } from '@/stores/auth.store';
 import { getAuthToken } from '@/shared/lib/auth-token';
 
 /**
@@ -15,7 +15,8 @@ function adminGuard() {
     return redirect('/');
   }
   const user = useAuthStore.getState().user;
-  if (!isAdminRole(user?.role)) {
+  // 运营(operations)也能进后台外壳;进来后由 nav/后端 permissions 限制可见页面。
+  if (!canAccessAdmin(user?.role)) {
     return redirect('/');
   }
   return null;
@@ -51,9 +52,9 @@ export const adminRoutes: RouteObject[] = [
         lazy: lazyPage(() => import('./pages/UsersPage'))('UsersPage'),
       },
       {
+        // 代码片段库已并入「系统设置」页的 tab;老书签重定向。
         path: 'code-snippets',
-        handle: { title: '代码片段' },
-        lazy: lazyPage(() => import('./pages/CodeSnippetsPage'))('CodeSnippetsPage'),
+        loader: () => redirect('/admin/system'),
       },
       {
         path: 'announcements',
@@ -121,9 +122,10 @@ export const adminRoutes: RouteObject[] = [
         lazy: lazyPage(() => import('./pages/UsageStatsPage'))('UsageStatsPage'),
       },
       {
+        // 使用日志(旧)已下线:usagelog v1 模块 + 后端 /admin/usage-logs 接口早已移除,
+        // usage_logs 表零写入(stranded 历史数据)。老书签回总览。
         path: 'usage-logs',
-        handle: { title: '用量记录(旧)' },
-        lazy: lazyPage(() => import('./pages/UsageLogsPage'))('UsageLogsPage'),
+        loader: () => redirect('/admin'),
       },
       {
         path: 'token-usage',
@@ -156,9 +158,9 @@ export const adminRoutes: RouteObject[] = [
         lazy: lazyPage(() => import('./pages/PromoConfigPage'))('PromoConfigPage'),
       },
       {
+        // 三方账号已并入「模型与账号」页的 tab;老书签重定向。
         path: 'third-party',
-        handle: { title: '第三方账号' },
-        lazy: lazyPage(() => import('./pages/ThirdPartyPage'))('ThirdPartyPage'),
+        loader: () => redirect('/admin/model-catalog'),
       },
       {
         // 「AI Agent 服务」页已并入模型目录(默认端点=Provider 列表第一行);老书签重定向。
@@ -166,9 +168,10 @@ export const adminRoutes: RouteObject[] = [
         loader: () => redirect('/admin/model-catalog'),
       },
       {
+        // 模型目录 + 三方账号合并为「模型与账号」页(tab 切换)
         path: 'model-catalog',
-        handle: { title: '模型目录' },
-        lazy: lazyPage(() => import('./pages/ModelCatalogPage'))('ModelCatalogPage'),
+        handle: { title: '模型与账号' },
+        lazy: lazyPage(() => import('./pages/AiUpstreamPage'))('AiUpstreamPage'),
       },
       {
         path: 'dimensions',
@@ -181,9 +184,9 @@ export const adminRoutes: RouteObject[] = [
         lazy: lazyPage(() => import('./pages/WechatOfficialPage'))('WechatOfficialPage'),
       },
       {
+        // 「小程序登录」已并入 OAuth / SSO 页作为「微信小程序」tab;老书签重定向。
         path: 'wechat-miniprogram',
-        handle: { title: '小程序登录' },
-        lazy: lazyPage(() => import('./pages/WechatMiniProgramPage'))('WechatMiniProgramPage'),
+        loader: () => redirect('/admin/oauth'),
       },
       {
         path: 'news-webhook',

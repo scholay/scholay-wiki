@@ -97,8 +97,8 @@ type ExternalServicesConfig struct {
 
 	// 注:
 	//   - OpenAlex 等学术上游的 base URL 不在此配置 ——
-	//     由 admin 后台 third_party_accounts 的 MinicodConfig.BaseURL 单 row 维护,
-	//     没配则用 minicod.DefaultBaseURL 常量。env 层兜底无 API key 也无意义。
+	//     由 admin 后台 third_party_accounts 的 MinicodConfig.BaseURL 单 row 维护
+	//     (已无 minicod.DefaultBaseURL 兜底常量:baseURL 严格来自该 row,env 层兜底无 API key 也无意义)。
 	//   - 系统级 admin 邮箱域名(自动生成 admin@xxx 用)硬编码在 admin/service.go,
 	//     这是历史 admin 账户的兼容路径,新 admin 账户都用真实邮箱,不再需要 env 化。
 }

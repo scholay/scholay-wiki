@@ -43,7 +43,26 @@ const PromptName = "Scholay 智能写作 · 默认 prompt"
 // 无产物收割/渲染(交付走工具栏「导出 Word/PDF」按钮 + 后端 DB 真源),agent 调它=产物永久拿不到
 // 且绕过 struct 真源出劣质 docx(见 docs/research/prism-streaming-2026-07)。ReadDocument 保留
 // (agent 要能读用户上传的 PDF/docx)。
+// 注:AskUserQuestion(交互提问)P1 起对 prism 放开(写作场景澄清需求很自然,前端已接 usePrismChat +
+// QuestionPrompt),故**不**列入禁用。见 docs/research/ask-mode-2026-07。
 var prismDisallowedTools = []string{"NotebookEdit", "Task", "Agent", "ExportDocument"}
+
+// prismAllowedMcpTools —— prism(智能写作)对 minicod MCP 的**正向白名单**(去 mcp__minicod__ 前缀原始名)。
+// prism 用检索做「引用接地」(真实 BibTeX / DOI 解析 / 片段引用)与「投稿目标期刊 + 模板」,不做泛检索。
+// 故只放论文解引用 + 片段接地 + 期刊投稿一套,收敛掉 minicod 0.4.1 的 76 工具其余部分(见对齐审计 #2、#8、#19)。
+var prismAllowedMcpTools = []string{
+	// 论文解引用(引用接地:标题→DOI→单篇,批量水合参考文献)
+	"search_papers", "get_paper", "get_paper_by_doi", "match_paper",
+	"get_paper_references", "get_paper_citations", "get_papers_batch",
+	// 作者近作
+	"search_authors", "get_author_papers",
+	// 文献综述景观(wl-lit-synthesis 用:近邻 + 分桶统计 + 种子扩展)
+	"get_related_works", "group_works", "recommend_from_pool",
+	// 片段接地(反幻觉命门:可引用的原文片段)
+	"search_snippets",
+	// 投稿目标期刊 + 须知 + LaTeX 模板
+	"search_journals", "get_journal", "get_journal_submission_guideline", "get_journal_submission_latex",
+}
 
 // prismSkillAddDir —— 传给 agent --add-dir 的目录(agent 加载 <dir>/.claude/skills:写作/学科/LaTeX 格式 skill)。
 // 同 peerreview 的 reviewerSkillAddDir:独立目录,只有 prism 会话装,claw/审稿看不到。
@@ -63,6 +82,8 @@ func prismSessionOptions() *agent.CreateSessionOptions {
 	return &agent.CreateSessionOptions{
 		// allowBash=false → 在 prismDisallowedTools 基础上并入 Bash/BashOutput/KillShell。
 		DisallowedTools: agentbridge.SessionDisallowedTools(prismDisallowedTools, false),
+		// MCP 正向白名单:收敛 minicod 76 工具到 prism 引用接地 + 投稿期刊子集(见 prismAllowedMcpTools)。
+		AllowedMcpTools: prismAllowedMcpTools,
 		// 每项目会话加载写作 skill(--add-dir),agent 写/改时可经 Skill 调对应指南。
 		AddDirs: []string{prismSkillAddDir()},
 	}

@@ -56,6 +56,8 @@ export interface SimpleCrudPageProps<T extends { id: number }> {
   onDelete: (id: number) => Promise<unknown>;
   /** 删除二次确认提示文案,默认 "确定删除?" */
   deleteConfirm?: (row: T) => string;
+  /** 嵌入模式:去掉 AdminPageLayout 外壳(title/description 收进顶部工具条),供并入多 tab 页时用 */
+  embedded?: boolean;
 }
 
 export function SimpleCrudPage<T extends { id: number }>({
@@ -71,6 +73,7 @@ export function SimpleCrudPage<T extends { id: number }>({
   onUpdate,
   onDelete,
   deleteConfirm,
+  embedded,
 }: SimpleCrudPageProps<T>) {
   type EditMode = { kind: 'create' } | { kind: 'edit'; row: T } | null;
   const [mode, setMode] = useState<EditMode>(null);
@@ -107,17 +110,15 @@ export function SimpleCrudPage<T extends { id: number }>({
     },
   ];
 
-  return (
-    <AdminPageLayout
-      title={title}
-      description={description}
-      actions={
-        <Button size="sm" onClick={() => setMode({ kind: 'create' })}>
-          <Plus className="size-3.5" />
-          {createLabel}
-        </Button>
-      }
-    >
+  const addButton = (
+    <Button size="sm" onClick={() => setMode({ kind: 'create' })}>
+      <Plus className="size-3.5" />
+      {createLabel}
+    </Button>
+  );
+
+  const body = (
+    <>
       <DataTable columns={allColumns} rows={rows} loading={loading} />
 
       <Dialog open={!!mode} onOpenChange={(o) => !o && setMode(null)}>
@@ -141,6 +142,25 @@ export function SimpleCrudPage<T extends { id: number }>({
           )}
         </DialogContent>
       </Dialog>
+    </>
+  );
+
+  // 嵌入模式:无 AdminPageLayout,description + 新建按钮收进顶部工具条(供并入多 tab 页)
+  if (embedded) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          {description ? <p className="text-xs text-muted-foreground">{description}</p> : <span />}
+          {addButton}
+        </div>
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <AdminPageLayout title={title} description={description} actions={addButton}>
+      {body}
     </AdminPageLayout>
   );
 }

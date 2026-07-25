@@ -4,11 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
 import { getAuthToken } from '@/shared/lib/auth-token';
-import { type SubQuote } from '@/shared/components';
+import { type SubQuote, type BillingCycle } from '@/shared/components';
 
 /** 订阅/续期/升级报价(不建单)。模块级函数=稳定引用,供购买弹窗。 */
-export async function quoteSubscription(tier: 'pro' | 'max'): Promise<SubQuote> {
-  return (await http.get<{ data: SubQuote }>('/user/billing/subscribe/quote', { params: { tier } })).data.data;
+export async function quoteSubscription(tier: 'pro' | 'max', cycle: BillingCycle): Promise<SubQuote> {
+  return (await http.get<{ data: SubQuote }>('/user/billing/subscribe/quote', { params: { tier, cycle } })).data.data;
 }
 
 export interface PlanCard {
@@ -17,6 +17,9 @@ export interface PlanCard {
   original_cents: number;
   multiplier: number;
   grant_credits: number;
+  year_price_cents: number; // 年度实付价(分);<=0 = 该档年付未开放(0079)
+  year_original_cents: number; // 年度划线原价(分)
+  year_grant_credits: number; // 年度赠送经费总额(按月分 12 批发放)
 }
 export interface Plans {
   free_daily_tokens: number; // 兼容字段:窗口÷天数的日均口径(P4)
@@ -28,6 +31,7 @@ export interface Plans {
   popular_plan: string;
   enabled: boolean;
   test_payment: boolean;
+  subscription_year_days: number; // 年度订阅时长(天,默认 365)
   payment_methods: { alipay: boolean; wechat: boolean }; // admin 配置里启用的支付渠道
   plans: PlanCard[];
 }
@@ -53,12 +57,13 @@ export function useCurrentTier(): 'free' | 'pro' | 'max' | undefined {
 }
 
 /** 价格页订阅:建单 + 按选定支付方式发起。测试支付→一键履约后进会员页;支付宝→跳收银台;微信→暂未开放。
+ *  cycle=yearly 走年度订阅(订单/权益/文案由后端按周期履约)。
  *  返回 true=已完成(关弹窗),false=保持弹窗。登录闸门在调用方(点订阅时)先做。 */
 export function useLandingSubscribe() {
   const navigate = useNavigate();
   const sub = useMutation({
-    mutationFn: async (plan: 'pro' | 'max') =>
-      (await http.post<{ data: { order_no: string; final_amount: number } }>('/user/billing/subscribe', { plan })).data.data,
+    mutationFn: async (vars: { plan: 'pro' | 'max'; cycle: BillingCycle }) =>
+      (await http.post<{ data: { order_no: string; final_amount: number } }>('/user/billing/subscribe', vars)).data.data,
   });
   const testPay = useMutation({ mutationFn: async (orderNo: string) => (await http.post('/user/billing/test-pay', { order_no: orderNo })).data });
   const startAlipay = useMutation({
@@ -66,16 +71,17 @@ export function useLandingSubscribe() {
       (await http.post<{ data: { payment_url: string } }>('/user/payment/alipay/create', a)).data.data,
   });
 
-  const subscribe = async (plan: 'pro' | 'max', method: string, label: string): Promise<boolean> => {
+  const subscribe = async (plan: 'pro' | 'max', method: string, cycle: BillingCycle, label: string): Promise<boolean> => {
     if (!getAuthToken()) {
       navigate('/?login=required');
       return false;
     }
+    const cycleLabel = cycle === 'yearly' ? `${label} 年度会员` : label;
     try {
-      const order = await sub.mutateAsync(plan);
+      const order = await sub.mutateAsync({ plan, cycle });
       if (method === 'test') {
         await testPay.mutateAsync(order.order_no);
-        toast.success(`测试支付成功!${label}已开通`);
+        toast.success(`测试支付成功!${cycleLabel}已开通`);
         navigate('/settings/membership');
         return true;
       }
@@ -83,7 +89,7 @@ export function useLandingSubscribe() {
         toast.info('微信支付即将开放,请暂用其他方式');
         return false;
       }
-      const pay = await startAlipay.mutateAsync({ order_no: order.order_no, amount: order.final_amount, subject: `${label}订阅` });
+      const pay = await startAlipay.mutateAsync({ order_no: order.order_no, amount: order.final_amount, subject: `${cycleLabel}订阅` });
       window.location.href = pay.payment_url;
       return true;
     } catch (err) {

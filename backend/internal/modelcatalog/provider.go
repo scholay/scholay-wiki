@@ -25,6 +25,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"scholar-backend/internal/common/circuitbreaker"
 	"scholar-backend/internal/common/utils"
 )
 
@@ -217,6 +218,12 @@ func (s *Service) pushProviderAsync(p *AgentProvider) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		if err := s.providerPusher(ctx, &snapshot); err != nil {
+			// P5(2026-07):熔断打开的短路是内部 sentinel,不是端点错误——不写成 provider 级 push_error
+			// (自愈后会成孤儿假报警;徽章已改读实时健康探测)。详见 agentconfig.pushAndRecord。
+			if circuitbreaker.IsCircuitBreakerError(err) {
+				slog.Warn("modelcatalog: push provider short-circuited by breaker (not endpoint failure), skip mark failed", "provider", snapshot.ID, "err", err)
+				return
+			}
 			slog.Warn("modelcatalog: push provider failed", "provider", snapshot.ID, "err", err)
 			s.repo.MarkProviderPush(snapshot.ID, false, err.Error())
 			return

@@ -12,6 +12,8 @@ export interface Balance {
 }
 export interface BillingOverview {
   tier: 'free' | 'pro' | 'max'
+  /** 付费档在期时的计费周期(yearly=年费会员徽标);免费/过期时后端省略(0079)。 */
+  cycle?: 'monthly' | 'yearly'
   expires_at?: string | null
   token: TokenStatus
   credit: Balance

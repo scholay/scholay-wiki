@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, TriangleAlert } from 'lucide-react';
+import { Plus, TriangleAlert, ChevronDown } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import {
   DropdownMenu,
@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu';
 import { useConfirm } from '@/shared/components';
-import { AdminPageLayout } from '../components/AdminPageLayout';
+import { cn } from '@/shared/lib/utils';
 import { ModelFormDialog } from '../components/ModelFormDialog';
 import { ProviderSection } from '../components/ProviderSection';
 import { DefaultEndpointDialog, ExtraProviderDialog } from '../components/ProviderDialogs';
@@ -16,6 +16,10 @@ import { useApiToast } from '../hooks/useApiToast';
 import { useAgentConfig } from '../api/agent-config';
 import {
   PURPOSE_LABELS,
+  DEEPSEEK_ENDPOINT,
+  DEEPSEEK_MODEL_ORDER,
+  EXTRA_VENDOR_PANELS,
+  presetPayload,
   useAdminModels,
   useAdminProviders,
   useCreateModel,
@@ -35,7 +39,12 @@ import {
  * 模型、从区块内添加模型(自动归属);默认端点(agent_config)恒为第一个区块,不可删。
  * 页尾:能力绑定(11 个固定能力 → 目录模型,跨端点选择)。
  */
-export function ModelCatalogPage() {
+/**
+ * 模型目录面板 —— 作为「模型与账号」页(AiUpstreamPage)的一个 tab 渲染。
+ * 端点(Provider)+ 模型目录 + 11 个能力绑定,改动自动推送 agent。
+ * 不含 AdminPageLayout 外壳(由父页统一提供),actions 内联成顶部工具条。
+ */
+export function ModelCatalogPanel() {
   const { data: models, isLoading } = useAdminModels();
   const { data: providers } = useAdminProviders();
   const { data: defEndpoint } = useAgentConfig({ showSensitive: false });
@@ -94,75 +103,178 @@ export function ModelCatalogPage() {
 
   const modelsOf = (providerId: number) => (models ?? []).filter((m) => m.provider_id === providerId);
 
-  return (
-    <AdminPageLayout
-      title="模型目录"
-      description="端点(Provider)与模型是隶属关系:每个端点下只列它真实提供的模型;添加模型从端点区块进入。改绑/换端点后自动推送 agent"
-      actions={
-        <Button
-          onClick={() => {
-            setProvEditing(null);
-            setProvOpen(true);
-          }}
-        >
-          <Plus className="size-3.5" />
-          新增端点
-        </Button>
-      }
-    >
-      <div className="space-y-6">
-        {/* 默认端点区块(agent_config,不可删) */}
-        <ProviderSection
-          header={{
-            title: '默认端点',
-            apiFormat: 'anthropic',
-            baseUrl: defEndpoint?.base_url ?? '',
-            enabled: defEndpoint?.enabled ?? true,
-            isDefault: true,
-            pushFailed: defEndpoint?.push_status === 'failed',
-            pushError: defEndpoint?.push_error,
-          }}
-          models={modelsOf(0)}
-          loading={isLoading}
-          onAddModel={() => openAddModel(0)}
-          onEditModel={(m) => {
-            setEditing(m);
-            setFormOpen(true);
-          }}
-          onDeleteModel={handleDeleteModel}
-          onEditProvider={() => setDefOpen(true)}
-        />
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
-        {/* 额外端点区块(agent_providers) */}
-        {(providers ?? []).map((p) => (
+  // 额外厂商(千问/Kimi/智谱…)按 base_url 认出各自 provider(数据驱动,见 EXTRA_VENDOR_PANELS)。
+  const providerFor = (baseUrlMatch: string) =>
+    (providers ?? []).find((p) => p.base_url.includes(baseUrlMatch));
+  const claimedProviderIds = new Set(
+    EXTRA_VENDOR_PANELS.map((v) => providerFor(v.baseUrlMatch)?.id).filter((id): id is number => id != null),
+  );
+
+  // 一键把某厂商的官方模型参数补全为官方默认值(缺失则新建,存在则更新)。providerId:DeepSeek=0,其余=其 provider id。
+  const applyPreset = async (order: readonly string[], providerId: number, vendorLabel: string) => {
+    const ok = await confirm({
+      title: `应用${vendorLabel}官方预设?`,
+      description:
+        '把这些模型的上下文、最大输出、四类单价(输入/输出/缓存读写)写入官方值;缺失则新建,存在则更新。用户可选 / 启用 / 门槛等开关保留不变。成本制:额度按真实单价扣,无需配倍率。',
+      confirmText: '应用预设',
+    });
+    if (!ok) return;
+    for (const modelId of order) {
+      const existing = (models ?? []).find((m) => m.model_id === modelId) ?? null;
+      const payload = presetPayload(modelId, existing, providerId);
+      const done = await apiToast(
+        existing
+          ? update.mutateAsync({ id: existing.id, data: payload })
+          : create.mutateAsync(payload),
+        { success: `已应用官方预设 · ${modelId}`, failure: `应用失败 · ${modelId}` }
+      );
+      if (done === null) break; // 出错即止,避免只补了一半
+    }
+  };
+
+  const endpointMatchesOfficial = (defEndpoint?.base_url ?? '') === DEEPSEEK_ENDPOINT.baseUrl;
+
+  return (
+    <div className="space-y-6">
+      <p className="text-xs text-muted-foreground">
+        平台上游:<span className="font-mono">DeepSeek 官方</span>(默认端点)+ 千问 / Kimi / 智谱(额外端点)。
+        各厂商模型的参数、四类单价可编辑;「应用官方预设」按官方文档一键补全。成本制计费:额度按真实单价扣,无需配倍率。改动后自动推送 agent。
+      </p>
+
+      {/* ── DeepSeek 官方(默认端点,agent_config;不可删)────────────────── */}
+      <ProviderSection
+        header={{
+          title: 'DeepSeek 官方',
+          apiFormat: DEEPSEEK_ENDPOINT.apiFormat,
+          baseUrl: defEndpoint?.base_url ?? DEEPSEEK_ENDPOINT.baseUrl,
+          enabled: defEndpoint?.enabled ?? true,
+          isDefault: true,
+          pushFailed: defEndpoint?.push_status === 'failed',
+          pushError: defEndpoint?.push_error,
+        }}
+        models={modelsOf(0)}
+        loading={isLoading}
+        onApplyPreset={() => applyPreset(DEEPSEEK_MODEL_ORDER, 0, 'DeepSeek ')}
+        onAddModel={() => openAddModel(0)}
+        onEditModel={(m) => {
+          setEditing(m);
+          setFormOpen(true);
+        }}
+        onDeleteModel={handleDeleteModel}
+        onEditProvider={() => setDefOpen(true)}
+      />
+      {!endpointMatchesOfficial && defEndpoint?.base_url && (
+        <p className="-mt-3 text-2xs text-brand-amber">
+          当前默认端点 Base URL 不是官方地址(应为 <span className="font-mono">{DEEPSEEK_ENDPOINT.baseUrl}</span>);点右上「编辑端点」核对。
+        </p>
+      )}
+
+      {/* ── 额外厂商(千问 / Kimi / 智谱…)数据驱动,见 EXTRA_VENDOR_PANELS ────────── */}
+      {EXTRA_VENDOR_PANELS.map((v) => {
+        const prov = providerFor(v.baseUrlMatch);
+        return prov ? (
           <ProviderSection
-            key={p.id}
+            key={v.key}
             header={{
-              title: p.name,
-              apiFormat: p.api_format,
-              baseUrl: p.base_url,
-              enabled: p.enabled,
+              title: v.label,
+              apiFormat: prov.api_format,
+              baseUrl: prov.base_url,
+              enabled: prov.enabled,
               isDefault: false,
-              pushFailed: p.push_status === 'failed',
-              pushError: p.push_error,
+              pushFailed: prov.push_status === 'failed',
+              pushError: prov.push_error,
             }}
-            models={modelsOf(p.id)}
+            models={modelsOf(prov.id)}
             loading={isLoading}
-            onAddModel={() => openAddModel(p.id)}
+            onApplyPreset={() => applyPreset(v.models, prov.id, v.label + ' ')}
+            onAddModel={() => openAddModel(prov.id)}
             onEditModel={(m) => {
               setEditing(m);
               setFormOpen(true);
             }}
             onDeleteModel={handleDeleteModel}
             onEditProvider={() => {
-              setProvEditing(p);
+              setProvEditing(prov);
               setProvOpen(true);
             }}
-            onDeleteProvider={() => handleDeleteProvider(p)}
           />
-        ))}
+        ) : (
+          <div
+            key={v.key}
+            className="rounded-md border border-dashed border-border bg-surface-1 p-4 text-xs text-muted-foreground"
+          >
+            未检测到{v.label}端点。到下方「高级」新增端点:Base URL{' '}
+            <span className="font-mono">{v.endpoint.baseUrl}</span>、格式{' '}
+            <span className="font-mono">{v.endpoint.apiFormat}</span>、填该厂商 API Key
+            {v.requiresReasoningReplay && <span className="text-brand-amber">(务必开启 reasoning_replay)</span>},即可在此出现{v.label}面板。
+          </div>
+        );
+      })}
 
-        <BindingsCard models={models ?? []} />
+      <BindingsCard models={models ?? []} />
+
+      {/* ── 高级 · 自定义上游端点与模型(暂时收起,一般不需要)──────────────── */}
+      <div>
+        <button
+          type="button"
+          onClick={() => setShowAdvanced((v) => !v)}
+          className="flex w-full items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+        >
+          <ChevronDown className={cn('size-3.5 transition-transform', showAdvanced ? '' : '-rotate-90')} />
+          高级 · 自定义上游端点与模型
+          <span className="text-faint">(接入 DeepSeek 以外的厂商时才用)</span>
+        </button>
+        {showAdvanced && (
+          <div className="mt-3 space-y-6">
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setProvEditing(null);
+                  setProvOpen(true);
+                }}
+              >
+                <Plus className="size-3.5" />
+                新增端点
+              </Button>
+            </div>
+            {(providers ?? [])
+              .filter((p) => !claimedProviderIds.has(p.id)) // 千问/Kimi/智谱已在上方独立区块展示
+              .map((p) => (
+                <ProviderSection
+                  key={p.id}
+                  header={{
+                    title: p.name,
+                    apiFormat: p.api_format,
+                    baseUrl: p.base_url,
+                    enabled: p.enabled,
+                    isDefault: false,
+                    pushFailed: p.push_status === 'failed',
+                    pushError: p.push_error,
+                  }}
+                  models={modelsOf(p.id)}
+                  loading={isLoading}
+                  onAddModel={() => openAddModel(p.id)}
+                  onEditModel={(m) => {
+                    setEditing(m);
+                    setFormOpen(true);
+                  }}
+                  onDeleteModel={handleDeleteModel}
+                  onEditProvider={() => {
+                    setProvEditing(p);
+                    setProvOpen(true);
+                  }}
+                  onDeleteProvider={() => handleDeleteProvider(p)}
+                />
+              ))}
+            {(providers ?? []).filter((p) => !claimedProviderIds.has(p.id)).length === 0 && (
+              <p className="text-xs text-faint">暂无其它额外端点。千问 / Kimi / 智谱 以外的厂商在此新增。</p>
+            )}
+          </div>
+        )}
       </div>
 
       <ModelFormDialog
@@ -178,7 +290,7 @@ export function ModelCatalogPage() {
       />
       <DefaultEndpointDialog open={defOpen} current={defEndpoint} onClose={() => setDefOpen(false)} />
       <ExtraProviderDialog open={provOpen} editing={provEditing} onClose={() => setProvOpen(false)} />
-    </AdminPageLayout>
+    </div>
   );
 }
 

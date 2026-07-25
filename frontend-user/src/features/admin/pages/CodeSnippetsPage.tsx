@@ -23,7 +23,11 @@ const POSITION_OPTIONS = [
   { value: 'body_end', label: 'body 结束' },
 ];
 
-export function CodeSnippetsPage() {
+/**
+ * 代码片段库面板 —— 作为「系统设置」页(SystemConfigPage)的一个 tab 渲染。
+ * 给用户端注入的 SEO / 统计 / 广告 / 社交脚本 CRUD。embedded 去掉自身 AdminPageLayout 外壳。
+ */
+export function CodeSnippetsPanel() {
   const { data, isLoading } = useCodeSnippets();
   const create = useCreateSnippet();
   const update = useUpdateSnippet();
@@ -65,6 +69,7 @@ export function CodeSnippetsPage() {
 
   return (
     <SimpleCrudPage<CodeSnippet>
+      embedded
       title="代码片段库"
       description={`共 ${data?.length ?? 0} 条 · 给用户端注入的 SEO / 统计 / 广告 / 社交脚本`}
       rows={data}

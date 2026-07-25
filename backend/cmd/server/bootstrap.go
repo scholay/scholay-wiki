@@ -26,7 +26,9 @@ import (
 	"scholar-backend/internal/agentbridge"
 	"scholar-backend/internal/agentconfig"
 	"scholar-backend/internal/announcement"
+	"scholar-backend/internal/boltslides"
 	"scholar-backend/internal/claw"
+	"scholar-backend/internal/scidraw"
 	"scholar-backend/internal/skillmarket"
 	"scholar-backend/internal/clientlog"
 	"scholar-backend/internal/common/cleanup"
@@ -151,18 +153,23 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	agentBridge := agentbridge.New(agentClient, agentSessionRepo)
 	// P2 模型目录接缝:hub 建连下发会话模型 + 浏览器换模型帧权威校验(堵 modelId 注入洞)。
 	agentBridge.SetModelCatalog(modelCatalogService)
-	// Web-native 重构 P0:影子事件日志 + TurnCoordinator(影子写 agent_turns/agent_turn_events/
-	// agent_billing_ledger,迁移 0046-0047)。**opt-in**:仅当 AGENT_TURN_JOURNAL=shadow 才接线;
-	// 默认(unset/其它)= 不构造 → bridge.turns nil → 每处新代码 nil-guard no-op → 零行为变更、
-	// 零 MySQL 写、重启即回退(设计 §7.5)。jsonl + 内存 hub 全程仍权威。
-	if os.Getenv("AGENT_TURN_JOURNAL") == "shadow" {
+	// durable 会话事件日志 + TurnCoordinator(写 agent_turns/agent_turn_events/agent_billing_ledger,
+	// 迁移 0046-0047)。【根治 2026-07-21】改为**结构性默认恒接线**:会话历史的耐久性不再取决于
+	// AGENT_TURN_JOURNAL 是否恰好 = shadow —— 此前是 opt-in,漏配/打错该 env = 新 turn 不落库、历史无源
+	// (boltslides 事故根因之一,数据完整性不该由 env 开关决定)。现仅 AGENT_TURN_JOURNAL=off 显式关闭
+	// (紧急闸,关 = 历史退回 agent 内存易失态,强烈不建议)。jsonl + 内存 hub 仍作 live 权威,journal 为
+	// durable 真源(读路径见 readFromJournal:默认从 journal 折叠,自带 archive/daemon 兜底)。
+	if os.Getenv("AGENT_TURN_JOURNAL") != "off" {
 		eventLog := agentbridge.NewEventLog(db)
 		agentBridge.SetTurnCoordinator(agentbridge.NewTurnCoordinator(eventLog))
 		// M5:启动清理上次崩溃残留的僵尸 running turn(防续流复活死轮)。
 		rctx, rcancel := context.WithTimeout(context.Background(), 15*time.Second)
 		agentBridge.ReconcileJournalOnBoot(rctx)
 		rcancel()
-		slog.Info("agentbridge: turn journal shadow-write enabled (AGENT_TURN_JOURNAL=shadow)")
+		// W3-2c:运行期 reaper —— 10min 周期回收僵尸 running turn(不再只在 boot 清一次;
+		// FailTurn 落库失败 / hub 异常路径漏 finalize 的轮在 30min 内被兜底收口)。
+		agentBridge.StartJournalReaper(context.Background())
+		slog.Info("agentbridge: durable turn journal enabled (structural default; set AGENT_TURN_JOURNAL=off to disable)")
 		// P1 校验 harness:journal==daemon 持续比对(只读、只 slog,不改 live)。AGENT_JOURNAL_VALIDATE=on 才启。
 		if os.Getenv("AGENT_JOURNAL_VALIDATE") == "on" {
 			validator := agentbridge.NewJournalValidator(db, eventLog, agentClient)
@@ -177,10 +184,11 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	if execBase := os.Getenv("AGENT_EXECUTOR_BASE_URL"); execBase != "" {
 		execClient := agent.NewClient(execBase, os.Getenv("AGENT_AUTH_TOKEN"))
 		execFeatures := os.Getenv("AGENT_EXECUTOR_FEATURES")
-		// C6 fail-fast:切流到 executor 的 feature 历史读走 journal;若漏配/打错 AGENT_TURN_JOURNAL,
-		// 这些 feature 历史全空 + 新 turn 不再 journal 写 → 永久不可恢复。拒绝带病启动。
-		if execFeatures != "" && os.Getenv("AGENT_TURN_JOURNAL") != "shadow" {
-			slog.Error("FATAL agentbridge: AGENT_EXECUTOR_FEATURES 已配但 AGENT_TURN_JOURNAL != shadow — "+
+		// C6 fail-fast:executor 路由的 feature 历史读走 journal;若有人显式 AGENT_TURN_JOURNAL=off 关掉
+		// durable 写,这些 feature 历史全空 + 新 turn 不落库 → 永久不可恢复。拒绝带病启动。
+		// (journal 现默认恒开,仅 =off 显式关闭 → 唯一危险配置就是 off。)
+		if execFeatures != "" && os.Getenv("AGENT_TURN_JOURNAL") == "off" {
+			slog.Error("FATAL agentbridge: AGENT_EXECUTOR_FEATURES 已配但 AGENT_TURN_JOURNAL=off — "+
 				"executor 路由的 feature 历史无源、新 turn 不落库,会全量永久丢历史。拒绝启动。",
 				"features", execFeatures, "AGENT_TURN_JOURNAL", os.Getenv("AGENT_TURN_JOURNAL"))
 			os.Exit(1)
@@ -243,9 +251,15 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	// promptSvc 目前仍由 peerreview 的 4 个 PersonaRandomPicker (下方) 与 admin 注册表 handler 使用。
 	smartSearchSpec := smartsearch.BuildSpec()
 	clawSpec := claw.BuildSpec()
+	boltSlidesSpec := boltslides.BuildSpec()
 	smartSearchFeature := agentBridge.For(smartSearchSpec)
 	peerReviewFeature := agentBridge.For(peerreview.Spec)
 	clawFeature := agentBridge.For(clawSpec)
+	// 制作PPT (boltslides): 智能助手页选项卡切入;独立 session 池,建会话铺 bolt-slides 脚手架、BuildDeck 编译单文件 HTML。
+	boltSlidesFeature := agentBridge.For(boltSlidesSpec)
+	// 科研绘图 (sci_draw): 智能助手页模板卡切入;独立 session 池,生成原创矢量 SVG(P0,仿 boltslides 集成)。
+	sciDrawSpec := scidraw.BuildSpec()
+	sciDrawFeature := agentBridge.For(sciDrawSpec)
 	// 智能写作 (Prism): AI 定点编辑走 ServerSideChatStreaming;会话禁写盘工具(见 prism.BuildSpec)。
 	prismFeature := agentBridge.For(prism.BuildSpec())
 
@@ -258,15 +272,35 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 
 	// 启动时 upsert 全部 feature 的 subagent 定义到 scholar_agent /api/agents。
 	// Picker=nil 的 spec (peerreview) 自动跳过推送, 见 agentbridge/skill.go。
-	// 失败不阻塞起服, 下次重启再推。
+	// 审计修复(2026-07-23):原「失败不阻塞起服, 下次重启再推」= 一次性推送 —— backend 比 agent
+	// 先就绪(或撞上熔断)时全军覆没且**永不重试**,整机会一直跑在无 skill/subagent 定义的降级
+	// 状态直到下次重启(本机实测复现:启动窗口 4 个 feature 全失败后 9 小时无人补推)。
+	// 改为线性退避重试,只重推失败的 spec,直到全部成功或耗尽(~11 分钟,覆盖 agent 冷启/熔断恢复)。
 	safego.Go("agent-skill-startup-sync", func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		for _, spec := range []agentbridge.FeatureSpec{smartSearchSpec, peerreview.Spec, clawSpec} {
-			if err := agentBridge.UpsertSkill(ctx, spec); err != nil {
-				slog.Warn("agent skill startup sync failed",
-					"feature", spec.Key, "err", err)
+		pending := []agentbridge.FeatureSpec{smartSearchSpec, peerreview.Spec, clawSpec, boltSlidesSpec, sciDrawSpec}
+		for attempt := 0; attempt < 10 && len(pending) > 0; attempt++ {
+			if attempt > 0 {
+				time.Sleep(time.Duration(attempt) * 15 * time.Second)
 			}
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			var failed []agentbridge.FeatureSpec
+			for _, spec := range pending {
+				if err := agentBridge.UpsertSkill(ctx, spec); err != nil {
+					slog.Warn("agent skill startup sync failed (will retry)",
+						"feature", spec.Key, "attempt", attempt, "err", err)
+					failed = append(failed, spec)
+				}
+			}
+			cancel()
+			pending = failed
+		}
+		if len(pending) > 0 {
+			keys := make([]string, 0, len(pending))
+			for _, s := range pending {
+				keys = append(keys, s.Key)
+			}
+			slog.Error("agent skill startup sync exhausted retries — 这些 feature 将在无 skill 定义状态下运行直到下次重启",
+				"features", keys)
 		}
 	})
 
@@ -351,6 +385,8 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	peerReviewHandler.SetUsageStatRecorder(plat.usageStatService)
 	smartsearch.SetUsageRecorder(plat.usageStatService)
 	claw.SetUsageRecorder(plat.usageStatService)
+	boltslides.SetUsageRecorder(plat.usageStatService)
+	scidraw.SetUsageRecorder(plat.usageStatService)
 	prism.SetUsageStatRecorder(plat.usageStatService) // WS preUserMessageChain 用(包级 var,区别于 Handler 方法)
 
 	// 统一 LLM token 账本 (llm_token_usage):
@@ -363,6 +399,11 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	//     **切勿**给它再接 ledger recorder,否则与 accrueTurnUsage 带内帧双计账本 + 双扣额度。
 	//     (历史的 agent per-call HTTP 内网回调 /internal_handler.go 旁路早已删除,勿据旧注释找它。)
 	aiB.aiService.SetLLMUsageRecorder(plat.llmUsageService)
+	// 项目侧 LLM(翻译/分析/公众号/Prism 点评)改走 agent 单次接口 + 能力绑定选型(取代第三方账号 key)。
+	// 未接线时 internal/ai 回退旧第三方路径(平滑迁移 + 回滚)。
+	aiB.aiService.SetAgentBackend(agentClient, modelCatalogService)
+	// Prism 修改意见拆条的廉价单次补全(内联点评已删,此注入点现仅供 revision-parse)。
+	prism.SetCheapCompletionFn(aiB.aiService.CompleteSimple)
 	// Bridge 级 llmRec 是活代码:被 ws.go(交互三件套)与 ws_serverside.go(peerreview)的
 	// accrueTurnUsage 消费,记下全部 agent 侧 token。务必保留。
 	agentBridge.SetLLMUsageRecorder(plat.llmUsageService)
@@ -385,6 +426,8 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	smartsearch.SetVIPChecker(plat.vipService)
 	prism.SetVIPChecker(plat.vipService)
 	claw.SetVIPChecker(plat.vipService)
+	boltslides.SetVIPChecker(plat.vipService)
+	scidraw.SetVIPChecker(plat.vipService)
 	// Skills 市场持有上限按会员档:免费 10 / 付费 50(闭包运行时读 plat.vipService)。
 	skillMarketService.SetSkillCapResolver(func(userID uint) int {
 		if plat.vipService != nil && plat.vipService.EffectiveTier(userID) != "free" {
@@ -404,6 +447,8 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	for feature, wired := range map[string]bool{
 		"smart_search": smartsearch.VIPCheckerWired(),
 		"claw":         claw.VIPCheckerWired(),
+		"boltslides":   boltslides.VIPCheckerWired(),
+		"sci_draw":     scidraw.VIPCheckerWired(),
 		"prism":        prism.VIPCheckerWired(),
 		"ai":           aiB.aiHandler.VIPCheckerWired(),
 		"peerreview":   peerReviewService.VIPCheckerWired(),
@@ -414,12 +459,12 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	}
 
 	// 统一 token 额度计数:llmusage 每记一行账本 → 同步累加进用户周期 token 预算(billing/vip)。
-	// 这是「按 token 限制」的唯一扣减点;预检(CheckDailyQuota)只读闸门, 真实消耗在此累加。
-	// P3:Pricer 在 Record 内(observer 门之前)按模型目录算加权+成本快照;observer 拿到的
-	// tokens 已是**加权口径**(= raw × billing_weight),直接进额度计数。
+	// 这是「按真实成本限制」的唯一扣减点;预检(CheckDailyQuota)只读闸门, 真实消耗在此累加。
+	// P5 成本制:Pricer 在 Record 内(observer 门之前)按模型目录 4 类单价算真实成本;observer 拿到的
+	// costMicro 是**真实成本(微元)**,直接进周期额度计数(额度单位=微元,显示 ÷1000=算力点)。
 	plat.llmUsageService.SetPricer(modelCatalogService)
-	plat.llmUsageService.SetObserver(func(userID uint, tokens int) {
-		plat.vipService.AddUsage(context.Background(), userID, tokens)
+	plat.llmUsageService.SetObserver(func(userID uint, costMicro int) {
+		plat.vipService.AddUsage(context.Background(), userID, costMicro)
 	})
 
 	// seo → seosubmit (paper/author 写入后入队主动推送)
@@ -562,7 +607,6 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 	prism.SetTitleSink(prismService) // agent 回传标题落库的反查入口(见 handleAgentTitle)
 	prism.SetProfileSink(prismService) // 写作画像 provider(Phase 2):hub seed 按 sessionID 注入 base 人格
 	prism.SetModelResolver(modelCatalogService) // planner 选择轮按 prism.planner 绑定取便宜模型(P1)
-	prism.SetInlineReviewFn(aiB.aiService.ReviewText) // 快通道评议(V3-4.5-1):选区级只读点评走 ai ModelLow
 	prismService.StartBackgroundGC()  // 编译产物 GC(评审 #7):回收旧 prism_compiles 行 + pdf/log MinIO 对象
 	prismHandler := prism.NewHandler(prismService)
 	prismHandler.SetUsageStatRecorder(plat.usageStatService)
@@ -607,6 +651,8 @@ func bootstrapServices(cfg *appconfig.Config) *services {
 			memory:         usermemory.NewHandler(userMemoryService),
 			openAccess:     openaccess.NewHandler(),
 			claw:           claw.NewHandler(clawFeature, agentartifact.NewRepository(db), libReader),
+			boltSlides:     boltslides.NewHandler(boltSlidesFeature, agentartifact.NewRepository(db)),
+			sciDraw:        scidraw.NewHandler(sciDrawFeature, agentartifact.NewRepository(db)),
 			skillMarket:    skillMarketHandler,
 			featureTool:    featureToolHandler,
 			agentBridge:    agentBridge, // 内网回调端点: agent 上报带外 token 用量 (title-gen 等)

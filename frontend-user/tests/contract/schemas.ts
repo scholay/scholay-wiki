@@ -75,6 +75,8 @@ export const balanceViewSchema = z
 export const vipOverviewSchema = z
   .object({
     tier: z.enum(['free', 'pro', 'max']),
+    // 计费周期(0079):付费档在期时 monthly|yearly(年费会员徽标),免费/过期 omitempty 省略。
+    cycle: z.enum(['monthly', 'yearly']).optional(),
     expires_at: z.string().nullable(),
     token: tokenStatusSchema,
     // GetOverview 保证 credit 非空(架构报告 finding L2 —— Go 是 *BalanceView 指针,

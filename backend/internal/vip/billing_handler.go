@@ -34,7 +34,7 @@ func (h *Handler) BillingOverview(c *gin.Context) {
 		utils.InternalError(c, 500, "获取账户资产失败", err)
 		return
 	}
-	utils.Success(c, ov)
+	utils.Success(c, ov.StripQuotaAmounts()) // 用户端只看百分比,不下发额度绝对值
 }
 
 // ResetQuota POST /user/billing/reset —— 消耗经费立即重置今日额度。
@@ -143,23 +143,27 @@ func (h *Handler) CreateRecharge(c *gin.Context) {
 	utils.Success(c, ord)
 }
 
-// CreateSubscription POST /user/billing/subscribe {plan} —— 建订阅订单(plan=pro|max)。
+// CreateSubscription POST /user/billing/subscribe {plan, cycle} —— 建订阅订单
+// (plan=pro|max;cycle=monthly|yearly,缺省 monthly)。
 func (h *Handler) CreateSubscription(c *gin.Context) {
 	uid, ok := utils.GetUserID(c)
 	if !ok {
 		return
 	}
 	var req struct {
-		Plan string `json:"plan"`
+		Plan  string `json:"plan"`
+		Cycle string `json:"cycle"`
 	}
 	if !utils.BindJSON(c, &req) {
 		return
 	}
-	ord, err := h.svc.Order().CreateSubscription(uid, req.Plan)
+	ord, err := h.svc.Order().CreateSubscription(uid, req.Plan, req.Cycle)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrNoDowngrade):
 			utils.BadRequest(c, "不支持降级到更低套餐")
+		case errors.Is(err, ErrPendingOrderExists):
+			utils.BadRequest(c, "您有一笔待支付的会员订单,请先完成支付或稍后再试")
 		case errors.Is(err, ErrInvalidOrder):
 			utils.BadRequest(c, "套餐无效或未配置价格")
 		default:
@@ -170,13 +174,14 @@ func (h *Handler) CreateSubscription(c *gin.Context) {
 	utils.Success(c, ord)
 }
 
-// SubscribeQuote GET /user/billing/subscribe/quote?tier=pro|max —— 算订阅/续期/升级的动作 + 应付金额(不建单)。
+// SubscribeQuote GET /user/billing/subscribe/quote?tier=pro|max&cycle=monthly|yearly
+// —— 算订阅/续期/升级的动作 + 应付金额(不建单)。
 func (h *Handler) SubscribeQuote(c *gin.Context) {
 	uid, ok := utils.GetUserID(c)
 	if !ok {
 		return
 	}
-	q, err := h.svc.QuoteSubscription(uid, c.Query("tier"))
+	q, err := h.svc.QuoteSubscription(uid, c.Query("tier"), c.Query("cycle"))
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrNoDowngrade):
@@ -213,7 +218,7 @@ func (h *Handler) TestPay(c *gin.Context) {
 		return
 	}
 	ov, _ := h.svc.GetOverview(c.Request.Context(), uid)
-	utils.SuccessWithMessage(c, "测试支付成功", ov)
+	utils.SuccessWithMessage(c, "测试支付成功", ov.StripQuotaAmounts()) // 用户端只看百分比
 }
 
 // dayEquivalent 老 bundle 兼容:窗口额度换算成日均口径(free_daily_tokens 字段的过渡值)。
@@ -228,26 +233,39 @@ func dayEquivalent(cfg *BillingConfig) int64 {
 	return cfg.FreeWindowTokens / int64(days)
 }
 
+// clampNonNeg 年度字段对外展示口径:<0(未配置哨兵)按 0(=年付未开放)透出,不泄漏 -1。
+func clampNonNeg(v int) int {
+	if v < 0 {
+		return 0
+	}
+	return v
+}
+
 // PublicPlans GET /billing/plans(公开)—— 套餐价格/倍率/赠送 + 充值/重置参数(非敏感)。
+// 年度字段(0079):year_price_cents<=0 = 该档年付未开放(前端隐藏年付入口)。
 func (h *Handler) PublicPlans(c *gin.Context) {
 	cfg := h.svc.Config().Get()
 	alipay, wechat := h.svc.PaymentMethods()
 	utils.Success(c, gin.H{
 		// P4:额度是 7 天周期。free_daily_tokens 保留给老 bundle(值=窗口÷天数的日均口径)。
-		"free_window_tokens": cfg.FreeWindowTokens,
-		"window_days":        cfg.WindowDays,
-		"free_daily_tokens":  dayEquivalent(cfg),
-		"reset_cost_credits": cfg.ResetCostCredits,
-		"recharge_rate":      cfg.RechargeRate,
-		"min_recharge_cents": cfg.MinRechargeCents,
-		"popular_plan":       cfg.PopularPlan,
-		"enabled":            cfg.Enabled,
-		"test_payment":       testPaymentEnabled(),
-		"payment_methods":    gin.H{"alipay": alipay, "wechat": wechat},
+		"free_window_tokens":     cfg.FreeWindowTokens,
+		"window_days":            cfg.WindowDays,
+		"free_daily_tokens":      dayEquivalent(cfg),
+		"reset_cost_credits":     cfg.ResetCostCredits,
+		"recharge_rate":          cfg.RechargeRate,
+		"min_recharge_cents":     cfg.MinRechargeCents,
+		"popular_plan":           cfg.PopularPlan,
+		"enabled":                cfg.Enabled,
+		"test_payment":           testPaymentEnabled(),
+		"subscription_year_days": cfg.PeriodDaysFor(CycleYearly),
+		"payment_methods":        gin.H{"alipay": alipay, "wechat": wechat},
 		"plans": []gin.H{
-			{"tier": TierFree, "price_cents": 0, "original_cents": 0, "multiplier": 1, "grant_credits": 0},
-			{"tier": TierPro, "price_cents": cfg.ProPriceCents, "original_cents": cfg.ProOriginalCents, "multiplier": cfg.ProMultiplier, "grant_credits": cfg.ProGrantCredits},
-			{"tier": TierMax, "price_cents": cfg.MaxPriceCents, "original_cents": cfg.MaxOriginalCents, "multiplier": cfg.MaxMultiplier, "grant_credits": cfg.MaxGrantCredits},
+			{"tier": TierFree, "price_cents": 0, "original_cents": 0, "multiplier": 1, "grant_credits": 0,
+				"year_price_cents": 0, "year_original_cents": 0, "year_grant_credits": 0},
+			{"tier": TierPro, "price_cents": cfg.ProPriceCents, "original_cents": cfg.ProOriginalCents, "multiplier": cfg.ProMultiplier, "grant_credits": cfg.ProGrantCredits,
+				"year_price_cents": clampNonNeg(cfg.ProYearPriceCents), "year_original_cents": clampNonNeg(cfg.ProYearOriginalCents), "year_grant_credits": clampNonNeg(cfg.ProYearGrantCredits)},
+			{"tier": TierMax, "price_cents": cfg.MaxPriceCents, "original_cents": cfg.MaxOriginalCents, "multiplier": cfg.MaxMultiplier, "grant_credits": cfg.MaxGrantCredits,
+				"year_price_cents": clampNonNeg(cfg.MaxYearPriceCents), "year_original_cents": clampNonNeg(cfg.MaxYearOriginalCents), "year_grant_credits": clampNonNeg(cfg.MaxYearGrantCredits)},
 		},
 	})
 }

@@ -50,6 +50,13 @@ func (r *Repository) UpdateBillingConfig(c *BillingConfig) error {
 		"max_original_cents":       c.MaxOriginalCents,
 		"pro_grant_credits":        c.ProGrantCredits,
 		"max_grant_credits":        c.MaxGrantCredits,
+		"pro_year_price_cents":     c.ProYearPriceCents,
+		"pro_year_original_cents":  c.ProYearOriginalCents,
+		"max_year_price_cents":     c.MaxYearPriceCents,
+		"max_year_original_cents":  c.MaxYearOriginalCents,
+		"pro_year_grant_credits":   c.ProYearGrantCredits,
+		"max_year_grant_credits":   c.MaxYearGrantCredits,
+		"subscription_year_days":   c.SubscriptionYearDays,
 		"recharge_rate":            c.RechargeRate,
 		"min_recharge_cents":       c.MinRechargeCents,
 		"reset_cost_credits":       c.ResetCostCredits,
@@ -66,21 +73,25 @@ func (r *Repository) GetUserContact(userID uint) (email string, err error) {
 	return u.Email, err
 }
 
-// GetUserVIP 读某用户的 VIP 等级 + 到期(从 users 表两列)。用户不存在时返回零值(视为 free)。
+// GetUserVIP 读某用户的 VIP 等级 + 到期 + 计费周期(从 users 表三列)。用户不存在时返回零值(视为 free)。
 func (r *Repository) GetUserVIP(userID uint) (UserVIP, error) {
 	var uv UserVIP
 	err := r.db.Table("users").
-		Select("vip_tier, vip_expires_at").
+		Select("vip_tier, vip_expires_at, vip_cycle").
 		Where("id = ?", userID).
 		Scan(&uv).Error
 	return uv, err
 }
 
 // SetUserVIP 直接设置某用户的等级 + 到期(admin 直授/取消会员用)。expiresAt nil = 永久/清空。
-// 用户不存在(错 id)→ ErrUserNotFound, 避免上层伪造成功。
-func (r *Repository) SetUserVIP(userID uint, tier string, expiresAt *time.Time) error {
-	res := r.db.Table("users").Where("id = ?", userID).
-		Updates(map[string]any{"vip_tier": tier, "vip_expires_at": expiresAt})
+// cycle = 计费周期标识(monthly|yearly);空串 = 不改动现值(admin 直授默认不动周期,防
+// 「给年费用户随手补 7 天」把年费标识冲掉)。用户不存在(错 id)→ ErrUserNotFound。
+func (r *Repository) SetUserVIP(userID uint, tier string, expiresAt *time.Time, cycle string) error {
+	updates := map[string]any{"vip_tier": tier, "vip_expires_at": expiresAt}
+	if cycle != "" {
+		updates["vip_cycle"] = normCycle(cycle)
+	}
+	res := r.db.Table("users").Where("id = ?", userID).Updates(updates)
 	if res.Error != nil {
 		return res.Error
 	}
@@ -365,12 +376,18 @@ func (r *Repository) Redeem(userID uint, code string, now time.Time) (*RedeemRes
 
 		// 会员码:单调叠加(不降级 + 在期顺延)。
 		var uv UserVIP
-		if err := tx.Table("users").Select("vip_tier, vip_expires_at").Where("id = ?", userID).Scan(&uv).Error; err != nil {
+		if err := tx.Table("users").Select("vip_tier, vip_expires_at, vip_cycle").Where("id = ?", userID).Scan(&uv).Error; err != nil {
 			return err
 		}
 		newTier, newExpires := applyMembershipGrant(uv, rc.GrantTier, rc.GrantDays, now)
-		if err := tx.Table("users").Where("id = ?", userID).
-			Updates(map[string]any{"vip_tier": newTier, "vip_expires_at": newExpires}).Error; err != nil {
+		updates := map[string]any{"vip_tier": newTier, "vip_expires_at": newExpires}
+		// 周期标识防陈旧泄漏(0079):兑换码不是付费订阅,若用户**当前并非在期付费会员**
+		//(免费/已过期),把残留的 vip_cycle(如过期年费用户的 yearly)重置回 monthly,
+		// 否则兑换重新开通后会错误显示「年费会员」徽标。在期会员叠码则不动现值。
+		if !isPaidTier(effectiveTier(uv, now)) {
+			updates["vip_cycle"] = CycleMonthly
+		}
+		if err := tx.Table("users").Where("id = ?", userID).Updates(updates).Error; err != nil {
 			return err
 		}
 		exp := newExpires

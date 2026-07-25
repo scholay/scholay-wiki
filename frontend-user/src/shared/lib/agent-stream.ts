@@ -29,6 +29,19 @@ export type AgentDisplacedReason =
   | 'quota_exhausted'
   | 'server_shutdown';
 
+/**
+ * message_complete 帧可选的诚实性核验元数据(W2 P1-b;agent turnLoop sendComplete 附带,
+ * mirrors agent/src/turn/turnLoop.ts claim_audit)。仅纠偏轮真实发生时出现;旧 agent /
+ * 历史回放无此字段 → undefined,渲染层优雅降级(不出标注)。
+ */
+export interface AgentClaimAudit {
+  dois_unverified?: number;
+  delivery_mismatch?: boolean;
+  fullread_mismatch?: boolean;
+  /** 本轮触发过自动纠偏(模型已在同轮内补验证/更正)→ 前端渲染中性小标注。 */
+  corrective_fired?: boolean;
+}
+
 /** error 帧(events.ts 真源形态)。code 驱动额度判定(isQuotaSignal),retryable 当前未消费但保留以对齐真源。 */
 export interface AgentErrorFrame {
   type: 'error';

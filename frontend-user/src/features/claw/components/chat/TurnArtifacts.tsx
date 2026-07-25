@@ -10,9 +10,10 @@
 import { Download, Eye, FileText, FolderArchive, Sparkles } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import {
-  clawArtifactByIdUrl,
-  clawArtifactUrl,
-  clawArtifactZipUrl,
+  agentArtifactByIdUrl,
+  agentArtifactUrl,
+  agentArtifactZipUrl,
+  type ArtifactBasePath,
   type ClawArtifact,
 } from '../../api/artifacts';
 import { artifactCategory } from '../preview/artifact-format';
@@ -27,10 +28,13 @@ export function TurnArtifacts({
   sessionId,
   files,
   onPreview,
+  basePath = '/user/claw',
 }: {
   sessionId: string;
   files: ClawArtifact[];
   onPreview?: (a: ClawArtifact) => void;
+  /** 交付物端点前缀:'/user/claw'(智能助手) | '/user/boltslides'(制作PPT)。默认 claw。 */
+  basePath?: ArtifactBasePath;
 }) {
   if (files.length === 0) return null;
   return (
@@ -42,7 +46,7 @@ export function TurnArtifacts({
       </div>
       <div className="flex flex-col gap-1.5">
         {files.map((a) => (
-          <ArtifactRow key={a.path} sessionId={sessionId} artifact={a} onPreview={onPreview} />
+          <ArtifactRow key={a.path} sessionId={sessionId} artifact={a} onPreview={onPreview} basePath={basePath} />
         ))}
       </div>
     </div>
@@ -53,16 +57,18 @@ function ArtifactRow({
   sessionId,
   artifact,
   onPreview,
+  basePath,
 }: {
   sessionId: string;
   artifact: ClawArtifact;
   onPreview?: (a: ClawArtifact) => void;
+  basePath: ArtifactBasePath;
 }) {
   // 目录产物 → 整目录打包成一个 zip 下载(多文件统一交付)。
   if (artifact.kind === 'dir') {
     const zipHref = artifact.id
-      ? clawArtifactByIdUrl(artifact.id)
-      : clawArtifactZipUrl(sessionId, artifact.path);
+      ? agentArtifactByIdUrl(artifact.id, basePath)
+      : agentArtifactZipUrl(sessionId, artifact.path, basePath);
     return (
       <div className="flex items-center gap-2.5 rounded-md border border-border bg-background px-3 py-2 transition-colors hover:border-brand-green/40">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-brand-green/10">
@@ -91,13 +97,13 @@ function ArtifactRow({
   const category = artifactCategory(artifact);
   const canPreview =
     !!artifact.id && !!onPreview && category !== 'unpreviewable' && category !== 'archive';
-  // id 存在(已落 MinIO)→ 走 /claw/artifact/:id;否则回退老的 path 直读。
+  // id 存在(已落 MinIO)→ 走 <base>/artifact/:id;否则回退老的 path 直读。
   const downloadUrl = artifact.id
-    ? clawArtifactByIdUrl(artifact.id)
-    : clawArtifactUrl(sessionId, artifact.path, { download: true });
+    ? agentArtifactByIdUrl(artifact.id, basePath)
+    : agentArtifactUrl(sessionId, artifact.path, { download: true, basePath });
   const thumbUrl = artifact.id
-    ? clawArtifactByIdUrl(artifact.id)
-    : clawArtifactUrl(sessionId, artifact.path);
+    ? agentArtifactByIdUrl(artifact.id, basePath)
+    : agentArtifactUrl(sessionId, artifact.path, { basePath });
   const primary = artifact.title || artifact.name;
   const secondary = artifact.description || (artifact.title ? artifact.name : '');
 

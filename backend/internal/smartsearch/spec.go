@@ -130,6 +130,26 @@ var smartSearchDisallowedTools = []string{
 	// ExportDocument 写交付物到 ./out/ 不属只读检索职责,禁用(ReadDocument 保留:读用户上传的稿件)。
 	"Write", "Edit", "MultiEdit", "NotebookEdit", "Glob", "Grep", "LS", "ExportDocument",
 	"WebFetch", "WebSearch", "Task", "Agent", "Skill",
+	// 注:AskUserQuestion(交互提问)P1 起对 smart_search 放开(用户可在检索方向不明时被问清一个关键点),
+	// 故**不**列入禁用 —— 见 prompts.SmartSearchSystemPrompt 的「检索方向不明时」一节。
+}
+
+// smartSearchAllowedMcpTools —— smart_search 对 minicod MCP 的**正向白名单**(去 mcp__minicod__ 前缀的原始名)。
+// minicod 0.4.1 暴露 76 个工具(含 28 个 OpenAlex 实体、5 个高校、期刊投稿/评论/时间线等),不收敛会灌满
+// 每轮 tools[](≈15-25K tokens)且全自动批准(见 minicod 对齐审计 #2)。smart_search 只做「找论文」,只需
+// 论文/作者/片段/近邻检索这一子集;期刊仅留 get_journal(查详情)。executor featurePolicy 据此在
+// 可见性 + 执行二道墙两处过滤。新增/改工具时在此增删即可,无需动 executor。
+var smartSearchAllowedMcpTools = []string{
+	// 论文检索与解引用
+	"search_papers", "get_paper", "get_paper_by_doi", "get_paper_authors",
+	"get_paper_citations", "get_paper_references", "get_papers_batch",
+	"search_papers_bulk", "match_paper", "get_related_works", "group_works",
+	// 作者枢纽反查
+	"search_authors", "get_author", "get_author_papers",
+	// 片段接地 + 近邻推荐
+	"search_snippets", "recommend_paper", "recommend_from_pool",
+	// 期刊详情(用户偶尔问某篇论文发在哪个期刊 / 期刊分区)
+	"get_journal",
 }
 
 // BuildSpec 构造 smart_search 的 FeatureSpec。
@@ -156,6 +176,8 @@ func BuildSpec() agentbridge.FeatureSpec {
 		// 据 allowBash=false 并入)—— 执行器端工具池硬移除;backend 门由 specDeny 同源二道防线补禁。
 		SessionOptions: &agent.CreateSessionOptions{
 			DisallowedTools: agentbridge.SessionDisallowedTools(smartSearchDisallowedTools, false),
+				// MCP 正向白名单:把 minicod 76 工具收敛到 smart_search 真正需要的论文/作者/片段子集(见上)。
+				AllowedMcpTools: smartSearchAllowedMcpTools,
 			// 每个 smart_search 会话加载检索策略 skill(--add-dir /smart-search-add):查询拆解 / 引文滚雪球 /
 			// 作者枢纽 / 覆盖度自检。系统提示管纪律边界,skill 补检索手艺。独立目录,只有本 feature 会话装。
 			AddDirs: []string{smartSearchSkillAddDir()},

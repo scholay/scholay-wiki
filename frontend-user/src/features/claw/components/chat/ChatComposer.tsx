@@ -67,6 +67,16 @@ export interface ChatComposerProps {
   acceptImages?: boolean;
   /** 「新对话」回调 —— 输入框技能面板「在新对话中应用」用(启用变更建会话时冻结)。 */
   onNewConversation?: () => void;
+  /** 附件/引用/技能入口开关(默认 true = claw)。制作PPT 纯文本描述,置 false 隐藏上传+引用+技能,
+   *  并关掉拖拽/粘贴(该 feature 无对应后端上传端点)。 */
+  enableAttachments?: boolean;
+  /** 输入框占位文案(默认 claw 文案)。 */
+  placeholder?: string;
+  /**
+   * disabled 态占位文案。默认「正在等待 AI 回答…」只在 busy 时诚实;连接断开时也显示它会把
+   * 连接故障伪装成"AI 还在回答"(线上用户误判成因)—— 调用方按真实原因传(如「连接中断,正在重连…」)。
+   */
+  disabledPlaceholder?: string;
 }
 
 /** 命令式句柄 —— 新对话 hero 点「示例提问」chip 时, 把文案填进输入框并聚焦(不直接发送)。 */
@@ -88,6 +98,9 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
   modelSlot,
   acceptImages,
   onNewConversation,
+  enableAttachments = true,
+  placeholder,
+  disabledPlaceholder,
 }, ref) {
   // 「引用文献」选中的论文/文件夹(后端已物化进会话 cwd,这里持 chip 元数据)。
   const [references, setReferences] = useState<ReferenceItemDTO[]>([]);
@@ -162,12 +175,16 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
           requireAuth
             ? '登录后即可开始对话 · 在此输入会弹出登录注册'
             : disabled
-              ? '正在等待 AI 回答…'
-              : '问问智能助手 · Enter 发送 / Shift+Enter 换行 · 可直接粘贴/拖入图片文件'
+              ? disabledPlaceholder ?? '正在等待 AI 回答…'
+              : placeholder ??
+                // 非视觉模型不宣传「图片」,避免用户传了图才知道看不见(审计 vision-ux-4)。
+                (acceptImages === false
+                  ? '问问智能助手 · Enter 发送 / Shift+Enter 换行 · 可直接粘贴/拖入文件'
+                  : '问问智能助手 · Enter 发送 / Shift+Enter 换行 · 可直接粘贴/拖入图片文件')
         }
         disabled={disabled}
         sendReady={!att.uploading}
-        canSendEmpty={att.attachments.length > 0 || references.length > 0}
+        canSendEmpty={(enableAttachments && att.attachments.length > 0) || references.length > 0}
         busy={busy}
         stopping={stopping}
         onStop={onStop}
@@ -175,13 +192,13 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
         onRequireAuth={onRequireAuth}
         context={context}
         maxHeightPx={140}
-        onPaste={att.handlePaste}
-        containerProps={att.dragHandlers}
+        onPaste={enableAttachments ? att.handlePaste : undefined}
+        containerProps={enableAttachments ? att.dragHandlers : undefined}
         overlay={
-          att.dragOver ? (
+          enableAttachments && att.dragOver ? (
             <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-brand-green bg-background/90 text-sm font-medium text-brand-green">
               <Upload className="size-4" />
-              松开上传图片 / 文件
+              {acceptImages === false ? '松开上传文件' : '松开上传图片 / 文件'}
             </div>
           ) : undefined
         }
@@ -212,24 +229,26 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
           </>
         }
         leftActions={
-          <div className="flex items-center gap-0.5">
-            <ComposerPlusMenu
-              disabled={disabled || att.uploading}
-              accept={ATTACHMENT_ACCEPT}
-              onFiles={(files) => void att.addFiles(files)}
-              onPickLibrary={() => {
-                if (requireAuth) {
-                  onRequireAuth?.();
-                  return;
-                }
-                setPickerOpen(true);
-              }}
-            />
-            {/* 技能入口(登录后可见):事前声明本会话将启用的能力 + 内嵌启用列表(桌面/移动通用)。 */}
-            {!requireAuth && onNewConversation && (
-              <ComposerSkillsButton onNewConversation={onNewConversation} />
-            )}
-          </div>
+          enableAttachments ? (
+            <div className="flex items-center gap-0.5">
+              <ComposerPlusMenu
+                disabled={disabled || att.uploading}
+                accept={ATTACHMENT_ACCEPT}
+                onFiles={(files) => void att.addFiles(files)}
+                onPickLibrary={() => {
+                  if (requireAuth) {
+                    onRequireAuth?.();
+                    return;
+                  }
+                  setPickerOpen(true);
+                }}
+              />
+              {/* 技能入口(登录后可见):事前声明本会话将启用的能力 + 内嵌启用列表(桌面/移动通用)。 */}
+              {!requireAuth && onNewConversation && (
+                <ComposerSkillsButton onNewConversation={onNewConversation} />
+              )}
+            </div>
+          ) : undefined
         }
         rightActions={modelSlot}
       />

@@ -40,8 +40,8 @@ export function hitToConfirmLink(h: SearchHit): ConfirmLink {
   };
 }
 
-/** source 缩写 → 文献搜索品牌名(与 features/search 侧栏 SOURCE_OPTIONS 对齐)。
- *  stc=Semantic Scholar→Graph,olx=OpenAlex→Discovery,pmd=PubMed→Medicine。 */
+/** source 缩写 → 对外品牌名(与 shared/lib/search-filters SOURCE_OPTIONS 对齐)。
+ *  铁律:不暴露上游真名(stc=Semantic Scholar / olx=OpenAlex / pmd=PubMed 只是内部映射)。 */
 export function sourceBrandLabel(s: string): string {
   if (s === 'stc') return 'Graph';
   if (s === 'olx') return 'Discovery';

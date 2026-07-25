@@ -6,7 +6,7 @@ import { handleHTTP } from "./server/http.ts";
 import { onOpen, onMessage, onClose, type WSData } from "./server/ws.ts";
 import { startSessionSweeper } from "./server/sessions.ts";
 import { authOK, tokenConfigured } from "./auth.ts";
-import { sandboxMode } from "./sandbox/bwrap.ts";
+import { sandboxMode, smokeTestSciDrawDeps, smokeTestExport } from "./sandbox/bwrap.ts";
 import { validSessionId } from "./sandbox/confine.ts";
 import { prewarm } from "./mcp/minicodClient.ts";
 import { unsandboxedBashGate } from "./sandbox/profile.ts";
@@ -40,7 +40,7 @@ const server = Bun.serve<WSData>({
       const sessionId = decodeURIComponent(m[1]);
       if (!validSessionId(sessionId)) return new Response("bad session id", { status: 400 }); // H4:挡 ..%2f 穿越
       const upgraded = srv.upgrade(req, {
-        data: { sessionId, inFlight: false, abort: null, pending: new Map(), tier: "main", modelOverride: null, providerOverride: null, contextWindow: null, maxOutput: null, vision: false } as WSData,
+        data: { sessionId, inFlight: false, abort: null, pending: new Map(), tier: "main", modelOverride: null, providerOverride: null, contextWindow: null, maxInput: null, maxOutput: null, vision: false } as WSData,
       });
       if (upgraded) return undefined;
       return new Response("ws upgrade failed", { status: 400 });
@@ -88,3 +88,9 @@ log.info("agent started (clean-room executor · provider-agnostic · WS+HTTP)", 
 if (process.env.NODE_ENV === "production" && !tokenConfigured()) {
   log.error("FATAL: NODE_ENV=production 但未配 EXECUTOR_AUTH_TOKEN/AGENT_INTERNAL_TOKEN — 鉴权 fail-closed,所有请求将被拒。请配置 token。");
 }
+
+// 科研绘图 B/C 车道(matplotlib/rdkit)在真实 jail 内的渲染自检 —— 非阻塞、fire-and-forget。
+// 结果打进启动日志(`docker logs scholar_agent | grep 科研绘图`);失败=某运行库没 bind 进 jail。
+smokeTestSciDrawDeps().catch(() => {});
+// ExportDocument 链路(pandoc docx/pdf)同款 jail 内自检(`docker logs scholar_agent | grep 导出自检`)。
+smokeTestExport().catch(() => {});

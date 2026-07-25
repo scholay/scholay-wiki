@@ -8,7 +8,7 @@
  * 仅桌面(≥1024)用;窄屏走 Sheet。ClawPage 控制何时挂载(有产物或点了预览即挂)。
  */
 import { ArrowLeft, FolderArchive, PanelRightClose } from 'lucide-react';
-import { type ClawArtifact } from '../../api/artifacts';
+import { type ArtifactBasePath, type ClawArtifact } from '../../api/artifacts';
 import { TurnArtifacts } from '../chat/TurnArtifacts';
 import { ClawArtifactPreview } from './ClawArtifactPreview';
 
@@ -35,6 +35,10 @@ export function ClawArtifactPanel({
   onPreview,
   onClosePreview,
   onCollapse,
+  basePath = '/user/claw',
+  onExportDeck,
+  exportingFormat = null,
+  emptyHint,
 }: {
   sessionId: string;
   artifacts: ClawArtifact[];
@@ -42,6 +46,13 @@ export function ClawArtifactPanel({
   onPreview: (a: ClawArtifact) => void;
   onClosePreview: () => void;
   onCollapse?: () => void;
+  /** 交付物端点前缀:'/user/claw'(智能助手) | '/user/boltslides'(制作PPT)。默认 claw。 */
+  basePath?: ArtifactBasePath;
+  /** 制作PPT:html 演示稿导出 PDF/PPTX(pdf=矢量,pptx=图片版)。 */
+  onExportDeck?: (a: ClawArtifact, format: 'pptx' | 'pptx-native' | 'pdf') => void;
+  exportingFormat?: 'pptx' | 'pptx-native' | 'pdf' | null;
+  /** 空态文案(各 feature 定制,如制作PPT「生成的演示稿会出现在这里」)。缺省用通用句。 */
+  emptyHint?: string;
 }) {
   // 选中某产物 → 预览(顶部加「返回列表」)。
   if (previewArtifact) {
@@ -59,7 +70,14 @@ export function ClawArtifactPanel({
           <CollapseBtn onCollapse={onCollapse} />
         </div>
         <div className="min-h-0 flex-1">
-          <ClawArtifactPreview artifact={previewArtifact} onClose={onClosePreview} hideHeaderClose />
+          <ClawArtifactPreview
+            artifact={previewArtifact}
+            onClose={onClosePreview}
+            hideHeaderClose
+            basePath={basePath}
+            onExportDeck={onExportDeck ? (fmt) => onExportDeck(previewArtifact, fmt) : undefined}
+            exportingFormat={exportingFormat}
+          />
         </div>
       </div>
     );
@@ -75,10 +93,10 @@ export function ClawArtifactPanel({
       </header>
       <div className="min-h-0 flex-1 overflow-auto p-3">
         {artifacts.length > 0 ? (
-          <TurnArtifacts sessionId={sessionId} files={artifacts} onPreview={onPreview} />
+          <TurnArtifacts sessionId={sessionId} files={artifacts} onPreview={onPreview} basePath={basePath} />
         ) : (
           <div className="flex h-full items-center justify-center px-4 text-center text-xs text-faint">
-            助手生成的文件会出现在这里
+            {emptyHint ?? '助手生成的文件会出现在这里'}
           </div>
         )}
       </div>
