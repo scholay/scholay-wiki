@@ -161,7 +161,7 @@ function ProjectRow({
           <button
             type="button"
             onClick={(e) => e.stopPropagation()}
-            className="inline-flex size-6 items-center justify-center rounded text-faint opacity-0 transition-opacity hover:bg-surface-2 hover:text-foreground group-hover:opacity-100 data-[state=open]:opacity-100"
+            className="inline-flex size-6 items-center justify-center rounded-4 text-faint opacity-0 transition-opacity hover:bg-surface-2 hover:text-foreground group-hover:opacity-100 data-[state=open]:opacity-100"
             aria-label="更多操作"
           >
             <MoreVertical className="size-3.5" />

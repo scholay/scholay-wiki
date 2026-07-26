@@ -224,14 +224,14 @@ export function PrismWritingMenuButton(props: WritingMenuProps) {
                 disabled={props.profile.detecting}
                 onClick={() => props.profile!.onDetect()}
                 title="根据当前稿件重新识别文体/学科"
-                className="shrink-0 rounded p-1 text-faint transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-40"
+                className="shrink-0 rounded-4 p-1 text-faint transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-40"
               >
                 {props.profile.detecting ? <Loader2 className="size-3 animate-spin" /> : <RefreshCw className="size-3" />}
               </button>
               <button
                 type="button"
                 onClick={() => props.profile!.onPick()}
-                className="shrink-0 rounded px-1 py-0.5 text-2xs text-subtle transition-colors hover:bg-surface-2 hover:text-foreground"
+                className="shrink-0 rounded-4 px-1 py-0.5 text-2xs text-subtle transition-colors hover:bg-surface-2 hover:text-foreground"
               >
                 更换
               </button>

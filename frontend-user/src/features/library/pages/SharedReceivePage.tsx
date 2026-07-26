@@ -314,7 +314,7 @@ export function SharedReceivePage() {
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
               {/* 分享人横幅 —— 头像 + 「X 给你分享了一篇论文」 */}
               <div className="mb-5 flex items-center gap-3 rounded-lg bg-[#F1EADA] px-3.5 py-3">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-red text-sm font-semibold text-white">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-pill bg-brand-red text-sm font-semibold text-white">
                   {share.sharer?.trim().charAt(0) || '友'}
                 </span>
                 <div className="min-w-0">
@@ -330,7 +330,7 @@ export function SharedReceivePage() {
                 <div className="flex flex-col gap-3">
                   <div className="flex flex-wrap items-center gap-2">
                     {[singlePaper.venue, singlePaper.year].filter(Boolean).length > 0 && (
-                      <span className="rounded bg-surface-2 px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                      <span className="rounded-4 bg-surface-2 px-2 py-0.5 text-xs font-medium text-muted-foreground">
                         {[singlePaper.venue, singlePaper.year].filter(Boolean).join(' · ')}
                       </span>
                     )}
@@ -415,7 +415,7 @@ export function SharedReceivePage() {
               {/* 分享人横幅(灰底卡) */}
               <div className="flex items-center gap-2.5 rounded-md bg-surface-1 p-3">
                 <span
-                  className="flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
+                  className="flex size-9 shrink-0 items-center justify-center rounded-pill text-sm font-semibold text-white"
                   style={{ backgroundColor: avatarColor(share.sharer) }}
                 >
                   {share.sharer?.trim().charAt(0) || '友'}
@@ -536,7 +536,7 @@ export function SharedReceivePage() {
             onClick={() => setCodeSheetOpen(false)}
           >
             <div
-              className="w-full max-w-xl rounded-t-2xl bg-background p-5 pb-7"
+              className="w-full max-w-xl rounded-t-16 bg-background p-5 pb-7"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="mb-1 flex items-center justify-between">
@@ -623,9 +623,9 @@ function CollectionCover() {
   return (
     <div className="flex h-14 w-12 shrink-0 flex-col gap-1 rounded-sm border border-border bg-surface-1 p-1.5">
       <span className="text-2xs font-semibold leading-none text-faint">合集</span>
-      <span className="mt-0.5 h-[3px] w-full rounded-full bg-border-strong" />
-      <span className="h-[3px] w-3/4 rounded-full bg-border" />
-      <span className="h-[3px] w-full rounded-full bg-border" />
+      <span className="mt-0.5 h-[3px] w-full rounded-pill bg-border-strong" />
+      <span className="h-[3px] w-3/4 rounded-pill bg-border" />
+      <span className="h-[3px] w-full rounded-pill bg-border" />
     </div>
   );
 }

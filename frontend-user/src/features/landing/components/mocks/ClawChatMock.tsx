@@ -9,7 +9,7 @@ import { cn } from '@/shared/lib/utils';
 export function ClawChatMock() {
   return (
     <div className={cn(
-      'flex flex-col rounded-xl overflow-hidden bg-background border border-border',
+      'flex flex-col rounded-12 overflow-hidden bg-background border border-border',
       'shadow-[0_24px_48px_rgba(15,23,42,0.08)]'
     )}>
       {/* header */}

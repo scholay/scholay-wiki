@@ -61,7 +61,7 @@ export function MobileAuthSheet() {
       </div>
 
       {/* 表单(可滚)+ 第三方;放大触控目标(同整页),仅作用本弹窗。 */}
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-8 [&_input]:h-12 [&_input]:rounded-xl [&_input]:text-base [&_button[type=submit]]:h-12 [&_button[type=submit]]:rounded-xl [&_button[type=submit]]:text-base">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-8 [&_input]:h-12 [&_input]:rounded-12 [&_input]:text-base [&_button[type=submit]]:h-12 [&_button[type=submit]]:rounded-12 [&_button[type=submit]]:text-base">
         {mode === 'login' && (
           <LoginForm initialAccountType={initialAccountType} onSwitchMode={setMode} />
         )}

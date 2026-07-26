@@ -86,7 +86,7 @@ function AssetRow({ asset }: { asset: SubmissionAsset }) {
 // 提示卡:背景走 warning-soft token;边框无对应 token,用 brand-amber 30% 不透明度近似 #F2E2B3
 export function TipCard({ title, bullets }: { title: string; bullets: string[] }) {
   return (
-    <section className="rounded-xl border border-brand-amber/30 bg-warning-soft p-4">
+    <section className="rounded-12 border border-brand-amber/30 bg-warning-soft p-4">
       <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-foreground">
         <AlertCircle className="size-4 text-brand-amber" />
         {title}

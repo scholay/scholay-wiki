@@ -26,14 +26,14 @@ const CHIPS = [
 export function SearchMatrixMock() {
   return (
     <div className={cn(
-      'flex flex-col gap-4 p-5 rounded-xl bg-surface-1 border border-border',
+      'flex flex-col gap-4 p-5 rounded-12 bg-surface-1 border border-border',
       'shadow-[0_24px_48px_rgba(15,23,42,0.08)]'
     )}>
       {/* mock browser header */}
       <div className="flex items-center gap-2">
-        <span className="size-2.5 rounded-full bg-[#FF5F57]" />
-        <span className="size-2.5 rounded-full bg-[#FEBC2E]" />
-        <span className="size-2.5 rounded-full bg-[#28C840]" />
+        <span className="size-2.5 rounded-pill bg-[#FF5F57]" />
+        <span className="size-2.5 rounded-pill bg-[#FEBC2E]" />
+        <span className="size-2.5 rounded-pill bg-[#28C840]" />
         <span className="flex-1" />
         <span className="text-xs text-faint">scholay.ai/search</span>
       </div>

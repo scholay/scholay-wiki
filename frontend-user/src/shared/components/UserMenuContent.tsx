@@ -24,7 +24,7 @@ type Tier = 'free' | 'pro' | 'max';
 // 会员等级展示名全站统一:Free / Pro / Max。
 const TIER_LABEL: Record<Tier, string> = { free: 'Free', pro: 'Pro', max: 'Max' };
 const TIER_BADGE_CLS: Record<Tier, string> = {
-  free: 'bg-[hsl(var(--brand-green)/0.12)] text-brand-green',
+  free: 'bg-brand-green/12 text-brand-green',
   pro: 'bg-brand-amber/10 text-brand-amber',
   max: 'bg-brand-red/10 text-brand-red',
 };

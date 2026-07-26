@@ -325,7 +325,7 @@ export function FeedbackPage() {
                       <button
                         type="button"
                         onClick={() => removeAttachment(a.id)}
-                        className="absolute right-1 top-1 inline-flex size-5 items-center justify-center rounded-full bg-foreground/70 text-background opacity-0 transition-opacity hover:bg-foreground group-hover:opacity-100"
+                        className="absolute right-1 top-1 inline-flex size-5 items-center justify-center rounded-pill bg-foreground/70 text-background opacity-0 transition-opacity hover:bg-foreground group-hover:opacity-100"
                         aria-label="移除附件"
                       >
                         <X className="size-3" />
@@ -436,7 +436,7 @@ function PromiseCard() {
           '功能建议会进入 backlog,采纳后单独邮件告知',
         ].map((t) => (
           <li key={t} className="flex items-start gap-2">
-            <span className="mt-1.5 inline-block size-1 shrink-0 rounded-full bg-brand-amber" />
+            <span className="mt-1.5 inline-block size-1 shrink-0 rounded-pill bg-brand-amber" />
             {t}
           </li>
         ))}
@@ -449,7 +449,7 @@ function PromiseCard() {
 function SuccessPanel({ email, onAgain }: { email: string; onAgain: () => void }) {
   return (
     <div className="rounded-lg border border-border-soft bg-surface-1 p-8 text-center md:p-12">
-      <span className="mx-auto inline-flex size-12 items-center justify-center rounded-full bg-brand-green/10">
+      <span className="mx-auto inline-flex size-12 items-center justify-center rounded-pill bg-brand-green/10">
         <CheckCircle2 className="size-6 text-brand-green" strokeWidth={2.2} />
       </span>
       <h2 className="mt-4 text-lg font-bold text-foreground">感谢你的反馈!</h2>

@@ -68,7 +68,7 @@ export function MobileBottomNav() {
               <m.span
                 layoutId="mobile-nav-indicator"
                 transition={SNAPPY_SPRING}
-                className="absolute top-0 h-0.5 w-8 rounded-full bg-brand-red"
+                className="absolute top-0 h-0.5 w-8 rounded-pill bg-brand-red"
               />
             )}
             {item.icon(active)}

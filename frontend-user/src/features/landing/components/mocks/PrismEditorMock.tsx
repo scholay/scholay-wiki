@@ -25,14 +25,14 @@ const CODE_LINES = [
 export function PrismEditorMock() {
   return (
     <div className={cn(
-      'flex flex-col rounded-xl overflow-hidden bg-surface-1 border border-border',
+      'flex flex-col rounded-12 overflow-hidden bg-surface-1 border border-border',
       'shadow-[0_24px_48px_rgba(15,23,42,0.08)]'
     )}>
       {/* editor top bar */}
       <div className="flex items-center gap-3 px-4 py-2.5 bg-background border-b border-border-soft">
-        <span className="size-2.5 rounded-full bg-[#FF5F57]" />
-        <span className="size-2.5 rounded-full bg-[#FEBC2E]" />
-        <span className="size-2.5 rounded-full bg-[#28C840]" />
+        <span className="size-2.5 rounded-pill bg-[#FF5F57]" />
+        <span className="size-2.5 rounded-pill bg-[#FEBC2E]" />
+        <span className="size-2.5 rounded-pill bg-[#28C840]" />
         <div className="flex items-center gap-1 ml-3">
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-surface-2 text-2xs font-semibold text-foreground">
             <FileText className="size-3" /> main.tex

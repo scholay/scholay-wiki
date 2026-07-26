@@ -74,7 +74,7 @@ export const SharePoster = forwardRef<HTMLDivElement, { data: SharePosterData }>
                   </span>
                 ))}
               </div>
-              <div className="flex items-center gap-[5px] rounded-full bg-[#F1EADA] px-2.5 py-1">
+              <div className="flex items-center gap-[5px] rounded-pill bg-[#F1EADA] px-2.5 py-1">
                 <KindIcon className="size-3 text-[#DD9D13]" />
                 <span className="text-[11px] font-semibold text-[#DD9D13]">{data.kindLabel}</span>
               </div>
@@ -109,7 +109,7 @@ export const SharePoster = forwardRef<HTMLDivElement, { data: SharePosterData }>
 
             {/* 高亮条:被引 · 影响力 */}
             {data.highlight && (
-              <div className="flex items-center gap-2 rounded bg-[#FAFAFA] px-3 py-2.5">
+              <div className="flex items-center gap-2 rounded-4 bg-[#FAFAFA] px-3 py-2.5">
                 <TrendingUp className="size-3.5 shrink-0 text-[#2A7A2A]" />
                 <span className="text-[12px] font-medium text-[#666]">{data.highlight}</span>
               </div>
@@ -120,7 +120,7 @@ export const SharePoster = forwardRef<HTMLDivElement, { data: SharePosterData }>
 
             {/* 二维码页脚(浅色) */}
             <div className="flex items-center gap-3.5">
-              <div className="flex size-16 shrink-0 items-center justify-center rounded border border-[#E9E9E9] bg-white">
+              <div className="flex size-16 shrink-0 items-center justify-center rounded-4 border border-[#E9E9E9] bg-white">
                 <QRCodeCanvas value={data.qrValue} size={52} level="M" marginSize={0} />
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
@@ -141,7 +141,7 @@ export const SharePoster = forwardRef<HTMLDivElement, { data: SharePosterData }>
 function PosterPillView({ pill }: { pill: PosterPill }) {
   if (pill.tone === 'red') {
     return (
-      <span className="flex items-center gap-1 rounded-full bg-[#CD2323] px-2.5 py-1 text-[11px] font-semibold text-white">
+      <span className="flex items-center gap-1 rounded-pill bg-[#CD2323] px-2.5 py-1 text-[11px] font-semibold text-white">
         {pill.cite && <Quote className="size-[11px] fill-white text-white" />}
         {pill.text}
       </span>
@@ -149,14 +149,14 @@ function PosterPillView({ pill }: { pill: PosterPill }) {
   }
   if (pill.tone === 'outline') {
     return (
-      <span className="flex items-center gap-1 rounded-full border border-[#D8D8D8] bg-white px-2.5 py-1 text-[11px] font-medium">
+      <span className="flex items-center gap-1 rounded-pill border border-[#D8D8D8] bg-white px-2.5 py-1 text-[11px] font-medium">
         <span className="text-[#999]">{pill.text}</span>
         {pill.ifValue && <span className="font-bold text-[#DD9D13]">{pill.ifValue}</span>}
       </span>
     );
   }
   return (
-    <span className="rounded-full bg-[#F5F5F5] px-2.5 py-1 text-[11px] font-semibold text-[#666]">
+    <span className="rounded-pill bg-[#F5F5F5] px-2.5 py-1 text-[11px] font-semibold text-[#666]">
       {pill.text}
     </span>
   );

@@ -67,7 +67,7 @@ export function MobileAuthPage() {
 
       {/* 表单 —— 移动端放大触控目标:输入框 / 主按钮抬到 h-12 + 圆角 + 大字号。
           用 scoped 变体只作用于本页内的共享表单,PC 弹窗里的 h-10 紧凑样式不受影响。 */}
-      <div className="[&_input]:h-12 [&_input]:rounded-xl [&_input]:text-base [&_button[type=submit]]:h-12 [&_button[type=submit]]:rounded-xl [&_button[type=submit]]:text-base">
+      <div className="[&_input]:h-12 [&_input]:rounded-12 [&_input]:text-base [&_button[type=submit]]:h-12 [&_button[type=submit]]:rounded-12 [&_button[type=submit]]:text-base">
         {mode === 'login' && (
           <LoginForm initialAccountType="email" onSwitchMode={handleSwitchMode} />
         )}

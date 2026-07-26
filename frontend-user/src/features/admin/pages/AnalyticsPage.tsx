@@ -85,10 +85,10 @@ export function AnalyticsPage() {
           title="Umami WEBSITE_ID 尚未配置"
           description={
             <span>
-              首次启动 umami 后,用默认 <code className="px-1 rounded bg-surface-2">admin / umami</code>{' '}
-              登录 → 新建 Website → 把 Website ID 填回 <code className="px-1 rounded bg-surface-2">.env</code>{' '}
-              的 <code className="px-1 rounded bg-surface-2">UMAMI_WEBSITE_ID</code>,然后{' '}
-              <code className="px-1 rounded bg-surface-2">docker-compose restart backend</code>。
+              首次启动 umami 后,用默认 <code className="px-1 rounded-4 bg-surface-2">admin / umami</code>{' '}
+              登录 → 新建 Website → 把 Website ID 填回 <code className="px-1 rounded-4 bg-surface-2">.env</code>{' '}
+              的 <code className="px-1 rounded-4 bg-surface-2">UMAMI_WEBSITE_ID</code>,然后{' '}
+              <code className="px-1 rounded-4 bg-surface-2">docker-compose restart backend</code>。
             </span>
           }
         />
@@ -259,7 +259,7 @@ function KPI({
 function RealtimeCard({ value, loading }: { value?: number; loading?: boolean }) {
   return (
     <div className="rounded-md border border-brand-green bg-danger-soft/0 p-3 relative overflow-hidden">
-      <div className="absolute top-2 right-2 size-1.5 rounded-full bg-brand-green animate-pulse" />
+      <div className="absolute top-2 right-2 size-1.5 rounded-pill bg-brand-green animate-pulse" />
       <div className="text-2xs text-brand-green/80">实时在线</div>
       {loading ? (
         <Skeleton className="h-6 w-16 mt-1" />

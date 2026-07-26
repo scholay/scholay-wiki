@@ -221,7 +221,7 @@ function FolderRow({
       </span>
       <span
         className={cn(
-          'flex size-[22px] shrink-0 items-center justify-center rounded-full border-[1.5px]',
+          'flex size-[22px] shrink-0 items-center justify-center rounded-pill border-[1.5px]',
           selected ? 'border-brand-green bg-brand-green text-white' : 'border-border-button'
         )}
       >

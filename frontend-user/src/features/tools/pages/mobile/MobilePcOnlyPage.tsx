@@ -91,7 +91,7 @@ export function MobilePcOnlyPage() {
         <div className="flex flex-col items-center gap-4">
           {/* Hero:显示器图标 + 「手机端功能受限」徽章 */}
           <div className="flex flex-col items-center gap-3">
-            <span className="flex size-24 items-center justify-center rounded-full bg-[#F1EADA]">
+            <span className="flex size-24 items-center justify-center rounded-pill bg-[#F1EADA]">
               <Monitor className="size-11 text-foreground" strokeWidth={1.6} />
             </span>
             <span className="flex items-center gap-1.5 rounded-pill bg-surface-2 px-3 py-1.5">

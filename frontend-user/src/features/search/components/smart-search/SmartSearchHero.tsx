@@ -87,12 +87,12 @@ function HeroSpark() {
   return (
     <div className="relative">
       <motion.div
-        className="absolute inset-0 rounded-2xl bg-brand-green/30 blur-xl"
+        className="absolute inset-0 rounded-16 bg-brand-green/30 blur-xl"
         animate={{ scale: [1, 1.6, 1], opacity: [0.5, 0, 0.5] }}
         transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
       />
       <motion.div
-        className="relative flex size-14 items-center justify-center rounded-2xl bg-surface-2"
+        className="relative flex size-14 items-center justify-center rounded-16 bg-surface-2"
         animate={{ scale: [1, 1.08, 1] }}
         transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
       >
@@ -144,7 +144,7 @@ function AmbientBackdrop() {
       {blobs.map((b) => (
         <motion.div
           key={b.cls}
-          className={cn('absolute rounded-full blur-3xl', b.cls)}
+          className={cn('absolute rounded-pill blur-3xl', b.cls)}
           animate={reduce ? b.calm : b.anim}
           transition={{ duration: b.dur, repeat: Infinity, ease: 'easeInOut' }}
         />

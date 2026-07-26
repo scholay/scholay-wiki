@@ -442,9 +442,9 @@ function GradeRing({ grade }: { grade: string }) {
       className={cn('relative inline-flex size-11 shrink-0 items-center justify-center', gradeTextColor(grade))}
       title={`等级 ${grade}`}
     >
-      <span className="absolute inset-0 rounded-full" style={ringStyle} aria-hidden="true" />
+      <span className="absolute inset-0 rounded-pill" style={ringStyle} aria-hidden="true" />
       {/* 中心挖空成环: 内圆用卡片底色盖住 */}
-      <span className="absolute inset-[3px] rounded-full bg-surface-1" aria-hidden="true" />
+      <span className="absolute inset-[3px] rounded-pill bg-surface-1" aria-hidden="true" />
       <span className="relative font-serif text-base font-bold">{grade}</span>
     </span>
   );

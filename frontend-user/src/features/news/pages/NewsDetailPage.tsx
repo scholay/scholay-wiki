@@ -25,10 +25,10 @@ export function NewsDetailPage() {
   if (isLoading) {
     return (
       <div className="mx-auto max-w-3xl px-6 py-12">
-        <div className="h-7 w-3/4 animate-pulse rounded bg-surface-2" />
+        <div className="h-7 w-3/4 animate-pulse rounded-4 bg-surface-2" />
         <div className="mt-4 space-y-2">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-4 w-full animate-pulse rounded bg-surface-1" />
+            <div key={i} className="h-4 w-full animate-pulse rounded-4 bg-surface-1" />
           ))}
         </div>
       </div>

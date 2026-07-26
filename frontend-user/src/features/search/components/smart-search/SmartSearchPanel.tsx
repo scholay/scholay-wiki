@@ -407,7 +407,7 @@ export function SmartSearchPanel() {
     onPaste: att.handlePaste,
     containerProps: att.dragHandlers,
     overlay: att.dragOver ? (
-      <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-brand-green bg-background/90 text-sm font-medium text-brand-green">
+      <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-16 border-2 border-dashed border-brand-green bg-background/90 text-sm font-medium text-brand-green">
         <Upload className="size-4" />
         松开上传图片 / 文件
       </div>
@@ -1127,7 +1127,7 @@ function UserBubble({
       {attachments && attachments.length > 0 && <AttachmentChipList attachments={attachments} />}
       {references && references.length > 0 && <ReferenceChipList references={references} />}
       {text && (
-        <div className="max-w-[80%] inline-flex items-center py-2.5 px-3.5 rounded-xl bg-foreground text-background text-sm leading-relaxed">
+        <div className="max-w-[80%] inline-flex items-center py-2.5 px-3.5 rounded-12 bg-foreground text-background text-sm leading-relaxed">
           {text}
         </div>
       )}

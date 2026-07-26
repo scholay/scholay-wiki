@@ -220,7 +220,7 @@ function ManuscriptDropZone({
         pickFile(e.dataTransfer.files?.[0]);
       }}
       className={cn(
-        'flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-xl border bg-surface-1 px-8 py-10 text-center transition',
+        'flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-12 border bg-surface-1 px-8 py-10 text-center transition',
         dragOver
           ? 'border-brand-red bg-danger-soft'
           : 'border-brand-red/60 hover:border-brand-red'
@@ -233,7 +233,7 @@ function ManuscriptDropZone({
         className="hidden"
         onChange={(e) => pickFile(e.target.files?.[0] ?? undefined)}
       />
-      <span className="flex size-14 items-center justify-center rounded-full bg-danger-soft">
+      <span className="flex size-14 items-center justify-center rounded-pill bg-danger-soft">
         {uploading ? (
           <Loader2 className="size-6 animate-spin text-brand-red" />
         ) : (
@@ -386,7 +386,7 @@ function AttachmentDropZone({
         className="hidden"
         onChange={(e) => pickFile(e.target.files?.[0] ?? undefined)}
       />
-      <span className="flex size-10 items-center justify-center rounded-full border border-border bg-background">
+      <span className="flex size-10 items-center justify-center rounded-pill border border-border bg-background">
         {uploading ? (
           <Loader2 className="size-4 animate-spin text-faint" />
         ) : (

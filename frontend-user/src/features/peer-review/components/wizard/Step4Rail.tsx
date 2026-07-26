@@ -42,7 +42,7 @@ export function Step4Rail({ submissionId, submission, assets, agreed }: Step4Rai
           {items.map((it) => (
             <li key={it.key} className="flex items-start gap-2.5">
               <span className={cn(
-                'mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full',
+                'mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-pill',
                 it.passed ? 'bg-[#E9F7EC] text-brand-green' : 'border border-border-button text-faint'
               )}>
                 {it.passed && <Check className="size-2.5" strokeWidth={3} />}

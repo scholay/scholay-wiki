@@ -100,7 +100,7 @@ export function HelpLayout({
       <section className="relative border-b border-border-soft bg-surface-1 overflow-hidden">
         <div
           aria-hidden
-          className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-brand-red/[0.05] blur-3xl"
+          className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-pill bg-brand-red/[0.05] blur-3xl"
         />
         <div className={cn('relative mx-auto px-6 py-12 md:py-16', outerMaxW)}>
           {eyebrow && (
@@ -111,7 +111,7 @@ export function HelpLayout({
               </p>
             </div>
           )}
-          <h1 className="text-3xl md:text-4xl font-bold text-foreground leading-[1.15] tracking-tight">
+          <h1 className="text-3xl md:text-display-36 font-bold text-foreground leading-[1.15] tracking-tight">
             {title}
           </h1>
           {lead && (

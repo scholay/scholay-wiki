@@ -516,7 +516,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
             <button
               type="button"
               onClick={() => editorRef.current?.goToChange(-1)}
-              className="rounded p-0.5 transition-colors hover:bg-brand-green/10"
+              className="rounded-4 p-0.5 transition-colors hover:bg-brand-green/10"
               aria-label="上一处改动"
               title="上一处改动"
             >
@@ -525,7 +525,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
             <button
               type="button"
               onClick={() => editorRef.current?.goToChange(1)}
-              className="rounded p-0.5 transition-colors hover:bg-brand-green/10"
+              className="rounded-4 p-0.5 transition-colors hover:bg-brand-green/10"
               aria-label="下一处改动"
               title="下一处改动"
             >

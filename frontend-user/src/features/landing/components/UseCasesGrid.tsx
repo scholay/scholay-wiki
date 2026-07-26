@@ -91,7 +91,7 @@ function Card({ uc }: { uc: UseCase }) {
       {!uc.tag && Icon && (
         <div
           className={cn(
-            'inline-flex h-10 w-10 items-center justify-center rounded-full',
+            'inline-flex h-10 w-10 items-center justify-center rounded-pill',
             theme === 'dark' ? 'bg-surface-2' : 'bg-prism-badge-bg'
           )}
         >

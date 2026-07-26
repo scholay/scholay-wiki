@@ -75,7 +75,7 @@ export function MobileToolsHomePage() {
               onClick={() => navigate('/m/claw')}
               className="flex items-center gap-3 rounded-md bg-[#F1EADA] p-3.5 text-left active:opacity-90"
             >
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-background text-2xl leading-none">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-pill bg-background text-2xl leading-none">
                 🦞
               </span>
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">

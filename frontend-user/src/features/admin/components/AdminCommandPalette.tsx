@@ -97,7 +97,7 @@ export function AdminCommandPalette({
                     key={it.id}
                     value={`${it.id} ${it.label} ${it.href}`}
                     onSelect={() => jumpTo(it.href)}
-                    className="flex items-center gap-3 px-2 h-9 rounded text-sm text-subtle cursor-pointer aria-selected:bg-surface-1 aria-selected:text-foreground"
+                    className="flex items-center gap-3 px-2 h-9 rounded-4 text-sm text-subtle cursor-pointer aria-selected:bg-surface-1 aria-selected:text-foreground"
                   >
                     <Icon className="size-4 text-faint" />
                     <span className="flex-1">{it.label}</span>
@@ -150,7 +150,7 @@ function UserItem({ user, onSelect }: { user: AdminUser; onSelect: () => void })
     <Command.Item
       value={`user ${user.email} ${user.username} ${user.id}`}
       onSelect={onSelect}
-      className="flex items-center gap-3 px-2 h-10 rounded text-sm cursor-pointer aria-selected:bg-surface-1"
+      className="flex items-center gap-3 px-2 h-10 rounded-4 text-sm cursor-pointer aria-selected:bg-surface-1"
     >
       <UserIcon className="size-4 text-faint" />
       <div className="flex-1 min-w-0">
@@ -184,7 +184,7 @@ function ActionItem({
     <Command.Item
       value={`action ${label}`}
       onSelect={onSelect}
-      className="flex items-center gap-3 px-2 h-9 rounded text-sm cursor-pointer aria-selected:bg-surface-1"
+      className="flex items-center gap-3 px-2 h-9 rounded-4 text-sm cursor-pointer aria-selected:bg-surface-1"
     >
       <span className="text-faint [&_svg]:size-4">{icon}</span>
       <span className="flex-1 text-subtle">{label}</span>

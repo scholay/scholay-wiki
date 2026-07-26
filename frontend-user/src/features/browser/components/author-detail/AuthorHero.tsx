@@ -16,7 +16,7 @@ export function AuthorHero({ author }: { author: Author }) {
     <section className="rounded-lg bg-surface-1 border border-border-soft p-4 sm:p-7 flex flex-col sm:flex-row sm:items-stretch gap-4 sm:gap-7">
       {/* 圆形 avatar —— .pen `VcqDs` 140×140 圆;移动端缩到 88 */}
       <div
-        className="shrink-0 w-[88px] h-[88px] sm:w-[140px] sm:h-[140px] rounded-full flex items-center justify-center"
+        className="shrink-0 w-[88px] h-[88px] sm:w-[140px] sm:h-[140px] rounded-pill flex items-center justify-center"
         style={{ backgroundColor: color }}
       >
         <span className="font-display font-bold text-[40px] sm:text-[64px] text-white leading-none">

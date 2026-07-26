@@ -78,7 +78,7 @@ export function ClawHero({
                 key={label}
                 type="button"
                 onClick={() => onPickSuggestion(prompt)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground shadow-sm transition-all hover:-translate-y-px hover:border-border-strong hover:text-foreground"
+                className="inline-flex items-center gap-1.5 rounded-pill border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground shadow-sm transition-all hover:-translate-y-px hover:border-border-strong hover:text-foreground"
               >
                 <Icon className="size-3.5 text-faint" />
                 {label}
@@ -96,12 +96,12 @@ function HeroSpark() {
   return (
     <div className="relative">
       <motion.div
-        className="absolute inset-0 rounded-2xl bg-brand-green/25 blur-xl"
+        className="absolute inset-0 rounded-16 bg-brand-green/25 blur-xl"
         animate={{ scale: [1, 1.55, 1], opacity: [0.45, 0, 0.45] }}
         transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
       />
       <motion.div
-        className="relative flex size-14 items-center justify-center rounded-2xl bg-surface-2"
+        className="relative flex size-14 items-center justify-center rounded-16 bg-surface-2"
         animate={{ scale: [1, 1.06, 1] }}
         transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
       >

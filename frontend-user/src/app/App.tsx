@@ -3,7 +3,6 @@ import { RouterProvider } from 'react-router-dom';
 import { Providers } from './providers';
 import { router } from './router';
 import { AuthBootstrap } from './AuthBootstrap';
-import { useApplyTheme } from '@/stores/theme.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { usePromoStore } from '@/stores/promo.store';
 import { useQuotaStore } from '@/stores/quota.store';
@@ -55,8 +54,11 @@ function useCloseGlobalModalsOnNavigate() {
   }, []);
 }
 
+// 注:暗色态已于 2026-07 移除 —— 切换机制曾完整存在(useApplyTheme 在此调用),
+// 但 setTheme 全站零调用点、设置页无任何主题 UI,`.dark` 类从未被挂上,
+// globals.css 的 18 个暗色覆写从未生效。连同 stores/theme.store.ts 一并删除。
+// 将来要做暗色态: 玄墨 12 档色阶可与亮色互为镜像,基于新色阶重新推导。
 function ShellRoot() {
-  useApplyTheme();
   useCloseGlobalModalsOnNavigate();
   return (
     <>

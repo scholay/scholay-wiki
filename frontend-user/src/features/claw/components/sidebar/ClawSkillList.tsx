@@ -69,7 +69,7 @@ export function ClawSkillList({
               // 下架/删除的失效项:不可再启用,给「移除」入口清理列表(审计 #21)。
               <button
                 title="移除(该技能已下架)"
-                className="rounded p-0.5 text-faint hover:text-brand-red"
+                className="rounded-4 p-0.5 text-faint hover:text-brand-red"
                 onClick={() =>
                   uninstall.mutate(s.skillId, {
                     onError: (e) => toast.error((e as Error).message || '移除失败'),

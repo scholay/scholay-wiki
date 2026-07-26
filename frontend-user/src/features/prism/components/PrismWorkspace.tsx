@@ -43,7 +43,7 @@ function PrismPendingDiff({ chat }: { chat: ReturnType<typeof usePrismChat> }) {
                 data-rel={f.rel_path}
                 onClick={() => chat.selectPending(f.rel_path)}
                 className={cn(
-                  'inline-flex shrink-0 items-center gap-1 rounded px-2 py-1 text-2xs transition-colors',
+                  'inline-flex shrink-0 items-center gap-1 rounded-4 px-2 py-1 text-2xs transition-colors',
                   active ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-surface-2',
                 )}
               >

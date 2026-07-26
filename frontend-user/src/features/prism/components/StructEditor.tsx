@@ -400,7 +400,7 @@ export const StructEditor = forwardRef<
     // 前置字段的本次改动高亮(textarea 无法做词级 diff,故字段级绿底+绿环标「此字段被 AI 改过」);
     // baseline 为空或用户已编辑则无。
     const bfm = diffBaseline?.frontMatter;
-    const fmHi = 'rounded bg-brand-green/15 ring-1 ring-inset ring-brand-green/40';
+    const fmHi = 'rounded-4 bg-brand-green/15 ring-1 ring-inset ring-brand-green/40';
     const fmChanged = {
       title: !!bfm && (bfm.title ?? '') !== title,
       abstract: !!bfm && (bfm.abstract ?? '') !== abstract,

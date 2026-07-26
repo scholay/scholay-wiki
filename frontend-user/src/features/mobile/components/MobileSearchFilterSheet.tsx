@@ -76,7 +76,7 @@ export function MobileSearchFilterSheet({
             transition={{ duration: 0.15 }}
           />
           <m.div
-            className="absolute inset-x-0 bottom-0 z-[61] flex max-h-[82%] flex-col rounded-t-2xl bg-background shadow-2xl"
+            className="absolute inset-x-0 bottom-0 z-[61] flex max-h-[82%] flex-col rounded-t-16 bg-background shadow-2xl"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
@@ -98,7 +98,7 @@ export function MobileSearchFilterSheet({
               onPointerDown={(e) => dragControls.start(e)}
               className="flex shrink-0 cursor-grab touch-none justify-center pb-1 pt-2.5 active:cursor-grabbing"
             >
-              <div className="h-1 w-9 rounded-full bg-border-strong" />
+              <div className="h-1 w-9 rounded-pill bg-border-strong" />
             </div>
             <div className="flex items-center justify-between border-b border-border-soft px-4 py-3">
               <span className="text-base font-semibold text-foreground">筛选</span>

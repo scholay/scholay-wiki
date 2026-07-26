@@ -8,10 +8,10 @@ function Row() {
     <div className="flex gap-3 border-b border-border px-4 py-3.5">
       <div className="size-10 shrink-0 animate-pulse rounded-pill bg-surface-2" />
       <div className="min-w-0 flex-1 space-y-2">
-        <div className="h-3 w-28 animate-pulse rounded bg-surface-2" />
-        <div className="h-3 w-20 animate-pulse rounded bg-surface-2" />
-        <div className="mt-1 h-4 w-full animate-pulse rounded bg-surface-2" />
-        <div className="h-4 w-5/6 animate-pulse rounded bg-surface-2" />
+        <div className="h-3 w-28 animate-pulse rounded-4 bg-surface-2" />
+        <div className="h-3 w-20 animate-pulse rounded-4 bg-surface-2" />
+        <div className="mt-1 h-4 w-full animate-pulse rounded-4 bg-surface-2" />
+        <div className="h-4 w-5/6 animate-pulse rounded-4 bg-surface-2" />
       </div>
     </div>
   );

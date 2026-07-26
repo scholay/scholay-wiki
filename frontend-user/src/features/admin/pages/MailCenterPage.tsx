@@ -173,7 +173,7 @@ function MailRow({ mail, active, onClick }: { mail: InboxMail; active: boolean; 
         )}
       >
         <div className="flex items-center gap-1.5">
-          {unread && <span className="size-1.5 shrink-0 rounded-full bg-brand-red" />}
+          {unread && <span className="size-1.5 shrink-0 rounded-pill bg-brand-red" />}
           <span className={cn('min-w-0 flex-1 truncate text-xs', unread ? 'font-bold text-foreground' : 'text-subtle')}>
             {mail.from_name || mail.from_addr}
           </span>

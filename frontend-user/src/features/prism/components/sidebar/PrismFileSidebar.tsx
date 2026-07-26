@@ -220,7 +220,7 @@ function FileRow({
           <button
             type="button"
             disabled={disabled}
-            className="mr-1.5 inline-flex size-6 items-center justify-center rounded text-faint opacity-0 transition-opacity hover:bg-surface-2 hover:text-foreground group-hover:opacity-100 data-[state=open]:opacity-100 disabled:hidden"
+            className="mr-1.5 inline-flex size-6 items-center justify-center rounded-4 text-faint opacity-0 transition-opacity hover:bg-surface-2 hover:text-foreground group-hover:opacity-100 data-[state=open]:opacity-100 disabled:hidden"
             aria-label="更多操作"
           >
             <MoreVertical className="size-3.5" />

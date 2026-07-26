@@ -150,7 +150,7 @@ function FanCards({ reduce, onPick }: { reduce: boolean; onPick: (f: TemplateFea
               zIndex: isH ? 30 : i + 1,
             }}
             className={cn(
-              'group relative flex flex-col overflow-hidden rounded-xl border bg-background text-left shadow-sm outline-none transition-[border-color,box-shadow]',
+              'group relative flex flex-col overflow-hidden rounded-12 border bg-background text-left shadow-sm outline-none transition-[border-color,box-shadow]',
               isH ? cn('ring-2', accent.focusRing) : 'border-border',
             )}
           >
@@ -196,7 +196,7 @@ function SelectedModeBar({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ type: 'spring', stiffness: 300, damping: 24 }}
       className={cn(
-        'mx-auto flex w-full max-w-md items-center gap-3 rounded-xl border px-3 py-2.5 shadow-sm',
+        'mx-auto flex w-full max-w-md items-center gap-3 rounded-12 border px-3 py-2.5 shadow-sm',
         accent.modeBar,
       )}
     >
@@ -244,7 +244,7 @@ function DeckIllustration({ reduce }: { reduce: boolean }) {
   return (
     <div className="absolute inset-0 overflow-hidden bg-gradient-to-br from-[#111c30] via-[#0a1019] to-[#05070a]">
       {/* 右上柔光,给深底一点层次 */}
-      <div className="pointer-events-none absolute -right-6 -top-8 size-24 rounded-full bg-brand-green/10 blur-2xl" />
+      <div className="pointer-events-none absolute -right-6 -top-8 size-24 rounded-pill bg-brand-green/10 blur-2xl" />
 
       {/* 身后叠页(多页暗示,恒显) */}
       <div className="absolute left-1/2 top-1/2 h-[66%] w-[72%] -translate-x-[58%] -translate-y-1/2 rounded-lg bg-white/5 ring-1 ring-white/5" />
@@ -254,7 +254,7 @@ function DeckIllustration({ reduce }: { reduce: boolean }) {
       <div className="absolute left-1/2 top-1/2 flex h-[78%] w-[82%] -translate-x-1/2 -translate-y-1/2 flex-col gap-1.5 rounded-lg bg-white/10 p-3 ring-1 ring-white/20">
         {/* kicker */}
         <motion.div
-          className="h-1 w-6 rounded-full bg-brand-green"
+          className="h-1 w-6 rounded-pill bg-brand-green"
           style={{ transformOrigin: 'left' }}
           initial={{ scaleX: reduce ? 1 : 0 }}
           animate={{ scaleX: 1 }}
@@ -262,7 +262,7 @@ function DeckIllustration({ reduce }: { reduce: boolean }) {
         />
         {/* 标题条 */}
         <motion.div
-          className="h-2 rounded bg-white/85"
+          className="h-2 rounded-4 bg-white/85"
           initial={{ width: reduce ? '70%' : 0 }}
           animate={{ width: '70%' }}
           transition={reduce ? { duration: 0 } : { duration: 0.5, delay: 0.32, ease: 'easeOut' }}
@@ -272,7 +272,7 @@ function DeckIllustration({ reduce }: { reduce: boolean }) {
           {[0.84, 0.6].map((w, i) => (
             <motion.div
               key={i}
-              className="h-1 rounded bg-white/30"
+              className="h-1 rounded-4 bg-white/30"
               initial={{ width: reduce ? `${w * 100}%` : 0 }}
               animate={{ width: `${w * 100}%` }}
               transition={reduce ? { duration: 0 } : { duration: 0.45, delay: 0.46 + i * 0.12, ease: 'easeOut' }}
@@ -305,7 +305,7 @@ function DeckIllustration({ reduce }: { reduce: boolean }) {
         {[0, 1, 2].map((i) => (
           <motion.span
             key={i}
-            className="size-1 rounded-full bg-white/50"
+            className="size-1 rounded-pill bg-white/50"
             initial={{ opacity: reduce ? (i === 0 ? 1 : 0.35) : 0.35 }}
             animate={reduce ? undefined : { opacity: [0.35, 1, 0.35] }}
             transition={

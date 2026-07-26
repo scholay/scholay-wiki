@@ -81,7 +81,7 @@ export function PrismNumbersDialog({
                 <span
                   key={i}
                   className={cn(
-                    'rounded px-1.5 py-0.5 font-mono text-2xs',
+                    'rounded-4 px-1.5 py-0.5 font-mono text-2xs',
                     c.found ? 'bg-brand-green/10 text-brand-green' : 'bg-danger-soft text-brand-red',
                   )}
                 >

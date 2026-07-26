@@ -189,78 +189,181 @@ shared/lib       → 无依赖(纯 TS)
 
 ## 五、样式
 
-### 唯一来源:`src/styles/globals.css` + Tailwind v4 工具类
+### 唯一真源:Figma → `src/styles/globals.css`
 
-**Design Token 系统** 完整定义在 [src/styles/globals.css](src/styles/globals.css)。所有 token 都来自 `.pen` 设计稿,修改 token = 修改设计系统(需同步更新 .pen)。
+> ⚠️ **2026-07 换真源**:本项目的设计 token 曾以 `.pen` 设计稿(`design/pencil/scholay-global.pen`)
+> 为真源,该口径**已作废**。现在的真源是 Figma:
+>
+> - **设计稿**: `JIv8fxQthMS37JLGHNOEbB` / Page 1 / `Scholay设计系统` (node `1:38`)
+> - **提取产物**: [docs/figma-design-spec-2026-07.md](../docs/figma-design-spec-2026-07.md)
+> - **改造台账**: [docs/design-migration-ledger-2026-07.md](../docs/design-migration-ledger-2026-07.md)
+>
+> **改 token = 改设计系统 → 必须同步更新 Figma,不要再改 .pen。**
+> 代码里若见到 `.pen 'XXXXX'` 形式的注释,那是历史遗留,以 Figma 为准。
 
-#### 颜色 token(以下是全部可用,不要自创)
+所有 token 定义在 [src/styles/globals.css](src/styles/globals.css),分 17 节,每节都标注了
+Figma 依据或推导理由。**偏离 Figma 的地方必须写明偏离原因**,便于设计师 review 时
+区分「有意决策」与「实现错误」。
 
-**背景(Surface)** — 4 档:
+### ⚠️ 改造进行中(2026-07)
+
+设计系统正在从旧 token 迁移到 Figma 规范,**当前是中间态**:
+
+| 维度 | 状态 | 说明 |
+|---|---|---|
+| 颜色 | ✅ 已切新值 | 语义未变,可直接翻值 |
+| 圆角 | 🟡 新旧并存 | 新标度 `rounded-4/8/12/16/20`,旧 `rounded-sm/md/lg` 保持原值待迁移 |
+| 字号 | 🟡 新旧并存 | 新标度 `text-12/14/16/20/24/28`,旧 `text-2xs/xs/base` 保持原值待迁移 |
+| 字重 | ❌ 未开始 | 1030 处 `font-bold`/`font-semibold` 待降到 `font-medium` |
+| 间距 | ❌ 未开始 | ~750 处半档待收口 |
+
+**新代码一律用新标度**(`rounded-16` / `text-14`),不要再用旧名。
+`globals.css` 的「过渡期兼容层」整段会在迁移完成后删除。
+
+### 颜色 token(以下是全部可用,不要自创)
+
+**色阶原语** — 四条 12 档色阶 `--red-1..12` / `--green-1..12` / `--amber-1..12` / `--ink-1..12`。
+**业务代码禁止直接引用**,只能用下面的语义 token。
+
+**背景(Surface)**:
 | Tailwind 类 | 值 | 用途 |
 |---|---|---|
-| `bg-background` | #FFFFFF | 容器主底 / Card / Dialog |
-| `bg-surface-1` | #FAFAFA | 工具栏 / 弱卡片 |
-| `bg-surface-2` | #F5F5F5 | hover/选中/页面 chrome/icon 容器 |
-| `bg-surface-3` | #F8F8F8 | Prism 编译状态条专用 |
+| `bg-background` | `#F6F4EE` | ★ 页面 / 外层容器米白底 |
+| `bg-surface-card` | `#FFFFFF` | **内层**卡片 / 输入框 / 搜索框纯白 |
+| `bg-surface-1` | `#EFEDE5` | 工具栏 / 弱卡片 |
+| `bg-surface-2` | `#E8E5DC` | hover / 选中 / 页面 chrome |
+| `bg-surface-3` | `#F1EFE8` | Prism 编译状态条 |
+| `bg-amber-soft` | `#E5DFCE` | 琥珀软底高亮块 |
 
-**文字** — 4 档(.pen 真实出现的 #444/#555 合并到 subtle,#999/#AAA 合并到 faint):
+> 🔴 **`bg-background` 与 `bg-surface-card` 不可混用**。Figma 明确区分外层米白 / 内层纯白,
+> 视觉分层完全靠这 3.5% 明度差 —— 用错卡片就消失了。
+
+**文字** — 4 档,对比度均已按米白底实测:
+| 类 | 值 | 对比度 | 用途 |
+|---|---|---|---|
+| `text-foreground` | `#1F1F23` | 14.9:1 | 主标题 / 正文 / icon 主色 |
+| `text-subtle` | `#505059` | 7.3:1 | 二级文本 / 文件树常态 |
+| `text-muted-foreground` | `#686873` | 5.0:1 | 帮助说明 / 副文 |
+| `text-faint` | `#757580` | 4.1:1 | 段标 / 计数(最弱档) |
+
+**边框** — 容器族用 alpha(自动适配米白/纯白双底),控件族用实色:
 | 类 | 值 | 用途 |
 |---|---|---|
-| `text-foreground` | #111 | 主标题 / icon 主色 |
-| `text-subtle` | #444 | 二级文本 / 文件树常态 |
-| `text-muted-foreground` | #666 | 帮助说明 / 副文 |
-| `text-faint` | #999 | placeholder / 计数 / 段标 |
+| `border-border-hairline` | `31 31 35 / 8%` | 极弱内分隔 |
+| `border-border` ★ | `31 31 35 / 12%` | 标准容器边框(最常见) |
+| `border-border-strong` | `31 31 35 / 22%` | 强调描边 |
+| `bg-divider` | `31 31 35 / 14%` | Nav/Toolbar 组间竖线 |
+| `border-border-control` | `#1F1F23` | **可点击控件**深色实边(搜索框) |
+| `border-border-control-emphasis` | `#0D0C0B` | 幽灵按钮描边 |
 
-**边框** — 5 档,职责严格:
+> 🔴 控件族是**另一个 token 族**,不是容器族的新值。Figma 卡片根本没有描边 ——
+> 分层靠白卡落米白底的明度差。把 `border-border` 换成深色会让全站变成线框图。
+
+**品牌** — 三色(蓝色已退休,期刊线改用琥珀):
 | 类 | 值 | 用途 |
 |---|---|---|
-| `border-border-soft` | #EEEEEE | 极弱内分隔(breadcrumb 底) |
-| `border-border` ★ | #E8E8E8 | 标准容器边框(最常见) |
-| `border-border-separator` | #E0E0E0 | Nav/Toolbar 内组间小竖线 |
-| `border-border-strong` | #D8D8D8 | 强调描边(home 搜索条) |
-| `border-border-button` | #C8C8C8 | outlined 按钮边 |
+| `text/bg-brand-red` | `#882828` | 朱砂 · CTA / danger / Logo S·a |
+| `text/bg-brand-green` | `#2F4D29` | 松青 · AI 操作 / Logo ch·y |
+| `text/bg-brand-amber` | `#E5A800` | 琥珀 · 期刊线 / 构建中 / Logo o |
 
-**软底色** — 与品牌色配对:
-| 类 | 值 | 用途 |
-|---|---|---|
-| `bg-danger-soft` | #FFF5F5 | danger active / diff 标记 |
-| `bg-warning-soft` | (浅黄) | Badge warning 变体 |
+配套软底:`bg-brand-{red,green,amber}-soft`
 
-**品牌** — 三色:
-| 类 | 值 | 用途 |
-|---|---|---|
-| `text/bg-brand-red` | #CC2222 | CTA / 审稿活跃 / Logo S·a |
-| `text/bg-brand-green` | #2A7A2A | AI 操作 / success / Logo ch·y |
-| `text/bg-brand-amber` | #D4A017 | 构建中 / warning / Logo o |
+**状态色** 🟡 临时值待设计师确认:`text/bg-status-{success,error,warning,running,neutral,info}(-soft)`
 
-**Prism 专用**:`bg-prism-badge-bg` (#F0E8D8) / `text-prism-badge-fg` (#806A2E)
+**分类 / 图表**:`bg-cat-1..8`(头像 / 期刊封面等哈希取色) · `--chart-1..8`(recharts 序列色)
 
-**shadcn 语义别名**(组件可直接用):`bg-primary` / `bg-secondary` / `bg-muted` / `bg-accent` / `bg-card` / `bg-popover` / `bg-destructive` / `border-input` / `ring-ring`
+**shadcn 语义别名**:`bg-primary` / `bg-secondary` / `bg-muted` / `bg-accent` / `bg-card` /
+`bg-popover` / `bg-destructive` / `border-input` / `ring-ring`
 
-#### 圆角 — 4 档
-`rounded-sm` (4) / `rounded-md` (6) / `rounded-lg` (8) / `rounded-pill` (9999)
-禁止 `rounded-[7px]` 这类自定义值。
+### 字号 — 6 档(数值命名)
 
-#### 字号 — 8 档
-`text-2xs/xs/sm/base/md/lg/xl/2xl` = 10/11/12/13/14/16/20/24,**正文基准是 13(text-base),不是 16**。
+`text-12` / `text-14` ★正文基准 / `text-16` / `text-20` / `text-24` / `text-28`
+语义别名:`text-body`(=14) · `text-caption`(=12)
+展示档(不进正文阶梯):`text-display-36` · `text-display-56`
 
-#### 高度 — 优先 Tailwind 默认 scale
-`h-7` (28) `h-8` (32) `h-9` (36) `h-10` (40) `h-11` (44) `h-12` (48) `h-14` (56) `h-15` (60 ★ 自加,sidebar 用户条) `h-16` (64)
+> **为什么用数值名而非 xs/sm/base**:本仓库被 name≠value 咬过四次
+> (`text-base`=13 / `text-md`=14 / `text-15` / `text-badge`=9 且零使用),
+> 且 Tailwind 默认 `lg/xl/2xl`=18/20/24 与 Figma 的 20/24/28 全部错位。
 
-#### 间距 / 圆角 / 阴影
-- 间距:Tailwind 默认(gap-2/3/4/6/8/12...)
-- 阴影:基本不用 — .pen 设计是描边为主,极少用阴影
+### 行高 — 按**字族**绑定,不按字号档
+
+`leading-sans`(1.25) · `leading-display`(1.333) · `leading-serif`(1.437) ·
+`leading-paragraph`(1.7,长段中文) · `leading-display-tight`(1.15,≥28px 标题)
+
+> 🔴 **绝不给字号 token 声明配套 line-height**(`--text-14--line-height`)。
+> 一旦声明,`text-14` 会同时输出 font-size 和 line-height,字号档会盖掉字族层行高。
+
+### 字间距 — 只有 2 个
+
+`tracking-code`(0.25em,验证码/提取码) · `tracking-brand`(-0.03em,Scholay wordmark)
+
+> Figma 中 letterSpacing 几乎全为 0。改造前散落 91 处 / 13 个值的 tracking **已全部删除**。
+> **不要再加 tracking token** —— 历史证明只要留一个「uppercase 专用」档,它会立刻重新裂变。
+
+### 圆角 — 6 档(数值命名)
+
+`rounded-4` / `rounded-8` / `rounded-12` / `rounded-16` ★主力容器 / `rounded-20` / `rounded-pill`
+
+**分层判定口诀**:
+- 直接坐在页面底色上的一块内容 → **16**
+- 嵌在另一个 16 里 → **12**
+- 是个控件 → **8**
+- 是段文字里的装饰 → **4**
+
+**内层圆角必须严格小于外层**,否则子元素会「顶角」。
+
+> `--radius-*` 命名空间已封闭(`initial`),`rounded-3xl` 这类会**编译不出类**。
+> 旧的 `rounded-sm/md/lg/xl` 仍保持原值,是待迁移的过渡名。
+
+### 控件高度阶梯
+
+`h-control-xs`(24) · `h-control-sm`(32) · `h-control-md`(36) · `h-control-lg`(42) · `h-control-xl`(44)
+配套:`size-avatar`(40) · `size-icon`(24 画板) · `size-icon-inline`(20)
+
+### 间距
+
+Figma 观测集合 `{4, 8, 10, 12, 16, 24, 32, 40}` = Tailwind `{1, 2, 2.5, 3, 4, 6, 8, 10}`。
+**半档(`gap-1.5` / `gap-3.5` / `px-5` 等)不在集合内**,新代码不要用。
+
+### Elevation(阴影)
+
+只有 2 档:`shadow-overlay`(浮层) · `shadow-raised`(滑块/thumb/拖拽中)
+
+> Figma 设计稿中 **0 个 DROP_SHADOW**,分层靠描边 + 米白底明度差。
+> 只有「浮层盖在任意背景之上」和「浅滑块在浅槽里」两类场景物理上无法用描边替代。
+> **不要为卡片/列表项加阴影。**
+
+### z-index
+
+`--z-raised`(10) · `--z-sticky`(20) · `--z-nav`(30) · `--z-scrim`(40) · `--z-overlay`(50) ·
+`--z-modal`(60) · `--z-popover`(70) · `--z-tooltip`(80) · `--z-toast`(90) · `--z-fx`(100)
+
+> 改造前 8 类语义不同的浮层全部 `z-50`,谁盖谁由 portal 挂载顺序决定。**不要再写裸 z-50。**
+
+### Motion
+
+`duration-fast`(160ms) · `duration-base`(280ms) · `duration-slow`(420ms) · `duration-deliberate`(700ms)
+`ease-out` · `ease-in-out` · `ease-emphasized`
+
+> CSS 侧与 framer-motion 侧(`shared/lib/motion.ts`)**必须共用同一组数值**,
+> 否则同一次交互一半走 CSS 一半走 framer 会明显不同步。
+
+### 纸张质感(noise)
+
+默认**关闭**。`<html data-paper="on">` 开启,或对单个 surface 用 `paper-grain` 工具类。
+
+> Figma 的 NOISE 效果是设计师标注的**待验证项**,不是既定规范。
 
 ### 何时允许 arbitrary value `[...]`
 
 只有同时满足两条:
-1. Tailwind 默认 scale 没有该值
-2. .pen 设计稿明确指定该精确像素
+1. 上述 token 与 Tailwind 默认 scale 都没有该值
+2. Figma 设计稿明确指定该精确像素
 
-**必须注释 `/* .pen `frameId` 用途说明 */`**。例:
+**必须注释说明 Figma 依据**。例:
 ```tsx
-{/* 搜索条 — .pen `OtefE` 中心容器宽度 640,Tailwind 无对应档位,保留 arbitrary value */}
-<form className="max-w-[640px]">
+{/* 搜索条 —— Figma §4.5 搜索框 312 宽,Tailwind 无对应档位,保留 arbitrary value */}
+<form className="w-[312px]">
 ```
 
 ### 禁止
@@ -269,10 +372,12 @@ shared/lib       → 无依赖(纯 TS)
 - `style={{ color: '...' }}` 内联样式(动态计算的尺寸/transform 除外)
 - `styled-components` / `emotion` / CSS Modules
 - `!important`(实在要用 → 反思是否选错容器)
-- `dark:bg-xxx` 前缀(暗色由 `.dark` 切 CSS 变量自动生效)
-- 自创 Tailwind 默认色板(`text-gray-500` `bg-blue-100` 等)— 不在 token 里就是没有
-
----
+- `dark:` 前缀 —— **暗色态已于 2026-07 移除**(切换机制存在但零调用点,`.dark` 从未生效)
+- Tailwind 默认色板:`text-gray-500` / `bg-blue-100` **以及 `bg-white` / `text-black`**
+  —— 后两个不符合「色名-数字」形态,是 grep 查不出的后门,同样禁止
+- 藏在 `rgba()` 里的默认色板 —— 已知 `rgba(15,23,42,*)` = slate-900,这类同样违规
+- 直接引用色阶原语(`--ink-5` / `bg-red-8`),只能用语义 token
+- 新增 tracking / shadow token(见上文理由)
 
 ## 六、组件分层
 

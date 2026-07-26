@@ -34,9 +34,9 @@ export function ContextMeter({ totalTokens, maxTokens, percentage, model, classN
       )}
       title={`上下文 ${totalTokens.toLocaleString()} / ${maxTokens.toLocaleString()} tokens (${displayModel || '未知模型'})`}
     >
-      <span className="inline-block size-3 shrink-0 rounded-full" style={ringStyle} aria-hidden="true">
+      <span className="inline-block size-3 shrink-0 rounded-pill" style={ringStyle} aria-hidden="true">
         {/* 中心挖空成环:内层小圆用背景色盖住,留 ~2px 环宽 */}
-        <span className="block size-3 scale-[0.55] rounded-full bg-background" />
+        <span className="block size-3 scale-[0.55] rounded-pill bg-background" />
       </span>
       上下文 {pct}%
     </span>

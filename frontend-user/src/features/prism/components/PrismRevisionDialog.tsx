@@ -189,7 +189,7 @@ export function PrismRevisionDialog({
                     <select
                       value={it.action || 'concede_revise'}
                       onChange={(e) => patch(it, { action: e.target.value })}
-                      className="h-6 rounded border border-border bg-background px-1 text-2xs"
+                      className="h-6 rounded-4 border border-border bg-background px-1 text-2xs"
                     >
                       {Object.entries(ACTION_LABELS).map(([k, v]) => (
                         <option key={k} value={k}>
@@ -231,7 +231,7 @@ export function PrismRevisionDialog({
                     onBlur={(e) => {
                       if (e.target.value !== it.response) patch(it, { response: e.target.value });
                     }}
-                    className="mt-1.5 w-full resize-y rounded border border-border bg-surface-1 p-1.5 text-2xs outline-none placeholder:text-faint"
+                    className="mt-1.5 w-full resize-y rounded-4 border border-border bg-surface-1 p-1.5 text-2xs outline-none placeholder:text-faint"
                   />
                 </div>
               );

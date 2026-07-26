@@ -150,7 +150,7 @@ export function ComparisonTable({ section }: { section: ComparisonSection }) {
                     'flex items-center justify-center text-center',
                     // Scholay 列(highlight) 给一个柔和高亮
                     section.columns[j + 1]?.highlight &&
-                      (dark ? 'bg-foreground/20 -mx-3 px-3 py-1 rounded' : 'bg-surface-1 -mx-3 px-3 py-1 rounded')
+                      (dark ? 'bg-foreground/20 -mx-3 px-3 py-1 rounded-4' : 'bg-surface-1 -mx-3 px-3 py-1 rounded-4')
                   )}
                 >
                   <Cell cell={c} dark={dark} />

@@ -75,7 +75,7 @@ export function PrismQualityDialog({
         </p>
         <div className="flex flex-wrap gap-1">
           {keys.map((k) => (
-            <span key={k} className="rounded bg-danger-soft px-1.5 py-0.5 text-2xs text-brand-red">
+            <span key={k} className="rounded-4 bg-danger-soft px-1.5 py-0.5 text-2xs text-brand-red">
               {kind === 'plain' ? k : `[@${k}]`}
             </span>
           ))}

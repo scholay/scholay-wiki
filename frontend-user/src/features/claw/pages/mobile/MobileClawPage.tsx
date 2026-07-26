@@ -201,7 +201,7 @@ function MobileClawWorkspace({
             type="button"
             aria-label="历史对话"
             onClick={() => setDrawerOpen(true)}
-            className="pointer-events-auto flex size-9 items-center justify-center rounded-full text-foreground active:bg-surface-2"
+            className="pointer-events-auto flex size-9 items-center justify-center rounded-pill text-foreground active:bg-surface-2"
           >
             <PanelLeft className="size-5" />
           </button>
@@ -211,7 +211,7 @@ function MobileClawWorkspace({
             aria-label="新对话"
             onClick={onNewConversation}
             disabled={sessionId === null}
-            className="pointer-events-auto flex size-9 items-center justify-center rounded-full text-foreground active:bg-surface-2 disabled:opacity-40"
+            className="pointer-events-auto flex size-9 items-center justify-center rounded-pill text-foreground active:bg-surface-2 disabled:opacity-40"
           >
             {/* 摘掉 busy 门控(线上卡死修复):这是移动端唯一的新对话入口,busy 卡死时不能把
                 用户唯一逃生口也锁死;回答会在后台(hub grace)继续,开新对话与之零冲突。 */}

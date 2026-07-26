@@ -62,7 +62,7 @@ export const CollectionSharePoster = forwardRef<HTMLDivElement, { data: Collecti
                   </span>
                 ))}
               </div>
-              <div className="flex items-center gap-[5px] rounded-full bg-[#F1EADA] px-2.5 py-1">
+              <div className="flex items-center gap-[5px] rounded-pill bg-[#F1EADA] px-2.5 py-1">
                 <BookOpen className="size-3 text-[#DD9D13]" />
                 <span className="text-[11px] font-semibold text-[#DD9D13]">文献集</span>
               </div>
@@ -115,7 +115,7 @@ export const CollectionSharePoster = forwardRef<HTMLDivElement, { data: Collecti
             {/* 整理人 */}
             {data.curatorName && (
               <div className="flex items-center gap-2">
-                <span className="flex size-[22px] items-center justify-center rounded-full bg-[#2A7A2A] text-[11px] font-semibold text-white">
+                <span className="flex size-[22px] items-center justify-center rounded-pill bg-[#2A7A2A] text-[11px] font-semibold text-white">
                   {data.curatorName.charAt(0)}
                 </span>
                 <span className="text-[12px] font-medium text-[#666]">
@@ -129,7 +129,7 @@ export const CollectionSharePoster = forwardRef<HTMLDivElement, { data: Collecti
 
             {/* 二维码页脚 */}
             <div className="flex items-center gap-3.5">
-              <div className="flex size-16 shrink-0 items-center justify-center rounded border border-[#E9E9E9] bg-white">
+              <div className="flex size-16 shrink-0 items-center justify-center rounded-4 border border-[#E9E9E9] bg-white">
                 <QRCodeCanvas value={data.qrValue} size={52} level="M" marginSize={0} />
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-[3px]">

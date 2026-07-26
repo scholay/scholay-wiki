@@ -57,7 +57,7 @@ export function MobileBottomSheet({
             >
               <m.div
                 className={cn(
-                  'fixed inset-x-0 bottom-0 mx-auto flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-2xl bg-background shadow-2xl',
+                  'fixed inset-x-0 bottom-0 mx-auto flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-16 bg-background shadow-2xl',
                   elevated ? 'z-[81]' : 'z-[71]',
                   className
                 )}
@@ -83,7 +83,7 @@ export function MobileBottomSheet({
                   onPointerDown={(e) => dragControls.start(e)}
                   className="flex shrink-0 cursor-grab touch-none justify-center pb-1 pt-2.5 active:cursor-grabbing"
                 >
-                  <div className="h-1 w-9 rounded-full bg-border-strong" />
+                  <div className="h-1 w-9 rounded-pill bg-border-strong" />
                 </div>
                 {children}
               </m.div>

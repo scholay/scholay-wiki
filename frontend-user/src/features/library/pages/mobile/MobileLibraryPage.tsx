@@ -235,7 +235,7 @@ function FolderCard({
         disabled={!canShare}
         onClick={onShare}
         className={cn(
-          'flex size-8 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground active:bg-surface-2',
+          'flex size-8 shrink-0 items-center justify-center rounded-pill border border-border text-muted-foreground active:bg-surface-2',
           !canShare && 'opacity-40'
         )}
       >

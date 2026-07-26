@@ -338,7 +338,7 @@ function AuthorAvatars({ authors }: { authors: PaperAuthor[] }) {
         <span
           key={i}
           className={cn(
-            'inline-flex size-4 items-center justify-center rounded-full text-[8px] font-bold text-white ring-1 ring-background',
+            'inline-flex size-4 items-center justify-center rounded-pill text-[8px] font-bold text-white ring-1 ring-background',
             toneOf(n),
           )}
           title={n}

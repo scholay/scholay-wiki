@@ -88,7 +88,7 @@ export function FeaturesOverviewPage() {
             <Compass className="size-3" strokeWidth={2.5} />
             FEATURES OVERVIEW
           </span>
-          <h1 className="mt-4 text-3xl md:text-4xl font-bold text-foreground">
+          <h1 className="mt-4 text-3xl md:text-display-36 font-bold text-foreground">
             从检索到投稿,覆盖科研全流程的一套工具
           </h1>
           <p className="mt-3 text-muted-foreground">

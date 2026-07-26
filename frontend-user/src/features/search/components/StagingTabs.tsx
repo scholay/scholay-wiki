@@ -106,7 +106,7 @@ const TabItem = memo(function TabItem({
       {active && (
         <span
           aria-hidden
-          className="absolute left-2 right-2 -bottom-px h-[2px] bg-brand-red rounded-full"
+          className="absolute left-2 right-2 -bottom-px h-[2px] bg-brand-red rounded-pill"
         />
       )}
     </div>

@@ -104,7 +104,7 @@ export function ConfirmDialog({
               className="text-xs text-muted-foreground"
             >
               输入{' '}
-              <code className="px-1 py-0.5 bg-surface-1 rounded text-foreground font-mono">
+              <code className="px-1 py-0.5 bg-surface-1 rounded-4 text-foreground font-mono">
                 {typeToConfirm}
               </code>{' '}
               确认
