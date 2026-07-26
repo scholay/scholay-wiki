@@ -132,10 +132,10 @@ export function RelinkPanel({
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-2xs font-bold text-faint uppercase tracking-wide">
+                <span className="text-2xs font-bold text-faint uppercase">
                   当前关联
                 </span>
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-surface-2 text-subtle text-2xs font-bold leading-none uppercase tracking-wide">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-surface-2 text-subtle text-2xs font-bold leading-none uppercase">
                   {sourceBrandLabel(paper.source)}
                 </span>
               </div>

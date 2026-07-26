@@ -510,7 +510,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
           避免 review #2 的「显示 N 处却按钮全哑」)。计数由 header 的 badge 承载,这里只做导航,不重复报数。 */}
       {!streaming && diffBaseline && navChangeCount > 0 && (
         <div className="pointer-events-none absolute right-4 top-3 z-20">
-          <div className="pointer-events-auto flex items-center gap-0.5 rounded-pill border border-brand-green/30 bg-background/95 px-1.5 py-1 text-2xs text-brand-green shadow-sm backdrop-blur">
+          <div className="pointer-events-auto flex items-center gap-0.5 rounded-pill border border-brand-green/30 bg-background/95 px-1.5 py-1 text-2xs text-brand-green shadow-overlay backdrop-blur">
             <Sparkles className="size-3 shrink-0" />
             <span className="px-1 font-medium">AI 改动</span>
             <button
@@ -591,7 +591,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
   // 页面在白底上,不做深色托盘、不做内层卡片,避免卡中卡)。下载/隐藏 已并进 PdfViewer 工具条,去掉原 h-9 头部。
   const pdfPane = (
     <div className="h-full min-h-0 bg-surface-2 p-2">
-      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border-strong bg-background shadow-md">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border-strong bg-background">
         {compileError ? (
           // 编译未通过是**可恢复**状态(有「让 AI 修复」回路)→ 用琥珀软提示而非红墙,降低焦虑感
           // (对齐全站 amber 约定:TurnErrorNotice / 工具失败)。

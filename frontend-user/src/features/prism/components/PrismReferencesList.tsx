@@ -24,7 +24,7 @@ export const PrismReferencesList = memo(function PrismReferencesList({
       <h2 className="mb-3 border-b border-border pb-1 text-lg font-bold">参考文献</h2>
       <ol className="space-y-2">
         {refs.map(({ num, entry }) => (
-          <li key={`${entry.key}-${num}`} className="flex gap-2 text-sm leading-relaxed text-subtle">
+          <li key={`${entry.key}-${num}`} className="flex gap-2 text-sm leading-paragraph text-subtle">
             <span className="shrink-0 tabular-nums text-faint">[{num}]</span>
             <span className="min-w-0">
               {entry.authors && <span>{entry.authors}. </span>}

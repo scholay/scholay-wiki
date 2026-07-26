@@ -101,9 +101,9 @@ export function ComparisonTable({ section }: { section: ComparisonSection }) {
               >
                 <span
                   className={cn(
-                    'text-2xs font-bold tracking-[0.2em] uppercase',
+                    'text-2xs font-bold uppercase',
                     col.highlight
-                      ? 'text-brand-amber font-display italic text-sm tracking-wider not-italic font-bold'
+                      ? 'text-brand-amber font-display italic text-sm not-italic font-bold'
                       : dark
                         ? 'text-faint'
                         : 'text-muted-foreground'
@@ -114,7 +114,7 @@ export function ComparisonTable({ section }: { section: ComparisonSection }) {
                 {col.badge && (
                   <span
                     className={cn(
-                      'inline-flex items-center px-2 py-0.5 rounded-sm text-2xs font-bold tracking-[0.15em]',
+                      'inline-flex items-center px-2 py-0.5 rounded-sm text-2xs font-bold',
                       'bg-brand-amber text-foreground'
                     )}
                   >

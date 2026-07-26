@@ -61,7 +61,7 @@ export function MobileAuthPage() {
       {/* 品牌 / 欢迎区 —— 大留白,移动 app 风格(无返回按钮、无分隔线) */}
       <div className="flex flex-col items-center pt-14 pb-9 text-center">
         <BrandLogo size="lg" />
-        <h1 className="mt-5 text-2xl font-bold tracking-tight text-foreground">{t.title}</h1>
+        <h1 className="mt-5 text-2xl font-bold text-foreground">{t.title}</h1>
         <p className="mt-1.5 text-sm text-muted-foreground">{t.desc}</p>
       </div>
 
@@ -86,7 +86,7 @@ export function MobileAuthPage() {
       <div className="mt-8">
         <div className="relative flex items-center">
           <Separator className="flex-1" />
-          <span className="px-3 text-2xs tracking-widest text-faint uppercase">
+          <span className="px-3 text-2xs text-faint uppercase">
             或继续使用
           </span>
           <Separator className="flex-1" />

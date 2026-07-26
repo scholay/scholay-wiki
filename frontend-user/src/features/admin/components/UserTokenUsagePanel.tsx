@@ -118,7 +118,7 @@ interface UsageRow {
 function UsageTable({ title, firstCol, rows }: { title: string; firstCol: string; rows: UsageRow[] }) {
   return (
     <div>
-      <h5 className="mb-1.5 text-2xs font-bold tracking-[0.1em] text-faint">{title}</h5>
+      <h5 className="mb-1.5 text-2xs font-bold text-faint">{title}</h5>
       <div className="overflow-x-auto rounded-md border border-border">
         <table className="w-full min-w-[360px] text-2xs tabular-nums">
           <thead>

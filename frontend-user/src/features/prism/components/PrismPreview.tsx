@@ -26,7 +26,7 @@ export function PrismPreview() {
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* 文件树 */}
         <aside className="w-[200px] shrink-0 border-r border-border bg-background py-3">
-          <div className="px-4 pb-1 text-2xs font-bold text-faint uppercase tracking-[0.16em]">
+          <div className="px-4 pb-1 text-2xs font-bold text-faint uppercase">
             文件
           </div>
           {[
@@ -49,7 +49,7 @@ export function PrismPreview() {
             </div>
           ))}
           <div className="border-t border-border-soft mt-3 pt-3">
-            <div className="px-4 pb-1 text-2xs font-bold text-faint uppercase tracking-[0.16em]">
+            <div className="px-4 pb-1 text-2xs font-bold text-faint uppercase">
               目录
             </div>
             {[
@@ -82,7 +82,7 @@ export function PrismPreview() {
         {/* 暗色编辑器 —— 强制深色面板(LaTeX 编辑器约定),不跟随 .dark token,
             所以这里保留硬编码 hex,加 .pen 注释做标记 */}
         {/* .pen `prism-editor` 暗色编辑面板:bg=#111 / gutter=#0a0a0a / text=#e6e6e6 / gutter text=#555 */}
-        <div className="flex-1 min-w-0 bg-[#111] text-[#e6e6e6] font-mono text-xs leading-[1.65] overflow-hidden">
+        <div className="flex-1 min-w-0 bg-[#111] text-[#e6e6e6] font-mono text-xs leading-paragraph overflow-hidden">
           <div className="flex h-full">
             <div className="w-10 shrink-0 bg-[#0a0a0a] py-4 text-right pr-2 text-[#555]">
               {Array.from({ length: 18 }, (_, i) => (
@@ -116,7 +116,7 @@ The blended output is then normalized via...`}
           <div className="h-10 px-4 flex items-center border-b border-border bg-surface-1 text-xs text-muted-foreground">
             预览 · 第 4 页 / 共 12 页
           </div>
-          <div className="p-6 space-y-3 text-[11px] leading-[1.7] text-foreground bg-background m-4 rounded-sm shadow-sm">
+          <div className="p-6 space-y-3 text-[11px] leading-paragraph text-foreground bg-background m-4 rounded-sm">
             <h3 className="text-base font-bold">3 Method</h3>
             <p className="text-subtle">
               We propose a hybrid architecture that combines the linear-time

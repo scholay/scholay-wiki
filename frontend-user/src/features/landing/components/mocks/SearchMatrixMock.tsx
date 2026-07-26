@@ -27,7 +27,7 @@ export function SearchMatrixMock() {
   return (
     <div className={cn(
       'flex flex-col gap-4 p-5 rounded-12 bg-surface-1 border border-border',
-      'shadow-[0_24px_48px_rgba(15,23,42,0.08)]'
+      'shadow-overlay'
     )}>
       {/* mock browser header */}
       <div className="flex items-center gap-2">

@@ -40,7 +40,7 @@ function FAQItem({
           open ? 'max-h-96 pb-6' : 'max-h-0'
         )}
       >
-        <p className="text-md leading-[1.7] text-subtle pr-10">{a}</p>
+        <p className="text-md leading-paragraph text-subtle pr-10">{a}</p>
       </div>
     </div>
   );

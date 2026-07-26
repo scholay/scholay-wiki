@@ -89,7 +89,7 @@ export function ToolsSidebar() {
       <SidebarHeaderNav />
       <SidebarContent>
         <div className="px-4 pt-3 pb-1.5">
-          <p className="text-xs font-bold tracking-[0.04em] text-foreground">科研能力广场</p>
+          <p className="text-xs font-bold text-foreground">科研能力广场</p>
         </div>
 
         {/* 段切换在顶部 PlazaHeader 的 tab 上统一处理;侧栏只按当前段给对应的筛选/入口。 */}
@@ -212,7 +212,7 @@ function FilterGroup({ label, children }: { label: string; children: ReactNode }
         onClick={() => setCollapsed((c) => !c)}
         className="flex h-6 items-center justify-between gap-2 px-4 pb-1 pt-1.5 text-left transition-colors hover:bg-surface-1"
       >
-        <span className="text-2xs font-bold uppercase tracking-[0.16em] text-faint">{label}</span>
+        <span className="text-2xs font-bold uppercase text-faint">{label}</span>
         <ChevronDown className={cn('size-3 text-subtle transition-transform', collapsed && '-rotate-90')} />
       </button>
       {!collapsed && <div className="flex flex-col pb-1">{children}</div>}

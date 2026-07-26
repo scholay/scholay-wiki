@@ -75,9 +75,9 @@ export function NewsDetailPage() {
         </div>
 
         {/* 标题 + 导语 */}
-        <h1 className="mt-3 text-2xl font-bold leading-tight text-foreground">{item.title}</h1>
+        <h1 className="mt-3 text-2xl font-bold text-foreground">{item.title}</h1>
         {item.summary && (
-          <p className="mt-3 text-base leading-relaxed text-muted-foreground">{item.summary}</p>
+          <p className="mt-3 text-base leading-paragraph text-muted-foreground">{item.summary}</p>
         )}
 
         {/* meta chips */}
@@ -144,7 +144,7 @@ export function NewsDetailPage() {
             <ShieldCheck className="mt-0.5 size-4 shrink-0 text-brand-green" />
             <div>
               <p className="text-xs font-bold text-foreground">可信度说明</p>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              <p className="mt-1 text-xs leading-paragraph text-muted-foreground">
                 {item.credibility_note}
               </p>
             </div>

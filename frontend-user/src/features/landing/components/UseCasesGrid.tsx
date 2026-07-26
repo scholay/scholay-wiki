@@ -79,7 +79,7 @@ function Card({ uc }: { uc: UseCase }) {
       {uc.tag && (
         <span
           className={cn(
-            'inline-flex items-center self-start px-2.5 py-1 rounded-sm text-2xs font-bold tracking-[0.15em] uppercase',
+            'inline-flex items-center self-start px-2.5 py-1 rounded-sm text-2xs font-bold uppercase',
             THEME_TAG[theme]
           )}
         >
@@ -102,7 +102,7 @@ function Card({ uc }: { uc: UseCase }) {
         </div>
       )}
 
-      <h3 className={cn('font-display italic font-semibold text-2xl leading-[1.1]', THEME_TITLE[theme])}>
+      <h3 className={cn('font-display italic font-semibold text-2xl leading-display-tight', THEME_TITLE[theme])}>
         {uc.title}
       </h3>
       {uc.subtitle && (
@@ -111,7 +111,7 @@ function Card({ uc }: { uc: UseCase }) {
         </span>
       )}
 
-      <p className={cn('text-md leading-[1.7]', THEME_BODY[theme])}>{uc.desc}</p>
+      <p className={cn('text-md leading-paragraph', THEME_BODY[theme])}>{uc.desc}</p>
 
       <ul className="flex flex-col gap-2 mt-auto">
         {uc.bullets.map((b) => (

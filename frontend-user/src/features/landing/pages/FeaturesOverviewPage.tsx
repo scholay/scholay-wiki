@@ -126,11 +126,11 @@ function FeatureCard({ feature }: { feature: FeatureEntry }) {
       </div>
       <div>
         <p className="text-base font-bold text-foreground">{feature.name}</p>
-        <p className="text-2xs text-faint mt-0.5 font-bold uppercase tracking-[0.12em]">
+        <p className="text-2xs text-faint mt-0.5 font-bold uppercase">
           {feature.englishName}
         </p>
       </div>
-      <p className="text-sm text-muted-foreground leading-relaxed flex-1">
+      <p className="text-sm text-muted-foreground leading-paragraph flex-1">
         {feature.desc}
       </p>
       <span className="inline-flex items-center gap-1 text-xs text-brand-red font-bold group-hover:gap-2 transition-all">

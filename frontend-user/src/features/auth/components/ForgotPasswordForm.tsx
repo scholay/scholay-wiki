@@ -114,7 +114,7 @@ export function ForgotPasswordForm({
                     inputMode="numeric"
                     maxLength={6}
                     autoComplete="one-time-code"
-                    className="h-10 text-sm tracking-widest"
+                    className="h-10 text-sm tracking-code"
                   />
                 </FormControl>
                 <SendCodeButton

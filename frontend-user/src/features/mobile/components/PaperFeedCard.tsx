@@ -98,7 +98,7 @@ export const PaperFeedCard = memo(function PaperFeedCard({
 
       {/* 标题 + 作者 */}
       <div className="shrink-0">
-        <h2 className="line-clamp-3 text-2xl leading-tight font-semibold text-foreground">
+        <h2 className="line-clamp-3 text-2xl font-semibold text-foreground">
           {paper.title}
         </h2>
         {authors && (
@@ -143,7 +143,7 @@ export const PaperFeedCard = memo(function PaperFeedCard({
               <AlignLeft className="size-3" />
               摘要
             </p>
-            <p className="mt-1.5 line-clamp-[8] text-sm leading-relaxed text-muted-foreground">
+            <p className="mt-1.5 line-clamp-[8] text-sm leading-paragraph text-muted-foreground">
               {paper.abstract}
             </p>
           </>
@@ -216,7 +216,7 @@ function Metric({
       <p className="text-2xs text-faint">{label}</p>
       <p
         className={cn(
-          'mt-0.5 text-lg font-semibold leading-snug',
+          'mt-0.5 text-lg font-semibold',
           highlight ? 'text-brand-green' : 'text-foreground'
         )}
       >

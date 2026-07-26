@@ -125,7 +125,7 @@ export function MetaLine({
             </TooltipTrigger>
             <TooltipContent
               side="bottom"
-              className="max-w-[300px] text-xs leading-relaxed whitespace-normal"
+              className="max-w-[300px] text-xs leading-paragraph whitespace-normal"
             >
               {/* 只展示名字串,在 Tooltip 里点击不便就不做跳转;入口仍在前两位 */}
               {extraAuthors.map((a) => a.name).join(' · ')}

@@ -223,7 +223,7 @@ export function PrismChatPanel({
               {quote && (
                 <div className="flex items-start gap-1.5 rounded-md border-l-2 border-brand-green bg-surface-1 px-2 py-1.5">
                   <Quote className="mt-0.5 size-3 shrink-0 text-brand-green" />
-                  <span className="line-clamp-2 flex-1 whitespace-pre-wrap text-2xs leading-snug text-subtle">{quote}</span>
+                  <span className="line-clamp-2 flex-1 whitespace-pre-wrap text-2xs text-subtle">{quote}</span>
                   <button type="button" onClick={onClearQuote} title="移除引用" className="shrink-0 text-faint transition-colors hover:text-foreground">
                     <X className="size-3" />
                   </button>

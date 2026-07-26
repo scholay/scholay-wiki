@@ -145,7 +145,7 @@ export const TableOfContents = forwardRef<HTMLElement, TableOfContentsProps>(
       aria-label="目录"
       className={cn('text-xs', className)}
     >
-      <p className="text-2xs font-bold uppercase tracking-[0.16em] text-faint mb-3">
+      <p className="text-2xs font-bold uppercase text-faint mb-3">
         {title}
       </p>
       <ul className="space-y-1.5 border-l border-border-soft">

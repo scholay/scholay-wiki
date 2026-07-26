@@ -77,13 +77,13 @@ export function JournalDecisionCard({
       )}
     >
       <div className="flex items-center gap-2">
-        <span className="text-2xs font-bold uppercase tracking-[0.16em] text-faint">
+        <span className="text-2xs font-bold uppercase text-faint">
           投稿决策
         </span>
       </div>
 
       {/* 一句话综合 */}
-      <p className="text-base leading-relaxed text-foreground">
+      <p className="text-base leading-paragraph text-foreground">
         {parts.join(' · ')}。
       </p>
 
@@ -112,7 +112,7 @@ export function JournalDecisionCard({
       </div>
 
       {warned && (
-        <p className="text-xs leading-relaxed text-brand-amber">
+        <p className="text-xs leading-paragraph text-brand-amber">
           该刊出现在中科院《国际期刊预警名单》,投稿前请结合学科、最新名单与导师意见审慎评估。
         </p>
       )}

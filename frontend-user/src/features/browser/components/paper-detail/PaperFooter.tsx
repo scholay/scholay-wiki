@@ -49,7 +49,7 @@ export function PaperFooter({ paper }: { paper: Paper }) {
     <section id="cite-block" className="mt-16 space-y-4">
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div className="space-y-1.5">
-          <div className="text-2xs font-bold uppercase tracking-[0.18em] text-faint">
+          <div className="text-2xs font-bold uppercase text-faint">
             HOW TO CITE
           </div>
           <h2 className="font-display font-bold text-xl text-foreground">
@@ -83,11 +83,11 @@ export function PaperFooter({ paper }: { paper: Paper }) {
           min-w-0 防御性 grid item 守门(与 CitationDialog 同款) */}
       <div className="relative min-w-0">
         {isMono ? (
-          <pre className="w-full rounded-sm bg-surface-1 border border-border px-5 py-4 font-mono text-xs leading-[1.65] text-subtle overflow-x-auto whitespace-pre">
+          <pre className="w-full rounded-sm bg-surface-1 border border-border px-5 py-4 font-mono text-xs leading-paragraph text-subtle overflow-x-auto whitespace-pre">
             {citation}
           </pre>
         ) : (
-          <p className="rounded-sm bg-surface-1 border border-border px-5 py-4 text-base leading-[1.7] text-subtle break-words">
+          <p className="rounded-sm bg-surface-1 border border-border px-5 py-4 text-base leading-paragraph text-subtle break-words">
             <CitationProse text={citation} />
           </p>
         )}

@@ -111,7 +111,7 @@ export function UserCell(props: UserCellProps) {
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="flex flex-col gap-1.5">
-      <h5 className="text-2xs font-bold tracking-[0.12em] text-faint">{title}</h5>
+      <h5 className="text-2xs font-bold text-faint">{title}</h5>
       {children}
     </section>
   );

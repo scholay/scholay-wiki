@@ -88,13 +88,13 @@ export function CitationGeneratorPage() {
 
       <div className="mx-auto max-w-[760px] px-4 pt-8 pb-20 sm:px-6 sm:pt-12">
         <header className="space-y-2">
-          <div className="text-2xs font-bold uppercase tracking-[0.18em] text-faint">
+          <div className="text-2xs font-bold uppercase text-faint">
             CITATION GENERATOR
           </div>
           <h1 className="font-display font-bold text-2xl sm:text-3xl text-foreground">
             参考文献引用格式生成器
           </h1>
-          <p className="text-sm text-muted-foreground leading-relaxed">
+          <p className="text-sm text-muted-foreground leading-paragraph">
             输入 DOI 自动解析,或手动录入文献信息,一键生成 GB/T 7714(国标)、APA、MLA、
             Chicago、BibTeX 五种格式。
           </p>
@@ -255,11 +255,11 @@ function CitationResult({ paper }: { paper: CitationPaper }) {
 
       <div className="relative min-w-0">
         {isMono ? (
-          <pre className="w-full rounded-sm bg-surface-1 border border-border px-5 py-4 font-mono text-xs leading-[1.65] text-subtle overflow-x-auto whitespace-pre">
+          <pre className="w-full rounded-sm bg-surface-1 border border-border px-5 py-4 font-mono text-xs leading-paragraph text-subtle overflow-x-auto whitespace-pre">
             {citation}
           </pre>
         ) : (
-          <p className="rounded-sm bg-surface-1 border border-border px-5 py-4 text-base leading-[1.7] text-subtle break-words">
+          <p className="rounded-sm bg-surface-1 border border-border px-5 py-4 text-base leading-paragraph text-subtle break-words">
             <CitationProse text={citation} />
           </p>
         )}
@@ -285,7 +285,7 @@ function CiteGuide() {
       <h2 className="font-display font-bold text-lg text-foreground">
         关于引用格式
       </h2>
-      <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
+      <div className="space-y-3 text-sm leading-paragraph text-muted-foreground">
         <p>
           <span className="font-bold text-subtle">GB/T 7714-2015</span>{' '}
           是中国国家标准《信息与文献 参考文献著录规则》,国内学位论文与多数中文期刊均要求按此著录,

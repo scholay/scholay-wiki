@@ -164,11 +164,11 @@ export function MobileMembershipDialog({
             <CreditCard className="size-4 text-muted-foreground" /> 支付宝付款开通
           </div>
           {inWeChat ? (
-            <p className="text-xs leading-relaxed text-brand-red">
+            <p className="text-xs leading-paragraph text-brand-red">
               检测到你在微信内打开,微信无法调起支付宝。请点右上角「···」→「在浏览器打开」后再付款,或用上方兑换码 / 电脑端开通。
             </p>
           ) : !alipayOn || payPlans.length === 0 ? (
-            <p className="text-xs leading-relaxed text-muted-foreground">
+            <p className="text-xs leading-paragraph text-muted-foreground">
               支付暂未开放,请用上方兑换码开通,或在电脑端付款。
             </p>
           ) : (
@@ -207,7 +207,7 @@ export function MobileMembershipDialog({
                       )}
                     </span>
                     <span className="flex items-center gap-1.5">
-                      <span className="flex flex-col items-end leading-tight">
+                      <span className="flex flex-col items-end">
                         {q ? (
                           <span className="text-sm font-bold text-foreground">
                             ¥{(q.amount_cents / 100).toFixed(2)}

@@ -61,7 +61,7 @@ export function AddDimensionForm({ disabled, onCancel, onCreated }: Props) {
           rows={4}
           maxLength={500}
           placeholder="告诉 AI 从论文里抽取什么 —— 越具体越好。"
-          className="mt-1 w-full bg-background border border-border rounded-sm px-2 py-1.5 text-xs leading-relaxed outline-none focus:border-brand-blue resize-none"
+          className="mt-1 w-full bg-background border border-border rounded-sm px-2 py-1.5 text-xs leading-paragraph outline-none focus:border-brand-blue resize-none"
         />
       </div>
       <div className="flex items-center justify-end gap-1.5">

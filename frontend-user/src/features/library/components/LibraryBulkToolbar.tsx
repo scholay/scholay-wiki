@@ -238,7 +238,7 @@ function BatchDeleteConfirmDialog({
             删除 {count} 篇论文?
           </DialogTitle>
         </header>
-        <div className="px-5 py-4 text-xs text-subtle leading-relaxed">
+        <div className="px-5 py-4 text-xs text-subtle leading-paragraph">
           将从文献集永久移除选中的 {count} 篇论文。此操作不可撤销。
         </div>
         <footer className="flex items-center justify-end gap-2 h-13 px-5 border-t border-border-soft">

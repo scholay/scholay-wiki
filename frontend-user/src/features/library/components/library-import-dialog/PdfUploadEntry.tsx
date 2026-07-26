@@ -151,7 +151,7 @@ export function PdfUploadEntry({
       </div>
 
       {/* 兜底文案 */}
-      <p className="text-2xs text-faint leading-relaxed">
+      <p className="text-2xs text-faint leading-paragraph">
         仅支持 PDF,大小 ≤ {MAX_PDF_SIZE / 1024 / 1024} MB。上传后会自动识别标题并匹配在线论文;没有匹配也可以
         <span className="text-brand-green font-semibold">直接保存</span>
         ,之后再完善信息。

@@ -40,7 +40,7 @@ function LinkCol({
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <span className="text-xs font-semibold tracking-[0.15em] uppercase text-foreground">
+      <span className="text-xs font-semibold uppercase text-foreground">
         {title}
       </span>
       <ul className="flex flex-col gap-2">
@@ -83,7 +83,7 @@ export function LandingFooter() {
           {/* 品牌列 */}
           <div className="col-span-2 flex flex-col gap-4">
             <BrandLogo size="sm" />
-            <p className="text-sm leading-[1.7] text-muted-foreground max-w-xs">
+            <p className="text-sm leading-paragraph text-muted-foreground max-w-xs">
               为学者打造的整套学术工作流,从读到写、从投稿到评审,一站完成。
             </p>
           </div>

@@ -241,7 +241,7 @@ function Section({ title, right, children }: { title: string; right?: React.Reac
   return (
     <section>
       <div className="mb-2 flex items-center justify-between">
-        <h4 className="text-2xs font-bold tracking-[0.12em] text-faint">{title}</h4>
+        <h4 className="text-2xs font-bold text-faint">{title}</h4>
         {right}
       </div>
       {children}

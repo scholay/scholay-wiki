@@ -65,10 +65,10 @@ export function FeaturedPapersCol({
               <button
                 type="button"
                 onClick={() => openPaper(p)}
-                className="group w-full text-left flex items-start gap-4 rounded-lg bg-background border border-border p-5 hover:border-foreground hover:shadow-sm transition-all"
+                className="group w-full text-left flex items-start gap-4 rounded-lg bg-background border border-border p-5 hover:border-foreground hover:transition-all"
               >
                 <div className="flex-1 min-w-0 space-y-1.5">
-                  <h3 className="text-md font-bold leading-snug text-foreground group-hover:text-brand-red transition-colors line-clamp-2">
+                  <h3 className="text-md font-bold text-foreground group-hover:text-brand-red transition-colors line-clamp-2">
                     {p.title || '无标题'}
                   </h3>
                   <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1 text-xs text-faint">

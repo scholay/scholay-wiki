@@ -28,7 +28,7 @@ export function SectionHeader({
     >
       <span
         className={cn(
-          'text-2xs font-semibold tracking-[0.25em] uppercase',
+          'text-2xs font-semibold uppercase',
           dark ? 'text-faint' : 'text-muted-foreground'
         )}
       >
@@ -36,7 +36,7 @@ export function SectionHeader({
       </span>
       <h2
         className={cn(
-          'font-display italic font-medium leading-[1.15]',
+          'font-display italic font-medium leading-display-tight',
           'text-[clamp(32px,4vw,48px)]',
           dark ? 'text-background' : 'text-foreground'
         )}
@@ -46,7 +46,7 @@ export function SectionHeader({
       {sub && (
         <p
           className={cn(
-            'text-lg leading-[1.6] max-w-[720px]',
+            'text-lg leading-paragraph max-w-[720px]',
             dark ? 'text-faint' : 'text-subtle'
           )}
         >

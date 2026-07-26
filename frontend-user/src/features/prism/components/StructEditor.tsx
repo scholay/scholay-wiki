@@ -133,7 +133,7 @@ function AutoGrow({
 
 // 正文编辑区:覆盖成 LaTeX article 观感 —— 衬线、两端对齐、首行缩进、章节加粗、表格描边。
 const bodyClass = [
-  'font-serif text-md leading-relaxed text-foreground',
+  'font-serif text-md leading-paragraph text-foreground',
   '[&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-[40vh]',
   '[&_.ProseMirror_p]:text-justify [&_.ProseMirror_p]:indent-8 [&_.ProseMirror_p]:my-2',
   '[&_.ProseMirror_h1]:mt-6 [&_.ProseMirror_h1]:mb-2 [&_.ProseMirror_h1]:text-xl [&_.ProseMirror_h1]:font-bold',
@@ -426,7 +426,7 @@ export const StructEditor = forwardRef<
           onChange={onFm(setTitle)}
           editable={editable}
           placeholder="无标题"
-          className={cn('text-center text-2xl font-bold leading-snug', fmChanged.title && fmHi)}
+          className={cn('text-center text-2xl font-bold', fmChanged.title && fmHi)}
         />
         {authors && <p className="mt-3 text-center text-base">{authors}</p>}
         <p className="mt-1 text-center text-sm text-subtle">{today()}</p>
@@ -439,7 +439,7 @@ export const StructEditor = forwardRef<
             onChange={onFm(setAbstract)}
             editable={editable}
             placeholder="在此填写摘要…"
-            className={cn('indent-8 text-justify text-sm leading-relaxed', fmChanged.abstract && fmHi)}
+            className={cn('indent-8 text-justify text-sm leading-paragraph', fmChanged.abstract && fmHi)}
           />
         </div>
 

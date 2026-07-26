@@ -124,8 +124,8 @@ export function PromoConfigPage() {
 
         {/* 实时预览 */}
         <div className="lg:sticky lg:top-4 lg:self-start">
-          <Label className="mb-2 block text-2xs tracking-[0.08em] text-faint">实时预览</Label>
-          <div className="w-full max-w-80 overflow-hidden rounded-lg border border-border shadow-sm lg:w-80">
+          <Label className="mb-2 block text-2xs text-faint">实时预览</Label>
+          <div className="w-full max-w-80 overflow-hidden rounded-lg border border-border lg:w-80">
             <div className="relative bg-gradient-to-br from-brand-red via-brand-red to-brand-amber px-6 pb-6 pt-8 text-center text-white">
               <span className="absolute left-4 top-4 inline-flex items-center gap-1 rounded-pill bg-white/20 px-2 py-0.5 text-2xs font-medium backdrop-blur-sm">
                 <Sparkles className="size-3" /> 限时
@@ -133,7 +133,7 @@ export function PromoConfigPage() {
               <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-pill bg-white/15 ring-1 ring-white/30">
                 <Gift className="size-7" strokeWidth={2} />
               </div>
-              <div className="text-lg font-bold tracking-tight">{pvTitle}</div>
+              <div className="text-lg font-bold">{pvTitle}</div>
               <div className="mt-1 text-sm text-white/90">{pvSubtitle}</div>
             </div>
             <div className="flex flex-col gap-2.5 bg-background px-6 pt-5">
@@ -179,7 +179,7 @@ function Section({ icon, title, children }: { icon: React.ReactNode; title: stri
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-2xs tracking-[0.08em] text-faint">{label}</Label>
+      <Label className="text-2xs text-faint">{label}</Label>
       {children}
     </div>
   );
@@ -210,7 +210,7 @@ function QRUpload({ label, value, onChange }: { label: string; value: string; on
 
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-2xs tracking-[0.08em] text-faint">{label}</Label>
+      <Label className="text-2xs text-faint">{label}</Label>
       <div className="flex items-center gap-3">
         {value ? (
           <img src={value} alt={label} className="size-20 rounded-sm border border-border object-contain" />

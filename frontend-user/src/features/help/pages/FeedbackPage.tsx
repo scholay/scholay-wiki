@@ -255,7 +255,7 @@ export function FeedbackPage() {
                 aria-describedby="feedback-content-hint"
                 placeholder="请详细描述遇到的问题或您的建议,越具体我们越能帮上忙"
                 className={cn(
-                  'w-full resize-y rounded-sm border bg-background px-3 py-2.5 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring/20',
+                  'w-full resize-y rounded-sm border bg-background px-3 py-2.5 text-sm leading-paragraph focus:outline-none focus:ring-2 focus:ring-ring/20',
                   contentTooShort ? 'border-brand-red focus:border-brand-red' : 'border-border focus:border-foreground',
                 )}
               />
@@ -429,7 +429,7 @@ function PromiseCard() {
         <Sparkles className="size-4 text-brand-amber" strokeWidth={2.2} />
         我们承诺
       </h2>
-      <ul className="space-y-2 text-xs leading-relaxed text-subtle">
+      <ul className="space-y-2 text-xs leading-paragraph text-subtle">
         {[
           '每一条反馈都会被产品团队看到',
           '明确的 bug 通常在 1–3 个工作日内修复',
@@ -453,7 +453,7 @@ function SuccessPanel({ email, onAgain }: { email: string; onAgain: () => void }
         <CheckCircle2 className="size-6 text-brand-green" strokeWidth={2.2} />
       </span>
       <h2 className="mt-4 text-lg font-bold text-foreground">感谢你的反馈!</h2>
-      <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
+      <p className="mx-auto mt-2 max-w-md text-sm leading-paragraph text-muted-foreground">
         <BrandName /> 团队会认真看每一条。如有结论,我们会通过{' '}
         {email ? <span className="font-medium text-subtle">{email}</span> : '你填写的邮箱'} 回复你。
       </p>

@@ -76,7 +76,7 @@ export function TokenUsageFilterBar({ onChange }: { onChange: (f: TokenUsageFilt
     <section className="mb-6 flex flex-wrap items-end gap-3 rounded-md border border-border-soft bg-surface-1 p-3">
       {/* 时间窗口预设 */}
       <div className="space-y-1">
-        <Label className="text-2xs text-faint tracking-[0.12em]">时间范围</Label>
+        <Label className="text-2xs text-faint">时间范围</Label>
         <div className="flex gap-1">
           <button
             type="button"
@@ -110,7 +110,7 @@ export function TokenUsageFilterBar({ onChange }: { onChange: (f: TokenUsageFilt
 
       {/* 自定义区间 */}
       <div className="w-full space-y-1 sm:w-auto">
-        <Label className="text-2xs text-faint tracking-[0.12em]">自定义起止</Label>
+        <Label className="text-2xs text-faint">自定义起止</Label>
         <div className="flex items-center gap-1">
           <Input
             type="date"
@@ -129,7 +129,7 @@ export function TokenUsageFilterBar({ onChange }: { onChange: (f: TokenUsageFilt
       </div>
 
       <div className="space-y-1">
-        <Label className="text-2xs text-faint tracking-[0.12em]">功能</Label>
+        <Label className="text-2xs text-faint">功能</Label>
         <select value={feature} onChange={(e) => patch({ feature: e.target.value || null })} className={cn(SELECT_CLS, 'w-28')}>
           <option value="">全部</option>
           {FEATURE_OPTIONS.map((o) => (
@@ -139,7 +139,7 @@ export function TokenUsageFilterBar({ onChange }: { onChange: (f: TokenUsageFilt
       </div>
 
       <div className="space-y-1">
-        <Label className="text-2xs text-faint tracking-[0.12em]">来源</Label>
+        <Label className="text-2xs text-faint">来源</Label>
         <select value={source} onChange={(e) => patch({ source: e.target.value || null })} className={cn(SELECT_CLS, 'w-24')}>
           <option value="">全部</option>
           {SOURCE_OPTIONS.map((o) => (
@@ -149,7 +149,7 @@ export function TokenUsageFilterBar({ onChange }: { onChange: (f: TokenUsageFilt
       </div>
 
       <div className="space-y-1">
-        <Label className="text-2xs text-faint tracking-[0.12em]">模型</Label>
+        <Label className="text-2xs text-faint">模型</Label>
         <select value={model} onChange={(e) => patch({ model: e.target.value || null })} className={cn(SELECT_CLS, 'w-40 max-w-40')}>
           <option value="">全部</option>
           {(facets?.models ?? []).map((m) => (
@@ -159,7 +159,7 @@ export function TokenUsageFilterBar({ onChange }: { onChange: (f: TokenUsageFilt
       </div>
 
       <div className="space-y-1">
-        <Label className="text-2xs text-faint tracking-[0.12em]">Provider</Label>
+        <Label className="text-2xs text-faint">Provider</Label>
         <select value={provider} onChange={(e) => patch({ provider: e.target.value || null })} className={cn(SELECT_CLS, 'w-32')}>
           <option value="">全部</option>
           {(facets?.providers ?? []).map((p) => (
@@ -169,7 +169,7 @@ export function TokenUsageFilterBar({ onChange }: { onChange: (f: TokenUsageFilt
       </div>
 
       <div className="space-y-1">
-        <Label className="text-2xs text-faint tracking-[0.12em]">用户</Label>
+        <Label className="text-2xs text-faint">用户</Label>
         <Input
           value={keyword}
           onChange={(e) => patch({ kw: e.target.value || null, anon: e.target.value ? null : undefined })}

@@ -258,7 +258,7 @@ export function PrismWritingProfileDialog({
                       )}
                     >
                       <p className="text-2xs font-bold text-faint">写出来的味道</p>
-                      <p className="mt-1 font-serif text-xs italic leading-relaxed text-subtle">"{preview.sample}"</p>
+                      <p className="mt-1 font-serif text-xs italic leading-paragraph text-subtle">"{preview.sample}"</p>
                     </div>
                   )}
 
@@ -311,7 +311,7 @@ export function PrismWritingProfileDialog({
 
                   {/* 补充说明(弱化为末位小字) */}
                   {preview.description && (
-                    <p className="mt-4 text-2xs leading-relaxed text-muted-foreground">{preview.description}</p>
+                    <p className="mt-4 text-2xs leading-paragraph text-muted-foreground">{preview.description}</p>
                   )}
                 </div>
 

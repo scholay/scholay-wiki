@@ -30,7 +30,7 @@ function KV({ label, value }: { label: string; value?: string | number | null })
   if (value === '' || value == null) return null;
   return (
     <div className="min-w-0">
-      <div className="text-2xs text-faint tracking-[0.12em]">{label}</div>
+      <div className="text-2xs text-faint">{label}</div>
       <div className="text-xs text-subtle break-words">{value}</div>
     </div>
   );
@@ -40,7 +40,7 @@ function MdBlock({ label, md }: { label: string; md?: string }) {
   if (!md) return null;
   return (
     <div className="rounded-md border border-border bg-surface-1 p-3">
-      <div className="mb-1 text-2xs text-faint tracking-[0.12em]">{label}</div>
+      <div className="mb-1 text-2xs text-faint">{label}</div>
       <div className="text-sm text-subtle">
         <MarkdownRenderer text={md} />
       </div>
@@ -110,7 +110,7 @@ function StructuredBlock({ label, data }: { label: string; data?: unknown }) {
   if (data == null || (Array.isArray(data) && data.length === 0)) return null;
   return (
     <div className="rounded-md border border-border bg-surface-1 p-2.5">
-      <div className="mb-1.5 text-2xs text-faint tracking-[0.12em]">{label}</div>
+      <div className="mb-1.5 text-2xs text-faint">{label}</div>
       <StructuredValue value={data} />
       <details className="mt-1.5">
         <summary className="cursor-pointer text-2xs text-faint">原始 JSON</summary>
@@ -304,7 +304,7 @@ export function PeerReviewMonitor() {
               {/* 附件(可预览/下载 + AI 实际读到的抽取文本) */}
               {detail.assets.length > 0 && (
                 <div>
-                  <div className="mb-1.5 text-2xs text-faint tracking-[0.12em]">附件 ({detail.assets.length})</div>
+                  <div className="mb-1.5 text-2xs text-faint">附件 ({detail.assets.length})</div>
                   <div className="space-y-1.5">
                     {detail.assets.map((a) => (
                       <AssetCard key={a.id} a={a} submissionId={s.id} onPreview={setPreview} />
@@ -315,7 +315,7 @@ export function PeerReviewMonitor() {
 
               {/* 审稿结果(每个审稿人) */}
               <div>
-                <div className="mb-1.5 text-2xs text-faint tracking-[0.12em]">审稿报告 ({detail.reports.length})</div>
+                <div className="mb-1.5 text-2xs text-faint">审稿报告 ({detail.reports.length})</div>
                 {detail.reports.length === 0 ? (
                   <div className="text-sm text-faint">暂无审稿报告(可能还在审稿中或已失败)</div>
                 ) : (

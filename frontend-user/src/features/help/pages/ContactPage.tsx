@@ -125,7 +125,7 @@ export function ContactPage() {
           ))}
         </div>
         {contact?.contact_note && (
-          <p className="mt-3 text-xs text-muted-foreground leading-relaxed">{contact.contact_note}</p>
+          <p className="mt-3 text-xs text-muted-foreground leading-paragraph">{contact.contact_note}</p>
         )}
       </section>
 
@@ -179,15 +179,15 @@ function ChannelCard({ channel }: { channel: Channel }) {
   const { icon: Icon, title, desc, cta, href } = channel;
   const isInternal = href.startsWith('/');
   const inner = (
-    <div className="group flex flex-col gap-2.5 p-5 rounded-md bg-background border border-border hover:border-foreground/40 transition-all hover:shadow-[0_4px_16px_rgba(0,0,0,0.04)] h-full">
+    <div className="group flex flex-col gap-2.5 p-5 rounded-md bg-background border border-border hover:border-foreground/40 transition-all hover:h-full">
       <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-surface-1 border border-border-soft group-hover:bg-danger-soft group-hover:border-brand-red/20 transition-colors">
         <Icon
           className="size-4 text-subtle group-hover:text-brand-red transition-colors"
           strokeWidth={2}
         />
       </span>
-      <p className="text-sm font-bold text-foreground leading-tight">{title}</p>
-      <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
+      <p className="text-sm font-bold text-foreground">{title}</p>
+      <p className="text-xs text-muted-foreground leading-paragraph">{desc}</p>
       <span className="mt-auto inline-flex items-center gap-1 text-xs font-semibold text-brand-red group-hover:gap-2 transition-all">
         {cta}
         <ArrowRight className="size-3" />
@@ -208,11 +208,11 @@ function ChannelCard({ channel }: { channel: Channel }) {
 function SLACard({ item }: { item: SLAItem }) {
   return (
     <div className="flex flex-col gap-1.5 p-5 rounded-md bg-surface-1 border border-border-soft">
-      <p className="text-xs font-bold text-faint uppercase tracking-[0.16em]">
+      <p className="text-xs font-bold text-faint uppercase">
         {item.scope}
       </p>
-      <p className="text-lg font-bold text-foreground leading-tight">{item.time}</p>
-      <p className="text-xs text-muted-foreground leading-relaxed">{item.detail}</p>
+      <p className="text-lg font-bold text-foreground">{item.time}</p>
+      <p className="text-xs text-muted-foreground leading-paragraph">{item.detail}</p>
     </div>
   );
 }

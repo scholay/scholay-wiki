@@ -16,7 +16,7 @@ const SIZE_MAP: Record<Size, string> = {
   sm: 'text-xl',
   md: 'text-3xl',
   lg: 'text-5xl',
-  xl: 'text-[56px] leading-none',
+  xl:'text-[56px] leading-none',
 };
 
 const LETTERS: { ch: string; color: string }[] = [
@@ -40,7 +40,7 @@ export const BrandLogo = forwardRef<HTMLSpanElement, BrandLogoProps>(
       <span
         ref={ref}
         className={cn(
-          'inline-flex items-end font-display font-bold tracking-tight select-none',
+          'inline-flex items-end font-display font-bold tracking-brand select-none',
           SIZE_MAP[size],
           className
         )}

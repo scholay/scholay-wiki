@@ -1105,7 +1105,7 @@ function ScrollToBottomFab() {
       type="button"
       onClick={() => scrollToBottom()}
       // bottom-28 抬高,让它浮在底部"悬浮对话框"之上,而不是被对话框盖住。
-      className="sticky bottom-28 ml-auto mr-1 flex size-8 items-center justify-center rounded-pill bg-foreground text-background shadow-elevation-2 hover:opacity-90 transition-opacity"
+      className="sticky bottom-28 ml-auto mr-1 flex size-8 items-center justify-center rounded-pill bg-foreground text-background shadow-overlay hover:opacity-90 transition-opacity"
       aria-label="回到底部"
     >
       <ArrowDown className="size-4" strokeWidth={2.4} />
@@ -1127,7 +1127,7 @@ function UserBubble({
       {attachments && attachments.length > 0 && <AttachmentChipList attachments={attachments} />}
       {references && references.length > 0 && <ReferenceChipList references={references} />}
       {text && (
-        <div className="max-w-[80%] inline-flex items-center py-2.5 px-3.5 rounded-12 bg-foreground text-background text-sm leading-relaxed">
+        <div className="max-w-[80%] inline-flex items-center py-2.5 px-3.5 rounded-12 bg-foreground text-background text-sm leading-paragraph">
           {text}
         </div>
       )}

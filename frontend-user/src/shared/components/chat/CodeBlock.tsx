@@ -53,7 +53,7 @@ export function CodeBlock({ children }: { children?: ReactNode }) {
       </button>
       <pre
         ref={preRef}
-        className="overflow-x-auto rounded-md border border-border bg-surface-1 p-3 text-[12px] leading-relaxed"
+        className="overflow-x-auto rounded-md border border-border bg-surface-1 p-3 text-[12px] leading-paragraph"
       >
         {children}
       </pre>

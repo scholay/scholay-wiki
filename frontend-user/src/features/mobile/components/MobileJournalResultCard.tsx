@@ -36,7 +36,7 @@ export const MobileJournalResultCard = memo(function MobileJournalResultCard({
           className="h-12 w-12 shrink-0 rounded-md"
         />
         <div className="min-w-0 flex-1">
-          <p className="line-clamp-2 text-[15px] font-semibold leading-snug text-foreground">
+          <p className="line-clamp-2 text-[15px] font-semibold text-foreground">
             {journal.canonical_name}
           </p>
           <p className="mt-0.5 truncate text-xs text-faint">{meta}</p>

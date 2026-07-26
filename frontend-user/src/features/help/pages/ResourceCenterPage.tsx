@@ -213,17 +213,17 @@ function HeroCard({ article }: { article: ArticleCardData }) {
       className="group flex flex-col gap-3 p-6 md:p-8 rounded-lg bg-surface-1 border border-border-soft hover:border-border-strong transition-colors"
     >
       <div className="flex items-center gap-2">
-        <span className="inline-flex items-center h-5 px-2 rounded-pill bg-brand-red text-background text-2xs font-bold uppercase tracking-wide">
+        <span className="inline-flex items-center h-5 px-2 rounded-pill bg-brand-red text-background text-2xs font-bold uppercase">
           最新
         </span>
         <span className="inline-flex items-center h-5 px-2 rounded-sm bg-background border border-border-soft text-2xs font-bold text-muted-foreground">
           {article.category}
         </span>
       </div>
-      <p className="text-xl md:text-2xl font-bold text-foreground leading-snug tracking-tight">
+      <p className="text-xl md:text-2xl font-bold text-foreground">
         {article.title}
       </p>
-      <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3 max-w-3xl">
+      <p className="text-sm text-muted-foreground leading-paragraph line-clamp-3 max-w-3xl">
         {article.excerpt}
       </p>
       <div className="flex items-center gap-3 text-2xs text-faint">
@@ -259,15 +259,15 @@ function ContentCard({
   return (
     <Link
       to={to}
-      className="group flex flex-col gap-2 p-5 rounded-md bg-background border border-border-soft hover:border-foreground/40 transition-all hover:shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
+      className="group flex flex-col gap-2 p-5 rounded-md bg-background border border-border-soft hover:border-foreground/40 transition-all hover:"
     >
       {showCategory && (
         <span className="inline-flex items-center w-fit h-5 px-2 rounded-sm bg-surface-1 text-2xs font-bold text-muted-foreground">
           {article.category}
         </span>
       )}
-      <p className="text-md font-bold text-foreground leading-snug line-clamp-2">{article.title}</p>
-      <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">{article.excerpt}</p>
+      <p className="text-md font-bold text-foreground line-clamp-2">{article.title}</p>
+      <p className="text-xs text-muted-foreground leading-paragraph line-clamp-3">{article.excerpt}</p>
       <div className="mt-auto pt-2 flex items-center justify-between gap-3 text-2xs text-faint">
         <div className="flex items-center gap-3">
           {author && <span>{author.name}</span>}

@@ -91,7 +91,7 @@ export function TipCard({ title, bullets }: { title: string; bullets: string[] }
         <AlertCircle className="size-4 text-brand-amber" />
         {title}
       </h3>
-      <ul className="flex flex-col gap-1.5 text-xs leading-relaxed text-subtle">
+      <ul className="flex flex-col gap-1.5 text-xs leading-paragraph text-subtle">
         {bullets.map((b, i) => (
           <li key={i} className="flex gap-1.5">
             <span className="text-brand-amber">•</span>

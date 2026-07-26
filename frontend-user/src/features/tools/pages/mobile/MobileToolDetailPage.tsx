@@ -68,7 +68,7 @@ export function MobileToolDetailPage() {
               <div className="flex items-start gap-3">
                 <ToolLogo tool={tool} className="h-14 w-14" textClass="text-xl" />
                 <div className="min-w-0 flex-1">
-                  <h1 className="text-lg leading-snug font-semibold text-foreground">
+                  <h1 className="text-lg font-semibold text-foreground">
                     {tool.name}
                   </h1>
                   {tool.name_en && tool.name_en !== tool.name && (
@@ -87,7 +87,7 @@ export function MobileToolDetailPage() {
                 </div>
               </div>
               {tool.tagline && (
-                <p className="mt-3 text-sm leading-relaxed text-subtle">{tool.tagline}</p>
+                <p className="mt-3 text-sm leading-paragraph text-subtle">{tool.tagline}</p>
               )}
               <div className="mt-3 flex gap-2">
                 {tool.official_url && (
@@ -121,7 +121,7 @@ export function MobileToolDetailPage() {
             {tool.description_md && (
               <Section title="介绍">
                 {/* 与 PC 详情页一致:description_md 按纯文本 pre-line 渲染 */}
-                <p className="text-sm leading-relaxed whitespace-pre-line text-subtle">
+                <p className="text-sm leading-paragraph whitespace-pre-line text-subtle">
                   {tool.description_md}
                 </p>
               </Section>
@@ -131,7 +131,7 @@ export function MobileToolDetailPage() {
               <Section title="使用场景">
                 <ul className="space-y-2">
                   {tool.use_cases.map((uc, i) => (
-                    <li key={i} className="text-sm leading-relaxed text-subtle">
+                    <li key={i} className="text-sm leading-paragraph text-subtle">
                       <span className="font-medium text-foreground">{uc.title}</span>
                       {uc.desc ? ` — ${uc.desc}` : ''}
                     </li>
@@ -166,7 +166,7 @@ export function MobileToolDetailPage() {
                   {tool.faq.map((qa, i) => (
                     <li key={i}>
                       <p className="text-sm font-medium text-foreground">{qa.q}</p>
-                      <p className="mt-1 text-sm leading-relaxed text-subtle">{qa.a}</p>
+                      <p className="mt-1 text-sm leading-paragraph text-subtle">{qa.a}</p>
                     </li>
                   ))}
                 </ul>
@@ -174,7 +174,7 @@ export function MobileToolDetailPage() {
             )}
 
             {tool.disclaimer && (
-              <p className="px-1 pb-2 text-xs leading-relaxed text-faint">{tool.disclaimer}</p>
+              <p className="px-1 pb-2 text-xs leading-paragraph text-faint">{tool.disclaimer}</p>
             )}
           </div>
         )}

@@ -122,7 +122,7 @@ function ActiveRow({ data, onGoRecharge }: { data: Overview; onGoRecharge: () =>
   return (
     <div className="flex items-center gap-3">
       <div className="flex flex-1 items-center gap-2">
-        <span className={cn('inline-flex h-6 shrink-0 items-center rounded-sm px-2 text-2xs font-bold tracking-wider', NAMEPLATE[data.tier])}>
+        <span className={cn('inline-flex h-6 shrink-0 items-center rounded-sm px-2 text-2xs font-bold', NAMEPLATE[data.tier])}>
           {data.tier.toUpperCase()}
         </span>
         <span className="flex size-4 shrink-0 items-center justify-center rounded-pill border border-border text-2xs text-faint" title={`进度条与百分比为本周期(${t.window_days} 天)AI 额度的剩余;周期自首次使用起算,到期自动恢复满额,耗尽也可消耗经费立即重置`}>?</span>
@@ -159,7 +159,7 @@ function ActiveRow({ data, onGoRecharge }: { data: Overview; onGoRecharge: () =>
           <span className="text-xl font-bold leading-none tabular-nums text-foreground">{data.credit.total}</span>
           <span className="text-2xs text-faint">经费</span>
         </div>
-        <span className="text-2xs leading-tight text-faint">
+        <span className="text-2xs text-faint">
           {lot ? `${lot.amount} 临时 · ${monthDay(lot.expires_at)}失效` : `永久 ${data.credit.perm}`}
         </span>
       </div>
@@ -198,7 +198,7 @@ function ExplainerCarousel({ proMult, maxMult }: { proMult: number; maxMult: num
       </span>
       <div className="flex-1">
         <p className="text-xs font-bold text-foreground">{s.title}</p>
-        <p className="mt-0.5 text-2xs leading-relaxed text-muted-foreground">{s.body}</p>
+        <p className="mt-0.5 text-2xs leading-paragraph text-muted-foreground">{s.body}</p>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
         <span className="text-2xs tabular-nums text-faint">{(i % slides.length) + 1}/{slides.length}</span>

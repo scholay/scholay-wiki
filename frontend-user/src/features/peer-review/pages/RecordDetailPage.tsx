@@ -226,7 +226,7 @@ function Header({
               {submittedText} {updatedText}
             </span>
           </div>
-          <h1 className="mt-1 font-serif text-xl font-bold leading-tight text-foreground">
+          <h1 className="mt-1 font-serif text-xl font-bold leading-display-tight text-foreground">
             {sub.title ?? '(未填标题)'}
           </h1>
           <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">

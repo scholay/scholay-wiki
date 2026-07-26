@@ -19,21 +19,21 @@ export function ClawPreview() {
         <div className="max-w-3xl mx-auto px-6 py-8 space-y-4">
           <UserMsg text="我准备写一篇关于 Mamba 与 Transformer 在长上下文任务上的对比综述,有没有起步建议?" />
           <AIMsg>
-            <p className="text-sm text-subtle leading-relaxed">
+            <p className="text-sm text-subtle leading-paragraph">
               建议从以下三个角度切入:
             </p>
-            <ol className="mt-2 space-y-1.5 text-sm text-subtle list-decimal list-inside leading-relaxed">
+            <ol className="mt-2 space-y-1.5 text-sm text-subtle list-decimal list-inside leading-paragraph">
               <li>性能维度:Long Range Arena、SCROLLS 等公共基准上的对比</li>
               <li>计算成本:序列长度 N 下的 FLOPs / 显存曲线</li>
               <li>应用边界:基因组、代码、长文档分别哪种更合适</li>
             </ol>
-            <p className="mt-2 text-sm text-subtle leading-relaxed">
+            <p className="mt-2 text-sm text-subtle leading-paragraph">
               我可以帮你拉出近 18 个月的相关综述 + 3 个高引基准论文。要不要先看看?
             </p>
           </AIMsg>
           <UserMsg text="好,先看综述" />
           <AIMsg>
-            <p className="text-sm text-subtle leading-relaxed">
+            <p className="text-sm text-subtle leading-paragraph">
               已检索到 8 篇,正在按引用量和近期更新排序…
             </p>
           </AIMsg>
@@ -57,7 +57,7 @@ export function ClawPreview() {
 function UserMsg({ text }: { text: string }) {
   return (
     <div className="flex justify-end">
-      <div className="max-w-[80%] inline-flex items-center px-4 py-2.5 rounded-md bg-foreground text-background text-sm leading-relaxed">
+      <div className="max-w-[80%] inline-flex items-center px-4 py-2.5 rounded-md bg-foreground text-background text-sm leading-paragraph">
         {text}
       </div>
     </div>

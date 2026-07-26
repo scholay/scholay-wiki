@@ -76,7 +76,7 @@ export function MobileSearchFilterSheet({
             transition={{ duration: 0.15 }}
           />
           <m.div
-            className="absolute inset-x-0 bottom-0 z-[61] flex max-h-[82%] flex-col rounded-t-16 bg-background shadow-2xl"
+            className="absolute inset-x-0 bottom-0 z-[61] flex max-h-[82%] flex-col rounded-t-16 bg-background shadow-overlay"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}

@@ -24,7 +24,7 @@ export function EyebrowChip({
     <span
       className={cn(
         'inline-flex items-center gap-2 px-3 py-1.5 rounded-pill bg-prism-badge-bg',
-        'text-2xs font-semibold tracking-[0.15em] text-prism-badge-fg uppercase whitespace-nowrap',
+        'text-2xs font-semibold text-prism-badge-fg uppercase whitespace-nowrap',
         className
       )}
     >

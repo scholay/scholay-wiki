@@ -74,11 +74,11 @@ export const PrismLivePreview = memo(function PrismLivePreview({
   return (
     <div className="relative">
       <div className="mx-auto max-w-[720px] px-12 py-10 font-serif text-md text-foreground">
-        {title && <p className="text-center text-2xl font-bold leading-snug">{title}</p>}
+        {title && <p className="text-center text-2xl font-bold">{title}</p>}
         {abstract && (
           <div className="mx-auto mt-6 max-w-[86%]">
             <p className="mb-1 text-center text-sm font-bold">摘要</p>
-            <p className="indent-8 text-justify text-sm leading-relaxed">{abstract}</p>
+            <p className="indent-8 text-justify text-sm leading-paragraph">{abstract}</p>
           </div>
         )}
         {keywords && (

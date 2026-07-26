@@ -204,7 +204,7 @@ function BestMatchCard({
         <div className="flex items-center gap-2 flex-wrap">
           <Sparkles className="size-3.5 text-brand-amber" strokeWidth={2.25} />
           <span className="text-xs font-bold text-foreground">最佳建议</span>
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-surface-2 text-subtle text-[10px] font-bold leading-none uppercase tracking-wide">
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-surface-2 text-subtle text-[10px] font-bold leading-none uppercase">
             {sourceBrandLabel(hit.source)}
           </span>
           <MatchConfidenceBadge hit={hit} />
@@ -224,7 +224,7 @@ function BestMatchCard({
 
       {/* 主体:标题 + 作者 + DOI/期刊/badges + 接受/拒绝按钮 */}
       <div className="px-4 py-3.5 space-y-2">
-        <div className="text-sm font-bold text-foreground leading-relaxed">
+        <div className="text-sm font-bold text-foreground leading-paragraph">
           {hit.title || '无标题'}
         </div>
         {authorsLine && (
@@ -233,7 +233,7 @@ function BestMatchCard({
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-2xs text-faint">
           {hit.doi && (
             <span className="font-mono">
-              <span className="font-bold tracking-wide mr-1">DOI</span>
+              <span className="font-bold mr-1">DOI</span>
               {hit.doi}
             </span>
           )}
@@ -358,7 +358,7 @@ function OtherCandidatesSection({
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-surface-2 text-subtle text-[10px] font-bold leading-none uppercase tracking-wide">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-surface-2 text-subtle text-[10px] font-bold leading-none uppercase">
                   {sourceBrandLabel(h.source)}
                 </span>
                 <button

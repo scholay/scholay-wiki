@@ -103,7 +103,7 @@ export function EditInlineForm({ dim, mode, onDone }: Props) {
           rows={4}
           maxLength={500}
           placeholder="例:抽取该论文核心研究问题与目标,简短归纳成一句话。"
-          className="mt-1 w-full bg-background border border-border rounded-sm px-2 py-1.5 text-xs leading-relaxed outline-none focus:border-brand-amber resize-none"
+          className="mt-1 w-full bg-background border border-border rounded-sm px-2 py-1.5 text-xs leading-paragraph outline-none focus:border-brand-amber resize-none"
         />
       </div>
       <div className="flex items-center justify-end gap-1.5">

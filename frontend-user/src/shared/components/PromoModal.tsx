@@ -109,7 +109,7 @@ export function PromoModal() {
           <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-pill bg-white/15 ring-1 ring-white/30">
             <Gift className="size-7" strokeWidth={2} />
           </div>
-          <DialogTitle className="text-lg font-bold tracking-tight text-white">{title}</DialogTitle>
+          <DialogTitle className="text-lg font-bold text-white">{title}</DialogTitle>
           <DialogDescription className="mt-1 text-sm text-white/90">{subtitle}</DialogDescription>
         </div>
 

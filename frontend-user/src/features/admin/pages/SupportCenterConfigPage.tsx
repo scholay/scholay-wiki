@@ -303,7 +303,7 @@ function Section({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-2xs tracking-[0.08em] text-faint">{label}</Label>
+      <Label className="text-2xs text-faint">{label}</Label>
       {children}
     </div>
   );
@@ -337,7 +337,7 @@ function QRUpload({ label, value, onChange }: { label: string; value: string; on
 
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-2xs tracking-[0.08em] text-faint">{label}</Label>
+      <Label className="text-2xs text-faint">{label}</Label>
       <div className="flex items-center gap-3">
         {value ? (
           <img src={value} alt={label} className="size-20 rounded-sm border border-border object-contain" />

@@ -145,7 +145,7 @@ export function JournalDetailPane() {
                 </span>
               )}
               {journal.type && (
-                <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-foreground text-background text-2xs font-bold uppercase tracking-wide">
+                <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-foreground text-background text-2xs font-bold uppercase">
                   {journal.type}
                 </span>
               )}
@@ -167,12 +167,12 @@ export function JournalDetailPane() {
             </div>
 
             {/* Title —— .pen `n9lzJB` 32/700 Playfair(arbitrary,token 表最大 24);移动端收到 text-2xl */}
-            <h1 className="font-display font-bold leading-tight text-2xl sm:text-[32px] text-foreground">
+            <h1 className="font-display font-bold leading-display-tight text-2xl sm:text-[32px] text-foreground">
               {journal.canonical_name}
             </h1>
 
             {/* Description —— 上游不提供 abstract / scope，前置 metadata 拼一句 */}
-            <p className="text-base text-subtle leading-relaxed">
+            <p className="text-base text-subtle leading-paragraph">
               {buildDescription(journal)}
             </p>
 
@@ -357,7 +357,7 @@ function IndexCard({
     >
       <div
         className={cn(
-          'text-2xs font-bold uppercase tracking-[0.16em]',
+          'text-2xs font-bold uppercase',
           highlight ? 'text-background/60' : 'text-faint'
         )}
       >
@@ -394,7 +394,7 @@ function Field({
 }) {
   return (
     <div>
-      <div className="text-2xs font-bold uppercase tracking-[0.12em] text-faint">
+      <div className="text-2xs font-bold uppercase text-faint">
         {label}
       </div>
       <div

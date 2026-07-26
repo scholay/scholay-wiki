@@ -157,7 +157,7 @@ export function LoginForm({ initialAccountType, onSwitchMode }: LoginFormProps) 
                       maxLength={6}
                       autoComplete="one-time-code"
                       placeholder="6 位数字"
-                      className="h-10 text-sm tracking-widest"
+                      className="h-10 text-sm tracking-code"
                     />
                   </FormControl>
                   <SendCodeButton
@@ -189,7 +189,7 @@ export function LoginForm({ initialAccountType, onSwitchMode }: LoginFormProps) 
         {/* 登录隐式同意 —— 不弹独立 checkbox(老用户每次登录还要勾不友好),
            只在按钮下放一段说明,法律意义是"通过登录确认你已经同意服务条款 / 隐私"。
            注册流程的 RegisterForm 仍然保留强制勾选 checkbox(zod required) */}
-        <p className="text-2xs text-faint text-center leading-relaxed">
+        <p className="text-2xs text-faint text-center leading-paragraph">
           登录即表示同意{' '}
           <a
             href="/terms"

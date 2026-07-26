@@ -395,7 +395,7 @@ export function VipCodesPage() {
 function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
     <div className={cn('space-y-1', className)}>
-      <Label className="text-2xs text-faint tracking-[0.12em]">{label}</Label>
+      <Label className="text-2xs text-faint">{label}</Label>
       {children}
     </div>
   );

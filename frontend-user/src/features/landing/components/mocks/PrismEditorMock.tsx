@@ -26,7 +26,7 @@ export function PrismEditorMock() {
   return (
     <div className={cn(
       'flex flex-col rounded-12 overflow-hidden bg-surface-1 border border-border',
-      'shadow-[0_24px_48px_rgba(15,23,42,0.08)]'
+      'shadow-overlay'
     )}>
       {/* editor top bar */}
       <div className="flex items-center gap-3 px-4 py-2.5 bg-background border-b border-border-soft">
@@ -52,7 +52,7 @@ export function PrismEditorMock() {
       <div className="grid grid-cols-2 h-[320px]">
         {/* 左:LaTeX 代码 */}
         <div className="overflow-hidden bg-[#FAFAF7] border-r border-border-soft">
-          <div className="font-mono text-xs leading-[1.7] py-3">
+          <div className="font-mono text-xs leading-paragraph py-3">
             {CODE_LINES.map((l) => (
               <div key={l.n} className="flex items-start px-3">
                 <span className="text-faint tabular-nums w-6 text-right pr-2 select-none">{l.n}</span>
@@ -70,10 +70,10 @@ export function PrismEditorMock() {
           <div className="font-display italic text-sm text-subtle">
             A Mechanistic Survey
           </div>
-          <div className="text-2xs text-muted-foreground tracking-wider">
+          <div className="text-2xs text-muted-foreground">
             Chen, W.  ·  Li, M.
           </div>
-          <div className="mt-2 text-xs text-foreground leading-[1.7]">
+          <div className="mt-2 text-xs text-foreground leading-paragraph">
             <span className="font-bold">Abstract.</span> We present a systematic study of attention circuits in modern LLMs, with novel mechanistic insights into multi-head interactions.
           </div>
           {/* fake citation chip */}

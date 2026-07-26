@@ -24,13 +24,13 @@ function StepRow({ step, index }: { step: WorkflowStep; index: number }) {
       )}
     >
       <div className={cn('flex flex-col gap-4', reverse && 'lg:col-start-2')}>
-        <span className="text-2xs font-semibold tracking-[0.25em] uppercase text-muted-foreground">
+        <span className="text-2xs font-semibold uppercase text-muted-foreground">
           {step.tag}
         </span>
-        <h3 className="font-display italic font-semibold text-foreground text-[clamp(24px,3vw,36px)] leading-[1.2]">
+        <h3 className="font-display italic font-semibold text-foreground text-[clamp(24px,3vw,36px)] leading-display-tight">
           {step.title}
         </h3>
-        <p className="text-base leading-[1.7] text-subtle">{step.desc}</p>
+        <p className="text-base leading-paragraph text-subtle">{step.desc}</p>
       </div>
       {/* 占位 mock —— 用渐变 + 大数字代替具体产品截图 */}
       <div
@@ -50,7 +50,7 @@ function StepRow({ step, index }: { step: WorkflowStep; index: number }) {
         >
           {String(index + 1).padStart(2, '0')}
         </span>
-        <span className="absolute bottom-4 left-5 text-xs font-semibold tracking-[0.15em] uppercase text-faint">
+        <span className="absolute bottom-4 left-5 text-xs font-semibold uppercase text-faint">
           step {index + 1} preview
         </span>
       </div>

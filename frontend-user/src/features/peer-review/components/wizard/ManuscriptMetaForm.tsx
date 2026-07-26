@@ -90,7 +90,7 @@ export function ManuscriptMetaForm({
             value={value.abstract ?? ''}
             onChange={(e) => patch({ abstract: e.target.value })}
             placeholder={computing ? '正在识别摘要…' : '稿件摘要'}
-            className="min-h-32 w-full resize-y rounded-md border border-border bg-background p-3 text-sm leading-relaxed text-foreground placeholder:text-faint focus:border-brand-red focus:outline-none"
+            className="min-h-32 w-full resize-y rounded-md border border-border bg-background p-3 text-sm leading-paragraph text-foreground placeholder:text-faint focus:border-brand-red focus:outline-none"
           />
         </Field>
 

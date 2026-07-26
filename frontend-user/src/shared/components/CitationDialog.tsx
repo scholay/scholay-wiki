@@ -121,11 +121,11 @@ export function CitationDialog({
             max-w-2xl;给本 div 加 min-w-0,长行就只在 pre 内部 overflow-x-auto 横滚 */}
         <div className="min-w-0">
           {isMono ? (
-            <pre className="w-full rounded-sm bg-surface-1 border border-border px-5 py-4 font-mono text-xs leading-[1.65] text-subtle overflow-x-auto whitespace-pre max-h-[360px]">
+            <pre className="w-full rounded-sm bg-surface-1 border border-border px-5 py-4 font-mono text-xs leading-paragraph text-subtle overflow-x-auto whitespace-pre max-h-[360px]">
               {citation || '—'}
             </pre>
           ) : (
-            <p className="rounded-sm bg-surface-1 border border-border px-5 py-4 text-sm leading-[1.7] text-subtle max-h-[360px] overflow-y-auto break-words">
+            <p className="rounded-sm bg-surface-1 border border-border px-5 py-4 text-sm leading-paragraph text-subtle max-h-[360px] overflow-y-auto break-words">
               {citation ? <CitationProse text={citation} /> : '—'}
             </p>
           )}

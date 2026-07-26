@@ -75,7 +75,7 @@ export function MobileAuthSheet() {
         <div className="mt-6">
           <div className="relative flex items-center">
             <Separator className="flex-1" />
-            <span className="px-3 text-2xs uppercase tracking-widest text-faint">或继续使用</span>
+            <span className="px-3 text-2xs uppercase text-faint">或继续使用</span>
             <Separator className="flex-1" />
           </div>
           <div className="mt-4">

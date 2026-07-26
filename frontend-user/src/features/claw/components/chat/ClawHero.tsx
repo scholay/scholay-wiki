@@ -60,7 +60,7 @@ export function ClawHero({
         <div className="flex w-full max-w-2xl flex-col items-center">
           {/* 品牌区 —— 对齐远程 main:大发光图标 + 大标题 + 一行副标题。 */}
           <HeroSpark />
-          <h2 className="mt-4 font-serif text-[1.7rem] font-bold tracking-tight text-foreground">
+          <h2 className="mt-4 font-serif text-[1.7rem] font-bold text-foreground">
             {title}
           </h2>
           <p className="mt-1.5 text-center text-sm text-muted-foreground">{subtitle}</p>
@@ -78,7 +78,7 @@ export function ClawHero({
                 key={label}
                 type="button"
                 onClick={() => onPickSuggestion(prompt)}
-                className="inline-flex items-center gap-1.5 rounded-pill border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground shadow-sm transition-all hover:-translate-y-px hover:border-border-strong hover:text-foreground"
+                className="inline-flex items-center gap-1.5 rounded-pill border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground transition-all hover:-translate-y-px hover:border-border-strong hover:text-foreground"
               >
                 <Icon className="size-3.5 text-faint" />
                 {label}

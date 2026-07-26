@@ -305,7 +305,7 @@ function MobileToolRow({ tool }: { tool: FeatureTool }) {
           )}
         </div>
         {tool.tagline && (
-          <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+          <p className="mt-0.5 line-clamp-2 text-xs leading-paragraph text-muted-foreground">
             {tool.tagline}
           </p>
         )}

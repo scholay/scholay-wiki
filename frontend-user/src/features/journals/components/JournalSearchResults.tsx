@@ -303,7 +303,7 @@ function Kpi({ value, label }: { value: string; label: string }) {
       <span className="font-display font-bold text-xl leading-none text-foreground tabular-nums">
         {value}
       </span>
-      <span className="text-2xs font-bold uppercase tracking-[0.16em] text-faint">
+      <span className="text-2xs font-bold uppercase text-faint">
         {label}
       </span>
     </div>
@@ -322,7 +322,7 @@ function JournalCard({
     <button
       type="button"
       onClick={onOpen}
-      className="group flex h-48 items-stretch text-left gap-4 p-[18px] rounded-lg bg-background border border-border hover:border-foreground hover:shadow-sm transition-all"
+      className="group flex h-48 items-stretch text-left gap-4 p-[18px] rounded-lg bg-background border border-border hover:border-foreground hover:transition-all"
     >
       <JournalCover id={j.id} name={j.canonical_name} size="card" />
 
@@ -330,7 +330,7 @@ function JournalCard({
         {/* Top: 标题 + 副标题 + 收藏 icon */}
         <div className="flex items-start gap-2">
           <div className="flex-1 min-w-0 space-y-1">
-            <h3 className="font-display font-bold text-md leading-tight text-foreground truncate group-hover:text-brand-red transition-colors">
+            <h3 className="font-display font-bold text-md leading-display-tight text-foreground truncate group-hover:text-brand-red transition-colors">
               {j.canonical_name}
             </h3>
             <div className="text-xs text-faint truncate">
@@ -380,7 +380,7 @@ function JournalCard({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             {j.type && (
-              <span className="inline-flex items-center h-5 px-2 rounded-sm bg-foreground text-background text-2xs font-bold uppercase tracking-wide">
+              <span className="inline-flex items-center h-5 px-2 rounded-sm bg-foreground text-background text-2xs font-bold uppercase">
                 {j.type}
               </span>
             )}
@@ -431,7 +431,7 @@ function KpiCell({
         borderLeft && 'border-l border-border-soft'
       )}
     >
-      <div className="text-2xs font-bold uppercase tracking-[0.12em] text-faint">
+      <div className="text-2xs font-bold uppercase text-faint">
         {label}
       </div>
       <div className="font-display font-bold text-xl leading-none text-foreground tabular-nums truncate">

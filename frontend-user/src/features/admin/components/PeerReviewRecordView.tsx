@@ -145,7 +145,7 @@ function Header({ sub, chief }: { sub: ReturnType<typeof adaptSubmission>; chief
           {sub.submittedAt ? `投稿 ${fmtTime(sub.submittedAt)}` : '未提交'} · 更新 {fmtTime(sub.updatedAt)}
         </span>
       </div>
-      <h1 className="font-serif text-lg font-bold leading-tight text-foreground">{sub.title || '(未填标题)'}</h1>
+      <h1 className="font-serif text-lg font-bold leading-display-tight text-foreground">{sub.title ||'(未填标题)'}</h1>
       <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
         <span>{target}</span>
         {sub.extraMeta?.subjects && sub.extraMeta.subjects.length > 0 && (
@@ -211,7 +211,7 @@ function Captured({ label, text }: { label: string; text?: string }) {
   if (!text) return null;
   return (
     <div className="rounded-md border border-border bg-surface-1 p-3">
-      <div className="mb-1 text-2xs text-faint tracking-[0.12em]">{label}</div>
+      <div className="mb-1 text-2xs text-faint">{label}</div>
       <div className="whitespace-pre-wrap break-words text-sm text-subtle">{text}</div>
     </div>
   );

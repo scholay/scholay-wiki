@@ -114,7 +114,7 @@ export function RechargePanel() {
             <Input
               value={yuan}
               onChange={(e) => setYuan(e.target.value.replace(/[^0-9.]/g, ''))}
-              className="h-10 flex-1 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+              className="h-10 flex-1 border-0 bg-transparent px-0 focus-visible:ring-0"
               inputMode="decimal"
               placeholder="输入其他金额"
             />
@@ -172,7 +172,7 @@ export function RechargePanel() {
           {busy && <Loader2 className="size-3.5 animate-spin" />}
           立即充值
         </Button>
-        <p className="mt-3 text-2xs leading-relaxed text-faint">按 {rate} 经费 / 元到账,经费用于重置额度,永久经费不过期。</p>
+        <p className="mt-3 text-2xs leading-paragraph text-faint">按 {rate} 经费 / 元到账,经费用于重置额度,永久经费不过期。</p>
       </aside>
     </div>
   );
@@ -219,7 +219,7 @@ function SegmentedCodeInput({ value, onChange }: { value: string[]; onChange: (v
             }}
             maxLength={4}
             placeholder="0000"
-            className="h-11 w-full min-w-0 flex-1 rounded-md border border-border bg-surface-1 text-center font-mono text-base uppercase tracking-[0.25em] text-foreground placeholder:text-faint/40 focus:border-brand-red focus:outline-none"
+            className="h-11 w-full min-w-0 flex-1 rounded-md border border-border bg-surface-1 text-center font-mono text-base uppercase tracking-code text-foreground placeholder:text-faint/40 focus:border-brand-red focus:outline-none"
           />
           {i < 3 && <span className="shrink-0 text-faint">–</span>}
         </Fragment>
@@ -264,7 +264,7 @@ export function RedeemPanel() {
 
       {recent.length > 0 && (
         <div className="mt-4 border-t border-border-soft pt-3">
-          <p className="mb-2 text-2xs font-bold tracking-[0.12em] text-faint">最近激活记录</p>
+          <p className="mb-2 text-2xs font-bold text-faint">最近激活记录</p>
           <div className="flex flex-col">
             {recent.map((t) => (
               <div key={t.id} className="flex items-center gap-3 border-b border-border-soft py-2 last:border-0">

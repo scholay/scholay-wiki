@@ -115,7 +115,7 @@ function ShortcutCard({ shortcut }: { shortcut: Shortcut }) {
   return (
     <Link
       to={to}
-      className="group flex items-center gap-3 p-4 rounded-md bg-background border border-border-soft hover:border-foreground/40 transition-all hover:shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
+      className="group flex items-center gap-3 p-4 rounded-md bg-background border border-border-soft hover:border-foreground/40 transition-all hover:"
     >
       <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-surface-1 border border-border-soft group-hover:bg-danger-soft group-hover:border-brand-red/20 transition-colors shrink-0">
         <Icon
@@ -124,7 +124,7 @@ function ShortcutCard({ shortcut }: { shortcut: Shortcut }) {
         />
       </span>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold text-foreground leading-tight">{title}</p>
+        <p className="text-sm font-bold text-foreground">{title}</p>
         <p className="mt-0.5 text-2xs text-muted-foreground truncate">{desc}</p>
       </div>
       <ArrowRight className="size-3.5 text-faint shrink-0 group-hover:text-brand-red transition-colors" />

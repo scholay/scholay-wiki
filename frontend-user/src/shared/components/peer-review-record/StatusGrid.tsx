@@ -320,13 +320,13 @@ function ChiefCell({
         {time && <span className="ml-auto text-2xs text-background/70 tabular-nums">{time}</span>}
       </div>
       <div className="flex items-end gap-2.5">
-        <span className="font-serif text-3xl font-bold leading-none">{rec ? recLabel(rec) : '已决议'}</span>
+        <span className="font-serif text-3xl font-bold leading-none">{rec ? recLabel(rec) :'已决议'}</span>
         {eff?.score != null && (
           <span className="text-xs font-semibold text-background/85">综合 {eff.score} / 100</span>
         )}
       </div>
       {report?.summaryForAuthor && (
-        <p className="line-clamp-2 text-2xs leading-relaxed text-background/90">{report.summaryForAuthor}</p>
+        <p className="line-clamp-2 text-2xs leading-paragraph text-background/90">{report.summaryForAuthor}</p>
       )}
     </button>
   );

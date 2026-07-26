@@ -116,7 +116,7 @@ export function ConfirmPopover({
       >
         <div className="text-sm font-semibold text-foreground">{title}</div>
         {description && (
-          <div className="mt-1 text-xs text-muted-foreground leading-relaxed">
+          <div className="mt-1 text-xs text-muted-foreground leading-paragraph">
             {description}
           </div>
         )}

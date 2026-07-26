@@ -123,7 +123,7 @@ function RotatingPlaceholder({ items }: { items: string[] }) {
     return () => clearInterval(t);
   }, [reduce, items.length]);
   return (
-    <div className="pointer-events-none absolute left-1 right-1 top-1 overflow-hidden text-base leading-relaxed text-faint">
+    <div className="pointer-events-none absolute left-1 right-1 top-1 overflow-hidden text-base leading-paragraph text-faint">
       <AnimatePresence mode="wait">
         <motion.div
           key={i}

@@ -22,7 +22,7 @@ export function NewsListItem({ item }: { item: NewsCard }) {
   return (
     <Link
       to={`/news/${item.slug}`}
-      className="group flex gap-4 rounded-md border border-border-soft bg-background p-4 transition-all hover:border-foreground/30 hover:shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
+      className="group flex gap-4 rounded-md border border-border-soft bg-background p-4 transition-all hover:border-foreground/30 hover:"
     >
       {item.cover_image && (
         <img
@@ -63,13 +63,13 @@ export function NewsListItem({ item }: { item: NewsCard }) {
         </div>
 
         {/* 标题 */}
-        <h3 className="mt-1.5 line-clamp-2 text-base font-bold leading-snug text-foreground group-hover:text-brand-red">
+        <h3 className="mt-1.5 line-clamp-2 text-base font-bold text-foreground group-hover:text-brand-red">
           {item.title}
         </h3>
 
         {/* 摘要 */}
         {item.summary && (
-          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+          <p className="mt-1 line-clamp-2 text-xs leading-paragraph text-muted-foreground">
             {item.summary}
           </p>
         )}

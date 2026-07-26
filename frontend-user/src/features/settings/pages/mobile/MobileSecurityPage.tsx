@@ -36,7 +36,7 @@ function SecurityBody() {
           value={profile?.phone || null}
           verified={!!profile?.phone_verified}
         />
-        <p className="text-xs leading-relaxed text-faint">
+        <p className="text-xs leading-paragraph text-faint">
           换绑邮箱 / 手机号需要双重验证码确认,请先在电脑端「设置 → 安全设置」操作
         </p>
       </section>

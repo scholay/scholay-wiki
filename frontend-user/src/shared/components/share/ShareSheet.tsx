@@ -422,7 +422,7 @@ function ShareBody({ target }: { target: ShareTarget }) {
             <Share2 className="size-4" />
             分享到微信
           </Button>
-          <p className="text-center text-2xs leading-relaxed text-faint">
+          <p className="text-center text-2xs leading-paragraph text-faint">
             {target.kind === 'tool'
               ? '对方打开即可在 Scholay 体验该功能,无需登录'
               : `对方点开短链即可在 Scholay 查看${target.kind === 'single' ? '并收藏' : ''},无需登录`}
@@ -434,7 +434,7 @@ function ShareBody({ target }: { target: ShareTarget }) {
             <LogIn className="size-4" />
             登录后生成分享链接
           </Button>
-          <p className="text-center text-2xs leading-relaxed text-faint">
+          <p className="text-center text-2xs leading-paragraph text-faint">
             生成专属短链后,对方打开即可查看这{target.kind === 'single' ? '篇论文' : '个期刊'}
           </p>
         </>
@@ -482,7 +482,7 @@ function ShareBody({ target }: { target: ShareTarget }) {
           {created.extract_code && (
             <div className="flex items-center justify-between rounded-md border border-border bg-surface-1 px-3 py-2.5">
               <span className="text-sm text-subtle">提取码</span>
-              <span className="font-mono text-lg font-bold tracking-widest text-brand-red">
+              <span className="font-mono text-lg font-bold tracking-code text-brand-red">
                 {created.extract_code}
               </span>
             </div>
@@ -496,7 +496,7 @@ function ShareBody({ target }: { target: ShareTarget }) {
               <ChannelBtn icon={<QrCode className="size-5" />} label="二维码" onClick={() => toast.message('二维码已展示在上方卡片,长按或保存图片即可')} />
             </div>
           </div>
-          <p className="text-2xs leading-relaxed text-faint">
+          <p className="text-2xs leading-paragraph text-faint">
             「复制口令」是纯文本(链接+提取码),在微信/微博等渠道不易被屏蔽;对方在浏览器打开链接、输入提取码即可查看并一键转存。
           </p>
         </>

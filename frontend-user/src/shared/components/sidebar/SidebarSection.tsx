@@ -52,8 +52,8 @@ export function SidebarSection({
             className={cn(
               'font-bold',
               prominent
-                ? 'text-xs text-foreground tracking-[0.06em]'
-                : 'text-2xs text-faint tracking-[0.18em]'
+                ? 'text-xs text-foreground'
+                : 'text-2xs text-faint'
             )}
           >
             {label}

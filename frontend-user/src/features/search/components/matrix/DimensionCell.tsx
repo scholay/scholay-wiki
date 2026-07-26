@@ -104,7 +104,7 @@ function DimensionCellImpl({ item, dimensionKey, isFetching }: Props) {
   // 才显示"更多"按钮(opacity-0 + group-hover/row),点击弹 popover 看全文。
   // popoverText 传一段不带 line-clamp 的纯 prose(同样的 tag 渲染)用于完整展示。
   const proseContent = (
-    <span className="whitespace-pre-wrap leading-[1.65] text-xs text-foreground">
+    <span className="whitespace-pre-wrap leading-paragraph text-xs text-foreground">
       {parsed.segments.map((seg, i) =>
         seg.kind === 'tag' ? (
           <span
@@ -129,7 +129,7 @@ function DimensionCellImpl({ item, dimensionKey, isFetching }: Props) {
       <TruncatedText
         lines={6}
         moreButtonClassName="opacity-0 group-hover/row:opacity-100 transition-opacity"
-        popoverClassName="max-w-md text-xs leading-[1.65]"
+        popoverClassName="max-w-md text-xs leading-paragraph"
         popoverText={proseContent}
       >
         {proseContent}

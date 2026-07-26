@@ -156,7 +156,7 @@ function LibrarySection() {
     return (
       <SidebarSection id="library" label="我的文献集">
         <div className="mx-4 my-2 px-3 py-3 rounded-md bg-surface-1 border border-border-soft">
-          <div className="text-sm text-subtle leading-relaxed">
+          <div className="text-sm text-subtle leading-paragraph">
             登录后管理你的期刊收藏与对比清单
           </div>
           <Button
@@ -249,7 +249,7 @@ function FilterGroup({
         onClick={() => setCollapsed((c) => !c)}
         className="flex items-center justify-between gap-2 h-6 px-4 pt-1.5 pb-1 text-left hover:bg-surface-1 transition-colors"
       >
-        <span className="text-2xs font-bold uppercase tracking-[0.16em] text-faint">
+        <span className="text-2xs font-bold uppercase text-faint">
           {label}
         </span>
         <ChevronDown

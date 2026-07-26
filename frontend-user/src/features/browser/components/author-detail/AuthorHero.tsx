@@ -26,7 +26,7 @@ export function AuthorHero({ author }: { author: Author }) {
 
       {/* 中间信息列 */}
       <div className="flex-1 min-w-0 space-y-3">
-        <div className="flex items-center gap-2 text-2xs font-bold uppercase tracking-[0.2em]">
+        <div className="flex items-center gap-2 text-2xs font-bold uppercase">
           <span className="text-brand-green">学者档案</span>
           <span className="text-border-strong">·</span>
           {/* 展示对外品牌名,绝不把内部 source code(stc/olx/pmd)或上游真名露给用户
@@ -36,7 +36,7 @@ export function AuthorHero({ author }: { author: Author }) {
           </span>
         </div>
 
-        <h1 className="font-display font-bold text-2xl sm:text-[36px] leading-tight text-foreground">
+        <h1 className="font-display font-bold text-2xl sm:text-[36px] leading-display-tight text-foreground">
           {author.name}
         </h1>
 
@@ -122,7 +122,7 @@ function Stat({
       <div className="font-display font-bold text-2xl leading-none text-foreground tabular-nums">
         {value != null ? value.toLocaleString() : '—'}
       </div>
-      <div className="text-2xs font-bold uppercase tracking-[0.16em] text-faint">
+      <div className="text-2xs font-bold uppercase text-faint">
         {label}
       </div>
     </div>

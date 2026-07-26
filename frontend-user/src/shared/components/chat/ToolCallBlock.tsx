@@ -234,7 +234,7 @@ function ToolErrorFold({ tool }: { tool: ToolBlock }) {
         </button>
       </div>
       {showDetail && (
-        <pre className="mt-1.5 rounded-sm px-2 py-1.5 text-[11px] font-mono leading-relaxed whitespace-pre-wrap break-words max-h-72 overflow-y-auto bg-warning-soft text-subtle border border-brand-amber/20">
+        <pre className="mt-1.5 rounded-sm px-2 py-1.5 text-[11px] font-mono leading-paragraph whitespace-pre-wrap break-words max-h-72 overflow-y-auto bg-warning-soft text-subtle border border-brand-amber/20">
           {sanitizeOpsText(raw)}
         </pre>
       )}
@@ -261,7 +261,7 @@ function ToolPayloadFold({ label, value, kind }: PayloadFoldProps) {
   return (
     <div className="min-w-0">
       <div className="flex items-center gap-1.5 text-2xs text-faint mb-1">
-        <span className="font-semibold uppercase tracking-wider">{label}</span>
+        <span className="font-semibold uppercase">{label}</span>
         {isLong && (
           <button
             type="button"
@@ -274,7 +274,7 @@ function ToolPayloadFold({ label, value, kind }: PayloadFoldProps) {
       </div>
       <pre
         className={
-          'rounded-sm px-2 py-1.5 text-[11px] font-mono leading-relaxed whitespace-pre-wrap break-words max-h-72 overflow-y-auto ' +
+          'rounded-sm px-2 py-1.5 text-[11px] font-mono leading-paragraph whitespace-pre-wrap break-words max-h-72 overflow-y-auto'+
           (kind === 'error'
             ? 'bg-warning-soft text-subtle border border-brand-amber/20'
             : 'bg-surface-2 text-foreground/80')

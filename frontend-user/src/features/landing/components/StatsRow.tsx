@@ -53,7 +53,7 @@ export function StatsRow({ feature }: { feature: LandingFeature }) {
           >
             <span
               className={cn(
-                'font-display italic font-semibold leading-[1.1]',
+                'font-display italic font-semibold leading-display-tight',
                 'text-[clamp(40px,5vw,64px)]',
                 dark ? DARK_TONE[s.tone ?? 'foreground'] : TONE[s.tone ?? 'foreground']
               )}
@@ -62,7 +62,7 @@ export function StatsRow({ feature }: { feature: LandingFeature }) {
             </span>
             <span
               className={cn(
-                'text-base font-medium tracking-wide',
+                'text-base font-medium',
                 dark ? 'text-faint' : 'text-subtle'
               )}
             >

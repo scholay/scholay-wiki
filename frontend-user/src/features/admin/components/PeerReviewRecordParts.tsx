@@ -105,7 +105,7 @@ export function AssetsSection({
 }) {
   return (
     <div>
-      <div className="mb-1.5 text-2xs text-faint tracking-[0.12em]">稿件文件 ({assets.length})</div>
+      <div className="mb-1.5 text-2xs text-faint">稿件文件 ({assets.length})</div>
       <div className="space-y-1.5">
         {assets.map((a) => {
           const src = `/admin/peer-review/submissions/${submissionId}/assets/${a.id}`;
@@ -164,7 +164,7 @@ export function AssetsSection({
 export function RawDebug({ detail }: { detail: PRSubmissionDetail }) {
   return (
     <details className="rounded-md border border-border-soft bg-surface-1 p-2.5">
-      <summary className="cursor-pointer text-2xs text-faint tracking-[0.12em]">调试数据 · 原始字段 / JSON</summary>
+      <summary className="cursor-pointer text-2xs text-faint">调试数据 · 原始字段 / JSON</summary>
       <pre className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap break-words text-2xs text-muted-foreground">
         {JSON.stringify(detail, null, 2)}
       </pre>

@@ -28,7 +28,7 @@ export function FilterGroup({
         onClick={() => setCollapsed((c) => !c)}
         className="flex items-center justify-between gap-2 h-6 px-4 pt-1.5 pb-1 text-left hover:bg-surface-1 transition-colors"
       >
-        <span className="text-2xs font-bold uppercase tracking-[0.16em] text-faint">
+        <span className="text-2xs font-bold uppercase text-faint">
           {label}
         </span>
         <ChevronDown

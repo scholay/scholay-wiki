@@ -108,7 +108,7 @@ export function OAuthMergeConfirmDialog({
       <h1 className="font-display italic font-semibold text-2xl text-foreground">
         发现已存在的账号
       </h1>
-      <p className="text-sm leading-[1.7] text-subtle text-center max-w-md">
+      <p className="text-sm leading-paragraph text-subtle text-center max-w-md">
         你的 <span className="font-semibold text-foreground">{providerLabel}</span>{' '}
         账号邮箱{' '}
         <span className="font-semibold text-foreground">{info.provider_email}</span>{' '}
@@ -130,7 +130,7 @@ export function OAuthMergeConfirmDialog({
               </span>
               <ArrowRight className="size-4 text-foreground" />
             </div>
-            <p className="text-xs leading-[1.6] text-muted-foreground">
+            <p className="text-xs leading-paragraph text-muted-foreground">
               当前已登录{' '}
               <span className="text-foreground">{info.target_email}</span>,确认后即可用邮箱或{' '}
               {providerLabel} 任一方式登录。
@@ -149,7 +149,7 @@ export function OAuthMergeConfirmDialog({
               </span>
               <LogIn className="size-4 text-foreground" />
             </div>
-            <p className="text-xs leading-[1.6] text-muted-foreground">
+            <p className="text-xs leading-paragraph text-muted-foreground">
               {isAuthenticated && !isTargetAccount ? (
                 <>
                   你当前登录的不是{' '}
@@ -179,7 +179,7 @@ export function OAuthMergeConfirmDialog({
             </span>
             <ArrowRight className="size-4 text-muted-foreground" />
           </div>
-          <p className="text-xs leading-[1.6] text-muted-foreground">
+          <p className="text-xs leading-paragraph text-muted-foreground">
             创建一个新的 Scholay 账号,只能用 {providerLabel} 登录(没有邮箱)。
             两个账号互不相干,数据不共享。
           </p>

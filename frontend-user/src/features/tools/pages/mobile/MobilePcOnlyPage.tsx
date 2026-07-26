@@ -100,8 +100,8 @@ export function MobilePcOnlyPage() {
             </span>
           </div>
 
-          <h1 className="text-center text-xl font-semibold leading-snug text-foreground">{feature.title}</h1>
-          <p className="text-center text-sm leading-relaxed text-muted-foreground">{feature.desc}</p>
+          <h1 className="text-center text-xl font-semibold text-foreground">{feature.title}</h1>
+          <p className="text-center text-sm leading-paragraph text-muted-foreground">{feature.desc}</p>
 
           {/* 电脑端可用 能力清单 */}
           <div className="w-full rounded-md border border-border bg-surface-1 p-4">

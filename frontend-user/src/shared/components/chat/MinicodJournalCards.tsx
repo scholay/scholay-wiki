@@ -60,7 +60,7 @@ function JournalCard({ journal: j }: { journal: MinicodJournal }) {
 
   return (
     <div className="border-b border-border-soft px-3.5 py-3 last:border-0">
-      <p className="text-sm font-semibold leading-snug text-foreground">{j.name}</p>
+      <p className="text-sm font-semibold text-foreground">{j.name}</p>
       {meta && <p className="mt-0.5 truncate text-2xs text-faint">{meta}</p>}
       {hasChips && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">

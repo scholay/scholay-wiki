@@ -55,7 +55,7 @@ export const NewsCard = memo(function NewsCard({ item }: { item: NewsCardData })
       )}
 
       {/* 标题 */}
-      <h2 className="line-clamp-3 shrink-0 text-2xl leading-tight font-semibold text-foreground">
+      <h2 className="line-clamp-3 shrink-0 text-2xl font-semibold text-foreground">
         {item.title}
       </h2>
 
@@ -63,7 +63,7 @@ export const NewsCard = memo(function NewsCard({ item }: { item: NewsCardData })
       <div className="min-h-0 shrink">
         <p
           className={cn(
-            'leading-relaxed text-muted-foreground',
+            'leading-paragraph text-muted-foreground',
             item.cover_image ? 'line-clamp-[6] text-sm' : 'line-clamp-[12] text-base',
           )}
         >

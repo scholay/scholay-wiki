@@ -93,7 +93,7 @@ export const ShareCard = forwardRef<HTMLDivElement, { data: ShareCardData }>(
             </div>
           ) : isJournal ? (
             <div className="flex flex-col gap-2">
-              <p className="font-serif text-lg font-bold leading-snug text-foreground">{data.title}</p>
+              <p className="font-serif text-lg font-bold text-foreground">{data.title}</p>
               {data.journalRank && (
                 <div className="flex flex-wrap items-center gap-1.5">
                   <JournalBadges enrichment={data.journalRank} />
@@ -135,7 +135,7 @@ export const ShareCard = forwardRef<HTMLDivElement, { data: ShareCardData }>(
                   ))}
                 </div>
               )}
-              <p className="font-serif text-lg font-bold leading-snug text-foreground">
+              <p className="font-serif text-lg font-bold text-foreground">
                 {data.title}
               </p>
               {data.authors && (

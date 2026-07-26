@@ -57,7 +57,7 @@ export function DeleteConfirmDialog({ target, onClose }: Props) {
               : `确认删除维度「${target.name}」?`}
           </DialogTitle>
         </header>
-        <div className="px-5 py-4 text-xs text-subtle leading-relaxed">
+        <div className="px-5 py-4 text-xs text-subtle leading-paragraph">
           {isReset
             ? '将清除你对该维度的自定义(名字 / 提示词 / 是否隐藏),回到系统默认值。已生成的分析结果不会丢失。'
             : '将永久删除该自定义维度。已生成的相关分析结果会保留,但矩阵不再展示该列。'}

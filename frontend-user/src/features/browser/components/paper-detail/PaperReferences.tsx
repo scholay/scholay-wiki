@@ -36,7 +36,7 @@ export function PaperReferences({ paper }: { paper: Paper }) {
   return (
     <section className="mt-16 space-y-4">
       <div className="space-y-1.5">
-        <div className="text-2xs font-bold uppercase tracking-[0.18em] text-faint">
+        <div className="text-2xs font-bold uppercase text-faint">
           REFERENCES
         </div>
         <h2 className="font-display font-bold text-2xl text-foreground">
@@ -143,7 +143,7 @@ function ReferenceItem({
   };
 
   return (
-    <li className="flex gap-3.5 text-base leading-[1.7] text-subtle">
+    <li className="flex gap-3.5 text-base leading-paragraph text-subtle">
       <span className="shrink-0 w-8 font-bold text-faint tabular-nums">
         [{index}]
       </span>

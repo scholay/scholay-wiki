@@ -162,7 +162,7 @@ function MetadataRow({
 }) {
   return (
     <>
-      <dt className="text-2xs font-bold uppercase tracking-[0.15em] text-faint pt-0.5">
+      <dt className="text-2xs font-bold uppercase text-faint pt-0.5">
         {label}
       </dt>
       <dd className="flex flex-wrap items-center gap-2 min-w-0">{children}</dd>

@@ -215,7 +215,7 @@ function StreamingReviewerView({
           <p className="ml-auto shrink-0 font-mono text-xs text-faint">已生成 {p.totalChars} 字</p>
         </div>
         {tail ? (
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+          <p className="whitespace-pre-wrap text-sm leading-paragraph text-muted-foreground">
             {tail}
             <span className="ml-0.5 inline-block h-4 w-px animate-pulse bg-foreground align-middle" />
           </p>
@@ -294,7 +294,7 @@ function StreamingReviewerView({
               <Loader2 className="h-3 w-3 animate-spin" /> 写作中
             </span>
           </div>
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-subtle">{p.finalSummary}</p>
+          <p className="whitespace-pre-wrap text-sm leading-paragraph text-subtle">{p.finalSummary}</p>
         </section>
       )}
     </article>
@@ -426,7 +426,7 @@ function DimensionCard({ dim }: { dim: DimensionScore }) {
         <p className="text-sm font-bold text-foreground">{dim.name}</p>
         <GradeRing grade={dim.grade} />
       </div>
-      <p className="text-xs leading-relaxed text-muted-foreground">{dim.comment}</p>
+      <p className="text-xs leading-paragraph text-muted-foreground">{dim.comment}</p>
     </div>
   );
 }
@@ -488,7 +488,7 @@ function CommentsCard({ report }: { report: ReviewReport }) {
         <>
           <SectionHead barCls="bg-brand-amber" title="综合结论与推荐理由" subtitle="结合上述意见的最终判断" />
           <div className="flex flex-col gap-2 rounded-md border border-brand-amber/60 bg-background px-4 py-3.5">
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-subtle">
+            <p className="whitespace-pre-wrap text-sm leading-paragraph text-subtle">
               {report.finalSummaryMd}
             </p>
             <p className="pt-2 text-xs italic text-muted-foreground">
@@ -558,7 +558,7 @@ function MacroCard({ item }: { item: MacroComment }) {
         </span>
         <span className="ml-auto text-xs font-semibold text-subtle">{item.stance}</span>
       </div>
-      <p className="text-sm leading-relaxed text-subtle">{item.body}</p>
+      <p className="text-sm leading-paragraph text-subtle">{item.body}</p>
     </div>
   );
 }
@@ -566,10 +566,10 @@ function MacroCard({ item }: { item: MacroComment }) {
 function KvRow({ k, v, dim = false }: { k: string; v: string; dim?: boolean }) {
   return (
     <div className="flex gap-2.5">
-      <span className="w-14 shrink-0 text-2xs font-bold tracking-wider text-faint">{k}</span>
+      <span className="w-14 shrink-0 text-2xs font-bold text-faint">{k}</span>
       <p
         className={cn(
-          'flex-1 text-sm leading-relaxed',
+          'flex-1 text-sm leading-paragraph',
           dim ? 'text-muted-foreground' : 'text-subtle',
         )}
       >

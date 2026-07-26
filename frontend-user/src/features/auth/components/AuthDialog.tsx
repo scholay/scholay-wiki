@@ -114,7 +114,7 @@ export function AuthDialog() {
             <div className="px-6 pb-6">
               <div className="relative flex items-center my-3">
                 <Separator className="flex-1" />
-                <span className="px-3 text-2xs text-faint uppercase tracking-widest">
+                <span className="px-3 text-2xs text-faint uppercase">
                   或继续使用
                 </span>
                 <Separator className="flex-1" />

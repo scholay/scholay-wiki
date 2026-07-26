@@ -193,7 +193,7 @@ function PreviewPanel({
       <div className="px-4 py-4 space-y-3">
         <div className="rounded-md border border-border bg-background p-3 space-y-2">
           <div
-            className="text-sm font-bold text-foreground leading-relaxed line-clamp-3"
+            className="text-sm font-bold text-foreground leading-paragraph line-clamp-3"
             title={values.title}
           >
             {values.title || paper.title || '(无标题)'}
@@ -216,8 +216,8 @@ function PreviewPanel({
           </div>
           {values.abstract && (
             <div className="pt-1 border-t border-border-soft">
-              <div className="text-2xs text-faint uppercase tracking-wide mb-1 font-bold">摘要</div>
-              <div className="text-xs text-muted-foreground leading-relaxed line-clamp-6">
+              <div className="text-2xs text-faint uppercase mb-1 font-bold">摘要</div>
+              <div className="text-xs text-muted-foreground leading-paragraph line-clamp-6">
                 {values.abstract}
               </div>
             </div>

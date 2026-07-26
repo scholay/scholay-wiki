@@ -88,10 +88,10 @@ function RichMenuItem({
           )}
         />
       </span>
-      {/* leading-tight + 行间距收紧 —— .pen `gu1S4` 标题/副标题紧贴,字号差距(13 vs 10)
+      {/* + 行间距收紧 —— .pen`gu1S4`标题/副标题紧贴,字号差距(13 vs 10)
          更突出。副标题用 text-faint(#999)而非 text-muted-foreground(#666),
          视觉重量更轻,与标题对比更强。 */}
-      <div className="flex-1 min-w-0 flex flex-col leading-tight">
+      <div className="flex-1 min-w-0 flex flex-col">
         <span
           className={cn(
             'inline-flex items-center gap-1.5 text-base font-bold truncate',

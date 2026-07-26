@@ -152,7 +152,7 @@ export function FeedbackPage() {
             setPage(1);
           }}
           placeholder="搜索 ID / 用户名 / 邮箱 / 反馈内容"
-          className="h-8 flex-1 border-0 bg-transparent px-0 text-xs shadow-none focus-visible:ring-0"
+          className="h-8 flex-1 border-0 bg-transparent px-0 text-xs focus-visible:ring-0"
         />
       </div>
       <DataTable columns={columns} rows={data?.list} loading={isLoading} />
@@ -179,21 +179,21 @@ export function FeedbackPage() {
                   ['首次响应', fmtTime(replying.firstResponseAt)],
                 ] as const).map(([label, value]) => (
                   <div key={label} className="min-w-0">
-                    <div className="text-2xs text-faint tracking-[0.12em]">{label}</div>
+                    <div className="text-2xs text-faint">{label}</div>
                     <div className="text-xs text-subtle truncate" title={value}>{value}</div>
                   </div>
                 ))}
               </div>
 
               <div className="rounded-md border border-border bg-surface-1 p-3">
-                <div className="text-2xs text-faint mb-1 tracking-[0.12em]">用户反馈</div>
+                <div className="text-2xs text-faint mb-1">用户反馈</div>
                 <div className="text-sm text-subtle whitespace-pre-wrap">{replying.content}</div>
               </div>
 
               {/* 附件预览 — 走 MinIO, 点缩略图新窗口看大图; 文件类则直接下载 */}
               {detail?.attachments && detail.attachments.length > 0 && (
                 <div className="rounded-md border border-border bg-surface-1 p-3">
-                  <div className="text-2xs text-faint mb-2 tracking-[0.12em]">附件 ({detail.attachments.length})</div>
+                  <div className="text-2xs text-faint mb-2">附件 ({detail.attachments.length})</div>
                   <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                     {detail.attachments.map((a, idx) => (
                       <a
@@ -220,7 +220,7 @@ export function FeedbackPage() {
               {/* 已有回复 (若已回复过) */}
               {replying.replyContent && (
                 <div className="rounded-md border border-brand-green/30 bg-brand-green/5 p-3">
-                  <div className="text-2xs text-faint mb-1 tracking-[0.12em]">
+                  <div className="text-2xs text-faint mb-1">
                     已回复{replying.repliedBy ? ` · ${replying.repliedBy}` : ''}{replying.repliedAt ? ` · ${fmtTime(replying.repliedAt)}` : ''}
                   </div>
                   <div className="text-sm text-subtle whitespace-pre-wrap">{replying.replyContent}</div>
@@ -230,7 +230,7 @@ export function FeedbackPage() {
               {/* 内部协作备注 —— 仅管理端可见, 不发给用户 */}
               {replying.internalNotes && (
                 <div className="rounded-md border border-border bg-warning-soft p-3">
-                  <div className="text-2xs text-faint mb-1 tracking-[0.12em]">内部备注 (用户不可见)</div>
+                  <div className="text-2xs text-faint mb-1">内部备注 (用户不可见)</div>
                   <div className="text-sm text-subtle whitespace-pre-wrap">{replying.internalNotes}</div>
                 </div>
               )}

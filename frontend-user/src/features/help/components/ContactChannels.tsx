@@ -57,7 +57,7 @@ export function ContactChannels({ className }: { className?: string }) {
         </div>
       )}
 
-      {note && <p className="mt-3 text-2xs leading-relaxed text-muted-foreground">{note}</p>}
+      {note && <p className="mt-3 text-2xs leading-paragraph text-muted-foreground">{note}</p>}
     </section>
   );
 }

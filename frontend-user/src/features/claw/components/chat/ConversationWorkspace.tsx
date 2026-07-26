@@ -319,7 +319,7 @@ export function ConversationWorkspace({
                   onClick={() => setRightCollapsed(false)}
                   title="展开成果栏"
                   aria-label="展开成果栏"
-                  className="absolute right-0 top-1/2 z-30 flex -translate-y-1/2 flex-col items-center gap-1 rounded-l-md border border-r-0 border-border bg-surface-1 px-1.5 py-2.5 text-2xs text-muted-foreground shadow-sm transition-colors hover:bg-surface-2 hover:text-foreground"
+                  className="absolute right-0 top-1/2 z-30 flex -translate-y-1/2 flex-col items-center gap-1 rounded-l-md border border-r-0 border-border bg-surface-1 px-1.5 py-2.5 text-2xs text-muted-foreground shadow-overlay transition-colors hover:bg-surface-2 hover:text-foreground"
                 >
                   <PanelRightOpen className="h-4 w-4 text-brand-green" />
                   {(sessionArtifacts?.length ?? 0) > 0 && <span className="font-semibold">{sessionArtifacts?.length}</span>}

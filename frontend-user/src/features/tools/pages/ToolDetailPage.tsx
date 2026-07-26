@@ -91,7 +91,7 @@ function ToolDetailContent({ tool }: { tool: FeatureTool }) {
             {tool.is_open_source && <Badge variant="success">开源</Badge>}
           </div>
 
-          {tool.tagline && <p className="mt-2 text-sm leading-relaxed text-subtle">{tool.tagline}</p>}
+          {tool.tagline && <p className="mt-2 text-sm leading-paragraph text-subtle">{tool.tagline}</p>}
 
           {/* meta */}
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -136,7 +136,7 @@ function ToolDetailContent({ tool }: { tool: FeatureTool }) {
         <div className="space-y-6 lg:col-span-2">
           {tool.description_md && (
             <Section title="这是什么">
-              <p className="whitespace-pre-line text-sm leading-relaxed text-subtle">{tool.description_md}</p>
+              <p className="whitespace-pre-line text-sm leading-paragraph text-subtle">{tool.description_md}</p>
             </Section>
           )}
 
@@ -146,7 +146,7 @@ function ToolDetailContent({ tool }: { tool: FeatureTool }) {
                 {tool.use_cases.map((u, i) => (
                   <div key={i} className="rounded-md border border-border bg-background p-3">
                     <p className="text-sm font-bold text-foreground">{u.icon ? `${u.icon} ` : ''}{u.title}</p>
-                    {u.desc && <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{u.desc}</p>}
+                    {u.desc && <p className="mt-1 text-xs leading-paragraph text-muted-foreground">{u.desc}</p>}
                   </div>
                 ))}
               </div>
@@ -161,7 +161,7 @@ function ToolDetailContent({ tool }: { tool: FeatureTool }) {
                 {tool.faq.map((f, i) => (
                   <div key={i}>
                     <p className="text-sm font-bold text-foreground">{f.q}</p>
-                    <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{f.a}</p>
+                    <p className="mt-1 whitespace-pre-line text-sm leading-paragraph text-muted-foreground">{f.a}</p>
                   </div>
                 ))}
               </div>
@@ -169,7 +169,7 @@ function ToolDetailContent({ tool }: { tool: FeatureTool }) {
           )}
 
           {tool.disclaimer && (
-            <div className="rounded-md border border-border bg-warning-soft p-3 text-xs leading-relaxed text-brand-amber">
+            <div className="rounded-md border border-border bg-warning-soft p-3 text-xs leading-paragraph text-brand-amber">
               {tool.disclaimer}
             </div>
           )}
@@ -209,7 +209,7 @@ function ToolDetailContent({ tool }: { tool: FeatureTool }) {
               <p className="mt-1 text-2xs text-faint">
                 {[tool.vendor.country, tool.vendor.founded].filter(Boolean).join(' · ')}
               </p>
-              {tool.vendor.desc && <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{tool.vendor.desc}</p>}
+              {tool.vendor.desc && <p className="mt-2 text-xs leading-paragraph text-muted-foreground">{tool.vendor.desc}</p>}
             </SideCard>
           )}
 
@@ -306,7 +306,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 function SideCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="rounded-md border border-border bg-background p-4">
-      <p className="mb-2.5 text-2xs font-bold uppercase tracking-[0.14em] text-faint">{title}</p>
+      <p className="mb-2.5 text-2xs font-bold uppercase text-faint">{title}</p>
       {children}
     </div>
   );

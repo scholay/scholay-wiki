@@ -132,7 +132,7 @@ export function ThinkingFold({ text, isActive, className }: ThinkingFoldProps) {
       {expanded && (
         <div
           ref={contentRef}
-          className="max-h-72 overflow-y-auto px-2.5 pb-2 text-2xs font-mono leading-relaxed text-muted-foreground whitespace-pre-wrap break-words"
+          className="max-h-72 overflow-y-auto px-2.5 pb-2 text-2xs font-mono leading-paragraph text-muted-foreground whitespace-pre-wrap break-words"
         >
           {text}
           {isActive && (

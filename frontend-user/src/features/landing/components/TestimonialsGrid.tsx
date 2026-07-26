@@ -28,7 +28,7 @@ export function TestimonialsGrid({ section }: { section: TestimonialsSection }) 
               >
                 &ldquo;
               </span>
-              <p className="text-md leading-[1.7] text-subtle flex-1">{t.quote}</p>
+              <p className="text-md leading-paragraph text-subtle flex-1">{t.quote}</p>
               {(t.author || t.role) && (
                 <div className="flex flex-col gap-0.5 pt-4 border-t border-border-soft">
                   {t.author && (

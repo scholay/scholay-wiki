@@ -71,7 +71,7 @@ export function QuickOpenPaperDialog({
           className={cn(
             'z-50 w-[520px] max-w-[calc(100vw-32px)]',
             'flex flex-col max-h-[min(70vh,640px)] overflow-hidden',
-            'rounded-lg border border-border bg-background shadow-[0_8px_24px_rgba(15,23,42,0.12)]',
+            'rounded-lg border border-border bg-background shadow-overlay',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
             'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95'

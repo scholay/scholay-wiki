@@ -212,7 +212,7 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
           <TypeBadge isFree={isFree} source={paper.source as UpstreamSource | 'local'} />
           <h3
             onClick={openDetail}
-            className="flex-1 min-w-0 text-15 font-semibold leading-[1.4] text-foreground hover:text-brand-red transition-colors line-clamp-2 cursor-pointer"
+            className="flex-1 min-w-0 text-15 font-semibold text-foreground hover:text-brand-red transition-colors line-clamp-2 cursor-pointer"
             title="打开论文详情"
           >
             {displayTitle || '无标题'}
@@ -250,8 +250,8 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
         {displayAbstract && (
           <TruncatedText
             lines={2}
-            className="text-xs text-subtle leading-[1.7]"
-            popoverClassName="max-w-md text-xs leading-relaxed"
+            className="text-xs text-subtle leading-paragraph"
+            popoverClassName="max-w-md text-xs leading-paragraph"
           >
             {displayAbstract}
           </TruncatedText>

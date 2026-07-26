@@ -101,7 +101,7 @@ export function FeatureToolImportPage() {
             onChange={(e) => { setText(e.target.value); setFilename(''); setZipFile(null); }}
             rows={12}
             placeholder='[{"name":"...","slug":"...","category":"...","access":{...},"spec":{...}}, ...]'
-            className="w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring"
+            className="w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs leading-paragraph focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
 

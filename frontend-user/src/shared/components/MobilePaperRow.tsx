@@ -81,11 +81,11 @@ export const MobilePaperRow = memo(function MobilePaperRow({
         <button type="button" onClick={open} className="block w-full text-left">
           <p className="truncate text-sm font-semibold text-foreground">{authorsLine(paper)}</p>
           <p className="truncate text-xs text-faint">{meta}</p>
-          <h3 className="mt-1.5 line-clamp-3 text-[15px] font-semibold leading-snug text-foreground">
+          <h3 className="mt-1.5 line-clamp-3 text-[15px] font-semibold text-foreground">
             {paper.title}
           </h3>
           {paper.abstract && (
-            <p className="mt-1 line-clamp-3 text-sm leading-relaxed text-muted-foreground">
+            <p className="mt-1 line-clamp-3 text-sm leading-paragraph text-muted-foreground">
               {paper.abstract}
             </p>
           )}

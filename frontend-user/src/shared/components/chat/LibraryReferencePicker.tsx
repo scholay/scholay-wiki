@@ -218,7 +218,7 @@ export function LibraryReferencePicker({
                     {/* 标题行:类型徽章(D/G/M 或 本地)+ 标题 + PDF —— 对齐文献集单行观感 */}
                     <div className="flex items-start gap-1.5">
                       <TypeBadge source={p.source} isFree={p.link_state === 'free'} />
-                      <span className="min-w-0 flex-1 text-sm font-semibold leading-[1.4] text-foreground line-clamp-2">
+                      <span className="min-w-0 flex-1 text-sm font-semibold text-foreground line-clamp-2">
                         {effectivePaperTitle(p)}
                       </span>
                       {p.pdf_uploaded_at && (
@@ -251,8 +251,8 @@ export function LibraryReferencePicker({
                       <div onClick={(e) => e.preventDefault()}>
                         <TruncatedText
                           lines={2}
-                          className="text-xs leading-[1.6] text-subtle"
-                          popoverClassName="max-w-md text-xs leading-relaxed"
+                          className="text-xs leading-paragraph text-subtle"
+                          popoverClassName="max-w-md text-xs leading-paragraph"
                         >
                           {abstract}
                         </TruncatedText>

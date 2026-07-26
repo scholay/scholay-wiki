@@ -51,7 +51,7 @@ function SectionShell({
     <section>
       <div className="mb-2 flex items-center gap-1.5">
         <span className="text-faint">{icon}</span>
-        <h4 className="text-2xs font-bold tracking-[0.12em] text-faint">{title}</h4>
+        <h4 className="text-2xs font-bold text-faint">{title}</h4>
         {count != null && count > 0 && <span className="text-2xs text-faint">· {count}</span>}
       </div>
       {children}

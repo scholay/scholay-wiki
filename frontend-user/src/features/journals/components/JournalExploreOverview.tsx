@@ -102,7 +102,7 @@ export function JournalExploreOverview() {
       {/* 数据源覆盖 */}
       {data.sourceCoverage && Object.keys(data.sourceCoverage).length > 0 && (
         <div className="rounded-md bg-background border border-border-soft px-4 py-3">
-          <h3 className="text-2xs font-bold uppercase tracking-[0.16em] text-faint">
+          <h3 className="text-2xs font-bold uppercase text-faint">
             数据源覆盖
           </h3>
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs">
@@ -176,7 +176,7 @@ function DistributionPanel({
   const max = Math.max(1, ...items.map((i) => i.count));
   return (
     <div className="rounded-md bg-background border border-border-soft px-4 py-3">
-      <h3 className="text-2xs font-bold uppercase tracking-[0.16em] text-faint">
+      <h3 className="text-2xs font-bold uppercase text-faint">
         {title}
       </h3>
       <div className="mt-3 space-y-2">

@@ -55,7 +55,7 @@ export function NotFoundPage() {
     <div className="flex h-full min-h-screen flex-col items-center justify-center gap-4 text-center px-6">
       {/* 真 404:noindex 防止被搜索引擎当正文收录(SPA 客户端渲染的 404) */}
       <RouteSEO title="404 页面不存在 - Scholay学术" description="抱歉,你访问的页面不存在。" noindex />
-      <p className="text-xs uppercase tracking-[0.2em] text-faint">404</p>
+      <p className="text-xs uppercase text-faint">404</p>
       <h1 className="text-2xl font-semibold">页面不存在</h1>
       <p className="max-w-md text-sm text-muted-foreground">
         你访问的链接{' '}

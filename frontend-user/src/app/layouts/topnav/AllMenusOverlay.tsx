@@ -48,7 +48,7 @@ export function AllMenusOverlay({
       <HoverCardContent
         align="end"
         sideOffset={8}
-        className="w-[420px] p-0 overflow-hidden border border-border shadow-lg"
+        className="w-[420px] p-0 overflow-hidden border border-border shadow-overlay"
       >
         {/* 头部 */}
         <header className="h-12 flex items-center justify-between px-4 border-b border-border-soft">
@@ -105,7 +105,7 @@ function ListView({
       {groups.map((g, gi) => (
         <section key={g.category} className={cn(gi > 0 && 'border-t border-border-soft', 'py-1.5')}>
           <header className="h-7 flex items-center justify-between px-4">
-            <span className="text-xs font-bold text-faint tracking-[0.06em]">{g.label}</span>
+            <span className="text-xs font-bold text-faint">{g.label}</span>
             <span className="text-xs text-faint">查看全部</span>
           </header>
           {g.items.map((m) => {
@@ -150,7 +150,7 @@ function ListItem({
         <Icon className="size-3.5 text-subtle" />
       </span>
       {/* 双行 文字 */}
-      <div className="flex-1 min-w-0 flex flex-col leading-tight">
+      <div className="flex-1 min-w-0 flex flex-col">
         <span className="text-base font-bold text-foreground truncate inline-flex items-center gap-1.5">
           {menu.label}
           {menu.comingSoon && (
@@ -186,7 +186,7 @@ function GridView({
       {groups.map((g) => (
         <section key={g.category}>
           <header className="h-7 flex items-center justify-between px-1">
-            <span className="text-xs font-bold text-faint tracking-[0.06em]">{g.label}</span>
+            <span className="text-xs font-bold text-faint">{g.label}</span>
             <span className="text-xs text-faint">查看全部</span>
           </header>
           <div className="grid grid-cols-3 gap-1.5">
@@ -212,7 +212,7 @@ function GridView({
                   <span className="inline-flex h-9 w-9 items-center justify-center rounded-sm bg-background border border-border">
                     <Icon className="size-4 text-subtle" />
                   </span>
-                  <div className="flex flex-col leading-tight">
+                  <div className="flex flex-col">
                     <span className="text-sm font-bold text-foreground">{m.label}</span>
                     <span className="text-2xs text-faint mt-0.5">{m.englishName}</span>
                   </div>

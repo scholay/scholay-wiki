@@ -90,12 +90,12 @@ export function ChiefVerdictPanel({ submissionId, chief: chiefProp, reviewers, s
       {/* 1) 主审 ruling 段 —— 概要(强, Playfair italic) + 详细(弱, 可折叠默认展开) */}
       {(chief.rulingSummaryMd || chief.rulingParagraphMd) && (
         <section className="flex flex-col gap-3.5 border-l-2 border-foreground py-4 pl-7">
-          <p className="text-xs font-bold tracking-widest text-faint">SCHOLAY 主审</p>
+          <p className="text-xs font-bold text-faint">SCHOLAY 主审</p>
           <FoldableAnswer
             summary={chief.rulingSummaryMd}
             detail={chief.rulingParagraphMd}
-            summaryClassName="font-serif text-xl italic font-semibold leading-relaxed text-foreground"
-            detailClassName="text-base leading-relaxed text-subtle"
+            summaryClassName="font-serif text-xl italic font-semibold leading-paragraph text-foreground"
+            detailClassName="text-base leading-paragraph text-subtle"
           />
           {eff.score != null && (
             <p className="text-sm font-semibold text-muted-foreground">
@@ -135,7 +135,7 @@ export function ChiefVerdictPanel({ submissionId, chief: chiefProp, reviewers, s
 
         {/* 大字结果 */}
         <div className="flex items-end gap-3.5 py-2.5">
-          <p className="w-24 shrink-0 text-xs font-bold tracking-widest text-faint">结果</p>
+          <p className="w-24 shrink-0 text-xs font-bold text-faint">结果</p>
           <p className={cn('font-serif text-display-36 font-bold leading-none', decisionTheme)}>
             {decision === '——' ? '已决议' : recLabel(decision)}
           </p>
@@ -155,8 +155,8 @@ export function ChiefVerdictPanel({ submissionId, chief: chiefProp, reviewers, s
 
         {chief.deadlineDays != null && chief.deadlineDays > 0 && (
           <div className="flex gap-3.5">
-            <p className="w-24 shrink-0 text-xs font-bold tracking-wider text-faint">截止期</p>
-            <p className="flex-1 text-base leading-relaxed text-subtle">
+            <p className="w-24 shrink-0 text-xs font-bold text-faint">截止期</p>
+            <p className="flex-1 text-base leading-paragraph text-subtle">
               自决议日起 {chief.deadlineDays} 天内提交修订稿与回复函,
               逾期视为放弃本轮主审复议机会。
             </p>
@@ -164,7 +164,7 @@ export function ChiefVerdictPanel({ submissionId, chief: chiefProp, reviewers, s
         )}
         {chief.summaryForAuthor && (
           <div className="flex gap-3.5">
-            <p className="w-24 shrink-0 text-xs font-bold tracking-wider text-faint">给作者</p>
+            <p className="w-24 shrink-0 text-xs font-bold text-faint">给作者</p>
             <p className="flex-1 text-base italic text-muted-foreground">
               {chief.summaryForAuthor}
             </p>
@@ -173,7 +173,7 @@ export function ChiefVerdictPanel({ submissionId, chief: chiefProp, reviewers, s
 
         {/* 签署 */}
         <footer className="flex items-center gap-4 border-t border-foreground pt-4">
-          <p className="w-24 shrink-0 text-xs font-bold tracking-wider text-faint">主审签署</p>
+          <p className="w-24 shrink-0 text-xs font-bold text-faint">主审签署</p>
           <div className="flex-1 space-y-0.5">
             <p className="text-base font-semibold text-subtle">
               AI 主审
@@ -219,22 +219,22 @@ function ReviewerSection({
       </header>
 
       <div className="flex gap-3.5">
-        <p className="w-24 shrink-0 text-xs font-bold tracking-wider text-faint">其综合意见</p>
-        <p className="flex-1 text-base leading-relaxed text-subtle">
+        <p className="w-24 shrink-0 text-xs font-bold text-faint">其综合意见</p>
+        <p className="flex-1 text-base leading-paragraph text-subtle">
           {reviewer?.finalSummaryMd || '(该审稿人未给出意见)'}
         </p>
       </div>
 
       {(response?.summary || response?.body) && (
         <div className="flex gap-3.5">
-          <p className="w-24 shrink-0 text-xs font-bold tracking-wider text-foreground">主审判断</p>
+          <p className="w-24 shrink-0 text-xs font-bold text-foreground">主审判断</p>
           {/* 概要(强) + 详细(弱, 可折叠默认展开) */}
           <div className="flex-1 min-w-0">
             <FoldableAnswer
               summary={response.summary}
               detail={response.body}
-              summaryClassName="text-base font-semibold leading-relaxed text-foreground"
-              detailClassName="text-sm leading-relaxed text-muted-foreground"
+              summaryClassName="text-base font-semibold leading-paragraph text-foreground"
+              detailClassName="text-sm leading-paragraph text-muted-foreground"
             />
           </div>
         </div>
@@ -295,10 +295,10 @@ function ListRow({
 }) {
   return (
     <div className="flex gap-3.5">
-      <p className="w-24 shrink-0 text-xs font-bold tracking-wider text-faint">{label}</p>
+      <p className="w-24 shrink-0 text-xs font-bold text-faint">{label}</p>
       <ol
         className={cn(
-          'flex-1 list-decimal space-y-1.5 pl-4 text-base leading-relaxed',
+          'flex-1 list-decimal space-y-1.5 pl-4 text-base leading-paragraph',
           emphasize ? 'text-subtle' : 'text-muted-foreground',
         )}
       >
@@ -419,12 +419,12 @@ function StreamingChiefView({
       {/* ruling 段 —— 概要(强) + 详细(弱, 可折叠默认展开), 流式中也按新格式渲染 */}
       {(p.rulingSummary || p.rulingParagraph) && (
         <section className="flex flex-col gap-3.5 border-l-2 border-foreground py-4 pl-7">
-          <p className="text-xs font-bold tracking-widest text-faint">SCHOLAY 主审 · 正在撰写</p>
+          <p className="text-xs font-bold text-faint">SCHOLAY 主审 · 正在撰写</p>
           <FoldableAnswer
             summary={p.rulingSummary}
             detail={p.rulingParagraph}
-            summaryClassName="font-serif text-xl italic font-semibold leading-relaxed text-foreground"
-            detailClassName="text-base leading-relaxed text-subtle"
+            summaryClassName="font-serif text-xl italic font-semibold leading-paragraph text-foreground"
+            detailClassName="text-base leading-paragraph text-subtle"
           />
           {p.score != null && (
             <p className="text-sm font-semibold text-muted-foreground">
@@ -459,13 +459,13 @@ function StreamingChiefView({
             </header>
             {(resp?.summary || resp?.body) && (
               <div className="flex gap-3.5">
-                <p className="w-24 shrink-0 text-xs font-bold tracking-wider text-foreground">主审判断</p>
+                <p className="w-24 shrink-0 text-xs font-bold text-foreground">主审判断</p>
                 <div className="flex-1 min-w-0">
                   <FoldableAnswer
                     summary={resp.summary}
                     detail={resp.body}
-                    summaryClassName="text-base font-semibold leading-relaxed text-foreground"
-                    detailClassName="text-sm leading-relaxed text-muted-foreground"
+                    summaryClassName="text-base font-semibold leading-paragraph text-foreground"
+                    detailClassName="text-sm leading-paragraph text-muted-foreground"
                   />
                 </div>
               </div>
@@ -482,7 +482,7 @@ function StreamingChiefView({
             <p className="text-xs text-faint">主审正在落笔</p>
           </header>
           <div className="flex items-end gap-3.5 py-2.5">
-            <p className="w-24 shrink-0 text-xs font-bold tracking-widest text-faint">结果</p>
+            <p className="w-24 shrink-0 text-xs font-bold text-faint">结果</p>
             <p className={cn('font-serif text-display-36 font-bold leading-none', dTheme)}>{recLabel(decision)}</p>
             {p.score != null && (
               <p className="text-base font-semibold text-muted-foreground">综合 {p.score} / 100</p>
@@ -499,10 +499,10 @@ function StreamingChiefView({
 function StreamingListRow({ label, items, emphasize }: { label: string; items: string[]; emphasize?: boolean }) {
   return (
     <div className="flex gap-3.5">
-      <p className="w-24 shrink-0 text-xs font-bold tracking-wider text-faint">{label}</p>
+      <p className="w-24 shrink-0 text-xs font-bold text-faint">{label}</p>
       <ol
         className={cn(
-          'flex-1 list-decimal space-y-1.5 pl-4 text-base leading-relaxed',
+          'flex-1 list-decimal space-y-1.5 pl-4 text-base leading-paragraph',
           emphasize ? 'text-subtle' : 'text-muted-foreground',
         )}
       >

@@ -87,7 +87,7 @@ function ProfileForm() {
             maxLength={200}
             rows={4}
             placeholder="介绍一下你的研究方向…"
-            className="w-full resize-none rounded-md border border-border bg-surface-1 px-3 py-2 text-md leading-relaxed text-foreground outline-none placeholder:text-faint focus:border-border-strong"
+            className="w-full resize-none rounded-md border border-border bg-surface-1 px-3 py-2 text-md leading-paragraph text-foreground outline-none placeholder:text-faint focus:border-border-strong"
           />
         </Field>
       </section>

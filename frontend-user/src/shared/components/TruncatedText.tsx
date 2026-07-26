@@ -107,7 +107,7 @@ function SingleLineHover({
         side={side}
         collisionPadding={12}
         className={cn(
-          'max-w-sm max-h-[var(--radix-hover-card-content-available-height)] overflow-y-auto px-3 py-2 text-xs leading-relaxed text-foreground whitespace-pre-wrap break-words select-text',
+          'max-w-sm max-h-[var(--radix-hover-card-content-available-height)] overflow-y-auto px-3 py-2 text-xs leading-paragraph text-foreground whitespace-pre-wrap break-words select-text',
           popoverClassName
         )}
       >
@@ -200,7 +200,7 @@ function MultiLineMoreButton({
             sideOffset={4}
             collisionPadding={12}
             className={cn(
-              'max-w-md max-h-[var(--radix-hover-card-content-available-height)] overflow-y-auto px-3 py-2 text-xs leading-relaxed text-foreground whitespace-pre-wrap break-words select-text',
+              'max-w-md max-h-[var(--radix-hover-card-content-available-height)] overflow-y-auto px-3 py-2 text-xs leading-paragraph text-foreground whitespace-pre-wrap break-words select-text',
               popoverClassName
             )}
           >

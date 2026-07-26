@@ -33,7 +33,7 @@ export const BrandName = forwardRef<HTMLSpanElement, BrandNameProps>(
     return (
       <span
         ref={ref}
-        className={cn('inline-block tracking-tight', TONE_CLS[tone], className)}
+        className={cn('inline-block tracking-brand', TONE_CLS[tone], className)}
       >
         Scholay
       </span>

@@ -33,7 +33,7 @@ export function ArticleRenderer({ sections }: { sections: ArticleSection[] }) {
                   <p className="!m-0 text-sm font-bold text-foreground">
                     {s.title}
                   </p>
-                  <p className="!mt-1.5 !mb-0 text-sm text-subtle leading-relaxed">
+                  <p className="!mt-1.5 !mb-0 text-sm text-subtle leading-paragraph">
                     {s.text}
                   </p>
                 </div>
@@ -92,7 +92,7 @@ export function ArticleRenderer({ sections }: { sections: ArticleSection[] }) {
                     <p className="!m-0 text-sm font-bold text-foreground">
                       {qa.q}
                     </p>
-                    <p className="!mt-1.5 !mb-0 text-sm text-subtle leading-relaxed">
+                    <p className="!mt-1.5 !mb-0 text-sm text-subtle leading-paragraph">
                       {qa.a}
                     </p>
                   </div>

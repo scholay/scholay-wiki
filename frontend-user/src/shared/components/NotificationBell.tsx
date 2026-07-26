@@ -47,7 +47,7 @@ export function NotificationBell() {
           {unread > 0 && (
             <span
               aria-label={`${unread} 条未读`}
-              className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center px-1 rounded-pill bg-brand-red text-background text-2xs font-bold tabular-nums shadow-sm pointer-events-none"
+              className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center px-1 rounded-pill bg-brand-red text-background text-2xs font-bold tabular-nums pointer-events-none"
             >
               {unread > 99 ? '99+' : unread}
             </span>
@@ -58,7 +58,7 @@ export function NotificationBell() {
         <PopoverPrimitive.Content
           align="end"
           sideOffset={8}
-          className="z-50 w-[380px] max-h-[calc(100vh-120px)] flex flex-col rounded-md border border-border bg-background shadow-lg"
+          className="z-50 w-[380px] max-h-[calc(100vh-120px)] flex flex-col rounded-md border border-border bg-background"
         >
           <NotificationHeader unread={unread} />
           <NotificationTabs tab={tab} onChange={setTab} unread={unread} />
@@ -278,7 +278,7 @@ function NotificationItem({
             <p className="text-sm font-bold text-foreground line-clamp-1">
               {item.title}
             </p>
-            <p className="mt-0.5 text-xs text-subtle line-clamp-3 leading-relaxed">
+            <p className="mt-0.5 text-xs text-subtle line-clamp-3 leading-paragraph">
               {item.content}
             </p>
             <div className="mt-1.5 flex items-center gap-2 text-2xs text-faint">

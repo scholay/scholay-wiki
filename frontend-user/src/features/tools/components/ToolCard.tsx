@@ -38,7 +38,7 @@ export function ToolCard({ tool }: { tool: FeatureTool }) {
       </div>
 
       {tool.tagline && (
-        <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">{tool.tagline}</p>
+        <p className="line-clamp-2 text-xs leading-paragraph text-muted-foreground">{tool.tagline}</p>
       )}
 
       <div className="mt-auto flex items-center justify-between gap-2 pt-1">

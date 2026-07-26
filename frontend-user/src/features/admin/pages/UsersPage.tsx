@@ -489,7 +489,7 @@ export function UsersPage() {
 function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1">
-      <Label className="text-2xs text-faint tracking-[0.12em]">{label}</Label>
+      <Label className="text-2xs text-faint">{label}</Label>
       {children}
     </div>
   );

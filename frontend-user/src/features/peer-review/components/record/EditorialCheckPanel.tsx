@@ -56,17 +56,17 @@ export function EditorialCheckPanel({ submission }: EditorialCheckPanelProps) {
     <article className="flex flex-col gap-7">
       {/* 头部段落 */}
       <header className="flex flex-col gap-2">
-        <p className="text-xs font-bold tracking-wider text-faint">编辑部初审</p>
+        <p className="text-xs font-bold text-faint">编辑部初审</p>
         <h2 className="font-serif text-2xl font-bold text-foreground">四项基础检查 · 全部通过</h2>
-        <p className="text-base leading-relaxed text-muted-foreground">
+        <p className="text-base leading-paragraph text-muted-foreground">
           编辑部初审仅做基础性合规检查;只有本环节通过,稿件才会被送往三位匿名审稿人。
         </p>
       </header>
 
       {/* 初审结论 — 左侧黑色 2px 引线 */}
       <section className="border-l-2 border-foreground py-4 pl-6">
-        <p className="mb-2 text-xs font-bold tracking-widest text-faint">初审结论</p>
-        <p className="font-serif text-lg italic font-semibold leading-relaxed text-foreground">
+        <p className="mb-2 text-xs font-bold text-faint">初审结论</p>
+        <p className="font-serif text-lg italic font-semibold leading-paragraph text-foreground">
           稿件四项检查全部达标,已自动转入同行评审环节,分配三位匿名 AI 审稿人 A / B / C 并行评分。
         </p>
       </section>
@@ -80,7 +80,7 @@ export function EditorialCheckPanel({ submission }: EditorialCheckPanelProps) {
         {/* 表头 */}
         <div className="grid grid-cols-[170px_120px_120px_80px_1fr] gap-3 py-2.5">
           {['检查项', '指标', '阈值', '结论', '说明'].map((h) => (
-            <p key={h} className="text-xs font-bold tracking-wider text-faint">
+            <p key={h} className="text-xs font-bold text-faint">
               {h}
             </p>
           ))}
@@ -97,14 +97,14 @@ export function EditorialCheckPanel({ submission }: EditorialCheckPanelProps) {
             <p className="text-base text-subtle">{item.indicator}</p>
             <p className="text-base text-muted-foreground">{item.threshold}</p>
             <p className="text-base font-bold text-foreground">{item.conclusion}</p>
-            <p className="text-base leading-relaxed text-subtle">{item.comment}</p>
+            <p className="text-base leading-paragraph text-subtle">{item.comment}</p>
           </div>
         ))}
       </section>
 
       {/* 签署 */}
       <footer className="flex items-center gap-4 border-t border-foreground pt-4">
-        <p className="w-24 shrink-0 text-xs font-bold tracking-wider text-faint">编辑部签署</p>
+        <p className="w-24 shrink-0 text-xs font-bold text-faint">编辑部签署</p>
         <div className="flex-1 space-y-0.5">
           <p className="text-base font-semibold text-subtle">
             AI 编辑部初审 · 自动检查通过 · {formatDate(submission.submittedAt)}

@@ -36,7 +36,7 @@ export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(
           <div className="min-w-0 flex-1">
             <h1
               className={cn(
-                'font-semibold tracking-tight text-foreground truncate',
+                'font-semibold text-foreground truncate',
                 dense ? 'text-lg' : 'text-xl'
               )}
             >

@@ -593,7 +593,7 @@ function ComingSoonWrap({ children }: { children: React.ReactNode }) {
       {children}
       <span
         aria-hidden="true"
-        className="absolute -top-2 -right-2 inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-background text-[9px] font-bold leading-none whitespace-nowrap shadow-sm pointer-events-none z-10"
+        className="absolute -top-2 -right-2 inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-background text-[9px] font-bold leading-none whitespace-nowrap pointer-events-none z-10"
       >
         即将推出
       </span>

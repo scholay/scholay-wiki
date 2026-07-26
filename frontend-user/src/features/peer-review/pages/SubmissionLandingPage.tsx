@@ -18,7 +18,7 @@ export function SubmissionLandingPage() {
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <Link
           to="/peer-review/journal"
-          className="group rounded-lg border border-border bg-background p-8 transition hover:border-brand-red hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
+          className="group rounded-lg border border-border bg-background p-8 transition hover:border-brand-red hover:"
         >
           <FileEdit className="mb-5 size-9 text-brand-red" />
           <h2 className="text-lg font-bold text-foreground">期刊投稿</h2>
@@ -33,7 +33,7 @@ export function SubmissionLandingPage() {
 
         <Link
           to="/peer-review/thesis"
-          className="group rounded-lg border border-border bg-background p-8 transition hover:border-brand-red hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
+          className="group rounded-lg border border-border bg-background p-8 transition hover:border-brand-red hover:"
         >
           <GraduationCap className="mb-5 size-9 text-brand-red" />
           <h2 className="text-lg font-bold text-foreground">毕业审稿</h2>

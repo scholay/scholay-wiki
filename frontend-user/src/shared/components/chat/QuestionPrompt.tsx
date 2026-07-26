@@ -157,7 +157,7 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
   }
 
   return (
-    <div className="mb-2 rounded-lg border border-border bg-background shadow-sm overflow-hidden">
+    <div className="mb-2 rounded-lg border border-border bg-background overflow-hidden">
       {/* 头部:进度 + 返回 */}
       <div className="flex items-center gap-1.5 px-3.5 py-2 border-b border-border-soft">
         <MessageCircleQuestion className="h-3.5 w-3.5 text-brand-green shrink-0" />

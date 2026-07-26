@@ -61,7 +61,7 @@ function AttachmentChip({
       type="button"
       onClick={onRemove}
       title="移除"
-      className="absolute -right-1.5 -top-1.5 z-10 inline-flex size-4 items-center justify-center rounded-pill bg-foreground text-background shadow-sm transition-transform hover:scale-110"
+      className="absolute -right-1.5 -top-1.5 z-10 inline-flex size-4 items-center justify-center rounded-pill bg-foreground text-background transition-transform hover:scale-110"
     >
       <X className="size-2.5" strokeWidth={2.6} />
     </button>

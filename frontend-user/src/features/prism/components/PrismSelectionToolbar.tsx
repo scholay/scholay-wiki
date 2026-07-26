@@ -23,7 +23,7 @@ export function PrismSelectionToolbar({
     <div
       style={{ position: 'fixed', left, top, zIndex: 40 }}
       onMouseDown={(e) => e.preventDefault()}
-      className="flex items-center gap-0.5 rounded-lg border border-border bg-popover p-0.5 shadow-lg"
+      className="flex items-center gap-0.5 rounded-lg border border-border bg-popover p-0.5 shadow-overlay"
     >
       <button
         type="button"

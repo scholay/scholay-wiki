@@ -82,7 +82,7 @@ export function RelinkResultArea({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <div
-                      className="text-sm font-bold text-foreground leading-snug line-clamp-2"
+                      className="text-sm font-bold text-foreground line-clamp-2"
                       title={h.title}
                     >
                       {h.title || '无标题'}
@@ -93,7 +93,7 @@ export function RelinkResultArea({
                           当前关联
                         </span>
                       )}
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-surface-2 text-subtle text-2xs font-bold leading-none uppercase tracking-wide">
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-surface-2 text-subtle text-2xs font-bold leading-none uppercase">
                         {sourceBrandLabel(h.source)}
                       </span>
                     </span>

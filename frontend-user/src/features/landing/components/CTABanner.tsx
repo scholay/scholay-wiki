@@ -49,7 +49,7 @@ function CTATitle({ lines }: { lines: TitleLine[] }) {
         <span
           key={i}
           className={cn(
-            'block leading-[1.15] text-[clamp(36px,5vw,64px)] font-semibold',
+            'block text-[clamp(36px,5vw,64px)] font-semibold',
             line.italic && 'italic'
           )}
         >
@@ -65,11 +65,11 @@ export function CTABanner({ feature }: { feature: LandingFeature }) {
   return (
     <section className="bg-foreground py-20 lg:py-28">
       <div className="max-w-7xl mx-auto px-6 lg:px-12 flex flex-col items-center gap-8 text-center">
-        <span className="text-2xs font-semibold tracking-[0.25em] uppercase text-brand-amber">
+        <span className="text-2xs font-semibold uppercase text-brand-amber">
           {finalCTA.eyebrow}
         </span>
         <CTATitle lines={finalCTA.titleLines} />
-        <p className="text-lg leading-[1.6] text-faint max-w-2xl">{finalCTA.sub}</p>
+        <p className="text-lg leading-paragraph text-faint max-w-2xl">{finalCTA.sub}</p>
         <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
           <CTAInner
             href={finalCTA.primaryCTA.href}

@@ -199,7 +199,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     <div
       {...containerProps}
       className={cn(
-        'relative flex flex-col gap-2 rounded-16 border border-border-strong bg-background p-2.5 shadow-sm transition',
+        'relative flex flex-col gap-2 rounded-16 border border-border-strong bg-background p-2.5 transition',
         'focus-within:border-foreground/25 focus-within:ring-4 focus-within:ring-foreground/5',
         disabled && 'opacity-70',
         className,
@@ -221,7 +221,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           rows={minRows}
           disabled={disabled}
           autoFocus={autoFocus}
-          className="block w-full resize-none overflow-y-auto border-0 bg-transparent px-1 py-1 text-base leading-relaxed text-foreground outline-none placeholder:text-faint focus:outline-none focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+          className="block w-full resize-none overflow-y-auto border-0 bg-transparent px-1 py-1 text-base leading-paragraph text-foreground outline-none placeholder:text-faint focus:outline-none focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
         />
       </div>
 

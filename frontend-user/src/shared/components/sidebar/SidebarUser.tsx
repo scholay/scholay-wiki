@@ -62,7 +62,7 @@ export function SidebarUser({
               {fallback ?? name.slice(0, 1).toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1 min-w-0 flex flex-col gap-px leading-tight">
+          <div className="flex-1 min-w-0 flex flex-col gap-px">
             <span className="truncate text-base font-semibold text-foreground">
               {name}
             </span>

@@ -249,7 +249,7 @@ function ReadingPane({ id }: { id: number | null }) {
           {/* 正文:优先纯文本;只有 HTML 时用沙箱 iframe 隔离渲染 */}
           <div className="px-5 py-4">
             {mail.text_body ? (
-              <pre className="max-h-[45vh] overflow-y-auto whitespace-pre-wrap font-[inherit] text-sm leading-relaxed text-subtle">
+              <pre className="max-h-[45vh] overflow-y-auto whitespace-pre-wrap font-[inherit] text-sm leading-paragraph text-subtle">
                 {mail.text_body}
               </pre>
             ) : mail.html_body ? (
@@ -266,7 +266,7 @@ function ReadingPane({ id }: { id: number | null }) {
 
           {/* 回信 */}
           <div className="border-t border-border-soft px-5 py-4">
-            <label className="mb-2 block text-2xs font-bold tracking-[0.12em] text-faint">
+            <label className="mb-2 block text-2xs font-bold text-faint">
               回复 {mail.from_addr}(主题自动加 Re:)
             </label>
             <textarea

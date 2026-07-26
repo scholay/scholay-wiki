@@ -120,7 +120,7 @@ export function JournalSubmissionCard({
       </div>
 
       {!isMax && (
-        <p className="text-2xs leading-relaxed text-faint">
+        <p className="text-2xs leading-paragraph text-faint">
           下载为 Max 会员专享,
           <Link to="/pricing" className="text-brand-red hover:underline">
             升级解锁

@@ -209,7 +209,7 @@ export function SkillDetailPage() {
 
       {/* SKILL.md 预览(不可信内容,纯 markdown,无 raw HTML)*/}
       <div className="rounded-lg border border-border bg-surface-1 p-4">
-        <div className="mb-2 text-2xs uppercase tracking-wide text-faint">SKILL.md 预览</div>
+        <div className="mb-2 text-2xs uppercase text-faint">SKILL.md 预览</div>
         <MarkdownRenderer text={skill.skillMd || '(空)'} />
       </div>
 

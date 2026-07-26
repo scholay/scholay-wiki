@@ -81,7 +81,7 @@ export function AdminCommandPalette({
 
             {/* ---------- 用户搜索结果 ---------- */}
             {debouncedQuery && (userSearch.data?.length ?? 0) > 0 && (
-              <Command.Group heading="用户" className="text-2xs text-faint tracking-[0.18em] px-2 pb-1 pt-1 font-bold">
+              <Command.Group heading="用户" className="text-2xs text-faint px-2 pb-1 pt-1 font-bold">
                 {userSearch.data?.map((u) => (
                   <UserItem key={u.id} user={u} onSelect={() => jumpTo(`/admin/users?q=${encodeURIComponent(u.email || u.username || '')}`)} />
                 ))}
@@ -89,7 +89,7 @@ export function AdminCommandPalette({
             )}
 
             {/* ---------- 页面跳转 ---------- */}
-            <Command.Group heading="跳转" className="text-2xs text-faint tracking-[0.18em] px-2 pb-1 pt-2 font-bold">
+            <Command.Group heading="跳转" className="text-2xs text-faint px-2 pb-1 pt-2 font-bold">
               {navItems.map((it) => {
                 const Icon = it.icon;
                 return (
@@ -108,7 +108,7 @@ export function AdminCommandPalette({
             </Command.Group>
 
             {/* ---------- 快捷动作 ---------- */}
-            <Command.Group heading="快捷动作" className="text-2xs text-faint tracking-[0.18em] px-2 pb-1 pt-2 font-bold">
+            <Command.Group heading="快捷动作" className="text-2xs text-faint px-2 pb-1 pt-2 font-bold">
               <ActionItem
                 icon={<Plus />}
                 label="新建公告"

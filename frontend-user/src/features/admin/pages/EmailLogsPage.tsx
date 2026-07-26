@@ -126,7 +126,7 @@ export function EmailLogsPage() {
               }}
               className={cn(
                 'flex items-center gap-1.5 rounded-sm px-4 py-1.5 text-xs font-medium transition-colors',
-                active ? 'bg-background text-foreground shadow-sm' : 'text-faint hover:text-foreground',
+                active ?'bg-background text-foreground shadow-raised':'text-faint hover:text-foreground',
               )}
             >
               <Icon className="size-3.5" /> {t.label}
@@ -185,7 +185,7 @@ export function EmailLogsPage() {
                 setPage(1);
               }}
               placeholder={isSms ? '手机号或模板关键词' : '邮箱地址或主题关键词'}
-              className="h-7 w-full min-w-0 border-0 bg-transparent px-0 text-xs shadow-none focus-visible:ring-0 sm:w-56"
+              className="h-7 w-full min-w-0 border-0 bg-transparent px-0 text-xs focus-visible:ring-0 sm:w-56"
             />
           </div>
         </Field>
@@ -205,7 +205,7 @@ export function EmailLogsPage() {
 function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
     <div className={cn('space-y-1', className)}>
-      <Label className="text-2xs tracking-[0.12em] text-faint">{label}</Label>
+      <Label className="text-2xs text-faint">{label}</Label>
       {children}
     </div>
   );

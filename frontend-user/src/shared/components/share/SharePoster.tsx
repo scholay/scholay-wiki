@@ -56,7 +56,7 @@ export const SharePoster = forwardRef<HTMLDivElement, { data: SharePosterData }>
       // Stage(浅灰托)—— 让白卡的圆角/阴影落在灰底上,导出图更精致(对齐 .pen Stage)
       <div ref={ref} className="w-[390px] bg-[#F5F5F5] p-4 font-sans">
         {/* 白卡 */}
-        <div className="overflow-hidden rounded-[6px] border border-[#E9E9E9] bg-white shadow-[0_12px_32px_-8px_#1111111f]">
+        <div className="overflow-hidden rounded-[6px] border border-[#E9E9E9] bg-white">
           {/* 三色品牌条 */}
           <div className="flex h-1">
             <div className="flex-1 bg-[#CD2323]" />
@@ -67,7 +67,7 @@ export const SharePoster = forwardRef<HTMLDivElement, { data: SharePosterData }>
           <div className="flex flex-col gap-4 px-5 pb-[18px] pt-[18px]">
             {/* 头部:logo + 名片胶囊 */}
             <div className="flex items-center justify-between">
-              <div className="flex items-end font-display text-[17px] font-bold leading-none tracking-[-0.6px]">
+              <div className="flex items-end font-display text-[17px] font-bold leading-none tracking-brand">
                 {LOGO.map((l, i) => (
                   <span key={i} style={{ color: l.color }}>
                     {l.c}
@@ -88,9 +88,9 @@ export const SharePoster = forwardRef<HTMLDivElement, { data: SharePosterData }>
                 <TileIcon className="size-[30px] text-white" strokeWidth={1.6} />
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-[7px]">
-                <h2 className="font-display text-[22px] font-bold leading-[1.2] text-[#111]">{title}</h2>
+                <h2 className="font-display text-[22px] font-bold leading-display-tight text-[#111]">{title}</h2>
                 {data.metaLine && (
-                  <p className="text-[12px] leading-snug text-[#999]">{data.metaLine}</p>
+                  <p className="text-[12px] text-[#999]">{data.metaLine}</p>
                 )}
                 {data.pills && data.pills.length > 0 && (
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -104,7 +104,7 @@ export const SharePoster = forwardRef<HTMLDivElement, { data: SharePosterData }>
 
             {/* 摘要 */}
             {data.blurb && (
-              <p className="line-clamp-4 text-[12.5px] leading-[1.6] text-[#666]">{data.blurb}</p>
+              <p className="line-clamp-4 text-[12.5px] leading-paragraph text-[#666]">{data.blurb}</p>
             )}
 
             {/* 高亮条:被引 · 影响力 */}
@@ -124,7 +124,7 @@ export const SharePoster = forwardRef<HTMLDivElement, { data: SharePosterData }>
                 <QRCodeCanvas value={data.qrValue} size={52} level="M" marginSize={0} />
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
-                <p className="text-[13px] font-semibold leading-snug text-[#111]">
+                <p className="text-[13px] font-semibold text-[#111]">
                   {data.scanLabel ?? '长按识别二维码 · 在 Scholay 查看全文'}
                 </p>
                 <p className="truncate text-[11px] text-[#999]">{data.urlLabel}</p>

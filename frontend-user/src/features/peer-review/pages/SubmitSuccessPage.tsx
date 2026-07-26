@@ -79,10 +79,10 @@ export function SubmitSuccessPage() {
         {/* 顶部成功标志 + 标题块 ─────────────────────────────────────── */}
         <header className="flex flex-col items-center gap-2">
           <CheckRing />
-          <h1 className="mt-2 font-serif text-2xl font-bold leading-tight text-foreground">
+          <h1 className="mt-2 font-serif text-2xl font-bold leading-display-tight text-foreground">
             恭喜！稿件已成功投递
           </h1>
-          <p className="max-w-[480px] text-center text-md leading-relaxed text-muted-foreground">
+          <p className="max-w-[480px] text-center text-md leading-paragraph text-muted-foreground">
             您的稿件已成功投递至期刊编辑部,编辑团队已收到投稿并进入处理流程。
           </p>
         </header>
@@ -112,7 +112,7 @@ export function SubmitSuccessPage() {
           </div>
           <div className="flex flex-col gap-1">
             <p className="text-base font-bold text-brand-amber">接下来会发生什么？</p>
-            <p className="text-sm leading-relaxed text-brand-amber/80">
+            <p className="text-sm leading-paragraph text-brand-amber/80">
               投递后系统会立即启动 AI 审稿流程:编辑部初审 → 通读全文并为本文匹配合适的审稿人 →
               三位审稿人依次给出结构化意见(逐句意见、维度评分)→ 主审综合三方意见做出决议。
               整个过程通常十分钟左右,点下方「前往审稿记录」可<strong className="font-bold">实时观看</strong>每位审稿人的意见逐条生成;
@@ -164,7 +164,7 @@ function InfoRow({ label, value, bold = false }: { label: string; value: string;
       <dd
         className={
           'flex-1 text-base text-subtle ' +
-          (bold ? 'font-semibold leading-snug' : 'font-semibold')
+          (bold ?'font-semibold':'font-semibold')
         }
       >
         {value}

@@ -206,7 +206,7 @@ export function SharedReceivePage() {
                 onChange={(e) => setCodeInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && setCode(codeInput.trim())}
                 placeholder="请输入提取码"
-                className="h-10 min-w-0 flex-1 rounded-md border border-border bg-background px-3 text-center font-mono text-md tracking-widest outline-none focus:border-brand-red"
+                className="h-10 min-w-0 flex-1 rounded-md border border-border bg-background px-3 text-center font-mono text-md tracking-code outline-none focus:border-brand-red"
               />
               <Button size="sm" className="h-10" onClick={() => setCode(codeInput.trim())} disabled={!codeInput.trim()}>
                 查看
@@ -223,7 +223,7 @@ export function SharedReceivePage() {
               {/* 分享人横幅 */}
               <div className="mb-4 flex items-start gap-2.5 rounded-lg bg-[#F1EADA] px-3.5 py-3">
                 <Sparkles className="mt-0.5 size-4 shrink-0 text-brand-amber" />
-                <p className="text-xs leading-relaxed text-foreground">
+                <p className="text-xs leading-paragraph text-foreground">
                   <span className="font-semibold">「{share.sharer}」</span>给你分享了一个期刊
                   <span className="mt-0.5 block text-2xs text-muted-foreground">
                     无需登录即可查看分区、影响因子
@@ -247,7 +247,7 @@ export function SharedReceivePage() {
                       className="h-12 w-12 shrink-0 rounded-md"
                     />
                     <div className="min-w-0 flex-1">
-                      <h1 className="font-serif text-xl font-bold leading-snug text-foreground">
+                      <h1 className="font-serif text-xl font-bold text-foreground">
                         {sharedJournal.canonical_name}
                       </h1>
                       <p className="mt-0.5 text-xs text-muted-foreground">
@@ -279,7 +279,7 @@ export function SharedReceivePage() {
                       sharedJournal.country ? `总部位于 ${sharedJournal.country}` : '',
                     ].filter(Boolean);
                     return parts.length ? (
-                      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                      <p className="mt-3 text-sm leading-paragraph text-muted-foreground">
                         {parts.join('、')}。可在 Scholay 查看其分区、影响因子与收录详情。
                       </p>
                     ) : null;
@@ -318,7 +318,7 @@ export function SharedReceivePage() {
                   {share.sharer?.trim().charAt(0) || '友'}
                 </span>
                 <div className="min-w-0">
-                  <p className="text-sm leading-snug text-foreground">
+                  <p className="text-sm text-foreground">
                     <span className="font-semibold">「{share.sharer}」</span>给你分享了一篇论文
                   </p>
                   <p className="mt-0.5 text-xs text-muted-foreground">由 Scholay 学术分享</p>
@@ -342,12 +342,12 @@ export function SharedReceivePage() {
                     )}
                   </div>
 
-                  <h1 className="text-2xl font-bold leading-snug text-foreground">
+                  <h1 className="text-2xl font-bold text-foreground">
                     {singlePaper.title || '未命名论文'}
                   </h1>
 
                   {singleAuthors && (
-                    <p className="text-sm leading-relaxed text-muted-foreground">{singleAuthors}</p>
+                    <p className="text-sm leading-paragraph text-muted-foreground">{singleAuthors}</p>
                   )}
 
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -375,7 +375,7 @@ export function SharedReceivePage() {
                       <p className="mb-1.5 flex items-center gap-1 text-xs font-semibold text-brand-red">
                         <Sparkles className="size-3.5" /> 摘要 · TL;DR
                       </p>
-                      <p className="text-sm leading-relaxed text-muted-foreground">
+                      <p className="text-sm leading-paragraph text-muted-foreground">
                         {singlePaper.abstract}
                       </p>
                     </div>
@@ -421,7 +421,7 @@ export function SharedReceivePage() {
                   {share.sharer?.trim().charAt(0) || '友'}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm leading-snug text-foreground">
+                  <p className="text-sm text-foreground">
                     <span className="font-semibold">{share.sharer}</span>
                     <span className="text-muted-foreground"> 给你分享了一个文献合集</span>
                   </p>
@@ -433,7 +433,7 @@ export function SharedReceivePage() {
               <div className="mt-4 flex items-start gap-3">
                 <CollectionCover />
                 <div className="min-w-0 flex-1">
-                  <h1 className="text-[17px] font-semibold leading-snug text-foreground">{share.title}</h1>
+                  <h1 className="text-[17px] font-semibold text-foreground">{share.title}</h1>
                   <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <FileText className="size-3 text-faint" /> {share.paper_count} 篇文献
@@ -477,7 +477,7 @@ export function SharedReceivePage() {
                         {String(i + 1).padStart(2, '0')}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="line-clamp-2 text-sm font-medium leading-snug text-foreground">
+                        <p className="line-clamp-2 text-sm font-medium text-foreground">
                           {p.title || '未命名论文'}
                         </p>
                         <div className="mt-1 flex items-center justify-between gap-2">
@@ -565,7 +565,7 @@ export function SharedReceivePage() {
                 onKeyDown={(e) => e.key === 'Enter' && submitCode()}
                 placeholder="请输入提取码"
                 maxLength={16}
-                className={`h-12 w-full rounded-md border bg-background px-3 text-center font-mono text-lg tracking-widest outline-none ${
+                className={`h-12 w-full rounded-md border bg-background px-3 text-center font-mono text-lg tracking-code outline-none ${
                   codeError ? 'border-brand-red' : 'border-border focus:border-brand-red'
                 }`}
               />

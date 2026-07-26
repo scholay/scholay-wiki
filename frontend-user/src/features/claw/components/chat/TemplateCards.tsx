@@ -81,7 +81,7 @@ export function TemplateCards({
   // 普通对话空态:扑克牌拱形展开的模板卡。
   return (
     <div className="w-full">
-      <div className="mb-1.5 text-center text-2xs uppercase tracking-wider text-faint">
+      <div className="mb-1.5 text-center text-2xs uppercase text-faint">
         从模板开始 · 或直接输入
       </div>
       <FanCards reduce={!!reduce} onPick={onPick} />
@@ -150,7 +150,7 @@ function FanCards({ reduce, onPick }: { reduce: boolean; onPick: (f: TemplateFea
               zIndex: isH ? 30 : i + 1,
             }}
             className={cn(
-              'group relative flex flex-col overflow-hidden rounded-12 border bg-background text-left shadow-sm outline-none transition-[border-color,box-shadow]',
+              'group relative flex flex-col overflow-hidden rounded-12 border bg-background text-left outline-none transition-[border-color,box-shadow]',
               isH ? cn('ring-2', accent.focusRing) : 'border-border',
             )}
           >
@@ -196,7 +196,7 @@ function SelectedModeBar({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ type: 'spring', stiffness: 300, damping: 24 }}
       className={cn(
-        'mx-auto flex w-full max-w-md items-center gap-3 rounded-12 border px-3 py-2.5 shadow-sm',
+        'mx-auto flex w-full max-w-md items-center gap-3 rounded-12 border px-3 py-2.5',
         accent.modeBar,
       )}
     >

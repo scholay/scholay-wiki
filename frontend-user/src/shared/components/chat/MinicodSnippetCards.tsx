@@ -18,7 +18,7 @@ function SnippetCard({ snippet: s }: { snippet: MinicodSnippet }) {
   const source = [s.paperTitle, s.section].filter(Boolean).join(' · ');
   return (
     <div className="border-b border-border-soft px-3.5 py-3 last:border-0">
-      <blockquote className="border-l-2 border-border-strong pl-3 text-sm leading-relaxed text-subtle whitespace-pre-wrap break-words">
+      <blockquote className="border-l-2 border-border-strong pl-3 text-sm leading-paragraph text-subtle whitespace-pre-wrap break-words">
         {s.text}
       </blockquote>
       {source && (

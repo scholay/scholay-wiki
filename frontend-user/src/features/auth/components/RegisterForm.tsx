@@ -151,7 +151,7 @@ export function RegisterForm({
                       maxLength={6}
                       autoComplete="one-time-code"
                       placeholder="6 位数字"
-                      className="h-10 text-sm tracking-widest"
+                      className="h-10 text-sm tracking-code"
                     />
                   </FormControl>
                   <SendCodeButton

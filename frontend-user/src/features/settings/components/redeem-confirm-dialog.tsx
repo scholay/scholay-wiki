@@ -115,13 +115,13 @@ function ConfirmBody({
   const isCredit = pv.grant_kind === 'credit';
   return (
     <>
-      <span className="inline-flex items-center gap-1 text-2xs font-bold tracking-wide text-brand-red">
+      <span className="inline-flex items-center gap-1 text-2xs font-bold text-brand-red">
         <Ticket className="size-3" /> 礼品码兑换 · {isCredit ? '经费' : '会员'}
       </span>
       <h2 className="mt-2 text-lg font-bold text-foreground">
         {isCredit ? '确认兑换科研经费?' : '确认兑换会员权益?'}
       </h2>
-      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+      <p className="mt-1 text-xs leading-paragraph text-muted-foreground">
         {isCredit
           ? '该礼品码将为当前账号充入对应科研经费,兑换后立即到账。'
           : '该礼品码将为当前账号开通对应会员权益,兑换后立即生效、到期后自动失效。'}
@@ -130,7 +130,7 @@ function ConfirmBody({
         <InfoRow label="对应活动" value={pv.note || '通用兑换码'} />
         <InfoRow label="兑换内容" value={grantContent(pv)} accent />
       </div>
-      <p className="mt-3 flex items-start gap-1.5 text-2xs leading-relaxed text-faint">
+      <p className="mt-3 flex items-start gap-1.5 text-2xs leading-paragraph text-faint">
         <span className="mt-1 size-1.5 shrink-0 rounded-pill bg-[#0066FF]" />
         兑换后立即生效,同一兑换码每个账号仅可兑换一次,兑换码不可重复使用。
       </p>
@@ -150,22 +150,22 @@ function ConfirmBody({
 function FailBody({ code, msg, onRetry }: { code: string; msg: string; onRetry: () => void }) {
   return (
     <>
-      <span className="inline-flex items-center gap-1 text-2xs font-bold tracking-wide text-brand-red">
+      <span className="inline-flex items-center gap-1 text-2xs font-bold text-brand-red">
         <XCircle className="size-3" /> 兑换失败
       </span>
       <div className="mt-2 flex items-start gap-2">
         <XCircle className="mt-0.5 size-5 shrink-0 text-brand-red" />
         <h2 className="text-lg font-bold text-foreground">{msg || '激活码无效或已被兑换'}</h2>
       </div>
-      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+      <p className="mt-1 text-xs leading-paragraph text-muted-foreground">
         请确认兑换码是否正确。若兑换码已被使用、已过期或已停用,则无法再次兑换。
       </p>
       <div className="mt-4 rounded-md border border-border bg-surface-1 px-3 py-2.5">
-        <span className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-subtle">
+        <span className="flex items-center gap-2 font-mono text-xs uppercase text-subtle">
           <Ticket className="size-3.5 shrink-0 text-faint" /> {code || '—'}
         </span>
       </div>
-      <p className="mt-3 flex items-start gap-1.5 text-2xs leading-relaxed text-faint">
+      <p className="mt-3 flex items-start gap-1.5 text-2xs leading-paragraph text-faint">
         <span className="mt-1 size-1.5 shrink-0 rounded-pill bg-brand-red" />
         如确认兑换码无误仍无法兑换,请联系客服协助处理。
       </p>

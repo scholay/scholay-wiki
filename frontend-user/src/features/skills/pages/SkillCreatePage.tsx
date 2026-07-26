@@ -219,7 +219,7 @@ export function SkillCreatePage() {
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                     spellCheck={false}
-                    className="mt-2 h-56 w-full resize-none rounded-md border border-border bg-surface-1 p-3 font-mono text-xs leading-relaxed outline-none focus:border-border-strong"
+                    className="mt-2 h-56 w-full resize-none rounded-md border border-border bg-surface-1 p-3 font-mono text-xs leading-paragraph outline-none focus:border-border-strong"
                   />
                 )}
               </div>

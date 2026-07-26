@@ -25,12 +25,12 @@ const HERO_MOCK: Record<HeroMockKey, () => ReactNode> = {
 
 function TitleLines({ lines }: { lines: TitleLine[] }) {
   return (
-    <h1 className="font-display text-foreground tracking-tight">
+    <h1 className="font-display text-foreground">
       {lines.map((line, i) => (
         <span
           key={i}
           className={cn(
-            'block leading-[1.05]',
+            'block',
             line.italic && 'italic',
             // 主大字号 —— .pen 64-84,这里用 clamp 适配宽屏
             'text-[clamp(40px,6vw,72px)] font-medium'
@@ -91,7 +91,7 @@ export function Hero({
           <TitleLines lines={hero.titleLines} />
           <p
             className={cn(
-              'text-lg leading-[1.6] text-subtle',
+              'text-lg leading-paragraph text-subtle',
               !hasMock && 'max-w-[760px]'
             )}
           >

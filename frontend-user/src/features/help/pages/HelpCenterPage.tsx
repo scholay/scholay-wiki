@@ -101,10 +101,10 @@ function QACard({ article }: { article: ArticleCardData }) {
   return (
     <Link
       to={`/qa/${article.slug}`}
-      className="group flex flex-col gap-2 p-5 rounded-md bg-background border border-border-soft hover:border-foreground/40 transition-all hover:shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
+      className="group flex flex-col gap-2 p-5 rounded-md bg-background border border-border-soft hover:border-foreground/40 transition-all hover:"
     >
-      <p className="text-md font-bold text-foreground leading-snug line-clamp-2">{article.title}</p>
-      <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">{article.excerpt}</p>
+      <p className="text-md font-bold text-foreground line-clamp-2">{article.title}</p>
+      <p className="text-xs text-muted-foreground leading-paragraph line-clamp-3">{article.excerpt}</p>
       <div className="mt-auto pt-2 flex items-center justify-between gap-3 text-2xs text-faint">
         <span>{article.readTime}</span>
         <ArrowRight className="size-3 text-faint group-hover:text-brand-red transition-colors" />
@@ -130,7 +130,7 @@ const INFO_LINKS: InfoLink[] = [
 function InfoLinks() {
   return (
     <section className="mt-16 pt-8 border-t border-border-soft">
-      <p className="text-xs font-bold text-faint uppercase tracking-wide mb-4">其他帮助</p>
+      <p className="text-xs font-bold text-faint uppercase mb-4">其他帮助</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {INFO_LINKS.map((l) => {
           const Icon = l.icon;
@@ -144,7 +144,7 @@ function InfoLinks() {
                 <Icon className="size-3.5 text-subtle group-hover:text-brand-red transition-colors" strokeWidth={2} />
               </span>
               <div className="min-w-0">
-                <p className="text-xs font-bold text-foreground leading-tight">{l.label}</p>
+                <p className="text-xs font-bold text-foreground">{l.label}</p>
                 <p className="text-2xs text-muted-foreground truncate">{l.desc}</p>
               </div>
             </Link>

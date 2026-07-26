@@ -39,7 +39,7 @@ export const UserBubble = memo(function UserBubble({ text, attachments }: UserBu
     <div className="flex justify-end min-w-0">
       <div className="max-w-[80%] flex flex-col items-end gap-1.5 min-w-0">
         {attachments}
-        <div className="inline-flex items-center rounded-16 rounded-br-md bg-foreground px-3.5 py-2.5 text-sm leading-relaxed text-background whitespace-pre-wrap break-words">
+        <div className="inline-flex items-center rounded-16 rounded-br-md bg-foreground px-3.5 py-2.5 text-sm leading-paragraph text-background whitespace-pre-wrap break-words">
           {text}
         </div>
       </div>
@@ -75,7 +75,7 @@ export const AssistantBubble = memo(function AssistantBubble({ text, streaming, 
       className={
         variant === 'plain'
           ? 'min-w-0 overflow-hidden' // 无气泡:全宽正文铺背景
-          : 'rounded-16 rounded-tl-md border border-border bg-background px-4 py-3 shadow-sm min-w-0 overflow-hidden'
+          :'rounded-16 rounded-tl-md border border-border bg-background px-4 py-3 min-w-0 overflow-hidden'
       }
     >
       <MarkdownRenderer text={display} />

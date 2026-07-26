@@ -30,7 +30,7 @@ function Card({ card }: { card: FeatureCard }) {
     >
       <span
         className={cn(
-          'text-2xs font-semibold tracking-[0.2em] uppercase',
+          'text-2xs font-semibold uppercase',
           dark ? 'text-faint' : 'text-muted-foreground'
         )}
       >
@@ -38,7 +38,7 @@ function Card({ card }: { card: FeatureCard }) {
       </span>
       <h3
         className={cn(
-          'font-display italic font-semibold leading-[1.25] text-xl',
+          'font-display italic font-semibold leading-display-tight text-xl',
           dark ? 'text-background' : 'text-foreground'
         )}
       >
@@ -46,7 +46,7 @@ function Card({ card }: { card: FeatureCard }) {
       </h3>
       <p
         className={cn(
-          'text-md leading-[1.6] flex-1',
+          'text-md leading-paragraph flex-1',
           dark ? 'text-faint' : 'text-muted-foreground'
         )}
       >

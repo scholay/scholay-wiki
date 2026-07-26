@@ -25,7 +25,7 @@ export function PlazaSegmentTabs() {
           className={({ isActive }) =>
             'flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-sm transition-colors ' +
             (isActive
-              ? 'bg-background font-medium text-foreground shadow-sm'
+              ?'bg-background font-medium text-foreground shadow-raised'
               : 'text-muted-foreground hover:text-foreground')
           }
         >

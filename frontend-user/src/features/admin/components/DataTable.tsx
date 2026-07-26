@@ -197,7 +197,7 @@ export function DataTable<T>({
                   key={i}
                   style={c.width ? { width: c.width } : undefined}
                   className={cn(
-                    'h-9 px-3 text-faint font-bold text-2xs tracking-[0.12em] text-left',
+                    'h-9 px-3 text-faint font-bold text-2xs text-left',
                     c.align === 'right' && 'text-right',
                     c.align === 'center' && 'text-center',
                     sortable && 'cursor-pointer select-none hover:text-foreground',

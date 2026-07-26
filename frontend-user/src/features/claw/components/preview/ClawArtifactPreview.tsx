@@ -262,7 +262,7 @@ function BytesPreview({
   }
   // 纯文本
   return (
-    <pre className="h-full overflow-auto whitespace-pre-wrap break-words px-4 py-3 text-xs leading-relaxed text-subtle">
+    <pre className="h-full overflow-auto whitespace-pre-wrap break-words px-4 py-3 text-xs leading-paragraph text-subtle">
       {text}
     </pre>
   );

@@ -64,7 +64,7 @@ export function DefaultCard({
       <div className="flex items-start gap-2">
         <h3
           onClick={() => openPaper(paper)}
-          className="flex-1 min-w-0 text-md font-semibold leading-snug text-foreground cursor-pointer hover:text-brand-red transition-colors"
+          className="flex-1 min-w-0 text-md font-semibold text-foreground cursor-pointer hover:text-brand-red transition-colors"
           title="打开论文详情"
         >
           {highlightQuery && !showZh
@@ -110,7 +110,7 @@ export function DefaultCard({
       {displayAbstract && (
         <TruncatedText
           lines={2}
-          className="mt-2 text-sm text-subtle leading-relaxed"
+          className="mt-2 text-sm text-subtle leading-paragraph"
         >
           {displayAbstract}
         </TruncatedText>

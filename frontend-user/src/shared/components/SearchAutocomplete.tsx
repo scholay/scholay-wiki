@@ -259,7 +259,7 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
           <div
             // .pen `t3sGV`:1px #E5E5E5 边 + 下圆角 4 + 阴影 (0,8) blur 24
             // 高度封顶由上面 ResizeObserver 算出 --dropdownMaxHeight
-            className="absolute top-full left-0 right-0 z-50 flex flex-col bg-background border border-border-strong border-t-0 rounded-b-sm shadow-[0_8px_24px_rgba(0,0,0,0.08)] overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150"
+            className="absolute top-full left-0 right-0 z-50 flex flex-col bg-background border border-border-strong border-t-0 rounded-b-sm overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150"
             style={{ maxHeight: dropdownMaxHeight }}
           >
             {papers.length > 0 && (

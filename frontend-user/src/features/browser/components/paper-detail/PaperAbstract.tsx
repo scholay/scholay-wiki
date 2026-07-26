@@ -23,7 +23,7 @@ export function PaperAbstract({ paper }: { paper: Paper }) {
       <h2 className="font-display italic text-lg text-muted-foreground">
         Abstract
       </h2>
-      <p className="text-md leading-[1.75] text-subtle text-justify whitespace-pre-wrap">
+      <p className="text-md leading-paragraph text-subtle text-justify whitespace-pre-wrap">
         {paper.abstract}
       </p>
       {(paper.fieldsOfStudy?.length ?? 0) > 0 && (

@@ -49,11 +49,11 @@ function extractCodeText(node: ReactNode): string {
  *     这样:
  *       1. 每个元素的视觉契约都可以追溯到具体 className (而不是黑盒 prose CSS)
  *       2. 跟项目 design system (brand-green / surface-1 / text-muted-foreground) 直接对齐
- *       3. 不被 prose 的默认行高/字号 override 干扰我们的 leading-[1.7]
+ * 3. 不被 prose 的默认行高/字号 override 干扰我们的 leading-paragraph
  *
  * 输出层级 (高到低):
  *   - <strong> (论文标题级别): text-foreground + font-semibold
- *   - 正文 <p> / <li>: text-foreground + leading-[1.7]
+ * - 正文 <p> / <li>: text-foreground + leading-paragraph
  *   - <em> (期刊名等元数据): text-muted-foreground (灰色退后, 故意 not-italic)
  *   - inline <code> (DOI / arXiv id): bg-surface-2 + font-mono
  *   - <a> (链接): text-brand-green underline (跟 AI 操作色一致)
@@ -69,7 +69,7 @@ function extractCodeText(node: ReactNode): string {
 
 const components = {
   p: (props: { children?: ReactNode }) => (
-    <p className="mb-2.5 last:mb-0 leading-[1.7] text-foreground">
+    <p className="mb-2.5 last:mb-0 leading-paragraph text-foreground">
       {props.children}
     </p>
   ),
@@ -86,13 +86,13 @@ const components = {
   li: (props: { children?: ReactNode; ordered?: boolean }) => {
     if (props.ordered) {
       return (
-        <li className="chat-md-ol-li relative pl-7 leading-[1.7] text-foreground">
+        <li className="chat-md-ol-li relative pl-7 leading-paragraph text-foreground">
           {props.children}
         </li>
       );
     }
     return (
-      <li className="leading-[1.7] text-foreground">{props.children}</li>
+      <li className="leading-paragraph text-foreground">{props.children}</li>
     );
   },
   strong: (props: { children?: ReactNode }) => (
@@ -216,7 +216,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
   return (
     <div
       className={
-        'text-sm text-foreground leading-[1.7] min-w-0 ' + (className ?? '')
+        'text-sm text-foreground leading-paragraph min-w-0'+ (className ??'')
       }
     >
       <ReactMarkdown

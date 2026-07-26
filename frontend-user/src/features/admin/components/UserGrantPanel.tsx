@@ -91,7 +91,7 @@ export function UserGrantPanel({
     <div className="flex flex-col gap-4">
       {/* 会员 */}
       <div className="flex flex-col gap-2">
-        <Label className="text-2xs tracking-[0.12em] text-faint">发放 / 续期会员</Label>
+        <Label className="text-2xs text-faint">发放 / 续期会员</Label>
         <div className="flex flex-wrap items-center gap-1.5">
           {(['pro', 'max'] as const).map((t) => (
             <Button
@@ -160,7 +160,7 @@ export function UserGrantPanel({
 
       {/* 经费 */}
       <div className="flex flex-col gap-2 border-t border-border-soft pt-3">
-        <Label className="text-2xs tracking-[0.12em] text-faint">调整科研经费</Label>
+        <Label className="text-2xs text-faint">调整科研经费</Label>
         <div className="flex flex-wrap items-center gap-1.5">
           {(['perm', 'temp'] as const).map((k) => (
             <Button

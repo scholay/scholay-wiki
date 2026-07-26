@@ -21,14 +21,14 @@ export function Prose({
     <div
       className={cn(
         // 段落、标题、列表的统一节奏
-        'text-sm md:text-base text-subtle leading-[1.75]',
+        'text-sm md:text-base text-subtle leading-paragraph',
         '[&_h2]:mt-10 [&_h2]:mb-3 [&_h2]:text-lg md:[&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-foreground',
         '[&_h2:first-child]:mt-0',
         '[&_h3]:mt-6 [&_h3]:mb-2 [&_h3]:text-base md:[&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-foreground',
-        '[&_p]:my-3 [&_p]:leading-[1.75]',
+        '[&_p]:my-3 [&_p]:leading-paragraph',
         '[&_ul]:my-3 [&_ul]:pl-5 [&_ul]:list-disc [&_ul]:space-y-1.5',
         '[&_ol]:my-3 [&_ol]:pl-5 [&_ol]:list-decimal [&_ol]:space-y-1.5',
-        '[&_li]:leading-[1.7]',
+        '[&_li]:leading-paragraph',
         '[&_a]:text-brand-red [&_a]:underline-offset-2 hover:[&_a]:underline',
         '[&_strong]:text-foreground [&_strong]:font-bold',
         '[&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-sm [&_code]:bg-surface-2 [&_code]:font-mono [&_code]:text-2xs',

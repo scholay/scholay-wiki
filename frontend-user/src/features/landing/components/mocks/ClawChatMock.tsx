@@ -10,7 +10,7 @@ export function ClawChatMock() {
   return (
     <div className={cn(
       'flex flex-col rounded-12 overflow-hidden bg-background border border-border',
-      'shadow-[0_24px_48px_rgba(15,23,42,0.08)]'
+      'shadow-overlay'
     )}>
       {/* header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border-soft bg-surface-1">
@@ -29,7 +29,7 @@ export function ClawChatMock() {
 
         {/* claw response */}
         <div className="self-start max-w-[88%] px-4 py-3 rounded-lg bg-surface-1 border border-border-soft">
-          <div className="text-sm leading-[1.7] text-foreground">
+          <div className="text-sm leading-paragraph text-foreground">
             两篇的核心差异在<span className="font-semibold">注意力方向</span>:Vaswani 提出<span className="font-semibold">自回归 self-attention</span>
             <span className="inline-flex items-center px-1 rounded-sm bg-brand-red/10 text-brand-red text-2xs font-bold ml-0.5">[1]</span>,
             decoder 端只能看到过去 token;Devlin 则用<span className="font-semibold">双向 masked LM</span>

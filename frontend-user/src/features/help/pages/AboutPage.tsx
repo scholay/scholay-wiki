@@ -112,21 +112,21 @@ export function AboutPage() {
       <section className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-8 items-start">
         <div>
           <SectionTitle>我们是谁</SectionTitle>
-          <p className="mt-4 text-sm text-subtle leading-[1.85]">
+          <p className="mt-4 text-sm text-subtle leading-paragraph">
             <BrandName /> 由一群热爱学术、相信技术的研究者与工程师创办。我们见过太多研究生在文献海洋里翻找数月却找不到关键论文,见过太多导师在重复的审稿与回信中消耗本可以用来思考的时间。
           </p>
-          <p className="mt-3 text-sm text-subtle leading-[1.85]">
+          <p className="mt-3 text-sm text-subtle leading-paragraph">
             我们想做的事很简单:把这些重复消耗砍掉,让科研工作者把时间留给真正重要的判断。
           </p>
         </div>
         <aside className="rounded-lg bg-surface-1 border border-border-soft p-5">
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand-red mb-3">
+          <p className="text-xs font-bold uppercase text-brand-red mb-3">
             使命
           </p>
-          <p className="text-sm text-foreground font-semibold leading-relaxed">
+          <p className="text-sm text-foreground font-semibold leading-paragraph">
             用 AI 把学术工作流的每一步压缩到只剩本质 ——
           </p>
-          <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+          <p className="mt-2 text-xs text-muted-foreground leading-paragraph">
             检索、阅读、对比、记录、写作、引用、投稿、审稿,这八个核心动作本应让你产生洞察,而不是消耗精力。
           </p>
         </aside>
@@ -160,7 +160,7 @@ export function AboutPage() {
       <section className="mt-16">
         <div className="rounded-lg bg-surface-1 border border-border-soft p-8 md:p-10">
           <SectionTitle>反馈 / 联系</SectionTitle>
-          <p className="mt-3 text-sm text-muted-foreground leading-relaxed max-w-2xl">
+          <p className="mt-3 text-sm text-muted-foreground leading-paragraph max-w-2xl">
             产品意见、bug 报告、合作意向 —— 都可以反馈给我们,产品团队每条都会看到。
           </p>
           <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -190,7 +190,7 @@ export function AboutPage() {
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-xl md:text-2xl font-bold text-foreground tracking-tight">
+    <h2 className="text-xl md:text-2xl font-bold text-foreground">
       {children}
     </h2>
   );
@@ -203,7 +203,7 @@ function ValueCard({ value: { icon: Icon, title, desc } }: { value: Value }) {
         <Icon className="size-4 text-brand-red" strokeWidth={2} />
       </span>
       <p className="text-sm font-bold text-foreground">{title}</p>
-      <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
+      <p className="text-xs text-muted-foreground leading-paragraph">{desc}</p>
     </div>
   );
 }
@@ -222,7 +222,7 @@ function PillarCard({ pillar: { icon: Icon, title, desc, to, status } }: { pilla
         )}
       </div>
       <p className="mt-3 text-sm font-bold text-foreground">{title}</p>
-      <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{desc}</p>
+      <p className="mt-1 text-xs text-muted-foreground leading-paragraph">{desc}</p>
       {to && (
         <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-brand-red">
           了解更多
@@ -236,7 +236,7 @@ function PillarCard({ pillar: { icon: Icon, title, desc, to, status } }: { pilla
     'flex flex-col p-5 rounded-md bg-background border border-border transition-colors';
   if (to) {
     return (
-      <Link to={to} className={`${cls} hover:border-foreground/40 hover:shadow-[0_4px_16px_rgba(0,0,0,0.04)]`}>
+      <Link to={to} className={`${cls} hover:border-foreground/40 hover:`}>
         {inner}
       </Link>
     );

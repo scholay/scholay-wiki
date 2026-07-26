@@ -189,7 +189,7 @@ export function MembershipPlanCard({ plan, cycle = 'monthly', popularBadge, high
       {/* 特性 */}
       <ul className="flex flex-1 flex-col gap-2">
         {features.map((f) => (
-          <li key={f} className="flex items-start gap-2 text-sm leading-relaxed text-subtle">
+          <li key={f} className="flex items-start gap-2 text-sm leading-paragraph text-subtle">
             <Check className="mt-0.5 size-4 shrink-0 text-brand-green" strokeWidth={2.5} />
             <span>{f}</span>
           </li>
@@ -238,7 +238,7 @@ export function BillingCycleToggle({
             onClick={() => !disabled && onChange(opt.id)}
             className={cn(
               'flex h-8 items-center gap-1.5 rounded-pill px-4 text-sm font-bold transition-colors',
-              active ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground',
+              active ?'bg-background text-foreground shadow-raised':'text-muted-foreground',
               !disabled && !active && 'hover:text-foreground',
               disabled && 'cursor-not-allowed',
             )}

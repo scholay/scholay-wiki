@@ -147,10 +147,10 @@ export function MockMatrixPreview() {
                   >
                     {row.paperTag.label}
                   </span>
-                  <p className="text-sm font-bold text-foreground leading-snug">
+                  <p className="text-sm font-bold text-foreground">
                     {row.title}
                   </p>
-                  <p className="text-xs text-subtle leading-relaxed line-clamp-3">
+                  <p className="text-xs text-subtle leading-paragraph line-clamp-3">
                     {row.abstract}
                   </p>
                 </div>
@@ -169,7 +169,7 @@ export function MockMatrixPreview() {
                     >
                       {c.tag}
                     </span>
-                    <p className="text-xs text-subtle leading-relaxed">
+                    <p className="text-xs text-subtle leading-paragraph">
                       {c.content}
                     </p>
                   </div>
@@ -297,7 +297,7 @@ export function EmptyImportButton() {
         onClick={handleClick}
         disabled={disabled}
         className={cn(
-          'inline-flex items-center gap-1.5 h-9 px-5 rounded-pill bg-brand-red text-background text-xs font-bold transition-colors shadow-sm',
+          'inline-flex items-center gap-1.5 h-9 px-5 rounded-pill bg-brand-red text-background text-xs font-bold transition-colors',
           'hover:bg-brand-red/90 disabled:opacity-70 disabled:cursor-not-allowed'
         )}
       >

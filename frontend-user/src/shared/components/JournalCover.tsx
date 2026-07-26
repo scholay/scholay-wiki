@@ -67,7 +67,7 @@ export const JournalCover = forwardRef<HTMLDivElement, JournalCoverProps>(
           style={{ backgroundColor: color }}
           title={name}
         >
-          <span className="font-bold tracking-wider leading-none text-xl">
+          <span className="font-bold leading-none text-xl">
             {abbrev}
           </span>
         </div>
@@ -96,14 +96,14 @@ export const JournalCover = forwardRef<HTMLDivElement, JournalCoverProps>(
       >
         <span
           className={cn(
-            'font-bold tracking-wider leading-none',
+            'font-bold leading-none',
             abbrevSize
           )}
         >
           {abbrev}
         </span>
         <span
-          className="text-2xs text-white/70 leading-tight line-clamp-3"
+          className="text-2xs text-white/70 line-clamp-3"
           title={name}
         >
           {name}

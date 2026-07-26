@@ -43,7 +43,7 @@ function LoggedOutView() {
     <div className="flex h-full flex-col items-center justify-center px-8 text-center">
       <BrandLogo size="lg" />
       <h1 className="mt-5 text-xl font-bold text-foreground">登录 Scholay</h1>
-      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+      <p className="mt-1.5 text-sm leading-paragraph text-muted-foreground">
         登录后查看你的会员、科研经费、文献集与设置
       </p>
       <div className="mt-7 flex w-full max-w-xs flex-col gap-2.5">

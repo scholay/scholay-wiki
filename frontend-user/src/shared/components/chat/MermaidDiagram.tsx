@@ -83,7 +83,7 @@ export const MermaidDiagram = memo(function MermaidDiagram({ code }: { code: str
   // 已稳定但渲染失败(语法非法)→ 回退原始代码,方便用户/排查。
   if (settled && error) {
     return (
-      <pre className="mb-2.5 last:mb-0 overflow-x-auto rounded-md border border-border bg-surface-1 p-3 text-[12px] leading-relaxed">
+      <pre className="mb-2.5 last:mb-0 overflow-x-auto rounded-md border border-border bg-surface-1 p-3 text-[12px] leading-paragraph">
         <code>{code}</code>
       </pre>
     );

@@ -150,7 +150,7 @@ export function ConnectionsPage() {
     <div className="flex flex-col gap-6 max-w-3xl">
       <div className="flex flex-col gap-1">
         <h2 className="text-lg font-semibold text-foreground">已连接的账号</h2>
-        <p className="text-sm text-muted-foreground leading-[1.6]">
+        <p className="text-sm text-muted-foreground leading-paragraph">
           管理你登录这个账号的方式。为了安全,至少要保留 1 种,避免下次登不进来。
           目前共有{' '}
           <span className="font-semibold text-foreground">{data.login_methods_count}</span>{' '}

@@ -95,7 +95,7 @@ export function TodayPanel() {
     <section className="rounded-md border border-border bg-background">
       <header className="px-4 py-3 border-b border-border-soft flex items-center justify-between">
         <h2 className="text-sm font-bold text-foreground">今日待办</h2>
-        <span className="text-2xs text-faint tracking-[0.12em]">{items.length} 项</span>
+        <span className="text-2xs text-faint">{items.length} 项</span>
       </header>
       <ul>
         {items.map((it, i) => (
@@ -118,7 +118,7 @@ export function TodayPanel() {
               >
                 {it.icon}
               </span>
-              <div className="flex-1 min-w-0 flex flex-col leading-tight">
+              <div className="flex-1 min-w-0 flex flex-col">
                 <span className="text-sm font-bold text-foreground">{it.label}</span>
                 <span className="text-2xs text-faint truncate mt-px">{it.hint}</span>
               </div>

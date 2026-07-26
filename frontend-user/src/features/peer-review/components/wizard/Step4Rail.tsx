@@ -48,7 +48,7 @@ export function Step4Rail({ submissionId, submission, assets, agreed }: Step4Rai
                 {it.passed && <Check className="size-2.5" strokeWidth={3} />}
               </span>
               <span className={cn(
-                'text-xs leading-relaxed',
+                'text-xs leading-paragraph',
                 it.passed ? 'text-subtle' : 'text-muted-foreground'
               )}>
                 {it.label}

@@ -224,7 +224,7 @@ function Row({
     <div className={cn('flex gap-3', multiline ? 'items-start' : 'items-center')}>
       <span className="w-24 shrink-0 text-xs text-faint">{label}</span>
       <span className={cn(
-        'min-w-0 flex-1 text-sm leading-relaxed text-subtle',
+        'min-w-0 flex-1 text-sm leading-paragraph text-subtle',
         multiline ? 'break-words' : 'line-clamp-1',
         valueClass,
       )}>
@@ -263,7 +263,7 @@ function TermsBlock({
           onCheckedChange={(v) => handleFirstChange(v === true)}
           className="mt-0.5"
         />
-        <span className="text-sm leading-relaxed text-subtle">
+        <span className="text-sm leading-paragraph text-subtle">
           我已逐项核对以上信息真实有效;本稿件未在其它期刊投稿或正式发表,所有作者均已审阅并同意本次提交版本。
         </span>
       </label>
@@ -271,7 +271,7 @@ function TermsBlock({
       {/* 必勾项 2 — 默认勾上 (设计稿就是这样, 用户登录注册时已经接受过, 这里只是确认) */}
       <label className="flex cursor-default items-start gap-3 opacity-90">
         <Checkbox checked disabled className="mt-0.5" />
-        <span className="text-sm leading-relaxed text-subtle">
+        <span className="text-sm leading-paragraph text-subtle">
           我同意《Scholay 服务条款》《用户隐私协议》以及目标期刊作者协议中的相关声明。
         </span>
       </label>
@@ -279,7 +279,7 @@ function TermsBlock({
       {/* 选填项 */}
       <label className="flex cursor-pointer items-start gap-3">
         <Checkbox className="mt-0.5" />
-        <span className="text-sm leading-relaxed text-muted-foreground">
+        <span className="text-sm leading-paragraph text-muted-foreground">
           我授权 Scholay 在审稿完成后将本论文摘要纳入匿名学术贡献数据集,用于检索优化(可选)
         </span>
       </label>

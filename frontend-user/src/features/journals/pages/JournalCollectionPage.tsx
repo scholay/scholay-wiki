@@ -87,13 +87,13 @@ export function JournalCollectionPage() {
 
   const header = (
     <section className="space-y-2">
-      <div className="text-2xs font-bold uppercase tracking-[0.18em] text-faint">
+      <div className="text-2xs font-bold uppercase text-faint">
         期刊榜单
       </div>
-      <h1 className="font-display font-bold text-xl sm:text-2xl text-foreground leading-tight">
+      <h1 className="font-display font-bold text-xl sm:text-2xl text-foreground leading-display-tight">
         {preset.heading}
       </h1>
-      <p className="text-sm leading-relaxed text-muted-foreground max-w-3xl">
+      <p className="text-sm leading-paragraph text-muted-foreground max-w-3xl">
         {preset.intro}
       </p>
 

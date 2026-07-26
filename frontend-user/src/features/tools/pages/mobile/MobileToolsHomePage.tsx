@@ -130,7 +130,7 @@ export function MobileToolsHomePage() {
                 </div>
                 <ArrowRight className="size-[18px] text-background/80" />
               </div>
-              <p className="text-xs leading-relaxed text-background/70">
+              <p className="text-xs leading-paragraph text-background/70">
                 {total != null ? `${total.toLocaleString()} 个网站 · 工具 · 数据库已收录` : '海量网站 · 工具 · 数据库已收录'}
                 ,覆盖检索、写作、绘图、数据等全科研流程,持续更新。
               </p>

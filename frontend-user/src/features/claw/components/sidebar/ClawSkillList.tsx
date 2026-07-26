@@ -102,7 +102,7 @@ export function ClawSkillList({
           已达 {maxEnabled} 个上限 —— 需先关闭一些才能启用其它技能。
         </p>
       )}
-      <p className="mt-1.5 text-2xs leading-relaxed text-faint">
+      <p className="mt-1.5 text-2xs leading-paragraph text-faint">
         启用变更仅对新对话生效。
         <button
           onClick={onNewConversation}

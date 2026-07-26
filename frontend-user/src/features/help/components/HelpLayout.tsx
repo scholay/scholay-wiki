@@ -106,16 +106,16 @@ export function HelpLayout({
           {eyebrow && (
             <div className="flex items-center gap-2 mb-3">
               <span className="h-px w-6 bg-brand-red" />
-              <p className="text-2xs font-bold uppercase tracking-[0.22em] text-brand-red">
+              <p className="text-2xs font-bold uppercase text-brand-red">
                 {eyebrow}
               </p>
             </div>
           )}
-          <h1 className="text-3xl md:text-display-36 font-bold text-foreground leading-[1.15] tracking-tight">
+          <h1 className="text-3xl md:text-display-36 font-bold text-foreground">
             {title}
           </h1>
           {lead && (
-            <p className="mt-4 text-sm md:text-base text-muted-foreground leading-relaxed max-w-3xl">
+            <p className="mt-4 text-sm md:text-base text-muted-foreground leading-paragraph max-w-3xl">
               {lead}
             </p>
           )}

@@ -90,7 +90,7 @@ function CommandRow({
         {title}
       </div>
       <div className="flex items-stretch gap-2">
-        <code className="min-w-0 flex-1 overflow-x-auto rounded-md border border-border bg-surface-1 px-3 py-2 font-mono text-2xs leading-relaxed text-subtle">
+        <code className="min-w-0 flex-1 overflow-x-auto rounded-md border border-border bg-surface-1 px-3 py-2 font-mono text-2xs leading-paragraph text-subtle">
           {command}
         </code>
         <CopyButton text={command} iconOnly />

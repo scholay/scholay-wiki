@@ -32,7 +32,7 @@ export function StatCard({
         <span className="text-sm">{label}</span>
         {icon && <span className="[&_svg]:size-4">{icon}</span>}
       </div>
-      <div className="text-2xl font-bold tracking-tight text-foreground">{value}</div>
+      <div className="text-2xl font-bold text-foreground">{value}</div>
       {(hint || trend) && (
         <div className="flex items-center gap-2 text-xs">
           {trend && (

@@ -25,7 +25,7 @@ export function showQuotaToast(kind: Kind) {
   const p = PRESETS[kind];
   const c = COLOR[p.color];
   toast.custom((id) => (
-    <div className="flex w-80 overflow-hidden rounded-md border border-border bg-background shadow-sm">
+    <div className="flex w-80 overflow-hidden rounded-md border border-border bg-background shadow-overlay">
       <span className={cn('w-1 shrink-0', c.bar)} />
       <div className="flex flex-1 gap-2 p-3">
         <span className={cn('mt-1.5 size-2 shrink-0 rounded-pill', c.dot)} />
@@ -34,7 +34,7 @@ export function showQuotaToast(kind: Kind) {
             <p className="text-sm font-bold text-foreground">{p.title}</p>
             <span className={cn('shrink-0 rounded-pill px-1.5 py-0.5 text-2xs', c.pill, c.text)}>系统通知</span>
           </div>
-          <p className="mt-1 text-2xs leading-relaxed text-muted-foreground">{p.body}</p>
+          <p className="mt-1 text-2xs leading-paragraph text-muted-foreground">{p.body}</p>
         </div>
         <button onClick={() => toast.dismiss(id)} className="shrink-0 text-faint transition-colors hover:text-foreground">
           <X className="size-3.5" />

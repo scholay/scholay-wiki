@@ -78,7 +78,7 @@ function ComingSoonSidebar({ title }: { title: string }) {
               <Sparkles className="size-2.5" strokeWidth={2.5} />
               即将推出
             </div>
-            <p className="mt-2 text-xs text-subtle leading-relaxed">
+            <p className="mt-2 text-xs text-subtle leading-paragraph">
               这块功能正在打磨。上线后,这里会出现完整的侧栏内容(文件夹 /
               历史 / 配置等)。
             </p>

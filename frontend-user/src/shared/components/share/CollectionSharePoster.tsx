@@ -44,7 +44,7 @@ export const CollectionSharePoster = forwardRef<HTMLDivElement, { data: Collecti
     // 外层灰底托 —— .pen Stage(zdApc)padding [纵16,横20];Tailwind 无对应横向档,保留 arbitrary px-5(20)。
     return (
       <div ref={ref} className="w-[390px] bg-[#F5F5F5] px-5 py-4 font-sans">
-        <div className="overflow-hidden rounded-[6px] border border-[#E9E9E9] bg-white shadow-[0_12px_32px_-8px_#1111111f]">
+        <div className="overflow-hidden rounded-[6px] border border-[#E9E9E9] bg-white">
           {/* 三色品牌条 */}
           <div className="flex h-1">
             <div className="flex-1 bg-[#CD2323]" />
@@ -55,7 +55,7 @@ export const CollectionSharePoster = forwardRef<HTMLDivElement, { data: Collecti
           <div className="flex flex-col gap-3.5 px-5 pb-[18px] pt-[18px]">
             {/* 头部:logo + 文献集胶囊 */}
             <div className="flex items-center justify-between">
-              <div className="flex items-end font-display text-[17px] font-bold leading-none tracking-[-0.6px]">
+              <div className="flex items-end font-display text-[17px] font-bold leading-none tracking-brand">
                 {LOGO.map((l, i) => (
                   <span key={i} style={{ color: l.color }}>
                     {l.c}
@@ -70,7 +70,7 @@ export const CollectionSharePoster = forwardRef<HTMLDivElement, { data: Collecti
 
             {/* 标题 + 篇数(.pen Title Block Jmo0o gap 5) */}
             <div className="flex flex-col gap-[5px]">
-              <h2 className="font-display text-[24px] font-bold leading-[1.2] text-[#111]">{data.title}</h2>
+              <h2 className="font-display text-[24px] font-bold leading-display-tight text-[#111]">{data.title}</h2>
               {/* .pen 副标题为「N 篇 · M 作者 · K 主题」,但作者/主题聚合数在分享链路拿不到;
                   按诚实指标原则只渲染真实可得的篇数,不臆造作者/主题数。 */}
               <p className="text-[12.5px] text-[#666]">{data.paperCount} 篇文献</p>
@@ -97,7 +97,7 @@ export const CollectionSharePoster = forwardRef<HTMLDivElement, { data: Collecti
                       >
                         {i + 1}
                       </span>
-                      <span className="line-clamp-1 min-w-0 flex-1 text-[13px] font-medium leading-tight text-[#111]">
+                      <span className="line-clamp-1 min-w-0 flex-1 text-[13px] font-medium text-[#111]">
                         {p.title}
                       </span>
                       {meta && <span className="shrink-0 text-[11px] text-[#999]">{meta}</span>}
@@ -133,7 +133,7 @@ export const CollectionSharePoster = forwardRef<HTMLDivElement, { data: Collecti
                 <QRCodeCanvas value={data.qrValue} size={52} level="M" marginSize={0} />
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
-                <p className="text-[13px] font-semibold leading-snug text-[#111]">长按识别二维码 · 在 Scholay 查看合集</p>
+                <p className="text-[13px] font-semibold text-[#111]">长按识别二维码 · 在 Scholay 查看合集</p>
                 <p className="truncate text-[11px] text-[#999]">{data.urlLabel}</p>
                 <p className="text-[11px] text-[#666]">由 Scholay 学术分享生成</p>
               </div>

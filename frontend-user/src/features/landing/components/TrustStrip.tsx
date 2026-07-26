@@ -17,7 +17,7 @@ export function TrustStrip({
   return (
     <section className="bg-surface-1 border-y border-border-soft">
       <div className="max-w-7xl mx-auto px-6 lg:px-12 py-10 flex flex-col gap-6 items-center">
-        <span className="text-2xs font-semibold tracking-[0.2em] uppercase text-muted-foreground">
+        <span className="text-2xs font-semibold uppercase text-muted-foreground">
           {label}
         </span>
         <div className="flex flex-wrap justify-center items-center gap-x-12 gap-y-4">
@@ -30,7 +30,7 @@ export function TrustStrip({
                 i % 3 === 0
                   ? 'font-display italic text-2xl font-semibold'
                   : i % 3 === 1
-                    ? 'text-lg font-bold tracking-[0.1em]'
+                    ? 'text-lg font-bold'
                     : 'font-display text-xl font-semibold'
               )}
             >

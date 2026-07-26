@@ -107,7 +107,7 @@ export function NewsWebhookConfigPage() {
           </Field>
         </Section>
 
-        <div className="rounded-md border border-border-soft bg-surface-1 p-4 text-xs leading-relaxed text-muted-foreground">
+        <div className="rounded-md border border-border-soft bg-surface-1 p-4 text-xs leading-paragraph text-muted-foreground">
           <p className="font-semibold text-foreground">对接说明</p>
           <ul className="mt-1.5 list-disc space-y-1 pl-4">
             <li>把上面的「接收 URL」填到上游 Minicod 的推送端点,密钥两端保持一致。</li>
@@ -145,7 +145,7 @@ function Section({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-2xs tracking-[0.08em] text-faint">{label}</Label>
+      <Label className="text-2xs text-faint">{label}</Label>
       {children}
     </div>
   );

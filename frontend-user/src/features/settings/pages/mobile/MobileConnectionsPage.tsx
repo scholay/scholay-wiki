@@ -98,7 +98,7 @@ function ConnectionsBody() {
           <p className="py-10 text-center text-sm text-faint">暂无连接信息</p>
         )}
       </section>
-      <p className="px-1 text-xs leading-relaxed text-faint">
+      <p className="px-1 text-xs leading-paragraph text-faint">
         绑定 / 解绑第三方账号涉及授权跳转,请在电脑端「设置 → 已连接账号」操作
       </p>
     </div>

@@ -90,7 +90,7 @@ export function MetadataFields({ form, placeholders = {}, disabled }: MetadataFi
           placeholder={placeholders.abstract}
           rows={12}
           disabled={disabled}
-          className={cn(inputCn, 'min-h-[220px] resize-y leading-relaxed py-2 font-mono')}
+          className={cn(inputCn,'min-h-[220px] resize-y leading-paragraph py-2 font-mono')}
         />
       </Field>
     </div>

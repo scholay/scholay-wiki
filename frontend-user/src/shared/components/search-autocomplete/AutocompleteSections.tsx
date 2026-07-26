@@ -38,7 +38,7 @@ export function JournalSearchAlternateRow({
         // 形态完全复刻主框:48h / pl-5 pr-2 / rounded-sm
         'flex h-12 items-center gap-3 pl-5 pr-2 bg-background border border-brand-blue rounded-sm',
         // 轻微阴影,与主框区分悬浮层级
-        'shadow-[0_8px_24px_rgba(0,0,0,0.06)]'
+        'shadow-overlay'
       )}
     >
       {/* 查询文字 —— 不可编辑,只是 echo 主框 query 让用户确认 */}

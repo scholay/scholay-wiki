@@ -77,13 +77,13 @@ export function QADetailPage() {
               <Link
                 key={r.slug}
                 to={`/qa/${r.slug}`}
-                className="group flex flex-col gap-1.5 p-4 rounded-md bg-background border border-border-soft hover:border-foreground/40 transition-all hover:shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
+                className="group flex flex-col gap-1.5 p-4 rounded-md bg-background border border-border-soft hover:border-foreground/40 transition-all hover:"
               >
                 <p className="text-2xs text-faint">{r.category}</p>
-                <p className="text-sm font-bold text-foreground leading-snug line-clamp-2">
+                <p className="text-sm font-bold text-foreground line-clamp-2">
                   {r.title}
                 </p>
-                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                <p className="text-xs text-muted-foreground leading-paragraph line-clamp-2">
                   {r.excerpt}
                 </p>
                 <span className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-brand-red group-hover:gap-2 transition-all">
