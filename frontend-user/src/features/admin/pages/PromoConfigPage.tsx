@@ -4,6 +4,7 @@ import { AdminPageLayout } from '../components/AdminPageLayout';
 import { useApiToast } from '../hooks/useApiToast';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
+import { Textarea } from '@/shared/ui/textarea';
 import { Label } from '@/shared/ui/label';
 import { Switch } from '@/shared/ui/switch';
 import { useAdminPromoConfig, useUpdatePromoConfig, type PromoConfig } from '../api/promo-config';
@@ -104,12 +105,11 @@ export function PromoConfigPage() {
               />
             </Field>
             <Field label="福利点(一行一条)">
-              <textarea
+              <Textarea
                 value={form.benefits}
                 onChange={(e) => set('benefits', e.target.value)}
                 rows={4}
                 placeholder={PLACEHOLDER.benefits.join('\n')}
-                className="flex w-full rounded-8 border border-border bg-surface-card px-3 py-2 text-12 text-foreground placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </Field>
             <Field label="按钮 / 引导文案">

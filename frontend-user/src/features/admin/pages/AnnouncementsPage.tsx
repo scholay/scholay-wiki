@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
+import { Select } from '@/shared/ui/select';
+import { Textarea } from '@/shared/ui/textarea';
 import { Badge } from '@/shared/ui/badge';
 import { Label } from '@/shared/ui/label';
 import {
@@ -174,43 +176,40 @@ function AnnouncementDialog({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="space-y-1.5">
               <Label htmlFor="severity">严重程度</Label>
-              <select
+              <Select
                 id="severity"
                 name="severity"
                 defaultValue={initial?.severity || 'info'}
-                className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-12"
               >
                 <option value="info">提示</option>
                 <option value="warning">警告</option>
                 <option value="critical">严重</option>
-              </select>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="type">类型</Label>
-              <select
+              <Select
                 id="type"
                 name="type"
                 defaultValue={initial?.type || 'banner'}
-                className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-12"
               >
                 <option value="banner">横幅</option>
                 <option value="modal">弹窗</option>
                 <option value="toast">Toast</option>
-              </select>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="target_audience">目标</Label>
-              <select
+              <Select
                 id="target_audience"
                 name="target_audience"
                 defaultValue={initial?.target_audience || 'all'}
-                className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-12"
               >
                 <option value="all">全部</option>
                 <option value="logged_in">已登录</option>
                 <option value="guests">访客</option>
                 <option value="admins">管理员</option>
-              </select>
+              </Select>
             </div>
           </div>
 
@@ -227,13 +226,12 @@ function AnnouncementDialog({
 
           <div className="space-y-1.5">
             <Label htmlFor="content">内容</Label>
-            <textarea
+            <Textarea
               id="content"
               name="content"
               defaultValue={initial?.content}
               required
               rows={6}
-              className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
 

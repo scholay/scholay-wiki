@@ -4,6 +4,7 @@ import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
 import { useProfile } from '@/shared/api/profile';
+import { Input } from '@/shared/ui';
 import { MeSubpageShell } from '../../components/mobile/MeSubpageShell';
 
 /**
@@ -134,13 +135,13 @@ function PwdInput({
   onChange: (v: string) => void;
 }) {
   return (
-    <input
+    <Input
       type="password"
       autoComplete="new-password"
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className="w-full rounded-8 border border-border bg-surface-1 px-3 py-2 text-14 text-foreground outline-none placeholder:text-faint focus-visible:border-border-strong"
+      className="h-auto bg-surface-1 py-2 text-14"
     />
   );
 }

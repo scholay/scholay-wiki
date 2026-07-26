@@ -21,6 +21,7 @@ import {
   SidebarCollapseButton,
 } from '@/shared/components/sidebar';
 import { Button } from '@/shared/ui/button';
+import { Input } from '@/shared/ui';
 import { FavoriteBurst } from '@/shared/components/FavoriteBurst';
 import { useSidebar } from '@/stores/sidebar.store';
 import { useAuthStore } from '@/stores/auth.store';
@@ -274,7 +275,7 @@ function FolderRow({
     return (
       <div className="flex items-center gap-1.5 px-4 h-8">
         <Folder className="size-3.5 text-muted-foreground shrink-0" />
-        <input
+        <Input
           ref={inputRef}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -288,7 +289,7 @@ function FolderRow({
           }}
           onBlur={commitRename}
           disabled={renameMut.isPending}
-          className="flex-1 h-6 bg-surface-card border border-border rounded-8 px-1.5 text-12 outline-none focus-visible:border-brand-red"
+          className="flex-1 h-6 px-1.5 focus-visible:border-brand-red"
         />
         {renameMut.isPending && (
           <Loader2 className="size-3 animate-spin text-muted-foreground" />
@@ -425,7 +426,7 @@ function NewFolderRow({
   return (
     <div className="flex items-center gap-1.5 px-4 h-8">
       <Folder className="size-3.5 text-muted-foreground shrink-0" />
-      <input
+      <Input
         ref={inputRef}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
@@ -437,7 +438,7 @@ function NewFolderRow({
         }}
         onBlur={() => onSubmit(draft)}
         disabled={busy}
-        className="flex-1 h-6 bg-surface-card border border-border rounded-8 px-1.5 text-12 outline-none focus-visible:border-brand-red"
+        className="flex-1 h-6 px-1.5 focus-visible:border-brand-red"
       />
       {busy && <Loader2 className="size-3 animate-spin text-muted-foreground" />}
     </div>

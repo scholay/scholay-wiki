@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
 import { useProfile } from '@/shared/api/profile';
 import { useAuthStore } from '@/stores/auth.store';
+import { Input, Textarea } from '@/shared/ui';
 import { MeSubpageShell } from '../../components/mobile/MeSubpageShell';
 
 /**
@@ -72,22 +73,22 @@ function ProfileForm() {
     >
       <section className="space-y-3 rounded-16 border border-border bg-surface-card p-4">
         <Field label="昵称">
-          <input
+          <Input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             maxLength={32}
             placeholder="未设置"
-            className="w-full rounded-8 border border-border bg-surface-1 px-3 py-2 text-14 text-foreground outline-none placeholder:text-faint focus-visible:border-border-strong"
+            className="h-auto bg-surface-1 py-2 text-14"
           />
         </Field>
         <Field label="简介">
-          <textarea
+          <Textarea
             value={bio}
             onChange={(e) => setBio(e.target.value)}
             maxLength={200}
             rows={4}
             placeholder="介绍一下你的研究方向…"
-            className="w-full resize-none rounded-8 border border-border bg-surface-1 px-3 py-2 text-14 leading-paragraph text-foreground outline-none placeholder:text-faint focus-visible:border-border-strong"
+            className="resize-none bg-surface-1 text-14 leading-paragraph"
           />
         </Field>
       </section>

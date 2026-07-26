@@ -1,6 +1,7 @@
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogTitle } from '@/shared/ui/dialog';
+import { Button } from '@/shared/ui';
 import { useApiToast } from '@/shared/hooks';
 import {
   useDeleteUserDimension,
@@ -63,22 +64,20 @@ export function DeleteConfirmDialog({ target, onClose }: Props) {
             : '将永久删除该自定义维度。已生成的相关分析结果会保留,但矩阵不再展示该列。'}
         </div>
         <footer className="flex items-center justify-end gap-2 h-13 px-5 border-t border-border-soft">
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-7 px-3 rounded-8 border border-border text-12 text-subtle hover:bg-surface-1"
-          >
+          <Button type="button" variant="outline" size="sm" onClick={onClose}>
             取消
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="destructive"
+            size="sm"
             onClick={confirm}
             disabled={busy}
-            className="inline-flex items-center gap-1 h-7 px-3 rounded-8 bg-brand-red text-on-brand text-12 font-medium hover:bg-brand-red/90 disabled:opacity-50"
+            className="gap-1 [&_svg]:size-3"
           >
-            {busy && <Loader2 className="size-3 animate-spin" />}
+            {busy && <Loader2 className="animate-spin" />}
             {isReset ? '确认重置' : '确认删除'}
-          </button>
+          </Button>
         </footer>
       </DialogContent>
       )}

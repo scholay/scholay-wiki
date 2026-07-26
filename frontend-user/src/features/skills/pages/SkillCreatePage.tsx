@@ -11,7 +11,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { RouteSEO } from '@/shared/components/RouteSEO';
-import { Button } from '@/shared/ui';
+import { Button, Input, Textarea } from '@/shared/ui';
 import { useCreateSkill } from '@/shared/api/skills';
 
 type UploadMode = 'file' | 'chat';
@@ -215,11 +215,11 @@ export function SkillCreatePage() {
                 </div>
 
                 {textMode && (
-                  <textarea
+                  <Textarea
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                     spellCheck={false}
-                    className="mt-2 h-56 w-full resize-none rounded-8 border border-border bg-surface-1 p-3 font-mono text-12 leading-paragraph outline-none focus-visible:border-border-strong"
+                    className="mt-2 h-56 resize-none bg-surface-1 p-3 font-mono leading-paragraph"
                   />
                 )}
               </div>
@@ -280,30 +280,30 @@ export function SkillCreatePage() {
             </p>
             <div className="mt-4 space-y-3">
               <Field label="名称">
-                <input
+                <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   maxLength={120}
                   placeholder="例:系统性文献综述法"
-                  className="h-9 w-full rounded-8 border border-border bg-surface-card px-3 text-12 outline-none focus-visible:border-border-strong"
+                  className="h-9"
                 />
               </Field>
               <Field label="一句话简介">
-                <input
+                <Input
                   value={tagline}
                   onChange={(e) => setTagline(e.target.value)}
                   maxLength={255}
                   placeholder="简述这个技能能帮什么忙"
-                  className="h-9 w-full rounded-8 border border-border bg-surface-card px-3 text-12 outline-none focus-visible:border-border-strong"
+                  className="h-9"
                 />
               </Field>
               <Field label="分类(可选)">
-                <input
+                <Input
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
                   maxLength={40}
                   placeholder="如 research / writing / analysis"
-                  className="h-9 w-full rounded-8 border border-border bg-surface-card px-3 text-12 outline-none focus-visible:border-border-strong"
+                  className="h-9"
                 />
               </Field>
             </div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Eye } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
+import { Input } from '@/shared/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -87,14 +88,14 @@ export function ChatSessionMonitor({ feature }: { feature: MonitorFeature }) {
   return (
     <>
       <div className="mb-3">
-        <input
+        <Input
           value={kwInput}
           onChange={(e) => {
             setKwInput(e.target.value);
             setPage(1);
           }}
           placeholder="ID / 用户名 / 邮箱 / 手机号"
-          className="h-9 w-full sm:w-64 rounded-8 border border-input bg-surface-card px-3 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-9 w-full sm:w-64"
         />
       </div>
 

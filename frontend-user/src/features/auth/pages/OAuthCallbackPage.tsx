@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
+import { Button } from '@/shared/ui';
 import { useAuthStore } from '@/stores/auth.store';
 import type { AuthResponse } from '../types';
 import { OAuthMergeConfirmDialog } from '../components/OAuthMergeConfirmDialog';
@@ -258,13 +259,13 @@ export function OAuthCallbackPage() {
             <AlertCircle className="size-8 text-brand-red" />
             <p className="text-14 font-medium text-foreground">登录失败</p>
             <p className="text-12 text-muted-foreground">{errMsg}</p>
-            <button
+            <Button
               type="button"
               onClick={() => navigate('/', { replace: true })}
-              className="mt-2 inline-flex items-center h-9 px-4 rounded-8 bg-foreground text-background text-12 font-medium hover:bg-foreground/85"
+              className="mt-2 h-9 px-4"
             >
               返回首页
-            </button>
+            </Button>
           </>
         )}
         {phase === 'merge_required' && mergeToken && (

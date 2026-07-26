@@ -25,6 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  Textarea,
 } from '@/shared/ui';
 import {
   useSkillDetail,
@@ -254,12 +255,12 @@ function ReportDialog({
               </label>
             ))}
           </div>
-          <textarea
+          <Textarea
             value={detail}
             onChange={(e) => setDetail(e.target.value)}
             placeholder="补充说明(可选)"
             maxLength={1024}
-            className="h-20 w-full resize-none rounded-8 border border-border bg-surface-card p-2 text-12 outline-none focus-visible:border-border-strong"
+            className="h-20 resize-none p-2"
           />
         </div>
         <DialogFooter>

@@ -7,6 +7,7 @@ import { toApiError } from '@/shared/lib/http';
 import { isPhoneDevice } from '@/shared/lib/device';
 import { MobileBottomSheet } from '@/shared/components/MobileBottomSheet';
 import { Dialog, DialogContent, DialogTitle } from '@/shared/ui/dialog';
+import { Button } from '@/shared/ui';
 import { useCollectPicker } from '@/stores/collect-picker.store';
 import type { UserLibraryFolderItem } from '@/shared/api/types';
 import { useLibraryFolders, useCreateFolder } from '../api/folders';
@@ -96,14 +97,15 @@ export function CollectFolderPicker() {
               maxLength={32}
               className="min-w-0 flex-1 bg-transparent px-1.5 text-14 text-foreground outline-none placeholder:text-faint"
             />
-            <button
+            <Button
               type="button"
+              variant="destructive"
               onClick={submitCreate}
               disabled={!newName.trim() || createMut.isPending}
-              className="flex h-8 items-center gap-1 rounded-8 bg-brand-red px-3 text-12 font-medium text-on-brand active:opacity-90 disabled:opacity-50"
+              className="gap-1 active:opacity-90 [&_svg]:size-3.5"
             >
               {createMut.isPending ? <Loader2 className="size-3.5 animate-spin" /> : '创建'}
-            </button>
+            </Button>
             <button
               type="button"
               onClick={() => setCreating(false)}

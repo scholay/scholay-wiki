@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom';
+import { Button } from '@/shared/ui';
 import { AgentDisplacedBanner } from '@/shared/components/AgentDisplacedBanner';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
@@ -911,8 +912,10 @@ export function SmartSearchPanel() {
               >
                 {(hiddenCount > 0 || historyHasMore) && (
                   <div className="flex justify-center pb-1">
-                    <button
+                    <Button
                       type="button"
+                      variant="secondary"
+                      size="sm"
                       // 两段式"加载更早": 先把已拉到但没渲染的轮放进 DOM (hiddenCount>0, 不发请求);
                       // 都渲染完了还有更早的 → 向后端多要一页 (historyLimit += STEP) 并同步放开渲染窗口。
                       onClick={() => {
@@ -923,10 +926,10 @@ export function SmartSearchPanel() {
                           setRenderLimit((n) => n + HISTORY_STEP);
                         }
                       }}
-                      className="inline-flex items-center gap-1.5 h-7 px-3 rounded-pill bg-surface-2 text-12 text-muted-foreground hover:text-foreground hover:bg-surface-2/70 transition-colors"
+                      className="text-muted-foreground hover:text-foreground"
                     >
                       {hiddenCount > 0 ? `加载更早的 ${hiddenCount} 轮对话` : '加载更早的对话'}
-                    </button>
+                    </Button>
                   </div>
                 )}
                 {visibleTurns.map((turn) => (

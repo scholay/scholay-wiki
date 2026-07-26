@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Copy, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { CitationProse } from '@/shared/components/CitationProse';
+import { Button } from '@/shared/ui/button';
 import {
   CITATION_FORMAT_LABELS,
   CITATION_FORMATS,
@@ -91,15 +92,17 @@ export function PaperFooter({ paper }: { paper: Paper }) {
             <CitationProse text={citation} />
           </p>
         )}
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={copyCurrent}
-          className="absolute top-2 right-2 inline-flex items-center gap-1 h-7 px-2.5 rounded-8 bg-surface-card border border-border text-12 font-medium text-subtle hover:border-foreground hover:text-foreground transition-colors"
+          className="absolute top-2 right-2 gap-1 border-border text-subtle hover:border-foreground hover:text-foreground"
           aria-label={`复制 ${CITATION_FORMAT_LABELS[format]}`}
         >
-          <Copy className="size-3" strokeWidth={2.5} />
+          <Copy strokeWidth={2.5} />
           复制
-        </button>
+        </Button>
       </div>
 
       <p className="text-12 text-faint">

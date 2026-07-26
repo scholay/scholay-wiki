@@ -6,6 +6,7 @@ import { useApiToast } from '../hooks/useApiToast';
 import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
+import { Textarea } from '@/shared/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/ui/dialog';
 import { cn } from '@/shared/lib/utils';
 import {
@@ -269,12 +270,11 @@ function ReadingPane({ id }: { id: number | null }) {
             <label className="mb-2 block text-12 font-medium text-faint">
               回复 {mail.from_addr}(主题自动加 Re:)
             </label>
-            <textarea
+            <Textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
               rows={4}
               placeholder="输入回复内容…"
-              className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
             <div className="mt-2 flex justify-end">
               <Button onClick={handleReply} disabled={reply.isPending || !body.trim()}>
@@ -320,12 +320,11 @@ function ComposeDialog({ open, onClose }: { open: boolean; onClose: () => void }
         <div className="flex flex-col gap-3">
           <Input value={to} onChange={(e) => setTo(e.target.value)} placeholder="收件邮箱(用户邮箱见「用户管理」)" />
           <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="主题" />
-          <textarea
+          <Textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
             rows={8}
             placeholder="正文…"
-            className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
           <div className="flex justify-end">
             <Button onClick={handleSend} disabled={compose.isPending || !to.trim() || !subject.trim() || !body.trim()}>

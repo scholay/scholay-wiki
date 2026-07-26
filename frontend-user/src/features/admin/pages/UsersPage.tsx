@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Search, MoreHorizontal, Lock, Unlock, Trash2, ShieldCheck, Crown, Eye, Copy, UserCog, UserRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { Input } from '@/shared/ui/input';
+import { Select } from '@/shared/ui/select';
 import { Button } from '@/shared/ui/button';
 import { Badge } from '@/shared/ui/badge';
 import { Label } from '@/shared/ui/label';
@@ -12,7 +13,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu';
-import { cn } from '@/shared/lib/utils';
 import { useDebounce, useUrlState, usePatchUrlState } from '@/shared/hooks';
 import { useHasPermission, PERM, roleLabel, roleBadgeVariant } from '../permissions';
 import { AdminPageLayout } from '../components/AdminPageLayout';
@@ -32,8 +32,6 @@ import {
   type AdminUser,
   type UserListParams,
 } from '../api/users';
-
-const SELECT_CLS = 'h-8 rounded-8 border border-input bg-surface-card px-2 text-12 text-foreground';
 
 // 服务端排序默认值 —— 与后端 GetUserList 默认一致(last_login_at desc)。
 const DEFAULT_SORT_BY = 'last_login_at';
@@ -364,51 +362,55 @@ export function UsersPage() {
       {/* 筛选条 —— 每次写入都连带 page:null 回首页,且合并成一次 navigate */}
       <section className="mb-4 flex flex-wrap items-end gap-2 rounded-16 border border-border-soft bg-surface-1 p-3">
         <FilterField label="角色">
-          <select
+          <Select
             value={role}
             onChange={(e) => patch({ role: e.target.value || null, page: null })}
-            className={cn(SELECT_CLS, 'w-28')}
+            fullWidth={false}
+            className="w-28"
           >
             <option value="">全部</option>
             <option value="user">普通用户</option>
             <option value="operations">运营</option>
             <option value="admin">管理员</option>
             <option value="super_admin">超级管理员</option>
-          </select>
+          </Select>
         </FilterField>
         <FilterField label="会员">
-          <select
+          <Select
             value={tier}
             onChange={(e) => patch({ tier: e.target.value || null, page: null })}
-            className={cn(SELECT_CLS, 'w-24')}
+            fullWidth={false}
+            className="w-24"
           >
             <option value="">全部</option>
             <option value="max">Max</option>
             <option value="pro">Pro</option>
             <option value="free">Free</option>
-          </select>
+          </Select>
         </FilterField>
         <FilterField label="状态">
-          <select
+          <Select
             value={status}
             onChange={(e) => patch({ status: e.target.value || null, page: null })}
-            className={cn(SELECT_CLS, 'w-24')}
+            fullWidth={false}
+            className="w-24"
           >
             <option value="">全部</option>
             <option value="1">正常</option>
             <option value="2">已冻结</option>
-          </select>
+          </Select>
         </FilterField>
         <FilterField label="邮箱验证">
-          <select
+          <Select
             value={verified}
             onChange={(e) => patch({ email_verified: e.target.value || null, page: null })}
-            className={cn(SELECT_CLS, 'w-24')}
+            fullWidth={false}
+            className="w-24"
           >
             <option value="">全部</option>
             <option value="1">已验证</option>
             <option value="0">未验证</option>
-          </select>
+          </Select>
         </FilterField>
         <FilterField label="注册自">
           <Input

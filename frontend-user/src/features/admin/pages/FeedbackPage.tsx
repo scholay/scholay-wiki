@@ -3,6 +3,7 @@ import { MessageSquare, Search } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Badge } from '@/shared/ui/badge';
 import { Input } from '@/shared/ui/input';
+import { Textarea } from '@/shared/ui/textarea';
 import { Label } from '@/shared/ui/label';
 import {
   Dialog,
@@ -251,13 +252,12 @@ export function FeedbackPage() {
               >
                 <div className="space-y-1.5">
                   <Label htmlFor="replyContent">回复内容</Label>
-                  <textarea
+                  <Textarea
                     id="replyContent"
                     name="replyContent"
                     rows={5}
                     required
                     defaultValue={replying.replyContent}
-                    className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                 </div>
                 <DialogFooter className="gap-2 sm:gap-2">

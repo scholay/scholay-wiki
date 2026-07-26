@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Input } from '@/shared/ui/input';
+import { Textarea } from '@/shared/ui/textarea';
 import { AIOverlay } from '@/shared/ui/ai-overlay';
 import { cn } from '@/shared/lib/utils';
 
@@ -86,11 +87,11 @@ export function ManuscriptMetaForm({
         </Field>
 
         <Field label="摘要" hint="选填">
-          <textarea
+          <Textarea
             value={value.abstract ?? ''}
             onChange={(e) => patch({ abstract: e.target.value })}
             placeholder={computing ? '正在识别摘要…' : '稿件摘要'}
-            className="min-h-32 w-full resize-y rounded-8 border border-border bg-surface-card p-3 text-12 leading-paragraph text-foreground placeholder:text-faint focus-visible:border-brand-red focus-visible:outline-none"
+            className="min-h-32 p-3 leading-paragraph"
           />
         </Field>
 

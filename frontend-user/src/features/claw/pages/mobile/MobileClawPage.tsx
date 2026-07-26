@@ -5,6 +5,7 @@ import { Loader2, PanelLeft, SquarePen } from 'lucide-react';
 import { StickToBottom } from 'use-stick-to-bottom';
 import { AgentDisplacedBanner } from '@/shared/components/AgentDisplacedBanner';
 import { ResourceError } from '@/shared/components/ResourceError';
+import { Button } from '@/shared/ui/button';
 import { Sheet, SheetContent } from '@/shared/ui/sheet';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useHeightVar } from '@/shared/hooks';
@@ -244,15 +245,16 @@ function MobileClawWorkspace({
             <StickToBottom.Content className="flex w-full flex-col gap-4 px-3.5 pt-14 pb-[calc(var(--chat-area-h,100dvh)*0.3)]">
               {(hiddenCount > 0 || historyHasMore) && (
                 <div className="flex justify-center">
-                  <button
+                  <Button
                     type="button"
+                    variant="secondary"
                     onClick={conv.loadEarlier}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-pill bg-surface-2 px-3.5 text-12 text-muted-foreground transition-colors active:bg-surface-2/70"
+                    className="px-3.5 font-normal text-muted-foreground active:bg-surface-2/70"
                   >
                     {hiddenCount > 0
                       ? `加载更早的 ${hiddenCount} 轮对话`
                       : '加载更早的对话'}
-                  </button>
+                  </Button>
                 </div>
               )}
               {visibleTurns.map((t, i) => (

@@ -3,6 +3,8 @@ import { Loader2, ClipboardPaste, Download, Sparkles, Check, X as XIcon, HelpCir
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/button';
+import { Select } from '@/shared/ui/select';
+import { Textarea } from '@/shared/ui/textarea';
 import { cn } from '@/shared/lib/utils';
 import { toApiError } from '@/shared/lib/http';
 import { trackEvent } from '@/shared/lib/track';
@@ -143,12 +145,12 @@ export function PrismRevisionDialog({
 
         {/* 粘贴区(重新粘贴 = 重开追踪) */}
         <div className="flex gap-2">
-          <textarea
+          <Textarea
             value={pasteText}
             onChange={(e) => setPasteText(e.target.value)}
             placeholder="粘贴任何修改意见:审稿人 decision letter / 导师批注 / 合作者意见…(重新解析会覆盖现有条目)"
             rows={3}
-            className="flex-1 resize-none rounded-8 border border-border bg-surface-card p-2 text-12 outline-none placeholder:text-faint"
+            className="flex-1 resize-none p-2"
           />
           <Button size="sm" onClick={doParse} disabled={parsing || !pasteText.trim()} className="self-end">
             {parsing ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />} 拆条
@@ -186,17 +188,18 @@ export function PrismRevisionDialog({
                     </div>
                   </div>
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                    <select
+                    <Select
                       value={it.action || 'concede_revise'}
                       onChange={(e) => patch(it, { action: e.target.value })}
-                      className="h-6 rounded-4 border border-border bg-surface-card px-1 text-12"
+                      fullWidth={false}
+                      className="h-6 rounded-4 pl-1 pr-6"
                     >
                       {Object.entries(ACTION_LABELS).map(([k, v]) => (
                         <option key={k} value={k}>
                           {v}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                     {it.action !== 'needs_author_input' ? (
                       <Button
                         size="sm"
@@ -223,7 +226,7 @@ export function PrismRevisionDialog({
                       <XIcon className="size-3" /> 不采纳
                     </Button>
                   </div>
-                  <textarea
+                  <Textarea
                     defaultValue={it.response}
                     key={`resp-${it.id}-${it.response.length}`}
                     placeholder="该条的回应文本(会渲染进回应信;AI 处理后把它的总结粘进来)…"
@@ -231,7 +234,7 @@ export function PrismRevisionDialog({
                     onBlur={(e) => {
                       if (e.target.value !== it.response) patch(it, { response: e.target.value });
                     }}
-                    className="mt-1.5 w-full resize-y rounded-4 border border-border bg-surface-1 p-1.5 text-12 outline-none placeholder:text-faint"
+                    className="mt-1.5 min-h-0 rounded-4 bg-surface-1 p-1.5"
                   />
                 </div>
               );

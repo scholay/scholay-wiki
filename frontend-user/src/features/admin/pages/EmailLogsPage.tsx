@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Search, CheckCircle2, XCircle, Mail, Smartphone } from 'lucide-react';
 import { Input } from '@/shared/ui/input';
+import { Select } from '@/shared/ui/select';
 import { Label } from '@/shared/ui/label';
 import { cn } from '@/shared/lib/utils';
 import { useUrlState, useDebounce } from '@/shared/hooks';
@@ -8,8 +9,6 @@ import { AdminPageLayout } from '../components/AdminPageLayout';
 import { DataTable, type Column } from '../components/DataTable';
 import { Pagination } from '../components/Pagination';
 import { useEmailLogs, type EmailLog, type SendChannel } from '../api/email-logs';
-
-const SELECT_CLS = 'h-8 rounded-8 border border-input bg-surface-card px-2 text-12 text-foreground';
 
 const CAT_LABEL: Record<string, string> = {
   verification: '验证码',
@@ -145,27 +144,29 @@ export function EmailLogsPage() {
       {/* 筛选 */}
       <section className="mb-4 flex flex-wrap items-end gap-2 rounded-16 border border-border-soft bg-surface-1 p-3">
         <Field label="状态">
-          <select
+          <Select
             value={status}
             onChange={(e) => {
               setStatus(e.target.value);
               setPage(1);
             }}
-            className={cn(SELECT_CLS, 'w-24')}
+            fullWidth={false}
+            className="w-24"
           >
             <option value="">全部</option>
             <option value="success">成功</option>
             <option value="failed">失败</option>
-          </select>
+          </Select>
         </Field>
         <Field label="类别">
-          <select
+          <Select
             value={category}
             onChange={(e) => {
               setCategory(e.target.value);
               setPage(1);
             }}
-            className={cn(SELECT_CLS, 'w-28')}
+            fullWidth={false}
+            className="w-28"
           >
             <option value="">全部</option>
             <option value="verification">验证码</option>
@@ -173,7 +174,7 @@ export function EmailLogsPage() {
             <option value="billing">会员</option>
             <option value="test">测试</option>
             <option value="other">其他</option>
-          </select>
+          </Select>
         </Field>
         <Field label={isSms ? '搜索(手机号 / 模板)' : '搜索(收件人 / 主题)'} className="w-full sm:w-auto">
           <div className="flex h-8 w-full items-center gap-1.5 rounded-8 border border-input bg-surface-card px-2 sm:w-auto">

@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Upload, FileJson, CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
+import { Textarea } from '@/shared/ui/textarea';
 import { useApiToast } from '@/shared/hooks';
 import { AdminPageLayout } from '../components/AdminPageLayout';
 import { useImportTools, useImportToolsZip, useImportJob, type ImportJob } from '../api/feature-tools';
@@ -96,12 +97,12 @@ export function FeatureToolImportPage() {
         {/* 粘贴 */}
         <div>
           <p className="mb-1.5 text-12 font-medium text-subtle">或粘贴 JSON(工具对象数组)</p>
-          <textarea
+          <Textarea
             value={text}
             onChange={(e) => { setText(e.target.value); setFilename(''); setZipFile(null); }}
             rows={12}
             placeholder='[{"name":"...","slug":"...","category":"...","access":{...},"spec":{...}}, ...]'
-            className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 font-mono text-12 leading-paragraph focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="font-mono leading-paragraph"
           />
         </div>
 

@@ -17,6 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu';
+import { Button } from '@/shared/ui';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { cn } from '@/shared/lib/utils';
 import { toApiError } from '@/shared/lib/http';
@@ -121,18 +122,19 @@ export function MobileLibraryPage() {
                   maxLength={32}
                   className="min-w-0 flex-1 bg-transparent px-1 text-14 text-foreground outline-none placeholder:text-faint"
                 />
-                <button
+                <Button
                   type="button"
+                  variant="destructive"
                   onClick={submitCreate}
                   disabled={createFolder.isPending}
-                  className="flex h-8 items-center rounded-8 bg-brand-red px-3 text-12 font-medium text-on-brand active:opacity-90"
+                  className="active:opacity-90 [&_svg]:size-3.5"
                 >
                   {createFolder.isPending ? (
                     <Loader2 className="size-3.5 animate-spin" />
                   ) : (
                     '创建'
                   )}
-                </button>
+                </Button>
               </div>
             )}
 

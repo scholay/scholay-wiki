@@ -14,6 +14,7 @@
 import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, Check, CornerDownLeft, MessageCircleQuestion, Pencil } from 'lucide-react';
+import { Button, Textarea } from '@/shared/ui';
 import { cn } from '@/shared/lib/utils';
 import type { ToolBlock, Turn } from '@/shared/types/chat';
 
@@ -250,7 +251,7 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
                 </button>
               ) : (
                 <div className="flex items-end gap-1.5">
-                  <textarea
+                  <Textarea
                     autoFocus
                     rows={2}
                     value={freeText}
@@ -262,7 +263,8 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
                       }
                     }}
                     placeholder="输入你的回答…"
-                    className="flex-1 min-w-0 rounded-8 border border-border bg-surface-card px-2.5 py-1.5 text-12 text-foreground placeholder:text-faint resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    // min-h-0 / resize-none:此处高度由 rows={2} 定,不用原子的 min-h-16 与拖拽把手
+                    className="flex-1 min-w-0 min-h-0 px-2.5 py-1.5 resize-none"
                   />
                   <button
                     type="button"
@@ -279,14 +281,15 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
 
             {/* 多选需要显式确认(单选点即走,故无按钮) */}
             {q.multiSelect && !freeOpen && (
-              <button
+              <Button
                 type="button"
+                variant="primary"
                 onClick={commitMulti}
                 disabled={multiSel.length === 0}
-                className="mt-1 inline-flex h-8 items-center justify-center gap-1.5 self-end rounded-8 bg-primary px-3 text-12 font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors"
+                className="mt-1 self-end"
               >
                 {isLast ? '完成并发送' : '下一题'}
-              </button>
+              </Button>
             )}
           </motion.div>
         </AnimatePresence>

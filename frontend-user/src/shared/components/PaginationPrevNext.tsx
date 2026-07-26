@@ -1,5 +1,6 @@
 import { forwardRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Select } from '@/shared/ui';
 import { cn } from '@/shared/lib/utils';
 
 /**
@@ -101,18 +102,20 @@ export const PaginationPrevNext = forwardRef<HTMLElement, PaginationPrevNextProp
         {showPageSize && (
           <span className="inline-flex items-center gap-1">
             每页
-            <select
+            <Select
               value={pageSize}
               onChange={(e) => onPageSizeChange!(Number(e.target.value))}
               disabled={disabled}
-              className="h-7 px-1.5 rounded-8 bg-surface-card border border-border text-12 text-subtle hover:border-foreground focus-visible:outline-none focus-visible:border-foreground cursor-pointer tabular-nums disabled:opacity-50 disabled:cursor-not-allowed"
+              fullWidth={false}
+              // pr-6 给原子自绘的箭头留位(right-2.5 + size-3.5 = 24px)
+              className="h-7 pl-2 pr-6 text-subtle hover:border-foreground tabular-nums"
             >
               {pageSizeOptions!.map((opt) => (
                 <option key={opt} value={opt}>
                   {opt}
                 </option>
               ))}
-            </select>
+            </Select>
           </span>
         )}
       </div>

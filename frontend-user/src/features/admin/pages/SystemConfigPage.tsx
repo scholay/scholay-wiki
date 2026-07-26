@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Save, Send, Loader2 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
+import { Textarea } from '@/shared/ui/textarea';
 import { SecretInput } from '@/shared/ui/secret-input';
 import { Label } from '@/shared/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs';
@@ -311,11 +312,10 @@ function SMSForm() {
       </div>
 
       <Field label="模板内容(显示给运营核对)">
-        <textarea
+        <Textarea
           name="template_content"
           rows={3}
           defaultValue={data?.template_content}
-          className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       </Field>
 

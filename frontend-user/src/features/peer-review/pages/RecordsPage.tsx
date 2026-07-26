@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { LoadingState } from '@/shared/components/LoadingState';
 import { useConfirm } from '@/shared/components/ConfirmDialog';
+import { Button } from '@/shared/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/shared/ui/hover-card';
 import { cn } from '@/shared/lib/utils';
 import { useDeleteSubmission, useSubmissionList } from '../api/submissions';
@@ -113,13 +114,15 @@ export function RecordsPage() {
         <h1 className="text-20 font-medium text-foreground">我的审稿</h1>
         <HoverCard openDelay={60} closeDelay={150}>
           <HoverCardTrigger asChild>
-            <button
+            <Button
               type="button"
-              className="inline-flex h-9 items-center gap-1.5 rounded-8 bg-brand-red px-4 text-12 font-medium text-background hover:bg-brand-red/90"
+              variant="destructive"
+              size="lg"
+              className="h-9 gap-1.5"
             >
               <Plus className="size-3.5" />
               新建审稿
-            </button>
+            </Button>
           </HoverCardTrigger>
           <HoverCardContent align="end" sideOffset={8} className="w-56 p-1.5">
             <div className="flex flex-col gap-1">

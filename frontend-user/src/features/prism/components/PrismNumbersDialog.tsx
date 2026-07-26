@@ -3,6 +3,7 @@ import { Calculator, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/button';
+import { Textarea } from '@/shared/ui/textarea';
 import { cn } from '@/shared/lib/utils';
 import { toApiError } from '@/shared/lib/http';
 import { verifyNumbers, type NumberCheck } from '../api/prism';
@@ -48,19 +49,19 @@ export function PrismNumbersDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <textarea
+        <Textarea
           value={source}
           onChange={(e) => setSource(e.target.value)}
           rows={4}
           placeholder="源数据:粘贴数据表 / 统计输出(CSV/TSV/文本)…"
-          className="w-full resize-y rounded-8 border border-border bg-surface-1 p-2 font-mono text-12 outline-none placeholder:text-faint"
+          className="bg-surface-1 p-2 font-mono"
         />
-        <textarea
+        <Textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={4}
           placeholder="生成的段落:粘贴 AI 写的结果段…"
-          className="w-full resize-y rounded-8 border border-border p-2 text-12 outline-none placeholder:text-faint"
+          className="p-2"
         />
         <div className="flex items-center justify-between">
           <p className="text-12 text-faint">派生值(百分比变化/差值/合计)不在源表属正常,但请自行核对。</p>

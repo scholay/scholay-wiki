@@ -3,6 +3,8 @@ import { Plus, Send, Loader2 } from 'lucide-react';
 import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
+import { Select } from '@/shared/ui/select';
+import { Textarea } from '@/shared/ui/textarea';
 import { Label } from '@/shared/ui/label';
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
@@ -174,17 +176,16 @@ export function MessagesPage() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="category">分类</Label>
-                <select
+                <Select
                   id="category"
                   name="category"
                   defaultValue="notification"
-                  className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-12"
                 >
                   <option value="system">系统</option>
                   <option value="notification">通知</option>
                   <option value="announcement">公告</option>
                   <option value="marketing">营销</option>
-                </select>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="expire_at">过期时间(可选)</Label>
@@ -195,16 +196,15 @@ export function MessagesPage() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="send_type">发送类型</Label>
-                <select
+                <Select
                   id="send_type"
                   value={sendType}
                   onChange={(e) => setSendType(e.target.value as MessageSendType)}
-                  className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-12"
                 >
                   {SEND_TYPE_OPTIONS.map((o) => (
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
-                </select>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="target_value">目标 ID 列表</Label>
@@ -219,12 +219,11 @@ export function MessagesPage() {
 
             <div className="space-y-1.5">
               <Label htmlFor="content">内容</Label>
-              <textarea
+              <Textarea
                 id="content"
                 name="content"
                 rows={6}
                 required
-                className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>
 

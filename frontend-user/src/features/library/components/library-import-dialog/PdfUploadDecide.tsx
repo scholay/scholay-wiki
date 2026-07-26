@@ -11,6 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
+import { Button } from '@/shared/ui';
 import { useJournalEnrichments } from '@/shared/api/journal-enrichment';
 import type { ParsedEvent, SearchHit } from '../../api/upload-resolve';
 import {
@@ -260,14 +261,12 @@ function BestMatchCard({
 
         {/* 按钮组 */}
         <div className="flex items-center gap-2 pt-2">
-          <button
+          <Button
             type="button"
+            variant="primary"
             onClick={onAccept}
             disabled={disabled}
-            className={cn(
-              'inline-flex items-center gap-1.5 h-8 px-3.5 rounded-8 bg-brand-green text-background text-14 font-medium',
-              'hover:bg-brand-green/90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors'
-            )}
+            className="gap-1.5 px-3.5 text-14 [&_svg]:size-3.5"
           >
             {disabled ? (
               <Loader2 className="size-3.5 animate-spin" />
@@ -275,7 +274,7 @@ function BestMatchCard({
               <Check className="size-3.5" strokeWidth={2.5} />
             )}
             接受并加入
-          </button>
+          </Button>
           <button
             type="button"
             onClick={onReject}
@@ -405,18 +404,15 @@ function NoMatchBanner({
           可能是论文太新还没被收录,也可能是扫描件不便识别
         </div>
       </div>
-      <button
+      <Button
         type="button"
         onClick={onReject}
         disabled={isPending}
-        className={cn(
-          'inline-flex items-center gap-1.5 h-8 px-3 rounded-8 bg-foreground text-background text-14 font-medium',
-          'hover:bg-foreground/85 disabled:opacity-60 transition-colors'
-        )}
+        className="gap-1.5 text-14 [&_svg]:size-3.5"
       >
         {isPending && <Loader2 className="size-3.5 animate-spin" />}
         直接保存
-      </button>
+      </Button>
     </div>
   );
 }

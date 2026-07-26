@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Check, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useApiToast } from '@/shared/hooks';
+import { Button, Input, Textarea } from '@/shared/ui';
 import type { DimensionSettingItem } from '../../api/analysis';
 import { useSaveDimension } from './use-save-dimension';
 
@@ -63,7 +64,7 @@ export function EditInlineForm({ dim, mode, onDone }: Props) {
         <span className="inline-flex h-5 w-5 items-center justify-center rounded-pill bg-brand-green text-on-brand shrink-0">
           <Check className="size-2.5" strokeWidth={3} />
         </span>
-        <input
+        <Input
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -72,7 +73,7 @@ export function EditInlineForm({ dim, mode, onDone }: Props) {
             if (e.key === 'Enter') handleSave();
             else if (e.key === 'Escape') onDone();
           }}
-          className="flex-1 h-7 bg-surface-card border border-border rounded-8 px-2 text-12 outline-none focus-visible:border-brand-amber"
+          className="flex-1 h-7 focus-visible:border-brand-amber"
         />
         <SaveCancelButtons busy={busy} onSave={handleSave} onCancel={onDone} />
       </div>
@@ -86,43 +87,41 @@ export function EditInlineForm({ dim, mode, onDone }: Props) {
         <span className="inline-flex h-5 w-5 items-center justify-center rounded-pill bg-brand-green text-on-brand shrink-0">
           <Check className="size-2.5" strokeWidth={3} />
         </span>
-        <input
+        <Input
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={30}
           placeholder="维度名称"
-          className="flex-1 h-7 bg-surface-card border border-border rounded-8 px-2 text-12 outline-none focus-visible:border-brand-amber"
+          className="flex-1 h-7 focus-visible:border-brand-amber"
         />
       </div>
       <div>
         <label className="text-12 font-medium text-faint">AI 分析指示词</label>
-        <textarea
+        <Textarea
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
           rows={4}
           maxLength={500}
           placeholder="例:抽取该论文核心研究问题与目标,简短归纳成一句话。"
-          className="mt-1 w-full bg-surface-card border border-border rounded-8 px-2 py-1.5 text-12 leading-paragraph outline-none focus-visible:border-brand-amber resize-none"
+          className="mt-1 leading-paragraph resize-none focus-visible:border-brand-amber"
         />
       </div>
       <div className="flex items-center justify-end gap-1.5">
-        <button
-          type="button"
-          onClick={onDone}
-          className="h-7 px-3 rounded-8 border border-border text-12 text-subtle hover:bg-surface-1"
-        >
+        <Button type="button" variant="outline" size="sm" onClick={onDone}>
           取消
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="primary"
+          size="sm"
           onClick={handleSave}
           disabled={busy}
-          className="inline-flex items-center gap-1 h-7 px-3 rounded-8 bg-brand-green text-on-brand text-12 font-medium hover:bg-brand-green/85 disabled:opacity-50"
+          className="gap-1 [&_svg]:size-3"
         >
-          {busy && <Loader2 className="size-3 animate-spin" />}
+          {busy && <Loader2 className="animate-spin" />}
           保存
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense, type
 import { Play, Loader2, Download, AlertTriangle, ListTree, Image as ImageIcon, FileText, X, MessageSquarePlus, Sparkles, ChevronUp, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/shared/ui/button';
+import { Select } from '@/shared/ui/select';
 // 懒加载(性能审计 #4):pdfjs(react-pdf,~412KB)推迟到首次编译成功(pdfKey>0)真正要看 PDF 时才拉,不进 workspace 首屏。
 const PdfViewer = lazy(() => import('@/shared/components/PdfViewer').then((m) => ({ default: m.PdfViewer })));
 import { LoadingState } from '@/shared/components';
@@ -707,10 +708,11 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
               新对话
             </Button>
             <div className="mx-0.5 h-5 w-px bg-border-separator" aria-hidden />
-            <select
+            <Select
               value={template}
               onChange={(e) => onTemplateChange(e.target.value)}
-              className="h-8 rounded-8 border border-border bg-surface-card px-2 text-12 text-foreground"
+              fullWidth={false}
+              className="pl-2"
               aria-label="目标模板"
             >
               {(templates.data ?? [{ key: 'article', name: '通用 Article', doc_class: 'article' }]).map((t) => (
@@ -718,7 +720,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
                   {t.name}
                 </option>
               ))}
-            </select>
+            </Select>
             <Button size="sm" onClick={compileNow} disabled={compiling || save.isPending}>
               {compiling || save.isPending ? <Loader2 className="size-3 animate-spin" /> : <Play className="size-3" />}
               编译

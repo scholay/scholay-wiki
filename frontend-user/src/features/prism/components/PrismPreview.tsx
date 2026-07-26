@@ -1,4 +1,5 @@
 import { FileText, FolderTree, Play } from 'lucide-react';
+import { Button } from '@/shared/ui/button';
 
 /**
  * Prism AI 写作样式预览 —— 对照 .pen `dyvGL` (V2 LaTeX Writer body):
@@ -13,14 +14,15 @@ export function PrismPreview() {
           <span className="text-16 font-medium text-foreground">main.tex</span>
           <span className="ml-3 text-12 text-faint">Prism · AI 写作</span>
         </div>
-        <button
+        <Button
           type="button"
           tabIndex={-1}
-          className="inline-flex items-center gap-1.5 h-7 px-3 rounded-8 bg-foreground text-background text-12 font-medium"
+          size="sm"
+          className="px-3"
         >
           <Play className="size-3" />
           编译
-        </button>
+        </Button>
       </header>
 
       <div className="flex flex-1 min-h-0 overflow-hidden">

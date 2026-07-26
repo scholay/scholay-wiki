@@ -3,6 +3,7 @@ import { Pencil } from 'lucide-react';
 import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
+import { Textarea } from '@/shared/ui/textarea';
 import { Label } from '@/shared/ui/label';
 import { Switch } from '@/shared/ui/switch';
 import {
@@ -168,13 +169,12 @@ function DimensionEditDialog({
 
           <div className="space-y-1.5">
             <Label htmlFor="dim-desc">AI 分析指示</Label>
-            <textarea
+            <Textarea
               id="dim-desc"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               required
               rows={6}
-              className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               placeholder="给 AI 的指示 —— 例如:请提取论文采用的研究方法,如实验、调查、案例分析等。"
             />
             <p className="text-12 text-faint">

@@ -5,6 +5,7 @@ import {
   ArrowLeft, ExternalLink, Cloud, Copy, Globe, Calendar, MapPin, Building2, BookOpen, Search,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
+import { Input } from '@/shared/ui/input';
 import { Badge } from '@/shared/ui/badge';
 import { RouteSEO } from '@/shared/components/RouteSEO';
 import { LoadingState } from '@/shared/components/LoadingState';
@@ -32,12 +33,12 @@ export function ToolDetailPage() {
         </Link>
         <div className="relative w-full max-w-xs">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
-          <input
+          <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') submitSearch(); }}
             placeholder="搜索功能广场"
-            className="h-9 w-full rounded-8 border border-border-strong bg-surface-1 pl-9 pr-3 text-12 outline-none placeholder:text-faint focus-visible:border-foreground focus-visible:bg-surface-card focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-9 border-border-strong bg-surface-1 pl-9 pr-3 focus-visible:bg-surface-card"
           />
         </div>
       </header>

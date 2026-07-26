@@ -5,6 +5,8 @@ import { useApiToast } from '../hooks/useApiToast';
 import { useConfirm } from '../hooks/useConfirm';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
+import { Select } from '@/shared/ui/select';
+import { Textarea } from '@/shared/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -201,26 +203,25 @@ function CrudForm<T>({
           <div key={f.name} className={f.span === 2 ? 'space-y-1.5 sm:col-span-2' : 'space-y-1.5'}>
             <Label htmlFor={f.name}>{f.label}</Label>
             {f.type === 'textarea' ? (
-              <textarea
+              <Textarea
                 id={f.name}
                 name={f.name}
                 rows={f.rows ?? 4}
                 required={f.required}
                 placeholder={f.placeholder}
                 defaultValue={(initial[f.name] as string) ?? ''}
-                className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             ) : f.type === 'select' && f.options ? (
-              <select
+              <Select
                 id={f.name}
                 name={f.name}
                 defaultValue={(initial[f.name] as string) ?? f.options[0]?.value}
-                className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-12"
+                className="h-9"
               >
                 {f.options.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
-              </select>
+              </Select>
             ) : f.type === 'checkbox' ? (
               <div className="flex items-center h-9 gap-2">
                 <input

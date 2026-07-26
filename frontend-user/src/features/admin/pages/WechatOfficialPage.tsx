@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Save, Loader2 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
+import { Select } from '@/shared/ui/select';
+import { Textarea } from '@/shared/ui/textarea';
 import { SecretInput } from '@/shared/ui/secret-input';
 import { Label } from '@/shared/ui/label';
 import { AdminPageLayout } from '../components/AdminPageLayout';
@@ -119,28 +121,27 @@ export function WechatOfficialPage() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="encryption_mode">加密模式</Label>
-            <select
+            <Select
               id="encryption_mode"
               name="encryption_mode"
               defaultValue={data?.encryption_mode || 'secure'}
-              className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-12"
             >
               {ENCRYPTION_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="system_prompt">System Prompt(给关注者的 AI 回复语气)</Label>
-          <textarea
+          <Textarea
             id="system_prompt"
             name="system_prompt"
             rows={6}
             defaultValue={data?.system_prompt}
             placeholder="你是 Scholay 的客服助理,用友好简洁的语气回答用户关于学术搜索的问题…"
-            className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-12 font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="font-mono"
           />
         </div>
 

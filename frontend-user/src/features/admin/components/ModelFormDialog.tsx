@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
+import { Select } from '@/shared/ui/select';
 import { Switch } from '@/shared/ui/switch';
 import {
   Dialog,
@@ -228,7 +229,7 @@ export function ModelFormDialog({
                     id="m-tier-threshold"
                     type="number"
                     min={0}
-                    className="h-8 w-28"
+                    className="w-28"
                     value={form.input_tier_threshold}
                     onChange={(e) => set('input_tier_threshold', Number(e.target.value) || 0)}
                   />
@@ -273,7 +274,7 @@ export function ModelFormDialog({
                         id="m-tier-threshold-2"
                         type="number"
                         min={0}
-                        className="h-8 w-28"
+                        className="w-28"
                         value={form.input_tier_threshold_2}
                         onChange={(e) => set('input_tier_threshold_2', Number(e.target.value) || 0)}
                       />
@@ -310,11 +311,11 @@ export function ModelFormDialog({
 
             <div className="space-y-1.5">
               <Label htmlFor="m-provider">上游 Provider</Label>
-              <select
+              <Select
                 id="m-provider"
                 value={form.provider_id}
                 onChange={(e) => set('provider_id', Number(e.target.value) || 0)}
-                className="h-9 w-full rounded-8 border border-input bg-surface-card px-3 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-9"
               >
                 <option value={0}>默认端点(AI Agent 服务页配置)</option>
                 {(providers ?? []).map((p) => (
@@ -322,35 +323,35 @@ export function ModelFormDialog({
                     {p.name}({p.api_format})
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="m-speed">速度档(选择器徽标)</Label>
-                <select
+                <Select
                   id="m-speed"
                   value={form.speed_class}
                   onChange={(e) => set('speed_class', e.target.value as AgentModelPayload['speed_class'])}
-                  className="h-9 w-full rounded-8 border border-input bg-surface-card px-3 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="h-9"
                 >
                   <option value="fast">fast · 快</option>
                   <option value="balanced">balanced · 均衡</option>
                   <option value="powerful">powerful · 强推理</option>
-                </select>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="m-tier">档位门槛</Label>
-                <select
+                <Select
                   id="m-tier"
                   value={form.min_tier}
                   onChange={(e) => set('min_tier', e.target.value as AgentModelPayload['min_tier'])}
-                  className="h-9 w-full rounded-8 border border-input bg-surface-card px-3 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="h-9"
                 >
                   <option value="">全员可用</option>
                   <option value="pro">Pro 及以上</option>
                   <option value="max">仅 Max</option>
-                </select>
+                </Select>
               </div>
             </div>
 

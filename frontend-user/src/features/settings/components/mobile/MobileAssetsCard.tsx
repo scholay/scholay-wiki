@@ -3,6 +3,7 @@ import { Crown, Gem, RotateCcw, Ticket, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
+import { Button } from '@/shared/ui';
 import { RedeemConfirmDialog } from '../redeem-confirm-dialog';
 import { MobileMembershipDialog } from './MobileMembershipDialog';
 import {
@@ -72,13 +73,14 @@ export function MobileAssetsCard() {
             {new Date(data.expires_at).toLocaleDateString('zh-CN')} 到期
           </span>
         )}
-        <button
+        <Button
           type="button"
+          size="sm"
           onClick={() => setMembershipOpen(true)}
-          className="ml-auto rounded-pill bg-foreground px-3 py-1 text-12 font-medium text-on-brand active:opacity-80"
+          className="ml-auto px-3"
         >
           {tier === 'max' ? '续期' : '升级会员'}
-        </button>
+        </Button>
       </div>
 
       {/* 本周期额度 */}

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
+import { Select } from '@/shared/ui/select';
 import { Button } from '@/shared/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { useUrlState, usePatchUrlState } from '@/shared/hooks';
@@ -24,7 +25,6 @@ import {
  */
 
 const DAY_OPTIONS = [7, 30, 90];
-const SELECT_CLS = 'h-8 rounded-8 border border-input bg-surface-card px-2 text-12 text-foreground';
 
 export function TokenUsageFilterBar({ onChange }: { onChange: (f: TokenUsageFilters) => void }) {
   // 只读值;所有写入走 patch(单次 navigate,避免多 key 互相覆盖)。
@@ -130,42 +130,42 @@ export function TokenUsageFilterBar({ onChange }: { onChange: (f: TokenUsageFilt
 
       <div className="space-y-1">
         <Label className="text-12 text-faint">功能</Label>
-        <select value={feature} onChange={(e) => patch({ feature: e.target.value || null })} className={cn(SELECT_CLS, 'w-28')}>
+        <Select value={feature} onChange={(e) => patch({ feature: e.target.value || null })} fullWidth={false} className="w-28">
           <option value="">全部</option>
           {FEATURE_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
-        </select>
+        </Select>
       </div>
 
       <div className="space-y-1">
         <Label className="text-12 text-faint">来源</Label>
-        <select value={source} onChange={(e) => patch({ source: e.target.value || null })} className={cn(SELECT_CLS, 'w-24')}>
+        <Select value={source} onChange={(e) => patch({ source: e.target.value || null })} fullWidth={false} className="w-24">
           <option value="">全部</option>
           {SOURCE_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
-        </select>
+        </Select>
       </div>
 
       <div className="space-y-1">
         <Label className="text-12 text-faint">模型</Label>
-        <select value={model} onChange={(e) => patch({ model: e.target.value || null })} className={cn(SELECT_CLS, 'w-40 max-w-40')}>
+        <Select value={model} onChange={(e) => patch({ model: e.target.value || null })} fullWidth={false} className="w-40 max-w-40">
           <option value="">全部</option>
           {(facets?.models ?? []).map((m) => (
             <option key={m} value={m}>{m}</option>
           ))}
-        </select>
+        </Select>
       </div>
 
       <div className="space-y-1">
         <Label className="text-12 text-faint">Provider</Label>
-        <select value={provider} onChange={(e) => patch({ provider: e.target.value || null })} className={cn(SELECT_CLS, 'w-32')}>
+        <Select value={provider} onChange={(e) => patch({ provider: e.target.value || null })} fullWidth={false} className="w-32">
           <option value="">全部</option>
           {(facets?.providers ?? []).map((p) => (
             <option key={p} value={p}>{p}</option>
           ))}
-        </select>
+        </Select>
       </div>
 
       <div className="space-y-1">

@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
 import { useApiToast } from '@/shared/hooks';
-import { Button, Input } from '@/shared/ui';
+import { Button, Input, Textarea } from '@/shared/ui';
 import { useProfile } from '@/shared/api/profile';
 
 /**
@@ -69,13 +69,13 @@ export function ProfilePage() {
 
       <div className="flex flex-col gap-2">
         <label className="text-12 font-medium text-foreground">简介</label>
-        <textarea
+        <Textarea
           value={bio}
           onChange={(e) => setBio(e.target.value)}
           maxLength={200}
           placeholder="一两句话介绍自己…"
           rows={3}
-          className="w-full px-3 py-2 rounded-8 border border-border bg-surface-card text-12 resize-none focus-visible:outline-none focus-visible:border-foreground"
+          className="resize-none"
         />
       </div>
 

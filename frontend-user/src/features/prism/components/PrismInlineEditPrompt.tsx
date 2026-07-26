@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUp, Sparkles, X } from 'lucide-react';
+import { Textarea } from '@/shared/ui/textarea';
 import type { InlineEditTarget } from './LatexEditor';
 
 /** 选区快捷动作 —— 点一下即按预设指令提交(Cursor/Canvas 式 fast path)。 */
@@ -90,7 +91,7 @@ export function PrismInlineEditPrompt({
         ))}
       </div>
       <div className="flex items-end gap-1.5">
-        <textarea
+        <Textarea
           ref={inputRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -102,7 +103,7 @@ export function PrismInlineEditPrompt({
           }}
           rows={2}
           placeholder="或描述你想怎么改…(Enter 提交)"
-          className="max-h-24 min-h-[44px] flex-1 resize-none rounded-8 border border-border-button bg-surface-card px-2.5 py-1.5 text-12 leading-paragraph text-foreground placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="max-h-24 min-h-[44px] flex-1 resize-none border-border-button px-2.5 py-1.5 leading-paragraph"
         />
         <button
           type="button"

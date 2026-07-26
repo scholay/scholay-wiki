@@ -2,9 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, FileText, Loader2, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { Button } from '@/shared/ui';
 import { FavoritePaperButton } from '@/shared/components/FavoritePaperButton';
 import { SourceBadge } from '@/shared/components/SourceBadge';
-import { cn } from '@/shared/lib/utils';
 import { useArrivalOrderedPapers, useQuickPaperSearch } from '@/shared/api/quick-search';
 import { useFavoriteCheck } from '@/shared/api/user-library-mutations';
 import type {
@@ -310,18 +310,14 @@ function NoResultsHint({
       <div className="text-12 text-faint">
         试试用论文完整标题中的几个关键词,或换个表达
       </div>
-      <button
+      <Button
         type="button"
         onClick={onJumpToSearch}
-        className={cn(
-          'inline-flex items-center gap-1.5 mt-1 h-8 px-3 rounded-8',
-          'bg-foreground text-background text-14 font-medium',
-          'hover:bg-foreground/85 transition-colors'
-        )}
+        className="mt-1 gap-1.5 text-14 [&_svg]:size-3.5"
       >
         去主搜索页继续搜索
         <ArrowRight className="size-3.5" strokeWidth={2.25} />
-      </button>
+      </Button>
     </div>
   );
 }

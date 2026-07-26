@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Plus, Pencil, Trash2, Zap, RotateCcw } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
+import { Select } from '@/shared/ui/select';
 import { SecretInput } from '@/shared/ui/secret-input';
 import { Badge } from '@/shared/ui/badge';
 import { Label } from '@/shared/ui/label';
@@ -322,17 +323,17 @@ function ThirdPartyDialog({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="type">类型</Label>
-              <select
+              <Select
                 id="type"
                 value={type}
                 onChange={(e) => setType(e.target.value as AccountType)}
-                className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-12 disabled:opacity-60"
+                className="disabled:opacity-60"
                 disabled={isEdit}
               >
                 {TYPE_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="priority">优先级(数字越小越高)</Label>

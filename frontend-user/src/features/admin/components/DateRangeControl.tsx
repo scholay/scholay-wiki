@@ -4,6 +4,7 @@
 //   · 近 N 天      → 输出 { days: N }
 // 受控组件:父级持有 DateWindow,把它转成自己接口的参数(days 或 start_date/end_date)。
 import { useState } from 'react';
+import { Input } from '@/shared/ui/input';
 import { cn } from '@/shared/lib/utils';
 
 export interface DateWindow {
@@ -38,7 +39,7 @@ export function todayISO(): string {
 }
 
 const DAY_PRESETS = [7, 30, 90];
-const DATE_INPUT_CLS = 'h-7 rounded-8 border border-input bg-surface-card px-2 text-12 text-foreground';
+const DATE_INPUT_CLS = 'h-7 w-auto px-2';
 
 function Chip({
   active,
@@ -107,7 +108,7 @@ export function DateRangeControl({ value, onChange, className }: DateRangeContro
       </Chip>
       {showCustom && (
         <div className="flex items-center gap-1.5">
-          <input
+          <Input
             type="date"
             value={value.start ?? ''}
             max={value.end || today}
@@ -115,7 +116,7 @@ export function DateRangeControl({ value, onChange, className }: DateRangeContro
             className={DATE_INPUT_CLS}
           />
           <span className="text-12 text-faint">至</span>
-          <input
+          <Input
             type="date"
             value={value.end ?? ''}
             min={value.start || undefined}

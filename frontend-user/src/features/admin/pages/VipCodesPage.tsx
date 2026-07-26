@@ -3,6 +3,7 @@ import { Copy, Gift, Loader2, Ban, RotateCcw, CalendarPlus, Plus, CalendarClock 
 import { toast } from 'sonner';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
+import { Select } from '@/shared/ui/select';
 import { Label } from '@/shared/ui/label';
 import { Badge } from '@/shared/ui/badge';
 import {
@@ -29,8 +30,6 @@ import {
   useSetVipCodeGrantDays,
   type VipCode,
 } from '../api/vip-codes';
-
-const SELECT_CLS = 'h-8 rounded-8 border border-input bg-surface-card px-2 text-12 text-foreground';
 
 /**
  * 会员兑换码 —— 批量生成 + 列表。生成后弹出码清单供管理员复制分发。
@@ -237,18 +236,18 @@ export function VipCodesPage() {
             <Input type="number" min={1} max={1000} value={count} onChange={(e) => setCount(Number(e.target.value))} className="h-8 w-24" />
           </Field>
           <Field label="发放类型">
-            <select value={genKind} onChange={(e) => setGenKind(e.target.value as 'tier' | 'credit')} className={cn(SELECT_CLS, 'w-24')}>
+            <Select value={genKind} onChange={(e) => setGenKind(e.target.value as 'tier' | 'credit')} fullWidth={false} className="w-24">
               <option value="tier">会员</option>
               <option value="credit">经费</option>
-            </select>
+            </Select>
           </Field>
           {genKind === 'tier' ? (
             <>
               <Field label="等级">
-                <select value={genTier} onChange={(e) => setGenTier(e.target.value)} className={cn(SELECT_CLS, 'w-24')}>
+                <Select value={genTier} onChange={(e) => setGenTier(e.target.value)} fullWidth={false} className="w-24">
                   <option value="pro">pro</option>
                   <option value="max">max</option>
-                </select>
+                </Select>
               </Field>
               <Field label="授予天数">
                 <Input type="number" min={1} value={grantDays} onChange={(e) => setGrantDays(Number(e.target.value))} className="h-8 w-24" />
@@ -260,10 +259,10 @@ export function VipCodesPage() {
                 <Input type="number" min={1} value={genCredits} onChange={(e) => setGenCredits(Number(e.target.value))} className="h-8 w-24" />
               </Field>
               <Field label="经费类型">
-                <select value={creditKind} onChange={(e) => setCreditKind(e.target.value as 'temp' | 'perm')} className={cn(SELECT_CLS, 'w-24')}>
+                <Select value={creditKind} onChange={(e) => setCreditKind(e.target.value as 'temp' | 'perm')} fullWidth={false} className="w-24">
                   <option value="temp">临时</option>
                   <option value="perm">永久</option>
-                </select>
+                </Select>
               </Field>
               {creditKind === 'temp' && (
                 <Field label="有效天数">
@@ -317,18 +316,18 @@ export function VipCodesPage() {
       {/* 筛选 */}
       <section className="mb-4 flex flex-wrap items-end gap-2 rounded-16 border border-border-soft bg-surface-1 p-3">
         <Field label="状态">
-          <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className={cn(SELECT_CLS, 'w-28')}>
+          <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} fullWidth={false} className="w-28">
             <option value="">全部</option>
             <option value="unredeemed">可兑换</option>
             <option value="redeemed">已用完</option>
-          </select>
+          </Select>
         </Field>
         <Field label="等级">
-          <select value={tier} onChange={(e) => { setTier(e.target.value); setPage(1); }} className={cn(SELECT_CLS, 'w-24')}>
+          <Select value={tier} onChange={(e) => { setTier(e.target.value); setPage(1); }} fullWidth={false} className="w-24">
             <option value="">全部</option>
             <option value="pro">pro</option>
             <option value="free">free</option>
-          </select>
+          </Select>
         </Field>
         <Field label="兑换人" className="w-full sm:w-auto">
           <Input

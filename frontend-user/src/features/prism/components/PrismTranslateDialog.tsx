@@ -3,6 +3,7 @@ import { Languages, Loader2, RotateCcw, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/button';
+import { Textarea } from '@/shared/ui/textarea';
 import { toApiError } from '@/shared/lib/http';
 import { trackEvent } from '@/shared/lib/track';
 import { getTerminology, putTerminology } from '../api/prism';
@@ -139,12 +140,12 @@ export function PrismTranslateDialog({
               {saving ? <Loader2 className="size-3 animate-spin" /> : null} 保存
             </Button>
           </div>
-          <textarea
+          <Textarea
             value={term}
             onChange={(e) => setTerm(e.target.value)}
             rows={5}
             placeholder={'| 原文 | 译文 | 备注 |\n| --- | --- | --- |\n| 注意力机制 | attention mechanism | |'}
-            className="w-full resize-y rounded-8 border border-border bg-surface-1 p-2 font-mono text-12 outline-none placeholder:text-faint"
+            className="bg-surface-1 p-2 font-mono"
           />
         </div>
       </DialogContent>

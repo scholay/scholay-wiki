@@ -331,13 +331,14 @@ export function ConversationWorkspace({
                     <StickToBottom.Content className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-6 pt-6 pb-[max(calc(var(--chat-area-h,100dvh)*0.3),140px)]">
                       {(hiddenCount > 0 || historyHasMore) && (
                         <div className="flex justify-center">
-                          <button
+                          <Button
                             type="button"
+                            variant="secondary"
                             onClick={conv.loadEarlier}
-                            className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-pill bg-surface-2 text-12 text-muted-foreground hover:text-foreground hover:bg-surface-2/70 transition-colors"
+                            className="px-3.5 font-normal text-muted-foreground hover:text-foreground"
                           >
                             {hiddenCount > 0 ? `加载更早的 ${hiddenCount} 轮对话` : '加载更早的对话'}
-                          </button>
+                          </Button>
                         </div>
                       )}
                       {visibleTurns.map((t, i) => (

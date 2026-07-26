@@ -3,6 +3,7 @@ import { BrandLogo } from '@/shared/components/BrandLogo';
 import { useIsAuthenticated } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { cn } from '@/shared/lib/utils';
+import { Button } from '@/shared/ui';
 import { LANDINGS, LANDING_ORDER } from '../data/landings';
 
 /**
@@ -50,12 +51,9 @@ export function LandingNav() {
 
         <div className="flex items-center gap-2 shrink-0 ml-auto">
           {authenticated ? (
-            <Link
-              to="/library"
-              className="inline-flex items-center h-9 px-4 rounded-8 bg-foreground text-background text-14 font-medium hover:bg-foreground/85 transition-colors"
-            >
-              进入工作台
-            </Link>
+            <Button asChild className="h-9 px-4 text-14">
+              <Link to="/library">进入工作台</Link>
+            </Button>
           ) : (
             <>
               <button
@@ -65,13 +63,13 @@ export function LandingNav() {
               >
                 登录
               </button>
-              <button
+              <Button
                 type="button"
                 onClick={() => openDialog('register')}
-                className="inline-flex items-center h-9 px-4 rounded-8 bg-foreground text-background text-14 font-medium hover:bg-foreground/85 transition-colors"
+                className="h-9 px-4 text-14"
               >
                 免费注册
-              </button>
+              </Button>
             </>
           )}
         </div>

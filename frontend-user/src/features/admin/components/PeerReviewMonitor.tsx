@@ -3,6 +3,7 @@ import { Download, Eye, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/shared/ui/button';
 import { Badge } from '@/shared/ui/badge';
+import { Input } from '@/shared/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -253,14 +254,14 @@ export function PeerReviewMonitor() {
   return (
     <>
       <div className="mb-3">
-        <input
+        <Input
           value={kwInput}
           onChange={(e) => {
             setKwInput(e.target.value);
             setPage(1);
           }}
           placeholder="ID / 用户名 / 邮箱 / 手机号 / 标题"
-          className="h-9 w-full sm:w-72 rounded-8 border border-input bg-surface-card px-3 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-9 w-full sm:w-72"
         />
       </div>
       <DataTable columns={columns} rows={data?.list} loading={isLoading} />

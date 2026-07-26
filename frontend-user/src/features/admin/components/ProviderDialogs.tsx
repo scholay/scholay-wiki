@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
+import { Select } from '@/shared/ui/select';
 import { Switch } from '@/shared/ui/switch';
 import {
   Dialog,
@@ -168,15 +169,15 @@ export function ExtraProviderDialog({
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="pv-fmt">接口格式</Label>
-                <select
+                <Select
                   id="pv-fmt"
                   value={form.api_format}
                   onChange={(e) => setForm({ ...form, api_format: e.target.value as 'anthropic' | 'openai' })}
-                  className="h-9 w-full rounded-8 border border-input bg-surface-card px-3 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="h-9"
                 >
                   <option value="anthropic">anthropic(Messages)</option>
                   <option value="openai">openai(Chat Completions)</option>
-                </select>
+                </Select>
               </div>
               <div className="flex items-center justify-between gap-3 rounded-12 border border-border-soft p-3">
                 <Label htmlFor="pv-enabled" className="text-12 font-medium">启用</Label>

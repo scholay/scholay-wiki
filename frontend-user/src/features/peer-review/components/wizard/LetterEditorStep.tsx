@@ -9,6 +9,7 @@
  * 毕业模式:致评阅老师投稿信(中文)
  */
 import { AIOverlay } from '@/shared/ui/ai-overlay';
+import { Textarea } from '@/shared/ui/textarea';
 
 export interface LetterEditorStepProps {
   submissionId: number;
@@ -57,11 +58,11 @@ export function LetterEditorStep({
 
       {/* 蒙层只盖到"第一个字写进来"为止:开始流式起草后立即撤,内容逐字写入用户可见 */}
       <AIOverlay active={computing && !value.trim()} label="AI 正在起草投稿信">
-        <textarea
+        <Textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={computing ? '正在起草投稿信…' : copy.placeholder}
-          className="min-h-[480px] w-full resize-y rounded-8 border border-border bg-surface-card p-4 font-mono text-12 leading-paragraph text-foreground placeholder:text-faint focus-visible:border-brand-red focus-visible:outline-none"
+          className="min-h-[480px] p-4 font-mono leading-paragraph"
         />
       </AIOverlay>
 

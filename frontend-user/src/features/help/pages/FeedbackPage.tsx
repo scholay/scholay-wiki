@@ -18,6 +18,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { RouteSEO } from '@/shared/components/RouteSEO';
 import { BrandName } from '@/shared/components/BrandName';
 import { Button } from '@/shared/ui/button';
+import { Input, Textarea } from '@/shared/ui';
 import { Dialog, DialogContent } from '@/shared/ui/dialog';
 import { cn } from '@/shared/lib/utils';
 import { trackEvent } from '@/shared/lib/track';
@@ -245,7 +246,7 @@ export function FeedbackPage() {
               <label htmlFor="feedback-content" className="mb-2 block text-12 font-medium text-foreground">
                 反馈内容 <span className="text-brand-red">*</span>
               </label>
-              <textarea
+              <Textarea
                 id="feedback-content"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
@@ -255,8 +256,8 @@ export function FeedbackPage() {
                 aria-describedby="feedback-content-hint"
                 placeholder="请详细描述遇到的问题或您的建议,越具体我们越能帮上忙"
                 className={cn(
-                  'w-full resize-y rounded-8 border bg-surface-card px-3 py-2.5 text-14 leading-paragraph focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  contentTooShort ? 'border-brand-red focus-visible:border-brand-red' : 'border-border focus-visible:border-foreground',
+                  'py-2.5 text-14 leading-paragraph',
+                  contentTooShort && 'border-brand-red focus-visible:border-brand-red',
                 )}
               />
               <p
@@ -275,14 +276,15 @@ export function FeedbackPage() {
                 邮箱 <span className="text-brand-red">*</span>{' '}
                 <span className="font-normal text-faint">(用于回复反馈结果)</span>
               </label>
-              <input
+              <Input
                 id="feedback-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                autoComplete="email"
                 placeholder="you@example.com"
-                className="h-10 w-full rounded-8 border border-border bg-surface-card px-3 text-14 focus-visible:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-10 text-14"
               />
               {user?.email && email.trim() === user.email && (
                 <p className="mt-1 inline-flex items-center gap-1 text-12 text-brand-green">

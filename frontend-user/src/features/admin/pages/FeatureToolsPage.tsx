@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { Pencil, Trash2, ExternalLink, Upload, Webhook as WebhookIcon } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
+import { Select } from '@/shared/ui/select';
+import { Textarea } from '@/shared/ui/textarea';
 import { Badge } from '@/shared/ui/badge';
 import { Label } from '@/shared/ui/label';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog';
@@ -24,8 +26,6 @@ const STATUS_LABEL: Record<string, { text: string; variant: 'default' | 'outline
   pending: { text: '待审', variant: 'warning' },
   archived: { text: '归档', variant: 'outline' },
 };
-
-const selectCls = 'h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-12';
 
 export function FeatureToolsPage() {
   const [q, setQ] = useState('');
@@ -103,17 +103,21 @@ export function FeatureToolsPage() {
     >
       <div className="mb-4 flex flex-wrap gap-2">
         <Input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder="搜索名称…" className="w-full sm:max-w-xs" />
-        <select className={`${selectCls} sm:max-w-[12rem]`} value={category} onChange={(e) => { setCategory(e.target.value); setPage(1); }}>
-          <option value="">全部分类</option>
-          {(catData?.categories ?? []).map((c) => <option key={c.slug} value={c.slug}>{c.label} ({c.count})</option>)}
-        </select>
-        <select className={`${selectCls} sm:max-w-[8rem]`} value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
-          <option value="">全部状态</option>
-          <option value="published">已上线</option>
-          <option value="draft">草稿</option>
-          <option value="pending">待审</option>
-          <option value="archived">归档</option>
-        </select>
+        <div className="w-full sm:max-w-[12rem]">
+          <Select value={category} onChange={(e) => { setCategory(e.target.value); setPage(1); }}>
+            <option value="">全部分类</option>
+            {(catData?.categories ?? []).map((c) => <option key={c.slug} value={c.slug}>{c.label} ({c.count})</option>)}
+          </Select>
+        </div>
+        <div className="w-full sm:max-w-[8rem]">
+          <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
+            <option value="">全部状态</option>
+            <option value="published">已上线</option>
+            <option value="draft">草稿</option>
+            <option value="pending">待审</option>
+            <option value="archived">归档</option>
+          </Select>
+        </div>
       </div>
 
       <DataTable columns={columns} rows={data?.items} loading={isLoading} emptyMessage="还没有工具,去导入吧" />
@@ -186,33 +190,33 @@ function EditDialog({
           <Field label="一句话简介"><Input name="tagline" defaultValue={tool.tagline} /></Field>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Field label="分类">
-              <select name="category" defaultValue={tool.category} className={selectCls}>
+              <Select name="category" defaultValue={tool.category}>
                 {categories.map((c) => <option key={c.slug} value={c.slug}>{c.label}</option>)}
-              </select>
+              </Select>
             </Field>
             <Field label="价格">
-              <select name="price_type" defaultValue={tool.price_type} className={selectCls}>
+              <Select name="price_type" defaultValue={tool.price_type}>
                 {Object.entries(PRICE_TYPE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
+              </Select>
             </Field>
             <Field label="形式">
-              <select name="access_type" defaultValue={tool.access_type} className={selectCls}>
+              <Select name="access_type" defaultValue={tool.access_type}>
                 {Object.entries(ACCESS_TYPE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
+              </Select>
             </Field>
           </div>
           <Field label="官网 URL"><Input name="official_url" defaultValue={tool.official_url} placeholder="https://" /></Field>
           <Field label="标签 (逗号分隔)"><Input name="tags" defaultValue={(tool.tags ?? []).join(', ')} /></Field>
           <Field label="详细描述">
-            <textarea name="description_md" defaultValue={tool.description_md} rows={4} className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+            <Textarea name="description_md" defaultValue={tool.description_md} rows={4} />
           </Field>
           <Field label="状态" inline>
-            <select name="status" defaultValue={tool.status} className={`${selectCls} w-32`}>
+            <Select name="status" defaultValue={tool.status} fullWidth={false} className="w-32">
               <option value="published">已上线</option>
               <option value="draft">草稿</option>
               <option value="pending">待审</option>
               <option value="archived">归档</option>
-            </select>
+            </Select>
           </Field>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>取消</Button>

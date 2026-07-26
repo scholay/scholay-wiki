@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  Input,
 } from '@/shared/ui';
 import {
   useUpdateSkillMeta,
@@ -76,26 +77,26 @@ export function SkillEditDialog({
         <div className="space-y-4">
           {/* 元数据 */}
           <div className="space-y-2">
-            <input
+            <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={120}
               placeholder="名称"
-              className="h-9 w-full rounded-8 border border-border bg-surface-card px-3 text-12 outline-none focus-visible:border-border-strong"
+              className="h-9"
             />
-            <input
+            <Input
               value={tagline}
               onChange={(e) => setTagline(e.target.value)}
               maxLength={255}
               placeholder="一句话简介"
-              className="h-9 w-full rounded-8 border border-border bg-surface-card px-3 text-12 outline-none focus-visible:border-border-strong"
+              className="h-9"
             />
-            <input
+            <Input
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               maxLength={40}
               placeholder="分类"
-              className="h-9 w-full rounded-8 border border-border bg-surface-card px-3 text-12 outline-none focus-visible:border-border-strong"
+              className="h-9"
             />
             <div className="flex justify-end">
               <Button size="sm" variant="outline" disabled={updateMeta.isPending} onClick={saveMeta}>
@@ -118,12 +119,12 @@ export function SkillEditDialog({
                 hidden
                 onChange={(e) => setZip(e.target.files?.[0] ?? null)}
               />
-              <input
+              <Input
                 value={changelog}
                 onChange={(e) => setChangelog(e.target.value)}
                 maxLength={200}
                 placeholder="更新说明(可选)"
-                className="h-8 flex-1 rounded-8 border border-border bg-surface-card px-2 text-12 outline-none focus-visible:border-border-strong"
+                className="flex-1 px-2"
               />
               <Button size="sm" variant="primary" disabled={updateContent.isPending || !zip} onClick={uploadVersion}>
                 上传

@@ -19,6 +19,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/shared/ui/popover';
+import { Button } from '@/shared/ui';
 import type { UserLibraryFolderItem } from '@/shared/api/types';
 import { useApiToast } from '@/shared/hooks';
 import {
@@ -242,23 +243,27 @@ function BatchDeleteConfirmDialog({
           将从文献集永久移除选中的 {count} 篇论文。此操作不可撤销。
         </div>
         <footer className="flex items-center justify-end gap-2 h-13 px-5 border-t border-border-soft">
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={onClose}
             disabled={busy}
-            className="h-7 px-3 rounded-8 border border-border text-12 text-subtle hover:bg-surface-1 disabled:opacity-50"
+            className="px-3"
           >
             取消
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="destructive"
+            size="sm"
             onClick={onConfirm}
             disabled={busy}
-            className="inline-flex items-center gap-1 h-7 px-3 rounded-8 bg-brand-red text-on-brand text-12 font-medium hover:bg-brand-red/90 disabled:opacity-50"
+            className="gap-1 px-3 [&_svg]:size-3"
           >
             {busy && <Loader2 className="size-3 animate-spin" />}
             确认删除
-          </button>
+          </Button>
         </footer>
       </DialogContent>
     </Dialog>

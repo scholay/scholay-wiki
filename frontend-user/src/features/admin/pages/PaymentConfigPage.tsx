@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Plus, Pencil, Trash2, CheckCircle2, Circle, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
+import { Textarea } from '@/shared/ui/textarea';
 import { SecretInput } from '@/shared/ui/secret-input';
 import { Label } from '@/shared/ui/label';
 import { Badge } from '@/shared/ui/badge';
@@ -489,7 +490,7 @@ function SecretTextareaField({
           {revealed ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
         </button>
       </div>
-      <textarea
+      <Textarea
         id={name}
         name={name}
         rows={rows}
@@ -497,7 +498,7 @@ function SecretTextareaField({
         onChange={(e) => onChange(e.target.value)}
         required={required}
         placeholder={placeholder}
-        className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-12 font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="font-mono"
       />
     </div>
   );

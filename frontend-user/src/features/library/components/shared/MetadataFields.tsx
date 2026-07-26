@@ -1,5 +1,6 @@
 import { type UseFormReturn } from 'react-hook-form';
 import { cn } from '@/shared/lib/utils';
+import { Input, Textarea } from '@/shared/ui';
 import type { MetadataFormValues } from '../../hooks/useMetadataForm';
 
 /**
@@ -9,11 +10,8 @@ import type { MetadataFormValues } from '../../hooks/useMetadataForm';
  * 父级用 [[useMetadataForm]] 提供 form;本组件只 register 字段 + 渲染,不持有状态、不提交。
  */
 
-const inputCn = cn(
-  'w-full h-9 px-3 rounded-8 border border-border bg-surface-card text-14 text-foreground',
-  'placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-foreground',
-  'disabled:opacity-60 disabled:cursor-not-allowed transition-colors'
-);
+/** 本表单特有的部分:比 Input 原子高一档(h-9)、正文字号、禁用态更浅。其余全部由原子提供。 */
+const inputCn = cn('h-9 text-14 disabled:opacity-60');
 
 interface MetadataFieldsProps {
   form: UseFormReturn<MetadataFormValues>;
@@ -31,7 +29,7 @@ export function MetadataFields({ form, placeholders = {}, disabled }: MetadataFi
   return (
     <div className="space-y-3">
       <Field label="标题" required hint="显示在文献卡上,也用于搜索和引用">
-        <input
+        <Input
           {...register('title')}
           placeholder={placeholders.title}
           disabled={disabled}
@@ -40,7 +38,7 @@ export function MetadataFields({ form, placeholders = {}, disabled }: MetadataFi
       </Field>
 
       <Field label="作者" required>
-        <input
+        <Input
           {...register('authors')}
           placeholder={placeholders.authors || '用「; 」或「,」分隔多位作者'}
           disabled={disabled}
@@ -51,7 +49,7 @@ export function MetadataFields({ form, placeholders = {}, disabled }: MetadataFi
 
       <div className="grid grid-cols-[2fr_1fr] gap-3">
         <Field label="期刊 / 会议">
-          <input
+          <Input
             {...register('venue')}
             placeholder={placeholders.venue}
             disabled={disabled}
@@ -59,7 +57,7 @@ export function MetadataFields({ form, placeholders = {}, disabled }: MetadataFi
           />
         </Field>
         <Field label="年份" required>
-          <input
+          <Input
             {...yearReg}
             onChange={(e) => {
               e.target.value = e.target.value.replace(/[^\d]/g, '').slice(0, 4);
@@ -74,7 +72,7 @@ export function MetadataFields({ form, placeholders = {}, disabled }: MetadataFi
       </div>
 
       <Field label="DOI">
-        <input
+        <Input
           {...register('doi')}
           placeholder={placeholders.doi || '10.xxxx/...'}
           disabled={disabled}
@@ -84,13 +82,13 @@ export function MetadataFields({ form, placeholders = {}, disabled }: MetadataFi
       </Field>
 
       <Field label="摘要" hint={`${abstractLen} / 1500 · 支持 Markdown`}>
-        <textarea
+        <Textarea
           {...register('abstract')}
           maxLength={1500}
           placeholder={placeholders.abstract}
           rows={12}
           disabled={disabled}
-          className={cn(inputCn,'min-h-[220px] resize-y leading-paragraph py-2 font-mono')}
+          className={cn(inputCn,'min-h-[220px] leading-paragraph py-2 font-mono')}
         />
       </Field>
     </div>

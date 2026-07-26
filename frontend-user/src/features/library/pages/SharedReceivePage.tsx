@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { useAuthStatus } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { Button } from '@/shared/ui/button';
+import { Input } from '@/shared/ui';
 import { JournalBadges } from '@/shared/components/JournalBadges';
 import { JournalCover } from '@/shared/components/JournalCover';
 import { useJournalEnrichments } from '@/shared/api/journal-enrichment';
@@ -200,13 +201,13 @@ export function SharedReceivePage() {
             <p className="mt-1 text-12 text-muted-foreground">{share.title}</p>
             <p className="mt-4 text-12 text-faint">该分享需要提取码</p>
             <div className="mt-2 flex w-full max-w-xs items-center gap-2">
-              <input
+              <Input
                 autoFocus
                 value={codeInput}
                 onChange={(e) => setCodeInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && setCode(codeInput.trim())}
                 placeholder="请输入提取码"
-                className="h-10 min-w-0 flex-1 rounded-8 border border-border bg-surface-card px-3 text-center font-mono text-14 tracking-code outline-none focus-visible:border-brand-red"
+                className="h-10 min-w-0 flex-1 text-center font-mono text-14 tracking-code focus-visible:border-brand-red"
               />
               <Button size="sm" className="h-10" onClick={() => setCode(codeInput.trim())} disabled={!codeInput.trim()}>
                 查看
@@ -555,7 +556,7 @@ export function SharedReceivePage() {
                   ? '输入提取码后即可把整个合集收藏到你的文献库'
                   : '输入提取码后即可查看合集的全部文献'}
               </p>
-              <input
+              <Input
                 autoFocus
                 value={codeInput}
                 onChange={(e) => {
@@ -565,8 +566,8 @@ export function SharedReceivePage() {
                 onKeyDown={(e) => e.key === 'Enter' && submitCode()}
                 placeholder="请输入提取码"
                 maxLength={16}
-                className={`h-12 w-full rounded-8 border bg-surface-card px-3 text-center font-mono text-16 tracking-code outline-none ${
-                  codeError ? 'border-brand-red' : 'border-border focus-visible:border-brand-red'
+                className={`h-12 text-center font-mono text-16 tracking-code ${
+                  codeError ? 'border-brand-red' : 'focus-visible:border-brand-red'
                 }`}
               />
               {codeError && <p className="mt-1.5 text-12 text-brand-red">{codeError}</p>}

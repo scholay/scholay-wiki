@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Search, X, ChevronDown } from 'lucide-react';
+import { Search, X } from 'lucide-react';
+import { Select } from '@/shared/ui';
 import { useUrlState, usePatchUrlState } from '@/shared/hooks';
 import { PlazaSegmentTabs } from './PlazaSegmentTabs';
 
@@ -77,21 +78,21 @@ export function PlazaHeader() {
               </button>
             )}
           </form>
-          {/* 排序:原生 select + 自绘 chevron,与搜索框同款圆角/边框/底色。 */}
-          <div className="relative shrink-0">
-            <select
+          {/* 排序:Select 原子(自带自绘 chevron),只覆写与搜索框对齐的高度/圆角/底色。 */}
+          <div className="shrink-0">
+            <Select
+              fullWidth={false}
               value={sortValue}
               onChange={(e) => setSort(e.target.value)}
               aria-label="排序"
-              className="h-11 appearance-none rounded-16 border border-border bg-surface-1 pl-3.5 pr-8 text-12 font-medium text-subtle outline-none transition-colors hover:border-border-strong focus-visible:border-foreground"
+              className="h-11 rounded-16 bg-surface-1 pl-3.5 font-medium text-subtle hover:border-border-strong"
             >
               {sortOpts.map(([v, l]) => (
                 <option key={v} value={v}>
                   {l}
                 </option>
               ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
+            </Select>
           </div>
         </div>
       </div>

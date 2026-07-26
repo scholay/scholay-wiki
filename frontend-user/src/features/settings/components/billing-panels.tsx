@@ -4,6 +4,7 @@ import { Loader2, Ticket, QrCode, CreditCard, Zap, Coins, Download, type LucideI
 import { toast } from 'sonner';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
+import { Select } from '@/shared/ui/select';
 import { cn } from '@/shared/lib/utils';
 import { toApiError } from '@/shared/lib/http';
 import { notifyBillingChanged } from '@/shared/lib/quota-events';
@@ -208,7 +209,7 @@ function SegmentedCodeInput({ value, onChange }: { value: string[]; onChange: (v
     >
       {[0, 1, 2, 3].map((i) => (
         <Fragment key={i}>
-          <input
+          <Input
             ref={(el) => {
               refs.current[i] = el;
             }}
@@ -219,7 +220,7 @@ function SegmentedCodeInput({ value, onChange }: { value: string[]; onChange: (v
             }}
             maxLength={4}
             placeholder="0000"
-            className="h-11 w-full min-w-0 flex-1 rounded-8 border border-border bg-surface-1 text-center font-mono text-14 uppercase tracking-code text-foreground placeholder:text-faint/40 focus-visible:border-brand-red focus-visible:outline-none"
+            className="h-11 min-w-0 flex-1 bg-surface-1 px-0 text-center font-mono text-14 uppercase tracking-code placeholder:text-faint/40 focus-visible:border-brand-red focus-visible:ring-0"
           />
           {i < 3 && <span className="shrink-0 text-faint">–</span>}
         </Fragment>
@@ -361,15 +362,15 @@ export function OrdersTable() {
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <select value={month} onChange={(e) => setMonth(e.target.value)} className="h-8 rounded-8 border border-border bg-surface-card px-2 text-12 text-foreground">
+          <Select value={month} onChange={(e) => setMonth(e.target.value)} fullWidth={false}>
             <option value="">全部月份</option>
             {months.map((m) => (
               <option key={m} value={m}>{m.replace('-', ' 年 ')} 月</option>
             ))}
-          </select>
-          <button onClick={exportCsv} className="flex h-8 items-center gap-1 rounded-8 border border-border px-3 text-12 text-subtle transition-colors hover:bg-surface-2">
+          </Select>
+          <Button variant="outline" onClick={exportCsv} className="gap-1 border-border text-subtle">
             <Download className="size-3.5" /> 导出
-          </button>
+          </Button>
         </div>
       </div>
       {isLoading ? (

@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from '@/shared/ui/button';
 import { StepIndicator } from './StepIndicator';
 import type { WizardStep } from '../../types';
 
@@ -95,15 +96,17 @@ export function WizardLayout({
               {cancelLoading ? '正在取消…' : '取消草稿'}
             </button>
           )}
-          <button
+          <Button
             type="button"
+            variant="destructive"
+            size="lg"
             onClick={onNext}
             disabled={nextDisabled || nextLoading}
-            className="inline-flex h-9 items-center gap-1.5 rounded-8 bg-brand-red px-4 text-12 font-medium text-background transition hover:bg-brand-red/90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="h-9 gap-1.5"
           >
             {nextLoading ? 'AI 处理中…' : nextLabel}
             <ChevronRight className="size-3.5" />
-          </button>
+          </Button>
         </div>
       </header>
 

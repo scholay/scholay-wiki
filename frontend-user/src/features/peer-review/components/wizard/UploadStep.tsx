@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { Upload, Loader2, CheckCircle2, X, FileText, FileImage, FileArchive, FileSpreadsheet, FileCode } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
+import { Button } from '@/shared/ui/button';
 import type { AttachmentCategory, SubmissionAsset } from '../../types';
 import type { UploadAssetParams } from '../../api/submissions';
 
@@ -247,22 +248,26 @@ function ManuscriptDropZone({
         支持 {MAIN_TYPES.join(' / ')} · 建议提交脱敏盲审版本
       </p>
       <div className="mt-2 flex gap-3">
-        <button
+        <Button
           type="button"
+          variant="destructive"
+          size="lg"
           onClick={() => inputRef.current?.click()}
           disabled={uploading}
-          className="inline-flex h-9 items-center rounded-8 bg-brand-red px-5 text-12 font-medium text-background transition hover:bg-brand-red/90 disabled:opacity-50"
+          className="h-9 px-5"
         >
           选择文件
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="outline"
+          size="lg"
           disabled
           title="即将上线"
-          className="inline-flex h-9 items-center rounded-8 border border-border-button bg-surface-card px-5 text-12 text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          className="h-9 border-border-button px-5 text-muted-foreground"
         >
           从云盘导入
-        </button>
+        </Button>
       </div>
     </div>
   );
