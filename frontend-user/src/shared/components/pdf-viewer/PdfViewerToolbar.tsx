@@ -54,7 +54,7 @@ export function PdfViewerToolbar({
   trailingActions,
 }: PdfViewerToolbarProps) {
   return (
-    <div className="flex items-center justify-between gap-3 h-12 px-4 bg-surface-card border-b border-border-soft shrink-0">
+    <div className="flex items-center justify-between gap-3 h-12 px-4 bg-background border-b border-border-soft shrink-0">
       <div className="flex items-center gap-1.5 text-12">
         <button
           type="button"

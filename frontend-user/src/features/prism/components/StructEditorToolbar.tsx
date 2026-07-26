@@ -85,7 +85,7 @@ export function StructEditorToolbar({
     fn(editor.chain().focus()).run();
 
   return (
-    <div className="sticky top-0 z-raised flex flex-wrap items-center gap-0.5 border-b border-border bg-surface-card/95 px-3 py-1.5 backdrop-blur">
+    <div className="sticky top-0 z-raised flex flex-wrap items-center gap-0.5 border-b border-border bg-background/95 px-3 py-1.5 backdrop-blur">
       <TB active={st?.bold} title="加粗" onClick={run((c) => c.toggleBold())}>
         <Bold className="size-3.5" />
       </TB>

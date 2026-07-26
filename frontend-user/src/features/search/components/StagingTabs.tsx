@@ -22,7 +22,7 @@ export function StagingTabs() {
 
   return (
     <div
-      className="flex items-center justify-between gap-2 h-9 px-3 bg-surface-card border-b border-border shrink-0"
+      className="flex items-center justify-between gap-2 h-9 px-3 bg-background border-b border-border shrink-0"
       role="tablist"
       aria-label="暂存区"
     >

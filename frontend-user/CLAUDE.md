@@ -238,6 +238,32 @@ Figma 依据或推导理由。**偏离 Figma 的地方必须写明偏离原因**
 > 🔴 **`bg-background` 与 `bg-surface-card` 不可混用**。Figma 明确区分外层米白 / 内层纯白,
 > 视觉分层完全靠这 3.5% 明度差 —— 用错卡片就消失了。
 
+#### 怎么判「这一层该米白还是该白」
+
+一句话:**页面 chrome 用米白,内容面用白。**
+
+| 该用 `bg-background`(米白) | 该用 `bg-surface-card`(白) |
+|---|---|
+| 路由组件最外层壳 | 卡片 / 面板 / 列表项 |
+| 侧边栏、抽屉侧栏 | Dialog / Sheet / Popover 的**内容** |
+| 顶栏、底栏、工具条、tab 条 | 输入框 / 搜索框 / textarea |
+| 「外层展示区,里面还要放白卡」的容器 | 表格单元格 |
+| Landing 的 section 色带 | iframe / PDF 拟纸 / 预览画布 |
+
+判别问句:**它是「页面的一部分」还是「浮在页面上的一块东西」?**
+侧边栏是页面的一部分 → 米白。卡片浮在页面上 → 白。
+
+⚠️ **例外**:坐在 `bg-surface-1` 面板里的工具条可以是白的 ——
+那是「白条压浅灰」的抬升关系,不是「白条压米白」的错位。看它的**直接父容器**是什么。
+
+> 这条规则是 2026-07 改造时踩出来的:迁移的安全默认是 `bg-surface-card`
+> (因为改造前 `--background` 就是 `#FFFFFF`,保持它 = 零视觉变化),
+> 结果侧边栏被判成了卡片,全站唯独它是白的,与顶栏/主区/页脚割裂。
+> 已修 9 处同类误判(Sidebar / SidebarLayout / PrismPreview 侧栏 /
+> StagingTabs / PdfViewerToolbar / StructEditorToolbar / ClawPreview 底栏 /
+> MobileSearchOverlay 顶栏与筛选条)。
+> **这类错误 CI 查不出来**(两个 token 都合法),只能靠这条规则和肉眼。
+
 **文字** — 4 档,对比度均已按米白底实测:
 | 类 | 值 | 对比度 | 用途 |
 |---|---|---|---|

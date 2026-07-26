@@ -27,7 +27,7 @@ export function PrismPreview() {
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* 文件树 */}
-        <aside className="w-[200px] shrink-0 border-r border-border bg-surface-card py-3">
+        <aside className="w-[200px] shrink-0 border-r border-border bg-background py-3">
           <div className="px-4 pb-1 text-12 font-medium text-faint uppercase">
             文件
           </div>
