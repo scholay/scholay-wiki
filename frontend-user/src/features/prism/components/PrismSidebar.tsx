@@ -9,7 +9,6 @@ import {
 import {
   Sidebar,
   SidebarContent,
-  SidebarHeaderNav,
   SidebarSection,
   SidebarItem,
   SidebarAuthFooter,
@@ -56,19 +55,6 @@ export function PrismSidebar() {
 
   return (
     <Sidebar>
-      {/* extraEnd 挂"新建"按钮 —— Prism 场景常用动作,放 grid 按钮左侧 */}
-      <SidebarHeaderNav
-        extraEnd={
-          <button
-            type="button"
-            aria-label="新建"
-            className="inline-flex items-center justify-center size-9 rounded-8 text-subtle hover:bg-surface-2 hover:text-foreground transition-colors"
-          >
-            <Plus className="size-4" strokeWidth={1.8} />
-          </button>
-        }
-      />
-
       <SidebarContent>
         {/* 项目信息 */}
         <div className="px-4 pt-2 pb-3">

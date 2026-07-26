@@ -3,7 +3,6 @@ import {
   SidebarAuthFooter,
   SidebarCollapseButton,
   SidebarContent,
-  SidebarHeaderNav,
 } from '@/shared/components/sidebar';
 import { useSidebar } from '@/stores/sidebar.store';
 import { UnifiedSessionList } from './UnifiedSessionList';
@@ -28,7 +27,6 @@ export function UnifiedSidebar({
 
   return (
     <Sidebar>
-      <SidebarHeaderNav />
       <SidebarContent>
         <UnifiedSessionList
           activeSessionId={activeSessionId}

@@ -3,7 +3,6 @@ import { FileEdit, GraduationCap } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
-  SidebarHeaderNav,
   SidebarSection,
   SidebarItem,
   SidebarAuthFooter,
@@ -14,9 +13,7 @@ import { useSidebar } from '@/stores/sidebar.store';
 /**
  * 智能审稿侧栏 —— 跟 LibrarySidebar / SearchSidebar 同一套 shell:
  *
- *   ┌─ SidebarHeaderNav  全站功能 icon 切换条
- *   │
- *   ├─ SidebarContent
+ *   ┌─ SidebarContent
  *   │   <SidebarSection label="我要投稿">  ← section 标题段, 不可点
  *   │     <SidebarItem icon=FileEdit>期刊审稿</SidebarItem>  active=danger 红条
  *   │     <SidebarItem icon=GraduationCap>毕业审稿</SidebarItem>
@@ -45,8 +42,6 @@ export function PeerReviewSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeaderNav />
-
       <SidebarContent>
         <SidebarSection id="submit" label="我要投稿">
           <Link to="/peer-review/journal" className="block">

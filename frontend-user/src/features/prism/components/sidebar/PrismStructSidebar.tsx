@@ -4,7 +4,6 @@ import {
   SidebarAuthFooter,
   SidebarCollapseButton,
   SidebarContent,
-  SidebarHeaderNav,
   SidebarItem,
   SidebarSection,
 } from '@/shared/components/sidebar';
@@ -43,7 +42,6 @@ export function PrismStructSidebar({
 
   return (
     <Sidebar>
-      <SidebarHeaderNav />
       <SidebarContent>
         <button
           type="button"

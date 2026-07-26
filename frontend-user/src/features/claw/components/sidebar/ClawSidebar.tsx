@@ -3,7 +3,6 @@ import {
   SidebarAuthFooter,
   SidebarCollapseButton,
   SidebarContent,
-  SidebarHeaderNav,
 } from '@/shared/components/sidebar';
 import { useSidebar } from '@/stores/sidebar.store';
 import { ClawSessionList, type ClawSessionListProps } from './ClawSessionList';
@@ -41,7 +40,6 @@ export function ClawSidebar({
 
   return (
     <Sidebar>
-      <SidebarHeaderNav />
       <SidebarContent>
         <ClawSessionList
           activeSessionId={activeSessionId}

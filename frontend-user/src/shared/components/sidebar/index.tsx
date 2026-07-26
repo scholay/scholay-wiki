@@ -19,7 +19,6 @@ export {
   SidebarHeaderIcon,
   SidebarHeaderCenter,
 } from './SidebarHeader';
-export { SidebarHeaderNav } from './SidebarHeaderNav';
 export { SidebarSection } from './SidebarSection';
 export { SidebarItem } from './SidebarItem';
 export { SidebarUser } from './SidebarUser';

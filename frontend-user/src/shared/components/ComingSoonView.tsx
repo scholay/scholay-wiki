@@ -5,7 +5,6 @@ import {
   SidebarAuthFooter,
   SidebarCollapseButton,
   SidebarContent,
-  SidebarHeaderNav,
   SidebarLayout,
   SidebarSection,
 } from '@/shared/components/sidebar';
@@ -16,8 +15,8 @@ import { useSidebar } from '@/stores/sidebar.store';
  *
  * 结构对齐 文献搜索 / 文献集 / 期刊搜索 等已上线 feature:
  *   - SidebarLayout(左 240 aside,右内容,带收起/展开)
- *   - aside 用一个仅含 SidebarHeaderNav + SidebarAuthFooter + 一段"即将推出"
- *     提示的空白 Sidebar,保留全部交互(展开/收起 / 顶栏菜单切换)
+ *   - aside 用一个仅含 SidebarAuthFooter + 一段"即将推出"提示的空白 Sidebar,
+ *     保留展开/收起交互(功能切换由顶栏 TopNav 承担)
  *   - 主区 顶部一条 amber banner 标识"即将推出 · 样式预览暂不可使用",
  *     下方是 feature 自己渲染的样式预览(`preview` slot,opacity-60 蒙层 + 禁用)
  *
@@ -70,7 +69,6 @@ function ComingSoonSidebar({ title }: { title: string }) {
   const toggleSidebar = useSidebar((s) => s.toggle);
   return (
     <Sidebar>
-      <SidebarHeaderNav />
       <SidebarContent>
         <SidebarSection id="coming-soon" label={title}>
           <div className="mx-4 my-2 px-3 py-4 rounded-12 bg-warning-soft border border-brand-amber/20">

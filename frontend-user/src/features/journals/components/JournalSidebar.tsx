@@ -3,7 +3,6 @@ import { ChevronDown, Folder, LogIn } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
-  SidebarHeaderNav,
   SidebarSection,
   SidebarAuthFooter,
   SidebarCollapseButton,
@@ -69,8 +68,6 @@ export function JournalSidebar({
 
   return (
     <Sidebar>
-      <SidebarHeaderNav />
-
       <SidebarContent>
         {/* 1. 文献集快捷段 */}
         <LibrarySection />
