@@ -84,7 +84,7 @@ describe('颜色', () => {
       'features/claw/components/figure/', // 科研绘图素材(bioicons CC0 + 自绘),碱基/细胞器配色是科研语义
       'shared/components/share/', // html-to-image 海报: 离屏克隆丢 CSS 变量,必须字面值
       'shared/components/ProviderLogo', // 第三方品牌 logo
-      'shared/components/BrandLogo', // 品牌 logo
+      'shared/components/brand/', // Scholay 标志与文字标 —— 从 Figma 导出的 SVG,颜色是品牌资产
       'shared/lib/theme-bridge', // token → 第三方主题的唯一适配层
     ];
     const BASELINE = 72; // 2026-07 B4 起始基线

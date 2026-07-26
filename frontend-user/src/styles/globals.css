@@ -159,6 +159,27 @@
   --brand-green:  #2F4D29;  /* 松青 · AI 操作 / Logo ch·y        (旧 #2A7A2A) */
   --brand-amber:  #E5A800;  /* 琥珀 · 期刊线 / 构建中 / Logo o    (旧 #D4A017) */
 
+  /* —— Logo 专用配色 —— 【与语义品牌色分开,不要合并】
+   * Figma 的 Scholay wordmark 是 7 个描边字形,逐字母上色,四色循环:
+   *   S 朱砂 · c 亮黄 · h 中绿 · o 纯黑 · l 朱砂 · a 亮黄 · y 中绿
+   *
+   * 为什么不复用 --brand-*:
+   *   设计说明要求 UI「整体饱和度调低」,所以语义品牌色是压暗的
+   *   (brand-amber #E5A800 / brand-green #2F4D29)。
+   *   但 logo 作为标志需要更亮更跳才立得住,Figma 给的是另一组值
+   *   (#F1BF45 / #427935),只有红恰好与 brand-red 同值。
+   *   若合并,以后为「警告态可读性」调 --brand-amber 会连带改掉 logo,
+   *   那是两件不该耦合的事。
+   *
+   * ⚠️ --logo-ink 是纯黑,与「纯黑白改为偏蓝墨黑」的全局方向相反 ——
+   *    这是 Figma 稿里 logo 字形的实际取值(其余三色都被精心调过,
+   *    黑大概率也是刻意的:标志需要最大对比)。如设计师确认应随 UI 改用墨黑,
+   *    改这一行即可。 */
+  --logo-red:   #882828;
+  --logo-amber: #F1BF45;
+  --logo-green: #427935;
+  --logo-ink:   #000000;
+
   /* 品牌软底 —— 供 chip / 高亮行 / 弱强调块使用 */
   --brand-red-soft:    color-mix(in srgb, var(--brand-red)   10%, var(--surface-card));
   --brand-green-soft:  color-mix(in srgb, var(--brand-green) 10%, var(--surface-card));

@@ -57,7 +57,9 @@ export function SmartSearchHero({
           <HeroSpark />
           <h2 className="flex flex-wrap items-center justify-center gap-x-1.5 text-24 font-medium text-foreground">
             <span>和</span>
-            <BrandLogo size="sm" className="text-24" />
+            {/* 句中内联 —— 只用文字标(放完整锁定组合会打断句子),
+                高度 17px 对齐周围 text-24 的大写字身高 */}
+            <BrandLogo variant="wordmark" height={17} />
             <span>一起找论文</span>
           </h2>
         </div>
