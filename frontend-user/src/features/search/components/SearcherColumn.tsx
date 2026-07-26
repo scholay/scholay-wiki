@@ -209,7 +209,7 @@ export function SearcherColumn({
               className={cn(
                 'inline-flex items-center justify-center h-5 px-2.5 rounded-pill text-2xs font-bold transition-colors',
                 mode === 'classic'
-                  ? 'bg-brand-red text-white'
+                  ? 'bg-brand-red text-on-brand'
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
@@ -221,7 +221,7 @@ export function SearcherColumn({
               className={cn(
                 'inline-flex items-center justify-center h-5 px-2.5 rounded-pill text-2xs font-bold transition-colors',
                 mode === 'smart'
-                  ? 'bg-brand-red text-white'
+                  ? 'bg-brand-red text-on-brand'
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
@@ -271,7 +271,7 @@ export function SearcherColumn({
             onSubmit={submit}
             className="flex items-center gap-2 px-4 pt-3.5 pb-2 shrink-0"
           >
-            <div className="flex items-center gap-2 flex-1 h-9 px-3 rounded-sm border border-border-strong bg-background focus-within:border-foreground focus-within:ring-2 focus-within:ring-ring/20 transition-colors">
+            <div className="flex items-center gap-2 flex-1 h-9 px-3 rounded-sm border border-border-strong bg-background focus-within:border-foreground focus-within:ring-2 focus-within:ring-ring transition-colors">
               <Search className="size-3.5 text-faint" />
               <input
                 type="search"
@@ -342,7 +342,7 @@ export function SearcherColumn({
             {/* 蒙层 loading —— absolute 覆盖整个 results 区域 */}
             {showLoading && (
               <div
-                className="absolute inset-0 z-10 flex items-center justify-center bg-background/70 backdrop-blur-[1px]"
+                className="absolute inset-0 z-raised flex items-center justify-center bg-background/70 backdrop-blur-[1px]"
                 aria-live="polite"
                 aria-busy="true"
               >

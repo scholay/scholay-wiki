@@ -54,7 +54,7 @@ export function StageFlyLayer() {
   const width = Math.min(fly.from.width, target.width, 300);
 
   return createPortal(
-    <div aria-hidden className="pointer-events-none fixed inset-0 z-[9998]">
+    <div aria-hidden className="pointer-events-none fixed inset-0 z-fx">
       <motion.div
         key={fly.id}
         initial={{ x: 0, y: 0, opacity: 0, scale: 0.96 }}
@@ -74,7 +74,7 @@ export function StageFlyLayer() {
       >
         {/* StagedRow 同款绿色芯片:圆形对勾 + 标题截断 */}
         <div className="flex items-center gap-2 rounded-md border border-brand-green/40 bg-brand-green/10 px-3 py-2 shadow-overlay backdrop-blur-sm">
-          <span className="inline-flex size-4 shrink-0 items-center justify-center rounded-pill bg-brand-green text-white">
+          <span className="inline-flex size-4 shrink-0 items-center justify-center rounded-pill bg-brand-green text-on-brand">
             <Check className="size-2.5" strokeWidth={3.5} />
           </span>
           <span className="min-w-0 flex-1 truncate text-xs font-medium text-subtle">

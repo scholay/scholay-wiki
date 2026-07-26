@@ -206,7 +206,7 @@ export function DimensionSettingsDialog({ open, onOpenChange }: Props) {
                   atMax ? `已达上限(${maxDimensions} 个)` : '添加新维度'
                 }
               >
-                <span className="inline-flex h-6 w-6 items-center justify-center rounded-pill bg-brand-red text-white">
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-pill bg-brand-red text-on-brand">
                   <Plus className="size-3.5" strokeWidth={3} />
                 </span>
                 {atMax ? `已达上限 ${maxDimensions} 个` : '添加新维度'}

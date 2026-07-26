@@ -105,7 +105,7 @@ export const PaginationPrevNext = forwardRef<HTMLElement, PaginationPrevNextProp
               value={pageSize}
               onChange={(e) => onPageSizeChange!(Number(e.target.value))}
               disabled={disabled}
-              className="h-7 px-1.5 rounded-sm bg-background border border-border text-xs text-subtle hover:border-foreground focus:outline-none focus:border-foreground cursor-pointer tabular-nums disabled:opacity-50 disabled:cursor-not-allowed"
+              className="h-7 px-1.5 rounded-sm bg-background border border-border text-xs text-subtle hover:border-foreground focus-visible:outline-none focus-visible:border-foreground cursor-pointer tabular-nums disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {pageSizeOptions!.map((opt) => (
                 <option key={opt} value={opt}>

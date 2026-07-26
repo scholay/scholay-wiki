@@ -174,7 +174,7 @@ function DimensionEditDialog({
               onChange={(e) => setDescription(e.target.value)}
               required
               rows={6}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               placeholder="给 AI 的指示 —— 例如:请提取论文采用的研究方法,如实验、调查、案例分析等。"
             />
             <p className="text-2xs text-faint">

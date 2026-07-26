@@ -15,8 +15,8 @@ import { resetInfo } from '../../lib/quota-display';
 const TIER_LABEL: Record<Tier, string> = { free: 'Free', pro: 'Pro', max: 'Max' };
 const TIER_BADGE_CLS: Record<Tier, string> = {
   free: 'bg-surface-2 text-muted-foreground',
-  pro: 'bg-brand-green text-white',
-  max: 'bg-brand-amber text-white',
+  pro: 'bg-brand-green text-on-brand',
+  max: 'bg-brand-amber text-on-brand',
 };
 
 /**
@@ -75,7 +75,7 @@ export function MobileAssetsCard() {
         <button
           type="button"
           onClick={() => setMembershipOpen(true)}
-          className="ml-auto rounded-pill bg-foreground px-3 py-1 text-xs font-medium text-white active:opacity-80"
+          className="ml-auto rounded-pill bg-foreground px-3 py-1 text-xs font-medium text-on-brand active:opacity-80"
         >
           {tier === 'max' ? '续期' : '升级会员'}
         </button>

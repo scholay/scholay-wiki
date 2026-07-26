@@ -95,7 +95,7 @@ const TabItem = memo(function TabItem({
         className={cn(
           'inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-pill text-2xs font-bold shrink-0 tabular-nums',
           active
-            ? 'bg-brand-red text-white'
+            ? 'bg-brand-red text-on-brand'
             : 'bg-surface-2 text-muted-foreground'
         )}
       >

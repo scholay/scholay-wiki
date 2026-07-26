@@ -78,7 +78,7 @@ export function FavoriteBurst({ anchorRef }: FavoriteBurstProps) {
   return createPortal(
     <div
       aria-hidden
-      className="pointer-events-none fixed z-[9999]"
+      className="pointer-events-none fixed z-fx"
       style={{
         top: pos.top,
         left: pos.left,
@@ -127,7 +127,7 @@ function BurstItem({ id }: { id: number }) {
       onAnimationComplete={() => removeBurst(id)}
       // absolute relative to portal container(fixed at section's screen coord)
       // 居中 + 微妙红色阴影增强可读性
-      className="absolute left-1/2 top-0 -translate-x-1/2 inline-flex h-5 px-2 items-center rounded-pill bg-brand-red text-white text-2xs font-bold tabular-nums"
+      className="absolute left-1/2 top-0 -translate-x-1/2 inline-flex h-5 px-2 items-center rounded-pill bg-brand-red text-on-brand text-2xs font-bold tabular-nums"
     >
       +1
     </motion.span>

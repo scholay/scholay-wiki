@@ -219,7 +219,7 @@ function SegmentedCodeInput({ value, onChange }: { value: string[]; onChange: (v
             }}
             maxLength={4}
             placeholder="0000"
-            className="h-11 w-full min-w-0 flex-1 rounded-md border border-border bg-surface-1 text-center font-mono text-base uppercase tracking-code text-foreground placeholder:text-faint/40 focus:border-brand-red focus:outline-none"
+            className="h-11 w-full min-w-0 flex-1 rounded-md border border-border bg-surface-1 text-center font-mono text-base uppercase tracking-code text-foreground placeholder:text-faint/40 focus-visible:border-brand-red focus-visible:outline-none"
           />
           {i < 3 && <span className="shrink-0 text-faint">–</span>}
         </Fragment>

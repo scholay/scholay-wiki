@@ -175,7 +175,7 @@ export function MobileSearchOverlay() {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.18, ease: 'easeOut' }}
-      className="absolute inset-0 z-50 flex flex-col"
+      className="absolute inset-0 z-modal flex flex-col"
     >
       {/* 搜索导航栏(顶,从上方轻微滑入) */}
       <m.header
@@ -220,7 +220,7 @@ export function MobileSearchOverlay() {
         <button
           type="button"
           onClick={submit}
-          className="shrink-0 rounded-pill bg-brand-red px-3.5 py-1.5 text-xs font-medium text-white active:opacity-90"
+          className="shrink-0 rounded-pill bg-brand-red px-3.5 py-1.5 text-xs font-medium text-on-brand active:opacity-90"
         >
           搜索
         </button>
@@ -237,7 +237,7 @@ export function MobileSearchOverlay() {
             <SlidersHorizontal className="size-3.5" />
             筛选
             {activeCount > 0 && (
-              <span className="ml-0.5 inline-flex min-w-4 items-center justify-center rounded-pill bg-brand-red px-1 text-2xs font-semibold text-white">
+              <span className="ml-0.5 inline-flex min-w-4 items-center justify-center rounded-pill bg-brand-red px-1 text-2xs font-semibold text-on-brand">
                 {activeCount}
               </span>
             )}

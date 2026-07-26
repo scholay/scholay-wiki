@@ -56,7 +56,7 @@ export const SharePoster = forwardRef<HTMLDivElement, { data: SharePosterData }>
       // Stage(浅灰托)—— 让白卡的圆角/阴影落在灰底上,导出图更精致(对齐 .pen Stage)
       <div ref={ref} className="w-[390px] bg-[#F5F5F5] p-4 font-sans">
         {/* 白卡 */}
-        <div className="overflow-hidden rounded-[6px] border border-[#E9E9E9] bg-white">
+        <div className="overflow-hidden rounded-[6px] border border-[#E9E9E9] bg-surface-card">
           {/* 三色品牌条 */}
           <div className="flex h-1">
             <div className="flex-1 bg-[#CD2323]" />
@@ -85,7 +85,7 @@ export const SharePoster = forwardRef<HTMLDivElement, { data: SharePosterData }>
               <div
                 className={`flex h-[84px] w-[66px] shrink-0 items-center justify-center rounded-[6px] ${isTool ? 'bg-[#CD2323]' : 'bg-[#111]'}`}
               >
-                <TileIcon className="size-[30px] text-white" strokeWidth={1.6} />
+                <TileIcon className="size-[30px] text-on-brand" strokeWidth={1.6} />
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-[7px]">
                 <h2 className="font-display text-[22px] font-bold leading-display-tight text-[#111]">{title}</h2>
@@ -120,7 +120,7 @@ export const SharePoster = forwardRef<HTMLDivElement, { data: SharePosterData }>
 
             {/* 二维码页脚(浅色) */}
             <div className="flex items-center gap-3.5">
-              <div className="flex size-16 shrink-0 items-center justify-center rounded-4 border border-[#E9E9E9] bg-white">
+              <div className="flex size-16 shrink-0 items-center justify-center rounded-4 border border-[#E9E9E9] bg-surface-card">
                 <QRCodeCanvas value={data.qrValue} size={52} level="M" marginSize={0} />
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
@@ -141,15 +141,15 @@ export const SharePoster = forwardRef<HTMLDivElement, { data: SharePosterData }>
 function PosterPillView({ pill }: { pill: PosterPill }) {
   if (pill.tone === 'red') {
     return (
-      <span className="flex items-center gap-1 rounded-pill bg-[#CD2323] px-2.5 py-1 text-[11px] font-semibold text-white">
-        {pill.cite && <Quote className="size-[11px] fill-white text-white" />}
+      <span className="flex items-center gap-1 rounded-pill bg-[#CD2323] px-2.5 py-1 text-[11px] font-semibold text-on-brand">
+        {pill.cite && <Quote className="size-[11px] fill-on-brand text-on-brand" />}
         {pill.text}
       </span>
     );
   }
   if (pill.tone === 'outline') {
     return (
-      <span className="flex items-center gap-1 rounded-pill border border-[#D8D8D8] bg-white px-2.5 py-1 text-[11px] font-medium">
+      <span className="flex items-center gap-1 rounded-pill border border-[#D8D8D8] bg-surface-card px-2.5 py-1 text-[11px] font-medium">
         <span className="text-[#999]">{pill.text}</span>
         {pill.ifValue && <span className="font-bold text-[#DD9D13]">{pill.ifValue}</span>}
       </span>

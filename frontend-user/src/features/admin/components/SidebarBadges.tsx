@@ -23,7 +23,7 @@ export function CountBadge({
     <span
       className={cn(
         'inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-pill text-2xs font-bold tabular-nums',
-        tone === 'danger' && 'bg-brand-red text-white',
+        tone === 'danger' && 'bg-brand-red text-on-brand',
         tone === 'muted' && 'bg-surface-2 text-faint',
         tone === 'brand' && 'bg-danger-soft text-brand-red'
       )}

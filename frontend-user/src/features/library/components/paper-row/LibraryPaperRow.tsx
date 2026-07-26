@@ -199,7 +199,7 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
         className={cn(
           'shrink-0 mt-1 inline-flex h-4 w-4 items-center justify-center rounded-sm border transition-all cursor-pointer',
           selected
-            ? 'bg-brand-red border-brand-red text-white opacity-100'
+            ? 'bg-brand-red border-brand-red text-on-brand opacity-100'
             : 'bg-background border-border-strong text-transparent opacity-0 group-hover:opacity-100 hover:!border-foreground'
         )}
       >

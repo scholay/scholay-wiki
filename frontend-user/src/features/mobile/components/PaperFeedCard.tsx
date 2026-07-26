@@ -72,7 +72,7 @@ export const PaperFeedCard = memo(function PaperFeedCard({
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 1.5, opacity: 0 }}
             transition={{ duration: 0.32, ease: 'easeOut' }}
-            className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
+            className="pointer-events-none absolute inset-0 z-raised flex items-center justify-center"
           >
             <Heart className="size-24 fill-brand-red text-brand-red drop-shadow-lg" />
           </m.div>
@@ -109,10 +109,10 @@ export const PaperFeedCard = memo(function PaperFeedCard({
       {/* 徽章排(同期刊卡 Tag Row) */}
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         {paper.isOpenAccess && (
-          <Pill className="bg-brand-green text-white">开放获取</Pill>
+          <Pill className="bg-brand-green text-on-brand">开放获取</Pill>
         )}
         {paper.year && (
-          <Pill className="bg-foreground text-white">{paper.year}</Pill>
+          <Pill className="bg-foreground text-on-brand">{paper.year}</Pill>
         )}
         {(paper.fieldsOfStudy ?? []).slice(0, 2).map((f) => (
           <Pill key={f} className="bg-surface-2 text-muted-foreground">
@@ -156,7 +156,7 @@ export const PaperFeedCard = memo(function PaperFeedCard({
       <div className="absolute top-1/2 right-2.5 flex -translate-y-1/2 flex-col items-center gap-4">
         <RailItem label="作者">
           <div className="flex h-12 w-12 items-center justify-center rounded-pill bg-brand-green">
-            <span className="text-lg font-semibold text-white">
+            <span className="text-lg font-semibold text-on-brand">
               {firstAuthorInitial}
             </span>
           </div>

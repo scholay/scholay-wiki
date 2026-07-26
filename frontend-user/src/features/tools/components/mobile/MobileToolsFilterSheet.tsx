@@ -97,7 +97,7 @@ function Chip({ label, active, onClick }: { label: string; active: boolean; onCl
       className={cn(
         'rounded-pill border px-3 py-1.5 text-xs transition-colors',
         active
-          ? 'border-foreground bg-foreground font-medium text-white'
+          ? 'border-foreground bg-foreground font-medium text-on-brand'
           : 'border-border bg-background text-muted-foreground active:bg-surface-1'
       )}
     >

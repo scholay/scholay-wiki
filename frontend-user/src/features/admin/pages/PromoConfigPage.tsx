@@ -109,7 +109,7 @@ export function PromoConfigPage() {
                 onChange={(e) => set('benefits', e.target.value)}
                 rows={4}
                 placeholder={PLACEHOLDER.benefits.join('\n')}
-                className="flex w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                className="flex w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </Field>
             <Field label="按钮 / 引导文案">
@@ -126,15 +126,15 @@ export function PromoConfigPage() {
         <div className="lg:sticky lg:top-4 lg:self-start">
           <Label className="mb-2 block text-2xs text-faint">实时预览</Label>
           <div className="w-full max-w-80 overflow-hidden rounded-lg border border-border lg:w-80">
-            <div className="relative bg-gradient-to-br from-brand-red via-brand-red to-brand-amber px-6 pb-6 pt-8 text-center text-white">
-              <span className="absolute left-4 top-4 inline-flex items-center gap-1 rounded-pill bg-white/20 px-2 py-0.5 text-2xs font-medium backdrop-blur-sm">
+            <div className="relative bg-gradient-to-br from-brand-red via-brand-red to-brand-amber px-6 pb-6 pt-8 text-center text-on-brand">
+              <span className="absolute left-4 top-4 inline-flex items-center gap-1 rounded-pill bg-surface-card/20 px-2 py-0.5 text-2xs font-medium backdrop-blur-sm">
                 <Sparkles className="size-3" /> 限时
               </span>
-              <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-pill bg-white/15 ring-1 ring-white/30">
+              <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-pill bg-surface-card/15 ring-1 ring-on-brand/30">
                 <Gift className="size-7" strokeWidth={2} />
               </div>
               <div className="text-lg font-bold">{pvTitle}</div>
-              <div className="mt-1 text-sm text-white/90">{pvSubtitle}</div>
+              <div className="mt-1 text-sm text-on-brand/90">{pvSubtitle}</div>
             </div>
             <div className="flex flex-col gap-2.5 bg-background px-6 pt-5">
               {pvBenefits.map((b, i) => (

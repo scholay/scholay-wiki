@@ -274,7 +274,7 @@ function ReadingPane({ id }: { id: number | null }) {
               onChange={(e) => setBody(e.target.value)}
               rows={4}
               placeholder="输入回复内容…"
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
             <div className="mt-2 flex justify-end">
               <Button onClick={handleReply} disabled={reply.isPending || !body.trim()}>
@@ -325,7 +325,7 @@ function ComposeDialog({ open, onClose }: { open: boolean; onClose: () => void }
             onChange={(e) => setBody(e.target.value)}
             rows={8}
             placeholder="正文…"
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
           <div className="flex justify-end">
             <Button onClick={handleSend} disabled={compose.isPending || !to.trim() || !subject.trim() || !body.trim()}>

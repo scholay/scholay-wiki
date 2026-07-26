@@ -18,7 +18,7 @@ import {
 // tag chip —— 与 PaperResultCard DefaultCard 的 tags 同款尺寸(h-[18px] 视觉基准一致)。
 type Tone = 'solid-green' | 'green' | 'amber' | 'neutral' | 'danger';
 const TONE_CLASS: Record<Tone, string> = {
-  'solid-green': 'bg-brand-green text-white',
+  'solid-green': 'bg-brand-green text-on-brand',
   green: 'bg-brand-green/10 text-brand-green',
   amber: 'bg-brand-amber/10 text-brand-amber',
   neutral: 'bg-surface-2 text-subtle',

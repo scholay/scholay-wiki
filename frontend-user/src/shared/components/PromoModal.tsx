@@ -97,20 +97,20 @@ export function PromoModal() {
       <DialogContent
         dismissable
         // 全幅渐变头:覆盖默认 p-6/gap-4,内部各段自管内边距;把内置关闭 X 调成白色(在渐变头上)。
-        className="max-w-md gap-0 overflow-hidden p-0 [&>button]:text-white/80 [&>button]:hover:text-white"
+        className="max-w-md gap-0 overflow-hidden p-0 [&>button]:text-on-brand/80 [&>button]:hover:text-on-brand"
       >
         {/* 头部:礼券·福利风渐变 + 礼物图标 + 「限时」角标。
             via-brand-red 让文字所在的上/中部停在红色(白字对红 ~5.4:1 过 WCAG AA),
             金色只点缀在右下角,既喜庆又不牺牲可读性。 */}
-        <div className="relative bg-gradient-to-br from-brand-red via-brand-red to-brand-amber px-6 pb-6 pt-8 text-center text-white">
-          <span className="absolute left-4 top-4 inline-flex items-center gap-1 rounded-pill bg-white/20 px-2 py-0.5 text-2xs font-medium backdrop-blur-sm">
+        <div className="relative bg-gradient-to-br from-brand-red via-brand-red to-brand-amber px-6 pb-6 pt-8 text-center text-on-brand">
+          <span className="absolute left-4 top-4 inline-flex items-center gap-1 rounded-pill bg-surface-card/20 px-2 py-0.5 text-2xs font-medium backdrop-blur-sm">
             <Sparkles className="size-3" /> 限时
           </span>
-          <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-pill bg-white/15 ring-1 ring-white/30">
+          <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-pill bg-surface-card/15 ring-1 ring-on-brand/30">
             <Gift className="size-7" strokeWidth={2} />
           </div>
-          <DialogTitle className="text-lg font-bold text-white">{title}</DialogTitle>
-          <DialogDescription className="mt-1 text-sm text-white/90">{subtitle}</DialogDescription>
+          <DialogTitle className="text-lg font-bold text-on-brand">{title}</DialogTitle>
+          <DialogDescription className="mt-1 text-sm text-on-brand/90">{subtitle}</DialogDescription>
         </div>
 
         {/* 福利点 */}

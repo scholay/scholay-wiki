@@ -51,7 +51,7 @@ export function SmartSearchHero({
     <div className="relative flex-1 min-h-0 flex flex-col items-center justify-center overflow-hidden px-6 py-8">
       <AmbientBackdrop />
 
-      <div className="relative z-10 flex w-full max-w-2xl flex-col items-center gap-6">
+      <div className="relative z-raised flex w-full max-w-2xl flex-col items-center gap-6">
         {/* 图标 + 标题(挂钩品牌:和 Scholay 一起找论文) */}
         <div className="flex flex-col items-center gap-3">
           <HeroSpark />
@@ -138,7 +138,7 @@ function AmbientBackdrop() {
   ];
   return (
     <div
-      className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
+      className="pointer-events-none absolute inset-0 z-base overflow-hidden"
       aria-hidden="true"
     >
       {blobs.map((b) => (

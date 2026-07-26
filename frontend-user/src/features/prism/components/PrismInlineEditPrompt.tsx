@@ -66,7 +66,7 @@ export function PrismInlineEditPrompt({
     <div
       ref={cardRef}
       style={{ position: 'fixed', left, top, width }}
-      className="z-50 rounded-lg border border-border bg-popover p-2.5 shadow-overlay"
+      className="z-popover rounded-lg border border-border bg-popover p-2.5 shadow-overlay"
     >
       <div className="mb-2 flex items-center gap-1.5">
         <Sparkles className="size-3.5 text-brand-green" />
@@ -102,7 +102,7 @@ export function PrismInlineEditPrompt({
           }}
           rows={2}
           placeholder="或描述你想怎么改…(Enter 提交)"
-          className="max-h-24 min-h-[44px] flex-1 resize-none rounded-md border border-border-button bg-background px-2.5 py-1.5 text-xs leading-paragraph text-foreground placeholder:text-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+          className="max-h-24 min-h-[44px] flex-1 resize-none rounded-md border border-border-button bg-background px-2.5 py-1.5 text-xs leading-paragraph text-foreground placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
         <button
           type="button"

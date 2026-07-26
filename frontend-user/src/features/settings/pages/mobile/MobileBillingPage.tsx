@@ -34,7 +34,7 @@ function BillingBody() {
             className={cn(
               'rounded-pill border px-3.5 py-1.5 text-sm transition-colors',
               tab === key
-                ? 'border-foreground bg-foreground font-medium text-white'
+                ? 'border-foreground bg-foreground font-medium text-on-brand'
                 : 'border-border bg-background text-muted-foreground'
             )}
           >

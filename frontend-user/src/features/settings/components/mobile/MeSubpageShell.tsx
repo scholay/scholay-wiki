@@ -37,7 +37,7 @@ export function MeSubpageShell({
             <button
               type="button"
               onClick={() => openAuth('login')}
-              className="h-10 rounded-md bg-foreground px-8 text-md font-medium text-white active:opacity-80"
+              className="h-10 rounded-md bg-foreground px-8 text-md font-medium text-on-brand active:opacity-80"
             >
               登录
             </button>

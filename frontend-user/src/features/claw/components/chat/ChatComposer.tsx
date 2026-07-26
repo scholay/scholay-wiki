@@ -196,7 +196,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
         containerProps={enableAttachments ? att.dragHandlers : undefined}
         overlay={
           enableAttachments && att.dragOver ? (
-            <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-16 border-2 border-dashed border-brand-green bg-background/90 text-sm font-medium text-brand-green">
+            <div className="absolute inset-0 z-raised flex items-center justify-center gap-2 rounded-16 border-2 border-dashed border-brand-green bg-background/90 text-sm font-medium text-brand-green">
               <Upload className="size-4" />
               {acceptImages === false ? '松开上传文件' : '松开上传图片 / 文件'}
             </div>

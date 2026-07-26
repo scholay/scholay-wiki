@@ -44,7 +44,7 @@ export const CollectionSharePoster = forwardRef<HTMLDivElement, { data: Collecti
     // 外层灰底托 —— .pen Stage(zdApc)padding [纵16,横20];Tailwind 无对应横向档,保留 arbitrary px-5(20)。
     return (
       <div ref={ref} className="w-[390px] bg-[#F5F5F5] px-5 py-4 font-sans">
-        <div className="overflow-hidden rounded-[6px] border border-[#E9E9E9] bg-white">
+        <div className="overflow-hidden rounded-[6px] border border-[#E9E9E9] bg-surface-card">
           {/* 三色品牌条 */}
           <div className="flex h-1">
             <div className="flex-1 bg-[#CD2323]" />
@@ -92,7 +92,7 @@ export const CollectionSharePoster = forwardRef<HTMLDivElement, { data: Collecti
                       className={`flex items-center gap-2.5 py-2 ${i > 0 ? 'border-t border-[#E9E9E9]' : ''}`}
                     >
                       <span
-                        className="flex size-6 shrink-0 items-center justify-center rounded-[6px] text-[12px] font-bold leading-none text-white"
+                        className="flex size-6 shrink-0 items-center justify-center rounded-[6px] text-[12px] font-bold leading-none text-on-brand"
                         style={{ backgroundColor: IDX_COLORS[i % IDX_COLORS.length] }}
                       >
                         {i + 1}
@@ -115,7 +115,7 @@ export const CollectionSharePoster = forwardRef<HTMLDivElement, { data: Collecti
             {/* 整理人 */}
             {data.curatorName && (
               <div className="flex items-center gap-2">
-                <span className="flex size-[22px] items-center justify-center rounded-pill bg-[#2A7A2A] text-[11px] font-semibold text-white">
+                <span className="flex size-[22px] items-center justify-center rounded-pill bg-[#2A7A2A] text-[11px] font-semibold text-on-brand">
                   {data.curatorName.charAt(0)}
                 </span>
                 <span className="text-[12px] font-medium text-[#666]">
@@ -129,7 +129,7 @@ export const CollectionSharePoster = forwardRef<HTMLDivElement, { data: Collecti
 
             {/* 二维码页脚 */}
             <div className="flex items-center gap-3.5">
-              <div className="flex size-16 shrink-0 items-center justify-center rounded-4 border border-[#E9E9E9] bg-white">
+              <div className="flex size-16 shrink-0 items-center justify-center rounded-4 border border-[#E9E9E9] bg-surface-card">
                 <QRCodeCanvas value={data.qrValue} size={52} level="M" marginSize={0} />
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
@@ -161,10 +161,10 @@ function StackedCover({ initial }: { initial: string }) {
       {tiles.map((t, i) => (
         <div
           key={i}
-          className={`absolute ${t.pos} flex h-[84px] w-[74px] items-center justify-center rounded-sm border border-white`}
+          className={`absolute ${t.pos} flex h-[84px] w-[74px] items-center justify-center rounded-sm border border-on-brand`}
           style={{ backgroundColor: t.bg }}
         >
-          <span className="font-display text-[30px] font-bold leading-none text-white">{t.letter}</span>
+          <span className="font-display text-[30px] font-bold leading-none text-on-brand">{t.letter}</span>
         </div>
       ))}
     </div>

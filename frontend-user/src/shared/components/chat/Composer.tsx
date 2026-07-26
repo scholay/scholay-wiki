@@ -221,7 +221,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           rows={minRows}
           disabled={disabled}
           autoFocus={autoFocus}
-          className="block w-full resize-none overflow-y-auto border-0 bg-transparent px-1 py-1 text-base leading-paragraph text-foreground outline-none placeholder:text-faint focus:outline-none focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+          className="block w-full resize-none overflow-y-auto border-0 bg-transparent px-1 py-1 text-base leading-paragraph text-foreground outline-none placeholder:text-faint focus-visible:outline-none focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
         />
       </div>
 

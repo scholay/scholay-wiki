@@ -789,6 +789,21 @@
   --shadow-overlay: var(--shadow-overlay);
   --shadow-raised:  var(--shadow-raised);
 
+  /* ——— z-index 层级契约 ———
+   * Tailwind v4 的 z-index 命名空间是 --z-index-*,必须注册才有 z-modal 这类工具类。
+   * 只在 :root 声明 --z-modal 是不够的(这是本次改造踩过的坑)。 */
+  --z-index-base:    var(--z-base);
+  --z-index-raised:  var(--z-raised);
+  --z-index-sticky:  var(--z-sticky);
+  --z-index-nav:     var(--z-nav);
+  --z-index-scrim:   var(--z-scrim);
+  --z-index-overlay: var(--z-overlay);
+  --z-index-modal:   var(--z-modal);
+  --z-index-popover: var(--z-popover);
+  --z-index-tooltip: var(--z-tooltip);
+  --z-index-toast:   var(--z-toast);
+  --z-index-fx:      var(--z-fx);
+
   /* ——— Motion ——— */
   --ease-out:        var(--ease-out);
   --ease-in-out:     var(--ease-in-out);

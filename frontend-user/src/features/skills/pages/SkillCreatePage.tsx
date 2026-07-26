@@ -219,7 +219,7 @@ export function SkillCreatePage() {
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                     spellCheck={false}
-                    className="mt-2 h-56 w-full resize-none rounded-md border border-border bg-surface-1 p-3 font-mono text-xs leading-paragraph outline-none focus:border-border-strong"
+                    className="mt-2 h-56 w-full resize-none rounded-md border border-border bg-surface-1 p-3 font-mono text-xs leading-paragraph outline-none focus-visible:border-border-strong"
                   />
                 )}
               </div>
@@ -285,7 +285,7 @@ export function SkillCreatePage() {
                   onChange={(e) => setName(e.target.value)}
                   maxLength={120}
                   placeholder="例:系统性文献综述法"
-                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-border-strong"
+                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus-visible:border-border-strong"
                 />
               </Field>
               <Field label="一句话简介">
@@ -294,7 +294,7 @@ export function SkillCreatePage() {
                   onChange={(e) => setTagline(e.target.value)}
                   maxLength={255}
                   placeholder="简述这个技能能帮什么忙"
-                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-border-strong"
+                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus-visible:border-border-strong"
                 />
               </Field>
               <Field label="分类(可选)">
@@ -303,7 +303,7 @@ export function SkillCreatePage() {
                   onChange={(e) => setCategory(e.target.value)}
                   maxLength={40}
                   placeholder="如 research / writing / analysis"
-                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-border-strong"
+                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus-visible:border-border-strong"
                 />
               </Field>
             </div>

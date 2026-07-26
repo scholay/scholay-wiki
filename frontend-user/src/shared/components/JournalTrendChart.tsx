@@ -115,7 +115,7 @@ export const JournalTrendChart = memo(function JournalTrendChart({
               className={cn(
                 'rounded-pill px-2 py-0.5 text-2xs transition-colors',
                 effectiveMetric === m.key
-                  ? 'bg-foreground font-medium text-white'
+                  ? 'bg-foreground font-medium text-on-brand'
                   : 'bg-surface-2 text-muted-foreground'
               )}
             >

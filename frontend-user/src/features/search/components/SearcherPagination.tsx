@@ -90,7 +90,7 @@ export function SearcherPagination({
               className={cn(
                 'inline-flex h-6 min-w-6 items-center justify-center rounded-sm px-1.5 text-xs font-semibold transition-colors',
                 p === page
-                  ? 'bg-destructive text-white'
+                  ? 'bg-destructive text-on-brand'
                   : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground'
               )}
             >

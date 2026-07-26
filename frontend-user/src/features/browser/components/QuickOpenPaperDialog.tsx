@@ -69,7 +69,7 @@ export function QuickOpenPaperDialog({
           sideOffset={6}
           collisionPadding={12}
           className={cn(
-            'z-50 w-[520px] max-w-[calc(100vw-32px)]',
+            'z-modal w-[520px] max-w-[calc(100vw-32px)]',
             'flex flex-col max-h-[min(70vh,640px)] overflow-hidden',
             'rounded-lg border border-border bg-background shadow-overlay',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',

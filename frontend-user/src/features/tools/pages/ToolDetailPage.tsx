@@ -37,7 +37,7 @@ export function ToolDetailPage() {
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') submitSearch(); }}
             placeholder="搜索功能广场"
-            className="h-9 w-full rounded-md border border-border-strong bg-surface-1 pl-9 pr-3 text-sm outline-none placeholder:text-faint focus:border-foreground focus:bg-background focus:ring-2 focus:ring-ring/20"
+            className="h-9 w-full rounded-md border border-border-strong bg-surface-1 pl-9 pr-3 text-sm outline-none placeholder:text-faint focus-visible:border-foreground focus-visible:bg-background focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
       </header>

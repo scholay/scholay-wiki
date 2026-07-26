@@ -407,7 +407,7 @@ export function SmartSearchPanel() {
     onPaste: att.handlePaste,
     containerProps: att.dragHandlers,
     overlay: att.dragOver ? (
-      <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-16 border-2 border-dashed border-brand-green bg-background/90 text-sm font-medium text-brand-green">
+      <div className="absolute inset-0 z-raised flex items-center justify-center gap-2 rounded-16 border-2 border-dashed border-brand-green bg-background/90 text-sm font-medium text-brand-green">
         <Upload className="size-4" />
         松开上传图片 / 文件
       </div>
@@ -961,12 +961,12 @@ export function SmartSearchPanel() {
             </StickToBottom>
 
             {/* 底部渐隐:内容贴近底部时淡入 surface-1,让悬浮对话框"浮"在对话之上(不被文字顶到边)。 */}
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28 bg-gradient-to-t from-surface-1 via-surface-1/85 to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-raised h-28 bg-gradient-to-t from-surface-1 via-surface-1/85 to-transparent" />
 
             {/* 悬浮对话框 —— 普通 div。原「与 hero 共用 layoutId 从居中滑到底部」的共享 layout 动画已移除:
                 那个 framer 共享 layout 会用 scaleY morph 高度,返回页面时被路由过渡打断即卡住 → 输入框拉高变形。
                 改为 hero 淡出 + 底栏 composer 直接就位。外层 pointer-events-none 不挡滚动,框本体可交互。 */}
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-4 pb-4">
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-sticky px-4 pb-4">
               <div className="pointer-events-auto mx-auto w-full max-w-2xl">
                 {pendingQuestionBlock && (
                   <QuestionPrompt
@@ -1009,7 +1009,7 @@ export function SmartSearchPanel() {
           {turns.length === 0 && !loadingHistory && (
             <motion.div
               key="smart-hero"
-              className="absolute inset-0 z-30 flex"
+              className="absolute inset-0 z-nav flex"
               exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.985 }}
               transition={{ duration: reduce ? 0 : 0.3, ease: 'easeOut' }}
             >

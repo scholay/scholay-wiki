@@ -61,7 +61,7 @@ export const JournalCover = forwardRef<HTMLDivElement, JournalCoverProps>(
         <div
           ref={ref}
           className={cn(
-            'shrink-0 rounded-md overflow-hidden flex items-center justify-center w-16 h-16 text-white',
+            'shrink-0 rounded-md overflow-hidden flex items-center justify-center w-16 h-16 text-on-brand',
             className
           )}
           style={{ backgroundColor: color }}
@@ -88,7 +88,7 @@ export const JournalCover = forwardRef<HTMLDivElement, JournalCoverProps>(
       <div
         ref={ref}
         className={cn(
-          'shrink-0 rounded-md overflow-hidden flex flex-col justify-between p-3 text-white',
+          'shrink-0 rounded-md overflow-hidden flex flex-col justify-between p-3 text-on-brand',
           dims,
           className
         )}
@@ -103,7 +103,7 @@ export const JournalCover = forwardRef<HTMLDivElement, JournalCoverProps>(
           {abbrev}
         </span>
         <span
-          className="text-2xs text-white/70 line-clamp-3"
+          className="text-2xs text-on-brand/70 line-clamp-3"
           title={name}
         >
           {name}

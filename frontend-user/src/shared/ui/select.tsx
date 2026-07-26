@@ -30,7 +30,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           // appearance-none + 自绘箭头 —— 原生箭头在各平台长得完全不一样,不可控
           'appearance-none flex h-8 rounded-md border border-border bg-background pl-3 pr-8 text-sm text-foreground',
           'transition-colors cursor-pointer',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:border-foreground',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-foreground',
           'disabled:cursor-not-allowed disabled:opacity-50',
           fullWidth && 'w-full',
           className

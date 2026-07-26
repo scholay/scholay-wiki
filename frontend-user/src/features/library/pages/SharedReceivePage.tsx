@@ -206,7 +206,7 @@ export function SharedReceivePage() {
                 onChange={(e) => setCodeInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && setCode(codeInput.trim())}
                 placeholder="请输入提取码"
-                className="h-10 min-w-0 flex-1 rounded-md border border-border bg-background px-3 text-center font-mono text-md tracking-code outline-none focus:border-brand-red"
+                className="h-10 min-w-0 flex-1 rounded-md border border-border bg-background px-3 text-center font-mono text-md tracking-code outline-none focus-visible:border-brand-red"
               />
               <Button size="sm" className="h-10" onClick={() => setCode(codeInput.trim())} disabled={!codeInput.trim()}>
                 查看
@@ -314,7 +314,7 @@ export function SharedReceivePage() {
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
               {/* 分享人横幅 —— 头像 + 「X 给你分享了一篇论文」 */}
               <div className="mb-5 flex items-center gap-3 rounded-lg bg-[#F1EADA] px-3.5 py-3">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-pill bg-brand-red text-sm font-semibold text-white">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-pill bg-brand-red text-sm font-semibold text-on-brand">
                   {share.sharer?.trim().charAt(0) || '友'}
                 </span>
                 <div className="min-w-0">
@@ -415,7 +415,7 @@ export function SharedReceivePage() {
               {/* 分享人横幅(灰底卡) */}
               <div className="flex items-center gap-2.5 rounded-md bg-surface-1 p-3">
                 <span
-                  className="flex size-9 shrink-0 items-center justify-center rounded-pill text-sm font-semibold text-white"
+                  className="flex size-9 shrink-0 items-center justify-center rounded-pill text-sm font-semibold text-on-brand"
                   style={{ backgroundColor: avatarColor(share.sharer) }}
                 >
                   {share.sharer?.trim().charAt(0) || '友'}
@@ -532,7 +532,7 @@ export function SharedReceivePage() {
         {/* 提取码弹层(只在「打开/收藏」触发;底部贴附,不依赖 framer-motion 以独立于 MobileShell) */}
         {codeSheetOpen && share && (
           <div
-            className="fixed inset-0 z-50 flex items-end justify-center bg-black/40"
+            className="fixed inset-0 z-modal flex items-end justify-center bg-foreground/40"
             onClick={() => setCodeSheetOpen(false)}
           >
             <div
@@ -566,7 +566,7 @@ export function SharedReceivePage() {
                 placeholder="请输入提取码"
                 maxLength={16}
                 className={`h-12 w-full rounded-md border bg-background px-3 text-center font-mono text-lg tracking-code outline-none ${
-                  codeError ? 'border-brand-red' : 'border-border focus:border-brand-red'
+                  codeError ? 'border-brand-red' : 'border-border focus-visible:border-brand-red'
                 }`}
               />
               {codeError && <p className="mt-1.5 text-xs text-brand-red">{codeError}</p>}

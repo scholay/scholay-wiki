@@ -292,7 +292,7 @@ function HtmlPreview({ html, name }: { html: string; name: string }): ReactNode 
             sandbox="allow-scripts allow-popups"
             allow="fullscreen"
             srcDoc={html}
-            className="h-full w-full border-0 bg-white"
+            className="h-full w-full border-0 bg-surface-card"
           />
         )}
       </div>

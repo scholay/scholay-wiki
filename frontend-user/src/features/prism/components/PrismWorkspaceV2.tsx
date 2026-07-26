@@ -509,7 +509,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
       {/* 只在**有可导航的正文改动**时显示(navChangeCount 与跳转同源;纯前置字段改动 → 0 → 不显示,
           避免 review #2 的「显示 N 处却按钮全哑」)。计数由 header 的 badge 承载,这里只做导航,不重复报数。 */}
       {!streaming && diffBaseline && navChangeCount > 0 && (
-        <div className="pointer-events-none absolute right-4 top-3 z-20">
+        <div className="pointer-events-none absolute right-4 top-3 z-sticky">
           <div className="pointer-events-auto flex items-center gap-0.5 rounded-pill border border-brand-green/30 bg-background/95 px-1.5 py-1 text-2xs text-brand-green shadow-overlay backdrop-blur">
             <Sparkles className="size-3 shrink-0" />
             <span className="px-1 font-medium">AI 改动</span>
@@ -542,7 +542,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
       {/* P2 逐块审阅门:审阅模式下 AI 轮末进 awaiting_apply,盖上**所见即所得** diff 编辑器(struct 级块痕迹,
           非原始 markdown)。用户就地保留/删改本轮改动,「应用本轮」把合并 struct 经 override 固化 / 「放弃本轮」还原。 */}
       {awaitingApply && reviewPending?.new_struct && (
-        <div className="absolute inset-0 z-30 flex flex-col bg-background">
+        <div className="absolute inset-0 z-nav flex flex-col bg-background">
           <div className="flex shrink-0 items-center gap-2 border-b border-brand-green/30 bg-brand-green/5 px-4 py-1.5 text-2xs text-brand-green">
             <Sparkles className="size-3 shrink-0" />
             <span className="flex-1">逐块审阅本轮改动 —— 直接在文中保留/删改,满意后应用</span>

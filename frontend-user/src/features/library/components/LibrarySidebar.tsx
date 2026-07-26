@@ -288,7 +288,7 @@ function FolderRow({
           }}
           onBlur={commitRename}
           disabled={renameMut.isPending}
-          className="flex-1 h-6 bg-background border border-border rounded-sm px-1.5 text-xs outline-none focus:border-brand-red"
+          className="flex-1 h-6 bg-background border border-border rounded-sm px-1.5 text-xs outline-none focus-visible:border-brand-red"
         />
         {renameMut.isPending && (
           <Loader2 className="size-3 animate-spin text-muted-foreground" />
@@ -307,7 +307,7 @@ function FolderRow({
           type="button"
           onClick={confirmDelete}
           disabled={deleteMut.isPending}
-          className="inline-flex h-5 w-5 items-center justify-center rounded-sm bg-brand-red text-white hover:bg-brand-red/90"
+          className="inline-flex h-5 w-5 items-center justify-center rounded-sm bg-brand-red text-on-brand hover:bg-brand-red/90"
           title="确认(内含论文回默认文件夹)"
         >
           {deleteMut.isPending ? (
@@ -437,7 +437,7 @@ function NewFolderRow({
         }}
         onBlur={() => onSubmit(draft)}
         disabled={busy}
-        className="flex-1 h-6 bg-background border border-border rounded-sm px-1.5 text-xs outline-none focus:border-brand-red"
+        className="flex-1 h-6 bg-background border border-border rounded-sm px-1.5 text-xs outline-none focus-visible:border-brand-red"
       />
       {busy && <Loader2 className="size-3 animate-spin text-muted-foreground" />}
     </div>

@@ -73,7 +73,7 @@ function UnauthedFooter({
       <button
         type="button"
         onClick={onLogin}
-        className="flex-1 inline-flex items-center justify-center gap-1 h-8 rounded-sm bg-brand-red text-white text-xs font-bold hover:bg-brand-red/90 transition-colors"
+        className="flex-1 inline-flex items-center justify-center gap-1 h-8 rounded-sm bg-brand-red text-on-brand text-xs font-bold hover:bg-brand-red/90 transition-colors"
       >
         <LogIn className="size-3" strokeWidth={2.5} />
         登录

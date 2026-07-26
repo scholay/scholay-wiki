@@ -68,7 +68,7 @@ export function NewsDetailPage() {
             {newsReportLabel(item.report_type)}
           </span>
           {item.is_featured && (
-            <span className="rounded-sm bg-brand-red px-1.5 py-0.5 font-semibold text-white">
+            <span className="rounded-sm bg-brand-red px-1.5 py-0.5 font-semibold text-on-brand">
               头条
             </span>
           )}

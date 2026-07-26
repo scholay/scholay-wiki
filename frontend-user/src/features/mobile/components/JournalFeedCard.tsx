@@ -95,10 +95,10 @@ export const JournalFeedCard = memo(function JournalFeedCard({
       {/* Badge Row(.pen `NVHAf`) */}
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         {j.jcr_quartile && (
-          <Pill className="bg-brand-green text-white">JCR {j.jcr_quartile}</Pill>
+          <Pill className="bg-brand-green text-on-brand">JCR {j.jcr_quartile}</Pill>
         )}
         {fqb && (
-          <Pill className="bg-brand-amber text-white">
+          <Pill className="bg-brand-amber text-on-brand">
             中科院 {fqb}
             {isTop ? ' Top' : ''}
           </Pill>
@@ -110,7 +110,7 @@ export const JournalFeedCard = memo(function JournalFeedCard({
           </Pill>
         )}
         {ifValue && (
-          <Pill className="bg-foreground text-white">IF {ifValue}</Pill>
+          <Pill className="bg-foreground text-on-brand">IF {ifValue}</Pill>
         )}
         {j.ccf_rank && (
           <Pill className="bg-surface-2 text-foreground">CCF {j.ccf_rank}</Pill>

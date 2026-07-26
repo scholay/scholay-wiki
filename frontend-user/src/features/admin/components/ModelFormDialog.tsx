@@ -314,7 +314,7 @@ export function ModelFormDialog({
                 id="m-provider"
                 value={form.provider_id}
                 onChange={(e) => set('provider_id', Number(e.target.value) || 0)}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <option value={0}>默认端点(AI Agent 服务页配置)</option>
                 {(providers ?? []).map((p) => (
@@ -332,7 +332,7 @@ export function ModelFormDialog({
                   id="m-speed"
                   value={form.speed_class}
                   onChange={(e) => set('speed_class', e.target.value as AgentModelPayload['speed_class'])}
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <option value="fast">fast · 快</option>
                   <option value="balanced">balanced · 均衡</option>
@@ -345,7 +345,7 @@ export function ModelFormDialog({
                   id="m-tier"
                   value={form.min_tier}
                   onChange={(e) => set('min_tier', e.target.value as AgentModelPayload['min_tier'])}
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <option value="">全员可用</option>
                   <option value="pro">Pro 及以上</option>

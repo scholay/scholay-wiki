@@ -42,7 +42,7 @@ export function SidebarSection({
       className={cn(
         bordered && 'border-t border-border-soft',
         // flash 动画 —— 用 ring 而不是 border,不会撑大 layout;1800ms 后 store 自动清回 null
-        isFlashed && 'animate-sidebar-flash relative z-10',
+        isFlashed && 'animate-sidebar-flash relative z-raised',
         className
       )}
     >

@@ -23,7 +23,7 @@ export function SidebarCollapseButton({
       className={cn(
         'h-8 flex items-center justify-center gap-1.5 border-t border-border-soft shrink-0',
         'text-xs text-faint hover:bg-surface-1 hover:text-foreground transition-colors',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         className
       )}
     >

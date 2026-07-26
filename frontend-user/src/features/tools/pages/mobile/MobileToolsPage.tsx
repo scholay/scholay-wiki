@@ -149,7 +149,7 @@ export function MobileToolsPage() {
           >
             <SlidersHorizontal className="size-4" />
             {activeFilterCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex min-w-4 items-center justify-center rounded-pill bg-brand-red px-1 text-2xs font-semibold text-white">
+              <span className="absolute -right-1 -top-1 flex min-w-4 items-center justify-center rounded-pill bg-brand-red px-1 text-2xs font-semibold text-on-brand">
                 {activeFilterCount}
               </span>
             )}
@@ -276,7 +276,7 @@ function CategoryChip({
       className={cn(
         'shrink-0 rounded-pill border px-3 py-1.5 text-xs whitespace-nowrap transition-colors',
         active
-          ? 'border-foreground bg-foreground font-medium text-white'
+          ? 'border-foreground bg-foreground font-medium text-on-brand'
           : 'border-border bg-background text-muted-foreground'
       )}
     >

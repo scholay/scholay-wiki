@@ -74,7 +74,7 @@ export function DeleteConfirmDialog({ target, onClose }: Props) {
             type="button"
             onClick={confirm}
             disabled={busy}
-            className="inline-flex items-center gap-1 h-7 px-3 rounded-sm bg-brand-red text-white text-xs font-bold hover:bg-brand-red/90 disabled:opacity-50"
+            className="inline-flex items-center gap-1 h-7 px-3 rounded-sm bg-brand-red text-on-brand text-xs font-bold hover:bg-brand-red/90 disabled:opacity-50"
           >
             {busy && <Loader2 className="size-3 animate-spin" />}
             {isReset ? '确认重置' : '确认删除'}

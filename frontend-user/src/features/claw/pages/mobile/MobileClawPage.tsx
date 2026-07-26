@@ -196,7 +196,7 @@ function MobileClawWorkspace({
       <div ref={chatAreaRef} className="relative min-h-0 flex-1">
         {/* 悬浮控制条(无独立顶栏):左=历史抽屉,中=连接状态(自隐),右=新对话。
             顶部渐隐让图标在滚动内容上也清晰;容器 pointer-events-none、仅按钮可点,不挡滚动。 */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-2 bg-gradient-to-b from-background via-background/85 to-transparent px-2 pb-5 pt-2">
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-sticky flex items-center justify-between gap-2 bg-gradient-to-b from-background via-background/85 to-transparent px-2 pb-5 pt-2">
           <button
             type="button"
             aria-label="历史对话"

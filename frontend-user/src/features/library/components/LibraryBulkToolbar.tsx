@@ -188,7 +188,7 @@ export function LibraryBulkToolbar({
           type="button"
           onClick={() => setConfirmingDelete(true)}
           disabled={busy}
-          className="inline-flex items-center gap-1 h-7 px-2.5 rounded-sm border border-brand-red bg-brand-red text-white text-xs font-bold hover:bg-brand-red/90 disabled:opacity-50"
+          className="inline-flex items-center gap-1 h-7 px-2.5 rounded-sm border border-brand-red bg-brand-red text-on-brand text-xs font-bold hover:bg-brand-red/90 disabled:opacity-50"
         >
           <Trash2 className="size-3" />
           删除
@@ -254,7 +254,7 @@ function BatchDeleteConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={busy}
-            className="inline-flex items-center gap-1 h-7 px-3 rounded-sm bg-brand-red text-white text-xs font-bold hover:bg-brand-red/90 disabled:opacity-50"
+            className="inline-flex items-center gap-1 h-7 px-3 rounded-sm bg-brand-red text-on-brand text-xs font-bold hover:bg-brand-red/90 disabled:opacity-50"
           >
             {busy && <Loader2 className="size-3 animate-spin" />}
             确认删除

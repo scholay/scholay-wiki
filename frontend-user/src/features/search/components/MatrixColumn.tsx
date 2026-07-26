@@ -239,7 +239,7 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
           <thead>
             <tr>
               <th
-                className="sticky left-0 top-0 z-30 p-0 border-r border-b border-border bg-background"
+                className="sticky left-0 top-0 z-nav p-0 border-r border-b border-border bg-background"
                 style={{
                   width: PAPER_COL_WIDTH,
                   minWidth: PAPER_COL_WIDTH,
@@ -255,7 +255,7 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
               {/* 维度表头 —— .pen `xFPz2` h-9 bg #F8F8F8,文字 11px/700 #666 */}
               {showLoginGate ? (
                 <th
-                  className="sticky top-0 z-20 bg-surface-1 px-4 text-left text-xs font-bold text-muted-foreground border-b border-border"
+                  className="sticky top-0 z-sticky bg-surface-1 px-4 text-left text-xs font-bold text-muted-foreground border-b border-border"
                   style={{ height: 36 }}
                 >
                   维度
@@ -264,7 +264,7 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
                 dimensions.map((d) => (
                   <th
                     key={d.dimensionKey}
-                    className="sticky top-0 z-20 bg-surface-1 px-3 text-left text-xs font-bold text-muted-foreground border-r border-b border-border last:border-r-0"
+                    className="sticky top-0 z-sticky bg-surface-1 px-3 text-left text-xs font-bold text-muted-foreground border-r border-b border-border last:border-r-0"
                     style={{ minWidth: DIM_COL_MIN_WIDTH, height: 36 }}
                     title={d.dimensionKey}
                   >
@@ -273,7 +273,7 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
                 ))
               ) : (
                 <th
-                  className="sticky top-0 z-20 bg-surface-1 px-4 text-left text-xs font-bold text-muted-foreground border-b border-border"
+                  className="sticky top-0 z-sticky bg-surface-1 px-4 text-left text-xs font-bold text-muted-foreground border-b border-border"
                   style={{ height: 36 }}
                 >
                   维度
@@ -307,7 +307,7 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
                   <tr key={p.paperId} className="group/row">
                     {/* 第一列 = 论文卡(sticky-left,与右侧 dim 单元格共享行高) */}
                     <td
-                      className="sticky left-0 z-10 align-top border-b border-r border-border bg-background group-hover/row:bg-danger-soft transition-colors"
+                      className="sticky left-0 z-raised align-top border-b border-r border-border bg-background group-hover/row:bg-danger-soft transition-colors"
                       style={{
                         width: PAPER_COL_WIDTH,
                         minWidth: PAPER_COL_WIDTH,

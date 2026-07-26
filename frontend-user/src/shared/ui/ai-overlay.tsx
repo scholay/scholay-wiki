@@ -25,7 +25,7 @@ export const AIOverlay = forwardRef<HTMLDivElement, AIOverlayProps>(
       <div ref={ref} className={cn('relative rounded-md', className)}>
         {children}
         {active && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-[inherit] bg-background/70 backdrop-blur-[2px]">
+          <div className="absolute inset-0 z-raised flex flex-col items-center justify-center gap-3 rounded-[inherit] bg-background/70 backdrop-blur-[2px]">
             <div className="flex gap-1.5">
               <span className="size-2 animate-bounce rounded-pill bg-brand-green [animation-delay:-0.3s] motion-reduce:animate-none" />
               <span className="size-2 animate-bounce rounded-pill bg-brand-green [animation-delay:-0.15s] motion-reduce:animate-none" />

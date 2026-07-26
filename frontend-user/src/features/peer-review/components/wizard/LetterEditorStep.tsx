@@ -61,7 +61,7 @@ export function LetterEditorStep({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={computing ? '正在起草投稿信…' : copy.placeholder}
-          className="min-h-[480px] w-full resize-y rounded-md border border-border bg-background p-4 font-mono text-sm leading-paragraph text-foreground placeholder:text-faint focus:border-brand-red focus:outline-none"
+          className="min-h-[480px] w-full resize-y rounded-md border border-border bg-background p-4 font-mono text-sm leading-paragraph text-foreground placeholder:text-faint focus-visible:border-brand-red focus-visible:outline-none"
         />
       </AIOverlay>
 

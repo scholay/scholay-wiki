@@ -50,7 +50,7 @@ export function HtmlRender({ html }: { html: string }) {
           </ToolButton>
         </div>
       ) : (
-        <div className="group relative mb-2.5 last:mb-0 overflow-hidden rounded-md border border-border bg-white">
+        <div className="group relative mb-2.5 last:mb-0 overflow-hidden rounded-md border border-border bg-surface-card">
           <iframe
             ref={ref}
             srcDoc={doc}
@@ -85,7 +85,7 @@ export function HtmlRender({ html }: { html: string }) {
             sandbox={SANDBOX}
             referrerPolicy="no-referrer"
             title="HTML 预览(大图)"
-            className="h-full w-full bg-white"
+            className="h-full w-full bg-surface-card"
           />
         </DialogContent>
       </Dialog>

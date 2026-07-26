@@ -34,7 +34,7 @@ const PanZoomView = lazy(async () => {
                 dangerouslySetInnerHTML={{ __html: svgHtml }}
               />
             </TransformComponent>
-            <div className="absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-pill border border-border bg-background/95 p-1 shadow-overlay backdrop-blur-sm">
+            <div className="absolute bottom-5 left-1/2 z-raised flex -translate-x-1/2 items-center gap-1 rounded-pill border border-border bg-background/95 p-1 shadow-overlay backdrop-blur-sm">
               <CtrlBtn label="缩小" onClick={() => zoomOut()}>
                 <Minus className="size-4" />
               </CtrlBtn>

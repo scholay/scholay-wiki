@@ -203,7 +203,7 @@ function SelectedModeBar({
       {/* 缩略封面 —— 与刚点的卡片同一段动画,视觉延续。
           封面内部用了按整卡尺寸(~240px)标定的固定 px 内边距/条高,直接塞进 80px 缩略图会被压变形;
           故**按原始尺寸渲染再整体等比缩小**(scale),比例完全不变。 */}
-      <div className="relative aspect-[16/9] w-20 shrink-0 overflow-hidden rounded-md bg-surface-2 ring-1 ring-black/5">
+      <div className="relative aspect-[16/9] w-20 shrink-0 overflow-hidden rounded-md bg-surface-2 ring-1 ring-foreground/5">
         <div
           className="absolute left-0 top-0 origin-top-left"
           style={{ width: '240px', height: '135px', transform: 'scale(0.3333)' }}
@@ -247,11 +247,11 @@ function DeckIllustration({ reduce }: { reduce: boolean }) {
       <div className="pointer-events-none absolute -right-6 -top-8 size-24 rounded-pill bg-brand-green/10 blur-2xl" />
 
       {/* 身后叠页(多页暗示,恒显) */}
-      <div className="absolute left-1/2 top-1/2 h-[66%] w-[72%] -translate-x-[58%] -translate-y-1/2 rounded-lg bg-white/5 ring-1 ring-white/5" />
-      <div className="absolute left-1/2 top-1/2 h-[72%] w-[78%] -translate-x-[54%] -translate-y-1/2 rounded-lg bg-white/5 ring-1 ring-white/10" />
+      <div className="absolute left-1/2 top-1/2 h-[66%] w-[72%] -translate-x-[58%] -translate-y-1/2 rounded-lg bg-surface-card/5 ring-1 ring-on-brand/5" />
+      <div className="absolute left-1/2 top-1/2 h-[72%] w-[78%] -translate-x-[54%] -translate-y-1/2 rounded-lg bg-surface-card/5 ring-1 ring-on-brand/10" />
 
       {/* 当前幻灯片(内容恒显) */}
-      <div className="absolute left-1/2 top-1/2 flex h-[78%] w-[82%] -translate-x-1/2 -translate-y-1/2 flex-col gap-1.5 rounded-lg bg-white/10 p-3 ring-1 ring-white/20">
+      <div className="absolute left-1/2 top-1/2 flex h-[78%] w-[82%] -translate-x-1/2 -translate-y-1/2 flex-col gap-1.5 rounded-lg bg-surface-card/10 p-3 ring-1 ring-on-brand/20">
         {/* kicker */}
         <motion.div
           className="h-1 w-6 rounded-pill bg-brand-green"
@@ -262,7 +262,7 @@ function DeckIllustration({ reduce }: { reduce: boolean }) {
         />
         {/* 标题条 */}
         <motion.div
-          className="h-2 rounded-4 bg-white/85"
+          className="h-2 rounded-4 bg-surface-card/85"
           initial={{ width: reduce ? '70%' : 0 }}
           animate={{ width: '70%' }}
           transition={reduce ? { duration: 0 } : { duration: 0.5, delay: 0.32, ease: 'easeOut' }}
@@ -272,7 +272,7 @@ function DeckIllustration({ reduce }: { reduce: boolean }) {
           {[0.84, 0.6].map((w, i) => (
             <motion.div
               key={i}
-              className="h-1 rounded-4 bg-white/30"
+              className="h-1 rounded-4 bg-surface-card/30"
               initial={{ width: reduce ? `${w * 100}%` : 0 }}
               animate={{ width: `${w * 100}%` }}
               transition={reduce ? { duration: 0 } : { duration: 0.45, delay: 0.46 + i * 0.12, ease: 'easeOut' }}
@@ -289,7 +289,7 @@ function DeckIllustration({ reduce }: { reduce: boolean }) {
                 key={i}
                 className={cn(
                   'w-full rounded-sm',
-                  isPeak ? 'bg-gradient-to-t from-brand-green/50 to-brand-green' : 'bg-white/20',
+                  isPeak ? 'bg-gradient-to-t from-brand-green/50 to-brand-green' : 'bg-surface-card/20',
                 )}
                 initial={{ height: reduce ? `${h * 100}%` : 0 }}
                 animate={{ height: `${h * 100}%` }}
@@ -305,7 +305,7 @@ function DeckIllustration({ reduce }: { reduce: boolean }) {
         {[0, 1, 2].map((i) => (
           <motion.span
             key={i}
-            className="size-1 rounded-pill bg-white/50"
+            className="size-1 rounded-pill bg-surface-card/50"
             initial={{ opacity: reduce ? (i === 0 ? 1 : 0.35) : 0.35 }}
             animate={reduce ? undefined : { opacity: [0.35, 1, 0.35] }}
             transition={

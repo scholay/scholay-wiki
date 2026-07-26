@@ -103,7 +103,7 @@ export function MobileLibraryPage() {
               if (!creating) primeMobileKeyboard();
               setCreating((v) => !v);
             }}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-brand-red px-3.5 text-base font-medium text-white transition-transform active:scale-95 active:opacity-90"
+            className="flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-brand-red px-3.5 text-base font-medium text-on-brand transition-transform active:scale-95 active:opacity-90"
           >
             <Plus className="size-3.5" /> 新建
           </button>
@@ -125,7 +125,7 @@ export function MobileLibraryPage() {
                   type="button"
                   onClick={submitCreate}
                   disabled={createFolder.isPending}
-                  className="flex h-8 items-center rounded-sm bg-brand-red px-3 text-xs font-medium text-white active:opacity-90"
+                  className="flex h-8 items-center rounded-sm bg-brand-red px-3 text-xs font-medium text-on-brand active:opacity-90"
                 >
                   {createFolder.isPending ? (
                     <Loader2 className="size-3.5 animate-spin" />

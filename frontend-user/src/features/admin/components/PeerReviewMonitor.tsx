@@ -260,7 +260,7 @@ export function PeerReviewMonitor() {
             setPage(1);
           }}
           placeholder="ID / 用户名 / 邮箱 / 手机号 / 标题"
-          className="h-9 w-full sm:w-72 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          className="h-9 w-full sm:w-72 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       </div>
       <DataTable columns={columns} rows={data?.list} loading={isLoading} />

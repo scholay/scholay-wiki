@@ -75,7 +75,7 @@ export function ProfilePage() {
           maxLength={200}
           placeholder="一两句话介绍自己…"
           rows={3}
-          className="w-full px-3 py-2 rounded-sm border border-border bg-background text-sm resize-none focus:outline-none focus:border-foreground"
+          className="w-full px-3 py-2 rounded-sm border border-border bg-background text-sm resize-none focus-visible:outline-none focus-visible:border-foreground"
         />
       </div>
 

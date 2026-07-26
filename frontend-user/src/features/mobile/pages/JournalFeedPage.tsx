@@ -95,7 +95,7 @@ export function JournalFeedPage() {
           )}
           renderPeek={(next) => (
             /* 下一刊 peek(.pen `RSOTM`):顶圆角 14 来自设计稿,token 无对应档位 */
-            <div className="flex items-center gap-2.5 rounded-t-[14px] border border-b-0 border-border bg-surface-1/90 px-4 py-3">
+            <div className="flex items-center gap-2.5 rounded-t-16 border border-b-0 border-border bg-surface-1/90 px-4 py-3">
               <JournalCover
                 id={next.id}
                 name={next.canonical_name}

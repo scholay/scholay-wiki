@@ -19,7 +19,7 @@ export function AuthorHero({ author }: { author: Author }) {
         className="shrink-0 w-[88px] h-[88px] sm:w-[140px] sm:h-[140px] rounded-pill flex items-center justify-center"
         style={{ backgroundColor: color }}
       >
-        <span className="font-display font-bold text-[40px] sm:text-[64px] text-white leading-none">
+        <span className="font-display font-bold text-[40px] sm:text-[64px] text-on-brand leading-none">
           {initial}
         </span>
       </div>

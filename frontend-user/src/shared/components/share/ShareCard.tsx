@@ -72,7 +72,7 @@ export const ShareCard = forwardRef<HTMLDivElement, { data: ShareCardData }>(
         <div className="flex flex-col gap-3 px-4 py-4">
           {isTool ? (
             <div className="flex items-start gap-3">
-              <div className="flex size-11 shrink-0 items-center justify-center rounded-md bg-brand-red text-md font-bold text-white">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-md bg-brand-red text-md font-bold text-on-brand">
                 {data.title.slice(0, 2).toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
@@ -108,7 +108,7 @@ export const ShareCard = forwardRef<HTMLDivElement, { data: ShareCardData }>(
               <div className="relative size-12 shrink-0">
                 <div className="absolute left-2 top-0 size-9 rounded-sm bg-brand-amber/80" />
                 <div className="absolute left-1 top-1 size-9 rounded-sm bg-brand-red/85" />
-                <div className="absolute left-0 top-2 flex size-9 items-center justify-center rounded-sm bg-brand-green text-2xs font-bold text-white">
+                <div className="absolute left-0 top-2 flex size-9 items-center justify-center rounded-sm bg-brand-green text-2xs font-bold text-on-brand">
                   {data.paperCount}
                 </div>
               </div>

@@ -71,7 +71,7 @@ export const MobilePaperRow = memo(function MobilePaperRow({
         aria-label="查看详情"
         className="shrink-0 transition-transform active:scale-95 active:opacity-80"
       >
-        <span className="flex size-10 items-center justify-center rounded-pill bg-brand-green text-base font-semibold text-white">
+        <span className="flex size-10 items-center justify-center rounded-pill bg-brand-green text-base font-semibold text-on-brand">
           {initial}
         </span>
       </button>

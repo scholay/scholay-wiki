@@ -36,7 +36,7 @@ export function AttachmentChipList({ attachments }: AttachmentChipListProps) {
               type="button"
               onClick={() => setLightbox({ src: a.previewUrl!, alt: a.name })}
               title={`${a.name} · 点击放大`}
-              className="size-16 shrink-0 overflow-hidden rounded-md border border-border-strong transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              className="size-16 shrink-0 overflow-hidden rounded-md border border-border-strong transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <img src={a.previewUrl} alt={a.name} loading="lazy" width={64} height={64} className="size-16 object-cover" />
             </button>

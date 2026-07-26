@@ -61,7 +61,7 @@ export function SidebarLayout({
         {/* 背板:抽屉打开时覆盖全屏,点击收起 */}
         {expanded && (
           <div
-            className="fixed inset-0 z-40 bg-foreground/40 backdrop-blur-[1px]"
+            className="fixed inset-0 z-scrim bg-foreground/40 backdrop-blur-[1px]"
             aria-hidden
             onClick={() => useSidebar.getState().setExpanded(false)}
           />
@@ -69,7 +69,7 @@ export function SidebarLayout({
         <aside
           style={{ width }}
           className={cn(
-            'fixed inset-y-0 left-0 z-50 h-full overflow-hidden border-r border-border bg-background transition-transform duration-200 ease-in-out',
+            'fixed inset-y-0 left-0 z-modal h-full overflow-hidden border-r border-border bg-background transition-transform duration-200 ease-in-out',
             expanded ? 'translate-x-0' : '-translate-x-full'
           )}
           aria-hidden={!expanded}

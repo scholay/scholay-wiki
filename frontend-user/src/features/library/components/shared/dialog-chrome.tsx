@@ -47,14 +47,14 @@ export function WorkbenchDialogShell({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
           className={cn(
-            'fixed inset-0 z-50 bg-foreground/30 backdrop-blur-[2px]',
+            'fixed inset-0 z-overlay bg-foreground/30 backdrop-blur-[2px]',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0'
           )}
         />
         <DialogPrimitive.Content
           className={cn(
-            'fixed left-1/2 top-1/2 z-50 w-[960px] max-w-[calc(100vw-32px)]',
+            'fixed left-1/2 top-1/2 z-modal w-[960px] max-w-[calc(100vw-32px)]',
             '-translate-x-1/2 -translate-y-1/2',
             'flex flex-col h-[640px] max-h-[90vh] overflow-hidden',
             'rounded-lg border border-border bg-background',

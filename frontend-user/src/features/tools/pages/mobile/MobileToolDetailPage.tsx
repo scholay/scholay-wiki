@@ -95,7 +95,7 @@ export function MobileToolDetailPage() {
                     href={tool.official_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-md bg-foreground text-md font-medium text-white active:opacity-80"
+                    className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-md bg-foreground text-md font-medium text-on-brand active:opacity-80"
                   >
                     <Globe className="size-4" />
                     访问官网

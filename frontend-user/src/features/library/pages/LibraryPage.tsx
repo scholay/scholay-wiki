@@ -389,7 +389,7 @@ function LibraryFolderView() {
             <div
               className={cn(
                 'flex items-center gap-2 flex-1 min-w-[240px] max-w-[480px] h-[38px] px-3 rounded-md bg-surface-1 border border-border-strong',
-                'focus-within:border-foreground focus-within:ring-2 focus-within:ring-ring/20 transition-colors'
+                'focus-within:border-foreground focus-within:ring-2 focus-within:ring-ring transition-colors'
               )}
             >
               <Search className="size-3.5 text-muted-foreground shrink-0" />
@@ -593,7 +593,7 @@ function ComingSoonWrap({ children }: { children: React.ReactNode }) {
       {children}
       <span
         aria-hidden="true"
-        className="absolute -top-2 -right-2 inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-background text-[9px] font-bold leading-none whitespace-nowrap pointer-events-none z-10"
+        className="absolute -top-2 -right-2 inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-background text-[9px] font-bold leading-none whitespace-nowrap pointer-events-none z-raised"
       >
         即将推出
       </span>

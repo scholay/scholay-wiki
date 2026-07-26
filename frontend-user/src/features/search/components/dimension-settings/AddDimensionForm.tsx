@@ -50,7 +50,7 @@ export function AddDimensionForm({ disabled, onCancel, onCreated }: Props) {
           onChange={(e) => setName(e.target.value)}
           maxLength={30}
           placeholder="例:研究领域 / 评估指标"
-          className="mt-1 w-full h-8 bg-background border border-border rounded-sm px-2 text-sm outline-none focus:border-brand-amber"
+          className="mt-1 w-full h-8 bg-background border border-border rounded-sm px-2 text-sm outline-none focus-visible:border-brand-amber"
         />
       </div>
       <div>
@@ -61,7 +61,7 @@ export function AddDimensionForm({ disabled, onCancel, onCreated }: Props) {
           rows={4}
           maxLength={500}
           placeholder="告诉 AI 从论文里抽取什么 —— 越具体越好。"
-          className="mt-1 w-full bg-background border border-border rounded-sm px-2 py-1.5 text-xs leading-paragraph outline-none focus:border-brand-amber resize-none"
+          className="mt-1 w-full bg-background border border-border rounded-sm px-2 py-1.5 text-xs leading-paragraph outline-none focus-visible:border-brand-amber resize-none"
         />
       </div>
       <div className="flex items-center justify-end gap-1.5">
@@ -76,7 +76,7 @@ export function AddDimensionForm({ disabled, onCancel, onCreated }: Props) {
           type="button"
           onClick={submit}
           disabled={busy}
-          className="inline-flex items-center gap-1 h-7 px-3 rounded-sm bg-brand-red text-white text-xs font-bold hover:bg-brand-red/90 disabled:opacity-50"
+          className="inline-flex items-center gap-1 h-7 px-3 rounded-sm bg-brand-red text-on-brand text-xs font-bold hover:bg-brand-red/90 disabled:opacity-50"
         >
           {busy && <Loader2 className="size-3 animate-spin" />}
           添加维度

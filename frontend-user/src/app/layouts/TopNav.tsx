@@ -28,7 +28,7 @@ export function TopNav() {
   return (
     <header
       className="
-        h-16 grid items-center gap-3 px-6 border-b border-border bg-background sticky top-0 z-30
+        h-16 grid items-center gap-3 px-6 border-b border-border bg-background sticky top-0 z-nav
         grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]
       "
     >

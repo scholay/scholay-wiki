@@ -20,7 +20,7 @@ export function LandingNav() {
   const openDialog = useAuthDialog((s) => s.openDialog);
 
   return (
-    <header className="sticky top-0 z-30 h-[72px] bg-background/95 backdrop-blur border-b border-border-soft">
+    <header className="sticky top-0 z-nav h-[72px] bg-background/95 backdrop-blur border-b border-border-soft">
       <div className="max-w-7xl mx-auto h-full px-6 lg:px-12 flex items-center gap-10">
         <Link to="/" aria-label="返回首页" className="flex items-center shrink-0">
           <BrandLogo size="md" />

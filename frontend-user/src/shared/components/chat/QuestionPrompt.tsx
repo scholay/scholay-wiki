@@ -262,7 +262,7 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
                       }
                     }}
                     placeholder="输入你的回答…"
-                    className="flex-1 min-w-0 rounded-md border border-border bg-background px-2.5 py-1.5 text-sm text-foreground placeholder:text-faint resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="flex-1 min-w-0 rounded-md border border-border bg-background px-2.5 py-1.5 text-sm text-foreground placeholder:text-faint resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                   <button
                     type="button"

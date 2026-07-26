@@ -115,7 +115,7 @@ function ChangePasswordCard() {
       <button
         type="submit"
         disabled={change.isPending || !oldPwd || !newPwd || !confirmPwd}
-        className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-foreground text-md font-medium text-white active:opacity-80 disabled:opacity-50"
+        className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-foreground text-md font-medium text-on-brand active:opacity-80 disabled:opacity-50"
       >
         {change.isPending && <Loader2 className="size-4 animate-spin" />}
         确认修改
@@ -140,7 +140,7 @@ function PwdInput({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className="w-full rounded-md border border-border bg-surface-1 px-3 py-2 text-md text-foreground outline-none placeholder:text-faint focus:border-border-strong"
+      className="w-full rounded-md border border-border bg-surface-1 px-3 py-2 text-md text-foreground outline-none placeholder:text-faint focus-visible:border-border-strong"
     />
   );
 }

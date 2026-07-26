@@ -466,9 +466,9 @@ function JournalBadges({ enrichment }: { enrichment: NonNullable<JournalEnrichme
           key={b.label}
           className={cn(
             'inline-flex items-center px-1.5 py-0.5 rounded-sm text-[10px] font-bold leading-none whitespace-nowrap',
-            b.tone === 'solid-green' && 'bg-brand-green text-white',
-            b.tone === 'solid-amber' && 'bg-brand-amber text-white',
-            b.tone === 'solid-red' && 'bg-brand-red text-white',
+            b.tone === 'solid-green' && 'bg-brand-green text-on-brand',
+            b.tone === 'solid-amber' && 'bg-brand-amber text-on-brand',
+            b.tone === 'solid-red' && 'bg-brand-red text-on-brand',
             b.tone === 'neutral' && 'bg-surface-2 text-subtle'
           )}
         >

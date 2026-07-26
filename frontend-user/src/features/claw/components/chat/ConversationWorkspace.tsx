@@ -319,7 +319,7 @@ export function ConversationWorkspace({
                   onClick={() => setRightCollapsed(false)}
                   title="展开成果栏"
                   aria-label="展开成果栏"
-                  className="absolute right-0 top-1/2 z-30 flex -translate-y-1/2 flex-col items-center gap-1 rounded-l-md border border-r-0 border-border bg-surface-1 px-1.5 py-2.5 text-2xs text-muted-foreground shadow-overlay transition-colors hover:bg-surface-2 hover:text-foreground"
+                  className="absolute right-0 top-1/2 z-nav flex -translate-y-1/2 flex-col items-center gap-1 rounded-l-md border border-r-0 border-border bg-surface-1 px-1.5 py-2.5 text-2xs text-muted-foreground shadow-overlay transition-colors hover:bg-surface-2 hover:text-foreground"
                 >
                   <PanelRightOpen className="h-4 w-4 text-brand-green" />
                   {(sessionArtifacts?.length ?? 0) > 0 && <span className="font-semibold">{sessionArtifacts?.length}</span>}
@@ -363,9 +363,9 @@ export function ConversationWorkspace({
                     <ScrollController scrollRef={scrollToBottomRef} />
                   </StickToBottom>
 
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28 bg-gradient-to-t from-background via-background/85 to-transparent" />
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-raised h-28 bg-gradient-to-t from-background via-background/85 to-transparent" />
 
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-6 pb-4">
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-sticky px-6 pb-4">
                     <div className="pointer-events-auto mx-auto w-full max-w-2xl">
                       {pendingQuestionBlock && (
                         <QuestionPrompt
@@ -387,7 +387,7 @@ export function ConversationWorkspace({
               )}
 
               {!loading && turns.length === 0 && historyError && (
-                <div className="absolute inset-0 z-30 flex items-center justify-center p-6">
+                <div className="absolute inset-0 z-nav flex items-center justify-center p-6">
                   <ResourceError
                     error={historyErrorObj}
                     resourceName="对话"
@@ -403,7 +403,7 @@ export function ConversationWorkspace({
                 {!loading && turns.length === 0 && !historyError && (
                   <motion.div
                     key="workspace-hero"
-                    className="absolute inset-0 z-30 flex"
+                    className="absolute inset-0 z-nav flex"
                     exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.985 }}
                     transition={{ duration: reduce ? 0 : 0.3, ease: 'easeOut' }}
                   >

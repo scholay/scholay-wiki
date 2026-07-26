@@ -71,7 +71,7 @@ export function CollaboratorsCol({
                 )}
               >
                 <span
-                  className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-pill text-2xs font-bold text-white"
+                  className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-pill text-2xs font-bold text-on-brand"
                   style={{
                     backgroundColor: pickAvatarColor(
                       c.author.authorId ?? c.author.name ?? ''

@@ -93,9 +93,9 @@ export function DefaultCard({
               key={t.key}
               className={cn(
                 'inline-flex items-center px-1.5 h-[18px] rounded-sm text-2xs font-bold',
-                t.tone === 'solid-green' && 'bg-brand-green text-white',
-                t.tone === 'solid-amber' && 'bg-brand-amber text-white',
-                t.tone === 'solid-red' && 'bg-brand-red text-white',
+                t.tone === 'solid-green' && 'bg-brand-green text-on-brand',
+                t.tone === 'solid-amber' && 'bg-brand-amber text-on-brand',
+                t.tone === 'solid-red' && 'bg-brand-red text-on-brand',
                 t.tone === 'red' && 'bg-danger-soft text-brand-red',
                 t.tone === 'green' && 'bg-brand-green/10 text-brand-green',
                 t.tone === 'blue' && 'bg-cat-blue-soft text-cat-blue',
@@ -132,8 +132,8 @@ export function DefaultCard({
               // 窄容器:塌成 24×24 纯图标方块
               '@max-[260px]:w-6 @max-[260px]:px-0 @max-[260px]:gap-0',
               isStaged
-                ? 'bg-brand-green text-white hover:bg-brand-green/85'
-                : 'bg-brand-red text-white hover:bg-brand-red/90'
+                ? 'bg-brand-green text-on-brand hover:bg-brand-green/85'
+                : 'bg-brand-red text-on-brand hover:bg-brand-red/90'
             )}
             title={isStaged ? '点击取消暂存' : '加入当前活跃暂存区'}
           >

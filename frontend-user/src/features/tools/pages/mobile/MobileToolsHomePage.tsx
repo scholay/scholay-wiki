@@ -82,7 +82,7 @@ export function MobileToolsHomePage() {
                 <span className="text-base font-semibold text-foreground">AI Claw 科研智能体</span>
                 <span className="truncate text-xs text-muted-foreground">用一句话指挥它帮你找、读、写、比</span>
               </span>
-              <span className="shrink-0 rounded-pill bg-brand-red px-3.5 py-1.5 text-xs font-semibold text-white">
+              <span className="shrink-0 rounded-pill bg-brand-red px-3.5 py-1.5 text-xs font-semibold text-on-brand">
                 开启
               </span>
             </button>

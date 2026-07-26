@@ -42,7 +42,7 @@ export function MobileBottomSheet({
               <m.div
                 className={cn(
                   'fixed inset-0 bg-foreground/40',
-                  elevated ? 'z-[80]' : 'z-[70]'
+                  elevated ? 'z-modal' : 'z-overlay'
                 )}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -58,7 +58,7 @@ export function MobileBottomSheet({
               <m.div
                 className={cn(
                   'fixed inset-x-0 bottom-0 mx-auto flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-16 bg-background shadow-overlay',
-                  elevated ? 'z-[81]' : 'z-[71]',
+                  elevated ? 'z-popover' : 'z-modal',
                   className
                 )}
                 initial={{ y: '100%' }}

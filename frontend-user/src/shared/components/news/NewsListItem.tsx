@@ -36,7 +36,7 @@ export function NewsListItem({ item }: { item: NewsCard }) {
         {/* 顶行:头条 + 版块 + 热度 + 时间 */}
         <div className="flex flex-wrap items-center gap-2 text-xs">
           {item.is_featured && (
-            <span className="rounded-sm bg-brand-red px-1.5 py-0.5 text-2xs font-semibold text-white">
+            <span className="rounded-sm bg-brand-red px-1.5 py-0.5 text-2xs font-semibold text-on-brand">
               头条
             </span>
           )}

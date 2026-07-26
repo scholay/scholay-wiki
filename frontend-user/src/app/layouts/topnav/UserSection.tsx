@@ -73,7 +73,7 @@ export function UserSection() {
               className={cn(
                 'inline-flex items-center gap-2 h-10 pl-1 pr-3.5 rounded-pill bg-surface-2',
                 'hover:bg-surface-3 transition-colors',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30'
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
               )}
             >
               <Avatar className="h-8 w-8 bg-primary">

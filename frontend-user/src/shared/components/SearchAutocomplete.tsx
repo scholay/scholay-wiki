@@ -246,7 +246,7 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
             onMouseLeave={schedulePickerClose}
             // 与主框留 8px 间距(top-full + mt-2),不挤压主框下边线;
             // 主框边框不会因为 picker 打开而改变(mergeBorders 只看 suggestions)
-            className="absolute top-full left-0 right-0 mt-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150"
+            className="absolute top-full left-0 right-0 mt-2 z-popover animate-in fade-in slide-in-from-top-1 duration-150"
           >
             <JournalSearchAlternateRow
               query={trimmed}
@@ -259,7 +259,7 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
           <div
             // .pen `t3sGV`:1px #E5E5E5 边 + 下圆角 4 + 阴影 (0,8) blur 24
             // 高度封顶由上面 ResizeObserver 算出 --dropdownMaxHeight
-            className="absolute top-full left-0 right-0 z-50 flex flex-col bg-background border border-border-strong border-t-0 rounded-b-sm overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150"
+            className="absolute top-full left-0 right-0 z-popover flex flex-col bg-background border border-border-strong border-t-0 rounded-b-sm overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150"
             style={{ maxHeight: dropdownMaxHeight }}
           >
             {papers.length > 0 && (

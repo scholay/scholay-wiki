@@ -38,7 +38,7 @@ export const NewsCard = memo(function NewsCard({ item }: { item: NewsCardData })
           {newsRelativeTime(item.published_at)}
         </span>
         {item.is_featured && (
-          <span className="ml-auto rounded-pill bg-brand-red px-2 py-0.5 text-2xs font-semibold text-white">
+          <span className="ml-auto rounded-pill bg-brand-red px-2 py-0.5 text-2xs font-semibold text-on-brand">
             头条
           </span>
         )}

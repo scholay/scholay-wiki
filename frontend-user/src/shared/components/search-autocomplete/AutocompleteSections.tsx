@@ -50,7 +50,7 @@ export function JournalSearchAlternateRow({
         onClick={onClick}
         className={cn(
           'inline-flex h-9 items-center justify-center px-4 rounded-sm',
-          'bg-brand-amber text-white text-sm font-semibold whitespace-nowrap',
+          'bg-brand-amber text-on-brand text-sm font-semibold whitespace-nowrap',
           'hover:bg-brand-amber/95 transition-colors'
         )}
       >
@@ -162,7 +162,7 @@ export function JournalSection({
           key={j.id}
           type="button"
           onClick={() => onPick(j)}
-          className="flex w-full items-center gap-3.5 px-5 py-3 text-left hover:bg-black/[0.03] transition-colors"
+          className="flex w-full items-center gap-3.5 px-5 py-3 text-left hover:bg-foreground/[0.03] transition-colors"
         >
           <JournalCover name={j.canonical_name} index={i} />
           <div className="flex-1 min-w-0 flex flex-col gap-1">
@@ -196,7 +196,7 @@ function JournalCover({ name, index }: { name: string; index: number }) {
   return (
     <div
       className={cn(
-        'shrink-0 inline-flex items-center justify-center w-11 h-14 rounded-sm border border-black/15 text-background font-display font-bold text-md',
+        'shrink-0 inline-flex items-center justify-center w-11 h-14 rounded-sm border border-foreground/15 text-background font-display font-bold text-md',
         bg
       )}
     >

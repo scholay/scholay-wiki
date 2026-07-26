@@ -61,7 +61,7 @@ function AttachmentChip({
       type="button"
       onClick={onRemove}
       title="移除"
-      className="absolute -right-1.5 -top-1.5 z-10 inline-flex size-4 items-center justify-center rounded-pill bg-foreground text-background transition-transform hover:scale-110"
+      className="absolute -right-1.5 -top-1.5 z-raised inline-flex size-4 items-center justify-center rounded-pill bg-foreground text-background transition-transform hover:scale-110"
     >
       <X className="size-2.5" strokeWidth={2.6} />
     </button>
@@ -69,11 +69,11 @@ function AttachmentChip({
 
   // 上传中 / 失败的覆盖层(缩略图与文件卡共用)。
   const stateOverlay = uploading ? (
-    <span className="absolute inset-0 z-[5] flex items-center justify-center rounded-md bg-background/60">
+    <span className="absolute inset-0 z-raised flex items-center justify-center rounded-md bg-background/60">
       <Loader2 className="size-4 animate-spin text-muted-foreground" />
     </span>
   ) : failed && onRetry ? (
-    <span className="absolute inset-0 z-[5] flex items-center justify-center gap-1 rounded-md bg-background/75">
+    <span className="absolute inset-0 z-raised flex items-center justify-center gap-1 rounded-md bg-background/75">
       <button
         type="button"
         onClick={onRetry}
@@ -97,7 +97,7 @@ function AttachmentChip({
           disabled={!onEnlarge}
           title={failed ? item.error || '上传失败' : '点击放大'}
           className={cn(
-            'size-14 overflow-hidden rounded-md border focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
+            'size-14 overflow-hidden rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
             failed ? 'border-brand-red' : 'border-border',
           )}
         >

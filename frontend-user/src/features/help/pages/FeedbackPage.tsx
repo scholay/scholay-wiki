@@ -255,8 +255,8 @@ export function FeedbackPage() {
                 aria-describedby="feedback-content-hint"
                 placeholder="请详细描述遇到的问题或您的建议,越具体我们越能帮上忙"
                 className={cn(
-                  'w-full resize-y rounded-sm border bg-background px-3 py-2.5 text-sm leading-paragraph focus:outline-none focus:ring-2 focus:ring-ring/20',
-                  contentTooShort ? 'border-brand-red focus:border-brand-red' : 'border-border focus:border-foreground',
+                  'w-full resize-y rounded-sm border bg-background px-3 py-2.5 text-sm leading-paragraph focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  contentTooShort ? 'border-brand-red focus-visible:border-brand-red' : 'border-border focus-visible:border-foreground',
                 )}
               />
               <p
@@ -282,7 +282,7 @@ export function FeedbackPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 placeholder="you@example.com"
-                className="h-10 w-full rounded-sm border border-border bg-background px-3 text-sm focus:border-foreground focus:outline-none focus:ring-2 focus:ring-ring/20"
+                className="h-10 w-full rounded-sm border border-border bg-background px-3 text-sm focus-visible:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
               {user?.email && email.trim() === user.email && (
                 <p className="mt-1 inline-flex items-center gap-1 text-2xs text-brand-green">

@@ -55,7 +55,7 @@ export function AdminShell() {
       <title>{docTitle}</title>
 
       {/* 顶部占位导航条 —— 对齐用户端 TopNav 的左上角 [☰][Logo];右侧刻意留白(后台不挂菜单/用户区)。 */}
-      <header className="h-16 shrink-0 flex items-center gap-2 px-6 border-b border-border bg-background sticky top-0 z-30">
+      <header className="h-16 shrink-0 flex items-center gap-2 px-6 border-b border-border bg-background sticky top-0 z-nav">
         <IconButton
           aria-label="展开/收起侧栏"
           tooltip="展开/收起侧栏"

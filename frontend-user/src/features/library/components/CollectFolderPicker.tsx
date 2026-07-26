@@ -100,7 +100,7 @@ export function CollectFolderPicker() {
               type="button"
               onClick={submitCreate}
               disabled={!newName.trim() || createMut.isPending}
-              className="flex h-8 items-center gap-1 rounded-sm bg-brand-red px-3 text-xs font-medium text-white active:opacity-90 disabled:opacity-50"
+              className="flex h-8 items-center gap-1 rounded-sm bg-brand-red px-3 text-xs font-medium text-on-brand active:opacity-90 disabled:opacity-50"
             >
               {createMut.isPending ? <Loader2 className="size-3.5 animate-spin" /> : '创建'}
             </button>
@@ -151,7 +151,7 @@ export function CollectFolderPicker() {
         <button
           type="button"
           onClick={confirm}
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-brand-red text-base font-semibold text-white active:opacity-90"
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-brand-red text-base font-semibold text-on-brand active:opacity-90"
         >
           <BookmarkCheck className="size-4" />
           完成收藏
@@ -222,7 +222,7 @@ function FolderRow({
       <span
         className={cn(
           'flex size-[22px] shrink-0 items-center justify-center rounded-pill border-[1.5px]',
-          selected ? 'border-brand-green bg-brand-green text-white' : 'border-border-button'
+          selected ? 'border-brand-green bg-brand-green text-on-brand' : 'border-border-button'
         )}
       >
         {selected && <Check className="size-3.5" />}

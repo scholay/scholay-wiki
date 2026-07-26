@@ -17,7 +17,7 @@ export function StagedRow({
 }) {
   return (
     <div className="flex items-center gap-2 min-h-10 px-3.5 py-2 bg-brand-green/5 border-b border-brand-green/30">
-      <span className="inline-flex h-4 w-4 items-center justify-center rounded-pill bg-brand-green text-white shrink-0">
+      <span className="inline-flex h-4 w-4 items-center justify-center rounded-pill bg-brand-green text-on-brand shrink-0">
         <Check className="size-2.5" strokeWidth={3.5} />
       </span>
       <span className="flex-1 min-w-0 text-sm text-subtle line-clamp-2">
