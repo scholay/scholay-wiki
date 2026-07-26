@@ -38,10 +38,26 @@ import { cn } from '@/shared/lib/utils';
 const NO_POINTER = -1e6;
 /** 项与项之间的固定间距(px) */
 const GAP = 4;
+/* ── 放大手感的三个旋钮 ────────────────────────────────────────────
+ * 「不够干脆」通常是这三个一起偏软造成的,调的时候三个一起看:
+ *   MAX_SCALE  ↑ = 峰值更明显      INFLUENCE ↓ = 影响更集中(只拎出一项)
+ *   FOCUS      ↑ = 峰更尖、尾更收   SPRING    见下方 useSpring
+ * ------------------------------------------------------------------ */
+
 /** 光标正下方那一项的最大放大倍数(只作用于宽度/字号/图标,不作用于高度) */
-const MAX_SCALE = 1.28;
-/** 放大影响半径(px)—— 超出这个距离的项完全不受影响 */
-const INFLUENCE = 130;
+const MAX_SCALE = 1.38;
+/**
+ * 放大影响半径(px)。
+ * chip 宽度约 90px —— 半径取 110 意味着只有光标那一项 + 左右各半项受影响。
+ * 之前取 130 会让 3 项同时半放大,「谁被选中」就糊掉了,这是不干脆的主因。
+ */
+const INFLUENCE = 110;
+/**
+ * 峰值锐度:对余弦衰减再取 FOCUS 次方。
+ * 1 = 原始余弦(圆润但发散);>1 把能量往中心收,峰更尖、尾更快落到 0。
+ * 取 1.7 —— 既拎得出主项,又给邻项留下可感知的一点隆起(Dock 的「波」还在)。
+ */
+const FOCUS = 1.7;
 /** 渲染多少份 MENUS —— 「一份总宽 × 份数」必须远大于视口,滚动才不露白 */
 const COPIES = 3;
 /** 边缘触发滚动的死区:|t| 小于它不滚(t 是光标相对坞中心的归一化位置 -1..1) */
@@ -323,11 +339,19 @@ function DockItem({
     if (!dockMode || base == null) return 1;
     const d = Math.abs(base + (tx ?? 0) - (px ?? NO_POINTER));
     if (d > INFLUENCE) return 1;
-    // 余弦衰减:比线性更接近 Dock 的「圆润隆起」,影响边界处导数为 0,不会有折角
-    const falloff = (Math.cos((d / INFLUENCE) * Math.PI) + 1) / 2;
+    // 余弦衰减:影响边界处导数为 0,不会有折角。
+    // 再取 FOCUS 次方把能量往中心收 —— 纯余弦太发散,主项拎不出来。
+    const falloff = ((Math.cos((d / INFLUENCE) * Math.PI) + 1) / 2) ** FOCUS;
     return 1 + (MAX_SCALE - 1) * falloff;
   });
-  const s = useSpring(scale, { stiffness: 400, damping: 34, mass: 0.6 });
+  /**
+   * 弹簧参数决定「干脆度」。阻尼比 ζ = c / (2√(k·m)):
+   *   ζ > 1 过阻尼 —— 平滑爬过去,没有任何过冲,手感偏「软」(上一版 ζ≈1.10 就是这样)
+   *   ζ < 1 欠阻尼 —— 收尾带一点回弹,视觉上「弹到位」,这才是干脆感的来源
+   * 这里 ζ = 26 / (2√(800×0.3)) ≈ 0.84,轻微过冲;
+   * 固有频率 √(k/m) ≈ 52 rad/s,周期约 120ms —— 起落都在一眨眼内完成。
+   */
+  const s = useSpring(scale, { stiffness: 800, damping: 26, mass: 0.3 });
 
   // 全部走真实样式插值,不用 transform —— 文字在任何倍率下都清晰
   const fontSize = useTransform(s, (v) => `${BASE_FONT * v}px`);
