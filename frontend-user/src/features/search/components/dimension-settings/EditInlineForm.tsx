@@ -59,7 +59,7 @@ export function EditInlineForm({ dim, mode, onDone }: Props) {
 
   if (mode === 'name') {
     return (
-      <div className="flex items-center gap-2 h-[58px] px-[18px] bg-brand-blue-soft border-l-[3px] border-l-brand-blue border-b border-border-soft">
+      <div className="flex items-center gap-2 h-[58px] px-[18px] bg-brand-amber-soft border-l-[3px] border-l-brand-amber border-b border-border-soft">
         <span className="inline-flex h-5 w-5 items-center justify-center rounded-pill bg-brand-green text-white shrink-0">
           <Check className="size-2.5" strokeWidth={3} />
         </span>
@@ -72,7 +72,7 @@ export function EditInlineForm({ dim, mode, onDone }: Props) {
             if (e.key === 'Enter') handleSave();
             else if (e.key === 'Escape') onDone();
           }}
-          className="flex-1 h-7 bg-background border border-border rounded-sm px-2 text-sm outline-none focus:border-brand-blue"
+          className="flex-1 h-7 bg-background border border-border rounded-sm px-2 text-sm outline-none focus:border-brand-amber"
         />
         <SaveCancelButtons busy={busy} onSave={handleSave} onCancel={onDone} />
       </div>

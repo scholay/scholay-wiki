@@ -214,7 +214,7 @@ function BestMatchCard({
             href={externalUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-brand-blue hover:underline underline-offset-2"
+            className="inline-flex items-center gap-1 text-xs text-brand-amber hover:underline underline-offset-2"
           >
             <ExternalLink className="size-3" />
             查看原文
@@ -366,8 +366,8 @@ function OtherCandidatesSection({
                   onClick={() => onPickHit(h)}
                   disabled={disabled}
                   className={cn(
-                    'inline-flex items-center h-7 px-2.5 rounded-sm border border-brand-blue text-brand-blue text-xs font-semibold',
-                    'hover:bg-brand-blue-soft disabled:opacity-60 transition-colors'
+                    'inline-flex items-center h-7 px-2.5 rounded-sm border border-brand-amber text-brand-amber text-xs font-semibold',
+                    'hover:bg-brand-amber-soft disabled:opacity-60 transition-colors'
                   )}
                 >
                   采用

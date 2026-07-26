@@ -108,7 +108,7 @@ export function PaperMetadataBlock({ paper }: { paper: Paper }) {
                 href={paper.openAccessPdf.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-brand-blue hover:text-brand-red hover:underline"
+                className="inline-flex items-center gap-1 text-xs text-brand-amber hover:text-brand-red hover:underline"
                 title="直接下载 OA PDF"
               >
                 PDF 直链
@@ -120,7 +120,7 @@ export function PaperMetadataBlock({ paper }: { paper: Paper }) {
                   href={foundOA.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-brand-blue hover:text-brand-red hover:underline"
+                  className="inline-flex items-center gap-1 text-xs text-brand-amber hover:text-brand-red hover:underline"
                   title="经 Unpaywall 找到的合法开放获取版本"
                 >
                   {foundOA.is_pdf ? '免费全文 PDF' : '免费全文'}

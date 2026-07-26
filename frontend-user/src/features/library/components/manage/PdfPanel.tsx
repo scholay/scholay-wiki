@@ -205,8 +205,8 @@ export function PdfPanel({
           />
 
           {tab === 'file' && !error && (
-            <div className="mt-4 flex items-start gap-2 rounded-sm bg-brand-blue-soft border border-brand-blue/20 px-3 py-2">
-              <Info className="size-3.5 text-brand-blue shrink-0 mt-0.5" />
+            <div className="mt-4 flex items-start gap-2 rounded-sm bg-brand-amber-soft border border-brand-amber/20 px-3 py-2">
+              <Info className="size-3.5 text-brand-amber shrink-0 mt-0.5" />
               <span className="text-xs text-muted-foreground">
                 仅支持 PDF,最大 50 MB · 文件只对你自己可见
               </span>

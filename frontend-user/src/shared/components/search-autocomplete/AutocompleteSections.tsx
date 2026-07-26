@@ -22,7 +22,7 @@ import type { JournalSuggestion } from '@/shared/api/suggestions';
 
 /**
  * 视觉与主搜索框完全一致:48h、同 padding (pl-5 pr-2)、同字号。
- * 唯一区别:外边框 brand-blue + 右侧按钮文字"期刊搜索"。
+ * 唯一区别:外边框 brand-amber + 右侧按钮文字"期刊搜索"。
  * 不放图标 / 不放说明文案,极简对齐主框形态。
  */
 export function JournalSearchAlternateRow({
@@ -36,7 +36,7 @@ export function JournalSearchAlternateRow({
     <div
       className={cn(
         // 形态完全复刻主框:48h / pl-5 pr-2 / rounded-sm
-        'flex h-12 items-center gap-3 pl-5 pr-2 bg-background border border-brand-blue rounded-sm',
+        'flex h-12 items-center gap-3 pl-5 pr-2 bg-background border border-brand-amber rounded-sm',
         // 轻微阴影,与主框区分悬浮层级
         'shadow-overlay'
       )}
@@ -50,8 +50,8 @@ export function JournalSearchAlternateRow({
         onClick={onClick}
         className={cn(
           'inline-flex h-9 items-center justify-center px-4 rounded-sm',
-          'bg-brand-blue text-white text-sm font-semibold whitespace-nowrap',
-          'hover:bg-brand-blue/95 transition-colors'
+          'bg-brand-amber text-white text-sm font-semibold whitespace-nowrap',
+          'hover:bg-brand-amber/95 transition-colors'
         )}
       >
         期刊搜索

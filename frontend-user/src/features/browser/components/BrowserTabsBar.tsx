@@ -190,7 +190,7 @@ function TabPill({ tab, active, onClick, onClose }: TabPillProps) {
     tab.kind === 'paper'
       ? 'text-foreground'
       : tab.kind === 'journal'
-        ? 'text-brand-blue'
+        ? 'text-brand-amber'
         : tab.kind === 'author'
           ? 'text-brand-green'
           : 'text-brand-red';

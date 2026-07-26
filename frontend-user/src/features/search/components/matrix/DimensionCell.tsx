@@ -227,7 +227,7 @@ function tryParseArrayLoose(s: string): string[] | null {
 const TAG_PALETTE = [
   'bg-brand-red/10 text-brand-red',
   'bg-brand-green/10 text-brand-green',
-  'bg-brand-blue/10 text-brand-blue',
+  'bg-cat-blue/10 text-cat-blue',
   'bg-brand-amber/15 text-brand-amber',
   'bg-prism-badge-bg text-prism-badge-fg',
   'bg-foreground/8 text-foreground',

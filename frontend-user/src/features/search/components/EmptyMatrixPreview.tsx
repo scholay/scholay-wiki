@@ -92,7 +92,7 @@ export const MOCK_TONE_CLS: Record<MockTagTone, string> = {
   amber: 'bg-warning-soft text-brand-amber',
   green: 'bg-brand-green/10 text-brand-green',
   gray: 'bg-surface-2 text-muted-foreground',
-  blue: 'bg-brand-blue-soft text-brand-blue',
+  blue: 'bg-cat-blue-soft text-cat-blue',
 };
 
 /**

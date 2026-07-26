@@ -16,8 +16,8 @@ const COLOR = {
   amber: { bar: 'bg-brand-amber', dot: 'bg-brand-amber', text: 'text-brand-amber', pill: 'bg-warning-soft' },
   red: { bar: 'bg-brand-red', dot: 'bg-brand-red', text: 'text-brand-red', pill: 'bg-danger-soft' },
   green: { bar: 'bg-brand-green', dot: 'bg-brand-green', text: 'text-brand-green', pill: 'bg-brand-green/10' },
-  // .pen「经费购入成功」用蓝 #0066FF,无对应设计 token,按设计稿保留 arbitrary value。
-  blue: { bar: 'bg-[#0066FF]', dot: 'bg-[#0066FF]', text: 'text-[#0066FF]', pill: 'bg-[#0066FF]/10' },
+  // 经费购入成功用信息蓝 —— 已收口到 --status-info(Figma 未定义状态色,为推导值)。
+  blue: { bar: 'bg-status-info', dot: 'bg-status-info', text: 'text-status-info', pill: 'bg-status-info-soft' },
 } as const;
 
 /** 弹一条额度/经费状态 toastr。 */

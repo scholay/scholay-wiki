@@ -90,7 +90,7 @@ export function PdfUploadEntry({
           }
           className={cn(
             'group relative flex flex-col items-center justify-center gap-4 p-8 rounded-md border transition-all text-center min-h-[240px]',
-            'border-border-strong bg-brand-blue-soft/40 hover:bg-brand-blue-soft hover:border-brand-blue/60'
+            'border-border-strong bg-brand-amber-soft/40 hover:bg-brand-amber-soft hover:border-brand-amber/60'
           )}
         >
           <span
@@ -99,8 +99,8 @@ export function PdfUploadEntry({
           >
             即将推出
           </span>
-          <div className="flex h-12 w-12 items-center justify-center rounded-pill bg-brand-blue/15 group-hover:bg-brand-blue/25 transition-colors">
-            <Edit3 className="size-5 text-brand-blue" strokeWidth={2.25} />
+          <div className="flex h-12 w-12 items-center justify-center rounded-pill bg-brand-amber/15 group-hover:bg-brand-amber/25 transition-colors">
+            <Edit3 className="size-5 text-brand-amber" strokeWidth={2.25} />
           </div>
           <div className="space-y-1.5">
             <div className="text-base font-bold text-foreground">先填写信息</div>
@@ -108,7 +108,7 @@ export function PdfUploadEntry({
               没有 PDF 也可以先填好文献信息,之后再补充 PDF
             </div>
           </div>
-          <div className="inline-flex items-center gap-1.5 h-9 px-4 rounded-sm border border-brand-blue text-brand-blue text-sm font-bold group-hover:bg-brand-blue/5 transition-colors">
+          <div className="inline-flex items-center gap-1.5 h-9 px-4 rounded-sm border border-brand-amber text-brand-amber text-sm font-bold group-hover:bg-brand-amber/5 transition-colors">
             <Edit3 className="size-3.5" strokeWidth={2.25} />
             开始填写
           </div>

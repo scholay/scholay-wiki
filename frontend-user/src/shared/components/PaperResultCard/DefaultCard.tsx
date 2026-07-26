@@ -98,7 +98,7 @@ export function DefaultCard({
                 t.tone === 'solid-red' && 'bg-brand-red text-white',
                 t.tone === 'red' && 'bg-danger-soft text-brand-red',
                 t.tone === 'green' && 'bg-brand-green/10 text-brand-green',
-                t.tone === 'blue' && 'bg-brand-blue-soft text-brand-blue',
+                t.tone === 'blue' && 'bg-cat-blue-soft text-cat-blue',
                 t.tone === 'neutral' && 'bg-surface-2 text-subtle font-semibold'
               )}
             >

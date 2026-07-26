@@ -82,7 +82,7 @@ export function JournalExploreOverview() {
           items={jcrDist.map((x) => ({ label: x.q, count: x.cnt }))}
           colors={{
             Q1: 'bg-brand-green',
-            Q2: 'bg-brand-blue',
+            Q2: 'bg-cat-blue',
             Q3: 'bg-brand-amber',
             Q4: 'bg-brand-red',
           }}
@@ -92,7 +92,7 @@ export function JournalExploreOverview() {
           items={fqbDist.map((x) => ({ label: `${x.q} 区`, count: x.cnt }))}
           colors={{
             '1 区': 'bg-brand-green',
-            '2 区': 'bg-brand-blue',
+            '2 区': 'bg-cat-blue',
             '3 区': 'bg-brand-amber',
             '4 区': 'bg-brand-red',
           }}
@@ -126,7 +126,7 @@ export function JournalExploreOverview() {
 const TONE_BG: Record<string, string> = {
   red: 'bg-brand-red/10 text-brand-red',
   green: 'bg-brand-green/10 text-brand-green',
-  blue: 'bg-brand-blue-soft text-brand-blue',
+  blue: 'bg-cat-blue-soft text-cat-blue',
   amber: 'bg-brand-amber/10 text-brand-amber',
 };
 

@@ -212,6 +212,33 @@
   --cat-5: #664B00;  --cat-6: #805E00;   /* 琥珀深档 */
   --cat-7: #1F1F23;  --cat-8: #383840;   /* 玄墨深档 */
 
+  /* 分类色的软底变体 —— 供「软底 + 同色文字」的标签/芯片调色板使用。
+   * 上面 8 个深档是给「深底 + 白字」用的(头像/期刊封面),
+   * 而 tag / KPI / 分区分布这类需要的是「浅底 + 深色文字」,是另一套形态。
+   * ⚠️ 这里暴露一个规范级张力: Figma 四色阶只有红/绿/黄/中性四个色相,
+   *    做 4 色以内的分类够用,做 8 色哈希调色板则不够 ——
+   *    只能靠同色相不同明度拉开,可区分度弱于真正的多色相调色板。
+   *    已知受影响: DimensionCell 的 8 色 tag 调色板。需设计师补规范。 */
+  /* 🟡 规范外的第五色相 —— 分类调色板专用,【不是品牌色】
+   * Figma 四色阶(红/绿/黄/中性)做 4 色以内分类够用,但代码里有两个场景需要更多可区分色:
+   *   - DimensionCell 的 8 色哈希 tag 调色板(「同名 tag 永远同色」,靠颜色区分语义)
+   *   - JCR/中科院分区分布 Q1~Q4(四档必须一眼可分)
+   * 把这些场景里的蓝折叠进琥珀会产生【重复色】,直接破坏「可区分」这个唯一目的。
+   * 故保留一个蓝作为分类色,取自 --status-info 同色系(降饱和,贴合整体调性)。
+   * ⚠️ 这是规范缺口的临时补丁,需设计师确认: 要么补蓝色阶,要么接受分类色数量上限为 4。
+   * ⚠️ 与已退休的 --brand-blue 无关 —— 那个是品牌语义(期刊线),已改用琥珀。 */
+  --cat-blue:      #2E5AA8;
+  --cat-blue-soft: color-mix(in srgb, var(--cat-blue) 10%, var(--surface-card));
+
+  --cat-1-soft: color-mix(in srgb, var(--cat-1) 10%, var(--surface-card));
+  --cat-2-soft: color-mix(in srgb, var(--cat-2) 10%, var(--surface-card));
+  --cat-3-soft: color-mix(in srgb, var(--cat-3) 10%, var(--surface-card));
+  --cat-4-soft: color-mix(in srgb, var(--cat-4) 10%, var(--surface-card));
+  --cat-5-soft: color-mix(in srgb, var(--cat-5) 12%, var(--surface-card));
+  --cat-6-soft: color-mix(in srgb, var(--cat-6) 12%, var(--surface-card));
+  --cat-7-soft: color-mix(in srgb, var(--cat-7) 8%,  var(--surface-card));
+  --cat-8-soft: color-mix(in srgb, var(--cat-8) 10%, var(--surface-card));
+
   /* 图表序列色 —— 前 3 档绑品牌三色,后 5 档取中间亮度档,
    * 深浅交错保证相邻系列明度差 ≥15%(色盲可分)。 */
   --chart-1: #882828;  --chart-2: #2F4D29;  --chart-3: #E5A800;  --chart-4: #B23434;
@@ -697,6 +724,12 @@
   --color-cat-3: var(--cat-3);  --color-cat-4: var(--cat-4);
   --color-cat-5: var(--cat-5);  --color-cat-6: var(--cat-6);
   --color-cat-7: var(--cat-7);  --color-cat-8: var(--cat-8);
+  --color-cat-blue:      var(--cat-blue);
+  --color-cat-blue-soft: var(--cat-blue-soft);
+  --color-cat-1-soft: var(--cat-1-soft);  --color-cat-2-soft: var(--cat-2-soft);
+  --color-cat-3-soft: var(--cat-3-soft);  --color-cat-4-soft: var(--cat-4-soft);
+  --color-cat-5-soft: var(--cat-5-soft);  --color-cat-6-soft: var(--cat-6-soft);
+  --color-cat-7-soft: var(--cat-7-soft);  --color-cat-8-soft: var(--cat-8-soft);
   --color-chart-1: var(--chart-1);  --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);  --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);  --color-chart-6: var(--chart-6);
@@ -826,11 +859,10 @@
   --color-warning-soft: var(--brand-amber-soft);  /* 旧 浅黄 */
   --color-journal-soft: var(--brand-amber-soft);  /* 旧 #FAF8F2,期刊线改琥珀 */
 
-  /* —— brand-blue 退休 → 期刊线改琥珀(B4 迁移) ——
-   * 27 处 brand-blue + brand-blue-soft 暂时指向琥珀,保证不 404。
-   * B4 批次把调用点直接改成 brand-amber 后删除这两行。 */
-  --color-brand-blue:      var(--brand-amber);
-  --color-brand-blue-soft: var(--brand-amber-soft);
+  /* B4 已完成: --brand-blue 彻底退休,调用点已按语义三分流 ——
+   *   期刊线/功能语义(24+6 处) → brand-amber
+   *   多色调色板的 blue 档(10 处) → cat-blue(规范外第五色相,保可区分度)
+   *   充值/经费成功(6 处 #0066FF) → status-info */
 
   /* —— Prism 角标 → 琥珀软底(B4 迁移) —— */
   --color-prism-badge-bg: var(--amber-soft-bg);   /* 旧 #F0E8D8 */

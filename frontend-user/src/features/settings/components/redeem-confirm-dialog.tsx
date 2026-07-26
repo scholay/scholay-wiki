@@ -72,7 +72,7 @@ export function RedeemConfirmDialog({ code, open, onOpenChange, onRedeemed }: Re
         {/* a11y:Radix 要求 DialogTitle;真实标题在各状态体里,这里挂个 sr-only 兜底。 */}
         <DialogTitle className="sr-only">兑换码确认</DialogTitle>
         {/* 顶部色条:确认=蓝 / 失败=红 / 校验中=灰。.pen 状态板配色无对应 token, 保留 arbitrary。 */}
-        <span className={cn('block h-1 w-full', loading ? 'bg-border' : ok ? 'bg-[#0066FF]' : 'bg-brand-red')} />
+        <span className={cn('block h-1 w-full', loading ? 'bg-border' : ok ? 'bg-status-info' : 'bg-brand-red')} />
         <div className="p-6">
           {loading ? (
             <div className="flex h-40 flex-col items-center justify-center gap-3 text-faint">
@@ -131,7 +131,7 @@ function ConfirmBody({
         <InfoRow label="兑换内容" value={grantContent(pv)} accent />
       </div>
       <p className="mt-3 flex items-start gap-1.5 text-2xs leading-paragraph text-faint">
-        <span className="mt-1 size-1.5 shrink-0 rounded-pill bg-[#0066FF]" />
+        <span className="mt-1 size-1.5 shrink-0 rounded-pill bg-status-info" />
         兑换后立即生效,同一兑换码每个账号仅可兑换一次,兑换码不可重复使用。
       </p>
       <div className="mt-5 flex justify-end gap-2">

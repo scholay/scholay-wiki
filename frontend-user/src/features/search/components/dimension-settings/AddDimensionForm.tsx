@@ -42,7 +42,7 @@ export function AddDimensionForm({ disabled, onCancel, onCreated }: Props) {
   };
 
   return (
-    <div className="flex flex-col gap-3 px-[18px] py-4 bg-brand-blue-soft/30 border-t border-b border-brand-blue/30">
+    <div className="flex flex-col gap-3 px-[18px] py-4 bg-brand-amber-soft/30 border-t border-b border-brand-amber/30">
       <div>
         <label className="text-2xs font-bold text-faint">维度名称</label>
         <input
@@ -50,7 +50,7 @@ export function AddDimensionForm({ disabled, onCancel, onCreated }: Props) {
           onChange={(e) => setName(e.target.value)}
           maxLength={30}
           placeholder="例:研究领域 / 评估指标"
-          className="mt-1 w-full h-8 bg-background border border-border rounded-sm px-2 text-sm outline-none focus:border-brand-blue"
+          className="mt-1 w-full h-8 bg-background border border-border rounded-sm px-2 text-sm outline-none focus:border-brand-amber"
         />
       </div>
       <div>
@@ -61,7 +61,7 @@ export function AddDimensionForm({ disabled, onCancel, onCreated }: Props) {
           rows={4}
           maxLength={500}
           placeholder="告诉 AI 从论文里抽取什么 —— 越具体越好。"
-          className="mt-1 w-full bg-background border border-border rounded-sm px-2 py-1.5 text-xs leading-paragraph outline-none focus:border-brand-blue resize-none"
+          className="mt-1 w-full bg-background border border-border rounded-sm px-2 py-1.5 text-xs leading-paragraph outline-none focus:border-brand-amber resize-none"
         />
       </div>
       <div className="flex items-center justify-end gap-1.5">
