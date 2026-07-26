@@ -10,10 +10,10 @@ import {
   type HTMLAttributes,
   type KeyboardEvent,
   type ReactNode,
-} from 'react';
-import { ArrowUp, Loader2, LogIn, Square } from 'lucide-react';
-import { cn } from '@/shared/lib/utils';
-import { ContextMeter } from './ContextMeter';
+} from'react';
+import { ArrowUp, Loader2, LogIn, Square } from'lucide-react';
+import { cn } from'@/shared/lib/utils';
+import { ContextMeter } from'./ContextMeter';
 
 /**
  * 统一对话输入框核心(智能搜索 / 智能助手 / 智能写作三处共用;主流 Claude/GPT 形态)。
@@ -82,7 +82,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     value,
     onChange,
     onSend,
-    placeholder = '',
+    placeholder ='',
     placeholderOverlay,
     disabled = false,
     sendReady = true,
@@ -119,8 +119,8 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   const resize = useCallback(() => {
     const el = textareaRef.current;
     if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, maxHeightPx)}px`;
+    el.style.height ='auto';
+    el.style.height =`${Math.min(el.scrollHeight, maxHeightPx)}px`;
   }, [maxHeightPx]);
 
   // 文本变化 → paint 前定高(useLayoutEffect 避免先高一帧再收的闪动)。
@@ -187,7 +187,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
 
   const handleKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     // CJK 组字中的回车是选词不是发送;Shift+Enter 换行。
-    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+    if (e.key ==='Enter'&& !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
       submit();
     }
@@ -198,10 +198,8 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   return (
     <div
       {...containerProps}
-      className={cn(
-        'relative flex flex-col gap-2 rounded-16 border border-border-strong bg-surface-card p-2.5 transition',
-        'focus-within:border-foreground/25 focus-within:ring-4 focus-within:ring-foreground/5',
-        disabled && 'opacity-70',
+      className={cn('relative flex flex-col gap-2 rounded-16 border border-border-strong bg-surface-card p-2.5 transition','focus-within:border-foreground/25 focus-within:ring-4 focus-within:ring-foreground/5',
+        disabled &&'opacity-70',
         className,
         containerProps?.className,
       )}
@@ -217,18 +215,17 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKey}
           onPaste={onPaste}
-          placeholder={placeholderOverlay ? '' : placeholder}
+          placeholder={placeholderOverlay ?'': placeholder}
           rows={minRows}
           disabled={disabled}
           autoFocus={autoFocus}
-          className="block w-full resize-none overflow-y-auto border-0 bg-transparent px-1 py-1 text-14 leading-paragraph text-foreground outline-none placeholder:text-faint focus-visible:outline-none focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-        />
+          className="block w-full resize-none overflow-y-auto border-0 bg-transparent px-1 py-1 text-14 leading-paragraph text-foreground outline-none placeholder:text-faint disabled:cursor-not-allowed disabled:opacity-60"/>
       </div>
 
       {/* 底部工具栏:左 feature 按钮(+号等)| 撑开 | 右侧控件(模型选择器)| 水位 | 发送/停止/登录 */}
       <div className="flex items-center gap-1">
         {leftActions}
-        <span className="flex-1" />
+        <span className="flex-1"/>
         {rightActions}
         {context && context.totalTokens > 0 && (
           <ContextMeter
@@ -236,45 +233,40 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             maxTokens={context.maxTokens}
             percentage={context.percentage}
             model={context.model}
-            className="mr-1"
-          />
+            className="mr-1"/>
         )}
         {busy && !requireAuth ? (
           <button
-            type="button"
-            onClick={onStop}
+            type="button"onClick={onStop}
             disabled={stopping || !onStop}
-            aria-label={stopping ? '正在停止' : '停止生成'}
-            title={stopping ? '正在停止…' : '停止当前回答'}
-            className={cn(
-              'inline-flex size-9 shrink-0 items-center justify-center rounded-8 text-background transition-colors',
-              stopping ? 'cursor-wait bg-foreground/60' : 'bg-foreground hover:bg-foreground/85',
+            aria-label={stopping ?'正在停止':'停止生成'}
+            title={stopping ?'正在停止…':'停止当前回答'}
+            className={cn('inline-flex size-9 shrink-0 items-center justify-center rounded-8 text-background transition-colors',
+              stopping ?'cursor-wait bg-foreground/60':'bg-foreground hover:bg-foreground/85',
             )}
           >
             {stopping ? (
-              <Loader2 className="size-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin"/>
             ) : (
-              <Square className="size-3 fill-current" strokeWidth={0} aria-hidden="true" />
+              <Square className="size-3 fill-current"strokeWidth={0} aria-hidden="true"/>
             )}
           </button>
         ) : (
           <button
-            type="button"
-            onClick={submit}
+            type="button"onClick={submit}
             disabled={!canSend}
-            aria-label={requireAuth ? '登录后开始' : '发送 (Enter)'}
-            title={requireAuth ? '登录后开始' : '发送 (Enter)'}
-            className={cn(
-              'inline-flex size-9 shrink-0 items-center justify-center rounded-8 transition-colors',
-              canSend ? 'bg-foreground text-background hover:bg-foreground/90' : 'bg-surface-2 text-faint',
-              !canSend && 'cursor-not-allowed',
+            aria-label={requireAuth ?'登录后开始':'发送 (Enter)'}
+            title={requireAuth ?'登录后开始':'发送 (Enter)'}
+            className={cn('inline-flex size-9 shrink-0 items-center justify-center rounded-8 transition-colors',
+              canSend ?'bg-foreground text-background hover:bg-foreground/90':'bg-surface-2 text-faint',
+              !canSend &&'cursor-not-allowed',
             )}
           >
-            {requireAuth ? <LogIn className="size-4" strokeWidth={2.2} /> : <ArrowUp className="size-4" strokeWidth={2.5} />}
+            {requireAuth ? <LogIn className="size-4"strokeWidth={2.2} /> : <ArrowUp className="size-4"strokeWidth={2.5} />}
           </button>
         )}
       </div>
     </div>
   );
 });
-Composer.displayName = 'Composer';
+Composer.displayName ='Composer';

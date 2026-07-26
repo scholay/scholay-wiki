@@ -1,7 +1,7 @@
-import * as React from 'react';
-import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { X } from 'lucide-react';
-import { cn } from '@/shared/lib/utils';
+import * as React from'react';
+import * as DialogPrimitive from'@radix-ui/react-dialog';
+import { X } from'lucide-react';
+import { cn } from'@/shared/lib/utils';
 
 const Dialog = DialogPrimitive.Root;
 const DialogTrigger = DialogPrimitive.Trigger;
@@ -14,8 +14,7 @@ const DialogOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
-    className={cn(
-      'fixed inset-0 z-overlay bg-foreground/40 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+    className={cn('fixed inset-0 z-overlay bg-foreground/40 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
       className
     )}
     {...props}
@@ -56,11 +55,7 @@ const DialogContent = React.forwardRef<
       className={cn(
         // 限高滚动(max-h-[90dvh] + overflow-y-auto):长表单在窄屏不再溢出到屏幕外无法操作。
         // 关键:不加任何 sm:/宽度/内边距 覆盖 —— 否则会「漏」过下游 p-0 / w-[...] 全屏弹窗的无前缀覆盖,
-        // 反而在桌面把它们的自定义留白/宽度改回来。设了自己 overflow/max-h 的弹窗经 tw-merge 各自胜出,不受影响。
-        'fixed left-1/2 top-1/2 z-modal grid w-full max-w-lg max-h-[90dvh] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto overscroll-contain border border-border bg-surface-card p-6 shadow-overlay duration-200 sm:rounded-16',
-        'data-[state=open]:animate-in data-[state=closed]:animate-out',
-        'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
-        'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
+        // 反而在桌面把它们的自定义留白/宽度改回来。设了自己 overflow/max-h 的弹窗经 tw-merge 各自胜出,不受影响。'fixed left-1/2 top-1/2 z-modal grid w-full max-w-lg max-h-[90dvh] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto overscroll-contain border border-border bg-surface-card p-6 shadow-overlay duration-200 sm:rounded-16','data-[state=open]:animate-in data-[state=closed]:animate-out','data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0','data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
         className
       )}
       onInteractOutside={(event) => {
@@ -74,8 +69,8 @@ const DialogContent = React.forwardRef<
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-4 opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        <X className="h-4 w-4" />
+      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-4 opacity-70 transition-opacity hover:opacity-100">
+        <X className="h-4 w-4"/>
         <span className="sr-only">关闭</span>
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>
@@ -92,21 +87,20 @@ const DialogHeader = ({
     {...props}
   />
 );
-DialogHeader.displayName = 'DialogHeader';
+DialogHeader.displayName ='DialogHeader';
 
 const DialogFooter = ({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn(
-      'flex flex-col-reverse gap-2 sm:flex-row sm:justify-end',
+    className={cn('flex flex-col-reverse gap-2 sm:flex-row sm:justify-end',
       className
     )}
     {...props}
   />
 );
-DialogFooter.displayName = 'DialogFooter';
+DialogFooter.displayName ='DialogFooter';
 
 const DialogTitle = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Title>,
@@ -114,8 +108,7 @@ const DialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn(
-      'text-16 font-medium leading-none',
+    className={cn('text-16 font-medium leading-none',
       className
     )}
     {...props}

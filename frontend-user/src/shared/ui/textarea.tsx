@@ -1,5 +1,5 @@
-import * as React from 'react';
-import { cn } from '@/shared/lib/utils';
+import * as React from'react';
+import { cn } from'@/shared/lib/utils';
 
 /**
  * Textarea —— 多行输入原子。
@@ -16,17 +16,13 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
   ({ className, ...props }, ref) => (
     <textarea
       ref={ref}
-      className={cn(
-        'flex w-full min-h-16 rounded-8 border border-border bg-surface-card px-3 py-2 text-12 text-foreground placeholder:text-faint',
-        'transition-colors resize-y',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-foreground',
-        'disabled:cursor-not-allowed disabled:opacity-50',
+      className={cn('flex w-full min-h-16 rounded-8 border border-border bg-surface-card px-3 py-2 text-12 text-foreground placeholder:text-faint','transition-colors resize-y','focus-visible:border-foreground','disabled:cursor-not-allowed disabled:opacity-50',
         className
       )}
       {...props}
     />
   )
 );
-Textarea.displayName = 'Textarea';
+Textarea.displayName ='Textarea';
 
 export { Textarea };

@@ -1,24 +1,23 @@
-import { useEffect, useState } from 'react';
-import { Check, Search, Loader2, X } from 'lucide-react';
-import { toast } from 'sonner';
-import { Input } from '@/shared/ui/input';
-import { Button } from '@/shared/ui/button';
-import { PaginationPrevNext } from '@/shared/components/PaginationPrevNext';
-import { useDebounce } from '@/shared/hooks';
-import { useJournalSearch } from '@/features/journals/api/journals';
-import { cn } from '@/shared/lib/utils';
-import type { JournalTarget } from '../../types';
-import type { Journal } from '@/shared/api/types';
+import { useEffect, useState } from'react';
+import { Check, Search, Loader2, X } from'lucide-react';
+import { toast } from'sonner';
+import { Input } from'@/shared/ui/input';
+import { Button } from'@/shared/ui/button';
+import { PaginationPrevNext } from'@/shared/components/PaginationPrevNext';
+import { useDebounce } from'@/shared/hooks';
+import { useJournalSearch } from'@/features/journals/api/journals';
+import { cn } from'@/shared/lib/utils';
+import type { JournalTarget } from'../../types';
+import type { Journal } from'@/shared/api/types';
 
 /**
- * Step2 期刊选择(.pen `AwRED`) —— 复用 /public/journals/search 走真期刊库。
+ * Step2 期刊选择(.pen`AwRED`) —— 复用 /public/journals/search 走真期刊库。
  *
  * 设计要点:
- *   - 顶部头:标题 "选择投递期刊" + 副标题 + 右上 outlined "自定义期刊"(预留)
- *   - 搜索框 (#FAFAFA 灰底) + 排序按钮(预留)
- *   - 结果列表(固定上限高度 + 内部滚动,最多 10 条)
- *   - 每条期刊卡:左侧 44×44 logo box,中间名称 + publisher/issn + IF/Quartile/CCF 标签,右侧"✓ 已选" / "选择"
- *   - 单选 / **可取消(再次点击)**,允许空选状态
+ * - 顶部头:标题"选择投递期刊"+ 副标题 + 右上 outlined"自定义期刊"(预留)
+ * - 搜索框 (#FAFAFA 灰底) + 排序按钮(预留)
+ * - 结果列表(固定上限高度 + 内部滚动,最多 10 条)
+ * - 每条期刊卡:左侧 44×44 logo box,中间名称 + publisher/issn + IF/Quartile/CCF 标签,右侧"✓ 已选"/"选择"* - 单选 / **可取消(再次点击)**,允许空选状态
  */
 export interface JournalPickerStepProps {
   value: JournalTarget | undefined;
@@ -52,7 +51,7 @@ export function JournalPickerStep({ value, onChange }: JournalPickerStepProps) {
   }
 
   // 不传 sortBy → 后端按**相关度**排序 (与期刊搜索页 relevance 默认一致);
-  // 之前硬传 jcr_impact_factor 会把相关度盖成"IF 倒序", 导致搜 "Psychology" 排在前面的
+  // 之前硬传 jcr_impact_factor 会把相关度盖成"IF 倒序", 导致搜"Psychology"排在前面的
   // 反而是 IF 最高但不一定最贴题的刊。
   const { data, isFetching } = useJournalSearch({
     keyword: hasQuery ? debouncedKeyword : undefined,
@@ -72,14 +71,10 @@ export function JournalPickerStep({ value, onChange }: JournalPickerStepProps) {
           </p>
         </div>
         <button
-          type="button"
-          onClick={() => setCustomOpen((v) => !v)}
-          className={cn(
-            'inline-flex h-8 items-center gap-1 rounded-8 border px-3 text-12 transition',
+          type="button"onClick={() => setCustomOpen((v) => !v)}
+          className={cn('inline-flex h-8 items-center gap-1 rounded-8 border px-3 text-12 transition',
             customOpen
-              ? 'border-brand-red bg-danger-soft text-brand-red'
-              : 'border-border-button bg-surface-card text-subtle hover:border-foreground hover:text-foreground'
-          )}
+              ?'border-brand-red bg-danger-soft text-brand-red':'border-border-button bg-surface-card text-subtle hover:border-foreground hover:text-foreground')}
         >
           + 自定义期刊
         </button>
@@ -94,15 +89,13 @@ export function JournalPickerStep({ value, onChange }: JournalPickerStepProps) {
 
       {/* 搜索框 */}
       <div className="relative mb-3">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-faint" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-faint"/>
         <Input
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
-          placeholder="搜索期刊名、ISSN 或学科…"
-          className="h-10 bg-surface-1 pl-9"
-        />
+          placeholder="搜索期刊名、ISSN 或学科…"className="h-10 bg-surface-1 pl-9"/>
         {isFetching && (
-          <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-faint" />
+          <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-faint"/>
         )}
       </div>
 
@@ -118,10 +111,8 @@ export function JournalPickerStep({ value, onChange }: JournalPickerStepProps) {
             )}
           </span>
           <button
-            type="button"
-            onClick={() => onChange(undefined)}
-            className="text-12 font-medium text-brand-red hover:text-brand-red/80"
-          >
+            type="button"onClick={() => onChange(undefined)}
+            className="text-12 font-medium text-brand-red hover:text-brand-red/80">
             取消选择
           </button>
         </div>
@@ -179,14 +170,13 @@ export function JournalPickerStep({ value, onChange }: JournalPickerStepProps) {
           onPageChange={setPage}
           hasMore={data?.has_more}
           disabled={isFetching}
-          className="pt-1"
-        />
+          className="pt-1"/>
       )}
     </section>
   );
 }
 
-// ─── 期刊卡 (.pen `nrpuw` selected / `q3e9k` unselected) ─────────────────
+// ─── 期刊卡 (.pen`nrpuw`selected /`q3e9k`unselected) ─────────────────
 
 function JournalCard({
   j,
@@ -198,34 +188,28 @@ function JournalCard({
   onToggle: () => void;
 }) {
   // logo 初始字母作为占位 (设计稿是真 logo;我们没真实 logo 资源,用首字母 + 品牌色块)
-  const initial = (j.canonical_name?.[0] ?? '?').toUpperCase();
+  const initial = (j.canonical_name?.[0] ??'?').toUpperCase();
   const logoBg = colorForInitial(initial);
 
   return (
     <article
-      role="button"
-      tabIndex={0}
+      role="button"tabIndex={0}
       aria-pressed={selected}
       onClick={onToggle}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
+        if (e.key ==='Enter'|| e.key ==='') {
           e.preventDefault();
           onToggle();
         }
       }}
       className={cn(
-        // 整卡可点即选;选中态做强对比 (红边 + 红环 + 浅红底), 一眼可辨
-        'cursor-pointer rounded-12 border bg-surface-card p-3.5 text-left outline-none transition',
-        'focus-visible:ring-2 focus-visible:ring-brand-red/40',
+        // 整卡可点即选;选中态做强对比 (红边 + 红环 + 浅红底), 一眼可辨'cursor-pointer rounded-12 border bg-surface-card p-3.5 text-left outline-none transition','',
         selected
-          ? 'border-brand-red bg-danger-soft ring-1 ring-brand-red'
-          : 'border-border hover:border-brand-red/50 hover:bg-surface-1'
-      )}
+          ?'border-brand-red bg-danger-soft ring-1 ring-brand-red':'border-border hover:border-brand-red/50 hover:bg-surface-1')}
     >
       <header className="flex items-start gap-3">
         <span
-          className={cn(
-            'flex size-11 shrink-0 items-center justify-center rounded-8 text-14 font-medium text-background',
+          className={cn('flex size-11 shrink-0 items-center justify-center rounded-8 text-14 font-medium text-background',
             logoBg
           )}
         >
@@ -234,9 +218,9 @@ function JournalCard({
         <div className="min-w-0 flex-1">
           <h3 className="line-clamp-1 text-14 font-medium text-foreground">{j.canonical_name}</h3>
           <p className="mt-1 text-12 text-muted-foreground">
-            {j.publisher ?? '—'}
-            {j.is_oa && ' · Open Access'}
-            {j.issns?.[0] && ` · ISSN ${j.issns[0]}`}
+            {j.publisher ??'—'}
+            {j.is_oa &&'· Open Access'}
+            {j.issns?.[0] &&`· ISSN ${j.issns[0]}`}
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-1.5">
@@ -284,19 +268,15 @@ function JournalCard({
         </div>
         {/* 选中态指示 —— 整卡已可点选, 这里只作状态标识 (不再单独是按钮) */}
         <span
-          className={cn(
-            'inline-flex shrink-0 items-center gap-1 text-12 font-medium',
-            selected ? 'text-brand-red' : 'text-muted-foreground'
-          )}
+          className={cn('inline-flex shrink-0 items-center gap-1 text-12 font-medium',
+            selected ?'text-brand-red':'text-muted-foreground')}
         >
           {selected ? (
             <>
-              <Check className="size-3" strokeWidth={3} />
+              <Check className="size-3"strokeWidth={3} />
               已选
             </>
-          ) : (
-            '点击选择'
-          )}
+          ) : ('点击选择')}
         </span>
       </footer>
     </article>
@@ -327,12 +307,9 @@ function CustomJournalForm({
           自定义期刊 <span className="ml-1 text-muted-foreground">(只填一个名字就行)</span>
         </p>
         <button
-          type="button"
-          onClick={onCancel}
-          className="text-faint hover:text-foreground"
-          aria-label="取消"
-        >
-          <X className="size-3.5" />
+          type="button"onClick={onCancel}
+          className="text-faint hover:text-foreground"aria-label="取消">
+          <X className="size-3.5"/>
         </button>
       </div>
       <div className="flex gap-2">
@@ -340,24 +317,19 @@ function CustomJournalForm({
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && !invalid) {
+            if (e.key ==='Enter'&& !invalid) {
               e.preventDefault();
               onSubmit(name);
             }
-            if (e.key === 'Escape') onCancel();
+            if (e.key ==='Escape') onCancel();
           }}
           autoFocus
-          placeholder="例:Journal of My Special Field"
-          maxLength={250}
-          className="h-9"
-        />
+          placeholder="例:Journal of My Special Field"maxLength={250}
+          className="h-9"/>
         <Button
-          size="sm"
-          variant="default"
-          disabled={invalid}
+          size="sm"variant="default"disabled={invalid}
           onClick={() => onSubmit(name)}
-          className="h-9 bg-brand-red text-background hover:bg-brand-red/90 disabled:opacity-40"
-        >
+          className="h-9 bg-brand-red text-background hover:bg-brand-red/90 disabled:opacity-40">
           确认
         </Button>
       </div>
@@ -371,12 +343,12 @@ function CustomJournalForm({
 // 简单根据首字母分配 logo 颜色 — 不严格,只让视觉有区分度
 function colorForInitial(c: string): string {
   const map: Record<string, string> = {
-    N: 'bg-[#1A1A1A]',
-    S: 'bg-[#B22234]',
-    I: 'bg-[#003E7E]',
-    P: 'bg-[#5A4FCF]',
-    A: 'bg-[#2A7A2A]',
-    J: 'bg-[#8B5A2B]',
+    N:'bg-[#1A1A1A]',
+    S:'bg-[#B22234]',
+    I:'bg-[#003E7E]',
+    P:'bg-[#5A4FCF]',
+    A:'bg-[#2A7A2A]',
+    J:'bg-[#8B5A2B]',
   };
-  return map[c] ?? 'bg-foreground';
+  return map[c] ??'bg-foreground';
 }

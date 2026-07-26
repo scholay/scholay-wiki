@@ -1,17 +1,17 @@
-import { useState, type ReactNode } from 'react';
-import { Input } from '@/shared/ui/input';
-import { Textarea } from '@/shared/ui/textarea';
-import { AIOverlay } from '@/shared/ui/ai-overlay';
-import { cn } from '@/shared/lib/utils';
+import { useState, type ReactNode } from'react';
+import { Input } from'@/shared/ui/input';
+import { Textarea } from'@/shared/ui/textarea';
+import { AIOverlay } from'@/shared/ui/ai-overlay';
+import { cn } from'@/shared/lib/utils';
 
 /**
- * 稿件信息表单(.pen vfCZS `formJ`) —— 简化版:
+ * 稿件信息表单(.pen vfCZS`formJ`) —— 简化版:
  *
- *   标题(必填)
- *   摘要(必填)
- *   关键词(必填,3-7 个 chip,回车 / 逗号添加)
- *   稿件类型(选填,Research / Review / Short Communication 三选一)
- *   学科领域(选填,自由 chip 列表)
+ * 标题(必填)
+ * 摘要(必填)
+ * 关键词(必填,3-7 个 chip,回车 / 逗号添加)
+ * 稿件类型(选填,Research / Review / Short Communication 三选一)
+ * 学科领域(选填,自由 chip 列表)
  *
  * 不区分中英文 —— pdfparse 抽出来什么填什么,用户改成什么就什么。
  * 关键词 / 学科领域用回车或英文逗号触发新 chip,× 删除。
@@ -21,14 +21,14 @@ export interface ManuscriptMeta {
   title?: string;
   abstract?: string;
   keywords?: string[];
-  manuscriptType?: 'research' | 'review' | 'short_communication';
+  manuscriptType?:'research'|'review'|'short_communication';
   subjects?: string[];
 }
 
 export interface ManuscriptMetaFormProps {
   value: ManuscriptMeta;
   onChange: (next: ManuscriptMeta) => void;
-  /** 右上角操作槽 — 父组件传 "AI 重新识别" 按钮等 */
+  /** 右上角操作槽 — 父组件传"AI 重新识别"按钮等 */
   headerAction?: ReactNode;
   /** AI 正在识别 (computing_meta) — 给标题/摘要字段套霓虹光晕等待动画 */
   computing?: boolean;
@@ -37,9 +37,9 @@ export interface ManuscriptMetaFormProps {
 }
 
 const TYPES: Array<{ id: NonNullable<ManuscriptMeta['manuscriptType']>; label: string }> = [
-  { id: 'research', label: 'Research' },
-  { id: 'review', label: 'Review' },
-  { id: 'short_communication', label: 'Short Communication' },
+  { id:'research', label:'Research'},
+  { id:'review', label:'Review'},
+  { id:'short_communication', label:'Short Communication'},
 ];
 
 export function ManuscriptMetaForm({
@@ -70,40 +70,37 @@ export function ManuscriptMetaForm({
           <h2 className="text-14 font-medium text-foreground">稿件信息</h2>
           <p className="mt-0.5 text-12 text-muted-foreground">
             {computing
-              ? (statusNote || '正在识别…') + ' · 字段会随识别自动填入'
-              : 'AI 已根据稿件自动识别,可以手动修改'}
+              ? (statusNote ||'正在识别…') +'· 字段会随识别自动填入':'AI 已根据稿件自动识别,可以手动修改'}
           </p>
         </div>
         {headerAction}
       </header>
 
       <div className="flex flex-col gap-5 p-5">
-        <Field label="标题" required>
+        <Field label="标题"required>
           <Input
-            value={value.title ?? ''}
+            value={value.title ??''}
             onChange={(e) => patch({ title: e.target.value })}
-            placeholder={computing ? '正在识别标题…' : '稿件标题'}
+            placeholder={computing ?'正在识别标题…':'稿件标题'}
           />
         </Field>
 
-        <Field label="摘要" hint="选填">
+        <Field label="摘要"hint="选填">
           <Textarea
-            value={value.abstract ?? ''}
+            value={value.abstract ??''}
             onChange={(e) => patch({ abstract: e.target.value })}
-            placeholder={computing ? '正在识别摘要…' : '稿件摘要'}
-            className="min-h-32 p-3 leading-paragraph"
-          />
+            placeholder={computing ?'正在识别摘要…':'稿件摘要'}
+            className="min-h-32 p-3 leading-paragraph"/>
         </Field>
 
-        <Field label="关键词" hint="选填 · 回车或逗号添加 · 建议 3-7 个">
+        <Field label="关键词"hint="选填 · 回车或逗号添加 · 建议 3-7 个">
           <ChipInput
             value={value.keywords ?? []}
             onChange={(keywords) => patch({ keywords })}
-            placeholder="例:multimodal pretraining"
-          />
+            placeholder="例:multimodal pretraining"/>
         </Field>
 
-        <Field label="稿件类型" hint="选填">
+        <Field label="稿件类型"hint="选填">
           <div className="flex flex-wrap gap-2">
             {TYPES.map((t) => (
               <Chip
@@ -122,12 +119,11 @@ export function ManuscriptMetaForm({
           </div>
         </Field>
 
-        <Field label="学科领域" hint="选填 · 回车或逗号添加">
+        <Field label="学科领域"hint="选填 · 回车或逗号添加">
           <ChipInput
             value={value.subjects ?? []}
             onChange={(subjects) => patch({ subjects })}
-            placeholder="例:计算机科学"
-          />
+            placeholder="例:计算机科学"/>
         </Field>
       </div>
     </section>
@@ -171,14 +167,10 @@ function Chip({
 }) {
   return (
     <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'h-7 rounded-pill px-3 text-12 transition',
+      type="button"onClick={onClick}
+      className={cn('h-7 rounded-pill px-3 text-12 transition',
         active
-          ? 'bg-danger-soft text-brand-red font-medium'
-          : 'border border-border bg-surface-card text-subtle hover:border-foreground'
-      )}
+          ?'bg-danger-soft text-brand-red font-medium':'border border-border bg-surface-card text-subtle hover:border-foreground')}
     >
       {children}
     </button>
@@ -216,35 +208,29 @@ function ChipInput({
       {value.map((v, i) => (
         <span
           key={i}
-          className="inline-flex h-6 items-center gap-1 rounded-pill bg-danger-soft px-2 text-12 font-medium text-brand-red"
-        >
+          className="inline-flex h-6 items-center gap-1 rounded-pill bg-danger-soft px-2 text-12 font-medium text-brand-red">
           {v}
           <button
-            type="button"
-            onClick={() => onChange(value.filter((_, j) => j !== i))}
-            className="text-faint hover:text-destructive"
-            aria-label="删除"
-          >
+            type="button"onClick={() => onChange(value.filter((_, j) => j !== i))}
+            className="text-faint hover:text-destructive"aria-label="删除">
             ×
           </button>
         </span>
       ))}
       <input
-        type="text"
-        value={draft}
+        type="text"value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ',') {
+          if (e.key ==='Enter'|| e.key ===',') {
             e.preventDefault();
             commit();
-          } else if (e.key === 'Backspace' && !draft && value.length > 0) {
+          } else if (e.key ==='Backspace'&& !draft && value.length > 0) {
             onChange(value.slice(0, -1));
           }
         }}
         onBlur={commit}
-        placeholder={value.length === 0 ? placeholder : ''}
-        className="min-w-32 flex-1 bg-transparent text-12 text-foreground placeholder:text-faint focus-visible:outline-none"
-      />
+        placeholder={value.length === 0 ? placeholder :''}
+        className="min-w-32 flex-1 bg-transparent text-12 text-foreground placeholder:text-faint"/>
     </div>
   );
 }

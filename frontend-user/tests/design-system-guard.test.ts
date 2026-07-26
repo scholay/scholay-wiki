@@ -186,6 +186,16 @@ describe('交互', () => {
     // 再叠 /20 /30 会掉到 1.6:1 不合格。改造前有 4 种透明度变体并存。
     expect(hits(/\bring-ring\/\d+/)).toEqual([]);
   });
+
+  it('组件层不得自建焦点环', () => {
+    // 为什么: 焦点指示全站【只有一处实现】—— globals.css 的 :focus-visible outline。
+    // 改造前是两套并存(21 个文件用 Tailwind ring 的 box-shadow、其余吃全局 outline),
+    // 同一个界面上会出现两种长得不一样的焦点环。已删 72 处重复实现。
+    //
+    // 组件层仍可以加【非环类】的聚焦可供性(focus-visible:border-* / focus-visible:bg-*),
+    // 那些是额外提示不是替代实现,不冲突。
+    expect(hits(/\bfocus-visible:(?:ring|outline)/)).toEqual([]);
+  });
 });
 
 /* ────────────────────────────────────────────────────── 样式系统逃逸 ── */
