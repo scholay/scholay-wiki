@@ -150,6 +150,25 @@ describe('形状与层级', () => {
     // 为什么: Figma 中 0 个 DROP_SHADOW。只有 shadow-overlay / shadow-raised 两档合法。
     expect(hits(/\bshadow-\[[^\]]+\]/)).toEqual([]);
   });
+
+  it('禁止已退休的旧标度名', () => {
+    // 圆角与字号都改成了数值命名(rounded-4/8/12/16/20, text-12/14/16/20/24/28),
+    // 语义名是过渡期的旧标度,B5/B6 迁完后已全部退休。
+    //
+    // 🔴 这条规则专门补一个 grep 抓不到的盲区:
+    //    本仓库有 83 个 .tsx 含非 UTF-8 字节,BSD grep 默认【静默跳过】它们
+    //    (要加 -a 或用 rg --text)。B5 的迁移正是因此漏掉了 OAuthConfigPage.tsx 的 4 处。
+    //    本测试用 readFileSync 读全文件,天然没有这个盲区 —— 这也是为什么
+    //    护栏要写成测试而不是 shell 脚本。
+    // 这两个文件里的旧类名出现在【解释历史的注释】中,是有价值的文档不是残留代码
+    const DOC_ONLY = ['shared/ui/card.tsx', 'shared/lib/utils.ts'];
+    const radius = hits(/\brounded(?:-(?:t|b|l|r|tl|tr|bl|br))?-(?:sm|md|lg|xl|2xl|3xl|full|none)\b/).filter(
+      (h) => !DOC_ONLY.some((d) => h.startsWith(d))
+    );
+    const size = hits(/\btext-(?:2xs|xs|sm|base|md|lg|xl|2xl|3xl|4xl|5xl|15|badge)\b/);
+    const weight = hits(/\bfont-semibold\b/);
+    expect({ radius, size, weight }).toEqual({ radius: [], size: [], weight: [] });
+  });
 });
 
 /* ──────────────────────────────────────────────────────────── 交互 ── */
