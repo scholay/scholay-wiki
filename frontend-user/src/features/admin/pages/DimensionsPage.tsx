@@ -51,15 +51,15 @@ export function DimensionsPage() {
       header: '维度',
       cell: (r) => (
         <div className="flex flex-col">
-          <span className="font-bold text-foreground">{r.name}</span>
-          <span className="text-2xs text-faint font-mono">{r.dimensionKey}</span>
+          <span className="font-medium text-foreground">{r.name}</span>
+          <span className="text-12 text-faint font-mono">{r.dimensionKey}</span>
         </div>
       ),
     },
     {
       header: '描述 / AI 分析指示',
       cell: (r) => (
-        <span className="text-xs text-muted-foreground line-clamp-2 max-w-xl">
+        <span className="text-12 text-muted-foreground line-clamp-2 max-w-xl">
           {r.description || '—'}
         </span>
       ),
@@ -68,7 +68,7 @@ export function DimensionsPage() {
       header: '排序',
       width: 70,
       align: 'right',
-      cell: (r) => <span className="text-xs text-muted-foreground tabular-nums">{r.sortOrder}</span>,
+      cell: (r) => <span className="text-12 text-muted-foreground tabular-nums">{r.sortOrder}</span>,
     },
     {
       header: '状态',
@@ -174,10 +174,10 @@ function DimensionEditDialog({
               onChange={(e) => setDescription(e.target.value)}
               required
               rows={6}
-              className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               placeholder="给 AI 的指示 —— 例如:请提取论文采用的研究方法,如实验、调查、案例分析等。"
             />
-            <p className="text-2xs text-faint">
+            <p className="text-12 text-faint">
               这里写的是给 AI 的"提示" —— 用大白话告诉它在这一个维度上要识别什么。每次论文分析时会拼进 prompt 里。
             </p>
           </div>
@@ -196,7 +196,7 @@ function DimensionEditDialog({
               <Label htmlFor="dim-active">启用</Label>
               <div className="flex items-center h-9 gap-2">
                 <Switch id="dim-active" checked={isActive} onCheckedChange={setIsActive} />
-                <span className="text-xs text-muted-foreground">
+                <span className="text-12 text-muted-foreground">
                   {isActive ? '矩阵分析会包含本维度' : '停用后所有调用都不传给 AI'}
                 </span>
               </div>

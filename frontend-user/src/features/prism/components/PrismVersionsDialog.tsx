@@ -48,12 +48,12 @@ export function PrismVersionsDialog({
           {versions.isLoading ? (
             <div className="py-6 text-center"><Loader2 className="inline size-5 animate-spin text-faint" /></div>
           ) : !versions.data?.length ? (
-            <p className="py-6 text-center text-sm text-faint">暂无版本</p>
+            <p className="py-6 text-center text-12 text-faint">暂无版本</p>
           ) : (
             versions.data.map((v) => (
               <div key={v.id} className="flex items-center justify-between border-b border-border-soft py-2">
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="font-bold text-foreground">v{v.version_no}</span>
+                <div className="flex items-center gap-2 text-12">
+                  <span className="font-medium text-foreground">v{v.version_no}</span>
                   <span className="text-faint">{authorLabel[v.author] || v.author} · {v.created_at?.slice(0, 16).replace('T', ' ')}</span>
                   {v.status === 'current' && <Badge variant="outline" className="border-brand-green text-brand-green">当前</Badge>}
                 </div>

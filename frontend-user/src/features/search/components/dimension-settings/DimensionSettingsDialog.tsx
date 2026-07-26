@@ -125,12 +125,12 @@ export function DimensionSettingsDialog({ open, onOpenChange }: Props) {
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="p-0 gap-0 max-w-[420px] w-[420px] max-h-[85vh] flex flex-col overflow-hidden">
           <header className="flex items-center h-13 px-[18px] border-b border-border-soft shrink-0">
-            <DialogTitle className="text-md font-bold text-foreground">
+            <DialogTitle className="text-16 font-medium text-foreground">
               维度设置
             </DialogTitle>
           </header>
 
-          <div className="flex items-center h-[34px] px-[18px] bg-surface-1 border-b border-border-soft text-xs text-faint shrink-0">
+          <div className="flex items-center h-[34px] px-[18px] bg-surface-1 border-b border-border-soft text-12 text-faint shrink-0">
             {isLoading ? (
               <span className="inline-flex items-center gap-1.5">
                 <Loader2 className="size-3 animate-spin" />
@@ -143,12 +143,12 @@ export function DimensionSettingsDialog({ open, onOpenChange }: Props) {
 
           <div className="flex-1 min-h-0 overflow-auto">
             {error && (
-              <div className="px-[18px] py-4 text-xs text-brand-red">
+              <div className="px-[18px] py-4 text-12 text-brand-red">
                 维度列表暂时没能加载出来,请稍后重试
               </div>
             )}
             {!isLoading && dimensions.length === 0 && !error && (
-              <div className="px-[18px] py-8 text-center text-xs text-muted-foreground">
+              <div className="px-[18px] py-8 text-center text-12 text-muted-foreground">
                 还没有任何维度,点上方按钮新建一个
               </div>
             )}
@@ -197,7 +197,7 @@ export function DimensionSettingsDialog({ open, onOpenChange }: Props) {
                 onClick={() => setAdding(true)}
                 disabled={atMax}
                 className={cn(
-                  'flex items-center gap-2 w-full h-13 px-[18px] bg-surface-1 text-sm font-bold transition-colors',
+                  'flex items-center gap-2 w-full h-13 px-[18px] bg-surface-1 text-14 font-medium transition-colors',
                   atMax
                     ? 'text-faint cursor-not-allowed'
                     : 'text-brand-red hover:bg-surface-2'

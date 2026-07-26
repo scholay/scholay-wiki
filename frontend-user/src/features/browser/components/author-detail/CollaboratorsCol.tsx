@@ -35,11 +35,11 @@ export function CollaboratorsCol({
     <div className="space-y-3.5">
       <div className="flex items-end justify-between gap-3">
         <div className="flex items-end gap-2.5">
-          <h2 className="font-display font-bold text-xl leading-none text-foreground">
+          <h2 className="font-display font-bold text-20 leading-none text-foreground">
             合作学者
           </h2>
           {collaborators.length > 0 && (
-            <span className="text-xs text-faint pb-0.5">
+            <span className="text-12 text-faint pb-0.5">
               Top {collaborators.length}
             </span>
           )}
@@ -52,7 +52,7 @@ export function CollaboratorsCol({
             <Loader2 className="size-4 animate-spin" />
           </div>
         ) : collaborators.length === 0 ? (
-          <div className="px-4 py-8 text-center text-xs text-muted-foreground">
+          <div className="px-4 py-8 text-center text-12 text-muted-foreground">
             <Users
               className="size-5 mx-auto mb-2 text-faint"
               strokeWidth={1.5}
@@ -71,7 +71,7 @@ export function CollaboratorsCol({
                 )}
               >
                 <span
-                  className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-pill text-2xs font-bold text-on-brand"
+                  className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-pill text-12 font-medium text-on-brand"
                   style={{
                     backgroundColor: pickAvatarColor(
                       c.author.authorId ?? c.author.name ?? ''
@@ -81,16 +81,16 @@ export function CollaboratorsCol({
                   {(c.author.name?.[0] ?? '?').toUpperCase()}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-bold text-foreground truncate">
+                  <div className="text-12 font-medium text-foreground truncate">
                     {c.author.name || '未知作者'}
                   </div>
                   {c.author.affiliations?.[0] && (
-                    <div className="text-2xs text-faint truncate">
+                    <div className="text-12 text-faint truncate">
                       {c.author.affiliations[0]}
                     </div>
                   )}
                 </div>
-                <span className="text-2xs text-faint shrink-0 tabular-nums">
+                <span className="text-12 text-faint shrink-0 tabular-nums">
                   合作 {c.count} 次
                 </span>
                 {c.author.authorId && (

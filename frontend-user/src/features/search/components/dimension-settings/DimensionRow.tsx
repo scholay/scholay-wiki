@@ -103,7 +103,7 @@ function DimensionRowImpl({
       <div className="flex-1 min-w-0 pl-1">
         <div
           className={cn(
-            'text-base font-bold truncate',
+            'text-14 font-medium truncate',
             isHidden ? 'text-faint' : 'text-foreground'
           )}
         >
@@ -111,7 +111,7 @@ function DimensionRowImpl({
         </div>
         <div
           className={cn(
-            'text-2xs truncate mt-px',
+            'text-12 truncate mt-px',
             isHidden ? 'text-faint/70' : 'text-faint'
           )}
         >

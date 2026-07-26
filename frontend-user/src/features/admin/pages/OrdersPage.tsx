@@ -63,7 +63,7 @@ export function OrdersPage() {
       header: '时间',
       width: 150,
       cell: (r) => (
-        <span className="text-xs text-muted-foreground tabular-nums">
+        <span className="text-12 text-muted-foreground tabular-nums">
           {r.created_at?.slice(0, 19).replace('T', ' ')}
         </span>
       ),
@@ -77,8 +77,8 @@ export function OrdersPage() {
       header: '订单',
       cell: (r) => (
         <div className="flex flex-col">
-          <span className="text-xs font-medium text-subtle">{r.plan_name || ORDER_TYPE_LABEL[r.order_type]}</span>
-          <span className="text-2xs text-faint tabular-nums">{r.order_no}</span>
+          <span className="text-12 font-medium text-subtle">{r.plan_name || ORDER_TYPE_LABEL[r.order_type]}</span>
+          <span className="text-12 text-faint tabular-nums">{r.order_no}</span>
         </div>
       ),
     },
@@ -92,7 +92,7 @@ export function OrdersPage() {
           </Badge>
           {/* 年度订阅单显式彰显(0079),不与月度混同;升级单是周期内补差(不冠周期,与通知/订单名口径一致),排除 */}
           {r.order_type === 'subscription' && r.billing_cycle === 'yearly' && r.sub_action !== 'upgrade' && (
-            <span className="rounded-pill bg-brand-amber/10 px-1.5 py-0.5 text-2xs font-bold text-brand-amber">年度</span>
+            <span className="rounded-pill bg-brand-amber/10 px-1.5 py-0.5 text-12 font-medium text-brand-amber">年度</span>
           )}
         </span>
       ),
@@ -101,13 +101,13 @@ export function OrdersPage() {
       header: '金额',
       width: 90,
       align: 'right',
-      cell: (r) => <span className="tabular-nums text-xs font-medium text-foreground">{yuan(r.final_amount)}</span>,
+      cell: (r) => <span className="tabular-nums text-12 font-medium text-foreground">{yuan(r.final_amount)}</span>,
     },
     {
       header: '经费',
       width: 80,
       align: 'right',
-      cell: (r) => <span className="tabular-nums text-xs text-subtle">{r.credits_granted.toLocaleString()}</span>,
+      cell: (r) => <span className="tabular-nums text-12 text-subtle">{r.credits_granted.toLocaleString()}</span>,
     },
     {
       header: '状态',
@@ -126,13 +126,13 @@ export function OrdersPage() {
       cell: (r) =>
         r.status === 'paid' ? (
           <div className="flex flex-col">
-            <span className="text-xs text-subtle">{PAY_METHOD_LABEL[r.payment_method] ?? r.payment_method}</span>
-            <span className="text-2xs text-faint tabular-nums">
+            <span className="text-12 text-subtle">{PAY_METHOD_LABEL[r.payment_method] ?? r.payment_method}</span>
+            <span className="text-12 text-faint tabular-nums">
               {r.payment_time?.slice(0, 19).replace('T', ' ')}
             </span>
           </div>
         ) : (
-          <span className="text-xs text-faint">—</span>
+          <span className="text-12 text-faint">—</span>
         ),
     },
   ];
@@ -275,7 +275,7 @@ function PeriodStatCard({
   return (
     <div className="rounded-16 border border-border bg-surface-card p-4 flex flex-col gap-2">
       <div className="flex items-center justify-between text-faint">
-        <span className="text-sm">{label}</span>
+        <span className="text-12">{label}</span>
         <Icon className="size-4" />
       </div>
       <div
@@ -288,7 +288,7 @@ function PeriodStatCard({
           <>
             <span />
             {cols!.map((c) => (
-              <span key={c} className="text-2xs text-faint text-right">
+              <span key={c} className="text-12 text-faint text-right">
                 {c}
               </span>
             ))}
@@ -296,13 +296,12 @@ function PeriodStatCard({
         )}
         {rows.map((r) => (
           <Fragment key={r.period}>
-            <span className="text-2xs text-faint">{r.period}</span>
+            <span className="text-12 text-faint">{r.period}</span>
             {r.values.map((v, i) => (
               <span
                 key={i}
                 className={cn(
-                  'tabular-nums text-right font-semibold text-foreground truncate',
-                  multi ? 'text-xs' : 'text-sm'
+                  'tabular-nums text-right font-medium text-foreground truncate text-12'
                 )}
               >
                 {v}
@@ -311,7 +310,7 @@ function PeriodStatCard({
           </Fragment>
         ))}
       </div>
-      {footer && <div className="text-2xs text-faint">{footer}</div>}
+      {footer && <div className="text-12 text-faint">{footer}</div>}
     </div>
   );
 }
@@ -334,7 +333,7 @@ function FilterChips({
           type="button"
           onClick={() => onChange(o.value)}
           className={cn(
-            'h-7 rounded-8 px-2.5 text-xs font-medium transition-colors',
+            'h-7 rounded-8 px-2.5 text-12 font-medium transition-colors',
             o.value === value
               ? 'bg-foreground text-background'
               : 'text-muted-foreground hover:bg-surface-1 hover:text-foreground'

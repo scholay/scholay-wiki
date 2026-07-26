@@ -32,7 +32,7 @@ function BillingBody() {
             type="button"
             onClick={() => setTab(key)}
             className={cn(
-              'rounded-pill border px-3.5 py-1.5 text-sm transition-colors',
+              'rounded-pill border px-3.5 py-1.5 text-12 transition-colors',
               tab === key
                 ? 'border-foreground bg-foreground font-medium text-on-brand'
                 : 'border-border bg-surface-card text-muted-foreground'
@@ -63,14 +63,14 @@ function TxnList() {
           className={`flex items-center gap-3 px-4 py-3 ${i === items.length - 1 ? '' : 'border-b border-border-soft'}`}
         >
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm text-foreground">{t.note || t.type}</p>
-            <p className="text-xs text-faint">
+            <p className="truncate text-12 text-foreground">{t.note || t.type}</p>
+            <p className="text-12 text-faint">
               {new Date(t.created_at).toLocaleString('zh-CN')}
             </p>
           </div>
           <span
             className={cn(
-              'text-md font-semibold',
+              'text-14 font-medium',
               t.amount >= 0 ? 'text-brand-green' : 'text-brand-red'
             )}
           >
@@ -97,14 +97,14 @@ function OrderList() {
           className={`space-y-1 px-4 py-3 ${i === items.length - 1 ? '' : 'border-b border-border-soft'}`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-foreground">
+            <span className="text-12 font-medium text-foreground">
               {o.plan_name || (o.order_type === 'recharge' ? '经费充值' : '会员订阅')}
             </span>
-            <span className="text-md font-semibold text-foreground">
+            <span className="text-14 font-medium text-foreground">
               ¥{(o.final_amount / 100).toFixed(2)}
             </span>
           </div>
-          <div className="flex items-center justify-between text-xs text-faint">
+          <div className="flex items-center justify-between text-12 text-faint">
             <span>{o.order_no}</span>
             <span>{o.created_at ? new Date(o.created_at).toLocaleDateString('zh-CN') : ''}</span>
           </div>
@@ -123,5 +123,5 @@ function Spinner() {
 }
 
 function Empty({ text }: { text: string }) {
-  return <p className="py-16 text-center text-sm text-faint">{text}</p>;
+  return <p className="py-16 text-center text-12 text-faint">{text}</p>;
 }

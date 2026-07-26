@@ -47,10 +47,10 @@ export function ChiefVerdictPanel({ chief: chiefProp, reviewers, status, stream:
     return (
       <div className="flex h-72 flex-col items-center justify-center gap-3 rounded-16 border border-dashed border-border bg-surface-1 text-center">
         <Loader2 className="h-6 w-6 animate-spin text-faint" />
-        <p className="text-base font-semibold text-muted-foreground">
+        <p className="text-14 font-medium text-muted-foreground">
           {status === 'reviewing' ? '主审正在汇总三位审稿人的意见…' : '主审尚未给出决议'}
         </p>
-        <p className="text-sm text-faint">
+        <p className="text-12 text-faint">
           {stream.status ?? '三位审稿人全部完成后, 主审会进入决议阶段。'}
         </p>
       </div>
@@ -82,15 +82,15 @@ export function ChiefVerdictPanel({ chief: chiefProp, reviewers, status, stream:
       {/* 1) 主审 ruling 段 —— 概要(强, Playfair italic) + 详细(弱, 可折叠默认展开) */}
       {(chief.rulingSummaryMd || chief.rulingParagraphMd) && (
         <section className="flex flex-col gap-3.5 border-l-2 border-foreground py-4 pl-7">
-          <p className="text-xs font-bold text-faint">SCHOLAY 主审</p>
+          <p className="text-12 font-medium text-faint">SCHOLAY 主审</p>
           <FoldableAnswer
             summary={chief.rulingSummaryMd}
             detail={chief.rulingParagraphMd}
-            summaryClassName="font-serif text-xl italic font-semibold leading-paragraph text-foreground"
-            detailClassName="text-base leading-paragraph text-subtle"
+            summaryClassName="font-serif text-20 italic font-medium leading-paragraph text-foreground"
+            detailClassName="text-14 leading-paragraph text-subtle"
           />
           {eff.score != null && (
-            <p className="text-sm font-semibold text-muted-foreground">
+            <p className="text-12 font-medium text-muted-foreground">
               综合分 {eff.score} / 100
               {decision !== '——' && ` · ${recLabel(decision)}`}
             </p>
@@ -100,8 +100,8 @@ export function ChiefVerdictPanel({ chief: chiefProp, reviewers, status, stream:
 
       {/* 2) synthHead */}
       <header className="flex items-end justify-between border-b-2 border-foreground pb-1">
-        <h3 className="font-serif text-lg font-bold text-foreground">审稿人综合意见</h3>
-        <p className="text-xs text-faint">主审独立复审后逐位回应</p>
+        <h3 className="font-serif text-16 font-bold text-foreground">审稿人综合意见</h3>
+        <p className="text-12 text-faint">主审独立复审后逐位回应</p>
       </header>
 
       {/* 3) revA / B / C */}
@@ -122,17 +122,17 @@ export function ChiefVerdictPanel({ chief: chiefProp, reviewers, status, stream:
       {/* 4) finalSec */}
       <section className="flex flex-col gap-3.5 pt-4">
         <header className="flex items-end justify-between border-b-2 border-foreground pb-1">
-          <h3 className="font-serif text-lg font-bold text-foreground">确认结果</h3>
+          <h3 className="font-serif text-16 font-bold text-foreground">确认结果</h3>
         </header>
 
         {/* 大字结果 */}
         <div className="flex items-end gap-3.5 py-2.5">
-          <p className="w-24 shrink-0 text-xs font-bold text-faint">结果</p>
+          <p className="w-24 shrink-0 text-12 font-medium text-faint">结果</p>
           <p className={cn('font-serif text-display-36 font-bold leading-none', decisionTheme)}>
             {decision === '——' ? '已决议' : recLabel(decision)}
           </p>
           {eff.score != null && (
-            <p className="text-base font-semibold text-muted-foreground">
+            <p className="text-14 font-medium text-muted-foreground">
               综合 {eff.score} / 100
             </p>
           )}
@@ -147,8 +147,8 @@ export function ChiefVerdictPanel({ chief: chiefProp, reviewers, status, stream:
 
         {chief.deadlineDays != null && chief.deadlineDays > 0 && (
           <div className="flex gap-3.5">
-            <p className="w-24 shrink-0 text-xs font-bold text-faint">截止期</p>
-            <p className="flex-1 text-base leading-paragraph text-subtle">
+            <p className="w-24 shrink-0 text-12 font-medium text-faint">截止期</p>
+            <p className="flex-1 text-14 leading-paragraph text-subtle">
               自决议日起 {chief.deadlineDays} 天内提交修订稿与回复函,
               逾期视为放弃本轮主审复议机会。
             </p>
@@ -156,8 +156,8 @@ export function ChiefVerdictPanel({ chief: chiefProp, reviewers, status, stream:
         )}
         {chief.summaryForAuthor && (
           <div className="flex gap-3.5">
-            <p className="w-24 shrink-0 text-xs font-bold text-faint">给作者</p>
-            <p className="flex-1 text-base italic text-muted-foreground">
+            <p className="w-24 shrink-0 text-12 font-medium text-faint">给作者</p>
+            <p className="flex-1 text-14 italic text-muted-foreground">
               {chief.summaryForAuthor}
             </p>
           </div>
@@ -165,12 +165,12 @@ export function ChiefVerdictPanel({ chief: chiefProp, reviewers, status, stream:
 
         {/* 签署 */}
         <footer className="flex items-center gap-4 border-t border-foreground pt-4">
-          <p className="w-24 shrink-0 text-xs font-bold text-faint">主审签署</p>
+          <p className="w-24 shrink-0 text-12 font-medium text-faint">主审签署</p>
           <div className="flex-1 space-y-0.5">
-            <p className="text-base font-semibold text-subtle">
+            <p className="text-14 font-medium text-subtle">
               AI 主审
             </p>
-            <p className="text-sm italic text-muted-foreground">
+            <p className="text-12 italic text-muted-foreground">
               已基于稿件全文与三位审稿人的综合意见独立复审, 并确认上述结果。
             </p>
           </div>
@@ -197,36 +197,36 @@ function ReviewerSection({
     <section className="flex flex-col gap-2.5 border-b border-border-soft pb-4">
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <span className="font-serif text-xl font-bold text-border-soft">
+          <span className="font-serif text-20 font-bold text-border-soft">
             {String(idx).padStart(2, '0')}
           </span>
-          <p className="text-base font-bold text-foreground">
+          <p className="text-14 font-medium text-foreground">
             {reviewerLabel(role)}
             {reviewerHeadSuffix(reviewer)}
           </p>
         </div>
         {response?.judgment && (
-          <p className="text-sm font-bold text-foreground">主审:{response.judgment}</p>
+          <p className="text-12 font-medium text-foreground">主审:{response.judgment}</p>
         )}
       </header>
 
       <div className="flex gap-3.5">
-        <p className="w-24 shrink-0 text-xs font-bold text-faint">其综合意见</p>
-        <p className="flex-1 text-base leading-paragraph text-subtle">
+        <p className="w-24 shrink-0 text-12 font-medium text-faint">其综合意见</p>
+        <p className="flex-1 text-14 leading-paragraph text-subtle">
           {reviewer?.finalSummaryMd || '(该审稿人未给出意见)'}
         </p>
       </div>
 
       {(response?.summary || response?.body) && (
         <div className="flex gap-3.5">
-          <p className="w-24 shrink-0 text-xs font-bold text-foreground">主审判断</p>
+          <p className="w-24 shrink-0 text-12 font-medium text-foreground">主审判断</p>
           {/* 概要(强) + 详细(弱, 可折叠默认展开) */}
           <div className="flex-1 min-w-0">
             <FoldableAnswer
               summary={response.summary}
               detail={response.body}
-              summaryClassName="text-base font-semibold leading-paragraph text-foreground"
-              detailClassName="text-sm leading-paragraph text-muted-foreground"
+              summaryClassName="text-14 font-medium leading-paragraph text-foreground"
+              detailClassName="text-12 leading-paragraph text-muted-foreground"
             />
           </div>
         </div>
@@ -264,7 +264,7 @@ function FoldableAnswer({
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            className="inline-flex w-fit items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+            className="inline-flex w-fit items-center gap-1 text-12 font-medium text-muted-foreground hover:text-foreground"
           >
             {open ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
             {open ? '收起详情' : '展开详情'}
@@ -287,10 +287,10 @@ function ListRow({
 }) {
   return (
     <div className="flex gap-3.5">
-      <p className="w-24 shrink-0 text-xs font-bold text-faint">{label}</p>
+      <p className="w-24 shrink-0 text-12 font-medium text-faint">{label}</p>
       <ol
         className={cn(
-          'flex-1 list-decimal space-y-1.5 pl-4 text-base leading-paragraph',
+          'flex-1 list-decimal space-y-1.5 pl-4 text-14 leading-paragraph',
           emphasize ? 'text-subtle' : 'text-muted-foreground',
         )}
       >
@@ -378,8 +378,8 @@ function StreamingChiefView({
     return (
       <div className="flex h-72 flex-col items-center justify-center gap-3 rounded-16 border border-border bg-surface-card text-center">
         <Loader2 className="h-7 w-7 animate-spin text-brand-amber" />
-        <p className="text-base font-semibold text-foreground">主审正在通读三位审稿人意见…</p>
-        <p className="text-sm text-faint">已生成 {p.totalChars} 字 · 决议结论稍后出现</p>
+        <p className="text-14 font-medium text-foreground">主审正在通读三位审稿人意见…</p>
+        <p className="text-12 text-faint">已生成 {p.totalChars} 字 · 决议结论稍后出现</p>
       </div>
     );
   }
@@ -393,7 +393,7 @@ function StreamingChiefView({
       {/* 顶部进度条 */}
       <div className="flex items-center gap-2.5 rounded-16 border border-brand-amber/40 bg-warning-soft px-4 py-2.5">
         <Loader2 className="h-4 w-4 animate-spin text-brand-amber" />
-        <p className="flex-1 text-sm font-semibold text-brand-amber">
+        <p className="flex-1 text-12 font-medium text-brand-amber">
           {done ? (
             '主审决议已完成 · 正在整理结果…'
           ) : (
@@ -405,21 +405,21 @@ function StreamingChiefView({
             </>
           )}
         </p>
-        <p className="font-mono text-xs text-brand-amber/70">{p.totalChars} 字</p>
+        <p className="font-mono text-12 text-brand-amber/70">{p.totalChars} 字</p>
       </div>
 
       {/* ruling 段 —— 概要(强) + 详细(弱, 可折叠默认展开), 流式中也按新格式渲染 */}
       {(p.rulingSummary || p.rulingParagraph) && (
         <section className="flex flex-col gap-3.5 border-l-2 border-foreground py-4 pl-7">
-          <p className="text-xs font-bold text-faint">SCHOLAY 主审 · 正在撰写</p>
+          <p className="text-12 font-medium text-faint">SCHOLAY 主审 · 正在撰写</p>
           <FoldableAnswer
             summary={p.rulingSummary}
             detail={p.rulingParagraph}
-            summaryClassName="font-serif text-xl italic font-semibold leading-paragraph text-foreground"
-            detailClassName="text-base leading-paragraph text-subtle"
+            summaryClassName="font-serif text-20 italic font-medium leading-paragraph text-foreground"
+            detailClassName="text-14 leading-paragraph text-subtle"
           />
           {p.score != null && (
-            <p className="text-sm font-semibold text-muted-foreground">
+            <p className="text-12 font-medium text-muted-foreground">
               综合分 {p.score} / 100 {decision !== '——' && `· ${recLabel(decision)}`}
             </p>
           )}
@@ -435,29 +435,29 @@ function StreamingChiefView({
           <section key={role} className="flex flex-col gap-2.5 border-b border-border-soft pb-4">
             <header className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <span className="font-serif text-xl font-bold text-border-soft">
+                <span className="font-serif text-20 font-bold text-border-soft">
                   {String(idx + 1).padStart(2, '0')}
                 </span>
-                <p className="text-base font-bold text-foreground">
+                <p className="text-14 font-medium text-foreground">
                   {reviewerLabel(role)}
                   {reviewerHeadSuffix(reviewer)}
                 </p>
               </div>
               {resp?.judgment ? (
-                <p className="text-sm font-bold text-foreground">主审:{resp.judgment}</p>
+                <p className="text-12 font-medium text-foreground">主审:{resp.judgment}</p>
               ) : (
-                <p className="text-sm text-faint">主审复审中…</p>
+                <p className="text-12 text-faint">主审复审中…</p>
               )}
             </header>
             {(resp?.summary || resp?.body) && (
               <div className="flex gap-3.5">
-                <p className="w-24 shrink-0 text-xs font-bold text-foreground">主审判断</p>
+                <p className="w-24 shrink-0 text-12 font-medium text-foreground">主审判断</p>
                 <div className="flex-1 min-w-0">
                   <FoldableAnswer
                     summary={resp.summary}
                     detail={resp.body}
-                    summaryClassName="text-base font-semibold leading-paragraph text-foreground"
-                    detailClassName="text-sm leading-paragraph text-muted-foreground"
+                    summaryClassName="text-14 font-medium leading-paragraph text-foreground"
+                    detailClassName="text-12 leading-paragraph text-muted-foreground"
                   />
                 </div>
               </div>
@@ -470,14 +470,14 @@ function StreamingChiefView({
       {(decision !== '——' || p.score != null) && (
         <section className="flex flex-col gap-3.5 pt-4">
           <header className="flex items-end justify-between border-b-2 border-foreground pb-1">
-            <h3 className="font-serif text-lg font-bold text-foreground">确认结果</h3>
-            <p className="text-xs text-faint">主审正在落笔</p>
+            <h3 className="font-serif text-16 font-bold text-foreground">确认结果</h3>
+            <p className="text-12 text-faint">主审正在落笔</p>
           </header>
           <div className="flex items-end gap-3.5 py-2.5">
-            <p className="w-24 shrink-0 text-xs font-bold text-faint">结果</p>
+            <p className="w-24 shrink-0 text-12 font-medium text-faint">结果</p>
             <p className={cn('font-serif text-display-36 font-bold leading-none', dTheme)}>{recLabel(decision)}</p>
             {p.score != null && (
-              <p className="text-base font-semibold text-muted-foreground">综合 {p.score} / 100</p>
+              <p className="text-14 font-medium text-muted-foreground">综合 {p.score} / 100</p>
             )}
           </div>
           {p.mustFix.length > 0 && <StreamingListRow label={`必改 ${p.mustFix.length} 条`} items={p.mustFix} emphasize />}
@@ -491,10 +491,10 @@ function StreamingChiefView({
 function StreamingListRow({ label, items, emphasize }: { label: string; items: string[]; emphasize?: boolean }) {
   return (
     <div className="flex gap-3.5">
-      <p className="w-24 shrink-0 text-xs font-bold text-faint">{label}</p>
+      <p className="w-24 shrink-0 text-12 font-medium text-faint">{label}</p>
       <ol
         className={cn(
-          'flex-1 list-decimal space-y-1.5 pl-4 text-base leading-paragraph',
+          'flex-1 list-decimal space-y-1.5 pl-4 text-14 leading-paragraph',
           emphasize ? 'text-subtle' : 'text-muted-foreground',
         )}
       >

@@ -72,10 +72,10 @@ export function PrismSidebar() {
       <SidebarContent>
         {/* 项目信息 */}
         <div className="px-4 pt-2 pb-3">
-          <div className="text-sm font-semibold text-foreground truncate">
+          <div className="text-14 font-medium text-foreground truncate">
             DiT-3D Sampling
           </div>
-          <div className="text-2xs text-faint mt-0.5">CVPR 2026 投稿</div>
+          <div className="text-12 text-faint mt-0.5">CVPR 2026 投稿</div>
         </div>
 
         {/* 目录 */}

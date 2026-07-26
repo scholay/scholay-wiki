@@ -24,7 +24,7 @@ export function RelinkResultArea({
 }) {
   if (loading) {
     return (
-      <div className="flex items-center justify-center gap-2 py-16 text-sm text-faint">
+      <div className="flex items-center justify-center gap-2 py-16 text-14 text-faint">
         <Loader2 className="size-4 animate-spin" />
         正在 {tabLabel} 检索…
       </div>
@@ -32,7 +32,7 @@ export function RelinkResultArea({
   }
   if (error) {
     return (
-      <div className="px-3 py-8 text-center text-sm text-brand-red">
+      <div className="px-3 py-8 text-center text-14 text-brand-red">
         {error.message || '检索失败'}
       </div>
     );
@@ -40,18 +40,18 @@ export function RelinkResultArea({
   if (hits.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-        <div className="text-sm font-semibold text-foreground">{tabLabel} 没找到匹配的论文</div>
-        <div className="text-xs text-muted-foreground">换个标题关键词,或切到其他来源试试</div>
+        <div className="text-14 font-medium text-foreground">{tabLabel} 没找到匹配的论文</div>
+        <div className="text-12 text-muted-foreground">换个标题关键词,或切到其他来源试试</div>
       </div>
     );
   }
 
   return (
     <>
-      <div className="flex items-center gap-1.5 mb-3 text-xs text-muted-foreground">
+      <div className="flex items-center gap-1.5 mb-3 text-12 text-muted-foreground">
         <Check className="size-3.5 text-brand-green" strokeWidth={2.5} />
-        已从 <span className="font-bold text-foreground">{tabLabel}</span> 找到{' '}
-        <span className="font-bold text-foreground tabular-nums">{hits.length}</span> 条候选 ·
+        已从 <span className="font-medium text-foreground">{tabLabel}</span> 找到{' '}
+        <span className="font-medium text-foreground tabular-nums">{hits.length}</span> 条候选 ·
         按相关度排序
       </div>
 
@@ -82,18 +82,18 @@ export function RelinkResultArea({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <div
-                      className="text-sm font-bold text-foreground line-clamp-2"
+                      className="text-14 font-medium text-foreground line-clamp-2"
                       title={h.title}
                     >
                       {h.title || '无标题'}
                     </div>
                     <span className="shrink-0 inline-flex items-center gap-1">
                       {isCurrent && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-warning-soft text-brand-amber text-2xs font-bold leading-none whitespace-nowrap">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-warning-soft text-brand-amber text-12 font-medium leading-none whitespace-nowrap">
                           当前关联
                         </span>
                       )}
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-surface-2 text-subtle text-2xs font-bold leading-none uppercase">
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-surface-2 text-subtle text-12 font-medium leading-none uppercase">
                         {sourceBrandLabel(h.source)}
                       </span>
                     </span>
@@ -101,10 +101,10 @@ export function RelinkResultArea({
                   {(() => {
                     const a = formatAuthorsDisplay(h.authors);
                     return a ? (
-                      <div className="mt-0.5 text-xs text-muted-foreground line-clamp-1">{a}</div>
+                      <div className="mt-0.5 text-12 text-muted-foreground line-clamp-1">{a}</div>
                     ) : null;
                   })()}
-                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-2xs text-faint">
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-12 text-faint">
                     {h.venue && <span>{h.venue}</span>}
                     {h.year && (
                       <>
@@ -121,7 +121,7 @@ export function RelinkResultArea({
                   </div>
                 </div>
                 {selected && (
-                  <span className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-4 bg-brand-amber text-background text-xs font-bold">
+                  <span className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-4 bg-brand-amber text-background text-12 font-medium">
                     <Check className="size-3" strokeWidth={3} />
                     已选
                   </span>

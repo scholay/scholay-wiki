@@ -29,13 +29,13 @@ export function LibrarySection() {
     return (
       <SidebarSection id="library" label="我的文献集">
         <div className="mx-4 my-2 px-3 py-3 rounded-12 bg-surface-1 border border-border-soft">
-          <div className="text-sm text-subtle leading-paragraph">
+          <div className="text-12 text-subtle leading-paragraph">
             登录后查看你的文献集,所有收藏云端同步
           </div>
           <Button
             size="sm"
             variant="primary"
-            className="mt-2 w-full h-8 text-xs"
+            className="mt-2 w-full h-8 text-12"
             onClick={() => openDialog('login')}
           >
             <LogIn className="size-3" />
@@ -57,7 +57,7 @@ export function LibrarySection() {
           action={
             <LeaveToLibraryLink
               to="/library"
-              className="text-2xs font-bold text-foreground hover:opacity-70"
+              className="text-12 font-medium text-foreground hover:opacity-70"
             >
               管理
             </LeaveToLibraryLink>
@@ -65,10 +65,10 @@ export function LibrarySection() {
         >
           <div className="max-h-[260px] overflow-y-auto">
             {foldersQ.isLoading && folders.length === 0 && (
-              <div className="px-4 py-2 text-2xs text-faint">加载中…</div>
+              <div className="px-4 py-2 text-12 text-faint">加载中…</div>
             )}
             {!foldersQ.isLoading && folders.length === 0 && (
-              <div className="px-4 py-2 text-2xs text-faint">
+              <div className="px-4 py-2 text-12 text-faint">
                 还没有文件夹 ·
                 <LeaveToLibraryLink to="/library" className="ml-1 underline">
                   去创建
@@ -83,10 +83,10 @@ export function LibrarySection() {
                 title={f.name}
               >
                 <Folder className="size-3.5 text-muted-foreground shrink-0" />
-                <span className="flex-1 min-w-0 truncate text-xs text-subtle group-hover:text-foreground">
+                <span className="flex-1 min-w-0 truncate text-12 text-subtle group-hover:text-foreground">
                   {f.name}
                 </span>
-                <span className="text-2xs text-faint tabular-nums shrink-0">
+                <span className="text-12 text-faint tabular-nums shrink-0">
                   {f.paper_count.toLocaleString()}
                 </span>
               </LeaveToLibraryLink>

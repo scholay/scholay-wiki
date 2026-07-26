@@ -75,11 +75,11 @@ export function WorkbenchDialogShell({
                 {icon}
               </div>
               <div className="min-w-0">
-                <DialogPrimitive.Title className="text-base font-semibold text-foreground">
+                <DialogPrimitive.Title className="text-16 font-medium text-foreground">
                   {title}
                 </DialogPrimitive.Title>
                 <DialogPrimitive.Description
-                  className="mt-0.5 text-xs text-muted-foreground line-clamp-1"
+                  className="mt-0.5 text-12 text-muted-foreground line-clamp-1"
                   title={typeof description === 'string' ? description : undefined}
                 >
                   {description}
@@ -148,7 +148,7 @@ export function DialogTabBar<T extends string>({
             aria-selected={active}
             onClick={() => onChange(t.id)}
             className={cn(
-              'relative inline-flex items-center gap-1.5 px-3 text-sm font-semibold transition-colors',
+              'relative inline-flex items-center gap-1.5 px-3 text-14 font-medium transition-colors',
               size === 'md' ? 'h-10' : 'h-9',
               active ? 'text-brand-amber' : 'text-muted-foreground hover:text-foreground'
             )}
@@ -158,7 +158,7 @@ export function DialogTabBar<T extends string>({
             {t.comingSoon && (
               <span
                 aria-hidden="true"
-                className="ml-0.5 inline-flex items-center h-3.5 px-1 rounded-pill bg-brand-amber text-background text-2xs font-bold leading-none whitespace-nowrap"
+                className="ml-0.5 inline-flex items-center h-3.5 px-1 rounded-pill bg-brand-amber text-background text-12 font-medium leading-none whitespace-nowrap"
               >
                 即将
               </span>
@@ -166,7 +166,7 @@ export function DialogTabBar<T extends string>({
             {typeof t.count === 'number' && t.count > 0 && (
               <span
                 className={cn(
-                  'inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-pill text-2xs font-bold leading-none tabular-nums',
+                  'inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-pill text-12 font-medium leading-none tabular-nums',
                   active ? 'bg-brand-amber text-background' : 'bg-surface-2 text-subtle'
                 )}
               >
@@ -199,7 +199,7 @@ export function DialogFooterBar({
 }) {
   return (
     <div className="flex items-center justify-between gap-2 px-6 py-3 bg-surface-1 border-t border-border-soft shrink-0">
-      <span className="text-xs text-muted-foreground flex items-center gap-1 min-w-0">
+      <span className="text-12 text-muted-foreground flex items-center gap-1 min-w-0">
         {hint}
       </span>
       <div className="flex items-center gap-2 shrink-0">{children}</div>
@@ -210,7 +210,7 @@ export function DialogFooterBar({
 /** footer 主操作按钮(实底)。tone 区分语义:green=保存/写入,amber=关联/匹配。 */
 export function footerPrimaryCn(tone: 'green' | 'amber' = 'green'): string {
   return cn(
-    'inline-flex items-center gap-1.5 h-8 px-3.5 rounded-8 text-sm font-bold text-background transition-colors',
+    'inline-flex items-center gap-1.5 h-8 px-3.5 rounded-8 text-14 font-medium text-background transition-colors',
     'disabled:opacity-60 disabled:cursor-not-allowed',
     tone === 'green'
       ? 'bg-brand-green hover:bg-brand-green/90'
@@ -220,13 +220,13 @@ export function footerPrimaryCn(tone: 'green' | 'amber' = 'green'): string {
 
 /** footer 描边按钮(白底 border)。 */
 export const footerOutlineCn = cn(
-  'inline-flex items-center gap-1 h-8 px-3 rounded-8 bg-surface-card border border-border text-sm font-semibold text-subtle',
+  'inline-flex items-center gap-1 h-8 px-3 rounded-8 bg-surface-card border border-border text-14 font-medium text-subtle',
   'hover:bg-surface-2 hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
 );
 
 /** footer 幽灵按钮(取消等)。 */
 export const footerGhostCn = cn(
-  'inline-flex items-center gap-1 h-8 px-3 rounded-8 text-sm font-semibold text-subtle',
+  'inline-flex items-center gap-1 h-8 px-3 rounded-8 text-14 font-medium text-subtle',
   'hover:bg-surface-2 hover:text-foreground disabled:opacity-60 transition-colors'
 );
 
@@ -250,17 +250,17 @@ export function StepBanner({
       <div className="flex items-center gap-2.5">
         <span
           className={cn(
-            'inline-flex h-5 w-5 items-center justify-center rounded-pill text-background text-2xs font-bold tabular-nums shrink-0',
+            'inline-flex h-5 w-5 items-center justify-center rounded-pill text-background text-12 font-medium tabular-nums shrink-0',
             active ? 'bg-brand-amber' : 'bg-foreground'
           )}
         >
           {step}
         </span>
-        <span className="text-sm font-semibold text-foreground">{title}</span>
+        <span className="text-14 font-medium text-foreground">{title}</span>
         {desc && (
           <>
             <span className="text-faint">·</span>
-            <span className="text-xs text-muted-foreground min-w-0 truncate">{desc}</span>
+            <span className="text-12 text-muted-foreground min-w-0 truncate">{desc}</span>
           </>
         )}
       </div>

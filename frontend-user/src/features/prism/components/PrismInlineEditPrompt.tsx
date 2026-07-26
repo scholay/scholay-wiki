@@ -70,8 +70,8 @@ export function PrismInlineEditPrompt({
     >
       <div className="mb-2 flex items-center gap-1.5">
         <Sparkles className="size-3.5 text-brand-green" />
-        <span className="text-2xs font-bold text-foreground">就选中内容让 AI 修改</span>
-        <span className="ml-auto text-2xs text-faint">已选 {charCount} 字</span>
+        <span className="text-12 font-medium text-foreground">就选中内容让 AI 修改</span>
+        <span className="ml-auto text-12 text-faint">已选 {charCount} 字</span>
         <button type="button" onClick={onClose} className="text-faint hover:text-foreground" aria-label="关闭">
           <X className="size-3.5" />
         </button>
@@ -83,7 +83,7 @@ export function PrismInlineEditPrompt({
             type="button"
             disabled={busy}
             onClick={() => submit(a.instruction)}
-            className="rounded-pill border border-border-button px-2 py-0.5 text-2xs text-subtle transition-colors hover:border-brand-green hover:text-brand-green disabled:opacity-50"
+            className="rounded-pill border border-border-button px-2 py-0.5 text-12 text-subtle transition-colors hover:border-brand-green hover:text-brand-green disabled:opacity-50"
           >
             {a.label}
           </button>
@@ -102,7 +102,7 @@ export function PrismInlineEditPrompt({
           }}
           rows={2}
           placeholder="或描述你想怎么改…(Enter 提交)"
-          className="max-h-24 min-h-[44px] flex-1 resize-none rounded-8 border border-border-button bg-surface-card px-2.5 py-1.5 text-xs leading-paragraph text-foreground placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="max-h-24 min-h-[44px] flex-1 resize-none rounded-8 border border-border-button bg-surface-card px-2.5 py-1.5 text-12 leading-paragraph text-foreground placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
         <button
           type="button"

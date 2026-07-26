@@ -13,9 +13,9 @@ type Size = 'sm' | 'md' | 'lg' | 'xl';
 
 /** .pen `ItHvU` 设计稿 hero logo 是 56px,Tailwind 默认无此档位(48 与 60 之间),保留 arbitrary value */
 const SIZE_MAP: Record<Size, string> = {
-  sm: 'text-xl',
-  md: 'text-3xl',
-  lg: 'text-5xl',
+  sm: 'text-20',
+  md: 'text-28',
+  lg: 'text-display-56',
   xl:'text-[56px] leading-none',
 };
 

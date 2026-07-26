@@ -17,7 +17,7 @@ export function TodayPanel() {
   if (isLoading && !hasAnyAlert) {
     return (
       <section className="rounded-16 border border-border bg-surface-card p-4">
-        <div className="text-sm text-faint">加载告警…</div>
+        <div className="text-12 text-faint">加载告警…</div>
       </section>
     );
   }
@@ -27,8 +27,8 @@ export function TodayPanel() {
       <section className="rounded-16 border border-border bg-surface-card p-4 flex items-center gap-3">
         <CheckCircle2 className="size-5 text-brand-green" />
         <div>
-          <div className="text-base font-bold text-foreground">今日无待办</div>
-          <div className="text-xs text-muted-foreground">所有反馈已处理 · 三方账号健康 · 支付配置激活中</div>
+          <div className="text-14 font-medium text-foreground">今日无待办</div>
+          <div className="text-12 text-muted-foreground">所有反馈已处理 · 三方账号健康 · 支付配置激活中</div>
         </div>
       </section>
     );
@@ -94,8 +94,8 @@ export function TodayPanel() {
   return (
     <section className="rounded-16 border border-border bg-surface-card">
       <header className="px-4 py-3 border-b border-border-soft flex items-center justify-between">
-        <h2 className="text-sm font-bold text-foreground">今日待办</h2>
-        <span className="text-2xs text-faint">{items.length} 项</span>
+        <h2 className="text-16 font-medium text-foreground">今日待办</h2>
+        <span className="text-12 text-faint">{items.length} 项</span>
       </header>
       <ul>
         {items.map((it, i) => (
@@ -119,12 +119,12 @@ export function TodayPanel() {
                 {it.icon}
               </span>
               <div className="flex-1 min-w-0 flex flex-col">
-                <span className="text-sm font-bold text-foreground">{it.label}</span>
-                <span className="text-2xs text-faint truncate mt-px">{it.hint}</span>
+                <span className="text-12 font-medium text-foreground">{it.label}</span>
+                <span className="text-12 text-faint truncate mt-px">{it.hint}</span>
               </div>
               <span
                 className={cn(
-                  'text-sm font-bold tabular-nums shrink-0',
+                  'text-12 font-medium tabular-nums shrink-0',
                   it.tone === 'danger' && 'text-brand-red',
                   it.tone === 'warning' && 'text-brand-amber',
                   it.tone === 'muted' && 'text-subtle'

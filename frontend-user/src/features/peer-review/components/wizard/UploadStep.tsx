@@ -96,10 +96,10 @@ export function UploadStep({
       <section className="rounded-16 border border-border bg-surface-card p-6">
         <header className="mb-4 flex items-end justify-between">
           <div>
-            <h2 className="text-base font-bold text-foreground">稿件正文</h2>
-            <p className="mt-1 text-xs text-muted-foreground">{mainHint}</p>
+            <h2 className="text-14 font-medium text-foreground">稿件正文</h2>
+            <p className="mt-1 text-12 text-muted-foreground">{mainHint}</p>
           </div>
-          <span className="rounded-pill bg-danger-soft px-3 py-1 text-2xs font-bold text-brand-red">
+          <span className="rounded-pill bg-danger-soft px-3 py-1 text-12 font-medium text-brand-red">
             必填 · 支持 .docx / .pdf
           </span>
         </header>
@@ -134,12 +134,12 @@ export function UploadStep({
           <header className="flex items-center justify-between border-b border-border-soft px-6 py-4">
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-foreground">附件</h2>
-                <span className="rounded-pill bg-danger-soft px-2.5 py-0.5 text-2xs font-bold text-brand-red">
+                <h2 className="text-14 font-medium text-foreground">附件</h2>
+                <span className="rounded-pill bg-danger-soft px-2.5 py-0.5 text-12 font-medium text-brand-red">
                   {attachments.length} / {ATT_MAX_COUNT}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">{attachmentHint}</p>
+              <p className="mt-1 text-12 text-muted-foreground">{attachmentHint}</p>
             </div>
             {attachments.length < ATT_MAX_COUNT && (
               <AttachmentAddButton
@@ -164,7 +164,7 @@ export function UploadStep({
 
             {attachments.length > 0 && (
               <>
-                <p className="text-xs font-bold text-muted-foreground">
+                <p className="text-12 font-medium text-muted-foreground">
                   已上传 {attachments.length} 个文件
                 </p>
                 <div className="flex flex-col gap-2">
@@ -240,10 +240,10 @@ function ManuscriptDropZone({
           <Upload className="size-6 text-brand-red" />
         )}
       </span>
-      <p className="text-sm font-bold text-foreground">
+      <p className="text-14 font-medium text-foreground">
         把稿件拖到这里 · 或点击下方按钮上传
       </p>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-12 text-muted-foreground">
         支持 {MAIN_TYPES.join(' / ')} · 建议提交脱敏盲审版本
       </p>
       <div className="mt-2 flex gap-3">
@@ -251,7 +251,7 @@ function ManuscriptDropZone({
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={uploading}
-          className="inline-flex h-9 items-center rounded-8 bg-brand-red px-5 text-xs font-bold text-background transition hover:bg-brand-red/90 disabled:opacity-50"
+          className="inline-flex h-9 items-center rounded-8 bg-brand-red px-5 text-12 font-medium text-background transition hover:bg-brand-red/90 disabled:opacity-50"
         >
           选择文件
         </button>
@@ -259,7 +259,7 @@ function ManuscriptDropZone({
           type="button"
           disabled
           title="即将上线"
-          className="inline-flex h-9 items-center rounded-8 border border-border-button bg-surface-card px-5 text-xs text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-9 items-center rounded-8 border border-border-button bg-surface-card px-5 text-12 text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
         >
           从云盘导入
         </button>
@@ -290,8 +290,8 @@ function ManuscriptUploadedRow({
         <FileText className="size-5 text-subtle" />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="line-clamp-1 text-sm font-bold text-foreground">{asset.filename}</p>
-        <p className="mt-0.5 inline-flex items-center gap-1.5 text-xs text-brand-green">
+        <p className="line-clamp-1 text-12 font-medium text-foreground">{asset.filename}</p>
+        <p className="mt-0.5 inline-flex items-center gap-1.5 text-12 text-brand-green">
           <CheckCircle2 className="size-3" />
           上传完成 · {formatBytes(asset.size)}
           {asset.textChars ? ` · 已识别 ${asset.textChars} 字` : ''}
@@ -321,7 +321,7 @@ function ManuscriptUploadedRow({
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={busy}
-        className="text-xs font-bold text-brand-red hover:text-brand-red/80 disabled:opacity-50"
+        className="text-12 font-medium text-brand-red hover:text-brand-red/80 disabled:opacity-50"
       >
         {busy ? '处理中…' : '重新上传'}
       </button>
@@ -393,10 +393,10 @@ function AttachmentDropZone({
           <Upload className="size-4 text-faint" />
         )}
       </span>
-      <p className="text-sm font-bold text-subtle">
+      <p className="text-14 font-medium text-subtle">
         把附件拖到这里 · 或点击添加 · 还能再加 {remaining} 个
       </p>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-12 text-muted-foreground">
         支持 PDF / Word / Excel / 图片 / ZIP
       </p>
     </div>
@@ -427,12 +427,12 @@ function AttachmentAddButton({
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={uploading}
-        className="inline-flex h-9 items-center gap-1 rounded-8 border border-brand-red bg-surface-card px-4 text-xs font-bold text-brand-red transition hover:bg-danger-soft disabled:opacity-50"
+        className="inline-flex h-9 items-center gap-1 rounded-8 border border-brand-red bg-surface-card px-4 text-12 font-medium text-brand-red transition hover:bg-danger-soft disabled:opacity-50"
       >
         {uploading ? (
           <Loader2 className="size-3.5 animate-spin" />
         ) : (
-          <span className="text-base leading-none">+</span>
+          <span className="text-14 leading-none">+</span>
         )}
         添加附件
       </button>
@@ -448,8 +448,8 @@ function AttachmentRow({ asset, onDelete }: { asset: SubmissionAsset; onDelete: 
         <Icon className="size-5 text-subtle" />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="line-clamp-1 text-sm font-bold text-foreground">{asset.filename}</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">
+        <p className="line-clamp-1 text-12 font-medium text-foreground">{asset.filename}</p>
+        <p className="mt-0.5 text-12 text-muted-foreground">
           {asset.mime.split('/').pop()?.toUpperCase() || '—'} · {formatBytes(asset.size)}
         </p>
       </div>

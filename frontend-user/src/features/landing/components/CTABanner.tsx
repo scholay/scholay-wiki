@@ -22,7 +22,7 @@ function CTAInner({
   primary: boolean;
 }) {
   const cls = cn(
-    'inline-flex items-center gap-2 h-12 px-6 rounded-8 text-md font-semibold transition-colors whitespace-nowrap',
+    'inline-flex items-center gap-2 h-12 px-6 rounded-8 text-14 font-medium transition-colors whitespace-nowrap',
     primary
       ? 'bg-surface-card text-foreground hover:bg-surface-1'
       : 'bg-transparent border border-background text-background hover:bg-surface-card/10'
@@ -49,7 +49,7 @@ function CTATitle({ lines }: { lines: TitleLine[] }) {
         <span
           key={i}
           className={cn(
-            'block text-[clamp(36px,5vw,64px)] font-semibold',
+            'block text-[clamp(36px,5vw,64px)] font-medium',
             line.italic && 'italic'
           )}
         >
@@ -65,11 +65,11 @@ export function CTABanner({ feature }: { feature: LandingFeature }) {
   return (
     <section className="bg-foreground py-20 lg:py-28">
       <div className="max-w-7xl mx-auto px-6 lg:px-12 flex flex-col items-center gap-8 text-center">
-        <span className="text-2xs font-semibold uppercase text-brand-amber">
+        <span className="text-12 font-medium uppercase text-brand-amber">
           {finalCTA.eyebrow}
         </span>
         <CTATitle lines={finalCTA.titleLines} />
-        <p className="text-lg leading-paragraph text-faint max-w-2xl">{finalCTA.sub}</p>
+        <p className="text-16 leading-paragraph text-faint max-w-2xl">{finalCTA.sub}</p>
         <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
           <CTAInner
             href={finalCTA.primaryCTA.href}
@@ -86,7 +86,7 @@ export function CTABanner({ feature }: { feature: LandingFeature }) {
         </div>
         <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mt-2">
           {finalCTA.metaChips.map((m) => (
-            <span key={m} className="text-xs text-faint">
+            <span key={m} className="text-12 text-faint">
               {m}
             </span>
           ))}

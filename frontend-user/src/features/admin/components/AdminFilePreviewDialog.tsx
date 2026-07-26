@@ -23,7 +23,7 @@ export function AdminFilePreviewDialog({
     <Dialog open={!!file} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-4xl">
         <DialogHeader>
-          <DialogTitle className="truncate pr-8 text-sm">{file?.filename || '文件预览'}</DialogTitle>
+          <DialogTitle className="truncate pr-8 text-12">{file?.filename || '文件预览'}</DialogTitle>
         </DialogHeader>
         {file && <AdminFileViewer src={file.src} mime={file.mime} filename={file.filename} />}
       </DialogContent>

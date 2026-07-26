@@ -181,7 +181,7 @@ export function SharedReceivePage() {
           <button type="button" onClick={() => navigate('/')} className="-ml-1 p-1 text-muted-foreground active:opacity-60" aria-label="返回">
             <ArrowLeft className="size-5" />
           </button>
-          <span className="text-md font-semibold text-foreground">
+          <span className="text-16 font-medium text-foreground">
             {share?.kind === 'single' ? '论文详情' : share?.kind === 'journal' ? '期刊详情' : '文献合集'}
           </span>
         </header>
@@ -190,15 +190,15 @@ export function SharedReceivePage() {
           <Centered><Loader2 className="size-6 animate-spin text-faint" /></Centered>
         ) : shareQ.isError ? (
           <Centered>
-            <p className="text-sm text-muted-foreground">{(shareQ.error as Error)?.message || '分享不存在或已失效'}</p>
+            <p className="text-14 text-muted-foreground">{(shareQ.error as Error)?.message || '分享不存在或已失效'}</p>
             <Button variant="outline" size="sm" className="mt-4" onClick={() => navigate('/')}>返回首页</Button>
           </Centered>
         ) : share?.need_code && share.kind !== 'collection' ? (
           // 防御性:single/journal 不会带提取码(创建时 with_code:false),此分支实际不触发。
           <Centered>
-            <p className="text-md font-semibold text-foreground">{share.sharer} 的分享</p>
-            <p className="mt-1 text-sm text-muted-foreground">{share.title}</p>
-            <p className="mt-4 text-xs text-faint">该分享需要提取码</p>
+            <p className="text-16 font-medium text-foreground">{share.sharer} 的分享</p>
+            <p className="mt-1 text-12 text-muted-foreground">{share.title}</p>
+            <p className="mt-4 text-12 text-faint">该分享需要提取码</p>
             <div className="mt-2 flex w-full max-w-xs items-center gap-2">
               <input
                 autoFocus
@@ -206,7 +206,7 @@ export function SharedReceivePage() {
                 onChange={(e) => setCodeInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && setCode(codeInput.trim())}
                 placeholder="请输入提取码"
-                className="h-10 min-w-0 flex-1 rounded-8 border border-border bg-surface-card px-3 text-center font-mono text-md tracking-code outline-none focus-visible:border-brand-red"
+                className="h-10 min-w-0 flex-1 rounded-8 border border-border bg-surface-card px-3 text-center font-mono text-14 tracking-code outline-none focus-visible:border-brand-red"
               />
               <Button size="sm" className="h-10" onClick={() => setCode(codeInput.trim())} disabled={!codeInput.trim()}>
                 查看
@@ -223,9 +223,9 @@ export function SharedReceivePage() {
               {/* 分享人横幅 */}
               <div className="mb-4 flex items-start gap-2.5 rounded-16 bg-[#F1EADA] px-3.5 py-3">
                 <Sparkles className="mt-0.5 size-4 shrink-0 text-brand-amber" />
-                <p className="text-xs leading-paragraph text-foreground">
-                  <span className="font-semibold">「{share.sharer}」</span>给你分享了一个期刊
-                  <span className="mt-0.5 block text-2xs text-muted-foreground">
+                <p className="text-12 leading-paragraph text-foreground">
+                  <span className="font-medium">「{share.sharer}」</span>给你分享了一个期刊
+                  <span className="mt-0.5 block text-12 text-muted-foreground">
                     无需登录即可查看分区、影响因子
                   </span>
                 </p>
@@ -247,10 +247,10 @@ export function SharedReceivePage() {
                       className="h-12 w-12 shrink-0 rounded-8"
                     />
                     <div className="min-w-0 flex-1">
-                      <h1 className="font-serif text-xl font-bold text-foreground">
+                      <h1 className="font-serif text-20 font-bold text-foreground">
                         {sharedJournal.canonical_name}
                       </h1>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
+                      <p className="mt-0.5 text-12 text-muted-foreground">
                         {[
                           sharedJournal.publisher,
                           sharedJournal.type === 'conference'
@@ -268,7 +268,7 @@ export function SharedReceivePage() {
                   <div className="mt-3 flex flex-wrap items-center gap-1.5">
                     <JournalBadges enrichment={sharedJournal} />
                     {sharedJournal.openalex_h_index != null && (
-                      <span className="rounded-pill bg-surface-2 px-2 py-0.5 text-2xs font-medium text-muted-foreground">
+                      <span className="rounded-pill bg-surface-2 px-2 py-0.5 text-12 font-medium text-muted-foreground">
                         h-index {sharedJournal.openalex_h_index}
                       </span>
                     )}
@@ -279,7 +279,7 @@ export function SharedReceivePage() {
                       sharedJournal.country ? `总部位于 ${sharedJournal.country}` : '',
                     ].filter(Boolean);
                     return parts.length ? (
-                      <p className="mt-3 text-sm leading-paragraph text-muted-foreground">
+                      <p className="mt-3 text-14 leading-paragraph text-muted-foreground">
                         {parts.join('、')}。可在 Scholay 查看其分区、影响因子与收录详情。
                       </p>
                     ) : null;
@@ -293,7 +293,7 @@ export function SharedReceivePage() {
                 </div>
                 </>
               ) : (
-                <p className="py-12 text-center text-sm text-muted-foreground">期刊信息加载失败</p>
+                <p className="py-12 text-center text-14 text-muted-foreground">期刊信息加载失败</p>
               )}
             </div>
 
@@ -314,14 +314,14 @@ export function SharedReceivePage() {
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
               {/* 分享人横幅 —— 头像 + 「X 给你分享了一篇论文」 */}
               <div className="mb-5 flex items-center gap-3 rounded-16 bg-[#F1EADA] px-3.5 py-3">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-pill bg-brand-red text-sm font-semibold text-on-brand">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-pill bg-brand-red text-14 font-medium text-on-brand">
                   {share.sharer?.trim().charAt(0) || '友'}
                 </span>
                 <div className="min-w-0">
-                  <p className="text-sm text-foreground">
-                    <span className="font-semibold">「{share.sharer}」</span>给你分享了一篇论文
+                  <p className="text-14 text-foreground">
+                    <span className="font-medium">「{share.sharer}」</span>给你分享了一篇论文
                   </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">由 Scholay 学术分享</p>
+                  <p className="mt-0.5 text-12 text-muted-foreground">由 Scholay 学术分享</p>
                 </div>
               </div>
 
@@ -330,24 +330,24 @@ export function SharedReceivePage() {
                 <div className="flex flex-col gap-3">
                   <div className="flex flex-wrap items-center gap-2">
                     {[singlePaper.venue, singlePaper.year].filter(Boolean).length > 0 && (
-                      <span className="rounded-4 bg-surface-2 px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                      <span className="rounded-4 bg-surface-2 px-2 py-0.5 text-12 font-medium text-muted-foreground">
                         {[singlePaper.venue, singlePaper.year].filter(Boolean).join(' · ')}
                       </span>
                     )}
                     {singlePaper.pdf_url && (
-                      <span className="flex items-center gap-1 text-xs font-medium text-brand-green">
+                      <span className="flex items-center gap-1 text-12 font-medium text-brand-green">
                         <LockOpen className="size-3" />
                         开放获取
                       </span>
                     )}
                   </div>
 
-                  <h1 className="text-2xl font-bold text-foreground">
+                  <h1 className="text-24 font-medium text-foreground">
                     {singlePaper.title || '未命名论文'}
                   </h1>
 
                   {singleAuthors && (
-                    <p className="text-sm leading-paragraph text-muted-foreground">{singleAuthors}</p>
+                    <p className="text-14 leading-paragraph text-muted-foreground">{singleAuthors}</p>
                   )}
 
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -356,13 +356,13 @@ export function SharedReceivePage() {
 
                   {singlePaper.citation_count != null && (
                     <div className="flex flex-wrap items-center gap-4 border-y border-border py-2.5">
-                      <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                      <span className="flex items-center gap-1.5 text-14 font-medium text-foreground">
                         <Quote className="size-4 text-brand-amber" />
                         {singlePaper.citation_count.toLocaleString()}
-                        <span className="text-xs font-normal text-muted-foreground">被引</span>
+                        <span className="text-12 font-normal text-muted-foreground">被引</span>
                       </span>
                       {citeTier(singlePaper.citation_count) && (
-                        <span className="flex items-center gap-1 text-xs font-medium text-brand-green">
+                        <span className="flex items-center gap-1 text-12 font-medium text-brand-green">
                           <TrendingUp className="size-3.5" />
                           {citeTier(singlePaper.citation_count)}
                         </span>
@@ -372,10 +372,10 @@ export function SharedReceivePage() {
 
                   {singlePaper.abstract && (
                     <div className="mt-1">
-                      <p className="mb-1.5 flex items-center gap-1 text-xs font-semibold text-brand-red">
+                      <p className="mb-1.5 flex items-center gap-1 text-12 font-medium text-brand-red">
                         <Sparkles className="size-3.5" /> 摘要 · TL;DR
                       </p>
-                      <p className="text-sm leading-paragraph text-muted-foreground">
+                      <p className="text-14 leading-paragraph text-muted-foreground">
                         {singlePaper.abstract}
                       </p>
                     </div>
@@ -415,17 +415,17 @@ export function SharedReceivePage() {
               {/* 分享人横幅(灰底卡) */}
               <div className="flex items-center gap-2.5 rounded-16 bg-surface-1 p-3">
                 <span
-                  className="flex size-9 shrink-0 items-center justify-center rounded-pill text-sm font-semibold text-on-brand"
+                  className="flex size-9 shrink-0 items-center justify-center rounded-pill text-14 font-medium text-on-brand"
                   style={{ backgroundColor: avatarColor(share.sharer) }}
                 >
                   {share.sharer?.trim().charAt(0) || '友'}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm text-foreground">
-                    <span className="font-semibold">{share.sharer}</span>
+                  <p className="text-14 text-foreground">
+                    <span className="font-medium">{share.sharer}</span>
                     <span className="text-muted-foreground"> 给你分享了一个文献合集</span>
                   </p>
-                  <p className="mt-0.5 text-xs text-faint">收藏后可在你的文献库随时查看</p>
+                  <p className="mt-0.5 text-12 text-faint">收藏后可在你的文献库随时查看</p>
                 </div>
               </div>
 
@@ -433,8 +433,8 @@ export function SharedReceivePage() {
               <div className="mt-4 flex items-start gap-3">
                 <CollectionCover />
                 <div className="min-w-0 flex-1">
-                  <h1 className="text-[17px] font-semibold text-foreground">{share.title}</h1>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                  <h1 className="text-20 font-medium text-foreground">{share.title}</h1>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-12 text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <FileText className="size-3 text-faint" /> {share.paper_count} 篇文献
                     </span>
@@ -458,8 +458,8 @@ export function SharedReceivePage() {
 
               {/* 列表头:合集内文献 + 排序说明(实际按被引降序) */}
               <div className="mb-1 mt-5 flex items-center justify-between">
-                <span className="text-md font-semibold text-foreground">合集内文献</span>
-                <span className="text-xs text-faint">按被引量排序</span>
+                <span className="text-16 font-medium text-foreground">合集内文献</span>
+                <span className="text-12 text-faint">按被引量排序</span>
               </div>
             </div>
 
@@ -473,17 +473,17 @@ export function SharedReceivePage() {
                     .join(' · ');
                   return (
                     <li key={i} className={`flex gap-3 py-3 ${i > 0 ? 'border-t border-border-soft' : ''}`}>
-                      <span className="w-5 shrink-0 pt-px text-sm font-semibold tabular-nums text-faint">
+                      <span className="w-5 shrink-0 pt-px text-12 font-medium tabular-nums text-faint">
                         {String(i + 1).padStart(2, '0')}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="line-clamp-2 text-sm font-medium text-foreground">
+                        <p className="line-clamp-2 text-14 font-medium text-foreground">
                           {p.title || '未命名论文'}
                         </p>
                         <div className="mt-1 flex items-center justify-between gap-2">
-                          <span className="min-w-0 flex-1 truncate text-xs text-faint">{meta}</span>
+                          <span className="min-w-0 flex-1 truncate text-12 text-faint">{meta}</span>
                           {p.citation_count != null && p.citation_count > 0 && (
-                            <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-brand-red">
+                            <span className="flex shrink-0 items-center gap-1 text-12 font-medium text-brand-red">
                               <Quote className="size-3" /> {p.citation_count.toLocaleString()}
                             </span>
                           )}
@@ -496,7 +496,7 @@ export function SharedReceivePage() {
 
               {/* 还有更多 */}
               {remaining > 0 && (
-                <p className="mt-3 text-xs text-faint">
+                <p className="mt-3 text-12 text-faint">
                   {locked
                     ? `等共 ${share.paper_count} 篇文献 · 输入提取码查看全部`
                     : `等共 ${share.paper_count} 篇文献`}
@@ -540,7 +540,7 @@ export function SharedReceivePage() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="mb-1 flex items-center justify-between">
-                <h3 className="text-md font-semibold text-foreground">请输入提取码</h3>
+                <h3 className="text-16 font-medium text-foreground">请输入提取码</h3>
                 <button
                   type="button"
                   onClick={() => setCodeSheetOpen(false)}
@@ -550,7 +550,7 @@ export function SharedReceivePage() {
                   <X className="size-5" />
                 </button>
               </div>
-              <p className="mb-4 text-xs text-muted-foreground">
+              <p className="mb-4 text-12 text-muted-foreground">
                 {pendingAction === 'save'
                   ? '输入提取码后即可把整个合集收藏到你的文献库'
                   : '输入提取码后即可查看合集的全部文献'}
@@ -565,11 +565,11 @@ export function SharedReceivePage() {
                 onKeyDown={(e) => e.key === 'Enter' && submitCode()}
                 placeholder="请输入提取码"
                 maxLength={16}
-                className={`h-12 w-full rounded-8 border bg-surface-card px-3 text-center font-mono text-lg tracking-code outline-none ${
+                className={`h-12 w-full rounded-8 border bg-surface-card px-3 text-center font-mono text-16 tracking-code outline-none ${
                   codeError ? 'border-brand-red' : 'border-border focus-visible:border-brand-red'
                 }`}
               />
-              {codeError && <p className="mt-1.5 text-xs text-brand-red">{codeError}</p>}
+              {codeError && <p className="mt-1.5 text-12 text-brand-red">{codeError}</p>}
               <Button
                 className="mt-4 h-11 w-full"
                 onClick={submitCode}
@@ -622,7 +622,7 @@ function authorsOf(p: SharePaperSnapshot): string {
 function CollectionCover() {
   return (
     <div className="flex h-14 w-12 shrink-0 flex-col gap-1 rounded-8 border border-border bg-surface-1 p-1.5">
-      <span className="text-2xs font-semibold leading-none text-faint">合集</span>
+      <span className="text-12 font-medium leading-none text-faint">合集</span>
       <span className="mt-0.5 h-[3px] w-full rounded-pill bg-border-strong" />
       <span className="h-[3px] w-3/4 rounded-pill bg-border" />
       <span className="h-[3px] w-full rounded-pill bg-border" />

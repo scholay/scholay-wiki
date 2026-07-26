@@ -22,14 +22,14 @@ export function SkillHeaderBadge({
 }) {
   if (kind === 'user') {
     return (
-      <span className="inline-flex min-w-0 shrink items-center gap-1 rounded-pill bg-brand-green/10 px-1.5 py-0.5 text-2xs font-semibold text-brand-green">
+      <span className="inline-flex min-w-0 shrink items-center gap-1 rounded-pill bg-brand-green/10 px-1.5 py-0.5 text-12 font-medium text-brand-green">
         <Sparkles className="size-2.5 shrink-0" strokeWidth={2.4} />
         <span className="truncate">你的 · {label}</span>
       </span>
     );
   }
   return (
-    <span className="min-w-0 shrink truncate text-2xs text-muted-foreground">
+    <span className="min-w-0 shrink truncate text-12 text-muted-foreground">
       {label}
     </span>
   );

@@ -15,7 +15,7 @@ import { cn } from '@/shared/lib/utils';
  *    便于单独视觉回归与单独回滚。
  */
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap text-12 font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
@@ -34,9 +34,9 @@ const buttonVariants = cva(
         link: 'rounded-8 text-foreground underline-offset-4 hover:underline',
       },
       size: {
-        sm: 'h-7 px-2.5 text-xs',
+        sm: 'h-7 px-2.5 text-12',
         default: 'h-8 px-3',
-        lg: 'h-10 px-4 text-sm',
+        lg: 'h-10 px-4 text-12',
         icon: 'h-8 w-8',
       },
     },

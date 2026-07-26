@@ -78,7 +78,7 @@ function AttachmentChip({
         type="button"
         onClick={onRetry}
         title={item.error || '上传失败,点击重试'}
-        className="inline-flex h-6 items-center gap-1 rounded-4 bg-foreground px-2 text-2xs text-background hover:opacity-90"
+        className="inline-flex h-6 items-center gap-1 rounded-4 bg-foreground px-2 text-12 text-background hover:opacity-90"
       >
         <RotateCcw className="size-3" />
         重试
@@ -131,10 +131,10 @@ function AttachmentChip({
         )}
       </span>
       <span className="flex min-w-0 flex-col">
-        <span className="truncate text-xs font-medium text-foreground" title={item.name}>
+        <span className="truncate text-12 font-medium text-foreground" title={item.name}>
           {item.name}
         </span>
-        <span className={cn('truncate text-2xs', failed ? 'text-brand-red' : 'text-faint')}>
+        <span className={cn('truncate text-12', failed ? 'text-brand-red' : 'text-faint')}>
           {failed ? item.error || '上传失败' : `${fileExt(item.name)} · ${formatSize(item.size)}`}
         </span>
       </span>

@@ -36,7 +36,7 @@ export function ConnectionBadge({
 
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-pill px-2 py-0.5 text-xs font-semibold ${variant.cls}`}
+      className={`inline-flex items-center gap-1 rounded-pill px-2 py-0.5 text-12 font-medium ${variant.cls}`}
     >
       {variant.icon}
       {variant.label}

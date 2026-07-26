@@ -15,15 +15,15 @@ export function PaperListReadonly({ content }: { content: unknown }) {
 
   return (
     <div className="rounded-16 border border-border bg-surface-1/60">
-      <div className="flex items-center gap-1.5 border-b border-border-soft px-3 py-1.5 text-2xs text-faint">
+      <div className="flex items-center gap-1.5 border-b border-border-soft px-3 py-1.5 text-12 text-faint">
         <FileText className="size-3" />
         检索到 {papers.length} 篇论文
       </div>
       <div className={papers.length > 3 ? 'max-h-[420px] overflow-y-auto' : undefined}>
         {papers.map((p) => (
           <div key={p.paperId} className="border-b border-border-soft px-3 py-2 last:border-0">
-            <p className="text-sm font-medium text-foreground line-clamp-2">{p.title}</p>
-            <p className="mt-0.5 text-2xs text-faint truncate">
+            <p className="text-14 font-medium text-foreground line-clamp-2">{p.title}</p>
+            <p className="mt-0.5 text-12 text-faint truncate">
               {[
                 p.authors
                   ?.slice(0, 3)

@@ -50,28 +50,28 @@ export function HelpCenterPage() {
             <a
               key={c}
               href={`#cat-${encodeURIComponent(c)}`}
-              className="inline-flex items-center h-7 px-3 rounded-pill bg-surface-1 text-xs font-bold text-muted-foreground hover:bg-surface-2 hover:text-foreground transition-colors"
+              className="inline-flex items-center h-7 px-3 rounded-pill bg-surface-1 text-12 font-medium text-muted-foreground hover:bg-surface-2 hover:text-foreground transition-colors"
             >
               {c}
-              <span className="ml-1.5 text-2xs text-faint">{byCategory[c].length}</span>
+              <span className="ml-1.5 text-12 text-faint">{byCategory[c].length}</span>
             </a>
           ))}
         </div>
       )}
 
       {isLoading && (
-        <div className="py-16 text-center text-sm text-muted-foreground">正在加载…</div>
+        <div className="py-16 text-center text-12 text-muted-foreground">正在加载…</div>
       )}
 
       <div className="space-y-12">
         {Object.entries(byCategory).map(([cat, items]) => (
           <section key={cat} id={`cat-${encodeURIComponent(cat)}`} className="scroll-mt-20">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold text-foreground inline-flex items-center gap-2">
+              <h2 className="text-16 font-medium text-foreground inline-flex items-center gap-2">
                 <MessageCircleQuestion className="size-4 text-brand-red" strokeWidth={2.2} />
                 {cat}
               </h2>
-              <span className="text-xs text-faint">{items.length} 个问题</span>
+              <span className="text-12 text-faint">{items.length} 个问题</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {items.map((a) => (
@@ -103,9 +103,9 @@ function QACard({ article }: { article: ArticleCardData }) {
       to={`/qa/${article.slug}`}
       className="group flex flex-col gap-2 p-5 rounded-16 bg-surface-card border border-border-soft hover:border-foreground/40 transition-all hover:"
     >
-      <p className="text-md font-bold text-foreground line-clamp-2">{article.title}</p>
-      <p className="text-xs text-muted-foreground leading-paragraph line-clamp-3">{article.excerpt}</p>
-      <div className="mt-auto pt-2 flex items-center justify-between gap-3 text-2xs text-faint">
+      <p className="text-14 font-medium text-foreground line-clamp-2">{article.title}</p>
+      <p className="text-12 text-muted-foreground leading-paragraph line-clamp-3">{article.excerpt}</p>
+      <div className="mt-auto pt-2 flex items-center justify-between gap-3 text-12 text-faint">
         <span>{article.readTime}</span>
         <ArrowRight className="size-3 text-faint group-hover:text-brand-red transition-colors" />
       </div>
@@ -130,7 +130,7 @@ const INFO_LINKS: InfoLink[] = [
 function InfoLinks() {
   return (
     <section className="mt-16 pt-8 border-t border-border-soft">
-      <p className="text-xs font-bold text-faint uppercase mb-4">其他帮助</p>
+      <p className="text-12 font-medium text-faint uppercase mb-4">其他帮助</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {INFO_LINKS.map((l) => {
           const Icon = l.icon;
@@ -144,8 +144,8 @@ function InfoLinks() {
                 <Icon className="size-3.5 text-subtle group-hover:text-brand-red transition-colors" strokeWidth={2} />
               </span>
               <div className="min-w-0">
-                <p className="text-xs font-bold text-foreground">{l.label}</p>
-                <p className="text-2xs text-muted-foreground truncate">{l.desc}</p>
+                <p className="text-12 font-medium text-foreground">{l.label}</p>
+                <p className="text-12 text-muted-foreground truncate">{l.desc}</p>
               </div>
             </Link>
           );
@@ -153,7 +153,7 @@ function InfoLinks() {
       </div>
       <Link
         to="/disclaimer"
-        className="mt-4 inline-flex items-center gap-1.5 text-xs text-faint hover:text-foreground transition-colors"
+        className="mt-4 inline-flex items-center gap-1.5 text-12 text-faint hover:text-foreground transition-colors"
       >
         <Sparkles className="size-3" />
         查看 AI 使用与免责声明

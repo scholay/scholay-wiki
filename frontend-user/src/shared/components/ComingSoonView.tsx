@@ -38,7 +38,7 @@ export function ComingSoonView({ title, description, preview }: ComingSoonViewPr
     <SidebarLayout sidebar={<ComingSoonSidebar title={title} />}>
       <div className="flex flex-col h-full min-h-0 bg-background">
         {/* 顶部 banner —— 居中、amber 强调色,简洁陈述功能尚未上线 */}
-        <div className="flex items-center justify-center gap-2 h-10 px-4 bg-warning-soft text-brand-amber text-xs font-bold shrink-0">
+        <div className="flex items-center justify-center gap-2 h-10 px-4 bg-warning-soft text-brand-amber text-12 font-medium shrink-0">
           <Sparkles className="size-3.5" strokeWidth={2.5} />
           <span>{title}即将推出</span>
           <span className="text-muted-foreground font-normal">·</span>
@@ -74,11 +74,11 @@ function ComingSoonSidebar({ title }: { title: string }) {
       <SidebarContent>
         <SidebarSection id="coming-soon" label={title}>
           <div className="mx-4 my-2 px-3 py-4 rounded-12 bg-warning-soft border border-brand-amber/20">
-            <div className="inline-flex items-center gap-1 px-1.5 h-4 rounded-pill bg-brand-amber text-background text-2xs font-bold">
+            <div className="inline-flex items-center gap-1 px-1.5 h-4 rounded-pill bg-brand-amber text-background text-12 font-medium">
               <Sparkles className="size-2.5" strokeWidth={2.5} />
               即将推出
             </div>
-            <p className="mt-2 text-xs text-subtle leading-paragraph">
+            <p className="mt-2 text-12 text-subtle leading-paragraph">
               这块功能正在打磨。上线后,这里会出现完整的侧栏内容(文件夹 /
               历史 / 配置等)。
             </p>

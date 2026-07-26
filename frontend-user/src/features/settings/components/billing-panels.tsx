@@ -91,8 +91,8 @@ export function RechargePanel() {
         {/* 金额 */}
         <section className="rounded-16 border border-border bg-surface-card p-5">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-foreground">选择充值金额</h3>
-            <span className="text-2xs text-faint">1 元 = {rate} 经费</span>
+            <h3 className="text-14 font-medium text-foreground">选择充值金额</h3>
+            <span className="text-12 text-faint">1 元 = {rate} 经费</span>
           </div>
           <div className="grid grid-cols-3 gap-2">
             {[30, 50, 20, 200, 500, 1000].map((v) => {
@@ -103,8 +103,8 @@ export function RechargePanel() {
                   onClick={() => setYuan(String(v))}
                   className={cn('flex flex-col gap-0.5 rounded-12 border p-3 text-left transition-colors', active ? 'border-brand-red bg-danger-soft' : 'border-border hover:bg-surface-2')}
                 >
-                  <span className={cn('text-base font-bold', active ? 'text-brand-red' : 'text-foreground')}>¥{v}</span>
-                  <span className="text-2xs text-faint">到账 {Math.floor(v * rate)} 经费</span>
+                  <span className={cn('text-14 font-medium', active ? 'text-brand-red' : 'text-foreground')}>¥{v}</span>
+                  <span className="text-12 text-faint">到账 {Math.floor(v * rate)} 经费</span>
                 </button>
               );
             })}
@@ -118,15 +118,15 @@ export function RechargePanel() {
               inputMode="decimal"
               placeholder="输入其他金额"
             />
-            <span className="shrink-0 text-2xs text-faint">最低 {minYuan} 元</span>
+            <span className="shrink-0 text-12 text-faint">最低 {minYuan} 元</span>
           </div>
         </section>
 
         {/* 支付方式 */}
         <section className="rounded-16 border border-border bg-surface-card p-5">
-          <h3 className="mb-3 text-sm font-bold text-foreground">支付方式</h3>
+          <h3 className="mb-3 text-14 font-medium text-foreground">支付方式</h3>
           {methods.length === 0 && (
-            <p className="text-xs text-faint">管理员尚未配置支付渠道,暂时无法充值。</p>
+            <p className="text-12 text-faint">管理员尚未配置支付渠道,暂时无法充值。</p>
           )}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             {methods.map((m) => {
@@ -140,8 +140,8 @@ export function RechargePanel() {
                 >
                   <Icon className={cn('size-5 shrink-0', active ? 'text-brand-red' : 'text-faint')} />
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-foreground">{m.name}</p>
-                    <p className="truncate text-2xs text-faint">{m.desc}</p>
+                    <p className="text-14 font-medium text-foreground">{m.name}</p>
+                    <p className="truncate text-12 text-faint">{m.desc}</p>
                   </div>
                   <span className={cn('size-3.5 shrink-0 rounded-pill border-2', active ? 'border-brand-red bg-brand-red' : 'border-border')} />
                 </button>
@@ -153,26 +153,26 @@ export function RechargePanel() {
 
       {/* 订单详情 */}
       <aside className="rounded-16 border border-border bg-surface-card p-5 md:w-64 md:shrink-0">
-        <h3 className="mb-3 text-sm font-bold text-foreground">订单详情</h3>
+        <h3 className="mb-3 text-14 font-medium text-foreground">订单详情</h3>
         <DetailRow k="充值金额" v={`¥${(cents / 100 || 0).toFixed(2)}`} />
         <DetailRow k="到账经费" v={`${credits} 经费`} />
         <DetailRow k="支付方式" v={methodName} />
         <div className="my-3 h-px bg-border-soft" />
         <div className="flex items-center justify-between">
-          <span className="text-xs text-faint">实付金额</span>
-          <span className="flex items-center gap-1 text-2xl font-bold text-brand-red">
+          <span className="text-12 text-faint">实付金额</span>
+          <span className="flex items-center gap-1 text-24 font-medium text-brand-red">
             <Coins className="size-4" />
             {(cents / 100 || 0).toFixed(2)}
           </span>
         </div>
-        <div className="my-3 flex items-center gap-1.5 rounded-8 bg-prism-badge-bg px-3 py-2 text-2xs text-prism-badge-fg">
+        <div className="my-3 flex items-center gap-1.5 rounded-8 bg-prism-badge-bg px-3 py-2 text-12 text-prism-badge-fg">
           <Coins className="size-3.5" /> {yuan || 0} 元到账 {credits} 经费
         </div>
         <Button onClick={onPay} disabled={!valid || busy || !sel} className="w-full bg-brand-red text-background hover:bg-brand-red/90">
           {busy && <Loader2 className="size-3.5 animate-spin" />}
           立即充值
         </Button>
-        <p className="mt-3 text-2xs leading-paragraph text-faint">按 {rate} 经费 / 元到账,经费用于重置额度,永久经费不过期。</p>
+        <p className="mt-3 text-12 leading-paragraph text-faint">按 {rate} 经费 / 元到账,经费用于重置额度,永久经费不过期。</p>
       </aside>
     </div>
   );
@@ -180,7 +180,7 @@ export function RechargePanel() {
 
 function DetailRow({ k, v }: { k: string; v: string }) {
   return (
-    <div className="flex items-center justify-between py-1 text-xs">
+    <div className="flex items-center justify-between py-1 text-12">
       <span className="text-faint">{k}</span>
       <span className="tabular-nums text-subtle">{v}</span>
     </div>
@@ -219,7 +219,7 @@ function SegmentedCodeInput({ value, onChange }: { value: string[]; onChange: (v
             }}
             maxLength={4}
             placeholder="0000"
-            className="h-11 w-full min-w-0 flex-1 rounded-8 border border-border bg-surface-1 text-center font-mono text-base uppercase tracking-code text-foreground placeholder:text-faint/40 focus-visible:border-brand-red focus-visible:outline-none"
+            className="h-11 w-full min-w-0 flex-1 rounded-8 border border-border bg-surface-1 text-center font-mono text-14 uppercase tracking-code text-foreground placeholder:text-faint/40 focus-visible:border-brand-red focus-visible:outline-none"
           />
           {i < 3 && <span className="shrink-0 text-faint">–</span>}
         </Fragment>
@@ -241,10 +241,10 @@ export function RedeemPanel() {
   return (
     <section className="rounded-16 border border-border bg-surface-card p-5">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
+        <h3 className="flex items-center gap-2 text-14 font-medium text-foreground">
           <Ticket className="size-4 text-brand-red" /> 激活礼品码
         </h3>
-        <span className="inline-flex items-center gap-1 rounded-pill bg-prism-badge-bg px-2 py-0.5 text-2xs font-medium text-prism-badge-fg">
+        <span className="inline-flex items-center gap-1 rounded-pill bg-prism-badge-bg px-2 py-0.5 text-12 font-medium text-prism-badge-fg">
           <Zap className="size-3" /> 实时到账
         </span>
       </div>
@@ -260,21 +260,21 @@ export function RedeemPanel() {
         onOpenChange={setConfirmOpen}
         onRedeemed={() => setSegs(['', '', '', ''])}
       />
-      <p className="mt-2 text-2xs text-faint">礼品码可能来自活动赠送、机构发放或合作渠道。兑换码不可重复使用。</p>
+      <p className="mt-2 text-12 text-faint">礼品码可能来自活动赠送、机构发放或合作渠道。兑换码不可重复使用。</p>
 
       {recent.length > 0 && (
         <div className="mt-4 border-t border-border-soft pt-3">
-          <p className="mb-2 text-2xs font-bold text-faint">最近激活记录</p>
+          <p className="mb-2 text-12 font-medium text-faint">最近激活记录</p>
           <div className="flex flex-col">
             {recent.map((t) => (
               <div key={t.id} className="flex items-center gap-3 border-b border-border-soft py-2 last:border-0">
                 <Ticket className="size-4 shrink-0 text-faint" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-mono text-xs text-foreground">{t.ref_id || '礼品码'}</p>
-                  <p className="text-2xs text-faint">{t.created_at.slice(0, 16).replace('T', ' ')}</p>
+                  <p className="truncate font-mono text-14 text-foreground">{t.ref_id || '礼品码'}</p>
+                  <p className="text-12 text-faint">{t.created_at.slice(0, 16).replace('T', ' ')}</p>
                 </div>
-                <span className="shrink-0 text-xs font-bold tabular-nums text-brand-green">+{t.amount} 经费</span>
-                <span className="shrink-0 rounded-pill bg-brand-green/10 px-2 py-0.5 text-2xs text-brand-green">成功</span>
+                <span className="shrink-0 text-14 font-medium tabular-nums text-brand-green">+{t.amount} 经费</span>
+                <span className="shrink-0 rounded-pill bg-brand-green/10 px-2 py-0.5 text-12 text-brand-green">成功</span>
               </div>
             ))}
           </div>
@@ -354,30 +354,30 @@ export function OrdersTable() {
             <button
               key={id}
               onClick={() => setFilter(id)}
-              className={cn('h-7 rounded-8 px-3 text-xs transition-colors', filter === id ? 'bg-foreground text-background' : 'bg-surface-2 text-subtle hover:bg-surface-muted')}
+              className={cn('h-7 rounded-8 px-3 text-12 transition-colors', filter === id ? 'bg-foreground text-background' : 'bg-surface-2 text-subtle hover:bg-surface-muted')}
             >
               {label}
             </button>
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <select value={month} onChange={(e) => setMonth(e.target.value)} className="h-8 rounded-8 border border-border bg-surface-card px-2 text-xs text-foreground">
+          <select value={month} onChange={(e) => setMonth(e.target.value)} className="h-8 rounded-8 border border-border bg-surface-card px-2 text-12 text-foreground">
             <option value="">全部月份</option>
             {months.map((m) => (
               <option key={m} value={m}>{m.replace('-', ' 年 ')} 月</option>
             ))}
           </select>
-          <button onClick={exportCsv} className="flex h-8 items-center gap-1 rounded-8 border border-border px-3 text-xs text-subtle transition-colors hover:bg-surface-2">
+          <button onClick={exportCsv} className="flex h-8 items-center gap-1 rounded-8 border border-border px-3 text-12 text-subtle transition-colors hover:bg-surface-2">
             <Download className="size-3.5" /> 导出
           </button>
         </div>
       </div>
       {isLoading ? (
-        <p className="py-6 text-center text-xs text-faint">加载中…</p>
+        <p className="py-6 text-center text-12 text-faint">加载中…</p>
       ) : rows.length === 0 ? (
-        <p className="py-6 text-center text-xs text-faint">暂无订单明细</p>
+        <p className="py-6 text-center text-12 text-faint">暂无订单明细</p>
       ) : (
-        <table className="w-full text-xs">
+        <table className="w-full text-12">
           <thead>
             <tr className="border-b border-border text-faint">
               <th className="py-2 text-left font-medium">时间</th>
@@ -402,7 +402,7 @@ function OrderRow({ o }: { o: Order }) {
     <tr className="border-b border-border-soft last:border-0">
       <td className="py-3 tabular-nums text-subtle">{(o.created_at ?? '').slice(0, 16).replace('T', ' ')}</td>
       <td className="py-3">
-        <span className={cn('rounded-pill px-2 py-0.5 text-2xs font-medium', isSub ? 'bg-brand-green/10 text-brand-green' : 'bg-warning-soft text-brand-amber')}>
+        <span className={cn('rounded-pill px-2 py-0.5 text-12 font-medium', isSub ? 'bg-brand-green/10 text-brand-green' : 'bg-warning-soft text-brand-amber')}>
           {ORDER_TYPE_LABEL[o.order_type] ?? o.order_type}
         </span>
       </td>
@@ -421,13 +421,13 @@ export function OverviewContent({ onViewAll }: { onViewAll: () => void }) {
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       <section className="rounded-16 border border-border bg-surface-card p-5">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-bold text-foreground">近期流水</h3>
-          <button onClick={onViewAll} className="text-xs text-muted-foreground hover:text-foreground">
+          <h3 className="text-14 font-medium text-foreground">近期流水</h3>
+          <button onClick={onViewAll} className="text-12 text-muted-foreground hover:text-foreground">
             查看全部
           </button>
         </div>
         {items.length === 0 ? (
-          <p className="text-xs text-faint">暂无经费流水</p>
+          <p className="text-12 text-faint">暂无经费流水</p>
         ) : (
           <div className="flex flex-col gap-1">
             {items.map((t) => (
@@ -478,13 +478,13 @@ function UsageHeatmap() {
   return (
     <section className="rounded-16 border border-border bg-surface-card p-5">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-bold text-foreground">本月每日活跃</h3>
-        <span className="text-2xs tabular-nums text-faint">{activeDays} 天有使用</span>
+        <h3 className="text-14 font-medium text-foreground">本月每日活跃</h3>
+        <span className="text-12 tabular-nums text-faint">{activeDays} 天有使用</span>
       </div>
       <div className="flex gap-1">
         <div className="flex flex-col gap-1 pr-1">
           {WEEKDAYS.map((w, i) => (
-            <span key={i} className="flex h-4 items-center text-2xs text-faint">{i % 2 === 1 ? w : ''}</span>
+            <span key={i} className="flex h-4 items-center text-12 text-faint">{i % 2 === 1 ? w : ''}</span>
           ))}
         </div>
         {weeks.map((week, wi) => (
@@ -508,7 +508,7 @@ function UsageHeatmap() {
           </div>
         ))}
       </div>
-      <div className="mt-3 flex items-center justify-end gap-1 text-2xs text-faint">
+      <div className="mt-3 flex items-center justify-end gap-1 text-12 text-faint">
         少
         {GREEN_LEVELS.map((c, i) => <span key={i} className={cn('size-3 rounded-4', c)} />)}
         多
@@ -522,10 +522,10 @@ function TxnRow({ t }: { t: CreditTxn }) {
   return (
     <div className="flex items-center justify-between border-b border-border-soft py-2 last:border-0">
       <div className="flex flex-col">
-        <span className="text-sm text-subtle">{TXN_LABEL[t.type] ?? t.type}</span>
-        <span className="text-2xs text-faint">{t.created_at.slice(0, 19).replace('T', ' ')}</span>
+        <span className="text-14 text-subtle">{TXN_LABEL[t.type] ?? t.type}</span>
+        <span className="text-12 text-faint">{t.created_at.slice(0, 19).replace('T', ' ')}</span>
       </div>
-      <span className={cn('text-sm font-bold tabular-nums', positive ? 'text-brand-green' : 'text-brand-red')}>
+      <span className={cn('text-14 font-medium tabular-nums', positive ? 'text-brand-green' : 'text-brand-red')}>
         {positive ? '+' : ''}
         {t.amount} 经费
       </span>

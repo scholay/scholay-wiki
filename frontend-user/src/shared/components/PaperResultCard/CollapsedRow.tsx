@@ -15,14 +15,14 @@ export function CollapsedRow({
   return (
     <div className="flex items-center gap-2 h-10 px-3.5 bg-surface-1 border-b border-border-soft">
       <Minimize2 className="size-2.5 text-muted-foreground" strokeWidth={2.5} />
-      <span className="flex-1 min-w-0 truncate text-sm text-muted-foreground">
+      <span className="flex-1 min-w-0 truncate text-12 text-muted-foreground">
         {paper.title}
       </span>
-      <span className="text-xs text-faint">已折叠</span>
+      <span className="text-12 text-faint">已折叠</span>
       <button
         type="button"
         onClick={onUnfold}
-        className="inline-flex items-center gap-1 h-6 px-2 rounded-8 border border-border-strong text-2xs font-bold text-subtle hover:bg-surface-card"
+        className="inline-flex items-center gap-1 h-6 px-2 rounded-8 border border-border-strong text-12 font-medium text-subtle hover:bg-surface-card"
       >
         <RotateCcw className="size-2.5" strokeWidth={2.5} />
         还原

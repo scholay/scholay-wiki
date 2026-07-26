@@ -26,7 +26,7 @@ export function AgentDisplacedBanner({ reason, onTakeOver, className }: AgentDis
         className,
       )}
     >
-      <div className="flex items-center gap-2 text-xs text-brand-amber">
+      <div className="flex items-center gap-2 text-12 text-brand-amber">
         <AlertTriangle className="size-3.5 shrink-0" />
         <span>{reason ?? '此会话已在其他窗口打开'}</span>
       </div>
@@ -35,7 +35,7 @@ export function AgentDisplacedBanner({ reason, onTakeOver, className }: AgentDis
         size="sm"
         variant="outline"
         onClick={onTakeOver}
-        className="h-7 px-3 text-xs shrink-0"
+        className="h-7 px-3 text-12 shrink-0"
       >
         切回这里
       </Button>

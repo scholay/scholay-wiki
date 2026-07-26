@@ -49,8 +49,8 @@ export function LetterEditorStep({
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-4">
       <div>
-        <h2 className="text-base font-bold text-foreground">{copy.title}</h2>
-        <p className="mt-0.5 text-xs text-muted-foreground">
+        <h2 className="text-14 font-medium text-foreground">{copy.title}</h2>
+        <p className="mt-0.5 text-12 text-muted-foreground">
           {computing ? (statusNote || '正在起草…') + ' · 内容会逐字写入下方' : copy.hint}
         </p>
       </div>
@@ -61,11 +61,11 @@ export function LetterEditorStep({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={computing ? '正在起草投稿信…' : copy.placeholder}
-          className="min-h-[480px] w-full resize-y rounded-8 border border-border bg-surface-card p-4 font-mono text-sm leading-paragraph text-foreground placeholder:text-faint focus-visible:border-brand-red focus-visible:outline-none"
+          className="min-h-[480px] w-full resize-y rounded-8 border border-border bg-surface-card p-4 font-mono text-12 leading-paragraph text-foreground placeholder:text-faint focus-visible:border-brand-red focus-visible:outline-none"
         />
       </AIOverlay>
 
-      <p className="text-xs text-faint">
+      <p className="text-12 text-faint">
         已 {value.length} 字 · 提交后随稿件一起递交给审稿人参考
       </p>
     </div>

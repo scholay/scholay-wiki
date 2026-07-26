@@ -519,10 +519,10 @@ export function JournalWizardPage() {
 function SelectedJournalMini({ target }: { target: JournalTarget }) {
   return (
     <section className="rounded-16 border border-brand-red border-l-[3px] bg-surface-card p-4">
-      <p className="text-xs font-bold text-brand-red">已选期刊</p>
-      <h3 className="mt-1 text-sm font-bold text-foreground">{target.canonicalName}</h3>
+      <p className="text-12 font-medium text-brand-red">已选期刊</p>
+      <h3 className="mt-1 text-14 font-medium text-foreground">{target.canonicalName}</h3>
       {(target.jcrImpactFactor != null || target.jcrQuartile) && (
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="mt-1 text-12 text-muted-foreground">
           {target.jcrImpactFactor != null && `IF ${target.jcrImpactFactor.toFixed(2)}`}
           {target.jcrQuartile && ` · ${target.jcrQuartile}`}
         </p>
@@ -536,13 +536,13 @@ function FailureBanner({ error, onRetry }: { error: string; onRetry: () => void 
     <div className="flex items-start gap-3 rounded-16 border border-destructive/40 bg-danger-soft p-4">
       <AlertCircle className="mt-0.5 size-5 shrink-0 text-destructive" />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-bold text-destructive">AI 暂时无响应</p>
-        <p className="mt-1 break-words text-xs text-muted-foreground">{error || '生成失败,请稍后重试'}</p>
+        <p className="text-12 font-medium text-destructive">AI 暂时无响应</p>
+        <p className="mt-1 break-words text-12 text-muted-foreground">{error || '生成失败,请稍后重试'}</p>
       </div>
       <button
         type="button"
         onClick={onRetry}
-        className="shrink-0 rounded-8 border border-destructive/40 px-3 py-1 text-xs font-bold text-destructive hover:bg-destructive hover:text-background"
+        className="shrink-0 rounded-8 border border-destructive/40 px-3 py-1 text-12 font-medium text-destructive hover:bg-destructive hover:text-background"
       >
         重新生成
       </button>

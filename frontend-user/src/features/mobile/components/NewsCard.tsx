@@ -29,16 +29,16 @@ export const NewsCard = memo(function NewsCard({ item }: { item: NewsCardData })
       className="relative flex h-full min-h-0 flex-col gap-3.5 overflow-hidden bg-background px-5 py-4"
     >
       {/* 顶部:section 彩点 + 版块名 + 相对时间 */}
-      <div className="flex shrink-0 items-center gap-2 text-xs">
+      <div className="flex shrink-0 items-center gap-2 text-12">
         <span className={cn('size-1.5 rounded-pill', tone.dot)} />
-        <span className={cn('font-semibold', tone.text)}>{item.section_label || '情报'}</span>
+        <span className={cn('font-medium', tone.text)}>{item.section_label || '情报'}</span>
         <span className="text-faint">·</span>
         <span className="inline-flex items-center gap-1 text-faint">
           <Clock className="size-3" />
           {newsRelativeTime(item.published_at)}
         </span>
         {item.is_featured && (
-          <span className="ml-auto rounded-pill bg-brand-red px-2 py-0.5 text-2xs font-semibold text-on-brand">
+          <span className="ml-auto rounded-pill bg-brand-red px-2 py-0.5 text-12 font-medium text-on-brand">
             头条
           </span>
         )}
@@ -55,7 +55,7 @@ export const NewsCard = memo(function NewsCard({ item }: { item: NewsCardData })
       )}
 
       {/* 标题 */}
-      <h2 className="line-clamp-3 shrink-0 text-2xl font-semibold text-foreground">
+      <h2 className="line-clamp-3 shrink-0 text-24 font-medium text-foreground">
         {item.title}
       </h2>
 
@@ -64,7 +64,7 @@ export const NewsCard = memo(function NewsCard({ item }: { item: NewsCardData })
         <p
           className={cn(
             'leading-paragraph text-muted-foreground',
-            item.cover_image ? 'line-clamp-[6] text-sm' : 'line-clamp-[12] text-base',
+            item.cover_image ? 'line-clamp-[6] text-12' : 'line-clamp-[12] text-14',
           )}
         >
           {item.summary}
@@ -72,7 +72,7 @@ export const NewsCard = memo(function NewsCard({ item }: { item: NewsCardData })
       </div>
 
       {/* meta 行:快讯标 / 来源 / 热度 / 飙升 */}
-      <div className="mt-auto flex shrink-0 flex-wrap items-center gap-2 text-xs">
+      <div className="mt-auto flex shrink-0 flex-wrap items-center gap-2 text-12">
         <span className="rounded-pill bg-surface-2 px-2 py-0.5 text-muted-foreground">
           {reportLabel}
         </span>
@@ -86,7 +86,7 @@ export const NewsCard = memo(function NewsCard({ item }: { item: NewsCardData })
           </span>
         )}
         {surging && (
-          <span className="inline-flex items-center gap-0.5 rounded-pill bg-danger-soft px-1.5 py-0.5 font-semibold text-brand-red">
+          <span className="inline-flex items-center gap-0.5 rounded-pill bg-danger-soft px-1.5 py-0.5 font-medium text-brand-red">
             <TrendingUp className="size-3" />
             飙升
           </span>
@@ -94,7 +94,7 @@ export const NewsCard = memo(function NewsCard({ item }: { item: NewsCardData })
       </div>
 
       {/* 看全文提示 */}
-      <div className="pointer-events-none absolute right-4 bottom-3 flex items-center gap-0.5 text-2xs text-faint">
+      <div className="pointer-events-none absolute right-4 bottom-3 flex items-center gap-0.5 text-12 text-faint">
         全文
         <ChevronRight className="size-3" />
       </div>

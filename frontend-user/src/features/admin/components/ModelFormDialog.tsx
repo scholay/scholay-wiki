@@ -158,18 +158,18 @@ export function ModelFormDialog({
                 />
               </div>
             </div>
-            <p className="text-2xs text-faint">
+            <p className="text-12 text-faint">
               上下文 = 最大输入 + 最大输出(共享预算)。填其中两个会自动补第三个,也可各自强改。最大输入留空(0)时
               agent 压缩墙按「上下文 − 输出预留」自动算,保证 输入 + 输出 ≤ 上下文,不溢出。
             </p>
-            <p className="text-2xs text-faint">
+            <p className="text-12 text-faint">
               成本制计费:用户额度按下方四类单价(输入/输出/缓存读/缓存写)的真实成本扣减,贵模型自然扣得快,无需再配倍率。
             </p>
 
             {/* 官方预设模型:一键填入官方参数(官方文档口径,填后仍可手改) */}
             {MODEL_PRESETS[form.model_id] && (
               <div className="flex items-center justify-between gap-3 rounded-12 border border-border-soft bg-surface-1 p-3">
-                <p className="text-2xs text-muted-foreground">
+                <p className="text-12 text-muted-foreground">
                   这是官方预设模型 —— 可一键填入官方参数(上下文 / 输出 / 价格 / 倍率),填后仍可手改。
                 </p>
                 <Button
@@ -219,11 +219,11 @@ export function ModelFormDialog({
             {/* 输入长度分档计价(千问等按 prompt 长度分 2~3 档;价格分档,平台不吃长上下文差价) */}
             <div className="space-y-2 rounded-12 border border-border-soft p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <Label htmlFor="m-tier-threshold" className="text-sm font-medium">
+                <Label htmlFor="m-tier-threshold" className="text-12 font-medium">
                   输入长度分档 · 档2 阈值(高档价)
                 </Label>
                 <div className="flex items-center gap-2">
-                  <span className="text-2xs text-faint">prompt(输入+缓存)&gt;</span>
+                  <span className="text-12 text-faint">prompt(输入+缓存)&gt;</span>
                   <Input
                     id="m-tier-threshold"
                     type="number"
@@ -232,10 +232,10 @@ export function ModelFormDialog({
                     value={form.input_tier_threshold}
                     onChange={(e) => set('input_tier_threshold', Number(e.target.value) || 0)}
                   />
-                  <span className="text-2xs text-faint">token 切档2</span>
+                  <span className="text-12 text-faint">token 切档2</span>
                 </div>
               </div>
-              <p className="text-2xs text-faint">
+              <p className="text-12 text-faint">
                 0 = 不分档(DeepSeek / 扁平模型)。千问 plus 填 256000、qwen3.7-flash 填 32000。高档价留空(0)回落基础值;成本按高档价扣。
               </p>
               {form.input_tier_threshold > 0 && (
@@ -250,7 +250,7 @@ export function ModelFormDialog({
                       ] as const
                     ).map(([key, label]) => (
                       <div key={key} className="space-y-1.5">
-                        <Label htmlFor={`m-${key}`} className="text-2xs">{label}</Label>
+                        <Label htmlFor={`m-${key}`} className="text-12">{label}</Label>
                         <Input
                           id={`m-${key}`}
                           type="number"
@@ -264,11 +264,11 @@ export function ModelFormDialog({
                   </div>
                   {/* 档3(可选第三档;须 > 档2 阈值)。qwen3.7-flash 填 256000。0 = 只 2 档。 */}
                   <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                    <Label htmlFor="m-tier-threshold-2" className="text-sm font-medium">
+                    <Label htmlFor="m-tier-threshold-2" className="text-12 font-medium">
                       档3 阈值(更高档价,可选)
                     </Label>
                     <div className="flex items-center gap-2">
-                      <span className="text-2xs text-faint">prompt &gt;</span>
+                      <span className="text-12 text-faint">prompt &gt;</span>
                       <Input
                         id="m-tier-threshold-2"
                         type="number"
@@ -277,7 +277,7 @@ export function ModelFormDialog({
                         value={form.input_tier_threshold_2}
                         onChange={(e) => set('input_tier_threshold_2', Number(e.target.value) || 0)}
                       />
-                      <span className="text-2xs text-faint">token 切档3</span>
+                      <span className="text-12 text-faint">token 切档3</span>
                     </div>
                   </div>
                   {form.input_tier_threshold_2 > 0 && (
@@ -291,7 +291,7 @@ export function ModelFormDialog({
                         ] as const
                       ).map(([key, label]) => (
                         <div key={key} className="space-y-1.5">
-                          <Label htmlFor={`m-${key}`} className="text-2xs">{label}</Label>
+                          <Label htmlFor={`m-${key}`} className="text-12">{label}</Label>
                           <Input
                             id={`m-${key}`}
                             type="number"
@@ -314,7 +314,7 @@ export function ModelFormDialog({
                 id="m-provider"
                 value={form.provider_id}
                 onChange={(e) => set('provider_id', Number(e.target.value) || 0)}
-                className="h-9 w-full rounded-8 border border-input bg-surface-card px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-9 w-full rounded-8 border border-input bg-surface-card px-3 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <option value={0}>默认端点(AI Agent 服务页配置)</option>
                 {(providers ?? []).map((p) => (
@@ -332,7 +332,7 @@ export function ModelFormDialog({
                   id="m-speed"
                   value={form.speed_class}
                   onChange={(e) => set('speed_class', e.target.value as AgentModelPayload['speed_class'])}
-                  className="h-9 w-full rounded-8 border border-input bg-surface-card px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="h-9 w-full rounded-8 border border-input bg-surface-card px-3 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <option value="fast">fast · 快</option>
                   <option value="balanced">balanced · 均衡</option>
@@ -345,7 +345,7 @@ export function ModelFormDialog({
                   id="m-tier"
                   value={form.min_tier}
                   onChange={(e) => set('min_tier', e.target.value as AgentModelPayload['min_tier'])}
-                  className="h-9 w-full rounded-8 border border-input bg-surface-card px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="h-9 w-full rounded-8 border border-input bg-surface-card px-3 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <option value="">全员可用</option>
                   <option value="pro">Pro 及以上</option>
@@ -357,8 +357,8 @@ export function ModelFormDialog({
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="flex items-center justify-between gap-3 rounded-12 border border-border-soft p-3">
                 <div>
-                  <Label htmlFor="m-selectable" className="text-sm font-medium">用户可选</Label>
-                  <p className="text-2xs text-faint mt-0.5">出现在对话模型选择器中(P2 上线后生效)</p>
+                  <Label htmlFor="m-selectable" className="text-12 font-medium">用户可选</Label>
+                  <p className="text-12 text-faint mt-0.5">出现在对话模型选择器中(P2 上线后生效)</p>
                 </div>
                 <Switch
                   id="m-selectable"
@@ -368,22 +368,22 @@ export function ModelFormDialog({
               </div>
               <div className="flex items-center justify-between gap-3 rounded-12 border border-border-soft p-3">
                 <div>
-                  <Label htmlFor="m-enabled" className="text-sm font-medium">启用</Label>
-                  <p className="text-2xs text-faint mt-0.5">停用后从选择器消失;能力绑定不受影响</p>
+                  <Label htmlFor="m-enabled" className="text-12 font-medium">启用</Label>
+                  <p className="text-12 text-faint mt-0.5">停用后从选择器消失;能力绑定不受影响</p>
                 </div>
                 <Switch id="m-enabled" checked={form.enabled} onCheckedChange={(v) => set('enabled', v)} />
               </div>
               <div className="flex items-center justify-between gap-3 rounded-12 border border-border-soft p-3">
                 <div>
-                  <Label htmlFor="m-vision" className="text-sm font-medium">视觉能力(识图)</Label>
-                  <p className="text-2xs text-faint mt-0.5">支持图片输入的模型才勾;决定对话里能否上传图片</p>
+                  <Label htmlFor="m-vision" className="text-12 font-medium">视觉能力(识图)</Label>
+                  <p className="text-12 text-faint mt-0.5">支持图片输入的模型才勾;决定对话里能否上传图片</p>
                 </div>
                 <Switch id="m-vision" checked={form.vision} onCheckedChange={(v) => set('vision', v)} />
               </div>
               <div className="flex items-center justify-between gap-3 rounded-12 border border-border-soft p-3">
                 <div>
-                  <Label htmlFor="m-flagship" className="text-sm font-medium">旗舰模型</Label>
-                  <p className="text-2xs text-faint mt-0.5">标为旗舰后,用户选择器里名字彩色高亮 + 「旗舰」标签,突出主推</p>
+                  <Label htmlFor="m-flagship" className="text-12 font-medium">旗舰模型</Label>
+                  <p className="text-12 text-faint mt-0.5">标为旗舰后,用户选择器里名字彩色高亮 + 「旗舰」标签,突出主推</p>
                 </div>
                 <Switch id="m-flagship" checked={form.flagship} onCheckedChange={(v) => set('flagship', v)} />
               </div>

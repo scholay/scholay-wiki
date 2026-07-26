@@ -303,8 +303,8 @@ function MenuChip({
       className={cn(
         'inline-flex items-center gap-1.5 whitespace-nowrap transition-all duration-300 ease-out',
         active
-          ? 'h-9 px-4 rounded-8 bg-foreground text-background text-base font-bold'
-          : 'h-7 px-2.5 rounded-8 text-sm text-faint hover:text-foreground hover:bg-surface-1'
+          ? 'h-9 px-4 rounded-8 bg-foreground text-background text-14 font-medium'
+          : 'h-7 px-2.5 rounded-8 text-12 text-faint hover:text-foreground hover:bg-surface-1'
       )}
     >
       <menu.icon className="size-3.5" />
@@ -316,7 +316,7 @@ function MenuChip({
         <span
           aria-hidden="true"
           className={cn(
-            'inline-flex items-center px-1 rounded-pill bg-brand-amber text-background text-[9px] font-bold leading-none whitespace-nowrap shrink-0',
+            'inline-flex items-center px-1 rounded-pill bg-brand-amber text-background text-[9px] font-medium leading-none whitespace-nowrap shrink-0',
             // active(h-9 大 chip)与 inactive(h-7 小 chip)用不同的 badge 高度,
             // 视觉密度更协调
             active ? 'h-4' : 'h-3.5'

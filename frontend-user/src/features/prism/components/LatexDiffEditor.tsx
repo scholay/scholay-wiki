@@ -141,14 +141,14 @@ export function LatexDiffEditor({
       {!displayOnly && nav.count > 0 && (
         // 浮动导航 —— 暗色配色取 globals.css --prism-editor-* token;逐块取舍 + 全部保留/撤销。
         <div className="absolute right-3 top-3 z-raised flex items-center gap-0.5 rounded-12 border border-[color:var(--prism-editor-chrome-border)] bg-[var(--prism-editor-chrome-bg)] px-1.5 py-1 text-[color:var(--prism-editor-fg)] shadow-overlay">
-          <span className="px-1 text-2xs tabular-nums text-[color:var(--prism-editor-chrome-muted)]">剩余 {nav.count} 处</span>
+          <span className="px-1 text-12 tabular-nums text-[color:var(--prism-editor-chrome-muted)]">剩余 {nav.count} 处</span>
           <button type="button" onClick={chunk(goToPreviousChunk)} title="上一处 (↑)" className="rounded-4 p-1 hover:bg-surface-card/10"><ChevronUp className="size-4" /></button>
           <button type="button" onClick={chunk(goToNextChunk)} title="下一处 (↓)" className="rounded-4 p-1 hover:bg-surface-card/10"><ChevronDown className="size-4" /></button>
           <button type="button" onClick={chunk(acceptChunk)} title="保留此处 (⌘Y)" className="rounded-4 p-1 text-brand-green hover:bg-surface-card/10"><Check className="size-4" /></button>
           <button type="button" onClick={chunk(rejectChunk)} title="撤销此处 (⌘U)" className="rounded-4 p-1 text-brand-red hover:bg-surface-card/10"><X className="size-4" /></button>
           <span className="mx-0.5 h-4 w-px bg-[color:var(--prism-editor-chrome-border)]" />
-          <button type="button" onClick={() => applyRef.current?.()} title="全部保留并应用 (⌘⇧↵)" className="rounded-4 px-1.5 py-1 text-2xs font-bold text-brand-green hover:bg-surface-card/10">全部保留</button>
-          <button type="button" onClick={() => discardRef.current?.()} title="全部撤销 (⌘⇧⌫)" className="rounded-4 px-1.5 py-1 text-2xs text-brand-red hover:bg-surface-card/10">全部撤销</button>
+          <button type="button" onClick={() => applyRef.current?.()} title="全部保留并应用 (⌘⇧↵)" className="rounded-4 px-1.5 py-1 text-12 font-medium text-brand-green hover:bg-surface-card/10">全部保留</button>
+          <button type="button" onClick={() => discardRef.current?.()} title="全部撤销 (⌘⇧⌫)" className="rounded-4 px-1.5 py-1 text-12 text-brand-red hover:bg-surface-card/10">全部撤销</button>
         </div>
       )}
     </div>

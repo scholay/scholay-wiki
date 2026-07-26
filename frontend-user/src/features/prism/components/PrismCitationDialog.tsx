@@ -45,11 +45,11 @@ export function PrismCitationDialog({
         </div>
         <div className="max-h-[50vh] min-h-32 overflow-y-auto">
           {search.isLoading ? (
-            <div className="flex items-center justify-center py-8 text-xs text-faint">
+            <div className="flex items-center justify-center py-8 text-12 text-faint">
               <Loader2 className="mr-1.5 size-4 animate-spin" /> 检索中…
             </div>
           ) : list.length === 0 ? (
-            <div className="px-4 py-8 text-center text-xs text-faint">
+            <div className="px-4 py-8 text-center text-12 text-faint">
               文献库里没有匹配的文献。先在文献库收藏论文,再来这里引用 —— 只有真实库文献能引,避免编造。
             </div>
           ) : (
@@ -62,11 +62,11 @@ export function PrismCitationDialog({
                     onClick={() => onPick(c)}
                     className="w-full rounded-12 border border-border px-3 py-2 text-left transition-colors hover:bg-surface-2 disabled:opacity-50"
                   >
-                    <p className="line-clamp-2 text-xs font-bold text-foreground">{c.title || '(无标题)'}</p>
-                    <p className="mt-0.5 line-clamp-1 text-2xs text-muted-foreground">
+                    <p className="line-clamp-2 text-14 font-medium text-foreground">{c.title || '(无标题)'}</p>
+                    <p className="mt-0.5 line-clamp-1 text-12 text-muted-foreground">
                       {[c.authors, c.year ? String(c.year) : '', c.venue].filter(Boolean).join(' · ')}
                     </p>
-                    <p className="mt-0.5 text-2xs text-faint">插入键:[@{c.cite_key}]</p>
+                    <p className="mt-0.5 text-12 text-faint">插入键:[@{c.cite_key}]</p>
                   </button>
                 </li>
               ))}

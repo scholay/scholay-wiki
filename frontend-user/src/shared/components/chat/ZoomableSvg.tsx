@@ -95,7 +95,7 @@ export function ZoomableSvg({ svgHtml, className }: { svgHtml: string; className
         onClick={() => setOpen(true)}
         aria-label="放大查看"
         title="放大查看"
-        className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-4 border border-border bg-surface-card/90 px-1.5 py-0.5 text-2xs text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+        className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-4 border border-border bg-surface-card/90 px-1.5 py-0.5 text-12 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
       >
         <Maximize2 className="size-3" /> 放大
       </button>

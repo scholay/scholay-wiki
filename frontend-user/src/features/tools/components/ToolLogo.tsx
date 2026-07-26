@@ -9,7 +9,7 @@ import type { FeatureTool } from '@/types/feature-tool';
 export function ToolLogo({
   tool,
   className,
-  textClass = 'text-base',
+  textClass = 'text-14',
 }: {
   tool: Pick<FeatureTool, 'logo' | 'name' | 'name_en'>;
   className?: string;
@@ -21,7 +21,7 @@ export function ToolLogo({
 
   if (!tool.logo || failed) {
     return (
-      <span className={cn(box, 'flex items-center justify-center bg-surface-2 font-bold text-subtle', textClass)}>
+      <span className={cn(box, 'flex items-center justify-center bg-surface-2 font-medium text-subtle', textClass)}>
         {initial}
       </span>
     );

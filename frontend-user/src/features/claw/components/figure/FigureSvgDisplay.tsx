@@ -52,14 +52,14 @@ export function FigureSvgDisplay({
         <button
           type="button"
           onClick={exportSvg}
-          className="inline-flex items-center gap-1 rounded-8 border border-border bg-surface-card px-2 py-1 text-2xs text-subtle hover:bg-surface-2"
+          className="inline-flex items-center gap-1 rounded-8 border border-border bg-surface-card px-2 py-1 text-12 text-subtle hover:bg-surface-2"
         >
           <Download className="h-3 w-3" /> SVG
         </button>
         <button
           type="button"
           onClick={exportPng}
-          className="inline-flex items-center gap-1 rounded-8 border border-border bg-surface-card px-2 py-1 text-2xs text-subtle hover:bg-surface-2"
+          className="inline-flex items-center gap-1 rounded-8 border border-border bg-surface-card px-2 py-1 text-12 text-subtle hover:bg-surface-2"
         >
           <Download className="h-3 w-3" /> PNG
         </button>

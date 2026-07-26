@@ -71,7 +71,7 @@ export const MobilePaperRow = memo(function MobilePaperRow({
         aria-label="查看详情"
         className="shrink-0 transition-transform active:scale-95 active:opacity-80"
       >
-        <span className="flex size-10 items-center justify-center rounded-pill bg-brand-green text-base font-semibold text-on-brand">
+        <span className="flex size-10 items-center justify-center rounded-pill bg-brand-green text-14 font-medium text-on-brand">
           {initial}
         </span>
       </button>
@@ -79,13 +79,13 @@ export const MobilePaperRow = memo(function MobilePaperRow({
       {/* 右列:作者/来源 + 标题 + 摘要 + 标签 + 操作条 */}
       <div className="min-w-0 flex-1">
         <button type="button" onClick={open} className="block w-full text-left">
-          <p className="truncate text-sm font-semibold text-foreground">{authorsLine(paper)}</p>
-          <p className="truncate text-xs text-faint">{meta}</p>
-          <h3 className="mt-1.5 line-clamp-3 text-[15px] font-semibold text-foreground">
+          <p className="truncate text-12 font-medium text-foreground">{authorsLine(paper)}</p>
+          <p className="truncate text-12 text-faint">{meta}</p>
+          <h3 className="mt-1.5 line-clamp-3 text-16 font-medium text-foreground">
             {paper.title}
           </h3>
           {paper.abstract && (
-            <p className="mt-1 line-clamp-3 text-sm leading-paragraph text-muted-foreground">
+            <p className="mt-1 line-clamp-3 text-14 leading-paragraph text-muted-foreground">
               {paper.abstract}
             </p>
           )}
@@ -121,7 +121,7 @@ export const MobilePaperRow = memo(function MobilePaperRow({
 
 function Chip({ className, children }: { className?: string; children: React.ReactNode }) {
   return (
-    <span className={cn('rounded-pill px-2 py-0.5 text-2xs font-medium', className)}>{children}</span>
+    <span className={cn('rounded-pill px-2 py-0.5 text-12 font-medium', className)}>{children}</span>
   );
 }
 
@@ -139,7 +139,7 @@ function FooterAction({
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground transition-[color,transform] hover:text-brand-red active:scale-95 active:opacity-70"
+      className="inline-flex items-center gap-1.5 text-14 font-medium text-foreground transition-[color,transform] hover:text-brand-red active:scale-95 active:opacity-70"
     >
       {icon}
       {label}

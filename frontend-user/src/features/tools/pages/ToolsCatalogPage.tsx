@@ -55,8 +55,8 @@ export function ToolsCatalogPage() {
       />
 
       <div className="mb-3 flex items-end justify-between">
-        <h2 className="text-base font-bold text-foreground">{heading}</h2>
-        <span className="text-xs text-faint">共 {listed} 个</span>
+        <h2 className="text-16 font-medium text-foreground">{heading}</h2>
+        <span className="text-12 text-faint">共 {listed} 个</span>
       </div>
 
       {isLoading ? (
@@ -76,7 +76,7 @@ export function ToolsCatalogPage() {
               <PagerBtn disabled={page <= 1} onClick={() => setPage(page - 1)}>
                 <ChevronLeft className="size-3.5" /> 上一页
               </PagerBtn>
-              <span className="text-xs text-faint">
+              <span className="text-12 text-faint">
                 第 {page} / {totalPages} 页 · 共 {listed} 个
               </span>
               <PagerBtn disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
@@ -96,7 +96,7 @@ function PagerBtn({ disabled, onClick, children }: { disabled: boolean; onClick:
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="flex items-center gap-1 rounded-8 border border-border bg-surface-card px-3 py-1.5 text-xs text-subtle transition-colors hover:bg-surface-1 disabled:opacity-40"
+      className="flex items-center gap-1 rounded-8 border border-border bg-surface-card px-3 py-1.5 text-12 text-subtle transition-colors hover:bg-surface-1 disabled:opacity-40"
     >
       {children}
     </button>

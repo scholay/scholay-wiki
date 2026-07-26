@@ -99,10 +99,10 @@ export function LibraryBulkToolbar({
   return (
     <>
       <div className="flex items-center gap-2.5 flex-1 min-w-0">
-        <span className="text-sm font-bold text-foreground tabular-nums">
+        <span className="text-14 font-medium text-foreground tabular-nums">
           已选 {selectedCount} 项
         </span>
-        <span className="text-xs text-faint">
+        <span className="text-12 text-faint">
           (共 {totalCount} 项)
         </span>
 
@@ -110,7 +110,7 @@ export function LibraryBulkToolbar({
           type="button"
           onClick={onToggleAll}
           disabled={busy}
-          className="h-7 px-2.5 rounded-8 border border-border text-xs text-subtle hover:bg-surface-1 disabled:opacity-50"
+          className="h-7 px-2.5 rounded-8 border border-border text-12 text-subtle hover:bg-surface-1 disabled:opacity-50"
         >
           {allSelected ? '取消全选' : '全选'}
         </button>
@@ -129,7 +129,7 @@ export function LibraryBulkToolbar({
             <button
               type="button"
               disabled={busy}
-              className="inline-flex items-center gap-1 h-7 px-2.5 rounded-8 border border-border text-xs font-semibold text-subtle hover:bg-surface-1 disabled:opacity-50 data-[state=open]:bg-surface-2 data-[state=open]:text-foreground"
+              className="inline-flex items-center gap-1 h-7 px-2.5 rounded-8 border border-border text-12 font-medium text-subtle hover:bg-surface-1 disabled:opacity-50 data-[state=open]:bg-surface-2 data-[state=open]:text-foreground"
             >
               {moveMut.isPending ? (
                 <Loader2 className="size-3 animate-spin" />
@@ -154,7 +154,7 @@ export function LibraryBulkToolbar({
                   placeholder="搜索文件夹…"
                   maxLength={48}
                   autoFocus
-                  className="flex-1 min-w-0 h-full bg-transparent text-xs outline-none placeholder:text-faint"
+                  className="flex-1 min-w-0 h-full bg-transparent text-12 outline-none placeholder:text-faint"
                 />
               </div>
             </div>
@@ -167,14 +167,14 @@ export function LibraryBulkToolbar({
                   type="button"
                   onClick={() => handleMove(f.id)}
                   disabled={moveMut.isPending}
-                  className="flex items-center gap-2 w-full h-8 px-2 rounded-8 text-xs text-subtle hover:bg-surface-1 hover:text-foreground disabled:opacity-50 transition-colors text-left"
+                  className="flex items-center gap-2 w-full h-8 px-2 rounded-8 text-12 text-subtle hover:bg-surface-1 hover:text-foreground disabled:opacity-50 transition-colors text-left"
                 >
                   <Folder className="size-3.5 shrink-0 text-faint" />
                   <span className="flex-1 truncate">{f.name}</span>
                 </button>
               ))}
               {filteredFolders.length === 0 && (
-                <div className="px-2 py-3 text-2xs text-faint text-center">
+                <div className="px-2 py-3 text-12 text-faint text-center">
                   {folderQuery.trim()
                     ? `没有匹配「${folderQuery.trim()}」的文件夹`
                     : '没有可移动到的文件夹,先新建'}
@@ -188,7 +188,7 @@ export function LibraryBulkToolbar({
           type="button"
           onClick={() => setConfirmingDelete(true)}
           disabled={busy}
-          className="inline-flex items-center gap-1 h-7 px-2.5 rounded-8 border border-brand-red bg-brand-red text-on-brand text-xs font-bold hover:bg-brand-red/90 disabled:opacity-50"
+          className="inline-flex items-center gap-1 h-7 px-2.5 rounded-8 border border-brand-red bg-brand-red text-on-brand text-12 font-medium hover:bg-brand-red/90 disabled:opacity-50"
         >
           <Trash2 className="size-3" />
           删除
@@ -234,11 +234,11 @@ function BatchDeleteConfirmDialog({
       <DialogContent className="p-0 gap-0 max-w-[360px] w-[360px]">
         <header className="flex items-center gap-2 h-13 px-5 pr-12 border-b border-border-soft">
           <AlertTriangle className="size-4 text-brand-red shrink-0" />
-          <DialogTitle className="text-sm font-bold text-foreground">
+          <DialogTitle className="text-16 font-medium text-foreground">
             删除 {count} 篇论文?
           </DialogTitle>
         </header>
-        <div className="px-5 py-4 text-xs text-subtle leading-paragraph">
+        <div className="px-5 py-4 text-12 text-subtle leading-paragraph">
           将从文献集永久移除选中的 {count} 篇论文。此操作不可撤销。
         </div>
         <footer className="flex items-center justify-end gap-2 h-13 px-5 border-t border-border-soft">
@@ -246,7 +246,7 @@ function BatchDeleteConfirmDialog({
             type="button"
             onClick={onClose}
             disabled={busy}
-            className="h-7 px-3 rounded-8 border border-border text-xs text-subtle hover:bg-surface-1 disabled:opacity-50"
+            className="h-7 px-3 rounded-8 border border-border text-12 text-subtle hover:bg-surface-1 disabled:opacity-50"
           >
             取消
           </button>
@@ -254,7 +254,7 @@ function BatchDeleteConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={busy}
-            className="inline-flex items-center gap-1 h-7 px-3 rounded-8 bg-brand-red text-on-brand text-xs font-bold hover:bg-brand-red/90 disabled:opacity-50"
+            className="inline-flex items-center gap-1 h-7 px-3 rounded-8 bg-brand-red text-on-brand text-12 font-medium hover:bg-brand-red/90 disabled:opacity-50"
           >
             {busy && <Loader2 className="size-3 animate-spin" />}
             确认删除

@@ -24,7 +24,7 @@ export function ReferenceChipList({ references, onRemove, align = 'start' }: Ref
       {references.map((r, i) => (
         <span
           key={i}
-          className="inline-flex items-center gap-1 max-w-[220px] rounded-4 border border-brand-green/40 bg-brand-green/10 px-2 py-0.5 text-2xs text-brand-green"
+          className="inline-flex items-center gap-1 max-w-[220px] rounded-4 border border-brand-green/40 bg-brand-green/10 px-2 py-0.5 text-12 text-brand-green"
           title={
             r.kind === 'folder'
               ? `引用文件夹「${r.title}」(${r.paperCount ?? 0} 篇)`

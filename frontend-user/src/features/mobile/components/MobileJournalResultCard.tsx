@@ -36,19 +36,19 @@ export const MobileJournalResultCard = memo(function MobileJournalResultCard({
           className="h-12 w-12 shrink-0 rounded-8"
         />
         <div className="min-w-0 flex-1">
-          <p className="line-clamp-2 text-[15px] font-semibold text-foreground">
+          <p className="line-clamp-2 text-16 font-medium text-foreground">
             {journal.canonical_name}
           </p>
-          <p className="mt-0.5 truncate text-xs text-faint">{meta}</p>
+          <p className="mt-0.5 truncate text-12 text-faint">{meta}</p>
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <JournalBadges enrichment={journal} />
             {journal.openalex_h_index != null && (
-              <span className="rounded-pill bg-surface-2 px-2 py-0.5 text-2xs font-medium text-muted-foreground">
+              <span className="rounded-pill bg-surface-2 px-2 py-0.5 text-12 font-medium text-muted-foreground">
                 h-index {journal.openalex_h_index}
               </span>
             )}
             {journal.is_oa && (
-              <span className="rounded-pill bg-brand-green/10 px-2 py-0.5 text-2xs font-medium text-brand-green">
+              <span className="rounded-pill bg-brand-green/10 px-2 py-0.5 text-12 font-medium text-brand-green">
                 开放获取
               </span>
             )}

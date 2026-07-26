@@ -134,12 +134,12 @@ export function SupportCenterConfigPage() {
           title="客服邮箱收件(IMAP)"
           right={
             <div className="flex items-center gap-2">
-              <span className="text-xs text-faint">启用拉取</span>
+              <span className="text-12 text-faint">启用拉取</span>
               <Switch checked={form.imap_enabled} onCheckedChange={(v) => set('imap_enabled', v)} />
             </div>
           }
         >
-          <p className="text-xs text-muted-foreground">
+          <p className="text-12 text-muted-foreground">
             填客服邮箱的 IMAP 信息(QQ/网易等邮箱需用「授权码」而非登录密码)。启用后每隔设定分钟自动拉取新邮件到「邮件中心」,并可飞书提醒。回信走「系统设置 → 邮件」里的 SMTP 发信配置。
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -189,7 +189,7 @@ export function SupportCenterConfigPage() {
 
         {/* 3. SMTP 发信 */}
         <Section icon={<MailCheck className="size-4" />} title="客服邮箱发信(SMTP)">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-12 text-muted-foreground">
             邮件中心「回信 / 写信」从这个客服邮箱发出(而非全站系统邮件)。通常与上面 IMAP 同一个邮箱账号,但服务器/端口不同(收信 imap. / 发信 smtp.)。
             <span className="text-faint">留空则回落到「系统设置 → 邮件」的全站发信配置。</span>
           </p>
@@ -230,7 +230,7 @@ export function SupportCenterConfigPage() {
 
         {/* 4. 飞书通知 */}
         <Section icon={<Send className="size-4" />} title="飞书通知(群自定义机器人)">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-12 text-muted-foreground">
             飞书群 → 设置 → 群机器人 → 添加「自定义机器人」,把 webhook 地址填入;若开启了「签名校验」,secret 一并填入。用户提交反馈 / 客服邮箱收到新邮件时,第一时间推送到群。
           </p>
           <Field label="Webhook 地址">
@@ -252,15 +252,15 @@ export function SupportCenterConfigPage() {
             />
           </Field>
           <div className="flex flex-wrap items-center gap-6">
-            <label className="flex items-center gap-2 text-xs text-subtle">
+            <label className="flex items-center gap-2 text-12 text-subtle">
               <Switch checked={form.feishu_notify_feedback} onCheckedChange={(v) => set('feishu_notify_feedback', v)} />
               在线反馈提交时推送
             </label>
-            <label className="flex items-center gap-2 text-xs text-subtle">
+            <label className="flex items-center gap-2 text-12 text-subtle">
               <Switch checked={form.feishu_notify_email} onCheckedChange={(v) => set('feishu_notify_email', v)} />
               收件箱新邮件时推送
             </label>
-            <label className="flex items-center gap-2 text-xs text-subtle">
+            <label className="flex items-center gap-2 text-12 text-subtle">
               <Switch checked={form.feishu_notify_payment} onCheckedChange={(v) => set('feishu_notify_payment', v)} />
               用户付费成功时推送
             </label>
@@ -289,7 +289,7 @@ function Section({
   return (
     <section className="rounded-16 border border-border bg-surface-card p-4">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
+        <h3 className="flex items-center gap-2 text-14 font-medium text-foreground">
           {icon}
           {title}
         </h3>
@@ -303,7 +303,7 @@ function Section({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-2xs text-faint">{label}</Label>
+      <Label className="text-12 text-faint">{label}</Label>
       {children}
     </div>
   );
@@ -337,12 +337,12 @@ function QRUpload({ label, value, onChange }: { label: string; value: string; on
 
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-2xs text-faint">{label}</Label>
+      <Label className="text-12 text-faint">{label}</Label>
       <div className="flex items-center gap-3">
         {value ? (
           <img src={value} alt={label} className="size-20 rounded-8 border border-border object-contain" />
         ) : (
-          <div className="flex size-20 items-center justify-center rounded-8 border border-dashed border-border text-2xs text-faint">
+          <div className="flex size-20 items-center justify-center rounded-8 border border-dashed border-border text-12 text-faint">
             未设置
           </div>
         )}

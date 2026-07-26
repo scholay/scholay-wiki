@@ -111,8 +111,8 @@ export function SecurityPage() {
       {/* 修改密码 */}
       <section className="flex flex-col gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">修改密码</h2>
-          <p className="text-sm text-muted-foreground mt-1">为了账号安全,建议使用 8 位以上、字母数字混合的密码。</p>
+          <h2 className="text-16 font-medium text-foreground">修改密码</h2>
+          <p className="text-12 text-muted-foreground mt-1">为了账号安全,建议使用 8 位以上、字母数字混合的密码。</p>
         </div>
         <Input
           type="password"
@@ -151,10 +151,10 @@ export function SecurityPage() {
       {/* 换绑邮箱 */}
       <section className="flex flex-col gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">
+          <h2 className="text-16 font-medium text-foreground">
             {hasExistingEmail ? '换绑邮箱' : '绑定邮箱'}
           </h2>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-12 text-muted-foreground mt-1">
             当前邮箱:
             <span className="font-mono ml-1">{profile?.email || '还没有绑定'}</span>
           </p>
@@ -228,10 +228,10 @@ export function SecurityPage() {
       {/* 换绑手机 */}
       <section className="flex flex-col gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">
+          <h2 className="text-16 font-medium text-foreground">
             {hasExistingPhone ? '换绑手机号' : '绑定手机号'}
           </h2>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-12 text-muted-foreground mt-1">
             当前手机号:
             <span className="font-mono ml-1">{profile?.phone || '还没有绑定'}</span>
           </p>

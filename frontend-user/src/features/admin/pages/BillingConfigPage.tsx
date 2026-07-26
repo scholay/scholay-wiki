@@ -96,20 +96,20 @@ export function BillingConfigPage() {
           <section className="flex flex-col gap-4 rounded-16 border border-border bg-surface-card p-5">
             <div className="flex items-center justify-between gap-3">
               <div className="flex flex-col">
-                <span className="text-sm font-bold text-foreground">收费体系总开关</span>
-                <span className="text-2xs text-faint">关闭后所有 AI 功能不限额(用于灰度/应急)</span>
+                <span className="text-12 font-medium text-foreground">收费体系总开关</span>
+                <span className="text-12 text-faint">关闭后所有 AI 功能不限额(用于灰度/应急)</span>
               </div>
               <Switch checked={form.enabled} onCheckedChange={(v) => setForm({ ...form, enabled: v })} />
             </div>
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <span className="text-sm font-medium text-subtle">「最受欢迎」标在</span>
+              <span className="text-12 font-medium text-subtle">「最受欢迎」标在</span>
               <div className="flex flex-wrap gap-2">
                 {(['pro', 'max', 'none'] as const).map((p) => (
                   <button
                     key={p}
                     onClick={() => setForm({ ...form, popular_plan: p })}
                     className={cn(
-                      'h-8 rounded-8 border px-3 text-xs transition-colors',
+                      'h-8 rounded-8 border px-3 text-12 transition-colors',
                       form.popular_plan === p
                         ? 'border-brand-red bg-danger-soft text-brand-red'
                         : 'border-border text-subtle hover:bg-surface-2'
@@ -124,7 +124,7 @@ export function BillingConfigPage() {
 
           {GROUPS.map((g) => (
             <section key={g.title} className="rounded-16 border border-border bg-surface-card p-5">
-              <h3 className="mb-4 text-sm font-bold text-foreground">{g.title}</h3>
+              <h3 className="mb-4 text-14 font-medium text-foreground">{g.title}</h3>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {g.fields.map((f) => (
                   <div key={String(f.key)} className="flex flex-col gap-1.5">
@@ -139,7 +139,7 @@ export function BillingConfigPage() {
                       }
                       className="h-9"
                     />
-                    {f.hint && <span className="text-2xs text-faint">{f.hint}</span>}
+                    {f.hint && <span className="text-12 text-faint">{f.hint}</span>}
                   </div>
                 ))}
               </div>

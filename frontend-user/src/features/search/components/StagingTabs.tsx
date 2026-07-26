@@ -83,8 +83,8 @@ const TabItem = memo(function TabItem({
     >
       <span
         className={cn(
-          'text-sm tabular-nums',
-          active ? 'font-bold' : 'font-semibold'
+          'text-12 tabular-nums',
+          active ? 'font-medium' : 'font-normal'
         )}
       >
         {displayName}
@@ -93,7 +93,7 @@ const TabItem = memo(function TabItem({
       {/* 数字 badge —— pill 圆角,激活态红底白字 */}
       <span
         className={cn(
-          'inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-pill text-2xs font-bold shrink-0 tabular-nums',
+          'inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-pill text-12 font-medium shrink-0 tabular-nums',
           active
             ? 'bg-brand-red text-on-brand'
             : 'bg-surface-2 text-muted-foreground'

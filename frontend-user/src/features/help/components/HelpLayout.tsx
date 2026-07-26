@@ -73,12 +73,12 @@ export function HelpLayout({
             <button
               type="button"
               onClick={() => navigate(-1)}
-              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0"
+              className="inline-flex items-center gap-1 text-12 text-muted-foreground hover:text-foreground transition-colors shrink-0"
             >
               <ChevronLeft className="size-3.5" />
               返回
             </button>
-            <nav className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">
+            <nav className="flex items-center gap-1.5 text-12 text-muted-foreground min-w-0">
               {breadcrumbs.map((b, i) => (
                 <span key={i} className="flex items-center gap-1.5 min-w-0">
                   {i > 0 && <span className="text-faint shrink-0">/</span>}
@@ -106,16 +106,16 @@ export function HelpLayout({
           {eyebrow && (
             <div className="flex items-center gap-2 mb-3">
               <span className="h-px w-6 bg-brand-red" />
-              <p className="text-2xs font-bold uppercase text-brand-red">
+              <p className="text-12 font-medium uppercase text-brand-red">
                 {eyebrow}
               </p>
             </div>
           )}
-          <h1 className="text-3xl md:text-display-36 font-bold text-foreground">
+          <h1 className="text-28 md:text-display-36 font-medium text-foreground">
             {title}
           </h1>
           {lead && (
-            <p className="mt-4 text-sm md:text-base text-muted-foreground leading-paragraph max-w-3xl">
+            <p className="mt-4 text-12 md:text-14 text-muted-foreground leading-paragraph max-w-3xl">
               {lead}
             </p>
           )}
@@ -158,7 +158,7 @@ export function HelpLayout({
  */
 export function MetaChip({ children }: { children: ReactNode }) {
   return (
-    <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-surface-card border border-border text-xs text-muted-foreground">
+    <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-surface-card border border-border text-12 text-muted-foreground">
       {children}
     </span>
   );

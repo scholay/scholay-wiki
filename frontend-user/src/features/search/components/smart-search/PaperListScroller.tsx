@@ -235,7 +235,7 @@ export function PaperListScroller({
         <button
           type="button"
           onClick={toggleGroupCollapse}
-          className="flex items-center gap-1.5 text-2xs text-muted-foreground hover:text-foreground transition-colors"
+          className="flex items-center gap-1.5 text-12 text-muted-foreground hover:text-foreground transition-colors"
           aria-expanded={!groupCollapsed}
         >
           {groupCollapsed ? (
@@ -244,7 +244,7 @@ export function PaperListScroller({
             <ChevronDown className="size-3" strokeWidth={2.2} />
           )}
           <FileText className="size-3" strokeWidth={2} />
-          <span className="font-semibold text-foreground">
+          <span className="font-medium text-foreground">
             {enriched.length} 篇论文
           </span>
           {stagedIds.size > 0 && unstagedCount < enriched.length && (
@@ -263,7 +263,7 @@ export function PaperListScroller({
               ? '本组论文已全部在暂存区'
               : `把本组 ${unstagedCount} 篇未暂存论文加入暂存区`
           }
-          className="inline-flex shrink-0 items-center gap-1 h-6 px-2 rounded-8 text-2xs font-medium text-brand-green hover:bg-brand-green/10 disabled:text-faint disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors"
+          className="inline-flex shrink-0 items-center gap-1 h-6 px-2 rounded-8 text-12 font-medium text-brand-green hover:bg-brand-green/10 disabled:text-faint disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors"
         >
           {bulkBusy ? (
             <Loader2 className="size-3 animate-spin" />

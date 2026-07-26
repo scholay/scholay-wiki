@@ -79,7 +79,7 @@ function Card({ uc }: { uc: UseCase }) {
       {uc.tag && (
         <span
           className={cn(
-            'inline-flex items-center self-start px-2.5 py-1 rounded-4 text-2xs font-bold uppercase',
+            'inline-flex items-center self-start px-2.5 py-1 rounded-4 text-12 font-medium uppercase',
             THEME_TAG[theme]
           )}
         >
@@ -102,21 +102,21 @@ function Card({ uc }: { uc: UseCase }) {
         </div>
       )}
 
-      <h3 className={cn('font-display italic font-semibold text-2xl leading-display-tight', THEME_TITLE[theme])}>
+      <h3 className={cn('font-display italic font-medium text-24 leading-display-tight', THEME_TITLE[theme])}>
         {uc.title}
       </h3>
       {uc.subtitle && (
-        <span className={cn('font-display italic font-medium text-lg -mt-3', THEME_BODY[theme])}>
+        <span className={cn('font-display italic font-medium text-16 -mt-3', THEME_BODY[theme])}>
           {uc.subtitle}
         </span>
       )}
 
-      <p className={cn('text-md leading-paragraph', THEME_BODY[theme])}>{uc.desc}</p>
+      <p className={cn('text-14 leading-paragraph', THEME_BODY[theme])}>{uc.desc}</p>
 
       <ul className="flex flex-col gap-2 mt-auto">
         {uc.bullets.map((b) => (
-          <li key={b} className="flex items-start gap-2 text-sm">
-            <span className={cn('font-bold mt-0.5', THEME_BULLET_DOT[theme])} aria-hidden>
+          <li key={b} className="flex items-start gap-2 text-12">
+            <span className={cn('font-medium mt-0.5', THEME_BULLET_DOT[theme])} aria-hidden>
               ·
             </span>
             <span className={THEME_BODY[theme]}>{b}</span>

@@ -118,21 +118,21 @@ export function ContactPage() {
       />
       {/* 1. 渠道卡 */}
       <section>
-        <h2 className="text-base font-bold text-foreground mb-4">联系渠道</h2>
+        <h2 className="text-14 font-medium text-foreground mb-4">联系渠道</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {channels.map((c) => (
             <ChannelCard key={c.title} channel={c} />
           ))}
         </div>
         {contact?.contact_note && (
-          <p className="mt-3 text-xs text-muted-foreground leading-paragraph">{contact.contact_note}</p>
+          <p className="mt-3 text-12 text-muted-foreground leading-paragraph">{contact.contact_note}</p>
         )}
       </section>
 
       {/* 2. 社交渠道二维码(后台配置后才展示) */}
       {qrs.length > 0 && (
         <section className="mt-14">
-          <h2 className="text-base font-bold text-foreground inline-flex items-center gap-2 mb-5">
+          <h2 className="text-14 font-medium text-foreground inline-flex items-center gap-2 mb-5">
             <QrCode className="size-4 text-brand-red" strokeWidth={2.2} />
             扫码联系
           </h2>
@@ -143,7 +143,7 @@ export function ContactPage() {
                 className="flex flex-col items-center gap-2 rounded-16 border border-border bg-surface-card p-4"
               >
                 <img src={q.src} alt={`${q.title}二维码`} className="size-36 rounded-8 object-contain" />
-                <p className="text-xs font-semibold text-subtle">{q.title}</p>
+                <p className="text-12 font-medium text-subtle">{q.title}</p>
               </div>
             ))}
           </div>
@@ -152,7 +152,7 @@ export function ContactPage() {
 
       {/* 3. SLA */}
       <section className="mt-14">
-        <h2 className="text-base font-bold text-foreground inline-flex items-center gap-2 mb-5">
+        <h2 className="text-14 font-medium text-foreground inline-flex items-center gap-2 mb-5">
           <Clock className="size-4 text-brand-red" strokeWidth={2.2} />
           响应时效
         </h2>
@@ -186,9 +186,9 @@ function ChannelCard({ channel }: { channel: Channel }) {
           strokeWidth={2}
         />
       </span>
-      <p className="text-sm font-bold text-foreground">{title}</p>
-      <p className="text-xs text-muted-foreground leading-paragraph">{desc}</p>
-      <span className="mt-auto inline-flex items-center gap-1 text-xs font-semibold text-brand-red group-hover:gap-2 transition-all">
+      <p className="text-12 font-medium text-foreground">{title}</p>
+      <p className="text-12 text-muted-foreground leading-paragraph">{desc}</p>
+      <span className="mt-auto inline-flex items-center gap-1 text-12 font-medium text-brand-red group-hover:gap-2 transition-all">
         {cta}
         <ArrowRight className="size-3" />
       </span>
@@ -208,11 +208,11 @@ function ChannelCard({ channel }: { channel: Channel }) {
 function SLACard({ item }: { item: SLAItem }) {
   return (
     <div className="flex flex-col gap-1.5 p-5 rounded-16 bg-surface-1 border border-border-soft">
-      <p className="text-xs font-bold text-faint uppercase">
+      <p className="text-12 font-medium text-faint uppercase">
         {item.scope}
       </p>
-      <p className="text-lg font-bold text-foreground">{item.time}</p>
-      <p className="text-xs text-muted-foreground leading-paragraph">{item.detail}</p>
+      <p className="text-16 font-medium text-foreground">{item.time}</p>
+      <p className="text-12 text-muted-foreground leading-paragraph">{item.detail}</p>
     </div>
   );
 }

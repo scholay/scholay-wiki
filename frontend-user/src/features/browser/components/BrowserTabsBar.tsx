@@ -117,7 +117,7 @@ export function BrowserTabsBar() {
       <button
         type="button"
         onClick={goReturn}
-        className="inline-flex items-center gap-1 h-7 px-2 rounded-8 text-xs text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors shrink-0"
+        className="inline-flex items-center gap-1 h-7 px-2 rounded-8 text-12 text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors shrink-0"
         title={activeTab ? `返回 ${activeTab.returnTo}` : '返回'}
       >
         <ArrowLeft className="size-3" />
@@ -224,7 +224,7 @@ function TabPill({ tab, active, onClick, onClose }: TabPillProps) {
       />
       <span
         className={cn(
-          'truncate text-sm',
+          'truncate text-12',
           active ? 'font-medium' : 'font-normal'
         )}
         title={label}

@@ -54,7 +54,7 @@ export function AnnouncementsPage() {
   };
 
   const columns: Column<Announcement>[] = [
-    { header: '标题', cell: (r) => <span className="font-bold text-foreground">{r.title}</span> },
+    { header: '标题', cell: (r) => <span className="font-medium text-foreground">{r.title}</span> },
     {
       header: '等级',
       width: 80,
@@ -74,7 +74,7 @@ export function AnnouncementsPage() {
       header: '时段',
       width: 200,
       cell: (r) => (
-        <span className="text-xs text-muted-foreground">
+        <span className="text-12 text-muted-foreground">
           {r.starts_at?.slice(0, 10) || '—'} → {r.ends_at?.slice(0, 10) || '长期'}
         </span>
       ),
@@ -178,7 +178,7 @@ function AnnouncementDialog({
                 id="severity"
                 name="severity"
                 defaultValue={initial?.severity || 'info'}
-                className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-sm"
+                className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-12"
               >
                 <option value="info">提示</option>
                 <option value="warning">警告</option>
@@ -191,7 +191,7 @@ function AnnouncementDialog({
                 id="type"
                 name="type"
                 defaultValue={initial?.type || 'banner'}
-                className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-sm"
+                className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-12"
               >
                 <option value="banner">横幅</option>
                 <option value="modal">弹窗</option>
@@ -204,7 +204,7 @@ function AnnouncementDialog({
                 id="target_audience"
                 name="target_audience"
                 defaultValue={initial?.target_audience || 'all'}
-                className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-sm"
+                className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-12"
               >
                 <option value="all">全部</option>
                 <option value="logged_in">已登录</option>
@@ -233,7 +233,7 @@ function AnnouncementDialog({
               defaultValue={initial?.content}
               required
               rows={6}
-              className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
 
@@ -251,14 +251,14 @@ function AnnouncementDialog({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="flex items-center gap-2 h-9">
               <input id="is_active" name="is_active" type="checkbox" defaultChecked={(initial?.is_active ?? 1) === 1} className="size-4" />
-              <Label htmlFor="is_active" className="text-sm">立即发布</Label>
+              <Label htmlFor="is_active" className="text-12">立即发布</Label>
             </div>
             <div className="flex items-center gap-2 h-9">
               <input id="dismissable" name="dismissable" type="checkbox" defaultChecked={(initial?.dismissable ?? 1) === 1} className="size-4" />
-              <Label htmlFor="dismissable" className="text-sm">用户可关闭</Label>
+              <Label htmlFor="dismissable" className="text-12">用户可关闭</Label>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="priority" className="text-xs">优先级</Label>
+              <Label htmlFor="priority" className="text-12">优先级</Label>
               <Input id="priority" name="priority" type="number" defaultValue={initial?.priority ?? 0} className="h-8" />
             </div>
           </div>

@@ -82,7 +82,7 @@ export function SkillDetailPage() {
 
       <Link
         to="/tools/skills"
-        className="mb-4 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+        className="mb-4 inline-flex items-center gap-1 text-12 text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
         返回市场
@@ -90,7 +90,7 @@ export function SkillDetailPage() {
 
       <header className="mb-4">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-xl font-semibold text-foreground">{skill.name}</h1>
+          <h1 className="text-20 font-medium text-foreground">{skill.name}</h1>
           {!skill.isOwner && (
             <Badge variant="warning" className="gap-1">
               <ShieldAlert className="h-3 w-3" />
@@ -99,8 +99,8 @@ export function SkillDetailPage() {
           )}
           {skill.contentSource === 'reposted' && <Badge variant="muted">转载</Badge>}
         </div>
-        <p className="mt-1 text-sm text-muted-foreground">{skill.tagline}</p>
-        <div className="mt-2 flex flex-wrap items-center gap-4 text-2xs text-faint">
+        <p className="mt-1 text-12 text-muted-foreground">{skill.tagline}</p>
+        <div className="mt-2 flex flex-wrap items-center gap-4 text-12 text-faint">
           <span className="flex items-center gap-1">
             <User className="h-3 w-3" />
             {skill.authorName}
@@ -177,7 +177,7 @@ export function SkillDetailPage() {
       {/* 声明的工具 */}
       {skill.declaredTools?.length > 0 && (
         <div className="mb-4">
-          <div className="mb-1.5 text-2xs text-faint">
+          <div className="mb-1.5 text-12 text-faint">
             该 Skill 声明会用到(仅供参考,平台按最小权限实际收窄):
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -193,12 +193,12 @@ export function SkillDetailPage() {
       {/* 文件清单 */}
       {skill.fileManifest?.length > 1 && (
         <div className="mb-4">
-          <div className="mb-1.5 text-2xs text-faint">包含文件:</div>
+          <div className="mb-1.5 text-12 text-faint">包含文件:</div>
           <div className="flex flex-wrap gap-1.5">
             {skill.fileManifest.map((f) => (
               <span
                 key={f.path}
-                className="rounded-4 border border-border bg-surface-1 px-2 py-0.5 font-mono text-2xs text-subtle"
+                className="rounded-4 border border-border bg-surface-1 px-2 py-0.5 font-mono text-12 text-subtle"
               >
                 {f.path}
               </span>
@@ -209,7 +209,7 @@ export function SkillDetailPage() {
 
       {/* SKILL.md 预览(不可信内容,纯 markdown,无 raw HTML)*/}
       <div className="rounded-16 border border-border bg-surface-1 p-4">
-        <div className="mb-2 text-2xs uppercase text-faint">SKILL.md 预览</div>
+        <div className="mb-2 text-12 uppercase text-faint">SKILL.md 预览</div>
         <MarkdownRenderer text={skill.skillMd || '(空)'} />
       </div>
 
@@ -242,7 +242,7 @@ function ReportDialog({
             {REPORT_REASONS.map(([val, label]) => (
               <label
                 key={val}
-                className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
+                className="flex cursor-pointer items-center gap-2 text-12 text-foreground"
               >
                 <input
                   type="radio"
@@ -259,7 +259,7 @@ function ReportDialog({
             onChange={(e) => setDetail(e.target.value)}
             placeholder="补充说明(可选)"
             maxLength={1024}
-            className="h-20 w-full resize-none rounded-8 border border-border bg-surface-card p-2 text-sm outline-none focus-visible:border-border-strong"
+            className="h-20 w-full resize-none rounded-8 border border-border bg-surface-card p-2 text-12 outline-none focus-visible:border-border-strong"
           />
         </div>
         <DialogFooter>

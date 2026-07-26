@@ -156,9 +156,9 @@ function TrendCard({
   return (
     <div className="rounded-16 border border-border bg-surface-card p-4">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-bold text-foreground">{title}</h3>
+        <h3 className="text-14 font-medium text-foreground">{title}</h3>
         <div className="flex items-center gap-2">
-          {isLive && <span className="text-2xs text-faint">— — 今日(进行中)</span>}
+          {isLive && <span className="text-12 text-faint">— — 今日(进行中)</span>}
           <Icon className="size-3.5 text-faint" />
         </div>
       </div>
@@ -166,7 +166,7 @@ function TrendCard({
         {loading ? (
           <Skeleton className="h-full w-full" />
         ) : !data || data.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-xs text-faint">
+          <div className="h-full flex items-center justify-center text-12 text-faint">
             <TrendingUp className="size-3.5 mr-1 inline" />
             窗口内还没有数据
           </div>

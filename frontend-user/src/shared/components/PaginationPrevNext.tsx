@@ -73,7 +73,7 @@ export const PaginationPrevNext = forwardRef<HTMLElement, PaginationPrevNextProp
         ref={ref}
         aria-label="分页"
         className={cn(
-          'flex items-center justify-between gap-4 py-4 text-xs',
+          'flex items-center justify-between gap-4 py-4 text-12',
           className
         )}
       >
@@ -82,15 +82,15 @@ export const PaginationPrevNext = forwardRef<HTMLElement, PaginationPrevNextProp
         {showSummary && (
           <span>
             显示{' '}
-            <span className="text-foreground font-bold tabular-nums">
+            <span className="text-foreground font-medium tabular-nums">
               {rangeStart}
             </span>
             –
-            <span className="text-foreground font-bold tabular-nums">
+            <span className="text-foreground font-medium tabular-nums">
               {rangeEnd}
             </span>
             {' / 共 '}
-            <span className="text-foreground font-bold tabular-nums">
+            <span className="text-foreground font-medium tabular-nums">
               {total!.toLocaleString()}
             </span>
           </span>
@@ -105,7 +105,7 @@ export const PaginationPrevNext = forwardRef<HTMLElement, PaginationPrevNextProp
               value={pageSize}
               onChange={(e) => onPageSizeChange!(Number(e.target.value))}
               disabled={disabled}
-              className="h-7 px-1.5 rounded-8 bg-surface-card border border-border text-xs text-subtle hover:border-foreground focus-visible:outline-none focus-visible:border-foreground cursor-pointer tabular-nums disabled:opacity-50 disabled:cursor-not-allowed"
+              className="h-7 px-1.5 rounded-8 bg-surface-card border border-border text-12 text-subtle hover:border-foreground focus-visible:outline-none focus-visible:border-foreground cursor-pointer tabular-nums disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {pageSizeOptions!.map((opt) => (
                 <option key={opt} value={opt}>
@@ -125,7 +125,7 @@ export const PaginationPrevNext = forwardRef<HTMLElement, PaginationPrevNextProp
           disabled={prevDisabled}
           aria-label="上一页"
           className={cn(
-            'inline-flex h-7 px-2.5 items-center gap-1 rounded-8 text-xs font-medium transition-colors',
+            'inline-flex h-7 px-2.5 items-center gap-1 rounded-8 text-12 font-medium transition-colors',
             prevDisabled
               ? 'text-faint border border-border-soft cursor-not-allowed'
               : 'text-foreground border border-border hover:bg-surface-1'
@@ -136,7 +136,7 @@ export const PaginationPrevNext = forwardRef<HTMLElement, PaginationPrevNextProp
         </button>
 
         {/* 中部页数指示:已知 totalPages 显示 "X / Y";游标模式显示 "第 X 页" */}
-        <span className="inline-flex h-7 min-w-[64px] px-3 items-center justify-center rounded-8 bg-foreground text-background text-xs font-bold tabular-nums">
+        <span className="inline-flex h-7 min-w-[64px] px-3 items-center justify-center rounded-8 bg-foreground text-background text-12 font-medium tabular-nums">
           {totalPages != null ? `${page} / ${totalPages}` : `第 ${page} 页`}
         </span>
 
@@ -146,7 +146,7 @@ export const PaginationPrevNext = forwardRef<HTMLElement, PaginationPrevNextProp
           disabled={nextDisabled}
           aria-label="下一页"
           className={cn(
-            'inline-flex h-7 px-2.5 items-center gap-1 rounded-8 text-xs font-medium transition-colors',
+            'inline-flex h-7 px-2.5 items-center gap-1 rounded-8 text-12 font-medium transition-colors',
             nextDisabled
               ? 'text-faint border border-border-soft cursor-not-allowed'
               : 'text-foreground border border-border hover:bg-surface-1'

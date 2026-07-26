@@ -94,7 +94,7 @@ export function MailCenterPage() {
               type="button"
               onClick={() => setStatus(o.value)}
               className={cn(
-                'h-7 rounded-8 px-2.5 text-xs font-medium transition-colors',
+                'h-7 rounded-8 px-2.5 text-12 font-medium transition-colors',
                 o.value === status
                   ? 'bg-foreground text-background'
                   : 'text-muted-foreground hover:bg-surface-1 hover:text-foreground',
@@ -127,11 +127,11 @@ export function MailCenterPage() {
         <div className="flex min-w-0 flex-col gap-3">
           <div className="overflow-hidden rounded-16 border border-border bg-surface-card">
             {isLoading ? (
-              <div className="py-16 text-center text-sm text-faint">
+              <div className="py-16 text-center text-12 text-faint">
                 <Loader2 className="mx-auto size-4 animate-spin" />
               </div>
             ) : items.length === 0 ? (
-              <div className="py-16 text-center text-sm text-faint">
+              <div className="py-16 text-center text-12 text-faint">
                 收件箱为空(在「客服配置」启用 IMAP 后自动拉取)
               </div>
             ) : (
@@ -174,17 +174,17 @@ function MailRow({ mail, active, onClick }: { mail: InboxMail; active: boolean; 
       >
         <div className="flex items-center gap-1.5">
           {unread && <span className="size-1.5 shrink-0 rounded-pill bg-brand-red" />}
-          <span className={cn('min-w-0 flex-1 truncate text-xs', unread ? 'font-bold text-foreground' : 'text-subtle')}>
+          <span className={cn('min-w-0 flex-1 truncate text-12', unread ? 'font-medium text-foreground' : 'text-subtle')}>
             {mail.from_name || mail.from_addr}
           </span>
-          <span className="shrink-0 text-2xs tabular-nums text-faint">
+          <span className="shrink-0 text-12 tabular-nums text-faint">
             {(mail.sent_at ?? mail.created_at)?.slice(5, 16).replace('T', ' ')}
           </span>
         </div>
-        <span className={cn('truncate text-xs', unread ? 'font-semibold text-foreground' : 'text-subtle')}>
+        <span className={cn('truncate text-12', unread ? 'font-medium text-foreground' : 'text-subtle')}>
           {mail.subject}
         </span>
-        <span className="truncate text-2xs text-faint">{mail.snippet}</span>
+        <span className="truncate text-12 text-faint">{mail.snippet}</span>
       </button>
     </li>
   );
@@ -203,7 +203,7 @@ function ReadingPane({ id }: { id: number | null }) {
 
   if (id == null) {
     return (
-      <div className="flex min-h-[300px] items-center justify-center rounded-16 border border-dashed border-border bg-surface-1/40 text-sm text-faint">
+      <div className="flex min-h-[300px] items-center justify-center rounded-16 border border-dashed border-border bg-surface-1/40 text-12 text-faint">
         <span className="inline-flex flex-col items-center gap-2">
           <MailOpen className="size-6 text-faint" />
           选择左侧一封邮件查看
@@ -224,15 +224,15 @@ function ReadingPane({ id }: { id: number | null }) {
   return (
     <div className="flex min-w-0 flex-col rounded-16 border border-border bg-surface-card">
       {isLoading || !mail ? (
-        <div className="py-16 text-center text-sm text-faint">
+        <div className="py-16 text-center text-12 text-faint">
           <Loader2 className="mx-auto size-4 animate-spin" />
         </div>
       ) : (
         <>
           {/* 头部 */}
           <div className="border-b border-border-soft px-5 py-4">
-            <h2 className="text-base font-bold text-foreground">{mail.subject}</h2>
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-faint">
+            <h2 className="text-16 font-medium text-foreground">{mail.subject}</h2>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-12 text-faint">
               <span className="text-subtle">
                 {mail.from_name ? `${mail.from_name} <${mail.from_addr}>` : mail.from_addr}
               </span>
@@ -249,7 +249,7 @@ function ReadingPane({ id }: { id: number | null }) {
           {/* 正文:优先纯文本;只有 HTML 时用沙箱 iframe 隔离渲染 */}
           <div className="px-5 py-4">
             {mail.text_body ? (
-              <pre className="max-h-[45vh] overflow-y-auto whitespace-pre-wrap font-[inherit] text-sm leading-paragraph text-subtle">
+              <pre className="max-h-[45vh] overflow-y-auto whitespace-pre-wrap font-[inherit] text-12 leading-paragraph text-subtle">
                 {mail.text_body}
               </pre>
             ) : mail.html_body ? (
@@ -260,13 +260,13 @@ function ReadingPane({ id }: { id: number | null }) {
                 className="h-[45vh] w-full rounded-12 border border-border-soft bg-surface-card"
               />
             ) : (
-              <p className="text-xs text-faint">(无正文)</p>
+              <p className="text-12 text-faint">(无正文)</p>
             )}
           </div>
 
           {/* 回信 */}
           <div className="border-t border-border-soft px-5 py-4">
-            <label className="mb-2 block text-2xs font-bold text-faint">
+            <label className="mb-2 block text-12 font-medium text-faint">
               回复 {mail.from_addr}(主题自动加 Re:)
             </label>
             <textarea
@@ -274,7 +274,7 @@ function ReadingPane({ id }: { id: number | null }) {
               onChange={(e) => setBody(e.target.value)}
               rows={4}
               placeholder="输入回复内容…"
-              className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
             <div className="mt-2 flex justify-end">
               <Button onClick={handleReply} disabled={reply.isPending || !body.trim()}>
@@ -325,7 +325,7 @@ function ComposeDialog({ open, onClose }: { open: boolean; onClose: () => void }
             onChange={(e) => setBody(e.target.value)}
             rows={8}
             placeholder="正文…"
-            className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
           <div className="flex justify-end">
             <Button onClick={handleSend} disabled={compose.isPending || !to.trim() || !subject.trim() || !body.trim()}>

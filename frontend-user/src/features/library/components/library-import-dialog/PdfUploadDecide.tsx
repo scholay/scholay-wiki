@@ -64,7 +64,7 @@ function MatchConfidenceBadge({ hit }: { hit: SearchHit }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center px-1.5 py-0.5 rounded-4 text-[10px] font-bold leading-none',
+        'inline-flex items-center px-1.5 py-0.5 rounded-4 text-12 font-medium leading-none',
         CONFIDENCE_CLS[tone]
       )}
     >
@@ -166,10 +166,10 @@ function TopBanner({ total }: { total: number }) {
     <div className="flex items-start gap-3 rounded-12 border border-brand-amber/30 bg-warning-soft px-4 py-3">
       <Info className="size-4 text-brand-amber shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-semibold text-foreground">
+        <div className="text-14 font-medium text-foreground">
           找到 {total} 条匹配结果,请确认
         </div>
-        <div className="mt-0.5 text-xs text-muted-foreground">
+        <div className="mt-0.5 text-12 text-muted-foreground">
           根据 PDF 内容在在线论文库中检索,已按相关度排序
         </div>
       </div>
@@ -203,8 +203,8 @@ function BestMatchCard({
       <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-border-soft bg-surface-1">
         <div className="flex items-center gap-2 flex-wrap">
           <Sparkles className="size-3.5 text-brand-amber" strokeWidth={2.25} />
-          <span className="text-xs font-bold text-foreground">最佳建议</span>
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-surface-2 text-subtle text-[10px] font-bold leading-none uppercase">
+          <span className="text-12 font-medium text-foreground">最佳建议</span>
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-surface-2 text-subtle text-12 font-medium leading-none uppercase">
             {sourceBrandLabel(hit.source)}
           </span>
           <MatchConfidenceBadge hit={hit} />
@@ -214,7 +214,7 @@ function BestMatchCard({
             href={externalUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-brand-amber hover:underline underline-offset-2"
+            className="inline-flex items-center gap-1 text-12 text-brand-amber hover:underline underline-offset-2"
           >
             <ExternalLink className="size-3" />
             查看原文
@@ -224,13 +224,13 @@ function BestMatchCard({
 
       {/* 主体:标题 + 作者 + DOI/期刊/badges + 接受/拒绝按钮 */}
       <div className="px-4 py-3.5 space-y-2">
-        <div className="text-sm font-bold text-foreground leading-paragraph">
+        <div className="text-14 font-medium text-foreground leading-paragraph">
           {hit.title || '无标题'}
         </div>
         {authorsLine && (
-          <div className="text-xs text-muted-foreground">{authorsLine}</div>
+          <div className="text-12 text-muted-foreground">{authorsLine}</div>
         )}
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-2xs text-faint">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-12 text-faint">
           {hit.doi && (
             <span className="font-mono">
               <span className="font-bold mr-1">DOI</span>
@@ -265,7 +265,7 @@ function BestMatchCard({
             onClick={onAccept}
             disabled={disabled}
             className={cn(
-              'inline-flex items-center gap-1.5 h-8 px-3.5 rounded-8 bg-brand-green text-background text-sm font-bold',
+              'inline-flex items-center gap-1.5 h-8 px-3.5 rounded-8 bg-brand-green text-background text-14 font-medium',
               'hover:bg-brand-green/90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors'
             )}
           >
@@ -281,7 +281,7 @@ function BestMatchCard({
             onClick={onReject}
             disabled={disabled}
             className={cn(
-              'inline-flex items-center gap-1 h-8 px-3 rounded-8 text-sm font-semibold text-subtle',
+              'inline-flex items-center gap-1 h-8 px-3 rounded-8 text-14 font-medium text-subtle',
               'hover:bg-surface-2 hover:text-foreground disabled:opacity-60 transition-colors'
             )}
           >
@@ -318,7 +318,7 @@ function OtherCandidatesSection({
         onClick={onToggle}
         className="flex items-center justify-between w-full px-4 py-2.5 hover:bg-surface-1 transition-colors"
       >
-        <span className="text-xs font-bold text-foreground">
+        <span className="text-12 font-medium text-foreground">
           其他候选项 ({hits.length})
         </span>
         {open ? (
@@ -335,10 +335,10 @@ function OtherCandidatesSection({
                 <FileText className="size-3 text-subtle" strokeWidth={2} />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-foreground line-clamp-2">
+                <div className="text-14 font-medium text-foreground line-clamp-2">
                   {h.title || '无标题'}
                 </div>
-                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-2xs text-muted-foreground">
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-12 text-muted-foreground">
                   {(() => {
                     const line = formatAuthorsDisplay(h.authors);
                     return line ? <span>{line}</span> : null;
@@ -358,7 +358,7 @@ function OtherCandidatesSection({
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-surface-2 text-subtle text-[10px] font-bold leading-none uppercase">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-surface-2 text-subtle text-12 font-medium leading-none uppercase">
                   {sourceBrandLabel(h.source)}
                 </span>
                 <button
@@ -366,7 +366,7 @@ function OtherCandidatesSection({
                   onClick={() => onPickHit(h)}
                   disabled={disabled}
                   className={cn(
-                    'inline-flex items-center h-7 px-2.5 rounded-8 border border-brand-amber text-brand-amber text-xs font-semibold',
+                    'inline-flex items-center h-7 px-2.5 rounded-8 border border-brand-amber text-brand-amber text-12 font-medium',
                     'hover:bg-brand-amber-soft disabled:opacity-60 transition-colors'
                   )}
                 >
@@ -398,10 +398,10 @@ function NoMatchBanner({
         <Info className="size-4 text-brand-amber" />
       </div>
       <div>
-        <div className="text-sm font-semibold text-foreground">
+        <div className="text-14 font-medium text-foreground">
           没有找到匹配的在线论文
         </div>
-        <div className="mt-1 text-xs text-muted-foreground">
+        <div className="mt-1 text-12 text-muted-foreground">
           可能是论文太新还没被收录,也可能是扫描件不便识别
         </div>
       </div>
@@ -410,7 +410,7 @@ function NoMatchBanner({
         onClick={onReject}
         disabled={isPending}
         className={cn(
-          'inline-flex items-center gap-1.5 h-8 px-3 rounded-8 bg-foreground text-background text-sm font-semibold',
+          'inline-flex items-center gap-1.5 h-8 px-3 rounded-8 bg-foreground text-background text-14 font-medium',
           'hover:bg-foreground/85 disabled:opacity-60 transition-colors'
         )}
       >
@@ -465,7 +465,7 @@ function JournalBadges({ enrichment }: { enrichment: NonNullable<JournalEnrichme
         <span
           key={b.label}
           className={cn(
-            'inline-flex items-center px-1.5 py-0.5 rounded-4 text-[10px] font-bold leading-none whitespace-nowrap',
+            'inline-flex items-center px-1.5 py-0.5 rounded-4 text-12 font-medium leading-none whitespace-nowrap',
             b.tone === 'solid-green' && 'bg-brand-green text-on-brand',
             b.tone === 'solid-amber' && 'bg-brand-amber text-on-brand',
             b.tone === 'solid-red' && 'bg-brand-red text-on-brand',

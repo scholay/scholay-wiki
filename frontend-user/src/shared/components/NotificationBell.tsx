@@ -47,7 +47,7 @@ export function NotificationBell() {
           {unread > 0 && (
             <span
               aria-label={`${unread} 条未读`}
-              className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center px-1 rounded-pill bg-brand-red text-background text-2xs font-bold tabular-nums pointer-events-none"
+              className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center px-1 rounded-pill bg-brand-red text-background text-12 font-medium tabular-nums pointer-events-none"
             >
               {unread > 99 ? '99+' : unread}
             </span>
@@ -75,13 +75,13 @@ function NotificationHeader({ unread }: { unread: number }) {
   const markAll = useMarkAllRead();
   return (
     <header className="flex items-center justify-between gap-2 h-10 px-3 border-b border-border-soft shrink-0">
-      <span className="text-sm font-bold text-foreground">通知</span>
+      <span className="text-14 font-medium text-foreground">通知</span>
       <button
         type="button"
         onClick={() => markAll.mutate()}
         disabled={unread === 0 || markAll.isPending}
         className={cn(
-          'inline-flex items-center gap-1 h-7 px-2 rounded-8 text-xs transition-colors',
+          'inline-flex items-center gap-1 h-7 px-2 rounded-8 text-12 transition-colors',
           unread === 0 || markAll.isPending
             ? 'text-faint cursor-not-allowed'
             : 'text-muted-foreground hover:bg-surface-1 hover:text-foreground'
@@ -111,7 +111,7 @@ function NotificationTabs({
       <TabButton active={tab === 'unread'} onClick={() => onChange('unread')}>
         未读
         {unread > 0 && (
-          <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center px-1 rounded-pill bg-brand-red text-background text-2xs font-bold tabular-nums">
+          <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center px-1 rounded-pill bg-brand-red text-background text-12 font-medium tabular-nums">
             {unread > 99 ? '99+' : unread}
           </span>
         )}
@@ -134,7 +134,7 @@ function TabButton({
       type="button"
       onClick={onClick}
       className={cn(
-        'relative inline-flex items-center h-8 px-3 text-xs font-bold transition-colors',
+        'relative inline-flex items-center h-8 px-3 text-12 font-medium transition-colors',
         active
           ? 'text-foreground'
           : 'text-muted-foreground hover:text-foreground'
@@ -179,7 +179,7 @@ function NotificationList({
 
   if (listQ.error) {
     return (
-      <div className="flex-1 flex items-center justify-center py-12 text-xs text-brand-red">
+      <div className="flex-1 flex items-center justify-center py-12 text-12 text-brand-red">
         通知加载失败,请稍后再试
       </div>
     );
@@ -189,7 +189,7 @@ function NotificationList({
     return (
       <div className="flex-1 flex flex-col items-center justify-center py-16 px-4 text-center gap-2">
         <Inbox className="size-8 text-faint" strokeWidth={1.5} />
-        <p className="text-sm text-muted-foreground">
+        <p className="text-14 text-muted-foreground">
           {tab === 'unread' ? '没有未读通知' : '还没有通知'}
         </p>
       </div>
@@ -209,7 +209,7 @@ function NotificationList({
             type="button"
             onClick={() => listQ.fetchNextPage()}
             disabled={listQ.isFetchingNextPage}
-            className="w-full inline-flex items-center justify-center h-7 rounded-8 text-xs text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full inline-flex items-center justify-center h-7 rounded-8 text-12 text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors disabled:cursor-not-allowed disabled:opacity-60"
           >
             {listQ.isFetchingNextPage ? (
               <Loader2 className="size-3 animate-spin" />
@@ -275,16 +275,16 @@ function NotificationItem({
             />
           )}
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-foreground line-clamp-1">
+            <p className="text-14 font-medium text-foreground line-clamp-1">
               {item.title}
             </p>
-            <p className="mt-0.5 text-xs text-subtle line-clamp-3 leading-paragraph">
+            <p className="mt-0.5 text-12 text-subtle line-clamp-3 leading-paragraph">
               {item.content}
             </p>
-            <div className="mt-1.5 flex items-center gap-2 text-2xs text-faint">
+            <div className="mt-1.5 flex items-center gap-2 text-12 text-faint">
               <span>{formatRelativeTime(item.created_at)}</span>
               {item.link_text && (
-                <span className="text-brand-red font-bold">
+                <span className="text-brand-red font-medium">
                   {item.link_text} →
                 </span>
               )}

@@ -510,7 +510,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
           避免 review #2 的「显示 N 处却按钮全哑」)。计数由 header 的 badge 承载,这里只做导航,不重复报数。 */}
       {!streaming && diffBaseline && navChangeCount > 0 && (
         <div className="pointer-events-none absolute right-4 top-3 z-sticky">
-          <div className="pointer-events-auto flex items-center gap-0.5 rounded-pill border border-brand-green/30 bg-surface-card/95 px-1.5 py-1 text-2xs text-brand-green shadow-overlay backdrop-blur">
+          <div className="pointer-events-auto flex items-center gap-0.5 rounded-pill border border-brand-green/30 bg-surface-card/95 px-1.5 py-1 text-12 text-brand-green shadow-overlay backdrop-blur">
             <Sparkles className="size-3 shrink-0" />
             <span className="px-1 font-medium">AI 改动</span>
             <button
@@ -543,13 +543,13 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
           非原始 markdown)。用户就地保留/删改本轮改动,「应用本轮」把合并 struct 经 override 固化 / 「放弃本轮」还原。 */}
       {awaitingApply && reviewPending?.new_struct && (
         <div className="absolute inset-0 z-nav flex flex-col bg-surface-card">
-          <div className="flex shrink-0 items-center gap-2 border-b border-brand-green/30 bg-brand-green/5 px-4 py-1.5 text-2xs text-brand-green">
+          <div className="flex shrink-0 items-center gap-2 border-b border-brand-green/30 bg-brand-green/5 px-4 py-1.5 text-12 text-brand-green">
             <Sparkles className="size-3 shrink-0" />
             <span className="flex-1">逐块审阅本轮改动 —— 直接在文中保留/删改,满意后应用</span>
-            <Button size="sm" className="h-6 px-2 text-2xs" onClick={applyReview} disabled={chat.roundState !== 'awaiting_apply'}>
+            <Button size="sm" className="h-6 px-2 text-12" onClick={applyReview} disabled={chat.roundState !== 'awaiting_apply'}>
               应用本轮
             </Button>
-            <Button size="sm" variant="outline" className="h-6 px-2 text-2xs" onClick={chat.reject} disabled={chat.roundState !== 'awaiting_apply'}>
+            <Button size="sm" variant="outline" className="h-6 px-2 text-12" onClick={chat.reject} disabled={chat.roundState !== 'awaiting_apply'}>
               放弃本轮
             </Button>
           </div>
@@ -574,7 +574,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
 
   // PDF 面「下载 / 隐藏」—— 并进 PdfViewer 工具条最右侧(trailingActions),不再单独占一行 h-9 头部。
   const pdfActionBtn =
-    'inline-flex h-7 items-center gap-1 rounded-8 px-2 text-2xs text-subtle transition-colors hover:bg-surface-2 hover:text-foreground';
+    'inline-flex h-7 items-center gap-1 rounded-8 px-2 text-12 text-subtle transition-colors hover:bg-surface-2 hover:text-foreground';
   const pdfActions = (
     <>
       <button type="button" onClick={downloadPdf} className={pdfActionBtn} title="下载 PDF">
@@ -595,11 +595,11 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
         {compileError ? (
           // 编译未通过是**可恢复**状态(有「让 AI 修复」回路)→ 用琥珀软提示而非红墙,降低焦虑感
           // (对齐全站 amber 约定:TurnErrorNotice / 工具失败)。
-          <div className="m-3 rounded-12 border border-brand-amber/30 bg-warning-soft p-3 text-xs text-brand-amber">
+          <div className="m-3 rounded-12 border border-brand-amber/30 bg-warning-soft p-3 text-12 text-brand-amber">
             <div className="flex items-start gap-2">
               <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
               <div className="min-w-0">
-                <p className="font-bold">本次编译未通过</p>
+                <p className="font-medium">本次编译未通过</p>
                 <p className="mt-1 break-words text-subtle">{compileError}</p>
                 <Button
                   size="sm"
@@ -620,7 +620,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
               <PdfViewer key={pdfKey} file={pdfSource} className="h-full bg-surface-card" trailingActions={pdfActions} />
             </Suspense>
           ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-xs text-faint">
+            <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-12 text-faint">
               <FileText className="size-6" />
               <p>点击「编译」生成 PDF</p>
             </div>
@@ -668,7 +668,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
             {/* 长标题:min-w-0 + truncate 省略号,hover title 看全称。头栏其余属性已迁走:
                逐块审阅→对话框(像切模型);作者机构/词数/质量/投稿检查/AI改动→右侧预览区属性条。 */}
             <span
-              className="min-w-0 truncate text-md font-bold text-foreground"
+              className="min-w-0 truncate text-16 font-medium text-foreground"
               title={title || '新版写作'}
             >
               {title || '新版写作'}
@@ -677,7 +677,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
                 保存失败必须显式标红,不能仍显示「已自动保存」谎报已存(评审 #3)。 */}
             <span
               className={cn(
-                'shrink-0 text-2xs',
+                'shrink-0 text-12',
                 streaming ? 'text-brand-green' : save.isError ? 'text-brand-red' : 'text-faint',
               )}
             >
@@ -710,7 +710,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
             <select
               value={template}
               onChange={(e) => onTemplateChange(e.target.value)}
-              className="h-8 rounded-8 border border-border bg-surface-card px-2 text-xs text-foreground"
+              className="h-8 rounded-8 border border-border bg-surface-card px-2 text-12 text-foreground"
               aria-label="目标模板"
             >
               {(templates.data ?? [{ key: 'article', name: '通用 Article', doc_class: 'article' }]).map((t) => (
@@ -732,12 +732,12 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
         {/* 编译状态常驻横幅(V3-4.3-1):header 下方常驻,一眼可见。
             P1-2:自动修复进行中 → 绿色「AI 正在自动修复」(无手动按钮);否则失败 → 琥珀 + 一键让 AI 修。 */}
         {autoFixing ? (
-          <div className="flex shrink-0 items-center gap-2 border-b border-brand-green/30 bg-brand-green/5 px-4 py-1.5 text-2xs text-brand-green">
+          <div className="flex shrink-0 items-center gap-2 border-b border-brand-green/30 bg-brand-green/5 px-4 py-1.5 text-12 text-brand-green">
             <Loader2 className="size-3.5 shrink-0 animate-spin" />
             <span className="min-w-0 flex-1 truncate">{autoFixLabel}</span>
           </div>
         ) : compileError ? (
-          <div className="flex shrink-0 items-center gap-2 border-b border-brand-amber/30 bg-warning-soft px-4 py-1.5 text-2xs text-brand-amber">
+          <div className="flex shrink-0 items-center gap-2 border-b border-brand-amber/30 bg-warning-soft px-4 py-1.5 text-12 text-brand-amber">
             <AlertTriangle className="size-3.5 shrink-0" />
             <span className="min-w-0 flex-1 truncate" title={compileError}>
               本次编译未通过:{compileError}
@@ -745,7 +745,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
             <Button
               size="sm"
               variant="outline"
-              className="h-6 shrink-0 px-2 text-2xs"
+              className="h-6 shrink-0 px-2 text-12"
               onClick={fixCompile}
               disabled={chat.roundState !== 'idle'}
             >
@@ -794,7 +794,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
                 {(conf.data?.word_count ?? 0) > 0 && (
                   <span
                     className={cn(
-                      'shrink-0 text-2xs',
+                      'shrink-0 text-12',
                       conf.data?.word_limit && (conf.data?.word_count ?? 0) > conf.data.word_limit ? 'text-brand-red' : 'text-faint',
                     )}
                     title={conf.data?.word_limit ? `词数上限 ${conf.data.word_limit}` : '正文词数(中文每字计 1)'}
@@ -805,7 +805,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
                 )}
                 {/* 本次 AI 改动条数(编辑器里以绿标原地呈现);用户一开始编辑即消失 */}
                 {diffCount > 0 && (
-                  <span className="shrink-0 rounded-pill bg-brand-green/10 px-2 py-0.5 text-2xs text-brand-green">
+                  <span className="shrink-0 rounded-pill bg-brand-green/10 px-2 py-0.5 text-12 text-brand-green">
                     AI 改动 {diffCount} 处
                   </span>
                 )}

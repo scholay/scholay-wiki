@@ -43,7 +43,7 @@ export function StepIndicator({ current, steps, onJump }: StepIndicatorProps) {
             >
               <span
                 className={cn(
-                  'flex size-7 items-center justify-center rounded-pill border-[1.5px] text-2xs font-bold transition',
+                  'flex size-7 items-center justify-center rounded-pill border-[1.5px] text-12 font-medium transition',
                   done && 'border-transparent bg-[#E5E5E5] text-faint',
                   active && 'border-brand-red bg-danger-soft text-brand-red',
                   !done && !active && 'border-border bg-surface-card text-faint'
@@ -53,8 +53,8 @@ export function StepIndicator({ current, steps, onJump }: StepIndicatorProps) {
               </span>
               <span
                 className={cn(
-                  'text-2xs whitespace-nowrap',
-                  active ? 'font-bold text-brand-red' : 'text-faint'
+                  'text-12 whitespace-nowrap',
+                  active ? 'font-medium text-brand-red' : 'text-faint'
                 )}
               >
                 {s.label}

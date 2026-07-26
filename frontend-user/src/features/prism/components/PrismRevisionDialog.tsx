@@ -134,7 +134,7 @@ export function PrismRevisionDialog({
           <DialogTitle className="flex items-center gap-1.5">
             <ClipboardPaste className="size-4" /> 修改意见回应
             {items.length > 0 && (
-              <span className="text-2xs font-normal text-faint">
+              <span className="text-12 font-normal text-faint">
                 {done}/{items.length} 已处理
               </span>
             )}
@@ -148,7 +148,7 @@ export function PrismRevisionDialog({
             onChange={(e) => setPasteText(e.target.value)}
             placeholder="粘贴任何修改意见:审稿人 decision letter / 导师批注 / 合作者意见…(重新解析会覆盖现有条目)"
             rows={3}
-            className="flex-1 resize-none rounded-8 border border-border bg-surface-card p-2 text-xs outline-none placeholder:text-faint"
+            className="flex-1 resize-none rounded-8 border border-border bg-surface-card p-2 text-12 outline-none placeholder:text-faint"
           />
           <Button size="sm" onClick={doParse} disabled={parsing || !pasteText.trim()} className="self-end">
             {parsing ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />} 拆条
@@ -158,11 +158,11 @@ export function PrismRevisionDialog({
         {/* 条目列表 */}
         <div className="max-h-[46vh] space-y-2 overflow-y-auto pr-1">
           {loading ? (
-            <div className="flex items-center justify-center py-8 text-xs text-faint">
+            <div className="flex items-center justify-center py-8 text-12 text-faint">
               <Loader2 className="mr-1.5 size-4 animate-spin" /> 加载中…
             </div>
           ) : items.length === 0 ? (
-            <p className="py-6 text-center text-2xs text-faint">
+            <p className="py-6 text-center text-12 text-faint">
               粘贴意见并拆条后,逐条交给 AI 改稿(一条意见 = 一个额度轮),完成后导出回应信。
             </p>
           ) : (
@@ -171,25 +171,25 @@ export function PrismRevisionDialog({
               return (
                 <div key={it.id} className="rounded-12 border border-border p-2">
                   <div className="flex items-start gap-2">
-                    <span className="shrink-0 text-2xs font-bold text-faint">#{it.seq}</span>
+                    <span className="shrink-0 text-12 font-medium text-faint">#{it.seq}</span>
                     <div className="min-w-0 flex-1">
-                      <p className="line-clamp-2 text-xs text-subtle" title={it.quote}>
+                      <p className="line-clamp-2 text-12 text-subtle" title={it.quote}>
                         {it.quote}
                       </p>
-                      {it.interpretation && <p className="mt-0.5 text-2xs text-faint">{it.interpretation}</p>}
+                      {it.interpretation && <p className="mt-0.5 text-12 text-faint">{it.interpretation}</p>}
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
                       {it.severity === 'major' && (
-                        <span className="rounded-pill bg-brand-red/10 px-1.5 py-0.5 text-2xs text-brand-red">major</span>
+                        <span className="rounded-pill bg-brand-red/10 px-1.5 py-0.5 text-12 text-brand-red">major</span>
                       )}
-                      <span className={cn('rounded-pill px-1.5 py-0.5 text-2xs', st.cls)}>{st.label}</span>
+                      <span className={cn('rounded-pill px-1.5 py-0.5 text-12', st.cls)}>{st.label}</span>
                     </div>
                   </div>
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                     <select
                       value={it.action || 'concede_revise'}
                       onChange={(e) => patch(it, { action: e.target.value })}
-                      className="h-6 rounded-4 border border-border bg-surface-card px-1 text-2xs"
+                      className="h-6 rounded-4 border border-border bg-surface-card px-1 text-12"
                     >
                       {Object.entries(ACTION_LABELS).map(([k, v]) => (
                         <option key={k} value={k}>
@@ -201,7 +201,7 @@ export function PrismRevisionDialog({
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-6 px-2 text-2xs"
+                        className="h-6 px-2 text-12"
                         disabled={!chatIdle}
                         onClick={() => {
                           trackEvent('prism_revision_round', { item: it.seq });
@@ -212,14 +212,14 @@ export function PrismRevisionDialog({
                         <Sparkles className="size-3" /> AI 处理此条
                       </Button>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-2xs text-brand-amber">
+                      <span className="inline-flex items-center gap-1 text-12 text-brand-amber">
                         <HelpCircle className="size-3" /> 需要你补充材料/数据 —— AI 不代编
                       </span>
                     )}
-                    <Button size="sm" variant="ghost" className="h-6 px-1.5 text-2xs" onClick={() => patch(it, { status: 'applied' })}>
+                    <Button size="sm" variant="ghost" className="h-6 px-1.5 text-12" onClick={() => patch(it, { status: 'applied' })}>
                       <Check className="size-3" /> 标记已改
                     </Button>
-                    <Button size="sm" variant="ghost" className="h-6 px-1.5 text-2xs text-faint" onClick={() => patch(it, { status: 'rejected' })}>
+                    <Button size="sm" variant="ghost" className="h-6 px-1.5 text-12 text-faint" onClick={() => patch(it, { status: 'rejected' })}>
                       <XIcon className="size-3" /> 不采纳
                     </Button>
                   </div>
@@ -231,7 +231,7 @@ export function PrismRevisionDialog({
                     onBlur={(e) => {
                       if (e.target.value !== it.response) patch(it, { response: e.target.value });
                     }}
-                    className="mt-1.5 w-full resize-y rounded-4 border border-border bg-surface-1 p-1.5 text-2xs outline-none placeholder:text-faint"
+                    className="mt-1.5 w-full resize-y rounded-4 border border-border bg-surface-1 p-1.5 text-12 outline-none placeholder:text-faint"
                   />
                 </div>
               );
@@ -241,7 +241,7 @@ export function PrismRevisionDialog({
 
         {items.length > 0 && (
           <div className="flex items-center justify-between">
-            <p className="text-2xs text-faint">铁律:major 条目别跳确认;缺数据的条目 AI 不代编。</p>
+            <p className="text-12 text-faint">铁律:major 条目别跳确认;缺数据的条目 AI 不代编。</p>
             <Button size="sm" variant="outline" onClick={exportLetter}>
               <Download className="size-3.5" /> 导出回应信
             </Button>

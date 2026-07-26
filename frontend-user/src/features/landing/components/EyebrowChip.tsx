@@ -24,7 +24,7 @@ export function EyebrowChip({
     <span
       className={cn(
         'inline-flex items-center gap-2 px-3 py-1.5 rounded-pill bg-prism-badge-bg',
-        'text-2xs font-semibold text-prism-badge-fg uppercase whitespace-nowrap',
+        'text-12 font-medium text-prism-badge-fg uppercase whitespace-nowrap',
         className
       )}
     >
@@ -32,7 +32,7 @@ export function EyebrowChip({
         <span
           aria-hidden
           className={cn(
-            'text-2xs leading-none',
+            'text-12 leading-none',
             eyebrow.dotColor ? DOT_COLOR[eyebrow.dotColor] : 'text-foreground'
           )}
         >

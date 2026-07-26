@@ -87,8 +87,8 @@ export const PaperFeedCard = memo(function PaperFeedCard({
           className="h-12 w-12 rounded-8"
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-md font-semibold text-foreground">{venue}</p>
-          <p className="mt-0.5 truncate text-xs text-faint">
+          <p className="truncate text-14 font-medium text-foreground">{venue}</p>
+          <p className="mt-0.5 truncate text-12 text-faint">
             {[paper.year, paper.publicationDate].filter(Boolean).find(Boolean)
               ? `${paper.publicationDate ?? paper.year} 发表`
               : '发表信息暂缺'}
@@ -98,11 +98,11 @@ export const PaperFeedCard = memo(function PaperFeedCard({
 
       {/* 标题 + 作者 */}
       <div className="shrink-0">
-        <h2 className="line-clamp-3 text-2xl font-semibold text-foreground">
+        <h2 className="line-clamp-3 text-24 font-medium text-foreground">
           {paper.title}
         </h2>
         {authors && (
-          <p className="mt-1.5 truncate text-base text-muted-foreground">{authors}</p>
+          <p className="mt-1.5 truncate text-14 text-muted-foreground">{authors}</p>
         )}
       </div>
 
@@ -139,16 +139,16 @@ export const PaperFeedCard = memo(function PaperFeedCard({
       <div className="min-h-0 shrink">
         {paper.abstract ? (
           <>
-            <p className="flex items-center gap-1.5 text-xs font-semibold text-faint">
+            <p className="flex items-center gap-1.5 text-12 font-medium text-faint">
               <AlignLeft className="size-3" />
               摘要
             </p>
-            <p className="mt-1.5 line-clamp-[8] text-sm leading-paragraph text-muted-foreground">
+            <p className="mt-1.5 line-clamp-[8] text-12 leading-paragraph text-muted-foreground">
               {paper.abstract}
             </p>
           </>
         ) : (
-          <p className="text-sm text-faint">该论文暂无摘要</p>
+          <p className="text-12 text-faint">该论文暂无摘要</p>
         )}
       </div>
 
@@ -156,7 +156,7 @@ export const PaperFeedCard = memo(function PaperFeedCard({
       <div className="absolute top-1/2 right-2.5 flex -translate-y-1/2 flex-col items-center gap-4">
         <RailItem label="作者">
           <div className="flex h-12 w-12 items-center justify-center rounded-pill bg-brand-green">
-            <span className="text-lg font-semibold text-on-brand">
+            <span className="text-16 font-medium text-on-brand">
               {firstAuthorInitial}
             </span>
           </div>
@@ -195,7 +195,7 @@ function Pill({
   children: React.ReactNode;
 }) {
   return (
-    <span className={cn('rounded-pill px-2.5 py-1 text-xs font-semibold', className)}>
+    <span className={cn('rounded-pill px-2.5 py-1 text-12 font-medium', className)}>
       {children}
     </span>
   );
@@ -213,10 +213,10 @@ function Metric({
   return (
     /* min-h 预留两行高度 —— 数值缺失/到达时不再撑动网格(防 CLS) */
     <div className="min-h-[62px] bg-surface-1 px-3 py-2.5">
-      <p className="text-2xs text-faint">{label}</p>
+      <p className="text-12 text-faint">{label}</p>
       <p
         className={cn(
-          'mt-0.5 text-lg font-semibold',
+          'mt-0.5 text-16 font-medium',
           highlight ? 'text-brand-green' : 'text-foreground'
         )}
       >
@@ -236,7 +236,7 @@ function RailItem({
   return (
     <div className="flex flex-col items-center gap-1">
       {children}
-      <span className="text-2xs text-faint">{label}</span>
+      <span className="text-12 text-faint">{label}</span>
     </div>
   );
 }

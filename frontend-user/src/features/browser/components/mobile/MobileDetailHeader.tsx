@@ -45,7 +45,7 @@ export function MobileDetailHeader({ label, className }: { label: string; classN
       >
         <ChevronLeft className="size-5" />
       </button>
-      <span className="min-w-0 flex-1 truncate text-base font-semibold text-foreground">{label}</span>
+      <span className="min-w-0 flex-1 truncate text-14 font-medium text-foreground">{label}</span>
       <button
         type="button"
         onClick={share}

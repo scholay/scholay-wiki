@@ -24,17 +24,17 @@ export function NewsHotItem({ item, rank }: { item: NewsCard; rank: number }) {
     >
       <span
         className={cn(
-          'flex size-5 shrink-0 items-center justify-center rounded-4 text-2xs font-bold',
+          'flex size-5 shrink-0 items-center justify-center rounded-4 text-12 font-medium',
           rankClass(rank),
         )}
       >
         {rank}
       </span>
-      <span className="min-w-0 flex-1 truncate text-xs text-subtle group-hover:text-brand-red">
+      <span className="min-w-0 flex-1 truncate text-12 text-subtle group-hover:text-brand-red">
         {item.title}
       </span>
       {item.heat_external > 0 && (
-        <span className="inline-flex shrink-0 items-center gap-0.5 text-2xs text-faint">
+        <span className="inline-flex shrink-0 items-center gap-0.5 text-12 text-faint">
           {formatHeat(item.heat_external)}
           {surging && <TrendingUp className="size-3 text-brand-red" />}
         </span>

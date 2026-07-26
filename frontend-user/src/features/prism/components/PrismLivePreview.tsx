@@ -73,21 +73,21 @@ export const PrismLivePreview = memo(function PrismLivePreview({
   );
   return (
     <div className="relative">
-      <div className="mx-auto max-w-[720px] px-12 py-10 font-serif text-md text-foreground">
-        {title && <p className="text-center text-2xl font-bold">{title}</p>}
+      <div className="mx-auto max-w-[720px] px-12 py-10 font-serif text-14 text-foreground">
+        {title && <p className="text-center text-24 font-bold">{title}</p>}
         {abstract && (
           <div className="mx-auto mt-6 max-w-[86%]">
-            <p className="mb-1 text-center text-sm font-bold">摘要</p>
-            <p className="indent-8 text-justify text-sm leading-paragraph">{abstract}</p>
+            <p className="mb-1 text-center text-12 font-bold">摘要</p>
+            <p className="indent-8 text-justify text-12 leading-paragraph">{abstract}</p>
           </div>
         )}
         {keywords && (
-          <p className="mx-auto mt-2 max-w-[86%] text-sm">
+          <p className="mx-auto mt-2 max-w-[86%] text-12">
             <span className="font-bold">关键词:</span> {keywords}
           </p>
         )}
         <div className="mt-8">
-          <MarkdownRenderer text={cleanedBody} className="!text-md" />
+          <MarkdownRenderer text={cleanedBody} className="!text-14" />
         </div>
       </div>
       {/* 参考文献编号列表(像真实 LaTeX 文末 References)—— 与正文行内 [N] 同源编号 */}

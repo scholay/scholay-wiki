@@ -30,10 +30,10 @@ export function ArticleRenderer({ sections }: { sections: ArticleSection[] }) {
                   strokeWidth={2.2}
                 />
                 <div className="flex-1 min-w-0">
-                  <p className="!m-0 text-sm font-bold text-foreground">
+                  <p className="!m-0 text-12 font-medium text-foreground">
                     {s.title}
                   </p>
-                  <p className="!mt-1.5 !mb-0 text-sm text-subtle leading-paragraph">
+                  <p className="!mt-1.5 !mb-0 text-12 text-subtle leading-paragraph">
                     {s.text}
                   </p>
                 </div>
@@ -48,14 +48,14 @@ export function ArticleRenderer({ sections }: { sections: ArticleSection[] }) {
           case 'table':
             return (
               <div key={i} className="my-5 overflow-x-auto">
-                <table className="w-full border-collapse text-sm">
+                <table className="w-full border-collapse text-12">
                   {s.headers.length > 0 && (
                     <thead>
                       <tr>
                         {s.headers.map((h, j) => (
                           <th
                             key={j}
-                            className="border border-border bg-surface-2 px-3 py-2 text-left font-bold text-foreground"
+                            className="border border-border bg-surface-2 px-3 py-2 text-left font-medium text-foreground"
                           >
                             {h}
                           </th>
@@ -89,10 +89,10 @@ export function ArticleRenderer({ sections }: { sections: ArticleSection[] }) {
                     key={j}
                     className="rounded-12 border border-border-soft bg-surface-1 p-4"
                   >
-                    <p className="!m-0 text-sm font-bold text-foreground">
+                    <p className="!m-0 text-12 font-medium text-foreground">
                       {qa.q}
                     </p>
-                    <p className="!mt-1.5 !mb-0 text-sm text-subtle leading-paragraph">
+                    <p className="!mt-1.5 !mb-0 text-12 text-subtle leading-paragraph">
                       {qa.a}
                     </p>
                   </div>

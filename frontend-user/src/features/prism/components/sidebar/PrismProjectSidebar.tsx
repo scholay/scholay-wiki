@@ -89,11 +89,11 @@ export function PrismProjectSidebar({
           }
         >
           {!token ? (
-            <div className="px-4 py-3 text-2xs text-faint">登录后可见写作项目</div>
+            <div className="px-4 py-3 text-12 text-faint">登录后可见写作项目</div>
           ) : isLoading ? (
-            <div className="px-4 py-3 text-2xs text-faint">加载中…</div>
+            <div className="px-4 py-3 text-12 text-faint">加载中…</div>
           ) : !projects || projects.length === 0 ? (
-            <div className="px-4 py-3 text-2xs text-faint">还没有写作项目, 点「新建」开始</div>
+            <div className="px-4 py-3 text-12 text-faint">还没有写作项目, 点「新建」开始</div>
           ) : (
             <div className="flex flex-col">
               {projects.map((p) => (
@@ -149,12 +149,12 @@ function ProjectRow({
     >
       <div className="min-w-0 flex-1">
         <div
-          className={cn('truncate text-sm', active ? 'font-semibold text-foreground' : 'text-subtle')}
+          className={cn('truncate text-12', active ? 'font-medium text-foreground' : 'text-subtle')}
           title={project.title || '未命名项目'}
         >
           {project.title || '未命名项目'}
         </div>
-        <div className="text-2xs text-faint">更新于 {project.updated_at?.slice(0, 10)}</div>
+        <div className="text-12 text-faint">更新于 {project.updated_at?.slice(0, 10)}</div>
       </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

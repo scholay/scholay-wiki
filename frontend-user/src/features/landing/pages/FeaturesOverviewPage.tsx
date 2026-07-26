@@ -84,11 +84,11 @@ export function FeaturesOverviewPage() {
       />
       <section className="px-6 py-16 md:py-24 max-w-6xl mx-auto">
         <div className="text-center max-w-2xl mx-auto">
-          <span className="inline-flex items-center gap-1 h-5 px-2 rounded-pill bg-surface-2 text-muted-foreground text-2xs font-bold">
+          <span className="inline-flex items-center gap-1 h-5 px-2 rounded-pill bg-surface-2 text-muted-foreground text-12 font-medium">
             <Compass className="size-3" strokeWidth={2.5} />
             FEATURES OVERVIEW
           </span>
-          <h1 className="mt-4 text-3xl md:text-display-36 font-bold text-foreground">
+          <h1 className="mt-4 text-28 md:text-display-36 font-medium text-foreground">
             从检索到投稿,覆盖科研全流程的一套工具
           </h1>
           <p className="mt-3 text-muted-foreground">
@@ -119,21 +119,21 @@ function FeatureCard({ feature }: { feature: FeatureEntry }) {
           <Icon className="size-5 text-foreground" strokeWidth={1.8} />
         </span>
         {feature.comingSoon && (
-          <span className="inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-background text-[9px] font-bold leading-none">
+          <span className="inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-background text-12 font-medium leading-none">
             即将推出
           </span>
         )}
       </div>
       <div>
-        <p className="text-base font-bold text-foreground">{feature.name}</p>
-        <p className="text-2xs text-faint mt-0.5 font-bold uppercase">
+        <p className="text-14 font-medium text-foreground">{feature.name}</p>
+        <p className="text-12 text-faint mt-0.5 font-medium uppercase">
           {feature.englishName}
         </p>
       </div>
-      <p className="text-sm text-muted-foreground leading-paragraph flex-1">
+      <p className="text-12 text-muted-foreground leading-paragraph flex-1">
         {feature.desc}
       </p>
-      <span className="inline-flex items-center gap-1 text-xs text-brand-red font-bold group-hover:gap-2 transition-all">
+      <span className="inline-flex items-center gap-1 text-12 text-brand-red font-medium group-hover:gap-2 transition-all">
         了解更多 <ArrowRight className="size-3" />
       </span>
     </Link>

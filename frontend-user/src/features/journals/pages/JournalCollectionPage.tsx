@@ -87,13 +87,13 @@ export function JournalCollectionPage() {
 
   const header = (
     <section className="space-y-2">
-      <div className="text-2xs font-bold uppercase text-faint">
+      <div className="text-12 font-medium uppercase text-faint">
         期刊榜单
       </div>
-      <h1 className="font-display font-bold text-xl sm:text-2xl text-foreground leading-display-tight">
+      <h1 className="font-display font-bold text-20 sm:text-24 text-foreground leading-display-tight">
         {preset.heading}
       </h1>
-      <p className="text-sm leading-paragraph text-muted-foreground max-w-3xl">
+      <p className="text-12 leading-paragraph text-muted-foreground max-w-3xl">
         {preset.intro}
       </p>
 
@@ -105,14 +105,14 @@ export function JournalCollectionPage() {
             <Link
               key={k}
               to={`/journals/${k}`}
-              className="inline-flex items-center h-7 px-2.5 rounded-pill border border-border text-xs font-bold text-subtle hover:border-foreground hover:text-foreground transition-colors"
+              className="inline-flex items-center h-7 px-2.5 rounded-pill border border-border text-12 font-medium text-subtle hover:border-foreground hover:text-foreground transition-colors"
             >
               {p.chip}
             </Link>
           ))}
         <Link
           to="/journals/search"
-          className="inline-flex items-center h-7 px-2.5 rounded-pill border border-border text-xs font-bold text-subtle hover:border-foreground hover:text-foreground transition-colors"
+          className="inline-flex items-center h-7 px-2.5 rounded-pill border border-border text-12 font-medium text-subtle hover:border-foreground hover:text-foreground transition-colors"
         >
           全部期刊检索
         </Link>

@@ -34,7 +34,7 @@ export function SpreadsheetPreview({ bytes }: { bytes: ArrayBuffer }) {
 
   if (!wb) {
     return (
-      <div className="flex h-full items-center justify-center px-6 text-sm text-muted-foreground">
+      <div className="flex h-full items-center justify-center px-6 text-12 text-muted-foreground">
         无法解析表格文件
       </div>
     );
@@ -50,7 +50,7 @@ export function SpreadsheetPreview({ bytes }: { bytes: ArrayBuffer }) {
               type="button"
               onClick={() => setActive(i)}
               className={cn(
-                'inline-flex shrink-0 items-center rounded-8 px-2 py-1 text-2xs transition-colors',
+                'inline-flex shrink-0 items-center rounded-8 px-2 py-1 text-12 transition-colors',
                 i === safeActive ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-surface-2',
               )}
             >
@@ -60,11 +60,11 @@ export function SpreadsheetPreview({ bytes }: { bytes: ArrayBuffer }) {
         </div>
       )}
       <div className="min-h-0 flex-1 overflow-auto p-3">
-        <table className="w-max border-collapse text-xs tabular-nums">
+        <table className="w-max border-collapse text-12 tabular-nums">
           <tbody>
             {rows.map((row, ri) => (
-              <tr key={ri} className={ri === 0 ? 'bg-surface-1 font-semibold' : ''}>
-                <td className="sticky left-0 border border-border bg-surface-2 px-1.5 py-1 text-center text-2xs text-faint">
+              <tr key={ri} className={ri === 0 ? 'bg-surface-1 font-medium' : ''}>
+                <td className="sticky left-0 border border-border bg-surface-2 px-1.5 py-1 text-center text-12 text-faint">
                   {ri + 1}
                 </td>
                 {row.map((cell, ci) => (
@@ -80,7 +80,7 @@ export function SpreadsheetPreview({ bytes }: { bytes: ArrayBuffer }) {
           </tbody>
         </table>
         {truncatedRows && (
-          <div className="px-1 py-2 text-2xs text-faint">已截断,仅预览前 {MAX_ROWS} 行 · 完整内容请下载</div>
+          <div className="px-1 py-2 text-12 text-faint">已截断,仅预览前 {MAX_ROWS} 行 · 完整内容请下载</div>
         )}
       </div>
     </div>

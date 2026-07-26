@@ -78,16 +78,16 @@ export const JournalFeedCard = memo(function JournalFeedCard({
       <div className="flex shrink-0 items-center gap-3">
         <JournalCover id={j.id} name={j.canonical_name} size="tile" />
         <div className="min-w-0 flex-1">
-          <h2 className="line-clamp-2 text-2xl font-semibold text-foreground">
+          <h2 className="line-clamp-2 text-24 font-medium text-foreground">
             {j.canonical_name}
           </h2>
           {scopeLine && (
-            <p className="mt-0.5 truncate text-base text-muted-foreground">
+            <p className="mt-0.5 truncate text-14 text-muted-foreground">
               {scopeLine}
             </p>
           )}
           {publisherLine && (
-            <p className="mt-0.5 truncate text-xs text-faint">{publisherLine}</p>
+            <p className="mt-0.5 truncate text-12 text-faint">{publisherLine}</p>
           )}
         </div>
       </div>
@@ -156,7 +156,7 @@ export const JournalFeedCard = memo(function JournalFeedCard({
       )}
 
       {j.fqb_major_category && (
-        <p className="shrink-0 text-sm leading-paragraph text-muted-foreground">
+        <p className="shrink-0 text-12 leading-paragraph text-muted-foreground">
           《{j.canonical_name}》是{j.fqb_major_category}领域
           {j.jcr_quartile === 'Q1' ? '的高影响力' : '的'}学术期刊
           {isTop ? ',中科院分区 Top 期刊' : ''}。
@@ -186,7 +186,7 @@ function Pill({
   return (
     <span
       className={cn(
-        'rounded-pill px-2.5 py-1 text-xs font-semibold',
+        'rounded-pill px-2.5 py-1 text-12 font-medium',
         className
       )}
     >
@@ -207,10 +207,10 @@ function Metric({
   return (
     /* min-h 与 PaperFeedCard 指标格一致,预留两行高度防 CLS */
     <div className="min-h-[62px] bg-surface-1 px-3 py-2.5">
-      <p className="text-2xs text-faint">{label}</p>
+      <p className="text-12 text-faint">{label}</p>
       <p
         className={cn(
-          'mt-0.5 text-lg font-semibold',
+          'mt-0.5 text-16 font-medium',
           highlight ? 'text-brand-green' : 'text-foreground'
         )}
       >
@@ -239,7 +239,7 @@ function RailButton({
       >
         {children}
       </button>
-      <span className="text-2xs text-faint">{label}</span>
+      <span className="text-12 text-faint">{label}</span>
     </div>
   );
 }

@@ -51,7 +51,7 @@ export function Footer() {
   return (
     <footer className="bg-background border-t border-border">
       {/* 单行:brand / 法律 + 解决方案 popover */}
-      <div className="h-11 flex items-center justify-center gap-6 text-xs text-faint">
+      <div className="h-11 flex items-center justify-center gap-6 text-12 text-faint">
         <span>
           © {new Date().getFullYear()} <BrandName tone="subtle" />
         </span>
@@ -93,10 +93,10 @@ export function Footer() {
                         to={l.to}
                         className="flex flex-col gap-0.5 px-2.5 py-2 rounded-8 hover:bg-surface-1 transition-colors text-left"
                       >
-                        <span className="text-sm font-semibold text-foreground">
+                        <span className="text-14 font-medium text-foreground">
                           {l.label}
                         </span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-12 text-muted-foreground">
                           {l.desc}
                         </span>
                       </Link>

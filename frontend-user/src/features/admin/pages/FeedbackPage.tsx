@@ -87,7 +87,7 @@ export function FeedbackPage() {
     },
     {
       header: '内容',
-      cell: (r) => <span className="text-xs text-subtle line-clamp-2">{r.content}</span>,
+      cell: (r) => <span className="text-12 text-subtle line-clamp-2">{r.content}</span>,
     },
     {
       header: '状态',
@@ -98,14 +98,14 @@ export function FeedbackPage() {
       header: '负责人',
       width: 140,
       cell: (r) => (
-        <span className="text-xs text-muted-foreground">{r.assigneeName || '未分配'}</span>
+        <span className="text-12 text-muted-foreground">{r.assigneeName || '未分配'}</span>
       ),
     },
     {
       header: '时间',
       width: 130,
       cell: (r) => (
-        <span className="text-2xs text-faint">{r.createdAt?.slice(0, 16).replace('T', ' ')}</span>
+        <span className="text-12 text-faint">{r.createdAt?.slice(0, 16).replace('T', ' ')}</span>
       ),
     },
     {
@@ -152,7 +152,7 @@ export function FeedbackPage() {
             setPage(1);
           }}
           placeholder="搜索 ID / 用户名 / 邮箱 / 反馈内容"
-          className="h-8 flex-1 border-0 bg-transparent px-0 text-xs focus-visible:ring-0"
+          className="h-8 flex-1 border-0 bg-transparent px-0 text-12 focus-visible:ring-0"
         />
       </div>
       <DataTable columns={columns} rows={data?.list} loading={isLoading} />
@@ -179,21 +179,21 @@ export function FeedbackPage() {
                   ['首次响应', fmtTime(replying.firstResponseAt)],
                 ] as const).map(([label, value]) => (
                   <div key={label} className="min-w-0">
-                    <div className="text-2xs text-faint">{label}</div>
-                    <div className="text-xs text-subtle truncate" title={value}>{value}</div>
+                    <div className="text-12 text-faint">{label}</div>
+                    <div className="text-12 text-subtle truncate" title={value}>{value}</div>
                   </div>
                 ))}
               </div>
 
               <div className="rounded-12 border border-border bg-surface-1 p-3">
-                <div className="text-2xs text-faint mb-1">用户反馈</div>
-                <div className="text-sm text-subtle whitespace-pre-wrap">{replying.content}</div>
+                <div className="text-12 text-faint mb-1">用户反馈</div>
+                <div className="text-12 text-subtle whitespace-pre-wrap">{replying.content}</div>
               </div>
 
               {/* 附件预览 — 走 MinIO, 点缩略图新窗口看大图; 文件类则直接下载 */}
               {detail?.attachments && detail.attachments.length > 0 && (
                 <div className="rounded-12 border border-border bg-surface-1 p-3">
-                  <div className="text-2xs text-faint mb-2">附件 ({detail.attachments.length})</div>
+                  <div className="text-12 text-faint mb-2">附件 ({detail.attachments.length})</div>
                   <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                     {detail.attachments.map((a, idx) => (
                       <a
@@ -207,7 +207,7 @@ export function FeedbackPage() {
                         {a.type === 'image' ? (
                           <img src={a.url} alt={a.name} className="w-full h-20 object-cover" />
                         ) : (
-                          <div className="w-full h-20 flex items-center justify-center text-2xs text-muted-foreground p-2 text-center">
+                          <div className="w-full h-20 flex items-center justify-center text-12 text-muted-foreground p-2 text-center">
                             {a.name}
                           </div>
                         )}
@@ -220,18 +220,18 @@ export function FeedbackPage() {
               {/* 已有回复 (若已回复过) */}
               {replying.replyContent && (
                 <div className="rounded-12 border border-brand-green/30 bg-brand-green/5 p-3">
-                  <div className="text-2xs text-faint mb-1">
+                  <div className="text-12 text-faint mb-1">
                     已回复{replying.repliedBy ? ` · ${replying.repliedBy}` : ''}{replying.repliedAt ? ` · ${fmtTime(replying.repliedAt)}` : ''}
                   </div>
-                  <div className="text-sm text-subtle whitespace-pre-wrap">{replying.replyContent}</div>
+                  <div className="text-12 text-subtle whitespace-pre-wrap">{replying.replyContent}</div>
                 </div>
               )}
 
               {/* 内部协作备注 —— 仅管理端可见, 不发给用户 */}
               {replying.internalNotes && (
                 <div className="rounded-12 border border-border bg-warning-soft p-3">
-                  <div className="text-2xs text-faint mb-1">内部备注 (用户不可见)</div>
-                  <div className="text-sm text-subtle whitespace-pre-wrap">{replying.internalNotes}</div>
+                  <div className="text-12 text-faint mb-1">内部备注 (用户不可见)</div>
+                  <div className="text-12 text-subtle whitespace-pre-wrap">{replying.internalNotes}</div>
                 </div>
               )}
 
@@ -257,7 +257,7 @@ export function FeedbackPage() {
                     rows={5}
                     required
                     defaultValue={replying.replyContent}
-                    className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                 </div>
                 <DialogFooter className="gap-2 sm:gap-2">

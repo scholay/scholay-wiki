@@ -22,11 +22,11 @@ export function FeaturedPapersCol({
     <div className="space-y-3.5">
       <div className="flex items-end justify-between gap-3">
         <div className="flex items-end gap-2.5">
-          <h2 className="font-display font-bold text-xl leading-none text-foreground">
+          <h2 className="font-display font-bold text-20 leading-none text-foreground">
             代表作品
           </h2>
           {total > 0 && (
-            <span className="text-xs text-faint pb-0.5">
+            <span className="text-12 text-faint pb-0.5">
               共 {total.toLocaleString()} 篇
             </span>
           )}
@@ -34,7 +34,7 @@ export function FeaturedPapersCol({
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-16 bg-danger-soft text-brand-red text-xs">
+        <div className="flex items-center gap-2 px-4 py-3 rounded-16 bg-danger-soft text-brand-red text-12">
           <AlertCircle className="size-3.5" />
           作品列表暂时没能加载出来,请稍后重试
         </div>
@@ -49,10 +49,10 @@ export function FeaturedPapersCol({
       {!loading && !error && papers.length === 0 && (
         <div className="flex flex-col items-center justify-center px-4 py-10 rounded-16 bg-surface-1 border border-dashed border-border text-center">
           <Inbox className="size-6 text-faint mb-2" strokeWidth={1.5} />
-          <p className="text-sm font-bold text-subtle">
+          <p className="text-12 font-medium text-subtle">
             还没有这位学者的作品记录
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-12 text-muted-foreground">
             数据源暂时没有提供该学者的论文列表
           </p>
         </div>
@@ -68,10 +68,10 @@ export function FeaturedPapersCol({
                 className="group w-full text-left flex items-start gap-4 rounded-16 bg-surface-card border border-border p-5 hover:border-foreground hover:transition-all"
               >
                 <div className="flex-1 min-w-0 space-y-1.5">
-                  <h3 className="text-md font-bold text-foreground group-hover:text-brand-red transition-colors line-clamp-2">
+                  <h3 className="text-14 font-medium text-foreground group-hover:text-brand-red transition-colors line-clamp-2">
                     {p.title || '无标题'}
                   </h3>
-                  <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1 text-xs text-faint">
+                  <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1 text-12 text-faint">
                     {p.year && <span className="tabular-nums">{p.year}</span>}
                     {p.venue && (
                       <>
@@ -95,7 +95,7 @@ export function FeaturedPapersCol({
                     {p.isOpenAccess && (
                       <>
                         <span className="text-border-strong">·</span>
-                        <span className="text-brand-green font-bold">OA</span>
+                        <span className="text-brand-green font-medium">OA</span>
                       </>
                     )}
                   </div>

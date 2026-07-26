@@ -49,7 +49,7 @@ export function MobileToolsHomePage() {
     <div className="flex h-full flex-col bg-surface-1">
       {/* 顶栏 */}
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-4">
-        <span className="text-lg font-semibold text-foreground">功能</span>
+        <span className="text-16 font-medium text-foreground">功能</span>
         <button
           type="button"
           aria-label="搜索功能"
@@ -65,8 +65,8 @@ export function MobileToolsHomePage() {
           {/* ── 站内功能 ── */}
           <section className="flex flex-col gap-3">
             <div className="flex flex-col gap-0.5">
-              <h2 className="text-md font-semibold text-foreground">站内功能</h2>
-              <p className="text-xs text-faint">Scholay 原生科研能力</p>
+              <h2 className="text-16 font-medium text-foreground">站内功能</h2>
+              <p className="text-12 text-faint">Scholay 原生科研能力</p>
             </div>
 
             {/* AI Claw 横幅 */}
@@ -75,14 +75,14 @@ export function MobileToolsHomePage() {
               onClick={() => navigate('/m/claw')}
               className="flex items-center gap-3 rounded-16 bg-[#F1EADA] p-3.5 text-left active:opacity-90"
             >
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-pill bg-surface-card text-2xl leading-none">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-pill bg-surface-card text-24 leading-none">
                 🦞
               </span>
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="text-base font-semibold text-foreground">AI Claw 科研智能体</span>
-                <span className="truncate text-xs text-muted-foreground">用一句话指挥它帮你找、读、写、比</span>
+                <span className="text-14 font-medium text-foreground">AI Claw 科研智能体</span>
+                <span className="truncate text-12 text-muted-foreground">用一句话指挥它帮你找、读、写、比</span>
               </span>
-              <span className="shrink-0 rounded-pill bg-brand-red px-3.5 py-1.5 text-xs font-semibold text-on-brand">
+              <span className="shrink-0 rounded-pill bg-brand-red px-3.5 py-1.5 text-12 font-medium text-on-brand">
                 开启
               </span>
             </button>
@@ -100,8 +100,8 @@ export function MobileToolsHomePage() {
                     <t.icon className={cn('size-5', t.iconColor)} />
                   </span>
                   <span className="flex flex-col gap-0.5">
-                    <span className="text-sm font-semibold text-foreground">{t.name}</span>
-                    <span className="truncate text-xs text-faint">{t.desc}</span>
+                    <span className="text-14 font-medium text-foreground">{t.name}</span>
+                    <span className="truncate text-12 text-faint">{t.desc}</span>
                   </span>
                 </button>
               ))}
@@ -111,8 +111,8 @@ export function MobileToolsHomePage() {
           {/* ── 全网功能 ── */}
           <section className="flex flex-col gap-3">
             <div className="flex flex-col gap-0.5">
-              <h2 className="text-md font-semibold text-foreground">全网功能</h2>
-              <p className="text-xs text-faint">凡与科研沾边的网站与工具,皆可收录</p>
+              <h2 className="text-16 font-medium text-foreground">全网功能</h2>
+              <p className="text-12 text-faint">凡与科研沾边的网站与工具,皆可收录</p>
             </div>
 
             {/* 深色「科研全网导航」入口 → 功能广场 */}
@@ -126,17 +126,17 @@ export function MobileToolsHomePage() {
                   <span className="flex size-[34px] items-center justify-center rounded-8 bg-background/10">
                     <Globe className="size-5 text-background" />
                   </span>
-                  <span className="text-base font-semibold text-background">科研全网导航</span>
+                  <span className="text-14 font-medium text-background">科研全网导航</span>
                 </div>
                 <ArrowRight className="size-[18px] text-background/80" />
               </div>
-              <p className="text-xs leading-paragraph text-background/70">
+              <p className="text-12 leading-paragraph text-background/70">
                 {total != null ? `${total.toLocaleString()} 个网站 · 工具 · 数据库已收录` : '海量网站 · 工具 · 数据库已收录'}
                 ,覆盖检索、写作、绘图、数据等全科研流程,持续更新。
               </p>
               <div className="flex flex-wrap items-center gap-1.5">
                 {ENTRY_CHIPS.map((c) => (
-                  <span key={c} className="rounded-pill bg-background/10 px-2.5 py-1 text-2xs text-background/90">
+                  <span key={c} className="rounded-pill bg-background/10 px-2.5 py-1 text-12 text-background/90">
                     {c}
                   </span>
                 ))}

@@ -25,7 +25,7 @@ export function AccountTypeTabs({
   return (
     <div
       className={cn(
-        'inline-flex items-center rounded-12 bg-surface-2 p-0.5 text-sm',
+        'inline-flex items-center rounded-12 bg-surface-2 p-0.5 text-12',
         className
       )}
     >

@@ -24,7 +24,7 @@ export function PrismConversationList({
   return (
     <SidebarSection id="prism-conversations" label="会话历史" bordered>
       {conversations.length === 0 ? (
-        <p className="px-4 py-1 text-2xs text-faint">还没有对话,发送第一句话即可开始</p>
+        <p className="px-4 py-1 text-12 text-faint">还没有对话,发送第一句话即可开始</p>
       ) : (
         <div className="flex flex-col">
           {conversations.map((c) => (
@@ -65,8 +65,8 @@ function ConversationRow({
       <div className="min-w-0 flex-1">
         <div
           className={cn(
-            'truncate text-sm flex items-center gap-1.5',
-            active ? 'text-foreground font-semibold' : 'text-subtle',
+            'truncate text-12 flex items-center gap-1.5',
+            active ? 'text-foreground font-medium' : 'text-subtle',
             loading && 'italic text-faint',
           )}
           title={displayTitle}

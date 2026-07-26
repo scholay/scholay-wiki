@@ -102,14 +102,14 @@ export function JournalExploreOverview() {
       {/* 数据源覆盖 */}
       {data.sourceCoverage && Object.keys(data.sourceCoverage).length > 0 && (
         <div className="rounded-16 bg-surface-card border border-border-soft px-4 py-3">
-          <h3 className="text-2xs font-bold uppercase text-faint">
+          <h3 className="text-12 font-medium uppercase text-faint">
             数据源覆盖
           </h3>
-          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs">
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-12">
             {Object.entries(data.sourceCoverage).map(([src, cnt]) => (
               <span key={src} className="inline-flex items-baseline gap-1">
                 <span className="font-mono text-muted-foreground">{src}</span>
-                <span className="font-bold text-foreground tabular-nums">
+                <span className="font-medium text-foreground tabular-nums">
                   {Number(cnt).toLocaleString()}
                 </span>
               </span>
@@ -154,12 +154,12 @@ function KpiCard({
         >
           {icon}
         </span>
-        <span className="text-xs text-muted-foreground">{label}</span>
+        <span className="text-12 text-muted-foreground">{label}</span>
       </div>
-      <div className="text-xl font-bold text-foreground tabular-nums leading-none">
+      <div className="text-20 font-medium text-foreground tabular-nums leading-none">
         {value}
       </div>
-      {sub && <div className="text-2xs text-faint">{sub}</div>}
+      {sub && <div className="text-12 text-faint">{sub}</div>}
     </div>
   );
 }
@@ -176,16 +176,16 @@ function DistributionPanel({
   const max = Math.max(1, ...items.map((i) => i.count));
   return (
     <div className="rounded-16 bg-surface-card border border-border-soft px-4 py-3">
-      <h3 className="text-2xs font-bold uppercase text-faint">
+      <h3 className="text-12 font-medium uppercase text-faint">
         {title}
       </h3>
       <div className="mt-3 space-y-2">
         {items.length === 0 ? (
-          <div className="text-2xs text-faint">无数据</div>
+          <div className="text-12 text-faint">无数据</div>
         ) : (
           items.map((it) => (
             <div key={it.label} className="flex items-center gap-3">
-              <span className="w-12 text-xs text-subtle font-semibold shrink-0">
+              <span className="w-12 text-12 text-subtle font-medium shrink-0">
                 {it.label}
               </span>
               <div className="flex-1 h-2 rounded-pill bg-surface-2 overflow-hidden">
@@ -197,7 +197,7 @@ function DistributionPanel({
                   style={{ width: `${Math.max(2, (it.count / max) * 100)}%` }}
                 />
               </div>
-              <span className="text-xs text-muted-foreground tabular-nums w-16 text-right shrink-0">
+              <span className="text-12 text-muted-foreground tabular-nums w-16 text-right shrink-0">
                 {it.count.toLocaleString()}
               </span>
             </div>

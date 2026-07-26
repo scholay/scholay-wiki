@@ -50,7 +50,7 @@ function DimensionCellImpl({ item, dimensionKey, isFetching }: Props) {
   }
   if (!item.success) {
     return (
-      <span className="text-faint italic text-xs" title={item.error}>
+      <span className="text-faint italic text-12" title={item.error}>
         {item.error || '分析失败'}
       </span>
     );
@@ -63,12 +63,12 @@ function DimensionCellImpl({ item, dimensionKey, isFetching }: Props) {
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className="inline-flex items-center gap-1 text-xs text-faint italic cursor-help">
+          <span className="inline-flex items-center gap-1 text-12 text-faint italic cursor-help">
             <MinusCircle className="size-3" strokeWidth={1.75} />
             未提及
           </span>
         </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-[240px] text-xs">
+        <TooltipContent side="top" className="max-w-[240px] text-12">
           AI 通读摘要后认为该论文没有 / 没有充分提及此维度的相关信息
         </TooltipContent>
       </Tooltip>
@@ -83,7 +83,7 @@ function DimensionCellImpl({ item, dimensionKey, isFetching }: Props) {
           <span
             key={`${i}-${t}`}
             className={cn(
-              'inline-flex items-center h-5 px-1.5 rounded-4 text-2xs font-medium leading-none',
+              'inline-flex items-center h-5 px-1.5 rounded-4 text-12 font-medium leading-none',
               tagColor(t)
             )}
             title={t}
@@ -104,7 +104,7 @@ function DimensionCellImpl({ item, dimensionKey, isFetching }: Props) {
   // 才显示"更多"按钮(opacity-0 + group-hover/row),点击弹 popover 看全文。
   // popoverText 传一段不带 line-clamp 的纯 prose(同样的 tag 渲染)用于完整展示。
   const proseContent = (
-    <span className="whitespace-pre-wrap leading-paragraph text-xs text-foreground">
+    <span className="whitespace-pre-wrap leading-paragraph text-12 text-foreground">
       {parsed.segments.map((seg, i) =>
         seg.kind === 'tag' ? (
           <span
@@ -125,11 +125,11 @@ function DimensionCellImpl({ item, dimensionKey, isFetching }: Props) {
   );
 
   return (
-    <div className="text-xs text-foreground">
+    <div className="text-12 text-foreground">
       <TruncatedText
         lines={6}
         moreButtonClassName="opacity-0 group-hover/row:opacity-100 transition-opacity"
-        popoverClassName="max-w-md text-xs leading-paragraph"
+        popoverClassName="max-w-md text-12 leading-paragraph"
         popoverText={proseContent}
       >
         {proseContent}

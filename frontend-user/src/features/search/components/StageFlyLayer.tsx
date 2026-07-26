@@ -77,7 +77,7 @@ export function StageFlyLayer() {
           <span className="inline-flex size-4 shrink-0 items-center justify-center rounded-pill bg-brand-green text-on-brand">
             <Check className="size-2.5" strokeWidth={3.5} />
           </span>
-          <span className="min-w-0 flex-1 truncate text-xs font-medium text-subtle">
+          <span className="min-w-0 flex-1 truncate text-12 font-medium text-subtle">
             {fly.title || '已暂存'}
           </span>
         </div>

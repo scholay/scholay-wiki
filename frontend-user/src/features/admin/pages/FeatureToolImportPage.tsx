@@ -90,23 +90,23 @@ export function FeatureToolImportPage() {
           <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
             <Upload className="size-3.5" /> 选择 .json / .zip 文件
           </Button>
-          {filename && <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><FileJson className="size-3.5" />{filename}</span>}
+          {filename && <span className="inline-flex items-center gap-1 text-12 text-muted-foreground"><FileJson className="size-3.5" />{filename}</span>}
         </div>
 
         {/* 粘贴 */}
         <div>
-          <p className="mb-1.5 text-xs font-bold text-subtle">或粘贴 JSON(工具对象数组)</p>
+          <p className="mb-1.5 text-12 font-medium text-subtle">或粘贴 JSON(工具对象数组)</p>
           <textarea
             value={text}
             onChange={(e) => { setText(e.target.value); setFilename(''); setZipFile(null); }}
             rows={12}
             placeholder='[{"name":"...","slug":"...","category":"...","access":{...},"spec":{...}}, ...]'
-            className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 font-mono text-xs leading-paragraph focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 font-mono text-12 leading-paragraph focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
 
         {/* 解析状态 */}
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex items-center gap-2 text-12">
           {zipFile ? (
             <span className="inline-flex items-center gap-1.5 text-brand-green"><CheckCircle2 className="size-4" />已选 zip:{zipFile.name} · 解包在服务端进行</span>
           ) : parsed.error ? (
@@ -120,10 +120,10 @@ export function FeatureToolImportPage() {
 
         {/* 选项 + 提交 */}
         <div className="flex flex-col gap-3 rounded-16 border border-border bg-surface-1 p-3 sm:flex-row sm:items-center sm:justify-between">
-          <label className="flex flex-wrap items-center gap-2 text-sm text-subtle">
+          <label className="flex flex-wrap items-center gap-2 text-12 text-subtle">
             <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} className="size-4" />
             导入时通知下游 webhook 同步
-            <span className="text-2xs text-faint">(冷数据首次导入建议关闭)</span>
+            <span className="text-12 text-faint">(冷数据首次导入建议关闭)</span>
           </label>
           <Button onClick={submit} disabled={(!zipFile && count === 0) || busy}>
             {busy ? '提交中…' : zipFile ? '导入 zip' : `导入 ${count} 条`} <ArrowRight className="size-3.5" />
@@ -142,8 +142,8 @@ export function FeatureToolImportPage() {
           return (
             <div className="rounded-16 border border-border bg-surface-card p-4">
               <div className="mb-2 flex items-center justify-between">
-                <p className="text-sm font-bold text-foreground">任务 #{job.id} · {statusLabel}</p>
-                <Link to="/admin/tools-jobs" className="text-xs text-brand-red hover:underline">全部任务 →</Link>
+                <p className="text-12 font-medium text-foreground">任务 #{job.id} · {statusLabel}</p>
+                <Link to="/admin/tools-jobs" className="text-12 text-brand-red hover:underline">全部任务 →</Link>
               </div>
               <div className="h-1.5 overflow-hidden rounded-pill bg-surface-2">
                 <div
@@ -151,7 +151,7 @@ export function FeatureToolImportPage() {
                   style={{ width: `${pct}%` }}
                 />
               </div>
-              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-12 text-muted-foreground">
                 {uploadingLogos ? (
                   <span className="text-brand-amber">上传图标 {job.logo_done}/{job.logo_total}</span>
                 ) : (

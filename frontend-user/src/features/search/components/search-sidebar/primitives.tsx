@@ -28,7 +28,7 @@ export function FilterGroup({
         onClick={() => setCollapsed((c) => !c)}
         className="flex items-center justify-between gap-2 h-6 px-4 pt-1.5 pb-1 text-left hover:bg-surface-1 transition-colors"
       >
-        <span className="text-2xs font-bold uppercase text-faint">
+        <span className="text-12 font-medium uppercase text-faint">
           {label}
         </span>
         <ChevronDown
@@ -57,8 +57,8 @@ export function CheckboxRow({
       <Checkbox checked={checked} onCheckedChange={onChange} />
       <span
         className={cn(
-          'flex-1 min-w-0 truncate text-sm',
-          checked ? 'text-foreground font-semibold' : 'text-subtle'
+          'flex-1 min-w-0 truncate text-12',
+          checked ? 'text-foreground font-medium' : 'text-subtle'
         )}
       >
         {label}

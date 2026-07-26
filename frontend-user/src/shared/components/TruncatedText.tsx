@@ -107,7 +107,7 @@ function SingleLineHover({
         side={side}
         collisionPadding={12}
         className={cn(
-          'max-w-sm max-h-[var(--radix-hover-card-content-available-height)] overflow-y-auto px-3 py-2 text-xs leading-paragraph text-foreground whitespace-pre-wrap break-words select-text',
+          'max-w-sm max-h-[var(--radix-hover-card-content-available-height)] overflow-y-auto px-3 py-2 text-12 leading-paragraph text-foreground whitespace-pre-wrap break-words select-text',
           popoverClassName
         )}
       >
@@ -187,7 +187,7 @@ function MultiLineMoreButton({
               // 加 pl-1 + bg-surface-card 防止与最后一行残留字符叠在一起,
               // 形成"…   全部"的视觉(中间用 padding 给一丝呼吸)。
               className={cn(
-                'absolute right-0 bottom-0 pl-1 bg-surface-card text-xs text-brand-red hover:underline underline-offset-2 font-medium',
+                'absolute right-0 bottom-0 pl-1 bg-surface-card text-12 text-brand-red hover:underline underline-offset-2 font-medium',
                 moreButtonClassName
               )}
             >
@@ -200,7 +200,7 @@ function MultiLineMoreButton({
             sideOffset={4}
             collisionPadding={12}
             className={cn(
-              'max-w-md max-h-[var(--radix-hover-card-content-available-height)] overflow-y-auto px-3 py-2 text-xs leading-paragraph text-foreground whitespace-pre-wrap break-words select-text',
+              'max-w-md max-h-[var(--radix-hover-card-content-available-height)] overflow-y-auto px-3 py-2 text-12 leading-paragraph text-foreground whitespace-pre-wrap break-words select-text',
               popoverClassName
             )}
           >

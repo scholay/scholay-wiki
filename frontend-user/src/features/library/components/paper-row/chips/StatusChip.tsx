@@ -100,14 +100,14 @@ export function StatusChip({
               type="button"
               // 按设计 .pen `of4Xd` 的 chip:
               //   h-7 (28px), px-2.5 圆角 sm, 内部 gap-1.5; 1px 边框
-              //   字号 2xs (11px), 描边/文字色按 tone 切
+              //   字号 12, 描边/文字色按 tone 切
               className={cn(
                 'group inline-flex items-center gap-1.5 h-7 px-2.5 rounded-8 border bg-surface-card shrink-0 transition-colors',
                 TONE_CLASSES[status]
               )}
             >
               {Icon && <Icon className="size-3" strokeWidth={2} />}
-              <span className="text-2xs font-semibold whitespace-nowrap">
+              <span className="text-12 font-medium whitespace-nowrap">
                 {labelWithSuffix(label, status)}
               </span>
               {/* chevron 表示"可看明细 / 可点出菜单" */}
@@ -165,7 +165,7 @@ function ChipMenuList({ items, onItemClick }: ChipMenuListProps) {
               onItemClick?.();
             }}
             className={cn(
-              'flex items-center gap-2 h-8 px-2 rounded-8 text-xs text-subtle transition-colors text-left',
+              'flex items-center gap-2 h-8 px-2 rounded-8 text-12 text-subtle transition-colors text-left',
               isDisabled
                 ? 'opacity-50 cursor-not-allowed text-faint'
                 : 'hover:bg-surface-1 hover:text-foreground'
@@ -174,7 +174,7 @@ function ChipMenuList({ items, onItemClick }: ChipMenuListProps) {
             {Icon && <Icon className="size-3.5 shrink-0" strokeWidth={2} />}
             <span className="flex-1 truncate">{item.label}</span>
             {item.hint && (
-              <span className="text-2xs text-faint shrink-0">{item.hint}</span>
+              <span className="text-12 text-faint shrink-0">{item.hint}</span>
             )}
           </button>
         );
@@ -196,7 +196,7 @@ export function ChipHoverPanel({ headline, children }: ChipHoverPanelProps) {
   return (
     <div className="flex flex-col">
       <div className="px-4 pt-3 pb-2 border-b border-border-soft">
-        <div className="text-xs text-muted-foreground">{headline}</div>
+        <div className="text-12 text-muted-foreground">{headline}</div>
       </div>
       <div className="px-4 py-3 space-y-2">{children}</div>
     </div>
@@ -213,23 +213,23 @@ interface ChipChecklistRowProps {
 
 export function ChipChecklistRow({ state, label, preview }: ChipChecklistRowProps) {
   return (
-    <div className="grid grid-cols-[16px_56px_1fr] items-center gap-2 text-xs">
+    <div className="grid grid-cols-[16px_56px_1fr] items-center gap-2 text-12">
       <div className="flex items-center justify-center">
         {state === 'present' && <Check className="size-3 text-brand-green" strokeWidth={2.5} />}
         {state === 'partial' && (
-          <span className="text-brand-amber text-xs" aria-hidden>
+          <span className="text-brand-amber text-12" aria-hidden>
             ⚠
           </span>
         )}
         {state === 'absent' && (
-          <span className="text-faint text-xs" aria-hidden>
+          <span className="text-faint text-12" aria-hidden>
             ×
           </span>
         )}
       </div>
       <span
         className={cn(
-          'font-semibold',
+          'font-medium',
           state === 'absent' ? 'text-faint' : 'text-foreground'
         )}
       >

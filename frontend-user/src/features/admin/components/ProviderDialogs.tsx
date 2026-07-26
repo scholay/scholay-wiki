@@ -80,8 +80,8 @@ export function DefaultEndpointDialog({
             </div>
             <div className="flex items-center justify-between gap-3 rounded-12 border border-border-soft p-3">
               <div>
-                <Label htmlFor="def-enabled" className="text-sm font-medium">启用该端点</Label>
-                <p className="text-2xs text-faint mt-0.5">停用后不再向 agent 推送此端点配置</p>
+                <Label htmlFor="def-enabled" className="text-12 font-medium">启用该端点</Label>
+                <p className="text-12 text-faint mt-0.5">停用后不再向 agent 推送此端点配置</p>
               </div>
               <Switch id="def-enabled" checked={form.enabled} onCheckedChange={(v) => setForm({ ...form, enabled: v })} />
             </div>
@@ -172,22 +172,22 @@ export function ExtraProviderDialog({
                   id="pv-fmt"
                   value={form.api_format}
                   onChange={(e) => setForm({ ...form, api_format: e.target.value as 'anthropic' | 'openai' })}
-                  className="h-9 w-full rounded-8 border border-input bg-surface-card px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="h-9 w-full rounded-8 border border-input bg-surface-card px-3 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <option value="anthropic">anthropic(Messages)</option>
                   <option value="openai">openai(Chat Completions)</option>
                 </select>
               </div>
               <div className="flex items-center justify-between gap-3 rounded-12 border border-border-soft p-3">
-                <Label htmlFor="pv-enabled" className="text-sm font-medium">启用</Label>
+                <Label htmlFor="pv-enabled" className="text-12 font-medium">启用</Label>
                 <Switch id="pv-enabled" checked={form.enabled} onCheckedChange={(v) => setForm({ ...form, enabled: v })} />
               </div>
             </div>
             {form.api_format === 'openai' && (
               <div className="flex items-center justify-between gap-3 rounded-12 border border-border-soft p-3">
                 <div>
-                  <Label htmlFor="pv-rr" className="text-sm font-medium">工具轮回传 reasoning</Label>
-                  <p className="text-2xs text-faint mt-0.5">Kimi / 豆包 思考模型要求开(填 moonshot/volces 端点已自动勾);DeepSeek 回传会报错,勿开</p>
+                  <Label htmlFor="pv-rr" className="text-12 font-medium">工具轮回传 reasoning</Label>
+                  <p className="text-12 text-faint mt-0.5">Kimi / 豆包 思考模型要求开(填 moonshot/volces 端点已自动勾);DeepSeek 回传会报错,勿开</p>
                 </div>
                 <Switch id="pv-rr" checked={form.reasoning_replay} onCheckedChange={(v) => setForm({ ...form, reasoning_replay: v })} />
               </div>

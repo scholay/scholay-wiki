@@ -17,8 +17,8 @@ export function SettingsLayout() {
   return (
     <div className="flex flex-col gap-6 h-full max-w-6xl mx-auto px-6 lg:px-12 py-10">
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">设置</h1>
-        <p className="text-sm text-muted-foreground mt-1">管理你的账号信息、安全与登录方式。</p>
+        <h1 className="text-24 font-medium text-foreground">设置</h1>
+        <p className="text-12 text-muted-foreground mt-1">管理你的账号信息、安全与登录方式。</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-10">
@@ -29,9 +29,9 @@ export function SettingsLayout() {
               to={t.to}
               className={({ isActive }) =>
                 cn(
-                  'inline-flex items-center gap-2.5 px-3 h-9 rounded-8 text-sm transition-colors',
+                  'inline-flex items-center gap-2.5 px-3 h-9 rounded-8 text-12 transition-colors',
                   isActive
-                    ? 'bg-surface-2 font-semibold text-foreground'
+                    ? 'bg-surface-2 font-medium text-foreground'
                     : 'text-subtle hover:bg-surface-1 hover:text-foreground'
                 )
               }

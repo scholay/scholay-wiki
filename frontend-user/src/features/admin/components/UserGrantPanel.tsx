@@ -91,7 +91,7 @@ export function UserGrantPanel({
     <div className="flex flex-col gap-4">
       {/* 会员 */}
       <div className="flex flex-col gap-2">
-        <Label className="text-2xs text-faint">发放 / 续期会员</Label>
+        <Label className="text-12 text-faint">发放 / 续期会员</Label>
         <div className="flex flex-wrap items-center gap-1.5">
           {(['pro', 'max'] as const).map((t) => (
             <Button
@@ -125,7 +125,7 @@ export function UserGrantPanel({
         </div>
         {/* 周期标识(0079):年费/月度徽标口径,默认不动现值 */}
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-2xs text-faint">周期标识</span>
+          <span className="text-12 text-faint">周期标识</span>
           {(
             [
               { id: 'keep', label: '不变' },
@@ -143,7 +143,7 @@ export function UserGrantPanel({
               {c.label}
             </Button>
           ))}
-          <span className="text-2xs text-faint">决定用户端「年费会员」徽标,不影响时长</span>
+          <span className="text-12 text-faint">决定用户端「年费会员」徽标,不影响时长</span>
         </div>
         <div className="flex items-center gap-2">
           <Button onClick={handleGrant} disabled={grant.isPending || days < 1} className="flex-1">
@@ -160,7 +160,7 @@ export function UserGrantPanel({
 
       {/* 经费 */}
       <div className="flex flex-col gap-2 border-t border-border-soft pt-3">
-        <Label className="text-2xs text-faint">调整科研经费</Label>
+        <Label className="text-12 text-faint">调整科研经费</Label>
         <div className="flex flex-wrap items-center gap-1.5">
           {(['perm', 'temp'] as const).map((k) => (
             <Button
@@ -182,7 +182,7 @@ export function UserGrantPanel({
             placeholder="金额"
           />
           {creditKind === 'temp' && (
-            <span className="flex items-center gap-1 text-xs text-faint">
+            <span className="flex items-center gap-1 text-12 text-faint">
               有效
               <Input
                 type="number"
@@ -204,7 +204,7 @@ export function UserGrantPanel({
             扣减
           </Button>
         </div>
-        <p className="text-2xs text-faint">
+        <p className="text-12 text-faint">
           永久经费:充值 / 管理员发放,长期有效。临时经费:有有效期、消耗时优先扣减。
         </p>
       </div>

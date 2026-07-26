@@ -127,34 +127,34 @@ export function MembershipPlanCard({ plan, cycle = 'monthly', popularBadge, high
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <p className="text-base font-bold text-foreground">{meta.name}</p>
+        <p className="text-16 font-medium text-foreground">{meta.name}</p>
         {popularBadge && (
-          <span className="shrink-0 rounded-pill bg-brand-red px-2 py-0.5 text-2xs font-bold text-background">最受欢迎</span>
+          <span className="shrink-0 rounded-pill bg-brand-red px-2 py-0.5 text-12 font-medium text-background">最受欢迎</span>
         )}
       </div>
-      <p className="text-xs text-faint">{meta.sub}</p>
+      <p className="text-12 text-faint">{meta.sub}</p>
 
       {/* 价格 —— 有划线原价时挂「限时优惠」红徽章;年付追加「折合月价 + 比月付省 ¥N」 */}
       <div className="flex flex-col gap-1">
         <div className="flex flex-wrap items-end gap-2">
-          <span className="font-display text-3xl font-bold leading-none text-foreground">
+          <span className="font-display text-28 font-bold leading-none text-foreground">
             {isFree ? '免费' : `¥${Math.round(priceCents / 100)}`}
           </span>
           {!isFree && originalCents > priceCents && (
-            <span className="text-sm text-faint line-through">¥{Math.round(originalCents / 100)}</span>
+            <span className="text-12 text-faint line-through">¥{Math.round(originalCents / 100)}</span>
           )}
-          {!isFree && <span className="text-xs text-faint">{yearly ? '/ 年' : '/ 月'}</span>}
+          {!isFree && <span className="text-12 text-faint">{yearly ? '/ 年' : '/ 月'}</span>}
           {!isFree && !yearly && originalCents > priceCents && (
-            <span className="rounded-pill bg-brand-red px-1.5 py-0.5 text-2xs font-bold text-background">限时优惠</span>
+            <span className="rounded-pill bg-brand-red px-1.5 py-0.5 text-12 font-medium text-background">限时优惠</span>
           )}
           {!isFree && yearly && savings > 0 && (
-            <span className="rounded-pill bg-brand-red px-1.5 py-0.5 text-2xs font-bold text-background">
+            <span className="rounded-pill bg-brand-red px-1.5 py-0.5 text-12 font-medium text-background">
               比月付省 ¥{Math.round(savings / 100)}
             </span>
           )}
         </div>
         {!isFree && yearly && (
-          <p className="text-2xs text-faint">
+          <p className="text-12 text-faint">
             {/* 折合月价向下取到 0.1 元:营销口径不虚高(避免 ¥33.3×12 > 实付) */}
             折合 ¥{(Math.floor((priceCents / 100 / 12) * 10) / 10).toFixed(1)}/月 · 一次付费畅享一整年
           </p>
@@ -166,22 +166,22 @@ export function MembershipPlanCard({ plan, cycle = 'monthly', popularBadge, high
         <RefreshCw className={cn('size-5 shrink-0', highlighted ? 'text-brand-red' : 'text-brand-amber')} />
         {isFree ? (
           <div>
-            <p className="text-sm font-bold text-foreground">周期重置</p>
-            <p className="text-2xs text-faint">基础 AI 额度 · 7 天周期到期自动恢复</p>
+            <p className="text-14 font-medium text-foreground">周期重置</p>
+            <p className="text-12 text-faint">基础 AI 额度 · 7 天周期到期自动恢复</p>
           </div>
         ) : yearly ? (
           <div>
-            <p className="text-sm font-bold text-foreground">
-              {plan.year_grant_credits} <span className="text-2xs font-normal text-faint">经费 / 年</span>
+            <p className="text-14 font-medium text-foreground">
+              {plan.year_grant_credits} <span className="text-12 font-normal text-faint">经费 / 年</span>
             </p>
-            <p className="text-2xs text-faint">按月分 12 批发放 · 每批当月有效</p>
+            <p className="text-12 text-faint">按月分 12 批发放 · 每批当月有效</p>
           </div>
         ) : (
           <div>
-            <p className="text-sm font-bold text-foreground">
-              {plan.grant_credits} <span className="text-2xs font-normal text-faint">经费</span>
+            <p className="text-14 font-medium text-foreground">
+              {plan.grant_credits} <span className="text-12 font-normal text-faint">经费</span>
             </p>
-            <p className="text-2xs text-faint">每月赠送 · 整月有效</p>
+            <p className="text-12 text-faint">每月赠送 · 整月有效</p>
           </div>
         )}
       </div>
@@ -189,7 +189,7 @@ export function MembershipPlanCard({ plan, cycle = 'monthly', popularBadge, high
       {/* 特性 */}
       <ul className="flex flex-1 flex-col gap-2">
         {features.map((f) => (
-          <li key={f} className="flex items-start gap-2 text-sm leading-paragraph text-subtle">
+          <li key={f} className="flex items-start gap-2 text-14 leading-paragraph text-subtle">
             <Check className="mt-0.5 size-4 shrink-0 text-brand-green" strokeWidth={2.5} />
             <span>{f}</span>
           </li>
@@ -237,7 +237,7 @@ export function BillingCycleToggle({
             disabled={disabled}
             onClick={() => !disabled && onChange(opt.id)}
             className={cn(
-              'flex h-8 items-center gap-1.5 rounded-pill px-4 text-sm font-bold transition-colors',
+              'flex h-8 items-center gap-1.5 rounded-pill px-4 text-14 font-medium transition-colors',
               active ?'bg-surface-card text-foreground shadow-raised':'text-muted-foreground',
               !disabled && !active && 'hover:text-foreground',
               disabled && 'cursor-not-allowed',
@@ -247,7 +247,7 @@ export function BillingCycleToggle({
             {opt.id === 'yearly' && pct > 0 && (
               <span
                 className={cn(
-                  'rounded-pill px-1.5 py-0.5 text-2xs font-bold',
+                  'rounded-pill px-1.5 py-0.5 text-12 font-medium',
                   active ? 'bg-brand-red text-background' : 'bg-brand-red/10 text-brand-red',
                 )}
               >

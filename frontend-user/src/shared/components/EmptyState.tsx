@@ -38,13 +38,13 @@ export const EmptyState = forwardRef<HTMLDivElement, EmptyStateProps>(
         <h3
           className={cn(
             'font-medium text-foreground',
-            dense ? 'text-sm' : 'text-base'
+            dense ? 'text-14' : 'text-16'
           )}
         >
           {title}
         </h3>
         {description && (
-          <p className="text-sm text-muted-foreground max-w-md">{description}</p>
+          <p className="text-14 text-muted-foreground max-w-md">{description}</p>
         )}
         {action && <div className="mt-2">{action}</div>}
       </div>

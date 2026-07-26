@@ -86,7 +86,7 @@ export function ShareSheet({
     return (
       <MobileBottomSheet open={open} onOpenChange={onOpenChange} title={titleText}>
         <div className="px-4 pb-2 pt-1">
-          <h2 className="text-md font-semibold text-foreground">{titleText}</h2>
+          <h2 className="text-14 font-medium text-foreground">{titleText}</h2>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {target && <ShareBody key={shareTargetKey(target)} target={target} />}
@@ -99,7 +99,7 @@ export function ShareSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full gap-0 overflow-y-auto p-0">
         <SheetHeader className="px-4 py-3 pr-10">
-          <SheetTitle className="text-md">{titleText}</SheetTitle>
+          <SheetTitle className="text-14">{titleText}</SheetTitle>
         </SheetHeader>
         {target && <ShareBody key={shareTargetKey(target)} target={target} />}
       </SheetContent>
@@ -410,7 +410,7 @@ function ShareBody({ target }: { target: ShareTarget }) {
       {target.kind === 'tool' || ((target.kind === 'single' || target.kind === 'journal') && created) ? (
         <>
           <div>
-            <p className="mb-2 text-xs text-faint">分享到</p>
+            <p className="mb-2 text-12 text-faint">分享到</p>
             <div className="grid grid-cols-4 gap-2">
               <ChannelBtn icon={<MessageCircle className="size-5" />} label="微信" onClick={shareDirect} />
               <ChannelBtn icon={<Link2 className="size-5" />} label="复制链接" onClick={() => copy(shareUrl, '链接')} />
@@ -422,7 +422,7 @@ function ShareBody({ target }: { target: ShareTarget }) {
             <Share2 className="size-4" />
             分享到微信
           </Button>
-          <p className="text-center text-2xs leading-paragraph text-faint">
+          <p className="text-center text-12 leading-paragraph text-faint">
             {target.kind === 'tool'
               ? '对方打开即可在 Scholay 体验该功能,无需登录'
               : `对方点开短链即可在 Scholay 查看${target.kind === 'single' ? '并收藏' : ''},无需登录`}
@@ -434,12 +434,12 @@ function ShareBody({ target }: { target: ShareTarget }) {
             <LogIn className="size-4" />
             登录后生成分享链接
           </Button>
-          <p className="text-center text-2xs leading-paragraph text-faint">
+          <p className="text-center text-12 leading-paragraph text-faint">
             生成专属短链后,对方打开即可查看这{target.kind === 'single' ? '篇论文' : '个期刊'}
           </p>
         </>
       ) : target.kind === 'single' || target.kind === 'journal' ? (
-        <div className="flex items-center justify-center gap-2 py-6 text-sm text-faint">
+        <div className="flex items-center justify-center gap-2 py-6 text-12 text-faint">
           <Loader2 className="size-4 animate-spin" />
           正在生成分享链接…
         </div>
@@ -447,20 +447,20 @@ function ShareBody({ target }: { target: ShareTarget }) {
         <>
           <div className="flex flex-col gap-3 rounded-12 border border-border bg-surface-1 p-3">
             <label className="flex items-center justify-between">
-              <span className="flex items-center gap-2 text-sm text-subtle">
+              <span className="flex items-center gap-2 text-12 text-subtle">
                 <ShieldCheck className="size-4" /> 提取码保护(防盗链)
               </span>
               <Switch checked={withCode} onCheckedChange={setWithCode} />
             </label>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-subtle">有效期</span>
+              <span className="text-12 text-subtle">有效期</span>
               <div className="flex gap-1.5">
                 {EXPIRY_OPTIONS.map((o) => (
                   <button
                     key={o.days}
                     type="button"
                     onClick={() => setExpiryDays(o.days)}
-                    className={`rounded-8 border px-2.5 py-1 text-xs ${
+                    className={`rounded-8 border px-2.5 py-1 text-12 ${
                       expiryDays === o.days
                         ? 'border-brand-red bg-danger-soft text-brand-red'
                         : 'border-border text-muted-foreground'
@@ -481,14 +481,14 @@ function ShareBody({ target }: { target: ShareTarget }) {
         <>
           {created.extract_code && (
             <div className="flex items-center justify-between rounded-12 border border-border bg-surface-1 px-3 py-2.5">
-              <span className="text-sm text-subtle">提取码</span>
-              <span className="font-mono text-lg font-bold tracking-code text-brand-red">
+              <span className="text-12 text-subtle">提取码</span>
+              <span className="font-mono text-16 font-bold tracking-code text-brand-red">
                 {created.extract_code}
               </span>
             </div>
           )}
           <div>
-            <p className="mb-2 text-xs text-faint">分享渠道</p>
+            <p className="mb-2 text-12 text-faint">分享渠道</p>
             <div className="grid grid-cols-4 gap-2">
               <ChannelBtn icon={<Link2 className="size-5" />} label="复制链接" onClick={() => copy(`${origin}/s/${created.token}`, '链接')} />
               <ChannelBtn icon={<Copy className="size-5" />} label="复制口令" onClick={() => copy(buildShareText({ token: created.token, title: created.title, paper_count: created.paper_count, extract_code: created.extract_code }, origin), '口令')} />
@@ -496,7 +496,7 @@ function ShareBody({ target }: { target: ShareTarget }) {
               <ChannelBtn icon={<QrCode className="size-5" />} label="二维码" onClick={() => toast.message('二维码已展示在上方卡片,长按或保存图片即可')} />
             </div>
           </div>
-          <p className="text-2xs leading-paragraph text-faint">
+          <p className="text-12 leading-paragraph text-faint">
             「复制口令」是纯文本(链接+提取码),在微信/微博等渠道不易被屏蔽;对方在浏览器打开链接、输入提取码即可查看并一键转存。
           </p>
         </>
@@ -513,7 +513,7 @@ function ChannelBtn({ icon, label, onClick }: { icon: React.ReactNode; label: st
       className="flex flex-col items-center gap-1.5 rounded-8 border border-border bg-surface-card py-2.5 text-muted-foreground active:bg-surface-2"
     >
       {icon}
-      <span className="text-2xs text-subtle">{label}</span>
+      <span className="text-12 text-subtle">{label}</span>
     </button>
   );
 }

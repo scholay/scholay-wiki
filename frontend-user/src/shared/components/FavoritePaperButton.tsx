@@ -31,9 +31,9 @@ import type { Paper, UpstreamSource } from '@/shared/api/types';
  *   - link : 无边框,icon+text 同色,hover brand-red(详情页 ActionRow,与其它链接式操作并列)
  *
  * 尺寸:
- *   - sm : h-5 icon-12px / h-6 chip-text-2xs(矩阵 / 列表行)
- *   - md : h-7 icon-14px / h-6 chip-text-xs(默认,卡 / 弹窗主操作)
- *   - lg : h-8 icon-16px / h-8 chip-text-sm(详情页 actionRow)
+ *   - sm : h-5 icon-12px / h-6 chip-text-12(矩阵 / 列表行)
+ *   - md : h-7 icon-14px / h-6 chip-text-12(默认,卡 / 弹窗主操作)
+ *   - lg : h-8 icon-16px / h-8 chip-text-14(详情页 actionRow)
  *
  * 颜色规则:
  *   - 收藏标识色统一 brand-red(与文献集 sidebar / favorite-burst 动画呼应)
@@ -97,9 +97,9 @@ const ICON_SIZE: Record<FavoriteButtonSize, string> = {
 
 // chip 变体的尺寸表
 const CHIP_CLS: Record<FavoriteButtonSize, string> = {
-  sm: 'h-6 px-2 text-2xs gap-1',
-  md: 'h-6 px-2.5 text-xs gap-1',
-  lg: 'h-8 px-3 text-sm gap-1.5',
+  sm: 'h-6 px-2 text-12 gap-1',
+  md: 'h-6 px-2.5 text-12 gap-1',
+  lg: 'h-8 px-3 text-14 gap-1.5',
 };
 
 // icon 变体的方块尺寸表
@@ -281,9 +281,9 @@ export function FavoritePaperButton({
           aria-pressed={isFavorited}
           title={title}
           className={cn(
-            'inline-flex items-center gap-1.5 text-sm transition-colors',
+            'inline-flex items-center gap-1.5 text-14 transition-colors',
             isFavorited
-              ? 'text-brand-red font-bold hover:opacity-80'
+              ? 'text-brand-red font-medium hover:opacity-80'
               : 'text-foreground font-medium hover:text-brand-red',
             isPending && 'opacity-70 cursor-not-allowed',
             className
@@ -316,7 +316,7 @@ export function FavoritePaperButton({
           // 窄容器塌成 24×24 纯图标(仅当父级开启 collapseLabel + 处于 @container 内)
           collapseLabel && '@max-[260px]:w-6 @max-[260px]:px-0 @max-[260px]:gap-0',
           isFavorited
-            ? 'border-brand-red/30 bg-danger-soft text-brand-red font-semibold hover:bg-brand-red/15'
+            ? 'border-brand-red/30 bg-danger-soft text-brand-red font-medium hover:bg-brand-red/15'
             : 'border-border text-subtle hover:bg-surface-1 hover:text-foreground',
           isPending && 'opacity-60 cursor-wait',
           className

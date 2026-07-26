@@ -36,13 +36,13 @@ export function PaperReferences({ paper }: { paper: Paper }) {
   return (
     <section className="mt-16 space-y-4">
       <div className="space-y-1.5">
-        <div className="text-2xs font-bold uppercase text-faint">
+        <div className="text-12 font-medium uppercase text-faint">
           REFERENCES
         </div>
-        <h2 className="font-display font-bold text-2xl text-foreground">
+        <h2 className="font-display font-bold text-24 text-foreground">
           参考文献
           {totalLabel && (
-            <span className="ml-2 text-base font-normal text-faint">
+            <span className="ml-2 text-14 font-normal text-faint">
               · {totalLabel}
             </span>
           )}
@@ -61,7 +61,7 @@ export function PaperReferences({ paper }: { paper: Paper }) {
       )}
 
       {hasReferences && refsQ.error && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-16 bg-danger-soft text-brand-red text-xs">
+        <div className="flex items-center gap-2 px-4 py-3 rounded-16 bg-danger-soft text-brand-red text-12">
           <AlertCircle className="size-3.5" />
           参考文献暂时没能加载出来,请稍后再试
         </div>
@@ -87,7 +87,7 @@ export function PaperReferences({ paper }: { paper: Paper }) {
             <button
               type="button"
               onClick={() => setVisible((v) => v + STEP)}
-              className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-8 border border-border py-2.5 text-sm text-muted-foreground transition-colors hover:bg-surface-1 active:bg-surface-2"
+              className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-8 border border-border py-2.5 text-12 text-muted-foreground transition-colors hover:bg-surface-1 active:bg-surface-2"
             >
               <ChevronDown className="size-4" />
               显示更多({refs.length - visible} 篇)
@@ -103,8 +103,8 @@ function ReferencesEmpty({ reason }: { reason: string }) {
   return (
     <div className="flex flex-col items-center justify-center px-4 py-10 rounded-16 bg-surface-1 border border-dashed border-border text-center">
       <Inbox className="size-6 text-faint mb-2" strokeWidth={1.5} />
-      <p className="text-sm font-bold text-subtle">还没有参考文献</p>
-      <p className="mt-1 text-xs text-muted-foreground">{reason}</p>
+      <p className="text-12 font-medium text-subtle">还没有参考文献</p>
+      <p className="mt-1 text-12 text-muted-foreground">{reason}</p>
     </div>
   );
 }
@@ -143,8 +143,8 @@ function ReferenceItem({
   };
 
   return (
-    <li className="flex gap-3.5 text-base leading-paragraph text-subtle">
-      <span className="shrink-0 w-8 font-bold text-faint tabular-nums">
+    <li className="flex gap-3.5 text-14 leading-paragraph text-subtle">
+      <span className="shrink-0 w-8 font-medium text-faint tabular-nums">
         [{index}]
       </span>
       <span className="flex-1 min-w-0">

@@ -48,14 +48,14 @@ export function ProviderSection({
       cell: (r) => (
         <div className="flex flex-col">
           <span className="flex items-center gap-1.5">
-            <span className="font-bold text-foreground">{r.display_name || r.model_id}</span>
+            <span className="font-medium text-foreground">{r.display_name || r.model_id}</span>
             {r.flagship && (
               <Badge variant="outline" className="gap-0.5 border-brand-amber text-brand-amber">
                 <Sparkles className="size-2.5" />旗舰
               </Badge>
             )}
           </span>
-          <span className="text-2xs text-faint font-mono">{r.model_id}</span>
+          <span className="text-12 text-faint font-mono">{r.model_id}</span>
         </div>
       ),
     },
@@ -64,7 +64,7 @@ export function ProviderSection({
       width: 90,
       align: 'right',
       cell: (r) => (
-        <span className="text-xs text-muted-foreground tabular-nums">
+        <span className="text-12 text-muted-foreground tabular-nums">
           {r.context_window >= 1000 ? `${Math.round(r.context_window / 1000)}k` : r.context_window}
         </span>
       ),
@@ -74,11 +74,11 @@ export function ProviderSection({
       width: 150,
       align: 'right',
       cell: (r) => (
-        <span className="text-xs text-muted-foreground tabular-nums">
+        <span className="text-12 text-muted-foreground tabular-nums">
           {r.price_in} / {r.price_out}
           {r.input_tier_threshold > 0 && (
             <span
-              className="ml-1 text-2xs text-brand-amber"
+              className="ml-1 text-12 text-brand-amber"
               title={`输入 >${Math.round(r.input_tier_threshold / 1000)}k 切高档价:${r.price_in_hi}/${r.price_out_hi}(成本自然翻档)`}
             >
               分档
@@ -144,11 +144,11 @@ export function ProviderSection({
       <div className="flex items-start justify-between gap-3 p-4 border-b border-border-soft">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <h2 className="text-base font-bold text-foreground">{header.title}</h2>
+            <h2 className="text-16 font-medium text-foreground">{header.title}</h2>
             {header.isDefault && (
               <Badge variant="outline" className="text-brand-green border-brand-green">默认端点</Badge>
             )}
-            <Badge variant="outline" className="font-mono text-2xs">{header.apiFormat}</Badge>
+            <Badge variant="outline" className="font-mono text-12">{header.apiFormat}</Badge>
             {!header.enabled && <Badge variant="outline">停用</Badge>}
             {header.pushFailed && (
               <Badge variant="outline" className="text-brand-red border-brand-red" title={header.pushError}>
@@ -156,7 +156,7 @@ export function ProviderSection({
               </Badge>
             )}
           </div>
-          <p className="text-2xs text-faint truncate font-mono mt-0.5">{header.baseUrl || '未配置'}</p>
+          <p className="text-12 text-faint truncate font-mono mt-0.5">{header.baseUrl || '未配置'}</p>
         </div>
         <div className="flex items-center gap-1 shrink-0">
           {onApplyPreset && (
@@ -186,7 +186,7 @@ export function ProviderSection({
         </div>
       </div>
       {models.length === 0 && !loading ? (
-        <div className="p-5 text-center text-xs text-faint">该端点下暂无模型 — 点右上「添加模型」接入</div>
+        <div className="p-5 text-center text-12 text-faint">该端点下暂无模型 — 点右上「添加模型」接入</div>
       ) : (
         <DataTable columns={columns} rows={models} loading={loading} />
       )}

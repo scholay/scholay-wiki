@@ -40,11 +40,11 @@ export function MySkillsPage() {
 
       <header className="mb-5 flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-semibold text-foreground">
+          <h1 className="flex items-center gap-2 text-20 font-medium text-foreground">
             <Sparkles className="h-5 w-5 text-brand-green" />
             我的 Skills
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-12 text-muted-foreground">
             上传纯文本 SKILL.md;公开需通过审核。
             <Link to="/tools/skills" className="ml-2 text-brand-green hover:underline">
               浏览市场 →
@@ -99,17 +99,17 @@ function MySkillRow({ skill }: { skill: MySkill }) {
         <div className="flex items-center gap-2">
           <Link
             to={`/skills/${skill.slug || skill.id}`}
-            className="truncate text-sm font-medium text-foreground hover:text-brand-green"
+            className="truncate text-12 font-medium text-foreground hover:text-brand-green"
           >
             {skill.name}
           </Link>
           {isPublic && <Badge variant={badge.variant}>{badge.label}</Badge>}
         </div>
-        <p className="truncate text-xs text-muted-foreground">
+        <p className="truncate text-12 text-muted-foreground">
           {skill.tagline || '(暂无简介)'}
         </p>
         {skill.moderationStatus === 'rejected' && skill.moderationNote && (
-          <p className="mt-0.5 text-2xs text-brand-red">
+          <p className="mt-0.5 text-12 text-brand-red">
             驳回原因:{skill.moderationNote}
           </p>
         )}

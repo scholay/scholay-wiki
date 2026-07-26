@@ -43,7 +43,7 @@ function PrismPendingDiff({ chat }: { chat: ReturnType<typeof usePrismChat> }) {
                 data-rel={f.rel_path}
                 onClick={() => chat.selectPending(f.rel_path)}
                 className={cn(
-                  'inline-flex shrink-0 items-center gap-1 rounded-4 px-2 py-1 text-2xs transition-colors',
+                  'inline-flex shrink-0 items-center gap-1 rounded-4 px-2 py-1 text-12 transition-colors',
                   active ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-surface-2',
                 )}
               >
@@ -319,12 +319,12 @@ export function PrismWorkspace({ projectId, onBack, readOnly = false, onOpen }: 
         <header className="flex h-14 shrink-0 items-center justify-between border-b border-border px-4">
           <div className="flex items-center gap-2.5">
             <FileText className="size-4 text-brand-red" strokeWidth={2.5} />
-            <span className="text-md font-bold text-foreground">
+            <span className="text-16 font-medium text-foreground">
               {showDiff ? diffName : activeFile?.rel_path || project.data?.project.title || 'Prism'}
             </span>
-            {showDiff && <span className="rounded-pill bg-brand-green/10 px-2 py-0.5 text-2xs text-brand-green">AI 改动 · 审阅中</span>}
-            {save.isPending && <span className="ml-1 text-2xs text-faint">保存中…</span>}
-            {readOnly && <span className="rounded-pill bg-surface-2 px-2 py-0.5 text-2xs text-muted-foreground">只读 · 旧版</span>}
+            {showDiff && <span className="rounded-pill bg-brand-green/10 px-2 py-0.5 text-12 text-brand-green">AI 改动 · 审阅中</span>}
+            {save.isPending && <span className="ml-1 text-12 text-faint">保存中…</span>}
+            {readOnly && <span className="rounded-pill bg-surface-2 px-2 py-0.5 text-12 text-muted-foreground">只读 · 旧版</span>}
           </div>
           <div className="flex items-center gap-2">
             {readOnly && (
@@ -403,7 +403,7 @@ export function PrismWorkspace({ projectId, onBack, readOnly = false, onOpen }: 
             {/* 有 PDF 时顶部给下载按钮 —— 下载本次编译产物。 */}
             {pdfKey > 0 && (
               <div className="flex h-9 shrink-0 items-center justify-between border-b border-border bg-surface-card px-3">
-                <span className="text-2xs font-bold text-muted-foreground">PDF 预览</span>
+                <span className="text-12 font-medium text-muted-foreground">PDF 预览</span>
                 <Button
                   size="sm"
                   variant="ghost"
@@ -416,11 +416,11 @@ export function PrismWorkspace({ projectId, onBack, readOnly = false, onOpen }: 
             )}
             {compileError ? (
               // 可恢复状态 → 琥珀软提示(与 V2 一致,对齐全站 amber 约定)。
-              <div className="m-3 rounded-12 border border-brand-amber/30 bg-warning-soft p-3 text-xs text-brand-amber">
+              <div className="m-3 rounded-12 border border-brand-amber/30 bg-warning-soft p-3 text-12 text-brand-amber">
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
                   <div className="min-w-0">
-                    <p className="font-bold">本次编译未通过</p>
+                    <p className="font-medium">本次编译未通过</p>
                     <p className="mt-1 break-words text-subtle">{compileError}</p>
                   </div>
                 </div>
@@ -439,7 +439,7 @@ export function PrismWorkspace({ projectId, onBack, readOnly = false, onOpen }: 
                   <PdfViewer key={pdfKey} file={pdfSource} className="h-full" />
                 </Suspense>
               ) : (
-                <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-xs text-faint">
+                <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-12 text-faint">
                   <FileText className="size-6" />
                   <p>点击「编译」生成 PDF 预览</p>
                 </div>

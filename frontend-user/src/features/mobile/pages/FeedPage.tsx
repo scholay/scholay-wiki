@@ -107,10 +107,10 @@ export function FeedPage() {
             /* 下一篇 peek(同期刊卡 `RSOTM`):顶圆角 14 来自设计稿,token 无对应档位 */
             <div className="flex items-center gap-2.5 rounded-t-16 border border-b-0 border-border bg-surface-1/90 px-4 py-3">
               <div className="min-w-0 flex-1">
-                <p className="truncate text-md font-semibold text-foreground">
+                <p className="truncate text-14 font-medium text-foreground">
                   {next.title}
                 </p>
-                <p className="truncate text-xs text-faint">
+                <p className="truncate text-12 text-faint">
                   {[next.venue, next.year ? `${next.year}` : null]
                     .filter(Boolean)
                     .join(' · ') || '上滑查看'}

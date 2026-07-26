@@ -26,18 +26,18 @@ export function MeSubpageShell({
         >
           <ArrowLeft className="size-5 text-foreground" />
         </Link>
-        <span className="text-md font-medium text-foreground">{title}</span>
+        <span className="text-14 font-medium text-foreground">{title}</span>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto bg-surface-1">
         {authenticated ? (
           children
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-4 px-8">
-            <p className="text-sm text-muted-foreground">登录后才能查看{title}</p>
+            <p className="text-12 text-muted-foreground">登录后才能查看{title}</p>
             <button
               type="button"
               onClick={() => openAuth('login')}
-              className="h-10 rounded-8 bg-foreground px-8 text-md font-medium text-on-brand active:opacity-80"
+              className="h-10 rounded-8 bg-foreground px-8 text-14 font-medium text-on-brand active:opacity-80"
             >
               登录
             </button>

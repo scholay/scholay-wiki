@@ -34,9 +34,9 @@ export function NewsListItem({ item }: { item: NewsCard }) {
       )}
       <div className="min-w-0 flex-1">
         {/* 顶行:头条 + 版块 + 热度 + 时间 */}
-        <div className="flex flex-wrap items-center gap-2 text-xs">
+        <div className="flex flex-wrap items-center gap-2 text-12">
           {item.is_featured && (
-            <span className="rounded-4 bg-brand-red px-1.5 py-0.5 text-2xs font-semibold text-on-brand">
+            <span className="rounded-4 bg-brand-red px-1.5 py-0.5 text-12 font-medium text-on-brand">
               头条
             </span>
           )}
@@ -63,19 +63,19 @@ export function NewsListItem({ item }: { item: NewsCard }) {
         </div>
 
         {/* 标题 */}
-        <h3 className="mt-1.5 line-clamp-2 text-base font-bold text-foreground group-hover:text-brand-red">
+        <h3 className="mt-1.5 line-clamp-2 text-16 font-medium text-foreground group-hover:text-brand-red">
           {item.title}
         </h3>
 
         {/* 摘要 */}
         {item.summary && (
-          <p className="mt-1 line-clamp-2 text-xs leading-paragraph text-muted-foreground">
+          <p className="mt-1 line-clamp-2 text-14 leading-paragraph text-muted-foreground">
             {item.summary}
           </p>
         )}
 
         {/* 底行:来源 + 快讯/今日要览 */}
-        <div className="mt-2 flex items-center gap-2 text-2xs text-faint">
+        <div className="mt-2 flex items-center gap-2 text-12 text-faint">
           <span className="rounded-4 bg-surface-1 px-1.5 py-0.5">
             {newsReportLabel(item.report_type)}
           </span>

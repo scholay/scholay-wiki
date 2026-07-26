@@ -40,7 +40,7 @@ export function UserTokenUsagePanel({ userId }: { userId: number }) {
       {q.isLoading ? (
         <Loader2 className="size-4 animate-spin text-faint" />
       ) : !totals || totals.total_tokens === 0 ? (
-        <p className="py-2 text-xs text-faint">该时段无 AI 用量</p>
+        <p className="py-2 text-12 text-faint">该时段无 AI 用量</p>
       ) : (
         <>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -92,11 +92,11 @@ export function UserTokenUsagePanel({ userId }: { userId: number }) {
 function Stat({ label, value, strong, raw }: { label: string; value: number; strong?: boolean; raw?: boolean }) {
   return (
     <div className="rounded-8 border border-border bg-surface-1 px-2.5 py-1.5">
-      <div className="text-2xs text-faint">{label}</div>
+      <div className="text-12 text-faint">{label}</div>
       <div
         className={cn(
           'tabular-nums',
-          strong ? 'text-sm font-bold text-foreground' : 'text-xs text-subtle'
+          strong ? 'text-12 font-medium text-foreground' : 'text-12 text-subtle'
         )}
       >
         {raw ? value.toLocaleString() : compactTokens(value)}
@@ -118,9 +118,9 @@ interface UsageRow {
 function UsageTable({ title, firstCol, rows }: { title: string; firstCol: string; rows: UsageRow[] }) {
   return (
     <div>
-      <h5 className="mb-1.5 text-2xs font-bold text-faint">{title}</h5>
+      <h5 className="mb-1.5 text-12 font-medium text-faint">{title}</h5>
       <div className="overflow-x-auto rounded-12 border border-border">
-        <table className="w-full min-w-[360px] text-2xs tabular-nums">
+        <table className="w-full min-w-[360px] text-12 tabular-nums">
           <thead>
             <tr className="border-b border-border bg-surface-1 text-faint">
               <th className="px-2 py-1.5 text-left font-medium">{firstCol}</th>

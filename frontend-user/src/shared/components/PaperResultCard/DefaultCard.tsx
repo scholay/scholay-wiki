@@ -64,7 +64,7 @@ export function DefaultCard({
       <div className="flex items-start gap-2">
         <h3
           onClick={() => openPaper(paper)}
-          className="flex-1 min-w-0 text-md font-semibold text-foreground cursor-pointer hover:text-brand-red transition-colors"
+          className="flex-1 min-w-0 text-14 font-medium text-foreground cursor-pointer hover:text-brand-red transition-colors"
           title="打开论文详情"
         >
           {highlightQuery && !showZh
@@ -78,7 +78,7 @@ export function DefaultCard({
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
             title="查看 Open Access 原始 PDF(新窗口)"
-            className="shrink-0 inline-flex items-center gap-1 h-6 px-2 rounded-8 border border-brand-green/30 bg-brand-green/10 text-brand-green text-2xs font-bold hover:bg-brand-green/15 transition-colors"
+            className="shrink-0 inline-flex items-center gap-1 h-6 px-2 rounded-8 border border-brand-green/30 bg-brand-green/10 text-brand-green text-12 font-medium hover:bg-brand-green/15 transition-colors"
           >
             <ExternalLink className="size-2.5" strokeWidth={2.5} />
             OA PDF
@@ -92,14 +92,14 @@ export function DefaultCard({
             <span
               key={t.key}
               className={cn(
-                'inline-flex items-center px-1.5 h-[18px] rounded-4 text-2xs font-bold',
+                'inline-flex items-center px-1.5 h-[18px] rounded-4 text-12 font-medium',
                 t.tone === 'solid-green' && 'bg-brand-green text-on-brand',
                 t.tone === 'solid-amber' && 'bg-brand-amber text-on-brand',
                 t.tone === 'solid-red' && 'bg-brand-red text-on-brand',
                 t.tone === 'red' && 'bg-danger-soft text-brand-red',
                 t.tone === 'green' && 'bg-brand-green/10 text-brand-green',
                 t.tone === 'blue' && 'bg-cat-blue-soft text-cat-blue',
-                t.tone === 'neutral' && 'bg-surface-2 text-subtle font-semibold'
+                t.tone === 'neutral' && 'bg-surface-2 text-subtle font-medium'
               )}
             >
               {t.label}
@@ -110,7 +110,7 @@ export function DefaultCard({
       {displayAbstract && (
         <TruncatedText
           lines={2}
-          className="mt-2 text-sm text-subtle leading-paragraph"
+          className="mt-2 text-12 text-subtle leading-paragraph"
         >
           {displayAbstract}
         </TruncatedText>
@@ -128,7 +128,7 @@ export function DefaultCard({
             onClick={onToggleStage}
             aria-pressed={isStaged}
             className={cn(
-              'inline-flex items-center justify-center gap-1 h-6 px-2.5 rounded-8 text-xs font-bold whitespace-nowrap shrink-0 transition-colors',
+              'inline-flex items-center justify-center gap-1 h-6 px-2.5 rounded-8 text-12 font-medium whitespace-nowrap shrink-0 transition-colors',
               // 窄容器:塌成 24×24 纯图标方块
               '@max-[260px]:w-6 @max-[260px]:px-0 @max-[260px]:gap-0',
               isStaged
@@ -178,7 +178,7 @@ export function DefaultCard({
         <button
           type="button"
           onClick={onFold}
-          className="hidden group-hover:inline-flex group-focus-within:inline-flex ml-auto items-center justify-center gap-1 h-6 px-2 rounded-8 border border-border text-xs text-subtle whitespace-nowrap shrink-0 hover:bg-surface-1 hover:text-foreground transition-colors @max-[260px]:w-6 @max-[260px]:px-0 @max-[260px]:gap-0"
+          className="hidden group-hover:inline-flex group-focus-within:inline-flex ml-auto items-center justify-center gap-1 h-6 px-2 rounded-8 border border-border text-12 text-subtle whitespace-nowrap shrink-0 hover:bg-surface-1 hover:text-foreground transition-colors @max-[260px]:w-6 @max-[260px]:px-0 @max-[260px]:gap-0"
           title="把这张卡折叠成单行"
         >
           <Minimize2 className="size-2.5 shrink-0" strokeWidth={2.5} />

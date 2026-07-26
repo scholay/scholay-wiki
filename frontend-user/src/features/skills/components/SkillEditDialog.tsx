@@ -81,21 +81,21 @@ export function SkillEditDialog({
               onChange={(e) => setName(e.target.value)}
               maxLength={120}
               placeholder="名称"
-              className="h-9 w-full rounded-8 border border-border bg-surface-card px-3 text-sm outline-none focus-visible:border-border-strong"
+              className="h-9 w-full rounded-8 border border-border bg-surface-card px-3 text-12 outline-none focus-visible:border-border-strong"
             />
             <input
               value={tagline}
               onChange={(e) => setTagline(e.target.value)}
               maxLength={255}
               placeholder="一句话简介"
-              className="h-9 w-full rounded-8 border border-border bg-surface-card px-3 text-sm outline-none focus-visible:border-border-strong"
+              className="h-9 w-full rounded-8 border border-border bg-surface-card px-3 text-12 outline-none focus-visible:border-border-strong"
             />
             <input
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               maxLength={40}
               placeholder="分类"
-              className="h-9 w-full rounded-8 border border-border bg-surface-card px-3 text-sm outline-none focus-visible:border-border-strong"
+              className="h-9 w-full rounded-8 border border-border bg-surface-card px-3 text-12 outline-none focus-visible:border-border-strong"
             />
             <div className="flex justify-end">
               <Button size="sm" variant="outline" disabled={updateMeta.isPending} onClick={saveMeta}>
@@ -105,7 +105,7 @@ export function SkillEditDialog({
           </div>
 
           <div className="border-t border-border pt-3">
-            <div className="mb-2 text-xs font-medium text-foreground">上传新版本(zip)</div>
+            <div className="mb-2 text-12 font-medium text-foreground">上传新版本(zip)</div>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={() => zipRef.current?.click()}>
                 <FileArchive className="mr-1 h-4 w-4" />
@@ -123,7 +123,7 @@ export function SkillEditDialog({
                 onChange={(e) => setChangelog(e.target.value)}
                 maxLength={200}
                 placeholder="更新说明(可选)"
-                className="h-8 flex-1 rounded-8 border border-border bg-surface-card px-2 text-xs outline-none focus-visible:border-border-strong"
+                className="h-8 flex-1 rounded-8 border border-border bg-surface-card px-2 text-12 outline-none focus-visible:border-border-strong"
               />
               <Button size="sm" variant="primary" disabled={updateContent.isPending || !zip} onClick={uploadVersion}>
                 上传

@@ -56,11 +56,11 @@ export function WechatMiniProgramPanel() {
       }}
     >
       <div className="border-b border-border-soft pb-3">
-        <h2 className="flex items-center gap-2 text-base font-bold text-foreground">
+        <h2 className="flex items-center gap-2 text-16 font-medium text-foreground">
           <ProviderLogo provider="wechat" className="size-4" />
           微信小程序
         </h2>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="mt-1 text-12 text-muted-foreground">
           小程序一键登录(jscode2session)。AppID / AppSecret 在 mp.weixin.qq.com「开发管理 → 开发设置 → 开发者ID」获取,AppSecret 留空表示不修改。
         </p>
       </div>
@@ -92,11 +92,11 @@ export function WechatMiniProgramPanel() {
           defaultChecked={data?.enabled}
           className="size-4"
         />
-        <Label htmlFor="wxmp-enabled" className="text-sm">
+        <Label htmlFor="wxmp-enabled" className="text-12">
           启用小程序登录
         </Label>
       </div>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-12 text-muted-foreground">
         未启用时后端会拒绝小程序 jscode2session 登录。启用前须先填好 AppID 与 AppSecret。
       </p>
 

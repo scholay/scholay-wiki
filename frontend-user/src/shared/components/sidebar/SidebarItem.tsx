@@ -16,7 +16,7 @@ interface SidebarItemProps
   indent?: 0 | 1 | 2 | 3;
   /** 选中态:'primary' 黑色左边线,'danger' 红色左边线(对照编辑中 #CC2222) */
   active?: 'primary' | 'danger' | false;
-  /** 字号变体:'sm' 12px(子项 h-7=28)/ 'base' 13px(默认 h-8=32)/ 'lg' 14px(主菜单 tab h-10=40)*/
+  /** 字号变体:'sm' text-12(子项 h-7=28)/ 'base' text-14(默认 h-8=32)/ 'lg' text-14(主菜单 tab h-10=40)*/
   size?: 'sm' | 'base' | 'lg';
 }
 
@@ -25,7 +25,8 @@ interface SidebarItemProps
  *   - active folder(b53Pzb) = h-32 + 13/700 #111
  *   - inactive folder(AdIs4) = h-30 + 13/normal #444
  *   - sub-folder(wu3Jp) = h-28 + 12/normal #666
- * 我们统一到 base=h-8(32)/ sm=h-7(28),字号 text-base(13)/ text-sm(12)。
+ * 我们统一到 base=h-8(32)/ sm=h-7(28),字号 text-14 / text-12。
+ * B6 后 'lg' 与 'base' 字号同为 text-14(13 档已按 Figma 取消),两者靠行高 h-10/h-8 区分。
  */
 export const SidebarItem = forwardRef<HTMLButtonElement, SidebarItemProps>(
   (
@@ -54,12 +55,12 @@ export const SidebarItem = forwardRef<HTMLButtonElement, SidebarItemProps>(
         style={{ paddingLeft: indentPx }}
         className={cn(
           'group flex items-center gap-2 w-full text-left pr-4 transition-colors',
-          size === 'lg' && 'h-10 text-md',
-          size === 'base' && 'h-8 text-base',
-          size === 'sm' && 'h-7 text-sm',
+          size === 'lg' && 'h-10 text-14',
+          size === 'base' && 'h-8 text-14',
+          size === 'sm' && 'h-7 text-12',
           'text-subtle hover:bg-surface-2 hover:text-foreground',
-          isPrimary && 'bg-surface-2 text-foreground font-bold border-l-[3px] border-l-foreground -ml-px',
-          isDanger && 'bg-danger-soft text-destructive font-bold border-l-[3px] border-l-destructive -ml-px',
+          isPrimary && 'bg-surface-2 text-foreground font-medium border-l-[3px] border-l-foreground -ml-px',
+          isDanger && 'bg-danger-soft text-destructive font-medium border-l-[3px] border-l-destructive -ml-px',
           className
         )}
         {...props}
@@ -82,7 +83,7 @@ export const SidebarItem = forwardRef<HTMLButtonElement, SidebarItemProps>(
         <span className="flex-1 min-w-0 truncate">{label}</span>
 
         {trailing && (
-          <span className="text-xs text-faint shrink-0">{trailing}</span>
+          <span className="text-12 text-faint shrink-0">{trailing}</span>
         )}
       </button>
     );

@@ -91,7 +91,7 @@ export const MermaidDiagram = memo(function MermaidDiagram({ code }: { code: str
 
   // 流式中 / 渲染中 → 稳定占位,绝不闪烁。
   return (
-    <div className="mb-2.5 last:mb-0 flex min-h-[96px] items-center justify-center gap-2 rounded-12 border border-border bg-surface-1 text-xs text-muted-foreground">
+    <div className="mb-2.5 last:mb-0 flex min-h-[96px] items-center justify-center gap-2 rounded-12 border border-border bg-surface-1 text-12 text-muted-foreground">
       <Loader2 className="size-4 animate-spin" />
       图表生成中…
     </div>

@@ -50,7 +50,7 @@ export function PaperMetadataBlock({ paper }: { paper: Paper }) {
   if (!hasAny) return null;
 
   return (
-    <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm text-subtle">
+    <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-14 text-subtle">
       {doi && (
         <MetadataRow label="DOI">
           <a
@@ -78,7 +78,7 @@ export function PaperMetadataBlock({ paper }: { paper: Paper }) {
             {paper.citationCount != null && (
               <span className="tabular-nums">
                 被引用{' '}
-                <span className="font-semibold">
+                <span className="font-medium">
                   {paper.citationCount.toLocaleString()}
                 </span>{' '}
                 次
@@ -87,7 +87,7 @@ export function PaperMetadataBlock({ paper }: { paper: Paper }) {
             {paper.referenceCount != null && paper.referenceCount > 0 && (
               <span className="tabular-nums">
                 参考文献{' '}
-                <span className="font-semibold">
+                <span className="font-medium">
                   {paper.referenceCount.toLocaleString()}
                 </span>{' '}
                 条
@@ -100,7 +100,7 @@ export function PaperMetadataBlock({ paper }: { paper: Paper }) {
       {(paper.isOpenAccess || hasMinicodPdf || foundOA) && (
         <MetadataRow label="开放">
           <span className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1 h-5 px-1.5 rounded-4 bg-brand-green/12 text-2xs font-bold text-brand-green">
+            <span className="inline-flex items-center gap-1 h-5 px-1.5 rounded-4 bg-brand-green/12 text-12 font-medium text-brand-green">
               OA
             </span>
             {paper.openAccessPdf?.url ? (
@@ -108,7 +108,7 @@ export function PaperMetadataBlock({ paper }: { paper: Paper }) {
                 href={paper.openAccessPdf.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-brand-amber hover:text-brand-red hover:underline"
+                className="inline-flex items-center gap-1 text-12 text-brand-amber hover:text-brand-red hover:underline"
                 title="直接下载 OA PDF"
               >
                 PDF 直链
@@ -120,7 +120,7 @@ export function PaperMetadataBlock({ paper }: { paper: Paper }) {
                   href={foundOA.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-brand-amber hover:text-brand-red hover:underline"
+                  className="inline-flex items-center gap-1 text-12 text-brand-amber hover:text-brand-red hover:underline"
                   title="经 Unpaywall 找到的合法开放获取版本"
                 >
                   {foundOA.is_pdf ? '免费全文 PDF' : '免费全文'}
@@ -139,7 +139,7 @@ export function PaperMetadataBlock({ paper }: { paper: Paper }) {
             {fields.slice(0, 12).map((f) => (
               <span
                 key={f}
-                className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-surface-1 border border-border-soft text-2xs text-subtle"
+                className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-surface-1 border border-border-soft text-12 text-subtle"
               >
                 {f}
               </span>
@@ -162,7 +162,7 @@ function MetadataRow({
 }) {
   return (
     <>
-      <dt className="text-2xs font-bold uppercase text-faint pt-0.5">
+      <dt className="text-12 font-medium uppercase text-faint pt-0.5">
         {label}
       </dt>
       <dd className="flex flex-wrap items-center gap-2 min-w-0">{children}</dd>

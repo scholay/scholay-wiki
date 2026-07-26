@@ -103,10 +103,10 @@ export function JournalFeedPage() {
                 className="h-9 w-9 rounded-8"
               />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-md font-semibold text-foreground">
+                <p className="truncate text-14 font-medium text-foreground">
                   {next.canonical_name}
                 </p>
-                <p className="truncate text-xs text-faint">
+                <p className="truncate text-12 text-faint">
                   {[
                     next.fqb_major_category,
                     formatNumeric(next.jcr_impact_factor)

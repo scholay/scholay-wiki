@@ -151,7 +151,7 @@ export function JournalSearchResults({
               <h1 className="font-display font-bold leading-none text-[30px] text-foreground">
                 期刊搜索
               </h1>
-              <p className="text-base text-faint">
+              <p className="text-14 text-faint">
                 Journal Search · 检索全球期刊与顶会,按学科、分区、影响因子精准筛选
               </p>
             </div>
@@ -178,7 +178,7 @@ export function JournalSearchResults({
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="刊名 / ISSN / 主办机构"
-                className="flex-1 h-full bg-transparent text-md outline-none placeholder:text-faint"
+                className="flex-1 h-full bg-transparent text-14 outline-none placeholder:text-faint"
               />
               {input && (
                 <button
@@ -193,7 +193,7 @@ export function JournalSearchResults({
             </div>
             <button
               type="submit"
-              className="inline-flex h-13 px-6 items-center justify-center gap-2 rounded-12 bg-foreground text-background text-base font-bold hover:opacity-90 transition-opacity shrink-0"
+              className="inline-flex h-13 px-6 items-center justify-center gap-2 rounded-12 bg-foreground text-background text-14 font-medium hover:opacity-90 transition-opacity shrink-0"
             >
               <Search className="size-3.5" strokeWidth={2.5} />
               搜索期刊
@@ -206,7 +206,7 @@ export function JournalSearchResults({
         {/* ───── 结果头 —— .pen `HsUQD`(不展示总数,上游不给) ───── */}
         <header className="flex items-end justify-between gap-4">
           <div className="space-y-1">
-            <h2 className="font-display font-bold text-lg text-foreground leading-none">
+            <h2 className="font-display font-bold text-16 text-foreground leading-none">
               {searchQ.isLoading || searchQ.isFetching ? (
                 <span className="inline-flex items-center gap-2 text-muted-foreground">
                   <Loader2 className="size-3.5 animate-spin" />
@@ -218,7 +218,7 @@ export function JournalSearchResults({
                 <>期刊列表</>
               )}
             </h2>
-            <p className="text-xs text-faint">
+            <p className="text-12 text-faint">
               按 {SORT_OPTIONS.find((o) => o.key === sortKey)?.label ?? '相关度'} 排序
               {!keyword && !hasActiveFilters && ' · 默认推荐高质量期刊'}
             </p>
@@ -233,9 +233,9 @@ export function JournalSearchResults({
                   type="button"
                   onClick={() => setSort(opt.key)}
                   className={cn(
-                    'inline-flex items-center gap-1.5 h-7 px-3 rounded-8 text-xs transition-colors',
+                    'inline-flex items-center gap-1.5 h-7 px-3 rounded-8 text-12 transition-colors',
                     active
-                      ? 'bg-foreground text-background font-bold'
+                      ? 'bg-foreground text-background font-medium'
                       : 'bg-surface-card border border-border text-subtle hover:border-foreground'
                   )}
                 >
@@ -249,7 +249,7 @@ export function JournalSearchResults({
 
         {/* ───── 错误 / 空 / 列表 ───── */}
         {searchQ.error && (
-          <div className="flex items-center gap-2 px-4 py-3 rounded-16 bg-danger-soft text-brand-red text-xs">
+          <div className="flex items-center gap-2 px-4 py-3 rounded-16 bg-danger-soft text-brand-red text-12">
             <AlertCircle className="size-3.5" />
             搜索期刊出错了,请稍后重试
           </div>
@@ -300,10 +300,10 @@ export function JournalSearchResults({
 function Kpi({ value, label }: { value: string; label: string }) {
   return (
     <div className="flex flex-col items-end gap-1">
-      <span className="font-display font-bold text-xl leading-none text-foreground tabular-nums">
+      <span className="font-display font-bold text-20 leading-none text-foreground tabular-nums">
         {value}
       </span>
-      <span className="text-2xs font-bold uppercase text-faint">
+      <span className="text-12 font-medium uppercase text-faint">
         {label}
       </span>
     </div>
@@ -330,10 +330,10 @@ function JournalCard({
         {/* Top: 标题 + 副标题 + 收藏 icon */}
         <div className="flex items-start gap-2">
           <div className="flex-1 min-w-0 space-y-1">
-            <h3 className="font-display font-bold text-md leading-display-tight text-foreground truncate group-hover:text-brand-red transition-colors">
+            <h3 className="font-display font-bold text-14 leading-display-tight text-foreground truncate group-hover:text-brand-red transition-colors">
               {j.canonical_name}
             </h3>
-            <div className="text-xs text-faint truncate">
+            <div className="text-12 text-faint truncate">
               {j.publisher ?? '出版社未知'}
               {j.country && <> · {j.country}</>}
               {j.is_oa && <> · OA</>}
@@ -342,7 +342,7 @@ function JournalCard({
           <div className="shrink-0 flex items-center gap-1.5">
             {j.xr_quartile && (
               <span
-                className="inline-flex items-center h-6 px-2 rounded-4 bg-brand-green/10 text-brand-green text-2xs font-bold"
+                className="inline-flex items-center h-6 px-2 rounded-4 bg-brand-green/10 text-brand-green text-12 font-medium"
                 title="中科院新锐分区"
               >
                 新锐 {j.xr_quartile} 区
@@ -350,7 +350,7 @@ function JournalCard({
             )}
             {j.gjqk_warning && (
               <span
-                className="inline-flex items-center gap-1 h-6 px-2 rounded-4 bg-warning-soft text-brand-amber text-2xs font-bold"
+                className="inline-flex items-center gap-1 h-6 px-2 rounded-4 bg-warning-soft text-brand-amber text-12 font-medium"
                 title="中科院预警期刊"
               >
                 ⚠ 预警
@@ -380,25 +380,25 @@ function JournalCard({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             {j.type && (
-              <span className="inline-flex items-center h-5 px-2 rounded-4 bg-foreground text-background text-2xs font-bold uppercase">
+              <span className="inline-flex items-center h-5 px-2 rounded-4 bg-foreground text-background text-12 font-medium uppercase">
                 {j.type}
               </span>
             )}
             {(j.source_count ?? 0) > 0 && (
-              <span className="inline-flex items-center h-5 px-2 rounded-4 bg-surface-2 text-subtle text-2xs">
+              <span className="inline-flex items-center h-5 px-2 rounded-4 bg-surface-2 text-subtle text-12">
                 {j.source_count} 个数据源
               </span>
             )}
             {j.has_submission && (
               <span
-                className="inline-flex items-center h-5 px-2 rounded-4 bg-prism-badge-bg text-prism-badge-fg text-2xs font-medium"
+                className="inline-flex items-center h-5 px-2 rounded-4 bg-prism-badge-bg text-prism-badge-fg text-12 font-medium"
                 title="提供投稿须知 / LaTeX 模板(Max 会员可下载)"
               >
                 投稿资源
               </span>
             )}
           </div>
-          <span className="inline-flex items-center gap-1 h-7 px-2.5 rounded-8 border border-border text-xs font-bold text-foreground group-hover:bg-surface-1 transition-colors">
+          <span className="inline-flex items-center gap-1 h-7 px-2.5 rounded-8 border border-border text-12 font-medium text-foreground group-hover:bg-surface-1 transition-colors">
             查看详情
             <ArrowUpRight className="size-3" strokeWidth={2.5} />
           </span>
@@ -431,13 +431,13 @@ function KpiCell({
         borderLeft && 'border-l border-border-soft'
       )}
     >
-      <div className="text-2xs font-bold uppercase text-faint">
+      <div className="text-12 font-medium uppercase text-faint">
         {label}
       </div>
-      <div className="font-display font-bold text-xl leading-none text-foreground tabular-nums truncate">
+      <div className="font-display font-bold text-20 leading-none text-foreground tabular-nums truncate">
         {value}
       </div>
-      <div className="text-2xs text-faint truncate">{sub}</div>
+      <div className="text-12 text-faint truncate">{sub}</div>
     </div>
   );
 }

@@ -132,7 +132,7 @@ export function MobileMembershipDialog({
 
         {/* 兑换码开通(就地,不跳转)*/}
         <div className="rounded-12 border border-border p-3.5">
-          <div className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-foreground">
+          <div className="mb-2 flex items-center gap-1.5 text-14 font-medium text-foreground">
             <Ticket className="size-4 text-brand-green" /> 用兑换码开通会员
           </div>
           <form
@@ -153,22 +153,22 @@ export function MobileMembershipDialog({
               兑换
             </Button>
           </form>
-          <p className="mt-2 text-2xs text-faint">
+          <p className="mt-2 text-12 text-faint">
             兑换码可来自活动赠送 / 机构发放 / 合作渠道,兑换后立即生效。
           </p>
         </div>
 
         {/* 支付宝手机网站支付(选套餐直接付)*/}
         <div className="rounded-12 border border-border p-3.5">
-          <div className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-foreground">
+          <div className="mb-2 flex items-center gap-1.5 text-14 font-medium text-foreground">
             <CreditCard className="size-4 text-muted-foreground" /> 支付宝付款开通
           </div>
           {inWeChat ? (
-            <p className="text-xs leading-paragraph text-brand-red">
+            <p className="text-12 leading-paragraph text-brand-red">
               检测到你在微信内打开,微信无法调起支付宝。请点右上角「···」→「在浏览器打开」后再付款,或用上方兑换码 / 电脑端开通。
             </p>
           ) : !alipayOn || payPlans.length === 0 ? (
-            <p className="text-xs leading-paragraph text-muted-foreground">
+            <p className="text-12 leading-paragraph text-muted-foreground">
               支付暂未开放,请用上方兑换码开通,或在电脑端付款。
             </p>
           ) : (
@@ -194,7 +194,7 @@ export function MobileMembershipDialog({
                     className="flex items-center justify-between rounded-8 border border-border px-3 py-2.5 text-left transition-colors active:bg-surface-2 disabled:opacity-50"
                   >
                     <span className="flex flex-col gap-0.5">
-                      <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                      <span className="flex items-center gap-1.5 text-14 font-medium text-foreground">
                         {p.tier === 'max' ? (
                           <Crown className="size-4 text-brand-red" />
                         ) : (
@@ -203,21 +203,21 @@ export function MobileMembershipDialog({
                         {p.tier === 'max' ? 'Max' : 'Pro'} {kindLabel}
                       </span>
                       {upgrade && q && (
-                        <span className="text-2xs text-faint">剩余 {q.remaining_days} 天补差 · 到期日不变</span>
+                        <span className="text-12 text-faint">剩余 {q.remaining_days} 天补差 · 到期日不变</span>
                       )}
                     </span>
                     <span className="flex items-center gap-1.5">
                       <span className="flex flex-col items-end">
                         {q ? (
-                          <span className="text-sm font-bold text-foreground">
+                          <span className="text-14 font-medium text-foreground">
                             ¥{(q.amount_cents / 100).toFixed(2)}
-                            {!upgrade && <span className="text-2xs font-normal text-faint">{yearly ? '/年' : '/月'}</span>}
+                            {!upgrade && <span className="text-12 font-normal text-faint">{yearly ? '/年' : '/月'}</span>}
                           </span>
                         ) : (
                           <Loader2 className="size-4 animate-spin text-faint" />
                         )}
                         {q && yearly && !upgrade && (
-                          <span className="text-2xs text-faint">折合 ¥{(Math.floor((q.amount_cents / 100 / 12) * 10) / 10).toFixed(1)}/月</span>
+                          <span className="text-12 text-faint">折合 ¥{(Math.floor((q.amount_cents / 100 / 12) * 10) / 10).toFixed(1)}/月</span>
                         )}
                       </span>
                       {payingTier === p.tier ? (
@@ -229,7 +229,7 @@ export function MobileMembershipDialog({
                   </button>
                 );
               })}
-              <p className="text-2xs text-faint">
+              <p className="text-12 text-faint">
                 付款将跳转支付宝完成,开通后自动回到本页。
                 {cycle === 'yearly' ? '年度会员经费按月分批发放。' : ''}
               </p>

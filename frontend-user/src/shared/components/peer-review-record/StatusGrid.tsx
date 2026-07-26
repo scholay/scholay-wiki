@@ -142,14 +142,14 @@ function ReviewProgress({
   return (
     <div className="flex items-center gap-3 rounded-16 border border-brand-amber/40 bg-warning-soft px-3.5 py-2">
       <Loader2 className="h-4 w-4 shrink-0 animate-spin text-brand-amber" />
-      <span className="shrink-0 text-xs font-bold text-brand-amber">{label}</span>
+      <span className="shrink-0 text-12 font-medium text-brand-amber">{label}</span>
       <div className="h-1.5 flex-1 overflow-hidden rounded-pill bg-brand-amber/15">
         <div
           className="h-full rounded-pill bg-brand-amber transition-all duration-500"
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="shrink-0 text-2xs font-bold tabular-nums text-brand-amber">
+      <span className="shrink-0 text-12 font-medium tabular-nums text-brand-amber">
         阶段 {phaseNum}/5 · 预计剩余 ~{remainMin} 分钟
       </span>
     </div>
@@ -175,16 +175,16 @@ function EditorialCell({ active, onClick }: { active: boolean; onClick: () => vo
           <Check className="h-3.5 w-3.5 text-background" strokeWidth={3.5} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold text-foreground">编辑部初审</p>
-          <p className="truncate text-xs text-faint">排版 · 查重 · AIGC</p>
+          <p className="truncate text-14 font-medium text-foreground">编辑部初审</p>
+          <p className="truncate text-12 text-faint">排版 · 查重 · AIGC</p>
         </div>
-        <span className="shrink-0 rounded-pill bg-surface-2 px-2 py-0.5 text-xs font-bold text-subtle">
+        <span className="shrink-0 rounded-pill bg-surface-2 px-2 py-0.5 text-12 font-medium text-subtle">
           通过
         </span>
       </div>
       <div className="flex items-end justify-between pt-1">
-        <span className="font-serif text-xl font-bold text-foreground">通过</span>
-        <span className="text-2xs text-faint">4/4 项</span>
+        <span className="font-serif text-20 font-bold text-foreground">通过</span>
+        <span className="text-12 text-faint">4/4 项</span>
       </div>
     </button>
   );
@@ -221,7 +221,7 @@ function ReviewerCell({
     >
       <div
         className={cn(
-          'flex h-9 w-9 shrink-0 items-center justify-center rounded-pill font-serif text-sm font-bold',
+          'flex h-9 w-9 shrink-0 items-center justify-center rounded-pill font-serif text-12 font-bold',
           // 完成 → 按审稿结果上色 (绿/橘/红); 进行中 → 脉冲; 等待 → 灰描边
           done
             ? recAvatarClasses(eff?.recommendation)
@@ -232,12 +232,12 @@ function ReviewerCell({
       >
         {letter}
       </div>
-      <p className={cn('text-sm font-bold', done ? 'text-foreground' : 'text-muted-foreground')}>
+      <p className={cn('text-14 font-medium', done ? 'text-foreground' : 'text-muted-foreground')}>
         审稿人 {letter}
       </p>
       <span
         className={cn(
-          'inline-flex max-w-full items-center gap-1 truncate rounded-pill px-2 py-0.5 text-2xs font-bold',
+          'inline-flex max-w-full items-center gap-1 truncate rounded-pill px-2 py-0.5 text-12 font-medium',
           chip.cls,
         )}
       >
@@ -285,15 +285,15 @@ function ChiefCell({
             <Scale className="h-3.5 w-3.5" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-bold text-muted-foreground">主审决议</p>
-            <p className="truncate text-xs text-faint">{loading ? '决议中…' : '待 3 位完成'}</p>
+            <p className="truncate text-14 font-medium text-muted-foreground">主审决议</p>
+            <p className="truncate text-12 text-faint">{loading ? '决议中…' : '待 3 位完成'}</p>
           </div>
-          <span className="shrink-0 rounded-pill bg-surface-2 px-2.5 py-0.5 text-xs font-bold text-faint">
+          <span className="shrink-0 rounded-pill bg-surface-2 px-2.5 py-0.5 text-12 font-medium text-faint">
             {loading ? '汇总中' : '待汇总'}
           </span>
         </div>
         <div className="flex items-end justify-between pt-1">
-          <span className="font-serif text-xl font-bold text-faint">待定</span>
+          <span className="font-serif text-20 font-bold text-faint">待定</span>
         </div>
       </button>
     );
@@ -316,17 +316,17 @@ function ChiefCell({
     >
       <div className="flex items-center gap-2">
         <Scale className="h-4 w-4 shrink-0" />
-        <p className="text-sm font-bold">主审已决议</p>
-        {time && <span className="ml-auto text-2xs text-background/70 tabular-nums">{time}</span>}
+        <p className="text-14 font-medium">主审已决议</p>
+        {time && <span className="ml-auto text-12 text-background/70 tabular-nums">{time}</span>}
       </div>
       <div className="flex items-end gap-2.5">
-        <span className="font-serif text-3xl font-bold leading-none">{rec ? recLabel(rec) :'已决议'}</span>
+        <span className="font-serif text-28 font-bold leading-none">{rec ? recLabel(rec) :'已决议'}</span>
         {eff?.score != null && (
-          <span className="text-xs font-semibold text-background/85">综合 {eff.score} / 100</span>
+          <span className="text-12 font-medium text-background/85">综合 {eff.score} / 100</span>
         )}
       </div>
       {report?.summaryForAuthor && (
-        <p className="line-clamp-2 text-2xs leading-paragraph text-background/90">{report.summaryForAuthor}</p>
+        <p className="line-clamp-2 text-12 leading-paragraph text-background/90">{report.summaryForAuthor}</p>
       )}
     </button>
   );

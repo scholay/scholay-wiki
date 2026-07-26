@@ -69,7 +69,7 @@ export function SkillMarketGrid({
           <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
             上一页
           </Button>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-12 text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button

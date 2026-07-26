@@ -123,13 +123,13 @@ export function LibrarySidebar() {
         <SidebarContent>
           <SidebarSection id="library" label="我的文献集">
             <div className="mx-4 my-2 px-3 py-3 rounded-12 bg-surface-1 border border-border-soft">
-              <div className="text-sm text-subtle leading-paragraph">
+              <div className="text-12 text-subtle leading-paragraph">
                 登录后查看你的文献集,所有收藏云端同步
               </div>
               <Button
                 size="sm"
                 variant="primary"
-                className="mt-2 w-full h-8 text-xs"
+                className="mt-2 w-full h-8 text-12"
                 onClick={() => openAuthDialog('login')}
               >
                 <LogIn className="size-3" />
@@ -180,10 +180,10 @@ export function LibrarySidebar() {
             )}
 
             {isLoading && folders.length === 0 && (
-              <div className="px-4 py-2 text-2xs text-faint">加载中…</div>
+              <div className="px-4 py-2 text-12 text-faint">加载中…</div>
             )}
             {!isLoading && folders.length === 0 && !creating && (
-              <div className="px-4 py-2 text-2xs text-faint">
+              <div className="px-4 py-2 text-12 text-faint">
                 还没有文件夹 · 点击「新建」开始
               </div>
             )}
@@ -288,7 +288,7 @@ function FolderRow({
           }}
           onBlur={commitRename}
           disabled={renameMut.isPending}
-          className="flex-1 h-6 bg-surface-card border border-border rounded-8 px-1.5 text-xs outline-none focus-visible:border-brand-red"
+          className="flex-1 h-6 bg-surface-card border border-border rounded-8 px-1.5 text-12 outline-none focus-visible:border-brand-red"
         />
         {renameMut.isPending && (
           <Loader2 className="size-3 animate-spin text-muted-foreground" />
@@ -300,7 +300,7 @@ function FolderRow({
   if (confirmingDelete) {
     return (
       <div className="flex items-center gap-1.5 px-4 h-8 bg-danger-soft">
-        <span className="flex-1 text-2xs text-brand-red font-bold truncate">
+        <span className="flex-1 text-12 text-brand-red font-medium truncate">
           删除「{folder.name}」?
         </span>
         <button
@@ -356,8 +356,8 @@ function FolderRow({
       />
       <span
         className={cn(
-          'flex-1 min-w-0 truncate text-base',
-          active ? 'text-foreground font-bold' : 'text-subtle'
+          'flex-1 min-w-0 truncate text-14',
+          active ? 'text-foreground font-medium' : 'text-subtle'
         )}
         title={locked ? '系统默认文件夹(不可改名 / 不可删除)' : folder.name}
       >
@@ -366,8 +366,8 @@ function FolderRow({
 
       <span
         className={cn(
-          'text-xs tabular-nums transition-opacity',
-          active ? 'text-muted-foreground font-bold' : 'text-faint',
+          'text-12 tabular-nums transition-opacity',
+          active ? 'text-muted-foreground font-medium' : 'text-faint',
           !locked && 'group-hover:opacity-0'
         )}
       >
@@ -437,7 +437,7 @@ function NewFolderRow({
         }}
         onBlur={() => onSubmit(draft)}
         disabled={busy}
-        className="flex-1 h-6 bg-surface-card border border-border rounded-8 px-1.5 text-xs outline-none focus-visible:border-brand-red"
+        className="flex-1 h-6 bg-surface-card border border-border rounded-8 px-1.5 text-12 outline-none focus-visible:border-brand-red"
       />
       {busy && <Loader2 className="size-3 animate-spin text-muted-foreground" />}
     </div>

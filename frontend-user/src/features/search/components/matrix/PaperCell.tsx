@@ -60,10 +60,11 @@ function PaperCellImpl({ paper, isFavorited, onRemove }: Props) {
         </button>
       </div>
 
-      {/* 标题 15px/700 = .pen `w8tuZ` —— 留 right-padding 给 3 个 hover 按钮(60px)。
+      {/* 标题 —— 原 .pen `w8tuZ` 15px/700,B6 排印迁移后归 text-16 + font-medium
+          (sans 字族无 700,层级靠字号档 16 vs 摘要 12 撑住)。留 right-padding 给 3 个 hover 按钮(60px)。
           [overflow-wrap:anywhere]:表格列里必须用 anywhere(不是 break-words)才会缩小 min-content,
           长 token(无空格 DOI/URL)才会在 320 列内换行而非把整列撑宽。 */}
-      <h4 className="text-15 font-bold text-foreground line-clamp-2 pr-16 [overflow-wrap:anywhere]">
+      <h4 className="text-16 font-medium text-foreground line-clamp-2 pr-16 [overflow-wrap:anywhere]">
         {paper.title || '无标题'}
       </h4>
 
@@ -73,14 +74,14 @@ function PaperCellImpl({ paper, isFavorited, onRemove }: Props) {
         <TruncatedText
           lines={4}
           moreButtonClassName="opacity-0 group-hover/row:opacity-100 transition-opacity"
-          popoverClassName="max-w-md text-xs leading-paragraph"
-          className="text-sm text-subtle leading-paragraph [overflow-wrap:anywhere]"
+          popoverClassName="max-w-md text-12 leading-paragraph"
+          className="text-12 text-subtle leading-paragraph [overflow-wrap:anywhere]"
           popoverText={paper.abstract}
         >
           {paper.abstract}
         </TruncatedText>
       ) : (
-        <p className="text-xs text-faint italic">无摘要</p>
+        <p className="text-12 text-faint italic">无摘要</p>
       )}
     </div>
   );

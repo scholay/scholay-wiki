@@ -91,8 +91,8 @@ export function MobileLibraryPage() {
         {/* 标题 + 新建 */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-xl font-semibold text-foreground">我的收藏</h1>
-            <p className="mt-0.5 text-xs text-muted-foreground">
+            <h1 className="text-20 font-medium text-foreground">我的收藏</h1>
+            <p className="mt-0.5 text-12 text-muted-foreground">
               按主题整理你收藏的文献
             </p>
           </div>
@@ -103,7 +103,7 @@ export function MobileLibraryPage() {
               if (!creating) primeMobileKeyboard();
               setCreating((v) => !v);
             }}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-8 bg-brand-red px-3.5 text-base font-medium text-on-brand transition-transform active:scale-95 active:opacity-90"
+            className="flex h-9 shrink-0 items-center gap-1.5 rounded-8 bg-brand-red px-3.5 text-14 font-medium text-on-brand transition-transform active:scale-95 active:opacity-90"
           >
             <Plus className="size-3.5" /> 新建
           </button>
@@ -119,13 +119,13 @@ export function MobileLibraryPage() {
                   onKeyDown={(e) => e.key === 'Enter' && submitCreate()}
                   placeholder="文件夹名称"
                   maxLength={32}
-                  className="min-w-0 flex-1 bg-transparent px-1 text-md text-foreground outline-none placeholder:text-faint"
+                  className="min-w-0 flex-1 bg-transparent px-1 text-14 text-foreground outline-none placeholder:text-faint"
                 />
                 <button
                   type="button"
                   onClick={submitCreate}
                   disabled={createFolder.isPending}
-                  className="flex h-8 items-center rounded-8 bg-brand-red px-3 text-xs font-medium text-on-brand active:opacity-90"
+                  className="flex h-8 items-center rounded-8 bg-brand-red px-3 text-12 font-medium text-on-brand active:opacity-90"
                 >
                   {createFolder.isPending ? (
                     <Loader2 className="size-3.5 animate-spin" />
@@ -138,11 +138,11 @@ export function MobileLibraryPage() {
 
             {/* 计数 + 排序 */}
             <div className="mt-4 flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">
+              <span className="text-12 text-muted-foreground">
                 共 {folders.length} 个文献集
               </span>
               <DropdownMenu>
-                <DropdownMenuTrigger className="flex items-center gap-1 text-xs text-muted-foreground outline-none active:opacity-60">
+                <DropdownMenuTrigger className="flex items-center gap-1 text-12 text-muted-foreground outline-none active:opacity-60">
                   {SORT_OPTIONS.find((o) => o.key === sort)?.label}
                   <ChevronDown className="size-3.5 text-faint" />
                 </DropdownMenuTrigger>
@@ -223,8 +223,8 @@ function FolderCard({
       >
         <FolderCover accent={accent} />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-md font-semibold text-foreground">{f.name}</p>
-          <p className="mt-1.5 truncate text-xs text-muted-foreground">
+          <p className="truncate text-14 font-medium text-foreground">{f.name}</p>
+          <p className="mt-1.5 truncate text-12 text-muted-foreground">
             {f.paper_count} 篇 · {relativeTimeZh(f.updated_at)}更新
           </p>
         </div>
@@ -270,5 +270,5 @@ function FolderCover({ accent }: { accent: 'green' | 'amber' }) {
 }
 
 function EmptyHint({ text }: { text: string }) {
-  return <p className="py-12 text-center text-sm text-faint">{text}</p>;
+  return <p className="py-12 text-center text-14 text-faint">{text}</p>;
 }

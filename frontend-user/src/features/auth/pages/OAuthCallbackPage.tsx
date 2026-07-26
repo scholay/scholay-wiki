@@ -244,24 +244,24 @@ export function OAuthCallbackPage() {
         {phase === 'loading' && (
           <>
             <Loader2 className="size-8 animate-spin text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">正在完成 {provider} 登录…</p>
+            <p className="text-12 text-muted-foreground">正在完成 {provider} 登录…</p>
           </>
         )}
         {phase === 'success' && (
           <>
             <CheckCircle2 className="size-8 text-brand-green" />
-            <p className="text-sm text-foreground">登录成功,正在跳转…</p>
+            <p className="text-12 text-foreground">登录成功,正在跳转…</p>
           </>
         )}
         {phase === 'error' && (
           <>
             <AlertCircle className="size-8 text-brand-red" />
-            <p className="text-base font-semibold text-foreground">登录失败</p>
-            <p className="text-sm text-muted-foreground">{errMsg}</p>
+            <p className="text-14 font-medium text-foreground">登录失败</p>
+            <p className="text-12 text-muted-foreground">{errMsg}</p>
             <button
               type="button"
               onClick={() => navigate('/', { replace: true })}
-              className="mt-2 inline-flex items-center h-9 px-4 rounded-8 bg-foreground text-background text-sm font-semibold hover:bg-foreground/85"
+              className="mt-2 inline-flex items-center h-9 px-4 rounded-8 bg-foreground text-background text-12 font-medium hover:bg-foreground/85"
             >
               返回首页
             </button>

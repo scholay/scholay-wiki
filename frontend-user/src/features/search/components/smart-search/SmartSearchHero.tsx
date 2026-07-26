@@ -55,9 +55,9 @@ export function SmartSearchHero({
         {/* 图标 + 标题(挂钩品牌:和 Scholay 一起找论文) */}
         <div className="flex flex-col items-center gap-3">
           <HeroSpark />
-          <h2 className="flex flex-wrap items-center justify-center gap-x-1.5 text-2xl font-bold text-foreground">
+          <h2 className="flex flex-wrap items-center justify-center gap-x-1.5 text-24 font-medium text-foreground">
             <span>和</span>
-            <BrandLogo size="sm" className="text-2xl" />
+            <BrandLogo size="sm" className="text-24" />
             <span>一起找论文</span>
           </h2>
         </div>

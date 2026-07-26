@@ -9,11 +9,12 @@ interface SidebarSectionProps {
    * 不传则永不参与 flash(普通 section)。
    */
   id?: string;
-  /** 段标题 —— 默认 10px/700 #999 letterSpacing 2(.pen `UYIrC` HomeSidebar "工作流" 风) */
+  /** 段标题 —— 默认 text-12/font-medium text-faint(.pen `UYIrC` HomeSidebar "工作流" 风) */
   label?: ReactNode;
   /**
-   * `prominent`:11px/700 #111 letterSpacing 1(.pen `EgdL4` SearchSidebar "筛选器" 风),
-   * 用于带 "清空" 这类强操作的主功能段
+   * `prominent`:同样 text-12/font-medium,但色档提到 text-foreground
+   * (.pen `EgdL4` SearchSidebar "筛选器" 风),用于带 "清空" 这类强操作的主功能段。
+   * B6 后两档字号都归 text-12,主次【只靠颜色档区分】。
    */
   prominent?: boolean;
   /** 右侧动作 —— "+ 新建" / "清空",由调用方着色 */
@@ -50,10 +51,10 @@ export function SidebarSection({
         <header className="h-7 flex items-center justify-between gap-2 px-4 pt-2 pb-1">
           <span
             className={cn(
-              'font-bold',
+              'font-medium',
               prominent
-                ? 'text-xs text-foreground'
-                : 'text-2xs text-faint'
+                ? 'text-12 text-foreground'
+                : 'text-12 text-faint'
             )}
           >
             {label}
@@ -61,10 +62,10 @@ export function SidebarSection({
           {action && (
             <span
               className={cn(
-                'font-bold',
+                'font-medium',
                 prominent
-                  ? 'text-xs text-foreground'
-                  : 'text-2xs text-foreground'
+                  ? 'text-12 text-foreground'
+                  : 'text-12 text-foreground'
               )}
             >
               {action}

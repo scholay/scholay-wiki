@@ -25,7 +25,7 @@ const DropdownMenuSub = DropdownMenuPrimitive.Sub;
 const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
 
 const itemBase =
-  'relative flex cursor-default select-none items-center gap-2 rounded-8 px-2 py-1.5 text-sm outline-none transition-colors data-[disabled]:pointer-events-none data-[disabled]:opacity-50';
+  'relative flex cursor-default select-none items-center gap-2 rounded-8 px-2 py-1.5 text-12 outline-none transition-colors data-[disabled]:pointer-events-none data-[disabled]:opacity-50';
 const itemFocusable =
   'focus-visible:bg-surface-2 focus:text-foreground data-[highlighted]:bg-surface-2';
 
@@ -147,7 +147,7 @@ const DropdownMenuLabel = React.forwardRef<
   <DropdownMenuPrimitive.Label
     ref={ref}
     className={cn(
-      'px-2 py-1.5 text-2xs font-semibold uppercase text-faint',
+      'px-2 py-1.5 text-12 font-medium uppercase text-faint',
       inset && 'pl-8',
       className
     )}
@@ -175,7 +175,7 @@ const DropdownMenuShortcut = ({
 }: React.HTMLAttributes<HTMLSpanElement>) => (
   <span
     className={cn(
-      'ml-auto text-2xs text-muted-foreground',
+      'ml-auto text-12 text-muted-foreground',
       className
     )}
     {...props}

@@ -237,7 +237,7 @@ export function SubscribeDialog({
                 footer={
                   <div
                     className={cn(
-                      'inline-flex h-10 items-center justify-center gap-1.5 rounded-8 text-sm font-bold transition-colors',
+                      'inline-flex h-10 items-center justify-center gap-1.5 rounded-8 text-14 font-medium transition-colors',
                       isSelected
                         ? 'bg-brand-red text-background'
                         : act === 'owned' || act === 'free'
@@ -261,9 +261,9 @@ export function SubscribeDialog({
 
         {/* 支付方式 */}
         <div>
-          <p className="mb-2 text-xs font-bold text-foreground">支付方式</p>
+          <p className="mb-2 text-12 font-medium text-foreground">支付方式</p>
           {methods.length === 0 ? (
-            <p className="rounded-12 border border-border bg-surface-1 p-3 text-xs text-faint">
+            <p className="rounded-12 border border-border bg-surface-1 p-3 text-12 text-faint">
               管理员尚未配置支付渠道,暂时无法订阅。
             </p>
           ) : (
@@ -282,8 +282,8 @@ export function SubscribeDialog({
                   >
                     <Icon className={cn('size-5 shrink-0', active ? 'text-brand-red' : 'text-faint')} />
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold text-foreground">{m.name}</p>
-                      <p className="text-2xs text-faint">{m.desc}</p>
+                      <p className="text-14 font-medium text-foreground">{m.name}</p>
+                      <p className="text-12 text-faint">{m.desc}</p>
                     </div>
                     <span
                       className={cn(
@@ -304,35 +304,35 @@ export function SubscribeDialog({
         <div className="flex items-center justify-between gap-3 border-t border-border-soft pt-4">
           <div className="flex flex-col gap-0.5">
             <div className="flex items-baseline gap-1">
-              <span className="text-xs text-faint">{action === 'upgrade' ? '补差价' : '合计'}</span>
+              <span className="text-12 text-faint">{action === 'upgrade' ? '补差价' : '合计'}</span>
               {quoting ? (
                 <Loader2 className="size-4 animate-spin text-faint" />
               ) : quoteFailed ? (
-                <span className="text-sm font-medium text-brand-red">报价获取失败</span>
+                <span className="text-14 font-medium text-brand-red">报价获取失败</span>
               ) : (
-                <span className="text-xl font-bold text-brand-red">¥{yuanText(payCents)}</span>
+                <span className="text-20 font-medium text-brand-red">¥{yuanText(payCents)}</span>
               )}
               {!quoteFailed && action !== 'upgrade' && (
-                <span className="text-2xs text-faint">{payCycle === 'yearly' ? '/ 年' : '/ 月'}</span>
+                <span className="text-12 text-faint">{payCycle === 'yearly' ? '/ 年' : '/ 月'}</span>
               )}
             </div>
             {quoteFailed ? (
-              <span className="text-2xs text-brand-red">网络异常,请重选套餐或稍后重试</span>
+              <span className="text-12 text-brand-red">网络异常,请重选套餐或稍后重试</span>
             ) : (
               <>
                 {action === 'renew' && (
-                  <span className="text-2xs text-faint">
+                  <span className="text-12 text-faint">
                     {payCycle === 'yearly' ? '按年续期 · 转为年费会员 · 经费按月分批发放' : '续期 · 本期经费将于下一周期发放'}
                     {newExpires ? ` · 续至 ${newExpires}` : ''}
                   </span>
                 )}
                 {action === 'new' && payCycle === 'yearly' && (
-                  <span className="text-2xs text-faint">
+                  <span className="text-12 text-faint">
                     年费会员 · 经费按月分批发放{newExpires ? ` · 有效期至 ${newExpires}` : ''}
                   </span>
                 )}
                 {action === 'upgrade' && quoteData && (
-                  <span className="text-2xs text-faint">
+                  <span className="text-12 text-faint">
                     升级补差价 · 剩余 {quoteData.remaining_days} 天 · 立即生效 · 周期与到期日不变
                     {payCycle === 'yearly' ? ' · 按年费价目折算' : ''}
                   </span>

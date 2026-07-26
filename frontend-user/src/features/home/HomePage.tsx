@@ -90,7 +90,7 @@ export function HomePage() {
           {/* 可被爬虫读到的 H1 —— sr-only 不改 .pen 视觉,但给首页一个含品牌词的主标题 */}
           <h1 className="sr-only">Scholay学术 - AI 驱动的学术搜索与研究平台</h1>
           <BrandLogo size="xl" />
-          <p className="mt-6 text-sm text-muted-foreground">
+          <p className="mt-6 text-12 text-muted-foreground">
             学术搜索 · AI 审稿 · LaTeX 协作
           </p>
 
@@ -139,7 +139,7 @@ export function HomePage() {
             <Button
               onClick={handleSmartSearch}
               variant="destructive"
-              className="h-10 px-6 text-sm font-semibold"
+              className="h-10 px-6 text-12 font-medium"
             >
               智能搜索
             </Button>

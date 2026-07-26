@@ -74,19 +74,19 @@ export function WeChatCallbackPage() {
         {phase === 'loading' && (
           <>
             <Loader2 className="size-8 animate-spin text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">正在完成微信扫码…</p>
+            <p className="text-12 text-muted-foreground">正在完成微信扫码…</p>
           </>
         )}
         {phase === 'success' && (
           <>
             <CheckCircle2 className="size-8 text-brand-green" />
-            <p className="text-sm text-foreground">扫码成功</p>
+            <p className="text-12 text-foreground">扫码成功</p>
           </>
         )}
         {phase === 'error' && (
           <>
             <AlertCircle className="size-8 text-brand-red" />
-            <p className="text-sm text-foreground">{errMsg}</p>
+            <p className="text-12 text-foreground">{errMsg}</p>
           </>
         )}
       </div>

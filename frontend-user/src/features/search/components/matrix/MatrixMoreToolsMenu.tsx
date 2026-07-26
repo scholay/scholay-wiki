@@ -58,7 +58,7 @@ export function MatrixMoreToolsMenu({
         <HoverCardTrigger asChild>
           <button
             type="button"
-            className="inline-flex items-center gap-1 h-7 px-2.5 rounded-8 border border-border text-xs text-subtle hover:bg-surface-1 transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-1 h-7 px-2.5 rounded-8 border border-border text-12 text-subtle hover:bg-surface-1 transition-colors whitespace-nowrap"
           >
             {pending ? (
               <Loader2 className="size-3 animate-spin" />
@@ -128,7 +128,7 @@ function MenuRow({
       onClick={onClick}
       disabled={disabled || loading}
       className={cn(
-        'flex items-center gap-2 h-8 px-2 rounded-8 text-xs text-subtle text-left transition-colors',
+        'flex items-center gap-2 h-8 px-2 rounded-8 text-12 text-subtle text-left transition-colors',
         'hover:bg-surface-1 hover:text-foreground',
         'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-subtle'
       )}

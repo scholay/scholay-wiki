@@ -53,7 +53,7 @@ export function StatsRow({ feature }: { feature: LandingFeature }) {
           >
             <span
               className={cn(
-                'font-display italic font-semibold leading-display-tight',
+                'font-display italic font-medium leading-display-tight',
                 'text-[clamp(40px,5vw,64px)]',
                 dark ? DARK_TONE[s.tone ?? 'foreground'] : TONE[s.tone ?? 'foreground']
               )}
@@ -62,14 +62,14 @@ export function StatsRow({ feature }: { feature: LandingFeature }) {
             </span>
             <span
               className={cn(
-                'text-base font-medium',
+                'text-14 font-medium',
                 dark ? 'text-faint' : 'text-subtle'
               )}
             >
               {s.label}
             </span>
             {s.sub && (
-              <span className={cn('text-xs', dark ? 'text-muted-foreground/80' : 'text-muted-foreground')}>
+              <span className={cn('text-12', dark ? 'text-muted-foreground/80' : 'text-muted-foreground')}>
                 {s.sub}
               </span>
             )}

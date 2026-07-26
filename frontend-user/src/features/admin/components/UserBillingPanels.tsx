@@ -51,8 +51,8 @@ function SectionShell({
     <section>
       <div className="mb-2 flex items-center gap-1.5">
         <span className="text-faint">{icon}</span>
-        <h4 className="text-2xs font-bold text-faint">{title}</h4>
-        {count != null && count > 0 && <span className="text-2xs text-faint">· {count}</span>}
+        <h4 className="text-12 font-medium text-faint">{title}</h4>
+        {count != null && count > 0 && <span className="text-12 text-faint">· {count}</span>}
       </div>
       {children}
     </section>
@@ -63,7 +63,7 @@ function Loading() {
   return <Loader2 className="size-4 animate-spin text-faint" />;
 }
 function Empty({ text }: { text: string }) {
-  return <span className="text-xs text-faint">{text}</span>;
+  return <span className="text-12 text-faint">{text}</span>;
 }
 
 function fmtTime(s?: string | null): string {
@@ -85,20 +85,20 @@ function OrdersSection({ userId, open }: { userId: number; open: boolean }) {
           {rows.map((o: AdminOrder) => {
             const st = ORDER_STATUS[o.status] ?? { label: o.status, variant: 'muted' as const };
             return (
-              <li key={o.id} className="flex items-center justify-between gap-2 py-1.5 text-xs">
+              <li key={o.id} className="flex items-center justify-between gap-2 py-1.5 text-12">
                 <div className="flex min-w-0 flex-col">
                   <span className="flex items-center gap-1.5">
                     <span className="text-subtle">{ORDER_TYPE_LABEL[o.order_type] ?? o.order_type}</span>
                     {o.plan_name && <span className="truncate text-faint">{o.plan_name}</span>}
                   </span>
-                  <span className="font-mono text-2xs text-faint">{o.order_no}</span>
+                  <span className="font-mono text-12 text-faint">{o.order_no}</span>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-0.5">
                   <span className="flex items-center gap-1.5">
                     <span className="tabular-nums text-foreground">¥{o.final_amount.toFixed(2)}</span>
                     <Badge variant={st.variant}>{st.label}</Badge>
                   </span>
-                  <span className="text-2xs text-faint">{fmtTime(o.payment_time ?? o.created_at)}</span>
+                  <span className="text-12 text-faint">{fmtTime(o.payment_time ?? o.created_at)}</span>
                 </div>
               </li>
             );
@@ -122,17 +122,17 @@ function TransactionsSection({ userId, open }: { userId: number; open: boolean }
       ) : (
         <ul className="flex flex-col divide-y divide-border-soft">
           {rows.map((t: AdminCreditTransaction) => (
-            <li key={t.id} className="flex items-center justify-between gap-2 py-1.5 text-xs">
+            <li key={t.id} className="flex items-center justify-between gap-2 py-1.5 text-12">
               <div className="flex min-w-0 flex-col">
                 <span className="text-subtle">{TX_LABEL[t.type] ?? t.type}</span>
-                {t.note && <span className="truncate text-2xs text-faint">{t.note}</span>}
+                {t.note && <span className="truncate text-12 text-faint">{t.note}</span>}
               </div>
               <div className="flex shrink-0 flex-col items-end gap-0.5">
                 <span className={cn('tabular-nums font-medium', t.amount >= 0 ? 'text-brand-green' : 'text-brand-red')}>
                   {t.amount >= 0 ? '+' : ''}
                   {t.amount}
                 </span>
-                <span className="text-2xs text-faint">余 {t.perm_after + t.temp_after} · {fmtTime(t.created_at)}</span>
+                <span className="text-12 text-faint">余 {t.perm_after + t.temp_after} · {fmtTime(t.created_at)}</span>
               </div>
             </li>
           ))}
@@ -159,12 +159,12 @@ function RedemptionsSection({ userId, open }: { userId: number; open: boolean })
       ) : (
         <ul className="flex flex-col divide-y divide-border-soft">
           {rows.map((r: AdminRedemption, i: number) => (
-            <li key={`${r.code}-${i}`} className="flex items-center justify-between gap-2 py-1.5 text-xs">
+            <li key={`${r.code}-${i}`} className="flex items-center justify-between gap-2 py-1.5 text-12">
               <div className="flex min-w-0 flex-col">
                 <span className="text-subtle">{grant(r)}</span>
-                <span className="font-mono text-2xs text-faint">{r.code}</span>
+                <span className="font-mono text-12 text-faint">{r.code}</span>
               </div>
-              <span className="shrink-0 text-2xs text-faint">{fmtTime(r.redeemed_at)}</span>
+              <span className="shrink-0 text-12 text-faint">{fmtTime(r.redeemed_at)}</span>
             </li>
           ))}
         </ul>

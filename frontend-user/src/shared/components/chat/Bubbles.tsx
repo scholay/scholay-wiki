@@ -39,7 +39,7 @@ export const UserBubble = memo(function UserBubble({ text, attachments }: UserBu
     <div className="flex justify-end min-w-0">
       <div className="max-w-[80%] flex flex-col items-end gap-1.5 min-w-0">
         {attachments}
-        <div className="inline-flex items-center rounded-16 rounded-br-4 bg-foreground px-3.5 py-2.5 text-sm leading-paragraph text-background whitespace-pre-wrap break-words">
+        <div className="inline-flex items-center rounded-16 rounded-br-4 bg-foreground px-3.5 py-2.5 text-12 leading-paragraph text-background whitespace-pre-wrap break-words">
           {text}
         </div>
       </div>

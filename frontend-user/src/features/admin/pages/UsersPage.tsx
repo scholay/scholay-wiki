@@ -33,7 +33,7 @@ import {
   type UserListParams,
 } from '../api/users';
 
-const SELECT_CLS = 'h-8 rounded-8 border border-input bg-surface-card px-2 text-xs text-foreground';
+const SELECT_CLS = 'h-8 rounded-8 border border-input bg-surface-card px-2 text-12 text-foreground';
 
 // 服务端排序默认值 —— 与后端 GetUserList 默认一致(last_login_at desc)。
 const DEFAULT_SORT_BY = 'last_login_at';
@@ -189,12 +189,12 @@ export function UsersPage() {
           className="flex flex-col text-left transition-colors hover:text-brand-red"
         >
           <span className="flex items-center gap-1.5">
-            <span className="text-foreground font-bold">
+            <span className="text-foreground font-medium">
               {u.username || u.email?.split('@')[0] || u.phone || '用户'}
             </span>
-            <span className="shrink-0 rounded-4 bg-surface-2 px-1 font-mono text-2xs text-faint">#{u.id}</span>
+            <span className="shrink-0 rounded-4 bg-surface-2 px-1 font-mono text-12 text-faint">#{u.id}</span>
           </span>
-          <span className="text-xs text-faint">{u.email || u.phone || '—'}</span>
+          <span className="text-12 text-faint">{u.email || u.phone || '—'}</span>
         </button>
       ),
     },
@@ -209,10 +209,10 @@ export function UsersPage() {
       header: '会员',
       cell: (u) => {
         const t = effectiveTier(u);
-        if (t === 'free') return <span className="text-xs text-faint">Free</span>;
+        if (t === 'free') return <span className="text-12 text-faint">Free</span>;
         return (
           <span
-            className={`inline-flex items-center gap-1 text-xs font-bold ${
+            className={`inline-flex items-center gap-1 text-12 font-medium ${
               t === 'max' ? 'text-brand-red' : 'text-brand-amber'
             }`}
           >
@@ -240,7 +240,7 @@ export function UsersPage() {
     {
       header: '注册时间',
       cell: (u) => (
-        <span className="text-xs text-muted-foreground">{u.created_at?.slice(0, 16).replace('T', ' ') || '—'}</span>
+        <span className="text-12 text-muted-foreground">{u.created_at?.slice(0, 16).replace('T', ' ') || '—'}</span>
       ),
       width: 150,
       serverSortKey: 'created_at',
@@ -248,7 +248,7 @@ export function UsersPage() {
     {
       header: '最后活跃',
       cell: (u) => (
-        <span className="text-xs text-muted-foreground">{u.last_active_at?.slice(0, 16).replace('T', ' ') || '—'}</span>
+        <span className="text-12 text-muted-foreground">{u.last_active_at?.slice(0, 16).replace('T', ' ') || '—'}</span>
       ),
       width: 150,
       serverSortKey: 'last_active_at',
@@ -256,7 +256,7 @@ export function UsersPage() {
     {
       header: '最后登录',
       cell: (u) => (
-        <span className="text-xs text-muted-foreground">{u.last_login_at?.slice(0, 16).replace('T', ' ') || '—'}</span>
+        <span className="text-12 text-muted-foreground">{u.last_login_at?.slice(0, 16).replace('T', ' ') || '—'}</span>
       ),
       width: 150,
       serverSortKey: 'last_login_at',
@@ -489,7 +489,7 @@ export function UsersPage() {
 function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1">
-      <Label className="text-2xs text-faint">{label}</Label>
+      <Label className="text-12 text-faint">{label}</Label>
       {children}
     </div>
   );

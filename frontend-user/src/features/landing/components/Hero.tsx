@@ -49,7 +49,7 @@ function CheckMeta({ items }: { items: string[] }) {
       {items.map((m) => (
         <span
           key={m}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground"
+          className="inline-flex items-center gap-1.5 text-12 text-muted-foreground"
         >
           <Check className="size-3.5 text-brand-green" strokeWidth={2.5} />
           {m}
@@ -91,7 +91,7 @@ export function Hero({
           <TitleLines lines={hero.titleLines} />
           <p
             className={cn(
-              'text-lg leading-paragraph text-subtle',
+              'text-16 leading-paragraph text-subtle',
               !hasMock && 'max-w-[760px]'
             )}
           >

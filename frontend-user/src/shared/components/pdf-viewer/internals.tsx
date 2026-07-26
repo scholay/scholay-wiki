@@ -133,7 +133,7 @@ export function LoadingBlock() {
   return (
     <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
       <Loader2 className="size-4 animate-spin" />
-      <span className="text-sm">加载 PDF …</span>
+      <span className="text-12">加载 PDF …</span>
     </div>
   );
 }
@@ -141,7 +141,7 @@ LoadingBlock.displayName = 'LoadingBlock';
 
 export function ErrorBlock({ message }: { message: string }) {
   return (
-    <div className="m-8 px-4 py-3 rounded-12 bg-danger-soft text-xs text-brand-red max-w-md">
+    <div className="m-8 px-4 py-3 rounded-12 bg-danger-soft text-12 text-brand-red max-w-md">
       {message}
     </div>
   );

@@ -87,7 +87,7 @@ export function QuickOpenPaperDialog({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="输入论文标题关键词 …"
               maxLength={128}
-              className="flex-1 min-w-0 h-full bg-transparent text-sm font-medium text-foreground outline-none placeholder:text-faint placeholder:font-normal"
+              className="flex-1 min-w-0 h-full bg-transparent text-12 font-medium text-foreground outline-none placeholder:text-faint placeholder:font-normal"
             />
             {query ? (
               <button
@@ -120,7 +120,7 @@ export function QuickOpenPaperDialog({
                 ))}
                 {/* 已有结果但还有源在加载 —— 列表尾部一个极简 inline 提示 */}
                 {!allDone && (
-                  <li className="flex items-center justify-center gap-2 px-3 py-3 text-2xs text-faint">
+                  <li className="flex items-center justify-center gap-2 px-3 py-3 text-12 text-faint">
                     <Loader2 className="size-3 animate-spin" />
                     其他源继续加载中…
                   </li>
@@ -131,7 +131,7 @@ export function QuickOpenPaperDialog({
 
           {/* footer */}
           <div className="flex items-center justify-end h-9 px-3 bg-surface-1 border-t border-border-soft shrink-0">
-            <span className="text-2xs text-muted-foreground">
+            <span className="text-12 text-muted-foreground">
               点击任一行打开详情
             </span>
           </div>
@@ -170,12 +170,12 @@ function PaperRow({
         </div>
         <div className="flex-1 min-w-0">
           <div
-            className="truncate text-sm font-semibold text-foreground"
+            className="truncate text-14 font-medium text-foreground"
             title={paper.title ?? '无标题'}
           >
             {paper.title ?? '无标题'}
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 truncate">
+          <div className="flex items-center gap-2 text-12 text-muted-foreground mt-0.5 truncate">
             {/* source badge 行内放在 meta 行,知道来源但不抢标题视线 */}
             {source !== 'local' && (
               <SourceBadge source={source} variant="letter" size="sm" />
@@ -215,7 +215,7 @@ function PaperRow({
 
 function EmptyHint({ text }: { text: string }) {
   return (
-    <div className="flex items-center justify-center py-16 px-6 text-center text-xs text-faint">
+    <div className="flex items-center justify-center py-16 px-6 text-center text-12 text-faint">
       {text}
     </div>
   );
@@ -223,7 +223,7 @@ function EmptyHint({ text }: { text: string }) {
 
 function CenterLoading() {
   return (
-    <div className="flex items-center justify-center gap-2 py-16 text-xs text-faint">
+    <div className="flex items-center justify-center gap-2 py-16 text-12 text-faint">
       <Loader2 className="size-4 animate-spin" />
       搜索中…
     </div>
@@ -233,11 +233,11 @@ function CenterLoading() {
 function NoResultsHint({ query }: { query: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 px-6 text-center gap-2">
-      <div className="text-sm text-muted-foreground">
+      <div className="text-12 text-muted-foreground">
         没有命中{' '}
-        <span className="font-semibold text-foreground">「{query}」</span>
+        <span className="font-medium text-foreground">「{query}」</span>
       </div>
-      <div className="text-xs text-faint">试试换个关键词或缩短词组</div>
+      <div className="text-12 text-faint">试试换个关键词或缩短词组</div>
     </div>
   );
 }

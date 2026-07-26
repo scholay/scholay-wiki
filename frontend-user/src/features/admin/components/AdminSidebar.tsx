@@ -39,7 +39,7 @@ export function AdminSidebar() {
           <ArrowLeft />
         </SidebarHeaderIcon>
         <SidebarHeaderCenter>
-          <span className="text-sm font-semibold text-foreground">管理员后台</span>
+          <span className="text-12 font-medium text-foreground">管理员后台</span>
         </SidebarHeaderCenter>
         <SidebarHeaderIcon aria-label="角色标识">
           <Shield />

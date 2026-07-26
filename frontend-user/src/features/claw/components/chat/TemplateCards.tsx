@@ -81,11 +81,11 @@ export function TemplateCards({
   // 普通对话空态:扑克牌拱形展开的模板卡。
   return (
     <div className="w-full">
-      <div className="mb-1.5 text-center text-2xs uppercase text-faint">
+      <div className="mb-1.5 text-center text-12 uppercase text-faint">
         从模板开始 · 或直接输入
       </div>
       <FanCards reduce={!!reduce} onPick={onPick} />
-      <div className="mt-2 text-center text-2xs text-faint">更多创作模板陆续加入</div>
+      <div className="mt-2 text-center text-12 text-faint">更多创作模板陆续加入</div>
     </div>
   );
 }
@@ -164,8 +164,8 @@ function FanCards({ reduce, onPick }: { reduce: boolean; onPick: (f: TemplateFea
                 <Icon className="size-3.5" />
               </span>
               <div className="min-w-0">
-                <div className="truncate text-sm font-semibold text-foreground">{title}</div>
-                <div className="truncate text-2xs text-muted-foreground">{subtitle}</div>
+                <div className="truncate text-14 font-medium text-foreground">{title}</div>
+                <div className="truncate text-12 text-muted-foreground">{subtitle}</div>
               </div>
             </div>
           </motion.button>
@@ -214,16 +214,16 @@ function SelectedModeBar({
         </div>
       </div>
       <div className="min-w-0 flex-1">
-        <div className={cn('flex items-center gap-1.5 text-sm font-semibold', accent.modeText)}>
+        <div className={cn('flex items-center gap-1.5 text-14 font-medium', accent.modeText)}>
           <Icon className="size-3.5" />
           {title} 模式
         </div>
-        <div className="mt-0.5 truncate text-2xs text-muted-foreground">{subtitle}</div>
+        <div className="mt-0.5 truncate text-12 text-muted-foreground">{subtitle}</div>
       </div>
       <button
         type="button"
         onClick={onBack}
-        className="inline-flex shrink-0 items-center gap-1 rounded-pill px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-surface-card/60 hover:text-foreground"
+        className="inline-flex shrink-0 items-center gap-1 rounded-pill px-2.5 py-1.5 text-12 text-muted-foreground transition-colors hover:bg-surface-card/60 hover:text-foreground"
       >
         <ArrowLeft className="size-3.5" />
         换回对话

@@ -56,10 +56,10 @@ export function ClawEmptyState({
           </motion.div>
         </div>
 
-        <h2 className="mt-4 font-serif text-xl font-bold text-foreground">
+        <h2 className="mt-4 font-serif text-20 font-bold text-foreground">
           智能助手 · Claw
         </h2>
-        <p className="mt-1.5 text-center text-sm leading-paragraph text-muted-foreground">
+        <p className="mt-1.5 text-center text-12 leading-paragraph text-muted-foreground">
           找文献 · 读论文 · 查期刊 · 改摘要,也能上传 PDF / 图片帮你分析
         </p>
 
@@ -76,8 +76,8 @@ export function ClawEmptyState({
                 <Icon className="size-4 text-brand-green" />
               </span>
               <span className="flex min-w-0 flex-col">
-                <span className="text-sm font-medium text-foreground">{label}</span>
-                <span className="truncate text-xs text-faint">{prompt}</span>
+                <span className="text-14 font-medium text-foreground">{label}</span>
+                <span className="truncate text-12 text-faint">{prompt}</span>
               </span>
             </button>
           ))}

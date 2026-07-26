@@ -36,7 +36,7 @@ export function CodeBlock({ children }: { children?: ReactNode }) {
       <button
         type="button"
         onClick={handleCopy}
-        className="absolute right-2 top-2 z-raised inline-flex items-center gap-1 rounded-4 border border-border bg-surface-card/90 px-1.5 py-0.5 text-2xs text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover/code:opacity-100"
+        className="absolute right-2 top-2 z-raised inline-flex items-center gap-1 rounded-4 border border-border bg-surface-card/90 px-1.5 py-0.5 text-12 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover/code:opacity-100"
         aria-label="复制代码"
       >
         {copied ? (

@@ -76,8 +76,8 @@ export function AuthDialog() {
             </button>
           )}
           <BrandLogo size="md" />
-          <DialogTitle className="mt-2 text-lg font-semibold">{t.title}</DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground">
+          <DialogTitle className="mt-2 text-16 font-medium">{t.title}</DialogTitle>
+          <DialogDescription className="text-12 text-muted-foreground">
             {t.desc}
           </DialogDescription>
         </div>
@@ -114,7 +114,7 @@ export function AuthDialog() {
             <div className="px-6 pb-6">
               <div className="relative flex items-center my-3">
                 <Separator className="flex-1" />
-                <span className="px-3 text-2xs text-faint uppercase">
+                <span className="px-3 text-12 text-faint uppercase">
                   或继续使用
                 </span>
                 <Separator className="flex-1" />

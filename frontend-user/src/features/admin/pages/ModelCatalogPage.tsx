@@ -138,7 +138,7 @@ export function ModelCatalogPanel() {
 
   return (
     <div className="space-y-6">
-      <p className="text-xs text-muted-foreground">
+      <p className="text-12 text-muted-foreground">
         平台上游:<span className="font-mono">DeepSeek 官方</span>(默认端点)+ 千问 / Kimi / 智谱(额外端点)。
         各厂商模型的参数、四类单价可编辑;「应用官方预设」按官方文档一键补全。成本制计费:额度按真实单价扣,无需配倍率。改动后自动推送 agent。
       </p>
@@ -166,7 +166,7 @@ export function ModelCatalogPanel() {
         onEditProvider={() => setDefOpen(true)}
       />
       {!endpointMatchesOfficial && defEndpoint?.base_url && (
-        <p className="-mt-3 text-2xs text-brand-amber">
+        <p className="-mt-3 text-12 text-brand-amber">
           当前默认端点 Base URL 不是官方地址(应为 <span className="font-mono">{DEEPSEEK_ENDPOINT.baseUrl}</span>);点右上「编辑端点」核对。
         </p>
       )}
@@ -203,7 +203,7 @@ export function ModelCatalogPanel() {
         ) : (
           <div
             key={v.key}
-            className="rounded-16 border border-dashed border-border bg-surface-1 p-4 text-xs text-muted-foreground"
+            className="rounded-16 border border-dashed border-border bg-surface-1 p-4 text-12 text-muted-foreground"
           >
             未检测到{v.label}端点。到下方「高级」新增端点:Base URL{' '}
             <span className="font-mono">{v.endpoint.baseUrl}</span>、格式{' '}
@@ -220,7 +220,7 @@ export function ModelCatalogPanel() {
         <button
           type="button"
           onClick={() => setShowAdvanced((v) => !v)}
-          className="flex w-full items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+          className="flex w-full items-center gap-1.5 text-12 text-muted-foreground hover:text-foreground"
         >
           <ChevronDown className={cn('size-3.5 transition-transform', showAdvanced ? '' : '-rotate-90')} />
           高级 · 自定义上游端点与模型
@@ -271,7 +271,7 @@ export function ModelCatalogPanel() {
                 />
               ))}
             {(providers ?? []).filter((p) => !claimedProviderIds.has(p.id)).length === 0 && (
-              <p className="text-xs text-faint">暂无其它额外端点。千问 / Kimi / 智谱 以外的厂商在此新增。</p>
+              <p className="text-12 text-faint">暂无其它额外端点。千问 / Kimi / 智谱 以外的厂商在此新增。</p>
             )}
           </div>
         )}
@@ -306,14 +306,14 @@ function BindingsCard({ models }: { models: AgentModel[] }) {
   return (
     <section className="rounded-16 border border-border bg-surface-card">
       <div className="p-4 border-b border-border-soft">
-        <h2 className="text-base font-bold text-foreground">能力绑定</h2>
-        <p className="text-xs text-muted-foreground mt-1">
+        <h2 className="text-16 font-medium text-foreground">能力绑定</h2>
+        <p className="text-12 text-muted-foreground mt-1">
           固定能力(不随用户选择)各自绑定一个目录模型;审稿预填识别、标题生成等小任务建议绑便宜快的模型。
           <span className="text-brand-red">红色标记 = 绑定缺失或指向已删除的模型,正在走回退链</span>,请尽快改绑。
         </p>
       </div>
       {isLoading ? (
-        <div className="p-6 text-center text-xs text-muted-foreground">加载中…</div>
+        <div className="p-6 text-center text-12 text-muted-foreground">加载中…</div>
       ) : (
         <ul className="divide-y divide-border-soft">
           {(bindings ?? []).map((b) => {
@@ -322,20 +322,20 @@ function BindingsCard({ models }: { models: AgentModel[] }) {
               <li key={b.purpose} className="flex items-center justify-between gap-3 px-4 py-2.5">
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-medium text-foreground">{meta.label}</span>
+                    <span className="text-12 font-medium text-foreground">{meta.label}</span>
                     {b.fallback && (
-                      <span className="inline-flex items-center gap-1 text-2xs text-brand-red">
+                      <span className="inline-flex items-center gap-1 text-12 text-brand-red">
                         <TriangleAlert className="size-3" />
                         回退中 → {nameOf(b.effective)}
                       </span>
                     )}
                   </div>
-                  <p className="text-2xs text-faint truncate">{meta.hint}</p>
+                  <p className="text-12 text-faint truncate">{meta.hint}</p>
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="sm" className="shrink-0 max-w-56">
-                      <span className="truncate font-mono text-xs">{nameOf(b.model_id)}</span>
+                      <span className="truncate font-mono text-12">{nameOf(b.model_id)}</span>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="max-h-72 overflow-y-auto">
@@ -350,8 +350,8 @@ function BindingsCard({ models }: { models: AgentModel[] }) {
                         }
                       >
                         <div className="flex flex-col">
-                          <span className="text-sm">{m.display_name || m.model_id}</span>
-                          <span className="text-2xs text-faint font-mono">
+                          <span className="text-12">{m.display_name || m.model_id}</span>
+                          <span className="text-12 text-faint font-mono">
                             {m.model_id}
                             {!m.enabled && ' · 已停用'}
                           </span>

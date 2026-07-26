@@ -29,8 +29,8 @@ function CellIcon({ icon, dark }: { icon: 'check' | 'x' | 'tilde'; dark: boolean
 
 function CellText({ text, tone, dark }: { text: string; tone?: 'good' | 'neutral' | 'weak'; dark: boolean }) {
   const cls = cn(
-    'text-sm',
-    tone === 'good' ? 'font-semibold' : 'font-normal',
+    'text-12',
+    tone === 'good' ? 'font-medium' : 'font-normal',
     tone === 'good'
       ? (dark ? 'text-background' : 'text-brand-green')
       : tone === 'weak'
@@ -101,9 +101,9 @@ export function ComparisonTable({ section }: { section: ComparisonSection }) {
               >
                 <span
                   className={cn(
-                    'text-2xs font-bold uppercase',
+                    'text-12 font-medium uppercase',
                     col.highlight
-                      ? 'text-brand-amber font-display italic text-sm not-italic font-bold'
+                      ? 'text-brand-amber font-display italic text-14 not-italic font-bold'
                       : dark
                         ? 'text-faint'
                         : 'text-muted-foreground'
@@ -114,7 +114,7 @@ export function ComparisonTable({ section }: { section: ComparisonSection }) {
                 {col.badge && (
                   <span
                     className={cn(
-                      'inline-flex items-center px-2 py-0.5 rounded-4 text-2xs font-bold',
+                      'inline-flex items-center px-2 py-0.5 rounded-4 text-12 font-medium',
                       'bg-brand-amber text-foreground'
                     )}
                   >
@@ -137,7 +137,7 @@ export function ComparisonTable({ section }: { section: ComparisonSection }) {
             >
               <div
                 className={cn(
-                  'text-sm font-semibold',
+                  'text-12 font-medium',
                   dark ? 'text-background' : 'text-foreground'
                 )}
               >

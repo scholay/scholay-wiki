@@ -75,7 +75,7 @@ export function PdfBrowserPane() {
       {title && (
         <header className="shrink-0 px-6 py-2.5 border-b border-border-soft bg-background">
           <h1
-            className="text-sm font-semibold text-foreground line-clamp-1"
+            className="text-12 font-medium text-foreground line-clamp-1"
             title={title}
           >
             {title}

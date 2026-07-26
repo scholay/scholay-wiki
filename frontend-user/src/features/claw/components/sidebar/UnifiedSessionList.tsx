@@ -76,11 +76,11 @@ export function UnifiedSessionList({
   return (
     <SidebarSection id="unified-sessions" label="会话历史" prominent>
       {!token ? (
-        <div className="px-4 py-3 text-2xs text-faint">登录后可见历史会话</div>
+        <div className="px-4 py-3 text-12 text-faint">登录后可见历史会话</div>
       ) : isLoading ? (
-        <div className="px-4 py-3 text-2xs text-faint">加载中…</div>
+        <div className="px-4 py-3 text-12 text-faint">加载中…</div>
       ) : items.length === 0 ? (
-        <div className="px-4 py-3 text-2xs text-faint">还没有会话, 发送第一句话即可开始</div>
+        <div className="px-4 py-3 text-12 text-faint">还没有会话, 发送第一句话即可开始</div>
       ) : (
         <div className="flex flex-col">
           {items.map((s) => (
@@ -176,8 +176,8 @@ function SessionRow({
       <div className="flex-1 min-w-0">
         <div
           className={cn(
-            'truncate text-sm flex items-center gap-1.5',
-            active ? 'text-foreground font-semibold' : 'text-subtle',
+            'truncate text-12 flex items-center gap-1.5',
+            active ? 'text-foreground font-medium' : 'text-subtle',
             loading && 'italic text-faint',
           )}
           title={displayTitle}

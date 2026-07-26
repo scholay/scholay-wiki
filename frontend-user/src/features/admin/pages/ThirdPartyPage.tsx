@@ -100,8 +100,8 @@ export function ThirdPartyPanel() {
       header: '账号',
       cell: (r) => (
         <div className="flex flex-col">
-          <span className="font-bold text-foreground">{r.name}</span>
-          <span className="text-2xs text-faint">优先级 {r.priority}</span>
+          <span className="font-medium text-foreground">{r.name}</span>
+          <span className="text-12 text-faint">优先级 {r.priority}</span>
         </div>
       ),
     },
@@ -126,10 +126,10 @@ export function ThirdPartyPanel() {
       align: 'right',
       cell: (r) => (
         <div className="flex flex-col items-end">
-          <span className="text-xs text-foreground">
+          <span className="text-12 text-foreground">
             {(r.total_requests ?? 0) > 0 ? (r.total_requests ?? 0).toLocaleString() : '—'}
           </span>
-          <span className="text-2xs text-faint">成功率 {successRate(r)}</span>
+          <span className="text-12 text-faint">成功率 {successRate(r)}</span>
         </div>
       ),
     },
@@ -137,7 +137,7 @@ export function ThirdPartyPanel() {
       header: '最近使用',
       width: 140,
       cell: (r) => (
-        <span className="text-2xs text-faint">
+        <span className="text-12 text-faint">
           {r.last_used_at?.slice(0, 16).replace('T', ' ') || '—'}
         </span>
       ),
@@ -168,7 +168,7 @@ export function ThirdPartyPanel() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-muted-foreground">
+        <p className="text-12 text-muted-foreground">
           共 {data?.length ?? 0} 个 · API key 池,按优先级和健康度轮询,5 分钟缓存
         </p>
         <Button size="sm" className="shrink-0" onClick={() => setMode({ kind: 'create' })}>
@@ -326,7 +326,7 @@ function ThirdPartyDialog({
                 id="type"
                 value={type}
                 onChange={(e) => setType(e.target.value as AccountType)}
-                className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-sm disabled:opacity-60"
+                className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-12 disabled:opacity-60"
                 disabled={isEdit}
               >
                 {TYPE_OPTIONS.map((o) => (
@@ -351,13 +351,13 @@ function ThirdPartyDialog({
                 onChange={(e) => setActive(e.target.checked)}
                 className="size-4"
               />
-              <Label htmlFor="active" className="text-sm">启用</Label>
+              <Label htmlFor="active" className="text-12">启用</Label>
             </div>
           </div>
 
           {/* 类型相关字段 —— 来自 FIELDS_BY_TYPE 配置表 */}
           <div className="space-y-3 border-t border-border-soft pt-3">
-            <div className="text-xs text-muted-foreground">
+            <div className="text-12 text-muted-foreground">
               {type === 'ai_model' && '通用 LLM API key + base_url + 3 档模型 + 3 个审稿模型(留空走默认)'}
               {type === 'minicod' && 'MiniCod 学术接口 —— api_key + base_url 均必填(无兜底域名)'}
             </div>

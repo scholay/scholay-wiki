@@ -149,7 +149,7 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
 
   if (done) {
     return (
-      <div className="mb-2 flex items-center gap-1.5 rounded-12 border border-border bg-surface-1 px-3.5 py-2.5 text-xs text-muted-foreground">
+      <div className="mb-2 flex items-center gap-1.5 rounded-12 border border-border bg-surface-1 px-3.5 py-2.5 text-12 text-muted-foreground">
         <Check className="h-3.5 w-3.5 text-brand-green" />
         已提交,继续为你处理…
       </div>
@@ -161,9 +161,9 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
       {/* 头部:进度 + 返回 */}
       <div className="flex items-center gap-1.5 px-3.5 py-2 border-b border-border-soft">
         <MessageCircleQuestion className="h-3.5 w-3.5 text-brand-green shrink-0" />
-        <span className="text-xs font-medium text-subtle">需要你选择</span>
+        <span className="text-12 font-medium text-subtle">需要你选择</span>
         {total > 1 && (
-          <span className="ml-auto text-2xs text-faint tabular-nums">
+          <span className="ml-auto text-12 text-faint tabular-nums">
             {idx + 1} / {total}
           </span>
         )}
@@ -172,7 +172,7 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
             type="button"
             onClick={back}
             className={cn(
-              'inline-flex items-center gap-1 text-2xs text-muted-foreground hover:text-foreground transition-colors',
+              'inline-flex items-center gap-1 text-12 text-muted-foreground hover:text-foreground transition-colors',
               total > 1 ? 'ml-2' : 'ml-auto',
             )}
           >
@@ -192,7 +192,7 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
             transition={{ duration: 0.16, ease: 'easeOut' }}
             className="flex flex-col gap-2 min-w-0"
           >
-            <div className="text-sm text-foreground">{q.question}</div>
+            <div className="text-12 text-foreground">{q.question}</div>
 
             <div className="flex flex-col gap-1.5">
               {q.options.map((opt, oi) => {
@@ -224,9 +224,9 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
                       </span>
                     )}
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm text-foreground">{opt.label}</span>
+                      <span className="block text-12 text-foreground">{opt.label}</span>
                       {opt.description && (
-                        <span className="block text-xs text-muted-foreground mt-0.5">
+                        <span className="block text-12 text-muted-foreground mt-0.5">
                           {opt.description}
                         </span>
                       )}
@@ -243,7 +243,7 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
                     setMultiSel([]);
                     setFreeOpen(true);
                   }}
-                  className="inline-flex items-center gap-1.5 self-start text-xs text-muted-foreground hover:text-foreground transition-colors px-1 py-1"
+                  className="inline-flex items-center gap-1.5 self-start text-12 text-muted-foreground hover:text-foreground transition-colors px-1 py-1"
                 >
                   <Pencil className="h-3 w-3" />
                   自己输入
@@ -262,7 +262,7 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
                       }
                     }}
                     placeholder="输入你的回答…"
-                    className="flex-1 min-w-0 rounded-8 border border-border bg-surface-card px-2.5 py-1.5 text-sm text-foreground placeholder:text-faint resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="flex-1 min-w-0 rounded-8 border border-border bg-surface-card px-2.5 py-1.5 text-12 text-foreground placeholder:text-faint resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                   <button
                     type="button"
@@ -283,7 +283,7 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
                 type="button"
                 onClick={commitMulti}
                 disabled={multiSel.length === 0}
-                className="mt-1 inline-flex h-8 items-center justify-center gap-1.5 self-end rounded-8 bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors"
+                className="mt-1 inline-flex h-8 items-center justify-center gap-1.5 self-end rounded-8 bg-primary px-3 text-12 font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors"
               >
                 {isLast ? '完成并发送' : '下一题'}
               </button>

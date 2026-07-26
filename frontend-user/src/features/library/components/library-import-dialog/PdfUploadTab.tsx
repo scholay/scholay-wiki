@@ -196,7 +196,7 @@ export function PdfUploadTab({
         />
 
         {error && (
-          <div className="mt-3 px-3 py-2 rounded-8 bg-danger-soft text-xs text-brand-red">
+          <div className="mt-3 px-3 py-2 rounded-8 bg-danger-soft text-12 text-brand-red">
             {error}
           </div>
         )}
@@ -245,7 +245,7 @@ function PdfTabFooter({
           type="button"
           onClick={onSkipToFree}
           disabled={confirming}
-          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-8 border border-brand-amber text-brand-amber text-sm font-semibold hover:bg-warning-soft disabled:opacity-60 transition-colors"
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-8 border border-brand-amber text-brand-amber text-14 font-medium hover:bg-warning-soft disabled:opacity-60 transition-colors"
         >
           跳过 · 直接保存
         </button>

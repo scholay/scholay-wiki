@@ -185,7 +185,7 @@ export function PrismWritingMenuButton(props: WritingMenuProps) {
               className="gap-2"
             >
               <IconChip icon={PenLine} iconCls="text-brand-green" chipCls="bg-brand-green/10" />
-              <span className="min-w-0 flex-1 truncate text-xs font-bold">起草《{props.stubSection}》</span>
+              <span className="min-w-0 flex-1 truncate text-12 font-medium">起草《{props.stubSection}》</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
           </>
@@ -196,13 +196,13 @@ export function PrismWritingMenuButton(props: WritingMenuProps) {
           <DropdownMenuSub key={g.key}>
             <DropdownMenuSubTrigger className="gap-2">
               <IconChip icon={g.icon} iconCls={g.iconCls} chipCls={g.chipCls} />
-              <span className="text-xs">{g.title}</span>
+              <span className="text-12">{g.title}</span>
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent className="w-44">
               {g.items.map((item) => (
                 <DropdownMenuItem key={item.key} onSelect={() => fire(item, props, 'menu')} title={item.hint} className="gap-2">
                   <item.icon className={cn('size-3.5 shrink-0', g.iconCls)} />
-                  <span className="min-w-0 flex-1 truncate text-xs">{item.label}</span>
+                  <span className="min-w-0 flex-1 truncate text-12">{item.label}</span>
                   {item.kind === 'workflow' && <ArrowUpRight className="size-3 shrink-0 text-faint" />}
                 </DropdownMenuItem>
               ))}
@@ -216,7 +216,7 @@ export function PrismWritingMenuButton(props: WritingMenuProps) {
             <DropdownMenuSeparator />
             <div className="flex items-center gap-1.5 px-2 py-1.5">
               <UserPen className="size-3.5 shrink-0 text-faint" />
-              <span className="min-w-0 flex-1 truncate text-2xs text-muted-foreground" title={props.profile.name}>
+              <span className="min-w-0 flex-1 truncate text-12 text-muted-foreground" title={props.profile.name}>
                 {props.profile.detecting ? '识别中…' : props.profile.name || '画像未识别'}
               </span>
               <button
@@ -231,7 +231,7 @@ export function PrismWritingMenuButton(props: WritingMenuProps) {
               <button
                 type="button"
                 onClick={() => props.profile!.onPick()}
-                className="shrink-0 rounded-4 px-1 py-0.5 text-2xs text-subtle transition-colors hover:bg-surface-2 hover:text-foreground"
+                className="shrink-0 rounded-4 px-1 py-0.5 text-12 text-subtle transition-colors hover:bg-surface-2 hover:text-foreground"
               >
                 更换
               </button>
@@ -261,7 +261,7 @@ export function PrismChatEmptyState(props: WritingMenuProps) {
   return (
     <div className="flex flex-1 items-center justify-center overflow-y-auto px-5 py-6">
       <div className="w-full max-w-xs">
-        <p className="text-center text-md font-bold text-foreground">想从哪里开始?</p>
+        <p className="text-center text-16 font-medium text-foreground">想从哪里开始?</p>
 
         {/* 智能引导卡:唯一带一句说明的元素 */}
         {props.stubSection && (
@@ -279,8 +279,8 @@ export function PrismChatEmptyState(props: WritingMenuProps) {
           >
             <IconChip icon={PenLine} iconCls="text-brand-green" chipCls="bg-brand-green/10" size="lg" />
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-bold text-foreground">起草《{props.stubSection}》</span>
-              <span className="block text-2xs text-muted-foreground">这一节还是空的,建议从它开始</span>
+              <span className="block truncate text-12 font-medium text-foreground">起草《{props.stubSection}》</span>
+              <span className="block text-12 text-muted-foreground">这一节还是空的,建议从它开始</span>
             </span>
           </button>
         )}
@@ -300,13 +300,13 @@ export function PrismChatEmptyState(props: WritingMenuProps) {
               )}
             >
               <IconChip icon={item.icon} iconCls={g.iconCls} chipCls={g.chipCls} size="lg" />
-              <span className="text-2xs text-subtle">{tileLabel[item.key] ?? item.label}</span>
+              <span className="text-12 text-subtle">{tileLabel[item.key] ?? item.label}</span>
             </button>
           ))}
         </div>
 
         {/* 脚注一行:更多入口 + 画像状态(合并,减字) */}
-        <p className="mt-3 flex items-center justify-center gap-1 text-center text-2xs text-faint">
+        <p className="mt-3 flex items-center justify-center gap-1 text-center text-12 text-faint">
           更多在 <WandSparkles className="inline size-3" />
           {props.profile && (
             <>

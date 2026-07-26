@@ -110,12 +110,12 @@ export function RecordDetailPage() {
   return (
     <div className="flex h-full flex-col bg-background">
       {/* Breadcrumb */}
-      <nav className="flex h-10 items-center gap-2 border-b border-border-soft bg-surface-1 px-8 text-sm">
+      <nav className="flex h-10 items-center gap-2 border-b border-border-soft bg-surface-1 px-8 text-12">
         <Link to="/peer-review/records" className="text-brand-red hover:underline">
           所有审稿
         </Link>
         <span className="text-faint">›</span>
-        <span className="font-bold text-foreground">稿件详情</span>
+        <span className="font-medium text-foreground">稿件详情</span>
       </nav>
 
       {/* Main area */}
@@ -209,7 +209,7 @@ function Header({
             {chief ? (
               <span
                 className={cn(
-                  'rounded-4 px-2 py-0.5 text-xs font-bold',
+                  'rounded-4 px-2 py-0.5 text-12 font-medium',
                   chiefRec
                     ? recBadgeClasses(chiefRec)
                     : 'border border-border bg-surface-1 text-subtle',
@@ -218,18 +218,18 @@ function Header({
                 {chiefRec ? `已决议 · ${recShortLabel(chiefRec)}` : '已决议'}
               </span>
             ) : (
-              <span className="rounded-4 border border-border bg-surface-1 px-2 py-0.5 text-xs font-bold text-subtle">
+              <span className="rounded-4 border border-border bg-surface-1 px-2 py-0.5 text-12 font-medium text-subtle">
                 {statusLabel(sub.status)}
               </span>
             )}
-            <span className="text-xs text-muted-foreground">
+            <span className="text-12 text-muted-foreground">
               {submittedText} {updatedText}
             </span>
           </div>
-          <h1 className="mt-1 font-serif text-xl font-bold leading-display-tight text-foreground">
+          <h1 className="mt-1 font-serif text-20 font-bold leading-display-tight text-foreground">
             {sub.title ?? '(未填标题)'}
           </h1>
-          <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+          <div className="mt-2 flex flex-wrap items-center gap-3 text-12 text-muted-foreground">
             <span>{target}</span>
             {sub.extraMeta?.subjects && sub.extraMeta.subjects.length > 0 && (
               <>
@@ -338,9 +338,9 @@ function TabsBar({
             type="button"
             onClick={() => onTabChange(t.key)}
             className={cn(
-              'flex items-center gap-1.5 border-b-2 pb-2 text-sm transition-colors',
+              'flex items-center gap-1.5 border-b-2 pb-2 text-12 transition-colors',
               active
-                ? 'border-brand-red font-bold text-foreground'
+                ? 'border-brand-red font-medium text-foreground'
                 : 'border-transparent text-muted-foreground hover:text-foreground',
             )}
           >
@@ -349,7 +349,7 @@ function TabsBar({
             {t.badge && (
               <span
                 className={cn(
-                  'rounded-pill px-1.5 py-0.5 text-2xs font-bold tabular-nums',
+                  'rounded-pill px-1.5 py-0.5 text-12 font-medium tabular-nums',
                   t.badge.cls,
                 )}
               >
@@ -389,8 +389,8 @@ function FailedBanner({ id, reason }: { id: number; reason?: string }) {
     <div className="mb-3.5 rounded-16 border border-brand-red/30 bg-danger-soft px-4 py-3">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <div className="text-sm font-bold text-brand-red">审稿未完成</div>
-          <div className="mt-1 text-xs text-muted-foreground">
+          <div className="text-12 font-medium text-brand-red">审稿未完成</div>
+          <div className="mt-1 text-12 text-muted-foreground">
             {reason?.trim() ||
               '审稿过程中出现异常。已生成的部分意见仍会保留,重试只补齐未完成的部分。'}
           </div>

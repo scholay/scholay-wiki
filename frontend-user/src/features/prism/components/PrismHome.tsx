@@ -44,8 +44,8 @@ function HomeMain({ onOpen }: { onOpen: (id: number) => void }) {
       <div className="flex size-14 items-center justify-center rounded-pill bg-brand-red/10">
         <PenTool className="size-7 text-brand-red" strokeWidth={2} />
       </div>
-      <h1 className="mt-5 font-serif text-2xl font-bold text-foreground">智能写作 · Scholay Prism</h1>
-      <p className="mt-2 max-w-md text-sm leading-paragraph text-muted-foreground">
+      <h1 className="mt-5 font-serif text-24 font-bold text-foreground">智能写作 · Scholay Prism</h1>
+      <p className="mt-2 max-w-md text-12 leading-paragraph text-muted-foreground">
         科研级 LaTeX 写作工作区 —— 实时编译预览、AI 定点改写润色、文献库一键 \cite。
         从左侧选择一个项目继续, 或新建一个开始。
       </p>
@@ -53,7 +53,7 @@ function HomeMain({ onOpen }: { onOpen: (id: number) => void }) {
         {create.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
         新建写作项目
       </Button>
-      {count > 0 && <p className="mt-3 text-2xs text-faint">已有 {count} 个项目, 在左侧边栏查看</p>}
+      {count > 0 && <p className="mt-3 text-12 text-faint">已有 {count} 个项目, 在左侧边栏查看</p>}
     </div>
   );
 }

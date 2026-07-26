@@ -81,7 +81,7 @@ export function ModelSelector({
           variant="ghost"
           size="sm"
           disabled={disabled}
-          className="h-8 gap-1 px-2 text-xs text-muted-foreground"
+          className="h-8 gap-1 px-2 text-12 text-muted-foreground"
           title="选择模型"
         >
           <Sparkles className="size-3.5 shrink-0 text-brand-green" />
@@ -103,13 +103,13 @@ export function ModelSelector({
                 {selected && <Check className="size-3.5" />}
               </span>
               <div className="flex flex-col min-w-0 flex-1">
-                <span className="flex items-center gap-1.5 text-sm">
+                <span className="flex items-center gap-1.5 text-12">
                   {/* 旗舰只靠名字彩色渐变区分,不再另加文字标签 */}
                   <span
                     className={cn(
                       'truncate',
                       m.flagship &&
-                        'font-bold bg-gradient-to-r from-brand-amber to-brand-red bg-clip-text text-transparent',
+                        'font-medium bg-gradient-to-r from-brand-amber to-brand-red bg-clip-text text-transparent',
                     )}
                   >
                     {m.display_name || m.model_id}
@@ -117,7 +117,7 @@ export function ModelSelector({
                   {m.locked && <Lock className="size-3 shrink-0 text-faint" />}
                 </span>
                 {/* 第二行:能力档 · 上下文 · 视觉(文字)· 解锁 —— 去掉重复描述与图标,突出重点 */}
-                <span className="text-2xs text-faint truncate">
+                <span className="text-12 text-faint truncate">
                   {SPEED_LABEL[m.speed_class] ?? m.speed_class}
                   {m.context_window > 0 && ` · ${fmtCtx(m.context_window)} 上下文`}
                   {m.vision && ' · 视觉'}

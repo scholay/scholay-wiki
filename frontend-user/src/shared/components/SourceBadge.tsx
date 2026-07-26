@@ -32,8 +32,8 @@ export interface SourceBadgeProps {
 }
 
 const SIZE_CLS: Record<NonNullable<SourceBadgeProps['size']>, string> = {
-  sm: 'h-4 px-1 text-2xs',
-  md: 'h-5 px-1.5 text-xs',
+  sm: 'h-4 px-1 text-12',
+  md: 'h-5 px-1.5 text-12',
 };
 
 export function SourceBadge({
@@ -67,9 +67,9 @@ export function SourceBadge({
       <TooltipContent
         side="top"
         sideOffset={4}
-        className="text-xs bg-surface-card text-foreground border-border max-w-[220px]"
+        className="text-12 bg-surface-card text-foreground border-border max-w-[220px]"
       >
-        <div className="font-semibold">{meta.name}</div>
+        <div className="font-medium">{meta.name}</div>
         <div className="text-muted-foreground mt-0.5">{meta.description}</div>
       </TooltipContent>
     </Tooltip>

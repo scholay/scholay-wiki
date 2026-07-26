@@ -37,7 +37,7 @@ function RevenueTooltip(props: {
   const items = payload.filter((p) => Number(p.value) > 0);
   const total = payload.reduce((s, p) => s + (Number(p.value) || 0), 0);
   return (
-    <div className="rounded-12 border border-border bg-surface-card px-3 py-2 text-xs shadow-overlay">
+    <div className="rounded-12 border border-border bg-surface-card px-3 py-2 text-12 shadow-overlay">
       <div className="mb-1 text-faint">{withWeekday(String(label ?? ''), label)}</div>
       {[...items].reverse().map((p, i) => (
         <div key={i} className="flex items-center justify-between gap-4">
@@ -84,17 +84,17 @@ export function RevenueChart({
       {/* 头部:标题 + 区间总计 · 右侧 7/30/90 筛选 */}
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-sm font-bold text-foreground">每日营收 · 趋势</h3>
+          <h3 className="text-14 font-medium text-foreground">每日营收 · 趋势</h3>
           <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-            <span className="text-lg font-bold tabular-nums text-foreground">{yuan(totalRevenue)}</span>
-            <span className="text-2xs text-faint">近 {days} 天总计</span>
-            <span className="text-2xs tabular-nums text-subtle">
+            <span className="text-16 font-medium tabular-nums text-foreground">{yuan(totalRevenue)}</span>
+            <span className="text-12 text-faint">近 {days} 天总计</span>
+            <span className="text-12 tabular-nums text-subtle">
               订单 {(totalOrders ?? 0).toLocaleString()} 笔
             </span>
-            <span className="text-2xs tabular-nums" style={{ color: 'var(--color-brand-green)' }}>
+            <span className="text-12 tabular-nums" style={{ color: 'var(--color-brand-green)' }}>
               充值 {yuan(totalRecharge)}
             </span>
-            <span className="text-2xs tabular-nums" style={{ color: 'var(--color-brand-amber)' }}>
+            <span className="text-12 tabular-nums" style={{ color: 'var(--color-brand-amber)' }}>
               订阅 {yuan(totalSubscription)}
             </span>
           </div>
@@ -106,7 +106,7 @@ export function RevenueChart({
               type="button"
               onClick={() => onDaysChange(d)}
               className={cn(
-                'h-7 rounded-8 px-2.5 text-xs font-medium transition-colors',
+                'h-7 rounded-8 px-2.5 text-12 font-medium transition-colors',
                 d === days
                   ? 'bg-foreground text-background'
                   : 'text-muted-foreground hover:bg-surface-1 hover:text-foreground'
@@ -120,7 +120,7 @@ export function RevenueChart({
 
       <div className="h-56">
         {daily.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-xs text-faint">窗口内还没有已支付订单</div>
+          <div className="flex h-full items-center justify-center text-12 text-faint">窗口内还没有已支付订单</div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={daily} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>

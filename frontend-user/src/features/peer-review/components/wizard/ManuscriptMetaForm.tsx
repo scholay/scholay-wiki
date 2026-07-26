@@ -66,8 +66,8 @@ export function ManuscriptMetaForm({
     <section className="rounded-16 border border-border bg-surface-card">
       <header className="flex items-end justify-between border-b border-border-soft px-5 py-3">
         <div>
-          <h2 className="text-sm font-bold text-foreground">稿件信息</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
+          <h2 className="text-14 font-medium text-foreground">稿件信息</h2>
+          <p className="mt-0.5 text-12 text-muted-foreground">
             {computing
               ? (statusNote || '正在识别…') + ' · 字段会随识别自动填入'
               : 'AI 已根据稿件自动识别,可以手动修改'}
@@ -90,7 +90,7 @@ export function ManuscriptMetaForm({
             value={value.abstract ?? ''}
             onChange={(e) => patch({ abstract: e.target.value })}
             placeholder={computing ? '正在识别摘要…' : '稿件摘要'}
-            className="min-h-32 w-full resize-y rounded-8 border border-border bg-surface-card p-3 text-sm leading-paragraph text-foreground placeholder:text-faint focus-visible:border-brand-red focus-visible:outline-none"
+            className="min-h-32 w-full resize-y rounded-8 border border-border bg-surface-card p-3 text-12 leading-paragraph text-foreground placeholder:text-faint focus-visible:border-brand-red focus-visible:outline-none"
           />
         </Field>
 
@@ -149,8 +149,8 @@ function Field({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <label className="flex items-baseline gap-2 text-xs">
-        <span className="font-bold text-foreground">{label}</span>
+      <label className="flex items-baseline gap-2 text-12">
+        <span className="font-medium text-foreground">{label}</span>
         {required && <span className="text-destructive">*</span>}
         {hint && <span className="text-faint">{hint}</span>}
       </label>
@@ -173,9 +173,9 @@ function Chip({
       type="button"
       onClick={onClick}
       className={cn(
-        'h-7 rounded-pill px-3 text-xs transition',
+        'h-7 rounded-pill px-3 text-12 transition',
         active
-          ? 'bg-danger-soft text-brand-red font-bold'
+          ? 'bg-danger-soft text-brand-red font-medium'
           : 'border border-border bg-surface-card text-subtle hover:border-foreground'
       )}
     >
@@ -215,7 +215,7 @@ function ChipInput({
       {value.map((v, i) => (
         <span
           key={i}
-          className="inline-flex h-6 items-center gap-1 rounded-pill bg-danger-soft px-2 text-xs font-bold text-brand-red"
+          className="inline-flex h-6 items-center gap-1 rounded-pill bg-danger-soft px-2 text-12 font-medium text-brand-red"
         >
           {v}
           <button
@@ -242,7 +242,7 @@ function ChipInput({
         }}
         onBlur={commit}
         placeholder={value.length === 0 ? placeholder : ''}
-        className="min-w-32 flex-1 bg-transparent text-sm text-foreground placeholder:text-faint focus-visible:outline-none"
+        className="min-w-32 flex-1 bg-transparent text-12 text-foreground placeholder:text-faint focus-visible:outline-none"
       />
     </div>
   );

@@ -68,7 +68,7 @@ export function WizardLayout({
             disabled={!showPrev}
             className={
               showPrev
-                ? 'inline-flex h-9 items-center gap-1 rounded-8 border border-border bg-surface-card px-4 text-xs text-subtle transition hover:border-foreground hover:text-foreground'
+                ? 'inline-flex h-9 items-center gap-1 rounded-8 border border-border bg-surface-card px-4 text-12 text-subtle transition hover:border-foreground hover:text-foreground'
                 : 'invisible'
             }
           >
@@ -89,7 +89,7 @@ export function WizardLayout({
               type="button"
               onClick={onCancel}
               disabled={cancelLoading}
-              className="inline-flex h-9 items-center rounded-8 border border-border bg-surface-card px-3 text-xs text-muted-foreground transition hover:border-destructive hover:text-destructive disabled:opacity-40"
+              className="inline-flex h-9 items-center rounded-8 border border-border bg-surface-card px-3 text-12 text-muted-foreground transition hover:border-destructive hover:text-destructive disabled:opacity-40"
               title="取消并删除当前草稿,上传的文件、AI 已识别的内容都会清空"
             >
               {cancelLoading ? '正在取消…' : '取消草稿'}
@@ -99,7 +99,7 @@ export function WizardLayout({
             type="button"
             onClick={onNext}
             disabled={nextDisabled || nextLoading}
-            className="inline-flex h-9 items-center gap-1.5 rounded-8 bg-brand-red px-4 text-xs font-bold text-background transition hover:bg-brand-red/90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex h-9 items-center gap-1.5 rounded-8 bg-brand-red px-4 text-12 font-medium text-background transition hover:bg-brand-red/90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {nextLoading ? 'AI 处理中…' : nextLabel}
             <ChevronRight className="size-3.5" />

@@ -110,12 +110,12 @@ export function RecordsPage() {
     <div className="flex h-full min-h-0 flex-col bg-surface-1">
       {/* 顶部头 */}
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-8">
-        <h1 className="text-xl font-bold text-foreground">我的审稿</h1>
+        <h1 className="text-20 font-medium text-foreground">我的审稿</h1>
         <HoverCard openDelay={60} closeDelay={150}>
           <HoverCardTrigger asChild>
             <button
               type="button"
-              className="inline-flex h-9 items-center gap-1.5 rounded-8 bg-brand-red px-4 text-xs font-bold text-background hover:bg-brand-red/90"
+              className="inline-flex h-9 items-center gap-1.5 rounded-8 bg-brand-red px-4 text-12 font-medium text-background hover:bg-brand-red/90"
             >
               <Plus className="size-3.5" />
               新建审稿
@@ -129,8 +129,8 @@ export function RecordsPage() {
               >
                 <BookText className="size-4 shrink-0 text-brand-red" />
                 <span className="flex flex-col">
-                  <span className="text-sm font-bold text-foreground">期刊投稿</span>
-                  <span className="text-2xs text-muted-foreground">投递学术期刊,三审 + 主审决议</span>
+                  <span className="text-14 font-medium text-foreground">期刊投稿</span>
+                  <span className="text-12 text-muted-foreground">投递学术期刊,三审 + 主审决议</span>
                 </span>
               </Link>
               <Link
@@ -139,8 +139,8 @@ export function RecordsPage() {
               >
                 <GraduationCap className="size-4 shrink-0 text-brand-red" />
                 <span className="flex flex-col">
-                  <span className="text-sm font-bold text-foreground">毕业审稿</span>
-                  <span className="text-2xs text-muted-foreground">毕业论文预审,按学位标准评议</span>
+                  <span className="text-14 font-medium text-foreground">毕业审稿</span>
+                  <span className="text-12 text-muted-foreground">毕业论文预审,按学位标准评议</span>
                 </span>
               </Link>
             </div>
@@ -158,16 +158,16 @@ export function RecordsPage() {
               type="button"
               onClick={() => setTab(t.key)}
               className={cn(
-                'inline-flex h-full items-center gap-1.5 border-b-2 px-4 text-sm transition',
+                'inline-flex h-full items-center gap-1.5 border-b-2 px-4 text-12 transition',
                 active
-                  ? 'border-brand-red font-bold text-brand-red'
+                  ? 'border-brand-red font-medium text-brand-red'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               )}
             >
               {t.label}
               <span
                 className={cn(
-                  'text-xs',
+                  'text-12',
                   active ? 'text-brand-red' : 'text-faint'
                 )}
               >
@@ -191,9 +191,9 @@ export function RecordsPage() {
           />
         ) : (
           <div className="overflow-hidden rounded-12 border border-border bg-surface-card">
-            <table className="w-full text-sm">
+            <table className="w-full text-12">
               <thead className="border-b border-border bg-surface-1">
-                <tr className="text-left text-xs text-faint">
+                <tr className="text-left text-12 text-faint">
                   <th className="px-4 py-3 font-normal">标题</th>
                   <th className="w-36 px-4 py-3 font-normal">投递目标</th>
                   <th className="w-28 px-4 py-3 font-normal">提交时间</th>
@@ -218,7 +218,7 @@ export function RecordsPage() {
 
         {/* 分页:超过一页才显示 */}
         {filtered.length > PAGE_SIZE && (
-          <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+          <div className="mt-3 flex items-center justify-between text-12 text-muted-foreground">
             <span>
               共 {filtered.length} 条 · 第 {pageClamped} / {totalPages} 页
             </span>
@@ -227,7 +227,7 @@ export function RecordsPage() {
                 type="button"
                 disabled={pageClamped <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="inline-flex h-7 items-center gap-0.5 rounded-8 border border-border bg-surface-card pl-1.5 pr-2.5 font-bold text-subtle transition hover:border-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex h-7 items-center gap-0.5 rounded-8 border border-border bg-surface-card pl-1.5 pr-2.5 font-medium text-subtle transition hover:border-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <ChevronLeft className="size-3.5" />
                 上一页
@@ -236,7 +236,7 @@ export function RecordsPage() {
                 type="button"
                 disabled={pageClamped >= totalPages}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="inline-flex h-7 items-center gap-0.5 rounded-8 border border-border bg-surface-card pl-2.5 pr-1.5 font-bold text-subtle transition hover:border-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex h-7 items-center gap-0.5 rounded-8 border border-border bg-surface-card pl-2.5 pr-1.5 font-medium text-subtle transition hover:border-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
               >
                 下一页
                 <ChevronRight className="size-3.5" />
@@ -263,15 +263,15 @@ function RecordRow({
       <td className="px-4 py-4">
         <Link
           to={`/peer-review/records/${item.id}`}
-          className="line-clamp-1 text-sm font-bold text-foreground hover:text-brand-red"
+          className="line-clamp-1 text-14 font-medium text-foreground hover:text-brand-red"
         >
           {item.title || '(未填标题)'}
         </Link>
-        <p className="mt-1 text-2xs text-faint">
+        <p className="mt-1 text-12 text-faint">
           {item.mode === 'journal' ? '期刊投稿' : '毕业审稿'}
         </p>
       </td>
-      <td className="px-4 py-4 text-xs text-muted-foreground">
+      <td className="px-4 py-4 text-12 text-muted-foreground">
         {item.targetLabel ? (
           <span className="line-clamp-1">{item.targetLabel}</span>
         ) : item.status === 'draft' ? (
@@ -280,7 +280,7 @@ function RecordRow({
           <span className="text-muted-foreground">通用 STM 模板</span>
         )}
       </td>
-      <td className="px-4 py-4 text-xs text-muted-foreground">
+      <td className="px-4 py-4 text-12 text-muted-foreground">
         {item.submittedAt
           ? new Date(item.submittedAt).toLocaleDateString('zh-CN')
           : <span className="text-faint">—</span>}
@@ -314,13 +314,13 @@ function RecordRow({
 
 function ProgressIndicator({ item }: { item: SubmissionListItem }) {
   if (item.status === 'draft') {
-    return <span className="text-2xs text-faint">草稿中</span>;
+    return <span className="text-12 text-faint">草稿中</span>;
   }
   if (item.status === 'completed') {
     return (
       <div className="flex items-center gap-2">
         <ProgressBar percent={100} color="bg-brand-green" />
-        <span className="shrink-0 text-2xs text-muted-foreground">100%</span>
+        <span className="shrink-0 text-12 text-muted-foreground">100%</span>
       </div>
     );
   }
@@ -328,7 +328,7 @@ function ProgressIndicator({ item }: { item: SubmissionListItem }) {
     return (
       <div className="flex items-center gap-2">
         <ProgressBar percent={100} color="bg-destructive" />
-        <span className="shrink-0 text-2xs text-destructive">失败</span>
+        <span className="shrink-0 text-12 text-destructive">失败</span>
       </div>
     );
   }
@@ -337,7 +337,7 @@ function ProgressIndicator({ item }: { item: SubmissionListItem }) {
   return (
     <div className="flex items-center gap-2">
       <ProgressBar percent={percent} color="bg-brand-amber" />
-      <span className="shrink-0 text-2xs text-brand-amber">{percent}%</span>
+      <span className="shrink-0 text-12 text-brand-amber">{percent}%</span>
     </div>
   );
 }
@@ -354,17 +354,17 @@ function ProgressBar({ percent, color }: { percent: number; color: string }) {
 }
 
 function ResultChip({ item }: { item: SubmissionListItem }) {
-  if (item.status === 'draft') return <span className="text-2xs text-faint">—</span>;
+  if (item.status === 'draft') return <span className="text-12 text-faint">—</span>;
   if (item.status === 'queued' || item.status === 'reviewing') {
     return (
-      <span className="rounded-pill bg-warning-soft px-2.5 py-0.5 text-2xs font-bold text-brand-amber">
+      <span className="rounded-pill bg-warning-soft px-2.5 py-0.5 text-12 font-medium text-brand-amber">
         进行中
       </span>
     );
   }
   if (item.status === 'failed') {
     return (
-      <span className="rounded-pill bg-danger-soft px-2.5 py-0.5 text-2xs font-bold text-destructive">
+      <span className="rounded-pill bg-danger-soft px-2.5 py-0.5 text-12 font-medium text-destructive">
         失败
       </span>
     );
@@ -372,14 +372,14 @@ function ResultChip({ item }: { item: SubmissionListItem }) {
   // completed
   if (!item.decision) {
     return (
-      <span className="rounded-pill bg-surface-2 px-2.5 py-0.5 text-2xs font-bold text-muted-foreground">
+      <span className="rounded-pill bg-surface-2 px-2.5 py-0.5 text-12 font-medium text-muted-foreground">
         已完成
       </span>
     );
   }
   // 3 档最终状态 (小修→(修改后)录用 / 大修→返修 / 拒稿), 兼容历史 录用/返修/英文 enum。
   return (
-    <span className={cn('rounded-pill px-2.5 py-0.5 text-2xs font-bold', recBadgeClasses(item.decision))}>
+    <span className={cn('rounded-pill px-2.5 py-0.5 text-12 font-medium', recBadgeClasses(item.decision))}>
       {recLabel(item.decision)}
     </span>
   );
@@ -392,7 +392,7 @@ function ActionButton({ item }: { item: SubmissionListItem }) {
     return (
       <Link
         to={`${path}?id=${item.id}`}
-        className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded-8 border border-brand-red bg-surface-card px-3 text-2xs font-bold text-brand-red hover:bg-danger-soft"
+        className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded-8 border border-brand-red bg-surface-card px-3 text-12 font-medium text-brand-red hover:bg-danger-soft"
       >
         继续投稿
       </Link>
@@ -402,7 +402,7 @@ function ActionButton({ item }: { item: SubmissionListItem }) {
   return (
     <Link
       to={`/peer-review/records/${item.id}`}
-      className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded-8 border border-border bg-surface-card px-3 text-2xs font-bold text-subtle hover:border-foreground hover:text-foreground"
+      className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded-8 border border-border bg-surface-card px-3 text-12 font-medium text-subtle hover:border-foreground hover:text-foreground"
     >
       {item.status === 'completed' ? '查看评议' : '查看进度'}
     </Link>

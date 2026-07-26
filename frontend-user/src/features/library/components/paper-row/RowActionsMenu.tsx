@@ -154,8 +154,8 @@ export function RowActionsMenu({
           title="更多操作"
           onClick={(e) => e.stopPropagation()}
           className={cn(
-            // 与"我的 PDF / 引用 / OA / AI 翻译"同款 chip 按钮:h-6 + px-2 + border + 2xs 字号
-            'inline-flex items-center gap-1 h-6 px-2 rounded-8 border border-border text-2xs font-semibold text-subtle shrink-0 transition-colors',
+            // 与"我的 PDF / 引用 / OA / AI 翻译"同款 chip 按钮:h-6 + px-2 + border + 12 字号
+            'inline-flex items-center gap-1 h-6 px-2 rounded-8 border border-border text-12 font-medium text-subtle shrink-0 transition-colors',
             'hover:bg-surface-1 hover:text-foreground',
             'data-[state=open]:bg-surface-2 data-[state=open]:text-foreground data-[state=open]:border-foreground/30'
           )}
@@ -216,7 +216,7 @@ export function RowActionsMenu({
             <button
               type="button"
               onClick={() => setView('main')}
-              className="flex items-center gap-1.5 h-7 px-2 rounded-8 text-2xs font-bold text-faint hover:bg-surface-1 hover:text-foreground transition-colors text-left"
+              className="flex items-center gap-1.5 h-7 px-2 rounded-8 text-12 font-medium text-subtle hover:bg-surface-1 hover:text-foreground transition-colors text-left"
             >
               <ChevronLeft className="size-3" strokeWidth={2.25} />
               转移到
@@ -233,7 +233,7 @@ export function RowActionsMenu({
                   placeholder="搜索文件夹…"
                   maxLength={48}
                   autoFocus
-                  className="flex-1 min-w-0 h-full bg-transparent text-xs outline-none placeholder:text-faint"
+                  className="flex-1 min-w-0 h-full bg-transparent text-12 outline-none placeholder:text-faint"
                 />
               </div>
             </div>
@@ -241,7 +241,7 @@ export function RowActionsMenu({
             {/* 列表 —— max-h + overflow-y-auto 长名单滚动 */}
             <div className="max-h-[260px] overflow-y-auto">
               {moveTargets.length === 0 ? (
-                <div className="px-2 py-3 text-2xs text-faint text-center">
+                <div className="px-2 py-3 text-12 text-faint text-center">
                   {folderQuery.trim()
                     ? `没有匹配「${folderQuery.trim()}」的文件夹`
                     : '没有可转移的位置'}
@@ -253,7 +253,7 @@ export function RowActionsMenu({
                     type="button"
                     onClick={() => handleMove(t.id, t.name)}
                     disabled={moveMut.isPending}
-                    className="flex items-center gap-2 w-full h-8 px-2 rounded-8 text-xs text-subtle hover:bg-surface-1 hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left"
+                    className="flex items-center gap-2 w-full h-8 px-2 rounded-8 text-12 text-subtle hover:bg-surface-1 hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left"
                   >
                     <Folder className="size-3.5 shrink-0 text-faint" />
                     <span className="flex-1 truncate">{t.name}</span>
@@ -292,7 +292,7 @@ function MenuButton({
       type="button"
       onClick={onClick}
       className={cn(
-        'flex items-center gap-2 w-full h-8 px-2 rounded-8 text-xs transition-colors text-left',
+        'flex items-center gap-2 w-full h-8 px-2 rounded-8 text-12 transition-colors text-left',
         tone === 'danger'
           ? 'text-brand-red hover:bg-danger-soft'
           : 'text-subtle hover:bg-surface-1 hover:text-foreground'
@@ -301,7 +301,7 @@ function MenuButton({
       <span className="shrink-0">{icon}</span>
       <span className="flex-1 truncate">{label}</span>
       {chevron && (
-        <span className="text-faint text-2xs" aria-hidden>
+        <span className="text-faint text-12" aria-hidden>
           ›
         </span>
       )}

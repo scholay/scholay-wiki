@@ -65,15 +65,15 @@ export function MessagesPage() {
   };
 
   const columns: Column<AdminMessage>[] = [
-    { header: '标题', cell: (r) => <span className="font-bold text-foreground">{r.title}</span> },
+    { header: '标题', cell: (r) => <span className="font-medium text-foreground">{r.title}</span> },
     {
       header: '目标',
       width: 130,
       cell: (r) => (
         <div className="flex flex-col">
-          <span className="text-xs text-subtle">{SEND_TYPE_LABEL[r.send_type]}</span>
+          <span className="text-12 text-subtle">{SEND_TYPE_LABEL[r.send_type]}</span>
           {(r.target_user_ids || r.target_plans) && (
-            <span className="text-2xs text-faint truncate max-w-[120px]">
+            <span className="text-12 text-faint truncate max-w-[120px]">
               {r.target_user_ids || r.target_plans}
             </span>
           )}
@@ -90,7 +90,7 @@ export function MessagesPage() {
       width: 100,
       align: 'right',
       cell: (r) => (
-        <span className="text-xs text-muted-foreground">
+        <span className="text-12 text-muted-foreground">
           {r.read_count} / {r.recipient_count}
         </span>
       ),
@@ -99,7 +99,7 @@ export function MessagesPage() {
       header: '时间',
       width: 140,
       cell: (r) => (
-        <span className="text-2xs text-faint">
+        <span className="text-12 text-faint">
           {(r.send_at || r.created_at)?.slice(0, 16).replace('T', ' ')}
         </span>
       ),
@@ -178,7 +178,7 @@ export function MessagesPage() {
                   id="category"
                   name="category"
                   defaultValue="notification"
-                  className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-sm"
+                  className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-12"
                 >
                   <option value="system">系统</option>
                   <option value="notification">通知</option>
@@ -199,7 +199,7 @@ export function MessagesPage() {
                   id="send_type"
                   value={sendType}
                   onChange={(e) => setSendType(e.target.value as MessageSendType)}
-                  className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-sm"
+                  className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-12"
                 >
                   {SEND_TYPE_OPTIONS.map((o) => (
                     <option key={o.value} value={o.value}>{o.label}</option>
@@ -224,7 +224,7 @@ export function MessagesPage() {
                 name="content"
                 rows={6}
                 required
-                className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>
 

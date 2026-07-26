@@ -74,7 +74,7 @@ CardHeader.displayName = 'CardHeader';
 const CardTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement>>(
   ({ className, ...props }, ref) => (
     // Figma §4.4 卡片主文 500 / 14px
-    <h3 ref={ref} className={cn('text-md font-medium text-foreground', className)} {...props} />
+    <h3 ref={ref} className={cn('text-14 font-medium text-foreground', className)} {...props} />
   )
 );
 CardTitle.displayName = 'CardTitle';
@@ -82,7 +82,7 @@ CardTitle.displayName = 'CardTitle';
 const CardDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
   ({ className, ...props }, ref) => (
     // Figma §4.4 卡片次文 400 / 12px
-    <p ref={ref} className={cn('text-sm text-muted-foreground', className)} {...props} />
+    <p ref={ref} className={cn('text-12 text-muted-foreground', className)} {...props} />
   )
 );
 CardDescription.displayName = 'CardDescription';

@@ -394,7 +394,7 @@ export function SmartSearchPanel() {
               onRemove={(i) => setReferences((prev) => prev.filter((_, idx) => idx !== i))}
             />
             {referenceMutation.isPending && (
-              <span className="inline-flex items-center gap-1 text-2xs text-faint">
+              <span className="inline-flex items-center gap-1 text-12 text-faint">
                 <Loader2 className="size-3 animate-spin" />
                 引用中…
               </span>
@@ -407,7 +407,7 @@ export function SmartSearchPanel() {
     onPaste: att.handlePaste,
     containerProps: att.dragHandlers,
     overlay: att.dragOver ? (
-      <div className="absolute inset-0 z-raised flex items-center justify-center gap-2 rounded-16 border-2 border-dashed border-brand-green bg-surface-card/90 text-sm font-medium text-brand-green">
+      <div className="absolute inset-0 z-raised flex items-center justify-center gap-2 rounded-16 border-2 border-dashed border-brand-green bg-surface-card/90 text-12 font-medium text-brand-green">
         <Upload className="size-4" />
         松开上传图片 / 文件
       </div>
@@ -923,7 +923,7 @@ export function SmartSearchPanel() {
                           setRenderLimit((n) => n + HISTORY_STEP);
                         }
                       }}
-                      className="inline-flex items-center gap-1.5 h-7 px-3 rounded-pill bg-surface-2 text-xs text-muted-foreground hover:text-foreground hover:bg-surface-2/70 transition-colors"
+                      className="inline-flex items-center gap-1.5 h-7 px-3 rounded-pill bg-surface-2 text-12 text-muted-foreground hover:text-foreground hover:bg-surface-2/70 transition-colors"
                     >
                       {hiddenCount > 0 ? `加载更早的 ${hiddenCount} 轮对话` : '加载更早的对话'}
                     </button>
@@ -940,7 +940,7 @@ export function SmartSearchPanel() {
                   </div>
                 ))}
                 {state === 'reconnecting' && (
-                  <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="inline-flex items-center gap-2 text-12 text-muted-foreground">
                     <Loader2 className="size-3 animate-spin" />
                     连接断开,正在重连
                     {reconnectAttempt > 0 && (
@@ -949,7 +949,7 @@ export function SmartSearchPanel() {
                   </div>
                 )}
                 {state === 'error' && (
-                  <div className="inline-flex items-center gap-1.5 text-xs text-brand-red">
+                  <div className="inline-flex items-center gap-1.5 text-12 text-brand-red">
                     <AlertCircle className="size-3.5" />
                     连接中断, 请刷新页面重试
                   </div>
@@ -1000,7 +1000,7 @@ export function SmartSearchPanel() {
         {turns.length === 0 && loadingHistory && (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-8">
             <Loader2 className="size-5 text-muted-foreground animate-spin mb-3" />
-            <div className="text-sm text-muted-foreground">正在加载历史会话…</div>
+            <div className="text-12 text-muted-foreground">正在加载历史会话…</div>
           </div>
         )}
 
@@ -1127,7 +1127,7 @@ function UserBubble({
       {attachments && attachments.length > 0 && <AttachmentChipList attachments={attachments} />}
       {references && references.length > 0 && <ReferenceChipList references={references} />}
       {text && (
-        <div className="max-w-[80%] inline-flex items-center py-2.5 px-3.5 rounded-12 bg-foreground text-background text-sm leading-paragraph">
+        <div className="max-w-[80%] inline-flex items-center py-2.5 px-3.5 rounded-12 bg-foreground text-background text-12 leading-paragraph">
           {text}
         </div>
       )}

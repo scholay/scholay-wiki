@@ -56,7 +56,7 @@ export function MobileAssetsCard() {
       <div className="flex items-center gap-2 border-b border-border-soft px-4 py-3">
         <span
           className={cn(
-            'flex items-center gap-1 rounded-pill px-2.5 py-0.5 text-xs font-semibold',
+            'flex items-center gap-1 rounded-pill px-2.5 py-0.5 text-12 font-medium',
             TIER_BADGE_CLS[tier]
           )}
         >
@@ -65,17 +65,17 @@ export function MobileAssetsCard() {
         </span>
         {/* 年费会员徽标(0079)—— 与月度会员显式区分 */}
         {data.cycle === 'yearly' && tier !== 'free' && (
-          <span className="rounded-pill bg-brand-amber/10 px-2 py-0.5 text-2xs font-bold text-brand-amber">年费</span>
+          <span className="rounded-pill bg-brand-amber/10 px-2 py-0.5 text-12 font-medium text-brand-amber">年费</span>
         )}
         {data.expires_at && (
-          <span className="text-xs text-faint">
+          <span className="text-12 text-faint">
             {new Date(data.expires_at).toLocaleDateString('zh-CN')} 到期
           </span>
         )}
         <button
           type="button"
           onClick={() => setMembershipOpen(true)}
-          className="ml-auto rounded-pill bg-foreground px-3 py-1 text-xs font-medium text-on-brand active:opacity-80"
+          className="ml-auto rounded-pill bg-foreground px-3 py-1 text-12 font-medium text-on-brand active:opacity-80"
         >
           {tier === 'max' ? '续期' : '升级会员'}
         </button>
@@ -84,8 +84,8 @@ export function MobileAssetsCard() {
       {/* 本周期额度 */}
       <div className="space-y-2 px-4 py-3">
         <div className="flex items-baseline justify-between">
-          <span className="text-sm font-medium text-foreground">本周期额度</span>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-14 font-medium text-foreground">本周期额度</span>
+          <span className="text-12 text-muted-foreground">
             {token.unlimited
               ? '不限'
               : `剩余 ${Math.round(remaining)}%${exhausted ? ' · 已耗尽' : ''}`}
@@ -108,7 +108,7 @@ export function MobileAssetsCard() {
         </div>
         <div className="flex items-center justify-between gap-2">
           {/* 重置时间(业界做法:周期额度必露出重置时刻)—— 未开窗=满额·用后计时,窗口内=N 天后重置(日期) */}
-          <span className={cn('min-w-0 flex-1 truncate text-2xs', exhausted ? 'text-brand-red' : 'text-faint')}>
+          <span className={cn('min-w-0 flex-1 truncate text-12', exhausted ? 'text-brand-red' : 'text-faint')}>
             {token.unlimited
               ? '会员不限本项额度'
               : ri.notStarted
@@ -120,7 +120,7 @@ export function MobileAssetsCard() {
             onClick={() => setResetOpen(true)}
             disabled={resetMut.isPending}
             className={cn(
-              'flex shrink-0 items-center gap-1 rounded-pill border px-2.5 py-1 text-xs',
+              'flex shrink-0 items-center gap-1 rounded-pill border px-2.5 py-1 text-12',
               exhausted
                 ? 'border-brand-red text-brand-red'
                 : 'border-border-button text-muted-foreground'
@@ -135,10 +135,10 @@ export function MobileAssetsCard() {
       {/* 经费 */}
       <div className="flex items-center gap-2 border-t border-border-soft px-4 py-3">
         <Wallet className="size-4 text-brand-amber" />
-        <span className="text-sm text-foreground">
-          经费 <span className="font-semibold">{credit.total.toLocaleString('en-US')}</span>
+        <span className="text-14 text-foreground">
+          经费 <span className="font-medium">{credit.total.toLocaleString('en-US')}</span>
         </span>
-        <span className="ml-auto text-xs text-faint">
+        <span className="ml-auto text-12 text-faint">
           临时 {credit.temp.toLocaleString('en-US')} · 永久{' '}
           {credit.perm.toLocaleString('en-US')}
         </span>
@@ -157,12 +157,12 @@ export function MobileAssetsCard() {
           value={redeemCode}
           onChange={(e) => setRedeemCode(e.target.value)}
           placeholder="输入兑换码"
-          className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-faint"
+          className="min-w-0 flex-1 bg-transparent text-12 text-foreground outline-none placeholder:text-faint"
         />
         <button
           type="submit"
           disabled={!redeemCode.trim()}
-          className="rounded-pill border border-border-button px-3 py-1 text-xs text-foreground disabled:opacity-40"
+          className="rounded-pill border border-border-button px-3 py-1 text-12 text-foreground disabled:opacity-40"
         >
           兑换
         </button>

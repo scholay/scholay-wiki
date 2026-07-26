@@ -45,14 +45,14 @@ export function TokenUsageLogTable({ filters }: { filters: TokenUsageFilters }) 
     setExporting(false);
   };
 
-  const numCell = (v: number) => <span className="tabular-nums text-xs">{v.toLocaleString()}</span>;
+  const numCell = (v: number) => <span className="tabular-nums text-12">{v.toLocaleString()}</span>;
 
   const columns: Column<TokenLog>[] = [
     {
       header: '时间',
       width: 150,
       cell: (r) => (
-        <span className="text-xs text-muted-foreground tabular-nums">
+        <span className="text-12 text-muted-foreground tabular-nums">
           {r.created_at?.slice(0, 19).replace('T', ' ')}
         </span>
       ),
@@ -66,20 +66,20 @@ export function TokenUsageLogTable({ filters }: { filters: TokenUsageFilters }) 
     {
       header: '来源',
       width: 70,
-      cell: (r) => <span className="text-2xs text-faint">{sourceLabel(r.source)}</span>,
+      cell: (r) => <span className="text-12 text-faint">{sourceLabel(r.source)}</span>,
     },
     {
       header: '模型',
       width: 160,
-      cell: (r) => <span className="text-xs text-subtle font-mono truncate">{r.model || '—'}</span>,
+      cell: (r) => <span className="text-12 text-subtle font-mono truncate">{r.model || '—'}</span>,
     },
     {
       header: 'Provider / 账号',
       width: 150,
       cell: (r) => (
         <div className="flex flex-col">
-          <span className="text-2xs text-subtle truncate">{r.provider || '—'}</span>
-          {r.account_name && <span className="text-2xs text-faint truncate">{r.account_name}</span>}
+          <span className="text-12 text-subtle truncate">{r.provider || '—'}</span>
+          {r.account_name && <span className="text-12 text-faint truncate">{r.account_name}</span>}
         </div>
       ),
     },
@@ -89,14 +89,14 @@ export function TokenUsageLogTable({ filters }: { filters: TokenUsageFilters }) 
       header: '总',
       width: 90,
       align: 'right',
-      cell: (r) => <span className="tabular-nums text-xs font-bold text-foreground">{r.total_tokens.toLocaleString()}</span>,
+      cell: (r) => <span className="tabular-nums text-12 font-medium text-foreground">{r.total_tokens.toLocaleString()}</span>,
     },
     {
       header: '缓存(读/创)',
       width: 110,
       align: 'right',
       cell: (r) => (
-        <span className="tabular-nums text-2xs text-faint">
+        <span className="tabular-nums text-12 text-faint">
           {r.cache_read_tokens.toLocaleString()} / {r.cache_creation_tokens.toLocaleString()}
         </span>
       ),
@@ -106,9 +106,9 @@ export function TokenUsageLogTable({ filters }: { filters: TokenUsageFilters }) 
   return (
     <section className="mt-6">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-bold text-foreground">
+        <h3 className="text-14 font-medium text-foreground">
           调用明细
-          <span className="ml-2 text-xs font-normal text-faint">共 {(data?.total ?? 0).toLocaleString()} 条</span>
+          <span className="ml-2 text-12 font-normal text-faint">共 {(data?.total ?? 0).toLocaleString()} 条</span>
         </h3>
         <div className="flex items-center gap-2">
           <div className="flex gap-1">
@@ -121,7 +121,7 @@ export function TokenUsageLogTable({ filters }: { filters: TokenUsageFilters }) 
                 type="button"
                 onClick={() => setSort(k)}
                 className={cn(
-                  'h-7 px-2.5 rounded-8 text-xs font-medium transition-colors',
+                  'h-7 px-2.5 rounded-8 text-12 font-medium transition-colors',
                   sort === k
                     ? 'bg-foreground text-background'
                     : 'text-muted-foreground hover:bg-surface-1 hover:text-foreground'

@@ -118,7 +118,7 @@ export function AdminFileViewer({
 
   if (state.loading) {
     return (
-      <div className="flex flex-col items-center gap-2 py-10 text-sm text-faint">
+      <div className="flex flex-col items-center gap-2 py-10 text-12 text-faint">
         <Loader2 className="size-5 animate-spin" />
         加载文件中…
       </div>
@@ -126,7 +126,7 @@ export function AdminFileViewer({
   }
   if (state.error || !state.url) {
     return (
-      <div className="flex flex-col items-center gap-1 py-8 text-center text-sm text-brand-red">
+      <div className="flex flex-col items-center gap-1 py-8 text-center text-12 text-brand-red">
         <FileWarning className="size-5" />
         <span>加载失败:{state.error || '文件不可读'}</span>
       </div>
@@ -141,7 +141,7 @@ export function AdminFileViewer({
         <a
           href={state.url}
           download={filename}
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          className="inline-flex items-center gap-1 text-12 text-muted-foreground hover:text-foreground"
         >
           <Download className="size-3.5" /> 下载
         </a>
@@ -154,17 +154,17 @@ export function AdminFileViewer({
         <iframe src={state.url} title={filename} className="h-[68vh] w-full rounded-12 border border-border" />
       )}
       {kind === 'markdown' && (
-        <div className="max-h-[68vh] overflow-auto rounded-12 border border-border bg-surface-1 p-3 text-sm text-subtle">
+        <div className="max-h-[68vh] overflow-auto rounded-12 border border-border bg-surface-1 p-3 text-12 text-subtle">
           <MarkdownRenderer text={state.text ?? ''} />
         </div>
       )}
       {kind === 'text' && (
-        <pre className="max-h-[68vh] overflow-auto whitespace-pre-wrap break-words rounded-12 border border-border bg-surface-1 p-3 text-xs text-subtle">
+        <pre className="max-h-[68vh] overflow-auto whitespace-pre-wrap break-words rounded-12 border border-border bg-surface-1 p-3 text-12 text-subtle">
           {state.text}
         </pre>
       )}
       {kind === 'other' && (
-        <div className="flex flex-col items-center gap-2 py-8 text-center text-sm text-faint">
+        <div className="flex flex-col items-center gap-2 py-8 text-center text-12 text-faint">
           <FileWarning className="size-5" />
           <span>此类型({mime || '未知'})不支持内联预览,请下载查看。</span>
         </div>

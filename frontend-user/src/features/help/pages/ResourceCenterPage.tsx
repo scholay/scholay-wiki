@@ -91,7 +91,7 @@ function BlogTab() {
             type="button"
             onClick={() => setCat(c.id)}
             className={cn(
-              'inline-flex items-center h-7 px-3 rounded-pill text-xs font-bold transition-colors',
+              'inline-flex items-center h-7 px-3 rounded-pill text-12 font-medium transition-colors',
               cat === c.id
                 ? 'bg-foreground text-background'
                 : 'bg-surface-1 text-muted-foreground hover:bg-surface-2 hover:text-foreground'
@@ -113,11 +113,11 @@ function BlogTab() {
       {isLoading && <Loading text="正在加载文章…" />}
       {!isLoading && filtered.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 gap-2 text-muted-foreground">
-          <p className="text-sm">这个分类下还没有文章</p>
+          <p className="text-12">这个分类下还没有文章</p>
           <button
             type="button"
             onClick={() => setCat('all')}
-            className="text-xs text-brand-red hover:underline underline-offset-2"
+            className="text-12 text-brand-red hover:underline underline-offset-2"
           >
             返回全部
           </button>
@@ -144,10 +144,10 @@ function ResourcesTab() {
             <a
               key={c}
               href={`#cat-${encodeURIComponent(c)}`}
-              className="inline-flex items-center h-7 px-3 rounded-pill bg-surface-1 text-xs font-bold text-muted-foreground hover:bg-surface-2 hover:text-foreground transition-colors"
+              className="inline-flex items-center h-7 px-3 rounded-pill bg-surface-1 text-12 font-medium text-muted-foreground hover:bg-surface-2 hover:text-foreground transition-colors"
             >
               {c}
-              <span className="ml-1.5 text-2xs text-faint">{byCategory[c].length}</span>
+              <span className="ml-1.5 text-12 text-faint">{byCategory[c].length}</span>
             </a>
           ))}
         </div>
@@ -159,11 +159,11 @@ function ResourcesTab() {
         {Object.entries(byCategory).map(([cat, items]) => (
           <section key={cat} id={`cat-${encodeURIComponent(cat)}`} className="scroll-mt-20">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold text-foreground inline-flex items-center gap-2">
+              <h2 className="text-16 font-medium text-foreground inline-flex items-center gap-2">
                 <FolderOpen className="size-4 text-brand-red" strokeWidth={2.2} />
                 {cat}
               </h2>
-              <span className="text-xs text-faint">{items.length} 篇</span>
+              <span className="text-12 text-faint">{items.length} 篇</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {items.map((a) => (
@@ -195,7 +195,7 @@ function TabButton({
       type="button"
       onClick={onClick}
       className={cn(
-        'relative h-10 px-4 text-sm font-bold transition-colors -mb-px',
+        'relative h-10 px-4 text-14 font-medium transition-colors -mb-px',
         active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
       )}
     >
@@ -213,20 +213,20 @@ function HeroCard({ article }: { article: ArticleCardData }) {
       className="group flex flex-col gap-3 p-6 md:p-8 rounded-16 bg-surface-1 border border-border-soft hover:border-border-strong transition-colors"
     >
       <div className="flex items-center gap-2">
-        <span className="inline-flex items-center h-5 px-2 rounded-pill bg-brand-red text-background text-2xs font-bold uppercase">
+        <span className="inline-flex items-center h-5 px-2 rounded-pill bg-brand-red text-background text-12 font-medium uppercase">
           最新
         </span>
-        <span className="inline-flex items-center h-5 px-2 rounded-4 bg-surface-card border border-border-soft text-2xs font-bold text-muted-foreground">
+        <span className="inline-flex items-center h-5 px-2 rounded-4 bg-surface-card border border-border-soft text-12 font-medium text-muted-foreground">
           {article.category}
         </span>
       </div>
-      <p className="text-xl md:text-2xl font-bold text-foreground">
+      <p className="text-20 md:text-24 font-medium text-foreground">
         {article.title}
       </p>
-      <p className="text-sm text-muted-foreground leading-paragraph line-clamp-3 max-w-3xl">
+      <p className="text-12 text-muted-foreground leading-paragraph line-clamp-3 max-w-3xl">
         {article.excerpt}
       </p>
-      <div className="flex items-center gap-3 text-2xs text-faint">
+      <div className="flex items-center gap-3 text-12 text-faint">
         {author && <span>{author.name}</span>}
         {author && <span>·</span>}
         <span className="inline-flex items-center gap-1">
@@ -236,7 +236,7 @@ function HeroCard({ article }: { article: ArticleCardData }) {
         <span>·</span>
         <span>{article.date}</span>
       </div>
-      <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-brand-red group-hover:gap-2 transition-all">
+      <span className="mt-2 inline-flex items-center gap-1 text-12 font-medium text-brand-red group-hover:gap-2 transition-all">
         阅读全文
         <ArrowRight className="size-3" />
       </span>
@@ -262,13 +262,13 @@ function ContentCard({
       className="group flex flex-col gap-2 p-5 rounded-16 bg-surface-card border border-border-soft hover:border-foreground/40 transition-all hover:"
     >
       {showCategory && (
-        <span className="inline-flex items-center w-fit h-5 px-2 rounded-4 bg-surface-1 text-2xs font-bold text-muted-foreground">
+        <span className="inline-flex items-center w-fit h-5 px-2 rounded-4 bg-surface-1 text-12 font-medium text-muted-foreground">
           {article.category}
         </span>
       )}
-      <p className="text-md font-bold text-foreground line-clamp-2">{article.title}</p>
-      <p className="text-xs text-muted-foreground leading-paragraph line-clamp-3">{article.excerpt}</p>
-      <div className="mt-auto pt-2 flex items-center justify-between gap-3 text-2xs text-faint">
+      <p className="text-14 font-medium text-foreground line-clamp-2">{article.title}</p>
+      <p className="text-12 text-muted-foreground leading-paragraph line-clamp-3">{article.excerpt}</p>
+      <div className="mt-auto pt-2 flex items-center justify-between gap-3 text-12 text-faint">
         <div className="flex items-center gap-3">
           {author && <span>{author.name}</span>}
           {author && <span>·</span>}
@@ -284,5 +284,5 @@ function ContentCard({
 }
 
 function Loading({ text }: { text: string }) {
-  return <div className="py-16 text-center text-sm text-muted-foreground">{text}</div>;
+  return <div className="py-16 text-center text-12 text-muted-foreground">{text}</div>;
 }

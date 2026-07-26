@@ -101,12 +101,12 @@ export function MobileSearchFilterSheet({
               <div className="h-1 w-9 rounded-pill bg-border-strong" />
             </div>
             <div className="flex items-center justify-between border-b border-border-soft px-4 py-3">
-              <span className="text-base font-semibold text-foreground">筛选</span>
+              <span className="text-14 font-medium text-foreground">筛选</span>
               <div className="flex items-center gap-4">
                 <button
                   type="button"
                   onClick={() => onChange(DEFAULT_FILTERS)}
-                  className="text-xs text-muted-foreground active:opacity-60"
+                  className="text-12 text-muted-foreground active:opacity-60"
                 >
                   重置
                 </button>
@@ -152,7 +152,7 @@ export function MobileSearchFilterSheet({
 
               {sourceSupports(filters.source, 'openAccess') && (
                 <div className="flex items-center justify-between border-t border-border-soft py-3">
-                  <span className="text-sm font-medium text-foreground">仅开放获取</span>
+                  <span className="text-12 font-medium text-foreground">仅开放获取</span>
                   <Switch checked={filters.openAccess} onCheckedChange={(v) => set({ openAccess: v })} />
                 </div>
               )}
@@ -204,7 +204,7 @@ export function MobileSearchFilterSheet({
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full rounded-pill bg-brand-red py-3 text-sm font-semibold text-on-brand active:opacity-90"
+                className="w-full rounded-pill bg-brand-red py-3 text-12 font-medium text-on-brand active:opacity-90"
               >
                 完成
               </button>
@@ -219,7 +219,7 @@ export function MobileSearchFilterSheet({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="border-t border-border-soft py-3 first:border-t-0">
-      <p className="mb-2 text-xs font-semibold text-faint">{title}</p>
+      <p className="mb-2 text-12 font-medium text-faint">{title}</p>
       <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   );
@@ -239,7 +239,7 @@ function Chip({
       type="button"
       onClick={onClick}
       className={cn(
-        'rounded-pill border px-3 py-1.5 text-xs transition-colors',
+        'rounded-pill border px-3 py-1.5 text-12 transition-colors',
         active
           ? 'border-brand-red bg-brand-red text-on-brand'
           : 'border-border bg-surface-card text-muted-foreground active:bg-surface-1'

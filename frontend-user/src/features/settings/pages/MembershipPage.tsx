@@ -26,7 +26,7 @@ export function MembershipPage() {
     <div className="flex flex-col gap-5">
       {isLoading || !data ? (
         <section className="rounded-16 border border-border bg-surface-card p-5">
-          <p className="text-xs text-faint">加载中…</p>
+          <p className="text-12 text-faint">加载中…</p>
         </section>
       ) : (
         <AccountAssetsCard data={data} onGoRecharge={() => setTab('recharge')} />
@@ -39,7 +39,7 @@ export function MembershipPage() {
             key={t.id}
             onClick={() => setTab(t.id)}
             className={cn(
-              'flex flex-1 items-center justify-center gap-1.5 h-9 rounded-8 text-sm font-medium transition-colors',
+              'flex flex-1 items-center justify-center gap-1.5 h-9 rounded-8 text-12 font-medium transition-colors',
               tab === t.id
                 ?'bg-surface-card text-brand-red shadow-raised'
                 : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground'
@@ -59,8 +59,8 @@ export function MembershipPage() {
         {tab === 'earn' && (
           <section className="flex flex-col items-center gap-2 rounded-16 border border-border bg-surface-card p-10 text-center">
             <Gift className="size-7 text-faint" />
-            <p className="text-sm font-bold text-foreground">任务中心即将上线</p>
-            <p className="text-xs text-muted-foreground">完成签到与任务即可领取科研经费,敬请期待。</p>
+            <p className="text-14 font-medium text-foreground">任务中心即将上线</p>
+            <p className="text-12 text-muted-foreground">完成签到与任务即可领取科研经费,敬请期待。</p>
           </section>
         )}
       </div>

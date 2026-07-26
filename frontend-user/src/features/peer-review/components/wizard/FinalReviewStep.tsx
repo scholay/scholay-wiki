@@ -79,7 +79,7 @@ export function FinalReviewStep({
                   <span>
                     {submission.journalTarget.canonicalName}
                     {submission.journalTarget.journalId <= 0 && (
-                      <span className="ml-2 rounded-pill bg-surface-2 px-2 py-0.5 text-2xs font-normal text-muted-foreground">
+                      <span className="ml-2 rounded-pill bg-surface-2 px-2 py-0.5 text-12 font-normal text-muted-foreground">
                         自定义
                       </span>
                     )}
@@ -187,12 +187,12 @@ function Section({
   return (
     <section className="flex flex-col gap-3">
       <header className="flex items-center justify-between">
-        <h2 className="text-sm font-bold text-foreground">{title}</h2>
+        <h2 className="text-14 font-medium text-foreground">{title}</h2>
         {onEdit && (
           <button
             type="button"
             onClick={onEdit}
-            className="text-xs text-muted-foreground hover:text-brand-red"
+            className="text-12 text-muted-foreground hover:text-brand-red"
           >
             编辑
           </button>
@@ -222,15 +222,15 @@ function Row({
 }) {
   return (
     <div className={cn('flex gap-3', multiline ? 'items-start' : 'items-center')}>
-      <span className="w-24 shrink-0 text-xs text-faint">{label}</span>
+      <span className="w-24 shrink-0 text-12 text-faint">{label}</span>
       <span className={cn(
-        'min-w-0 flex-1 text-sm leading-paragraph text-subtle',
+        'min-w-0 flex-1 text-12 leading-paragraph text-subtle',
         multiline ? 'break-words' : 'line-clamp-1',
         valueClass,
       )}>
         {value}
       </span>
-      {meta && <span className="shrink-0 text-xs text-muted-foreground">{meta}</span>}
+      {meta && <span className="shrink-0 text-12 text-muted-foreground">{meta}</span>}
     </div>
   );
 }
@@ -254,7 +254,7 @@ function TermsBlock({
 
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="text-sm font-bold text-foreground">条款确认</h2>
+      <h2 className="text-14 font-medium text-foreground">条款确认</h2>
 
       {/* 必勾项 1 */}
       <label className="flex cursor-pointer items-start gap-3">
@@ -263,7 +263,7 @@ function TermsBlock({
           onCheckedChange={(v) => handleFirstChange(v === true)}
           className="mt-0.5"
         />
-        <span className="text-sm leading-paragraph text-subtle">
+        <span className="text-12 leading-paragraph text-subtle">
           我已逐项核对以上信息真实有效;本稿件未在其它期刊投稿或正式发表,所有作者均已审阅并同意本次提交版本。
         </span>
       </label>
@@ -271,7 +271,7 @@ function TermsBlock({
       {/* 必勾项 2 — 默认勾上 (设计稿就是这样, 用户登录注册时已经接受过, 这里只是确认) */}
       <label className="flex cursor-default items-start gap-3 opacity-90">
         <Checkbox checked disabled className="mt-0.5" />
-        <span className="text-sm leading-paragraph text-subtle">
+        <span className="text-12 leading-paragraph text-subtle">
           我同意《Scholay 服务条款》《用户隐私协议》以及目标期刊作者协议中的相关声明。
         </span>
       </label>
@@ -279,16 +279,16 @@ function TermsBlock({
       {/* 选填项 */}
       <label className="flex cursor-pointer items-start gap-3">
         <Checkbox className="mt-0.5" />
-        <span className="text-sm leading-paragraph text-muted-foreground">
+        <span className="text-12 leading-paragraph text-muted-foreground">
           我授权 Scholay 在审稿完成后将本论文摘要纳入匿名学术贡献数据集,用于检索优化(可选)
         </span>
       </label>
 
-      <footer className="flex items-center justify-between border-t border-border-soft pt-3 text-xs">
+      <footer className="flex items-center justify-between border-t border-border-soft pt-3 text-12">
         <span className="text-muted-foreground">
           这是 AI 模拟评审 · 不能替代正式期刊或学位论文盲审
         </span>
-        <span className={cn('font-bold', agreed ? 'text-brand-green' : 'text-brand-amber')}>
+        <span className={cn('font-medium', agreed ? 'text-brand-green' : 'text-brand-amber')}>
           {agreed ? '已确认 ✓' : '请勾选第 1 项必选条款'}
         </span>
       </footer>

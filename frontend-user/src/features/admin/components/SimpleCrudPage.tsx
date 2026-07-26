@@ -150,7 +150,7 @@ export function SimpleCrudPage<T extends { id: number }>({
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">
-          {description ? <p className="text-xs text-muted-foreground">{description}</p> : <span />}
+          {description ? <p className="text-12 text-muted-foreground">{description}</p> : <span />}
           {addButton}
         </div>
         {body}
@@ -208,14 +208,14 @@ function CrudForm<T>({
                 required={f.required}
                 placeholder={f.placeholder}
                 defaultValue={(initial[f.name] as string) ?? ''}
-                className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             ) : f.type === 'select' && f.options ? (
               <select
                 id={f.name}
                 name={f.name}
                 defaultValue={(initial[f.name] as string) ?? f.options[0]?.value}
-                className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-sm"
+                className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-12"
               >
                 {f.options.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
@@ -230,7 +230,7 @@ function CrudForm<T>({
                   defaultChecked={(initial[f.name] as boolean) ?? false}
                   className="size-4"
                 />
-                <span className="text-xs text-muted-foreground">{f.placeholder}</span>
+                <span className="text-12 text-muted-foreground">{f.placeholder}</span>
               </div>
             ) : (
               <Input

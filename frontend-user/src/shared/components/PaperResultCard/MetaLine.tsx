@@ -71,7 +71,7 @@ export function MetaLine({
   };
 
   return (
-    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+    <div className="mt-1 flex items-center gap-2 text-12 text-muted-foreground">
       <div className="flex items-center gap-1 min-w-0 flex-1">
         {venue &&
           (canOpenJournal ? (
@@ -125,7 +125,7 @@ export function MetaLine({
             </TooltipTrigger>
             <TooltipContent
               side="bottom"
-              className="max-w-[300px] text-xs leading-paragraph whitespace-normal"
+              className="max-w-[300px] text-12 leading-paragraph whitespace-normal"
             >
               {/* 只展示名字串,在 Tooltip 里点击不便就不做跳转;入口仍在前两位 */}
               {extraAuthors.map((a) => a.name).join(' · ')}

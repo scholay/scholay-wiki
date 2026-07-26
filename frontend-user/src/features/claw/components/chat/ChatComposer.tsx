@@ -196,7 +196,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
         containerProps={enableAttachments ? att.dragHandlers : undefined}
         overlay={
           enableAttachments && att.dragOver ? (
-            <div className="absolute inset-0 z-raised flex items-center justify-center gap-2 rounded-16 border-2 border-dashed border-brand-green bg-surface-card/90 text-sm font-medium text-brand-green">
+            <div className="absolute inset-0 z-raised flex items-center justify-center gap-2 rounded-16 border-2 border-dashed border-brand-green bg-surface-card/90 text-14 font-medium text-brand-green">
               <Upload className="size-4" />
               {acceptImages === false ? '松开上传文件' : '松开上传图片 / 文件'}
             </div>
@@ -219,7 +219,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
                   onRemove={(i) => setReferences((prev) => prev.filter((_, idx) => idx !== i))}
                 />
                 {reference.isPending && (
-                  <span className="inline-flex items-center gap-1 text-2xs text-faint">
+                  <span className="inline-flex items-center gap-1 text-12 text-faint">
                     <Loader2 className="size-3 animate-spin" />
                     引用中…
                   </span>

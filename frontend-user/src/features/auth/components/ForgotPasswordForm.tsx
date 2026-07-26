@@ -93,7 +93,7 @@ export function ForgotPasswordForm({
                   {...field}
                   type={accountType === 'email' ? 'email' : 'tel'}
                   autoComplete={accountType === 'email' ? 'email' : 'tel'}
-                  className="h-10 text-sm"
+                  className="h-10 text-12"
                 />
               </FormControl>
               <FormMessage />
@@ -114,7 +114,7 @@ export function ForgotPasswordForm({
                     inputMode="numeric"
                     maxLength={6}
                     autoComplete="one-time-code"
-                    className="h-10 text-sm tracking-code"
+                    className="h-10 text-12 tracking-code"
                   />
                 </FormControl>
                 <SendCodeButton
@@ -141,7 +141,7 @@ export function ForgotPasswordForm({
                   type="password"
                   autoComplete="new-password"
                   placeholder="至少 8 位"
-                  className="h-10 text-sm"
+                  className="h-10 text-12"
                 />
               </FormControl>
               <FormMessage />
@@ -153,7 +153,7 @@ export function ForgotPasswordForm({
           {pending ? '重置中…' : '重置密码'}
         </Button>
 
-        <p className="text-center text-xs text-muted-foreground">
+        <p className="text-center text-12 text-muted-foreground">
           想起来了?{' '}
           <button
             type="button"

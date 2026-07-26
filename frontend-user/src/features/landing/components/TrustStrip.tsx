@@ -17,7 +17,7 @@ export function TrustStrip({
   return (
     <section className="bg-surface-1 border-y border-border-soft">
       <div className="max-w-7xl mx-auto px-6 lg:px-12 py-10 flex flex-col gap-6 items-center">
-        <span className="text-2xs font-semibold uppercase text-muted-foreground">
+        <span className="text-12 font-medium uppercase text-muted-foreground">
           {label}
         </span>
         <div className="flex flex-wrap justify-center items-center gap-x-12 gap-y-4">
@@ -28,10 +28,10 @@ export function TrustStrip({
                 'text-subtle whitespace-nowrap',
                 // 交错样式 —— 模拟期刊 / 大学 wordmark 多样性
                 i % 3 === 0
-                  ? 'font-display italic text-2xl font-semibold'
+                  ? 'font-display italic text-24 font-medium'
                   : i % 3 === 1
-                    ? 'text-lg font-bold'
-                    : 'font-display text-xl font-semibold'
+                    ? 'text-16 font-medium'
+                    : 'font-display text-20 font-medium'
               )}
             >
               {l}

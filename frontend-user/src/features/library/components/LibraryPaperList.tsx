@@ -80,7 +80,7 @@ export function LibraryPaperList({
   }
   if (error) {
     return (
-      <div className="px-6 py-8 text-xs text-brand-red">
+      <div className="px-6 py-8 text-12 text-brand-red">
         文献列表暂时没能加载出来,请稍后重试
       </div>
     );
@@ -108,8 +108,8 @@ export function LibraryPaperList({
       {/* inner header —— 跨页统计 + 本页 PDF 计数 + 排序/视图描述
           注:total 是跨页总数,pdfStats 是本页统计(分页下只反映本页) */}
       <header className="flex items-center justify-between gap-3 pt-1 pb-2">
-        <div className="flex items-center gap-2.5 text-xs">
-          <span className="font-bold text-foreground">
+        <div className="flex items-center gap-2.5 text-12">
+          <span className="font-medium text-foreground">
             共 {total.toLocaleString()} 篇
           </span>
           {papers.length > 0 && (
@@ -124,7 +124,7 @@ export function LibraryPaperList({
             </>
           )}
         </div>
-        <div className="flex items-center gap-3 text-xs text-subtle">
+        <div className="flex items-center gap-3 text-12 text-subtle">
           {/* 排序按钮 —— 当前仅一个维度 "加入时间",点击翻转 asc/desc;
               "视图: 列表" 标识已删除(本就只有列表一种视图) */}
           <button

@@ -28,7 +28,7 @@ export function SectionHeader({
     >
       <span
         className={cn(
-          'text-2xs font-semibold uppercase',
+          'text-12 font-medium uppercase',
           dark ? 'text-faint' : 'text-muted-foreground'
         )}
       >
@@ -46,7 +46,7 @@ export function SectionHeader({
       {sub && (
         <p
           className={cn(
-            'text-lg leading-paragraph max-w-[720px]',
+            'text-16 leading-paragraph max-w-[720px]',
             dark ? 'text-faint' : 'text-subtle'
           )}
         >

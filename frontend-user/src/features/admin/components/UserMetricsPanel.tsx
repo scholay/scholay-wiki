@@ -48,7 +48,7 @@ export function UserMetricsPanel() {
   return (
     <section className="mb-6 space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-bold text-foreground">用户分析</h2>
+        <h2 className="text-16 font-medium text-foreground">用户分析</h2>
         <RangeTabs value={days} onChange={setDays} />
       </div>
 
@@ -124,7 +124,7 @@ function RangeTabs({
           key={o.v}
           type="button"
           onClick={() => onChange(o.v)}
-          className={`px-3 h-7 text-xs rounded-pill transition-colors ${
+          className={`px-3 h-7 text-12 rounded-pill transition-colors ${
             value === o.v
               ? 'bg-foreground text-background'
               : 'text-muted-foreground hover:text-foreground'
@@ -157,8 +157,8 @@ function ChartCard({
     <div className="rounded-16 border border-border bg-surface-card p-4">
       <div className="mb-2 flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="text-sm font-bold text-foreground">{title}</h3>
-          {hint && <p className="mt-0.5 text-2xs text-faint">{hint}</p>}
+          <h3 className="text-14 font-medium text-foreground">{title}</h3>
+          {hint && <p className="mt-0.5 text-12 text-faint">{hint}</p>}
         </div>
         {stat ?? <Icon className="size-3.5 shrink-0 text-faint" />}
       </div>
@@ -171,12 +171,12 @@ function ChartCard({
 function WindowTotals({ reg, active, days }: { reg: number; active: number; days: number }) {
   return (
     <div className="shrink-0 text-right">
-      <div className="text-2xs text-faint">近 {days} 天总计</div>
+      <div className="text-12 text-faint">近 {days} 天总计</div>
       <div className="mt-0.5 flex items-baseline justify-end gap-2 tabular-nums">
-        <span className="text-sm font-bold" style={{ color: COLOR_GREEN }}>
+        <span className="text-12 font-medium" style={{ color: COLOR_GREEN }}>
           注册 {reg.toLocaleString()}
         </span>
-        <span className="text-sm font-bold" style={{ color: COLOR_AMBER }}>
+        <span className="text-12 font-medium" style={{ color: COLOR_AMBER }}>
           活跃 {active.toLocaleString()}
         </span>
       </div>
@@ -185,7 +185,7 @@ function WindowTotals({ reg, active, days }: { reg: number; active: number; days
 }
 
 function Empty({ hint }: { hint: string }) {
-  return <div className="h-full flex items-center justify-center text-xs text-faint">{hint}</div>;
+  return <div className="h-full flex items-center justify-center text-12 text-faint">{hint}</div>;
 }
 
 // recharts 主题色 —— 直接消费 CSS 变量, 跟 design token 同源
@@ -335,7 +335,7 @@ function SeriesToggle({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <label className="flex cursor-pointer select-none items-center gap-1.5 text-xs text-subtle">
+    <label className="flex cursor-pointer select-none items-center gap-1.5 text-12 text-subtle">
       <Checkbox checked={checked} onCheckedChange={(v) => onChange(v === true)} />
       <span className="inline-block size-2.5 rounded-4" style={{ backgroundColor: color }} />
       {label}

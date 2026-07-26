@@ -200,14 +200,14 @@ export function SearcherColumn({
       <header className="flex items-center gap-2 h-14 px-4 border-b border-border shrink-0">
         <div className="flex items-center gap-2.5">
           <Search className="size-4 text-brand-red" strokeWidth={2.5} />
-          <span className="text-15 font-bold text-foreground">搜索器</span>
+          <span className="text-16 font-medium text-foreground">搜索器</span>
           {/* modeSwitch — 24h rounded-pill,active 红底白字 */}
           <div className="ml-2 inline-flex items-center h-6 rounded-pill bg-surface-2 p-0.5">
             <button
               type="button"
               onClick={() => onModeChange('classic')}
               className={cn(
-                'inline-flex items-center justify-center h-5 px-2.5 rounded-pill text-2xs font-bold transition-colors',
+                'inline-flex items-center justify-center h-5 px-2.5 rounded-pill text-12 font-medium transition-colors',
                 mode === 'classic'
                   ? 'bg-brand-red text-on-brand'
                   : 'text-muted-foreground hover:text-foreground'
@@ -219,7 +219,7 @@ export function SearcherColumn({
               type="button"
               onClick={() => onModeChange('smart')}
               className={cn(
-                'inline-flex items-center justify-center h-5 px-2.5 rounded-pill text-2xs font-bold transition-colors',
+                'inline-flex items-center justify-center h-5 px-2.5 rounded-pill text-12 font-medium transition-colors',
                 mode === 'smart'
                   ? 'bg-brand-red text-on-brand'
                   : 'text-muted-foreground hover:text-foreground'
@@ -244,7 +244,7 @@ export function SearcherColumn({
                   ? '已是新对话'
                   : '开始新对话'
             }
-            className="ml-auto inline-flex items-center gap-1.5 h-7 px-2.5 rounded-pill border border-border-button text-xs font-medium text-subtle transition-colors hover:bg-surface-1 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+            className="ml-auto inline-flex items-center gap-1.5 h-7 px-2.5 rounded-pill border border-border-button text-12 font-medium text-subtle transition-colors hover:bg-surface-1 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
           >
             <SquarePen className="size-3.5" strokeWidth={2} />
             新对话
@@ -278,22 +278,22 @@ export function SearcherColumn({
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="输入关键词,如 机器学习可解释性"
-                className="flex-1 h-full bg-transparent text-base outline-none placeholder:text-faint"
+                className="flex-1 h-full bg-transparent text-14 outline-none placeholder:text-faint"
               />
             </div>
             <button
               type="submit"
-              className="inline-flex h-9 w-[72px] items-center justify-center rounded-8 bg-destructive text-destructive-foreground text-base font-bold hover:bg-destructive/90 transition-colors"
+              className="inline-flex h-9 w-[72px] items-center justify-center rounded-8 bg-destructive text-destructive-foreground text-14 font-medium hover:bg-destructive/90 transition-colors"
             >
               搜索
             </button>
           </form>
 
-          {/* countRow —— 设计稿 12px = text-sm。
+          {/* countRow —— 设计稿 12px = text-12。
               loading 中**故意留空**(不写"检索中…"):蒙层 loading 已经表达了正在查的语义,
               再叠一句文字会闪;只在出结果后写"找到 N 篇"。 */}
           {query && !showLoading && (
-            <div className="px-4 pt-1 pb-2 text-sm text-subtle shrink-0">
+            <div className="px-4 pt-1 pb-2 text-12 text-subtle shrink-0">
               找到 {total.toLocaleString()} 篇相关文献
             </div>
           )}
@@ -348,7 +348,7 @@ export function SearcherColumn({
               >
                 <div className="flex flex-col items-center gap-3 text-faint">
                   <Loader2 className="size-6 animate-spin text-brand-red" strokeWidth={2.2} />
-                  <span className="text-sm">检索中…</span>
+                  <span className="text-12">检索中…</span>
                 </div>
               </div>
             )}

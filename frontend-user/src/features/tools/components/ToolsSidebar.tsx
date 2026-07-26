@@ -89,7 +89,7 @@ export function ToolsSidebar() {
       <SidebarHeaderNav />
       <SidebarContent>
         <div className="px-4 pt-3 pb-1.5">
-          <p className="text-xs font-bold text-foreground">科研能力广场</p>
+          <p className="text-14 font-medium text-foreground">科研能力广场</p>
         </div>
 
         {/* 段切换在顶部 PlazaHeader 的 tab 上统一处理;侧栏只按当前段给对应的筛选/入口。 */}
@@ -134,7 +134,7 @@ export function ToolsSidebar() {
               <button
                 type="button"
                 onClick={() => go({ category: null, price: null, access: null, os: null })}
-                className="text-2xs font-bold text-brand-red hover:opacity-70"
+                className="text-12 font-medium text-brand-red hover:opacity-70"
               >
                 清空
               </button>
@@ -148,7 +148,7 @@ export function ToolsSidebar() {
                   key={c.key}
                   type="button"
                   onClick={() => go({ [c.key]: null })}
-                  className="inline-flex items-center gap-1 rounded-pill border border-brand-red/30 bg-danger-soft px-2 py-0.5 text-2xs font-medium text-brand-red"
+                  className="inline-flex items-center gap-1 rounded-pill border border-brand-red/30 bg-danger-soft px-2 py-0.5 text-12 font-medium text-brand-red"
                 >
                   {c.label}
                   <X className="size-2.5" strokeWidth={3} />
@@ -200,7 +200,7 @@ export function ToolsSidebar() {
 }
 
 function Count({ n }: { n: number }) {
-  return <span className="text-2xs tabular-nums text-faint">{n}</span>;
+  return <span className="text-12 tabular-nums text-faint">{n}</span>;
 }
 
 function FilterGroup({ label, children }: { label: string; children: ReactNode }) {
@@ -212,7 +212,7 @@ function FilterGroup({ label, children }: { label: string; children: ReactNode }
         onClick={() => setCollapsed((c) => !c)}
         className="flex h-6 items-center justify-between gap-2 px-4 pb-1 pt-1.5 text-left transition-colors hover:bg-surface-1"
       >
-        <span className="text-2xs font-bold uppercase text-faint">{label}</span>
+        <span className="text-12 font-medium uppercase text-faint">{label}</span>
         <ChevronDown className={cn('size-3 text-subtle transition-transform', collapsed && '-rotate-90')} />
       </button>
       {!collapsed && <div className="flex flex-col pb-1">{children}</div>}
@@ -244,7 +244,7 @@ function CategoryRow({
       )}
     >
       <Icon className={cn('size-4 shrink-0', active ? 'text-foreground' : 'text-faint')} />
-      <span className={cn('min-w-0 flex-1 truncate text-left text-sm', active ? 'font-semibold text-foreground' : 'text-subtle')}>
+      <span className={cn('min-w-0 flex-1 truncate text-left text-12', active ? 'font-medium text-foreground' : 'text-subtle')}>
         {label}
       </span>
       <Count n={count} />
@@ -271,7 +271,7 @@ function RadioRow({
       )}
     >
       <input type="radio" name={name} checked={active} onChange={onSelect} className="size-3.5 accent-brand-red" />
-      <span className={cn('min-w-0 flex-1 truncate text-sm', active ? 'font-semibold text-foreground' : 'text-subtle')}>
+      <span className={cn('min-w-0 flex-1 truncate text-12', active ? 'font-medium text-foreground' : 'text-subtle')}>
         {label}
       </span>
     </label>

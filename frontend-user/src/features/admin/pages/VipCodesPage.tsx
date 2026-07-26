@@ -30,7 +30,7 @@ import {
   type VipCode,
 } from '../api/vip-codes';
 
-const SELECT_CLS = 'h-8 rounded-8 border border-input bg-surface-card px-2 text-xs text-foreground';
+const SELECT_CLS = 'h-8 rounded-8 border border-input bg-surface-card px-2 text-12 text-foreground';
 
 /**
  * 会员兑换码 —— 批量生成 + 列表。生成后弹出码清单供管理员复制分发。
@@ -147,7 +147,7 @@ export function VipCodesPage() {
   };
 
   const columns: Column<VipCode>[] = [
-    { header: '兑换码', width: 150, cell: (r) => <span className="font-mono text-xs text-foreground select-all">{r.code}</span> },
+    { header: '兑换码', width: 150, cell: (r) => <span className="font-mono text-12 text-foreground select-all">{r.code}</span> },
     {
       header: '内容',
       width: 90,
@@ -163,7 +163,7 @@ export function VipCodesPage() {
       width: 60,
       align: 'right',
       cell: (r) => (
-        <span className="text-xs tabular-nums">
+        <span className="text-12 tabular-nums">
           {r.grant_kind === 'credit' ? (r.credit_kind === 'perm' ? '—' : r.credit_validity_days) : r.grant_days}
         </span>
       ),
@@ -173,7 +173,7 @@ export function VipCodesPage() {
       width: 70,
       align: 'right',
       cell: (r) => (
-        <span className="text-xs tabular-nums text-foreground">
+        <span className="text-12 tabular-nums text-foreground">
           {r.used_count}
           <span className="text-faint">/{r.max_uses}</span>
         </span>
@@ -182,18 +182,18 @@ export function VipCodesPage() {
     {
       header: '有效期至',
       width: 110,
-      cell: (r) => <span className="text-2xs text-faint">{r.valid_until ? r.valid_until.slice(0, 10) : '永久'}</span>,
+      cell: (r) => <span className="text-12 text-faint">{r.valid_until ? r.valid_until.slice(0, 10) : '永久'}</span>,
     },
     {
       header: '状态',
       width: 80,
       cell: (r) => <CodeStatusBadge code={r} />,
     },
-    { header: '备注', cell: (r) => <span className="text-2xs text-faint truncate">{r.note || '—'}</span> },
+    { header: '备注', cell: (r) => <span className="text-12 text-faint truncate">{r.note || '—'}</span> },
     {
       header: '生成时间',
       width: 150,
-      cell: (r) => <span className="text-2xs text-faint tabular-nums">{r.created_at?.slice(0, 19).replace('T', ' ')}</span>,
+      cell: (r) => <span className="text-12 text-faint tabular-nums">{r.created_at?.slice(0, 19).replace('T', ' ')}</span>,
     },
     {
       header: '操作',
@@ -201,22 +201,22 @@ export function VipCodesPage() {
       cell: (r) => (
         <div className="flex items-center gap-1">
           {r.grant_kind === 'tier' && (
-            <Button size="sm" variant="outline" className="h-7 px-2 text-2xs" onClick={() => openAction(r, 'grant_days')}>
+            <Button size="sm" variant="outline" className="h-7 px-2 text-12" onClick={() => openAction(r, 'grant_days')}>
               <CalendarClock className="size-3" /> 改天数
             </Button>
           )}
-          <Button size="sm" variant="outline" className="h-7 px-2 text-2xs" onClick={() => openAction(r, 'extend')}>
+          <Button size="sm" variant="outline" className="h-7 px-2 text-12" onClick={() => openAction(r, 'extend')}>
             <CalendarPlus className="size-3" /> 续期
           </Button>
-          <Button size="sm" variant="outline" className="h-7 px-2 text-2xs" onClick={() => openAction(r, 'uses')}>
+          <Button size="sm" variant="outline" className="h-7 px-2 text-12" onClick={() => openAction(r, 'uses')}>
             <Plus className="size-3" /> 次数
           </Button>
           {r.revoked_at ? (
-            <Button size="sm" variant="outline" className="h-7 px-2 text-2xs" onClick={() => toggleStatus(r)}>
+            <Button size="sm" variant="outline" className="h-7 px-2 text-12" onClick={() => toggleStatus(r)}>
               <RotateCcw className="size-3" /> 恢复
             </Button>
           ) : (
-            <Button size="sm" variant="outline" className="h-7 px-2 text-2xs text-brand-red" onClick={() => toggleStatus(r)}>
+            <Button size="sm" variant="outline" className="h-7 px-2 text-12 text-brand-red" onClick={() => toggleStatus(r)}>
               <Ban className="size-3" /> 停用
             </Button>
           )}
@@ -229,7 +229,7 @@ export function VipCodesPage() {
     <AdminPageLayout title="会员兑换码" description={`共 ${data?.total ?? 0} 个 · 生成后复制分发, 用户在「我的会员」兑换`}>
       {/* 生成 */}
       <section className="mb-4 rounded-16 border border-border bg-surface-card p-4">
-        <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-foreground">
+        <h3 className="mb-3 flex items-center gap-2 text-14 font-medium text-foreground">
           <Gift className="size-4" /> 批量生成
         </h3>
         <div className="flex flex-wrap items-end gap-3">
@@ -304,12 +304,12 @@ export function VipCodesPage() {
         {generated.length > 0 && (
           <div className="mt-4 rounded-12 border border-border-soft bg-surface-1 p-3">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-bold text-foreground">本次生成 {generated.length} 个(请立即复制分发)</span>
+              <span className="text-12 font-medium text-foreground">本次生成 {generated.length} 个(请立即复制分发)</span>
               <Button size="sm" variant="outline" onClick={copyCodes}>
                 <Copy className="size-3.5" /> 复制全部
               </Button>
             </div>
-            <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all font-mono text-2xs text-subtle">{generated.join('\n')}</pre>
+            <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all font-mono text-12 text-subtle">{generated.join('\n')}</pre>
           </div>
         )}
       </section>
@@ -395,7 +395,7 @@ export function VipCodesPage() {
 function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
     <div className={cn('space-y-1', className)}>
-      <Label className="text-2xs text-faint">{label}</Label>
+      <Label className="text-12 text-faint">{label}</Label>
       {children}
     </div>
   );
@@ -408,5 +408,5 @@ function CodeStatusBadge({ code }: { code: VipCode }) {
   if (code.valid_until && new Date(code.valid_until).getTime() < Date.now()) {
     return <Badge variant="muted">已过期</Badge>;
   }
-  return <span className="text-xs text-brand-green">可兑换</span>;
+  return <span className="text-12 text-brand-green">可兑换</span>;
 }

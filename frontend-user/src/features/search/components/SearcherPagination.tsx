@@ -52,7 +52,7 @@ export function SearcherPagination({
             onClick={() => onPageSizeChange(sz)}
             aria-pressed={pageSize === sz}
             className={cn(
-              'inline-flex items-center justify-center h-5 px-2 rounded-pill text-2xs font-bold transition-colors whitespace-nowrap',
+              'inline-flex items-center justify-center h-5 px-2 rounded-pill text-12 font-medium transition-colors whitespace-nowrap',
               pageSize === sz
                 ? 'bg-foreground text-background'
                 : 'text-muted-foreground hover:text-foreground'
@@ -78,7 +78,7 @@ export function SearcherPagination({
           p === '...' ? (
             <span
               key={`dot-${i}`}
-              className="inline-flex h-6 w-6 items-center justify-center text-faint text-xs"
+              className="inline-flex h-6 w-6 items-center justify-center text-faint text-12"
             >
               …
             </span>
@@ -88,7 +88,7 @@ export function SearcherPagination({
               type="button"
               onClick={() => onChange(p)}
               className={cn(
-                'inline-flex h-6 min-w-6 items-center justify-center rounded-8 px-1.5 text-xs font-semibold transition-colors',
+                'inline-flex h-6 min-w-6 items-center justify-center rounded-8 px-1.5 text-12 font-medium transition-colors',
                 p === page
                   ? 'bg-destructive text-on-brand'
                   : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground'
@@ -110,7 +110,7 @@ export function SearcherPagination({
       </div>
 
       {/* 右:利用空位放"共 X 页",窄屏自动 hidden md:flex 防止挤压页码 */}
-      <span className="justify-self-end hidden md:inline-flex shrink-0 text-2xs text-faint tabular-nums whitespace-nowrap">
+      <span className="justify-self-end hidden md:inline-flex shrink-0 text-12 text-faint tabular-nums whitespace-nowrap">
         共 {totalPages} 页
       </span>
     </nav>

@@ -20,7 +20,7 @@ export const LoadingState = forwardRef<HTMLDivElement, LoadingStateProps>(
       <div
         ref={ref}
         className={cn(
-          'flex items-center justify-center gap-2 text-sm text-muted-foreground',
+          'flex items-center justify-center gap-2 text-12 text-muted-foreground',
           dense ? 'py-6' : 'py-16',
           className
         )}

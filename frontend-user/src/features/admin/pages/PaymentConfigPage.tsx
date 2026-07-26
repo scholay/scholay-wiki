@@ -103,7 +103,7 @@ function AlipayPanel() {
       cell: (r) => (
         <div className="flex flex-col">
           <span className="font-bold text-foreground font-mono">{r.app_id}</span>
-          <span className="text-2xs text-faint truncate max-w-[300px]">{r.gateway_url}</span>
+          <span className="text-12 text-faint truncate max-w-[300px]">{r.gateway_url}</span>
         </div>
       ),
     },
@@ -116,7 +116,7 @@ function AlipayPanel() {
     {
       header: '创建时间',
       width: 120,
-      cell: (r) => <span className="text-xs text-muted-foreground">{r.created_at?.slice(0, 10)}</span>,
+      cell: (r) => <span className="text-12 text-muted-foreground">{r.created_at?.slice(0, 10)}</span>,
     },
     EditDeleteCell((r) => setMode({ kind: 'edit', row: r }), handleDelete),
   ];
@@ -201,7 +201,7 @@ function AlipayPanel() {
               <div className="flex items-center gap-2">
                 <input id="alipay-sandbox" name="is_sandbox" type="checkbox"
                   defaultChecked={mode.kind === 'edit' ? mode.row.is_sandbox : false} className="size-4" />
-                <Label htmlFor="alipay-sandbox" className="text-sm">沙箱环境</Label>
+                <Label htmlFor="alipay-sandbox" className="text-12">沙箱环境</Label>
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setMode(null)}>取消</Button>
@@ -277,7 +277,7 @@ function WechatPanel() {
       cell: (r) => (
         <div className="flex flex-col">
           <span className="font-bold text-foreground font-mono">{r.mch_id}</span>
-          <span className="text-2xs text-faint">App ID {r.app_id}</span>
+          <span className="text-12 text-faint">App ID {r.app_id}</span>
         </div>
       ),
     },
@@ -290,7 +290,7 @@ function WechatPanel() {
     {
       header: '创建时间',
       width: 120,
-      cell: (r) => <span className="text-xs text-muted-foreground">{r.created_at?.slice(0, 10)}</span>,
+      cell: (r) => <span className="text-12 text-muted-foreground">{r.created_at?.slice(0, 10)}</span>,
     },
     EditDeleteCell((r) => setMode({ kind: 'edit', row: r }), handleDelete),
   ];
@@ -371,7 +371,7 @@ function WechatPanel() {
               <div className="flex items-center gap-2">
                 <input id="wechat-sandbox" name="is_sandbox" type="checkbox"
                   defaultChecked={mode.kind === 'edit' ? mode.row.is_sandbox : false} className="size-4" />
-                <Label htmlFor="wechat-sandbox" className="text-sm">沙箱环境</Label>
+                <Label htmlFor="wechat-sandbox" className="text-12">沙箱环境</Label>
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setMode(null)}>取消</Button>
@@ -400,7 +400,7 @@ function ActiveCell<T extends { is_active: boolean; id: number }>(
         type="button"
         onClick={() => onActivate(r)}
         disabled={r.is_active}
-        className="inline-flex items-center gap-1.5 text-xs text-subtle hover:text-foreground disabled:opacity-100 disabled:text-brand-green disabled:font-bold"
+        className="inline-flex items-center gap-1.5 text-12 text-subtle hover:text-foreground disabled:opacity-100 disabled:text-brand-green disabled:font-medium"
       >
         {r.is_active ? (
           <>
@@ -497,7 +497,7 @@ function SecretTextareaField({
         onChange={(e) => onChange(e.target.value)}
         required={required}
         placeholder={placeholder}
-        className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-xs font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-12 font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />
     </div>
   );

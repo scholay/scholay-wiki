@@ -72,8 +72,8 @@ export function WechatOfficialPage() {
         }}
       >
         <div className="pb-3 border-b border-border-soft">
-          <h2 className="text-base font-bold text-foreground">公众号接入</h2>
-          <p className="text-xs text-muted-foreground mt-1">App Secret / AES Key 留空表示不修改</p>
+          <h2 className="text-16 font-medium text-foreground">公众号接入</h2>
+          <p className="text-12 text-muted-foreground mt-1">App Secret / AES Key 留空表示不修改</p>
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -123,7 +123,7 @@ export function WechatOfficialPage() {
               id="encryption_mode"
               name="encryption_mode"
               defaultValue={data?.encryption_mode || 'secure'}
-              className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-sm"
+              className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-12"
             >
               {ENCRYPTION_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -140,13 +140,13 @@ export function WechatOfficialPage() {
             rows={6}
             defaultValue={data?.system_prompt}
             placeholder="你是 Scholay 的客服助理,用友好简洁的语气回答用户关于学术搜索的问题…"
-            className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-sm font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-12 font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
 
         <div className="flex items-center gap-2">
           <input id="auto_reply_enabled" name="auto_reply_enabled" type="checkbox" defaultChecked={data?.auto_reply_enabled} className="size-4" />
-          <Label htmlFor="auto_reply_enabled" className="text-sm">启用 AI 自动回复</Label>
+          <Label htmlFor="auto_reply_enabled" className="text-12">启用 AI 自动回复</Label>
         </div>
 
         <div className="pt-3 border-t border-border-soft">

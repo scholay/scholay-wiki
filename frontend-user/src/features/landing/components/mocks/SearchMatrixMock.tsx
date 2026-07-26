@@ -35,16 +35,16 @@ export function SearchMatrixMock() {
         <span className="size-2.5 rounded-pill bg-[#FEBC2E]" />
         <span className="size-2.5 rounded-pill bg-[#28C840]" />
         <span className="flex-1" />
-        <span className="text-xs text-faint">scholay.ai/search</span>
+        <span className="text-12 text-faint">scholay.ai/search</span>
       </div>
 
       {/* search bar */}
       <div className="flex items-center gap-3 px-4 py-3 rounded-8 bg-surface-card border border-border-soft">
         <Search className="size-4 text-muted-foreground shrink-0" />
-        <span className="flex-1 text-sm text-foreground truncate">
+        <span className="flex-1 text-12 text-foreground truncate">
           大语言模型在低资源语言上的对齐方法有哪些进展?
         </span>
-        <kbd className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-prism-badge-bg text-2xs font-semibold text-prism-badge-fg">
+        <kbd className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-prism-badge-bg text-12 font-medium text-prism-badge-fg">
           Enter
         </kbd>
       </div>
@@ -55,9 +55,9 @@ export function SearchMatrixMock() {
           <span
             key={c.label}
             className={cn(
-              'inline-flex items-center px-2.5 py-1 rounded-pill text-2xs',
+              'inline-flex items-center px-2.5 py-1 rounded-pill text-12',
               c.active
-                ? 'bg-foreground text-background font-semibold'
+                ? 'bg-foreground text-background font-medium'
                 : 'bg-surface-card border border-border-soft text-subtle'
             )}
           >
@@ -69,18 +69,18 @@ export function SearchMatrixMock() {
       {/* matrix card */}
       <div className="rounded-8 overflow-hidden bg-surface-card border border-border-soft">
         <div className="flex items-center justify-between px-4 py-2.5 bg-surface-1 border-b border-border-soft">
-          <span className="text-xs font-semibold text-foreground">引文矩阵</span>
-          <span className="text-xs text-muted-foreground tabular-nums">12 篇结果</span>
+          <span className="text-12 font-medium text-foreground">引文矩阵</span>
+          <span className="text-12 text-muted-foreground tabular-nums">12 篇结果</span>
         </div>
         <ul className="divide-y divide-border-soft">
           {ROWS.map((r) => (
             <li key={r.tag} className="flex items-center gap-3 px-4 py-2.5">
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-prism-badge-bg text-2xs font-semibold text-prism-badge-fg tabular-nums w-12 justify-center">
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-prism-badge-bg text-12 font-medium text-prism-badge-fg tabular-nums w-12 justify-center">
                 {r.tag}
               </span>
               <div className="flex-1 min-w-0">
-                <div className="truncate text-sm font-medium text-foreground">{r.title}</div>
-                <div className="text-xs text-muted-foreground">{r.meta}</div>
+                <div className="truncate text-12 font-medium text-foreground">{r.title}</div>
+                <div className="text-12 text-muted-foreground">{r.meta}</div>
               </div>
             </li>
           ))}
@@ -90,7 +90,7 @@ export function SearchMatrixMock() {
       {/* graph badge */}
       <div className="inline-flex items-center self-start gap-2 px-3 py-2 rounded-8 bg-surface-card border border-border-soft">
         <Share2 className="size-3.5 text-brand-green" strokeWidth={2.2} />
-        <span className="text-xs font-semibold text-subtle">已检测到 3 条跨论文关联 →</span>
+        <span className="text-12 font-medium text-subtle">已检测到 3 条跨论文关联 →</span>
       </div>
     </div>
   );

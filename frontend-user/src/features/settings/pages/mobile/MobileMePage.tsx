@@ -42,8 +42,8 @@ function LoggedOutView() {
   return (
     <div className="flex h-full flex-col items-center justify-center px-8 text-center">
       <BrandLogo size="lg" />
-      <h1 className="mt-5 text-xl font-bold text-foreground">登录 Scholay</h1>
-      <p className="mt-1.5 text-sm leading-paragraph text-muted-foreground">
+      <h1 className="mt-5 text-20 font-medium text-foreground">登录 Scholay</h1>
+      <p className="mt-1.5 text-12 leading-paragraph text-muted-foreground">
         登录后查看你的会员、科研经费、文献集与设置
       </p>
       <div className="mt-7 flex w-full max-w-xs flex-col gap-2.5">
@@ -94,11 +94,11 @@ function LoggedInView() {
       >
         <Avatar className="size-14 bg-primary">
           {avatar && <AvatarImage src={avatar} alt={displayName} />}
-          <AvatarFallback className="text-lg font-bold">{initial}</AvatarFallback>
+          <AvatarFallback className="text-20 font-medium">{initial}</AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-lg font-semibold text-foreground">{displayName}</p>
-          {email && <p className="truncate text-xs text-faint">{email}</p>}
+          <p className="truncate text-16 font-medium text-foreground">{displayName}</p>
+          {email && <p className="truncate text-12 text-faint">{email}</p>}
         </div>
         <ChevronRight className="size-4 shrink-0 text-faint" />
       </Link>
@@ -152,7 +152,7 @@ function LoggedInView() {
       <button
         type="button"
         onClick={handleLogout}
-        className="flex h-11 w-full items-center justify-center gap-2 rounded-16 border border-border bg-surface-card text-md text-brand-red active:bg-danger-soft"
+        className="flex h-11 w-full items-center justify-center gap-2 rounded-16 border border-border bg-surface-card text-14 text-brand-red active:bg-danger-soft"
       >
         <LogOut className="size-4" />
         退出登录
@@ -178,7 +178,7 @@ function MenuRow({
       className={`flex h-12 items-center gap-3 px-4 active:bg-surface-2 ${last ? '' : 'border-b border-border-soft'}`}
     >
       <span className="text-muted-foreground">{icon}</span>
-      <span className="flex-1 text-md text-foreground">{label}</span>
+      <span className="flex-1 text-14 text-foreground">{label}</span>
       <ChevronRight className="size-4 text-faint" />
     </Link>
   );

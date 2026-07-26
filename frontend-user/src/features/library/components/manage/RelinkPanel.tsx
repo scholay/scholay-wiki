@@ -132,20 +132,20 @@ export function RelinkPanel({
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-2xs font-bold text-faint uppercase">
+                <span className="text-12 font-medium text-faint uppercase">
                   当前关联
                 </span>
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-surface-2 text-subtle text-2xs font-bold leading-none uppercase">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-surface-2 text-subtle text-12 font-medium leading-none uppercase">
                   {sourceBrandLabel(paper.source)}
                 </span>
               </div>
               <div
-                className="mt-0.5 text-sm font-semibold text-foreground line-clamp-1"
+                className="mt-0.5 text-14 font-medium text-foreground line-clamp-1"
                 title={paper.title || undefined}
               >
                 {paper.title || '(无标题)'}
               </div>
-              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-2xs text-faint">
+              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-12 text-faint">
                 {paper.venue && <span>{paper.venue}</span>}
                 {paper.year ? (
                   <>
@@ -178,10 +178,10 @@ export function RelinkPanel({
               value={queryText}
               onChange={(e) => setQueryOverride(e.target.value)}
               placeholder="标题 · DOI · 关键词"
-              className="flex-1 min-w-0 h-full bg-transparent text-sm text-foreground outline-none placeholder:text-faint"
+              className="flex-1 min-w-0 h-full bg-transparent text-14 text-foreground outline-none placeholder:text-faint"
             />
             {paper.doi && (
-              <span className="text-2xs text-faint font-mono whitespace-nowrap shrink-0">
+              <span className="text-12 text-faint font-mono whitespace-nowrap shrink-0">
                 DOI: {paper.doi}
               </span>
             )}
@@ -194,7 +194,7 @@ export function RelinkPanel({
             }}
             disabled={searchQ.isFetching}
             className={cn(
-              'inline-flex items-center gap-1.5 h-10 px-3 rounded-8 border border-brand-amber text-brand-amber text-sm font-bold',
+              'inline-flex items-center gap-1.5 h-10 px-3 rounded-8 border border-brand-amber text-brand-amber text-14 font-medium',
               'hover:bg-warning-soft disabled:opacity-60 transition-colors'
             )}
           >

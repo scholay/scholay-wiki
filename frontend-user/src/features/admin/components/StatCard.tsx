@@ -29,16 +29,16 @@ export function StatCard({
       )}
     >
       <div className="flex items-center justify-between text-faint">
-        <span className="text-sm">{label}</span>
+        <span className="text-12">{label}</span>
         {icon && <span className="[&_svg]:size-4">{icon}</span>}
       </div>
-      <div className="text-2xl font-bold text-foreground">{value}</div>
+      <div className="text-24 font-medium text-foreground">{value}</div>
       {(hint || trend) && (
-        <div className="flex items-center gap-2 text-xs">
+        <div className="flex items-center gap-2 text-12">
           {trend && (
             <span
               className={cn(
-                'font-bold',
+                'font-medium',
                 trend.positive ? 'text-brand-green' : 'text-brand-red'
               )}
             >

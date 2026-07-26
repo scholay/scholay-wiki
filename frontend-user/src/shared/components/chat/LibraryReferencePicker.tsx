@@ -140,13 +140,13 @@ export function LibraryReferencePicker({
             <Loader2 className="size-4 animate-spin" />
           </div>
         ) : folders.length === 0 ? (
-          <p className="px-3 py-6 text-center text-xs text-faint">文献集还是空的</p>
+          <p className="px-3 py-6 text-center text-12 text-faint">文献集还是空的</p>
         ) : (
           folders.map((f) => (
             <div
               key={f.id}
               className={cn(
-                'flex items-center gap-2 px-3 py-2 text-sm transition-colors',
+                'flex items-center gap-2 px-3 py-2 text-12 transition-colors',
                 activeFolder === f.id ? 'bg-surface-2' : 'hover:bg-surface-1',
               )}
             >
@@ -162,7 +162,7 @@ export function LibraryReferencePicker({
               >
                 <FolderOpen className="size-3.5 shrink-0 text-faint" />
                 <span className="truncate text-subtle">{f.name}</span>
-                <span className="shrink-0 text-2xs text-faint">{f.paper_count}</span>
+                <span className="shrink-0 text-12 text-faint">{f.paper_count}</span>
               </button>
             </div>
           ))
@@ -177,18 +177,18 @@ export function LibraryReferencePicker({
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="搜索本文件夹论文…"
-            className="h-8 pl-8 text-xs"
+            className="h-8 pl-8 text-12"
           />
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">
           {activeFolder == null ? (
-            <p className="px-3 py-8 text-center text-xs text-faint">选择文件夹查看论文</p>
+            <p className="px-3 py-8 text-center text-12 text-faint">选择文件夹查看论文</p>
           ) : papersQ.isLoading ? (
             <div className="flex items-center justify-center py-8 text-faint">
               <Loader2 className="size-4 animate-spin" />
             </div>
           ) : papers.length === 0 ? (
-            <p className="px-3 py-8 text-center text-xs text-faint">该文件夹没有论文</p>
+            <p className="px-3 py-8 text-center text-12 text-faint">该文件夹没有论文</p>
           ) : (
             papers.map((p) => {
               const wholeFolderSelected = p.folder_id != null && selFolders.has(Number(p.folder_id));
@@ -218,11 +218,11 @@ export function LibraryReferencePicker({
                     {/* 标题行:类型徽章(D/G/M 或 本地)+ 标题 + PDF —— 对齐文献集单行观感 */}
                     <div className="flex items-start gap-1.5">
                       <TypeBadge source={p.source} isFree={p.link_state === 'free'} />
-                      <span className="min-w-0 flex-1 text-sm font-semibold text-foreground line-clamp-2">
+                      <span className="min-w-0 flex-1 text-14 font-medium text-foreground line-clamp-2">
                         {effectivePaperTitle(p)}
                       </span>
                       {p.pdf_uploaded_at && (
-                        <span className="mt-0.5 shrink-0 rounded-4 bg-brand-green/10 px-1 text-2xs font-semibold text-brand-green">
+                        <span className="mt-0.5 shrink-0 rounded-4 bg-brand-green/10 px-1 text-12 font-medium text-brand-green">
                           PDF
                         </span>
                       )}
@@ -232,13 +232,13 @@ export function LibraryReferencePicker({
                     {authorsText && (
                       <div className="flex min-w-0 items-center gap-1.5">
                         <AuthorAvatars authors={authorList} />
-                        <span className="min-w-0 truncate text-2xs text-subtle">{authorsText}</span>
+                        <span className="min-w-0 truncate text-12 text-subtle">{authorsText}</span>
                       </div>
                     )}
 
                     {/* 元信息:年份 · 期刊 + 分区/IF chip */}
                     {(year || venue || enr) && (
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-2xs text-faint">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-12 text-faint">
                         {year && <span>{year}</span>}
                         {year && venue && <span className="text-border-strong">·</span>}
                         {venue && <span className="min-w-0 max-w-[55%] truncate">{venue}</span>}
@@ -251,8 +251,8 @@ export function LibraryReferencePicker({
                       <div onClick={(e) => e.preventDefault()}>
                         <TruncatedText
                           lines={2}
-                          className="text-xs leading-paragraph text-subtle"
-                          popoverClassName="max-w-md text-xs leading-paragraph"
+                          className="text-12 leading-paragraph text-subtle"
+                          popoverClassName="max-w-md text-12 leading-paragraph"
                         >
                           {abstract}
                         </TruncatedText>
@@ -270,7 +270,7 @@ export function LibraryReferencePicker({
 
   const footer = (
     <DialogFooter className="flex-row items-center justify-between gap-2 border-t border-border-soft px-4 py-2.5">
-      <span className="text-xs text-faint">{summary ? `已选 ${summary}` : '未选择'}</span>
+      <span className="text-12 text-faint">{summary ? `已选 ${summary}` : '未选择'}</span>
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
           取消
@@ -290,8 +290,8 @@ export function LibraryReferencePicker({
         <MobileBottomSheet open={open} onOpenChange={onOpenChange} title="引用文献">
           <div className="flex max-h-[80dvh] min-h-0 flex-col">
             <div className="border-b border-border-soft px-4 pb-2 pt-1">
-              <h2 className="text-base font-semibold text-foreground">引用文献</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">
+              <h2 className="text-14 font-medium text-foreground">引用文献</h2>
+              <p className="mt-0.5 text-12 text-muted-foreground">
                 从文献集选论文或整夹,引用给智能助手(在线元数据 + 你上传的 PDF 都带上)。
               </p>
             </div>
@@ -308,8 +308,8 @@ export function LibraryReferencePicker({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[85vh] w-[min(92vw,720px)] max-w-[min(92vw,720px)] flex-col gap-0 overflow-hidden p-0">
         <DialogHeader className="border-b border-border-soft px-4 py-3">
-          <DialogTitle className="text-base">引用文献</DialogTitle>
-          <DialogDescription className="text-xs">
+          <DialogTitle className="text-14">引用文献</DialogTitle>
+          <DialogDescription className="text-12">
             从你的文献集选论文或整个文件夹,引用给智能助手(在线元数据 + 你上传的 PDF 都会带上)。
           </DialogDescription>
         </DialogHeader>
@@ -338,7 +338,7 @@ function AuthorAvatars({ authors }: { authors: PaperAuthor[] }) {
         <span
           key={i}
           className={cn(
-            'inline-flex size-4 items-center justify-center rounded-pill text-[8px] font-bold text-on-brand ring-1 ring-background',
+            'inline-flex size-4 items-center justify-center rounded-pill text-[8px] font-medium text-on-brand ring-1 ring-background',
             toneOf(n),
           )}
           title={n}
@@ -358,7 +358,7 @@ function TypeBadge({ source, isFree }: { source: PaperSource; isFree: boolean })
   if (isFree || source === 'local') {
     return (
       <span
-        className="mt-0.5 inline-flex h-4 shrink-0 items-center rounded-4 bg-surface-2 px-1.5 text-2xs font-bold text-faint"
+        className="mt-0.5 inline-flex h-4 shrink-0 items-center rounded-4 bg-surface-2 px-1.5 text-12 font-medium text-faint"
         title="本地文献(未关联在线论文)"
       >
         本地

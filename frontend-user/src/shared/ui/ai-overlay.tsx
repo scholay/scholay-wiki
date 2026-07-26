@@ -32,8 +32,8 @@ export const AIOverlay = forwardRef<HTMLDivElement, AIOverlayProps>(
               <span className="size-2 animate-bounce rounded-pill bg-brand-green motion-reduce:animate-none" />
             </div>
             <div className="flex flex-col items-center gap-0.5">
-              <span className="text-base font-bold text-foreground">{label}</span>
-              <span className="text-xs text-muted-foreground">Analyzing your request…</span>
+              <span className="text-14 font-medium text-foreground">{label}</span>
+              <span className="text-12 text-muted-foreground">Analyzing your request…</span>
             </div>
           </div>
         )}

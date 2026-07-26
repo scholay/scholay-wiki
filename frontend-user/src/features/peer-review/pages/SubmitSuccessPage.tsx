@@ -50,7 +50,7 @@ export function SubmitSuccessPage() {
   if (isLoading) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-surface-3">
-        <div className="text-faint text-base">加载中…</div>
+        <div className="text-faint text-14">加载中…</div>
       </div>
     );
   }
@@ -79,10 +79,10 @@ export function SubmitSuccessPage() {
         {/* 顶部成功标志 + 标题块 ─────────────────────────────────────── */}
         <header className="flex flex-col items-center gap-2">
           <CheckRing />
-          <h1 className="mt-2 font-serif text-2xl font-bold leading-display-tight text-foreground">
+          <h1 className="mt-2 font-serif text-24 font-bold leading-display-tight text-foreground">
             恭喜！稿件已成功投递
           </h1>
-          <p className="max-w-[480px] text-center text-md leading-paragraph text-muted-foreground">
+          <p className="max-w-[480px] text-center text-14 leading-paragraph text-muted-foreground">
             您的稿件已成功投递至期刊编辑部,编辑团队已收到投稿并进入处理流程。
           </p>
         </header>
@@ -90,8 +90,8 @@ export function SubmitSuccessPage() {
         {/* 投稿信息卡 ────────────────────────────────────────────────── */}
         <section className="rounded-12 border border-border bg-surface-3 px-6 py-5">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-foreground">投稿信息</h2>
-            <span className="rounded-pill bg-danger-soft px-3 py-0.5 text-xs font-bold text-brand-red">
+            <h2 className="text-14 font-medium text-foreground">投稿信息</h2>
+            <span className="rounded-pill bg-danger-soft px-3 py-0.5 text-12 font-medium text-brand-red">
               已提交 · 待初审
             </span>
           </div>
@@ -111,11 +111,11 @@ export function SubmitSuccessPage() {
             <Info className="h-3.5 w-3.5 text-background" strokeWidth={3} />
           </div>
           <div className="flex flex-col gap-1">
-            <p className="text-base font-bold text-brand-amber">接下来会发生什么？</p>
-            <p className="text-sm leading-paragraph text-brand-amber/80">
+            <p className="text-14 font-medium text-brand-amber">接下来会发生什么？</p>
+            <p className="text-12 leading-paragraph text-brand-amber/80">
               投递后系统会立即启动 AI 审稿流程:编辑部初审 → 通读全文并为本文匹配合适的审稿人 →
               三位审稿人依次给出结构化意见(逐句意见、维度评分)→ 主审综合三方意见做出决议。
-              整个过程通常十分钟左右,点下方「前往审稿记录」可<strong className="font-bold">实时观看</strong>每位审稿人的意见逐条生成;
+              整个过程通常十分钟左右,点下方「前往审稿记录」可<strong className="font-medium">实时观看</strong>每位审稿人的意见逐条生成;
               也可以关掉页面,稍后回来查看完整结果。
             </p>
           </div>
@@ -126,14 +126,14 @@ export function SubmitSuccessPage() {
           <Button
             variant="outline"
             size="lg"
-            className="h-11 border-foreground/80 px-6 text-base font-semibold text-foreground"
+            className="h-11 border-foreground/80 px-6 text-14 font-medium text-foreground"
             onClick={() => navigate('/peer-review')}
           >
             返回投稿管理
           </Button>
           <Button
             size="lg"
-            className="h-11 gap-2 bg-brand-red px-7 text-base font-bold text-background hover:bg-brand-red/90"
+            className="h-11 gap-2 bg-brand-red px-7 text-14 font-medium text-background hover:bg-brand-red/90"
             onClick={() => navigate(`/peer-review/records/${submission.id}`)}
           >
             前往审稿记录 <ArrowRight className="h-4 w-4" />
@@ -160,11 +160,11 @@ function CheckRing() {
 function InfoRow({ label, value, bold = false }: { label: string; value: string; bold?: boolean }) {
   return (
     <div className="flex gap-3">
-      <dt className="w-24 shrink-0 text-sm text-faint">{label}</dt>
+      <dt className="w-24 shrink-0 text-12 text-faint">{label}</dt>
       <dd
         className={
-          'flex-1 text-base text-subtle ' +
-          (bold ?'font-semibold':'font-semibold')
+          'flex-1 text-14 text-subtle ' +
+          (bold ?'font-medium':'font-medium')
         }
       >
         {value}

@@ -352,10 +352,10 @@ function LibraryFolderView() {
           <>
             {/* 面包屑 + 篇数 chip(无返回按钮 —— 本就是顶级页面) */}
             <div className="flex items-center gap-2 shrink-0">
-              <span className="text-base text-muted-foreground">我的文献集</span>
-              <span className="text-base text-faint">/</span>
-              <span className="text-base font-bold text-foreground">{title}</span>
-              <span className="inline-flex items-center px-1.5 py-px rounded-4 bg-surface-2 text-xs font-semibold text-muted-foreground tabular-nums">
+              <span className="text-14 text-muted-foreground">我的文献集</span>
+              <span className="text-14 text-faint">/</span>
+              <span className="text-14 font-medium text-foreground">{title}</span>
+              <span className="inline-flex items-center px-1.5 py-px rounded-4 bg-surface-2 text-12 font-medium text-muted-foreground tabular-nums">
                 {count.toLocaleString()} 篇
               </span>
               {currentFolder && count > 0 && (
@@ -377,7 +377,7 @@ function LibraryFolderView() {
                         .filter((p) => p.title),
                     })
                   }
-                  className="inline-flex items-center gap-1 h-7 px-2 rounded-8 text-sm font-semibold text-subtle hover:bg-surface-1 hover:text-foreground transition-colors"
+                  className="inline-flex items-center gap-1 h-7 px-2 rounded-8 text-14 font-medium text-subtle hover:bg-surface-1 hover:text-foreground transition-colors"
                 >
                   <Share2 className="size-3.5" /> 分享
                 </button>
@@ -399,7 +399,7 @@ function LibraryFolderView() {
                 onChange={(e) => setQueryAndReset(e.target.value)}
                 placeholder={`在「${title}」中搜索…`}
                 maxLength={64}
-                className="flex-1 min-w-0 h-full bg-transparent text-base outline-none placeholder:text-faint"
+                className="flex-1 min-w-0 h-full bg-transparent text-14 outline-none placeholder:text-faint"
               />
               {query ? (
                 <button
@@ -537,7 +537,7 @@ const ToolbarButton = forwardRef<
       type={type ?? 'button'}
       {...rest}
       className={cn(
-        'inline-flex items-center gap-1 h-8 px-3 rounded-8 bg-surface-card border border-border text-sm font-semibold text-subtle hover:bg-surface-1 hover:text-foreground transition-colors whitespace-nowrap',
+        'inline-flex items-center gap-1 h-8 px-3 rounded-8 bg-surface-card border border-border text-14 font-medium text-subtle hover:bg-surface-1 hover:text-foreground transition-colors whitespace-nowrap',
         className
       )}
     >
@@ -564,13 +564,13 @@ const CollapsedItem = forwardRef<
       type={type ?? 'button'}
       {...rest}
       className={cn(
-        'flex items-center justify-between gap-2 w-full h-8 px-2 rounded-8 text-sm font-semibold text-subtle hover:bg-surface-1 hover:text-foreground transition-colors text-left',
+        'flex items-center justify-between gap-2 w-full h-8 px-2 rounded-8 text-14 font-medium text-subtle hover:bg-surface-1 hover:text-foreground transition-colors text-left',
         className
       )}
     >
       <span className="truncate">{label}</span>
       {badge && (
-        <span className="inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-background text-[9px] font-bold leading-none whitespace-nowrap shrink-0">
+        <span className="inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-background text-12 font-medium leading-none whitespace-nowrap shrink-0">
           {badge}
         </span>
       )}
@@ -593,7 +593,7 @@ function ComingSoonWrap({ children }: { children: React.ReactNode }) {
       {children}
       <span
         aria-hidden="true"
-        className="absolute -top-2 -right-2 inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-background text-[9px] font-bold leading-none whitespace-nowrap pointer-events-none z-raised"
+        className="absolute -top-2 -right-2 inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-background text-12 font-medium leading-none whitespace-nowrap pointer-events-none z-raised"
       >
         即将推出
       </span>

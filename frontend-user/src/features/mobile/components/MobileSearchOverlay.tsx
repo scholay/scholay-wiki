@@ -200,7 +200,7 @@ export function MobileSearchOverlay() {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && submit()}
             placeholder={isPapers ? '搜索论文 / 关键词 / 作者' : '搜索期刊名 / 出版社'}
-            className="min-w-0 flex-1 bg-transparent text-md outline-none placeholder:text-faint"
+            className="min-w-0 flex-1 bg-transparent text-14 outline-none placeholder:text-faint"
           />
           {input && (
             <button
@@ -220,7 +220,7 @@ export function MobileSearchOverlay() {
         <button
           type="button"
           onClick={submit}
-          className="shrink-0 rounded-pill bg-brand-red px-3.5 py-1.5 text-xs font-medium text-on-brand active:opacity-90"
+          className="shrink-0 rounded-pill bg-brand-red px-3.5 py-1.5 text-12 font-medium text-on-brand active:opacity-90"
         >
           搜索
         </button>
@@ -232,12 +232,12 @@ export function MobileSearchOverlay() {
           <button
             type="button"
             onClick={() => setFilterOpen(true)}
-            className="inline-flex shrink-0 items-center gap-1 rounded-pill border border-border px-2.5 py-1 text-xs text-foreground active:bg-surface-1"
+            className="inline-flex shrink-0 items-center gap-1 rounded-pill border border-border px-2.5 py-1 text-12 text-foreground active:bg-surface-1"
           >
             <SlidersHorizontal className="size-3.5" />
             筛选
             {activeCount > 0 && (
-              <span className="ml-0.5 inline-flex min-w-4 items-center justify-center rounded-pill bg-brand-red px-1 text-2xs font-semibold text-on-brand">
+              <span className="ml-0.5 inline-flex min-w-4 items-center justify-center rounded-pill bg-brand-red px-1 text-12 font-medium text-on-brand">
                 {activeCount}
               </span>
             )}
@@ -245,14 +245,14 @@ export function MobileSearchOverlay() {
           <button
             type="button"
             onClick={() => setFilterOpen(true)}
-            className="shrink-0 rounded-pill bg-surface-2 px-2.5 py-1 text-xs text-muted-foreground active:opacity-80"
+            className="shrink-0 rounded-pill bg-surface-2 px-2.5 py-1 text-12 text-muted-foreground active:opacity-80"
           >
             来源 · {sourceLabel}
           </button>
           <button
             type="button"
             onClick={() => setFilterOpen(true)}
-            className="shrink-0 rounded-pill bg-surface-2 px-2.5 py-1 text-xs text-muted-foreground active:opacity-80"
+            className="shrink-0 rounded-pill bg-surface-2 px-2.5 py-1 text-12 text-muted-foreground active:opacity-80"
           >
             排序 · {sortLabel}
           </button>
@@ -277,9 +277,9 @@ export function MobileSearchOverlay() {
           {activeQ.isLoading ? (
             <MobilePaperRowSkeletonList />
           ) : activeQ.isError ? (
-            <p className="py-12 text-center text-sm text-muted-foreground">搜索失败,请稍后重试</p>
+            <p className="py-12 text-center text-12 text-muted-foreground">搜索失败,请稍后重试</p>
           ) : resultCount === 0 ? (
-            <p className="py-12 text-center text-sm text-faint">没有找到「{query}」相关结果</p>
+            <p className="py-12 text-center text-12 text-faint">没有找到「{query}」相关结果</p>
           ) : (
             <>
               {/* 虚拟化容器:撑满总高,逐行 absolute + translateY 定位,只挂载视口附近行 */}
@@ -327,7 +327,7 @@ export function MobileSearchOverlay() {
                 {activeQ.isFetchingNextPage ? (
                   <Loader2 className="size-4 animate-spin text-faint" />
                 ) : !activeQ.hasNextPage ? (
-                  <span className="text-2xs text-faint">没有更多了</span>
+                  <span className="text-12 text-faint">没有更多了</span>
                 ) : null}
               </div>
             </>

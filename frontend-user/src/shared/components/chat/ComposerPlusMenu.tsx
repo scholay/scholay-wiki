@@ -59,16 +59,16 @@ export function ComposerPlusMenu({
           <DropdownMenuItem onSelect={() => fileRef.current?.click()} className="gap-2">
             <FileUp className="size-4 text-muted-foreground" />
             <div className="flex flex-col">
-              <span className="text-sm">上传图片 / 文件</span>
-              <span className="text-2xs text-faint">也可直接粘贴或拖入输入框</span>
+              <span className="text-12">上传图片 / 文件</span>
+              <span className="text-12 text-faint">也可直接粘贴或拖入输入框</span>
             </div>
           </DropdownMenuItem>
           {onPickLibrary && (
             <DropdownMenuItem onSelect={onPickLibrary} className="gap-2">
               <Library className="size-4 text-muted-foreground" />
               <div className="flex flex-col">
-                <span className="text-sm">引用文献集</span>
-                <span className="text-2xs text-faint">把文献集里的论文交给智能体阅读</span>
+                <span className="text-12">引用文献集</span>
+                <span className="text-12 text-faint">把文献集里的论文交给智能体阅读</span>
               </div>
             </DropdownMenuItem>
           )}

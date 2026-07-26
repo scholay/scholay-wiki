@@ -30,9 +30,9 @@ export function Step4Rail({ submissionId, submission, assets, agreed }: Step4Rai
 
       <section className="rounded-16 border border-border bg-surface-card p-4">
         <header className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-bold text-foreground">投递前自检</h3>
+          <h3 className="text-14 font-medium text-foreground">投递前自检</h3>
           <span className={cn(
-            'text-xs font-bold',
+            'text-12 font-medium',
             passed === items.length ? 'text-brand-green' : 'text-brand-amber'
           )}>
             {passed} / {items.length} 完成
@@ -48,7 +48,7 @@ export function Step4Rail({ submissionId, submission, assets, agreed }: Step4Rai
                 {it.passed && <Check className="size-2.5" strokeWidth={3} />}
               </span>
               <span className={cn(
-                'text-xs leading-paragraph',
+                'text-12 leading-paragraph',
                 it.passed ? 'text-subtle' : 'text-muted-foreground'
               )}>
                 {it.label}

@@ -111,7 +111,7 @@ function ToolButton({
       aria-label={label}
       title={label}
       className={
-        'inline-flex items-center gap-1 rounded-4 border border-border bg-surface-card/90 px-1.5 py-0.5 text-2xs text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 ' +
+        'inline-flex items-center gap-1 rounded-4 border border-border bg-surface-card/90 px-1.5 py-0.5 text-12 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 ' +
         (className ?? '')
       }
     >

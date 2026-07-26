@@ -60,7 +60,7 @@ export function PlazaHeader() {
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder={isSkills ? '搜索社区技能 —— 名称 / 用途' : '搜索科研工具 —— 名称 / 关键词 / 用途'}
-              className="h-full flex-1 bg-transparent text-sm outline-none placeholder:text-faint"
+              className="h-full flex-1 bg-transparent text-12 outline-none placeholder:text-faint"
             />
             {draft && (
               <button
@@ -83,7 +83,7 @@ export function PlazaHeader() {
               value={sortValue}
               onChange={(e) => setSort(e.target.value)}
               aria-label="排序"
-              className="h-11 appearance-none rounded-16 border border-border bg-surface-1 pl-3.5 pr-8 text-xs font-medium text-subtle outline-none transition-colors hover:border-border-strong focus-visible:border-foreground"
+              className="h-11 appearance-none rounded-16 border border-border bg-surface-1 pl-3.5 pr-8 text-12 font-medium text-subtle outline-none transition-colors hover:border-border-strong focus-visible:border-foreground"
             >
               {sortOpts.map(([v, l]) => (
                 <option key={v} value={v}>

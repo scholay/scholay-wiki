@@ -86,15 +86,15 @@ export function PaperHeader({
     <header className="space-y-5 sm:space-y-8">
       {/* metaRow —— uppercase letter-spaced 10px #888 */}
       {meta && (
-        <div className="text-2xs font-bold uppercase text-faint">
+        <div className="text-12 font-medium uppercase text-faint">
           {meta}
         </div>
       )}
 
       {/* Title —— Playfair 42(.pen `J6zGLj`),token 表最大 24,arbitrary 必要。
-          移动端收到 text-3xl,避免 42px 在 ~390px 屏一行没几个字、占满整屏;桌面恢复 42px。
+          移动端收到 text-28,避免 42px 在 ~390px 屏一行没几个字、占满整屏;桌面恢复 42px。
           展示用 displayedTitle,翻译切换时这里跟着变 */}
-      <h1 className="font-display font-bold leading-display-tight sm:leading-display-tight text-3xl sm:text-[42px] text-foreground">
+      <h1 className="font-display font-bold leading-display-tight sm:leading-display-tight text-28 sm:text-[42px] text-foreground">
         {displayedTitle}
       </h1>
 
@@ -102,7 +102,7 @@ export function PaperHeader({
       {(visibleAuthors.length > 0 || affiliations.length > 0) && (
         <div className="space-y-1.5">
           {visibleAuthors.length > 0 && (
-            <p className="text-md leading-paragraph text-subtle">
+            <p className="text-14 leading-paragraph text-subtle">
               {visibleAuthors.map((a, i) => (
                 <span key={a.authorId ?? `${i}-${a.name}`}>
                   {i > 0 && <span className="text-faint">, </span>}
@@ -129,7 +129,7 @@ export function PaperHeader({
             </p>
           )}
           {affiliations.length > 0 && (
-            <p className="text-sm leading-paragraph text-muted-foreground">
+            <p className="text-12 leading-paragraph text-muted-foreground">
               {affiliations.join('   ')}
             </p>
           )}

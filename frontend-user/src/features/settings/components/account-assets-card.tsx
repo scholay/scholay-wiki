@@ -62,13 +62,13 @@ export function AccountAssetsCard({ data, onGoRecharge }: { data: Overview; onGo
   return (
     <section className="rounded-16 border border-border bg-surface-card p-5">
       <div className="mb-4 flex items-center justify-between gap-2">
-        <h3 className="text-sm font-bold text-foreground">账户资产</h3>
+        <h3 className="text-14 font-medium text-foreground">账户资产</h3>
         <div className="flex items-center gap-2">
           {/* 年费会员徽标(0079)—— 与月度会员显式区分 */}
           {data.cycle === 'yearly' && data.tier !== 'free' && (
-            <span className="rounded-pill bg-brand-amber/10 px-2 py-0.5 text-2xs font-bold text-brand-amber">年费会员</span>
+            <span className="rounded-pill bg-brand-amber/10 px-2 py-0.5 text-12 font-medium text-brand-amber">年费会员</span>
           )}
-          <span className="text-xs text-faint">
+          <span className="text-12 text-faint">
             {PLAN_LABEL[data.tier]}
             {data.tier !== 'free' && data.expires_at ? ` · 有效期至 ${data.expires_at.slice(0, 10)}` : ''}
           </span>
@@ -122,11 +122,11 @@ function ActiveRow({ data, onGoRecharge }: { data: Overview; onGoRecharge: () =>
   return (
     <div className="flex items-center gap-3">
       <div className="flex flex-1 items-center gap-2">
-        <span className={cn('inline-flex h-6 shrink-0 items-center rounded-4 px-2 text-2xs font-bold', NAMEPLATE[data.tier])}>
+        <span className={cn('inline-flex h-6 shrink-0 items-center rounded-4 px-2 text-12 font-medium', NAMEPLATE[data.tier])}>
           {data.tier.toUpperCase()}
         </span>
-        <span className="flex size-4 shrink-0 items-center justify-center rounded-pill border border-border text-2xs text-faint" title={`进度条与百分比为本周期(${t.window_days} 天)AI 额度的剩余;周期自首次使用起算,到期自动恢复满额,耗尽也可消耗经费立即重置`}>?</span>
-        <span className="shrink-0 text-2xs font-medium text-subtle">{PLAN_LABEL[data.tier]} 剩余额度</span>
+        <span className="flex size-4 shrink-0 items-center justify-center rounded-pill border border-border text-12 text-faint" title={`进度条与百分比为本周期(${t.window_days} 天)AI 额度的剩余;周期自首次使用起算,到期自动恢复满额,耗尽也可消耗经费立即重置`}>?</span>
+        <span className="shrink-0 text-12 font-medium text-subtle">{PLAN_LABEL[data.tier]} 剩余额度</span>
         <div className="h-2 flex-1 overflow-hidden rounded-pill bg-surface-2">
           {!t.unlimited && (
             <div
@@ -135,13 +135,13 @@ function ActiveRow({ data, onGoRecharge }: { data: Overview; onGoRecharge: () =>
             />
           )}
         </div>
-        <span className={cn('w-9 shrink-0 text-right text-2xs tabular-nums', exhausted ? 'text-brand-red' : 'text-faint')}>
+        <span className={cn('w-9 shrink-0 text-right text-12 tabular-nums', exhausted ? 'text-brand-red' : 'text-faint')}>
           {t.unlimited ? '不限' : `${remaining}%`}
         </span>
         {/* 重置时间(业界做法:相对为主、绝对做 tooltip)—— 未开窗=「满额·用后计时」,窗口内=「N 天后重置」 */}
         {!t.unlimited && (
           <span
-            className={cn('flex shrink-0 items-center gap-1 whitespace-nowrap text-2xs', exhausted ? 'text-brand-red' : 'text-faint')}
+            className={cn('flex shrink-0 items-center gap-1 whitespace-nowrap text-12', exhausted ? 'text-brand-red' : 'text-faint')}
             title={ri.hint}
           >
             <RefreshCw className="size-3 shrink-0" />
@@ -156,10 +156,10 @@ function ActiveRow({ data, onGoRecharge }: { data: Overview; onGoRecharge: () =>
       <div className="flex w-36 shrink-0 flex-col gap-0.5">
         <div className="flex items-center gap-1.5">
           <Coins className="size-3.5 shrink-0 text-faint" />
-          <span className="text-xl font-bold leading-none tabular-nums text-foreground">{data.credit.total}</span>
-          <span className="text-2xs text-faint">经费</span>
+          <span className="text-20 font-medium leading-none tabular-nums text-foreground">{data.credit.total}</span>
+          <span className="text-12 text-faint">经费</span>
         </div>
-        <span className="text-2xs text-faint">
+        <span className="text-12 text-faint">
           {lot ? `${lot.amount} 临时 · ${monthDay(lot.expires_at)}失效` : `永久 ${data.credit.perm}`}
         </span>
       </div>
@@ -174,12 +174,12 @@ function LockedRow({ tier, onUpgrade }: { tier: Tier; onUpgrade: () => void }) {
       <span className={cn('flex size-5 shrink-0 items-center justify-center rounded-4', TIER_BADGE[tier])}>
         <VIcon className="size-3" />
       </span>
-      <span className="shrink-0 text-2xs font-medium text-faint">{PLAN_LABEL[tier]} 额度</span>
+      <span className="shrink-0 text-12 font-medium text-faint">{PLAN_LABEL[tier]} 额度</span>
       <div className="h-2 flex-1 rounded-pill bg-surface-2" />
       <button
         onClick={() => tier !== 'free' && onUpgrade()}
         title="升级解锁更高额度"
-        className="flex shrink-0 items-center gap-1 rounded-pill border border-brand-red/40 px-2 py-0.5 text-2xs font-bold text-brand-red transition-colors hover:bg-brand-red hover:text-background"
+        className="flex shrink-0 items-center gap-1 rounded-pill border border-brand-red/40 px-2 py-0.5 text-12 font-medium text-brand-red transition-colors hover:bg-brand-red hover:text-background"
       >
         <Lock className="size-3" /> 升级解锁
       </button>
@@ -197,11 +197,11 @@ function ExplainerCarousel({ proMult, maxMult }: { proMult: number; maxMult: num
         <Gauge className="size-4" />
       </span>
       <div className="flex-1">
-        <p className="text-xs font-bold text-foreground">{s.title}</p>
-        <p className="mt-0.5 text-2xs leading-paragraph text-muted-foreground">{s.body}</p>
+        <p className="text-14 font-medium text-foreground">{s.title}</p>
+        <p className="mt-0.5 text-12 leading-paragraph text-muted-foreground">{s.body}</p>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
-        <span className="text-2xs tabular-nums text-faint">{(i % slides.length) + 1}/{slides.length}</span>
+        <span className="text-12 tabular-nums text-faint">{(i % slides.length) + 1}/{slides.length}</span>
         <button onClick={() => setI((i - 1 + slides.length) % slides.length)} className="flex size-6 items-center justify-center rounded-8 border border-border text-faint transition-colors hover:bg-surface-2">
           <ChevronLeft className="size-3.5" />
         </button>

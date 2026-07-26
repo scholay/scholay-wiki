@@ -46,14 +46,14 @@ export function YearlyChart({ papers }: { papers: Paper[] }) {
     <section className="rounded-16 bg-surface-card border border-border p-6 space-y-4">
       <div className="flex items-end justify-between gap-3">
         <div className="flex items-end gap-2.5">
-          <h2 className="font-display font-bold text-xl leading-none text-foreground">
+          <h2 className="font-display font-bold text-20 leading-none text-foreground">
             年度发表趋势
           </h2>
-          <span className="text-xs text-faint pb-0.5">
+          <span className="text-12 text-faint pb-0.5">
             近 {series.length} 年
           </span>
         </div>
-        <div className="flex items-center gap-3 text-2xs text-faint">
+        <div className="flex items-center gap-3 text-12 text-faint">
           <span className="inline-flex items-center gap-1.5">
             <span className="size-2.5 rounded-4 bg-foreground" />
             年发表量
@@ -74,7 +74,7 @@ export function YearlyChart({ papers }: { papers: Paper[] }) {
               key={s.year}
               className="flex-1 min-w-0 h-full flex flex-col items-center gap-1.5 justify-end"
             >
-              <span className="text-2xs font-bold tabular-nums text-subtle">
+              <span className="text-12 font-medium tabular-nums text-subtle">
                 {s.count}
               </span>
               <div
@@ -84,17 +84,17 @@ export function YearlyChart({ papers }: { papers: Paper[] }) {
                 )}
                 style={{ height: `${Math.max(heightPct, 2)}%` }}
               />
-              <span className="text-2xs text-faint tabular-nums">{s.year}</span>
+              <span className="text-12 text-faint tabular-nums">{s.year}</span>
             </div>
           );
         })}
       </div>
 
-      <p className="text-xs text-muted-foreground">
+      <p className="text-12 text-muted-foreground">
         近 {recent5.length} 年平均{' '}
-        <span className="text-foreground font-bold tabular-nums">{avg5}</span>{' '}
+        <span className="text-foreground font-medium tabular-nums">{avg5}</span>{' '}
         篇/年,峰值出现在{' '}
-        <span className="text-brand-amber font-bold tabular-nums">
+        <span className="text-brand-amber font-medium tabular-nums">
           {peakYear.year}
         </span>{' '}
         ({peakYear.count} 篇)

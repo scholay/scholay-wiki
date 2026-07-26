@@ -169,7 +169,7 @@ export function SearchSidebar({
               <button
                 type="button"
                 onClick={clearAll}
-                className="text-2xs font-bold text-brand-red hover:opacity-70"
+                className="text-12 font-medium text-brand-red hover:opacity-70"
               >
                 清空
               </button>
@@ -185,7 +185,7 @@ export function SearchSidebar({
                     key={c.key}
                     type="button"
                     onClick={c.remove}
-                    className="inline-flex items-center gap-1 h-[22px] px-2 rounded-pill bg-danger-soft text-brand-red text-2xs font-medium border border-brand-red/30"
+                    className="inline-flex items-center gap-1 h-[22px] px-2 rounded-pill bg-danger-soft text-brand-red text-12 font-medium border border-brand-red/30"
                   >
                     {c.label}
                     <X className="size-2.5" strokeWidth={3} />
@@ -225,9 +225,9 @@ export function SearchSidebar({
                         />
                         <div
                           className={cn(
-                            'flex-1 min-w-0 text-sm truncate',
+                            'flex-1 min-w-0 text-12 truncate',
                             filters.source === opt.value
-                              ? 'text-foreground font-semibold'
+                              ? 'text-foreground font-medium'
                               : 'text-subtle'
                           )}
                         >
@@ -238,9 +238,9 @@ export function SearchSidebar({
                     <TooltipContent
                       side="right"
                       sideOffset={4}
-                      className="text-xs bg-surface-card text-foreground border-border shadow-overlay max-w-[220px]"
+                      className="text-12 bg-surface-card text-foreground border-border shadow-overlay max-w-[220px]"
                     >
-                      <div className="font-semibold">{meta.name}</div>
+                      <div className="font-medium">{meta.name}</div>
                       <div className="text-muted-foreground mt-0.5">
                         {meta.description}
                       </div>
@@ -269,9 +269,9 @@ export function SearchSidebar({
                   />
                   <span
                     className={cn(
-                      'flex-1 min-w-0 truncate text-sm',
+                      'flex-1 min-w-0 truncate text-12',
                       filters.sort === opt.value
-                        ? 'text-foreground font-semibold'
+                        ? 'text-foreground font-medium'
                         : 'text-subtle'
                     )}
                   >
@@ -298,9 +298,9 @@ export function SearchSidebar({
                 />
                 <span
                   className={cn(
-                    'flex-1 min-w-0 truncate text-sm',
+                    'flex-1 min-w-0 truncate text-12',
                     filters.timeRange === opt.value
-                      ? 'text-foreground font-semibold'
+                      ? 'text-foreground font-medium'
                       : 'text-subtle'
                   )}
                 >
@@ -336,9 +336,9 @@ export function SearchSidebar({
                     />
                     <span
                       className={cn(
-                        'flex-1 min-w-0 truncate text-sm',
+                        'flex-1 min-w-0 truncate text-12',
                         checked
-                          ? 'text-foreground font-semibold'
+                          ? 'text-foreground font-medium'
                           : 'text-subtle'
                       )}
                     >
@@ -379,9 +379,9 @@ export function SearchSidebar({
                 />
                 <span
                   className={cn(
-                    'flex-1 min-w-0 truncate text-sm',
+                    'flex-1 min-w-0 truncate text-12',
                     filters.openAccess
-                      ? 'text-foreground font-semibold'
+                      ? 'text-foreground font-medium'
                       : 'text-subtle'
                   )}
                 >

@@ -54,12 +54,12 @@ export function AllMenusOverlay({
         <header className="h-12 flex items-center justify-between px-4 border-b border-border-soft">
           <div className="flex items-center gap-2.5">
             <LayoutGrid className="size-4 text-faint" />
-            <span className="text-sm font-bold text-foreground">全站功能</span>
+            <span className="text-12 font-medium text-foreground">全站功能</span>
           </div>
           <button
             type="button"
             onClick={() => setView((v) => (v === 'list' ? 'grid' : 'list'))}
-            className="inline-flex items-center gap-1.5 text-xs text-faint hover:text-foreground transition-colors"
+            className="inline-flex items-center gap-1.5 text-12 text-faint hover:text-foreground transition-colors"
           >
             {view === 'list' ? (
               <>
@@ -105,8 +105,8 @@ function ListView({
       {groups.map((g, gi) => (
         <section key={g.category} className={cn(gi > 0 && 'border-t border-border-soft', 'py-1.5')}>
           <header className="h-7 flex items-center justify-between px-4">
-            <span className="text-xs font-bold text-faint">{g.label}</span>
-            <span className="text-xs text-faint">查看全部</span>
+            <span className="text-12 font-medium text-subtle">{g.label}</span>
+            <span className="text-12 text-faint">查看全部</span>
           </header>
           {g.items.map((m) => {
             const flatIdx = MENUS.findIndex((x) => x.id === m.id);
@@ -151,15 +151,15 @@ function ListItem({
       </span>
       {/* 双行 文字 */}
       <div className="flex-1 min-w-0 flex flex-col">
-        <span className="text-base font-bold text-foreground truncate inline-flex items-center gap-1.5">
+        <span className="text-14 font-medium text-foreground truncate inline-flex items-center gap-1.5">
           {menu.label}
           {menu.comingSoon && (
-            <span className="inline-flex items-center h-3.5 px-1 rounded-pill bg-brand-amber text-background text-[9px] font-bold leading-none">
+            <span className="inline-flex items-center h-3.5 px-1 rounded-pill bg-brand-amber text-background text-[9px] font-medium leading-none">
               即将推出
             </span>
           )}
         </span>
-        <span className="text-xs text-faint truncate mt-px">
+        <span className="text-12 text-faint truncate mt-px">
           {menu.englishName} · {menu.description}
         </span>
       </div>
@@ -186,8 +186,8 @@ function GridView({
       {groups.map((g) => (
         <section key={g.category}>
           <header className="h-7 flex items-center justify-between px-1">
-            <span className="text-xs font-bold text-faint">{g.label}</span>
-            <span className="text-xs text-faint">查看全部</span>
+            <span className="text-12 font-medium text-subtle">{g.label}</span>
+            <span className="text-12 text-faint">查看全部</span>
           </header>
           <div className="grid grid-cols-3 gap-1.5">
             {g.items.map((m) => {
@@ -205,7 +205,7 @@ function GridView({
                   )}
                 >
                   {m.comingSoon && (
-                    <span className="absolute top-1.5 right-1.5 inline-flex items-center h-3.5 px-1 rounded-pill bg-brand-amber text-background text-[9px] font-bold leading-none">
+                    <span className="absolute top-1.5 right-1.5 inline-flex items-center h-3.5 px-1 rounded-pill bg-brand-amber text-background text-[9px] font-medium leading-none">
                       即将推出
                     </span>
                   )}
@@ -213,8 +213,8 @@ function GridView({
                     <Icon className="size-4 text-subtle" />
                   </span>
                   <div className="flex flex-col">
-                    <span className="text-sm font-bold text-foreground">{m.label}</span>
-                    <span className="text-2xs text-faint mt-0.5">{m.englishName}</span>
+                    <span className="text-14 font-medium text-foreground">{m.label}</span>
+                    <span className="text-12 text-faint mt-0.5">{m.englishName}</span>
                   </div>
                 </button>
               );

@@ -7,7 +7,7 @@ import { cn } from '@/shared/lib/utils';
  *   Prism 角标 #F0E8D8 / 编译中 #D4A017 / 选中态 #F5F5F5 +左边线 #111
  */
 const badgeVariants = cva(
-  'inline-flex items-center gap-1 rounded-pill border border-transparent px-2 h-[18px] text-2xs font-medium transition-colors whitespace-nowrap',
+  'inline-flex items-center gap-1 rounded-pill border border-transparent px-2 h-[18px] text-12 font-medium transition-colors whitespace-nowrap',
   {
     variants: {
       variant: {

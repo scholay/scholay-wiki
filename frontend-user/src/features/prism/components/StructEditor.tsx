@@ -133,12 +133,12 @@ function AutoGrow({
 
 // 正文编辑区:覆盖成 LaTeX article 观感 —— 衬线、两端对齐、首行缩进、章节加粗、表格描边。
 const bodyClass = [
-  'font-serif text-md leading-paragraph text-foreground',
+  'font-serif text-14 leading-paragraph text-foreground',
   '[&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-[40vh]',
   '[&_.ProseMirror_p]:text-justify [&_.ProseMirror_p]:indent-8 [&_.ProseMirror_p]:my-2',
-  '[&_.ProseMirror_h1]:mt-6 [&_.ProseMirror_h1]:mb-2 [&_.ProseMirror_h1]:text-xl [&_.ProseMirror_h1]:font-bold',
-  '[&_.ProseMirror_h2]:mt-6 [&_.ProseMirror_h2]:mb-2 [&_.ProseMirror_h2]:text-lg [&_.ProseMirror_h2]:font-bold',
-  '[&_.ProseMirror_h3]:mt-4 [&_.ProseMirror_h3]:mb-1.5 [&_.ProseMirror_h3]:text-base [&_.ProseMirror_h3]:font-bold',
+  '[&_.ProseMirror_h1]:mt-6 [&_.ProseMirror_h1]:mb-2 [&_.ProseMirror_h1]:text-20 [&_.ProseMirror_h1]:font-bold',
+  '[&_.ProseMirror_h2]:mt-6 [&_.ProseMirror_h2]:mb-2 [&_.ProseMirror_h2]:text-16 [&_.ProseMirror_h2]:font-bold',
+  '[&_.ProseMirror_h3]:mt-4 [&_.ProseMirror_h3]:mb-1.5 [&_.ProseMirror_h3]:text-14 [&_.ProseMirror_h3]:font-bold',
   '[&_.ProseMirror_ul]:my-2 [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-6',
   '[&_.ProseMirror_ol]:my-2 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-6',
   '[&_.ProseMirror_li]:my-0.5 [&_.ProseMirror_li>p]:indent-0 [&_.ProseMirror_li>p]:my-0',
@@ -419,32 +419,32 @@ export const StructEditor = forwardRef<
           />
         )}
 
-        <div className="mx-auto max-w-[720px] px-12 py-10 font-serif text-md text-foreground">
+        <div className="mx-auto max-w-[720px] px-12 py-10 font-serif text-14 text-foreground">
           {/* 标题 / 作者 / 日期(标题可编辑) */}
         <AutoGrow
           value={title}
           onChange={onFm(setTitle)}
           editable={editable}
           placeholder="无标题"
-          className={cn('text-center text-2xl font-bold', fmChanged.title && fmHi)}
+          className={cn('text-center text-24 font-bold', fmChanged.title && fmHi)}
         />
-        {authors && <p className="mt-3 text-center text-base">{authors}</p>}
-        <p className="mt-1 text-center text-sm text-subtle">{today()}</p>
+        {authors && <p className="mt-3 text-center text-14">{authors}</p>}
+        <p className="mt-1 text-center text-12 text-subtle">{today()}</p>
 
         {/* 摘要(可编辑):居中标题 + 两端对齐块 */}
         <div className="mx-auto mt-6 max-w-[86%]">
-          <p className="mb-1 text-center text-sm font-bold">摘要</p>
+          <p className="mb-1 text-center text-12 font-bold">摘要</p>
           <AutoGrow
             value={abstract}
             onChange={onFm(setAbstract)}
             editable={editable}
             placeholder="在此填写摘要…"
-            className={cn('indent-8 text-justify text-sm leading-paragraph', fmChanged.abstract && fmHi)}
+            className={cn('indent-8 text-justify text-12 leading-paragraph', fmChanged.abstract && fmHi)}
           />
         </div>
 
         {/* 关键词(可编辑) */}
-        <div className="mx-auto mt-2 flex max-w-[86%] items-baseline gap-1 text-sm">
+        <div className="mx-auto mt-2 flex max-w-[86%] items-baseline gap-1 text-12">
           <span className="shrink-0 font-bold">关键词:</span>
           <input
             value={keywords}

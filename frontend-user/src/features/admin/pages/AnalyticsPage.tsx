@@ -165,42 +165,42 @@ export function AnalyticsPage() {
           title="TOP 页面"
           type="url"
           params={params}
-          render={(row) => <code className="text-2xs truncate">{row.x || '/'}</code>}
+          render={(row) => <code className="text-12 truncate">{row.x || '/'}</code>}
         />
         <TopCard
           icon={Globe2}
           title="TOP 来源"
           type="referrer"
           params={params}
-          render={(row) => <span className="text-xs truncate">{row.x || '(直接访问)'}</span>}
+          render={(row) => <span className="text-12 truncate">{row.x || '(直接访问)'}</span>}
         />
         <TopCard
           icon={Globe2}
           title="TOP 国家"
           type="country"
           params={params}
-          render={(row) => <span className="text-xs">{row.x || '未知'}</span>}
+          render={(row) => <span className="text-12">{row.x || '未知'}</span>}
         />
         <TopCard
           icon={MonitorSmartphone}
           title="浏览器"
           type="browser"
           params={params}
-          render={(row) => <span className="text-xs">{row.x || '未知'}</span>}
+          render={(row) => <span className="text-12">{row.x || '未知'}</span>}
         />
         <TopCard
           icon={MonitorSmartphone}
           title="操作系统"
           type="os"
           params={params}
-          render={(row) => <span className="text-xs">{row.x || '未知'}</span>}
+          render={(row) => <span className="text-12">{row.x || '未知'}</span>}
         />
         <TopCard
           icon={Smartphone}
           title="设备"
           type="device"
           params={params}
-          render={(row) => <span className="text-xs">{row.x || '未知'}</span>}
+          render={(row) => <span className="text-12">{row.x || '未知'}</span>}
         />
       </section>
     </AdminPageLayout>
@@ -232,19 +232,19 @@ function KPI({
   return (
     <div className="rounded-16 border border-border bg-surface-card p-3">
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-2xs text-faint">{label}</span>
+        <span className="text-12 text-faint">{label}</span>
         <Icon className="size-3 text-faint" />
       </div>
       {loading ? (
         <Skeleton className="h-6 w-16" />
       ) : (
-        <div className="text-lg font-bold text-foreground tabular-nums">
+        <div className="text-16 font-medium text-foreground tabular-nums">
           {valueText ?? value?.toLocaleString() ?? '—'}
         </div>
       )}
       {delta != null && (
         <div
-          className={`text-2xs mt-0.5 tabular-nums ${
+          className={`text-12 mt-0.5 tabular-nums ${
             delta > 0 ? 'text-brand-green' : delta < 0 ? 'text-brand-red' : 'text-faint'
           }`}
         >
@@ -260,15 +260,15 @@ function RealtimeCard({ value, loading }: { value?: number; loading?: boolean })
   return (
     <div className="rounded-16 border border-brand-green bg-danger-soft/0 p-3 relative overflow-hidden">
       <div className="absolute top-2 right-2 size-1.5 rounded-pill bg-brand-green animate-pulse" />
-      <div className="text-2xs text-brand-green/80">实时在线</div>
+      <div className="text-12 text-brand-green/80">实时在线</div>
       {loading ? (
         <Skeleton className="h-6 w-16 mt-1" />
       ) : (
-        <div className="text-lg font-bold text-brand-green tabular-nums mt-1">
+        <div className="text-16 font-medium text-brand-green tabular-nums mt-1">
           {value?.toLocaleString() ?? '0'}
         </div>
       )}
-      <div className="text-2xs text-faint mt-0.5">30s 刷新</div>
+      <div className="text-12 text-faint mt-0.5">30s 刷新</div>
     </div>
   );
 }
@@ -287,7 +287,7 @@ function Panel({
   return (
     <div className="rounded-16 border border-border bg-surface-card p-4">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-bold text-foreground">{title}</h3>
+        <h3 className="text-14 font-medium text-foreground">{title}</h3>
         <Icon className="size-3.5 text-faint" />
       </div>
       {/* min-h-32 兜底;chart 子组件自己用 h-48 包,TopCard 的 ul 按内容撑开 */}
@@ -318,7 +318,7 @@ function Sparkline({
   const { data, isLive } = buildDailyTrend(merged, { dateKey: 'x', valueKeys: ['pv', 'sess'] });
   return (
     <>
-    {isLive && <div className="mb-1 text-right text-2xs text-faint">— — 今日(进行中,非最终值)</div>}
+    {isLive && <div className="mb-1 text-right text-12 text-faint">— — 今日(进行中,非最终值)</div>}
     <div className="h-48">
     <ResponsiveContainer width="100%" height="100%">
       <AreaChart data={data} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
@@ -440,12 +440,12 @@ function TopCard({
                 </div>
                 <div className="relative flex items-center justify-between gap-2 px-2 py-1 text-foreground">
                   <div className="flex items-center gap-2 min-w-0">
-                    <Badge variant="muted" className="text-2xs px-1.5 h-4 shrink-0">
+                    <Badge variant="muted" className="text-12 px-1.5 h-4 shrink-0">
                       {i + 1}
                     </Badge>
                     <div className="min-w-0 flex-1 truncate">{render(row)}</div>
                   </div>
-                  <span className="text-xs tabular-nums shrink-0">{row.y.toLocaleString()}</span>
+                  <span className="text-12 tabular-nums shrink-0">{row.y.toLocaleString()}</span>
                 </div>
               </li>
             );
@@ -457,7 +457,7 @@ function TopCard({
 }
 
 function Empty({ hint }: { hint: string }) {
-  return <div className="text-xs text-faint text-center py-6">{hint}</div>;
+  return <div className="text-12 text-faint text-center py-6">{hint}</div>;
 }
 
 // ----------------- 工具 -----------------

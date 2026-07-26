@@ -21,11 +21,11 @@ export function SkillInstallPanel({
   if (!install) {
     return (
       <div className="rounded-16 border border-border bg-surface-1 p-4">
-        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+        <div className="flex items-center gap-2 text-14 font-medium text-foreground">
           <Lock className="h-4 w-4 text-faint" />
           去使用
         </div>
-        <p className="mt-1.5 text-xs text-muted-foreground">
+        <p className="mt-1.5 text-12 text-muted-foreground">
           该 Skill 发布为「公开」并通过审核后,即可在此获取跨 agent 安装命令与下载链接。
         </p>
       </div>
@@ -34,7 +34,7 @@ export function SkillInstallPanel({
 
   return (
     <div id="install" className="rounded-16 border border-border bg-surface-card p-4">
-      <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
+      <div className="mb-3 flex items-center gap-2 text-14 font-medium text-foreground">
         <Package className="h-4 w-4 text-brand-green" />
         去使用 —— 装进你的智能体
       </div>
@@ -49,7 +49,7 @@ export function SkillInstallPanel({
 
       {/* 通用下载 */}
       <div className="mt-3">
-        <div className="mb-1.5 text-xs text-muted-foreground">其他智能体 —— 下载后放进 skills 目录</div>
+        <div className="mb-1.5 text-12 text-muted-foreground">其他智能体 —— 下载后放进 skills 目录</div>
         <div className="flex flex-wrap items-center gap-2">
           <Button asChild variant="outline" size="sm">
             <a href={downloadSkillUrl(slug)}>
@@ -62,7 +62,7 @@ export function SkillInstallPanel({
             href={install.installMdUrl}
             target="_blank"
             rel="noreferrer"
-            className="text-xs text-brand-green hover:underline"
+            className="text-12 text-brand-green hover:underline"
           >
             安装说明 install.md →
           </a>
@@ -85,17 +85,17 @@ function CommandRow({
 }) {
   return (
     <div>
-      <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-foreground">
+      <div className="mb-1 flex items-center gap-1.5 text-12 font-medium text-foreground">
         <Icon className="h-3.5 w-3.5 text-faint" />
         {title}
       </div>
       <div className="flex items-stretch gap-2">
-        <code className="min-w-0 flex-1 overflow-x-auto rounded-8 border border-border bg-surface-1 px-3 py-2 font-mono text-2xs leading-paragraph text-subtle">
+        <code className="min-w-0 flex-1 overflow-x-auto rounded-8 border border-border bg-surface-1 px-3 py-2 font-mono text-12 leading-paragraph text-subtle">
           {command}
         </code>
         <CopyButton text={command} iconOnly />
       </div>
-      <p className="mt-1 text-2xs text-faint">{hint}</p>
+      <p className="mt-1 text-12 text-faint">{hint}</p>
     </div>
   );
 }

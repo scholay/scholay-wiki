@@ -105,7 +105,7 @@ export const JournalTrendChart = memo(function JournalTrendChart({
   return (
     <section className="shrink-0 rounded-16 border border-border bg-surface-card p-3">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-sm font-semibold text-foreground">近年趋势</span>
+        <span className="text-14 font-medium text-foreground">近年趋势</span>
         <div className="flex gap-1">
           {available.map((m) => (
             <button
@@ -113,7 +113,7 @@ export const JournalTrendChart = memo(function JournalTrendChart({
               type="button"
               onClick={() => setMetric(m.key)}
               className={cn(
-                'rounded-pill px-2 py-0.5 text-2xs transition-colors',
+                'rounded-pill px-2 py-0.5 text-12 transition-colors',
                 effectiveMetric === m.key
                   ? 'bg-foreground font-medium text-on-brand'
                   : 'bg-surface-2 text-muted-foreground'

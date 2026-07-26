@@ -91,16 +91,16 @@ export function UserMenuContent() {
       <div className="flex flex-col items-center gap-1 px-4 py-4 select-none">
         <Avatar className="size-[52px] bg-primary mb-1">
           {user.avatar && <AvatarImage src={user.avatar} alt={displayName} />}
-          <AvatarFallback className="text-lg font-bold">{initial}</AvatarFallback>
+          <AvatarFallback className="text-16 font-medium">{initial}</AvatarFallback>
         </Avatar>
-        <span className="text-md font-bold text-foreground">{displayName}</span>
-        <span className="text-xs text-faint">{user.email}</span>
+        <span className="text-16 font-medium text-foreground">{displayName}</span>
+        <span className="text-12 text-faint">{user.email}</span>
         {isAdmin ? (
-          <span className="mt-1 inline-flex items-center rounded-pill bg-danger-soft px-2.5 py-0.5 text-2xs font-bold text-brand-red">
+          <span className="mt-1 inline-flex items-center rounded-pill bg-danger-soft px-2.5 py-0.5 text-12 font-medium text-brand-red">
             管理员
           </span>
         ) : (
-          <span className={cn('mt-1 inline-flex items-center gap-1 rounded-pill px-2.5 py-0.5 text-2xs font-bold', TIER_BADGE_CLS[tier])}>
+          <span className={cn('mt-1 inline-flex items-center gap-1 rounded-pill px-2.5 py-0.5 text-12 font-medium', TIER_BADGE_CLS[tier])}>
             {TierIcon && <TierIcon className="size-3" />}
             {TIER_LABEL[tier]}
           </span>
@@ -121,7 +121,7 @@ export function UserMenuContent() {
             onSelect={() => navigate('/pricing')}
           >
             <Sparkles className="size-3.5" />
-            <span className="text-sm font-bold">升级会员</span>
+            <span className="text-14 font-medium">升级会员</span>
           </DropdownMenuItem>
         </div>
       )}
@@ -137,35 +137,35 @@ export function UserMenuContent() {
           onSelect={() => navigate('/settings/profile')}
         >
           <UserIcon className="size-3.5 text-faint" />
-          <span className="text-sm text-subtle">个人资料</span>
+          <span className="text-14 text-subtle">个人资料</span>
         </DropdownMenuItem>
         <DropdownMenuItem
           className="cursor-pointer rounded-8 px-3 py-2 gap-2.5"
           onSelect={() => navigate('/settings/membership')}
         >
           <Crown className="size-3.5 text-faint" />
-          <span className="text-sm text-subtle">账户资产</span>
+          <span className="text-14 text-subtle">账户资产</span>
         </DropdownMenuItem>
         <DropdownMenuItem
           className="cursor-pointer rounded-8 px-3 py-2 gap-2.5"
           onSelect={() => navigate('/settings/security')}
         >
           <Shield className="size-3.5 text-faint" />
-          <span className="text-sm text-subtle">安全设置</span>
+          <span className="text-14 text-subtle">安全设置</span>
         </DropdownMenuItem>
         <DropdownMenuItem
           className="cursor-pointer rounded-8 px-3 py-2 gap-2.5"
           onSelect={() => navigate('/settings/connections')}
         >
           <Link2 className="size-3.5 text-faint" />
-          <span className="text-sm text-subtle">已连接账号</span>
+          <span className="text-14 text-subtle">已连接账号</span>
         </DropdownMenuItem>
         <DropdownMenuItem
           className="cursor-pointer rounded-8 px-3 py-2 gap-2.5"
           onSelect={() => navigate('/help')}
         >
           <Info className="size-3.5 text-faint" />
-          <span className="text-sm text-subtle">帮助中心</span>
+          <span className="text-14 text-subtle">帮助中心</span>
         </DropdownMenuItem>
         {isAdmin && (
           <DropdownMenuItem
@@ -173,7 +173,7 @@ export function UserMenuContent() {
             onSelect={() => navigate('/admin')}
           >
             <ShieldCheck className="size-3.5 text-brand-red" />
-            <span className="text-sm text-subtle">管理员后台</span>
+            <span className="text-14 text-subtle">管理员后台</span>
           </DropdownMenuItem>
         )}
       </div>
@@ -187,7 +187,7 @@ export function UserMenuContent() {
           onSelect={handleLogout}
         >
           <LogOut className="size-3.5" />
-          <span className="text-sm">退出登录</span>
+          <span className="text-14">退出登录</span>
         </DropdownMenuItem>
       </div>
     </div>

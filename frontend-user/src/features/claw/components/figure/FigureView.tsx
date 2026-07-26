@@ -23,10 +23,10 @@ export function FigureView({ spec }: { spec: FigureSpec }) {
   }, [spec]);
 
   if (svg === null) {
-    return <div className="flex h-full w-full items-center justify-center text-2xs text-muted-foreground">渲染中…</div>;
+    return <div className="flex h-full w-full items-center justify-center text-12 text-muted-foreground">渲染中…</div>;
   }
   if (!svg) {
-    return <div className="flex h-full w-full items-center justify-center text-2xs text-muted-foreground">这张图暂时无法渲染</div>;
+    return <div className="flex h-full w-full items-center justify-center text-12 text-muted-foreground">这张图暂时无法渲染</div>;
   }
 
   return (

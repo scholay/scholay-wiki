@@ -54,8 +54,8 @@ function Panel({ title, hint, children, onSubmit }: { title: string; hint?: stri
       className="mt-4 rounded-16 border border-border bg-surface-card p-4 sm:p-6 space-y-4 max-w-3xl"
     >
       <div className="pb-3 border-b border-border-soft">
-        <h2 className="text-base font-bold text-foreground">{title}</h2>
-        {hint && <p className="text-xs text-muted-foreground mt-1">{hint}</p>}
+        <h2 className="text-16 font-medium text-foreground">{title}</h2>
+        {hint && <p className="text-12 text-muted-foreground mt-1">{hint}</p>}
       </div>
       {children}
     </form>
@@ -75,7 +75,7 @@ function LoadingPanel() {
   return (
     <div className="mt-4 rounded-16 border border-border bg-surface-card p-6 flex items-center justify-center gap-2 text-muted-foreground">
       <Loader2 className="size-4 animate-spin" />
-      <span className="text-sm">加载配置…</span>
+      <span className="text-12">加载配置…</span>
     </div>
   );
 }
@@ -132,12 +132,12 @@ function SystemBasicForm() {
     >
       <div className="flex items-center gap-2">
         <input id="require_email_verification" name="require_email_verification" type="checkbox" defaultChecked={data?.require_email_verification} className="size-4" />
-        <Label htmlFor="require_email_verification" className="text-sm">注册时必须验证邮箱</Label>
+        <Label htmlFor="require_email_verification" className="text-12">注册时必须验证邮箱</Label>
       </div>
 
       <div className="flex items-center gap-2">
         <input id="enable_turnstile" name="enable_turnstile" type="checkbox" defaultChecked={data?.enable_turnstile} className="size-4" />
-        <Label htmlFor="enable_turnstile" className="text-sm">启用 Cloudflare Turnstile</Label>
+        <Label htmlFor="enable_turnstile" className="text-12">启用 Cloudflare Turnstile</Label>
       </div>
 
       <Field label="Turnstile Site Key">
@@ -156,7 +156,7 @@ function SystemBasicForm() {
 
       <Field label="Google 分析 ID">
         <Input name="google_analytics_id" defaultValue={data?.google_analytics_id} placeholder="G-XXXXXXXXXX(GA4)或 GTM-XXXXXXX(GTM),留空 = 不接入" />
-        <p className="mt-1 text-2xs text-faint">
+        <p className="mt-1 text-12 text-faint">
           GA4 衡量 ID(G- 开头)或 GTM 容器 ID(GTM- 开头),前端自动按前缀加载对应脚本。analytics.google.com → 管理 → 数据流 获取 G-XXXX。
         </p>
       </Field>
@@ -228,7 +228,7 @@ function EmailForm() {
 
       <div className="flex items-center gap-2">
         <input id="email-active" name="is_active" type="checkbox" defaultChecked={data?.is_active} className="size-4" />
-        <Label htmlFor="email-active" className="text-sm">启用</Label>
+        <Label htmlFor="email-active" className="text-12">启用</Label>
       </div>
 
       <div className="flex items-end gap-2 pt-3 border-t border-border-soft">
@@ -315,13 +315,13 @@ function SMSForm() {
           name="template_content"
           rows={3}
           defaultValue={data?.template_content}
-          className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       </Field>
 
       <div className="flex items-center gap-2">
         <input id="sms-active" name="is_active" type="checkbox" defaultChecked={data?.is_active} className="size-4" />
-        <Label htmlFor="sms-active" className="text-sm">启用</Label>
+        <Label htmlFor="sms-active" className="text-12">启用</Label>
       </div>
 
       <div className="flex items-end gap-2 pt-3 border-t border-border-soft">

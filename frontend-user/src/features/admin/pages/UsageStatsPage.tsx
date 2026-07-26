@@ -68,8 +68,8 @@ export function UsageStatsPage() {
       {/* 每日趋势 */}
       <section className="rounded-16 border border-border bg-surface-card p-4 mb-6">
         <div className="mb-2 flex items-center justify-between">
-          <h3 className="text-sm font-bold text-foreground">每日使用趋势</h3>
-          {usageTrend.isLive && <span className="text-2xs text-faint">— — 今日(进行中)</span>}
+          <h3 className="text-14 font-medium text-foreground">每日使用趋势</h3>
+          {usageTrend.isLive && <span className="text-12 text-faint">— — 今日(进行中)</span>}
         </div>
         <div className="h-48">
           <ResponsiveContainer width="100%" height="100%">
@@ -138,11 +138,11 @@ export function UsageStatsPage() {
       {/* 功能排行 + 审稿漏斗 */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="rounded-16 border border-border bg-surface-card p-4">
-          <h3 className="text-sm font-bold text-foreground mb-3">功能使用排行</h3>
+          <h3 className="text-14 font-medium text-foreground mb-3">功能使用排行</h3>
           <div className="flex flex-col gap-3">
             {features.map((f) => (
               <div key={f.feature} className="flex flex-col gap-1">
-                <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center justify-between text-12">
                   <span className="text-subtle font-medium">{f.feature_name}</span>
                   <span className="text-faint">
                     {f.count.toLocaleString()} 次 · 用户 {f.unique_users} · 匿名 {f.unique_anon}
@@ -157,7 +157,7 @@ export function UsageStatsPage() {
               </div>
             ))}
             {!summary.isLoading && features.length === 0 && (
-              <p className="text-xs text-faint py-6 text-center">
+              <p className="text-12 text-faint py-6 text-center">
                 暂无数据(新统计自部署后开始累积)
               </p>
             )}
@@ -165,14 +165,14 @@ export function UsageStatsPage() {
         </div>
 
         <div className="rounded-16 border border-border bg-surface-card p-4">
-          <h3 className="text-sm font-bold text-foreground mb-1">智能审稿漏斗</h3>
-          <p className="text-2xs text-faint mb-3">
+          <h3 className="text-14 font-medium text-foreground mb-1">智能审稿漏斗</h3>
+          <p className="text-12 text-faint mb-3">
             按 submission 去重 —— 同一次审稿的各步骤串联,看每步流失
           </p>
           <div className="flex flex-col gap-3">
             {stages.map((st) => (
               <div key={st.action} className="flex flex-col gap-1">
-                <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center justify-between text-12">
                   <span className="text-subtle font-medium">{st.label}</span>
                   <span className="text-faint">{st.submissions.toLocaleString()}</span>
                 </div>
@@ -185,7 +185,7 @@ export function UsageStatsPage() {
               </div>
             ))}
             {!funnel.isLoading && stages.length === 0 && (
-              <p className="text-xs text-faint py-6 text-center">暂无审稿数据</p>
+              <p className="text-12 text-faint py-6 text-center">暂无审稿数据</p>
             )}
           </div>
         </div>

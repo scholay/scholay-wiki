@@ -29,10 +29,10 @@ export function WeChatQRDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm p-0 gap-0 border-border">
         <div className="flex flex-col items-center gap-1 pt-6 pb-3 px-6 border-b border-border-soft">
-          <DialogTitle className="text-base font-semibold">
+          <DialogTitle className="text-16 font-medium">
             {mode === 'bind' ? '绑定微信' : '使用微信扫一扫'}
           </DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground">
+          <DialogDescription className="text-12 text-muted-foreground">
             打开微信,扫描下方二维码完成
             {mode === 'bind' ? '绑定' : '登录'}
           </DialogDescription>

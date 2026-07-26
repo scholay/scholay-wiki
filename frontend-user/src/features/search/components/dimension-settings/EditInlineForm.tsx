@@ -72,7 +72,7 @@ export function EditInlineForm({ dim, mode, onDone }: Props) {
             if (e.key === 'Enter') handleSave();
             else if (e.key === 'Escape') onDone();
           }}
-          className="flex-1 h-7 bg-surface-card border border-border rounded-8 px-2 text-sm outline-none focus-visible:border-brand-amber"
+          className="flex-1 h-7 bg-surface-card border border-border rounded-8 px-2 text-12 outline-none focus-visible:border-brand-amber"
         />
         <SaveCancelButtons busy={busy} onSave={handleSave} onCancel={onDone} />
       </div>
@@ -92,25 +92,25 @@ export function EditInlineForm({ dim, mode, onDone }: Props) {
           onChange={(e) => setName(e.target.value)}
           maxLength={30}
           placeholder="维度名称"
-          className="flex-1 h-7 bg-surface-card border border-border rounded-8 px-2 text-sm outline-none focus-visible:border-brand-amber"
+          className="flex-1 h-7 bg-surface-card border border-border rounded-8 px-2 text-12 outline-none focus-visible:border-brand-amber"
         />
       </div>
       <div>
-        <label className="text-2xs font-bold text-faint">AI 分析指示词</label>
+        <label className="text-12 font-medium text-faint">AI 分析指示词</label>
         <textarea
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
           rows={4}
           maxLength={500}
           placeholder="例:抽取该论文核心研究问题与目标,简短归纳成一句话。"
-          className="mt-1 w-full bg-surface-card border border-border rounded-8 px-2 py-1.5 text-xs leading-paragraph outline-none focus-visible:border-brand-amber resize-none"
+          className="mt-1 w-full bg-surface-card border border-border rounded-8 px-2 py-1.5 text-12 leading-paragraph outline-none focus-visible:border-brand-amber resize-none"
         />
       </div>
       <div className="flex items-center justify-end gap-1.5">
         <button
           type="button"
           onClick={onDone}
-          className="h-7 px-3 rounded-8 border border-border text-xs text-subtle hover:bg-surface-1"
+          className="h-7 px-3 rounded-8 border border-border text-12 text-subtle hover:bg-surface-1"
         >
           取消
         </button>
@@ -118,7 +118,7 @@ export function EditInlineForm({ dim, mode, onDone }: Props) {
           type="button"
           onClick={handleSave}
           disabled={busy}
-          className="inline-flex items-center gap-1 h-7 px-3 rounded-8 bg-brand-green text-on-brand text-xs font-bold hover:bg-brand-green/85 disabled:opacity-50"
+          className="inline-flex items-center gap-1 h-7 px-3 rounded-8 bg-brand-green text-on-brand text-12 font-medium hover:bg-brand-green/85 disabled:opacity-50"
         >
           {busy && <Loader2 className="size-3 animate-spin" />}
           保存

@@ -52,7 +52,7 @@ function extractCodeText(node: ReactNode): string {
  * 3. 不被 prose 的默认行高/字号 override 干扰我们的 leading-paragraph
  *
  * 输出层级 (高到低):
- *   - <strong> (论文标题级别): text-foreground + font-semibold
+ *   - <strong> (论文标题级别): text-foreground + font-medium
  * - 正文 <p> / <li>: text-foreground + leading-paragraph
  *   - <em> (期刊名等元数据): text-muted-foreground (灰色退后, 故意 not-italic)
  *   - inline <code> (DOI / arXiv id): bg-surface-2 + font-mono
@@ -96,7 +96,7 @@ const components = {
     );
   },
   strong: (props: { children?: ReactNode }) => (
-    <strong className="font-semibold text-foreground">{props.children}</strong>
+    <strong className="font-medium text-foreground">{props.children}</strong>
   ),
   em: (props: { children?: ReactNode }) => (
     <em className="not-italic text-muted-foreground">{props.children}</em>
@@ -166,11 +166,11 @@ const components = {
   ),
   table: (props: { children?: ReactNode }) => (
     <div className="mb-2.5 last:mb-0 overflow-x-auto">
-      <table className="w-full text-xs border-collapse">{props.children}</table>
+      <table className="w-full text-12 border-collapse">{props.children}</table>
     </div>
   ),
   th: (props: { children?: ReactNode }) => (
-    <th className="border border-border bg-surface-1 px-2 py-1 text-left font-semibold">
+    <th className="border border-border bg-surface-1 px-2 py-1 text-left font-medium">
       {props.children}
     </th>
   ),
@@ -180,17 +180,17 @@ const components = {
     </td>
   ),
   h1: (props: { children?: ReactNode }) => (
-    <h1 className="mt-3 mb-2 text-base font-semibold text-foreground first:mt-0">
+    <h1 className="mt-3 mb-2 text-16 font-medium text-foreground first:mt-0">
       {props.children}
     </h1>
   ),
   h2: (props: { children?: ReactNode }) => (
-    <h2 className="mt-3 mb-2 text-sm font-semibold text-foreground first:mt-0">
+    <h2 className="mt-3 mb-2 text-14 font-medium text-foreground first:mt-0">
       {props.children}
     </h2>
   ),
   h3: (props: { children?: ReactNode }) => (
-    <h3 className="mt-2.5 mb-1.5 text-sm font-semibold text-foreground first:mt-0">
+    <h3 className="mt-2.5 mb-1.5 text-12 font-medium text-foreground first:mt-0">
       {props.children}
     </h3>
   ),
@@ -199,7 +199,7 @@ const components = {
 export interface MarkdownRendererProps {
   /** markdown 文本 (流式累积后的完整字符串). */
   text: string;
-  /** 容器额外 className (调用方控制字号 / 容器宽). 默认 text-sm. */
+  /** 容器额外 className (调用方控制字号 / 容器宽). 默认 text-12. */
   className?: string;
 }
 
@@ -207,7 +207,7 @@ export interface MarkdownRendererProps {
  * Render AI 回答的 markdown 文本. memoized 避免 streaming 中重复 parse。
  *
  * 用法:
- *   <MarkdownRenderer text={block.text} className="text-sm" />
+ *   <MarkdownRenderer text={block.text} className="text-12" />
  */
 export const MarkdownRenderer = memo(function MarkdownRenderer({
   text,
@@ -216,7 +216,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
   return (
     <div
       className={
-        'text-sm text-foreground leading-paragraph min-w-0'+ (className ??'')
+        'text-12 text-foreground leading-paragraph min-w-0'+ (className ??'')
       }
     >
       <ReactMarkdown

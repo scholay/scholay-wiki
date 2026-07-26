@@ -45,16 +45,16 @@ export function UploadedAssetsCard({ submissionId }: { submissionId: number }) {
   return (
     <section className="rounded-16 border border-border bg-surface-card">
       <header className="flex items-center justify-between px-4 py-3 border-b border-border-soft">
-        <h3 className="text-sm font-bold text-foreground">
+        <h3 className="text-14 font-medium text-foreground">
           已上传
-          <span className="ml-2 text-xs font-normal text-muted-foreground">
+          <span className="ml-2 text-12 font-normal text-muted-foreground">
             {assets.length > 0 ? `${assets.length} 个文件` : ''}
           </span>
         </h3>
       </header>
       <ul className="flex flex-col gap-1 p-2">
         {assets.length === 0 ? (
-          <li className="px-2 py-3 text-xs text-faint">还没有上传任何文件</li>
+          <li className="px-2 py-3 text-12 text-faint">还没有上传任何文件</li>
         ) : (
           assets.map((a) => <AssetRow key={a.id} asset={a} />)
         )}
@@ -67,12 +67,12 @@ function AssetRow({ asset }: { asset: SubmissionAsset }) {
   const isManuscript = asset.role === 'manuscript';
   return (
     <li className="flex items-center gap-2 rounded-8 px-2 py-2 hover:bg-surface-1">
-      <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-8 bg-surface-2 text-[10px] font-bold text-muted-foreground">
+      <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-8 bg-surface-2 text-[10px] font-medium text-muted-foreground">
         {extLabel(asset.filename)}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="line-clamp-1 text-xs font-bold text-foreground">{asset.filename}</p>
-        <p className="mt-0.5 text-2xs text-muted-foreground">
+        <p className="line-clamp-1 text-12 font-medium text-foreground">{asset.filename}</p>
+        <p className="mt-0.5 text-12 text-muted-foreground">
           {isManuscript ? '稿件正文' : '附件'} · {formatBytes(asset.size)}
         </p>
       </div>
@@ -87,11 +87,11 @@ function AssetRow({ asset }: { asset: SubmissionAsset }) {
 export function TipCard({ title, bullets }: { title: string; bullets: string[] }) {
   return (
     <section className="rounded-12 border border-brand-amber/30 bg-warning-soft p-4">
-      <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-foreground">
+      <h3 className="mb-2 flex items-center gap-1.5 text-14 font-medium text-foreground">
         <AlertCircle className="size-4 text-brand-amber" />
         {title}
       </h3>
-      <ul className="flex flex-col gap-1.5 text-xs leading-paragraph text-subtle">
+      <ul className="flex flex-col gap-1.5 text-12 leading-paragraph text-subtle">
         {bullets.map((b, i) => (
           <li key={i} className="flex gap-1.5">
             <span className="text-brand-amber">•</span>

@@ -113,7 +113,7 @@ export function ClawPaperList({
         <button
           type="button"
           onClick={() => setGroupCollapsed((v) => !v)}
-          className="flex items-center gap-1.5 text-2xs text-muted-foreground hover:text-foreground transition-colors"
+          className="flex items-center gap-1.5 text-12 text-muted-foreground hover:text-foreground transition-colors"
           aria-expanded={!groupCollapsed}
         >
           {groupCollapsed ? (
@@ -122,7 +122,7 @@ export function ClawPaperList({
             <ChevronDown className="size-3" strokeWidth={2.2} />
           )}
           <FileText className="size-3" strokeWidth={2} />
-          <span className="font-semibold text-foreground">
+          <span className="font-medium text-foreground">
             {enriched.length} 篇论文
           </span>
         </button>

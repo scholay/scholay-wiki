@@ -13,11 +13,11 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
       // 需要自动填充的字段(登录/注册的邮箱、密码、验证码)各自显式传 autoComplete 覆盖即可。
       autoComplete={autoComplete ?? 'off'}
       className={cn(
-        'flex h-8 w-full rounded-8 border border-border bg-surface-card px-3 text-sm text-foreground placeholder:text-faint',
+        'flex h-8 w-full rounded-8 border border-border bg-surface-card px-3 text-12 text-foreground placeholder:text-faint',
         'transition-colors',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-foreground',
         'disabled:cursor-not-allowed disabled:opacity-50',
-        'file:border-0 file:bg-transparent file:text-sm file:font-medium',
+        'file:border-0 file:bg-transparent file:text-12 file:font-medium',
         className
       )}
       {...props}

@@ -23,7 +23,7 @@ export function ProcessFold({
       <button
         type="button"
         onClick={() => setOverride(!expanded)}
-        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-2xs text-muted-foreground transition-colors hover:text-foreground"
+        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-12 text-muted-foreground transition-colors hover:text-foreground"
       >
         {streaming ? (
           <Loader2 className="size-3 shrink-0 animate-spin text-brand-green" />

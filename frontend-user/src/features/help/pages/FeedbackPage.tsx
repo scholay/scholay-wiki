@@ -208,7 +208,7 @@ export function FeedbackPage() {
           >
             {/* 分类 */}
             <div>
-              <label className="mb-2 block text-xs font-bold text-foreground">反馈类型</label>
+              <label className="mb-2 block text-12 font-medium text-foreground">反馈类型</label>
               <div className="grid grid-cols-3 gap-2">
                 {CATEGORIES.map((c) => {
                   const active = category === c.value;
@@ -230,10 +230,10 @@ export function FeedbackPage() {
                         className={cn('size-4', active ? 'text-brand-red' : 'text-subtle')}
                         strokeWidth={2}
                       />
-                      <span className={cn('text-xs font-bold', active ? 'text-foreground' : 'text-subtle')}>
+                      <span className={cn('text-12 font-medium', active ? 'text-foreground' : 'text-subtle')}>
                         {c.label}
                       </span>
-                      <span className="text-2xs text-faint">{c.hint}</span>
+                      <span className="text-12 text-faint">{c.hint}</span>
                     </button>
                   );
                 })}
@@ -242,7 +242,7 @@ export function FeedbackPage() {
 
             {/* 内容 */}
             <div>
-              <label htmlFor="feedback-content" className="mb-2 block text-xs font-bold text-foreground">
+              <label htmlFor="feedback-content" className="mb-2 block text-12 font-medium text-foreground">
                 反馈内容 <span className="text-brand-red">*</span>
               </label>
               <textarea
@@ -255,13 +255,13 @@ export function FeedbackPage() {
                 aria-describedby="feedback-content-hint"
                 placeholder="请详细描述遇到的问题或您的建议,越具体我们越能帮上忙"
                 className={cn(
-                  'w-full resize-y rounded-8 border bg-surface-card px-3 py-2.5 text-sm leading-paragraph focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  'w-full resize-y rounded-8 border bg-surface-card px-3 py-2.5 text-14 leading-paragraph focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                   contentTooShort ? 'border-brand-red focus-visible:border-brand-red' : 'border-border focus-visible:border-foreground',
                 )}
               />
               <p
                 id="feedback-content-hint"
-                className={cn('mt-1 text-2xs', contentTooShort ? 'text-brand-red' : 'text-faint')}
+                className={cn('mt-1 text-12', contentTooShort ? 'text-brand-red' : 'text-faint')}
               >
                 {contentTooShort
                   ? `还差 ${MIN_CONTENT - contentLen} 个字(至少 ${MIN_CONTENT} 字)`
@@ -271,7 +271,7 @@ export function FeedbackPage() {
 
             {/* 邮箱 */}
             <div>
-              <label htmlFor="feedback-email" className="mb-2 block text-xs font-bold text-foreground">
+              <label htmlFor="feedback-email" className="mb-2 block text-12 font-medium text-foreground">
                 邮箱 <span className="text-brand-red">*</span>{' '}
                 <span className="font-normal text-faint">(用于回复反馈结果)</span>
               </label>
@@ -282,10 +282,10 @@ export function FeedbackPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 placeholder="you@example.com"
-                className="h-10 w-full rounded-8 border border-border bg-surface-card px-3 text-sm focus-visible:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-10 w-full rounded-8 border border-border bg-surface-card px-3 text-14 focus-visible:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
               {user?.email && email.trim() === user.email && (
-                <p className="mt-1 inline-flex items-center gap-1 text-2xs text-brand-green">
+                <p className="mt-1 inline-flex items-center gap-1 text-12 text-brand-green">
                   <CheckCircle2 className="size-3" />
                   已使用你的登录邮箱
                 </p>
@@ -294,7 +294,7 @@ export function FeedbackPage() {
 
             {/* 附件 — 拖拽或点击 */}
             <div>
-              <label className="mb-2 block text-xs font-bold text-foreground">
+              <label className="mb-2 block text-12 font-medium text-foreground">
                 截图 / 文件附件{' '}
                 <span className="font-normal text-faint">
                   (可选 · 图片 ≤10MB×{MAX_IMAGE_COUNT} · 文件 ≤10MB×{MAX_FILE_COUNT} · 总 ≤50MB)
@@ -318,7 +318,7 @@ export function FeedbackPage() {
                           <img src={a.url} alt={a.name} className="h-20 w-full object-cover" />
                         </button>
                       ) : (
-                        <div className="flex h-20 w-full items-center justify-center p-2 text-center text-2xs text-muted-foreground">
+                        <div className="flex h-20 w-full items-center justify-center p-2 text-center text-12 text-muted-foreground">
                           {a.name}
                         </div>
                       )}
@@ -378,7 +378,7 @@ export function FeedbackPage() {
                     '选择文件'
                   )}
                 </Button>
-                <span className="text-2xs text-faint">也可以把文件拖到这里</span>
+                <span className="text-12 text-faint">也可以把文件拖到这里</span>
               </div>
             </div>
 
@@ -425,11 +425,11 @@ export function FeedbackPage() {
 function PromiseCard() {
   return (
     <section className="rounded-12 border border-border-soft bg-surface-card p-5">
-      <h2 className="mb-3 inline-flex items-center gap-2 text-sm font-bold text-foreground">
+      <h2 className="mb-3 inline-flex items-center gap-2 text-14 font-medium text-foreground">
         <Sparkles className="size-4 text-brand-amber" strokeWidth={2.2} />
         我们承诺
       </h2>
-      <ul className="space-y-2 text-xs leading-paragraph text-subtle">
+      <ul className="space-y-2 text-12 leading-paragraph text-subtle">
         {[
           '每一条反馈都会被产品团队看到',
           '明确的 bug 通常在 1–3 个工作日内修复',
@@ -452,8 +452,8 @@ function SuccessPanel({ email, onAgain }: { email: string; onAgain: () => void }
       <span className="mx-auto inline-flex size-12 items-center justify-center rounded-pill bg-brand-green/10">
         <CheckCircle2 className="size-6 text-brand-green" strokeWidth={2.2} />
       </span>
-      <h2 className="mt-4 text-lg font-bold text-foreground">感谢你的反馈!</h2>
-      <p className="mx-auto mt-2 max-w-md text-sm leading-paragraph text-muted-foreground">
+      <h2 className="mt-4 text-16 font-medium text-foreground">感谢你的反馈!</h2>
+      <p className="mx-auto mt-2 max-w-md text-12 leading-paragraph text-muted-foreground">
         <BrandName /> 团队会认真看每一条。如有结论,我们会通过{' '}
         {email ? <span className="font-medium text-subtle">{email}</span> : '你填写的邮箱'} 回复你。
       </p>

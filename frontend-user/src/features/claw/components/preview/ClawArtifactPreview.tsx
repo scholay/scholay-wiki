@@ -73,11 +73,11 @@ export function ClawArtifactPreview({
         )}
       >
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold text-foreground" title={artifact.title || artifact.name}>
+          <div className="truncate text-14 font-medium text-foreground" title={artifact.title || artifact.name}>
             {artifact.title || artifact.name}
           </div>
           {(artifact.title || artifact.description) && (
-            <div className="truncate text-2xs text-muted-foreground" title={artifact.description || artifact.name}>
+            <div className="truncate text-12 text-muted-foreground" title={artifact.description || artifact.name}>
               {artifact.description || artifact.name}
             </div>
           )}
@@ -262,7 +262,7 @@ function BytesPreview({
   }
   // 纯文本
   return (
-    <pre className="h-full overflow-auto whitespace-pre-wrap break-words px-4 py-3 text-xs leading-paragraph text-subtle">
+    <pre className="h-full overflow-auto whitespace-pre-wrap break-words px-4 py-3 text-12 leading-paragraph text-subtle">
       {text}
     </pre>
   );
@@ -316,8 +316,8 @@ function ToggleBtn({
       type="button"
       onClick={onClick}
       className={cn(
-        'inline-flex h-7 items-center gap-1 rounded-8 px-2.5 text-xs transition-colors',
-        active ? 'bg-surface-2 font-semibold text-foreground' : 'text-muted-foreground hover:text-foreground',
+        'inline-flex h-7 items-center gap-1 rounded-8 px-2.5 text-12 transition-colors',
+        active ? 'bg-surface-2 font-medium text-foreground' : 'text-muted-foreground hover:text-foreground',
       )}
     >
       <Icon className="size-3.5" />
@@ -328,7 +328,7 @@ function ToggleBtn({
 
 function PreviewLoading(): ReactNode {
   return (
-    <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
+    <div className="flex h-full items-center justify-center gap-2 text-12 text-muted-foreground">
       <Loader2 className="size-4 animate-spin" /> 加载中…
     </div>
   );
@@ -340,7 +340,7 @@ function Unavailable({ text, downloadUrl }: { text: string; downloadUrl: string 
       <div className="flex size-12 items-center justify-center rounded-pill bg-surface-2 text-faint">
         <FileQuestion className="size-6" />
       </div>
-      <p className="max-w-xs text-sm text-muted-foreground">{text}</p>
+      <p className="max-w-xs text-12 text-muted-foreground">{text}</p>
       {downloadUrl && (
         <Button asChild size="sm" variant="outline">
           <a href={downloadUrl} download>

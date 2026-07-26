@@ -151,18 +151,18 @@ export function UserDetailDrawer({
                 {detail.data.auth_providers.map((p) => (
                   <span
                     key={p.provider}
-                    className="inline-flex items-center gap-1.5 rounded-8 border border-border bg-surface-1 px-2 py-1 text-xs text-subtle"
+                    className="inline-flex items-center gap-1.5 rounded-8 border border-border bg-surface-1 px-2 py-1 text-12 text-subtle"
                   >
                     <ProviderIcon provider={p.provider} />
                     {p.provider.toLowerCase() === 'wechat'
                       ? wechatChannelLabel(detail.data?.register_source)
                       : (PROVIDER_LABEL[p.provider.toLowerCase()] || p.provider)}
-                    <span className="text-2xs text-faint">{p.created_at?.slice(0, 10)}</span>
+                    <span className="text-12 text-faint">{p.created_at?.slice(0, 10)}</span>
                   </span>
                 ))}
               </div>
             ) : (
-              <span className="text-xs text-faint">仅账号密码登录</span>
+              <span className="text-12 text-faint">仅账号密码登录</span>
             )}
           </Section>
 
@@ -175,13 +175,13 @@ export function UserDetailDrawer({
             right={
               <span
                 className={cn(
-                  'inline-flex items-center gap-1 text-xs font-bold',
+                  'inline-flex items-center gap-1 text-12 font-medium',
                   isPro ? 'text-brand-amber' : 'text-faint'
                 )}
               >
                 {/* 年费会员徽标(0079)—— 后台同样显式区分年费 / 月度 */}
                 {isPro && vip.data?.cycle === 'yearly' && (
-                  <span className="rounded-pill bg-brand-amber/10 px-1.5 py-0.5 text-2xs font-bold text-brand-amber">年费</span>
+                  <span className="rounded-pill bg-brand-amber/10 px-1.5 py-0.5 text-12 font-medium text-brand-amber">年费</span>
                 )}
                 <Crown className="size-3.5" />
                 {TIER_LABEL[tier]}
@@ -192,7 +192,7 @@ export function UserDetailDrawer({
               <Loader2 className="size-4 animate-spin text-faint" />
             ) : (
               <>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-12 text-muted-foreground">
                   {isPro
                     ? `${vip.data?.cycle === 'yearly' ? '年费会员 · ' : '月度会员 · '}${
                         vip.data?.expires_at ? `有效期至 ${vip.data.expires_at.slice(0, 10)}` : '永久有效'
@@ -202,7 +202,7 @@ export function UserDetailDrawer({
                 {vip.data && (
                   <div className="mt-3 flex flex-col gap-3">
                     <TokenQuotaBar vip={vip.data} />
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center justify-between text-12">
                       <span className="text-faint">科研经费</span>
                       <span className="tabular-nums text-subtle">
                         {vip.data.credit.total}(永久 {vip.data.credit.perm} · 临时 {vip.data.credit.temp})
@@ -241,7 +241,7 @@ function Section({ title, right, children }: { title: string; right?: React.Reac
   return (
     <section>
       <div className="mb-2 flex items-center justify-between">
-        <h4 className="text-2xs font-bold text-faint">{title}</h4>
+        <h4 className="text-12 font-medium text-faint">{title}</h4>
         {right}
       </div>
       {children}
@@ -251,7 +251,7 @@ function Section({ title, right, children }: { title: string; right?: React.Reac
 
 function InfoRow({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-start gap-2 py-1 text-sm">
+    <div className="flex items-start gap-2 py-1 text-12">
       <span className="mt-0.5 text-faint">{icon}</span>
       <span className="w-16 shrink-0 text-faint">{label}</span>
       <span className="flex-1 text-subtle">{children}</span>
@@ -267,7 +267,7 @@ function TokenQuotaBar({ vip }: { vip: UserVipStatus }) {
   const ri = resetInfo(t);
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between text-xs">
+      <div className="flex items-center justify-between text-12">
         <span className="text-subtle">本周期 AI 额度(算力点)</span>
         <span className={cn('tabular-nums', exhausted ? 'text-brand-red' : 'text-faint')}>
           {/* P5 成本制:used/ceiling 单位=微元真实成本,÷1000 = 算力点(1 点 = ¥0.001 成本)。 */}
@@ -283,7 +283,7 @@ function TokenQuotaBar({ vip }: { vip: UserVipStatus }) {
         </div>
       )}
       {!t.unlimited && (
-        <div className="flex items-center justify-between text-2xs text-faint" title={ri.hint}>
+        <div className="flex items-center justify-between text-12 text-faint" title={ri.hint}>
           <span>{ri.notStarted ? '满额 · 用后计时' : ri.rel}</span>
           <span className="tabular-nums">当日消耗 {Math.round(t.consumed_today / 1000).toLocaleString()} 算力点</span>
         </div>

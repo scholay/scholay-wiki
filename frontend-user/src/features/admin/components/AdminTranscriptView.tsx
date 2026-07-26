@@ -69,7 +69,7 @@ function AdminAttachmentChips({
                   filename: a.name,
                 })
               }
-              className="inline-flex max-w-[220px] items-center gap-1 rounded-4 bg-foreground/85 px-2 py-0.5 text-2xs text-background/90 transition-colors hover:bg-foreground"
+              className="inline-flex max-w-[220px] items-center gap-1 rounded-4 bg-foreground/85 px-2 py-0.5 text-12 text-background/90 transition-colors hover:bg-foreground"
             >
               {inner}
             </button>
@@ -89,7 +89,7 @@ function AdminAttachmentChips({
         return (
           <span
             key={i}
-            className="inline-flex max-w-[220px] items-center gap-1 rounded-4 bg-foreground/85 px-2 py-0.5 text-2xs text-background/90"
+            className="inline-flex max-w-[220px] items-center gap-1 rounded-4 bg-foreground/85 px-2 py-0.5 text-12 text-background/90"
             title={a.name}
           >
             {inner}
@@ -124,8 +124,8 @@ function TurnTail({ turn }: { turn: Turn }) {
         <div className="flex items-start gap-2 rounded-12 border border-brand-red/30 bg-danger-soft px-3 py-2">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-brand-red" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-brand-red">回答失败</p>
-            <p className="text-xs text-muted-foreground break-words">{turn.errorMessage}</p>
+            <p className="text-12 font-medium text-brand-red">回答失败</p>
+            <p className="text-12 text-muted-foreground break-words">{turn.errorMessage}</p>
           </div>
         </div>
       )}
@@ -299,7 +299,7 @@ export function AdminTranscriptView({
 
   if (turns.length === 0) {
     return (
-      <div className="py-8 text-center text-sm text-faint">
+      <div className="py-8 text-center text-12 text-faint">
         无会话内容(用户尚未对话,或会话已被清理)
       </div>
     );

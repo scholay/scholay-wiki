@@ -112,21 +112,21 @@ export function AboutPage() {
       <section className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-8 items-start">
         <div>
           <SectionTitle>我们是谁</SectionTitle>
-          <p className="mt-4 text-sm text-subtle leading-paragraph">
+          <p className="mt-4 text-12 text-subtle leading-paragraph">
             <BrandName /> 由一群热爱学术、相信技术的研究者与工程师创办。我们见过太多研究生在文献海洋里翻找数月却找不到关键论文,见过太多导师在重复的审稿与回信中消耗本可以用来思考的时间。
           </p>
-          <p className="mt-3 text-sm text-subtle leading-paragraph">
+          <p className="mt-3 text-12 text-subtle leading-paragraph">
             我们想做的事很简单:把这些重复消耗砍掉,让科研工作者把时间留给真正重要的判断。
           </p>
         </div>
         <aside className="rounded-16 bg-surface-1 border border-border-soft p-5">
-          <p className="text-xs font-bold uppercase text-brand-red mb-3">
+          <p className="text-12 font-medium uppercase text-brand-red mb-3">
             使命
           </p>
-          <p className="text-sm text-foreground font-semibold leading-paragraph">
+          <p className="text-14 text-foreground font-medium leading-paragraph">
             用 AI 把学术工作流的每一步压缩到只剩本质 ——
           </p>
-          <p className="mt-2 text-xs text-muted-foreground leading-paragraph">
+          <p className="mt-2 text-12 text-muted-foreground leading-paragraph">
             检索、阅读、对比、记录、写作、引用、投稿、审稿,这八个核心动作本应让你产生洞察,而不是消耗精力。
           </p>
         </aside>
@@ -145,7 +145,7 @@ export function AboutPage() {
       {/* 3. 产品矩阵 */}
       <section className="mt-16">
         <SectionTitle>我们在做什么</SectionTitle>
-        <p className="mt-3 text-sm text-muted-foreground">
+        <p className="mt-3 text-12 text-muted-foreground">
           围绕"检索 → 阅读 → 写作 → 审稿"四步,<BrandName /> 提供端到端的 AI 学术工作台。
         </p>
         <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -160,20 +160,20 @@ export function AboutPage() {
       <section className="mt-16">
         <div className="rounded-16 bg-surface-1 border border-border-soft p-8 md:p-10">
           <SectionTitle>反馈 / 联系</SectionTitle>
-          <p className="mt-3 text-sm text-muted-foreground leading-paragraph max-w-2xl">
+          <p className="mt-3 text-12 text-muted-foreground leading-paragraph max-w-2xl">
             产品意见、bug 报告、合作意向 —— 都可以反馈给我们,产品团队每条都会看到。
           </p>
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <Link
               to="/feedback"
-              className="inline-flex items-center gap-1.5 h-10 px-5 rounded-8 bg-foreground text-background text-sm font-semibold hover:bg-foreground/85 transition-colors"
+              className="inline-flex items-center gap-1.5 h-10 px-5 rounded-8 bg-foreground text-background text-14 font-medium hover:bg-foreground/85 transition-colors"
             >
               提交产品反馈
               <ArrowRight className="size-3.5" />
             </Link>
             <Link
               to="/contact"
-              className="inline-flex items-center gap-1.5 h-10 px-5 rounded-8 bg-surface-card border border-border text-sm font-semibold text-subtle hover:text-foreground hover:bg-surface-1 transition-colors"
+              className="inline-flex items-center gap-1.5 h-10 px-5 rounded-8 bg-surface-card border border-border text-14 font-medium text-subtle hover:text-foreground hover:bg-surface-1 transition-colors"
             >
               查看其他联系方式
             </Link>
@@ -190,7 +190,7 @@ export function AboutPage() {
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-xl md:text-2xl font-bold text-foreground">
+    <h2 className="text-20 md:text-24 font-medium text-foreground">
       {children}
     </h2>
   );
@@ -202,8 +202,8 @@ function ValueCard({ value: { icon: Icon, title, desc } }: { value: Value }) {
       <span className="inline-flex h-9 w-9 items-center justify-center rounded-8 bg-danger-soft border border-brand-red/15">
         <Icon className="size-4 text-brand-red" strokeWidth={2} />
       </span>
-      <p className="text-sm font-bold text-foreground">{title}</p>
-      <p className="text-xs text-muted-foreground leading-paragraph">{desc}</p>
+      <p className="text-12 font-medium text-foreground">{title}</p>
+      <p className="text-12 text-muted-foreground leading-paragraph">{desc}</p>
     </div>
   );
 }
@@ -216,15 +216,15 @@ function PillarCard({ pillar: { icon: Icon, title, desc, to, status } }: { pilla
           <Icon className="size-4 text-foreground" strokeWidth={2} />
         </span>
         {status === '即将推出' && (
-          <span className="inline-flex items-center h-5 px-1.5 rounded-pill bg-surface-2 text-faint text-2xs font-bold whitespace-nowrap">
+          <span className="inline-flex items-center h-5 px-1.5 rounded-pill bg-surface-2 text-faint text-12 font-medium whitespace-nowrap">
             即将推出
           </span>
         )}
       </div>
-      <p className="mt-3 text-sm font-bold text-foreground">{title}</p>
-      <p className="mt-1 text-xs text-muted-foreground leading-paragraph">{desc}</p>
+      <p className="mt-3 text-12 font-medium text-foreground">{title}</p>
+      <p className="mt-1 text-12 text-muted-foreground leading-paragraph">{desc}</p>
       {to && (
-        <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-brand-red">
+        <span className="mt-3 inline-flex items-center gap-1 text-12 font-medium text-brand-red">
           了解更多
           <ArrowRight className="size-3" />
         </span>

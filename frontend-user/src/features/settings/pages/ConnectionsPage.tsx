@@ -149,11 +149,11 @@ export function ConnectionsPage() {
   return (
     <div className="flex flex-col gap-6 max-w-3xl">
       <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-semibold text-foreground">已连接的账号</h2>
-        <p className="text-sm text-muted-foreground leading-paragraph">
+        <h2 className="text-16 font-medium text-foreground">已连接的账号</h2>
+        <p className="text-12 text-muted-foreground leading-paragraph">
           管理你登录这个账号的方式。为了安全,至少要保留 1 种,避免下次登不进来。
           目前共有{' '}
-          <span className="font-semibold text-foreground">{data.login_methods_count}</span>{' '}
+          <span className="font-medium text-foreground">{data.login_methods_count}</span>{' '}
           种登录方式。
         </p>
       </div>
@@ -182,12 +182,12 @@ export function ConnectionsPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-foreground">{label}</span>
+                  <span className="text-14 font-medium text-foreground">{label}</span>
                   {c.bound && (
                     <CheckCircle2 className="size-3.5 text-brand-green" strokeWidth={2.5} />
                   )}
                 </div>
-                <div className="text-xs text-muted-foreground truncate">
+                <div className="text-12 text-muted-foreground truncate">
                   {c.bound
                     ? c.display_name || c.provider_user_id || '已绑定'
                     : '未绑定'}

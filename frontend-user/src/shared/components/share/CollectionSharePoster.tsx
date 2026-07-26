@@ -64,7 +64,7 @@ export const CollectionSharePoster = forwardRef<HTMLDivElement, { data: Collecti
               </div>
               <div className="flex items-center gap-[5px] rounded-pill bg-[#F1EADA] px-2.5 py-1">
                 <BookOpen className="size-3 text-[#DD9D13]" />
-                <span className="text-[11px] font-semibold text-[#DD9D13]">文献集</span>
+                <span className="text-[11px] font-medium text-[#DD9D13]">文献集</span>
               </div>
             </div>
 
@@ -92,7 +92,7 @@ export const CollectionSharePoster = forwardRef<HTMLDivElement, { data: Collecti
                       className={`flex items-center gap-2.5 py-2 ${i > 0 ? 'border-t border-[#E9E9E9]' : ''}`}
                     >
                       <span
-                        className="flex size-6 shrink-0 items-center justify-center rounded-[6px] text-[12px] font-bold leading-none text-on-brand"
+                        className="flex size-6 shrink-0 items-center justify-center rounded-[6px] text-[12px] font-medium leading-none text-on-brand"
                         style={{ backgroundColor: IDX_COLORS[i % IDX_COLORS.length] }}
                       >
                         {i + 1}
@@ -115,7 +115,7 @@ export const CollectionSharePoster = forwardRef<HTMLDivElement, { data: Collecti
             {/* 整理人 */}
             {data.curatorName && (
               <div className="flex items-center gap-2">
-                <span className="flex size-[22px] items-center justify-center rounded-pill bg-[#2A7A2A] text-[11px] font-semibold text-on-brand">
+                <span className="flex size-[22px] items-center justify-center rounded-pill bg-[#2A7A2A] text-[11px] font-medium text-on-brand">
                   {data.curatorName.charAt(0)}
                 </span>
                 <span className="text-[12px] font-medium text-[#666]">
@@ -133,7 +133,7 @@ export const CollectionSharePoster = forwardRef<HTMLDivElement, { data: Collecti
                 <QRCodeCanvas value={data.qrValue} size={52} level="M" marginSize={0} />
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
-                <p className="text-[13px] font-semibold text-[#111]">长按识别二维码 · 在 Scholay 查看合集</p>
+                <p className="text-[13px] font-medium text-[#111]">长按识别二维码 · 在 Scholay 查看合集</p>
                 <p className="truncate text-[11px] text-[#999]">{data.urlLabel}</p>
                 <p className="text-[11px] text-[#666]">由 Scholay 学术分享生成</p>
               </div>

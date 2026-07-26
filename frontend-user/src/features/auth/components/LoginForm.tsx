@@ -100,7 +100,7 @@ export function LoginForm({ initialAccountType, onSwitchMode }: LoginFormProps) 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <div className="flex items-center justify-between">
           <AccountTypeTabs value={accountType} onChange={setAccountType} />
-          <div className="text-xs text-muted-foreground">
+          <div className="text-12 text-muted-foreground">
             <button
               type="button"
               className="hover:text-foreground"
@@ -124,7 +124,7 @@ export function LoginForm({ initialAccountType, onSwitchMode }: LoginFormProps) 
                   autoComplete={accountType === 'email' ? 'email' : 'tel'}
                   inputMode={accountType === 'email' ? 'email' : 'tel'}
                   placeholder={accountType === 'email' ? 'you@example.com' : '11 位手机号'}
-                  className="h-10 text-sm"
+                  className="h-10 text-12"
                 />
               </FormControl>
               <FormMessage />
@@ -145,7 +145,7 @@ export function LoginForm({ initialAccountType, onSwitchMode }: LoginFormProps) 
                     type="password"
                     autoComplete="current-password"
                     placeholder="至少 8 位"
-                    className="h-10 text-sm"
+                    className="h-10 text-12"
                   />
                 </FormControl>
               ) : (
@@ -157,7 +157,7 @@ export function LoginForm({ initialAccountType, onSwitchMode }: LoginFormProps) 
                       maxLength={6}
                       autoComplete="one-time-code"
                       placeholder="6 位数字"
-                      className="h-10 text-sm tracking-code"
+                      className="h-10 text-12 tracking-code"
                     />
                   </FormControl>
                   <SendCodeButton
@@ -189,7 +189,7 @@ export function LoginForm({ initialAccountType, onSwitchMode }: LoginFormProps) 
         {/* 登录隐式同意 —— 不弹独立 checkbox(老用户每次登录还要勾不友好),
            只在按钮下放一段说明,法律意义是"通过登录确认你已经同意服务条款 / 隐私"。
            注册流程的 RegisterForm 仍然保留强制勾选 checkbox(zod required) */}
-        <p className="text-2xs text-faint text-center leading-paragraph">
+        <p className="text-12 text-faint text-center leading-paragraph">
           登录即表示同意{' '}
           <a
             href="/terms"
@@ -210,7 +210,7 @@ export function LoginForm({ initialAccountType, onSwitchMode }: LoginFormProps) 
           </a>
         </p>
 
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <div className="flex items-center justify-between text-12 text-muted-foreground">
           <button
             type="button"
             className="hover:text-foreground"

@@ -94,7 +94,7 @@ export function PrismFileSidebar({
           type="button"
           onClick={onBack}
           title="返回项目列表"
-          className="group flex w-full items-center gap-1 px-3 pb-1 pt-3 text-left text-xs font-bold text-foreground"
+          className="group flex w-full items-center gap-1 px-3 pb-1 pt-3 text-left text-14 font-medium text-foreground"
         >
           <ChevronLeft className="size-3.5 shrink-0 text-faint transition-colors group-hover:text-brand-red" />
           <span className="truncate group-hover:text-brand-red">{projectTitle || '未命名项目'}</span>
@@ -193,7 +193,7 @@ function FileRow({
             if (e.key === 'Escape') onCancelRename();
           }}
           onBlur={(e) => onSubmitRename(e.target.value)}
-          className="h-7 text-xs"
+          className="h-7 text-12"
         />
       </div>
     );
@@ -206,9 +206,9 @@ function FileRow({
         onClick={onSelect}
         disabled={disabled}
         className={cn(
-          'flex h-8 min-w-0 flex-1 items-center gap-1.5 text-left text-sm transition-colors',
+          'flex h-8 min-w-0 flex-1 items-center gap-1.5 text-left text-12 transition-colors',
           active
-            ? '-ml-px border-l-[3px] border-l-foreground pl-[13px] font-semibold text-foreground'
+            ? '-ml-px border-l-[3px] border-l-foreground pl-[13px] font-medium text-foreground'
             : 'pl-4 text-subtle'
         )}
       >

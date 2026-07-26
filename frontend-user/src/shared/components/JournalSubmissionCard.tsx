@@ -68,10 +68,10 @@ export function JournalSubmissionCard({
   return (
     <div className="space-y-2.5">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="font-display font-bold text-md leading-none text-foreground">
+        <h3 className="font-display font-bold text-14 leading-none text-foreground">
           投稿资源
         </h3>
-        <span className="inline-flex items-center rounded-pill bg-prism-badge-bg px-2 py-0.5 text-2xs font-bold text-prism-badge-fg">
+        <span className="inline-flex items-center rounded-pill bg-prism-badge-bg px-2 py-0.5 text-12 font-medium text-prism-badge-fg">
           Max
         </span>
       </div>
@@ -85,8 +85,8 @@ export function JournalSubmissionCard({
                 <Icon className="size-4" strokeWidth={2} />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-xs font-bold text-foreground">{title}</div>
-                <div className="truncate text-2xs text-muted-foreground">{desc}</div>
+                <div className="truncate text-14 font-medium text-foreground">{title}</div>
+                <div className="truncate text-12 text-muted-foreground">{desc}</div>
               </div>
               {isMax ? (
                 pending ? (
@@ -120,7 +120,7 @@ export function JournalSubmissionCard({
       </div>
 
       {!isMax && (
-        <p className="text-2xs leading-paragraph text-faint">
+        <p className="text-12 leading-paragraph text-faint">
           下载为 Max 会员专享,
           <Link to="/pricing" className="text-brand-red hover:underline">
             升级解锁

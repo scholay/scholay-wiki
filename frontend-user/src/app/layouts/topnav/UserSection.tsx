@@ -78,11 +78,11 @@ export function UserSection() {
             >
               <Avatar className="h-8 w-8 bg-primary">
                 {user.avatar && <AvatarImage src={user.avatar} alt={user.email} />}
-                <AvatarFallback className="text-xs">
+                <AvatarFallback className="text-12">
                   {(user.username ?? user.email).slice(0, 1).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <span className="text-sm font-semibold text-foreground max-w-28 truncate">
+              <span className="text-12 font-medium text-foreground max-w-28 truncate">
                 {user.username ?? maskEmail(user.email)}
               </span>
             </button>
@@ -100,9 +100,9 @@ export function UserSection() {
           aria-label="账户加载中"
         >
           <Avatar className="h-8 w-8 bg-primary">
-            <AvatarFallback className="text-xs">·</AvatarFallback>
+            <AvatarFallback className="text-12">·</AvatarFallback>
           </Avatar>
-          <span className="text-sm font-semibold text-faint">我的账户</span>
+          <span className="text-12 font-medium text-faint">我的账户</span>
         </div>
       )}
     </div>

@@ -38,8 +38,8 @@ export function CodeSnippetsPanel() {
       header: '名称',
       cell: (r) => (
         <div className="flex flex-col">
-          <span className="font-bold text-foreground">{r.name}</span>
-          <span className="text-2xs text-faint font-mono">{r.code_key}</span>
+          <span className="font-medium text-foreground">{r.name}</span>
+          <span className="text-12 text-faint font-mono">{r.code_key}</span>
         </div>
       ),
     },
@@ -53,7 +53,7 @@ export function CodeSnippetsPanel() {
       header: '优先级',
       width: 80,
       align: 'right',
-      cell: (r) => <span className="text-xs text-muted-foreground">{r.priority}</span>,
+      cell: (r) => <span className="text-12 text-muted-foreground">{r.priority}</span>,
     },
     {
       header: '状态',

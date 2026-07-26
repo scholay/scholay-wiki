@@ -103,20 +103,20 @@ export function PromoModal() {
             via-brand-red 让文字所在的上/中部停在红色(白字对红 ~5.4:1 过 WCAG AA),
             金色只点缀在右下角,既喜庆又不牺牲可读性。 */}
         <div className="relative bg-gradient-to-br from-brand-red via-brand-red to-brand-amber px-6 pb-6 pt-8 text-center text-on-brand">
-          <span className="absolute left-4 top-4 inline-flex items-center gap-1 rounded-pill bg-surface-card/20 px-2 py-0.5 text-2xs font-medium backdrop-blur-sm">
+          <span className="absolute left-4 top-4 inline-flex items-center gap-1 rounded-pill bg-surface-card/20 px-2 py-0.5 text-12 font-medium backdrop-blur-sm">
             <Sparkles className="size-3" /> 限时
           </span>
           <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-pill bg-surface-card/15 ring-1 ring-on-brand/30">
             <Gift className="size-7" strokeWidth={2} />
           </div>
-          <DialogTitle className="text-lg font-bold text-on-brand">{title}</DialogTitle>
-          <DialogDescription className="mt-1 text-sm text-on-brand/90">{subtitle}</DialogDescription>
+          <DialogTitle className="text-20 font-medium text-on-brand">{title}</DialogTitle>
+          <DialogDescription className="mt-1 text-14 text-on-brand/90">{subtitle}</DialogDescription>
         </div>
 
         {/* 福利点 */}
         <div className="flex flex-col gap-2.5 px-6 pt-5">
           {benefits.map((b, i) => (
-            <div key={i} className="flex items-start gap-2 text-sm text-foreground">
+            <div key={i} className="flex items-start gap-2 text-14 text-foreground">
               <Check className="mt-0.5 size-4 shrink-0 text-brand-green" strokeWidth={2.6} />
               <span>{b}</span>
             </div>
@@ -132,14 +132,14 @@ export function PromoModal() {
               className="size-44 rounded-12 border border-border object-contain p-1"
             />
           ) : (
-            <div className="flex size-44 items-center justify-center rounded-12 border border-dashed border-border text-xs text-faint">
+            <div className="flex size-44 items-center justify-center rounded-12 border border-dashed border-border text-12 text-faint">
               二维码未配置
             </div>
           )}
-          <div className="inline-flex items-center gap-1.5 rounded-pill bg-brand-red/10 px-3 py-1.5 text-sm font-semibold text-brand-red">
+          <div className="inline-flex items-center gap-1.5 rounded-pill bg-brand-red/10 px-3 py-1.5 text-14 font-medium text-brand-red">
             <Gift className="size-4" /> {buttonText}
           </div>
-          <p className="text-xs text-faint">微信扫一扫,添加客服领取</p>
+          <p className="text-12 text-faint">微信扫一扫,添加客服领取</p>
         </div>
 
         {/* 底部操作 */}

@@ -35,8 +35,8 @@ export function NewsListPage() {
         canonical="/news"
       />
       <div className="mx-auto max-w-3xl px-6 py-10">
-        <h1 className="text-2xl font-bold text-foreground">学术情报</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <h1 className="text-24 font-medium text-foreground">学术情报</h1>
+        <p className="mt-2 text-12 text-muted-foreground">
           顶刊速递 · 重大事件 · 国内政策 —— 实时汇集学术界动态。
         </p>
 
@@ -48,7 +48,7 @@ export function NewsListPage() {
               type="button"
               onClick={() => setSort(s.key)}
               className={cn(
-                'rounded-pill px-3 py-1 text-xs font-medium transition-colors',
+                'rounded-pill px-3 py-1 text-12 font-medium transition-colors',
                 sort === s.key ? 'bg-foreground text-background' : 'bg-surface-2 text-muted-foreground',
               )}
             >
@@ -65,7 +65,7 @@ export function NewsListPage() {
               type="button"
               onClick={() => setSection(sec.id)}
               className={cn(
-                'rounded-pill border px-3 py-1 text-xs transition-colors',
+                'rounded-pill border px-3 py-1 text-12 transition-colors',
                 section === sec.id
                   ? 'border-foreground bg-foreground text-background'
                   : 'border-border-button text-muted-foreground hover:bg-surface-2',
@@ -86,7 +86,7 @@ export function NewsListPage() {
               />
             ))
           ) : items.length === 0 ? (
-            <p className="py-16 text-center text-sm text-muted-foreground">
+            <p className="py-16 text-center text-12 text-muted-foreground">
               {feedQ.isError ? '加载失败,请稍后重试' : '暂无情报'}
             </p>
           ) : (

@@ -83,7 +83,7 @@ export function MobilePcOnlyPage() {
         >
           <ChevronLeft className="size-6" />
         </button>
-        <span className="text-md font-semibold text-foreground">{feature.name}</span>
+        <span className="text-14 font-medium text-foreground">{feature.name}</span>
         <span className="size-9" aria-hidden />
       </header>
 
@@ -96,21 +96,21 @@ export function MobilePcOnlyPage() {
             </span>
             <span className="flex items-center gap-1.5 rounded-pill bg-surface-2 px-3 py-1.5">
               <Smartphone className="size-3 text-muted-foreground" />
-              <span className="text-xs font-medium text-muted-foreground">手机端功能受限</span>
+              <span className="text-12 font-medium text-muted-foreground">手机端功能受限</span>
             </span>
           </div>
 
-          <h1 className="text-center text-xl font-semibold text-foreground">{feature.title}</h1>
-          <p className="text-center text-sm leading-paragraph text-muted-foreground">{feature.desc}</p>
+          <h1 className="text-center text-20 font-medium text-foreground">{feature.title}</h1>
+          <p className="text-center text-12 leading-paragraph text-muted-foreground">{feature.desc}</p>
 
           {/* 电脑端可用 能力清单 */}
           <div className="w-full rounded-16 border border-border bg-surface-1 p-4">
-            <p className="mb-2.5 text-sm font-semibold text-foreground">电脑端可用</p>
+            <p className="mb-2.5 text-14 font-medium text-foreground">电脑端可用</p>
             <ul className="flex flex-col gap-2.5">
               {feature.features.map((f) => (
                 <li key={f} className="flex items-center gap-2">
                   <Check className="size-3.5 shrink-0 text-brand-green" />
-                  <span className="text-sm text-muted-foreground">{f}</span>
+                  <span className="text-12 text-muted-foreground">{f}</span>
                 </li>
               ))}
             </ul>
@@ -119,14 +119,14 @@ export function MobilePcOnlyPage() {
           {/* 电脑端链接 + 复制 */}
           <div className="w-full rounded-16 border border-border bg-surface-card p-4">
             <div className="flex h-11 items-center justify-between gap-2 rounded-8 border border-border-button bg-surface-1 pl-3 pr-1.5">
-              <span className="truncate text-sm text-muted-foreground">{displayUrl}</span>
+              <span className="truncate text-12 text-muted-foreground">{displayUrl}</span>
               <button
                 type="button"
                 onClick={copy}
                 className="flex shrink-0 items-center gap-1.5 rounded-4 border border-border-button bg-surface-card px-3 py-1.5 active:bg-surface-2"
               >
                 <Copy className="size-3.5 text-foreground" />
-                <span className="text-xs font-semibold text-foreground">复制</span>
+                <span className="text-12 font-medium text-foreground">复制</span>
               </button>
             </div>
           </div>

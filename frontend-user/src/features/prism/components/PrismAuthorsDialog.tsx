@@ -71,7 +71,7 @@ export function PrismAuthorsDialog({
     }
   };
 
-  const field = 'h-7 text-xs';
+  const field = 'h-7 text-12';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -84,11 +84,11 @@ export function PrismAuthorsDialog({
           {/* 机构 */}
           <div>
             <div className="mb-1 flex items-center justify-between">
-              <p className="text-2xs font-bold text-faint">机构(供作者上标关联)</p>
+              <p className="text-12 font-medium text-faint">机构(供作者上标关联)</p>
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-6 px-1.5 text-2xs"
+                className="h-6 px-1.5 text-12"
                 onClick={() => setAffs((xs) => [...xs, { id: nextAffID() }])}
               >
                 <Plus className="size-3" /> 添加机构
@@ -97,7 +97,7 @@ export function PrismAuthorsDialog({
             <div className="space-y-1.5">
               {affs.map((a, i) => (
                 <div key={a.id ?? i} className="flex items-center gap-1.5">
-                  <span className="w-8 shrink-0 text-center text-2xs text-faint">{i + 1}</span>
+                  <span className="w-8 shrink-0 text-center text-12 text-faint">{i + 1}</span>
                   <Input className={cn(field, 'flex-[2]')} placeholder="单位/组织(必填)" value={a.organization ?? ''} onChange={(e) => upAff(i, { organization: e.target.value })} />
                   <Input className={cn(field, 'flex-1')} placeholder="院系(可选)" value={a.department ?? ''} onChange={(e) => upAff(i, { department: e.target.value })} />
                   <Input className={cn(field, 'w-20')} placeholder="城市" value={a.city ?? ''} onChange={(e) => upAff(i, { city: e.target.value })} />
@@ -107,15 +107,15 @@ export function PrismAuthorsDialog({
                   </button>
                 </div>
               ))}
-              {affs.length === 0 && <p className="text-2xs text-faint">尚无机构 —— Elsevier 等模板要求至少一个。</p>}
+              {affs.length === 0 && <p className="text-12 text-faint">尚无机构 —— Elsevier 等模板要求至少一个。</p>}
             </div>
           </div>
 
           {/* 作者 */}
           <div>
             <div className="mb-1 flex items-center justify-between">
-              <p className="text-2xs font-bold text-faint">作者(按署名顺序)</p>
-              <Button size="sm" variant="ghost" className="h-6 px-1.5 text-2xs" onClick={() => setAuthors((xs) => [...xs, {}])}>
+              <p className="text-12 font-medium text-faint">作者(按署名顺序)</p>
+              <Button size="sm" variant="ghost" className="h-6 px-1.5 text-12" onClick={() => setAuthors((xs) => [...xs, {}])}>
                 <Plus className="size-3" /> 添加作者
               </Button>
             </div>
@@ -126,7 +126,7 @@ export function PrismAuthorsDialog({
                     <Input className={cn(field, 'flex-1')} placeholder="名 (Given)" value={a.given ?? ''} onChange={(e) => upAuthor(i, { given: e.target.value })} />
                     <Input className={cn(field, 'flex-1')} placeholder="姓 (Family)" value={a.family ?? ''} onChange={(e) => upAuthor(i, { family: e.target.value })} />
                     <Input className={cn(field, 'flex-[1.5]')} placeholder="邮箱(通讯作者需要)" value={a.email ?? ''} onChange={(e) => upAuthor(i, { email: e.target.value })} />
-                    <label className="flex shrink-0 items-center gap-1 text-2xs text-subtle">
+                    <label className="flex shrink-0 items-center gap-1 text-12 text-subtle">
                       <input type="checkbox" checked={!!a.corresponding} onChange={(e) => upAuthor(i, { corresponding: e.target.checked })} />
                       通讯
                     </label>
@@ -136,14 +136,14 @@ export function PrismAuthorsDialog({
                   </div>
                   {affs.length > 0 && (
                     <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                      <span className="text-2xs text-faint">机构:</span>
+                      <span className="text-12 text-faint">机构:</span>
                       {affs.map((af, ai) => (
                         <button
                           key={af.id ?? ai}
                           type="button"
                           onClick={() => af.id && toggleAffRef(i, af.id)}
                           className={cn(
-                            'rounded-pill border px-1.5 py-0.5 text-2xs transition-colors',
+                            'rounded-pill border px-1.5 py-0.5 text-12 transition-colors',
                             af.id && (a.affRefs ?? []).includes(af.id)
                               ? 'border-brand-green/50 bg-brand-green/10 text-foreground'
                               : 'border-border text-faint hover:bg-surface-2',
@@ -156,7 +156,7 @@ export function PrismAuthorsDialog({
                   )}
                 </div>
               ))}
-              {authors.length === 0 && <p className="text-2xs text-faint">尚无作者 —— IEEE 等模板的投稿检查会标红。</p>}
+              {authors.length === 0 && <p className="text-12 text-faint">尚无作者 —— IEEE 等模板的投稿检查会标红。</p>}
             </div>
           </div>
         </div>

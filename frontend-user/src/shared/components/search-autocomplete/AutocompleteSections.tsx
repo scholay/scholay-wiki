@@ -42,7 +42,7 @@ export function JournalSearchAlternateRow({
       )}
     >
       {/* 查询文字 —— 不可编辑,只是 echo 主框 query 让用户确认 */}
-      <span className="flex-1 min-w-0 truncate text-base text-foreground">
+      <span className="flex-1 min-w-0 truncate text-14 text-foreground">
         {query}
       </span>
       <button
@@ -50,7 +50,7 @@ export function JournalSearchAlternateRow({
         onClick={onClick}
         className={cn(
           'inline-flex h-9 items-center justify-center px-4 rounded-8',
-          'bg-brand-amber text-on-brand text-sm font-semibold whitespace-nowrap',
+          'bg-brand-amber text-on-brand text-12 font-medium whitespace-nowrap',
           'hover:bg-brand-amber/95 transition-colors'
         )}
       >
@@ -84,7 +84,7 @@ export function PaperSection({
           className="flex w-full items-center gap-3 px-5 py-2.5 text-left hover:bg-surface-1 transition-colors"
         >
           <Search className="size-3.5 shrink-0 text-faint" />
-          <span className="flex-1 min-w-0 truncate text-md">
+          <span className="flex-1 min-w-0 truncate text-14">
             {highlightQuery(p.title, query)}
           </span>
           <SourceBadge source={p.source} variant="letter" size="sm" />
@@ -117,11 +117,11 @@ export function AuthorSection({
           >
             <User className="size-3.5 shrink-0 text-faint" />
             <div className="flex-1 min-w-0">
-              <div className="text-md truncate">
+              <div className="text-14 truncate">
                 {highlightQuery(a.name ?? '未知作者', query)}
               </div>
               {(aff || a.paperCount != null || a.hIndex != null) && (
-                <div className="mt-0.5 text-xs text-faint truncate">
+                <div className="mt-0.5 text-12 text-faint truncate">
                   {aff}
                   {aff && (a.paperCount != null || a.hIndex != null) && ' · '}
                   {a.paperCount != null && <>{a.paperCount} 篇</>}
@@ -155,7 +155,7 @@ export function JournalSection({
     // .pen `a17q5P` 米黄软底,与 papers 区视觉区分(token: journal-soft)
     <div className="bg-journal-soft py-2">
       <div className="flex items-center px-5 py-1.5">
-        <span className="text-xs font-bold text-brand-red">期刊推荐</span>
+        <span className="text-12 font-medium text-brand-red">期刊推荐</span>
       </div>
       {journals.map((j, i) => (
         <button
@@ -167,14 +167,14 @@ export function JournalSection({
           <JournalCover name={j.canonical_name} index={i} />
           <div className="flex-1 min-w-0 flex flex-col gap-1">
             <div className="flex items-center gap-2 min-w-0">
-              <span className="text-md font-bold text-foreground truncate">
+              <span className="text-14 font-medium text-foreground truncate">
                 {j.canonical_name}
               </span>
-              <span className="shrink-0 inline-flex items-center rounded-pill bg-danger-soft text-brand-red text-2xs font-semibold px-1.5 py-0.5">
+              <span className="shrink-0 inline-flex items-center rounded-pill bg-danger-soft text-brand-red text-12 font-medium px-1.5 py-0.5">
                 期刊
               </span>
             </div>
-            <div className="text-sm text-muted-foreground truncate">
+            <div className="text-12 text-muted-foreground truncate">
               {j.issn_l ? `ISSN ${j.issn_l} · ` : ''}
               {j.source_count ?? 0} 个来源 · {j.openalex_works_count ?? 0} 篇收录
             </div>
@@ -196,7 +196,7 @@ function JournalCover({ name, index }: { name: string; index: number }) {
   return (
     <div
       className={cn(
-        'shrink-0 inline-flex items-center justify-center w-11 h-14 rounded-8 border border-foreground/15 text-background font-display font-bold text-md',
+        'shrink-0 inline-flex items-center justify-center w-11 h-14 rounded-8 border border-foreground/15 text-background font-display font-bold text-14',
         bg
       )}
     >
@@ -211,7 +211,7 @@ function JournalCover({ name, index }: { name: string; index: number }) {
 
 function SectionHeader({ children }: { children: ReactNode }) {
   return (
-    <div className="px-5 py-1.5 text-xs font-semibold text-faint">{children}</div>
+    <div className="px-5 py-1.5 text-12 font-medium text-faint">{children}</div>
   );
 }
 
@@ -231,7 +231,7 @@ function highlightQuery(text: string, query: string): ReactNode {
   return (
     <>
       {before && <span className="text-subtle">{before}</span>}
-      <span className="text-foreground font-semibold">{hit}</span>
+      <span className="text-foreground font-medium">{hit}</span>
       {after && <span className="text-subtle">{after}</span>}
     </>
   );

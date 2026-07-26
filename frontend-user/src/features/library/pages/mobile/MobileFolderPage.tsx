@@ -109,7 +109,7 @@ export function MobileFolderPage() {
         >
           <ChevronLeft className="size-5" />
         </button>
-        <h1 className="min-w-0 flex-1 truncate text-md font-semibold text-foreground">
+        <h1 className="min-w-0 flex-1 truncate text-16 font-medium text-foreground">
           {folder?.name ?? '文献集'}
         </h1>
         {rows.length > 0 && folder && (
@@ -131,7 +131,7 @@ export function MobileFolderPage() {
                   .filter((p) => p.title),
               })
             }
-            className="flex items-center gap-1 rounded-pill border border-border px-3 py-1.5 text-xs text-muted-foreground transition-transform active:scale-95 active:bg-surface-2"
+            className="flex items-center gap-1 rounded-pill border border-border px-3 py-1.5 text-12 text-muted-foreground transition-transform active:scale-95 active:bg-surface-2"
           >
             <Share2 className="size-3.5" /> 分享整本
           </button>
@@ -147,7 +147,7 @@ export function MobileFolderPage() {
         {papersQ.isLoading ? (
           <MobilePaperRowSkeletonList />
         ) : papers.length === 0 ? (
-          <p className="py-12 text-center text-sm text-faint">这个文献集还没有论文</p>
+          <p className="py-12 text-center text-14 text-faint">这个文献集还没有论文</p>
         ) : (
           <>
             <div style={{ height: rowVirtualizer.getTotalSize(), position: 'relative', width: '100%' }}>

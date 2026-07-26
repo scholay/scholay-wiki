@@ -56,17 +56,17 @@ export function EditorialCheckPanel({ submission }: EditorialCheckPanelProps) {
     <article className="flex flex-col gap-7">
       {/* 头部段落 */}
       <header className="flex flex-col gap-2">
-        <p className="text-xs font-bold text-faint">编辑部初审</p>
-        <h2 className="font-serif text-2xl font-bold text-foreground">四项基础检查 · 全部通过</h2>
-        <p className="text-base leading-paragraph text-muted-foreground">
+        <p className="text-12 font-medium text-faint">编辑部初审</p>
+        <h2 className="font-serif text-24 font-bold text-foreground">四项基础检查 · 全部通过</h2>
+        <p className="text-14 leading-paragraph text-muted-foreground">
           编辑部初审仅做基础性合规检查;只有本环节通过,稿件才会被送往三位匿名审稿人。
         </p>
       </header>
 
       {/* 初审结论 — 左侧黑色 2px 引线 */}
       <section className="border-l-2 border-foreground py-4 pl-6">
-        <p className="mb-2 text-xs font-bold text-faint">初审结论</p>
-        <p className="font-serif text-lg italic font-semibold leading-paragraph text-foreground">
+        <p className="mb-2 text-12 font-medium text-faint">初审结论</p>
+        <p className="font-serif text-16 italic font-medium leading-paragraph text-foreground">
           稿件四项检查全部达标,已自动转入同行评审环节,分配三位匿名 AI 审稿人 A / B / C 并行评分。
         </p>
       </section>
@@ -74,13 +74,13 @@ export function EditorialCheckPanel({ submission }: EditorialCheckPanelProps) {
       {/* 检查明细表 */}
       <section>
         <header className="flex items-end justify-between border-b-2 border-foreground pb-1">
-          <h3 className="font-serif text-lg font-bold text-foreground">检查明细</h3>
-          <p className="text-xs text-faint">4 项 · 通过 4 · 警示 0 · 失败 0</p>
+          <h3 className="font-serif text-16 font-bold text-foreground">检查明细</h3>
+          <p className="text-12 text-faint">4 项 · 通过 4 · 警示 0 · 失败 0</p>
         </header>
         {/* 表头 */}
         <div className="grid grid-cols-[170px_120px_120px_80px_1fr] gap-3 py-2.5">
           {['检查项', '指标', '阈值', '结论', '说明'].map((h) => (
-            <p key={h} className="text-xs font-bold text-faint">
+            <p key={h} className="text-12 font-medium text-faint">
               {h}
             </p>
           ))}
@@ -93,23 +93,23 @@ export function EditorialCheckPanel({ submission }: EditorialCheckPanelProps) {
               idx === 0 ? 'border-t border-border-soft' : 'border-t border-border-soft'
             } ${idx === CHECKS.length - 1 ? 'border-b border-border-soft' : ''}`}
           >
-            <p className="text-base font-bold text-foreground">{item.name}</p>
-            <p className="text-base text-subtle">{item.indicator}</p>
-            <p className="text-base text-muted-foreground">{item.threshold}</p>
-            <p className="text-base font-bold text-foreground">{item.conclusion}</p>
-            <p className="text-base leading-paragraph text-subtle">{item.comment}</p>
+            <p className="text-14 font-medium text-foreground">{item.name}</p>
+            <p className="text-14 text-subtle">{item.indicator}</p>
+            <p className="text-14 text-muted-foreground">{item.threshold}</p>
+            <p className="text-14 font-medium text-foreground">{item.conclusion}</p>
+            <p className="text-14 leading-paragraph text-subtle">{item.comment}</p>
           </div>
         ))}
       </section>
 
       {/* 签署 */}
       <footer className="flex items-center gap-4 border-t border-foreground pt-4">
-        <p className="w-24 shrink-0 text-xs font-bold text-faint">编辑部签署</p>
+        <p className="w-24 shrink-0 text-12 font-medium text-faint">编辑部签署</p>
         <div className="flex-1 space-y-0.5">
-          <p className="text-base font-semibold text-subtle">
+          <p className="text-14 font-medium text-subtle">
             AI 编辑部初审 · 自动检查通过 · {formatDate(submission.submittedAt)}
           </p>
-          <p className="text-sm italic text-muted-foreground">
+          <p className="text-12 italic text-muted-foreground">
             四项检查全部达标 · 稿件已送往三位匿名审稿人,进入下一环节后本页结果归档不再变动。
           </p>
         </div>

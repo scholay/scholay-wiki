@@ -25,7 +25,7 @@ function CTAButton2({
   const Inner = (
     <span
       className={cn(
-        'inline-flex items-center gap-2 h-12 px-6 rounded-8 text-md font-semibold transition-colors whitespace-nowrap',
+        'inline-flex items-center gap-2 h-12 px-6 rounded-8 text-14 font-medium transition-colors whitespace-nowrap',
         isPrimary
           ? 'bg-foreground text-background hover:bg-foreground/85'
           : 'bg-surface-card border border-foreground text-foreground hover:bg-surface-1'

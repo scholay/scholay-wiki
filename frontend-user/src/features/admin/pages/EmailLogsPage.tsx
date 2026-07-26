@@ -9,7 +9,7 @@ import { DataTable, type Column } from '../components/DataTable';
 import { Pagination } from '../components/Pagination';
 import { useEmailLogs, type EmailLog, type SendChannel } from '../api/email-logs';
 
-const SELECT_CLS = 'h-8 rounded-8 border border-input bg-surface-card px-2 text-xs text-foreground';
+const SELECT_CLS = 'h-8 rounded-8 border border-input bg-surface-card px-2 text-12 text-foreground';
 
 const CAT_LABEL: Record<string, string> = {
   verification: '验证码',
@@ -57,11 +57,11 @@ export function EmailLogsPage() {
       width: 70,
       cell: (r) =>
         r.status === 'success' ? (
-          <span className="inline-flex items-center gap-1 rounded-pill bg-brand-green/10 px-2 py-0.5 text-2xs font-medium text-brand-green">
+          <span className="inline-flex items-center gap-1 rounded-pill bg-brand-green/10 px-2 py-0.5 text-12 font-medium text-brand-green">
             <CheckCircle2 className="size-3" /> 成功
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1 rounded-pill bg-danger-soft px-2 py-0.5 text-2xs font-medium text-brand-red">
+          <span className="inline-flex items-center gap-1 rounded-pill bg-danger-soft px-2 py-0.5 text-12 font-medium text-brand-red">
             <XCircle className="size-3" /> 失败
           </span>
         ),
@@ -69,22 +69,22 @@ export function EmailLogsPage() {
     {
       header: isSms ? '手机号' : '收件人',
       width: 170,
-      cell: (r) => <span className="select-all break-all font-mono text-xs text-foreground">{r.to_email || '—'}</span>,
+      cell: (r) => <span className="select-all break-all font-mono text-12 text-foreground">{r.to_email || '—'}</span>,
     },
     {
       header: isSms ? '模板内容' : '主题',
-      cell: (r) => <span className="text-xs text-subtle" title={r.subject}>{r.subject || '—'}</span>,
+      cell: (r) => <span className="text-12 text-subtle" title={r.subject}>{r.subject || '—'}</span>,
     },
     {
       header: '类别',
       width: 70,
-      cell: (r) => <span className="text-2xs text-faint">{CAT_LABEL[r.category] ?? r.category}</span>,
+      cell: (r) => <span className="text-12 text-faint">{CAT_LABEL[r.category] ?? r.category}</span>,
     },
     {
       header: isSms ? '签名' : '发件人',
       width: 150,
       cell: (r) => (
-        <span className="truncate text-2xs text-faint" title={isSms ? r.from_name : `${r.from_name} <${r.from_email}>`}>
+        <span className="truncate text-12 text-faint" title={isSms ? r.from_name : `${r.from_name} <${r.from_email}>`}>
           {(isSms ? r.from_name : r.from_email) || '—'}
         </span>
       ),
@@ -94,18 +94,18 @@ export function EmailLogsPage() {
       width: 200,
       cell: (r) =>
         r.error ? (
-          <span className="block max-w-[200px] truncate text-2xs text-brand-red" title={r.error}>
+          <span className="block max-w-[200px] truncate text-12 text-brand-red" title={r.error}>
             {r.error}
           </span>
         ) : (
-          <span className="text-2xs text-faint">—</span>
+          <span className="text-12 text-faint">—</span>
         ),
     },
     {
       header: '发送时间',
       width: 150,
       cell: (r) => (
-        <span className="text-2xs tabular-nums text-faint">{r.created_at?.slice(0, 19).replace('T', ' ')}</span>
+        <span className="text-12 tabular-nums text-faint">{r.created_at?.slice(0, 19).replace('T', ' ')}</span>
       ),
     },
   ];
@@ -125,7 +125,7 @@ export function EmailLogsPage() {
                 setPage(1);
               }}
               className={cn(
-                'flex items-center gap-1.5 rounded-8 px-4 py-1.5 text-xs font-medium transition-colors',
+                'flex items-center gap-1.5 rounded-8 px-4 py-1.5 text-12 font-medium transition-colors',
                 active ?'bg-surface-card text-foreground shadow-raised':'text-faint hover:text-foreground',
               )}
             >
@@ -185,7 +185,7 @@ export function EmailLogsPage() {
                 setPage(1);
               }}
               placeholder={isSms ? '手机号或模板关键词' : '邮箱地址或主题关键词'}
-              className="h-7 w-full min-w-0 border-0 bg-transparent px-0 text-xs focus-visible:ring-0 sm:w-56"
+              className="h-7 w-full min-w-0 border-0 bg-transparent px-0 text-12 focus-visible:ring-0 sm:w-56"
             />
           </div>
         </Field>
@@ -205,7 +205,7 @@ export function EmailLogsPage() {
 function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
     <div className={cn('space-y-1', className)}>
-      <Label className="text-2xs text-faint">{label}</Label>
+      <Label className="text-12 text-faint">{label}</Label>
       {children}
     </div>
   );
@@ -229,8 +229,8 @@ function StatCard({
         <Icon className="size-4" />
       </span>
       <div className="flex flex-col">
-        <span className={cn('text-xl font-bold leading-none tabular-nums', color)}>{value.toLocaleString()}</span>
-        <span className="mt-0.5 text-2xs text-faint">{label}</span>
+        <span className={cn('text-20 font-medium leading-none tabular-nums', color)}>{value.toLocaleString()}</span>
+        <span className="mt-0.5 text-12 text-faint">{label}</span>
       </div>
     </div>
   );

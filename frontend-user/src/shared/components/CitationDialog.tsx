@@ -92,7 +92,7 @@ export function CitationDialog({
                 onClick={() => setFormat(f)}
                 onDoubleClick={() => setAsDefault(f)}
                 className={cn(
-                  'h-7 shrink-0 px-3 rounded-8 text-xs font-bold transition-colors',
+                  'h-7 shrink-0 px-3 rounded-8 text-12 font-medium transition-colors',
                   format === f
                     ? 'bg-foreground text-background'
                     : 'text-muted-foreground hover:bg-surface-1 hover:text-foreground'
@@ -107,7 +107,7 @@ export function CitationDialog({
             type="button"
             onClick={handleCopy}
             disabled={!citation}
-            className="inline-flex h-7 shrink-0 items-center gap-1 rounded-8 border border-border bg-surface-card px-2.5 text-2xs font-bold text-subtle transition-colors hover:border-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-7 shrink-0 items-center gap-1 rounded-8 border border-border bg-surface-card px-2.5 text-12 font-medium text-subtle transition-colors hover:border-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
             aria-label={`复制 ${CITATION_FORMAT_LABELS[format]}`}
           >
             <Copy className="size-3" strokeWidth={2.5} />
@@ -121,17 +121,17 @@ export function CitationDialog({
             max-w-2xl;给本 div 加 min-w-0,长行就只在 pre 内部 overflow-x-auto 横滚 */}
         <div className="min-w-0">
           {isMono ? (
-            <pre className="w-full rounded-12 bg-surface-1 border border-border px-5 py-4 font-mono text-xs leading-paragraph text-subtle overflow-x-auto whitespace-pre max-h-[360px]">
+            <pre className="w-full rounded-12 bg-surface-1 border border-border px-5 py-4 font-mono text-12 leading-paragraph text-subtle overflow-x-auto whitespace-pre max-h-[360px]">
               {citation || '—'}
             </pre>
           ) : (
-            <p className="rounded-12 bg-surface-1 border border-border px-5 py-4 text-sm leading-paragraph text-subtle max-h-[360px] overflow-y-auto break-words">
+            <p className="rounded-12 bg-surface-1 border border-border px-5 py-4 text-14 leading-paragraph text-subtle max-h-[360px] overflow-y-auto break-words">
               {citation ? <CitationProse text={citation} /> : '—'}
             </p>
           )}
         </div>
 
-        <p className="text-2xs text-faint">
+        <p className="text-12 text-faint">
           单击切换格式 · 双击格式名设为默认
         </p>
       </DialogContent>

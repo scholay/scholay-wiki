@@ -36,9 +36,9 @@ export function LandingNav() {
                 key={k}
                 to={to}
                 className={cn(
-                  'text-sm whitespace-nowrap transition-colors',
+                  'text-12 whitespace-nowrap transition-colors',
                   active
-                    ? 'text-foreground font-semibold'
+                    ? 'text-foreground font-medium'
                     : 'text-subtle hover:text-foreground'
                 )}
               >
@@ -52,7 +52,7 @@ export function LandingNav() {
           {authenticated ? (
             <Link
               to="/library"
-              className="inline-flex items-center h-9 px-4 rounded-8 bg-foreground text-background text-sm font-semibold hover:bg-foreground/85 transition-colors"
+              className="inline-flex items-center h-9 px-4 rounded-8 bg-foreground text-background text-14 font-medium hover:bg-foreground/85 transition-colors"
             >
               进入工作台
             </Link>
@@ -61,14 +61,14 @@ export function LandingNav() {
               <button
                 type="button"
                 onClick={() => openDialog('login')}
-                className="text-sm text-subtle hover:text-foreground transition-colors px-3 h-9"
+                className="text-14 text-subtle hover:text-foreground transition-colors px-3 h-9"
               >
                 登录
               </button>
               <button
                 type="button"
                 onClick={() => openDialog('register')}
-                className="inline-flex items-center h-9 px-4 rounded-8 bg-foreground text-background text-sm font-semibold hover:bg-foreground/85 transition-colors"
+                className="inline-flex items-center h-9 px-4 rounded-8 bg-foreground text-background text-14 font-medium hover:bg-foreground/85 transition-colors"
               >
                 免费注册
               </button>

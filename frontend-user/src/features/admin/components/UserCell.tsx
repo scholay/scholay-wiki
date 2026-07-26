@@ -53,7 +53,7 @@ export function UserCell(props: UserCellProps) {
   const vip = useUserVipStatus(open && id ? id : undefined);
 
   if (id == null) {
-    return <span className="text-2xs text-faint">{anonymousLabel}</span>;
+    return <span className="text-12 text-faint">{anonymousLabel}</span>;
   }
 
   return (
@@ -64,18 +64,18 @@ export function UserCell(props: UserCellProps) {
           className="group flex min-w-0 items-center gap-1.5 text-left"
           title="查看用户概览"
         >
-          <span className="truncate text-xs font-medium text-foreground transition-colors group-hover:text-brand-red">
+          <span className="truncate text-12 font-medium text-foreground transition-colors group-hover:text-brand-red">
             {displayName(props)}
           </span>
-          <span className="shrink-0 rounded-4 bg-surface-2 px-1 font-mono text-2xs text-faint">#{id}</span>
+          <span className="shrink-0 rounded-4 bg-surface-2 px-1 font-mono text-12 text-faint">#{id}</span>
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-72 p-0 text-xs">
+      <PopoverContent align="start" className="w-72 p-0 text-12">
         {/* 头部:名称 + #ID + 会员角标 */}
         <div className="flex items-center justify-between gap-2 border-b border-border-soft px-3 py-2.5">
           <div className="flex min-w-0 items-center gap-1.5">
-            <span className="truncate text-sm font-semibold text-foreground">{displayName(props)}</span>
-            <span className="shrink-0 rounded-4 bg-surface-2 px-1 font-mono text-2xs text-faint">#{id}</span>
+            <span className="truncate text-12 font-medium text-foreground">{displayName(props)}</span>
+            <span className="shrink-0 rounded-4 bg-surface-2 px-1 font-mono text-12 text-faint">#{id}</span>
           </div>
           <TierBadge tier={vip.data?.tier} loading={vip.isLoading} />
         </div>
@@ -99,7 +99,7 @@ export function UserCell(props: UserCellProps) {
             ) : vip.data ? (
               <VipSummary v={vip.data} />
             ) : (
-              <span className="text-2xs text-faint">暂无会员信息</span>
+              <span className="text-12 text-faint">暂无会员信息</span>
             )}
           </Block>
         </div>
@@ -111,7 +111,7 @@ export function UserCell(props: UserCellProps) {
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="flex flex-col gap-1.5">
-      <h5 className="text-2xs font-bold text-faint">{title}</h5>
+      <h5 className="text-12 font-medium text-faint">{title}</h5>
       {children}
     </section>
   );
@@ -119,7 +119,7 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
 
 function LoadingRow({ text }: { text: string }) {
   return (
-    <span className="flex items-center gap-1.5 text-2xs text-faint">
+    <span className="flex items-center gap-1.5 text-12 text-faint">
       <Loader2 className="size-3 animate-spin" /> {text}
     </span>
   );
@@ -132,7 +132,7 @@ function TierBadge({ tier, loading }: { tier?: string; loading?: boolean }) {
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center gap-1 rounded-pill px-1.5 py-0.5 text-2xs font-bold',
+        'inline-flex shrink-0 items-center gap-1 rounded-pill px-1.5 py-0.5 text-12 font-medium',
         isPro ? 'bg-prism-badge-bg text-prism-badge-fg' : 'bg-surface-2 text-faint',
       )}
     >
@@ -144,7 +144,7 @@ function TierBadge({ tier, loading }: { tier?: string; loading?: boolean }) {
 
 function MethodRow({ icon: Icon, value, verified }: { icon: typeof Mail; value: string; verified?: boolean }) {
   return (
-    <span className="flex items-center gap-1.5 text-2xs text-subtle">
+    <span className="flex items-center gap-1.5 text-12 text-subtle">
       <Icon className="size-3 shrink-0 text-faint" />
       <span className="break-all">{value}</span>
       {verified && <CheckCircle2 className="size-3 shrink-0 text-brand-green" />}
@@ -155,13 +155,13 @@ function MethodRow({ icon: Icon, value, verified }: { icon: typeof Mail; value: 
 function LoginMethods({ d }: { d: UserLoginMethods }) {
   const providers = d.auth_providers ?? [];
   const hasAny = d.email || d.phone || providers.length > 0;
-  if (!hasAny) return <span className="text-2xs text-faint">暂无登录方式信息</span>;
+  if (!hasAny) return <span className="text-12 text-faint">暂无登录方式信息</span>;
   return (
     <>
       {d.email && <MethodRow icon={Mail} value={d.email} verified={d.email_verified} />}
       {d.phone && <MethodRow icon={Smartphone} value={d.phone} verified={d.phone_verified} />}
       {providers.length > 0 && (
-        <span className="flex flex-wrap items-center gap-1 text-2xs text-faint">
+        <span className="flex flex-wrap items-center gap-1 text-12 text-faint">
           <Link2 className="size-3 shrink-0" />
           {providers.map((p) => (
             <span key={p.provider} className="rounded-pill bg-surface-2 px-1.5 py-0.5 text-subtle">
@@ -177,7 +177,7 @@ function LoginMethods({ d }: { d: UserLoginMethods }) {
 }
 
 function FallbackMethods({ email, phone }: { email?: string | null; phone?: string | null }) {
-  if (!email && !phone) return <span className="text-2xs text-faint">暂无登录方式信息</span>;
+  if (!email && !phone) return <span className="text-12 text-faint">暂无登录方式信息</span>;
   return (
     <>
       {email && <MethodRow icon={Mail} value={email} />}
@@ -190,14 +190,14 @@ function VipSummary({ v }: { v: UserVipStatus }) {
   const isPro = v.tier === 'pro' || v.tier === 'max';
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="flex items-center justify-between text-2xs">
+      <span className="flex items-center justify-between text-12">
         <span className="text-faint">会员</span>
         <span className={cn('font-medium', isPro ? 'text-brand-amber' : 'text-subtle')}>
           {TIER_LABEL[v.tier]}
           {isPro && (v.expires_at ? ` · 至 ${v.expires_at.slice(0, 10)}` : ' · 永久')}
         </span>
       </span>
-      <span className="flex items-center justify-between text-2xs">
+      <span className="flex items-center justify-between text-12">
         <span className="flex items-center gap-1 text-faint">
           <Wallet className="size-3" />
           科研经费
@@ -213,11 +213,11 @@ function VipSummary({ v }: { v: UserVipStatus }) {
 
 // 仅显示名称 + #ID(不带展开),给空间紧凑或无需展开的位置用。
 export function UserInline({ id, name, email, phone }: UserCellProps) {
-  if (id == null) return <span className="text-2xs text-faint">公众号 / 匿名</span>;
+  if (id == null) return <span className="text-12 text-faint">公众号 / 匿名</span>;
   return (
     <span className={cn('inline-flex items-center gap-1.5')}>
-      <span className="truncate text-xs font-medium text-foreground">{displayName({ id, name, email, phone })}</span>
-      <span className="shrink-0 rounded-4 bg-surface-2 px-1 font-mono text-2xs text-faint">#{id}</span>
+      <span className="truncate text-12 font-medium text-foreground">{displayName({ id, name, email, phone })}</span>
+      <span className="shrink-0 rounded-4 bg-surface-2 px-1 font-mono text-12 text-faint">#{id}</span>
     </span>
   );
 }

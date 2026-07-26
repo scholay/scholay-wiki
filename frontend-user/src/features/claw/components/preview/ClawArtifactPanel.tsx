@@ -62,7 +62,7 @@ export function ClawArtifactPanel({
           <button
             type="button"
             onClick={onClosePreview}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            className="flex items-center gap-1.5 text-12 text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             返回成果列表
@@ -85,7 +85,7 @@ export function ClawArtifactPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface-1">
-      <header className="flex h-9 shrink-0 items-center gap-1.5 border-b border-border px-3 text-xs font-semibold text-foreground">
+      <header className="flex h-9 shrink-0 items-center gap-1.5 border-b border-border px-3 text-14 font-medium text-foreground">
         <FolderArchive className="h-3.5 w-3.5 text-brand-green" />
         成果文件
         {artifacts.length > 0 && <span className="text-faint">· {artifacts.length}</span>}
@@ -95,7 +95,7 @@ export function ClawArtifactPanel({
         {artifacts.length > 0 ? (
           <TurnArtifacts sessionId={sessionId} files={artifacts} onPreview={onPreview} basePath={basePath} />
         ) : (
-          <div className="flex h-full items-center justify-center px-4 text-center text-xs text-faint">
+          <div className="flex h-full items-center justify-center px-4 text-center text-12 text-faint">
             {emptyHint ?? '助手生成的文件会出现在这里'}
           </div>
         )}

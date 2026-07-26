@@ -34,11 +34,11 @@ export function ToolsSkillsPage() {
       />
 
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="text-base font-bold text-foreground">
+        <h2 className="text-16 font-medium text-foreground">
           {rawQ ? `“${rawQ}” 的结果` : '社区技能'}
         </h2>
         <div className="flex shrink-0 items-center gap-2">
-          <span className="text-xs text-faint">共 {total} 个</span>
+          <span className="text-12 text-faint">共 {total} 个</span>
           <Button asChild variant="outline" size="sm">
             <Link to="/skills/new">
               <Plus className="mr-1 h-4 w-4" />

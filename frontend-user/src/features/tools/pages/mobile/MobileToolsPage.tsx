@@ -111,7 +111,7 @@ export function MobileToolsPage() {
           >
             <ChevronLeft className="size-5" />
           </button>
-          <h1 className="text-lg font-semibold text-foreground">功能广场</h1>
+          <h1 className="text-16 font-medium text-foreground">功能广场</h1>
         </div>
         <div className="flex items-center gap-2">
           <form
@@ -126,7 +126,7 @@ export function MobileToolsPage() {
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder="搜索网站、工具、数据库…"
-              className="min-w-0 flex-1 bg-transparent text-md text-foreground outline-none placeholder:text-faint"
+              className="min-w-0 flex-1 bg-transparent text-14 text-foreground outline-none placeholder:text-faint"
             />
             {draft && (
               <button
@@ -149,7 +149,7 @@ export function MobileToolsPage() {
           >
             <SlidersHorizontal className="size-4" />
             {activeFilterCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex min-w-4 items-center justify-center rounded-pill bg-brand-red px-1 text-2xs font-semibold text-on-brand">
+              <span className="absolute -right-1 -top-1 flex min-w-4 items-center justify-center rounded-pill bg-brand-red px-1 text-12 font-medium text-on-brand">
                 {activeFilterCount}
               </span>
             )}
@@ -184,18 +184,18 @@ export function MobileToolsPage() {
           <div className="flex h-40 items-center justify-center">
             <CyclingHint
               phrases={['正在加载科研工具…', '统计 / 绘图 / 文献 / LaTeX…']}
-              className="text-sm text-muted-foreground"
+              className="text-12 text-muted-foreground"
             />
           </div>
         )}
 
         {listQ.isError && tools.length === 0 && (
           <div className="flex h-40 flex-col items-center justify-center gap-2">
-            <p className="text-sm text-muted-foreground">加载失败</p>
+            <p className="text-12 text-muted-foreground">加载失败</p>
             <button
               type="button"
               onClick={() => void listQ.refetch()}
-              className="rounded-pill border border-border-button px-4 py-1.5 text-sm text-foreground"
+              className="rounded-pill border border-border-button px-4 py-1.5 text-12 text-foreground"
             >
               重试
             </button>
@@ -203,7 +203,7 @@ export function MobileToolsPage() {
         )}
 
         {!listQ.isLoading && tools.length === 0 && !listQ.isError && (
-          <p className="py-16 text-center text-sm text-faint">
+          <p className="py-16 text-center text-12 text-faint">
             没有匹配的工具,换个关键词试试
           </p>
         )}
@@ -211,7 +211,7 @@ export function MobileToolsPage() {
         {tools.length > 0 && (
           <>
             {total != null && (
-              <p className="px-4 pt-3 text-xs text-faint">共 {total} 个工具</p>
+              <p className="px-4 pt-3 text-12 text-faint">共 {total} 个工具</p>
             )}
             <ul
               style={{ height: toolVirtualizer.getTotalSize(), position: 'relative', width: '100%' }}
@@ -244,7 +244,7 @@ export function MobileToolsPage() {
 
         <div ref={sentinelRef} className="h-10">
           {isFetchingNextPage && (
-            <p className="text-center text-xs text-faint">加载中…</p>
+            <p className="text-center text-12 text-faint">加载中…</p>
           )}
         </div>
       </div>
@@ -274,7 +274,7 @@ function CategoryChip({
       type="button"
       onClick={onClick}
       className={cn(
-        'shrink-0 rounded-pill border px-3 py-1.5 text-xs whitespace-nowrap transition-colors',
+        'shrink-0 rounded-pill border px-3 py-1.5 text-12 whitespace-nowrap transition-colors',
         active
           ? 'border-foreground bg-foreground font-medium text-on-brand'
           : 'border-border bg-surface-card text-muted-foreground'
@@ -292,20 +292,20 @@ function MobileToolRow({ tool }: { tool: FeatureTool }) {
       to={`/m/tools/${tool.slug || tool.id}`}
       className="flex items-center gap-3 rounded-16 border border-border bg-surface-card p-3 transition-transform active:scale-[0.98] active:bg-surface-2"
     >
-      <ToolLogo tool={tool} className="h-11 w-11" textClass="text-lg" />
+      <ToolLogo tool={tool} className="h-11 w-11" textClass="text-16" />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="truncate text-md font-medium text-foreground">
+          <span className="truncate text-14 font-medium text-foreground">
             {tool.name}
           </span>
           {tool.price_type && (
-            <span className="shrink-0 rounded-4 bg-surface-2 px-1.5 py-0.5 text-2xs text-muted-foreground">
+            <span className="shrink-0 rounded-4 bg-surface-2 px-1.5 py-0.5 text-12 text-muted-foreground">
               {PRICE_TYPE_LABEL[tool.price_type] ?? tool.price_type}
             </span>
           )}
         </div>
         {tool.tagline && (
-          <p className="mt-0.5 line-clamp-2 text-xs leading-paragraph text-muted-foreground">
+          <p className="mt-0.5 line-clamp-2 text-12 leading-paragraph text-muted-foreground">
             {tool.tagline}
           </p>
         )}

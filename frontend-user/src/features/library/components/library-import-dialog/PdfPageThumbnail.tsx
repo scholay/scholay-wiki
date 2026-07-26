@@ -71,7 +71,7 @@ function Fallback() {
 
 function ErrorFallback() {
   return (
-    <div className="flex items-center justify-center w-full min-h-[320px] text-xs text-faint">
+    <div className="flex items-center justify-center w-full min-h-[320px] text-12 text-faint">
       预览不可用
     </div>
   );

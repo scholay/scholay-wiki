@@ -20,10 +20,10 @@ export function StagedRow({
       <span className="inline-flex h-4 w-4 items-center justify-center rounded-pill bg-brand-green text-on-brand shrink-0">
         <Check className="size-2.5" strokeWidth={3.5} />
       </span>
-      <span className="flex-1 min-w-0 text-sm text-subtle line-clamp-2">
+      <span className="flex-1 min-w-0 text-12 text-subtle line-clamp-2">
         {paper.title || '无标题'}
       </span>
-      <span className="inline-flex items-center px-1.5 py-px rounded-4 bg-brand-green/10 text-brand-green text-2xs font-bold shrink-0">
+      <span className="inline-flex items-center px-1.5 py-px rounded-4 bg-brand-green/10 text-brand-green text-12 font-medium shrink-0">
         已暂存
       </span>
       <button

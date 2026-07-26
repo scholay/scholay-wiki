@@ -209,7 +209,7 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
             }}
             autoFocus={autoFocus}
             placeholder={placeholder}
-            className="flex-1 h-auto bg-transparent text-base outline-none placeholder:text-faint"
+            className="flex-1 h-auto bg-transparent text-14 outline-none placeholder:text-faint"
           />
           {value && (
             <button

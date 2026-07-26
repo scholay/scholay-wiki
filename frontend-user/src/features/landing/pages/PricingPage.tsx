@@ -66,9 +66,9 @@ export function PricingPage() {
       />
       <section className="mx-auto max-w-6xl px-6 py-12 md:py-16">
         <div className="rounded-16 border border-border bg-surface-1 p-6 md:p-10">
-          <p className="text-xs font-bold text-brand-red">SCHOLAY 学者订阅</p>
-          <h1 className="mt-1 text-2xl font-bold text-foreground">学者订阅计划</h1>
-          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+          <p className="text-12 font-medium text-brand-red">SCHOLAY 学者订阅</p>
+          <h1 className="mt-1 text-24 font-medium text-foreground">学者订阅计划</h1>
+          <p className="mt-2 max-w-2xl text-12 text-muted-foreground">
             会员订阅提供更高的 AI 额度(按 7 天周期计算,首次使用开始计时、到期自动重置满额)与每月赠送的科研经费。额度耗尽后可消耗经费
             {resetCost ? `(每次 ${resetCost} 经费)` : ''}立即重置。
           </p>
@@ -96,7 +96,7 @@ export function PricingPage() {
                     isFree ? (
                       <Link
                         to="/"
-                        className="inline-flex h-10 items-center justify-center rounded-8 border border-border-button text-sm font-bold text-faint transition-colors hover:bg-surface-2"
+                        className="inline-flex h-10 items-center justify-center rounded-8 border border-border-button text-14 font-medium text-faint transition-colors hover:bg-surface-2"
                       >
                         FREE
                       </Link>
@@ -105,7 +105,7 @@ export function PricingPage() {
                         onClick={() => !cta.disabled && onSubscribe(p.tier as 'pro' | 'max')}
                         disabled={cta.disabled}
                         className={cn(
-                          'inline-flex h-10 items-center justify-center gap-2 rounded-8 text-sm font-bold transition-colors',
+                          'inline-flex h-10 items-center justify-center gap-2 rounded-8 text-14 font-medium transition-colors',
                           cta.disabled
                             ? 'cursor-not-allowed border border-border-button text-faint'
                             : popular

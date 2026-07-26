@@ -73,16 +73,16 @@ export function RecordTabsBar({
             type="button"
             onClick={() => onTabChange(t.key)}
             className={cn(
-              'flex items-center gap-1.5 border-b-2 pb-2 text-sm transition-colors',
+              'flex items-center gap-1.5 border-b-2 pb-2 text-12 transition-colors',
               active
-                ? 'border-brand-red font-bold text-foreground'
+                ? 'border-brand-red font-medium text-foreground'
                 : 'border-transparent text-muted-foreground hover:text-foreground',
             )}
           >
             {t.icon ?? <span className={cn('size-2 shrink-0 rounded-pill', t.dotCls)} />}
             <span>{t.label}</span>
             {t.badge && (
-              <span className={cn('rounded-pill px-1.5 py-0.5 text-2xs font-bold tabular-nums', t.badge.cls)}>
+              <span className={cn('rounded-pill px-1.5 py-0.5 text-12 font-medium tabular-nums', t.badge.cls)}>
                 {t.badge.text}
               </span>
             )}
@@ -105,7 +105,7 @@ export function AssetsSection({
 }) {
   return (
     <div>
-      <div className="mb-1.5 text-2xs text-faint">稿件文件 ({assets.length})</div>
+      <div className="mb-1.5 text-12 text-faint">稿件文件 ({assets.length})</div>
       <div className="space-y-1.5">
         {assets.map((a) => {
           const src = `/admin/peer-review/submissions/${submissionId}/assets/${a.id}`;
@@ -113,10 +113,10 @@ export function AssetsSection({
             <div key={a.id} className="rounded-12 border border-border bg-surface-1 p-2.5">
               <div className="flex flex-wrap items-center gap-2">
                 <FileText className="size-4 shrink-0 text-faint" />
-                <span className="min-w-0 truncate text-xs font-medium text-foreground" title={a.filename}>
+                <span className="min-w-0 truncate text-12 font-medium text-foreground" title={a.filename}>
                   {a.filename}
                 </span>
-                <span className="text-2xs text-faint">
+                <span className="text-12 text-faint">
                   {a.role}
                   {a.category ? `/${a.category}` : ''} · {(a.size / 1024).toFixed(0)}KB · {a.mime}
                   {a.textChars != null ? ` · 抽取 ${a.textChars} 字` : ''}
@@ -146,8 +146,8 @@ export function AssetsSection({
               </div>
               {a.textExcerpt && (
                 <details className="mt-1.5">
-                  <summary className="cursor-pointer text-2xs text-faint">AI 实际读到的抽取文本(节选)</summary>
-                  <pre className="mt-1 max-h-72 overflow-auto whitespace-pre-wrap break-words text-2xs text-muted-foreground">
+                  <summary className="cursor-pointer text-12 text-faint">AI 实际读到的抽取文本(节选)</summary>
+                  <pre className="mt-1 max-h-72 overflow-auto whitespace-pre-wrap break-words text-12 text-muted-foreground">
                     {a.textExcerpt}
                   </pre>
                 </details>
@@ -164,8 +164,8 @@ export function AssetsSection({
 export function RawDebug({ detail }: { detail: PRSubmissionDetail }) {
   return (
     <details className="rounded-12 border border-border-soft bg-surface-1 p-2.5">
-      <summary className="cursor-pointer text-2xs text-faint">调试数据 · 原始字段 / JSON</summary>
-      <pre className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap break-words text-2xs text-muted-foreground">
+      <summary className="cursor-pointer text-12 text-faint">调试数据 · 原始字段 / JSON</summary>
+      <pre className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap break-words text-12 text-muted-foreground">
         {JSON.stringify(detail, null, 2)}
       </pre>
     </details>

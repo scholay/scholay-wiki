@@ -80,19 +80,19 @@ export function MobileClawDrawer({
               pt-5 给右上角的关闭 X 让位。 */}
           <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-6 pt-5">
             {!token ? (
-              <p className="px-2 py-10 text-center text-sm text-faint">登录后可见历史会话</p>
+              <p className="px-2 py-10 text-center text-12 text-faint">登录后可见历史会话</p>
             ) : isLoading ? (
               <div className="flex h-24 items-center justify-center">
                 <Loader2 className="size-4 animate-spin text-faint" />
               </div>
             ) : groups.length === 0 ? (
-              <p className="px-2 py-10 text-center text-sm text-faint">
+              <p className="px-2 py-10 text-center text-12 text-faint">
                 还没有会话,发出第一条消息试试
               </p>
             ) : (
               groups.map((g) => (
                 <div key={g.label} className="mb-1">
-                  <p className="px-3 pb-1 pt-3 text-xs font-medium text-faint">{g.label}</p>
+                  <p className="px-3 pb-1 pt-3 text-12 font-medium text-faint">{g.label}</p>
                   {g.items.map((s) => (
                     <SessionRow
                       key={s.sessionId}
@@ -155,8 +155,8 @@ function SessionRow({
     >
       <span
         className={cn(
-          'flex min-w-0 flex-1 items-center gap-1.5 truncate text-sm',
-          active ? 'font-semibold text-foreground' : 'text-subtle',
+          'flex min-w-0 flex-1 items-center gap-1.5 truncate text-14',
+          active ? 'font-medium text-foreground' : 'text-subtle',
           loading && 'italic text-faint'
         )}
       >

@@ -130,23 +130,23 @@ function Header({ sub, chief }: { sub: ReturnType<typeof adaptSubmission>; chief
         {chief ? (
           <span
             className={cn(
-              'rounded-4 px-2 py-0.5 text-xs font-bold',
+              'rounded-4 px-2 py-0.5 text-12 font-medium',
               chiefRec ? recBadgeClasses(chiefRec) : 'border border-border bg-surface-1 text-subtle',
             )}
           >
             {chiefRec ? `已决议 · ${recShortLabel(chiefRec)}` : '已决议'}
           </span>
         ) : (
-          <span className="rounded-4 border border-border bg-surface-1 px-2 py-0.5 text-xs font-bold text-subtle">
+          <span className="rounded-4 border border-border bg-surface-1 px-2 py-0.5 text-12 font-medium text-subtle">
             {STATUS_LABEL[sub.status] ?? sub.status}
           </span>
         )}
-        <span className="text-xs text-muted-foreground">
+        <span className="text-12 text-muted-foreground">
           {sub.submittedAt ? `投稿 ${fmtTime(sub.submittedAt)}` : '未提交'} · 更新 {fmtTime(sub.updatedAt)}
         </span>
       </div>
-      <h1 className="font-serif text-lg font-bold leading-display-tight text-foreground">{sub.title ||'(未填标题)'}</h1>
-      <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+      <h1 className="font-serif text-16 font-bold leading-display-tight text-foreground">{sub.title ||'(未填标题)'}</h1>
+      <div className="flex flex-wrap items-center gap-3 text-12 text-muted-foreground">
         <span>{target}</span>
         {sub.extraMeta?.subjects && sub.extraMeta.subjects.length > 0 && (
           <>
@@ -163,11 +163,11 @@ function Header({ sub, chief }: { sub: ReturnType<typeof adaptSubmission>; chief
 function FailedNote({ reason }: { reason?: string }) {
   return (
     <div className="rounded-16 border border-brand-red/30 bg-danger-soft px-4 py-3">
-      <div className="text-sm font-bold text-brand-red">审稿未完成</div>
-      <div className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">
+      <div className="text-12 font-medium text-brand-red">审稿未完成</div>
+      <div className="mt-1 whitespace-pre-wrap break-words text-12 text-muted-foreground">
         {reason?.trim() || '后端未记录失败原因(可查看下方调试数据 / 后端日志)。'}
       </div>
-      <div className="mt-1 text-2xs text-faint">已生成的部分意见仍保留在下方面板中。</div>
+      <div className="mt-1 text-12 text-faint">已生成的部分意见仍保留在下方面板中。</div>
     </div>
   );
 }
@@ -175,7 +175,7 @@ function FailedNote({ reason }: { reason?: string }) {
 /** 非失败态但带 compute_error(某一步 agent 调用出错,整体还没判失败)—— 弱提示,不喧宾夺主。 */
 function ComputeErrorNote({ error }: { error: string }) {
   return (
-    <div className="rounded-12 border border-brand-amber/30 bg-warning-soft px-3 py-2 text-xs text-brand-amber">
+    <div className="rounded-12 border border-brand-amber/30 bg-warning-soft px-3 py-2 text-12 text-brand-amber">
       计算错误:{error}
     </div>
   );
@@ -185,7 +185,7 @@ function ComputeErrorNote({ error }: { error: string }) {
 function DraftBody({ sub }: { sub: ReturnType<typeof adaptSubmission> }) {
   return (
     <div className="space-y-3">
-      <div className="rounded-12 border border-border bg-surface-1 px-3 py-2 text-xs text-muted-foreground">
+      <div className="rounded-12 border border-border bg-surface-1 px-3 py-2 text-12 text-muted-foreground">
         {sub.status === 'draft' || sub.status === 'queued'
           ? `${STATUS_LABEL[sub.status] ?? sub.status} · 第 ${sub.step}/4 步 · 计算状态 ${sub.computeState}`
           : `${STATUS_LABEL[sub.status] ?? sub.status} · 尚无审稿报告`}
@@ -211,8 +211,8 @@ function Captured({ label, text }: { label: string; text?: string }) {
   if (!text) return null;
   return (
     <div className="rounded-12 border border-border bg-surface-1 p-3">
-      <div className="mb-1 text-2xs text-faint">{label}</div>
-      <div className="whitespace-pre-wrap break-words text-sm text-subtle">{text}</div>
+      <div className="mb-1 text-12 text-faint">{label}</div>
+      <div className="whitespace-pre-wrap break-words text-12 text-subtle">{text}</div>
     </div>
   );
 }

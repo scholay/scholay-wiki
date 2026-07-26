@@ -76,7 +76,7 @@ export const SharePoster = forwardRef<HTMLDivElement, { data: SharePosterData }>
               </div>
               <div className="flex items-center gap-[5px] rounded-pill bg-[#F1EADA] px-2.5 py-1">
                 <KindIcon className="size-3 text-[#DD9D13]" />
-                <span className="text-[11px] font-semibold text-[#DD9D13]">{data.kindLabel}</span>
+                <span className="text-[11px] font-medium text-[#DD9D13]">{data.kindLabel}</span>
               </div>
             </div>
 
@@ -124,7 +124,7 @@ export const SharePoster = forwardRef<HTMLDivElement, { data: SharePosterData }>
                 <QRCodeCanvas value={data.qrValue} size={52} level="M" marginSize={0} />
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
-                <p className="text-[13px] font-semibold text-[#111]">
+                <p className="text-[13px] font-medium text-[#111]">
                   {data.scanLabel ?? '长按识别二维码 · 在 Scholay 查看全文'}
                 </p>
                 <p className="truncate text-[11px] text-[#999]">{data.urlLabel}</p>
@@ -141,7 +141,7 @@ export const SharePoster = forwardRef<HTMLDivElement, { data: SharePosterData }>
 function PosterPillView({ pill }: { pill: PosterPill }) {
   if (pill.tone === 'red') {
     return (
-      <span className="flex items-center gap-1 rounded-pill bg-[#CD2323] px-2.5 py-1 text-[11px] font-semibold text-on-brand">
+      <span className="flex items-center gap-1 rounded-pill bg-[#CD2323] px-2.5 py-1 text-[11px] font-medium text-on-brand">
         {pill.cite && <Quote className="size-[11px] fill-on-brand text-on-brand" />}
         {pill.text}
       </span>
@@ -151,12 +151,12 @@ function PosterPillView({ pill }: { pill: PosterPill }) {
     return (
       <span className="flex items-center gap-1 rounded-pill border border-[#D8D8D8] bg-surface-card px-2.5 py-1 text-[11px] font-medium">
         <span className="text-[#999]">{pill.text}</span>
-        {pill.ifValue && <span className="font-bold text-[#DD9D13]">{pill.ifValue}</span>}
+        {pill.ifValue && <span className="font-medium text-[#DD9D13]">{pill.ifValue}</span>}
       </span>
     );
   }
   return (
-    <span className="rounded-pill bg-[#F5F5F5] px-2.5 py-1 text-[11px] font-semibold text-[#666]">
+    <span className="rounded-pill bg-[#F5F5F5] px-2.5 py-1 text-[11px] font-medium text-[#666]">
       {pill.text}
     </span>
   );

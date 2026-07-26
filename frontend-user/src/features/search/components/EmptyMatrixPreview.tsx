@@ -105,7 +105,7 @@ export function MockMatrixPreview() {
       aria-hidden="true"
       className="opacity-20 pointer-events-none select-none"
     >
-      <table className="w-full table-fixed border-separate border-spacing-0 text-xs">
+      <table className="w-full table-fixed border-separate border-spacing-0 text-12">
         <colgroup>
           {/* 论文列 = 上方 header 的 "工作区" 区固定宽度 (PAPER_COL_WIDTH),
               与 MatrixColumn / WelcomeBoard header 中"工作区"框宽度对齐。
@@ -127,7 +127,7 @@ export function MockMatrixPreview() {
             {MOCK_DIMENSIONS.map((d) => (
               <th
                 key={d}
-                className="bg-surface-1 border-b border-r border-border last:border-r-0 text-left px-3 h-9 text-xs font-bold text-muted-foreground"
+                className="bg-surface-1 border-b border-r border-border last:border-r-0 text-left px-3 h-9 text-12 font-medium text-muted-foreground"
               >
                 {d}
               </th>
@@ -141,16 +141,16 @@ export function MockMatrixPreview() {
                 <div className="flex flex-col gap-2">
                   <span
                     className={cn(
-                      'inline-flex w-fit items-center px-1.5 py-0.5 rounded-4 text-2xs font-bold',
+                      'inline-flex w-fit items-center px-1.5 py-0.5 rounded-4 text-12 font-medium',
                       MOCK_TONE_CLS[row.paperTag.tone]
                     )}
                   >
                     {row.paperTag.label}
                   </span>
-                  <p className="text-sm font-bold text-foreground">
+                  <p className="text-16 font-medium text-foreground">
                     {row.title}
                   </p>
-                  <p className="text-xs text-subtle leading-paragraph line-clamp-3">
+                  <p className="text-12 text-subtle leading-paragraph line-clamp-3">
                     {row.abstract}
                   </p>
                 </div>
@@ -163,13 +163,13 @@ export function MockMatrixPreview() {
                   <div className="flex flex-col gap-1.5">
                     <span
                       className={cn(
-                        'inline-flex w-fit items-center px-1.5 py-0.5 rounded-4 text-2xs font-bold',
+                        'inline-flex w-fit items-center px-1.5 py-0.5 rounded-4 text-12 font-medium',
                         MOCK_TONE_CLS[c.tone]
                       )}
                     >
                       {c.tag}
                     </span>
-                    <p className="text-xs text-subtle leading-paragraph">
+                    <p className="text-12 text-subtle leading-paragraph">
                       {c.content}
                     </p>
                   </div>
@@ -218,7 +218,7 @@ function FakeStagingTab({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 h-7 px-2.5 rounded-8 text-xs font-bold',
+        'inline-flex items-center gap-1.5 h-7 px-2.5 rounded-8 text-12 font-medium',
         active
           ? 'text-foreground border-b-2 border-brand-red'
           : 'text-muted-foreground'
@@ -227,7 +227,7 @@ function FakeStagingTab({
       {label}
       <span
         className={cn(
-          'inline-flex h-4 min-w-4 items-center justify-center px-1 rounded-pill text-2xs font-bold tabular-nums',
+          'inline-flex h-4 min-w-4 items-center justify-center px-1 rounded-pill text-12 font-medium tabular-nums',
           active
             ? 'bg-brand-red text-background'
             : 'bg-surface-2 text-muted-foreground'
@@ -297,7 +297,7 @@ export function EmptyImportButton() {
         onClick={handleClick}
         disabled={disabled}
         className={cn(
-          'inline-flex items-center gap-1.5 h-9 px-5 rounded-pill bg-brand-red text-background text-xs font-bold transition-colors',
+          'inline-flex items-center gap-1.5 h-9 px-5 rounded-pill bg-brand-red text-background text-14 font-medium transition-colors',
           'hover:bg-brand-red/90 disabled:opacity-70 disabled:cursor-not-allowed'
         )}
       >

@@ -42,7 +42,7 @@ export function TokenDimensionPanel({ tabs, loading }: { tabs: DimTab[]; loading
             </TabsList>
           </div>
           {/* 分段颜色图例(与主图「构成」同色) */}
-          <div className="flex items-center gap-3 text-2xs text-faint">
+          <div className="flex items-center gap-3 text-12 text-faint">
             {COMPOSITION_SEGMENTS.map((s) => (
               <span key={s.key} className="flex items-center gap-1">
                 <span className="size-2 rounded-[2px]" style={{ backgroundColor: fillColor(s.fill) }} />
@@ -74,7 +74,7 @@ function DimRows({ rows, loading, emptyText }: { rows: DimRow[]; loading?: boole
         ];
         return (
           <div key={r.key} className="flex flex-col">
-            <div className="flex items-baseline justify-between gap-2 text-xs">
+            <div className="flex items-baseline justify-between gap-2 text-12">
               <span className="truncate font-medium text-subtle">
                 {r.label}
                 {r.sub && <span className="ml-1 font-normal text-faint">{r.sub}</span>}
@@ -99,14 +99,14 @@ function DimRows({ rows, loading, emptyText }: { rows: DimRow[]; loading?: boole
                   ))}
               </div>
             </div>
-            <div className="mt-0.5 text-2xs tabular-nums text-faint">
+            <div className="mt-0.5 text-12 tabular-nums text-faint">
               输入 {compactTokens(r.input)} · 输出 {compactTokens(r.output)} · 命中 {compactTokens(r.cacheRead)}
               {r.cacheCreation > 0 && <> · 创建 {compactTokens(r.cacheCreation)}</>}
             </div>
           </div>
         );
       })}
-      {!loading && rows.length === 0 && <p className="py-6 text-center text-xs text-faint">{emptyText}</p>}
+      {!loading && rows.length === 0 && <p className="py-6 text-center text-12 text-faint">{emptyText}</p>}
     </div>
   );
 }

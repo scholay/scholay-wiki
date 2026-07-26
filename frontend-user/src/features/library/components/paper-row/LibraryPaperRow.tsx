@@ -212,7 +212,7 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
           <TypeBadge isFree={isFree} source={paper.source as UpstreamSource | 'local'} />
           <h3
             onClick={openDetail}
-            className="flex-1 min-w-0 text-15 font-semibold text-foreground hover:text-brand-red transition-colors line-clamp-2 cursor-pointer"
+            className="flex-1 min-w-0 text-16 font-medium text-foreground hover:text-brand-red transition-colors line-clamp-2 cursor-pointer"
             title="打开论文详情"
           >
             {displayTitle || '无标题'}
@@ -250,8 +250,8 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
         {displayAbstract && (
           <TruncatedText
             lines={2}
-            className="text-xs text-subtle leading-paragraph"
-            popoverClassName="max-w-md text-xs leading-paragraph"
+            className="text-12 text-subtle leading-paragraph"
+            popoverClassName="max-w-md text-12 leading-paragraph"
           >
             {displayAbstract}
           </TruncatedText>
@@ -281,7 +281,7 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
           <button
             type="button"
             onClick={handleOpenCitation}
-            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-8 border border-brand-amber/50 text-2xs font-semibold text-brand-amber hover:bg-brand-amber/[0.05] transition-colors shrink-0"
+            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-8 border border-brand-amber/50 text-12 font-medium text-brand-amber hover:bg-brand-amber/[0.05] transition-colors shrink-0"
             title="查看引用格式"
           >
             <Quote className="size-3" strokeWidth={2} />
@@ -318,7 +318,7 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
 
           {addedDate && (
             <span
-              className="ml-auto text-2xs text-faint"
+              className="ml-auto text-12 text-faint"
               title={`加入于 ${addedDateFull}`}
             >
               加入于 {addedDate}
@@ -375,7 +375,7 @@ function TypeBadge({
   if (isFree || source === 'local') {
     return (
       <span
-        className="shrink-0 mt-0.5 inline-flex items-center h-4 px-1.5 rounded-4 bg-surface-2 text-faint text-2xs font-bold"
+        className="shrink-0 mt-0.5 inline-flex items-center h-4 px-1.5 rounded-4 bg-surface-2 text-faint text-12 font-medium"
         title="这篇文献还没有关联在线论文,内容由你自己维护"
       >
         本地

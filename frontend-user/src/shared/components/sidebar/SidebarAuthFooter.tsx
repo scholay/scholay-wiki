@@ -73,7 +73,7 @@ function UnauthedFooter({
       <button
         type="button"
         onClick={onLogin}
-        className="flex-1 inline-flex items-center justify-center gap-1 h-8 rounded-8 bg-brand-red text-on-brand text-xs font-bold hover:bg-brand-red/90 transition-colors"
+        className="flex-1 inline-flex items-center justify-center gap-1 h-8 rounded-8 bg-brand-red text-on-brand text-12 font-medium hover:bg-brand-red/90 transition-colors"
       >
         <LogIn className="size-3" strokeWidth={2.5} />
         登录
@@ -81,7 +81,7 @@ function UnauthedFooter({
       <button
         type="button"
         onClick={onRegister}
-        className="flex-1 inline-flex items-center justify-center h-8 rounded-8 border border-border-strong text-xs font-bold text-subtle hover:bg-surface-1 hover:text-foreground transition-colors"
+        className="flex-1 inline-flex items-center justify-center h-8 rounded-8 border border-border-strong text-12 font-medium text-subtle hover:bg-surface-1 hover:text-foreground transition-colors"
       >
         注册
       </button>

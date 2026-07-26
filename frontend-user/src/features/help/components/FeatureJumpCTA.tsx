@@ -98,9 +98,9 @@ export function FeatureJumpCTA({
     >
       <div className="flex items-center gap-2 mb-1">
         <Rocket className="size-4 text-brand-red" strokeWidth={2.2} />
-        <h2 className="text-base font-bold text-foreground">{title}</h2>
+        <h2 className="text-14 font-medium text-foreground">{title}</h2>
       </div>
-      <p className="text-xs text-muted-foreground">{desc}</p>
+      <p className="text-12 text-muted-foreground">{desc}</p>
       <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
         {shortcuts.map((s) => (
           <ShortcutCard key={s.to} shortcut={s} />
@@ -124,8 +124,8 @@ function ShortcutCard({ shortcut }: { shortcut: Shortcut }) {
         />
       </span>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold text-foreground">{title}</p>
-        <p className="mt-0.5 text-2xs text-muted-foreground truncate">{desc}</p>
+        <p className="text-12 font-medium text-foreground">{title}</p>
+        <p className="mt-0.5 text-12 text-muted-foreground truncate">{desc}</p>
       </div>
       <ArrowRight className="size-3.5 text-faint shrink-0 group-hover:text-brand-red transition-colors" />
     </Link>

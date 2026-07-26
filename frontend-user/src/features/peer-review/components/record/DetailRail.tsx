@@ -45,7 +45,7 @@ function PeerCard({
 }) {
   return (
     <section className="flex flex-col gap-2.5 rounded-16 border border-border bg-surface-card p-3.5">
-      <p className="text-sm font-bold text-foreground">同行评审快览</p>
+      <p className="text-14 font-medium text-foreground">同行评审快览</p>
       {(['alpha', 'beta', 'gamma'] as const).map((role) => {
         const letter = { alpha: 'A', beta: 'B', gamma: 'C' }[role];
         const r = reports.get(role);
@@ -67,7 +67,7 @@ function PeerCard({
           >
             <div
               className={cn(
-                'flex h-6 w-6 shrink-0 items-center justify-center rounded-pill font-serif text-xs font-bold',
+                'flex h-6 w-6 shrink-0 items-center justify-center rounded-pill font-serif text-12 font-bold',
                 // 跟底部状态栏一致: 完成后按审稿结果上色 (绿/橘/红), 否则深色
                 eff?.recommendation ? recAvatarClasses(eff.recommendation) : 'bg-foreground text-background',
               )}
@@ -75,11 +75,11 @@ function PeerCard({
               {letter}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold text-foreground">审稿人 {letter}</p>
+              <p className="text-12 font-medium text-foreground">审稿人 {letter}</p>
               <p
                 className={cn(
-                  'truncate text-xs',
-                  active ? 'font-bold text-subtle' : 'text-muted-foreground',
+                  'truncate text-12',
+                  active ? 'font-medium text-subtle' : 'text-muted-foreground',
                 )}
               >
                 {r
@@ -87,7 +87,7 @@ function PeerCard({
                   : '等待中'}
               </p>
             </div>
-            <span className="text-xs text-faint">›</span>
+            <span className="text-12 text-faint">›</span>
           </button>
         );
       })}
@@ -131,7 +131,7 @@ function TimelineCard({
 
   return (
     <section className="flex flex-col gap-2.5 rounded-16 border border-border bg-surface-card p-3.5">
-      <p className="text-sm font-bold text-foreground">时间线</p>
+      <p className="text-14 font-medium text-foreground">时间线</p>
       <ul className="flex flex-col gap-2">
         {events.map((e, i) => (
           <li key={i} className="flex items-start gap-2.5">
@@ -144,14 +144,14 @@ function TimelineCard({
             <div className="min-w-0 flex-1">
               <p
                 className={cn(
-                  'truncate text-xs font-semibold',
+                  'truncate text-12 font-medium',
                   e.emphasis ? 'text-brand-amber' : 'text-subtle',
                 )}
               >
                 {e.label}
               </p>
               {e.at && (
-                <p className="text-2xs text-faint">{format(parseISO(e.at), 'MM-dd HH:mm')}</p>
+                <p className="text-12 text-faint">{format(parseISO(e.at), 'MM-dd HH:mm')}</p>
               )}
             </div>
           </li>

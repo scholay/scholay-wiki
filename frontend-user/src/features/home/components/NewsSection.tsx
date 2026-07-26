@@ -20,10 +20,10 @@ export function NewsSection() {
     // Tailwind 无 960 档位,保留 arbitrary value(对齐情报调研 03 方案 A)。
     <section className="mx-auto w-full max-w-[960px] px-6 pb-16">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-bold text-foreground">学术情报</h2>
+        <h2 className="text-16 font-medium text-foreground">学术情报</h2>
         <Link
           to="/news"
-          className="inline-flex items-center gap-0.5 text-xs text-muted-foreground transition-colors hover:text-brand-red"
+          className="inline-flex items-center gap-0.5 text-12 text-muted-foreground transition-colors hover:text-brand-red"
         >
           全部资讯
           <ChevronRight className="size-3.5" />
@@ -37,7 +37,7 @@ export function NewsSection() {
             ? Array.from({ length: 4 }).map((_, i) => (
                 <div
                   key={i}
-                  className="h-24 animate-pulse rounded-16 border border-border-soft bg-surface-1"
+                  className="h-28 animate-pulse rounded-16 border border-border-soft bg-surface-1"
                 />
               ))
             : latest?.map((it) => <NewsListItem key={it.slug} item={it} />)}
@@ -47,7 +47,7 @@ export function NewsSection() {
         {trending && trending.length > 0 && (
           <aside className="hidden w-64 shrink-0 md:block">
             <div className="rounded-16 border border-border-soft bg-surface-1 p-4">
-              <p className="mb-1 flex items-center gap-1.5 text-sm font-bold text-foreground">
+              <p className="mb-1 flex items-center gap-1.5 text-12 font-medium text-foreground">
                 <Flame className="size-4 text-brand-red" />
                 实时热榜
               </p>

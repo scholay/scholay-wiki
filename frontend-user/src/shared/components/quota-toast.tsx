@@ -31,10 +31,10 @@ export function showQuotaToast(kind: Kind) {
         <span className={cn('mt-1.5 size-2 shrink-0 rounded-pill', c.dot)} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-bold text-foreground">{p.title}</p>
-            <span className={cn('shrink-0 rounded-pill px-1.5 py-0.5 text-2xs', c.pill, c.text)}>系统通知</span>
+            <p className="text-14 font-medium text-foreground">{p.title}</p>
+            <span className={cn('shrink-0 rounded-pill px-1.5 py-0.5 text-12', c.pill, c.text)}>系统通知</span>
           </div>
-          <p className="mt-1 text-2xs leading-paragraph text-muted-foreground">{p.body}</p>
+          <p className="mt-1 text-12 leading-paragraph text-muted-foreground">{p.body}</p>
         </div>
         <button onClick={() => toast.dismiss(id)} className="shrink-0 text-faint transition-colors hover:text-foreground">
           <X className="size-3.5" />

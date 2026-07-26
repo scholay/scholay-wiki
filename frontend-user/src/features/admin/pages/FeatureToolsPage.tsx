@@ -25,7 +25,7 @@ const STATUS_LABEL: Record<string, { text: string; variant: 'default' | 'outline
   archived: { text: '归档', variant: 'outline' },
 };
 
-const selectCls = 'h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-sm';
+const selectCls = 'h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-12';
 
 export function FeatureToolsPage() {
   const [q, setQ] = useState('');
@@ -55,19 +55,19 @@ export function FeatureToolsPage() {
       header: '工具',
       cell: (r) => (
         <div className="flex items-center gap-2">
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-8 border border-border-soft bg-surface-2 text-2xs font-bold text-subtle">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-8 border border-border-soft bg-surface-2 text-12 font-medium text-subtle">
             {(r.name_en || r.name || '?').charAt(0).toUpperCase()}
           </span>
           <div className="min-w-0">
-            <p className="truncate font-bold text-foreground">{r.name}</p>
-            <p className="truncate text-2xs text-faint">{r.slug}</p>
+            <p className="truncate font-medium text-foreground">{r.name}</p>
+            <p className="truncate text-12 text-faint">{r.slug}</p>
           </div>
         </div>
       ),
     },
-    { header: '分类', width: 130, cell: (r) => <span className="text-xs text-subtle">{r.category_label || r.category}</span> },
-    { header: '形式', width: 80, cell: (r) => <span className="text-xs text-muted-foreground">{ACCESS_TYPE_LABEL[r.access_type]}</span> },
-    { header: '价格', width: 64, cell: (r) => <span className="text-xs text-muted-foreground">{PRICE_TYPE_LABEL[r.price_type] ?? r.price_type}</span> },
+    { header: '分类', width: 130, cell: (r) => <span className="text-12 text-subtle">{r.category_label || r.category}</span> },
+    { header: '形式', width: 80, cell: (r) => <span className="text-12 text-muted-foreground">{ACCESS_TYPE_LABEL[r.access_type]}</span> },
+    { header: '价格', width: 64, cell: (r) => <span className="text-12 text-muted-foreground">{PRICE_TYPE_LABEL[r.price_type] ?? r.price_type}</span> },
     {
       header: '状态', width: 80,
       cell: (r) => {
@@ -75,7 +75,7 @@ export function FeatureToolsPage() {
         return <Badge variant={s.variant}>{s.text}</Badge>;
       },
     },
-    { header: '浏览', width: 60, align: 'right', cell: (r) => <span className="text-xs text-faint">{r.view_count ?? 0}</span> },
+    { header: '浏览', width: 60, align: 'right', cell: (r) => <span className="text-12 text-faint">{r.view_count ?? 0}</span> },
     {
       header: '', width: 110, align: 'right',
       cell: (r) => (
@@ -119,7 +119,7 @@ export function FeatureToolsPage() {
       <DataTable columns={columns} rows={data?.items} loading={isLoading} emptyMessage="还没有工具,去导入吧" />
 
       {totalPages > 1 && (
-        <div className="mt-4 flex items-center justify-center gap-3 text-xs text-faint">
+        <div className="mt-4 flex items-center justify-center gap-3 text-12 text-faint">
           <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="rounded-8 border border-border px-2 py-1 disabled:opacity-40 hover:bg-surface-1">上一页</button>
           <span>第 {page} / {totalPages} 页</span>
           <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} className="rounded-8 border border-border px-2 py-1 disabled:opacity-40 hover:bg-surface-1">下一页</button>
@@ -204,7 +204,7 @@ function EditDialog({
           <Field label="官网 URL"><Input name="official_url" defaultValue={tool.official_url} placeholder="https://" /></Field>
           <Field label="标签 (逗号分隔)"><Input name="tags" defaultValue={(tool.tags ?? []).join(', ')} /></Field>
           <Field label="详细描述">
-            <textarea name="description_md" defaultValue={tool.description_md} rows={4} className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+            <textarea name="description_md" defaultValue={tool.description_md} rows={4} className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           </Field>
           <Field label="状态" inline>
             <select name="status" defaultValue={tool.status} className={`${selectCls} w-32`}>
@@ -228,7 +228,7 @@ function EditDialog({
 function Field({ label, children, inline }: { label: string; children: ReactNode; inline?: boolean }) {
   return (
     <div className={inline ? 'space-y-1.5' : 'space-y-1.5'}>
-      <Label className="text-xs">{label}</Label>
+      <Label className="text-12">{label}</Label>
       {children}
     </div>
   );

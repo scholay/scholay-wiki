@@ -73,14 +73,14 @@ function CleanupConfigCard() {
   return (
     <section className="mb-6 rounded-16 border border-border bg-surface-card p-4">
       <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <h3 className="text-sm font-bold text-foreground">清理策略</h3>
-        <span className="text-2xs text-faint">
+        <h3 className="text-14 font-medium text-foreground">清理策略</h3>
+        <span className="text-12 text-faint">
           每天 04:30 自动清理 · 改完下次清理按新值生效
         </span>
       </div>
       <div className="flex flex-wrap items-end gap-4">
         <div className="flex flex-col gap-1">
-          <label className="text-2xs text-muted-foreground">
+          <label className="text-12 text-muted-foreground">
             保留天数(last_*_at 早于此天数即删 · {HOT_CONTENT_RETENTION_MIN}-{HOT_CONTENT_RETENTION_MAX})
           </label>
           <Input
@@ -94,7 +94,7 @@ function CleanupConfigCard() {
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-2xs text-muted-foreground">
+          <label className="text-12 text-muted-foreground">
             最大记录数(超出按最久未动顺序删 · {HOT_CONTENT_MAX_RECORDS_MIN.toLocaleString()}-
             {HOT_CONTENT_MAX_RECORDS_MAX.toLocaleString()})
           </label>
@@ -159,14 +159,14 @@ export function HotContentPage() {
   // 排名 = 页偏移 + 数组下标(后端按 count desc 排序后返回)
   const keywordColumns: Column<HotKeyword>[] = [
     { header: '#', width: 50, align: 'right', cell: (_r, i) => <span className="text-faint">{(kwPage - 1) * PAGE_SIZE + i + 1}</span> },
-    { header: '搜索词', cell: (r) => <span className="font-bold text-foreground">{r.keyword}</span> },
+    { header: '搜索词', cell: (r) => <span className="font-medium text-foreground">{r.keyword}</span> },
     {
       header: '类型',
       width: 80,
       cell: (r) => (
         <span
           className={
-            'rounded-4 px-1.5 py-0.5 text-2xs ' +
+            'rounded-4 px-1.5 py-0.5 text-12 ' +
             (r.search_type === 'journal'
               ? 'bg-warning-soft text-brand-amber'
               : 'bg-surface-2 text-subtle')
@@ -180,7 +180,7 @@ export function HotContentPage() {
     {
       header: '最近搜索',
       width: 150,
-      cell: (r) => <span className="text-2xs text-faint">{r.last_searched_at?.slice(0, 16).replace('T', ' ')}</span>,
+      cell: (r) => <span className="text-12 text-faint">{r.last_searched_at?.slice(0, 16).replace('T', ' ')}</span>,
     },
   ];
 
@@ -190,13 +190,13 @@ export function HotContentPage() {
       header: '论文',
       cell: (r) => (
         <div className="flex flex-col">
-          <span className="font-bold text-foreground line-clamp-1">{r.title || r.paper_id}</span>
-          <span className="text-2xs text-faint font-mono">{r.paper_id}{r.year ? ` · ${r.year}` : ''}{r.venue ? ` · ${r.venue}` : ''}</span>
+          <span className="font-medium text-foreground line-clamp-1">{r.title || r.paper_id}</span>
+          <span className="text-12 text-faint font-mono">{r.paper_id}{r.year ? ` · ${r.year}` : ''}{r.venue ? ` · ${r.venue}` : ''}</span>
         </div>
       ),
     },
     { header: '曝光量', width: 90, align: 'right', cell: (r) => <span className="text-subtle">{(r.impression_count ?? 0).toLocaleString()}</span> },
-    { header: '点击量', width: 90, align: 'right', cell: (r) => <span className="font-bold text-brand-red">{(r.click_count ?? 0).toLocaleString()}</span> },
+    { header: '点击量', width: 90, align: 'right', cell: (r) => <span className="font-medium text-brand-red">{(r.click_count ?? 0).toLocaleString()}</span> },
     { header: 'SEO直访', width: 90, align: 'right', cell: (r) => <span className="text-brand-green">{(r.seo_view_count ?? 0).toLocaleString()}</span> },
   ];
 

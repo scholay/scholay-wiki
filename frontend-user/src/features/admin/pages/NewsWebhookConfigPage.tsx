@@ -65,8 +65,8 @@ export function NewsWebhookConfigPage() {
         <Section icon={<Newspaper className="size-4" />} title="展示开关">
           <div className="flex items-center justify-between rounded-12 border border-border bg-surface-1 px-4 py-3">
             <div className="flex flex-col gap-0.5">
-              <span className="text-sm font-medium text-foreground">在用户端展示情报</span>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-12 font-medium text-foreground">在用户端展示情报</span>
+              <span className="text-12 text-muted-foreground">
                 关闭后用户端「学术情报」入口/列表/详情不显示;接收落库照常(可先攒数据)
               </span>
             </div>
@@ -77,14 +77,14 @@ export function NewsWebhookConfigPage() {
         <Section icon={<Newspaper className="size-4" />} title="接收地址(配到上游)">
           <Field label="Webhook 接收 URL(只读)">
             <div className="flex items-center gap-2">
-              <Input value={webhookURL} readOnly className="font-mono text-xs" />
+              <Input value={webhookURL} readOnly className="font-mono text-12" />
               <Button size="sm" variant="outline" type="button" onClick={copyURL} disabled={!webhookURL}>
                 <Copy className="size-3.5" />
                 复制
               </Button>
             </div>
             {!webhookURL && (
-              <p className="mt-1 text-2xs text-brand-amber">
+              <p className="mt-1 text-12 text-brand-amber">
                 后端 SITE_URL 未配置时此处为空;线上请确保已配 SITE_URL。
               </p>
             )}
@@ -99,16 +99,16 @@ export function NewsWebhookConfigPage() {
               onToggleReveal={() => setRevealed((v) => !v)}
               onChange={(e) => setSecret(e.target.value)}
               placeholder="粘贴上游生成的密钥,如 c286e0dee2fe…"
-              className="font-mono text-xs"
+              className="font-mono text-12"
             />
-            <p className="mt-1 text-2xs text-faint">
+            <p className="mt-1 text-12 text-faint">
               用于对原始请求体做 HMAC-SHA256 验签。留空保存保留旧值;两端必须一致,否则上游推送会被 401 拒收。
             </p>
           </Field>
         </Section>
 
-        <div className="rounded-16 border border-border-soft bg-surface-1 p-4 text-xs leading-paragraph text-muted-foreground">
-          <p className="font-semibold text-foreground">对接说明</p>
+        <div className="rounded-16 border border-border-soft bg-surface-1 p-4 text-12 leading-paragraph text-muted-foreground">
+          <p className="font-medium text-foreground">对接说明</p>
           <ul className="mt-1.5 list-disc space-y-1 pl-4">
             <li>把上面的「接收 URL」填到上游 Minicod 的推送端点,密钥两端保持一致。</li>
             <li>
@@ -133,7 +133,7 @@ function Section({
 }) {
   return (
     <div className="flex flex-col gap-4 rounded-16 border border-border bg-surface-card p-5">
-      <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+      <div className="flex items-center gap-2 text-12 font-medium text-foreground">
         <span className="text-muted-foreground">{icon}</span>
         {title}
       </div>
@@ -145,7 +145,7 @@ function Section({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-2xs text-faint">{label}</Label>
+      <Label className="text-12 text-faint">{label}</Label>
       {children}
     </div>
   );

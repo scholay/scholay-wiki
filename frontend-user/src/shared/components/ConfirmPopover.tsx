@@ -114,9 +114,9 @@ export function ConfirmPopover({
         className={cn('w-[240px] p-3', className)}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="text-sm font-semibold text-foreground">{title}</div>
+        <div className="text-14 font-medium text-foreground">{title}</div>
         {description && (
-          <div className="mt-1 text-xs text-muted-foreground leading-paragraph">
+          <div className="mt-1 text-12 text-muted-foreground leading-paragraph">
             {description}
           </div>
         )}
@@ -125,7 +125,7 @@ export function ConfirmPopover({
             type="button"
             variant="ghost"
             size="sm"
-            className="h-7 px-2.5 text-xs"
+            className="h-7 px-2.5 text-12"
             onClick={() => setOpen(false)}
             disabled={pending}
           >
@@ -135,7 +135,7 @@ export function ConfirmPopover({
             type="button"
             variant={danger ? 'destructive' : 'default'}
             size="sm"
-            className="h-7 px-2.5 text-xs"
+            className="h-7 px-2.5 text-12"
             onClick={handleConfirm}
             disabled={pending}
           >

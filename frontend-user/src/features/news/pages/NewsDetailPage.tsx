@@ -59,8 +59,8 @@ export function NewsDetailPage() {
       />
       <article className="mx-auto max-w-3xl px-6 py-10">
         {/* eyebrow:版块 + 头条 */}
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className={`inline-flex items-center gap-1 font-semibold ${tone.text}`}>
+        <div className="flex flex-wrap items-center gap-2 text-12">
+          <span className={`inline-flex items-center gap-1 font-medium ${tone.text}`}>
             <span className={`size-1.5 rounded-pill ${tone.dot}`} />
             {item.section_label || '情报'}
           </span>
@@ -68,20 +68,20 @@ export function NewsDetailPage() {
             {newsReportLabel(item.report_type)}
           </span>
           {item.is_featured && (
-            <span className="rounded-4 bg-brand-red px-1.5 py-0.5 font-semibold text-on-brand">
+            <span className="rounded-4 bg-brand-red px-1.5 py-0.5 font-medium text-on-brand">
               头条
             </span>
           )}
         </div>
 
         {/* 标题 + 导语 */}
-        <h1 className="mt-3 text-2xl font-bold text-foreground">{item.title}</h1>
+        <h1 className="mt-3 text-24 font-medium text-foreground">{item.title}</h1>
         {item.summary && (
-          <p className="mt-3 text-base leading-paragraph text-muted-foreground">{item.summary}</p>
+          <p className="mt-3 text-14 leading-paragraph text-muted-foreground">{item.summary}</p>
         )}
 
         {/* meta chips */}
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-border-soft pb-4 text-xs text-faint">
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-border-soft pb-4 text-12 text-faint">
           <span className="inline-flex items-center gap-1">
             <Clock className="size-3.5" />
             发布 {newsRelativeTime(item.published_at)}
@@ -113,13 +113,13 @@ export function NewsDetailPage() {
 
         {/* 正文(markdown 单一真源) */}
         <div className="mt-6">
-          <MarkdownRenderer text={item.body_md || item.summary} className="text-base" />
+          <MarkdownRenderer text={item.body_md || item.summary} className="text-14" />
         </div>
 
         {/* 信息来源(GEO 强信号,可见) */}
         {item.sources?.length > 0 && (
           <section className="mt-10 rounded-16 border border-border-soft bg-surface-1 p-5">
-            <h2 className="text-sm font-bold text-foreground">信息来源</h2>
+            <h2 className="text-14 font-medium text-foreground">信息来源</h2>
             <ul className="mt-2 space-y-1.5">
               {item.sources.map((s, i) => (
                 <li key={`${s.url}-${i}`}>
@@ -127,7 +127,7 @@ export function NewsDetailPage() {
                     href={s.url}
                     target="_blank"
                     rel="nofollow noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-brand-green underline underline-offset-2 hover:opacity-80"
+                    className="inline-flex items-center gap-1 text-12 text-brand-green underline underline-offset-2 hover:opacity-80"
                   >
                     {s.label || s.url}
                     <ExternalLink className="size-3" />
@@ -143,8 +143,8 @@ export function NewsDetailPage() {
           <aside className="mt-4 flex gap-2.5 rounded-16 border border-border-soft bg-surface-card p-4">
             <ShieldCheck className="mt-0.5 size-4 shrink-0 text-brand-green" />
             <div>
-              <p className="text-xs font-bold text-foreground">可信度说明</p>
-              <p className="mt-1 text-xs leading-paragraph text-muted-foreground">
+              <p className="text-14 font-medium text-foreground">可信度说明</p>
+              <p className="mt-1 text-12 leading-paragraph text-muted-foreground">
                 {item.credibility_note}
               </p>
             </div>
@@ -154,7 +154,7 @@ export function NewsDetailPage() {
         {/* 相关情报 */}
         {data.related?.length > 0 && (
           <section className="mt-12 border-t border-border-soft pt-8">
-            <h2 className="mb-4 text-base font-bold text-foreground">相关情报</h2>
+            <h2 className="mb-4 text-14 font-medium text-foreground">相关情报</h2>
             <div className="space-y-3">
               {data.related.map((r) => (
                 <NewsListItem key={r.slug} item={r} />

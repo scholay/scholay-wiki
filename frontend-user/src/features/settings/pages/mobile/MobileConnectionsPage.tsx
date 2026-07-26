@@ -80,13 +80,13 @@ function ConnectionsBody() {
               className={`flex h-13 items-center gap-3 px-4 ${i === connections.length - 1 ? '' : 'border-b border-border-soft'}`}
             >
               {renderProviderIcon(c.provider, 'size-5 text-foreground')}
-              <span className="flex-1 text-md text-foreground">{label}</span>
+              <span className="flex-1 text-14 text-foreground">{label}</span>
               {c.bound ? (
-                <span className="max-w-32 truncate text-xs text-muted-foreground">
+                <span className="max-w-32 truncate text-12 text-muted-foreground">
                   {c.display_name || '已绑定'}
                 </span>
               ) : (
-                <span className="text-xs text-faint">未绑定</span>
+                <span className="text-12 text-faint">未绑定</span>
               )}
               <span
                 className={`h-1.5 w-1.5 rounded-pill ${c.bound ? 'bg-brand-green' : 'bg-border-strong'}`}
@@ -95,10 +95,10 @@ function ConnectionsBody() {
           );
         })}
         {connections.length === 0 && (
-          <p className="py-10 text-center text-sm text-faint">暂无连接信息</p>
+          <p className="py-10 text-center text-12 text-faint">暂无连接信息</p>
         )}
       </section>
-      <p className="px-1 text-xs leading-paragraph text-faint">
+      <p className="px-1 text-12 leading-paragraph text-faint">
         绑定 / 解绑第三方账号涉及授权跳转,请在电脑端「设置 → 已连接账号」操作
       </p>
     </div>

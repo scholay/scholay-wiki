@@ -63,11 +63,11 @@ export function SidebarUser({
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0 flex flex-col gap-px">
-            <span className="truncate text-base font-semibold text-foreground">
+            <span className="truncate text-14 font-medium text-foreground">
               {name}
             </span>
             {email && (
-              <span className="truncate text-xs text-faint">{email}</span>
+              <span className="truncate text-12 text-faint">{email}</span>
             )}
           </div>
           <ChevronDown className="size-3 text-faint shrink-0" />

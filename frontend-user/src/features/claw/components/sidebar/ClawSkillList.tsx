@@ -33,13 +33,13 @@ export function ClawSkillList({
   const atCap = enabledCount >= maxEnabled;
 
   if (isLoading) {
-    return <p className="py-1 text-2xs text-faint">加载中…</p>;
+    return <p className="py-1 text-12 text-faint">加载中…</p>;
   }
   if ((skills?.length ?? 0) === 0) {
     return (
       <Link
         to="/tools/skills"
-        className="flex items-center gap-1.5 rounded-8 border border-dashed border-border px-2 py-2 text-2xs text-muted-foreground hover:border-border-strong hover:text-foreground"
+        className="flex items-center gap-1.5 rounded-8 border border-dashed border-border px-2 py-2 text-12 text-muted-foreground hover:border-border-strong hover:text-foreground"
       >
         <Sparkles className="h-3.5 w-3.5 text-brand-green" />
         去市场安装技能
@@ -56,7 +56,7 @@ export function ClawSkillList({
           >
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1">
-                <span className="truncate text-xs text-subtle">{s.name}</span>
+                <span className="truncate text-12 text-subtle">{s.name}</span>
                 {!s.available && (
                   <AlertTriangle
                     className="h-3 w-3 shrink-0 text-brand-amber"
@@ -98,11 +98,11 @@ export function ClawSkillList({
         ))}
       </ul>
       {atCap && (
-        <p className="mt-1 text-2xs text-brand-amber">
+        <p className="mt-1 text-12 text-brand-amber">
           已达 {maxEnabled} 个上限 —— 需先关闭一些才能启用其它技能。
         </p>
       )}
-      <p className="mt-1.5 text-2xs leading-paragraph text-faint">
+      <p className="mt-1.5 text-12 leading-paragraph text-faint">
         启用变更仅对新对话生效。
         <button
           onClick={onNewConversation}

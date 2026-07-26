@@ -51,13 +51,13 @@ export function DeleteConfirmDialog({ target, onClose }: Props) {
       <DialogContent className="p-0 gap-0 max-w-[360px] w-[360px]">
         <header className="flex items-center gap-2 h-13 px-5 pr-12 border-b border-border-soft">
           <AlertTriangle className="size-4 text-brand-red shrink-0" />
-          <DialogTitle className="text-sm font-bold text-foreground">
+          <DialogTitle className="text-14 font-medium text-foreground">
             {isReset
               ? `重置维度「${target.name}」?`
               : `确认删除维度「${target.name}」?`}
           </DialogTitle>
         </header>
-        <div className="px-5 py-4 text-xs text-subtle leading-paragraph">
+        <div className="px-5 py-4 text-12 text-subtle leading-paragraph">
           {isReset
             ? '将清除你对该维度的自定义(名字 / 提示词 / 是否隐藏),回到系统默认值。已生成的分析结果不会丢失。'
             : '将永久删除该自定义维度。已生成的相关分析结果会保留,但矩阵不再展示该列。'}
@@ -66,7 +66,7 @@ export function DeleteConfirmDialog({ target, onClose }: Props) {
           <button
             type="button"
             onClick={onClose}
-            className="h-7 px-3 rounded-8 border border-border text-xs text-subtle hover:bg-surface-1"
+            className="h-7 px-3 rounded-8 border border-border text-12 text-subtle hover:bg-surface-1"
           >
             取消
           </button>
@@ -74,7 +74,7 @@ export function DeleteConfirmDialog({ target, onClose }: Props) {
             type="button"
             onClick={confirm}
             disabled={busy}
-            className="inline-flex items-center gap-1 h-7 px-3 rounded-8 bg-brand-red text-on-brand text-xs font-bold hover:bg-brand-red/90 disabled:opacity-50"
+            className="inline-flex items-center gap-1 h-7 px-3 rounded-8 bg-brand-red text-on-brand text-12 font-medium hover:bg-brand-red/90 disabled:opacity-50"
           >
             {busy && <Loader2 className="size-3 animate-spin" />}
             {isReset ? '确认重置' : '确认删除'}

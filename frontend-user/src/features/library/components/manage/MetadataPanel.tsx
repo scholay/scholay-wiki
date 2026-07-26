@@ -105,7 +105,7 @@ export function MetadataPanel({
         {/* 左列:form */}
         <div className="flex flex-col overflow-hidden border-r border-border-soft">
           <div className="flex items-center justify-end px-6 pt-3 pb-2 border-b border-border">
-            <span className="text-xs text-faint inline-flex items-center gap-1">
+            <span className="text-12 text-faint inline-flex items-center gap-1">
               <History className="size-3" />
               {dirtyCount} 处修改{dirtyCount > 0 ? ' · 未保存' : ''}
             </span>
@@ -115,10 +115,10 @@ export function MetadataPanel({
               <div className="mb-4 flex items-start gap-2 rounded-8 border border-brand-green/30 bg-brand-green/5 px-3 py-2.5">
                 <CheckCircle2 className="size-4 text-brand-green shrink-0 mt-0.5" strokeWidth={2.25} />
                 <div className="min-w-0">
-                  <div className="text-sm font-semibold text-brand-green">
+                  <div className="text-14 font-medium text-brand-green">
                     已加入文献集 · 继续完善信息
                   </div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">
+                  <div className="mt-0.5 text-12 text-muted-foreground">
                     信息已自动填好,你可以检查和修改;没问题直接关闭就行
                   </div>
                 </div>
@@ -183,9 +183,9 @@ function PreviewPanel({
       <div className="flex items-center justify-between gap-2 px-4 pt-4 pb-3 border-b border-border-soft">
         <div className="flex items-center gap-1.5">
           <Eye className="size-3.5 text-faint" />
-          <span className="text-xs font-bold text-foreground">实时预览</span>
+          <span className="text-12 font-medium text-foreground">实时预览</span>
         </div>
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-pill bg-brand-green/10 text-brand-green text-[10px] font-bold leading-none">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-pill bg-brand-green/10 text-brand-green text-12 font-medium leading-none">
           <CheckCircle2 className="size-2.5" strokeWidth={3} />
           已同步
         </span>
@@ -193,13 +193,13 @@ function PreviewPanel({
       <div className="px-4 py-4 space-y-3">
         <div className="rounded-12 border border-border bg-surface-card p-3 space-y-2">
           <div
-            className="text-sm font-bold text-foreground leading-paragraph line-clamp-3"
+            className="text-14 font-medium text-foreground leading-paragraph line-clamp-3"
             title={values.title}
           >
             {values.title || paper.title || '(无标题)'}
           </div>
           {values.authors && (
-            <div className="text-xs text-muted-foreground line-clamp-2">{values.authors}</div>
+            <div className="text-12 text-muted-foreground line-clamp-2">{values.authors}</div>
           )}
           <div className="space-y-1 pt-1 border-t border-border-soft">
             {values.venue && <KvRow label="收录">{values.venue}</KvRow>}
@@ -216,14 +216,14 @@ function PreviewPanel({
           </div>
           {values.abstract && (
             <div className="pt-1 border-t border-border-soft">
-              <div className="text-2xs text-faint uppercase mb-1 font-bold">摘要</div>
-              <div className="text-xs text-muted-foreground leading-paragraph line-clamp-6">
+              <div className="text-12 text-faint uppercase mb-1 font-medium">摘要</div>
+              <div className="text-12 text-muted-foreground leading-paragraph line-clamp-6">
                 {values.abstract}
               </div>
             </div>
           )}
         </div>
-        <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
+        <div className="flex items-start gap-1.5 text-12 text-muted-foreground">
           <Sparkles className="size-3.5 text-brand-amber shrink-0 mt-0.5" />
           预览随输入实时更新 · 保存后立即更新文献卡
         </div>
@@ -242,7 +242,7 @@ function KvRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start gap-2 text-2xs text-muted-foreground">
+    <div className="flex items-start gap-2 text-12 text-muted-foreground">
       <span className="shrink-0 w-10 text-faint">{label}</span>
       <span className={cn('flex-1 min-w-0 text-foreground', mono && 'font-mono')}>{children}</span>
     </div>

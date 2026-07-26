@@ -126,7 +126,7 @@ export function ExportMenu({
           onPointerEnter={scheduleOpen}
           onPointerLeave={scheduleClose}
           className={cn(
-            'inline-flex items-center gap-1 h-7 px-2.5 rounded-8 border border-border text-xs text-subtle transition-colors',
+            'inline-flex items-center gap-1 h-7 px-2.5 rounded-8 border border-border text-12 text-subtle transition-colors',
             'hover:bg-surface-1 disabled:opacity-50 disabled:cursor-not-allowed',
             'data-[state=open]:bg-surface-1'
           )}
@@ -205,8 +205,8 @@ function ExportItem({ icon: Icon, label, hint, loading, onSelect }: ItemProps) {
         )}
       </span>
       <div className="flex-1 min-w-0">
-        <div className="text-xs font-semibold text-foreground">{label}</div>
-        <div className="text-2xs text-faint mt-px">{hint}</div>
+        <div className="text-14 font-medium text-foreground">{label}</div>
+        <div className="text-12 text-faint mt-px">{hint}</div>
       </div>
     </DropdownMenuItem>
   );

@@ -30,12 +30,12 @@ export function WelcomeBoard(_props: WelcomeBoardProps) {
           style={{ width: PAPER_COL_WIDTH, minWidth: PAPER_COL_WIDTH }}
         >
           <Inbox className="size-4 text-brand-red" strokeWidth={2.5} />
-          <span className="text-15 font-bold text-foreground">工作区</span>
+          <span className="text-16 font-medium text-foreground">工作区</span>
         </div>
         <div className="flex-1 min-w-0 flex items-center gap-2.5 px-4">
           <Grid3x3 className="size-4 text-brand-red" strokeWidth={2.5} />
-          <span className="text-15 font-bold text-foreground">矩阵分析</span>
-          <span className="text-xs text-faint">等待工作区暂存论文</span>
+          <span className="text-16 font-medium text-foreground">矩阵分析</span>
+          <span className="text-12 text-faint">等待工作区暂存论文</span>
         </div>
       </header>
 

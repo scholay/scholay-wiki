@@ -68,11 +68,11 @@ export function AgentSessionList({
   return (
     <SidebarSection id={sectionId} label={label} prominent>
       {!token ? (
-        <div className="px-4 py-3 text-2xs text-faint">{loggedOutHint}</div>
+        <div className="px-4 py-3 text-12 text-faint">{loggedOutHint}</div>
       ) : isLoading ? (
-        <div className="px-4 py-3 text-2xs text-faint">加载中…</div>
+        <div className="px-4 py-3 text-12 text-faint">加载中…</div>
       ) : !sessions || sessions.length === 0 ? (
-        <div className="px-4 py-3 text-2xs text-faint">{emptyHint}</div>
+        <div className="px-4 py-3 text-12 text-faint">{emptyHint}</div>
       ) : (
         <div className="flex flex-col">
           {sessions.map((s) => (
@@ -138,8 +138,8 @@ function SessionRow({
       <div className="flex-1 min-w-0">
         <div
           className={cn(
-            'truncate text-sm flex items-center gap-1.5',
-            active ? 'text-foreground font-semibold' : 'text-subtle',
+            'truncate text-12 flex items-center gap-1.5',
+            active ? 'text-foreground font-medium' : 'text-subtle',
             loading && 'italic text-faint',
           )}
           title={displayTitle}

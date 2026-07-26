@@ -129,7 +129,7 @@ export function SkillReviewPage() {
             key={val}
             onClick={() => setTab(val)}
             className={
-              'rounded-8 px-3 py-1 text-xs ' +
+              'rounded-8 px-3 py-1 text-12 ' +
               (tab === val
                 ? 'bg-surface-2 text-foreground'
                 : 'text-muted-foreground hover:bg-surface-1')
@@ -141,7 +141,7 @@ export function SkillReviewPage() {
       </div>
 
       {isError ? (
-        <div className="rounded-16 border border-border bg-danger-soft p-4 text-sm text-brand-red">
+        <div className="rounded-16 border border-border bg-danger-soft p-4 text-12 text-brand-red">
           加载审核队列失败,请
           <button className="ml-1 underline" onClick={() => refetch()}>
             重试
@@ -218,7 +218,7 @@ function ReportsSection() {
 
   return (
     <div className="mt-8">
-      <h2 className="mb-2 text-sm font-semibold text-foreground">待处理举报</h2>
+      <h2 className="mb-2 text-14 font-medium text-foreground">待处理举报</h2>
       <DataTable
         columns={columns}
         rows={reports}

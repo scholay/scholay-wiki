@@ -40,7 +40,7 @@ export function AuthorsRow({
 
   return (
     <p
-      className="text-xs text-muted-foreground truncate"
+      className="text-12 text-muted-foreground truncate"
       title={cleaned.map((a) => a.name).join(', ')}
     >
       {visible.map((a, i) => (

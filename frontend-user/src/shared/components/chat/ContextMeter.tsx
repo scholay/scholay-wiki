@@ -28,7 +28,7 @@ export function ContextMeter({ totalTokens, maxTokens, percentage, model, classN
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center gap-1.5 text-2xs tabular-nums',
+        'inline-flex shrink-0 items-center gap-1.5 text-12 tabular-nums',
         danger ? 'text-brand-red' : 'text-faint',
         className,
       )}

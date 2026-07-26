@@ -53,7 +53,7 @@ export const PrismMessageTurn = memo(function PrismMessageTurn({ turn }: { turn:
     <article className="flex flex-col gap-2 min-w-0">
       <ChatStyles />
       {isCompileCheck ? (
-        <div className="flex items-center gap-1.5 self-start rounded-pill border border-border bg-surface-1 px-2.5 py-1 text-2xs text-muted-foreground">
+        <div className="flex items-center gap-1.5 self-start rounded-pill border border-border bg-surface-1 px-2.5 py-1 text-12 text-muted-foreground">
           <Wrench className="size-3 shrink-0" /> 系统 · 自动编译检查
         </div>
       ) : (

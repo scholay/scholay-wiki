@@ -30,7 +30,7 @@ function Card({ card }: { card: FeatureCard }) {
     >
       <span
         className={cn(
-          'text-2xs font-semibold uppercase',
+          'text-12 font-medium uppercase',
           dark ? 'text-faint' : 'text-muted-foreground'
         )}
       >
@@ -38,7 +38,7 @@ function Card({ card }: { card: FeatureCard }) {
       </span>
       <h3
         className={cn(
-          'font-display italic font-semibold leading-display-tight text-xl',
+          'font-display italic font-medium leading-display-tight text-20',
           dark ? 'text-background' : 'text-foreground'
         )}
       >
@@ -46,7 +46,7 @@ function Card({ card }: { card: FeatureCard }) {
       </h3>
       <p
         className={cn(
-          'text-md leading-paragraph flex-1',
+          'text-14 leading-paragraph flex-1',
           dark ? 'text-faint' : 'text-muted-foreground'
         )}
       >
@@ -55,7 +55,7 @@ function Card({ card }: { card: FeatureCard }) {
       {card.kpi && (
         <span
           className={cn(
-            'text-xs font-semibold mt-auto',
+            'text-12 font-medium mt-auto',
             // 暗卡用 amber 提亮,其余按 tone token
             dark ? 'text-brand-amber' : KPI_TONE[card.kpi.tone]
           )}

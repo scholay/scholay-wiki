@@ -41,8 +41,8 @@ export function SchoolPickerStep({ value, onChange }: SchoolPickerStepProps) {
   return (
     <section className="rounded-16 border border-border bg-surface-card">
       <header className="border-b border-border-soft px-5 py-3">
-        <h2 className="text-sm font-bold text-foreground">院校信息</h2>
-        <p className="mt-0.5 text-xs text-muted-foreground">
+        <h2 className="text-14 font-medium text-foreground">院校信息</h2>
+        <p className="mt-0.5 text-12 text-muted-foreground">
           培养单位与方向 · 作为 AI 审稿人的背景设定,使审稿口吻贴近实际盲审
         </p>
       </header>
@@ -65,8 +65,8 @@ export function SchoolPickerStep({ value, onChange }: SchoolPickerStepProps) {
                 onClick={() => patch({ degreeType: d.id })}
                 className={
                   v.degreeType === d.id
-                    ? 'h-9 flex-1 rounded-8 border border-brand-red bg-danger-soft text-sm font-bold text-brand-red'
-                    : 'h-9 flex-1 rounded-8 border border-border bg-surface-card text-sm text-subtle hover:border-foreground'
+                    ? 'h-9 flex-1 rounded-8 border border-brand-red bg-danger-soft text-12 font-medium text-brand-red'
+                    : 'h-9 flex-1 rounded-8 border border-border bg-surface-card text-12 text-subtle hover:border-foreground'
                 }
               >
                 {d.label}
@@ -96,7 +96,7 @@ export function SchoolPickerStep({ value, onChange }: SchoolPickerStepProps) {
 }
 
 // ─── 小组件 ─────────────────────────────────────────────────────────
-// 与 ManuscriptMetaForm 的 Field 同款(text-xs 标签 + 红 * 必填 + faint 提示),
+// 与 ManuscriptMetaForm 的 Field 同款(text-12 标签 + 红 * 必填 + faint 提示),
 // 保证 Step2 两张卡片字段排版一致。
 
 function Field({
@@ -112,8 +112,8 @@ function Field({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <label className="flex items-baseline gap-2 text-xs">
-        <span className="font-bold text-foreground">{label}</span>
+      <label className="flex items-baseline gap-2 text-12">
+        <span className="font-medium text-foreground">{label}</span>
         {required && <span className="text-destructive">*</span>}
         {hint && <span className="text-faint">{hint}</span>}
       </label>

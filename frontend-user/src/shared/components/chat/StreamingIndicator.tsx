@@ -58,15 +58,15 @@ export function StreamingIndicator({ turn }: StreamingIndicatorProps) {
       {sec >= 20 ? (
         <CyclingHint
           phrases={[text, ...LONG_WAIT_HINTS]}
-          className="text-xs font-medium text-muted-foreground truncate min-w-0"
+          className="text-12 font-medium text-muted-foreground truncate min-w-0"
         />
       ) : (
-        <span className="text-xs font-medium text-muted-foreground truncate min-w-0">
+        <span className="text-12 font-medium text-muted-foreground truncate min-w-0">
           {text}
         </span>
       )}
       {sec >= 5 && (
-        <span className="text-2xs text-faint shrink-0 tabular-nums">{formatWait(sec)}</span>
+        <span className="text-12 text-faint shrink-0 tabular-nums">{formatWait(sec)}</span>
       )}
       <span className="chat-thinking-dots shrink-0" />
     </div>

@@ -56,12 +56,12 @@ export function MobileAuthSheet() {
           <X className="size-5" />
         </button>
         <BrandLogo size="md" />
-        <h1 className="mt-1.5 text-lg font-bold text-foreground">{t.title}</h1>
-        <p className="text-xs text-muted-foreground">{t.desc}</p>
+        <h1 className="mt-1.5 text-16 font-medium text-foreground">{t.title}</h1>
+        <p className="text-12 text-muted-foreground">{t.desc}</p>
       </div>
 
       {/* 表单(可滚)+ 第三方;放大触控目标(同整页),仅作用本弹窗。 */}
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-8 [&_input]:h-12 [&_input]:rounded-12 [&_input]:text-base [&_button[type=submit]]:h-12 [&_button[type=submit]]:rounded-12 [&_button[type=submit]]:text-base">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-8 [&_input]:h-12 [&_input]:rounded-12 [&_input]:text-14 [&_button[type=submit]]:h-12 [&_button[type=submit]]:rounded-12 [&_button[type=submit]]:text-14">
         {mode === 'login' && (
           <LoginForm initialAccountType={initialAccountType} onSwitchMode={setMode} />
         )}
@@ -75,7 +75,7 @@ export function MobileAuthSheet() {
         <div className="mt-6">
           <div className="relative flex items-center">
             <Separator className="flex-1" />
-            <span className="px-3 text-2xs uppercase text-faint">或继续使用</span>
+            <span className="px-3 text-12 uppercase text-faint">或继续使用</span>
             <Separator className="flex-1" />
           </div>
           <div className="mt-4">

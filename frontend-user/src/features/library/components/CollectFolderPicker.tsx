@@ -67,8 +67,8 @@ export function CollectFolderPicker() {
       {/* 头部 */}
       <div className="flex shrink-0 items-start justify-between gap-2 border-b border-border px-5 pb-3.5 pt-0.5">
         <div className="flex flex-col gap-0.5">
-          <h2 className="text-lg font-bold text-foreground">收藏到文献集</h2>
-          <p className="text-xs text-muted-foreground">
+          <h2 className="text-16 font-medium text-foreground">收藏到文献集</h2>
+          <p className="text-12 text-muted-foreground">
             {request?.paperTitle ? `把《${request.paperTitle}》保存到一个文献集` : '将这篇论文保存到一个文献集'}
           </p>
         </div>
@@ -94,20 +94,20 @@ export function CollectFolderPicker() {
               onKeyDown={(e) => e.key === 'Enter' && submitCreate()}
               placeholder="新文献集名称"
               maxLength={32}
-              className="min-w-0 flex-1 bg-transparent px-1.5 text-md text-foreground outline-none placeholder:text-faint"
+              className="min-w-0 flex-1 bg-transparent px-1.5 text-14 text-foreground outline-none placeholder:text-faint"
             />
             <button
               type="button"
               onClick={submitCreate}
               disabled={!newName.trim() || createMut.isPending}
-              className="flex h-8 items-center gap-1 rounded-8 bg-brand-red px-3 text-xs font-medium text-on-brand active:opacity-90 disabled:opacity-50"
+              className="flex h-8 items-center gap-1 rounded-8 bg-brand-red px-3 text-12 font-medium text-on-brand active:opacity-90 disabled:opacity-50"
             >
               {createMut.isPending ? <Loader2 className="size-3.5 animate-spin" /> : '创建'}
             </button>
             <button
               type="button"
               onClick={() => setCreating(false)}
-              className="px-1.5 text-xs text-muted-foreground active:opacity-60"
+              className="px-1.5 text-12 text-muted-foreground active:opacity-60"
             >
               取消
             </button>
@@ -122,8 +122,8 @@ export function CollectFolderPicker() {
               <Plus className="size-5 text-brand-green" />
             </span>
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="text-sm font-semibold text-foreground">新建文献集</span>
-              <span className="text-xs text-faint">创建一个新的论文分组</span>
+              <span className="text-14 font-medium text-foreground">新建文献集</span>
+              <span className="text-12 text-faint">创建一个新的论文分组</span>
             </span>
             <ChevronRight className="size-4 shrink-0 text-faint" />
           </button>
@@ -151,7 +151,7 @@ export function CollectFolderPicker() {
         <button
           type="button"
           onClick={confirm}
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-8 bg-brand-red text-base font-semibold text-on-brand active:opacity-90"
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-8 bg-brand-red text-14 font-medium text-on-brand active:opacity-90"
         >
           <BookmarkCheck className="size-4" />
           完成收藏
@@ -213,11 +213,11 @@ function FolderRow({
         />
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-sm font-semibold text-foreground">
+        <span className="truncate text-14 font-medium text-foreground">
           {folder.name}
-          {folder.is_default && <span className="ml-1.5 text-2xs font-normal text-faint">默认</span>}
+          {folder.is_default && <span className="ml-1.5 text-12 font-normal text-faint">默认</span>}
         </span>
-        <span className="text-xs text-muted-foreground">{folder.paper_count} 篇论文</span>
+        <span className="text-12 text-muted-foreground">{folder.paper_count} 篇论文</span>
       </span>
       <span
         className={cn(

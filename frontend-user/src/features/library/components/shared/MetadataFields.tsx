@@ -10,7 +10,7 @@ import type { MetadataFormValues } from '../../hooks/useMetadataForm';
  */
 
 const inputCn = cn(
-  'w-full h-9 px-3 rounded-8 border border-border bg-surface-card text-sm text-foreground',
+  'w-full h-9 px-3 rounded-8 border border-border bg-surface-card text-14 text-foreground',
   'placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-foreground',
   'disabled:opacity-60 disabled:cursor-not-allowed transition-colors'
 );
@@ -113,11 +113,11 @@ function Field({
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between gap-2 px-0.5">
-        <span className="text-xs font-semibold text-subtle">
+        <span className="text-12 font-medium text-subtle">
           {label}
           {required && <span className="ml-0.5 text-brand-red">*</span>}
         </span>
-        {hint && <span className="text-2xs text-faint">{hint}</span>}
+        {hint && <span className="text-12 text-faint">{hint}</span>}
       </div>
       {children}
     </div>
@@ -125,5 +125,5 @@ function Field({
 }
 
 function FieldHint({ text }: { text: string }) {
-  return <p className="text-2xs text-faint px-0.5">{text}</p>;
+  return <p className="text-12 text-faint px-0.5">{text}</p>;
 }

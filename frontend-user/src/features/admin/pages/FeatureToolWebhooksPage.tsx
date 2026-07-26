@@ -45,14 +45,14 @@ export function FeatureToolWebhooksPage() {
   };
 
   const columns: Column<Webhook>[] = [
-    { header: '名称', cell: (r) => <span className="font-bold text-foreground">{r.name}</span> },
-    { header: 'URL', cell: (r) => <span className="block max-w-[18rem] truncate text-xs text-muted-foreground">{r.url}</span> },
+    { header: '名称', cell: (r) => <span className="font-medium text-foreground">{r.name}</span> },
+    { header: 'URL', cell: (r) => <span className="block max-w-[18rem] truncate text-12 text-muted-foreground">{r.url}</span> },
     {
       header: '事件', width: 140,
       cell: (r) => (
         <div className="flex gap-1">
           {(r.events?.length ? r.events : ALL_EVENTS).map((e) => (
-            <span key={e} className="rounded-4 bg-surface-2 px-1 text-2xs text-subtle">{EVENT_LABEL[e] ?? e}</span>
+            <span key={e} className="rounded-4 bg-surface-2 px-1 text-12 text-subtle">{EVENT_LABEL[e] ?? e}</span>
           ))}
         </div>
       ),
@@ -61,10 +61,10 @@ export function FeatureToolWebhooksPage() {
     {
       header: '最近', width: 130,
       cell: (r) => r.last_status ? (
-        <span className={`text-2xs ${r.last_status === 'success' ? 'text-brand-green' : 'text-brand-red'}`}>
+        <span className={`text-12 ${r.last_status === 'success' ? 'text-brand-green' : 'text-brand-red'}`}>
           {r.last_status === 'success' ? '成功' : '失败'} · {r.last_delivered_at?.slice(5, 16).replace('T', ' ')}
         </span>
-      ) : <span className="text-2xs text-faint">—</span>,
+      ) : <span className="text-12 text-faint">—</span>,
     },
     {
       header: '', width: 130, align: 'right',
@@ -132,21 +132,21 @@ function WebhookDialog({ mode, onClose, onSubmit }: { mode: EditMode; onClose: (
           }}
           className="space-y-3"
         >
-          <div className="space-y-1.5"><Label className="text-xs">名称</Label><Input name="name" defaultValue={init?.name} required /></div>
-          <div className="space-y-1.5"><Label className="text-xs">URL</Label><Input name="url" defaultValue={init?.url} placeholder="https://enterscholar.com/hooks/tools" required /></div>
-          <div className="space-y-1.5"><Label className="text-xs">签名密钥 (可选, HMAC-SHA256)</Label><Input name="secret" defaultValue={init?.secret} placeholder="留空则不签名" /></div>
+          <div className="space-y-1.5"><Label className="text-12">名称</Label><Input name="name" defaultValue={init?.name} required /></div>
+          <div className="space-y-1.5"><Label className="text-12">URL</Label><Input name="url" defaultValue={init?.url} placeholder="https://enterscholar.com/hooks/tools" required /></div>
+          <div className="space-y-1.5"><Label className="text-12">签名密钥 (可选, HMAC-SHA256)</Label><Input name="secret" defaultValue={init?.secret} placeholder="留空则不签名" /></div>
           <div className="space-y-1.5">
-            <Label className="text-xs">订阅事件 (全不选 = 全部)</Label>
+            <Label className="text-12">订阅事件 (全不选 = 全部)</Label>
             <div className="flex gap-4">
               {ALL_EVENTS.map((ev) => (
-                <label key={ev} className="flex items-center gap-1.5 text-sm">
+                <label key={ev} className="flex items-center gap-1.5 text-12">
                   <input type="checkbox" name={`ev_${ev}`} defaultChecked={init ? (init.events?.length ? init.events.includes(ev) : true) : true} className="size-4" />
                   {EVENT_LABEL[ev]}
                 </label>
               ))}
             </div>
           </div>
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-12">
             <input type="checkbox" name="enabled" defaultChecked={init ? init.enabled : true} className="size-4" /> 启用
           </label>
           <DialogFooter>
@@ -168,15 +168,15 @@ function DeliveriesDialog({ id, onClose }: { id: number | null; onClose: () => v
       <DialogContent className="max-w-2xl">
         <DialogHeader><DialogTitle>投递记录</DialogTitle></DialogHeader>
         <div className="max-h-[70vh] space-y-1.5 overflow-y-auto">
-          {(data ?? []).length === 0 && <p className="text-sm text-faint">还没有投递记录</p>}
+          {(data ?? []).length === 0 && <p className="text-12 text-faint">还没有投递记录</p>}
           {(data ?? []).map((d) => (
-            <div key={d.id} className="flex items-center justify-between gap-2 rounded-8 border border-border-soft px-2.5 py-1.5 text-xs">
+            <div key={d.id} className="flex items-center justify-between gap-2 rounded-8 border border-border-soft px-2.5 py-1.5 text-12">
               <span className="flex min-w-0 items-center gap-2">
                 <Badge variant={d.status === 'success' ? 'success' : 'destructive'}>{d.status === 'success' ? '成功' : '失败'}</Badge>
                 <span className="truncate text-subtle">{d.event}</span>
                 {d.http_status ? <span className="shrink-0 text-faint">HTTP {d.http_status}</span> : null}
               </span>
-              <span className="shrink-0 text-2xs text-faint">{d.created_at?.slice(0, 19).replace('T', ' ')}</span>
+              <span className="shrink-0 text-12 text-faint">{d.created_at?.slice(0, 19).replace('T', ' ')}</span>
             </div>
           ))}
         </div>

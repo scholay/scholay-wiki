@@ -59,17 +59,17 @@ export function ChatSessionMonitor({ feature }: { feature: MonitorFeature }) {
     },
     {
       header: '会话 ID',
-      cell: (r) => <span className="text-2xs font-mono text-muted-foreground">{r.agentSessionId.slice(0, 12)}…</span>,
+      cell: (r) => <span className="text-12 font-mono text-muted-foreground">{r.agentSessionId.slice(0, 12)}…</span>,
     },
     {
       header: '归属',
       width: 130,
-      cell: (r) => <span className="text-2xs text-faint">{r.ownerKind ? `${r.ownerKind} #${r.ownerId}` : '—'}</span>,
+      cell: (r) => <span className="text-12 text-faint">{r.ownerKind ? `${r.ownerKind} #${r.ownerId}` : '—'}</span>,
     },
     {
       header: '最近活跃',
       width: 140,
-      cell: (r) => <span className="text-2xs text-faint">{fmtTime(r.lastAccessedAt)}</span>,
+      cell: (r) => <span className="text-12 text-faint">{fmtTime(r.lastAccessedAt)}</span>,
     },
     {
       header: '',
@@ -94,7 +94,7 @@ export function ChatSessionMonitor({ feature }: { feature: MonitorFeature }) {
             setPage(1);
           }}
           placeholder="ID / 用户名 / 邮箱 / 手机号"
-          className="h-9 w-full sm:w-64 rounded-8 border border-input bg-surface-card px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-9 w-full sm:w-64 rounded-8 border border-input bg-surface-card px-3 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       </div>
 
@@ -107,7 +107,7 @@ export function ChatSessionMonitor({ feature }: { feature: MonitorFeature }) {
             <DialogTitle>会话记录 · {viewing?.username || viewing?.userEmail}</DialogTitle>
           </DialogHeader>
           {loadingTranscript ? (
-            <div className="py-8 text-center text-sm text-faint">加载中…</div>
+            <div className="py-8 text-center text-12 text-faint">加载中…</div>
           ) : (
             <AdminTranscriptView
               messages={transcript ?? []}

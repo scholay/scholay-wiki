@@ -266,7 +266,7 @@ export function ConversationWorkspace({
             <div className="flex h-7 w-7 items-center justify-center rounded-8 bg-foreground">
               <TitleIcon className="h-3.5 w-3.5 text-background" />
             </div>
-            <h1 className="text-base font-bold text-foreground">{cfg.title}</h1>
+            <h1 className="text-16 font-medium text-foreground">{cfg.title}</h1>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <Button
@@ -295,7 +295,7 @@ export function ConversationWorkspace({
             横幅 + 手动立即重连(useAgentSocket 同时在后台每 ~20s 自动重试,连上即消失)。 */}
         {socket.state === 'error' && (
           <div className="flex items-center gap-3 border-b border-border bg-warning-soft px-6 py-2">
-            <span className="text-sm text-subtle">与服务器的连接已断开,正在自动重连…</span>
+            <span className="text-12 text-subtle">与服务器的连接已断开,正在自动重连…</span>
             <Button variant="outline" size="sm" className="h-7" onClick={socket.takeOver}>
               立即重连
             </Button>
@@ -319,10 +319,10 @@ export function ConversationWorkspace({
                   onClick={() => setRightCollapsed(false)}
                   title="展开成果栏"
                   aria-label="展开成果栏"
-                  className="absolute right-0 top-1/2 z-nav flex -translate-y-1/2 flex-col items-center gap-1 rounded-l-8 border border-r-0 border-border bg-surface-1 px-1.5 py-2.5 text-2xs text-muted-foreground shadow-overlay transition-colors hover:bg-surface-2 hover:text-foreground"
+                  className="absolute right-0 top-1/2 z-nav flex -translate-y-1/2 flex-col items-center gap-1 rounded-l-8 border border-r-0 border-border bg-surface-1 px-1.5 py-2.5 text-12 text-muted-foreground shadow-overlay transition-colors hover:bg-surface-2 hover:text-foreground"
                 >
                   <PanelRightOpen className="h-4 w-4 text-brand-green" />
-                  {(sessionArtifacts?.length ?? 0) > 0 && <span className="font-semibold">{sessionArtifacts?.length}</span>}
+                  {(sessionArtifacts?.length ?? 0) > 0 && <span className="font-medium">{sessionArtifacts?.length}</span>}
                 </button>
               )}
               {turns.length > 0 && (
@@ -334,7 +334,7 @@ export function ConversationWorkspace({
                           <button
                             type="button"
                             onClick={conv.loadEarlier}
-                            className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-pill bg-surface-2 text-xs text-muted-foreground hover:text-foreground hover:bg-surface-2/70 transition-colors"
+                            className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-pill bg-surface-2 text-12 text-muted-foreground hover:text-foreground hover:bg-surface-2/70 transition-colors"
                           >
                             {hiddenCount > 0 ? `加载更早的 ${hiddenCount} 轮对话` : '加载更早的对话'}
                           </button>

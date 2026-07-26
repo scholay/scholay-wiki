@@ -52,11 +52,11 @@ export function PdfUploadInspecting({
         <div className="rounded-12 border border-border bg-surface-card p-5">
           <div className="flex items-center gap-2.5 mb-1">
             <Loader2 className="size-4 animate-spin text-brand-amber" />
-            <span className="text-sm font-bold text-foreground">
+            <span className="text-14 font-medium text-foreground">
               正在自动检索在线论文信息…
             </span>
           </div>
-          <div className="text-xs text-muted-foreground mb-5">
+          <div className="text-12 text-muted-foreground mb-5">
             匹配通常在 5-10 秒内完成
           </div>
 
@@ -105,7 +105,7 @@ export function PdfUploadInspecting({
           {/* "跳过自动匹配"提示 */}
           <div className="mt-5 flex items-center gap-2 px-3 py-2 rounded-8 bg-surface-1 border border-border-soft">
             <Info className="size-3.5 text-faint shrink-0" />
-            <span className="text-xs text-muted-foreground">
+            <span className="text-12 text-muted-foreground">
               检索完成后,可以跳过匹配直接保存
             </span>
           </div>
@@ -140,17 +140,17 @@ function ProgressItem({
       <div className="flex-1 min-w-0">
         <div
           className={cn(
-            'text-sm',
+            'text-14',
             state === 'done'
-              ? 'text-foreground font-semibold'
+              ? 'text-foreground font-medium'
               : state === 'active'
-                ? 'text-foreground font-semibold'
+                ? 'text-foreground font-medium'
                 : 'text-faint'
           )}
         >
           {label}
         </div>
-        <div className="text-2xs text-muted-foreground mt-0.5">{hint}</div>
+        <div className="text-12 text-muted-foreground mt-0.5">{hint}</div>
       </div>
     </li>
   );

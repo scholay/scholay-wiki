@@ -94,7 +94,7 @@ function RichMenuItem({
       <div className="flex-1 min-w-0 flex flex-col">
         <span
           className={cn(
-            'inline-flex items-center gap-1.5 text-base font-bold truncate',
+            'inline-flex items-center gap-1.5 text-14 font-medium truncate',
             inactive ? 'text-subtle' : 'text-foreground'
           )}
         >
@@ -103,12 +103,12 @@ function RichMenuItem({
             // 之前用 bg-brand-amber 太抢眼 —— 首页 sidebar 已经有多条这种条目,
             // 一排亮黄会盖过当前可用菜单的视觉重量。改成 surface-2 + faint 文字,
             // 仍可识别但视觉权重明显下沉。
-            <span className="inline-flex items-center h-3.5 px-1 rounded-pill bg-surface-2 text-faint text-[9px] font-semibold leading-none shrink-0">
+            <span className="inline-flex items-center h-3.5 px-1 rounded-pill bg-surface-2 text-faint text-[9px] font-medium leading-none shrink-0">
               即将推出
             </span>
           )}
         </span>
-        <span className="text-2xs text-faint truncate mt-px">{subtitle}</span>
+        <span className="text-12 text-faint truncate mt-px">{subtitle}</span>
       </div>
       <ChevronRight className="size-3 text-faint shrink-0" />
     </NavLink>

@@ -161,9 +161,9 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
           style={{ width: PAPER_COL_WIDTH, minWidth: PAPER_COL_WIDTH }}
         >
           <Inbox className="size-4 text-brand-red" strokeWidth={2.5} />
-          {/* 列标题 15px —— 设计稿 .pen `wgB2T`,Tailwind 默认 scale 无此档,
-             保留 arbitrary value(token 化时同步更新此处) */}
-          <span className="text-15 font-bold text-foreground">工作区</span>
+          {/* 列标题 —— 原 .pen `wgB2T` 15px/700,B6 排印迁移后归到 Figma 规范档
+             text-16 + font-medium(sans 字族无 700) */}
+          <span className="text-16 font-medium text-foreground">工作区</span>
         </div>
         {/* 右区:矩阵分析 + 工具 */}
         <div className="flex-1 min-w-0 flex items-center justify-between gap-2 px-4">
@@ -174,10 +174,10 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
               className="size-4 shrink-0 text-brand-red"
               strokeWidth={2.5}
             />
-            <span className="shrink-0 text-15 font-bold text-foreground whitespace-nowrap">
+            <span className="shrink-0 text-16 font-medium text-foreground whitespace-nowrap">
               矩阵分析
             </span>
-            <span className="text-xs text-faint truncate">
+            <span className="text-12 text-faint truncate">
               {staged.length} 篇 · {dimensions.length} 维度
             </span>
             {matrixQ.isFetching && (
@@ -192,7 +192,7 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
               type="button"
               onClick={() => setSettingsOpen(true)}
               disabled={!token}
-              className="inline-flex items-center gap-1 h-7 px-2.5 rounded-8 border border-border text-xs text-subtle hover:bg-surface-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1 h-7 px-2.5 rounded-8 border border-border text-12 text-subtle hover:bg-surface-1 disabled:opacity-50 disabled:cursor-not-allowed"
               title={token ? '设置维度列' : '登录后可设置'}
             >
               <Settings2 className="size-3" />
@@ -232,8 +232,8 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
           (StagingTabs + 维度列头),只是 tbody 没有行。"假表 + 一键导入"
            CTA 仅在 WelcomeBoard(还没有任何区的首次发现场景)展示。 */}
       <div ref={scrollRef} className="flex-1 min-h-0 overflow-auto">
-        {/* text-xs(11px)= 设计稿 dim cell / footer 通用文字基准 */}
-        <table className="w-full border-separate border-spacing-0 text-xs">
+        {/* text-12 = dim cell / footer 通用文字基准(原 11px 档,B6 归档) */}
+        <table className="w-full border-separate border-spacing-0 text-12">
           {/* sub-header 行(h-9):左区 = StagingTabs,右区 = dimension 名字
              整行 sticky-top;左格 sticky-left 双向冻结 */}
           <thead>
@@ -255,7 +255,7 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
               {/* 维度表头 —— .pen `xFPz2` h-9 bg #F8F8F8,文字 11px/700 #666 */}
               {showLoginGate ? (
                 <th
-                  className="sticky top-0 z-sticky bg-surface-1 px-4 text-left text-xs font-bold text-muted-foreground border-b border-border"
+                  className="sticky top-0 z-sticky bg-surface-1 px-4 text-left text-12 font-medium text-muted-foreground border-b border-border"
                   style={{ height: 36 }}
                 >
                   维度
@@ -264,7 +264,7 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
                 dimensions.map((d) => (
                   <th
                     key={d.dimensionKey}
-                    className="sticky top-0 z-sticky bg-surface-1 px-3 text-left text-xs font-bold text-muted-foreground border-r border-b border-border last:border-r-0"
+                    className="sticky top-0 z-sticky bg-surface-1 px-3 text-left text-12 font-medium text-muted-foreground border-r border-b border-border last:border-r-0"
                     style={{ minWidth: DIM_COL_MIN_WIDTH, height: 36 }}
                     title={d.dimensionKey}
                   >
@@ -273,7 +273,7 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
                 ))
               ) : (
                 <th
-                  className="sticky top-0 z-sticky bg-surface-1 px-4 text-left text-xs font-bold text-muted-foreground border-b border-border"
+                  className="sticky top-0 z-sticky bg-surface-1 px-4 text-left text-12 font-medium text-muted-foreground border-b border-border"
                   style={{ height: 36 }}
                 >
                   维度
@@ -329,7 +329,7 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
                         <button
                           type="button"
                           onClick={() => openAuthDialog('login')}
-                          className="inline-flex items-center gap-1.5 text-xs hover:text-foreground transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1.5 text-12 hover:text-foreground transition-colors cursor-pointer"
                         >
                           <Lock className="size-3" />
                           <span className="underline-offset-2 hover:underline">登录后展开 AI 维度分析</span>
@@ -354,7 +354,7 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
                       ))
                     ) : (
                       <td className="align-middle px-4 py-3 border-b border-border text-faint group-hover/row:bg-danger-soft transition-colors">
-                        <span className="inline-flex items-center gap-1.5 text-xs">
+                        <span className="inline-flex items-center gap-1.5 text-12">
                           {isLoading ? (
                             <>
                               <Loader2 className="size-3 animate-spin" />
@@ -381,7 +381,7 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
           className="flex items-center justify-between gap-2 px-4 border-r border-border shrink-0"
           style={{ width: PAPER_COL_WIDTH, minWidth: PAPER_COL_WIDTH }}
         >
-          <span className="text-xs text-muted-foreground tabular-nums">
+          <span className="text-12 text-muted-foreground tabular-nums">
             {staged.length} 篇
           </span>
           {staged.length > 0 && (
@@ -397,7 +397,7 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
             >
               <button
                 type="button"
-                className="text-xs text-muted-foreground hover:text-foreground"
+                className="text-12 text-muted-foreground hover:text-foreground"
               >
                 × 清空
               </button>
@@ -405,7 +405,7 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
           )}
         </div>
         {/* 右区:矩阵就绪状态 */}
-        <div className="flex-1 min-w-0 flex items-center px-4 text-xs text-muted-foreground">
+        <div className="flex-1 min-w-0 flex items-center px-4 text-12 text-muted-foreground">
           {showDimGrid && staged.length > 0 ? (
             `矩阵就绪 · ${staged.length} 行 × ${dimensions.length} 列`
           ) : showLoginGate ? (

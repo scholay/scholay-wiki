@@ -132,7 +132,7 @@ function FigureShell({ caption, children }: { caption: string; children: React.R
     <figure className="rounded-16 border border-brand-green/25 bg-brand-green/[0.03] p-2.5">
       {children}
       {caption && (
-        <figcaption className="mt-1.5 px-0.5 text-2xs text-muted-foreground" title={caption}>
+        <figcaption className="mt-1.5 px-0.5 text-12 text-muted-foreground" title={caption}>
           {caption}
         </figcaption>
       )}
@@ -142,7 +142,7 @@ function FigureShell({ caption, children }: { caption: string; children: React.R
 
 function Hint({ text }: { text: string }) {
   return (
-    <div className="flex h-40 w-full items-center justify-center rounded-12 border border-border bg-surface-card text-2xs text-muted-foreground">
+    <div className="flex h-40 w-full items-center justify-center rounded-12 border border-border bg-surface-card text-12 text-muted-foreground">
       {text}
     </div>
   );

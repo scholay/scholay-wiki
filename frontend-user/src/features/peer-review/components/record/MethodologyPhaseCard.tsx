@@ -32,7 +32,7 @@ export function MethodologyPhaseCard() {
       <Loader2 className="h-4 w-4 shrink-0 animate-spin text-brand-amber" />
       <CyclingHint
         phrases={METHODOLOGY_HINTS}
-        className="min-w-0 text-sm font-semibold text-brand-amber"
+        className="min-w-0 text-12 font-medium text-brand-amber"
       />
     </section>
   );

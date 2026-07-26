@@ -112,7 +112,7 @@ export function PaperWorkbenchDialog({
           description: (
             <>
               通过在线搜索或上传 PDF,把文献添加到{' '}
-              <span className="font-semibold text-foreground">「{currentFolderName}」</span>
+              <span className="font-medium text-foreground">「{currentFolderName}」</span>
             </>
           ),
           headerExtra: undefined,

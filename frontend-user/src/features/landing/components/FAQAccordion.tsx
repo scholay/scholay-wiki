@@ -31,7 +31,7 @@ function FAQItem({
         aria-expanded={open}
         className="w-full flex items-center justify-between gap-6 py-5 text-left hover:bg-surface-1 transition-colors px-2 -mx-2 rounded-8"
       >
-        <span className="text-md font-semibold text-foreground">{q}</span>
+        <span className="text-14 font-medium text-foreground">{q}</span>
         <Icon className="size-4 text-muted-foreground shrink-0" strokeWidth={2} />
       </button>
       <div
@@ -40,7 +40,7 @@ function FAQItem({
           open ? 'max-h-96 pb-6' : 'max-h-0'
         )}
       >
-        <p className="text-md leading-paragraph text-subtle pr-10">{a}</p>
+        <p className="text-14 leading-paragraph text-subtle pr-10">{a}</p>
       </div>
     </div>
   );

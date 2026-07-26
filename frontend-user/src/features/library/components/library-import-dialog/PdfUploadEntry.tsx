@@ -63,12 +63,12 @@ export function PdfUploadEntry({
             <Upload className="size-5 text-brand-amber" strokeWidth={2.25} />
           </div>
           <div className="space-y-1.5">
-            <div className="text-base font-bold text-foreground">先上传 PDF</div>
-            <div className="text-xs text-muted-foreground max-w-[280px]">
+            <div className="text-16 font-medium text-foreground">先上传 PDF</div>
+            <div className="text-12 text-muted-foreground max-w-[280px]">
               拖拽到这里,或点下面的按钮选择文件;上传后会自动识别并匹配在线论文
             </div>
           </div>
-          <div className="inline-flex items-center gap-1.5 h-9 px-4 rounded-8 bg-brand-amber text-background text-sm font-bold group-hover:bg-brand-amber/90 transition-colors">
+          <div className="inline-flex items-center gap-1.5 h-9 px-4 rounded-8 bg-brand-amber text-background text-14 font-medium group-hover:bg-brand-amber/90 transition-colors">
             <FileText className="size-3.5" strokeWidth={2.25} />
             选择 PDF 文件
           </div>
@@ -77,7 +77,7 @@ export function PdfUploadEntry({
         {/* 中:或 —— 视觉分隔 */}
         <div className="flex flex-col items-center justify-center gap-2 self-stretch min-w-[24px]">
           <div className="flex-1 w-px bg-border-soft" />
-          <span className="text-xs text-faint">或</span>
+          <span className="text-12 text-faint">或</span>
           <div className="flex-1 w-px bg-border-soft" />
         </div>
 
@@ -95,7 +95,7 @@ export function PdfUploadEntry({
         >
           <span
             aria-hidden="true"
-            className="absolute top-3 right-3 inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-background text-[9px] font-bold leading-none whitespace-nowrap"
+            className="absolute top-3 right-3 inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-background text-12 font-medium leading-none whitespace-nowrap"
           >
             即将推出
           </span>
@@ -103,12 +103,12 @@ export function PdfUploadEntry({
             <Edit3 className="size-5 text-brand-amber" strokeWidth={2.25} />
           </div>
           <div className="space-y-1.5">
-            <div className="text-base font-bold text-foreground">先填写信息</div>
-            <div className="text-xs text-muted-foreground max-w-[280px]">
+            <div className="text-16 font-medium text-foreground">先填写信息</div>
+            <div className="text-12 text-muted-foreground max-w-[280px]">
               没有 PDF 也可以先填好文献信息,之后再补充 PDF
             </div>
           </div>
-          <div className="inline-flex items-center gap-1.5 h-9 px-4 rounded-8 border border-brand-amber text-brand-amber text-sm font-bold group-hover:bg-brand-amber/5 transition-colors">
+          <div className="inline-flex items-center gap-1.5 h-9 px-4 rounded-8 border border-brand-amber text-brand-amber text-14 font-medium group-hover:bg-brand-amber/5 transition-colors">
             <Edit3 className="size-3.5" strokeWidth={2.25} />
             开始填写
           </div>
@@ -118,7 +118,7 @@ export function PdfUploadEntry({
       {/* 4 步预告 stepper —— "上传后会发生什么"
           上传 PDF (active 橙) → 自动检索 → 确认/接受 → 保存入库 */}
       <div className="rounded-12 border border-border-soft bg-surface-card p-4">
-        <div className="text-xs font-semibold text-muted-foreground mb-3">
+        <div className="text-12 font-medium text-muted-foreground mb-3">
           上传后会发生什么
         </div>
         <ol className="grid grid-cols-4 gap-3">
@@ -151,9 +151,9 @@ export function PdfUploadEntry({
       </div>
 
       {/* 兜底文案 */}
-      <p className="text-2xs text-faint leading-paragraph">
+      <p className="text-12 text-faint leading-paragraph">
         仅支持 PDF,大小 ≤ {MAX_PDF_SIZE / 1024 / 1024} MB。上传后会自动识别标题并匹配在线论文;没有匹配也可以
-        <span className="text-brand-green font-semibold">直接保存</span>
+        <span className="text-brand-green font-medium">直接保存</span>
         ,之后再完善信息。
       </p>
     </div>
@@ -179,7 +179,7 @@ function StepNode({
     <li className="flex items-start gap-2.5">
       <span
         className={cn(
-          'inline-flex h-6 w-6 items-center justify-center rounded-pill text-2xs font-bold shrink-0 tabular-nums',
+          'inline-flex h-6 w-6 items-center justify-center rounded-pill text-12 font-medium shrink-0 tabular-nums',
           active
             ? 'bg-brand-amber text-background'
             : 'bg-surface-2 text-faint border border-border-soft'
@@ -190,7 +190,7 @@ function StepNode({
       <div className="flex-1 min-w-0">
         <div
           className={cn(
-            'flex items-center gap-1 text-xs font-semibold truncate',
+            'flex items-center gap-1 text-12 font-medium truncate',
             active ? 'text-foreground' : 'text-muted-foreground'
           )}
         >
@@ -199,7 +199,7 @@ function StepNode({
           </span>
           {label}
         </div>
-        <div className="mt-0.5 text-2xs text-faint truncate">{hint}</div>
+        <div className="mt-0.5 text-12 text-faint truncate">{hint}</div>
       </div>
     </li>
   );

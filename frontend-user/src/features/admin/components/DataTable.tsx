@@ -155,13 +155,13 @@ export function DataTable<T>({
       {/* 批量操作 bar —— 选中 > 0 时叠加到顶部 */}
       {bulkActions && selectedKeys.size > 0 && (
         <div className="flex items-center justify-between gap-3 bg-surface-1 border-b border-border px-3 h-10">
-          <span className="text-xs text-subtle font-bold">已选 {selectedKeys.size} 项</span>
+          <span className="text-12 text-subtle font-medium">已选 {selectedKeys.size} 项</span>
           <div className="flex items-center gap-2">
             {bulkActions(selectedRows)}
             <button
               type="button"
               onClick={() => selection?.onSelectionChange(new Set())}
-              className="text-2xs text-faint hover:text-foreground"
+              className="text-12 text-faint hover:text-foreground"
             >
               取消选择
             </button>
@@ -171,7 +171,7 @@ export function DataTable<T>({
 
       {/* 窄屏:表格在卡片内横向滚动,不让整页横滚(移动端后台适配的核心) */}
       <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="w-full text-12">
         <thead className="bg-surface-1 border-b border-border">
           <tr>
             {selection && (
@@ -197,7 +197,7 @@ export function DataTable<T>({
                   key={i}
                   style={c.width ? { width: c.width } : undefined}
                   className={cn(
-                    'h-9 px-3 text-faint font-bold text-2xs text-left',
+                    'h-9 px-3 text-faint font-medium text-12 text-left',
                     c.align === 'right' && 'text-right',
                     c.align === 'center' && 'text-center',
                     sortable && 'cursor-pointer select-none hover:text-foreground',

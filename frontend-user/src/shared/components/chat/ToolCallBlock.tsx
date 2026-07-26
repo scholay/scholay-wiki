@@ -144,7 +144,7 @@ export function ToolCallBlock({
         type="button"
         onClick={() => expandable && setExpanded((v) => !v)}
         disabled={!expandable}
-        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-2xs text-muted-foreground hover:bg-surface-2/60 disabled:cursor-default disabled:hover:bg-transparent transition-colors min-w-0"
+        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-12 text-muted-foreground hover:bg-surface-2/60 disabled:cursor-default disabled:hover:bg-transparent transition-colors min-w-0"
         title={prettyToolName(tool.toolName)}
         aria-expanded={expandable ? expanded : undefined}
       >
@@ -158,7 +158,7 @@ export function ToolCallBlock({
           </span>
         )}
         <Icon className={'size-3 shrink-0 ' + iconCls} strokeWidth={2.2} />
-        <span className="font-semibold text-foreground shrink-0 truncate max-w-[40%]">
+        <span className="font-medium text-foreground shrink-0 truncate max-w-[40%]">
           {prettyToolName(tool.toolName)}
         </span>
         {renderHeaderExtras?.()}
@@ -167,7 +167,7 @@ export function ToolCallBlock({
           {pending && (
             <>
               {pendingSec >= 8 && (
-                <span className="text-2xs text-faint">已运行 {pendingSec}s</span>
+                <span className="text-12 text-faint">已运行 {pendingSec}s</span>
               )}
               <Loader2 className="size-3 animate-spin" />
             </>
@@ -175,7 +175,7 @@ export function ToolCallBlock({
           {aborted && (
             <>
               <CircleSlash className="size-3 text-faint" strokeWidth={2.2} />
-              <span className="font-semibold text-faint">已暂停</span>
+              <span className="font-medium text-faint">已暂停</span>
             </>
           )}
           {succeeded && (
@@ -223,7 +223,7 @@ function ToolErrorFold({ tool }: { tool: ToolBlock }) {
   const [showDetail, setShowDetail] = useState(false);
   return (
     <div className="min-w-0">
-      <div className="rounded-4 px-2 py-1.5 text-xs bg-warning-soft border border-brand-amber/20 text-subtle">
+      <div className="rounded-4 px-2 py-1.5 text-12 bg-warning-soft border border-brand-amber/20 text-subtle">
         {summary}
         <button
           type="button"
@@ -260,8 +260,8 @@ function ToolPayloadFold({ label, value, kind }: PayloadFoldProps) {
 
   return (
     <div className="min-w-0">
-      <div className="flex items-center gap-1.5 text-2xs text-faint mb-1">
-        <span className="font-semibold uppercase">{label}</span>
+      <div className="flex items-center gap-1.5 text-12 text-faint mb-1">
+        <span className="font-medium uppercase">{label}</span>
         {isLong && (
           <button
             type="button"

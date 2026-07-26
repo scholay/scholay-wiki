@@ -72,7 +72,7 @@ export function MobileBottomNav() {
               />
             )}
             {item.icon(active)}
-            <span className={cn('text-2xs', active && 'font-medium')}>
+            <span className={cn('text-12', active && 'font-medium')}>
               {item.label}
             </span>
           </>

@@ -44,31 +44,31 @@ export function AddDimensionForm({ disabled, onCancel, onCreated }: Props) {
   return (
     <div className="flex flex-col gap-3 px-[18px] py-4 bg-brand-amber-soft/30 border-t border-b border-brand-amber/30">
       <div>
-        <label className="text-2xs font-bold text-faint">维度名称</label>
+        <label className="text-12 font-medium text-faint">维度名称</label>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={30}
           placeholder="例:研究领域 / 评估指标"
-          className="mt-1 w-full h-8 bg-surface-card border border-border rounded-8 px-2 text-sm outline-none focus-visible:border-brand-amber"
+          className="mt-1 w-full h-8 bg-surface-card border border-border rounded-8 px-2 text-12 outline-none focus-visible:border-brand-amber"
         />
       </div>
       <div>
-        <label className="text-2xs font-bold text-faint">AI 分析指示词</label>
+        <label className="text-12 font-medium text-faint">AI 分析指示词</label>
         <textarea
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
           rows={4}
           maxLength={500}
           placeholder="告诉 AI 从论文里抽取什么 —— 越具体越好。"
-          className="mt-1 w-full bg-surface-card border border-border rounded-8 px-2 py-1.5 text-xs leading-paragraph outline-none focus-visible:border-brand-amber resize-none"
+          className="mt-1 w-full bg-surface-card border border-border rounded-8 px-2 py-1.5 text-12 leading-paragraph outline-none focus-visible:border-brand-amber resize-none"
         />
       </div>
       <div className="flex items-center justify-end gap-1.5">
         <button
           type="button"
           onClick={onCancel}
-          className="h-7 px-3 rounded-8 border border-border text-xs text-subtle hover:bg-surface-1"
+          className="h-7 px-3 rounded-8 border border-border text-12 text-subtle hover:bg-surface-1"
         >
           取消
         </button>
@@ -76,7 +76,7 @@ export function AddDimensionForm({ disabled, onCancel, onCreated }: Props) {
           type="button"
           onClick={submit}
           disabled={busy}
-          className="inline-flex items-center gap-1 h-7 px-3 rounded-8 bg-brand-red text-on-brand text-xs font-bold hover:bg-brand-red/90 disabled:opacity-50"
+          className="inline-flex items-center gap-1 h-7 px-3 rounded-8 bg-brand-red text-on-brand text-12 font-medium hover:bg-brand-red/90 disabled:opacity-50"
         >
           {busy && <Loader2 className="size-3 animate-spin" />}
           添加维度

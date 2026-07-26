@@ -247,7 +247,7 @@ function MobileClawWorkspace({
                   <button
                     type="button"
                     onClick={conv.loadEarlier}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-pill bg-surface-2 px-3.5 text-xs text-muted-foreground transition-colors active:bg-surface-2/70"
+                    className="inline-flex h-8 items-center gap-1.5 rounded-pill bg-surface-2 px-3.5 text-12 text-muted-foreground transition-colors active:bg-surface-2/70"
                   >
                     {hiddenCount > 0
                       ? `加载更早的 ${hiddenCount} 轮对话`

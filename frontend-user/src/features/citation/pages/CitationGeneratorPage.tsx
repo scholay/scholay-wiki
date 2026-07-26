@@ -88,13 +88,13 @@ export function CitationGeneratorPage() {
 
       <div className="mx-auto max-w-[760px] px-4 pt-8 pb-20 sm:px-6 sm:pt-12">
         <header className="space-y-2">
-          <div className="text-2xs font-bold uppercase text-faint">
+          <div className="text-12 font-medium uppercase text-faint">
             CITATION GENERATOR
           </div>
-          <h1 className="font-display font-bold text-2xl sm:text-3xl text-foreground">
+          <h1 className="font-display font-bold text-24 sm:text-28 text-foreground">
             参考文献引用格式生成器
           </h1>
-          <p className="text-sm text-muted-foreground leading-paragraph">
+          <p className="text-12 text-muted-foreground leading-paragraph">
             输入 DOI 自动解析,或手动录入文献信息,一键生成 GB/T 7714(国标)、APA、MLA、
             Chicago、BibTeX 五种格式。
           </p>
@@ -138,7 +138,7 @@ export function CitationGeneratorPage() {
                 解析
               </Button>
             </div>
-            <p className="text-2xs text-faint">
+            <p className="text-12 text-faint">
               不知道 DOI?试试示例{' '}
               <button
                 type="button"
@@ -178,7 +178,7 @@ export function CitationGeneratorPage() {
           {hasContent ? (
             <CitationResult paper={paper} />
           ) : (
-            <div className="rounded-16 border border-dashed border-border bg-surface-1 px-6 py-12 text-center text-sm text-faint">
+            <div className="rounded-16 border border-dashed border-border bg-surface-1 px-6 py-12 text-center text-12 text-faint">
               {mode === 'doi'
                 ? '输入 DOI 并点「解析」,这里会显示各格式引用'
                 : '填写上方文献信息,这里会实时生成各格式引用'}
@@ -205,7 +205,7 @@ function ManualField({
 }) {
   return (
     <label className={cn('block space-y-1', className)}>
-      <span className="text-xs font-bold text-subtle">{label}</span>
+      <span className="text-12 font-medium text-subtle">{label}</span>
       <Input value={value} onChange={(e) => onChange(e.target.value)} />
     </label>
   );
@@ -241,7 +241,7 @@ function CitationResult({ paper }: { paper: CitationPaper }) {
               toast.success(`已设为默认: ${CITATION_FORMAT_LABELS[f]}`);
             }}
             className={cn(
-              'h-7 px-3 rounded-8 text-xs font-bold transition-colors',
+              'h-7 px-3 rounded-8 text-12 font-medium transition-colors',
               format === f
                 ? 'bg-foreground text-background'
                 : 'text-muted-foreground hover:bg-surface-1 hover:text-foreground'
@@ -255,25 +255,25 @@ function CitationResult({ paper }: { paper: CitationPaper }) {
 
       <div className="relative min-w-0">
         {isMono ? (
-          <pre className="w-full rounded-16 bg-surface-1 border border-border px-5 py-4 font-mono text-xs leading-paragraph text-subtle overflow-x-auto whitespace-pre">
+          <pre className="w-full rounded-16 bg-surface-1 border border-border px-5 py-4 font-mono text-12 leading-paragraph text-subtle overflow-x-auto whitespace-pre">
             {citation}
           </pre>
         ) : (
-          <p className="rounded-16 bg-surface-1 border border-border px-5 py-4 text-base leading-paragraph text-subtle break-words">
+          <p className="rounded-16 bg-surface-1 border border-border px-5 py-4 text-14 leading-paragraph text-subtle break-words">
             <CitationProse text={citation} />
           </p>
         )}
         <button
           type="button"
           onClick={copy}
-          className="absolute top-2 right-2 inline-flex items-center gap-1 h-7 px-2.5 rounded-8 bg-surface-card border border-border text-2xs font-bold text-subtle hover:border-foreground hover:text-foreground transition-colors"
+          className="absolute top-2 right-2 inline-flex items-center gap-1 h-7 px-2.5 rounded-8 bg-surface-card border border-border text-12 font-medium text-subtle hover:border-foreground hover:text-foreground transition-colors"
           aria-label={`复制 ${CITATION_FORMAT_LABELS[format]}`}
         >
           <Copy className="size-3" strokeWidth={2.5} />
           复制
         </button>
       </div>
-      <p className="text-2xs text-faint">单击切换格式 · 双击格式名设为默认</p>
+      <p className="text-12 text-faint">单击切换格式 · 双击格式名设为默认</p>
     </section>
   );
 }
@@ -282,19 +282,19 @@ function CitationResult({ paper }: { paper: CitationPaper }) {
 function CiteGuide() {
   return (
     <section className="mt-16 space-y-3 border-t border-border-soft pt-8">
-      <h2 className="font-display font-bold text-lg text-foreground">
+      <h2 className="font-display font-bold text-16 text-foreground">
         关于引用格式
       </h2>
-      <div className="space-y-3 text-sm leading-paragraph text-muted-foreground">
+      <div className="space-y-3 text-12 leading-paragraph text-muted-foreground">
         <p>
-          <span className="font-bold text-subtle">GB/T 7714-2015</span>{' '}
+          <span className="font-medium text-subtle">GB/T 7714-2015</span>{' '}
           是中国国家标准《信息与文献 参考文献著录规则》,国内学位论文与多数中文期刊均要求按此著录,
           形如「作者. 题名[J]. 刊名, 年, 卷: 页码.」。
         </p>
         <p>
-          <span className="font-bold text-subtle">APA / MLA / Chicago</span>{' '}
+          <span className="font-medium text-subtle">APA / MLA / Chicago</span>{' '}
           为英文学术界主流格式,分别常见于社科、人文与历史学科;
-          <span className="font-bold text-subtle"> BibTeX</span>{' '}
+          <span className="font-medium text-subtle"> BibTeX</span>{' '}
           则用于 LaTeX 排版,可直接粘进 .bib 文件。
         </p>
         <p>

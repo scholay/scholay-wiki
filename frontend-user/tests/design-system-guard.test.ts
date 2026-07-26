@@ -100,7 +100,8 @@ describe('排印', () => {
   // B6 做完后把 BASELINE 降到 0 并改回 toEqual([])。
   it('arbitrary 字号只减不增', () => {
     // 为什么: Figma 规定 6 档 12/14/16/20/24/28,新代码用 text-12 这类数值名。
-    const BASELINE = 64; // 2026-07 B6 起始基线
+    // 基线随进度收紧: 64(B6 前) → 46(B6 后)。每次降低都是不可逆的棘轮。
+    const BASELINE = 46;
     const bad = hits(/\btext-\[[0-9.]+(?:px|rem|em)\]/);
     expect(bad.length, `arbitrary 字号增加了。当前:\n${bad.slice(0, 20).join('\n')}`).toBeLessThanOrEqual(BASELINE);
   });
