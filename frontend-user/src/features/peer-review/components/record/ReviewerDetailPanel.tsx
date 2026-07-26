@@ -121,7 +121,7 @@ export function ReviewerDetailPanel({ role, submissionId, report, status, prepar
 
   if (!view) {
     return (
-      <div className="rounded-md border border-border bg-background px-5 py-4">
+      <div className="rounded-md border border-border bg-surface-card px-5 py-4">
         <MarkdownRenderer text={report.contentMd} />
       </div>
     );
@@ -208,7 +208,7 @@ function StreamingReviewerView({
     const narration = leadingNarration(text);
     const tail = narration.length > 360 ? '…' + narration.slice(-360) : narration;
     return (
-      <section className="flex flex-col gap-3 rounded-md border border-brand-amber/40 bg-background px-5 py-4">
+      <section className="flex flex-col gap-3 rounded-md border border-brand-amber/40 bg-surface-card px-5 py-4">
         <div className="flex items-center gap-2.5">
           <Loader2 className="h-4 w-4 shrink-0 animate-spin text-brand-amber" />
           <p className="text-sm font-bold text-foreground">审稿人 {letter} 正在通读稿件…</p>
@@ -250,7 +250,7 @@ function StreamingReviewerView({
       <StreamingHead letter={letter} partial={p} />
 
       {/* 2) 4 维度评分卡 + skeleton */}
-      <section className="flex flex-col gap-3 rounded-md border border-border bg-background px-5 py-4">
+      <section className="flex flex-col gap-3 rounded-md border border-border bg-surface-card px-5 py-4">
         <p className="text-base font-bold text-foreground">结构化评分 · 四维度</p>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {p.dimensions.map((d, i) => <DimensionCard key={i} dim={d} />)}
@@ -262,7 +262,7 @@ function StreamingReviewerView({
 
       {/* 3) 逐句意见 — 已闭合的对象逐个出现 */}
       {p.lineComments.length > 0 && (
-        <section className="flex flex-col gap-3 rounded-md border border-border bg-background px-5 py-4">
+        <section className="flex flex-col gap-3 rounded-md border border-border bg-surface-card px-5 py-4">
           <div className="flex items-center gap-2.5">
             <div className="h-5 w-[3px] rounded-sm bg-foreground" />
             <p className="text-sm font-bold text-foreground">逐句意见</p>
@@ -274,7 +274,7 @@ function StreamingReviewerView({
 
       {/* 4) 整体性评价 */}
       {p.macroComments.length > 0 && (
-        <section className="flex flex-col gap-3 rounded-md border border-border bg-background px-5 py-4">
+        <section className="flex flex-col gap-3 rounded-md border border-border bg-surface-card px-5 py-4">
           <div className="flex items-center gap-2.5">
             <div className="h-5 w-[3px] rounded-sm bg-subtle" />
             <p className="text-sm font-bold text-foreground">整体性评价</p>
@@ -286,7 +286,7 @@ function StreamingReviewerView({
 
       {/* 5) 综合结论 — partial 部分文本会先出现, 让用户看到正在写 */}
       {p.finalSummary && (
-        <section className="flex flex-col gap-2 rounded-md border border-brand-amber/60 bg-background px-5 py-4">
+        <section className="flex flex-col gap-2 rounded-md border border-brand-amber/60 bg-surface-card px-5 py-4">
           <div className="flex items-center gap-2.5">
             <div className="h-5 w-[3px] rounded-sm bg-brand-amber" />
             <p className="text-sm font-bold text-foreground">综合结论与推荐理由</p>
@@ -305,7 +305,7 @@ function StreamingHead({ letter, partial }: { letter: string; partial: PartialRe
   const rec = partial.recommendation;
   const recCls = rec ? recBorderClasses(rec) : '';
   return (
-    <header className="flex items-start justify-between gap-4 rounded-md border border-border bg-background px-5 py-4">
+    <header className="flex items-start justify-between gap-4 rounded-md border border-border bg-surface-card px-5 py-4">
       {/* 头像 + 名称:名称只剩单行(匿名审稿已去掉专长),用 items-center 让名称与头像垂直居中对齐 */}
       <div className="flex items-center gap-3">
         {/* 流式中: rec 一旦解析出来就按结果上色, 之前 (unknown) 走深色兜底 */}
@@ -369,7 +369,7 @@ function ReviewerHead({ role, report }: { role: ReviewerRole; report: ReviewRepo
   const recCls = recBorderClasses(rec);
 
   return (
-    <header className="flex items-start justify-between gap-4 rounded-md border border-border bg-background px-5 py-4">
+    <header className="flex items-start justify-between gap-4 rounded-md border border-border bg-surface-card px-5 py-4">
       {/* 头像 + 名称:名称只剩单行(匿名审稿已去掉专长),用 items-center 让名称与头像垂直居中对齐 */}
       <div className="flex items-center gap-3">
         {/* 头像按该审稿人的推荐结果上色 (绿/黄/红), 跟状态栏 / tab 圆点一致 */}
@@ -406,7 +406,7 @@ function ReviewerHead({ role, report }: { role: ReviewerRole; report: ReviewRepo
 function DimensionRing({ report }: { report: ReviewReport }) {
   const dims = report.dimensions ?? [];
   return (
-    <section className="flex flex-col gap-3 rounded-md border border-border bg-background px-5 py-4">
+    <section className="flex flex-col gap-3 rounded-md border border-border bg-surface-card px-5 py-4">
       <header className="flex items-center justify-between">
         <p className="text-base font-bold text-foreground">结构化评分 · 四维度</p>
       </header>
@@ -457,7 +457,7 @@ function CommentsCard({ report }: { report: ReviewReport }) {
   const lineComments = report.lineComments ?? [];
   const macros = report.macroComments ?? [];
   return (
-    <section className="flex flex-col gap-3.5 rounded-md border border-border bg-background px-5 py-4">
+    <section className="flex flex-col gap-3.5 rounded-md border border-border bg-surface-card px-5 py-4">
       <header className="flex items-center justify-between">
         <p className="text-base font-bold text-foreground">主观评论与建议</p>
         <p className="text-xs text-faint">客观评估难免主观, 仅供作者参考</p>
@@ -487,7 +487,7 @@ function CommentsCard({ report }: { report: ReviewReport }) {
       {report.finalSummaryMd && (
         <>
           <SectionHead barCls="bg-brand-amber" title="综合结论与推荐理由" subtitle="结合上述意见的最终判断" />
-          <div className="flex flex-col gap-2 rounded-md border border-brand-amber/60 bg-background px-4 py-3.5">
+          <div className="flex flex-col gap-2 rounded-md border border-brand-amber/60 bg-surface-card px-4 py-3.5">
             <p className="whitespace-pre-wrap text-sm leading-paragraph text-subtle">
               {report.finalSummaryMd}
             </p>
@@ -538,7 +538,7 @@ function LineCommentCard({ item }: { item: LineComment }) {
         </span>
       </div>
       {item.quote && (
-        <blockquote className="rounded-sm border-l-2 border-border-strong bg-background px-3 py-2.5 text-sm italic text-subtle">
+        <blockquote className="rounded-sm border-l-2 border-border-strong bg-surface-card px-3 py-2.5 text-sm italic text-subtle">
           {item.quote}
         </blockquote>
       )}

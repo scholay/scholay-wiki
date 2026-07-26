@@ -76,7 +76,7 @@ export function MobileSearchFilterSheet({
             transition={{ duration: 0.15 }}
           />
           <m.div
-            className="absolute inset-x-0 bottom-0 z-modal flex max-h-[82%] flex-col rounded-t-16 bg-background shadow-overlay"
+            className="absolute inset-x-0 bottom-0 z-modal flex max-h-[82%] flex-col rounded-t-16 bg-surface-card shadow-overlay"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
@@ -242,7 +242,7 @@ function Chip({
         'rounded-pill border px-3 py-1.5 text-xs transition-colors',
         active
           ? 'border-brand-red bg-brand-red text-on-brand'
-          : 'border-border bg-background text-muted-foreground active:bg-surface-1'
+          : 'border-border bg-surface-card text-muted-foreground active:bg-surface-1'
       )}
     >
       {children}

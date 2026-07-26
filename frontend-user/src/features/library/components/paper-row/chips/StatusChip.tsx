@@ -102,7 +102,7 @@ export function StatusChip({
               //   h-7 (28px), px-2.5 圆角 sm, 内部 gap-1.5; 1px 边框
               //   字号 2xs (11px), 描边/文字色按 tone 切
               className={cn(
-                'group inline-flex items-center gap-1.5 h-7 px-2.5 rounded-sm border bg-background shrink-0 transition-colors',
+                'group inline-flex items-center gap-1.5 h-7 px-2.5 rounded-sm border bg-surface-card shrink-0 transition-colors',
                 TONE_CLASSES[status]
               )}
             >

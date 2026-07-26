@@ -38,7 +38,7 @@ export function todayISO(): string {
 }
 
 const DAY_PRESETS = [7, 30, 90];
-const DATE_INPUT_CLS = 'h-7 rounded-md border border-input bg-background px-2 text-xs text-foreground';
+const DATE_INPUT_CLS = 'h-7 rounded-md border border-input bg-surface-card px-2 text-xs text-foreground';
 
 function Chip({
   active,

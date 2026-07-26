@@ -239,7 +239,7 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
           <thead>
             <tr>
               <th
-                className="sticky left-0 top-0 z-nav p-0 border-r border-b border-border bg-background"
+                className="sticky left-0 top-0 z-nav p-0 border-r border-b border-border bg-surface-card"
                 style={{
                   width: PAPER_COL_WIDTH,
                   minWidth: PAPER_COL_WIDTH,
@@ -307,7 +307,7 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
                   <tr key={p.paperId} className="group/row">
                     {/* 第一列 = 论文卡(sticky-left,与右侧 dim 单元格共享行高) */}
                     <td
-                      className="sticky left-0 z-raised align-top border-b border-r border-border bg-background group-hover/row:bg-danger-soft transition-colors"
+                      className="sticky left-0 z-raised align-top border-b border-r border-border bg-surface-card group-hover/row:bg-danger-soft transition-colors"
                       style={{
                         width: PAPER_COL_WIDTH,
                         minWidth: PAPER_COL_WIDTH,

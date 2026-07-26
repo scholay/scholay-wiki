@@ -518,7 +518,7 @@ export function JournalWizardPage() {
 // 右栏 step ≥ 2 显示的"已选期刊" mini 卡(.pen `jMiniJS2`)
 function SelectedJournalMini({ target }: { target: JournalTarget }) {
   return (
-    <section className="rounded-lg border border-brand-red border-l-[3px] bg-background p-4">
+    <section className="rounded-lg border border-brand-red border-l-[3px] bg-surface-card p-4">
       <p className="text-xs font-bold text-brand-red">已选期刊</p>
       <h3 className="mt-1 text-sm font-bold text-foreground">{target.canonicalName}</h3>
       {(target.jcrImpactFactor != null || target.jcrQuartile) && (

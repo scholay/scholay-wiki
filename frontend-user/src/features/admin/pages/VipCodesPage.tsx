@@ -30,7 +30,7 @@ import {
   type VipCode,
 } from '../api/vip-codes';
 
-const SELECT_CLS = 'h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground';
+const SELECT_CLS = 'h-8 rounded-md border border-input bg-surface-card px-2 text-xs text-foreground';
 
 /**
  * 会员兑换码 —— 批量生成 + 列表。生成后弹出码清单供管理员复制分发。
@@ -228,7 +228,7 @@ export function VipCodesPage() {
   return (
     <AdminPageLayout title="会员兑换码" description={`共 ${data?.total ?? 0} 个 · 生成后复制分发, 用户在「我的会员」兑换`}>
       {/* 生成 */}
-      <section className="mb-4 rounded-md border border-border bg-background p-4">
+      <section className="mb-4 rounded-md border border-border bg-surface-card p-4">
         <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-foreground">
           <Gift className="size-4" /> 批量生成
         </h3>

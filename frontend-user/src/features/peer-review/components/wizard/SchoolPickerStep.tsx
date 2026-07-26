@@ -39,7 +39,7 @@ export function SchoolPickerStep({ value, onChange }: SchoolPickerStepProps) {
   }
 
   return (
-    <section className="rounded-lg border border-border bg-background">
+    <section className="rounded-lg border border-border bg-surface-card">
       <header className="border-b border-border-soft px-5 py-3">
         <h2 className="text-sm font-bold text-foreground">院校信息</h2>
         <p className="mt-0.5 text-xs text-muted-foreground">
@@ -66,7 +66,7 @@ export function SchoolPickerStep({ value, onChange }: SchoolPickerStepProps) {
                 className={
                   v.degreeType === d.id
                     ? 'h-9 flex-1 rounded-md border border-brand-red bg-danger-soft text-sm font-bold text-brand-red'
-                    : 'h-9 flex-1 rounded-md border border-border bg-background text-sm text-subtle hover:border-foreground'
+                    : 'h-9 flex-1 rounded-md border border-border bg-surface-card text-sm text-subtle hover:border-foreground'
                 }
               >
                 {d.label}

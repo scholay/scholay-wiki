@@ -68,7 +68,7 @@ export function WizardLayout({
             disabled={!showPrev}
             className={
               showPrev
-                ? 'inline-flex h-9 items-center gap-1 rounded-md border border-border bg-background px-4 text-xs text-subtle transition hover:border-foreground hover:text-foreground'
+                ? 'inline-flex h-9 items-center gap-1 rounded-md border border-border bg-surface-card px-4 text-xs text-subtle transition hover:border-foreground hover:text-foreground'
                 : 'invisible'
             }
           >
@@ -89,7 +89,7 @@ export function WizardLayout({
               type="button"
               onClick={onCancel}
               disabled={cancelLoading}
-              className="inline-flex h-9 items-center rounded-md border border-border bg-background px-3 text-xs text-muted-foreground transition hover:border-destructive hover:text-destructive disabled:opacity-40"
+              className="inline-flex h-9 items-center rounded-md border border-border bg-surface-card px-3 text-xs text-muted-foreground transition hover:border-destructive hover:text-destructive disabled:opacity-40"
               title="取消并删除当前草稿,上传的文件、AI 已识别的内容都会清空"
             >
               {cancelLoading ? '正在取消…' : '取消草稿'}

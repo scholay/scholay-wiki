@@ -40,7 +40,7 @@ const SheetContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed inset-y-0 z-modal flex h-full w-full max-w-md flex-col gap-4 bg-background shadow-overlay duration-300',
+        'fixed inset-y-0 z-modal flex h-full w-full max-w-md flex-col gap-4 bg-surface-card shadow-overlay duration-300',
         'data-[state=open]:animate-in data-[state=closed]:animate-out',
         side === 'left'
           ? 'left-0 border-r border-border data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left'

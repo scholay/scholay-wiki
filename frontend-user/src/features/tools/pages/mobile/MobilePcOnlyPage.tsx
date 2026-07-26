@@ -117,13 +117,13 @@ export function MobilePcOnlyPage() {
           </div>
 
           {/* 电脑端链接 + 复制 */}
-          <div className="w-full rounded-md border border-border bg-background p-4">
+          <div className="w-full rounded-md border border-border bg-surface-card p-4">
             <div className="flex h-11 items-center justify-between gap-2 rounded-sm border border-border-button bg-surface-1 pl-3 pr-1.5">
               <span className="truncate text-sm text-muted-foreground">{displayUrl}</span>
               <button
                 type="button"
                 onClick={copy}
-                className="flex shrink-0 items-center gap-1.5 rounded-sm border border-border-button bg-background px-3 py-1.5 active:bg-surface-2"
+                className="flex shrink-0 items-center gap-1.5 rounded-sm border border-border-button bg-surface-card px-3 py-1.5 active:bg-surface-2"
               >
                 <Copy className="size-3.5 text-foreground" />
                 <span className="text-xs font-semibold text-foreground">复制</span>

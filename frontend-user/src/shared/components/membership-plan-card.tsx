@@ -121,7 +121,7 @@ export function MembershipPlanCard({ plan, cycle = 'monthly', popularBadge, high
     <div
       onClick={onSelect}
       className={cn(
-        'flex flex-col gap-4 rounded-md border bg-background p-6 transition-colors',
+        'flex flex-col gap-4 rounded-md border bg-surface-card p-6 transition-colors',
         highlighted ? 'border-2 border-brand-red' : 'border-border',
         onSelect && 'cursor-pointer hover:border-brand-red/50',
       )}
@@ -238,7 +238,7 @@ export function BillingCycleToggle({
             onClick={() => !disabled && onChange(opt.id)}
             className={cn(
               'flex h-8 items-center gap-1.5 rounded-pill px-4 text-sm font-bold transition-colors',
-              active ?'bg-background text-foreground shadow-raised':'text-muted-foreground',
+              active ?'bg-surface-card text-foreground shadow-raised':'text-muted-foreground',
               !disabled && !active && 'hover:text-foreground',
               disabled && 'cursor-not-allowed',
             )}

@@ -135,12 +135,12 @@ export function JournalDetailPane() {
             {/* metaTop —— badge 行 */}
             <div className="flex items-center gap-2 flex-wrap">
               {journal.publisher && (
-                <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-background border border-border text-2xs font-bold text-subtle">
+                <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-surface-card border border-border text-2xs font-bold text-subtle">
                   {journal.publisher}
                 </span>
               )}
               {journal.country && (
-                <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-background border border-border text-2xs font-bold text-subtle">
+                <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-surface-card border border-border text-2xs font-bold text-subtle">
                   {journal.country}
                 </span>
               )}
@@ -295,7 +295,7 @@ export function JournalDetailPane() {
 
         {/* 出版与收录 —— 真数据。评分 / 投稿要求 / 发稿周期 / 编委会 / 研究论坛(评论)等
             社区占位卡按需求已移除(后端未上线),只保留有真实数据的区块。 */}
-        <section className="rounded-lg bg-background border border-border p-5 space-y-3">
+        <section className="rounded-lg bg-surface-card border border-border p-5 space-y-3">
           <h3 className="font-display font-bold text-md leading-none text-foreground">
             出版与收录
           </h3>
@@ -352,7 +352,7 @@ function IndexCard({
         'rounded-lg p-5 space-y-1.5',
         highlight
           ? 'bg-foreground text-background'
-          : 'bg-background border border-border'
+          : 'bg-surface-card border border-border'
       )}
     >
       <div

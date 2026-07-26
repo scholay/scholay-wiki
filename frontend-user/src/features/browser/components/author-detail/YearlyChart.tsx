@@ -43,7 +43,7 @@ export function YearlyChart({ papers }: { papers: Paper[] }) {
       : '0';
 
   return (
-    <section className="rounded-lg bg-background border border-border p-6 space-y-4">
+    <section className="rounded-lg bg-surface-card border border-border p-6 space-y-4">
       <div className="flex items-end justify-between gap-3">
         <div className="flex items-end gap-2.5">
           <h2 className="font-display font-bold text-xl leading-none text-foreground">

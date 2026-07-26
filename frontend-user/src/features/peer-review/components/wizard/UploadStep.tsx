@@ -93,7 +93,7 @@ export function UploadStep({
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-4">
       {/* ─── 主稿件 ───────────────────────────────────────────────── */}
-      <section className="rounded-lg border border-border bg-background p-6">
+      <section className="rounded-lg border border-border bg-surface-card p-6">
         <header className="mb-4 flex items-end justify-between">
           <div>
             <h2 className="text-base font-bold text-foreground">稿件正文</h2>
@@ -130,7 +130,7 @@ export function UploadStep({
 
       {/* ─── 附属材料:只有主稿件传完才显示 ───────────────────────── */}
       {manuscript && (
-        <section className="rounded-lg border border-border bg-background">
+        <section className="rounded-lg border border-border bg-surface-card">
           <header className="flex items-center justify-between border-b border-border-soft px-6 py-4">
             <div>
               <div className="flex items-center gap-2">
@@ -259,7 +259,7 @@ function ManuscriptDropZone({
           type="button"
           disabled
           title="即将上线"
-          className="inline-flex h-9 items-center rounded-md border border-border-button bg-background px-5 text-xs text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-9 items-center rounded-md border border-border-button bg-surface-card px-5 text-xs text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
         >
           从云盘导入
         </button>
@@ -286,7 +286,7 @@ function ManuscriptUploadedRow({
   // 近似 .pen 设计稿里的 #F5FBF5 / #CFE8CF;.pen 暂无对应专用 surface token
   return (
     <div className="flex items-center gap-3 rounded-lg border border-brand-green/30 bg-brand-green/5 px-4 py-3">
-      <span className="flex size-9 items-center justify-center rounded-md border border-border bg-background">
+      <span className="flex size-9 items-center justify-center rounded-md border border-border bg-surface-card">
         <FileText className="size-5 text-subtle" />
       </span>
       <div className="min-w-0 flex-1">
@@ -386,7 +386,7 @@ function AttachmentDropZone({
         className="hidden"
         onChange={(e) => pickFile(e.target.files?.[0] ?? undefined)}
       />
-      <span className="flex size-10 items-center justify-center rounded-pill border border-border bg-background">
+      <span className="flex size-10 items-center justify-center rounded-pill border border-border bg-surface-card">
         {uploading ? (
           <Loader2 className="size-4 animate-spin text-faint" />
         ) : (
@@ -427,7 +427,7 @@ function AttachmentAddButton({
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={uploading}
-        className="inline-flex h-9 items-center gap-1 rounded-md border border-brand-red bg-background px-4 text-xs font-bold text-brand-red transition hover:bg-danger-soft disabled:opacity-50"
+        className="inline-flex h-9 items-center gap-1 rounded-md border border-brand-red bg-surface-card px-4 text-xs font-bold text-brand-red transition hover:bg-danger-soft disabled:opacity-50"
       >
         {uploading ? (
           <Loader2 className="size-3.5 animate-spin" />
@@ -443,7 +443,7 @@ function AttachmentAddButton({
 function AttachmentRow({ asset, onDelete }: { asset: SubmissionAsset; onDelete: () => void }) {
   const { Icon, tintCls } = iconForFilename(asset.filename);
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border bg-background px-4 py-3">
+    <div className="flex items-center gap-3 rounded-lg border border-border bg-surface-card px-4 py-3">
       <span className={cn('flex size-10 items-center justify-center rounded-md', tintCls)}>
         <Icon className="size-5 text-subtle" />
       </span>

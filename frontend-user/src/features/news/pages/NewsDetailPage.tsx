@@ -140,7 +140,7 @@ export function NewsDetailPage() {
 
         {/* 可信度说明 */}
         {item.credibility_note && (
-          <aside className="mt-4 flex gap-2.5 rounded-lg border border-border-soft bg-background p-4">
+          <aside className="mt-4 flex gap-2.5 rounded-lg border border-border-soft bg-surface-card p-4">
             <ShieldCheck className="mt-0.5 size-4 shrink-0 text-brand-green" />
             <div>
               <p className="text-xs font-bold text-foreground">可信度说明</p>

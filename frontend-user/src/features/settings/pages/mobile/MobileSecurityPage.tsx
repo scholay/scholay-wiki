@@ -24,7 +24,7 @@ function SecurityBody() {
 
   return (
     <div className="space-y-3 p-3">
-      <section className="space-y-3 rounded-lg border border-border bg-background p-4">
+      <section className="space-y-3 rounded-lg border border-border bg-surface-card p-4">
         <h2 className="text-xs font-medium text-muted-foreground">绑定状态</h2>
         <BindRow
           label="邮箱"
@@ -102,7 +102,7 @@ function ChangePasswordCard() {
 
   return (
     <form
-      className="space-y-3 rounded-lg border border-border bg-background p-4"
+      className="space-y-3 rounded-lg border border-border bg-surface-card p-4"
       onSubmit={(e) => {
         e.preventDefault();
         change.mutate();

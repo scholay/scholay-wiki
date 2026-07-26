@@ -69,11 +69,11 @@ function AttachmentChip({
 
   // 上传中 / 失败的覆盖层(缩略图与文件卡共用)。
   const stateOverlay = uploading ? (
-    <span className="absolute inset-0 z-raised flex items-center justify-center rounded-md bg-background/60">
+    <span className="absolute inset-0 z-raised flex items-center justify-center rounded-md bg-surface-card/60">
       <Loader2 className="size-4 animate-spin text-muted-foreground" />
     </span>
   ) : failed && onRetry ? (
-    <span className="absolute inset-0 z-raised flex items-center justify-center gap-1 rounded-md bg-background/75">
+    <span className="absolute inset-0 z-raised flex items-center justify-center gap-1 rounded-md bg-surface-card/75">
       <button
         type="button"
         onClick={onRetry}

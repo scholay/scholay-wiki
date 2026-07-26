@@ -66,7 +66,7 @@ export function UsageStatsPage() {
       </section>
 
       {/* 每日趋势 */}
-      <section className="rounded-md border border-border bg-background p-4 mb-6">
+      <section className="rounded-md border border-border bg-surface-card p-4 mb-6">
         <div className="mb-2 flex items-center justify-between">
           <h3 className="text-sm font-bold text-foreground">每日使用趋势</h3>
           {usageTrend.isLive && <span className="text-2xs text-faint">— — 今日(进行中)</span>}
@@ -137,7 +137,7 @@ export function UsageStatsPage() {
 
       {/* 功能排行 + 审稿漏斗 */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="rounded-md border border-border bg-background p-4">
+        <div className="rounded-md border border-border bg-surface-card p-4">
           <h3 className="text-sm font-bold text-foreground mb-3">功能使用排行</h3>
           <div className="flex flex-col gap-3">
             {features.map((f) => (
@@ -164,7 +164,7 @@ export function UsageStatsPage() {
           </div>
         </div>
 
-        <div className="rounded-md border border-border bg-background p-4">
+        <div className="rounded-md border border-border bg-surface-card p-4">
           <h3 className="text-sm font-bold text-foreground mb-1">智能审稿漏斗</h3>
           <p className="text-2xs text-faint mb-3">
             按 submission 去重 —— 同一次审稿的各步骤串联,看每步流失

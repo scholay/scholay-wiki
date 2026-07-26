@@ -510,7 +510,7 @@ function ChannelBtn({ icon, label, onClick }: { icon: React.ReactNode; label: st
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col items-center gap-1.5 rounded-md border border-border bg-background py-2.5 text-muted-foreground active:bg-surface-2"
+      className="flex flex-col items-center gap-1.5 rounded-md border border-border bg-surface-card py-2.5 text-muted-foreground active:bg-surface-2"
     >
       {icon}
       <span className="text-2xs text-subtle">{label}</span>

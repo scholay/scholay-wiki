@@ -182,7 +182,7 @@ export function MobileSearchOverlay() {
         initial={{ y: -14 }}
         animate={{ y: 0 }}
         transition={{ duration: 0.22, ease: 'easeOut' }}
-        className="flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background px-3"
+        className="flex h-14 shrink-0 items-center gap-2 border-b border-border bg-surface-card px-3"
       >
         <button
           type="button"
@@ -228,7 +228,7 @@ export function MobileSearchOverlay() {
 
       {/* 筛选条(论文搜索专用,与 PC 侧边栏同筛选逻辑;期刊搜索无此套筛选,不展示) */}
       {isPapers && (
-        <div className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-border bg-background px-3 py-2">
+        <div className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-border bg-surface-card px-3 py-2">
           <button
             type="button"
             onClick={() => setFilterOpen(true)}
@@ -270,7 +270,7 @@ export function MobileSearchOverlay() {
       ) : (
         <div
           ref={scrollRef}
-          className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain bg-background"
+          className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain bg-surface-card"
           {...ptr.handlers}
         >
           <PullToRefreshIndicator pull={ptr.pull} refreshing={ptr.refreshing} />

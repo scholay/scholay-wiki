@@ -53,7 +53,7 @@ export function WechatOfficialPage() {
   return (
     <AdminPageLayout title="公众号" description="微信公众号自动回复(模型由后台「能力绑定 · 公众号自动回复」选)">
       <form
-        className="rounded-md border border-border bg-background p-4 sm:p-6 space-y-4 max-w-3xl"
+        className="rounded-md border border-border bg-surface-card p-4 sm:p-6 space-y-4 max-w-3xl"
         onSubmit={async (e) => {
           e.preventDefault();
           const fd = new FormData(e.currentTarget);
@@ -123,7 +123,7 @@ export function WechatOfficialPage() {
               id="encryption_mode"
               name="encryption_mode"
               defaultValue={data?.encryption_mode || 'secure'}
-              className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+              className="h-9 w-full rounded-md border border-input bg-surface-card px-2 text-sm"
             >
               {ENCRYPTION_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -140,7 +140,7 @@ export function WechatOfficialPage() {
             rows={6}
             defaultValue={data?.system_prompt}
             placeholder="你是 Scholay 的客服助理,用友好简洁的语气回答用户关于学术搜索的问题…"
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="w-full rounded-md border border-input bg-surface-card px-3 py-2 text-sm font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
 

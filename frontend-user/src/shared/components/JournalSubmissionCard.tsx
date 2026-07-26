@@ -100,7 +100,7 @@ export function JournalSubmissionCard({
             </>
           );
           const cls =
-            'flex w-full items-center gap-2.5 rounded-md border border-border bg-background p-2.5 text-left transition-colors hover:border-foreground/40';
+            'flex w-full items-center gap-2.5 rounded-md border border-border bg-surface-card p-2.5 text-left transition-colors hover:border-foreground/40';
           return isMax ? (
             <button
               key={kind}

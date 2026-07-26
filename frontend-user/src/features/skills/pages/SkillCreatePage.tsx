@@ -118,7 +118,7 @@ export function SkillCreatePage() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-background p-6">
+      <div className="rounded-lg border border-border bg-surface-card p-6">
         {step === 1 ? (
           <>
             <h2 className="text-md font-semibold text-foreground">选择上传方式</h2>
@@ -285,7 +285,7 @@ export function SkillCreatePage() {
                   onChange={(e) => setName(e.target.value)}
                   maxLength={120}
                   placeholder="例:系统性文献综述法"
-                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus-visible:border-border-strong"
+                  className="h-9 w-full rounded-md border border-border bg-surface-card px-3 text-sm outline-none focus-visible:border-border-strong"
                 />
               </Field>
               <Field label="一句话简介">
@@ -294,7 +294,7 @@ export function SkillCreatePage() {
                   onChange={(e) => setTagline(e.target.value)}
                   maxLength={255}
                   placeholder="简述这个技能能帮什么忙"
-                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus-visible:border-border-strong"
+                  className="h-9 w-full rounded-md border border-border bg-surface-card px-3 text-sm outline-none focus-visible:border-border-strong"
                 />
               </Field>
               <Field label="分类(可选)">
@@ -303,7 +303,7 @@ export function SkillCreatePage() {
                   onChange={(e) => setCategory(e.target.value)}
                   maxLength={40}
                   placeholder="如 research / writing / analysis"
-                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus-visible:border-border-strong"
+                  className="h-9 w-full rounded-md border border-border bg-surface-card px-3 text-sm outline-none focus-visible:border-border-strong"
                 />
               </Field>
             </div>
@@ -360,7 +360,7 @@ function ModeButton({
         'flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm ' +
         (active
           ? 'border-border-strong bg-surface-2 text-foreground'
-          : 'border-border bg-background text-muted-foreground hover:bg-surface-1') +
+          : 'border-border bg-surface-card text-muted-foreground hover:bg-surface-1') +
         (disabled ? ' cursor-not-allowed opacity-50' : '')
       }
     >

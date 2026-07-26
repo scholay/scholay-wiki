@@ -288,7 +288,7 @@ function FolderRow({
           }}
           onBlur={commitRename}
           disabled={renameMut.isPending}
-          className="flex-1 h-6 bg-background border border-border rounded-sm px-1.5 text-xs outline-none focus-visible:border-brand-red"
+          className="flex-1 h-6 bg-surface-card border border-border rounded-sm px-1.5 text-xs outline-none focus-visible:border-brand-red"
         />
         {renameMut.isPending && (
           <Loader2 className="size-3 animate-spin text-muted-foreground" />
@@ -437,7 +437,7 @@ function NewFolderRow({
         }}
         onBlur={() => onSubmit(draft)}
         disabled={busy}
-        className="flex-1 h-6 bg-background border border-border rounded-sm px-1.5 text-xs outline-none focus-visible:border-brand-red"
+        className="flex-1 h-6 bg-surface-card border border-border rounded-sm px-1.5 text-xs outline-none focus-visible:border-brand-red"
       />
       {busy && <Loader2 className="size-3 animate-spin text-muted-foreground" />}
     </div>

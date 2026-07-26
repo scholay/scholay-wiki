@@ -68,7 +68,7 @@ export function ClawArtifactPreview({
       <ChatStyles />
       <header
         className={cn(
-          'flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background px-3',
+          'flex h-12 shrink-0 items-center gap-2 border-b border-border bg-surface-card px-3',
           hideHeaderClose && 'pr-10',
         )}
       >

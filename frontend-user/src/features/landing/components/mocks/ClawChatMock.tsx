@@ -9,7 +9,7 @@ import { cn } from '@/shared/lib/utils';
 export function ClawChatMock() {
   return (
     <div className={cn(
-      'flex flex-col rounded-12 overflow-hidden bg-background border border-border',
+      'flex flex-col rounded-12 overflow-hidden bg-surface-card border border-border',
       'shadow-overlay'
     )}>
       {/* header */}
@@ -21,7 +21,7 @@ export function ClawChatMock() {
       </div>
 
       {/* messages */}
-      <div className="flex flex-col gap-4 p-5 bg-background min-h-[380px]">
+      <div className="flex flex-col gap-4 p-5 bg-surface-card min-h-[380px]">
         {/* user */}
         <div className="self-end max-w-[80%] px-4 py-3 rounded-lg bg-foreground text-background text-sm">
           帮我对比 Vaswani 与 Devlin 两篇论文在 attention 设计上的区别
@@ -50,7 +50,7 @@ export function ClawChatMock() {
 
       {/* input */}
       <div className="flex items-center gap-2 p-3 border-t border-border-soft bg-surface-1">
-        <span className="flex-1 px-3 py-2 rounded-md bg-background border border-border-soft text-sm text-faint">
+        <span className="flex-1 px-3 py-2 rounded-md bg-surface-card border border-border-soft text-sm text-faint">
           询问你的文献集 …
         </span>
         <button

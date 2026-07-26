@@ -101,7 +101,7 @@ function QACard({ article }: { article: ArticleCardData }) {
   return (
     <Link
       to={`/qa/${article.slug}`}
-      className="group flex flex-col gap-2 p-5 rounded-md bg-background border border-border-soft hover:border-foreground/40 transition-all hover:"
+      className="group flex flex-col gap-2 p-5 rounded-md bg-surface-card border border-border-soft hover:border-foreground/40 transition-all hover:"
     >
       <p className="text-md font-bold text-foreground line-clamp-2">{article.title}</p>
       <p className="text-xs text-muted-foreground leading-paragraph line-clamp-3">{article.excerpt}</p>
@@ -140,7 +140,7 @@ function InfoLinks() {
               to={l.to}
               className="group flex items-center gap-3 p-3 rounded-md bg-surface-1 border border-border-soft hover:border-foreground/40 transition-colors"
             >
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-background border border-border-soft shrink-0">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-surface-card border border-border-soft shrink-0">
                 <Icon className="size-3.5 text-subtle group-hover:text-brand-red transition-colors" strokeWidth={2} />
               </span>
               <div className="min-w-0">

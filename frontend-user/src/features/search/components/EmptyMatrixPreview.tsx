@@ -121,7 +121,7 @@ export function MockMatrixPreview() {
                 这里放 StagingTabs(A/B/+ 标签),而不是再起一个 "论文" 列头。
                 数据行的左格仍然是论文卡(暂存区里的论文展示)—— 这种 tabs-as-header
                 + cards-as-body 的二层结构和真实矩阵完全对齐。 */}
-            <th className="bg-background border-b border-r border-border p-0 h-9">
+            <th className="bg-surface-card border-b border-r border-border p-0 h-9">
               <FakeStagingTabs />
             </th>
             {MOCK_DIMENSIONS.map((d) => (
@@ -137,7 +137,7 @@ export function MockMatrixPreview() {
         <tbody>
           {MOCK_ROWS.map((row, i) => (
             <tr key={i}>
-              <td className="align-top bg-background border-b border-r border-border p-3.5">
+              <td className="align-top bg-surface-card border-b border-r border-border p-3.5">
                 <div className="flex flex-col gap-2">
                   <span
                     className={cn(
@@ -158,7 +158,7 @@ export function MockMatrixPreview() {
               {row.cells.map((c, j) => (
                 <td
                   key={j}
-                  className="align-top bg-background border-b border-r border-border last:border-r-0 p-3"
+                  className="align-top bg-surface-card border-b border-r border-border last:border-r-0 p-3"
                 >
                   <div className="flex flex-col gap-1.5">
                     <span

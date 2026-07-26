@@ -184,10 +184,10 @@ function MultiLineMoreButton({
                 setOpen(true);
               }}
               // absolute 贴右下角,文字"全部"接在截断 … 后面。
-              // 加 pl-1 + bg-background 防止与最后一行残留字符叠在一起,
+              // 加 pl-1 + bg-surface-card 防止与最后一行残留字符叠在一起,
               // 形成"…   全部"的视觉(中间用 padding 给一丝呼吸)。
               className={cn(
-                'absolute right-0 bottom-0 pl-1 bg-background text-xs text-brand-red hover:underline underline-offset-2 font-medium',
+                'absolute right-0 bottom-0 pl-1 bg-surface-card text-xs text-brand-red hover:underline underline-offset-2 font-medium',
                 moreButtonClassName
               )}
             >

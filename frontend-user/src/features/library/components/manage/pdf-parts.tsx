@@ -32,7 +32,7 @@ export function CurrentPaperCard({
   const isComplete = !!eff.title && !!eff.venue && !!eff.year;
 
   return (
-    <div className="rounded-md border border-border bg-background p-4">
+    <div className="rounded-md border border-border bg-surface-card p-4">
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-2">
           <CheckCircle2 className="size-3.5 text-brand-green" strokeWidth={2.5} />
@@ -106,7 +106,7 @@ export function FileTab({
     return (
       <div className="space-y-3">
         <div className="flex items-center gap-3 rounded-md border border-border bg-surface-1 px-3 py-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-sm bg-background border border-border shrink-0">
+          <div className="flex h-9 w-9 items-center justify-center rounded-sm bg-surface-card border border-border shrink-0">
             <Paperclip className="size-4 text-brand-amber" strokeWidth={2.25} />
           </div>
           <div className="flex-1 min-w-0">
@@ -188,7 +188,7 @@ export function FileTab({
           <button
             type="button"
             onClick={onPickFromLibrary}
-            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-sm bg-background border border-border text-sm font-semibold text-subtle hover:bg-surface-2 hover:text-foreground transition-colors"
+            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-sm bg-surface-card border border-border text-sm font-semibold text-subtle hover:bg-surface-2 hover:text-foreground transition-colors"
           >
             <FolderInput className="size-3.5" strokeWidth={2.25} />
             从本地文献夹选取
@@ -215,7 +215,7 @@ export function UrlTab({
   const Icon = inputType === 'url' ? Link2 : FileSearch;
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 px-3 h-11 rounded-md border border-border bg-background focus-within:border-brand-amber focus-within:ring-2 focus-within:ring-brand-amber/20 transition-colors">
+      <div className="flex items-center gap-2 px-3 h-11 rounded-md border border-border bg-surface-card focus-within:border-brand-amber focus-within:ring-2 focus-within:ring-brand-amber/20 transition-colors">
         <Icon className="size-4 text-muted-foreground shrink-0" />
         <input
           type="text"

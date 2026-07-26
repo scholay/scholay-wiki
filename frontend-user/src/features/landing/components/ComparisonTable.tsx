@@ -80,7 +80,7 @@ export function ComparisonTable({ section }: { section: ComparisonSection }) {
         <div
           className={cn(
             'rounded-lg overflow-hidden border',
-            dark ? 'bg-landing-dark-1 border-landing-dark-divider' : 'bg-background border-border'
+            dark ? 'bg-landing-dark-1 border-landing-dark-divider' : 'bg-surface-card border-border'
           )}
         >
           {/* 表头 */}

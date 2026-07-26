@@ -28,7 +28,7 @@ function CTAButton2({
         'inline-flex items-center gap-2 h-12 px-6 rounded-sm text-md font-semibold transition-colors whitespace-nowrap',
         isPrimary
           ? 'bg-foreground text-background hover:bg-foreground/85'
-          : 'bg-background border border-foreground text-foreground hover:bg-surface-1'
+          : 'bg-surface-card border border-foreground text-foreground hover:bg-surface-1'
       )}
     >
       {!isPrimary && <Play className="size-4" strokeWidth={2.2} />}

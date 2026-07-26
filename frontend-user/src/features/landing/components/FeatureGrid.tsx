@@ -25,7 +25,7 @@ function Card({ card }: { card: FeatureCard }) {
         'flex flex-col gap-5 p-8 rounded-lg border h-full',
         dark
           ? 'bg-foreground border-foreground text-background'
-          : 'bg-background border-border'
+          : 'bg-surface-card border-border'
       )}
     >
       <span

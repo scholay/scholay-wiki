@@ -216,7 +216,7 @@ function HeroCard({ article }: { article: ArticleCardData }) {
         <span className="inline-flex items-center h-5 px-2 rounded-pill bg-brand-red text-background text-2xs font-bold uppercase">
           最新
         </span>
-        <span className="inline-flex items-center h-5 px-2 rounded-sm bg-background border border-border-soft text-2xs font-bold text-muted-foreground">
+        <span className="inline-flex items-center h-5 px-2 rounded-sm bg-surface-card border border-border-soft text-2xs font-bold text-muted-foreground">
           {article.category}
         </span>
       </div>
@@ -259,7 +259,7 @@ function ContentCard({
   return (
     <Link
       to={to}
-      className="group flex flex-col gap-2 p-5 rounded-md bg-background border border-border-soft hover:border-foreground/40 transition-all hover:"
+      className="group flex flex-col gap-2 p-5 rounded-md bg-surface-card border border-border-soft hover:border-foreground/40 transition-all hover:"
     >
       {showCategory && (
         <span className="inline-flex items-center w-fit h-5 px-2 rounded-sm bg-surface-1 text-2xs font-bold text-muted-foreground">

@@ -198,7 +198,7 @@ function BestMatchCard({
   const authorsLine = formatAuthorsDisplay(hit.authors);
 
   return (
-    <div className="rounded-md border border-border bg-background overflow-hidden">
+    <div className="rounded-md border border-border bg-surface-card overflow-hidden">
       {/* 头部:✨ 最佳建议 + 来源 badge + 外链 */}
       <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-border-soft bg-surface-1">
         <div className="flex items-center gap-2 flex-wrap">
@@ -312,7 +312,7 @@ function OtherCandidatesSection({
   onPickHit: (hit: SearchHit) => void;
 }) {
   return (
-    <div className="rounded-md border border-border bg-background overflow-hidden">
+    <div className="rounded-md border border-border bg-surface-card overflow-hidden">
       <button
         type="button"
         onClick={onToggle}
@@ -331,7 +331,7 @@ function OtherCandidatesSection({
         <ul className="divide-y divide-border-soft border-t border-border-soft">
           {hits.map((h) => (
             <li key={keyOfHit(h)} className="flex items-start gap-3 px-4 py-2.5">
-              <div className="flex h-6 w-6 items-center justify-center rounded-sm bg-background border border-border shrink-0 mt-0.5">
+              <div className="flex h-6 w-6 items-center justify-center rounded-sm bg-surface-card border border-border shrink-0 mt-0.5">
                 <FileText className="size-3 text-subtle" strokeWidth={2} />
               </div>
               <div className="flex-1 min-w-0">

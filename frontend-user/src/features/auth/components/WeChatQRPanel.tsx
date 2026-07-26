@@ -182,7 +182,7 @@ export function WeChatQRPanel({ mode = 'login', onSuccess }: WeChatQRPanelProps)
       <div
         id={CONTAINER_ID}
         ref={containerRef}
-        className="w-[220px] h-[240px] flex items-start justify-center overflow-hidden bg-background"
+        className="w-[220px] h-[240px] flex items-start justify-center overflow-hidden bg-surface-card"
       />
       <span className="mt-3 text-xs text-faint">扫码后请在手机端确认授权</span>
     </div>

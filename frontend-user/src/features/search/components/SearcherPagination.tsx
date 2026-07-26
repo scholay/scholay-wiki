@@ -44,7 +44,7 @@ export function SearcherPagination({
     >
       {/* 左:pageSize 切换 —— 仅 20 / 50 两档,shrink-0 防被 grid 压扁
           justify-self-start 让 pill 列贴左,不被 1fr 列拉伸 */}
-      <div className="justify-self-start inline-flex shrink-0 items-center gap-0.5 rounded-pill bg-background border border-border p-0.5">
+      <div className="justify-self-start inline-flex shrink-0 items-center gap-0.5 rounded-pill bg-surface-card border border-border p-0.5">
         {PAGE_SIZE_OPTIONS.map((sz) => (
           <button
             key={sz}

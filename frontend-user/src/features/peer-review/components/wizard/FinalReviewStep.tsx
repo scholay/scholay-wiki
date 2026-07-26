@@ -49,7 +49,7 @@ export function FinalReviewStep({
 
   return (
     <div className="mx-auto max-w-4xl">
-      <article className="overflow-hidden rounded-lg border border-border bg-background">
+      <article className="overflow-hidden rounded-lg border border-border bg-surface-card">
         <div className="px-8 py-7">
           {/* ─── 上传材料 ─── */}
           <Section title="上传材料" onEdit={onJumpToStep ? () => onJumpToStep(1) : undefined}>

@@ -29,7 +29,7 @@ export function PrismEditorMock() {
       'shadow-overlay'
     )}>
       {/* editor top bar */}
-      <div className="flex items-center gap-3 px-4 py-2.5 bg-background border-b border-border-soft">
+      <div className="flex items-center gap-3 px-4 py-2.5 bg-surface-card border-b border-border-soft">
         <span className="size-2.5 rounded-pill bg-[#FF5F57]" />
         <span className="size-2.5 rounded-pill bg-[#FEBC2E]" />
         <span className="size-2.5 rounded-pill bg-[#28C840]" />
@@ -63,7 +63,7 @@ export function PrismEditorMock() {
         </div>
 
         {/* 右:PDF 预览占位 */}
-        <div className="flex flex-col gap-3 p-7 bg-background overflow-hidden">
+        <div className="flex flex-col gap-3 p-7 bg-surface-card overflow-hidden">
           <div className="font-display italic font-semibold text-base text-foreground">
             Attention in LLMs:
           </div>

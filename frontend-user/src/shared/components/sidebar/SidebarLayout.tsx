@@ -69,7 +69,7 @@ export function SidebarLayout({
         <aside
           style={{ width }}
           className={cn(
-            'fixed inset-y-0 left-0 z-modal h-full overflow-hidden border-r border-border bg-background transition-transform duration-200 ease-in-out',
+            'fixed inset-y-0 left-0 z-modal h-full overflow-hidden border-r border-border bg-surface-card transition-transform duration-200 ease-in-out',
             expanded ? 'translate-x-0' : '-translate-x-full'
           )}
           aria-hidden={!expanded}

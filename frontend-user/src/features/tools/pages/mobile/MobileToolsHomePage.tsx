@@ -75,7 +75,7 @@ export function MobileToolsHomePage() {
               onClick={() => navigate('/m/claw')}
               className="flex items-center gap-3 rounded-md bg-[#F1EADA] p-3.5 text-left active:opacity-90"
             >
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-pill bg-background text-2xl leading-none">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-pill bg-surface-card text-2xl leading-none">
                 🦞
               </span>
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -94,7 +94,7 @@ export function MobileToolsHomePage() {
                   key={t.key}
                   type="button"
                   onClick={() => navigate(t.to)}
-                  className="flex flex-col gap-2.5 rounded-md border border-border bg-background p-3.5 text-left active:bg-surface-1"
+                  className="flex flex-col gap-2.5 rounded-md border border-border bg-surface-card p-3.5 text-left active:bg-surface-1"
                 >
                   <span className="flex size-9 items-center justify-center rounded-sm bg-surface-2">
                     <t.icon className={cn('size-5', t.iconColor)} />

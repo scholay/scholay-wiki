@@ -223,7 +223,7 @@ export function FeedbackPage() {
                         'flex flex-col items-center gap-1 rounded-md border px-2 py-2.5 text-center transition-colors',
                         active
                           ? 'border-brand-red/40 bg-danger-soft'
-                          : 'border-border bg-background hover:border-foreground/30 hover:bg-surface-2',
+                          : 'border-border bg-surface-card hover:border-foreground/30 hover:bg-surface-2',
                       )}
                     >
                       <Icon
@@ -255,7 +255,7 @@ export function FeedbackPage() {
                 aria-describedby="feedback-content-hint"
                 placeholder="请详细描述遇到的问题或您的建议,越具体我们越能帮上忙"
                 className={cn(
-                  'w-full resize-y rounded-sm border bg-background px-3 py-2.5 text-sm leading-paragraph focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  'w-full resize-y rounded-sm border bg-surface-card px-3 py-2.5 text-sm leading-paragraph focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                   contentTooShort ? 'border-brand-red focus-visible:border-brand-red' : 'border-border focus-visible:border-foreground',
                 )}
               />
@@ -282,7 +282,7 @@ export function FeedbackPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 placeholder="you@example.com"
-                className="h-10 w-full rounded-sm border border-border bg-background px-3 text-sm focus-visible:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-10 w-full rounded-sm border border-border bg-surface-card px-3 text-sm focus-visible:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
               {user?.email && email.trim() === user.email && (
                 <p className="mt-1 inline-flex items-center gap-1 text-2xs text-brand-green">
@@ -306,7 +306,7 @@ export function FeedbackPage() {
                   {attachments.map((a) => (
                     <div
                       key={a.id}
-                      className="group relative overflow-hidden rounded-sm border border-border bg-background"
+                      className="group relative overflow-hidden rounded-sm border border-border bg-surface-card"
                     >
                       {a.type === 'image' ? (
                         <button
@@ -356,7 +356,7 @@ export function FeedbackPage() {
                 }}
                 className={cn(
                   'flex flex-col items-center justify-center gap-1.5 rounded-md border border-dashed py-5 text-center transition-colors',
-                  dragOver ? 'border-brand-green bg-brand-green/5' : 'border-border bg-background',
+                  dragOver ? 'border-brand-green bg-brand-green/5' : 'border-border bg-surface-card',
                 )}
               >
                 <Paperclip className="size-4 text-faint" />
@@ -424,7 +424,7 @@ export function FeedbackPage() {
 /** 「我们承诺」卡(品牌信心区)。 */
 function PromiseCard() {
   return (
-    <section className="rounded-lg border border-border-soft bg-background p-5">
+    <section className="rounded-lg border border-border-soft bg-surface-card p-5">
       <h2 className="mb-3 inline-flex items-center gap-2 text-sm font-bold text-foreground">
         <Sparkles className="size-4 text-brand-amber" strokeWidth={2.2} />
         我们承诺

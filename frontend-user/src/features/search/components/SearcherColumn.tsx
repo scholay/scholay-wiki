@@ -271,7 +271,7 @@ export function SearcherColumn({
             onSubmit={submit}
             className="flex items-center gap-2 px-4 pt-3.5 pb-2 shrink-0"
           >
-            <div className="flex items-center gap-2 flex-1 h-9 px-3 rounded-sm border border-border-strong bg-background focus-within:border-foreground focus-within:ring-2 focus-within:ring-ring transition-colors">
+            <div className="flex items-center gap-2 flex-1 h-9 px-3 rounded-sm border border-border-strong bg-surface-card focus-within:border-foreground focus-within:ring-2 focus-within:ring-ring transition-colors">
               <Search className="size-3.5 text-faint" />
               <input
                 type="search"
@@ -301,7 +301,7 @@ export function SearcherColumn({
           {/* resultsList —— 蒙层 loading:
               query/filter 变化时去掉了 placeholderData,papers 即为空数组(EmptyState
               不显示因为 showLoading=true,统一靠蒙层覆盖)。
-              蒙层 absolute 在 results 容器上,bg-background/70 + 中心 spinner。 */}
+              蒙层 absolute 在 results 容器上,bg-surface-card/70 + 中心 spinner。 */}
           <div className="flex-1 min-h-0 overflow-auto relative">
             {!query && (
               <EmptyState
@@ -342,7 +342,7 @@ export function SearcherColumn({
             {/* 蒙层 loading —— absolute 覆盖整个 results 区域 */}
             {showLoading && (
               <div
-                className="absolute inset-0 z-raised flex items-center justify-center bg-background/70 backdrop-blur-[1px]"
+                className="absolute inset-0 z-raised flex items-center justify-center bg-surface-card/70 backdrop-blur-[1px]"
                 aria-live="polite"
                 aria-busy="true"
               >

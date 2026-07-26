@@ -125,7 +125,7 @@ function Header({ sub, chief }: { sub: ReturnType<typeof adaptSubmission>; chief
       ? (sub.journalTarget?.canonicalName ?? '通用 STM 期刊')
       : (sub.schoolTarget?.schoolName ?? '——');
   return (
-    <section className="flex flex-col gap-2 rounded-md border border-border bg-background p-4">
+    <section className="flex flex-col gap-2 rounded-md border border-border bg-surface-card p-4">
       <div className="flex flex-wrap items-center gap-2.5">
         {chief ? (
           <span

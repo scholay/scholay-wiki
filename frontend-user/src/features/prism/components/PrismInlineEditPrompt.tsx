@@ -102,7 +102,7 @@ export function PrismInlineEditPrompt({
           }}
           rows={2}
           placeholder="或描述你想怎么改…(Enter 提交)"
-          className="max-h-24 min-h-[44px] flex-1 resize-none rounded-md border border-border-button bg-background px-2.5 py-1.5 text-xs leading-paragraph text-foreground placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="max-h-24 min-h-[44px] flex-1 resize-none rounded-md border border-border-button bg-surface-card px-2.5 py-1.5 text-xs leading-paragraph text-foreground placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
         <button
           type="button"

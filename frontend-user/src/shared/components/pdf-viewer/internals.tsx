@@ -119,7 +119,7 @@ export function ModeBtn({ active, onClick, label, children }: ModeBtnProps) {
       className={cn(
         'inline-flex h-6 w-7 items-center justify-center rounded-sm transition-colors',
         active
-          ?'bg-background text-foreground shadow-raised'
+          ?'bg-surface-card text-foreground shadow-raised'
           : 'text-subtle hover:text-foreground'
       )}
     >

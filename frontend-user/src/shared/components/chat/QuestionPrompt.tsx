@@ -157,7 +157,7 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
   }
 
   return (
-    <div className="mb-2 rounded-lg border border-border bg-background overflow-hidden">
+    <div className="mb-2 rounded-lg border border-border bg-surface-card overflow-hidden">
       {/* 头部:进度 + 返回 */}
       <div className="flex items-center gap-1.5 px-3.5 py-2 border-b border-border-soft">
         <MessageCircleQuestion className="h-3.5 w-3.5 text-brand-green shrink-0" />
@@ -208,7 +208,7 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
                       'flex items-start gap-2 w-full text-left rounded-md border px-3 py-2 transition-colors',
                       active
                         ? 'border-brand-green bg-brand-green/5'
-                        : 'border-border bg-background hover:bg-surface-2',
+                        : 'border-border bg-surface-card hover:bg-surface-2',
                     )}
                   >
                     {q.multiSelect && (
@@ -262,7 +262,7 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
                       }
                     }}
                     placeholder="输入你的回答…"
-                    className="flex-1 min-w-0 rounded-md border border-border bg-background px-2.5 py-1.5 text-sm text-foreground placeholder:text-faint resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="flex-1 min-w-0 rounded-md border border-border bg-surface-card px-2.5 py-1.5 text-sm text-foreground placeholder:text-faint resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                   <button
                     type="button"

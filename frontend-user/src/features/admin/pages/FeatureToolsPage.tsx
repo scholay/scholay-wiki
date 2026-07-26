@@ -25,7 +25,7 @@ const STATUS_LABEL: Record<string, { text: string; variant: 'default' | 'outline
   archived: { text: '归档', variant: 'outline' },
 };
 
-const selectCls = 'h-9 w-full rounded-md border border-input bg-background px-2 text-sm';
+const selectCls = 'h-9 w-full rounded-md border border-input bg-surface-card px-2 text-sm';
 
 export function FeatureToolsPage() {
   const [q, setQ] = useState('');
@@ -204,7 +204,7 @@ function EditDialog({
           <Field label="官网 URL"><Input name="official_url" defaultValue={tool.official_url} placeholder="https://" /></Field>
           <Field label="标签 (逗号分隔)"><Input name="tags" defaultValue={(tool.tags ?? []).join(', ')} /></Field>
           <Field label="详细描述">
-            <textarea name="description_md" defaultValue={tool.description_md} rows={4} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+            <textarea name="description_md" defaultValue={tool.description_md} rows={4} className="w-full rounded-md border border-input bg-surface-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           </Field>
           <Field label="状态" inline>
             <select name="status" defaultValue={tool.status} className={`${selectCls} w-32`}>

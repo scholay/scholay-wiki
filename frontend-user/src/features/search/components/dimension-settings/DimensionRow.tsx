@@ -71,7 +71,7 @@ function DimensionRowImpl({
       style={style}
       className={cn(
         'flex items-center gap-2 h-[58px] px-2 border-b border-border-soft transition-colors',
-        isHidden ? 'bg-surface-1' : 'bg-background hover:bg-surface-1/60',
+        isHidden ? 'bg-surface-1' : 'bg-surface-card hover:bg-surface-1/60',
         isDragging &&'opacity-50 z-raised shadow-raised'
       )}
     >

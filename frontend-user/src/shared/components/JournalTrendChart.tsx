@@ -103,7 +103,7 @@ export const JournalTrendChart = memo(function JournalTrendChart({
   if (available.length === 0) return null;
 
   return (
-    <section className="shrink-0 rounded-md border border-border bg-background p-3">
+    <section className="shrink-0 rounded-md border border-border bg-surface-card p-3">
       <div className="mb-2 flex items-center justify-between">
         <span className="text-sm font-semibold text-foreground">近年趋势</span>
         <div className="flex gap-1">

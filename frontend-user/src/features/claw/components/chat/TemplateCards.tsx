@@ -150,7 +150,7 @@ function FanCards({ reduce, onPick }: { reduce: boolean; onPick: (f: TemplateFea
               zIndex: isH ? 30 : i + 1,
             }}
             className={cn(
-              'group relative flex flex-col overflow-hidden rounded-12 border bg-background text-left outline-none transition-[border-color,box-shadow]',
+              'group relative flex flex-col overflow-hidden rounded-12 border bg-surface-card text-left outline-none transition-[border-color,box-shadow]',
               isH ? cn('ring-2', accent.focusRing) : 'border-border',
             )}
           >
@@ -223,7 +223,7 @@ function SelectedModeBar({
       <button
         type="button"
         onClick={onBack}
-        className="inline-flex shrink-0 items-center gap-1 rounded-pill px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-background/60 hover:text-foreground"
+        className="inline-flex shrink-0 items-center gap-1 rounded-pill px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-surface-card/60 hover:text-foreground"
       >
         <ArrowLeft className="size-3.5" />
         换回对话

@@ -67,7 +67,7 @@ export function SourceBadge({
       <TooltipContent
         side="top"
         sideOffset={4}
-        className="text-xs bg-background text-foreground border-border max-w-[220px]"
+        className="text-xs bg-surface-card text-foreground border-border max-w-[220px]"
       >
         <div className="font-semibold">{meta.name}</div>
         <div className="text-muted-foreground mt-0.5">{meta.description}</div>

@@ -101,7 +101,7 @@ export function FeatureToolImportPage() {
             onChange={(e) => { setText(e.target.value); setFilename(''); setZipFile(null); }}
             rows={12}
             placeholder='[{"name":"...","slug":"...","category":"...","access":{...},"spec":{...}}, ...]'
-            className="w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs leading-paragraph focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="w-full rounded-md border border-input bg-surface-card px-3 py-2 font-mono text-xs leading-paragraph focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
 
@@ -140,7 +140,7 @@ export function FeatureToolImportPage() {
             ? (job.status === 'succeeded' ? '完成' : job.status === 'partial' ? '部分完成' : job.status)
             : uploadingLogos ? '上传图标中…' : '导入中…';
           return (
-            <div className="rounded-md border border-border bg-background p-4">
+            <div className="rounded-md border border-border bg-surface-card p-4">
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-sm font-bold text-foreground">任务 #{job.id} · {statusLabel}</p>
                 <Link to="/admin/tools-jobs" className="text-xs text-brand-red hover:underline">全部任务 →</Link>

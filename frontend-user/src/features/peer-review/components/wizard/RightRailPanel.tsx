@@ -43,7 +43,7 @@ export function RightRailPanel({ submissionId, children, tip }: RightRailPanelPr
 export function UploadedAssetsCard({ submissionId }: { submissionId: number }) {
   const { data: assets = [] } = useSubmissionAssets(submissionId);
   return (
-    <section className="rounded-lg border border-border bg-background">
+    <section className="rounded-lg border border-border bg-surface-card">
       <header className="flex items-center justify-between px-4 py-3 border-b border-border-soft">
         <h3 className="text-sm font-bold text-foreground">
           已上传

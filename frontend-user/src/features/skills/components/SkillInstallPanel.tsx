@@ -33,7 +33,7 @@ export function SkillInstallPanel({
   }
 
   return (
-    <div id="install" className="rounded-lg border border-border bg-background p-4">
+    <div id="install" className="rounded-lg border border-border bg-surface-card p-4">
       <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
         <Package className="h-4 w-4 text-brand-green" />
         去使用 —— 装进你的智能体

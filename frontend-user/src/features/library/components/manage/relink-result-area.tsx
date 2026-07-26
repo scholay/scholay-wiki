@@ -74,7 +74,7 @@ export function RelinkResultArea({
                 <span
                   className={cn(
                     'inline-flex h-5 w-5 items-center justify-center rounded-pill shrink-0 mt-0.5 border-2 transition-colors',
-                    selected ? 'bg-brand-amber border-brand-amber text-background' : 'border-border bg-background'
+                    selected ? 'bg-brand-amber border-brand-amber text-background' : 'border-border bg-surface-card'
                   )}
                 >
                   {selected && <Check className="size-3" strokeWidth={3} />}

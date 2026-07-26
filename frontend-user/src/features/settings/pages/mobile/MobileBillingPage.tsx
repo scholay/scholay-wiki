@@ -35,7 +35,7 @@ function BillingBody() {
               'rounded-pill border px-3.5 py-1.5 text-sm transition-colors',
               tab === key
                 ? 'border-foreground bg-foreground font-medium text-on-brand'
-                : 'border-border bg-background text-muted-foreground'
+                : 'border-border bg-surface-card text-muted-foreground'
             )}
           >
             {label}
@@ -56,7 +56,7 @@ function TxnList() {
   if (items.length === 0) return <Empty text="还没有经费流水" />;
 
   return (
-    <ul className="overflow-hidden rounded-lg border border-border bg-background">
+    <ul className="overflow-hidden rounded-lg border border-border bg-surface-card">
       {items.map((t, i) => (
         <li
           key={t.id}
@@ -90,7 +90,7 @@ function OrderList() {
   if (items.length === 0) return <Empty text="还没有订单记录" />;
 
   return (
-    <ul className="overflow-hidden rounded-lg border border-border bg-background">
+    <ul className="overflow-hidden rounded-lg border border-border bg-surface-card">
       {items.map((o, i) => (
         <li
           key={o.order_no}

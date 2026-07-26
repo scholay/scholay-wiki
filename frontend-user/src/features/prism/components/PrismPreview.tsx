@@ -25,7 +25,7 @@ export function PrismPreview() {
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* 文件树 */}
-        <aside className="w-[200px] shrink-0 border-r border-border bg-background py-3">
+        <aside className="w-[200px] shrink-0 border-r border-border bg-surface-card py-3">
           <div className="px-4 pb-1 text-2xs font-bold text-faint uppercase">
             文件
           </div>
@@ -116,7 +116,7 @@ The blended output is then normalized via...`}
           <div className="h-10 px-4 flex items-center border-b border-border bg-surface-1 text-xs text-muted-foreground">
             预览 · 第 4 页 / 共 12 页
           </div>
-          <div className="p-6 space-y-3 text-[11px] leading-paragraph text-foreground bg-background m-4 rounded-sm">
+          <div className="p-6 space-y-3 text-[11px] leading-paragraph text-foreground bg-surface-card m-4 rounded-sm">
             <h3 className="text-base font-bold">3 Method</h3>
             <p className="text-subtle">
               We propose a hybrid architecture that combines the linear-time

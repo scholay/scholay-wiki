@@ -273,7 +273,7 @@ function PeriodStatCard({
 }) {
   const multi = !!cols && cols.length > 1;
   return (
-    <div className="rounded-md border border-border bg-background p-4 flex flex-col gap-2">
+    <div className="rounded-md border border-border bg-surface-card p-4 flex flex-col gap-2">
       <div className="flex items-center justify-between text-faint">
         <span className="text-sm">{label}</span>
         <Icon className="size-4" />

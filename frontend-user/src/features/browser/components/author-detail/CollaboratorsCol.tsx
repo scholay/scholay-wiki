@@ -46,7 +46,7 @@ export function CollaboratorsCol({
         </div>
       </div>
 
-      <div className="rounded-lg bg-background border border-border overflow-hidden">
+      <div className="rounded-lg bg-surface-card border border-border overflow-hidden">
         {loading && collaborators.length === 0 ? (
           <div className="flex items-center justify-center py-8 text-faint">
             <Loader2 className="size-4 animate-spin" />

@@ -187,7 +187,7 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
         <div
           className={cn(
             // .pen `Z0RbcB`:48h,与联想 dropdown 拼接时下边变直
-            'flex h-12 items-center gap-3 pl-5 pr-2 bg-background border transition-colors',
+            'flex h-12 items-center gap-3 pl-5 pr-2 bg-surface-card border transition-colors',
             mergeBorders
               ? 'border-destructive rounded-t-sm border-b-0'
               : focused
@@ -259,7 +259,7 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
           <div
             // .pen `t3sGV`:1px #E5E5E5 边 + 下圆角 4 + 阴影 (0,8) blur 24
             // 高度封顶由上面 ResizeObserver 算出 --dropdownMaxHeight
-            className="absolute top-full left-0 right-0 z-popover flex flex-col bg-background border border-border-strong border-t-0 rounded-b-sm overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150"
+            className="absolute top-full left-0 right-0 z-popover flex flex-col bg-surface-card border border-border-strong border-t-0 rounded-b-sm overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150"
             style={{ maxHeight: dropdownMaxHeight }}
           >
             {papers.length > 0 && (

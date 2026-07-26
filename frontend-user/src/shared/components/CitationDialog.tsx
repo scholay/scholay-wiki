@@ -107,7 +107,7 @@ export function CitationDialog({
             type="button"
             onClick={handleCopy}
             disabled={!citation}
-            className="inline-flex h-7 shrink-0 items-center gap-1 rounded-sm border border-border bg-background px-2.5 text-2xs font-bold text-subtle transition-colors hover:border-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-7 shrink-0 items-center gap-1 rounded-sm border border-border bg-surface-card px-2.5 text-2xs font-bold text-subtle transition-colors hover:border-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
             aria-label={`复制 ${CITATION_FORMAT_LABELS[format]}`}
           >
             <Copy className="size-3" strokeWidth={2.5} />

@@ -173,7 +173,7 @@ export function AboutPage() {
             </Link>
             <Link
               to="/contact"
-              className="inline-flex items-center gap-1.5 h-10 px-5 rounded-md bg-background border border-border text-sm font-semibold text-subtle hover:text-foreground hover:bg-surface-1 transition-colors"
+              className="inline-flex items-center gap-1.5 h-10 px-5 rounded-md bg-surface-card border border-border text-sm font-semibold text-subtle hover:text-foreground hover:bg-surface-1 transition-colors"
             >
               查看其他联系方式
             </Link>
@@ -198,7 +198,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 function ValueCard({ value: { icon: Icon, title, desc } }: { value: Value }) {
   return (
-    <div className="flex flex-col gap-2.5 p-5 rounded-md bg-background border border-border-soft hover:border-border-strong transition-colors">
+    <div className="flex flex-col gap-2.5 p-5 rounded-md bg-surface-card border border-border-soft hover:border-border-strong transition-colors">
       <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-danger-soft border border-brand-red/15">
         <Icon className="size-4 text-brand-red" strokeWidth={2} />
       </span>
@@ -233,7 +233,7 @@ function PillarCard({ pillar: { icon: Icon, title, desc, to, status } }: { pilla
   );
 
   const cls =
-    'flex flex-col p-5 rounded-md bg-background border border-border transition-colors';
+    'flex flex-col p-5 rounded-md bg-surface-card border border-border transition-colors';
   if (to) {
     return (
       <Link to={to} className={`${cls} hover:border-foreground/40 hover:`}>

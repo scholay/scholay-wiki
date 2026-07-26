@@ -402,7 +402,7 @@ export function PrismWorkspace({ projectId, onBack, readOnly = false, onOpen }: 
           <ResizablePanel defaultSize={38} minSize={20} className="flex min-h-0 flex-col bg-surface-1">
             {/* 有 PDF 时顶部给下载按钮 —— 下载本次编译产物。 */}
             {pdfKey > 0 && (
-              <div className="flex h-9 shrink-0 items-center justify-between border-b border-border bg-background px-3">
+              <div className="flex h-9 shrink-0 items-center justify-between border-b border-border bg-surface-card px-3">
                 <span className="text-2xs font-bold text-muted-foreground">PDF 预览</span>
                 <Button
                   size="sm"

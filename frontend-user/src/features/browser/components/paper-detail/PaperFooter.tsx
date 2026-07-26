@@ -94,7 +94,7 @@ export function PaperFooter({ paper }: { paper: Paper }) {
         <button
           type="button"
           onClick={copyCurrent}
-          className="absolute top-2 right-2 inline-flex items-center gap-1 h-7 px-2.5 rounded-sm bg-background border border-border text-2xs font-bold text-subtle hover:border-foreground hover:text-foreground transition-colors"
+          className="absolute top-2 right-2 inline-flex items-center gap-1 h-7 px-2.5 rounded-sm bg-surface-card border border-border text-2xs font-bold text-subtle hover:border-foreground hover:text-foreground transition-colors"
           aria-label={`复制 ${CITATION_FORMAT_LABELS[format]}`}
         >
           <Copy className="size-3" strokeWidth={2.5} />

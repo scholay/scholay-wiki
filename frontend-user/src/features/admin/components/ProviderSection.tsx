@@ -140,7 +140,7 @@ export function ProviderSection({
   ];
 
   return (
-    <section className="rounded-md border border-border bg-background">
+    <section className="rounded-md border border-border bg-surface-card">
       <div className="flex items-start justify-between gap-3 p-4 border-b border-border-soft">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">

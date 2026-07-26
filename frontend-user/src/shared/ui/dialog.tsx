@@ -57,7 +57,7 @@ const DialogContent = React.forwardRef<
         // 限高滚动(max-h-[90dvh] + overflow-y-auto):长表单在窄屏不再溢出到屏幕外无法操作。
         // 关键:不加任何 sm:/宽度/内边距 覆盖 —— 否则会「漏」过下游 p-0 / w-[...] 全屏弹窗的无前缀覆盖,
         // 反而在桌面把它们的自定义留白/宽度改回来。设了自己 overflow/max-h 的弹窗经 tw-merge 各自胜出,不受影响。
-        'fixed left-1/2 top-1/2 z-modal grid w-full max-w-lg max-h-[90dvh] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto overscroll-contain border border-border bg-background p-6 shadow-overlay duration-200 sm:rounded-lg',
+        'fixed left-1/2 top-1/2 z-modal grid w-full max-w-lg max-h-[90dvh] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto overscroll-contain border border-border bg-surface-card p-6 shadow-overlay duration-200 sm:rounded-lg',
         'data-[state=open]:animate-in data-[state=closed]:animate-out',
         'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
         'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',

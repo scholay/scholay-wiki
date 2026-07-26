@@ -33,7 +33,7 @@ const TIER_BADGE: Record<Tier, string> = {
 };
 const NAMEPLATE: Record<Tier, string> = {
   free: 'bg-surface-2 text-subtle border border-border',
-  pro: 'bg-background text-foreground border border-foreground',
+  pro: 'bg-surface-card text-foreground border border-foreground',
   max: 'bg-foreground text-background',
 };
 const ALL_TIERS: Tier[] = ['free', 'pro', 'max'];
@@ -60,7 +60,7 @@ export function AccountAssetsCard({ data, onGoRecharge }: { data: Overview; onGo
   const openUpgrade = (tier?: 'pro' | 'max') => setUpgrade({ open: true, tier });
 
   return (
-    <section className="rounded-md border border-border bg-background p-5">
+    <section className="rounded-md border border-border bg-surface-card p-5">
       <div className="mb-4 flex items-center justify-between gap-2">
         <h3 className="text-sm font-bold text-foreground">账户资产</h3>
         <div className="flex items-center gap-2">

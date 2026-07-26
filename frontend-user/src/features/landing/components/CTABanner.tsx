@@ -24,8 +24,8 @@ function CTAInner({
   const cls = cn(
     'inline-flex items-center gap-2 h-12 px-6 rounded-sm text-md font-semibold transition-colors whitespace-nowrap',
     primary
-      ? 'bg-background text-foreground hover:bg-surface-1'
-      : 'bg-transparent border border-background text-background hover:bg-background/10'
+      ? 'bg-surface-card text-foreground hover:bg-surface-1'
+      : 'bg-transparent border border-background text-background hover:bg-surface-card/10'
   );
   const Inner = (
     <span className={cls}>

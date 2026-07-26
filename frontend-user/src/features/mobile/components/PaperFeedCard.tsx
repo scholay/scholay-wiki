@@ -167,7 +167,7 @@ export const PaperFeedCard = memo(function PaperFeedCard({
             isFavorited={isFavorited}
             variant="icon"
             size="lg"
-            className="h-12 w-12 rounded-pill border border-border-strong bg-background"
+            className="h-12 w-12 rounded-pill border border-border-strong bg-surface-card"
             onSuccess={onFavoriteToggle ? () => onFavoriteToggle(paper.paperId, true) : undefined}
             onUnfavorited={onFavoriteToggle ? () => onFavoriteToggle(paper.paperId, false) : undefined}
           />
@@ -255,7 +255,7 @@ function RailButton({
       type="button"
       aria-label={ariaLabel}
       onClick={onClick}
-      className="flex h-12 w-12 items-center justify-center rounded-pill border border-border-strong bg-background text-subtle transition-[transform,background-color] active:scale-90 active:bg-surface-2"
+      className="flex h-12 w-12 items-center justify-center rounded-pill border border-border-strong bg-surface-card text-subtle transition-[transform,background-color] active:scale-90 active:bg-surface-2"
     >
       {children}
     </button>

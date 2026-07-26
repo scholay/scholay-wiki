@@ -54,7 +54,7 @@ export const ShareCard = forwardRef<HTMLDivElement, { data: ShareCardData }>(
     return (
       <div
         ref={ref}
-        className="w-full overflow-hidden rounded-lg border border-border bg-background"
+        className="w-full overflow-hidden rounded-lg border border-border bg-surface-card"
       >
         {/* 三色品牌条 */}
         <div className="flex h-1">
@@ -161,7 +161,7 @@ export const ShareCard = forwardRef<HTMLDivElement, { data: ShareCardData }>(
 
           {/* 二维码块 */}
           <div className="flex items-center gap-3 border-t border-border-soft pt-3">
-            <div className="rounded-sm border border-border bg-background p-1.5">
+            <div className="rounded-sm border border-border bg-surface-card p-1.5">
               <QRCodeCanvas value={data.qrValue} size={64} level="M" marginSize={0} />
             </div>
             <div className="min-w-0 flex-1">

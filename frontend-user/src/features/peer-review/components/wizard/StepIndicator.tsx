@@ -46,7 +46,7 @@ export function StepIndicator({ current, steps, onJump }: StepIndicatorProps) {
                   'flex size-7 items-center justify-center rounded-pill border-[1.5px] text-2xs font-bold transition',
                   done && 'border-transparent bg-[#E5E5E5] text-faint',
                   active && 'border-brand-red bg-danger-soft text-brand-red',
-                  !done && !active && 'border-border bg-background text-faint'
+                  !done && !active && 'border-border bg-surface-card text-faint'
                 )}
               >
                 {done ? <Check className="size-3" /> : s.id}

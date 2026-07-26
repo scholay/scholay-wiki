@@ -12,7 +12,7 @@ const badgeVariants = cva(
     variants: {
       variant: {
         default: 'bg-surface-2 text-foreground',
-        outline: 'bg-background text-foreground border-border',
+        outline: 'bg-surface-card text-foreground border-border',
         muted: 'bg-surface-1 text-muted-foreground',
         success: 'bg-brand-green/10 text-brand-green',
         warning: 'bg-warning-soft text-brand-amber',

@@ -77,7 +77,7 @@ export function ResourceDetailPage() {
               <Link
                 key={r.slug}
                 to={`/resources/${r.slug}`}
-                className="group flex flex-col gap-1.5 p-4 rounded-md bg-background border border-border-soft hover:border-foreground/40 transition-all hover:"
+                className="group flex flex-col gap-1.5 p-4 rounded-md bg-surface-card border border-border-soft hover:border-foreground/40 transition-all hover:"
               >
                 <p className="text-2xs text-faint">{r.category}</p>
                 <p className="text-sm font-bold text-foreground line-clamp-2">

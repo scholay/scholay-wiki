@@ -51,7 +51,7 @@ export function MobileAssetsCard() {
   const ri = resetInfo(token); // 7 天窗口重置信息(相对 + 绝对)
 
   return (
-    <section className="overflow-hidden rounded-lg border border-border bg-background">
+    <section className="overflow-hidden rounded-lg border border-border bg-surface-card">
       {/* 等级行 */}
       <div className="flex items-center gap-2 border-b border-border-soft px-4 py-3">
         <span

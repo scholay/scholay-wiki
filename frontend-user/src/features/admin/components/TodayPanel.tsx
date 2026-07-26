@@ -16,7 +16,7 @@ export function TodayPanel() {
 
   if (isLoading && !hasAnyAlert) {
     return (
-      <section className="rounded-md border border-border bg-background p-4">
+      <section className="rounded-md border border-border bg-surface-card p-4">
         <div className="text-sm text-faint">加载告警…</div>
       </section>
     );
@@ -24,7 +24,7 @@ export function TodayPanel() {
 
   if (!hasAnyAlert) {
     return (
-      <section className="rounded-md border border-border bg-background p-4 flex items-center gap-3">
+      <section className="rounded-md border border-border bg-surface-card p-4 flex items-center gap-3">
         <CheckCircle2 className="size-5 text-brand-green" />
         <div>
           <div className="text-base font-bold text-foreground">今日无待办</div>
@@ -92,7 +92,7 @@ export function TodayPanel() {
   }
 
   return (
-    <section className="rounded-md border border-border bg-background">
+    <section className="rounded-md border border-border bg-surface-card">
       <header className="px-4 py-3 border-b border-border-soft flex items-center justify-between">
         <h2 className="text-sm font-bold text-foreground">今日待办</h2>
         <span className="text-2xs text-faint">{items.length} 项</span>

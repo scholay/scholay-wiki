@@ -72,7 +72,7 @@ export function ClawEmptyState({
               onClick={() => onPickSuggestion?.(prompt)}
               className="flex items-center gap-3 rounded-16 border border-border bg-surface-1 px-3.5 py-3 text-left transition-colors active:bg-surface-2"
             >
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-background">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-card">
                 <Icon className="size-4 text-brand-green" />
               </span>
               <span className="flex min-w-0 flex-col">

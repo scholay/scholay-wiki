@@ -57,7 +57,7 @@ export function ClawArtifactPanel({
   // 选中某产物 → 预览(顶部加「返回列表」)。
   if (previewArtifact) {
     return (
-      <div className="flex h-full min-h-0 flex-col bg-background">
+      <div className="flex h-full min-h-0 flex-col bg-surface-card">
         <div className="flex h-9 shrink-0 items-center gap-1.5 border-b border-border px-3">
           <button
             type="button"

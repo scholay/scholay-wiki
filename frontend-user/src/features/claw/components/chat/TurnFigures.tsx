@@ -69,7 +69,7 @@ function FigureCard({ artifact, basePath }: { artifact: ClawArtifact; basePath: 
   if (category === 'image' || (category !== 'figure' && category !== 'svg' && isBitmap(artifact.name))) {
     return (
       <FigureShell caption={name}>
-        <div className="overflow-auto rounded-md border border-border bg-background p-3">
+        <div className="overflow-auto rounded-md border border-border bg-surface-card p-3">
           <img
             src={agentArtifactByIdUrl(id, basePath)}
             alt={name}
@@ -142,7 +142,7 @@ function FigureShell({ caption, children }: { caption: string; children: React.R
 
 function Hint({ text }: { text: string }) {
   return (
-    <div className="flex h-40 w-full items-center justify-center rounded-md border border-border bg-background text-2xs text-muted-foreground">
+    <div className="flex h-40 w-full items-center justify-center rounded-md border border-border bg-surface-card text-2xs text-muted-foreground">
       {text}
     </div>
   );

@@ -199,7 +199,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     <div
       {...containerProps}
       className={cn(
-        'relative flex flex-col gap-2 rounded-16 border border-border-strong bg-background p-2.5 transition',
+        'relative flex flex-col gap-2 rounded-16 border border-border-strong bg-surface-card p-2.5 transition',
         'focus-within:border-foreground/25 focus-within:ring-4 focus-within:ring-foreground/5',
         disabled && 'opacity-70',
         className,

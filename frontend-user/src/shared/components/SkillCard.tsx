@@ -14,7 +14,7 @@ export const SkillGridCard = forwardRef<HTMLAnchorElement, { skill: SkillCardDat
       <Link
         ref={ref}
         to={`/skills/${skill.slug || skill.id}`}
-        className="group flex flex-col rounded-lg border border-border bg-background p-4 transition-colors hover:border-border-strong hover:bg-surface-1"
+        className="group flex flex-col rounded-lg border border-border bg-surface-card p-4 transition-colors hover:border-border-strong hover:bg-surface-1"
       >
         <div className="mb-1 flex items-start justify-between gap-2">
           <h3 className="line-clamp-1 text-sm font-medium text-foreground group-hover:text-brand-green">

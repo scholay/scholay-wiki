@@ -299,7 +299,7 @@ export function PrismWritingProfileDialog({
                         {preview.traits!.map((t) => (
                           <span
                             key={t}
-                            className="inline-flex items-center gap-1 rounded-pill border border-border bg-background px-2 py-1 text-2xs text-subtle"
+                            className="inline-flex items-center gap-1 rounded-pill border border-border bg-surface-card px-2 py-1 text-2xs text-subtle"
                           >
                             <Check className="size-3 text-brand-green" />
                             {t}

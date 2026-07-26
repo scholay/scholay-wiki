@@ -277,7 +277,7 @@ function CategoryChip({
         'shrink-0 rounded-pill border px-3 py-1.5 text-xs whitespace-nowrap transition-colors',
         active
           ? 'border-foreground bg-foreground font-medium text-on-brand'
-          : 'border-border bg-background text-muted-foreground'
+          : 'border-border bg-surface-card text-muted-foreground'
       )}
     >
       {label}
@@ -290,7 +290,7 @@ function MobileToolRow({ tool }: { tool: FeatureTool }) {
   return (
     <Link
       to={`/m/tools/${tool.slug || tool.id}`}
-      className="flex items-center gap-3 rounded-lg border border-border bg-background p-3 transition-transform active:scale-[0.98] active:bg-surface-2"
+      className="flex items-center gap-3 rounded-lg border border-border bg-surface-card p-3 transition-transform active:scale-[0.98] active:bg-surface-2"
     >
       <ToolLogo tool={tool} className="h-11 w-11" textClass="text-lg" />
       <div className="min-w-0 flex-1">

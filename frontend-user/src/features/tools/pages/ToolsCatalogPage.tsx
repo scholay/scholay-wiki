@@ -96,7 +96,7 @@ function PagerBtn({ disabled, onClick, children }: { disabled: boolean; onClick:
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="flex items-center gap-1 rounded-md border border-border bg-background px-3 py-1.5 text-xs text-subtle transition-colors hover:bg-surface-1 disabled:opacity-40"
+      className="flex items-center gap-1 rounded-md border border-border bg-surface-card px-3 py-1.5 text-xs text-subtle transition-colors hover:bg-surface-1 disabled:opacity-40"
     >
       {children}
     </button>

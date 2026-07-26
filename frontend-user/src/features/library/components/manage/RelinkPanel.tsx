@@ -127,7 +127,7 @@ export function RelinkPanel({
       {isLinked && (
         <div className="px-6 pt-4 shrink-0">
           <div className="flex items-start gap-3 rounded-md border border-border-soft bg-surface-1 px-4 py-2.5">
-            <div className="flex h-6 w-6 items-center justify-center rounded-sm bg-background border border-border shrink-0 mt-0.5">
+            <div className="flex h-6 w-6 items-center justify-center rounded-sm bg-surface-card border border-border shrink-0 mt-0.5">
               <Link2 className="size-3.5 text-brand-amber" strokeWidth={2.25} />
             </div>
             <div className="flex-1 min-w-0">
@@ -171,7 +171,7 @@ export function RelinkPanel({
       {/* 搜索条 */}
       <div className="px-6 pt-4 pb-3 shrink-0">
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 flex-1 h-10 px-3 rounded-md border border-border bg-background focus-within:border-brand-amber focus-within:ring-2 focus-within:ring-brand-amber/20 transition-colors">
+          <div className="flex items-center gap-2 flex-1 h-10 px-3 rounded-md border border-border bg-surface-card focus-within:border-brand-amber focus-within:ring-2 focus-within:ring-brand-amber/20 transition-colors">
             <Search className="size-3.5 text-muted-foreground shrink-0" />
             <input
               type="text"

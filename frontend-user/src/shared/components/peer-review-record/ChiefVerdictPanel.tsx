@@ -65,7 +65,7 @@ export function ChiefVerdictPanel({ chief: chiefProp, reviewers, status, stream:
       : recoverChiefReport(chiefProp);
   if (!chief) {
     return (
-      <div className="rounded-md border border-border bg-background px-5 py-4">
+      <div className="rounded-md border border-border bg-surface-card px-5 py-4">
         <MarkdownRenderer text={chiefProp.contentMd} />
       </div>
     );
@@ -376,7 +376,7 @@ function StreamingChiefView({
 
   if (isThinking) {
     return (
-      <div className="flex h-72 flex-col items-center justify-center gap-3 rounded-md border border-border bg-background text-center">
+      <div className="flex h-72 flex-col items-center justify-center gap-3 rounded-md border border-border bg-surface-card text-center">
         <Loader2 className="h-7 w-7 animate-spin text-brand-amber" />
         <p className="text-base font-semibold text-foreground">主审正在通读三位审稿人意见…</p>
         <p className="text-sm text-faint">已生成 {p.totalChars} 字 · 决议结论稍后出现</p>

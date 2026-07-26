@@ -111,7 +111,7 @@ export function MobileLibraryPage() {
 
         {/* 新建输入(点「新建」展开) */}
         {creating && (
-              <div className="mt-3 flex items-center gap-2 rounded-md border border-border bg-background p-2">
+              <div className="mt-3 flex items-center gap-2 rounded-md border border-border bg-surface-card p-2">
                 <input
                   autoFocus
                   value={newName}
@@ -216,7 +216,7 @@ function FolderCard({
 }) {
   const canShare = f.paper_count > 0;
   return (
-    <li className="flex items-center gap-3 rounded-md border border-border bg-background p-3.5">
+    <li className="flex items-center gap-3 rounded-md border border-border bg-surface-card p-3.5">
       <Link
         to={`/m/library/${f.id}`}
         className="flex min-w-0 flex-1 items-center gap-3 transition-transform active:scale-[0.98] active:opacity-70"
@@ -253,8 +253,8 @@ function FolderCover({ accent }: { accent: 'green' | 'amber' }) {
   return (
     <div className="relative h-[74px] w-[70px] shrink-0">
       <div className="absolute left-[18px] top-2 h-[58px] w-11 rounded-sm border border-border bg-surface-1" />
-      <div className="absolute left-[9px] top-1 h-[62px] w-11 rounded-sm border border-border bg-background" />
-      <div className="absolute left-0 top-0 flex h-[66px] w-[46px] flex-col gap-[5px] rounded-sm border border-border-strong bg-background p-[7px]">
+      <div className="absolute left-[9px] top-1 h-[62px] w-11 rounded-sm border border-border bg-surface-card" />
+      <div className="absolute left-0 top-0 flex h-[66px] w-[46px] flex-col gap-[5px] rounded-sm border border-border-strong bg-surface-card p-[7px]">
         <div
           className={cn(
             'h-[3px] w-[18px] rounded-sm',

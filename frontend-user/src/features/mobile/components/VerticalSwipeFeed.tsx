@@ -199,7 +199,7 @@ export function VerticalSwipeFeed<T>({
           {swipeHint && selected === 0 && (
             <div
               className={cn(
-                'pointer-events-none absolute left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-pill bg-background/80 px-3 py-1',
+                'pointer-events-none absolute left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-pill bg-surface-card/80 px-3 py-1',
                 swipeHintClassName ?? 'bottom-2.5'
               )}
             >

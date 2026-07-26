@@ -154,7 +154,7 @@ function TrendCard({
   // Y 轴刻度紧凑化(¥1.2k / 3.4M),配合 margin.left=0 防长数字裁切;完整值仍在 Tooltip。
   const yTickFmt = yLabel === '¥' ? compactYuanAxis : compactAxis;
   return (
-    <div className="rounded-md border border-border bg-background p-4">
+    <div className="rounded-md border border-border bg-surface-card p-4">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-bold text-foreground">{title}</h3>
         <div className="flex items-center gap-2">

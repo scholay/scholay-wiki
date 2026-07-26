@@ -34,7 +34,7 @@ export function PdfPreviewCard({ file, parsed }: PdfPreviewCardProps) {
   const [numPages, setNumPages] = useState<number | null>(null);
 
   return (
-    <div className="flex flex-col rounded-md border border-border bg-background overflow-hidden">
+    <div className="flex flex-col rounded-md border border-border bg-surface-card overflow-hidden">
       {/* 文件名行 */}
       <div className="flex items-center justify-between gap-2 px-3 py-2.5 border-b border-border-soft">
         <div className="flex items-center gap-2 min-w-0">
@@ -104,7 +104,7 @@ export function PdfPreviewCard({ file, parsed }: PdfPreviewCardProps) {
 
       {/* parsed 元数据(标题 + 作者)—— 解析完成后才显示,辅助识别 */}
       {parsed?.title && (
-        <div className="px-3 py-2 border-t border-border-soft bg-background">
+        <div className="px-3 py-2 border-t border-border-soft bg-surface-card">
           <div
             className="line-clamp-2 text-xs font-semibold text-foreground"
             title={parsed.title}

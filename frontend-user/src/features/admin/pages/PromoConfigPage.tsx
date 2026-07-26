@@ -109,7 +109,7 @@ export function PromoConfigPage() {
                 onChange={(e) => set('benefits', e.target.value)}
                 rows={4}
                 placeholder={PLACEHOLDER.benefits.join('\n')}
-                className="flex w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex w-full rounded-md border border-border bg-surface-card px-3 py-2 text-sm text-foreground placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </Field>
             <Field label="按钮 / 引导文案">
@@ -136,7 +136,7 @@ export function PromoConfigPage() {
               <div className="text-lg font-bold">{pvTitle}</div>
               <div className="mt-1 text-sm text-on-brand/90">{pvSubtitle}</div>
             </div>
-            <div className="flex flex-col gap-2.5 bg-background px-6 pt-5">
+            <div className="flex flex-col gap-2.5 bg-surface-card px-6 pt-5">
               {pvBenefits.map((b, i) => (
                 <div key={i} className="flex items-start gap-2 text-sm text-foreground">
                   <Check className="mt-0.5 size-4 shrink-0 text-brand-green" strokeWidth={2.6} />
@@ -144,7 +144,7 @@ export function PromoConfigPage() {
                 </div>
               ))}
             </div>
-            <div className="flex flex-col items-center gap-2.5 bg-background px-6 pb-6 pt-5">
+            <div className="flex flex-col items-center gap-2.5 bg-surface-card px-6 pb-6 pt-5">
               {form.wechat_qr ? (
                 <img src={form.wechat_qr} alt="二维码预览" className="size-44 rounded-md border border-border object-contain p-1" />
               ) : (
@@ -166,7 +166,7 @@ export function PromoConfigPage() {
 
 function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-border bg-background p-5">
+    <div className="flex flex-col gap-4 rounded-lg border border-border bg-surface-card p-5">
       <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
         <span className="text-muted-foreground">{icon}</span>
         {title}

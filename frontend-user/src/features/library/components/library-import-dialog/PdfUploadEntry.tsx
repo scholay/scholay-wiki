@@ -117,7 +117,7 @@ export function PdfUploadEntry({
 
       {/* 4 步预告 stepper —— "上传后会发生什么"
           上传 PDF (active 橙) → 自动检索 → 确认/接受 → 保存入库 */}
-      <div className="rounded-md border border-border-soft bg-background p-4">
+      <div className="rounded-md border border-border-soft bg-surface-card p-4">
         <div className="text-xs font-semibold text-muted-foreground mb-3">
           上传后会发生什么
         </div>

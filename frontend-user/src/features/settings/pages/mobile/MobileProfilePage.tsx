@@ -70,7 +70,7 @@ function ProfileForm() {
         update.mutate({ username: username.trim(), bio: bio.trim() });
       }}
     >
-      <section className="space-y-3 rounded-lg border border-border bg-background p-4">
+      <section className="space-y-3 rounded-lg border border-border bg-surface-card p-4">
         <Field label="昵称">
           <input
             value={username}
@@ -93,7 +93,7 @@ function ProfileForm() {
       </section>
 
       {profile && (
-        <section className="space-y-2.5 rounded-lg border border-border bg-background p-4">
+        <section className="space-y-2.5 rounded-lg border border-border bg-surface-card p-4">
           <ReadonlyRow label="邮箱" value={profile.email || '未绑定'} />
           <ReadonlyRow label="手机号" value={profile.phone || '未绑定'} />
           <ReadonlyRow

@@ -73,7 +73,7 @@ export function SubmitSuccessPage() {
       <article
         className={
           'flex w-full max-w-[720px] flex-col gap-6 rounded-lg border ' +
-          'border-border bg-background px-14 py-12'
+          'border-border bg-surface-card px-14 py-12'
         }
       >
         {/* 顶部成功标志 + 标题块 ─────────────────────────────────────── */}

@@ -24,7 +24,7 @@ import {
  */
 
 const DAY_OPTIONS = [7, 30, 90];
-const SELECT_CLS = 'h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground';
+const SELECT_CLS = 'h-8 rounded-md border border-input bg-surface-card px-2 text-xs text-foreground';
 
 export function TokenUsageFilterBar({ onChange }: { onChange: (f: TokenUsageFilters) => void }) {
   // 只读值;所有写入走 patch(单次 navigate,避免多 key 互相覆盖)。

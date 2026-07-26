@@ -208,14 +208,14 @@ function CrudForm<T>({
                 required={f.required}
                 placeholder={f.placeholder}
                 defaultValue={(initial[f.name] as string) ?? ''}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="w-full rounded-md border border-input bg-surface-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             ) : f.type === 'select' && f.options ? (
               <select
                 id={f.name}
                 name={f.name}
                 defaultValue={(initial[f.name] as string) ?? f.options[0]?.value}
-                className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                className="h-9 w-full rounded-md border border-input bg-surface-card px-2 text-sm"
               >
                 {f.options.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>

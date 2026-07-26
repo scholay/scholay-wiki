@@ -32,7 +32,7 @@ export function ToolLogo({
       alt=""
       loading="lazy"
       onError={() => setFailed(true)}
-      className={cn(box, 'bg-background object-contain')}
+      className={cn(box, 'bg-surface-card object-contain')}
     />
   );
 }

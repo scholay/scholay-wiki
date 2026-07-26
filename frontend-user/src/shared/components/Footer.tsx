@@ -84,7 +84,7 @@ export function Footer() {
                 align="end"
                 side="top"
                 sideOffset={6}
-                className="z-popover w-64 rounded-md border border-border bg-background p-1.5"
+                className="z-popover w-64 rounded-md border border-border bg-surface-card p-1.5"
               >
                 <div className="flex flex-col">
                   {SOLUTION_LINKS.map((l) => (

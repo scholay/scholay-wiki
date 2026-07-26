@@ -86,7 +86,7 @@ export function CollectFolderPicker() {
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-3">
         {/* 新建文献集 */}
         {creating ? (
-          <div className="flex items-center gap-2 rounded-md border border-border-button bg-background p-2">
+          <div className="flex items-center gap-2 rounded-md border border-border-button bg-surface-card p-2">
             <input
               autoFocus
               value={newName}
@@ -116,7 +116,7 @@ export function CollectFolderPicker() {
           <button
             type="button"
             onClick={() => setCreating(true)}
-            className="flex w-full items-center gap-3 rounded-md border border-border-button bg-background p-3 text-left active:bg-surface-1"
+            className="flex w-full items-center gap-3 rounded-md border border-border-button bg-surface-card p-3 text-left active:bg-surface-1"
           >
             <span className="flex size-10 shrink-0 items-center justify-center rounded-sm border border-border bg-surface-1">
               <Plus className="size-5 text-brand-green" />
@@ -201,7 +201,7 @@ function FolderRow({
       type="button"
       onClick={onSelect}
       className={cn(
-        'flex w-full items-center gap-3 rounded-md border bg-background p-2.5 text-left transition-colors',
+        'flex w-full items-center gap-3 rounded-md border bg-surface-card p-2.5 text-left transition-colors',
         selected ? 'border-[1.5px] border-brand-green' : 'border-border active:bg-surface-1'
       )}
     >

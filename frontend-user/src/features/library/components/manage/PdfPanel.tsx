@@ -242,7 +242,7 @@ export function PdfPanel({
               disabled
               title="移除后这条收藏就没有内容了;不需要的话可以直接删除这条收藏"
               className={cn(
-                'inline-flex items-center gap-1 h-8 px-3 rounded-sm border border-brand-red/30 bg-background text-sm font-semibold text-brand-red',
+                'inline-flex items-center gap-1 h-8 px-3 rounded-sm border border-brand-red/30 bg-surface-card text-sm font-semibold text-brand-red',
                 'opacity-60 cursor-not-allowed'
               )}
             >
@@ -264,7 +264,7 @@ export function PdfPanel({
                 type="button"
                 disabled={isPending || isDeleting}
                 className={cn(
-                  'inline-flex items-center gap-1 h-8 px-3 rounded-sm border border-brand-red/30 bg-background text-sm font-semibold text-brand-red',
+                  'inline-flex items-center gap-1 h-8 px-3 rounded-sm border border-brand-red/30 bg-surface-card text-sm font-semibold text-brand-red',
                   'hover:bg-danger-soft disabled:opacity-60 disabled:cursor-not-allowed transition-colors'
                 )}
               >

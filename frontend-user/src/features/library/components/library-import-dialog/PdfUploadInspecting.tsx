@@ -49,7 +49,7 @@ export function PdfUploadInspecting({
         <PdfPreviewCard file={file} parsed={parsed} />
 
         {/* ─── 右列:5 步检索进度 ───────────────────────────────────────── */}
-        <div className="rounded-md border border-border bg-background p-5">
+        <div className="rounded-md border border-border bg-surface-card p-5">
           <div className="flex items-center gap-2.5 mb-1">
             <Loader2 className="size-4 animate-spin text-brand-amber" />
             <span className="text-sm font-bold text-foreground">

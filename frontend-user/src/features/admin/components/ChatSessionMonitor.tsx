@@ -94,7 +94,7 @@ export function ChatSessionMonitor({ feature }: { feature: MonitorFeature }) {
             setPage(1);
           }}
           placeholder="ID / 用户名 / 邮箱 / 手机号"
-          className="h-9 w-full sm:w-64 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-9 w-full sm:w-64 rounded-md border border-input bg-surface-card px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       </div>
 

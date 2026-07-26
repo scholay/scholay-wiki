@@ -484,7 +484,7 @@ function SelectedSchoolMini({ target }: { target: SchoolTarget }) {
   const deg =
     target.degreeType === 'phd' ? '博士' : target.degreeType === 'master' ? '硕士' : '本科';
   return (
-    <section className="rounded-lg border border-brand-red border-l-[3px] bg-background p-4">
+    <section className="rounded-lg border border-brand-red border-l-[3px] bg-surface-card p-4">
       <p className="text-xs font-bold text-brand-red">已选院校</p>
       <h3 className="mt-1 text-sm font-bold text-foreground">
         {target.schoolName} · {deg}

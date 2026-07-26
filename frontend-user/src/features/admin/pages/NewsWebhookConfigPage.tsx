@@ -132,7 +132,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-border bg-background p-5">
+    <div className="flex flex-col gap-4 rounded-lg border border-border bg-surface-card p-5">
       <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
         <span className="text-muted-foreground">{icon}</span>
         {title}

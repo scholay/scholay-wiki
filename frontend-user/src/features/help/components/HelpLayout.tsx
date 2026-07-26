@@ -158,7 +158,7 @@ export function HelpLayout({
  */
 export function MetaChip({ children }: { children: ReactNode }) {
   return (
-    <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-background border border-border text-xs text-muted-foreground">
+    <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-surface-card border border-border text-xs text-muted-foreground">
       {children}
     </span>
   );

@@ -89,7 +89,7 @@ export function RechargePanel() {
     <div className="flex flex-col gap-4 md:flex-row md:items-start">
       <div className="flex flex-1 flex-col gap-4">
         {/* 金额 */}
-        <section className="rounded-md border border-border bg-background p-5">
+        <section className="rounded-md border border-border bg-surface-card p-5">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-bold text-foreground">选择充值金额</h3>
             <span className="text-2xs text-faint">1 元 = {rate} 经费</span>
@@ -123,7 +123,7 @@ export function RechargePanel() {
         </section>
 
         {/* 支付方式 */}
-        <section className="rounded-md border border-border bg-background p-5">
+        <section className="rounded-md border border-border bg-surface-card p-5">
           <h3 className="mb-3 text-sm font-bold text-foreground">支付方式</h3>
           {methods.length === 0 && (
             <p className="text-xs text-faint">管理员尚未配置支付渠道,暂时无法充值。</p>
@@ -152,7 +152,7 @@ export function RechargePanel() {
       </div>
 
       {/* 订单详情 */}
-      <aside className="rounded-md border border-border bg-background p-5 md:w-64 md:shrink-0">
+      <aside className="rounded-md border border-border bg-surface-card p-5 md:w-64 md:shrink-0">
         <h3 className="mb-3 text-sm font-bold text-foreground">订单详情</h3>
         <DetailRow k="充值金额" v={`¥${(cents / 100 || 0).toFixed(2)}`} />
         <DetailRow k="到账经费" v={`${credits} 经费`} />
@@ -239,7 +239,7 @@ export function RedeemPanel() {
 
   const recent = gifts?.items ?? [];
   return (
-    <section className="rounded-md border border-border bg-background p-5">
+    <section className="rounded-md border border-border bg-surface-card p-5">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
           <Ticket className="size-4 text-brand-red" /> 激活礼品码
@@ -347,7 +347,7 @@ export function OrdersTable() {
   };
 
   return (
-    <section className="rounded-md border border-border bg-background p-5">
+    <section className="rounded-md border border-border bg-surface-card p-5">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex gap-1">
           {([['all', '全部'], ['subscription', '订阅'], ['recharge', '充值']] as const).map(([id, label]) => (
@@ -361,7 +361,7 @@ export function OrdersTable() {
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <select value={month} onChange={(e) => setMonth(e.target.value)} className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground">
+          <select value={month} onChange={(e) => setMonth(e.target.value)} className="h-8 rounded-md border border-border bg-surface-card px-2 text-xs text-foreground">
             <option value="">全部月份</option>
             {months.map((m) => (
               <option key={m} value={m}>{m.replace('-', ' 年 ')} 月</option>
@@ -419,7 +419,7 @@ export function OverviewContent({ onViewAll }: { onViewAll: () => void }) {
   const items = data?.items ?? [];
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <section className="rounded-md border border-border bg-background p-5">
+      <section className="rounded-md border border-border bg-surface-card p-5">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-bold text-foreground">近期流水</h3>
           <button onClick={onViewAll} className="text-xs text-muted-foreground hover:text-foreground">
@@ -476,7 +476,7 @@ function UsageHeatmap() {
   const activeDays = (data?.days ?? []).filter((d) => d.cost > 0).length;
 
   return (
-    <section className="rounded-md border border-border bg-background p-5">
+    <section className="rounded-md border border-border bg-surface-card p-5">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-bold text-foreground">本月每日活跃</h3>
         <span className="text-2xs tabular-nums text-faint">{activeDays} 天有使用</span>

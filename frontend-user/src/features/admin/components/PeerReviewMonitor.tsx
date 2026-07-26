@@ -84,7 +84,7 @@ function StructuredValue({ value }: { value: unknown }) {
       return (
         <div className="space-y-1.5">
           {value.map((v, i) => (
-            <div key={i} className="rounded-sm border border-border-soft bg-background p-2">
+            <div key={i} className="rounded-sm border border-border-soft bg-surface-card p-2">
               <ObjectRows obj={v as Record<string, unknown>} />
             </div>
           ))}
@@ -124,7 +124,7 @@ function StructuredBlock({ label, data }: { label: string; data?: unknown }) {
 
 function ReportCard({ r }: { r: PRReport }) {
   return (
-    <div className="space-y-2 rounded-md border border-border bg-background p-3">
+    <div className="space-y-2 rounded-md border border-border bg-surface-card p-3">
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="default">{r.role}</Badge>
         {r.decision && <span className="text-xs text-foreground">决定: {r.decision}</span>}
@@ -260,7 +260,7 @@ export function PeerReviewMonitor() {
             setPage(1);
           }}
           placeholder="ID / 用户名 / 邮箱 / 手机号 / 标题"
-          className="h-9 w-full sm:w-72 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-9 w-full sm:w-72 rounded-md border border-input bg-surface-card px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       </div>
       <DataTable columns={columns} rows={data?.list} loading={isLoading} />

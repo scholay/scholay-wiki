@@ -537,7 +537,7 @@ const ToolbarButton = forwardRef<
       type={type ?? 'button'}
       {...rest}
       className={cn(
-        'inline-flex items-center gap-1 h-8 px-3 rounded-sm bg-background border border-border text-sm font-semibold text-subtle hover:bg-surface-1 hover:text-foreground transition-colors whitespace-nowrap',
+        'inline-flex items-center gap-1 h-8 px-3 rounded-sm bg-surface-card border border-border text-sm font-semibold text-subtle hover:bg-surface-1 hover:text-foreground transition-colors whitespace-nowrap',
         className
       )}
     >

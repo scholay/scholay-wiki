@@ -191,7 +191,7 @@ function PreviewPanel({
         </span>
       </div>
       <div className="px-4 py-4 space-y-3">
-        <div className="rounded-md border border-border bg-background p-3 space-y-2">
+        <div className="rounded-md border border-border bg-surface-card p-3 space-y-2">
           <div
             className="text-sm font-bold text-foreground leading-paragraph line-clamp-3"
             title={values.title}

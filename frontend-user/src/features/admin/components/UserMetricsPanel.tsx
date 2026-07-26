@@ -118,7 +118,7 @@ function RangeTabs({
     { v: 90, label: '90 天' },
   ];
   return (
-    <div className="inline-flex rounded-pill border border-border bg-background p-0.5">
+    <div className="inline-flex rounded-pill border border-border bg-surface-card p-0.5">
       {opts.map((o) => (
         <button
           key={o.v}
@@ -154,7 +154,7 @@ function ChartCard({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-md border border-border bg-background p-4">
+    <div className="rounded-md border border-border bg-surface-card p-4">
       <div className="mb-2 flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="text-sm font-bold text-foreground">{title}</h3>

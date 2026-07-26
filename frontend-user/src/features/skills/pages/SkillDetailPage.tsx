@@ -259,7 +259,7 @@ function ReportDialog({
             onChange={(e) => setDetail(e.target.value)}
             placeholder="补充说明(可选)"
             maxLength={1024}
-            className="h-20 w-full resize-none rounded-md border border-border bg-background p-2 text-sm outline-none focus-visible:border-border-strong"
+            className="h-20 w-full resize-none rounded-md border border-border bg-surface-card p-2 text-sm outline-none focus-visible:border-border-strong"
           />
         </div>
         <DialogFooter>

@@ -70,7 +70,7 @@ function ArtifactRow({
       ? agentArtifactByIdUrl(artifact.id, basePath)
       : agentArtifactZipUrl(sessionId, artifact.path, basePath);
     return (
-      <div className="flex items-center gap-2.5 rounded-md border border-border bg-background px-3 py-2 transition-colors hover:border-brand-green/40">
+      <div className="flex items-center gap-2.5 rounded-md border border-border bg-surface-card px-3 py-2 transition-colors hover:border-brand-green/40">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-brand-green/10">
           <FolderArchive className="h-4 w-4 text-brand-green" />
         </span>
@@ -108,7 +108,7 @@ function ArtifactRow({
   const secondary = artifact.description || (artifact.title ? artifact.name : '');
 
   return (
-    <div className="flex items-center gap-2.5 rounded-md border border-border bg-background px-3 py-2 transition-colors hover:border-brand-green/40">
+    <div className="flex items-center gap-2.5 rounded-md border border-border bg-surface-card px-3 py-2 transition-colors hover:border-brand-green/40">
       {isImageName(artifact.name) ? (
         <img
           src={thumbUrl}

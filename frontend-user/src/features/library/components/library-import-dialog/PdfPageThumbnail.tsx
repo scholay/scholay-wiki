@@ -55,7 +55,7 @@ export default function PdfPageThumbnail({
         renderTextLayer={false}
         renderAnnotationLayer={false}
         loading={<Fallback />}
-        className="border border-border rounded-sm overflow-hidden bg-background"
+        className="border border-border rounded-sm overflow-hidden bg-surface-card"
       />
     </Document>
   );

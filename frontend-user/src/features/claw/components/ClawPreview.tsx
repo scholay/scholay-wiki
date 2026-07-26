@@ -40,7 +40,7 @@ export function ClawPreview() {
         </div>
       </div>
 
-      <div className="border-t border-border-soft bg-background px-6 py-3 shrink-0">
+      <div className="border-t border-border-soft bg-surface-card px-6 py-3 shrink-0">
         <div className="max-w-3xl mx-auto flex items-center gap-2 h-10 px-3 rounded-sm border border-border-strong">
           <input
             type="text"

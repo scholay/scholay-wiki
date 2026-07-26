@@ -304,7 +304,7 @@ function BindingsCard({ models }: { models: AgentModel[] }) {
     models.find((m) => m.model_id === modelId)?.display_name || modelId || '—';
 
   return (
-    <section className="rounded-md border border-border bg-background">
+    <section className="rounded-md border border-border bg-surface-card">
       <div className="p-4 border-b border-border-soft">
         <h2 className="text-base font-bold text-foreground">能力绑定</h2>
         <p className="text-xs text-muted-foreground mt-1">

@@ -78,7 +78,7 @@ export function ClawHero({
                 key={label}
                 type="button"
                 onClick={() => onPickSuggestion(prompt)}
-                className="inline-flex items-center gap-1.5 rounded-pill border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground transition-all hover:-translate-y-px hover:border-border-strong hover:text-foreground"
+                className="inline-flex items-center gap-1.5 rounded-pill border border-border bg-surface-card px-3 py-1.5 text-xs text-muted-foreground transition-all hover:-translate-y-px hover:border-border-strong hover:text-foreground"
               >
                 <Icon className="size-3.5 text-faint" />
                 {label}

@@ -72,7 +72,7 @@ export function EditInlineForm({ dim, mode, onDone }: Props) {
             if (e.key === 'Enter') handleSave();
             else if (e.key === 'Escape') onDone();
           }}
-          className="flex-1 h-7 bg-background border border-border rounded-sm px-2 text-sm outline-none focus-visible:border-brand-amber"
+          className="flex-1 h-7 bg-surface-card border border-border rounded-sm px-2 text-sm outline-none focus-visible:border-brand-amber"
         />
         <SaveCancelButtons busy={busy} onSave={handleSave} onCancel={onDone} />
       </div>
@@ -92,7 +92,7 @@ export function EditInlineForm({ dim, mode, onDone }: Props) {
           onChange={(e) => setName(e.target.value)}
           maxLength={30}
           placeholder="维度名称"
-          className="flex-1 h-7 bg-background border border-border rounded-sm px-2 text-sm outline-none focus-visible:border-brand-amber"
+          className="flex-1 h-7 bg-surface-card border border-border rounded-sm px-2 text-sm outline-none focus-visible:border-brand-amber"
         />
       </div>
       <div>
@@ -103,7 +103,7 @@ export function EditInlineForm({ dim, mode, onDone }: Props) {
           rows={4}
           maxLength={500}
           placeholder="例:抽取该论文核心研究问题与目标,简短归纳成一句话。"
-          className="mt-1 w-full bg-background border border-border rounded-sm px-2 py-1.5 text-xs leading-paragraph outline-none focus-visible:border-brand-amber resize-none"
+          className="mt-1 w-full bg-surface-card border border-border rounded-sm px-2 py-1.5 text-xs leading-paragraph outline-none focus-visible:border-brand-amber resize-none"
         />
       </div>
       <div className="flex items-center justify-end gap-1.5">

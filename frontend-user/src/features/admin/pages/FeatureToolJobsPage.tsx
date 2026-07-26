@@ -102,7 +102,7 @@ function JobDetailDialog({ id, onClose }: { id: number | null; onClose: () => vo
 
 function Stat({ label, value, tone = 'text-foreground' }: { label: string; value: number; tone?: string }) {
   return (
-    <div className="rounded-md border border-border bg-background p-2 text-center">
+    <div className="rounded-md border border-border bg-surface-card p-2 text-center">
       <p className={`text-lg font-bold ${tone}`}>{value}</p>
       <p className="text-2xs text-faint">{label}</p>
     </div>

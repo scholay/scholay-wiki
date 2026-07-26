@@ -36,7 +36,7 @@ export function JournalSearchAlternateRow({
     <div
       className={cn(
         // 形态完全复刻主框:48h / pl-5 pr-2 / rounded-sm
-        'flex h-12 items-center gap-3 pl-5 pr-2 bg-background border border-brand-amber rounded-sm',
+        'flex h-12 items-center gap-3 pl-5 pr-2 bg-surface-card border border-brand-amber rounded-sm',
         // 轻微阴影,与主框区分悬浮层级
         'shadow-overlay'
       )}

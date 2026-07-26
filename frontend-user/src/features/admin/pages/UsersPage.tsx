@@ -33,7 +33,7 @@ import {
   type UserListParams,
 } from '../api/users';
 
-const SELECT_CLS = 'h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground';
+const SELECT_CLS = 'h-8 rounded-md border border-input bg-surface-card px-2 text-xs text-foreground';
 
 // 服务端排序默认值 —— 与后端 GetUserList 默认一致(last_login_at desc)。
 const DEFAULT_SORT_BY = 'last_login_at';

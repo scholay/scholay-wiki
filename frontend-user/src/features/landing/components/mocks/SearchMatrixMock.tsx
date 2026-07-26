@@ -39,7 +39,7 @@ export function SearchMatrixMock() {
       </div>
 
       {/* search bar */}
-      <div className="flex items-center gap-3 px-4 py-3 rounded-md bg-background border border-border-soft">
+      <div className="flex items-center gap-3 px-4 py-3 rounded-md bg-surface-card border border-border-soft">
         <Search className="size-4 text-muted-foreground shrink-0" />
         <span className="flex-1 text-sm text-foreground truncate">
           大语言模型在低资源语言上的对齐方法有哪些进展?
@@ -58,7 +58,7 @@ export function SearchMatrixMock() {
               'inline-flex items-center px-2.5 py-1 rounded-pill text-2xs',
               c.active
                 ? 'bg-foreground text-background font-semibold'
-                : 'bg-background border border-border-soft text-subtle'
+                : 'bg-surface-card border border-border-soft text-subtle'
             )}
           >
             {c.label}
@@ -67,7 +67,7 @@ export function SearchMatrixMock() {
       </div>
 
       {/* matrix card */}
-      <div className="rounded-md overflow-hidden bg-background border border-border-soft">
+      <div className="rounded-md overflow-hidden bg-surface-card border border-border-soft">
         <div className="flex items-center justify-between px-4 py-2.5 bg-surface-1 border-b border-border-soft">
           <span className="text-xs font-semibold text-foreground">引文矩阵</span>
           <span className="text-xs text-muted-foreground tabular-nums">12 篇结果</span>
@@ -88,7 +88,7 @@ export function SearchMatrixMock() {
       </div>
 
       {/* graph badge */}
-      <div className="inline-flex items-center self-start gap-2 px-3 py-2 rounded-md bg-background border border-border-soft">
+      <div className="inline-flex items-center self-start gap-2 px-3 py-2 rounded-md bg-surface-card border border-border-soft">
         <Share2 className="size-3.5 text-brand-green" strokeWidth={2.2} />
         <span className="text-xs font-semibold text-subtle">已检测到 3 条跨论文关联 →</span>
       </div>

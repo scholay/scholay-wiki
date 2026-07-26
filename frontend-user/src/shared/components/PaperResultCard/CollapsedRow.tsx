@@ -22,7 +22,7 @@ export function CollapsedRow({
       <button
         type="button"
         onClick={onUnfold}
-        className="inline-flex items-center gap-1 h-6 px-2 rounded-sm border border-border-strong text-2xs font-bold text-subtle hover:bg-background"
+        className="inline-flex items-center gap-1 h-6 px-2 rounded-sm border border-border-strong text-2xs font-bold text-subtle hover:bg-surface-card"
       >
         <RotateCcw className="size-2.5" strokeWidth={2.5} />
         还原

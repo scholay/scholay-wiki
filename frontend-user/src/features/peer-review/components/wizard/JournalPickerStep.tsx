@@ -63,7 +63,7 @@ export function JournalPickerStep({ value, onChange }: JournalPickerStepProps) {
   const items = hasQuery ? (data?.items ?? []) : [];
 
   return (
-    <section className="rounded-lg border border-border bg-background p-6">
+    <section className="rounded-lg border border-border bg-surface-card p-6">
       <header className="mb-4 flex items-end justify-between">
         <div>
           <h2 className="text-base font-bold text-foreground">选择目标期刊</h2>
@@ -78,7 +78,7 @@ export function JournalPickerStep({ value, onChange }: JournalPickerStepProps) {
             'inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs transition',
             customOpen
               ? 'border-brand-red bg-danger-soft text-brand-red'
-              : 'border-border-button bg-background text-subtle hover:border-foreground hover:text-foreground'
+              : 'border-border-button bg-surface-card text-subtle hover:border-foreground hover:text-foreground'
           )}
         >
           + 自定义期刊
@@ -112,7 +112,7 @@ export function JournalPickerStep({ value, onChange }: JournalPickerStepProps) {
           <span className="text-xs text-subtle">
             已选:<span className="font-bold text-brand-red">{value.canonicalName}</span>
             {value.journalId <= 0 && (
-              <span className="ml-2 rounded-pill bg-background px-2 py-0.5 text-2xs text-muted-foreground">
+              <span className="ml-2 rounded-pill bg-surface-card px-2 py-0.5 text-2xs text-muted-foreground">
                 自定义
               </span>
             )}
@@ -215,7 +215,7 @@ function JournalCard({
       }}
       className={cn(
         // 整卡可点即选;选中态做强对比 (红边 + 红环 + 浅红底), 一眼可辨
-        'cursor-pointer rounded-md border bg-background p-3.5 text-left outline-none transition',
+        'cursor-pointer rounded-md border bg-surface-card p-3.5 text-left outline-none transition',
         'focus-visible:ring-2 focus-visible:ring-brand-red/40',
         selected
           ? 'border-brand-red bg-danger-soft ring-1 ring-brand-red'

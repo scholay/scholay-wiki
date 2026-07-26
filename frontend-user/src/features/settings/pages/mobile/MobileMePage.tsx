@@ -90,7 +90,7 @@ function LoggedInView() {
       {/* 用户卡 */}
       <Link
         to="/m/me/profile"
-        className="flex items-center gap-3 rounded-lg border border-border bg-background p-4 active:bg-surface-2"
+        className="flex items-center gap-3 rounded-lg border border-border bg-surface-card p-4 active:bg-surface-2"
       >
         <Avatar className="size-14 bg-primary">
           {avatar && <AvatarImage src={avatar} alt={displayName} />}
@@ -105,7 +105,7 @@ function LoggedInView() {
 
       {/* 管理后台入口 —— 仅 admin / super_admin 可见(身份判断走 isAdminRole);/admin 是同 URL 响应式后台,不跳 /m。 */}
       {canAccessAdmin(storedUser?.role) && (
-        <nav className="overflow-hidden rounded-lg border border-brand-red/30 bg-background">
+        <nav className="overflow-hidden rounded-lg border border-brand-red/30 bg-surface-card">
           <MenuRow
             to="/admin"
             icon={<LayoutDashboard className="size-4.5 text-brand-red" />}
@@ -116,7 +116,7 @@ function LoggedInView() {
       )}
 
       {/* 我的文献集 —— 独立入口卡(收藏/分享/转存) */}
-      <nav className="overflow-hidden rounded-lg border border-border bg-background">
+      <nav className="overflow-hidden rounded-lg border border-border bg-surface-card">
         <MenuRow
           to="/m/library"
           icon={<BookMarked className="size-4.5" />}
@@ -129,7 +129,7 @@ function LoggedInView() {
       <MobileAssetsCard />
 
       {/* 设置菜单 */}
-      <nav className="overflow-hidden rounded-lg border border-border bg-background">
+      <nav className="overflow-hidden rounded-lg border border-border bg-surface-card">
         <MenuRow to="/m/me/profile" icon={<UserPen className="size-4.5" />} label="个人资料" />
         <MenuRow
           to="/m/me/security"
@@ -152,7 +152,7 @@ function LoggedInView() {
       <button
         type="button"
         onClick={handleLogout}
-        className="flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-border bg-background text-md text-brand-red active:bg-danger-soft"
+        className="flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-border bg-surface-card text-md text-brand-red active:bg-danger-soft"
       >
         <LogOut className="size-4" />
         退出登录

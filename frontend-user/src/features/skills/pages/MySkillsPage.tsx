@@ -94,7 +94,7 @@ function MySkillRow({ skill }: { skill: MySkill }) {
   const isPublic = skill.visibility === 'public';
 
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-3">
+    <div className="flex items-center gap-3 rounded-lg border border-border bg-surface-card p-3">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <Link

@@ -220,7 +220,7 @@ function PaperRow({
 
   return (
     <li className="group flex items-center gap-2.5 px-6 py-2.5 hover:bg-surface-1 transition-colors">
-      <div className="flex h-6 w-6 items-center justify-center rounded-sm bg-background border border-border shrink-0">
+      <div className="flex h-6 w-6 items-center justify-center rounded-sm bg-surface-card border border-border shrink-0">
         <FileText className="size-3.5 text-subtle" strokeWidth={2} />
       </div>
       <div className="flex-1 min-w-0">

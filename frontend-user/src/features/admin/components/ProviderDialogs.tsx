@@ -172,7 +172,7 @@ export function ExtraProviderDialog({
                   id="pv-fmt"
                   value={form.api_format}
                   onChange={(e) => setForm({ ...form, api_format: e.target.value as 'anthropic' | 'openai' })}
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="h-9 w-full rounded-md border border-input bg-surface-card px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <option value="anthropic">anthropic(Messages)</option>
                   <option value="openai">openai(Chat Completions)</option>

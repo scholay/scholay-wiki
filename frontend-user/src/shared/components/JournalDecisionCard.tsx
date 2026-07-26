@@ -73,7 +73,7 @@ export function JournalDecisionCard({
         'rounded-lg border p-4 sm:p-5 space-y-3',
         warned
           ? 'border-brand-amber/40 bg-warning-soft'
-          : 'border-border bg-background'
+          : 'border-border bg-surface-card'
       )}
     >
       <div className="flex items-center gap-2">

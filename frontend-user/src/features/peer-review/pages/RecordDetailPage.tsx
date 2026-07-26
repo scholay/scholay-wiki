@@ -202,7 +202,7 @@ function Header({
     : '';
 
   return (
-    <section className="flex flex-col gap-3 rounded-md border border-border bg-background p-4.5">
+    <section className="flex flex-col gap-3 rounded-md border border-border bg-surface-card p-4.5">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2.5">

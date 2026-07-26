@@ -58,7 +58,7 @@ export function NotificationBell() {
         <PopoverPrimitive.Content
           align="end"
           sideOffset={8}
-          className="z-popover w-[380px] max-h-[calc(100vh-120px)] flex flex-col rounded-md border border-border bg-background"
+          className="z-popover w-[380px] max-h-[calc(100vh-120px)] flex flex-col rounded-md border border-border bg-surface-card"
         >
           <NotificationHeader unread={unread} />
           <NotificationTabs tab={tab} onChange={setTab} unread={unread} />

@@ -73,7 +73,7 @@ export function StatusGrid({ status, computeState, reports, activeTab, onTabChan
         )}
 
         {/* 三位审稿人共享一个白底框 — 自身定宽 (紧凑), 两侧 Connector 伸缩把它居中 */}
-        <div className="flex shrink-0 overflow-hidden rounded-md border border-border-strong bg-background">
+        <div className="flex shrink-0 overflow-hidden rounded-md border border-border-strong bg-surface-card">
           <ReviewerCell
             letter="A"
             report={a}
@@ -164,7 +164,7 @@ function EditorialCell({ active, onClick }: { active: boolean; onClick: () => vo
       type="button"
       onClick={onClick}
       className={cn(
-        'flex w-52 flex-col justify-center gap-1.5 rounded-md border bg-background px-3 py-2.5 text-left transition-colors',
+        'flex w-52 flex-col justify-center gap-1.5 rounded-md border bg-surface-card px-3 py-2.5 text-left transition-colors',
         active
           ? 'border-foreground ring-2 ring-foreground/10'
           : 'border-border-strong hover:border-foreground/30',
@@ -216,7 +216,7 @@ function ReviewerCell({
       className={cn(
         // 上下布局: 头像在上、文案在下, 居中; 定宽 w-36 让三卡紧凑, 整行靠 Connector 伸缩撑满
         'flex w-36 flex-col items-center justify-center gap-1.5 px-2 py-3 text-center transition-colors',
-        active ? 'bg-surface-2' : 'bg-background hover:bg-surface-1',
+        active ? 'bg-surface-2' : 'bg-surface-card hover:bg-surface-1',
       )}
     >
       <div
@@ -227,7 +227,7 @@ function ReviewerCell({
             ? recAvatarClasses(eff?.recommendation)
             : loading
               ? 'animate-pulse bg-brand-amber/20 text-brand-amber'
-              : 'border-2 border-border-strong bg-background text-faint',
+              : 'border-2 border-border-strong bg-surface-card text-faint',
         )}
       >
         {letter}
@@ -271,7 +271,7 @@ function ChiefCell({
         type="button"
         onClick={onClick}
         className={cn(
-          'flex w-80 flex-col justify-center gap-1.5 rounded-md border bg-background px-4 py-2.5 text-left transition-colors',
+          'flex w-80 flex-col justify-center gap-1.5 rounded-md border bg-surface-card px-4 py-2.5 text-left transition-colors',
           active ? 'border-foreground ring-2 ring-foreground/10' : 'border-border-strong hover:border-foreground/30',
         )}
       >
@@ -279,7 +279,7 @@ function ChiefCell({
           <div
             className={cn(
               'flex h-7 w-7 shrink-0 items-center justify-center rounded-pill',
-              loading ? 'animate-pulse bg-brand-amber/20 text-brand-amber' : 'border-2 border-border-strong bg-background text-faint',
+              loading ? 'animate-pulse bg-brand-amber/20 text-brand-amber' : 'border-2 border-border-strong bg-surface-card text-faint',
             )}
           >
             <Scale className="h-3.5 w-3.5" />

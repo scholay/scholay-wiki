@@ -175,7 +175,7 @@ export function SharedReceivePage() {
   return (
     <div className="min-h-dvh bg-surface-1">
       {/* h-dvh + overflow-hidden:固定视口高,内部滚动 → 底部操作栏始终可见(不被内容顶出屏外) */}
-      <div className="mx-auto flex h-dvh max-w-xl flex-col overflow-hidden bg-background">
+      <div className="mx-auto flex h-dvh max-w-xl flex-col overflow-hidden bg-surface-card">
         {/* 顶栏 —— 标题随分享类型变化(单篇=论文详情),右侧 Scholay 品牌 */}
         <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
           <button type="button" onClick={() => navigate('/')} className="-ml-1 p-1 text-muted-foreground active:opacity-60" aria-label="返回">
@@ -206,7 +206,7 @@ export function SharedReceivePage() {
                 onChange={(e) => setCodeInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && setCode(codeInput.trim())}
                 placeholder="请输入提取码"
-                className="h-10 min-w-0 flex-1 rounded-md border border-border bg-background px-3 text-center font-mono text-md tracking-code outline-none focus-visible:border-brand-red"
+                className="h-10 min-w-0 flex-1 rounded-md border border-border bg-surface-card px-3 text-center font-mono text-md tracking-code outline-none focus-visible:border-brand-red"
               />
               <Button size="sm" className="h-10" onClick={() => setCode(codeInput.trim())} disabled={!codeInput.trim()}>
                 查看
@@ -536,7 +536,7 @@ export function SharedReceivePage() {
             onClick={() => setCodeSheetOpen(false)}
           >
             <div
-              className="w-full max-w-xl rounded-t-16 bg-background p-5 pb-7"
+              className="w-full max-w-xl rounded-t-16 bg-surface-card p-5 pb-7"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="mb-1 flex items-center justify-between">
@@ -565,7 +565,7 @@ export function SharedReceivePage() {
                 onKeyDown={(e) => e.key === 'Enter' && submitCode()}
                 placeholder="请输入提取码"
                 maxLength={16}
-                className={`h-12 w-full rounded-md border bg-background px-3 text-center font-mono text-lg tracking-code outline-none ${
+                className={`h-12 w-full rounded-md border bg-surface-card px-3 text-center font-mono text-lg tracking-code outline-none ${
                   codeError ? 'border-brand-red' : 'border-border focus-visible:border-brand-red'
                 }`}
               />

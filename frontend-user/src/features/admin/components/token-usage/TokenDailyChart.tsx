@@ -74,7 +74,7 @@ function ChartTooltip(props: {
   const items = payload.filter((p) => Number(p.value) > 0);
   const total = payload.reduce((s, p) => s + (Number(p.value) || 0), 0);
   return (
-    <div className="rounded-md border border-border bg-background px-3 py-2 text-xs shadow-overlay">
+    <div className="rounded-md border border-border bg-surface-card px-3 py-2 text-xs shadow-overlay">
       <div className="mb-1 text-faint">{withWeekday(String(label ?? ''), label)}</div>
       {[...items].reverse().map((p, i) => (
         <div key={i} className="flex items-center justify-between gap-4">
@@ -122,7 +122,7 @@ export function TokenDailyChart({
   }, [mode, daily, byModel, byFeature]);
 
   return (
-    <section className="mb-6 rounded-md border border-border bg-background p-4">
+    <section className="mb-6 rounded-md border border-border bg-surface-card p-4">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-bold text-foreground">每日用量</h3>
         <div className="flex flex-wrap gap-1">

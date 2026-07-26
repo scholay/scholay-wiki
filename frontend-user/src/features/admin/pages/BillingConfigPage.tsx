@@ -93,7 +93,7 @@ export function BillingConfigPage() {
       ) : (
         <div className="flex flex-col gap-5">
           {/* 总开关 + 最受欢迎 */}
-          <section className="flex flex-col gap-4 rounded-md border border-border bg-background p-5">
+          <section className="flex flex-col gap-4 rounded-md border border-border bg-surface-card p-5">
             <div className="flex items-center justify-between gap-3">
               <div className="flex flex-col">
                 <span className="text-sm font-bold text-foreground">收费体系总开关</span>
@@ -123,7 +123,7 @@ export function BillingConfigPage() {
           </section>
 
           {GROUPS.map((g) => (
-            <section key={g.title} className="rounded-md border border-border bg-background p-5">
+            <section key={g.title} className="rounded-md border border-border bg-surface-card p-5">
               <h3 className="mb-4 text-sm font-bold text-foreground">{g.title}</h3>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {g.fields.map((f) => (

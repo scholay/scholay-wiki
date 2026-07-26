@@ -235,7 +235,7 @@ function RailButton({
         type="button"
         aria-label={label}
         onClick={onClick}
-        className="flex h-12 w-12 items-center justify-center rounded-pill border border-border-strong bg-background text-subtle transition-[transform,background-color] active:scale-90 active:bg-surface-2"
+        className="flex h-12 w-12 items-center justify-center rounded-pill border border-border-strong bg-surface-card text-subtle transition-[transform,background-color] active:scale-90 active:bg-surface-2"
       >
         {children}
       </button>

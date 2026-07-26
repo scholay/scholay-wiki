@@ -178,7 +178,7 @@ export function MessagesPage() {
                   id="category"
                   name="category"
                   defaultValue="notification"
-                  className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  className="h-9 w-full rounded-md border border-input bg-surface-card px-2 text-sm"
                 >
                   <option value="system">系统</option>
                   <option value="notification">通知</option>
@@ -199,7 +199,7 @@ export function MessagesPage() {
                   id="send_type"
                   value={sendType}
                   onChange={(e) => setSendType(e.target.value as MessageSendType)}
-                  className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  className="h-9 w-full rounded-md border border-input bg-surface-card px-2 text-sm"
                 >
                   {SEND_TYPE_OPTIONS.map((o) => (
                     <option key={o.value} value={o.value}>{o.label}</option>
@@ -224,7 +224,7 @@ export function MessagesPage() {
                 name="content"
                 rows={6}
                 required
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="w-full rounded-md border border-input bg-surface-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>
 

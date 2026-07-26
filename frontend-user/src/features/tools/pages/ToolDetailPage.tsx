@@ -37,7 +37,7 @@ export function ToolDetailPage() {
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') submitSearch(); }}
             placeholder="搜索功能广场"
-            className="h-9 w-full rounded-md border border-border-strong bg-surface-1 pl-9 pr-3 text-sm outline-none placeholder:text-faint focus-visible:border-foreground focus-visible:bg-background focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-9 w-full rounded-md border border-border-strong bg-surface-1 pl-9 pr-3 text-sm outline-none placeholder:text-faint focus-visible:border-foreground focus-visible:bg-surface-card focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
       </header>
@@ -144,7 +144,7 @@ function ToolDetailContent({ tool }: { tool: FeatureTool }) {
             <Section title="典型使用场景">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {tool.use_cases.map((u, i) => (
-                  <div key={i} className="rounded-md border border-border bg-background p-3">
+                  <div key={i} className="rounded-md border border-border bg-surface-card p-3">
                     <p className="text-sm font-bold text-foreground">{u.icon ? `${u.icon} ` : ''}{u.title}</p>
                     {u.desc && <p className="mt-1 text-xs leading-paragraph text-muted-foreground">{u.desc}</p>}
                   </div>
@@ -305,7 +305,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 function SideCard({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="rounded-md border border-border bg-background p-4">
+    <div className="rounded-md border border-border bg-surface-card p-4">
       <p className="mb-2.5 text-2xs font-bold uppercase text-faint">{title}</p>
       {children}
     </div>

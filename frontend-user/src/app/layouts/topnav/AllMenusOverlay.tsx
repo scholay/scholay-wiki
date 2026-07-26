@@ -146,7 +146,7 @@ function ListItem({
       )}
     >
       {/* icon 容器:24×24 白底 + 1px 边 */}
-      <span className="inline-flex h-6 w-6 items-center justify-center rounded-sm bg-background border border-border shrink-0">
+      <span className="inline-flex h-6 w-6 items-center justify-center rounded-sm bg-surface-card border border-border shrink-0">
         <Icon className="size-3.5 text-subtle" />
       </span>
       {/* 双行 文字 */}
@@ -209,7 +209,7 @@ function GridView({
                       即将推出
                     </span>
                   )}
-                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-sm bg-background border border-border">
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-sm bg-surface-card border border-border">
                     <Icon className="size-4 text-subtle" />
                   </span>
                   <div className="flex flex-col">

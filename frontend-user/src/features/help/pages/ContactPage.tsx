@@ -140,7 +140,7 @@ export function ContactPage() {
             {qrs.map((q) => (
               <div
                 key={q.title}
-                className="flex flex-col items-center gap-2 rounded-md border border-border bg-background p-4"
+                className="flex flex-col items-center gap-2 rounded-md border border-border bg-surface-card p-4"
               >
                 <img src={q.src} alt={`${q.title}二维码`} className="size-36 rounded-sm object-contain" />
                 <p className="text-xs font-semibold text-subtle">{q.title}</p>
@@ -179,7 +179,7 @@ function ChannelCard({ channel }: { channel: Channel }) {
   const { icon: Icon, title, desc, cta, href } = channel;
   const isInternal = href.startsWith('/');
   const inner = (
-    <div className="group flex flex-col gap-2.5 p-5 rounded-md bg-background border border-border hover:border-foreground/40 transition-all hover:h-full">
+    <div className="group flex flex-col gap-2.5 p-5 rounded-md bg-surface-card border border-border hover:border-foreground/40 transition-all hover:h-full">
       <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-surface-1 border border-border-soft group-hover:bg-danger-soft group-hover:border-brand-red/20 transition-colors">
         <Icon
           className="size-4 text-subtle group-hover:text-brand-red transition-colors"

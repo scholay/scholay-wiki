@@ -171,7 +171,7 @@ export function JournalSearchResults({
           {/* 搜索条 —— .pen `xBNU4` 高 52,走 token `h-13`(globals.css 新加,
               填 Tailwind h-12 / h-14 之间的空缺,与 dialog header/footer 通用) */}
           <form onSubmit={submitSearch} className="flex items-center gap-2.5 h-13">
-            <div className="flex flex-1 h-13 items-center gap-3 px-[18px] rounded-lg bg-background border border-border-strong focus-within:border-foreground transition-colors">
+            <div className="flex flex-1 h-13 items-center gap-3 px-[18px] rounded-lg bg-surface-card border border-border-strong focus-within:border-foreground transition-colors">
               <Search className="size-4 text-muted-foreground" strokeWidth={2} />
               <input
                 type="search"
@@ -236,7 +236,7 @@ export function JournalSearchResults({
                     'inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-xs transition-colors',
                     active
                       ? 'bg-foreground text-background font-bold'
-                      : 'bg-background border border-border text-subtle hover:border-foreground'
+                      : 'bg-surface-card border border-border text-subtle hover:border-foreground'
                   )}
                 >
                   <Icon className="size-3" strokeWidth={active ? 2.5 : 2} />
@@ -322,7 +322,7 @@ function JournalCard({
     <button
       type="button"
       onClick={onOpen}
-      className="group flex h-48 items-stretch text-left gap-4 p-[18px] rounded-lg bg-background border border-border hover:border-foreground hover:transition-all"
+      className="group flex h-48 items-stretch text-left gap-4 p-[18px] rounded-lg bg-surface-card border border-border hover:border-foreground hover:transition-all"
     >
       <JournalCover id={j.id} name={j.canonical_name} size="card" />
 

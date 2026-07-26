@@ -57,7 +57,7 @@ export function MobileBottomSheet({
             >
               <m.div
                 className={cn(
-                  'fixed inset-x-0 bottom-0 mx-auto flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-16 bg-background shadow-overlay',
+                  'fixed inset-x-0 bottom-0 mx-auto flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-16 bg-surface-card shadow-overlay',
                   elevated ? 'z-popover' : 'z-modal',
                   className
                 )}

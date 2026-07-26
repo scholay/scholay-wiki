@@ -64,7 +64,7 @@ export function MobileToolDetailPage() {
 
         {tool && (
           <div className="space-y-3 p-3">
-            <section className="rounded-lg border border-border bg-background p-4">
+            <section className="rounded-lg border border-border bg-surface-card p-4">
               <div className="flex items-start gap-3">
                 <ToolLogo tool={tool} className="h-14 w-14" textClass="text-xl" />
                 <div className="min-w-0 flex-1">
@@ -106,7 +106,7 @@ export function MobileToolDetailPage() {
                     href={tool.access.download.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-md border border-border-button bg-background text-md font-medium text-foreground active:bg-surface-2"
+                    className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-md border border-border-button bg-surface-card text-md font-medium text-foreground active:bg-surface-2"
                   >
                     <Download className="size-4" />
                     下载
@@ -199,7 +199,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-border bg-background p-4">
+    <section className="rounded-lg border border-border bg-surface-card p-4">
       <h2 className="mb-2.5 text-md font-semibold text-foreground">{title}</h2>
       {children}
     </section>

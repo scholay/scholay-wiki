@@ -57,7 +57,7 @@ export function WorkbenchDialogShell({
             'fixed left-1/2 top-1/2 z-modal w-[960px] max-w-[calc(100vw-32px)]',
             '-translate-x-1/2 -translate-y-1/2',
             'flex flex-col h-[640px] max-h-[90vh] overflow-hidden',
-            'rounded-lg border border-border bg-background',
+            'rounded-lg border border-border bg-surface-card',
             'shadow-overlay',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
@@ -220,7 +220,7 @@ export function footerPrimaryCn(tone: 'green' | 'amber' = 'green'): string {
 
 /** footer 描边按钮(白底 border)。 */
 export const footerOutlineCn = cn(
-  'inline-flex items-center gap-1 h-8 px-3 rounded-sm bg-background border border-border text-sm font-semibold text-subtle',
+  'inline-flex items-center gap-1 h-8 px-3 rounded-sm bg-surface-card border border-border text-sm font-semibold text-subtle',
   'hover:bg-surface-2 hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
 );
 

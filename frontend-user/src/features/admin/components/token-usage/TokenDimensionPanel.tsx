@@ -29,7 +29,7 @@ export interface DimTab {
 
 export function TokenDimensionPanel({ tabs, loading }: { tabs: DimTab[]; loading?: boolean }) {
   return (
-    <section className="mb-6 rounded-md border border-border bg-background p-4">
+    <section className="mb-6 rounded-md border border-border bg-surface-card p-4">
       <Tabs defaultValue={tabs[0]?.value}>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div className="min-w-0 max-w-full overflow-x-auto">

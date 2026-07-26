@@ -25,7 +25,7 @@ import type { LandingFeature, UseCase } from '../data/landings';
  */
 
 const THEME_BG: Record<NonNullable<UseCase['theme']>, string> = {
-  light: 'bg-background border border-border',
+  light: 'bg-surface-card border border-border',
   dark: 'bg-foreground border border-foreground',
   amber: 'bg-prism-badge-bg border border-prism-badge-bg',
 };

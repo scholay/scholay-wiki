@@ -489,7 +489,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
   // 编辑器在流式期间只读(editable={!streaming}):AI 正在写,防误编辑被轮末 applyRound 覆盖。
   // 「插入图片 / 插入公式」是编辑操作,放编辑区顶部的 Word 式工具条(StructEditor 内),这里把动作透传下去。
   const previewPane = (
-    <div className="relative h-full overflow-y-auto bg-background">
+    <div className="relative h-full overflow-y-auto bg-surface-card">
       {doc && (
         <StructEditor
           ref={editorRef}
@@ -510,7 +510,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
           避免 review #2 的「显示 N 处却按钮全哑」)。计数由 header 的 badge 承载,这里只做导航,不重复报数。 */}
       {!streaming && diffBaseline && navChangeCount > 0 && (
         <div className="pointer-events-none absolute right-4 top-3 z-sticky">
-          <div className="pointer-events-auto flex items-center gap-0.5 rounded-pill border border-brand-green/30 bg-background/95 px-1.5 py-1 text-2xs text-brand-green shadow-overlay backdrop-blur">
+          <div className="pointer-events-auto flex items-center gap-0.5 rounded-pill border border-brand-green/30 bg-surface-card/95 px-1.5 py-1 text-2xs text-brand-green shadow-overlay backdrop-blur">
             <Sparkles className="size-3 shrink-0" />
             <span className="px-1 font-medium">AI 改动</span>
             <button
@@ -535,14 +535,14 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
         </div>
       )}
       {liveOverlay && (
-        <div className="absolute inset-0 overflow-y-auto bg-background">
+        <div className="absolute inset-0 overflow-y-auto bg-surface-card">
           <PrismLivePreview markdown={liveOverlay} bibliography={doc?.bibliography} />
         </div>
       )}
       {/* P2 逐块审阅门:审阅模式下 AI 轮末进 awaiting_apply,盖上**所见即所得** diff 编辑器(struct 级块痕迹,
           非原始 markdown)。用户就地保留/删改本轮改动,「应用本轮」把合并 struct 经 override 固化 / 「放弃本轮」还原。 */}
       {awaitingApply && reviewPending?.new_struct && (
-        <div className="absolute inset-0 z-nav flex flex-col bg-background">
+        <div className="absolute inset-0 z-nav flex flex-col bg-surface-card">
           <div className="flex shrink-0 items-center gap-2 border-b border-brand-green/30 bg-brand-green/5 px-4 py-1.5 text-2xs text-brand-green">
             <Sparkles className="size-3 shrink-0" />
             <span className="flex-1">逐块审阅本轮改动 —— 直接在文中保留/删改,满意后应用</span>
@@ -591,7 +591,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
   // 页面在白底上,不做深色托盘、不做内层卡片,避免卡中卡)。下载/隐藏 已并进 PdfViewer 工具条,去掉原 h-9 头部。
   const pdfPane = (
     <div className="h-full min-h-0 bg-surface-2 p-2">
-      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border-strong bg-background">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border-strong bg-surface-card">
         {compileError ? (
           // 编译未通过是**可恢复**状态(有「让 AI 修复」回路)→ 用琥珀软提示而非红墙,降低焦虑感
           // (对齐全站 amber 约定:TurnErrorNotice / 工具失败)。
@@ -617,7 +617,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
         <div className="min-h-0 flex-1">
           {pdfKey > 0 ? (
             <Suspense fallback={null}>
-              <PdfViewer key={pdfKey} file={pdfSource} className="h-full bg-background" trailingActions={pdfActions} />
+              <PdfViewer key={pdfKey} file={pdfSource} className="h-full bg-surface-card" trailingActions={pdfActions} />
             </Suspense>
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-xs text-faint">
@@ -710,7 +710,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
             <select
               value={template}
               onChange={(e) => onTemplateChange(e.target.value)}
-              className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground"
+              className="h-8 rounded-md border border-border bg-surface-card px-2 text-xs text-foreground"
               aria-label="目标模板"
             >
               {(templates.data ?? [{ key: 'article', name: '通用 Article', doc_class: 'article' }]).map((t) => (

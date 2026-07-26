@@ -23,7 +23,7 @@ export function ContactChannels({ className }: { className?: string }) {
   ].filter((q): q is { title: string; src: string } => !!q.src);
 
   return (
-    <section className={'rounded-lg border border-border-soft bg-background p-5 ' + (className ?? '')}>
+    <section className={'rounded-lg border border-border-soft bg-surface-card p-5 ' + (className ?? '')}>
       <h2 className="mb-3 inline-flex items-center gap-2 text-sm font-bold text-foreground">
         <Mail className="size-4 text-brand-red" strokeWidth={2.2} />
         其他联系方式
@@ -68,7 +68,7 @@ function EmailRow({ icon, label, email }: { icon: React.ReactNode; label: string
       href={`mailto:${email}`}
       className="group flex items-center gap-2.5 rounded-md border border-border-soft bg-surface-1 px-3 py-2 transition-colors hover:border-foreground/30 hover:bg-surface-2"
     >
-      <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-sm bg-background text-subtle group-hover:text-brand-red">
+      <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-sm bg-surface-card text-subtle group-hover:text-brand-red">
         {icon}
       </span>
       <span className="flex min-w-0 flex-col">

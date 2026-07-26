@@ -22,7 +22,7 @@ export function NewsListItem({ item }: { item: NewsCard }) {
   return (
     <Link
       to={`/news/${item.slug}`}
-      className="group flex gap-4 rounded-md border border-border-soft bg-background p-4 transition-all hover:border-foreground/30 hover:"
+      className="group flex gap-4 rounded-md border border-border-soft bg-surface-card p-4 transition-all hover:border-foreground/30 hover:"
     >
       {item.cover_image && (
         <img

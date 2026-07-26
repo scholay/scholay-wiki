@@ -49,7 +49,7 @@ export function PlazaHeader() {
               e.preventDefault();
               setQuery(draft.trim());
             }}
-            className="group flex h-11 flex-1 items-center gap-2.5 rounded-lg border border-border bg-surface-1 px-3.5 transition-colors focus-within:border-foreground focus-within:bg-background"
+            className="group flex h-11 flex-1 items-center gap-2.5 rounded-lg border border-border bg-surface-1 px-3.5 transition-colors focus-within:border-foreground focus-within:bg-surface-card"
           >
             <Search
               className="size-4 shrink-0 text-faint transition-colors group-focus-within:text-muted-foreground"

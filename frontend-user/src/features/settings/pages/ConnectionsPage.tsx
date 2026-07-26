@@ -164,7 +164,7 @@ export function ConnectionsPage() {
           return (
             <div
               key={c.provider}
-              className="flex items-center gap-4 p-4 rounded-md border border-border bg-background"
+              className="flex items-center gap-4 p-4 rounded-md border border-border bg-surface-card"
             >
               <div
                 className={cn(

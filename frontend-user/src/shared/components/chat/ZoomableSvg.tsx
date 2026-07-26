@@ -34,7 +34,7 @@ const PanZoomView = lazy(async () => {
                 dangerouslySetInnerHTML={{ __html: svgHtml }}
               />
             </TransformComponent>
-            <div className="absolute bottom-5 left-1/2 z-raised flex -translate-x-1/2 items-center gap-1 rounded-pill border border-border bg-background/95 p-1 shadow-overlay backdrop-blur-sm">
+            <div className="absolute bottom-5 left-1/2 z-raised flex -translate-x-1/2 items-center gap-1 rounded-pill border border-border bg-surface-card/95 p-1 shadow-overlay backdrop-blur-sm">
               <CtrlBtn label="缩小" onClick={() => zoomOut()}>
                 <Minus className="size-4" />
               </CtrlBtn>
@@ -73,7 +73,7 @@ export function ZoomableSvg({ svgHtml, className }: { svgHtml: string; className
   return (
     <div
       className={
-        'group relative mb-2.5 last:mb-0 overflow-x-auto rounded-md border border-border bg-background p-3 ' +
+        'group relative mb-2.5 last:mb-0 overflow-x-auto rounded-md border border-border bg-surface-card p-3 ' +
         (className ?? '')
       }
     >
@@ -95,7 +95,7 @@ export function ZoomableSvg({ svgHtml, className }: { svgHtml: string; className
         onClick={() => setOpen(true)}
         aria-label="放大查看"
         title="放大查看"
-        className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-sm border border-border bg-background/90 px-1.5 py-0.5 text-2xs text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+        className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-sm border border-border bg-surface-card/90 px-1.5 py-0.5 text-2xs text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
       >
         <Maximize2 className="size-3" /> 放大
       </button>

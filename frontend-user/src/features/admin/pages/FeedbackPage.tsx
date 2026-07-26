@@ -143,7 +143,7 @@ export function FeedbackPage() {
         </div>
       }
     >
-      <div className="mb-4 flex h-9 w-full max-w-sm items-center gap-1.5 rounded-md border border-input bg-background px-2.5">
+      <div className="mb-4 flex h-9 w-full max-w-sm items-center gap-1.5 rounded-md border border-input bg-surface-card px-2.5">
         <Search className="size-3.5 text-faint" />
         <Input
           value={searchInput}
@@ -201,7 +201,7 @@ export function FeedbackPage() {
                         href={a.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="block rounded-sm border border-border bg-background overflow-hidden hover:border-foreground transition-colors"
+                        className="block rounded-sm border border-border bg-surface-card overflow-hidden hover:border-foreground transition-colors"
                         title={a.name}
                       >
                         {a.type === 'image' ? (
@@ -257,7 +257,7 @@ export function FeedbackPage() {
                     rows={5}
                     required
                     defaultValue={replying.replyContent}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="w-full rounded-md border border-input bg-surface-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                 </div>
                 <DialogFooter className="gap-2 sm:gap-2">

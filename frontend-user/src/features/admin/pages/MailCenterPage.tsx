@@ -125,7 +125,7 @@ export function MailCenterPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[360px_1fr]">
         {/* 列表 */}
         <div className="flex min-w-0 flex-col gap-3">
-          <div className="overflow-hidden rounded-md border border-border bg-background">
+          <div className="overflow-hidden rounded-md border border-border bg-surface-card">
             {isLoading ? (
               <div className="py-16 text-center text-sm text-faint">
                 <Loader2 className="mx-auto size-4 animate-spin" />
@@ -222,7 +222,7 @@ function ReadingPane({ id }: { id: number | null }) {
   };
 
   return (
-    <div className="flex min-w-0 flex-col rounded-md border border-border bg-background">
+    <div className="flex min-w-0 flex-col rounded-md border border-border bg-surface-card">
       {isLoading || !mail ? (
         <div className="py-16 text-center text-sm text-faint">
           <Loader2 className="mx-auto size-4 animate-spin" />
@@ -257,7 +257,7 @@ function ReadingPane({ id }: { id: number | null }) {
                 sandbox=""
                 srcDoc={mail.html_body}
                 title="邮件正文"
-                className="h-[45vh] w-full rounded-sm border border-border-soft bg-background"
+                className="h-[45vh] w-full rounded-sm border border-border-soft bg-surface-card"
               />
             ) : (
               <p className="text-xs text-faint">(无正文)</p>
@@ -274,7 +274,7 @@ function ReadingPane({ id }: { id: number | null }) {
               onChange={(e) => setBody(e.target.value)}
               rows={4}
               placeholder="输入回复内容…"
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="w-full rounded-md border border-input bg-surface-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
             <div className="mt-2 flex justify-end">
               <Button onClick={handleReply} disabled={reply.isPending || !body.trim()}>
@@ -325,7 +325,7 @@ function ComposeDialog({ open, onClose }: { open: boolean; onClose: () => void }
             onChange={(e) => setBody(e.target.value)}
             rows={8}
             placeholder="正文…"
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="w-full rounded-md border border-input bg-surface-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
           <div className="flex justify-end">
             <Button onClick={handleSend} disabled={compose.isPending || !to.trim() || !subject.trim() || !body.trim()}>

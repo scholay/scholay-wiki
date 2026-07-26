@@ -10,7 +10,7 @@ import type { MetadataFormValues } from '../../hooks/useMetadataForm';
  */
 
 const inputCn = cn(
-  'w-full h-9 px-3 rounded-sm border border-border bg-background text-sm text-foreground',
+  'w-full h-9 px-3 rounded-sm border border-border bg-surface-card text-sm text-foreground',
   'placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-foreground',
   'disabled:opacity-60 disabled:cursor-not-allowed transition-colors'
 );

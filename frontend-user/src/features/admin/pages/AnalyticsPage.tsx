@@ -230,7 +230,7 @@ function KPI({
       ? ((value - prev) / prev) * 100
       : null;
   return (
-    <div className="rounded-md border border-border bg-background p-3">
+    <div className="rounded-md border border-border bg-surface-card p-3">
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-2xs text-faint">{label}</span>
         <Icon className="size-3 text-faint" />
@@ -285,7 +285,7 @@ function Panel({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-md border border-border bg-background p-4">
+    <div className="rounded-md border border-border bg-surface-card p-4">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-bold text-foreground">{title}</h3>
         <Icon className="size-3.5 text-faint" />
