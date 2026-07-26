@@ -51,7 +51,7 @@ function cleanBody(body: string, numbering: CiteNumbering): string {
     .replace(/\[@([^\]]+)\]/g, (_all, inner) => citeDisplay(String(inner), numbering))
     .replace(/!\[[^\]]*\]\(([^)]+)\)/g, (_all, inner) => {
       const cap = String(inner).match(/"([^"]*)"/);
-      return `*[配图${cap && cap[1] ? ':' + cap[1] : ''}]*`;
+      return `*[配图${cap && cap[1] ? ' : ' + cap[1] : ''}]*`;
     })
     .replace(/[ \t]*\{#[a-zA-Z]+:[^}]+\}/g, '');
 }
@@ -95,4 +95,4 @@ export const PrismLivePreview = memo(function PrismLivePreview({
     </div>
   );
 });
-PrismLivePreview.displayName = 'PrismLivePreview';
+PrismLivePreview.displayName = ' PrismLivePreview';

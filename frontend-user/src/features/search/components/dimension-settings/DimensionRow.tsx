@@ -72,7 +72,7 @@ function DimensionRowImpl({
       className={cn(
         'flex items-center gap-2 h-[58px] px-2 border-b border-border-soft transition-colors',
         isHidden ? 'bg-surface-1' : 'bg-surface-card hover:bg-surface-1/60',
-        isDragging &&'opacity-50 z-raised shadow-raised'
+        isDragging && 'opacity-50 z-raised shadow-raised'
       )}
     >
       {/* 拖拽手柄 —— 鼠标只在此处变 grab,避免和行内其他按钮交互冲突 */}

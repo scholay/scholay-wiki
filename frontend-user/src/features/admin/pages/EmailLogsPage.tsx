@@ -11,16 +11,16 @@ import { Pagination } from'../components/Pagination';
 import { useEmailLogs, type EmailLog, type SendChannel } from'../api/email-logs';
 
 const CAT_LABEL: Record<string, string> = {
-  verification:'验证码',
-  feedback:'反馈',
-  billing:'会员',
-  test:'测试',
-  other:'其他',
+  verification: '验证码',
+  feedback: '反馈',
+  billing: '会员',
+  test: '测试',
+  other: '其他',
 };
 
 const TABS: { id: SendChannel; label: string; icon: typeof Mail }[] = [
-  { id:'email', label:'邮件', icon: Mail },
-  { id:'sms', label:'短信', icon: Smartphone },
+  { id: 'email', label: '邮件', icon: Mail },
+  { id: 'sms', label: '短信', icon: Smartphone },
 ];
 
 /**
@@ -29,14 +29,14 @@ const TABS: { id: SendChannel; label: string; icon: typeof Mail }[] = [
  * 成功/失败 + 报错 + 收件地址(邮箱/手机号)+ 主题/模板 + 发件人/签名 + 时间。
  */
 export function EmailLogsPage() {
-  const [channel, setChannel] = useUrlState('channel','email');
+  const [channel, setChannel] = useUrlState('channel', 'email');
   const [page, setPage] = useUrlState('page', 1, Number);
-  const [status, setStatus] = useUrlState('status','');
-  const [category, setCategory] = useUrlState('category','');
+  const [status, setStatus] = useUrlState('status', '');
+  const [category, setCategory] = useUrlState('category', '');
   const [searchInput, setSearchInput] = useState('');
   const search = useDebounce(searchInput, 400);
 
-  const ch = (channel ==='sms'?'sms':'email') as SendChannel;
+  const ch = (channel ==='sms' ? 'sms' : 'email') as SendChannel;
   const isSms = ch ==='sms';
 
   const params = {
@@ -52,10 +52,10 @@ export function EmailLogsPage() {
 
   const columns: Column<EmailLog>[] = [
     {
-      header:'状态',
+      header: '状态',
       width: 70,
       cell: (r) =>
-        r.status ==='success'? (
+        r.status ==='success' ? (
           <span className="inline-flex items-center gap-1 rounded-pill bg-brand-green/10 px-2 py-0.5 text-12 font-medium text-brand-green">
             <CheckCircle2 className="size-3"/> 成功
           </span>
@@ -66,34 +66,34 @@ export function EmailLogsPage() {
         ),
     },
     {
-      header: isSms ?'手机号':'收件人',
+      header: isSms ? '手机号' : '收件人',
       width: 170,
       cell: (r) => <span className="select-all break-all font-mono text-12 text-foreground">{r.to_email ||'—'}</span>,
     },
     {
-      header: isSms ?'模板内容':'主题',
-      cell: (r) => <span className="text-12 text-subtle"title={r.subject}>{r.subject ||'—'}</span>,
+      header: isSms ? '模板内容' : '主题',
+      cell: (r) => <span className="text-12 text-subtle" title={r.subject}>{r.subject ||'—'}</span>,
     },
     {
-      header:'类别',
+      header: '类别',
       width: 70,
       cell: (r) => <span className="text-12 text-faint">{CAT_LABEL[r.category] ?? r.category}</span>,
     },
     {
-      header: isSms ?'签名':'发件人',
+      header: isSms ? '签名' : '发件人',
       width: 150,
       cell: (r) => (
-        <span className="truncate text-12 text-faint"title={isSms ? r.from_name :`${r.from_name} <${r.from_email}>`}>
+        <span className="truncate text-12 text-faint" title={isSms ? r.from_name : `${r.from_name} <${r.from_email}>`}>
           {(isSms ? r.from_name : r.from_email) ||'—'}
         </span>
       ),
     },
     {
-      header:'报错',
+      header: '报错',
       width: 200,
       cell: (r) =>
         r.error ? (
-          <span className="block max-w-[200px] truncate text-12 text-brand-red"title={r.error}>
+          <span className="block max-w-[200px] truncate text-12 text-brand-red" title={r.error}>
             {r.error}
           </span>
         ) : (
@@ -101,16 +101,16 @@ export function EmailLogsPage() {
         ),
     },
     {
-      header:'发送时间',
+      header: '发送时间',
       width: 150,
       cell: (r) => (
-        <span className="text-12 tabular-nums text-faint">{r.created_at?.slice(0, 19).replace('T','')}</span>
+        <span className="text-12 tabular-nums text-faint">{r.created_at?.slice(0, 19).replace('T', ' ')}</span>
       ),
     },
   ];
 
   return (
-    <AdminPageLayout title="发送记录"description="全站邮件 + 短信的发送记录:成功 / 失败 / 报错 / 收件地址 / 主题 / 时间">
+    <AdminPageLayout title="发送记录" description="全站邮件 + 短信的发送记录:成功 / 失败 / 报错 / 收件地址 / 主题 / 时间">
       {/* 邮件 / 短信 tab */}
       <div className="mb-4 inline-flex rounded-12 border border-border bg-surface-1 p-0.5">
         {TABS.map((t) => {
@@ -124,7 +124,7 @@ export function EmailLogsPage() {
                 setPage(1);
               }}
               className={cn('flex items-center gap-1.5 rounded-8 px-4 py-1.5 text-12 font-medium transition-colors',
-                active ?'bg-surface-card text-foreground shadow-raised':'text-faint hover:text-foreground',
+                active ? 'bg-surface-card text-foreground shadow-raised' : 'text-faint hover:text-foreground',
               )}
             >
               <Icon className="size-3.5"/> {t.label}
@@ -135,9 +135,9 @@ export function EmailLogsPage() {
 
       {/* 概览(当前 tab) */}
       <section className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <StatCard icon={isSms ? Smartphone : Mail} label="累计发送"value={stats.total} tone="ink"/>
-        <StatCard icon={CheckCircle2} label="成功"value={stats.success} tone="green"/>
-        <StatCard icon={XCircle} label="失败"value={stats.failed} tone="red"/>
+        <StatCard icon={isSms ? Smartphone : Mail} label="累计发送" value={stats.total} tone="ink"/>
+        <StatCard icon={CheckCircle2} label="成功" value={stats.success} tone="green"/>
+        <StatCard icon={XCircle} label="失败" value={stats.failed} tone="red"/>
       </section>
 
       {/* 筛选 */}
@@ -173,7 +173,7 @@ export function EmailLogsPage() {
             <option value="other">其他</option>
           </Select>
         </Field>
-        <Field label={isSms ?'搜索(手机号 / 模板)':'搜索(收件人 / 主题)'} className="w-full sm:w-auto">
+        <Field label={isSms ? '搜索(手机号 / 模板)' : '搜索(收件人 / 主题)'} className="w-full sm:w-auto">
           <div className="flex h-8 w-full items-center gap-1.5 rounded-8 border border-input bg-surface-card px-2 sm:w-auto">
             <Search className="size-3.5 shrink-0 text-faint"/>
             <Input
@@ -182,7 +182,7 @@ export function EmailLogsPage() {
                 setSearchInput(e.target.value);
                 setPage(1);
               }}
-              placeholder={isSms ?'手机号或模板关键词':'邮箱地址或主题关键词'}
+              placeholder={isSms ? '手机号或模板关键词' : '邮箱地址或主题关键词'}
               className="h-7 w-full min-w-0 border-0 bg-transparent px-0 text-12 sm:w-56"/>
           </div>
         </Field>
@@ -192,7 +192,7 @@ export function EmailLogsPage() {
         columns={columns}
         rows={data?.logs}
         loading={isLoading}
-        emptyMessage={isSms ?'还没有短信发送记录':'还没有邮件发送记录'}
+        emptyMessage={isSms ? '还没有短信发送记录' : '还没有邮件发送记录'}
       />
       <Pagination total={data?.total ?? 0} page={page} pageSize={30} onPageChange={setPage} />
     </AdminPageLayout>
@@ -217,9 +217,9 @@ function StatCard({
   icon: typeof Mail;
   label: string;
   value: number;
-  tone:'ink'|'green'|'red';
+  tone: 'ink'|'green'|'red';
 }) {
-  const color = tone ==='green'?'text-brand-green': tone ==='red'?'text-brand-red':'text-foreground';
+  const color = tone ==='green' ? 'text-brand-green' : tone ==='red' ? 'text-brand-red' : 'text-foreground';
   return (
     <div className="flex items-center gap-3 rounded-16 border border-border bg-surface-card p-3">
       <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-pill bg-surface-2', color)}>

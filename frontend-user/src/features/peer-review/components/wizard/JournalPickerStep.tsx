@@ -71,10 +71,10 @@ export function JournalPickerStep({ value, onChange }: JournalPickerStepProps) {
           </p>
         </div>
         <button
-          type="button"onClick={() => setCustomOpen((v) => !v)}
+          type="button" onClick={() => setCustomOpen((v) => !v)}
           className={cn('inline-flex h-8 items-center gap-1 rounded-8 border px-3 text-12 transition',
             customOpen
-              ?'border-brand-red bg-danger-soft text-brand-red':'border-border-button bg-surface-card text-subtle hover:border-foreground hover:text-foreground')}
+              ? 'border-brand-red bg-danger-soft text-brand-red' : 'border-border-button bg-surface-card text-subtle hover:border-foreground hover:text-foreground')}
         >
           + 自定义期刊
         </button>
@@ -93,7 +93,7 @@ export function JournalPickerStep({ value, onChange }: JournalPickerStepProps) {
         <Input
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
-          placeholder="搜索期刊名、ISSN 或学科…"className="h-10 bg-surface-1 pl-9"/>
+          placeholder="搜索期刊名、ISSN 或学科…" className="h-10 bg-surface-1 pl-9"/>
         {isFetching && (
           <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-faint"/>
         )}
@@ -111,7 +111,7 @@ export function JournalPickerStep({ value, onChange }: JournalPickerStepProps) {
             )}
           </span>
           <button
-            type="button"onClick={() => onChange(undefined)}
+            type="button" onClick={() => onChange(undefined)}
             className="text-12 font-medium text-brand-red hover:text-brand-red/80">
             取消选择
           </button>
@@ -188,24 +188,27 @@ function JournalCard({
   onToggle: () => void;
 }) {
   // logo 初始字母作为占位 (设计稿是真 logo;我们没真实 logo 资源,用首字母 + 品牌色块)
-  const initial = (j.canonical_name?.[0] ??'?').toUpperCase();
+  const initial = (j.canonical_name?.[0] ?? '?').toUpperCase();
   const logoBg = colorForInitial(initial);
 
   return (
     <article
-      role="button"tabIndex={0}
+      role="button" tabIndex={0}
       aria-pressed={selected}
       onClick={onToggle}
       onKeyDown={(e) => {
-        if (e.key ==='Enter'|| e.key ==='') {
+        if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           onToggle();
         }
       }}
       className={cn(
-        // 整卡可点即选;选中态做强对比 (红边 + 红环 + 浅红底), 一眼可辨'cursor-pointer rounded-12 border bg-surface-card p-3.5 text-left outline-none transition','',
+        // 整卡可点即选;选中态做强对比 (红边 + 红环 + 浅红底), 一眼可辨
+        'cursor-pointer rounded-12 border bg-surface-card p-3.5 text-left outline-none transition',
         selected
-          ?'border-brand-red bg-danger-soft ring-1 ring-brand-red':'border-border hover:border-brand-red/50 hover:bg-surface-1')}
+          ? 'border-brand-red bg-danger-soft ring-1 ring-brand-red'
+          : 'border-border hover:border-brand-red/50 hover:bg-surface-1'
+      )}
     >
       <header className="flex items-start gap-3">
         <span
@@ -218,9 +221,9 @@ function JournalCard({
         <div className="min-w-0 flex-1">
           <h3 className="line-clamp-1 text-14 font-medium text-foreground">{j.canonical_name}</h3>
           <p className="mt-1 text-12 text-muted-foreground">
-            {j.publisher ??'—'}
-            {j.is_oa &&'· Open Access'}
-            {j.issns?.[0] &&`· ISSN ${j.issns[0]}`}
+            {j.publisher ?? '—'}
+            {j.is_oa && ' · Open Access'}
+            {j.issns?.[0] && ` · ISSN ${j.issns[0]}`}
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-1.5">
@@ -269,11 +272,11 @@ function JournalCard({
         {/* 选中态指示 —— 整卡已可点选, 这里只作状态标识 (不再单独是按钮) */}
         <span
           className={cn('inline-flex shrink-0 items-center gap-1 text-12 font-medium',
-            selected ?'text-brand-red':'text-muted-foreground')}
+            selected ? 'text-brand-red' : 'text-muted-foreground')}
         >
           {selected ? (
             <>
-              <Check className="size-3"strokeWidth={3} />
+              <Check className="size-3" strokeWidth={3} />
               已选
             </>
           ) : ('点击选择')}
@@ -307,8 +310,8 @@ function CustomJournalForm({
           自定义期刊 <span className="ml-1 text-muted-foreground">(只填一个名字就行)</span>
         </p>
         <button
-          type="button"onClick={onCancel}
-          className="text-faint hover:text-foreground"aria-label="取消">
+          type="button" onClick={onCancel}
+          className="text-faint hover:text-foreground" aria-label="取消">
           <X className="size-3.5"/>
         </button>
       </div>
@@ -324,10 +327,10 @@ function CustomJournalForm({
             if (e.key ==='Escape') onCancel();
           }}
           autoFocus
-          placeholder="例:Journal of My Special Field"maxLength={250}
+          placeholder="例:Journal of My Special Field" maxLength={250}
           className="h-9"/>
         <Button
-          size="sm"variant="default"disabled={invalid}
+          size="sm" variant="default" disabled={invalid}
           onClick={() => onSubmit(name)}
           className="h-9 bg-brand-red text-background hover:bg-brand-red/90 disabled:opacity-40">
           确认
@@ -343,12 +346,12 @@ function CustomJournalForm({
 // 简单根据首字母分配 logo 颜色 — 不严格,只让视觉有区分度
 function colorForInitial(c: string): string {
   const map: Record<string, string> = {
-    N:'bg-[#1A1A1A]',
-    S:'bg-[#B22234]',
-    I:'bg-[#003E7E]',
-    P:'bg-[#5A4FCF]',
-    A:'bg-[#2A7A2A]',
-    J:'bg-[#8B5A2B]',
+    N: 'bg-[#1A1A1A]',
+    S: 'bg-[#B22234]',
+    I: 'bg-[#003E7E]',
+    P: 'bg-[#5A4FCF]',
+    A: 'bg-[#2A7A2A]',
+    J: 'bg-[#8B5A2B]',
   };
-  return map[c] ??'bg-foreground';
+  return map[c] ?? 'bg-foreground';
 }

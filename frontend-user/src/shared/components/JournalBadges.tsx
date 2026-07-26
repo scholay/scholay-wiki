@@ -75,9 +75,9 @@ export function journalBadges(j?: JournalBadgeInput | null): JournalBadge[] {
 }
 
 const TONE_CLS: Record<Tone, string> = {
-  'solid-green': 'bg-brand-green text-on-brand',
-  'solid-amber': 'bg-brand-amber text-on-brand',
-  'solid-red': 'bg-brand-red text-on-brand',
+  'solid-green' : 'bg-brand-green text-on-brand',
+  'solid-amber' : 'bg-brand-amber text-on-brand',
+  'solid-red' : 'bg-brand-red text-on-brand',
   neutral: 'bg-surface-2 text-subtle font-medium',
   red: 'bg-danger-soft text-brand-red',
 };

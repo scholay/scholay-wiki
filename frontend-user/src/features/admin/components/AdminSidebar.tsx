@@ -84,15 +84,15 @@ export function AdminSidebar() {
  */
 function badgeFor(item: AdminNavItem, a: AdminAlerts): React.ReactNode {
   switch (item.id) {
-    case 'feedback':
+    case 'feedback' :
       return a.pendingFeedback > 0 ? <CountBadge tone="danger" n={a.pendingFeedback} /> : null;
-    case 'messages':
+    case 'messages' :
       return a.draftMessages > 0 ? <CountBadge tone="muted" n={a.draftMessages} /> : null;
-    case 'third-party':
+    case 'third-party' :
       return a.unhealthyThirdParty > 0 ? <CountBadge tone="danger" n={a.unhealthyThirdParty} /> : null;
-    case 'payment':
+    case 'payment' :
       return !a.hasActiveAlipay || !a.hasActiveWechatPay ? <StatusDot tone="warning" /> : null;
-    case 'system':
+    case 'system' :
       return a.maintenanceMode ? <StatusDot tone="warning" /> : null;
     default:
       return null;

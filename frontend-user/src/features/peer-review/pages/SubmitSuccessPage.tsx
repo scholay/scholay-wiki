@@ -164,7 +164,7 @@ function InfoRow({ label, value, bold = false }: { label: string; value: string;
       <dd
         className={
           'flex-1 text-14 text-subtle ' +
-          (bold ?'font-medium':'font-medium')
+          (bold ? 'font-medium' : 'font-medium')
         }
       >
         {value}
@@ -175,9 +175,9 @@ function InfoRow({ label, value, bold = false }: { label: string; value: string;
 
 function degreeLabel(d?: string) {
   switch (d) {
-    case 'phd': return '博士';
-    case 'master': return '硕士';
-    case 'bachelor': return '本科';
+    case 'phd' : return '博士';
+    case 'master' : return '硕士';
+    case 'bachelor' : return '本科';
     default: return d ?? '';
   }
 }

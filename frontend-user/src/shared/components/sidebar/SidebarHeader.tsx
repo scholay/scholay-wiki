@@ -32,7 +32,7 @@ export const SidebarHeaderIcon = forwardRef<
 >(({ className, ...props }, ref) => (
   <button
     ref={ref}
-    type="button"className={cn('inline-flex h-8 w-8 items-center justify-center rounded-8 text-subtle','hover:bg-surface-2 hover:text-foreground transition-colors','','disabled:pointer-events-none disabled:opacity-50','[&_svg]:size-4',
+    type="button" className={cn('inline-flex h-8 w-8 items-center justify-center rounded-8 text-subtle', 'hover:bg-surface-2 hover:text-foreground transition-colors', '', 'disabled:pointer-events-none disabled:opacity-50', '[&_svg]:size-4',
       className
     )}
     {...props}

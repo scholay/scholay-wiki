@@ -160,7 +160,7 @@ export function JournalWizardPage() {
       const r = await http.post<{ data?: SubmissionAsset } & Partial<SubmissionAsset>>(
         `/user/peer-review/submissions/${draft.id}/assets`,
         fd,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
+        { headers: { 'Content-Type' : 'multipart/form-data' } }
       );
       const asset = unwrap<SubmissionAsset>(r.data);
       // 让后续 useSubmission / useSubmissionAssets / latestDraft 都看到新数据

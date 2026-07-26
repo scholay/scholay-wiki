@@ -21,17 +21,17 @@ import { useToolCategories } from '../api/tools';
 
 /** 12 分类 → lucide 矢量图标(与项目其他地方统一) */
 const CAT_ICON: Record<string, LucideIcon> = {
-  'stats-econometrics': BarChart3,
-  'chem-materials': FlaskConical,
-  'bio-life': Dna,
-  'math-numerical': Calculator,
-  'viz-plotting': LineChart,
-  'engineering-cad': DraftingCompass,
-  'lit-manage-pdf': Library,
-  'writing-latex': PenLine,
-  'journal-metrics': GraduationCap,
-  'medical-reference': Pill,
-  'general-utility': Wrench,
+  'stats-econometrics' : BarChart3,
+  'chem-materials' : FlaskConical,
+  'bio-life' : Dna,
+  'math-numerical' : Calculator,
+  'viz-plotting' : LineChart,
+  'engineering-cad' : DraftingCompass,
+  'lit-manage-pdf' : Library,
+  'writing-latex' : PenLine,
+  'journal-metrics' : GraduationCap,
+  'medical-reference' : Pill,
+  'general-utility' : Wrench,
   other: Package,
 };
 

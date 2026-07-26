@@ -37,7 +37,7 @@ export function AccountTypeTabs({
           className={cn(
             'h-7 px-3 rounded-8 transition-colors',
             value === t.value
-              ?'bg-surface-card text-foreground shadow-raised'
+              ? 'bg-surface-card text-foreground shadow-raised'
               : 'text-muted-foreground hover:text-foreground'
           )}
         >

@@ -138,7 +138,7 @@ export function ThesisWizardPage() {
       const r = await http.post<{ data?: SubmissionAsset } & Partial<SubmissionAsset>>(
         `/user/peer-review/submissions/${draft.id}/assets`,
         fd,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
+        { headers: { 'Content-Type' : 'multipart/form-data' } }
       );
       const asset = unwrap<SubmissionAsset>(r.data);
       qc.invalidateQueries({ queryKey: SUBKEY('detail', draft.id) });

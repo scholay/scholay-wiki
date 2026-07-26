@@ -33,20 +33,20 @@ export function AttachmentChipList({ attachments }: AttachmentChipListProps) {
           a.type ==='image'&& a.previewUrl ? (
             <button
               key={i}
-              type="button"onClick={() => setLightbox({ src: a.previewUrl!, alt: a.name })}
+              type="button" onClick={() => setLightbox({ src: a.previewUrl!, alt: a.name })}
               title={`${a.name} · 点击放大`}
               className="size-16 shrink-0 overflow-hidden rounded-8 border border-border-strong transition-opacity hover:opacity-90">
-              <img src={a.previewUrl} alt={a.name} loading="lazy"width={64} height={64} className="size-16 object-cover"/>
+              <img src={a.previewUrl} alt={a.name} loading="lazy" width={64} height={64} className="size-16 object-cover"/>
             </button>
           ) : (
             <span
               key={i}
-              className="inline-flex items-center gap-1 max-w-[200px] rounded-4 bg-foreground/85 text-background/90 px-2 py-0.5 text-12"title={a.size ?`${a.name} · ${formatSize(a.size)}`: a.name}
+              className="inline-flex items-center gap-1 max-w-[200px] rounded-4 bg-foreground/85 text-background/90 px-2 py-0.5 text-12" title={a.size ? `${a.name} · ${formatSize(a.size)}` : a.name}
             >
-              {a.type ==='image'? (
-                <ImageIcon className="size-3 shrink-0"strokeWidth={2.2} />
+              {a.type ==='image' ? (
+                <ImageIcon className="size-3 shrink-0" strokeWidth={2.2} />
               ) : (
-                <FileText className="size-3 shrink-0"strokeWidth={2.2} />
+                <FileText className="size-3 shrink-0" strokeWidth={2.2} />
               )}
               <span className="truncate min-w-0">{a.name}</span>
             </span>

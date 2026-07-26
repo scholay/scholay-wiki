@@ -123,7 +123,7 @@ export function FeedbackPage() {
       const { data } = await http.post<{
         data: { uploadKey: string; attachments: UploadedAttachment[] };
       }>('/public/feedback/upload', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        headers: { 'Content-Type' : 'multipart/form-data' },
       });
       setUploadKey(data.data.uploadKey);
       setAttachments((prev) => [...prev, ...(data.data.attachments ?? [])]);

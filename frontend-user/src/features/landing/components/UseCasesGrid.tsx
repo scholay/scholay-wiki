@@ -58,11 +58,11 @@ const THEME_TAG: Record<NonNullable<UseCase['theme']>, string> = {
  *  不用 `import * as Icons` 否则会把整个 lucide 拖进 bundle,破坏 tree-shaking。
  *  新增 icon → 在这里 import + 注册一项。 */
 const ICON_MAP: Record<string, LucideIcon> = {
-  'graduation-cap': GraduationCap,
-  'flask-conical': FlaskConical,
+  'graduation-cap' : GraduationCap,
+  'flask-conical' : FlaskConical,
   users: Users,
   library: Library,
-  'refresh-ccw': RefreshCcw,
+  'refresh-ccw' : RefreshCcw,
 };
 function getIcon(name?: string): LucideIcon | null {
   if (!name) return null;

@@ -43,11 +43,16 @@ export function SidebarUser({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          type="button"className={cn('flex h-14 items-center gap-2.5 px-4 border-t border-border-soft shrink-0','hover:bg-surface-1 transition-colors text-left w-full',
+          type="button"
+          className={cn(
+            'flex h-14 items-center gap-2.5 px-4 border-t border-border-soft shrink-0',
+            'hover:bg-surface-1 transition-colors text-left w-full',
             // 焦点反馈用 bg-surface-1(已和 hover 一致),不再用 ring —
             // 全宽 row 加 ring 看着像多了一个框;Radix 关闭 dropdown 时会把焦点
-            // 还回 trigger,触发 focus-visible,容易残留视觉"边框"' focus-visible:bg-surface-1',
-            // dropdown 打开时给 trigger 一个浅 hover 态(Radix 自动加 data-state)'data-[state=open]:bg-surface-1',
+            // 还回 trigger,触发 focus-visible,容易残留视觉"边框"
+            'focus-visible:bg-surface-1',
+            // dropdown 打开时给 trigger 一个浅 hover 态(Radix 自动加 data-state)
+            'data-[state=open]:bg-surface-1',
             className
           )}
         >
@@ -69,7 +74,7 @@ export function SidebarUser({
         </button>
       </DropdownMenuTrigger>
       {/* p-0 + w-auto 让 UserMenuContent 自己控制 padding 和 240px 宽度 */}
-      <DropdownMenuContent side="top"align="start"sideOffset={8} className="p-0 w-auto">
+      <DropdownMenuContent side="top" align="start" sideOffset={8} className="p-0 w-auto">
         {menu ?? (
           <>
             <DropdownMenuLabel>{name}</DropdownMenuLabel>

@@ -50,7 +50,7 @@ export const InlineMath = Node.create({
     return [{ tag: 'span[data-inline-math]' }];
   },
   renderHTML({ HTMLAttributes, node }) {
-    return ['span', mergeAttributes(HTMLAttributes, { 'data-inline-math': String(node.attrs.latex ?? '') })];
+    return ['span', mergeAttributes(HTMLAttributes, { 'data-inline-math' : String(node.attrs.latex ?? '') })];
   },
   addNodeView() {
     return ReactNodeViewRenderer(InlineMathView);
@@ -93,7 +93,7 @@ export const BlockMath = Node.create({
     return [{ tag: 'div[data-block-math]' }];
   },
   renderHTML({ HTMLAttributes, node }) {
-    return ['div', mergeAttributes(HTMLAttributes, { 'data-block-math': String(node.attrs.latex ?? '') })];
+    return ['div', mergeAttributes(HTMLAttributes, { 'data-block-math' : String(node.attrs.latex ?? '') })];
   },
   addNodeView() {
     return ReactNodeViewRenderer(BlockMathView);
@@ -122,7 +122,7 @@ export const Citation = Node.create({
     // 且与 PrismLivePreview 的黑色 [N] 一致。hover title 露出 cite key 便于识别是哪篇/哪个锚(编辑可用性)。
     return [
       'span',
-      { 'data-cite-key': key, title: key, class: 'mx-0.5 cursor-default' },
+      { 'data-cite-key' : key, title: key, class: 'mx-0.5 cursor-default' },
       label,
     ];
   },
@@ -145,7 +145,7 @@ export const Figure = Node.create({
     const caption = String(node.attrs.caption ?? '') || '插图';
     return [
       'figure',
-      { 'data-asset': String(node.attrs.asset ?? ''), class: 'my-4 rounded-12 border border-dashed border-border bg-surface-1 px-4 py-6 text-center text-12 text-faint' },
+      { 'data-asset' : String(node.attrs.asset ?? ''), class: 'my-4 rounded-12 border border-dashed border-border bg-surface-1 px-4 py-6 text-center text-12 text-faint' },
       `图:${caption}`,
     ];
   },
@@ -183,7 +183,7 @@ export const OpaqueBlock = Node.create({
   renderHTML() {
     return [
       'div',
-      { 'data-opaque': '', class: 'my-3 rounded-12 border border-border bg-surface-1 px-3 py-2 text-12 text-faint' },
+      { 'data-opaque' : '', class: 'my-3 rounded-12 border border-border bg-surface-1 px-3 py-2 text-12 text-faint' },
       '(AI 管理的区域)',
     ];
   },

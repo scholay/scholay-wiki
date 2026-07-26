@@ -58,9 +58,9 @@ function AttachmentChip({
 
   const removeBtn = (
     <button
-      type="button"onClick={onRemove}
-      title="移除"className="absolute -right-1.5 -top-1.5 z-raised inline-flex size-4 items-center justify-center rounded-pill bg-foreground text-background transition-transform hover:scale-110">
-      <X className="size-2.5"strokeWidth={2.6} />
+      type="button" onClick={onRemove}
+      title="移除" className="absolute -right-1.5 -top-1.5 z-raised inline-flex size-4 items-center justify-center rounded-pill bg-foreground text-background transition-transform hover:scale-110">
+      <X className="size-2.5" strokeWidth={2.6} />
     </button>
   );
 
@@ -72,7 +72,7 @@ function AttachmentChip({
   ) : failed && onRetry ? (
     <span className="absolute inset-0 z-raised flex items-center justify-center gap-1 rounded-8 bg-surface-card/75">
       <button
-        type="button"onClick={onRetry}
+        type="button" onClick={onRetry}
         title={item.error ||'上传失败,点击重试'}
         className="inline-flex h-6 items-center gap-1 rounded-4 bg-foreground px-2 text-12 text-background hover:opacity-90">
         <RotateCcw className="size-3"/>
@@ -87,11 +87,11 @@ function AttachmentChip({
         {removeBtn}
         {stateOverlay}
         <button
-          type="button"onClick={onEnlarge}
+          type="button" onClick={onEnlarge}
           disabled={!onEnlarge}
-          title={failed ? item.error ||'上传失败':'点击放大'}
+          title={failed ? item.error ||'上传失败' : '点击放大'}
           className={cn('size-14 overflow-hidden rounded-8 border',
-            failed ?'border-brand-red':'border-border',
+            failed ? 'border-brand-red' : 'border-border',
           )}
         >
           <img src={item.previewUrl} alt={item.name} className="size-14 object-cover"/>
@@ -104,15 +104,15 @@ function AttachmentChip({
   return (
     <div
       className={cn('relative flex h-14 w-48 shrink-0 items-center gap-2 rounded-8 border bg-surface-1 px-2.5',
-        failed ?'border-brand-red':'border-border',
+        failed ? 'border-brand-red' : 'border-border',
       )}
-      title={failed ? item.error ||'上传失败': undefined}
+      title={failed ? item.error ||'上传失败' : undefined}
     >
       {removeBtn}
       {stateOverlay}
       <span
         className={cn('flex size-8 shrink-0 items-center justify-center rounded-4',
-          failed ?'bg-danger-soft':'bg-danger-soft',
+          failed ? 'bg-danger-soft' : 'bg-danger-soft',
         )}
       >
         {failed ? (
@@ -122,11 +122,11 @@ function AttachmentChip({
         )}
       </span>
       <span className="flex min-w-0 flex-col">
-        <span className="truncate text-12 font-medium text-foreground"title={item.name}>
+        <span className="truncate text-12 font-medium text-foreground" title={item.name}>
           {item.name}
         </span>
-        <span className={cn('truncate text-12', failed ?'text-brand-red':'text-faint')}>
-          {failed ? item.error ||'上传失败':`${fileExt(item.name)} · ${formatSize(item.size)}`}
+        <span className={cn('truncate text-12', failed ? 'text-brand-red' : 'text-faint')}>
+          {failed ? item.error ||'上传失败' : `${fileExt(item.name)} · ${formatSize(item.size)}`}
         </span>
       </span>
     </div>
@@ -135,7 +135,7 @@ function AttachmentChip({
 
 function fileExt(name: string): string {
   const i = name.lastIndexOf('.');
-  return i >= 0 ? name.slice(i + 1).toUpperCase() :'文件';
+  return i >= 0 ? name.slice(i + 1).toUpperCase() : '文件';
 }
 
 function formatSize(bytes: number): string {

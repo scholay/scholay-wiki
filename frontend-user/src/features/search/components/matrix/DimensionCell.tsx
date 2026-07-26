@@ -222,7 +222,7 @@ function tryParseArrayLoose(s: string): string[] | null {
 
 /**
  * tag 颜色 —— 8 色调色板按哈希分配,同名 tag 永远同色。
- * 特殊值"未提及"用统一灰色。
+ * 特殊值" 未提及"用统一灰色。
  */
 const TAG_PALETTE = [
   'bg-brand-red/10 text-brand-red',

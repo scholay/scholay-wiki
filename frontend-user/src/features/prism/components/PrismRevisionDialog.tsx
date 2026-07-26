@@ -47,7 +47,7 @@ function buildRoundInstruction(it: RevisionItem): string {
     needs_author_input: '',
   };
   return (
-    `【修改意见回应 · 第 ${it.seq} 条${it.reviewer ? ` · ${it.reviewer}` : ''}${it.severity === 'major' ? ' · major' : ''}】\n` +
+    `【修改意见回应 · 第 ${it.seq} 条${it.reviewer ? ` · ${it.reviewer} ` : ''}${it.severity === 'major' ? ' · major' : ''}】\n` +
     `意见原文:\n"${it.quote.trim()}"\n` +
     (it.interpretation ? `解读:${it.interpretation}\n` : '') +
     (it.anchor ? `定位线索:${it.anchor}\n` : '') +

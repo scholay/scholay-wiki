@@ -72,7 +72,7 @@ function ToolDetailContent({ tool }: { tool: FeatureTool }) {
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
       <RouteSEO
-        title={`${tool.name}${tool.name_en && tool.name_en !== tool.name ? ` (${tool.name_en})` : ''} — 功能广场 | Scholay学术`}
+        title={`${tool.name}${tool.name_en && tool.name_en !== tool.name ? ` (${tool.name_en}) ` : ''} — 功能广场 | Scholay学术`}
         description={(tool.tagline || tool.description_md || `${tool.name} —— 科研工具详情、获取方式与使用说明。`).slice(0, 150)}
         keywords={[tool.name, tool.name_en, tool.category_label, ...(tool.tags ?? [])].filter(Boolean).join(',')}
         canonical={`/tools/${tool.slug || tool.id}`}

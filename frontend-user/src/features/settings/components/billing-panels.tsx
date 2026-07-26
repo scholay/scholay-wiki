@@ -25,14 +25,14 @@ import {
 } from'../api/membership';
 
 const TXN_LABEL: Record<string, string> = {
-  grant_subscription:'订阅赠送',
-  recharge:'充值到账',
-  gift:'礼品码',
-  task:'任务奖励',
-  reset_consume:'重置消耗',
-  expire:'到期清零',
-  refund:'退款',
-  admin_adjust:'管理员调账',
+  grant_subscription: '订阅赠送',
+  recharge: '充值到账',
+  gift: '礼品码',
+  task: '任务奖励',
+  reset_consume: '重置消耗',
+  expire: '到期清零',
+  refund: '退款',
+  admin_adjust: '管理员调账',
 };
 
 const METHOD_ICONS: Record<string, LucideIcon> = { wechat: QrCode, alipay: CreditCard, test: Zap };
@@ -55,12 +55,12 @@ export function RechargePanel() {
 
   // 支付方式按 admin 配置(支付宝/微信 是否启用)动态决定 + 开发环境的测试支付。
   const methods = [
-    ...(plans?.payment_methods?.wechat ? [{ id:'wechat', name:'微信支付', desc:'推荐使用微信扫码支付'}] : []),
-    ...(plans?.payment_methods?.alipay ? [{ id:'alipay', name:'支付宝', desc:'支付宝账户余额或银行卡'}] : []),
-    ...(plans?.test_payment ? [{ id:'test', name:'测试支付', desc:'开发环境一键到账'}] : []),
+    ...(plans?.payment_methods?.wechat ? [{ id: 'wechat', name: '微信支付', desc: '推荐使用微信扫码支付'}] : []),
+    ...(plans?.payment_methods?.alipay ? [{ id: 'alipay', name: '支付宝', desc: '支付宝账户余额或银行卡'}] : []),
+    ...(plans?.test_payment ? [{ id: 'test', name: '测试支付', desc: '开发环境一键到账'}] : []),
   ];
-  const sel = methods.some((m) => m.id === method) ? method : methods[0]?.id ??'';
-  const methodName = methods.find((m) => m.id === sel)?.name ??'—';
+  const sel = methods.some((m) => m.id === method) ? method : methods[0]?.id ?? '';
+  const methodName = methods.find((m) => m.id === sel)?.name ?? '—';
 
   const onPay = async () => {
     if (!sel) {
@@ -79,7 +79,7 @@ export function RechargePanel() {
         notifyBillingChanged(); // 广播刷新额度/经费(账户资产卡 + 全局通知器)
         return;
       }
-      const pay = await startAlipay.mutateAsync({ order_no: order.order_no, amount: order.final_amount, subject:'科研经费充值'});
+      const pay = await startAlipay.mutateAsync({ order_no: order.order_no, amount: order.final_amount, subject: '科研经费充值'});
       window.location.href = pay.payment_url;
     } catch (err) {
       toast.error(toApiError(err).message ||'发起支付失败');
@@ -102,9 +102,9 @@ export function RechargePanel() {
                 <button
                   key={v}
                   onClick={() => setYuan(String(v))}
-                  className={cn('flex flex-col gap-0.5 rounded-12 border p-3 text-left transition-colors', active ?'border-brand-red bg-danger-soft':'border-border hover:bg-surface-2')}
+                  className={cn('flex flex-col gap-0.5 rounded-12 border p-3 text-left transition-colors', active ? 'border-brand-red bg-danger-soft' : 'border-border hover:bg-surface-2')}
                 >
-                  <span className={cn('text-14 font-medium', active ?'text-brand-red':'text-foreground')}>¥{v}</span>
+                  <span className={cn('text-14 font-medium', active ? 'text-brand-red' : 'text-foreground')}>¥{v}</span>
                   <span className="text-12 text-faint">到账 {Math.floor(v * rate)} 经费</span>
                 </button>
               );
@@ -114,8 +114,8 @@ export function RechargePanel() {
             <Coins className="size-4 shrink-0 text-faint"/>
             <Input
               value={yuan}
-              onChange={(e) => setYuan(e.target.value.replace(/[^0-9.]/g,''))}
-              className="h-10 flex-1 border-0 bg-transparent px-0"inputMode="decimal"placeholder="输入其他金额"/>
+              onChange={(e) => setYuan(e.target.value.replace(/[^0-9.]/g, ''))}
+              className="h-10 flex-1 border-0 bg-transparent px-0" inputMode="decimal" placeholder="输入其他金额"/>
             <span className="shrink-0 text-12 text-faint">最低 {minYuan} 元</span>
           </div>
         </section>
@@ -134,14 +134,14 @@ export function RechargePanel() {
                 <button
                   key={m.id}
                   onClick={() => setMethod(m.id)}
-                  className={cn('flex items-center gap-2 rounded-12 border p-3 text-left transition-colors', active ?'border-brand-red bg-danger-soft':'border-border hover:bg-surface-2')}
+                  className={cn('flex items-center gap-2 rounded-12 border p-3 text-left transition-colors', active ? 'border-brand-red bg-danger-soft' : 'border-border hover:bg-surface-2')}
                 >
-                  <Icon className={cn('size-5 shrink-0', active ?'text-brand-red':'text-faint')} />
+                  <Icon className={cn('size-5 shrink-0', active ? 'text-brand-red' : 'text-faint')} />
                   <div className="min-w-0 flex-1">
                     <p className="text-14 font-medium text-foreground">{m.name}</p>
                     <p className="truncate text-12 text-faint">{m.desc}</p>
                   </div>
-                  <span className={cn('size-3.5 shrink-0 rounded-pill border-2', active ?'border-brand-red bg-brand-red':'border-border')} />
+                  <span className={cn('size-3.5 shrink-0 rounded-pill border-2', active ? 'border-brand-red bg-brand-red' : 'border-border')} />
                 </button>
               );
             })}
@@ -152,9 +152,9 @@ export function RechargePanel() {
       {/* 订单详情 */}
       <aside className="rounded-16 border border-border bg-surface-card p-5 md:w-64 md:shrink-0">
         <h3 className="mb-3 text-14 font-medium text-foreground">订单详情</h3>
-        <DetailRow k="充值金额"v={`¥${(cents / 100 || 0).toFixed(2)}`} />
-        <DetailRow k="到账经费"v={`${credits} 经费`} />
-        <DetailRow k="支付方式"v={methodName} />
+        <DetailRow k="充值金额" v={`¥${(cents / 100 || 0).toFixed(2)}`} />
+        <DetailRow k="到账经费" v={`${credits} 经费`} />
+        <DetailRow k="支付方式" v={methodName} />
         <div className="my-3 h-px bg-border-soft"/>
         <div className="flex items-center justify-between">
           <span className="text-12 text-faint">实付金额</span>
@@ -189,7 +189,7 @@ function DetailRow({ k, v }: { k: string; v: string }) {
 function SegmentedCodeInput({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
   const refs = useRef<(HTMLInputElement | null)[]>([]);
   const setSeg = (i: number, raw: string) => {
-    const clean = raw.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0, 4);
+    const clean = raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
     const next = [...value];
     next[i] = clean;
     onChange(next);
@@ -197,9 +197,9 @@ function SegmentedCodeInput({ value, onChange }: { value: string[]; onChange: (v
   };
   return (
     <div
-      className="flex flex-1 items-center gap-2"onPaste={(e) => {
+      className="flex flex-1 items-center gap-2" onPaste={(e) => {
         e.preventDefault();
-        const txt = e.clipboardData.getData('text').toUpperCase().replace(/[^A-Z0-9]/g,'');
+        const txt = e.clipboardData.getData('text').toUpperCase().replace(/[^A-Z0-9]/g, '');
         onChange([txt.slice(0, 4), txt.slice(4, 8), txt.slice(8, 12), txt.slice(12, 16)]);
       }}
     >
@@ -215,7 +215,7 @@ function SegmentedCodeInput({ value, onChange }: { value: string[]; onChange: (v
               if (e.key ==='Backspace'&& !value[i] && i > 0) refs.current[i - 1]?.focus();
             }}
             maxLength={4}
-            placeholder="0000"className="h-11 min-w-0 flex-1 bg-surface-1 px-0 text-center font-mono text-14 uppercase tracking-code placeholder:text-faint/40 focus-visible:border-brand-red"/>
+            placeholder="0000" className="h-11 min-w-0 flex-1 bg-surface-1 px-0 text-center font-mono text-14 uppercase tracking-code placeholder:text-faint/40 focus-visible:border-brand-red"/>
           {i < 3 && <span className="shrink-0 text-faint">–</span>}
         </Fragment>
       ))}
@@ -226,8 +226,8 @@ function SegmentedCodeInput({ value, onChange }: { value: string[]; onChange: (v
 /** 兑换码激活(会员 or 经费)+ 最近激活记录。码格式 XXXX-XXXX-XXXX-XXXX。
  * 「立即激活」先开确认弹窗(预览将授予的内容 + 失败态),确认后才真正兑换。 */
 export function RedeemPanel() {
-  const { data: gifts } = useTransactions({ type:'gift', page: 1, page_size: 5 });
-  const [segs, setSegs] = useState(['','','','']);
+  const { data: gifts } = useTransactions({ type: 'gift', page: 1, page_size: 5 });
+  const [segs, setSegs] = useState(['', '', '', '']);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const code = segs.join('-');
   const complete = segs.every((s) => s.length === 4);
@@ -253,7 +253,7 @@ export function RedeemPanel() {
         code={code}
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        onRedeemed={() => setSegs(['','','',''])}
+        onRedeemed={() => setSegs(['', '', '', ''])}
       />
       <p className="mt-2 text-12 text-faint">礼品码可能来自活动赠送、机构发放或合作渠道。兑换码不可重复使用。</p>
 
@@ -266,7 +266,7 @@ export function RedeemPanel() {
                 <Ticket className="size-4 shrink-0 text-faint"/>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-mono text-14 text-foreground">{t.ref_id ||'礼品码'}</p>
-                  <p className="text-12 text-faint">{t.created_at.slice(0, 16).replace('T','')}</p>
+                  <p className="text-12 text-faint">{t.created_at.slice(0, 16).replace('T', ' ')}</p>
                 </div>
                 <span className="shrink-0 text-14 font-medium tabular-nums text-brand-green">+{t.amount} 经费</span>
                 <span className="shrink-0 rounded-pill bg-brand-green/10 px-2 py-0.5 text-12 text-brand-green">成功</span>
@@ -288,12 +288,12 @@ export function useSubscribeFlow() {
   const startAlipay = useStartAlipay();
   const testPay = useTestPay();
   const subscribe = async (
-    plan:'pro'|'max',
+    plan: 'pro'|'max',
     method: string,
     cycle: BillingCycle,
     label: string,
   ): Promise<boolean> => {
-    const cycleLabel = cycle ==='yearly'?`${label} 年度会员`: label;
+    const cycleLabel = cycle ==='yearly' ? `${label} 年度会员` : label;
     try {
       const order = await sub.mutateAsync({ plan, cycle });
       if (method ==='test') {
@@ -306,7 +306,7 @@ export function useSubscribeFlow() {
         toast.info('微信支付即将开放,请暂用其他方式');
         return false;
       }
-      const pay = await startAlipay.mutateAsync({ order_no: order.order_no, amount: order.final_amount, subject:`${cycleLabel}订阅`});
+      const pay = await startAlipay.mutateAsync({ order_no: order.order_no, amount: order.final_amount, subject: `${cycleLabel}订阅`});
       window.location.href = pay.payment_url;
       return true;
     } catch (err) {
@@ -317,23 +317,23 @@ export function useSubscribeFlow() {
   return { subscribe, busy: sub.isPending || startAlipay.isPending || testPay.isPending };
 }
 
-const ORDER_TYPE_LABEL: Record<string, string> = { subscription:'订阅', recharge:'充值'};
+const ORDER_TYPE_LABEL: Record<string, string> = { subscription: '订阅', recharge: '充值'};
 
 /** 明细查看:已支付订单(订阅 / 充值)表格 + 筛选 + 月份 + 导出 + 申请发票。对齐设计稿。 */
 export function OrdersTable() {
   const [filter, setFilter] = useState<'all'|'subscription'|'recharge'>('all');
   const [month, setMonth] = useState('');
-  const { data, isLoading } = useOrders(filter ==='all'? undefined : filter);
+  const { data, isLoading } = useOrders(filter ==='all' ? undefined : filter);
   const items = data ?? [];
-  const months = Array.from(new Set(items.map((o) => (o.created_at ??'').slice(0, 7)).filter(Boolean))).sort().reverse();
-  const rows = month ? items.filter((o) => (o.created_at ??'').startsWith(month)) : items;
+  const months = Array.from(new Set(items.map((o) => (o.created_at ?? '').slice(0, 7)).filter(Boolean))).sort().reverse();
+  const rows = month ? items.filter((o) => (o.created_at ?? '').startsWith(month)) : items;
 
   const exportCsv = () => {
     const head ='时间,类型,说明,金额\n';
     const body = rows
-      .map((o) =>`${(o.created_at ??'').slice(0, 16).replace('T','')},${ORDER_TYPE_LABEL[o.order_type] ?? o.order_type},${o.plan_name ??''},¥${o.final_amount.toFixed(2)}`)
+      .map((o) =>`${(o.created_at ??'').slice(0, 16).replace('T', ' ')},${ORDER_TYPE_LABEL[o.order_type] ?? o.order_type},${o.plan_name ??''},¥${o.final_amount.toFixed(2)}`)
       .join('\n');
-    const blob = new Blob(['﻿'+ head + body], { type:'text/csv;charset=utf-8'});
+    const blob = new Blob(['﻿'+ head + body], { type: 'text/csv;charset=utf-8'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download ='账单明细.csv';
@@ -345,11 +345,11 @@ export function OrdersTable() {
     <section className="rounded-16 border border-border bg-surface-card p-5">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex gap-1">
-          {([['all','全部'], ['subscription','订阅'], ['recharge','充值']] as const).map(([id, label]) => (
+          {([['all', '全部'], ['subscription', '订阅'], ['recharge', '充值']] as const).map(([id, label]) => (
             <button
               key={id}
               onClick={() => setFilter(id)}
-              className={cn('h-7 rounded-8 px-3 text-12 transition-colors', filter === id ?'bg-foreground text-background':'bg-surface-2 text-subtle hover:bg-surface-muted')}
+              className={cn('h-7 rounded-8 px-3 text-12 transition-colors', filter === id ? 'bg-foreground text-background' : 'bg-surface-2 text-subtle hover:bg-surface-muted')}
             >
               {label}
             </button>
@@ -359,10 +359,10 @@ export function OrdersTable() {
           <Select value={month} onChange={(e) => setMonth(e.target.value)} fullWidth={false}>
             <option value="">全部月份</option>
             {months.map((m) => (
-              <option key={m} value={m}>{m.replace('-','年')} 月</option>
+              <option key={m} value={m}>{m.replace('-', ' 年 ')} 月</option>
             ))}
           </Select>
-          <Button variant="outline"onClick={exportCsv} className="gap-1 border-border text-subtle">
+          <Button variant="outline" onClick={exportCsv} className="gap-1 border-border text-subtle">
             <Download className="size-3.5"/> 导出
           </Button>
         </div>
@@ -395,14 +395,14 @@ function OrderRow({ o }: { o: Order }) {
   const isSub = o.order_type ==='subscription';
   return (
     <tr className="border-b border-border-soft last:border-0">
-      <td className="py-3 tabular-nums text-subtle">{(o.created_at ??'').slice(0, 16).replace('T','')}</td>
+      <td className="py-3 tabular-nums text-subtle">{(o.created_at ?? '').slice(0, 16).replace('T', ' ')}</td>
       <td className="py-3">
-        <span className={cn('rounded-pill px-2 py-0.5 text-12 font-medium', isSub ?'bg-brand-green/10 text-brand-green':'bg-warning-soft text-brand-amber')}>
+        <span className={cn('rounded-pill px-2 py-0.5 text-12 font-medium', isSub ? 'bg-brand-green/10 text-brand-green' : 'bg-warning-soft text-brand-amber')}>
           {ORDER_TYPE_LABEL[o.order_type] ?? o.order_type}
         </span>
       </td>
       <td className="py-3 text-right text-subtle">
-        {o.plan_name || (isSub ?'会员订阅':'经费充值')} <span className="font-medium text-foreground">¥{o.final_amount.toFixed(2)}</span>
+        {o.plan_name || (isSub ? '会员订阅' : '经费充值')} <span className="font-medium text-foreground">¥{o.final_amount.toFixed(2)}</span>
       </td>
     </tr>
   );
@@ -436,8 +436,8 @@ export function OverviewContent({ onViewAll }: { onViewAll: () => void }) {
   );
 }
 
-const GREEN_LEVELS = ['bg-surface-2','bg-brand-green/25','bg-brand-green/50','bg-brand-green/75','bg-brand-green'];
-const WEEKDAYS = ['日','一','二','三','四','五','六'];
+const GREEN_LEVELS = ['bg-surface-2', 'bg-brand-green/25', 'bg-brand-green/50', 'bg-brand-green/75', 'bg-brand-green'];
+const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 
 // P5:入参 cost = 当日精算成本(微元);ceiling = 日均参考线(微元)。只做**相对强度**分档,不露绝对数。
 function levelOf(cost: number, ceiling: number): number {
@@ -456,7 +456,7 @@ function UsageHeatmap() {
   const month = now.getMonth(); // 0-indexed
   const ceiling = data?.daily_ceiling ?? 0;
   const byDate = new Map((data?.days ?? []).map((d) => [d.date, d.cost]));
-  const pad = (n: number) => String(n).padStart(2,'0');
+  const pad = (n: number) => String(n).padStart(2, '0');
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const startWeekday = new Date(year, month, 1).getDay();
@@ -479,7 +479,7 @@ function UsageHeatmap() {
       <div className="flex gap-1">
         <div className="flex flex-col gap-1 pr-1">
           {WEEKDAYS.map((w, i) => (
-            <span key={i} className="flex h-4 items-center text-12 text-faint">{i % 2 === 1 ? w :''}</span>
+            <span key={i} className="flex h-4 items-center text-12 text-faint">{i % 2 === 1 ? w : ''}</span>
           ))}
         </div>
         {weeks.map((week, wi) => (
@@ -491,7 +491,7 @@ function UsageHeatmap() {
               // 相对参考:当日成本相对「日均参考线」的百分比(不露绝对额度),不限档只标有无使用。
               const pct = ceiling > 0 ? Math.min(999, Math.round((cost / ceiling) * 100)) : 0;
               const tip =
-                cost <= 0 ?`${date} · 无使用`: ceiling > 0 ?`${date} · 约 ${pct}% 日均参考`:`${date} · 有使用`;
+                cost <= 0 ? `${date} · 无使用` : ceiling > 0 ? `${date} · 约 ${pct}% 日均参考` : `${date} · 有使用`;
               return (
                 <span
                   key={di}
@@ -518,10 +518,10 @@ function TxnRow({ t }: { t: CreditTxn }) {
     <div className="flex items-center justify-between border-b border-border-soft py-2 last:border-0">
       <div className="flex flex-col">
         <span className="text-14 text-subtle">{TXN_LABEL[t.type] ?? t.type}</span>
-        <span className="text-12 text-faint">{t.created_at.slice(0, 19).replace('T','')}</span>
+        <span className="text-12 text-faint">{t.created_at.slice(0, 19).replace('T', ' ')}</span>
       </div>
-      <span className={cn('text-14 font-medium tabular-nums', positive ?'text-brand-green':'text-brand-red')}>
-        {positive ?'+':''}
+      <span className={cn('text-14 font-medium tabular-nums', positive ? 'text-brand-green' : 'text-brand-red')}>
+        {positive ? '+' : ''}
         {t.amount} 经费
       </span>
     </div>

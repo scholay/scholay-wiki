@@ -195,7 +195,7 @@ export function UserDetailDrawer({
                 <p className="text-12 text-muted-foreground">
                   {isPro
                     ? `${vip.data?.cycle === 'yearly' ? '年费会员 · ' : '月度会员 · '}${
-                        vip.data?.expires_at ? `有效期至 ${vip.data.expires_at.slice(0, 10)}` : '永久有效'
+                        vip.data?.expires_at ? ` 有效期至 ${vip.data.expires_at.slice(0, 10)} ` : '永久有效'
                       }`
                     : 'Free'}
                 </p>

@@ -598,11 +598,11 @@ function leadingNarration(text: string): string {
 
 function severityClasses(sev: string): string {
   switch (sev) {
-    case '必改':
+    case '必改' :
       return 'bg-danger-soft text-brand-red';
-    case '建议':
+    case '建议' :
       return 'bg-warning-soft text-brand-amber';
-    case '参考':
+    case '参考' :
       return 'bg-surface-2 text-muted-foreground';
     default:
       return 'bg-surface-2 text-muted-foreground';

@@ -34,12 +34,12 @@ export function PrismQualityDialog({
     const parts: string[] = ['请修复以下由系统确定性检查发现的问题(逐条处理,别引入新内容):'];
     if (r.dangling_cites.length)
       parts.push(
-        `· 悬空文献引用(正文用了 [@键] 但 references.bib 里没有对应条目):${r.dangling_cites.map((k) => `[@${k}]`).join('、')}。` +
+        `· 悬空文献引用(正文用了 [@键] 但 references.bib 里没有对应条目):${r.dangling_cites.map((k) => `[@${k}] `).join('、')}。` +
           `请用 minicod 查到真实论文补进 references.bib,或删除该引用——绝不要编造条目。`,
       );
     if (r.undefined_xrefs.length)
       parts.push(
-        `· 未定义交叉引用(引了 [@键] 但没有对应打锚,编译会出 ??):${r.undefined_xrefs.map((k) => `[@${k}]`).join('、')}。` +
+        `· 未定义交叉引用(引了 [@键] 但没有对应打锚,编译会出 ??):${r.undefined_xrefs.map((k) => `[@${k}] `).join('、')}。` +
           `请给被引用的图/表/节补上 {#键} 锚,或修正引用键。`,
       );
     if (aiFixableFront.length) parts.push(`· 前置信息/投稿检查未通过:${aiFixableFront.join(';')}。请补齐。`);

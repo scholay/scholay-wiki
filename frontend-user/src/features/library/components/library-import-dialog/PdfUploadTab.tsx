@@ -88,12 +88,12 @@ export function PdfUploadTab({
       signal: ctrl.signal,
       onEvent: (e) => {
         switch (e.type) {
-          case 'parsed':
+          case 'parsed' :
             parsed = e.payload;
             setParsedMeta(parsed);
             setStep({ kind: 'parsing', file, phase: 'searching' });
             break;
-          case 'searched':
+          case 'searched' :
             hits = e.payload.papers ?? [];
             setStep({ kind: 'parsing', file, phase: 'done' });
             break;

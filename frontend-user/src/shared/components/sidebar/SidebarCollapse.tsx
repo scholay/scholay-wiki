@@ -18,8 +18,8 @@ export function SidebarCollapseButton({
 }: SidebarCollapseButtonProps) {
   return (
     <button
-      type="button"onClick={onClick}
-      className={cn('h-8 flex items-center justify-center gap-1.5 border-t border-border-soft shrink-0','text-12 text-faint hover:bg-surface-1 hover:text-foreground transition-colors','',
+      type="button" onClick={onClick}
+      className={cn('h-8 flex items-center justify-center gap-1.5 border-t border-border-soft shrink-0', 'text-12 text-faint hover:bg-surface-1 hover:text-foreground transition-colors', '',
         className
       )}
     >
@@ -28,7 +28,7 @@ export function SidebarCollapseButton({
       ) : (
         <ChevronLeft className="size-3"/>
       )}
-      <span>{collapsed ?'展开':'收起'}</span>
+      <span>{collapsed ? '展开' : '收起'}</span>
     </button>
   );
 }

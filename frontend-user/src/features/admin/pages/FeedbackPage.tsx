@@ -27,29 +27,29 @@ import {
   type FeedbackStatus,
 } from'../api/feedback';
 
-const STATUS_LABEL: Record<FeedbackStatus, { text: string; variant:'default'|'outline'|'muted'|'destructive'|'success'}> = {
-  pending: { text:'待处理', variant:'destructive'},
-  processed: { text:'处理中', variant:'default'},
-  replied: { text:'已回复', variant:'success'},
-  closed: { text:'已关闭', variant:'muted'},
+const STATUS_LABEL: Record<FeedbackStatus, { text: string; variant: 'default'|'outline'|'muted'|'destructive'|'success'}> = {
+  pending: { text: '待处理', variant: 'destructive'},
+  processed: { text: '处理中', variant: 'default'},
+  replied: { text: '已回复', variant: 'success'},
+  closed: { text: '已关闭', variant: 'muted'},
 };
 
 const STATUS_FILTERS: { value: FeedbackStatus | undefined; label: string }[] = [
-  { value: undefined, label:'全部'},
-  { value:'pending', label:'待处理'},
-  { value:'processed', label:'处理中'},
-  { value:'replied', label:'已回复'},
-  { value:'closed', label:'已关闭'},
+  { value: undefined, label: '全部'},
+  { value: 'pending', label: '待处理'},
+  { value: 'processed', label: '处理中'},
+  { value: 'replied', label: '已回复'},
+  { value: 'closed', label: '已关闭'},
 ];
 
 /** ISO 时间 →"YYYY-MM-DD HH:mm"; 空值显示占位。 */
-const fmtTime = (s?: string) => (s ? s.slice(0, 16).replace('T','') :'—');
+const fmtTime = (s?: string) => (s ? s.slice(0, 16).replace('T', ' ') : '—');
 
 export function FeedbackPage() {
   const [page, setPage] = useUrlState('page', 1, Number);
   const [statusFilter, setStatusFilter] = useUrlState<FeedbackStatus | undefined>('status',
     undefined,
-    (raw) => (['pending','processed','replied','closed'].includes(raw) ? (raw as FeedbackStatus) : undefined)
+    (raw) => (['pending', 'processed', 'replied', 'closed'].includes(raw) ? (raw as FeedbackStatus) : undefined)
   );
   const [replying, setReplying] = useState<Feedback | null>(null);
   const [searchInput, setSearchInput] = useState('');
@@ -69,51 +69,51 @@ export function FeedbackPage() {
 
   const handleStatusChange = async (row: Feedback, status: FeedbackStatus) => {
     await apiToast(updateStatus.mutateAsync({ id: row.id, status }), {
-      success:'状态已更新',
-      failure:'更新失败',
+      success: '状态已更新',
+      failure: '更新失败',
     });
   };
 
   const columns: Column<Feedback>[] = [
     {
-      header:'用户',
+      header: '用户',
       width: 180,
       cell: (r) => <UserCell id={r.userId ?? null} name={r.username} email={r.email} anonymousLabel="未登录用户"/>,
     },
     {
-      header:'分类',
+      header: '分类',
       width: 110,
       cell: (r) => <Badge variant="muted">{r.category ||'其他'}</Badge>,
     },
     {
-      header:'内容',
+      header: '内容',
       cell: (r) => <span className="text-12 text-subtle line-clamp-2">{r.content}</span>,
     },
     {
-      header:'状态',
+      header: '状态',
       width: 100,
       cell: (r) => <Badge variant={STATUS_LABEL[r.status].variant}>{STATUS_LABEL[r.status].text}</Badge>,
     },
     {
-      header:'负责人',
+      header: '负责人',
       width: 140,
       cell: (r) => (
         <span className="text-12 text-muted-foreground">{r.assigneeName ||'未分配'}</span>
       ),
     },
     {
-      header:'时间',
+      header: '时间',
       width: 130,
       cell: (r) => (
-        <span className="text-12 text-faint">{r.createdAt?.slice(0, 16).replace('T','')}</span>
+        <span className="text-12 text-faint">{r.createdAt?.slice(0, 16).replace('T', ' ')}</span>
       ),
     },
     {
-      header:'',
+      header: '',
       width: 120,
-      align:'right',
+      align: 'right',
       cell: (r) => (
-        <Button size="sm"variant="outline"onClick={() => setReplying(r)}>
+        <Button size="sm" variant="outline" onClick={() => setReplying(r)}>
           <MessageSquare className="size-3.5"/>
           处理
         </Button>
@@ -123,13 +123,13 @@ export function FeedbackPage() {
 
   return (
     <AdminPageLayout
-      title="用户反馈"description={`共 ${data?.total ?? 0} 条反馈 · 可分配、回复、关闭`}
+      title="用户反馈" description={`共 ${data?.total ?? 0} 条反馈 · 可分配、回复、关闭`}
       tabs={
         <div className="flex flex-wrap gap-1">
           {STATUS_FILTERS.map((f) => (
             <Button
               key={f.label}
-              size="sm"variant={statusFilter === f.value ?'default':'outline'}
+              size="sm" variant={statusFilter === f.value ? 'default' : 'outline'}
               onClick={() => {
                 setStatusFilter(f.value);
                 setPage(1);
@@ -149,7 +149,7 @@ export function FeedbackPage() {
             setSearchInput(e.target.value);
             setPage(1);
           }}
-          placeholder="搜索 ID / 用户名 / 邮箱 / 反馈内容"className="h-8 flex-1 border-0 bg-transparent px-0 text-12"/>
+          placeholder="搜索 ID / 用户名 / 邮箱 / 反馈内容" className="h-8 flex-1 border-0 bg-transparent px-0 text-12"/>
       </div>
       <DataTable columns={columns} rows={data?.list} loading={isLoading} />
 
@@ -168,15 +168,15 @@ export function FeedbackPage() {
                   ['分类', replying.category ||'其他'],
                   ['状态', STATUS_LABEL[replying.status].text],
                   ['提交时间', fmtTime(replying.createdAt)],
-                  ['提交者',`${replying.username ||'匿名'}${replying.userId ?`· ID ${replying.userId}`:'· 未登录'}`],
+                  ['提交者', `${replying.username || '匿名'}${replying.userId ? ` · ID ${replying.userId}` : ' · 未登录'}`],
                   ['邮箱', replying.email ||'—'],
-                  ['IP / 归属地',`${replying.ip ||'—'}${replying.ipLocation ?`· ${replying.ipLocation}`:''}`],
+                  ['IP / 归属地', `${replying.ip || '—'}${replying.ipLocation ? ` · ${replying.ipLocation}` : ''}`],
                   ['负责人', replying.assigneeName ||'未分配'],
                   ['首次响应', fmtTime(replying.firstResponseAt)],
                 ] as const).map(([label, value]) => (
                   <div key={label} className="min-w-0">
                     <div className="text-12 text-faint">{label}</div>
-                    <div className="text-12 text-subtle truncate"title={value}>{value}</div>
+                    <div className="text-12 text-subtle truncate" title={value}>{value}</div>
                   </div>
                 ))}
               </div>
@@ -195,9 +195,9 @@ export function FeedbackPage() {
                       <a
                         key={idx}
                         href={a.url}
-                        target="_blank"rel="noopener noreferrer"className="block rounded-8 border border-border bg-surface-card overflow-hidden hover:border-foreground transition-colors"title={a.name}
+                        target="_blank" rel="noopener noreferrer" className="block rounded-8 border border-border bg-surface-card overflow-hidden hover:border-foreground transition-colors" title={a.name}
                       >
-                        {a.type ==='image'? (
+                        {a.type ==='image' ? (
                           <img src={a.url} alt={a.name} className="w-full h-20 object-cover"/>
                         ) : (
                           <div className="w-full h-20 flex items-center justify-center text-12 text-muted-foreground p-2 text-center">
@@ -214,7 +214,7 @@ export function FeedbackPage() {
               {replying.replyContent && (
                 <div className="rounded-12 border border-brand-green/30 bg-brand-green/5 p-3">
                   <div className="text-12 text-faint mb-1">
-                    已回复{replying.repliedBy ?`· ${replying.repliedBy}`:''}{replying.repliedAt ?`· ${fmtTime(replying.repliedAt)}`:''}
+                    已回复{replying.repliedBy ? ` · ${replying.repliedBy}` : ''}{replying.repliedAt ? ` · ${fmtTime(replying.repliedAt)}` : ''}
                   </div>
                   <div className="text-12 text-subtle whitespace-pre-wrap">{replying.replyContent}</div>
                 </div>
@@ -236,7 +236,7 @@ export function FeedbackPage() {
                   if (!replyText.trim()) return;
                   const ok = await apiToast(
                     reply.mutateAsync({ id: replying.id, replyContent: replyText }),
-                    { success:'已回复', failure:'回复失败'}
+                    { success: '已回复', failure: '回复失败'}
                   );
                   if (ok !== null) setReplying(null);
                 }}
@@ -244,15 +244,15 @@ export function FeedbackPage() {
                 <div className="space-y-1.5">
                   <Label htmlFor="replyContent">回复内容</Label>
                   <Textarea
-                    id="replyContent"name="replyContent"rows={5}
+                    id="replyContent" name="replyContent" rows={5}
                     required
                     defaultValue={replying.replyContent}
                   />
                 </div>
                 <DialogFooter className="gap-2 sm:gap-2">
                   <Button
-                    type="button"variant="outline"onClick={() => {
-                      handleStatusChange(replying,'closed');
+                    type="button" variant="outline" onClick={() => {
+                      handleStatusChange(replying, 'closed');
                       setReplying(null);
                     }}
                   >

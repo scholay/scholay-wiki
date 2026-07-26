@@ -16,10 +16,10 @@ export function ArticleRenderer({ sections }: { sections: ArticleSection[] }) {
     <Prose>
       {sections.map((s, i) => {
         switch (s.type) {
-          case 'heading':
+          case 'heading' :
             return <h2 key={i}>{s.text}</h2>;
 
-          case 'tip':
+          case 'tip' :
             return (
               <aside
                 key={i}
@@ -40,12 +40,12 @@ export function ArticleRenderer({ sections }: { sections: ArticleSection[] }) {
               </aside>
             );
 
-          case 'list': {
+          case 'list' : {
             const items = s.items.map((it, j) => <li key={j}>{it}</li>);
             return s.ordered ? <ol key={i}>{items}</ol> : <ul key={i}>{items}</ul>;
           }
 
-          case 'table':
+          case 'table' :
             return (
               <div key={i} className="my-5 overflow-x-auto">
                 <table className="w-full border-collapse text-12">
@@ -81,7 +81,7 @@ export function ArticleRenderer({ sections }: { sections: ArticleSection[] }) {
               </div>
             );
 
-          case 'faq':
+          case 'faq' :
             return (
               <div key={i} className="my-6 space-y-3">
                 {s.faq.map((qa, j) => (

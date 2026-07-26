@@ -37,20 +37,20 @@ import { useWritingProfile, useSetWritingProfile, usePlanWritingProfile, type Pe
 // 人格视觉身份(图标 + token 色 + 风格档位 [结构约束,量化密度,客观克制,表达自由] 1-5);
 // 未登记的按 kind 兜底(档位缺省隐藏)—— 新增人格不改这里也不会裸奔。
 const PERSONA_VISUALS: Record<string, { icon: typeof FlaskConical; iconCls: string; chipCls: string; style?: [number, number, number, number] }> = {
-  'pw-experimental-stem': { icon: FlaskConical, iconCls: 'text-brand-green', chipCls: 'bg-brand-green/10', style: [5, 5, 4, 1] },
-  'pw-biomedical-empirical': { icon: Stethoscope, iconCls: 'text-brand-red', chipCls: 'bg-danger-soft', style: [5, 5, 5, 1] },
-  'pw-cs-systems-ml': { icon: Cpu, iconCls: 'text-brand-green', chipCls: 'bg-brand-green/10', style: [4, 4, 3, 2] },
-  'pw-engineering-systems': { icon: Wrench, iconCls: 'text-subtle', chipCls: 'bg-surface-2', style: [4, 4, 3, 2] },
-  'pw-humanities-argumentative': { icon: BookOpen, iconCls: 'text-brand-amber', chipCls: 'bg-warning-soft', style: [2, 1, 2, 5] },
-  'pw-math-proof-theory': { icon: Sigma, iconCls: 'text-subtle', chipCls: 'bg-surface-2', style: [5, 2, 5, 1] },
-  'pw-qualitative-social': { icon: MessagesSquare, iconCls: 'text-brand-amber', chipCls: 'bg-warning-soft', style: [3, 2, 3, 4] },
-  'pw-quant-social-psych-econ': { icon: BarChart3, iconCls: 'text-brand-green', chipCls: 'bg-brand-green/10', style: [5, 5, 4, 1] },
-  'pw-systematic-review': { icon: ListChecks, iconCls: 'text-brand-red', chipCls: 'bg-danger-soft', style: [5, 4, 5, 1] },
-  'pw-doc-cover-letter': { icon: Mail, iconCls: 'text-subtle', chipCls: 'bg-surface-2', style: [3, 2, 2, 3] },
-  'pw-doc-grant': { icon: Landmark, iconCls: 'text-brand-amber', chipCls: 'bg-warning-soft', style: [4, 3, 3, 2] },
-  'pw-doc-rebuttal': { icon: Reply, iconCls: 'text-brand-red', chipCls: 'bg-danger-soft', style: [4, 3, 4, 2] },
-  'pw-doc-registered-report': { icon: ClipboardCheck, iconCls: 'text-brand-green', chipCls: 'bg-brand-green/10', style: [5, 4, 5, 1] },
-  'pw-doc-thesis-chapter': { icon: GraduationCap, iconCls: 'text-brand-amber', chipCls: 'bg-warning-soft', style: [4, 3, 3, 2] },
+  'pw-experimental-stem' : { icon: FlaskConical, iconCls: 'text-brand-green', chipCls: 'bg-brand-green/10', style: [5, 5, 4, 1] },
+  'pw-biomedical-empirical' : { icon: Stethoscope, iconCls: 'text-brand-red', chipCls: 'bg-danger-soft', style: [5, 5, 5, 1] },
+  'pw-cs-systems-ml' : { icon: Cpu, iconCls: 'text-brand-green', chipCls: 'bg-brand-green/10', style: [4, 4, 3, 2] },
+  'pw-engineering-systems' : { icon: Wrench, iconCls: 'text-subtle', chipCls: 'bg-surface-2', style: [4, 4, 3, 2] },
+  'pw-humanities-argumentative' : { icon: BookOpen, iconCls: 'text-brand-amber', chipCls: 'bg-warning-soft', style: [2, 1, 2, 5] },
+  'pw-math-proof-theory' : { icon: Sigma, iconCls: 'text-subtle', chipCls: 'bg-surface-2', style: [5, 2, 5, 1] },
+  'pw-qualitative-social' : { icon: MessagesSquare, iconCls: 'text-brand-amber', chipCls: 'bg-warning-soft', style: [3, 2, 3, 4] },
+  'pw-quant-social-psych-econ' : { icon: BarChart3, iconCls: 'text-brand-green', chipCls: 'bg-brand-green/10', style: [5, 5, 4, 1] },
+  'pw-systematic-review' : { icon: ListChecks, iconCls: 'text-brand-red', chipCls: 'bg-danger-soft', style: [5, 4, 5, 1] },
+  'pw-doc-cover-letter' : { icon: Mail, iconCls: 'text-subtle', chipCls: 'bg-surface-2', style: [3, 2, 2, 3] },
+  'pw-doc-grant' : { icon: Landmark, iconCls: 'text-brand-amber', chipCls: 'bg-warning-soft', style: [4, 3, 3, 2] },
+  'pw-doc-rebuttal' : { icon: Reply, iconCls: 'text-brand-red', chipCls: 'bg-danger-soft', style: [4, 3, 4, 2] },
+  'pw-doc-registered-report' : { icon: ClipboardCheck, iconCls: 'text-brand-green', chipCls: 'bg-brand-green/10', style: [5, 4, 5, 1] },
+  'pw-doc-thesis-chapter' : { icon: GraduationCap, iconCls: 'text-brand-amber', chipCls: 'bg-warning-soft', style: [4, 3, 3, 2] },
 };
 
 const STYLE_DIMS = ['结构约束', '量化密度', '客观克制', '表达自由'] as const;
@@ -68,16 +68,16 @@ function StyleMeter({ value, fillCls }: { value: number; fillCls: string }) {
 
 // 图标色 → 档位条实心色 / 引言左边条色(静态映射 —— 动态拼接的 class 会躲过 Tailwind 扫描)。
 const FILL_BY_ICON: Record<string, string> = {
-  'text-brand-green': 'bg-brand-green/70',
-  'text-brand-red': 'bg-brand-red/60',
-  'text-brand-amber': 'bg-brand-amber/70',
-  'text-subtle': 'bg-foreground/50',
+  'text-brand-green' : 'bg-brand-green/70',
+  'text-brand-red' : 'bg-brand-red/60',
+  'text-brand-amber' : 'bg-brand-amber/70',
+  'text-subtle' : 'bg-foreground/50',
 };
 const BORDER_BY_ICON: Record<string, string> = {
-  'text-brand-green': 'border-l-brand-green',
-  'text-brand-red': 'border-l-brand-red',
-  'text-brand-amber': 'border-l-brand-amber',
-  'text-subtle': 'border-l-border-strong',
+  'text-brand-green' : 'border-l-brand-green',
+  'text-brand-red' : 'border-l-brand-red',
+  'text-brand-amber' : 'border-l-brand-amber',
+  'text-subtle' : 'border-l-border-strong',
 };
 
 function visualOf(p: PersonaEntry) {

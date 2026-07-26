@@ -19,35 +19,35 @@ const cardVariants = cva('', {
   variants: {
     variant: {
       /** 标准卡片 —— 纯白底 + 弱描边,坐在米白页面上 */
-      default:'rounded-16 border border-border bg-surface-card',
+      default: 'rounded-16 border border-border bg-surface-card',
       /** 区块 —— 米白底,用于页面级分区(Figma 展示区形态) */
-      section:'rounded-16 bg-background',
+      section: 'rounded-16 bg-background',
       /** 无描边 —— 靠底色差分层(Figma 卡片规格本身没有描边) */
-      plain:'rounded-16 bg-surface-card',
+      plain: 'rounded-16 bg-surface-card',
       /** 弱卡片 —— 工具栏/次要信息块 */
-      subtle:'rounded-12 border border-border-hairline bg-surface-1',
+      subtle: 'rounded-12 border border-border-hairline bg-surface-1',
       /** 幽灵 —— 只有圆角与内边距,底色描边都交给调用方 */
-      ghost:'rounded-16',
+      ghost: 'rounded-16',
     },
     padding: {
-      none:'p-0',
-      sm:'p-3',
-      md:'p-4',
-      lg:'p-6',
+      none: 'p-0',
+      sm: 'p-3',
+      md: 'p-4',
+      lg: 'p-6',
     },
     interactive: {
-      true:'text-left transition-colors hover:border-border-strong',
-      false:'',
+      true: 'text-left transition-colors hover:border-border-strong',
+      false: '',
     },
   },
-  defaultVariants: { variant:'default', padding:'md', interactive: false },
+  defaultVariants: { variant: 'default', padding: 'md', interactive: false },
 });
 
 export interface CardProps
   extends React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof cardVariants> {
   /** 渲染成什么元素 —— 可点击卡片传'button',列表项传'li',语义分区传'section'*/
-  as?:'div'|'section'|'article'|'li'|'button';
+  as?: 'div'|'section'|'article'|'li'|'button';
 }
 
 const Card = React.forwardRef<HTMLDivElement, CardProps>(

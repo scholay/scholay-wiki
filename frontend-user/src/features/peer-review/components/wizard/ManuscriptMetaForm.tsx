@@ -21,7 +21,7 @@ export interface ManuscriptMeta {
   title?: string;
   abstract?: string;
   keywords?: string[];
-  manuscriptType?:'research'|'review'|'short_communication';
+  manuscriptType?: 'research'|'review'|'short_communication';
   subjects?: string[];
 }
 
@@ -37,9 +37,9 @@ export interface ManuscriptMetaFormProps {
 }
 
 const TYPES: Array<{ id: NonNullable<ManuscriptMeta['manuscriptType']>; label: string }> = [
-  { id:'research', label:'Research'},
-  { id:'review', label:'Review'},
-  { id:'short_communication', label:'Short Communication'},
+  { id: 'research', label: 'Research'},
+  { id: 'review', label: 'Review'},
+  { id: 'short_communication', label: 'Short Communication'},
 ];
 
 export function ManuscriptMetaForm({
@@ -70,37 +70,37 @@ export function ManuscriptMetaForm({
           <h2 className="text-14 font-medium text-foreground">稿件信息</h2>
           <p className="mt-0.5 text-12 text-muted-foreground">
             {computing
-              ? (statusNote ||'正在识别…') +'· 字段会随识别自动填入':'AI 已根据稿件自动识别,可以手动修改'}
+              ? (statusNote ||'正在识别…') + ' · 字段会随识别自动填入' : 'AI 已根据稿件自动识别,可以手动修改'}
           </p>
         </div>
         {headerAction}
       </header>
 
       <div className="flex flex-col gap-5 p-5">
-        <Field label="标题"required>
+        <Field label="标题" required>
           <Input
-            value={value.title ??''}
+            value={value.title ?? ''}
             onChange={(e) => patch({ title: e.target.value })}
-            placeholder={computing ?'正在识别标题…':'稿件标题'}
+            placeholder={computing ? '正在识别标题…' : '稿件标题'}
           />
         </Field>
 
-        <Field label="摘要"hint="选填">
+        <Field label="摘要" hint="选填">
           <Textarea
-            value={value.abstract ??''}
+            value={value.abstract ?? ''}
             onChange={(e) => patch({ abstract: e.target.value })}
-            placeholder={computing ?'正在识别摘要…':'稿件摘要'}
+            placeholder={computing ? '正在识别摘要…' : '稿件摘要'}
             className="min-h-32 p-3 leading-paragraph"/>
         </Field>
 
-        <Field label="关键词"hint="选填 · 回车或逗号添加 · 建议 3-7 个">
+        <Field label="关键词" hint="选填 · 回车或逗号添加 · 建议 3-7 个">
           <ChipInput
             value={value.keywords ?? []}
             onChange={(keywords) => patch({ keywords })}
             placeholder="例:multimodal pretraining"/>
         </Field>
 
-        <Field label="稿件类型"hint="选填">
+        <Field label="稿件类型" hint="选填">
           <div className="flex flex-wrap gap-2">
             {TYPES.map((t) => (
               <Chip
@@ -119,7 +119,7 @@ export function ManuscriptMetaForm({
           </div>
         </Field>
 
-        <Field label="学科领域"hint="选填 · 回车或逗号添加">
+        <Field label="学科领域" hint="选填 · 回车或逗号添加">
           <ChipInput
             value={value.subjects ?? []}
             onChange={(subjects) => patch({ subjects })}
@@ -167,10 +167,10 @@ function Chip({
 }) {
   return (
     <button
-      type="button"onClick={onClick}
+      type="button" onClick={onClick}
       className={cn('h-7 rounded-pill px-3 text-12 transition',
         active
-          ?'bg-danger-soft text-brand-red font-medium':'border border-border bg-surface-card text-subtle hover:border-foreground')}
+          ? 'bg-danger-soft text-brand-red font-medium' : 'border border-border bg-surface-card text-subtle hover:border-foreground')}
     >
       {children}
     </button>
@@ -211,14 +211,14 @@ function ChipInput({
           className="inline-flex h-6 items-center gap-1 rounded-pill bg-danger-soft px-2 text-12 font-medium text-brand-red">
           {v}
           <button
-            type="button"onClick={() => onChange(value.filter((_, j) => j !== i))}
-            className="text-faint hover:text-destructive"aria-label="删除">
+            type="button" onClick={() => onChange(value.filter((_, j) => j !== i))}
+            className="text-faint hover:text-destructive" aria-label="删除">
             ×
           </button>
         </span>
       ))}
       <input
-        type="text"value={draft}
+        type="text" value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
           if (e.key ==='Enter'|| e.key ===',') {
@@ -229,7 +229,7 @@ function ChipInput({
           }
         }}
         onBlur={commit}
-        placeholder={value.length === 0 ? placeholder :''}
+        placeholder={value.length === 0 ? placeholder : ''}
         className="min-w-32 flex-1 bg-transparent text-12 text-foreground placeholder:text-faint"/>
     </div>
   );

@@ -18,29 +18,29 @@ const buttonVariants = cva('inline-flex items-center justify-center gap-2 whites
   {
     variants: {
       variant: {
-        default:'rounded-pill bg-foreground text-on-brand hover:bg-foreground/90 active:bg-foreground/85',
-        primary:'rounded-pill bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/85',
-        destructive:'rounded-pill bg-destructive text-destructive-foreground hover:bg-destructive/90',
+        default: 'rounded-pill bg-foreground text-on-brand hover:bg-foreground/90 active:bg-foreground/85',
+        primary: 'rounded-pill bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/85',
+        destructive: 'rounded-pill bg-destructive text-destructive-foreground hover:bg-destructive/90',
         // Figma §4.1 Tertiary: 透明底 + 深色 1px 描边 —— 用控件族的 border token
-        outline:'rounded-pill border border-border-control-emphasis bg-surface-card text-foreground hover:bg-surface-2',
-        secondary:'rounded-pill bg-secondary text-secondary-foreground hover:bg-secondary/80',
-        ghost:'rounded-8 hover:bg-surface-2 text-foreground',
-        link:'rounded-8 text-foreground underline-offset-4 hover:underline',
+        outline: 'rounded-pill border border-border-control-emphasis bg-surface-card text-foreground hover:bg-surface-2',
+        secondary: 'rounded-pill bg-secondary text-secondary-foreground hover:bg-secondary/80',
+        ghost: 'rounded-8 hover:bg-surface-2 text-foreground',
+        link: 'rounded-8 text-foreground underline-offset-4 hover:underline',
       },
       size: {
-        sm:'h-7 px-2.5 text-12',
-        default:'h-8 px-3',
-        lg:'h-10 px-4 text-12',
-        icon:'h-8 w-8',
+        sm: 'h-7 px-2.5 text-12',
+        default: 'h-8 px-3',
+        lg: 'h-10 px-4 text-12',
+        icon: 'h-8 w-8',
       },
     },
     compoundVariants: [
       // 正方形图标按钮不胶囊化 —— 否则成正圆,与头像撞形
-      { size:'icon', className:'rounded-8'},
+      { size: 'icon', className: 'rounded-8'},
     ],
     defaultVariants: {
-      variant:'default',
-      size:'default',
+      variant: 'default',
+      size: 'default',
     },
   }
 );
@@ -53,7 +53,7 @@ export interface ButtonProps
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot :'button';
+    const Comp = asChild ? Slot : 'button';
     return (
       <Comp
         ref={ref}

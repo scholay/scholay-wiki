@@ -26,11 +26,11 @@ import { useLibraryFoldersForHome as useLibraryFolders } from'../api/library';
  * 而不是 menus.ts 里的"功能介绍式"description。两者刻意不同。
  */
 const SUBTITLES: Record<string, string> = {
-  search:'自然语言 + 矩阵分析','journal-search':'期刊主页 · IF · ISSN',
-  library:'整理论文 · 分文件夹收藏', // 已登录会被 useLibrarySubtitle 替换为真实计数
-  tools:'科研路上的小工具集合','peer-review':'草稿 MeshDiff · Step 4/5',
-  prism:'AI 写作 · LaTeX 编辑器',
-  claw:'AI 助手 · 学术对话',
+  search: '自然语言 + 矩阵分析', 'journal-search' : '期刊主页 · IF · ISSN',
+  library: '整理论文 · 分文件夹收藏', // 已登录会被 useLibrarySubtitle 替换为真实计数
+  tools: '科研路上的小工具集合', 'peer-review' : '草稿 MeshDiff · Step 4/5',
+  prism: 'AI 写作 · LaTeX 编辑器',
+  claw: 'AI 助手 · 学术对话',
 };
 
 /** library 卡的副文案 —— 已登录就拿真实数据,未登录用 SUBTITLES 默认值 */
@@ -66,17 +66,20 @@ function RichMenuItem({
       to={href}
       className={({ isActive }) =>
         cn(
-          // h-tab(42px,globals.css --spacing-tab):.pen`GD9ii`等 rich card 行高'group flex items-center gap-3 h-tab px-4 transition-colors','hover:bg-surface-1 focus-visible:bg-surface-1',
-          isActive &&'bg-surface-1')
+          // h-tab(42px,globals.css --spacing-tab):.pen `GD9ii` 等 rich card 行高
+          'group flex items-center gap-3 h-tab px-4 transition-colors',
+          'hover:bg-surface-1 focus-visible:bg-surface-1',
+          isActive && 'bg-surface-1'
+        )
       }
     >
       <span
         className={cn('inline-flex h-7 w-7 items-center justify-center rounded-8 shrink-0',
-          inactive ?'bg-surface-1':'bg-surface-2')}
+          inactive ? 'bg-surface-1' : 'bg-surface-2')}
       >
         <Icon
           className={cn('size-3.5',
-            inactive ?'text-faint':'text-subtle')}
+            inactive ? 'text-faint' : 'text-subtle')}
         />
       </span>
       {/* + 行间距收紧 —— .pen`gu1S4`标题/副标题紧贴,字号差距(13 vs 10)
@@ -85,7 +88,7 @@ function RichMenuItem({
       <div className="flex-1 min-w-0 flex flex-col">
         <span
           className={cn('inline-flex items-center gap-1.5 text-14 font-medium truncate',
-            inactive ?'text-subtle':'text-foreground')}
+            inactive ? 'text-subtle' : 'text-foreground')}
         >
           <span className="truncate">{label}</span>
           {comingSoon && (
@@ -110,7 +113,7 @@ export function HomeSidebar() {
   const groups = groupMenusByCategory();
 
   const subtitleFor = (id: string) =>
-    id ==='library'? librarySubtitle : (SUBTITLES[id] ??'');
+    id ==='library' ? librarySubtitle : (SUBTITLES[id] ?? '');
 
   return (
     <Sidebar>

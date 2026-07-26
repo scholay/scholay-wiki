@@ -311,7 +311,7 @@ function ChiefCell({
         {time && <span className="ml-auto text-12 text-background/70 tabular-nums">{time}</span>}
       </div>
       <div className="flex items-end gap-2.5">
-        <span className="font-serif text-28 font-bold leading-none">{rec ? recLabel(rec) :'已决议'}</span>
+        <span className="font-serif text-28 font-bold leading-none">{rec ? recLabel(rec) : '已决议'}</span>
         {eff?.score != null && (
           <span className="text-12 font-medium text-background/85">综合 {eff.score} / 100</span>
         )}

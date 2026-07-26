@@ -17,7 +17,7 @@ interface PcFeature {
 }
 
 const PC_FEATURES: Record<string, PcFeature> = {
-  'peer-review': {
+  'peer-review' : {
     name: '智能审稿',
     title: '智能审稿建议在电脑端使用',
     desc: '完整审稿需要上传 PDF、逐段批注、多栏对照与导出,手机屏幕空间有限。前往电脑端可获得完整能力。',

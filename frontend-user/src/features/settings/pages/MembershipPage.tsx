@@ -41,7 +41,7 @@ export function MembershipPage() {
             className={cn(
               'flex flex-1 items-center justify-center gap-1.5 h-9 rounded-8 text-12 font-medium transition-colors',
               tab === t.id
-                ?'bg-surface-card text-brand-red shadow-raised'
+                ? 'bg-surface-card text-brand-red shadow-raised'
                 : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground'
             )}
           >

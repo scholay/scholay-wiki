@@ -91,10 +91,10 @@ export function JournalExploreOverview() {
           title="中科院分区分布"
           items={fqbDist.map((x) => ({ label: `${x.q} 区`, count: x.cnt }))}
           colors={{
-            '1 区': 'bg-brand-green',
-            '2 区': 'bg-cat-blue',
-            '3 区': 'bg-brand-amber',
-            '4 区': 'bg-brand-red',
+            '1 区' : 'bg-brand-green',
+            '2 区' : 'bg-cat-blue',
+            '3 区' : 'bg-brand-amber',
+            '4 区' : 'bg-brand-red',
           }}
         />
       </div>

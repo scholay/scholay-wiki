@@ -94,7 +94,7 @@ export function SharedReceivePage() {
       {
         onSuccess: (r) => {
           if (r.added > 0) {
-            toast.success(`已转存 ${r.added} 篇到《${r.folder_name}》${r.skipped ? `(${r.skipped} 篇已在库中)` : ''}`);
+            toast.success(`已转存 ${r.added} 篇到《${r.folder_name}》${r.skipped ? `(${r.skipped} 篇已在库中) ` : ''}`);
           } else if (r.skipped > 0) {
             toast.message(`这 ${r.skipped} 篇都已在你的文献集中`);
           }

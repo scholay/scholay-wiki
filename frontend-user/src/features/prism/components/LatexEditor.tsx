@@ -17,14 +17,14 @@ import { cn } from '@/shared/lib/utils';
 // 导出供 LatexDiffEditor 复用(同一套暗色 LaTeX 编辑风格)。
 export const prismEditorTheme = EditorView.theme(
   {
-    '&': { backgroundColor: 'var(--prism-editor-bg)', color: 'var(--prism-editor-fg)', height: '100%', fontSize: '12px' },
-    '.cm-scroller': { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', lineHeight: '1.65' },
-    '.cm-gutters': { backgroundColor: 'var(--prism-editor-gutter-bg)', color: 'var(--prism-editor-gutter-fg)', border: 'none' },
-    '.cm-activeLine': { backgroundColor: 'var(--prism-editor-active)' },
-    '.cm-activeLineGutter': { backgroundColor: 'var(--prism-editor-active)' },
-    '.cm-cursor': { borderLeftColor: 'var(--prism-editor-cursor)' },
-    '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': { backgroundColor: 'var(--prism-editor-selection)' },
-    '&.cm-focused': { outline: 'none' },
+    '&' : { backgroundColor: 'var(--prism-editor-bg)', color: 'var(--prism-editor-fg)', height: '100%', fontSize: '12px' },
+    '.cm-scroller' : { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', lineHeight: '1.65' },
+    '.cm-gutters' : { backgroundColor: 'var(--prism-editor-gutter-bg)', color: 'var(--prism-editor-gutter-fg)', border: 'none' },
+    '.cm-activeLine' : { backgroundColor: 'var(--prism-editor-active)' },
+    '.cm-activeLineGutter' : { backgroundColor: 'var(--prism-editor-active)' },
+    '.cm-cursor' : { borderLeftColor: 'var(--prism-editor-cursor)' },
+    '.cm-selectionBackground, &.cm-focused .cm-selectionBackground' : { backgroundColor: 'var(--prism-editor-selection)' },
+    '&.cm-focused' : { outline: 'none' },
   },
   { dark: true }
 );

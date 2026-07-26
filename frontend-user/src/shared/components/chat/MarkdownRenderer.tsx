@@ -216,7 +216,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
   return (
     <div
       className={
-        'text-12 text-foreground leading-paragraph min-w-0'+ (className ??'')
+        'text-12 text-foreground leading-paragraph min-w-0'+ (className ?? '')
       }
     >
       <ReactMarkdown

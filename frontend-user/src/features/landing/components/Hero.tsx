@@ -9,9 +9,9 @@ import { ClawChatMock } from './mocks/ClawChatMock';
 import type { HeroMockKey, LandingFeature, TitleLine } from '../data/landings';
 
 const HERO_MOCK: Record<HeroMockKey, () => ReactNode> = {
-  'search-matrix': () => <SearchMatrixMock />,
-  'prism-editor': () => <PrismEditorMock />,
-  'claw-chat': () => <ClawChatMock />,
+  'search-matrix' : () => <SearchMatrixMock />,
+  'prism-editor' : () => <PrismEditorMock />,
+  'claw-chat' : () => <ClawChatMock />,
 };
 
 /**

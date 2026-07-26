@@ -146,7 +146,7 @@ export function AboutPage() {
       <section className="mt-16">
         <SectionTitle>我们在做什么</SectionTitle>
         <p className="mt-3 text-12 text-muted-foreground">
-          围绕"检索 → 阅读 → 写作 → 审稿"四步,<BrandName /> 提供端到端的 AI 学术工作台。
+          围绕"检索 → 阅读 → 写作 → 审稿" 四步,<BrandName /> 提供端到端的 AI 学术工作台。
         </p>
         <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-3">
           {PILLARS.map((p) => (

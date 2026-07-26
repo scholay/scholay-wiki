@@ -86,14 +86,14 @@ function streamingText(turn: Turn): string {
   if (pendingTool) return toolVerb(pendingTool.toolName);
 
   switch (turn.placeholder?.state) {
-    case 'tool_executing':
+    case 'tool_executing' :
       return turn.placeholder.verb || '调用工具中';
-    case 'streaming':
+    case 'streaming' :
       return turn.placeholder.verb || '正在回复';
-    case 'permission_pending':
+    case 'permission_pending' :
       return turn.placeholder.verb || '等待授权';
-    case 'thinking':
-    case 'idle':
+    case 'thinking' :
+    case 'idle' :
     default:
       return turn.placeholder?.verb || 'AI 思考中';
   }

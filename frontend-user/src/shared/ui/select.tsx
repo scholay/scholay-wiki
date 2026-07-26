@@ -23,12 +23,16 @@ export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElemen
 
 const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
   ({ className, children, fullWidth = true, ...props }, ref) => (
-    <div className={cn('relative inline-flex items-center', fullWidth &&'w-full')}>
+    <div className={cn('relative inline-flex items-center', fullWidth && 'w-full')}>
       <select
         ref={ref}
         className={cn(
-          // appearance-none + 自绘箭头 —— 原生箭头在各平台长得完全不一样,不可控'appearance-none flex h-8 rounded-8 border border-border bg-surface-card pl-3 pr-8 text-12 text-foreground','transition-colors cursor-pointer','focus-visible:border-foreground','disabled:cursor-not-allowed disabled:opacity-50',
-          fullWidth &&'w-full',
+          // appearance-none + 自绘箭头 —— 原生箭头在各平台长得完全不一样,不可控
+          'appearance-none flex h-8 rounded-8 border border-border bg-surface-card pl-3 pr-8 text-12 text-foreground',
+          'transition-colors cursor-pointer',
+          'focus-visible:border-foreground',
+          'disabled:cursor-not-allowed disabled:opacity-50',
+          fullWidth && 'w-full',
           className
         )}
         {...props}

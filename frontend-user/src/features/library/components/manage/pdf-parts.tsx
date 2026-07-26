@@ -53,7 +53,7 @@ export function CurrentPaperCard({
         </button>
       </div>
       <div className="space-y-1.5">
-        <div className="text-14 font-medium text-foreground leading-paragraph line-clamp-2"title={eff.title}>
+        <div className="text-14 font-medium text-foreground leading-paragraph line-clamp-2" title={eff.title}>
           {eff.title || '无标题'}
         </div>
         {authorNames && <div className="text-12 text-muted-foreground line-clamp-1">{authorNames}</div>}

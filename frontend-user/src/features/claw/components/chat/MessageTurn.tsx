@@ -48,13 +48,13 @@ function isFigureArtifact(a: ClawArtifact): boolean {
 // 系统预置(claw guides)技能名 → 人类可读中文标签。用户市场技能不走这里(用其显示名)。
 // 未登记的一方 skill 回退成「连字符转空格」。
 const SYSTEM_SKILL_LABELS: Record<string, string> = {
-  'paper-explain': '论文精读',
-  'citation-audit': '引用核查',
-  'topic-selection': '选题',
-  'data-figures': '数据图表',
-  'methods-stats': '方法与统计',
+  'paper-explain' : '论文精读',
+  'citation-audit' : '引用核查',
+  'topic-selection' : '选题',
+  'data-figures' : '数据图表',
+  'methods-stats' : '方法与统计',
   rebuttal: '审稿回复',
-  'library-reference': '文献引用',
+  'library-reference' : '文献引用',
 };
 
 function humanizeSystemSkill(guideName: string): string {

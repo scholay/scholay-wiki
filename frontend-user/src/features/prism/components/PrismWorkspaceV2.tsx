@@ -802,7 +802,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
                     title={conf.data?.word_limit ? `词数上限 ${conf.data.word_limit}` : '正文词数(中文每字计 1)'}
                   >
                     {conf.data?.word_count} 词{conf.data?.word_limit ? `/${conf.data.word_limit}` : ''}
-                    {compile.data?.page_count ? ` · ${compile.data.page_count} 页${conf.data?.page_limit ? `/${conf.data.page_limit}` : ''}` : ''}
+                    {compile.data?.page_count ? ` · ${compile.data.page_count} 页${conf.data?.page_limit ? `/${conf.data.page_limit} ` : ''}` : ''}
                   </span>
                 )}
                 {/* 本次 AI 改动条数(编辑器里以绿标原地呈现);用户一开始编辑即消失 */}

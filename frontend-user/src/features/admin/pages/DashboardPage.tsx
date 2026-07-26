@@ -150,7 +150,7 @@ function TrendCard({
   const fmt = (v: number) =>
     yLabel === '¥'
       ? `¥${Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-      : `${Number(v).toLocaleString()}${yLabel ? ` ${yLabel}` : ''}`;
+      : `${Number(v).toLocaleString()}${yLabel ? ` ${yLabel} ` : ''}`;
   // Y 轴刻度紧凑化(¥1.2k / 3.4M),配合 margin.left=0 防长数字裁切;完整值仍在 Tooltip。
   const yTickFmt = yLabel === '¥' ? compactYuanAxis : compactAxis;
   return (

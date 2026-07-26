@@ -255,8 +255,8 @@ export function PrismChatEmptyState(props: WritingMenuProps) {
     { item: GROUPS[3].items[2], g: GROUPS[3] }, // 数字校验
   ];
   const tileLabel: Record<string, string> = {
-    abstract: '生成摘要', 'polish-all': '全文润色', translate: '整篇翻译',
-    revision: '意见回应', 'submission-pack': '投稿材料', numbers: '数字校验',
+    abstract: '生成摘要', 'polish-all' : '全文润色', translate: '整篇翻译',
+    revision: '意见回应', 'submission-pack' : '投稿材料', numbers: '数字校验',
   };
   return (
     <div className="flex flex-1 items-center justify-center overflow-y-auto px-5 py-6">

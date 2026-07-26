@@ -198,8 +198,8 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   return (
     <div
       {...containerProps}
-      className={cn('relative flex flex-col gap-2 rounded-16 border border-border-strong bg-surface-card p-2.5 transition','focus-within:border-foreground/25 focus-within:ring-4 focus-within:ring-foreground/5',
-        disabled &&'opacity-70',
+      className={cn('relative flex flex-col gap-2 rounded-16 border border-border-strong bg-surface-card p-2.5 transition', 'focus-within:border-foreground/25 focus-within:ring-4 focus-within:ring-foreground/5',
+        disabled && 'opacity-70',
         className,
         containerProps?.className,
       )}
@@ -215,7 +215,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKey}
           onPaste={onPaste}
-          placeholder={placeholderOverlay ?'': placeholder}
+          placeholder={placeholderOverlay ? '' : placeholder}
           rows={minRows}
           disabled={disabled}
           autoFocus={autoFocus}
@@ -237,32 +237,32 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
         )}
         {busy && !requireAuth ? (
           <button
-            type="button"onClick={onStop}
+            type="button" onClick={onStop}
             disabled={stopping || !onStop}
-            aria-label={stopping ?'正在停止':'停止生成'}
-            title={stopping ?'正在停止…':'停止当前回答'}
+            aria-label={stopping ? '正在停止' : '停止生成'}
+            title={stopping ? '正在停止…' : '停止当前回答'}
             className={cn('inline-flex size-9 shrink-0 items-center justify-center rounded-8 text-background transition-colors',
-              stopping ?'cursor-wait bg-foreground/60':'bg-foreground hover:bg-foreground/85',
+              stopping ? 'cursor-wait bg-foreground/60' : 'bg-foreground hover:bg-foreground/85',
             )}
           >
             {stopping ? (
               <Loader2 className="size-4 animate-spin"/>
             ) : (
-              <Square className="size-3 fill-current"strokeWidth={0} aria-hidden="true"/>
+              <Square className="size-3 fill-current" strokeWidth={0} aria-hidden="true"/>
             )}
           </button>
         ) : (
           <button
-            type="button"onClick={submit}
+            type="button" onClick={submit}
             disabled={!canSend}
-            aria-label={requireAuth ?'登录后开始':'发送 (Enter)'}
-            title={requireAuth ?'登录后开始':'发送 (Enter)'}
+            aria-label={requireAuth ? '登录后开始' : '发送 (Enter)'}
+            title={requireAuth ? '登录后开始' : '发送 (Enter)'}
             className={cn('inline-flex size-9 shrink-0 items-center justify-center rounded-8 transition-colors',
-              canSend ?'bg-foreground text-background hover:bg-foreground/90':'bg-surface-2 text-faint',
-              !canSend &&'cursor-not-allowed',
+              canSend ? 'bg-foreground text-background hover:bg-foreground/90' : 'bg-surface-2 text-faint',
+              !canSend && 'cursor-not-allowed',
             )}
           >
-            {requireAuth ? <LogIn className="size-4"strokeWidth={2.2} /> : <ArrowUp className="size-4"strokeWidth={2.5} />}
+            {requireAuth ? <LogIn className="size-4" strokeWidth={2.2} /> : <ArrowUp className="size-4" strokeWidth={2.5} />}
           </button>
         )}
       </div>

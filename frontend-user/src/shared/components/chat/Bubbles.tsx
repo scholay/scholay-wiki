@@ -75,7 +75,7 @@ export const AssistantBubble = memo(function AssistantBubble({ text, streaming, 
       className={
         variant === 'plain'
           ? 'min-w-0 overflow-hidden' // 无气泡:全宽正文铺背景
-          :'rounded-16 rounded-tl-4 border border-border bg-surface-card px-4 py-3 min-w-0 overflow-hidden'
+          : 'rounded-16 rounded-tl-4 border border-border bg-surface-card px-4 py-3 min-w-0 overflow-hidden'
       }
     >
       <MarkdownRenderer text={display} />
