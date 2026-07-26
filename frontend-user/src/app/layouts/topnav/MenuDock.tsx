@@ -48,6 +48,8 @@ const COPIES = 3;
 const DEADZONE = 0.35;
 /** 最大滚动速度(px/秒) */
 const MAX_SPEED = 480;
+/** 归位(把 active 项拉回中心)的收敛速率 —— 越大越快,12 约等于 250ms 到位 */
+const SNAP_RATE = 12;
 
 /** 未放大时的基准值 —— 「放大」就是把这三个数按 scale 插值 */
 const BASE_FONT = 12;
@@ -134,6 +136,44 @@ export function MenuDock() {
     [location.pathname]
   );
 
+  /**
+   * 归位目标:让 active 项回到视口中心。null = 不归位(用户正在手动滚)。
+   *
+   * 与倾斜滚动的优先级:倾斜是【用户主动操作】,优先级最高 ——
+   * 只要光标在死区外,就清掉归位目标,否则会出现「一边滚一边被拽回去」的对抗。
+   * 光标离开坞时再重新设目标,active 项自己滑回中心。
+   */
+  const snapTarget = useRef<number | null>(null);
+
+  /** 计算「让 active 项居中」所需的 scrollX —— 取环形上离当前位置最近的那个解 */
+  const computeSnap = useCallback((): number | null => {
+    const vp = viewportRef.current;
+    if (!vp || !bases || !cycleW) return null;
+    // 首页(无 active)也要有确定的停靠位,否则每次回首页坞停在随机位置
+    const idx = activeId ? MENUS.findIndex((mn) => mn.id === activeId) : 0;
+    if (idx < 0) return null;
+    const want = bases[idx]! - vp.clientWidth / 2;
+    // 环形最近解:把差值归一到 [-cycleW/2, cycleW/2),避免绕远路转一大圈
+    let delta = (want - scrollX.current) % cycleW;
+    if (delta > cycleW / 2) delta -= cycleW;
+    if (delta < -cycleW / 2) delta += cycleW;
+    return scrollX.current + delta;
+  }, [activeId, bases, cycleW]);
+
+  // 路由变化 / 宽度测出来 → 把新的 active 项拉回中心
+  useEffect(() => {
+    if (!bases || !cycleW) return;
+    const t = computeSnap();
+    if (t == null) return;
+    if (!dockMode) {
+      // 触屏/减少动态:不做补间,直接落位
+      scrollX.current = t;
+      trackX.set(-(((t % cycleW) + cycleW) % cycleW));
+      return;
+    }
+    snapTarget.current = t;
+  }, [computeSnap, bases, cycleW, dockMode, trackX]);
+
   // ── 主循环:边缘倾斜 → 持续滚动 ──────────────────────────────────
   // 用 rAF 而不是 setInterval:与刷新率对齐,标签页不可见时浏览器自动暂停。
   useEffect(() => {
@@ -145,6 +185,7 @@ export function MenuDock() {
       last = now;
       const vp = viewportRef.current;
       const px = pointerX.get();
+      let tilting = false;
       if (vp && px !== NO_POINTER) {
         const w = vp.clientWidth;
         const t = (px / w) * 2 - 1; // -1 = 最左,0 = 正中,1 = 最右
@@ -153,6 +194,21 @@ export function MenuDock() {
           // 死区外走二次曲线加速 —— 靠边时更跟手,中间区域不易误触
           const k = (a - DEADZONE) / (1 - DEADZONE);
           scrollX.current += Math.sign(t) * MAX_SPEED * k * k * dt;
+          tilting = true;
+        }
+      }
+
+      // 归位 —— 只在【没有手动倾斜】时生效。
+      // 用指数逼近而不是线性:起步快、收尾软,且与帧率无关(exp(-rate·dt) 自带补偿)。
+      if (tilting) {
+        snapTarget.current = null; // 用户主动滚,放弃归位
+      } else if (snapTarget.current != null) {
+        const d = snapTarget.current - scrollX.current;
+        if (Math.abs(d) < 0.5) {
+          scrollX.current = snapTarget.current;
+          snapTarget.current = null;
+        } else {
+          scrollX.current += d * (1 - Math.exp(-SNAP_RATE * dt));
         }
       }
       // 取模回一个周期内 —— 这就是「环形无限」的全部实现:
@@ -181,7 +237,13 @@ export function MenuDock() {
         const r = e.currentTarget.getBoundingClientRect();
         pointerX.set(e.clientX - r.left);
       }}
-      onPointerLeave={() => pointerX.set(NO_POINTER)}
+      onPointerLeave={() => {
+        pointerX.set(NO_POINTER);
+        // 光标离开 → active 项自己滑回中心。
+        // 不做这一步的话,手动滚开之后 active 就再也回不来了,
+        // 坞会停在一个与当前页面无关的随机位置。
+        if (dockMode) snapTarget.current = computeSnap();
+      }}
       aria-roledescription="功能坞"
     >
       {/* 左右渐隐 —— 提示「还能继续滚」,同时让环形接缝不显眼 */}
