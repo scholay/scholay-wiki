@@ -39,7 +39,7 @@ function KV({ label, value }: { label: string; value?: string | number | null })
 function MdBlock({ label, md }: { label: string; md?: string }) {
   if (!md) return null;
   return (
-    <div className="rounded-md border border-border bg-surface-1 p-3">
+    <div className="rounded-8 border border-border bg-surface-1 p-3">
       <div className="mb-1 text-2xs text-faint">{label}</div>
       <div className="text-sm text-subtle">
         <MarkdownRenderer text={md} />
@@ -84,7 +84,7 @@ function StructuredValue({ value }: { value: unknown }) {
       return (
         <div className="space-y-1.5">
           {value.map((v, i) => (
-            <div key={i} className="rounded-sm border border-border-soft bg-surface-card p-2">
+            <div key={i} className="rounded-4 border border-border-soft bg-surface-card p-2">
               <ObjectRows obj={v as Record<string, unknown>} />
             </div>
           ))}
@@ -109,7 +109,7 @@ function StructuredValue({ value }: { value: unknown }) {
 function StructuredBlock({ label, data }: { label: string; data?: unknown }) {
   if (data == null || (Array.isArray(data) && data.length === 0)) return null;
   return (
-    <div className="rounded-md border border-border bg-surface-1 p-2.5">
+    <div className="rounded-8 border border-border bg-surface-1 p-2.5">
       <div className="mb-1.5 text-2xs text-faint">{label}</div>
       <StructuredValue value={data} />
       <details className="mt-1.5">
@@ -124,7 +124,7 @@ function StructuredBlock({ label, data }: { label: string; data?: unknown }) {
 
 function ReportCard({ r }: { r: PRReport }) {
   return (
-    <div className="space-y-2 rounded-md border border-border bg-surface-card p-3">
+    <div className="space-y-2 rounded-12 border border-border bg-surface-card p-3">
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="default">{r.role}</Badge>
         {r.decision && <span className="text-xs text-foreground">决定: {r.decision}</span>}
@@ -166,7 +166,7 @@ function AssetCard({
 }) {
   const src = `/admin/peer-review/submissions/${submissionId}/assets/${a.id}`;
   return (
-    <div className="rounded-md border border-border bg-surface-1 p-2.5">
+    <div className="rounded-12 border border-border bg-surface-1 p-2.5">
       <div className="flex flex-wrap items-center gap-2">
         <FileText className="size-4 shrink-0 text-faint" />
         <span className="min-w-0 truncate text-xs font-medium text-foreground" title={a.filename}>
@@ -260,7 +260,7 @@ export function PeerReviewMonitor() {
             setPage(1);
           }}
           placeholder="ID / 用户名 / 邮箱 / 手机号 / 标题"
-          className="h-9 w-full sm:w-72 rounded-md border border-input bg-surface-card px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-9 w-full sm:w-72 rounded-8 border border-input bg-surface-card px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       </div>
       <DataTable columns={columns} rows={data?.list} loading={isLoading} />
@@ -276,7 +276,7 @@ export function PeerReviewMonitor() {
           ) : (
             <div className="space-y-4">
               {/* 投稿草稿过程数据 */}
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-md border border-border bg-surface-1 p-3 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-12 border border-border bg-surface-1 p-3 sm:grid-cols-3">
                 <KV label="模式" value={s.mode} />
                 <KV label="状态" value={s.status} />
                 <KV label="步骤" value={s.step} />

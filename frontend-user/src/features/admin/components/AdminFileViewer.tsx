@@ -148,18 +148,18 @@ export function AdminFileViewer({
       </div>
 
       {kind === 'image' && (
-        <img src={state.url} alt={filename} className="mx-auto max-h-[68vh] rounded-md border border-border object-contain" />
+        <img src={state.url} alt={filename} className="mx-auto max-h-[68vh] rounded-12 border border-border object-contain" />
       )}
       {kind === 'pdf' && (
-        <iframe src={state.url} title={filename} className="h-[68vh] w-full rounded-md border border-border" />
+        <iframe src={state.url} title={filename} className="h-[68vh] w-full rounded-12 border border-border" />
       )}
       {kind === 'markdown' && (
-        <div className="max-h-[68vh] overflow-auto rounded-md border border-border bg-surface-1 p-3 text-sm text-subtle">
+        <div className="max-h-[68vh] overflow-auto rounded-12 border border-border bg-surface-1 p-3 text-sm text-subtle">
           <MarkdownRenderer text={state.text ?? ''} />
         </div>
       )}
       {kind === 'text' && (
-        <pre className="max-h-[68vh] overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-surface-1 p-3 text-xs text-subtle">
+        <pre className="max-h-[68vh] overflow-auto whitespace-pre-wrap break-words rounded-12 border border-border bg-surface-1 p-3 text-xs text-subtle">
           {state.text}
         </pre>
       )}

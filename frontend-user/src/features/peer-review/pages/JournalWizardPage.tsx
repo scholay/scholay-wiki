@@ -518,7 +518,7 @@ export function JournalWizardPage() {
 // 右栏 step ≥ 2 显示的"已选期刊" mini 卡(.pen `jMiniJS2`)
 function SelectedJournalMini({ target }: { target: JournalTarget }) {
   return (
-    <section className="rounded-lg border border-brand-red border-l-[3px] bg-surface-card p-4">
+    <section className="rounded-16 border border-brand-red border-l-[3px] bg-surface-card p-4">
       <p className="text-xs font-bold text-brand-red">已选期刊</p>
       <h3 className="mt-1 text-sm font-bold text-foreground">{target.canonicalName}</h3>
       {(target.jcrImpactFactor != null || target.jcrQuartile) && (
@@ -533,7 +533,7 @@ function SelectedJournalMini({ target }: { target: JournalTarget }) {
 
 function FailureBanner({ error, onRetry }: { error: string; onRetry: () => void }) {
   return (
-    <div className="flex items-start gap-3 rounded-lg border border-destructive/40 bg-danger-soft p-4">
+    <div className="flex items-start gap-3 rounded-16 border border-destructive/40 bg-danger-soft p-4">
       <AlertCircle className="mt-0.5 size-5 shrink-0 text-destructive" />
       <div className="min-w-0 flex-1">
         <p className="text-sm font-bold text-destructive">AI 暂时无响应</p>
@@ -542,7 +542,7 @@ function FailureBanner({ error, onRetry }: { error: string; onRetry: () => void 
       <button
         type="button"
         onClick={onRetry}
-        className="shrink-0 rounded-md border border-destructive/40 px-3 py-1 text-xs font-bold text-destructive hover:bg-destructive hover:text-background"
+        className="shrink-0 rounded-8 border border-destructive/40 px-3 py-1 text-xs font-bold text-destructive hover:bg-destructive hover:text-background"
       >
         重新生成
       </button>

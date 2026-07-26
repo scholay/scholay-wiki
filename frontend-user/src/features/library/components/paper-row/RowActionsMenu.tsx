@@ -155,7 +155,7 @@ export function RowActionsMenu({
           onClick={(e) => e.stopPropagation()}
           className={cn(
             // 与"我的 PDF / 引用 / OA / AI 翻译"同款 chip 按钮:h-6 + px-2 + border + 2xs 字号
-            'inline-flex items-center gap-1 h-6 px-2 rounded-sm border border-border text-2xs font-semibold text-subtle shrink-0 transition-colors',
+            'inline-flex items-center gap-1 h-6 px-2 rounded-8 border border-border text-2xs font-semibold text-subtle shrink-0 transition-colors',
             'hover:bg-surface-1 hover:text-foreground',
             'data-[state=open]:bg-surface-2 data-[state=open]:text-foreground data-[state=open]:border-foreground/30'
           )}
@@ -216,7 +216,7 @@ export function RowActionsMenu({
             <button
               type="button"
               onClick={() => setView('main')}
-              className="flex items-center gap-1.5 h-7 px-2 rounded-sm text-2xs font-bold text-faint hover:bg-surface-1 hover:text-foreground transition-colors text-left"
+              className="flex items-center gap-1.5 h-7 px-2 rounded-8 text-2xs font-bold text-faint hover:bg-surface-1 hover:text-foreground transition-colors text-left"
             >
               <ChevronLeft className="size-3" strokeWidth={2.25} />
               转移到
@@ -224,7 +224,7 @@ export function RowActionsMenu({
 
             {/* 搜索框 —— 文件夹多了找起来要命,缩进半层与列表对齐 */}
             <div className="px-1 pt-1 pb-1.5">
-              <div className="flex items-center gap-1.5 h-7 px-2 rounded-sm bg-surface-1 border border-border focus-within:border-foreground transition-colors">
+              <div className="flex items-center gap-1.5 h-7 px-2 rounded-8 bg-surface-1 border border-border focus-within:border-foreground transition-colors">
                 <Search className="size-3 text-faint shrink-0" strokeWidth={2} />
                 <input
                   type="text"
@@ -253,7 +253,7 @@ export function RowActionsMenu({
                     type="button"
                     onClick={() => handleMove(t.id, t.name)}
                     disabled={moveMut.isPending}
-                    className="flex items-center gap-2 w-full h-8 px-2 rounded-sm text-xs text-subtle hover:bg-surface-1 hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left"
+                    className="flex items-center gap-2 w-full h-8 px-2 rounded-8 text-xs text-subtle hover:bg-surface-1 hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left"
                   >
                     <Folder className="size-3.5 shrink-0 text-faint" />
                     <span className="flex-1 truncate">{t.name}</span>
@@ -292,7 +292,7 @@ function MenuButton({
       type="button"
       onClick={onClick}
       className={cn(
-        'flex items-center gap-2 w-full h-8 px-2 rounded-sm text-xs transition-colors text-left',
+        'flex items-center gap-2 w-full h-8 px-2 rounded-8 text-xs transition-colors text-left',
         tone === 'danger'
           ? 'text-brand-red hover:bg-danger-soft'
           : 'text-subtle hover:bg-surface-1 hover:text-foreground'

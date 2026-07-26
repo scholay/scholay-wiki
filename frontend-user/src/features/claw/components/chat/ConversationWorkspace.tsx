@@ -263,7 +263,7 @@ export function ConversationWorkspace({
       <div className="flex h-full flex-col bg-background">
         <header className="flex h-14 items-center gap-3 border-b border-border px-6">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-foreground">
+            <div className="flex h-7 w-7 items-center justify-center rounded-8 bg-foreground">
               <TitleIcon className="h-3.5 w-3.5 text-background" />
             </div>
             <h1 className="text-base font-bold text-foreground">{cfg.title}</h1>
@@ -319,7 +319,7 @@ export function ConversationWorkspace({
                   onClick={() => setRightCollapsed(false)}
                   title="展开成果栏"
                   aria-label="展开成果栏"
-                  className="absolute right-0 top-1/2 z-nav flex -translate-y-1/2 flex-col items-center gap-1 rounded-l-md border border-r-0 border-border bg-surface-1 px-1.5 py-2.5 text-2xs text-muted-foreground shadow-overlay transition-colors hover:bg-surface-2 hover:text-foreground"
+                  className="absolute right-0 top-1/2 z-nav flex -translate-y-1/2 flex-col items-center gap-1 rounded-l-8 border border-r-0 border-border bg-surface-1 px-1.5 py-2.5 text-2xs text-muted-foreground shadow-overlay transition-colors hover:bg-surface-2 hover:text-foreground"
                 >
                   <PanelRightOpen className="h-4 w-4 text-brand-green" />
                   {(sessionArtifacts?.length ?? 0) > 0 && <span className="font-semibold">{sessionArtifacts?.length}</span>}

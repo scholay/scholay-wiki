@@ -50,7 +50,7 @@ export const NewsCard = memo(function NewsCard({ item }: { item: NewsCardData })
           src={item.cover_image}
           alt=""
           loading="lazy"
-          className="h-44 w-full shrink-0 rounded-md object-cover"
+          className="h-44 w-full shrink-0 rounded-16 object-cover"
         />
       )}
 

@@ -71,7 +71,7 @@ export function PrismTranslateDialog({
         </DialogHeader>
 
         <div className="space-y-2 text-xs text-subtle">
-          <div className="rounded-md border border-border p-2.5">
+          <div className="rounded-12 border border-border p-2.5">
             <p className="font-bold text-foreground">第一步 · 逐节忠实直译</p>
             <p className="mt-0.5 text-2xs text-muted-foreground">
               一轮一节;数字/单位/引用键逐字保真;首译术语会写回术语表。每节译完在 diff 里确认应用,再译下一节。
@@ -92,7 +92,7 @@ export function PrismTranslateDialog({
             </Button>
           </div>
 
-          <div className="rounded-md border border-border p-2.5">
+          <div className="rounded-12 border border-border p-2.5">
             <p className="font-bold text-foreground">第二步 · 开新对话(关键)</p>
             <p className="mt-0.5 text-2xs text-muted-foreground">
               全部直译并应用后开一条新对话:润色必须在「只见译文」的干净上下文里做,否则中文原文一直在历史里,翻译腔磨不掉。同一篇论文继续写,文稿/术语表不丢。
@@ -111,7 +111,7 @@ export function PrismTranslateDialog({
             </Button>
           </div>
 
-          <div className="rounded-md border border-border p-2.5">
+          <div className="rounded-12 border border-border p-2.5">
             <p className="font-bold text-foreground">第三步 · 逐批单语润色</p>
             <p className="mt-0.5 text-2xs text-muted-foreground">只读译文去翻译腔(拆长句/补主语/时态惯例);只改表达不改事实。</p>
             <Button
@@ -144,7 +144,7 @@ export function PrismTranslateDialog({
             onChange={(e) => setTerm(e.target.value)}
             rows={5}
             placeholder={'| 原文 | 译文 | 备注 |\n| --- | --- | --- |\n| 注意力机制 | attention mechanism | |'}
-            className="w-full resize-y rounded-md border border-border bg-surface-1 p-2 font-mono text-2xs outline-none placeholder:text-faint"
+            className="w-full resize-y rounded-8 border border-border bg-surface-1 p-2 font-mono text-2xs outline-none placeholder:text-faint"
           />
         </div>
       </DialogContent>

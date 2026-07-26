@@ -110,7 +110,7 @@ export function LibraryBulkToolbar({
           type="button"
           onClick={onToggleAll}
           disabled={busy}
-          className="h-7 px-2.5 rounded-sm border border-border text-xs text-subtle hover:bg-surface-1 disabled:opacity-50"
+          className="h-7 px-2.5 rounded-8 border border-border text-xs text-subtle hover:bg-surface-1 disabled:opacity-50"
         >
           {allSelected ? '取消全选' : '全选'}
         </button>
@@ -129,7 +129,7 @@ export function LibraryBulkToolbar({
             <button
               type="button"
               disabled={busy}
-              className="inline-flex items-center gap-1 h-7 px-2.5 rounded-sm border border-border text-xs font-semibold text-subtle hover:bg-surface-1 disabled:opacity-50 data-[state=open]:bg-surface-2 data-[state=open]:text-foreground"
+              className="inline-flex items-center gap-1 h-7 px-2.5 rounded-8 border border-border text-xs font-semibold text-subtle hover:bg-surface-1 disabled:opacity-50 data-[state=open]:bg-surface-2 data-[state=open]:text-foreground"
             >
               {moveMut.isPending ? (
                 <Loader2 className="size-3 animate-spin" />
@@ -142,7 +142,7 @@ export function LibraryBulkToolbar({
           <PopoverContent align="start" sideOffset={4} className="w-[220px] p-1">
             {/* 搜索框 */}
             <div className="px-1 pt-1 pb-1.5">
-              <div className="flex items-center gap-1.5 h-7 px-2 rounded-sm bg-surface-1 border border-border focus-within:border-foreground transition-colors">
+              <div className="flex items-center gap-1.5 h-7 px-2 rounded-8 bg-surface-1 border border-border focus-within:border-foreground transition-colors">
                 <Search
                   className="size-3 text-faint shrink-0"
                   strokeWidth={2}
@@ -167,7 +167,7 @@ export function LibraryBulkToolbar({
                   type="button"
                   onClick={() => handleMove(f.id)}
                   disabled={moveMut.isPending}
-                  className="flex items-center gap-2 w-full h-8 px-2 rounded-sm text-xs text-subtle hover:bg-surface-1 hover:text-foreground disabled:opacity-50 transition-colors text-left"
+                  className="flex items-center gap-2 w-full h-8 px-2 rounded-8 text-xs text-subtle hover:bg-surface-1 hover:text-foreground disabled:opacity-50 transition-colors text-left"
                 >
                   <Folder className="size-3.5 shrink-0 text-faint" />
                   <span className="flex-1 truncate">{f.name}</span>
@@ -188,7 +188,7 @@ export function LibraryBulkToolbar({
           type="button"
           onClick={() => setConfirmingDelete(true)}
           disabled={busy}
-          className="inline-flex items-center gap-1 h-7 px-2.5 rounded-sm border border-brand-red bg-brand-red text-on-brand text-xs font-bold hover:bg-brand-red/90 disabled:opacity-50"
+          className="inline-flex items-center gap-1 h-7 px-2.5 rounded-8 border border-brand-red bg-brand-red text-on-brand text-xs font-bold hover:bg-brand-red/90 disabled:opacity-50"
         >
           <Trash2 className="size-3" />
           删除
@@ -198,7 +198,7 @@ export function LibraryBulkToolbar({
           type="button"
           onClick={onClear}
           disabled={busy}
-          className="inline-flex items-center justify-center h-7 w-7 rounded-sm border border-border text-muted-foreground hover:bg-surface-1 disabled:opacity-50"
+          className="inline-flex items-center justify-center h-7 w-7 rounded-8 border border-border text-muted-foreground hover:bg-surface-1 disabled:opacity-50"
           title="取消选择"
         >
           <X className="size-3.5" />
@@ -246,7 +246,7 @@ function BatchDeleteConfirmDialog({
             type="button"
             onClick={onClose}
             disabled={busy}
-            className="h-7 px-3 rounded-sm border border-border text-xs text-subtle hover:bg-surface-1 disabled:opacity-50"
+            className="h-7 px-3 rounded-8 border border-border text-xs text-subtle hover:bg-surface-1 disabled:opacity-50"
           >
             取消
           </button>
@@ -254,7 +254,7 @@ function BatchDeleteConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={busy}
-            className="inline-flex items-center gap-1 h-7 px-3 rounded-sm bg-brand-red text-on-brand text-xs font-bold hover:bg-brand-red/90 disabled:opacity-50"
+            className="inline-flex items-center gap-1 h-7 px-3 rounded-8 bg-brand-red text-on-brand text-xs font-bold hover:bg-brand-red/90 disabled:opacity-50"
           >
             {busy && <Loader2 className="size-3 animate-spin" />}
             确认删除

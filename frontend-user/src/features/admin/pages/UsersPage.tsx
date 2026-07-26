@@ -33,7 +33,7 @@ import {
   type UserListParams,
 } from '../api/users';
 
-const SELECT_CLS = 'h-8 rounded-md border border-input bg-surface-card px-2 text-xs text-foreground';
+const SELECT_CLS = 'h-8 rounded-8 border border-input bg-surface-card px-2 text-xs text-foreground';
 
 // 服务端排序默认值 —— 与后端 GetUserList 默认一致(last_login_at desc)。
 const DEFAULT_SORT_BY = 'last_login_at';
@@ -192,7 +192,7 @@ export function UsersPage() {
             <span className="text-foreground font-bold">
               {u.username || u.email?.split('@')[0] || u.phone || '用户'}
             </span>
-            <span className="shrink-0 rounded-sm bg-surface-2 px-1 font-mono text-2xs text-faint">#{u.id}</span>
+            <span className="shrink-0 rounded-4 bg-surface-2 px-1 font-mono text-2xs text-faint">#{u.id}</span>
           </span>
           <span className="text-xs text-faint">{u.email || u.phone || '—'}</span>
         </button>
@@ -362,7 +362,7 @@ export function UsersPage() {
       <UserMetricsPanel />
 
       {/* 筛选条 —— 每次写入都连带 page:null 回首页,且合并成一次 navigate */}
-      <section className="mb-4 flex flex-wrap items-end gap-2 rounded-md border border-border-soft bg-surface-1 p-3">
+      <section className="mb-4 flex flex-wrap items-end gap-2 rounded-16 border border-border-soft bg-surface-1 p-3">
         <FilterField label="角色">
           <select
             value={role}

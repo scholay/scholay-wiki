@@ -25,10 +25,10 @@ export function ToolCard({ tool }: { tool: FeatureTool }) {
   return (
     <Link
       to={`/tools/${tool.slug || tool.id}`}
-      className="group flex flex-col gap-2.5 rounded-md border border-border bg-surface-card p-4 transition-colors hover:border-border-strong hover:bg-surface-1"
+      className="group flex flex-col gap-2.5 rounded-16 border border-border bg-surface-card p-4 transition-colors hover:border-border-strong hover:bg-surface-1"
     >
       <div className="flex items-start gap-3">
-        <ToolLogo tool={tool} className="size-10 rounded-md" />
+        <ToolLogo tool={tool} className="size-10 rounded-8" />
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-sm font-bold text-foreground">{tool.name}</h3>
           {tool.category_label && (
@@ -44,7 +44,7 @@ export function ToolCard({ tool }: { tool: FeatureTool }) {
       <div className="mt-auto flex items-center justify-between gap-2 pt-1">
         <div className="flex min-w-0 items-center gap-1.5">
           {(tool.tags ?? []).slice(0, 2).map((t) => (
-            <span key={t} className="truncate rounded-sm bg-surface-2 px-1.5 py-0.5 text-2xs text-subtle">
+            <span key={t} className="truncate rounded-4 bg-surface-2 px-1.5 py-0.5 text-2xs text-subtle">
               {t}
             </span>
           ))}

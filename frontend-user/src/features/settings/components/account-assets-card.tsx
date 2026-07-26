@@ -60,7 +60,7 @@ export function AccountAssetsCard({ data, onGoRecharge }: { data: Overview; onGo
   const openUpgrade = (tier?: 'pro' | 'max') => setUpgrade({ open: true, tier });
 
   return (
-    <section className="rounded-md border border-border bg-surface-card p-5">
+    <section className="rounded-16 border border-border bg-surface-card p-5">
       <div className="mb-4 flex items-center justify-between gap-2">
         <h3 className="text-sm font-bold text-foreground">账户资产</h3>
         <div className="flex items-center gap-2">
@@ -122,7 +122,7 @@ function ActiveRow({ data, onGoRecharge }: { data: Overview; onGoRecharge: () =>
   return (
     <div className="flex items-center gap-3">
       <div className="flex flex-1 items-center gap-2">
-        <span className={cn('inline-flex h-6 shrink-0 items-center rounded-sm px-2 text-2xs font-bold', NAMEPLATE[data.tier])}>
+        <span className={cn('inline-flex h-6 shrink-0 items-center rounded-4 px-2 text-2xs font-bold', NAMEPLATE[data.tier])}>
           {data.tier.toUpperCase()}
         </span>
         <span className="flex size-4 shrink-0 items-center justify-center rounded-pill border border-border text-2xs text-faint" title={`进度条与百分比为本周期(${t.window_days} 天)AI 额度的剩余;周期自首次使用起算,到期自动恢复满额,耗尽也可消耗经费立即重置`}>?</span>
@@ -171,7 +171,7 @@ function LockedRow({ tier, onUpgrade }: { tier: Tier; onUpgrade: () => void }) {
   const VIcon = TIER_ICON[tier];
   return (
     <div className="flex items-center gap-2">
-      <span className={cn('flex size-5 shrink-0 items-center justify-center rounded-sm', TIER_BADGE[tier])}>
+      <span className={cn('flex size-5 shrink-0 items-center justify-center rounded-4', TIER_BADGE[tier])}>
         <VIcon className="size-3" />
       </span>
       <span className="shrink-0 text-2xs font-medium text-faint">{PLAN_LABEL[tier]} 额度</span>
@@ -192,7 +192,7 @@ function ExplainerCarousel({ proMult, maxMult }: { proMult: number; maxMult: num
   const slides = buildSlides(proMult, maxMult);
   const s = slides[i % slides.length];
   return (
-    <div className="mt-4 flex items-center gap-3 rounded-md border border-border-soft bg-surface-1 p-3">
+    <div className="mt-4 flex items-center gap-3 rounded-12 border border-border-soft bg-surface-1 p-3">
       <span className="flex size-8 shrink-0 items-center justify-center rounded-pill bg-surface-2 text-faint">
         <Gauge className="size-4" />
       </span>
@@ -202,10 +202,10 @@ function ExplainerCarousel({ proMult, maxMult }: { proMult: number; maxMult: num
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
         <span className="text-2xs tabular-nums text-faint">{(i % slides.length) + 1}/{slides.length}</span>
-        <button onClick={() => setI((i - 1 + slides.length) % slides.length)} className="flex size-6 items-center justify-center rounded-sm border border-border text-faint transition-colors hover:bg-surface-2">
+        <button onClick={() => setI((i - 1 + slides.length) % slides.length)} className="flex size-6 items-center justify-center rounded-8 border border-border text-faint transition-colors hover:bg-surface-2">
           <ChevronLeft className="size-3.5" />
         </button>
-        <button onClick={() => setI((i + 1) % slides.length)} className="flex size-6 items-center justify-center rounded-sm border border-border text-faint transition-colors hover:bg-surface-2">
+        <button onClick={() => setI((i + 1) % slides.length)} className="flex size-6 items-center justify-center rounded-8 border border-border text-faint transition-colors hover:bg-surface-2">
           <ChevronRight className="size-3.5" />
         </button>
       </div>
@@ -234,7 +234,7 @@ function ResetDialog({ data, exhausted, onGoRecharge }: { data: Overview; exhaus
         onClick={() => setOpen(true)}
         title="消耗经费重置额度"
         className={cn(
-          'flex size-7 shrink-0 items-center justify-center rounded-md border transition-colors',
+          'flex size-7 shrink-0 items-center justify-center rounded-8 border transition-colors',
           exhausted ? 'border-brand-red text-brand-red hover:bg-danger-soft' : 'border-border text-faint hover:bg-surface-2'
         )}
       >

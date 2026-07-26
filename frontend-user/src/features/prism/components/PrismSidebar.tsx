@@ -62,7 +62,7 @@ export function PrismSidebar() {
           <button
             type="button"
             aria-label="新建"
-            className="inline-flex items-center justify-center size-9 rounded-md text-subtle hover:bg-surface-2 hover:text-foreground transition-colors"
+            className="inline-flex items-center justify-center size-9 rounded-8 text-subtle hover:bg-surface-2 hover:text-foreground transition-colors"
           >
             <Plus className="size-4" strokeWidth={1.8} />
           </button>

@@ -66,7 +66,7 @@ export function RelinkResultArea({
                 type="button"
                 onClick={() => onSelect(key)}
                 className={cn(
-                  'w-full flex items-start gap-3 px-4 py-3 rounded-md border-2 text-left transition-colors',
+                  'w-full flex items-start gap-3 px-4 py-3 rounded-12 border-2 text-left transition-colors',
                   selected ? 'border-brand-amber bg-warning-soft/40' : 'border-border hover:bg-surface-1',
                   isCurrent && !selected && 'opacity-70'
                 )}
@@ -89,11 +89,11 @@ export function RelinkResultArea({
                     </div>
                     <span className="shrink-0 inline-flex items-center gap-1">
                       {isCurrent && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-warning-soft text-brand-amber text-2xs font-bold leading-none whitespace-nowrap">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-warning-soft text-brand-amber text-2xs font-bold leading-none whitespace-nowrap">
                           当前关联
                         </span>
                       )}
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-surface-2 text-subtle text-2xs font-bold leading-none uppercase">
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-surface-2 text-subtle text-2xs font-bold leading-none uppercase">
                         {sourceBrandLabel(h.source)}
                       </span>
                     </span>
@@ -121,7 +121,7 @@ export function RelinkResultArea({
                   </div>
                 </div>
                 {selected && (
-                  <span className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-sm bg-brand-amber text-background text-xs font-bold">
+                  <span className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-4 bg-brand-amber text-background text-xs font-bold">
                     <Check className="size-3" strokeWidth={3} />
                     已选
                   </span>

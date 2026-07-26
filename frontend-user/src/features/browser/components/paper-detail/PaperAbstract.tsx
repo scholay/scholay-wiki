@@ -11,7 +11,7 @@ export function PaperAbstract({ paper }: { paper: Paper }) {
         <h2 className="font-display italic text-lg text-muted-foreground mb-4">
           Abstract
         </h2>
-        <div className="px-4 py-6 rounded-md bg-surface-1 text-center text-xs text-muted-foreground">
+        <div className="px-4 py-6 rounded-16 bg-surface-1 text-center text-xs text-muted-foreground">
           该论文未提供摘要
         </div>
       </section>

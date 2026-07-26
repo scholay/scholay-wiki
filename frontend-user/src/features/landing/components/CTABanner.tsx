@@ -22,7 +22,7 @@ function CTAInner({
   primary: boolean;
 }) {
   const cls = cn(
-    'inline-flex items-center gap-2 h-12 px-6 rounded-sm text-md font-semibold transition-colors whitespace-nowrap',
+    'inline-flex items-center gap-2 h-12 px-6 rounded-8 text-md font-semibold transition-colors whitespace-nowrap',
     primary
       ? 'bg-surface-card text-foreground hover:bg-surface-1'
       : 'bg-transparent border border-background text-background hover:bg-surface-card/10'

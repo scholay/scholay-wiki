@@ -82,7 +82,7 @@ export function NewsListPage() {
             Array.from({ length: 5 }).map((_, i) => (
               <div
                 key={i}
-                className="h-24 animate-pulse rounded-md border border-border-soft bg-surface-1"
+                className="h-24 animate-pulse rounded-16 border border-border-soft bg-surface-1"
               />
             ))
           ) : items.length === 0 ? (

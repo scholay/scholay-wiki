@@ -178,7 +178,7 @@ export function CitationGeneratorPage() {
           {hasContent ? (
             <CitationResult paper={paper} />
           ) : (
-            <div className="rounded-md border border-dashed border-border bg-surface-1 px-6 py-12 text-center text-sm text-faint">
+            <div className="rounded-16 border border-dashed border-border bg-surface-1 px-6 py-12 text-center text-sm text-faint">
               {mode === 'doi'
                 ? '输入 DOI 并点「解析」,这里会显示各格式引用'
                 : '填写上方文献信息,这里会实时生成各格式引用'}
@@ -241,7 +241,7 @@ function CitationResult({ paper }: { paper: CitationPaper }) {
               toast.success(`已设为默认: ${CITATION_FORMAT_LABELS[f]}`);
             }}
             className={cn(
-              'h-7 px-3 rounded-md text-xs font-bold transition-colors',
+              'h-7 px-3 rounded-8 text-xs font-bold transition-colors',
               format === f
                 ? 'bg-foreground text-background'
                 : 'text-muted-foreground hover:bg-surface-1 hover:text-foreground'
@@ -255,18 +255,18 @@ function CitationResult({ paper }: { paper: CitationPaper }) {
 
       <div className="relative min-w-0">
         {isMono ? (
-          <pre className="w-full rounded-sm bg-surface-1 border border-border px-5 py-4 font-mono text-xs leading-paragraph text-subtle overflow-x-auto whitespace-pre">
+          <pre className="w-full rounded-16 bg-surface-1 border border-border px-5 py-4 font-mono text-xs leading-paragraph text-subtle overflow-x-auto whitespace-pre">
             {citation}
           </pre>
         ) : (
-          <p className="rounded-sm bg-surface-1 border border-border px-5 py-4 text-base leading-paragraph text-subtle break-words">
+          <p className="rounded-16 bg-surface-1 border border-border px-5 py-4 text-base leading-paragraph text-subtle break-words">
             <CitationProse text={citation} />
           </p>
         )}
         <button
           type="button"
           onClick={copy}
-          className="absolute top-2 right-2 inline-flex items-center gap-1 h-7 px-2.5 rounded-sm bg-surface-card border border-border text-2xs font-bold text-subtle hover:border-foreground hover:text-foreground transition-colors"
+          className="absolute top-2 right-2 inline-flex items-center gap-1 h-7 px-2.5 rounded-8 bg-surface-card border border-border text-2xs font-bold text-subtle hover:border-foreground hover:text-foreground transition-colors"
           aria-label={`复制 ${CITATION_FORMAT_LABELS[format]}`}
         >
           <Copy className="size-3" strokeWidth={2.5} />

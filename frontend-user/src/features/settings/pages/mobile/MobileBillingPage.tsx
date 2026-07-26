@@ -56,7 +56,7 @@ function TxnList() {
   if (items.length === 0) return <Empty text="还没有经费流水" />;
 
   return (
-    <ul className="overflow-hidden rounded-lg border border-border bg-surface-card">
+    <ul className="overflow-hidden rounded-16 border border-border bg-surface-card">
       {items.map((t, i) => (
         <li
           key={t.id}
@@ -90,7 +90,7 @@ function OrderList() {
   if (items.length === 0) return <Empty text="还没有订单记录" />;
 
   return (
-    <ul className="overflow-hidden rounded-lg border border-border bg-surface-card">
+    <ul className="overflow-hidden rounded-16 border border-border bg-surface-card">
       {items.map((o, i) => (
         <li
           key={o.order_no}

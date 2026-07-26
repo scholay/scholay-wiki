@@ -34,7 +34,7 @@ export function FeaturedPapersCol({
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-md bg-danger-soft text-brand-red text-xs">
+        <div className="flex items-center gap-2 px-4 py-3 rounded-16 bg-danger-soft text-brand-red text-xs">
           <AlertCircle className="size-3.5" />
           作品列表暂时没能加载出来,请稍后重试
         </div>
@@ -47,7 +47,7 @@ export function FeaturedPapersCol({
       )}
 
       {!loading && !error && papers.length === 0 && (
-        <div className="flex flex-col items-center justify-center px-4 py-10 rounded-md bg-surface-1 border border-dashed border-border text-center">
+        <div className="flex flex-col items-center justify-center px-4 py-10 rounded-16 bg-surface-1 border border-dashed border-border text-center">
           <Inbox className="size-6 text-faint mb-2" strokeWidth={1.5} />
           <p className="text-sm font-bold text-subtle">
             还没有这位学者的作品记录
@@ -65,7 +65,7 @@ export function FeaturedPapersCol({
               <button
                 type="button"
                 onClick={() => openPaper(p)}
-                className="group w-full text-left flex items-start gap-4 rounded-lg bg-surface-card border border-border p-5 hover:border-foreground hover:transition-all"
+                className="group w-full text-left flex items-start gap-4 rounded-16 bg-surface-card border border-border p-5 hover:border-foreground hover:transition-all"
               >
                 <div className="flex-1 min-w-0 space-y-1.5">
                   <h3 className="text-md font-bold text-foreground group-hover:text-brand-red transition-colors line-clamp-2">
@@ -100,7 +100,7 @@ export function FeaturedPapersCol({
                     )}
                   </div>
                 </div>
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-surface-2 text-subtle shrink-0 group-hover:bg-foreground group-hover:text-background transition-colors">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-8 bg-surface-2 text-subtle shrink-0 group-hover:bg-foreground group-hover:text-background transition-colors">
                   <Bookmark className="size-3.5" strokeWidth={2} />
                 </span>
               </button>

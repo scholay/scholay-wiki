@@ -73,7 +73,7 @@ function ComingSoonSidebar({ title }: { title: string }) {
       <SidebarHeaderNav />
       <SidebarContent>
         <SidebarSection id="coming-soon" label={title}>
-          <div className="mx-4 my-2 px-3 py-4 rounded-md bg-warning-soft border border-brand-amber/20">
+          <div className="mx-4 my-2 px-3 py-4 rounded-12 bg-warning-soft border border-brand-amber/20">
             <div className="inline-flex items-center gap-1 px-1.5 h-4 rounded-pill bg-brand-amber text-background text-2xs font-bold">
               <Sparkles className="size-2.5" strokeWidth={2.5} />
               即将推出

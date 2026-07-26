@@ -50,7 +50,7 @@ export function ComposerPlusMenu({
             disabled={disabled}
             aria-label="添加附件或引用"
             title="添加附件或引用"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-40"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-8 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-40"
           >
             <Plus className="h-4 w-4" strokeWidth={2.2} />
           </button>

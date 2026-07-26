@@ -210,13 +210,13 @@ function HeroCard({ article }: { article: ArticleCardData }) {
   return (
     <Link
       to={`/blog/${article.slug}`}
-      className="group flex flex-col gap-3 p-6 md:p-8 rounded-lg bg-surface-1 border border-border-soft hover:border-border-strong transition-colors"
+      className="group flex flex-col gap-3 p-6 md:p-8 rounded-16 bg-surface-1 border border-border-soft hover:border-border-strong transition-colors"
     >
       <div className="flex items-center gap-2">
         <span className="inline-flex items-center h-5 px-2 rounded-pill bg-brand-red text-background text-2xs font-bold uppercase">
           最新
         </span>
-        <span className="inline-flex items-center h-5 px-2 rounded-sm bg-surface-card border border-border-soft text-2xs font-bold text-muted-foreground">
+        <span className="inline-flex items-center h-5 px-2 rounded-4 bg-surface-card border border-border-soft text-2xs font-bold text-muted-foreground">
           {article.category}
         </span>
       </div>
@@ -259,10 +259,10 @@ function ContentCard({
   return (
     <Link
       to={to}
-      className="group flex flex-col gap-2 p-5 rounded-md bg-surface-card border border-border-soft hover:border-foreground/40 transition-all hover:"
+      className="group flex flex-col gap-2 p-5 rounded-16 bg-surface-card border border-border-soft hover:border-foreground/40 transition-all hover:"
     >
       {showCategory && (
-        <span className="inline-flex items-center w-fit h-5 px-2 rounded-sm bg-surface-1 text-2xs font-bold text-muted-foreground">
+        <span className="inline-flex items-center w-fit h-5 px-2 rounded-4 bg-surface-1 text-2xs font-bold text-muted-foreground">
           {article.category}
         </span>
       )}

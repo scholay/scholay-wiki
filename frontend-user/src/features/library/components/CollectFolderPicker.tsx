@@ -86,7 +86,7 @@ export function CollectFolderPicker() {
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-3">
         {/* 新建文献集 */}
         {creating ? (
-          <div className="flex items-center gap-2 rounded-md border border-border-button bg-surface-card p-2">
+          <div className="flex items-center gap-2 rounded-12 border border-border-button bg-surface-card p-2">
             <input
               autoFocus
               value={newName}
@@ -100,7 +100,7 @@ export function CollectFolderPicker() {
               type="button"
               onClick={submitCreate}
               disabled={!newName.trim() || createMut.isPending}
-              className="flex h-8 items-center gap-1 rounded-sm bg-brand-red px-3 text-xs font-medium text-on-brand active:opacity-90 disabled:opacity-50"
+              className="flex h-8 items-center gap-1 rounded-8 bg-brand-red px-3 text-xs font-medium text-on-brand active:opacity-90 disabled:opacity-50"
             >
               {createMut.isPending ? <Loader2 className="size-3.5 animate-spin" /> : '创建'}
             </button>
@@ -116,9 +116,9 @@ export function CollectFolderPicker() {
           <button
             type="button"
             onClick={() => setCreating(true)}
-            className="flex w-full items-center gap-3 rounded-md border border-border-button bg-surface-card p-3 text-left active:bg-surface-1"
+            className="flex w-full items-center gap-3 rounded-12 border border-border-button bg-surface-card p-3 text-left active:bg-surface-1"
           >
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-sm border border-border bg-surface-1">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-8 border border-border bg-surface-1">
               <Plus className="size-5 text-brand-green" />
             </span>
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -151,7 +151,7 @@ export function CollectFolderPicker() {
         <button
           type="button"
           onClick={confirm}
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-brand-red text-base font-semibold text-on-brand active:opacity-90"
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-8 bg-brand-red text-base font-semibold text-on-brand active:opacity-90"
         >
           <BookmarkCheck className="size-4" />
           完成收藏
@@ -201,15 +201,15 @@ function FolderRow({
       type="button"
       onClick={onSelect}
       className={cn(
-        'flex w-full items-center gap-3 rounded-md border bg-surface-card p-2.5 text-left transition-colors',
+        'flex w-full items-center gap-3 rounded-12 border bg-surface-card p-2.5 text-left transition-colors',
         selected ? 'border-[1.5px] border-brand-green' : 'border-border active:bg-surface-1'
       )}
     >
       {/* 文件夹封面(简化版堆叠封面:色脊 + 折角) */}
-      <span className="relative flex size-10 shrink-0 items-center justify-center rounded-sm bg-surface-1">
+      <span className="relative flex size-10 shrink-0 items-center justify-center rounded-8 bg-surface-1">
         <Library className={cn('size-5', selected ? 'text-brand-green' : 'text-muted-foreground')} />
         <span
-          className={cn('absolute left-0 top-0 h-1.5 w-full rounded-t-sm', SPINE_COLORS[index % SPINE_COLORS.length])}
+          className={cn('absolute left-0 top-0 h-1.5 w-full rounded-t-4', SPINE_COLORS[index % SPINE_COLORS.length])}
         />
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">

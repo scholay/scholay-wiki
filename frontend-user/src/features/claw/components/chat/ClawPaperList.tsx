@@ -108,7 +108,7 @@ export function ClawPaperList({
   const overflow = enriched.length > VISIBLE_CARD_COUNT;
 
   return (
-    <div className="rounded-md border border-border bg-surface-1 overflow-hidden">
+    <div className="rounded-16 border border-border bg-surface-1 overflow-hidden">
       <header className="flex items-center justify-between gap-2 h-9 px-2.5 border-b border-border-soft bg-surface-2/40">
         <button
           type="button"

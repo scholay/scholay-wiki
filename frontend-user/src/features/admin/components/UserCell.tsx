@@ -67,7 +67,7 @@ export function UserCell(props: UserCellProps) {
           <span className="truncate text-xs font-medium text-foreground transition-colors group-hover:text-brand-red">
             {displayName(props)}
           </span>
-          <span className="shrink-0 rounded-sm bg-surface-2 px-1 font-mono text-2xs text-faint">#{id}</span>
+          <span className="shrink-0 rounded-4 bg-surface-2 px-1 font-mono text-2xs text-faint">#{id}</span>
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72 p-0 text-xs">
@@ -75,7 +75,7 @@ export function UserCell(props: UserCellProps) {
         <div className="flex items-center justify-between gap-2 border-b border-border-soft px-3 py-2.5">
           <div className="flex min-w-0 items-center gap-1.5">
             <span className="truncate text-sm font-semibold text-foreground">{displayName(props)}</span>
-            <span className="shrink-0 rounded-sm bg-surface-2 px-1 font-mono text-2xs text-faint">#{id}</span>
+            <span className="shrink-0 rounded-4 bg-surface-2 px-1 font-mono text-2xs text-faint">#{id}</span>
           </div>
           <TierBadge tier={vip.data?.tier} loading={vip.isLoading} />
         </div>
@@ -217,7 +217,7 @@ export function UserInline({ id, name, email, phone }: UserCellProps) {
   return (
     <span className={cn('inline-flex items-center gap-1.5')}>
       <span className="truncate text-xs font-medium text-foreground">{displayName({ id, name, email, phone })}</span>
-      <span className="shrink-0 rounded-sm bg-surface-2 px-1 font-mono text-2xs text-faint">#{id}</span>
+      <span className="shrink-0 rounded-4 bg-surface-2 px-1 font-mono text-2xs text-faint">#{id}</span>
     </span>
   );
 }

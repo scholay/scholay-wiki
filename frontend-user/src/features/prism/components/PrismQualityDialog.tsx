@@ -100,12 +100,12 @@ export function PrismQualityDialog({
         ) : (
           <div className="space-y-3">
             {aiHardCount === 0 && authorFront.length === 0 ? (
-              <div className="flex items-center gap-2 rounded-md bg-brand-green/10 px-3 py-2 text-xs text-brand-green">
+              <div className="flex items-center gap-2 rounded-12 bg-brand-green/10 px-3 py-2 text-xs text-brand-green">
                 <CheckCircle2 className="size-4 shrink-0" /> 未发现悬空引用 / 未定义交叉引用 / 前置缺失。
               </div>
             ) : hasHard ? (
               <>
-                <div className="flex items-start gap-2 rounded-md border border-brand-red/30 bg-danger-soft p-2.5 text-xs text-brand-red">
+                <div className="flex items-start gap-2 rounded-12 border border-brand-red/30 bg-danger-soft p-2.5 text-xs text-brand-red">
                   <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
                   <span>发现 {aiHardCount} 处 AI 可修的确定性问题(引用/交叉引用/前置)。一键交给 AI 修复(消耗一个额度轮)。</span>
                 </div>
@@ -117,7 +117,7 @@ export function PrismQualityDialog({
             ) : null}
             {/* 一致性(V4-⑥):术语变体/风格混用 —— 独立一轮「统一」修复 */}
             {consistency.length > 0 && (
-              <div className="space-y-1 rounded-md border border-border px-3 py-2">
+              <div className="space-y-1 rounded-12 border border-border px-3 py-2">
                 <div className="flex items-center justify-between">
                   <p className="text-2xs font-bold text-subtle">全文一致性({consistency.length})</p>
                   <Button
@@ -142,7 +142,7 @@ export function PrismQualityDialog({
             )}
             {/* 作者/机构类:另立提示,AI 与当前 UI 都改不了(双重死端),不给「让 AI 修复」按钮 */}
             {authorFront.length > 0 && (
-              <div className="rounded-md border border-border bg-surface-1 px-3 py-2 text-2xs text-muted-foreground">
+              <div className="rounded-12 border border-border bg-surface-1 px-3 py-2 text-2xs text-muted-foreground">
                 <p className="font-bold text-subtle">作者 / 机构信息</p>
                 <p className="mt-0.5">{authorFront.join(';')}。</p>
                 <p className="mt-0.5 text-faint">在顶栏「作者/机构」里填写,AI 不代填(避免编造真实人名/单位)。</p>
@@ -150,7 +150,7 @@ export function PrismQualityDialog({
             )}
             {/* 生成侧信号(V2-A4):写作进度账,不计入硬问题数 */}
             {(r.stub_sections?.length > 0 || r.todo_count > 0 || (r.abbrev_issues?.length ?? 0) > 0) && (
-              <div className="space-y-1 rounded-md bg-surface-1 px-3 py-2">
+              <div className="space-y-1 rounded-12 bg-surface-1 px-3 py-2">
                 <p className="text-2xs font-bold text-faint">写作进度(不计入问题数)</p>
                 {r.stub_sections?.length > 0 && (
                   <p className="text-2xs text-muted-foreground">

@@ -127,7 +127,7 @@ function DimensionRowImpl({
         onClick={() => onStartEdit('prompt')}
         disabled={isHidden}
         className={cn(
-          'inline-flex h-7 w-7 items-center justify-center rounded-sm shrink-0 transition-colors',
+          'inline-flex h-7 w-7 items-center justify-center rounded-8 shrink-0 transition-colors',
           isHidden
             ? 'bg-surface-2 text-faint cursor-not-allowed'
             : 'bg-surface-2 text-muted-foreground hover:bg-surface-1 hover:text-foreground'
@@ -144,7 +144,7 @@ function DimensionRowImpl({
         onClick={onRequestDelete}
         disabled={isHidden}
         className={cn(
-          'inline-flex h-7 w-7 items-center justify-center rounded-sm shrink-0 transition-colors',
+          'inline-flex h-7 w-7 items-center justify-center rounded-8 shrink-0 transition-colors',
           isHidden
             ? 'bg-surface-2 text-faint cursor-not-allowed'
             : dim.isSystem && !dim.isCustomized

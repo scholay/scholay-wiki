@@ -151,7 +151,7 @@ export function DataTable<T>({
   };
 
   return (
-    <div className="rounded-md border border-border overflow-hidden bg-surface-card">
+    <div className="rounded-12 border border-border overflow-hidden bg-surface-card">
       {/* 批量操作 bar —— 选中 > 0 时叠加到顶部 */}
       {bulkActions && selectedKeys.size > 0 && (
         <div className="flex items-center justify-between gap-3 bg-surface-1 border-b border-border px-3 h-10">

@@ -20,7 +20,7 @@ export function SkillInstallPanel({
 }) {
   if (!install) {
     return (
-      <div className="rounded-lg border border-border bg-surface-1 p-4">
+      <div className="rounded-16 border border-border bg-surface-1 p-4">
         <div className="flex items-center gap-2 text-sm font-medium text-foreground">
           <Lock className="h-4 w-4 text-faint" />
           去使用
@@ -33,7 +33,7 @@ export function SkillInstallPanel({
   }
 
   return (
-    <div id="install" className="rounded-lg border border-border bg-surface-card p-4">
+    <div id="install" className="rounded-16 border border-border bg-surface-card p-4">
       <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
         <Package className="h-4 w-4 text-brand-green" />
         去使用 —— 装进你的智能体
@@ -90,7 +90,7 @@ function CommandRow({
         {title}
       </div>
       <div className="flex items-stretch gap-2">
-        <code className="min-w-0 flex-1 overflow-x-auto rounded-md border border-border bg-surface-1 px-3 py-2 font-mono text-2xs leading-paragraph text-subtle">
+        <code className="min-w-0 flex-1 overflow-x-auto rounded-8 border border-border bg-surface-1 px-3 py-2 font-mono text-2xs leading-paragraph text-subtle">
           {command}
         </code>
         <CopyButton text={command} iconOnly />

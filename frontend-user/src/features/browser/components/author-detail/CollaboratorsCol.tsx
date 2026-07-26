@@ -46,7 +46,7 @@ export function CollaboratorsCol({
         </div>
       </div>
 
-      <div className="rounded-lg bg-surface-card border border-border overflow-hidden">
+      <div className="rounded-16 bg-surface-card border border-border overflow-hidden">
         {loading && collaborators.length === 0 ? (
           <div className="flex items-center justify-center py-8 text-faint">
             <Loader2 className="size-4 animate-spin" />
@@ -97,7 +97,7 @@ export function CollaboratorsCol({
                   <button
                     type="button"
                     onClick={() => openAuthor(c.author)}
-                    className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-sm text-faint hover:bg-surface-1 hover:text-foreground transition-colors"
+                    className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-8 text-faint hover:bg-surface-1 hover:text-foreground transition-colors"
                     aria-label="打开学者详情"
                   >
                     <ArrowUpRight className="size-3.5" strokeWidth={2} />

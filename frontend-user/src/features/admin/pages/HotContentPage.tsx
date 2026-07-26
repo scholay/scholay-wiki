@@ -71,7 +71,7 @@ function CleanupConfigCard() {
   };
 
   return (
-    <section className="mb-6 rounded-lg border border-border bg-surface-card p-4">
+    <section className="mb-6 rounded-16 border border-border bg-surface-card p-4">
       <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="text-sm font-bold text-foreground">清理策略</h3>
         <span className="text-2xs text-faint">
@@ -166,7 +166,7 @@ export function HotContentPage() {
       cell: (r) => (
         <span
           className={
-            'rounded-sm px-1.5 py-0.5 text-2xs ' +
+            'rounded-4 px-1.5 py-0.5 text-2xs ' +
             (r.search_type === 'journal'
               ? 'bg-warning-soft text-brand-amber'
               : 'bg-surface-2 text-subtle')

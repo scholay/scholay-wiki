@@ -17,7 +17,7 @@ export function ToolLogo({
 }) {
   const [failed, setFailed] = useState(false);
   const initial = (tool.name_en || tool.name || '?').trim().charAt(0).toUpperCase();
-  const box = cn('shrink-0 rounded-md border border-border-soft', className);
+  const box = cn('shrink-0 rounded-8 border border-border-soft', className);
 
   if (!tool.logo || failed) {
     return (

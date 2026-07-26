@@ -41,7 +41,7 @@ export function RailLinks() {
             if (item.sectionId) flashSection(item.sectionId);
           }}
           className={cn(
-            'inline-flex items-center gap-1.5 h-7 px-2 rounded-md text-sm shrink-0 transition-colors',
+            'inline-flex items-center gap-1.5 h-7 px-2 rounded-8 text-sm shrink-0 transition-colors',
             'border border-transparent text-muted-foreground hover:bg-surface-2 hover:text-foreground'
           )}
         >

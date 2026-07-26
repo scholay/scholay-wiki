@@ -112,7 +112,7 @@ export function UserMenuContent() {
         <div className="px-3 pb-3">
           <DropdownMenuItem
             className={cn(
-              'w-full cursor-pointer justify-center gap-1.5 rounded-md bg-brand-red px-3 py-2 text-background',
+              'w-full cursor-pointer justify-center gap-1.5 rounded-8 bg-brand-red px-3 py-2 text-background',
               // DropdownMenuItem 默认 hover/highlight 是 data-[highlighted]:bg-surface-2 + focus:text-foreground,
               // 会盖掉红底→白字浮在浅灰上(washed out)。显式覆盖这两个状态保持红底白字。
               'hover:bg-brand-red/90 focus-visible:bg-brand-red/90 focus:text-background',
@@ -133,35 +133,35 @@ export function UserMenuContent() {
            避免下拉菜单与设置页漂移。末尾再补「帮助中心」「管理员后台」两条非设置项。 ---------- */}
       <div className="p-1.5">
         <DropdownMenuItem
-          className="cursor-pointer rounded-md px-3 py-2 gap-2.5"
+          className="cursor-pointer rounded-8 px-3 py-2 gap-2.5"
           onSelect={() => navigate('/settings/profile')}
         >
           <UserIcon className="size-3.5 text-faint" />
           <span className="text-sm text-subtle">个人资料</span>
         </DropdownMenuItem>
         <DropdownMenuItem
-          className="cursor-pointer rounded-md px-3 py-2 gap-2.5"
+          className="cursor-pointer rounded-8 px-3 py-2 gap-2.5"
           onSelect={() => navigate('/settings/membership')}
         >
           <Crown className="size-3.5 text-faint" />
           <span className="text-sm text-subtle">账户资产</span>
         </DropdownMenuItem>
         <DropdownMenuItem
-          className="cursor-pointer rounded-md px-3 py-2 gap-2.5"
+          className="cursor-pointer rounded-8 px-3 py-2 gap-2.5"
           onSelect={() => navigate('/settings/security')}
         >
           <Shield className="size-3.5 text-faint" />
           <span className="text-sm text-subtle">安全设置</span>
         </DropdownMenuItem>
         <DropdownMenuItem
-          className="cursor-pointer rounded-md px-3 py-2 gap-2.5"
+          className="cursor-pointer rounded-8 px-3 py-2 gap-2.5"
           onSelect={() => navigate('/settings/connections')}
         >
           <Link2 className="size-3.5 text-faint" />
           <span className="text-sm text-subtle">已连接账号</span>
         </DropdownMenuItem>
         <DropdownMenuItem
-          className="cursor-pointer rounded-md px-3 py-2 gap-2.5"
+          className="cursor-pointer rounded-8 px-3 py-2 gap-2.5"
           onSelect={() => navigate('/help')}
         >
           <Info className="size-3.5 text-faint" />
@@ -169,7 +169,7 @@ export function UserMenuContent() {
         </DropdownMenuItem>
         {isAdmin && (
           <DropdownMenuItem
-            className="cursor-pointer rounded-md px-3 py-2 gap-2.5"
+            className="cursor-pointer rounded-8 px-3 py-2 gap-2.5"
             onSelect={() => navigate('/admin')}
           >
             <ShieldCheck className="size-3.5 text-brand-red" />
@@ -183,7 +183,7 @@ export function UserMenuContent() {
       {/* ---------- 退出登录(红) ---------- */}
       <div className="p-1.5">
         <DropdownMenuItem
-          className="cursor-pointer rounded-md px-3 py-2 gap-2.5 text-brand-red focus:text-brand-red focus-visible:bg-danger-soft"
+          className="cursor-pointer rounded-8 px-3 py-2 gap-2.5 text-brand-red focus:text-brand-red focus-visible:bg-danger-soft"
           onSelect={handleLogout}
         >
           <LogOut className="size-3.5" />

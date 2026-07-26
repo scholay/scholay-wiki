@@ -54,7 +54,7 @@ export const ShareCard = forwardRef<HTMLDivElement, { data: ShareCardData }>(
     return (
       <div
         ref={ref}
-        className="w-full overflow-hidden rounded-lg border border-border bg-surface-card"
+        className="w-full overflow-hidden rounded-16 border border-border bg-surface-card"
       >
         {/* 三色品牌条 */}
         <div className="flex h-1">
@@ -72,7 +72,7 @@ export const ShareCard = forwardRef<HTMLDivElement, { data: ShareCardData }>(
         <div className="flex flex-col gap-3 px-4 py-4">
           {isTool ? (
             <div className="flex items-start gap-3">
-              <div className="flex size-11 shrink-0 items-center justify-center rounded-md bg-brand-red text-md font-bold text-on-brand">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-8 bg-brand-red text-md font-bold text-on-brand">
                 {data.title.slice(0, 2).toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
@@ -106,9 +106,9 @@ export const ShareCard = forwardRef<HTMLDivElement, { data: ShareCardData }>(
           ) : isCollection ? (
             <div className="flex items-start gap-3">
               <div className="relative size-12 shrink-0">
-                <div className="absolute left-2 top-0 size-9 rounded-sm bg-brand-amber/80" />
-                <div className="absolute left-1 top-1 size-9 rounded-sm bg-brand-red/85" />
-                <div className="absolute left-0 top-2 flex size-9 items-center justify-center rounded-sm bg-brand-green text-2xs font-bold text-on-brand">
+                <div className="absolute left-2 top-0 size-9 rounded-8 bg-brand-amber/80" />
+                <div className="absolute left-1 top-1 size-9 rounded-8 bg-brand-red/85" />
+                <div className="absolute left-0 top-2 flex size-9 items-center justify-center rounded-8 bg-brand-green text-2xs font-bold text-on-brand">
                   {data.paperCount}
                 </div>
               </div>
@@ -161,7 +161,7 @@ export const ShareCard = forwardRef<HTMLDivElement, { data: ShareCardData }>(
 
           {/* 二维码块 */}
           <div className="flex items-center gap-3 border-t border-border-soft pt-3">
-            <div className="rounded-sm border border-border bg-surface-card p-1.5">
+            <div className="rounded-8 border border-border bg-surface-card p-1.5">
               <QRCodeCanvas value={data.qrValue} size={64} level="M" marginSize={0} />
             </div>
             <div className="min-w-0 flex-1">

@@ -261,7 +261,7 @@ export function OAuthCallbackPage() {
             <button
               type="button"
               onClick={() => navigate('/', { replace: true })}
-              className="mt-2 inline-flex items-center h-9 px-4 rounded-sm bg-foreground text-background text-sm font-semibold hover:bg-foreground/85"
+              className="mt-2 inline-flex items-center h-9 px-4 rounded-8 bg-foreground text-background text-sm font-semibold hover:bg-foreground/85"
             >
               返回首页
             </button>

@@ -143,7 +143,7 @@ export function JournalSearchResults({
       <div className="max-w-6xl mx-auto px-10 py-7 space-y-6">
         {/* 落地页传 header 槽则替换默认 Hero(避免双 h1);搜索页不传 → 默认 Hero。 */}
         {header ?? (
-        <section className="rounded-lg bg-surface-1 border border-border-soft p-6 space-y-[18px]">
+        <section className="rounded-16 bg-surface-1 border border-border-soft p-6 space-y-[18px]">
           {/* 标题 + 右侧 KPI */}
           <div className="flex items-end justify-between gap-6">
             <div className="space-y-1.5">
@@ -171,7 +171,7 @@ export function JournalSearchResults({
           {/* 搜索条 —— .pen `xBNU4` 高 52,走 token `h-13`(globals.css 新加,
               填 Tailwind h-12 / h-14 之间的空缺,与 dialog header/footer 通用) */}
           <form onSubmit={submitSearch} className="flex items-center gap-2.5 h-13">
-            <div className="flex flex-1 h-13 items-center gap-3 px-[18px] rounded-lg bg-surface-card border border-border-strong focus-within:border-foreground transition-colors">
+            <div className="flex flex-1 h-13 items-center gap-3 px-[18px] rounded-12 bg-surface-card border border-border-strong focus-within:border-foreground transition-colors">
               <Search className="size-4 text-muted-foreground" strokeWidth={2} />
               <input
                 type="search"
@@ -184,7 +184,7 @@ export function JournalSearchResults({
                 <button
                   type="button"
                   onClick={() => setInput('')}
-                  className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-faint hover:bg-surface-2 hover:text-foreground"
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-8 text-faint hover:bg-surface-2 hover:text-foreground"
                   aria-label="清空"
                 >
                   <X className="size-3.5" />
@@ -193,7 +193,7 @@ export function JournalSearchResults({
             </div>
             <button
               type="submit"
-              className="inline-flex h-13 px-6 items-center justify-center gap-2 rounded-lg bg-foreground text-background text-base font-bold hover:opacity-90 transition-opacity shrink-0"
+              className="inline-flex h-13 px-6 items-center justify-center gap-2 rounded-12 bg-foreground text-background text-base font-bold hover:opacity-90 transition-opacity shrink-0"
             >
               <Search className="size-3.5" strokeWidth={2.5} />
               搜索期刊
@@ -233,7 +233,7 @@ export function JournalSearchResults({
                   type="button"
                   onClick={() => setSort(opt.key)}
                   className={cn(
-                    'inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-xs transition-colors',
+                    'inline-flex items-center gap-1.5 h-7 px-3 rounded-8 text-xs transition-colors',
                     active
                       ? 'bg-foreground text-background font-bold'
                       : 'bg-surface-card border border-border text-subtle hover:border-foreground'
@@ -249,7 +249,7 @@ export function JournalSearchResults({
 
         {/* ───── 错误 / 空 / 列表 ───── */}
         {searchQ.error && (
-          <div className="flex items-center gap-2 px-4 py-3 rounded-md bg-danger-soft text-brand-red text-xs">
+          <div className="flex items-center gap-2 px-4 py-3 rounded-16 bg-danger-soft text-brand-red text-xs">
             <AlertCircle className="size-3.5" />
             搜索期刊出错了,请稍后重试
           </div>
@@ -322,7 +322,7 @@ function JournalCard({
     <button
       type="button"
       onClick={onOpen}
-      className="group flex h-48 items-stretch text-left gap-4 p-[18px] rounded-lg bg-surface-card border border-border hover:border-foreground hover:transition-all"
+      className="group flex h-48 items-stretch text-left gap-4 p-[18px] rounded-16 bg-surface-card border border-border hover:border-foreground hover:transition-all"
     >
       <JournalCover id={j.id} name={j.canonical_name} size="card" />
 
@@ -342,7 +342,7 @@ function JournalCard({
           <div className="shrink-0 flex items-center gap-1.5">
             {j.xr_quartile && (
               <span
-                className="inline-flex items-center h-6 px-2 rounded-sm bg-brand-green/10 text-brand-green text-2xs font-bold"
+                className="inline-flex items-center h-6 px-2 rounded-4 bg-brand-green/10 text-brand-green text-2xs font-bold"
                 title="中科院新锐分区"
               >
                 新锐 {j.xr_quartile} 区
@@ -350,7 +350,7 @@ function JournalCard({
             )}
             {j.gjqk_warning && (
               <span
-                className="inline-flex items-center gap-1 h-6 px-2 rounded-sm bg-warning-soft text-brand-amber text-2xs font-bold"
+                className="inline-flex items-center gap-1 h-6 px-2 rounded-4 bg-warning-soft text-brand-amber text-2xs font-bold"
                 title="中科院预警期刊"
               >
                 ⚠ 预警
@@ -360,7 +360,7 @@ function JournalCard({
         </div>
 
         {/* KPI 三栏 —— .pen `YpqvW`(rounded-8 border) */}
-        <div className="flex items-stretch rounded-md border border-border-soft">
+        <div className="flex items-stretch rounded-12 border border-border-soft">
           <KpiCell label="影响因子" value={fmtIf(j.jcr_impact_factor)} sub={j.jcr_quartile ? `JCR ${j.jcr_quartile}` : '—'} />
           <KpiCell
             label="中科院分区"
@@ -380,25 +380,25 @@ function JournalCard({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             {j.type && (
-              <span className="inline-flex items-center h-5 px-2 rounded-sm bg-foreground text-background text-2xs font-bold uppercase">
+              <span className="inline-flex items-center h-5 px-2 rounded-4 bg-foreground text-background text-2xs font-bold uppercase">
                 {j.type}
               </span>
             )}
             {(j.source_count ?? 0) > 0 && (
-              <span className="inline-flex items-center h-5 px-2 rounded-sm bg-surface-2 text-subtle text-2xs">
+              <span className="inline-flex items-center h-5 px-2 rounded-4 bg-surface-2 text-subtle text-2xs">
                 {j.source_count} 个数据源
               </span>
             )}
             {j.has_submission && (
               <span
-                className="inline-flex items-center h-5 px-2 rounded-sm bg-prism-badge-bg text-prism-badge-fg text-2xs font-medium"
+                className="inline-flex items-center h-5 px-2 rounded-4 bg-prism-badge-bg text-prism-badge-fg text-2xs font-medium"
                 title="提供投稿须知 / LaTeX 模板(Max 会员可下载)"
               >
                 投稿资源
               </span>
             )}
           </div>
-          <span className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md border border-border text-xs font-bold text-foreground group-hover:bg-surface-1 transition-colors">
+          <span className="inline-flex items-center gap-1 h-7 px-2.5 rounded-8 border border-border text-xs font-bold text-foreground group-hover:bg-surface-1 transition-colors">
             查看详情
             <ArrowUpRight className="size-3" strokeWidth={2.5} />
           </span>

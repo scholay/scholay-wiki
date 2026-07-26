@@ -88,7 +88,7 @@ export function SearcherPagination({
               type="button"
               onClick={() => onChange(p)}
               className={cn(
-                'inline-flex h-6 min-w-6 items-center justify-center rounded-sm px-1.5 text-xs font-semibold transition-colors',
+                'inline-flex h-6 min-w-6 items-center justify-center rounded-8 px-1.5 text-xs font-semibold transition-colors',
                 p === page
                   ? 'bg-destructive text-on-brand'
                   : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground'

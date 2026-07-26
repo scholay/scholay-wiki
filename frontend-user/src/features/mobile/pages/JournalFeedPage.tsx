@@ -100,7 +100,7 @@ export function JournalFeedPage() {
                 id={next.id}
                 name={next.canonical_name}
                 size="tile"
-                className="h-9 w-9 rounded-sm"
+                className="h-9 w-9 rounded-8"
               />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-md font-semibold text-foreground">

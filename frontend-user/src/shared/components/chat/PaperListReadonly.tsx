@@ -14,7 +14,7 @@ export function PaperListReadonly({ content }: { content: unknown }) {
   if (papers.length === 0) return null;
 
   return (
-    <div className="rounded-md border border-border bg-surface-1/60">
+    <div className="rounded-16 border border-border bg-surface-1/60">
       <div className="flex items-center gap-1.5 border-b border-border-soft px-3 py-1.5 text-2xs text-faint">
         <FileText className="size-3" />
         检索到 {papers.length} 篇论文

@@ -129,7 +129,7 @@ export function SkillReviewPage() {
             key={val}
             onClick={() => setTab(val)}
             className={
-              'rounded-md px-3 py-1 text-xs ' +
+              'rounded-8 px-3 py-1 text-xs ' +
               (tab === val
                 ? 'bg-surface-2 text-foreground'
                 : 'text-muted-foreground hover:bg-surface-1')
@@ -141,7 +141,7 @@ export function SkillReviewPage() {
       </div>
 
       {isError ? (
-        <div className="rounded-md border border-border bg-danger-soft p-4 text-sm text-brand-red">
+        <div className="rounded-16 border border-border bg-danger-soft p-4 text-sm text-brand-red">
           加载审核队列失败,请
           <button className="ml-1 underline" onClick={() => refetch()}>
             重试

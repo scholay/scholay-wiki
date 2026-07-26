@@ -130,7 +130,7 @@ export function LibraryPaperList({
           <button
             type="button"
             onClick={onToggleSortOrder}
-            className="inline-flex items-center gap-1 h-6 px-2 rounded-sm hover:bg-surface-1 hover:text-foreground transition-colors"
+            className="inline-flex items-center gap-1 h-6 px-2 rounded-8 hover:bg-surface-1 hover:text-foreground transition-colors"
             title={
               sortOrder === 'asc'
                 ? '当前升序(早加入在前),点击切降序'

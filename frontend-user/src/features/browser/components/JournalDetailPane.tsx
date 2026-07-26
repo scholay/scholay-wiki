@@ -122,7 +122,7 @@ export function JournalDetailPane() {
             再叠一层"我的收藏 › 期刊 › <name>"反而冗余 */}
 
         {/* ───── Hero —— .pen `L3sjEN`(rounded-10 bg-FAFAFA border);移动端封面在上、信息在下 ───── */}
-        <section className="rounded-lg bg-surface-1 border border-border-soft p-4 sm:p-6 flex flex-col sm:flex-row sm:items-stretch gap-4 sm:gap-6">
+        <section className="rounded-16 bg-surface-1 border border-border-soft p-4 sm:p-6 flex flex-col sm:flex-row sm:items-stretch gap-4 sm:gap-6">
           {/* Cover —— .pen `oWWC5` 140x180,移动端略缩 */}
           <JournalCover
             id={journal.id}
@@ -204,7 +204,7 @@ export function JournalDetailPane() {
                   href={`https://portal.issn.org/resource/ISSN/${encodeURIComponent(journal.issns[0])}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-foreground text-background text-xs font-bold hover:opacity-90 transition-opacity"
+                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-8 bg-foreground text-background text-xs font-bold hover:opacity-90 transition-opacity"
                 >
                   <ExternalLink className="size-3" strokeWidth={2.5} />
                   查询原刊
@@ -220,7 +220,7 @@ export function JournalDetailPane() {
                   if (ok) toast.success('已复制期刊链接');
                   else toast.error('复制失败,请手动复制地址栏链接');
                 }}
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border text-xs font-bold text-subtle hover:border-foreground hover:text-foreground transition-colors"
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-8 border border-border text-xs font-bold text-subtle hover:border-foreground hover:text-foreground transition-colors"
               >
                 <Share2 className="size-3" strokeWidth={2.5} />
                 分享
@@ -295,7 +295,7 @@ export function JournalDetailPane() {
 
         {/* 出版与收录 —— 真数据。评分 / 投稿要求 / 发稿周期 / 编委会 / 研究论坛(评论)等
             社区占位卡按需求已移除(后端未上线),只保留有真实数据的区块。 */}
-        <section className="rounded-lg bg-surface-card border border-border p-5 space-y-3">
+        <section className="rounded-16 bg-surface-card border border-border p-5 space-y-3">
           <h3 className="font-display font-bold text-md leading-none text-foreground">
             出版与收录
           </h3>
@@ -349,7 +349,7 @@ function IndexCard({
   return (
     <div
       className={cn(
-        'rounded-lg p-5 space-y-1.5',
+        'rounded-16 p-5 space-y-1.5',
         highlight
           ? 'bg-foreground text-background'
           : 'bg-surface-card border border-border'

@@ -53,7 +53,7 @@ export function PdfUploadEntry({
           onDragLeave={onDragLeave}
           onDrop={onDrop}
           className={cn(
-            'group flex flex-col items-center justify-center gap-4 p-8 rounded-md border-2 transition-all text-center min-h-[240px]',
+            'group flex flex-col items-center justify-center gap-4 p-8 rounded-12 border-2 transition-all text-center min-h-[240px]',
             dragOver
               ? 'border-brand-amber bg-warning-soft scale-[1.01]'
               : 'border-dashed border-border-strong bg-warning-soft/40 hover:bg-warning-soft hover:border-brand-amber/60'
@@ -68,7 +68,7 @@ export function PdfUploadEntry({
               拖拽到这里,或点下面的按钮选择文件;上传后会自动识别并匹配在线论文
             </div>
           </div>
-          <div className="inline-flex items-center gap-1.5 h-9 px-4 rounded-sm bg-brand-amber text-background text-sm font-bold group-hover:bg-brand-amber/90 transition-colors">
+          <div className="inline-flex items-center gap-1.5 h-9 px-4 rounded-8 bg-brand-amber text-background text-sm font-bold group-hover:bg-brand-amber/90 transition-colors">
             <FileText className="size-3.5" strokeWidth={2.25} />
             选择 PDF 文件
           </div>
@@ -89,7 +89,7 @@ export function PdfUploadEntry({
             toast.info('「先填写信息」即将推出 — 现在可先上传 PDF,或用「在线搜索加入」')
           }
           className={cn(
-            'group relative flex flex-col items-center justify-center gap-4 p-8 rounded-md border transition-all text-center min-h-[240px]',
+            'group relative flex flex-col items-center justify-center gap-4 p-8 rounded-12 border transition-all text-center min-h-[240px]',
             'border-border-strong bg-brand-amber-soft/40 hover:bg-brand-amber-soft hover:border-brand-amber/60'
           )}
         >
@@ -108,7 +108,7 @@ export function PdfUploadEntry({
               没有 PDF 也可以先填好文献信息,之后再补充 PDF
             </div>
           </div>
-          <div className="inline-flex items-center gap-1.5 h-9 px-4 rounded-sm border border-brand-amber text-brand-amber text-sm font-bold group-hover:bg-brand-amber/5 transition-colors">
+          <div className="inline-flex items-center gap-1.5 h-9 px-4 rounded-8 border border-brand-amber text-brand-amber text-sm font-bold group-hover:bg-brand-amber/5 transition-colors">
             <Edit3 className="size-3.5" strokeWidth={2.25} />
             开始填写
           </div>
@@ -117,7 +117,7 @@ export function PdfUploadEntry({
 
       {/* 4 步预告 stepper —— "上传后会发生什么"
           上传 PDF (active 橙) → 自动检索 → 确认/接受 → 保存入库 */}
-      <div className="rounded-md border border-border-soft bg-surface-card p-4">
+      <div className="rounded-12 border border-border-soft bg-surface-card p-4">
         <div className="text-xs font-semibold text-muted-foreground mb-3">
           上传后会发生什么
         </div>

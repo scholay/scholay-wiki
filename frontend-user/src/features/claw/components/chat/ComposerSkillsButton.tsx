@@ -34,7 +34,7 @@ export function ComposerSkillsButton({
           disabled={disabled}
           aria-label="技能 —— 本会话将启用的能力"
           title="技能 —— 本会话将启用的能力"
-          className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-40"
+          className="inline-flex h-8 items-center gap-1 rounded-8 px-2 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-40"
         >
           <Puzzle className="h-4 w-4" strokeWidth={2.2} />
           {enabledCount > 0 && (

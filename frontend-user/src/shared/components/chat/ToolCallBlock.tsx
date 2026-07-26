@@ -138,7 +138,7 @@ export function ToolCallBlock({
         : 'text-muted-foreground';
 
   return (
-    <div className="min-w-0 overflow-hidden rounded-md border border-border-soft bg-surface-1/70">
+    <div className="min-w-0 overflow-hidden rounded-8 border border-border-soft bg-surface-1/70">
       {/* Header chip — 永远单行, max-w-full + min-w-0 防溢出 */}
       <button
         type="button"
@@ -223,7 +223,7 @@ function ToolErrorFold({ tool }: { tool: ToolBlock }) {
   const [showDetail, setShowDetail] = useState(false);
   return (
     <div className="min-w-0">
-      <div className="rounded-sm px-2 py-1.5 text-xs bg-warning-soft border border-brand-amber/20 text-subtle">
+      <div className="rounded-4 px-2 py-1.5 text-xs bg-warning-soft border border-brand-amber/20 text-subtle">
         {summary}
         <button
           type="button"
@@ -234,7 +234,7 @@ function ToolErrorFold({ tool }: { tool: ToolBlock }) {
         </button>
       </div>
       {showDetail && (
-        <pre className="mt-1.5 rounded-sm px-2 py-1.5 text-[11px] font-mono leading-paragraph whitespace-pre-wrap break-words max-h-72 overflow-y-auto bg-warning-soft text-subtle border border-brand-amber/20">
+        <pre className="mt-1.5 rounded-4 px-2 py-1.5 text-[11px] font-mono leading-paragraph whitespace-pre-wrap break-words max-h-72 overflow-y-auto bg-warning-soft text-subtle border border-brand-amber/20">
           {sanitizeOpsText(raw)}
         </pre>
       )}
@@ -274,7 +274,7 @@ function ToolPayloadFold({ label, value, kind }: PayloadFoldProps) {
       </div>
       <pre
         className={
-          'rounded-sm px-2 py-1.5 text-[11px] font-mono leading-paragraph whitespace-pre-wrap break-words max-h-72 overflow-y-auto'+
+          'rounded-4 px-2 py-1.5 text-[11px] font-mono leading-paragraph whitespace-pre-wrap break-words max-h-72 overflow-y-auto'+
           (kind === 'error'
             ? 'bg-warning-soft text-subtle border border-brand-amber/20'
             : 'bg-surface-2 text-foreground/80')

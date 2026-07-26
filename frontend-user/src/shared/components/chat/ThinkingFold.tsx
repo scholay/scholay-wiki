@@ -11,7 +11,7 @@ import { ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
  *   - **用户 override**: 一旦点过标题, 不再受 isActive 影响, 维持用户的选择
  *
  * 视觉 token:
- *   - 容器: rounded-md + bg-surface-2/40 + border-border-soft/40 (低对比, 视觉退后)
+ *   - 容器: rounded-8 + bg-surface-2/40 + border-border-soft/40 (低对比, 视觉退后)
  *   - 标题: text-2xs + text-muted-foreground (扫读时不抢眼)
  *   - 内容: monospace + text-2xs + max-h-72 + overflow-y-auto (累积多了不撑外层)
  *
@@ -88,7 +88,7 @@ export function ThinkingFold({ text, isActive, className }: ThinkingFoldProps) {
       className={
         // 更轻的容器(2026-07-15 重设计):去边框、更淡的底 —— 思考过程是次要信息,视觉退到最后,
         // 与 Claude/ChatGPT 把推理呈现为低调可折叠区块的做法一致。
-        'rounded-md bg-surface-1/60 ' +
+        'rounded-8 bg-surface-1/60 ' +
         (className ?? '')
       }
     >

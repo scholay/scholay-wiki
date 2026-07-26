@@ -23,26 +23,26 @@ export function ClawChatMock() {
       {/* messages */}
       <div className="flex flex-col gap-4 p-5 bg-surface-card min-h-[380px]">
         {/* user */}
-        <div className="self-end max-w-[80%] px-4 py-3 rounded-lg bg-foreground text-background text-sm">
+        <div className="self-end max-w-[80%] px-4 py-3 rounded-8 bg-foreground text-background text-sm">
           帮我对比 Vaswani 与 Devlin 两篇论文在 attention 设计上的区别
         </div>
 
         {/* claw response */}
-        <div className="self-start max-w-[88%] px-4 py-3 rounded-lg bg-surface-1 border border-border-soft">
+        <div className="self-start max-w-[88%] px-4 py-3 rounded-8 bg-surface-1 border border-border-soft">
           <div className="text-sm leading-paragraph text-foreground">
             两篇的核心差异在<span className="font-semibold">注意力方向</span>:Vaswani 提出<span className="font-semibold">自回归 self-attention</span>
-            <span className="inline-flex items-center px-1 rounded-sm bg-brand-red/10 text-brand-red text-2xs font-bold ml-0.5">[1]</span>,
+            <span className="inline-flex items-center px-1 rounded-4 bg-brand-red/10 text-brand-red text-2xs font-bold ml-0.5">[1]</span>,
             decoder 端只能看到过去 token;Devlin 则用<span className="font-semibold">双向 masked LM</span>
-            <span className="inline-flex items-center px-1 rounded-sm bg-brand-red/10 text-brand-red text-2xs font-bold ml-0.5">[2]</span>,
+            <span className="inline-flex items-center px-1 rounded-4 bg-brand-red/10 text-brand-red text-2xs font-bold ml-0.5">[2]</span>,
             随机遮蔽 15% token 并让模型联合上下文重建。
           </div>
           {/* citations */}
           <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border-soft text-xs text-muted-foreground">
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-brand-red/10 text-brand-red text-2xs font-bold">[1]</span>
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-brand-red/10 text-brand-red text-2xs font-bold">[1]</span>
             <span className="truncate">Vaswani et al., 2017 · Attention Is All You Need · p.3</span>
           </div>
           <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-brand-red/10 text-brand-red text-2xs font-bold">[2]</span>
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-brand-red/10 text-brand-red text-2xs font-bold">[2]</span>
             <span className="truncate">Devlin et al., 2019 · BERT · p.4</span>
           </div>
         </div>
@@ -50,13 +50,13 @@ export function ClawChatMock() {
 
       {/* input */}
       <div className="flex items-center gap-2 p-3 border-t border-border-soft bg-surface-1">
-        <span className="flex-1 px-3 py-2 rounded-md bg-surface-card border border-border-soft text-sm text-faint">
+        <span className="flex-1 px-3 py-2 rounded-8 bg-surface-card border border-border-soft text-sm text-faint">
           询问你的文献集 …
         </span>
         <button
           type="button"
           aria-label="发送"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-foreground text-background"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-8 bg-foreground text-background"
         >
           <Send className="size-3.5" strokeWidth={2.25} />
         </button>

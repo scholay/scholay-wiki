@@ -60,7 +60,7 @@ function StyleMeter({ value, fillCls }: { value: number; fillCls: string }) {
   return (
     <span className="flex gap-0.5">
       {[1, 2, 3, 4, 5].map((i) => (
-        <span key={i} className={cn('h-1.5 w-3.5 rounded-sm', i <= value ? fillCls : 'bg-surface-2')} />
+        <span key={i} className={cn('h-1.5 w-3.5 rounded-4', i <= value ? fillCls : 'bg-surface-2')} />
       ))}
     </span>
   );
@@ -151,11 +151,11 @@ export function PrismWritingProfileDialog({
         type="button"
         onClick={() => setPreviewSlug(p.slug)}
         className={cn(
-          'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors',
+          'flex w-full items-center gap-2 rounded-12 px-2 py-1.5 text-left transition-colors',
           isPreview ? 'bg-surface-2' : 'hover:bg-surface-1',
         )}
       >
-        <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-md', v.chipCls)}>
+        <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-8', v.chipCls)}>
           <v.icon className={cn('size-4', v.iconCls)} />
         </span>
         <span className="min-w-0 flex-1 truncate text-xs text-foreground">{p.name}</span>
@@ -206,7 +206,7 @@ export function PrismWritingProfileDialog({
                     {(() => {
                       const v = visualOf(preview);
                       return (
-                        <span className={cn('flex size-14 shrink-0 items-center justify-center rounded-lg', v.chipCls)}>
+                        <span className={cn('flex size-14 shrink-0 items-center justify-center rounded-12', v.chipCls)}>
                           <v.icon className={cn('size-7', v.iconCls)} />
                         </span>
                       );
@@ -236,7 +236,7 @@ export function PrismWritingProfileDialog({
                               {i > 0 && <ChevronRight className="mx-0.5 size-3 shrink-0 text-faint" />}
                               <span
                                 className={cn(
-                                  'rounded-md border px-2 py-1 text-2xs',
+                                  'rounded-4 border px-2 py-1 text-2xs',
                                   i === 0 ? cn('border-transparent font-bold text-foreground', v.chipCls) : 'border-border bg-surface-1 text-subtle',
                                 )}
                               >
@@ -253,7 +253,7 @@ export function PrismWritingProfileDialog({
                   {preview.sample && (
                     <div
                       className={cn(
-                        'mt-4 rounded-md border-l-2 bg-surface-1 px-3 py-2.5',
+                        'mt-4 rounded-12 border-l-2 bg-surface-1 px-3 py-2.5',
                         BORDER_BY_ICON[visualOf(preview).iconCls] ?? 'border-l-border-strong',
                       )}
                     >
@@ -282,7 +282,7 @@ export function PrismWritingProfileDialog({
 
                   {/* 适用场景 */}
                   {preview.scene && (
-                    <div className="mt-4 flex items-start gap-2 rounded-md bg-surface-1 px-3 py-2.5">
+                    <div className="mt-4 flex items-start gap-2 rounded-12 bg-surface-1 px-3 py-2.5">
                       <Target className="mt-0.5 size-3.5 shrink-0 text-faint" />
                       <div className="min-w-0">
                         <p className="text-2xs font-bold text-faint">适用场景</p>

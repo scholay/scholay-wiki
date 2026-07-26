@@ -16,7 +16,7 @@ export function PrismPreview() {
         <button
           type="button"
           tabIndex={-1}
-          className="inline-flex items-center gap-1.5 h-7 px-3 rounded-sm bg-foreground text-background text-xs font-bold"
+          className="inline-flex items-center gap-1.5 h-7 px-3 rounded-8 bg-foreground text-background text-xs font-bold"
         >
           <Play className="size-3" />
           编译
@@ -116,7 +116,7 @@ The blended output is then normalized via...`}
           <div className="h-10 px-4 flex items-center border-b border-border bg-surface-1 text-xs text-muted-foreground">
             预览 · 第 4 页 / 共 12 页
           </div>
-          <div className="p-6 space-y-3 text-[11px] leading-paragraph text-foreground bg-surface-card m-4 rounded-sm">
+          <div className="p-6 space-y-3 text-[11px] leading-paragraph text-foreground bg-surface-card m-4 rounded-16">
             <h3 className="text-base font-bold">3 Method</h3>
             <p className="text-subtle">
               We propose a hybrid architecture that combines the linear-time

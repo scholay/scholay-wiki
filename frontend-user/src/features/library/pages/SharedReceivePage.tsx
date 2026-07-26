@@ -206,7 +206,7 @@ export function SharedReceivePage() {
                 onChange={(e) => setCodeInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && setCode(codeInput.trim())}
                 placeholder="请输入提取码"
-                className="h-10 min-w-0 flex-1 rounded-md border border-border bg-surface-card px-3 text-center font-mono text-md tracking-code outline-none focus-visible:border-brand-red"
+                className="h-10 min-w-0 flex-1 rounded-8 border border-border bg-surface-card px-3 text-center font-mono text-md tracking-code outline-none focus-visible:border-brand-red"
               />
               <Button size="sm" className="h-10" onClick={() => setCode(codeInput.trim())} disabled={!codeInput.trim()}>
                 查看
@@ -221,7 +221,7 @@ export function SharedReceivePage() {
           <>
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
               {/* 分享人横幅 */}
-              <div className="mb-4 flex items-start gap-2.5 rounded-lg bg-[#F1EADA] px-3.5 py-3">
+              <div className="mb-4 flex items-start gap-2.5 rounded-16 bg-[#F1EADA] px-3.5 py-3">
                 <Sparkles className="mt-0.5 size-4 shrink-0 text-brand-amber" />
                 <p className="text-xs leading-paragraph text-foreground">
                   <span className="font-semibold">「{share.sharer}」</span>给你分享了一个期刊
@@ -238,13 +238,13 @@ export function SharedReceivePage() {
                 </div>
               ) : sharedJournal ? (
                 <>
-                <div className="rounded-lg border border-border p-4">
+                <div className="rounded-16 border border-border p-4">
                   <div className="flex items-start gap-3">
                     <JournalCover
                       id={sharedJournal.id}
                       name={sharedJournal.canonical_name}
                       size="tile"
-                      className="h-12 w-12 shrink-0 rounded-md"
+                      className="h-12 w-12 shrink-0 rounded-8"
                     />
                     <div className="min-w-0 flex-1">
                       <h1 className="font-serif text-xl font-bold text-foreground">
@@ -313,7 +313,7 @@ export function SharedReceivePage() {
           <>
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
               {/* 分享人横幅 —— 头像 + 「X 给你分享了一篇论文」 */}
-              <div className="mb-5 flex items-center gap-3 rounded-lg bg-[#F1EADA] px-3.5 py-3">
+              <div className="mb-5 flex items-center gap-3 rounded-16 bg-[#F1EADA] px-3.5 py-3">
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-pill bg-brand-red text-sm font-semibold text-on-brand">
                   {share.sharer?.trim().charAt(0) || '友'}
                 </span>
@@ -413,7 +413,7 @@ export function SharedReceivePage() {
           <>
             <div className="shrink-0 px-4 pt-4">
               {/* 分享人横幅(灰底卡) */}
-              <div className="flex items-center gap-2.5 rounded-md bg-surface-1 p-3">
+              <div className="flex items-center gap-2.5 rounded-16 bg-surface-1 p-3">
                 <span
                   className="flex size-9 shrink-0 items-center justify-center rounded-pill text-sm font-semibold text-on-brand"
                   style={{ backgroundColor: avatarColor(share.sharer) }}
@@ -565,7 +565,7 @@ export function SharedReceivePage() {
                 onKeyDown={(e) => e.key === 'Enter' && submitCode()}
                 placeholder="请输入提取码"
                 maxLength={16}
-                className={`h-12 w-full rounded-md border bg-surface-card px-3 text-center font-mono text-lg tracking-code outline-none ${
+                className={`h-12 w-full rounded-8 border bg-surface-card px-3 text-center font-mono text-lg tracking-code outline-none ${
                   codeError ? 'border-brand-red' : 'border-border focus-visible:border-brand-red'
                 }`}
               />
@@ -621,7 +621,7 @@ function authorsOf(p: SharePaperSnapshot): string {
 /** 合集封面缩略图 —— 灰底文档样式 + 「合集」标签。 */
 function CollectionCover() {
   return (
-    <div className="flex h-14 w-12 shrink-0 flex-col gap-1 rounded-sm border border-border bg-surface-1 p-1.5">
+    <div className="flex h-14 w-12 shrink-0 flex-col gap-1 rounded-8 border border-border bg-surface-1 p-1.5">
       <span className="text-2xs font-semibold leading-none text-faint">合集</span>
       <span className="mt-0.5 h-[3px] w-full rounded-pill bg-border-strong" />
       <span className="h-[3px] w-3/4 rounded-pill bg-border" />

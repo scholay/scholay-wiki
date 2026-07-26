@@ -23,7 +23,7 @@ export function JournalExploreOverview() {
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="h-[88px] rounded-md bg-surface-card border border-border-soft animate-pulse"
+            className="h-[88px] rounded-16 bg-surface-card border border-border-soft animate-pulse"
           />
         ))}
       </div>
@@ -101,7 +101,7 @@ export function JournalExploreOverview() {
 
       {/* 数据源覆盖 */}
       {data.sourceCoverage && Object.keys(data.sourceCoverage).length > 0 && (
-        <div className="rounded-md bg-surface-card border border-border-soft px-4 py-3">
+        <div className="rounded-16 bg-surface-card border border-border-soft px-4 py-3">
           <h3 className="text-2xs font-bold uppercase text-faint">
             数据源覆盖
           </h3>
@@ -144,11 +144,11 @@ function KpiCard({
   tone: 'red' | 'green' | 'blue' | 'amber';
 }) {
   return (
-    <div className="flex flex-col gap-2 px-4 py-3 rounded-md bg-surface-card border border-border">
+    <div className="flex flex-col gap-2 px-4 py-3 rounded-16 bg-surface-card border border-border">
       <div className="flex items-center gap-2">
         <span
           className={cn(
-            'inline-flex h-7 w-7 items-center justify-center rounded-sm',
+            'inline-flex h-7 w-7 items-center justify-center rounded-8',
             TONE_BG[tone]
           )}
         >
@@ -175,7 +175,7 @@ function DistributionPanel({
 }) {
   const max = Math.max(1, ...items.map((i) => i.count));
   return (
-    <div className="rounded-md bg-surface-card border border-border-soft px-4 py-3">
+    <div className="rounded-16 bg-surface-card border border-border-soft px-4 py-3">
       <h3 className="text-2xs font-bold uppercase text-faint">
         {title}
       </h3>

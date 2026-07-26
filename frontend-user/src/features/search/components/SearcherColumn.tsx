@@ -271,7 +271,7 @@ export function SearcherColumn({
             onSubmit={submit}
             className="flex items-center gap-2 px-4 pt-3.5 pb-2 shrink-0"
           >
-            <div className="flex items-center gap-2 flex-1 h-9 px-3 rounded-sm border border-border-strong bg-surface-card focus-within:border-foreground focus-within:ring-2 focus-within:ring-ring transition-colors">
+            <div className="flex items-center gap-2 flex-1 h-9 px-3 rounded-8 border border-border-strong bg-surface-card focus-within:border-foreground focus-within:ring-2 focus-within:ring-ring transition-colors">
               <Search className="size-3.5 text-faint" />
               <input
                 type="search"
@@ -283,7 +283,7 @@ export function SearcherColumn({
             </div>
             <button
               type="submit"
-              className="inline-flex h-9 w-[72px] items-center justify-center rounded-sm bg-destructive text-destructive-foreground text-base font-bold hover:bg-destructive/90 transition-colors"
+              className="inline-flex h-9 w-[72px] items-center justify-center rounded-8 bg-destructive text-destructive-foreground text-base font-bold hover:bg-destructive/90 transition-colors"
             >
               搜索
             </button>

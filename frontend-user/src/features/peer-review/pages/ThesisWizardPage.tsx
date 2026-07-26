@@ -484,7 +484,7 @@ function SelectedSchoolMini({ target }: { target: SchoolTarget }) {
   const deg =
     target.degreeType === 'phd' ? '博士' : target.degreeType === 'master' ? '硕士' : '本科';
   return (
-    <section className="rounded-lg border border-brand-red border-l-[3px] bg-surface-card p-4">
+    <section className="rounded-16 border border-brand-red border-l-[3px] bg-surface-card p-4">
       <p className="text-xs font-bold text-brand-red">已选院校</p>
       <h3 className="mt-1 text-sm font-bold text-foreground">
         {target.schoolName} · {deg}
@@ -527,7 +527,7 @@ function arrEq(a?: string[], b?: string[]) {
 
 function FailureBanner({ error, onRetry }: { error: string; onRetry: () => void }) {
   return (
-    <div className="mx-auto flex max-w-3xl items-start gap-3 rounded-lg border border-destructive/40 bg-danger-soft p-4">
+    <div className="mx-auto flex max-w-3xl items-start gap-3 rounded-16 border border-destructive/40 bg-danger-soft p-4">
       <AlertCircle className="mt-0.5 size-5 shrink-0 text-destructive" />
       <div className="min-w-0 flex-1">
         <p className="text-sm font-bold text-destructive">AI 暂时无响应</p>
@@ -536,7 +536,7 @@ function FailureBanner({ error, onRetry }: { error: string; onRetry: () => void 
       <button
         type="button"
         onClick={onRetry}
-        className="shrink-0 rounded-md border border-destructive/40 px-3 py-1 text-xs font-bold text-destructive hover:bg-destructive hover:text-background"
+        className="shrink-0 rounded-8 border border-destructive/40 px-3 py-1 text-xs font-bold text-destructive hover:bg-destructive hover:text-background"
       >
         重新生成
       </button>

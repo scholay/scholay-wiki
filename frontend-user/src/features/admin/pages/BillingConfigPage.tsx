@@ -86,14 +86,14 @@ export function BillingConfigPage() {
       description="统一算力点周期额度(7 天成本制,首次使用开表)+ 经费钱包的全部动态旋钮。保存后最多 30 秒全量生效。"
     >
       {isLoading || !form ? (
-        <div className="flex items-center justify-center gap-2 rounded-md border border-border p-6 text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 rounded-16 border border-border p-6 text-muted-foreground">
           <Loader2 className="size-4 animate-spin" />
           加载配置…
         </div>
       ) : (
         <div className="flex flex-col gap-5">
           {/* 总开关 + 最受欢迎 */}
-          <section className="flex flex-col gap-4 rounded-md border border-border bg-surface-card p-5">
+          <section className="flex flex-col gap-4 rounded-16 border border-border bg-surface-card p-5">
             <div className="flex items-center justify-between gap-3">
               <div className="flex flex-col">
                 <span className="text-sm font-bold text-foreground">收费体系总开关</span>
@@ -109,7 +109,7 @@ export function BillingConfigPage() {
                     key={p}
                     onClick={() => setForm({ ...form, popular_plan: p })}
                     className={cn(
-                      'h-8 rounded-md border px-3 text-xs transition-colors',
+                      'h-8 rounded-8 border px-3 text-xs transition-colors',
                       form.popular_plan === p
                         ? 'border-brand-red bg-danger-soft text-brand-red'
                         : 'border-border text-subtle hover:bg-surface-2'
@@ -123,7 +123,7 @@ export function BillingConfigPage() {
           </section>
 
           {GROUPS.map((g) => (
-            <section key={g.title} className="rounded-md border border-border bg-surface-card p-5">
+            <section key={g.title} className="rounded-16 border border-border bg-surface-card p-5">
               <h3 className="mb-4 text-sm font-bold text-foreground">{g.title}</h3>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {g.fields.map((f) => (

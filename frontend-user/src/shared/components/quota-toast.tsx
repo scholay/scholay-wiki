@@ -25,7 +25,7 @@ export function showQuotaToast(kind: Kind) {
   const p = PRESETS[kind];
   const c = COLOR[p.color];
   toast.custom((id) => (
-    <div className="flex w-80 overflow-hidden rounded-md border border-border bg-surface-card shadow-overlay">
+    <div className="flex w-80 overflow-hidden rounded-12 border border-border bg-surface-card shadow-overlay">
       <span className={cn('w-1 shrink-0', c.bar)} />
       <div className="flex flex-1 gap-2 p-3">
         <span className={cn('mt-1.5 size-2 shrink-0 rounded-pill', c.dot)} />

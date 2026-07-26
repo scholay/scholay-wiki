@@ -60,7 +60,7 @@ export function SidebarHeaderNav({ extraEnd }: { extraEnd?: ReactNode }) {
           title="首页"
           aria-label="首页"
           className={cn(
-            'inline-flex items-center justify-center size-9 rounded-md shrink-0 transition-colors',
+            'inline-flex items-center justify-center size-9 rounded-8 shrink-0 transition-colors',
             onHome
               ? // 选中态:固定黑底白字,无 hover 变色 —— 与 / 页背景对比稳定
                 'bg-foreground text-background cursor-default'
@@ -88,7 +88,7 @@ export function SidebarHeaderNav({ extraEnd }: { extraEnd?: ReactNode }) {
               }
               aria-label={menu.label}
               className={cn(
-                'relative inline-flex items-center justify-center size-9 rounded-md shrink-0 transition-colors',
+                'relative inline-flex items-center justify-center size-9 rounded-8 shrink-0 transition-colors',
                 isActive
                   ? // 选中态:暗色填充(对照 .pen `A2sWI0` home icon —— #111 底 + 白图标),
                     // 不再 hover 改色 —— 选中已是最强对比,任何 hover 变化都会减弱辨识
@@ -118,7 +118,7 @@ export function SidebarHeaderNav({ extraEnd }: { extraEnd?: ReactNode }) {
               type="button"
               aria-label="全站功能"
               className={cn(
-                'inline-flex items-center justify-center size-9 rounded-md text-subtle shrink-0',
+                'inline-flex items-center justify-center size-9 rounded-8 text-subtle shrink-0',
                 'hover:bg-surface-2 hover:text-foreground transition-colors'
               )}
             >

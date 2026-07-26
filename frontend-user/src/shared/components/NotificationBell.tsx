@@ -41,7 +41,7 @@ export function NotificationBell() {
     <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
       <PopoverPrimitive.Trigger asChild>
         <div className="relative inline-flex">
-          <IconButton tooltip="通知" className="rounded-lg bg-surface-2">
+          <IconButton tooltip="通知" className="rounded-8 bg-surface-2">
             <Bell />
           </IconButton>
           {unread > 0 && (
@@ -58,7 +58,7 @@ export function NotificationBell() {
         <PopoverPrimitive.Content
           align="end"
           sideOffset={8}
-          className="z-popover w-[380px] max-h-[calc(100vh-120px)] flex flex-col rounded-md border border-border bg-surface-card"
+          className="z-popover w-[380px] max-h-[calc(100vh-120px)] flex flex-col rounded-12 border border-border bg-surface-card"
         >
           <NotificationHeader unread={unread} />
           <NotificationTabs tab={tab} onChange={setTab} unread={unread} />
@@ -81,7 +81,7 @@ function NotificationHeader({ unread }: { unread: number }) {
         onClick={() => markAll.mutate()}
         disabled={unread === 0 || markAll.isPending}
         className={cn(
-          'inline-flex items-center gap-1 h-7 px-2 rounded-sm text-xs transition-colors',
+          'inline-flex items-center gap-1 h-7 px-2 rounded-8 text-xs transition-colors',
           unread === 0 || markAll.isPending
             ? 'text-faint cursor-not-allowed'
             : 'text-muted-foreground hover:bg-surface-1 hover:text-foreground'
@@ -209,7 +209,7 @@ function NotificationList({
             type="button"
             onClick={() => listQ.fetchNextPage()}
             disabled={listQ.isFetchingNextPage}
-            className="w-full inline-flex items-center justify-center h-7 rounded-sm text-xs text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full inline-flex items-center justify-center h-7 rounded-8 text-xs text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors disabled:cursor-not-allowed disabled:opacity-60"
           >
             {listQ.isFetchingNextPage ? (
               <Loader2 className="size-3 animate-spin" />
@@ -298,7 +298,7 @@ function NotificationItem({
           e.stopPropagation();
           remove.mutate(item.id);
         }}
-        className="absolute top-2 right-2 inline-flex h-5 w-5 items-center justify-center rounded-sm text-faint opacity-0 group-hover:opacity-100 hover:bg-surface-2 hover:text-foreground transition-opacity"
+        className="absolute top-2 right-2 inline-flex h-5 w-5 items-center justify-center rounded-4 text-faint opacity-0 group-hover:opacity-100 hover:bg-surface-2 hover:text-foreground transition-opacity"
         aria-label="删除"
         title="删除"
       >

@@ -9,7 +9,7 @@ import { cn } from '@/shared/lib/utils';
  *
  * 用法不变: <AIOverlay active={computing}><form .../></AIOverlay>
  *   active=true 时盖蒙层并拦截交互 (蒙层在最上层吃掉点击); false 时就是个透传容器。
- * 圆角通过 className 传入 (默认 rounded-md), 蒙层用 rounded-[inherit] 对齐。
+ * 圆角通过 className 传入 (默认 rounded-8, 对齐被包裹的表单字段), 蒙层用 rounded-[inherit] 对齐。
  */
 export interface AIOverlayProps {
   active?: boolean;
@@ -22,7 +22,7 @@ export interface AIOverlayProps {
 export const AIOverlay = forwardRef<HTMLDivElement, AIOverlayProps>(
   ({ active, className, label = 'AI 正在解析中', children }, ref) => {
     return (
-      <div ref={ref} className={cn('relative rounded-md', className)}>
+      <div ref={ref} className={cn('relative rounded-8', className)}>
         {children}
         {active && (
           <div className="absolute inset-0 z-raised flex flex-col items-center justify-center gap-3 rounded-[inherit] bg-surface-card/70 backdrop-blur-[2px]">

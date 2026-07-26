@@ -31,7 +31,7 @@ export function Prose({
         '[&_li]:leading-paragraph',
         '[&_a]:text-brand-red [&_a]:underline-offset-2 hover:[&_a]:underline',
         '[&_strong]:text-foreground [&_strong]:font-bold',
-        '[&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-sm [&_code]:bg-surface-2 [&_code]:font-mono [&_code]:text-2xs',
+        '[&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-4 [&_code]:bg-surface-2 [&_code]:font-mono [&_code]:text-2xs',
         '[&_blockquote]:my-4 [&_blockquote]:pl-4 [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:text-muted-foreground [&_blockquote]:italic',
         className
       )}

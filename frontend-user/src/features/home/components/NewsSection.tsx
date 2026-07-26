@@ -37,7 +37,7 @@ export function NewsSection() {
             ? Array.from({ length: 4 }).map((_, i) => (
                 <div
                   key={i}
-                  className="h-24 animate-pulse rounded-md border border-border-soft bg-surface-1"
+                  className="h-24 animate-pulse rounded-16 border border-border-soft bg-surface-1"
                 />
               ))
             : latest?.map((it) => <NewsListItem key={it.slug} item={it} />)}
@@ -46,7 +46,7 @@ export function NewsSection() {
         {/* 右侧实时热榜(窄屏隐藏) */}
         {trending && trending.length > 0 && (
           <aside className="hidden w-64 shrink-0 md:block">
-            <div className="rounded-md border border-border-soft bg-surface-1 p-4">
+            <div className="rounded-16 border border-border-soft bg-surface-1 p-4">
               <p className="mb-1 flex items-center gap-1.5 text-sm font-bold text-foreground">
                 <Flame className="size-4 text-brand-red" />
                 实时热榜

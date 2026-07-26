@@ -167,7 +167,7 @@ export function MenuCarousel() {
           tooltip="浏览器"
           aria-label="浏览器"
           className={cn(
-            'rounded-lg',
+            'rounded-8',
             onBrowser
               ? // active 态与首页按钮一致:固定黑底白字
                 'bg-foreground text-background cursor-default hover:bg-foreground hover:text-background'
@@ -183,7 +183,7 @@ export function MenuCarousel() {
         tooltip="首页"
         aria-label="首页"
         className={cn(
-          'rounded-lg',
+          'rounded-8',
           onHome
             ? // 选中态:固定黑底白字,显式同色 hover 抵消 IconButton 内置的
               // hover:bg-surface-2 / hover:text-foreground —— 否则 hover 会
@@ -272,7 +272,7 @@ export function MenuCarousel() {
           // 不挂 tooltip —— hover 即弹浮层,再叠 tooltip 会"两层提示打架"
           <IconButton
             aria-label="全站功能"
-            className="rounded-lg bg-surface-2"
+            className="rounded-8 bg-surface-2"
           >
             <LayoutGrid strokeWidth={2} />
           </IconButton>
@@ -303,8 +303,8 @@ function MenuChip({
       className={cn(
         'inline-flex items-center gap-1.5 whitespace-nowrap transition-all duration-300 ease-out',
         active
-          ? 'h-9 px-4 rounded-lg bg-foreground text-background text-base font-bold'
-          : 'h-7 px-2.5 rounded-md text-sm text-faint hover:text-foreground hover:bg-surface-1'
+          ? 'h-9 px-4 rounded-8 bg-foreground text-background text-base font-bold'
+          : 'h-7 px-2.5 rounded-8 text-sm text-faint hover:text-foreground hover:bg-surface-1'
       )}
     >
       <menu.icon className="size-3.5" />

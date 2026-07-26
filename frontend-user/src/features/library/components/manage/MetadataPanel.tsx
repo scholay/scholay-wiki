@@ -112,7 +112,7 @@ export function MetadataPanel({
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
             {justAdded && (
-              <div className="mb-4 flex items-start gap-2 rounded-md border border-brand-green/30 bg-brand-green/5 px-3 py-2.5">
+              <div className="mb-4 flex items-start gap-2 rounded-8 border border-brand-green/30 bg-brand-green/5 px-3 py-2.5">
                 <CheckCircle2 className="size-4 text-brand-green shrink-0 mt-0.5" strokeWidth={2.25} />
                 <div className="min-w-0">
                   <div className="text-sm font-semibold text-brand-green">
@@ -191,7 +191,7 @@ function PreviewPanel({
         </span>
       </div>
       <div className="px-4 py-4 space-y-3">
-        <div className="rounded-md border border-border bg-surface-card p-3 space-y-2">
+        <div className="rounded-12 border border-border bg-surface-card p-3 space-y-2">
           <div
             className="text-sm font-bold text-foreground leading-paragraph line-clamp-3"
             title={values.title}

@@ -32,7 +32,7 @@ export function WechatMiniProgramPanel() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center gap-2 rounded-md border border-border bg-surface-card p-4 text-muted-foreground sm:p-6">
+      <div className="flex items-center justify-center gap-2 rounded-16 border border-border bg-surface-card p-4 text-muted-foreground sm:p-6">
         <Loader2 className="size-4 animate-spin" />
         加载微信小程序配置…
       </div>
@@ -41,7 +41,7 @@ export function WechatMiniProgramPanel() {
 
   return (
     <form
-      className="max-w-3xl space-y-4 rounded-md border border-border bg-surface-card p-4 sm:p-6"
+      className="max-w-3xl space-y-4 rounded-16 border border-border bg-surface-card p-4 sm:p-6"
       onSubmit={async (e) => {
         e.preventDefault();
         const fd = new FormData(e.currentTarget);

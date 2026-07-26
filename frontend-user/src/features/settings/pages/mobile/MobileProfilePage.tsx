@@ -70,14 +70,14 @@ function ProfileForm() {
         update.mutate({ username: username.trim(), bio: bio.trim() });
       }}
     >
-      <section className="space-y-3 rounded-lg border border-border bg-surface-card p-4">
+      <section className="space-y-3 rounded-16 border border-border bg-surface-card p-4">
         <Field label="昵称">
           <input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             maxLength={32}
             placeholder="未设置"
-            className="w-full rounded-md border border-border bg-surface-1 px-3 py-2 text-md text-foreground outline-none placeholder:text-faint focus-visible:border-border-strong"
+            className="w-full rounded-8 border border-border bg-surface-1 px-3 py-2 text-md text-foreground outline-none placeholder:text-faint focus-visible:border-border-strong"
           />
         </Field>
         <Field label="简介">
@@ -87,13 +87,13 @@ function ProfileForm() {
             maxLength={200}
             rows={4}
             placeholder="介绍一下你的研究方向…"
-            className="w-full resize-none rounded-md border border-border bg-surface-1 px-3 py-2 text-md leading-paragraph text-foreground outline-none placeholder:text-faint focus-visible:border-border-strong"
+            className="w-full resize-none rounded-8 border border-border bg-surface-1 px-3 py-2 text-md leading-paragraph text-foreground outline-none placeholder:text-faint focus-visible:border-border-strong"
           />
         </Field>
       </section>
 
       {profile && (
-        <section className="space-y-2.5 rounded-lg border border-border bg-surface-card p-4">
+        <section className="space-y-2.5 rounded-16 border border-border bg-surface-card p-4">
           <ReadonlyRow label="邮箱" value={profile.email || '未绑定'} />
           <ReadonlyRow label="手机号" value={profile.phone || '未绑定'} />
           <ReadonlyRow
@@ -106,7 +106,7 @@ function ProfileForm() {
       <button
         type="submit"
         disabled={update.isPending}
-        className="flex h-11 w-full items-center justify-center gap-2 rounded-md bg-foreground text-md font-medium text-on-brand active:opacity-80 disabled:opacity-50"
+        className="flex h-11 w-full items-center justify-center gap-2 rounded-8 bg-foreground text-md font-medium text-on-brand active:opacity-80 disabled:opacity-50"
       >
         {update.isPending && <Loader2 className="size-4 animate-spin" />}
         保存

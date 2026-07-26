@@ -73,7 +73,7 @@ export function MobileToolsHomePage() {
             <button
               type="button"
               onClick={() => navigate('/m/claw')}
-              className="flex items-center gap-3 rounded-md bg-[#F1EADA] p-3.5 text-left active:opacity-90"
+              className="flex items-center gap-3 rounded-16 bg-[#F1EADA] p-3.5 text-left active:opacity-90"
             >
               <span className="flex size-11 shrink-0 items-center justify-center rounded-pill bg-surface-card text-2xl leading-none">
                 🦞
@@ -94,9 +94,9 @@ export function MobileToolsHomePage() {
                   key={t.key}
                   type="button"
                   onClick={() => navigate(t.to)}
-                  className="flex flex-col gap-2.5 rounded-md border border-border bg-surface-card p-3.5 text-left active:bg-surface-1"
+                  className="flex flex-col gap-2.5 rounded-16 border border-border bg-surface-card p-3.5 text-left active:bg-surface-1"
                 >
-                  <span className="flex size-9 items-center justify-center rounded-sm bg-surface-2">
+                  <span className="flex size-9 items-center justify-center rounded-8 bg-surface-2">
                     <t.icon className={cn('size-5', t.iconColor)} />
                   </span>
                   <span className="flex flex-col gap-0.5">
@@ -119,11 +119,11 @@ export function MobileToolsHomePage() {
             <button
               type="button"
               onClick={() => navigate('/m/tools/all')}
-              className="flex flex-col gap-3 rounded-md bg-foreground p-4 text-left active:opacity-95"
+              className="flex flex-col gap-3 rounded-16 bg-foreground p-4 text-left active:opacity-95"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <span className="flex size-[34px] items-center justify-center rounded-sm bg-background/10">
+                  <span className="flex size-[34px] items-center justify-center rounded-8 bg-background/10">
                     <Globe className="size-5 text-background" />
                   </span>
                   <span className="text-base font-semibold text-background">科研全网导航</span>

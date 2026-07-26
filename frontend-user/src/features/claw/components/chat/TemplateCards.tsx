@@ -160,7 +160,7 @@ function FanCards({ reduce, onPick }: { reduce: boolean; onPick: (f: TemplateFea
             </div>
             {/* 标签区 */}
             <div className="flex items-center gap-2 px-3 py-2.5">
-              <span className={cn('flex size-7 shrink-0 items-center justify-center rounded-md', accent.chip)}>
+              <span className={cn('flex size-7 shrink-0 items-center justify-center rounded-8', accent.chip)}>
                 <Icon className="size-3.5" />
               </span>
               <div className="min-w-0">
@@ -203,7 +203,7 @@ function SelectedModeBar({
       {/* 缩略封面 —— 与刚点的卡片同一段动画,视觉延续。
           封面内部用了按整卡尺寸(~240px)标定的固定 px 内边距/条高,直接塞进 80px 缩略图会被压变形;
           故**按原始尺寸渲染再整体等比缩小**(scale),比例完全不变。 */}
-      <div className="relative aspect-[16/9] w-20 shrink-0 overflow-hidden rounded-md bg-surface-2 ring-1 ring-foreground/5">
+      <div className="relative aspect-[16/9] w-20 shrink-0 overflow-hidden rounded-8 bg-surface-2 ring-1 ring-foreground/5">
         <div
           className="absolute left-0 top-0 origin-top-left"
           style={{ width: '240px', height: '135px', transform: 'scale(0.3333)' }}
@@ -247,11 +247,11 @@ function DeckIllustration({ reduce }: { reduce: boolean }) {
       <div className="pointer-events-none absolute -right-6 -top-8 size-24 rounded-pill bg-brand-green/10 blur-2xl" />
 
       {/* 身后叠页(多页暗示,恒显) */}
-      <div className="absolute left-1/2 top-1/2 h-[66%] w-[72%] -translate-x-[58%] -translate-y-1/2 rounded-lg bg-surface-card/5 ring-1 ring-on-brand/5" />
-      <div className="absolute left-1/2 top-1/2 h-[72%] w-[78%] -translate-x-[54%] -translate-y-1/2 rounded-lg bg-surface-card/5 ring-1 ring-on-brand/10" />
+      <div className="absolute left-1/2 top-1/2 h-[66%] w-[72%] -translate-x-[58%] -translate-y-1/2 rounded-8 bg-surface-card/5 ring-1 ring-on-brand/5" />
+      <div className="absolute left-1/2 top-1/2 h-[72%] w-[78%] -translate-x-[54%] -translate-y-1/2 rounded-8 bg-surface-card/5 ring-1 ring-on-brand/10" />
 
       {/* 当前幻灯片(内容恒显) */}
-      <div className="absolute left-1/2 top-1/2 flex h-[78%] w-[82%] -translate-x-1/2 -translate-y-1/2 flex-col gap-1.5 rounded-lg bg-surface-card/10 p-3 ring-1 ring-on-brand/20">
+      <div className="absolute left-1/2 top-1/2 flex h-[78%] w-[82%] -translate-x-1/2 -translate-y-1/2 flex-col gap-1.5 rounded-8 bg-surface-card/10 p-3 ring-1 ring-on-brand/20">
         {/* kicker */}
         <motion.div
           className="h-1 w-6 rounded-pill bg-brand-green"
@@ -288,7 +288,7 @@ function DeckIllustration({ reduce }: { reduce: boolean }) {
               <motion.div
                 key={i}
                 className={cn(
-                  'w-full rounded-sm',
+                  'w-full rounded-4',
                   isPeak ? 'bg-gradient-to-t from-brand-green/50 to-brand-green' : 'bg-surface-card/20',
                 )}
                 initial={{ height: reduce ? `${h * 100}%` : 0 }}

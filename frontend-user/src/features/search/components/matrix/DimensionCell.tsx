@@ -83,7 +83,7 @@ function DimensionCellImpl({ item, dimensionKey, isFetching }: Props) {
           <span
             key={`${i}-${t}`}
             className={cn(
-              'inline-flex items-center h-5 px-1.5 rounded-sm text-2xs font-medium leading-none',
+              'inline-flex items-center h-5 px-1.5 rounded-4 text-2xs font-medium leading-none',
               tagColor(t)
             )}
             title={t}
@@ -110,7 +110,7 @@ function DimensionCellImpl({ item, dimensionKey, isFetching }: Props) {
           <span
             key={i}
             className={cn(
-              'rounded-sm px-[3px] py-[1px] mx-px font-medium box-decoration-clone',
+              'rounded-4 px-[3px] py-[1px] mx-px font-medium box-decoration-clone',
               tagColor(seg.text)
             )}
             title={seg.text}

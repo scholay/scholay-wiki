@@ -138,7 +138,7 @@ export function JournalMetricsGroups({ unified }: { unified: JournalListUnified 
         {groups.map((g) => (
           <div
             key={g.title}
-            className="rounded-lg bg-surface-card border border-border p-4 space-y-2.5"
+            className="rounded-16 bg-surface-card border border-border p-4 space-y-2.5"
           >
             <div className="text-2xs font-bold uppercase text-faint">
               {g.title}

@@ -74,12 +74,12 @@ function Card({ uc }: { uc: UseCase }) {
   const Icon = getIcon(uc.icon);
 
   return (
-    <div className={cn('flex flex-col gap-5 p-8 rounded-lg h-full', THEME_BG[theme])}>
+    <div className={cn('flex flex-col gap-5 p-8 rounded-16 h-full', THEME_BG[theme])}>
       {/* tag —— Prism 风格,优先于 icon */}
       {uc.tag && (
         <span
           className={cn(
-            'inline-flex items-center self-start px-2.5 py-1 rounded-sm text-2xs font-bold uppercase',
+            'inline-flex items-center self-start px-2.5 py-1 rounded-4 text-2xs font-bold uppercase',
             THEME_TAG[theme]
           )}
         >

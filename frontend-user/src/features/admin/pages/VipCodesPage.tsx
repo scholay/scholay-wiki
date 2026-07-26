@@ -30,7 +30,7 @@ import {
   type VipCode,
 } from '../api/vip-codes';
 
-const SELECT_CLS = 'h-8 rounded-md border border-input bg-surface-card px-2 text-xs text-foreground';
+const SELECT_CLS = 'h-8 rounded-8 border border-input bg-surface-card px-2 text-xs text-foreground';
 
 /**
  * 会员兑换码 —— 批量生成 + 列表。生成后弹出码清单供管理员复制分发。
@@ -228,7 +228,7 @@ export function VipCodesPage() {
   return (
     <AdminPageLayout title="会员兑换码" description={`共 ${data?.total ?? 0} 个 · 生成后复制分发, 用户在「我的会员」兑换`}>
       {/* 生成 */}
-      <section className="mb-4 rounded-md border border-border bg-surface-card p-4">
+      <section className="mb-4 rounded-16 border border-border bg-surface-card p-4">
         <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-foreground">
           <Gift className="size-4" /> 批量生成
         </h3>
@@ -302,7 +302,7 @@ export function VipCodesPage() {
         </div>
 
         {generated.length > 0 && (
-          <div className="mt-4 rounded-md border border-border-soft bg-surface-1 p-3">
+          <div className="mt-4 rounded-12 border border-border-soft bg-surface-1 p-3">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-bold text-foreground">本次生成 {generated.length} 个(请立即复制分发)</span>
               <Button size="sm" variant="outline" onClick={copyCodes}>
@@ -315,7 +315,7 @@ export function VipCodesPage() {
       </section>
 
       {/* 筛选 */}
-      <section className="mb-4 flex flex-wrap items-end gap-2 rounded-md border border-border-soft bg-surface-1 p-3">
+      <section className="mb-4 flex flex-wrap items-end gap-2 rounded-16 border border-border-soft bg-surface-1 p-3">
         <Field label="状态">
           <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className={cn(SELECT_CLS, 'w-28')}>
             <option value="">全部</option>

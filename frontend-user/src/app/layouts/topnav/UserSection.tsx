@@ -23,7 +23,7 @@ import { cn } from '@/shared/lib/utils';
  * 顶部导航右段:通知 + 用户 pill / 登录注册 CTA。
  *
  * 对照 .pen `fFyGp` rightGroup:
- *   notif 32×32 rounded-lg bg-surface-2
+ *   notif 32×32 rounded-8 bg-surface-2
  *   userPill rounded-pill bg-surface-2, padding [4,14,4,4], gap 8, 32 avatar
  */
 export function UserSection() {
@@ -38,12 +38,12 @@ export function UserSection() {
       <PromoNavButton />
 
       {/* 反馈 / 客服入口 —— /feedback 是 public 路由,登录与否都给入口。
-          放在通知铃铛左边、用户区最外侧,与通知一组,视觉一致 (rounded-lg + bg-surface-2) */}
+          放在通知铃铛左边、用户区最外侧,与通知一组,视觉一致 (rounded-8 + bg-surface-2) */}
       <IconButton
         tooltip="反馈与建议"
         aria-label="反馈与建议"
         onClick={() => navigate('/feedback')}
-        className="rounded-lg bg-surface-2"
+        className="rounded-8 bg-surface-2"
       >
         <Headphones strokeWidth={2} />
       </IconButton>

@@ -35,8 +35,8 @@ export function JournalSearchAlternateRow({
   return (
     <div
       className={cn(
-        // 形态完全复刻主框:48h / pl-5 pr-2 / rounded-sm
-        'flex h-12 items-center gap-3 pl-5 pr-2 bg-surface-card border border-brand-amber rounded-sm',
+        // 形态完全复刻主框:48h / pl-5 pr-2 / rounded-16
+        'flex h-12 items-center gap-3 pl-5 pr-2 bg-surface-card border border-brand-amber rounded-16',
         // 轻微阴影,与主框区分悬浮层级
         'shadow-overlay'
       )}
@@ -49,7 +49,7 @@ export function JournalSearchAlternateRow({
         type="button"
         onClick={onClick}
         className={cn(
-          'inline-flex h-9 items-center justify-center px-4 rounded-sm',
+          'inline-flex h-9 items-center justify-center px-4 rounded-8',
           'bg-brand-amber text-on-brand text-sm font-semibold whitespace-nowrap',
           'hover:bg-brand-amber/95 transition-colors'
         )}
@@ -196,7 +196,7 @@ function JournalCover({ name, index }: { name: string; index: number }) {
   return (
     <div
       className={cn(
-        'shrink-0 inline-flex items-center justify-center w-11 h-14 rounded-sm border border-foreground/15 text-background font-display font-bold text-md',
+        'shrink-0 inline-flex items-center justify-center w-11 h-14 rounded-8 border border-foreground/15 text-background font-display font-bold text-md',
         bg
       )}
     >

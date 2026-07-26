@@ -155,7 +155,7 @@ function LibrarySection() {
   if (!authenticated) {
     return (
       <SidebarSection id="library" label="我的文献集">
-        <div className="mx-4 my-2 px-3 py-3 rounded-md bg-surface-1 border border-border-soft">
+        <div className="mx-4 my-2 px-3 py-3 rounded-12 bg-surface-1 border border-border-soft">
           <div className="text-sm text-subtle leading-paragraph">
             登录后管理你的期刊收藏与对比清单
           </div>

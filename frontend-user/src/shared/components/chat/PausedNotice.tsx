@@ -11,7 +11,7 @@ import { CircleSlash } from 'lucide-react';
  */
 export function PausedNotice() {
   return (
-    <div className="inline-flex items-center gap-1.5 rounded-sm bg-surface-2 px-2 py-1 text-2xs font-semibold text-muted-foreground">
+    <div className="inline-flex items-center gap-1.5 rounded-4 bg-surface-2 px-2 py-1 text-2xs font-semibold text-muted-foreground">
       <CircleSlash className="size-3 shrink-0" />
       已暂停
     </div>

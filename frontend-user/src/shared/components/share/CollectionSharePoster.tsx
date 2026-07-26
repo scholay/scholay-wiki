@@ -161,7 +161,7 @@ function StackedCover({ initial }: { initial: string }) {
       {tiles.map((t, i) => (
         <div
           key={i}
-          className={`absolute ${t.pos} flex h-[84px] w-[74px] items-center justify-center rounded-sm border border-on-brand`}
+          className={`absolute ${t.pos} flex h-[84px] w-[74px] items-center justify-center rounded-8 border border-on-brand`}
           style={{ backgroundColor: t.bg }}
         >
           <span className="font-display text-[30px] font-bold leading-none text-on-brand">{t.letter}</span>

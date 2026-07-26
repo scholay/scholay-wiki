@@ -53,7 +53,7 @@ export function ChiefVerdictPanel({ submissionId, chief: chiefProp, reviewers, s
       );
     }
     return (
-      <div className="flex h-72 flex-col items-center justify-center gap-3 rounded-md border border-dashed border-border bg-surface-1 text-center">
+      <div className="flex h-72 flex-col items-center justify-center gap-3 rounded-16 border border-dashed border-border bg-surface-1 text-center">
         <Loader2 className="h-6 w-6 animate-spin text-faint" />
         <p className="text-base font-semibold text-muted-foreground">
           {status === 'reviewing' ? '主审正在汇总三位审稿人的意见…' : '主审尚未给出决议'}
@@ -73,7 +73,7 @@ export function ChiefVerdictPanel({ submissionId, chief: chiefProp, reviewers, s
       : recoverChiefReport(chiefProp);
   if (!chief) {
     return (
-      <div className="rounded-md border border-border bg-surface-card px-5 py-4">
+      <div className="rounded-16 border border-border bg-surface-card px-5 py-4">
         <MarkdownRenderer text={chiefProp.contentMd} />
       </div>
     );
@@ -384,7 +384,7 @@ function StreamingChiefView({
 
   if (isThinking) {
     return (
-      <div className="flex h-72 flex-col items-center justify-center gap-3 rounded-md border border-border bg-surface-card text-center">
+      <div className="flex h-72 flex-col items-center justify-center gap-3 rounded-16 border border-border bg-surface-card text-center">
         <Loader2 className="h-7 w-7 animate-spin text-brand-amber" />
         <p className="text-base font-semibold text-foreground">主审正在通读三位审稿人意见…</p>
         <p className="text-sm text-faint">已生成 {p.totalChars} 字 · 决议结论稍后出现</p>
@@ -399,7 +399,7 @@ function StreamingChiefView({
   return (
     <article className="flex flex-col gap-7">
       {/* 顶部进度条 */}
-      <div className="flex items-center gap-2.5 rounded-md border border-brand-amber/40 bg-warning-soft px-4 py-2.5">
+      <div className="flex items-center gap-2.5 rounded-16 border border-brand-amber/40 bg-warning-soft px-4 py-2.5">
         <Loader2 className="h-4 w-4 animate-spin text-brand-amber" />
         <p className="flex-1 text-sm font-semibold text-brand-amber">
           {done ? (

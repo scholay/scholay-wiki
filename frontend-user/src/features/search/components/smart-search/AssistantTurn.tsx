@@ -49,7 +49,7 @@ export const AssistantTurn = memo(function AssistantTurn({ turn }: { turn: Turn 
   // 可直接重发;具体原因由各自的 toast / 全局额度弹窗告知,这里保持通用文案。
   if (turn.blocked) {
     return (
-      <div className="text-xs text-muted-foreground bg-surface-2 border border-border rounded-sm px-2.5 py-1.5">
+      <div className="text-xs text-muted-foreground bg-surface-2 border border-border rounded-12 px-2.5 py-1.5">
         本条未发送(额度已用完或连接中断)。原文已回填输入框,可直接重新发送。
       </div>
     );

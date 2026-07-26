@@ -49,7 +49,7 @@ export function PdfUploadInspecting({
         <PdfPreviewCard file={file} parsed={parsed} />
 
         {/* ─── 右列:5 步检索进度 ───────────────────────────────────────── */}
-        <div className="rounded-md border border-border bg-surface-card p-5">
+        <div className="rounded-12 border border-border bg-surface-card p-5">
           <div className="flex items-center gap-2.5 mb-1">
             <Loader2 className="size-4 animate-spin text-brand-amber" />
             <span className="text-sm font-bold text-foreground">
@@ -103,7 +103,7 @@ export function PdfUploadInspecting({
           </ul>
 
           {/* "跳过自动匹配"提示 */}
-          <div className="mt-5 flex items-center gap-2 px-3 py-2 rounded-sm bg-surface-1 border border-border-soft">
+          <div className="mt-5 flex items-center gap-2 px-3 py-2 rounded-8 bg-surface-1 border border-border-soft">
             <Info className="size-3.5 text-faint shrink-0" />
             <span className="text-xs text-muted-foreground">
               检索完成后,可以跳过匹配直接保存

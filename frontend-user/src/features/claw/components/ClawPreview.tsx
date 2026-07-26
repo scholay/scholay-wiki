@@ -41,7 +41,7 @@ export function ClawPreview() {
       </div>
 
       <div className="border-t border-border-soft bg-surface-card px-6 py-3 shrink-0">
-        <div className="max-w-3xl mx-auto flex items-center gap-2 h-10 px-3 rounded-sm border border-border-strong">
+        <div className="max-w-3xl mx-auto flex items-center gap-2 h-10 px-3 rounded-16 border border-border-strong">
           <input
             type="text"
             disabled
@@ -57,7 +57,7 @@ export function ClawPreview() {
 function UserMsg({ text }: { text: string }) {
   return (
     <div className="flex justify-end">
-      <div className="max-w-[80%] inline-flex items-center px-4 py-2.5 rounded-md bg-foreground text-background text-sm leading-paragraph">
+      <div className="max-w-[80%] inline-flex items-center px-4 py-2.5 rounded-16 bg-foreground text-background text-sm leading-paragraph">
         {text}
       </div>
     </div>
@@ -70,7 +70,7 @@ function AIMsg({ children }: { children: React.ReactNode }) {
       <span className="inline-flex size-7 items-center justify-center rounded-pill bg-brand-green text-background text-2xs font-bold shrink-0">
         AI
       </span>
-      <div className="flex-1 min-w-0 px-4 py-2.5 rounded-md bg-surface-1 border border-border-soft">
+      <div className="flex-1 min-w-0 px-4 py-2.5 rounded-16 bg-surface-1 border border-border-soft">
         {children}
       </div>
     </div>

@@ -22,21 +22,21 @@ export function NewsListItem({ item }: { item: NewsCard }) {
   return (
     <Link
       to={`/news/${item.slug}`}
-      className="group flex gap-4 rounded-md border border-border-soft bg-surface-card p-4 transition-all hover:border-foreground/30 hover:"
+      className="group flex gap-4 rounded-16 border border-border-soft bg-surface-card p-4 transition-all hover:border-foreground/30 hover:"
     >
       {item.cover_image && (
         <img
           src={item.cover_image}
           alt=""
           loading="lazy"
-          className="hidden size-24 shrink-0 rounded-md object-cover sm:block"
+          className="hidden size-24 shrink-0 rounded-12 object-cover sm:block"
         />
       )}
       <div className="min-w-0 flex-1">
         {/* 顶行:头条 + 版块 + 热度 + 时间 */}
         <div className="flex flex-wrap items-center gap-2 text-xs">
           {item.is_featured && (
-            <span className="rounded-sm bg-brand-red px-1.5 py-0.5 text-2xs font-semibold text-on-brand">
+            <span className="rounded-4 bg-brand-red px-1.5 py-0.5 text-2xs font-semibold text-on-brand">
               头条
             </span>
           )}
@@ -76,7 +76,7 @@ export function NewsListItem({ item }: { item: NewsCard }) {
 
         {/* 底行:来源 + 快讯/今日要览 */}
         <div className="mt-2 flex items-center gap-2 text-2xs text-faint">
-          <span className="rounded-sm bg-surface-1 px-1.5 py-0.5">
+          <span className="rounded-4 bg-surface-1 px-1.5 py-0.5">
             {newsReportLabel(item.report_type)}
           </span>
           {source && <span className="truncate">来源 · {source}</span>}

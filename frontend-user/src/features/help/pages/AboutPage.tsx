@@ -119,7 +119,7 @@ export function AboutPage() {
             我们想做的事很简单:把这些重复消耗砍掉,让科研工作者把时间留给真正重要的判断。
           </p>
         </div>
-        <aside className="rounded-lg bg-surface-1 border border-border-soft p-5">
+        <aside className="rounded-16 bg-surface-1 border border-border-soft p-5">
           <p className="text-xs font-bold uppercase text-brand-red mb-3">
             使命
           </p>
@@ -158,7 +158,7 @@ export function AboutPage() {
       {/* 4. 联系 / 反馈 CTA —— 改成"主入口 → 产品反馈"+"次入口 → 联系页",
          不再直接暴露 mailto;商务合作的 hello@ 邮箱保留在 /contact 页面里 */}
       <section className="mt-16">
-        <div className="rounded-lg bg-surface-1 border border-border-soft p-8 md:p-10">
+        <div className="rounded-16 bg-surface-1 border border-border-soft p-8 md:p-10">
           <SectionTitle>反馈 / 联系</SectionTitle>
           <p className="mt-3 text-sm text-muted-foreground leading-paragraph max-w-2xl">
             产品意见、bug 报告、合作意向 —— 都可以反馈给我们,产品团队每条都会看到。
@@ -166,14 +166,14 @@ export function AboutPage() {
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <Link
               to="/feedback"
-              className="inline-flex items-center gap-1.5 h-10 px-5 rounded-md bg-foreground text-background text-sm font-semibold hover:bg-foreground/85 transition-colors"
+              className="inline-flex items-center gap-1.5 h-10 px-5 rounded-8 bg-foreground text-background text-sm font-semibold hover:bg-foreground/85 transition-colors"
             >
               提交产品反馈
               <ArrowRight className="size-3.5" />
             </Link>
             <Link
               to="/contact"
-              className="inline-flex items-center gap-1.5 h-10 px-5 rounded-md bg-surface-card border border-border text-sm font-semibold text-subtle hover:text-foreground hover:bg-surface-1 transition-colors"
+              className="inline-flex items-center gap-1.5 h-10 px-5 rounded-8 bg-surface-card border border-border text-sm font-semibold text-subtle hover:text-foreground hover:bg-surface-1 transition-colors"
             >
               查看其他联系方式
             </Link>
@@ -198,8 +198,8 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 function ValueCard({ value: { icon: Icon, title, desc } }: { value: Value }) {
   return (
-    <div className="flex flex-col gap-2.5 p-5 rounded-md bg-surface-card border border-border-soft hover:border-border-strong transition-colors">
-      <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-danger-soft border border-brand-red/15">
+    <div className="flex flex-col gap-2.5 p-5 rounded-16 bg-surface-card border border-border-soft hover:border-border-strong transition-colors">
+      <span className="inline-flex h-9 w-9 items-center justify-center rounded-8 bg-danger-soft border border-brand-red/15">
         <Icon className="size-4 text-brand-red" strokeWidth={2} />
       </span>
       <p className="text-sm font-bold text-foreground">{title}</p>
@@ -212,7 +212,7 @@ function PillarCard({ pillar: { icon: Icon, title, desc, to, status } }: { pilla
   const inner = (
     <>
       <div className="flex items-start justify-between gap-3">
-        <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-surface-1 border border-border-soft shrink-0">
+        <span className="inline-flex h-9 w-9 items-center justify-center rounded-8 bg-surface-1 border border-border-soft shrink-0">
           <Icon className="size-4 text-foreground" strokeWidth={2} />
         </span>
         {status === '即将推出' && (
@@ -233,7 +233,7 @@ function PillarCard({ pillar: { icon: Icon, title, desc, to, status } }: { pilla
   );
 
   const cls =
-    'flex flex-col p-5 rounded-md bg-surface-card border border-border transition-colors';
+    'flex flex-col p-5 rounded-16 bg-surface-card border border-border transition-colors';
   if (to) {
     return (
       <Link to={to} className={`${cls} hover:border-foreground/40 hover:`}>

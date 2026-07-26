@@ -64,7 +64,7 @@ function MatchConfidenceBadge({ hit }: { hit: SearchHit }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center px-1.5 py-0.5 rounded-sm text-[10px] font-bold leading-none',
+        'inline-flex items-center px-1.5 py-0.5 rounded-4 text-[10px] font-bold leading-none',
         CONFIDENCE_CLS[tone]
       )}
     >
@@ -163,7 +163,7 @@ export function PdfUploadDecide({
 
 function TopBanner({ total }: { total: number }) {
   return (
-    <div className="flex items-start gap-3 rounded-md border border-brand-amber/30 bg-warning-soft px-4 py-3">
+    <div className="flex items-start gap-3 rounded-12 border border-brand-amber/30 bg-warning-soft px-4 py-3">
       <Info className="size-4 text-brand-amber shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
         <div className="text-sm font-semibold text-foreground">
@@ -198,13 +198,13 @@ function BestMatchCard({
   const authorsLine = formatAuthorsDisplay(hit.authors);
 
   return (
-    <div className="rounded-md border border-border bg-surface-card overflow-hidden">
+    <div className="rounded-12 border border-border bg-surface-card overflow-hidden">
       {/* 头部:✨ 最佳建议 + 来源 badge + 外链 */}
       <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-border-soft bg-surface-1">
         <div className="flex items-center gap-2 flex-wrap">
           <Sparkles className="size-3.5 text-brand-amber" strokeWidth={2.25} />
           <span className="text-xs font-bold text-foreground">最佳建议</span>
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-surface-2 text-subtle text-[10px] font-bold leading-none uppercase">
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-surface-2 text-subtle text-[10px] font-bold leading-none uppercase">
             {sourceBrandLabel(hit.source)}
           </span>
           <MatchConfidenceBadge hit={hit} />
@@ -265,7 +265,7 @@ function BestMatchCard({
             onClick={onAccept}
             disabled={disabled}
             className={cn(
-              'inline-flex items-center gap-1.5 h-8 px-3.5 rounded-sm bg-brand-green text-background text-sm font-bold',
+              'inline-flex items-center gap-1.5 h-8 px-3.5 rounded-8 bg-brand-green text-background text-sm font-bold',
               'hover:bg-brand-green/90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors'
             )}
           >
@@ -281,7 +281,7 @@ function BestMatchCard({
             onClick={onReject}
             disabled={disabled}
             className={cn(
-              'inline-flex items-center gap-1 h-8 px-3 rounded-sm text-sm font-semibold text-subtle',
+              'inline-flex items-center gap-1 h-8 px-3 rounded-8 text-sm font-semibold text-subtle',
               'hover:bg-surface-2 hover:text-foreground disabled:opacity-60 transition-colors'
             )}
           >
@@ -312,7 +312,7 @@ function OtherCandidatesSection({
   onPickHit: (hit: SearchHit) => void;
 }) {
   return (
-    <div className="rounded-md border border-border bg-surface-card overflow-hidden">
+    <div className="rounded-12 border border-border bg-surface-card overflow-hidden">
       <button
         type="button"
         onClick={onToggle}
@@ -331,7 +331,7 @@ function OtherCandidatesSection({
         <ul className="divide-y divide-border-soft border-t border-border-soft">
           {hits.map((h) => (
             <li key={keyOfHit(h)} className="flex items-start gap-3 px-4 py-2.5">
-              <div className="flex h-6 w-6 items-center justify-center rounded-sm bg-surface-card border border-border shrink-0 mt-0.5">
+              <div className="flex h-6 w-6 items-center justify-center rounded-8 bg-surface-card border border-border shrink-0 mt-0.5">
                 <FileText className="size-3 text-subtle" strokeWidth={2} />
               </div>
               <div className="flex-1 min-w-0">
@@ -358,7 +358,7 @@ function OtherCandidatesSection({
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-surface-2 text-subtle text-[10px] font-bold leading-none uppercase">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-surface-2 text-subtle text-[10px] font-bold leading-none uppercase">
                   {sourceBrandLabel(h.source)}
                 </span>
                 <button
@@ -366,7 +366,7 @@ function OtherCandidatesSection({
                   onClick={() => onPickHit(h)}
                   disabled={disabled}
                   className={cn(
-                    'inline-flex items-center h-7 px-2.5 rounded-sm border border-brand-amber text-brand-amber text-xs font-semibold',
+                    'inline-flex items-center h-7 px-2.5 rounded-8 border border-brand-amber text-brand-amber text-xs font-semibold',
                     'hover:bg-brand-amber-soft disabled:opacity-60 transition-colors'
                   )}
                 >
@@ -393,7 +393,7 @@ function NoMatchBanner({
   isPending: boolean;
 }) {
   return (
-    <div className="rounded-md border border-border-soft bg-surface-1 px-4 py-5 text-center space-y-3">
+    <div className="rounded-12 border border-border-soft bg-surface-1 px-4 py-5 text-center space-y-3">
       <div className="inline-flex h-9 w-9 mx-auto items-center justify-center rounded-pill bg-warning-soft">
         <Info className="size-4 text-brand-amber" />
       </div>
@@ -410,7 +410,7 @@ function NoMatchBanner({
         onClick={onReject}
         disabled={isPending}
         className={cn(
-          'inline-flex items-center gap-1.5 h-8 px-3 rounded-sm bg-foreground text-background text-sm font-semibold',
+          'inline-flex items-center gap-1.5 h-8 px-3 rounded-8 bg-foreground text-background text-sm font-semibold',
           'hover:bg-foreground/85 disabled:opacity-60 transition-colors'
         )}
       >
@@ -465,7 +465,7 @@ function JournalBadges({ enrichment }: { enrichment: NonNullable<JournalEnrichme
         <span
           key={b.label}
           className={cn(
-            'inline-flex items-center px-1.5 py-0.5 rounded-sm text-[10px] font-bold leading-none whitespace-nowrap',
+            'inline-flex items-center px-1.5 py-0.5 rounded-4 text-[10px] font-bold leading-none whitespace-nowrap',
             b.tone === 'solid-green' && 'bg-brand-green text-on-brand',
             b.tone === 'solid-amber' && 'bg-brand-amber text-on-brand',
             b.tone === 'solid-red' && 'bg-brand-red text-on-brand',

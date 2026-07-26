@@ -19,7 +19,7 @@ export function ProcessFold({
   const [override, setOverride] = useState<boolean | undefined>(undefined);
   const expanded = override ?? streaming;
   return (
-    <div className="rounded-lg border border-border-soft bg-surface-1/60">
+    <div className="rounded-12 border border-border-soft bg-surface-1/60">
       <button
         type="button"
         onClick={() => setOverride(!expanded)}

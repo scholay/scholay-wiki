@@ -63,7 +63,7 @@ export function JournalPickerStep({ value, onChange }: JournalPickerStepProps) {
   const items = hasQuery ? (data?.items ?? []) : [];
 
   return (
-    <section className="rounded-lg border border-border bg-surface-card p-6">
+    <section className="rounded-16 border border-border bg-surface-card p-6">
       <header className="mb-4 flex items-end justify-between">
         <div>
           <h2 className="text-base font-bold text-foreground">选择目标期刊</h2>
@@ -75,7 +75,7 @@ export function JournalPickerStep({ value, onChange }: JournalPickerStepProps) {
           type="button"
           onClick={() => setCustomOpen((v) => !v)}
           className={cn(
-            'inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs transition',
+            'inline-flex h-8 items-center gap-1 rounded-8 border px-3 text-xs transition',
             customOpen
               ? 'border-brand-red bg-danger-soft text-brand-red'
               : 'border-border-button bg-surface-card text-subtle hover:border-foreground hover:text-foreground'
@@ -108,7 +108,7 @@ export function JournalPickerStep({ value, onChange }: JournalPickerStepProps) {
 
       {/* 当前选中提示行(同时给"取消选择"入口) */}
       {value && (
-        <div className="mb-3 flex items-center justify-between rounded-md border border-brand-red/40 bg-danger-soft px-3 py-2">
+        <div className="mb-3 flex items-center justify-between rounded-12 border border-brand-red/40 bg-danger-soft px-3 py-2">
           <span className="text-xs text-subtle">
             已选:<span className="font-bold text-brand-red">{value.canonicalName}</span>
             {value.journalId <= 0 && (
@@ -130,12 +130,12 @@ export function JournalPickerStep({ value, onChange }: JournalPickerStepProps) {
       {/* 结果区:固定上限高度 + 内部滚动 */}
       <div className="max-h-96 overflow-y-auto pr-1">
         {!hasQuery && (
-          <p className="rounded-md border border-dashed border-border bg-surface-1 py-10 text-center text-sm text-muted-foreground">
+          <p className="rounded-12 border border-dashed border-border bg-surface-1 py-10 text-center text-sm text-muted-foreground">
             输入关键词开始搜索 · 不选期刊也能继续
           </p>
         )}
         {hasQuery && items.length === 0 && !isFetching && (
-          <p className="rounded-md border border-dashed border-border bg-surface-1 py-10 text-center text-sm text-muted-foreground">
+          <p className="rounded-12 border border-dashed border-border bg-surface-1 py-10 text-center text-sm text-muted-foreground">
             没找到匹配的期刊,换个关键词试试 · 也可以点右上「+ 自定义期刊」
           </p>
         )}
@@ -215,7 +215,7 @@ function JournalCard({
       }}
       className={cn(
         // 整卡可点即选;选中态做强对比 (红边 + 红环 + 浅红底), 一眼可辨
-        'cursor-pointer rounded-md border bg-surface-card p-3.5 text-left outline-none transition',
+        'cursor-pointer rounded-12 border bg-surface-card p-3.5 text-left outline-none transition',
         'focus-visible:ring-2 focus-visible:ring-brand-red/40',
         selected
           ? 'border-brand-red bg-danger-soft ring-1 ring-brand-red'
@@ -225,7 +225,7 @@ function JournalCard({
       <header className="flex items-start gap-3">
         <span
           className={cn(
-            'flex size-11 shrink-0 items-center justify-center rounded-md text-base font-bold text-background',
+            'flex size-11 shrink-0 items-center justify-center rounded-8 text-base font-bold text-background',
             logoBg
           )}
         >
@@ -241,22 +241,22 @@ function JournalCard({
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-1.5">
           {j.fqb_quartile && (
-            <span className="rounded-sm bg-danger-soft px-2 py-0.5 text-2xs font-bold text-brand-red">
+            <span className="rounded-4 bg-danger-soft px-2 py-0.5 text-2xs font-bold text-brand-red">
               中科院 {j.fqb_quartile} 区
             </span>
           )}
           {j.jcr_quartile && (
-            <span className="rounded-sm bg-surface-2 px-2 py-0.5 text-2xs font-bold text-subtle">
+            <span className="rounded-4 bg-surface-2 px-2 py-0.5 text-2xs font-bold text-subtle">
               JCR {j.jcr_quartile}
             </span>
           )}
           {j.jcr_impact_factor != null && (
-            <span className="rounded-sm border border-border-strong px-2 py-0.5 text-2xs font-bold text-foreground">
+            <span className="rounded-4 border border-border-strong px-2 py-0.5 text-2xs font-bold text-foreground">
               IF {j.jcr_impact_factor.toFixed(1)}
             </span>
           )}
           {j.ccf_rank && (
-            <span className="rounded-sm bg-surface-2 px-2 py-0.5 text-2xs font-bold text-subtle">
+            <span className="rounded-4 bg-surface-2 px-2 py-0.5 text-2xs font-bold text-subtle">
               CCF {j.ccf_rank}
             </span>
           )}
@@ -267,17 +267,17 @@ function JournalCard({
         <div className="flex flex-wrap items-center gap-2 text-2xs text-muted-foreground">
           <span>投稿要求:</span>
           {j.is_oa && (
-            <span className="rounded-sm bg-surface-2 px-2 py-0.5 text-subtle">
+            <span className="rounded-4 bg-surface-2 px-2 py-0.5 text-subtle">
               Open Access
             </span>
           )}
           {j.openalex_h_index != null && (
-            <span className="rounded-sm bg-surface-2 px-2 py-0.5 text-subtle">
+            <span className="rounded-4 bg-surface-2 px-2 py-0.5 text-subtle">
               h-index {j.openalex_h_index}
             </span>
           )}
           {j.country && (
-            <span className="rounded-sm bg-surface-2 px-2 py-0.5 text-subtle">
+            <span className="rounded-4 bg-surface-2 px-2 py-0.5 text-subtle">
               {j.country}
             </span>
           )}
@@ -321,7 +321,7 @@ function CustomJournalForm({
   const invalid = trimmed.length === 0 || trimmed.length > 250;
 
   return (
-    <div className="mb-3 rounded-lg border border-brand-red/40 bg-surface-1 p-4">
+    <div className="mb-3 rounded-12 border border-brand-red/40 bg-surface-1 p-4">
       <div className="mb-2 flex items-center justify-between">
         <p className="text-xs font-bold text-foreground">
           自定义期刊 <span className="ml-1 text-muted-foreground">(只填一个名字就行)</span>

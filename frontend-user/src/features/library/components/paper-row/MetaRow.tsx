@@ -55,22 +55,22 @@ export function MetaRow({
       {enrichment && (
         <>
           {enrichment.jcr_quartile && (
-            <span className="inline-flex items-center h-4 px-1.5 rounded-sm bg-brand-amber/10 text-brand-amber text-[10px] font-bold tabular-nums">
+            <span className="inline-flex items-center h-4 px-1.5 rounded-4 bg-brand-amber/10 text-brand-amber text-[10px] font-bold tabular-nums">
               JCR {enrichment.jcr_quartile}
             </span>
           )}
           {enrichment.jcr_impact_factor != null && (
-            <span className="inline-flex items-center h-4 px-1.5 rounded-sm bg-surface-2 border border-border text-foreground text-[10px] font-bold tabular-nums">
+            <span className="inline-flex items-center h-4 px-1.5 rounded-4 bg-surface-2 border border-border text-foreground text-[10px] font-bold tabular-nums">
               IF {enrichment.jcr_impact_factor.toFixed(1)}
             </span>
           )}
           {enrichment.fqb_quartile && (
-            <span className="inline-flex items-center h-4 px-1.5 rounded-sm bg-brand-red/8 text-brand-red text-[10px] font-bold">
+            <span className="inline-flex items-center h-4 px-1.5 rounded-4 bg-brand-red/8 text-brand-red text-[10px] font-bold">
               中科院 {enrichment.fqb_quartile}区
             </span>
           )}
           {enrichment.ccf_rank && (
-            <span className="inline-flex items-center h-4 px-1.5 rounded-sm bg-foreground text-background text-[10px] font-bold">
+            <span className="inline-flex items-center h-4 px-1.5 rounded-4 bg-foreground text-background text-[10px] font-bold">
               CCF {enrichment.ccf_rank}
             </span>
           )}

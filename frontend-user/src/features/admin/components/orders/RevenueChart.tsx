@@ -37,7 +37,7 @@ function RevenueTooltip(props: {
   const items = payload.filter((p) => Number(p.value) > 0);
   const total = payload.reduce((s, p) => s + (Number(p.value) || 0), 0);
   return (
-    <div className="rounded-md border border-border bg-surface-card px-3 py-2 text-xs shadow-overlay">
+    <div className="rounded-12 border border-border bg-surface-card px-3 py-2 text-xs shadow-overlay">
       <div className="mb-1 text-faint">{withWeekday(String(label ?? ''), label)}</div>
       {[...items].reverse().map((p, i) => (
         <div key={i} className="flex items-center justify-between gap-4">
@@ -80,7 +80,7 @@ export function RevenueChart({
   const todayBucket = daily.find((d) => isTodayBucket(d.date))?.date;
 
   return (
-    <section className="mb-6 rounded-md border border-border bg-surface-card p-4">
+    <section className="mb-6 rounded-16 border border-border bg-surface-card p-4">
       {/* 头部:标题 + 区间总计 · 右侧 7/30/90 筛选 */}
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
@@ -106,7 +106,7 @@ export function RevenueChart({
               type="button"
               onClick={() => onDaysChange(d)}
               className={cn(
-                'h-7 rounded-md px-2.5 text-xs font-medium transition-colors',
+                'h-7 rounded-8 px-2.5 text-xs font-medium transition-colors',
                 d === days
                   ? 'bg-foreground text-background'
                   : 'text-muted-foreground hover:bg-surface-1 hover:text-foreground'

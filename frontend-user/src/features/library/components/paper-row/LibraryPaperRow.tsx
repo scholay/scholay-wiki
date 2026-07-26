@@ -197,7 +197,7 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
           onToggle(paper.id, rowIndex, e.shiftKey);
         }}
         className={cn(
-          'shrink-0 mt-1 inline-flex h-4 w-4 items-center justify-center rounded-sm border transition-all cursor-pointer',
+          'shrink-0 mt-1 inline-flex h-4 w-4 items-center justify-center rounded-4 border transition-all cursor-pointer',
           selected
             ? 'bg-brand-red border-brand-red text-on-brand opacity-100'
             : 'bg-surface-card border-border-strong text-transparent opacity-0 group-hover:opacity-100 hover:!border-foreground'
@@ -281,7 +281,7 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
           <button
             type="button"
             onClick={handleOpenCitation}
-            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-sm border border-brand-amber/50 text-2xs font-semibold text-brand-amber hover:bg-brand-amber/[0.05] transition-colors shrink-0"
+            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-8 border border-brand-amber/50 text-2xs font-semibold text-brand-amber hover:bg-brand-amber/[0.05] transition-colors shrink-0"
             title="查看引用格式"
           >
             <Quote className="size-3" strokeWidth={2} />
@@ -375,7 +375,7 @@ function TypeBadge({
   if (isFree || source === 'local') {
     return (
       <span
-        className="shrink-0 mt-0.5 inline-flex items-center h-4 px-1.5 rounded-sm bg-surface-2 text-faint text-2xs font-bold"
+        className="shrink-0 mt-0.5 inline-flex items-center h-4 px-1.5 rounded-4 bg-surface-2 text-faint text-2xs font-bold"
         title="这篇文献还没有关联在线论文,内容由你自己维护"
       >
         本地

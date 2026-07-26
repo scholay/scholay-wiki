@@ -28,7 +28,7 @@ export function Step4Rail({ submissionId, submission, assets, agreed }: Step4Rai
     <div className="flex flex-col gap-4">
       <UploadedAssetsCard submissionId={submissionId} />
 
-      <section className="rounded-lg border border-border bg-surface-card p-4">
+      <section className="rounded-16 border border-border bg-surface-card p-4">
         <header className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-bold text-foreground">投递前自检</h3>
           <span className={cn(

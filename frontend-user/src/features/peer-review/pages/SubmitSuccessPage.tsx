@@ -72,7 +72,7 @@ export function SubmitSuccessPage() {
     <div className="flex h-full w-full items-center justify-center bg-surface-3 px-8 py-10">
       <article
         className={
-          'flex w-full max-w-[720px] flex-col gap-6 rounded-lg border ' +
+          'flex w-full max-w-[720px] flex-col gap-6 rounded-16 border ' +
           'border-border bg-surface-card px-14 py-12'
         }
       >
@@ -88,7 +88,7 @@ export function SubmitSuccessPage() {
         </header>
 
         {/* 投稿信息卡 ────────────────────────────────────────────────── */}
-        <section className="rounded-lg border border-border bg-surface-3 px-6 py-5">
+        <section className="rounded-12 border border-border bg-surface-3 px-6 py-5">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-foreground">投稿信息</h2>
             <span className="rounded-pill bg-danger-soft px-3 py-0.5 text-xs font-bold text-brand-red">
@@ -106,7 +106,7 @@ export function SubmitSuccessPage() {
         </section>
 
         {/* 黄色 tip box ──────────────────────────────────────────────── */}
-        <aside className="flex gap-3 rounded-lg border border-brand-amber/40 bg-warning-soft px-4 py-3.5">
+        <aside className="flex gap-3 rounded-12 border border-brand-amber/40 bg-warning-soft px-4 py-3.5">
           <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-pill bg-brand-amber">
             <Info className="h-3.5 w-3.5 text-background" strokeWidth={3} />
           </div>

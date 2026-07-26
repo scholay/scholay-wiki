@@ -64,11 +64,11 @@ export function NewsDetailPage() {
             <span className={`size-1.5 rounded-pill ${tone.dot}`} />
             {item.section_label || '情报'}
           </span>
-          <span className="rounded-sm bg-surface-1 px-1.5 py-0.5 text-faint">
+          <span className="rounded-4 bg-surface-1 px-1.5 py-0.5 text-faint">
             {newsReportLabel(item.report_type)}
           </span>
           {item.is_featured && (
-            <span className="rounded-sm bg-brand-red px-1.5 py-0.5 font-semibold text-on-brand">
+            <span className="rounded-4 bg-brand-red px-1.5 py-0.5 font-semibold text-on-brand">
               头条
             </span>
           )}
@@ -107,7 +107,7 @@ export function NewsDetailPage() {
           <img
             src={item.cover_image}
             alt=""
-            className="mt-6 w-full rounded-lg object-cover"
+            className="mt-6 w-full rounded-16 object-cover"
           />
         )}
 
@@ -118,7 +118,7 @@ export function NewsDetailPage() {
 
         {/* 信息来源(GEO 强信号,可见) */}
         {item.sources?.length > 0 && (
-          <section className="mt-10 rounded-lg border border-border-soft bg-surface-1 p-5">
+          <section className="mt-10 rounded-16 border border-border-soft bg-surface-1 p-5">
             <h2 className="text-sm font-bold text-foreground">信息来源</h2>
             <ul className="mt-2 space-y-1.5">
               {item.sources.map((s, i) => (
@@ -140,7 +140,7 @@ export function NewsDetailPage() {
 
         {/* 可信度说明 */}
         {item.credibility_note && (
-          <aside className="mt-4 flex gap-2.5 rounded-lg border border-border-soft bg-surface-card p-4">
+          <aside className="mt-4 flex gap-2.5 rounded-16 border border-border-soft bg-surface-card p-4">
             <ShieldCheck className="mt-0.5 size-4 shrink-0 text-brand-green" />
             <div>
               <p className="text-xs font-bold text-foreground">可信度说明</p>

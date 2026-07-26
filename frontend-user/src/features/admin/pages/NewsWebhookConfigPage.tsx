@@ -63,7 +63,7 @@ export function NewsWebhookConfigPage() {
     >
       <div className="flex max-w-2xl flex-col gap-6">
         <Section icon={<Newspaper className="size-4" />} title="展示开关">
-          <div className="flex items-center justify-between rounded-md border border-border bg-surface-1 px-4 py-3">
+          <div className="flex items-center justify-between rounded-12 border border-border bg-surface-1 px-4 py-3">
             <div className="flex flex-col gap-0.5">
               <span className="text-sm font-medium text-foreground">在用户端展示情报</span>
               <span className="text-xs text-muted-foreground">
@@ -107,7 +107,7 @@ export function NewsWebhookConfigPage() {
           </Field>
         </Section>
 
-        <div className="rounded-md border border-border-soft bg-surface-1 p-4 text-xs leading-paragraph text-muted-foreground">
+        <div className="rounded-16 border border-border-soft bg-surface-1 p-4 text-xs leading-paragraph text-muted-foreground">
           <p className="font-semibold text-foreground">对接说明</p>
           <ul className="mt-1.5 list-disc space-y-1 pl-4">
             <li>把上面的「接收 URL」填到上游 Minicod 的推送端点,密钥两端保持一致。</li>
@@ -132,7 +132,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-border bg-surface-card p-5">
+    <div className="flex flex-col gap-4 rounded-16 border border-border bg-surface-card p-5">
       <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
         <span className="text-muted-foreground">{icon}</span>
         {title}

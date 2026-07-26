@@ -154,7 +154,7 @@ function ChartCard({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-md border border-border bg-surface-card p-4">
+    <div className="rounded-16 border border-border bg-surface-card p-4">
       <div className="mb-2 flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="text-sm font-bold text-foreground">{title}</h3>
@@ -337,7 +337,7 @@ function SeriesToggle({
   return (
     <label className="flex cursor-pointer select-none items-center gap-1.5 text-xs text-subtle">
       <Checkbox checked={checked} onCheckedChange={(v) => onChange(v === true)} />
-      <span className="inline-block size-2.5 rounded-sm" style={{ backgroundColor: color }} />
+      <span className="inline-block size-2.5 rounded-4" style={{ backgroundColor: color }} />
       {label}
     </label>
   );

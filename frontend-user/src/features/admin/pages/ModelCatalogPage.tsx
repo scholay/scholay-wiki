@@ -203,7 +203,7 @@ export function ModelCatalogPanel() {
         ) : (
           <div
             key={v.key}
-            className="rounded-md border border-dashed border-border bg-surface-1 p-4 text-xs text-muted-foreground"
+            className="rounded-16 border border-dashed border-border bg-surface-1 p-4 text-xs text-muted-foreground"
           >
             未检测到{v.label}端点。到下方「高级」新增端点:Base URL{' '}
             <span className="font-mono">{v.endpoint.baseUrl}</span>、格式{' '}
@@ -304,7 +304,7 @@ function BindingsCard({ models }: { models: AgentModel[] }) {
     models.find((m) => m.model_id === modelId)?.display_name || modelId || '—';
 
   return (
-    <section className="rounded-md border border-border bg-surface-card">
+    <section className="rounded-16 border border-border bg-surface-card">
       <div className="p-4 border-b border-border-soft">
         <h2 className="text-base font-bold text-foreground">能力绑定</h2>
         <p className="text-xs text-muted-foreground mt-1">

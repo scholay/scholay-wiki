@@ -37,7 +37,7 @@ export function DashboardPage() {
       {/* KPI 第一行 —— 增长与钱:用户 / 营收 / 订单 */}
       <section className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {l1 ? (
-          [...Array(3)].map((_, i) => <Skeleton key={i} className="h-28 rounded-md" />)
+          [...Array(3)].map((_, i) => <Skeleton key={i} className="h-28 rounded-16" />)
         ) : (
           <>
             <StatCard
@@ -65,7 +65,7 @@ export function DashboardPage() {
       {/* KPI 第二行 —— 付费转化与成本:付费用户 / AI 成本 / 兑换码 */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
         {l1 ? (
-          [...Array(3)].map((_, i) => <Skeleton key={i} className="h-28 rounded-md" />)
+          [...Array(3)].map((_, i) => <Skeleton key={i} className="h-28 rounded-16" />)
         ) : (
           <>
             <StatCard
@@ -154,7 +154,7 @@ function TrendCard({
   // Y 轴刻度紧凑化(¥1.2k / 3.4M),配合 margin.left=0 防长数字裁切;完整值仍在 Tooltip。
   const yTickFmt = yLabel === '¥' ? compactYuanAxis : compactAxis;
   return (
-    <div className="rounded-md border border-border bg-surface-card p-4">
+    <div className="rounded-16 border border-border bg-surface-card p-4">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-bold text-foreground">{title}</h3>
         <div className="flex items-center gap-2">

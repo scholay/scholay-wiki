@@ -112,10 +112,10 @@ function FeatureCard({ feature }: { feature: FeatureEntry }) {
   return (
     <Link
       to={feature.to}
-      className="group flex flex-col gap-3 p-6 rounded-md bg-surface-card border border-border hover:border-border-strong transition-colors"
+      className="group flex flex-col gap-3 p-6 rounded-16 bg-surface-card border border-border hover:border-border-strong transition-colors"
     >
       <div className="flex items-start justify-between">
-        <span className="inline-flex h-10 w-10 items-center justify-center rounded-sm bg-surface-1 border border-border">
+        <span className="inline-flex h-10 w-10 items-center justify-center rounded-8 bg-surface-1 border border-border">
           <Icon className="size-5 text-foreground" strokeWidth={1.8} />
         </span>
         {feature.comingSoon && (

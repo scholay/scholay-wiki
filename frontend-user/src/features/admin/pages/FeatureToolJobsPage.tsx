@@ -48,9 +48,9 @@ export function FeatureToolJobsPage() {
       <DataTable columns={columns} rows={data?.items} loading={isLoading} emptyMessage="还没有导入任务" />
       {totalPages > 1 && (
         <div className="mt-4 flex items-center justify-center gap-3 text-xs text-faint">
-          <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="rounded-md border border-border px-2 py-1 disabled:opacity-40 hover:bg-surface-1">上一页</button>
+          <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="rounded-8 border border-border px-2 py-1 disabled:opacity-40 hover:bg-surface-1">上一页</button>
           <span>第 {page} / {totalPages} 页</span>
-          <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} className="rounded-md border border-border px-2 py-1 disabled:opacity-40 hover:bg-surface-1">下一页</button>
+          <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} className="rounded-8 border border-border px-2 py-1 disabled:opacity-40 hover:bg-surface-1">下一页</button>
         </div>
       )}
       <JobDetailDialog id={openId} onClose={() => setOpenId(null)} />
@@ -75,13 +75,13 @@ function JobDetailDialog({ id, onClose }: { id: number | null; onClose: () => vo
               <Stat label="更新" value={job.updated_cnt} tone="text-brand-amber" />
               <Stat label="失败" value={job.failed_cnt} tone={job.failed_cnt > 0 ? 'text-brand-red' : 'text-faint'} />
             </div>
-            {job.error && <p className="rounded-md bg-danger-soft p-2 text-xs text-brand-red">{job.error}</p>}
+            {job.error && <p className="rounded-8 bg-danger-soft p-2 text-xs text-brand-red">{job.error}</p>}
             {failures.length > 0 && (
               <div>
                 <p className="mb-1.5 text-xs font-bold text-subtle">失败明细 ({failures.length})</p>
                 <div className="space-y-1">
                   {failures.map((f) => (
-                    <div key={f.idx} className="rounded-md border border-border-soft bg-surface-1 px-2 py-1.5 text-xs">
+                    <div key={f.idx} className="rounded-8 border border-border-soft bg-surface-1 px-2 py-1.5 text-xs">
                       <span className="text-foreground">#{f.idx} {f.name || '(无名)'}</span>
                       <span className="ml-2 text-brand-red">{f.error}</span>
                     </div>
@@ -102,7 +102,7 @@ function JobDetailDialog({ id, onClose }: { id: number | null; onClose: () => vo
 
 function Stat({ label, value, tone = 'text-foreground' }: { label: string; value: number; tone?: string }) {
   return (
-    <div className="rounded-md border border-border bg-surface-card p-2 text-center">
+    <div className="rounded-8 border border-border bg-surface-card p-2 text-center">
       <p className={`text-lg font-bold ${tone}`}>{value}</p>
       <p className="text-2xs text-faint">{label}</p>
     </div>

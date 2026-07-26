@@ -33,7 +33,7 @@ export const MobileJournalResultCard = memo(function MobileJournalResultCard({
           id={journal.id}
           name={journal.canonical_name}
           size="tile"
-          className="h-12 w-12 shrink-0 rounded-md"
+          className="h-12 w-12 shrink-0 rounded-8"
         />
         <div className="min-w-0 flex-1">
           <p className="line-clamp-2 text-[15px] font-semibold text-foreground">

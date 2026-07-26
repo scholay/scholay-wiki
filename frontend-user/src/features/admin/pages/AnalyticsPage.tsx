@@ -230,7 +230,7 @@ function KPI({
       ? ((value - prev) / prev) * 100
       : null;
   return (
-    <div className="rounded-md border border-border bg-surface-card p-3">
+    <div className="rounded-16 border border-border bg-surface-card p-3">
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-2xs text-faint">{label}</span>
         <Icon className="size-3 text-faint" />
@@ -258,7 +258,7 @@ function KPI({
 
 function RealtimeCard({ value, loading }: { value?: number; loading?: boolean }) {
   return (
-    <div className="rounded-md border border-brand-green bg-danger-soft/0 p-3 relative overflow-hidden">
+    <div className="rounded-16 border border-brand-green bg-danger-soft/0 p-3 relative overflow-hidden">
       <div className="absolute top-2 right-2 size-1.5 rounded-pill bg-brand-green animate-pulse" />
       <div className="text-2xs text-brand-green/80">实时在线</div>
       {loading ? (
@@ -285,7 +285,7 @@ function Panel({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-md border border-border bg-surface-card p-4">
+    <div className="rounded-16 border border-border bg-surface-card p-4">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-bold text-foreground">{title}</h3>
         <Icon className="size-3.5 text-faint" />
@@ -429,7 +429,7 @@ function TopCard({
             const pct = max > 0 ? (row.y / max) * 100 : 0;
             return (
               <li key={`${row.x}-${i}`} className="relative">
-                <div className="absolute inset-0 -m-px rounded-sm bg-surface-2 overflow-hidden">
+                <div className="absolute inset-0 -m-px rounded-4 bg-surface-2 overflow-hidden">
                   <div
                     className="h-full bg-surface-2"
                     style={{

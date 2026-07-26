@@ -126,8 +126,8 @@ export function RelinkPanel({
       {/* 当前关联卡 —— linked 行先让用户看到"现在关联的是哪篇",再谈替换 */}
       {isLinked && (
         <div className="px-6 pt-4 shrink-0">
-          <div className="flex items-start gap-3 rounded-md border border-border-soft bg-surface-1 px-4 py-2.5">
-            <div className="flex h-6 w-6 items-center justify-center rounded-sm bg-surface-card border border-border shrink-0 mt-0.5">
+          <div className="flex items-start gap-3 rounded-12 border border-border-soft bg-surface-1 px-4 py-2.5">
+            <div className="flex h-6 w-6 items-center justify-center rounded-8 bg-surface-card border border-border shrink-0 mt-0.5">
               <Link2 className="size-3.5 text-brand-amber" strokeWidth={2.25} />
             </div>
             <div className="flex-1 min-w-0">
@@ -135,7 +135,7 @@ export function RelinkPanel({
                 <span className="text-2xs font-bold text-faint uppercase">
                   当前关联
                 </span>
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-surface-2 text-subtle text-2xs font-bold leading-none uppercase">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-surface-2 text-subtle text-2xs font-bold leading-none uppercase">
                   {sourceBrandLabel(paper.source)}
                 </span>
               </div>
@@ -171,7 +171,7 @@ export function RelinkPanel({
       {/* 搜索条 */}
       <div className="px-6 pt-4 pb-3 shrink-0">
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 flex-1 h-10 px-3 rounded-md border border-border bg-surface-card focus-within:border-brand-amber focus-within:ring-2 focus-within:ring-brand-amber/20 transition-colors">
+          <div className="flex items-center gap-2 flex-1 h-10 px-3 rounded-8 border border-border bg-surface-card focus-within:border-brand-amber focus-within:ring-2 focus-within:ring-brand-amber/20 transition-colors">
             <Search className="size-3.5 text-muted-foreground shrink-0" />
             <input
               type="text"
@@ -194,7 +194,7 @@ export function RelinkPanel({
             }}
             disabled={searchQ.isFetching}
             className={cn(
-              'inline-flex items-center gap-1.5 h-10 px-3 rounded-md border border-brand-amber text-brand-amber text-sm font-bold',
+              'inline-flex items-center gap-1.5 h-10 px-3 rounded-8 border border-brand-amber text-brand-amber text-sm font-bold',
               'hover:bg-warning-soft disabled:opacity-60 transition-colors'
             )}
           >

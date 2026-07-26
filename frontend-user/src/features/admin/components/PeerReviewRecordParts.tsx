@@ -110,7 +110,7 @@ export function AssetsSection({
         {assets.map((a) => {
           const src = `/admin/peer-review/submissions/${submissionId}/assets/${a.id}`;
           return (
-            <div key={a.id} className="rounded-md border border-border bg-surface-1 p-2.5">
+            <div key={a.id} className="rounded-12 border border-border bg-surface-1 p-2.5">
               <div className="flex flex-wrap items-center gap-2">
                 <FileText className="size-4 shrink-0 text-faint" />
                 <span className="min-w-0 truncate text-xs font-medium text-foreground" title={a.filename}>
@@ -163,7 +163,7 @@ export function AssetsSection({
 /** 调试数据(运营视角,用户视图没有):完整原始 DTO。可折叠,默认收起。 */
 export function RawDebug({ detail }: { detail: PRSubmissionDetail }) {
   return (
-    <details className="rounded-md border border-border-soft bg-surface-1 p-2.5">
+    <details className="rounded-12 border border-border-soft bg-surface-1 p-2.5">
       <summary className="cursor-pointer text-2xs text-faint">调试数据 · 原始字段 / JSON</summary>
       <pre className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap break-words text-2xs text-muted-foreground">
         {JSON.stringify(detail, null, 2)}

@@ -140,7 +140,7 @@ export function LatexDiffEditor({
       <div ref={host} className="h-full overflow-auto" />
       {!displayOnly && nav.count > 0 && (
         // 浮动导航 —— 暗色配色取 globals.css --prism-editor-* token;逐块取舍 + 全部保留/撤销。
-        <div className="absolute right-3 top-3 z-raised flex items-center gap-0.5 rounded-md border border-[color:var(--prism-editor-chrome-border)] bg-[var(--prism-editor-chrome-bg)] px-1.5 py-1 text-[color:var(--prism-editor-fg)] shadow-overlay">
+        <div className="absolute right-3 top-3 z-raised flex items-center gap-0.5 rounded-12 border border-[color:var(--prism-editor-chrome-border)] bg-[var(--prism-editor-chrome-bg)] px-1.5 py-1 text-[color:var(--prism-editor-fg)] shadow-overlay">
           <span className="px-1 text-2xs tabular-nums text-[color:var(--prism-editor-chrome-muted)]">剩余 {nav.count} 处</span>
           <button type="button" onClick={chunk(goToPreviousChunk)} title="上一处 (↑)" className="rounded-4 p-1 hover:bg-surface-card/10"><ChevronUp className="size-4" /></button>
           <button type="button" onClick={chunk(goToNextChunk)} title="下一处 (↓)" className="rounded-4 p-1 hover:bg-surface-card/10"><ChevronDown className="size-4" /></button>

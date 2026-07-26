@@ -45,7 +45,7 @@ export function StagingTabs() {
           aria-label="新建暂存区"
           title="新建暂存区"
           onClick={() => createArea()}
-          className="inline-flex h-6 w-6 items-center justify-center rounded-sm border border-border-strong text-subtle hover:bg-surface-1 hover:text-foreground transition-colors shrink-0"
+          className="inline-flex h-6 w-6 items-center justify-center rounded-8 border border-border-strong text-subtle hover:bg-surface-1 hover:text-foreground transition-colors shrink-0"
         >
           <Plus className="size-3" strokeWidth={2.5} />
         </button>

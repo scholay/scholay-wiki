@@ -38,7 +38,7 @@ export function todayISO(): string {
 }
 
 const DAY_PRESETS = [7, 30, 90];
-const DATE_INPUT_CLS = 'h-7 rounded-md border border-input bg-surface-card px-2 text-xs text-foreground';
+const DATE_INPUT_CLS = 'h-7 rounded-8 border border-input bg-surface-card px-2 text-xs text-foreground';
 
 function Chip({
   active,
@@ -54,7 +54,7 @@ function Chip({
       type="button"
       onClick={onClick}
       className={cn(
-        'h-7 rounded-md px-3 text-xs font-medium transition-colors',
+        'h-7 rounded-8 px-3 text-xs font-medium transition-colors',
         active ? 'bg-brand-red text-background' : 'bg-surface-2 text-subtle hover:bg-surface-1',
       )}
     >

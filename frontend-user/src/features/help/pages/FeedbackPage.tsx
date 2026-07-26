@@ -204,7 +204,7 @@ export function FeedbackPage() {
           {/* 左:表单 */}
           <form
             onSubmit={handleSubmit}
-            className="space-y-5 rounded-lg border border-border-soft bg-surface-1 p-6 md:p-8"
+            className="space-y-5 rounded-16 border border-border-soft bg-surface-1 p-6 md:p-8"
           >
             {/* 分类 */}
             <div>
@@ -220,7 +220,7 @@ export function FeedbackPage() {
                       onClick={() => setCategory(c.value)}
                       aria-pressed={active}
                       className={cn(
-                        'flex flex-col items-center gap-1 rounded-md border px-2 py-2.5 text-center transition-colors',
+                        'flex flex-col items-center gap-1 rounded-8 border px-2 py-2.5 text-center transition-colors',
                         active
                           ? 'border-brand-red/40 bg-danger-soft'
                           : 'border-border bg-surface-card hover:border-foreground/30 hover:bg-surface-2',
@@ -255,7 +255,7 @@ export function FeedbackPage() {
                 aria-describedby="feedback-content-hint"
                 placeholder="请详细描述遇到的问题或您的建议,越具体我们越能帮上忙"
                 className={cn(
-                  'w-full resize-y rounded-sm border bg-surface-card px-3 py-2.5 text-sm leading-paragraph focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  'w-full resize-y rounded-8 border bg-surface-card px-3 py-2.5 text-sm leading-paragraph focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                   contentTooShort ? 'border-brand-red focus-visible:border-brand-red' : 'border-border focus-visible:border-foreground',
                 )}
               />
@@ -282,7 +282,7 @@ export function FeedbackPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 placeholder="you@example.com"
-                className="h-10 w-full rounded-sm border border-border bg-surface-card px-3 text-sm focus-visible:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-10 w-full rounded-8 border border-border bg-surface-card px-3 text-sm focus-visible:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
               {user?.email && email.trim() === user.email && (
                 <p className="mt-1 inline-flex items-center gap-1 text-2xs text-brand-green">
@@ -306,7 +306,7 @@ export function FeedbackPage() {
                   {attachments.map((a) => (
                     <div
                       key={a.id}
-                      className="group relative overflow-hidden rounded-sm border border-border bg-surface-card"
+                      className="group relative overflow-hidden rounded-8 border border-border bg-surface-card"
                     >
                       {a.type === 'image' ? (
                         <button
@@ -355,7 +355,7 @@ export function FeedbackPage() {
                   if (attachments.length < MAX_ATTACHMENTS) void handleFiles(e.dataTransfer.files);
                 }}
                 className={cn(
-                  'flex flex-col items-center justify-center gap-1.5 rounded-md border border-dashed py-5 text-center transition-colors',
+                  'flex flex-col items-center justify-center gap-1.5 rounded-12 border border-dashed py-5 text-center transition-colors',
                   dragOver ? 'border-brand-green bg-brand-green/5' : 'border-border bg-surface-card',
                 )}
               >
@@ -413,7 +413,7 @@ export function FeedbackPage() {
       <Dialog open={!!lightbox} onOpenChange={(o) => !o && setLightbox(null)}>
         <DialogContent className="max-w-3xl">
           {lightbox && (
-            <img src={lightbox.url} alt={lightbox.name} className="max-h-[75vh] w-full rounded-sm object-contain" />
+            <img src={lightbox.url} alt={lightbox.name} className="max-h-[75vh] w-full rounded-8 object-contain" />
           )}
         </DialogContent>
       </Dialog>
@@ -424,7 +424,7 @@ export function FeedbackPage() {
 /** 「我们承诺」卡(品牌信心区)。 */
 function PromiseCard() {
   return (
-    <section className="rounded-lg border border-border-soft bg-surface-card p-5">
+    <section className="rounded-12 border border-border-soft bg-surface-card p-5">
       <h2 className="mb-3 inline-flex items-center gap-2 text-sm font-bold text-foreground">
         <Sparkles className="size-4 text-brand-amber" strokeWidth={2.2} />
         我们承诺
@@ -448,7 +448,7 @@ function PromiseCard() {
 /** 提交成功 inline 态 —— 取代静默清空,给明确的完成反馈 + 下一步。 */
 function SuccessPanel({ email, onAgain }: { email: string; onAgain: () => void }) {
   return (
-    <div className="rounded-lg border border-border-soft bg-surface-1 p-8 text-center md:p-12">
+    <div className="rounded-16 border border-border-soft bg-surface-1 p-8 text-center md:p-12">
       <span className="mx-auto inline-flex size-12 items-center justify-center rounded-pill bg-brand-green/10">
         <CheckCircle2 className="size-6 text-brand-green" strokeWidth={2.2} />
       </span>

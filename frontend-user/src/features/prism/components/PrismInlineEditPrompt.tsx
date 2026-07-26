@@ -66,7 +66,7 @@ export function PrismInlineEditPrompt({
     <div
       ref={cardRef}
       style={{ position: 'fixed', left, top, width }}
-      className="z-popover rounded-lg border border-border bg-popover p-2.5 shadow-overlay"
+      className="z-popover rounded-12 border border-border bg-popover p-2.5 shadow-overlay"
     >
       <div className="mb-2 flex items-center gap-1.5">
         <Sparkles className="size-3.5 text-brand-green" />
@@ -102,13 +102,13 @@ export function PrismInlineEditPrompt({
           }}
           rows={2}
           placeholder="或描述你想怎么改…(Enter 提交)"
-          className="max-h-24 min-h-[44px] flex-1 resize-none rounded-md border border-border-button bg-surface-card px-2.5 py-1.5 text-xs leading-paragraph text-foreground placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="max-h-24 min-h-[44px] flex-1 resize-none rounded-8 border border-border-button bg-surface-card px-2.5 py-1.5 text-xs leading-paragraph text-foreground placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
         <button
           type="button"
           disabled={!text.trim() || busy}
           onClick={() => submit(text)}
-          className="mb-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md bg-foreground text-background disabled:opacity-40"
+          className="mb-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-8 bg-foreground text-background disabled:opacity-40"
           aria-label="提交"
         >
           <ArrowUp className="size-4" />

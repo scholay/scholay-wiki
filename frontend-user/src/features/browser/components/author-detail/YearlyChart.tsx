@@ -43,7 +43,7 @@ export function YearlyChart({ papers }: { papers: Paper[] }) {
       : '0';
 
   return (
-    <section className="rounded-lg bg-surface-card border border-border p-6 space-y-4">
+    <section className="rounded-16 bg-surface-card border border-border p-6 space-y-4">
       <div className="flex items-end justify-between gap-3">
         <div className="flex items-end gap-2.5">
           <h2 className="font-display font-bold text-xl leading-none text-foreground">
@@ -55,11 +55,11 @@ export function YearlyChart({ papers }: { papers: Paper[] }) {
         </div>
         <div className="flex items-center gap-3 text-2xs text-faint">
           <span className="inline-flex items-center gap-1.5">
-            <span className="size-2.5 rounded-sm bg-foreground" />
+            <span className="size-2.5 rounded-4 bg-foreground" />
             年发表量
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <span className="size-2.5 rounded-sm bg-brand-amber" />
+            <span className="size-2.5 rounded-4 bg-brand-amber" />
             峰值
           </span>
         </div>
@@ -79,7 +79,7 @@ export function YearlyChart({ papers }: { papers: Paper[] }) {
               </span>
               <div
                 className={cn(
-                  'w-full rounded-t-md transition-colors',
+                  'w-full rounded-t-4 transition-colors',
                   isPeak ? 'bg-brand-amber' : 'bg-foreground'
                 )}
                 style={{ height: `${Math.max(heightPct, 2)}%` }}

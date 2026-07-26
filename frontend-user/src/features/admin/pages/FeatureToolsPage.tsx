@@ -25,7 +25,7 @@ const STATUS_LABEL: Record<string, { text: string; variant: 'default' | 'outline
   archived: { text: '归档', variant: 'outline' },
 };
 
-const selectCls = 'h-9 w-full rounded-md border border-input bg-surface-card px-2 text-sm';
+const selectCls = 'h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-sm';
 
 export function FeatureToolsPage() {
   const [q, setQ] = useState('');
@@ -55,7 +55,7 @@ export function FeatureToolsPage() {
       header: '工具',
       cell: (r) => (
         <div className="flex items-center gap-2">
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border-soft bg-surface-2 text-2xs font-bold text-subtle">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-8 border border-border-soft bg-surface-2 text-2xs font-bold text-subtle">
             {(r.name_en || r.name || '?').charAt(0).toUpperCase()}
           </span>
           <div className="min-w-0">
@@ -120,9 +120,9 @@ export function FeatureToolsPage() {
 
       {totalPages > 1 && (
         <div className="mt-4 flex items-center justify-center gap-3 text-xs text-faint">
-          <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="rounded-md border border-border px-2 py-1 disabled:opacity-40 hover:bg-surface-1">上一页</button>
+          <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="rounded-8 border border-border px-2 py-1 disabled:opacity-40 hover:bg-surface-1">上一页</button>
           <span>第 {page} / {totalPages} 页</span>
-          <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} className="rounded-md border border-border px-2 py-1 disabled:opacity-40 hover:bg-surface-1">下一页</button>
+          <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} className="rounded-8 border border-border px-2 py-1 disabled:opacity-40 hover:bg-surface-1">下一页</button>
         </div>
       )}
 
@@ -204,7 +204,7 @@ function EditDialog({
           <Field label="官网 URL"><Input name="official_url" defaultValue={tool.official_url} placeholder="https://" /></Field>
           <Field label="标签 (逗号分隔)"><Input name="tags" defaultValue={(tool.tags ?? []).join(', ')} /></Field>
           <Field label="详细描述">
-            <textarea name="description_md" defaultValue={tool.description_md} rows={4} className="w-full rounded-md border border-input bg-surface-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+            <textarea name="description_md" defaultValue={tool.description_md} rows={4} className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           </Field>
           <Field label="状态" inline>
             <select name="status" defaultValue={tool.status} className={`${selectCls} w-32`}>

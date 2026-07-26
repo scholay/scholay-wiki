@@ -84,14 +84,14 @@ export function Footer() {
                 align="end"
                 side="top"
                 sideOffset={6}
-                className="z-popover w-64 rounded-md border border-border bg-surface-card p-1.5"
+                className="z-popover w-64 rounded-12 border border-border bg-surface-card p-1.5"
               >
                 <div className="flex flex-col">
                   {SOLUTION_LINKS.map((l) => (
                     <PopoverPrimitive.Close asChild key={l.to}>
                       <Link
                         to={l.to}
-                        className="flex flex-col gap-0.5 px-2.5 py-2 rounded-sm hover:bg-surface-1 transition-colors text-left"
+                        className="flex flex-col gap-0.5 px-2.5 py-2 rounded-8 hover:bg-surface-1 transition-colors text-left"
                       >
                         <span className="text-sm font-semibold text-foreground">
                           {l.label}

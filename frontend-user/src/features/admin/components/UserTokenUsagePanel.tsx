@@ -91,7 +91,7 @@ export function UserTokenUsagePanel({ userId }: { userId: number }) {
 
 function Stat({ label, value, strong, raw }: { label: string; value: number; strong?: boolean; raw?: boolean }) {
   return (
-    <div className="rounded-md border border-border bg-surface-1 px-2.5 py-1.5">
+    <div className="rounded-8 border border-border bg-surface-1 px-2.5 py-1.5">
       <div className="text-2xs text-faint">{label}</div>
       <div
         className={cn(
@@ -119,7 +119,7 @@ function UsageTable({ title, firstCol, rows }: { title: string; firstCol: string
   return (
     <div>
       <h5 className="mb-1.5 text-2xs font-bold text-faint">{title}</h5>
-      <div className="overflow-x-auto rounded-md border border-border">
+      <div className="overflow-x-auto rounded-12 border border-border">
         <table className="w-full min-w-[360px] text-2xs tabular-nums">
           <thead>
             <tr className="border-b border-border bg-surface-1 text-faint">

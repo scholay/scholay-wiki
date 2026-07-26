@@ -121,7 +121,7 @@ export function TokenUsageLogTable({ filters }: { filters: TokenUsageFilters }) 
                 type="button"
                 onClick={() => setSort(k)}
                 className={cn(
-                  'h-7 px-2.5 rounded-md text-xs font-medium transition-colors',
+                  'h-7 px-2.5 rounded-8 text-xs font-medium transition-colors',
                   sort === k
                     ? 'bg-foreground text-background'
                     : 'text-muted-foreground hover:bg-surface-1 hover:text-foreground'

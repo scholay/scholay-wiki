@@ -192,7 +192,7 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
               type="button"
               onClick={() => setSettingsOpen(true)}
               disabled={!token}
-              className="inline-flex items-center gap-1 h-7 px-2.5 rounded-sm border border-border text-xs text-subtle hover:bg-surface-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1 h-7 px-2.5 rounded-8 border border-border text-xs text-subtle hover:bg-surface-1 disabled:opacity-50 disabled:cursor-not-allowed"
               title={token ? '设置维度列' : '登录后可设置'}
             >
               <Settings2 className="size-3" />

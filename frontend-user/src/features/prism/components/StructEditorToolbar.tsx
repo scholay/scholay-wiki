@@ -43,7 +43,7 @@ function TB({
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
       className={cn(
-        'flex size-7 items-center justify-center rounded-md text-subtle transition-colors',
+        'flex size-7 items-center justify-center rounded-8 text-subtle transition-colors',
         'hover:bg-surface-2 hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent',
         active && 'bg-surface-2 text-foreground',
       )}

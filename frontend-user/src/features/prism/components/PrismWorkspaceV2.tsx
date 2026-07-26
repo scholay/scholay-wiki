@@ -574,7 +574,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
 
   // PDF 面「下载 / 隐藏」—— 并进 PdfViewer 工具条最右侧(trailingActions),不再单独占一行 h-9 头部。
   const pdfActionBtn =
-    'inline-flex h-7 items-center gap-1 rounded-sm px-2 text-2xs text-subtle transition-colors hover:bg-surface-2 hover:text-foreground';
+    'inline-flex h-7 items-center gap-1 rounded-8 px-2 text-2xs text-subtle transition-colors hover:bg-surface-2 hover:text-foreground';
   const pdfActions = (
     <>
       <button type="button" onClick={downloadPdf} className={pdfActionBtn} title="下载 PDF">
@@ -591,11 +591,11 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
   // 页面在白底上,不做深色托盘、不做内层卡片,避免卡中卡)。下载/隐藏 已并进 PdfViewer 工具条,去掉原 h-9 头部。
   const pdfPane = (
     <div className="h-full min-h-0 bg-surface-2 p-2">
-      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border-strong bg-surface-card">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-16 border border-border-strong bg-surface-card">
         {compileError ? (
           // 编译未通过是**可恢复**状态(有「让 AI 修复」回路)→ 用琥珀软提示而非红墙,降低焦虑感
           // (对齐全站 amber 约定:TurnErrorNotice / 工具失败)。
-          <div className="m-3 rounded-md border border-brand-amber/30 bg-warning-soft p-3 text-xs text-brand-amber">
+          <div className="m-3 rounded-12 border border-brand-amber/30 bg-warning-soft p-3 text-xs text-brand-amber">
             <div className="flex items-start gap-2">
               <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
               <div className="min-w-0">
@@ -710,7 +710,7 @@ export function PrismWorkspaceV2({ projectId, onBack }: { projectId: number; onB
             <select
               value={template}
               onChange={(e) => onTemplateChange(e.target.value)}
-              className="h-8 rounded-md border border-border bg-surface-card px-2 text-xs text-foreground"
+              className="h-8 rounded-8 border border-border bg-surface-card px-2 text-xs text-foreground"
               aria-label="目标模板"
             >
               {(templates.data ?? [{ key: 'article', name: '通用 Article', doc_class: 'article' }]).map((t) => (

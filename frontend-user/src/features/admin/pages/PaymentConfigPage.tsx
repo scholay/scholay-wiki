@@ -484,7 +484,7 @@ function SecretTextareaField({
           onClick={onToggleReveal}
           aria-label={revealed ? '隐藏原值' : '查看原值'}
           title={revealed ? '隐藏' : '查看原值'}
-          className="inline-flex size-7 items-center justify-center rounded-sm text-faint transition-colors hover:bg-surface-2 hover:text-foreground"
+          className="inline-flex size-7 items-center justify-center rounded-8 text-faint transition-colors hover:bg-surface-2 hover:text-foreground"
         >
           {revealed ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
         </button>
@@ -497,7 +497,7 @@ function SecretTextareaField({
         onChange={(e) => onChange(e.target.value)}
         required={required}
         placeholder={placeholder}
-        className="w-full rounded-md border border-input bg-surface-card px-3 py-2 text-xs font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-xs font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />
     </div>
   );

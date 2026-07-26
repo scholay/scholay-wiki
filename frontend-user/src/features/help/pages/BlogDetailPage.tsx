@@ -84,7 +84,7 @@ export function BlogDetailPage() {
           {article.tags.map((t) => (
             <span
               key={t}
-              className="inline-flex items-center h-5 px-2 rounded-sm bg-surface-1 text-2xs text-muted-foreground"
+              className="inline-flex items-center h-5 px-2 rounded-4 bg-surface-1 text-2xs text-muted-foreground"
             >
               {t}
             </span>
@@ -94,7 +94,7 @@ export function BlogDetailPage() {
 
       {/* 作者卡 —— 升级:加 brand-green soft 头像背景 + 更宽 padding */}
       {author && (
-        <section className="mt-10 p-6 rounded-lg bg-surface-1 border border-border-soft">
+        <section className="mt-10 p-6 rounded-16 bg-surface-1 border border-border-soft">
           <div className="flex items-start gap-4">
             <span className="inline-flex h-12 w-12 items-center justify-center rounded-pill bg-brand-green text-background text-base font-bold shrink-0">
               {author.name.slice(0, 1)}
@@ -129,7 +129,7 @@ export function BlogDetailPage() {
               <Link
                 key={r.slug}
                 to={`/blog/${r.slug}`}
-                className="group flex flex-col gap-1.5 p-4 rounded-md bg-surface-card border border-border-soft hover:border-foreground/40 transition-all hover:"
+                className="group flex flex-col gap-1.5 p-4 rounded-16 bg-surface-card border border-border-soft hover:border-foreground/40 transition-all hover:"
               >
                 <p className="text-2xs text-faint">{r.category}</p>
                 <p className="text-sm font-bold text-foreground line-clamp-2">

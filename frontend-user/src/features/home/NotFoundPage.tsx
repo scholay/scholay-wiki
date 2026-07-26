@@ -59,7 +59,7 @@ export function NotFoundPage() {
       <h1 className="text-2xl font-semibold">页面不存在</h1>
       <p className="max-w-md text-sm text-muted-foreground">
         你访问的链接{' '}
-        <code className="px-1.5 py-0.5 mx-0.5 rounded-sm bg-surface-2 text-foreground font-mono text-xs">
+        <code className="px-1.5 py-0.5 mx-0.5 rounded-4 bg-surface-2 text-foreground font-mono text-xs">
           {requested}
         </code>{' '}
         可能已被移除、迁移,或从未存在。

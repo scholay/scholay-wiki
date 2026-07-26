@@ -34,7 +34,7 @@ export function MinicodSnippetCards({ content }: { content: unknown }) {
 
   const overflow = snippets.length > 3;
   return (
-    <div className="rounded-md border border-border bg-surface-1 overflow-hidden">
+    <div className="rounded-16 border border-border bg-surface-1 overflow-hidden">
       <header className="flex items-center gap-1.5 h-9 px-2.5 border-b border-border-soft bg-surface-2/40 text-2xs text-muted-foreground">
         <Quote className="size-3" strokeWidth={2} />
         <span className="font-semibold text-foreground">

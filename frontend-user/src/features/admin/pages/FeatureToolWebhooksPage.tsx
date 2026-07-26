@@ -52,7 +52,7 @@ export function FeatureToolWebhooksPage() {
       cell: (r) => (
         <div className="flex gap-1">
           {(r.events?.length ? r.events : ALL_EVENTS).map((e) => (
-            <span key={e} className="rounded-sm bg-surface-2 px-1 text-2xs text-subtle">{EVENT_LABEL[e] ?? e}</span>
+            <span key={e} className="rounded-4 bg-surface-2 px-1 text-2xs text-subtle">{EVENT_LABEL[e] ?? e}</span>
           ))}
         </div>
       ),
@@ -170,7 +170,7 @@ function DeliveriesDialog({ id, onClose }: { id: number | null; onClose: () => v
         <div className="max-h-[70vh] space-y-1.5 overflow-y-auto">
           {(data ?? []).length === 0 && <p className="text-sm text-faint">还没有投递记录</p>}
           {(data ?? []).map((d) => (
-            <div key={d.id} className="flex items-center justify-between gap-2 rounded-md border border-border-soft px-2.5 py-1.5 text-xs">
+            <div key={d.id} className="flex items-center justify-between gap-2 rounded-8 border border-border-soft px-2.5 py-1.5 text-xs">
               <span className="flex min-w-0 items-center gap-2">
                 <Badge variant={d.status === 'success' ? 'success' : 'destructive'}>{d.status === 'success' ? '成功' : '失败'}</Badge>
                 <span className="truncate text-subtle">{d.event}</span>

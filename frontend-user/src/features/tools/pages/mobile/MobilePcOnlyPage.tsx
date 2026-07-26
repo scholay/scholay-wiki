@@ -104,7 +104,7 @@ export function MobilePcOnlyPage() {
           <p className="text-center text-sm leading-paragraph text-muted-foreground">{feature.desc}</p>
 
           {/* 电脑端可用 能力清单 */}
-          <div className="w-full rounded-md border border-border bg-surface-1 p-4">
+          <div className="w-full rounded-16 border border-border bg-surface-1 p-4">
             <p className="mb-2.5 text-sm font-semibold text-foreground">电脑端可用</p>
             <ul className="flex flex-col gap-2.5">
               {feature.features.map((f) => (
@@ -117,13 +117,13 @@ export function MobilePcOnlyPage() {
           </div>
 
           {/* 电脑端链接 + 复制 */}
-          <div className="w-full rounded-md border border-border bg-surface-card p-4">
-            <div className="flex h-11 items-center justify-between gap-2 rounded-sm border border-border-button bg-surface-1 pl-3 pr-1.5">
+          <div className="w-full rounded-16 border border-border bg-surface-card p-4">
+            <div className="flex h-11 items-center justify-between gap-2 rounded-8 border border-border-button bg-surface-1 pl-3 pr-1.5">
               <span className="truncate text-sm text-muted-foreground">{displayUrl}</span>
               <button
                 type="button"
                 onClick={copy}
-                className="flex shrink-0 items-center gap-1.5 rounded-sm border border-border-button bg-surface-card px-3 py-1.5 active:bg-surface-2"
+                className="flex shrink-0 items-center gap-1.5 rounded-4 border border-border-button bg-surface-card px-3 py-1.5 active:bg-surface-2"
               >
                 <Copy className="size-3.5 text-foreground" />
                 <span className="text-xs font-semibold text-foreground">复制</span>

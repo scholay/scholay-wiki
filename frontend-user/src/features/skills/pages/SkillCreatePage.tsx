@@ -118,7 +118,7 @@ export function SkillCreatePage() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-surface-card p-6">
+      <div className="rounded-16 border border-border bg-surface-card p-6">
         {step === 1 ? (
           <>
             <h2 className="text-md font-semibold text-foreground">选择上传方式</h2>
@@ -161,7 +161,7 @@ export function SkillCreatePage() {
                     }
                     setTextMode(false);
                   }}
-                  className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border-strong bg-surface-1 px-4 py-10 text-center"
+                  className="flex flex-col items-center gap-3 rounded-12 border border-dashed border-border-strong bg-surface-1 px-4 py-10 text-center"
                 >
                   <UploadCloud className="h-8 w-8 text-faint" />
                   <p className="text-sm text-muted-foreground">
@@ -219,14 +219,14 @@ export function SkillCreatePage() {
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                     spellCheck={false}
-                    className="mt-2 h-56 w-full resize-none rounded-md border border-border bg-surface-1 p-3 font-mono text-xs leading-paragraph outline-none focus-visible:border-border-strong"
+                    className="mt-2 h-56 w-full resize-none rounded-8 border border-border bg-surface-1 p-3 font-mono text-xs leading-paragraph outline-none focus-visible:border-border-strong"
                   />
                 )}
               </div>
             )}
 
             {mode === 'chat' && (
-              <div className="mt-4 rounded-lg border border-dashed border-border bg-surface-1 px-4 py-10 text-center text-sm text-muted-foreground">
+              <div className="mt-4 rounded-12 border border-dashed border-border bg-surface-1 px-4 py-10 text-center text-sm text-muted-foreground">
                 「通过对话上传」即将上线:届时可让智能助手帮你把想法生成为 Skill。
               </div>
             )}
@@ -285,7 +285,7 @@ export function SkillCreatePage() {
                   onChange={(e) => setName(e.target.value)}
                   maxLength={120}
                   placeholder="例:系统性文献综述法"
-                  className="h-9 w-full rounded-md border border-border bg-surface-card px-3 text-sm outline-none focus-visible:border-border-strong"
+                  className="h-9 w-full rounded-8 border border-border bg-surface-card px-3 text-sm outline-none focus-visible:border-border-strong"
                 />
               </Field>
               <Field label="一句话简介">
@@ -294,7 +294,7 @@ export function SkillCreatePage() {
                   onChange={(e) => setTagline(e.target.value)}
                   maxLength={255}
                   placeholder="简述这个技能能帮什么忙"
-                  className="h-9 w-full rounded-md border border-border bg-surface-card px-3 text-sm outline-none focus-visible:border-border-strong"
+                  className="h-9 w-full rounded-8 border border-border bg-surface-card px-3 text-sm outline-none focus-visible:border-border-strong"
                 />
               </Field>
               <Field label="分类(可选)">
@@ -303,7 +303,7 @@ export function SkillCreatePage() {
                   onChange={(e) => setCategory(e.target.value)}
                   maxLength={40}
                   placeholder="如 research / writing / analysis"
-                  className="h-9 w-full rounded-md border border-border bg-surface-card px-3 text-sm outline-none focus-visible:border-border-strong"
+                  className="h-9 w-full rounded-8 border border-border bg-surface-card px-3 text-sm outline-none focus-visible:border-border-strong"
                 />
               </Field>
             </div>
@@ -357,7 +357,7 @@ function ModeButton({
       onClick={onClick}
       disabled={disabled}
       className={
-        'flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm ' +
+        'flex items-center gap-1.5 rounded-8 border px-3 py-1.5 text-sm ' +
         (active
           ? 'border-border-strong bg-surface-2 text-foreground'
           : 'border-border bg-surface-card text-muted-foreground hover:bg-surface-1') +
@@ -376,7 +376,7 @@ function SourceOption({ active, label, onClick }: { active: boolean; label: stri
     <button
       onClick={onClick}
       className={
-        'flex items-center gap-2 rounded-md border px-4 py-3 text-sm ' +
+        'flex items-center gap-2 rounded-8 border px-4 py-3 text-sm ' +
         (active ? 'border-brand-green bg-brand-green/5 text-foreground' : 'border-border text-muted-foreground hover:bg-surface-1')
       }
     >

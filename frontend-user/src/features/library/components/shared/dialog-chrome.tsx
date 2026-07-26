@@ -57,7 +57,7 @@ export function WorkbenchDialogShell({
             'fixed left-1/2 top-1/2 z-modal w-[960px] max-w-[calc(100vw-32px)]',
             '-translate-x-1/2 -translate-y-1/2',
             'flex flex-col h-[640px] max-h-[90vh] overflow-hidden',
-            'rounded-lg border border-border bg-surface-card',
+            'rounded-16 border border-border bg-surface-card',
             'shadow-overlay',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
@@ -68,7 +68,7 @@ export function WorkbenchDialogShell({
             <div className="flex items-start gap-3 min-w-0">
               <div
                 className={cn(
-                  'flex h-9 w-9 items-center justify-center rounded-sm shrink-0',
+                  'flex h-9 w-9 items-center justify-center rounded-8 shrink-0',
                   iconBg ?? 'bg-surface-2'
                 )}
               >
@@ -92,7 +92,7 @@ export function WorkbenchDialogShell({
                 type="button"
                 onClick={() => onOpenChange(false)}
                 aria-label="关闭"
-                className="inline-flex h-7 w-7 items-center justify-center rounded-sm text-faint hover:bg-surface-2 hover:text-foreground"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-8 text-faint hover:bg-surface-2 hover:text-foreground"
               >
                 <X className="size-4" />
               </button>
@@ -210,7 +210,7 @@ export function DialogFooterBar({
 /** footer 主操作按钮(实底)。tone 区分语义:green=保存/写入,amber=关联/匹配。 */
 export function footerPrimaryCn(tone: 'green' | 'amber' = 'green'): string {
   return cn(
-    'inline-flex items-center gap-1.5 h-8 px-3.5 rounded-sm text-sm font-bold text-background transition-colors',
+    'inline-flex items-center gap-1.5 h-8 px-3.5 rounded-8 text-sm font-bold text-background transition-colors',
     'disabled:opacity-60 disabled:cursor-not-allowed',
     tone === 'green'
       ? 'bg-brand-green hover:bg-brand-green/90'
@@ -220,13 +220,13 @@ export function footerPrimaryCn(tone: 'green' | 'amber' = 'green'): string {
 
 /** footer 描边按钮(白底 border)。 */
 export const footerOutlineCn = cn(
-  'inline-flex items-center gap-1 h-8 px-3 rounded-sm bg-surface-card border border-border text-sm font-semibold text-subtle',
+  'inline-flex items-center gap-1 h-8 px-3 rounded-8 bg-surface-card border border-border text-sm font-semibold text-subtle',
   'hover:bg-surface-2 hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
 );
 
 /** footer 幽灵按钮(取消等)。 */
 export const footerGhostCn = cn(
-  'inline-flex items-center gap-1 h-8 px-3 rounded-sm text-sm font-semibold text-subtle',
+  'inline-flex items-center gap-1 h-8 px-3 rounded-8 text-sm font-semibold text-subtle',
   'hover:bg-surface-2 hover:text-foreground disabled:opacity-60 transition-colors'
 );
 
@@ -246,7 +246,7 @@ export function StepBanner({
   desc?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-md border border-border-soft bg-surface-1 px-4 py-2.5">
+    <div className="rounded-12 border border-border-soft bg-surface-1 px-4 py-2.5">
       <div className="flex items-center gap-2.5">
         <span
           className={cn(

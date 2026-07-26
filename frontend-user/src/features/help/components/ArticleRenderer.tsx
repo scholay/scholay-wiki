@@ -23,7 +23,7 @@ export function ArticleRenderer({ sections }: { sections: ArticleSection[] }) {
             return (
               <aside
                 key={i}
-                className="my-6 flex gap-3 p-4 rounded-md bg-warning-soft border border-brand-amber/20"
+                className="my-6 flex gap-3 p-4 rounded-12 bg-warning-soft border border-brand-amber/20"
               >
                 <Lightbulb
                   className="size-4 text-brand-amber shrink-0 mt-0.5"
@@ -87,7 +87,7 @@ export function ArticleRenderer({ sections }: { sections: ArticleSection[] }) {
                 {s.faq.map((qa, j) => (
                   <div
                     key={j}
-                    className="rounded-md border border-border-soft bg-surface-1 p-4"
+                    className="rounded-12 border border-border-soft bg-surface-1 p-4"
                   >
                     <p className="!m-0 text-sm font-bold text-foreground">
                       {qa.q}

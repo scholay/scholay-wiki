@@ -145,7 +145,7 @@ export function OrdersPage() {
       {/* KPI —— 每张卡展示 今日 / 近N天 / 全部 三口径 */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {statsLoading ? (
-          [...Array(4)].map((_, i) => <Skeleton key={i} className="h-36 rounded-md" />)
+          [...Array(4)].map((_, i) => <Skeleton key={i} className="h-36 rounded-16" />)
         ) : (
           <>
             <PeriodStatCard
@@ -273,7 +273,7 @@ function PeriodStatCard({
 }) {
   const multi = !!cols && cols.length > 1;
   return (
-    <div className="rounded-md border border-border bg-surface-card p-4 flex flex-col gap-2">
+    <div className="rounded-16 border border-border bg-surface-card p-4 flex flex-col gap-2">
       <div className="flex items-center justify-between text-faint">
         <span className="text-sm">{label}</span>
         <Icon className="size-4" />
@@ -334,7 +334,7 @@ function FilterChips({
           type="button"
           onClick={() => onChange(o.value)}
           className={cn(
-            'h-7 rounded-md px-2.5 text-xs font-medium transition-colors',
+            'h-7 rounded-8 px-2.5 text-xs font-medium transition-colors',
             o.value === value
               ? 'bg-foreground text-background'
               : 'text-muted-foreground hover:bg-surface-1 hover:text-foreground'

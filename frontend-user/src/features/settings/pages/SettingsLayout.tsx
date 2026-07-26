@@ -29,7 +29,7 @@ export function SettingsLayout() {
               to={t.to}
               className={({ isActive }) =>
                 cn(
-                  'inline-flex items-center gap-2.5 px-3 h-9 rounded-sm text-sm transition-colors',
+                  'inline-flex items-center gap-2.5 px-3 h-9 rounded-8 text-sm transition-colors',
                   isActive
                     ? 'bg-surface-2 font-semibold text-foreground'
                     : 'text-subtle hover:bg-surface-1 hover:text-foreground'

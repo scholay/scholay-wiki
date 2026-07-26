@@ -143,7 +143,7 @@ export function FeedbackPage() {
         </div>
       }
     >
-      <div className="mb-4 flex h-9 w-full max-w-sm items-center gap-1.5 rounded-md border border-input bg-surface-card px-2.5">
+      <div className="mb-4 flex h-9 w-full max-w-sm items-center gap-1.5 rounded-8 border border-input bg-surface-card px-2.5">
         <Search className="size-3.5 text-faint" />
         <Input
           value={searchInput}
@@ -167,7 +167,7 @@ export function FeedbackPage() {
           {replying && (
             <div className="space-y-4">
               {/* 元信息 —— 分类/状态/时间/提交者/邮箱/IP归属地/负责人 */}
-              <div className="grid grid-cols-1 gap-x-4 gap-y-2 rounded-md border border-border bg-surface-1 p-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-x-4 gap-y-2 rounded-12 border border-border bg-surface-1 p-3 sm:grid-cols-2">
                 {([
                   ['分类', replying.category || '其他'],
                   ['状态', STATUS_LABEL[replying.status].text],
@@ -185,14 +185,14 @@ export function FeedbackPage() {
                 ))}
               </div>
 
-              <div className="rounded-md border border-border bg-surface-1 p-3">
+              <div className="rounded-12 border border-border bg-surface-1 p-3">
                 <div className="text-2xs text-faint mb-1">用户反馈</div>
                 <div className="text-sm text-subtle whitespace-pre-wrap">{replying.content}</div>
               </div>
 
               {/* 附件预览 — 走 MinIO, 点缩略图新窗口看大图; 文件类则直接下载 */}
               {detail?.attachments && detail.attachments.length > 0 && (
-                <div className="rounded-md border border-border bg-surface-1 p-3">
+                <div className="rounded-12 border border-border bg-surface-1 p-3">
                   <div className="text-2xs text-faint mb-2">附件 ({detail.attachments.length})</div>
                   <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                     {detail.attachments.map((a, idx) => (
@@ -201,7 +201,7 @@ export function FeedbackPage() {
                         href={a.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="block rounded-sm border border-border bg-surface-card overflow-hidden hover:border-foreground transition-colors"
+                        className="block rounded-8 border border-border bg-surface-card overflow-hidden hover:border-foreground transition-colors"
                         title={a.name}
                       >
                         {a.type === 'image' ? (
@@ -219,7 +219,7 @@ export function FeedbackPage() {
 
               {/* 已有回复 (若已回复过) */}
               {replying.replyContent && (
-                <div className="rounded-md border border-brand-green/30 bg-brand-green/5 p-3">
+                <div className="rounded-12 border border-brand-green/30 bg-brand-green/5 p-3">
                   <div className="text-2xs text-faint mb-1">
                     已回复{replying.repliedBy ? ` · ${replying.repliedBy}` : ''}{replying.repliedAt ? ` · ${fmtTime(replying.repliedAt)}` : ''}
                   </div>
@@ -229,7 +229,7 @@ export function FeedbackPage() {
 
               {/* 内部协作备注 —— 仅管理端可见, 不发给用户 */}
               {replying.internalNotes && (
-                <div className="rounded-md border border-border bg-warning-soft p-3">
+                <div className="rounded-12 border border-border bg-warning-soft p-3">
                   <div className="text-2xs text-faint mb-1">内部备注 (用户不可见)</div>
                   <div className="text-sm text-subtle whitespace-pre-wrap">{replying.internalNotes}</div>
                 </div>
@@ -257,7 +257,7 @@ export function FeedbackPage() {
                     rows={5}
                     required
                     defaultValue={replying.replyContent}
-                    className="w-full rounded-md border border-input bg-surface-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                 </div>
                 <DialogFooter className="gap-2 sm:gap-2">

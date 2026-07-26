@@ -35,7 +35,7 @@ function StepRow({ step, index }: { step: WorkflowStep; index: number }) {
       {/* 占位 mock —— 用渐变 + 大数字代替具体产品截图 */}
       <div
         className={cn(
-          'relative aspect-[16/10] rounded-lg border border-border bg-surface-1 overflow-hidden',
+          'relative aspect-[16/10] rounded-16 border border-border bg-surface-1 overflow-hidden',
           'flex items-center justify-center',
           reverse && 'lg:col-start-1 lg:row-start-1'
         )}

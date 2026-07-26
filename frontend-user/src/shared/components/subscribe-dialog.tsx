@@ -237,7 +237,7 @@ export function SubscribeDialog({
                 footer={
                   <div
                     className={cn(
-                      'inline-flex h-10 items-center justify-center gap-1.5 rounded-md text-sm font-bold transition-colors',
+                      'inline-flex h-10 items-center justify-center gap-1.5 rounded-8 text-sm font-bold transition-colors',
                       isSelected
                         ? 'bg-brand-red text-background'
                         : act === 'owned' || act === 'free'
@@ -263,7 +263,7 @@ export function SubscribeDialog({
         <div>
           <p className="mb-2 text-xs font-bold text-foreground">支付方式</p>
           {methods.length === 0 ? (
-            <p className="rounded-md border border-border bg-surface-1 p-3 text-xs text-faint">
+            <p className="rounded-12 border border-border bg-surface-1 p-3 text-xs text-faint">
               管理员尚未配置支付渠道,暂时无法订阅。
             </p>
           ) : (
@@ -276,7 +276,7 @@ export function SubscribeDialog({
                     key={m.id}
                     onClick={() => setMethod(m.id)}
                     className={cn(
-                      'flex items-center gap-3 rounded-md border p-3 text-left transition-colors',
+                      'flex items-center gap-3 rounded-8 border p-3 text-left transition-colors',
                       active ? 'border-brand-red bg-danger-soft' : 'border-border hover:bg-surface-2',
                     )}
                   >

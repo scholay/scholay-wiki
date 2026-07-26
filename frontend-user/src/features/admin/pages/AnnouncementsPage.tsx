@@ -178,7 +178,7 @@ function AnnouncementDialog({
                 id="severity"
                 name="severity"
                 defaultValue={initial?.severity || 'info'}
-                className="h-9 w-full rounded-md border border-input bg-surface-card px-2 text-sm"
+                className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-sm"
               >
                 <option value="info">提示</option>
                 <option value="warning">警告</option>
@@ -191,7 +191,7 @@ function AnnouncementDialog({
                 id="type"
                 name="type"
                 defaultValue={initial?.type || 'banner'}
-                className="h-9 w-full rounded-md border border-input bg-surface-card px-2 text-sm"
+                className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-sm"
               >
                 <option value="banner">横幅</option>
                 <option value="modal">弹窗</option>
@@ -204,7 +204,7 @@ function AnnouncementDialog({
                 id="target_audience"
                 name="target_audience"
                 defaultValue={initial?.target_audience || 'all'}
-                className="h-9 w-full rounded-md border border-input bg-surface-card px-2 text-sm"
+                className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-sm"
               >
                 <option value="all">全部</option>
                 <option value="logged_in">已登录</option>
@@ -233,7 +233,7 @@ function AnnouncementDialog({
               defaultValue={initial?.content}
               required
               rows={6}
-              className="w-full rounded-md border border-input bg-surface-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
 

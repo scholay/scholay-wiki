@@ -10,7 +10,7 @@ interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 /**
- * 通用工具栏图标按钮 — 32×32 rounded-md,hover #F5F5F5。
+ * 通用工具栏图标按钮 — 32×32 rounded-8,hover #F5F5F5。
  * 同时提供可选 Tooltip 包装,业务侧不再到处自己拼。
  */
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
@@ -20,7 +20,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
         ref={ref}
         type="button"
         className={cn(
-          'inline-flex items-center justify-center rounded-md text-subtle transition-colors',
+          'inline-flex items-center justify-center rounded-8 text-subtle transition-colors',
           'hover:bg-surface-2 hover:text-foreground',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
           'disabled:pointer-events-none disabled:opacity-50',

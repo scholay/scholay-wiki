@@ -445,7 +445,7 @@ function ShareBody({ target }: { target: ShareTarget }) {
         </div>
       ) : !created ? (
         <>
-          <div className="flex flex-col gap-3 rounded-md border border-border bg-surface-1 p-3">
+          <div className="flex flex-col gap-3 rounded-12 border border-border bg-surface-1 p-3">
             <label className="flex items-center justify-between">
               <span className="flex items-center gap-2 text-sm text-subtle">
                 <ShieldCheck className="size-4" /> 提取码保护(防盗链)
@@ -460,7 +460,7 @@ function ShareBody({ target }: { target: ShareTarget }) {
                     key={o.days}
                     type="button"
                     onClick={() => setExpiryDays(o.days)}
-                    className={`rounded-sm border px-2.5 py-1 text-xs ${
+                    className={`rounded-8 border px-2.5 py-1 text-xs ${
                       expiryDays === o.days
                         ? 'border-brand-red bg-danger-soft text-brand-red'
                         : 'border-border text-muted-foreground'
@@ -480,7 +480,7 @@ function ShareBody({ target }: { target: ShareTarget }) {
       ) : (
         <>
           {created.extract_code && (
-            <div className="flex items-center justify-between rounded-md border border-border bg-surface-1 px-3 py-2.5">
+            <div className="flex items-center justify-between rounded-12 border border-border bg-surface-1 px-3 py-2.5">
               <span className="text-sm text-subtle">提取码</span>
               <span className="font-mono text-lg font-bold tracking-code text-brand-red">
                 {created.extract_code}
@@ -510,7 +510,7 @@ function ChannelBtn({ icon, label, onClick }: { icon: React.ReactNode; label: st
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col items-center gap-1.5 rounded-md border border-border bg-surface-card py-2.5 text-muted-foreground active:bg-surface-2"
+      className="flex flex-col items-center gap-1.5 rounded-8 border border-border bg-surface-card py-2.5 text-muted-foreground active:bg-surface-2"
     >
       {icon}
       <span className="text-2xs text-subtle">{label}</span>

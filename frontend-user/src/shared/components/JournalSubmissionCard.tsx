@@ -81,7 +81,7 @@ export function JournalSubmissionCard({
           const pending = download.isPending && download.variables?.kind === kind;
           const row = (
             <>
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-2 text-subtle">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-4 bg-surface-2 text-subtle">
                 <Icon className="size-4" strokeWidth={2} />
               </div>
               <div className="min-w-0 flex-1">
@@ -100,7 +100,7 @@ export function JournalSubmissionCard({
             </>
           );
           const cls =
-            'flex w-full items-center gap-2.5 rounded-md border border-border bg-surface-card p-2.5 text-left transition-colors hover:border-foreground/40';
+            'flex w-full items-center gap-2.5 rounded-8 border border-border bg-surface-card p-2.5 text-left transition-colors hover:border-foreground/40';
           return isMax ? (
             <button
               key={kind}

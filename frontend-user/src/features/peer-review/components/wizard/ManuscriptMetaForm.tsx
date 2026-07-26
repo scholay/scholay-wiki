@@ -62,8 +62,8 @@ export function ManuscriptMetaForm({
   );
 
   return (
-    <AIOverlay active={computing && !hasContent} className="rounded-lg">
-    <section className="rounded-lg border border-border bg-surface-card">
+    <AIOverlay active={computing && !hasContent} className="rounded-16">
+    <section className="rounded-16 border border-border bg-surface-card">
       <header className="flex items-end justify-between border-b border-border-soft px-5 py-3">
         <div>
           <h2 className="text-sm font-bold text-foreground">稿件信息</h2>
@@ -90,7 +90,7 @@ export function ManuscriptMetaForm({
             value={value.abstract ?? ''}
             onChange={(e) => patch({ abstract: e.target.value })}
             placeholder={computing ? '正在识别摘要…' : '稿件摘要'}
-            className="min-h-32 w-full resize-y rounded-md border border-border bg-surface-card p-3 text-sm leading-paragraph text-foreground placeholder:text-faint focus-visible:border-brand-red focus-visible:outline-none"
+            className="min-h-32 w-full resize-y rounded-8 border border-border bg-surface-card p-3 text-sm leading-paragraph text-foreground placeholder:text-faint focus-visible:border-brand-red focus-visible:outline-none"
           />
         </Field>
 
@@ -211,7 +211,7 @@ function ChipInput({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-surface-card p-2">
+    <div className="flex flex-wrap items-center gap-2 rounded-8 border border-border bg-surface-card p-2">
       {value.map((v, i) => (
         <span
           key={i}

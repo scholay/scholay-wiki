@@ -24,7 +24,7 @@ export function ReferenceChipList({ references, onRemove, align = 'start' }: Ref
       {references.map((r, i) => (
         <span
           key={i}
-          className="inline-flex items-center gap-1 max-w-[220px] rounded-sm border border-brand-green/40 bg-brand-green/10 px-2 py-0.5 text-2xs text-brand-green"
+          className="inline-flex items-center gap-1 max-w-[220px] rounded-4 border border-brand-green/40 bg-brand-green/10 px-2 py-0.5 text-2xs text-brand-green"
           title={
             r.kind === 'folder'
               ? `引用文件夹「${r.title}」(${r.paperCount ?? 0} 篇)`
@@ -44,7 +44,7 @@ export function ReferenceChipList({ references, onRemove, align = 'start' }: Ref
             <button
               type="button"
               onClick={() => onRemove(i)}
-              className="shrink-0 -mr-0.5 rounded-sm p-0.5 hover:bg-brand-green/20"
+              className="shrink-0 -mr-0.5 rounded-4 p-0.5 hover:bg-brand-green/20"
               title="移除引用"
             >
               <X className="size-2.5" strokeWidth={2.5} />

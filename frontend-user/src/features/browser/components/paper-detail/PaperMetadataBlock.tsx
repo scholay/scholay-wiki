@@ -100,7 +100,7 @@ export function PaperMetadataBlock({ paper }: { paper: Paper }) {
       {(paper.isOpenAccess || hasMinicodPdf || foundOA) && (
         <MetadataRow label="开放">
           <span className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1 h-5 px-1.5 rounded-sm bg-brand-green/12 text-2xs font-bold text-brand-green">
+            <span className="inline-flex items-center gap-1 h-5 px-1.5 rounded-4 bg-brand-green/12 text-2xs font-bold text-brand-green">
               OA
             </span>
             {paper.openAccessPdf?.url ? (
@@ -139,7 +139,7 @@ export function PaperMetadataBlock({ paper }: { paper: Paper }) {
             {fields.slice(0, 12).map((f) => (
               <span
                 key={f}
-                className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-surface-1 border border-border-soft text-2xs text-subtle"
+                className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-surface-1 border border-border-soft text-2xs text-subtle"
               >
                 {f}
               </span>
@@ -179,7 +179,7 @@ function CopyIconButton({ text, label }: { text: string; label: string }) {
         if (ok) toast.success(`${label} 已复制`);
         else toast.error('复制失败,请检查浏览器剪贴板权限');
       }}
-      className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-faint hover:bg-surface-2 hover:text-foreground transition-colors shrink-0"
+      className="inline-flex h-5 w-5 items-center justify-center rounded-4 text-faint hover:bg-surface-2 hover:text-foreground transition-colors shrink-0"
       title={`复制 ${label}`}
       aria-label={`复制 ${label}`}
     >

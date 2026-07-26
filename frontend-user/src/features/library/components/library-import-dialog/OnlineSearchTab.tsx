@@ -129,7 +129,7 @@ export function OnlineSearchTab({
             type="button"
             onClick={() => setQuery('')}
             aria-label="清空"
-            className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-faint hover:bg-surface-2 hover:text-foreground shrink-0"
+            className="inline-flex h-5 w-5 items-center justify-center rounded-4 text-faint hover:bg-surface-2 hover:text-foreground shrink-0"
           >
             <X className="size-3" />
           </button>
@@ -220,7 +220,7 @@ function PaperRow({
 
   return (
     <li className="group flex items-center gap-2.5 px-6 py-2.5 hover:bg-surface-1 transition-colors">
-      <div className="flex h-6 w-6 items-center justify-center rounded-sm bg-surface-card border border-border shrink-0">
+      <div className="flex h-6 w-6 items-center justify-center rounded-8 bg-surface-card border border-border shrink-0">
         <FileText className="size-3.5 text-subtle" strokeWidth={2} />
       </div>
       <div className="flex-1 min-w-0">
@@ -255,7 +255,7 @@ function PaperRow({
         <button
           type="button"
           onClick={() => onManagePaper(favoritedRow)}
-          className="inline-flex items-center h-7 px-2 rounded-sm border border-brand-amber text-xs font-semibold text-brand-amber hover:bg-warning-soft transition-colors shrink-0"
+          className="inline-flex items-center h-7 px-2 rounded-8 border border-brand-amber text-xs font-semibold text-brand-amber hover:bg-warning-soft transition-colors shrink-0"
         >
           完善信息
         </button>
@@ -314,7 +314,7 @@ function NoResultsHint({
         type="button"
         onClick={onJumpToSearch}
         className={cn(
-          'inline-flex items-center gap-1.5 mt-1 h-8 px-3 rounded-sm',
+          'inline-flex items-center gap-1.5 mt-1 h-8 px-3 rounded-8',
           'bg-foreground text-background text-xs font-semibold',
           'hover:bg-foreground/85 transition-colors'
         )}

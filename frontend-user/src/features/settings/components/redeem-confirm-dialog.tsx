@@ -126,7 +126,7 @@ function ConfirmBody({
           ? '该礼品码将为当前账号充入对应科研经费,兑换后立即到账。'
           : '该礼品码将为当前账号开通对应会员权益,兑换后立即生效、到期后自动失效。'}
       </p>
-      <div className="mt-4 flex flex-col gap-3 rounded-md border border-border bg-surface-1 p-4">
+      <div className="mt-4 flex flex-col gap-3 rounded-12 border border-border bg-surface-1 p-4">
         <InfoRow label="对应活动" value={pv.note || '通用兑换码'} />
         <InfoRow label="兑换内容" value={grantContent(pv)} accent />
       </div>
@@ -160,7 +160,7 @@ function FailBody({ code, msg, onRetry }: { code: string; msg: string; onRetry: 
       <p className="mt-1 text-xs leading-paragraph text-muted-foreground">
         请确认兑换码是否正确。若兑换码已被使用、已过期或已停用,则无法再次兑换。
       </p>
-      <div className="mt-4 rounded-md border border-border bg-surface-1 px-3 py-2.5">
+      <div className="mt-4 rounded-12 border border-border bg-surface-1 px-3 py-2.5">
         <span className="flex items-center gap-2 font-mono text-xs uppercase text-subtle">
           <Ticket className="size-3.5 shrink-0 text-faint" /> {code || '—'}
         </span>

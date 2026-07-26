@@ -121,7 +121,7 @@ export function MembershipPlanCard({ plan, cycle = 'monthly', popularBadge, high
     <div
       onClick={onSelect}
       className={cn(
-        'flex flex-col gap-4 rounded-md border bg-surface-card p-6 transition-colors',
+        'flex flex-col gap-4 rounded-12 border bg-surface-card p-6 transition-colors',
         highlighted ? 'border-2 border-brand-red' : 'border-border',
         onSelect && 'cursor-pointer hover:border-brand-red/50',
       )}
@@ -162,7 +162,7 @@ export function MembershipPlanCard({ plan, cycle = 'monthly', popularBadge, high
       </div>
 
       {/* 赠送经费 / 周期重置 box */}
-      <div className={cn('flex items-center gap-3 rounded-md p-3', highlighted ? 'bg-danger-soft' : 'bg-surface-1')}>
+      <div className={cn('flex items-center gap-3 rounded-8 p-3', highlighted ? 'bg-danger-soft' : 'bg-surface-1')}>
         <RefreshCw className={cn('size-5 shrink-0', highlighted ? 'text-brand-red' : 'text-brand-amber')} />
         {isFree ? (
           <div>

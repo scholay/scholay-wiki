@@ -70,7 +70,7 @@ export function AuthDialog() {
               type="button"
               onClick={() => setMode('login')}
               aria-label="返回登录"
-              className="absolute left-3 top-3 inline-flex size-7 items-center justify-center rounded-sm text-faint hover:bg-surface-2 hover:text-foreground transition-colors"
+              className="absolute left-3 top-3 inline-flex size-7 items-center justify-center rounded-8 text-faint hover:bg-surface-2 hover:text-foreground transition-colors"
             >
               <ArrowLeft className="size-4" />
             </button>

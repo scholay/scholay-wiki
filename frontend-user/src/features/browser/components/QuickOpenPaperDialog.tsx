@@ -71,7 +71,7 @@ export function QuickOpenPaperDialog({
           className={cn(
             'z-modal w-[520px] max-w-[calc(100vw-32px)]',
             'flex flex-col max-h-[min(70vh,640px)] overflow-hidden',
-            'rounded-lg border border-border bg-surface-card shadow-overlay',
+            'rounded-12 border border-border bg-surface-card shadow-overlay',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
             'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95'
@@ -94,7 +94,7 @@ export function QuickOpenPaperDialog({
                 type="button"
                 onClick={() => setQuery('')}
                 aria-label="清空"
-                className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-faint hover:bg-surface-2 hover:text-foreground shrink-0"
+                className="inline-flex h-5 w-5 items-center justify-center rounded-4 text-faint hover:bg-surface-2 hover:text-foreground shrink-0"
               >
                 <X className="size-3" />
               </button>
@@ -165,7 +165,7 @@ function PaperRow({
         className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-surface-1 transition-colors"
         title={`打开 "${paper.title}" 详情`}
       >
-        <div className="flex h-6 w-6 items-center justify-center rounded-sm bg-surface-card border border-border shrink-0">
+        <div className="flex h-6 w-6 items-center justify-center rounded-8 bg-surface-card border border-border shrink-0">
           <FileText className="size-3.5 text-subtle" strokeWidth={2} />
         </div>
         <div className="flex-1 min-w-0">

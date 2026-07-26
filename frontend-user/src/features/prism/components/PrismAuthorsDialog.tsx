@@ -121,7 +121,7 @@ export function PrismAuthorsDialog({
             </div>
             <div className="space-y-2">
               {authors.map((a, i) => (
-                <div key={i} className="rounded-md border border-border p-2">
+                <div key={i} className="rounded-12 border border-border p-2">
                   <div className="flex items-center gap-1.5">
                     <Input className={cn(field, 'flex-1')} placeholder="名 (Given)" value={a.given ?? ''} onChange={(e) => upAuthor(i, { given: e.target.value })} />
                     <Input className={cn(field, 'flex-1')} placeholder="姓 (Family)" value={a.family ?? ''} onChange={(e) => upAuthor(i, { family: e.target.value })} />

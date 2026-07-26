@@ -117,7 +117,7 @@ export function BrowserTabsBar() {
       <button
         type="button"
         onClick={goReturn}
-        className="inline-flex items-center gap-1 h-7 px-2 rounded-sm text-xs text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors shrink-0"
+        className="inline-flex items-center gap-1 h-7 px-2 rounded-8 text-xs text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors shrink-0"
         title={activeTab ? `返回 ${activeTab.returnTo}` : '返回'}
       >
         <ArrowLeft className="size-3" />
@@ -147,7 +147,7 @@ export function BrowserTabsBar() {
       <QuickOpenPaperDialog align="end">
         <button
           type="button"
-          className="inline-flex h-7 w-7 items-center justify-center rounded-sm text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors shrink-0"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-8 text-muted-foreground hover:bg-surface-1 hover:text-foreground transition-colors shrink-0"
           title="新建详情页签"
           aria-label="新建详情页签"
         >
@@ -234,7 +234,7 @@ function TabPill({ tab, active, onClick, onClose }: TabPillProps) {
       <button
         type="button"
         onClick={onClose}
-        className="inline-flex h-4 w-4 items-center justify-center rounded-sm shrink-0 text-faint opacity-70 hover:opacity-100 hover:bg-surface-2 hover:text-foreground transition-opacity"
+        className="inline-flex h-4 w-4 items-center justify-center rounded-4 shrink-0 text-faint opacity-70 hover:opacity-100 hover:bg-surface-2 hover:text-foreground transition-opacity"
         aria-label="关闭页签"
         title="关闭(中键也可)"
       >

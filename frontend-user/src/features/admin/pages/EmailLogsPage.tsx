@@ -9,7 +9,7 @@ import { DataTable, type Column } from '../components/DataTable';
 import { Pagination } from '../components/Pagination';
 import { useEmailLogs, type EmailLog, type SendChannel } from '../api/email-logs';
 
-const SELECT_CLS = 'h-8 rounded-md border border-input bg-surface-card px-2 text-xs text-foreground';
+const SELECT_CLS = 'h-8 rounded-8 border border-input bg-surface-card px-2 text-xs text-foreground';
 
 const CAT_LABEL: Record<string, string> = {
   verification: '验证码',
@@ -113,7 +113,7 @@ export function EmailLogsPage() {
   return (
     <AdminPageLayout title="发送记录" description="全站邮件 + 短信的发送记录:成功 / 失败 / 报错 / 收件地址 / 主题 / 时间">
       {/* 邮件 / 短信 tab */}
-      <div className="mb-4 inline-flex rounded-md border border-border bg-surface-1 p-0.5">
+      <div className="mb-4 inline-flex rounded-12 border border-border bg-surface-1 p-0.5">
         {TABS.map((t) => {
           const Icon = t.icon;
           const active = ch === t.id;
@@ -125,7 +125,7 @@ export function EmailLogsPage() {
                 setPage(1);
               }}
               className={cn(
-                'flex items-center gap-1.5 rounded-sm px-4 py-1.5 text-xs font-medium transition-colors',
+                'flex items-center gap-1.5 rounded-8 px-4 py-1.5 text-xs font-medium transition-colors',
                 active ?'bg-surface-card text-foreground shadow-raised':'text-faint hover:text-foreground',
               )}
             >
@@ -143,7 +143,7 @@ export function EmailLogsPage() {
       </section>
 
       {/* 筛选 */}
-      <section className="mb-4 flex flex-wrap items-end gap-2 rounded-md border border-border-soft bg-surface-1 p-3">
+      <section className="mb-4 flex flex-wrap items-end gap-2 rounded-16 border border-border-soft bg-surface-1 p-3">
         <Field label="状态">
           <select
             value={status}
@@ -176,7 +176,7 @@ export function EmailLogsPage() {
           </select>
         </Field>
         <Field label={isSms ? '搜索(手机号 / 模板)' : '搜索(收件人 / 主题)'} className="w-full sm:w-auto">
-          <div className="flex h-8 w-full items-center gap-1.5 rounded-md border border-input bg-surface-card px-2 sm:w-auto">
+          <div className="flex h-8 w-full items-center gap-1.5 rounded-8 border border-input bg-surface-card px-2 sm:w-auto">
             <Search className="size-3.5 shrink-0 text-faint" />
             <Input
               value={searchInput}
@@ -224,7 +224,7 @@ function StatCard({
 }) {
   const color = tone === 'green' ? 'text-brand-green' : tone === 'red' ? 'text-brand-red' : 'text-foreground';
   return (
-    <div className="flex items-center gap-3 rounded-md border border-border bg-surface-card p-3">
+    <div className="flex items-center gap-3 rounded-16 border border-border bg-surface-card p-3">
       <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-pill bg-surface-2', color)}>
         <Icon className="size-4" />
       </span>

@@ -287,7 +287,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-md border border-border bg-surface-card p-4">
+    <section className="rounded-16 border border-border bg-surface-card p-4">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
           {icon}
@@ -340,9 +340,9 @@ function QRUpload({ label, value, onChange }: { label: string; value: string; on
       <Label className="text-2xs text-faint">{label}</Label>
       <div className="flex items-center gap-3">
         {value ? (
-          <img src={value} alt={label} className="size-20 rounded-sm border border-border object-contain" />
+          <img src={value} alt={label} className="size-20 rounded-8 border border-border object-contain" />
         ) : (
-          <div className="flex size-20 items-center justify-center rounded-sm border border-dashed border-border text-2xs text-faint">
+          <div className="flex size-20 items-center justify-center rounded-8 border border-dashed border-border text-2xs text-faint">
             未设置
           </div>
         )}

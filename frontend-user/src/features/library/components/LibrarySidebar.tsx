@@ -122,7 +122,7 @@ export function LibrarySidebar() {
         <SidebarHeaderNav />
         <SidebarContent>
           <SidebarSection id="library" label="我的文献集">
-            <div className="mx-4 my-2 px-3 py-3 rounded-md bg-surface-1 border border-border-soft">
+            <div className="mx-4 my-2 px-3 py-3 rounded-12 bg-surface-1 border border-border-soft">
               <div className="text-sm text-subtle leading-paragraph">
                 登录后查看你的文献集,所有收藏云端同步
               </div>
@@ -288,7 +288,7 @@ function FolderRow({
           }}
           onBlur={commitRename}
           disabled={renameMut.isPending}
-          className="flex-1 h-6 bg-surface-card border border-border rounded-sm px-1.5 text-xs outline-none focus-visible:border-brand-red"
+          className="flex-1 h-6 bg-surface-card border border-border rounded-8 px-1.5 text-xs outline-none focus-visible:border-brand-red"
         />
         {renameMut.isPending && (
           <Loader2 className="size-3 animate-spin text-muted-foreground" />
@@ -307,7 +307,7 @@ function FolderRow({
           type="button"
           onClick={confirmDelete}
           disabled={deleteMut.isPending}
-          className="inline-flex h-5 w-5 items-center justify-center rounded-sm bg-brand-red text-on-brand hover:bg-brand-red/90"
+          className="inline-flex h-5 w-5 items-center justify-center rounded-4 bg-brand-red text-on-brand hover:bg-brand-red/90"
           title="确认(内含论文回默认文件夹)"
         >
           {deleteMut.isPending ? (
@@ -319,7 +319,7 @@ function FolderRow({
         <button
           type="button"
           onClick={() => setConfirmingDelete(false)}
-          className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-surface-2"
+          className="inline-flex h-5 w-5 items-center justify-center rounded-4 text-muted-foreground hover:bg-surface-2"
           title="取消"
         >
           <X className="size-3" />
@@ -382,7 +382,7 @@ function FolderRow({
               e.stopPropagation();
               setEditing(true);
             }}
-            className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-surface-2 hover:text-foreground"
+            className="inline-flex h-5 w-5 items-center justify-center rounded-4 text-muted-foreground hover:bg-surface-2 hover:text-foreground"
             title="重命名"
           >
             <Pencil className="size-3" />
@@ -393,7 +393,7 @@ function FolderRow({
               e.stopPropagation();
               setConfirmingDelete(true);
             }}
-            className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-danger-soft hover:text-brand-red"
+            className="inline-flex h-5 w-5 items-center justify-center rounded-4 text-muted-foreground hover:bg-danger-soft hover:text-brand-red"
             title="删除"
           >
             <Trash2 className="size-3" />
@@ -437,7 +437,7 @@ function NewFolderRow({
         }}
         onBlur={() => onSubmit(draft)}
         disabled={busy}
-        className="flex-1 h-6 bg-surface-card border border-border rounded-sm px-1.5 text-xs outline-none focus-visible:border-brand-red"
+        className="flex-1 h-6 bg-surface-card border border-border rounded-8 px-1.5 text-xs outline-none focus-visible:border-brand-red"
       />
       {busy && <Loader2 className="size-3 animate-spin text-muted-foreground" />}
     </div>

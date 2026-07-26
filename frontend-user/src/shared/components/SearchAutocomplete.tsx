@@ -189,10 +189,10 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
             // .pen `Z0RbcB`:48h,与联想 dropdown 拼接时下边变直
             'flex h-12 items-center gap-3 pl-5 pr-2 bg-surface-card border transition-colors',
             mergeBorders
-              ? 'border-destructive rounded-t-sm border-b-0'
+              ? 'border-destructive rounded-t-16 border-b-0'
               : focused
-                ? 'border-foreground rounded-sm'
-                : 'border-border-strong rounded-sm focus-within:border-foreground'
+                ? 'border-foreground rounded-16'
+                : 'border-border-strong rounded-16 focus-within:border-foreground'
           )}
         >
           <input
@@ -220,7 +220,7 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
                 onChange('');
                 rootRef.current?.querySelector('input')?.focus();
               }}
-              className="inline-flex size-7 items-center justify-center rounded-sm text-faint hover:bg-surface-2 hover:text-foreground transition-colors"
+              className="inline-flex size-7 items-center justify-center rounded-8 text-faint hover:bg-surface-2 hover:text-foreground transition-colors"
             >
               <X className="size-3.5" strokeWidth={2.5} />
             </button>
@@ -230,7 +230,7 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
             aria-label="搜索"
             onMouseEnter={openPickerNow}
             onMouseLeave={schedulePickerClose}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-sm bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-8 bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors"
           >
             <Search className="size-4" strokeWidth={2.5} />
           </button>
@@ -259,7 +259,7 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
           <div
             // .pen `t3sGV`:1px #E5E5E5 边 + 下圆角 4 + 阴影 (0,8) blur 24
             // 高度封顶由上面 ResizeObserver 算出 --dropdownMaxHeight
-            className="absolute top-full left-0 right-0 z-popover flex flex-col bg-surface-card border border-border-strong border-t-0 rounded-b-sm overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150"
+            className="absolute top-full left-0 right-0 z-popover flex flex-col bg-surface-card border border-border-strong border-t-0 rounded-b-16 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150"
             style={{ maxHeight: dropdownMaxHeight }}
           >
             {papers.length > 0 && (

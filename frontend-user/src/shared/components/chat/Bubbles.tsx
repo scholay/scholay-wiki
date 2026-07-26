@@ -9,13 +9,13 @@ import { MarkdownRenderer } from './MarkdownRenderer';
  *
  *   UserBubble:
  *     - 右对齐, 深色背景 (bg-foreground + text-background) 表"用户输入"
- *     - rounded-16 + 右下小角 (rounded-br-md) 像消息气泡指向用户
+ *     - rounded-16 + 右下小角 (rounded-br-4) 像消息气泡指向用户
  *     - max-w-[80%] 防止满屏单条消息撑全宽看着压抑
  *     - whitespace-pre-wrap 保留用户输入的换行 (Shift+Enter 换的行得保住)
  *
  *   AssistantBubble:
  *     - 左对齐, 白底 + 边框 + shadow 表"AI 回应", 视觉更"卡片化"易扫
- *     - rounded-16 + 左上小角 (rounded-tl-md) 像消息气泡指向 AI
+ *     - rounded-16 + 左上小角 (rounded-tl-4) 像消息气泡指向 AI
  *     - 不限宽 (max-w-full + min-w-0 + overflow-hidden) 让 markdown 表格 / 论文列表能用满宽,
  *       但永远不撑出横向滚动条
  *     - 流式中末尾绿色细竖线光标闪烁
@@ -39,7 +39,7 @@ export const UserBubble = memo(function UserBubble({ text, attachments }: UserBu
     <div className="flex justify-end min-w-0">
       <div className="max-w-[80%] flex flex-col items-end gap-1.5 min-w-0">
         {attachments}
-        <div className="inline-flex items-center rounded-16 rounded-br-md bg-foreground px-3.5 py-2.5 text-sm leading-paragraph text-background whitespace-pre-wrap break-words">
+        <div className="inline-flex items-center rounded-16 rounded-br-4 bg-foreground px-3.5 py-2.5 text-sm leading-paragraph text-background whitespace-pre-wrap break-words">
           {text}
         </div>
       </div>
@@ -75,7 +75,7 @@ export const AssistantBubble = memo(function AssistantBubble({ text, streaming, 
       className={
         variant === 'plain'
           ? 'min-w-0 overflow-hidden' // 无气泡:全宽正文铺背景
-          :'rounded-16 rounded-tl-md border border-border bg-surface-card px-4 py-3 min-w-0 overflow-hidden'
+          :'rounded-16 rounded-tl-4 border border-border bg-surface-card px-4 py-3 min-w-0 overflow-hidden'
       }
     >
       <MarkdownRenderer text={display} />

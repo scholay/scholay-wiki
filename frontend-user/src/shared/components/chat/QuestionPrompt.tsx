@@ -149,7 +149,7 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
 
   if (done) {
     return (
-      <div className="mb-2 flex items-center gap-1.5 rounded-lg border border-border bg-surface-1 px-3.5 py-2.5 text-xs text-muted-foreground">
+      <div className="mb-2 flex items-center gap-1.5 rounded-12 border border-border bg-surface-1 px-3.5 py-2.5 text-xs text-muted-foreground">
         <Check className="h-3.5 w-3.5 text-brand-green" />
         已提交,继续为你处理…
       </div>
@@ -157,7 +157,7 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
   }
 
   return (
-    <div className="mb-2 rounded-lg border border-border bg-surface-card overflow-hidden">
+    <div className="mb-2 rounded-16 border border-border bg-surface-card overflow-hidden">
       {/* 头部:进度 + 返回 */}
       <div className="flex items-center gap-1.5 px-3.5 py-2 border-b border-border-soft">
         <MessageCircleQuestion className="h-3.5 w-3.5 text-brand-green shrink-0" />
@@ -205,7 +205,7 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
                       q.multiSelect ? toggleMulti(opt.label) : pickSingle(opt.label)
                     }
                     className={cn(
-                      'flex items-start gap-2 w-full text-left rounded-md border px-3 py-2 transition-colors',
+                      'flex items-start gap-2 w-full text-left rounded-8 border px-3 py-2 transition-colors',
                       active
                         ? 'border-brand-green bg-brand-green/5'
                         : 'border-border bg-surface-card hover:bg-surface-2',
@@ -214,7 +214,7 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
                     {q.multiSelect && (
                       <span
                         className={cn(
-                          'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border',
+                          'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-4 border',
                           active
                             ? 'border-brand-green bg-brand-green text-background'
                             : 'border-border-button',
@@ -262,13 +262,13 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
                       }
                     }}
                     placeholder="输入你的回答…"
-                    className="flex-1 min-w-0 rounded-md border border-border bg-surface-card px-2.5 py-1.5 text-sm text-foreground placeholder:text-faint resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="flex-1 min-w-0 rounded-8 border border-border bg-surface-card px-2.5 py-1.5 text-sm text-foreground placeholder:text-faint resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                   <button
                     type="button"
                     onClick={commitFree}
                     disabled={!freeText.trim()}
-                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors"
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-8 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors"
                     aria-label={isLast ? '发送' : '下一题'}
                   >
                     <CornerDownLeft className="h-3.5 w-3.5" />
@@ -283,7 +283,7 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
                 type="button"
                 onClick={commitMulti}
                 disabled={multiSel.length === 0}
-                className="mt-1 inline-flex h-8 items-center justify-center gap-1.5 self-end rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors"
+                className="mt-1 inline-flex h-8 items-center justify-center gap-1.5 self-end rounded-8 bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors"
               >
                 {isLast ? '完成并发送' : '下一题'}
               </button>

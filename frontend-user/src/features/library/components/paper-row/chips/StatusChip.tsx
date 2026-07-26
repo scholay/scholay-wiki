@@ -102,7 +102,7 @@ export function StatusChip({
               //   h-7 (28px), px-2.5 圆角 sm, 内部 gap-1.5; 1px 边框
               //   字号 2xs (11px), 描边/文字色按 tone 切
               className={cn(
-                'group inline-flex items-center gap-1.5 h-7 px-2.5 rounded-sm border bg-surface-card shrink-0 transition-colors',
+                'group inline-flex items-center gap-1.5 h-7 px-2.5 rounded-8 border bg-surface-card shrink-0 transition-colors',
                 TONE_CLASSES[status]
               )}
             >
@@ -165,7 +165,7 @@ function ChipMenuList({ items, onItemClick }: ChipMenuListProps) {
               onItemClick?.();
             }}
             className={cn(
-              'flex items-center gap-2 h-8 px-2 rounded-sm text-xs text-subtle transition-colors text-left',
+              'flex items-center gap-2 h-8 px-2 rounded-8 text-xs text-subtle transition-colors text-left',
               isDisabled
                 ? 'opacity-50 cursor-not-allowed text-faint'
                 : 'hover:bg-surface-1 hover:text-foreground'

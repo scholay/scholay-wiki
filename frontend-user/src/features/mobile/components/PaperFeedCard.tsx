@@ -84,7 +84,7 @@ export const PaperFeedCard = memo(function PaperFeedCard({
           id={venueHash(venue)}
           name={venue}
           size="tile"
-          className="h-12 w-12 rounded-md"
+          className="h-12 w-12 rounded-8"
         />
         <div className="min-w-0 flex-1">
           <p className="truncate text-md font-semibold text-foreground">{venue}</p>
@@ -122,7 +122,7 @@ export const PaperFeedCard = memo(function PaperFeedCard({
       </div>
 
       {/* 指标 2×2 网格(同期刊卡 Metric 网格) */}
-      <div className="grid shrink-0 grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border">
+      <div className="grid shrink-0 grid-cols-2 gap-px overflow-hidden rounded-16 border border-border bg-border">
         <Metric label="被引" value={formatMetric(paper.citationCount)} highlight />
         <Metric label="参考文献" value={formatMetric(paper.referenceCount)} />
         <Metric

@@ -131,7 +131,7 @@ export const JournalFeedCard = memo(function JournalFeedCard({
       </div>
 
       {/* 指标卡 —— 设计稿简介/分区图示位置的 MVP 替代(上游无中文简介数据) */}
-      <div className="grid shrink-0 grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border">
+      <div className="grid shrink-0 grid-cols-2 gap-px overflow-hidden rounded-16 border border-border bg-border">
         <Metric label="影响因子" value={ifValue ?? '—'} highlight />
         <Metric label="H 指数" value={hIndex != null ? String(hIndex) : '—'} />
         <Metric
@@ -148,7 +148,7 @@ export const JournalFeedCard = memo(function JournalFeedCard({
       {isActive && (
         <Suspense
           fallback={
-            <div className="h-44 shrink-0 animate-pulse rounded-md border border-border bg-surface-1" />
+            <div className="h-44 shrink-0 animate-pulse rounded-16 border border-border bg-surface-1" />
           }
         >
           <JournalTrendChart journalId={j.id} active />

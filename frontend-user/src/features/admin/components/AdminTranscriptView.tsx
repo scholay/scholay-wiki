@@ -69,7 +69,7 @@ function AdminAttachmentChips({
                   filename: a.name,
                 })
               }
-              className="inline-flex max-w-[220px] items-center gap-1 rounded-sm bg-foreground/85 px-2 py-0.5 text-2xs text-background/90 transition-colors hover:bg-foreground"
+              className="inline-flex max-w-[220px] items-center gap-1 rounded-4 bg-foreground/85 px-2 py-0.5 text-2xs text-background/90 transition-colors hover:bg-foreground"
             >
               {inner}
             </button>
@@ -82,14 +82,14 @@ function AdminAttachmentChips({
               src={a.previewUrl}
               alt={a.name}
               loading="lazy"
-              className="size-14 shrink-0 rounded-md border border-border-strong object-cover"
+              className="size-14 shrink-0 rounded-8 border border-border-strong object-cover"
             />
           );
         }
         return (
           <span
             key={i}
-            className="inline-flex max-w-[220px] items-center gap-1 rounded-sm bg-foreground/85 px-2 py-0.5 text-2xs text-background/90"
+            className="inline-flex max-w-[220px] items-center gap-1 rounded-4 bg-foreground/85 px-2 py-0.5 text-2xs text-background/90"
             title={a.name}
           >
             {inner}
@@ -121,7 +121,7 @@ function TurnTail({ turn }: { turn: Turn }) {
   return (
     <>
       {turn.errorMessage && (
-        <div className="flex items-start gap-2 rounded-md border border-brand-red/30 bg-danger-soft px-3 py-2">
+        <div className="flex items-start gap-2 rounded-12 border border-brand-red/30 bg-danger-soft px-3 py-2">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-brand-red" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-brand-red">回答失败</p>

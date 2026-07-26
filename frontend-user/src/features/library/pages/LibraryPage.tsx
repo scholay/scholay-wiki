@@ -355,7 +355,7 @@ function LibraryFolderView() {
               <span className="text-base text-muted-foreground">我的文献集</span>
               <span className="text-base text-faint">/</span>
               <span className="text-base font-bold text-foreground">{title}</span>
-              <span className="inline-flex items-center px-1.5 py-px rounded-sm bg-surface-2 text-xs font-semibold text-muted-foreground tabular-nums">
+              <span className="inline-flex items-center px-1.5 py-px rounded-4 bg-surface-2 text-xs font-semibold text-muted-foreground tabular-nums">
                 {count.toLocaleString()} 篇
               </span>
               {currentFolder && count > 0 && (
@@ -377,7 +377,7 @@ function LibraryFolderView() {
                         .filter((p) => p.title),
                     })
                   }
-                  className="inline-flex items-center gap-1 h-7 px-2 rounded-sm text-sm font-semibold text-subtle hover:bg-surface-1 hover:text-foreground transition-colors"
+                  className="inline-flex items-center gap-1 h-7 px-2 rounded-8 text-sm font-semibold text-subtle hover:bg-surface-1 hover:text-foreground transition-colors"
                 >
                   <Share2 className="size-3.5" /> 分享
                 </button>
@@ -388,7 +388,7 @@ function LibraryFolderView() {
                 响应式:flex-1 自然铺满中段,最小 240px(再窄按钮组开始压缩),最大 480px */}
             <div
               className={cn(
-                'flex items-center gap-2 flex-1 min-w-[240px] max-w-[480px] h-[38px] px-3 rounded-md bg-surface-1 border border-border-strong',
+                'flex items-center gap-2 flex-1 min-w-[240px] max-w-[480px] h-[38px] px-3 rounded-8 bg-surface-1 border border-border-strong',
                 'focus-within:border-foreground focus-within:ring-2 focus-within:ring-ring transition-colors'
               )}
             >
@@ -406,7 +406,7 @@ function LibraryFolderView() {
                   type="button"
                   onClick={() => setQueryAndReset('')}
                   aria-label="清空搜索"
-                  className="inline-flex h-4 w-4 items-center justify-center rounded-sm text-faint hover:bg-surface-2 hover:text-foreground shrink-0"
+                  className="inline-flex h-4 w-4 items-center justify-center rounded-4 text-faint hover:bg-surface-2 hover:text-foreground shrink-0"
                 >
                   <X className="size-3" />
                 </button>
@@ -537,7 +537,7 @@ const ToolbarButton = forwardRef<
       type={type ?? 'button'}
       {...rest}
       className={cn(
-        'inline-flex items-center gap-1 h-8 px-3 rounded-sm bg-surface-card border border-border text-sm font-semibold text-subtle hover:bg-surface-1 hover:text-foreground transition-colors whitespace-nowrap',
+        'inline-flex items-center gap-1 h-8 px-3 rounded-8 bg-surface-card border border-border text-sm font-semibold text-subtle hover:bg-surface-1 hover:text-foreground transition-colors whitespace-nowrap',
         className
       )}
     >
@@ -564,7 +564,7 @@ const CollapsedItem = forwardRef<
       type={type ?? 'button'}
       {...rest}
       className={cn(
-        'flex items-center justify-between gap-2 w-full h-8 px-2 rounded-sm text-sm font-semibold text-subtle hover:bg-surface-1 hover:text-foreground transition-colors text-left',
+        'flex items-center justify-between gap-2 w-full h-8 px-2 rounded-8 text-sm font-semibold text-subtle hover:bg-surface-1 hover:text-foreground transition-colors text-left',
         className
       )}
     >

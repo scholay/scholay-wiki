@@ -131,7 +131,7 @@ export function MobileMembershipDialog({
         </DialogHeader>
 
         {/* 兑换码开通(就地,不跳转)*/}
-        <div className="rounded-lg border border-border p-3.5">
+        <div className="rounded-12 border border-border p-3.5">
           <div className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-foreground">
             <Ticket className="size-4 text-brand-green" /> 用兑换码开通会员
           </div>
@@ -159,7 +159,7 @@ export function MobileMembershipDialog({
         </div>
 
         {/* 支付宝手机网站支付(选套餐直接付)*/}
-        <div className="rounded-lg border border-border p-3.5">
+        <div className="rounded-12 border border-border p-3.5">
           <div className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-foreground">
             <CreditCard className="size-4 text-muted-foreground" /> 支付宝付款开通
           </div>
@@ -191,7 +191,7 @@ export function MobileMembershipDialog({
                     type="button"
                     disabled={payingTier !== null || !q}
                     onClick={() => q && handlePay(p.tier, q)}
-                    className="flex items-center justify-between rounded-md border border-border px-3 py-2.5 text-left transition-colors active:bg-surface-2 disabled:opacity-50"
+                    className="flex items-center justify-between rounded-8 border border-border px-3 py-2.5 text-left transition-colors active:bg-surface-2 disabled:opacity-50"
                   >
                     <span className="flex flex-col gap-0.5">
                       <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">

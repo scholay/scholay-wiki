@@ -5,7 +5,7 @@ import type { CTAButton } from '../data/landings';
 
 /**
  * Hero 区双 CTA 按钮组 —— .pen `BBFg3 / f00hM`:
- *   主 CTA:黑底白字,arrow-right 后置,rounded-sm padding [14,24]
+ *   主 CTA:黑底白字,arrow-right 后置,rounded-8 padding [14,24]
  *   次 CTA:白底黑边,play icon 前置,同尺寸
  *
  * primaryCTA.href 以 / 开头走内部路由(Link),否则走 <a>(锚点 / mailto / 外链)。
@@ -25,7 +25,7 @@ function CTAButton2({
   const Inner = (
     <span
       className={cn(
-        'inline-flex items-center gap-2 h-12 px-6 rounded-sm text-md font-semibold transition-colors whitespace-nowrap',
+        'inline-flex items-center gap-2 h-12 px-6 rounded-8 text-md font-semibold transition-colors whitespace-nowrap',
         isPrimary
           ? 'bg-foreground text-background hover:bg-foreground/85'
           : 'bg-surface-card border border-foreground text-foreground hover:bg-surface-1'

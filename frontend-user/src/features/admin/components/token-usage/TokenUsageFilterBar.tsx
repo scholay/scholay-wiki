@@ -24,7 +24,7 @@ import {
  */
 
 const DAY_OPTIONS = [7, 30, 90];
-const SELECT_CLS = 'h-8 rounded-md border border-input bg-surface-card px-2 text-xs text-foreground';
+const SELECT_CLS = 'h-8 rounded-8 border border-input bg-surface-card px-2 text-xs text-foreground';
 
 export function TokenUsageFilterBar({ onChange }: { onChange: (f: TokenUsageFilters) => void }) {
   // 只读值;所有写入走 patch(单次 navigate,避免多 key 互相覆盖)。
@@ -73,7 +73,7 @@ export function TokenUsageFilterBar({ onChange }: { onChange: (f: TokenUsageFilt
     patch({ days: null, start: null, end: null, feature: null, source: null, model: null, provider: null, kw: null, anon: null });
 
   return (
-    <section className="mb-6 flex flex-wrap items-end gap-3 rounded-md border border-border-soft bg-surface-1 p-3">
+    <section className="mb-6 flex flex-wrap items-end gap-3 rounded-16 border border-border-soft bg-surface-1 p-3">
       {/* 时间窗口预设 */}
       <div className="space-y-1">
         <Label className="text-2xs text-faint">时间范围</Label>
@@ -82,7 +82,7 @@ export function TokenUsageFilterBar({ onChange }: { onChange: (f: TokenUsageFilt
             type="button"
             onClick={() => patch({ days: null, start: todayISO(), end: todayISO() })}
             className={cn(
-              'h-8 px-3 rounded-md text-xs font-medium transition-colors',
+              'h-8 px-3 rounded-8 text-xs font-medium transition-colors',
               start && start === todayISO() && end === todayISO()
                 ? 'bg-foreground text-background'
                 : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground'
@@ -96,7 +96,7 @@ export function TokenUsageFilterBar({ onChange }: { onChange: (f: TokenUsageFilt
               type="button"
               onClick={() => patch({ days: d === 30 ? null : d, start: null, end: null })}
               className={cn(
-                'h-8 px-3 rounded-md text-xs font-medium transition-colors',
+                'h-8 px-3 rounded-8 text-xs font-medium transition-colors',
                 !customRange && d === days
                   ? 'bg-foreground text-background'
                   : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground'

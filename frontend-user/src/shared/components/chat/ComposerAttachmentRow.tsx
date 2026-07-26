@@ -69,16 +69,16 @@ function AttachmentChip({
 
   // 上传中 / 失败的覆盖层(缩略图与文件卡共用)。
   const stateOverlay = uploading ? (
-    <span className="absolute inset-0 z-raised flex items-center justify-center rounded-md bg-surface-card/60">
+    <span className="absolute inset-0 z-raised flex items-center justify-center rounded-8 bg-surface-card/60">
       <Loader2 className="size-4 animate-spin text-muted-foreground" />
     </span>
   ) : failed && onRetry ? (
-    <span className="absolute inset-0 z-raised flex items-center justify-center gap-1 rounded-md bg-surface-card/75">
+    <span className="absolute inset-0 z-raised flex items-center justify-center gap-1 rounded-8 bg-surface-card/75">
       <button
         type="button"
         onClick={onRetry}
         title={item.error || '上传失败,点击重试'}
-        className="inline-flex h-6 items-center gap-1 rounded-md bg-foreground px-2 text-2xs text-background hover:opacity-90"
+        className="inline-flex h-6 items-center gap-1 rounded-4 bg-foreground px-2 text-2xs text-background hover:opacity-90"
       >
         <RotateCcw className="size-3" />
         重试
@@ -97,7 +97,7 @@ function AttachmentChip({
           disabled={!onEnlarge}
           title={failed ? item.error || '上传失败' : '点击放大'}
           className={cn(
-            'size-14 overflow-hidden rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            'size-14 overflow-hidden rounded-8 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
             failed ? 'border-brand-red' : 'border-border',
           )}
         >
@@ -111,7 +111,7 @@ function AttachmentChip({
   return (
     <div
       className={cn(
-        'relative flex h-14 w-48 shrink-0 items-center gap-2 rounded-md border bg-surface-1 px-2.5',
+        'relative flex h-14 w-48 shrink-0 items-center gap-2 rounded-8 border bg-surface-1 px-2.5',
         failed ? 'border-brand-red' : 'border-border',
       )}
       title={failed ? item.error || '上传失败' : undefined}
@@ -120,7 +120,7 @@ function AttachmentChip({
       {stateOverlay}
       <span
         className={cn(
-          'flex size-8 shrink-0 items-center justify-center rounded-md',
+          'flex size-8 shrink-0 items-center justify-center rounded-4',
           failed ? 'bg-danger-soft' : 'bg-danger-soft',
         )}
       >

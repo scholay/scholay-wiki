@@ -22,7 +22,7 @@ function Card({ card }: { card: FeatureCard }) {
   return (
     <div
       className={cn(
-        'flex flex-col gap-5 p-8 rounded-lg border h-full',
+        'flex flex-col gap-5 p-8 rounded-16 border h-full',
         dark
           ? 'bg-foreground border-foreground text-background'
           : 'bg-surface-card border-border'

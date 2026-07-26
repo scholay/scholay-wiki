@@ -59,7 +59,7 @@ export const ResizableHandle = ({
     {...props}
   >
     {withHandle && (
-      <div className="z-raised flex h-5 w-3 items-center justify-center rounded-sm border border-border bg-surface-card opacity-0 transition-opacity group-hover:opacity-100">
+      <div className="z-raised flex h-5 w-3 items-center justify-center rounded-4 border border-border bg-surface-card opacity-0 transition-opacity group-hover:opacity-100">
         <GripVertical className="h-2.5 w-2.5 text-muted-foreground" />
       </div>
     )}

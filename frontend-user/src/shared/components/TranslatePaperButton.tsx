@@ -143,7 +143,7 @@ export const TranslatePaperButton = forwardRef<HTMLButtonElement, TranslatePaper
           aria-label={ariaLabel}
           title={title_}
           className={cn(
-            'inline-flex items-center justify-center rounded-sm shrink-0 transition-colors',
+            'inline-flex items-center justify-center rounded-8 shrink-0 transition-colors',
             ICON_BTN_CLS[size],
             showingTranslated
               ? 'bg-surface-2 text-foreground'
@@ -191,7 +191,7 @@ export const TranslatePaperButton = forwardRef<HTMLButtonElement, TranslatePaper
         aria-pressed={showingTranslated}
         title={title_}
         className={cn(
-          'inline-flex items-center justify-center rounded-sm border shrink-0 whitespace-nowrap transition-colors',
+          'inline-flex items-center justify-center rounded-8 border shrink-0 whitespace-nowrap transition-colors',
           CHIP_CLS[size],
           // 窄容器塌成 24×24 纯图标(仅当父级开启 collapseLabel + 处于 @container 内)
           collapseLabel && '@max-[260px]:w-6 @max-[260px]:px-0 @max-[260px]:gap-0',

@@ -198,7 +198,7 @@ export function SkillDetailPage() {
             {skill.fileManifest.map((f) => (
               <span
                 key={f.path}
-                className="rounded-md border border-border bg-surface-1 px-2 py-0.5 font-mono text-2xs text-subtle"
+                className="rounded-4 border border-border bg-surface-1 px-2 py-0.5 font-mono text-2xs text-subtle"
               >
                 {f.path}
               </span>
@@ -208,7 +208,7 @@ export function SkillDetailPage() {
       )}
 
       {/* SKILL.md 预览(不可信内容,纯 markdown,无 raw HTML)*/}
-      <div className="rounded-lg border border-border bg-surface-1 p-4">
+      <div className="rounded-16 border border-border bg-surface-1 p-4">
         <div className="mb-2 text-2xs uppercase text-faint">SKILL.md 预览</div>
         <MarkdownRenderer text={skill.skillMd || '(空)'} />
       </div>
@@ -259,7 +259,7 @@ function ReportDialog({
             onChange={(e) => setDetail(e.target.value)}
             placeholder="补充说明(可选)"
             maxLength={1024}
-            className="h-20 w-full resize-none rounded-md border border-border bg-surface-card p-2 text-sm outline-none focus-visible:border-border-strong"
+            className="h-20 w-full resize-none rounded-8 border border-border bg-surface-card p-2 text-sm outline-none focus-visible:border-border-strong"
           />
         </div>
         <DialogFooter>

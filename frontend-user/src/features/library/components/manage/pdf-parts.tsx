@@ -32,7 +32,7 @@ export function CurrentPaperCard({
   const isComplete = !!eff.title && !!eff.venue && !!eff.year;
 
   return (
-    <div className="rounded-md border border-border bg-surface-card p-4">
+    <div className="rounded-12 border border-border bg-surface-card p-4">
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-2">
           <CheckCircle2 className="size-3.5 text-brand-green" strokeWidth={2.5} />
@@ -46,7 +46,7 @@ export function CurrentPaperCard({
         <button
           type="button"
           onClick={onEdit}
-          className="inline-flex items-center gap-1 h-6 px-2 rounded-sm text-xs text-muted-foreground hover:bg-surface-2 hover:text-foreground transition-colors"
+          className="inline-flex items-center gap-1 h-6 px-2 rounded-8 text-xs text-muted-foreground hover:bg-surface-2 hover:text-foreground transition-colors"
         >
           <Edit3 className="size-3" />
           编辑信息
@@ -105,8 +105,8 @@ export function FileTab({
   if (file) {
     return (
       <div className="space-y-3">
-        <div className="flex items-center gap-3 rounded-md border border-border bg-surface-1 px-3 py-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-sm bg-surface-card border border-border shrink-0">
+        <div className="flex items-center gap-3 rounded-12 border border-border bg-surface-1 px-3 py-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-8 bg-surface-card border border-border shrink-0">
             <Paperclip className="size-4 text-brand-amber" strokeWidth={2.25} />
           </div>
           <div className="flex-1 min-w-0">
@@ -120,7 +120,7 @@ export function FileTab({
               type="button"
               onClick={onClearFile}
               aria-label="移除文件"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-sm text-faint hover:bg-surface-2 hover:text-foreground shrink-0"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-8 text-faint hover:bg-surface-2 hover:text-foreground shrink-0"
             >
               <X className="size-3.5" />
             </button>
@@ -161,7 +161,7 @@ export function FileTab({
         onDragLeave={onDragLeave}
         onDrop={onDrop}
         className={cn(
-          'flex flex-col items-center justify-center gap-3 px-6 py-10 rounded-md border-2 transition-colors text-center',
+          'flex flex-col items-center justify-center gap-3 px-6 py-10 rounded-12 border-2 transition-colors text-center',
           dragOver
             ? 'border-brand-amber bg-warning-soft'
             : 'border-dashed border-brand-amber/50 bg-warning-soft/30 hover:bg-warning-soft/50'
@@ -180,7 +180,7 @@ export function FileTab({
           <button
             type="button"
             onClick={onPickFile}
-            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-sm bg-brand-amber text-background text-sm font-bold hover:bg-brand-amber/90 transition-colors"
+            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-8 bg-brand-amber text-background text-sm font-bold hover:bg-brand-amber/90 transition-colors"
           >
             <Upload className="size-3.5" strokeWidth={2.25} />
             浏览文件
@@ -188,7 +188,7 @@ export function FileTab({
           <button
             type="button"
             onClick={onPickFromLibrary}
-            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-sm bg-surface-card border border-border text-sm font-semibold text-subtle hover:bg-surface-2 hover:text-foreground transition-colors"
+            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-8 bg-surface-card border border-border text-sm font-semibold text-subtle hover:bg-surface-2 hover:text-foreground transition-colors"
           >
             <FolderInput className="size-3.5" strokeWidth={2.25} />
             从本地文献夹选取
@@ -215,7 +215,7 @@ export function UrlTab({
   const Icon = inputType === 'url' ? Link2 : FileSearch;
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 px-3 h-11 rounded-md border border-border bg-surface-card focus-within:border-brand-amber focus-within:ring-2 focus-within:ring-brand-amber/20 transition-colors">
+      <div className="flex items-center gap-2 px-3 h-11 rounded-12 border border-border bg-surface-card focus-within:border-brand-amber focus-within:ring-2 focus-within:ring-brand-amber/20 transition-colors">
         <Icon className="size-4 text-muted-foreground shrink-0" />
         <input
           type="text"
@@ -229,7 +229,7 @@ export function UrlTab({
           onClick={onFetch}
           disabled={!value.trim()}
           className={cn(
-            'inline-flex items-center gap-1 h-7 px-3 rounded-sm border border-brand-amber text-brand-amber text-xs font-bold',
+            'inline-flex items-center gap-1 h-7 px-3 rounded-8 border border-brand-amber text-brand-amber text-xs font-bold',
             'hover:bg-warning-soft disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
           )}
         >

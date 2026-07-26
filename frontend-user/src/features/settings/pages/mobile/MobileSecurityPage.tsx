@@ -24,7 +24,7 @@ function SecurityBody() {
 
   return (
     <div className="space-y-3 p-3">
-      <section className="space-y-3 rounded-lg border border-border bg-surface-card p-4">
+      <section className="space-y-3 rounded-16 border border-border bg-surface-card p-4">
         <h2 className="text-xs font-medium text-muted-foreground">绑定状态</h2>
         <BindRow
           label="邮箱"
@@ -102,7 +102,7 @@ function ChangePasswordCard() {
 
   return (
     <form
-      className="space-y-3 rounded-lg border border-border bg-surface-card p-4"
+      className="space-y-3 rounded-16 border border-border bg-surface-card p-4"
       onSubmit={(e) => {
         e.preventDefault();
         change.mutate();
@@ -115,7 +115,7 @@ function ChangePasswordCard() {
       <button
         type="submit"
         disabled={change.isPending || !oldPwd || !newPwd || !confirmPwd}
-        className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-foreground text-md font-medium text-on-brand active:opacity-80 disabled:opacity-50"
+        className="flex h-10 w-full items-center justify-center gap-2 rounded-8 bg-foreground text-md font-medium text-on-brand active:opacity-80 disabled:opacity-50"
       >
         {change.isPending && <Loader2 className="size-4 animate-spin" />}
         确认修改
@@ -140,7 +140,7 @@ function PwdInput({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className="w-full rounded-md border border-border bg-surface-1 px-3 py-2 text-md text-foreground outline-none placeholder:text-faint focus-visible:border-border-strong"
+      className="w-full rounded-8 border border-border bg-surface-1 px-3 py-2 text-md text-foreground outline-none placeholder:text-faint focus-visible:border-border-strong"
     />
   );
 }

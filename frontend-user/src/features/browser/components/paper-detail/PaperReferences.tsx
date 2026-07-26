@@ -61,7 +61,7 @@ export function PaperReferences({ paper }: { paper: Paper }) {
       )}
 
       {hasReferences && refsQ.error && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-md bg-danger-soft text-brand-red text-xs">
+        <div className="flex items-center gap-2 px-4 py-3 rounded-16 bg-danger-soft text-brand-red text-xs">
           <AlertCircle className="size-3.5" />
           参考文献暂时没能加载出来,请稍后再试
         </div>
@@ -87,7 +87,7 @@ export function PaperReferences({ paper }: { paper: Paper }) {
             <button
               type="button"
               onClick={() => setVisible((v) => v + STEP)}
-              className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-md border border-border py-2.5 text-sm text-muted-foreground transition-colors hover:bg-surface-1 active:bg-surface-2"
+              className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-8 border border-border py-2.5 text-sm text-muted-foreground transition-colors hover:bg-surface-1 active:bg-surface-2"
             >
               <ChevronDown className="size-4" />
               显示更多({refs.length - visible} 篇)
@@ -101,7 +101,7 @@ export function PaperReferences({ paper }: { paper: Paper }) {
 
 function ReferencesEmpty({ reason }: { reason: string }) {
   return (
-    <div className="flex flex-col items-center justify-center px-4 py-10 rounded-md bg-surface-1 border border-dashed border-border text-center">
+    <div className="flex flex-col items-center justify-center px-4 py-10 rounded-16 bg-surface-1 border border-dashed border-border text-center">
       <Inbox className="size-6 text-faint mb-2" strokeWidth={1.5} />
       <p className="text-sm font-bold text-subtle">还没有参考文献</p>
       <p className="mt-1 text-xs text-muted-foreground">{reason}</p>

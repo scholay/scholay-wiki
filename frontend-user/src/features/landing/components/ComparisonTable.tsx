@@ -79,7 +79,7 @@ export function ComparisonTable({ section }: { section: ComparisonSection }) {
 
         <div
           className={cn(
-            'rounded-lg overflow-hidden border',
+            'rounded-12 overflow-hidden border',
             dark ? 'bg-landing-dark-1 border-landing-dark-divider' : 'bg-surface-card border-border'
           )}
         >
@@ -114,7 +114,7 @@ export function ComparisonTable({ section }: { section: ComparisonSection }) {
                 {col.badge && (
                   <span
                     className={cn(
-                      'inline-flex items-center px-2 py-0.5 rounded-sm text-2xs font-bold',
+                      'inline-flex items-center px-2 py-0.5 rounded-4 text-2xs font-bold',
                       'bg-brand-amber text-foreground'
                     )}
                   >

@@ -126,7 +126,7 @@ export function ExportMenu({
           onPointerEnter={scheduleOpen}
           onPointerLeave={scheduleClose}
           className={cn(
-            'inline-flex items-center gap-1 h-7 px-2.5 rounded-sm border border-border text-xs text-subtle transition-colors',
+            'inline-flex items-center gap-1 h-7 px-2.5 rounded-8 border border-border text-xs text-subtle transition-colors',
             'hover:bg-surface-1 disabled:opacity-50 disabled:cursor-not-allowed',
             'data-[state=open]:bg-surface-1'
           )}
@@ -197,7 +197,7 @@ function ExportItem({ icon: Icon, label, hint, loading, onSelect }: ItemProps) {
       }}
       className="flex items-start gap-2.5 px-3 py-2 cursor-pointer"
     >
-      <span className="inline-flex h-7 w-7 items-center justify-center rounded-sm bg-surface-2 text-muted-foreground shrink-0 mt-px">
+      <span className="inline-flex h-7 w-7 items-center justify-center rounded-8 bg-surface-2 text-muted-foreground shrink-0 mt-px">
         {loading ? (
           <Loader2 className="size-3.5 animate-spin" />
         ) : (

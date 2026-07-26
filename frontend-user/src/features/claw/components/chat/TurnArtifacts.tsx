@@ -39,7 +39,7 @@ export function TurnArtifacts({
   if (files.length === 0) return null;
   return (
     // 品牌绿浅底 + 绿描边,与"AI 操作/成果"语义一致,从普通气泡里跳出来。
-    <div className="rounded-lg border border-brand-green/30 bg-brand-green/5 p-2.5">
+    <div className="rounded-16 border border-brand-green/30 bg-brand-green/5 p-2.5">
       <div className="mb-2 flex items-center gap-1.5 px-0.5 text-2xs font-semibold text-brand-green">
         <Sparkles className="h-3.5 w-3.5" />
         生成的文件
@@ -70,8 +70,8 @@ function ArtifactRow({
       ? agentArtifactByIdUrl(artifact.id, basePath)
       : agentArtifactZipUrl(sessionId, artifact.path, basePath);
     return (
-      <div className="flex items-center gap-2.5 rounded-md border border-border bg-surface-card px-3 py-2 transition-colors hover:border-brand-green/40">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-brand-green/10">
+      <div className="flex items-center gap-2.5 rounded-12 border border-border bg-surface-card px-3 py-2 transition-colors hover:border-brand-green/40">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-8 bg-brand-green/10">
           <FolderArchive className="h-4 w-4 text-brand-green" />
         </span>
         <div className="min-w-0 flex-1">
@@ -108,16 +108,16 @@ function ArtifactRow({
   const secondary = artifact.description || (artifact.title ? artifact.name : '');
 
   return (
-    <div className="flex items-center gap-2.5 rounded-md border border-border bg-surface-card px-3 py-2 transition-colors hover:border-brand-green/40">
+    <div className="flex items-center gap-2.5 rounded-12 border border-border bg-surface-card px-3 py-2 transition-colors hover:border-brand-green/40">
       {isImageName(artifact.name) ? (
         <img
           src={thumbUrl}
           alt={artifact.name}
-          className="h-9 w-9 shrink-0 rounded-sm object-cover"
+          className="h-9 w-9 shrink-0 rounded-8 object-cover"
           loading="lazy"
         />
       ) : (
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-brand-green/10">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-8 bg-brand-green/10">
           <FileText className="h-4 w-4 text-brand-green" />
         </span>
       )}

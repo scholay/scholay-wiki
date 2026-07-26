@@ -24,7 +24,7 @@ export function NewsHotItem({ item, rank }: { item: NewsCard; rank: number }) {
     >
       <span
         className={cn(
-          'flex size-5 shrink-0 items-center justify-center rounded-sm text-2xs font-bold',
+          'flex size-5 shrink-0 items-center justify-center rounded-4 text-2xs font-bold',
           rankClass(rank),
         )}
       >

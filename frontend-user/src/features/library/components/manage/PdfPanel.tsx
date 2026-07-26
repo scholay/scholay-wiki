@@ -205,7 +205,7 @@ export function PdfPanel({
           />
 
           {tab === 'file' && !error && (
-            <div className="mt-4 flex items-start gap-2 rounded-sm bg-brand-amber-soft border border-brand-amber/20 px-3 py-2">
+            <div className="mt-4 flex items-start gap-2 rounded-8 bg-brand-amber-soft border border-brand-amber/20 px-3 py-2">
               <Info className="size-3.5 text-brand-amber shrink-0 mt-0.5" />
               <span className="text-xs text-muted-foreground">
                 仅支持 PDF,最大 50 MB · 文件只对你自己可见
@@ -214,14 +214,14 @@ export function PdfPanel({
           )}
 
           {hasExisting && tab === 'file' && (
-            <div className="mt-3 flex items-start gap-2 rounded-sm bg-danger-soft border border-brand-red/20 px-3 py-2">
+            <div className="mt-3 flex items-start gap-2 rounded-8 bg-danger-soft border border-brand-red/20 px-3 py-2">
               <AlertTriangle className="size-3.5 text-brand-red shrink-0 mt-0.5" />
               <span className="text-xs text-brand-red">上传成功后将替换当前 PDF;旧文件不可恢复</span>
             </div>
           )}
 
           {error && !isPending && (
-            <div className="mt-3 px-3 py-2 rounded-sm bg-danger-soft text-xs text-brand-red">{error}</div>
+            <div className="mt-3 px-3 py-2 rounded-8 bg-danger-soft text-xs text-brand-red">{error}</div>
           )}
         </div>
       </div>
@@ -242,7 +242,7 @@ export function PdfPanel({
               disabled
               title="移除后这条收藏就没有内容了;不需要的话可以直接删除这条收藏"
               className={cn(
-                'inline-flex items-center gap-1 h-8 px-3 rounded-sm border border-brand-red/30 bg-surface-card text-sm font-semibold text-brand-red',
+                'inline-flex items-center gap-1 h-8 px-3 rounded-8 border border-brand-red/30 bg-surface-card text-sm font-semibold text-brand-red',
                 'opacity-60 cursor-not-allowed'
               )}
             >
@@ -264,7 +264,7 @@ export function PdfPanel({
                 type="button"
                 disabled={isPending || isDeleting}
                 className={cn(
-                  'inline-flex items-center gap-1 h-8 px-3 rounded-sm border border-brand-red/30 bg-surface-card text-sm font-semibold text-brand-red',
+                  'inline-flex items-center gap-1 h-8 px-3 rounded-8 border border-brand-red/30 bg-surface-card text-sm font-semibold text-brand-red',
                   'hover:bg-danger-soft disabled:opacity-60 disabled:cursor-not-allowed transition-colors'
                 )}
               >

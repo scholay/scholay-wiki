@@ -55,7 +55,7 @@ export function SourceBadge({
       <TooltipTrigger asChild>
         <span
           className={cn(
-            'inline-flex items-center justify-center rounded-sm bg-surface-2 font-bold font-mono text-muted-foreground select-none shrink-0',
+            'inline-flex items-center justify-center rounded-4 bg-surface-2 font-bold font-mono text-muted-foreground select-none shrink-0',
             SIZE_CLS[size],
             className
           )}

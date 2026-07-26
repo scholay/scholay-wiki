@@ -34,7 +34,7 @@ export function PrismEditorMock() {
         <span className="size-2.5 rounded-pill bg-[#FEBC2E]" />
         <span className="size-2.5 rounded-pill bg-[#28C840]" />
         <div className="flex items-center gap-1 ml-3">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-surface-2 text-2xs font-semibold text-foreground">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-4 bg-surface-2 text-2xs font-semibold text-foreground">
             <FileText className="size-3" /> main.tex
           </span>
           <span className="text-2xs text-faint px-1">bibliography.bib</span>
@@ -77,7 +77,7 @@ export function PrismEditorMock() {
             <span className="font-bold">Abstract.</span> We present a systematic study of attention circuits in modern LLMs, with novel mechanistic insights into multi-head interactions.
           </div>
           {/* fake citation chip */}
-          <div className="inline-flex items-center self-start mt-1 px-1.5 py-0.5 rounded-sm bg-prism-badge-bg text-2xs text-prism-badge-fg font-semibold">
+          <div className="inline-flex items-center self-start mt-1 px-1.5 py-0.5 rounded-4 bg-prism-badge-bg text-2xs text-prism-badge-fg font-semibold">
             [vaswani2017]
           </div>
         </div>

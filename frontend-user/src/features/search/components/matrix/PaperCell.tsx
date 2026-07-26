@@ -50,7 +50,7 @@ function PaperCellImpl({ paper, isFavorited, onRemove }: Props) {
           type="button"
           onClick={() => onRemove(paper.paperId)}
           className={cn(
-            'inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-surface-2 hover:text-foreground',
+            'inline-flex h-5 w-5 items-center justify-center rounded-4 text-muted-foreground hover:bg-surface-2 hover:text-foreground',
             hoverActionClass
           )}
           aria-label="从暂存区移除"

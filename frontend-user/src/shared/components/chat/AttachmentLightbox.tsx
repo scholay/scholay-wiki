@@ -22,7 +22,7 @@ export function AttachmentLightbox({ src, alt, onClose }: AttachmentLightboxProp
       }}
     >
       {/* 灯箱: 点暗色遮罩 / 按 Esc 关闭是预期行为, 显式 dismissable 覆盖默认的「仅关闭按钮」 */}
-      <DialogContent dismissable className="w-auto max-w-[92vw] border-0 bg-transparent p-0 sm:rounded-lg">
+      <DialogContent dismissable className="w-auto max-w-[92vw] border-0 bg-transparent p-0 sm:rounded-16">
         {/* a11y: Radix Dialog 要求有 Title, 视觉隐藏即可 */}
         <DialogTitle className="sr-only">{alt || '图片预览'}</DialogTitle>
         {src && (
@@ -30,7 +30,7 @@ export function AttachmentLightbox({ src, alt, onClose }: AttachmentLightboxProp
             src={src}
             alt={alt || '图片预览'}
             onClick={onClose}
-            className="max-h-[85vh] max-w-[92vw] w-auto cursor-zoom-out rounded-md object-contain"
+            className="max-h-[85vh] max-w-[92vw] w-auto cursor-zoom-out rounded-12 object-contain"
           />
         )}
       </DialogContent>

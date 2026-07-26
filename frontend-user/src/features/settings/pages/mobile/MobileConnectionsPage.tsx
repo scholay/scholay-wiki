@@ -71,7 +71,7 @@ function ConnectionsBody() {
 
   return (
     <div className="space-y-3 p-3">
-      <section className="overflow-hidden rounded-lg border border-border bg-surface-card">
+      <section className="overflow-hidden rounded-16 border border-border bg-surface-card">
         {connections.map((c, i) => {
           const label = PROVIDER_LABEL[c.provider] ?? c.provider;
           return (

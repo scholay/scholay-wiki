@@ -302,7 +302,7 @@ export const MessageTurn = memo(function MessageTurn({
       {/* 命中额度「未发送」轮 —— 保留用户气泡 + 一键重发(无需重打)。开通会员/重置额度后点重发即可继续。
           消息已持久化(localStorage),跳支付宝充会员整页返回 / 换设备回来都能在此一键重发。 */}
       {turn.blocked && (
-        <div className="flex flex-col gap-2 rounded-md border border-brand-amber/30 bg-warning-soft px-3 py-2.5">
+        <div className="flex flex-col gap-2 rounded-16 border border-brand-amber/30 bg-warning-soft px-3 py-2.5">
           <div className="flex items-start gap-2">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-brand-amber" />
             <div className="min-w-0 flex-1">

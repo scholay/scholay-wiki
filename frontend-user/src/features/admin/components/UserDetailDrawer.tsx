@@ -151,7 +151,7 @@ export function UserDetailDrawer({
                 {detail.data.auth_providers.map((p) => (
                   <span
                     key={p.provider}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-1 px-2 py-1 text-xs text-subtle"
+                    className="inline-flex items-center gap-1.5 rounded-8 border border-border bg-surface-1 px-2 py-1 text-xs text-subtle"
                   >
                     <ProviderIcon provider={p.provider} />
                     {p.provider.toLowerCase() === 'wechat'

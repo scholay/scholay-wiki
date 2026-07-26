@@ -79,7 +79,7 @@ export function PromoConfigPage() {
         {/* 表单 */}
         <div className="flex max-w-2xl flex-col gap-6">
           <Section icon={<Sparkles className="size-4" />} title="推广开关">
-            <div className="flex items-center justify-between rounded-md border border-border bg-surface-1 px-4 py-3">
+            <div className="flex items-center justify-between rounded-12 border border-border bg-surface-1 px-4 py-3">
               <div className="flex flex-col gap-0.5">
                 <span className="text-sm font-medium text-foreground">启用「限时领取会员」推广</span>
                 <span className="text-xs text-muted-foreground">关闭后用户端不显示按钮、不弹窗</span>
@@ -109,7 +109,7 @@ export function PromoConfigPage() {
                 onChange={(e) => set('benefits', e.target.value)}
                 rows={4}
                 placeholder={PLACEHOLDER.benefits.join('\n')}
-                className="flex w-full rounded-md border border-border bg-surface-card px-3 py-2 text-sm text-foreground placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex w-full rounded-8 border border-border bg-surface-card px-3 py-2 text-sm text-foreground placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </Field>
             <Field label="按钮 / 引导文案">
@@ -125,7 +125,7 @@ export function PromoConfigPage() {
         {/* 实时预览 */}
         <div className="lg:sticky lg:top-4 lg:self-start">
           <Label className="mb-2 block text-2xs text-faint">实时预览</Label>
-          <div className="w-full max-w-80 overflow-hidden rounded-lg border border-border lg:w-80">
+          <div className="w-full max-w-80 overflow-hidden rounded-16 border border-border lg:w-80">
             <div className="relative bg-gradient-to-br from-brand-red via-brand-red to-brand-amber px-6 pb-6 pt-8 text-center text-on-brand">
               <span className="absolute left-4 top-4 inline-flex items-center gap-1 rounded-pill bg-surface-card/20 px-2 py-0.5 text-2xs font-medium backdrop-blur-sm">
                 <Sparkles className="size-3" /> 限时
@@ -146,9 +146,9 @@ export function PromoConfigPage() {
             </div>
             <div className="flex flex-col items-center gap-2.5 bg-surface-card px-6 pb-6 pt-5">
               {form.wechat_qr ? (
-                <img src={form.wechat_qr} alt="二维码预览" className="size-44 rounded-md border border-border object-contain p-1" />
+                <img src={form.wechat_qr} alt="二维码预览" className="size-44 rounded-12 border border-border object-contain p-1" />
               ) : (
-                <div className="flex size-44 items-center justify-center rounded-md border border-dashed border-border text-xs text-faint">
+                <div className="flex size-44 items-center justify-center rounded-12 border border-dashed border-border text-xs text-faint">
                   二维码未配置
                 </div>
               )}
@@ -166,7 +166,7 @@ export function PromoConfigPage() {
 
 function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-border bg-surface-card p-5">
+    <div className="flex flex-col gap-4 rounded-16 border border-border bg-surface-card p-5">
       <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
         <span className="text-muted-foreground">{icon}</span>
         {title}
@@ -213,9 +213,9 @@ function QRUpload({ label, value, onChange }: { label: string; value: string; on
       <Label className="text-2xs text-faint">{label}</Label>
       <div className="flex items-center gap-3">
         {value ? (
-          <img src={value} alt={label} className="size-20 rounded-sm border border-border object-contain" />
+          <img src={value} alt={label} className="size-20 rounded-8 border border-border object-contain" />
         ) : (
-          <div className="flex size-20 items-center justify-center rounded-sm border border-dashed border-border text-2xs text-faint">
+          <div className="flex size-20 items-center justify-center rounded-8 border border-dashed border-border text-2xs text-faint">
             未设置
           </div>
         )}

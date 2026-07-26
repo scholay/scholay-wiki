@@ -89,7 +89,7 @@ export function RechargePanel() {
     <div className="flex flex-col gap-4 md:flex-row md:items-start">
       <div className="flex flex-1 flex-col gap-4">
         {/* 金额 */}
-        <section className="rounded-md border border-border bg-surface-card p-5">
+        <section className="rounded-16 border border-border bg-surface-card p-5">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-bold text-foreground">选择充值金额</h3>
             <span className="text-2xs text-faint">1 元 = {rate} 经费</span>
@@ -101,7 +101,7 @@ export function RechargePanel() {
                 <button
                   key={v}
                   onClick={() => setYuan(String(v))}
-                  className={cn('flex flex-col gap-0.5 rounded-md border p-3 text-left transition-colors', active ? 'border-brand-red bg-danger-soft' : 'border-border hover:bg-surface-2')}
+                  className={cn('flex flex-col gap-0.5 rounded-12 border p-3 text-left transition-colors', active ? 'border-brand-red bg-danger-soft' : 'border-border hover:bg-surface-2')}
                 >
                   <span className={cn('text-base font-bold', active ? 'text-brand-red' : 'text-foreground')}>¥{v}</span>
                   <span className="text-2xs text-faint">到账 {Math.floor(v * rate)} 经费</span>
@@ -109,7 +109,7 @@ export function RechargePanel() {
               );
             })}
           </div>
-          <div className="mt-2 flex items-center gap-2 rounded-md border border-border bg-surface-1 px-3">
+          <div className="mt-2 flex items-center gap-2 rounded-8 border border-border bg-surface-1 px-3">
             <Coins className="size-4 shrink-0 text-faint" />
             <Input
               value={yuan}
@@ -123,7 +123,7 @@ export function RechargePanel() {
         </section>
 
         {/* 支付方式 */}
-        <section className="rounded-md border border-border bg-surface-card p-5">
+        <section className="rounded-16 border border-border bg-surface-card p-5">
           <h3 className="mb-3 text-sm font-bold text-foreground">支付方式</h3>
           {methods.length === 0 && (
             <p className="text-xs text-faint">管理员尚未配置支付渠道,暂时无法充值。</p>
@@ -136,7 +136,7 @@ export function RechargePanel() {
                 <button
                   key={m.id}
                   onClick={() => setMethod(m.id)}
-                  className={cn('flex items-center gap-2 rounded-md border p-3 text-left transition-colors', active ? 'border-brand-red bg-danger-soft' : 'border-border hover:bg-surface-2')}
+                  className={cn('flex items-center gap-2 rounded-12 border p-3 text-left transition-colors', active ? 'border-brand-red bg-danger-soft' : 'border-border hover:bg-surface-2')}
                 >
                   <Icon className={cn('size-5 shrink-0', active ? 'text-brand-red' : 'text-faint')} />
                   <div className="min-w-0 flex-1">
@@ -152,7 +152,7 @@ export function RechargePanel() {
       </div>
 
       {/* 订单详情 */}
-      <aside className="rounded-md border border-border bg-surface-card p-5 md:w-64 md:shrink-0">
+      <aside className="rounded-16 border border-border bg-surface-card p-5 md:w-64 md:shrink-0">
         <h3 className="mb-3 text-sm font-bold text-foreground">订单详情</h3>
         <DetailRow k="充值金额" v={`¥${(cents / 100 || 0).toFixed(2)}`} />
         <DetailRow k="到账经费" v={`${credits} 经费`} />
@@ -165,7 +165,7 @@ export function RechargePanel() {
             {(cents / 100 || 0).toFixed(2)}
           </span>
         </div>
-        <div className="my-3 flex items-center gap-1.5 rounded-md bg-prism-badge-bg px-3 py-2 text-2xs text-prism-badge-fg">
+        <div className="my-3 flex items-center gap-1.5 rounded-8 bg-prism-badge-bg px-3 py-2 text-2xs text-prism-badge-fg">
           <Coins className="size-3.5" /> {yuan || 0} 元到账 {credits} 经费
         </div>
         <Button onClick={onPay} disabled={!valid || busy || !sel} className="w-full bg-brand-red text-background hover:bg-brand-red/90">
@@ -219,7 +219,7 @@ function SegmentedCodeInput({ value, onChange }: { value: string[]; onChange: (v
             }}
             maxLength={4}
             placeholder="0000"
-            className="h-11 w-full min-w-0 flex-1 rounded-md border border-border bg-surface-1 text-center font-mono text-base uppercase tracking-code text-foreground placeholder:text-faint/40 focus-visible:border-brand-red focus-visible:outline-none"
+            className="h-11 w-full min-w-0 flex-1 rounded-8 border border-border bg-surface-1 text-center font-mono text-base uppercase tracking-code text-foreground placeholder:text-faint/40 focus-visible:border-brand-red focus-visible:outline-none"
           />
           {i < 3 && <span className="shrink-0 text-faint">–</span>}
         </Fragment>
@@ -239,7 +239,7 @@ export function RedeemPanel() {
 
   const recent = gifts?.items ?? [];
   return (
-    <section className="rounded-md border border-border bg-surface-card p-5">
+    <section className="rounded-16 border border-border bg-surface-card p-5">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
           <Ticket className="size-4 text-brand-red" /> 激活礼品码
@@ -347,27 +347,27 @@ export function OrdersTable() {
   };
 
   return (
-    <section className="rounded-md border border-border bg-surface-card p-5">
+    <section className="rounded-16 border border-border bg-surface-card p-5">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex gap-1">
           {([['all', '全部'], ['subscription', '订阅'], ['recharge', '充值']] as const).map(([id, label]) => (
             <button
               key={id}
               onClick={() => setFilter(id)}
-              className={cn('h-7 rounded-md px-3 text-xs transition-colors', filter === id ? 'bg-foreground text-background' : 'bg-surface-2 text-subtle hover:bg-surface-muted')}
+              className={cn('h-7 rounded-8 px-3 text-xs transition-colors', filter === id ? 'bg-foreground text-background' : 'bg-surface-2 text-subtle hover:bg-surface-muted')}
             >
               {label}
             </button>
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <select value={month} onChange={(e) => setMonth(e.target.value)} className="h-8 rounded-md border border-border bg-surface-card px-2 text-xs text-foreground">
+          <select value={month} onChange={(e) => setMonth(e.target.value)} className="h-8 rounded-8 border border-border bg-surface-card px-2 text-xs text-foreground">
             <option value="">全部月份</option>
             {months.map((m) => (
               <option key={m} value={m}>{m.replace('-', ' 年 ')} 月</option>
             ))}
           </select>
-          <button onClick={exportCsv} className="flex h-8 items-center gap-1 rounded-md border border-border px-3 text-xs text-subtle transition-colors hover:bg-surface-2">
+          <button onClick={exportCsv} className="flex h-8 items-center gap-1 rounded-8 border border-border px-3 text-xs text-subtle transition-colors hover:bg-surface-2">
             <Download className="size-3.5" /> 导出
           </button>
         </div>
@@ -419,7 +419,7 @@ export function OverviewContent({ onViewAll }: { onViewAll: () => void }) {
   const items = data?.items ?? [];
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <section className="rounded-md border border-border bg-surface-card p-5">
+      <section className="rounded-16 border border-border bg-surface-card p-5">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-bold text-foreground">近期流水</h3>
           <button onClick={onViewAll} className="text-xs text-muted-foreground hover:text-foreground">
@@ -476,7 +476,7 @@ function UsageHeatmap() {
   const activeDays = (data?.days ?? []).filter((d) => d.cost > 0).length;
 
   return (
-    <section className="rounded-md border border-border bg-surface-card p-5">
+    <section className="rounded-16 border border-border bg-surface-card p-5">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-bold text-foreground">本月每日活跃</h3>
         <span className="text-2xs tabular-nums text-faint">{activeDays} 天有使用</span>
@@ -501,7 +501,7 @@ function UsageHeatmap() {
                 <span
                   key={di}
                   title={tip}
-                  className={cn('size-4 rounded-sm', GREEN_LEVELS[levelOf(cost, ceiling)])}
+                  className={cn('size-4 rounded-4', GREEN_LEVELS[levelOf(cost, ceiling)])}
                 />
               );
             })}
@@ -510,7 +510,7 @@ function UsageHeatmap() {
       </div>
       <div className="mt-3 flex items-center justify-end gap-1 text-2xs text-faint">
         少
-        {GREEN_LEVELS.map((c, i) => <span key={i} className={cn('size-3 rounded-sm', c)} />)}
+        {GREEN_LEVELS.map((c, i) => <span key={i} className={cn('size-3 rounded-4', c)} />)}
         多
       </div>
     </section>

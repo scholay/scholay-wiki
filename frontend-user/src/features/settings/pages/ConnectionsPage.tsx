@@ -164,11 +164,11 @@ export function ConnectionsPage() {
           return (
             <div
               key={c.provider}
-              className="flex items-center gap-4 p-4 rounded-md border border-border bg-surface-card"
+              className="flex items-center gap-4 p-4 rounded-16 border border-border bg-surface-card"
             >
               <div
                 className={cn(
-                  'inline-flex h-10 w-10 items-center justify-center rounded-sm shrink-0',
+                  'inline-flex h-10 w-10 items-center justify-center rounded-8 shrink-0',
                   c.bound ? 'bg-prism-badge-bg' : 'bg-surface-1'
                 )}
               >

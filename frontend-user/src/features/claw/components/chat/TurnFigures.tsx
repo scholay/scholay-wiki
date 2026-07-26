@@ -69,7 +69,7 @@ function FigureCard({ artifact, basePath }: { artifact: ClawArtifact; basePath: 
   if (category === 'image' || (category !== 'figure' && category !== 'svg' && isBitmap(artifact.name))) {
     return (
       <FigureShell caption={name}>
-        <div className="overflow-auto rounded-md border border-border bg-surface-card p-3">
+        <div className="overflow-auto rounded-12 border border-border bg-surface-card p-3">
           <img
             src={agentArtifactByIdUrl(id, basePath)}
             alt={name}
@@ -129,7 +129,7 @@ function ComposedFigure({ text, name }: { text: string; name: string }) {
 /** 图片展示区外壳:标题 caption + 内容。品牌绿浅底、与「AI 产出」语义一致但克制。 */
 function FigureShell({ caption, children }: { caption: string; children: React.ReactNode }) {
   return (
-    <figure className="rounded-lg border border-brand-green/25 bg-brand-green/[0.03] p-2.5">
+    <figure className="rounded-16 border border-brand-green/25 bg-brand-green/[0.03] p-2.5">
       {children}
       {caption && (
         <figcaption className="mt-1.5 px-0.5 text-2xs text-muted-foreground" title={caption}>
@@ -142,7 +142,7 @@ function FigureShell({ caption, children }: { caption: string; children: React.R
 
 function Hint({ text }: { text: string }) {
   return (
-    <div className="flex h-40 w-full items-center justify-center rounded-md border border-border bg-surface-card text-2xs text-muted-foreground">
+    <div className="flex h-40 w-full items-center justify-center rounded-12 border border-border bg-surface-card text-2xs text-muted-foreground">
       {text}
     </div>
   );

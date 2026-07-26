@@ -73,7 +73,7 @@ export function StageFlyLayer() {
         style={{ position: 'fixed', top: fly.from.top, left: fly.from.left, width }}
       >
         {/* StagedRow 同款绿色芯片:圆形对勾 + 标题截断 */}
-        <div className="flex items-center gap-2 rounded-md border border-brand-green/40 bg-brand-green/10 px-3 py-2 shadow-overlay backdrop-blur-sm">
+        <div className="flex items-center gap-2 rounded-12 border border-brand-green/40 bg-brand-green/10 px-3 py-2 shadow-overlay backdrop-blur-sm">
           <span className="inline-flex size-4 shrink-0 items-center justify-center rounded-pill bg-brand-green text-on-brand">
             <Check className="size-2.5" strokeWidth={3.5} />
           </span>

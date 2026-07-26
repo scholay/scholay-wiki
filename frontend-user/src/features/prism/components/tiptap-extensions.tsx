@@ -66,7 +66,7 @@ function BlockMathView({ node, updateAttributes, editor }: NodeViewProps) {
     <NodeViewWrapper className="prism-block-math my-3">
       <div
         title="双击编辑公式"
-        className="cursor-pointer overflow-x-auto rounded-md py-1 hover:bg-surface-1"
+        className="cursor-pointer overflow-x-auto rounded-8 py-1 hover:bg-surface-1"
         onDoubleClick={() => editor.isEditable && setOpen(true)}
         dangerouslySetInnerHTML={{ __html: html }}
       />
@@ -145,7 +145,7 @@ export const Figure = Node.create({
     const caption = String(node.attrs.caption ?? '') || '插图';
     return [
       'figure',
-      { 'data-asset': String(node.attrs.asset ?? ''), class: 'my-4 rounded-md border border-dashed border-border bg-surface-1 px-4 py-6 text-center text-sm text-faint' },
+      { 'data-asset': String(node.attrs.asset ?? ''), class: 'my-4 rounded-12 border border-dashed border-border bg-surface-1 px-4 py-6 text-center text-sm text-faint' },
       `图:${caption}`,
     ];
   },
@@ -183,7 +183,7 @@ export const OpaqueBlock = Node.create({
   renderHTML() {
     return [
       'div',
-      { 'data-opaque': '', class: 'my-3 rounded-md border border-border bg-surface-1 px-3 py-2 text-xs text-faint' },
+      { 'data-opaque': '', class: 'my-3 rounded-12 border border-border bg-surface-1 px-3 py-2 text-xs text-faint' },
       '(AI 管理的区域)',
     ];
   },

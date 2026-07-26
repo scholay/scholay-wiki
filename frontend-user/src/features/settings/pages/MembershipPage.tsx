@@ -25,7 +25,7 @@ export function MembershipPage() {
   return (
     <div className="flex flex-col gap-5">
       {isLoading || !data ? (
-        <section className="rounded-md border border-border bg-surface-card p-5">
+        <section className="rounded-16 border border-border bg-surface-card p-5">
           <p className="text-xs text-faint">加载中…</p>
         </section>
       ) : (
@@ -33,13 +33,13 @@ export function MembershipPage() {
       )}
 
       {/* 分段式 tab —— 灰底 bar + 白底胶囊(红 icon/文字)active */}
-      <div className="flex items-center gap-1 rounded-md border border-border bg-surface-1 p-1">
+      <div className="flex items-center gap-1 rounded-12 border border-border bg-surface-1 p-1">
         {TABS.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
             className={cn(
-              'flex flex-1 items-center justify-center gap-1.5 h-9 rounded-sm text-sm font-medium transition-colors',
+              'flex flex-1 items-center justify-center gap-1.5 h-9 rounded-8 text-sm font-medium transition-colors',
               tab === t.id
                 ?'bg-surface-card text-brand-red shadow-raised'
                 : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground'
@@ -57,7 +57,7 @@ export function MembershipPage() {
         {tab === 'redeem' && <RedeemPanel />}
         {tab === 'txns' && <OrdersTable />}
         {tab === 'earn' && (
-          <section className="flex flex-col items-center gap-2 rounded-md border border-border bg-surface-card p-10 text-center">
+          <section className="flex flex-col items-center gap-2 rounded-16 border border-border bg-surface-card p-10 text-center">
             <Gift className="size-7 text-faint" />
             <p className="text-sm font-bold text-foreground">任务中心即将上线</p>
             <p className="text-xs text-muted-foreground">完成签到与任务即可领取科研经费,敬请期待。</p>

@@ -122,7 +122,7 @@ export function OAuthMergeConfirmDialog({
             type="button"
             onClick={handleMerge}
             disabled={pending}
-            className="flex flex-col items-start gap-2 p-4 rounded-md border-2 border-foreground text-left bg-surface-card hover:bg-surface-1 transition-colors disabled:opacity-50"
+            className="flex flex-col items-start gap-2 p-4 rounded-16 border-2 border-foreground text-left bg-surface-card hover:bg-surface-1 transition-colors disabled:opacity-50"
           >
             <div className="flex items-center justify-between w-full">
               <span className="text-sm font-semibold text-foreground">
@@ -141,7 +141,7 @@ export function OAuthMergeConfirmDialog({
             type="button"
             onClick={handleLoginToTarget}
             disabled={pending}
-            className="flex flex-col items-start gap-2 p-4 rounded-md border-2 border-foreground text-left bg-surface-card hover:bg-surface-1 transition-colors disabled:opacity-50"
+            className="flex flex-col items-start gap-2 p-4 rounded-16 border-2 border-foreground text-left bg-surface-card hover:bg-surface-1 transition-colors disabled:opacity-50"
           >
             <div className="flex items-center justify-between w-full">
               <span className="text-sm font-semibold text-foreground">
@@ -171,7 +171,7 @@ export function OAuthMergeConfirmDialog({
           type="button"
           onClick={handleNew}
           disabled={pending}
-          className="flex flex-col items-start gap-2 p-4 rounded-md border border-border text-left bg-surface-card hover:bg-surface-1 transition-colors disabled:opacity-50"
+          className="flex flex-col items-start gap-2 p-4 rounded-16 border border-border text-left bg-surface-card hover:bg-surface-1 transition-colors disabled:opacity-50"
         >
           <div className="flex items-center justify-between w-full">
             <span className="text-sm font-semibold text-foreground">

@@ -35,7 +35,7 @@ export const SidebarHeaderIcon = forwardRef<
     ref={ref}
     type="button"
     className={cn(
-      'inline-flex h-8 w-8 items-center justify-center rounded-md text-subtle',
+      'inline-flex h-8 w-8 items-center justify-center rounded-8 text-subtle',
       'hover:bg-surface-2 hover:text-foreground transition-colors',
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
       'disabled:pointer-events-none disabled:opacity-50',

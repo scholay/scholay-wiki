@@ -28,7 +28,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
         ref={ref}
         className={cn(
           // appearance-none + 自绘箭头 —— 原生箭头在各平台长得完全不一样,不可控
-          'appearance-none flex h-8 rounded-md border border-border bg-surface-card pl-3 pr-8 text-sm text-foreground',
+          'appearance-none flex h-8 rounded-8 border border-border bg-surface-card pl-3 pr-8 text-sm text-foreground',
           'transition-colors cursor-pointer',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-foreground',
           'disabled:cursor-not-allowed disabled:opacity-50',

@@ -148,7 +148,7 @@ export function PrismRevisionDialog({
             onChange={(e) => setPasteText(e.target.value)}
             placeholder="粘贴任何修改意见:审稿人 decision letter / 导师批注 / 合作者意见…(重新解析会覆盖现有条目)"
             rows={3}
-            className="flex-1 resize-none rounded-md border border-border bg-surface-card p-2 text-xs outline-none placeholder:text-faint"
+            className="flex-1 resize-none rounded-8 border border-border bg-surface-card p-2 text-xs outline-none placeholder:text-faint"
           />
           <Button size="sm" onClick={doParse} disabled={parsing || !pasteText.trim()} className="self-end">
             {parsing ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />} 拆条
@@ -169,7 +169,7 @@ export function PrismRevisionDialog({
             items.map((it) => {
               const st = STATUS_LABELS[it.status] ?? STATUS_LABELS.pending;
               return (
-                <div key={it.id} className="rounded-md border border-border p-2">
+                <div key={it.id} className="rounded-12 border border-border p-2">
                   <div className="flex items-start gap-2">
                     <span className="shrink-0 text-2xs font-bold text-faint">#{it.seq}</span>
                     <div className="min-w-0 flex-1">

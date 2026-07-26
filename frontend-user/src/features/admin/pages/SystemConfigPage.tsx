@@ -51,7 +51,7 @@ function Panel({ title, hint, children, onSubmit }: { title: string; hint?: stri
   return (
     <form
       onSubmit={onSubmit}
-      className="mt-4 rounded-md border border-border bg-surface-card p-4 sm:p-6 space-y-4 max-w-3xl"
+      className="mt-4 rounded-16 border border-border bg-surface-card p-4 sm:p-6 space-y-4 max-w-3xl"
     >
       <div className="pb-3 border-b border-border-soft">
         <h2 className="text-base font-bold text-foreground">{title}</h2>
@@ -73,7 +73,7 @@ function Field({ label, children, className }: { label: string; children: ReactN
 
 function LoadingPanel() {
   return (
-    <div className="mt-4 rounded-md border border-border bg-surface-card p-6 flex items-center justify-center gap-2 text-muted-foreground">
+    <div className="mt-4 rounded-16 border border-border bg-surface-card p-6 flex items-center justify-center gap-2 text-muted-foreground">
       <Loader2 className="size-4 animate-spin" />
       <span className="text-sm">加载配置…</span>
     </div>
@@ -315,7 +315,7 @@ function SMSForm() {
           name="template_content"
           rows={3}
           defaultValue={data?.template_content}
-          className="w-full rounded-md border border-input bg-surface-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="w-full rounded-8 border border-input bg-surface-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       </Field>
 

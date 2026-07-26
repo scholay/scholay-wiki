@@ -222,7 +222,7 @@ export function LibraryReferencePicker({
                         {effectivePaperTitle(p)}
                       </span>
                       {p.pdf_uploaded_at && (
-                        <span className="mt-0.5 shrink-0 rounded-sm bg-brand-green/10 px-1 text-2xs font-semibold text-brand-green">
+                        <span className="mt-0.5 shrink-0 rounded-4 bg-brand-green/10 px-1 text-2xs font-semibold text-brand-green">
                           PDF
                         </span>
                       )}
@@ -358,7 +358,7 @@ function TypeBadge({ source, isFree }: { source: PaperSource; isFree: boolean })
   if (isFree || source === 'local') {
     return (
       <span
-        className="mt-0.5 inline-flex h-4 shrink-0 items-center rounded-sm bg-surface-2 px-1.5 text-2xs font-bold text-faint"
+        className="mt-0.5 inline-flex h-4 shrink-0 items-center rounded-4 bg-surface-2 px-1.5 text-2xs font-bold text-faint"
         title="本地文献(未关联在线论文)"
       >
         本地

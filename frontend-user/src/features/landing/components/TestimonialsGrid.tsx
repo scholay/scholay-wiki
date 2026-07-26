@@ -18,7 +18,7 @@ export function TestimonialsGrid({ section }: { section: TestimonialsSection }) 
             <div
               key={i}
               className={cn(
-                'flex flex-col gap-6 p-8 rounded-lg border bg-surface-1 border-border-soft'
+                'flex flex-col gap-6 p-8 rounded-16 border bg-surface-1 border-border-soft'
               )}
             >
               <span

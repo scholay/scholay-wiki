@@ -221,7 +221,7 @@ export function PrismChatPanel({
           topSlot={
             <>
               {quote && (
-                <div className="flex items-start gap-1.5 rounded-md border-l-2 border-brand-green bg-surface-1 px-2 py-1.5">
+                <div className="flex items-start gap-1.5 rounded-12 border-l-2 border-brand-green bg-surface-1 px-2 py-1.5">
                   <Quote className="mt-0.5 size-3 shrink-0 text-brand-green" />
                   <span className="line-clamp-2 flex-1 whitespace-pre-wrap text-2xs text-subtle">{quote}</span>
                   <button type="button" onClick={onClearQuote} title="移除引用" className="shrink-0 text-faint transition-colors hover:text-foreground">
@@ -276,7 +276,7 @@ export function PrismChatPanel({
                   disabled={blocked}
                   title="开启后 AI 改完文档先停在逐块 diff,你保留/删改后再应用(像改代码);关闭则改完直接应用"
                   className={cn(
-                    'inline-flex h-8 items-center gap-1 rounded-md px-2 text-2xs transition-colors disabled:opacity-50',
+                    'inline-flex h-8 items-center gap-1 rounded-8 px-2 text-2xs transition-colors disabled:opacity-50',
                     reviewMode
                       ? 'bg-brand-green/10 text-brand-green hover:bg-brand-green/15'
                       : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground',
@@ -337,7 +337,7 @@ function ChangesetCard({
 }) {
   const awaiting = cs.state === 'awaiting_apply';
   return (
-    <div className="rounded-lg border border-border bg-surface-1">
+    <div className="rounded-16 border border-border bg-surface-1">
       <div className="flex items-center gap-2.5 px-3 py-2">
         <FileText className="size-4 shrink-0 text-brand-green" />
         <div className="min-w-0 flex-1 truncate text-xs font-bold text-foreground">

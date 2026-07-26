@@ -141,7 +141,7 @@ export function MockMatrixPreview() {
                 <div className="flex flex-col gap-2">
                   <span
                     className={cn(
-                      'inline-flex w-fit items-center px-1.5 py-0.5 rounded-sm text-2xs font-bold',
+                      'inline-flex w-fit items-center px-1.5 py-0.5 rounded-4 text-2xs font-bold',
                       MOCK_TONE_CLS[row.paperTag.tone]
                     )}
                   >
@@ -163,7 +163,7 @@ export function MockMatrixPreview() {
                   <div className="flex flex-col gap-1.5">
                     <span
                       className={cn(
-                        'inline-flex w-fit items-center px-1.5 py-0.5 rounded-sm text-2xs font-bold',
+                        'inline-flex w-fit items-center px-1.5 py-0.5 rounded-4 text-2xs font-bold',
                         MOCK_TONE_CLS[c.tone]
                       )}
                     >
@@ -198,7 +198,7 @@ function FakeStagingTabs() {
         type="button"
         tabIndex={-1}
         aria-hidden="true"
-        className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground ml-1"
+        className="inline-flex h-6 w-6 items-center justify-center rounded-8 text-muted-foreground ml-1"
       >
         <Plus className="size-3" strokeWidth={2.5} />
       </button>
@@ -218,7 +218,7 @@ function FakeStagingTab({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 h-7 px-2.5 rounded-sm text-xs font-bold',
+        'inline-flex items-center gap-1.5 h-7 px-2.5 rounded-8 text-xs font-bold',
         active
           ? 'text-foreground border-b-2 border-brand-red'
           : 'text-muted-foreground'

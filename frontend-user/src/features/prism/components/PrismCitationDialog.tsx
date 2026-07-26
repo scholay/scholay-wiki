@@ -60,7 +60,7 @@ export function PrismCitationDialog({
                     type="button"
                     disabled={applying}
                     onClick={() => onPick(c)}
-                    className="w-full rounded-md border border-border px-3 py-2 text-left transition-colors hover:bg-surface-2 disabled:opacity-50"
+                    className="w-full rounded-12 border border-border px-3 py-2 text-left transition-colors hover:bg-surface-2 disabled:opacity-50"
                   >
                     <p className="line-clamp-2 text-xs font-bold text-foreground">{c.title || '(无标题)'}</p>
                     <p className="mt-0.5 line-clamp-1 text-2xs text-muted-foreground">

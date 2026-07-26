@@ -21,7 +21,7 @@ function CollapseBtn({ onCollapse }: { onCollapse?: () => void }) {
       onClick={onCollapse}
       title="收起成果栏"
       aria-label="收起成果栏"
-      className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
+      className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-8 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
     >
       <PanelRightClose className="h-3.5 w-3.5" />
     </button>

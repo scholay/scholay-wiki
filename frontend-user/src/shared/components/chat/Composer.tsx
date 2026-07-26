@@ -247,7 +247,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             aria-label={stopping ? '正在停止' : '停止生成'}
             title={stopping ? '正在停止…' : '停止当前回答'}
             className={cn(
-              'inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-background transition-colors',
+              'inline-flex size-9 shrink-0 items-center justify-center rounded-8 text-background transition-colors',
               stopping ? 'cursor-wait bg-foreground/60' : 'bg-foreground hover:bg-foreground/85',
             )}
           >
@@ -265,7 +265,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             aria-label={requireAuth ? '登录后开始' : '发送 (Enter)'}
             title={requireAuth ? '登录后开始' : '发送 (Enter)'}
             className={cn(
-              'inline-flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors',
+              'inline-flex size-9 shrink-0 items-center justify-center rounded-8 transition-colors',
               canSend ? 'bg-foreground text-background hover:bg-foreground/90' : 'bg-surface-2 text-faint',
               !canSend && 'cursor-not-allowed',
             )}

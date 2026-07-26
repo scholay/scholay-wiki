@@ -34,11 +34,11 @@ export function PdfPreviewCard({ file, parsed }: PdfPreviewCardProps) {
   const [numPages, setNumPages] = useState<number | null>(null);
 
   return (
-    <div className="flex flex-col rounded-md border border-border bg-surface-card overflow-hidden">
+    <div className="flex flex-col rounded-12 border border-border bg-surface-card overflow-hidden">
       {/* 文件名行 */}
       <div className="flex items-center justify-between gap-2 px-3 py-2.5 border-b border-border-soft">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-danger-soft text-brand-red text-[9px] font-bold leading-none">
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-danger-soft text-brand-red text-[9px] font-bold leading-none">
             PDF
           </span>
           <div className="min-w-0">
@@ -57,7 +57,7 @@ export function PdfPreviewCard({ file, parsed }: PdfPreviewCardProps) {
         <button
           type="button"
           aria-label="更多"
-          className="inline-flex size-6 items-center justify-center rounded-sm text-faint hover:bg-surface-2 hover:text-foreground shrink-0"
+          className="inline-flex size-6 items-center justify-center rounded-8 text-faint hover:bg-surface-2 hover:text-foreground shrink-0"
         >
           <MoreHorizontal className="size-3.5" />
         </button>
@@ -71,7 +71,7 @@ export function PdfPreviewCard({ file, parsed }: PdfPreviewCardProps) {
             aria-label="上一页"
             disabled={pageIndex <= 0}
             onClick={() => setPageIndex((i) => Math.max(0, i - 1))}
-            className="inline-flex size-6 items-center justify-center rounded-sm text-faint hover:text-foreground disabled:opacity-30"
+            className="inline-flex size-6 items-center justify-center rounded-8 text-faint hover:text-foreground disabled:opacity-30"
           >
             <ChevronLeft className="size-3.5" />
           </button>
@@ -83,7 +83,7 @@ export function PdfPreviewCard({ file, parsed }: PdfPreviewCardProps) {
             aria-label="下一页"
             disabled={pageIndex >= numPages - 1}
             onClick={() => setPageIndex((i) => Math.min(numPages - 1, i + 1))}
-            className="inline-flex size-6 items-center justify-center rounded-sm text-faint hover:text-foreground disabled:opacity-30"
+            className="inline-flex size-6 items-center justify-center rounded-8 text-faint hover:text-foreground disabled:opacity-30"
           >
             <ChevronRight className="size-3.5" />
           </button>

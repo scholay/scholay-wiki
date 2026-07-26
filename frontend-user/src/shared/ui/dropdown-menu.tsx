@@ -25,7 +25,7 @@ const DropdownMenuSub = DropdownMenuPrimitive.Sub;
 const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
 
 const itemBase =
-  'relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors data-[disabled]:pointer-events-none data-[disabled]:opacity-50';
+  'relative flex cursor-default select-none items-center gap-2 rounded-8 px-2 py-1.5 text-sm outline-none transition-colors data-[disabled]:pointer-events-none data-[disabled]:opacity-50';
 const itemFocusable =
   'focus-visible:bg-surface-2 focus:text-foreground data-[highlighted]:bg-surface-2';
 
@@ -54,7 +54,7 @@ const DropdownMenuSubContent = React.forwardRef<
   <DropdownMenuPrimitive.SubContent
     ref={ref}
     className={cn(
-      'z-popover min-w-32 overflow-hidden rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-overlay',
+      'z-popover min-w-32 overflow-hidden rounded-12 border border-border bg-popover p-1 text-popover-foreground shadow-overlay',
       className
     )}
     {...props}
@@ -72,7 +72,7 @@ const DropdownMenuContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        'z-popover min-w-40 overflow-hidden rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-overlay',
+        'z-popover min-w-40 overflow-hidden rounded-12 border border-border bg-popover p-1 text-popover-foreground shadow-overlay',
         'data-[state=open]:animate-in data-[state=closed]:animate-out',
         'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
         'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',

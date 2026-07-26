@@ -129,10 +129,10 @@ export function PromoModal() {
             <img
               src={cfg?.wechat_qr}
               alt="微信客服二维码"
-              className="size-44 rounded-md border border-border object-contain p-1"
+              className="size-44 rounded-12 border border-border object-contain p-1"
             />
           ) : (
-            <div className="flex size-44 items-center justify-center rounded-md border border-dashed border-border text-xs text-faint">
+            <div className="flex size-44 items-center justify-center rounded-12 border border-dashed border-border text-xs text-faint">
               二维码未配置
             </div>
           )}

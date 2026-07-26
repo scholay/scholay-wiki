@@ -109,7 +109,7 @@ const components = {
     const isInline = !props.className?.includes('language-');
     if (isInline) {
       return (
-        <code className="px-1 py-0.5 rounded-sm bg-surface-2 text-[12px] font-mono text-foreground break-all">
+        <code className="px-1 py-0.5 rounded-4 bg-surface-2 text-[12px] font-mono text-foreground break-all">
           {props.children}
         </code>
       );
@@ -161,7 +161,7 @@ const components = {
       src={props.src}
       alt={props.alt ?? ''}
       loading="lazy"
-      className="my-2 h-auto max-w-full rounded-md"
+      className="my-2 h-auto max-w-full rounded-12"
     />
   ),
   table: (props: { children?: ReactNode }) => (

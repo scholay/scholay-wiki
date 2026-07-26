@@ -37,7 +37,7 @@ export function ToolDetailPage() {
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') submitSearch(); }}
             placeholder="搜索功能广场"
-            className="h-9 w-full rounded-md border border-border-strong bg-surface-1 pl-9 pr-3 text-sm outline-none placeholder:text-faint focus-visible:border-foreground focus-visible:bg-surface-card focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-9 w-full rounded-8 border border-border-strong bg-surface-1 pl-9 pr-3 text-sm outline-none placeholder:text-faint focus-visible:border-foreground focus-visible:bg-surface-card focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
       </header>
@@ -79,7 +79,7 @@ function ToolDetailContent({ tool }: { tool: FeatureTool }) {
 
       {/* 头部 */}
       <header className="flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-start">
-        <ToolLogo tool={tool} className="size-16 rounded-lg" textClass="text-2xl" />
+        <ToolLogo tool={tool} className="size-16 rounded-12" textClass="text-2xl" />
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -107,7 +107,7 @@ function ToolDetailContent({ tool }: { tool: FeatureTool }) {
               <span className="inline-flex items-center gap-1"><MapPin className="size-3.5" /> {tool.country}</span>
             )}
             {(tool.tags ?? []).slice(0, 5).map((t) => (
-              <span key={t} className="rounded-sm bg-surface-2 px-1.5 py-0.5 text-2xs text-subtle">{t}</span>
+              <span key={t} className="rounded-4 bg-surface-2 px-1.5 py-0.5 text-2xs text-subtle">{t}</span>
             ))}
           </div>
 
@@ -144,7 +144,7 @@ function ToolDetailContent({ tool }: { tool: FeatureTool }) {
             <Section title="典型使用场景">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {tool.use_cases.map((u, i) => (
-                  <div key={i} className="rounded-md border border-border bg-surface-card p-3">
+                  <div key={i} className="rounded-16 border border-border bg-surface-card p-3">
                     <p className="text-sm font-bold text-foreground">{u.icon ? `${u.icon} ` : ''}{u.title}</p>
                     {u.desc && <p className="mt-1 text-xs leading-paragraph text-muted-foreground">{u.desc}</p>}
                   </div>
@@ -169,7 +169,7 @@ function ToolDetailContent({ tool }: { tool: FeatureTool }) {
           )}
 
           {tool.disclaimer && (
-            <div className="rounded-md border border-border bg-warning-soft p-3 text-xs leading-paragraph text-brand-amber">
+            <div className="rounded-12 border border-border bg-warning-soft p-3 text-xs leading-paragraph text-brand-amber">
               {tool.disclaimer}
             </div>
           )}
@@ -185,7 +185,7 @@ function ToolDetailContent({ tool }: { tool: FeatureTool }) {
                   <Cloud className="size-3.5 shrink-0" /> {dl.provider === 'baidu' ? '百度网盘' : dl.provider || '网盘'}链接
                 </a>
                 {dl.extract_code && (
-                  <div className="flex items-center justify-between rounded-md bg-surface-2 px-2.5 py-1.5">
+                  <div className="flex items-center justify-between rounded-8 bg-surface-2 px-2.5 py-1.5">
                     <span className="text-xs text-muted-foreground">提取码 <span className="font-mono font-bold text-foreground">{dl.extract_code}</span></span>
                     <button
                       type="button"
@@ -305,7 +305,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 function SideCard({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="rounded-md border border-border bg-surface-card p-4">
+    <div className="rounded-16 border border-border bg-surface-card p-4">
       <p className="mb-2.5 text-2xs font-bold uppercase text-faint">{title}</p>
       {children}
     </div>

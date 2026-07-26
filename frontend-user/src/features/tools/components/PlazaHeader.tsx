@@ -49,7 +49,7 @@ export function PlazaHeader() {
               e.preventDefault();
               setQuery(draft.trim());
             }}
-            className="group flex h-11 flex-1 items-center gap-2.5 rounded-lg border border-border bg-surface-1 px-3.5 transition-colors focus-within:border-foreground focus-within:bg-surface-card"
+            className="group flex h-11 flex-1 items-center gap-2.5 rounded-16 border border-border bg-surface-1 px-3.5 transition-colors focus-within:border-foreground focus-within:bg-surface-card"
           >
             <Search
               className="size-4 shrink-0 text-faint transition-colors group-focus-within:text-muted-foreground"
@@ -71,7 +71,7 @@ export function PlazaHeader() {
                   setDraft('');
                   setQuery('');
                 }}
-                className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-faint transition-colors hover:bg-surface-2 hover:text-foreground"
+                className="inline-flex size-6 shrink-0 items-center justify-center rounded-8 text-faint transition-colors hover:bg-surface-2 hover:text-foreground"
               >
                 <X className="size-3.5" strokeWidth={2.5} />
               </button>
@@ -83,7 +83,7 @@ export function PlazaHeader() {
               value={sortValue}
               onChange={(e) => setSort(e.target.value)}
               aria-label="排序"
-              className="h-11 appearance-none rounded-lg border border-border bg-surface-1 pl-3.5 pr-8 text-xs font-medium text-subtle outline-none transition-colors hover:border-border-strong focus-visible:border-foreground"
+              className="h-11 appearance-none rounded-16 border border-border bg-surface-1 pl-3.5 pr-8 text-xs font-medium text-subtle outline-none transition-colors hover:border-border-strong focus-visible:border-foreground"
             >
               {sortOpts.map(([v, l]) => (
                 <option key={v} value={v}>

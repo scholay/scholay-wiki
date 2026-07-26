@@ -82,7 +82,7 @@ export function PdfViewerToolbar({
       </div>
 
       {/* 模式切换 */}
-      <div className="inline-flex items-center gap-0.5 rounded-sm bg-surface-2 p-0.5">
+      <div className="inline-flex items-center gap-0.5 rounded-8 bg-surface-2 p-0.5">
         <ModeBtn active={mode === 'single'} onClick={() => onModeChange('single')} label="单页">
           <FileIcon className="size-3.5" />
         </ModeBtn>
@@ -126,7 +126,7 @@ export function PdfViewerToolbar({
           type="button"
           onClick={onFitWidth}
           className={cn(
-            'inline-flex h-7 w-7 items-center justify-center rounded-sm transition-colors',
+            'inline-flex h-7 w-7 items-center justify-center rounded-8 transition-colors',
             scale === null
               ? 'bg-surface-2 text-foreground'
               : 'text-subtle hover:bg-surface-2 hover:text-foreground'

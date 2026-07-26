@@ -44,7 +44,7 @@ function PeerCard({
   onTabChange: (tab: string) => void;
 }) {
   return (
-    <section className="flex flex-col gap-2.5 rounded-md border border-border bg-surface-card p-3.5">
+    <section className="flex flex-col gap-2.5 rounded-16 border border-border bg-surface-card p-3.5">
       <p className="text-sm font-bold text-foreground">同行评审快览</p>
       {(['alpha', 'beta', 'gamma'] as const).map((role) => {
         const letter = { alpha: 'A', beta: 'B', gamma: 'C' }[role];
@@ -59,7 +59,7 @@ function PeerCard({
             type="button"
             onClick={() => onTabChange(tabKey)}
             className={cn(
-              'flex items-center gap-2.5 rounded-sm px-2.5 py-2 text-left transition-colors',
+              'flex items-center gap-2.5 rounded-8 px-2.5 py-2 text-left transition-colors',
               active
                 ? 'border border-foreground bg-surface-2'
                 : 'border border-transparent bg-surface-1 hover:bg-surface-2',
@@ -130,7 +130,7 @@ function TimelineCard({
   ];
 
   return (
-    <section className="flex flex-col gap-2.5 rounded-md border border-border bg-surface-card p-3.5">
+    <section className="flex flex-col gap-2.5 rounded-16 border border-border bg-surface-card p-3.5">
       <p className="text-sm font-bold text-foreground">时间线</p>
       <ul className="flex flex-col gap-2">
         {events.map((e, i) => (

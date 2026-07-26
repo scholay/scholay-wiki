@@ -43,7 +43,7 @@ export function RightRailPanel({ submissionId, children, tip }: RightRailPanelPr
 export function UploadedAssetsCard({ submissionId }: { submissionId: number }) {
   const { data: assets = [] } = useSubmissionAssets(submissionId);
   return (
-    <section className="rounded-lg border border-border bg-surface-card">
+    <section className="rounded-16 border border-border bg-surface-card">
       <header className="flex items-center justify-between px-4 py-3 border-b border-border-soft">
         <h3 className="text-sm font-bold text-foreground">
           已上传
@@ -66,8 +66,8 @@ export function UploadedAssetsCard({ submissionId }: { submissionId: number }) {
 function AssetRow({ asset }: { asset: SubmissionAsset }) {
   const isManuscript = asset.role === 'manuscript';
   return (
-    <li className="flex items-center gap-2 rounded-md px-2 py-2 hover:bg-surface-1">
-      <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-2 text-[10px] font-bold text-muted-foreground">
+    <li className="flex items-center gap-2 rounded-8 px-2 py-2 hover:bg-surface-1">
+      <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-8 bg-surface-2 text-[10px] font-bold text-muted-foreground">
         {extLabel(asset.filename)}
       </span>
       <div className="min-w-0 flex-1">

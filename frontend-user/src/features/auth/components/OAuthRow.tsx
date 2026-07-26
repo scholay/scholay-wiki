@@ -88,7 +88,7 @@ export function OAuthRow({
             key={p}
             type="button"
             onClick={onClick}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border text-subtle hover:bg-surface-2 hover:text-foreground transition-colors"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-8 border border-border text-subtle hover:bg-surface-2 hover:text-foreground transition-colors"
             title={meta.label}
             aria-label={`使用 ${meta.label} 登录`}
           >

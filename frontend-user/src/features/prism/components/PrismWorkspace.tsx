@@ -416,7 +416,7 @@ export function PrismWorkspace({ projectId, onBack, readOnly = false, onOpen }: 
             )}
             {compileError ? (
               // 可恢复状态 → 琥珀软提示(与 V2 一致,对齐全站 amber 约定)。
-              <div className="m-3 rounded-md border border-brand-amber/30 bg-warning-soft p-3 text-xs text-brand-amber">
+              <div className="m-3 rounded-12 border border-brand-amber/30 bg-warning-soft p-3 text-xs text-brand-amber">
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
                   <div className="min-w-0">

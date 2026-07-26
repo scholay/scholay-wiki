@@ -77,7 +77,7 @@ function RichMenuItem({
     >
       <span
         className={cn(
-          'inline-flex h-7 w-7 items-center justify-center rounded-md shrink-0',
+          'inline-flex h-7 w-7 items-center justify-center rounded-8 shrink-0',
           inactive ? 'bg-surface-1' : 'bg-surface-2'
         )}
       >

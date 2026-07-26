@@ -27,7 +27,7 @@ export function TurnErrorNotice({
 }) {
   const text = sanitizeOpsText(friendlyTurnError(code, message));
   return (
-    <div className="flex items-start gap-2 rounded-md border border-brand-amber/25 bg-warning-soft px-3 py-2">
+    <div className="flex items-start gap-2 rounded-12 border border-brand-amber/25 bg-warning-soft px-3 py-2">
       <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-brand-amber" strokeWidth={2.2} />
       <p className="min-w-0 flex-1 break-words text-xs leading-paragraph text-subtle">{text}</p>
       {onRetry && (

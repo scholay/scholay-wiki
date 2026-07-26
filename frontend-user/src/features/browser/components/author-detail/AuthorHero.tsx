@@ -13,7 +13,7 @@ export function AuthorHero({ author }: { author: Author }) {
   const aff = author.affiliations?.[0];
 
   return (
-    <section className="rounded-lg bg-surface-1 border border-border-soft p-4 sm:p-7 flex flex-col sm:flex-row sm:items-stretch gap-4 sm:gap-7">
+    <section className="rounded-16 bg-surface-1 border border-border-soft p-4 sm:p-7 flex flex-col sm:flex-row sm:items-stretch gap-4 sm:gap-7">
       {/* 圆形 avatar —— .pen `VcqDs` 140×140 圆;移动端缩到 88 */}
       <div
         className="shrink-0 w-[88px] h-[88px] sm:w-[140px] sm:h-[140px] rounded-pill flex items-center justify-center"
@@ -88,7 +88,7 @@ export function AuthorHero({ author }: { author: Author }) {
             href={author.homepage}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex h-9 px-4 items-center gap-2 rounded-md border border-border text-xs font-bold text-subtle hover:border-foreground hover:text-foreground transition-colors"
+            className="inline-flex h-9 px-4 items-center gap-2 rounded-8 border border-border text-xs font-bold text-subtle hover:border-foreground hover:text-foreground transition-colors"
           >
             <ExternalLink className="size-3.5" strokeWidth={2.5} />
             个人主页
@@ -99,7 +99,7 @@ export function AuthorHero({ author }: { author: Author }) {
             href={author.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex h-9 px-4 items-center gap-2 rounded-md border border-border text-xs font-bold text-subtle hover:border-foreground hover:text-foreground transition-colors"
+            className="inline-flex h-9 px-4 items-center gap-2 rounded-8 border border-border text-xs font-bold text-subtle hover:border-foreground hover:text-foreground transition-colors"
           >
             <ExternalLink className="size-3.5" strokeWidth={2.5} />
             原始档案

@@ -115,7 +115,7 @@ export function RecordsPage() {
           <HoverCardTrigger asChild>
             <button
               type="button"
-              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-brand-red px-4 text-xs font-bold text-background hover:bg-brand-red/90"
+              className="inline-flex h-9 items-center gap-1.5 rounded-8 bg-brand-red px-4 text-xs font-bold text-background hover:bg-brand-red/90"
             >
               <Plus className="size-3.5" />
               新建审稿
@@ -125,7 +125,7 @@ export function RecordsPage() {
             <div className="flex flex-col gap-1">
               <Link
                 to="/peer-review/journal"
-                className="flex items-center gap-2.5 rounded-sm px-3 py-2 transition hover:bg-surface-2"
+                className="flex items-center gap-2.5 rounded-8 px-3 py-2 transition hover:bg-surface-2"
               >
                 <BookText className="size-4 shrink-0 text-brand-red" />
                 <span className="flex flex-col">
@@ -135,7 +135,7 @@ export function RecordsPage() {
               </Link>
               <Link
                 to="/peer-review/thesis"
-                className="flex items-center gap-2.5 rounded-sm px-3 py-2 transition hover:bg-surface-2"
+                className="flex items-center gap-2.5 rounded-8 px-3 py-2 transition hover:bg-surface-2"
               >
                 <GraduationCap className="size-4 shrink-0 text-brand-red" />
                 <span className="flex flex-col">
@@ -190,7 +190,7 @@ export function RecordsPage() {
             }
           />
         ) : (
-          <div className="overflow-hidden rounded-md border border-border bg-surface-card">
+          <div className="overflow-hidden rounded-12 border border-border bg-surface-card">
             <table className="w-full text-sm">
               <thead className="border-b border-border bg-surface-1">
                 <tr className="text-left text-xs text-faint">
@@ -227,7 +227,7 @@ export function RecordsPage() {
                 type="button"
                 disabled={pageClamped <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="inline-flex h-7 items-center gap-0.5 rounded-md border border-border bg-surface-card pl-1.5 pr-2.5 font-bold text-subtle transition hover:border-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex h-7 items-center gap-0.5 rounded-8 border border-border bg-surface-card pl-1.5 pr-2.5 font-bold text-subtle transition hover:border-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <ChevronLeft className="size-3.5" />
                 上一页
@@ -236,7 +236,7 @@ export function RecordsPage() {
                 type="button"
                 disabled={pageClamped >= totalPages}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="inline-flex h-7 items-center gap-0.5 rounded-md border border-border bg-surface-card pl-2.5 pr-1.5 font-bold text-subtle transition hover:border-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex h-7 items-center gap-0.5 rounded-8 border border-border bg-surface-card pl-2.5 pr-1.5 font-bold text-subtle transition hover:border-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
               >
                 下一页
                 <ChevronRight className="size-3.5" />
@@ -300,7 +300,7 @@ function RecordRow({
             disabled={deleting}
             title={item.status === 'draft' ? '取消并删除草稿' : '永久删除这份审稿'}
             aria-label={item.status === 'draft' ? '取消草稿' : '删除'}
-            className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-border text-faint transition hover:border-destructive hover:bg-danger-soft hover:text-destructive disabled:opacity-50"
+            className="inline-flex size-7 shrink-0 items-center justify-center rounded-8 border border-border text-faint transition hover:border-destructive hover:bg-danger-soft hover:text-destructive disabled:opacity-50"
           >
             <Trash2 className="size-3.5" />
           </button>
@@ -392,7 +392,7 @@ function ActionButton({ item }: { item: SubmissionListItem }) {
     return (
       <Link
         to={`${path}?id=${item.id}`}
-        className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded-md border border-brand-red bg-surface-card px-3 text-2xs font-bold text-brand-red hover:bg-danger-soft"
+        className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded-8 border border-brand-red bg-surface-card px-3 text-2xs font-bold text-brand-red hover:bg-danger-soft"
       >
         继续投稿
       </Link>
@@ -402,7 +402,7 @@ function ActionButton({ item }: { item: SubmissionListItem }) {
   return (
     <Link
       to={`/peer-review/records/${item.id}`}
-      className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded-md border border-border bg-surface-card px-3 text-2xs font-bold text-subtle hover:border-foreground hover:text-foreground"
+      className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded-8 border border-border bg-surface-card px-3 text-2xs font-bold text-subtle hover:border-foreground hover:text-foreground"
     >
       {item.status === 'completed' ? '查看评议' : '查看进度'}
     </Link>

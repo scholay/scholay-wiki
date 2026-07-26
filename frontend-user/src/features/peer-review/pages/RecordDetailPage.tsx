@@ -202,14 +202,14 @@ function Header({
     : '';
 
   return (
-    <section className="flex flex-col gap-3 rounded-md border border-border bg-surface-card p-4.5">
+    <section className="flex flex-col gap-3 rounded-16 border border-border bg-surface-card p-4.5">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2.5">
             {chief ? (
               <span
                 className={cn(
-                  'rounded-sm px-2 py-0.5 text-xs font-bold',
+                  'rounded-4 px-2 py-0.5 text-xs font-bold',
                   chiefRec
                     ? recBadgeClasses(chiefRec)
                     : 'border border-border bg-surface-1 text-subtle',
@@ -218,7 +218,7 @@ function Header({
                 {chiefRec ? `已决议 · ${recShortLabel(chiefRec)}` : '已决议'}
               </span>
             ) : (
-              <span className="rounded-sm border border-border bg-surface-1 px-2 py-0.5 text-xs font-bold text-subtle">
+              <span className="rounded-4 border border-border bg-surface-1 px-2 py-0.5 text-xs font-bold text-subtle">
                 {statusLabel(sub.status)}
               </span>
             )}
@@ -386,7 +386,7 @@ function statusLabel(s: string) {
 function FailedBanner({ id, reason }: { id: number; reason?: string }) {
   const retry = useRetrySubmission(id);
   return (
-    <div className="mb-3.5 rounded-md border border-brand-red/30 bg-danger-soft px-4 py-3">
+    <div className="mb-3.5 rounded-16 border border-brand-red/30 bg-danger-soft px-4 py-3">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="text-sm font-bold text-brand-red">审稿未完成</div>

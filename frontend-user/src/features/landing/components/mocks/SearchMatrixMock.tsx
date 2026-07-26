@@ -39,12 +39,12 @@ export function SearchMatrixMock() {
       </div>
 
       {/* search bar */}
-      <div className="flex items-center gap-3 px-4 py-3 rounded-md bg-surface-card border border-border-soft">
+      <div className="flex items-center gap-3 px-4 py-3 rounded-8 bg-surface-card border border-border-soft">
         <Search className="size-4 text-muted-foreground shrink-0" />
         <span className="flex-1 text-sm text-foreground truncate">
           大语言模型在低资源语言上的对齐方法有哪些进展?
         </span>
-        <kbd className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-prism-badge-bg text-2xs font-semibold text-prism-badge-fg">
+        <kbd className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-prism-badge-bg text-2xs font-semibold text-prism-badge-fg">
           Enter
         </kbd>
       </div>
@@ -67,7 +67,7 @@ export function SearchMatrixMock() {
       </div>
 
       {/* matrix card */}
-      <div className="rounded-md overflow-hidden bg-surface-card border border-border-soft">
+      <div className="rounded-8 overflow-hidden bg-surface-card border border-border-soft">
         <div className="flex items-center justify-between px-4 py-2.5 bg-surface-1 border-b border-border-soft">
           <span className="text-xs font-semibold text-foreground">引文矩阵</span>
           <span className="text-xs text-muted-foreground tabular-nums">12 篇结果</span>
@@ -75,7 +75,7 @@ export function SearchMatrixMock() {
         <ul className="divide-y divide-border-soft">
           {ROWS.map((r) => (
             <li key={r.tag} className="flex items-center gap-3 px-4 py-2.5">
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-prism-badge-bg text-2xs font-semibold text-prism-badge-fg tabular-nums w-12 justify-center">
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-4 bg-prism-badge-bg text-2xs font-semibold text-prism-badge-fg tabular-nums w-12 justify-center">
                 {r.tag}
               </span>
               <div className="flex-1 min-w-0">
@@ -88,7 +88,7 @@ export function SearchMatrixMock() {
       </div>
 
       {/* graph badge */}
-      <div className="inline-flex items-center self-start gap-2 px-3 py-2 rounded-md bg-surface-card border border-border-soft">
+      <div className="inline-flex items-center self-start gap-2 px-3 py-2 rounded-8 bg-surface-card border border-border-soft">
         <Share2 className="size-3.5 text-brand-green" strokeWidth={2.2} />
         <span className="text-xs font-semibold text-subtle">已检测到 3 条跨论文关联 →</span>
       </div>

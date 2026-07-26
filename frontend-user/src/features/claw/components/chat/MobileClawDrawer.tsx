@@ -148,7 +148,7 @@ function SessionRow({
   return (
     <div
       className={cn(
-        'flex items-center gap-1 rounded-lg px-3 py-2.5 transition-colors',
+        'flex items-center gap-1 rounded-8 px-3 py-2.5 transition-colors',
         active ? 'bg-surface-2' : 'active:bg-surface-1'
       )}
       onClick={onActivate}
@@ -168,7 +168,7 @@ function SessionRow({
           <button
             type="button"
             onClick={(e) => e.stopPropagation()}
-            className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-faint active:bg-surface-2"
+            className="inline-flex size-7 shrink-0 items-center justify-center rounded-8 text-faint active:bg-surface-2"
             aria-label="更多操作"
           >
             <MoreVertical className="size-4" />

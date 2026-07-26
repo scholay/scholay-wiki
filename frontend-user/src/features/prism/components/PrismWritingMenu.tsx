@@ -150,7 +150,7 @@ function fire(item: MenuItem, props: WritingMenuProps, origin: string) {
 /** 分类色图标 chip(图形化的最小单位)。 */
 function IconChip({ icon: Icon, iconCls, chipCls, size = 'md' }: { icon: typeof PenLine; iconCls: string; chipCls: string; size?: 'md' | 'lg' }) {
   return (
-    <span className={cn('flex shrink-0 items-center justify-center rounded-md', chipCls, size === 'lg' ? 'size-8' : 'size-6')}>
+    <span className={cn('flex shrink-0 items-center justify-center rounded-8', chipCls, size === 'lg' ? 'size-8' : 'size-6')}>
       <Icon className={cn(iconCls, size === 'lg' ? 'size-4' : 'size-3.5')} />
     </span>
   );
@@ -166,7 +166,7 @@ export function PrismWritingMenuButton(props: WritingMenuProps) {
           title="写作能力(起草 / 润色 / 翻译 / 投稿)"
           disabled={props.disabled}
           className={cn(
-            'inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors',
+            'inline-flex h-8 w-8 items-center justify-center rounded-8 text-muted-foreground transition-colors',
             'hover:bg-surface-2 hover:text-foreground disabled:opacity-40 data-[state=open]:bg-surface-2 data-[state=open]:text-foreground',
           )}
         >
@@ -273,7 +273,7 @@ export function PrismChatEmptyState(props: WritingMenuProps) {
               props.onPrefill(nudgeInstr(props.stubSection!));
             }}
             className={cn(
-              'mt-4 flex w-full items-center gap-2.5 rounded-lg border border-brand-green/30 bg-brand-green/5 px-3 py-2.5 text-left transition-colors',
+              'mt-4 flex w-full items-center gap-2.5 rounded-16 border border-brand-green/30 bg-brand-green/5 px-3 py-2.5 text-left transition-colors',
               'hover:bg-brand-green/10 disabled:opacity-50',
             )}
           >
@@ -295,7 +295,7 @@ export function PrismChatEmptyState(props: WritingMenuProps) {
               title={item.hint}
               onClick={() => fire(item, props, 'empty')}
               className={cn(
-                'flex flex-col items-center gap-1.5 rounded-lg border border-border py-3 transition-colors',
+                'flex flex-col items-center gap-1.5 rounded-12 border border-border py-3 transition-colors',
                 'hover:border-border-strong hover:bg-surface-1 disabled:opacity-50',
               )}
             >

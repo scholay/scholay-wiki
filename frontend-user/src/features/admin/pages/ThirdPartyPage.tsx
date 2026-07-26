@@ -326,7 +326,7 @@ function ThirdPartyDialog({
                 id="type"
                 value={type}
                 onChange={(e) => setType(e.target.value as AccountType)}
-                className="h-9 w-full rounded-md border border-input bg-surface-card px-2 text-sm disabled:opacity-60"
+                className="h-9 w-full rounded-8 border border-input bg-surface-card px-2 text-sm disabled:opacity-60"
                 disabled={isEdit}
               >
                 {TYPE_OPTIONS.map((o) => (

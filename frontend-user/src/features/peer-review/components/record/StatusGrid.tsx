@@ -64,7 +64,7 @@ export function StatusGrid({ status, computeState, reports, activeTab, onTabChan
         <Connector />
 
         {/* 三位审稿人共享一个白底框 — 自身定宽 (紧凑), 两侧 Connector 伸缩把它居中 */}
-        <div className="flex shrink-0 overflow-hidden rounded-md border border-border-strong bg-surface-card">
+        <div className="flex shrink-0 overflow-hidden rounded-12 border border-border-strong bg-surface-card">
           <ReviewerCell
             letter="A"
             report={a}
@@ -131,7 +131,7 @@ function ReviewProgress({
         ? `审稿人 ${{ alpha: 'A', beta: 'B', gamma: 'C' }[loadingRole]} 评审中…`
         : '汇总结果中…';
   return (
-    <div className="flex items-center gap-3 rounded-md border border-brand-amber/40 bg-warning-soft px-3.5 py-2">
+    <div className="flex items-center gap-3 rounded-12 border border-brand-amber/40 bg-warning-soft px-3.5 py-2">
       <Loader2 className="h-4 w-4 shrink-0 animate-spin text-brand-amber" />
       <span className="shrink-0 text-xs font-bold text-brand-amber">{label}</span>
       <div className="h-1.5 flex-1 overflow-hidden rounded-pill bg-brand-amber/15">
@@ -155,7 +155,7 @@ function EditorialCell({ active, onClick }: { active: boolean; onClick: () => vo
       type="button"
       onClick={onClick}
       className={cn(
-        'flex w-52 flex-col justify-center gap-1.5 rounded-md border bg-surface-card px-3 py-2.5 text-left transition-colors',
+        'flex w-52 flex-col justify-center gap-1.5 rounded-12 border bg-surface-card px-3 py-2.5 text-left transition-colors',
         active
           ? 'border-foreground ring-2 ring-foreground/10'
           : 'border-border-strong hover:border-foreground/30',
@@ -169,7 +169,7 @@ function EditorialCell({ active, onClick }: { active: boolean; onClick: () => vo
           <p className="truncate text-sm font-bold text-foreground">编辑部初审</p>
           <p className="truncate text-xs text-faint">排版 · 查重 · AIGC</p>
         </div>
-        <span className="shrink-0 rounded-sm bg-surface-2 px-2 py-0.5 text-xs font-bold text-subtle">
+        <span className="shrink-0 rounded-4 bg-surface-2 px-2 py-0.5 text-xs font-bold text-subtle">
           通过
         </span>
       </div>
@@ -262,7 +262,7 @@ function ChiefCell({
         type="button"
         onClick={onClick}
         className={cn(
-          'flex w-80 flex-col justify-center gap-1.5 rounded-md border bg-surface-card px-4 py-2.5 text-left transition-colors',
+          'flex w-80 flex-col justify-center gap-1.5 rounded-12 border bg-surface-card px-4 py-2.5 text-left transition-colors',
           active ? 'border-foreground ring-2 ring-foreground/10' : 'border-border-strong hover:border-foreground/30',
         )}
       >
@@ -300,7 +300,7 @@ function ChiefCell({
       type="button"
       onClick={onClick}
       className={cn(
-        'flex w-80 flex-col justify-center gap-2.5 rounded-md p-4 text-left text-background transition',
+        'flex w-80 flex-col justify-center gap-2.5 rounded-12 p-4 text-left text-background transition',
         recFillBg(rec),
         active ? 'ring-2 ring-foreground/30 ring-offset-2 ring-offset-background' : 'opacity-95 hover:opacity-100',
       )}
