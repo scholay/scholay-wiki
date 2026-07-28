@@ -16,6 +16,8 @@ import {
   DEFAULT_RETRY,
   DEFAULT_STALE_TIME,
 } from '@/shared/lib/query-config';
+import { MOCK_MODE } from '@/mocks/config';
+import { MockControlPanel } from '@/mocks/MockControlPanel';
 
 /**
  * React 19 原生支持把 <title>/<meta>/<link> 渲染到 <head>,
@@ -84,6 +86,7 @@ export function Providers({ children }: { children: ReactNode }) {
         {/* 全局「收藏到文献集」选择器(任意收藏按钮 openCollect 触发)——
             懒加载:仅在 store 有 collect request 时才拉取该 chunk(连带 framer 移出首屏)。 */}
         <CollectFolderPickerGate />
+        {MOCK_MODE && !isEmbedPage && <MockControlPanel />}
       </TooltipProvider>
     </QueryClientProvider>
   );

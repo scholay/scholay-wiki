@@ -45,6 +45,7 @@
     <!-- Microsoft Clarity Analytics -->
     <script>
       (function(c,l,a,r,i,t,y){
+        if (window.__SCHOLAY_MOCK_MODE__) return;
         c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
         t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
         y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
@@ -62,6 +63,7 @@
     -->
     <script>
       (function () {
+        if (window.__SCHOLAY_MOCK_MODE__) return;
         fetch('/api/v1/public/umami-config', { cache: 'force-cache' })
           .then(function (r) { return r.ok ? r.json() : null; })
           .then(function (resp) {
@@ -85,6 +87,7 @@
     -->
     <script>
       (function () {
+        if (window.__SCHOLAY_MOCK_MODE__) return;
         window.dataLayer = window.dataLayer || [];
         window.gtag = window.gtag || function () { window.dataLayer.push(arguments); };
         fetch('/api/v1/config/system')
@@ -131,6 +134,7 @@
     -->
     <script>
       (function () {
+        if (window.__SCHOLAY_MOCK_MODE__) return;
         // 把一组片段拼成一个 fragment(保持 priority 顺序,一次性插入)。
         // 注:innerHTML 解析出的 <script> 带「已停止」标记、永不执行 → 必须逐个重建成新 script 才会跑。
         function build(list) {

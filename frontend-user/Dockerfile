@@ -13,6 +13,9 @@ COPY . .
 # Vite build-time env(VITE_ 前缀会被自动注入)
 ARG VITE_API_BASE_URL=""
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+# 当前设计分支默认构建成浏览器内全量 Mock；显式传 off 可恢复真实后端版本。
+ARG VITE_MOCK_MODE="full"
+ENV VITE_MOCK_MODE=$VITE_MOCK_MODE
 # 临时:智能写作「即将推出」门(见 src/shared/lib/feature-flags.ts)。'true' = 入口角标 + 页面蒙层。
 ARG VITE_PRISM_COMING_SOON
 ENV VITE_PRISM_COMING_SOON=$VITE_PRISM_COMING_SOON

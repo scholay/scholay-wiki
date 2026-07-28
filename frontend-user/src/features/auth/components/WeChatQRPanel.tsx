@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { QRCodeCanvas } from 'qrcode.react';
 import { toast } from 'sonner';
 import { http, toApiError } from '@/shared/lib/http';
 import { handleAuthSuccess } from '../api/auth';
@@ -101,6 +102,8 @@ interface WeChatQRPanelProps {
 export function WeChatQRPanel({ mode = 'login', onSuccess }: WeChatQRPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
+  const mockMode =
+    typeof window !== 'undefined' && window.__SCHOLAY_MOCK_MODE__ === true;
 
   // 监听 WeChatCallbackPage(在 iframe 内)发来的 postMessage
   useEffect(() => {
@@ -138,6 +141,7 @@ export function WeChatQRPanel({ mode = 'login', onSuccess }: WeChatQRPanelProps)
 
   // 拉配置 → 加载 wxLogin.js → 实例化。cancelled 防 race(用户离开时配置已拉但脚本还没加载完)
   useEffect(() => {
+    if (mockMode) return;
     let cancelled = false;
     const run = async () => {
       try {
@@ -173,7 +177,57 @@ export function WeChatQRPanel({ mode = 'login', onSuccess }: WeChatQRPanelProps)
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [mockMode]);
+
+  const completeMockScan = async () => {
+    try {
+      if (mode === 'bind') {
+        await http.post('/user/bind-wechat', {
+          code: 'mock-wechat-code',
+          state: 'mock-wechat-state',
+        });
+        qc.invalidateQueries({ queryKey: ['settings', 'connections'] });
+        qc.invalidateQueries({ queryKey: ['auth', 'profile'] });
+        toast.success('微信已成功绑定');
+      } else {
+        const { data } = await http.post<{ data: AuthResponse }>(
+          '/user/wechat/callback',
+          { code: 'mock-wechat-code', state: 'mock-wechat-state' }
+        );
+        handleAuthSuccess(qc, data.data);
+        toast.success('登录成功');
+      }
+      onSuccess?.();
+    } catch (err) {
+      toast.error(
+        toApiError(err).message ||
+          (mode === 'bind' ? '微信绑定失败,请稍后重试' : '微信登录失败,请稍后重试')
+      );
+    }
+  };
+
+  if (mockMode) {
+    return (
+      <div className="flex flex-col items-center justify-center py-2">
+        <div className="rounded-lg border border-border bg-white p-3">
+          <QRCodeCanvas
+            value={`${window.location.origin}/wechat/callback?code=mock-wechat-code&state=mock-wechat-state`}
+            size={196}
+            level="M"
+            marginSize={1}
+          />
+        </div>
+        <span className="mt-3 text-xs text-faint">Mock 二维码 · 不会连接微信服务</span>
+        <button
+          type="button"
+          onClick={() => void completeMockScan()}
+          className="mt-3 inline-flex h-9 items-center justify-center rounded-md bg-brand-green px-4 text-sm font-medium text-white hover:opacity-90"
+        >
+          模拟扫码并授权
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center justify-center py-2">

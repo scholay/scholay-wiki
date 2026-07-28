@@ -6,8 +6,10 @@
   "scripts": {
     "predev": "node scripts/copy-pdf-cmaps.mjs",
     "dev": "vite",
+    "dev:backend": "npm run predev && vite --mode backend",
     "prebuild": "node scripts/copy-pdf-cmaps.mjs",
     "build": "tsc -b && vite build",
+    "build:backend": "npm run prebuild && tsc -b && vite build --mode backend && npm run postbuild",
     "postbuild": "node scripts/strip-katex-legacy-fonts.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
@@ -105,6 +107,7 @@
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.16",
     "jsdom": "^25.0.1",
+    "msw": "^2.15.0",
     "prettier": "^3.4.2",
     "svgo": "^4.0.2",
     "tailwindcss": "^4.0.0",
@@ -123,6 +126,11 @@
       "last 1 chrome version",
       "last 1 firefox version",
       "last 1 safari version"
+    ]
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
     ]
   }
 }
