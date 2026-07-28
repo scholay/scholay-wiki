@@ -21,6 +21,7 @@ import {
   X,
 } from 'lucide-react';
 import { RouteSEO } from '@/shared/components/RouteSEO';
+import { SEARCH_FIELD_SHELL } from '@/shared/components/search-autocomplete/search-field';
 import { SidebarLayout } from '@/shared/components/sidebar';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { Button } from '@/shared/ui/button';
@@ -387,17 +388,21 @@ function LibraryFolderView() {
 
             {/* 搜索框 —— 受控输入,300ms debounce 后给 LibraryPaperList
                 响应式:flex-1 自然铺满中段,最小 240px(再窄按钮组开始压缩),最大 480px
-                ⚠️ arbitrary 说明:240/480 是本行的响应式断点(token 侧无「输入框最小/最大宽」档);
-                   h-[38px] 不在控件高度阶梯上(最近的 h-control-md=36 / h-control-xl=44),
-                   等尺寸 token 那一批统一收口时再定档,现在改会让它与同排按钮错位。 */}
+                ⚠️ arbitrary 说明:240/480 是本行的响应式断点(token 侧无「输入框最小/最大宽」档)。
+                ✅ 修前的 h-[38px] arbitrary 已消除 —— 规格统一走 SEARCH_FIELD_SHELL
+                   (h-control-xl = 44 / rounded-16 / #1F1F23 实边 / 纯白底,Figma §4.5)。
+                   修前还是 rounded-8 + border-strong(ink@22%)+ bg-surface-1。
+                焦点态修前是 `focus-within:border-foreground + ring-2 ring-ring` ——
+                border-foreground 与新静置色同值已失效,ring-ring 压在纯白上实测仅 2.89:1
+                (不到 WCAG 1.4.11 的 3:1),两者一并换成朱砂 outline。 */}
             <div
               className={cn(
-                'flex items-center gap-2 flex-1 min-w-[240px] max-w-[480px] h-[38px] px-3 rounded-8 bg-surface-1 border border-border-strong',
-                'focus-within:border-foreground focus-within:ring-2 focus-within:ring-ring transition-colors'
+                'flex items-center gap-2 flex-1 min-w-[240px] max-w-[480px] px-3',
+                SEARCH_FIELD_SHELL
               )}
             >
               <Search className="size-3.5 text-muted-foreground shrink-0" />
-              {/* outline-none 合法:焦点可供性由外层容器的 focus-within:border-foreground + ring 提供 */}
+              {/* outline-none 合法:焦点可供性由外层容器的 SEARCH_FIELD_FOCUS(朱砂 outline)提供 */}
               <input
                 type="text"
                 value={query}

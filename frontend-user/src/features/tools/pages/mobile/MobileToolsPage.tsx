@@ -5,6 +5,7 @@ import { ChevronLeft, Search, Share2, SlidersHorizontal, X } from 'lucide-react'
 import { Button } from '@/shared/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { CyclingHint } from '@/shared/components/CyclingHint';
+import { SEARCH_FIELD_SHELL } from '@/shared/components/search-autocomplete/search-field';
 import { usePullToRefresh } from '@/shared/hooks';
 import { PullToRefreshIndicator } from '@/shared/components/PullToRefreshIndicator';
 import { useShareSheet } from '@/stores/share.store';
@@ -120,7 +121,14 @@ export function MobileToolsPage() {
               e.preventDefault();
               patchParams({ q: draft.trim() });
             }}
-            className="flex h-10 flex-1 items-center gap-2 rounded-pill border border-border bg-surface-1 pl-3.5 pr-1 focus-within:border-border-control"
+            /* 规格走 SEARCH_FIELD_SHELL(Figma §4.5)。修前 h-10(40)/ rounded-pill /
+               border-border(ink@12%)/ bg-surface-1,是全站唯一一个 pill 形搜索框。
+               焦点修前是 `focus-within:border-border-control` —— 那正好等于新的静置色,
+               留着就是「按下去零变化」,现改成朱砂 outline。 */
+            className={cn(
+              'flex flex-1 items-center gap-2 pl-3.5 pr-1',
+              SEARCH_FIELD_SHELL
+            )}
           >
             <Search className="size-4 shrink-0 text-faint" />
             <input
@@ -129,7 +137,7 @@ export function MobileToolsPage() {
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder="搜索网站、工具…"
-              /* outline-none 合法: 焦点由外层 form 的 focus-within:border-border-control 提示 */
+              /* outline-none 合法: 焦点由外层 form 的 SEARCH_FIELD_FOCUS(朱砂 outline)提示 */
               className="min-w-0 flex-1 bg-transparent text-14 text-foreground outline-none placeholder:text-faint"
             />
             {draft && (
@@ -145,7 +153,7 @@ export function MobileToolsPage() {
               </button>
             )}
             {/* 🟠 2026-07-27 补:本框原先【没有任何提交按钮】,是移动端唯一如此的检索框。
-                移动端没有物理键盘,而紧邻右侧那颗 size-10 按钮是「筛选」——
+                移动端没有物理键盘,而紧邻右侧那颗图标按钮是「筛选」——
                 用户敲完关键词在屏幕上找提交入口,找到的却是筛选漏斗,误点后弹出筛选面板、
                 检索反而没执行。对照移动端搜索浮层 MobileSearchOverlay 是配了显式「搜索」按钮的。 */}
             <Button type="submit" className="shrink-0">
@@ -156,7 +164,10 @@ export function MobileToolsPage() {
             type="button"
             aria-label="筛选"
             onClick={() => setFilterOpen(true)}
-            className="relative flex size-10 shrink-0 items-center justify-center rounded-pill border border-border bg-surface-1 text-foreground active:bg-surface-2"
+            /* size-11(44):搜索框随 Figma §4.5 从 40 升到 44 后,这颗同排图标钮跟着抬平 ——
+               修前两者都是 40,不跟就会在同一横排出现 44/40 错位。圆角保持 pill(圆形图标钮),
+               它不是搜索框、不吃 §4.5 的 rounded-16。 */
+            className="relative flex size-11 shrink-0 items-center justify-center rounded-pill border border-border bg-surface-1 text-foreground active:bg-surface-2"
           >
             <SlidersHorizontal className="size-4" />
             {activeFilterCount > 0 && (

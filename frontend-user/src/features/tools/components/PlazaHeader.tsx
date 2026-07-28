@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Search, X } from 'lucide-react';
 import { Button, Select } from '@/shared/ui';
+import { cn } from '@/shared/lib/utils';
 import { useUrlState, usePatchUrlState } from '@/shared/hooks';
+import { SEARCH_FIELD_SHELL } from '@/shared/components/search-autocomplete/search-field';
 import { PlazaSegmentTabs } from './PlazaSegmentTabs';
 
 // 排序选项按分段切换(位置/样式一致,只换选项)。默认值为各段第一项(URL 无 sort 时)。
@@ -47,14 +49,21 @@ export function PlazaHeader() {
           {/* 搜索框:左侧内嵌放大镜 + 有内容时清空 + 尾部提交按钮;回车与点按等价(同一条 onSubmit)。
               pr-2(而非原来的 px-3.5):内嵌尾按钮需要与容器右内壁留呼吸位。取 8px 而非 6px 有两个理由 ——
               (1) 6px 是半档,不在 Figma §5 观测集合 {4,8,10,12,16,24,32,40} 内(见 CLAUDE.md §5);
-              (2) 全站同形态的先例 SearchAutocomplete.tsx:191 用的就是 `pl-5 pr-2`,
-                  且那里是 h-9 按钮嵌 h-12 容器(纵向内缩 5px / 横向 8px),本框 h-8 嵌 h-11 是同一比例。 */}
+              (2) 全站同形态的先例 SearchAutocomplete.tsx 用的就是 `pl-5 pr-2`。
+
+              规格走 SEARCH_FIELD_SHELL(见 shared/components/search-autocomplete/search-field.ts)。
+              修前:h-11(等值 44 但不走 token)+ border-border(ink@12%)+ bg-surface-1(#EFEDE5),
+              焦点靠 `focus-within:border-foreground + bg-surface-card`。静置改成 #1F1F23 实边之后,
+              `border-foreground` 与静置色同值 = 聚焦零反馈,故整条焦点语言换成朱砂 outline。 */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
               setQuery(draft.trim());
             }}
-            className="group flex h-11 flex-1 items-center gap-2.5 rounded-16 border border-border bg-surface-1 pl-3.5 pr-2 transition-colors focus-within:border-foreground focus-within:bg-surface-card"
+            className={cn(
+              'group flex flex-1 items-center gap-2.5 pl-3.5 pr-2',
+              SEARCH_FIELD_SHELL
+            )}
           >
             <Search
               className="size-4 shrink-0 text-faint transition-colors group-focus-within:text-muted-foreground"
@@ -95,7 +104,7 @@ export function PlazaHeader() {
                 variant 用默认 default(玄墨实心)而非 destructive(朱砂):期刊检索 JournalSearchResults.tsx:197
                 同为目录型检索,提交按钮就是 bg-foreground。朱砂留给转化型 CTA(首页「智能搜索」),
                 这里是页内筛选,不该抢那个视觉权重。对比度:#FFFFFF on #1F1F23 = 16.4:1(AAA);
-                按钮块面 vs 容器底 14.0:1(bg-surface-1)/ 16.4:1(focus 时 bg-surface-card),远超 3:1。
+                按钮块面 vs 容器底 16.4:1(底色已随 §4.5 统一为 bg-surface-card),远超 3:1。
 
                 🔴 尺寸【不覆写】:Button 的 default size 本身就是 `h-8 px-3`(shared/ui/button.tsx:32)。
                 之前写的 `h-8 px-3.5` 里,h-8 是与原子重复的死类,px-3.5(14px)则是把原子合规的 12px

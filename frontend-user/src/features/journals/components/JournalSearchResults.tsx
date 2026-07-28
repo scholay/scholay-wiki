@@ -18,6 +18,7 @@ import { exposeJournals } from '@/shared/api/seo';
 import { useJournalSearch, useJournalStats, type Journal } from '../api/journals';
 import type { JournalFilters } from '../types';
 import { JournalCover } from '@/shared/components/JournalCover';
+import { SEARCH_FIELD_SHELL } from '@/shared/components/search-autocomplete/search-field';
 
 /**
  * 期刊搜索结果主体 —— `/journals/search` 嵌入 JournalSearchPage 主区。
@@ -171,12 +172,16 @@ export function JournalSearchResults({
             </div>
           </div>
 
-          {/* 搜索条 —— .pen `xBNU4` 高 52,走 token `h-13`(globals.css 新加,
-              填 Tailwind h-12 / h-14 之间的空缺,与 dialog header/footer 通用) */}
-          <form onSubmit={submitSearch} className="flex items-center gap-2.5 h-13">
-            <div className="flex flex-1 h-13 items-center gap-3 px-[18px] rounded-12 bg-surface-card border border-border-strong focus-within:border-foreground transition-colors">
+          {/* 搜索条 —— 走 SEARCH_FIELD_SHELL(Figma §4.5「搜索框 44 / rounded-16 /
+              #1F1F23 实边」)。⏪ 此前是 `.pen xBNU4` 口径的 h-13(52)+ rounded-12 +
+              border-strong(ink@22%),焦点 `focus-within:border-foreground` ——
+              而 `.pen` 真源已于 2026-07 作废,且那个焦点色与本轮的新静置色 #1F1F23
+              逐字节相同(= 按下去零反馈)。**这是 2026-07-28 搜索框收口时漏掉的第 8 个框**:
+              它是页面级主检索,不是对话框/菜单里的过滤条,§4.5 管得到它。 */}
+          <form onSubmit={submitSearch} className="flex items-center gap-2.5 h-control-xl">
+            <div className={cn('flex flex-1 items-center gap-3 px-[18px]', SEARCH_FIELD_SHELL)}>
               <Search className="size-4 text-muted-foreground" strokeWidth={2} />
-              {/* outline-none 合法:焦点可供性由外层容器的 focus-within:border-foreground 提供 */}
+              {/* outline-none 合法:焦点可供性由外层容器的 SEARCH_FIELD_FOCUS(朱砂 outline)提供 */}
               <input
                 type="search"
                 value={input}
@@ -197,7 +202,10 @@ export function JournalSearchResults({
             </div>
             <button
               type="submit"
-              className="inline-flex h-13 px-6 items-center justify-center gap-2 rounded-12 bg-foreground text-on-dark text-14 font-medium hover:opacity-90 transition-opacity shrink-0"
+              // h-control-xl(44):搜索框随 §4.5 从 52 降到 44,同排提交钮跟着抬平,
+              // 否则这一行会出现 44/52 错位。圆角刻意保持 rounded-12(它是控件不是搜索框,
+              // 与 SearcherColumn 的提交钮保持 rounded-8 同理:不跟随框的 16)。
+              className="inline-flex h-control-xl px-6 items-center justify-center gap-2 rounded-12 bg-foreground text-on-dark text-14 font-medium hover:opacity-90 transition-opacity shrink-0"
             >
               <Search className="size-3.5" strokeWidth={2.5} />
               搜索期刊

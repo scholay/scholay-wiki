@@ -496,6 +496,26 @@ describe('颜色', () => {
     const PREFIX =
       'bg|text|border|ring|fill|stroke|from|to|via|divide|outline|decoration|accent|caret|placeholder|shadow';
     const registered = [...new Set([...CSS.matchAll(/--color-([a-z0-9-]+):/g)].map((m) => m[1]))];
+    // ④ **globals.css 自身的终端消费** —— 2026-07-28 补。
+    //    此前这条规则只扫 src/**/*.tsx?,于是「只被 globals.css 用掉的 token」会被误报成死的。
+    //    实测代价:搜索框焦点语言收敛掉最后两个 `ring-ring` 之后,`ring` 立刻被报为新增死 token
+    //    —— 而 `--ring` 恰恰是全站**最重要**的消费点之一:§13 的全局
+    //    `:focus-visible { outline: 2px solid var(--ring) }`。按名单加进 KNOWN_DEAD 等于
+    //    把「唯一实现的全站焦点环」登记成死代码,下一个人照名单清理就会把焦点环删掉。
+    //
+    //    🔴 只认**终端消费**,不认别名转发。判据:`var(--x)` 所在的那一行
+    //    不是自定义属性声明(`--y: …`)。理由是这两种形态的含义完全不同:
+    //      · `outline: 2px solid var(--ring)`        → 真的画到屏幕上了 = 消费
+    //      · `--color-status-error: var(--status-error)` → @theme 注册,是它自己
+    //      · `--error-border: var(--status-error)`   → sonner 桥接层又起了个别名,
+    //                                                   别名本身可能同样零消费
+    //    若把别名也算消费,`--status-*` 整族会因为 §16 的 sonner 桥接块被判"活",
+    //    而它们在渲染层的真实状态仍是零采用(审计 Q2)。实测:本判据对现存 27 个
+    //    死 token **一个都没有复活**,只把 `ring` 从误报里摘出来。
+    const CSS_TERMINAL = stripCssComments(CSS)
+      .split('\n')
+      .filter((l) => !/^\s*--[A-Za-z0-9_-]+\s*:/.test(l))
+      .join('\n');
     const dead = registered.filter((n) => {
       const esc = n.replace(/-/g, '\\-');
       const asClass = new RegExp(`\\b(?:${PREFIX})-${esc}(?=$|[\\s"'\`\\]/])`);
@@ -504,7 +524,12 @@ describe('颜色', () => {
       //    字面值喂给第三方库(recharts / mermaid 不吃类名)。这是**真消费**,
       //    上一版不认它,只是恰好 chart-* 同时还有 var() 消费点才没误报。
       const asResolved = new RegExp(`tokenValue\\(\\s*['"\`]--(?:color-)?${esc}['"\`]`);
-      return !asClass.test(ALL_SRC) && !asVar.test(ALL_SRC) && !asResolved.test(ALL_SRC);
+      return (
+        !asClass.test(ALL_SRC) &&
+        !asVar.test(ALL_SRC) &&
+        !asResolved.test(ALL_SRC) &&
+        !asVar.test(CSS_TERMINAL)
+      );
     });
     // 2026-07-28 快照。**只能删,不能加** —— 加 token 就必须同时接线。
     const KNOWN_DEAD = [
@@ -2158,6 +2183,13 @@ const LITERAL_MIRRORS: { path: string; why: string; allow?: Record<string, strin
   // ── frontend-user 里 src/ 之外的静态资产(**构建期护栏也够不着 src 外**)──
   { path: 'frontend-user/index.html', why: '<meta name="theme-color"> —— 移动端浏览器地址栏底色,HTML 属性吃不到 CSS 变量' },
   { path: 'frontend-user/public/favicon.svg', why: '站点图标:SVG 的 fill 属性,且它在 src/ 之外(51 条 src 规则一条都够不着)' },
+  {
+    path: 'frontend-user/public/favicon-v3.svg',
+    why:
+      '同上 —— favicon 换代时【必须换文件名】(不带内容 hash + nginx 有 TTL,原地改内容对老访客无效),\n'
+      + '      所以站点图标会长期存在「当前版 + 同内容的旧名副本」两份,两份都要登记。\n'
+      + '      2026-07-28 内容从手搓的 S 字母方块换成 Figma 品牌标本体(ScholayMark / node 1:220)。',
+  },
   // ── 小程序:wxss 之外的四类结构性字面值 ──
   { path: 'miniprogram/app.json', why: '微信全局配置:导航栏 / tabBar 颜色。**JSON 结构上不可能**写 CSS 变量,小程序运行时也不解析它们' },
   { path: 'miniprogram/custom-tab-bar/index.ts', why: '自定义 tabBar 的选中/未选中文字色 —— 由 JS 传给 <cover-view>,同样不走 wxss' },

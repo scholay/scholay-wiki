@@ -7,6 +7,8 @@ import {
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Badge } from '@/shared/ui/badge';
+import { cn } from '@/shared/lib/utils';
+import { SEARCH_FIELD_SHELL } from '@/shared/components/search-autocomplete/search-field';
 import { RouteSEO } from '@/shared/components/RouteSEO';
 import { LoadingState } from '@/shared/components/LoadingState';
 import { EmptyState } from '@/shared/components/EmptyState';
@@ -44,19 +46,25 @@ export function ToolDetailPage() {
         >
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
+            {/* 规格走 SEARCH_FIELD_SHELL(Figma §4.5)。修前 h-9(36)/ rounded-8 / border-strong /
+                bg-surface-1 —— 全站 7 个搜索框里最矮的一个,与兄弟页功能广场(44)差 8px。
+                本框的焦点态修前是 Input 原子自带的 `focus-visible:border-foreground` +
+                全局 :focus-visible outline;前者在静置改成 #1F1F23 之后同色失效,
+                现由外层朱砂 outline 统一承担(shell 里的 focus-within 对 input 自身同样生效)。
+                ⚠️ 字号仍是 Input 原子的 text-12 —— 控件基座字号是产品拍板的刻意偏离,不在此处覆写。 */}
             <Input
               type="search"
               enterKeyHint="search"
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="搜索功能广场"
-              className="h-9 border-border-strong bg-surface-1 pl-9 pr-3 focus-visible:bg-surface-card"
+              className={cn(SEARCH_FIELD_SHELL, 'pl-9 pr-3')}
             />
           </div>
-          {/* h-9 覆写:与左侧 Input 的 h-9 对齐。Button 原子的档位是 28/32/40,没有 36 ——
+          {/* h-control-xl 覆写:与左侧搜索框的 44 对齐。Button 原子的档位是 28/32/40,没有 44 ——
               这属于「控件高度阶梯未接线」的已知债(见 docs/design-audit-2026-07.md),
               不在本次功能修复范围内,先按对齐需要覆写。 */}
-          <Button type="submit" className="h-9 shrink-0">
+          <Button type="submit" className="h-control-xl shrink-0">
             搜索
           </Button>
         </form>

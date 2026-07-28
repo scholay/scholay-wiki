@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
 import { useApiToast, useDebounce } from '@/shared/hooks';
 import { ConfirmPopover } from '@/shared/components/ConfirmPopover';
+import { SEARCH_FIELD_SHELL } from '@/shared/components/search-autocomplete/search-field';
 import { useRelinkPaper, useRelinkSearch } from '../../api/relink';
 import { hasLocalOverride } from '@/shared/lib/pick-field';
 import { hitToConfirmLink, keyOfHit, sourceBrandLabel } from '../../lib/resolve-paper';
@@ -182,9 +183,12 @@ export function RelinkPanel({
           }}
           className="flex items-center gap-2"
         >
-          <div className="flex items-center gap-2 flex-1 h-10 px-3 rounded-8 border border-border bg-surface-card focus-within:border-brand-amber focus-within:ring-2 focus-within:ring-brand-amber/20 transition-colors">
+          {/* 规格走 SEARCH_FIELD_SHELL(Figma §4.5)。修前 h-10(40)/ rounded-8 /
+              border-border(ink@12%),且焦点是**第四套**语言 —— 琥珀边 + ring-brand-amber/20
+              (那个 /20 的环对纯白只有 1.1:1,基本看不见)。一并收敛到朱砂 outline。 */}
+          <div className={cn('flex items-center gap-2 flex-1 px-3', SEARCH_FIELD_SHELL)}>
             <Search className="size-3.5 text-muted-foreground shrink-0" />
-            {/* outline-none 合法:焦点可供性由外层容器的 focus-within:border-brand-amber + ring 提供 */}
+            {/* outline-none 合法:焦点可供性由外层容器的 SEARCH_FIELD_FOCUS(朱砂 outline)提供 */}
             <input
               type="search"
               enterKeyHint="search"
@@ -203,7 +207,8 @@ export function RelinkPanel({
             type="submit"
             disabled={searchQ.isFetching}
             className={cn(
-              'inline-flex items-center gap-1.5 h-10 px-3 rounded-8 border border-brand-amber text-brand-amber text-14 font-medium',
+              // h-control-xl(44):同排搜索框随 §4.5 从 40 升到 44,提交钮跟着抬平(修前同为 40)。
+              'inline-flex items-center gap-1.5 h-control-xl px-3 rounded-8 border border-brand-amber text-brand-amber text-14 font-medium',
               'hover:bg-warning-soft disabled:opacity-60 transition-colors'
             )}
           >

@@ -13,6 +13,7 @@ import {
 } from '@/shared/api/seo';
 import { useSearchVisiblePapers } from '@/stores/search-visible-papers.store';
 import { PaperResultCard } from '@/shared/components/PaperResultCard';
+import { SEARCH_FIELD_SHELL } from '@/shared/components/search-autocomplete/search-field';
 import { resolveYearRange, type SearchFilters } from '../types';
 import { cn } from '@/shared/lib/utils';
 // 懒加载(性能审计 fe-bundle #1):智能面板整条闭包(chat barrel → MarkdownRenderer → katex/hljs/motion/
@@ -282,9 +283,13 @@ export function SearcherColumn({
             onSubmit={submit}
             className="flex items-center gap-2 px-4 pt-3.5 pb-2 shrink-0"
           >
-            <div className="flex items-center gap-2 flex-1 h-9 px-3 rounded-8 border border-border-strong bg-surface-card focus-within:border-foreground focus-within:ring-2 focus-within:ring-ring transition-colors">
+            {/* 规格走 SEARCH_FIELD_SHELL(Figma §4.5)。修前 h-9(36)/ rounded-8 /
+                border-strong(ink@22%),焦点是 `border-foreground + ring-2 ring-ring` ——
+                border-foreground 与新静置色 #1F1F23 同值(聚焦零反馈),而 ring-ring
+                压在本框的纯白底上只有 2.89:1(WCAG 1.4.11 要求 ≥3:1),两者一并换成朱砂 outline。 */}
+            <div className={cn('flex items-center gap-2 flex-1 px-3', SEARCH_FIELD_SHELL)}>
               <Search className="size-3.5 text-faint" />
-              {/* outline-none 合法:焦点可供性由外层容器的 focus-within:border-foreground + ring 提供 */}
+              {/* outline-none 合法:焦点可供性由外层容器的 SEARCH_FIELD_FOCUS(朱砂 outline)提供 */}
               <input
                 type="search"
                 value={input}
@@ -295,7 +300,9 @@ export function SearcherColumn({
             </div>
             <button
               type="submit"
-              className="inline-flex h-9 w-[72px] items-center justify-center rounded-8 bg-destructive text-destructive-foreground text-14 font-medium hover:bg-destructive/90 transition-colors"
+              // h-control-xl(44):搜索框随 Figma §4.5 从 36 升到 44,同排提交钮跟着抬平,
+              // 否则这一行会出现 44/36 错位(修前两者都是 36)。
+              className="inline-flex h-control-xl w-[72px] items-center justify-center rounded-8 bg-destructive text-destructive-foreground text-14 font-medium hover:bg-destructive/90 transition-colors"
             >
               搜索
             </button>

@@ -2,9 +2,19 @@
 <html lang="zh-CN" data-paper="on">
   <head>
     <meta charset="UTF-8" />
-    <!-- ?v=2 是缓存爆破:favicon.svg 由 #CC2222 改为朱砂 #882828,但文件名不带 hash
-         且被 nginx 打 1 年 immutable,不换 URL 老访客一年内看到的还是旧红。 -->
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
+    <!-- 标签页图标 —— 用 Figma 品牌标本体(ScholayMark / node 1:220)。
+         此前是一个【手搓的 S 字母方块】,与站内 logo 完全是两个东西,所以标签页一直"像旧的"。
+
+         为什么必须换文件名(favicon-v3.svg)而不是原地改 favicon.svg:
+           favicon 不带内容 hash,nginx 对 svg/png 发 max-age(见 nginx.conf 与
+           nginx/conf.d/user.conf 的品牌资产 location)。原地改内容,已缓存的老访客
+           要等 TTL 到期才看得到。换 URL = 新访客立即生效;favicon.svg 保留同内容副本,
+           让老访客在 TTL 到期后自愈。两件事都要做,只做一件都会留长尾。
+
+         PNG 回退:Safari 对 SVG favicon 的支持历史上不稳,给一张 32px PNG 兜底。 -->
+    <link rel="icon" type="image/svg+xml" href="/favicon-v3.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-v3.png" />
     <!-- viewport-fit=cover: 移动端 /m 的底部导航用 env(safe-area-inset-bottom) 给全面屏 home indicator 让位
          maximum-scale=1 + user-scalable=no: 禁止页面缩放 —— ① 拦掉妨碍使用的误触放大/缩小;
          ② 同时阻止 iOS 聚焦输入框时的「自动放大」(maximum-scale=1 时 iOS 不再 focus-zoom)。

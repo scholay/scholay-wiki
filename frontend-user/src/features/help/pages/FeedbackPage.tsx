@@ -180,6 +180,8 @@ export function FeedbackPage() {
     setCategory('feature');
   };
 
+  // 表单页:外壳仍是 1440(hero / 面包屑与全站对齐),但表单列**刻意不铺满** ——
+  // 输入框拉到 1000+ 宽会让「标签 → 输入框」的视线距离失控。1024 是表单的舒适上限。
   return (
     <HelpLayout
       breadcrumbs={[{ label: '帮助中心', to: '/help' }, { label: '产品反馈' }]}

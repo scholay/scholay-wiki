@@ -17,11 +17,17 @@ import {
   PaperSection,
 } from './search-autocomplete/AutocompleteSections';
 import { useArrivalOrdered } from './search-autocomplete/useArrivalOrdered';
+import {
+  SEARCH_FIELD_BOX,
+  SEARCH_FIELD_FOCUS,
+  SEARCH_FIELD_RADIUS,
+} from './search-autocomplete/search-field';
 
 /**
  * 首页搜索框 + 联想下拉 —— 对照 .pen `azjev` Search Autocomplete State:
  *
- *   - 输入框 48h,聚焦时边框变 brand-red,下边角取直与 dropdown 相接
+ *   - 输入框走 Figma §4.5 规格(44h / rounded-16 / #1F1F23 实边),聚焦时外挂朱砂环;
+ *     联想 dropdown 展开时下边角取直、与 dropdown 拼成一体(此时不画焦点环)
  *   - dropdown 浮在下方:论文(多源 fan-out)+ 作者 + 期刊推荐(米黄底)
  *   - 每个论文项尾部带 D / G / M 单字母来源标识(hover 见数据源说明)
  *   - 默认行为 = 搜索论文。鼠标 hover 搜索按钮 → 弹出"论文 / 期刊"切换器,
@@ -187,13 +193,17 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
       <form onSubmit={(e) => { e.preventDefault(); submitPapers(trimmed); }}>
         <div
           className={cn(
-            // .pen `Z0RbcB`:48h,与联想 dropdown 拼接时下边变直
-            'flex h-12 items-center gap-3 pl-5 pr-2 bg-surface-card border transition-colors',
+            // 规格走 SEARCH_FIELD_BOX + RADIUS(Figma §4.5:44h / rounded-16 / #1F1F23 实边 / 纯白底)。
+            // 旧值是 h-12(48)+ border-border-strong(ink@22%),且 focused 时把边换成
+            // border-foreground —— 那个色与新静置色同值,留着等于「聚焦无反馈」,已删。
+            'flex items-center gap-3 pl-5 pr-2',
+            SEARCH_FIELD_BOX,
             mergeBorders
-              ? 'border-destructive rounded-t-16 border-b-0'
-              : focused
-                ? 'border-foreground rounded-16'
-                : 'border-border-strong rounded-16 focus-within:border-foreground'
+              // 与联想 dropdown 拼接:只上顶部圆角(下面两角自然为 0)+ 去掉下边线,
+              // 让两块读成一个连续形状。此时【不画焦点环】—— 环会横穿拼接缝;
+              // dropdown 展开本身已是最强的活跃态提示。
+              ? 'rounded-t-16 border-b-0'
+              : cn(SEARCH_FIELD_RADIUS, SEARCH_FIELD_FOCUS)
           )}
         >
           <input
@@ -210,8 +220,8 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
             }}
             autoFocus={autoFocus}
             placeholder={placeholder}
-            // 「outline-none」:焦点可供性由外层搜索条承担 —— 它有 focus-within:border-foreground
-            // (以及 focused 态的 `border-foreground`),整条框变深比裸 input 画环更贴 Figma §4.5。
+            // 「outline-none」合法(护栏白名单第 2 类):裸 input 放在带 focus-within
+            // 可供性的外层容器里 —— 焦点由外层的 SEARCH_FIELD_FOCUS(朱砂 outline)承担。
             className="flex-1 h-auto bg-transparent text-14 outline-none placeholder:text-faint"
           />
           {value && (
@@ -260,9 +270,11 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
 
         {showSuggestions && (
           <div
-            // .pen `t3sGV`:1px #E5E5E5 边 + 下圆角 4 + 阴影 (0,8) blur 24
+            // 描边必须与主框同族(border-border-control)—— 主框改成 #1F1F23 实边后,
+            // dropdown 若仍是 border-strong(ink@22%),两块拼接处会出现一深一浅两条边,
+            // 「拼成一个连续形状」的设计当场破功。
             // 高度封顶由上面 ResizeObserver 算出 --dropdownMaxHeight
-            className="absolute top-full left-0 right-0 z-popover flex flex-col bg-surface-card border border-border-strong border-t-0 rounded-b-16 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150"
+            className="absolute top-full left-0 right-0 z-popover flex flex-col bg-surface-card border border-border-control border-t-0 rounded-b-16 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150"
             style={{ maxHeight: dropdownMaxHeight }}
           >
             {papers.length > 0 && (

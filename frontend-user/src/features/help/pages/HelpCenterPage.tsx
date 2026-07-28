@@ -29,12 +29,14 @@ export function HelpCenterPage() {
   }, {});
   const categories = Object.keys(byCategory);
 
+  // hub 页:内容是 QA 卡片网格,正文列铺满 1440 外壳(Figma §5)是纯收益 —— 每行多放一张卡。
+  // 正文列封顶(max-w-4xl)只对长文有意义,这里不需要。
   return (
     <HelpLayout
       eyebrow="HELP CENTER · 学术问答"
       title="帮助中心 · 学术问答"
       lead="科研全流程真实问题的深度解答——从开题、研究方法、数据集,到 AI 辅助写作、模拟审稿、查重与文献核对,每个问题都是一篇完整回答。"
-      contentMaxWidth="max-w-5xl"
+      contentMaxWidth="max-w-page"
     >
       <RouteSEO
         title="帮助中心 · 学术问答 - Scholay | 科研常见问题深度解答"

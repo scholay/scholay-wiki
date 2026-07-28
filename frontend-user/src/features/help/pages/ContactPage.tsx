@@ -109,7 +109,7 @@ export function ContactPage() {
       eyebrow="CONTACT"
       title="联系我们"
       lead="选择合适的渠道,我们会尽快回复。常规问题通常 1 个工作日内响应。"
-      contentMaxWidth="max-w-5xl"
+      contentMaxWidth="max-w-page"
     >
       <RouteSEO
         title="联系我们 - Scholay | 客服支持与商务合作"

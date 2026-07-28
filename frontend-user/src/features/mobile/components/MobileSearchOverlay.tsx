@@ -17,6 +17,8 @@ import { usePullToRefresh } from '@/shared/hooks';
 import { MobilePaperRow } from '@/shared/components/MobilePaperRow';
 import { MobilePaperRowSkeletonList } from '@/shared/components/MobilePaperRowSkeleton';
 import { PullToRefreshIndicator } from '@/shared/components/PullToRefreshIndicator';
+import { SEARCH_FIELD_SHELL } from '@/shared/components/search-autocomplete/search-field';
+import { cn } from '@/shared/lib/utils';
 import { MobileJournalResultCard } from './MobileJournalResultCard';
 import { MobileSearchFilterSheet } from './MobileSearchFilterSheet';
 import {
@@ -192,7 +194,13 @@ export function MobileSearchOverlay() {
         >
           <X className="size-5" />
         </button>
-        <div className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-pill border border-border bg-surface-1 px-3 focus-within:border-brand-red">
+        {/* 走 SEARCH_FIELD_SHELL(Figma §4.5)。⏪ 此前是 h-9(36)+ rounded-pill +
+            border(ink@12%)+ bg-surface-1,焦点 `focus-within:border-brand-red`。
+            **这是 2026-07-28 搜索框收口时漏掉的第 9 个框** —— 它是移动端论文/期刊检索的
+            主输入(和已收口的 MobileToolsPage 那个 pill 同族),不是菜单里的过滤条;
+            两个移动端搜索框各留一套规格,正是这轮收口要消灭的分叉。
+            外层 header 是 h-14(56),44 + items-center 仍居中,不撑高。 */}
+        <div className={cn('flex min-w-0 flex-1 items-center gap-2 px-3', SEARCH_FIELD_SHELL)}>
           <Search className="size-4 shrink-0 text-faint" />
           <input
             ref={inputRef}

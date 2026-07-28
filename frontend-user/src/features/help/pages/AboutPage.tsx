@@ -101,15 +101,17 @@ export function AboutPage() {
           <BrandName /> 是一个 AI 驱动的学术工作平台 —— 检索、阅读、写作、审稿,我们让科研全流程更高效。
         </>
       }
-      contentMaxWidth="max-w-5xl"
+      contentMaxWidth="max-w-page"
     >
       <RouteSEO
         title="关于我们 - Scholay | AI 驱动的学术搜索平台"
         description="了解 Scholay 的使命、团队和发展历程。Scholay 致力于通过 AI 技术提升学术研究效率,覆盖检索、阅读、写作、审稿科研全流程。"
         keywords="关于 Scholay,学术搜索平台,AI 学术工具,学术研究助手,Scholay 团队,Scholay 使命"
       />
-      {/* 1. 我们是谁 —— 故事段,左侧长文 + 右侧引文卡 */}
-      <section className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-8 items-start">
+      {/* 1. 我们是谁 —— 故事段,左侧长文 + 右侧引文卡。
+         这一段是**长文**,不跟着 1440 外壳走:整块封顶 max-w-reading + 引文卡宽度,
+         左栏落在 ~720 的可读行长上。下面的卡片网格才铺满外壳。 */}
+      <section className="grid grid-cols-1 lg:grid-cols-[minmax(0,var(--container-reading))_280px] gap-8 items-start">
         <div>
           <SectionTitle>我们是谁</SectionTitle>
           <p className="mt-4 text-12 text-subtle leading-paragraph">
@@ -145,7 +147,8 @@ export function AboutPage() {
       {/* 3. 产品矩阵 */}
       <section className="mt-16">
         <SectionTitle>我们在做什么</SectionTitle>
-        <p className="mt-3 text-12 text-muted-foreground">
+        {/* 段落是长文,封顶 max-w-reading(720);它下面的卡片网格才铺满 1440 外壳 */}
+        <p className="mt-3 max-w-reading text-12 text-muted-foreground">
           围绕"检索 → 阅读 → 写作 → 审稿" 四步,<BrandName /> 提供端到端的 AI 学术工作台。
         </p>
         <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-3">

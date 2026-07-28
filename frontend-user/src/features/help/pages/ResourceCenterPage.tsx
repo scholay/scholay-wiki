@@ -26,12 +26,13 @@ export function ResourceCenterPage() {
   const navigate = useNavigate();
   const tab: Tab = location.pathname.startsWith('/blog') ? 'blog' : 'resources';
 
+  // hub 页:博客 / 资源都是卡片网格,正文列铺满 1440 外壳(Figma §5)。
   return (
     <HelpLayout
       eyebrow="ACADEMIC RESOURCES"
       title="学术资源中心"
       lead="Scholay 的博客与学术指南合集——产品观察、AI 与科研思考,以及文献检索、论文写作、研究方法、引用规范等原创长文。"
-      contentMaxWidth="max-w-5xl"
+      contentMaxWidth="max-w-page"
     >
       <RouteSEO
         title={
