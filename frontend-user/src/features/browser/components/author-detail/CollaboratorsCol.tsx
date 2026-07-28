@@ -1,5 +1,5 @@
 import { ArrowUpRight, Loader2, Users } from 'lucide-react';
-import { useOpenAuthorInBrowser } from '@/shared/hooks';
+import { useOpenAuthorDetail } from '@/shared/hooks';
 import type { PaperAuthor, UpstreamSource } from '@/shared/api/types';
 import { cn } from '@/shared/lib/utils';
 import { pickAvatarColor } from './pick-avatar-color';
@@ -20,7 +20,7 @@ export function CollaboratorsCol({
   /** 本学者的 source */
   currentSource: UpstreamSource;
 }) {
-  const openAuthorInBrowser = useOpenAuthorInBrowser();
+  const openAuthorInBrowser = useOpenAuthorDetail();
   const openAuthor = (a: PaperAuthor) => {
     if (!a.authorId) return;
     openAuthorInBrowser({

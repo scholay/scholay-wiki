@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, ChevronDown, Inbox, Loader2 } from 'lucide-react';
 import { CitationProse } from '@/shared/components/CitationProse';
 import { generateCitation } from '@/shared/lib/citation';
-import { useOpenPaperInBrowser } from '@/shared/hooks';
+import { useOpenPaperDetail } from '@/shared/hooks';
 import type { Paper } from '@/shared/api/types';
 // 跨 feature import —— browser ⇄ library 设计交叉,详见 PaperDetailPane 顶部注释
 import {
@@ -119,9 +119,9 @@ function ReferenceItem({
   // 走共享 citation generator 生成 APA-style prose,标题/期刊会自动 italic
   const cite = useMemo(() => generateCitation({ ...r }, 'apa'), [r]);
 
-  const openPaper = useOpenPaperInBrowser();
+  const openPaper = useOpenPaperDetail();
 
-  // 优先内嵌打开:有 paperId → 走 useOpenPaperInBrowser 在浏览器内新开 tab
+  // 优先内嵌打开:有 paperId → 搜索页右栏 / 浏览器内新开 tab
   // 兜底外链:仅有 r.url → target=_blank 跳出去
   // 都没 → 纯文本
   const handleOpenInApp = () => {

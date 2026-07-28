@@ -27,16 +27,20 @@ import type { Paper, PaperSource } from '@/shared/api/types';
 interface QuickOpenPaperDialogProps {
   children: ReactNode;
   align?: 'start' | 'center' | 'end';
+  /** 选中论文后的回调;缺省走浏览器内新开 tab */
+  onPickPaper?: (paper: Paper) => void;
 }
 
 export function QuickOpenPaperDialog({
   children,
   align = 'end',
+  onPickPaper,
 }: QuickOpenPaperDialogProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const openPaper = useOpenPaperInBrowser();
+  const openPaperInBrowser = useOpenPaperInBrowser();
+  const openPaper = onPickPaper ?? openPaperInBrowser;
 
   useEffect(() => {
     if (open) {

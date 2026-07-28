@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertCircle, ArrowDown, Loader2 } from 'lucide-react';
+import { AlertCircle, ArrowDown, BookOpen, FileText, Loader2, Newspaper, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
@@ -10,6 +10,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { usePendingAction } from '@/stores/pending-action.store';
 import { useSmartSearchSessionStore } from '@/stores/smart-search-session.store';
+import { usePdfChatBridge } from '@/stores/pdf-chat-bridge.store';
 import {
   notifySessionChanged,
   useSessionBroadcast,
@@ -19,7 +20,6 @@ import { trackEvent } from '@/shared/lib/track';
 import { useHeightVar } from '@/shared/hooks';
 import { modelSupportsVision, useUserModels } from '@/shared/api/models';
 import { ModelSelector } from '@/shared/components/chat/ModelSelector';
-import { Upload } from 'lucide-react';
 import {
   AttachmentChipList,
   ComposerAttachmentRow,
@@ -48,7 +48,9 @@ import {
 } from '../../api/smart-search';
 import { AssistantTurn } from './AssistantTurn';
 import { SmartComposer } from './SmartComposer';
-import { SmartSearchHero } from './SmartSearchHero';
+import { ClawHero, type HeroSuggestion } from '@/features/claw/components/chat/ClawHero';
+import { SearchModeSwitch } from '../SearchModeSwitch';
+import type { SearchMode } from '../../search-mode';
 import {
   foldMessagesIntoTurns,
   replayHistoryAsTurns,
@@ -62,7 +64,7 @@ import {
  *   - 从「单会话 + 重置上下文」改为「多会话」(与智能助手 claw 同型):可新开会话、侧边栏会话列表、
  *     每会话独立上下文。activeSessionId 收在 useSmartSearchSessionStore(跨子树:侧边栏在 SearchSidebar、
  *     聊天在本组件、新对话按钮在 SearcherColumn header)。
- *   - 进页面 didInitialSelect 采用 sessions[0](最近活跃);列表空 = 空白新对话态(不预建会话)。
+ *   - 进页面默认空白 hero + 底部会话历史;不自动 adopt 最近会话(用户点选或发首条消息后进入对话)。
  *   - 「新对话」= setActiveSessionId(null);首条消息时懒建后端会话(createSession)再 adopt。
  *   - 切会话 / 新对话 → activeSessionId 变 → 本组件 effect 清本地 turns + clearMessages,socket 按新 id 重连,
  *     history/context 按新 id 重取(全部带 ?session_id= 防 race)。
@@ -84,6 +86,19 @@ const ACK_TIMEOUT_MS = 10_000;
  *  取远大于正常 abort 收尾时长;死连接场景重连后 hub 只回放在途轮,不存在「合成后真终帧才迟到」的错配。 */
 const STOP_FALLBACK_MS = 20_000;
 
+const SMART_HERO_SUGGESTIONS: HeroSuggestion[] = [
+  { icon: BookOpen, label: '找一篇综述', prompt: '最近三年扩散模型在图像生成上的综述' },
+  { icon: FileText, label: '读 PDF 写摘要', prompt: '我待会上传一份 PDF,帮我写一段约 200 字的中文摘要' },
+  { icon: Newspaper, label: '查期刊动态', prompt: 'Nature Methods 最近半年发了哪些 AI 相关的文章?' },
+];
+
+const SMART_ROTATING_PROMPTS = [
+  '帮我找 3 篇大语言模型可解释性的代表论文',
+  '最近三年扩散模型在图像生成上的综述',
+  '对比 Transformer 与 Mamba 的长序列建模',
+  '检索增强生成 (RAG) 有哪些高引代表作',
+];
+
 /** 历史回放:给图片附件补 previewUrl(指向 /smart-search/session/file 取图代理,cookie 鉴权)。
  *  transcript 里图片只剩 @path,刷新后靠这个显示缩略图 + 点击放大。只处理 type=image 且有 path 未补的。 */
 function withHistoryImagePreviews(turns: Turn[], sessionId: string | null): Turn[] {
@@ -101,8 +116,27 @@ function withHistoryImagePreviews(turns: Turn[], sessionId: string | null): Turn
   });
 }
 
-export function SmartSearchPanel() {
+export function SmartSearchPanel({
+  mode,
+  onModeChange,
+}: {
+  mode: SearchMode;
+  onModeChange: (mode: SearchMode) => void;
+}) {
   const token = useAuthStore((s) => s.token);
+  const modeSwitch = (
+    <SearchModeSwitch
+      mode={mode}
+      onModeChange={onModeChange}
+      className="mb-4 max-w-md mx-auto"
+    />
+  );
+  const heroComposer = (composer: ReactNode) => (
+    <div className="flex w-full flex-col">
+      {modeSwitch}
+      {composer}
+    </div>
+  );
   const queryClient = useQueryClient();
   const reduce = useReducedMotion();
 
@@ -114,26 +148,14 @@ export function SmartSearchPanel() {
   const activeSessionId = useSmartSearchSessionStore((s) => s.activeSessionId);
   const setActiveSessionId = useSmartSearchSessionStore((s) => s.setActiveSessionId);
   const setStoreBusy = useSmartSearchSessionStore((s) => s.setBusy);
+  const setConversationActive = useSmartSearchSessionStore((s) => s.setConversationActive);
   const resetStore = useSmartSearchSessionStore((s) => s.reset);
   const sessionId = activeSessionId;
 
   const sessionsQuery = useSmartSearchSessions();
   const createSession = useCreateSmartSearchSession();
 
-  // 首次采用:sessions 列表首次落定且当前无活跃会话 → 采用最近一条(list[0], 后端已按
-  // last_accessed_at DESC 排)。只跑一次(didInitialSelectRef),故点「新对话」置 null 后不会被弹回 list[0]。
-  const didInitialSelectRef = useRef(false);
-  useEffect(() => {
-    if (didInitialSelectRef.current) return;
-    const list = sessionsQuery.data;
-    if (!list) return; // 还没加载完
-    didInitialSelectRef.current = true;
-    if (activeSessionId === null && list.length > 0) {
-      setActiveSessionId(list[0].sessionId);
-    }
-  }, [sessionsQuery.data, activeSessionId, setActiveSessionId]);
-
-  // 离开 /search(本组件卸载)时复位 store —— 下次进来重新采用最近会话, 不残留陈旧 id。
+  // 离开 /search(本组件卸载)时复位 store —— 下次进来重新从 hero 开始, 不残留陈旧 id。
   useEffect(() => () => resetStore(), [resetStore]);
 
   // adoptingSessionIdRef: 懒建 / upload-adopt / 引用-adopt 这类「程序化切到刚建好的会话」时,
@@ -165,8 +187,9 @@ export function SmartSearchPanel() {
   // 本轮聊天输入状态。
   // 首挂载时用 URL 的 ?q= 预填(首页输入关键词点「智能搜索」→ 登录 → 跳进来时带着它):
   // 只读一次(lazy init),之后用户敲字 / 发送清空都不再被 URL 覆写;无 q 时为空串。
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [input, setInput] = useState(() => searchParams.get('q')?.trim() ?? '');
+  const consumedInitialQRef = useRef(false);
   /** 按发送顺序排列的用户提问骨架; 长度 = 本会话生命周期内已发起的轮数 */
   const [pendingTurns, setPendingTurns] = useState<
     {
@@ -566,6 +589,27 @@ export function SmartSearchPanel() {
     [reconciledHistoryTurns, liveTurns]
   );
 
+  const loadingHistory =
+    sessionsQuery.isLoading ||
+    (!!sessionId && (historyQuery.isLoading || historyQuery.isFetching));
+
+  // SearchPage 据此切换全宽 hero vs 窄列聊天;选中历史会话加载中也保持聊天布局,避免 hero 闪回。
+  useEffect(() => {
+    const active =
+      turns.length > 0 ||
+      pendingTurns.length > 0 ||
+      (!!sessionId && loadingHistory) ||
+      (!!sessionId && historyTurns.length > 0);
+    setConversationActive(active);
+  }, [
+    turns.length,
+    pendingTurns.length,
+    sessionId,
+    loadingHistory,
+    historyTurns.length,
+    setConversationActive,
+  ]);
+
   // 渲染窗口: 只把最近 renderLimit 轮渲染进 DOM (其余仍在内存, 仅不进 DOM)。切 session 复位。
   // in-flight 轮永远是最新一轮 → 必在窗口内, 故 streaming / 贴底 / 续流 / 底部留白都不受影响。
   const [renderLimit, setRenderLimit] = useState(RENDER_WINDOW);
@@ -768,6 +812,84 @@ export function SmartSearchPanel() {
     armAckWait(clientTurnId, turnId);
   }, [input, state, send, att, references, sessionId, createSession, setActiveSessionId, armAckWait]);
 
+  /** PDF Chat 蒙层「开始对话」—— 程序化发首条(新会话懒建 + pendingSend flush) */
+  const submitExternalMessage = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      trackEvent('search_submit', { len: trimmed.length, files: 0, refs: 0 });
+      lastSubmitTextRef.current = trimmed;
+      const turnId = `turn-${crypto.randomUUID()}`;
+      const clientTurnId = crypto.randomUUID();
+      const payload = { content: trimmed, clientTurnId };
+      const optimisticTurn = { id: turnId, userText: trimmed };
+
+      if (!sessionId) {
+        setPendingTurns((prev) => [...prev.filter((t) => !t.blocked), optimisticTurn]);
+        pendingSendRef.current = payload;
+        pendingSendTurnIdRef.current = turnId;
+        try {
+          const { sessionId: newId } = await createSession.mutateAsync();
+          markSmartSearchPendingModel(newId);
+          adoptingSessionIdRef.current = newId;
+          setActiveSessionId(newId);
+          notifySessionChanged('smart-search', newId);
+        } catch (err) {
+          adoptingSessionIdRef.current = null;
+          pendingSendRef.current = null;
+          pendingSendTurnIdRef.current = null;
+          setPendingTurns((prev) => prev.filter((t) => t.id !== turnId));
+          toast.error((err as Error).message || '新建会话失败,请重试');
+        }
+        return;
+      }
+
+      if (state !== 'open' || !send({ type: 'user_message', ...payload })) {
+        toast.error('连接未就绪,请稍后重试');
+        return;
+      }
+      setPendingTurns((prev) => [...prev.filter((t) => !t.blocked), optimisticTurn]);
+      armAckWait(clientTurnId, turnId);
+    },
+    [sessionId, state, send, createSession, setActiveSessionId, armAckWait],
+  );
+
+  const pendingPdfChatBootstrap = usePdfChatBridge((s) => s.pendingBootstrap);
+  useEffect(() => {
+    if (!pendingPdfChatBootstrap || !token) return;
+    if (sessionId !== null) return;
+    const boot = usePdfChatBridge.getState().consumeBootstrap();
+    if (!boot) return;
+    void submitExternalMessage(boot.openerText);
+  }, [pendingPdfChatBootstrap, token, sessionId, submitExternalMessage]);
+
+  // 首页 / 外链带 ?mode=smart&q= 进来 → 自动发首条并进入对话态(对齐 Claw ?q= 与首页 hero 提交)。
+  useEffect(() => {
+    if (!token) return;
+    if (searchParams.get('mode') !== 'smart') return;
+    const q = searchParams.get('q')?.trim();
+    if (!q || consumedInitialQRef.current) return;
+    if (turns.length > 0 || pendingTurns.length > 0 || loadingHistory) return;
+    consumedInitialQRef.current = true;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('q');
+        return next;
+      },
+      { replace: true },
+    );
+    void submitExternalMessage(q);
+  }, [
+    token,
+    searchParams,
+    turns.length,
+    pendingTurns.length,
+    loadingHistory,
+    submitExternalMessage,
+    setSearchParams,
+  ]);
+
   // 未登录态 hero 的提交 —— 不真正发送,而是弹登录;把刚输入的关键词排进
   // pending navigate(/search?mode=smart&q=…),登录成功后由 useReplayPendingAction
   // 跳进来 + q 预填(与首页「智能搜索」按钮同一套,见 HomePage.handleSmartSearch)。
@@ -843,27 +965,33 @@ export function SmartSearchPanel() {
   }, [busy, stopping, clearStopFallback]);
 
   if (!token) {
-    // 未登录:居中 hero 对话框(同已登录起始态),输入框提示登录,回车/发送弹登录。
     return (
-      <div className="flex flex-col h-full min-h-0 bg-background">
-        <SmartSearchHero
-          loggedOut
-          value={input}
-          onChange={setInput}
-          onSubmit={handleLoggedOutSubmit}
+      <div className="flex h-full min-h-0 flex-col bg-background">
+        <ClawHero
+          title="智能助手"
+          subtitle="找文献 · 读论文 · 查期刊 · 改摘要,也能上传 PDF 帮你分析"
+          suggestions={SMART_HERO_SUGGESTIONS}
+          contentClassName="max-w-3xl"
+          composer={heroComposer(
+            <SmartComposer
+              prominent
+              autoFocus
+              className="shadow-md"
+              rotatingPlaceholders={SMART_ROTATING_PROMPTS}
+              value={input}
+              onChange={setInput}
+              onSubmit={handleLoggedOutSubmit}
+              loggedOut
+              {...composerExtras}
+            />,
+          )}
+          onPickSuggestion={setInput}
         />
       </div>
     );
   }
 
-  // 加载态:
-  //   - sessions 列表还没落定 → 加载(马上会 adopt 最近会话或落到空白新对话)。
-  //   - 有活跃会话且其历史在拉(含 refetchOnMount:'always' 重入的 isFetching)→ 加载,避免 hero 闪。
-  //   - 无活跃会话(空白新对话 / 新用户空列表)→ 不加载 → 显示 hero。
-  const loadingHistory =
-    sessionsQuery.isLoading ||
-    (!!sessionId && (historyQuery.isLoading || historyQuery.isFetching));
-
+  // 加载态:见上方 loadingHistory 定义。
   return (
     <div className="flex flex-col h-full min-h-0 bg-background">
       {/* 多窗口接管 banner: 后端 displacement 路径下发 {type:displaced} 后,
@@ -1013,12 +1141,25 @@ export function SmartSearchPanel() {
               exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.985 }}
               transition={{ duration: reduce ? 0 : 0.3, ease: 'easeOut' }}
             >
-              <SmartSearchHero
-                value={input}
-                onChange={setInput}
-                onSubmit={handleSubmit}
-                ready={ready}
-                composerExtras={composerExtras}
+              <ClawHero
+                title="智能助手"
+                subtitle="找文献 · 读论文 · 查期刊 · 改摘要,也能上传 PDF 帮你分析"
+                suggestions={SMART_HERO_SUGGESTIONS}
+                contentClassName="max-w-3xl"
+                composer={heroComposer(
+                  <SmartComposer
+                    prominent
+                    autoFocus
+                    className="shadow-md"
+                    rotatingPlaceholders={SMART_ROTATING_PROMPTS}
+                    value={input}
+                    onChange={setInput}
+                    onSubmit={handleSubmit}
+                    ready={ready}
+                    {...composerExtras}
+                  />,
+                )}
+                onPickSuggestion={setInput}
               />
             </motion.div>
           )}

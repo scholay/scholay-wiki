@@ -1,8 +1,10 @@
+import { useLocation } from 'react-router-dom';
 import { BrandSection } from './topnav/BrandSection';
 import { RailLinks } from './topnav/RailLinks';
 import { MenuCarousel } from './topnav/MenuCarousel';
 import { UserSection } from './topnav/UserSection';
 import { useSidebar } from '@/stores/sidebar.store';
+import { cn } from '@/shared/lib/utils';
 
 /**
  * 顶部导航 — 三段式,Carousel **几何居中**(不被左侧 Rail 挤压),对照 .pen `bT0Dp`。
@@ -22,15 +24,19 @@ import { useSidebar } from '@/stores/sidebar.store';
  *     让窄屏自动把空间让给左右。
  */
 export function TopNav() {
+  const { pathname } = useLocation();
+  const isHome = pathname === '/';
   const { rail, expanded, hasPanel, toggle } = useSidebar();
   const showRail = !expanded && rail.length > 0;
 
   return (
     <header
-      className="
-        h-16 grid items-center gap-3 px-6 border-b border-border bg-background sticky top-0 z-30
-        grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]
-      "
+      className={cn(
+        'h-16 grid items-center gap-3 px-6 border-b border-border bg-background sticky top-0 z-30',
+        isHome
+          ? 'grid-cols-[minmax(0,1fr)_auto]'
+          : 'grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]',
+      )}
     >
       {/* Left col —— Brand + Rail(rail 内部自行 overflow scroll) */}
       <div className="min-w-0 flex items-center gap-2 justify-self-start overflow-hidden">
@@ -43,13 +49,17 @@ export function TopNav() {
         )}
       </div>
 
-      {/* Center col —— Carousel,auto width,几何居中 */}
-      <div className="flex items-center justify-self-center">
-        <MenuCarousel />
-      </div>
+      {/* Center col —— 首页改为主区大卡片导航,顶栏不再展示 carousel */}
+      {!isHome && (
+        <div className="flex items-center justify-self-center">
+          <MenuCarousel />
+        </div>
+      )}
 
       {/* Right col —— User actions */}
-      <div className="min-w-0 flex items-center justify-self-end overflow-hidden">
+      <div
+        className="min-w-0 flex items-center justify-self-end overflow-hidden"
+      >
         <UserSection />
       </div>
     </header>

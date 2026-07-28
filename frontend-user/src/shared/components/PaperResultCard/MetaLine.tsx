@@ -4,9 +4,9 @@ import {
   TooltipTrigger,
 } from '@/shared/ui/tooltip';
 import {
-  useOpenAuthorInBrowser,
-  useOpenJournalInBrowser,
-} from '@/shared/hooks';
+  useOpenAuthorDetail,
+  useOpenJournalDetail,
+} from '@/shared/hooks/useOpenInSearchPanel';
 import type { Paper, PaperAuthor } from '@/shared/api/types';
 import type { JournalEnrichment } from '@/shared/api/journal-enrichment';
 
@@ -27,8 +27,8 @@ export function MetaLine({
   paper: Paper;
   journalEnrichment?: JournalEnrichment | null;
 }) {
-  const openJournal = useOpenJournalInBrowser();
-  const openAuthor = useOpenAuthorInBrowser();
+  const openJournal = useOpenJournalDetail();
+  const openAuthor = useOpenAuthorDetail();
   const venue = paper.venue?.trim();
   // 现在把整条 PaperAuthor 对象都带上(name + authorId) —— 没 authorId 的作者
   // 只渲染纯文本不可点,有 id 的渲染成 button 跳学者详情

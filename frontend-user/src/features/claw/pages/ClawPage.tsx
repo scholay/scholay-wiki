@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { FileBarChart, Layout, Loader2, PenTool, Presentation, Sparkles } from 'lucide-react';
@@ -124,9 +124,20 @@ interface WorkspacePageProps {
   onNewConversation: () => void;
   /** 选模板卡切 feature(仍是新对话态)。 */
   onPickTemplate: (feature: TemplateFeature) => void;
+  /** 首页等入口带过来的首条草稿(?q=),仅空态预填。 */
+  initialPrompt?: string;
+  onInitialPromptConsumed?: () => void;
 }
 
-function ClawModeWorkspace({ seed, onSessionCreated, onSelectSession, onNewConversation, onPickTemplate }: WorkspacePageProps) {
+function ClawModeWorkspace({
+  seed,
+  onSessionCreated,
+  onSelectSession,
+  onNewConversation,
+  onPickTemplate,
+  initialPrompt,
+  onInitialPromptConsumed,
+}: WorkspacePageProps) {
   const conv = useClawConversation({ initialSessionId: seed, onSessionCreated });
   const sidebar = (
     <UnifiedSidebar
@@ -143,6 +154,8 @@ function ClawModeWorkspace({ seed, onSessionCreated, onSelectSession, onNewConve
       sidebar={sidebar}
       heroExtra={heroExtra}
       onNewConversation={onNewConversation}
+      initialPrompt={initialPrompt}
+      onInitialPromptConsumed={onInitialPromptConsumed}
     />
   );
 }
@@ -232,6 +245,15 @@ export function ClawPage() {
   const { sessionId: urlSessionId } = useParams<{ sessionId?: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialPrompt = searchParams.get('q')?.trim() || undefined;
+
+  const consumeInitialPrompt = useCallback(() => {
+    if (!searchParams.has('q')) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete('q');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   // 新对话(尚无 sessionId,URL 只能是 /claw)用哪个 feature —— 内部态,模板卡可切;默认 claw。
   const [newFeature, setNewFeature] = useState<TemplateFeature>('claw');
@@ -353,6 +375,8 @@ export function ClawPage() {
     onSelectSession: selectSession,
     onNewConversation: resetToDefault,
     onPickTemplate: gotoNew,
+    initialPrompt,
+    onInitialPromptConsumed: consumeInitialPrompt,
   };
   if (feature === 'boltslides') return <PptModeWorkspace key={key} {...pageProps} />;
   if (feature === 'sci_draw') return <SciDrawModeWorkspace key={key} {...pageProps} />;

@@ -3,7 +3,6 @@ import { useAutoAnimate } from '@formkit/auto-animate/react';
 import {
   AlertCircle,
   Grid3x3,
-  Inbox,
   Loader2,
   Lock,
   Settings2,
@@ -40,17 +39,7 @@ import { DIM_COL_MIN_WIDTH, PAPER_COL_WIDTH } from './matrix/constants';
 // 这里建过区后的"空 active"状态已改为纯空白(对照本文件 165-170 行)
 
 /**
- * 工作区右栏 = 暂存区 + 矩阵分析(.pen `d3ya3` + `YMrtV`)。
- *
- * 视觉:两块独立的列(工作区 / 矩阵分析),各自有 header / sub-header / footer。
- * 结构:**只有一张 `<table>` + sticky-left 第一列**。
- *   - 行高由同行 `<td>` 共享(原生),不需要 JS sync
- *   - 横向滚动只发生在 dim 列上,sticky-left 论文列永远可见
- *   - sticky-top 让表头(dim 名字)在纵向滚动时常驻
- *
- * Header / Footer 在 scroll 容器之外,各自 flex 分成 [left:固定宽度 paper-col]
- * 与 [right:fill],与表内 sticky-left 第一列的宽度对齐 —— 任何方向滚动
- * 都不会让外层 chrome 跑位。
+ * 工作区 · 矩阵分析 —— 基于暂存文献的多维 AI 对比表。
  */
 interface MatrixColumnProps {
   /** 当前激活暂存区的论文 —— 由 SearchPage 计算后传入 */
@@ -60,6 +49,7 @@ interface MatrixColumnProps {
 export function MatrixColumn({ staged }: MatrixColumnProps) {
   const token = useAuthStore((s) => s.token);
   const openAuthDialog = useAuthDialog((s) => s.openDialog);
+  const paperColWidth = PAPER_COL_WIDTH;
   const dimensionsQ = useAnalysisDimensions();
   const matrixQ = useMatrixAnalysis(staged);
   const { activeArea } = useStagingView();
@@ -97,13 +87,13 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
       return {
         top: cr.top,
         left: cr.left,
-        width: Math.min(PAPER_COL_WIDTH, cr.width),
+        width: Math.min(paperColWidth ?? cr.width, cr.width),
         height: 76,
       };
     };
     setGetTarget(fn);
     return () => setGetTarget(null);
-  }, [setGetTarget]);
+  }, [setGetTarget, paperColWidth]);
 
   // 新行落定后再滚一次到底(getTarget 那次滚的是「加行前」的底,新行需要二次对齐)。
   const prevLenRef = useRef(staged.length);
@@ -153,31 +143,17 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-background">
-      {/* ============ 顶部工具栏:两区 ============ */}
       <header className="flex h-14 shrink-0 border-b border-border bg-background">
-        {/* 左区:工作区 */}
         <div
           className="flex items-center gap-2.5 px-4 border-r border-border shrink-0"
           style={{ width: PAPER_COL_WIDTH, minWidth: PAPER_COL_WIDTH }}
         >
-          <Inbox className="size-4 text-brand-red" strokeWidth={2.5} />
-          {/* 列标题 15px —— 设计稿 .pen `wgB2T`,Tailwind 默认 scale 无此档,
-             保留 arbitrary value(token 化时同步更新此处) */}
-          <span className="text-15 font-bold text-foreground">工作区</span>
+          <Grid3x3 className="size-4 text-brand-red" strokeWidth={2.5} />
+          <span className="text-15 font-bold text-foreground">矩阵分析</span>
         </div>
-        {/* 右区:矩阵分析 + 工具 */}
-        <div className="flex-1 min-w-0 flex items-center justify-between gap-2 px-4">
-          {/* 标题块 —— min-w-0 + 主标 whitespace-nowrap + 副标 truncate:
-              永远单行不换行。副标在窄空间内被省略号截断,而不是把标题挤成两行 */}
-          <div className="flex items-center gap-2.5 min-w-0">
-            <Grid3x3
-              className="size-4 shrink-0 text-brand-red"
-              strokeWidth={2.5}
-            />
-            <span className="shrink-0 text-15 font-bold text-foreground whitespace-nowrap">
-              矩阵分析
-            </span>
-            <span className="text-xs text-faint truncate">
+        <div className="flex min-w-0 flex-1 items-center justify-between gap-2 px-4">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="truncate text-xs text-faint">
               {staged.length} 篇 · {dimensions.length} 维度
             </span>
             {matrixQ.isFetching && (
@@ -185,45 +161,49 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
             )}
           </div>
 
-          {/* 工具区 —— 响应式:≥lg 平铺,<lg 折成「更多 ▾」hover dropdown
-              收起态优先保证标题不被挤压换行 */}
-          <div className="hidden lg:flex items-center gap-1.5 shrink-0">
-            <button
-              type="button"
-              onClick={() => setSettingsOpen(true)}
+          <div className="flex shrink-0 items-center gap-1.5">
+            <div className="hidden items-center gap-1.5 lg:flex">
+              <button
+                type="button"
+                onClick={() => setSettingsOpen(true)}
+                disabled={!token}
+                className="inline-flex h-7 items-center gap-1 rounded-sm border border-border px-2.5 text-xs text-subtle hover:bg-surface-1 disabled:cursor-not-allowed disabled:opacity-50"
+                title={token ? '设置维度列' : '登录后可设置'}
+              >
+                <Settings2 className="size-3" />
+                设置列
+              </button>
+              <ExportMenu
+                papers={staged}
+                dimensions={dimensions}
+                resultIndex={resultIndex}
+              />
+            </div>
+
+            <MatrixMoreToolsMenu
+              className="flex lg:hidden"
               disabled={!token}
-              className="inline-flex items-center gap-1 h-7 px-2.5 rounded-sm border border-border text-xs text-subtle hover:bg-surface-1 disabled:opacity-50 disabled:cursor-not-allowed"
-              title={token ? '设置维度列' : '登录后可设置'}
-            >
-              <Settings2 className="size-3" />
-              设置列
-            </button>
-            <ExportMenu
-              papers={staged}
-              dimensions={dimensions}
-              resultIndex={resultIndex}
+              exportDisabled={
+                staged.length === 0 || dimensions.length === 0 || !token
+              }
+              onOpenSettings={() => setSettingsOpen(true)}
+              onExport={async (fmt) => {
+                try {
+                  const rows = buildMatrixRows(
+                    staged,
+                    dimensions,
+                    resultIndex,
+                  );
+                  if (fmt === 'csv') exportCsv(rows, dimensions, 'matrix');
+                  else if (fmt === 'md')
+                    exportMarkdown(rows, dimensions, 'matrix');
+                  else await exportXlsx(rows, dimensions, 'matrix');
+                } catch (err) {
+                  toast.error(`导出失败:${(err as Error).message}`);
+                }
+              }}
             />
           </div>
-
-          <MatrixMoreToolsMenu
-            className="flex lg:hidden shrink-0"
-            disabled={!token}
-            exportDisabled={
-              staged.length === 0 || dimensions.length === 0 || !token
-            }
-            onOpenSettings={() => setSettingsOpen(true)}
-            onExport={async (fmt) => {
-              try {
-                const rows = buildMatrixRows(staged, dimensions, resultIndex);
-                if (fmt === 'csv') exportCsv(rows, dimensions, 'matrix');
-                else if (fmt === 'md')
-                  exportMarkdown(rows, dimensions, 'matrix');
-                else await exportXlsx(rows, dimensions, 'matrix');
-              } catch (err) {
-                toast.error(`导出失败:${(err as Error).message}`);
-              }
-            }}
-          />
         </div>
       </header>
 
@@ -239,23 +219,19 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
           <thead>
             <tr>
               <th
-                className="sticky left-0 top-0 z-30 p-0 border-r border-b border-border bg-background"
+                className="sticky left-0 top-0 z-30 border-b border-r border-border bg-background p-0"
                 style={{
-                  width: PAPER_COL_WIDTH,
-                  minWidth: PAPER_COL_WIDTH,
-                  // maxWidth 关键:table-layout:auto 下,光有 width/minWidth 不够 —— 单元格内容
-                  // (长 DOI/URL 等无空格长 token)仍会把整列撑过 320,导致与外层固定 320 的
-                  // header/footer "工作区"列错位(偶现:取决于具体暂存论文)。封死上限即对齐。
-                  maxWidth: PAPER_COL_WIDTH,
+                  width: paperColWidth,
+                  minWidth: paperColWidth,
+                  maxWidth: paperColWidth,
                   height: 36,
                 }}
               >
                 <StagingTabs />
               </th>
-              {/* 维度表头 —— .pen `xFPz2` h-9 bg #F8F8F8,文字 11px/700 #666 */}
               {showLoginGate ? (
                 <th
-                  className="sticky top-0 z-20 bg-surface-1 px-4 text-left text-xs font-bold text-muted-foreground border-b border-border"
+                  className="sticky top-0 z-20 border-b border-border bg-surface-1 px-4 text-left text-xs font-bold text-muted-foreground"
                   style={{ height: 36 }}
                 >
                   维度
@@ -264,7 +240,7 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
                 dimensions.map((d) => (
                   <th
                     key={d.dimensionKey}
-                    className="sticky top-0 z-20 bg-surface-1 px-3 text-left text-xs font-bold text-muted-foreground border-r border-b border-border last:border-r-0"
+                    className="sticky top-0 z-20 border-b border-r border-border bg-surface-1 px-3 text-left text-xs font-bold text-muted-foreground last:border-r-0"
                     style={{ minWidth: DIM_COL_MIN_WIDTH, height: 36 }}
                     title={d.dimensionKey}
                   >
@@ -273,7 +249,7 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
                 ))
               ) : (
                 <th
-                  className="sticky top-0 z-20 bg-surface-1 px-4 text-left text-xs font-bold text-muted-foreground border-b border-border"
+                  className="sticky top-0 z-20 border-b border-border bg-surface-1 px-4 text-left text-xs font-bold text-muted-foreground"
                   style={{ height: 36 }}
                 >
                   维度
@@ -286,9 +262,7 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
             {matrixQ.error ? (
               <tr>
                 <td
-                  colSpan={
-                    showDimGrid ? 1 + dimensions.length : 2
-                  }
+                  colSpan={showDimGrid ? 1 + dimensions.length : 2}
                   className="p-0"
                 >
                   <EmptyState
@@ -305,55 +279,52 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
                 const r = resultIndex.get(p.paperId);
                 return (
                   <tr key={p.paperId} className="group/row">
-                    {/* 第一列 = 论文卡(sticky-left,与右侧 dim 单元格共享行高) */}
                     <td
-                      className="sticky left-0 z-10 align-top border-b border-r border-border bg-background group-hover/row:bg-danger-soft transition-colors"
+                      className="sticky left-0 z-10 align-top border-b border-r border-border bg-background transition-colors group-hover/row:bg-danger-soft"
                       style={{
-                        width: PAPER_COL_WIDTH,
-                        minWidth: PAPER_COL_WIDTH,
-                        // 见上方 thead 同款注释:封死 320 上限,防长 token 撑宽论文列致列错位。
-                        maxWidth: PAPER_COL_WIDTH,
+                        width: paperColWidth,
+                        minWidth: paperColWidth,
+                        maxWidth: paperColWidth,
                       }}
                     >
                       <PaperCell
                         paper={p}
                         isFavorited={favoritedSet.has(
-                          `${p.source ?? 'stc'}:${p.paperId}`
+                          `${p.source ?? 'stc'}:${p.paperId}`,
                         )}
                         onRemove={handleRemove}
                       />
                     </td>
 
                     {showLoginGate ? (
-                      <td className="align-middle px-4 py-3 border-b border-border text-faint group-hover/row:bg-danger-soft transition-colors">
+                      <td className="group-hover/row:bg-danger-soft border-b border-border px-4 py-3 align-middle text-faint transition-colors">
                         <button
                           type="button"
                           onClick={() => openAuthDialog('login')}
-                          className="inline-flex items-center gap-1.5 text-xs hover:text-foreground transition-colors cursor-pointer"
+                          className="inline-flex cursor-pointer items-center gap-1.5 text-xs transition-colors hover:text-foreground"
                         >
                           <Lock className="size-3" />
-                          <span className="underline-offset-2 hover:underline">登录后展开 AI 维度分析</span>
+                          <span className="underline-offset-2 hover:underline">
+                            登录后展开 AI 维度分析
+                          </span>
                         </button>
                       </td>
                     ) : showDimGrid ? (
                       dimensions.map((d) => (
                         <td
                           key={d.dimensionKey}
-                          className="px-3 py-3 align-top text-subtle border-b border-r border-border last:border-r-0 group-hover/row:bg-danger-soft transition-colors"
+                          className="group-hover/row:bg-danger-soft border-b border-r border-border px-3 py-3 align-top text-subtle transition-colors last:border-r-0"
                           style={{ minWidth: DIM_COL_MIN_WIDTH }}
                         >
                           <DimensionCell
                             item={r}
                             dimensionKey={d.dimensionKey}
-                            // 单行 loading:用 matrixQ.loadingByPaperId 而非整体
-                            // matrixQ.isFetching,这样新增一篇论文时只有该行 skeleton,
-                            // 其它行依然展示缓存内容
                             isFetching={!!matrixQ.loadingByPaperId.get(p.paperId)}
                           />
                         </td>
                       ))
                     ) : (
-                      <td className="align-middle px-4 py-3 border-b border-border text-faint group-hover/row:bg-danger-soft transition-colors">
+                      <td className="group-hover/row:bg-danger-soft border-b border-border px-4 py-3 align-middle text-faint transition-colors">
                         <span className="inline-flex items-center gap-1.5 text-xs">
                           {isLoading ? (
                             <>
@@ -376,12 +347,11 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
 
       {/* ============ 底部状态栏:两区 —— .pen `Rc7lA` / `rr09t` 文字 11px ============ */}
       <footer className="flex h-10 shrink-0 border-t border-border bg-surface-1">
-        {/* 左区:暂存计数 */}
         <div
-          className="flex items-center justify-between gap-2 px-4 border-r border-border shrink-0"
+          className="flex shrink-0 items-center justify-between gap-2 border-r border-border px-4"
           style={{ width: PAPER_COL_WIDTH, minWidth: PAPER_COL_WIDTH }}
         >
-          <span className="text-xs text-muted-foreground tabular-nums">
+          <span className="text-xs tabular-nums text-muted-foreground">
             {staged.length} 篇
           </span>
           {staged.length > 0 && (
@@ -404,15 +374,14 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
             </ConfirmPopover>
           )}
         </div>
-        {/* 右区:矩阵就绪状态 */}
-        <div className="flex-1 min-w-0 flex items-center px-4 text-xs text-muted-foreground">
+        <div className="flex min-w-0 flex-1 items-center px-4 text-xs text-muted-foreground">
           {showDimGrid && staged.length > 0 ? (
             `矩阵就绪 · ${staged.length} 行 × ${dimensions.length} 列`
           ) : showLoginGate ? (
             <button
               type="button"
               onClick={() => openAuthDialog('login')}
-              className="hover:text-foreground hover:underline underline-offset-2 transition-colors"
+              className="underline-offset-2 transition-colors hover:text-foreground hover:underline"
             >
               登录后启用矩阵分析
             </button>
@@ -422,8 +391,6 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
         </div>
       </footer>
 
-      {/* 维度设置 dialog —— 关闭后 useDimensionSettings 已经失效 react-query,
-         矩阵分析的 useAnalysisDimensions 也共享同一 queryKey 前缀,自动重 fetch */}
       <DimensionSettingsDialog
         open={settingsOpen}
         onOpenChange={setSettingsOpen}

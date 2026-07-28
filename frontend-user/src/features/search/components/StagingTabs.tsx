@@ -1,108 +1,179 @@
-import { memo } from 'react';
-import { Plus } from 'lucide-react';
-import { FIXED_AREA_NAMES, MAX_AREAS } from '@/stores/staging-areas.store';
+import { memo, useEffect, useMemo } from 'react';
+import { ChevronDown, FolderOpen } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
-import { useStagingActions } from '../hooks/useStagingActions';
-import { useStagingView, type FacadeArea } from '../hooks/useStagingView';
+import { useIsAuthenticated } from '@/stores/auth.store';
+import {
+  STAGING_FOLDER_LABEL,
+  useWorkspaceFolderUi,
+  type WorkspaceFolderTab,
+} from '@/stores/workspace-folder.store';
+import { useLibraryFoldersSummary } from '../api/library';
+import { useStagingView } from '../hooks/useStagingView';
+
+interface StagingTabsProps {
+  /** tabs = 横向标签(遗留); select = 下拉选框(矩阵 / 图谱等窄列) */
+  variant?: 'tabs' | 'select';
+}
 
 /**
- * 暂存区 tab 条 —— 对齐 .pen `huxey`,产品语义:
- *   - 5 个固定分区,名字按位置依次是 A B C D E,**用户不可改名 / 不可删除**
- *   - 没有 X 关闭按钮(只能"清空"内部 papers,不能删 area 本身)
- *   - "清空之后切换到其他分区,空的分区自动消失" —— 这逻辑在
- *     useStagingActions.setActive 里实现:切换时若旧 active 区空 → 后台 delete
- *   - 右侧 "+" 按钮:areas < 5 才显示;areas == 5 直接隐藏(不再 disabled 也不显示 N/5)
- *   - tabs 横向滚动,垂直方向 hidden(防止激活下划线 -bottom-px 误触发 y scrollbar)
+ * 工作区文件夹切换 —— 第一个为「暂存」(临时工作区),其后为文献集文件夹。
+ * 侧栏用 WorkspaceFolderTree;矩阵表头等窄区域用 variant="select"。
  */
-export function StagingTabs() {
-  const { areas, activeId } = useStagingView();
-  const { setActive, createArea } = useStagingActions();
+export function StagingTabs({ variant = 'select' }: StagingTabsProps) {
+  const authenticated = useIsAuthenticated();
+  const activeTab = useWorkspaceFolderUi((s) => s.activeTab);
+  const setActiveTab = useWorkspaceFolderUi((s) => s.setActiveTab);
+  const { activeArea } = useStagingView();
+  const foldersQ = useLibraryFoldersSummary();
+  const folders = foldersQ.data?.folders ?? [];
 
-  const atMax = areas.length >= MAX_AREAS;
+  const stagingCount = activeArea?.papers.length ?? 0;
+
+  useEffect(() => {
+    if (typeof activeTab !== 'number') return;
+    if (foldersQ.isLoading) return;
+    if (folders.length === 0) return;
+    if (!folders.some((f) => f.id === activeTab)) {
+      setActiveTab('staging');
+    }
+  }, [activeTab, folders, foldersQ.isLoading, setActiveTab]);
+
+  const selectValue =
+    activeTab === 'staging' ? 'staging' : String(activeTab);
+
+  const options = useMemo(() => {
+    const items: { value: string; label: string }[] = [
+      {
+        value: 'staging',
+        label: `${STAGING_FOLDER_LABEL} (${stagingCount})`,
+      },
+    ];
+    for (const folder of folders) {
+      items.push({
+        value: String(folder.id),
+        label: `${folder.name} (${folder.paper_count})`,
+      });
+    }
+    return items;
+  }, [folders, stagingCount]);
+
+  if (variant === 'select') {
+    return (
+      <div className="relative flex h-9 min-w-0 items-center px-2">
+        <select
+          value={selectValue}
+          onChange={(e) => {
+            const next = e.target.value;
+            setActiveTab(
+              next === 'staging' ? 'staging' : Number.parseInt(next, 10),
+            );
+          }}
+          aria-label="工作区文件夹"
+          className={cn(
+            'h-7 w-full min-w-0 appearance-none truncate rounded-sm border border-border bg-background',
+            'pl-2 pr-7 text-xs font-semibold text-foreground outline-none',
+            'transition-colors hover:border-border-strong focus:border-foreground focus:ring-2 focus:ring-ring/20',
+          )}
+        >
+          {options.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+          {authenticated && foldersQ.isLoading && folders.length === 0 && (
+            <option value="staging" disabled>
+              加载文件夹…
+            </option>
+          )}
+        </select>
+        <ChevronDown
+          className="pointer-events-none absolute right-4 top-1/2 size-3.5 -translate-y-1/2 text-faint"
+          aria-hidden
+        />
+      </div>
+    );
+  }
 
   return (
     <div
-      className="flex items-center justify-between gap-2 h-9 px-3 bg-background border-b border-border shrink-0"
+      className="flex h-9 min-w-0 items-center gap-1 border-b border-border bg-background px-2 shrink-0"
       role="tablist"
-      aria-label="暂存区"
+      aria-label="工作区文件夹"
     >
-      <div className="flex items-center gap-1 h-full min-w-0 overflow-x-auto overflow-y-hidden">
-        {areas.map((area, idx) => (
-          <TabItem
-            key={area.id}
-            area={area}
-            displayName={FIXED_AREA_NAMES[idx] ?? area.name}
-            active={area.id === activeId}
-            onActivate={setActive}
+      <FolderTabItem
+        label={STAGING_FOLDER_LABEL}
+        count={stagingCount}
+        active={activeTab === 'staging'}
+        onActivate={() => setActiveTab('staging')}
+        variant="staging"
+      />
+
+      {authenticated &&
+        folders.map((folder) => (
+          <FolderTabItem
+            key={folder.id}
+            label={folder.name}
+            count={folder.paper_count}
+            active={activeTab === folder.id}
+            onActivate={() => setActiveTab(folder.id)}
+            variant="folder"
           />
         ))}
-      </div>
 
-      {/* 达 5 上限时整个 + 按钮消失(不再 disabled 占位也不显示 N/5) */}
-      {!atMax && (
-        <button
-          type="button"
-          aria-label="新建暂存区"
-          title="新建暂存区"
-          onClick={() => createArea()}
-          className="inline-flex h-6 w-6 items-center justify-center rounded-sm border border-border-strong text-subtle hover:bg-surface-1 hover:text-foreground transition-colors shrink-0"
-        >
-          <Plus className="size-3" strokeWidth={2.5} />
-        </button>
+      {authenticated && foldersQ.isLoading && folders.length === 0 && (
+        <span className="shrink-0 px-1 text-2xs text-faint">加载…</span>
       )}
     </div>
   );
 }
 
-// ============================================================================
-// 单个 tab —— 简化:固定字母名 + 数量 badge + 红下划线;无 X 无编辑
-// ============================================================================
-
-interface TabItemProps {
-  area: FacadeArea;
-  displayName: string;
+interface FolderTabItemProps {
+  label: string;
+  count: number;
   active: boolean;
-  onActivate: (id: string) => void;
+  onActivate: () => void;
+  variant: 'staging' | 'folder';
 }
 
-const TabItem = memo(function TabItem({
-  area,
-  displayName,
+const FolderTabItem = memo(function FolderTabItem({
+  label,
+  count,
   active,
   onActivate,
-}: TabItemProps) {
+  variant,
+}: FolderTabItemProps) {
   return (
     <div
       role="tab"
       aria-selected={active}
-      onClick={() => onActivate(area.id)}
+      onClick={onActivate}
       className={cn(
-        'group relative inline-flex items-center gap-1.5 h-full px-2.5 shrink-0 cursor-pointer transition-colors',
-        active ? 'text-foreground' : 'text-muted-foreground hover:text-subtle'
+        'group relative flex h-full min-w-0 flex-1 basis-0 items-center gap-1 px-1.5 cursor-pointer transition-colors',
+        active ? 'text-foreground' : 'text-muted-foreground hover:text-subtle',
       )}
+      title={label}
     >
+      {variant === 'folder' && (
+        <FolderOpen className="size-3 shrink-0 text-faint" strokeWidth={2.25} />
+      )}
       <span
         className={cn(
-          'text-sm tabular-nums',
-          active ? 'font-bold' : 'font-semibold'
+          'truncate text-sm',
+          active ? 'font-bold' : 'font-semibold',
         )}
       >
-        {displayName}
+        {label}
       </span>
-
-      {/* 数字 badge —— pill 圆角,激活态红底白字 */}
       <span
         className={cn(
           'inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-pill text-2xs font-bold shrink-0 tabular-nums',
           active
             ? 'bg-brand-red text-white'
-            : 'bg-surface-2 text-muted-foreground'
+            : 'bg-surface-2 text-muted-foreground',
         )}
       >
-        {area.papers.length}
+        {count}
       </span>
-
-      {/* 激活下划线 —— .pen huxey 中的红色 bottom border 2px */}
       {active && (
         <span
           aria-hidden
@@ -112,3 +183,5 @@ const TabItem = memo(function TabItem({
     </div>
   );
 });
+
+export type { WorkspaceFolderTab };

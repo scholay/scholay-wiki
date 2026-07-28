@@ -78,6 +78,8 @@ export function ConversationWorkspace({
   onNewConversation,
   onExportArtifactDeck,
   exportingFormat = null,
+  initialPrompt,
+  onInitialPromptConsumed,
 }: {
   conv: ConversationApi;
   cfg: WorkspaceConfig;
@@ -91,6 +93,9 @@ export function ConversationWorkspace({
   /** 制作PPT:把 html 演示稿产物导出为 PDF/PPTX(外层 PptModeWorkspace 用 boltslides 导出 mutation 提供)。 */
   onExportArtifactDeck?: (a: ClawArtifact, format: 'pptx' | 'pptx-native' | 'pdf') => void;
   exportingFormat?: 'pptx' | 'pptx-native' | 'pdf' | null;
+  /** 首页等外部入口带过来的首条草稿 —— 仅空态预填,不自动发送。 */
+  initialPrompt?: string;
+  onInitialPromptConsumed?: () => void;
 }) {
   const openAuth = useAuthDialog((s) => s.openDialog);
 
@@ -229,6 +234,16 @@ export function ConversationWorkspace({
   const acceptImages = modelSupportsVision(userModels, selectorCurrent);
 
   const composerRef = useRef<ChatComposerHandle>(null);
+  const consumedInitialPromptRef = useRef(false);
+
+  useEffect(() => {
+    const prompt = initialPrompt?.trim();
+    if (!prompt || consumedInitialPromptRef.current || turns.length > 0 || loading) return;
+    consumedInitialPromptRef.current = true;
+    onInitialPromptConsumed?.();
+    void conv.handleSubmit(prompt, [], []);
+  }, [initialPrompt, turns.length, loading, onInitialPromptConsumed, conv.handleSubmit]);
+
   // disabled 占位按真实原因区分:busy 才是「正在等待 AI 回答」;连接没就绪时如实说连接状态,
   // 不再把连接故障伪装成"AI 还在回答"(线上用户误判「对话完成后卡住」的成因之一)。
   const disabledPlaceholder = busy

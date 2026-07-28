@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useOpenAuthorInBrowser } from '@/shared/hooks';
+import { useOpenAuthorDetail } from '@/shared/hooks';
 import type { TranslatePaperResult } from '@/shared/api/translate';
 import type { Paper, UserLibraryPaper } from '@/shared/api/types';
 import { PaperMetadataBlock } from './PaperMetadataBlock';
@@ -45,7 +45,7 @@ export function PaperHeader({
   // 作者:最多展示 12 个,超出 "… (N 位作者)"。
   // 有 authorId 的渲染成 button(可点跳学者详情),没 id 的纯文本不可点,
   // 与 MetaLine 里的搜索结果卡保持一致。自由文件(source='local')无上游 → 不可点。
-  const openAuthor = useOpenAuthorInBrowser();
+  const openAuthor = useOpenAuthorDetail();
   const authors = paper.authors ?? [];
   const visibleAuthors = useMemo(
     () =>

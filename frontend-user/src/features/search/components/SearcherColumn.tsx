@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
-import { Loader2, Search, SquarePen } from 'lucide-react';
+import { Loader2, PanelRightOpen, Search } from 'lucide-react';
 import { EmptyState } from '@/shared/components/EmptyState';
+import { AgentSessionStrip } from '@/shared/components/agent-session/AgentSessionStrip';
+import { smartSearchSessions } from '../api/smart-search';
 import { useSmartSearchSessionStore } from '@/stores/smart-search-session.store';
+import { useSearchRightPanelStore } from '@/stores/search-right-panel.store';
 import { extractPapers, useSearchPapers, type Paper, type UpstreamSource } from '../api/papers';
 import { useFavoriteCheck } from '../api/library';
 import { useJournalEnrichments } from '@/shared/api/journal-enrichment';
@@ -14,14 +17,16 @@ import {
 import { useSearchVisiblePapers } from '@/stores/search-visible-papers.store';
 import { PaperResultCard } from '@/shared/components/PaperResultCard';
 import { resolveYearRange, type SearchFilters } from '../types';
-import { cn } from '@/shared/lib/utils';
 // 懒加载(性能审计 fe-bundle #1):智能面板整条闭包(chat barrel → MarkdownRenderer → katex/hljs/motion/
 // agent-attach 等)此前被静态 import 连坐进 /search 首屏。渲染本就由 smartPanelOpened 门控(首次开智能模式才挂),
 // 改 lazy 后其代码块也仅在首次进智能模式时下载;纯关键词搜索用户永不加载。挂载后保持(display 切换,不 unmount)。
 const SmartSearchPanel = lazy(() =>
   import('./smart-search/SmartSearchPanel').then((m) => ({ default: m.SmartSearchPanel })),
 );
+import { SearchClassicLanding } from './SearchClassicLanding';
+import { SearchModeSwitch } from './SearchModeSwitch';
 import { SearcherPagination } from './SearcherPagination';
+import { SearchFiltersFloating } from './SearchFiltersFloating';
 import { useSearcherUrlState } from '../hooks/useSearcherUrlState';
 
 /**
@@ -36,10 +41,11 @@ import { useSearcherUrlState } from '../hooks/useSearcherUrlState';
  * 分页器 UI 抽到 SearcherPagination,本组件作 orchestrator + 主结构。
  */
 
-export type SearchMode = 'classic' | 'smart';
+export type { SearchMode } from '../search-mode';
 
 interface SearcherColumnProps {
   filters: SearchFilters;
+  onFiltersChange: (next: SearchFilters) => void;
   stagedIds: Set<string>;
   collapsedIds: Set<string>;
   onStage: (p: Paper) => void;
@@ -63,6 +69,7 @@ const EMPTY_SET: ReadonlySet<string> = new Set();
 
 export function SearcherColumn({
   filters,
+  onFiltersChange,
   stagedIds,
   collapsedIds,
   onStage,
@@ -77,11 +84,16 @@ export function SearcherColumn({
   const queryFromUrl = params.get('q') ?? '';
   const [input, setInput] = useState(queryFromUrl);
 
-  // 智能模式「新对话」按钮 —— activeSessionId 收在 store(SmartSearchPanel / SearchSidebar 消费),
-  // 这里只发起「置空 = 空白新对话」;busy(回答中)时禁用避免打断当前生成。
+  // 智能模式会话 —— activeSessionId 收在 store(SmartSearchPanel / AgentSessionStrip 消费)
   const activeSessionId = useSmartSearchSessionStore((s) => s.activeSessionId);
   const smartBusy = useSmartSearchSessionStore((s) => s.busy);
+  const conversationActive = useSmartSearchSessionStore((s) => s.conversationActive);
   const setActiveSessionId = useSmartSearchSessionStore((s) => s.setActiveSessionId);
+  const panelOpen = useSearchRightPanelStore((s) => s.panelOpen);
+  const openPanel = useSearchRightPanelStore((s) => s.openPanel);
+
+  const showReopenPanel =
+    !panelOpen && (mode === 'classic' || (mode === 'smart' && conversationActive));
 
   // 智能 panel 是否曾经被打开过 —— 一旦 true 就保持 mount, 模式切换只用 display:none
   // 隐藏。这样:
@@ -190,67 +202,70 @@ export function SearcherColumn({
     [input, params, setParams]
   );
 
+  const submitQuery = useCallback(
+    (q: string) => {
+      const trimmed = q.trim();
+      if (!trimmed) return;
+      setInput(trimmed);
+      const next = new URLSearchParams(params);
+      next.set('q', trimmed);
+      next.delete('p');
+      next.delete('mode');
+      setParams(next, { replace: true });
+    },
+    [params, setParams]
+  );
+
+  const showClassicLanding = mode === 'classic' && !query;
+  const showSmartHero = mode === 'smart' && !conversationActive;
+  const showModeInHeader = !showClassicLanding && !showSmartHero;
+
   // 总页数封顶:上游 total 再大也只翻到 1000 条对应的最大页(20/页 = 50 页 / 50/页 = 20 页)
   const cappedTotal = Math.min(total, MAX_RESULTS);
   const totalPages = Math.max(1, Math.ceil(cappedTotal / pageSize));
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-background">
-      {/* c1Head — 56h header */}
-      <header className="flex items-center gap-2 h-14 px-4 border-b border-border shrink-0">
-        <div className="flex items-center gap-2.5">
-          <Search className="size-4 text-brand-red" strokeWidth={2.5} />
-          <span className="text-15 font-bold text-foreground">搜索器</span>
-          {/* modeSwitch — 24h rounded-pill,active 红底白字 */}
-          <div className="ml-2 inline-flex items-center h-6 rounded-pill bg-surface-2 p-0.5">
+      {(showModeInHeader || showReopenPanel) && (
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
+          {showModeInHeader && (
+            <SearchModeSwitch
+              mode={mode}
+              onModeChange={onModeChange}
+              className="min-w-0 flex-1"
+            />
+          )}
+          {showReopenPanel && (
             <button
               type="button"
-              onClick={() => onModeChange('classic')}
-              className={cn(
-                'inline-flex items-center justify-center h-5 px-2.5 rounded-pill text-2xs font-bold transition-colors',
-                mode === 'classic'
-                  ? 'bg-brand-red text-white'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
+              onClick={openPanel}
+              className="inline-flex size-8 shrink-0 items-center justify-center rounded-sm border border-border text-muted-foreground transition-colors hover:bg-surface-1 hover:text-foreground"
+              title="打开拓展栏"
+              aria-label="打开拓展栏"
             >
-              传统
+              <PanelRightOpen className="size-4" strokeWidth={2} />
             </button>
-            <button
-              type="button"
-              onClick={() => onModeChange('smart')}
-              className={cn(
-                'inline-flex items-center justify-center h-5 px-2.5 rounded-pill text-2xs font-bold transition-colors',
-                mode === 'smart'
-                  ? 'bg-brand-red text-white'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              智能
-            </button>
-          </div>
-        </div>
+          )}
+        </header>
+      )}
 
-        {/* 智能模式:顶部右侧「新对话」按钮 —— 置空 activeSessionId 回到空白态(会话历史在左侧栏)。
-            busy(回答中)或已在空白新对话时禁用。 */}
-        {mode === 'smart' && (
-          <button
-            type="button"
-            onClick={() => setActiveSessionId(null)}
-            disabled={smartBusy || activeSessionId === null}
-            title={
-              smartBusy
-                ? '回答中,请稍候'
-                : activeSessionId === null
-                  ? '已是新对话'
-                  : '开始新对话'
-            }
-            className="ml-auto inline-flex items-center gap-1.5 h-7 px-2.5 rounded-pill border border-border-button text-xs font-medium text-subtle transition-colors hover:bg-surface-1 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <SquarePen className="size-3.5" strokeWidth={2} />
-            新对话
-          </button>
-        )}
-      </header>
+      {mode === 'smart' && conversationActive && (
+        <AgentSessionStrip
+          api={smartSearchSessions}
+          activeSessionId={activeSessionId}
+          onActivate={setActiveSessionId}
+          onNewConversation={() => setActiveSessionId(null)}
+          newConversationDisabled={smartBusy || activeSessionId === null}
+          newConversationTitle={
+            smartBusy
+              ? '回答中,请稍候'
+              : activeSessionId === null
+                ? '已是新对话'
+                : '开始新对话'
+          }
+          emptyHint="还没有会话, 在下方输入第一句话即可开始"
+        />
+      )}
 
       {/* 智能模式 —— 通过 WS 桥接 scholar_agent 的对话式检索面板。
           首次打开后保持 mount, 模式切换走 display:none 隐藏 (见上面 smartPanelOpened
@@ -260,11 +275,18 @@ export function SearcherColumn({
       {smartPanelOpened && (
         <div className={mode === 'smart' ? 'contents' : 'hidden'}>
           <Suspense fallback={null}>
-            <SmartSearchPanel />
+            <SmartSearchPanel mode={mode} onModeChange={onModeChange} />
           </Suspense>
         </div>
       )}
-      {mode === 'classic' && (
+      {mode === 'classic' && showClassicLanding && (
+        <SearchClassicLanding
+          mode={mode}
+          onModeChange={onModeChange}
+          onSearch={submitQuery}
+        />
+      )}
+      {mode === 'classic' && !showClassicLanding && (
         <>
           {/* searchRow — 输入 + 红色搜索按钮 */}
           <form
@@ -303,6 +325,11 @@ export function SearcherColumn({
               不显示因为 showLoading=true,统一靠蒙层覆盖)。
               蒙层 absolute 在 results 容器上,bg-background/70 + 中心 spinner。 */}
           <div className="flex-1 min-h-0 overflow-auto relative">
+            <SearchFiltersFloating
+              filters={filters}
+              onFiltersChange={onFiltersChange}
+            />
+
             {!query && (
               <EmptyState
                 icon={Search}

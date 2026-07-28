@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Filter, FolderOpen, Loader2 } from 'lucide-react';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { FolderOpen, Loader2 } from 'lucide-react';
 import { RouteSEO } from '@/shared/components/RouteSEO';
 import { SidebarLayout } from '@/shared/components/sidebar';
 import { useLocalStorage } from '@/shared/hooks';
@@ -8,23 +8,23 @@ import { useRegisterSidebarRail } from '@/stores/sidebar.store';
 import { SearchSidebar } from '../components/SearchSidebar';
 import { SearcherColumn, type SearchMode } from '../components/SearcherColumn';
 import { StageFlyLayer } from '../components/StageFlyLayer';
-import type { Paper } from '../api/papers';
-
-/**
- * 右侧工作区两个候选 —— lazy 拆分:
- *   - MatrixColumn 含矩阵分析表、维度编辑、暂存 tabs(~30KB), 只有暂存论文时才需要
- *   - WelcomeBoard 含模式介绍 hero, 只在首次/空区显示
- * 首屏只加载 SearcherColumn, 用户行为触发后才下载工作区代码块。
- */
-const MatrixColumn = lazy(() =>
-  import('../components/MatrixColumn').then((m) => ({ default: m.MatrixColumn }))
-);
-const WelcomeBoard = lazy(() =>
-  import('../components/WelcomeBoard').then((m) => ({ default: m.WelcomeBoard }))
-);
 import { useStagingActions } from '../hooks/useStagingActions';
 import { useStagingView } from '../hooks/useStagingView';
 import { useUrlFilters } from '../hooks/useUrlFilters';
+import type { Paper } from '../api/papers';
+import { useSearchRightPanelStore } from '@/stores/search-right-panel.store';
+import { usePdfChatBridge } from '@/stores/pdf-chat-bridge.store';
+import { useSmartSearchSessionStore } from '@/stores/smart-search-session.store';
+import { cn } from '@/shared/lib/utils';
+
+/**
+ * 右侧拓展面板 —— 多标签(论文 / 期刊 / 学者 / 工作区)。
+ */
+const SearchRightPanel = lazy(() =>
+  import('../components/SearchRightPanel').then((m) => ({
+    default: m.SearchRightPanel,
+  }))
+);
 
 const SEARCHER_MIN_PX = 380;
 const SEARCHER_MAX_PX = 900;
@@ -36,9 +36,11 @@ const RIGHT_MIN_PX = 480; // 右侧工作区 / 矩阵的最小可视宽,撑不�
  *
  *   [SidebarLayout(文件夹快捷+筛选)]
  *     ┌─ Searcher ─┬──────────────────────────────────────────┐
- *     │  搜索器    │  Workspace = MatrixColumn(暂存tab+表)/   │
- *     │ (px 锁定)  │              WelcomeBoard(无暂存时)       │
+ *     │  搜索器    │  详情(拓展) / 工作区(列表·矩阵)          │
+ *     │ (px 锁定)  │                                           │
  *     └────────────┴──────────────────────────────────────────┘
+ *   右侧拓展栏在文献检索模式下始终占位;智能助手对话态下仅在有打开的详情/功能页时展开,
+ *   首屏 hero 态占满主区域(无右栏)。
  *
  * **响应式策略**(用户要求):
  *   - SidebarLayout 的 aside(240px)始终 shrink-0,viewport 窄时不缩
@@ -49,9 +51,8 @@ const RIGHT_MIN_PX = 480; // 右侧工作区 / 矩阵的最小可视宽,撑不�
  *
  * (原 ResizablePanelGroup 按 % 分配,viewport 窄时左右都缩;放弃,改纯 flex + px。)
  *
- * 关键设计:暂存区 + 矩阵分析合并到一张表 —— 单个滚动容器,
- *   左列(论文卡)sticky-left,与右侧维度列共享行高(<table> 原生保障)。
- *   不再用 JS 同步滚动,无 60Hz 延迟问题。
+ * 关键设计:暂存区默认以列表视图展示;矩阵分析作为可选视图,切换后才加载 AI 维度列。
+ *   矩阵模式下仍为单表 —— 左列(论文卡)sticky-left,与右侧维度列共享行高。
  *
  * 暂存区数据走 useStagingView(只读)+ useStagingActions(写) —— 拆开后
  * 列表项不会因 view 更新而重渲(actions 引用稳定)。匿名 localStorage,登录后端。
@@ -70,12 +71,19 @@ export function SearchPage() {
   // 用户从任何位置进 /search 但 URL 无 params 时,把上次保存的搜索串还原。
   // 仅首次挂载执行一次(restoredRef 守门),后续 URL 变化都是用户主动行为。
   const navigate = useNavigate();
+  const location = useLocation();
   const [urlParams, setUrlParams] = useSearchParams();
   const restoredRef = useRef(false);
 
   useEffect(() => {
+    if (!(location.state as { fresh?: boolean } | null)?.fresh) return;
+    navigate({ pathname: '/search', search: '' }, { replace: true, state: null });
+  }, [location.state, navigate]);
+
+  useEffect(() => {
     if (restoredRef.current) return;
     restoredRef.current = true;
+    if ((location.state as { fresh?: boolean } | null)?.fresh) return;
     // 已有 ?q=... / ?src=... 任何参数 → 用户来路自带状态,不干扰
     if (urlParams.toString()) return;
     const saved = typeof localStorage !== 'undefined'
@@ -107,6 +115,8 @@ export function SearchPage() {
   // 避免 browser back/forward "嗖嗖滚 tab" 的体验问题。
   const mode: SearchMode =
     urlParams.get('mode') === 'smart' ? 'smart' : 'classic';
+  const queryFromUrl = (urlParams.get('q') ?? '').trim();
+  const showClassicLanding = mode === 'classic' && !queryFromUrl;
   const setMode = useCallback(
     (next: SearchMode) => {
       setUrlParams(
@@ -122,26 +132,46 @@ export function SearchPage() {
     [setUrlParams]
   );
 
-  // rail 按 mode 动态:智能模式下移除"筛选器"快捷入口 ——
-  // 筛选器属于传统搜索,智能模式 sidebar 也不会渲染对应 section,
-  // 留着 chip 反而会"打开 sidebar 后 flash 一个找不到的 section"。
-  useRegisterSidebarRail(
-    mode === 'smart'
-      ? [{ id: 'all', label: '文献集', icon: FolderOpen, sectionId: 'library' }]
-      : [
-          { id: 'all', label: '文献集', icon: FolderOpen, sectionId: 'library' },
-          { id: 'filters', label: '筛选器', icon: Filter, sectionId: 'filters' },
-        ]
-  );
+  useEffect(() => {
+    usePdfChatBridge.getState().registerSmartModeRequest(() => setMode('smart'));
+    return () => usePdfChatBridge.getState().registerSmartModeRequest(null);
+  }, [setMode]);
+
+  useRegisterSidebarRail([
+    { id: 'all', label: '工作区', icon: FolderOpen, sectionId: 'workspace' },
+  ]);
 
   // view 只读 —— 用 stagedIds 已是稳定引用,不需要再 useMemo 一次
-  const { areas, activeArea, stagedIds } = useStagingView();
+  const { areas, stagedIds } = useStagingView();
   const { stagePaper, removePaper } = useStagingActions();
-  // 判定 WelcomeBoard vs MatrixColumn 切换:**任一区有论文** 就走 MatrixColumn
-  // (即使 active 区是空,用户也能切回有数据的 tab);全部区都空 → 回到 WelcomeBoard
-  // 给出 mock + 一键导入 CTA 引导。**仅 areas.length>0** 不够 —— 用户可能建了空 A B C
-  // 三个 tab,这时还是该引导。
-  const hasAnyStaged = stagedIds.size > 0;
+  const setEmbedMode = useSearchRightPanelStore((s) => s.setEmbedMode);
+  const resetPanel = useSearchRightPanelStore((s) => s.reset);
+  const panelOpen = useSearchRightPanelStore((s) => s.panelOpen);
+  const openPanel = useSearchRightPanelStore((s) => s.openPanel);
+  const closePanel = useSearchRightPanelStore((s) => s.closePanel);
+  const conversationActive = useSmartSearchSessionStore((s) => s.conversationActive);
+
+  const showSmartHeroLayout = mode === 'smart' && !conversationActive;
+  const canHostRightPanel =
+    mode === 'classic' || (mode === 'smart' && conversationActive);
+  const showRightPanel =
+    panelOpen && canHostRightPanel && !showClassicLanding && !showSmartHeroLayout;
+  const showResizeHandle = showRightPanel;
+  const expandMainColumn = showClassicLanding || showSmartHeroLayout;
+
+  // 文献检索默认展开右栏;切到智能助手时收起(被动 openPaper 等会再展开)。
+  useEffect(() => {
+    if (mode === 'classic') openPanel();
+    else closePanel();
+  }, [mode, openPanel, closePanel]);
+
+  useEffect(() => {
+    setEmbedMode(true);
+    return () => {
+      setEmbedMode(false);
+      resetPanel();
+    };
+  }, [setEmbedMode, resetPanel]);
 
   // 跨所有区一次性 unstage —— 用 stagedIds 判断,避免遍历 papers
   const unstageAcrossAreas = useCallback(
@@ -276,13 +306,7 @@ export function SearchPage() {
 
   return (
     <SidebarLayout
-      sidebar={
-        <SearchSidebar
-          filters={filters}
-          onFiltersChange={setFilters}
-          mode={mode}
-        />
-      }
+      sidebar={<SearchSidebar />}
     >
       <RouteSEO
         title={seoTitle}
@@ -292,13 +316,16 @@ export function SearchPage() {
       />
 
       <div className="flex h-full min-h-0 bg-background">
-        {/* 搜索器列 —— **px 固定宽度**,viewport 窄时不缩 */}
         <div
-          style={{ width: searcherWidth }}
-          className="shrink-0 h-full min-h-0 border-r border-border"
+          style={expandMainColumn ? undefined : { width: searcherWidth }}
+          className={cn(
+            'h-full min-h-0 shrink-0',
+            expandMainColumn ? 'min-w-0 flex-1' : 'border-r border-border',
+          )}
         >
           <SearcherColumn
             filters={filters}
+            onFiltersChange={setFilters}
             stagedIds={stagedIds}
             collapsedIds={effectivelyCollapsed}
             onStage={handleStage}
@@ -310,36 +337,33 @@ export function SearchPage() {
           />
         </div>
 
-        {/* 拖手柄 —— 1px 视觉,4px 触发命中区(便于鼠标抓) */}
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="拖动调整搜索器宽度"
-          onPointerDown={startDrag}
-          className="relative w-px shrink-0 bg-border cursor-col-resize hover:bg-foreground/30 transition-colors"
-        >
-          <span className="absolute inset-y-0 -left-1 -right-1" />
-        </div>
-
-        {/* 工作区:剩余空间 + min-w + 横向滚 —— 真撑不下时本区内部滚,
-           不影响 sidebar / searcher */}
-        <div className="flex-1 h-full min-h-0 overflow-x-auto">
-          <div style={{ minWidth: RIGHT_MIN_PX }} className="h-full">
-            <Suspense
-              fallback={
-                <div className="flex h-full items-center justify-center text-faint">
-                  <Loader2 className="size-5 animate-spin" />
-                </div>
-              }
+        {showResizeHandle && (
+          <>
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="拖动调整搜索器宽度"
+              onPointerDown={startDrag}
+              className="relative w-px shrink-0 cursor-col-resize bg-border transition-colors hover:bg-foreground/30"
             >
-              {hasAnyStaged ? (
-                <MatrixColumn staged={activeArea?.papers ?? []} />
-              ) : (
-                <WelcomeBoard currentMode={mode} onSwitchMode={setMode} />
-              )}
-            </Suspense>
-          </div>
-        </div>
+              <span className="absolute inset-y-0 -left-1 -right-1" />
+            </div>
+
+            <div className="h-full min-h-0 flex-1 overflow-x-auto">
+              <div style={{ minWidth: RIGHT_MIN_PX }} className="h-full">
+                <Suspense
+                  fallback={
+                    <div className="flex h-full items-center justify-center text-faint">
+                      <Loader2 className="size-5 animate-spin" />
+                    </div>
+                  }
+                >
+                  <SearchRightPanel />
+                </Suspense>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* 暂存飞入覆盖层 —— portal 到 body,传统/智能两种暂存共用(同一 stagePaper choke point) */}

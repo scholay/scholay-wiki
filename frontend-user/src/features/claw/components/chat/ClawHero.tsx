@@ -1,6 +1,7 @@
 import type { ComponentType, ReactNode } from 'react';
 import { BookOpen, FileText, Newspaper, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { cn } from '@/shared/lib/utils';
 
 export interface HeroSuggestion {
   icon: ComponentType<{ className?: string }>;
@@ -43,6 +44,7 @@ export function ClawHero({
   subtitle = clawHeroDefaults.subtitle,
   suggestions = SUGGESTIONS,
   extra,
+  contentClassName = 'max-w-2xl',
 }: {
   composer: ReactNode;
   onPickSuggestion: (text: string) => void;
@@ -53,11 +55,13 @@ export function ClawHero({
   suggestions?: HeroSuggestion[];
   /** 输入框**下方**的附加内容(模板卡扑克牌扇 / 换回对话模式条)。 */
   extra?: ReactNode;
+  /** 内容区最大宽度(默认 max-w-2xl;首页/搜索 hero 可传 max-w-3xl)。 */
+  contentClassName?: string;
 }) {
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="flex min-h-full items-center justify-center px-6 py-8">
-        <div className="flex w-full max-w-2xl flex-col items-center">
+        <div className={cn('flex w-full flex-col items-center', contentClassName)}>
           {/* 品牌区 —— 对齐远程 main:大发光图标 + 大标题 + 一行副标题。 */}
           <HeroSpark />
           <h2 className="mt-4 font-serif text-[1.7rem] font-bold tracking-tight text-foreground">

@@ -44,13 +44,14 @@ export interface UseLibraryPapersOptions {
   q?: string;
   /** 按加入时间排序方向 —— 当前后端仅 created_at 维度,asc=最早在前 / desc=最新在前 */
   order?: LibrarySortOrder;
+  enabled?: boolean;
 }
 
 export function useLibraryPapers(
   filter: LibraryFolderFilter = 'root',
   options: UseLibraryPapersOptions = {}
 ) {
-  const { page = 1, pageSize = 20, q = '', order = 'desc' } = options;
+  const { page = 1, pageSize = 20, q = '', order = 'desc', enabled = true } = options;
   const trimmed = q.trim();
   const token = useAuthStore((s) => s.token);
   return useQuery({
@@ -63,7 +64,7 @@ export function useLibraryPapers(
       trimmed,
       order,
     ] as const,
-    enabled: !!token,
+    enabled: !!token && enabled,
     staleTime: STALE_FRESH,
     // 翻页 / 切 size 时保留旧数据当 placeholder,避免 list 闪空
     placeholderData: (prev) => prev,

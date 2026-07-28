@@ -1,5 +1,5 @@
 import { AlertCircle, Bookmark, Inbox, Loader2 } from 'lucide-react';
-import { useOpenPaperInBrowser } from '@/shared/hooks';
+import { useOpenPaperDetail } from '@/shared/hooks';
 import type { Paper } from '@/shared/api/types';
 
 /**
@@ -16,7 +16,7 @@ export function FeaturedPapersCol({
   loading: boolean;
   error: Error | null;
 }) {
-  const openPaper = useOpenPaperInBrowser();
+  const openPaper = useOpenPaperDetail();
 
   return (
     <div className="space-y-3.5">

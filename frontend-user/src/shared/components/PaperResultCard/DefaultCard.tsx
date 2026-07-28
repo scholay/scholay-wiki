@@ -1,9 +1,16 @@
 import { useMemo, useState } from 'react';
 import { Check, ExternalLink, Minimize2, Plus } from 'lucide-react';
-import { useOpenPaperInBrowser } from '@/shared/hooks';
-import { TruncatedText } from '@/shared/components/TruncatedText';
 import { FavoritePaperButton } from '@/shared/components/FavoritePaperButton';
 import { TranslatePaperButton } from '@/shared/components/TranslatePaperButton';
+import { PdfChatPaperButton } from '@/shared/components/PdfChatPaperButton';
+import { TruncatedText } from '@/shared/components/TruncatedText';
+import {
+  useOpenPaperDetail,
+  useOpenJournalDetail,
+  useOpenPdfChat,
+  useIsPdfChatActive,
+} from '@/shared/hooks/useOpenInSearchPanel';
+import { useSearchRightPanelStore } from '@/stores/search-right-panel.store';
 import { cn } from '@/shared/lib/utils';
 import type { Paper } from '@/shared/api/types';
 import type { JournalEnrichment } from '@/shared/api/journal-enrichment';
@@ -35,7 +42,12 @@ export function DefaultCard({
   hideStage?: boolean;
 }) {
   const tags = pickTags(paper, journalEnrichment);
-  const openPaper = useOpenPaperInBrowser();
+  const openPaperDetail = useOpenPaperDetail();
+  const openJournalDetail = useOpenJournalDetail();
+  const openPdfChat = useOpenPdfChat();
+  const isPdfChatActive = useIsPdfChatActive();
+  const embedMode = useSearchRightPanelStore((s) => s.embedMode);
+  const isDetailSelected = useSearchRightPanelStore((s) => s.isActivePaper(paper.paperId));
   // 翻译结果缓存:同一篇文章只跑一次,之后按钮在"原文"/"译文"间切换
   // 缓存留在父组件,因为 displayTitle/displayAbstract 需要 zh 数据
   const [zh, setZh] = useState<TranslatePaperResult | null>(null);
@@ -54,18 +66,42 @@ export function DefaultCard({
 
   // OA PDF 直链 —— 后端 minicod.Paper.openAccessPdf.url 透传
   const oaPdfUrl = paper.openAccessPdf?.url?.trim();
+  const journalTagKeys = new Set(['jcr', 'if', 'cas', 'xr', 'ccf', 'warn']);
+
+  const openJournalFromEnrichment = () => {
+    if (!journalEnrichment?.id) return;
+    openJournalDetail({
+      id: journalEnrichment.id,
+      canonical_name: journalEnrichment.canonical_name,
+      jcr_quartile: journalEnrichment.jcr_quartile,
+      jcr_impact_factor: journalEnrichment.jcr_impact_factor,
+      fqb_quartile: journalEnrichment.fqb_quartile,
+      ccf_rank: journalEnrichment.ccf_rank,
+      openalex_h_index: journalEnrichment.openalex_h_index,
+      gjqk_warning: journalEnrichment.gjqk_warning,
+      is_oa: journalEnrichment.is_oa,
+    });
+  };
 
   return (
     <article
       data-paper-id={paper.paperId}
-      className="group border-b border-border px-3.5 py-3.5"
+      className={cn(
+        'group border-b border-border px-3.5 py-3.5',
+        isDetailSelected && 'bg-brand-red/5',
+      )}
     >
       {/* 标题行:标题撑空间,右上 OA PDF 按钮(若上游有 openAccessPdf.url) */}
       <div className="flex items-start gap-2">
         <h3
-          onClick={() => openPaper(paper)}
-          className="flex-1 min-w-0 text-md font-semibold leading-snug text-foreground cursor-pointer hover:text-brand-red transition-colors"
-          title="打开论文详情"
+          onClick={() => openPaperDetail(paper)}
+          className={cn(
+            'flex-1 min-w-0 text-md font-semibold leading-snug cursor-pointer transition-colors',
+            isDetailSelected
+              ? 'text-brand-red'
+              : 'text-foreground hover:text-brand-red',
+          )}
+          title="查看参考文献详情"
         >
           {highlightQuery && !showZh
             ? renderHighlight(displayTitle, highlightQuery)
@@ -88,23 +124,43 @@ export function DefaultCard({
       <MetaLine paper={paper} journalEnrichment={journalEnrichment} />
       {tags.length > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          {tags.map((t) => (
-            <span
-              key={t.key}
-              className={cn(
-                'inline-flex items-center px-1.5 h-[18px] rounded-sm text-2xs font-bold',
-                t.tone === 'solid-green' && 'bg-brand-green text-white',
-                t.tone === 'solid-amber' && 'bg-brand-amber text-white',
-                t.tone === 'solid-red' && 'bg-brand-red text-white',
-                t.tone === 'red' && 'bg-danger-soft text-brand-red',
-                t.tone === 'green' && 'bg-brand-green/10 text-brand-green',
-                t.tone === 'blue' && 'bg-brand-blue-soft text-brand-blue',
-                t.tone === 'neutral' && 'bg-surface-2 text-subtle font-semibold'
-              )}
-            >
-              {t.label}
-            </span>
-          ))}
+          {tags.map((t) => {
+            const clickableJournal =
+              !!journalEnrichment?.id && journalTagKeys.has(t.key);
+            const className = cn(
+              'inline-flex items-center px-1.5 h-[18px] rounded-sm text-2xs font-bold',
+              t.tone === 'solid-green' && 'bg-brand-green text-white',
+              t.tone === 'solid-amber' && 'bg-brand-amber text-white',
+              t.tone === 'solid-red' && 'bg-brand-red text-white',
+              t.tone === 'red' && 'bg-danger-soft text-brand-red',
+              t.tone === 'green' && 'bg-brand-green/10 text-brand-green',
+              t.tone === 'blue' && 'bg-brand-blue-soft text-brand-blue',
+              t.tone === 'neutral' && 'bg-surface-2 text-subtle font-semibold',
+              clickableJournal &&
+                'cursor-pointer hover:opacity-85 underline decoration-dotted underline-offset-2',
+            );
+            if (clickableJournal) {
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openJournalFromEnrichment();
+                  }}
+                  className={className}
+                  title="查看期刊详情"
+                >
+                  {t.label}
+                </button>
+              );
+            }
+            return (
+              <span key={t.key} className={className}>
+                {t.label}
+              </span>
+            );
+          })}
         </div>
       )}
       {displayAbstract && (
@@ -167,6 +223,20 @@ export function DefaultCard({
             onToggle={() => setShowZh((v) => !v)}
             variant="chip"
             size="md"
+            collapseLabel
+          />
+        )}
+
+        {embedMode && !hideStage && (
+          <PdfChatPaperButton
+            active={isPdfChatActive}
+            onClick={() =>
+              openPdfChat({
+                ensureStaged: () => {
+                  if (!isStaged) onToggleStage();
+                },
+              })
+            }
             collapseLabel
           />
         )}

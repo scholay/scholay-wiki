@@ -2,6 +2,8 @@ import { ws } from "msw";
 import { mockPapers } from "./fixtures";
 import { getMockScenario } from "./config";
 
+const MINICOD_SEARCH_TOOL = "mcp__minicod__search_papers";
+
 const appSockets = ws.link(/\/api\/v1\/(?:ws(?:\?|$)|user\/.+\/ws(?:\/|$))/);
 
 function sendJson(client: { send: (data: string) => void }, value: unknown) {
@@ -42,7 +44,9 @@ export const mockWebSocketHandler = appSockets.addEventListener(
     }
 
     schedule(client, 20, { type: "connected", sessionId });
-    schedule(client, 35, { type: "resync_end", inFlight: false });
+    // Fresh connect has nothing to replay — skip resync_end{inFlight:false}.
+    // Sending it here races with the first user_message (user_ack already delivered but
+    // stream not started) and triggers SmartSearchPanel's resync-idle → false "连接中断".
     schedule(client, 50, {
       type: "runtime_config_updated",
       modelId: "scholay-reasoner",
@@ -111,22 +115,38 @@ export const mockWebSocketHandler = appSockets.addEventListener(
 
       const afterText = 180 + chunks.length * 36;
       if (url.pathname.includes("/smart-search/")) {
+        const toolUseId = `mock-tool-${turnId}`;
+        const papers = papersForQuery(content);
         schedule(client, afterText, {
-          type: "tool_use_complete",
-          toolName: "search_papers",
-          toolUseId: `mock-tool-${turnId}`,
-          input: { query: content },
+          type: "status",
+          state: "tool_executing",
+          verb: "正在检索相关论文",
+        });
+        schedule(client, afterText + 30, {
+          type: "content_start",
+          blockType: "tool_use",
+          toolName: MINICOD_SEARCH_TOOL,
+          toolUseId,
         });
         schedule(client, afterText + 45, {
+          type: "tool_use_complete",
+          toolName: MINICOD_SEARCH_TOOL,
+          toolUseId,
+          input: { query: content, limit: 4 },
+        });
+        schedule(client, afterText + 90, {
           type: "tool_result",
-          toolUseId: `mock-tool-${turnId}`,
+          toolUseId,
           content: {
-            total: mockPapers.length,
-            data: mockPapers.slice(0, 4),
+            items: papers,
+            total: papers.length,
+            offset: 0,
+            limit: 4,
+            sources_queried: ["stc"],
           },
           isError: false,
         });
-        schedule(client, afterText + 80, { type: "message_complete" });
+        schedule(client, afterText + 130, { type: "message_complete" });
         return;
       }
 
@@ -137,7 +157,7 @@ export const mockWebSocketHandler = appSockets.addEventListener(
 
 function responseFor(pathname: string, prompt: string): string {
   if (pathname.includes("/smart-search/")) {
-    return `我把“${prompt.slice(0, 28)}”拆成了三个可检索概念：核心技术、人机协作机制与可信评估。下面先给出一组高相关论文，再建议从方法、证据和局限三个维度比较。`;
+    return `我先围绕「${prompt.slice(0, 28)}」做一轮文献检索，整理出高相关论文，再帮你归纳方法、证据和局限三个比较维度。`;
   }
   if (pathname.includes("/boltslides/")) {
     return `已将“${prompt.slice(0, 28)}”整理为一份 8 页演示结构：问题背景、研究缺口、方法框架、关键证据、案例、风险、设计原则与下一步。演示稿产物已在右侧面板准备好。`;
@@ -157,4 +177,26 @@ function chunkText(text: string, size: number): string[] {
     chunks.push(text.slice(index, index + size));
   }
   return chunks;
+}
+
+/** Pick a small, stable paper slice; lightly bias toward query token overlap when present. */
+function papersForQuery(query: string) {
+  const tokens = query
+    .toLowerCase()
+    .split(/[\s,，。；;、]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 2);
+  if (tokens.length === 0) return mockPapers.slice(0, 4);
+  const scored = mockPapers
+    .map((paper) => {
+      const haystack = `${paper.title} ${paper.abstract ?? ""}`.toLowerCase();
+      const score = tokens.reduce(
+        (sum, token) => sum + (haystack.includes(token) ? 1 : 0),
+        0,
+      );
+      return { paper, score };
+    })
+    .sort((a, b) => b.score - a.score || b.paper.citationCount - a.paper.citationCount);
+  const matched = scored.filter((entry) => entry.score > 0).map((entry) => entry.paper);
+  return (matched.length > 0 ? matched : mockPapers).slice(0, 4);
 }

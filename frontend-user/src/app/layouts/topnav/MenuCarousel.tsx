@@ -243,10 +243,10 @@ export function MenuCarousel() {
                   menu={menu}
                   active={isActive}
                   onClick={() => {
-                    // 之前的判断 `menuIdx !== activeIndex` 用了 fallback 0 做 active,
-                    // 在 `/` 首页上点 文献搜索(index=0) 会被误判"已激活"而被吞掉。
-                    // 改用 `menu.match(pathname)` 真值:只有真正已经在这个菜单的页面
-                    // 才省一次 navigate,否则正常跳转。
+                    if (menu.id === 'search') {
+                      navigate('/search', { state: { fresh: true } });
+                      return;
+                    }
                     if (!menu.match(location.pathname)) navigate(menu.href);
                   }}
                 />

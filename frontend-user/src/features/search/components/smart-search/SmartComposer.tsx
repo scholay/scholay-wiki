@@ -50,6 +50,8 @@ export interface SmartComposerProps {
   containerProps?: HTMLAttributes<HTMLDivElement>;
   /** 拖拽蒙层等覆盖层。 */
   overlay?: ReactNode;
+  /** 传给 Composer 容器的额外 class(hero 态常用 shadow-md)。 */
+  className?: string;
 }
 
 export function SmartComposer({
@@ -73,6 +75,7 @@ export function SmartComposer({
   onPaste,
   containerProps,
   overlay,
+  className,
 }: SmartComposerProps) {
   const rotating = !!rotatingPlaceholders && rotatingPlaceholders.length > 0;
   const hasUsage = !!contextSnapshot && contextSnapshot.maxTokens > 0;
@@ -109,6 +112,7 @@ export function SmartComposer({
       topSlot={topExtras}
       leftActions={plusSlot}
       rightActions={modelSlot}
+      className={className}
     />
   );
 }

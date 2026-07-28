@@ -39,6 +39,10 @@ export function AllMenusOverlay({
   const groups = useMemo(() => groupMenusByCategory(), []);
 
   const handleSelect = (menu: Menu) => {
+    if (menu.id === 'search') {
+      navigate('/search', { state: { fresh: true } });
+      return;
+    }
     navigate(menu.href);
   };
 
