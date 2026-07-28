@@ -22,7 +22,6 @@ import {
   SidebarAuthFooter,
   SidebarCollapseButton,
   SidebarContent,
-  SidebarHeaderNav,
   SidebarItem,
   SidebarSection,
 } from '@/shared/components/sidebar';
@@ -86,8 +85,6 @@ export function PrismFileSidebar({
 
   return (
     <Sidebar>
-      {/* 顶部菜单导航与其它菜单页一致(不塞额外按钮);返回项目列表放到下面的标题面包屑。 */}
-      <SidebarHeaderNav />
       <SidebarContent>
         {/* 项目标题行兼作「‹ 返回项目列表」面包屑 */}
         <button

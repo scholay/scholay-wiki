@@ -23,7 +23,6 @@ import {
   SidebarAuthFooter,
   SidebarCollapseButton,
   SidebarContent,
-  SidebarHeaderNav,
   SidebarSection,
 } from '@/shared/components/sidebar';
 import { useSidebar } from '@/stores/sidebar.store';
@@ -70,7 +69,6 @@ export function PrismProjectSidebar({
 
   return (
     <Sidebar>
-      <SidebarHeaderNav />
       <SidebarContent>
         <SidebarSection
           id="prism-projects"

@@ -9,7 +9,6 @@ import type { LucideIcon } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
-  SidebarHeaderNav,
   SidebarSection,
   SidebarItem,
   SidebarAuthFooter,
@@ -86,7 +85,6 @@ export function ToolsSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeaderNav />
       <SidebarContent>
         <div className="px-4 pt-3 pb-1.5">
           <p className="text-xs font-bold tracking-[0.04em] text-foreground">科研能力广场</p>

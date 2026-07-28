@@ -15,7 +15,6 @@ import { toast } from 'sonner';
 import {
   Sidebar,
   SidebarContent,
-  SidebarHeaderNav,
   SidebarSection,
   SidebarAuthFooter,
   SidebarCollapseButton,
@@ -119,7 +118,6 @@ export function LibrarySidebar() {
   if (!token) {
     return (
       <Sidebar>
-        <SidebarHeaderNav />
         <SidebarContent>
           <SidebarSection id="library" label="我的文献集">
             <div className="mx-4 my-2 px-3 py-3 rounded-md bg-surface-1 border border-border-soft">
@@ -146,7 +144,6 @@ export function LibrarySidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeaderNav />
 
       <SidebarContent>
         {/* 锚点 + FavoriteBurst —— 收藏成功 "+1" 浮起。

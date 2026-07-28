@@ -4,7 +4,6 @@ import type { LucideIcon } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
-  SidebarHeaderNav,
   SidebarSection,
   SidebarAuthFooter,
   SidebarCollapseButton,
@@ -125,7 +124,6 @@ export function HomeSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeaderNav />
 
       <SidebarContent>
         {/* 按 menus.ts 分类渲染:检索 / 智能 / 资源 */}

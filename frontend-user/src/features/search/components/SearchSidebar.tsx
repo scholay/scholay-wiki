@@ -4,7 +4,6 @@ import { X } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
-  SidebarHeaderNav,
   SidebarSection,
   SidebarAuthFooter,
   SidebarCollapseButton,
@@ -132,7 +131,6 @@ export function SearchSidebar({
 
   return (
     <Sidebar>
-      <SidebarHeaderNav />
 
       <SidebarContent>
         {/* 智能模式:会话历史(ChatGPT 风格,置顶)—— 点选切换、hover ⋮ 重命名/删除;
