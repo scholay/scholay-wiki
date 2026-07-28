@@ -56,7 +56,7 @@ export function trackStaging(source?: 'traditional' | 'smart', count?: number): 
 }
 
 /**
- * 收藏一次。收藏按钮跨搜索结果 / 文献集 / 首页 / 引用等多处复用,搜索来源
+ * 收藏一次。收藏按钮跨搜索结果 / 文件夹 / 首页 / 引用等多处复用,搜索来源
  * (traditional/smart) 在这些上下文里并不普遍成立,故不强行附 source(留空)。
  */
 export function trackFavorite(): void {

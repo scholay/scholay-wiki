@@ -8,7 +8,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
-import type { ReviewReport, ReviewerRole } from '../types';
+import type { ReviewReport, ReviewerRole } from '@/shared/lib/peer-review/types';
 import { unwrap } from './_unwrap';
 
 const KEY = (...rest: (string | number)[]) =>

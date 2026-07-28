@@ -67,7 +67,13 @@ const MAX_SPEED = 480;
 /** 归位(把 active 项拉回中心)的收敛速率 —— 越大越快,12 约等于 250ms 到位 */
 const SNAP_RATE = 12;
 
-/** 未放大时的基准值 —— 「放大」就是把这三个数按 scale 插值 */
+/* 未放大时的基准值 —— 「放大」就是把这三个数按 scale 逐帧插值。
+ * 必须是 number(要参与乘法后写进 motion style),所以这里不能用 Tailwind 类;
+ * 但取值仍对齐 design token,避免坞与顶栏其余部分脱节:
+ *   BASE_FONT 12 = `--text-12`(Figma 六档下限,顶栏 chip 文字档)
+ *   BASE_PAD  10 = Figma §5 观测间距集合 {4,8,10,12,16,24,32,40} 里的 10
+ *   BASE_ICON 14 —— 无对应 token(`--size-icon` 24 / `--size-icon-inline` 20 都太大,
+ *                   会把 h-8 的 chip 撑满);按「略小于文字行高」的视觉配平取 14。 */
 const BASE_FONT = 12;
 const BASE_ICON = 14;
 const BASE_PAD = 10;
@@ -93,7 +99,7 @@ export function MenuDock() {
 
   /**
    * 每个菜单在【未放大】时的自然宽度。
-   * 带标签后各项宽度不等(「文献集」3 字 vs「科研能力广场」6 字),
+   * 带标签后各项宽度不等(「文件夹」3 字 vs「科研能力广场」6 字),
    * 没有统一 PITCH 可用 —— 必须实测一次,才能算出每项的基准中心位置。
    * 只测第一份的 N 个,其余份内容相同。
    */
@@ -117,6 +123,22 @@ export function MenuDock() {
     return () => {
       alive = false;
     };
+  }, [measure]);
+
+  /**
+   * 🔴 顶栏在 < 1200px 会把**整个中列 display:none**(P0-2 的窄屏折叠,
+   * 见 TopNav.tsx 顶部注释)。display:none 下 offsetWidth 全是 0,
+   * `measure()` 的 `every(x => x > 0)` 守卫会拒绝写入 → widths 永远是 null。
+   * 而上面两个测量时机都**只跑一次**,于是「窗口从 900 拉宽到 1300」之后
+   * 坞会永久停在降级态:bases=null(不放大)、cycleW=0(rAF 主循环 early-return,
+   * 不滚也不归位)。用 ResizeObserver 盯自己的视口:0 → 460 时补测一次。
+   */
+  useEffect(() => {
+    const vp = viewportRef.current;
+    if (!vp || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => measure());
+    ro.observe(vp);
+    return () => ro.disconnect();
   }, [measure]);
 
   /** 每一项(跨所有份)的基准中心 x —— 由实测宽度累加得到 */
@@ -371,7 +393,9 @@ function DockItem({
         'relative inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-8',
         'transition-colors',
         active
-          ? 'bg-foreground text-on-brand'
+          // 玄墨实底用 on-dark 而非纯白 —— 与紧邻的首页/浏览器按钮(MenuCarousel)
+          // 必须是同一种白,否则同一条顶栏上并排出现两种白
+          ? 'bg-foreground text-on-dark'
           : 'text-subtle hover:bg-surface-2 hover:text-foreground'
       )}
     >

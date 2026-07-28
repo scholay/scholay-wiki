@@ -80,7 +80,7 @@ export function PrismAuthorsDialog({
           <DialogTitle>作者与机构</DialogTitle>
         </DialogHeader>
 
-        <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1">
+        <div className="max-h-[60dvh] space-y-4 overflow-y-auto pr-1">
           {/* 机构 */}
           <div>
             <div className="mb-1 flex items-center justify-between">

@@ -94,7 +94,7 @@ export function CitationDialog({
                 className={cn(
                   'h-7 shrink-0 px-3 rounded-8 text-12 font-medium transition-colors',
                   format === f
-                    ? 'bg-foreground text-background'
+                    ? 'bg-foreground text-on-dark'
                     : 'text-muted-foreground hover:bg-surface-1 hover:text-foreground'
                 )}
                 title="单击切换 · 双击设为默认"

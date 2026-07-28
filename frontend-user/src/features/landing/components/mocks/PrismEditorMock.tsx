@@ -1,5 +1,6 @@
 import { Sparkles, FileText, Save } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
+import { MacTrafficLights } from './MacTrafficLights';
 
 /**
  * Prism Landing Hero 右侧 mock —— 仿 .pen `GSIG8 heroRight`:
@@ -30,9 +31,7 @@ export function PrismEditorMock() {
     )}>
       {/* editor top bar */}
       <div className="flex items-center gap-3 px-4 py-2.5 bg-surface-card border-b border-border-soft">
-        <span className="size-2.5 rounded-pill bg-[#FF5F57]" />
-        <span className="size-2.5 rounded-pill bg-[#FEBC2E]" />
-        <span className="size-2.5 rounded-pill bg-[#28C840]" />
+        <MacTrafficLights />
         <div className="flex items-center gap-1 ml-3">
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-4 bg-surface-2 text-12 font-medium text-foreground">
             <FileText className="size-3" /> main.tex
@@ -51,7 +50,10 @@ export function PrismEditorMock() {
       {/* split pane —— 高度固定 320 给两栏空间 */}
       <div className="grid grid-cols-2 h-[320px]">
         {/* 左:LaTeX 代码 */}
-        <div className="overflow-hidden bg-[#FAFAF7] border-r border-border-soft">
+        {/* 左栏代码面用 surface-3(内层弱面),与右栏纯白预览页(bg-surface-card)拉开「代码 / 纸张」的分层。
+            不用 bg-background:那是页面米白底,data-paper='on' 时还会带 noise 纹理,
+            而这一栏是浮在 mock 窗口里的内容面,不该有纸纹。 */}
+        <div className="overflow-hidden bg-surface-3 border-r border-border-soft">
           <div className="font-mono text-12 leading-paragraph py-3">
             {CODE_LINES.map((l) => (
               <div key={l.n} className="flex items-start px-3">

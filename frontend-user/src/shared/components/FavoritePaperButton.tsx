@@ -36,7 +36,7 @@ import type { Paper, UpstreamSource } from '@/shared/api/types';
  *   - lg : h-8 icon-16px / h-8 chip-text-14(详情页 actionRow)
  *
  * 颜色规则:
- *   - 收藏标识色统一 brand-red(与文献集 sidebar / favorite-burst 动画呼应)
+ *   - 收藏标识色统一 brand-red(与文件夹 sidebar / favorite-burst 动画呼应)
  */
 
 export type FavoriteButtonVariant = 'chip' | 'icon' | 'link';
@@ -66,14 +66,14 @@ export interface FavoritePaperButtonProps {
    */
   silentSuccess?: boolean;
   /**
-   * 收藏成功回调,带后端创建的文献集行(幂等命中已有行时 row.already_existed=true)。
+   * 收藏成功回调,带后端新建的收藏行(幂等命中已有行时 row.already_existed=true)。
    * 取消收藏成功不触发(行已删除,无值可传)。
    */
   onSuccess?: (row: FavoritePaperResult) => void;
   /** 取消收藏成功后回调(父级本地"已收藏"状态需要回退时用) */
   onUnfavorited?: () => void;
   /**
-   * 取消收藏确认气泡的标题/描述覆盖 —— 文献集语境下「取消收藏」= 删除整行
+   * 取消收藏确认气泡的标题/描述覆盖 —— 文件夹语境下「取消收藏」= 删除整行
    * (含上传的 PDF 与编辑过的信息),数据损失警示必须比通用文案重。
    */
   unfavoriteTitle?: string;
@@ -172,22 +172,22 @@ export function FavoritePaperButton({
             return;
           }
           // 幂等命中已有行:什么都没新增 → 不飞 "+1"、不谎报「已加入」,
-          // 如实提示已在文献集中(后端不再隐式搬动文件夹归属)。
+          // 如实提示已收藏过(后端不再隐式搬动文件夹归属)。
           if (row.already_existed) {
-            if (showToast) toast.info('这篇论文已在你的文献集中');
+            if (showToast) toast.info('这篇论文已在你的文件夹中');
             onSuccess?.(row);
             return;
           }
           const burst = useFavoriteBurst.getState();
           if (showToast === false || burst.sinkCount > 0) {
             // 嵌入场景照旧走 burst store(行为与改造前一致);
-            // 有可见 sink 时飞 "+1" 动画(sidebar 文献集段就是管理入口)
+            // 有可见 sink 时飞 "+1" 动画(sidebar 文件夹段就是管理入口)
             burst.pushBurst();
           } else {
             // 无 sink 的独立场景(详情页 / 移动端 feed)→ 成功 toast。
             // 「完善信息」深链只在桌面提供:移动端没有工作台消费 ?manage=,
             // 且深链会被设备分流闸改写,action 点了等于白点。
-            toast.success('已加入文献集', {
+            toast.success('已加入文件夹', {
               action: isPhoneDevice()
                 ? undefined
                 : {
@@ -242,8 +242,8 @@ export function FavoritePaperButton({
     isFavorited && !isPending && 'fill-current'
   );
 
-  const title = isFavorited ? '已收藏 · 点击取消' : '加入我的文献集';
-  const ariaLabel = isFavorited ? '已收藏,点击取消' : '加入文献集';
+  const title = isFavorited ? '已收藏 · 点击取消' : '加入我的文件夹';
+  const ariaLabel = isFavorited ? '已收藏,点击取消' : '加入文件夹';
 
   // ─── 渲染裸 button(idle 时直接挂 onClick;favorited 时由外层 Popover 包裹) ───
 

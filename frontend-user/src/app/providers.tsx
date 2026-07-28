@@ -35,7 +35,7 @@ const queryClient = new QueryClient({
   },
 });
 
-// 「收藏到文献集」选择器懒加载 —— 它(经 MobileBottomSheet / LazyMotion)是首屏**唯一**把
+// 「收藏到文件夹」选择器懒加载 —— 它(经 MobileBottomSheet / LazyMotion)是首屏**唯一**把
 // framer-motion(~42KB gz)拉进关键路径的 eager 组件。改成「仅当用户真正点收藏(store 有 request)
 // 时才加载」,framer + 该弹窗代码即移出首屏。代价:关闭时直接卸载(无退场动画),可接受。
 const CollectFolderPicker = lazy(() =>
@@ -81,7 +81,7 @@ export function Providers({ children }: { children: ReactNode }) {
         {!isEmbedPage && <QuotaNotifier />}
         {/* 限时领取会员推广弹窗:首屏自动 / 额度用尽 / 导航按钮触发(开关关闭时不渲染) */}
         {!isEmbedPage && <PromoModal />}
-        {/* 全局「收藏到文献集」选择器(任意收藏按钮 openCollect 触发)——
+        {/* 全局「收藏到文件夹」选择器(任意收藏按钮 openCollect 触发)——
             懒加载:仅在 store 有 collect request 时才拉取该 chunk(连带 framer 移出首屏)。 */}
         <CollectFolderPickerGate />
       </TooltipProvider>

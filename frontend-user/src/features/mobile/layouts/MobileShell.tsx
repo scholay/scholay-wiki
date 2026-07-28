@@ -41,7 +41,7 @@ export function MobileShell() {
   // 列表↔详情、设置子页)key 不变 → 即时切换、不淡入,tab/钻取更跟手,也避免给已在 remount 的页叠淡入。
   const sectionKey = '/' + location.pathname.split('/').filter(Boolean).slice(0, 2).join('/');
 
-  // 全局分享面板:论文/期刊/文献集的「分享」按钮统一弹这一份(多方式:海报/二维码/链接/口令)。
+  // 全局分享面板:论文/期刊/文件夹的「分享」按钮统一弹这一份(多方式:海报/二维码/链接/口令)。
   const shareTarget = useShareSheet((s) => s.target);
   const closeShare = useShareSheet((s) => s.closeShare);
 
@@ -72,7 +72,7 @@ export function MobileShell() {
           {/* 悬浮搜索浮层(absolute 覆盖整个移动列,含底部 Tab);仅 feed 路由 + open 时挂载,进退场带动效。 */}
           <AnimatePresence>{searchOpen && isFeedRoute && <MobileSearchOverlay />}</AnimatePresence>
 
-          {/* 全局分享面板(论文/期刊/文献集通用) */}
+          {/* 全局分享面板(论文/期刊/文件夹通用) */}
           <ShareSheet target={shareTarget} open={!!shareTarget} onOpenChange={(v) => !v && closeShare()} />
 
           {/* 全局登录/注册底部弹窗(openDialog 触发,就地登录不跳页) */}

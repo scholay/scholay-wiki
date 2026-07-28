@@ -7,7 +7,7 @@ import { JournalBadges, type JournalBadgeInput } from '@/shared/components/Journ
  * 对齐设计稿 scholay-mobile.pen「分享卡片 · 全样式」:顶部三色品牌条 + 内容 + 二维码块。
  *   - single   单篇论文:标签(venue·年/开放获取)+ 标题 + 作者 + 被引
  *   - journal  单期刊:封面字标 + 刊名 + 出版社/分区
- *   - collection 文献集:堆叠封面 + 篇目预览
+ *   - collection 文件夹:堆叠封面 + 篇目预览
  * 刻意不用 framer-motion / 外部图片:html-to-image 对纯 DOM + 本地字体最稳。
  */
 export interface ShareCardData {
@@ -33,7 +33,7 @@ export interface ShareCardData {
 
 const KIND_LABEL: Record<ShareCardData['kind'], string> = {
   single: '论文卡片',
-  collection: '文献集卡片',
+  collection: '文件夹卡片',
   journal: '期刊卡片',
   tool: '功能卡片',
 };
@@ -168,7 +168,7 @@ export const ShareCard = forwardRef<HTMLDivElement, { data: ShareCardData }>(
               <p className="text-12 font-medium text-subtle">{scanLabel}</p>
               <p className="mt-0.5 truncate text-12 text-faint">{data.urlLabel}</p>
               <p className="mt-0.5 text-12 text-faint">
-                {isCollection ? '在 Scholay 一键转存到自己的文献集' : '由 Scholay 学术分享生成'}
+                {isCollection ? '在 Scholay 一键转存到自己的文件夹' : '由 Scholay 学术分享生成'}
               </p>
             </div>
           </div>

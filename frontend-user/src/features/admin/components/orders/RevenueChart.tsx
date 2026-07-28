@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import { isTodayBucket, withWeekday } from '@/shared/lib/daily-trend';
 import { compactYuanAxis } from '@/shared/lib/chart-format';
+import { chartTheme } from '@/shared/lib/theme-bridge';
 import { cn } from '@/shared/lib/utils';
 import type { AdminRevenueDay } from '../../api/orders';
 
@@ -42,6 +43,8 @@ function RevenueTooltip(props: {
       {[...items].reverse().map((p, i) => (
         <div key={i} className="flex items-center justify-between gap-4">
           <span className="flex items-center gap-1.5 text-subtle">
+            {/* 8px 图例色块用 2px 圆角 —— 档位缺口豁免,同 TokenDailyChart,
+                见 tests/design-system-guard.test.ts「禁止 arbitrary 圆角」 */}
             <span className="size-2 rounded-[2px]" style={{ backgroundColor: p.color ?? p.stroke }} />
             {p.name}
           </span>
@@ -108,7 +111,7 @@ export function RevenueChart({
               className={cn(
                 'h-7 rounded-8 px-2.5 text-12 font-medium transition-colors',
                 d === days
-                  ? 'bg-foreground text-background'
+                  ? 'bg-foreground text-on-dark'
                   : 'text-muted-foreground hover:bg-surface-1 hover:text-foreground'
               )}
             >
@@ -134,30 +137,35 @@ export function RevenueChart({
                   <stop offset="100%" stopColor="var(--color-brand-amber)" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} vertical={false} />
               <XAxis
                 dataKey="date"
-                tick={{ fontSize: 11, fill: 'var(--color-faint)' }}
-                axisLine={{ stroke: 'var(--color-border)' }}
+                tick={{ fontSize: chartTheme.fontSize, fill: chartTheme.axis }}
+                axisLine={{ stroke: chartTheme.grid }}
                 tickLine={false}
                 tickFormatter={(d: string) => d.slice(5)}
                 minTickGap={24}
               />
               <YAxis
-                tick={{ fontSize: 11, fill: 'var(--color-faint)' }}
+                tick={{ fontSize: chartTheme.fontSize, fill: chartTheme.axis }}
                 axisLine={false}
                 tickLine={false}
                 width={44}
                 tickFormatter={compactYuanAxis}
               />
-              <Tooltip content={<RevenueTooltip />} cursor={{ stroke: 'var(--color-border)' }} />
-              <Legend wrapperStyle={{ fontSize: 11 }} iconType="square" iconSize={8} />
+              <Tooltip content={<RevenueTooltip />} cursor={{ stroke: chartTheme.grid }} />
+              <Legend wrapperStyle={{ fontSize: chartTheme.fontSize }} iconType="square" iconSize={8} />
               {todayBucket && (
                 <ReferenceLine
                   x={todayBucket}
                   stroke="var(--color-faint)"
                   strokeDasharray="4 4"
-                  label={{ value: '今日', position: 'insideTopRight', fontSize: 10, fill: 'var(--color-faint)' }}
+                  label={{
+                    value: '今日',
+                    position: 'insideTopRight',
+                    fontSize: chartTheme.fontSize,
+                    fill: 'var(--color-faint)',
+                  }}
                 />
               )}
               <Area

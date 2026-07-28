@@ -51,7 +51,8 @@ export function AdminShell() {
   }, [authed]);
 
   return (
-    <div className="flex h-screen min-h-0 flex-col bg-background text-foreground">
+    // h-dvh 不是 h-screen —— 后者是裸 100vh,移动端地址栏收起/展开时底部会被截(项目铁律:视口高度用 dvh)。
+    <div className="flex h-dvh min-h-0 flex-col bg-background text-foreground">
       <title>{docTitle}</title>
 
       {/* 顶部占位导航条 —— 对齐用户端 TopNav 的左上角 [☰][Logo];右侧刻意留白(后台不挂菜单/用户区)。 */}

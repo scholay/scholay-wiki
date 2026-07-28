@@ -28,7 +28,7 @@ import type {
   SubmissionListItem,
   SubmissionMode,
   WizardStep,
-} from '../types';
+} from '@/shared/lib/peer-review/types';
 import { unwrap } from './_unwrap';
 
 const KEY = (...rest: (string | number)[]) =>

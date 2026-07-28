@@ -463,10 +463,19 @@ services:
     logging: *default-logging
     environment:
       <<: *tz-env
+      # 发版灰度保留几代构建(见 frontend-user/docker-entrypoint.d/40-sync-site.sh)。
+      # 上界 = legacy 残留(约 25-30MB,几次发版后老化掉) + KEEP × 单次构建(约 13MB)
+      #      ≈ 峰值 95MB、稳态 65MB。足以覆盖「连续排障连发几版」的场景。
+      # 「一代」= 一次**构建**:内容与上一代逐字节相同时复用代号,
+      #   所以纯后端 hotfix 触发的整栈重启不会烧掉灰度窗口(见脚本注释)。
+      # ⚠️ 2026-07-27 判据已从「保留 N 天」换成「保留 N 代」——旧的 ASSET_RETAIN_DAYS 不再生效。
+      #    换判据的原因:按天时体积 = 天数 × 构建频率,同一份配置在 dev/prod 差 30 倍;
+      #    且 mtime 不表达代数,旧脚本得靠 touch 伪造 mtime,那个补丁失手过一次(全站白屏 P0)。
+      ASSET_KEEP_GENERATIONS: "5"
     volumes:
       - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
-      # 发版灰度:持久化 hash 分包目录,旧版本 chunk 跨发版保留(默认 7 天,见
-      # frontend-user/docker-entrypoint.d/40-sync-site.sh)→ 老标签页发版后跳转不再「页面加载失败」。
+      # 发版灰度:持久化 hash 分包目录,旧版本 chunk 跨发版保留最近 5 代 → 发版前就开着的
+      # 标签页仍能拉到它那一版的 chunk,不会被迫硬刷新(而硬刷新会吞掉对话草稿 / 审稿表单)。
       - ./data/frontend-assets:/usr/share/nginx/html/assets
     expose:
       - "80"

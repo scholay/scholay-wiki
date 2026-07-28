@@ -31,16 +31,35 @@ export function ToolDetailPage() {
         <Link to="/tools" className="inline-flex items-center gap-1 text-12 font-medium text-subtle hover:text-foreground">
           <ArrowLeft className="size-3.5" /> 功能广场
         </Link>
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') submitSearch(); }}
-            placeholder="搜索功能广场"
-            className="h-9 border-border-strong bg-surface-1 pl-9 pr-3 focus-visible:bg-surface-card"
-          />
-        </div>
+        {/* 🟠 2026-07-27 补:原本只有 onKeyDown 回车一条提交路径,界面上没有任何可点的提交入口
+            (左侧放大镜还被 pointer-events-none 显式禁用)。与功能广场同属 tools feature,
+            广场补了提交按钮而这里没有,会让两个兄弟页行为分叉。改成 form + 提交按钮:
+            回车与点按同一条路径。 */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            submitSearch();
+          }}
+          className="flex w-full max-w-xs items-center gap-2"
+        >
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
+            <Input
+              type="search"
+              enterKeyHint="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="搜索功能广场"
+              className="h-9 border-border-strong bg-surface-1 pl-9 pr-3 focus-visible:bg-surface-card"
+            />
+          </div>
+          {/* h-9 覆写:与左侧 Input 的 h-9 对齐。Button 原子的档位是 28/32/40,没有 36 ——
+              这属于「控件高度阶梯未接线」的已知债(见 docs/design-audit-2026-07.md),
+              不在本次功能修复范围内,先按对齐需要覆写。 */}
+          <Button type="submit" className="h-9 shrink-0">
+            搜索
+          </Button>
+        </form>
       </header>
 
       <div className="min-h-0 flex-1 overflow-auto">

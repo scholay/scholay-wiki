@@ -101,6 +101,8 @@ const FormLabel = React.forwardRef<
     <Label
       ref={ref}
       htmlFor={formItemId}
+      // KEEP text-12 —— 与 <Label> 同层(表单标签属次文层,Figma 未覆盖)。
+      // 与控件基座同为 text-12;靠 font-medium + text-foreground 而非字号区分标签与输入内容。
       className={cn(error && 'text-destructive', 'text-12', className)}
       {...props}
     />
@@ -137,6 +139,7 @@ const FormDescription = React.forwardRef<
     <p
       ref={ref}
       id={formDescriptionId}
+      // KEEP text-12 —— 字段帮助说明属次文层(Figma 未覆盖),与 CardDescription(§4.4 次文 12px)同层
       className={cn('text-12 text-muted-foreground', className)}
       {...props}
     />
@@ -155,6 +158,8 @@ const FormMessage = React.forwardRef<
     <p
       ref={ref}
       id={formMessageId}
+      // KEEP text-12 —— 校验错误与 FormDescription 占同一位置、同一层级,
+      // 两者必须同字号,否则报错出现时表单会「跳一下」。属次文层,Figma 未覆盖。
       className={cn('text-12 text-destructive', className)}
       {...props}
     >

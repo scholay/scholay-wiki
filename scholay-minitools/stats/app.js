@@ -37,6 +37,9 @@
     var ctx = cv.getContext('2d'); ctx.scale(dpr, dpr);
     return { ctx: ctx, w: w, h: h };
   }
+  // canvas 2D 无法读 CSS 变量,以下色值是 globals.css 的手工镜像:
+  //   #882828 朱砂(数据点/柱)· #2E5AA8 = globals --cat-blue(回归线;它是"规范外的第五色相",
+  //   只用于必须多色相区分的图表,不是品牌色)· #686873 muted-foreground(轴标签)。
   function barsChart(id, vals, hLine) {
     var cv = document.getElementById(id); if (!cv) return;
     var s = setup(cv), ctx = s.ctx, w = s.w, h = s.h, pad = 6, n = vals.length;
@@ -44,15 +47,15 @@
     vals.forEach(function (val, i) {
       var bh = (h - 20) * (val / max), x = pad + i * bw, y = h - 16 - bh;
       var below = i + 1 <= hLine;
-      ctx.fillStyle = below ? '#cc2222' : 'rgba(0,0,0,.10)';
+      ctx.fillStyle = below ? '#882828' : 'rgba(0,0,0,.10)';
       ctx.fillRect(x + bw * 0.12, y, bw * 0.76, bh);
     });
     // h 参考线
     if (hLine > 0) {
       var hy = h - 16 - (h - 20) * (Math.min(hLine, max) / max);
-      ctx.strokeStyle = '#1a56db'; ctx.setLineDash([4, 3]); ctx.lineWidth = 1.5;
+      ctx.strokeStyle = '#2E5AA8'; ctx.setLineDash([4, 3]); ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(pad, hy); ctx.lineTo(w - pad, hy); ctx.stroke(); ctx.setLineDash([]);
-      ctx.fillStyle = '#1a56db'; ctx.font = '11px sans-serif';
+      ctx.fillStyle = '#2E5AA8'; ctx.font = '11px sans-serif';
       ctx.fillText('h = ' + hLine, pad + 2, hy - 4);
     }
   }
@@ -64,7 +67,7 @@
     function py(v) { return yx === yn ? h / 2 : h - pad - (v - yn) / (yx - yn) * (h - pad * 2); }
     ctx.strokeStyle = 'rgba(0,0,0,.12)'; ctx.strokeRect(pad, pad, w - pad * 2, h - pad * 2);
     for (var i = 0; i < x.length; i++) {
-      ctx.beginPath(); ctx.arc(px(x[i]), py(y[i]), 4, 0, 7); ctx.fillStyle = '#cc2222'; ctx.fill();
+      ctx.beginPath(); ctx.arc(px(x[i]), py(y[i]), 4, 0, 7); ctx.fillStyle = '#882828'; ctx.fill();
     }
   }
   function boxChart(id, st) {
@@ -74,14 +77,14 @@
     function X(val) { return pad + (val - lo) / rng * (w - pad * 2); }
     ctx.strokeStyle = 'rgba(0,0,0,.40)'; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.moveTo(X(lo), cy); ctx.lineTo(X(st.q1), cy); ctx.moveTo(X(st.q3), cy); ctx.lineTo(X(hi), cy); ctx.stroke();
-    ctx.fillStyle = 'rgba(204,34,34,.14)'; ctx.strokeStyle = '#cc2222';
+    ctx.fillStyle = 'rgba(136, 40, 40,.14)'; ctx.strokeStyle = '#882828';
     ctx.fillRect(X(st.q1), cy - bh / 2, X(st.q3) - X(st.q1), bh);
     ctx.strokeRect(X(st.q1), cy - bh / 2, X(st.q3) - X(st.q1), bh);
-    ctx.strokeStyle = '#1a56db'; ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#2E5AA8'; ctx.lineWidth = 2.5;
     ctx.beginPath(); ctx.moveTo(X(st.median), cy - bh / 2); ctx.lineTo(X(st.median), cy + bh / 2); ctx.stroke();
     ['最小 ' + st.min, '中位 ' + st.median, '最大 ' + st.max].forEach(function (t, i) {
       var xv = [X(lo), X(st.median), X(hi)][i];
-      ctx.fillStyle = '#666666'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#686873'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
       ctx.fillText(t, Math.max(20, Math.min(w - 20, xv)), i === 1 ? cy - bh / 2 - 6 : cy + bh / 2 + 14);
     });
   }

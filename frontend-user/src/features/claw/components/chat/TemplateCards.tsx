@@ -147,10 +147,12 @@ function FanCards({ reduce, onPick }: { reduce: boolean; onPick: (f: TemplateFea
               width: `${cardW}rem`,
               marginLeft: reduce || i === 0 ? 0 : `-${overlap}rem`,
               transformOrigin: 'bottom center',
+              // 兄弟卡之间的叠压次序(扇形叠牌:后一张压前一张,hover 的那张提到最上)。
+              // 不是全站浮层层级,故刻意不走 --z-* 标度 —— 值随 index 动态计算,只在本扇形内比较。
               zIndex: isH ? 30 : i + 1,
             }}
             className={cn(
-              'group relative flex flex-col overflow-hidden rounded-12 border bg-surface-card text-left outline-none transition-[border-color,box-shadow]',
+              'group relative flex flex-col overflow-hidden rounded-12 border bg-surface-card text-left transition-[border-color,box-shadow]',
               isH ? cn('ring-2', accent.focusRing) : 'border-border',
             )}
           >
@@ -403,15 +405,16 @@ function FigureIllustration({ reduce }: { reduce: boolean }) {
           />
         )}
 
-        {/* 数据点(白描边,论文风):依次淡入一次后保持 */}
+        {/* 数据点(白描边光晕,论文风):依次淡入一次后保持。
+            底是浅色(from-surface-1 to-background),白圈用于把点从同色面积填充里「抠」出来
+            → 走 surface-card(=#FFFFFF 内层纯白 token),不是深底前景色族。 */}
         {main.map(([cx, cy], i) => (
           <motion.circle
             key={i}
             cx={cx}
             cy={cy}
             r="2.6"
-            className="fill-current text-brand-green"
-            stroke="white"
+            className="fill-current stroke-surface-card text-brand-green"
             strokeWidth="0.9"
             initial={{ opacity: reduce ? 1 : 0 }}
             animate={{ opacity: 1 }}

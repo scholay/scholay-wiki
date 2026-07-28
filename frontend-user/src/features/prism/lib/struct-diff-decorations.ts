@@ -18,10 +18,10 @@ import type { DocBlock, DocStruct } from '../api/prism';
 // 装饰样式类(写成完整字面量,Tailwind 扫描器才会生成)。
 const CLS_INS_INLINE = 'prism-diff-ins rounded-4 bg-brand-green/20 underline decoration-brand-green decoration-2 underline-offset-2';
 const CLS_DEL_INLINE = 'prism-diff-del rounded-4 bg-danger-soft px-0.5 text-brand-red line-through decoration-brand-red';
-const CLS_INS_BLOCK = 'prism-diff-ins-block rounded-r border-l-2 border-brand-green bg-brand-green/10';
-const CLS_MOD_BLOCK = 'prism-diff-mod-block rounded-r border-l-2 border-brand-green/60 bg-brand-green/5';
+const CLS_INS_BLOCK = 'prism-diff-ins-block rounded-r-4 border-l-2 border-brand-green bg-brand-green/10';
+const CLS_MOD_BLOCK = 'prism-diff-mod-block rounded-r-4 border-l-2 border-brand-green/60 bg-brand-green/5';
 const CLS_DEL_BLOCK =
-  'prism-diff-del-block my-1 block rounded-r border-l-2 border-brand-red bg-danger-soft/40 py-0.5 pl-3 text-12 leading-relaxed text-brand-red line-through';
+  'prism-diff-del-block my-1 block rounded-r-4 border-l-2 border-brand-red bg-danger-soft/40 py-0.5 pl-3 text-12 leading-relaxed text-brand-red line-through';
 
 const emptyStruct = (body: DocBlock[]): DocStruct => ({
   structVersion: 0,

@@ -47,7 +47,7 @@ const VALUES: Value[] = [
   {
     icon: Users,
     title: '开放与合作',
-    desc: '文献集、引用网络、矩阵分析 —— 协作是科研的天然属性,不该被工具阻断。',
+    desc: '文件夹、引用网络、矩阵分析 —— 协作是科研的天然属性,不该被工具阻断。',
   },
 ];
 
@@ -166,7 +166,7 @@ export function AboutPage() {
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <Link
               to="/feedback"
-              className="inline-flex items-center gap-1.5 h-10 px-5 rounded-8 bg-foreground text-background text-14 font-medium hover:bg-foreground/85 transition-colors"
+              className="inline-flex items-center gap-1.5 h-10 px-5 rounded-8 bg-foreground text-on-dark text-14 font-medium hover:bg-foreground/85 transition-colors"
             >
               提交产品反馈
               <ArrowRight className="size-3.5" />

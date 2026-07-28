@@ -7,21 +7,21 @@ import {
 } from 'remotion';
 
 const COLORS = {
-  background: '#FFFFFF',
-  surface1: '#FAFAFA',
-  surface2: '#F5F5F5',
-  border: '#E8E8E8',
-  borderStrong: '#D8D8D8',
-  text: '#111111',
-  subtle: '#444444',
-  muted: '#666666',
-  faint: '#999999',
-  red: '#CC2222',
-  green: '#2A7A2A',
-  amber: '#D4A017',
-  amberSoft: '#F0E6C8',
-  dangerSoft: '#FFF5F5',
-  greenSoft: '#F1FAF1',
+  background: '#F6F4EE',
+  surface1: '#EFEDE5',
+  surface2: '#E8E5DC',
+  border: '#DCDAD6',
+  borderStrong: '#C7C5C1',
+  text: '#1F1F23',
+  subtle: '#505059',
+  muted: '#686873',
+  faint: '#6E6E78',
+  red: '#882828',
+  green: '#2F4D29',
+  amber: '#E5A800',
+  amberSoft: '#E5DFCE',
+  dangerSoft: '#F3EAEA',
+  greenSoft: '#EAEDEA',
 };
 
 const RESULT_STATES = [
@@ -221,7 +221,7 @@ function AlternateResultStage({frame}: {frame: number}) {
             height: 264,
             borderRadius: 16,
             border: `4px solid ${state.color}`,
-            background: '#fff',
+            background: '#F6F4EE',
             boxShadow: '10px 16px 0 rgba(17,17,17,0.09)',
             transform: `translateY(${yOffset}px)`,
             padding: 34,
@@ -246,7 +246,7 @@ function AlternateResultStage({frame}: {frame: number}) {
             height: 306,
             borderRadius: 16,
             border: `3px solid ${COLORS.borderStrong}`,
-            background: '#fff',
+            background: '#F6F4EE',
             boxShadow: '10px 16px 0 rgba(17,17,17,0.09)',
             transform: `translateY(${yOffset}px)`,
             padding: 32,
@@ -412,7 +412,7 @@ export function PeerReviewFlow() {
           <FileIcon />
         </div>
         <div style={{fontSize: 24, fontWeight: 900}}>上传论文 PDF</div>
-        <div style={{width: 210, height: 10, borderRadius: 999, background: '#E7E7E7', overflow: 'hidden'}}>
+        <div style={{width: 210, height: 10, borderRadius: 999, background: '#F6F4EE', overflow: 'hidden'}}>
           <div
             style={{
               width: `${uploadProgress * 100}%`,
@@ -436,7 +436,7 @@ export function PeerReviewFlow() {
           height: 322,
           borderRadius: 14,
           border: `2px solid ${analysisActive ? COLORS.red : COLORS.border}`,
-          background: '#FFFFFF',
+          background: '#F6F4EE',
           opacity: fade(frame, 34, 52) * fadeOut(frame, 66, 84),
           transform: `translateY(${interpolate(fade(frame, 34, 52), [0, 1], [28, 0])}px)`,
           padding: 24,

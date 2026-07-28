@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import type { UserLibraryFolderItem } from '@/shared/api/types';
 
 /**
- * Home Sidebar 用 —— 列出用户文献集文件夹概要,展示"我的文献集"快捷入口。
+ * Home Sidebar 用 —— 列出用户的文件夹概要,展示"我的文件夹"快捷入口。
  *
  * **queryKey `['library', 'folders']` 与 features/library 严格一致**,
  * react-query 自动共享缓存:home 拉过的 folders,library 进入也是同份数据;

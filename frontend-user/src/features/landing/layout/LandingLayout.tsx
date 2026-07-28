@@ -19,7 +19,9 @@ export function LandingLayout({ children }: { children: ReactNode }) {
   }, [pathname]);
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    // min-h-dvh(不是 min-h-screen)—— 后者编译成裸 100vh,iOS 地址栏会把底部内容顶到视口外。
+    // 项目铁律「视口高度一律用 dvh」,但护栏只查 arbitrary 里的裸 vh,查不出这种类名形态。
+    <div className="flex flex-col min-h-dvh bg-background">
       <LandingNav />
       <main className="flex-1">{children}</main>
       <LandingFooter />

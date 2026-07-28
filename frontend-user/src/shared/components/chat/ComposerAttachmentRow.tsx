@@ -59,7 +59,7 @@ function AttachmentChip({
   const removeBtn = (
     <button
       type="button" onClick={onRemove}
-      title="移除" className="absolute -right-1.5 -top-1.5 z-raised inline-flex size-4 items-center justify-center rounded-pill bg-foreground text-background transition-transform hover:scale-110">
+      title="移除" className="absolute -right-1.5 -top-1.5 z-raised inline-flex size-4 items-center justify-center rounded-pill bg-foreground text-on-dark transition-transform hover:scale-110">
       <X className="size-2.5" strokeWidth={2.6} />
     </button>
   );
@@ -74,7 +74,7 @@ function AttachmentChip({
       <button
         type="button" onClick={onRetry}
         title={item.error ||'上传失败,点击重试'}
-        className="inline-flex h-6 items-center gap-1 rounded-4 bg-foreground px-2 text-12 text-background hover:opacity-90">
+        className="inline-flex h-6 items-center gap-1 rounded-4 bg-foreground px-2 text-12 text-on-dark hover:opacity-90">
         <RotateCcw className="size-3"/>
         重试
       </button>

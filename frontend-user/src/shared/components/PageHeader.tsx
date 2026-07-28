@@ -16,7 +16,7 @@ interface PageHeaderProps {
 }
 
 /**
- * 业务页面统一标题区 — 文献集 / 投稿 / 设置等顶部 hero 抬头。
+ * 业务页面统一标题区 — 文件夹 / 投稿 / 设置等顶部 hero 抬头。
  * 与 SidebarHeader 不同的是:这里不是 56h 固定,可承载多行 description 和 tabs。
  */
 export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(

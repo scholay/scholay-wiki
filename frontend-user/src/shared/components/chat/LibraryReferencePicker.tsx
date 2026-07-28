@@ -38,7 +38,7 @@ export interface ReferenceSelection {
 }
 
 /**
- * 「引用文献」选择器 —— 从用户文献集挑论文 / 整个文件夹引用进 agent 对话(三 feature 共用,2026-07 从 claw 上提)。
+ * 「引用文献」选择器 —— 从用户收藏里挑论文 / 整个文件夹引用进 agent 对话(三 feature 共用,2026-07 从 claw 上提)。
  *   - 文件夹列表(每个带「引用整夹」勾选 + 点名字切换查看其论文)+ 该夹内论文(搜索 + 多选)
  *   - PC:居中 Dialog 两栏(文件夹左 / 论文右);移动端:底部抽屉,上下堆叠(文件夹上 / 论文下)
  *
@@ -90,7 +90,7 @@ export function LibraryReferencePicker({
   // 同 folders:稳定引用,避免每帧 new [] 让 pageVenues / enrich 反复重算。
   const papers = useMemo(() => papersQ.data?.items ?? [], [papersQ.data]);
 
-  // 期刊分区/IF 增强 —— 按本页 venue 批量拉(同文献集 LibraryPaperList 的做法,缓存共享)。
+  // 期刊分区/IF 增强 —— 按本页 venue 批量拉(同文件夹 LibraryPaperList 的做法,缓存共享)。
   const pageVenues = useMemo(
     () => papers.map((p) => effectivePaperVenue(p)).filter(Boolean),
     [papers],
@@ -134,13 +134,13 @@ export function LibraryReferencePicker({
   const columns = (
     <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
       {/* 文件夹列 */}
-      <div className="flex max-h-[30vh] shrink-0 flex-col overflow-y-auto border-b border-border-soft sm:max-h-none sm:w-56 sm:border-b-0 sm:border-r">
+      <div className="flex max-h-[30dvh] shrink-0 flex-col overflow-y-auto border-b border-border-soft sm:max-h-none sm:w-56 sm:border-b-0 sm:border-r">
         {foldersQ.isLoading ? (
           <div className="flex items-center justify-center py-6 text-faint">
             <Loader2 className="size-4 animate-spin" />
           </div>
         ) : folders.length === 0 ? (
-          <p className="px-3 py-6 text-center text-12 text-faint">文献集还是空的</p>
+          <p className="px-3 py-6 text-center text-12 text-faint">还没有文件夹</p>
         ) : (
           folders.map((f) => (
             <div
@@ -215,7 +215,7 @@ export function LibraryReferencePicker({
                     onCheckedChange={() => togglePaper(p.id)}
                   />
                   <div className="min-w-0 flex-1 space-y-1.5">
-                    {/* 标题行:类型徽章(D/G/M 或 本地)+ 标题 + PDF —— 对齐文献集单行观感 */}
+                    {/* 标题行:类型徽章(D/G/M 或 本地)+ 标题 + PDF —— 对齐文件夹单行观感 */}
                     <div className="flex items-start gap-1.5">
                       <TypeBadge source={p.source} isFree={p.link_state === 'free'} />
                       <span className="min-w-0 flex-1 text-14 font-medium text-foreground line-clamp-2">
@@ -292,7 +292,7 @@ export function LibraryReferencePicker({
             <div className="border-b border-border-soft px-4 pb-2 pt-1">
               <h2 className="text-14 font-medium text-foreground">引用文献</h2>
               <p className="mt-0.5 text-12 text-muted-foreground">
-                从文献集选论文或整夹,引用给智能助手(在线元数据 + 你上传的 PDF 都带上)。
+                从你的收藏里选论文或整夹,引用给智能助手(在线元数据 + 你上传的 PDF 都带上)。
               </p>
             </div>
             {columns}
@@ -306,11 +306,11 @@ export function LibraryReferencePicker({
   // ── PC:居中 Dialog,两栏。显式 max-w 覆盖基样式 max-w-lg,否则被夹到 512px。──
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] w-[min(92vw,720px)] max-w-[min(92vw,720px)] flex-col gap-0 overflow-hidden p-0">
+      <DialogContent className="flex max-h-[85dvh] w-[min(92vw,720px)] max-w-[min(92vw,720px)] flex-col gap-0 overflow-hidden p-0">
         <DialogHeader className="border-b border-border-soft px-4 py-3">
           <DialogTitle className="text-14">引用文献</DialogTitle>
           <DialogDescription className="text-12">
-            从你的文献集选论文或整个文件夹,引用给智能助手(在线元数据 + 你上传的 PDF 都会带上)。
+            从你的收藏里选论文或整个文件夹,引用给智能助手(在线元数据 + 你上传的 PDF 都会带上)。
           </DialogDescription>
         </DialogHeader>
         {columns}
@@ -321,7 +321,15 @@ export function LibraryReferencePicker({
 }
 
 // 作者头像配色(token,按名字 hash 取一种;同收藏夹脊色思路)。
-const AVATAR_TONES = ['bg-brand-green', 'bg-brand-amber', 'bg-brand-red', 'bg-foreground'];
+// 前景色随底色走:朱砂/松青实底配纯白;琥珀实底配墨黑字(白字压琥珀只有 2.11:1,
+// Figma §4.2 琥珀 Badge 用黑字);玄墨实底配 on-dark(暗底上不用纯白避免过曝,
+// 与 tooltip / UserBubble / recommendation.AVATAR.unknown 同口径)。
+const AVATAR_TONES = [
+  'bg-brand-green text-on-brand',
+  'bg-brand-amber text-foreground',
+  'bg-brand-red text-on-brand',
+  'bg-foreground text-on-dark',
+];
 function toneOf(name: string): string {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
@@ -338,7 +346,11 @@ function AuthorAvatars({ authors }: { authors: PaperAuthor[] }) {
         <span
           key={i}
           className={cn(
-            'inline-flex size-4 items-center justify-center rounded-pill text-[8px] font-medium text-on-brand ring-1 ring-background',
+            // KEEP text-[8px]:字号六档下限是 12px,但这里是 16px(size-4)的重叠首字母圆点 ——
+            // 12px 大写字母(cap-height ≈ 8.7px、'W' 宽 ≈ 11px)会顶满圆点、被 ring 切边。
+            // 它是纯装饰性角标而非可读文本(真名在右侧 authorsText 里,并有 title 兜底),
+            // 不进正文阶梯。整站其余头像是 32px(h-8 w-8)配 text-12,不适用于此尺寸。
+            'inline-flex size-4 items-center justify-center rounded-pill text-[8px] font-medium ring-1 ring-surface-card',
             toneOf(n),
           )}
           title={n}

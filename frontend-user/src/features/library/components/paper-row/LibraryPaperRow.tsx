@@ -48,7 +48,7 @@ interface RowProps {
 }
 
 /**
- * 文献集单行 —— 5 段竖排:[TypeBadge + title] / meta / abstract / 主操作 / 次操作。
+ * 文件夹内的论文单行 —— 5 段竖排:[TypeBadge + title] / meta / abstract / 主操作 / 次操作。
  *
  * **主操作三种模式**(按 (link_state, origin) 分流):
  *
@@ -180,6 +180,9 @@ export const LibraryPaperRow = memo(function LibraryPaperRow({
   return (
     <li
       className={cn(
+        // before:w-[3px] = 选中行的左侧强调竖条,对应 globals.css §十一 的 --rule-accent(3px):
+        // Figma 描边只有 1 / 1.5px,3px 强调条是代码内生共识;--rule-accent 未注册成 Tailwind
+        // 命名空间(无 --spacing-rule-accent),所以只能写 arbitrary,值以该 token 为准。
         'group relative flex items-start gap-3 py-3.5 transition-colors pl-4',
         'before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[3px] before:transition-colors',
         selected

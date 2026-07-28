@@ -13,8 +13,8 @@ import type { UserLibraryFolderItem } from '@/shared/api/types';
 import { useLibraryFolders, useCreateFolder } from '../api/folders';
 
 /**
- * 全局「收藏到文献集」文件夹选择器 —— 对齐 scholay-mobile.pen `mLHNI`(收藏 / 文献→文献集):
- * 顶部标题 + 新建文献集 + 文件夹单选列表(默认夹预选)+「完成收藏」。
+ * 全局「收藏到文件夹」选择器 —— 对齐 scholay-mobile.pen `mLHNI`(收藏 / 文献→文件夹):
+ * 顶部标题 + 新建文件夹 + 单选列表(默认夹预选)+「完成收藏」。
  * 移动端用底部抽屉、PC 用居中弹窗(同一份内容);由 providers 全局挂一份,任意收藏按钮 openCollect 触发。
  * 只负责选文件夹(含新建),选定后回调 request.onPick(folderId);真正收藏由 FavoritePaperButton 做。
  *
@@ -64,13 +64,13 @@ export function CollectFolderPicker() {
   };
 
   const body = (
-    <div className="flex max-h-[70vh] flex-col">
+    <div className="flex max-h-[70dvh] flex-col">
       {/* 头部 */}
       <div className="flex shrink-0 items-start justify-between gap-2 border-b border-border px-5 pb-3.5 pt-0.5">
         <div className="flex flex-col gap-0.5">
-          <h2 className="text-16 font-medium text-foreground">收藏到文献集</h2>
+          <h2 className="text-16 font-medium text-foreground">收藏到文件夹</h2>
           <p className="text-12 text-muted-foreground">
-            {request?.paperTitle ? `把《${request.paperTitle}》保存到一个文献集` : '将这篇论文保存到一个文献集'}
+            {request?.paperTitle ? `把《${request.paperTitle}》保存到一个文件夹` : '将这篇论文保存到一个文件夹'}
           </p>
         </div>
         <button
@@ -85,15 +85,16 @@ export function CollectFolderPicker() {
 
       {/* 列表 */}
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-3">
-        {/* 新建文献集 */}
+        {/* 新建文件夹 */}
         {creating ? (
-          <div className="flex items-center gap-2 rounded-12 border border-border-button bg-surface-card p-2">
+          <div className="flex items-center gap-2 rounded-12 border border-border-button bg-surface-card p-2 focus-within:border-border-control transition-colors">
+            {/* outline-none 合法:焦点可供性由外层容器的 focus-within:border-border-control 提供 */}
             <input
               autoFocus
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && submitCreate()}
-              placeholder="新文献集名称"
+              placeholder="新文件夹名称"
               maxLength={32}
               className="min-w-0 flex-1 bg-transparent px-1.5 text-14 text-foreground outline-none placeholder:text-faint"
             />
@@ -124,7 +125,7 @@ export function CollectFolderPicker() {
               <Plus className="size-5 text-brand-green" />
             </span>
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="text-14 font-medium text-foreground">新建文献集</span>
+              <span className="text-14 font-medium text-foreground">新建文件夹</span>
               <span className="text-12 text-faint">创建一个新的论文分组</span>
             </span>
             <ChevronRight className="size-4 shrink-0 text-faint" />
@@ -148,8 +149,10 @@ export function CollectFolderPicker() {
         )}
       </div>
 
-      {/* 完成收藏 */}
-      <div className="shrink-0 border-t border-border px-4 pb-[max(env(safe-area-inset-bottom),16px)] pt-3">
+      {/* 完成收藏 —— 安全区让位已上移到 MobileBottomSheet 根壳(统一 pb-[env(safe-area-inset-bottom)]),
+          这里若再留一份手搓的 max(env,16px) 会在 iPhone 上叠成双份内边距。
+          本 body 由 PC Dialog 与移动 sheet 共用:pb-4 = 原 max() 在桌面的取值,桌面逐像素不变。 */}
+      <div className="shrink-0 border-t border-border px-4 pb-4 pt-3">
         <button
           type="button"
           onClick={confirm}
@@ -168,7 +171,7 @@ export function CollectFolderPicker() {
     // 否则滑入/退场动画与拖拽关闭全失效。
     return (
       <LazyMotion features={domMax}>
-        <MobileBottomSheet open={open} onOpenChange={(v) => !v && close()} title="收藏到文献集">
+        <MobileBottomSheet open={open} onOpenChange={(v) => !v && close()} title="收藏到文件夹">
           {body}
         </MobileBottomSheet>
       </LazyMotion>
@@ -178,14 +181,25 @@ export function CollectFolderPicker() {
   return (
     <Dialog open={open} onOpenChange={(v) => !v && close()}>
       <DialogContent className="max-w-md gap-0 overflow-hidden p-0">
-        <DialogTitle className="sr-only">收藏到文献集</DialogTitle>
+        <DialogTitle className="sr-only">收藏到文件夹</DialogTitle>
         {body}
       </DialogContent>
     </Dialog>
   );
 }
 
-const SPINE_COLORS = ['bg-brand-green', 'bg-brand-amber', 'bg-brand-red', 'bg-[#7C9E82]'];
+/**
+ * 文件夹书脊色 —— 按列表下标散列到分类色板 `--cat-*` 四档(每个色相取一档),
+ * 与同 feature 的 SharedReceivePage.AVATAR_TONES 用同一组槽位,保持 library 内一致。
+ *
+ * 旧实现是「3 个品牌色 + 1 个体系外硬编码 #7C9E82(灰绿)」的半迁移状态,两处问题:
+ *   1. #7C9E82 不在 Figma 四色阶的任何一档上;
+ *   2. 书脊色是**按下标轮转**的纯装饰,不带语义,用品牌色会让用户误读
+ *      「绿文件夹 = AI / 红文件夹 = 重要」—— 这正是 globals.css §七 建 --cat-* 的原因。
+ * 数组长度未变(仍是 4,`index % 4`),同一位置的文件夹仍永远同色。
+ * 色脊上不压任何文字/图标,不涉及对比度。
+ */
+const SPINE_COLORS = ['bg-cat-2', 'bg-cat-4', 'bg-cat-6', 'bg-cat-8'];
 
 function FolderRow({
   folder,
@@ -203,6 +217,8 @@ function FolderRow({
       type="button"
       onClick={onSelect}
       className={cn(
+        // border-[1.5px]:选中态加粗描边。1.5px 在 Figma 描边集合 {1, 1.5} 内(§4.5 图标描边 1.5px),
+        // Tailwind 边框只有 0/1/2/4/8 档,无 1.5,故保留 arbitrary value。
         'flex w-full items-center gap-3 rounded-12 border bg-surface-card p-2.5 text-left transition-colors',
         selected ? 'border-[1.5px] border-brand-green' : 'border-border active:bg-surface-1'
       )}
@@ -221,6 +237,9 @@ function FolderRow({
         </span>
         <span className="text-12 text-muted-foreground">{folder.paper_count} 篇论文</span>
       </span>
+      {/* 单选勾选圈。size-[22px]:Figma 未给单选控件规格,22 落在 Tailwind size-5(20)/size-6(24)
+          之间,改任一档都会挪动整行的视觉重心,故保留原值待设计师补规范;
+          border-[1.5px] 依据同上(Figma 描边集合 {1, 1.5},Tailwind 无该档)。 */}
       <span
         className={cn(
           'flex size-[22px] shrink-0 items-center justify-center rounded-pill border-[1.5px]',

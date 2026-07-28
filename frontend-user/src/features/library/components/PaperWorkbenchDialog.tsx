@@ -18,7 +18,8 @@ import { PdfPanel } from './manage/PdfPanel';
 import { RelinkPanel } from './manage/RelinkPanel';
 
 /**
- * 文献工作台 —— 文献集唯一的"添加 / 完善"统一弹窗。
+ * 文献工作台 —— 文件夹功能唯一的"添加 / 完善"统一弹窗。
+ * (「文件夹功能」而非「文件夹」:后者会被读成"某个文件夹的弹窗",这里说的是整个 feature。)
  * (合并原 LibraryImportDialog 添加弹窗 + PaperManageDialog 管理弹窗。)
  *
  * 一个壳 + 两种语境(intent),所有入口只是带不同初始 view 打开它:
@@ -70,7 +71,7 @@ export function PaperWorkbenchDialog({
   onOpenChange,
   initial,
   currentFilter = 'root',
-  currentFolderName = '我的文献集',
+  currentFolderName = '我的文件夹',
 }: PaperWorkbenchDialogProps) {
   const [view, setView] = useState<WorkbenchView>(initial);
   const close = () => onOpenChange(false);
@@ -97,7 +98,7 @@ export function PaperWorkbenchDialog({
 
   const handleCreated = (row: UserLibraryPaper, merged: boolean) => {
     toast.success(
-      merged ? '你已收藏过这篇论文,已为你合并 · 可继续完善信息' : '已加入文献集 · 可继续完善信息'
+      merged ? '你已收藏过这篇论文,已为你合并 · 可继续完善信息' : '已加入文件夹 · 可继续完善信息'
     );
     enterManage(row, 'metadata');
   };

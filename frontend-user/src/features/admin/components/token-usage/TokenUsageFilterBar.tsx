@@ -84,7 +84,7 @@ export function TokenUsageFilterBar({ onChange }: { onChange: (f: TokenUsageFilt
             className={cn(
               'h-8 px-3 rounded-8 text-12 font-medium transition-colors',
               start && start === todayISO() && end === todayISO()
-                ? 'bg-foreground text-background'
+                ? 'bg-foreground text-on-dark'
                 : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground'
             )}
           >
@@ -98,7 +98,7 @@ export function TokenUsageFilterBar({ onChange }: { onChange: (f: TokenUsageFilt
               className={cn(
                 'h-8 px-3 rounded-8 text-12 font-medium transition-colors',
                 !customRange && d === days
-                  ? 'bg-foreground text-background'
+                  ? 'bg-foreground text-on-dark'
                   : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground'
               )}
             >

@@ -16,6 +16,7 @@ import { TodayPanel } from '../components/TodayPanel';
 import { useDashboardStats, type ChartDataPoint } from '../api/dashboard';
 import { buildDailyTrend, localDateKey, withWeekday } from '@/shared/lib/daily-trend';
 import { compactAxis, compactYuanAxis } from '@/shared/lib/chart-format';
+import { chartTheme } from '@/shared/lib/theme-bridge';
 import { Skeleton } from '@/shared/ui/skeleton';
 
 export function DashboardPage() {
@@ -180,19 +181,19 @@ function TrendCard({
                     <stop offset="100%" stopColor={color} stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} vertical={false} />
                 <XAxis
                   dataKey="date"
                   tickFormatter={(v: string) => (v?.length >= 10 ? v.slice(5) : v)}
-                  tick={{ fontSize: 11, fill: 'var(--color-faint)' }}
+                  tick={{ fontSize: chartTheme.fontSize, fill: chartTheme.axis }}
                   tickLine={false}
-                  axisLine={{ stroke: 'var(--color-border)' }}
+                  axisLine={{ stroke: chartTheme.grid }}
                   minTickGap={24}
                 />
                 <YAxis
                   allowDecimals={false}
                   tickFormatter={yTickFmt}
-                  tick={{ fontSize: 11, fill: 'var(--color-faint)' }}
+                  tick={{ fontSize: chartTheme.fontSize, fill: chartTheme.axis }}
                   tickLine={false}
                   axisLine={false}
                   width={44}
@@ -220,19 +221,19 @@ function TrendCard({
               </AreaChart>
             ) : (
               <LineChart data={rows} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} vertical={false} />
                 <XAxis
                   dataKey="date"
                   tickFormatter={(v: string) => (v?.length >= 10 ? v.slice(5) : v)}
-                  tick={{ fontSize: 11, fill: 'var(--color-faint)' }}
+                  tick={{ fontSize: chartTheme.fontSize, fill: chartTheme.axis }}
                   tickLine={false}
-                  axisLine={{ stroke: 'var(--color-border)' }}
+                  axisLine={{ stroke: chartTheme.grid }}
                   minTickGap={24}
                 />
                 <YAxis
                   allowDecimals={false}
                   tickFormatter={yTickFmt}
-                  tick={{ fontSize: 11, fill: 'var(--color-faint)' }}
+                  tick={{ fontSize: chartTheme.fontSize, fill: chartTheme.axis }}
                   tickLine={false}
                   axisLine={false}
                   width={38}
@@ -294,16 +295,9 @@ function TrendTooltip({
   );
 }
 
-const tooltipStyle: React.CSSProperties = {
-  backgroundColor: 'var(--color-background)',
-  border: '1px solid var(--color-border)',
-  borderRadius: 6,
-  fontSize: 12,
-  padding: '6px 10px',
-  boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-};
+const tooltipStyle: React.CSSProperties = chartTheme.tooltip;
 const tooltipLabelStyle: React.CSSProperties = {
   color: 'var(--color-muted-foreground)',
-  fontSize: 11,
+  fontSize: chartTheme.fontSize,
   marginBottom: 2,
 };

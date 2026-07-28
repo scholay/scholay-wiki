@@ -32,7 +32,7 @@ const THEME_BG: Record<NonNullable<UseCase['theme']>, string> = {
 
 const THEME_TITLE: Record<NonNullable<UseCase['theme']>, string> = {
   light: 'text-foreground',
-  dark: 'text-background',
+  dark: 'text-on-dark',
   amber: 'text-foreground',
 };
 
@@ -74,7 +74,13 @@ function Card({ uc }: { uc: UseCase }) {
   const Icon = getIcon(uc.icon);
 
   return (
-    <div className={cn('flex flex-col gap-5 p-8 rounded-16 h-full', THEME_BG[theme])}>
+    // data-surface="dark" —— dark 卡是【整块暗底】(不是浅底上的深色按钮),环画在卡片自身底色上。
+    // 默认 --ring rgb(31 31 35 / .50) 压在 bg-foreground #1F1F23 上 = 1.000:1 完全隐形
+    // (globals.css §13 的 [data-surface='dark'] 覆写把它换成 --ring-on-dark-emphasis)。
+    <div
+      data-surface={theme === 'dark' ? 'dark' : undefined}
+      className={cn('flex flex-col gap-5 p-8 rounded-16 h-full', THEME_BG[theme])}
+    >
       {/* tag —— Prism 风格,优先于 icon */}
       {uc.tag && (
         <span
@@ -96,7 +102,7 @@ function Card({ uc }: { uc: UseCase }) {
           )}
         >
           <Icon
-            className={cn('size-5', theme === 'dark' ? 'text-background' : 'text-foreground')}
+            className={cn('size-5', theme === 'dark' ? 'text-on-dark' : 'text-foreground')}
             strokeWidth={2}
           />
         </div>

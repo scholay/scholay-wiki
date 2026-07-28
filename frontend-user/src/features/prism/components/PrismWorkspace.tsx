@@ -44,11 +44,11 @@ function PrismPendingDiff({ chat }: { chat: ReturnType<typeof usePrismChat> }) {
                 onClick={() => chat.selectPending(f.rel_path)}
                 className={cn(
                   'inline-flex shrink-0 items-center gap-1 rounded-4 px-2 py-1 text-12 transition-colors',
-                  active ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-surface-2',
+                  active ? 'bg-foreground text-on-dark' : 'text-muted-foreground hover:bg-surface-2',
                 )}
               >
                 {f.rel_path}
-                {f.is_new && <span className={active ? 'text-background' : 'text-brand-green'}>· 新</span>}
+                {f.is_new && <span className={active ? 'text-on-dark' : 'text-brand-green'}>· 新</span>}
               </button>
             );
           })}
@@ -351,7 +351,8 @@ export function PrismWorkspace({ projectId, onBack, readOnly = false, onOpen }: 
               <ResizablePanel defaultSize={58} minSize={25} className="flex min-h-0 flex-col">
                 <div className="min-h-0 flex-1">
                   {fileBody.isLoading && !showDiff ? (
-                    <div className="flex h-full items-center justify-center bg-[#111]"><Loader2 className="size-5 animate-spin text-faint" /></div>
+                    // 加载占位与编辑器同底 —— 走 --prism-editor-bg token(强制深色面板族,见 globals.css §prism-editor)
+                    <div className="flex h-full items-center justify-center bg-[var(--prism-editor-bg)]"><Loader2 className="size-5 animate-spin text-faint" /></div>
                   ) : streaming && chat.live ? (
                     // 流式实时 diff:original=轮开始 DB 正文,proposed=cwd 实时正文(随 agent 改动刷新)。
                     // 只读(逐块取舍放在 awaiting 阶段的可编辑 diff)。

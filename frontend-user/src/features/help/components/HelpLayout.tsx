@@ -60,7 +60,9 @@ export function HelpLayout({
   const outerMaxW = toc ? 'max-w-6xl' : contentMaxWidth;
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    // min-h-dvh(不是 min-h-screen)—— 后者编译成裸 100vh,iOS 地址栏会把底部内容顶到视口外。
+    // 项目铁律「视口高度一律用 dvh」,护栏只查 arbitrary 里的裸 vh,查不出这种类名形态。
+    <div className="flex flex-col min-h-dvh bg-background">
       {/* 全站统一顶部导航 —— 与首页(AppShell)同一个 TopNav,保证一致。
          TopNav 自身 sticky top-0 h-16;help 页无 sidebar panel,故只显示 Logo + 菜单 + 用户区。 */}
       <TopNav />

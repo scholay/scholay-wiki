@@ -98,7 +98,7 @@ export const JournalFeedCard = memo(function JournalFeedCard({
           <Pill className="bg-brand-green text-on-brand">JCR {j.jcr_quartile}</Pill>
         )}
         {fqb && (
-          <Pill className="bg-brand-amber text-on-brand">
+          <Pill className="bg-brand-amber text-foreground">
             中科院 {fqb}
             {isTop ? ' Top' : ''}
           </Pill>

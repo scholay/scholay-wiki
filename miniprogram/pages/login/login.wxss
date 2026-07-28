@@ -44,7 +44,7 @@
 .seg {
   display: flex;
   background: var(--bg);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-8);
   padding: 6rpx;
   margin-bottom: 28rpx;
 }
@@ -54,7 +54,7 @@
   line-height: 68rpx;
   font-size: 28rpx;
   color: var(--text-weak);
-  border-radius: var(--r);
+  border-radius: var(--r-8);
 }
 .seg-item.on {
   background: var(--card);
@@ -71,8 +71,8 @@
   padding: 0 28rpx;
   background: var(--bg);
   border: 1rpx solid var(--border);
-  border-radius: var(--r-sm);
-  font-size: 30rpx;
+  border-radius: var(--r-4);
+  font-size: var(--fs-body);
   box-sizing: border-box;
 }
 .field-row {
@@ -89,7 +89,7 @@
   line-height: 92rpx;
   background: var(--bg);
   border: 1rpx solid var(--border);
-  border-radius: var(--r-sm);
+  border-radius: var(--r-4);
   font-size: 26rpx;
   color: var(--red);
 }

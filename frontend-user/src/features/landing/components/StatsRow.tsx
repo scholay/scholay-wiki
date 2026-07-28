@@ -15,7 +15,7 @@ const TONE: Record<NonNullable<Stat['tone']>, string> = {
 };
 
 const DARK_TONE: Record<NonNullable<Stat['tone']>, string> = {
-  foreground: 'text-background',
+  foreground: 'text-on-dark',
   red: 'text-brand-red',
   amber: 'text-brand-amber',
   green: 'text-brand-green',
@@ -24,7 +24,11 @@ const DARK_TONE: Record<NonNullable<Stat['tone']>, string> = {
 export function StatsRow({ feature }: { feature: LandingFeature }) {
   const dark = !!feature.statsDark;
   return (
+    // data-surface="dark" —— 暗主题时把焦点环换成浅色系(globals.css §13 的 [data-surface='dark'] 覆写)。
+    // 默认 --ring 是 rgb(31 31 35 / .50),压在 bg-foreground #1F1F23 上实测 1.000:1 完全隐形
+    // (2026-07-28 真实渲染取证),违反 WCAG 1.4.11。CSS 变量沿 DOM 继承,挂容器即可。
     <section
+      data-surface={dark ? 'dark' : undefined}
       className={cn(
         'py-16 lg:py-20 border-y',
         dark
@@ -54,6 +58,7 @@ export function StatsRow({ feature }: { feature: LandingFeature }) {
             <span
               className={cn(
                 'font-display italic font-medium leading-display-tight',
+                // 展示级数字随视口缩放 —— clamp 无法用离散字号 token 表达,保留 arbitrary(同 SectionHeader)。
                 'text-[clamp(40px,5vw,64px)]',
                 dark ? DARK_TONE[s.tone ?? 'foreground'] : TONE[s.tone ?? 'foreground']
               )}

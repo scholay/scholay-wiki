@@ -1,7 +1,7 @@
 import { type ReactNode } from 'react';
 import { Checkbox } from '@/shared/ui/checkbox';
 import { cn } from '@/shared/lib/utils';
-import type { Submission, SubmissionAsset, WizardStep } from '../../types';
+import type { Submission, SubmissionAsset, WizardStep } from '@/shared/lib/peer-review/types';
 
 /**
  * Step4 核对与投递(.pen `RYbJN`) —— 一张白卡 + 6 个 section(细分割线分),

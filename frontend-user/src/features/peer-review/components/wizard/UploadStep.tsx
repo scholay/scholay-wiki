@@ -3,7 +3,7 @@ import { Upload, Loader2, CheckCircle2, X, FileText, FileImage, FileArchive, Fil
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/ui/button';
-import type { AttachmentCategory, SubmissionAsset } from '../../types';
+import type { AttachmentCategory, SubmissionAsset } from '@/shared/lib/peer-review/types';
 import type { UploadAssetParams } from '../../api/submissions';
 
 /**
@@ -287,8 +287,9 @@ function ManuscriptUploadedRow({
   busy?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  // 上传完成提示:绿色背景 + 描边走 brand-green token 的低不透明度变体,
-  // 近似 .pen 设计稿里的 #F5FBF5 / #CFE8CF;.pen 暂无对应专用 surface token
+  // 上传完成提示:底与描边都由 brand-green token 派生(/5 与 /30 透明度),无硬编码色。
+  // ⚠️ 原注释以 .pen 的 #F5FBF5 / #CFE8CF 作依据 —— .pen 口径已于 2026-07 作废,以 token 为准。
+  // 与 Step4Rail 的自检通过态同族(brand-green),待 --status-* 规范落定后成对迁到 status-success。
   return (
     <div className="flex items-center gap-3 rounded-12 border border-brand-green/30 bg-brand-green/5 px-4 py-3">
       <span className="flex size-9 items-center justify-center rounded-8 border border-border bg-surface-card">

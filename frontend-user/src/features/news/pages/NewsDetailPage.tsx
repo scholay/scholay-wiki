@@ -64,7 +64,7 @@ export function NewsDetailPage() {
             <span className={`size-1.5 rounded-pill ${tone.dot}`} />
             {item.section_label || '情报'}
           </span>
-          <span className="rounded-4 bg-surface-1 px-1.5 py-0.5 text-faint">
+          <span className="shrink-0 whitespace-nowrap rounded-4 bg-surface-1 px-1.5 py-0.5 text-faint">
             {newsReportLabel(item.report_type)}
           </span>
           {item.is_featured && (

@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import { Filter, FolderOpen, Loader2 } from 'lucide-react';
 import { RouteSEO } from '@/shared/components/RouteSEO';
 import { SidebarLayout } from '@/shared/components/sidebar';
@@ -127,16 +128,16 @@ export function SearchPage() {
   // 留着 chip 反而会"打开 sidebar 后 flash 一个找不到的 section"。
   useRegisterSidebarRail(
     mode === 'smart'
-      ? [{ id: 'all', label: '文献集', icon: FolderOpen, sectionId: 'library' }]
+      ? [{ id: 'all', label: '文件夹', icon: FolderOpen, sectionId: 'library' }]
       : [
-          { id: 'all', label: '文献集', icon: FolderOpen, sectionId: 'library' },
+          { id: 'all', label: '文件夹', icon: FolderOpen, sectionId: 'library' },
           { id: 'filters', label: '筛选器', icon: Filter, sectionId: 'filters' },
         ]
   );
 
   // view 只读 —— 用 stagedIds 已是稳定引用,不需要再 useMemo 一次
   const { areas, activeArea, stagedIds } = useStagingView();
-  const { stagePaper, removePaper } = useStagingActions();
+  const { stagePaper, removePaper, bulkStagePapers } = useStagingActions();
   // 判定 WelcomeBoard vs MatrixColumn 切换:**任一区有论文** 就走 MatrixColumn
   // (即使 active 区是空,用户也能切回有数据的 tab);全部区都空 → 回到 WelcomeBoard
   // 给出 mock + 一键导入 CTA 引导。**仅 areas.length>0** 不够 —— 用户可能建了空 A B C
@@ -154,6 +155,43 @@ export function SearchPage() {
       }
     },
     [areas, stagedIds, removePaper]
+  );
+
+  /**
+   * 整页「全选暂存 / 全部取消」—— 供 SearcherColumn 顶部那颗按钮调用。
+   *
+   * 作用域是**当前这一页**,不是全部 N 万条结果:暂存区单区上限 MAX_PAPERS_PER_AREA=100,
+   * 而每页 20/50 条,整页恰好装得下;"全选 89,255 篇"在数据模型上根本不成立。
+   *
+   * 判据放在这里而不是 SearcherColumn:SearchPage 是暂存动作的唯一 owner
+   * (stagePaper / unstageAcrossAreas 都在这),让展示层再算一遍等于开第二个真源。
+   */
+  const toggleStageAll = useCallback(
+    async (papers: Paper[]) => {
+      if (papers.length === 0) return;
+      const allStaged = papers.every((p) => stagedIds.has(p.paperId));
+      if (allStaged) {
+        // 全部取消 —— 逐篇走 unstageAcrossAreas(它自带 stagedIds 守卫,不会误删)
+        papers.forEach((p) => unstageAcrossAreas(p.paperId));
+        toast.success(`已取消暂存 ${papers.length} 篇`);
+        return;
+      }
+      // 批量加入 —— bulkStagePapers 内部会跳过已在区内的,并返回三类计数
+      try {
+        const { added, skipped, capped } = await bulkStagePapers(papers, 'traditional');
+        const parts: string[] = [];
+        if (added > 0) parts.push(`已暂存 ${added} 篇`);
+        if (skipped > 0) parts.push(`${skipped} 篇已在暂存区`);
+        if (capped > 0) parts.push(`${capped} 篇因暂存区已满未加入`);
+        if (parts.length === 0) toast.info('本页论文已全部在暂存区');
+        // added===0 但有跳过/超限 → 用 info 而非 success,别把"什么都没加成"报成成功
+        else if (added === 0) toast.info(parts.join('、'));
+        else toast.success(parts.join('、'));
+      } catch (err) {
+        toast.error(`批量暂存失败:${(err as Error).message}`);
+      }
+    },
+    [stagedIds, unstageAcrossAreas, bulkStagePapers]
   );
 
   // 折叠态由 3 个集合派生(SearcherColumn 直接消费 effectivelyCollapsed):
@@ -268,7 +306,7 @@ export function SearchPage() {
     ? `${seoQuery} - 文献搜索 | Scholay 学术搜索`
     : '文献搜索 - Scholay | AI 驱动的学术文献检索';
   const seoDesc = seoQuery
-    ? `Scholay 学术搜索: ${seoQuery}。覆盖 Semantic Scholar / OpenAlex / PubMed 多源,AI 排序 + 引用图谱 + PDF 全文,一键加入文献集。`
+    ? `Scholay 学术搜索: ${seoQuery}。覆盖 Semantic Scholar / OpenAlex / PubMed 多源,AI 排序 + 引用图谱 + PDF 全文,一键加入文件夹。`
     : 'Scholay 学术文献搜索 —— 多源融合 (Semantic Scholar / OpenAlex / PubMed),支持高级筛选、暂存矩阵分析、AI 智能筛选。覆盖 3 亿+ 学术论文。';
   const seoCanonical = seoQuery
     ? `/search?q=${encodeURIComponent(seoQuery)}`
@@ -301,6 +339,7 @@ export function SearchPage() {
             filters={filters}
             stagedIds={stagedIds}
             collapsedIds={effectivelyCollapsed}
+            onToggleStageAll={toggleStageAll}
             onStage={handleStage}
             onUnstage={unstageAcrossAreas}
             onCollapse={onCollapse}

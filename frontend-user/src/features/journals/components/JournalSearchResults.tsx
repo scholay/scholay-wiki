@@ -147,8 +147,11 @@ export function JournalSearchResults({
           {/* 标题 + 右侧 KPI */}
           <div className="flex items-end justify-between gap-6">
             <div className="space-y-1.5">
-              {/* .pen `vCLDh` 30/700 Playfair —— 30 不在 token 表,arbitrary */}
-              <h1 className="font-display font-bold leading-none text-[30px] text-foreground">
+              {/* 页面 h1 —— Figma §2.2 字号六档最上一档 text-28(旧 .pen 口径的 30px 已作废,
+                  实测是全站唯一一处 off-scale 字号:1/8602)。行高按 Figma 的字族绑定规则走
+                  leading-display-tight(1.15,≥28px 展示标题);原 leading-none 是比值 1.0,
+                  不属于任何一档字族行高。与同族 h1 一致(browser/paper-detail/PaperHeader.tsx)。 */}
+              <h1 className="font-display font-bold leading-display-tight text-28 text-foreground">
                 期刊搜索
               </h1>
               <p className="text-14 text-faint">
@@ -173,6 +176,7 @@ export function JournalSearchResults({
           <form onSubmit={submitSearch} className="flex items-center gap-2.5 h-13">
             <div className="flex flex-1 h-13 items-center gap-3 px-[18px] rounded-12 bg-surface-card border border-border-strong focus-within:border-foreground transition-colors">
               <Search className="size-4 text-muted-foreground" strokeWidth={2} />
+              {/* outline-none 合法:焦点可供性由外层容器的 focus-within:border-foreground 提供 */}
               <input
                 type="search"
                 value={input}
@@ -193,7 +197,7 @@ export function JournalSearchResults({
             </div>
             <button
               type="submit"
-              className="inline-flex h-13 px-6 items-center justify-center gap-2 rounded-12 bg-foreground text-background text-14 font-medium hover:opacity-90 transition-opacity shrink-0"
+              className="inline-flex h-13 px-6 items-center justify-center gap-2 rounded-12 bg-foreground text-on-dark text-14 font-medium hover:opacity-90 transition-opacity shrink-0"
             >
               <Search className="size-3.5" strokeWidth={2.5} />
               搜索期刊
@@ -235,7 +239,7 @@ export function JournalSearchResults({
                   className={cn(
                     'inline-flex items-center gap-1.5 h-7 px-3 rounded-8 text-12 transition-colors',
                     active
-                      ? 'bg-foreground text-background font-medium'
+                      ? 'bg-foreground text-on-dark font-medium'
                       : 'bg-surface-card border border-border text-subtle hover:border-foreground'
                   )}
                 >
@@ -380,7 +384,7 @@ function JournalCard({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             {j.type && (
-              <span className="inline-flex items-center h-5 px-2 rounded-4 bg-foreground text-background text-12 font-medium uppercase">
+              <span className="inline-flex items-center h-5 px-2 rounded-4 bg-foreground text-on-dark text-12 font-medium uppercase">
                 {j.type}
               </span>
             )}

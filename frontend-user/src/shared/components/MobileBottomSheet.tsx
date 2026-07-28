@@ -15,6 +15,14 @@ import { haptic } from '@/shared/lib/haptics';
  *   - 用 m.*,必须在 LazyMotion 子树内(移动壳 MobileShell 已提供);PC 端请勿直接用。
  *
  * a11y:本组件渲染 sr-only 的 DialogTitle(title 必填);调用方内部不要再放 DialogTitle。
+ *
+ * 🔴 安全区(render-audit-2026-07-28 P1-6):sheet 根 `bottom-0` 贴的是**视口底边**,
+ * 实测 `padding-bottom = 0`、`rect.bottom = innerHeight` —— 全面屏上最底下的按钮/表单
+ * 直接落在 home indicator 之下。现在根节点统一补 `pb-[env(safe-area-inset-bottom)]`:
+ *   - 无刘海机型 / 桌面:env = 0 → **逐像素不变**(不会与调用方自己的 pb 叠出双倍留白);
+ *   - iPhone X+:在调用方的内容留白之外再加 34px 物理让位。
+ * 分工:根壳只补「设备 chrome 的物理遮挡」,内容的呼吸留白仍归调用方 —— 所以这里用裸 env()
+ * 而不是带 1rem 下限的 `--safe-bottom`(那个下限会给每个 sheet 无条件加 16px)。
  */
 export function MobileBottomSheet({
   open,
@@ -57,7 +65,7 @@ export function MobileBottomSheet({
             >
               <m.div
                 className={cn(
-                  'fixed inset-x-0 bottom-0 mx-auto flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-16 bg-surface-card shadow-overlay',
+                  'fixed inset-x-0 bottom-0 mx-auto flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-16 bg-surface-card pb-[env(safe-area-inset-bottom)] shadow-overlay',
                   elevated ? 'z-popover' : 'z-modal',
                   className
                 )}

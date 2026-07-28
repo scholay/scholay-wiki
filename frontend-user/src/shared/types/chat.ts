@@ -105,7 +105,7 @@ export interface Turn {
    */
   userAttachments?: TurnAttachment[];
 
-  /** 该轮用户引用的文献集论文 / 文件夹 (claw「引用文献」)。与附件同属 user 侧元数据,
+  /** 该轮用户引用的收藏论文 / 整个文件夹 (claw「引用文献」)。与附件同属 user 侧元数据,
    *  渲染成特有的「引用」chip。实时轮由 composer 透传;历史回放从 user 文本的引用块解析恢复。 */
   userReferences?: TurnReference[];
 
@@ -178,7 +178,7 @@ export interface TurnAttachment {
 }
 
 /**
- * 用户从文献集引用的一项 —— 单篇论文或整个文件夹。展示成「引用」chip(区别于上传附件)。
+ * 用户从收藏里引用的一项 —— 单篇论文或整个文件夹。展示成「引用」chip(区别于上传附件)。
  * 完整资料由后端物化进会话 cwd 的 references/(见 backend internal/claw/references.go),
  * 这里只承载 chip 展示所需的最小信息。
  */

@@ -15,13 +15,13 @@ body { background: var(--surface-1); }
 .modes { display: flex; gap: 6px; margin: 0 auto; }
 .mode {
   appearance: none; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
-  padding: 7px 14px; border-radius: 999px; color: var(--ink-dim);
-  background: var(--background); border: 1px solid var(--line); transition: all .15s;
+  padding: 7px 14px; border-radius: var(--radius-pill); color: var(--ink-dim);
+  background: var(--card); border: 1px solid var(--line); transition: all .15s;
 }
 .mode.on { color: #fff; border-color: var(--brand); background: var(--brand); font-weight: 700; }
 .iconbtn {
   flex: none; width: 34px; height: 34px; border-radius: var(--radius); cursor: pointer; font-size: 15px;
-  background: var(--background); border: 1px solid var(--line); color: var(--ink-dim);
+  background: var(--card); border: 1px solid var(--line); color: var(--ink-dim);
   display: grid; place-items: center;
 }
 .iconbtn:active { background: var(--surface-2); }
@@ -30,7 +30,7 @@ body { background: var(--surface-1); }
 .levelbar {
   display: flex; flex-direction: column; gap: 8px; margin: 0 14px 8px;
   padding: 9px 12px; border-radius: var(--radius-lg);
-  background: var(--danger-soft); border: 1px solid #f3d8d8;
+  background: var(--danger-soft); border: 1px solid var(--danger-line);
 }
 .lv-row { display: flex; align-items: center; gap: 10px; }
 .lv-l { flex: 1; min-width: 0; }
@@ -43,7 +43,7 @@ body { background: var(--surface-1); }
 .lv-dot {
   flex: 0 0 auto; width: 34px; height: 30px; border-radius: var(--radius); cursor: pointer; font: inherit;
   font-size: 12.5px; font-weight: 700; display: grid; place-items: center;
-  background: var(--background); border: 1px solid var(--line); color: var(--ink-dim);
+  background: var(--card); border: 1px solid var(--line); color: var(--ink-dim);
   transition: transform .15s var(--ease-spring), background .15s, border-color .15s;
 }
 .lv-dot:active { transform: scale(.9); }
@@ -94,7 +94,7 @@ body { background: var(--surface-1); }
 .ebtn {
   display: flex; flex-direction: column; align-items: center; gap: 4px;
   padding: 7px 2px; border-radius: var(--radius); cursor: pointer; font: inherit;
-  background: var(--background); border: 1px solid var(--line); color: var(--ink-dim);
+  background: var(--card); border: 1px solid var(--line); color: var(--ink-dim);
   transition: transform .15s var(--ease-spring), border-color .15s, background .15s;
 }
 .ebtn:active { transform: scale(.93); }
@@ -110,7 +110,7 @@ body { background: var(--surface-1); }
 .ctl {
   appearance: none; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
   padding: 8px 12px; border-radius: var(--radius); color: var(--ink-dim);
-  background: var(--background); border: 1px solid var(--line-btn);
+  background: var(--card); border: 1px solid var(--line-btn);
   transition: all .15s var(--ease-spring); white-space: nowrap;
 }
 .ctl:active { transform: scale(.95); background: var(--surface-2); }
@@ -120,12 +120,12 @@ body { background: var(--surface-1); }
 .hide { display: none !important; }
 
 /* 顶栏奖励按钮 */
-.iconbtn.reward { border-color: #f3d8d8; background: var(--danger-soft); }
+.iconbtn.reward { border-color: var(--danger-line); background: var(--danger-soft); }
 .iconbtn.reward.earned {
   border-color: var(--amber); background: var(--amber-soft);
   animation: rewardpulse 1.6s var(--ease-out) infinite;
 }
-@keyframes rewardpulse { 0%,100% { box-shadow: 0 0 0 0 rgba(212,160,23,.5); } 50% { box-shadow: 0 0 0 5px rgba(212,160,23,0); } }
+@keyframes rewardpulse { 0%,100% { box-shadow: 0 0 0 0 rgba(229, 168, 0,.5); } 50% { box-shadow: 0 0 0 5px rgba(229, 168, 0,0); } }
 
 /* 奖励弹层 */
 .reward-card { text-align: center; }
@@ -133,15 +133,15 @@ body { background: var(--surface-1); }
 .reward-medal { font-size: 46px; line-height: 1; }
 .reward-prize {
   display: inline-block; margin: 10px 0 8px; font-size: 13px; font-weight: 800; color: var(--brand);
-  background: var(--danger-soft); border: 1px solid #f3d8d8; padding: 5px 14px; border-radius: 999px;
+  background: var(--danger-soft); border: 1px solid var(--danger-line); padding: 5px 14px; border-radius: var(--radius-pill);
 }
 .reward-hero h2 { font-size: 19px; font-weight: 800; color: var(--ink); }
 .reward-hero p { font-size: 13px; color: var(--ink-mut); margin-top: 6px; line-height: 1.5; }
 
 /* 进度条(20 关) */
 .reward-track { margin: 4px 0 18px; }
-.rt-bar { height: 12px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line-soft); overflow: hidden; }
-.rt-bar i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--brand-3), #3f9b3f); transition: width .5s var(--ease-out); }
+.rt-bar { height: 12px; border-radius: var(--radius-pill); background: var(--surface-2); border: 1px solid var(--line-soft); overflow: hidden; }
+.rt-bar i { display: block; height: 100%; border-radius: var(--radius-pill); background: linear-gradient(90deg, var(--brand-3), #3F6636 /* = globals --green-4,松青渐变亮端;无对应 token,故内联 */); transition: width .5s var(--ease-out); }
 .rt-count { font-size: 12px; color: var(--ink-mut); margin-top: 7px; }
 .rt-count b { color: var(--brand-3); font-weight: 800; font-size: 14px; }
 
@@ -170,28 +170,28 @@ body { background: var(--surface-1); }
 .reward-steps li:last-child { border-bottom: none; }
 .reward-steps li::before {
   content: counter(rs); position: absolute; left: 0; top: 8px;
-  width: 22px; height: 22px; border-radius: 999px; font-size: 12px; font-weight: 800;
+  width: 22px; height: 22px; border-radius: var(--radius-pill); font-size: 12px; font-weight: 800;
   display: grid; place-items: center; color: #fff; background: var(--brand);
 }
 .reward-note { font-size: 11px; color: var(--ink-mut); line-height: 1.6;
-  background: var(--amber-soft); border: 1px solid #eadfc0; border-radius: var(--radius); padding: 9px 11px; }
+  background: var(--amber-soft); border: 1px solid var(--amber-line); border-radius: var(--radius); padding: 9px 11px; }
 
 /* 引导里的奖品条 */
 .tut-prize {
-  font-size: 13px; font-weight: 700; color: #9a7513; margin: -8px 0 18px;
-  background: var(--amber-soft); border: 1px solid #eadfc0; border-radius: 999px; padding: 8px 14px;
+  font-size: 13px; font-weight: 700; color: var(--amber-ink); margin: -8px 0 18px;
+  background: var(--amber-soft); border: 1px solid var(--amber-line); border-radius: var(--radius-pill); padding: 8px 14px;
 }
 .tut-prize b { color: var(--brand); }
 
 /* 信息弹层(底部抽屉) */
 .sheet {
   position: fixed; inset: 0; z-index: 100; display: flex; align-items: flex-end;
-  background: rgba(17,17,17,.4); animation: fade .2s;
+  background: rgba(31, 31, 35,.4); animation: fade .2s;
 }
 @keyframes fade { from { opacity: 0; } }
 .sheet-card {
   width: 100%; max-width: 620px; margin: 0 auto; max-height: 82vh; overflow-y: auto;
-  background: var(--background); border-top: 1px solid var(--line);
+  background: var(--card); border-top: 1px solid var(--line);
   border-radius: 12px 12px 0 0; padding: 20px 16px calc(var(--safe-b) + 20px);
   animation: slideup .28s var(--ease-out);
 }
@@ -203,11 +203,11 @@ body { background: var(--surface-1); }
 /* 新手引导 */
 .tut {
   position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 24px;
-  background: rgba(17,17,17,.45); animation: fade .25s;
+  background: rgba(31, 31, 35,.45); animation: fade .25s;
 }
 .tut-card {
   max-width: 380px; width: 100%; text-align: center;
-  background: var(--background); border: 1px solid var(--line);
+  background: var(--card); border: 1px solid var(--line);
   border-radius: 12px; padding: 28px 22px; animation: slideup .3s var(--ease-out);
 }
 .tut-emoji { font-size: 40px; }
@@ -216,7 +216,7 @@ body { background: var(--surface-1); }
 .tut-steps { display: flex; flex-direction: column; gap: 13px; text-align: left; margin-bottom: 22px; }
 .ts { display: flex; align-items: flex-start; gap: 11px; font-size: 13px; color: var(--ink-dim); line-height: 1.5; }
 .ts b { color: var(--ink); font-weight: 700; }
-.ts span { flex: none; width: 24px; height: 24px; border-radius: 999px; display: grid; place-items: center;
+.ts span { flex: none; width: 24px; height: 24px; border-radius: var(--radius-pill); display: grid; place-items: center;
   font-size: 12px; font-weight: 700; color: #fff; background: var(--brand); }
 .tut-go {
   width: 100%; appearance: none; border: none; cursor: pointer; font: inherit; font-weight: 700; font-size: 15px; color: #fff;

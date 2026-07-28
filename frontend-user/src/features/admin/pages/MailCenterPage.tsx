@@ -97,7 +97,7 @@ export function MailCenterPage() {
               className={cn(
                 'h-7 rounded-8 px-2.5 text-12 font-medium transition-colors',
                 o.value === status
-                  ? 'bg-foreground text-background'
+                  ? 'bg-foreground text-on-dark'
                   : 'text-muted-foreground hover:bg-surface-1 hover:text-foreground',
               )}
             >
@@ -136,7 +136,7 @@ export function MailCenterPage() {
                 收件箱为空(在「客服配置」启用 IMAP 后自动拉取)
               </div>
             ) : (
-              <ul className="max-h-[70vh] divide-y divide-border-soft overflow-y-auto">
+              <ul className="max-h-[70dvh] divide-y divide-border-soft overflow-y-auto">
                 {items.map((m) => (
                   <MailRow
                     key={m.id}
@@ -250,7 +250,7 @@ function ReadingPane({ id }: { id: number | null }) {
           {/* 正文:优先纯文本;只有 HTML 时用沙箱 iframe 隔离渲染 */}
           <div className="px-5 py-4">
             {mail.text_body ? (
-              <pre className="max-h-[45vh] overflow-y-auto whitespace-pre-wrap font-[inherit] text-12 leading-paragraph text-subtle">
+              <pre className="max-h-[45dvh] overflow-y-auto whitespace-pre-wrap font-[inherit] text-12 leading-paragraph text-subtle">
                 {mail.text_body}
               </pre>
             ) : mail.html_body ? (
@@ -258,7 +258,7 @@ function ReadingPane({ id }: { id: number | null }) {
                 sandbox=""
                 srcDoc={mail.html_body}
                 title="邮件正文"
-                className="h-[45vh] w-full rounded-12 border border-border-soft bg-surface-card"
+                className="h-[45dvh] w-full rounded-12 border border-border-soft bg-surface-card"
               />
             ) : (
               <p className="text-12 text-faint">(无正文)</p>

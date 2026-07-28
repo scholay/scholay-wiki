@@ -69,7 +69,8 @@ export function WeChatCallbackPage() {
   }, [params, navigate, qc]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-6">
+    // min-h-dvh 不是 min-h-screen —— 后者是裸 100vh,iOS 地址栏会盖住居中内容(项目铁律:视口高度用 dvh)。
+    <div className="flex min-h-dvh items-center justify-center bg-background px-6">
       <div className="flex flex-col items-center gap-4 text-center max-w-md">
         {phase === 'loading' && (
           <>

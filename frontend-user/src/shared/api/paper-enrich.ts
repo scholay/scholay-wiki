@@ -9,7 +9,7 @@ import type { Paper } from '@/shared/api/types';
  *
  * 失败时静默 fallback —— 返回原数组,缺 abstract 的就缺,不阻塞主流程。
  *
- * 跨 feature 复用:文献搜索页 / 文献集快捷搜索都调它,因此放在 shared/api/。
+ * 跨 feature 复用:文献搜索页 / 文件夹快捷搜索都调它,因此放在 shared/api/。
  */
 export async function enrichPmdAbstracts(papers: Paper[]): Promise<Paper[]> {
   if (!papers || papers.length === 0) return papers;

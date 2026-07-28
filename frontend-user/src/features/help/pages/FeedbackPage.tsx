@@ -327,7 +327,7 @@ export function FeedbackPage() {
                       <button
                         type="button"
                         onClick={() => removeAttachment(a.id)}
-                        className="absolute right-1 top-1 inline-flex size-5 items-center justify-center rounded-pill bg-foreground/70 text-background opacity-0 transition-opacity hover:bg-foreground group-hover:opacity-100"
+                        className="absolute right-1 top-1 inline-flex size-5 items-center justify-center rounded-pill bg-foreground/70 text-on-dark opacity-0 transition-opacity hover:bg-foreground group-hover:opacity-100"
                         aria-label="移除附件"
                       >
                         <X className="size-3" />
@@ -415,7 +415,7 @@ export function FeedbackPage() {
       <Dialog open={!!lightbox} onOpenChange={(o) => !o && setLightbox(null)}>
         <DialogContent className="max-w-3xl">
           {lightbox && (
-            <img src={lightbox.url} alt={lightbox.name} className="max-h-[75vh] w-full rounded-8 object-contain" />
+            <img src={lightbox.url} alt={lightbox.name} className="max-h-[75dvh] w-full rounded-8 object-contain" />
           )}
         </DialogContent>
       </Dialog>

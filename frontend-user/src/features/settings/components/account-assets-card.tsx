@@ -34,7 +34,7 @@ const TIER_BADGE: Record<Tier, string> = {
 const NAMEPLATE: Record<Tier, string> = {
   free: 'bg-surface-2 text-subtle border border-border',
   pro: 'bg-surface-card text-foreground border border-foreground',
-  max: 'bg-foreground text-background',
+  max: 'bg-foreground text-on-dark',
 };
 const ALL_TIERS: Tier[] = ['free', 'pro', 'max'];
 
@@ -75,7 +75,7 @@ export function AccountAssetsCard({ data, onGoRecharge }: { data: Overview; onGo
           <Button
             size="sm"
             onClick={() => openUpgrade()}
-            className="h-7 gap-1 bg-brand-red px-2.5 text-background hover:bg-brand-red/90"
+            className="h-7 gap-1 bg-brand-red px-2.5 text-on-brand hover:bg-brand-red/90"
           >
             <Sparkles className="size-3.5" />
             {data.tier === 'free' ? '升级会员' : data.tier === 'max' ? '续期会员' : '续期 / 升级'}
@@ -179,7 +179,7 @@ function LockedRow({ tier, onUpgrade }: { tier: Tier; onUpgrade: () => void }) {
       <button
         onClick={() => tier !== 'free' && onUpgrade()}
         title="升级解锁更高额度"
-        className="flex shrink-0 items-center gap-1 rounded-pill border border-brand-red/40 px-2 py-0.5 text-12 font-medium text-brand-red transition-colors hover:bg-brand-red hover:text-background"
+        className="flex shrink-0 items-center gap-1 rounded-pill border border-brand-red/40 px-2 py-0.5 text-12 font-medium text-brand-red transition-colors hover:bg-brand-red hover:text-on-brand"
       >
         <Lock className="size-3" /> 升级解锁
       </button>

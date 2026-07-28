@@ -4,10 +4,12 @@
   var D = window.CHECKRATE_DATA, S = window.Scholay, esc = S.esc;
   var groupSeg, itemSeg, result, curGroup = D.groups[0], curItem = null;
 
+  // 色值真源:frontend-user/src/styles/globals.css(朱砂/琥珀/松青)。JS 内联无法读 CSS 变量,
+  // 必须硬编码 —— 改 globals 时连同 _shared/brand.css 一起同步这里。
   var ZONE = {
-    strict: { color: '#cc2222', label: '偏严' },
-    mid:    { color: '#d4a017', label: '中等' },
-    loose:  { color: '#2a7a2a', label: '较宽' }
+    strict: { color: '#882828', label: '偏严' },
+    mid:    { color: '#E5A800', label: '中等' },
+    loose:  { color: '#2F4D29', label: '较宽' }
   };
 
   function renderGroups() {

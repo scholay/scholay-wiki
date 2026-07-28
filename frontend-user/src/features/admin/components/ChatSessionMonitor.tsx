@@ -103,7 +103,7 @@ export function ChatSessionMonitor({ feature }: { feature: MonitorFeature }) {
       <Pagination total={data?.total ?? 0} page={page} pageSize={20} onPageChange={setPage} />
 
       <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>会话记录 · {viewing?.username || viewing?.userEmail}</DialogTitle>
           </DialogHeader>

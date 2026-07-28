@@ -32,7 +32,7 @@ export interface MobilePaperRowProps {
   onCite: (p: Paper) => void;
   /** 收藏/取消收藏成功回调 —— 调用方用它就地翻转「已收藏」态(无需重拉 /library/check) */
   onFavoriteToggle?: (paperId: string, favorited: boolean) => void;
-  /** 取消收藏二次确认文案覆盖 —— 文献集语境下「取消收藏」= 删除整行(含上传 PDF/编辑),
+  /** 取消收藏二次确认文案覆盖 —— 文件夹语境下「取消收藏」= 删除整行(含上传 PDF/编辑),
    *  警示要比搜索结果里的「取消收藏」重(那只是移出收藏)。 */
   unfavoriteTitle?: string;
   unfavoriteDescription?: string;
@@ -40,7 +40,7 @@ export interface MobilePaperRowProps {
 
 /**
  * 移动端论文行 —— **推特(Twitter)时间线**式连续列表项(消除卡片割裂感),
- * 移动端「搜索结果」与「文献集详情」共用同一行样式(放 shared 以跨 feature 复用):
+ * 移动端「搜索结果」与「文件夹详情」共用同一行样式(放 shared 以跨 feature 复用):
  *   - 无卡片描边 / 圆角 / 间隙,行与行之间仅一条细分割线,整列连续
  *   - 头像独占左列,作者/来源、标题、摘要、标签、操作条全部在右列(对齐头像右侧)
  *   - 底部操作条:收藏 / 分享 / 引用,在内容列内横向铺开

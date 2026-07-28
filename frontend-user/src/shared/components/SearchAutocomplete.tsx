@@ -86,7 +86,8 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
   useImperativeHandle(ref, () => rootRef.current as HTMLDivElement);
   const pickerCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // dropdown 高度上限 —— 实测主框距视窗底距离,扣 24px 安全边距,防止滚动条贴到屏幕底缘
-  const [dropdownMaxHeight, setDropdownMaxHeight] = useState<string>('70vh');
+  // 首帧兜底用 dvh(测量前只有这一帧会用到它;裸 vh 在 iOS 地址栏展开时偏大)
+  const [dropdownMaxHeight, setDropdownMaxHeight] = useState<string>('70dvh');
 
   // 真并行:3 个源(stc/olx/pmd)各自独立 useQuery,先到先铺,后到的静默追加在尾部
   const sourceResults = useMultiSourceSearchSuggestions(value, {
@@ -209,6 +210,8 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
             }}
             autoFocus={autoFocus}
             placeholder={placeholder}
+            // 「outline-none」:焦点可供性由外层搜索条承担 —— 它有 focus-within:border-foreground
+            // (以及 focused 态的 `border-foreground`),整条框变深比裸 input 画环更贴 Figma §4.5。
             className="flex-1 h-auto bg-transparent text-14 outline-none placeholder:text-faint"
           />
           {value && (

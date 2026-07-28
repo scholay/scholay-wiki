@@ -101,7 +101,8 @@
     cv.width = window.innerWidth * dpr; cv.height = window.innerHeight * dpr;
     ctx.scale(dpr, dpr);
     var W = window.innerWidth, H = window.innerHeight;
-    var colors = opts.colors || ['#cc2222', '#2a7a2a', '#d4a017', '#1a56db', '#111111'];
+    // 彩带取品牌四色 + cat-blue(canvas 无法读 CSS 变量);真源 globals.css。
+    var colors = opts.colors || ['#882828', '#2F4D29', '#E5A800', '#2E5AA8', '#1F1F23'];
     var n = opts.count || 90, parts = [];
     var originX = opts.x != null ? opts.x : W / 2, originY = opts.y != null ? opts.y : H * 0.32;
     for (var i = 0; i < n; i++) {

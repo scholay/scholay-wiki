@@ -45,14 +45,16 @@ export function NotFoundPage() {
   // 自愈尝试中 —— 不闪 404 文案,只给一个 spinner,reload 后即页面正常
   if (shouldAttemptReload) {
     return (
-      <div className="flex h-full min-h-screen items-center justify-center">
+      // min-h-dvh 不是 min-h-screen(裸 100vh)—— 项目铁律:视口高度一律用 dvh。
+      <div className="flex h-full min-h-dvh items-center justify-center">
         <Loader2 className="size-5 animate-spin text-faint" />
       </div>
     );
   }
 
   return (
-    <div className="flex h-full min-h-screen flex-col items-center justify-center gap-4 text-center px-6">
+    // min-h-dvh 不是 min-h-screen(裸 100vh)—— 项目铁律:视口高度一律用 dvh。
+    <div className="flex h-full min-h-dvh flex-col items-center justify-center gap-4 text-center px-6">
       {/* 真 404:noindex 防止被搜索引擎当正文收录(SPA 客户端渲染的 404) */}
       <RouteSEO title="404 页面不存在 - Scholay学术" description="抱歉,你访问的页面不存在。" noindex />
       <p className="text-12 uppercase text-faint">404</p>

@@ -27,6 +27,7 @@ function StepRow({ step, index }: { step: WorkflowStep; index: number }) {
         <span className="text-12 font-medium uppercase text-muted-foreground">
           {step.tag}
         </span>
+        {/* 展示级小标题随视口缩放 —— clamp 无法用离散字号 token 表达,保留 arbitrary(同 SectionHeader) */}
         <h3 className="font-display italic font-medium text-foreground text-[clamp(24px,3vw,36px)] leading-display-tight">
           {step.title}
         </h3>
@@ -43,6 +44,7 @@ function StepRow({ step, index }: { step: WorkflowStep; index: number }) {
         <span
           className={cn(
             'font-display italic font-medium opacity-15 select-none',
+            // 纯装饰的巨大水印序号(120–200px):远超任何字号档,只能 clamp,保留 arbitrary。
             'text-[clamp(120px,20vw,200px)]',
             numTone
           )}

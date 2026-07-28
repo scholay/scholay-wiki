@@ -7,7 +7,7 @@ import { PaginationPrevNext } from'@/shared/components/PaginationPrevNext';
 import { useDebounce } from'@/shared/hooks';
 import { useJournalSearch } from'@/features/journals/api/journals';
 import { cn } from'@/shared/lib/utils';
-import type { JournalTarget } from'../../types';
+import type { JournalTarget } from'@/shared/lib/peer-review/types';
 import type { Journal } from'@/shared/api/types';
 
 /**
@@ -204,7 +204,7 @@ function JournalCard({
       }}
       className={cn(
         // 整卡可点即选;选中态做强对比 (红边 + 红环 + 浅红底), 一眼可辨
-        'cursor-pointer rounded-12 border bg-surface-card p-3.5 text-left outline-none transition',
+        'cursor-pointer rounded-12 border bg-surface-card p-3.5 text-left transition',
         selected
           ? 'border-brand-red bg-danger-soft ring-1 ring-brand-red'
           : 'border-border hover:border-brand-red/50 hover:bg-surface-1'
@@ -212,7 +212,7 @@ function JournalCard({
     >
       <header className="flex items-start gap-3">
         <span
-          className={cn('flex size-11 shrink-0 items-center justify-center rounded-8 text-14 font-medium text-background',
+          className={cn('flex size-11 shrink-0 items-center justify-center rounded-8 text-14 font-medium text-on-dark',
             logoBg
           )}
         >
@@ -332,7 +332,7 @@ function CustomJournalForm({
         <Button
           size="sm" variant="default" disabled={invalid}
           onClick={() => onSubmit(name)}
-          className="h-9 bg-brand-red text-background hover:bg-brand-red/90 disabled:opacity-40">
+          className="h-9 bg-brand-red text-on-brand hover:bg-brand-red/90 disabled:opacity-40">
           确认
         </Button>
       </div>
@@ -343,15 +343,33 @@ function CustomJournalForm({
   );
 }
 
-// 简单根据首字母分配 logo 颜色 — 不严格,只让视觉有区分度
+// 简单根据首字母分配 logo 颜色 — 不严格,只让视觉有区分度。
+// 遗留债已还:原来的 6 个硬编码 hex 全部迁到分类色族 —— globals.css §7 建这一族时
+// 就点名要收编 `JournalPickerStep.colorForInitial(6)`,这里补上最后一处。
+//
+// 前景固定 text-on-dark (#E6E6F2),每个底色都实算过 WCAG AA(要求 ≥4.5:1):
+//   N bg-cat-8    #383840  9.38:1   S bg-cat-1    #4D1616  11.77:1
+//   I bg-cat-blue #2E5AA8  5.40:1   P bg-cat-3    #1F331B  10.96:1
+//   A bg-cat-4    #2F4D29  7.66:1   J bg-cat-5    #664B00  6.60:1
+//   兜底 bg-foreground #1F1F23 13.27:1
+// 全部通过。(旧的 6 个硬编码 hex 配的是当时的 text-background #F6F4EE,实算 4.88~15.82 也都过线,
+//  所以这批换色不是在修对比度事故,是在还 token 债 + 跟随新色阶整体压深。)
+// ⚠️ 不是零视觉变化:A 原来是 #2A7A2A —— 那是**旧**品牌绿,新色阶已把它压到 #2F4D29(= cat-4
+// = 新 --brand-green),所以 A 会明显变深,属预期。取 cat-4 而不直接写 bg-brand-green,是因为
+// 分类色不该借品牌色 —— 会让用户误以为「绿封面有语义」。
+//
+// 选档理由:分类色只有 红/绿/琥珀/玄墨 四色阶 + 一个分类蓝(见 globals.css §7 的规范缺口说明),
+// 6 个槽必然有一对同色相,故挑同色相里明度差最大的一对 —— 松青 cat-3/cat-4 相互 1.43:1,
+// 优于玄墨对 1.41、琥珀对 1.37、朱砂对 1.23。N 取 cat-8 而非 cat-7,是为了和兜底的
+// bg-foreground(与 cat-7 同值)拉开 1.41:1,否则「N」和「查无此档」会长得一模一样。
 function colorForInitial(c: string): string {
   const map: Record<string, string> = {
-    N: 'bg-[#1A1A1A]',
-    S: 'bg-[#B22234]',
-    I: 'bg-[#003E7E]',
-    P: 'bg-[#5A4FCF]',
-    A: 'bg-[#2A7A2A]',
-    J: 'bg-[#8B5A2B]',
+    N: 'bg-cat-8',
+    S: 'bg-cat-1',
+    I: 'bg-cat-blue',
+    P: 'bg-cat-3',
+    A: 'bg-cat-4',
+    J: 'bg-cat-5',
   };
   return map[c] ?? 'bg-foreground';
 }

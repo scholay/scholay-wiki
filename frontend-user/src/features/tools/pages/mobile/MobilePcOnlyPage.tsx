@@ -91,7 +91,9 @@ export function MobilePcOnlyPage() {
         <div className="flex flex-col items-center gap-4">
           {/* Hero:显示器图标 + 「手机端功能受限」徽章 */}
           <div className="flex flex-col items-center gap-3">
-            <span className="flex size-24 items-center justify-center rounded-pill bg-[#F1EADA]">
+            {/* 琥珀软底高亮块 = bg-amber-soft(--amber-soft-bg #E5DFCE = amber-11);
+                旧值 #F1EADA 是换 Figma 真源前的旧琥珀软底,已退休。 */}
+            <span className="flex size-24 items-center justify-center rounded-pill bg-amber-soft">
               <Monitor className="size-11 text-foreground" strokeWidth={1.6} />
             </span>
             <span className="flex items-center gap-1.5 rounded-pill bg-surface-2 px-3 py-1.5">

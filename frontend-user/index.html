@@ -1,14 +1,16 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-paper="on">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- ?v=2 是缓存爆破:favicon.svg 由 #CC2222 改为朱砂 #882828,但文件名不带 hash
+         且被 nginx 打 1 年 immutable,不换 URL 老访客一年内看到的还是旧红。 -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
     <!-- viewport-fit=cover: 移动端 /m 的底部导航用 env(safe-area-inset-bottom) 给全面屏 home indicator 让位
          maximum-scale=1 + user-scalable=no: 禁止页面缩放 —— ① 拦掉妨碍使用的误触放大/缩小;
          ② 同时阻止 iOS 聚焦输入框时的「自动放大」(maximum-scale=1 时 iOS 不再 focus-zoom)。
          注:桌面浏览器 Ctrl± 缩放不受 viewport 影响,仅作用移动端。 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" content="#F6F4EE" />
     <!-- iOS Safari 出于无障碍会忽略 viewport 的 user-scalable=no 对「用户捏合」的限制,
          需 JS 拦截 Safari 私有 gesture 事件才能真正禁掉双指捏合放大(双击放大由 CSS touch-action 拦)。
          其他浏览器无 gesture 事件,addEventListener 即 no-op,无副作用。 -->
@@ -30,13 +32,18 @@
       改成:
         - Inter 走系统字体后备栈(macOS 用 SF,Windows 用 Segoe UI,
           与 Inter 设计同源,视觉差异极小且无网络代价)
-        - Playfair Display 700 自托 woff2(品牌 logo 字体,
-          ~20KB 一帧前就能拉完),preload + font-display: block,
+        - Playfair Display 自托【可变字体】woff2(wght 400–700 一个文件全覆盖,
+          latin 子集 ~37KB),preload + font-display: block,
           短暂不可见 → 直接显示真字体,绝无切换感
+
+      ⚠️ 2026-07-27:原先只自托了 700 一个静态字重,导致 font-medium(500)/
+         font-normal(400) 全在跑浏览器合成假粗体 —— BrandName 的三个 tone
+         渲染出来一模一样。换可变字体后三档才真正生效。
+         只 preload latin;latin-ext(带变音符的欧洲语言)走 swap 按需加载。
     -->
     <link
       rel="preload"
-      href="/fonts/playfair-display-700.woff2"
+      href="/fonts/playfair-display-var-latin.woff2"
       as="font"
       type="font/woff2"
       crossorigin
@@ -187,18 +194,24 @@
       content="Scholay,Scholay学术,Scholay科研,Scholay工具,Scholay AI,AI 学术工具,学术搜索,论文搜索,AI 论文分析,智能审稿,文献管理,期刊查询,学者库,LaTeX 在线编辑"
     />
 
-    <!-- Open Graph / 微信 / Twitter 分享卡(首页默认;og-image.png 需放到 public/,1200×630) -->
+    <!-- Open Graph / 微信 / Twitter 分享卡(首页默认;1200×630,放在 public/)
+
+         ⚠️ 文件名带版本号是必须的,不是洁癖:og-image / favicon 都不带内容 hash,
+         而 nginx 对 png/svg 发 `max-age=31536000, immutable`(frontend-user/nginx.conf
+         与 nginx/conf.d/user.conf 两层都发)。**原地改文件内容,老访客与已抓取过的
+         社交平台最长一年拿不到新版**。所以换品牌色时必须同时换 URL。
+         og-image.png 保留同内容副本,只为让历史分享链接在缓存过期后也能自愈。 -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Scholay学术" />
     <meta property="og:title" content="Scholay学术 - AI 驱动的学术搜索与研究平台" />
     <meta property="og:description" content="智能论文搜索、AI 审稿、文献管理、LaTeX 写作一站式平台,覆盖全球 2 亿+ 学术论文。" />
     <meta property="og:url" content="https://www.scholay.com/" />
-    <meta property="og:image" content="https://www.scholay.com/og-image.png" />
+    <meta property="og:image" content="https://www.scholay.com/og-image-v2.png" />
     <meta property="og:locale" content="zh_CN" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Scholay学术 - AI 学术搜索工具" />
     <meta name="twitter:description" content="智能论文搜索、AI 审稿、文献管理、LaTeX 写作一站式平台。" />
-    <meta name="twitter:image" content="https://www.scholay.com/og-image.png" />
+    <meta name="twitter:image" content="https://www.scholay.com/og-image-v2.png" />
 
     <!-- 结构化数据:品牌(Organization)+ 站点搜索框(WebSite/SearchAction)+ 产品(SoftwareApplication)。
          这是百度/必应「官网 + 子链(sitelinks)」与品牌知识卡的关键启用项;不写假评分(会被判作弊)。 -->

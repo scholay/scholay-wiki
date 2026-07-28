@@ -1,32 +1,33 @@
 /**
- * 右侧成果面板 —— 智能助手生成的文件统一展示在这里(不再挂在对话底部)。
+ * 右侧【扩展区】—— 对话之外的第二块画布:既列出本会话产物,也承担产物的**预览**
+ * (html 演示稿 / 表格 / 文档等在这里直接打开看,近似一个内嵌浏览器)。
+ *
+ * ⚠️ 命名:对用户一律叫「扩展区」,不叫「成果文件 / 成果栏」——
+ *    旧名只描述了「列文件」这一半职责,而预览才是它更常被用到的那一半。
+ *    代码内部原本的注释就已经在用「右侧文档扩展区」这个说法,此处是把口径收敛统一。
  *
  * 两态:
  *   - 未选中:列出本会话全部产物(复用 TurnArtifacts 列表)。
  *   - 选中某个:全屏预览该产物(复用 ClawArtifactPreview),顶部「← 返回」回到列表。
  *
- * 仅桌面(≥1024)用;窄屏走 Sheet。ClawPage 控制何时挂载(有产物或点了预览即挂)。
+ * 仅桌面(≥1024)用;窄屏走 Sheet。
+ *
+ * ⚠️ 面板内不再自带「收起」按钮 —— 开合统一由顶栏那颗「扩展区」开关负责。
+ *    原先两颗按钮上下紧邻(顶栏一颗、面板头一颗)、图标又几乎一样,视觉上像重影;
+ *    而且同一个动作有两个入口本身就容易让两边行为分叉(复核实测确实分叉过:
+ *    顶栏那条不清 previewArtifact)。
+ *
+ * ⚠️ 2026-07-27 起挂载条件变了。挂载由 ConversationWorkspace(**不是 ClawPage**)的
+ *    `rightOpen = rightOpenPref ?? hasArtifacts` 决定:用户点过顶栏「扩展区」开关就听用户的,
+ *    没点过才回落到旧的「有产物才展开」。也就是说本组件会在**零产物**时被挂载,
+ *    【必须能体面地渲染空态】(见下方 EmptyState)。
  */
-import { ArrowLeft, FolderArchive, PanelRightClose } from 'lucide-react';
+import { ArrowLeft, FolderArchive } from 'lucide-react';
 import { type ArtifactBasePath, type ClawArtifact } from '../../api/artifacts';
+import { EmptyState } from '@/shared/components/EmptyState';
 import { TurnArtifacts } from '../chat/TurnArtifacts';
 import { ClawArtifactPreview } from './ClawArtifactPreview';
 
-// 收起按钮:把右侧成果栏收起(ClawPage 控制,中间对话区随之占满)。
-function CollapseBtn({ onCollapse }: { onCollapse?: () => void }) {
-  if (!onCollapse) return null;
-  return (
-    <button
-      type="button"
-      onClick={onCollapse}
-      title="收起成果栏"
-      aria-label="收起成果栏"
-      className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-8 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
-    >
-      <PanelRightClose className="h-3.5 w-3.5" />
-    </button>
-  );
-}
 
 export function ClawArtifactPanel({
   sessionId,
@@ -34,7 +35,6 @@ export function ClawArtifactPanel({
   previewArtifact,
   onPreview,
   onClosePreview,
-  onCollapse,
   basePath = '/user/claw',
   onExportDeck,
   exportingFormat = null,
@@ -45,7 +45,6 @@ export function ClawArtifactPanel({
   previewArtifact: ClawArtifact | null;
   onPreview: (a: ClawArtifact) => void;
   onClosePreview: () => void;
-  onCollapse?: () => void;
   /** 交付物端点前缀:'/user/claw'(智能助手) | '/user/boltslides'(制作PPT)。默认 claw。 */
   basePath?: ArtifactBasePath;
   /** 制作PPT:html 演示稿导出 PDF/PPTX(pdf=矢量,pptx=图片版)。 */
@@ -65,9 +64,8 @@ export function ClawArtifactPanel({
             className="flex items-center gap-1.5 text-12 text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
-            返回成果列表
+            返回列表
           </button>
-          <CollapseBtn onCollapse={onCollapse} />
         </div>
         <div className="min-h-0 flex-1">
           <ClawArtifactPreview
@@ -87,17 +85,27 @@ export function ClawArtifactPanel({
     <div className="flex h-full min-h-0 flex-col bg-surface-1">
       <header className="flex h-9 shrink-0 items-center gap-1.5 border-b border-border px-3 text-14 font-medium text-foreground">
         <FolderArchive className="h-3.5 w-3.5 text-brand-green" />
-        成果文件
+        扩展区
         {artifacts.length > 0 && <span className="text-faint">· {artifacts.length}</span>}
-        <CollapseBtn onCollapse={onCollapse} />
       </header>
       <div className="min-h-0 flex-1 overflow-auto p-3">
         {artifacts.length > 0 ? (
           <TurnArtifacts sessionId={sessionId} files={artifacts} onPreview={onPreview} basePath={basePath} />
         ) : (
-          <div className="flex h-full items-center justify-center px-4 text-center text-12 text-faint">
-            {emptyHint ?? '助手生成的文件会出现在这里'}
-          </div>
+          /* 空态 —— 2026-07-27 从「居中一行灰字」升级成带图示的介绍。
+             起因:扩展区现在顶栏常驻可开,用户会在【还没有任何产物时】主动打开它,
+             那一刻界面必须自己说明「这是什么、什么时候会有东西」,否则就是一块空白。
+             · dense:EmptyState 的常规档(py-20 / 48px 图标 / text-16 标题)是给**整页**空态定的份量,
+               放进这条 24%~34% 宽的次级面板里显得过重 —— 不是会被裁掉,是比例不对。
+             · h-full:保住改版前的**垂直居中**。EmptyState 自身不撑高,不给 h-full 就会顶在
+               列表区顶端,与旧版观感不一致。 */
+          <EmptyState
+            dense
+            className="h-full"
+            icon={FolderArchive}
+            title="扩展区暂无内容"
+            description={emptyHint ?? '对话中生成的文档、表格、演示稿会自动收集到这里,点击即可预览或下载。'}
+          />
         )}
       </div>
     </div>

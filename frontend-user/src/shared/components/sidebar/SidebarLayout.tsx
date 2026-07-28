@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useSidebar } from '@/stores/sidebar.store';
 import { useMediaQuery } from '@/shared/hooks/useMediaQuery';
 import { cn } from '@/shared/lib/utils';
+import { SidebarExpandButton } from './SidebarCollapse';
 
 interface SidebarLayoutProps {
   /** 完整 sidebar 组件 — 展开时渲染在主区左侧 */
@@ -58,6 +59,19 @@ export function SidebarLayout({
   if (isMobile) {
     return (
       <div className={cn('relative flex h-full min-h-0', className)}>
+        {!expanded && (
+          <SidebarExpandButton
+            onClick={() => useSidebar.getState().setExpanded(true)}
+            /* 移动分支只服务 <640px 的 /admin(用户端 /m 走 MobileShell 不经这里),
+               没有底部 tab 栏冲突。悬浮在屏幕左下角 → 必须给全面屏 home indicator 让位:
+               走 --safe-bottom(= max(env(safe-area-inset-bottom), 1rem))——
+               无刘海/桌面 = 16px(与原来的字面值 bottom-4 逐像素相同),iPhone X+ = 34px。
+               🔴 原来这里写的是字面 `bottom-4` + 一句「与 --safe-bottom 下限一致」的注释,
+               于是 token 全站渲染消费为 0(render-audit-2026-07-28 P1-6):
+               「注释里提到 token」不等于「接上了 token」—— 下限相等只在无刘海机型上成立。 */
+            className="absolute bottom-[var(--safe-bottom)] left-4 z-raised"
+          />
+        )}
         {/* 背板:抽屉打开时覆盖全屏,点击收起 */}
         {expanded && (
           <div
@@ -82,7 +96,16 @@ export function SidebarLayout({
   }
 
   return (
-    <div className={cn('flex h-full min-h-0', className)}>
+    <div className={cn('relative flex h-full min-h-0', className)}>
+      {/* 收起态的悬浮展开按钮 —— 挂在 SidebarLayout 这一层,
+          所以【所有带侧栏的页面】(首页/检索/文件夹/期刊/Prism/审稿/广场/claw/admin)一次性都有。
+          left-6 与 TopNav 的 px-6 同一内缩,与顶栏的 ☰ 竖直对齐。 */}
+      {!expanded && (
+        <SidebarExpandButton
+          onClick={() => useSidebar.getState().setExpanded(true)}
+          className="absolute bottom-6 left-6 z-raised"
+        />
+      )}
       <aside
         // 动态计算尺寸(token 表无对应值)→ 内联 style 合规;CSS transition 不在初次渲染触发,
         // 等价于 framer 的 initial={false}(挂载即定型,只在 expanded 翻转时过渡)。

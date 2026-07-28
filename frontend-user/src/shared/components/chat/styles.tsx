@@ -9,6 +9,11 @@
  *
  * 在两个 feature 顶层 (AssistantTurn / MessageTurn) 各挂一次即可, 重复挂没副作用
  * (浏览器自动 dedupe 相同 keyframes)。
+ *
+ * 🎨 设计 token: 这是**客户端注入的真 CSS**, 与 globals.css 同一个 document ——
+ *    `var(--brand-green)` / `var(--text-12)` / `var(--radius-pill)` 都能正常解析。
+ *    故这里【不允许】出现硬编码色值 / 字号 / 圆角, 一律走 :root 上的 token,
+ *    否则改设计系统时这张表会静默漂移(2026-07 审计: 本表曾停在两代前的品牌绿 #2A7A2A)。
  */
 import { memo } from 'react';
 
@@ -23,6 +28,8 @@ const CHAT_STYLES = `
   content: '';
   display: inline-block;
   min-width: 0.6em;
+  /* 1.4s 是「三点省略号」的闪烁节律(感知等待), 不是 UI 过渡时长 ——
+     --duration-* 四档(160/280/420/700ms)语义上不覆盖 loop 节律, 故保留字面值。 */
   animation: scholay-chat-thinking-dots 1.4s steps(1, end) infinite;
 }
 
@@ -31,6 +38,7 @@ const CHAT_STYLES = `
   50% { opacity: 0; }
 }
 .chat-cursor-blink {
+  /* 1s = 终端光标的标准闪烁周期(同上, loop 节律不走 --duration-*)。 */
   animation: scholay-chat-cursor-blink 1s step-end infinite;
 }
 
@@ -51,13 +59,17 @@ const CHAT_STYLES = `
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* em 比例(随 chip 自身字号缩放)而非固定 px —— 无对应尺寸 token, 保留是有意的。 */
   width: 1.35em;
   height: 1.35em;
-  border-radius: 9999px;
-  background-color: rgba(42, 122, 42, 0.12);
-  color: #2A7A2A;
-  font-size: 0.7rem;
-  font-weight: 700;
+  border-radius: var(--radius-pill);
+  background-color: color-mix(in srgb, var(--brand-green) 12%, transparent);
+  color: var(--brand-green);
+  font-size: var(--text-12);
+  /* --weight-medium = 500 = font-medium。护栏禁止 sans 上 700(font-bold 只留给 serif/display/mono)。
+     这张表是注入式真 CSS,拿不到 Tailwind 工具类,故走 :root §10 的 --weight-* 一族 —— 那一族
+     存在的唯一理由就是「JS 字符串里的裸 CSS」。取值与 Tailwind 内建 --font-weight-medium 逐字节相同。 */
+  font-weight: var(--weight-medium);
   font-feature-settings: 'tnum';
   line-height: 1;
 }

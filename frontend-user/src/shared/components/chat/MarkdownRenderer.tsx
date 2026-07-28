@@ -9,6 +9,7 @@ import rehypeKatex from 'rehype-katex';
 //   - katex.min.css: 数学公式渲染 (学术平台必需, AI 回答论文相关问题常含公式)
 import 'highlight.js/styles/github.css';
 import 'katex/dist/katex.min.css';
+import { cn } from '@/shared/lib/utils';
 import { CodeBlock } from './CodeBlock';
 import { MermaidDiagram } from './MermaidDiagram';
 import { InlineSvg } from './InlineSvg';
@@ -109,7 +110,7 @@ const components = {
     const isInline = !props.className?.includes('language-');
     if (isInline) {
       return (
-        <code className="px-1 py-0.5 rounded-4 bg-surface-2 text-[12px] font-mono text-foreground break-all">
+        <code className="px-1 py-0.5 rounded-4 bg-surface-2 text-12 font-mono text-foreground break-all">
           {props.children}
         </code>
       );
@@ -215,9 +216,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
 }: MarkdownRendererProps) {
   return (
     <div
-      className={
-        'text-12 text-foreground leading-paragraph min-w-0'+ (className ?? '')
-      }
+      className={cn('text-12 text-foreground leading-paragraph min-w-0', className)}
     >
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}

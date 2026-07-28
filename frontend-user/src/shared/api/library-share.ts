@@ -5,7 +5,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import type { Paper, PaperAuthor } from '@/shared/api/types';
 
 /**
- * 文献集分享 —— 对接后端 /api/v1/user/library/shares(owner)与
+ * 文件夹分享 —— 对接后端 /api/v1/user/library/shares(owner)与
  * /api/v1/public/share/:token(收件人,免登录)。网盘式:链接 + 提取码 + 过期 +
  * 转存 + 访问追踪。本轮只支持论文(单篇 single / 文件夹整本 collection)。
  *
@@ -229,7 +229,7 @@ export function usePublicShare(token: string | undefined, code: string) {
   });
 }
 
-/** 转存到自己的文献集(需登录)。 */
+/** 转存到自己的文件夹(需登录)。 */
 export function useSaveShare() {
   const qc = useQueryClient();
   return useMutation({

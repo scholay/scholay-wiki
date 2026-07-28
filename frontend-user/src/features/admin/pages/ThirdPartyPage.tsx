@@ -304,7 +304,7 @@ function ThirdPartyDialog({
   return (
     <Dialog open={!!mode} onOpenChange={(o) => !o && onClose()}>
       {mode && (
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[85dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? '编辑账号' : '添加三方账号'}</DialogTitle>
         </DialogHeader>

@@ -14,7 +14,8 @@ import { cn } from'@/shared/lib/utils';
  * 原生 select 就是这个场景的成熟方案
  * 若将来出现需要搜索/多选的场景,再单独引入 Radix Select,不要改造这个。
  *
- * 与 input.tsx 同构: 同样的描边、圆角、焦点环、禁用态、高度。
+ * 与 input.tsx 同构: 同样的描边、圆角、焦点环、禁用态、高度、字号。
+ * 字号 = text-12。Figma §4.5 表单控件标的是 14px,本项目不采纳 —— 本项目控件基座统一 text-12(对 Figma §4.1/§4.5 的刻意偏离,见 button.tsx 文件头)。
  */
 export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   /** 是否占满宽度 —— 默认 true。筛选器这类内联场景传 false 让它按内容收缩 */

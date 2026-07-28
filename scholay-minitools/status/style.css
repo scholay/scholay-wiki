@@ -26,7 +26,7 @@
 }
 .node-dot.lit { border-color: transparent; box-shadow: var(--glow); }
 .node.active .node-dot { transform: scale(1.12); box-shadow: var(--glow); }
-.node.warn .node-dot { border-color: rgba(212,160,23,.55); }
+.node.warn .node-dot { border-color: rgba(229, 168, 0,.55); }
 .node-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .node-text b { font-size: 13.5px; font-weight: 700; color: var(--ink); }
 .node.active .node-text b { color: #fff; }
@@ -42,7 +42,7 @@
 .other b { color: var(--ink); }
 .advice {
   font-size: 13px; color: var(--ink); line-height: 1.6;
-  background: var(--danger-soft); border: 1px solid #f3d8d8;
+  background: var(--danger-soft); border: 1px solid var(--danger-line);
   border-radius: 13px; padding: 12px 14px;
 }
 .advice-h { display: block; font-weight: 800; color: var(--brand-2); font-size: 12px; margin-bottom: 4px; }

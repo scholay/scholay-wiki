@@ -124,7 +124,7 @@ function AutoGrow({
       // cn(tailwind-merge):调用方传的高亮底色(bg-brand-green/…)要能覆盖这里的 bg-transparent,
       // 纯字符串拼接会让两个 bg-* 同时存在、由 CSS 顺序决定(高亮经常输)——必须走 cn 才可靠。
       className={cn(
-        'w-full resize-none overflow-hidden bg-transparent outline-none placeholder:text-faint disabled:cursor-default',
+        'w-full resize-none overflow-hidden bg-transparent placeholder:text-faint disabled:cursor-default',
         className,
       )}
     />
@@ -134,7 +134,7 @@ function AutoGrow({
 // 正文编辑区:覆盖成 LaTeX article 观感 —— 衬线、两端对齐、首行缩进、章节加粗、表格描边。
 const bodyClass = [
   'font-serif text-14 leading-paragraph text-foreground',
-  '[&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-[40vh]',
+  '[&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-[40dvh]',
   '[&_.ProseMirror_p]:text-justify [&_.ProseMirror_p]:indent-8 [&_.ProseMirror_p]:my-2',
   '[&_.ProseMirror_h1]:mt-6 [&_.ProseMirror_h1]:mb-2 [&_.ProseMirror_h1]:text-20 [&_.ProseMirror_h1]:font-bold',
   '[&_.ProseMirror_h2]:mt-6 [&_.ProseMirror_h2]:mb-2 [&_.ProseMirror_h2]:text-16 [&_.ProseMirror_h2]:font-bold',
@@ -451,7 +451,7 @@ export const StructEditor = forwardRef<
             disabled={!editable}
             onChange={(e) => onFm(setKeywords)(e.target.value)}
             placeholder="逗号分隔"
-            className={cn('min-w-0 flex-1 bg-transparent outline-none placeholder:text-faint disabled:cursor-default', fmChanged.keywords && fmHi)}
+            className={cn('min-w-0 flex-1 bg-transparent placeholder:text-faint disabled:cursor-default', fmChanged.keywords && fmHi)}
           />
         </div>
 

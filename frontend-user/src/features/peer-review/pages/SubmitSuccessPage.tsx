@@ -7,13 +7,13 @@ import { ResourceError } from '@/shared/components';
 import { useSubmission } from '../api/submissions';
 
 /**
- * 投递成功 splash —— 复刻设计稿 .pen `J9MCZ` Step7。
+ * 投递成功 splash。
  *
  * 路由: /peer-review/submitted/:id (从 Submit Wizard step4 投递成功后导航过来)。
  *
  * 关键设计点:
- *   - 灰底白卡片居中, 卡片宽 720px
- *   - 顶部 104px 绿色环 + 80px 白勾 (E8F5E9 / 2A7A2A)
+ *   - 米白底白卡片居中, 卡片宽 720px
+ *   - 顶部 104px 松青环(`bg-brand-green/10`)+ 80px 白勾(`bg-brand-green`)
  *   - 信息卡 5 行: 稿件标题 / 投稿期刊 / 投稿编号 / 提交时间 / 通讯作者
  *   - 黄色 tip box: 「接下来会发生什么？」
  *   - 双按钮: 「返回投稿管理」outline + 「前往审稿记录 →」红色实心
@@ -70,9 +70,11 @@ export function SubmitSuccessPage() {
 
   return (
     <div className="flex h-full w-full items-center justify-center bg-surface-3 px-8 py-10">
+      {/* max-w-reading = --container-reading 45rem = 720px,与原硬编码 max-w-[720px] 等值,
+          零像素变化,只是把宽度口径挂回 token。 */}
       <article
         className={
-          'flex w-full max-w-[720px] flex-col gap-6 rounded-16 border ' +
+          'flex w-full max-w-reading flex-col gap-6 rounded-16 border ' +
           'border-border bg-surface-card px-14 py-12'
         }
       >
@@ -82,6 +84,8 @@ export function SubmitSuccessPage() {
           <h1 className="mt-2 font-serif text-24 font-bold leading-display-tight text-foreground">
             恭喜！稿件已成功投递
           </h1>
+          {/* max-w-[480px]:正文行长上限(单段说明文字)。token 侧 480 只有 --dialog-w-md
+              (弹窗宽),语义对不上;--container-reading 是 720,套上去这段会太长。保留精确像素。 */}
           <p className="max-w-[480px] text-center text-14 leading-paragraph text-muted-foreground">
             您的稿件已成功投递至期刊编辑部,编辑团队已收到投稿并进入处理流程。
           </p>
@@ -108,7 +112,7 @@ export function SubmitSuccessPage() {
         {/* 黄色 tip box ──────────────────────────────────────────────── */}
         <aside className="flex gap-3 rounded-12 border border-brand-amber/40 bg-warning-soft px-4 py-3.5">
           <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-pill bg-brand-amber">
-            <Info className="h-3.5 w-3.5 text-background" strokeWidth={3} />
+            <Info className="h-3.5 w-3.5 text-foreground" strokeWidth={3} />
           </div>
           <div className="flex flex-col gap-1">
             <p className="text-14 font-medium text-brand-amber">接下来会发生什么？</p>
@@ -133,7 +137,7 @@ export function SubmitSuccessPage() {
           </Button>
           <Button
             size="lg"
-            className="h-11 gap-2 bg-brand-red px-7 text-14 font-medium text-background hover:bg-brand-red/90"
+            className="h-11 gap-2 bg-brand-red px-7 text-14 font-medium text-on-brand hover:bg-brand-red/90"
             onClick={() => navigate(`/peer-review/records/${submission.id}`)}
           >
             前往审稿记录 <ArrowRight className="h-4 w-4" />
@@ -146,12 +150,17 @@ export function SubmitSuccessPage() {
 
 /* ─── 子组件 ───────────────────────────────────────────────────────── */
 
-/** 104px 绿色外环 + 80px 内圈实心绿底白勾 — .pen `J9MCZ` checkRing */
+/**
+ * 104px 绿色外环 + 80px 内圈实心绿底白勾。
+ * ⚠️ 原注依据是 .pen `J9MCZ` checkRing —— 该真源已于 2026-07 作废。
+ * h-[104px] w-[104px] 保留精确像素:Figma 未给成功页图标规格,token 侧最大的圆形尺寸
+ * 是 --size-avatar(40),差得太远;颜色已全部走 brand-green / on-brand token。
+ */
 function CheckRing() {
   return (
     <div className="flex h-[104px] w-[104px] items-center justify-center rounded-pill bg-brand-green/10">
       <div className="flex h-20 w-20 items-center justify-center rounded-pill bg-brand-green">
-        <Check className="h-10 w-10 text-background" strokeWidth={3.5} />
+        <Check className="h-10 w-10 text-on-brand" strokeWidth={3.5} />
       </div>
     </div>
   );

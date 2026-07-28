@@ -32,7 +32,7 @@
       <block wx:if="{{advanced}}">
         <view class="fgroup row">
           <text class="fglabel">仅开放获取</text>
-          <switch checked="{{filters.openAccess}}" bindchange="toggleOA" color="#cc2222" />
+          <switch checked="{{filters.openAccess}}" bindchange="toggleOA" color="#882828" />
         </view>
         <view class="fgroup">
           <text class="fglabel">最少引用</text>

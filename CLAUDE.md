@@ -33,8 +33,14 @@ docker exec -it scholar_redis redis-cli
 # Run backend tests
 cd backend && go test ./...
 
-# Run frontend dev server
-cd frontend-user && npm start
+# Run frontend dev server (Vite, port 3001)
+cd frontend-user && npm run dev
+
+# 一次性：启用仓库自带的 git 钩子（pre-push 跑设计系统护栏）—— 每台机器/每份 clone 各一次
+./scripts/install-git-hooks.sh
+
+# 设计系统护栏（全仓口径，含跨包镜像；构建里的那次不覆盖跨包）
+./scripts/check-design-system.sh
 ```
 
 **URLs** (check .env for actual ports):
@@ -97,20 +103,61 @@ go tool cover -html=coverage.out
 
 ### Frontend Development
 
-```bash
-# Admin Dashboard (merged into frontend-user at /admin route)
-cd frontend-user
-npm install
-npm start        # Development server on port 3000
-npm run build    # Production build (optimized, no source maps)
+> ⚠️ 用户端与 `/admin` 后台是**同一个 Vite SPA**，只有 `frontend-user/` 一个前端目录、一套命令。
 
-# User Portal
+```bash
 cd frontend-user
 npm install
-npm run copy-pdf-worker  # Copy PDF.js worker (required for PDF preview)
-npm start        # Development server on port 3000
-npm run build    # Production build (optimized, no source maps)
+npm run dev        # Vite dev server，端口 3001（见 vite.config.ts）
+npm run build      # tsc -b && vite build
+npm run typecheck  # tsc -b --noEmit
+npm run lint       # eslint
+npm run test       # vitest（watch）
+npm run test:design    # 设计系统护栏 + token 编译期契约（prebuild 会自动跑）
+npm run test:contract  # 后端响应契约（zod × 录制 fixture）
 ```
+
+**`prebuild` 钩子**（`npm run build` / Docker 构建都会触发）：
+`node scripts/copy-pdf-cmaps.mjs && npm run test:design` —— 也就是说
+**设计系统护栏是构建期硬失败**，写了违规的硬编码颜色 / 旧字号档 / 旧圆角档会直接构建不过。
+（历史文档里的 `npm start` / `npm run copy-pdf-worker` / `GENERATE_SOURCEMAP` 都是已删除的 CRA 版遗留，**均不存在**。）
+
+### 设计系统护栏：两个执行点（覆盖面不一样，别混着看）
+
+护栏本体在 `frontend-user/tests/design-system-guard.test.ts`（类名 / 硬编码 / 跨包镜像）+
+`design-tokens-compiled.test.ts`（token 声明 vs 实际编译产出）。**本仓库没有 CI、没有远端闸门**，
+它靠下面两个点被触发：
+
+| 执行点 | 何时跑 | 覆盖 | 跨包镜像 | 违规时 |
+|---|---|---|---|---|
+| `prebuild` → `npm run test:design` | `npm run build` / Docker 构建 | frontend-user 内全部规则 | ❌ **整族 skip** | 构建失败 |
+| `scripts/check-design-system.sh` | git `pre-push` 钩子（**要装一次**）/ 手跑 | 全部规则 | ✅ 真的校验 | push 被拦 |
+
+🔴 **Docker 构建里的绿灯 ≠ 跨包镜像已校验。** frontend-user 的构建
+`context: ./frontend-user`（见 docker-compose.yml），`miniprogram/` `scholay-minitools/` `agent/`
+三个兄弟包在那个环境里**物理上不存在** → 「跨包镜像」一族规则走 `ctx.skip()`。
+小程序 / 小工具 / pptx 导出三份镜像是否与 `globals.css` 同步，**构建管不了**。
+跳过时 `frontend-user/scripts/design-guard.mjs` 会在构建日志里打一条横幅、逐条列出被跳过的规则名
+——刻意做得很吵（「一条永远绿的规则」和「一条不存在的规则」等价，本仓库被这个模式坑过）；
+但**刻意不让构建失败**：那个 context 里客观上无法校验，红灯只会堵死部署。
+
+🔴 **钩子要装一次才生效**（每台机器、每份 clone 各一次）：
+
+```bash
+./scripts/install-git-hooks.sh      # = git config core.hooksPath .githooks
+git push --dry-run                  # 校验钩子确实会被调用（不会真推）
+```
+
+`.git/hooks/` 不进版本库，钩子放那儿只有写它的人有 = 等于没有；所以钩子在版本化的
+`.githooks/` 里，但 git 必须被显式指过去。⚠️ 本仓库 `.git/config` 里 `core.hooksPath`
+此前被显式设成绝对路径的 `.git/hooks`（里面只有 `.sample`，等于没钩子）——
+「默认就行」的假设在这里不成立，**不执行上面这一步，护栏一次都不会自动跑**。
+
+选 `pre-push` 而非 `pre-commit`：护栏读的是**工作区**文件而不是 index，pre-commit 时
+与「本次提交的内容」对不上会同时制造假绿和假红（要对齐就得 stash，本仓库常年一堆未提交改动，不做）；
+且护栏一次 3~4s，每个 WIP commit 都付会养出 `--no-verify` 的肌肉记忆。push 是代码离开本机的边界，
+频率低、口径诚实。绕过用 `SKIP_DESIGN_GUARD=1 git push`，**留痕**到 `.git/design-guard-bypass.log`
+（时间 / 邮箱 / 分支 / commit / 原因）；`git push --no-verify` 是 git 层面根本不调用钩子、**无痕**，别用。
 
 ### Database Operations
 
@@ -511,7 +558,9 @@ The backend integrates Semantic Scholar Academic Graph API with two access metho
 - **per-user 长期记忆 (migration 0035)**: 真源是 backend DB `user_memory_blocks`(label=profile/preferences, 跨 feature 共享), 由 `agentbridge.Bridge.MemoryBlocks` 在「首条 user_message 前缀」(smart_search/claw/prism) + peerreview 方法论 prompt 注入;后台每轮异步抽取更新(`internal/usermemory` 编排;**抽取 LLM 已移到 agent 容器**经 `extract_memory` 帧执行, 旧 `ai.Service.SimpleCompletion` 已删除;Redis 90s 冷却);用户经 `/api/v1/user/memory` 查看/编辑/删除。
   ⚠️ **agent 容器自带的桌面记忆设施(`src/memdir/` / `context.ts:getUserContext` / 注入 `CLAUDE.md`)在 Web 流里读到的是空** —— 它是机主单用户的设施, 多租户 Web 未对接, 别误以为它在生效。per-user 记忆真源 = `user_memory_blocks` + 首条 in-band 前缀。
 
-**详细文档**: [agent/docs/api.md](agent/docs/api.md) (REST + WS 协议) · [agent/README.md](agent/README.md) (容器部署)
+**详细文档**: [agent/README.md](agent/README.md) (容器部署)。
+⚠️ ~~`agent/docs/api.md`~~ **不存在**(2026-07-28 实测,`agent/` 下只有 `README.md`);
+REST + WS 协议的真源是 `backend/internal/agent/` 的客户端代码与 `internal/agentbridge/` 的 WS pipe。
 
 ### Payment System
 
@@ -676,34 +725,50 @@ The backend runs several background tasks for performance and maintenance:
 
 ### Frontend Architecture
 
-**Common Patterns**:
-- API calls via `src/services/api.js` (Axios)
-- Auth token stored in localStorage
-- Context API for global state (AuthContext)
-- React Router v6 for routing
+> 🔴 **本节曾长期描述已删除的 CRA 版前端**（`src/services/api.js` / `AuthContext` /
+> `SearchIcons.js` / `SliderCaptcha.js` / `src/App.js` 等）。那份代码已于 2026-05-28 整体删除，
+> 上述文件**全部不存在**（`frontend-user/src/` 下 `.js` 文件数为 0）。2026-07-28 已按实测重写。
+>
+> **唯一权威**是 [frontend-user/CLAUDE.md](frontend-user/CLAUDE.md)（强制约束，工作在该目录下自动加载）。
+> 本节只做索引，细节以那份为准，冲突时以那份为准。
 
-**User Portal Features**:
-- Paper search with multiple modes (simple, advanced, intelligent)
-- PDF preview (react-pdf + pdfjs-dist)
-- Conversation interface with AI
-- Captcha support (rc-slider-captcha)
-- Responsive design for mobile
-- Custom SVG icon set (`SearchIcons.js`) with multiple design variants
-- Markdown rendering with syntax highlighting
-- Cloudflare Turnstile integration
+**技术栈**：React 19 + Vite 6 + TypeScript strict + Tailwind v4 + shadcn/Radix，
+用户端与 `/admin` 后台共用**同一个 SPA**（`frontend-user/`）。
 
-**Admin Dashboard Features**:
-- User management & statistics (Recharts)
-- Third-party account management (API keys)
-- Prompt template management
-- System configuration (privacy policy, email)
-- Analytics visualization
+**Common Patterns**：
+- HTTP 唯一入口 `src/shared/lib/http.ts`（axios 实例）；业务 API 写在
+  `features/<domain>/api/*.ts` 并**导出 TanStack Query hook**，不导出裸 fetch
+- 服务端状态 = `@tanstack/react-query` v5；客户端跨页状态 = `zustand` v5 的 slice（`src/stores/`）
+- **禁止用 Context API 传共享状态**（只允许传 Provider 注入的依赖，如 QueryClient）
+- Auth token 存 `localStorage.auth_token`（单一真源）
+- 路由 = `react-router-dom` **v7**，每个 feature 在自己的 `routes.tsx` 暴露 `RouteObject[]`，
+  页面级 lazy 是默认；登录态校验用 `loader` 而非组件内 useEffect
 
-**Production Build Optimization**:
-- Source maps disabled (GENERATE_SOURCEMAP=false)
-- Console logs removed in production
-- Static asset caching via Nginx
-- Gzip compression for all text content
+**Design system（2026-07 换真源到 Figma）**：
+- token 唯一真源 = `frontend-user/src/styles/globals.css`（对应 Figma 提取产物
+  [docs/figma-design-spec-2026-07.md](docs/figma-design-spec-2026-07.md)）；**旧的 `.pen` 口径已作废**
+- 四色阶：朱砂 `#882828` / 松青 `#2F4D29` / 琥珀 `#E5A800` / 玄墨 `#1F1F23`；
+  页面底米白 `#F6F4EE`、卡片底纯白 `#FFFFFF`（分层全靠这 3.5% 明度差）
+- 字号 6 档 `text-12/14/16/20/24/28`（正文基准 14）、圆角 6 档 `rounded-4/8/12/16/20/pill`
+- **暗色态已于 2026-07 移除**：无 `.dark` 块、无 theme store、`dark:` 前缀 0 处
+- 护栏两个执行点（详见上文「设计系统护栏：两个执行点」）：
+  ① `prebuild` → `npm run test:design`，挂在 `npm run build` / Docker 构建上，构建期硬失败，
+  但**跨包镜像那族规则在 Docker 里会整族 skip**（构建 context 只有 `./frontend-user`）；
+  ② `scripts/check-design-system.sh`，git `pre-push` 钩子调用（需先跑一次
+  `./scripts/install-git-hooks.sh`），三个兄弟包在场，是**唯一真的校验跨包镜像**的口径
+- 落地实况与已知坑见 [docs/design-audit-2026-07.md](docs/design-audit-2026-07.md)
+
+**用户端主要能力**：论文检索（普通 / 智能）· PDF 预览（react-pdf + pdfjs-dist）·
+AI 对话（智能搜索 / 智能助手 / 审稿 / 智能写作）· 文献集与暂存区 · Markdown + KaTeX 渲染 ·
+Cloudflare Turnstile 人机校验 · 移动端独立渲染路径（UA 双向分流）
+
+**`/admin` 后台主要能力**：用户与用量统计（recharts）· 三方账号 / API key 池 ·
+agent 模型与 provider 配置 · 会话监控 · 订单与营销 · 系统配置
+
+**Production Build**：Vite 生产构建（`tsc -b && vite build`）；
+静态资源经 Nginx 一年强缓存 + gzip。⚠️ **不带内容 hash 的品牌资产**
+（`favicon.svg` / `og-image*.png` / `manifest.webmanifest`）在两层 nginx 上都单独降到 1 天 TTL —— 
+改这类资产**必须同时换文件名**，原地改内容对老用户无效（见 design-audit-2026-07.md §〇之四）
 
 ## Common Development Tasks
 
@@ -728,10 +793,15 @@ The backend runs several background tasks for performance and maintenance:
 
 ### Adding a New Frontend Page
 
-1. Create component in `src/pages/`
-2. Add route in `src/App.js`
-3. Create API service method in `src/services/api.js` if needed
-4. Rebuild container: `docker-compose up -d --build frontend-user`
+> 详细约束以 [frontend-user/CLAUDE.md](frontend-user/CLAUDE.md) 为准（分层 / 网络层 / 样式 token / 组件分层）。
+
+1. 页面组件放 `frontend-user/src/features/<domain>/pages/`
+2. 在该 feature 的 `routes.tsx` 里加 `RouteObject`（**页面级 lazy 是默认**），
+   `app/router.tsx` 只负责拼装，不写具体路径
+3. 需要后端数据 → 在 `features/<domain>/api/*.ts` 导出 **react-query hook**
+   （不导出裸 fetch；HTTP 一律经 `shared/lib/http.ts` 的 axios 实例）
+4. 样式只用 `src/styles/globals.css` 里的 token 工具类，**不新建 .css 文件、不写内联颜色**
+5. 重建容器：`docker-compose up -d --build frontend-user`
 
 ### Working with Third-party API Keys
 
@@ -790,14 +860,18 @@ When adding new external API integrations:
 - Aliyun SDK (SMS, payments)
 - godotenv
 
-**Frontend (React 18)**:
-- axios (API calls)
-- react-router-dom v6
-- pdfjs-dist + react-pdf (PDF preview)
-- rc-slider-captcha (slider CAPTCHA)
-- recharts (admin analytics)
-- react-markdown + rehype-highlight (markdown rendering)
-- @marsidev/react-turnstile (Cloudflare Turnstile)
+**Frontend (React 19 + Vite 6 + TS strict)** —— 完整的「必用 / 禁止自研」对照表见
+[frontend-user/CLAUDE.md](frontend-user/CLAUDE.md) §2，往 package.json 加包前**必须**先查那张表：
+- `@tanstack/react-query` v5（服务端状态）+ `axios`（经 `shared/lib/http.ts`）
+- `zustand` v5（客户端状态）· `react-router-dom` **v7**（路由）
+- `tailwindcss` v4 + `@radix-ui/*` + `cva` + `tailwind-merge`（样式与 UI 原子）
+- `framer-motion` v12（复杂动画）· `@formkit/auto-animate`（列表过渡）· `tw-animate-css`
+- `pdfjs-dist` + `react-pdf`（PDF 预览）· `@codemirror/*`（LaTeX 编辑器）
+- `recharts`（图表）· `@tanstack/react-table` + `@tanstack/react-virtual` · `@dnd-kit/*`
+- `react-markdown` + `remark-gfm` + `rehype-highlight` + `rehype-katex` + `katex`
+- `lucide-react`（图标）· `cmdk`（命令面板）· `sonner`（toast）
+- `react-hook-form` + `zod`（表单与校验）· `@marsidev/react-turnstile`（人机校验）
+- ⚠️ `rc-slider-captcha` **已不在依赖里**：滑块验证码整体下线，人机校验改用 Cloudflare Turnstile
 
 ### Database and Cache Connection
 
@@ -837,17 +911,31 @@ To implement real email sending, update `internal/user/service.go` email service
 Nginx配置了智能缓存策略:
 - **静态资源** (图片、CSS、JS、字体): 缓存1年 (`max-age=31536000, immutable`)
 - **HTML文件**: 不缓存 (`no-cache, must-revalidate`)
+- **不带内容 hash 的品牌资产** (`favicon.svg` / `og-image*.png` / `apple-touch-icon*.png` /
+  `manifest.webmanifest`): **单独降到 1 天** (`max-age=86400`)
 - **好处**: 大幅减少重复请求,提升加载速度60-80%
-- **注意**: 更新静态资源需要修改文件名或添加版本号
 
-### PDF Worker Setup
+> 🔴 **改静态资产的铁律(2026-07-28 踩过)**:`immutable` 的语义是「一年内不回源校验」——
+> **对已访问过的老用户,原地改文件内容完全无效**;已抓取过 `og:image` 的社交平台(微信/Twitter)
+> 缓存更久且不受我们 TTL 控制。因此必须**同时**做两件事:
+> ① **换 URL**(`og-image-v2.png` / `favicon.svg?v=2`,并保留旧文件名的同内容副本让历史链接自愈);
+> ② **降 TTL**,而且要在**两层 nginx 上都改** —— `frontend-user/nginx.conf` 与
+> `nginx/conf.d/user.conf`,后者用 `proxy_hide_header Cache-Control` 抹掉上游头再自己重打 1y immutable,
+> **只改前端那份会被边缘层原样覆盖回去**。
+> 另注:nginx 正则 location **按出现顺序首个命中生效**,短 TTL 那条必须写在通用静态正则**之前**。
 
-User portal requires PDF.js worker for PDF preview:
+### PDF.js CMap Setup
+
+⚠️ 旧版这里写的 `npm run copy-pdf-worker` / `prestart` **不存在**（CRA 版遗留）。
+现在需要拷贝的是 **CMap**（供浏览器端 pdf.js 渲染中/日/韩字体），worker 由 Vite 直接打包：
+
 ```bash
 cd frontend-user
-npm run copy-pdf-worker  # Copies worker from node_modules to public/
+node scripts/copy-pdf-cmaps.mjs   # node_modules/pdfjs-dist/cmaps → public/pdfjs-cmaps/
 ```
-This is automatically run via `prestart` and `prebuild` npm scripts.
+
+由 `package.json` 的 **`predev` / `prebuild`** 自动执行，正常开发不需要手动跑。
+`public/pdfjs-cmaps/` 已 gitignore（随依赖再生）。
 
 ### Go Proxy for China
 
@@ -856,37 +944,30 @@ If developing in China, use Aliyun Go proxy:
 GOPROXY=https://mirrors.aliyun.com/goproxy/,direct go mod tidy
 ```
 
-### Slider CAPTCHA
+### 人机校验（滑块验证码已下线）
 
-Both admin and user frontends include a slider CAPTCHA component for login/registration:
-- **Component**: `SliderCaptcha.js` and `SliderCaptcha.css` in `src/components/`
-- **Usage**: User drags slider to star position (±5% tolerance)
-- **Mobile optimized**: Touch events, larger touch targets
-- **Current**: Frontend-only validation (can be enhanced with backend verification)
-- To reset after failed login: Use `ref` and call `captchaRef.current.reset()`
+⚠️ 本节旧版描述的 `SliderCaptcha.js` / `SliderCaptcha.css` 属已删除的 CRA 版前端，**文件不存在**，
+`rc-slider-captcha` 也已从依赖里移除。现行方案是 **Cloudflare Turnstile**：
+- 组件：`frontend-user/src/features/auth/components/TurnstileField.tsx`
+- 站点开关与 sitekey 由后端下发（`shared/api/public-config.ts`），`shared/lib/http.ts` 负责带上校验结果
+- 后端校验 **fail-closed**（校验服务不可用时拒绝，不放行）
 
-### Custom Icon System
+### 图标
 
-The user portal includes a custom SVG icon set for search modes:
-- **Component**: `frontend-user/src/components/SearchIcons.js`
-- **Available Icons**:
-  - `NormalSearchIcon` - Simple document search (magnifying glass + document)
-  - `AdvancedSearchIcon` - AI-powered search (chip + circuit pins)
-  - Multiple alternative designs (Alt1, Alt2) for each mode
-- **Features**:
-  - Scalable SVG with responsive sizing
-  - Uses `currentColor` for automatic theme adaptation
-  - Flat design with consistent visual language
-- **Documentation**: See `frontend-user/ICONS_PREVIEW.md` for visual guide and switching instructions
+⚠️ 本节旧版描述的 `SearchIcons.js` 与 `frontend-user/ICONS_PREVIEW.md` **均不存在**（CRA 版遗留）。
+现行约定见 [frontend-user/CLAUDE.md](frontend-user/CLAUDE.md) §2：
+- 统一用 **`lucide-react`**，**禁止自定 SVG**（品牌 logo 除外）
+- 图标尺寸走设计系统的 `size-icon`(24 画板) / `size-icon-inline`(20)；
+  当前代码主力仍是裸 `size-3.5/4`，属过渡态
 
 ### Mobile Responsive Design
 
-Both frontends are fully mobile-responsive:
-- **Breakpoints**: 640px, 768px, 1024px
-- **Admin**: Hamburger menu with drawer navigation on mobile
-- **User**: Responsive cards, hidden decorative animations on mobile
-- **Touch optimization**: Min 44px touch targets, no tap highlights
-- **Viewport meta**: Allows zoom (accessibility), PWA-ready
+- 断点：640 / 768 / 1024（Tailwind 默认 sm/md/lg）
+- **移动端不是「同一棵树加断点」**：存在 UA 双向分流（PC ↔ 移动各自的 loader 与部分专属组件），
+  设备判定收口在 `frontend-user/src/shared/lib/device.ts`
+- 触控目标 ≥ 44px；全面屏底部让位用 `--safe-bottom`，**不要裸写 `env(safe-area-inset-bottom)`**
+- **视口高度一律用 `dvh` 不用 `vh`** —— iOS 地址栏会盖住弹窗底部按钮（付费入口踩过），
+  已加护栏，`src/**` 下裸 `vh` 实测为 0
 - Test with Chrome DevTools device emulator or real devices
 
 ### Required CLI Tools
@@ -1033,10 +1114,17 @@ For Alipay payment issues:
 ## Project Documentation
 
 This CLAUDE.md file consolidates all essential development information. Additional documentation:
-- **README.md** - User-facing project overview and getting started guide
-- **swagger.json** - Complete OpenAPI 2.0 specification for Semantic Scholar API
-- **backend/SEMANTIC_SCHOLAR_API.md** - Detailed Semantic Scholar API documentation (Chinese)
-- **frontend-user/ICONS_PREVIEW.md** - Visual guide for custom search icons and design variants
-- **frontend-user/SEO_*.md** - SEO implementation guides and checklists for search engine optimization
+- **README.md** — User-facing project overview and getting started guide
+- **[frontend-user/CLAUDE.md](frontend-user/CLAUDE.md)** — 前端强制约束（第三方优先 / 分层 / 网络层 / 样式 token / 组件分层）。**在 `frontend-user/` 下工作时以它为准**
+- **[docs/figma-design-spec-2026-07.md](docs/figma-design-spec-2026-07.md)** — Figma 设计稿提取产物（设计 token 的规范侧真源）
+- **[docs/design-audit-2026-07.md](docs/design-audit-2026-07.md)** — 设计系统**落地实况**审计（token 层 vs 渲染层的差距、已知坑、计数口径分歧）
+- **[docs/design-migration-ledger-2026-07.md](docs/design-migration-ledger-2026-07.md)** — 改造台账。🔴 **是「改造前的计划」不是结果**，顶部列了它会主动误导的地方，读前先看那段警示
+- **[docs/interaction-spec/](docs/interaction-spec/)** — 交互规格
+- **[agent/README.md](agent/README.md)** — agent 容器部署说明
+
+> ⚠️ 以下文档在旧版本被列出/引用，2026-07-28 实测**均已不存在**，别再去找：
+> `swagger.json`、`backend/SEMANTIC_SCHOLAR_API.md`（Semantic Scholar 集成已被 minicod 取代）、
+> `frontend-user/ICONS_PREVIEW.md`、`frontend-user/SEO_*.md`（均为已删除的 CRA 版前端遗留）、
+> **`agent/docs/api.md`**（实测 `agent/` 下只有 `README.md`；本文件 agent 一节的引用已就地更正）。
 
 All other documentation has been consolidated into this file for simplicity.

@@ -49,7 +49,7 @@ export function NewsListPage() {
               onClick={() => setSort(s.key)}
               className={cn(
                 'rounded-pill px-3 py-1 text-12 font-medium transition-colors',
-                sort === s.key ? 'bg-foreground text-background' : 'bg-surface-2 text-muted-foreground',
+                sort === s.key ? 'bg-foreground text-on-dark' : 'bg-surface-2 text-muted-foreground',
               )}
             >
               {s.label}
@@ -67,7 +67,7 @@ export function NewsListPage() {
               className={cn(
                 'rounded-pill border px-3 py-1 text-12 transition-colors',
                 section === sec.id
-                  ? 'border-foreground bg-foreground text-background'
+                  ? 'border-foreground bg-foreground text-on-dark'
                   : 'border-border-button text-muted-foreground hover:bg-surface-2',
               )}
             >

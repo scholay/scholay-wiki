@@ -8,6 +8,7 @@ import {
   newsRelativeTime,
   newsReportLabel,
   newsSectionTone,
+  newsSourceLabel,
   type NewsCard as NewsCardData,
 } from '@/shared/api/news';
 
@@ -19,7 +20,7 @@ import {
 export const NewsCard = memo(function NewsCard({ item }: { item: NewsCardData }) {
   const navigate = useNavigate();
   const tone = newsSectionTone(item.section);
-  const source = item.sources?.[0]?.label;
+  const source = newsSourceLabel(item.sources?.[0]?.label);
   const surging = isNewsSurging(item.heat_trend);
   const reportLabel = newsReportLabel(item.report_type);
 
@@ -73,11 +74,12 @@ export const NewsCard = memo(function NewsCard({ item }: { item: NewsCardData })
 
       {/* meta 行:快讯标 / 来源 / 热度 / 飙升 */}
       <div className="mt-auto flex shrink-0 flex-wrap items-center gap-2 text-12">
-        <span className="rounded-pill bg-surface-2 px-2 py-0.5 text-muted-foreground">
+        {/* shrink-0 whitespace-nowrap:同 PC 卡 —— 否则长来源名会把 chip 挤到内部换行 */}
+        <span className="shrink-0 whitespace-nowrap rounded-pill bg-surface-2 px-2 py-0.5 text-muted-foreground">
           {reportLabel}
         </span>
         {source && (
-          <span className="truncate text-muted-foreground">来源 · {source}</span>
+          <span className="min-w-0 truncate text-muted-foreground">来源 · {source}</span>
         )}
         {item.heat_external > 0 && (
           <span className="inline-flex items-center gap-0.5 text-faint">

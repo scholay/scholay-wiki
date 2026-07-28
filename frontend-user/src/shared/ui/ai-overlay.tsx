@@ -25,12 +25,19 @@ export const AIOverlay = forwardRef<HTMLDivElement, AIOverlayProps>(
       <div ref={ref} className={cn('relative rounded-8', className)}>
         {children}
         {active && (
-          <div className="absolute inset-0 z-raised flex flex-col items-center justify-center gap-3 rounded-[inherit] bg-surface-card/70 backdrop-blur-[2px]">
+          // rounded-[inherit]:蒙层必须跟随调用方传入的圆角(可能是 8/12/16 任意档),
+          // 是 CSS 关键字而非设计值,token 层无法表达,保留 arbitrary。
+          // backdrop-blur-2 = --blur-2(2px)。内建最小档 blur-xs(4px)会把表单彻底糊掉,
+          // 而这里的设计意图正是「内容仍隐约可见」,故走项目自己的 2px 档。
+          <div className="absolute inset-0 z-raised flex flex-col items-center justify-center gap-3 rounded-[inherit] bg-surface-card/70 backdrop-blur-2">
+            {/* [animation-delay:*] 是三点跳动的相位错开,属动画参数而非设计 token,保留 arbitrary */}
             <div className="flex gap-1.5">
               <span className="size-2 animate-bounce rounded-pill bg-brand-green [animation-delay:-0.3s] motion-reduce:animate-none" />
               <span className="size-2 animate-bounce rounded-pill bg-brand-green [animation-delay:-0.15s] motion-reduce:animate-none" />
               <span className="size-2 animate-bounce rounded-pill bg-brand-green motion-reduce:animate-none" />
             </div>
+            {/* 主文案 text-14(它是标题层,不是控件);副文案 text-12 次文层
+                (与 CardDescription 同层,Figma §4.4 次文 12px),同字号会让两行糊成一块。 */}
             <div className="flex flex-col items-center gap-0.5">
               <span className="text-14 font-medium text-foreground">{label}</span>
               <span className="text-12 text-muted-foreground">Analyzing your request…</span>

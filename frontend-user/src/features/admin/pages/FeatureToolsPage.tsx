@@ -180,7 +180,7 @@ function EditDialog({
               tags: tagsRaw ? tagsRaw.split(/[,，]/).map((t) => t.trim()).filter(Boolean) : [],
             });
           }}
-          className="max-h-[70vh] space-y-3 overflow-y-auto pr-1"
+          className="max-h-[70dvh] space-y-3 overflow-y-auto pr-1"
         >
           <Field label="名称"><Input name="name" defaultValue={tool.name} required /></Field>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

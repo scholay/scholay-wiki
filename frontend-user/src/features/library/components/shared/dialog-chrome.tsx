@@ -4,7 +4,7 @@ import { cn } from '@/shared/lib/utils';
 import { Dialog } from '@/shared/ui/dialog';
 
 /**
- * 文献集弹窗 chrome —— 统一工作台(PaperWorkbenchDialog)与各面板共用的外壳件。
+ * 文件夹弹窗 chrome —— 统一工作台(PaperWorkbenchDialog)与各面板共用的外壳件。
  *
  * 背景:原 LibraryImportDialog / PaperManageDialog 两个弹窗外壳 90% 同构却各自手搓,
  * tab 条 4 份、footer 条 5 份、编号状态条 4 份散落各面板。这里收编为单一真源:
@@ -47,16 +47,25 @@ export function WorkbenchDialogShell({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
           className={cn(
-            'fixed inset-0 z-overlay bg-foreground/30 backdrop-blur-[2px]',
+            // backdrop-blur-2 = --blur-2(2px),与 shared/ui/{dialog,sheet,ai-overlay} 三处遮罩同源。
+            // 这是本项目四处遮罩里最后一个 arbitrary 写法,2026-07-28 收口成 token(零像素:
+            // 编译产物只有 `blur(2px)` → `blur(var(--blur-2))` 一处差异,而 --blur-2 就是 2px)。
+            'fixed inset-0 z-overlay bg-foreground/30 backdrop-blur-2',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0'
           )}
         />
         <DialogPrimitive.Content
           className={cn(
-            'fixed left-1/2 top-1/2 z-modal w-[960px] max-w-[calc(100vw-32px)]',
+            // w-dialog-xl = --dialog-w-xl 60rem = 960px,与原 w-[960px] 等值(零像素变化)。
+            // 余下三个 arbitrary 保留:
+            //   max-w-[calc(100vw-32px)] —— 窄屏让出 16px 边距,是计算式,token 表达不了;
+            //   h-[640px] —— 工作台定高,token 侧无对应档(--dialog-* 只有宽);
+            //   max-h-[90dvh] —— 刻意不用 --overlay-max-h(85dvh):本弹窗是双栏工作台,
+            //     85dvh 会挤掉一行元数据。dvh 而非 vh 是移动 Safari 地址栏的既有修法。
+            'fixed left-1/2 top-1/2 z-modal w-dialog-xl max-w-[calc(100vw-32px)]',
             '-translate-x-1/2 -translate-y-1/2',
-            'flex flex-col h-[640px] max-h-[90vh] overflow-hidden',
+            'flex flex-col h-[640px] max-h-[90dvh] overflow-hidden',
             'rounded-16 border border-border bg-surface-card',
             'shadow-overlay',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
@@ -158,7 +167,7 @@ export function DialogTabBar<T extends string>({
             {t.comingSoon && (
               <span
                 aria-hidden="true"
-                className="ml-0.5 inline-flex items-center h-3.5 px-1 rounded-pill bg-brand-amber text-background text-12 font-medium leading-none whitespace-nowrap"
+                className="ml-0.5 inline-flex items-center h-3.5 px-1 rounded-pill bg-brand-amber text-foreground text-12 font-medium leading-none whitespace-nowrap"
               >
                 即将
               </span>
@@ -167,7 +176,7 @@ export function DialogTabBar<T extends string>({
               <span
                 className={cn(
                   'inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-pill text-12 font-medium leading-none tabular-nums',
-                  active ? 'bg-brand-amber text-background' : 'bg-surface-2 text-subtle'
+                  active ? 'bg-brand-amber text-foreground' : 'bg-surface-2 text-subtle'
                 )}
               >
                 {t.count}
@@ -210,11 +219,12 @@ export function DialogFooterBar({
 /** footer 主操作按钮(实底)。tone 区分语义:green=保存/写入,amber=关联/匹配。 */
 export function footerPrimaryCn(tone: 'green' | 'amber' = 'green'): string {
   return cn(
-    'inline-flex items-center gap-1.5 h-8 px-3.5 rounded-8 text-14 font-medium text-background transition-colors',
+    'inline-flex items-center gap-1.5 h-8 px-3.5 rounded-8 text-14 font-medium transition-colors',
     'disabled:opacity-60 disabled:cursor-not-allowed',
+    // 松青实底配白字(Figma §4.1);琥珀实底配墨黑字(Figma §4.2 —— 白字 on #E5A800 仅 2.11:1)
     tone === 'green'
-      ? 'bg-brand-green hover:bg-brand-green/90'
-      : 'bg-brand-amber hover:bg-brand-amber/90'
+      ? 'bg-brand-green text-on-brand hover:bg-brand-green/90'
+      : 'bg-brand-amber text-foreground hover:bg-brand-amber/90'
   );
 }
 
@@ -250,8 +260,8 @@ export function StepBanner({
       <div className="flex items-center gap-2.5">
         <span
           className={cn(
-            'inline-flex h-5 w-5 items-center justify-center rounded-pill text-background text-12 font-medium tabular-nums shrink-0',
-            active ? 'bg-brand-amber' : 'bg-foreground'
+            'inline-flex h-5 w-5 items-center justify-center rounded-pill text-12 font-medium tabular-nums shrink-0',
+            active ? 'bg-brand-amber text-foreground' : 'bg-foreground text-on-dark'
           )}
         >
           {step}

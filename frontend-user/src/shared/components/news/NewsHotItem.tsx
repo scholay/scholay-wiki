@@ -6,7 +6,7 @@ import { formatHeat, isNewsSurging, type NewsCard } from '@/shared/api/news';
 /** 前三名领奖台配色(红/橙/黄),第 4 名起浅灰圆角数字。 */
 function rankClass(rank: number): string {
   if (rank === 1) return 'bg-brand-red text-on-brand';
-  if (rank === 2) return 'bg-brand-amber text-on-brand';
+  if (rank === 2) return 'bg-brand-amber text-foreground';
   if (rank === 3) return 'bg-brand-green text-on-brand';
   return 'bg-surface-2 text-faint';
 }

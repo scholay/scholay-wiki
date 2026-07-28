@@ -180,7 +180,7 @@ export function FileTab({
           <button
             type="button"
             onClick={onPickFile}
-            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-8 bg-brand-amber text-background text-14 font-medium hover:bg-brand-amber/90 transition-colors"
+            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-8 bg-brand-amber text-foreground text-14 font-medium hover:bg-brand-amber/90 transition-colors"
           >
             <Upload className="size-3.5" strokeWidth={2.25} />
             浏览文件
@@ -217,6 +217,7 @@ export function UrlTab({
     <div className="space-y-3">
       <div className="flex items-center gap-2 px-3 h-11 rounded-12 border border-border bg-surface-card focus-within:border-brand-amber focus-within:ring-2 focus-within:ring-brand-amber/20 transition-colors">
         <Icon className="size-4 text-muted-foreground shrink-0" />
+        {/* outline-none 合法:焦点可供性由外层容器的 focus-within:border-brand-amber + ring 提供 */}
         <input
           type="text"
           value={value}

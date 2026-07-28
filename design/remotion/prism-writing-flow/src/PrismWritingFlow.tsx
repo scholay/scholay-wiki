@@ -1,29 +1,29 @@
 import {AbsoluteFill, interpolate, staticFile, useCurrentFrame} from 'remotion';
 
 const COLORS = {
-  background: '#FFFFFF',
-  surface1: '#FAFAFA',
-  surface2: '#F5F5F5',
-  border: '#E8E8E8',
-  borderStrong: '#D8D8D8',
-  text: '#111111',
-  subtle: '#444444',
-  muted: '#666666',
-  faint: '#999999',
-  red: '#CC2222',
-  green: '#2A7A2A',
-  amber: '#D4A017',
-  amberSoft: '#F0E6C8',
-  dangerSoft: '#FFF5F5',
-  greenSoft: '#F1FAF1',
-  prismBadge: '#F0E8D8',
-  codeBg: '#111111',
-  codeGutter: '#0A0A0A',
-  codeText: '#E6E6E6',
-  codeMuted: '#777777',
-  codeCmd: '#7AA2F7',
-  codeGreen: '#8CC084',
-  codeAmber: '#D8A657',
+  background: '#F6F4EE',
+  surface1: '#EFEDE5',
+  surface2: '#E8E5DC',
+  border: '#DCDAD6',
+  borderStrong: '#C7C5C1',
+  text: '#1F1F23',
+  subtle: '#505059',
+  muted: '#686873',
+  faint: '#6E6E78',
+  red: '#882828',
+  green: '#2F4D29',
+  amber: '#E5A800',
+  amberSoft: '#E5DFCE',
+  dangerSoft: '#F3EAEA',
+  greenSoft: '#EAEDEA',
+  prismBadge: '#E5DFCE',
+  codeBg: '#09090A',
+  codeGutter: '#050506',
+  codeText: '#e6e6e6',
+  codeMuted: '#555555',
+  codeCmd: '#7aa2f7',
+  codeGreen: '#6a7d6a',
+  codeAmber: '#d8a657',
 };
 
 const clamp = {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'} as const;
@@ -95,7 +95,7 @@ const codeLines = [
 
 function FileTree({frame}: {frame: number}) {
   return (
-    <div style={{position: 'absolute', left: 0, top: 44, width: 164, bottom: 68, background: '#fff', borderRight: `1px solid ${COLORS.borderStrong}`}}>
+    <div style={{position: 'absolute', left: 0, top: 44, width: 164, bottom: 68, background: '#F6F4EE', borderRight: `1px solid ${COLORS.borderStrong}`}}>
       <div style={{fontSize: 13, fontWeight: 900, color: COLORS.faint, margin: '18px 18px 8px'}}>文件</div>
       {files.map(([label, start, active, indent], i) => (
         <div
@@ -160,7 +160,7 @@ function Preview({frame}: {frame: number}) {
   return (
     <div style={{position: 'absolute', left: 540, top: 44, right: 0, bottom: 68, background: COLORS.prismBadge, borderLeft: `1px solid ${COLORS.borderStrong}`}}>
       <div style={{fontSize: 13, fontWeight: 850, color: COLORS.muted, margin: '18px 18px'}}>预览 · PDF</div>
-      <div style={{position: 'absolute', left: 34, top: 38, width: 296, height: 270, borderRadius: 5, background: '#fff', boxShadow: '5px 6px 0 #D8D0BD', border: '1px solid #e0e0e0'}}>
+      <div style={{position: 'absolute', left: 34, top: 38, width: 296, height: 270, borderRadius: 5, background: '#F6F4EE', boxShadow: '5px 6px 0 #D8D0BD', border: '1px solid #e0e0e0'}}>
         <div style={{textAlign: 'center', marginTop: 30, opacity: title}}>
           <div style={{fontSize: 22, fontWeight: 850}}>AI-assisted Research Writing</div>
           <div style={{fontSize: 13, color: COLORS.muted, marginTop: 10}}>Scholay Prism</div>
@@ -183,7 +183,7 @@ function ChatBar({frame}: {frame: number}) {
   if (frame < 42) {
     const count = Math.round(typed.length * fade(frame, 1, 33));
     return (
-      <div style={{position: 'absolute', left: 22, right: 22, bottom: 16, height: 50, borderRadius: 11, border: `1.5px solid ${COLORS.borderStrong}`, background: '#fff', display: 'flex', alignItems: 'center', padding: '0 24px', fontSize: 18, fontWeight: 750}}>
+      <div style={{position: 'absolute', left: 22, right: 22, bottom: 16, height: 50, borderRadius: 11, border: `1.5px solid ${COLORS.borderStrong}`, background: '#F6F4EE', display: 'flex', alignItems: 'center', padding: '0 24px', fontSize: 18, fontWeight: 750}}>
         {typed.slice(0, count)}
         <span style={{width: 2, height: 24, background: COLORS.red, marginLeft: 6}} />
         <span style={{marginLeft: 'auto', width: 34, height: 34, borderRadius: 8, background: COLORS.red}} />
@@ -193,7 +193,7 @@ function ChatBar({frame}: {frame: number}) {
 
   if (frame < 111) {
     return (
-      <div style={{position: 'absolute', left: 22, right: 22, bottom: 16, height: 50, borderRadius: 11, border: `1.5px solid ${COLORS.borderStrong}`, background: '#fff', display: 'flex', alignItems: 'center', padding: '0 24px', fontSize: 18, fontWeight: 750}}>
+      <div style={{position: 'absolute', left: 22, right: 22, bottom: 16, height: 50, borderRadius: 11, border: `1.5px solid ${COLORS.borderStrong}`, background: '#F6F4EE', display: 'flex', alignItems: 'center', padding: '0 24px', fontSize: 18, fontWeight: 750}}>
         <span style={{width: 26, height: 26, borderRadius: 999, border: `1.5px solid ${COLORS.red}`, background: COLORS.dangerSoft, marginRight: 16}} />
         Prism 正在生成 LaTeX 结构和成品正文
         <span style={{marginLeft: 'auto', display: 'flex', gap: 14}}>
@@ -217,7 +217,7 @@ function ChatBar({frame}: {frame: number}) {
       <span style={{marginLeft: 14}}>已生成 main.tex、章节文件和正文，右侧预览已更新</span>
       <span style={{marginLeft: 'auto', display: 'flex', gap: 14}}>
         <span style={{width: 126, height: 34, borderRadius: 8, background: COLORS.green, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 15}}>应用到项目</span>
-        <span style={{width: 126, height: 34, borderRadius: 8, border: `1px solid ${COLORS.borderStrong}`, background: '#fff', color: COLORS.subtle, display: 'grid', placeItems: 'center', fontSize: 15}}>继续修改</span>
+        <span style={{width: 126, height: 34, borderRadius: 8, border: `1px solid ${COLORS.borderStrong}`, background: '#F6F4EE', color: COLORS.subtle, display: 'grid', placeItems: 'center', fontSize: 15}}>继续修改</span>
       </span>
     </div>
   );
@@ -225,11 +225,11 @@ function ChatBar({frame}: {frame: number}) {
 
 function PrismEditor({frame}: {frame: number}) {
   return (
-    <div style={{position: 'absolute', left: 37, top: 104, width: 1205, height: 584, borderRadius: 17, border: `2px solid ${COLORS.borderStrong}`, background: '#fff', boxShadow: '6px 8px 0 #E4E4E4', overflow: 'hidden'}}>
+    <div style={{position: 'absolute', left: 37, top: 104, width: 1205, height: 584, borderRadius: 17, border: `2px solid ${COLORS.borderStrong}`, background: '#F6F4EE', boxShadow: '6px 8px 0 #E4E4E4', overflow: 'hidden'}}>
       <div style={{height: 58, borderBottom: `2px solid ${COLORS.border}`, background: COLORS.surface1, display: 'flex', alignItems: 'center', padding: '0 24px', gap: 12}}>
-        <span style={{width: 10, height: 10, borderRadius: 999, background: '#FF5F57'}} />
-        <span style={{width: 10, height: 10, borderRadius: 999, background: '#FEBC2E'}} />
-        <span style={{width: 10, height: 10, borderRadius: 999, background: '#28C840'}} />
+        <span style={{width: 10, height: 10, borderRadius: 999, background: '#F6F4EE'}} />
+        <span style={{width: 10, height: 10, borderRadius: 999, background: '#F6F4EE'}} />
+        <span style={{width: 10, height: 10, borderRadius: 999, background: '#F6F4EE'}} />
         <span style={{fontSize: 20, fontWeight: 900, marginLeft: 22}}>Prism · AI 写作</span>
         <span style={{height: 28, padding: '0 14px', borderRadius: 7, border: '1px solid #D8C99F', background: COLORS.prismBadge, display: 'grid', placeItems: 'center', fontSize: 14, color: COLORS.subtle}}>main.tex</span>
         <span style={{marginLeft: 'auto', width: 82, height: 32, borderRadius: 8, background: COLORS.text, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 15, fontWeight: 900}}>编译</span>

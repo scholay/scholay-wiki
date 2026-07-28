@@ -16,7 +16,7 @@ import type { LucideIcon } from 'lucide-react';
  *
  * 用户读完一篇学术教程 / 博客后,下一步的常见动作是立刻去用工具,而不是再读
  * 另一篇文章。这里给一个统一的 CTA 模块,内置 3 个核心 feature 快捷入口
- * (文献搜索 / 文献集 / 期刊搜索),无需调用方配置。
+ * (文献搜索 / 文件夹 / 期刊搜索),无需调用方配置。
  *
  * 设计上与 HelpCenterPage 底部"回到产品"区是同款 —— 让用户在帮助内容的任意
  * 端点都能一键回归产品。
@@ -32,7 +32,7 @@ interface Shortcut {
 // 单个功能入口(复用,组成各主题预设)
 const SC = {
   search: { to: '/search', icon: Search, title: '文献搜索', desc: '多源并行 + AI 智能检索' },
-  library: { to: '/library', icon: FolderOpen, title: '我的文献集', desc: '收藏 / 文件夹 / PDF 管理' },
+  library: { to: '/library', icon: FolderOpen, title: '我的文件夹', desc: '收藏 / 分组 / PDF 管理' },
   journals: { to: '/journals', icon: BookOpen, title: '期刊搜索', desc: '检索 + IF / 分区 / 收录' },
   claw: { to: '/claw', icon: MessagesSquare, title: '智能助手', desc: 'AI 学术对话与调研' },
   prism: { to: '/prism', icon: PenLine, title: '智能写作 Prism', desc: 'AI-native LaTeX 写作' },

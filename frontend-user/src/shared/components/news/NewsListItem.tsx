@@ -7,6 +7,7 @@ import {
   newsRelativeTime,
   newsReportLabel,
   newsSectionTone,
+  newsSourceLabel,
   type NewsCard,
 } from '@/shared/api/news';
 
@@ -16,7 +17,9 @@ import {
  */
 export function NewsListItem({ item }: { item: NewsCard }) {
   const tone = newsSectionTone(item.section);
-  const source = item.sources?.[0]?.label;
+  // 剥掉上游 label 尾部自带的日期 —— 时间由右上角的 published_at 单点负责,
+  // 同卡两套日期表述是设计评审点出的问题。
+  const source = newsSourceLabel(item.sources?.[0]?.label);
   const surging = isNewsSurging(item.heat_trend);
 
   return (
@@ -74,12 +77,15 @@ export function NewsListItem({ item }: { item: NewsCard }) {
           </p>
         )}
 
-        {/* 底行:来源 + 快讯/今日要览 */}
+        {/* 底行:快讯/今日要览 + 来源。
+            shrink-0 whitespace-nowrap:chip 不参与压缩 —— 没有它时旁边的长来源名会把
+            chip 挤窄,「今日要览」四个字在里面折成两行(设计评审报的换行 bug)。
+            min-w-0:让 truncate 真的能生效,压缩由来源名承担。 */}
         <div className="mt-2 flex items-center gap-2 text-12 text-faint">
-          <span className="rounded-4 bg-surface-1 px-1.5 py-0.5">
+          <span className="shrink-0 whitespace-nowrap rounded-4 bg-surface-1 px-1.5 py-0.5">
             {newsReportLabel(item.report_type)}
           </span>
-          {source && <span className="truncate">来源 · {source}</span>}
+          {source && <span className="min-w-0 truncate">来源 · {source}</span>}
         </div>
       </div>
     </Link>

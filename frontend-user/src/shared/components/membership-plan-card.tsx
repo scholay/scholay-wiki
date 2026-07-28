@@ -129,7 +129,7 @@ export function MembershipPlanCard({ plan, cycle = 'monthly', popularBadge, high
       <div className="flex items-center justify-between gap-2">
         <p className="text-16 font-medium text-foreground">{meta.name}</p>
         {popularBadge && (
-          <span className="shrink-0 rounded-pill bg-brand-red px-2 py-0.5 text-12 font-medium text-background">最受欢迎</span>
+          <span className="shrink-0 rounded-pill bg-brand-red px-2 py-0.5 text-12 font-medium text-on-brand">最受欢迎</span>
         )}
       </div>
       <p className="text-12 text-faint">{meta.sub}</p>
@@ -145,10 +145,10 @@ export function MembershipPlanCard({ plan, cycle = 'monthly', popularBadge, high
           )}
           {!isFree && <span className="text-12 text-faint">{yearly ? '/ 年' : '/ 月'}</span>}
           {!isFree && !yearly && originalCents > priceCents && (
-            <span className="rounded-pill bg-brand-red px-1.5 py-0.5 text-12 font-medium text-background">限时优惠</span>
+            <span className="rounded-pill bg-brand-red px-1.5 py-0.5 text-12 font-medium text-on-brand">限时优惠</span>
           )}
           {!isFree && yearly && savings > 0 && (
-            <span className="rounded-pill bg-brand-red px-1.5 py-0.5 text-12 font-medium text-background">
+            <span className="rounded-pill bg-brand-red px-1.5 py-0.5 text-12 font-medium text-on-brand">
               比月付省 ¥{Math.round(savings / 100)}
             </span>
           )}
@@ -248,7 +248,7 @@ export function BillingCycleToggle({
               <span
                 className={cn(
                   'rounded-pill px-1.5 py-0.5 text-12 font-medium',
-                  active ? 'bg-brand-red text-background' : 'bg-brand-red/10 text-brand-red',
+                  active ? 'bg-brand-red text-on-brand' : 'bg-brand-red/10 text-brand-red',
                 )}
               >
                 省 {pct}%

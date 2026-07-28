@@ -10,6 +10,7 @@ import {
   YAxis,
 } from 'recharts';
 import { compactAxis } from '@/shared/lib/chart-format';
+import { chartTheme } from '@/shared/lib/theme-bridge';
 import { AdminPageLayout } from '../components/AdminPageLayout';
 import { StatCard } from '../components/StatCard';
 import { DateRangeControl, type DateWindow } from '../components/DateRangeControl';
@@ -83,16 +84,16 @@ export function UsageStatsPage() {
                   <stop offset="100%" stopColor="var(--color-brand-green)" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} vertical={false} />
               <XAxis
                 dataKey="date"
-                tick={{ fontSize: 11, fill: 'var(--color-faint)' }}
-                axisLine={{ stroke: 'var(--color-border)' }}
+                tick={{ fontSize: chartTheme.fontSize, fill: chartTheme.axis }}
+                axisLine={{ stroke: chartTheme.grid }}
                 tickLine={false}
                 tickFormatter={(d: string) => d.slice(5)}
               />
               <YAxis
-                tick={{ fontSize: 11, fill: 'var(--color-faint)' }}
+                tick={{ fontSize: chartTheme.fontSize, fill: chartTheme.axis }}
                 axisLine={false}
                 tickLine={false}
                 allowDecimals={false}
@@ -100,13 +101,8 @@ export function UsageStatsPage() {
                 width={38}
               />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: 'var(--color-background)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 6,
-                  fontSize: 12,
-                }}
-                labelStyle={{ color: 'var(--color-muted-foreground)', fontSize: 11 }}
+                contentStyle={chartTheme.tooltip}
+                labelStyle={{ color: 'var(--color-muted-foreground)', fontSize: chartTheme.fontSize }}
                 labelFormatter={(l) => withWeekday(String(l).slice(5), l as string)}
                 formatter={(v) => [Number(v ?? 0).toLocaleString(), '使用次数']}
               />

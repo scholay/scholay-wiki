@@ -37,9 +37,9 @@ const FEATURES: FeatureEntry[] = [
   },
   {
     to: '/features/library',
-    name: '文献集',
-    englishName: 'Collections',
-    desc: '收藏 / 文件夹 / 跨设备同步 · 一站式个人知识库',
+    name: '文件夹',
+    englishName: 'Folders',
+    desc: '收藏 / 分组 / 跨设备同步 · 一站式个人知识库',
     icon: Folder,
   },
   {
@@ -54,7 +54,7 @@ const FEATURES: FeatureEntry[] = [
     to: '/features/claw',
     name: '智能助手',
     englishName: 'Claw AI',
-    desc: '基于你的文献集的可溯源学术对话',
+    desc: '基于你的文件夹的可溯源学术对话',
     icon: Sparkles,
   },
   {
@@ -119,7 +119,7 @@ function FeatureCard({ feature }: { feature: FeatureEntry }) {
           <Icon className="size-5 text-foreground" strokeWidth={1.8} />
         </span>
         {feature.comingSoon && (
-          <span className="inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-background text-12 font-medium leading-none">
+          <span className="inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-foreground text-12 font-medium leading-none">
             即将推出
           </span>
         )}

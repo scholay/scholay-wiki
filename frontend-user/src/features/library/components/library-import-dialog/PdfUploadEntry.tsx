@@ -68,7 +68,7 @@ export function PdfUploadEntry({
               拖拽到这里,或点下面的按钮选择文件;上传后会自动识别并匹配在线论文
             </div>
           </div>
-          <div className="inline-flex items-center gap-1.5 h-9 px-4 rounded-8 bg-brand-amber text-background text-14 font-medium group-hover:bg-brand-amber/90 transition-colors">
+          <div className="inline-flex items-center gap-1.5 h-9 px-4 rounded-8 bg-brand-amber text-foreground text-14 font-medium group-hover:bg-brand-amber/90 transition-colors">
             <FileText className="size-3.5" strokeWidth={2.25} />
             选择 PDF 文件
           </div>
@@ -95,7 +95,7 @@ export function PdfUploadEntry({
         >
           <span
             aria-hidden="true"
-            className="absolute top-3 right-3 inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-background text-12 font-medium leading-none whitespace-nowrap"
+            className="absolute top-3 right-3 inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-foreground text-12 font-medium leading-none whitespace-nowrap"
           >
             即将推出
           </span>
@@ -181,7 +181,7 @@ function StepNode({
         className={cn(
           'inline-flex h-6 w-6 items-center justify-center rounded-pill text-12 font-medium shrink-0 tabular-nums',
           active
-            ? 'bg-brand-amber text-background'
+            ? 'bg-brand-amber text-foreground'
             : 'bg-surface-2 text-faint border border-border-soft'
         )}
       >

@@ -3,7 +3,7 @@ import type { UserLibraryPaper } from '@/shared/api/types';
 import type { LibraryFolderFilter } from '../api/papers';
 
 /**
- * 文献集列表的多选状态 —— 由 LibraryFolderView 持有,既给 LibraryPaperList 渲染行,
+ * 文件夹内论文列表的多选状态 —— 由 LibraryFolderView 持有,既给 LibraryPaperList 渲染行,
  * 也给外层 toolbar 决定是否切换成批量操作模式。
  *
  *   - Set<paperId> + anchor index 用于 shift+click 范围选

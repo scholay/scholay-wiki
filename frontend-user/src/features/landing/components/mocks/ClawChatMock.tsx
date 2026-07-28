@@ -3,7 +3,7 @@ import { cn } from '@/shared/lib/utils';
 
 /**
  * Claw Landing Hero 右侧 mock —— 仿 .pen Claw HeroRight:
- *   chat panel:上方对话气泡 (问 + 答含引用角标) + 下方输入框 + 文献集 chip
+ *   chat panel:上方对话气泡 (问 + 答含引用角标) + 下方输入框 + 文件夹 chip
  */
 
 export function ClawChatMock() {
@@ -17,13 +17,13 @@ export function ClawChatMock() {
         <Sparkles className="size-3.5 text-brand-amber" />
         <span className="text-12 font-medium text-foreground">Claw · 学术对话</span>
         <span className="flex-1" />
-        <span className="text-12 text-muted-foreground">索引文献集:博士论文 · 248 篇</span>
+        <span className="text-12 text-muted-foreground">索引文件夹:博士论文 · 248 篇</span>
       </div>
 
       {/* messages */}
       <div className="flex flex-col gap-4 p-5 bg-surface-card min-h-[380px]">
         {/* user */}
-        <div className="self-end max-w-[80%] px-4 py-3 rounded-8 bg-foreground text-background text-12">
+        <div className="self-end max-w-[80%] px-4 py-3 rounded-8 bg-foreground text-on-dark text-12">
           帮我对比 Vaswani 与 Devlin 两篇论文在 attention 设计上的区别
         </div>
 
@@ -51,12 +51,12 @@ export function ClawChatMock() {
       {/* input */}
       <div className="flex items-center gap-2 p-3 border-t border-border-soft bg-surface-1">
         <span className="flex-1 px-3 py-2 rounded-8 bg-surface-card border border-border-soft text-12 text-faint">
-          询问你的文献集 …
+          询问你的文件夹 …
         </span>
         <button
           type="button"
           aria-label="发送"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-8 bg-foreground text-background"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-8 bg-foreground text-on-dark"
         >
           <Send className="size-3.5" strokeWidth={2.25} />
         </button>

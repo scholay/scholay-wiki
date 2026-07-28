@@ -54,7 +54,7 @@ export function SearcherPagination({
             className={cn(
               'inline-flex items-center justify-center h-5 px-2 rounded-pill text-12 font-medium transition-colors whitespace-nowrap',
               pageSize === sz
-                ? 'bg-foreground text-background'
+                ? 'bg-foreground text-on-dark'
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >

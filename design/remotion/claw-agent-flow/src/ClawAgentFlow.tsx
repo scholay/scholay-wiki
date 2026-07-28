@@ -1,21 +1,21 @@
 import {AbsoluteFill, interpolate, staticFile, useCurrentFrame} from 'remotion';
 
 const COLORS = {
-  background: '#FFFFFF',
-  surface1: '#FAFAFA',
-  surface2: '#F5F5F5',
-  border: '#E8E8E8',
-  borderStrong: '#D8D8D8',
-  text: '#111111',
-  subtle: '#444444',
-  muted: '#666666',
-  faint: '#999999',
-  red: '#CC2222',
-  green: '#2A7A2A',
-  amber: '#D4A017',
-  amberSoft: '#F0E6C8',
-  dangerSoft: '#FFF5F5',
-  greenSoft: '#F1FAF1',
+  background: '#F6F4EE',
+  surface1: '#EFEDE5',
+  surface2: '#E8E5DC',
+  border: '#DCDAD6',
+  borderStrong: '#C7C5C1',
+  text: '#1F1F23',
+  subtle: '#505059',
+  muted: '#686873',
+  faint: '#6E6E78',
+  red: '#882828',
+  green: '#2F4D29',
+  amber: '#E5A800',
+  amberSoft: '#E5DFCE',
+  dangerSoft: '#F3EAEA',
+  greenSoft: '#EAEDEA',
 };
 
 const clamp = {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'} as const;
@@ -78,7 +78,7 @@ function ActionButton({children, tone}: {children: string; tone: 'primary' | 'gr
       ? {background: COLORS.red, borderColor: COLORS.red, color: '#fff'}
       : tone === 'green'
         ? {background: COLORS.greenSoft, borderColor: COLORS.green, color: COLORS.green}
-        : {background: '#fff', borderColor: COLORS.borderStrong, color: COLORS.subtle};
+        : {background: '#F6F4EE', borderColor: COLORS.borderStrong, color: COLORS.subtle};
 
   return (
     <span
@@ -109,13 +109,13 @@ function ChatWindow({frame}: {frame: number}) {
   const typedCount = Math.round(typed.length * fade(frame, 1, 27));
 
   return (
-    <div style={{position: 'absolute', left: 43, top: 109, width: 1194, height: 570, borderRadius: 16, border: `2px solid ${COLORS.borderStrong}`, background: '#fff', boxShadow: '6px 8px 0 rgba(17,17,17,0.10)', overflow: 'hidden'}}>
+    <div style={{position: 'absolute', left: 43, top: 109, width: 1194, height: 570, borderRadius: 16, border: `2px solid ${COLORS.borderStrong}`, background: '#F6F4EE', boxShadow: '6px 8px 0 rgba(17,17,17,0.10)', overflow: 'hidden'}}>
       <div style={{height: 70, background: COLORS.surface1, borderBottom: `2px solid ${COLORS.border}`, display: 'flex', alignItems: 'center', padding: '0 28px', gap: 16}}>
         <span style={{width: 36, height: 36, borderRadius: 999, border: `1.5px solid ${COLORS.red}`, background: COLORS.dangerSoft, display: 'grid', placeItems: 'center'}}>
           <ClawIcon />
         </span>
         <span style={{fontSize: 22, fontWeight: 900}}>Claw · 学术对话</span>
-        <span style={{marginLeft: 'auto', height: 34, padding: '0 30px', borderRadius: 999, border: `1px solid ${COLORS.border}`, background: '#fff', display: 'grid', placeItems: 'center', fontSize: 16, fontWeight: 750, color: COLORS.muted}}>
+        <span style={{marginLeft: 'auto', height: 34, padding: '0 30px', borderRadius: 999, border: `1px solid ${COLORS.border}`, background: '#F6F4EE', display: 'grid', placeItems: 'center', fontSize: 16, fontWeight: 750, color: COLORS.muted}}>
           索引文献集 · 248 篇
         </span>
       </div>
@@ -125,7 +125,7 @@ function ChatWindow({frame}: {frame: number}) {
         <div style={{fontSize: 15, color: '#D8D8D8', textAlign: 'right', marginTop: 6}}>需要基础信息和可引用线索</div>
       </div>
 
-      <div style={{position: 'absolute', left: 42, bottom: 22, right: 42, height: 52, borderRadius: 10, border: `1.5px solid ${COLORS.borderStrong}`, background: '#fff', display: 'flex', alignItems: 'center', padding: '0 24px', opacity: composerOpacity}}>
+      <div style={{position: 'absolute', left: 42, bottom: 22, right: 42, height: 52, borderRadius: 10, border: `1.5px solid ${COLORS.borderStrong}`, background: '#F6F4EE', display: 'flex', alignItems: 'center', padding: '0 24px', opacity: composerOpacity}}>
         <span style={{fontSize: 19, fontWeight: 750}}>{typed.slice(0, typedCount)}</span>
         <span style={{width: 1, height: 22, background: COLORS.red, marginLeft: 6, opacity: frame < 30 ? 1 : 0}} />
         <span style={{marginLeft: 'auto', width: 35, height: 35, borderRadius: 7, background: COLORS.red, display: 'grid', placeItems: 'center', opacity: fade(frame, 20, 32)}}>
@@ -133,7 +133,7 @@ function ChatWindow({frame}: {frame: number}) {
         </span>
       </div>
 
-      <div style={{position: 'absolute', left: 42, top: 208, width: 866, height: 186, borderRadius: 12, border: `1.5px solid ${COLORS.borderStrong}`, background: '#fff', padding: 26, opacity: toolOpacity, transform: `translateY(${interpolate(toolOpacity, [0, 1], [18, 0], clamp)}px)`}}>
+      <div style={{position: 'absolute', left: 42, top: 208, width: 866, height: 186, borderRadius: 12, border: `1.5px solid ${COLORS.borderStrong}`, background: '#F6F4EE', padding: 26, opacity: toolOpacity, transform: `translateY(${interpolate(toolOpacity, [0, 1], [18, 0], clamp)}px)`}}>
         <div style={{display: 'flex', alignItems: 'center', gap: 18}}>
           <span style={{width: 70, height: 70, borderRadius: 999, border: `2px solid ${COLORS.red}`, background: COLORS.dangerSoft, display: 'grid', placeItems: 'center'}}>
             <ClawIcon />
@@ -169,7 +169,7 @@ function ChatWindow({frame}: {frame: number}) {
           <span style={{fontSize: 20, fontWeight: 850}}>找到 1 篇可优先阅读的参考文献。下面是基础信息：</span>
         </div>
         <div style={{marginLeft: 66, marginTop: 18, opacity: fade(frame, 108, 120)}}>
-          <div style={{height: 172, borderRadius: 11, border: `1px solid ${COLORS.border}`, background: '#fff', padding: '18px 22px'}}>
+          <div style={{height: 172, borderRadius: 11, border: `1px solid ${COLORS.border}`, background: '#F6F4EE', padding: '18px 22px'}}>
             <div style={{display: 'flex', alignItems: 'center', gap: 18}}>
               <CitationChip label={ref.idx} />
               <div style={{flex: 1}}>

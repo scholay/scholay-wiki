@@ -1,5 +1,5 @@
 /**
- * 文献集 · 写入侧序列化器(纯 TS,零 React / 网络)。
+ * 文件夹 · 写入侧序列化器(纯 TS,零 React / 网络)。
  *
  * 背景:多个入口(在线关联 / 手动编辑 / PDF 上传填充)各自维护过一份私有转换函数,
  * 行为基本一致却散落各处 —— 尤其 `SearchHit → ConfirmLink` 在 PaperRelinkDialog 与

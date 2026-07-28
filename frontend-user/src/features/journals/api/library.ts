@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import type { UserLibraryFolderItem } from '@/shared/api/types';
 
 /**
- * JournalSidebar 用 —— 列出用户文献集文件夹概要,展示快捷入口。
+ * JournalSidebar 用 —— 列出用户的文件夹概要,展示快捷入口。
  *
  * queryKey `['library', 'folders']` 与 features/library / search / home 严格一致,
  * react-query 自动共享缓存:同一会话只发一次请求,任何 feature 收藏论文后

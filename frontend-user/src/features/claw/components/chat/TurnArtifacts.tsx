@@ -83,7 +83,7 @@ function ArtifactRow({
         <Button
           asChild
           size="sm"
-          className="h-7 shrink-0 gap-1 bg-brand-green text-background hover:bg-brand-green/90"
+          className="h-7 shrink-0 gap-1 bg-brand-green text-on-brand hover:bg-brand-green/90"
         >
           <a href={zipHref} download={`${artifact.name}.zip`} aria-label={`打包下载 ${artifact.name}`}>
             <Download />
@@ -146,7 +146,7 @@ function ArtifactRow({
       <Button
         asChild
         size="sm"
-        className="h-7 shrink-0 gap-1 bg-brand-green text-background hover:bg-brand-green/90"
+        className="h-7 shrink-0 gap-1 bg-brand-green text-on-brand hover:bg-brand-green/90"
       >
         <a href={downloadUrl} download={artifact.name} aria-label={`下载 ${artifact.name}`}>
           <Download />

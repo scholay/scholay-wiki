@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import type { ToolBlock } from '@/shared/types/chat';
 import { maskToolSource } from '@/shared/lib/mask-tool-source';
+import { cn } from '@/shared/lib/utils';
 import { friendlyToolError, sanitizeOpsText } from '@/shared/lib/friendly-tool-error';
 
 /**
@@ -234,7 +235,7 @@ function ToolErrorFold({ tool }: { tool: ToolBlock }) {
         </button>
       </div>
       {showDetail && (
-        <pre className="mt-1.5 rounded-4 px-2 py-1.5 text-[11px] font-mono leading-paragraph whitespace-pre-wrap break-words max-h-72 overflow-y-auto bg-warning-soft text-subtle border border-brand-amber/20">
+        <pre className="mt-1.5 rounded-4 px-2 py-1.5 text-12 font-mono leading-paragraph whitespace-pre-wrap break-words max-h-72 overflow-y-auto bg-warning-soft text-subtle border border-brand-amber/20">
           {sanitizeOpsText(raw)}
         </pre>
       )}
@@ -273,12 +274,12 @@ function ToolPayloadFold({ label, value, kind }: PayloadFoldProps) {
         )}
       </div>
       <pre
-        className={
-          'rounded-4 px-2 py-1.5 text-[11px] font-mono leading-paragraph whitespace-pre-wrap break-words max-h-72 overflow-y-auto'+
-          (kind === 'error'
+        className={cn(
+          'rounded-4 px-2 py-1.5 text-12 font-mono leading-paragraph whitespace-pre-wrap break-words max-h-72 overflow-y-auto',
+          kind === 'error'
             ? 'bg-warning-soft text-subtle border border-brand-amber/20'
-            : 'bg-surface-2 text-foreground/80')
-        }
+            : 'bg-surface-2 text-foreground/80'
+        )}
       >
         {preview}
       </pre>

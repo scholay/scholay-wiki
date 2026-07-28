@@ -70,16 +70,19 @@ export function QuickOpenPaperDialog({
           collisionPadding={12}
           className={cn(
             'z-modal w-[520px] max-w-[calc(100vw-32px)]',
-            'flex flex-col max-h-[min(70vh,640px)] overflow-hidden',
+            // dvh 而非 vh:iOS Safari 地址栏收起/展开会改 vh,弹层底部会被盖住
+            'flex flex-col max-h-[min(70dvh,640px)] overflow-hidden',
             'rounded-12 border border-border bg-surface-card shadow-overlay',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
             'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95'
           )}
         >
-          {/* searchBar */}
-          <div className="flex items-center gap-2.5 h-[44px] px-3 border-b border-border-soft shrink-0">
+          {/* searchBar —— 高度走 h-control-xl(= 44px,Figma §4.5 搜索框 312×44),
+              原先是等值的 arbitrary `h-[44px]` */}
+          <div className="flex items-center gap-2.5 h-control-xl px-3 border-b border-border-soft focus-within:border-border-control transition-colors shrink-0">
             <Search className="size-3.5 text-muted-foreground shrink-0" />
+            {/* outline-none 合法:焦点可供性由外层搜索条的 focus-within:border-border-control 提供 */}
             <input
               ref={inputRef}
               type="text"
@@ -242,6 +245,6 @@ function NoResultsHint({ query }: { query: string }) {
   );
 }
 
-// useArrivalOrderedPapers 已提升到 @/shared/api/quick-search(与文献集在线搜索共用)。
+// useArrivalOrderedPapers 已提升到 @/shared/api/quick-search(与文件夹在线搜索共用)。
 
 export default QuickOpenPaperDialog;

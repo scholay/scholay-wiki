@@ -24,6 +24,13 @@ const DropdownMenuPortal = DropdownMenuPrimitive.Portal;
 const DropdownMenuSub = DropdownMenuPrimitive.Sub;
 const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
 
+// 「outline-none」是 Radix menu item 的惯例:焦点由 Radix roving-tabindex 自己管,
+// 可见性走 `data-[highlighted]:bg-surface-2`(见下面的 itemFocusable),
+// 再叠一圈全局 :focus-visible 环只是噪音。
+//
+// 字号 = text-12:菜单项是可点击控件行,与 <Select> 选项、<Button> 同档 —— 本项目控件基座统一 text-12(对 Figma §4.1/§4.5 的刻意偏离,见 button.tsx 文件头)。
+// DropdownMenuLabel(分组段标)与 DropdownMenuShortcut(快捷键)
+// 是次文/辅助信息层,继续保持 text-12(见各自定义处的注释)。
 const itemBase =
   'relative flex cursor-default select-none items-center gap-2 rounded-8 px-2 py-1.5 text-12 outline-none transition-colors data-[disabled]:pointer-events-none data-[disabled]:opacity-50';
 const itemFocusable =
@@ -147,6 +154,8 @@ const DropdownMenuLabel = React.forwardRef<
   <DropdownMenuPrimitive.Label
     ref={ref}
     className={cn(
+      // KEEP text-12 —— 分组段标不是可点击控件,属「次文/段标」层(globals.css §字号
+      // 对 --text-12 的用途注释就写着「段标」)。靠 uppercase + text-faint 与菜单项拉开层级。
       'px-2 py-1.5 text-12 font-medium uppercase text-faint',
       inset && 'pl-8',
       className
@@ -175,6 +184,8 @@ const DropdownMenuShortcut = ({
 }: React.HTMLAttributes<HTMLSpanElement>) => (
   <span
     className={cn(
+      // KEEP text-12 —— 快捷键是菜单项右侧的辅助提示(与 <Kbd> 同层),
+      // 刻意比 14px 的菜单项文字小一档,免得跟主文案抢注意力。
       'ml-auto text-12 text-muted-foreground',
       className
     )}

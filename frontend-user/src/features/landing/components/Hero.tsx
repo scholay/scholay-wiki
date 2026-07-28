@@ -32,7 +32,8 @@ function TitleLines({ lines }: { lines: TitleLine[] }) {
           className={cn(
             'block',
             line.italic && 'italic',
-            // 主大字号 —— .pen 64-84,这里用 clamp 适配宽屏
+            // 主大字号 —— 展示级(64–84 的设计意图),用 clamp 适配宽屏;
+            // 离散字号 token 表达不了连续缩放,保留 arbitrary。(旧注释引的 .pen 真源已作废,现真源见 Figma)
             'text-[clamp(40px,6vw,72px)] font-medium'
           )}
         >

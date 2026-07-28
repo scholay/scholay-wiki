@@ -10,7 +10,7 @@ import {
 /**
  * ComposerPlusMenu —— 输入框左下角的「+」聚合菜单(三 agent feature 共用)。
  * 2026-07 输入框统一:业界收敛形态(GPT/Claude/Gemini)—— 单个 + 按钮向上弹菜单,
- * 收编「上传文件 / 引用文献集」等入口,取代并排多图标(底栏空间留给模型选择器等)。
+ * 收编「上传文件 / 引用文献」等入口,取代并排多图标(底栏空间留给模型选择器等)。
  * 菜单项按 feature 能力增减:onPickLibrary 不传则不渲染引用项;extraItems 追加 feature 特有项。
  */
 export function ComposerPlusMenu({
@@ -24,7 +24,7 @@ export function ComposerPlusMenu({
   /** 文件选择器 accept 白名单(shared/hooks/useComposerAttachments 的 ATTACHMENT_ACCEPT)。 */
   accept: string;
   onFiles: (files: File[]) => void;
-  /** 「引用文献集」入口;不传 = 该 feature 无引用能力,不渲染菜单项。 */
+  /** 「引用文献」入口;不传 = 该 feature 无引用能力,不渲染菜单项。 */
   onPickLibrary?: () => void;
   /** feature 特有菜单项(已包 DropdownMenuItem 的节点)。 */
   extraItems?: ReactNode;
@@ -67,8 +67,8 @@ export function ComposerPlusMenu({
             <DropdownMenuItem onSelect={onPickLibrary} className="gap-2">
               <Library className="size-4 text-muted-foreground" />
               <div className="flex flex-col">
-                <span className="text-12">引用文献集</span>
-                <span className="text-12 text-faint">把文献集里的论文交给智能体阅读</span>
+                <span className="text-12">引用文献</span>
+                <span className="text-12 text-faint">把文件夹里的论文交给智能体阅读</span>
               </div>
             </DropdownMenuItem>
           )}

@@ -10,7 +10,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 
 /**
- * AI 翻译按钮 —— 全局唯一实现,跨搜索卡 / 文献集行 / 详情页 复用。
+ * AI 翻译按钮 —— 全局唯一实现,跨搜索卡 / 文件夹内论文行 / 详情页 复用。
  *
  * 状态机(由父级状态驱动):
  *   - 无 cache 且 idle      : "AI 翻译" + 默认色

@@ -69,7 +69,7 @@ function PeerCard({
               className={cn(
                 'flex h-6 w-6 shrink-0 items-center justify-center rounded-pill font-serif text-12 font-bold',
                 // 跟底部状态栏一致: 完成后按审稿结果上色 (绿/橘/红), 否则深色
-                eff?.recommendation ? recAvatarClasses(eff.recommendation) : 'bg-foreground text-background',
+                eff?.recommendation ? recAvatarClasses(eff.recommendation) : 'bg-foreground text-on-dark',
               )}
             >
               {letter}

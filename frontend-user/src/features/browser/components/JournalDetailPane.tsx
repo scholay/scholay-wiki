@@ -25,8 +25,8 @@ const JournalTrendChart = lazy(() =>
 );
 
 /**
- * 期刊详情面板 —— 文献集右侧 pane 的内容(kind='journal' tab 命中时渲染),
- * 同时也复用给 /journals/:id 路由(文献集外打开)。
+ * 期刊详情面板 —— 文件夹右侧 pane 的内容(kind='journal' tab 命中时渲染),
+ * 同时也复用给 /journals/:id 路由(文件夹外打开)。
  *
  * 设计稿 .pen `gsFps`(期刊详情页) 五段:
  *   ┌─ Breadcrumb
@@ -121,9 +121,12 @@ export function JournalDetailPane() {
         {/* breadcrumb 已删除 —— 浏览器 tabs 条已经能交代"我从哪来 / 现在看什么",
             再叠一层"我的收藏 › 期刊 › <name>"反而冗余 */}
 
-        {/* ───── Hero —— .pen `L3sjEN`(rounded-10 bg-FAFAFA border);移动端封面在上、信息在下 ───── */}
+        {/* ───── Hero —— rounded-16(Figma §3 主力容器圆角)+ surface-1 弱卡片底 + 发丝边。
+             原注释写 .pen `L3sjEN` 的 `rounded-10 bg-FAFAFA` —— 该真源与那两个值都已退休。
+             移动端封面在上、信息在下 ───── */}
         <section className="rounded-16 bg-surface-1 border border-border-soft p-4 sm:p-6 flex flex-col sm:flex-row sm:items-stretch gap-4 sm:gap-6">
-          {/* Cover —— .pen `oWWC5` 140x180,移动端略缩 */}
+          {/* Cover —— 期刊封面 140×180(移动端 110×145)。Figma 未给期刊封面规格,
+              token 侧也无对应尺寸档,属内容图的固有比例(≈0.78),保留 arbitrary。 */}
           <JournalCover
             id={journal.id}
             name={journal.canonical_name}
@@ -145,7 +148,7 @@ export function JournalDetailPane() {
                 </span>
               )}
               {journal.type && (
-                <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-foreground text-background text-12 font-medium uppercase">
+                <span className="inline-flex items-center h-6 px-2.5 rounded-pill bg-foreground text-on-dark text-12 font-medium uppercase">
                   {journal.type}
                 </span>
               )}
@@ -166,8 +169,12 @@ export function JournalDetailPane() {
               )}
             </div>
 
-            {/* Title —— .pen `n9lzJB` 32/700 Playfair(arbitrary,token 表最大 24);移动端收到 text-24 */}
-            <h1 className="font-display font-bold leading-display-tight text-24 sm:text-[32px] text-foreground">
+            {/* Title —— 详情页 h1。
+                原先 `sm:text-[32px]`,依据是 .pen `n9lzJB`(真源已作废);Figma §2.2 里 32px
+                只作为「字体展示样本」出现,不是 UI 档位。改用展示档 token `text-display-36`,
+                与同级的 PaperHeader / AuthorHero 两个详情页 h1 统一。移动端保持 text-24
+                (globals.css 标注即「详情页 h1 移动端」)。 */}
+            <h1 className="font-display font-bold leading-display-tight text-24 sm:text-display-36 text-foreground">
               {journal.canonical_name}
             </h1>
 
@@ -204,7 +211,7 @@ export function JournalDetailPane() {
                   href={`https://portal.issn.org/resource/ISSN/${encodeURIComponent(journal.issns[0])}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-8 bg-foreground text-background text-12 font-medium hover:opacity-90 transition-opacity"
+                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-8 bg-foreground text-on-dark text-12 font-medium hover:opacity-90 transition-opacity"
                 >
                   <ExternalLink className="size-3" strokeWidth={2.5} />
                   查询原刊
@@ -351,14 +358,14 @@ function IndexCard({
       className={cn(
         'rounded-16 p-5 space-y-1.5',
         highlight
-          ? 'bg-foreground text-background'
+          ? 'bg-foreground text-on-dark'
           : 'bg-surface-card border border-border'
       )}
     >
       <div
         className={cn(
           'text-12 font-medium uppercase',
-          highlight ? 'text-background/60' : 'text-faint'
+          highlight ? 'text-on-dark/60' : 'text-faint'
         )}
       >
         {label}
@@ -366,7 +373,7 @@ function IndexCard({
       <div
         className={cn(
           'font-display font-bold text-24 leading-none tabular-nums',
-          highlight ? 'text-background' : 'text-foreground'
+          highlight ? 'text-on-dark' : 'text-foreground'
         )}
       >
         {value}
@@ -374,7 +381,7 @@ function IndexCard({
       <div
         className={cn(
           'text-12',
-          highlight ? 'text-background/60' : 'text-muted-foreground'
+          highlight ? 'text-on-dark/60' : 'text-muted-foreground'
         )}
       >
         {sub}

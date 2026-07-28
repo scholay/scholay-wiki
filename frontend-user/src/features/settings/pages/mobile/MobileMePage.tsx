@@ -44,7 +44,7 @@ function LoggedOutView() {
       <BrandLogo size="lg" />
       <h1 className="mt-5 text-20 font-medium text-foreground">登录 Scholay</h1>
       <p className="mt-1.5 text-12 leading-paragraph text-muted-foreground">
-        登录后查看你的会员、科研经费、文献集与设置
+        登录后查看你的会员、科研经费、文件夹与设置
       </p>
       <div className="mt-7 flex w-full max-w-xs flex-col gap-2.5">
         <Button className="h-12" onClick={() => openDialog('login')}>
@@ -115,12 +115,12 @@ function LoggedInView() {
         </nav>
       )}
 
-      {/* 我的文献集 —— 独立入口卡(收藏/分享/转存) */}
+      {/* 我的文件夹 —— 独立入口卡(收藏/分享/转存) */}
       <nav className="overflow-hidden rounded-16 border border-border bg-surface-card">
         <MenuRow
           to="/m/library"
           icon={<BookMarked className="size-4.5" />}
-          label="我的文献集"
+          label="我的文件夹"
           last
         />
       </nav>

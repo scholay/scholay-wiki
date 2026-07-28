@@ -64,7 +64,7 @@ export function NewsPage() {
             className={cn(
               'rounded-pill px-3 py-1 text-12 font-medium transition-colors',
               sort === s.key
-                ? 'bg-foreground text-background'
+                ? 'bg-foreground text-on-dark'
                 : 'bg-surface-2 text-muted-foreground',
             )}
           >

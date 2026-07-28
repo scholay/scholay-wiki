@@ -37,8 +37,10 @@ export function SectionHeader({
       <h2
         className={cn(
           'font-display italic font-medium leading-display-tight',
+          // landing 展示级标题:随视口连续缩放,token 的离散档表达不了 clamp → 保留 arbitrary。
+          // 取值区间落在展示档(display-36/56)两侧,不属于正文六档阶梯。
           'text-[clamp(32px,4vw,48px)]',
-          dark ? 'text-background' : 'text-foreground'
+          dark ? 'text-on-dark' : 'text-foreground'
         )}
       >
         {title}

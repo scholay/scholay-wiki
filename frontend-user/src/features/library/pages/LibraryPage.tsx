@@ -59,7 +59,7 @@ const PaperWorkbenchDialog = lazy(() =>
 );
 
 /**
- * 我的文献集 —— 只有"我的文件夹列表 + 论文列表 + 工具栏"。
+ * 我的文件夹 —— 只有"侧栏文件夹列表 + 论文列表 + 工具栏"。
  *
  *   左:LibrarySidebar(单层文件夹列表)
  *   右:LibraryFolderView(论文列表 + 操作工具栏)
@@ -78,7 +78,7 @@ export function LibraryPage() {
 
   // 折叠侧栏时顶栏 chip 入口
   useRegisterSidebarRail([
-    { id: 'library', label: '我的文献集', icon: Inbox, sectionId: 'library' },
+    { id: 'library', label: '我的文件夹', icon: Inbox, sectionId: 'library' },
   ]);
 
   return (
@@ -101,7 +101,7 @@ function LibraryLoginPrompt() {
   return (
     <EmptyState
       icon={Lock}
-      title="登录后查看你的文献集"
+      title="登录后查看你的文件夹"
       description="登录后即可创建文件夹、收藏论文,所有数据云端同步"
       action={
         <div className="flex items-center gap-3">
@@ -244,8 +244,9 @@ function LibraryFolderView() {
       if (deepRowQ.data) {
         openWorkbench({ mode: 'manage', paper: deepRowQ.data, tab: 'metadata' });
       } else {
-        // 行真不存在(已被删除/取消收藏)→ 给出明确反馈,不再完全静默
-        toast.error('该论文已不在文献集中');
+        // 行真不存在(已被删除/取消收藏)→ 给出明确反馈,不再完全静默。
+        // 说「收藏」不说「文件夹」:整行没了,不是被挪到别的夹里,后者会让用户去别处翻找。
+        toast.error('该论文已不在你的收藏中');
       }
       clearManageParam();
     } else if (deepRowQ.isError) {
@@ -278,7 +279,7 @@ function LibraryFolderView() {
 
   const currentFolder =
     typeof filter === 'number' ? folders.find((f) => f.id === filter) : null;
-  const title = currentFolder?.name ?? '我的文献集';
+  const title = currentFolder?.name ?? '我的文件夹';
   const count = currentFolder?.paper_count ?? 0;
 
   // 论文数据 + 选择状态都提升到此处,这样外层 header 才能在 selection 模式下
@@ -316,10 +317,10 @@ function LibraryFolderView() {
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-background">
-      {/* 我的文献集是登录态私域内容,noindex 防止任何意外的搜索引擎收录 */}
+      {/* 我的文件夹是登录态私域内容,noindex 防止任何意外的搜索引擎收录 */}
       <RouteSEO
-        title={`我的文献集 · ${title} — Scholay`}
-        description="我的文献集 —— 跨设备同步的论文收藏空间,支持文件夹分组、AI 摘要、PDF 在线预览与全文检索。"
+        title={`我的文件夹 · ${title} — Scholay`}
+        description="我的文件夹 —— 跨设备同步的论文收藏空间,支持分组管理、AI 摘要、PDF 在线预览与全文检索。"
         noindex
       />
 
@@ -352,7 +353,7 @@ function LibraryFolderView() {
           <>
             {/* 面包屑 + 篇数 chip(无返回按钮 —— 本就是顶级页面) */}
             <div className="flex items-center gap-2 shrink-0">
-              <span className="text-14 text-muted-foreground">我的文献集</span>
+              <span className="text-14 text-muted-foreground">我的文件夹</span>
               <span className="text-14 text-faint">/</span>
               <span className="text-14 font-medium text-foreground">{title}</span>
               <span className="inline-flex items-center px-1.5 py-px rounded-4 bg-surface-2 text-12 font-medium text-muted-foreground tabular-nums">
@@ -385,7 +386,10 @@ function LibraryFolderView() {
             </div>
 
             {/* 搜索框 —— 受控输入,300ms debounce 后给 LibraryPaperList
-                响应式:flex-1 自然铺满中段,最小 240px(再窄按钮组开始压缩),最大 480px */}
+                响应式:flex-1 自然铺满中段,最小 240px(再窄按钮组开始压缩),最大 480px
+                ⚠️ arbitrary 说明:240/480 是本行的响应式断点(token 侧无「输入框最小/最大宽」档);
+                   h-[38px] 不在控件高度阶梯上(最近的 h-control-md=36 / h-control-xl=44),
+                   等尺寸 token 那一批统一收口时再定档,现在改会让它与同排按钮错位。 */}
             <div
               className={cn(
                 'flex items-center gap-2 flex-1 min-w-[240px] max-w-[480px] h-[38px] px-3 rounded-8 bg-surface-1 border border-border-strong',
@@ -393,6 +397,7 @@ function LibraryFolderView() {
               )}
             >
               <Search className="size-3.5 text-muted-foreground shrink-0" />
+              {/* outline-none 合法:焦点可供性由外层容器的 focus-within:border-foreground + ring 提供 */}
               <input
                 type="text"
                 value={query}
@@ -447,10 +452,11 @@ function LibraryFolderView() {
                 <HoverCardTrigger asChild>
                   <ToolbarButton label="更多" trailingIcon />
                 </HoverCardTrigger>
+                {/* w-panel-sm = --panel-w-sm 12.5rem = 200px,与原 w-[200px] 等值(零像素变化) */}
                 <HoverCardContent
                   align="end"
                   sideOffset={6}
-                  className="w-[200px] p-1.5"
+                  className="w-panel-sm p-1.5"
                 >
                   <div className="flex flex-col gap-1">
                     <CollapsedItem
@@ -570,7 +576,7 @@ const CollapsedItem = forwardRef<
     >
       <span className="truncate">{label}</span>
       {badge && (
-        <span className="inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-background text-12 font-medium leading-none whitespace-nowrap shrink-0">
+        <span className="inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-foreground text-12 font-medium leading-none whitespace-nowrap shrink-0">
           {badge}
         </span>
       )}
@@ -593,7 +599,7 @@ function ComingSoonWrap({ children }: { children: React.ReactNode }) {
       {children}
       <span
         aria-hidden="true"
-        className="absolute -top-2 -right-2 inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-background text-12 font-medium leading-none whitespace-nowrap pointer-events-none z-raised"
+        className="absolute -top-2 -right-2 inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-foreground text-12 font-medium leading-none whitespace-nowrap pointer-events-none z-raised"
       >
         即将推出
       </span>

@@ -26,7 +26,7 @@ import {
 
 /**
  * 期刊搜索侧栏 —— 对照 .pen `[02-期刊] 期刊搜索结果` 左侧 `UlINJ`:
- *   1. 文献集快捷段(与 SearchSidebar 同款,登录后展示文件夹列表)
+ *   1. 文件夹快捷段(与 SearchSidebar 同款,登录后展示用户的收藏分组)
  *   2. 期刊筛选器:中科院分区 / JCR 分区 / 影响因子 / CCF 推荐 / 出版商
  *
  * 任意筛选变化 → onFiltersChange → 父 JournalSearchPage 持有的 filters 更新
@@ -69,7 +69,7 @@ export function JournalSidebar({
   return (
     <Sidebar>
       <SidebarContent>
-        {/* 1. 文献集快捷段 */}
+        {/* 1. 文件夹快捷段 */}
         <LibrarySection />
 
         {/* 2. 期刊筛选器 —— 5 个 FilterRadioGroup,每组首项默认"不限" */}
@@ -139,7 +139,7 @@ export function JournalSidebar({
 }
 
 // ============================================================================
-// 文献集快捷段(沿用 SearchSidebar 同款样式)
+// 文件夹快捷段(沿用 SearchSidebar 同款样式)
 // ============================================================================
 
 function LibrarySection() {
@@ -151,7 +151,7 @@ function LibrarySection() {
 
   if (!authenticated) {
     return (
-      <SidebarSection id="library" label="我的文献集">
+      <SidebarSection id="library" label="我的文件夹">
         <div className="mx-4 my-2 px-3 py-3 rounded-12 bg-surface-1 border border-border-soft">
           <div className="text-12 text-subtle leading-paragraph">
             登录后管理你的期刊收藏与对比清单

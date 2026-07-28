@@ -50,7 +50,7 @@ export function JournalSearchAlternateRow({
         onClick={onClick}
         className={cn(
           'inline-flex h-9 items-center justify-center px-4 rounded-8',
-          'bg-brand-amber text-on-brand text-12 font-medium whitespace-nowrap',
+          'bg-brand-amber text-foreground text-12 font-medium whitespace-nowrap',
           'hover:bg-brand-amber/95 transition-colors'
         )}
       >
@@ -142,7 +142,13 @@ export function AuthorSection({
  * 期刊封面色系 —— .pen `hAqM6 / tk0LP / X4FWu` 三种品牌色 + 暗一档描边。
  * 用品牌色 + black/15 作统一描边,视觉与 .pen 几乎无差。
  */
-const COVER_PALETTE = ['bg-brand-red', 'bg-brand-green', 'bg-brand-amber'];
+// 前景色随底色走:朱砂 / 松青实底配白字,琥珀实底配墨黑字
+// (白字压琥珀只有 2.11:1,Figma §4.2 琥珀 Badge 规格就是黑字)。
+const COVER_PALETTE = [
+  'bg-brand-red text-on-brand',
+  'bg-brand-green text-on-brand',
+  'bg-brand-amber text-foreground',
+];
 
 export function JournalSection({
   journals,
@@ -196,7 +202,7 @@ function JournalCover({ name, index }: { name: string; index: number }) {
   return (
     <div
       className={cn(
-        'shrink-0 inline-flex items-center justify-center w-11 h-14 rounded-8 border border-foreground/15 text-background font-display font-bold text-14',
+        'shrink-0 inline-flex items-center justify-center w-11 h-14 rounded-8 border border-foreground/15 font-display font-bold text-14',
         bg
       )}
     >

@@ -44,7 +44,7 @@ export function PrismVersionsDialog({
         <DialogHeader>
           <DialogTitle>版本历史 · {fileName}</DialogTitle>
         </DialogHeader>
-        <div className="max-h-[50vh] overflow-y-auto">
+        <div className="max-h-[50dvh] overflow-y-auto">
           {versions.isLoading ? (
             <div className="py-6 text-center"><Loader2 className="inline size-5 animate-spin text-faint" /></div>
           ) : !versions.data?.length ? (

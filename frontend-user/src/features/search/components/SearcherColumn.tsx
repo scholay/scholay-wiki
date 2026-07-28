@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
-import { Loader2, Search, SquarePen } from 'lucide-react';
+import { Check, Loader2, Search, SquarePen } from 'lucide-react';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { useSmartSearchSessionStore } from '@/stores/smart-search-session.store';
 import { extractPapers, useSearchPapers, type Paper, type UpstreamSource } from '../api/papers';
@@ -48,6 +48,8 @@ interface SearcherColumnProps {
   onCollapse: (id: string) => void;
   /** collapsed 行点 "还原" —— 取消主动折叠 */
   onRestore: (id: string) => void;
+  /** 顶部「全选/全部取消」—— 传【当前这一页】的论文,由 SearchPage 判定方向并执行 */
+  onToggleStageAll: (papers: Paper[]) => void | Promise<void>;
   mode: SearchMode;
   onModeChange: (m: SearchMode) => void;
 }
@@ -69,6 +71,7 @@ export function SearcherColumn({
   onUnstage,
   onCollapse,
   onRestore,
+  onToggleStageAll,
   mode,
   onModeChange,
 }: SearcherColumnProps) {
@@ -126,9 +129,17 @@ export function SearcherColumn({
         : undefined,
     sort: filters.sort,
   });
+
   // 蒙层 loading 触发条件:首查 + 任何 query/filter/page 变化引发的 refetch
   const showLoading = !!query && papersQ.isFetching;
   const { papers, total } = useMemo(() => extractPapers(papersQ.data), [papersQ.data]);
+  // 整页是否已全部暂存 —— 决定顶部按钮是「全选」还是「全部取消」。
+  // 只看**当前页**:暂存区单区上限 100 篇,而每页 20/50,整页装得下;
+  // "全选 8 万条结果"在数据模型上不成立(详见 SearchPage.toggleStageAll)。
+  const pageAllStaged = useMemo(
+    () => papers.length > 0 && papers.every((p) => stagedIds.has(p.paperId)),
+    [papers, stagedIds]
+  );
 
   // 把当前页 papers 同步到 ephemeral store —— 让"工作区空态 CTA"(EmptyImportButton)
   // 能直接读取做"一键导入",不必把 papers 一路 prop 钻穿父级。
@@ -273,6 +284,7 @@ export function SearcherColumn({
           >
             <div className="flex items-center gap-2 flex-1 h-9 px-3 rounded-8 border border-border-strong bg-surface-card focus-within:border-foreground focus-within:ring-2 focus-within:ring-ring transition-colors">
               <Search className="size-3.5 text-faint" />
+              {/* outline-none 合法:焦点可供性由外层容器的 focus-within:border-foreground + ring 提供 */}
               <input
                 type="search"
                 value={input}
@@ -293,8 +305,15 @@ export function SearcherColumn({
               loading 中**故意留空**(不写"检索中…"):蒙层 loading 已经表达了正在查的语义,
               再叠一句文字会闪;只在出结果后写"找到 N 篇"。 */}
           {query && !showLoading && (
-            <div className="px-4 pt-1 pb-2 text-12 text-subtle shrink-0">
-              找到 {total.toLocaleString()} 篇相关文献
+            <div className="flex shrink-0 items-center justify-between gap-2 px-4 pt-1 pb-2 text-12 text-subtle">
+              <span>找到 {total.toLocaleString()} 篇相关文献</span>
+              {papers.length > 0 && (
+                <SelectAllButton
+                  papers={papers}
+                  allStaged={pageAllStaged}
+                  onToggle={onToggleStageAll}
+                />
+              )}
             </div>
           )}
 
@@ -369,5 +388,60 @@ export function SearcherColumn({
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * 顶部「全选 / 全部取消」—— 与卡片上的 StageToggle **同一套视觉语言**:
+ * 圆圈 + 文案,空心=待全选、松青实心=已全选。用户不必再认一个新控件。
+ *
+ * 只负责展示与 busy 态;方向判定与实际写入都在 SearchPage.toggleStageAll
+ * (那里是暂存动作的唯一 owner,展示层再算一遍等于开第二个真源)。
+ */
+function SelectAllButton({
+  papers,
+  allStaged,
+  onToggle,
+}: {
+  papers: Paper[];
+  allStaged: boolean;
+  onToggle: (papers: Paper[]) => void | Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const handle = useCallback(async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await onToggle(papers);
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, onToggle, papers]);
+
+  return (
+    <button
+      type="button"
+      onClick={handle}
+      disabled={busy}
+      /* 名字恒定、状态交给 aria-pressed —— 与 StageToggle 同一套无障碍口径 */
+      aria-pressed={allStaged}
+      aria-label={`全选本页 ${papers.length} 篇`}
+      title={allStaged ? `取消暂存本页 ${papers.length} 篇` : `暂存本页 ${papers.length} 篇`}
+      className="inline-flex h-6 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-8 border border-border px-2 text-12 text-subtle transition-colors hover:bg-surface-1 hover:text-foreground disabled:cursor-wait disabled:opacity-60"
+    >
+      {busy ? (
+        <Loader2 className="size-3 shrink-0 animate-spin" />
+      ) : (
+        <span
+          className={cn(
+            'inline-flex size-3.5 shrink-0 items-center justify-center rounded-pill',
+            allStaged ? 'bg-brand-green text-on-brand' : 'border border-current'
+          )}
+        >
+          {allStaged && <Check className="size-2" strokeWidth={3.5} />}
+        </span>
+      )}
+      {allStaged ? '全部取消' : '全选'}
+    </button>
   );
 }

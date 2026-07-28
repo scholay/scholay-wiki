@@ -41,7 +41,7 @@ export function AttachmentChipList({ attachments }: AttachmentChipListProps) {
           ) : (
             <span
               key={i}
-              className="inline-flex items-center gap-1 max-w-[200px] rounded-4 bg-foreground/85 text-background/90 px-2 py-0.5 text-12" title={a.size ? `${a.name} · ${formatSize(a.size)}` : a.name}
+              className="inline-flex items-center gap-1 max-w-[200px] rounded-4 bg-foreground/85 text-on-dark/90 px-2 py-0.5 text-12" title={a.size ? `${a.name} · ${formatSize(a.size)}` : a.name}
             >
               {a.type ==='image' ? (
                 <ImageIcon className="size-3 shrink-0" strokeWidth={2.2} />

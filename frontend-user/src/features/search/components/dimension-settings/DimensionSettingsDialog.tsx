@@ -123,7 +123,7 @@ export function DimensionSettingsDialog({ open, onOpenChange }: Props) {
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="p-0 gap-0 max-w-[420px] w-[420px] max-h-[85vh] flex flex-col overflow-hidden">
+        <DialogContent className="p-0 gap-0 max-w-[420px] w-[420px] max-h-[85dvh] flex flex-col overflow-hidden">
           <header className="flex items-center h-13 px-[18px] border-b border-border-soft shrink-0">
             <DialogTitle className="text-16 font-medium text-foreground">
               维度设置

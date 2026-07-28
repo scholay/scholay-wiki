@@ -2,7 +2,7 @@ import { BookText, FolderOpen, X } from 'lucide-react';
 import type { TurnReference } from '@/shared/types/chat';
 
 /**
- * 「引用文献」chip 列表 —— claw 用户引用文献集论文/文件夹后的特有展示样式
+ * 「引用文献」chip 列表 —— claw 用户引用收藏的论文 / 整个文件夹后的特有展示样式
  * (区别于上传附件的深色 chip;引用走描边 + 品牌绿,呼应 Cursor/Codex 的 @ 引用观感)。
  *
  * 两处复用:

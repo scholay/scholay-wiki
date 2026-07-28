@@ -144,7 +144,7 @@ describe('desktopEquivalentPath — 移动路由 → PC 对等页(反向)', () =
     expect(desktopEquivalentPath('/m/me/billing')).toBe('/settings/membership');
   });
 
-  it('文献集文件夹深链:/m/library/:id → /library?folder=:id(桌面文件夹是 query)', () => {
+  it('文件夹深链:/m/library/:id → /library?folder=:id(桌面文件夹是 query)', () => {
     expect(desktopEquivalentPath('/m/library/42')).toBe('/library?folder=42');
   });
 

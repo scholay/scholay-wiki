@@ -6,22 +6,31 @@ import { cn } from '@/shared/lib/utils';
  * 顶部大字显示期刊名首字母(NP / Cell / IEEE 等),底部小字显示完整名。
  * .pen 期刊搜索结果页 / 详情页都用这个 cover 视觉。
  *
- * 取色:按 journal.id 哈希到 8 色深调里,稳定 (同 id 永远同色)。
+ * 取色:按 journal.id 哈希到分类色板 `--cat-1..8`,稳定 (同 id 永远同色)。
+ * 色值真源是 globals.css §七,本文件只持有类名 —— 旧的 8 色硬编码 PALETTE 已删除
+ * (那一版 8 个里 6 个是蓝/青调,与四色系统冲突且互相分不开)。哈希算法未变,
+ * 仍是 `id % 8`,只换了色值来源。
+ *
+ * 前景对比度(实测 WCAG,底色即 --cat-N):
+ *   text-on-brand #FFFFFF  → cat-1 14.56 / cat-2 11.87 / cat-3 13.57 / cat-4 9.48 /
+ *                            cat-5 8.17 / cat-6 5.97 / cat-7 16.43 / cat-8 11.62,全部 ≥ AA。
+ *   底部全名行原本是 text-on-brand/70,在最浅的 cat-6 上只有 3.84:1(不达标)→ 提到 /85,
+ *   最差档 cat-6 4.83:1 过 AA。
  */
-const PALETTE = [
-  '#0A1428',
-  '#1B2845',
-  '#003366',
-  '#5B2C6F',
-  '#7A1F1F',
-  '#1F3A5F',
-  '#2A4D6C',
-  '#264653',
+const COVER_TONES = [
+  'bg-cat-1',
+  'bg-cat-2',
+  'bg-cat-3',
+  'bg-cat-4',
+  'bg-cat-5',
+  'bg-cat-6',
+  'bg-cat-7',
+  'bg-cat-8',
 ] as const;
 
-function pickColor(id: number): string {
-  if (!id || id < 0) return PALETTE[0];
-  return PALETTE[id % PALETTE.length];
+function pickTone(id: number): string {
+  if (!id || id < 0) return COVER_TONES[0];
+  return COVER_TONES[id % COVER_TONES.length];
 }
 
 /** 从期刊名抽缩写:首词大写 + 第二词大写 + 限制 3 字符,空就取前两个字符 */
@@ -53,7 +62,7 @@ interface JournalCoverProps {
 
 export const JournalCover = forwardRef<HTMLDivElement, JournalCoverProps>(
   ({ id, name, size = 'card', className }, ref) => {
-    const color = pickColor(id);
+    const tone = pickTone(id);
     const abbrev = pickAbbrev(name);
 
     if (size === 'tile') {
@@ -62,9 +71,9 @@ export const JournalCover = forwardRef<HTMLDivElement, JournalCoverProps>(
           ref={ref}
           className={cn(
             'shrink-0 rounded-8 overflow-hidden flex items-center justify-center w-16 h-16 text-on-brand',
+            tone,
             className
           )}
-          style={{ backgroundColor: color }}
           title={name}
         >
           <span className="font-medium leading-none text-20">
@@ -90,9 +99,9 @@ export const JournalCover = forwardRef<HTMLDivElement, JournalCoverProps>(
         className={cn(
           'shrink-0 rounded-8 overflow-hidden flex flex-col justify-between p-3 text-on-brand',
           dims,
+          tone,
           className
         )}
-        style={{ backgroundColor: color }}
       >
         <span
           className={cn(
@@ -103,7 +112,7 @@ export const JournalCover = forwardRef<HTMLDivElement, JournalCoverProps>(
           {abbrev}
         </span>
         <span
-          className="text-12 text-on-brand/70 line-clamp-3"
+          className="text-12 text-on-brand/85 line-clamp-3"
           title={name}
         >
           {name}

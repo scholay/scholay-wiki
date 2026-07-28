@@ -1,5 +1,5 @@
 // mirrors backend/internal/agentattach(原 internal/claw/upload.go / references.go)
-// 三 agent feature(claw / smart-search / prism)共用的附件上传 + 文献集引用 hooks:
+// 三 agent feature(claw / smart-search / prism)共用的附件上传 + 「引用文献」hooks:
 // 端点按 feature 参数化(/user/claw/upload、/user/smart-search/upload…),响应 DTO 同契约。
 // 2026-07 输入框统一上提;claw 的 useUploadClawAttachment 等旧 hook 改为此处的薄封装。
 import { useMutation } from '@tanstack/react-query';
@@ -38,7 +38,7 @@ export function useUploadAgentAttachment(uploadPath: string) {
 }
 
 /**
- * POST <referencePath> 引用文献集论文/文件夹 → 后端物化进会话 cwd 的 references/,返回 chip 元数据。
+ * POST <referencePath> 引用收藏的论文 / 整个文件夹 → 后端物化进会话 cwd 的 references/,返回 chip 元数据。
  * 同上传:sessionId 为空(新对话首次引用)→ 后端新建会话并回传,调用方必须 adopt。
  */
 export function useReferenceAgentLibrary(referencePath: string) {

@@ -7,7 +7,7 @@
   margin-bottom: 8rpx;
 }
 .news-section {
-  color: #cc2222;
+  color: var(--red);
   font-size: 26rpx;
   font-weight: 600;
 }
@@ -19,5 +19,5 @@
   width: 100%;
   border-radius: 16rpx;
   margin: 24rpx 0;
-  background: #fff;
+  background: var(--card);
 }

@@ -59,7 +59,7 @@ export function MenuCarousel() {
             'rounded-8',
             isInDetailPane
               ? // active 态与首页按钮一致:固定黑底白字
-                'bg-foreground text-background cursor-default hover:bg-foreground hover:text-background'
+                'bg-foreground text-on-dark cursor-default hover:bg-foreground hover:text-on-dark'
               : 'bg-surface-2'
           )}
           onClick={goBrowser}
@@ -77,7 +77,7 @@ export function MenuCarousel() {
             ? // 选中态:固定黑底白字,显式同色 hover 抵消 IconButton 内置的
               // hover:bg-surface-2 / hover:text-foreground —— 否则 hover 会
               // 把按钮"变浅"看着像取消选中
-              'bg-foreground text-background cursor-default hover:bg-foreground hover:text-background'
+              'bg-foreground text-on-dark cursor-default hover:bg-foreground hover:text-on-dark'
             : 'bg-surface-2'
         )}
         onClick={() => navigate('/')}
@@ -104,5 +104,8 @@ export function MenuCarousel() {
 }
 
 function Separator() {
-  return <span aria-hidden className="h-5 w-px bg-border-separator shrink-0" />;
+  // `bg-divider` 是这条竖线的正名 —— globals.css 的 `--divider` 条目原文就是
+  // 「Nav/Toolbar 内组间竖线(h-5 w-px)」。原先写的 `bg-border-separator` 是
+  // 过渡兼容层的旧色名(指向同一个 --divider,零像素变化),按 CLAUDE.md §5 收口到新名。
+  return <span aria-hidden className="h-5 w-px bg-divider shrink-0" />;
 }

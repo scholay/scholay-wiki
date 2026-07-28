@@ -46,6 +46,7 @@ export function ClawPreview() {
             type="text"
             disabled
             placeholder="向智能助手提问..."
+            /* outline-none 合法: 这是 disabled 的静态展示 mock,不可聚焦,不存在焦点可见性问题 */
             className="flex-1 h-full bg-transparent text-12 outline-none placeholder:text-faint"
           />
         </div>
@@ -57,7 +58,7 @@ export function ClawPreview() {
 function UserMsg({ text }: { text: string }) {
   return (
     <div className="flex justify-end">
-      <div className="max-w-[80%] inline-flex items-center px-4 py-2.5 rounded-16 bg-foreground text-background text-12 leading-paragraph">
+      <div className="max-w-[80%] inline-flex items-center px-4 py-2.5 rounded-16 bg-foreground text-on-dark text-12 leading-paragraph">
         {text}
       </div>
     </div>
@@ -67,7 +68,7 @@ function UserMsg({ text }: { text: string }) {
 function AIMsg({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-start gap-2.5">
-      <span className="inline-flex size-7 items-center justify-center rounded-pill bg-brand-green text-background text-12 font-medium shrink-0">
+      <span className="inline-flex size-7 items-center justify-center rounded-pill bg-brand-green text-on-brand text-12 font-medium shrink-0">
         AI
       </span>
       <div className="flex-1 min-w-0 px-4 py-2.5 rounded-16 bg-surface-1 border border-border-soft">

@@ -13,7 +13,7 @@ import { useSidebar } from '@/stores/sidebar.store';
 /**
  * 「即将推出」功能占位页 ——
  *
- * 结构对齐 文献搜索 / 文献集 / 期刊搜索 等已上线 feature:
+ * 结构对齐 文献搜索 / 文件夹 / 期刊搜索 等已上线 feature:
  *   - SidebarLayout(左 240 aside,右内容,带收起/展开)
  *   - aside 用一个仅含 SidebarAuthFooter + 一段"即将推出"提示的空白 Sidebar,
  *     保留展开/收起交互(功能切换由顶栏 TopNav 承担)
@@ -72,7 +72,7 @@ function ComingSoonSidebar({ title }: { title: string }) {
       <SidebarContent>
         <SidebarSection id="coming-soon" label={title}>
           <div className="mx-4 my-2 px-3 py-4 rounded-12 bg-warning-soft border border-brand-amber/20">
-            <div className="inline-flex items-center gap-1 px-1.5 h-4 rounded-pill bg-brand-amber text-background text-12 font-medium">
+            <div className="inline-flex items-center gap-1 px-1.5 h-4 rounded-pill bg-brand-amber text-foreground text-12 font-medium">
               <Sparkles className="size-2.5" strokeWidth={2.5} />
               即将推出
             </div>

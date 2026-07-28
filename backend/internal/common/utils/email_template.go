@@ -2,9 +2,13 @@
 // 统一品牌邮件模板 —— 全站所有邮件(验证码 / 反馈回复 / 会员计费通知 / 兑换 等)
 // 都走 RenderBrandedEmail,保证品牌名(Scholay)、配色、版式与前端项目一致。
 //
-// 配色取自前端 globals.css 的 brand token:
-//   red #CC2222(CTA / Logo S·a)· green #2A7A2A(Logo ch·y)· amber #D4A017(Logo o)
-// 字标用前端同款多色 "Scholay"(Playfair/serif)。邮件用 table + 内联样式(兼容 Outlook/QQ/Gmail)。
+// 配色是 frontend-user/src/styles/globals.css 的**人工镜像** —— 真源在那边(Figma
+// `JIv8fxQthMS37JLGHNOEbB` / `Scholay设计系统`)。邮件走内联样式、拿不到 CSS 变量,
+// 只能把 token 解析后的字面值抄过来,所以**改前端品牌色必须同步改这里**。
+// 上次同步:2026-07-28(此前停留在两代前的 #CC2222/#2A7A2A/#D4A017,
+// 而用户收到的每一封验证码/通知邮件都是站外的品牌露出 —— 前端护栏扫不到 backend/)。
+//
+// 字标用前端同款多色 "Scholay"。邮件用 table + 内联样式(兼容 Outlook/QQ/Gmail)。
 // ============================================================================
 
 package utils
@@ -18,16 +22,28 @@ import (
 // EmailBrandName 品牌名(主题前缀 / 页脚)。
 const EmailBrandName = "Scholay"
 
+// 括号里是 globals.css 的 token 名。对比度均按邮件里的**实际承载底色**验算过,
+// 不是照抄前端的标称值 —— 同一个前景色换个底就可能掉出 AA(页脚那条就是这么定的)。
 const (
-	emailRed     = "#CC2222"
-	emailGreen   = "#2A7A2A"
-	emailAmber   = "#D4A017"
-	emailInk     = "#111111"
-	emailSubtle  = "#444444"
-	emailMuted   = "#666666"
-	emailFaint   = "#999999"
-	emailBorder  = "#E8E8E8"
-	emailSurface = "#FAFAFA"
+	emailRed    = "#882828" // --brand-red 朱砂  · CTA 底 / 顶部色条 / 字标 S·a
+	emailGreen  = "#2F4D29" // --brand-green 松青 · 字标 ch·y
+	emailAmber  = "#E5A800" // --brand-amber 琥珀 · 字标 o
+	emailInk    = "#1F1F23" // --foreground      · 标题 / 验证码   16.43:1 on 白卡
+	emailSubtle = "#505059" // --subtle          · 正文段落        7.98:1 on 白卡
+	emailMuted  = "#686873" // --muted-foreground· 引用块          4.69:1 on surface-1
+	emailFaint  = "#6E6E78" // --faint-foreground· 页脚 / Note     4.58:1 on 米白
+
+	// --border(31 31 35 / 12%)在邮件里必须给实色:Outlook 对 rgba() 支持不一致。
+	// 取「12% 玄墨压白卡」的解析值 —— 模板里 9 处描边有 8 处画在白卡上。
+	emailBorder = "#E4E4E5"
+
+	// 内嵌面板(引用块 / 验证码盒 / 信息表)—— 压在白卡里,用 --surface-1。
+	emailSurface = "#EFEDE5"
+
+	// 页面底 + 页脚 —— --background 米白。
+	// 页脚特地用米白而不是 surface-1:emailFaint 落 surface-1 只有 4.30:1(12px 正文不达 AA),
+	// 落米白正好 4.58:1。语义上页脚也本就是「页面 chrome」而非内嵌面板,两边对齐。
+	emailPageBg = "#F6F4EE"
 )
 
 // EmailContent 邮件正文构件,由 RenderBrandedEmail 组装进品牌外壳。各字段可空。
@@ -106,8 +122,8 @@ func brandWordmark() string {
 func wrapEmailShell(inner string) string {
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="x-apple-disable-message-reformatting"></head>
-<body style="margin:0;padding:0;background:#F5F5F5;-webkit-text-size-adjust:100%%;">
-<table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="background:#F5F5F5;padding:32px 12px;">
+<body style="margin:0;padding:0;background:%s;-webkit-text-size-adjust:100%%;">
+<table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="background:%s;padding:32px 12px;">
 <tr><td align="center">
 <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%%;background:#FFFFFF;border:1px solid %s;border-radius:12px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,'PingFang SC','Microsoft YaHei',sans-serif;">
 <tr><td style="height:4px;line-height:4px;font-size:0;background:%s;">&nbsp;</td></tr>
@@ -122,5 +138,5 @@ func wrapEmailShell(inner string) string {
 </td></tr>
 </table>
 </body></html>`,
-		emailBorder, emailRed, brandWordmark(), inner, emailBorder, emailSurface, emailFaint, EmailBrandName)
+		emailPageBg, emailPageBg, emailBorder, emailRed, brandWordmark(), inner, emailBorder, emailPageBg, emailFaint, EmailBrandName)
 }

@@ -70,7 +70,7 @@ export function ModelFormDialog({
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       {open && (
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{model ? '编辑模型' : '新增模型'}</DialogTitle>
             <DialogDescription>

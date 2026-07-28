@@ -5,12 +5,12 @@ math-field {
   font-size: 24px; padding: 14px 16px;
   background: var(--surface-1); color: var(--ink);
   border: 1px solid var(--line); border-radius: 14px;
-  --caret-color: #cc2222;
-  --selection-background-color: rgba(204,34,34,.22);
-  --contains-highlight-background-color: rgba(204,34,34,.08);
-  --placeholder-color: #6f79a3;
+  --caret-color: #882828;
+  --selection-background-color: rgba(136, 40, 40,.22);
+  --contains-highlight-background-color: rgba(136, 40, 40,.08);
+  --placeholder-color: #6E6E78;
 }
-math-field:focus-within { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(204,34,34,.15); }
+math-field:focus-within { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(136, 40, 40,.15); }
 .mf-tip { font-size: 11px; color: var(--ink-mut); text-align: center; }
 
 /* 符号面板 */
@@ -25,7 +25,7 @@ math-field:focus-within { border-color: var(--brand); box-shadow: 0 0 0 3px rgba
   cursor: pointer; font-family: "Times New Roman", "Latin Modern Math", serif;
   transition: transform .15s var(--ease-spring), background .2s, border-color .2s;
 }
-.pkey:active { transform: scale(.9); background: rgba(204,34,34,.12); border-color: var(--brand); }
+.pkey:active { transform: scale(.9); background: rgba(136, 40, 40,.12); border-color: var(--brand); }
 
 .examples { display: flex; flex-wrap: wrap; gap: 8px; }
 .examples .chip { flex: 0 1 auto; }

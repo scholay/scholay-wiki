@@ -107,9 +107,9 @@ export const MENUS: Menu[] = [
   // ---------- 资源 ----------
   {
     id: 'library',
-    label: '文献集',
-    englishName: 'Collections',
-    description: '我的文献集合 · 自定义文件夹',
+    label: '文件夹',
+    englishName: 'Folders',
+    description: '收藏的论文 · 自定义分组',
     icon: Folder,
     href: '/library',
     category: 'resource',

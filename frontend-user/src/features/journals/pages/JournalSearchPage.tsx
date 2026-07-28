@@ -9,7 +9,7 @@ import { useJournalUrlFilters } from '../hooks/useJournalUrlFilters';
 
 /**
  * 期刊搜索路由 `/journals/search` —— **单页双视图**模式:
- *   左侧:JournalSidebar(文献集快捷 + 5 维筛选器)
+ *   左侧:JournalSidebar(文件夹快捷 + 5 维筛选器)
  *   右侧:JournalSearchResults(搜索条 + 列表 + 分页)
  *
  * 设计稿 `[02-期刊] 期刊搜索结果`(.pen `jcYGD`)对照。
@@ -27,7 +27,7 @@ export function JournalSearchPage() {
   useRegisterSidebarRail([
     {
       id: 'library',
-      label: '我的文献集',
+      label: '我的文件夹',
       icon: Inbox,
       sectionId: 'library',
     },

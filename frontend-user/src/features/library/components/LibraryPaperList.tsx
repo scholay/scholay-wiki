@@ -9,7 +9,7 @@ import type { LibrarySelectionApi } from '../hooks/useLibrarySelection';
 import { LibraryPaperRow } from './paper-row/LibraryPaperRow';
 
 /**
- * 文献集论文列表 —— **纯展示**:papers / 文件夹 / 选择状态全从 props 进来。
+ * 文件夹内的论文列表 —— **纯展示**:papers / 文件夹 / 选择状态全从 props 进来。
  * 选择状态由父级 LibraryFolderView 持有(`useLibrarySelection`),批量操作 toolbar
  * 也在父级外层 header 渲染,本组件只负责行 + 分页 + 跨页统计。
  *
@@ -89,7 +89,7 @@ export function LibraryPaperList({
     return (
       <EmptyState
         icon={Inbox}
-        title={filter === 'root' ? '你的文献集还没有论文' : '这个文件夹还没有论文'}
+        title={filter === 'root' ? '你还没有收藏任何论文' : '这个文件夹还没有论文'}
         description={
           filter === 'root'
             ? '在搜索结果里点「收藏」就能把论文加进来'

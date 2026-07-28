@@ -62,8 +62,27 @@ export const ACCESS_TYPE_LABEL: Record<string, string> = {
   both: '在线+下载',
 }
 
-// 字标封面取色:按字符串 hash 到一组柔和底色(复刻 JournalCover 思路)。
-const COVER_COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#ef4444', '#6366f1']
+// 字标封面取色:按字符串 hash 到分类色板,同一 key 永远同色。
+//
+// 真源 = frontend-user/src/styles/globals.css §七 的 `--cat-1..8`(四色阶各取两个深档),
+// 与 Web 端 `shared/components/JournalCover.tsx` 的 COVER_TONES 是同一套、同一顺序。
+// 这里必须写字面值:.ts 里的常量拿不到 wxss 变量,小程序也没有 CSS 变量的 JS 读取接口。
+// ⚠️ 改 globals 的 --cat-* 必须同步这里(护栏 LITERAL_MIRRORS 已登记,漂了会红)。
+//
+// 2026-07-28 同步:此前是 8 个裸 Tailwind 默认档(blue/violet/pink/amber/emerald/
+// cyan/red/indigo-500),完全在设计体系之外,且含 3 个蓝紫 —— 而设计说明明确「无蓝系」。
+// Web 端的同款硬编码色板早已收口到 --cat-*,小程序这一份是那次没做完的同步。
+// 数组长度保持 8 不变 —— 长度参与取模,改长度会让所有期刊换色。
+const COVER_COLORS = [
+  '#4D1616', // = --cat-1  朱砂深(red-3)
+  '#661E1E', // = --cat-2  朱砂浅(red-4)
+  '#1F331B', // = --cat-3  松青深(green-2)
+  '#2F4D29', // = --cat-4  松青浅(green-3)
+  '#664B00', // = --cat-5  琥珀深(amber-1)
+  '#805E00', // = --cat-6  琥珀浅(amber-2)
+  '#1F1F23', // = --cat-7  玄墨深(ink-2)
+  '#383840', // = --cat-8  玄墨浅(ink-4)
+]
 export function coverColor(key?: string): string {
   const s = key || '?'
   let h = 0

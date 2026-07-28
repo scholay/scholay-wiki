@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronLeft, Search, Share2, SlidersHorizontal, X } from 'lucide-react';
+import { Button } from '@/shared/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { CyclingHint } from '@/shared/components/CyclingHint';
 import { usePullToRefresh } from '@/shared/hooks';
@@ -119,13 +120,16 @@ export function MobileToolsPage() {
               e.preventDefault();
               patchParams({ q: draft.trim() });
             }}
-            className="flex h-10 flex-1 items-center gap-2 rounded-pill border border-border bg-surface-1 px-3.5"
+            className="flex h-10 flex-1 items-center gap-2 rounded-pill border border-border bg-surface-1 pl-3.5 pr-1 focus-within:border-border-control"
           >
             <Search className="size-4 shrink-0 text-faint" />
             <input
+              type="search"
+              enterKeyHint="search"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder="搜索网站、工具、数据库…"
+              placeholder="搜索网站、工具…"
+              /* outline-none 合法: 焦点由外层 form 的 focus-within:border-border-control 提示 */
               className="min-w-0 flex-1 bg-transparent text-14 text-foreground outline-none placeholder:text-faint"
             />
             {draft && (
@@ -140,6 +144,13 @@ export function MobileToolsPage() {
                 <X className="size-4 text-faint" />
               </button>
             )}
+            {/* 🟠 2026-07-27 补:本框原先【没有任何提交按钮】,是移动端唯一如此的检索框。
+                移动端没有物理键盘,而紧邻右侧那颗 size-10 按钮是「筛选」——
+                用户敲完关键词在屏幕上找提交入口,找到的却是筛选漏斗,误点后弹出筛选面板、
+                检索反而没执行。对照移动端搜索浮层 MobileSearchOverlay 是配了显式「搜索」按钮的。 */}
+            <Button type="submit" className="shrink-0">
+              搜索
+            </Button>
           </form>
           <button
             type="button"

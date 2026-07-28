@@ -17,6 +17,7 @@ import { toApiError } from '@/shared/lib/http';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import type { Paper, ShareTarget } from '@/shared/api/types';
+import { tokenValue } from '@/shared/lib/theme-bridge';
 import { ACCESS_TYPE_LABEL, PRICE_TYPE_LABEL } from '@/types/feature-tool';
 import {
   buildShareText,
@@ -60,7 +61,7 @@ export type { ShareTarget };
 const KIND_TITLE: Record<ShareTarget['kind'], string> = {
   single: '论文',
   journal: '期刊',
-  collection: '文献集',
+  collection: '文件夹',
   tool: '功能',
 };
 
@@ -136,7 +137,7 @@ function citeHighlight(n: number): string | undefined {
 function ShareBody({ target }: { target: ShareTarget }) {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const authenticated = useAuthStore((s) => !!s.token);
-  const user = useAuthStore((s) => s.user); // 文献集海报「整理人」
+  const user = useAuthStore((s) => s.user); // 文件夹海报「整理人」
   const cardRef = useRef<HTMLDivElement>(null);
   const posterRef = useRef<HTMLDivElement>(null);
   const collectionPosterRef = useRef<HTMLDivElement>(null);
@@ -146,7 +147,7 @@ function ShareBody({ target }: { target: ShareTarget }) {
   const [created, setCreated] = useState<CreatedShare | null>(null);
   const create = useCreateShare();
 
-  // 分享 URL:单篇 / 期刊 / 文献集都走 /s/:token **短链**(create 后才有)→ 打开的是「被分享落地页」,
+  // 分享 URL:单篇 / 期刊 / 文件夹都走 /s/:token **短链**(create 后才有)→ 打开的是「被分享落地页」,
   // 而非详情页(期刊落地页也带分享人横幅 + 期刊卡 + 在 Scholay 打开)。
   // 功能/工具:公开页直链(无短链 token);其余走 /s/:token 短链(create 后才有)。
   const shareUrl =
@@ -195,10 +196,10 @@ function ShareBody({ target }: { target: ShareTarget }) {
       : undefined;
   const sampleTitles = collectionSamplePapers?.map((p) => p.title);
 
-  // 文献集「保存图片」富海报数据(对齐 .pen 文献集卡组);ShareCard 仍作面板内预览。
+  // 文件夹「保存图片」富海报数据(对齐 .pen 文件夹卡组);ShareCard 仍作面板内预览。
   // 导出按钮只在 created 后出现 → 这里也只在 created 后产数据(null 时不挂屏外海报),
   // QR 直接带提取码(与 ShareCard 一致,扫码免输码直达合集);不再有「未创建落首页」的兜底死路。
-  // samplePapers 用 created.papers(服务端快照前 8 篇)→ 无论从文献集列表 / 集内 / PC 入口都能渲染前几篇。
+  // samplePapers 用 created.papers(服务端快照前 8 篇)→ 无论从文件夹列表 / 文件夹内 / PC 入口都能渲染前几篇。
   const collectionPosterData: CollectionSharePosterData | null = useMemo(() => {
     if (target.kind !== 'collection' || !created) return null;
     const qr = created.extract_code ? `${shareUrl}?code=${created.extract_code}` : shareUrl;
@@ -272,7 +273,7 @@ function ShareBody({ target }: { target: ShareTarget }) {
     };
   }, [target, created, origin, shareUrl, urlLabel, sampleTitles]);
 
-  // 单篇/期刊「保存图片」导出富海报(SharePoster);文献集仍导出预览卡(ShareCard,堆叠封面)。
+  // 单篇/期刊「保存图片」导出富海报(SharePoster);文件夹仍导出预览卡(ShareCard,堆叠封面)。
   const posterData: SharePosterData | null = useMemo(() => {
     if (target.kind === 'single') {
       const p = target.paper;
@@ -335,7 +336,7 @@ function ShareBody({ target }: { target: ShareTarget }) {
         urlLabel,
       };
     }
-    return null; // 文献集走 ShareCard 导出
+    return null; // 文件夹走 ShareCard 导出
   }, [target, shareUrl, urlLabel, origin]);
 
   const copy = async (text: string, label: string) => {
@@ -344,7 +345,7 @@ function ShareBody({ target }: { target: ShareTarget }) {
   };
 
   const saveImage = async () => {
-    // 导出目标:文献集 → 富海报 CollectionSharePoster;单篇/期刊/功能 → SharePoster;兜底 → ShareCard。
+    // 导出目标:文件夹 → 富海报 CollectionSharePoster;单篇/期刊/功能 → SharePoster;兜底 → ShareCard。
     const node = collectionPosterData
       ? collectionPosterRef.current
       : posterData
@@ -352,7 +353,13 @@ function ShareBody({ target }: { target: ShareTarget }) {
         : cardRef.current;
     if (!node) return;
     try {
-      const dataUrl = await toPng(node, { pixelRatio: 2, backgroundColor: '#ffffff' });
+      // 导出画布底色 = 页面米白。走 tokenValue 而非写死 hex ——
+      // 这是 JS 字面量位置(canvas 背景),给不了类名,但也不该硬编码:
+      // 改造前这里是 '#ffffff',--background 从纯白改米白后导出图边缘就出白边了。
+      const dataUrl = await toPng(node, {
+        pixelRatio: 2,
+        backgroundColor: tokenValue('--background', '#F6F4EE'),
+      });
       const a = document.createElement('a');
       a.href = dataUrl;
       a.download = `scholay-share-${created?.token ?? 'card'}.png`;
@@ -391,7 +398,7 @@ function ShareBody({ target }: { target: ShareTarget }) {
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      {/* 预览卡(文献集的分享图导出目标;单篇/期刊预览也用它,导出走下方屏外 SharePoster) */}
+      {/* 预览卡(文件夹的分享图导出目标;单篇/期刊预览也用它,导出走下方屏外 SharePoster) */}
       <ShareCard ref={cardRef} data={cardData} />
 
       {/* 屏外渲染的「保存图片」富海报(单篇/期刊/功能)——html-to-image 的真正导出目标 */}
@@ -400,7 +407,7 @@ function ShareBody({ target }: { target: ShareTarget }) {
           <SharePoster ref={posterRef} data={posterData} />
         </div>
       )}
-      {/* 文献集富海报(屏外导出目标);面板内预览仍是上面的 ShareCard。 */}
+      {/* 文件夹富海报(屏外导出目标);面板内预览仍是上面的 ShareCard。 */}
       {collectionPosterData && (
         <div aria-hidden className="pointer-events-none fixed left-[-9999px] top-0">
           <CollectionSharePoster ref={collectionPosterRef} data={collectionPosterData} />

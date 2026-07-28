@@ -5,7 +5,7 @@ import { streamSsePost } from '@/shared/lib/sse-post';
 import type { PaperSource, UserLibraryPaper } from '@/shared/api/types';
 
 /**
- * 文献集 · 上传 PDF 智能识别 —— SSE 流式 + 同步 confirm 两段式。
+ * 文件夹 · 上传 PDF 智能识别 —— SSE 流式 + 同步 confirm 两段式。
  *
  * 流式协议(后端 handler_upload_resolve.go 推):
  *   event: parsed   { title, abstract, sha256, has_text }

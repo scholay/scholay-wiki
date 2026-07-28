@@ -199,7 +199,7 @@ export function SubscribeDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
+      <DialogContent className="max-h-[90dvh] max-w-4xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>选择会员套餐</DialogTitle>
           <DialogDescription>
@@ -239,7 +239,7 @@ export function SubscribeDialog({
                     className={cn(
                       'inline-flex h-10 items-center justify-center gap-1.5 rounded-8 text-14 font-medium transition-colors',
                       isSelected
-                        ? 'bg-brand-red text-background'
+                        ? 'bg-brand-red text-on-brand'
                         : act === 'owned' || act === 'free'
                           ? 'border border-border-button text-faint'
                           : 'border border-border-button text-foreground',
@@ -343,7 +343,7 @@ export function SubscribeDialog({
           <Button
             onClick={onConfirm}
             disabled={!sel || paying || quoting || !quoteReady}
-            className="bg-brand-red text-background hover:bg-brand-red/90"
+            className="bg-brand-red text-on-brand hover:bg-brand-red/90"
           >
             {paying && <Loader2 className="size-3.5 animate-spin" />}
             {action === 'renew'

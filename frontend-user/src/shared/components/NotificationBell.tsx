@@ -47,7 +47,7 @@ export function NotificationBell() {
           {unread > 0 && (
             <span
               aria-label={`${unread} 条未读`}
-              className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center px-1 rounded-pill bg-brand-red text-background text-12 font-medium tabular-nums pointer-events-none"
+              className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center px-1 rounded-pill bg-brand-red text-on-brand text-12 font-medium tabular-nums pointer-events-none"
             >
               {unread > 99 ? '99+' : unread}
             </span>
@@ -58,7 +58,7 @@ export function NotificationBell() {
         <PopoverPrimitive.Content
           align="end"
           sideOffset={8}
-          className="z-popover w-[380px] max-h-[calc(100vh-120px)] flex flex-col rounded-12 border border-border bg-surface-card"
+          className="z-popover w-[380px] max-h-[calc(100dvh-120px)] flex flex-col rounded-12 border border-border bg-surface-card"
         >
           <NotificationHeader unread={unread} />
           <NotificationTabs tab={tab} onChange={setTab} unread={unread} />
@@ -111,7 +111,7 @@ function NotificationTabs({
       <TabButton active={tab === 'unread'} onClick={() => onChange('unread')}>
         未读
         {unread > 0 && (
-          <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center px-1 rounded-pill bg-brand-red text-background text-12 font-medium tabular-nums">
+          <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center px-1 rounded-pill bg-brand-red text-on-brand text-12 font-medium tabular-nums">
             {unread > 99 ? '99+' : unread}
           </span>
         )}

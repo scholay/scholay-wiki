@@ -1,3 +1,8 @@
+/* claw 会话页样式。色值一律走 app.wxss 的 token(其真源是
+ * frontend-user/src/styles/globals.css)。
+ * 少量 rgba(136, 40, 40, x) / rgba(47, 77, 41, x) 是品牌朱砂 / 松青的透明派生,
+ * token 层没有对应的 alpha 档,故内联;改品牌色时这些 RGB 三元组要一起改。
+ * rgba(0, 0, 0, x) 只用于遮罩与投影 —— 中性叠色,不属于色板。 */
 /* claw 页 —— 对齐移动端 Web(features/claw/pages/mobile/MobileClawPage + shared/components/chat)。
    设计语言:纯白底 · 小字号轻噪声(正文 24rpx,辅助 UI 20-22rpx)· 黑色 CTA · 品牌绿 AI 语义。
    px→rpx 全部 ×2(Web 规格见 spec:web-chat-atoms / web-claw-shell)。 */
@@ -16,7 +21,7 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: var(--card);
 }
 
 /* ── 未登录 / 全屏态 ─────────────────────────────────────────────── */
@@ -38,8 +43,8 @@
   width: 520rpx;
   height: 92rpx;
   line-height: 92rpx;
-  background: #111;
-  color: #fff;
+  background: var(--text);
+  color: var(--on-brand);
   border-radius: 9999rpx;
   font-size: 28rpx;
   padding: 0;
@@ -66,7 +71,7 @@
   gap: 8rpx;
   height: 88rpx;
   padding: 0 16rpx;
-  background: #fff;
+  background: var(--card);
 }
 .tb-btn {
   width: 72rpx;
@@ -99,12 +104,12 @@
   font-weight: 500;
 }
 .conn-pill.warn {
-  background: #f1eada;
-  color: var(--amber, #d4a017);
+  background: var(--amber-block);
+  color: var(--amber-block-ink);
 }
 .conn-pill.err {
-  background: #fff5f5;
-  color: var(--red, #cc2222);
+  background: var(--red-soft);
+  color: var(--red);
 }
 .art-btn {
   position: relative;
@@ -117,8 +122,8 @@
   height: 26rpx;
   line-height: 26rpx;
   text-align: center;
-  background: var(--green, #2a7a2a);
-  color: #fff;
+  background: var(--green);
+  color: var(--on-brand);
   font-size: 18rpx;
   border-radius: 13rpx;
   padding: 0 4rpx;
@@ -157,7 +162,7 @@
   position: absolute;
   inset: 0;
   border-radius: 32rpx;
-  background: rgba(42, 122, 42, 0.25);
+  background: rgba(47, 77, 41, 0.25);
   filter: blur(48rpx); /* Web blur-xl = 24px → 48rpx */
   animation: glowPulse 2.8s ease-in-out infinite;
 }
@@ -166,7 +171,7 @@
   width: 96rpx;
   height: 96rpx;
   border-radius: 32rpx;
-  background: var(--bg, #f5f5f5);
+  background: var(--bg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -189,14 +194,14 @@
   font-family: Georgia, "Songti SC", "STSong", serif;
   font-size: 40rpx;
   font-weight: 700;
-  color: var(--text, #111);
+  color: var(--text);
   letter-spacing: -0.5rpx;
 }
 .empty-sub {
   margin-top: 8rpx;
   font-size: 24rpx;
   line-height: 1.625;
-  color: var(--text-weak, #666);
+  color: var(--text-weak);
   text-align: center;
 }
 .sug-list {
@@ -207,9 +212,9 @@
   display: flex;
   align-items: center;
   gap: 20rpx;
-  border: 1rpx solid var(--border, #e8e8e8);
+  border: 1rpx solid var(--border);
   border-radius: 24rpx;
-  background: var(--surface-1, #fafafa);
+  background: var(--surface-1);
   padding: 18rpx 24rpx;
   margin-bottom: 12rpx;
 }
@@ -217,7 +222,7 @@
   width: 56rpx;
   height: 56rpx;
   border-radius: 12rpx;
-  background: #fff;
+  background: var(--card);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -235,13 +240,13 @@
   display: block;
   font-size: 26rpx;
   font-weight: 500;
-  color: var(--text, #111);
+  color: var(--text);
 }
 .sug-prompt {
   display: block;
   margin-top: 4rpx;
   font-size: 22rpx;
-  color: var(--text-faint, #999);
+  color: var(--text-faint);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -255,11 +260,11 @@
 }
 .bubble-user {
   max-width: 80%;
-  background: var(--text, #111);
-  color: #fff;
+  background: var(--text);
+  color: var(--on-brand);
   padding: 22rpx 30rpx;
   border-radius: 36rpx 36rpx 12rpx 36rpx;
-  font-size: 30rpx;
+  font-size: var(--fs-body);
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
@@ -273,7 +278,7 @@
   display: block;
   font-size: 32rpx;
   line-height: 1.65;
-  color: var(--text, #111);
+  color: var(--text);
   word-break: break-word;
   margin: 4rpx 0;
 }
@@ -287,8 +292,8 @@
   padding: 8rpx;
   box-sizing: border-box;
   border-radius: 12rpx;
-  border: 1rpx solid var(--border, #e8e8e8);
-  background: #fff;
+  border: 1rpx solid var(--border);
+  background: var(--card);
 }
 .tbl {
   display: table;
@@ -302,15 +307,15 @@
 .tbl-th,
 .tbl-td {
   display: table-cell;
-  border: 1rpx solid var(--border, #e8e8e8);
+  border: 1rpx solid var(--border);
   padding: 12rpx 16rpx;
   vertical-align: top;
   font-size: 26rpx;
   line-height: 1.6;
-  color: var(--text, #111);
+  color: var(--text);
 }
 .tbl-th {
-  background: var(--surface-1, #fafafa);
+  background: var(--surface-1);
   font-weight: 600;
 }
 .tbl-th.ta-c,
@@ -330,9 +335,9 @@
 /* 图表(mermaid 等)折叠卡:小程序无法渲染真图,点开看源码 */
 .diag {
   margin: 12rpx 0;
-  border: 1rpx solid var(--border, #e8e8e8);
+  border: 1rpx solid var(--border);
   border-radius: 12rpx;
-  background: var(--surface-1, #fafafa);
+  background: var(--surface-1);
   overflow: hidden;
 }
 .diag-head {
@@ -355,14 +360,14 @@
 .diag-title {
   font-size: 24rpx;
   font-weight: 600;
-  color: var(--text, #111);
+  color: var(--text);
   flex-shrink: 0;
 }
 .diag-note {
   flex: 1;
   min-width: 0;
   font-size: 22rpx;
-  color: var(--green, #2a7a2a);
+  color: var(--green);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -374,12 +379,12 @@
   gap: 4rpx;
   padding: 14rpx 20rpx 14rpx 12rpx;
   font-size: 22rpx;
-  color: var(--text-faint, #999);
+  color: var(--text-faint);
 }
 .diag-body {
   width: 100%;
-  border-top: 1rpx solid var(--border-soft, #eee);
-  background: #fff;
+  border-top: 1rpx solid var(--border-soft);
+  background: var(--card);
   font-size: 0; /* 消 inline-block 空白节点/基线空隙 */
 }
 .diag-code {
@@ -389,7 +394,7 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 24rpx;
   line-height: 1.625;
-  color: var(--text-subtle, #444);
+  color: var(--text-subtle);
   white-space: pre;
 }
 
@@ -398,10 +403,10 @@
   display: inline-block;
   max-width: 100%;
   margin: 12rpx 0;
-  border: 1rpx solid var(--border, #e8e8e8);
+  border: 1rpx solid var(--border);
   border-radius: 16rpx;
   overflow: hidden;
-  background: #fff;
+  background: var(--card);
 }
 .diag-img {
   display: block;
@@ -411,9 +416,9 @@
 /* 思考过程折叠(对标 Web ThinkingFold) */
 .think {
   margin: 12rpx 0;
-  border: 1rpx solid #f0f0f0;
+  border: 1rpx solid var(--border-soft);
   border-radius: 12rpx;
-  background: #fbfbfb;
+  background: var(--surface-1);
   overflow: hidden;
 }
 .think-head {
@@ -441,11 +446,11 @@
   flex-shrink: 0;
   font-size: 24rpx;
   font-weight: 500;
-  color: var(--text-weak, #666);
+  color: var(--text-weak);
 }
 .think-dots {
   font-size: 24rpx;
-  color: var(--text-weak, #666);
+  color: var(--text-weak);
   animation: blink 1.2s infinite;
 }
 .think-preview {
@@ -453,7 +458,7 @@
   min-width: 0;
   font-size: 22rpx;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  color: var(--text-faint, #999);
+  color: var(--text-faint);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -467,7 +472,7 @@
   font-size: 24rpx;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   line-height: 1.625;
-  color: var(--text-weak, #666);
+  color: var(--text-weak);
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -478,8 +483,8 @@
   align-items: center;
   gap: 12rpx;
   padding: 12rpx 20rpx;
-  background: var(--surface-1, #fafafa);
-  border: 1rpx solid var(--border, #e8e8e8);
+  background: var(--surface-1);
+  border: 1rpx solid var(--border);
   border-radius: 14rpx;
   font-size: 24rpx;
 }
@@ -494,7 +499,7 @@
 .tool-name {
   flex-shrink: 0;
   max-width: 50%;
-  color: var(--text, #111);
+  color: var(--text);
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -503,7 +508,7 @@
 .tool-query {
   flex-shrink: 1;
   min-width: 0;
-  color: var(--text-weak, #666);
+  color: var(--text-weak);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -520,12 +525,12 @@
   height: 24rpx;
 }
 .st-err {
-  color: var(--red, #cc2222);
+  color: var(--red);
   font-size: 22rpx;
   font-weight: 600;
 }
 .st-stop {
-  color: var(--text-faint, #999);
+  color: var(--text-faint);
   font-size: 22rpx;
   font-weight: 600;
 }
@@ -533,8 +538,8 @@
 /* 处理过程折叠组(对标 Web ProcessFold) */
 .proc {
   margin: 12rpx 0;
-  background: #fcfcfc;
-  border: 1rpx solid #eee;
+  background: var(--surface-1);
+  border: 1rpx solid var(--border-soft);
   border-radius: 16rpx;
   overflow: hidden;
 }
@@ -555,7 +560,7 @@
 .proc-title {
   flex: 1;
   min-width: 0;
-  color: var(--text-weak, #666);
+  color: var(--text-weak);
   font-size: 24rpx;
   font-weight: 500;
   overflow: hidden;
@@ -585,8 +590,8 @@
   height: 48rpx;
   padding: 0 20rpx;
   border-radius: 9999rpx;
-  background: #f7f7f7;
-  border: 1rpx solid #f0f0f0;
+  background: var(--surface-1);
+  border: 1rpx solid var(--border-soft);
   margin: 12rpx 0;
 }
 .sp-ic {
@@ -603,14 +608,14 @@
 .sp-text {
   font-size: 26rpx;
   font-weight: 500;
-  color: var(--text-weak, #666);
+  color: var(--text-weak);
 }
 .sp-dots {
   display: inline-flex;
 }
 .sp-dots .d {
   font-size: 22rpx;
-  color: var(--text-weak, #666);
+  color: var(--text-weak);
   animation: blink 1.2s infinite;
 }
 .sp-dots .d2 {
@@ -629,9 +634,9 @@
   display: flex;
   align-items: flex-start;
   gap: 16rpx;
-  border: 1rpx solid rgba(204, 34, 34, 0.3);
+  border: 1rpx solid rgba(136, 40, 40, 0.3);
   border-radius: 12rpx;
-  background: #fff5f5;
+  background: var(--red-soft);
   padding: 16rpx 24rpx;
   margin: 12rpx 0;
 }
@@ -649,13 +654,13 @@
   display: block;
   font-size: 28rpx;
   font-weight: 600;
-  color: var(--red, #cc2222);
+  color: var(--red);
 }
 .te-msg {
   display: block;
   margin-top: 4rpx;
   font-size: 24rpx;
-  color: var(--text-weak, #666);
+  color: var(--text-weak);
   word-break: break-word;
 }
 .blocked-output {
@@ -664,18 +669,18 @@
   gap: 16rpx;
   margin: 12rpx 0;
   padding: 16rpx 24rpx;
-  background: #fff5f5;
-  border: 1rpx solid rgba(204, 34, 34, 0.2);
+  background: var(--red-soft);
+  border: 1rpx solid rgba(136, 40, 40, 0.2);
   border-radius: 12rpx;
-  color: var(--red, #cc2222);
+  color: var(--red);
   font-size: 24rpx;
 }
 
 /* 本轮产出文件卡(对标 Web TurnArtifacts:品牌绿强调) */
 .tarts {
   margin: 12rpx 0;
-  border: 1rpx solid rgba(42, 122, 42, 0.3);
-  background: rgba(42, 122, 42, 0.05);
+  border: 1rpx solid rgba(47, 77, 41, 0.3);
+  background: rgba(47, 77, 41, 0.05);
   border-radius: 16rpx;
   padding: 20rpx;
 }
@@ -685,7 +690,7 @@
   gap: 12rpx;
   font-size: 20rpx;
   font-weight: 600;
-  color: var(--green, #2a7a2a);
+  color: var(--green);
   margin-bottom: 4rpx;
 }
 .tarts-spark {
@@ -696,8 +701,8 @@
   display: flex;
   align-items: center;
   gap: 20rpx;
-  border: 1rpx solid var(--border, #e8e8e8);
-  background: #fff;
+  border: 1rpx solid var(--border);
+  background: var(--card);
   border-radius: 12rpx;
   padding: 16rpx 24rpx;
   margin-top: 12rpx;
@@ -706,7 +711,7 @@
   width: 72rpx;
   height: 72rpx;
   border-radius: 12rpx;
-  background: rgba(42, 122, 42, 0.1);
+  background: rgba(47, 77, 41, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -724,7 +729,7 @@
   display: block;
   font-size: 24rpx;
   font-weight: 600;
-  color: var(--text, #111);
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -733,12 +738,12 @@
   display: block;
   margin-top: 4rpx;
   font-size: 20rpx;
-  color: var(--text-weak, #666);
+  color: var(--text-weak);
 }
 .tart-open {
   flex-shrink: 0;
-  background: var(--green, #2a7a2a);
-  color: #fff;
+  background: var(--green);
+  color: var(--on-brand);
   font-size: 20rpx;
   font-weight: 600;
   border-radius: 8rpx;
@@ -751,12 +756,12 @@
   align-items: center;
   gap: 12rpx;
   border-radius: 8rpx;
-  background: var(--bg, #f5f5f5);
+  background: var(--bg);
   padding: 8rpx 16rpx;
   margin: 12rpx 0;
   font-size: 22rpx;
   font-weight: 600;
-  color: var(--text-weak, #666);
+  color: var(--text-weak);
 }
 .pa-ic {
   width: 24rpx;
@@ -766,7 +771,7 @@
 /* ── 输入区:微信式底栏 ──────────────────────────────────────────
    [⊕] [白底圆角输入框] [模型 chip | 发送/停止];灰底 + 上分隔线,键盘回车=发送。 */
 .composer-wrap {
-  background: #f7f7f7;
+  background: var(--surface-1);
   border-top: 1rpx solid rgba(0, 0, 0, 0.06);
   /* tab bar 预留放在这里(灰底一直铺到 tab bar 下,由其白底盖住,视觉上灰色止于 tab bar 顶,
      输入条紧贴 tab bar 上方、不悬浮)。176rpx = 100rpx(tab bar)+ 76rpx 间距,留足覆盖
@@ -785,7 +790,8 @@
   width: 60rpx;
   height: 60rpx;
   margin-bottom: 6rpx;
-  border: 3rpx solid #3d3d3d;
+  /* = globals --ink-4;深色描边圈,语义 token 层没有对应档,故内联 */
+  border: 3rpx solid #383840;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -802,7 +808,7 @@
 .wb-input-wrap {
   flex: 1;
   min-width: 0;
-  background: #fff;
+  background: var(--card);
   border-radius: 16rpx;
   padding: 14rpx 20rpx;
   box-sizing: border-box;
@@ -811,9 +817,9 @@
   width: 100%;
   min-height: 44rpx;
   background: transparent;
-  font-size: 30rpx;
+  font-size: var(--fs-body);
   line-height: 1.45;
-  color: var(--text, #111);
+  color: var(--text);
 }
 /* 模型切换 chip(输入为空时占发送位,同微信 + ↔ 发送 的让位关系) */
 .wb-model {
@@ -834,7 +840,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 24rpx;
-  color: var(--text-subtle, #444);
+  color: var(--text-subtle);
 }
 .wb-model-caret {
   width: 22rpx;
@@ -850,8 +856,8 @@
   height: 64rpx;
   line-height: 64rpx;
   border-radius: 12rpx;
-  background: var(--green, #2a7a2a);
-  color: #fff;
+  background: var(--green);
+  color: var(--on-brand);
   font-size: 28rpx;
   font-weight: 500;
   display: flex;
@@ -862,10 +868,10 @@
   border: none;
 }
 .wb-send.stop {
-  background: #111;
+  background: var(--text);
 }
 .wb-send.stopping {
-  background: rgba(17, 17, 17, 0.6);
+  background: rgba(31, 31, 35, 0.6);
   padding: 0 32rpx;
 }
 .wb-send-ic {
@@ -892,8 +898,8 @@
   width: 112rpx;
   height: 112rpx;
   border-radius: 12rpx;
-  border: 1rpx solid var(--border, #e8e8e8);
-  background: var(--surface-1, #fafafa);
+  border: 1rpx solid var(--border);
+  background: var(--surface-1);
 }
 .att-file {
   display: inline-flex;
@@ -903,15 +909,15 @@
   max-width: 384rpx;
   padding: 0 20rpx;
   border-radius: 12rpx;
-  border: 1rpx solid var(--border, #e8e8e8);
-  background: #fff;
+  border: 1rpx solid var(--border);
+  background: var(--card);
   box-sizing: border-box;
 }
 .af-icbox {
   width: 64rpx;
   height: 64rpx;
   border-radius: 12rpx;
-  background: #fff5f5;
+  background: var(--red-soft);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -924,7 +930,7 @@
 .af-name {
   font-size: 22rpx;
   font-weight: 500;
-  color: var(--text, #111);
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -936,10 +942,10 @@
   max-width: 440rpx;
   padding: 8rpx 16rpx;
   border-radius: 8rpx;
-  border: 1rpx solid rgba(42, 122, 42, 0.4);
-  background: rgba(42, 122, 42, 0.1);
+  border: 1rpx solid rgba(47, 77, 41, 0.4);
+  background: rgba(47, 77, 41, 0.1);
   font-size: 20rpx;
-  color: var(--green, #2a7a2a);
+  color: var(--green);
 }
 .ref-chip-t text {
   overflow: hidden;
@@ -958,8 +964,8 @@
   width: 32rpx;
   height: 32rpx;
   border-radius: 16rpx;
-  background: #111;
-  color: #fff;
+  background: var(--text);
+  color: var(--on-brand);
   font-size: 24rpx;
   line-height: 32rpx;
   text-align: center;
@@ -967,7 +973,7 @@
 }
 /* 高度管理在 JS(taMaxed 切固定高度):auto-height 下 CSS max-height 与原生排版脱节,不能用。 */
 .input-ph {
-  color: var(--text-faint, #999);
+  color: var(--text-faint);
 }
 .c-toolbar {
   display: flex;
@@ -981,7 +987,7 @@
   position: fixed;
   inset: 0;
   z-index: 200;
-  background: rgba(17, 17, 17, 0.4);
+  background: rgba(31, 31, 35, 0.4);
 }
 .mask.bottom {
   display: flex;
@@ -995,8 +1001,8 @@
   bottom: 0;
   width: 640rpx;
   max-width: 86vw;
-  background: #fff;
-  border-right: 1rpx solid var(--border, #e8e8e8);
+  background: var(--card);
+  border-right: 1rpx solid var(--border);
   display: flex;
   flex-direction: column;
 }
@@ -1004,7 +1010,7 @@
   padding: 32rpx 40rpx 8rpx;
 }
 .drawer-title {
-  font-size: 30rpx;
+  font-size: var(--fs-body);
   font-weight: 700;
 }
 .drawer-list {
@@ -1016,7 +1022,7 @@
 .drawer-empty {
   padding: 80rpx 0;
   text-align: center;
-  color: var(--text-faint, #999);
+  color: var(--text-faint);
   font-size: 24rpx;
 }
 .sess-group {
@@ -1024,7 +1030,7 @@
   padding: 24rpx 24rpx 8rpx;
   font-size: 24rpx;
   font-weight: 500;
-  color: var(--text-faint, #999);
+  color: var(--text-faint);
 }
 .sess-row {
   display: flex;
@@ -1034,24 +1040,24 @@
   padding: 20rpx 12rpx 20rpx 24rpx;
 }
 .sess-row.on {
-  background: var(--bg, #f5f5f5);
+  background: var(--bg);
 }
 .sess-title {
   flex: 1;
   min-width: 0;
   font-size: 28rpx;
-  color: #444;
+  color: var(--text-subtle);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .sess-row.on .sess-title {
   font-weight: 600;
-  color: var(--text, #111);
+  color: var(--text);
 }
 .sess-title.gen {
   font-style: italic;
-  color: var(--text-faint, #999);
+  color: var(--text-faint);
 }
 .sess-more {
   width: 56rpx;
@@ -1068,7 +1074,7 @@
 }
 
 .sheet {
-  background: #fff;
+  background: var(--card);
   border-radius: 32rpx 32rpx 0 0;
   padding: 24rpx 24rpx calc(32rpx + env(safe-area-inset-bottom));
   max-height: 70vh;
@@ -1092,7 +1098,7 @@
   border-radius: 16rpx;
 }
 .model-row.on {
-  background: var(--surface-1, #fafafa);
+  background: var(--surface-1);
 }
 .model-info {
   flex: 1;
@@ -1100,14 +1106,14 @@
 }
 .model-name {
   display: block;
-  font-size: 30rpx;
-  color: var(--text, #111);
+  font-size: var(--fs-body);
+  color: var(--text);
 }
 .model-desc {
   display: block;
   margin-top: 4rpx;
   font-size: 24rpx;
-  color: var(--text-faint, #999);
+  color: var(--text-faint);
 }
 .model-check {
   width: 32rpx;
@@ -1131,7 +1137,7 @@
   width: 72rpx;
   height: 72rpx;
   border-radius: 12rpx;
-  background: rgba(42, 122, 42, 0.1);
+  background: rgba(47, 77, 41, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1149,7 +1155,7 @@
   display: block;
   font-size: 28rpx;
   font-weight: 600;
-  color: var(--text, #111);
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1158,12 +1164,12 @@
   display: block;
   margin-top: 4rpx;
   font-size: 20rpx;
-  color: var(--text-weak, #666);
+  color: var(--text-weak);
 }
 .art-open {
   flex-shrink: 0;
-  background: var(--green, #2a7a2a);
-  color: #fff;
+  background: var(--green);
+  color: var(--on-brand);
   font-size: 20rpx;
   font-weight: 600;
   border-radius: 8rpx;
@@ -1192,7 +1198,7 @@
 .ref-box {
   width: 36rpx;
   height: 36rpx;
-  border: 2rpx solid var(--border-strong, #d8d8d8);
+  border: 2rpx solid var(--border-strong);
   border-radius: 8rpx;
   display: flex;
   align-items: center;
@@ -1201,8 +1207,8 @@
   box-sizing: border-box;
 }
 .ref-box.on {
-  border-color: var(--green, #2a7a2a);
-  background: rgba(42, 122, 42, 0.1);
+  border-color: var(--green);
+  background: rgba(47, 77, 41, 0.1);
 }
 .ref-box-ic {
   width: 26rpx;
@@ -1212,15 +1218,15 @@
   flex: 1;
   min-width: 0;
   font-size: 28rpx;
-  color: var(--text, #111);
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .sheet-confirm {
   margin-top: 20rpx;
-  background: #111;
-  color: #fff;
+  background: var(--text);
+  color: var(--on-brand);
   border-radius: 16rpx;
   font-size: 28rpx;
   line-height: 88rpx;
@@ -1238,5 +1244,5 @@
   padding: 16rpx 0;
   margin: 8rpx 0 4rpx;
   font-size: 24rpx;
-  color: #999;
+  color: var(--text-faint);
 }

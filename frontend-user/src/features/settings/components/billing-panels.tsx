@@ -166,7 +166,7 @@ export function RechargePanel() {
         <div className="my-3 flex items-center gap-1.5 rounded-8 bg-prism-badge-bg px-3 py-2 text-12 text-prism-badge-fg">
           <Coins className="size-3.5"/> {yuan || 0} 元到账 {credits} 经费
         </div>
-        <Button onClick={onPay} disabled={!valid || busy || !sel} className="w-full bg-brand-red text-background hover:bg-brand-red/90">
+        <Button onClick={onPay} disabled={!valid || busy || !sel} className="w-full bg-brand-red text-on-brand hover:bg-brand-red/90">
           {busy && <Loader2 className="size-3.5 animate-spin"/>}
           立即充值
         </Button>
@@ -245,7 +245,7 @@ export function RedeemPanel() {
       </div>
       <div className="flex items-center gap-3">
         <SegmentedCodeInput value={segs} onChange={setSegs} />
-        <Button onClick={() => complete && setConfirmOpen(true)} disabled={!complete} className="h-11 shrink-0 bg-brand-red px-5 text-background hover:bg-brand-red/90">
+        <Button onClick={() => complete && setConfirmOpen(true)} disabled={!complete} className="h-11 shrink-0 bg-brand-red px-5 text-on-brand hover:bg-brand-red/90">
           立即激活
         </Button>
       </div>
@@ -349,7 +349,7 @@ export function OrdersTable() {
             <button
               key={id}
               onClick={() => setFilter(id)}
-              className={cn('h-7 rounded-8 px-3 text-12 transition-colors', filter === id ? 'bg-foreground text-background' : 'bg-surface-2 text-subtle hover:bg-surface-muted')}
+              className={cn('h-7 rounded-8 px-3 text-12 transition-colors', filter === id ? 'bg-foreground text-on-dark' : 'bg-surface-2 text-subtle hover:bg-surface-1')}
             >
               {label}
             </button>

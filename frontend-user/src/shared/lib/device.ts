@@ -76,7 +76,7 @@ function resolve(maps: RouteMap[], pathname: string): string | null {
 
 /**
  * PC 路由 → 移动对等页。手机 UA 命中才跳:
- *   - 有真正 /m 页:home / 期刊检索 / 助手 / 工具 / 文献集 / 设置 → 对应 /m 页(prefix 保留子路径)
+ *   - 有真正 /m 页:home / 期刊检索 / 助手 / 工具 / 文件夹 / 设置 → 对应 /m 页(prefix 保留子路径)
  *   - 暂无移动版的纯 PC 页:/search · /prism · /peer-review → 先统一送 /m/feed(collapse),后续补齐换专页
  * 不在表里 = 同 URL 响应式(详情 / landing / help / 分享),返回 null 即「留在原地」(保 SEO + 分享深链)。
  */
@@ -139,7 +139,7 @@ const DESKTOP_EQUIVALENTS: RouteMap[] = [
 
 /** 给定移动路径,返回 PC 对等路径(桌面 UA 落 /m/* 时纠正);无对等回 '/'。search 原样保留。 */
 export function desktopEquivalentPath(pathname: string, search = ''): string {
-  // 文献集文件夹深链:移动是路径段 /m/library/:id,桌面文件夹是 query ?folder=:id
+  // 文件夹深链:移动是路径段 /m/library/:id,桌面文件夹是 query ?folder=:id
   // (桌面只有 /library 一条路由,文件夹靠 query state),需单独改写;其余 query 合并保留。
   const folder = /^\/m\/library\/([^/]+)\/?$/.exec(pathname);
   if (folder) {

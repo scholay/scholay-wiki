@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <!-- Scholay 品牌色 S 字母 favicon —— 红 #CC2222(对应 Logo 第一个字母) -->
-  <rect width="32" height="32" rx="6" fill="#CC2222"/>
+  <!-- Scholay 品牌色 S 字母 favicon —— 朱砂 #882828(对应 Logo 第一个字母) -->
+  <rect width="32" height="32" rx="8" fill="#882828"/>
   <text x="16" y="22" font-family="Inter, system-ui, sans-serif" font-size="18" font-weight="800" fill="#FFFFFF" text-anchor="middle">S</text>
 </svg>

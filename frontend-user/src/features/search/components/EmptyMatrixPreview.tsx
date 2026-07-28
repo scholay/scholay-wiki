@@ -87,12 +87,20 @@ export const MOCK_ROWS: MockRow[] = [
   },
 ];
 
+/**
+ * ⚠️ 五个 tone 现在【全部指向同一配色】—— 与真矩阵 DimensionCell 保持一致。
+ * 真矩阵的 tag 高亮已按设计稿收敛成单色(松青 10%),本组件是它的空态预览,
+ * 若这里还是红/琥珀/蓝多色,等于向用户预告一个真实产品里并不存在的语义。
+ * gray 保留:它对应「未提及」这种【没有值】的状态,不是一个类别色。
+ * (tone 字段本身没删 —— MOCK_ROWS 的数据结构还在用,留着以便将来若设计师
+ *  重新引入语义色时只改这张映射表。)
+ */
 export const MOCK_TONE_CLS: Record<MockTagTone, string> = {
-  red: 'bg-danger-soft text-brand-red',
-  amber: 'bg-warning-soft text-brand-amber',
+  red: 'bg-brand-green/10 text-brand-green',
+  amber: 'bg-brand-green/10 text-brand-green',
   green: 'bg-brand-green/10 text-brand-green',
   gray: 'bg-surface-2 text-muted-foreground',
-  blue: 'bg-cat-blue-soft text-cat-blue',
+  blue: 'bg-brand-green/10 text-brand-green',
 };
 
 /**
@@ -229,7 +237,7 @@ function FakeStagingTab({
         className={cn(
           'inline-flex h-4 min-w-4 items-center justify-center px-1 rounded-pill text-12 font-medium tabular-nums',
           active
-            ? 'bg-brand-red text-background'
+            ? 'bg-brand-red text-on-brand'
             : 'bg-surface-2 text-muted-foreground'
         )}
       >
@@ -297,7 +305,7 @@ export function EmptyImportButton() {
         onClick={handleClick}
         disabled={disabled}
         className={cn(
-          'inline-flex items-center gap-1.5 h-9 px-5 rounded-pill bg-brand-red text-background text-14 font-medium transition-colors',
+          'inline-flex items-center gap-1.5 h-9 px-5 rounded-pill bg-brand-red text-on-brand text-14 font-medium transition-colors',
           'hover:bg-brand-red/90 disabled:opacity-70 disabled:cursor-not-allowed'
         )}
       >

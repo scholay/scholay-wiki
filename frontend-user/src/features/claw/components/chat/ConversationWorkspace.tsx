@@ -9,7 +9,7 @@ import {
 } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { History, Loader2, MessageSquarePlus, PanelRightOpen } from 'lucide-react';
+import { History, Loader2, MessageSquarePlus, PanelRight, PanelRightDashed } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { StickToBottom } from 'use-stick-to-bottom';
 import { Button } from '@/shared/ui/button';
@@ -49,7 +49,7 @@ export interface WorkspaceConfig {
   artifactBasePath: ArtifactBasePath;
   /** 空态 hero 文案。 */
   hero: { title: string; subtitle: string; suggestions: HeroSuggestion[] };
-  /** 右侧成果栏空态提示。 */
+  /** 右侧扩展区空态提示。 */
   emptyArtifactsHint?: string;
   /** 科研绘图:图片类产物**内联展示**在对话流里(不占用右侧文档扩展区、不出文件卡)。 */
   figuresInline?: boolean;
@@ -139,8 +139,29 @@ export function ConversationWorkspace({
 
   const [previewArtifact, setPreviewArtifact] = useState<ClawArtifact | null>(null);
   const isNarrow = useMediaQuery('(max-width: 1024px)');
-  const [rightCollapsed, setRightCollapsed] = useState(false);
-  useEffect(() => { setRightCollapsed(false); }, [sessionId]);
+  /**
+   * 右侧扩展区的开合 —— **三态偏好**,不是布尔。
+   *   null        = 用户还没表态 → 跟随默认策略「有产物就展开」
+   *   true/false  = 用户显式点过按钮 → 尊重用户,不再被数据翻转
+   *
+   * 为什么不能简单用 boolean(2026-07-27 改造时的坑):
+   *   旧实现是【数据驱动】—— 面板只在 hasArtifacts 时存在,rightCollapsed 只负责「藏起来」。
+   *   现在顶栏加了手动开关、且空态也要能打开,面板变成【用户意图驱动】;
+   *   若直接把默认值设成 false,就会丢掉「claw 生成文件时面板自动露出」这个既有行为。
+   *   三态把「没表态」和「明确关掉」区分开,两个行为才能同时成立。
+   */
+  const [rightOpenPref, setRightOpenPref] = useState<boolean | null>(null);
+  // 换会话 → 清空表态,回到默认策略。
+  // ⚠️ 但「懒新建落地」(sessionId: null → 真 id,首条消息发出时)**不是换会话** —— 页层用 ownRef
+  //    刻意不 remount,这里若也当成换会话重置,用户刚在空态点开的扩展区会在发第一条消息的瞬间自己关掉
+  //    (正是本次改动要支持的「空态也能打开」场景)。故只在两个**真实会话之间**切换时重置。
+  const prevSessionIdRef = useRef(sessionId);
+  useEffect(() => {
+    const prev = prevSessionIdRef.current;
+    prevSessionIdRef.current = sessionId;
+    if (prev === sessionId || prev === null) return;
+    setRightOpenPref(null);
+  }, [sessionId]);
 
   // 科研绘图:图片类产物**内联展示**在对话流里(TurnFigures),不占用右侧文档扩展区、不出文件卡。
   const inlineFigures = !!cfg.figuresInline;
@@ -176,17 +197,39 @@ export function ConversationWorkspace({
     }
     if (latest?.id && latest.id !== autoOpenSeenRef.current) {
       autoOpenSeenRef.current = latest.id;
-      setRightCollapsed(false);
+      setRightOpenPref(true);
       setPreviewArtifact(latest);
     }
   }, [sessionArtifacts, autoOpenLatest]);
   const closePreview = useCallback(() => setPreviewArtifact(null), []);
-  const collapseRight = useCallback(() => { setRightCollapsed(true); setPreviewArtifact(null); }, []);
+  const collapseRight = useCallback(() => { setRightOpenPref(false); setPreviewArtifact(null); }, []);
+  /**
+   * 点某个产物的「预览」—— 必须同时把扩展区**强制打开**。
+   * 否则:用户先手动收起扩展区(rightOpenPref=false),再点对话流里的文件卡预览,
+   * 桌面端 showRightPanel 恒 false、窄屏 Sheet 又要求 isNarrow → previewArtifact 设了但没人渲染,
+   * 表现为「点了预览什么都没发生」的死点击。
+   */
+  const openPreview = useCallback((a: ClawArtifact) => {
+    setPreviewArtifact(a);
+    setRightOpenPref(true);
+  }, []);
   const userSkillsByGuide = useUserSkillsByGuide();
-  // 内联出图(科研绘图):图在对话流里,永不启用右侧文档扩展区。
-  const hasArtifacts = !inlineFigures && ((sessionArtifacts?.length ?? 0) > 0 || !!previewArtifact);
-  const showRightPanel = !isNarrow && !rightCollapsed && hasArtifacts;
-  const showReexpandTab = !isNarrow && rightCollapsed && hasArtifacts;
+
+  const artifactCount = sessionArtifacts?.length ?? 0;
+  const hasArtifacts = artifactCount > 0 || !!previewArtifact;
+  // 内联出图(科研绘图):图在对话流里,永不启用右侧文档扩展区 —— 连顶栏开关也不给。
+  const rightPanelAvailable = !inlineFigures && !isNarrow;
+  // 用户没表态时,沿用旧的「有产物就展开」;表过态就听用户的(空态也能手动打开)。
+  const rightOpen = rightOpenPref ?? hasArtifacts;
+  const showRightPanel = rightPanelAvailable && rightOpen;
+  // 直接对当前生效值取反 —— 用 setState(prev => …) 反而要把默认策略再算一遍(prev 可能是 null)。
+  // 关闭方向走 collapseRight —— 它同时清掉 previewArtifact。
+  // 只翻开合而留着 previewArtifact 会有两个后果:重新展开时直接落在预览页而非列表页;
+  // 以及窗口缩到 ≤1024 时,Sheet 会突然弹出一个用户已经关掉的产物。
+  const toggleRight = useCallback(() => {
+    if (rightOpen) collapseRight();
+    else setRightOpenPref(true);
+  }, [rightOpen, collapseRight]);
 
   const chatAreaRef = useHeightVar<HTMLDivElement>('chat-area-h');
 
@@ -264,15 +307,17 @@ export function ConversationWorkspace({
         <header className="flex h-14 items-center gap-3 border-b border-border px-6">
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-8 bg-foreground">
-              <TitleIcon className="h-3.5 w-3.5 text-background" />
+              <TitleIcon className="h-3.5 w-3.5 text-on-dark" />
             </div>
             <h1 className="text-16 font-medium text-foreground">{cfg.title}</h1>
           </div>
           <div className="ml-auto flex items-center gap-2">
+            {/* 两颗按钮都【只用原子的 size 档、不写 className 覆写】——
+                之前是 size="sm"(h-7 px-2.5) + className="h-8" 的混搭:高度被覆写成 32、
+                内边距却还是 sm 档的 10px,而隔壁扩展区按钮没有那个覆写 → 两颗差 4px 高。
+                用 size="default"(h-8 px-3)让原子自己说了算,两颗自然一致。 */}
             <Button
               variant="outline"
-              size="sm"
-              className="h-8 gap-1.5"
               onClick={startNew}
               disabled={atDefaultBlank}
               title={atDefaultBlank ? '已是新对话准备态' : '开始新对话(当前回答会在后台继续)'}
@@ -280,6 +325,33 @@ export function ConversationWorkspace({
               <MessageSquarePlus className="h-3.5 w-3.5" />
               新对话
             </Button>
+            {/* 扩展区开关 —— 顶栏常驻入口。
+                替代了原先「收起后才出现、贴在对话区右缘中部」的竖条按钮:那个按钮
+                ① 只在已有产物且已收起时才存在(空态根本没有打开的路),
+                ② 位置在页面中部、不在任何工具栏里,不容易被发现。
+                放在「新对话」右侧后,开合两个方向都从同一处操作,空态也能主动打开。 */}
+            {rightPanelAvailable && (
+              <Button
+                variant="outline"
+                onClick={toggleRight}
+                aria-pressed={rightOpen}
+                title={rightOpen ? '收起扩展区' : '展开扩展区'}
+              >
+                {/* 实线=已展开 / 虚线=未展开 —— 线型本身就表达开关态,不必再加箭头。
+                    为什么不用 PanelRightOpen/Close:那两个带箭头,读起来像「翻页」而不像侧边栏。
+                    为什么关闭态不用纯 PanelRight:它是左侧栏展开按钮 PanelLeft 的镜像,
+                    两颗控件图形会雷同;虚线版在方向与线型上都拉开了距离。 */}
+                {rightOpen ? (
+                  <PanelRight className="h-3.5 w-3.5" />
+                ) : (
+                  <PanelRightDashed className="h-3.5 w-3.5" />
+                )}
+                扩展区
+                {artifactCount > 0 && (
+                  <span className="text-faint tabular-nums">{artifactCount}</span>
+                )}
+              </Button>
+            )}
           </div>
         </header>
 
@@ -313,18 +385,6 @@ export function ConversationWorkspace({
         <ResizablePanelGroup direction="horizontal" autoSaveId={`${cfg.layoutKey}-preview-h`} className="flex min-h-0 flex-1">
           <ResizablePanel id={`${cfg.layoutKey}-chat`} order={1} minSize={36} className="min-w-0">
             <div className="relative h-full min-h-0">
-              {showReexpandTab && (
-                <button
-                  type="button"
-                  onClick={() => setRightCollapsed(false)}
-                  title="展开成果栏"
-                  aria-label="展开成果栏"
-                  className="absolute right-0 top-1/2 z-nav flex -translate-y-1/2 flex-col items-center gap-1 rounded-l-8 border border-r-0 border-border bg-surface-1 px-1.5 py-2.5 text-12 text-muted-foreground shadow-overlay transition-colors hover:bg-surface-2 hover:text-foreground"
-                >
-                  <PanelRightOpen className="h-4 w-4 text-brand-green" />
-                  {(sessionArtifacts?.length ?? 0) > 0 && <span className="font-medium">{sessionArtifacts?.length}</span>}
-                </button>
-              )}
               {turns.length > 0 && (
                 <div ref={chatAreaRef} className="absolute inset-0">
                   <StickToBottom className="h-full" resize="smooth" initial="smooth">
@@ -348,7 +408,7 @@ export function ConversationWorkspace({
                           artifacts={sessionArtifacts}
                           sessionId={sessionId}
                           userSkillsByGuide={userSkillsByGuide}
-                          onPreview={setPreviewArtifact}
+                          onPreview={openPreview}
                           onResendBlocked={conv.resendBlocked}
                           onDismissBlocked={conv.dismissBlocked}
                           // 失败轮「重试」只对**最后一轮**成立(hook 内还守卫 !busy;
@@ -429,9 +489,8 @@ export function ConversationWorkspace({
                   sessionId={sessionId ?? ''}
                   artifacts={sessionArtifacts ?? []}
                   previewArtifact={previewArtifact}
-                  onPreview={setPreviewArtifact}
+                  onPreview={openPreview}
                   onClosePreview={closePreview}
-                  onCollapse={collapseRight}
                   basePath={cfg.artifactBasePath}
                   onExportDeck={onExportArtifactDeck}
                   exportingFormat={exportingFormat}

@@ -103,10 +103,10 @@ export function recBorderClasses(rec?: string | null): string {
 }
 
 const AVATAR: Record<RecTier, string> = {
-  minor: 'bg-brand-green text-background',
-  major: 'bg-brand-amber text-background',
-  reject: 'bg-brand-red text-background',
-  unknown: 'bg-foreground text-background',
+  minor: 'bg-brand-green text-on-brand',
+  major: 'bg-brand-amber text-foreground',
+  reject: 'bg-brand-red text-on-brand',
+  unknown: 'bg-foreground text-on-dark',
 };
 
 /** 实心头像/圆点配色 (状态栏审稿人/主审圆形 avatar 按结果上色用)。 */
@@ -133,7 +133,8 @@ const FILL_BG: Record<RecTier, string> = {
   unknown: 'bg-foreground',
 };
 
-/** 实心填充背景 (主审决议大卡整卡按结果填色, 配白字)。 */
+/** 实心填充背景 (主审决议大卡整卡按结果填色)。
+ *  ⚠️ 只给底色,前景色由调用方按底色配对 (琥珀实底必须配深字, 白字压琥珀只有 2.11:1)。 */
 export function recFillBg(rec?: string | null): string {
   return FILL_BG[recTier(rec)];
 }

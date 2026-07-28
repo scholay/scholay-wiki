@@ -104,7 +104,7 @@ export function ZoomableSvg({ svgHtml, className }: { svgHtml: string; className
         {/* 全屏灯箱:视口尺寸用 arbitrary value(无对应 token,lightbox 本就按视口比例) */}
         <DialogContent
           dismissable
-          className="h-[90vh] w-[95vw] max-w-[95vw] gap-0 overflow-hidden p-0"
+          className="h-[90dvh] w-[95vw] max-w-[95vw] gap-0 overflow-hidden p-0"
         >
           <DialogTitle className="sr-only">图表放大查看</DialogTitle>
           <div className="relative h-full w-full bg-surface-1">

@@ -92,7 +92,7 @@ export function trackPaperImpressions(
   postTrack({ impressions: items });
 }
 
-/** 站内点开论文详情 → 上报一次点击 (传统 / 智能 / 文献集 / 引用 等所有站内打开)。 */
+/** 站内点开论文详情 → 上报一次点击 (传统 / 智能 / 文件夹 / 引用 等所有站内打开)。 */
 export function trackPaperClick(paper: Paper | undefined | null): void {
   const d = paperToTrackData(paper);
   if (!d) return;

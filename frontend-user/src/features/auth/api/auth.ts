@@ -11,7 +11,7 @@ import type { AuthResponse, CodePurpose, User } from '../types';
  *
  * **登录后全局刷新**:`invalidateQueries()` 不带 key,所有 query 一次性失效。
  * 这样未登录态拉到的"匿名空数据"会立即被新会话下的真实数据替换 ——
- * 文献集、订阅、配额、连接列表、UI 上一切受登录态影响的服务端数据都会重 fetch。
+ * 文件夹、订阅、配额、连接列表、UI 上一切受登录态影响的服务端数据都会重 fetch。
  */
 
 export function handleAuthSuccess(qc: QueryClient, data: AuthResponse) {

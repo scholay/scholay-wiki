@@ -6,11 +6,13 @@
   var picked = {};
   var TOTAL = D.flags.reduce(function (a, f) { return a + f.w; }, 0);
 
+  // 色值真源:globals.css。#4D1616 = red-3(比 --brand #882828 更深一档,给最高危档)。
+  // JS 内联无法读 CSS 变量,改 globals 时须同步这里与 _shared/brand.css。
   var LV = [
-    { key: 'low',   name: '低风险',            color: '#2a7a2a', emoji: '🟢', badge: 'ok' },
-    { key: 'watch', name: '需留意',            color: '#d4a017', emoji: '🧐', badge: 'warn' },
-    { key: 'high',  name: '偏高风险',          color: '#cc2222', emoji: '⚠️', badge: 'warn' },
-    { key: 'crit',  name: '高危 · 疑似问题刊', color: '#8f1616', emoji: '🚨', badge: 'bad' }
+    { key: 'low',   name: '低风险',            color: '#2F4D29', emoji: '🟢', badge: 'ok' },
+    { key: 'watch', name: '需留意',            color: '#E5A800', emoji: '🧐', badge: 'warn' },
+    { key: 'high',  name: '偏高风险',          color: '#882828', emoji: '⚠️', badge: 'warn' },
+    { key: 'crit',  name: '高危 · 疑似问题刊', color: '#4D1616', emoji: '🚨', badge: 'bad' }
   ];
 
   function level(pct, n, strong) {

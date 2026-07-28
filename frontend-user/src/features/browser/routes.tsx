@@ -42,7 +42,7 @@ export const browserRoutes: RouteObject[] = [
       import('./pages/BrowserPage').then((m) => ({ Component: m.BrowserPage })),
   },
   {
-    // PDF 单独成 tab —— libPaperId = 文献集 row.id(用户上传 PDF 绑在 row 上,
+    // PDF 单独成 tab —— libPaperId = 文件夹 row.id(用户上传 PDF 绑在 row 上,
     // 与上游 source/paperId 解耦)。父级 BrowserPage 看到 /pdf/* 时
     // 渲染 PdfBrowserPane 替代 paper detail pane。
     path: 'pdf/:libPaperId',

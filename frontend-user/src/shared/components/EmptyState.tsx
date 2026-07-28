@@ -14,7 +14,7 @@ interface EmptyStateProps {
 }
 
 /**
- * 空状态 — 列表无数据 / 搜索无结果 / 文件夹空文献集时统一展示。
+ * 空状态 — 列表无数据 / 搜索无结果 / 文件夹为空时统一展示。
  */
 export const EmptyState = forwardRef<HTMLDivElement, EmptyStateProps>(
   ({ icon: Icon = Inbox, title, description, action, dense, className }, ref) => {

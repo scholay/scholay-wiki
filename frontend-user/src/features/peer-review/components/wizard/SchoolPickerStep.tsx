@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Input } from '@/shared/ui/input';
-import type { SchoolTarget } from '../../types';
+import type { SchoolTarget } from '@/shared/lib/peer-review/types';
 
 /**
  * Step2 院校选择(.pen sGFTb) —— 毕业模式专用。

@@ -27,7 +27,7 @@ import {
 } from '../../api/papers';
 
 /**
- * 文献集行级操作菜单 —— 三个点按钮 + Popover 弹层。
+ * 文件夹内论文的行级操作菜单 —— 三个点按钮 + Popover 弹层。
  *
  *   ⋯ → ┌──────────────┐       (转移 click 切换到 folders 视图)
  *       │ ↔ 转移到 ▸    │       ┌────────────────────┐
@@ -47,7 +47,7 @@ import {
 export interface RowActionsMenuProps {
   paperId: number;
   rowIndex: number;
-  /** 当前文献集的 filter(用于在转移列表里隐藏"自己") */
+  /** 当前文件夹的 filter(用于在转移列表里隐藏"自己") */
   currentFilter: LibraryFolderFilter;
   /** 选择态 —— 用于切按钮文案("选中" / "取消选中") */
   isSelected: boolean;
@@ -163,10 +163,11 @@ export function RowActionsMenu({
           <MoreHorizontal className="size-3.5" strokeWidth={2} />
         </button>
       </PopoverTrigger>
+      {/* w-panel-sm = --panel-w-sm 12.5rem = 200px,与原 w-[200px] 等值(零像素变化) */}
       <PopoverContent
         align="end"
         sideOffset={4}
-        className="w-[200px] p-1"
+        className="w-panel-sm p-1"
         onClick={(e) => e.stopPropagation()}
       >
         {view === 'main' ? (
@@ -177,9 +178,12 @@ export function RowActionsMenu({
               onClick={enterFoldersView}
               chevron
             />
+            {/* description 说「从你的收藏中」而不是「从文件夹中」:上一项就是「转移到…」(选文件夹),
+                写成「从文件夹中删除」会被读成转移的逆操作(挪出这个夹);
+                实际是删整行 + 连带删 PDF,与所在文件夹无关。 */}
             <ConfirmPopover
               title="删除这篇论文?"
-              description="会从文献集中删除这篇文献,你上传的 PDF 也会一起删除。"
+              description="会从你的收藏中删除这篇文献,你上传的 PDF 也会一起删除。"
               confirmText="删除"
               cancelText="取消"
               danger
@@ -226,6 +230,7 @@ export function RowActionsMenu({
             <div className="px-1 pt-1 pb-1.5">
               <div className="flex items-center gap-1.5 h-7 px-2 rounded-8 bg-surface-1 border border-border focus-within:border-foreground transition-colors">
                 <Search className="size-3 text-faint shrink-0" strokeWidth={2} />
+                {/* outline-none 合法:焦点可供性由外层容器的 focus-within:border-foreground 提供 */}
                 <input
                   type="text"
                   value={folderQuery}
@@ -238,8 +243,10 @@ export function RowActionsMenu({
               </div>
             </div>
 
-            {/* 列表 —— max-h + overflow-y-auto 长名单滚动 */}
-            <div className="max-h-[260px] overflow-y-auto">
+            {/* 列表 —— max-h + overflow-y-auto 长名单滚动。
+                max-h-scroll-pane = --scroll-pane-max-h 16.25rem = 260px,与原 max-h-[260px] 等值
+                (该 token 就是从本处这类「弹层内列表滚动区」的 5 个一致值抽出来的)。 */}
+            <div className="max-h-scroll-pane overflow-y-auto">
               {moveTargets.length === 0 ? (
                 <div className="px-2 py-3 text-12 text-faint text-center">
                   {folderQuery.trim()

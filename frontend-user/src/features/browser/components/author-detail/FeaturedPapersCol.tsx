@@ -100,7 +100,7 @@ export function FeaturedPapersCol({
                     )}
                   </div>
                 </div>
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-8 bg-surface-2 text-subtle shrink-0 group-hover:bg-foreground group-hover:text-background transition-colors">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-8 bg-surface-2 text-subtle shrink-0 group-hover:bg-foreground group-hover:text-on-dark transition-colors">
                   <Bookmark className="size-3.5" strokeWidth={2} />
                 </span>
               </button>

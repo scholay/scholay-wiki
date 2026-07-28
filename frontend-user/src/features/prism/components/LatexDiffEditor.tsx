@@ -28,7 +28,7 @@ const prismDiffTheme = EditorView.baseTheme({
   // 词级精确改动:亮绿下划线渐变 → 柔和底色块(匹配 &dark/&light.cm-merge-b 才盖得住)。
   '&.cm-merge-b .cm-changedText, &dark.cm-merge-b .cm-changedText, &light.cm-merge-b .cm-changedText' : {
     background: 'var(--prism-editor-diff-ins-strong)',
-    borderRadius: '2px',
+    borderRadius: 'var(--radius-4)', // 行内装饰块 → 圆角六档最小档 4(分层口诀:文字里的装饰=4)
   },
   // 删除块底色(覆写默认 rgba(160,128,100,.08))。
   '.cm-deletedChunk' : { backgroundColor: 'var(--prism-editor-diff-del-soft)' },
@@ -36,7 +36,7 @@ const prismDiffTheme = EditorView.baseTheme({
   '&.cm-merge-b .cm-deletedText, &dark .cm-deletedChunk .cm-deletedText, &light .cm-deletedChunk .cm-deletedText' : {
     background: 'var(--prism-editor-diff-del-strong)',
     color: 'var(--prism-editor-diff-del-fg)',
-    borderRadius: '2px',
+    borderRadius: 'var(--radius-4)', // 同上,行内装饰块统一 4
   },
   // 变更 / 删除 gutter 竖条(3px)改柔和 accent(覆写默认亮色),当作左侧改动指示条。
   '&.cm-merge-b .cm-changedLineGutter, &dark.cm-merge-b .cm-changedLineGutter, &light.cm-merge-b .cm-changedLineGutter' : {

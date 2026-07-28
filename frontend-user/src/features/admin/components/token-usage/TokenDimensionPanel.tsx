@@ -45,6 +45,7 @@ export function TokenDimensionPanel({ tabs, loading }: { tabs: DimTab[]; loading
           <div className="flex items-center gap-3 text-12 text-faint">
             {COMPOSITION_SEGMENTS.map((s) => (
               <span key={s.key} className="flex items-center gap-1">
+                {/* 8px 图例色块用 2px 圆角 —— 档位缺口豁免,见 design-system-guard 的「禁止 arbitrary 圆角」 */}
                 <span className="size-2 rounded-[2px]" style={{ backgroundColor: fillColor(s.fill) }} />
                 {s.label}
               </span>

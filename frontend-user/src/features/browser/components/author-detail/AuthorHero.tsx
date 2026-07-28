@@ -14,11 +14,17 @@ export function AuthorHero({ author }: { author: Author }) {
 
   return (
     <section className="rounded-16 bg-surface-1 border border-border-soft p-4 sm:p-7 flex flex-col sm:flex-row sm:items-stretch gap-4 sm:gap-7">
-      {/* 圆形 avatar —— .pen `VcqDs` 140×140 圆;移动端缩到 88 */}
+      {/* 圆形 avatar —— 140×140(移动端 88)。
+          原依据写 .pen `VcqDs`,该真源 2026-07 已作废;Figma §4.4 只给了卡片内 39×39 头像,
+          没有 hero 尺寸的头像规格,token 侧 `--size-avatar` 也只有 40px。
+          这是 hero 专属的展示尺寸,无对应档位,保留 arbitrary。 */}
       <div
         className="shrink-0 w-[88px] h-[88px] sm:w-[140px] sm:h-[140px] rounded-pill flex items-center justify-center"
         style={{ backgroundColor: color }}
       >
+        {/* 首字母字形 —— 尺寸由 avatar 直径按比例导出(≈0.46 × 直径:140→64、88→40),
+            不是排印阶梯上的档位,因此不归六档也不用 display token:
+            64px 在 Figma §2.2 里正是「字体展示样本、非 UI 档位」的那一档。 */}
         <span className="font-display font-bold text-[40px] sm:text-[64px] text-on-brand leading-none">
           {initial}
         </span>
@@ -36,7 +42,9 @@ export function AuthorHero({ author }: { author: Author }) {
           </span>
         </div>
 
-        <h1 className="font-display font-bold text-24 sm:text-[36px] leading-display-tight text-foreground">
+        {/* 详情页 h1 —— 36px 有等值 token `text-display-36`(globals.css:631,
+            专为「超出 Figma 六档的展示档」而设),不再写 arbitrary */}
+        <h1 className="font-display font-bold text-24 sm:text-display-36 leading-display-tight text-foreground">
           {author.name}
         </h1>
 
@@ -65,7 +73,7 @@ export function AuthorHero({ author }: { author: Author }) {
           </a>
         )}
 
-        {/* 4 个核心指标 —— .pen `jZJya` */}
+        {/* 4 个核心指标(.pen `jZJya` 真源已作废,现行真源见 docs/figma-design-spec-2026-07.md) */}
         <div className="pt-2 flex items-end gap-8 flex-wrap">
           <Stat value={author.paperCount} label="发表论文" />
           <Stat value={author.citationCount} label="被引次数" />

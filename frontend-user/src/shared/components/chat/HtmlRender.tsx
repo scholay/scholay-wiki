@@ -13,7 +13,7 @@ import { CodeBlock } from './CodeBlock';
  * 让父窗口能读 scrollHeight 自适应高度(无脚本时同源不构成风险)。再加 `referrerPolicy="no-referrer"`
  * 防止 iframe 内外链资源(img / @import)把本站 URL 经 Referer 泄露到外域。样式被 iframe 隔离。
  *
- * 行内自适应高度(上限 560,超出 iframe 内部滚动);右上角「放大」→ 全屏(90vh 可滚)。
+ * 行内自适应高度(上限 560,超出 iframe 内部滚动);右上角「放大」→ 全屏(90dvh 可滚)。
  * 流式期间(useSettled 未稳定)显示稳定 loader,避免边输出边重排抽搐。
  */
 
@@ -62,7 +62,11 @@ export function HtmlRender({ html }: { html: string }) {
               if (h) setHeight(h);
             }}
             style={{ height }}
-            className="block w-full transition-[height] duration-200"
+            // duration 走 token:globals.css §15 的 --duration-base(280ms)。
+            // 具名类 `duration-base` 曾编译不出(@theme 只注册了 --duration-*,而 Tailwind v4
+            // 的 duration 工具类只查 --transition-duration-* 命名空间),故一度写成 arbitrary;
+            // globals.css 补上 --transition-duration-* 别名后,两者编译产物逐字节相同,已换回具名类。
+            className="block w-full transition-[height] duration-base"
           />
           <div className="absolute right-2 top-2 flex gap-1">
             <ToolButton label="查看源码" onClick={() => setShowSource(true)}>
@@ -78,7 +82,7 @@ export function HtmlRender({ html }: { html: string }) {
       {/* Radix Root 常驻,绝不随视图切换/流式重渲卸载(否则 open 时卸载会泄漏 body pointer-events 锁) */}
       <Dialog open={open} onOpenChange={setOpen}>
         {/* 视口尺寸 arbitrary value(lightbox 本就按视口比例,无对应 token) */}
-        <DialogContent dismissable className="h-[90vh] w-[95vw] max-w-[95vw] gap-0 overflow-hidden p-0">
+        <DialogContent dismissable className="h-[90dvh] w-[95vw] max-w-[95vw] gap-0 overflow-hidden p-0">
           <DialogTitle className="sr-only">HTML 预览</DialogTitle>
           <iframe
             srcDoc={doc}

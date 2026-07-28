@@ -109,7 +109,7 @@ export function PrismInlineEditPrompt({
           type="button"
           disabled={!text.trim() || busy}
           onClick={() => submit(text)}
-          className="mb-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-8 bg-foreground text-background disabled:opacity-40"
+          className="mb-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-8 bg-foreground text-on-dark disabled:opacity-40"
           aria-label="提交"
         >
           <ArrowUp className="size-4" />

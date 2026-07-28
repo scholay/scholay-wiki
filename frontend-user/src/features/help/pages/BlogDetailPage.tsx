@@ -96,7 +96,7 @@ export function BlogDetailPage() {
       {author && (
         <section className="mt-10 p-6 rounded-16 bg-surface-1 border border-border-soft">
           <div className="flex items-start gap-4">
-            <span className="inline-flex h-12 w-12 items-center justify-center rounded-pill bg-brand-green text-background text-14 font-medium shrink-0">
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-pill bg-brand-green text-on-brand text-14 font-medium shrink-0">
               {author.name.slice(0, 1)}
             </span>
             <div className="flex-1 min-w-0">

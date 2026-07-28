@@ -11,7 +11,7 @@ import type {
 } from '@/shared/api/types';
 
 /**
- * 文献集「单行读取 / 转换」—— 跨 feature 复用(library 页面 + browser 详情 pane)。
+ * 文件夹「单行读取 / 转换」—— 跨 feature 复用(library 页面 + browser 详情 pane)。
  *
  * 从 features/library/api/papers.ts 提升到 shared:browser 的论文详情 pane 需要
  * 用它判「我有没有收藏 + 转出统一 Paper 形状」,而 features 之间不能互 import
@@ -22,7 +22,7 @@ import type {
  */
 
 /**
- * 按 (source, source_paper_id) 找当前用户的文献集行。
+ * 按 (source, source_paper_id) 找当前用户文件夹里的论文行。
  *
  * 用途:
  *   - 上游 (stc/olx/pmd) 详情页:查"我有没有收藏 + 有没有上传 PDF"

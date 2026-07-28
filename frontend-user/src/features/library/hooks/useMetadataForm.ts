@@ -5,7 +5,7 @@ import type { UpdatePaperOGPayload } from '../api/papers';
 import { textToAuthors } from '../lib/resolve-paper';
 
 /**
- * 文献集核心元数据表单(RHF + zod)—— 6 个会落到 og_* 的字段。
+ * 文件夹内论文的核心元数据表单(RHF + zod)—— 6 个会落到 og_* 的字段。
  * 「手动编辑」「PDF 上传填充」「(PR5)统一管理弹窗 · 元数据 tab」共用一套表单 + 同一序列化出口。
  *
  *   - authors: "; " / "," 分隔的可编辑文本(经 textToAuthors 转回数组)

@@ -2,7 +2,7 @@ import { FileText, FolderTree, Play } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 
 /**
- * Prism AI 写作样式预览 —— 对照 .pen `dyvGL` (V2 LaTeX Writer body):
+ * Prism AI 写作样式预览(真源已从 .pen 换到 Figma,见 docs/figma-design-spec-2026-07.md):
  * 文件树(左 200) + 暗色编辑器(中,带行号) + 预览(右 500)
  */
 export function PrismPreview() {
@@ -81,12 +81,11 @@ export function PrismPreview() {
           </div>
         </aside>
 
-        {/* 暗色编辑器 —— 强制深色面板(LaTeX 编辑器约定),不跟随 .dark token,
-            所以这里保留硬编码 hex,加 .pen 注释做标记 */}
-        {/* .pen `prism-editor` 暗色编辑面板:bg=#111 / gutter=#0a0a0a / text=#e6e6e6 / gutter text=#555 */}
-        <div className="flex-1 min-w-0 bg-[#111] text-[#e6e6e6] font-mono text-12 leading-paragraph overflow-hidden">
+        {/* 暗色编辑器 —— 颜色全部走 globals.css 的 --prism-editor-* token
+            (该族本就是为「强制深色面板」而设,与 LatexEditor 的 CodeMirror 主题同源) */}
+        <div className="flex-1 min-w-0 bg-[var(--prism-editor-bg)] text-[var(--prism-editor-fg)] font-mono text-12 leading-paragraph overflow-hidden">
           <div className="flex h-full">
-            <div className="w-10 shrink-0 bg-[#0a0a0a] py-4 text-right pr-2 text-[#555]">
+            <div className="w-10 shrink-0 bg-[var(--prism-editor-gutter-bg)] py-4 text-right pr-2 text-[var(--prism-editor-gutter-fg)]">
               {Array.from({ length: 18 }, (_, i) => (
                 <div key={i}>{i + 1}</div>
               ))}
@@ -118,7 +117,8 @@ The blended output is then normalized via...`}
           <div className="h-10 px-4 flex items-center border-b border-border bg-surface-1 text-12 text-muted-foreground">
             预览 · 第 4 页 / 共 12 页
           </div>
-          <div className="p-6 space-y-3 text-[11px] leading-paragraph text-foreground bg-surface-card m-4 rounded-16">
+          {/* 拟纸预览正文用字号最小档 text-12(原 text-[11px] 逃出六档) */}
+          <div className="p-6 space-y-3 text-12 leading-paragraph text-foreground bg-surface-card m-4 rounded-16">
             <h3 className="text-14 font-medium">3 Method</h3>
             <p className="text-subtle">
               We propose a hybrid architecture that combines the linear-time

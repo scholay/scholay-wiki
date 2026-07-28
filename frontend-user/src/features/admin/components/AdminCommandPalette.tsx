@@ -70,6 +70,7 @@ export function AdminCommandPalette({
               value={query}
               onValueChange={setQuery}
               placeholder="搜索页面 / 用户 / 快捷动作…"
+              /* outline-none 合法: cmdk / Radix Dialog 惯例 —— 面板打开即 autoFocus 到本框且它是唯一输入位,画环是噪音 */
               className="flex-1 h-11 bg-transparent text-12 outline-none placeholder:text-faint"
             />
           </div>

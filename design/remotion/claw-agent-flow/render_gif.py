@@ -16,21 +16,21 @@ FPS = 20
 FRAMES = 5 * FPS
 
 COLORS = {
-    "background": "#FFFFFF",
-    "surface1": "#FAFAFA",
-    "surface2": "#F5F5F5",
-    "border": "#E8E8E8",
-    "borderStrong": "#D8D8D8",
-    "text": "#111111",
-    "subtle": "#444444",
-    "muted": "#666666",
-    "faint": "#999999",
-    "red": "#CC2222",
-    "green": "#2A7A2A",
-    "amber": "#D4A017",
-    "amberSoft": "#F0E6C8",
-    "dangerSoft": "#FFF5F5",
-    "greenSoft": "#F1FAF1",
+    "background": "#F6F4EE",
+    "surface1": "#EFEDE5",
+    "surface2": "#E8E5DC",
+    "border": "#DCDAD6",
+    "borderStrong": "#C7C5C1",
+    "text": "#1F1F23",
+    "subtle": "#505059",
+    "muted": "#686873",
+    "faint": "#6E6E78",
+    "red": "#882828",
+    "green": "#2F4D29",
+    "amber": "#E5A800",
+    "amberSoft": "#E5DFCE",
+    "dangerSoft": "#F3EAEA",
+    "greenSoft": "#EAEDEA",
 }
 
 FONT_CANDIDATES = [

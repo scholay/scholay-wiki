@@ -7,7 +7,7 @@ import { BrandName } from './BrandName';
  * 首页底部 —— 对齐 .pen `l4Cvd`,单行 brand / 法律链接。
  *
  *   © 2026 Scholay │ 关于 │ 隐私 │ 服务 │ 帮助 │ [解决方案 ▾]
- *                                                  └─ popover:文献搜索 / 文献集 /
+ *                                                  └─ popover:文献搜索 / 文件夹 /
  *                                                              Prism / Claw / 投稿 / 同行评审
  *
  * 之前的"6 个功能介绍页"行已折叠进右侧的"解决方案" popover —— 单行更干净,
@@ -23,7 +23,7 @@ import { BrandName } from './BrandName';
  *
  *   宣传页 slug          → 产品菜单功能名
  *   /features/search      文献搜索 ✓
- *   /features/library     文献集 ✓
+ *   /features/library     文件夹 ✓
  *   /features/prism       智能写作(原 "Prism AI 写作")
  *   /features/claw        智能助手(原 "Claw AI 助手")
  *   /features/submit      智能投稿 ─┐ 都指向"智能审稿" feature
@@ -31,7 +31,7 @@ import { BrandName } from './BrandName';
  */
 const SOLUTION_LINKS: { label: string; to: string; desc: string }[] = [
   { label: '文献搜索', to: '/features/search', desc: '全网检索文献与学者' },
-  { label: '文献集', to: '/features/library', desc: '收藏 / 文件夹 / 跨设备同步' },
+  { label: '文件夹', to: '/features/library', desc: '收藏 / 分组 / 跨设备同步' },
   { label: '智能写作', to: '/features/prism', desc: '科研级 LaTeX 协作写作' },
   { label: '智能助手', to: '/features/claw', desc: '智能问答与对话' },
   { label: '智能投稿', to: '/features/submit', desc: '投稿前 AI 预审' },
@@ -50,30 +50,45 @@ const BRAND_LINKS: { label: string; to: string }[] = [
 export function Footer() {
   return (
     <footer className="bg-background border-t border-border">
-      {/* 单行:brand / 法律 + 解决方案 popover */}
-      <div className="h-11 flex items-center justify-center gap-6 text-12 text-faint">
-        <span>
+      {/*
+       * 单行(≥1024)/ 自动换行(<1024):brand / 法律 + 解决方案 popover
+       *
+       * 🔴 窄屏破版修复(render-audit-2026-07-28 P1-1):此处曾是 `h-11` 定高 + 不换行的
+       * 单行 flex。中文没有词边界 → 每个链接的 min-content 宽度 = **一个汉字**,flex 收缩时
+       * 「关于我们」被压成 12.7px 宽 × 60px 高(4 行竖排),而父容器只有 44px 高 →
+       * 内容被 h-11 直接裁掉(实测 390/414 下 row.scrollHeight=52 > clientHeight=44)。
+       * 且 `html,body{overflow-x:hidden}` 让文档级溢出探针恒为 false,破版被静默吞掉。
+       *
+       * 三处修法(缺一不可):
+       *   1. `whitespace-nowrap` —— 把每个链接的 min-content 从「一个汉字」抬到整词,
+       *      这是「每行一个汉字」的直接根因;
+       *   2. `flex-wrap` + `min-h-11`(替代 `h-11`)—— 放不下就换行,容器跟着长高不再裁;
+       *   3. 分隔竖线 `lg:block` —— 换行时竖线会漂到行首,只在实测能单行放下的 ≥1024 才显示。
+       * ≥1024 的渲染与修复前逐像素一致(min-h-11 + py-2 撑不满 44 → 仍是 44;gap-x-6 同 gap-6)。
+       */}
+      <div className="min-h-11 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 px-4 py-2 text-12 text-faint">
+        <span className="whitespace-nowrap">
           © {new Date().getFullYear()} <BrandName tone="subtle" />
         </span>
         {BRAND_LINKS.map((l) => (
-          <span key={l.label} className="flex items-center gap-6">
-            <span className="h-3.5 w-px bg-border-strong" />
+          <span key={l.label} className="flex shrink-0 items-center gap-6">
+            <span className="hidden h-3.5 w-px bg-border-strong lg:block" />
             <Link
               to={l.to}
-              className="hover:text-foreground transition-colors"
+              className="whitespace-nowrap hover:text-foreground transition-colors"
             >
               {l.label}
             </Link>
           </span>
         ))}
 
-        <span className="flex items-center gap-6">
-          <span className="h-3.5 w-px bg-border-strong" />
+        <span className="flex shrink-0 items-center gap-6">
+          <span className="hidden h-3.5 w-px bg-border-strong lg:block" />
           <PopoverPrimitive.Root>
             <PopoverPrimitive.Trigger asChild>
               <button
                 type="button"
-                className="inline-flex items-center gap-0.5 hover:text-foreground transition-colors"
+                className="inline-flex items-center gap-0.5 whitespace-nowrap hover:text-foreground transition-colors"
               >
                 解决方案
                 <ChevronDown className="size-3" strokeWidth={2.5} />
@@ -109,13 +124,13 @@ export function Footer() {
         </span>
 
         {/* ICP 备案 —— 中国大陆运营要求;同行尾部,链到工信部官方查询页 */}
-        <span className="flex items-center gap-6">
-          <span className="h-3.5 w-px bg-border-strong" />
+        <span className="flex shrink-0 items-center gap-6">
+          <span className="hidden h-3.5 w-px bg-border-strong lg:block" />
           <a
             href="https://beian.miit.gov.cn/"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-foreground transition-colors"
+            className="whitespace-nowrap hover:text-foreground transition-colors"
           >
             蜀ICP备2025145653号-2
           </a>

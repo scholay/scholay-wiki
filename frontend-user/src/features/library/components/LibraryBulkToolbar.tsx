@@ -29,7 +29,7 @@ import {
 } from '../api/papers';
 
 /**
- * 文献集批量操作工具条 —— 由 LibraryFolderView 在外层 toolbar 渲染,**左对齐**
+ * 文件夹内论文的批量操作工具条 —— 由 LibraryFolderView 在外层 toolbar 渲染,**左对齐**
  * 替换 normal 模式下的"面包屑 / 搜索框 / 导入按钮"。
  *
  * 状态语义:`selectedCount > 0` 即激活批量模式;父级控制显隐。
@@ -140,6 +140,8 @@ export function LibraryBulkToolbar({
               转移
             </button>
           </PopoverTrigger>
+          {/* w-[220px]:弹层宽 token 只有 200 / 280 / 360 三档,220 落在 200 与 280 之间;
+              压到 w-panel-sm(200)会让「转移到…」的文件夹名更早截断,留待弹层宽统一收口时定档。 */}
           <PopoverContent align="start" sideOffset={4} className="w-[220px] p-1">
             {/* 搜索框 */}
             <div className="px-1 pt-1 pb-1.5">
@@ -148,6 +150,7 @@ export function LibraryBulkToolbar({
                   className="size-3 text-faint shrink-0"
                   strokeWidth={2}
                 />
+                {/* outline-none 合法:焦点可供性由外层容器的 focus-within:border-foreground 提供 */}
                 <input
                   type="text"
                   value={folderQuery}
@@ -160,8 +163,9 @@ export function LibraryBulkToolbar({
               </div>
             </div>
 
-            {/* 列表 —— 滚动:max-h + overflow-y-auto */}
-            <div className="max-h-[260px] overflow-y-auto">
+            {/* 列表 —— 滚动:max-h + overflow-y-auto。
+                max-h-scroll-pane = --scroll-pane-max-h 16.25rem = 260px,与原 max-h-[260px] 等值。 */}
+            <div className="max-h-scroll-pane overflow-y-auto">
               {filteredFolders.map((f) => (
                 <button
                   key={f.id}
@@ -240,7 +244,10 @@ function BatchDeleteConfirmDialog({
           </DialogTitle>
         </header>
         <div className="px-5 py-4 text-12 text-subtle leading-paragraph">
-          将从文献集永久移除选中的 {count} 篇论文。此操作不可撤销。
+          {/* 「从收藏中」不是「从文件夹中」:batch/delete 是按 user_id 硬删整行 + 连带删 MinIO
+              上的 PDF,与文件夹无关。本工具条紧挨着的另一个操作就是「移动到文件夹」,写成
+              「从文件夹移除」会被读成它的逆操作(挪出这个夹),而实际是不可逆的彻底删除。 */}
+          将从你的收藏中永久删除选中的 {count} 篇论文。此操作不可撤销。
         </div>
         <footer className="flex items-center justify-end gap-2 h-13 px-5 border-t border-border-soft">
           <Button

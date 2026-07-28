@@ -9,7 +9,7 @@ import { pdfTabKey, useBrowserTabs } from '@/stores/browser-tabs.store';
 /**
  * 浏览器 · PDF 预览页 —— /browser/pdf/:libPaperId
  *
- * 用户在文献集任意行点"查看 PDF"会:
+ * 用户在文件夹任意行点"查看 PDF"会:
  *   1) useOpenPdfInBrowser 把 (libPaperId, title) 灌进 browser-tabs store
  *   2) navigate('/browser/pdf/:libPaperId')
  *   3) 本 pane 从 URL 拿 id → 找 store 里同 key 的 tab 读 title(纯展示用)
@@ -63,7 +63,7 @@ export function PdfBrowserPane() {
         <EmptyState
           icon={AlertCircle}
           title="需要登录才能查看 PDF"
-          description="文献集中的 PDF 仅本人可见,请先登录后再访问。"
+          description="文件夹中的 PDF 仅本人可见,请先登录后再访问。"
         />
       </div>
     );

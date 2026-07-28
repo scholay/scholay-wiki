@@ -7,7 +7,7 @@ import { useDebounce } from '@/shared/hooks';
 import type { Paper, UpstreamSource } from '@/shared/api/types';
 
 /**
- * 三源快捷搜索 —— 跨 feature 共享(文献集「+ 在线搜索加入」、浏览器「快速打开论文」)。
+ * 三源快捷搜索 —— 跨 feature 共享(文件夹「+ 在线搜索加入」、浏览器「快速打开论文」)。
  *
  * 与首页主搜索区别:
  *   - **并行**打三个源(stc/olx/pmd),按源分组展示,用户一眼看到各源是否命中
@@ -102,7 +102,7 @@ export function useQuickPaperSearch(
  * arrival-order 拼接 —— 哪个源先返回先展示,后到的静默追加在后面。
  * query 一变 → 重置;源 loading→done(无论有无结果)时按到达顺序追加。
  *
- * 与 [[useQuickPaperSearch]] 是一对:入参就是它的返回。原本在文献集 OnlineSearchTab 与
+ * 与 [[useQuickPaperSearch]] 是一对:入参就是它的返回。原本在文件夹 OnlineSearchTab 与
  * 浏览器 QuickOpenPaperDialog 各有一份逐字重复的私有拷贝,这里合并为单一真源。
  */
 export function useArrivalOrderedPapers(

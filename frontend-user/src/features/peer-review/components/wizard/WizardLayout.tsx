@@ -2,7 +2,7 @@ import { type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { StepIndicator } from './StepIndicator';
-import type { WizardStep } from '../../types';
+import type { WizardStep } from '@/shared/lib/peer-review/types';
 
 /**
  * Wizard 三栏布局 —— 期刊/毕业 4 步共用。
@@ -61,7 +61,10 @@ export function WizardLayout({
             ┌ 左侧 200px:返回上一步 outline 按钮(只在 step>1 显示, 否则 invisible 占位保中心对齐)
             ├ 中间 flex-1:StepIndicator (撑开 + 中心居中)
             └ 右侧 200px:红色 CTA 按钮 (下一步 · X) */}
-      <header className="flex h-14 shrink-0 items-center gap-6 border-b border-border bg-surface-1 px-8">
+      {/* py-3(12px):步骤指示器与上下边的间距。原为固定 h-14(56px),而指示器内容约 49px
+          (圆点 size-7=28 + gap-1.5=6 + 标签 12px×1.25≈15),上下只剩 ~3.5px,挤得贴边。
+          改成由内容撑高 + 上下各 12px,导航条随之从 56px 长到约 73px。 */}
+      <header className="flex shrink-0 items-center gap-6 border-b border-border bg-surface-1 px-8 py-3">
         <div className="flex w-44 shrink-0 items-center justify-start">
           <button
             type="button"

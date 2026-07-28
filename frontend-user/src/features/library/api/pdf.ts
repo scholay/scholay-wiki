@@ -5,7 +5,7 @@ import { invalidateLibrary } from '@/shared/lib/library-invalidation';
 import type { UserLibraryPaper } from '@/shared/api/types';
 
 /**
- * 文献集 · 用户上传 PDF
+ * 文件夹 · 用户上传 PDF
  *
  * 上游接口:
  *   POST   /user/library/papers/:id/pdf   multipart/form-data,field=file
@@ -116,7 +116,7 @@ export function paperPdfUrl(paperId: number): string {
 
 // `openMyPdfInNewTab` 已下线 —— 之前用 blob+window.open 在原生新标签查看 PDF,
 // 现在统一走 useOpenPdfInBrowser 在浏览器视图内单开 /browser/pdf/:id pdf tab。
-// 入口:文献集行的"查看 PDF"按钮 + 论文详情页 ActionRow 的"查看 PDF"。
+// 入口:文件夹内论文行的"查看 PDF"按钮 + 论文详情页 ActionRow 的"查看 PDF"。
 
 export function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;

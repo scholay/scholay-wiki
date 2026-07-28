@@ -11,6 +11,7 @@ import {
   YAxis,
 } from 'recharts';
 import { cn } from '@/shared/lib/utils';
+import { chartTheme } from '@/shared/lib/theme-bridge';
 import { isTodayBucket, withWeekday } from '@/shared/lib/daily-trend';
 import { compactTokens, type TokenDayPoint, type TokenDayDimPoint } from '../../api/token-usage';
 import { COMPOSITION_SEGMENTS, OTHER_FILL, categoryFill, fillColor, type SegmentColor } from './palette';
@@ -79,6 +80,9 @@ function ChartTooltip(props: {
       {[...items].reverse().map((p, i) => (
         <div key={i} className="flex items-center justify-between gap-4">
           <span className="flex items-center gap-1.5 text-subtle">
+            {/* 8px 图例色块用 2px 圆角:最低档 rounded-4 放到这个尺度上会把方块变成圆点,
+                是真实的档位缺口而非违规 —— tests/design-system-guard.test.ts「禁止 arbitrary 圆角」
+                已为 rounded-[1px]/[2px] 写明这条豁免。 */}
             <span className="size-2 rounded-[2px]" style={{ backgroundColor: p.fill }} />
             {p.name}
           </span>
@@ -134,7 +138,7 @@ export function TokenDailyChart({
               className={cn(
                 'h-7 rounded-8 px-2.5 text-12 font-medium transition-colors',
                 m.key === mode
-                  ? 'bg-foreground text-background'
+                  ? 'bg-foreground text-on-dark'
                   : 'text-muted-foreground hover:bg-surface-1 hover:text-foreground'
               )}
             >
@@ -146,17 +150,17 @@ export function TokenDailyChart({
       <div className="h-56">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={rows} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} vertical={false} />
             <XAxis
               dataKey="date"
-              tick={{ fontSize: 11, fill: 'var(--color-faint)' }}
-              axisLine={{ stroke: 'var(--color-border)' }}
+              tick={{ fontSize: chartTheme.fontSize, fill: chartTheme.axis }}
+              axisLine={{ stroke: chartTheme.grid }}
               tickLine={false}
               tickFormatter={(d: string) => d.slice(5)}
               minTickGap={24}
             />
             <YAxis
-              tick={{ fontSize: 11, fill: 'var(--color-faint)' }}
+              tick={{ fontSize: chartTheme.fontSize, fill: chartTheme.axis }}
               axisLine={false}
               tickLine={false}
               allowDecimals={false}
@@ -164,7 +168,7 @@ export function TokenDailyChart({
               tickFormatter={(v: number) => compactTokens(v)}
             />
             <Tooltip content={<ChartTooltip />} cursor={{ fill: 'var(--color-surface-2)', fillOpacity: 0.6 }} />
-            <Legend wrapperStyle={{ fontSize: 11 }} iconType="square" iconSize={8} />
+            <Legend wrapperStyle={{ fontSize: chartTheme.fontSize }} iconType="square" iconSize={8} />
             {series.map((s) => (
               <Bar key={s.dataKey} dataKey={s.dataKey} name={s.name} stackId="day" fill={fillColor(s.fill)}>
                 {/* 今日柱半透明 = 进行中数据(柱状画不了虚线,用透明度区分) */}

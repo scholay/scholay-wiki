@@ -30,7 +30,7 @@ export function AttachmentLightbox({ src, alt, onClose }: AttachmentLightboxProp
             src={src}
             alt={alt || '图片预览'}
             onClick={onClose}
-            className="max-h-[85vh] max-w-[92vw] w-auto cursor-zoom-out rounded-12 object-contain"
+            className="max-h-[85dvh] max-w-[92vw] w-auto cursor-zoom-out rounded-12 object-contain"
           />
         )}
       </DialogContent>

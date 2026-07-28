@@ -139,7 +139,7 @@ function ProjectRow({
   return (
     <div
       className={cn(
-        'group flex cursor-pointer items-center gap-2 px-4 py-1.5 transition-colors',
+        'group flex cursor-pointer items-center gap-2 px-4 py-2 transition-colors',
         active ? 'bg-surface-2' : 'hover:bg-surface-1'
       )}
       onClick={onOpen}
@@ -151,7 +151,9 @@ function ProjectRow({
         >
           {project.title || '未命名项目'}
         </div>
-        <div className="text-12 text-faint">更新于 {project.updated_at?.slice(0, 10)}</div>
+        {/* mt-1(4px):两行原本零间距、字号又相同,标题和日期粘成一坨。
+            字号不动(text-12 是设计系统最小档),靠间距把两行分开即可。 */}
+        <div className="mt-1 text-12 text-faint">更新于 {project.updated_at?.slice(0, 10)}</div>
       </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

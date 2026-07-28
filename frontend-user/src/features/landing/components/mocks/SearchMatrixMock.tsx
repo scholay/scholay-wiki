@@ -1,5 +1,6 @@
 import { Search, Share2 } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
+import { MacTrafficLights } from './MacTrafficLights';
 
 /**
  * Search Landing Hero 右侧 mock —— 仿 .pen `q0a0X HeroMock`:
@@ -31,9 +32,7 @@ export function SearchMatrixMock() {
     )}>
       {/* mock browser header */}
       <div className="flex items-center gap-2">
-        <span className="size-2.5 rounded-pill bg-[#FF5F57]" />
-        <span className="size-2.5 rounded-pill bg-[#FEBC2E]" />
-        <span className="size-2.5 rounded-pill bg-[#28C840]" />
+        <MacTrafficLights />
         <span className="flex-1" />
         <span className="text-12 text-faint">scholay.ai/search</span>
       </div>
@@ -57,7 +56,7 @@ export function SearchMatrixMock() {
             className={cn(
               'inline-flex items-center px-2.5 py-1 rounded-pill text-12',
               c.active
-                ? 'bg-foreground text-background font-medium'
+                ? 'bg-foreground text-on-dark font-medium'
                 : 'bg-surface-card border border-border-soft text-subtle'
             )}
           >

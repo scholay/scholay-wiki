@@ -109,7 +109,7 @@ export function PricingPage() {
                           cta.disabled
                             ? 'cursor-not-allowed border border-border-button text-faint'
                             : popular
-                              ? 'bg-brand-red text-background hover:bg-brand-red/90'
+                              ? 'bg-brand-red text-on-brand hover:bg-brand-red/90'
                               : 'border border-border-button text-foreground hover:bg-surface-2',
                         )}
                       >

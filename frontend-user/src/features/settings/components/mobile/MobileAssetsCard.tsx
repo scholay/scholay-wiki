@@ -17,7 +17,7 @@ const TIER_LABEL: Record<Tier, string> = { free: 'Free', pro: 'Pro', max: 'Max' 
 const TIER_BADGE_CLS: Record<Tier, string> = {
   free: 'bg-surface-2 text-muted-foreground',
   pro: 'bg-brand-green text-on-brand',
-  max: 'bg-brand-amber text-on-brand',
+  max: 'bg-brand-amber text-foreground',
 };
 
 /**
@@ -159,7 +159,7 @@ export function MobileAssetsCard() {
           value={redeemCode}
           onChange={(e) => setRedeemCode(e.target.value)}
           placeholder="输入兑换码"
-          className="min-w-0 flex-1 bg-transparent text-12 text-foreground outline-none placeholder:text-faint"
+          className="min-w-0 flex-1 bg-transparent text-12 text-foreground placeholder:text-faint"
         />
         <button
           type="submit"

@@ -116,7 +116,7 @@ export function MetadataPanel({
                 <CheckCircle2 className="size-4 text-brand-green shrink-0 mt-0.5" strokeWidth={2.25} />
                 <div className="min-w-0">
                   <div className="text-14 font-medium text-brand-green">
-                    已加入文献集 · 继续完善信息
+                    已加入文件夹 · 继续完善信息
                   </div>
                   <div className="mt-0.5 text-12 text-muted-foreground">
                     信息已自动填好,你可以检查和修改;没问题直接关闭就行

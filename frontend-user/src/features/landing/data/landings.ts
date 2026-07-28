@@ -226,7 +226,7 @@ const search: LandingFeature = {
       { text: '读懂一整个研究领域。', italic: true },
     ],
     description:
-      'Scholay 文献搜索基于自然语言理解,跨数千万篇学术论文同时检索、引文矩阵分析与语义图谱探索,让你像与同行对话一样发现关联文献,支持中英文混合检索,并与「文献集」无缝集成。',
+      'Scholay 文献搜索基于自然语言理解,跨数千万篇学术论文同时检索、引文矩阵分析与语义图谱探索,让你像与同行对话一样发现关联文献,支持中英文混合检索,并与「文件夹」无缝集成。',
     primaryCTA: { label: '开始免费检索', href: '/search' },
     secondaryCTA: { label: '观看 2 分钟演示', href: '#demo' },
     checkMeta: ['无需信用卡', '支持中英文', '学生免费'],
@@ -292,8 +292,8 @@ const search: LandingFeature = {
     },
     {
       tag: 'Step 03 · 一键入库',
-      title: '收藏到「文献集」,无缝接续。',
-      desc: '看中的论文一键加入个人文献集,自动按主题打 AI 标签;后续 Claw 问答和 Prism 写作都能调用同一份数据。',
+      title: '收藏到「文件夹」,无缝接续。',
+      desc: '看中的论文一键加入个人文件夹,自动按主题打 AI 标签;后续 Claw 问答和 Prism 写作都能调用同一份数据。',
     },
   ],
 
@@ -335,9 +335,9 @@ const search: LandingFeature = {
     {
       icon: 'users',
       title: '实验室 PI',
-      desc: '为学生指明阅读路径,把团队的文献集结构化为可继承的研究资产,节省培训新成员的时间。',
+      desc: '为学生指明阅读路径,把团队的文件夹结构化为可继承的研究资产,节省培训新成员的时间。',
       bullets: [
-        '团队共享文献集,统一研究主线',
+        '团队共享文件夹,统一研究主线',
         '为新生生成「先读 30 篇」的阅读路径',
         '基金申请与开题答辩材料自动汇总',
       ],
@@ -388,7 +388,7 @@ const search: LandingFeature = {
         label: '归档与复用',
         cells: [
           { kind: 'text', text: '导出 BibTeX 与 PDF;后续整理在外部工具', tone: 'weak' },
-          { kind: 'text', text: '自动归入「文献集」,与研究助手联动', tone: 'good' },
+          { kind: 'text', text: '自动归入「文件夹」,与研究助手联动', tone: 'good' },
         ],
       },
     ],
@@ -410,7 +410,7 @@ const search: LandingFeature = {
     },
     {
       q: '搜索结果可以导出吗?',
-      a: '可以。所有命中结果可一键导出 BibTeX / RIS / EndNote XML / GB-7714 / APA 文本,或直接 push 到个人文献集中持续追踪。',
+      a: '可以。所有命中结果可一键导出 BibTeX / RIS / EndNote XML / GB-7714 / APA 文本,或直接 push 到个人文件夹中持续追踪。',
     },
     {
       q: 'Free 有多少搜索次数限制?',
@@ -429,33 +429,33 @@ const search: LandingFeature = {
 };
 
 // ============================================================================
-// 2. 文献集 —— .pen vNqFk
+// 2. 文件夹 —— .pen vNqFk
 // ============================================================================
 const library: LandingFeature = {
   key: 'library',
   slug: 'library',
-  name: '文献集',
-  pageTitle: '文献集 · Scholay学术 — 千篇文献,一处归档',
+  name: '文件夹',
+  pageTitle: '文件夹 · Scholay学术 — 千篇文献,一处归档',
   metaDesc:
     '用文件夹树结构与 AI 自动打标签,管理 1000+ 篇论文;浏览器内高亮批注 PDF,多端实时同步,一键导出 BibTeX/RIS 引用,并与团队成员实时协作。',
   metaKeywords:
-    '文献集,文献管理,论文收藏,PDF 批注,BibTeX 导出,RIS 导出,文献协作,文献云同步,Zotero 替代,Scholay',
+    '文件夹,文献管理,论文收藏,PDF 批注,BibTeX 导出,RIS 导出,文献协作,文献云同步,Zotero 替代,Scholay',
 
   hero: {
-    eyebrow: { text: '文献集 · LITERATURE LIBRARY' },
+    eyebrow: { text: '文件夹 · FOLDERS' },
     titleLines: [
-      { text: '为科研而生的 文献集', italic: true },
+      { text: '为科研而生的 文件夹', italic: true },
       { text: '千篇文献,一处归档' },
     ],
     description:
       '用文件夹树结构与 AI 自动打标签,管理 1000+ 篇论文;浏览器内高亮批注 PDF,多端实时同步,一键导出 BibTeX / RIS 引用,并与团队成员实时协作。',
-    primaryCTA: { label: '免费试用 文献集', href: '/library' },
+    primaryCTA: { label: '免费试用 文件夹', href: '/library' },
     secondaryCTA: { label: '观看 2 分钟演示', href: '#demo' },
     checkMeta: ['无需信用卡', '教育邮箱享 50% 折扣', '支持中英文界面'],
   },
 
   trust: {
-    label: '科研团队怎么用 文献集',
+    label: '科研团队怎么用 文件夹',
     logos: [
       'Tsinghua',
       'Peking Univ.',
@@ -469,7 +469,7 @@ const library: LandingFeature = {
   },
 
   featuresHeader: {
-    eyebrow: '为什么是 Scholay 文献集',
+    eyebrow: '为什么是 Scholay 文件夹',
     title: '不是网盘,是为论文设计的工作台。',
     sub: '存储只是基础。真正的价值在于 —— 让 1000 篇论文按你的研究路径排好队、与 AI 助手共享同一片上下文。',
   },
@@ -519,7 +519,7 @@ const library: LandingFeature = {
   ],
 
   stats: [
-    { value: '1,000+', label: '单个文献集容量', sub: 'Free 限此,Pro / Max 无上限' },
+    { value: '1,000+', label: '单账号论文容量', sub: 'Free 限此,Pro / Max 无上限' },
     { value: '91%', label: 'AI 自动标签准确率', sub: '基于 5 万篇标注论文测试', tone: 'green' },
     { value: '4 种', label: '批注颜色 + 便签', sub: '跨端实时同步' },
     { value: '12+', label: '导出引用格式', sub: 'BibTeX / RIS / GB-7714 / APA …' },
@@ -528,7 +528,7 @@ const library: LandingFeature = {
   useCasesHeader: {
     eyebrow: '适用场景',
     title: '为每一种科研角色而设计。',
-    sub: '无论你在写学位论文、带实验室,还是做系统性综述,文献集都能贴合你的研究节奏。',
+    sub: '无论你在写学位论文、带实验室,还是做系统性综述,文件夹都能贴合你的研究节奏。',
   },
   useCases: [
     {
@@ -569,11 +569,11 @@ const library: LandingFeature = {
   comparison: {
     eyebrow: '对比',
     title: '与 Zotero · Mendeley · EndNote 的关键差异',
-    sub: '传统工具善于管理,文献集还懂阅读、批注、协作与 AI 深度推理。',
+    sub: '传统工具善于管理,文件夹还懂阅读、批注、协作与 AI 深度推理。',
     theme: 'dark',
     columns: [
       { label: '能力' },
-      { label: 'Scholay 文献集', highlight: true },
+      { label: 'Scholay 文件夹', highlight: true },
       { label: 'Zotero' },
       { label: 'Mendeley' },
       { label: 'EndNote' },
@@ -612,7 +612,7 @@ const library: LandingFeature = {
 
   faqHeader: {
     eyebrow: '常见问题',
-    title: '关于文献集,你可能想知道。',
+    title: '关于文件夹,你可能想知道。',
     sub: '更多问题?到「联系我们」给我们写信,我们 48 小时内回复。',
   },
   faqs: [
@@ -637,7 +637,7 @@ const library: LandingFeature = {
   finalCTA: {
     eyebrow: 'START YOUR LIBRARY',
     titleLines: [{ text: '让下一篇论文,先有个家。', italic: true }],
-    sub: '免费创建文献集,享受 1,000 篇免费容量;教育邮箱享 50% 折扣,机构可申请团队席位试点。',
+    sub: '免费创建文件夹,享受 1,000 篇免费容量;教育邮箱享 50% 折扣,机构可申请团队席位试点。',
     primaryCTA: { label: '立即免费创建', href: '/library' },
     secondaryCTA: { label: '预约 30 分钟演示', href: '/contact' },
     metaChips: ['1000 篇免费', '教育 5 折', '中英双语'],
@@ -708,8 +708,8 @@ const prism: LandingFeature = {
     },
     {
       eyebrow: '03 / 一键引用',
-      title: '从文献集直接 \\cite{},无需复制 key。',
-      desc: '光标处按 ⌘ K 调出文献集搜索,选中即插入 \\cite{};参考文献章节自动生成,支持 IEEE / APA / GB-7714 任意切换。',
+      title: '从文件夹直接 \\cite{},无需复制 key。',
+      desc: '光标处按 ⌘ K 调出文件夹搜索,选中即插入 \\cite{};参考文献章节自动生成,支持 IEEE / APA / GB-7714 任意切换。',
       kpi: { text: '12 种引用样式', tone: 'neutral' },
     },
   ],
@@ -727,8 +727,8 @@ const prism: LandingFeature = {
     },
     {
       tag: 'Step 02 · 边写边引',
-      title: 'AI 帮你写,文献集帮你引。',
-      desc: '在段落里按 ⌘ I 让 AI 续写、扩写或润色;按 ⌘ K 从文献集插入引用 —— 写作与文献调研无缝切换。',
+      title: 'AI 帮你写,文件夹帮你引。',
+      desc: '在段落里按 ⌘ I 让 AI 续写、扩写或润色;按 ⌘ K 从文件夹插入引用 —— 写作与文献调研无缝切换。',
     },
     {
       tag: 'Step 03 · 协作 + 投稿',
@@ -760,7 +760,7 @@ const prism: LandingFeature = {
     {
       tag: '博士后',
       title: 'Postdoc',
-      desc: '在多个 ongoing project 之间并行推进。Prism 用统一的文献集、模板栈与 AI 助手,让你在一个工作区完成所有论文与基金申请。',
+      desc: '在多个 ongoing project 之间并行推进。Prism 用统一的文件夹、模板栈与 AI 助手,让你在一个工作区完成所有论文与基金申请。',
       bullets: ['项目工作区 + 共享文献', '基金书 / 简历 / 学术报告模板', 'NSFC / NSF / Horizon 报告体例'],
       theme: 'dark',
     },
@@ -802,7 +802,7 @@ const prism: LandingFeature = {
         ],
       },
       {
-        label: '\\cite 文献集联动',
+        label: '\\cite 文件夹联动',
         cells: [
           { kind: 'mixed', icon: 'check', text: '内置,跨论文复用', tone: 'good' },
           { kind: 'mixed', icon: 'tilde', text: '需 BibTeX' },
@@ -843,7 +843,7 @@ const prism: LandingFeature = {
   faqs: [
     {
       q: 'Prism 与 Overleaf 的核心区别是?',
-      a: 'Overleaf 是纯 LaTeX 协作编辑器。Prism 在此之上原生集成 AI 学术写作、文献集一键引用、智能投稿打包,把「写 → 改 → 投」三步合并到一个 tab。',
+      a: 'Overleaf 是纯 LaTeX 协作编辑器。Prism 在此之上原生集成 AI 学术写作、文件夹一键引用、智能投稿打包,把「写 → 改 → 投」三步合并到一个 tab。',
     },
     {
       q: '可以导入 Overleaf 现有项目吗?',
@@ -877,7 +877,7 @@ const claw: LandingFeature = {
   slug: 'claw',
   // 同 prism:与产品菜单的 feature 名 "智能助手" 对齐
   name: '智能助手',
-  pageTitle: 'Claw · Scholay学术 — 你的学术对话伙伴,基于你的文献集回答',
+  pageTitle: 'Claw · Scholay学术 — 你的学术对话伙伴,基于你的文件夹回答',
   metaDesc:
     'Claw 不是另一个通用 ChatGPT。它根植于你上传的论文、笔记与数据,提供可溯源的引用、可复用的研究路径、以及中英双语的多轮学术对话。',
   metaKeywords:
@@ -887,7 +887,7 @@ const claw: LandingFeature = {
     eyebrow: { text: 'CLAW · AI 学术对话助手' },
     titleLines: [
       { text: '你的学术对话伙伴,', italic: true },
-      { text: '基于你的文献集回答。', italic: true },
+      { text: '基于你的文件夹回答。', italic: true },
     ],
     description:
       'Claw 不是另一个通用 ChatGPT。它根植于你上传的论文、笔记与数据,提供 可溯源 的引用、可复用的研究路径、以及 中英双语 的多轮学术对话 —— 让每一次提问都成为一次严谨的研究行动。',
@@ -917,8 +917,8 @@ const claw: LandingFeature = {
   },
   features: [
     {
-      eyebrow: '01 / 文献集驱动',
-      title: '回答全部锚定在你的文献集里。',
+      eyebrow: '01 / 文件夹驱动',
+      title: '回答全部锚定在你的文件夹里。',
       desc: 'Claw 不会胡编。它只在你上传的论文、笔记和数据范围内推理,确保每一条结论都可追溯、可复核、可写进开题报告。',
       kpi: { text: '减少 92% 幻觉', tone: 'green' },
     },
@@ -940,7 +940,7 @@ const claw: LandingFeature = {
   workflowHeader: {
     eyebrow: '工作流',
     title: '从一篇 PDF 到一份开题报告,中间只隔三段对话。',
-    sub: 'Claw 的工作机制围绕你的文献集 (Collection) 展开:上传文献、建立索引、自然语言对话、得到带引用的答案。整个过程严格闭环,适配中文学术写作习惯。',
+    sub: 'Claw 的工作机制围绕你的文件夹 (Folders) 展开:上传文献、建立索引、自然语言对话、得到带引用的答案。整个过程严格闭环,适配中文学术写作习惯。',
   },
   steps: [
     {
@@ -951,7 +951,7 @@ const claw: LandingFeature = {
     {
       tag: '02 · 方法学头脑风暴 (Methodology)',
       title: '从已被验证的方法路径出发。',
-      desc: '针对你的研究问题,Claw 从文献集中提取已被验证的方法路径,并提出 3-5 个未被充分探索的方向,辅以可行性分析与可能的实验设计。',
+      desc: '针对你的研究问题,Claw 从文件夹中提取已被验证的方法路径,并提出 3-5 个未被充分探索的方向,辅以可行性分析与可能的实验设计。',
     },
     {
       tag: '03 · 逐篇 Q&A 与精读 (Paper Q&A)',
@@ -978,14 +978,14 @@ const claw: LandingFeature = {
       title: '文献综述',
       subtitle: 'Literature Review',
       desc: '一句话让 Claw 横向对比 30 篇论文,自动按方法、数据集与结论分类,生成可直接粘进开题报告的综述段落,并附带完整引用列表。',
-      bullets: ['可被批量导出为 BibTeX', '按方法 / 数据集自动分组', '一键写入文献集'],
+      bullets: ['可被批量导出为 BibTeX', '按方法 / 数据集自动分组', '一键写入文件夹'],
       theme: 'light',
     },
     {
       tag: '02',
       title: '方法学头脑风暴',
       subtitle: 'Methodology',
-      desc: '针对你的研究问题,Claw 会从文献集中提取已被验证的方法路径,并提出 3-5 个未被充分探索的方向,辅以可行性分析与可能的实验设计。',
+      desc: '针对你的研究问题,Claw 会从文件夹中提取已被验证的方法路径,并提出 3-5 个未被充分探索的方向,辅以可行性分析与可能的实验设计。',
       bullets: ['3-5 个未充分探索方向', '附带可行性分析', '实验设计草稿'],
       theme: 'dark',
     },
@@ -1013,7 +1013,7 @@ const claw: LandingFeature = {
       {
         label: '知识来源',
         cells: [
-          { kind: 'text', text: '你的文献集 (Collection)', tone: 'good' },
+          { kind: 'text', text: '你的文件夹 (Folders)', tone: 'good' },
           { kind: 'text', text: '互联网公开语料', tone: 'weak' },
         ],
       },
@@ -1034,7 +1034,7 @@ const claw: LandingFeature = {
       {
         label: '多轮学术上下文',
         cells: [
-          { kind: 'text', text: '保持文献集长期记忆', tone: 'good' },
+          { kind: 'text', text: '保持文件夹长期记忆', tone: 'good' },
           { kind: 'text', text: '会话间记忆受限', tone: 'weak' },
         ],
       },
@@ -1056,7 +1056,7 @@ const claw: LandingFeature = {
   faqs: [
     {
       q: 'Claw 与 ChatGPT 的核心区别是什么?',
-      a: 'Claw 的回答完全锚定在你上传的文献集中。每条结论都附带 [n] 引用与原文页码,可逐字核对,不存在 ChatGPT 那种 "听上去对但来源不可考" 的输出。',
+      a: 'Claw 的回答完全锚定在你上传的文件夹中。每条结论都附带 [n] 引用与原文页码,可逐字核对,不存在 ChatGPT 那种 "听上去对但来源不可考" 的输出。',
     },
     {
       q: '我可以上传中文论文吗?',
@@ -1075,7 +1075,7 @@ const claw: LandingFeature = {
   finalCTA: {
     eyebrow: 'CLAW · 你的学术伙伴',
     titleLines: [{ text: '让下一篇论文,从一次对话开始。', italic: true }],
-    sub: '加入 32,000+ 研究者,把你的文献集变成会思考、可对话、有引用的学术伙伴。',
+    sub: '加入 32,000+ 研究者,把你的文件夹变成会思考、可对话、有引用的学术伙伴。',
     primaryCTA: { label: '免费开始与 Claw 对话', href: '/claw' },
     secondaryCTA: { label: '预约 30 分钟产品演示', href: '/contact' },
     metaChips: ['前 50 篇文献免费索引', '中英双语', '端到端加密'],

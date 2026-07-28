@@ -27,7 +27,7 @@ import type { UserLibraryFolderItem } from '@/shared/api/types';
 import { useLibraryFolders, useCreateFolder } from '../../api/folders';
 
 /**
- * 移动端「我的收藏」(/m/library) —— 对应设计稿 `RXT6C`(期刊集暂未上线,已下线该分段,仅文献集)。
+ * 移动端「我的收藏」(/m/library) —— 对应设计稿 `RXT6C`(期刊集暂未上线,已下线该分段,仅文件夹)。
  *
  * 大标题 + 副标题 + 红色「新建」 / 「共 N 个」+ 排序下拉 /
  * 堆叠书脊封面卡片(名称 + 篇数·更新时间 + 圆形分享按钮)。
@@ -112,7 +112,8 @@ export function MobileLibraryPage() {
 
         {/* 新建输入(点「新建」展开) */}
         {creating && (
-              <div className="mt-3 flex items-center gap-2 rounded-12 border border-border bg-surface-card p-2">
+              <div className="mt-3 flex items-center gap-2 rounded-12 border border-border bg-surface-card p-2 focus-within:border-border-control transition-colors">
+                {/* outline-none 合法:焦点可供性由外层容器的 focus-within:border-border-control 提供 */}
                 <input
                   autoFocus
                   value={newName}
@@ -141,10 +142,10 @@ export function MobileLibraryPage() {
             {/* 计数 + 排序 */}
             <div className="mt-4 flex items-center justify-between">
               <span className="text-12 text-muted-foreground">
-                共 {folders.length} 个文献集
+                共 {folders.length} 个文件夹
               </span>
               <DropdownMenu>
-                <DropdownMenuTrigger className="flex items-center gap-1 text-12 text-muted-foreground outline-none active:opacity-60">
+                <DropdownMenuTrigger className="flex items-center gap-1 text-12 text-muted-foreground active:opacity-60">
                   {SORT_OPTIONS.find((o) => o.key === sort)?.label}
                   <ChevronDown className="size-3.5 text-faint" />
                 </DropdownMenuTrigger>
@@ -169,7 +170,7 @@ export function MobileLibraryPage() {
                 <Loader2 className="size-5 animate-spin text-faint" />
               </div>
             ) : sorted.length === 0 ? (
-              <EmptyHint text="还没有文献集,点右上角「新建」开始收藏" />
+              <EmptyHint text="还没有文件夹,点右上角「新建」开始收藏" />
             ) : (
               <ul ref={listRef} className="mt-3 space-y-2.5">
                 {sorted.map((f, i) => (

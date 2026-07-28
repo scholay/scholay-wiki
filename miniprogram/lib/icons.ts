@@ -1,11 +1,15 @@
 // 线性图标(对标 Web 端 lucide-react):24x24 stroke path → data URI 供 <image src> 用。
 // <image> 里 stroke 无法用 currentColor 生效,故按用途固定颜色各生成一份(与 custom-tab-bar 同法)。
+//
+// ⚠️ data URI 里的 SVG 拿不到 wxss 变量,只能写死 —— 这是 app.wxss token 的手工镜像
+//    (app.wxss 自己又是 frontend-user/src/styles/globals.css 的镜像)。
+//    改 globals → 改 app.wxss → 也要改这里,三处必须一起动。
 const C = {
-  text: '#111111', // foreground
-  weak: '#666666', // muted-foreground
-  faint: '#999999', // faint
-  red: '#cc2222', // brand-red
-  green: '#2a7a2a', // brand-green
+  text: '#1F1F23', // foreground
+  weak: '#686873', // muted-foreground
+  faint: '#6E6E78', // faint
+  red: '#882828', // brand-red
+  green: '#2F4D29', // brand-green
   white: '#ffffff', // 深底按钮内图标(发送键等)
 }
 

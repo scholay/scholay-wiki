@@ -43,7 +43,7 @@ export function PrismCitationDialog({
             className="pl-8"
           />
         </div>
-        <div className="max-h-[50vh] min-h-32 overflow-y-auto">
+        <div className="max-h-[50dvh] min-h-32 overflow-y-auto">
           {search.isLoading ? (
             <div className="flex items-center justify-center py-8 text-12 text-faint">
               <Loader2 className="mr-1.5 size-4 animate-spin" /> 检索中…

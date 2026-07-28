@@ -11,7 +11,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import type { UserLibraryPaper } from '@/shared/api/types';
 
 /**
- * 我的文献集论文 —— 按文件夹分类查询。
+ * 我的论文收藏 —— 按文件夹分类查询。
  *
  * filter 含义:
  *   - number(>0)     某个文件夹内(正常态,论文必属某文件夹)

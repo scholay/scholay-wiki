@@ -36,7 +36,7 @@ import {
 } from '../api/folders';
 
 /**
- * 文献集侧栏 —— **单层文件夹列表**(对照 .pen `Uls2s` 中"我的文件夹"段):
+ * 文件夹侧栏 —— **单层列表**(对照 .pen `Uls2s` 中"我的文件夹"段):
  *
  *   我的文件夹            + 新建
  *   📁 默认文件夹          12         (active:淡红粉底 + 名字加粗)
@@ -120,10 +120,10 @@ export function LibrarySidebar() {
     return (
       <Sidebar>
         <SidebarContent>
-          <SidebarSection id="library" label="我的文献集">
+          <SidebarSection id="library" label="我的文件夹">
             <div className="mx-4 my-2 px-3 py-3 rounded-12 bg-surface-1 border border-border-soft">
               <div className="text-12 text-subtle leading-paragraph">
-                登录后查看你的文献集,所有收藏云端同步
+                登录后查看你的文件夹,所有收藏云端同步
               </div>
               <Button
                 size="sm"

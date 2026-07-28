@@ -200,7 +200,10 @@ export function MobileSearchFilterSheet({
               )}
             </div>
 
-            <div className="border-t border-border-soft p-3">
+            {/* 「完成」贴在屏幕最底 —— 用 --safe-bottom(= max(env(safe-area-inset-bottom), 1rem))
+                给全面屏 home indicator 让位:无刘海/桌面 = 16px(与原 p-3 的 12px 同量级),
+                iPhone X+ = 34px,按钮不再落在指示条下面。(render-audit-2026-07-28 P1-6) */}
+            <div className="border-t border-border-soft px-3 pt-3 pb-[var(--safe-bottom)]">
               <button
                 type="button"
                 onClick={onClose}

@@ -26,6 +26,35 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// ---------------------------------------------------------------------------
+// noscript SSR 正文样式 —— 爬虫(以及禁用 JS 的访客)看到的那一份 HTML。
+//
+// 配色是 frontend-user/src/styles/globals.css 的**人工镜像**(真源在 Figma
+// `JIv8fxQthMS37JLGHNOEbB` / `Scholay设计系统`)。这里是后端拼字符串,拿不到
+// CSS 变量,只能抄 token 解析后的字面值 —— **改前端品牌色必须同步改这里**。
+//
+// ⚠️ 2026-07-28 修的一个真回归:这一整套原本是**暗色态**配色
+// (正文 #e0e0e0、标题 #ffffff、链接 Material 蓝 #64b5f6)。站点的暗色态已于
+// 2026-07 下线,body 底色改成米白 #F6F4EE 后,这些浅色文字的对比度掉到
+// **正文 1.20:1、链接 2.01:1** —— 等于隐形。前端的设计护栏只扫 frontend-user/src,
+// 完全看不到 backend/,所以它一直没被发现。
+//
+// 对比度按米白底 #F6F4EE 实算:正文 14.93:1 · 段落 7.25:1 · 小字 4.58:1 · 链接 8.02:1。
+// 另:链接从蓝改朱砂不只是对比度 —— 设计系统里蓝色已整体退休。
+//
+// 收口成包级常量而不是每个函数各写一份:改造前同一串样式在本文件里重复了 8 次,
+// 改配色要改 8 处,漏一处就出现「同一批 noscript 里两种正文色」。
+// ---------------------------------------------------------------------------
+const (
+	ssrBaseStyle    = `style="max-width: 1000px; margin: 20px auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1F1F23;"`
+	ssrHeadingStyle = `style="color: #1F1F23; border-bottom: 1px solid #DCDAD6; padding-bottom: 10px; font-size: 1.4rem;"`
+	ssrHeadingTight = `style="color: #1F1F23; border-bottom: 1px solid #DCDAD6; padding-bottom: 10px;"`
+	ssrTextStyle    = `style="color: #505059; line-height: 1.8; margin-bottom: 12px;"`
+	ssrMetaStyle    = `style="color: #6E6E78; font-size: 0.9rem; margin-bottom: 8px;"`
+	ssrSubHeadStyle = `style="color: #1F1F23; font-size: 1.1rem; margin: 16px 0 8px;"`
+	ssrListStyle    = `style="color: #505059; line-height: 1.8; padding-left: 20px;"`
+)
+
 const (
 	// indexHTMLCacheTTL is how long to cache the original index.html
 	indexHTMLCacheTTL = 5 * time.Minute
@@ -764,10 +793,10 @@ func minInt(a, b int) int {
 
 // buildPaperNoscriptCard 渲染论文的 noscript 卡片
 func buildPaperNoscriptCard(meta *seo.PaperSSRMeta) string {
-	baseStyle := `style="max-width: 1000px; margin: 20px auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #e0e0e0;"`
-	headingStyle := `style="color: #ffffff; border-bottom: 1px solid #424242; padding-bottom: 10px; font-size: 1.4rem;"`
-	textStyle := `style="color: #bdbdbd; line-height: 1.8; margin-bottom: 12px;"`
-	metaStyle := `style="color: #9e9e9e; font-size: 0.9rem; margin-bottom: 8px;"`
+	baseStyle := ssrBaseStyle
+	headingStyle := ssrHeadingStyle
+	textStyle := ssrTextStyle
+	metaStyle := ssrMetaStyle
 
 	title := htmlEscape(meta.Title)
 	var abstract string
@@ -905,10 +934,10 @@ func buildAuthorKeywords(meta *seo.AuthorSSRMeta) string {
 
 // buildAuthorNoscriptCard 渲染作者的 noscript 卡片
 func buildAuthorNoscriptCard(meta *seo.AuthorSSRMeta) string {
-	baseStyle := `style="max-width: 1000px; margin: 20px auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #e0e0e0;"`
-	headingStyle := `style="color: #ffffff; border-bottom: 1px solid #424242; padding-bottom: 10px; font-size: 1.4rem;"`
-	metaStyle := `style="color: #9e9e9e; font-size: 0.9rem; margin-bottom: 8px;"`
-	statStyle := `style="color: #bdbdbd; line-height: 1.8; margin-bottom: 12px;"`
+	baseStyle := ssrBaseStyle
+	headingStyle := ssrHeadingStyle
+	metaStyle := ssrMetaStyle
+	statStyle := ssrTextStyle
 
 	name := htmlEscape(meta.Name)
 
@@ -955,8 +984,8 @@ func buildAuthorWorksHTML(works []seo.AuthorWork) string {
 	if len(works) == 0 {
 		return ""
 	}
-	subHeadStyle := `style="color: #ffffff; font-size: 1.1rem; margin: 16px 0 8px;"`
-	listStyle := `style="color: #bdbdbd; line-height: 1.8; padding-left: 20px;"`
+	subHeadStyle := ssrSubHeadStyle
+	listStyle := ssrListStyle
 	var b strings.Builder
 	fmt.Fprintf(&b, "<h2 %s>代表论文</h2><ul %s>", subHeadStyle, listStyle)
 	for _, w := range works {
@@ -1103,10 +1132,10 @@ func buildJournalKeywords(meta *seo.JournalSSRMeta) string {
 
 // buildJournalNoscriptCard 渲染期刊的 noscript 卡片(供爬虫)
 func buildJournalNoscriptCard(meta *seo.JournalSSRMeta) string {
-	baseStyle := `style="max-width: 1000px; margin: 20px auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #e0e0e0;"`
-	headingStyle := `style="color: #ffffff; border-bottom: 1px solid #424242; padding-bottom: 10px; font-size: 1.4rem;"`
-	metaStyle := `style="color: #9e9e9e; font-size: 0.9rem; margin-bottom: 8px;"`
-	statStyle := `style="color: #bdbdbd; line-height: 1.8; margin-bottom: 12px;"`
+	baseStyle := ssrBaseStyle
+	headingStyle := ssrHeadingStyle
+	metaStyle := ssrMetaStyle
+	statStyle := ssrTextStyle
 
 	name := htmlEscape(meta.CanonicalName)
 
@@ -1260,10 +1289,10 @@ func buildToolJSONLD(meta *seo.ToolSSRMeta, canonical string) string {
 
 // buildToolNoscriptCard 渲染工具的 noscript 卡片(供爬虫)。
 func buildToolNoscriptCard(meta *seo.ToolSSRMeta) string {
-	baseStyle := `style="max-width: 1000px; margin: 20px auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #e0e0e0;"`
-	headingStyle := `style="color: #ffffff; border-bottom: 1px solid #424242; padding-bottom: 10px; font-size: 1.4rem;"`
-	metaStyle := `style="color: #9e9e9e; font-size: 0.9rem; margin-bottom: 8px;"`
-	textStyle := `style="color: #bdbdbd; line-height: 1.8; margin-bottom: 12px;"`
+	baseStyle := ssrBaseStyle
+	headingStyle := ssrHeadingStyle
+	metaStyle := ssrMetaStyle
+	textStyle := ssrTextStyle
 
 	var metaLines []string
 	if meta.CategoryLabel != "" {
@@ -1677,7 +1706,7 @@ func buildNewsJSONLD(meta *seo.NewsSSRMeta, canonical string) string {
 // buildNewsNoscript 渲染情报详情全文进 noscript(answer-first:标题→时间→导语→正文→来源→可信度)。
 // meta.BodyHTML 已 sanitize(news.sanitizeBodyHTML)。
 func buildNewsNoscript(meta *seo.NewsSSRMeta) string {
-	baseStyle := `style="max-width:1000px;margin:20px auto;padding:20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e0e0e0;"`
+	baseStyle := ssrBaseStyle
 	var b strings.Builder
 	b.WriteString(`<section ` + baseStyle + `>`)
 	b.WriteString(`<h1>` + htmlEscape(meta.Title) + `</h1>`)
@@ -1723,7 +1752,7 @@ func buildNewsNoscript(meta *seo.NewsSSRMeta) string {
 
 // buildNewsListNoscript 渲染情报列表页的链接列表(让爬虫从 /news 发现各详情页)。
 func buildNewsListNoscript(metas []*seo.NewsSSRMeta) string {
-	baseStyle := `style="max-width:1000px;margin:20px auto;padding:20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e0e0e0;"`
+	baseStyle := ssrBaseStyle
 	var b strings.Builder
 	b.WriteString(`<section ` + baseStyle + `>`)
 	b.WriteString(`<h1>学术情报</h1>`)
@@ -1760,9 +1789,9 @@ func injectStaticPageSEOMeta(html string, path string) string {
 
 // getRouteNoscriptContent returns route-specific HTML for noscript injection
 func getRouteNoscriptContent(path string) string {
-	baseStyle := `style="max-width: 1000px; margin: 20px auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #e0e0e0;"`
-	headingStyle := `style="color: #ffffff; border-bottom: 1px solid #424242; padding-bottom: 10px;"`
-	textStyle := `style="color: #bdbdbd; line-height: 1.8; margin-bottom: 12px;"`
+	baseStyle := ssrBaseStyle
+	headingStyle := ssrHeadingTight
+	textStyle := ssrTextStyle
 
 	switch {
 	case path == "/resources":
@@ -1838,13 +1867,13 @@ func getRouteNoscriptContent(path string) string {
 		return fmt.Sprintf(`<section %s>
 <h2 %s>Scholay 核心功能</h2>
 <p %s>Scholay 提供覆盖科研全流程的 AI 学术工具：</p>
-<ul style="color: #bdbdbd; line-height: 2; padding-left: 24px;">
-<li><a href="/features/search" style="color: #64b5f6;">学术检索</a> — 直接检索 + AI 智能检索,覆盖 2 亿+ 论文</li>
-<li><a href="/features/library" style="color: #64b5f6;">个人文献集</a> — 收藏、整理、管理论文与 PDF</li>
-<li><a href="/features/claw" style="color: #64b5f6;">智能助手</a> — AI 学术对话与文献辅助</li>
-<li><a href="/features/prism" style="color: #64b5f6;">智能写作 Prism</a> — AI-native LaTeX 编辑器</li>
-<li><a href="/features/peer-review" style="color: #64b5f6;">智能审稿</a> — AI 多维度审稿意见</li>
-<li><a href="/features/submit" style="color: #64b5f6;">投稿辅助</a> — 期刊推荐与投稿信起草</li>
+<ul style="color: #505059; line-height: 2; padding-left: 24px;">
+<li><a href="/features/search" style="color: #882828;">学术检索</a> — 直接检索 + AI 智能检索,覆盖 2 亿+ 论文</li>
+<li><a href="/features/library" style="color: #882828;">个人文献集</a> — 收藏、整理、管理论文与 PDF</li>
+<li><a href="/features/claw" style="color: #882828;">智能助手</a> — AI 学术对话与文献辅助</li>
+<li><a href="/features/prism" style="color: #882828;">智能写作 Prism</a> — AI-native LaTeX 编辑器</li>
+<li><a href="/features/peer-review" style="color: #882828;">智能审稿</a> — AI 多维度审稿意见</li>
+<li><a href="/features/submit" style="color: #882828;">投稿辅助</a> — 期刊推荐与投稿信起草</li>
 </ul>
 </section>`, baseStyle, headingStyle, textStyle)
 
@@ -1907,15 +1936,15 @@ func getRouteNoscriptContent(path string) string {
 // /blog、/resources 索引页发现并跟随到各篇详情。标题/摘要随 content 实时,不再镜像旧注册表。
 func articleListNoscript(kind, pathPrefix string) string {
 	var b strings.Builder
-	b.WriteString(`<ul style="color: #bdbdbd; line-height: 2; padding-left: 24px;">`)
+	b.WriteString(`<ul style="color: #505059; line-height: 2; padding-left: 24px;">`)
 	for _, a := range content.List(kind) {
 		if a.Slug == "" {
 			continue
 		}
 		if a.Excerpt != "" {
-			fmt.Fprintf(&b, `<li><a href="%s%s" style="color: #64b5f6;">%s</a> — %s</li>`, pathPrefix, a.Slug, htmlEscape(a.Title), htmlEscape(a.Excerpt))
+			fmt.Fprintf(&b, `<li><a href="%s%s" style="color: #882828;">%s</a> — %s</li>`, pathPrefix, a.Slug, htmlEscape(a.Title), htmlEscape(a.Excerpt))
 		} else {
-			fmt.Fprintf(&b, `<li><a href="%s%s" style="color: #64b5f6;">%s</a></li>`, pathPrefix, a.Slug, htmlEscape(a.Title))
+			fmt.Fprintf(&b, `<li><a href="%s%s" style="color: #882828;">%s</a></li>`, pathPrefix, a.Slug, htmlEscape(a.Title))
 		}
 	}
 	b.WriteString(`</ul>`)
@@ -1970,7 +1999,7 @@ func renderArticleNoscript(meta map[string][2]string, slug, backHref, backLabel,
 	return fmt.Sprintf(`<article %s>
 <h1 %s>%s</h1>
 <p %s>%s</p>
-<p style="color: #9e9e9e; font-size: 0.9rem;">作者：Scholay 学术团队 | <a href="%s" style="color: #64b5f6;">%s</a></p>
+<p style="color: #6E6E78; font-size: 0.9rem;">作者：Scholay 学术团队 | <a href="%s" style="color: #882828;">%s</a></p>
 </article>`, baseStyle, headingStyle, htmlEscape(m[0]), textStyle, htmlEscape(m[1]), backHref, backLabel)
 }
 

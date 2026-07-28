@@ -11,7 +11,10 @@ import { cn } from '@/shared/lib/utils';
 import { MENUS, groupMenusByCategory, findActiveMenuIndex, type Menu } from '@/app/menus';
 
 /**
- * 全站功能菜单浮层 —— 对照 .pen `S72unz`。
+ * 全站功能菜单浮层。
+ *
+ * (原注释写「对照 .pen `S72unz`」—— .pen 真源已于 2026-07 作废,现行真源是 Figma
+ *  `JIv8fxQthMS37JLGHNOEbB`,见 docs/figma-design-spec-2026-07.md。)
  *
  * 交互:hover 顶部 grid 按钮触发,鼠标可平滑移到内容(Radix HoverCard 自动
  * 跨越 trigger ↔ content 的 gap)。**不是 modal**,不锁滚动、不抢 ESC。
@@ -154,7 +157,10 @@ function ListItem({
         <span className="text-14 font-medium text-foreground truncate inline-flex items-center gap-1.5">
           {menu.label}
           {menu.comingSoon && (
-            <span className="inline-flex items-center h-3.5 px-1 rounded-pill bg-brand-amber text-background text-[9px] font-medium leading-none">
+            // 全站「即将推出」徽章统一规格:h-4 px-1.5 rounded-pill bg-brand-amber
+            // + text-12(Figma §4.2 Badge 文字 12px / 胶囊 / padding 4-8)。
+            // 原先是 text-[9px] + h-3.5 —— 9px 低于六档下限 12 且无 Figma 依据,已归档。
+            <span className="inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-foreground text-12 font-medium leading-none">
               即将推出
             </span>
           )}
@@ -205,7 +211,8 @@ function GridView({
                   )}
                 >
                   {m.comingSoon && (
-                    <span className="absolute top-1.5 right-1.5 inline-flex items-center h-3.5 px-1 rounded-pill bg-brand-amber text-background text-[9px] font-medium leading-none">
+                    // 规格同上(list 视图)—— 全站徽章一套规格,不因视图切换而变
+                    <span className="absolute top-1.5 right-1.5 inline-flex items-center h-4 px-1.5 rounded-pill bg-brand-amber text-foreground text-12 font-medium leading-none">
                       即将推出
                     </span>
                   )}

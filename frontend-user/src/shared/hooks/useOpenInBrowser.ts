@@ -116,7 +116,7 @@ export const useOpenJournalInBrowser = createOpenInBrowserHook<Journal>({
 });
 
 /**
- * 打开文献集 row 的用户上传 PDF。/pdf/:libPaperId。
+ * 打开文件夹里某篇论文的用户上传 PDF。/pdf/:libPaperId。
  * entity 不是后端模型,是 {libPaperId, title} —— openPdfTab 也用三参签名
  * `(libPaperId, title, returnTo)`,需要在 invokeAction 里做 adapter。
  */

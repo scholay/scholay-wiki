@@ -6,14 +6,15 @@
   "scripts": {
     "predev": "node scripts/copy-pdf-cmaps.mjs",
     "dev": "vite",
-    "prebuild": "node scripts/copy-pdf-cmaps.mjs",
+    "prebuild": "node scripts/copy-pdf-cmaps.mjs && npm run test:design",
     "build": "tsc -b && vite build",
     "postbuild": "node scripts/strip-katex-legacy-fonts.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest",
-    "test:contract": "vitest run --dir tests/contract"
+    "test:contract": "vitest run --dir tests/contract",
+    "test:design": "node scripts/design-guard.mjs tests/design-system-guard.test.ts tests/design-tokens-compiled.test.ts"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",

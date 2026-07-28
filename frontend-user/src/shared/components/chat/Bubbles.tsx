@@ -8,7 +8,7 @@ import { MarkdownRenderer } from './MarkdownRenderer';
  * 视觉契约 (AI 对话气泡的常见样式):
  *
  *   UserBubble:
- *     - 右对齐, 深色背景 (bg-foreground + text-background) 表"用户输入"
+ *     - 右对齐, 深色背景 (bg-foreground + text-on-dark) 表"用户输入"
  *     - rounded-16 + 右下小角 (rounded-br-4) 像消息气泡指向用户
  *     - max-w-[80%] 防止满屏单条消息撑全宽看着压抑
  *     - whitespace-pre-wrap 保留用户输入的换行 (Shift+Enter 换的行得保住)
@@ -39,7 +39,7 @@ export const UserBubble = memo(function UserBubble({ text, attachments }: UserBu
     <div className="flex justify-end min-w-0">
       <div className="max-w-[80%] flex flex-col items-end gap-1.5 min-w-0">
         {attachments}
-        <div className="inline-flex items-center rounded-16 rounded-br-4 bg-foreground px-3.5 py-2.5 text-12 leading-paragraph text-background whitespace-pre-wrap break-words">
+        <div className="inline-flex items-center rounded-16 rounded-br-4 bg-foreground px-3.5 py-2.5 text-12 leading-paragraph text-on-dark whitespace-pre-wrap break-words">
           {text}
         </div>
       </div>

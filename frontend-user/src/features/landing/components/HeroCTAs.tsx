@@ -27,7 +27,7 @@ function CTAButton2({
       className={cn(
         'inline-flex items-center gap-2 h-12 px-6 rounded-8 text-14 font-medium transition-colors whitespace-nowrap',
         isPrimary
-          ? 'bg-foreground text-background hover:bg-foreground/85'
+          ? 'bg-foreground text-on-dark hover:bg-foreground/85'
           : 'bg-surface-card border border-foreground text-foreground hover:bg-surface-1'
       )}
     >

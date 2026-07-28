@@ -3,6 +3,17 @@ import * as DialogPrimitive from'@radix-ui/react-dialog';
 import { X } from'lucide-react';
 import { cn } from'@/shared/lib/utils';
 
+/**
+ * ⏱ Motion 说明(与 sheet.tsx 同):本文件的 `duration-200` 是 **Tailwind 默认档**,不是 token。
+ * ⚠️ 本段此前写着「`duration-fast` / `duration-base` 编译不出任何 CSS」——**该描述已失效**。
+ * globals.css 的 @theme inline 已补上 --transition-duration-{fast,base,slow,deliberate} 别名
+ * (Tailwind v4 的 duration 工具类只查 --transition-duration-* 命名空间,此前声明成 --duration-*
+ * 差一截前缀才生成不出类),现在这四个具名类**真能编译出 CSS**。
+ * 🔴 但【不要】顺手把这里的 `duration-200` 改成 `duration-fast`/`duration-base`:
+ * token 四档是 {160, 280, 420, 700}ms,与 Tailwind 默认档 {150, 200, 300, 500} **没有一个相等**,
+ * 换过去就是改动画时长 = 视觉变化,必须走产品/设计拍板,不是机械替换。
+ * 结论:CSS 侧暂时沿用 Tailwind 默认档;需要走 token 时用 `duration-base` 等具名类(已可用)。
+ */
 const Dialog = DialogPrimitive.Root;
 const DialogTrigger = DialogPrimitive.Trigger;
 const DialogPortal = DialogPrimitive.Portal;
@@ -14,7 +25,9 @@ const DialogOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
-    className={cn('fixed inset-0 z-overlay bg-foreground/40 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+    // backdrop-blur-2 = --blur-2(2px)。不用内建最小档 blur-xs(4px):那会把背景糊成一片、
+    // 失去「弹窗压在页面上」的上下文感。2px 是刻意的极轻虚化,故 token 层单独立了这一档。
+    className={cn('fixed inset-0 z-overlay bg-foreground/40 backdrop-blur-2 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
       className
     )}
     {...props}
@@ -126,6 +139,8 @@ const DialogDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}
+    // KEEP text-12 —— 弹窗副标题是标题(text-16)下面的说明文,属次文层,
+    // 与 CardDescription(Figma §4.4 卡片次文 12px)同层。Figma 未给弹窗规格。
     className={cn('text-12 text-muted-foreground', className)}
     {...props}
   />

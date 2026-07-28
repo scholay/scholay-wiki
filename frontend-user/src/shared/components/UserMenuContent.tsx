@@ -112,11 +112,11 @@ export function UserMenuContent() {
         <div className="px-3 pb-3">
           <DropdownMenuItem
             className={cn(
-              'w-full cursor-pointer justify-center gap-1.5 rounded-8 bg-brand-red px-3 py-2 text-background',
+              'w-full cursor-pointer justify-center gap-1.5 rounded-8 bg-brand-red px-3 py-2 text-on-brand',
               // DropdownMenuItem 默认 hover/highlight 是 data-[highlighted]:bg-surface-2 + focus:text-foreground,
               // 会盖掉红底→白字浮在浅灰上(washed out)。显式覆盖这两个状态保持红底白字。
-              'hover:bg-brand-red/90 focus-visible:bg-brand-red/90 focus:text-background',
-              'data-[highlighted]:bg-brand-red/90 data-[highlighted]:text-background',
+              'hover:bg-brand-red/90 focus-visible:bg-brand-red/90 focus:text-on-brand',
+              'data-[highlighted]:bg-brand-red/90 data-[highlighted]:text-on-brand',
             )}
             onSelect={() => navigate('/pricing')}
           >

@@ -26,7 +26,7 @@ const JournalTrendChart = lazy(() =>
  * 分享接收页(/s/:token)—— 公开、免登录、PC/移动端通用(独立顶层路由,不挂任何 shell)。
  * 对应设计稿 YQ5sk「接收/预览·转存」:展示分享人 + 标题 + 篇目预览,一键转存到默认文件夹
  * (成功 toast 会带出落地文件夹名;后端 SaveShare 支持指定 folder_id,此公开落地页从简走默认夹,
- * 用户可转存后在文献集里再整理)。
+ * 用户可转存后自行整理)。
  * 转存需登录:未登录点转存 → 弹全局 AuthDialog,登录后本页自动重渲为已登录态。
  */
 export function SharedReceivePage() {
@@ -40,7 +40,7 @@ export function SharedReceivePage() {
   const shareQ = usePublicShare(token, code);
   const save = useSaveShare();
 
-  // 文献集落地页:预览先行,提取码只在「打开/收藏」动作时才弹出(不再做进页面即拦截的码门)。
+  // 文件夹落地页:预览先行,提取码只在「打开/收藏」动作时才弹出(不再做进页面即拦截的码门)。
   const [expanded, setExpanded] = useState(false);
   const [codeSheetOpen, setCodeSheetOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<'open' | 'save' | null>(null);
@@ -66,7 +66,7 @@ export function SharedReceivePage() {
   const sharedJournal = journalQ.data;
 
   // PC 端打开 单篇/期刊 短链 → 直接跳 PC 详情页(被分享落地页是移动端设计)。
-  // 文献集留在落地页(转存流程,PC 无对等页);需提取码时先不跳(等校验通过)。
+  // 文件夹留在落地页(转存流程,PC 无对等页);需提取码时先不跳(等校验通过)。
   const willRedirectToPc =
     !!share &&
     !share.need_code &&
@@ -96,9 +96,12 @@ export function SharedReceivePage() {
           if (r.added > 0) {
             toast.success(`已转存 ${r.added} 篇到《${r.folder_name}》${r.skipped ? `(${r.skipped} 篇已在库中) ` : ''}`);
           } else if (r.skipped > 0) {
-            toast.message(`这 ${r.skipped} 篇都已在你的文献集中`);
+            // skipped 的判定在后端是 `user_id + (source, source_paper_id)` 去重(share_handler.go
+            // SaveShare 的幂等预筛),范围是整个收藏而非落地的那个文件夹 —— 写「已在你的文件夹中」
+            // 会让用户去目标夹里找,而它可能躺在另一个夹。与下一行的「收藏已达上限」同口径。
+            toast.message(`这 ${r.skipped} 篇都已在你的收藏中`);
           }
-          if (r.limit_reached) toast.error('文献集已达上限,部分未转存');
+          if (r.limit_reached) toast.error('收藏已达上限,部分未转存');
         },
         onError: (e) => toast.error((e as Error).message || '转存失败'),
       }
@@ -221,12 +224,20 @@ export function SharedReceivePage() {
         ) : share && share.kind === 'journal' ? (
           <>
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
-              {/* 分享人横幅 */}
-              <div className="mb-4 flex items-start gap-2.5 rounded-16 bg-[#F1EADA] px-3.5 py-3">
-                <Sparkles className="mt-0.5 size-4 shrink-0 text-brand-amber" />
+              {/* 分享人横幅 —— 琥珀软底高亮块(bg-amber-soft #E5DFCE)。
+                  ⚠️ 别改成 bg-background:那是页面米白 #F6F4EE,两者观感接近但语义不同,
+                  合并后提示卡会与页面底融成一片彻底看不见(台账 R4 逐字点名的坑)。
+                  副行原为 text-muted-foreground,在 #E5DFCE 上只有 4.13:1(旧底 #F1EADA 上 4.59:1),
+                  换底后掉出 AA → 改 text-subtle,实测 5.99:1。主行 text-foreground 12.34:1。 */}
+              <div className="mb-4 flex items-start gap-2.5 rounded-16 bg-amber-soft px-3.5 py-3">
+                {/* 图标用 --amber-soft-fg 而非 --brand-amber:后者压 bg-amber-soft(#E5DFCE)
+                    实测仅 1.59:1,连 WCAG 1.4.11 非文本的 3:1 都不到(换底前的 #F1EADA 上是 1.76:1,
+                    同样不合格 —— 是既存问题不是本次引入)。amber-soft-fg 实测 6.14:1。
+                    globals.css 本来就把这两个 token 设计成配对使用。 */}
+                <Sparkles className="mt-0.5 size-4 shrink-0 text-amber-soft-fg" />
                 <p className="text-12 leading-paragraph text-foreground">
                   <span className="font-medium">「{share.sharer}」</span>给你分享了一个期刊
-                  <span className="mt-0.5 block text-12 text-muted-foreground">
+                  <span className="mt-0.5 block text-12 text-subtle">
                     无需登录即可查看分区、影响因子
                   </span>
                 </p>
@@ -313,8 +324,9 @@ export function SharedReceivePage() {
         ) : share && share.kind === 'single' ? (
           <>
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-              {/* 分享人横幅 —— 头像 + 「X 给你分享了一篇论文」 */}
-              <div className="mb-5 flex items-center gap-3 rounded-16 bg-[#F1EADA] px-3.5 py-3">
+              {/* 分享人横幅 —— 头像 + 「X 给你分享了一篇论文」。底同上:琥珀软底,不是页面米白。
+                  副行同理从 text-muted-foreground(4.13:1)改 text-subtle(5.99:1)。 */}
+              <div className="mb-5 flex items-center gap-3 rounded-16 bg-amber-soft px-3.5 py-3">
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-pill bg-brand-red text-14 font-medium text-on-brand">
                   {share.sharer?.trim().charAt(0) || '友'}
                 </span>
@@ -322,7 +334,7 @@ export function SharedReceivePage() {
                   <p className="text-14 text-foreground">
                     <span className="font-medium">「{share.sharer}」</span>给你分享了一篇论文
                   </p>
-                  <p className="mt-0.5 text-12 text-muted-foreground">由 Scholay 学术分享</p>
+                  <p className="mt-0.5 text-12 text-subtle">由 Scholay 学术分享</p>
                 </div>
               </div>
 
@@ -385,7 +397,7 @@ export function SharedReceivePage() {
               )}
             </div>
 
-            {/* 底部:在 Scholay 打开 + 收藏到我的文献集 */}
+            {/* 底部:在 Scholay 打开 + 收藏到我的文件夹 */}
             <div className="flex shrink-0 gap-2 border-t border-border p-4">
               <Button
                 variant="outline"
@@ -406,7 +418,7 @@ export function SharedReceivePage() {
                 ) : (
                   <LogIn className="size-4" />
                 )}
-                {authenticated ? '收藏到我的文献集' : '登录后收藏'}
+                {authenticated ? '收藏到我的文件夹' : '登录后收藏'}
               </Button>
             </div>
           </>
@@ -416,8 +428,7 @@ export function SharedReceivePage() {
               {/* 分享人横幅(灰底卡) */}
               <div className="flex items-center gap-2.5 rounded-16 bg-surface-1 p-3">
                 <span
-                  className="flex size-9 shrink-0 items-center justify-center rounded-pill text-14 font-medium text-on-brand"
-                  style={{ backgroundColor: avatarColor(share.sharer) }}
+                  className={`flex size-9 shrink-0 items-center justify-center rounded-pill text-14 font-medium text-on-brand ${avatarTone(share.sharer)}`}
                 >
                   {share.sharer?.trim().charAt(0) || '友'}
                 </span>
@@ -595,13 +606,21 @@ function citeTier(n: number): string {
   return '';
 }
 
-/** 分享人头像底色 —— 按名字稳定散列到品牌四色之一。 */
-const AVATAR_COLORS = ['#CD2323', '#2A7A2A', '#DD9D13', '#1E5FA8'];
-function avatarColor(name?: string): string {
+/**
+ * 分享人头像底色 —— 按名字稳定散列到分类色板 `--cat-*` 四档(每个色相一档)。
+ *
+ * 旧实现是 4 个硬编码 hex(#CD2323 / #2A7A2A / #DD9D13 / #1E5FA8),全是 2026-07 改造
+ * **之前**的旧品牌色 + 已退休的蓝。真源改成 globals.css §七 后不再自带色板。
+ * 哈希算法与数组长度都未变(仍是 `h % 4`),同一个名字仍永远同一色。
+ *
+ * 前景 text-on-brand #FFFFFF 实测:cat-2 11.87 / cat-4 9.48 / cat-6 5.97 / cat-8 11.62,全部 AA。
+ */
+const AVATAR_TONES = ['bg-cat-2', 'bg-cat-4', 'bg-cat-6', 'bg-cat-8'];
+function avatarTone(name?: string): string {
   const s = (name ?? '').trim();
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+  return AVATAR_TONES[h % AVATAR_TONES.length];
 }
 
 /** 分享时间 → 「YYYY-MM」(对齐设计「更新于 2026-06」)。 */

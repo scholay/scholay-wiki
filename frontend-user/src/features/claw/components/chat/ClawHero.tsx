@@ -60,7 +60,8 @@ export function ClawHero({
         <div className="flex w-full max-w-2xl flex-col items-center">
           {/* 品牌区 —— 对齐远程 main:大发光图标 + 大标题 + 一行副标题。 */}
           <HeroSpark />
-          <h2 className="mt-4 font-serif text-[1.7rem] font-bold text-foreground">
+          {/* 标题 text-28 —— 与 PrismHome 的 hero 标题同档(原 text-[1.7rem]=27.2px 是逃出六档的遗留 arbitrary) */}
+          <h2 className="mt-4 font-serif text-28 font-bold text-foreground">
             {title}
           </h2>
           <p className="mt-1.5 text-center text-12 text-muted-foreground">{subtitle}</p>

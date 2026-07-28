@@ -78,15 +78,24 @@ export function HomePage() {
     <SidebarLayout sidebar={<HomeSidebar />}>
       <RouteSEO
         title="Scholay学术 - AI 学术搜索平台 | 论文搜索、AI 审稿、文献管理工具"
-        description="Scholay学术(scholay)是 AI 驱动的一站式学术工具:智能论文搜索、AI 论文分析、AI 智能审稿、学者库、期刊查询、文献集管理与 LaTeX 在线写作,覆盖全球 2 亿+ 学术论文,助你高效科研。"
+        description="Scholay学术(scholay)是 AI 驱动的一站式学术工具:智能论文搜索、AI 论文分析、AI 智能审稿、学者库、期刊查询、文件夹管理与 LaTeX 在线写作,覆盖全球 2 亿+ 学术论文,助你高效科研。"
         keywords="Scholay,Scholay学术,scholay学术,scholay学术工具,scholay ai 学术工具,scholay scholar,scholar,AI 学术工具,学术搜索,论文检索,AI 论文分析,智能审稿,文献管理,期刊查询,学者库,LaTeX 写作"
         canonical="/"
       />
 
-      {/* 撑满主区:hero 区 flex-1 居中,Footer 固定底部。
+      {/* 第一屏契约(2026-07-27 重排):hero / 学术情报 / Footer 三段【共占一屏】,页面本身不长高。
+          - h-full:主区高度是确定的,hero 的 flex-1 才分得出「剩余空间」
+            (用 min-h-full 的话容器会跟着内容一起长,永远没有剩余空间,Footer 也就贴不了底)
+          - 【不加 overflow-hidden】:矮窗口(hero≈308 + 情报 352 + Footer 44 ≈ 704px)放不下时
+            内容会溢出容器,由 SidebarLayout 的 <main overflow-auto> 兜底滚动 —— 优雅降级。
+            自己再加一层 overflow 会变成双滚动条(本仓库踩过的老坑)
+          - hero: flex-1 shrink-0 —— grow 吃掉剩余空间(情报区为空时它自己撑满,Footer 仍贴底),
+            shrink-0 保证【永远不被情报区挤压】,这是本次调整的核心诉求
+          - 学术情报: 定高 + 自己滚(见 NewsSection)
+          - Footer: shrink-0 常驻视口底部
           首页 + 后续宣传页才有 footer,功能页(搜索/Prism/审稿等)不挂。 */}
-      <div className="flex flex-col min-h-full">
-        <div className="flex-1 flex flex-col items-center pt-24 pb-24 px-6">
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="flex flex-1 shrink-0 flex-col items-center justify-center px-6 py-12">
           {/* 可被爬虫读到的 H1 —— sr-only 不改 .pen 视觉,但给首页一个含品牌词的主标题 */}
           <h1 className="sr-only">Scholay学术 - AI 驱动的学术搜索与研究平台</h1>
           <BrandLogo size="xl" />

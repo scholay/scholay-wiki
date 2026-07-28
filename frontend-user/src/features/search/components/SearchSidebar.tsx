@@ -150,7 +150,7 @@ export function SearchSidebar({
           />
         </div>
 
-        {/* 1. 文献集 — 真实数据 / 登录引导 */}
+        {/* 1. 文件夹 — 真实数据 / 登录引导 */}
         <LibrarySection />
 
         {/* 2. 筛选器(prominent:11px/700 #111,与 "清空" 操作配套强调)——

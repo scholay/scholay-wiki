@@ -162,12 +162,43 @@ export function newsSectionTone(section: string): { dot: string; text: string } 
   }
 }
 
-/** RFC3339 → 「X 分钟前」;解析失败回退原串。 */
+/** 超过这个天数就不再说「X 天前」,直接给绝对日期。 */
+const RELATIVE_TIME_MAX_DAYS = 7;
+
+/**
+ * RFC3339 → 时间标签;解析失败回退原串。
+ *
+ * 近期(默认 7 天内)用相对时间「约 4 小时前」—— 情报是时效性内容,读者关心的是「多新」。
+ * 超过窗口改绝对日期「2026-07-20」—— 「23 天前」这种表述读者要在脑内做一次减法,
+ * 反而不如直接给日期。窗口取 7 天与热榜的 days=7 对齐。
+ */
 export function newsRelativeTime(iso: string): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
+  const days = (Date.now() - d.getTime()) / 86_400_000;
+  if (days > RELATIVE_TIME_MAX_DAYS) {
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }
   return formatDistanceToNow(d, { addSuffix: true, locale: zhCN });
+}
+
+/**
+ * 上游 source.label 里常常自带一个时间戳,形如
+ *   「中国科学院科研进展详情页,2026-07-20 11:07」
+ * 而卡片右上角已经有 published_at 的时间标签 —— 同一张卡上出现两套日期表述
+ * (一个相对、一个绝对),是设计评审明确点出的问题。
+ *
+ * 这里在【展示层】剥掉尾部的日期/时间,不动上游数据本身:
+ * source 的职责是「这条情报出自哪里」,时间由 published_at 单点负责。
+ * 匹配尾部的 `[,，、·\s-]* YYYY-MM-DD [HH:MM[:SS]]`,匹配不到就原样返回。
+ */
+export function newsSourceLabel(label?: string): string {
+  if (!label) return '';
+  return label
+    .replace(/[,，、·\s-]*\d{4}[-/年]\d{1,2}[-/月]\d{1,2}日?(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?\s*$/, '')
+    .trim();
 }
 
 /** heat_trend 是否达到「飙升」速率。 */

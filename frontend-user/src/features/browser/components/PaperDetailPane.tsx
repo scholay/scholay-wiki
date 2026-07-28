@@ -72,7 +72,7 @@ export function PaperDetailPane() {
     enabled: needsFetch && !!source && !!paperId,
   });
 
-  // 用户文献集行 —— 任何 source(stc/olx/pmd/local)都查。
+  // 用户文件夹行 —— 任何 source(stc/olx/pmd/local)都查。
   // - 上游论文:决定"是否已收藏 + 是否上传过 PDF",ActionRow 用
   // - 自由文件:本就是数据源,paper 整个由 libraryRowToPaper 转出
   const libRowQ = useLibraryPaperByUpstream(source, paperId);
@@ -139,7 +139,7 @@ export function PaperDetailPane() {
       <EmptyState
         icon={AlertCircle}
         title="页签已失效"
-        description="请回到搜索结果或文献集列表,重新打开论文"
+        description="请回到搜索结果或文件夹列表,重新打开论文"
       />
     );
   }

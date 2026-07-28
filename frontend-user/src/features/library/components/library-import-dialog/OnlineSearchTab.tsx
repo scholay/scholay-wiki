@@ -78,7 +78,7 @@ export function OnlineSearchTab({
   const hasQuery = query.trim().length > 0;
   const initialLoading = hasQuery && !allDone && totalCount === 0;
 
-  // 工作台已是「加到当前文献集」语境(头/脚已声明目标):具体夹用其 id,根/全部视图用 null
+  // 工作台已是「加到当前文件夹」语境(头/脚已声明目标):具体夹用其 id,根/全部视图用 null
   // (= 默认文件夹直接收藏)。**不能用 undefined** —— 那会让 FavoritePaperButton 在已打开的
   // 工作台弹窗之上再弹一个全局文件夹选择器(弹窗叠弹窗 + 行为回归)。
   const folderId = typeof currentFilter === 'number' ? currentFilter : null;
@@ -113,8 +113,9 @@ export function OnlineSearchTab({
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* 搜索条 */}
-      <div className="flex items-center gap-2.5 h-11 px-6 border-b border-border-soft">
+      <div className="flex items-center gap-2.5 h-11 px-6 border-b border-border-soft focus-within:border-border-control transition-colors">
         <Search className="size-4 text-muted-foreground shrink-0" />
+        {/* outline-none 合法:焦点可供性由外层搜索条的 focus-within:border-border-control 提供 */}
         <input
           ref={inputRef}
           type="text"
@@ -204,7 +205,7 @@ function PaperRow({
   onManagePaper,
 }: {
   paper: Paper;
-  /** 本会话收藏时为创建的文献集行(收藏成功回调带回),未在本会话收藏为 undefined */
+  /** 本会话收藏时为新建的论文行(收藏成功回调带回),未在本会话收藏为 undefined */
   favoritedRow: UserLibraryPaper | undefined;
   /** 库里早已收藏(来自 useFavoriteCheck 初始态);此时不一定有 favoritedRow */
   serverSaved: boolean;

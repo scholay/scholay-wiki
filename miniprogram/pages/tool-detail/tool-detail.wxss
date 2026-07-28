@@ -19,7 +19,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: var(--on-brand);
   font-size: 52rpx;
   font-weight: 700;
 }
@@ -28,7 +28,7 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  background: #fff;
+  background: var(--card);
 }
 .tname {
   font-size: 38rpx;
@@ -43,8 +43,8 @@
 .tagline {
   display: block;
   margin-top: 16rpx;
-  font-size: 29rpx;
-  color: var(--text-subtle, #444);
+  font-size: var(--fs-body);
+  color: var(--text-subtle);
   line-height: 1.6;
 }
 .uc {
@@ -55,7 +55,7 @@
 }
 .uc-title {
   display: block;
-  font-size: 30rpx;
+  font-size: var(--fs-body);
   font-weight: 600;
   margin-bottom: 8rpx;
 }

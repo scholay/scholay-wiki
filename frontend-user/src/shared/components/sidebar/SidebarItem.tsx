@@ -12,21 +12,20 @@ interface SidebarItemProps
   trailing?: ReactNode;
   /** 树状展开:undefined=无 chevron, true=展开(▾), false=收起(▸) */
   expanded?: boolean;
-  /** 缩进层级(0/1/2),每级 +22px,对齐 .pen 子项 padding-left 38/42/64 */
+  /** 缩进层级(0/1/2),每级 +22px */
   indent?: 0 | 1 | 2 | 3;
-  /** 选中态:'primary' 黑色左边线,'danger' 红色左边线(对照编辑中 #CC2222) */
+  /** 选中态:'primary' 玄墨左边线(`--foreground`),'danger' 朱砂左边线(`--brand-red`) */
   active?: 'primary' | 'danger' | false;
   /** 字号变体:'sm' text-12(子项 h-7=28)/ 'base' text-14(默认 h-8=32)/ 'lg' text-14(主菜单 tab h-10=40)*/
   size?: 'sm' | 'base' | 'lg';
 }
 
 /**
- * 侧栏行 —— 对齐 .pen LxWuG / gs3tU 文件夹高度:
- *   - active folder(b53Pzb) = h-32 + 13/700 #111
- *   - inactive folder(AdIs4) = h-30 + 13/normal #444
- *   - sub-folder(wu3Jp) = h-28 + 12/normal #666
- * 我们统一到 base=h-8(32)/ sm=h-7(28),字号 text-14 / text-12。
- * B6 后 'lg' 与 'base' 字号同为 text-14(13 档已按 Figma 取消),两者靠行高 h-10/h-8 区分。
+ * 侧栏行 —— 高度统一到 base=h-8(32)/ sm=h-7(28),字号 text-14 / text-12。
+ * 'lg' 与 'base' 字号同为 text-14(旧的 13 档已按 Figma §2.2 取消),两者靠行高 h-10/h-8 区分。
+ *
+ * (原注释逐条对照 `.pen` 的节点 ID 与 13px/#111/#444/#666 —— 那套真源已于 2026-07
+ *  换成 Figma,值也全部作废,留着只会让人照旧值改回去。已删。)
  */
 export const SidebarItem = forwardRef<HTMLButtonElement, SidebarItemProps>(
   (

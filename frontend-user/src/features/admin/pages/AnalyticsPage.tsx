@@ -23,6 +23,7 @@ import {
   YAxis,
 } from 'recharts';
 import { compactAxis } from '@/shared/lib/chart-format';
+import { chartTheme } from '@/shared/lib/theme-bridge';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { Badge } from '@/shared/ui/badge';
 import { buildDailyTrend, localDateKey, withWeekday } from '@/shared/lib/daily-trend';
@@ -328,26 +329,26 @@ function Sparkline({
             <stop offset="100%" stopColor="var(--color-brand-green)" stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} vertical={false} />
         <XAxis
           dataKey="x"
           tickFormatter={shortDate}
-          tick={{ fontSize: 11, fill: 'var(--color-faint)' }}
+          tick={{ fontSize: chartTheme.fontSize, fill: chartTheme.axis }}
           tickLine={false}
-          axisLine={{ stroke: 'var(--color-border)' }}
+          axisLine={{ stroke: chartTheme.grid }}
           minTickGap={24}
         />
         <YAxis
           allowDecimals={false}
           tickFormatter={compactAxis}
-          tick={{ fontSize: 11, fill: 'var(--color-faint)' }}
+          tick={{ fontSize: chartTheme.fontSize, fill: chartTheme.axis }}
           tickLine={false}
           axisLine={false}
           width={38}
         />
         <Tooltip content={<PvTooltip />} />
         <Legend
-          wrapperStyle={{ fontSize: 11, color: 'var(--color-subtle)' }}
+          wrapperStyle={{ fontSize: chartTheme.fontSize, color: 'var(--color-subtle)' }}
           iconType="square"
           iconSize={8}
           formatter={(v) => (v === 'pv__main' ? '访问页' : v === 'sess__main' ? '会话' : '')}
@@ -387,8 +388,8 @@ function PvTooltip({
   if (!row) return null;
   const isToday = String(row.x).slice(0, 10) === localDateKey();
   return (
-    <div style={{ backgroundColor: 'var(--color-background)', border: '1px solid var(--color-border)', borderRadius: 6, fontSize: 12, padding: '6px 10px' }}>
-      <div style={{ color: 'var(--color-muted-foreground)', fontSize: 11, marginBottom: 2 }}>
+    <div style={chartTheme.tooltip}>
+      <div style={{ color: 'var(--color-muted-foreground)', fontSize: chartTheme.fontSize, marginBottom: 2 }}>
         {withWeekday(shortDate(row.x), row.x)}
         {isToday && <span style={{ color: 'var(--color-brand-amber)', marginLeft: 4 }}>· 进行中</span>}
       </div>

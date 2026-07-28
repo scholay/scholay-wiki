@@ -210,7 +210,11 @@ function StreamingReviewerView({
       <section className="flex flex-col gap-3 rounded-16 border border-brand-amber/40 bg-surface-card px-5 py-4">
         <div className="flex items-center gap-2.5">
           <Loader2 className="h-4 w-4 shrink-0 animate-spin text-brand-amber" />
-          <p className="text-12 font-medium text-foreground">审稿人 {letter} 正在通读稿件…</p>
+          {/* 14 而非 12:本行是这张卡的标题,右侧「已生成 N 字」计数才是 12。
+              (B6 排印迁移时本文件与它在 features/ 下的孪生副本被两个 agent 分别处理,
+               一个把 text-sm 归到 14、一个归到 12;两份合并成这一份时按 14 收口 ——
+               text-sm=14px 是忠实映射,且标题不能与它下辖的计数同档。) */}
+          <p className="text-14 font-medium text-foreground">审稿人 {letter} 正在通读稿件…</p>
           <p className="ml-auto shrink-0 font-mono text-12 text-faint">已生成 {p.totalChars} 字</p>
         </div>
         {tail ? (

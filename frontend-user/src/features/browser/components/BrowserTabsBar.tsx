@@ -124,7 +124,10 @@ export function BrowserTabsBar() {
         返回
       </button>
 
-      <span aria-hidden className="h-[18px] w-px bg-border" />
+      {/* 组间竖线 —— 与顶栏 TopNav / MenuCarousel 同一形制。globals.css 的 `--divider`
+          条目原文就是「Nav/Toolbar 内组间竖线(h-5 w-px)」,这里按它落地:
+          高度从无依据的 `h-[18px]` 归到 h-5,颜色从通用容器色 bg-border 收口到 bg-divider。 */}
+      <span aria-hidden className="h-5 w-px bg-divider" />
 
       <div
         ref={scrollRef}

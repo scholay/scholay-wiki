@@ -158,7 +158,7 @@ export function PrismRevisionDialog({
         </div>
 
         {/* 条目列表 */}
-        <div className="max-h-[46vh] space-y-2 overflow-y-auto pr-1">
+        <div className="max-h-[46dvh] space-y-2 overflow-y-auto pr-1">
           {loading ? (
             <div className="flex items-center justify-center py-8 text-12 text-faint">
               <Loader2 className="mr-1.5 size-4 animate-spin" /> 加载中…

@@ -167,7 +167,7 @@ function DeliveriesDialog({ id, onClose }: { id: number | null; onClose: () => v
       {id != null && (
       <DialogContent className="max-w-2xl">
         <DialogHeader><DialogTitle>投递记录</DialogTitle></DialogHeader>
-        <div className="max-h-[70vh] space-y-1.5 overflow-y-auto">
+        <div className="max-h-[70dvh] space-y-1.5 overflow-y-auto">
           {(data ?? []).length === 0 && <p className="text-12 text-faint">还没有投递记录</p>}
           {(data ?? []).map((d) => (
             <div key={d.id} className="flex items-center justify-between gap-2 rounded-8 border border-border-soft px-2.5 py-1.5 text-12">

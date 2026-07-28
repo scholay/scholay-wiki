@@ -25,6 +25,13 @@ import { cn } from'@/shared/lib/utils';
  * 对照 .pen`fFyGp`rightGroup:
  * notif 32×32 rounded-8 bg-surface-2
  * userPill rounded-pill bg-surface-2, padding [4,14,4,4], gap 8, 32 avatar
+ *
+ * ── < 1200px 的瘦身(P0-2 配套，见 TopNav.tsx 顶部注释) ─────────────────
+ * 促销胶囊(~130px)与反馈按钮(~40px)在窄屏收进 CompactNavMenu ——
+ * **不是删掉**，两个去处在汉堡菜单里都在，点击行为完全一致。
+ * 用户名(max-w-28 = 112px)在窄屏隐藏，pill 退化成纯头像。
+ * 三项合计让出 ~280px，正是 390 宽下「登录/注册被盖到 0% 可见」的缺口来源。
+ * 铃铛与登录/注册**任何宽度都保留** —— 未读通知与转化入口不接受降级。
  */
 export function UserSection() {
   // 登录与否只看 token(authenticated);user 仅用于展示身份,已登录但 profile 未到时为 null。
@@ -34,14 +41,16 @@ export function UserSection() {
 
   return (
     <div className="flex items-center gap-2">
-      {/* 限时领取会员推广入口 —— 仅推广开启且非付费会员时显示(组件内部自判),点击弹二维码 */}
-      <PromoNavButton />
+      {/* 限时领取会员推广入口 —— 仅推广开启且非付费会员时显示(组件内部自判),点击弹二维码。
+          < 1200 收进 CompactNavMenu(它是右段最宽的一颗,也是 P0 叠印的主要来源) */}
+      <PromoNavButton className="hidden min-[1200px]:inline-flex" />
 
       {/* 反馈 / 客服入口 —— /feedback 是 public 路由,登录与否都给入口。
-          放在通知铃铛左边、用户区最外侧,与通知一组,视觉一致 (rounded-8 + bg-surface-2) */}
+          放在通知铃铛左边、用户区最外侧,与通知一组,视觉一致 (rounded-8 + bg-surface-2)。
+          < 1200 收进 CompactNavMenu */}
       <IconButton
         tooltip="反馈与建议" aria-label="反馈与建议" onClick={() => navigate('/feedback')}
-        className="rounded-8 bg-surface-2">
+        className="rounded-8 bg-surface-2 hidden min-[1200px]:inline-flex">
         <Headphones strokeWidth={2} />
       </IconButton>
 
@@ -64,7 +73,7 @@ export function UserSection() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              type="button" className={cn('inline-flex items-center gap-2 h-10 pl-1 pr-3.5 rounded-pill bg-surface-2', 'hover:bg-surface-3 transition-colors', '')}
+              type="button" className={cn('inline-flex items-center gap-2 h-10 pl-1 pr-1 min-[1200px]:pr-3.5 rounded-pill bg-surface-2', 'hover:bg-surface-3 transition-colors', '')}
             >
               <Avatar className="h-8 w-8 bg-primary">
                 {user.avatar && <AvatarImage src={user.avatar} alt={user.email} />}
@@ -72,7 +81,8 @@ export function UserSection() {
                   {(user.username ?? user.email).slice(0, 1).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <span className="text-12 font-medium text-foreground max-w-28 truncate">
+              {/* 窄屏只留头像 —— 用户名占 112px,是右段第三大的宽度项 */}
+              <span className="hidden min-[1200px]:inline text-12 font-medium text-foreground max-w-28 truncate">
                 {user.username ?? maskEmail(user.email)}
               </span>
             </button>
@@ -86,11 +96,11 @@ export function UserSection() {
         // 已登录但 profile 尚未拉到(token 有效、user 暂为 null)—— 渲染静态身份占位,
         // **绝不**回退成登录/注册按钮(那会让已登录用户看起来"未登录")。profile 一到自动切到上面的 pill。
         <div
-          className="inline-flex items-center gap-2 h-10 pl-1 pr-3.5 rounded-pill bg-surface-2" aria-label="账户加载中">
+          className="inline-flex items-center gap-2 h-10 pl-1 pr-1 min-[1200px]:pr-3.5 rounded-pill bg-surface-2" aria-label="账户加载中">
           <Avatar className="h-8 w-8 bg-primary">
             <AvatarFallback className="text-12">·</AvatarFallback>
           </Avatar>
-          <span className="text-12 font-medium text-faint">我的账户</span>
+          <span className="hidden min-[1200px]:inline text-12 font-medium text-faint">我的账户</span>
         </div>
       )}
     </div>

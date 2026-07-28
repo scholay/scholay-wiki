@@ -1,5 +1,5 @@
 /**
- * StatusChip —— 文献集卡片状态徽章原子组件。对应 .pen `of4Xd` chip + `LhDOn` 操作菜单 +
+ * StatusChip —— 文件夹内论文卡片的状态徽章原子组件。对应 .pen `of4Xd` chip + `LhDOn` 操作菜单 +
  * `q7c1x7` hover 检查清单。
  *
  *   complete:  绿色描边 + 绿色文本 + chevron
@@ -122,7 +122,10 @@ export function StatusChip({
           </PopoverTrigger>
         </HoverCardTrigger>
 
-        {/* HoverCard: 检查清单 (hover-only) */}
+        {/* HoverCard: 检查清单 (hover-only)。
+            w-[300px] / 下面的 w-[220px]:弹层宽 token 只有 200/280/360 三档,两者都不等值;
+            300 是 --rail-w-md 的值但那是「右侧信息栏」语义,套在 hover 卡上是误用。
+            留待弹层宽统一收口时定档,不在本次等值收口范围内。 */}
         <HoverCardContent align="start" sideOffset={6} className="w-[300px] p-0">
           {hoverContent}
         </HoverCardContent>

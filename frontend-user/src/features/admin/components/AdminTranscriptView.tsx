@@ -69,7 +69,7 @@ function AdminAttachmentChips({
                   filename: a.name,
                 })
               }
-              className="inline-flex max-w-[220px] items-center gap-1 rounded-4 bg-foreground/85 px-2 py-0.5 text-12 text-background/90 transition-colors hover:bg-foreground"
+              className="inline-flex max-w-[220px] items-center gap-1 rounded-4 bg-foreground/85 px-2 py-0.5 text-12 text-on-dark/90 transition-colors hover:bg-foreground"
             >
               {inner}
             </button>
@@ -89,7 +89,7 @@ function AdminAttachmentChips({
         return (
           <span
             key={i}
-            className="inline-flex max-w-[220px] items-center gap-1 rounded-4 bg-foreground/85 px-2 py-0.5 text-12 text-background/90"
+            className="inline-flex max-w-[220px] items-center gap-1 rounded-4 bg-foreground/85 px-2 py-0.5 text-12 text-on-dark/90"
             title={a.name}
           >
             {inner}

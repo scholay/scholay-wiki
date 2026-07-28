@@ -31,7 +31,7 @@ import {
 } from '../api/submissions';
 import { unwrap } from '../api/_unwrap';
 import { extractPartialMeta, useStreamingPartial } from '../api/stream';
-import type { ExtraMeta, JournalTarget, SubmissionAsset, WizardStep } from '../types';
+import type { ExtraMeta, JournalTarget, SubmissionAsset, WizardStep } from '@/shared/lib/peer-review/types';
 
 const SUBKEY = (...rest: (string | number)[]) =>
   ['peer-review', 'submissions', ...rest] as const;
@@ -515,7 +515,10 @@ export function JournalWizardPage() {
   );
 }
 
-// 右栏 step ≥ 2 显示的"已选期刊" mini 卡(.pen `jMiniJS2`)
+// 右栏 step ≥ 2 显示的"已选期刊" mini 卡(原注 .pen `jMiniJS2`,该真源已作废)。
+// border-l-[3px]:左侧强调边线,对应 globals.css §十一 的 --rule-accent(3px)——
+// Figma 描边集合只有 1 / 1.5px,3px 强调条是代码内生共识;该 token 未注册进 Tailwind
+// 命名空间,故只能写 arbitrary,值以 --rule-accent 为准。
 function SelectedJournalMini({ target }: { target: JournalTarget }) {
   return (
     <section className="rounded-16 border border-brand-red border-l-[3px] bg-surface-card p-4">
@@ -542,7 +545,7 @@ function FailureBanner({ error, onRetry }: { error: string; onRetry: () => void 
       <button
         type="button"
         onClick={onRetry}
-        className="shrink-0 rounded-8 border border-destructive/40 px-3 py-1 text-12 font-medium text-destructive hover:bg-destructive hover:text-background"
+        className="shrink-0 rounded-8 border border-destructive/40 px-3 py-1 text-12 font-medium text-destructive hover:bg-destructive hover:text-on-brand"
       >
         重新生成
       </button>

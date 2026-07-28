@@ -205,20 +205,110 @@ shared/lib       → 无依赖(纯 TS)
 Figma 依据或推导理由。**偏离 Figma 的地方必须写明偏离原因**,便于设计师 review 时
 区分「有意决策」与「实现错误」。
 
-### ⚠️ 改造进行中(2026-07)
+### 护栏在哪跑(**两个执行点,覆盖面不一样**)
 
-设计系统正在从旧 token 迁移到 Figma 规范,**当前是中间态**:
+护栏本体:[tests/design-system-guard.test.ts](tests/design-system-guard.test.ts)(类名 / 硬编码 /
+跨包镜像)+ [tests/design-tokens-compiled.test.ts](tests/design-tokens-compiled.test.ts)
+(token 声明 vs 实际编译产出)。**它自己不会跑**,靠下面两个点被触发:
+
+| 执行点 | 何时跑 | 覆盖 | 跨包镜像 | 违规时 |
+|---|---|---|---|---|
+| `prebuild` → `npm run test:design` | `npm run build` / Docker 构建 | frontend-user 内全部规则 | ❌ **整族 skip** | 构建失败 |
+| [`scripts/check-design-system.sh`](../scripts/check-design-system.sh) | git `pre-push` 钩子(**要装一次**)/ 手跑 | 全部规则 | ✅ 真的校验 | push 被拦 |
+
+🔴 **Docker 构建里的绿灯 ≠ 跨包镜像已校验。**
+frontend-user 的构建 `context: ./frontend-user`(docker-compose.yml),
+`miniprogram/` `scholay-minitools/` `agent/` 三个兄弟包在那个环境里**物理上不存在** →
+「跨包镜像」一族规则走 `ctx.skip()`。也就是说:小程序 / 小工具 / pptx 导出三份镜像
+是否与 `globals.css` 同步,**构建管不了**。
+
+跳过时,[scripts/design-guard.mjs](scripts/design-guard.mjs) 会在构建日志里打一条
+横幅,逐条列出被跳过的规则名 —— 刻意做得很吵,因为「一条永远绿的规则」和
+「一条不存在的规则」等价,而本仓库正是被这个模式坑过(「51 条护栏全绿」掩盖三份镜像
+同时落后两代)。⚠️ 但**刻意不让构建失败**:跨包镜像在那个 context 里客观上无法校验,
+为它红灯只会堵死部署,换不来任何校验。
+
+🔴 **钩子要装一次才生效**(每台机器、每份 clone 各一次):
+
+```bash
+./scripts/install-git-hooks.sh      # = git config core.hooksPath .githooks
+```
+
+`.git/hooks/` 不进版本库 —— 钩子放那儿只有写它的人有,等于没有。所以钩子在版本化的
+`.githooks/` 里,但 git 必须被显式指过去。**不做这一步 = 护栏一次都不会自动跑。**
+
+绕过:`SKIP_DESIGN_GUARD=1 git push` —— 放行但**留痕**(时间/邮箱/分支/commit 记到
+`.git/design-guard-bypass.log`)。`git push --no-verify` 是 git 层面根本不调用钩子,
+**无痕**,别用。
+
+### 迁移状态(2026-07-28 第二轮复核后重写)
+
+> ⚠️ 更早的版本写着「字重 ❌ 未开始 / 间距 ❌ 未开始 / 圆角字号 🟡 新旧并存」,
+> 全部与实测相反 —— 那时它在**教人写会被护栏拒绝的旧类名**。以下是实测状态。
+> 完整审计见 [docs/design-audit-2026-07.md](../docs/design-audit-2026-07.md)。
+>
+> 📏 **本表所有数字都是实测快照,不是当前值。** 两条使用须知:
+> 1. 数字随收口推进在变(2026-07-28 并行修复期间,同一个下午多个数就变过) ——
+>    引用前自己重跑,复现命令见表下。
+> 2. **计数必须剥掉注释**。本仓库注释里大量出现被讨论的类名(「最近的 token 是 `h-control-xs`」
+>    这类),裸 `rg` 会把它们计成用法 —— 实测 `h-control-*` 裸 `rg` 报 6 处、剥注释后只有 **2 处**。
+>    下面的数字**一律是剥注释口径**(与 `design-system-guard` 的 `stripComments()` 同款)。
 
 | 维度 | 状态 | 说明 |
 |---|---|---|
-| 颜色 | ✅ 已切新值 | 语义未变,可直接翻值 |
-| 圆角 | 🟡 新旧并存 | 新标度 `rounded-4/8/12/16/20`,旧 `rounded-sm/md/lg` 保持原值待迁移 |
-| 字号 | 🟡 新旧并存 | 新标度 `text-12/14/16/20/24/28`,旧 `text-2xs/xs/base` 保持原值待迁移 |
-| 字重 | ❌ 未开始 | 1030 处 `font-bold`/`font-semibold` 待降到 `font-medium` |
-| 间距 | ❌ 未开始 | ~750 处半档待收口 |
+| 圆角 | ✅ 已完成 | 旧标度 `rounded-sm/md/lg/xl` 已从 token 层**删除**,写了编译不出类 |
+| 字号 | ✅ 已完成 | 六档封闭(`--text-*: initial`),`text-2xs/xs/sm/base/md/3xl…` 全部编译不出类 |
+| 字重 | ✅ 已完成 | `font-semibold` 代码内 **0**(仅 globals.css 注释里提到);`font-bold` 只保留在 serif/display/mono 上 |
+| 正文基准 | ✅ 已修正 | `body` 从 13px 改到 **14px**(Figma §2.2 点名要干掉 13) |
+| 控件字号 | ⚪ 刻意偏离 | 控件基座**保持 `text-12`**,不采纳 Figma §4.1/§4.5 的 14px(高信息密度产品的有意层级)。2026-07-28 曾升到 14 后由产品撤销。详见下文「控件字号」小节 |
+| 纸张质感 | ✅ 本轮开启 | `index.html:2` 已落地 `<html lang="zh-CN" data-paper="on">`,noise 层**现在是全站生效的** |
+| 颜色 | 🟡 语义层已切,**收口未完** | 值全部是新的,但 **482 处**(2026-07-28 剥注释实测)仍走过渡兼容层的旧色名(`border-soft` / `danger-soft` / `warning-soft` / `prism-badge-*` / `border-button`)。这些是**合法可用**的别名,新代码优先用右侧新名 |
+| 状态色 | 🔴 阻塞 | `--status-*` 是**待设计师确认的临时值**(Q2)。tsx/ts 侧除 `status-info`(6 处)外**整族零消费**,调用点仍走品牌色;兼容层 `--color-danger-soft` / `--color-warning-soft` 至今仍指 `--brand-*-soft` 而非 `--status-*` |
+| 间距 | 🔴 阻塞 | 阻塞于 Q8(Figma 观测集合里没有 6px,但 `gap-1.5` 已写进三个原子基线)。⚠️ **这个数有三种口径**(2026-07-28 实测):guard 口径(`0.5/1.5/3.5/5/7/9/11`,注释已剥离)**1293**、只数 `.5` 小数档**1401**、不剥注释的裸 `rg` **1423**。guard 的棘轮基线是 **1357**,当前 1293 **未突破**(余量 64)。**引用哪个数就说明是哪个口径** |
+| 尺寸 token | 🔴 基本未接线 | `h-control-*` 全站消费**能逐条列完 —— 只有 2 处**:`browser/QuickOpenPaperDialog.tsx:83`(`h-control-xl`)、`sidebar/SidebarCollapse.tsx:81`(`h-control-md`)。`size-avatar` / `size-icon` / `size-icon-inline` / `max-w-page` / `--rail-*` / `--dialog-*` 仍是 **0**。写了**能编译**,但你会是全站第三个用户 |
+| Motion(CSS 侧) | ✅ 已修复,🟡 收口未完 | `duration-fast/base/slow/deliberate` 曾**编译不出任何 CSS**,2026-07-28 在 `@theme` 补 `--transition-duration-*` 别名后已可用(消费点 1 处)。仍有 11 处 Tailwind 默认档 `duration-150/200/300/500` 未迁 —— **不能机械迁**,四档 token 与默认档无一相等,换过去是视觉变化。见下文「Motion」小节 |
+
+复现命令(在 `frontend-user/` 下跑,**必须用 `rg --text`**,本仓库有含非 UTF-8 字节的 .tsx,BSD grep 会静默漏):
+
+```bash
+# 兼容层旧色名调用点
+rg --text -o '\b(bg|text|border|ring|fill|stroke|from|to|via|divide|outline|decoration|caret|placeholder)-(border-soft|danger-soft|warning-soft|border-button|prism-badge[a-z-]*)\b' src --glob '*.tsx' --glob '*.ts' --no-filename | wc -l
+# 半档间距
+rg --text -o '\b(gap|gap-x|gap-y|p|px|py|pt|pb|pl|pr|m|mx|my|mt|mb|ml|mr|space-x|space-y)-[0-9]+\.5\b' src --glob '*.tsx' --glob '*.ts' --no-filename | wc -l
+# 尺寸 token 采用率(结果要逐行看:注释里的命中不算用法)
+rg --text -n 'h-control-|size-avatar|size-icon|max-w-page' src --glob '*.tsx' --glob '*.ts'
+```
+
+⚠️ 上面这三条是**裸 `rg`,给的是上界**(含注释),因此会比表里的数略大。
+要拿到与表一致的剥注释口径,照抄 `tests/design-system-guard.test.ts` 的
+`walk()` + `stripComments()` + `hits()` 三个函数跑一遍即可 —— 那才是护栏实际用的口径。
 
 **新代码一律用新标度**(`rounded-16` / `text-14`),不要再用旧名。
-`globals.css` 的「过渡期兼容层」整段会在迁移完成后删除。
+`globals.css` 的「过渡期兼容层」只剩颜色别名,颜色收口完成后整段删除。
+
+### ⚠️ 「可用」= 真能编译出 CSS,不是「globals.css 里写了」
+
+本节下面每一处「可用 / 全部可用」的清单,都在 2026-07-28 用**仓库自己的 `tailwindcss`
+实编 `globals.css` 逐类探针**核对过一遍。结论:
+
+- **本节列出的 token 现在全部真能编译出类**
+  (surface / 文字 / 边框 / 品牌 / 状态 / cat / chart / shadcn 别名 / 六档字号 /
+  **六档行高**(含新增 `leading-code`)/ 两档字距 / 六档圆角 / `h-control-*` / `size-*` /
+  `max-w-page` / `max-w-reading` / 两档阴影 / **`blur-2` · `backdrop-blur-2`** / 十档 z /
+  `ease-*` / **`duration-*` 四档** / `paper-grain` / 四个字族 —— 逐条验证通过)
+  > ⏪ 这一行此前写着「除了 `duration-fast/base/slow/deliberate` 四个」—— 那个缺口
+  > 2026-07-28 已修(`@theme` 补 `--transition-duration-*` 别名),详见下文「Motion」小节。
+  > ⚠️ `--weight-normal` / `--weight-medium` 是**刻意不注册**的例外,故意没有对应工具类,见下文「字重 token」。
+- 反向也核对了:`text-sm/base/lg/3xl`、`rounded-sm/md/lg`、裸 `rounded`、`rounded-r` **确实编译不出**;
+  但 `rounded-full` / `rounded-none` 是 Tailwind 的 static utility,**`--radius-*: initial` 封不住它们**,
+  只能靠 `design-system-guard` 的类名规则拦
+- `w-max` / `max-w-max` / `min-w-max` 已恢复成内建 `max-content`(`--container-max` 改名 `--container-page` 之后)
+
+> **「能编译出类」≠「有人在用」。** 这是两件必须分开看的事:
+> 前者由 [tests/design-tokens-compiled.test.ts](tests/design-tokens-compiled.test.ts) 保证,
+> 后者见上面的迁移状态表。本文件历史上把两者混为一谈过 —— 把零消费 token 写成「可用」
+> 让新人以为在跟随既有用法,把编译不出的 `duration-*` 写成「可用」则是**直接教错**。
+> 往本节加新 token 时,请同步在那个测试文件里加一条断言。
 
 ### 颜色 token(以下是全部可用,不要自创)
 
@@ -270,7 +360,12 @@ Figma 依据或推导理由。**偏离 Figma 的地方必须写明偏离原因**
 | `text-foreground` | `#1F1F23` | 14.9:1 | 主标题 / 正文 / icon 主色 |
 | `text-subtle` | `#505059` | 7.3:1 | 二级文本 / 文件树常态 |
 | `text-muted-foreground` | `#686873` | 5.0:1 | 帮助说明 / 副文 |
-| `text-faint` | `#757580` | 4.1:1 | 段标 / 计数(最弱档) |
+| `text-faint` | `#6E6E78` | 4.58:1 | 段标 / 计数(最弱档) |
+
+> 🔴 **`text-background` 一律禁用**。改造前 `--background` 是纯白,`text-background` 恰好等价于「白字」,
+> 被大量用作深底上的前景色。改成米白后这些调用点会静默变成**米白前景**。
+> 深底上的前景色用 `text-on-dark`(玄墨底) / `text-on-brand`(品牌实底) / `text-foreground`(**琥珀实底**)。
+> 已加护栏(**本仓库没有 CI** —— 是构建期 + git pre-push 两个执行点,见 §五「护栏在哪跑」)。
 
 **边框** — 容器族用 alpha(自动适配米白/纯白双底),控件族用实色:
 | 类 | 值 | 用途 |
@@ -294,7 +389,13 @@ Figma 依据或推导理由。**偏离 Figma 的地方必须写明偏离原因**
 
 配套软底:`bg-brand-{red,green,amber}-soft`
 
-**状态色** 🟡 临时值待设计师确认:`text/bg-status-{success,error,warning,running,neutral,info}(-soft)`
+**状态色** 🟡 临时值待设计师确认(Q2):`text/bg-status-{success,error,warning,running,neutral,info}(-soft)`
+
+> 这一族**能编译出类**(已逐条探针验证),但 2026-07-28 实测:tsx/ts 侧只有 `status-info` 有 6 处消费,
+> 其余全族零消费。**注意一个容易误判的地方**:`design-system-guard` 的「死 color token」规则
+> 只扫 `src/**/*.tsx?`,**不扫 `globals.css` 自身** —— 而 `--status-*` 其实正被 globals.css 里
+> 的 sonner 变量桥接块(`--success-bg: var(--status-success-soft)` 等)消费着,toast 配色是真在跑的。
+> 所以「guard 报它死」≠「它没在渲染」,详见 [design-audit-2026-07.md](../docs/design-audit-2026-07.md) 的计数分歧表。
 
 **分类 / 图表**:`bg-cat-1..8`(头像 / 期刊封面等哈希取色) · `--chart-1..8`(recharts 序列色)
 
@@ -311,10 +412,34 @@ Figma 依据或推导理由。**偏离 Figma 的地方必须写明偏离原因**
 > (`text-base`=13 / `text-md`=14 / `text-15` / `text-badge`=9 且零使用),
 > 且 Tailwind 默认 `lg/xl/2xl`=18/20/24 与 Figma 的 20/24/28 全部错位。
 
+#### 控件字号(2026-07-28 产品拍板,写死在这里免得下一轮又当漏改)
+
+> 🔴 **这是对 Figma 的刻意偏离,不是漏改。审计/codemod 看到它请跳过。**
+
+| 控件 | 字号 | 依据 |
+|---|---|---|
+| Button(全档)/ Input / Textarea / Select / Tabs / DropdownMenu 项 | **`text-12`** | **对 Figma §4.1(按钮 `500/14px`)、§4.5(输入框 `400/14px`)的刻意偏离** |
+| Badge / Label / 各类描述与快捷键 | `text-12` | Figma §4.2 明写 `Google Sans 400 / 12px`,与控件基座同档 |
+| CardTitle / AIOverlay 主文案 | `text-14` | 它们是**标题层**不是控件,不受本条约束 |
+| 聊天正文(`chat/MarkdownRenderer`) | `text-12` | **已知偏离**(台账 Q12):升到 14 会让长会话滚动距离 +16.7%,决策是保持 12 |
+
+**偏离原因**:Figma 只给了一个 `120×42` 的按钮规格,那是**展示级**尺寸;本产品是高信息密度的
+科研工具,同屏控件数量远多于设计稿场景,14px 会让工具条 / 表格行 / 侧栏成片撑开。
+「控件字比正文(14)小一档」在本产品里是**有意的层级**,不是倒挂。
+
+> 📌 2026-07-28 曾按 Figma 把 button/input/textarea/select/tabs/dropdown 基座抬到 `text-14`
+> 并合入,**产品评估后明确撤销**。这一族是一个整体 —— 要改必须一起改,
+> 单独升任何一个都会在同一横排里出现两种字号。
+
 ### 行高 — 按**字族**绑定,不按字号档
 
 `leading-sans`(1.25) · `leading-display`(1.333) · `leading-serif`(1.437) ·
-`leading-paragraph`(1.7,长段中文) · `leading-display-tight`(1.15,≥28px 标题)
+`leading-paragraph`(1.7,长段中文) · `leading-display-tight`(1.15,≥28px 标题) ·
+`leading-code`(1.65,代码编辑器)
+
+> `leading-code` 是 2026-07-28 新增的第六档,唯一消费点是 Prism 的 CodeMirror 主题
+> (`LatexEditor.tsx` 的 `.cm-scroller`,走 `var(--leading-code)`)。**不要并进 `leading-paragraph`(1.7)**:
+> 那是近似值不是等值,0.05em × 每一行 = 编辑器整体高度变化。
 
 > 🔴 **绝不给字号 token 声明配套 line-height**(`--text-14--line-height`)。
 > 一旦声明,`text-14` 会同时输出 font-size 和 line-height,字号档会盖掉字族层行高。
@@ -339,12 +464,40 @@ Figma 依据或推导理由。**偏离 Figma 的地方必须写明偏离原因**
 **内层圆角必须严格小于外层**,否则子元素会「顶角」。
 
 > `--radius-*` 命名空间已封闭(`initial`),`rounded-3xl` 这类会**编译不出类**。
-> 旧的 `rounded-sm/md/lg/xl` 仍保持原值,是待迁移的过渡名。
+> 旧的 `rounded-sm/md/lg/xl` 已于 2026-07-27 从 token 层**删除**,现在同样编译不出类
+> (2026-07-28 探针复核)。⚠️ 唯二的例外是 `rounded-full` / `rounded-none` ——
+> 它们是 Tailwind 的 static utility,不读 `--radius-*` 命名空间,**封不住**,靠 guard 的类名规则拦。
+> 另:裸 `rounded` / `rounded-r` 也编译不出任何 CSS(**写了 = 直角**,Prism diff 块踩过)。
 
 ### 控件高度阶梯
 
 `h-control-xs`(24) · `h-control-sm`(32) · `h-control-md`(36) · `h-control-lg`(42) · `h-control-xl`(44)
 配套:`size-avatar`(40) · `size-icon`(24 画板) · `size-icon-inline`(20)
+
+> ⚠️ **已定义、能编译,但采用率极低 —— 新代码应优先采用,老代码别指望它已经铺开。**
+> 2026-07-28 剥注释实测:`h-control-*` 全站消费**只有 2 处**
+> (`browser/QuickOpenPaperDialog.tsx:83` 的 `h-control-xl`、`sidebar/SidebarCollapse.tsx:81` 的 `h-control-md`);
+> `size-avatar` / `size-icon` / `size-icon-inline` 仍是 **0**;而裸 `h-7/8/9/10/11` 有 **408 处**。
+> 也就是说同一横排里很可能出现「你的 `h-control-sm` 和邻居的 `h-8`」这种等值不同名 ——
+> 这是**过渡态的正常现象**,不是让你跟着写 `h-8`。
+>
+> ⚠️ 另一类真实情况:**代码里已经有一批注释在说「最近的 token 是 `h-control-xs`,但我需要 18px,故保留精确像素」**
+> (`badge.tsx` / `LibraryPage.tsx` / `MobileToolsHomePage.tsx` 等)。这些是**合规的 arbitrary**
+> (注明了依据),不要把它们当成待收口的违规 —— 也不要用裸 `rg` 把它们计成 `h-control-*` 的用法。
+
+### 布局容器宽度
+
+`max-w-page`(1440,Figma §5 中心内容最大宽) · `max-w-reading`(720,长文阅读区)
+
+> ⚠️ **`max-w-page` 已定义、能编译,但 2026-07-28 剥注释实测消费为 0** —— 仅有的两处文本命中
+> 都在注释里(`globals.css` 的说明、`peer-review/RecordDetailPage.tsx:129` 自陈
+> 「`max-w-[1400px]` 是历史值,Figma §5 是 1440」)。全站仍是 **52 种不同的 `max-w-*` 类名 / 236 处**在各写各的。
+> Figma §5「中心内容最大宽 1440」是布局规范里最明确的一条,新写页面壳请直接用它。
+
+> 🔴 **命名陷阱**:Tailwind v4 的 `--container-*` / `--spacing-*` 命名空间用 **token 后缀直接生成类名**。
+> 这个 token 曾叫 `--container-max`,生成的类就是 `w-max` / `max-w-max` / `min-w-max` ——
+> 与内建的 `max-content` 同名且覆盖它,导致两处 `w-max` 被静默压成 1440px 定宽。
+> **起名时后缀不能撞 Tailwind 保留字**(`max` / `min` / `fit` / `full` / `none` / `px` / `screen` / `auto`)。已加护栏(见 §五「护栏在哪跑」)。
 
 ### 间距
 
@@ -359,6 +512,26 @@ Figma 观测集合 `{4, 8, 10, 12, 16, 24, 32, 40}` = Tailwind `{1, 2, 2.5, 3, 4
 > 只有「浮层盖在任意背景之上」和「浅滑块在浅槽里」两类场景物理上无法用描边替代。
 > **不要为卡片/列表项加阴影。**
 
+### 遮罩虚化(blur)
+
+只有 1 档:`backdrop-blur-2` / `blur-2`(= `--blur-2`,2px)
+
+> 全站四处遮罩(`shared/ui/{dialog,sheet,ai-overlay}` + `library/…/dialog-chrome`)统一用它。
+> **不要用内建最小档 `blur-xs`(4px)** —— 那会把背景糊成一片,与「仍隐约可见、保住上下文感」
+> 的设计意图冲突。2px 是刻意的极轻虚化,故 token 层单独立了这一档。
+
+### 字重 token(⚠️ 只服务「JS 字符串里的裸 CSS」)
+
+`--weight-normal`(400) · `--weight-medium`(500)
+
+> 🔴 **这两个刻意不注册进 `@theme`,所以没有 `font-weight-medium` 这种类** ——
+> 注册会覆写 Tailwind 内建同名档,而 `font-normal` / `font-medium` 本来就能编译。
+> 它们存在的唯一理由是 **`<style>` 注入式的真 CSS**(`shared/components/chat/styles.tsx`、
+> CodeMirror 的 `EditorView.theme()`):那类 CSS 不经 Tailwind 编译、拿不到工具类,
+> 此前只能写字面 `font-weight: 500`,对护栏隐身。
+> 刻意**不补 600/700**:护栏规定 sans 上禁 `font-semibold`、`font-bold` 只留给 serif/display/mono,
+> 补出来等于给违规提供一个 `var()` 形态的后门。
+
 ### z-index
 
 `--z-raised`(10) · `--z-sticky`(20) · `--z-nav`(30) · `--z-scrim`(40) · `--z-overlay`(50) ·
@@ -368,17 +541,56 @@ Figma 观测集合 `{4, 8, 10, 12, 16, 24, 32, 40}` = Tailwind `{1, 2, 2.5, 3, 4
 
 ### Motion
 
-`duration-fast`(160ms) · `duration-base`(280ms) · `duration-slow`(420ms) · `duration-deliberate`(700ms)
-`ease-out` · `ease-in-out` · `ease-emphasized`
+✅ **`duration-fast` / `duration-base` / `duration-slow` / `duration-deliberate` 现在是可用的 Tailwind 类**
+(2026-07-28 修复并落到编译期契约里)。
 
-> CSS 侧与 framer-motion 侧(`shared/lib/motion.ts`)**必须共用同一组数值**,
-> 否则同一次交互一半走 CSS 一半走 framer 会明显不同步。
+> ⏪ **本节此前整段说反了**,而且是最贵的一种说反 —— 它红字写着「这四个写了编译不出任何 CSS」,
+> 并点名 `HtmlRender.tsx:69` 的 arbitrary 写法叫人「照它抄」。缺口修好后那句话会**倒过来**
+> 引导人把已经收口的具名类改回 arbitrary。留档如下,免得下一轮又当成新发现:
+>
+> **原缺口**:Tailwind v4 的 `duration-*` 工具类读的是 **`--transition-duration-*`** 命名空间,
+> 而 globals.css 把值声明成了 `--duration-*` —— 名字差一截前缀,所以一个类都生成不出来,
+> 且是**静默失效**(元素变成「无过渡」而不是报错,肉眼只觉得「动画有点生硬」)。
+> **修法**:`@theme inline` 里补一层别名 `--transition-duration-{fast,base,slow,deliberate}: var(--duration-*)`。
+> **现在的产物**:`.duration-base { --tw-duration: var(--duration-base); transition-duration: var(--duration-base); }`
+> —— 与旧写法 `duration-[var(--duration-base)]` 的声明块**逐字节相同**,所以那次替换是零像素的。
+
+**新代码怎么写**:
+
+```tsx
+{/* duration 走 token:--duration-base(280ms)+ 项目的 ease-*。具名类现在真能编译出 CSS。 */}
+<div className="transition-[height] duration-base ease-emphasized" />
+```
+
+`shared/components/chat/HtmlRender.tsx:69` 就是这么写的 —— **照它抄**。
+
+| 侧 | 现在实际用什么 | 说明 |
+|---|---|---|
+| **CSS / Tailwind 类** | 具名 token 类 `duration-fast/base/slow/deliberate` + `ease-out` / `ease-in-out` / `ease-emphasized`,**全部真能编译出** | 另有 Tailwind 默认档 `duration-150/200/300/500` 共 11 处未迁(见下面的红字) |
+| **framer-motion** | [`shared/lib/motion.ts`](src/shared/lib/motion.ts) 的具名预设 | `SHEET_SPRING` / `SNAPPY_SPRING` / `FADE` / `PAGE_TRANSITION` / `TAP_SCALE` + variants |
+
+🔴 **不要顺手把 `duration-200` 批量换成 `duration-fast`。** token 四档
+`{160, 280, 420, 700}ms` 与 Tailwind 默认档 `{150, 200, 300, 500}` **没有一个相等** ——
+换过去 = 改动画时长 = **视觉变化**,要产品/设计拍板,不是机械替换。
+`shared/ui/dialog.tsx` 与 `sheet.tsx` 头部各留了一行红字警告防误迁。
+
+⚠️ 连带的第二个事实(**本文件此前也写错了**):`shared/lib/motion.ts` 里是**字面秒数**,
+读不到 CSS 变量(framer 的 `transition` 只吃数字/数组)。但现值是 `0.42 / 0.16 / 0.28`,
+**三档全部命中 token**(= `--duration-slow / fast / base`),不是本文件曾写的
+「`0.42 / 0.18 / 0.22`,只有 0.42 恰好相等」。两侧现在由
+[tests/design-system-guard.test.ts](tests/design-system-guard.test.ts) 的
+「动效 token 跨语言对齐」三条**硬失败**规则机械比对(含 motion.ts 头部那张对照表本身),
+改任何一侧不同步另一侧当场红。
 
 ### 纸张质感(noise)
 
-默认**关闭**。`<html data-paper="on">` 开启,或对单个 surface 用 `paper-grain` 工具类。
+✅ **2026-07-28 已开启**:`index.html:2` 是 `<html lang="zh-CN" data-paper="on">`,
+noise 层现在作用在 `body` 与 `.bg-background` 上,**是全站生效的**。
+(此前本节写「默认关闭」,与代码互斥 —— 台账 Q3 已由此落地拍板。)
 
-> Figma 的 NOISE 效果是设计师标注的**待验证项**,不是既定规范。
+- 关掉 = 移除 `index.html` 上的 `data-paper` 属性,零渲染开销
+- 单个 surface 想额外加噪点 → `paper-grain` 工具类(能编译出,但 2026-07-28 实测**调用点 0**)
+- ⚠️ 给 `bg-background` 的元素补实底色会**盖掉**那一小块噪点(`SidebarCollapse.tsx` 头注释记过这个坑)
 
 ### 何时允许 arbitrary value `[...]`
 
@@ -495,6 +707,8 @@ features/<x>/components/  业务组件(只本 feature 用)
 
 提交前过一遍:
 
+- [ ] **在仓库根跑过 `./scripts/check-design-system.sh`**(唯一会真的校验跨包镜像的口径;
+      `npm run build` 里的绿灯不覆盖它 —— 见 §五「护栏在哪跑」)
 - [ ] 没有新增同类第三方包(查表 §2)
 - [ ] 没有在组件里裸调 axios / fetch
 - [ ] 没有在组件里硬编码颜色 / 圆角 / 字号

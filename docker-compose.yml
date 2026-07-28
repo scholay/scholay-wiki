@@ -494,9 +494,15 @@ services:
       <<: *tz-env
     volumes:
       - ./docker/tz/Asia-Shanghai:/etc/localtime:ro
-      # 发版灰度:持久化 hash 分包目录,旧版本 chunk 跨重建保留(默认 7 天,见
-      # docker-entrypoint.d/40-sync-site.sh)→ 老标签页发版后跳转不再「页面加载失败」。
-      - ./data/frontend-assets:/usr/share/nginx/html/assets
+      # ⚠️ 这里【刻意不挂】./data/frontend-assets —— 这是 dev 与 prod 在本服务上的差异之一
+      #    (另有 deploy.resources 等,别把这条当成"唯一差异")。
+      #    那个卷的作用是「发版灰度」:保留旧 hash 分包,让发版前就开着的标签页不撞 404
+      #    (详见 frontend-user/docker-entrypoint.d/40-sync-site.sh 的长注释)。
+      #    但开发机没有「开了几天标签页的真实用户」,收益严格为零,
+      #    代价却是按【构建频率】线性堆积 —— 实测一天 6 次构建 → 稳态 848MB / 3.4 万个 js。
+      #    不挂载时容器直接吃镜像里的 /opt/dist,每次 rebuild 干净起步,行为完全正常。
+      #    要在本地复现灰度行为(比如验证 40-sync-site.sh 的改动),把下面这行取消注释即可:
+      # - ./data/frontend-assets:/usr/share/nginx/html/assets
     expose:
       - "80"
     depends_on:

@@ -13,7 +13,7 @@
   transition: border-color .2s, box-shadow .2s;
 }
 .inp { font-size: 15px; font-weight: 650; }
-.inp:focus, .ta:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px rgba(204,34,34,.15); }
+.inp:focus, .ta:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px rgba(136, 40, 40,.15); }
 .ta { font-size: 14px; line-height: 1.6; resize: vertical; min-height: 48px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 select.inp { appearance: none; -webkit-appearance: none;

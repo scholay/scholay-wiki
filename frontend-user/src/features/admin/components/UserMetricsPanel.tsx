@@ -27,6 +27,7 @@ import { Skeleton } from '@/shared/ui/skeleton';
 import { Checkbox } from '@/shared/ui/checkbox';
 import { buildDailyTrend, localDateKey, withWeekday } from '@/shared/lib/daily-trend';
 import { compactAxis } from '@/shared/lib/chart-format';
+import { chartSeriesColor, chartTheme } from '@/shared/lib/theme-bridge';
 import { useUserMetrics } from '../api/user-metrics';
 
 /**
@@ -126,7 +127,7 @@ function RangeTabs({
           onClick={() => onChange(o.v)}
           className={`px-3 h-7 text-12 rounded-pill transition-colors ${
             value === o.v
-              ? 'bg-foreground text-background'
+              ? 'bg-foreground text-on-dark'
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >
@@ -188,25 +189,22 @@ function Empty({ hint }: { hint: string }) {
   return <div className="h-full flex items-center justify-center text-12 text-faint">{hint}</div>;
 }
 
-// recharts 主题色 —— 直接消费 CSS 变量, 跟 design token 同源
+// 语义色 —— 直接消费 CSS 变量(passthrough),跟 design token 同源。
+// 网格/轴/字号/Tooltip 走 theme-bridge 的 chartTheme。
+// ✅ 2026-07 已全站收口:orders/RevenueChart 与 token-usage/TokenDailyChart 也已改用
+//    chartTheme.grid / .axis / .fontSize(原先裸写 fontSize 11/10 + var(--color-border))。
+//    那两张图的 Tooltip 仍是 custom content(Tailwind token 类名渲染),不走 chartTheme.tooltip
+//    —— 它们要逐段列值 + 合计,不是 recharts 内置 tooltip 能表达的,属有意分叉。
 const COLOR_GREEN = 'var(--color-brand-green)';
 const COLOR_RED = 'var(--color-brand-red)';
 const COLOR_AMBER = 'var(--color-brand-amber)';
-const GRID_COLOR = 'var(--color-border)';
-const AXIS_COLOR = 'var(--color-faint)';
+const GRID_COLOR = chartTheme.grid;
+const AXIS_COLOR = chartTheme.axis;
 
-// Tooltip 全局样式
-const tooltipStyle: React.CSSProperties = {
-  backgroundColor: 'var(--color-background)',
-  border: '1px solid var(--color-border)',
-  borderRadius: 6,
-  fontSize: 12,
-  padding: '6px 10px',
-  boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-};
+const tooltipStyle: React.CSSProperties = chartTheme.tooltip;
 const tooltipLabelStyle: React.CSSProperties = {
   color: 'var(--color-muted-foreground)',
-  fontSize: 11,
+  fontSize: chartTheme.fontSize,
   marginBottom: 2,
 };
 
@@ -248,7 +246,7 @@ function RegistrationsAndActive({ reg, dau }: { reg: MetricsPoint[]; dau: Metric
             <XAxis
               dataKey="date"
               tickFormatter={(v) => (typeof v === 'string' && v.length >= 10 ? v.slice(5) : v)}
-              tick={{ fontSize: 11, fill: AXIS_COLOR }}
+              tick={{ fontSize: chartTheme.fontSize, fill: AXIS_COLOR }}
               tickLine={false}
               axisLine={{ stroke: GRID_COLOR }}
               minTickGap={20}
@@ -257,7 +255,7 @@ function RegistrationsAndActive({ reg, dau }: { reg: MetricsPoint[]; dau: Metric
             <YAxis
               allowDecimals={false}
               tickFormatter={compactAxis}
-              tick={{ fontSize: 11, fill: AXIS_COLOR }}
+              tick={{ fontSize: chartTheme.fontSize, fill: AXIS_COLOR }}
               tickLine={false}
               axisLine={false}
               width={38}
@@ -408,17 +406,6 @@ const PROVIDER_LABEL: Record<string, string> = {
   unknown: '未知',
 };
 
-const PIE_PALETTE = [
-  COLOR_GREEN,
-  COLOR_RED,
-  COLOR_AMBER,
-  '#3B82F6',
-  '#8B5CF6',
-  '#EC4899',
-  '#10B981',
-  '#F97316',
-];
-
 function SourcesDonut({ data }: { data: Array<{ name: string; value: number }> }) {
   const total = data.reduce((s, d) => s + d.value, 0);
   const display = data.map((d) => ({
@@ -439,8 +426,9 @@ function SourcesDonut({ data }: { data: Array<{ name: string; value: number }> }
           paddingAngle={2}
           strokeWidth={0}
         >
+          {/* 序列色走 --chart-1..8(theme-bridge)—— 原先后 5 档是裸的 Tailwind 500 hex */}
           {display.map((_, i) => (
-            <Cell key={i} fill={PIE_PALETTE[i % PIE_PALETTE.length]} />
+            <Cell key={i} fill={chartSeriesColor(i)} />
           ))}
         </Pie>
         <Tooltip
@@ -461,7 +449,7 @@ function SourcesDonut({ data }: { data: Array<{ name: string; value: number }> }
           verticalAlign="middle"
           iconType="square"
           iconSize={8}
-          wrapperStyle={{ fontSize: 11, color: 'var(--color-subtle)' }}
+          wrapperStyle={{ fontSize: chartTheme.fontSize, color: 'var(--color-subtle)' }}
         />
       </PieChart>
     </ResponsiveContainer>
@@ -478,7 +466,7 @@ function HourlyBarChart({ data }: { data: Array<{ hour: number; value: number }>
         <XAxis
           dataKey="hour"
           tickFormatter={(v) => `${v}:00`}
-          tick={{ fontSize: 11, fill: AXIS_COLOR }}
+          tick={{ fontSize: chartTheme.fontSize, fill: AXIS_COLOR }}
           tickLine={false}
           axisLine={{ stroke: GRID_COLOR }}
           interval={2}
@@ -486,7 +474,7 @@ function HourlyBarChart({ data }: { data: Array<{ hour: number; value: number }>
         <YAxis
           allowDecimals={false}
           tickFormatter={compactAxis}
-          tick={{ fontSize: 11, fill: AXIS_COLOR }}
+          tick={{ fontSize: chartTheme.fontSize, fill: AXIS_COLOR }}
           tickLine={false}
           axisLine={false}
           width={38}
@@ -518,14 +506,14 @@ function MAULine({ data }: { data: Array<{ date: string; value: number }> }) {
         <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
         <XAxis
           dataKey="date"
-          tick={{ fontSize: 11, fill: AXIS_COLOR }}
+          tick={{ fontSize: chartTheme.fontSize, fill: AXIS_COLOR }}
           tickLine={false}
           axisLine={{ stroke: GRID_COLOR }}
         />
         <YAxis
           allowDecimals={false}
           tickFormatter={compactAxis}
-          tick={{ fontSize: 11, fill: AXIS_COLOR }}
+          tick={{ fontSize: chartTheme.fontSize, fill: AXIS_COLOR }}
           tickLine={false}
           axisLine={false}
           width={38}

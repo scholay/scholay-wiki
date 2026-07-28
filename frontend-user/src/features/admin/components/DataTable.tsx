@@ -30,7 +30,8 @@ export interface Column<T> {
 }
 
 /**
- * Admin 简化表格 —— 行高 h-10,描边 1px #E8E8E8,无 zebra。
+ * Admin 简化表格 —— 行高 h-10,1px 发丝分隔(`border-border-soft` token),无 zebra。
+ * (原注释写死 `#E8E8E8`,那是 .pen 时代的值,已随 2026-07 换 Figma 真源退休。)
  * tanstack-table 装了但暂不引入(避免初版多余复杂度);
  * 排序、多选、批量操作 bar 都用最小自实现 —— 后续如需虚拟化再切。
  */

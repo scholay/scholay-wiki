@@ -1,5 +1,5 @@
 import { memo, useMemo, Fragment } from 'react';
-import { Database, MinusCircle } from 'lucide-react';
+import { MinusCircle } from 'lucide-react';
 import { Skeleton } from '@/shared/ui/skeleton';
 import {
   Tooltip,
@@ -14,7 +14,13 @@ import type { PaperAnalysisItem } from '../../api/analysis';
  * 矩阵单元格 —— 三态:
  *   - 未拉到结果(loading):skeleton 占位
  *   - 失败:灰斜体 + tooltip 错误信息
- *   - 成功:prose 文字流 + 内联 [[标签]] chips;命中缓存时尾部 Database 小 icon
+ *   - 成功:prose 文字流 + 内联 [[标签]] chips
+ *
+ * ⚠️ 2026-07-27 删除了「命中缓存时尾部的数据库小图标」:
+ *    缓存命中是【常态】(同一批论文在同一套维度哈希下只会真算一次),那个图标几乎恒亮 ——
+ *    恒亮的指示器不携带信息,只是噪音;且它没有 tooltip、没有文案,用户无从知道含义。
+ *    「缓存还是实时算」是实现细节:同一维度哈希下两者结果完全相同,不影响用户决策。
+ *    接口的 `from_cache` 字段【保留】(后台用量统计可能消费),只是前端不再渲染。
  *
  * 文字与标签设计:AI 输出形如 "本文是一项 [[原创实证研究]],提出了 [[扩散模型]] 框架。"
  * 前端把 `[[xxx]]` 段切出来渲染成内联 chip,其余文字正常显示。
@@ -83,7 +89,9 @@ function DimensionCellImpl({ item, dimensionKey, isFetching }: Props) {
           <span
             key={`${i}-${t}`}
             className={cn(
-              'inline-flex items-center h-5 px-1.5 rounded-4 text-12 font-medium leading-none',
+              /* px-0.5 = Figma 的 paddingLeft/Right 2(该 frame 76 宽 = 2 + 72 文字 + 2);
+                 外层 gap-1(4px)= Figma 的 itemSpacing 4 */
+              'inline-flex items-center h-5 px-0.5 rounded-4 text-12 font-medium leading-none',
               tagColor(t)
             )}
             title={t}
@@ -91,7 +99,6 @@ function DimensionCellImpl({ item, dimensionKey, isFetching }: Props) {
             {t}
           </span>
         ))}
-        {item.from_cache && cacheIcon}
       </div>
     );
   }
@@ -110,7 +117,10 @@ function DimensionCellImpl({ item, dimensionKey, isFetching }: Props) {
           <span
             key={i}
             className={cn(
-              'rounded-4 px-[3px] py-[1px] mx-px font-medium box-decoration-clone',
+              /* p-0.5 = Figma 四周 padding 2;mx-0.5 让它与前后正文拉开 —— 设计稿里
+                 「示例」frame 的 itemSpacing 是 4,行内流没有 auto-layout,用两侧各 2px 等效。
+                 (原为 px-[3px] py-[1px] mx-px 三个 arbitrary 值,既非设计稿取值也无依据。) */
+              'rounded-4 p-0.5 mx-0.5 font-medium box-decoration-clone',
               tagColor(seg.text)
             )}
             title={seg.text}
@@ -134,17 +144,9 @@ function DimensionCellImpl({ item, dimensionKey, isFetching }: Props) {
       >
         {proseContent}
       </TruncatedText>
-      {item.from_cache && cacheIcon}
     </div>
   );
 }
-
-const cacheIcon = (
-  <Database
-    className="inline-block size-2.5 ml-1 align-middle text-faint"
-    aria-label="cached"
-  />
-);
 
 // ============================================================================
 // 解析:把 value 拆成 segments(prose / tag 交替)或退回到 tagsOnly(旧格式)
@@ -221,29 +223,24 @@ function tryParseArrayLoose(s: string): string[] | null {
 }
 
 /**
- * tag 颜色 —— 8 色调色板按哈希分配,同名 tag 永远同色。
- * 特殊值" 未提及"用统一灰色。
+ * tag 高亮配色 —— **单一颜色**,取自设计稿
+ * Figma `zh4HSb7R3eRBY7Hexfgjm6` node `28:28`(「示例」)内的 `Frame 2147237268`:
+ *   底 #2F4D29 @ 10%(松青 10%) · 字 #2F4D29 · 圆角 4 · padding 2 · 12px
+ *
+ * ⚠️ 2026-07-27 之前这里是【8 色哈希板】——「同名 tag 永远同色」听起来合理,
+ *    但那个「同色」不承载任何语义:颜色由字符串哈希决定,红/蓝/黄之间没有高低、
+ *    没有正负,用户却会本能地去解读它(红=差?绿=好?)。设计稿明确收敛成一种颜色,
+ *    高亮只表达「这是被抽出来的关键词」,不表达别的。
+ *    (globals.css §七 里那段「8 色 tag 调色板需设计师补规范」的张力,到此解除。)
+ *
+ * 「未提及 / N/A / 无」仍走中性灰 —— 它表达的是【没有值】,与「有值且被高亮」
+ * 是两种状态而不是两个类别,保留这一档不违背「高亮只用一种颜色」。
  */
-const TAG_PALETTE = [
-  'bg-brand-red/10 text-brand-red',
-  'bg-brand-green/10 text-brand-green',
-  'bg-cat-blue/10 text-cat-blue',
-  'bg-brand-amber/15 text-brand-amber',
-  'bg-prism-badge-bg text-prism-badge-fg',
-  'bg-foreground/8 text-foreground',
-  'bg-surface-2 text-subtle',
-  'bg-danger-soft text-brand-red',
-] as const;
+const TAG_TONE = 'bg-brand-green/10 text-brand-green';
+const TAG_TONE_EMPTY = 'bg-surface-2 text-faint';
 
 function tagColor(s: string): string {
-  if (s === '未提及' || s === 'N/A' || s === '无') {
-    return 'bg-surface-2 text-faint';
-  }
-  let hash = 0;
-  for (let i = 0; i < s.length; i++) {
-    hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
-  }
-  return TAG_PALETTE[hash % TAG_PALETTE.length];
+  return s === '未提及' || s === 'N/A' || s === '无' ? TAG_TONE_EMPTY : TAG_TONE;
 }
 
 export const DimensionCell = memo(DimensionCellImpl);

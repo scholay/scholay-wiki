@@ -1,7 +1,7 @@
 import { Check } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { UploadedAssetsCard, TipCard } from './RightRailPanel';
-import type { Submission, SubmissionAsset } from '../../types';
+import type { Submission, SubmissionAsset } from '@/shared/lib/peer-review/types';
 
 /**
  * Step4 专用右栏(.pen `RYbJN` rightCol):
@@ -41,9 +41,16 @@ export function Step4Rail({ submissionId, submission, assets, agreed }: Step4Rai
         <ul className="flex flex-col gap-2.5">
           {items.map((it) => (
             <li key={it.key} className="flex items-start gap-2.5">
+              {/* 通过态软底:取 --brand-green-soft 而非 --status-success-soft ——
+                  前景已是 text-brand-green(#2F4D29),同卡片头部的「N/N 完成」也是 brand-green/amber,
+                  软底必须与前景同色族,否则同一张卡里会出现两种绿(#2F4D29 与 status-success #3F6636)。
+                  globals.css §五 也把品牌软底定义为「供 chip / 高亮行 / 弱强调块使用」,正是本形态;
+                  且 --status-* 目前仍是「待设计师确认的临时值」。
+                  待状态色规范落定,本圆点与上面的计数应【成对】迁到 status-success。
+                  旧值 #E9F7EC 是硬编码,不在任何色阶内。 */}
               <span className={cn(
                 'mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-pill',
-                it.passed ? 'bg-[#E9F7EC] text-brand-green' : 'border border-border-button text-faint'
+                it.passed ? 'bg-brand-green-soft text-brand-green' : 'border border-border-button text-faint'
               )}>
                 {it.passed && <Check className="size-2.5" strokeWidth={3} />}
               </span>

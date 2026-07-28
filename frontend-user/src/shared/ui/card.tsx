@@ -81,7 +81,8 @@ CardTitle.displayName ='CardTitle';
 
 const CardDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
   ({ className, ...props }, ref) => (
-    // Figma §4.4 卡片次文 400 / 12px
+    // KEEP text-12 —— Figma §4.4 卡片次文明写 400 / 12px。
+    // CardTitle 是 text-14(标题层),次文压 12 才拉得开层级 —— 两者不可同档。
     <p ref={ref} className={cn('text-12 text-muted-foreground', className)} {...props} />
   )
 );

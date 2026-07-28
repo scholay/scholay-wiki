@@ -219,6 +219,9 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           rows={minRows}
           disabled={disabled}
           autoFocus={autoFocus}
+          // 「outline-none」:焦点可供性由外层输入框容器承担(上面的
+          // `focus-within:border-foreground/25 focus-within:ring-4 focus-within:ring-foreground/5`),
+          // 整框变深 + 起环,比在 textarea 内部再画一圈更贴设计。
           className="block w-full resize-none overflow-y-auto border-0 bg-transparent px-1 py-1 text-14 leading-paragraph text-foreground outline-none placeholder:text-faint disabled:cursor-not-allowed disabled:opacity-60"/>
       </div>
 
@@ -241,7 +244,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             disabled={stopping || !onStop}
             aria-label={stopping ? '正在停止' : '停止生成'}
             title={stopping ? '正在停止…' : '停止当前回答'}
-            className={cn('inline-flex size-9 shrink-0 items-center justify-center rounded-8 text-background transition-colors',
+            className={cn('inline-flex size-9 shrink-0 items-center justify-center rounded-8 text-on-dark transition-colors',
               stopping ? 'cursor-wait bg-foreground/60' : 'bg-foreground hover:bg-foreground/85',
             )}
           >
@@ -258,7 +261,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             aria-label={requireAuth ? '登录后开始' : '发送 (Enter)'}
             title={requireAuth ? '登录后开始' : '发送 (Enter)'}
             className={cn('inline-flex size-9 shrink-0 items-center justify-center rounded-8 transition-colors',
-              canSend ? 'bg-foreground text-background hover:bg-foreground/90' : 'bg-surface-2 text-faint',
+              canSend ? 'bg-foreground text-on-dark hover:bg-foreground/90' : 'bg-surface-2 text-faint',
               !canSend && 'cursor-not-allowed',
             )}
           >

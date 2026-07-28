@@ -21,7 +21,7 @@
     { id: ICE,   key: 'ice',   name: '冰',   emoji: '🧊', color: '#a5e8ff' },
     { id: FIRE,  key: 'fire',  name: '火',   emoji: '🔥', color: '#ff8a2a' },
     { id: TNT,   key: 'tnt',   name: '炸药', emoji: '💣', color: '#e0564b' },
-    { id: EMPTY, key: 'eraser', name: '橡皮', emoji: '🧽', color: '#f5f5f5' }
+    { id: EMPTY, key: 'eraser', name: '橡皮', emoji: '🧽', color: '#E8E5DC' }
   ];
 
   // 密度:固体 99 静止;液体各异;气体 0;空 1

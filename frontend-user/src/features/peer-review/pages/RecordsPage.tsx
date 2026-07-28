@@ -9,8 +9,8 @@ import { Button } from '@/shared/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/shared/ui/hover-card';
 import { cn } from '@/shared/lib/utils';
 import { useDeleteSubmission, useSubmissionList } from '../api/submissions';
-import { recBadgeClasses, recLabel } from '../lib/recommendation';
-import type { SubmissionListItem, SubmissionStatus } from '../types';
+import { recBadgeClasses, recLabel } from '@/shared/lib/peer-review/recommendation';
+import type { SubmissionListItem, SubmissionStatus } from '@/shared/lib/peer-review/types';
 
 const PAGE_SIZE = 20;
 

@@ -1,7 +1,7 @@
 import { type ReactNode } from 'react';
 import { FileText, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useSubmissionAssets } from '../../api/submissions';
-import type { SubmissionAsset } from '../../types';
+import type { SubmissionAsset } from '@/shared/lib/peer-review/types';
 
 /**
  * Wizard 右栏(.pen `DToay` / `x29bpl` 共用区域,~380px 宽):
@@ -67,7 +67,11 @@ function AssetRow({ asset }: { asset: SubmissionAsset }) {
   const isManuscript = asset.role === 'manuscript';
   return (
     <li className="flex items-center gap-2 rounded-8 px-2 py-2 hover:bg-surface-1">
-      <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-8 bg-surface-2 text-[10px] font-medium text-muted-foreground">
+      {/* 扩展名角标:原为 text-[10px] —— 10px 低于 Figma §2.2 六档下限 12 且无依据,
+          arbitrary 写法绕过了已封闭的字号命名空间,故归到最小档 text-12
+          (与 PrismPreview 的 text-[11px]→text-12、AllMenusOverlay 的 text-[9px]→text-12 同一处理)。
+          extLabel 最多 4 个大写字母,12px 下约 30px,仍容得下 size-8(32px)方框。 */}
+      <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-8 bg-surface-2 text-12 font-medium text-muted-foreground">
         {extLabel(asset.filename)}
       </span>
       <div className="min-w-0 flex-1">

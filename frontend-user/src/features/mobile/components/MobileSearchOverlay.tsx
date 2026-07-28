@@ -196,10 +196,16 @@ export function MobileSearchOverlay() {
           <Search className="size-4 shrink-0 text-faint" />
           <input
             ref={inputRef}
+            /* type=search + enterKeyHint:本框不在 <form> 内(靠 onKeyDown 提交),
+               不给这两个属性时 iOS 软键盘的回车键渲染成「换行」,用户看到「换行」就不会按 ——
+               而这里的回车其实是有效的。一行属性换回一条被隐藏的提交路径。 */
+            type="search"
+            enterKeyHint="search"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && submit()}
             placeholder={isPapers ? '搜索论文 / 关键词 / 作者' : '搜索期刊名 / 出版社'}
+            /* outline-none 合法: 焦点由外层容器的 focus-within:border-brand-red 提示 */
             className="min-w-0 flex-1 bg-transparent text-14 outline-none placeholder:text-faint"
           />
           {input && (
@@ -270,7 +276,10 @@ export function MobileSearchOverlay() {
       ) : (
         <div
           ref={scrollRef}
-          className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain bg-surface-card"
+          /* 浮层是 absolute inset-0(盖住底部 Tab)→ 这个滚动列表的底边就是**屏幕底边**,
+             最后一行会压在全面屏 home indicator 下。pb 走 --safe-bottom:
+             无刘海/桌面 16px、iPhone X+ 34px。(render-audit-2026-07-28 P1-6) */
+          className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain bg-surface-card pb-[var(--safe-bottom)]"
           {...ptr.handlers}
         >
           <PullToRefreshIndicator pull={ptr.pull} refreshing={ptr.refreshing} />

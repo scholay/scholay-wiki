@@ -1,5 +1,5 @@
 /**
- * 文献集字段展示策略 —— "og 优先, fallback 到元数据, 都空不显示"
+ * 文件夹内论文的字段展示策略 —— "og 优先, fallback 到元数据, 都空不显示"
  *
  * 背景:
  *   一条 user_library_papers 行有两套字段:
@@ -13,7 +13,7 @@
  *   2) og_xx 空 → 用元数据
  *   3) 都空 → 不渲染
  *
- * 整个文献集 UI (卡片 / 详情 pane / 编辑预览) 都过这层 helper,
+ * 整个「我的文件夹」UI (卡片 / 详情 pane / 编辑预览) 都过这层 helper,
  * 不要在组件里散落 `row.title || row.og_title` 这种写法。
  */
 import type { PaperAuthor, UserLibraryPaper } from '@/shared/api/types';

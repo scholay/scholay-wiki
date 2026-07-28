@@ -16,7 +16,7 @@ export function InlineSvg({ code }: { code: string }) {
   const clean = sanitizeSvg(src);
   if (!clean) {
     return (
-      <pre className="mb-2.5 last:mb-0 overflow-x-auto rounded-12 border border-border bg-surface-1 p-3 text-[12px] leading-paragraph">
+      <pre className="mb-2.5 last:mb-0 overflow-x-auto rounded-12 border border-border bg-surface-1 p-3 text-12 leading-paragraph">
         <code>{code}</code>
       </pre>
     );

@@ -183,7 +183,7 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
         )}
       </div>
 
-      <div className="max-h-[42vh] overflow-y-auto px-3.5 py-3">
+      <div className="max-h-[42dvh] overflow-y-auto px-3.5 py-3">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={idx}
@@ -217,7 +217,7 @@ export function QuestionPrompt({ block, onSubmit }: QuestionPromptProps) {
                         className={cn(
                           'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-4 border',
                           active
-                            ? 'border-brand-green bg-brand-green text-background'
+                            ? 'border-brand-green bg-brand-green text-on-brand'
                             : 'border-border-button',
                         )}
                       >

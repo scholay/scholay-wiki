@@ -2,6 +2,11 @@ import * as React from'react';
 import * as TabsPrimitive from'@radix-ui/react-tabs';
 import { cn } from'@/shared/lib/utils';
 
+/**
+ * Tabs —— 导航级控件,与 <Button> 同属「主控件」层。
+ * TabsTrigger 字号 = text-12,与 Button 同档 —— 本项目控件基座统一 text-12(对 Figma §4.1/§4.5 的刻意偏离,见 button.tsx 文件头)。
+ * h-9(36px)容纳 14px×leading-sans 1.25 = 17.5px,余量 18.5px,不撑破。
+ */
 const Tabs = TabsPrimitive.Root;
 
 const TabsList = React.forwardRef<

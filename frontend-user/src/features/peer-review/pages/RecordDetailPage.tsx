@@ -9,16 +9,22 @@ import { ResourceError } from '@/shared/components';
 import { LoadingState } from '@/shared/components/LoadingState';
 import { useSubmission, useDownloadSubmissionAssets, useRetrySubmission } from '../api/submissions';
 import { useSubmissionReports } from '../api/reports';
-import { recBadgeClasses, recFillBg, recShortLabel, recTextColor } from '../lib/recommendation';
-import { effectiveResult } from '../lib/partial-parse';
-import type { ReviewReport, ReviewerRole } from '../types';
+import {
+  recBadgeClasses,
+  recFillBg,
+  recShortLabel,
+  recTextColor,
+} from '@/shared/lib/peer-review/recommendation';
+import { effectiveResult } from '@/shared/lib/peer-review/partial-parse';
+import type { ReviewReport, ReviewerRole } from '@/shared/lib/peer-review/types';
 
-import { StatusGrid } from '../components/record/StatusGrid';
-import { EditorialCheckPanel } from '../components/record/EditorialCheckPanel';
-import { MethodologyPhaseCard } from '../components/record/MethodologyPhaseCard';
-import { ReviewerDetailPanel } from '../components/record/ReviewerDetailPanel';
-import { ChiefVerdictPanel } from '../components/record/ChiefVerdictPanel';
-import { DetailRail } from '../components/record/DetailRail';
+import { StatusGrid } from '@/shared/components/peer-review-record/StatusGrid';
+import { EditorialCheckPanel } from '@/shared/components/peer-review-record/EditorialCheckPanel';
+import { MethodologyPhaseCard } from '@/shared/components/peer-review-record/MethodologyPhaseCard';
+import { DetailRail } from '@/shared/components/peer-review-record/DetailRail';
+// 用户端要主审 / 审稿人的实时流 → 走 live wrapper(它负责订阅 SSE 并注入 stream prop),
+// 不直接用 shared 的裸面板。后台会话监控用裸面板(只读记录、无流)。
+import { LiveChiefVerdictPanel, LiveReviewerDetailPanel } from '../components/record/LiveRecordPanels';
 
 /**
  * 工单详情页(.pen `O4oP1` + `DYLbv` + `p9kpKj`)。
@@ -85,7 +91,7 @@ export function RecordDetailPage() {
     if (tab === 'editorial') return <EditorialCheckPanel submission={sub} />;
     if (tab === 'chief')
       return (
-        <ChiefVerdictPanel
+        <LiveChiefVerdictPanel
           submissionId={sub.id}
           chief={reportMap.get('chief')}
           reviewers={{
@@ -97,7 +103,7 @@ export function RecordDetailPage() {
         />
       );
     return (
-      <ReviewerDetailPanel
+      <LiveReviewerDetailPanel
         role={tab as ReviewerRole}
         submissionId={sub.id}
         report={reportMap.get(tab as ReviewerRole)}
@@ -120,6 +126,9 @@ export function RecordDetailPage() {
 
       {/* Main area */}
       <div className="flex-1 overflow-auto bg-surface-3 px-7 py-5">
+        {/* ⚠️ max-w-[1400px] 是历史值,Figma §5 的中心内容最大宽是 1440(token `max-w-page`)。
+            两者只差 40px,但换过去会在 ≥1400px 视口上真实变宽,不属于「等值收口」,
+            故留给容器宽度统一收口那一批处理,这里先标明偏离。 */}
         <div className="mx-auto flex max-w-[1400px] flex-col gap-3.5">
           {/* 1) mHeader */}
           <Header sub={sub} reports={reportMap} activeTab={activeTab} onTabChange={handleTabChange} />

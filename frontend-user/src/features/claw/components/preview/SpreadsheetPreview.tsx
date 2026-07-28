@@ -51,7 +51,7 @@ export function SpreadsheetPreview({ bytes }: { bytes: ArrayBuffer }) {
               onClick={() => setActive(i)}
               className={cn(
                 'inline-flex shrink-0 items-center rounded-8 px-2 py-1 text-12 transition-colors',
-                i === safeActive ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-surface-2',
+                i === safeActive ? 'bg-foreground text-on-dark' : 'text-muted-foreground hover:bg-surface-2',
               )}
             >
               {name}

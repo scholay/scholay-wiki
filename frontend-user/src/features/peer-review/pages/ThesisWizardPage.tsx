@@ -32,7 +32,7 @@ import {
 } from '../api/submissions';
 import { unwrap } from '../api/_unwrap';
 import { extractPartialMeta, useStreamingPartial } from '../api/stream';
-import type { ExtraMeta, SchoolTarget, SubmissionAsset, WizardStep } from '../types';
+import type { ExtraMeta, SchoolTarget, SubmissionAsset, WizardStep } from '@/shared/lib/peer-review/types';
 
 const SUBKEY = (...rest: (string | number)[]) =>
   ['peer-review', 'submissions', ...rest] as const;
@@ -480,6 +480,9 @@ export function ThesisWizardPage() {
   );
 }
 
+// border-l-[3px]:左侧强调边线 = globals.css §十一 的 --rule-accent(3px)。
+// Figma 描边只有 1 / 1.5px,3px 强调条是代码内生共识;该 token 未注册成 Tailwind 类,
+// 故保留 arbitrary,值以 --rule-accent 为准(与 JournalWizardPage 的 SelectedJournalMini 同款)。
 function SelectedSchoolMini({ target }: { target: SchoolTarget }) {
   const deg =
     target.degreeType === 'phd' ? '博士' : target.degreeType === 'master' ? '硕士' : '本科';
@@ -536,7 +539,7 @@ function FailureBanner({ error, onRetry }: { error: string; onRetry: () => void 
       <button
         type="button"
         onClick={onRetry}
-        className="shrink-0 rounded-8 border border-destructive/40 px-3 py-1 text-12 font-medium text-destructive hover:bg-destructive hover:text-background"
+        className="shrink-0 rounded-8 border border-destructive/40 px-3 py-1 text-12 font-medium text-destructive hover:bg-destructive hover:text-on-brand"
       >
         重新生成
       </button>

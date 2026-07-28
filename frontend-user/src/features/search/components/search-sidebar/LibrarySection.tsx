@@ -9,7 +9,7 @@ import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useLibraryFoldersSummary } from '../../api/library';
 
 /**
- * 文献集快捷区 —— 视觉/排版与 LibrarySidebar 的 FolderRow 一致
+ * 文件夹快捷区 —— 视觉/排版与 LibrarySidebar 的 FolderRow 一致
  * (Folder icon + 名字 + count + hover),click 跳 /library?folder=X。
  *
  * 限高 max-h-[260px] + overflow-y-auto:文件夹多了不会挤占下方筛选器位置。
@@ -27,10 +27,10 @@ export function LibrarySection() {
 
   if (!authenticated) {
     return (
-      <SidebarSection id="library" label="我的文献集">
+      <SidebarSection id="library" label="我的文件夹">
         <div className="mx-4 my-2 px-3 py-3 rounded-12 bg-surface-1 border border-border-soft">
           <div className="text-12 text-subtle leading-paragraph">
-            登录后查看你的文献集,所有收藏云端同步
+            登录后查看你的文件夹,所有收藏云端同步
           </div>
           <Button
             size="sm"

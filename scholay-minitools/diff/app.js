@@ -84,8 +84,10 @@
       S.countUp(el, parseFloat(el.getAttribute('data-cu')), { dur: 800, suffix: el.getAttribute('data-suf') || '' });
     });
     var mf = document.getElementById('mf');
-    mf.style.background = intensity > 55 ? 'linear-gradient(90deg,#cc2222,#a81c1c)'
-      : intensity > 25 ? 'linear-gradient(90deg,#d4a017,#b8860b)' : 'linear-gradient(90deg,#2a7a2a,#3f9b3f)';
+    // 渐变端点真源:globals.css —— 朱砂 #882828→red-4 #661E1E / 琥珀 #E5A800→amber-4 #B28300 /
+    // 松青 #2F4D29→green-4 #3F6636。内联 style 无法读 CSS 变量,改 globals 须同步。
+    mf.style.background = intensity > 55 ? 'linear-gradient(90deg,#882828,#661E1E)'
+      : intensity > 25 ? 'linear-gradient(90deg,#E5A800,#B28300)' : 'linear-gradient(90deg,#2F4D29,#3F6636)';
     requestAnimationFrame(function () { mf.style.width = Math.max(3, intensity) + '%'; });
     S.scrollIntoView(result);
   }
