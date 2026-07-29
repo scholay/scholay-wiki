@@ -1012,7 +1012,9 @@ export function SmartSearchPanel() {
           {turns.length === 0 && !loadingHistory && (
             <motion.div
               key="smart-hero"
-              className="absolute inset-0 z-nav flex"
+              // 无 z-index:空状态 hero 与对话区互斥渲染(同 ConversationWorkspace);
+              // z-nav 会整片盖住侧栏展开按钮(那颗按钮已抬到 z-chrome,这里是顺手清多余层级)
+              className="absolute inset-0 flex"
               exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.985 }}
               transition={{ duration: reduce ? 0 : 0.3, ease: 'easeOut' }}
             >

@@ -41,9 +41,9 @@ export function UserGrantPanel({
   const [days, setDays] = useState(30);
   // 计费周期标识(0079):keep=不改动现值(默认,防随手补天数冲掉年费徽标)。
   const [cycle, setCycle] = useState<'keep' | 'monthly' | 'yearly'>('keep');
-  const [creditKind, setCreditKind] = useState<'perm' | 'temp'>('perm');
+  const [creditKind] = useState<'perm' | 'temp'>('perm'); // 0090:固定永久,选择器已删
   const [amount, setAmount] = useState(100);
-  const [creditDays, setCreditDays] = useState(30);
+  const [creditDays] = useState(30); // 0090:经费不过期,天数不再可编辑(仍随请求发出,后端忽略)
 
   const isPro = vip?.tier === 'pro' || vip?.tier === 'max';
 
@@ -64,7 +64,8 @@ export function UserGrantPanel({
     const ok = await confirm({
       title: `取消 ${displayName} 的会员?`,
       description:
-        '危险操作:会员立即过期回到 Free 档(额度按 Free 计),并清零其随会员发放的订阅经费(含已预发放的下一周期)。充值的永久经费、兑换码等其他来源的临时经费不受影响。',
+        // 0090:订阅不再赠送经费 → 取消会员没有赠送物可回收,经费与重置次数一律不动。
+        '危险操作:会员立即过期回到 Free 档(额度按 Free 计)。经费余额与重置次数不受影响。',
       danger: true,
       confirmText: '取消会员',
     });
@@ -75,7 +76,7 @@ export function UserGrantPanel({
   const handleAdjust = async (sign: 1 | -1) => {
     if (amount < 1) return;
     const label = sign > 0 ? '发放' : '扣减';
-    const kindLabel = creditKind === 'temp' ? '临时' : '永久';
+    const kindLabel = ''; // 0090:经费不再分类型,toast 不再报「临时/永久」
     await apiToast(
       adjust.mutateAsync({
         id: user.id,
@@ -161,18 +162,9 @@ export function UserGrantPanel({
       {/* 经费 */}
       <div className="flex flex-col gap-2 border-t border-border-soft pt-3">
         <Label className="text-12 text-faint">调整科研经费</Label>
+        {/* 0090:「临时/永久」选择器已删 —— 只剩一种经费。后端也已忽略 kind,
+            留着按钮会让运营以为发的是 30 天临时经费,实际发的是永久,是无声的调账错账。 */}
         <div className="flex flex-wrap items-center gap-1.5">
-          {(['perm', 'temp'] as const).map((k) => (
-            <Button
-              key={k}
-              type="button"
-              size="sm"
-              variant={creditKind === k ? 'default' : 'outline'}
-              onClick={() => setCreditKind(k)}
-            >
-              {k === 'perm' ? '永久' : '临时'}
-            </Button>
-          ))}
           <Input
             type="number"
             min={1}
@@ -181,19 +173,6 @@ export function UserGrantPanel({
             className="h-8 w-24"
             placeholder="金额"
           />
-          {creditKind === 'temp' && (
-            <span className="flex items-center gap-1 text-12 text-faint">
-              有效
-              <Input
-                type="number"
-                min={1}
-                value={creditDays}
-                onChange={(e) => setCreditDays(Number(e.target.value))}
-                className="h-8 w-16"
-              />
-              天
-            </span>
-          )}
         </div>
         <div className="flex items-center gap-2">
           <Button onClick={() => handleAdjust(1)} disabled={adjust.isPending || amount < 1} className="flex-1">
@@ -205,7 +184,7 @@ export function UserGrantPanel({
           </Button>
         </div>
         <p className="text-12 text-faint">
-          永久经费:充值 / 管理员发放,长期有效。临时经费:有有效期、消耗时优先扣减。
+          经费:充值 / 兑换码 / 管理员发放,长期有效不过期(0090 起不再分临时/永久)。
         </p>
       </div>
     </div>

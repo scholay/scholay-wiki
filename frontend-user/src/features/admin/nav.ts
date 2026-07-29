@@ -107,7 +107,8 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { id: 'session-monitor', label: '用户会话监控', icon: ScanEye, href: '/admin/session-monitor', requires: PERM.analyticsView },
       { id: 'analytics', label: '数据统计', icon: BarChart3, href: '/admin/analytics', requires: PERM.analyticsView },
       { id: 'usage-stats', label: '使用统计', icon: BarChart2, href: '/admin/usage-stats', requires: PERM.analyticsView },
-      { id: 'token-usage', label: 'Token 用量', icon: Coins, href: '/admin/token-usage', requires: PERM.analyticsView },
+      // href / id 保持 token-usage:URL 是外部可书签的,改名只改文案不改路径。
+      { id: 'token-usage', label: '算力用量', icon: Coins, href: '/admin/token-usage', requires: PERM.analyticsView },
     ],
   },
   {

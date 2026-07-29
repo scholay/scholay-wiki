@@ -434,7 +434,11 @@ function SelectAllButton({
       aria-pressed={allStaged}
       aria-label={`全选本页 ${papers.length} 篇`}
       title={allStaged ? `取消暂存本页 ${papers.length} 篇` : `暂存本页 ${papers.length} 篇`}
-      className="inline-flex h-6 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-8 border border-border px-2 text-12 text-subtle transition-colors hover:bg-surface-1 hover:text-foreground disabled:cursor-wait disabled:opacity-60"
+      /* 无外边框(2026-07-29):它坐在结果列表的表头行里,与左侧「找到 N 篇」是同一层信息,
+         描边会把它抬成一颗独立按钮、抢过下方卡片的视觉重量。可点性交给 hover 底色 +
+         圆圈图标本身(那个圆圈与卡片上的 StageToggle 同款,已经是全站认得的可点符号)。
+         ⚠️ 里面那圈 `border border-current` 是圆圈图标自己的描边,不是外框,别一起删。 */
+      className="inline-flex h-6 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-8 px-2 text-12 text-subtle transition-colors hover:bg-surface-1 hover:text-foreground disabled:cursor-wait disabled:opacity-60"
     >
       {busy ? (
         <Loader2 className="size-3 shrink-0 animate-spin" />

@@ -68,7 +68,8 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		opsRead.GET("/usage-stats/peer-review-funnel", h.usageStats.GetFunnel)
 		opsRead.GET("/usage-stats/events", h.usageStats.ListEvents)
 
-		// LLM Token 用量看板 (llm_token_usage) —— 只读总览/明细/筛选项/CSV 导出(cleanup 在 adminOnly 组)。
+		// LLM 算力用量看板 (llm_token_usage) —— 只读总览/明细/筛选项/CSV 导出(cleanup 在 adminOnly 组)。
+		// 路径保持 /llm-token-usage/*:表名与 URL 是对外契约, 只有展示口径改成了算力点(cost_micro_yuan ÷ 1000)。
 		opsRead.GET("/llm-token-usage/summary", h.llmUsageAdmin.GetSummary)
 		opsRead.GET("/llm-token-usage/logs", h.llmUsageAdmin.ListLogs)
 		opsRead.GET("/llm-token-usage/facets", h.llmUsageAdmin.GetFacets)
@@ -309,7 +310,7 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		// 功能使用统计 v2 —— 清理(破坏性,删超期埋点)。只读统计在 opsRead 组。
 		adminOnly.POST("/usage-stats/cleanup", h.usageStats.TriggerCleanup)
 
-		// LLM Token 用量 —— 手动清理(破坏性)。只读看板在 opsRead 组。
+		// LLM 算力用量 —— 手动清理(破坏性)。只读看板在 opsRead 组。
 		adminOnly.POST("/llm-token-usage/cleanup", h.llmUsageAdmin.TriggerCleanup)
 
 		// 会员兑换码: 批量生成(等于凭空发会员/经费)+ 列表 + 停用/恢复 + 续期 + 加次数 + 改会员天数

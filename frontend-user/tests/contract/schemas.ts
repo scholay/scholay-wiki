@@ -55,20 +55,20 @@ export const tokenStatusSchema = z
   })
   .passthrough();
 
+// 0090:经费只剩一种 —— temp / lots 已从 BalanceView 移除。
+// 用 z.never().optional() **拒绝**它们复活:这两个字段一旦回来,说明临时经费链路被改回去了,
+// 而那条链路已经被迁移 0092 换算过一遍 —— 同一笔钱会同时以经费和重置次数两种形态存在。
 export const balanceViewSchema = z
   .object({
-    temp: z.number(),
     perm: z.number(),
     total: z.number(),
-    lots: z.array(
-      z
-        .object({
-          amount: z.number(),
-          expires_at: z.string(),
-          source: z.string(),
-        })
-        .passthrough(),
-    ),
+    // 0094:经费是小数,真值走 micro-credit;points 是当前兑换率下的可兑算力。
+    // 缺 points 会让余额失去参照(兑换率可调,「600 经费」本身不说明任何事)。
+    perm_micro: z.number(),
+    points: z.number(),
+    credit_autopay: z.boolean(),
+    temp: z.never().optional(),
+    lots: z.never().optional(),
   })
   .passthrough();
 
@@ -83,7 +83,12 @@ export const vipOverviewSchema = z
     // 但 producer 有早返回不变量)。若后端某天送 null,录制刷新会在此 fail,正好提醒。
     credit: balanceViewSchema,
     auto_reset: z.boolean(),
-    reset_cost: z.number(),
+    // 0090:reset_cost(重置花费多少经费)→ reset_passes(还剩几次)。
+    // 三个客户端硬闸(PC 资产卡 / QuotaNotifier / 移动资产卡)都按这个数决定重置入口是否可点,
+    // 缺了它们会静默 undefined → `undefined > 0` 为 false → 重置入口对所有人永久置灰。
+    reset_passes: z.number(),
+    reset_pass_next_expiry: z.string().nullable(),
+    reset_cost: z.never().optional(),
   })
   .passthrough();
 
@@ -97,6 +102,106 @@ export const agentErrorFrameSchema = z
     message: z.string().optional(),
     code: z.string().optional(),
     retryable: z.boolean().optional(),
+  })
+  .passthrough();
+
+// ── 用户端「不下发额度绝对值」不变量 ──────────────────────────────────────────
+// source: backend/internal/vip/quota.go StripQuotaAmounts / ResetResult.StripAmounts
+//         + billing_handler.go UsageCalendar / PublicPlans
+//
+// P5 成本制:额度绝对值(微元真实成本 → ÷1000 = 算力点)**只在 admin 可见**,用户端只看百分比。
+// 这条不变量此前靠人肉记得在每个 handler 调 strip,漏了三处(重置回包 / 月度热力图的每日绝对成本
+// + 日均参考线 / 免登录套餐页的额度基数)。下面两条 schema 用 **strict 拒绝**把它机械化:
+// 新字段一旦把绝对值带回用户端,contract 直接红 —— 不能用 passthrough,那正好会放过泄漏。
+export const publicPlansNoAbsoluteQuotaSchema = z
+  .object({
+    window_days: z.number(),
+    plans: z.array(z.object({ tier: z.string(), multiplier: z.number() }).passthrough()),
+    // 免登录端点:任何「额度基数」字段都不允许出现 —— 基数 × multiplier = 三档绝对上限。
+    free_window_tokens: z.never().optional(),
+    free_daily_tokens: z.never().optional(),
+    // 0094:按需付费区块要用 recharge_rate × credit_to_points 算出「¥1 = N 算力点」。
+    // 这两个是**相对价格**(不泄漏绝对额度基数),可以下发;缺了定价页那块会整个隐藏。
+    recharge_rate: z.number(),
+    credit_to_points: z.number(),
+  })
+  .passthrough();
+
+export const usageCalendarNoAbsoluteQuotaSchema = z
+  .object({
+    // 每日只给相对强度百分比,不给成本。cost/daily_ceiling 出现即视为回归。
+    days: z.array(z.object({ date: z.string(), pct: z.number(), cost: z.never().optional() }).passthrough()),
+    unlimited: z.boolean(),
+    daily_ceiling: z.never().optional(),
+  })
+  .passthrough();
+
+// ── 后台算力用量看板总览 ─────────────────────────────────────────────────────
+// source: backend/internal/llmusage/models_admin.go (Totals / DayPoint / BreakdownItem /
+//         UserUsageItem / DayDimPoint) + service_stats.go (Overview)
+//
+// 为什么这条值得钉:后端 Totals / BreakdownItem 从 migration 0065 起就返回 cost_micro_yuan,
+// 而前端 api/token-usage.ts 的 interface **整整两个结构体都没声明它**,看板因此长期只显示
+// 裸 token —— 文件头还写着「字段对齐 models_admin.go」。这类漂移编译期和请求期都没有信号,
+// 只有对着真实响应做 schema 校验才拦得住。
+//
+// 🔴 **所有 *_micro_yuan 字段单位是微元**(1e6 微元 = ¥1;÷1000 = 算力点 = ¥0.001)。
+// z.number() 拦不住单位漂移 —— 后端哪天改成直接下发算力点,这里全绿但页面会小 1000 倍。
+// 单位是本注释的职责,改后端换算时必须同步改这段话。
+const costFieldsSchema = {
+  cost_micro_yuan: z.number(),
+};
+
+const tokenFieldsSchema = {
+  total_tokens: z.number(),
+  input_tokens: z.number(),
+  output_tokens: z.number(),
+  cache_read_tokens: z.number(),
+  cache_creation_tokens: z.number(),
+  calls: z.number(),
+};
+
+export const llmUsageOverviewSchema = z
+  .object({
+    totals: z
+      .object({
+        total_tokens: z.number(),
+        input_tokens: z.number(),
+        output_tokens: z.number(),
+        cache_read_tokens: z.number(),
+        cache_creation_tokens: z.number(),
+        total_calls: z.number(),
+        unique_users: z.number(),
+        anon_calls: z.number(),
+        anon_tokens: z.number(),
+        ...costFieldsSchema,
+        anon_cost_micro_yuan: z.number(),
+        // 未计价行(cost=0 但有 token)。缺了它,一段全是历史行的窗口会显示「0 算力点」,
+        // 与「没花钱」在页面上不可区分 —— 这两个字段是那条区分线的唯一数据来源。
+        unpriced_calls: z.number(),
+        unpriced_tokens: z.number(),
+      })
+      .passthrough(),
+    daily: z.array(z.object({ date: z.string(), ...tokenFieldsSchema, ...costFieldsSchema }).passthrough()),
+    by_model: z.array(
+      z.object({ key: z.string(), label: z.string(), ...tokenFieldsSchema, ...costFieldsSchema, unpriced_calls: z.number() }).passthrough(),
+    ),
+    by_feature: z.array(
+      z.object({ key: z.string(), label: z.string(), ...tokenFieldsSchema, ...costFieldsSchema, unpriced_calls: z.number() }).passthrough(),
+    ),
+    top_users: z.array(
+      z
+        .object({
+          user_id: z.number().nullable(),
+          ...tokenFieldsSchema,
+          ...costFieldsSchema,
+          unpriced_calls: z.number(),
+        })
+        .passthrough(),
+    ),
+    daily_by_model: z.array(
+      z.object({ date: z.string(), key: z.string(), ...tokenFieldsSchema, ...costFieldsSchema }).passthrough(),
+    ),
   })
   .passthrough();
 

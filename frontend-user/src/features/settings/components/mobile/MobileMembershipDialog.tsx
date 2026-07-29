@@ -231,7 +231,6 @@ export function MobileMembershipDialog({
               })}
               <p className="text-12 text-faint">
                 付款将跳转支付宝完成,开通后自动回到本页。
-                {cycle === 'yearly' ? '年度会员经费按月分批发放。' : ''}
               </p>
             </div>
           )}

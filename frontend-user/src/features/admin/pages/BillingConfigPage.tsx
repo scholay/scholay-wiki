@@ -39,25 +39,27 @@ const GROUPS: Group[] = [
       { key: 'pro_year_original_cents', label: 'Pro 年原价(划线)' },
       { key: 'max_year_price_cents', label: 'Max 年价', hint: '设 0 = 关闭 Max 年付' },
       { key: 'max_year_original_cents', label: 'Max 年原价(划线)' },
-      { key: 'subscription_year_days', label: '年度会员时长(天)', hint: '默认 365' },
+      // 0090:「年度会员时长(天)」已删 —— 年度 = +1 个自然年,没有天数可配。
     ],
   },
+  // 0090:整组「订阅赠送经费(临时)」已删 —— 订阅不再赠送经费,月度 = +1 个自然月。
   {
-    title: '订阅赠送经费(临时)',
+    title: '经费 / 按需付费',
     fields: [
-      { key: 'pro_grant_credits', label: 'Pro 月度赠送经费', hint: '月度订阅:开通/续期一次性发放,整月有效' },
-      { key: 'max_grant_credits', label: 'Max 月度赠送经费' },
-      { key: 'subscription_period_days', label: '月度会员/赠送有效天数' },
-      { key: 'pro_year_grant_credits', label: 'Pro 年度赠送经费(总额)', hint: '年度订阅:按月分 12 批依次生效,每批当月有效' },
-      { key: 'max_year_grant_credits', label: 'Max 年度赠送经费(总额)' },
-    ],
-  },
-  {
-    title: '充值 / 重置',
-    fields: [
-      { key: 'recharge_rate', label: '充值汇率(1元=N经费)', step: 0.1 },
+      { key: 'recharge_rate', label: '充值汇率(1元=N经费)', step: 0.1, hint: '0095 起为 100,即**经费 = 分** —— 600 经费 = ¥6,用户一眼可读。改它会改变按需付费单价(¥1 = 本值 × 兑换率 算力点)' },
+      {
+        key: 'credit_to_points',
+        label: '经费兑换率(1经费=N算力点)',
+        hint:
+          '与充值汇率共同决定按需付费单价:¥1 = 汇率 × 本值 算力点(现网 100×3 = 300)。' +
+          '⚠️ 后端硬校验「按需付费必须比所有套餐档贵」—— 调高到套餐更贵时会拒绝保存。' +
+          '⚠️ 调低会使用户手里已有经费的购买力下降,属对已付费用户的溯及变更,谨慎操作。',
+      },
       { key: 'min_recharge_cents', label: '起充金额(分)' },
-      { key: 'reset_cost_credits', label: '每次重置花费经费' },
+      // reset_cost_credits 已不参与运行时(重置改扣「重置次数」),但**不能从表单删** ——
+      // 后台 PUT 是全列覆盖,表单不提交它会被写成 0,而迁移 0092 拿它当换算除数、每次启动重放,
+      // 被写成 0 会让未换算批次按 1:1 换 = 超发 120 倍。保留只读展示,禁止编辑。
+      { key: 'reset_cost_credits', label: '经费→重置次数换算率(历史迁移用)', hint: '已不参与运行时判定;仅迁移 0092 用作换算除数。**请勿改动**' },
     ],
   },
 ];

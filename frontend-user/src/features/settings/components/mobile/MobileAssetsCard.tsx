@@ -140,10 +140,8 @@ export function MobileAssetsCard() {
         <span className="text-14 text-foreground">
           经费 <span className="font-medium">{credit.total.toLocaleString('en-US')}</span>
         </span>
-        <span className="ml-auto text-12 text-faint">
-          临时 {credit.temp.toLocaleString('en-US')} · 永久{' '}
-          {credit.perm.toLocaleString('en-US')}
-        </span>
+        {/* 0090:经费不再分临时/永久,只有一种 —— 拆分行删掉。 */}
+        <span className="ml-auto text-12 text-faint">剩余重置次数 {data.reset_passes}</span>
       </div>
 
       {/* 兑换码 */}
@@ -175,14 +173,15 @@ export function MobileAssetsCard() {
         onOpenChange={setResetOpen}
         title="重置本周期额度"
         description={
-          credit.total >= data.reset_cost
-            ? `将消耗 ${data.reset_cost.toLocaleString('en-US')} 经费立即恢复本周期额度,确认重置?`
-            : `重置需要 ${data.reset_cost.toLocaleString('en-US')} 经费,当前余额不足(${credit.total.toLocaleString('en-US')}),请先兑换或在电脑端充值`
+          // 0090:按**重置次数**判,不是经费余额。次数用完时不引导充值 —— 经费买不到重置。
+          data.reset_passes > 0
+            ? `将使用 1 次重置次数立即恢复本周期额度(剩余 ${data.reset_passes} 次),确认重置?`
+            : '你已没有可用的重置次数。可等待本周期额度自动重置,或升级会员获得更高额度。'
         }
         confirmText="确认重置"
         onConfirm={async () => {
-          if (credit.total < data.reset_cost) {
-            toast.error('经费不足,无法重置');
+          if (data.reset_passes <= 0) {
+            toast.error('重置次数已用完');
             return;
           }
           try {

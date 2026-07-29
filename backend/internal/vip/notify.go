@@ -88,13 +88,15 @@ func (s *Service) notifyOrderFulfilled(ord *Order) {
 	switch ord.OrderType {
 	case "recharge":
 		title := "经费充值成功"
-		inApp := fmt.Sprintf("您充值的 %d 永久科研经费已到账,可用于随时重置每日额度。", ord.CreditsGranted)
+		// 0090:经费不再分临时/永久,对外就叫「经费」;且**不能再说「可用于重置额度」**——
+		// 重置改扣重置次数,经费买不到重置了,留着这句就是虚假承诺。
+		inApp := fmt.Sprintf("您充值的 %d 科研经费已到账。", ord.CreditsGranted)
 		s.notify(ord.UserID, title, inApp, utils.EmailContent{
 			Title: title,
-			Intro: "您的科研经费充值已成功到账。永久经费长期有效、不会过期,可随时用于重置当日 AI 额度。",
+			Intro: "您的科研经费充值已成功到账,长期有效、不会过期。",
 			Rows: [][2]string{
 				{"充值金额", yuanStr(ord.FinalAmount)},
-				{"到账经费", fmt.Sprintf("%d 永久经费", ord.CreditsGranted)},
+				{"到账经费", fmt.Sprintf("%d 经费", ord.CreditsGranted)},
 				{"订单号", ord.OrderNo},
 			},
 			CTAText: "查看账户资产", CTAURL: membershipURL(),
@@ -136,22 +138,9 @@ func (s *Service) notifyOrderFulfilled(ord *Order) {
 			rows = append(rows, [2]string{"计费周期", cycleLabel})
 		}
 		rows = append(rows, [2]string{"有效期至", exp})
+		// 0090:订阅不再赠送经费 —— 原先这里按 年度/续期 四分支播报「赠送 N 经费(按月分 12 批)」,
+		// 整段删除。订阅单的 CreditsGranted 建单侧已硬置 0,履约侧也不再发放。
 		note := ""
-		if ord.CreditsGranted > 0 {
-			switch {
-			case yearly && ord.SubAction == "renew":
-				rows = append(rows, [2]string{"赠送经费", fmt.Sprintf("%d 经费(下一周期起按月分 12 批发放)", ord.CreditsGranted)})
-				note = "年度续期赠送的经费将从下一计费周期开始按月分 12 批依次生效,每批当月有效;本周期额度与经费不变。"
-			case yearly:
-				rows = append(rows, [2]string{"赠送经费", fmt.Sprintf("%d 经费(按月分 12 批发放)", ord.CreditsGranted)})
-				note = "年度订阅赠送的经费按月分 12 批依次生效,每批当月有效 —— 与月度会员的每月节奏一致,细水长流。"
-			case ord.SubAction == "renew":
-				rows = append(rows, [2]string{"赠送经费", fmt.Sprintf("%d 经费(下一周期发放)", ord.CreditsGranted)})
-				note = "续期赠送的经费将在下一计费周期开始时自动发放并生效,本周期额度与经费不变。"
-			default:
-				rows = append(rows, [2]string{"赠送经费", fmt.Sprintf("%d 经费", ord.CreditsGranted)})
-			}
-		}
 		rows = append(rows, [2]string{"支付金额", yuanStr(ord.FinalAmount)}, [2]string{"订单号", ord.OrderNo})
 		inApp := fmt.Sprintf("您的 %s 已%s,有效期至 %s。", planLabel, verb, exp)
 		s.notify(ord.UserID, title, inApp, utils.EmailContent{

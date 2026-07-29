@@ -447,8 +447,11 @@ export function ConversationWorkspace({
                 </div>
               )}
 
+              {/* 无 z-index:下面两层(错误态 / hero)都与对话区(turns.length>0)互斥渲染,不需要压过任何东西。
+                  原先写的 z-nav(30)会整片盖住侧栏展开按钮,导致智能助手页 hover/点击全失效 ——
+                  按钮现已抬到 z-chrome(35) 从根上解决,这里顺手把多余的层级也清掉,少一处将来打架的地方。 */}
               {!loading && turns.length === 0 && historyError && (
-                <div className="absolute inset-0 z-nav flex items-center justify-center p-6">
+                <div className="absolute inset-0 flex items-center justify-center p-6">
                   <ResourceError
                     error={historyErrorObj}
                     resourceName="对话"
@@ -464,7 +467,8 @@ export function ConversationWorkspace({
                 {!loading && turns.length === 0 && !historyError && (
                   <motion.div
                     key="workspace-hero"
-                    className="absolute inset-0 z-nav flex"
+                    // 无 z-index,理由同上:hero 只在 turns.length===0 时渲染,与对话区互斥
+                    className="absolute inset-0 flex"
                     exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.985 }}
                     transition={{ duration: reduce ? 0 : 0.3, ease: 'easeOut' }}
                   >

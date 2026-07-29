@@ -19,7 +19,7 @@ import { SubscribeDialog, subscribePayMethods } from '@/shared/components';
 import { cn } from '@/shared/lib/utils';
 import { toApiError } from '@/shared/lib/http';
 import { useResetQuota, usePlans, quoteSubscription, type Overview, type Tier } from '../api/membership';
-import { monthDay, resetInfo } from '../lib/quota-display';
+import { resetInfo } from '../lib/quota-display';
 import { useSubscribeFlow } from './billing-panels';
 
 const PLAN_LABEL: Record<Tier, string> = { free: 'Free', pro: 'Pro', max: 'Max' };
@@ -48,7 +48,9 @@ function buildSlides(proMult: number, maxMult: number) {
   ];
 }
 
-export function AccountAssetsCard({ data, onGoRecharge }: { data: Overview; onGoRecharge: () => void }) {
+// onGoRecharge 保留在签名里:充值入口本身仍在(用户拍板照旧),只是「额度耗尽 → 去充值」
+// 这条引导被删了(经费买不到重置)。调用方无需改。
+export function AccountAssetsCard({ data }: { data: Overview; onGoRecharge?: () => void }) {
   const locked = ALL_TIERS.filter((t) => TIER_RANK[t] > TIER_RANK[data.tier]);
   const { data: plans } = usePlans();
   const { subscribe } = useSubscribeFlow();
@@ -83,7 +85,7 @@ export function AccountAssetsCard({ data, onGoRecharge }: { data: Overview; onGo
         </div>
       </div>
 
-      <ActiveRow data={data} onGoRecharge={onGoRecharge} />
+      <ActiveRow data={data} />
 
       {locked.length > 0 && (
         <>
@@ -113,11 +115,11 @@ export function AccountAssetsCard({ data, onGoRecharge }: { data: Overview; onGo
   );
 }
 
-function ActiveRow({ data, onGoRecharge }: { data: Overview; onGoRecharge: () => void }) {
+function ActiveRow({ data }: { data: Overview }) {
   const t = data.token;
   const remaining = t.unlimited || !t.window_started_at ? 100 : Math.max(0, 100 - t.percent); // 剩余百分比(未开窗=满额)
   const exhausted = !t.unlimited && remaining <= 0;
-  const lot = data.credit.lots[0];
+  // 0090:临时经费批次(lots)已下线,经费只剩一种、不过期 —— 没有「最近到期批次」可提示。
   const ri = resetInfo(t);
   return (
     <div className="flex items-center gap-3">
@@ -148,7 +150,7 @@ function ActiveRow({ data, onGoRecharge }: { data: Overview; onGoRecharge: () =>
             {ri.notStarted ? '满额 · 用后计时' : ri.rel}
           </span>
         )}
-        <ResetDialog data={data} exhausted={exhausted} onGoRecharge={onGoRecharge} />
+        <ResetDialog data={data} exhausted={exhausted} />
       </div>
 
       <div className="h-10 w-px shrink-0 bg-border" />
@@ -156,11 +158,16 @@ function ActiveRow({ data, onGoRecharge }: { data: Overview; onGoRecharge: () =>
       <div className="flex w-36 shrink-0 flex-col gap-0.5">
         <div className="flex items-center gap-1.5">
           <Coins className="size-3.5 shrink-0 text-faint" />
-          <span className="text-20 font-medium leading-none tabular-nums text-foreground">{data.credit.total}</span>
+          {/* 0094:经费是小数(单次调用常只花零点几),固定两位;整数时不显示无意义的 .00 */}
+          <span className="text-20 font-medium leading-none tabular-nums text-foreground">
+            {Number.isInteger(data.credit.total) ? data.credit.total : data.credit.total.toFixed(2)}
+          </span>
           <span className="text-12 text-faint">经费</span>
         </div>
+        {/* 🔴 兑换率是可调的,余额必须与「值多少算力点」同屏 —— 只给「600 经费」用户无从判断它的价值。 */}
         <span className="text-12 text-faint">
-          {lot ? `${lot.amount} 临时 · ${monthDay(lot.expires_at)}失效` : `永久 ${data.credit.perm}`}
+          ≈{data.credit.points.toLocaleString()} 算力点
+          {data.reset_passes > 0 && ` · 可重置 ${data.reset_passes} 次`}
         </span>
       </div>
     </div>
@@ -213,10 +220,12 @@ function ExplainerCarousel({ proMult, maxMult }: { proMult: number; maxMult: num
   );
 }
 
-function ResetDialog({ data, exhausted, onGoRecharge }: { data: Overview; exhausted: boolean; onGoRecharge: () => void }) {
+function ResetDialog({ data, exhausted }: { data: Overview; exhausted: boolean }) {
   const reset = useResetQuota();
   const [open, setOpen] = useState(false);
-  const enough = data.credit.total >= data.reset_cost;
+  // 0090:重置扣的是**重置次数**不是经费 —— 按经费余额判会两头都错
+  // (有次数没经费的点不到按钮;有经费没次数的点了吃 400)。
+  const enough = data.reset_passes > 0;
 
   const onReset = async () => {
     try {
@@ -232,7 +241,7 @@ function ResetDialog({ data, exhausted, onGoRecharge }: { data: Overview; exhaus
     <Dialog open={open} onOpenChange={setOpen}>
       <button
         onClick={() => setOpen(true)}
-        title="消耗经费重置额度"
+        title="使用重置次数重置额度"
         className={cn(
           'flex size-7 shrink-0 items-center justify-center rounded-8 border transition-colors',
           exhausted ? 'border-brand-red text-brand-red hover:bg-danger-soft' : 'border-border text-faint hover:bg-surface-2'
@@ -246,7 +255,7 @@ function ResetDialog({ data, exhausted, onGoRecharge }: { data: Overview; exhaus
             <DialogHeader>
               <DialogTitle>{exhausted ? '本周期额度已耗尽' : '重置本周期额度'}</DialogTitle>
               <DialogDescription>
-                消耗 <b className="text-foreground">{data.reset_cost}</b> 经费立即把本周期 AI 额度重置为 100%(当前 {data.credit.total} 经费),或等待周期到期自动重置。
+                使用 <b className="text-foreground">1 次</b>重置次数立即把本周期 AI 额度重置为 100%(剩余 {data.reset_passes} 次),或等待周期到期自动重置。
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -255,23 +264,26 @@ function ResetDialog({ data, exhausted, onGoRecharge }: { data: Overview; exhaus
               </DialogClose>
               <Button size="sm" onClick={onReset} disabled={reset.isPending}>
                 {reset.isPending && <Loader2 className="size-3.5 animate-spin" />}
-                使用 {data.reset_cost} 经费重置
+                使用 1 次重置
               </Button>
             </DialogFooter>
           </>
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>经费不足,无法重置</DialogTitle>
+              <DialogTitle>重置次数已用完</DialogTitle>
               <DialogDescription>
-                重置需 {data.reset_cost} 经费,当前仅 {data.credit.total}。可升级会员获更多额度与经费,或直接充值经费。
+                {/* 刻意不引导充值:0090 起经费买不到重置,给一条走不通的路比不给更糟。 */}
+                你已没有可用的重置次数。可等待本周期额度自动重置,或升级会员获得更高额度。
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="outline" size="sm">知道了</Button>
+              </DialogClose>
               <Link to="/pricing">
-                <Button variant="outline" size="sm">升级会员</Button>
+                <Button size="sm">升级会员</Button>
               </Link>
-              <Button size="sm" onClick={() => { setOpen(false); onGoRecharge(); }}>购入经费</Button>
             </DialogFooter>
           </>
         )}

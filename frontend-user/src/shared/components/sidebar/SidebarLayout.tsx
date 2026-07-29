@@ -13,6 +13,14 @@ interface SidebarLayoutProps {
   /** sidebar 宽度,默认 240(.pen 所有 sidebar 变体的统一宽度) */
   width?: number;
   className?: string;
+  /**
+   * 隐藏收起态的左下浮动展开按钮(默认 false = 显示)。
+   *
+   * 只给「左下角另有内容、浮动按钮会打架」的页面用 —— 目前是文献搜索。
+   * ⚠️ 隐藏后侧栏并非无法展开:顶栏的 rail chip(TopNav/RailLinks)仍可展开,
+   *    所以这不是把用户关在门外。若哪天顶栏入口也没了,这个 prop 就得重新评估。
+   */
+  hideExpandButton?: boolean;
 }
 
 /**
@@ -35,6 +43,7 @@ export function SidebarLayout({
   children,
   width = 240,
   className,
+  hideExpandButton = false,
 }: SidebarLayoutProps) {
   const expanded = useSidebar((s) => s.expanded);
   const isMobile = useMediaQuery('(max-width: 639px)');
@@ -59,7 +68,7 @@ export function SidebarLayout({
   if (isMobile) {
     return (
       <div className={cn('relative flex h-full min-h-0', className)}>
-        {!expanded && (
+        {!expanded && !hideExpandButton && (
           <SidebarExpandButton
             onClick={() => useSidebar.getState().setExpanded(true)}
             /* 移动分支只服务 <640px 的 /admin(用户端 /m 走 MobileShell 不经这里),
@@ -69,7 +78,7 @@ export function SidebarLayout({
                🔴 原来这里写的是字面 `bottom-4` + 一句「与 --safe-bottom 下限一致」的注释,
                于是 token 全站渲染消费为 0(render-audit-2026-07-28 P1-6):
                「注释里提到 token」不等于「接上了 token」—— 下限相等只在无刘海机型上成立。 */
-            className="absolute bottom-[var(--safe-bottom)] left-4 z-raised"
+            className="absolute bottom-[var(--safe-bottom)] left-4 z-chrome"
           />
         )}
         {/* 背板:抽屉打开时覆盖全屏,点击收起 */}
@@ -100,10 +109,13 @@ export function SidebarLayout({
       {/* 收起态的悬浮展开按钮 —— 挂在 SidebarLayout 这一层,
           所以【所有带侧栏的页面】(首页/检索/文件夹/期刊/Prism/审稿/广场/claw/admin)一次性都有。
           left-6 与 TopNav 的 px-6 同一内缩,与顶栏的 ☰ 竖直对齐。 */}
-      {!expanded && (
+      {!expanded && !hideExpandButton && (
         <SidebarExpandButton
           onClick={() => useSidebar.getState().setExpanded(true)}
-          className="absolute bottom-6 left-6 z-raised"
+          /* 底距取 max(24px, --safe-bottom):桌面恒为 24px(与改动前逐像素相同),
+             有 home indicator 的设备则自动让位 —— 移动分支早就走 --safe-bottom 了,
+             这里此前是裸 bottom-6,在带刘海的横屏/平板上会压进指示条区域。 */
+          className="absolute bottom-[max(1.5rem,var(--safe-bottom))] left-6 z-chrome"
         />
       )}
       <aside

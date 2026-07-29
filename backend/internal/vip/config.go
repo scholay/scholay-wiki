@@ -9,6 +9,7 @@ package vip
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -42,7 +43,71 @@ func validateBillingConfig(c *BillingConfig) error {
 	if c.WindowDays <= 0 {
 		return &BillingConfigError{msg: "周期天数必须大于 0"}
 	}
+	// 0094 按量付费:兑换率必须 > 0(<=0 会让 MicroCreditForCost 除零/白送)。
+	if c.CreditToPoints <= 0 {
+		return &BillingConfigError{msg: "经费兑换率必须大于 0(1 经费可兑换的算力点数)"}
+	}
+	// 🔴 承重校验:**按量付费单价必须严格高于所有套餐档的满额单价**,否则「买套餐比直充便宜」
+	// 这条产品承诺当场失效 —— 而且是静默失效(页面照常渲染,只是套餐失去了存在理由)。
+	// 单价口径统一成「每 ¥1 买到多少算力点」,数越大越便宜,所以要求 直充 < 每一个套餐档。
+	if err := validatePaygCheaperThanPlans(c); err != nil {
+		return err
+	}
 	return nil
+}
+
+// planPointsPerYuan 某档某周期「每 ¥1 买到多少算力点」(满额口径)。价格未配置(<=0)返回 0 = 跳过。
+func planPointsPerYuan(c *BillingConfig, tier, cycle string) float64 {
+	priceCents := c.PriceCentsFor(tier, cycle)
+	if priceCents <= 0 {
+		return 0
+	}
+	ceilingMicro := c.WindowCeiling(tier)
+	if ceilingMicro <= 0 {
+		return 0 // 不限额档没有「满额单价」可言
+	}
+	days := c.WindowDays
+	if days <= 0 {
+		days = 7
+	}
+	// 周期额度(算力点) → 每月 → 每 ¥1。月 = 365/12 天;年付把价格摊到 12 个月。
+	pointsPerCycle := float64(ceilingMicro) / 1000.0
+	pointsPerMonth := pointsPerCycle * (365.0 / 12.0) / float64(days)
+	monthlyYuan := float64(priceCents) / 100.0
+	if normCycle(cycle) == CycleYearly {
+		monthlyYuan /= 12.0
+	}
+	if monthlyYuan <= 0 {
+		return 0
+	}
+	return pointsPerMonth / monthlyYuan
+}
+
+// validatePaygCheaperThanPlans 见 validateBillingConfig 的红字。
+func validatePaygCheaperThanPlans(c *BillingConfig) error {
+	if c.RechargeRate <= 0 {
+		return nil // 充值关闭 → 没有按量付费,无需比较
+	}
+	paygPointsPerYuan := c.RechargeRate * float64(c.creditToPoints())
+	for _, t := range []string{TierPro, TierMax} {
+		for _, cy := range []string{CycleMonthly, CycleYearly} {
+			p := planPointsPerYuan(c, t, cy)
+			if p > 0 && paygPointsPerYuan >= p {
+				return &BillingConfigError{msg: fmt.Sprintf(
+					"按量付费比套餐还便宜了:¥1 直充可得 %.0f 算力点,而 %s %s 每 ¥1 只有 %.0f 点。"+
+						"请调低「经费兑换率」或调整该档定价 —— 否则用户没有任何理由购买套餐。",
+					paygPointsPerYuan, t, cycleLabelZh(cy), p)}
+			}
+		}
+	}
+	return nil
+}
+
+func cycleLabelZh(cycle string) string {
+	if normCycle(cycle) == CycleYearly {
+		return "年付"
+	}
+	return "月付"
 }
 
 // DefaultBillingConfig 与迁移 0015 的列默认值一致, 作为 DB 读不到时的兜底。
@@ -59,20 +124,24 @@ func DefaultBillingConfig() *BillingConfig {
 		ProOriginalCents:       19900,
 		MaxPriceCents:          26900,
 		MaxOriginalCents:       99900,
-		ProGrantCredits:        600,
-		MaxGrantCredits:        3000,
-		// 年度订阅(0079 种子同口径):年价=月价×10(送 2 个月),划线=月划线×12,赠送=月赠×12。
+		// 年度订阅(0079 种子同口径):年价=月价×10(送 2 个月),划线=月划线×12。
+		// 0090:四个 grant 默认值与两个「周期天数」默认值已删(订阅不赠送经费;周期改真自然月/年)。
 		ProYearPriceCents:    59000,
 		ProYearOriginalCents: 238800,
 		MaxYearPriceCents:    269000,
 		MaxYearOriginalCents: 1198800,
-		ProYearGrantCredits:  7200,
-		MaxYearGrantCredits:  36000,
-		SubscriptionYearDays: 365,
-		RechargeRate:           1,
-		MinRechargeCents:       1000,
-		ResetCostCredits:       60,
-		SubscriptionPeriodDays: 30,
+		// 0095 重锚:¥1 = 100 经费(**经费 = 分**),1 经费 = 3 算力点 ⇒ ¥1 = 300 算力点。
+		// 乘积 300 是定价真源:比最贵的套餐档(Pro 月付 442 点/¥)贵 47%,
+		// 订阅优势 1.47×(Pro月)~1.94×(Max年),落在业界 1.5×~2× 区间内。
+		// 拆成 100 × 3 而不是旧的 60 × 5,是为了让两个数各自有意义 ——
+		// 「经费 = 分」用户一眼可读,60 和 5 谁都不对应任何真实事物。
+		RechargeRate:     100,
+		CreditToPoints:   3,
+		MinRechargeCents: 1000,
+		// ResetCostCredits 运行时已不读(重置改扣次数),但**必须保留取值**:
+		// 迁移 0092 拿它当「N 经费 = 1 次」的换算除数,每次容器启动都重放。被写成 0 会让
+		// GREATEST(0,1)=1 → 未换算批次按 1:1 换,相对拍板值 120 超发 120 倍。
+		ResetCostCredits: 60,
 		PopularPlan:            TierPro,
 		Enabled:                true,
 	}
@@ -129,8 +198,9 @@ func (s *ConfigService) Update(in *BillingConfig) error {
 	clampNeg(&in.ProYearOriginalCents)
 	clampNeg(&in.MaxYearPriceCents)
 	clampNeg(&in.MaxYearOriginalCents)
-	clampNeg(&in.ProYearGrantCredits)
-	clampNeg(&in.MaxYearGrantCredits)
+	// (两个 year_grant_credits 的 clamp 已删 —— 字段本身退休。
+	//  上面四个年度**价格**的 clamp 一行都不能删:0079 的 -1 哨兵回填每次启动都重放,
+	//  价格被存成负数后会被静默复活成「月价×10」,直接改掉用户被收的价。)
 	if err := s.repo.UpdateBillingConfig(in); err != nil {
 		return err
 	}

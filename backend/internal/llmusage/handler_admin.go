@@ -29,6 +29,11 @@ func NewAdminHandler(service *Service) *AdminHandler {
 
 const exportRowCap = 100000 // CSV 导出行数上限, 防止一次拉爆内存/连接
 
+// microYuanPerPoint —— 1 算力点 = 1000 微元 = ¥0.001 真实成本。
+// 与 vip 周期额度、用户端额度条同一个换算常数(那两处在前端做除法);此处 CSV 是服务端直出,
+// 故在后端换算一次。改这个常数 = 改全站计费单位, 三处必须同时改。
+const microYuanPerPoint = 1000.0
+
 // parseStatsFilter 从 query 解析统一过滤条件(看板各端点共用)。
 // 时间窗口: start_date+end_date 同时给 → 自定义区间(含当天), 否则按 days 回看。
 func parseStatsFilter(c *gin.Context) StatsFilter {
@@ -126,9 +131,11 @@ func (h *AdminHandler) ExportCSV(c *gin.Context) {
 
 	w := csv.NewWriter(c.Writer)
 	defer w.Flush()
+	// 算力点在最前面的数值列 —— 它是页面主单位, 导出后在 Excel 里也应该第一眼看到。
+	// 保留 3 位小数 = 微元精度无损(1 算力点 = 1000 微元), 单次调用小到 0.001 点也不会被抹成 0。
 	_ = w.Write([]string{
 		"时间", "用户ID", "用户名", "邮箱", "功能", "来源", "Provider", "账号ID", "账号",
-		"模型", "输入tokens", "输出tokens", "总tokens", "缓存读tokens", "缓存创建tokens", "request_id",
+		"模型", "算力点", "输入tokens", "输出tokens", "总tokens", "缓存读tokens", "缓存创建tokens", "request_id",
 	})
 	for _, r := range items {
 		uid := ""
@@ -144,6 +151,7 @@ func (h *AdminHandler) ExportCSV(c *gin.Context) {
 			uid, r.Username, r.Email,
 			FeatureLabel(r.Feature), SourceLabel(r.Source), r.Provider, accID, r.AccountName,
 			r.Model,
+			strconv.FormatFloat(float64(r.CostMicroYuan)/microYuanPerPoint, 'f', 3, 64),
 			strconv.Itoa(r.InputTokens), strconv.Itoa(r.OutputTokens), strconv.Itoa(r.TotalTokens),
 			strconv.Itoa(r.CacheReadTokens), strconv.Itoa(r.CacheCreationTokens), r.RequestID,
 		})

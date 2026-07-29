@@ -14,20 +14,22 @@ export interface BillingConfig {
   pro_original_cents: number;
   max_price_cents: number;
   max_original_cents: number;
-  pro_grant_credits: number;
-  max_grant_credits: number;
+  // 0090 退休(DB 列非破坏保留,后端 Updates map 已不写):pro/max_grant_credits。
   // ── 年度订阅(0079)。年价 <=0 = 该档年付未开放(前端隐藏年付入口)。
   pro_year_price_cents: number;
   pro_year_original_cents: number;
   max_year_price_cents: number;
   max_year_original_cents: number;
-  pro_year_grant_credits: number; // 年度赠送总额(履约按月分 12 批)
-  max_year_grant_credits: number;
-  subscription_year_days: number; // 年度时长(天,默认 365)
+  // 0090 退休:pro/max_year_grant_credits + subscription_year_days。
   recharge_rate: number;
   min_recharge_cents: number;
+  // reset_cost_credits 运行时已不读(重置改扣次数),但**必须保留**:迁移 0092 拿它当换算率,
+  // 而后台 PUT 是全列覆盖 —— 从这个 interface 删掉会让它被写成 0,导致换算超发 120 倍。
+  /** 1 经费可兑换的算力点(0094 按量付费)。与 recharge_rate 共同决定按量单价 ——
+   *  后端硬校验:按量单价必须严格高于所有套餐档,否则拒绝保存。 */
+  credit_to_points: number;
   reset_cost_credits: number;
-  subscription_period_days: number;
+  // 0090 退休:subscription_period_days(月度改「+1 个自然月」)。
   popular_plan: string;
   enabled: boolean;
 }

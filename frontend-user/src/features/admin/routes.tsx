@@ -129,7 +129,7 @@ export const adminRoutes: RouteObject[] = [
       },
       {
         path: 'token-usage',
-        handle: { title: 'Token 用量统计' },
+        handle: { title: '算力用量统计' },
         lazy: lazyPage(() => import('./pages/TokenUsageStatsPage'))('TokenUsageStatsPage'),
       },
       {

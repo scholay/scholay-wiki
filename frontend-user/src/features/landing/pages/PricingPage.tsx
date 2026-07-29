@@ -42,7 +42,9 @@ export function PricingPage() {
   const [cycle, setCycle] = useState<BillingCycle>('monthly');
 
   const plans = data?.plans ?? [];
-  const resetCost = data?.reset_cost_credits ?? 0;
+  // 按需付费单价:¥1 = recharge_rate × credit_to_points 算力点。任一项缺失/为 0 → 隐藏该区块
+  // (充值或兑换率没配好时,展示「¥1 = 0 算力点」比不展示更糟)。
+  const payg = Math.floor((data?.recharge_rate ?? 0) * (data?.credit_to_points ?? 0));
   // 年付入口:任一付费档配置了年价才显示切换器(admin 年价设 0 = 关闭年付)。
   const yearlyAvailable = plans.some((p) => p.tier !== 'free' && (p.year_price_cents ?? 0) > 0);
   const savingsPct = maxYearlySavingsPct(plans);
@@ -61,7 +63,7 @@ export function PricingPage() {
     <LandingLayout>
       <RouteSEO
         title="学者订阅计划 - Scholay"
-        description="Scholay 学者订阅:统一 7 天周期 AI 额度 + 科研经费。Pro / Max 获更高额度并赠送经费,经费可随时重置额度。"
+        description="Scholay 学者订阅:统一 7 天周期 AI 额度。Pro / Max 获更高额度,周期到期自动恢复满额。"
         keywords="Scholay 会员,学术 AI 订阅,科研经费,Scholay 价格"
       />
       <section className="mx-auto max-w-6xl px-6 py-12 md:py-16">
@@ -69,8 +71,8 @@ export function PricingPage() {
           <p className="text-12 font-medium text-brand-red">SCHOLAY 学者订阅</p>
           <h1 className="mt-1 text-24 font-medium text-foreground">学者订阅计划</h1>
           <p className="mt-2 max-w-2xl text-12 text-muted-foreground">
-            会员订阅提供更高的 AI 额度(按 7 天周期计算,首次使用开始计时、到期自动重置满额)与每月赠送的科研经费。额度耗尽后可消耗经费
-            {resetCost ? `(每次 ${resetCost} 经费)` : ''}立即重置。
+            {/* 0090:订阅不再赠送经费、经费也买不到重置 —— 卖点回到「额度」本身。 */}
+            会员订阅提供更高的 AI 额度,按 7 天周期计算:自首次使用开始计时,到期自动恢复满额。
           </p>
 
           {/* 月付 / 年付 切换 —— 年付带「省 N%」徽标(0079;任一档开放年付才显示) */}
@@ -122,6 +124,35 @@ export function PricingPage() {
             })}
           </div>
         </div>
+
+        {/* ── 按需付费 ────────────────────────────────────────────────────────
+            🔴 **刻意与套餐卡分开**(拍板 2026-07-29):四个东西并排会让用户不知道该选哪个。
+            这里只讲「是什么」,不做单价对比 —— 把「¥1 直充比套餐买到的点数少」摆在
+            按需付费的板块里,等于自己拆自己的台。想比价的用户看得到两边的数,自己会算。 */}
+        {payg > 0 && (
+          <div className="mt-6 rounded-16 border border-border bg-surface-card p-6 md:p-8">
+            <p className="text-12 font-medium text-faint">按需付费</p>
+            <h2 className="mt-1 text-20 font-medium text-foreground">不想订阅?按用量付费</h2>
+            <p className="mt-2 max-w-2xl text-12 leading-paragraph text-muted-foreground">
+              充值科研经费,按实际用量扣费。适合用量不稳定、或只是偶尔用一下的场景。
+            </p>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {[
+                { k: '¥1 = ' + payg.toLocaleString() + ' 算力点', v: '充多少用多少,不设周期' },
+                { k: '永不过期', v: '经费长期有效,不会到期清零' },
+                { k: '随用随扣', v: '按每次调用的实际成本精确扣费' },
+              ].map((it) => (
+                <div key={it.k} className="rounded-12 border border-border bg-surface-1 p-4">
+                  <p className="text-14 font-medium text-foreground">{it.k}</p>
+                  <p className="mt-1 text-12 text-faint">{it.v}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-12 text-faint">
+              已登录用户可在「账户资产 · 经费充值」充值并开启「用经费继续」。
+            </p>
+          </div>
+        )}
       </section>
 
       <SubscribeDialog

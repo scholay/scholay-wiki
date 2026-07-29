@@ -79,6 +79,10 @@ export function SidebarExpandButton({
       className={cn(
         /* px-2.5(10) + size-4(16) + px-2.5 = 36 —— 默认态与设计稿 36×36 精确一致 */
         'group inline-flex h-control-md items-center rounded-pill border border-border bg-background px-2.5',
+        /* shadow-overlay:这颗按钮是**悬浮在任意页面内容之上**的,正是设计系统给 shadow-overlay
+           定的唯一两类场景之一(另一类是滑块 thumb)。不新造 shadow token —— globals.css
+           明写「不要再加 shadow token」,且卡片/列表项一律不给阴影,只有真浮层才给。 */
+        'shadow-overlay',
         'text-12 text-foreground transition-colors hover:border-border-strong hover:bg-surface-1',
         className
       )}

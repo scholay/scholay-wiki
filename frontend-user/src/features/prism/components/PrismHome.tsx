@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, FileText, Loader2, PenTool, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Skeleton } from '@/shared/ui/skeleton';
@@ -29,6 +29,26 @@ export function PrismHome({ onOpen }: { onOpen: (id: number) => void }) {
 function HomeMain({ onOpen }: { onOpen: (id: number) => void }) {
   const { data: projects, isLoading } = useProjects();
   const create = useCreateProject();
+
+  // 右缘遮罩只在「确实还能往右滚」时显示。1px 容差:某些缩放比例下
+  // scrollLeft + clientWidth 会比 scrollWidth 差零点几像素,严格相等判定会让遮罩滑到底也不消失。
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const syncScrollState = () => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    setCanScrollRight(el.scrollWidth - el.scrollLeft - el.clientWidth > 1);
+  };
+  const onScroll = syncScrollState;
+  // 项目列表异步到达 → 内容宽度变了才要重算;ResizeObserver 兼顾侧栏展开/收起改变容器宽度。
+  useEffect(() => {
+    syncScrollState();
+    const el = scrollerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(syncScrollState);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [projects]);
 
   const onCreate = async (title: string) => {
     try {
@@ -67,16 +87,36 @@ function HomeMain({ onOpen }: { onOpen: (id: number) => void }) {
             科研级 LaTeX 写作工作区 —— 实时编译预览、AI 定点改写润色、文献库一键 \cite
           </p>
 
-          {/* 项目卡片行 —— 最左是新建卡(自带输入框),其后是历史项目。
-              横向滚动而非换行:新建卡永远钉在最左,视线不用去找;项目多了往右滑。
-              原先中间那颗「新建写作项目」按钮已删除 —— 新建入口就是这张卡本身。 */}
-          <div className="mt-6 flex w-full gap-3 overflow-x-auto pb-1 scrollbar-none">
-            <NewProjectCard onCreate={onCreate} pending={create.isPending} />
-            {isLoading
-              ? Array.from({ length: 3 }).map((_, i) => (
-                  <Skeleton key={i} className="h-36 w-60 shrink-0 rounded-16" />
-                ))
-              : projects?.map((p) => <ProjectCard key={p.id} project={p} onOpen={onOpen} />)}
+          {/* 项目卡片行 —— 最左是新建卡,其后是历史项目。横向滚动而非换行。
+              新建卡用 sticky 钉死在最左:往右滑看历史项目时它不跟着滚走,
+              「新建」这个最高频动作永远在原地(否则滑到第 5 张之后就得先滑回来)。
+              右缘的渐变遮罩告诉用户「后面还有」—— 硬切断会让人以为列表到此为止。 */}
+          <div className="relative mt-6 w-full">
+            <div ref={scrollerRef} onScroll={onScroll} className="flex w-full gap-3 overflow-x-auto pb-1 scrollbar-none">
+              {/* sticky + z-raised:滚动时压在历史卡之上。
+                  ⚠️ 必须给它自己的实底(bg-background)—— sticky 元素不脱离文档流,
+                  下面滚过去的卡片会从它「身后」透出来。 */}
+              <div className="sticky left-0 z-raised shrink-0 bg-background">
+                <NewProjectCard onCreate={onCreate} pending={create.isPending} />
+              </div>
+              {isLoading
+                ? Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-36 w-60 shrink-0 rounded-16" />
+                  ))
+                : projects?.map((p) => <ProjectCard key={p.id} project={p} onOpen={onOpen} />)}
+            </div>
+
+            {/* 右缘渐变遮罩 —— 纯装饰,pointer-events-none 不能挡住底下卡片的点击。
+                滑到底时淡出(canScrollRight=false):遮罩一直挂着会变成「永远还有更多」的假信号。
+                颜色用 bg-background 而不是白 —— 卡片行坐在米白页面底上,用白会露出一条色差带。 */}
+            <div
+              aria-hidden
+              className={cn(
+                'pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-background to-transparent',
+                'transition-opacity duration-base',
+                canScrollRight ? 'opacity-100' : 'opacity-0'
+              )}
+            />
           </div>
         </div>
       </div>
@@ -84,7 +124,14 @@ function HomeMain({ onOpen }: { onOpen: (id: number) => void }) {
   );
 }
 
-/** 新建卡 —— 在卡里直接填名字回车即建。 */
+/**
+ * 新建卡 —— 两态。
+ *
+ * 静态:整卡只有居中的「+ / 新建项目」,与右侧的历史项目卡形成干净对比,
+ *       不在首屏就把一个空输入框摆在用户面前(那会让这排卡片看起来像个表单)。
+ * 点击:**原地**展开输入框,不跳转、不开弹窗 —— 焦点自动落进去,直接打字回车即建。
+ *       Esc / 失焦且未输入 → 收回静态,不留下一个半开的空输入框。
+ */
 function NewProjectCard({
   onCreate,
   pending,
@@ -92,7 +139,44 @@ function NewProjectCard({
   onCreate: (title: string) => void;
   pending: boolean;
 }) {
+  const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // 展开后把焦点送进输入框 —— 少一次点击。放 effect 而不是 onClick 里直接 focus():
+  // 那时 input 还没挂载(同一次 render 内 editing 才刚变 true)。
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
+
+  const collapse = () => {
+    setEditing(false);
+    setTitle('');
+  };
+
+  // 卡片本体的几何/描边两态共用 —— 虚线描边把「待创建」与右侧实线的已有项目卡区分开,
+  // 不靠颜色,色盲也分得清。
+  const shell = cn(
+    'flex h-36 w-60 shrink-0 flex-col rounded-16 border border-dashed border-border-strong bg-surface-card',
+    'transition-colors focus-within:border-foreground hover:border-foreground'
+  );
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        aria-label="新建项目"
+        className={cn(shell, 'items-center justify-center gap-3')}
+      >
+        {/* 「+」做成朱砂软底方块 —— 与右侧卡片的 FileText 同一套视觉语言,只是居中放大。 */}
+        <span className="flex size-11 items-center justify-center rounded-12 bg-brand-red-soft">
+          <Plus className="size-6 text-brand-red" strokeWidth={2.2} />
+        </span>
+        <span className="text-14 font-medium text-foreground">新建项目</span>
+      </button>
+    );
+  }
 
   return (
     <form
@@ -101,21 +185,22 @@ function NewProjectCard({
         if (pending) return;
         onCreate(title);
       }}
-      className={cn(
-        'flex h-36 w-60 shrink-0 flex-col justify-between rounded-16 border border-dashed border-border-strong bg-surface-card p-4',
-        // 焦点/hover 描边走全站统一的 border-foreground(玄墨实边):
-        // 焦点原为 border-brand-red —— 全站唯二的品牌红焦点,已收口;
-        // hover 原为 border-border-control,那个 token 的语义是「控件的静态 1px 实边」(Figma §4.5),
-        // 不该拿来做状态色 —— 值同为 #1F1F23,换名零像素变化。
-        'transition-colors focus-within:border-foreground hover:border-foreground'
-      )}
+      onKeyDown={(e) => {
+        // Esc 收回。⚠️ 必须 stopPropagation:这张卡可能坐在 Dialog/Sheet 里,
+        // 冒泡上去会顺手把外层浮层一起关掉。
+        if (e.key === 'Escape') {
+          e.stopPropagation();
+          collapse();
+        }
+      }}
+      onBlur={(e) => {
+        // 只在焦点真的离开整张卡、且用户什么都没输入时才收回 ——
+        // currentTarget.contains 挡住「input → 提交按钮」这种卡内移焦。
+        if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+        if (!title.trim() && !pending) collapse();
+      }}
+      className={cn(shell, 'justify-between p-4')}
     >
-      {/* 三段式(标题 / 输入 / 说明),对应右侧项目卡的「标题 / 正文 / 更新于」——
-          justify-between 下三段各自吃掉空档,不会像两段式那样在卡中间留一块空白;
-          且首尾两行与右侧卡片的标题行、日期行落在同一水平线上,一排看过去是齐的。
-
-          虚线描边把「这是一张待创建的卡」与右侧实线的已有项目卡区分开 —— 不靠颜色,色盲也分得清。
-          「+」做成朱砂软底方块:与右侧卡片的 FileText 图标同尺寸同位置,视觉重量才配得上。 */}
       <div className="flex items-center gap-2">
         <span className="flex size-6 shrink-0 items-center justify-center rounded-8 bg-brand-red-soft">
           <Plus className="size-3.5 text-brand-red" strokeWidth={2.4} />
@@ -124,9 +209,10 @@ function NewProjectCard({
       </div>
 
       {/* 输入行 —— 与全站「显式提交型」输入同构:回车与点按走同一条 onSubmit,
-          且尾部有可见的提交按钮(只靠回车没有可发现性,这是本仓库刚做过的一轮修复)。 */}
+          且尾部有可见的提交按钮(只靠回车没有可发现性,这是本仓库做过的一轮修复)。 */}
       <div className="flex items-center gap-1 rounded-8 border border-border bg-surface-1 pl-2.5 pr-1 transition-colors focus-within:border-border-control">
         <input
+          ref={inputRef}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="项目名称"
@@ -151,8 +237,6 @@ function NewProjectCard({
         </button>
       </div>
 
-      {/* 第三段 —— 既填满 justify-between 的下边,又把「留空也能建」这条实际行为讲明白
-          (onCreate 里 title 为空会回落到「未命名项目」),用户不必先想名字才敢点。 */}
       <span className="text-12 text-faint">留空也可创建,稍后可重命名</span>
     </form>
   );

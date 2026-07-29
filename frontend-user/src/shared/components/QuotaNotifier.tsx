@@ -34,8 +34,8 @@ interface Overview {
     window_started_at: string | null; // null = 未开窗
     window_reset_at: string | null; // 窗口自动重置时刻
   };
-  credit: { temp: number; perm: number; total: number };
-  reset_cost: number;
+  credit: { perm: number; total: number; perm_micro: number; points: number; credit_autopay: boolean };
+  reset_passes: number;
 }
 
 /** 「X月X日 HH:MM」—— 周期重置时刻的短格式(展示用)。 */
@@ -125,7 +125,8 @@ export function QuotaNotifier() {
 
   // ⚠️ 绝不 `return null`:resetOpen===true 时卸载 Dialog 会让 Radix body 锁泄漏(全站点击失灵,
   // 见 BodyPointerLockGuard)。改为把 data 闸折进 open prop + 内容用 data 守卫,让 Radix 正常收尾。
-  const enough = !!data && data.credit.total >= data.reset_cost;
+  // 0090:按**重置次数**判,不是经费余额(见 account-assets-card 同款注释)。
+  const enough = !!data && data.reset_passes > 0;
 
   return (
     <Dialog open={resetOpen && !!data} onOpenChange={(o) => (o ? openReset() : closeReset())}>
@@ -140,10 +141,10 @@ export function QuotaNotifier() {
                 {formatResetAt(data.token.window_reset_at) && (
                   <>,将于 <b className="text-foreground">{formatResetAt(data.token.window_reset_at)}</b> 自动重置满额</>
                 )}
-                。可消耗 <b className="text-foreground">{data.reset_cost}</b> 经费立即重置(当前 {data.credit.total} 经费),或升级会员获更高额度。
+                。可使用 <b className="text-foreground">1 次</b>重置次数立即重置(剩余 {data.reset_passes} 次),或升级会员获更高额度。
               </>
             ) : (
-              <>升级会员可获更高额度,或购入科研经费后重置;有兑换码也可在下方立即开通。</>
+              <>升级会员可获更高额度;有兑换码也可在下方立即开通。</>
             )}
           </DialogDescription>
         </DialogHeader>
@@ -186,19 +187,9 @@ export function QuotaNotifier() {
           {enough ? (
             <Button size="sm" onClick={() => reset.mutate()} disabled={reset.isPending}>
               {reset.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
-              使用 {data.reset_cost} 经费重置
+              使用 1 次重置
             </Button>
-          ) : (
-            <Button
-              size="sm"
-              onClick={() => {
-                closeReset();
-                window.location.assign('/settings/membership');
-              }}
-            >
-              购入经费
-            </Button>
-          )}
+          ) : null /* 0090:次数用完时不给「购入经费」—— 经费买不到重置,那是条死路 */}
         </DialogFooter>
       </DialogContent>
       )}

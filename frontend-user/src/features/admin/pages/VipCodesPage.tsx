@@ -49,8 +49,8 @@ export function VipCodesPage() {
   const [genTier, setGenTier] = useState('pro');
   const [grantDays, setGrantDays] = useState(30);
   const [genCredits, setGenCredits] = useState(500);
-  const [creditKind, setCreditKind] = useState<'temp' | 'perm'>('temp');
-  const [creditDays, setCreditDays] = useState(30);
+  const [creditKind] = useState<'temp' | 'perm'>('perm'); // 0090:固定永久,选择器已删
+  const [creditDays] = useState(30); // 0090:经费不过期,天数不再可编辑(仍随请求发出,后端忽略)
   const [maxUses, setMaxUses] = useState(1); // 兑换次数 1..100
   const [validDays, setValidDays] = useState(7); // 码有效期窗口 1..30 天
   const [note, setNote] = useState('');
@@ -258,17 +258,8 @@ export function VipCodesPage() {
               <Field label="经费数">
                 <Input type="number" min={1} value={genCredits} onChange={(e) => setGenCredits(Number(e.target.value))} className="h-8 w-24" />
               </Field>
-              <Field label="经费类型">
-                <Select value={creditKind} onChange={(e) => setCreditKind(e.target.value as 'temp' | 'perm')} fullWidth={false} className="w-24">
-                  <option value="temp">临时</option>
-                  <option value="perm">永久</option>
-                </Select>
-              </Field>
-              {creditKind === 'temp' && (
-                <Field label="有效天数">
-                  <Input type="number" min={1} value={creditDays} onChange={(e) => setCreditDays(Number(e.target.value))} className="h-8 w-24" />
-                </Field>
-              )}
+              {/* 0090:经费只剩一种,「经费类型/有效天数」两项已删。后端建码一律按永久,
+                  存量 credit_kind='temp' 的旧码兑换时也按永久发放(不作废用户已持有的码)。 */}
             </>
           )}
           <Field label="兑换次数(1-100)">

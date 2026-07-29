@@ -87,7 +87,12 @@ func (r *Repository) StatsTotals(f StatsFilter) (*Totals, error) {
 			"COUNT(DISTINCT llm_token_usage.user_id) AS unique_users, " +
 			"COALESCE(SUM(CASE WHEN llm_token_usage.user_id IS NULL THEN 1 ELSE 0 END),0) AS anon_calls, " +
 			"COALESCE(SUM(CASE WHEN llm_token_usage.user_id IS NULL THEN llm_token_usage.total_tokens ELSE 0 END),0) AS anon_tokens, " +
-			"COALESCE(SUM(llm_token_usage.cost_micro_yuan),0) AS cost_micro_yuan",
+			"COALESCE(SUM(llm_token_usage.cost_micro_yuan),0) AS cost_micro_yuan, " +
+			"COALESCE(SUM(CASE WHEN llm_token_usage.user_id IS NULL THEN llm_token_usage.cost_micro_yuan ELSE 0 END),0) AS anon_cost_micro_yuan, " +
+			// 未计价行(cost=0 但有 token):历史行 / 模型当时未计价。单独统计而不是并进成本,
+			// 让「0 算力点」与「没花钱」在看板上可区分(见 Totals.UnpricedCalls 注释)。
+			"COALESCE(SUM(CASE WHEN llm_token_usage.cost_micro_yuan = 0 THEN 1 ELSE 0 END),0) AS unpriced_calls, " +
+			"COALESCE(SUM(CASE WHEN llm_token_usage.cost_micro_yuan = 0 THEN llm_token_usage.total_tokens ELSE 0 END),0) AS unpriced_tokens",
 	).Scan(&out).Error
 	return &out, err
 }
@@ -105,6 +110,7 @@ func (r *Repository) StatsByDay(f StatsFilter) ([]DayPoint, error) {
 			"COALESCE(SUM(llm_token_usage.output_tokens),0) AS output_tokens, " +
 			"COALESCE(SUM(llm_token_usage.cache_read_tokens),0) AS cache_read_tokens, " +
 			"COALESCE(SUM(llm_token_usage.cache_creation_tokens),0) AS cache_creation_tokens, " +
+			"COALESCE(SUM(llm_token_usage.cost_micro_yuan),0) AS cost_micro_yuan, " +
 			"COUNT(*) AS calls",
 	).Group("DATE_FORMAT(llm_token_usage.created_at, '%Y-%m-%d')").
 		Order("date ASC").
@@ -120,7 +126,11 @@ var statsDimColumns = map[string]bool{
 	"provider": true,
 }
 
-// StatsByDimension 按某维度聚合(总 token DESC)。col 必须在白名单内, 否则返回错误。
+// StatsByDimension 按某维度聚合。col 必须在白名单内, 否则返回错误。
+//
+// 排序口径 = 算力点(cost)优先、总 token 兜底。cost 是页面的主单位, 排序必须跟主单位一致,
+// 否则「最贵的模型」排在第三行。兜底那一半不是冗余:一段全是历史未计价行的窗口里 cost 恒 0,
+// 只按 cost 排会退化成 DB 返回顺序(看起来像随机), 用 token 兜底仍给出有意义的次序。
 func (r *Repository) StatsByDimension(f StatsFilter, col string) ([]BreakdownItem, error) {
 	if !statsDimColumns[col] {
 		return nil, fmt.Errorf("llmusage: invalid breakdown dimension %q", col)
@@ -135,9 +145,10 @@ func (r *Repository) StatsByDimension(f StatsFilter, col string) ([]BreakdownIte
 			"COALESCE(SUM(llm_token_usage.cache_read_tokens),0) AS cache_read_tokens, "+
 			"COALESCE(SUM(llm_token_usage.cache_creation_tokens),0) AS cache_creation_tokens, "+
 			"COALESCE(SUM(llm_token_usage.cost_micro_yuan),0) AS cost_micro_yuan, "+
+			"COALESCE(SUM(CASE WHEN llm_token_usage.cost_micro_yuan = 0 THEN 1 ELSE 0 END),0) AS unpriced_calls, "+
 			"COUNT(*) AS calls", col),
 	).Group(fmt.Sprintf("llm_token_usage.%s", col)).
-		Order("total_tokens DESC").
+		Order("cost_micro_yuan DESC, total_tokens DESC").
 		Scan(&out).Error
 	return out, err
 }
@@ -158,6 +169,7 @@ func (r *Repository) StatsByDayDimension(f StatsFilter, col string) ([]DayDimPoi
 			"COALESCE(SUM(llm_token_usage.output_tokens),0) AS output_tokens, "+
 			"COALESCE(SUM(llm_token_usage.cache_read_tokens),0) AS cache_read_tokens, "+
 			"COALESCE(SUM(llm_token_usage.cache_creation_tokens),0) AS cache_creation_tokens, "+
+			"COALESCE(SUM(llm_token_usage.cost_micro_yuan),0) AS cost_micro_yuan, "+
 			"COUNT(*) AS calls", col),
 	).Group(fmt.Sprintf("DATE_FORMAT(llm_token_usage.created_at, '%%Y-%%m-%%d'), llm_token_usage.%s", col)).
 		Order("date ASC").
@@ -165,7 +177,8 @@ func (r *Repository) StatsByDayDimension(f StatsFilter, col string) ([]DayDimPoi
 	return out, err
 }
 
-// StatsTopUsers top 用户榜(总 token DESC, LIMIT n);LEFT JOIN users 取用户名/邮箱。
+// StatsTopUsers top 用户榜(算力点 DESC、总 token 兜底, LIMIT n);LEFT JOIN users 取用户名/邮箱。
+// 排序口径与 StatsByDimension 一致 —— 见那里对「为什么要 token 兜底」的说明。
 func (r *Repository) StatsTopUsers(f StatsFilter, limit int) ([]UserUsageItem, error) {
 	if limit <= 0 {
 		limit = 20
@@ -185,18 +198,22 @@ func (r *Repository) StatsTopUsers(f StatsFilter, limit int) ([]UserUsageItem, e
 			"COALESCE(SUM(llm_token_usage.output_tokens),0) AS output_tokens, " +
 			"COALESCE(SUM(llm_token_usage.cache_read_tokens),0) AS cache_read_tokens, " +
 			"COALESCE(SUM(llm_token_usage.cache_creation_tokens),0) AS cache_creation_tokens, " +
+			"COALESCE(SUM(llm_token_usage.cost_micro_yuan),0) AS cost_micro_yuan, " +
+			"COALESCE(SUM(CASE WHEN llm_token_usage.cost_micro_yuan = 0 THEN 1 ELSE 0 END),0) AS unpriced_calls, " +
 			"COUNT(*) AS calls",
 	).Group("llm_token_usage.user_id, users.username, users.email").
-		Order("total_tokens DESC").
+		Order("cost_micro_yuan DESC, total_tokens DESC").
 		Limit(limit).
 		Scan(&out).Error
 	return out, err
 }
 
 // statsLogSort 排序白名单 —— sortBy → ORDER BY 片段。
+// cost_micro_yuan(= 算力点)是页面主单位的排序;total_tokens 保留给「谁吃上下文最多」的运维视角。
 var statsLogSort = map[string]string{
-	"created_at":   "llm_token_usage.created_at DESC",
-	"total_tokens": "llm_token_usage.total_tokens DESC",
+	"created_at":      "llm_token_usage.created_at DESC",
+	"total_tokens":    "llm_token_usage.total_tokens DESC",
+	"cost_micro_yuan": "llm_token_usage.cost_micro_yuan DESC, llm_token_usage.created_at DESC",
 }
 
 // StatsListLogs 明细调用日志(分页);LEFT JOIN users + third_party_accounts 取展示名。

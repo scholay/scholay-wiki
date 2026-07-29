@@ -186,7 +186,8 @@ type fbWindow struct {
 
 var quotaFallback = &fallbackCounter{m: map[uint]*fbWindow{}}
 
-func (f *fallbackCounter) add(userID uint, tokens int64, windowSec int64) {
+// add 累加一次消耗。costMicro 单位与 Redis 主路径一致 = **微元真实成本**(不是 token)。
+func (f *fallbackCounter) add(userID uint, costMicro int64, windowSec int64) {
 	now := time.Now().Unix()
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -195,7 +196,7 @@ func (f *fallbackCounter) add(userID uint, tokens int64, windowSec int64) {
 		e = &fbWindow{anchor: now}
 		f.m[userID] = e
 	}
-	e.used += tokens
+	e.used += costMicro
 }
 
 func (f *fallbackCounter) get(userID uint, windowSec int64) int64 {
@@ -293,7 +294,7 @@ func (s *Service) CheckDailyQuota(ctx context.Context, userID uint) error {
 	if w.windowUsed() < ceiling {
 		return nil
 	}
-	return NewQuotaError(quotaExceededMessage(tier, cfg, w.resetAt(s.windowSeconds())))
+	return s.payAsYouGoOrQuotaError(userID, tier, cfg, w)
 }
 
 // RemainingBudget —— 有界透支预算(SS#2),给 agentbridge 每条 user_message 盖章用。
@@ -336,14 +337,41 @@ func (s *Service) CheckDailyQuotaOverdraft(ctx context.Context, userID uint) err
 	if w.windowUsed() < ceiling+cfg.OverdraftTokens(tier) {
 		return nil
 	}
+	return s.payAsYouGoOrQuotaError(userID, tier, cfg, w)
+}
+
+// payAsYouGoOrQuotaError —— 窗口(含透支带)已耗尽时的最后一道判定:
+// 开了「经费自动付费」且**余额为正**就放行(本轮成本由 AddUsage 从经费扣),否则回额度错误。
+//
+// 为什么只要求「余额为正」而不是「余额够本轮」:本轮成本在开跑前不可知(取决于模型吐多少 token)。
+// 与窗口额度的有界透支带同一套取舍 —— 起跑闸把关,单轮内允许小幅透支,保证 agent 能优雅收尾;
+// 透支上界 ≈ 一轮的成本,下一轮起跑时余额已 <=0 就拦住了。
+func (s *Service) payAsYouGoOrQuotaError(userID uint, tier string, cfg *BillingConfig, w quotaWindow) error {
+	bal, err := s.wallet.Balance(userID, cfg)
+	if err == nil && bal.CreditAutopay && bal.PermMicro > 0 {
+		return nil
+	}
+	if err != nil {
+		slog.Warn("billing: payg balance read failed, falling back to quota error", "user_id", userID, "err", err)
+	}
+	if bal != nil && bal.PermMicro > 0 && !bal.CreditAutopay {
+		// 有钱但没开开关 —— 文案要指向「去开开关」,而不是笼统说额度没了。
+		return NewQuotaError(quotaExceededMessage(tier, cfg, w.resetAt(s.windowSeconds())) +
+			"你有可用经费,可在「账户资产」开启「用经费继续」后无需等待。")
+	}
 	return NewQuotaError(quotaExceededMessage(tier, cfg, w.resetAt(s.windowSeconds())))
 }
 
-// AddUsage —— 把一次 LLM 调用的真实 token 计入当前窗口(由 llmusage.Record 观察者调用)。
+// AddUsage —— 把一次 LLM 调用的**真实成本(微元)**计入当前窗口(由 llmusage.Record 观察者调用)。
+//
+// ⚠️ 单位是微元不是 token(P5 成本制;÷1000 = 算力点 = ¥0.001)。形参此前叫 tokens,
+// 是 P3 加权 token 时代的遗留 —— 观察者签名 llmusage.UsageObserver 传的一直是 costMicro
+// (见 bootstrap 的接线),名字对不上会让人以为这里还能塞 token 数,那是 1000 倍量级的误接。
+//
 // **唯一的开窗点**:无有效 anchor 时 Lua CAS 原子换锚(首次消耗开表)。同时双写当日统计 key。
-// userID==0 / tokens<=0 / Redis 挂 → 兜底或跳过(best-effort, 绝不阻塞)。
-func (s *Service) AddUsage(ctx context.Context, userID uint, tokens int) {
-	if userID == 0 || tokens <= 0 {
+// userID==0 / costMicro<=0 / Redis 挂 → 兜底或跳过(best-effort, 绝不阻塞)。
+func (s *Service) AddUsage(ctx context.Context, userID uint, costMicro int) {
+	if userID == 0 || costMicro <= 0 {
 		return
 	}
 	rdb := cache.GetRedisPersist()
@@ -351,7 +379,7 @@ func (s *Service) AddUsage(ctx context.Context, userID uint, tokens int) {
 	// 当日消耗统计(纯展示,25h TTL,best-effort)——**在收费开关之前**落:Enabled=false 时账本仍记账
 	// (llmusage.Record 不看 Enabled),展示口径须与之一致,否则账户页「月度热力图有数、今日消耗=0」自相矛盾。
 	if rdb != nil {
-		if dn, derr := rdb.IncrBy(ctx, dayStatKey(userID, now), int64(tokens)).Result(); derr == nil && dn == int64(tokens) {
+		if dn, derr := rdb.IncrBy(ctx, dayStatKey(userID, now), int64(costMicro)).Result(); derr == nil && dn == int64(costMicro) {
 			_ = rdb.Expire(ctx, dayStatKey(userID, now), 25*time.Hour).Err()
 		}
 	}
@@ -362,14 +390,14 @@ func (s *Service) AddUsage(ctx context.Context, userID uint, tokens int) {
 	windowSec := int64(cfg.WindowDuration() / time.Second)
 	if rdb == nil {
 		// 有界 fail-open:进程内锚定兜底,使闸门仍能收敛敞口。
-		quotaFallback.add(userID, int64(tokens), windowSec)
+		quotaFallback.add(userID, int64(costMicro), windowSec)
 		warnQuotaDegraded("usage incr", "user_id", userID)
 		return
 	}
 	anchorStr, err := rdb.Eval(ctx, anchorRollLua, []string{anchorKey(userID)},
 		now.Unix(), windowSec, int64(s.quotaKeyTTL()/time.Second)).Text()
 	if err != nil {
-		quotaFallback.add(userID, int64(tokens), windowSec)
+		quotaFallback.add(userID, int64(costMicro), windowSec)
 		warnQuotaDegraded("anchor roll failed", "user_id", userID, "err", err)
 		return
 	}
@@ -379,9 +407,9 @@ func (s *Service) AddUsage(ctx context.Context, userID uint, tokens int) {
 		return
 	}
 	key := tokenUsedKey(userID, anchor)
-	n, err := rdb.IncrBy(ctx, key, int64(tokens)).Result()
+	n, err := rdb.IncrBy(ctx, key, int64(costMicro)).Result()
 	if err != nil {
-		quotaFallback.add(userID, int64(tokens), windowSec)
+		quotaFallback.add(userID, int64(costMicro), windowSec)
 		warnQuotaDegraded("usage incr failed", "user_id", userID, "err", err)
 		return
 	}
@@ -397,8 +425,14 @@ func (s *Service) AddUsage(ctx context.Context, userID uint, tokens int) {
 		if b, berr := rdb.Get(ctx, tokenBaseKey(userID, anchor)).Int64(); berr == nil {
 			base = b
 		}
-		prevWin := max64(0, (n-int64(tokens))-base)
+		prevWin := max64(0, (n-int64(costMicro))-base)
 		curWin := max64(0, n-base)
+
+		// 按量付费(0094):本次成本中越过窗口上限的那一部分从经费扣(见 payAsYouGoOverflow)。
+		if overflow := payAsYouGoOverflow(prevWin, curWin, ceiling); overflow > 0 {
+			s.chargePayAsYouGo(userID, overflow, cfg)
+		}
+
 		if prevWin < ceiling && curWin >= ceiling {
 			overshoot := curWin - ceiling
 			if overshoot > ceiling/4 {
@@ -422,10 +456,30 @@ func max64(a, b int64) int64 {
 // ─── 重置 / 升级满血 ─────────────────────────────────────────────────────
 
 // ResetResult 重置后的额度 + 钱包余额(回前端刷新 UI)。
+// Used/Ceiling 单位=微元真实成本(同 TokenStatus)。**下发用户前必须 StripAmounts()**。
 type ResetResult struct {
 	Used    int64        `json:"used"`
 	Ceiling int64        `json:"ceiling"`
 	Balance *BalanceView `json:"balance"`
+}
+
+// StripAmounts 抹掉额度绝对值 —— 与 Overview.StripQuotaAmounts 同一条不变量:
+// 用户端只看百分比,不下发 used/ceiling 的微元真值(算力点绝对量对用户不可见)。
+//
+// 这里曾是该不变量唯一的漏网出口:BillingOverview / TestPay 都 strip 了,只有重置这条没 strip,
+// 把当前档位的**真实周期上限**原样回给了用户端。经费余额(Balance)照常保留 —— 经费用户可见。
+//
+// 在 handler 而非 Service 里调:Service 的返回值是真值,被 admin 路径、集成测试与内部逻辑依赖
+// (integration_test.go 断言重置后 res.Used==0),strip 属于「出口整形」而非业务事实。
+func (r *ResetResult) StripAmounts() *ResetResult {
+	if r == nil {
+		return r
+	}
+	r.Used = 0
+	if r.Ceiling >= 0 {
+		r.Ceiling = 0 // <0 保持 -1:前端仍用 ceiling<0 判定「不限」
+	}
+	return r
 }
 
 // ErrQuotaServiceDown 额度计数器不可用时的重置拒绝(**不扣费**)。
@@ -439,7 +493,7 @@ func (s *Service) ResetQuota(ctx context.Context, userID uint) (*ResetResult, er
 	if err := s.resetInternal(ctx, userID, cfg); err != nil {
 		return nil, err
 	}
-	bal, err := s.wallet.Balance(userID)
+	bal, err := s.wallet.Balance(userID, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -480,16 +534,15 @@ func (s *Service) resetInternal(ctx context.Context, userID uint, cfg *BillingCo
 		return nil
 	}
 
-	cost := cfg.ResetCostCredits
-	// 2) 余额预检(锁内、本用户已串行化):不足直接返回,不动计数、不扣费。
-	if cost > 0 {
-		bal, err := s.wallet.Balance(userID)
-		if err != nil {
-			return err
-		}
-		if bal.Total < cost {
-			return ErrInsufficientCredit
-		}
+	// 2) 次数预检(锁内、本用户已串行化):没有可用次数直接返回,不动计数。
+	//    0090 起重置**只认重置次数**,不再扣经费(owner 拍板);永久经费与重置彻底解耦,
+	//    没有「次数不够回落扣经费」这条路 —— 有意为之,不要"顺手"加回来。
+	passes, err := s.wallet.ResetPasses(userID)
+	if err != nil {
+		return err
+	}
+	if passes.Total <= 0 {
+		return ErrNoResetPass
 	}
 
 	// 2.5) 竞态护栏:读 tier(首判)与读余额期间「升级到 Pro」事务可能恰好提交 —— 上限抬高后
@@ -516,16 +569,54 @@ func (s *Service) resetInternal(ctx context.Context, userID uint, cfg *BillingCo
 	// 显式清零新锚下 used/base,保证满血确定不受旧窗残值影响。
 	_ = rdb.Del(ctx, tokenUsedKey(userID, now), tokenBaseKey(userID, now)).Err()
 
-	// 4) 基线已抬,扣费(余额已校验足够,Consume 行锁兜底)。
-	if cost > 0 {
-		if err := s.wallet.Consume(userID, cost, TxResetConsume, "reset",
-			fmt.Sprintf("w%d", w.anchor), "重置本周期额度"); err != nil {
-			// 基线已抬(用户已得重置)但扣费失败 —— 校验后到此被掏空,已被本锁串行化基本排除。
-			// 给一次免费重置远胜把用户卡死或重复扣费,这里只告警不回滚。
-			slog.Error("billing: reset consume failed after baseline set (free reset granted)", "user_id", userID, "err", err)
-		}
+	// 4) 基线已抬,扣 1 次重置次数(预检已确认有,ConsumeResetPass 行锁兜底)。
+	if err := s.wallet.ConsumeResetPass(userID); err != nil {
+		// 基线已抬(用户已得重置)但扣次数失败 —— 预检后到此被扣光,已被本锁串行化基本排除。
+		// 给一次免费重置远胜把用户卡死或重复扣次,这里只告警不回滚。
+		slog.Error("billing: reset pass consume failed after baseline set (free reset granted)", "user_id", userID, "err", err)
 	}
 	return nil
+}
+
+// payAsYouGoOverflow 算出本次消耗中**越过窗口上限的那一截**(纯函数,便于单测)。
+//
+// 为什么要拆而不是「跨线了就整笔转经费」:跨线的那一次调用往往一半在额度内、一半在额度外,
+// 整笔扣会让用户为**已经买过的额度**再付一次钱 —— 而且这笔重复收费恰好发生在
+// 「刚用完套餐」的时刻,是最容易被投诉的位置。
+//
+//	prevWin >= ceiling       → 本次全额超出
+//	prevWin < ceiling <= cur → 只有 curWin-ceiling 那一截超出
+//	curWin  < ceiling        → 不超出
+func payAsYouGoOverflow(prevWin, curWin, ceiling int64) int64 {
+	if ceiling <= 0 || curWin <= ceiling {
+		return 0
+	}
+	return curWin - max64(prevWin, ceiling)
+}
+
+// chargePayAsYouGo 把超出窗口额度的那部分成本从经费扣(0094 按量付费)。
+//
+// 只在用户**显式开启** credit_autopay 时扣 —— 不知情扣费正是 auto_reset 被整个下线的原因。
+// 没开开关的用户,超出部分不扣经费:他们本来就被闸门拦在门外了,能跑到这里的只有
+// 「透支带内的那一轮」,平台吃下这点透支,好过在用户没同意的情况下动他的钱包。
+//
+// best-effort:本函数在 llmusage 的异步 observer 链上,失败只告警不重试 ——
+// 重试会有重复扣费风险,而单次漏扣的金额上界是一轮的成本。
+func (s *Service) chargePayAsYouGo(userID uint, overflowMicro int64, cfg *BillingConfig) {
+	bal, err := s.wallet.Balance(userID, cfg)
+	if err != nil {
+		slog.Warn("billing: payg balance read failed, skip charge", "user_id", userID, "err", err)
+		return
+	}
+	if !bal.CreditAutopay {
+		return
+	}
+	if err := s.wallet.ConsumeForQuota(userID, overflowMicro, cfg); err != nil {
+		slog.Error("billing: payg charge failed", "user_id", userID, "overflow_micro", overflowMicro, "err", err)
+		return
+	}
+	slog.Info("billing: payg charged", "user_id", userID,
+		"overflow_micro", overflowMicro, "micro_credit", cfg.MicroCreditForCost(overflowMicro))
 }
 
 // ResetBaselineOnUpgrade —— 升级/续费到付费档后**免费满血 + 7 天周期从付款后首次使用重开**(R6 规格)。
@@ -601,27 +692,38 @@ func (s *Service) ReconcilePendingRefills(ctx context.Context) (int, error) {
 	return n, nil
 }
 
-// quotaExceededMessage 超限友好文案(含自动重置时刻 + 重置花费 + 升级引导)。
-func quotaExceededMessage(tier string, cfg *BillingConfig, resetAt time.Time) string {
+// quotaExceededMessage 超限友好文案(含自动重置时刻 + 升级引导)。
+//
+// 0090 起重置改扣「重置次数」而非经费,文案里的「消耗 N 经费立即重置」全部换成「使用重置次数」。
+// 刻意**不在这里报剩余次数**:本函数在超限热路径上被调用(WS/HTTP 两条通路),取次数要打一次 DB;
+// 且大多数用户次数为 0(唯一来源是那次历史换算),报「剩余 0 次」只会制造困惑。
+// 有没有次数由前端读账户资产后自行决定要不要显示重置入口。
+func quotaExceededMessage(tier string, _ *BillingConfig, resetAt time.Time) string {
 	when := ""
 	if !resetAt.IsZero() {
 		when = fmt.Sprintf("%d月%d日 %02d:%02d", resetAt.Month(), resetAt.Day(), resetAt.Hour(), resetAt.Minute())
 	}
 	if tier == TierFree {
 		if when != "" {
-			return fmt.Sprintf("本周期 AI 额度已用完,将于 %s 自动重置。升级会员可获更高额度,或消耗 %d 经费立即重置。", when, cfg.ResetCostCredits)
+			return fmt.Sprintf("本周期 AI 额度已用完,将于 %s 自动重置。升级会员可获更高额度,或使用重置次数立即重置。", when)
 		}
-		return fmt.Sprintf("本周期 AI 额度已用完。升级会员可获更高额度,或消耗 %d 经费立即重置。", cfg.ResetCostCredits)
+		return "本周期 AI 额度已用完。升级会员可获更高额度,或使用重置次数立即重置。"
 	}
 	if when != "" {
-		return fmt.Sprintf("本周期 AI 额度已用完,将于 %s 自动重置;也可消耗 %d 经费立即重置。", when, cfg.ResetCostCredits)
+		return fmt.Sprintf("本周期 AI 额度已用完,将于 %s 自动重置;也可使用重置次数立即重置。", when)
 	}
-	return fmt.Sprintf("本周期 AI 额度已用完。可消耗 %d 经费立即重置。", cfg.ResetCostCredits)
+	return "本周期 AI 额度已用完。可使用重置次数立即重置。"
 }
 
 // ─── 会员/额度总览(给前端「账户资产 · 总览」+ 旧「我的会员」)────────────────────
 
 // TokenStatus 当前周期额度状态。
+//
+// 🔴 **单位 = 微元真实成本,不是 token**(结构体名与 users.ts 的 UserTokenStatus 都是 P3 遗留)。
+// 展示时 ÷1000 = 算力点(1 点 = ¥0.001);后台 UserDetailDrawer 的额度条与「算力用量」看板同口径。
+// 直接把 Used/Ceiling 当算力点渲染 = 1000 倍误差,且不会报错 —— 新增消费方务必先除。
+// 用户端**只能看 Percent**:绝对值由 StripQuotaAmounts 抹掉,别绕过它下发 Used/Ceiling。
+//
 // Used/Percent 是**窗口口径**(used-base,额度条),重置/升级后归零;ConsumedToday 是当日统计。
 // WindowStartedAt/WindowResetAt:当前窗口起止(null = 未开窗 = 满血,「下次使用开始计时」)。
 type TokenStatus struct {
@@ -635,7 +737,7 @@ type TokenStatus struct {
 	WindowResetAt   *time.Time `json:"window_reset_at"`   // null = 未开窗
 }
 
-// Overview 账户资产总览:等级 + 周期 + 到期 + 额度 + 经费 + 重置参数。
+// Overview 账户资产总览:等级 + 周期 + 到期 + 额度 + 经费 + 重置次数。
 type Overview struct {
 	Tier string `json:"tier"`
 	// Cycle 付费档在期时的计费周期(monthly|yearly;yearly=「年费会员」标识,前后台徽标据此),
@@ -645,7 +747,13 @@ type Overview struct {
 	Token     TokenStatus  `json:"token"`
 	Credit    *BalanceView `json:"credit"`
 	AutoReset bool         `json:"auto_reset"`
-	ResetCost int          `json:"reset_cost"`
+	// ResetPasses 可用重置次数(已生效未过期批次之和)。0090 起取代 ResetCost:
+	// 重置扣的是次数不是经费,前端的「重置」入口必须按**这个数**判可用性 ——
+	// 按经费余额判会得到两种都错的结果:有次数没经费的用户点不到按钮,
+	// 有经费没次数的用户点了吃 400。
+	ResetPasses int `json:"reset_passes"`
+	// ResetPassNextExpiry 最近一批次数的到期时刻(null = 无可用次数)。给「N 次将于 X 到期」提示用。
+	ResetPassNextExpiry *time.Time `json:"reset_pass_next_expiry"`
 }
 
 // StripQuotaAmounts 抹掉额度绝对值 —— P5 成本制:用户端只看百分比,不下发 used/ceiling/consumed
@@ -736,13 +844,22 @@ func (s *Service) GetOverview(ctx context.Context, userID uint) (*Overview, erro
 		}
 		ts.Percent = p
 	}
-	bal, err := s.wallet.Balance(userID)
+	bal, err := s.wallet.Balance(userID, cfg)
+	if err != nil {
+		return nil, err
+	}
+	passes, err := s.wallet.ResetPasses(userID)
 	if err != nil {
 		return nil, err
 	}
 	ov := &Overview{
 		Tier: tier, Cycle: effectiveCycle(uv, now), Token: ts, Credit: bal,
-		AutoReset: bal.AutoReset, ResetCost: cfg.ResetCostCredits, // auto_reset 已随 Balance 的钱包行读出, 省一次查询
+		AutoReset: bal.AutoReset, // auto_reset 已随 Balance 的钱包行读出, 省一次查询
+		ResetPasses: passes.Total,
+	}
+	if len(passes.Lots) > 0 {
+		e := passes.Lots[0].ExpiresAt // Lots 按 expires_at 升序 → [0] 即最近到期
+		ov.ResetPassNextExpiry = &e
 	}
 	if isPaidTier(tier) {
 		ov.ExpiresAt = uv.VIPExpiresAt

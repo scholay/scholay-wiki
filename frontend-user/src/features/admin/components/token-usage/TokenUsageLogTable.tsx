@@ -10,6 +10,7 @@ import { useApiToast } from '../../hooks/useApiToast';
 import {
   useTokenUsageLogs,
   exportTokenUsageCSV,
+  formatPoints,
   FEATURE_OPTIONS,
   SOURCE_OPTIONS,
   type TokenLog,
@@ -20,13 +21,16 @@ import {
 const featureLabel = (f: string) => FEATURE_OPTIONS.find((o) => o.value === f)?.label ?? f;
 const sourceLabel = (s: string) => SOURCE_OPTIONS.find((o) => o.value === s)?.label ?? s;
 
+type SortKey = 'created_at' | 'cost_micro_yuan' | 'total_tokens';
+
 /**
  * 调用明细表 —— 共享上方筛选条件(filters),自管分页/排序/CSV 导出。
- * 后端分页(page_size 30,house 默认);排序走后端白名单(时间 / 总用量)。
+ * 后端分页(page_size 30,house 默认);排序走后端白名单(时间 / 算力点 / tokens)。
+ * 「按算力点」和「按 tokens」是两个不同的问题(谁最贵 vs 谁吃上下文最多),故都保留。
  */
 export function TokenUsageLogTable({ filters }: { filters: TokenUsageFilters }) {
   const [page, setPage] = useState(1);
-  const [sort, setSort] = useState<'created_at' | 'total_tokens'>('created_at');
+  const [sort, setSort] = useState<SortKey>('created_at');
   const [exporting, setExporting] = useState(false);
   const apiToast = useApiToast();
 
@@ -83,13 +87,30 @@ export function TokenUsageLogTable({ filters }: { filters: TokenUsageFilters }) 
         </div>
       ),
     },
+    {
+      header: '算力点',
+      width: 90,
+      align: 'right',
+      // 主单位列。cost=0 的行渲染成「—」而不是「0」:0 会被读成「这次不花钱」,
+      // 实际是「这次没折算」(历史行 / 该模型当时无单价),两者必须可区分。
+      cell: (r) =>
+        r.cost_micro_yuan > 0 ? (
+          <span className="tabular-nums text-12 font-medium text-foreground">
+            {formatPoints(r.cost_micro_yuan)}
+          </span>
+        ) : (
+          <span className="tabular-nums text-12 text-faint" title="未计价:历史行或该模型当时无目录单价">
+            —
+          </span>
+        ),
+    },
     { header: '输入', width: 80, align: 'right', cell: (r) => numCell(r.input_tokens) },
     { header: '输出', width: 80, align: 'right', cell: (r) => numCell(r.output_tokens) },
     {
-      header: '总',
+      header: '总 tokens',
       width: 90,
       align: 'right',
-      cell: (r) => <span className="tabular-nums text-12 font-medium text-foreground">{r.total_tokens.toLocaleString()}</span>,
+      cell: (r) => <span className="tabular-nums text-12 text-subtle">{r.total_tokens.toLocaleString()}</span>,
     },
     {
       header: '缓存(读/创)',
@@ -114,7 +135,8 @@ export function TokenUsageLogTable({ filters }: { filters: TokenUsageFilters }) 
           <div className="flex gap-1">
             {([
               ['created_at', '按时间'],
-              ['total_tokens', '按用量'],
+              ['cost_micro_yuan', '按算力点'],
+              ['total_tokens', '按 tokens'],
             ] as const).map(([k, label]) => (
               <button
                 key={k}

@@ -66,7 +66,8 @@ type Service struct {
 
 func NewService(repo *Repository) *Service { return &Service{repo: repo} }
 
-// SetObserver 注入用量观察者(bootstrap 接到 vip.AddUsage,P3 起口径=加权 token)。
+// SetObserver 注入用量观察者(bootstrap 接到 vip.AddUsage)。
+// P5 成本制起口径 = **真实成本(微元)**,不是加权 token —— 见上面 UsageObserver 的签名与注释。
 func (s *Service) SetObserver(o UsageObserver) { s.observer = o }
 
 // SetPricer 注入模型定价(bootstrap 接 modelcatalog;nil = 加权退化为 raw、成本恒 0)。

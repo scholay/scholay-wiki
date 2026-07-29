@@ -314,6 +314,9 @@ export function SearchPage() {
 
   return (
     <SidebarLayout
+      /* 文献搜索单独隐藏左下的浮动展开按钮:这一页左下角是结果列表的密集内容,
+         悬浮胶囊会盖住卡片。侧栏仍可从顶栏 rail chip 展开,不是死路。 */
+      hideExpandButton
       sidebar={
         <SearchSidebar
           filters={filters}

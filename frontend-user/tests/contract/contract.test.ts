@@ -15,6 +15,9 @@ import { isQuotaSignal } from '@/shared/lib/quota-events';
 import {
   envelopeSchema,
   vipOverviewSchema,
+  llmUsageOverviewSchema,
+  publicPlansNoAbsoluteQuotaSchema,
+  usageCalendarNoAbsoluteQuotaSchema,
   agentErrorFrameSchema,
   CANONICAL_BIZ_CODES,
   AGENT_QUOTA_WS_CODE,
@@ -61,6 +64,35 @@ describe('response shapes: 录制的后端 fixture 满足 FE 依赖的契约', (
     const body = fixture('vip-overview.json');
     envelopeSchema.parse(body); // 不变量:所有响应带 code
     vipOverviewSchema.parse(body.data); // tier/token/credit/... 是 FE 计费 UI 的命脉
+  });
+
+  it('GET /admin/llm-token-usage/summary —— 算力点(cost_micro_yuan)在每一层都在', () => {
+    const body = fixture('admin-llm-usage-summary.json');
+    envelopeSchema.parse(body);
+    // 后端返回了 cost 而前端 interface 漏声明,曾经悄悄发生过整整两个结构体 —— 这条就是为它加的。
+    llmUsageOverviewSchema.parse(body.data);
+  });
+
+  it('算力点换算常数没漂:1 算力点 = 1000 微元(改它 = 改全站计费单位)', async () => {
+    const { MICRO_YUAN_PER_POINT, toPoints } = await import('@/features/admin/api/token-usage');
+    expect(MICRO_YUAN_PER_POINT).toBe(1000);
+    expect(toPoints(2_699_526)).toBeCloseTo(2699.526, 3);
+    // 后端 CSV 直出走 llmusage/handler_admin.go 的 microYuanPerPoint,必须是同一个数;
+    // 两侧不一致 = 页面与导出的 Excel 对不上账,且没有任何报错。
+  });
+
+  it('GET /billing/plans(免登录)—— 不含额度基数,只有相对倍率', () => {
+    const body = fixture('billing-plans.json');
+    envelopeSchema.parse(body);
+    // 基数 × multiplier = 三档绝对上限。这是个匿名可打的端点,基数出现即等于公开额度真值。
+    publicPlansNoAbsoluteQuotaSchema.parse(body.data);
+    expect(body.data.plans.some((p: any) => p.multiplier > 1), 'multiplier 是产品要讲的相对故事,不该被一起删掉').toBe(true);
+  });
+
+  it('GET /user/billing/usage-calendar —— 只有相对强度 pct,没有每日绝对成本', () => {
+    const body = fixture('usage-calendar.json');
+    envelopeSchema.parse(body);
+    usageCalendarNoAbsoluteQuotaSchema.parse(body.data);
   });
 
   it('agent WS error/quota 帧 —— 额度信号契约', () => {

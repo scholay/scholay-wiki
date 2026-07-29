@@ -48,19 +48,18 @@ func (r *Repository) UpdateBillingConfig(c *BillingConfig) error {
 		"pro_original_cents":       c.ProOriginalCents,
 		"max_price_cents":          c.MaxPriceCents,
 		"max_original_cents":       c.MaxOriginalCents,
-		"pro_grant_credits":        c.ProGrantCredits,
-		"max_grant_credits":        c.MaxGrantCredits,
 		"pro_year_price_cents":     c.ProYearPriceCents,
 		"pro_year_original_cents":  c.ProYearOriginalCents,
 		"max_year_price_cents":     c.MaxYearPriceCents,
 		"max_year_original_cents":  c.MaxYearOriginalCents,
-		"pro_year_grant_credits":   c.ProYearGrantCredits,
-		"max_year_grant_credits":   c.MaxYearGrantCredits,
-		"subscription_year_days":   c.SubscriptionYearDays,
+		// 0090 退休:pro/max × 月/年 四个 grant 列 + 两个 subscription_*_days 列不再写回。
+		// 这个 map 刻意显式列举(为了不跳零值),所以「struct 删字段」与「map 删 key」必须同批 ——
+		// 只删一边:留 key = 编译错(好);留字段不删 key = 前端 PUT 缺 key 时零值刷掉
+		// 0090 声明要保留的回滚兜底值(坏)。
 		"recharge_rate":            c.RechargeRate,
+		"credit_to_points":         c.CreditToPoints, // 0094 按量付费兑换率
 		"min_recharge_cents":       c.MinRechargeCents,
-		"reset_cost_credits":       c.ResetCostCredits,
-		"subscription_period_days": c.SubscriptionPeriodDays,
+		"reset_cost_credits":       c.ResetCostCredits, // 运行时不读,但 0092 换算要用,必须继续写回
 		"popular_plan":             c.PopularPlan,
 		"enabled":                  c.Enabled,
 	}).Error
@@ -355,22 +354,13 @@ func (r *Repository) Redeem(userID uint, code string, now time.Time) (*RedeemRes
 		}
 
 		if rc.GrantKind == GrantKindCredit {
-			if rc.CreditKind == CreditKindPerm {
-				if err := grantPermInTx(tx, userID, rc.GrantCredits, SourceGift, code, TxGift); err != nil {
-					return err
-				}
-				result = &RedeemResult{Kind: GrantKindCredit, Credits: rc.GrantCredits, CreditKind: CreditKindPerm}
-			} else {
-				days := rc.CreditValidityDays
-				if days <= 0 {
-					days = 30
-				}
-				exp := now.AddDate(0, 0, days)
-				if err := grantTempInTx(tx, userID, rc.GrantCredits, SourceGift, code, now, exp, TxGift); err != nil {
-					return err
-				}
-				result = &RedeemResult{Kind: GrantKindCredit, Credits: rc.GrantCredits, CreditKind: CreditKindTemp}
+			// 0090:临时经费退休 —— 存量 credit_kind='temp' 的旧码**一律按永久发放**,
+			// 而不是拒兑。用户手里已发出去的码不能因为我们改模型就作废;
+			// 永久比临时对用户只多不少,是安全的降级方向。
+			if err := grantPermInTx(tx, userID, rc.GrantCredits, SourceGift, code, TxGift); err != nil {
+				return err
 			}
+			result = &RedeemResult{Kind: GrantKindCredit, Credits: rc.GrantCredits, CreditKind: CreditKindPerm}
 			return nil
 		}
 

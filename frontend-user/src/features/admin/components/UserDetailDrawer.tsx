@@ -205,7 +205,8 @@ export function UserDetailDrawer({
                     <div className="flex items-center justify-between text-12">
                       <span className="text-faint">科研经费</span>
                       <span className="tabular-nums text-subtle">
-                        {vip.data.credit.total}(永久 {vip.data.credit.perm} · 临时 {vip.data.credit.temp})
+                        {/* 0090 经费只剩一种;0094 是小数 → 固定两位。同屏给出可兑算力(兑换率可调)。 */}
+                        {vip.data.credit.total.toFixed(2)}(≈{vip.data.credit.points.toLocaleString()} 算力点)
                       </span>
                     </div>
                   </div>
@@ -214,8 +215,8 @@ export function UserDetailDrawer({
             )}
           </Section>
 
-          {/* Token 用量(历史天/模型拆分)—— 本周期额度条之外的历史明细视角 */}
-          <Section title="Token 用量">
+          {/* 算力用量(历史天/模型拆分)—— 本周期额度条之外的历史明细视角,与额度条同单位 */}
+          <Section title="算力用量">
             <UserTokenUsagePanel userId={user.id} />
           </Section>
 

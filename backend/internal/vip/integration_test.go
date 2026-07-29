@@ -2,8 +2,9 @@
 
 // 计费体系全链路集成测试 —— 直连 compose 的 MySQL + Redis(service 层, 不经 HTTP)。
 //
-// 覆盖用户要求的全部场景:会员生效 / 失效 / 续费续期 / 不降级 / 临时经费 / 永久经费 /
-// 消耗顺序 / 临时过期 / 重置 / 经费不足 / 过 0 点(日 key 滚动)/ 充值入账 / 订阅赠经费 / 幂等。
+// 覆盖:会员生效 / 失效 / 续费续期(自然月·年)/ 不降级 / 经费 / 重置次数(最近到期优先·用尽)/
+// 重置 / 过 0 点(日 key 滚动)/ 充值入账 / 幂等。
+// 0090 起:订阅不再赠送经费、临时经费退休、重置只扣次数 —— 相关断言已按新模型重写。
 //
 // 运行(连 compose 网络):
 //   docker run --rm --network scholar_scholar-network \
@@ -15,6 +16,7 @@ package vip
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"testing"
@@ -68,6 +70,7 @@ func mkUser(t *testing.T, db *gorm.DB) uint {
 
 func cleanup(db *gorm.DB, id uint) {
 	db.Exec("DELETE FROM credit_temp_lots WHERE user_id = ?", id)
+	db.Exec("DELETE FROM credit_reset_passes WHERE user_id = ?", id)
 	db.Exec("DELETE FROM credit_transactions WHERE user_id = ?", id)
 	db.Exec("DELETE FROM orders WHERE user_id = ?", id)
 	db.Exec("DELETE FROM user_wallets WHERE user_id = ?", id)
@@ -84,10 +87,8 @@ func TestIntegrationBilling(t *testing.T) {
 	freeCeil := cfg.WindowCeiling(TierFree)
 	proCeil := cfg.WindowCeiling(TierPro)
 	maxCeil := cfg.WindowCeiling(TierMax)
-	proGrant := cfg.GrantCreditsFor(TierPro, CycleMonthly)
-	resetCost := cfg.ResetCostCredits
-	t.Logf("config: freeCeil=%d proCeil=%d maxCeil=%d proGrant=%d resetCost=%d",
-		freeCeil, proCeil, maxCeil, proGrant, resetCost)
+	// 0090:订阅不再赠送经费,GrantCreditsFor 已删;重置改扣「重置次数」,resetCost 不再参与判定。
+	t.Logf("config: freeCeil=%d proCeil=%d maxCeil=%d", freeCeil, proCeil, maxCeil)
 
 	// ── 会员生效 / 幂等 / 续费顺延 / 不降级 / 失效 ──────────────────────────────
 	t.Run("Membership", func(t *testing.T) {
@@ -115,16 +116,17 @@ func TestIntegrationBilling(t *testing.T) {
 		if ov.Tier != TierPro || ov.Token.Ceiling != proCeil {
 			t.Fatalf("订阅后应 pro: tier=%s ceil=%d", ov.Tier, ov.Token.Ceiling)
 		}
-		if ov.Credit.Temp != proGrant {
-			t.Fatalf("赠临时经费=%d want %d", ov.Credit.Temp, proGrant)
+		// 0090:订阅不赠送经费 —— 履约后经费余额必须**纹丝不动**(这是 B 项的核心断言)。
+		if ov.Credit.Total != 0 {
+			t.Fatalf("订阅不应赠送任何经费, 得到 total=%v", ov.Credit.Total)
 		}
 		exp1 := ov.ExpiresAt
 
 		// 幂等:重复回调不重复入账
 		_ = svc.Order().ProcessAlipayCallback(ord.OrderNo, "txn-1", ord.FinalAmount, nil)
 		ov, _ = svc.GetOverview(ctx, id)
-		if ov.Credit.Temp != proGrant {
-			t.Fatalf("幂等失败:重复回调后 temp=%d want %d", ov.Credit.Temp, proGrant)
+		if ov.Credit.Total != 0 {
+			t.Fatalf("幂等失败:重复回调后经费=%v want 0", ov.Credit.Total)
 		}
 
 		// 续费:再订阅 pro → 到期顺延 + 再赠一笔经费
@@ -136,10 +138,8 @@ func TestIntegrationBilling(t *testing.T) {
 		if ov.ExpiresAt == nil || exp1 == nil || !ov.ExpiresAt.After(*exp1) {
 			t.Fatalf("续费应顺延: exp1=%v exp2=%v", exp1, ov.ExpiresAt)
 		}
-		// 续费赠费走 GrantStartsAt 预发放(下一周期才生效,order.go):可用余额仍是本期的一笔,
-		// 第二笔在库但 StartsAt 未到不计入(Balance 只算 active lots)。
-		if ov.Credit.Temp != proGrant {
-			t.Fatalf("续费赠费为预发放, 可用 temp=%d want %d(下一周期批次未生效)", ov.Credit.Temp, proGrant)
+		if ov.Credit.Total != 0 {
+			t.Fatalf("续费同样不赠送经费, 得到 total=%v", ov.Credit.Total)
 		}
 
 		// 升级 max
@@ -171,7 +171,6 @@ func TestIntegrationBilling(t *testing.T) {
 		id := mkUser(t, db)
 		defer cleanup(db, id)
 
-		yearGrant := cfg.GrantCreditsFor(TierPro, CycleYearly)
 		if cfg.PriceCentsFor(TierPro, CycleYearly) <= 0 {
 			t.Skip("年付未配置(pro_year_price_cents<=0), 跳过")
 		}
@@ -191,30 +190,28 @@ func TestIntegrationBilling(t *testing.T) {
 		if ov.Tier != TierPro || ov.Cycle != CycleYearly {
 			t.Fatalf("年费标识: tier=%s cycle=%s", ov.Tier, ov.Cycle)
 		}
-		yearDays := cfg.PeriodDaysFor(CycleYearly)
-		if ov.ExpiresAt == nil || ov.ExpiresAt.Before(time.Now().AddDate(0, 0, yearDays-1)) {
-			t.Fatalf("年度到期应约 %d 天后: %v", yearDays, ov.ExpiresAt)
+		// 0090:年度 = +1 个**自然年**(不再是 365 天)。用 AddPeriod 算期望值,
+		// 而不是 AddDate(0,0,365) —— 后者在大多数基准日上恰好相等,写成那样等于没测。
+		if wantExp := AddPeriod(time.Now(), CycleYearly); ov.ExpiresAt == nil ||
+			ov.ExpiresAt.Before(wantExp.Add(-2*time.Minute)) || ov.ExpiresAt.After(wantExp.Add(2*time.Minute)) {
+			t.Fatalf("年度到期应为 +1 自然年(≈%v): %v", wantExp, ov.ExpiresAt)
 		}
 
-		// 经费分 12 批:批次总数 12、总额=年度总额;当前可用只有首批(≈总额/12+余数)。
+		// 0090:订阅不赠送经费 —— 原先这里断言「12 批临时经费」,整段改成断言**一批都没有**。
 		var lotCount int64
-		var lotSum int64
-		db.Table("credit_temp_lots").Where("user_id = ? AND source = ?", id, SourceSubscription).Count(&lotCount)
-		db.Table("credit_temp_lots").Where("user_id = ? AND source = ?", id, SourceSubscription).
-			Select("COALESCE(SUM(amount_initial),0)").Scan(&lotSum)
-		if lotCount != 12 || lotSum != int64(yearGrant) {
-			t.Fatalf("年度经费批次: count=%d sum=%d want 12/%d", lotCount, lotSum, yearGrant)
+		db.Table("credit_temp_lots").Where("user_id = ?", id).Count(&lotCount)
+		if lotCount != 0 {
+			t.Fatalf("订阅不应产生任何临时经费批次, 得到 %d 批(临时经费链路已退休)", lotCount)
 		}
-		firstLot := yearGrant/12 + yearGrant%12
-		if ov.Credit.Temp != firstLot {
-			t.Fatalf("首月可用=%d want %d(其余按月生效)", ov.Credit.Temp, firstLot)
+		if ov.Credit.Total != 0 {
+			t.Fatalf("年度订阅不应赠送经费, 得到 total=%v", ov.Credit.Total)
 		}
 
 		// 幂等:重复回调不重复入账。
 		_ = svc.Order().ProcessAlipayCallback(ord.OrderNo, "txn-y1", ord.FinalAmount, nil)
-		db.Table("credit_temp_lots").Where("user_id = ? AND source = ?", id, SourceSubscription).Count(&lotCount)
-		if lotCount != 12 {
-			t.Fatalf("幂等失败: 重复回调后批次=%d", lotCount)
+		db.Table("credit_temp_lots").Where("user_id = ?", id).Count(&lotCount)
+		if lotCount != 0 {
+			t.Fatalf("幂等失败: 重复回调后临时批次=%d", lotCount)
 		}
 
 		// 年费用户按月续一个月 → 到期 +30 天、周期标识转回月度(最近一单为准)。
@@ -234,46 +231,95 @@ func TestIntegrationBilling(t *testing.T) {
 		}
 	})
 
-	// ── 临时 / 永久经费 / 消耗顺序 / 临时过期 ────────────────────────────────────
+	// ── 经费(0090 起只剩一种)+ 重置次数 ──────────────────────────────────────
 	t.Run("Wallet", func(t *testing.T) {
 		id := mkUser(t, db)
 		defer cleanup(db, id)
 		w := svc.Wallet()
 
-		// 永久 100
 		if err := w.GrantPerm(id, 100, SourceRecharge, "t", TxRecharge); err != nil {
 			t.Fatal(err)
 		}
-		// 临时 50(7 天后到期)
-		if err := w.GrantTemp(id, 50, SourceGift, "t", time.Now().AddDate(0, 0, 7), TxGift); err != nil {
-			t.Fatal(err)
-		}
-		bal, _ := w.Balance(id)
-		if bal.Perm != 100 || bal.Temp != 50 || bal.Total != 150 {
-			t.Fatalf("余额 perm=%d temp=%d total=%d", bal.Perm, bal.Temp, bal.Total)
+		bal, _ := w.Balance(id, cfg)
+		if bal.Perm != 100 || bal.Total != 100 || bal.PermMicro != 100*MicroCreditPerCredit {
+			t.Fatalf("余额 perm=%v total=%v micro=%d want 100/100/1e8", bal.Perm, bal.Total, bal.PermMicro)
 		}
 
-		// 消耗 60:应先扣临时 50, 再扣永久 10
-		if err := w.Consume(id, 60, TxResetConsume, "reset", "x", ""); err != nil {
+		if err := w.Consume(id, 60, TxAdminAdjust, "admin", "x", ""); err != nil {
 			t.Fatalf("consume: %v", err)
 		}
-		bal, _ = w.Balance(id)
-		if bal.Temp != 0 || bal.Perm != 90 {
-			t.Fatalf("消耗顺序错: temp=%d perm=%d want temp=0 perm=90", bal.Temp, bal.Perm)
+		if bal, _ = w.Balance(id, cfg); bal.Perm != 40 || bal.Total != 40 {
+			t.Fatalf("扣减后 perm=%v total=%v want 40/40", bal.Perm, bal.Total)
 		}
 
-		// 临时过期:发一笔已过期的临时经费 → 不计入余额
-		if err := w.GrantTemp(id, 30, SourceGift, "t", time.Now().Add(-time.Hour), TxGift); err != nil {
+		// 0094:按量扣减必须能扣**小数**经费 —— 整数余额装不下单次调用的量级,这是整个改造的起点。
+		// 500 微元 = 0.5 算力点 = 0.1 经费(兑换率 5)。
+		if err := w.ConsumeForQuota(id, 500, cfg); err != nil {
+			t.Fatalf("按量扣减失败: %v", err)
+		}
+		if bal, _ = w.Balance(id, cfg); bal.Perm != 39.9 {
+			t.Fatalf("500 微元应扣 0.1 经费, 余 %v want 39.9", bal.Perm)
+		}
+		if err := w.Consume(id, 999, TxAdminAdjust, "admin", "x", ""); err == nil {
+			t.Fatalf("超额消耗应失败")
+		}
+	})
+
+	// ── 重置次数:批次可用性 / 最近到期优先 / 用尽 ────────────────────────────
+	t.Run("ResetPasses", func(t *testing.T) {
+		id := mkUser(t, db)
+		defer cleanup(db, id)
+		w := svc.Wallet()
+		now := time.Now()
+
+		mkPass := func(n int, startsIn, expiresIn time.Duration) {
+			if err := db.Create(&CreditResetPass{
+				UserID: id, CountInitial: n, CountRemaining: n, Source: "test", Ref: "t",
+				StartsAt: now.Add(startsIn).Truncate(time.Second), ExpiresAt: now.Add(expiresIn),
+			}).Error; err != nil {
+				t.Fatal(err)
+			}
+		}
+		mkPass(2, 0, 72*time.Hour)             // 可用,较晚到期
+		mkPass(1, 0, 24*time.Hour)             // 可用,**最近到期** → 应先扣
+		mkPass(5, 0, -time.Hour)               // 已过期 → 不计入
+		mkPass(7, 48*time.Hour, 96*time.Hour)  // 未生效 → 不计入
+
+		v, err := w.ResetPasses(id)
+		if err != nil {
 			t.Fatal(err)
 		}
-		bal, _ = w.Balance(id)
-		if bal.Temp != 0 {
-			t.Fatalf("过期临时经费不应计入: temp=%d", bal.Temp)
+		if v.Total != 3 {
+			t.Fatalf("可用次数=%d want 3(过期与未生效批次都不该计入)", v.Total)
 		}
 
-		// 经费不足
-		if err := w.Consume(id, 999, TxResetConsume, "reset", "x", ""); err == nil {
-			t.Fatalf("超额消耗应失败")
+        // 最近到期优先:第一次扣应打在 24h 那批上。
+		if err := w.ConsumeResetPass(id); err != nil {
+			t.Fatalf("consume pass: %v", err)
+		}
+		var near CreditResetPass
+		if err := db.Where("user_id = ? AND expires_at < ?", id, now.Add(48*time.Hour)).
+			Where("expires_at > ?", now).First(&near).Error; err != nil {
+			t.Fatal(err)
+		}
+		if near.CountRemaining != 0 {
+			t.Fatalf("应先扣最近到期的批次, 它还剩 %d", near.CountRemaining)
+		}
+
+		// 扣光可用的 3 次后必须报 ErrNoResetPass —— 绝不能回落去扣经费。
+		if err := w.GrantPerm(id, 10000, SourceRecharge, "t", TxRecharge); err != nil {
+			t.Fatal(err)
+		}
+		for i := 0; i < 2; i++ {
+			if err := w.ConsumeResetPass(id); err != nil {
+				t.Fatalf("第 %d 次扣减失败: %v", i+2, err)
+			}
+		}
+		if err := w.ConsumeResetPass(id); !errors.Is(err, ErrNoResetPass) {
+			t.Fatalf("次数用尽应回 ErrNoResetPass, 得到 %v(有经费也不能回落扣经费)", err)
+		}
+		if bal, _ := w.Balance(id, cfg); bal.Perm != 10000 {
+			t.Fatalf("重置次数消耗绝不能碰经费, perm=%v want 10000", bal.Perm)
 		}
 	})
 
@@ -296,11 +342,13 @@ func TestIntegrationBilling(t *testing.T) {
 			t.Fatalf("未超限重置应为无害 no-op: %v", err)
 		}
 
-		// 烧到超过 Free 窗口上限 → 重置才「需要」;此时无经费 → ErrInsufficientCredit。
+		// 烧到超过 Free 窗口上限 → 重置才「需要」;此时无重置次数 → ErrNoResetPass。
+		// ⚠️ 断言具体错误而不是 err != nil:改造前这条是「无经费」,用 err==nil 判会在
+		//    「也没次数」时歪打正着继续通过,掩盖掉扣费口径其实没切过来。
 		overCeil := int(freeCeil) + 1000
 		svc.AddUsage(ctx, id, overCeil)
-		if _, err := svc.ResetQuota(ctx, id); err == nil {
-			t.Fatalf("超限且无经费应无法重置")
+		if _, err := svc.ResetQuota(ctx, id); !errors.Is(err, ErrNoResetPass) {
+			t.Fatalf("超限且无重置次数应回 ErrNoResetPass, 得到 %v", err)
 		}
 		wantUsed := int64(1234 + overCeil)
 		// 用量未变(失败不清计数)
@@ -308,8 +356,18 @@ func TestIntegrationBilling(t *testing.T) {
 			t.Fatalf("重置失败后 used 不应变: %d want %d", w.used, wantUsed)
 		}
 
-		// 给够经费 → 重置成功:扣经费 + 窗口清零
-		if err := svc.Wallet().GrantPerm(id, resetCost+10, SourceRecharge, "t", TxRecharge); err != nil {
+		// 0090:给的是**重置次数**不是经费 —— 顺带守住「经费买不到重置」。
+		if err := svc.Wallet().GrantPerm(id, 100000, SourceRecharge, "t", TxRecharge); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := svc.ResetQuota(ctx, id); !errors.Is(err, ErrNoResetPass) {
+			t.Fatalf("光有经费不该能重置, 得到 %v", err)
+		}
+		if err := db.Create(&CreditResetPass{
+			UserID: id, CountInitial: 1, CountRemaining: 1, Source: "test", Ref: "t",
+			StartsAt: time.Now().Add(-time.Minute).Truncate(time.Second),
+			ExpiresAt: time.Now().Add(24 * time.Hour),
+		}).Error; err != nil {
 			t.Fatal(err)
 		}
 		res, err := svc.ResetQuota(ctx, id)
@@ -328,8 +386,12 @@ func TestIntegrationBilling(t *testing.T) {
 		if w.used != 0 || w.windowUsed() != 0 {
 			t.Fatalf("重置后新窗口应满血归零: used=%d windowUsed=%d", w.used, w.windowUsed())
 		}
-		if bal, _ := svc.Wallet().Balance(id); bal.Total != 10 {
-			t.Fatalf("重置应扣 %d 经费, 余 %d want 10", resetCost, bal.Total)
+		// 0090 核心:重置扣的是**次数**,经费必须一分未动。
+		if bal, _ := svc.Wallet().Balance(id, cfg); bal.Total != 100000 {
+			t.Fatalf("重置不得扣经费, 余 %v want 100000", bal.Total)
+		}
+		if v, _ := svc.Wallet().ResetPasses(id); v.Total != 0 {
+			t.Fatalf("重置应扣掉那 1 次, 剩余 %d want 0", v.Total)
 		}
 
 		// 重置后再消耗:新窗口从 0 起算累加。
@@ -371,15 +433,15 @@ func TestIntegrationBilling(t *testing.T) {
 		if err := svc.Order().ProcessWeChatPayCallback(ord.OrderNo, "wx-1", ord.FinalAmount, nil); err != nil {
 			t.Fatalf("recharge fulfill: %v", err)
 		}
-		bal, _ := svc.Wallet().Balance(id)
-		if bal.Perm != wantCredits {
-			t.Fatalf("充值入账永久经费=%d want %d", bal.Perm, wantCredits)
+		bal, _ := svc.Wallet().Balance(id, cfg)
+		if bal.Perm != float64(wantCredits) {
+			t.Fatalf("充值入账经费=%v want %d", bal.Perm, wantCredits)
 		}
 		// 幂等
 		_ = svc.Order().ProcessWeChatPayCallback(ord.OrderNo, "wx-1", ord.FinalAmount, nil)
-		bal, _ = svc.Wallet().Balance(id)
-		if bal.Perm != wantCredits {
-			t.Fatalf("充值幂等失败: perm=%d want %d", bal.Perm, wantCredits)
+		bal, _ = svc.Wallet().Balance(id, cfg)
+		if bal.Perm != float64(wantCredits) {
+			t.Fatalf("充值幂等失败: perm=%v want %d", bal.Perm, wantCredits)
 		}
 	})
 }

@@ -37,7 +37,7 @@ export interface SubQuote {
   cycle: BillingCycle;
   amount_cents: number;
   credits: number;
-  deferred: boolean; // 经费延后到下一周期生效(续期)
+  deferred: boolean; // 续期=true:本单权益从当前到期日起算(0090 起与经费无关)
   current_tier: string;
   current_cycle?: BillingCycle; // 用户当前订阅周期(付费在期时)
   remaining_days: number;
@@ -203,7 +203,7 @@ export function SubscribeDialog({
         <DialogHeader>
           <DialogTitle>选择会员套餐</DialogTitle>
           <DialogDescription>
-            更高 AI 额度 + 赠送科研经费,经费可随时重置额度。年付一次到位更划算。不支持降级。
+            更高 AI 额度,按 7 天周期自动恢复满额。年付一次到位更划算。不支持降级。
           </DialogDescription>
         </DialogHeader>
 
@@ -322,13 +322,13 @@ export function SubscribeDialog({
               <>
                 {action === 'renew' && (
                   <span className="text-12 text-faint">
-                    {payCycle === 'yearly' ? '按年续期 · 转为年费会员 · 经费按月分批发放' : '续期 · 本期经费将于下一周期发放'}
+                    {payCycle === 'yearly' ? '按年续期 · 转为年费会员 · 到期日 +1 年' : '续期 · 到期日 +1 个自然月'}
                     {newExpires ? ` · 续至 ${newExpires}` : ''}
                   </span>
                 )}
                 {action === 'new' && payCycle === 'yearly' && (
                   <span className="text-12 text-faint">
-                    年费会员 · 经费按月分批发放{newExpires ? ` · 有效期至 ${newExpires}` : ''}
+                    年费会员{newExpires ? ` · 有效期至 ${newExpires}` : ''}
                   </span>
                 )}
                 {action === 'upgrade' && quoteData && (

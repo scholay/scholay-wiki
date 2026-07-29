@@ -1,6 +1,14 @@
-// LLM Token 用量看板 —— admin 只读 hooks。
+// LLM 算力用量看板 —— admin 只读 hooks。
 // 字段对齐 backend/internal/llmusage (models_admin.go / handler_admin.go)。
 // 数据源: llm_token_usage 账本(项目侧 internal/ai + agent 侧 scholar_agent 每次 LLM 调用一行)。
+//
+// 单位约定(全页唯一口径):
+//   主单位 = **算力点**,由 cost_micro_yuan(整数微元)÷ 1000 得到。1 算力点 = ¥0.001 真实成本,
+//   由该次调用的模型自己的四类单价(输入/输出/缓存读/缓存写,含长输入分档)精算并快照落行 ——
+//   与用户额度扣减、用户端额度条**同源同单位**,后台看到的「消耗了多少」就是用户被扣掉的那个数。
+//   token 是次要口径,保留是因为缓存命中率 / 上下文规模这类运维视角只有 token 能表达。
+//
+// 换算刻意放在前端:后端 DTO 一律传整数微元(无精度损失),避免「后端已折算 + 前端再折算」的双重除法。
 import { useQuery } from '@tanstack/react-query';
 import { http } from '@/shared/lib/http';
 import { localDateKey } from '@/shared/lib/daily-trend';
@@ -29,6 +37,14 @@ export interface TokenTotals {
   unique_users: number;
   anon_calls: number;
   anon_tokens: number;
+  /** 窗口内总消耗(微元)。÷1000 = 算力点 —— 全页主单位。 */
+  cost_micro_yuan: number;
+  /** 公众号/匿名(user_id IS NULL)的消耗(微元)。 */
+  anon_cost_micro_yuan: number;
+  /** cost=0 的调用次数:成本制改造前的历史行 / 模型当时未计价。见文件头注释。 */
+  unpriced_calls: number;
+  /** 上述未计价调用消耗掉的 token 量(它们没有折算出任何算力点)。 */
+  unpriced_tokens: number;
 }
 
 export interface TokenDayPoint {
@@ -39,6 +55,7 @@ export interface TokenDayPoint {
   cache_read_tokens: number;
   cache_creation_tokens: number;
   calls: number;
+  cost_micro_yuan: number;
 }
 
 export interface TokenBreakdownItem {
@@ -50,6 +67,9 @@ export interface TokenBreakdownItem {
   cache_read_tokens: number;
   cache_creation_tokens: number;
   calls: number;
+  cost_micro_yuan: number;
+  /** 该维度下未计价的调用次数(按模型看时 = 「这个模型的单价没配」的直接信号)。 */
+  unpriced_calls: number;
 }
 
 export interface TokenUserItem {
@@ -62,6 +82,8 @@ export interface TokenUserItem {
   cache_read_tokens: number;
   cache_creation_tokens: number;
   calls: number;
+  cost_micro_yuan: number;
+  unpriced_calls: number;
 }
 
 /** 「天 × 维度(model/feature)」交叉聚合的一格 —— 主图分段堆叠柱用(稀疏,按 daily 的日期 spine 合并)。 */
@@ -75,6 +97,7 @@ export interface TokenDayDimPoint {
   cache_read_tokens: number;
   cache_creation_tokens: number;
   calls: number;
+  cost_micro_yuan: number;
 }
 
 export interface TokenUsageOverview {
@@ -106,6 +129,8 @@ export interface TokenLog {
   total_tokens: number;
   cache_read_tokens: number;
   cache_creation_tokens: number;
+  /** 本次调用的成本快照(微元);÷1000 = 算力点。0 = 未计价(历史行 / 该模型当时无单价)。 */
+  cost_micro_yuan: number;
   request_id: string;
   created_at: string;
 }
@@ -119,7 +144,7 @@ export interface TokenFacets {
 export interface TokenLogParams extends TokenUsageFilters {
   page?: number;
   page_size?: number;
-  sort?: 'created_at' | 'total_tokens';
+  sort?: 'created_at' | 'total_tokens' | 'cost_micro_yuan';
 }
 
 /** 总览: KPI + 每日趋势 + 多维拆分 + top 用户(一次拉全)。 */
@@ -184,6 +209,13 @@ export const FEATURE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'translate', label: '论文翻译' },
   { value: 'wechat_oa', label: '公众号' },
   { value: 'prism', label: '智能写作' },
+  // claw 内的两个 mode,落账本时写自己的 feature key(账本里实际存在这两个值)。
+  { value: 'boltslides', label: '制作PPT' },
+  { value: 'sci_draw', label: '科研绘图' },
+  // memory = per-user 长期记忆的后台抽取。它走 SkipQuota(不扣用户额度)但**照常记账本**,
+  // 所以在成本视角里是可见的平台开销 —— 必须能筛、能显示中文名。漏掉它会让同一页出现
+  // 两个叫法:「按功能」拆分走后端 FeatureLabel 显示「记忆抽取」,明细表却回落显示裸 code。
+  { value: 'memory', label: '记忆抽取' },
 ];
 
 export const SOURCE_OPTIONS: Array<{ value: string; label: string }> = [
@@ -202,4 +234,45 @@ export function compactTokens(n: number): string {
   if (n >= 1_000_000) return trim((n / 1_000_000).toFixed(1)) + 'M';
   if (n >= 1_000) return trim((n / 1_000).toFixed(1)) + 'k';
   return String(n);
+}
+
+// ─── 算力点(主单位)──────────────────────────────────────────────────────────
+//
+// 1 算力点 = 1000 微元 = ¥0.001 真实成本。这是**全站计费单位**,不是本页自创的展示单位:
+// 用户端额度条、后台用户详情抽屉的 TokenQuotaBar、计费配置页的周期额度输入框,除的都是同一个 1000。
+// 改这个常数 = 改全站计费口径,后端 llmusage/handler_admin.go 的 microYuanPerPoint 必须同时改。
+
+export const MICRO_YUAN_PER_POINT = 1000;
+
+/** 微元 → 算力点(带小数,给图表数值 / 需要精确求和的地方用;不要拿它直接渲染文本)。 */
+export function toPoints(microYuan: number): number {
+  return (microYuan || 0) / MICRO_YUAN_PER_POINT;
+}
+
+/**
+ * 微元 → 展示用算力点字符串。
+ * 聚合量级(≥1 点)取整 + 千分位,与用户额度条 `Math.round(used / 1000)` 同口径;
+ * 单次调用可能小到 0.4 点,取整会变成 0(「有消耗」被渲染成「没消耗」),故 <1 时保留 2 位小数。
+ * 恒 0 才显示 0 —— 这时它要么真是 0,要么是未计价行,由调用方旁边的角标区分。
+ */
+export function formatPoints(microYuan: number): string {
+  const p = toPoints(microYuan);
+  if (p === 0) return '0';
+  // 最小非零成本是 1 微元 = 0.001 点,toFixed(2) 会把它渲染成「0.00」——
+  // 那和「0」在屏幕上不可区分,又一次「有消耗被显示成没消耗」。低于两位精度就明说是「<0.01」。
+  if (p < 0.01) return '<0.01';
+  if (p < 1) return p.toFixed(2);
+  return Math.round(p).toLocaleString();
+}
+
+/** 算力点的紧凑写法(图表轴 / KPI 大数字)。入参是**微元**,与 formatPoints 保持同一个入口单位。 */
+export function compactPoints(microYuan: number): string {
+  const p = toPoints(microYuan);
+  if (p > 0 && p < 1) return p.toFixed(2);
+  return compactTokens(Math.round(p));
+}
+
+/** 微元 → 人民币展示(¥x.xx)。给「这些算力点折多少钱」的副文案用;财务视角仍以元为准。 */
+export function formatYuan(microYuan: number): string {
+  return `¥${((microYuan || 0) / 1_000_000).toFixed(2)}`;
 }

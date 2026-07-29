@@ -14,7 +14,7 @@ import {
 } from '../../api/token-usage';
 
 /**
- * Token 看板筛选条 —— 值存 URL(useUrlState 读 + 刷新/前进后退不丢),
+ * 算力用量看板筛选条 —— 值存 URL(useUrlState 读 + 刷新/前进后退不丢),
  * 任一项变化时把解析好的 TokenUsageFilters 抛给父级(onChange)。
  *
  * 写入一律走 usePatchUrlState 的**单次** navigate:react-router v7 的 setSearchParams

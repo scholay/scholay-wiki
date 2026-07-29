@@ -1,0 +1,311 @@
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "days": 30,
+    "totals": {
+      "total_tokens": 17170562,
+      "input_tokens": 2928809,
+      "output_tokens": 449413,
+      "cache_read_tokens": 13792340,
+      "cache_creation_tokens": 0,
+      "total_calls": 484,
+      "unique_users": 7,
+      "anon_calls": 0,
+      "anon_tokens": 0,
+      "cost_micro_yuan": 2699526,
+      "anon_cost_micro_yuan": 0,
+      "unpriced_calls": 411,
+      "unpriced_tokens": 15425231
+    },
+    "daily": [
+      {
+        "date": "2026-06-30",
+        "total_tokens": 342059,
+        "input_tokens": 72333,
+        "output_tokens": 9886,
+        "cache_read_tokens": 259840,
+        "cache_creation_tokens": 0,
+        "calls": 20,
+        "cost_micro_yuan": 0
+      },
+      {
+        "date": "2026-07-01",
+        "total_tokens": 189112,
+        "input_tokens": 13999,
+        "output_tokens": 10121,
+        "cache_read_tokens": 164992,
+        "cache_creation_tokens": 0,
+        "calls": 25,
+        "cost_micro_yuan": 0
+      },
+      {
+        "date": "2026-07-02",
+        "total_tokens": 0,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "calls": 0,
+        "cost_micro_yuan": 0
+      }
+    ],
+    "by_feature": [
+      {
+        "key": "sci_draw",
+        "label": "科研绘图",
+        "total_tokens": 1333917,
+        "input_tokens": 338012,
+        "output_tokens": 154561,
+        "cache_read_tokens": 841344,
+        "cache_creation_tokens": 0,
+        "calls": 62,
+        "cost_micro_yuan": 1505666,
+        "unpriced_calls": 34
+      },
+      {
+        "key": "prism",
+        "label": "智能写作",
+        "total_tokens": 5845908,
+        "input_tokens": 366461,
+        "output_tokens": 99735,
+        "cache_read_tokens": 5379712,
+        "cache_creation_tokens": 0,
+        "calls": 112,
+        "cost_micro_yuan": 523181,
+        "unpriced_calls": 103
+      },
+      {
+        "key": "smart_search",
+        "label": "智能搜索",
+        "total_tokens": 1286546,
+        "input_tokens": 599267,
+        "output_tokens": 34907,
+        "cache_read_tokens": 652372,
+        "cache_creation_tokens": 0,
+        "calls": 44,
+        "cost_micro_yuan": 392174,
+        "unpriced_calls": 29
+      }
+    ],
+    "by_source": [
+      {
+        "key": "agent",
+        "label": "Agent",
+        "total_tokens": 17141114,
+        "input_tokens": 2905593,
+        "output_tokens": 446253,
+        "cache_read_tokens": 13789268,
+        "cache_creation_tokens": 0,
+        "calls": 474,
+        "cost_micro_yuan": 2693321,
+        "unpriced_calls": 404
+      },
+      {
+        "key": "project",
+        "label": "项目",
+        "total_tokens": 29448,
+        "input_tokens": 23216,
+        "output_tokens": 3160,
+        "cache_read_tokens": 3072,
+        "cache_creation_tokens": 0,
+        "calls": 10,
+        "cost_micro_yuan": 6205,
+        "unpriced_calls": 7
+      }
+    ],
+    "by_model": [
+      {
+        "key": "qwen3.7-plus",
+        "label": "qwen3.7-plus",
+        "total_tokens": 1230668,
+        "input_tokens": 533856,
+        "output_tokens": 114540,
+        "cache_read_tokens": 582272,
+        "cache_creation_tokens": 0,
+        "calls": 40,
+        "cost_micro_yuan": 2216931,
+        "unpriced_calls": 0
+      },
+      {
+        "key": "gpt-4o-mini-2024-07-18",
+        "label": "gpt-4o-mini-2024-07-18",
+        "total_tokens": 312576,
+        "input_tokens": 259759,
+        "output_tokens": 2385,
+        "cache_read_tokens": 50432,
+        "cache_creation_tokens": 0,
+        "calls": 19,
+        "cost_micro_yuan": 287510,
+        "unpriced_calls": 0
+      },
+      {
+        "key": "qwen3.6-flash",
+        "label": "qwen3.6-flash",
+        "total_tokens": 65349,
+        "input_tokens": 61570,
+        "output_tokens": 3779,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "calls": 2,
+        "cost_micro_yuan": 101092,
+        "unpriced_calls": 0
+      }
+    ],
+    "by_provider": [
+      {
+        "key": "scholay-p6",
+        "label": "scholay-p6",
+        "total_tokens": 1318292,
+        "input_tokens": 615492,
+        "output_tokens": 120528,
+        "cache_read_tokens": 582272,
+        "cache_creation_tokens": 0,
+        "calls": 43,
+        "cost_micro_yuan": 2323803,
+        "unpriced_calls": 0
+      },
+      {
+        "key": "scholay-p4",
+        "label": "scholay-p4",
+        "total_tokens": 312576,
+        "input_tokens": 259759,
+        "output_tokens": 2385,
+        "cache_read_tokens": 50432,
+        "cache_creation_tokens": 0,
+        "calls": 19,
+        "cost_micro_yuan": 287510,
+        "unpriced_calls": 0
+      },
+      {
+        "key": "scholay-p7",
+        "label": "scholay-p7",
+        "total_tokens": 87625,
+        "input_tokens": 86291,
+        "output_tokens": 1250,
+        "cache_read_tokens": 84,
+        "cache_creation_tokens": 0,
+        "calls": 2,
+        "cost_micro_yuan": 46903,
+        "unpriced_calls": 0
+      }
+    ],
+    "top_users": [
+      {
+        "user_id": 57,
+        "username": "admin_admin_1",
+        "email": "admin@scholay.com",
+        "total_tokens": 14339856,
+        "input_tokens": 2061169,
+        "output_tokens": 356427,
+        "cache_read_tokens": 11922260,
+        "cache_creation_tokens": 0,
+        "calls": 313,
+        "cost_micro_yuan": 1768317,
+        "unpriced_calls": 276
+      },
+      {
+        "user_id": 152,
+        "username": "user_730874",
+        "email": "scidraw-test@example.com",
+        "total_tokens": 311915,
+        "input_tokens": 84284,
+        "output_tokens": 30511,
+        "cache_read_tokens": 197120,
+        "cache_creation_tokens": 0,
+        "calls": 23,
+        "cost_micro_yuan": 475486,
+        "unpriced_calls": 8
+      },
+      {
+        "user_id": 151,
+        "username": "user_041275",
+        "email": "p0test@example.com",
+        "total_tokens": 943326,
+        "input_tokens": 336642,
+        "output_tokens": 14428,
+        "cache_read_tokens": 592256,
+        "cache_creation_tokens": 0,
+        "calls": 52,
+        "cost_micro_yuan": 241777,
+        "unpriced_calls": 36
+      }
+    ],
+    "daily_by_model": [
+      {
+        "date": "2026-06-30",
+        "key": "(reconciled)",
+        "label": "(reconciled)",
+        "total_tokens": 10741,
+        "input_tokens": 60,
+        "output_tokens": 57,
+        "cache_read_tokens": 10624,
+        "cache_creation_tokens": 0,
+        "calls": 1,
+        "cost_micro_yuan": 0
+      },
+      {
+        "date": "2026-06-30",
+        "key": "deepseek-v4-flash",
+        "label": "deepseek-v4-flash",
+        "total_tokens": 58872,
+        "input_tokens": 31164,
+        "output_tokens": 1212,
+        "cache_read_tokens": 26496,
+        "cache_creation_tokens": 0,
+        "calls": 10,
+        "cost_micro_yuan": 0
+      },
+      {
+        "date": "2026-06-30",
+        "key": "deepseek-v4-pro",
+        "label": "deepseek-v4-pro",
+        "total_tokens": 272446,
+        "input_tokens": 41109,
+        "output_tokens": 8617,
+        "cache_read_tokens": 222720,
+        "cache_creation_tokens": 0,
+        "calls": 9,
+        "cost_micro_yuan": 0
+      }
+    ],
+    "daily_by_feature": [
+      {
+        "date": "2026-06-30",
+        "key": "claw",
+        "label": "智能助手",
+        "total_tokens": 305302,
+        "input_tokens": 49421,
+        "output_tokens": 8969,
+        "cache_read_tokens": 246912,
+        "cache_creation_tokens": 0,
+        "calls": 13,
+        "cost_micro_yuan": 0
+      },
+      {
+        "date": "2026-06-30",
+        "key": "memory",
+        "label": "记忆抽取",
+        "total_tokens": 7844,
+        "input_tokens": 3917,
+        "output_tokens": 471,
+        "cache_read_tokens": 3456,
+        "cache_creation_tokens": 0,
+        "calls": 5,
+        "cost_micro_yuan": 0
+      },
+      {
+        "date": "2026-06-30",
+        "key": "smart_search",
+        "label": "智能搜索",
+        "total_tokens": 28913,
+        "input_tokens": 18995,
+        "output_tokens": 446,
+        "cache_read_tokens": 9472,
+        "cache_creation_tokens": 0,
+        "calls": 2,
+        "cost_micro_yuan": 0
+      }
+    ]
+  }
+}

@@ -203,8 +203,8 @@ function VipSummary({ v }: { v: UserVipStatus }) {
           科研经费
         </span>
         <span className="tabular-nums text-subtle">
-          {v.credit.total}
-          <span className="ml-1 text-faint">(永久 {v.credit.perm} · 临时 {v.credit.temp})</span>
+          {v.credit.total.toFixed(2)}
+          <span className="ml-1 text-faint">(≈{v.credit.points.toLocaleString()} 算力点)</span>
         </span>
       </span>
     </div>

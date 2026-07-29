@@ -1,28 +1,29 @@
 {
   "code": 0,
-  "message": "ok",
-  "request_id": "seed-fixture-not-recorded",
+  "message": "success",
   "data": {
-    "tier": "pro",
-    "expires_at": "2026-12-31T23:59:59+08:00",
+    "tier": "free",
+    "expires_at": null,
     "token": {
-      "used": 123456,
-      "ceiling": 1000000,
-      "percent": 12,
+      "used": 0,
+      "ceiling": 0,
+      "percent": 0,
       "unlimited": false,
-      "consumed_today": 123456,
+      "consumed_today": 0,
       "window_days": 7,
-      "window_started_at": "2026-07-10T15:30:00+08:00",
-      "window_reset_at": "2026-07-17T15:30:00+08:00"
+      "window_started_at": null,
+      "window_reset_at": null
     },
     "credit": {
-      "temp": 0,
-      "perm": 500,
-      "total": 500,
-      "lots": [],
+      "perm": 1000,
+      "total": 1000,
+      "perm_micro": 1000000000,
+      "points": 3000,
+      "credit_autopay": false,
       "auto_reset": false
     },
     "auto_reset": false,
-    "reset_cost": 100
+    "reset_passes": 0,
+    "reset_pass_next_expiry": null
   }
 }

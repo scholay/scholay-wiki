@@ -74,11 +74,13 @@ export function DashboardPage() {
               value={fmt(stats?.paid_users)}
               hint={`Free ${fmt(stats?.free_users)}`}
             />
+            {/* 这张卡刻意**保持 ¥ 为主单位** —— 它与「今日营收」并排,是毛利视角,换成算力点就没法跟营收比了。
+                但补一行算力点换算(1 点 = ¥0.001,即 元 × 1000),让它与「算力用量」页的口径对得上。 */}
             <StatCard
               icon={<Coins />}
               label="今日 AI 成本"
               value={`¥${(stats?.cost_today_yuan ?? 0).toFixed(2)}`}
-              hint={`30 日 ¥${(stats?.cost_30d_yuan ?? 0).toFixed(2)} · 明细见 Token 用量`}
+              hint={`≈ ${Math.round((stats?.cost_today_yuan ?? 0) * 1000).toLocaleString()} 算力点 · 30 日 ¥${(stats?.cost_30d_yuan ?? 0).toFixed(2)} · 明细见 算力用量`}
             />
             <StatCard
               icon={<Gift />}

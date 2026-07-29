@@ -11,19 +11,17 @@ import { cn } from '@/shared/lib/utils';
 /** 计费周期(mirrors backend/internal/vip/billing_model.go CycleMonthly/CycleYearly)。 */
 export type BillingCycle = 'monthly' | 'yearly';
 
-/** 后端 /billing/plans 的单档结构(price/multiplier/赠送经费 + 年度价目)。 */
+/** 后端 /billing/plans 的单档结构(price/multiplier + 年度价目)。
+ *  0090:grant_credits / year_grant_credits 已删 —— 订阅不再赠送经费。 */
 export interface MembershipPlanData {
   tier: 'free' | 'pro' | 'max';
   price_cents: number;
   original_cents: number;
   multiplier: number;
-  grant_credits: number;
   /** 年度实付价(分);<=0 = 该档年付未开放。 */
   year_price_cents: number;
   /** 年度划线原价(分)。 */
   year_original_cents: number;
-  /** 年度赠送经费总额(按月分 12 批发放)。 */
-  year_grant_credits: number;
 }
 
 /** 各档展示文案(价格页 + 弹窗共用,保持一致)。 */
@@ -67,23 +65,20 @@ function planFeatures(plan: MembershipPlanData, cycle: BillingCycle): string[] {
       ? `${plan.multiplier}× 于 Pro 的 7 天周期额度`
       : `${plan.multiplier}× 于 Free 的 7 天周期额度`;
   const yearly = cycle === 'yearly' && planYearlyEnabled(plan);
-  const credits = yearly
-    ? `全年赠送 ${plan.year_grant_credits} 经费(按月发放)`
-    : `每月赠送 ${plan.grant_credits} 经费`;
+  // 0090:「每月赠送 N 经费」与「经费可随时重置额度」两条卖点都已删 ——
+  // 订阅不再赠送经费,且经费也买不到重置(重置改扣重置次数)。留着就是虚假承诺。
   if (plan.tier === 'pro') {
     return [
       quota,
-      credits,
       ...(yearly ? ['锁定一年价格 · 免续费打扰'] : []),
       '优先使用更强 AI 模型',
       '新功能优先体验',
-      '经费可随时重置额度',
+      '额度到期自动恢复 · 无需操作',
     ];
   }
   // max —— 体现比 Pro 更高的优先级 / 模型 / 新功能
   return [
     quota,
-    credits,
     ...(yearly ? ['锁定一年价格 · 免续费打扰'] : []),
     '顶级优先级 · 最强 AI 模型',
     '新功能抢先开放 · 专属能力',
@@ -161,29 +156,22 @@ export function MembershipPlanCard({ plan, cycle = 'monthly', popularBadge, high
         )}
       </div>
 
-      {/* 赠送经费 / 周期重置 box */}
+      {/* 周期重置 box —— 0090:原先付费档在这里高亮「N 经费 / 年·按月分 12 批发放」,
+          订阅不再赠送经费后改成讲「额度周期」本身,三档形态一致不塌陷。 */}
       <div className={cn('flex items-center gap-3 rounded-8 p-3', highlighted ? 'bg-danger-soft' : 'bg-surface-1')}>
         <RefreshCw className={cn('size-5 shrink-0', highlighted ? 'text-brand-red' : 'text-brand-amber')} />
-        {isFree ? (
-          <div>
-            <p className="text-14 font-medium text-foreground">周期重置</p>
-            <p className="text-12 text-faint">基础 AI 额度 · 7 天周期到期自动恢复</p>
-          </div>
-        ) : yearly ? (
-          <div>
-            <p className="text-14 font-medium text-foreground">
-              {plan.year_grant_credits} <span className="text-12 font-normal text-faint">经费 / 年</span>
-            </p>
-            <p className="text-12 text-faint">按月分 12 批发放 · 每批当月有效</p>
-          </div>
-        ) : (
-          <div>
-            <p className="text-14 font-medium text-foreground">
-              {plan.grant_credits} <span className="text-12 font-normal text-faint">经费</span>
-            </p>
-            <p className="text-12 text-faint">每月赠送 · 整月有效</p>
-          </div>
-        )}
+        <div>
+          <p className="text-14 font-medium text-foreground">
+            {isFree ? '周期重置' : yearly ? '全年畅用' : '周期重置'}
+          </p>
+          <p className="text-12 text-faint">
+            {isFree
+              ? '基础 AI 额度 · 7 天周期到期自动恢复'
+              : yearly
+                ? '整年会员权益 · 额度按 7 天周期自动恢复'
+                : 'AI 额度按 7 天周期自动恢复 · 无需操作'}
+          </p>
+        </div>
       </div>
 
       {/* 特性 */}

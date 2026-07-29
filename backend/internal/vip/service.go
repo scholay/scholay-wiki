@@ -68,8 +68,8 @@ type SubQuote struct {
 	Tier          string     `json:"tier"`
 	Cycle         string     `json:"cycle"`        // 实际计费周期:new/renew=请求周期;upgrade=用户当前订阅周期
 	AmountCents   int        `json:"amount_cents"` // 本次应付(分)
-	Credits       int        `json:"credits"`      // 本单赠送经费(年度=总额,按月分批发放)
-	Deferred      bool       `json:"deferred"`     // 经费延后生效(续期=true)
+	// (Credits 已删除 —— 0090 起订阅不再赠送经费;前端购买弹窗的「赠送 N 经费」一并移除)
+	Deferred      bool       `json:"deferred"`     // 续期=true(本单权益从当前到期日起算,而非立即)
 	CurrentTier   string     `json:"current_tier"` // 用户当前生效档
 	CurrentCycle  string     `json:"current_cycle,omitempty"` // 用户当前订阅周期(付费在期时)
 	RemainingDays int        `json:"remaining_days"`
@@ -87,7 +87,7 @@ func (s *Service) QuoteSubscription(userID uint, target, cycle string) (*SubQuot
 	}
 	ne := sp.NewExpires
 	return &SubQuote{
-		Action: sp.Action, Tier: sp.Tier, Cycle: sp.Cycle, AmountCents: sp.AmountCents, Credits: sp.Credits,
+		Action: sp.Action, Tier: sp.Tier, Cycle: sp.Cycle, AmountCents: sp.AmountCents,
 		Deferred: sp.Deferred, CurrentTier: effectiveTier(uv, now), CurrentCycle: effectiveCycle(uv, now),
 		RemainingDays: sp.RemainingDays, NewExpiresAt: &ne,
 	}, nil
@@ -238,10 +238,9 @@ func (s *Service) GenerateCodes(in GenerateCodesInput, createdBy *uint) ([]strin
 	if grantDays <= 0 {
 		grantDays = 30
 	}
-	creditKind := in.CreditKind
-	if creditKind != CreditKindPerm {
-		creditKind = CreditKindTemp
-	}
+	// 0090:临时经费退休 —— 新建的经费码一律永久,忽略入参 kind(后台表单已移除该选项)。
+	creditKind := CreditKindPerm
+	_ = in.CreditKind
 	creditValidity := in.CreditValidityDays
 	if creditValidity <= 0 {
 		creditValidity = 30
@@ -354,11 +353,12 @@ func (s *Service) RevokeUser(userID uint) error {
 				return ErrUserNotFound
 			}
 		}
-		// 2. 清零订阅赠送的临时经费(其他经费保留)。
-		return revokeSubscriptionCreditsInTx(tx, userID)
+		// 2. (0090:订阅不再赠送经费 → 取消会员没有赠送物可回收。存量临时批次已换成
+		//    重置次数,而次数是独立的补偿资源、不是会员权益,不连坐回收。)
+		return nil
 	})
 	if err == nil {
-		slog.Info("vip: admin revoked membership + zeroed subscription credits", "user_id", userID)
+		slog.Info("vip: admin revoked membership", "user_id", userID)
 	}
 	return err
 }

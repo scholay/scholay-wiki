@@ -129,7 +129,7 @@ Page({
         const desc =
           preview.grant_kind === 'tier'
             ? '会员 ' + (preview.grant_tier || '') + ' ' + (preview.grant_days || 0) + ' 天'
-            : '经费 ' + (preview.grant_credits || 0) + (preview.credit_kind === 'perm' ? '(永久)' : '(临时)')
+            : '经费 ' + (preview.grant_credits || 0) // 0090:经费不分类型,不再标注(永久)/(临时)
         wx.showModal({
           title: '确认兑换',
           content: '将获得:' + desc,
@@ -151,9 +151,18 @@ Page({
   onReset() {
     const ov = this.data.overview
     if (!ov) return
+    // 0090:重置扣的是**重置次数**不是经费。没次数时直接告知,不引导充值(经费买不到重置)。
+    if (!ov.reset_passes || ov.reset_passes <= 0) {
+      wx.showModal({
+        title: '重置次数已用完',
+        content: '你已没有可用的重置次数。可等待本周期额度自动重置,或升级会员获得更高额度。',
+        showCancel: false,
+      })
+      return
+    }
     wx.showModal({
       title: '重置本周期额度',
-      content: '将消耗经费 ' + ov.reset_cost + ' 立即恢复本周期额度,确定?',
+      content: '将使用 1 次重置次数立即恢复本周期额度(剩余 ' + ov.reset_passes + ' 次),确定?',
       success: async (r) => {
         if (!r.confirm) return
         try {

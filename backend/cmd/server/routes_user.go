@@ -128,6 +128,8 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers, tieredRL 
 		{
 			billingG.GET("/overview", h.vip.BillingOverview)
 			billingG.POST("/reset", h.vip.ResetQuota)
+			// 按量付费开关(0094):周期额度用完后是否自动用经费续。默认关,只能由用户显式开。
+			billingG.PUT("/autopay", h.vip.SetCreditAutopay)
 			billingG.GET("/transactions", h.vip.ListTransactions)
 			billingG.GET("/usage-calendar", h.vip.UsageCalendar)   // 当月每日 token 用量(热力图)
 			billingG.GET("/orders", h.vip.ListOrders)              // 已支付订单明细(明细查看)

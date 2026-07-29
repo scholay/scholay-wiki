@@ -66,6 +66,10 @@ export interface UserLoginMethods {
 
 // 对齐 backend vip.TokenStatus(quota.go)——7 天锚定窗口口径:used/percent 是窗口内(重置/升级换锚后归零),
 // consumed_today 是当日真实消耗(换锚不清零),window_* 是当前窗口起止(null=未开窗=满额·用后计时)。
+//
+// 🔴 **used / ceiling / consumed_today 的单位是微元真实成本,不是 token**(接口名是 P3 遗留)。
+// 渲染前必须 ÷1000 得到算力点(1 点 = ¥0.001),与「算力用量」看板同单位;
+// 直接渲染 = 1000 倍误差且不会报错。现有正确用法见 UserDetailDrawer.tsx 的 TokenQuotaBar。
 export interface UserTokenStatus {
   used: number;
   ceiling: number; // -1 = 不限
@@ -76,10 +80,14 @@ export interface UserTokenStatus {
   window_started_at: string | null;
   window_reset_at: string | null;
 }
+// 0090:经费不再分临时/永久。0094:经费是**小数**(perm/total 由后端 micro÷1e6 得出),
+// 精确运算一律用 perm_micro;points 是当前兑换率下折合的算力点。
 export interface UserCreditBalance {
-  temp: number;
   perm: number;
   total: number;
+  perm_micro: number;
+  points: number;
+  credit_autopay: boolean;
 }
 // 对齐 backend vip.Overview(统一 token 额度 + 经费钱包),已不再按功能计次。
 export interface UserVipStatus {
@@ -90,7 +98,8 @@ export interface UserVipStatus {
   token: UserTokenStatus;
   credit: UserCreditBalance;
   auto_reset: boolean;
-  reset_cost: number;
+  reset_passes: number; // 0090:可用重置次数(取代 reset_cost —— 重置改扣次数)
+  reset_pass_next_expiry: string | null;
 }
 
 /** 后端字段:users / total / page / page_size(handler_admin.go GetUserList) */

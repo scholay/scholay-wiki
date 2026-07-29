@@ -16,22 +16,23 @@ export interface PlanCard {
   price_cents: number;
   original_cents: number;
   multiplier: number;
-  grant_credits: number;
+  // 0090:订阅不再赠送经费,grant_credits / year_grant_credits 已从后端 PublicPlans 移除。
   year_price_cents: number; // 年度实付价(分);<=0 = 该档年付未开放(0079)
   year_original_cents: number; // 年度划线原价(分)
-  year_grant_credits: number; // 年度赠送经费总额(按月分 12 批发放)
 }
 export interface Plans {
-  free_daily_tokens: number; // 兼容字段:窗口÷天数的日均口径(P4)
-  free_window_tokens: number; // 7 天周期基准额度
+  // free_window_tokens / free_daily_tokens 已从这个**免登录**端点移除:基数 × multiplier
+  // = 三档的绝对额度上限,任何访客都能算出来(见 backend billing_handler.go PublicPlans)。
+  // 用户侧本来就零渲染,只有这两行 interface 声明存在过。要看基数去 /admin/billing/config。
   window_days: number;
-  reset_cost_credits: number;
+  // reset_cost_credits 已从后端移除:0090 起重置扣「重置次数」不扣经费。
   recharge_rate: number;
+  /** 1 经费可兑换的算力点(0094)。¥1 = recharge_rate × credit_to_points 算力点。 */
+  credit_to_points: number;
   min_recharge_cents: number;
   popular_plan: string;
   enabled: boolean;
   test_payment: boolean;
-  subscription_year_days: number; // 年度订阅时长(天,默认 365)
   payment_methods: { alipay: boolean; wechat: boolean }; // admin 配置里启用的支付渠道
   plans: PlanCard[];
 }

@@ -20,16 +20,19 @@ export interface TokenStatus {
   window_started_at: string | null; // null = 未开窗(满血,下次使用开始计时)
   window_reset_at: string | null; // 窗口自动重置时刻
 }
-export interface CreditLot {
-  amount: number;
-  expires_at: string;
-  source: string;
-}
+// 0090:经费不再分临时/永久 —— 只剩一种,对外就叫「经费」。
+// 0094:经费是**小数**(可直接消耗成额度,单次调用常只花零点几经费)。
 export interface Balance {
-  temp: number;
+  /** 展示用小数经费(= perm_micro / 1e6)。只用于渲染,别拿它做扣减运算。 */
   perm: number;
-  total: number;
-  lots: CreditLot[];
+  total: number; // == perm,保留字段名兼容既有调用点
+  /** 余额真值,单位 micro-credit = 经费 × 1e6。精确运算以它为准。 */
+  perm_micro: number;
+  /** 当前兑换率下折合的算力点。**必须与余额同屏展示** —— 兑换率可调,
+   *  只给「600 经费」用户无从知道它值多少算力(经费是储值,汇率不锁定)。 */
+  points: number;
+  /** 周期额度用完后自动用经费续(0094)。默认关,须用户显式开启。 */
+  credit_autopay: boolean;
 }
 export interface Overview {
   tier: Tier;
@@ -39,7 +42,11 @@ export interface Overview {
   token: TokenStatus;
   credit: Balance;
   auto_reset: boolean;
-  reset_cost: number;
+  /** 可用重置次数。0090 起取代 reset_cost —— 重置扣的是次数不是经费,
+   *  「重置」入口必须按这个数判可用性(按经费余额判会两头都错)。 */
+  reset_passes: number;
+  /** 最近一批次数的到期时刻;null = 无可用次数。 */
+  reset_pass_next_expiry: string | null;
 }
 
 export interface RedeemResult {
@@ -62,10 +69,11 @@ export interface CodePreview {
   uses_left: number;
 }
 
+// mirrors backend/internal/vip/quota.go ResetResult(经 StripAmounts 出口整形)
 export interface ResetResult {
-  used: number;
-  ceiling: number;
-  balance: Balance;
+  used: number; // 用户端恒 0(已抹除),与 TokenStatus 同一条不变量
+  ceiling: number; // 用户端:-1 = 不限,否则 0(已抹除)
+  balance: Balance; // 经费余额是真值 —— 经费对用户可见
 }
 
 export interface CreditTxn {
@@ -85,22 +93,24 @@ export interface PlanCard {
   price_cents: number;
   original_cents: number;
   multiplier: number;
-  grant_credits: number;
+  // 0090:订阅不再赠送经费,grant_credits / year_grant_credits 已从后端 PublicPlans 移除。
   year_price_cents: number; // 年度实付价(分);<=0 = 该档年付未开放(0079)
   year_original_cents: number; // 年度划线原价(分)
-  year_grant_credits: number; // 年度赠送经费总额(按月分 12 批发放)
 }
 export interface Plans {
-  free_daily_tokens: number; // 兼容字段:后端回窗口÷天数的日均口径(P4)
-  free_window_tokens: number; // 7 天周期基准额度
+  // free_window_tokens / free_daily_tokens 已从这个**免登录**端点移除:基数 × multiplier
+  // = 三档的绝对额度上限,任何访客都能算出来(见 backend billing_handler.go PublicPlans)。
+  // 用户侧本来就零渲染,只有这两行 interface 声明存在过。要看基数去 /admin/billing/config。
   window_days: number;
-  reset_cost_credits: number;
+  // reset_cost_credits 已从后端移除:0090 起重置扣「重置次数」不扣经费。
   recharge_rate: number;
+  /** 1 经费可兑换的算力点(0094)。¥1 = recharge_rate × credit_to_points 算力点。 */
+  credit_to_points: number;
   min_recharge_cents: number;
   popular_plan: string;
   enabled: boolean;
   test_payment: boolean; // 测试支付开关(PAYMENT_TEST_ENABLED)
-  subscription_year_days: number; // 年度订阅时长(天,默认 365)
+  // subscription_year_days 已移除:年度 = +1 个自然年,不再有「年度天数」这个概念。
   payment_methods: { alipay: boolean; wechat: boolean }; // admin 配置里启用的支付渠道
   plans: PlanCard[];
 }
@@ -152,13 +162,16 @@ export function usePlans() {
   });
 }
 
+// mirrors backend/internal/vip/billing_handler.go DayUsagePct / UsageCalendar
 export interface DayUsage {
   date: string; // YYYY-MM-DD
-  cost: number; // P5:当日精算成本(微元;仅用于热力图相对强度分档,不显示绝对数)
+  /** 相对参考线的百分比(0..999);0 = 当日无使用。限额档参考线 = 日均(周期上限÷天数),不限档 = 本月自身峰值。 */
+  pct: number;
 }
 export interface UsageCalendar {
   days: DayUsage[];
-  daily_ceiling: number; // 日均参考线(微元 = 窗口上限 ÷ 周期天数);-1 = 不限
+  /** true = 不限档,pct 是「相对本月峰值」而非「相对日均参考」,tooltip 文案据此切换。 */
+  unlimited: boolean;
 }
 
 /** 当月每日用量(绿格热力图,相对强度)。 */
@@ -213,6 +226,21 @@ export function useResetQuota() {
   const invalidate = useInvalidate();
   return useMutation({
     mutationFn: async () => (await http.post<{ data: ResetResult }>('/user/billing/reset')).data.data,
+    onSuccess: invalidate,
+  });
+}
+
+/**
+ * 开/关「周期额度用完后自动用经费续」(0094 按量付费)。
+ *
+ * 🔴 默认关,只能由用户在设置页显式开 —— 历史上的 auto_reset(额度耗尽自动扣经费重置)
+ * 正是因为不知情扣费被整个下线的,这里是同一类风险。
+ */
+export function useSetCreditAutopay() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (enabled: boolean) =>
+      (await http.put<{ data: { enabled: boolean } }>('/user/billing/autopay', { enabled })).data.data,
     onSuccess: invalidate,
   });
 }

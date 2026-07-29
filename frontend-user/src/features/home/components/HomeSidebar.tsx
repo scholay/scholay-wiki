@@ -40,7 +40,7 @@ function useLibrarySubtitle(): string {
 }
 
 /**
- * 首页主菜单的"rich card"行 — 28×28 icon 容器 + 双行(标题 13/700 + 副标题 10 #888) + chevron
+ * 首页主菜单的"rich card"行 — 28×28 icon 容器 + 双行(标题 11 / 副标题 10)+ chevron
  * .pen`m1`/`m2`/`ai1`/`ai2`都是这个模板。
  */
 function RichMenuItem({
@@ -81,12 +81,15 @@ function RichMenuItem({
             inactive ? 'text-faint' : 'text-subtle')}
         />
       </span>
-      {/* + 行间距收紧 —— .pen`gu1S4`标题/副标题紧贴,字号差距(13 vs 10)
-         更突出。副标题用 text-faint(#999)而非 text-muted-foreground(#666),
-         视觉重量更轻,与标题对比更强。 */}
+      {/* 字号 11/10(2026-07-29 产品拍板)—— 这是**对 Figma 六档的刻意偏离**,设计师后续补规范。
+         理由:本列表一屏堆 7~8 条、每条两行,14/12 在这个密度下会把副标题挤到 truncate,
+         信息量反而下降。已在 globals.css 立成 --text-11 / --text-10 两档(不是 arbitrary),
+         这样设计师能统一调、护栏也管得住。
+         ⚠️ 别把这两档铺到别处:10px 在 1.25 行高下已贴着可读性下限,只服务密集导航。
+         副标题用 text-faint 而非 text-muted-foreground,视觉重量更轻,与标题对比更强。 */}
       <div className="flex-1 min-w-0 flex flex-col">
         <span
-          className={cn('inline-flex items-center gap-1.5 text-14 font-medium truncate',
+          className={cn('inline-flex items-center gap-1.5 text-11 font-medium truncate',
             inactive ? 'text-subtle' : 'text-foreground')}
         >
           <span className="truncate">{label}</span>
@@ -99,7 +102,7 @@ function RichMenuItem({
             </span>
           )}
         </span>
-        <span className="text-12 text-faint truncate mt-px">{subtitle}</span>
+        <span className="text-10 text-faint truncate mt-px">{subtitle}</span>
       </div>
       <ChevronRight className="size-3 text-faint shrink-0"/>
     </NavLink>

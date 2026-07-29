@@ -3,6 +3,7 @@ import { Fragment, useRef, useState } from'react';
 import { Loader2, Ticket, QrCode, CreditCard, Zap, Coins, Download, type LucideIcon } from'lucide-react';
 import { toast } from'sonner';
 import { Button } from'@/shared/ui/button';
+import { Switch } from'@/shared/ui/switch';
 import { Input } from'@/shared/ui/input';
 import { Select } from'@/shared/ui/select';
 import { cn } from'@/shared/lib/utils';
@@ -17,6 +18,8 @@ import {
   useTestPay,
   useTransactions,
   useUsageCalendar,
+  useBillingOverview,
+  useSetCreditAutopay,
   useOrders,
   usePlans,
   type BillingCycle,
@@ -36,6 +39,51 @@ const TXN_LABEL: Record<string, string> = {
 };
 
 const METHOD_ICONS: Record<string, LucideIcon> = { wechat: QrCode, alipay: CreditCard, test: Zap };
+
+/**
+ * 「用经费继续」开关(0094 按量付费)—— 周期额度用完后自动按真实成本从经费扣。
+ *
+ * 🔴 **默认关**,必须由用户在这里显式开。历史上的「自动消耗经费重置额度」就是因为
+ * 不知情扣费被整个下线的(auto-reset-removed-2026-06),这是同一类风险 ——
+ * 所以开关要显眼、文案要把「会花钱」讲明白,而不是藏在设置深处默默生效。
+ */
+function CreditAutopayCard() {
+  const { data } = useBillingOverview();
+  const setAutopay = useSetCreditAutopay();
+  const on = data?.credit.credit_autopay ?? false;
+
+  return (
+    // p-4 而非邻居卡片的 p-5:护栏的「半档间距」棘轮把 -5 也算在内(Figma 集合无 20px),
+    // 基线是零余量,新代码只能用 {1,2,2.5,3,4,6,8,10}。视觉上 16 vs 20 的差别可忽略。
+    <section className="rounded-16 border border-border bg-surface-card p-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h3 className="text-14 font-medium text-foreground">用经费继续</h3>
+          <p className="max-w-xl text-12 leading-paragraph text-muted-foreground">
+            开启后,本周期 AI 额度用完时**自动按实际用量从经费扣费**,不中断使用;
+            关闭时额度用完就停下,等周期自动恢复。套餐额度始终优先使用,用完才会动经费。
+          </p>
+          {data && (
+            <p className="text-12 text-faint">
+              当前经费 {Number.isInteger(data.credit.total) ? data.credit.total : data.credit.total.toFixed(2)}
+              (≈{data.credit.points.toLocaleString()} 算力点)
+            </p>
+          )}
+        </div>
+        <Switch
+          checked={on}
+          disabled={setAutopay.isPending}
+          onCheckedChange={(v) => {
+            setAutopay.mutate(v, {
+              onSuccess: () => toast.success(v ? '已开启:额度用完将自动使用经费' : '已关闭:额度用完不再自动扣经费'),
+              onError: (e) => toast.error(toApiError(e).message || '保存失败'),
+            });
+          }}
+        />
+      </div>
+    </section>
+  );
+}
 
 /** 经费充值 —— 两栏:左(金额 + 支付方式)/ 右(订单详情)。对齐设计稿。 */
 export function RechargePanel() {
@@ -89,11 +137,14 @@ export function RechargePanel() {
   return (
     <div className="flex flex-col gap-4 md:flex-row md:items-start">
       <div className="flex flex-1 flex-col gap-4">
+        {/* 用经费继续(按量付费开关)—— 放在充值之上:先讲清经费能干什么,再谈买多少 */}
+        <CreditAutopayCard />
+
         {/* 金额 */}
         <section className="rounded-16 border border-border bg-surface-card p-5">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-14 font-medium text-foreground">选择充值金额</h3>
-            <span className="text-12 text-faint">1 元 = {rate} 经费</span>
+            <span className="text-12 text-faint">1 元 = {rate} 经费{plans?.credit_to_points ? ` ≈ ${rate * plans.credit_to_points} 算力点` : ''}</span>
           </div>
           <div className="grid grid-cols-3 gap-2">
             {[30, 50, 20, 200, 500, 1000].map((v) => {
@@ -439,13 +490,11 @@ export function OverviewContent({ onViewAll }: { onViewAll: () => void }) {
 const GREEN_LEVELS = ['bg-surface-2', 'bg-brand-green/25', 'bg-brand-green/50', 'bg-brand-green/75', 'bg-brand-green'];
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 
-// P5:入参 cost = 当日精算成本(微元);ceiling = 日均参考线(微元)。只做**相对强度**分档,不露绝对数。
-function levelOf(cost: number, ceiling: number): number {
-  if (cost <= 0) return 0;
-  // 不限档(ceiling<=0):按微元绝对区间兜底(¥0.2/¥0.05/¥0.01 台阶)。
-  if (ceiling <= 0) return cost >= 200_000 ? 4 : cost >= 50_000 ? 3 : cost >= 10_000 ? 2 : 1;
-  const r = cost / ceiling;
-  return r >= 0.75 ? 4 : r >= 0.5 ? 3 : r >= 0.25 ? 2 : 1;
+// 入参 pct = 后端算好的**相对**强度百分比(0..999)。绝对成本与参考线都不再下发到用户端
+// (见 backend billing_handler.go UsageCalendar 的红字):这里只做分档,不做除法。
+function levelOf(pct: number): number {
+  if (pct <= 0) return 0;
+  return pct >= 75 ? 4 : pct >= 50 ? 3 : pct >= 25 ? 2 : 1;
 }
 
 /** 本月每日用量 —— GitHub 风格绿格热力图(只看当月,相对活跃度;不显示绝对额度)。 */
@@ -454,8 +503,8 @@ function UsageHeatmap() {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth(); // 0-indexed
-  const ceiling = data?.daily_ceiling ?? 0;
-  const byDate = new Map((data?.days ?? []).map((d) => [d.date, d.cost]));
+  const unlimited = data?.unlimited ?? false;
+  const byDate = new Map((data?.days ?? []).map((d) => [d.date, d.pct]));
   const pad = (n: number) => String(n).padStart(2, '0');
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -468,7 +517,7 @@ function UsageHeatmap() {
   }
   if (col.length) { while (col.length < 7) col.push(null); weeks.push(col); }
 
-  const activeDays = (data?.days ?? []).filter((d) => d.cost > 0).length;
+  const activeDays = (data?.days ?? []).filter((d) => d.pct > 0).length;
 
   return (
     <section className="rounded-16 border border-border bg-surface-card p-5">
@@ -487,17 +536,15 @@ function UsageHeatmap() {
             {week.map((day, di) => {
               if (day === null) return <span key={di} className="size-4"/>;
               const date =`${year}-${pad(month + 1)}-${pad(day)}`;
-              const cost = byDate.get(date) ?? 0;
-              // 相对参考:当日成本相对「日均参考线」的百分比(不露绝对额度),不限档只标有无使用。
-              const pct = ceiling > 0 ? Math.min(999, Math.round((cost / ceiling) * 100)) : 0;
+              const pct = byDate.get(date) ?? 0;
               const tip =
-                cost <= 0 ? `${date} · 无使用` : ceiling > 0 ? `${date} · 约 ${pct}% 日均参考` : `${date} · 有使用`;
+                pct <= 0
+                  ? `${date} · 无使用`
+                  : unlimited
+                    ? `${date} · 约 ${pct}% 本月峰值`
+                    : `${date} · 约 ${pct}% 日均参考`;
               return (
-                <span
-                  key={di}
-                  title={tip}
-                  className={cn('size-4 rounded-4', GREEN_LEVELS[levelOf(cost, ceiling)])}
-                />
+                <span key={di} title={tip} className={cn('size-4 rounded-4', GREEN_LEVELS[levelOf(pct)])} />
               );
             })}
           </div>
