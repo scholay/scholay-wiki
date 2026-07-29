@@ -33,8 +33,16 @@ import { useRegisterSidebarRail } from '@/stores/sidebar.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useDebounce, useScrollRestoration, useUrlState } from '@/shared/hooks';
-import { LibrarySidebar } from '../components/LibrarySidebar';
+import {
+  LIBRARY_STAGING_FOLDER_PARAM,
+  LibrarySidebar,
+} from '../components/LibrarySidebar';
+import { ResourceCollectionView } from '../components/ResourceCollectionView';
 import { LibraryPaperList } from '../components/LibraryPaperList';
+import {
+  collectionsForSection,
+  parseResourceSection,
+} from '../resource-model';
 import { ShareSheet } from '@/shared/components/share/ShareSheet';
 import { useShareSheetStore } from '@/shared/components/share/use-share-sheet';
 import type { WorkbenchView } from '../components/PaperWorkbenchDialog';
@@ -48,7 +56,12 @@ import {
 } from '../api/papers';
 import { useLibrarySelection } from '../hooks/useLibrarySelection';
 import { LibraryBulkToolbar } from '../components/LibraryBulkToolbar';
+import { useStagingActions } from '@/features/search/hooks/useStagingActions';
+import { useStagingView } from '@/features/search/hooks/useStagingView';
+import { STAGING_FOLDER_LABEL } from '@/stores/workspace-folder.store';
+import { useOpenPaperDetail } from '@/shared/hooks/useOpenInSearchPanel';
 import { cn } from '@/shared/lib/utils';
+import type { Paper } from '@/shared/api/types';
 
 // 统一工作台弹窗 —— 与 LibraryPaperRow 同款 lazy + 条件 mount:静态 import 会把
 // 这个大弹窗打进页面主 chunk,击穿行级入口的 lazy 拆分;type import 不影响 chunk。
@@ -59,36 +72,72 @@ const PaperWorkbenchDialog = lazy(() =>
 );
 
 /**
- * 我的文献集 —— 只有"我的文件夹列表 + 论文列表 + 工具栏"。
+ * 我的资源 —— 四分：文献集 / 期刊集 / 稿件集 / 文件夹。
  *
- *   左:LibrarySidebar(单层文件夹列表)
- *   右:LibraryFolderView(论文列表 + 操作工具栏)
- *
- * **论文 / 期刊 / 学者详情** 已迁出到独立的 /browser/* 路由(浏览器):
- *   - useOpenPaperInBrowser / useOpenJournalInBrowser / useOpenAuthorInBrowser
- *     hook 仍然在任何位置触发,只是导航到 /browser/...
- *   - tab 仓库见 stores/browser-tabs.store
- *   - 顶部 Globe 入口由 TopNav MenuCarousel 渲染(tabs 为空时禁用)
- *
- * 未登录:主区显示 LibraryLoginPrompt(登录/注册引导),侧栏 LibrarySidebar 自身
- * 也会渲染未登录提示段。
+ *   左:LibrarySidebar
+ *   右:按 ?section= 切换主区（文献集仍走论文列表；其余为 mock 集合视图）
  */
 export function LibraryPage() {
   const token = useAuthStore((s) => s.token);
+  const [params] = useSearchParams();
+  const section = parseResourceSection(params.get('section'));
 
-  // 折叠侧栏时顶栏 chip 入口
   useRegisterSidebarRail([
-    { id: 'library', label: '我的文献集', icon: Inbox, sectionId: 'library' },
+    {
+      id: 'library-papers',
+      label: '文献集',
+      icon: Inbox,
+      sectionId: 'library-papers',
+    },
   ]);
 
   return (
     <SidebarLayout sidebar={<LibrarySidebar />}>
-      <div className="flex flex-col h-full min-h-0 bg-background">
-        <div className="flex-1 min-w-0 min-h-0 overflow-auto">
-          {!token ? <LibraryLoginPrompt /> : <LibraryFolderView />}
+      <div className="flex h-full min-h-0 flex-col bg-background">
+        <div className="min-h-0 min-w-0 flex-1 overflow-auto">
+          {!token ? (
+            <LibraryLoginPrompt />
+          ) : section === 'papers' ? (
+            <LibraryFolderView />
+          ) : (
+            <LibraryMockSectionView section={section} />
+          )}
         </div>
       </div>
     </SidebarLayout>
+  );
+}
+
+function LibraryMockSectionView({
+  section,
+}: {
+  section: Exclude<ReturnType<typeof parseResourceSection>, 'papers'>;
+}) {
+  const [params, setParams] = useSearchParams();
+  const collections = collectionsForSection(section);
+  const folderParam = params.get('folder') ?? '';
+  const collection =
+    collections.find((c) => c.id === folderParam) ??
+    collections.find((c) => c.isDefault) ??
+    collections[0] ??
+    null;
+
+  // 无 folder 时落到默认集合，保证侧栏高亮与 URL 一致
+  useEffect(() => {
+    if (!collection) return;
+    if (folderParam === collection.id) return;
+    setParams(
+      (p) => {
+        p.set('section', section);
+        p.set('folder', collection.id);
+        return p;
+      },
+      { replace: true },
+    );
+  }, [collection, folderParam, section, setParams]);
+
+  return (
+    <ResourceCollectionView section={section} collection={collection} />
   );
 }
 
@@ -101,8 +150,8 @@ function LibraryLoginPrompt() {
   return (
     <EmptyState
       icon={Lock}
-      title="登录后查看你的文献集"
-      description="登录后即可创建文件夹、收藏论文,所有数据云端同步"
+      title="登录后查看你的资源"
+      description="文献集、期刊集、稿件集与通用文件夹，登录后云端同步"
       action={
         <div className="flex items-center gap-3">
           <Button onClick={() => openDialog('login')} variant="primary">
@@ -132,6 +181,10 @@ function LibraryFolderView() {
 
   const folderParam = params.get('folder') ?? '';
   const folders = foldersQ.data?.folders ?? [];
+  const isStagingView = folderParam === LIBRARY_STAGING_FOLDER_PARAM;
+  const { activeArea } = useStagingView();
+  const { removePaper } = useStagingActions();
+  const stagingPapers = activeArea?.papers ?? [];
 
   // ─── URL-backed state ────────────────────────────────────────────────
   // 所有 filter / 分页 / 排序 / 搜索词都进 URL。这样浏览器后退能完整回到原状,
@@ -267,19 +320,23 @@ function LibraryFolderView() {
   useScrollRestoration(scrollRef, 'library-paper-list');
 
   // 新模型不再有"根目录论文",`?folder=` 没参数 / 非法时回落到**默认文件夹**。
-  // 拿不到 default(folders 还没加载完 / 真的没有)就 fallback 'root',
-  // 旧的 'root' 视图保留只为 loading 期间不报错,实际看到的就是空列表。
+  // `?folder=staging` 走暂存区视图(不查文献集 papers API)。
   const filter = useMemo<LibraryFolderFilter>(() => {
+    if (isStagingView) return 'root';
     const n = Number(folderParam);
     if (folderParam && Number.isFinite(n) && n > 0) return n;
     const def = folders.find((f) => f.is_default);
     return def ? def.id : 'root';
-  }, [folderParam, folders]);
+  }, [folderParam, folders, isStagingView]);
 
   const currentFolder =
     typeof filter === 'number' ? folders.find((f) => f.id === filter) : null;
-  const title = currentFolder?.name ?? '我的文献集';
-  const count = currentFolder?.paper_count ?? 0;
+  const title = isStagingView
+    ? STAGING_FOLDER_LABEL
+    : (currentFolder?.name ?? '文献集');
+  const count = isStagingView
+    ? stagingPapers.length
+    : (currentFolder?.paper_count ?? 0);
 
   // 论文数据 + 选择状态都提升到此处,这样外层 header 才能在 selection 模式下
   // 渲染左对齐的 BulkToolbar(替换面包屑/搜索/导入区)
@@ -288,15 +345,17 @@ function LibraryFolderView() {
     page,
     pageSize,
     order: sortOrder,
+    enabled: !isStagingView,
   });
   const papers = papersQ.data?.items ?? [];
-  const total = papersQ.data?.total ?? 0;
+  const total = isStagingView ? stagingPapers.length : (papersQ.data?.total ?? 0);
   const selection = useLibrarySelection(papers, filter);
 
   // 页码钳制:批量删除/移动使 total 缩小后,当前 page 可能超界(落在空页,且
   // 分页器因 total<=pageSize 被隐藏 → 用户无 UI 途径回第 1 页)。数据落定后若
   // page 超过最后一页就自动回退。只在真超界时 set,避免与 URL 还原/翻页打架成循环。
   useEffect(() => {
+    if (isStagingView) return;
     if (papersQ.isFetching || papersQ.isPlaceholderData) return;
     // 查询失败且无缓存数据时 total=0 代表「加载失败」而非「真超界」——此时别把
     // 深链的 page 静默改写成 1(否则网络抖动后用户丢了原本请求的页码)。
@@ -304,6 +363,7 @@ function LibraryFolderView() {
     const lastPage = total > 0 ? Math.ceil(total / pageSize) : 1;
     if (page > lastPage) setPageRaw(lastPage);
   }, [
+    isStagingView,
     papersQ.isFetching,
     papersQ.isPlaceholderData,
     papersQ.isError,
@@ -314,12 +374,46 @@ function LibraryFolderView() {
     setPageRaw,
   ]);
 
+  if (isStagingView) {
+    return (
+      <div className="flex h-full min-h-0 flex-col bg-background">
+        <RouteSEO
+          title={`文献集 · ${STAGING_FOLDER_LABEL} — Scholay`}
+          description="暂存区 —— 检索工作区的临时文献篮。"
+          noindex
+        />
+        <header className="flex h-15 shrink-0 items-center gap-2 border-b border-border bg-background px-10">
+          <span className="text-base text-muted-foreground">文献集</span>
+          <span className="text-base text-faint">/</span>
+          <span className="text-base font-bold text-foreground">
+            {STAGING_FOLDER_LABEL}
+          </span>
+          <span className="inline-flex items-center rounded-sm bg-surface-2 px-1.5 py-px text-xs font-semibold tabular-nums text-muted-foreground">
+            {count.toLocaleString()} 篇
+          </span>
+          <span className="ml-2 text-2xs text-faint">
+            检索时勾选加入的临时篮,不会自动进文献集
+          </span>
+        </header>
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
+          <LibraryStagingPaperList
+            papers={stagingPapers}
+            areaId={activeArea?.id ?? null}
+            onRemove={(paperId) => {
+              if (!activeArea) return;
+              removePaper(activeArea.id, paperId);
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full min-h-0 bg-background">
-      {/* 我的文献集是登录态私域内容,noindex 防止任何意外的搜索引擎收录 */}
       <RouteSEO
-        title={`我的文献集 · ${title} — Scholay`}
-        description="我的文献集 —— 跨设备同步的论文收藏空间,支持文件夹分组、AI 摘要、PDF 在线预览与全文检索。"
+        title={`文献集 · ${title} — Scholay`}
+        description="文献集 —— 以论文为单元的收藏空间，支持文件夹分组、AI 摘要、PDF 预览与全文检索。"
         noindex
       />
 
@@ -352,7 +446,7 @@ function LibraryFolderView() {
           <>
             {/* 面包屑 + 篇数 chip(无返回按钮 —— 本就是顶级页面) */}
             <div className="flex items-center gap-2 shrink-0">
-              <span className="text-base text-muted-foreground">我的文献集</span>
+              <span className="text-base text-muted-foreground">文献集</span>
               <span className="text-base text-faint">/</span>
               <span className="text-base font-bold text-foreground">{title}</span>
               <span className="inline-flex items-center px-1.5 py-px rounded-sm bg-surface-2 text-xs font-semibold text-muted-foreground tabular-nums">
@@ -515,6 +609,68 @@ function LibraryFolderView() {
       {/* 分享面板(PC):工具栏分享当前文件夹 / 论文行分享单篇,共用本实例(store 驱动) */}
       <ShareSheet target={shareTarget} open={!!shareTarget} onOpenChange={(v) => !v && closeShare()} />
     </div>
+  );
+}
+
+/** 文献集内打开暂存区时的简易论文列表(与文献集行模型不同,不走 LibraryPaperRow) */
+function LibraryStagingPaperList({
+  papers,
+  areaId,
+  onRemove,
+}: {
+  papers: Paper[];
+  areaId: string | null;
+  onRemove: (paperId: string) => void;
+}) {
+  const openDetail = useOpenPaperDetail();
+
+  if (papers.length === 0) {
+    return (
+      <EmptyState
+        icon={Inbox}
+        title="暂存区还是空的"
+        description="在检索结果里勾选论文即可加入暂存区,方便矩阵分析与批量整理。"
+      />
+    );
+  }
+
+  return (
+    <ul className="mx-auto flex w-full max-w-3xl flex-col px-10 py-4">
+      {papers.map((p) => (
+        <li
+          key={`${p.source ?? 'x'}:${p.paperId}`}
+          className="group flex items-start gap-3 border-b border-border px-1 py-3"
+        >
+          <button
+            type="button"
+            onClick={() => openDetail(p)}
+            className="min-w-0 flex-1 text-left"
+          >
+            <div className="text-sm font-semibold leading-snug text-foreground hover:text-brand-red">
+              {p.title || '无标题'}
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 text-2xs text-faint">
+              {p.year != null && (
+                <span className="tabular-nums">{p.year}</span>
+              )}
+              {p.venue && (
+                <span className="min-w-0 truncate italic">{p.venue}</span>
+              )}
+            </div>
+          </button>
+          {areaId && (
+            <button
+              type="button"
+              onClick={() => onRemove(p.paperId)}
+              className="inline-flex h-7 shrink-0 items-center rounded-sm px-2 text-2xs font-semibold text-faint opacity-0 transition-opacity hover:bg-danger-soft hover:text-brand-red group-hover:opacity-100"
+              title="移出暂存区"
+            >
+              移出
+            </button>
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }
 

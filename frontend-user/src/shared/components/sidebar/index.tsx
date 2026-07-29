@@ -4,13 +4,11 @@
  *
  *   <Sidebar>
  *     <SidebarHeader>...</SidebarHeader>
- *     <SidebarContent>
+ *     <SidebarContent>   -- 顶部自动挂面板图标展开/收起
  *       <SidebarSection label="文献集">
  *         <SidebarItem ... />
  *       </SidebarSection>
  *     </SidebarContent>
- *     <SidebarUser ... />
- *     <SidebarCollapseButton ... />
  *   </Sidebar>
  */
 export { Sidebar, SidebarContent } from './Sidebar';
@@ -21,7 +19,13 @@ export {
 } from './SidebarHeader';
 export { SidebarSection } from './SidebarSection';
 export { SidebarItem } from './SidebarItem';
+export { SidebarRailItem } from './SidebarRailItem';
 export { SidebarUser } from './SidebarUser';
 export { SidebarAuthFooter } from './SidebarAuthFooter';
 export { SidebarCollapseButton } from './SidebarCollapse';
-export { SidebarLayout } from './SidebarLayout';
+export {
+  SidebarLayout,
+  SIDEBAR_EXPANDED_PX,
+  SIDEBAR_RAIL_PX,
+} from './SidebarLayout';
+export { formatRailCount } from './format-rail-count';

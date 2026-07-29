@@ -2,21 +2,18 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Check } from 'lucide-react';
-import { useStageFly, type RectLike } from '@/stores/stage-fly.store';
+import {
+  resolveStageFlyTarget,
+  useStageFly,
+  type RectLike,
+} from '@/stores/stage-fly.store';
 
 /**
- * 暂存「飞入」覆盖层 —— portal 到 body 的一枚绿色芯片,从左侧论文卡**飞入**右侧矩阵落点。
- *
- * 与 [[FavoriteBurst]] 同套 portal + framer-motion 位移套路,但这里是**跨栏**:源 rect 由
- * stagePaper 抓卡片 `data-paper-id` 给出(存 [[stage-fly.store]]),落点由 MatrixColumn 注册的
- * getTarget()(先把矩阵滚到底再返回底部落点 rect)在下一帧算出。用 x/y transform 位移(GPU 友好),
- * 不 tween top/left(触发 layout)。芯片抵达即淡出,与右侧新行的出现(auto-animate)完成交接。
- *
- * 挂载点:SearchPage 顶层挂一份即可(传统 / 智能两种暂存都经同一个 stagePaper choke point)。
+ * 暂存「飞入」覆盖层 —— portal 芯片从论文卡飞入侧栏「暂存」文件夹
+ * (无侧栏锚点时回落矩阵行)。SearchPage 挂一份即可。
  */
 export function StageFlyLayer() {
   const fly = useStageFly((s) => s.fly);
-  const getTarget = useStageFly((s) => s.getTarget);
   const endFly = useStageFly((s) => s.endFly);
   const reduce = useReducedMotion();
   const [target, setTarget] = useState<RectLike | null>(null);
@@ -26,25 +23,28 @@ export function StageFlyLayer() {
       setTarget(null);
       return;
     }
-    // reduced-motion:不做位移动画,直接收场(右侧新行照常出现)。
     if (reduce) {
       endFly(fly.id);
       return;
     }
-    // 先清落点:连续暂存换 fly 时,避免用「新源 + 旧落点」渲染出一帧错位芯片
-    // (render 里 target 为 null 即隐藏,等下面 rAF 量到新落点再现身)。
     setTarget(null);
-    // 下一帧再量落点:让 MatrixColumn 先把矩阵滚到底,拿到滚动后的底部 rect。
-    const raf = requestAnimationFrame(() => {
-      const t = getTarget?.() ?? null;
-      if (!t) {
-        endFly(fly.id); // 落点没了(矩阵卸载等)→ 不飞
-        return;
-      }
-      setTarget(t);
+    // 双 rAF:等暂存文件夹展开 / 新行落 DOM 后再量落点
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        const t = resolveStageFlyTarget();
+        if (!t) {
+          endFly(fly.id);
+          return;
+        }
+        setTarget(t);
+      });
     });
-    return () => cancelAnimationFrame(raf);
-  }, [fly, getTarget, endFly, reduce]);
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
+  }, [fly, endFly, reduce]);
 
   if (!fly || !target) return null;
 
@@ -65,20 +65,27 @@ export function StageFlyLayer() {
           scale: [0.96, 1, 0.98, 0.9],
         }}
         transition={{
-          duration: 0.6,
+          duration: 0.72,
           ease: [0.22, 1, 0.36, 1],
-          times: [0, 0.16, 0.8, 1],
+          times: [0, 0.12, 0.78, 1],
         }}
         onAnimationComplete={() => endFly(fly.id)}
-        style={{ position: 'fixed', top: fly.from.top, left: fly.from.left, width }}
+        style={{
+          position: 'fixed',
+          top: fly.from.top,
+          left: fly.from.left,
+          width,
+        }}
       >
-        {/* StagedRow 同款绿色芯片:圆形对勾 + 标题截断 */}
-        <div className="flex items-center gap-2 rounded-md border border-brand-green/40 bg-brand-green/10 px-3 py-2 shadow-[0_8px_24px_rgba(42,122,42,0.22)] backdrop-blur-sm">
+        <div className="flex items-center gap-2 rounded-md border border-brand-green/40 bg-brand-green/10 px-3 py-2 shadow-lg backdrop-blur-sm">
           <span className="inline-flex size-4 shrink-0 items-center justify-center rounded-pill bg-brand-green text-white">
             <Check className="size-2.5" strokeWidth={3.5} />
           </span>
           <span className="min-w-0 flex-1 truncate text-xs font-medium text-subtle">
             {fly.title || '已暂存'}
+          </span>
+          <span className="shrink-0 text-2xs font-bold text-brand-green">
+            → 暂存
           </span>
         </div>
       </motion.div>

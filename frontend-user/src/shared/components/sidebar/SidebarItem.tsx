@@ -1,6 +1,14 @@
-import { type ButtonHTMLAttributes, type ReactNode, forwardRef } from 'react';
+import {
+  type ButtonHTMLAttributes,
+  type ReactNode,
+  forwardRef,
+  isValidElement,
+} from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
+import { useSidebar } from '@/stores/sidebar.store';
+import { formatRailCount } from './format-rail-count';
+import { SidebarRailItem } from './SidebarRailItem';
 
 interface SidebarItemProps
   extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'prefix'> {
@@ -20,12 +28,19 @@ interface SidebarItemProps
   size?: 'sm' | 'base' | 'lg';
 }
 
+/** 从 trailing 抽出窄轨可用的数字;徽章 / Count 组件读 props.n。 */
+function extractTrailingCount(trailing: ReactNode): number | null {
+  if (typeof trailing === 'number' && Number.isFinite(trailing)) return trailing;
+  if (typeof trailing === 'string' && /^\d+$/.test(trailing)) return Number(trailing);
+  if (isValidElement(trailing)) {
+    const n = (trailing.props as { n?: unknown }).n;
+    if (typeof n === 'number' && Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
 /**
- * 侧栏行 —— 对齐 .pen LxWuG / gs3tU 文件夹高度:
- *   - active folder(b53Pzb) = h-32 + 13/700 #111
- *   - inactive folder(AdIs4) = h-30 + 13/normal #444
- *   - sub-folder(wu3Jp) = h-28 + 12/normal #666
- * 我们统一到 base=h-8(32)/ sm=h-7(28),字号 text-base(13)/ text-sm(12)。
+ * 侧栏行 —— 展开态完整 label;收起态统一走 SidebarRailItem(图标+两位数)。
  */
 export const SidebarItem = forwardRef<HTMLButtonElement, SidebarItemProps>(
   (
@@ -38,12 +53,33 @@ export const SidebarItem = forwardRef<HTMLButtonElement, SidebarItemProps>(
       active = false,
       size = 'base',
       className,
+      title,
       ...props
     },
-    ref
+    ref,
   ) => {
+    const sidebarExpanded = useSidebar((s) => s.expanded);
+    const rail = !sidebarExpanded;
     const isPrimary = active === 'primary';
     const isDanger = active === 'danger';
+    const labelText = typeof label === 'string' ? label : undefined;
+    const trailingNum = extractTrailingCount(trailing);
+
+    if (rail) {
+      return (
+        <SidebarRailItem
+          ref={ref}
+          icon={icon ?? <span className="size-3.5" aria-hidden />}
+          count={trailingNum ?? undefined}
+          label={labelText ?? title ?? ''}
+          title={title ?? labelText}
+          active={!!active}
+          tone={isDanger ? 'danger' : 'default'}
+          className={className}
+          {...props}
+        />
+      );
+    }
 
     const indentPx = indent === 0 ? 16 : 16 + indent * 22;
 
@@ -51,41 +87,45 @@ export const SidebarItem = forwardRef<HTMLButtonElement, SidebarItemProps>(
       <button
         ref={ref}
         type="button"
+        title={title}
         style={{ paddingLeft: indentPx }}
         className={cn(
-          'group flex items-center gap-2 w-full text-left pr-4 transition-colors',
+          'group flex w-full items-center gap-2 pr-4 text-left transition-colors',
           size === 'lg' && 'h-10 text-md',
           size === 'base' && 'h-8 text-base',
           size === 'sm' && 'h-7 text-sm',
           'text-subtle hover:bg-surface-2 hover:text-foreground',
-          isPrimary && 'bg-surface-2 text-foreground font-bold border-l-[3px] border-l-foreground -ml-px',
-          isDanger && 'bg-danger-soft text-destructive font-bold border-l-[3px] border-l-destructive -ml-px',
-          className
+          isPrimary &&
+            'bg-surface-2 text-foreground font-bold border-l-[3px] border-l-foreground -ml-px',
+          isDanger &&
+            'bg-danger-soft text-destructive font-bold border-l-[3px] border-l-destructive -ml-px',
+          className,
         )}
         {...props}
       >
-        {/* chevron 占位,保持有/无展开图标时缩进一致 */}
         {expanded !== undefined ? (
           expanded ? (
-            <ChevronDown className="size-3 text-faint shrink-0" />
+            <ChevronDown className="size-3 shrink-0 text-faint" />
           ) : (
-            <ChevronRight className="size-3 text-faint shrink-0" />
+            <ChevronRight className="size-3 shrink-0 text-faint" />
           )
         ) : null}
 
         {icon && (
-          <span className="inline-flex items-center justify-center shrink-0 [&_svg]:size-3.5 text-subtle group-hover:text-foreground">
+          <span className="inline-flex shrink-0 items-center justify-center text-subtle group-hover:text-foreground [&_svg]:size-3.5">
             {icon}
           </span>
         )}
 
-        <span className="flex-1 min-w-0 truncate">{label}</span>
+        <span className="min-w-0 flex-1 truncate">{label}</span>
 
-        {trailing && (
-          <span className="text-xs text-faint shrink-0">{trailing}</span>
+        {trailing != null && trailing !== false && (
+          <span className="shrink-0 text-xs text-faint">
+            {typeof trailing === 'number' ? formatRailCount(trailing) : trailing}
+          </span>
         )}
       </button>
     );
-  }
+  },
 );
 SidebarItem.displayName = 'SidebarItem';

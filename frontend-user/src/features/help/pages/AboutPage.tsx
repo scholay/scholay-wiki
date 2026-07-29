@@ -1,7 +1,6 @@
 import {
   ArrowRight,
   Compass,
-  GraduationCap,
   Microscope,
   PencilRuler,
   Sparkles,
@@ -10,8 +9,9 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { RouteSEO } from '@/shared/components/RouteSEO';
 import { BrandName } from '@/shared/components/BrandName';
+import { RhinoBrandIcon } from '@/shared/components/RhinoBrandIcon';
+import { RouteSEO } from '@/shared/components/RouteSEO';
 import { HelpLayout } from '../components/HelpLayout';
 
 /**
@@ -75,7 +75,7 @@ const PILLARS: Pillar[] = [
     status: '已上线',
   },
   {
-    icon: GraduationCap,
+    icon: RhinoBrandIcon,
     title: '智能助手 · Claw',
     desc: '研究问答与多论文对话,把论文 PDF 变成可以问的对象。',
     to: '/features/claw',

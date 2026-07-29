@@ -1,4 +1,5 @@
-import { BookOpen, FileText, ImageIcon, Newspaper, Sparkles } from 'lucide-react';
+import { BookOpen, FileText, ImageIcon, Newspaper } from 'lucide-react';
+import { RhinoBrandIcon } from '@/shared/components/RhinoBrandIcon';
 import { motion } from 'framer-motion';
 
 /**
@@ -52,7 +53,7 @@ export function ClawEmptyState({
             animate={{ scale: [1, 1.06, 1] }}
             transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
           >
-            <Sparkles className="size-7 text-brand-green" strokeWidth={1.8} />
+            <RhinoBrandIcon className="size-7 text-brand-green" strokeWidth={1.8} />
           </motion.div>
         </div>
 

@@ -18,24 +18,18 @@ import { exposeJournals } from '@/shared/api/seo';
 import { useJournalSearch, useJournalStats, type Journal } from '../api/journals';
 import type { JournalFilters } from '../types';
 import { JournalCover } from '@/shared/components/JournalCover';
+import { JournalFiltersFloating } from './JournalFiltersFloating';
 
 /**
  * 期刊搜索结果主体 —— `/journals/search` 嵌入 JournalSearchPage 主区。
- *
- * 设计稿 .pen `jcYGD`(期刊搜索结果) 三段:
- *   ┌─ Hero(标题 + KPI 统计 + 搜索条 + active chips)
- *   ├─ resHdr(计数行 + 排序切换 / 视图切换)
- *   ├─ 2 列卡片网格(JournalCover 左 + info 右)
- *   └─ 分页器(显示 X-Y / 共 N · 每页 8 ▾ · 1 2 3 ...)
- *
- * 数据策略:keyword/page 走 URL,其他 filter 来自 props(由 JournalSidebar 改)。
- * keyword 为空时也展示结果(默认按 IF 降序)—— 期刊首页心智。
+ * 筛选器以悬浮 FAB + Popover 挂在主区(对齐文献搜索 SearchFiltersFloating)。
  */
 
 const PAGE_SIZE = 8;
 
 interface JournalSearchResultsProps {
   filters: JournalFilters;
+  onFiltersChange?: (next: JournalFilters) => void;
   /**
    * 可选 header 槽 —— 传入则**替换**默认 Hero(自带 h1 + KPI + 搜索条)。
    * 聚合 SEO 落地页用它换上针对性的 h1 + 文案,既避免双 h1,又复用结果网格/分页。
@@ -60,6 +54,7 @@ const SORT_TO_BACKEND: Record<SortKey, { sortBy?: string; sortDir?: 'asc' | 'des
 
 export function JournalSearchResults({
   filters,
+  onFiltersChange,
   header,
 }: JournalSearchResultsProps) {
   const [params, setParams] = useSearchParams();
@@ -139,7 +134,8 @@ export function JournalSearchResults({
   }, [stats]);
 
   return (
-    <div className="h-full overflow-auto bg-background">
+    <div className="relative h-full min-h-0 bg-background">
+      <div className="h-full overflow-auto">
       <div className="max-w-6xl mx-auto px-10 py-7 space-y-6">
         {/* 落地页传 header 槽则替换默认 Hero(避免双 h1);搜索页不传 → 默认 Hero。 */}
         {header ?? (
@@ -289,6 +285,13 @@ export function JournalSearchResults({
           />
         )}
       </div>
+      </div>
+      {onFiltersChange && (
+        <JournalFiltersFloating
+          filters={filters}
+          onFiltersChange={onFiltersChange}
+        />
+      )}
     </div>
   );
 }

@@ -1,4 +1,5 @@
-import { Send, Sparkles } from 'lucide-react';
+import { Send } from 'lucide-react';
+import { RhinoBrandIcon } from '@/shared/components/RhinoBrandIcon';
 import { cn } from '@/shared/lib/utils';
 
 /**
@@ -14,7 +15,7 @@ export function ClawChatMock() {
     )}>
       {/* header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border-soft bg-surface-1">
-        <Sparkles className="size-3.5 text-brand-amber" />
+        <RhinoBrandIcon className="size-3.5 text-brand-amber" />
         <span className="text-xs font-semibold text-foreground">Claw · 学术对话</span>
         <span className="flex-1" />
         <span className="text-2xs text-muted-foreground">索引文献集:博士论文 · 248 篇</span>

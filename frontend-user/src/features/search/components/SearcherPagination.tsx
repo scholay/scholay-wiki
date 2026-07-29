@@ -1,7 +1,9 @@
+import { FileText, Trash2 } from 'lucide-react';
+import { ConfirmPopover } from '@/shared/components/ConfirmPopover';
 import { cn } from '@/shared/lib/utils';
 
 /**
- * 搜索器分页器 —— 三列 grid:[pageSize pill][页码][总页数]
+ * 搜索器分页器 —— 三列 grid:[pageSize pill][页码][结果数 + 总页数]
  *
  * 跟 SearcherColumn 强耦合,只在搜索器列底部用,不抽到 shared/components。
  * 母组件管 page/pageSize 真相(URL 参数 ?p= / ?ps=),这里只渲染 + 通知。
@@ -11,6 +13,8 @@ import { cn } from '@/shared/lib/utils';
  *   current≤3   → 头连续 [1, 2, 3, …, last]
  *   current≥-2  → 尾连续 [1, …, last-2, last-1, last]
  *   居中        → 当前 ± 1  [1, …, c-1, c, c+1, …, last]
+ *
+ * 右侧结果数:宽够时「找到 N 篇相关文献」,窄时仅图标 + 数值(@container)。
  */
 
 export const PAGE_SIZE_OPTIONS = [20, 50] as const;
@@ -20,27 +24,33 @@ export type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
 interface Props {
   page: number;
   totalPages: number;
+  /** 命中文献总数(右侧统计) */
+  totalResults: number;
   pageSize: PageSize;
   onChange: (page: number) => void;
   onPageSizeChange: (size: PageSize) => void;
+  /** 清除检索(二次确认后) */
+  onClear: () => void;
 }
 
 export function SearcherPagination({
   page,
   totalPages,
+  totalResults,
   pageSize,
   onChange,
   onPageSizeChange,
+  onClear,
 }: Props) {
   const pages = computePages(page, totalPages);
+  const resultsLabel = `找到 ${totalResults.toLocaleString()} 篇相关文献`;
   return (
     <nav
       aria-label="分页"
       // 响应式 3-cell grid:页码居中始终可见,两侧自然撑开,从不挤压页码。
       // 列宽 `[1fr_auto_1fr]` —— 页码 auto 取自然宽度优先,左右各占一半余量;
-      // 不再用 justify-between + 右侧 88px 占位(那种做法在 ≤380px 容器宽度下
-      // 会把 pageSize pill 列压窄,导致两颗胶囊重叠成右图那样)。
-      className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 h-10 px-3 border-t border-border bg-surface-1 shrink-0"
+      // @container 供右侧结果数在列宽不足时收成图标+数值。
+      className="@container grid h-10 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-t border-border"
     >
       {/* 左:pageSize 切换 —— 仅 20 / 50 两档,shrink-0 防被 grid 压扁
           justify-self-start 让 pill 列贴左,不被 1fr 列拉伸 */}
@@ -109,10 +119,41 @@ export function SearcherPagination({
         </button>
       </div>
 
-      {/* 右:利用空位放"共 X 页",窄屏自动 hidden md:flex 防止挤压页码 */}
-      <span className="justify-self-end hidden md:inline-flex shrink-0 text-2xs text-faint tabular-nums whitespace-nowrap">
-        共 {totalPages} 页
-      </span>
+      {/* 右:结果数 + 共 X 页 + 清除。窄容器结果数收成图标+数值,清除收成纯图标。 */}
+      <div className="justify-self-end flex min-w-0 items-center gap-2">
+        <span
+          title={resultsLabel}
+          aria-label={resultsLabel}
+          className="inline-flex min-w-0 items-center gap-1 text-2xs text-faint tabular-nums whitespace-nowrap"
+        >
+          <FileText className="size-3 shrink-0" strokeWidth={2.25} aria-hidden />
+          <span className="@max-[480px]:hidden">找到 </span>
+          <span>{totalResults.toLocaleString()}</span>
+          <span className="@max-[480px]:hidden"> 篇相关文献</span>
+        </span>
+        <span className="inline-flex shrink-0 text-2xs text-faint tabular-nums whitespace-nowrap @max-[400px]:hidden">
+          共 {totalPages} 页
+        </span>
+        <ConfirmPopover
+          title="清除当前检索结果?"
+          description="将清空关键词、结果与筛选条件。"
+          confirmText="清除"
+          danger
+          side="top"
+          align="end"
+          onConfirm={onClear}
+        >
+          <button
+            type="button"
+            title="清除"
+            aria-label="清除检索"
+            className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-sm border border-border px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-surface-1 hover:text-foreground @max-[400px]:w-7 @max-[400px]:justify-center @max-[400px]:px-0 @max-[400px]:gap-0"
+          >
+            <Trash2 className="size-3.5" strokeWidth={2.25} />
+            <span className="@max-[400px]:hidden">清除</span>
+          </button>
+        </ConfirmPopover>
+      </div>
     </nav>
   );
 }

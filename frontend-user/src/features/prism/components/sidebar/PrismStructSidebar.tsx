@@ -1,13 +1,10 @@
 import { ChevronLeft, ListTree, Image as ImageIcon } from 'lucide-react';
 import {
   Sidebar,
-  SidebarAuthFooter,
-  SidebarCollapseButton,
   SidebarContent,
   SidebarItem,
   SidebarSection,
 } from '@/shared/components/sidebar';
-import { useSidebar } from '@/stores/sidebar.store';
 import type { DocStruct, PrismConversation } from '../../api/prism';
 import { PrismConversationList } from './PrismConversationList';
 
@@ -34,7 +31,6 @@ export function PrismStructSidebar({
   /** 切到某条对话。 */
   onSwitchConversation: (sessionId: string) => void;
 }) {
-  const toggleSidebar = useSidebar((s) => s.toggle);
   const outline = (doc?.body ?? [])
     .filter((b) => b.type === 'heading')
     .map((b, i) => ({ i, level: b.level ?? 1, text: b.text ?? '' }));
@@ -84,8 +80,6 @@ export function PrismStructSidebar({
           onSwitch={onSwitchConversation}
         />
       </SidebarContent>
-      <SidebarAuthFooter />
-      <SidebarCollapseButton onClick={toggleSidebar} />
     </Sidebar>
   );
 }

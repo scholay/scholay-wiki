@@ -20,6 +20,24 @@
         document.addEventListener('gestureend', stop, { passive: false });
       })();
     </script>
+    <!-- 主题 FOUC：在 React 挂载前同步 html.dark，避免闪白 -->
+    <script>
+      (function () {
+        try {
+          var raw = localStorage.getItem('scholay.theme');
+          var theme = 'light';
+          if (raw) {
+            var parsed = JSON.parse(raw);
+            theme = (parsed && parsed.state && parsed.state.theme) || theme;
+          }
+          var dark =
+            theme === 'dark' ||
+            (theme === 'system' &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.classList.toggle('dark', dark);
+        } catch (_) {}
+      })();
+    </script>
 
     <!--
       字体加载策略 —— 故意不走 Google Fonts CDN:

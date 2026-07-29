@@ -2,20 +2,17 @@ import { type ReactNode } from 'react';
 import { Sparkles } from 'lucide-react';
 import {
   Sidebar,
-  SidebarAuthFooter,
-  SidebarCollapseButton,
   SidebarContent,
   SidebarLayout,
   SidebarSection,
 } from '@/shared/components/sidebar';
-import { useSidebar } from '@/stores/sidebar.store';
 
 /**
  * 「即将推出」功能占位页 ——
  *
  * 结构对齐 文献搜索 / 文献集 / 期刊搜索 等已上线 feature:
  *   - SidebarLayout(左 240 aside,右内容,带收起/展开)
- *   - aside 用一个仅含 SidebarAuthFooter + 一段"即将推出"
+ *   - aside 用一个仅含一段"即将推出"
  *     提示的空白 Sidebar,保留展开/收起交互;全站导航走 TopNav
  *   - 主区 顶部一条 amber banner 标识"即将推出 · 样式预览暂不可使用",
  *     下方是 feature 自己渲染的样式预览(`preview` slot,opacity-60 蒙层 + 禁用)
@@ -60,13 +57,12 @@ export function ComingSoonView({ title, description, preview }: ComingSoonViewPr
 }
 
 /**
- * "即将推出"页用的简化侧栏:保留收起按钮 + 登录态 footer,
+ * "即将推出"页用的简化侧栏(顶部面板图标收起由 SidebarContent 自带),
  * 中间内容区只放一条"功能即将推出"提示。
  *
  * 一旦真正实现这个 feature,把这个 Sidebar 替换成 feature 自己的实现即可。
  */
 function ComingSoonSidebar({ title }: { title: string }) {
-  const toggleSidebar = useSidebar((s) => s.toggle);
   return (
     <Sidebar>
       <SidebarContent>
@@ -83,8 +79,6 @@ function ComingSoonSidebar({ title }: { title: string }) {
           </div>
         </SidebarSection>
       </SidebarContent>
-      <SidebarAuthFooter />
-      <SidebarCollapseButton onClick={toggleSidebar} />
     </Sidebar>
   );
 }

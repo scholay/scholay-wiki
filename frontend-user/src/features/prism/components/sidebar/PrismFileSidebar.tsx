@@ -19,13 +19,10 @@ import {
 import { Input } from '@/shared/ui/input';
 import {
   Sidebar,
-  SidebarAuthFooter,
-  SidebarCollapseButton,
   SidebarContent,
   SidebarItem,
   SidebarSection,
 } from '@/shared/components/sidebar';
-import { useSidebar } from '@/stores/sidebar.store';
 import { toApiError } from '@/shared/lib/http';
 import { cn } from '@/shared/lib/utils';
 import { useDeleteFile, useRenameFile, type PrismFile } from '../../api/prism';
@@ -66,7 +63,6 @@ export function PrismFileSidebar({
   onBack: () => void;
   onOutlineClick: (line: number) => void;
 }) {
-  const toggleSidebar = useSidebar((s) => s.toggle);
   const rename = useRenameFile(projectId);
   const del = useDeleteFile(projectId);
   const [renamingId, setRenamingId] = useState<number | null>(null);
@@ -131,9 +127,6 @@ export function PrismFileSidebar({
           </SidebarSection>
         )}
       </SidebarContent>
-      <SidebarAuthFooter />
-      <SidebarCollapseButton onClick={toggleSidebar} />
-
       <DeleteFileDialog
         target={deleteTarget}
         pending={del.isPending}

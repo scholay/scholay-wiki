@@ -2,9 +2,11 @@ import { Outlet, useMatch } from 'react-router-dom';
 import { TopNav } from './TopNav';
 import { cn } from '@/shared/lib/utils';
 import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
+import { FloatingRhinoAssistant } from '@/shared/components/FloatingRhinoAssistant';
 import { RouteCommitWatchdog } from '@/shared/components/RouteCommitWatchdog';
 import { useReplayPendingAction } from '@/shared/hooks';
 import { useNotificationSocket } from '@/shared/hooks/useNotificationSocket';
+import { FeatureRailPanel } from '@/features/home/components/HomeFeatureNav';
 import { useStagingSync } from '@/features/search/hooks/useStagingSync';
 
 /**
@@ -56,6 +58,8 @@ export function AppShell() {
           <Outlet />
         </ErrorBoundary>
       </main>
+      {/* 悬浮小犀牛 —— 收起=独立 mascot;展开=框进可拖面板 */}
+      <FloatingRhinoAssistant featuresSlot={<FeatureRailPanel embedded />} />
     </div>
   );
 }

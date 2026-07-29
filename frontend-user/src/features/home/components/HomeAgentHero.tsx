@@ -1,20 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  BookOpen,
-  FileText,
-  Search,
-} from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { BrandLogo } from '@/shared/components/BrandLogo';
+import { SearchAutocomplete } from '@/shared/components/SearchAutocomplete';
 import { Composer, type ComposerHandle } from '@/shared/components/chat';
+import {
+  useOpenAuthorInBrowser,
+  useOpenJournalInBrowser,
+  useOpenPaperInBrowser,
+} from '@/shared/hooks';
 import { cn } from '@/shared/lib/utils';
-import { HomeFeatureNav } from './HomeFeatureNav';
-import { NewsSection } from './NewsSection';
+import { HomeNoviceTour } from './HomeNoviceTour';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useIsAuthenticated } from '@/stores/auth.store';
 import { usePendingAction } from '@/stores/pending-action.store';
-import { SearchModeSwitch } from '@/features/search/components/SearchModeSwitch';
+import type { SearchMode } from '@/features/search/search-mode';
+import {
+  HomeFeatureEntrances,
+  HomeSearchModeRow,
+} from './HomeFeatureEntrances';
+import { HomeFeatureZones } from './HomeFeatureZones';
 
 const ROTATING_PROMPTS = [
   '帮我找 3 篇 Transformer 可解释性方向的代表作',
@@ -23,36 +28,25 @@ const ROTATING_PROMPTS = [
   '帮我做一份 10 页的 Transformer 教学演示稿',
 ];
 
-const QUICK_CHIPS = [
-  {
-    icon: BookOpen,
-    label: '找一篇综述',
-    prompt: '找一篇关于「大语言模型可解释性」的综述论文',
-  },
-  {
-    icon: FileText,
-    label: '读 PDF 写摘要',
-    prompt: '我待会上传一份 PDF，帮我写一段约 200 字的中文摘要',
-  },
-  {
-    icon: Search,
-    label: '矩阵检索',
-    prompt: '检索近五年 diffusion model 在图像生成上的高引论文，按引用数排序',
-  },
-] as const;
-
 export function HomeAgentHero() {
-  const [draft, setDraft] = useState('');
+  const [mode, setMode] = useState<SearchMode>('smart');
+  const [agentDraft, setAgentDraft] = useState('');
+  const [classicDraft, setClassicDraft] = useState('');
   const composerRef = useRef<ComposerHandle>(null);
   const navigate = useNavigate();
   const authenticated = useIsAuthenticated();
   const openDialog = useAuthDialog((s) => s.openDialog);
+  const openPaper = useOpenPaperInBrowser();
+  const openJournal = useOpenJournalInBrowser();
+  const openAuthor = useOpenAuthorInBrowser();
 
-  const goAgent = (message?: string) => {
-    const trimmed = message?.trim() ?? '';
-    const params = new URLSearchParams({ mode: 'smart' });
+  /** 进智能助手(/claw);可选预填首条。 */
+  const goClaw = (opts?: { message?: string }) => {
+    const params = new URLSearchParams();
+    const trimmed = opts?.message?.trim() ?? '';
     if (trimmed) params.set('q', trimmed);
-    const target = `/search?${params.toString()}`;
+    const qs = params.toString();
+    const target = qs ? `/claw?${qs}` : '/claw';
     if (!authenticated) {
       usePendingAction.getState().set({ type: 'navigate', to: target });
       openDialog('login');
@@ -61,71 +55,125 @@ export function HomeAgentHero() {
     navigate(target);
   };
 
-  const handleSubmit = () => {
-    if (!draft.trim()) return;
-    goAgent(draft);
+  const handleAgentSubmit = () => {
+    if (!agentDraft.trim()) return;
+    goClaw({ message: agentDraft });
+  };
+
+  const handleClassicSearch = (query: string) => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      navigate('/search', { state: { fresh: true } });
+      return;
+    }
+    navigate(`/search?q=${encodeURIComponent(trimmed)}`);
   };
 
   return (
     <div className="relative flex flex-1 flex-col">
       <AmbientBackdrop />
 
-      <div className="relative z-10 flex flex-col">
+      <div className="relative z-10 flex flex-1 flex-col">
         <div className="flex flex-col items-center px-6 py-10">
           <div className="flex w-full max-w-3xl flex-col items-center">
-          <HomeFeatureNav />
-
-          <h2 className="mt-6 flex flex-wrap items-center justify-center gap-x-1.5 text-2xl font-bold text-foreground">
-            <span>和</span>
-            <BrandLogo size="sm" className="text-2xl" />
-            <span>一起研究</span>
+          <h2 data-tour="home-brand">
+            <BrandLogo size="xl" />
           </h2>
-          <p className="mt-2 max-w-lg text-center text-sm text-muted-foreground">
-            找文献 · 读论文 · 写摘要 · 做汇报 —— 一个入口，直接开始对话
+
+          {/* 智能搜索 = Composer;文献搜索 = SearchAutocomplete。模式由输入框下那一行切换。 */}
+          <div className="mx-auto mt-8 w-full max-w-[640px]">
+            <AnimatePresence mode="wait" initial={false}>
+              {mode === 'smart' ? (
+                <motion.div
+                  key="smart-input"
+                  data-tour="home-composer"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <Composer
+                    ref={composerRef}
+                    value={agentDraft}
+                    onChange={setAgentDraft}
+                    onSend={handleAgentSubmit}
+                    placeholderOverlay={<RotatingPlaceholder items={ROTATING_PROMPTS} />}
+                    requireAuth={!authenticated}
+                    onRequireAuth={handleAgentSubmit}
+                    autoFocus
+                  />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="classic-input"
+                  data-tour="home-composer"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <SearchAutocomplete
+                    value={classicDraft}
+                    onChange={setClassicDraft}
+                    onSubmit={handleClassicSearch}
+                    onSearchJournals={(q) => {
+                      const trimmed = q.trim();
+                      navigate(
+                        trimmed
+                          ? `/journals/search?q=${encodeURIComponent(trimmed)}`
+                          : '/journals/search',
+                      );
+                    }}
+                    onPickJournal={(j) =>
+                      openJournal({
+                        id: j.id,
+                        canonical_name: j.canonical_name,
+                      })
+                    }
+                    onPickPaper={(p) =>
+                      openPaper({
+                        paperId: p.id,
+                        title: p.title,
+                        source: p.source,
+                      })
+                    }
+                    onPickAuthor={(a) => {
+                      if (!a.authorId) return;
+                      openAuthor({
+                        authorId: a.authorId,
+                        name: a.name ?? '',
+                        affiliations: a.affiliations,
+                        paperCount: a.paperCount,
+                        hIndex: a.hIndex,
+                        source: a.source,
+                      });
+                    }}
+                    autoFocus
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+            <div className="mt-3">
+              <HomeSearchModeRow mode={mode} onModeChange={setMode} />
+            </div>
+          </div>
+
+          <div className="mx-auto mt-6 w-full max-w-3xl">
+            <HomeFeatureEntrances />
+          </div>
+        </div>
+        </div>
+
+        <HomeFeatureZones />
+
+        <div className="mx-auto w-full max-w-3xl px-6 pb-16 pt-4">
+          <p className="text-center text-sm text-muted-foreground">
+            让热爱学术的人彼此连接
           </p>
-
-          <div className="mt-8 w-full">
-            <SearchModeSwitch
-              mode="smart"
-              onModeChange={(m) => {
-                if (m === 'classic') {
-                  navigate('/search', { state: { fresh: true } });
-                }
-              }}
-              className="mb-4 max-w-md mx-auto"
-            />
-            <Composer
-              ref={composerRef}
-              value={draft}
-              onChange={setDraft}
-              onSend={handleSubmit}
-              placeholderOverlay={<RotatingPlaceholder items={ROTATING_PROMPTS} />}
-              requireAuth={!authenticated}
-              onRequireAuth={handleSubmit}
-              minRows={3}
-              autoFocus
-              className="shadow-md"
-            />
-          </div>
-
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
-            {QUICK_CHIPS.map(({ icon: Icon, label, prompt }) => (
-              <button
-                key={label}
-                type="button"
-                onClick={() => composerRef.current?.prefill(prompt)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground shadow-sm transition-all hover:-translate-y-px hover:border-border-strong hover:text-foreground"
-              >
-                <Icon className="size-3.5 text-faint" />
-                {label}
-              </button>
-            ))}
-          </div>
         </div>
-        </div>
-
-        <NewsSection />
       </div>
+
+      <HomeNoviceTour />
     </div>
   );
 }

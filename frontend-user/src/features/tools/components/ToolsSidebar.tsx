@@ -11,10 +11,7 @@ import {
   SidebarContent,
   SidebarSection,
   SidebarItem,
-  SidebarAuthFooter,
-  SidebarCollapseButton,
 } from '@/shared/components/sidebar';
-import { useSidebar } from '@/stores/sidebar.store';
 import { cn } from '@/shared/lib/utils';
 import { useToolCategories } from '../api/tools';
 
@@ -50,7 +47,6 @@ export function ToolsSidebar() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const isSkills = pathname.startsWith('/tools/skills'); // 社区技能分段
-  const toggleSidebar = useSidebar((s) => s.toggle);
   const { data: catData } = useToolCategories();
 
   const category = params.get('category') ?? '';
@@ -87,7 +83,7 @@ export function ToolsSidebar() {
     <Sidebar>
       <SidebarContent>
         <div className="px-4 pt-3 pb-1.5">
-          <p className="text-xs font-bold tracking-[0.04em] text-foreground">科研能力广场</p>
+          <p className="text-xs font-bold tracking-[0.04em] text-foreground">Skills广场</p>
         </div>
 
         {/* 段切换在顶部 PlazaHeader 的 tab 上统一处理;侧栏只按当前段给对应的筛选/入口。 */}
@@ -115,7 +111,7 @@ export function ToolsSidebar() {
           <SidebarItem
             label="全部工具"
             icon={<LayoutGrid className="size-4" />}
-            trailing={<Count n={catData?.total ?? 0} />}
+            trailing={catData?.total ?? 0}
             active={isAll ? 'primary' : false}
             onClick={() => go({ category: null, price: null, access: null, os: null })}
           />
@@ -190,9 +186,6 @@ export function ToolsSidebar() {
         </>
         )}
       </SidebarContent>
-
-      <SidebarAuthFooter />
-      <SidebarCollapseButton onClick={toggleSidebar} />
     </Sidebar>
   );
 }

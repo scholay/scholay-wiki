@@ -1,14 +1,24 @@
-import { useState, type ReactElement } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { useState, type ComponentType, type ReactElement } from 'react';
+import {
+  ArrowLeft,
+  BookMarked,
+  ChartSpline,
+  FileText,
+  Grid3x3,
+  Presentation,
+} from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
+import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
-import { FEATURE_ICON, type TemplateFeature } from '../../lib/feature-meta';
+import type { TemplateFeature } from '../../lib/feature-meta';
 
 /**
  * 「模板卡片」—— 智能助手空态(新对话)**输入框上方**的一组创作模板。
  *
  * 定位:PPT / 科研绘图 不是与「对话」并列的顶部 tab,而是**统一对话里可套用的模板**。默认就是普通聊天
  * (直接打字);想做 PPT / 画图就点对应卡进入该模板。每张卡带一段**封面动画诠释功能目的**。
+ *
+ * 另有「即将推出」占位卡(智能选刊 / 矩阵分析 / PDF-Chat)——仅视觉入口,点击 toast 提示。
  *
  * 布局:feature=claw 时把可选模板做成「扑克牌拱形展开」——卡片沿弧线扇形铺开、微旋转叠放,鼠标悬停哪张
  * 就把它扶正+放大+抬起聚焦(邻卡让位)。卡片数量增减自适应(2 张起,后续可加更多)。
@@ -19,9 +29,11 @@ export type { TemplateFeature };
 
 interface CardMeta {
   key: string;
-  feature: Exclude<TemplateFeature, 'claw'>;
+  /** claw 模板 feature;占位卡无此字段 */
+  feature?: Exclude<TemplateFeature, 'claw'>;
   title: string;
   subtitle: string;
+  Icon: ComponentType<{ className?: string }>;
   Illustration: (p: { reduce: boolean }) => ReactElement;
   /** 品牌强调色(悬停聚焦光环 + 模式条配色)。 */
   accent: {
@@ -30,6 +42,8 @@ interface CardMeta {
     modeBar: string; // 模式条边 + 底
     modeText: string;
   };
+  /** 功能尚未接线 —— 点击只 toast,不进 feature。 */
+  comingSoon?: boolean;
 }
 
 const CARDS: CardMeta[] = [
@@ -38,6 +52,7 @@ const CARDS: CardMeta[] = [
     feature: 'boltslides',
     title: '制作PPT',
     subtitle: '一句话描述主题 → 多页可交互演示稿',
+    Icon: Presentation,
     Illustration: DeckIllustration,
     accent: {
       chip: 'bg-brand-amber/10 text-brand-amber',
@@ -51,12 +66,55 @@ const CARDS: CardMeta[] = [
     feature: 'sci_draw',
     title: '科研绘图',
     subtitle: '一句话描述 → 论文级图表 / 示意图',
+    Icon: ChartSpline,
     Illustration: FigureIllustration,
     accent: {
       chip: 'bg-brand-green/10 text-brand-green',
       focusRing: 'ring-brand-green/35 border-brand-green/50',
       modeBar: 'border-brand-green/40 bg-brand-green/10',
       modeText: 'text-brand-green',
+    },
+  },
+  {
+    key: 'journal',
+    title: '智能选刊',
+    subtitle: '根据稿件画像匹配目标期刊',
+    Icon: BookMarked,
+    Illustration: JournalPickIllustration,
+    comingSoon: true,
+    accent: {
+      chip: 'bg-brand-red/10 text-brand-red',
+      focusRing: 'ring-brand-red/35 border-brand-red/50',
+      modeBar: 'border-brand-red/40 bg-brand-red/10',
+      modeText: 'text-brand-red',
+    },
+  },
+  {
+    key: 'matrix',
+    title: '矩阵分析',
+    subtitle: '多文献多维度横向对比',
+    Icon: Grid3x3,
+    Illustration: MatrixIllustration,
+    comingSoon: true,
+    accent: {
+      chip: 'bg-foreground/10 text-foreground',
+      focusRing: 'ring-foreground/25 border-foreground/40',
+      modeBar: 'border-border-strong bg-surface-1',
+      modeText: 'text-foreground',
+    },
+  },
+  {
+    key: 'pdfchat',
+    title: 'PDF-Chat',
+    subtitle: '对着 PDF 提问 · 摘要 · 划段解读',
+    Icon: FileText,
+    Illustration: PdfChatIllustration,
+    comingSoon: true,
+    accent: {
+      chip: 'bg-brand-amber/10 text-brand-amber',
+      focusRing: 'ring-brand-amber/35 border-brand-amber/50',
+      modeBar: 'border-brand-amber/40 bg-brand-amber/10',
+      modeText: 'text-brand-amber',
     },
   },
 ];
@@ -81,11 +139,7 @@ export function TemplateCards({
   // 普通对话空态:扑克牌拱形展开的模板卡。
   return (
     <div className="w-full">
-      <div className="mb-1.5 text-center text-2xs uppercase tracking-wider text-faint">
-        从模板开始 · 或直接输入
-      </div>
       <FanCards reduce={!!reduce} onPick={onPick} />
-      <div className="mt-2 text-center text-2xs text-faint">更多创作模板陆续加入</div>
     </div>
   );
 }
@@ -99,10 +153,10 @@ function FanCards({ reduce, onPick }: { reduce: boolean; onPick: (f: TemplateFea
   const n = CARDS.length;
   const center = (n - 1) / 2;
 
-  // 数量自适应:卡越多越窄、叠得越多,保证一扇不超出 max-w-2xl 容器。
-  const cardW = n <= 2 ? 15 : n === 3 ? 13.5 : 12; // rem
-  const overlap = n <= 2 ? 2.4 : 3; // rem,相邻卡重叠
-  const SPREAD = n <= 2 ? 5 : 6.5; // deg / 步
+  // 数量自适应:卡越多越窄、叠得越多,保证整扇落在 max-w-2xl / max-w-3xl 容器内。
+  const cardW = n <= 2 ? 15 : n === 3 ? 13.5 : n === 4 ? 11.5 : 9.5; // rem
+  const overlap = n <= 2 ? 2.4 : n <= 4 ? 3 : 3.2; // rem,相邻卡重叠
+  const SPREAD = n <= 2 ? 5 : n <= 4 ? 6.5 : 4.5; // deg / 步
   const ARC = 9; // px,外侧卡下沉形成拱形
   const LIFT = 16; // px,悬停抬起
   const PUSH = 16; // px,邻卡让位
@@ -118,8 +172,7 @@ function FanCards({ reduce, onPick }: { reduce: boolean; onPick: (f: TemplateFea
       onMouseLeave={() => setHovered(null)}
     >
       {CARDS.map((card, i) => {
-        const { key, feature, title, subtitle, Illustration, accent } = card;
-        const Icon = FEATURE_ICON[feature];
+        const { key, feature, title, Illustration, accent, Icon, comingSoon } = card;
         const baseRot = (i - center) * SPREAD;
         const baseY = Math.abs(i - center) * ARC;
         const isH = hovered === i;
@@ -136,7 +189,13 @@ function FanCards({ reduce, onPick }: { reduce: boolean; onPick: (f: TemplateFea
           <motion.button
             key={key}
             type="button"
-            onClick={() => onPick(feature)}
+            onClick={() => {
+              if (comingSoon || !feature) {
+                toast.message(`${title} · 即将推出`);
+                return;
+              }
+              onPick(feature);
+            }}
             onHoverStart={() => setHovered(i)}
             onFocus={() => setHovered(i)}
             onBlur={() => setHovered((h) => (h === i ? null : h))}
@@ -158,15 +217,12 @@ function FanCards({ reduce, onPick }: { reduce: boolean; onPick: (f: TemplateFea
             <div className="relative aspect-[16/9] w-full overflow-hidden bg-surface-2">
               <Illustration reduce={reduce} />
             </div>
-            {/* 标签区 */}
-            <div className="flex items-center gap-2 px-3 py-2.5">
+            {/* 标签区 —— 只保留标题,居中;副文案在扇形卡上不展示(模式条里仍用 subtitle)。 */}
+            <div className="flex items-center justify-center gap-2 px-3 py-2.5">
               <span className={cn('flex size-7 shrink-0 items-center justify-center rounded-md', accent.chip)}>
                 <Icon className="size-3.5" />
               </span>
-              <div className="min-w-0">
-                <div className="truncate text-sm font-semibold text-foreground">{title}</div>
-                <div className="truncate text-2xs text-muted-foreground">{subtitle}</div>
-              </div>
+              <div className="truncate text-base font-semibold text-foreground">{title}</div>
             </div>
           </motion.button>
         );
@@ -188,8 +244,7 @@ function SelectedModeBar({
   reduce: boolean;
   onBack: () => void;
 }) {
-  const { feature, title, subtitle, Illustration, accent } = card;
-  const Icon = FEATURE_ICON[feature];
+  const { title, subtitle, Illustration, accent, Icon } = card;
   return (
     <motion.div
       initial={reduce ? { opacity: 0 } : { opacity: 0, y: 10, scale: 0.97 }}
@@ -419,6 +474,122 @@ function FigureIllustration({ reduce }: { reduce: boolean }) {
           />
         ))}
       </svg>
+    </div>
+  );
+}
+
+/** 智能选刊封面(占位)—— 期刊封面叠卡 + 分区徽章依次点亮。 */
+function JournalPickIllustration({ reduce }: { reduce: boolean }) {
+  return (
+    <div className="absolute inset-0 overflow-hidden bg-gradient-to-br from-brand-red/10 via-surface-1 to-background">
+      <div className="pointer-events-none absolute -left-4 top-2 size-20 rounded-full bg-brand-red/10 blur-2xl" />
+      {/* 叠放的期刊封面 */}
+      <div className="absolute left-1/2 top-1/2 h-[62%] w-[38%] -translate-x-[90%] -translate-y-[45%] rotate-[-8deg] rounded-sm bg-brand-red/15 ring-1 ring-brand-red/20" />
+      <div className="absolute left-1/2 top-1/2 h-[68%] w-[42%] -translate-x-[40%] -translate-y-1/2 rotate-[4deg] rounded-sm bg-background shadow-sm ring-1 ring-border">
+        <motion.div
+          className="mx-2 mt-2 h-1.5 rounded-full bg-brand-red/70"
+          initial={{ width: reduce ? '70%' : 0 }}
+          animate={{ width: '70%' }}
+          transition={reduce ? { duration: 0 } : { duration: 0.45, delay: 0.15 }}
+        />
+        <div className="mx-2 mt-2 space-y-1">
+          {[0.85, 0.6, 0.72].map((w, i) => (
+            <motion.div
+              key={i}
+              className="h-1 rounded-full bg-foreground/15"
+              initial={{ width: reduce ? `${w * 100}%` : 0 }}
+              animate={{ width: `${w * 100}%` }}
+              transition={reduce ? { duration: 0 } : { duration: 0.4, delay: 0.3 + i * 0.1 }}
+            />
+          ))}
+        </div>
+      </div>
+      {/* 分区徽章 */}
+      <div className="absolute bottom-2.5 right-3 flex gap-1">
+        {['Q1', '1区'].map((label, i) => (
+          <motion.span
+            key={label}
+            className="rounded-pill bg-brand-red px-1.5 py-0.5 text-[8px] font-bold text-white"
+            initial={{ opacity: reduce ? 1 : 0, y: reduce ? 0 : 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={reduce ? { duration: 0 } : { duration: 0.35, delay: 0.55 + i * 0.12 }}
+          >
+            {label}
+          </motion.span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** 矩阵分析封面(占位)—— 淡网格 + 单元格依次填色。 */
+function MatrixIllustration({ reduce }: { reduce: boolean }) {
+  const cells = [
+    [1, 0, 1, 0],
+    [0, 1, 1, 1],
+    [1, 1, 0, 1],
+  ];
+  return (
+    <div className="absolute inset-0 overflow-hidden bg-gradient-to-b from-surface-1 to-background p-3">
+      <div className="flex h-full flex-col gap-1">
+        {cells.map((row, ri) => (
+          <div key={ri} className="flex flex-1 gap-1">
+            {row.map((on, ci) => (
+              <motion.div
+                key={`${ri}-${ci}`}
+                className={cn(
+                  'flex-1 rounded-sm ring-1 ring-border',
+                  on ? 'bg-foreground/70' : 'bg-background',
+                )}
+                initial={{ opacity: reduce ? 1 : 0, scale: reduce ? 1 : 0.85 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={
+                  reduce
+                    ? { duration: 0 }
+                    : { duration: 0.3, delay: 0.12 + (ri * 4 + ci) * 0.05, ease: 'easeOut' }
+                }
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** PDF-Chat 封面(占位)—— 左侧 PDF 页 + 右侧对话气泡依次出现。 */
+function PdfChatIllustration({ reduce }: { reduce: boolean }) {
+  return (
+    <div className="absolute inset-0 overflow-hidden bg-gradient-to-br from-brand-amber/10 via-surface-1 to-background">
+      {/* PDF 页 */}
+      <div className="absolute left-3 top-1/2 h-[72%] w-[36%] -translate-y-1/2 rounded-sm bg-background shadow-sm ring-1 ring-border">
+        <div className="space-y-1 p-1.5">
+          {[0.9, 0.7, 0.8, 0.55].map((w, i) => (
+            <div
+              key={i}
+              className="h-1 rounded-full bg-foreground/12"
+              style={{ width: `${w * 100}%` }}
+            />
+          ))}
+        </div>
+      </div>
+      {/* 对话气泡 */}
+      <div className="absolute right-3 top-1/2 flex w-[42%] -translate-y-1/2 flex-col gap-1.5">
+        {[
+          { cls: 'self-start bg-brand-amber/25', w: '85%' },
+          { cls: 'self-end bg-background ring-1 ring-border', w: '70%' },
+          { cls: 'self-start bg-brand-amber/25', w: '60%' },
+        ].map((b, i) => (
+          <motion.div
+            key={i}
+            className={cn('h-3 rounded-pill', b.cls)}
+            style={{ width: b.w }}
+            initial={{ opacity: reduce ? 1 : 0, x: reduce ? 0 : 8 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={reduce ? { duration: 0 } : { duration: 0.35, delay: 0.2 + i * 0.15 }}
+          />
+        ))}
+      </div>
     </div>
   );
 }

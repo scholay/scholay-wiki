@@ -2,22 +2,26 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import {
+  BookMarked,
+  BookOpen,
   Check,
+  FilePenLine,
   Folder,
+  Inbox,
   Loader2,
   LogIn,
   Pencil,
   Plus,
   Trash2,
   X,
+  type LucideIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Sidebar,
   SidebarContent,
   SidebarSection,
-  SidebarAuthFooter,
-  SidebarCollapseButton,
+  SidebarRailItem,
 } from '@/shared/components/sidebar';
 import { Button } from '@/shared/ui/button';
 import { FavoriteBurst } from '@/shared/components/FavoriteBurst';
@@ -27,66 +31,82 @@ import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { useApiToast } from '@/shared/hooks';
 import { cn } from '@/shared/lib/utils';
 import type { UserLibraryFolderItem } from '@/shared/api/types';
+import { STAGING_FOLDER_LABEL } from '@/stores/workspace-folder.store';
+import { useStagingView } from '@/features/search/hooks/useStagingView';
 import {
   useCreateFolder,
   useDeleteFolder,
   useLibraryFolders,
   useRenameFolder,
 } from '../api/folders';
+import {
+  RESOURCE_SECTIONS,
+  collectionsForSection,
+  parseResourceSection,
+  type ResourceCollection,
+  type ResourceSectionId,
+} from '../resource-model';
+
+/** URL `?folder=staging` —— 文献集侧栏置顶的暂存区 */
+export const LIBRARY_STAGING_FOLDER_PARAM = 'staging';
+
+const SECTION_ICONS: Record<ResourceSectionId, LucideIcon> = {
+  papers: BookMarked,
+  journals: BookOpen,
+  manuscripts: FilePenLine,
+  folders: Folder,
+};
 
 /**
- * 文献集侧栏 —— **单层文件夹列表**(对照 .pen `Uls2s` 中"我的文件夹"段):
- *
- *   我的文件夹            + 新建
- *   📁 默认文件夹          12         (active:淡红粉底 + 名字加粗)
- *   📁 LLM 综述            15
- *   📁 Agent 综述           9
- *
- * - 文件夹只有这一层,**不展开** —— 论文在右侧 mainArea 显示
- * - 选中态走 URL `?folder=<id>`;无 query 时由 LibraryPage 自动选默认文件夹
- * - 普通文件夹 hover 露 ✎ 重命名 + 🗑 删除;双击 inline rename
- * - 系统默认文件夹(is_default)锁定:无 ✎/🗑,无双击改名
+ * 我的资源侧栏 —— 四分：
+ * 文献集 / 期刊集 / 稿件集 / 文件夹
  */
 export function LibrarySidebar() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const toggleSidebar = useSidebar((s) => s.toggle);
+  const sidebarExpanded = useSidebar((s) => s.expanded);
+  const rail = !sidebarExpanded;
   const token = useAuthStore((s) => s.token);
   const openAuthDialog = useAuthDialog((s) => s.openDialog);
   const apiToast = useApiToast();
-  // autoAnimate 只跟踪 folder 增删(新建/删除)的进出动画,无展开/折叠抖动场景
   const [treeRef] = useAutoAnimate<HTMLDivElement>({
     duration: 180,
     easing: 'ease-out',
   });
-  // FavoriteBurst 锚点 —— +1 浮起动画用 portal 渲染到 body,锚到 section 屏幕坐标
   const sectionRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading } = useLibraryFolders();
-  const folders = data?.folders ?? [];
+  const paperFolders = data?.folders ?? [];
+  const { activeArea } = useStagingView();
+  const stagingCount = activeArea?.papers.length ?? 0;
 
+  const section = parseResourceSection(params.get('section'));
   const activeFolderParam = params.get('folder') ?? '';
-  // 没有 ?folder 时(LibraryPage 内 fallback 到默认文件夹),sidebar 也高亮默认文件夹
-  const activeId = activeFolderParam
-    ? Number(activeFolderParam)
-    : (folders.find((f) => f.is_default)?.id ?? null);
+  const stagingActive =
+    section === 'papers' && activeFolderParam === LIBRARY_STAGING_FOLDER_PARAM;
 
-  const setActive = (folderId: number) => {
-    // 切文件夹时丢掉 q/page/sort/size 等其他参数 —— 否则上一个文件夹的搜索词 /
-    // 翻页会被带到新文件夹,新视图打开就是错的页码 + 错的过滤条件。
-    navigate({ pathname: '/library', search: `?folder=${folderId}` });
+  const activePaperFolderId =
+    section === 'papers' && !stagingActive && activeFolderParam
+      ? Number(activeFolderParam)
+      : section === 'papers'
+        ? (paperFolders.find((f) => f.is_default)?.id ?? null)
+        : null;
+
+  const activeMockCollectionId =
+    section !== 'papers' ? activeFolderParam : '';
+
+  const go = (nextSection: ResourceSectionId, folderId: string | number) => {
+    navigate({
+      pathname: '/library',
+      search: `?section=${nextSection}&folder=${folderId}`,
+    });
   };
 
-  // 创建文件夹
-  //
-  // 风控:每用户最多 MAX_FOLDERS_PER_USER 个文件夹。后端是硬约束(返 409),
-  // 前端在用户点击新建之前先拦一下,避免无效请求 + 给出立即反馈。
-  // 不在 UI 上显示"最多 N 个"提示语;只有触达上限才弹 toast。
   const MAX_FOLDERS_PER_USER = 50;
   const [creating, setCreating] = useState(false);
   const createMut = useCreateFolder();
   const startCreating = () => {
-    if (folders.length >= MAX_FOLDERS_PER_USER) {
+    if (paperFolders.length >= MAX_FOLDERS_PER_USER) {
       toast.error(`文件夹最多创建 ${MAX_FOLDERS_PER_USER} 个,请删除一些不用的再试`);
       return;
     }
@@ -98,8 +118,7 @@ export function LibrarySidebar() {
       setCreating(false);
       return;
     }
-    // 二次校验 —— 用户在 creating 态期间可能另开 tab 又建了一个
-    if (folders.length >= MAX_FOLDERS_PER_USER) {
+    if (paperFolders.length >= MAX_FOLDERS_PER_USER) {
       toast.error(`文件夹最多创建 ${MAX_FOLDERS_PER_USER} 个,请删除一些不用的再试`);
       setCreating(false);
       return;
@@ -107,121 +126,291 @@ export function LibrarySidebar() {
     createMut.mutate(trimmed, {
       onSuccess: (folder) => {
         setCreating(false);
-        setActive(folder.id);
+        go('papers', folder.id);
       },
       onError: apiToast.onError(),
     });
   };
 
-  // 未登录:不展示"我的文件夹 + 新建"(对未登录用户没意义),改成
-  // 一个登录引导卡 —— 视觉与 SearchSidebar 未登录态的 LibrarySection 一致
   if (!token) {
     return (
       <Sidebar>
         <SidebarContent>
-          <SidebarSection id="library" label="我的文献集">
-            <div className="mx-4 my-2 px-3 py-3 rounded-md bg-surface-1 border border-border-soft">
-              <div className="text-sm text-subtle leading-relaxed">
-                登录后查看你的文献集,所有收藏云端同步
+          {rail ? (
+            <SidebarSection id="library">
+              <div className="px-0.5 pt-1">
+                <SidebarRailItem
+                  icon={<LogIn strokeWidth={2} />}
+                  label="登录 / 注册"
+                  onClick={() => openAuthDialog('login')}
+                />
               </div>
-              <Button
-                size="sm"
-                variant="primary"
-                className="mt-2 w-full h-8 text-xs"
-                onClick={() => openAuthDialog('login')}
-              >
-                <LogIn className="size-3" />
-                登录 / 注册
-              </Button>
-            </div>
-          </SidebarSection>
+            </SidebarSection>
+          ) : (
+            <SidebarSection id="library" label="我的资源">
+              <div className="mx-4 my-2 rounded-md border border-border-soft bg-surface-1 px-3 py-3">
+                <div className="text-sm leading-relaxed text-subtle">
+                  登录后查看文献集、期刊集、稿件集与通用文件夹
+                </div>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  className="mt-2 h-8 w-full text-xs"
+                  onClick={() => openAuthDialog('login')}
+                >
+                  <LogIn className="size-3" />
+                  登录 / 注册
+                </Button>
+              </div>
+            </SidebarSection>
+          )}
         </SidebarContent>
-        <SidebarAuthFooter />
-        <SidebarCollapseButton onClick={toggleSidebar} />
       </Sidebar>
     );
   }
 
   return (
     <Sidebar>
-
       <SidebarContent>
-        {/* 锚点 + FavoriteBurst —— 收藏成功 "+1" 浮起。
-            走 Portal + position:fixed,完全跳出 ScrollArea overflow:hidden 的裁剪 */}
         <div ref={sectionRef}>
-        <SidebarSection
-          id="library"
-          label="我的文件夹"
-          action={
-            !creating && (
-              <button
-                type="button"
-                onClick={startCreating}
-                disabled={createMut.isPending}
-                className="inline-flex items-center gap-0.5 text-foreground hover:opacity-70 disabled:opacity-50"
-                title="新建文件夹"
-              >
-                <Plus className="size-3" />
-                新建
-              </button>
-            )
-          }
-        >
-          <div ref={treeRef} className="flex flex-col">
-            {creating && (
-              <NewFolderRow
-                busy={createMut.isPending}
-                onSubmit={handleCreate}
-                onCancel={() => setCreating(false)}
-              />
-            )}
+          {/* —— 文献集 —— */}
+          <SidebarSection
+            id="library-papers"
+            label="文献集"
+            bordered={false}
+            action={
+              !rail &&
+              !creating && (
+                <button
+                  type="button"
+                  onClick={startCreating}
+                  disabled={createMut.isPending}
+                  className="inline-flex items-center gap-0.5 text-foreground hover:opacity-70 disabled:opacity-50"
+                  title="新建文献集文件夹"
+                >
+                  <Plus className="size-3" />
+                  新建
+                </button>
+              )
+            }
+          >
+            <div
+              ref={treeRef}
+              className={cn('flex flex-col', rail && 'gap-0.5 px-0.5 pt-1')}
+            >
+              {!rail && creating && (
+                <NewFolderRow
+                  busy={createMut.isPending}
+                  onSubmit={handleCreate}
+                  onCancel={() => setCreating(false)}
+                />
+              )}
 
-            {isLoading && folders.length === 0 && (
-              <div className="px-4 py-2 text-2xs text-faint">加载中…</div>
-            )}
-            {!isLoading && folders.length === 0 && !creating && (
-              <div className="px-4 py-2 text-2xs text-faint">
-                还没有文件夹 · 点击「新建」开始
-              </div>
-            )}
-            {folders.map((f) => (
-              <FolderRow
-                key={f.id}
-                folder={f}
-                active={activeId === f.id}
-                onActivate={() => setActive(f.id)}
+              <StagingFolderRow
+                count={stagingCount}
+                active={stagingActive}
+                onActivate={() => go('papers', LIBRARY_STAGING_FOLDER_PARAM)}
+                rail={rail}
               />
-            ))}
-          </div>
-        </SidebarSection>
+
+              {!rail && isLoading && paperFolders.length === 0 && (
+                <div className="px-4 py-2 text-2xs text-faint">加载中…</div>
+              )}
+              {paperFolders.map((f) => (
+                <PaperFolderRow
+                  key={f.id}
+                  folder={f}
+                  active={
+                    section === 'papers' &&
+                    !stagingActive &&
+                    activePaperFolderId === f.id
+                  }
+                  onActivate={() => go('papers', f.id)}
+                  rail={rail}
+                />
+              ))}
+            </div>
+          </SidebarSection>
+
+          {/* —— 期刊集 / 稿件集 / 文件夹 —— */}
+          {RESOURCE_SECTIONS.filter((s) => s.id !== 'papers').map((s) => {
+            const collections = collectionsForSection(s.id);
+            const Icon = SECTION_ICONS[s.id];
+            return (
+              <SidebarSection
+                key={s.id}
+                id={`library-${s.id}`}
+                label={s.label}
+                bordered
+              >
+                <div
+                  className={cn('flex flex-col', rail && 'gap-0.5 px-0.5 pt-1')}
+                >
+                  {!rail && (
+                    <p className="px-4 pb-1 text-[10px] leading-snug text-faint">
+                      {s.hint}
+                    </p>
+                  )}
+                  {collections.map((c) => (
+                    <MockCollectionRow
+                      key={c.id}
+                      collection={c}
+                      icon={Icon}
+                      active={
+                        section === s.id && activeMockCollectionId === c.id
+                      }
+                      onActivate={() => go(s.id, c.id)}
+                      rail={rail}
+                    />
+                  ))}
+                </div>
+              </SidebarSection>
+            );
+          })}
         </div>
         <FavoriteBurst anchorRef={sectionRef} />
       </SidebarContent>
-
-      <SidebarAuthFooter />
-      <SidebarCollapseButton onClick={toggleSidebar} />
     </Sidebar>
   );
 }
 
-// ============================================================================
-// 文件夹单行 —— 对照 .pen `MZ0Ma`(active) / `t6u6Oj`(普通)
-//   普通:h-30 px-4 gap-2.5,文件夹名 13/normal/#444,数量 11/#999
-//   active:bg-danger-soft(#FFF7F7),文件夹名 13/bold/#111,数量 11/bold/#666
-//   去掉 ▾/▸ chevron(用户要求"不做展开收起")
-// ============================================================================
+function StagingFolderRow({
+  count,
+  active,
+  onActivate,
+  rail,
+}: {
+  count: number;
+  active: boolean;
+  onActivate: () => void;
+  rail: boolean;
+}) {
+  if (rail) {
+    return (
+      <SidebarRailItem
+        icon={<Inbox strokeWidth={2} />}
+        count={count}
+        label={STAGING_FOLDER_LABEL}
+        active={active}
+        tone={active ? 'danger' : 'default'}
+        onClick={onActivate}
+      />
+    );
+  }
 
-interface FolderRowProps {
+  return (
+    <button
+      type="button"
+      onClick={onActivate}
+      className={cn(
+        'group relative flex h-8 w-full items-center gap-2.5 px-4 text-left transition-colors',
+        active ? 'bg-danger-soft' : 'hover:bg-surface-1',
+      )}
+      title="检索工作区的临时文献篮"
+    >
+      <Inbox
+        className={cn(
+          'size-3.5 shrink-0',
+          active ? 'text-brand-red' : 'text-muted-foreground',
+        )}
+        strokeWidth={2}
+      />
+      <span
+        className={cn(
+          'min-w-0 flex-1 truncate text-base',
+          active ? 'font-bold text-foreground' : 'text-subtle',
+        )}
+      >
+        {STAGING_FOLDER_LABEL}
+      </span>
+      <span
+        className={cn(
+          'text-xs tabular-nums',
+          active ? 'font-bold text-muted-foreground' : 'text-faint',
+        )}
+      >
+        {count.toLocaleString()}
+      </span>
+    </button>
+  );
+}
+
+function MockCollectionRow({
+  collection,
+  icon: Icon,
+  active,
+  onActivate,
+  rail,
+}: {
+  collection: ResourceCollection;
+  icon: LucideIcon;
+  active: boolean;
+  onActivate: () => void;
+  rail: boolean;
+}) {
+  if (rail) {
+    return (
+      <SidebarRailItem
+        icon={<Icon strokeWidth={2} />}
+        count={collection.itemCount}
+        label={collection.name}
+        active={active}
+        tone={active ? 'danger' : 'default'}
+        onClick={onActivate}
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onActivate}
+      title={collection.description ?? collection.name}
+      className={cn(
+        'group relative flex h-8 w-full items-center gap-2.5 px-4 text-left transition-colors',
+        active ? 'bg-danger-soft' : 'hover:bg-surface-1',
+      )}
+    >
+      <Icon
+        className={cn(
+          'size-3.5 shrink-0',
+          active ? 'text-foreground' : 'text-muted-foreground',
+        )}
+        strokeWidth={2}
+      />
+      <span
+        className={cn(
+          'min-w-0 flex-1 truncate text-base',
+          active ? 'font-bold text-foreground' : 'text-subtle',
+        )}
+      >
+        {collection.name}
+      </span>
+      <span
+        className={cn(
+          'text-xs tabular-nums',
+          active ? 'font-bold text-muted-foreground' : 'text-faint',
+        )}
+      >
+        {collection.itemCount.toLocaleString()}
+      </span>
+    </button>
+  );
+}
+
+interface PaperFolderRowProps {
   folder: UserLibraryFolderItem;
   active: boolean;
   onActivate: () => void;
+  rail?: boolean;
 }
 
-function FolderRow({
+function PaperFolderRow({
   folder,
   active,
   onActivate,
-}: FolderRowProps) {
+  rail = false,
+}: PaperFolderRowProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(folder.name);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -257,7 +446,7 @@ function FolderRow({
           setDraft(folder.name);
           setEditing(false);
         },
-      }
+      },
     );
   };
   const confirmDelete = () => {
@@ -267,10 +456,23 @@ function FolderRow({
     });
   };
 
+  if (rail) {
+    return (
+      <SidebarRailItem
+        icon={<Folder strokeWidth={2} />}
+        count={folder.paper_count}
+        label={folder.name}
+        active={active}
+        tone={active ? 'danger' : 'default'}
+        onClick={onActivate}
+      />
+    );
+  }
+
   if (editing) {
     return (
-      <div className="flex items-center gap-1.5 px-4 h-8">
-        <Folder className="size-3.5 text-muted-foreground shrink-0" />
+      <div className="flex h-8 items-center gap-1.5 px-4">
+        <Folder className="size-3.5 shrink-0 text-muted-foreground" />
         <input
           ref={inputRef}
           value={draft}
@@ -285,7 +487,7 @@ function FolderRow({
           }}
           onBlur={commitRename}
           disabled={renameMut.isPending}
-          className="flex-1 h-6 bg-background border border-border rounded-sm px-1.5 text-xs outline-none focus:border-brand-red"
+          className="h-6 flex-1 rounded-sm border border-border bg-background px-1.5 text-xs outline-none focus:border-brand-red"
         />
         {renameMut.isPending && (
           <Loader2 className="size-3 animate-spin text-muted-foreground" />
@@ -296,8 +498,8 @@ function FolderRow({
 
   if (confirmingDelete) {
     return (
-      <div className="flex items-center gap-1.5 px-4 h-8 bg-danger-soft">
-        <span className="flex-1 text-2xs text-brand-red font-bold truncate">
+      <div className="flex h-8 items-center gap-1.5 bg-danger-soft px-4">
+        <span className="flex-1 truncate text-2xs font-bold text-brand-red">
           删除「{folder.name}」?
         </span>
         <button
@@ -325,7 +527,6 @@ function FolderRow({
     );
   }
 
-  // 系统默认文件夹:UI 上锁定 —— 不可双击改名,不显示 ✎/🗑
   const locked = folder.is_default;
 
   return (
@@ -340,21 +541,20 @@ function FolderRow({
             }
       }
       className={cn(
-        'group relative flex items-center gap-2.5 px-4 h-8 cursor-pointer transition-colors',
-        // active 态对照 .pen MZ0Ma:bg-danger-soft + 字加粗;非 active hover 用浅灰
-        active ? 'bg-danger-soft' : 'hover:bg-surface-1'
+        'group relative flex h-8 cursor-pointer items-center gap-2.5 px-4 transition-colors',
+        active ? 'bg-danger-soft' : 'hover:bg-surface-1',
       )}
     >
       <Folder
         className={cn(
           'size-3.5 shrink-0',
-          active ? 'text-foreground' : 'text-muted-foreground'
+          active ? 'text-foreground' : 'text-muted-foreground',
         )}
       />
       <span
         className={cn(
-          'flex-1 min-w-0 truncate text-base',
-          active ? 'text-foreground font-bold' : 'text-subtle'
+          'min-w-0 flex-1 truncate text-base',
+          active ? 'font-bold text-foreground' : 'text-subtle',
         )}
         title={locked ? '系统默认文件夹(不可改名 / 不可删除)' : folder.name}
       >
@@ -364,15 +564,15 @@ function FolderRow({
       <span
         className={cn(
           'text-xs tabular-nums transition-opacity',
-          active ? 'text-muted-foreground font-bold' : 'text-faint',
-          !locked && 'group-hover:opacity-0'
+          active ? 'font-bold text-muted-foreground' : 'text-faint',
+          !locked && 'group-hover:opacity-0',
         )}
       >
         {folder.paper_count.toLocaleString()}
       </span>
 
       {!locked && (
-        <div className="absolute right-2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute right-2 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
           <button
             type="button"
             onClick={(e) => {
@@ -401,10 +601,6 @@ function FolderRow({
   );
 }
 
-// ============================================================================
-// 新建文件夹的 inline 行
-// ============================================================================
-
 function NewFolderRow({
   busy,
   onSubmit,
@@ -420,21 +616,21 @@ function NewFolderRow({
     inputRef.current?.focus();
   }, []);
   return (
-    <div className="flex items-center gap-1.5 px-4 h-8">
-      <Folder className="size-3.5 text-muted-foreground shrink-0" />
+    <div className="flex h-8 items-center gap-1.5 px-4">
+      <Folder className="size-3.5 shrink-0 text-muted-foreground" />
       <input
         ref={inputRef}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         maxLength={32}
-        placeholder="文件夹名称"
+        placeholder="文献集名称"
         onKeyDown={(e) => {
           if (e.key === 'Enter') onSubmit(draft);
           else if (e.key === 'Escape') onCancel();
         }}
         onBlur={() => onSubmit(draft)}
         disabled={busy}
-        className="flex-1 h-6 bg-background border border-border rounded-sm px-1.5 text-xs outline-none focus:border-brand-red"
+        className="h-6 flex-1 rounded-sm border border-border bg-background px-1.5 text-xs outline-none focus:border-brand-red"
       />
       {busy && <Loader2 className="size-3 animate-spin text-muted-foreground" />}
     </div>

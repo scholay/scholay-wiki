@@ -1,4 +1,12 @@
 import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+import {
   AlertCircle,
   BookOpen,
   FileText,
@@ -23,17 +31,24 @@ import { AuthorDetailContent } from '@/features/browser/components/author-detail
 import { MatrixColumn } from './MatrixColumn';
 import { PdfChatPanel } from './workspace/PdfChatPanel';
 import { CitationGraphPanel } from './workspace/CitationGraphPanel';
-import { RightPanelFeatureHub } from './workspace/RightPanelFeatureHub';
 import { useWorkspacePapers } from '../hooks/useWorkspacePapers';
 import {
   useSearchRightPanelStore,
   WORKSPACE_FUNCTION_LABEL,
   WORKSPACE_FUNCTION_ORDER,
   type ActivePanel,
+  type ArtifactTabPayload,
   type InfoTab,
   type WorkspaceFunctionKind,
 } from '@/stores/search-right-panel.store';
+import { useArtifactExportBridge } from '@/stores/artifact-export-bridge.store';
 import { cn } from '@/shared/lib/utils';
+
+const ClawArtifactPreview = lazy(() =>
+  import('@/features/claw/components/preview/ClawArtifactPreview').then((m) => ({
+    default: m.ClawArtifactPreview,
+  })),
+);
 
 interface SearchRightPanelProps {
   /** @deprecated 论文列表改由 useWorkspacePapers 提供,保留空 props 兼容 lazy import */
@@ -49,12 +64,20 @@ export function SearchRightPanel(_props: SearchRightPanelProps = {}) {
       ? infoTabs.find((t) => t.id === activePanel.tabId)
       : undefined;
 
-  const showFeatureHub = !activePanel;
+  // 产物预览自带内部滚动(flex h-full);其它详情页走外层 overflow-auto。
+  // FeatureHub 空态由页面级边缘吸附名片承载,本组件只在有 activePanel 时挂载。
+  const artifactActive =
+    activePanel?.group === 'info' && activeInfoTab?.kind === 'artifact';
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
       <TabStrip activePanel={activePanel} />
-      <div className="min-h-0 flex-1 min-w-0 overflow-auto">
+      <div
+        className={cn(
+          'min-h-0 flex-1 min-w-0',
+          artifactActive ? 'overflow-hidden' : 'overflow-auto',
+        )}
+      >
         {activePanel?.group === 'function' && (
           <WorkspaceFunctionView
             kind={activePanel.kind}
@@ -64,7 +87,6 @@ export function SearchRightPanel(_props: SearchRightPanelProps = {}) {
         {activePanel?.group === 'info' && activeInfoTab && (
           <InfoTabView tab={activeInfoTab} />
         )}
-        {showFeatureHub && <RightPanelFeatureHub />}
       </div>
     </div>
   );
@@ -75,13 +97,13 @@ function TabStrip({ activePanel }: { activePanel: ActivePanel | null }) {
   const setActiveFunction = useSearchRightPanelStore((s) => s.setActiveFunction);
   const setActiveInfoTab = useSearchRightPanelStore((s) => s.setActiveInfoTab);
   const closeInfoTab = useSearchRightPanelStore((s) => s.closeInfoTab);
-  const closePanel = useSearchRightPanelStore((s) => s.closePanel);
+  const dismissToHub = useSearchRightPanelStore((s) => s.dismissToHub);
   const openPaper = useOpenPaperDetail();
 
   const showPageGroup = infoTabs.length > 0;
 
   const functionGroup = (
-    <div className="flex min-w-0 shrink-0 items-center gap-1">
+    <div className="flex min-w-0 shrink items-center gap-1">
       {WORKSPACE_FUNCTION_ORDER.map((kind) => (
         <FunctionTabButton
           key={kind}
@@ -108,34 +130,29 @@ function TabStrip({ activePanel }: { activePanel: ActivePanel | null }) {
   const pageGroup = showPageGroup ? (
     <>
       <TabStripDivider />
-      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
-        {infoTabs.map((tab) => (
-          <InfoTabPill
-            key={tab.id}
-            tab={tab}
-            active={
-              activePanel?.group === 'info' && activePanel.tabId === tab.id
-            }
-            onSelect={() => setActiveInfoTab(tab.id)}
-            onClose={() => closeInfoTab(tab.id)}
-          />
-        ))}
-      </div>
+      <InfoTabRail
+        tabs={infoTabs}
+        activeTabId={
+          activePanel?.group === 'info' ? activePanel.tabId : null
+        }
+        onSelect={setActiveInfoTab}
+        onClose={closeInfoTab}
+      />
     </>
   ) : (
     <div className="min-w-0 flex-1" />
   );
 
   return (
-    <div className="flex h-11 shrink-0 items-center gap-1 border-b border-border bg-surface-1 px-2">
+    <div className="flex h-11 shrink-0 items-center gap-1 overflow-hidden border-b border-border bg-surface-1 px-2">
       {functionGroup}
       {pageGroup}
       <button
         type="button"
-        onClick={closePanel}
+        onClick={dismissToHub}
         className="inline-flex size-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
-        title="关闭拓展栏"
-        aria-label="关闭拓展栏"
+        title="回到拓展入口"
+        aria-label="回到拓展入口"
       >
         <X className="size-3.5" strokeWidth={2.25} />
       </button>
@@ -176,15 +193,17 @@ function FunctionTabButton({
       type="button"
       onClick={onSelect}
       title={label}
+      aria-label={label}
       className={cn(
-        'inline-flex h-8 max-w-[160px] shrink-0 items-center gap-1.5 rounded-sm border px-2.5 text-xs font-semibold transition-colors',
+        // 可挤:先 truncate 文案,最窄塌成 min-w-8 纯图标(overflow 吃掉文字)
+        'inline-flex h-8 min-w-8 max-w-[160px] shrink items-center gap-1.5 overflow-hidden rounded-sm border px-2 text-xs font-semibold transition-colors',
         active
           ? 'border-brand-red/30 bg-brand-red/5 text-brand-red shadow-sm'
           : 'border-transparent text-subtle hover:bg-background/70 hover:text-foreground',
       )}
     >
       <Icon className="size-3.5 shrink-0" />
-      <span className="truncate">{label}</span>
+      <span className="min-w-0 truncate">{label}</span>
     </button>
   );
 }
@@ -197,7 +216,135 @@ function infoIcon(tab: InfoTab) {
       return BookOpen;
     case 'author':
       return User;
+    case 'artifact':
+      return FileText;
   }
+}
+
+/** 边缘 hover 自动滚速(px / frame ≈ 60fps 下 ~240px/s) */
+const INFO_TAB_EDGE_SCROLL_PX = 4;
+
+/**
+ * 页面专属 info tab 轨 —— 先挤压文字到图标底线;
+ * 仍溢出时隐藏滚动条,hover 左/右边缘持续向对应方向滚动。
+ */
+function InfoTabRail({
+  tabs,
+  activeTabId,
+  onSelect,
+  onClose,
+}: {
+  tabs: InfoTab[];
+  activeTabId: string | null;
+  onSelect: (id: string) => void;
+  onClose: (id: string) => void;
+}) {
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const dirRef = useRef<-1 | 0 | 1>(0);
+  const rafRef = useRef(0);
+  const [canLeft, setCanLeft] = useState(false);
+  const [canRight, setCanRight] = useState(false);
+
+  const syncEdges = useCallback(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    setCanLeft(max > 2 && el.scrollLeft > 2);
+    setCanRight(max > 2 && el.scrollLeft < max - 2);
+  }, []);
+
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    syncEdges();
+    el.addEventListener('scroll', syncEdges, { passive: true });
+    const ro =
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(syncEdges)
+        : null;
+    ro?.observe(el);
+    return () => {
+      el.removeEventListener('scroll', syncEdges);
+      ro?.disconnect();
+      dirRef.current = 0;
+      cancelAnimationFrame(rafRef.current);
+    };
+  }, [syncEdges, tabs.length]);
+
+  const startEdgeScroll = (dir: -1 | 1) => {
+    if (dirRef.current === dir) return;
+    dirRef.current = dir;
+    cancelAnimationFrame(rafRef.current);
+    const tick = () => {
+      const el = scrollerRef.current;
+      if (!el || dirRef.current === 0) return;
+      el.scrollLeft += dirRef.current * INFO_TAB_EDGE_SCROLL_PX;
+      const max = el.scrollWidth - el.clientWidth;
+      if (
+        (dirRef.current < 0 && el.scrollLeft <= 0) ||
+        (dirRef.current > 0 && el.scrollLeft >= max - 0.5)
+      ) {
+        dirRef.current = 0;
+        syncEdges();
+        return;
+      }
+      syncEdges();
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+  };
+
+  const stopEdgeScroll = () => {
+    dirRef.current = 0;
+    cancelAnimationFrame(rafRef.current);
+  };
+
+  return (
+    <div className="relative min-w-0 flex-1">
+      <div
+        ref={scrollerRef}
+        className={cn(
+          'flex h-full min-w-0 items-center gap-1 overflow-x-auto overflow-y-hidden',
+          '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+        )}
+      >
+        {tabs.map((tab) => (
+          <InfoTabPill
+            key={tab.id}
+            tab={tab}
+            active={activeTabId === tab.id}
+            onSelect={() => onSelect(tab.id)}
+            onClose={() => onClose(tab.id)}
+          />
+        ))}
+      </div>
+
+      {/* 左边缘 hover → 向左滚 */}
+      <div
+        aria-hidden
+        onPointerEnter={() => canLeft && startEdgeScroll(-1)}
+        onPointerLeave={stopEdgeScroll}
+        className={cn(
+          'absolute inset-y-0 left-0 z-10 w-5 transition-opacity',
+          canLeft
+            ? 'cursor-w-resize bg-gradient-to-r from-surface-1 via-surface-1/70 to-transparent opacity-100'
+            : 'pointer-events-none opacity-0',
+        )}
+      />
+      {/* 右边缘 hover → 向右滚 */}
+      <div
+        aria-hidden
+        onPointerEnter={() => canRight && startEdgeScroll(1)}
+        onPointerLeave={stopEdgeScroll}
+        className={cn(
+          'absolute inset-y-0 right-0 z-10 w-5 transition-opacity',
+          canRight
+            ? 'cursor-e-resize bg-gradient-to-l from-surface-1 via-surface-1/70 to-transparent opacity-100'
+            : 'pointer-events-none opacity-0',
+        )}
+      />
+    </div>
+  );
 }
 
 function InfoTabPill({
@@ -215,7 +362,8 @@ function InfoTabPill({
   return (
     <div
       className={cn(
-        'group inline-flex h-8 max-w-[220px] shrink-0 items-center gap-1.5 rounded-sm border px-2 text-xs',
+        // 偏好 ~7rem,可挤到 min-w-8;再多就进轨道横溢 + 边缘 hover 滚
+        'group relative inline-flex h-8 min-w-8 max-w-[220px] flex-[1_1_7rem] items-center rounded-sm border text-xs',
         active
           ? 'border-border bg-background text-foreground shadow-sm'
           : 'border-transparent text-subtle hover:bg-background/70 hover:text-foreground',
@@ -224,17 +372,27 @@ function InfoTabPill({
       <button
         type="button"
         onClick={onSelect}
-        className="inline-flex min-w-0 flex-1 items-center gap-1.5"
+        className="inline-flex h-full min-w-0 flex-1 items-center gap-1.5 overflow-hidden px-2 group-hover:pr-6"
         title={tab.title}
+        aria-label={tab.title}
       >
         <Icon className="size-3.5 shrink-0" />
-        <span className="truncate">{tab.title}</span>
+        <span className="min-w-0 truncate">{tab.title}</span>
       </button>
       <button
         type="button"
-        onClick={onClose}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose();
+        }}
         aria-label={`关闭 ${tab.title}`}
-        className="inline-flex size-5 shrink-0 items-center justify-center rounded-sm opacity-0 transition-opacity hover:bg-surface-2 group-hover:opacity-100"
+        title={`关闭 ${tab.title}`}
+        className={cn(
+          'absolute right-0.5 top-1/2 z-[1] inline-flex size-5 -translate-y-1/2 items-center justify-center rounded-sm',
+          'bg-background/90 text-muted-foreground opacity-0 transition-opacity',
+          'hover:bg-surface-2 hover:text-foreground',
+          'group-hover:opacity-100 group-focus-within:opacity-100',
+        )}
       >
         <X className="size-3" />
       </button>
@@ -267,7 +425,36 @@ function InfoTabView({ tab }: { tab: InfoTab }) {
       return <SearchJournalDetailView seedJournal={tab.journal} />;
     case 'author':
       return <SearchAuthorDetailView seedAuthor={tab.author} />;
+    case 'artifact':
+      return <SearchArtifactDetailView tabId={tab.id} artifact={tab.artifact} />;
   }
+}
+
+function SearchArtifactDetailView({
+  tabId,
+  artifact,
+}: {
+  tabId: string;
+  artifact: ArtifactTabPayload;
+}) {
+  const closeInfoTab = useSearchRightPanelStore((s) => s.closeInfoTab);
+  const onExportDeck = useArtifactExportBridge((s) => s.onExportDeck);
+  const exportingFormat = useArtifactExportBridge((s) => s.exportingFormat);
+
+  return (
+    <Suspense fallback={<PanelLoading />}>
+      <ClawArtifactPreview
+        artifact={artifact}
+        basePath={artifact.basePath}
+        onClose={() => closeInfoTab(tabId)}
+        hideHeaderClose
+        onExportDeck={
+          onExportDeck ? (fmt) => onExportDeck(artifact, fmt) : undefined
+        }
+        exportingFormat={exportingFormat}
+      />
+    </Suspense>
+  );
 }
 
 function SearchPaperDetailView({ seedPaper }: { seedPaper: Paper }) {

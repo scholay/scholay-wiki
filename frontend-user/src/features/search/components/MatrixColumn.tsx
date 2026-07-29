@@ -59,7 +59,7 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
   // ---- 暂存飞入:滚动容器 ref + 落点注册 + 新行自动过渡 ----
   const scrollRef = useRef<HTMLDivElement>(null);
   const [tbodyRef] = useAutoAnimate<HTMLTableSectionElement>();
-  const setGetTarget = useStageFly((s) => s.setGetTarget);
+  const setMatrixTarget = useStageFly((s) => s.setMatrixTarget);
 
   // 落点 getter:即时滚到底(非 smooth,便于同步量),再算「新行将出现处」的 top。
   // 落点 = 当前最后一行的下沿,但不超出容器可视底(overflow 时新行滚到底部对齐):
@@ -91,9 +91,9 @@ export function MatrixColumn({ staged }: MatrixColumnProps) {
         height: 76,
       };
     };
-    setGetTarget(fn);
-    return () => setGetTarget(null);
-  }, [setGetTarget, paperColWidth]);
+    setMatrixTarget(fn);
+    return () => setMatrixTarget(null);
+  }, [setMatrixTarget, paperColWidth]);
 
   // 新行落定后再滚一次到底(getTarget 那次滚的是「加行前」的底,新行需要二次对齐)。
   const prevLenRef = useRef(staged.length);

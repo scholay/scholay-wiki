@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { FolderOpen, Loader2 } from 'lucide-react';
 import { RouteSEO } from '@/shared/components/RouteSEO';
@@ -16,6 +16,7 @@ import { useSearchRightPanelStore } from '@/stores/search-right-panel.store';
 import { usePdfChatBridge } from '@/stores/pdf-chat-bridge.store';
 import { useSmartSearchSessionStore } from '@/stores/smart-search-session.store';
 import { cn } from '@/shared/lib/utils';
+import { RightPanelFeatureHub } from '../components/workspace/RightPanelFeatureHub';
 
 /**
  * 右侧拓展面板 —— 多标签(论文 / 期刊 / 学者 / 工作区)。
@@ -29,7 +30,7 @@ const SearchRightPanel = lazy(() =>
 const SEARCHER_MIN_PX = 380;
 const SEARCHER_MAX_PX = 900;
 const SEARCHER_DEFAULT_PX = 480;
-const RIGHT_MIN_PX = 480; // 右侧工作区 / 矩阵的最小可视宽,撑不下时 main 出横向滚
+const RIGHT_MIN_PX = 480; // 功能/详情展开时右侧最小可视宽,撑不下时 main 出横向滚
 
 /**
  * 文献搜索结果页 ——
@@ -39,8 +40,7 @@ const RIGHT_MIN_PX = 480; // 右侧工作区 / 矩阵的最小可视宽,撑不�
  *     │  搜索器    │  详情(拓展) / 工作区(列表·矩阵)          │
  *     │ (px 锁定)  │                                           │
  *     └────────────┴──────────────────────────────────────────┘
- *   右侧拓展栏在文献检索模式下始终占位;智能助手对话态下仅在有打开的详情/功能页时展开,
- *   首屏 hero 态占满主区域(无右栏)。
+ *   未打开功能/详情时右缘吸附 FeatureHub 名片(不占列宽);点击后展开完整拓展区。
  *
  * **响应式策略**(用户要求):
  *   - SidebarLayout 的 aside(240px)始终 shrink-0,viewport 窄时不缩
@@ -116,7 +116,8 @@ export function SearchPage() {
   const mode: SearchMode =
     urlParams.get('mode') === 'smart' ? 'smart' : 'classic';
   const queryFromUrl = (urlParams.get('q') ?? '').trim();
-  const showClassicLanding = mode === 'classic' && !queryFromUrl;
+  // 原地切换 —— 只改 URL `mode`,不跳 /claw;/claw 是独立入口。
+  // setMode 用 `replace: true` 写入 —— 切 tab 不污染 history。
   const setMode = useCallback(
     (next: SearchMode) => {
       setUrlParams(
@@ -146,24 +147,36 @@ export function SearchPage() {
   const { stagePaper, removePaper } = useStagingActions();
   const setEmbedMode = useSearchRightPanelStore((s) => s.setEmbedMode);
   const resetPanel = useSearchRightPanelStore((s) => s.reset);
-  const panelOpen = useSearchRightPanelStore((s) => s.panelOpen);
+  const activePanel = useSearchRightPanelStore((s) => s.activePanel);
   const openPanel = useSearchRightPanelStore((s) => s.openPanel);
-  const closePanel = useSearchRightPanelStore((s) => s.closePanel);
   const conversationActive = useSmartSearchSessionStore((s) => s.conversationActive);
 
-  const showSmartHeroLayout = mode === 'smart' && !conversationActive;
-  const canHostRightPanel =
-    mode === 'classic' || (mode === 'smart' && conversationActive);
-  const showRightPanel =
-    panelOpen && canHostRightPanel && !showClassicLanding && !showSmartHeroLayout;
-  const showResizeHandle = showRightPanel;
-  const expandMainColumn = showClassicLanding || showSmartHeroLayout;
-
-  // 文献检索默认展开右栏;切到智能助手时收起(被动 openPaper 等会再展开)。
+  // 一旦进入非首页工作区(有检索词 / 有对话),钉住壳层:模式互切即使无内容也不回落落地页,
+  // 右侧拓展栏保持可见。
+  const [workspacePinned, setWorkspacePinned] = useState(
+    () => Boolean(queryFromUrl) || conversationActive,
+  );
   useEffect(() => {
-    if (mode === 'classic') openPanel();
-    else closePanel();
-  }, [mode, openPanel, closePanel]);
+    if (queryFromUrl || conversationActive) setWorkspacePinned(true);
+  }, [queryFromUrl, conversationActive]);
+
+  const showClassicLanding =
+    mode === 'classic' && !queryFromUrl && !workspacePinned;
+  // 智能空态(含点「新对话」清空后)用 ClawHero 居中;右栏 FeatureHub 始终在。
+  const showSmartHeroLayout = mode === 'smart' && !conversationActive;
+  // 文献落地页不挂右栏;其余(含智能 hero / 钉住工作区 / 经典结果)都挂入口。
+  const showRightPanel = !showClassicLanding;
+  // 空态:右缘吸附名片(不占列宽);打开功能/详情后展开完整拓展区。
+  const showFeatureHubDock = showRightPanel && !activePanel;
+  const showExpandedRight = showRightPanel && !!activePanel;
+  const showResizeHandle = showExpandedRight;
+  const expandMainColumn =
+    showClassicLanding || showSmartHeroLayout || !showExpandedRight;
+
+  // 对话/检索可承载右栏时保持展开(智能模式不再 closePanel 留白)。
+  useEffect(() => {
+    if (showRightPanel) openPanel();
+  }, [showRightPanel, openPanel]);
 
   useEffect(() => {
     setEmbedMode(true);
@@ -186,38 +199,11 @@ export function SearchPage() {
     [areas, stagedIds, removePaper]
   );
 
-  // 折叠态由 3 个集合派生(SearcherColumn 直接消费 effectivelyCollapsed):
-  //
-  //   - stagedIds            服务器持久化,刷新后还在 → 已暂存论文 auto-collapse
-  //   - manuallyCollapsedIds 用户对**非暂存**论文主动点击的折叠(本页内存,刷新清)
-  //   - expandedOverrides    用户主动展开"被 staged auto-collapse 的卡片",
-  //                          覆盖 stagedIds 的折叠效果(本页内存,刷新清 →
-  //                          下次仍是 auto-collapsed,符合"刷新后保持折叠"需求)
-  //
-  // 公式:effectivelyCollapsed = (stagedIds ∪ manuallyCollapsedIds) \ expandedOverrides
-  const [manuallyCollapsedIds, setManuallyCollapsedIds] = useState<Set<string>>(
-    new Set()
-  );
-  const [expandedOverrides, setExpandedOverrides] = useState<Set<string>>(
-    new Set()
-  );
-
-  const effectivelyCollapsed = useMemo(() => {
-    const s = new Set<string>(manuallyCollapsedIds);
-    stagedIds.forEach((id) => s.add(id));
-    expandedOverrides.forEach((id) => s.delete(id));
-    return s;
-  }, [manuallyCollapsedIds, stagedIds, expandedOverrides]);
+  // 折叠与暂存完全独立:仅手动「折叠」写入 collapsedIds,勾选暂存不再自动收卡。
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => new Set());
 
   const onCollapse = useCallback((id: string) => {
-    // 折叠 = 加入 manuallyCollapsedIds + 移出 expandedOverrides
-    setExpandedOverrides((s) => {
-      if (!s.has(id)) return s;
-      const next = new Set(s);
-      next.delete(id);
-      return next;
-    });
-    setManuallyCollapsedIds((s) => {
+    setCollapsedIds((s) => {
       if (s.has(id)) return s;
       const next = new Set(s);
       next.add(id);
@@ -226,17 +212,10 @@ export function SearchPage() {
   }, []);
 
   const onRestore = useCallback((id: string) => {
-    // 展开 = 加入 expandedOverrides + 移出 manuallyCollapsedIds
-    setManuallyCollapsedIds((s) => {
+    setCollapsedIds((s) => {
       if (!s.has(id)) return s;
       const next = new Set(s);
       next.delete(id);
-      return next;
-    });
-    setExpandedOverrides((s) => {
-      if (s.has(id)) return s;
-      const next = new Set(s);
-      next.add(id);
       return next;
     });
   }, []);
@@ -244,19 +223,11 @@ export function SearchPage() {
   const handleStage = useCallback(
     (paper: Paper) => {
       stagePaper(paper, mode === 'smart' ? 'smart' : 'traditional');
-      // 加入暂存后:由 stagedIds 自动派生折叠态(不需要手动设 collapsedIds)。
-      // 但要清掉本 paper 的 expandedOverrides,避免"刚暂存还展开着"的诡异态。
-      setExpandedOverrides((s) => {
-        if (!s.has(paper.paperId)) return s;
-        const next = new Set(s);
-        next.delete(paper.paperId);
-        return next;
-      });
     },
-    [stagePaper, mode]
+    [stagePaper, mode],
   );
 
-  // ── 自管 split:SearcherColumn px 锁定 + 中间手柄 + 右侧 flex-1 ─────────────
+  // ── 自管 split:SearcherColumn px + 中间手柄(仅拓展区展开时) ───────────────
   const [searcherWidth, setSearcherWidth] = useLocalStorage<number>(
     'search.searcher-width',
     SEARCHER_DEFAULT_PX
@@ -268,13 +239,13 @@ export function SearchPage() {
       e.preventDefault();
       draggingRef.current = true;
       const startX = e.clientX;
-      const startW = searcherWidth;
+      const startSearcher = searcherWidth;
       const onMove = (ev: PointerEvent) => {
         if (!draggingRef.current) return;
         const dx = ev.clientX - startX;
         const next = Math.max(
           SEARCHER_MIN_PX,
-          Math.min(SEARCHER_MAX_PX, startW + dx)
+          Math.min(SEARCHER_MAX_PX, startSearcher + dx)
         );
         setSearcherWidth(next);
       };
@@ -315,7 +286,7 @@ export function SearchPage() {
         canonical={seoCanonical}
       />
 
-      <div className="flex h-full min-h-0 bg-background">
+      <div className="relative flex h-full min-h-0 bg-background">
         <div
           style={expandMainColumn ? undefined : { width: searcherWidth }}
           className={cn(
@@ -327,27 +298,32 @@ export function SearchPage() {
             filters={filters}
             onFiltersChange={setFilters}
             stagedIds={stagedIds}
-            collapsedIds={effectivelyCollapsed}
+            collapsedIds={collapsedIds}
             onStage={handleStage}
             onUnstage={unstageAcrossAreas}
             onCollapse={onCollapse}
             onRestore={onRestore}
             mode={mode}
             onModeChange={setMode}
+            workspacePinned={workspacePinned}
           />
         </div>
 
-        {showResizeHandle && (
+        {showFeatureHubDock && <RightPanelFeatureHub />}
+
+        {showExpandedRight && (
           <>
-            <div
-              role="separator"
-              aria-orientation="vertical"
-              aria-label="拖动调整搜索器宽度"
-              onPointerDown={startDrag}
-              className="relative w-px shrink-0 cursor-col-resize bg-border transition-colors hover:bg-foreground/30"
-            >
-              <span className="absolute inset-y-0 -left-1 -right-1" />
-            </div>
+            {showResizeHandle && (
+              <div
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="拖动调整搜索器宽度"
+                onPointerDown={startDrag}
+                className="relative w-px shrink-0 cursor-col-resize bg-border transition-colors hover:bg-foreground/30"
+              >
+                <span className="absolute inset-y-0 -left-1 -right-1" />
+              </div>
+            )}
 
             <div className="h-full min-h-0 flex-1 overflow-x-auto">
               <div style={{ minWidth: RIGHT_MIN_PX }} className="h-full">

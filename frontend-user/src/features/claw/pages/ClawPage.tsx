@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { FileBarChart, Layout, Loader2, PenTool, Presentation, Sparkles } from 'lucide-react';
+import { RhinoBrandIcon } from '@/shared/components/RhinoBrandIcon';
 import { resolveAgentSessionQuery } from '@/shared/api/agent-sessions';
 import { ResourceError } from '@/shared/components/ResourceError';
 import { UnifiedSidebar } from '../components/sidebar/UnifiedSidebar';
@@ -15,9 +16,10 @@ import {
 import { TemplateCards, type TemplateFeature } from '../components/chat/TemplateCards';
 import { FEATURE_ICON } from '../lib/feature-meta';
 import { useClawConversation } from '../hooks/useClawConversation';
-import { getNewConversationModel, setNewConversationModel } from '../api/session';
+import { clawSessions, getNewConversationModel, setNewConversationModel } from '../api/session';
 import { useBoltslidesConversation } from '../hooks/useBoltslidesConversation';
 import {
+  boltslidesSessions,
   getBoltslidesNewConversationModel,
   setBoltslidesNewConversationModel,
   useExportBoltslidesDeck,
@@ -27,6 +29,7 @@ import { useSciDrawConversation } from '../hooks/useSciDrawConversation';
 import {
   getSciDrawNewConversationModel,
   setSciDrawNewConversationModel,
+  sciDrawSessions,
 } from '../api/sci-draw-session';
 
 /**
@@ -36,7 +39,7 @@ import {
  *   - 默认就是普通聊天(claw / useClawConversation → /user/claw)
  *   - 新对话空态下,composer 下方铺开「模板卡扑克牌扇」;选「制作PPT」→ 切到 boltslides 模板
  *     (useBoltslidesConversation → /user/boltslides,产出单文件 HTML 演示稿),空态提供「换回对话」
- *   - 会话历史两 feature **合并成一份**(UnifiedSidebar,PPT 会话带小图标),点某条 → 切到它所属 feature
+ *   - 侧栏与文献检索同构(工作区文件夹);会话切换在主区 AgentSessionStrip,点侧栏历史已下线
  *
  * 每个 feature 是一个自包含 workspace(各调各的 hook,满足 hooks 规则),共享 ConversationWorkspace 布局。
  *
@@ -54,15 +57,15 @@ import {
 
 const CLAW_CFG: WorkspaceConfig = {
   title: '智能助手',
-  titleIcon: Sparkles,
+  titleIcon: RhinoBrandIcon,
   modelFeature: 'claw',
   newConvModel: { get: getNewConversationModel, set: setNewConversationModel },
   artifactBasePath: '/user/claw',
   hero: clawHeroDefaults,
   layoutKey: 'claw',
   // 统一历史:两 feature 共用同一段 id(收起态 rail chip 定位到它)。
-  railSectionId: 'unified-sessions',
-  railLabel: '会话历史',
+  railSectionId: 'workspace',
+  railLabel: '工作区',
 };
 
 const PPT_CFG: WorkspaceConfig = {
@@ -85,8 +88,8 @@ const PPT_CFG: WorkspaceConfig = {
   enableAttachments: false, // 制作PPT 纯文本描述主题;无上传/引用端点(见 boltslides skill)
   composerPlaceholder: '描述你要做的演示稿(主题 / 品牌 / 受众 / 页数)· Enter 发送 / Shift+Enter 换行',
   layoutKey: 'boltslides',
-  railSectionId: 'unified-sessions',
-  railLabel: '会话历史',
+  railSectionId: 'workspace',
+  railLabel: '工作区',
 };
 
 const SCI_DRAW_CFG: WorkspaceConfig = {
@@ -108,8 +111,8 @@ const SCI_DRAW_CFG: WorkspaceConfig = {
   enableAttachments: false, // P0 纯文本描述 → 生成矢量图;无上传/引用端点(见 sci-draw skill)
   composerPlaceholder: '描述你要画的图(类型 / 要素 / 关系 / 风格)· Enter 发送 / Shift+Enter 换行',
   layoutKey: 'sci_draw',
-  railSectionId: 'unified-sessions',
-  railLabel: '会话历史',
+  railSectionId: 'workspace',
+  railLabel: '工作区',
 };
 
 /** 页层注入 workspace 的公共 props。 */
@@ -139,21 +142,16 @@ function ClawModeWorkspace({
   onInitialPromptConsumed,
 }: WorkspacePageProps) {
   const conv = useClawConversation({ initialSessionId: seed, onSessionCreated });
-  const sidebar = (
-    <UnifiedSidebar
-      activeSessionId={conv.activeSessionId}
-      onSelect={(sid) => onSelectSession(sid)}
-      onNewConversation={onNewConversation}
-    />
-  );
   const heroExtra = <TemplateCards activeFeature="claw" onPick={onPickTemplate} />;
   return (
     <ConversationWorkspace
       conv={conv}
       cfg={CLAW_CFG}
-      sidebar={sidebar}
+      sidebar={<UnifiedSidebar />}
       heroExtra={heroExtra}
       onNewConversation={onNewConversation}
+      onSelectSession={onSelectSession}
+      sessionApi={clawSessions}
       initialPrompt={initialPrompt}
       onInitialPromptConsumed={onInitialPromptConsumed}
     />
@@ -192,21 +190,16 @@ function PptModeWorkspace({ seed, onSessionCreated, onSelectSession, onNewConver
   const exportingFormat: DeckExportFormat | null = exportDeck.isPending
     ? exportDeck.variables?.format ?? 'pptx'
     : null;
-  const sidebar = (
-    <UnifiedSidebar
-      activeSessionId={conv.activeSessionId}
-      onSelect={(sid) => onSelectSession(sid)}
-      onNewConversation={onNewConversation}
-    />
-  );
   const heroExtra = <TemplateCards activeFeature="boltslides" onPick={onPickTemplate} />;
   return (
     <ConversationWorkspace
       conv={conv}
       cfg={PPT_CFG}
-      sidebar={sidebar}
+      sidebar={<UnifiedSidebar />}
       heroExtra={heroExtra}
       onNewConversation={onNewConversation}
+      onSelectSession={onSelectSession}
+      sessionApi={boltslidesSessions}
       onExportArtifactDeck={handleExportDeck}
       exportingFormat={exportingFormat}
     />
@@ -215,27 +208,27 @@ function PptModeWorkspace({ seed, onSessionCreated, onSelectSession, onNewConver
 
 function SciDrawModeWorkspace({ seed, onSessionCreated, onSelectSession, onNewConversation, onPickTemplate }: WorkspacePageProps) {
   const conv = useSciDrawConversation({ initialSessionId: seed, onSessionCreated });
-  const sidebar = (
-    <UnifiedSidebar
-      activeSessionId={conv.activeSessionId}
-      onSelect={(sid) => onSelectSession(sid)}
-      onNewConversation={onNewConversation}
-    />
-  );
   const heroExtra = <TemplateCards activeFeature="sci_draw" onPick={onPickTemplate} />;
   return (
     <ConversationWorkspace
       conv={conv}
       cfg={SCI_DRAW_CFG}
-      sidebar={sidebar}
+      sidebar={<UnifiedSidebar />}
       heroExtra={heroExtra}
       onNewConversation={onNewConversation}
+      onSelectSession={onSelectSession}
+      sessionApi={sciDrawSessions}
     />
   );
 }
 
 /** 智能助手页只承载这三个 feature;resolve 出别的(smart_search/prism…)当不可见 → 回新对话。 */
 const PAGE_FEATURES: readonly TemplateFeature[] = ['claw', 'boltslides', 'sci_draw'];
+
+function parseFeatureParam(raw: string | null): TemplateFeature | null {
+  if (raw === 'claw' || raw === 'boltslides' || raw === 'sci_draw') return raw;
+  return null;
+}
 
 type Mode =
   | { kind: 'new' } // 新对话:feature 由 newFeature 决定
@@ -247,6 +240,7 @@ export function ClawPage() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialPrompt = searchParams.get('q')?.trim() || undefined;
+  const featureFromUrl = parseFeatureParam(searchParams.get('feature'));
 
   const consumeInitialPrompt = useCallback(() => {
     if (!searchParams.has('q')) return;
@@ -256,8 +250,17 @@ export function ClawPage() {
   }, [searchParams, setSearchParams]);
 
   // 新对话(尚无 sessionId,URL 只能是 /claw)用哪个 feature —— 内部态,模板卡可切;默认 claw。
-  const [newFeature, setNewFeature] = useState<TemplateFeature>('claw');
+  // 首页模板卡经 ?feature=boltslides|sci_draw 落地,首帧读入后抹掉 query 避免刷新残留。
+  const [newFeature, setNewFeature] = useState<TemplateFeature>(() => featureFromUrl ?? 'claw');
   const [newKey, setNewKey] = useState(0); // 新对话 workspace 的 remount 计数(切模板/点新对话都 +1)
+
+  useEffect(() => {
+    if (!featureFromUrl) return;
+    setNewFeature(featureFromUrl);
+    const next = new URLSearchParams(searchParams);
+    next.delete('feature');
+    setSearchParams(next, { replace: true });
+  }, [featureFromUrl, searchParams, setSearchParams]);
   // 已「落定」的挂载态(new / session)。深链首帧尚未解析出 feature → null(整页转圈)。切会话时**不**清成
   // null —— 保留上一个 workspace(含侧栏)直到新会话解析完再原子切换,避免每次切会话整页闪 spinner。
   const [mode, setMode] = useState<Mode | null>(() => (urlSessionId ? null : { kind: 'new' }));

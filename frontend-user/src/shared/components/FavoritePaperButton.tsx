@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Bookmark, BookmarkCheck, Loader2 } from 'lucide-react';
+import { Loader2, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
 import { haptic } from '@/shared/lib/haptics';
@@ -21,22 +21,15 @@ import type { Paper, UpstreamSource } from '@/shared/api/types';
  * 收藏按钮 —— 全局唯一实现,跨搜索 / 矩阵 / Quick Add / 详情页等所有场景。
  *
  * 状态机:
- *   - idle      : 空心 Bookmark + 默认色 + "收藏" 文案(chip / link 变体)
+ *   - idle      : 空心 Star + muted
  *   - pending   : Loader2 旋转 + 禁用
- *   - favorited : 实心 BookmarkCheck + brand-red + "已收藏" 文案,**可点 → 弹 Popover 二次确认 → 取消收藏**
+ *   - favorited : 实心 Star + brand-amber,**可点 → 弹 Popover 二次确认 → 取消收藏**
  *
  * 变体:
- *   - chip : 描边胶囊,icon+text 组合(列表行 / 卡操作行)
- *   - icon : 纯方块图标,无文字(矩阵单元格 / 弹窗紧凑行)
- *   - link : 无边框,icon+text 同色,hover brand-red(详情页 ActionRow,与其它链接式操作并列)
- *
- * 尺寸:
- *   - sm : h-5 icon-12px / h-6 chip-text-2xs(矩阵 / 列表行)
- *   - md : h-7 icon-14px / h-6 chip-text-xs(默认,卡 / 弹窗主操作)
- *   - lg : h-8 icon-16px / h-8 chip-text-sm(详情页 actionRow)
+ *   - chip / icon / link : 统一星星视觉;chip 可带 collapseLabel 窄容器适配
  *
  * 颜色规则:
- *   - 收藏标识色统一 brand-red(与文献集 sidebar / favorite-burst 动画呼应)
+ *   - 收藏标识色统一 brand-amber(琥珀黄)
  */
 
 export type FavoriteButtonVariant = 'chip' | 'icon' | 'link';
@@ -95,14 +88,7 @@ const ICON_SIZE: Record<FavoriteButtonSize, string> = {
   lg: 'size-4',
 };
 
-// chip 变体的尺寸表
-const CHIP_CLS: Record<FavoriteButtonSize, string> = {
-  sm: 'h-6 px-2 text-2xs gap-1',
-  md: 'h-6 px-2.5 text-xs gap-1',
-  lg: 'h-8 px-3 text-sm gap-1.5',
-};
-
-// icon 变体的方块尺寸表
+// 方块尺寸(chip / icon 共用;chip+collapseLabel 的 md 另压成 h-6)
 const ICON_BTN_CLS: Record<FavoriteButtonSize, string> = {
   sm: 'h-5 w-5',
   md: 'h-7 w-7',
@@ -235,15 +221,20 @@ export function FavoritePaperButton({
     });
   };
 
-  const Icon = isPending ? Loader2 : isFavorited ? BookmarkCheck : Bookmark;
+  const Icon = isPending ? Loader2 : Star;
   const iconCls = cn(
     ICON_SIZE[size],
     isPending && 'animate-spin',
-    isFavorited && !isPending && 'fill-current'
+    isFavorited && !isPending && 'fill-current',
   );
 
   const title = isFavorited ? '已收藏 · 点击取消' : '加入我的文献集';
   const ariaLabel = isFavorited ? '已收藏,点击取消' : '加入文献集';
+
+  const favoritedTone =
+    'text-brand-amber hover:bg-brand-amber/10 hover:text-brand-amber';
+  const idleTone =
+    'text-muted-foreground hover:bg-surface-2 hover:text-brand-amber';
 
   // ─── 渲染裸 button(idle 时直接挂 onClick;favorited 时由外层 Popover 包裹) ───
 
@@ -260,11 +251,9 @@ export function FavoritePaperButton({
           className={cn(
             'inline-flex items-center justify-center rounded-sm shrink-0 transition-colors',
             ICON_BTN_CLS[size],
-            isFavorited
-              ? 'text-brand-red hover:bg-danger-soft'
-              : 'text-muted-foreground hover:bg-surface-2 hover:text-brand-red',
+            isFavorited ? favoritedTone : idleTone,
             isPending && 'opacity-60 cursor-wait',
-            className
+            className,
           )}
         >
           <Icon className={iconCls} strokeWidth={2.25} />
@@ -279,53 +268,51 @@ export function FavoritePaperButton({
           onClick={onClick}
           disabled={isPending}
           aria-pressed={isFavorited}
+          aria-label={ariaLabel}
           title={title}
           className={cn(
-            'inline-flex items-center gap-1.5 text-sm transition-colors',
+            'inline-flex items-center justify-center transition-colors',
             isFavorited
-              ? 'text-brand-red font-bold hover:opacity-80'
-              : 'text-foreground font-medium hover:text-brand-red',
+              ? 'text-brand-amber hover:opacity-80'
+              : 'text-muted-foreground hover:text-brand-amber',
             isPending && 'opacity-70 cursor-not-allowed',
-            className
+            className,
           )}
         >
           <Icon
             className={cn(
               'size-3.5',
               isFavorited && !isPending && 'fill-current',
-              isPending && 'animate-spin'
+              isPending && 'animate-spin',
             )}
             strokeWidth={2}
           />
-          {isFavorited ? '已收藏' : '收藏'}
         </button>
       );
     }
 
-    // chip 变体
+    // chip 变体 —— 纯星星,琥珀黄标识已收藏
     return (
       <button
         type="button"
         onClick={onClick}
         disabled={isPending}
         aria-pressed={isFavorited}
+        aria-label={ariaLabel}
         title={title}
         className={cn(
-          'inline-flex items-center justify-center rounded-sm border shrink-0 whitespace-nowrap transition-colors',
-          CHIP_CLS[size],
-          // 窄容器塌成 24×24 纯图标(仅当父级开启 collapseLabel + 处于 @container 内)
-          collapseLabel && '@max-[260px]:w-6 @max-[260px]:px-0 @max-[260px]:gap-0',
+          'inline-flex items-center justify-center rounded-sm shrink-0 transition-colors',
+          ICON_BTN_CLS[size === 'sm' ? 'sm' : size === 'lg' ? 'lg' : 'md'],
+          // collapseLabel 时与卡内其它 chip 对齐为 h-6
+          collapseLabel && size === 'md' && 'h-6 w-6',
           isFavorited
-            ? 'border-brand-red/30 bg-danger-soft text-brand-red font-semibold hover:bg-brand-red/15'
-            : 'border-border text-subtle hover:bg-surface-1 hover:text-foreground',
+            ? 'bg-brand-amber/10 text-brand-amber hover:bg-brand-amber/15'
+            : 'text-muted-foreground hover:bg-surface-1 hover:text-brand-amber',
           isPending && 'opacity-60 cursor-wait',
-          className
+          className,
         )}
       >
         <Icon className={cn(iconCls, 'shrink-0')} strokeWidth={2.2} />
-        <span className={cn(collapseLabel && '@max-[260px]:hidden')}>
-          {isFavorited ? '已收藏' : '收藏'}
-        </span>
       </button>
     );
   }

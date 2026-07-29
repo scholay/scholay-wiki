@@ -1,4 +1,4 @@
-import { Sparkles } from 'lucide-react';
+import { RhinoBrandIcon } from '@/shared/components/RhinoBrandIcon';
 
 /**
  * Claw AI 助手样式预览 —— 一段简单的智能对话流。
@@ -9,7 +9,7 @@ export function ClawPreview() {
     <div className="flex flex-col h-full bg-background">
       <header className="h-14 px-6 flex items-center justify-between border-b border-border shrink-0">
         <div className="flex items-center gap-2.5">
-          <Sparkles className="size-4 text-brand-green" strokeWidth={2.5} />
+          <RhinoBrandIcon className="size-4 text-brand-green" strokeWidth={2.5} />
           <span className="text-15 font-bold text-foreground">智能助手</span>
         </div>
         <span className="text-xs text-faint">Claw AI</span>

@@ -4,12 +4,12 @@ import {
   BookOpen,
   ClipboardCheck,
   FolderOpen,
-  MessagesSquare,
   PenLine,
   Rocket,
   Search,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { RhinoBrandIcon } from '@/shared/components/RhinoBrandIcon';
 
 /**
  * 帮助文章 / 长内容页底部的"回到产品"区。
@@ -34,7 +34,7 @@ const SC = {
   search: { to: '/search', icon: Search, title: '文献搜索', desc: '多源并行 + AI 智能检索' },
   library: { to: '/library', icon: FolderOpen, title: '我的文献集', desc: '收藏 / 文件夹 / PDF 管理' },
   journals: { to: '/journals', icon: BookOpen, title: '期刊搜索', desc: '检索 + IF / 分区 / 收录' },
-  claw: { to: '/claw', icon: MessagesSquare, title: '智能助手', desc: 'AI 学术对话与调研' },
+  claw: { to: '/claw', icon: RhinoBrandIcon, title: '智能助手', desc: 'AI 学术对话与调研' },
   prism: { to: '/prism', icon: PenLine, title: '智能写作 Prism', desc: 'AI-native LaTeX 写作' },
   review: { to: '/peer-review', icon: ClipboardCheck, title: 'AI 审稿', desc: '投稿前多维度预审' },
 } satisfies Record<string, Shortcut>;

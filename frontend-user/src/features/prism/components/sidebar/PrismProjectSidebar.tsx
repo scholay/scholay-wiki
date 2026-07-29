@@ -20,12 +20,9 @@ import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
 import {
   Sidebar,
-  SidebarAuthFooter,
-  SidebarCollapseButton,
   SidebarContent,
   SidebarSection,
 } from '@/shared/components/sidebar';
-import { useSidebar } from '@/stores/sidebar.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { toApiError } from '@/shared/lib/http';
 import { cn } from '@/shared/lib/utils';
@@ -51,7 +48,6 @@ export function PrismProjectSidebar({
   /** 删除的是当前打开的项目时回退(= 回项目主页)。 */
   onDeletedActive: () => void;
 }) {
-  const toggleSidebar = useSidebar((s) => s.toggle);
   const token = useAuthStore((s) => s.token);
   const { data: projects, isLoading } = useProjects();
   const create = useCreateProject();
@@ -108,9 +104,6 @@ export function PrismProjectSidebar({
           )}
         </SidebarSection>
       </SidebarContent>
-      <SidebarAuthFooter />
-      <SidebarCollapseButton onClick={toggleSidebar} />
-
       <RenameDialog key={renameTarget?.id} target={renameTarget} onClose={() => setRenameTarget(null)} />
       <DeleteDialog
         target={deleteTarget}

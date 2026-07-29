@@ -6,8 +6,10 @@ import {
   Compass,
   FileCheck,
   PenTool,
-  Sparkles,
+  Globe,
+  LayoutGrid,
 } from 'lucide-react';
+import { RhinoBrandIcon } from '@/shared/components/RhinoBrandIcon';
 import { PRISM_COMING_SOON } from '@/shared/lib/feature-flags';
 
 /**
@@ -77,7 +79,7 @@ export const MENUS: Menu[] = [
     label: '智能助手',
     englishName: 'AI Assistance',
     description: '智能问答与对话',
-    icon: Sparkles,
+    icon: RhinoBrandIcon,
     href: '/claw',
     category: 'ai',
     match: startsWith('/claw'),
@@ -107,9 +109,9 @@ export const MENUS: Menu[] = [
   // ---------- 资源 ----------
   {
     id: 'library',
-    label: '文献集',
-    englishName: 'Collections',
-    description: '我的文献集合 · 自定义文件夹',
+    label: '我的资源',
+    englishName: 'My Resources',
+    description: '文献集 · 期刊集 · 稿件集 · 文件夹',
     icon: Folder,
     href: '/library',
     category: 'resource',
@@ -117,13 +119,13 @@ export const MENUS: Menu[] = [
   },
   {
     id: 'tools',
-    label: '科研能力广场',
-    englishName: 'Playground',
-    description: '全网工具 · 社区技能',
+    label: 'Skills广场',
+    englishName: 'Skills Plaza',
+    description: '社区技能',
     icon: Compass,
-    href: '/tools',
+    href: '/tools/skills',
     category: 'resource',
-    // 社区技能不单独设菜单,统一并入本广场;故 /tools/*(含技能分段)与 /skills* 短链都高亮此项。
+    // Skills 分段真源;功能广场(/tools)另有首页入口。高亮仍覆盖 /tools* 与 /skills*。
     match: (p) => startsWith('/tools')(p) || startsWith('/skills')(p),
   },
   // 「学术资源」(/resources + /blog 学术资源中心)不进顶栏功能菜单 —— 它是内容/资源页,
@@ -144,6 +146,29 @@ export function groupMenusByCategory(): Array<{ category: MenuCategory; label: s
     label: CATEGORY_LABELS[category],
     items: MENUS.filter((m) => m.category === category),
   }));
+}
+
+/** 路径 → 用户可见的功能名(后退目标等共用)。 */
+export function resolveFeatureLabel(pathname: string): string {
+  const menu = MENUS.find((m) => m.match(pathname));
+  if (menu) return menu.label;
+  if (/^\/(paper|author|journal|pdf)\//.test(pathname)) return '浏览器';
+  if (pathname === '/') return '首页';
+  return '浏览中';
+}
+
+/** 路径 → 顶栏功能 chip（名 + 图标）。首页显示「全站功能」。 */
+export function resolveFeatureChip(pathname: string): {
+  label: string;
+  icon: LucideIcon;
+} {
+  const menu = MENUS.find((m) => m.match(pathname));
+  if (menu) return { label: menu.label, icon: menu.icon };
+  if (/^\/(paper|author|journal|pdf)\//.test(pathname)) {
+    return { label: '浏览器', icon: Globe };
+  }
+  if (pathname === '/') return { label: '全站功能', icon: LayoutGrid };
+  return { label: '浏览中', icon: Compass };
 }
 
 /** 当前路径对应的菜单索引。无匹配(典型如在 `/` 首页)返回 0 ——

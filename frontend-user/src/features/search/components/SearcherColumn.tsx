@@ -1,11 +1,18 @@
-import { useCallback, useEffect, useMemo, useState, lazy, Suspense } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  lazy,
+  Suspense,
+} from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
-import { Loader2, PanelRightOpen, Search } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { Loader2, Search } from 'lucide-react';
+import { BrandLogo } from '@/shared/components/BrandLogo';
 import { EmptyState } from '@/shared/components/EmptyState';
-import { AgentSessionStrip } from '@/shared/components/agent-session/AgentSessionStrip';
-import { smartSearchSessions } from '../api/smart-search';
-import { useSmartSearchSessionStore } from '@/stores/smart-search-session.store';
-import { useSearchRightPanelStore } from '@/stores/search-right-panel.store';
+import { cn } from '@/shared/lib/utils';
 import { extractPapers, useSearchPapers, type Paper, type UpstreamSource } from '../api/papers';
 import { useFavoriteCheck } from '../api/library';
 import { useJournalEnrichments } from '@/shared/api/journal-enrichment';
@@ -28,10 +35,18 @@ import { SearchModeSwitch } from './SearchModeSwitch';
 import { SearcherPagination } from './SearcherPagination';
 import { SearchFiltersFloating } from './SearchFiltersFloating';
 import { useSearcherUrlState } from '../hooks/useSearcherUrlState';
+import type { SearchMode } from '../search-mode';
+
+/** 底栏搜索框 ↔ 对话输入 互换过渡时长(与 SmartSearchPanel composer 退场对齐) */
+const INPUT_SWAP_MS = 320;
+const INPUT_SWAP_EASE = [0.22, 1, 0.36, 1] as const;
+
+export type { SearchMode } from '../search-mode';
 
 /**
- * 搜索器列(col1)—— .pen `Z7juDD`:
- *   c1Head(模式切换) + searchRow(输入+按钮) + countRow + resultsList + pagination
+ * 搜索器列(col1):
+ *   resultsList + pagination + 模式切换/搜索框
+ *   有检索结果时:滚动贴顶 → 输入区在顶部;滚离顶部 → 输入区落到结果列下方。
  *
  * filters 由父 SearchPage 持有(单一来源),变更 → 自动触发 useSearchPapers 重查。
  * stagedIds / collapsedIds 来自父 (workspace state),决定每张卡的视觉变体。
@@ -41,7 +56,8 @@ import { useSearcherUrlState } from '../hooks/useSearcherUrlState';
  * 分页器 UI 抽到 SearcherPagination,本组件作 orchestrator + 主结构。
  */
 
-export type { SearchMode } from '../search-mode';
+/** 底栏浮层预留高度,避免最后几张结果被挡住。 */
+const DOCK_OVERLAY_SPACER_PX = 128;
 
 interface SearcherColumnProps {
   filters: SearchFilters;
@@ -56,6 +72,8 @@ interface SearcherColumnProps {
   onRestore: (id: string) => void;
   mode: SearchMode;
   onModeChange: (m: SearchMode) => void;
+  /** 已进入非首页工作区:无 q / 无对话时也不回落落地页 */
+  workspacePinned?: boolean;
 }
 
 /**
@@ -78,22 +96,12 @@ export function SearcherColumn({
   onRestore,
   mode,
   onModeChange,
+  workspacePinned = false,
 }: SearcherColumnProps) {
   const { params, setParams, page, setPage, pageSize, setPageSize } =
     useSearcherUrlState(filters);
   const queryFromUrl = params.get('q') ?? '';
   const [input, setInput] = useState(queryFromUrl);
-
-  // 智能模式会话 —— activeSessionId 收在 store(SmartSearchPanel / AgentSessionStrip 消费)
-  const activeSessionId = useSmartSearchSessionStore((s) => s.activeSessionId);
-  const smartBusy = useSmartSearchSessionStore((s) => s.busy);
-  const conversationActive = useSmartSearchSessionStore((s) => s.conversationActive);
-  const setActiveSessionId = useSmartSearchSessionStore((s) => s.setActiveSessionId);
-  const panelOpen = useSearchRightPanelStore((s) => s.panelOpen);
-  const openPanel = useSearchRightPanelStore((s) => s.openPanel);
-
-  const showReopenPanel =
-    !panelOpen && (mode === 'classic' || (mode === 'smart' && conversationActive));
 
   // 智能 panel 是否曾经被打开过 —— 一旦 true 就保持 mount, 模式切换只用 display:none
   // 隐藏。这样:
@@ -104,10 +112,23 @@ export function SearcherColumn({
   // useSmartSearchSocket 的 cleanup 关 WS, 局部 state 清零;
   // useSmartSearchHistory 又 staleTime:Infinity 返回老快照, 所以"对话凭空消失,
   // 必须刷新页面才出来"。
+  const reduceMotion = useReducedMotion();
+  const swapMs = reduceMotion ? 0 : INPUT_SWAP_MS;
+
   const [smartPanelOpened, setSmartPanelOpened] = useState(mode === 'smart');
+  // 离开智能模式时多留一帧挂载,好让底部 composer 播完向上退场再 hidden。
+  const [smartSlotOpen, setSmartSlotOpen] = useState(mode === 'smart');
   useEffect(() => {
     if (mode === 'smart') setSmartPanelOpened(true);
   }, [mode]);
+  useEffect(() => {
+    if (mode === 'smart') {
+      setSmartSlotOpen(true);
+      return;
+    }
+    const t = window.setTimeout(() => setSmartSlotOpen(false), swapMs);
+    return () => window.clearTimeout(t);
+  }, [mode, swapMs]);
 
   // URL `q` 变化时同步到输入框 —— 持久化恢复 / 浏览器后退 / 外部 navigate
   // 都会改 URL,但 useState 只在首次挂载读 URL,导致输入框跟搜索结果不同步。
@@ -216,182 +237,267 @@ export function SearcherColumn({
     [params, setParams]
   );
 
-  const showClassicLanding = mode === 'classic' && !query;
-  const showSmartHero = mode === 'smart' && !conversationActive;
-  const showModeInHeader = !showClassicLanding && !showSmartHero;
+  /** 清空检索内容(关键词 / 结果 / 筛选),保留工作区壳与右侧拓展栏。 */
+  const clearContent = useCallback(() => {
+    setInput('');
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('q');
+        next.delete('p');
+        for (const key of [
+          'src',
+          'tr',
+          'yf',
+          'yt',
+          'ven',
+          'sub',
+          'pt',
+          'oa',
+          'mc',
+          's',
+        ] as const) {
+          next.delete(key);
+        }
+        return next;
+      },
+      { replace: true },
+    );
+  }, [setParams]);
+
+  const showClassicLanding = mode === 'classic' && !query && !workspacePinned;
 
   // 总页数封顶:上游 total 再大也只翻到 1000 条对应的最大页(20/页 = 50 页 / 50/页 = 20 页)
   const cappedTotal = Math.min(total, MAX_RESULTS);
   const totalPages = Math.max(1, Math.ceil(cappedTotal / pageSize));
 
+  // 与结果列表同宽同边距,底栏/分页不横向贯穿主列。
+  const resultsColClass = 'w-full max-w-3xl pl-5 pr-3';
+
+  const showClassicQueryDock =
+    mode === 'classic' && !showClassicLanding && Boolean(query);
+
+  // 输入区在结果滚动流顶部;滚出视口后底部浮层接住(IntersectionObserver)。
+  const resultsScrollRef = useRef<HTMLDivElement>(null);
+  const topDockRef = useRef<HTMLDivElement>(null);
+  const [dockAtTop, setDockAtTop] = useState(true);
+  useEffect(() => {
+    setDockAtTop(true);
+  }, [query, page]);
+  useEffect(() => {
+    if (!showClassicQueryDock) return;
+    const root = resultsScrollRef.current;
+    const target = topDockRef.current;
+    if (!root || !target) return;
+
+    const syncDockPlacement = () => {
+      const rootRect = root.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      // 顶部输入区底边仍在滚动视口上沿之下 → 还在顶部;完全滚出上沿 → 沉底。
+      setDockAtTop(targetRect.bottom > rootRect.top + 8);
+    };
+
+    const io = new IntersectionObserver(syncDockPlacement, {
+      root,
+      threshold: [0, 0.01, 0.25, 1],
+    });
+    io.observe(target);
+    root.addEventListener('scroll', syncDockPlacement, { passive: true });
+    syncDockPlacement();
+    return () => {
+      io.disconnect();
+      root.removeEventListener('scroll', syncDockPlacement);
+    };
+  }, [showClassicQueryDock, papers.length]);
+
+  const classicInputDock = (
+    <div className="flex w-full flex-col gap-2.5">
+      <form onSubmit={submit} className="flex items-center gap-2">
+        <div className="flex h-9 flex-1 items-center gap-2 rounded-sm border border-border-strong bg-background px-3 transition-colors focus-within:border-foreground focus-within:ring-2 focus-within:ring-ring/20">
+          <Search className="size-3.5 text-faint" />
+          <input
+            type="search"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="输入关键词,如 机器学习可解释性"
+            className="h-full flex-1 bg-transparent text-base outline-none placeholder:text-faint"
+          />
+        </div>
+        <button
+          type="submit"
+          className="inline-flex h-9 w-[72px] items-center justify-center rounded-sm bg-destructive text-base font-bold text-destructive-foreground transition-colors hover:bg-destructive/90"
+        >
+          搜索
+        </button>
+      </form>
+      <SearchModeSwitch mode={mode} onModeChange={onModeChange} />
+    </div>
+  );
+
   return (
-    <div className="flex flex-col h-full min-h-0 bg-background">
-      {(showModeInHeader || showReopenPanel) && (
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
-          {showModeInHeader && (
-            <SearchModeSwitch
+    <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-background">
+      {/* 智能模式 —— 保持 mount 以免掐 WS。切走时用 absolute 叠层多留 swapMs 播 composer 向上退场。
+          会话条 AgentSessionStrip 挂在 SmartSearchPanel 顶部吸顶独占一行。 */}
+      {smartPanelOpened && (
+        <div
+          className={cn(
+            mode === 'smart'
+              ? 'contents'
+              : smartSlotOpen
+                ? 'pointer-events-none absolute inset-0 z-30'
+                : 'hidden',
+          )}
+        >
+          <Suspense fallback={null}>
+            <SmartSearchPanel
               mode={mode}
               onModeChange={onModeChange}
-              className="min-w-0 flex-1"
             />
-          )}
-          {showReopenPanel && (
-            <button
-              type="button"
-              onClick={openPanel}
-              className="inline-flex size-8 shrink-0 items-center justify-center rounded-sm border border-border text-muted-foreground transition-colors hover:bg-surface-1 hover:text-foreground"
-              title="打开拓展栏"
-              aria-label="打开拓展栏"
-            >
-              <PanelRightOpen className="size-4" strokeWidth={2} />
-            </button>
-          )}
-        </header>
-      )}
-
-      {mode === 'smart' && conversationActive && (
-        <AgentSessionStrip
-          api={smartSearchSessions}
-          activeSessionId={activeSessionId}
-          onActivate={setActiveSessionId}
-          onNewConversation={() => setActiveSessionId(null)}
-          newConversationDisabled={smartBusy || activeSessionId === null}
-          newConversationTitle={
-            smartBusy
-              ? '回答中,请稍候'
-              : activeSessionId === null
-                ? '已是新对话'
-                : '开始新对话'
-          }
-          emptyHint="还没有会话, 在下方输入第一句话即可开始"
-        />
-      )}
-
-      {/* 智能模式 —— 通过 WS 桥接 scholar_agent 的对话式检索面板。
-          首次打开后保持 mount, 模式切换走 display:none 隐藏 (见上面 smartPanelOpened
-          注释), 避免 WS 断开 + 对话状态丢失。
-          外层用 display:contents 让 panel 在 smart 模式下完全等价于原先的"直接子元素",
-          不影响 flex 布局; hidden (display:none) 隐藏时不参与布局也不渲染。 */}
-      {smartPanelOpened && (
-        <div className={mode === 'smart' ? 'contents' : 'hidden'}>
-          <Suspense fallback={null}>
-            <SmartSearchPanel mode={mode} onModeChange={onModeChange} />
           </Suspense>
         </div>
       )}
       {mode === 'classic' && showClassicLanding && (
-        <SearchClassicLanding
-          mode={mode}
-          onModeChange={onModeChange}
-          onSearch={submitQuery}
-        />
+        <SearchClassicLanding onSearch={submitQuery} />
       )}
+
       {mode === 'classic' && !showClassicLanding && (
         <>
-          {/* searchRow — 输入 + 红色搜索按钮 */}
-          <form
-            onSubmit={submit}
-            className="flex items-center gap-2 px-4 pt-3.5 pb-2 shrink-0"
-          >
-            <div className="flex items-center gap-2 flex-1 h-9 px-3 rounded-sm border border-border-strong bg-background focus-within:border-foreground focus-within:ring-2 focus-within:ring-ring/20 transition-colors">
-              <Search className="size-3.5 text-faint" />
-              <input
-                type="search"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="输入关键词,如 机器学习可解释性"
-                className="flex-1 h-full bg-transparent text-base outline-none placeholder:text-faint"
-              />
-            </div>
-            <button
-              type="submit"
-              className="inline-flex h-9 w-[72px] items-center justify-center rounded-sm bg-destructive text-destructive-foreground text-base font-bold hover:bg-destructive/90 transition-colors"
+          {/* 滚动层与悬浮筛选分离:FAB 叠在 viewport 上常显,不随列表滚走、不挡点击穿透。 */}
+          <div className="relative min-h-0 flex-1">
+            <div
+              ref={resultsScrollRef}
+              className="relative h-full min-h-0 overflow-auto"
             >
-              搜索
-            </button>
-          </form>
-
-          {/* countRow —— 设计稿 12px = text-sm。
-              loading 中**故意留空**(不写"检索中…"):蒙层 loading 已经表达了正在查的语义,
-              再叠一句文字会闪;只在出结果后写"找到 N 篇"。 */}
-          {query && !showLoading && (
-            <div className="px-4 pt-1 pb-2 text-sm text-subtle shrink-0">
-              找到 {total.toLocaleString()} 篇相关文献
-            </div>
-          )}
-
-          {/* resultsList —— 蒙层 loading:
-              query/filter 变化时去掉了 placeholderData,papers 即为空数组(EmptyState
-              不显示因为 showLoading=true,统一靠蒙层覆盖)。
-              蒙层 absolute 在 results 容器上,bg-background/70 + 中心 spinner。 */}
-          <div className="flex-1 min-h-0 overflow-auto relative">
-            <SearchFiltersFloating
-              filters={filters}
-              onFiltersChange={onFiltersChange}
-            />
-
-            {!query && (
-              <EmptyState
-                icon={Search}
-                title="试试搜点什么"
-                description="在上面的输入框输入关键词,马上就能看到结果"
-              />
-            )}
-            {query && !showLoading && papers.length === 0 && (
-              <EmptyState
-                icon={Search}
-                title="没找到相关论文"
-                description={`没有匹配 "${query}" 的内容,换个关键词或者切换数据源再试试`}
-              />
-            )}
-            {papers.length > 0 && (
-              <div ref={listRef}>
-                {papers.map((p) => (
-                  <PaperResultCard
-                    key={p.paperId}
-                    paper={p}
-                    isStaged={stagedIds.has(p.paperId)}
-                    isFolded={collapsedIds.has(p.paperId)}
-                    isFavorited={favoritedIds.has(p.paperId)}
-                    journalEnrichment={
-                      p.venue ? journalEnrichments[p.venue.trim()] : null
-                    }
-                    onStage={onStage}
-                    onUnstage={onUnstage}
-                    onCollapse={onCollapse}
-                    onRestore={onRestore}
-                    highlightQuery={query}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* 蒙层 loading —— absolute 覆盖整个 results 区域 */}
-            {showLoading && (
-              <div
-                className="absolute inset-0 z-10 flex items-center justify-center bg-background/70 backdrop-blur-[1px]"
-                aria-live="polite"
-                aria-busy="true"
-              >
-                <div className="flex flex-col items-center gap-3 text-faint">
-                  <Loader2 className="size-6 animate-spin text-brand-red" strokeWidth={2.2} />
-                  <span className="text-sm">检索中…</span>
+              {/* 无内容:Logo + 模式切换 + 搜索框居中(对齐首页 / 智能助手空态)。 */}
+              {!query && (
+                <div className="flex min-h-full items-center justify-center py-10">
+                  <AnimatePresence initial={false}>
+                    <motion.div
+                      key="classic-input-dock-center"
+                      initial={reduceMotion ? false : { opacity: 0, y: 24 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={reduceMotion ? undefined : { opacity: 0, y: 24 }}
+                      transition={{ duration: swapMs / 1000, ease: INPUT_SWAP_EASE }}
+                      className={cn(resultsColClass, 'flex flex-col items-center')}
+                    >
+                      <h2 className="m-0">
+                        <BrandLogo size="xl" />
+                      </h2>
+                      <div className="mt-6 w-full">{classicInputDock}</div>
+                    </motion.div>
+                  </AnimatePresence>
                 </div>
-              </div>
-            )}
+              )}
+
+              {/* 有检索时:输入区在滚动流顶部,随列表滚走;滚出后再沉底浮层接住。 */}
+              {showClassicQueryDock && (
+                <div
+                  ref={topDockRef}
+                  className={cn(
+                    resultsColClass,
+                    'border-b border-border pb-3 pt-2.5',
+                  )}
+                >
+                  {classicInputDock}
+                </div>
+              )}
+
+              {query && !showLoading && papers.length === 0 && (
+                <EmptyState
+                  icon={Search}
+                  title="没找到相关论文"
+                  description={`没有匹配 "${query}" 的内容,换个关键词或者切换数据源再试试`}
+                />
+              )}
+              {papers.length > 0 && (
+                // 结果卡限宽 + 左侧留缝、左对齐(不随主列拉满横向贯穿)。
+                <div ref={listRef} className={resultsColClass}>
+                  {papers.map((p) => (
+                    <PaperResultCard
+                      key={p.paperId}
+                      paper={p}
+                      isStaged={stagedIds.has(p.paperId)}
+                      isFolded={collapsedIds.has(p.paperId)}
+                      isFavorited={favoritedIds.has(p.paperId)}
+                      journalEnrichment={
+                        p.venue ? journalEnrichments[p.venue.trim()] : null
+                      }
+                      onStage={onStage}
+                      onUnstage={onUnstage}
+                      onCollapse={onCollapse}
+                      onRestore={onRestore}
+                      highlightQuery={query}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* 沉底浮层时垫高,最后几张卡不被挡住。 */}
+              {showClassicQueryDock && !dockAtTop && (
+                <div
+                  aria-hidden
+                  style={{ height: DOCK_OVERLAY_SPACER_PX }}
+                  className="shrink-0"
+                />
+              )}
+
+              {showLoading && (
+                <div
+                  className="absolute inset-0 z-10 flex items-center justify-center bg-background/70 backdrop-blur-[1px]"
+                  aria-live="polite"
+                  aria-busy="true"
+                >
+                  <div className="flex flex-col items-center gap-3 text-faint">
+                    <Loader2 className="size-6 animate-spin text-brand-red" strokeWidth={2.2} />
+                    <span className="text-sm">检索中…</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 顶部输入区滚出视口后,沉到滚动区底部(不挤占分页)。 */}
+            <AnimatePresence initial={false}>
+              {showClassicQueryDock && !dockAtTop && (
+                <motion.div
+                  key="classic-input-dock-bottom"
+                  initial={reduceMotion ? false : { opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={reduceMotion ? undefined : { opacity: 0, y: 16 }}
+                  transition={{ duration: reduceMotion ? 0 : 0.2, ease: 'easeOut' }}
+                  className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-background via-background/95 to-transparent pt-6"
+                >
+                  <div
+                    className={cn(
+                      resultsColClass,
+                      'pointer-events-auto border-t border-border bg-background pb-3 pt-2.5',
+                    )}
+                  >
+                    {classicInputDock}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {query ? (
+              <SearchFiltersFloating
+                filters={filters}
+                onFiltersChange={onFiltersChange}
+              />
+            ) : null}
           </div>
 
-          {/* pagination —— loading 中也允许显示翻页(用 disabled 状态防误触),
-              避免页面在 loading 时"塌缩"导致 layout 抖动。
-              有结果即显:用户可以切换 pageSize(20/50);只有 1 页且 ≤ 单页数量时也保留以便切 pageSize */}
           {query && total > 0 && (
-            <SearcherPagination
-              page={page}
-              totalPages={totalPages}
-              pageSize={pageSize}
-              onChange={setPage}
-              onPageSizeChange={setPageSize}
-            />
+            <div className={cn(resultsColClass, 'shrink-0')}>
+              <SearcherPagination
+                page={page}
+                totalPages={totalPages}
+                totalResults={total}
+                pageSize={pageSize}
+                onChange={setPage}
+                onPageSizeChange={setPageSize}
+                onClear={clearContent}
+              />
+            </div>
           )}
         </>
       )}

@@ -1,5 +1,6 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { PanelLeft, PanelLeftClose } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
+import { useSidebar } from '@/stores/sidebar.store';
 
 interface SidebarCollapseButtonProps {
   collapsed?: boolean;
@@ -8,31 +9,41 @@ interface SidebarCollapseButtonProps {
 }
 
 /**
- * 底部 "‹ 收起" 按钮 —— 对齐 .pen `RWrX6` h-30(我们用 h-8 = 32)。
- * 文字 11/normal #999(text-xs text-faint)。
+ * 侧栏顶部展开/收起 —— 面板图标（左竖条圆角矩形），贴在滚动区上方。
+ * 窄轨显示 PanelLeft（展开）；展开态显示 PanelLeftClose（收起）。
  */
 export function SidebarCollapseButton({
-  collapsed,
+  collapsed: collapsedProp,
   onClick,
   className,
 }: SidebarCollapseButtonProps) {
+  const expanded = useSidebar((s) => s.expanded);
+  const toggle = useSidebar((s) => s.toggle);
+  const collapsed = collapsedProp ?? !expanded;
+  const handleClick = onClick ?? toggle;
+  const Icon = collapsed ? PanelLeft : PanelLeftClose;
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <div
       className={cn(
-        'h-8 flex items-center justify-center gap-1.5 border-t border-border-soft shrink-0',
-        'text-xs text-faint hover:bg-surface-1 hover:text-foreground transition-colors',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30',
-        className
+        'flex shrink-0 items-center border-b border-border-soft',
+        collapsed ? 'justify-center px-1 py-2' : 'justify-start px-3 py-2',
+        className,
       )}
     >
-      {collapsed ? (
-        <ChevronRight className="size-3" />
-      ) : (
-        <ChevronLeft className="size-3" />
-      )}
-      <span>{collapsed ? '展开' : '收起'}</span>
-    </button>
+      <button
+        type="button"
+        onClick={handleClick}
+        title={collapsed ? '展开侧栏' : '收起侧栏'}
+        aria-label={collapsed ? '展开侧栏' : '收起侧栏'}
+        className={cn(
+          'inline-flex size-8 items-center justify-center rounded-md text-subtle',
+          'transition-colors hover:bg-surface-2 hover:text-foreground',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30',
+        )}
+      >
+        <Icon className="size-4" strokeWidth={1.75} />
+      </button>
+    </div>
   );
 }

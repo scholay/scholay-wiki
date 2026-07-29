@@ -34,26 +34,28 @@ export function SidebarSection({
   className,
 }: SidebarSectionProps) {
   const flashed = useSidebar((s) => s.flashedSection);
+  const sidebarExpanded = useSidebar((s) => s.expanded);
   const isFlashed = !!id && flashed === id;
+  // 窄轨态藏段头(标题/管理),只留内容行的图标+数字。
+  const showHeader = !!label && sidebarExpanded;
 
   return (
     <section
       data-flashed={isFlashed ? '' : undefined}
       className={cn(
-        bordered && 'border-t border-border-soft',
-        // flash 动画 —— 用 ring 而不是 border,不会撑大 layout;1800ms 后 store 自动清回 null
+        bordered && sidebarExpanded && 'border-t border-border-soft',
         isFlashed && 'animate-sidebar-flash relative z-10',
-        className
+        className,
       )}
     >
-      {label && (
-        <header className="h-7 flex items-center justify-between gap-2 px-4 pt-2 pb-1">
+      {showHeader && (
+        <header className="flex h-7 items-center justify-between gap-2 px-4 pb-1 pt-2">
           <span
             className={cn(
               'font-bold',
               prominent
-                ? 'text-xs text-foreground tracking-[0.06em]'
-                : 'text-2xs text-faint tracking-[0.18em]'
+                ? 'text-xs tracking-[0.06em] text-foreground'
+                : 'text-2xs tracking-[0.18em] text-faint',
             )}
           >
             {label}
@@ -62,9 +64,7 @@ export function SidebarSection({
             <span
               className={cn(
                 'font-bold',
-                prominent
-                  ? 'text-xs text-foreground'
-                  : 'text-2xs text-foreground'
+                prominent ? 'text-xs text-foreground' : 'text-2xs text-foreground',
               )}
             >
               {action}

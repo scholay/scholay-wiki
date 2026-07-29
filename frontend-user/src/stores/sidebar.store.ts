@@ -29,15 +29,10 @@ export interface RailItem {
 interface SidebarState {
   /**
    * 用户意图:☰ 当前态。
+   *   - true  = 桌面展开完整侧栏 / 移动端打开抽屉
+   *   - false = 桌面收成窄轨(图标+两位数) / 移动端抽屉隐藏
    *
-   * 持久化策略(产品要求):
-   *   - 默认 false(首次访问/清缓存后关闭)
-   *   - 任意来源(☰ / Rail chip 点击 / Cmd+B)打开后立刻写盘
-   *   - 浏览器级别记忆,刷新/关浏览器后仍保持
-   *   - 直到用户手动关闭才会切回 false 并写盘
-   *
-   * 实现:zustand `persist` middleware,partialize 只存 expanded
-   *      (rail/hasPanel/flashedSection 是运行时态,不持久化)
+   * 持久化:zustand persist,partialize 只存 expanded。
    */
   expanded: boolean;
   /** TopNav 折叠态的 chip 列表(当前 feature 提供) */

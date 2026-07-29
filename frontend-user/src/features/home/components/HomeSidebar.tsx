@@ -5,11 +5,8 @@ import {
   Sidebar,
   SidebarContent,
   SidebarSection,
-  SidebarAuthFooter,
-  SidebarCollapseButton,
 } from '@/shared/components/sidebar';
 import { groupMenusByCategory } from '@/app/menus';
-import { useSidebar } from '@/stores/sidebar.store';
 import { cn } from '@/shared/lib/utils';
 import { useLibraryFoldersForHome as useLibraryFolders } from '../api/library';
 
@@ -115,7 +112,6 @@ function RichMenuItem({
 }
 
 export function HomeSidebar() {
-  const toggleSidebar = useSidebar((s) => s.toggle);
   const librarySubtitle = useLibrarySubtitle();
   const groups = groupMenusByCategory();
 
@@ -146,9 +142,6 @@ export function HomeSidebar() {
           </SidebarSection>
         ))}
       </SidebarContent>
-
-      <SidebarAuthFooter />
-      <SidebarCollapseButton onClick={toggleSidebar} />
     </Sidebar>
   );
 }

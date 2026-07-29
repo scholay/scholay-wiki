@@ -101,15 +101,17 @@ export function useBoltslidesConversation(opts?: {
   // 组件卸载后丢弃在途的懒新建落地(用户在 createSession 往返期间切走了)—— 否则迟到的 created 会
   // 回填 URL / hijack 页层 ownRef,把页面卡死在 resolving(桌面)或 URL↔内容错位(移动)。
   const mountedRef = useRef(true);
-  useEffect(
-    () => () => {
+  // setup 必须把 mounted 拨回 true:React Strict Mode 会先跑一遍 cleanup 再重跑 setup,
+  // 若只在 cleanup 里写 false、setup 不复位,开发态 mounted 会永久 false → 懒新建被误丢弃。
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
       mountedRef.current = false;
       // 卸载时清掉在途计时器(未送达看门狗 / 停止兜底),防迟到回调对已卸载组件 setState。
       if (ackWaitRef.current !== null) window.clearTimeout(ackWaitRef.current.timer);
       if (stopTimerRef.current !== null) window.clearTimeout(stopTimerRef.current);
-    },
-    [],
-  );
+    };
+  }, []);
 
   // 多会话模型 + 懒新建:
   //   - 用 useBoltslidesSessions 拉用户全部会话作为初始种子 (不再调 useClawSession 触发隐式创建,

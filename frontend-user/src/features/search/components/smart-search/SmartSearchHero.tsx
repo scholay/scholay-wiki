@@ -1,4 +1,4 @@
-import { Sparkles } from 'lucide-react';
+import { RhinoBrandIcon } from '@/shared/components/RhinoBrandIcon';
 import type { ReactNode } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/shared/lib/utils';
@@ -104,7 +104,7 @@ function HeroSpark() {
         animate={{ scale: [1, 1.08, 1] }}
         transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
       >
-        <Sparkles className="size-7 text-brand-green" strokeWidth={1.8} />
+        <RhinoBrandIcon className="size-7 text-brand-green" strokeWidth={1.8} />
       </motion.div>
     </div>
   );

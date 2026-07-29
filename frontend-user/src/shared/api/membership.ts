@@ -11,15 +11,41 @@ import { useIsAuthenticated } from '@/stores/auth.store';
  */
 export type ViewerTier = 'free' | 'pro' | 'max';
 
+interface BillingOverviewLite {
+  tier: ViewerTier;
+  cycle?: 'monthly' | 'yearly';
+  credit?: { total: number };
+}
+
+async function fetchBillingOverviewLite(): Promise<BillingOverviewLite> {
+  return (
+    await http.get<{ data: BillingOverviewLite }>('/user/billing/overview')
+  ).data.data;
+}
+
 export function useViewerTier() {
   const authed = useIsAuthenticated();
   return useQuery({
     queryKey: ['settings', 'billing'] as const,
     enabled: authed,
     staleTime: 15_000,
-    queryFn: async () =>
-      (await http.get<{ data: { tier: ViewerTier } }>('/user/billing/overview')).data
-        .data,
+    queryFn: fetchBillingOverviewLite,
     select: (o) => o.tier,
+  });
+}
+
+/** 犀牛面板等：会员档 + 经费余额(同 billing 缓存)。 */
+export function useBillingSnapshot() {
+  const authed = useIsAuthenticated();
+  return useQuery({
+    queryKey: ['settings', 'billing'] as const,
+    enabled: authed,
+    staleTime: 15_000,
+    queryFn: fetchBillingOverviewLite,
+    select: (o) => ({
+      tier: (['free', 'pro', 'max'].includes(o.tier) ? o.tier : 'free') as ViewerTier,
+      cycle: o.cycle,
+      creditTotal: o.credit?.total ?? 0,
+    }),
   });
 }

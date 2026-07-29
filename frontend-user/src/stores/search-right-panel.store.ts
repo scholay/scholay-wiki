@@ -4,12 +4,28 @@ import type { Author, Journal, Paper } from '@/shared/api/types';
 /** 基于工作区暂存文献的功能视图 —— 与「工作区数据」解耦,仅决定展示形态 */
 export type WorkspaceFunctionKind = 'pdf-chat' | 'citation-graph' | 'matrix';
 
-export type InfoTabKind = 'paper' | 'journal' | 'author';
+export type InfoTabKind = 'paper' | 'journal' | 'author' | 'artifact';
+
+/** 产物页签载荷(结构对齐 claw ClawArtifact + 预览端点前缀;store 不依赖 feature)。 */
+export type ArtifactBasePathTab = '/user/claw' | '/user/boltslides' | '/user/sci_draw';
+
+export type ArtifactTabPayload = {
+  id?: number;
+  path: string;
+  name: string;
+  kind?: 'file' | 'dir';
+  mime?: string;
+  size?: number;
+  title?: string;
+  description?: string;
+  basePath: ArtifactBasePathTab;
+};
 
 export type InfoTab =
   | { id: string; kind: 'paper'; title: string; paper: Paper }
   | { id: string; kind: 'journal'; title: string; journal: Journal }
-  | { id: string; kind: 'author'; title: string; author: Author };
+  | { id: string; kind: 'author'; title: string; author: Author }
+  | { id: string; kind: 'artifact'; title: string; artifact: ArtifactTabPayload };
 
 /** 右栏当前视图(功能 / 详情页);null = 功能卡片 hub */
 export type ActivePanel =
@@ -44,6 +60,11 @@ function journalTabId(journal: Journal): string {
 
 function authorTabId(author: Author): string {
   return `author:${author.source ?? 'stc'}:${author.authorId}`;
+}
+
+function artifactTabId(artifact: ArtifactTabPayload): string {
+  if (artifact.id) return `artifact:${artifact.basePath}:${artifact.id}`;
+  return `artifact:${artifact.basePath}:${artifact.path}`;
 }
 
 function trimTitle(text: string, max = 28): string {
@@ -82,6 +103,8 @@ interface SearchRightPanelState {
   openPaper: (paper: Paper) => void;
   openJournal: (journal: Journal) => void;
   openAuthor: (author: Author) => void;
+  /** 打开产物预览页签(与论文详情同级的浏览器式 tab)。 */
+  openArtifact: (artifact: ArtifactTabPayload) => void;
   openFunctionTab: (kind: WorkspaceFunctionKind) => void;
   closeFunctionTab: (kind: WorkspaceFunctionKind) => void;
   setActiveFunction: (kind: WorkspaceFunctionKind) => void;
@@ -91,6 +114,8 @@ interface SearchRightPanelState {
   closePanel: () => void;
   /** 展开右侧拓展栏 */
   openPanel: () => void;
+  /** 回到 FeatureHub 空态(栏仍展开,只清当前功能/详情) */
+  dismissToHub: () => void;
   reset: () => void;
   isActivePaper: (paperId: string) => boolean;
 }
@@ -144,6 +169,20 @@ export const useSearchRightPanelStore = create<SearchRightPanelState>(
         kind: 'author',
         title: trimTitle(author.name ?? '未知作者'),
         author,
+      };
+      set((state) => ({
+        panelOpen: true,
+        infoTabs: focusInfoTab(upsertInfoTab(state.infoTabs, tab), id),
+        activePanel: { group: 'info', tabId: id },
+      }));
+    },
+    openArtifact: (artifact) => {
+      const id = artifactTabId(artifact);
+      const tab: InfoTab = {
+        id,
+        kind: 'artifact',
+        title: trimTitle(artifact.title || artifact.name || '未命名文件'),
+        artifact,
       };
       set((state) => ({
         panelOpen: true,
@@ -209,6 +248,7 @@ export const useSearchRightPanelStore = create<SearchRightPanelState>(
     },
     closePanel: () => set({ panelOpen: false }),
     openPanel: () => set({ panelOpen: true }),
+    dismissToHub: () => set({ panelOpen: true, activePanel: null }),
     reset: () =>
       set({
         functionTabs: [],

@@ -9,7 +9,9 @@ import {
   useStagingAreas,
 } from '@/stores/staging-areas.store';
 import { useStagingUi } from '@/stores/staging-ui.store';
+import { useSidebar } from '@/stores/sidebar.store';
 import { useStageFly } from '@/stores/stage-fly.store';
+import { useWorkspaceFolderUi } from '@/stores/workspace-folder.store';
 import {
   stagingAreasKey,
   useAddRemotePaper,
@@ -254,16 +256,21 @@ export function useStagingActions(): StagingActions {
 
   const stagePaper = useCallback(
     (paper: Paper, source?: 'traditional' | 'smart') => {
-      // 飞入动画:点暂存的瞬间(卡片折叠前)抓源卡 rect,请求一枚芯片飞向右侧矩阵落点。
-      // 抓不到卡(非交互式暂存)或矩阵未挂载(首次暂存)时 requestFly 内部会自动跳过。
+      // 展开侧栏 + 互斥打开「暂存」夹,芯片飞入落点才看得见去向
+      useSidebar.getState().setExpanded(true);
+      useWorkspaceFolderUi.getState().expandFolder('staging');
+
       const cardEl = document.querySelector<HTMLElement>(
-        `[data-paper-id="${CSS.escape(paper.paperId)}"]`
+        `[data-paper-id="${CSS.escape(paper.paperId)}"]`,
       );
       const r = cardEl?.getBoundingClientRect();
-      useStageFly.getState().requestFly(
-        r ? { top: r.top, left: r.left, width: r.width, height: r.height } : null,
-        paper.title ?? ''
-      );
+      const from = r
+        ? { top: r.top, left: r.left, width: r.width, height: r.height }
+        : null;
+      // 等侧栏/手风琴展开后再飞
+      requestAnimationFrame(() => {
+        useStageFly.getState().requestFly(from, paper.title ?? '');
+      });
 
       if (isAuthed) {
         ensureAuthedArea().then((area) => {

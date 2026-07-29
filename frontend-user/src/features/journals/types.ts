@@ -1,6 +1,6 @@
 /**
  * 期刊搜索筛选状态 —— 与后端 JournalSearchOptions(精简后)对齐。
- * 单一来源:JournalSearchPage 持有,传给 JournalSidebar 编辑、useJournalSearch 消费。
+ * 单一来源:JournalSearchPage 持有,主区 JournalFiltersFloating 编辑、useJournalSearch 消费。
  *
  * 设计稿 `[02-期刊]` 左侧 5 个 group:
  *   1. 中科院分区(fqbQuartile)

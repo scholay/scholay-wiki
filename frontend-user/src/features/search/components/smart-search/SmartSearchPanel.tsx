@@ -6,6 +6,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom';
 import { AgentDisplacedBanner } from '@/shared/components/AgentDisplacedBanner';
+import { AgentSessionStrip } from '@/shared/components/agent-session/AgentSessionStrip';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAuthDialog } from '@/stores/auth-dialog.store';
 import { usePendingAction } from '@/stores/pending-action.store';
@@ -17,6 +18,7 @@ import {
 } from '@/shared/lib/agent-session-broadcast';
 import { stripAgentBridgePrefix } from '@/shared/lib/agent-prefix';
 import { trackEvent } from '@/shared/lib/track';
+import { cn } from '@/shared/lib/utils';
 import { useHeightVar } from '@/shared/hooks';
 import { modelSupportsVision, useUserModels } from '@/shared/api/models';
 import { ModelSelector } from '@/shared/components/chat/ModelSelector';
@@ -41,6 +43,7 @@ import {
   useSmartSearchHistory,
   useSmartSearchSessions,
   useSmartSearchSocket,
+  smartSearchSessions,
   smartSearchSessionFileUrl,
   getSmartSearchNewConvModel,
   setSmartSearchNewConvModel,
@@ -124,29 +127,51 @@ export function SmartSearchPanel({
   onModeChange: (mode: SearchMode) => void;
 }) {
   const token = useAuthStore((s) => s.token);
-  const modeSwitch = (
-    <SearchModeSwitch
-      mode={mode}
-      onModeChange={onModeChange}
-      className="mb-4 max-w-md mx-auto"
-    />
-  );
-  const heroComposer = (composer: ReactNode) => (
-    <div className="flex w-full flex-col">
-      {modeSwitch}
-      {composer}
-    </div>
-  );
   const queryClient = useQueryClient();
   const reduce = useReducedMotion();
+  const activeSessionId = useSmartSearchSessionStore((s) => s.activeSessionId);
+  const setActiveSessionId = useSmartSearchSessionStore((s) => s.setActiveSessionId);
+  // 注意:busy 在下方 socket 派生后才有;hero/dock 里的 strip 用 store busy 做 disabled。
+  const storeBusy = useSmartSearchSessionStore((s) => s.busy);
+
+  const handleNewConversation = useCallback(() => {
+    if (storeBusy) return;
+    // 当前会话已在服务端落盘;刷列表让标题/排序及时出现,再切到空白新对话。
+    void queryClient.invalidateQueries({ queryKey: ['smart-search', 'sessions'] });
+    setActiveSessionId(null);
+  }, [storeBusy, queryClient, setActiveSessionId]);
+
+  const sessionStrip = (
+    <AgentSessionStrip
+      placement="bar"
+      api={smartSearchSessions}
+      activeSessionId={activeSessionId}
+      onActivate={setActiveSessionId}
+      onNewConversation={handleNewConversation}
+      newConversationDisabled={storeBusy || activeSessionId === null}
+      newConversationTitle={
+        storeBusy
+          ? '回答中,请稍候'
+          : activeSessionId === null
+            ? '已是新对话'
+            : '开始新对话'
+      }
+      emptyHint="还没有会话, 在下方输入第一句话即可开始"
+    />
+  );
+
+  const heroComposer = (composer: ReactNode) => (
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-2.5">
+      {composer}
+      <SearchModeSwitch mode={mode} onModeChange={onModeChange} />
+    </div>
+  );
 
   // 跨 tab 同步: 另一个 tab 新建/切换会话会通过 BroadcastChannel 推一帧, 本 tab 收到
   // 后 invalidate ['smart-search'] 全部 query。
   useSessionBroadcast('smart-search');
 
-  // ── 多会话:activeSessionId 收在 store(跨 SearchSidebar / SearcherColumn / 本组件三处子树)──
-  const activeSessionId = useSmartSearchSessionStore((s) => s.activeSessionId);
-  const setActiveSessionId = useSmartSearchSessionStore((s) => s.setActiveSessionId);
+  // ── 多会话:activeSessionId 已在上方订阅;此处补 busy / conversationActive / reset ──
   const setStoreBusy = useSmartSearchSessionStore((s) => s.setBusy);
   const setConversationActive = useSmartSearchSessionStore((s) => s.setConversationActive);
   const resetStore = useSmartSearchSessionStore((s) => s.reset);
@@ -690,9 +715,11 @@ export function SmartSearchPanel({
   // 会话**(adoptingSessionIdRef===sessionId,懒建/upload-adopt/引用-adopt)才跳过清理 —— pending
   // turn / 待发消息 / 附件属于它;若期间用户点了侧边栏别的会话 B(≠ 采用 id),照常清理丢弃在途消息,
   // 绝不把它串进 B(评审 #1)。
+  // 「新对话」(→ null)额外清空输入框 / 附件 / 引用,页面回到空白居中输入态。
   const prevSessionIdRef = useRef(sessionId);
   useEffect(() => {
     if (prevSessionIdRef.current === sessionId) return;
+    const prev = prevSessionIdRef.current;
     prevSessionIdRef.current = sessionId;
     if (adoptingSessionIdRef.current === sessionId) {
       adoptingSessionIdRef.current = null;
@@ -705,7 +732,13 @@ export function SmartSearchPanel({
     clearAckWait();
     clearStopFallback();
     clearMessages();
-  }, [sessionId, clearMessages, clearAckWait, clearStopFallback]);
+    if (sessionId === null && prev !== null) {
+      setInput('');
+      att.clearAttachments();
+      setReferences([]);
+      setPickerOpen(false);
+    }
+  }, [sessionId, clearMessages, clearAckWait, clearStopFallback, att]);
 
   // 标题生成:agent 首轮后异步产标题并推 session_title_updated 帧 → invalidate sessions,
   // 让侧边栏「生成标题中…」spinner 换成真标题(该帧晚于 message_complete,故单独盯一手)。
@@ -967,37 +1000,47 @@ export function SmartSearchPanel({
   if (!token) {
     return (
       <div className="flex h-full min-h-0 flex-col bg-background">
-        <ClawHero
-          title="智能助手"
-          subtitle="找文献 · 读论文 · 查期刊 · 改摘要,也能上传 PDF 帮你分析"
-          suggestions={SMART_HERO_SUGGESTIONS}
-          contentClassName="max-w-3xl"
-          composer={heroComposer(
-            <SmartComposer
-              prominent
-              autoFocus
-              className="shadow-md"
-              rotatingPlaceholders={SMART_ROTATING_PROMPTS}
-              value={input}
-              onChange={setInput}
-              onSubmit={handleLoggedOutSubmit}
-              loggedOut
-              {...composerExtras}
-            />,
-          )}
-          onPickSuggestion={setInput}
-        />
+        {sessionStrip}
+        <div className="relative min-h-0 flex-1">
+          <ClawHero
+            suggestions={SMART_HERO_SUGGESTIONS}
+            contentClassName="max-w-3xl"
+            composer={heroComposer(
+              <SmartComposer
+                prominent
+                autoFocus
+                className="shadow-md"
+                rotatingPlaceholders={SMART_ROTATING_PROMPTS}
+                value={input}
+                onChange={setInput}
+                onSubmit={handleLoggedOutSubmit}
+                loggedOut
+                {...composerExtras}
+              />,
+            )}
+            onPickSuggestion={setInput}
+          />
+        </div>
       </div>
     );
   }
 
   // 加载态:见上方 loadingHistory 定义。
+  // mode!==smart 时父级仍可能短暂挂着本组件(播 composer 向上退场),背景必须透明以免盖住文献检索。
   return (
-    <div className="flex flex-col h-full min-h-0 bg-background">
+    <div
+      className={cn(
+        'relative flex h-full min-h-0 flex-col',
+        mode === 'smart' ? 'bg-background' : 'bg-transparent',
+      )}
+    >
+      {/* 会话条吸顶独占一行(与底栏 Composer / 模式切换分离)。 */}
+      {mode === 'smart' && sessionStrip}
+
       {/* 多窗口接管 banner: 后端 displacement 路径下发 {type:displaced} 后,
           这个 banner 占顶部一行, 用户点 "切回这里" 调 takeOver() 抢回活跃权。
           banner 只在 state='displaced' 时出现; takeOver 后 state 变 connecting → open 自动消失。 */}
-      {state === 'displaced' && (
+      {mode === 'smart' && state === 'displaced' && (
         <AgentDisplacedBanner reason={displacedReason} onTakeOver={takeOver} />
       )}
 
@@ -1005,8 +1048,8 @@ export function SmartSearchPanel({
           - 对话视图常驻底层;悬浮对话框 + 底部渐隐都在这层。
           - hero 在最上层,发送首条消息后整体淡出(大标题 + 流动背景渐隐),底栏 composer 同时就位。 */}
       <div className="relative flex-1 min-h-0">
-        {/* 对话视图(底层) */}
-        {turns.length > 0 && (
+        {/* 对话视图 —— 仅 smart 激活时铺开;切走时立刻让出画面,composer 单独播向上退场。 */}
+        {mode === 'smart' && turns.length > 0 && (
           // 外层量高 div: useHeightVar 把"对话框可视区"像素高写进 --chat-area-h,供留白按比例算。
           <div ref={chatAreaRef} className="absolute inset-0">
             <StickToBottom
@@ -1035,7 +1078,7 @@ export function SmartSearchPanel({
                 // scrollClassName 落在库真正的 scroll 元素上(overflow:auto 那层),
                 // 给它挂「仅手动滚动时浮现」的滚动条样式;className 落在内容层。
                 scrollClassName="chat-scrollbar-autohide"
-                className="space-y-3.5 min-w-0 pb-[max(calc(var(--chat-area-h,100dvh)*0.3),132px)]"
+                className="mx-auto w-full max-w-3xl space-y-3.5 min-w-0 pb-[max(calc(var(--chat-area-h,100dvh)*0.3),200px)]"
               >
                 {(hiddenCount > 0 || historyHasMore) && (
                   <div className="flex justify-center pb-1">
@@ -1090,12 +1133,21 @@ export function SmartSearchPanel({
 
             {/* 底部渐隐:内容贴近底部时淡入 surface-1,让悬浮对话框"浮"在对话之上(不被文字顶到边)。 */}
             <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28 bg-gradient-to-t from-surface-1 via-surface-1/85 to-transparent" />
+          </div>
+        )}
 
-            {/* 悬浮对话框 —— 普通 div。原「与 hero 共用 layoutId 从居中滑到底部」的共享 layout 动画已移除:
-                那个 framer 共享 layout 会用 scaleY morph 高度,返回页面时被路由过渡打断即卡住 → 输入框拉高变形。
-                改为 hero 淡出 + 底栏 composer 直接就位。外层 pointer-events-none 不挡滚动,框本体可交互。 */}
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-4 pb-4">
-              <div className="pointer-events-auto mx-auto w-full max-w-2xl">
+        {/* 有消息:底栏输入。无消息:不走底栏,统一回 ClawHero 居中(「新对话」还原中心)。 */}
+        <AnimatePresence initial={false}>
+          {mode === 'smart' && turns.length > 0 && (
+            <motion.div
+              key="smart-composer-dock"
+              className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-4 pb-4"
+              initial={reduce ? false : { opacity: 0, y: -56 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduce ? undefined : { opacity: 0, y: -56 }}
+              transition={{ duration: reduce ? 0 : 0.32, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <div className="pointer-events-auto mx-auto flex w-full max-w-2xl flex-col gap-2.5">
                 {pendingQuestionBlock && (
                   <QuestionPrompt
                     key={pendingQuestionBlock.toolUseId}
@@ -1113,28 +1165,28 @@ export function SmartSearchPanel({
                   busy={busy}
                   onStop={handleStop}
                   stopping={stopping}
-                  // 切会话瞬间 context 可能是上个会话的残影(无 keepPreviousData 但 disable→refetch 有窗口)→ 只认当前会话的。
                   contextSnapshot={
                     contextQuery.data?.sessionId === sessionId ? contextQuery.data : undefined
                   }
                   {...composerExtras}
                 />
+                <SearchModeSwitch mode={mode} onModeChange={onModeChange} />
               </div>
-            </div>
-          </div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* 加载历史(覆盖层) */}
-        {turns.length === 0 && loadingHistory && (
+        {mode === 'smart' && turns.length === 0 && loadingHistory && (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-8">
             <Loader2 className="size-5 text-muted-foreground animate-spin mb-3" />
             <div className="text-sm text-muted-foreground">正在加载历史会话…</div>
           </div>
         )}
 
-        {/* 起始态 hero(顶层):发送首条消息后整体淡出(大标题 + 流动背景);底栏 composer 同时就位。 */}
+        {/* 空对话居中 hero —— 「新对话」/ 首次进入都走这里(含模式切换+输入;会话条在面板顶)。 */}
         <AnimatePresence initial={false}>
-          {turns.length === 0 && !loadingHistory && (
+          {mode === 'smart' && turns.length === 0 && !loadingHistory && (
             <motion.div
               key="smart-hero"
               className="absolute inset-0 z-30 flex"
@@ -1142,8 +1194,6 @@ export function SmartSearchPanel({
               transition={{ duration: reduce ? 0 : 0.3, ease: 'easeOut' }}
             >
               <ClawHero
-                title="智能助手"
-                subtitle="找文献 · 读论文 · 查期刊 · 改摘要,也能上传 PDF 帮你分析"
                 suggestions={SMART_HERO_SUGGESTIONS}
                 contentClassName="max-w-3xl"
                 composer={heroComposer(

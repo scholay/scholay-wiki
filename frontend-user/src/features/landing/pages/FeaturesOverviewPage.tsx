@@ -7,9 +7,9 @@ import {
   Folder,
   PenTool,
   Search,
-  Sparkles,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { RhinoBrandIcon } from '@/shared/components/RhinoBrandIcon';
 import { RouteSEO } from '@/shared/components/RouteSEO';
 import { LandingLayout } from '../layout/LandingLayout';
 
@@ -55,7 +55,7 @@ const FEATURES: FeatureEntry[] = [
     name: '智能助手',
     englishName: 'Claw AI',
     desc: '基于你的文献集的可溯源学术对话',
-    icon: Sparkles,
+    icon: RhinoBrandIcon,
   },
   {
     to: '/features/submit',

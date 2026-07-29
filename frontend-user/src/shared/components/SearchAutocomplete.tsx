@@ -182,7 +182,7 @@ export const SearchAutocomplete = forwardRef<HTMLDivElement, SearchAutocompleteP
   };
 
   return (
-    <div ref={rootRef} className={cn('relative w-full max-w-[640px]', className)}>
+    <div ref={rootRef} className={cn('relative mx-auto w-full max-w-[640px]', className)}>
       <form onSubmit={(e) => { e.preventDefault(); submitPapers(trimmed); }}>
         <div
           className={cn(

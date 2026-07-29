@@ -1,19 +1,17 @@
 import { useMemo, useState } from 'react';
 import {
-  ChevronDown,
+  History,
   Loader2,
-  MoreVertical,
   Pencil,
   SquarePen,
   Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/shared/ui/dropdown-menu';
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/shared/ui/popover';
 import { useAuthStore } from '@/stores/auth.store';
 import { cn } from '@/shared/lib/utils';
 import type { AgentSessionApi, AgentSessionItem } from '@/shared/api/agent-sessions';
@@ -29,9 +27,15 @@ export interface AgentSessionStripProps {
   newConversationTitle?: string;
   emptyHint?: string;
   loggedOutHint?: string;
+  /**
+   * bar  = 主区顶部吸顶整行(默认)
+   * dock = 旧:贴 Composer 上方;保留兼容,新布局请用 bar
+   */
+  placement?: 'bar' | 'dock';
+  className?: string;
 }
 
-/** 会话下拉选框 —— 右侧常驻「新对话」 */
+/** 会话条 —— 左历史入口 + 当前会话时间/标题;默认主区顶部吸顶独占一行。 */
 export function AgentSessionStrip({
   api,
   activeSessionId,
@@ -41,125 +45,222 @@ export function AgentSessionStrip({
   newConversationTitle = '开始新对话',
   emptyHint = '还没有会话, 发送第一句话即可开始',
   loggedOutHint = '登录后可见历史会话',
+  placement = 'bar',
+  className,
 }: AgentSessionStripProps) {
   const token = useAuthStore((s) => s.token);
   const { data: sessions, isLoading } = api.useSessions();
   const activateSession = api.useActivateSession();
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<AgentSessionItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AgentSessionItem | null>(null);
 
   const activeSession = sessions?.find((s) => s.sessionId === activeSessionId);
 
-  const options = useMemo(() => {
-    if (!sessions?.length) return [];
-    return sessions.map((session) => {
-      const active = session.sessionId === activeSessionId;
-      const { displayTitle, loading } = computeSessionTitle(
-        session.title,
-        session.createdAt,
-        session.messageCount,
-        active,
-      );
-      return { session, label: loading ? `${displayTitle}…` : displayTitle };
-    });
-  }, [sessions, activeSessionId]);
+  const currentLabel = useMemo(() => {
+    if (!activeSession) {
+      return { time: '', title: '新对话', loading: false };
+    }
+    const { displayTitle, loading } = computeSessionTitle(
+      activeSession.title,
+      activeSession.createdAt,
+      activeSession.messageCount,
+      true,
+    );
+    const stamp =
+      activeSession.agentModifiedAt ||
+      activeSession.lastAccessedAt ||
+      activeSession.createdAt;
+    return {
+      time: formatSessionTime(stamp),
+      title: loading ? `${displayTitle}…` : displayTitle,
+      loading,
+    };
+  }, [activeSession]);
 
-  const handleSelectChange = async (sessionId: string) => {
-    if (!sessionId || sessionId === activeSessionId) return;
-    const item = sessions?.find((s) => s.sessionId === sessionId);
-    if (!item) return;
+  const handleActivate = async (sessionId: string) => {
+    if (!sessionId || sessionId === activeSessionId) {
+      setHistoryOpen(false);
+      return;
+    }
     try {
       await activateSession.mutateAsync(sessionId);
       onActivate(sessionId);
+      setHistoryOpen(false);
     } catch (err) {
       toast.error((err as Error).message || '切换会话失败');
     }
   };
 
+  const dock = placement === 'dock';
+  const historyCount = sessions?.length ?? 0;
+
   return (
     <>
-      <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border bg-background px-4">
-        <div className="relative min-w-0 flex-1">
-          {!token ? (
-            <span className="inline-flex h-7 w-full items-center text-2xs text-faint">
-              {loggedOutHint}
-            </span>
-          ) : isLoading ? (
-            <span className="inline-flex h-7 w-full items-center gap-1.5 text-2xs text-faint">
-              <Loader2 className="size-3 animate-spin" />
-              加载会话…
-            </span>
-          ) : !sessions || sessions.length === 0 ? (
-            <span className="inline-flex h-7 w-full items-center text-2xs text-faint">
-              {emptyHint}
-            </span>
-          ) : (
-            <>
-              <select
-                value={activeSessionId ?? ''}
-                onChange={(e) => handleSelectChange(e.target.value)}
-                aria-label="会话历史"
-                className={cn(
-                  'h-7 w-full min-w-0 appearance-none truncate rounded-sm border border-border bg-background',
-                  'pl-2 pr-7 text-xs font-semibold text-foreground outline-none',
-                  'transition-colors hover:border-border-strong focus:border-foreground focus:ring-2 focus:ring-ring/20',
-                  !activeSessionId && 'text-subtle',
-                )}
-              >
-                <option value="" disabled={!!activeSessionId}>
-                  新对话
-                </option>
-                {options.map(({ session, label }) => (
-                  <option key={session.sessionId} value={session.sessionId}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown
-                className="pointer-events-none absolute right-2 top-1/2 size-3.5 -translate-y-1/2 text-faint"
-                aria-hidden
-              />
-            </>
-          )}
-        </div>
-
-        {activeSession && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="inline-flex size-7 shrink-0 items-center justify-center rounded-sm border border-border text-subtle transition-colors hover:bg-surface-1 hover:text-foreground"
-                aria-label="会话操作"
-              >
-                <MoreVertical className="size-3.5" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-32">
-              <DropdownMenuItem onClick={() => setRenameTarget(activeSession)}>
-                <Pencil className="size-3.5" />
-                重命名
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => setDeleteTarget(activeSession)}
-                className="text-brand-red focus:text-brand-red"
-              >
-                <Trash2 className="size-3.5" />
-                删除
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+      <div
+        className={cn(
+          dock
+            ? 'flex h-9 w-full items-center gap-2'
+            : 'sticky top-0 z-20 w-full shrink-0 border-b border-border bg-background px-4',
+          className,
         )}
-
-        <button
-          type="button"
-          onClick={onNewConversation}
-          disabled={newConversationDisabled}
-          title={newConversationTitle}
-          className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-pill border border-border-button px-2.5 text-xs font-medium text-subtle transition-colors hover:bg-surface-1 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <div
+          className={cn(
+            'relative flex items-center',
+            // 与底栏 Composer 同宽同居中(max-w-2xl)
+            !dock && 'mx-auto h-10 w-full max-w-2xl',
+            dock && 'h-9 w-full',
+          )}
         >
-          <SquarePen className="size-3.5" strokeWidth={2} />
-          新对话
-        </button>
+          {/* 左:历史入口 + 更新时间 */}
+          <div className="relative z-10 flex shrink-0 items-center gap-2">
+            <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={`会话历史，共 ${historyCount} 条`}
+                  title={`会话历史（${historyCount}）`}
+                  disabled={!token}
+                  className={cn(
+                    'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-sm border border-border px-2 text-subtle transition-colors',
+                    'hover:bg-surface-1 hover:text-foreground',
+                    'disabled:cursor-not-allowed disabled:opacity-40',
+                    historyOpen && 'border-foreground/20 bg-surface-1 text-foreground',
+                  )}
+                >
+                  <History className="size-3.5 shrink-0" strokeWidth={2} />
+                  <span className="min-w-[1ch] text-xs font-semibold tabular-nums text-foreground">
+                    {isLoading ? '…' : historyCount}
+                  </span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                sideOffset={6}
+                className="w-[min(360px,calc(100vw-32px))] overflow-hidden border border-border p-0 shadow-lg"
+              >
+                <header className="flex h-10 items-center border-b border-border-soft px-3">
+                  <span className="text-xs font-bold text-foreground">会话历史</span>
+                </header>
+                {!token ? (
+                  <div className="px-3 py-6 text-center text-xs text-faint">
+                    {loggedOutHint}
+                  </div>
+                ) : isLoading ? (
+                  <div className="flex items-center justify-center gap-1.5 px-3 py-6 text-xs text-faint">
+                    <Loader2 className="size-3.5 animate-spin" />
+                    加载会话…
+                  </div>
+                ) : !sessions || sessions.length === 0 ? (
+                  <div className="px-3 py-6 text-center text-xs text-faint">
+                    {emptyHint}
+                  </div>
+                ) : (
+                  <ul className="max-h-[min(50vh,320px)] overflow-y-auto py-1">
+                    {sessions.map((session) => {
+                      const active = session.sessionId === activeSessionId;
+                      const { displayTitle, loading } = computeSessionTitle(
+                        session.title,
+                        session.createdAt,
+                        session.messageCount,
+                        active,
+                      );
+                      const stamp =
+                        session.agentModifiedAt ||
+                        session.lastAccessedAt ||
+                        session.createdAt;
+                      return (
+                        <li key={session.sessionId}>
+                          <button
+                            type="button"
+                            onClick={() => handleActivate(session.sessionId)}
+                            className={cn(
+                              'flex w-full items-center gap-2 px-3 py-2 text-left transition-colors',
+                              active ? 'bg-surface-1' : 'hover:bg-surface-1',
+                            )}
+                          >
+                            <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
+                              {loading ? `${displayTitle}…` : displayTitle}
+                            </span>
+                            <span className="shrink-0 text-2xs text-faint">
+                              {formatSessionTime(stamp)}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </PopoverContent>
+            </Popover>
+            {token && !isLoading && currentLabel.time && (
+              <span className="shrink-0 text-xs tabular-nums text-faint">
+                {currentLabel.time}
+              </span>
+            )}
+          </div>
+
+          {/* 中:标题绝对居中 */}
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-28">
+            {!token ? (
+              <span className="text-2xs text-faint">{loggedOutHint}</span>
+            ) : isLoading ? (
+              <span className="inline-flex items-center gap-1.5 text-2xs text-faint">
+                <Loader2 className="size-3 animate-spin" />
+                加载会话…
+              </span>
+            ) : (
+              <span
+                className={cn(
+                  'min-w-0 max-w-full truncate text-center text-sm font-semibold text-foreground',
+                  currentLabel.loading && 'text-subtle',
+                  !activeSessionId && 'font-medium text-subtle',
+                )}
+                aria-label={`当前会话 ${currentLabel.title}`}
+                title={currentLabel.title}
+              >
+                {currentLabel.title}
+              </span>
+            )}
+          </div>
+
+          {/* 右:重命名 / 删除 / 新对话 */}
+          <div className="relative z-10 ml-auto flex shrink-0 items-center gap-1">
+            {activeSession && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setRenameTarget(activeSession)}
+                  title="重命名"
+                  aria-label="重命名会话"
+                  className="inline-flex size-7 items-center justify-center rounded-sm border border-border text-subtle transition-colors hover:bg-surface-1 hover:text-foreground"
+                >
+                  <Pencil className="size-3.5" strokeWidth={2} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeleteTarget(activeSession)}
+                  title="删除"
+                  aria-label="删除会话"
+                  className="inline-flex size-7 items-center justify-center rounded-sm border border-border text-subtle transition-colors hover:bg-surface-1 hover:text-brand-red"
+                >
+                  <Trash2 className="size-3.5" strokeWidth={2} />
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={onNewConversation}
+              disabled={newConversationDisabled}
+              title={newConversationTitle}
+              className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-8 border border-border-button px-2.5 text-xs font-medium text-subtle transition-colors hover:bg-surface-1 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <SquarePen className="size-3.5" strokeWidth={2} />
+              新对话
+            </button>
+          </div>
+        </div>
       </div>
 
       <AgentRenameDialog api={api} target={renameTarget} onClose={() => setRenameTarget(null)} />
@@ -176,4 +277,15 @@ export function AgentSessionStrip({
       />
     </>
   );
+}
+
+/** 会话更新时间:月-日 时:分,例如 `7-29 14:40`。 */
+function formatSessionTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const month = d.getMonth() + 1;
+  const day = d.getDate();
+  const hour = String(d.getHours()).padStart(2, '0');
+  const minute = String(d.getMinutes()).padStart(2, '0');
+  return `${month}-${day} ${hour}:${minute}`;
 }

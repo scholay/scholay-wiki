@@ -8,11 +8,8 @@ import {
   SidebarHeaderIcon,
   SidebarSection,
   SidebarItem,
-  SidebarAuthFooter,
-  SidebarCollapseButton,
 } from '@/shared/components/sidebar';
 import { CountBadge, StatusDot } from './SidebarBadges';
-import { useSidebar } from '@/stores/sidebar.store';
 import { ADMIN_NAV, findActiveAdminNav, type AdminNavItem } from '../nav';
 import { useAdminPermissions } from '../permissions';
 import { useAdminAlerts, type AdminAlerts } from '../hooks/useAdminAlerts';
@@ -21,12 +18,11 @@ import { useAdminAlerts, type AdminAlerts } from '../hooks/useAdminAlerts';
  * Admin 侧栏 —— 复用 Sidebar 全家桶,nav 数据从 features/admin/nav.ts 单一来源。
  * 头部:返回首页按钮 + "管理员后台" 标题 + 盾牌图标
  * 主体:按 nav group 分段渲染
- * 底部:用户条 + 收起按钮(与其他 sidebar 一致)
+ * 底部:收起按钮(与其他 sidebar 一致)
  */
 export function AdminSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const toggleSidebar = useSidebar((s) => s.toggle);
   const perms = useAdminPermissions();
   const { alerts } = useAdminAlerts();
 
@@ -71,9 +67,6 @@ export function AdminSidebar() {
           );
         })}
       </SidebarContent>
-
-      <SidebarAuthFooter />
-      <SidebarCollapseButton onClick={toggleSidebar} />
     </Sidebar>
   );
 }

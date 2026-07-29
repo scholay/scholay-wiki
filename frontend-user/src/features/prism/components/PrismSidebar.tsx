@@ -11,10 +11,7 @@ import {
   SidebarContent,
   SidebarSection,
   SidebarItem,
-  SidebarAuthFooter,
-  SidebarCollapseButton,
 } from '@/shared/components/sidebar';
-import { useSidebar } from '@/stores/sidebar.store';
 
 /**
  * Prism · AI 写作侧栏 — 对照 .pen `wzCqs`:
@@ -51,7 +48,6 @@ const FILES = [
 export function PrismSidebar() {
   const [activeToc, setActiveToc] = useState('method');
   const [activeFile, setActiveFile] = useState('main');
-  const toggleSidebar = useSidebar((s) => s.toggle);
 
   return (
     <Sidebar>
@@ -138,9 +134,6 @@ export function PrismSidebar() {
           ))}
         </SidebarSection>
       </SidebarContent>
-
-      <SidebarAuthFooter />
-      <SidebarCollapseButton onClick={toggleSidebar} />
     </Sidebar>
   );
 }
